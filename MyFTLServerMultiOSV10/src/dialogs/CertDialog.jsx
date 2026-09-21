@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { DialogFrame } from './Dialogs';
+import { NumberField } from '../components/NumberField';
 
 export function CertDialog({ spec, done }) {
   useLanguage();
@@ -29,7 +30,7 @@ export function CertDialog({ spec, done }) {
         <label title={t('tip_cn')}>{t('lbl_cn')}</label>
         <input value={cn} spellCheck={false} onChange={(e) => { setCn(e.target.value); setError(''); }} title={t('tip_cn')} />
         <label>{t('lbl_years')}</label>
-        <input type="number" min={1} max={30} value={years} style={{ width: 100 }} onChange={(e) => setYears(e.target.value)} />
+        <NumberField value={Number(years) || 1} min={1} max={30} width={110} onChange={(v) => setYears(v)} />
         <label>{t('lbl_bits')}</label>
         <select value={bits} style={{ width: 140 }} onChange={(e) => setBits(Number(e.target.value))}>
           <option value={2048}>RSA 2048</option>

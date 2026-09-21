@@ -20,8 +20,12 @@ public/icon.svg
 
 # ── Smoke-test output (npm run smoke): screenshots, scripts, private profile ──
 .smoke/
+
+# ── Scratch checks / local experiments (.tmp/*.js) ──
+.tmp/
 .icons-preview.png
 .npm-install.log
+.npm-build-*.log
 
 # ── Local / editor / OS noise ───────────────────────────
 *.log

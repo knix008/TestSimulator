@@ -1,6 +1,7 @@
 // The top bar of the frameless window — it replaces the OS title bar:
 //   left   app icon + name, the profile combo with 저장 / 삭제 (the server
 //          state is shown by the ▶/■ button underneath, not here)
+//          then the folder-tree toggle (opens / folds the left sidebar)
 //   right  theme picker (split button: main part cycles, caret lists all 16),
 //          language toggle (the flag of the language you switch TO), Settings,
 //          Info, and — in the desktop app — minimize / maximize / close.
@@ -32,7 +33,7 @@ function WindowButtons() {
   );
 }
 
-export function Toolbar({ onAction, theme, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy }) {
+export function Toolbar({ onAction, theme, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, treeOpen = true }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
@@ -59,6 +60,10 @@ export function Toolbar({ onAction, theme, profiles, profileName, onPickProfile,
         <button className="tb-btn" onClick={onSaveProfile} title={t('tip_profile_save')} disabled={busy}><Icon name="save" /><span>{t('profile_save')}</span></button>
         <button className="tb-btn" onClick={onDeleteProfile} title={t('tip_profile_delete')} disabled={busy || !profileName}><Icon name="trash" /><span>{t('profile_delete')}</span></button>
       </span>
+      <span className="tb-sep" />
+      <button className={`tb-btn tb-icon-only ${treeOpen ? 'active' : ''}`} title={treeOpen ? t('tree_collapse') : t('tree_expand')} aria-pressed={treeOpen} onClick={() => onAction('toggleTree')}>
+        <Icon name="sidebar" />
+      </button>
       <span className="tb-spacer" />
       <span className="tb-split">
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>

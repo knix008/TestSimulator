@@ -17,7 +17,7 @@ const ko = {
   protocols: '프로토콜', tip_protocols: '동시에 여러 프로토콜을 실행할 수 있습니다. 체크하면 표준 포트가 자동 입력됩니다.',
   port: '포트', explicit_tls: 'FTP에 AUTH TLS 허용', tip_explicit_tls: 'FTP 포트에서 Explicit FTPS(AUTH TLS + PROT P)를 허용합니다. SSL 인증서가 필요합니다.',
   stat_clients: '현재 접속', stat_total: '총 접속', stat_up: '업로드', stat_down: '다운로드', stat_files: '{n} 파일',
-  locked_hint: '서버가 실행 중일 때는 설정을 변경할 수 없습니다. 먼저 ■ 중지하세요.',
+  locked_hint: '서버가 실행 중일 때는 설정을 변경할 수 없습니다. 먼저 ■ 중지하세요.', locked_short: '설정 잠김 (실행 중)',
 
   // shares
   shares: '공유 폴더', shares_hint: '루트(/)에는 가상 이름이 폴더로 표시됩니다. 예: data → /data/', col_virtual: '가상 이름 (경로)', col_physical: '실제 경로',
@@ -56,6 +56,9 @@ const ko = {
   tip_buffer: 'FTP/FTPS 전송 버퍼 크기', tip_max_conn: '프로토콜별 동시 접속 상한', tip_pasv_range: '수동(PASV) 데이터 연결 포트 범위. 비우면 임의 포트. 방화벽에서 이 범위를 허용하세요.',
   tip_pasv_addr: 'NAT 뒤에서 PASV 응답에 알릴 공인 IPv4 (비우면 로컬 주소)', tip_bind: '수신할 로컬 주소 (비우면 모든 인터페이스)', ph_any: '(모든 인터페이스)', ph_pasv_addr: '(자동)',
   addresses: '접속 주소', addresses_hint: '클라이언트에서 다음 주소로 접속합니다. 방화벽에서 TCP 포트를 허용하세요.', copy: '복사', copied: '복사됨',
+  addr_col_proto: '프로토콜', addr_col_url: '접속 주소 (URL)', addr_col_iface: '네트워크 인터페이스', addr_copy_all: '전체 복사', addr_none: '활성화된 프로토콜이 없습니다. 위의 프로토콜을 체크하세요.', addr_local: '로컬 (루프백)', addr_bound: '바인드 주소',
+  tree_title: '폴더 트리', tree_collapse: '패널 접기', tree_expand: '폴더 트리 펼치기', tree_refresh: '새로 고침 (F5)', tree_collapse_all: '모두 접기', tree_empty: '공유 폴더가 없습니다.', tree_root_tip: '가상 루트 — 클라이언트에게 보이는 최상위. 공유 폴더가 가상 이름으로 나열됩니다.',
+  addr_delete: '이 주소 삭제', addr_delete_all: '전체 삭제', tip_addr_delete_all: '목록의 주소를 모두 지웁니다 (「복원」으로 되돌림)', addr_restore: '복원', tip_addr_restore: '지운 주소를 모두 다시 표시합니다', addr_all_hidden: '모든 주소를 지웠습니다. 「복원」으로 되돌릴 수 있습니다.',
 
   // log
   log: '로그', log_copy: '전체 복사', log_save: '로그 저장', log_clear: '로그 지우기', log_trace: '프로토콜 상세', tip_log_trace: 'FTP 명령/응답 등 상세 메시지 표시',
@@ -84,6 +87,13 @@ const ko = {
   // settings dialog
   settings_title: '설정', set_language: '언어', set_theme: '테마', set_font_size: '글꼴 크기',
   set_confirm_stop: '접속자가 있을 때 중지 전 확인', set_auto_start: '앱 시작 시 서버 자동 시작', set_tray: '창을 닫아도 서버 유지 (트레이로 최소화)', set_sounds: '시작/오류 알림음',
+  set_tab_general: '일반', set_tab_behavior: '동작', set_reset: '기본값', set_reset_hint: '현재 탭의 항목을 기본값으로 되돌립니다',
+  set_language_hint: '메뉴·메시지·로그의 언어', set_theme_hint: '16가지 테마 — 고르면 바로 미리 보입니다', set_theme_dark: '어두움', set_theme_light: '밝음',
+  set_font_size_hint: '전체 화면의 글꼴 크기', set_font_sample: '가나다 ABC 123',
+  set_confirm_stop_hint: '중지하면 접속 중인 클라이언트가 끊깁니다. 중지 전에 한 번 더 묻습니다.',
+  set_auto_start_hint: '앱을 열면 마지막 설정으로 서버를 바로 시작합니다.',
+  set_tray_hint: '서버 실행 중에 창을 닫으면 종료하지 않고 트레이 아이콘으로 숨깁니다.', set_desktop_only: '데스크톱 앱에서만 사용할 수 있습니다.',
+  set_sounds_hint: '서버 시작 성공과 오류를 소리로 알립니다.',
 
   // about
   about_title: '프로그램 정보', about_desc: 'Windows / macOS / Linux / 웹용 FTP · FTPS · SFTP 서버',
@@ -106,7 +116,7 @@ const en = {
   protocols: 'Protocols', tip_protocols: 'Several protocols can run at once. Ticking one fills in its standard port.',
   port: 'Port', explicit_tls: 'Allow AUTH TLS on FTP', tip_explicit_tls: 'Explicit FTPS (AUTH TLS + PROT P) on the FTP port. Needs the SSL certificate.',
   stat_clients: 'Connected', stat_total: 'Total', stat_up: 'Uploads', stat_down: 'Downloads', stat_files: '{n} files',
-  locked_hint: 'Settings cannot be changed while the server runs. Stop it first.',
+  locked_hint: 'Settings cannot be changed while the server runs. Stop it first.', locked_short: 'Settings locked (running)',
 
   shares: 'Shared folders', shares_hint: 'The root (/) lists the virtual names as folders, e.g. data → /data/', col_virtual: 'Virtual name (path)', col_physical: 'Folder on disk',
   add: 'Add', edit: 'Edit', remove: 'Remove', browse: 'Browse', no_shares: 'No shared folders yet. Use "Add" to map a virtual name to a folder.',
@@ -141,6 +151,9 @@ const en = {
   tip_buffer: 'FTP/FTPS transfer buffer', tip_max_conn: 'Concurrent connection limit per protocol', tip_pasv_range: 'Port range for passive (PASV) data connections. Empty = any free port. Open this range in the firewall.',
   tip_pasv_addr: 'Public IPv4 to announce in PASV replies behind NAT (empty = local address)', tip_bind: 'Local address to listen on (empty = every interface)', ph_any: '(all interfaces)', ph_pasv_addr: '(automatic)',
   addresses: 'Connection addresses', addresses_hint: 'Clients connect to these addresses. Allow the TCP ports in the firewall.', copy: 'Copy', copied: 'Copied',
+  addr_col_proto: 'Protocol', addr_col_url: 'Address (URL)', addr_col_iface: 'Network interface', addr_copy_all: 'Copy all', addr_none: 'No protocol is enabled. Tick one above.', addr_local: 'Local (loopback)', addr_bound: 'Bind address',
+  tree_title: 'Folder tree', tree_collapse: 'Collapse panel', tree_expand: 'Show the folder tree', tree_refresh: 'Refresh (F5)', tree_collapse_all: 'Collapse all', tree_empty: 'No shared folders.', tree_root_tip: 'Virtual root — what clients see at the top: the shares under their virtual names.',
+  addr_delete: 'Delete this address', addr_delete_all: 'Delete all', tip_addr_delete_all: 'Remove every address from the list ("Restore" brings them back)', addr_restore: 'Restore', tip_addr_restore: 'Show every deleted address again', addr_all_hidden: 'All addresses were deleted. "Restore" brings them back.',
 
   log: 'Log', log_copy: 'Copy all', log_save: 'Save log', log_clear: 'Clear log', log_trace: 'Protocol detail', tip_log_trace: 'Show FTP commands / replies and other detail lines',
   log_file: 'Log file: {file}', log_copied: 'Log copied to the clipboard.', log_empty: 'There is no log to save.', log_saved: 'Log saved: {path}',
@@ -164,6 +177,13 @@ const en = {
 
   settings_title: 'Settings', set_language: 'Language', set_theme: 'Theme', set_font_size: 'Font size',
   set_confirm_stop: 'Confirm before stopping with clients connected', set_auto_start: 'Start the server when the app opens', set_tray: 'Keep serving when the window is closed (minimize to tray)', set_sounds: 'Start / error sounds',
+  set_tab_general: 'General', set_tab_behavior: 'Behaviour', set_reset: 'Defaults', set_reset_hint: 'Reset the fields of this tab to their defaults',
+  set_language_hint: 'Language of the menus, messages and log', set_theme_hint: '16 themes — previewed as you pick', set_theme_dark: 'dark', set_theme_light: 'light',
+  set_font_size_hint: 'Font size of the whole window', set_font_sample: 'Sample ABC 123',
+  set_confirm_stop_hint: 'Stopping disconnects the clients; ask once more before doing so.',
+  set_auto_start_hint: 'Start the server with the last settings as soon as the app opens.',
+  set_tray_hint: 'Closing the window while the server runs hides the app in the tray instead of quitting.', set_desktop_only: 'Available in the desktop app only.',
+  set_sounds_hint: 'Play a sound when the server starts and when an error occurs.',
 
   about_title: 'About', about_desc: 'FTP · FTPS · SFTP server for Windows / macOS / Linux / the web',
   version: 'Version', author: 'Author', author_name: 'SHKWON (knix008@naver.com)', copyright: 'Copyright © 2026 SHKWON',
@@ -182,6 +202,15 @@ export function setLanguage(lang) {
 }
 
 export function getLanguage() { return current; }
+export const LANGUAGES = ['ko', 'en'];
+
+// The string in a specific language (the window's minimum width is computed
+// for every language, so switching never resizes the window).
+export function tIn(lang, key, params) {
+  let s = (dicts[lang] && dicts[lang][key]) || ko[key] || key;
+  if (params) for (const [k, v] of Object.entries(params)) s = s.split(`{${k}}`).join(String(v));
+  return s;
+}
 
 export function t(key, params) {
   let s = (dicts[current] && dicts[current][key]) || ko[key] || key;

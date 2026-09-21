@@ -48,7 +48,7 @@ function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
   const win = new BrowserWindow({
-    width: saved && saved.width ? saved.width : 1180,
+    width: saved && saved.width ? saved.width : 1360,
     height: saved && saved.height ? saved.height : 800,
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,

@@ -1,17 +1,17 @@
 // The strip under the toolbar (the original's header + 프로토콜 group +
 // status panel in one row): ▶ 시작 / ■ 중지, the three protocol switches
-// with their ports, and the live counters.
+// with their ports, and the live counters. Nothing here changes size when
+// the server starts (the count badges keep their room while hidden), so
+// the window's minimum width stays put.
 import React from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { formatSize } from '../lib/format';
 import { DEFAULT_PORTS } from '../lib/settings';
 import { Icon } from './Icons';
+import { NumberField } from './NumberField';
 
 function PortInput({ value, onChange, disabled }) {
-  return (
-    <input className="port" type="number" min={1} max={65535} value={value} disabled={disabled}
-      onChange={(e) => onChange(Math.max(1, Math.min(65535, Number(e.target.value) || 1)))} />
-  );
+  return <NumberField className="port" value={value} min={1} max={65535} disabled={disabled} onChange={onChange} />;
 }
 
 export function ControlBar({ settings, onChange, running, starting, locked, stats, state, onStart, onStop }) {
@@ -39,19 +39,19 @@ export function ControlBar({ settings, onChange, running, starting, locked, stat
           <input type="checkbox" checked={p.enableFtp} disabled={locked} onChange={toggle('enableFtp', 'ftpPort', DEFAULT_PORTS.ftp)} />
           <span className="proto-name">FTP</span>
           <PortInput value={p.ftpPort} disabled={locked || !p.enableFtp} onChange={(v) => setP({ ftpPort: v })} />
-          {running && p.enableFtp && <span className="proto-count" title={t('stat_clients')}>{count('FTP')}</span>}
+          <span className={`proto-count ${running && p.enableFtp ? '' : 'idle'}`} title={t('stat_clients')}>{count('FTP')}</span>
         </label>
         <label className={`proto ${p.enableFtps ? 'on' : ''}`}>
           <input type="checkbox" checked={p.enableFtps} disabled={locked} onChange={toggle('enableFtps', 'ftpsPort', DEFAULT_PORTS.ftps)} />
           <span className="proto-name">FTPS</span>
           <PortInput value={p.ftpsPort} disabled={locked || !p.enableFtps} onChange={(v) => setP({ ftpsPort: v })} />
-          {running && p.enableFtps && <span className="proto-count" title={t('stat_clients')}>{count('FTPS')}</span>}
+          <span className={`proto-count ${running && p.enableFtps ? '' : 'idle'}`} title={t('stat_clients')}>{count('FTPS')}</span>
         </label>
         <label className={`proto ${p.enableSftp ? 'on' : ''}`}>
           <input type="checkbox" checked={p.enableSftp} disabled={locked} onChange={toggle('enableSftp', 'sftpPort', DEFAULT_PORTS.sftp)} />
           <span className="proto-name">SFTP</span>
           <PortInput value={p.sftpPort} disabled={locked || !p.enableSftp} onChange={(v) => setP({ sftpPort: v })} />
-          {running && p.enableSftp && <span className="proto-count" title={t('stat_clients')}>{count('SFTP')}</span>}
+          <span className={`proto-count ${running && p.enableSftp ? '' : 'idle'}`} title={t('stat_clients')}>{count('SFTP')}</span>
         </label>
         <label className="check small explicit" title={t('tip_explicit_tls')}>
           <input type="checkbox" checked={!!p.explicitTls} disabled={locked || !p.enableFtp} onChange={(e) => setP({ explicitTls: e.target.checked })} />

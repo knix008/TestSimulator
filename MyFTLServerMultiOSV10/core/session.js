@@ -18,6 +18,9 @@ const DEFAULTS = {
   minimizeToTray: false,      // (desktop) closing the window hides it instead
   sounds: true,
   windowBounds: null,
+  hiddenAddresses: [],
+  treeCollapsed: false,       // the folder tree sidebar folded to its strip
+  treeWidth: 240,             // sidebar width (px)        // URLs removed from the "접속 주소" tab (restored with the button)
 };
 
 class Session {

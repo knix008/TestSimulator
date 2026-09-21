@@ -5,12 +5,12 @@
 // The settings shown in the panels are a draft that is saved to the config
 // file shortly after every change; ▶ 시작 sends them to the server manager.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { call, subscribe, writeClipboardText, downloadText, isElectron, setMinWindowSize } from './lib/backend';
-import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
+import { call, subscribe, writeClipboardText, downloadText, isElectron, setMinWindowSize, setWindowSize } from './lib/backend';
+import { t, tIn, setLanguage, getLanguage, useLanguage, LANGUAGES } from './lib/i18n';
 import { fileStamp, timeStamp, baseName, dirName } from './lib/format';
 import { playSuccess, playError, setSoundsEnabled } from './lib/sound';
 import { SETTINGS_DEFAULTS } from './lib/settings';
-import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
+import { THEMES, applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
 import { Toolbar } from './components/Toolbar';
 import { ControlBar } from './components/ControlBar';
 import { SharesPanel } from './components/SharesPanel';
@@ -18,6 +18,7 @@ import { SecurityPanel } from './components/SecurityPanel';
 import { UsersPanel } from './components/UsersPanel';
 import { NetworkPanel } from './components/NetworkPanel';
 import { LogPanel } from './components/LogPanel';
+import { TreePanel } from './components/TreePanel';
 import { StatusBar } from './components/StatusBar';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 
@@ -322,10 +323,23 @@ export default function App() {
     if (id === 'nextTheme') setTheme(nextThemeId(session ? session.theme : DEFAULT_THEME));
     else if (id.startsWith('theme:')) setTheme(id.slice(6));
     else if (id === 'toggleLanguage') { const lang = getLanguage() === 'ko' ? 'en' : 'ko'; setLanguage(lang); call('app.setLanguage', { lang }).catch(() => {}); saveSession({ language: lang }); }
+    else if (id === 'toggleTree') saveSession({ treeCollapsed: !session.treeCollapsed });
     else if (id === 'settings') { const v = await dialogs.settings(session); if (v) applyAppSettings(v); }
     else if (id === 'about') dialogs.about(info);
     else if (id === 'start') start();
     else if (id === 'stop') stop();
+  };
+
+  // ── Tree sidebar: width splitter ──
+  const startVSplit = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = Number(session.treeWidth) || 240;
+    let last = startW;
+    const move = (ev) => { last = Math.max(160, Math.min(Math.floor(window.innerWidth * 0.5), startW + (ev.clientX - startX))); setSession((s) => ({ ...s, treeWidth: last })); };
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); call('session.save', { patch: { treeWidth: last } }).catch(() => {}); };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
   };
 
   // ── Log splitter ──
@@ -344,36 +358,97 @@ export default function App() {
   };
 
   // ── Nothing wraps, nothing is hidden: the window's minimum size follows
-  // what the toolbar / control bar need on one line (language, font size,
-  // digits in the counters) and what the panel grid needs above a minimal
-  // log; the log splitter is capped so the bottom panels always stay visible ──
+  // what the toolbar / control bar need on one line (language, font size)
+  // and what the panel grid needs above a minimal log; the log splitter is
+  // capped so the bottom panels always stay visible. Starting the server
+  // must not move it: every state-dependent element keeps its room. ──
   const logCap = useRef(0);
+  const firstRunSized = useRef(false);
+  const layoutReady = !!(session && info && settings);   // the strips and panels exist only then
   useEffect(() => {
-    if (!session) return undefined;
+    if (!layoutReady) return undefined;
     const q = (sel) => document.querySelector(sel);
     const need = (el, spacer) => {
       const cs = getComputedStyle(el);
       const gap = parseFloat(cs.columnGap) || 0;
       const kids = Array.from(el.children);
-      const sum = kids.reduce((n, k) => n + (k.classList.contains(spacer) ? 0 : k.getBoundingClientRect().width), 0);
+      // Spacers stretch and absolutely positioned overlays span the strip: neither is content.
+      const sum = kids.reduce((n, k) => n + (k.classList.contains(spacer) || getComputedStyle(k).position === 'absolute' ? 0 : k.getBoundingClientRect().width), 0);
       return sum + gap * Math.max(0, kids.length - 1) + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
     };
     const h = (sel) => { const el = q(sel); return el ? el.getBoundingClientRect().height : 0; };
     const strips = [['.toolbar', 'tb-spacer'], ['.control-bar', 'cb-spacer']].map(([sel, sp]) => [q(sel), sp]).filter(([el]) => el);
     if (!strips.length || !q('.main')) return undefined;
     let timer = null;
+    // The strips are measured in the current language; the labels of the
+    // other language (and the widest theme name) are measured with a canvas
+    // in the same fonts, so the minimum covers every language and theme and
+    // switching either never resizes the window.
+    const canvas = document.createElement('canvas').getContext('2d');
+    const textW = (font, str) => { canvas.font = font; return canvas.measureText(str).width; };
+    const fontOf = (sel, fallback) => { const el = q(sel); return el ? getComputedStyle(el).font : fallback; };
+    const langExtra = (sel) => {
+      const lang = getLanguage();
+      const body = getComputedStyle(document.body).font;
+      const widest = (font, keys, l) => Math.max(...keys.map((k) => textW(font, tIn(l, k))));
+      let extra = 0;
+      if (sel === '.toolbar') {
+        const btn = fontOf('.toolbar .tb-btn', body);
+        const small = fontOf('.tb-label', body);
+        const themeName = (l) => Math.max(...THEMES.map((th) => textW(btn, l === 'ko' ? th.label : th.labelEn)));
+        const cur = themeById(session.theme);
+        for (const l of LANGUAGES) {
+          let d = textW(small, tIn(l, 'profile')) - textW(small, tIn(lang, 'profile'));
+          for (const k of ['profile_save', 'profile_delete', 'settings', 'menu_info']) d += textW(btn, tIn(l, k)) - textW(btn, tIn(lang, k));
+          d += themeName(l) - textW(btn, lang === 'ko' ? cur.label : cur.labelEn);
+          extra = Math.max(extra, d);
+        }
+      } else if (sel === '.control-bar') {
+        const btn = fontOf('.btn-start', body);
+        const small = fontOf('.cb-label', body);
+        const check = fontOf('.control-bar .explicit', body);
+        // The start button shows 시작 / 중지 / 시작 중… in turn: room for the widest
+        // of the three (padding 16+16, icon 16, gap 8, border 2) beyond its current width.
+        const startEl = q('.btn-start');
+        const startCur = startEl ? startEl.getBoundingClientRect().width : 112;
+        const startBtn = (l) => Math.max(112, 58 + widest(btn, ['start', 'stop', 'starting'], l));
+        for (const l of LANGUAGES) {
+          let d = startBtn(l) - startCur;
+          d += textW(small, tIn(l, 'protocols')) - textW(small, tIn(lang, 'protocols'));
+          d += textW(check, tIn(l, 'explicit_tls')) - textW(check, tIn(lang, 'explicit_tls'));
+          extra = Math.max(extra, d);
+        }
+      }
+      return Math.max(0, extra);
+    };
     const measure = () => {
       timer = null;
-      const width = Math.ceil(Math.max(...strips.map(([el, sp]) => need(el, sp)))) + 16;
+      const needs = strips.map(([el, sp]) => { const sel = el.classList.contains('toolbar') ? '.toolbar' : '.control-bar'; return [sel, need(el, sp), langExtra(sel)]; });
+      window.__mfsNeeds = needs;   // smoke: [strip, measured, extra for the other language]
+      const width = Math.ceil(Math.max(...needs.map(([, n, x]) => n + x))) + 16;
       document.documentElement.style.setProperty('--app-min-width', `${width}px`);
       if (!isElectron) return;
       // Fixed rows + the grid (tables at their minimum, the bottom row at its natural height).
-      const fixed = h('.toolbar') + h('.control-bar') + h('.locked-hint') + h('.h-splitter') + h('.statusbar');
+      const fixed = h('.toolbar') + h('.control-bar') + h('.h-splitter') + h('.statusbar');
       const grid = 16 + 136 + 8 + Math.max(h('.security-panel'), h('.network-panel'));
       const cap = Math.max(80, Math.floor(window.innerHeight - fixed - grid));
       logCap.current = cap;
       setLogHeight((cur) => Math.min(cur, cap));
       setMinWindowSize(width, Math.ceil(fixed + grid + 80));
+      // First run (no saved window bounds): size the window so the three
+      // tiers — the tables row, the 보안/네트워크 row and the log — are the
+      // same height, and start the log at exactly that height.
+      if (!firstRunSized.current && isElectron && !(session && session.windowBounds)) {
+        firstRunSized.current = true;
+        const tier = Math.max(h('.security-panel'), h('.network-panel'));
+        if (tier > 0) {
+          setLogHeight(tier);
+          call('session.save', { patch: { logHeight: tier } }).catch(() => {});
+          const wanted = Math.ceil(fixed + 16 + 8 + tier * 3 + 8);
+          const roomH = (window.screen && window.screen.availHeight ? window.screen.availHeight : wanted) - 48;
+          setWindowSize(Math.max(window.innerWidth, width), Math.min(wanted, roomH));
+        }
+      }
     };
     const schedule = () => { if (!timer) timer = setTimeout(measure, 80); };
     const ro = new ResizeObserver(schedule);
@@ -382,7 +457,7 @@ export default function App() {
     window.addEventListener('resize', schedule);
     schedule();
     return () => { ro.disconnect(); window.removeEventListener('resize', schedule); if (timer) clearTimeout(timer); };
-  }, [session && session.language, session && session.fontSize, server.running, server.starting]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [layoutReady, session && session.language, session && session.fontSize, server.running, server.starting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Smoke-test / automation hook ──
   useEffect(() => {
@@ -396,11 +471,17 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar onAction={action} theme={session.theme} busy={locked}
+      {/* Frameless window: a no-drag strip over the toolbar's top edge keeps the top resize handle usable. */}
+      {isElectron && <span className="win-resize-edge" aria-hidden="true" />}
+      <Toolbar onAction={action} theme={session.theme} busy={locked} treeOpen={!session.treeCollapsed}
         profiles={profiles} profileName={profileName} onPickProfile={pickProfile} onSaveProfile={saveProfile} onDeleteProfile={deleteProfile} />
       <ControlBar settings={settings} onChange={updateSettings} running={server.running} starting={server.starting} locked={locked}
         stats={stats} state={server} onStart={start} onStop={stop} />
-      {locked && <div className="locked-hint muted small" title={t('locked_hint')}>{t('locked_hint')}</div>}
+      <div className="workspace">
+        <TreePanel shares={settings.sharedFolders} missing={missing} collapsed={!!session.treeCollapsed} width={Number(session.treeWidth) || 240}
+          onToggle={() => saveSession({ treeCollapsed: !session.treeCollapsed })} onResizeStart={startVSplit}
+          onReveal={reveal} canReveal={!!info.capabilities.reveal} onSelect={(n) => { if (n.path) setStatus(n.path); }} />
+        <div className="content">
       <div className="main">
         <SharesPanel shares={settings.sharedFolders} missing={missing} locked={locked} onAdd={addShare} onEdit={editShare} onRemove={removeShare}
           onReveal={reveal} canReveal={!!info.capabilities.reveal} />
@@ -410,11 +491,15 @@ export default function App() {
           onGenerateCert={generateCert} onGenerateHostKey={generateHostKey} onOpenKeyFolder={openKeyFolder}
           onCopyFingerprint={() => { if (hostKey && hostKey.fingerprint) { writeClipboardText(hostKey.fingerprint); setStatus(t('copied')); } }} />
         <UsersPanel settings={settings} onChange={updateSettings} locked={locked} onAdd={addUser} onEdit={editUser} onRemove={removeUser} />
-        <NetworkPanel settings={settings} onChange={updateSettings} locked={locked} addresses={info.addresses || []} onCopy={(u) => writeClipboardText(u)} />
+        <NetworkPanel settings={settings} onChange={updateSettings} locked={locked} />
       </div>
       <LogPanel lines={log} showTrace={showTrace} onToggleTrace={setShowTrace} height={logHeight} onResizeStart={startHSplit} logFile={info.logFile}
-        onClear={() => { setLog([]); call('log.clear').catch(() => {}); }} onCopy={copyLog} onSave={saveLog} />
-      <StatusBar status={status} state={server.starting ? 'starting' : server.running ? 'running' : 'stopped'} startedAt={server.running ? server.startedAt : 0} hostLabel={isElectron ? '' : t('host_web')} />
+        onClear={() => { setLog([]); call('log.clear').catch(() => {}); }} onCopy={copyLog} onSave={saveLog}
+        settings={settings} addresses={info.addresses || []} onCopyText={(u) => { writeClipboardText(u); setStatus(t('copied')); }}
+        hiddenAddresses={session.hiddenAddresses || []} onHideAddresses={(list) => saveSession({ hiddenAddresses: list })} />
+        </div>
+      </div>
+      <StatusBar status={status} state={server.starting ? 'starting' : server.running ? 'running' : 'stopped'} startedAt={server.running ? server.startedAt : 0} locked={locked} hostLabel={isElectron ? '' : t('host_web')} />
       <DialogHost stack={dialogs.stack} resolve={dialogs.resolve} />
     </div>
   );

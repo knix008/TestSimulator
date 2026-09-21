@@ -13,7 +13,8 @@ import { describeError } from '../lib/errors';
 
 // ── Frame ─────────────────────────────────────────────────
 
-export function DialogFrame({ title, children, footer, width = 440, onClose, className = '', icon }) {
+// `fill`: a fixed-size dialog whose body stretches (the settings window).
+export function DialogFrame({ title, children, footer, width = 440, onClose, className = '', icon, fill = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
@@ -26,7 +27,7 @@ export function DialogFrame({ title, children, footer, width = 440, onClose, cla
   };
   return (
     <div className="dlg-backdrop" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKey}>
-      <div className={`dlg ${className}`} style={{ width }} ref={ref} role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`dlg ${className}${fill ? ' fill' : ''}`} style={{ width }} ref={ref} role="dialog" aria-modal="true" aria-label={title}>
         <div className="dlg-title">
           {icon && <Icon name={icon} />}
           <span>{title}</span>
