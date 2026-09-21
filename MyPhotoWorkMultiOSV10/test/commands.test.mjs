@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import {
   commandLabelKeys, commands, commandsInMenu, findCommand, menuIcons, menuOrder, toolbarGroups,
 } from '../src/commands.ts'
+import * as commandsModule from '../src/commands.ts'
 import { adjustmentTypes } from '../src/catalog.ts'
 import { extraFilters } from '../src/lib/moreFilters.ts'
 import { t } from '../src/i18n.ts'
@@ -145,7 +146,28 @@ test('the window controls live in the title bar', () => {
 test('the menu bar builds its rows from the catalog, not from hand-written JSX', () => {
   const menuBar = appSource.slice(appSource.indexOf('className="menu-bar"'), appSource.indexOf('className="tool-bar"'))
   assert.ok(menuBar.includes('menuOrder.map'), 'the menu bar does not iterate the catalog')
-  assert.ok(menuBar.includes('<MenuTree') && menuBar.includes('rows={commandsInMenu(id)}'), 'the dropdowns do not iterate the catalog')
+  // `menuRows` is the catalog, with the recent files folded into the File
+  // menu; everything else still comes straight from `commandsInMenu`.
+  assert.ok(menuBar.includes('<MenuTree') && menuBar.includes('rows={menuRows(id)}'), 'the dropdowns do not iterate the catalog')
+  assert.ok(appSource.includes('fileMenuWithRecents(settings.recentFiles'), 'the File menu no longer carries the recent files')
+  assert.ok(appSource.includes('commandsInMenu(menu)'), 'the other menus no longer come from the catalog')
+})
+
+test('the recent files are rows of the File menu, each droppable on its own', () => {
+  const { fileMenuWithRecents, RECENT_PREFIX } = commandsModule
+  const icons = { file: () => null, clear: () => null }
+  // With nothing opened yet the menu is exactly the catalog.
+  assert.deepEqual(fileMenuWithRecents([], icons).map((row) => row.id), commandsInMenu('file').map((row) => row.id))
+
+  const rows = fileMenuWithRecents(['C:\\photos\\a.jpg', '/home/b.png'], icons)
+  const recents = rows.filter((row) => row.id.startsWith(RECENT_PREFIX))
+  assert.equal(recents.length, 3, 'expected two files and the row that empties the list')
+  assert.deepEqual(recents.slice(0, 2).map((row) => row.label), ['C:\\photos\\a.jpg', '/home/b.png'])
+  assert.ok(recents.slice(0, 2).every((row) => row.forgettable), 'a recent file cannot be dropped on its own')
+  assert.equal(recents[2].id, RECENT_PREFIX, 'the row that empties the list is missing')
+  assert.equal(recents[2].forgettable, undefined, 'the clear row should not offer to remove itself')
+  assert.ok(rows.every((row) => row.id !== 'file.openRecent'), 'the old window is still on the menu as well')
+  assert.ok(recents.every((row) => row.section === 'openRecent'), 'the files are not in the Open Recent submenu')
 })
 
 test('the toolbar builds its groups from the catalog', () => {

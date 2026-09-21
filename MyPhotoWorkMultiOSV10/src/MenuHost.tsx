@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { commandsInMenu, type MenuId } from './commands'
+import { commandsInMenu, fileMenuWithRecents, RECENT_FORGET_PREFIX, RECENT_PREFIX, type MenuId } from './commands'
+import { FileImage, Trash } from 'lucide-react'
 import { MenuTree } from './MenuTree'
 import { t } from './i18n'
 import { applyTheme } from './themes'
@@ -25,8 +26,12 @@ export type MenuPayload = {
   theme: string
   /** Ids that should read as pressed. */
   active: string[]
+  /** Ids that cannot do anything now, such as Undo with nothing behind it. */
+  disabled?: string[]
   /** Labels App resolves itself, such as the colour-mode toggle. */
   overrides: Record<string, string>
+  /** The recent files, which this window folds into the File menu itself. */
+  recentFiles?: string[]
 }
 
 export default function MenuHost({ menu }: { menu: MenuId }) {
@@ -92,7 +97,11 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
 
   const language = payload.language
   const label = (key: string) => payload.overrides[key] ?? t(language, key)
-  const rows = commandsInMenu(payload.menu ?? menu)
+  const which = payload.menu ?? menu
+  // The File menu carries the recent files; the rest are the catalog as it is.
+  const rows = which === 'file'
+    ? fileMenuWithRecents(payload.recentFiles ?? [], { file: FileImage, clear: Trash })
+    : commandsInMenu(which)
 
   return (
     <div className="menu-window" ref={listRef}>
@@ -102,7 +111,10 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
         label={(command) => payload.overrides[command.id] ?? label(command.label)}
         sectionLabel={(section) => t(language, section)}
         isActive={(id) => payload.active.includes(id)}
+        isDisabled={(id) => (payload.disabled ?? []).includes(id)}
         onChoose={(id) => void window.electronMenuApi?.choose(id)}
+        onForget={(id) => void window.electronMenuApi?.choose(`${RECENT_FORGET_PREFIX}${id.slice(RECENT_PREFIX.length)}`)}
+        forgetLabel={t(language, 'forgetRecent')}
       />
     </div>
   )

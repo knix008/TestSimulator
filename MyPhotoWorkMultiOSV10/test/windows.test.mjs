@@ -555,13 +555,13 @@ test('the print window selects the printer the system calls default', () => {
 test('the zoom percentage sits between the two zoom buttons', () => {
   const toolbar = appSource.slice(appSource.indexOf('className="tool-bar"'))
   assert.match(toolbar, /className="zoom-readout"/, 'there is no zoom readout')
-  assert.match(toolbar, /command\.id !== 'view\.zoomIn'/,
-    'the readout is not anchored to the zoom-in button, so it could land anywhere in the row')
+  assert.match(toolbar, /command\.id !== 'view\.zoomOut'/,
+    'the readout is not anchored to the zoom-out button, so it could land anywhere in the row')
   assert.match(toolbar, /Math\.round\(settings\.zoom \* 100\)\}%/, 'the readout shows no percentage')
-  // Zoom in is listed before zoom out, so rendering after zoom in puts the
-  // number between the two.
+  // Out, the reading, in — left to right along the scale, so rendering the
+  // number after zoom out puts it between the two.
   const view = commandsInMenu('view').filter((command) => command.toolbar).map((command) => command.id)
-  assert.deepEqual(view.slice(0, 2), ['view.zoomIn', 'view.zoomOut'], 'the zoom buttons are no longer adjacent')
+  assert.deepEqual(view.slice(0, 2), ['view.zoomOut', 'view.zoomIn'], 'the zoom buttons are no longer adjacent, or run the wrong way')
   assert.match(cssSource, /\.tool-bar button\.zoom-readout \{[^}]*font-variant-numeric: tabular-nums/,
     'the buttons either side would shift as the number changes')
   assert.equal(typeof t('ko', 'zoomLevel'), 'string')

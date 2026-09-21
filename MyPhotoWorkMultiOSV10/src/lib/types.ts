@@ -626,6 +626,8 @@ export type AppSettings = {
   customShapes: CustomShapeDef[]
   historyStates: number
   recentFiles: string[]
+  /** The folder the last file came from, so Open starts where you left off. */
+  lastDirectory: string
   showGuides: boolean
   snapEnabled: boolean
   snapToGuides: boolean
@@ -880,6 +882,7 @@ export const defaultSettings: AppSettings = {
   customShapes: [],
   historyStates: 50,
   recentFiles: [],
+  lastDirectory: '',
   showGuides: true,
   snapEnabled: true,
   snapToGuides: true,

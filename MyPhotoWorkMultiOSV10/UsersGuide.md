@@ -622,6 +622,11 @@ sections, tall enough that no tab scrolls:
   These apply to the built-in algorithms. With the matching neural model
   downloaded in 편집 ▸ 뉴럴 모델, the model runs instead and these are unused.
 
+**Opening a file** starts in the folder the last one came from, remembered
+across restarts. The File menu's **Open Recent** submenu lists the last twenty
+files you worked on: each row opens its file, the ✕ beside it drops that one
+file from the list, and the row at the bottom empties the list altogether.
+
 **The Filter Gallery** lists the filters of one group at a time, each with an
 icon and its name. Hovering a filter says what it does; picking one puts that
 sentence in the panel on the right, above the radius and amount sliders, and
@@ -649,6 +654,36 @@ About lists the version, build time, commit, author, licence, the Electron and
 Chromium versions and the platform — and copies all of it in one click, which is
 the quickest way to describe your setup in a bug report.
 
+## While a job is running
+
+Some of this takes a while. A content-aware fill over a large frame, a
+panorama of four exposures, a network running on the processor: seconds, and
+sometimes minutes. While one of those runs, the program holds on to the
+screen and will not answer a click, because the work and the drawing happen
+in the same place.
+
+So it says so. A window comes up naming the job, with a bar underneath: a
+real percentage where the job can count what it is doing — **일괄 처리 /
+Batch** names each file as it reaches it, **생성형 확대 / Super Zoom** counts
+its tiles — and an elapsed time where it cannot. It appears at once for the
+jobs that are always slow, and after about half a second for the rest, so the
+hundreds of filters that finish in a blink do not make it flash.
+
+The spinner may sit still while the work is going on. That is expected: the
+job has the thread and nothing on the page can move until it gives it back.
+The window being there at all is the point — it is the difference between a
+program that is working and one that has stopped.
+
+## Undo and redo
+
+**편집 / Edit** holds **실행 취소 / Undo** (Ctrl+Z) and **다시 실행 / Redo**
+(Ctrl+Y), and both have a button on the toolbar. They are greyed out when
+there is nothing behind them: at the start of a session Undo is dead, and
+Redo comes to life only once something has been undone. A greyed button is
+not broken; there is simply nothing there to go back to.
+
+The **작업 내역 / History** panel on the right lists the steps by name and
+jumps to any of them.
 ## When something goes wrong
 
 Any failure opens a window naming what was being done and showing the full

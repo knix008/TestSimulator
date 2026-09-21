@@ -1,11 +1,10 @@
 import { createElement, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { BusyOverlay, type BusyJob } from './Busy'
+import { BUSY_AFTER_MS, BusyOverlay, type BusyJob } from './Busy'
 import { resolveSubjectMethod } from './subjectMethods'
 import { NumberField, Slider } from './controls'
 import {
-  ArrowLeftRight, Blend, ChevronDown, Copy, Crop, Eraser, FlipHorizontal, FlipVertical, Info, Minus, PaintBucket, Palette, PenTool, Plus,
-  Scissors, Settings2, Sparkles, Square, SquareDashed, Trash, WandSparkles, X, Check, Frame, Wand,
+  ArrowLeftRight, Blend, Check, ChevronDown, Copy, Crop, FileImage, FlipHorizontal, FlipVertical, Frame, Info, Minus, PaintBucket, Palette, PenTool, Plus, Scissors, Settings2, Sparkles, Square, SquareDashed, Trash, Wand, X,
 } from 'lucide-react'
 import { t, toolLabel } from './i18n'
 import { aspectRatio, formatBytes, formatName, imageStatistics, type MetaRow, type MetaSection } from './lib/metadata'
@@ -46,7 +45,7 @@ import { clipToFrame, contentMove, createFrame, createSlice, cropToRect, drawReg
 import { optionsForTool } from './toolOptions'
 import { firstTick, rulerSize, tickStep, visibleRange } from './lib/view'
 import { buildErrorReport } from './lib/errors'
-import { commands, commandsInMenu, menuIcons, menuOrder, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
+import { commands, commandsInMenu, fileMenuWithRecents, findCommand, menuIcons, menuOrder, RECENT_FORGET_PREFIX, RECENT_PREFIX, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
 import { MenuTree } from './MenuTree'
 import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
 import { keepsWindowOpen } from './dialogMeta'
@@ -444,6 +443,12 @@ const defaultToolKeys: Record<string, Tool> = {
 }
 
 const cropRatios: Record<AppSettings['cropRatio'], number | null> = { free: null, original: 0, '1:1': 1, '4:3': 4 / 3, '3:2': 3 / 2, '16:9': 16 / 9 }
+
+/** A command's icon, straight from the catalog so the two cannot drift apart. */
+const CommandIcon = ({ id }: { id: string }) => {
+  const command = findCommand(id)
+  return command ? createElement(command.icon, { size: 16 }) : null
+}
 
 /** A panel tab's icon. A component, so no capitalised local is made mid-render. */
 const PanelTabIcon = ({ tab }: { tab: PanelTab }) => createElement(panelIcon(tab), { size: 14, 'aria-hidden': 'true' })
@@ -1017,9 +1022,29 @@ export default function App() {
     return () => observer.disconnect()
   }, [])
 
+  /**
+   * A file that was opened or saved: it goes to the top of the recent list,
+   * and the folder it came from becomes where the Open window starts next
+   * time — including after the editor has been closed and reopened, which is
+   * the point of keeping it in the settings rather than in memory.
+   */
   const remember = useCallback((path?: string) => {
     if (!path) return
-    setSettings((current) => ({ ...current, recentFiles: [path, ...current.recentFiles.filter((item) => item !== path)].slice(0, 20) }))
+    const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+    const directory = cut > 0 ? path.slice(0, cut) : ''
+    setSettings((current) => ({
+      ...current,
+      recentFiles: [path, ...current.recentFiles.filter((item) => item !== path)].slice(0, 20),
+      lastDirectory: directory || current.lastDirectory,
+    }))
+  }, [])
+
+  /** Takes one file off the recent list, or empties it. */
+  const forgetRecent = useCallback((path?: string) => {
+    setSettings((current) => ({
+      ...current,
+      recentFiles: path ? current.recentFiles.filter((item) => item !== path) : [],
+    }))
   }, [])
 
   /* --------------------------------------------------------------- files */
@@ -1146,7 +1171,7 @@ export default function App() {
 
   const pickFiles = useCallback(async (mode: 'open' | 'place' | 'smart' | 'linked') => {
     if (window.electronFileApi) {
-      const result = await window.electronFileApi.openFiles()
+      const result = await window.electronFileApi.openFiles({ defaultPath: settingsRef.current.lastDirectory || undefined })
       if (!result.canceled) {
         await openFiles(result.files, mode)
       }
@@ -1175,7 +1200,7 @@ export default function App() {
       return out
     }
     if (window.electronFileApi) {
-      const result = await window.electronFileApi.openFiles()
+      const result = await window.electronFileApi.openFiles({ defaultPath: settingsRef.current.lastDirectory || undefined })
       if (result.canceled) return []
       return decode(result.files)
     }
@@ -1228,6 +1253,7 @@ export default function App() {
           await window.electronFileApi.writeFile({ filePath: doc.filePath, text: project })
         } else {
           const result = await window.electronFileApi.saveFile({
+            defaultDirectory: settingsRef.current.lastDirectory || undefined,
             fileName,
             filters: [{ name: 'Photo Work Project', extensions: ['mpw'] }],
             text: project,
@@ -1274,7 +1300,7 @@ export default function App() {
       const dataUrl = `data:image/vnd.adobe.photoshop;base64,${btoa(binary)}`
       const fileName = `${current.name || tr('untitled')}.psd`
       if (window.electronFileApi) {
-        const result = await window.electronFileApi.saveFile({ fileName, filters: [{ name: 'Photoshop', extensions: ['psd'] }], dataUrl })
+        const result = await window.electronFileApi.saveFile({ defaultDirectory: settingsRef.current.lastDirectory || undefined, fileName, filters: [{ name: 'Photoshop', extensions: ['psd'] }], dataUrl })
         if (result.canceled) return
         remember(result.filePath)
       } else {
@@ -1291,7 +1317,7 @@ export default function App() {
     const dataUrl = await encodeExport(canvas, format, quality, transparent ?? settingsRef.current.exportTransparent, docRef.current.depth ?? 8)
     const fileName = `${baseName}.${extensionFor(format)}`
     if (window.electronFileApi) {
-      const result = await window.electronFileApi.saveFile({ fileName, filters: [{ name: format.toUpperCase(), extensions: [extensionFor(format)] }], dataUrl })
+      const result = await window.electronFileApi.saveFile({ defaultDirectory: settingsRef.current.lastDirectory || undefined, fileName, filters: [{ name: format.toUpperCase(), extensions: [extensionFor(format)] }], dataUrl })
       return !result.canceled
     }
     downloadDataUrl(dataUrl, fileName)
@@ -1834,8 +1860,29 @@ export default function App() {
 
   /* ------------------------------------------------------- computer vision */
 
+  /**
+   * Above this many pixels a plain per-pixel filter stops being instant, so
+   * its window goes up before the work rather than after it. Measured on this
+   * machine: a 2-megapixel frame is around a fifth of a second for the heavier
+   * convolutions, which is where a still screen starts to read as a stuck one.
+   */
+  const HEAVY_PIXELS = 2_000_000
+
   /** Lets the status bar paint before a long synchronous stretch of work. */
   const paintFrame = () => new Promise<void>((resolve) => setTimeout(resolve, 16))
+
+  /**
+   * Resolves once the browser has actually drawn what React was just told to
+   * draw. Two frames, because the first only gets the change committed; the
+   * timeout is the escape hatch for a window that is not compositing, where
+   * requestAnimationFrame can be withheld indefinitely.
+   */
+  const nextPaint = () => new Promise<void>((resolve) => {
+    let done = false
+    const finish = () => { if (!done) { done = true; resolve() } }
+    window.setTimeout(finish, 120)
+    requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(finish, 0)))
+  })
 
   /**
    * Runs a slow, asynchronous computation on a copy of the active layer and,
@@ -1847,36 +1894,81 @@ export default function App() {
    * Runs a job with the busy window in front of it, and takes it away again
    * however the job ends. `report` lets the job say how far it has got; a job
    * that cannot tell leaves the bar indeterminate and shows the time instead.
+   *
+   * `heavy` is the answer to the frozen-looking window. Most of this program's
+   * slow work is a straight loop over several million pixels, and while that
+   * loop runs nothing else on the page happens: no timer fires, no frame is
+   * drawn. A window asked for at the start of such a job would therefore
+   * arrive only once the job was over — which is to say, never. A heavy job
+   * puts its window up first, waits for the screen to actually show it, and
+   * only then starts work. The spinner will sit still while the loop runs, but
+   * the reader can see what is running and that the program meant to be busy.
    */
-  const runBusy = useCallback(async <T,>(label: string, job: (report: (fraction: number | null, detail?: string) => void) => Promise<T>): Promise<T> => {
+  const runBusy = useCallback(async <T,>(
+    label: string,
+    job: (report: (fraction: number | null, detail?: string) => void) => Promise<T>,
+    options: { heavy?: boolean } = {},
+  ): Promise<T> => {
     const started = Date.now()
-    const entry: BusyJob = { label, fraction: null, startedAt: started }
+    /*
+     * Jobs nest: Remove Background runs on a layer, and on the way it may stop
+     * to fetch a model, which is a job of its own. The inner one takes the
+     * window while it runs and hands it back, rather than leaving the outer
+     * job running behind an empty screen.
+     */
+    const outer = busyRef.current
+    const entry: BusyJob = { label, fraction: null, startedAt: started, visible: options.heavy === true }
     busyRef.current = entry
     setBusy(entry)
-    const report = (fraction: number | null, detail?: string) => {
-      if (busyRef.current !== entry) return
-      const next = { ...entry, fraction, detail, startedAt: started }
+    const update = (patch: Partial<BusyJob>) => {
+      if (busyRef.current?.startedAt !== entry.startedAt || busyRef.current.label !== entry.label) return
+      const next = { ...busyRef.current, ...patch }
       busyRef.current = next
       setBusy(next)
     }
+    const report = (fraction: number | null, detail?: string) => update({ fraction, detail })
+    /*
+     * A job that yields gets the grace period, so the hundreds of quick
+     * filters never flash a window. A job that holds the thread gets none:
+     * this timer would not fire until the job was over, which is exactly the
+     * case the window exists for. It waits for the screen instead.
+     */
+    const grace = options.heavy ? 0 : window.setTimeout(() => update({ visible: true }), BUSY_AFTER_MS)
+    if (options.heavy) await nextPaint()
     try {
       return await job(report)
     } finally {
-      busyRef.current = null
-      setBusy(null)
+      window.clearTimeout(grace)
+      busyRef.current = outer
+      setBusy(outer)
     }
   }, [])
 
-  const computeOnLayer = useCallback(async (label: string, compute: (copy: HTMLCanvasElement) => Promise<HTMLCanvasElement | null>) => {
+  const computeOnLayer = useCallback(async (
+    label: string,
+    compute: (copy: HTMLCanvasElement) => Promise<HTMLCanvasElement | null>,
+    options: { heavy?: boolean } = {},
+  ) => {
     const current = docRef.current
     const source = canvasesRef.current.get(current.activeLayerId)
     if (!source) { setStatus('noLayer'); return }
     setStatus('working')
     await paintFrame()
     try {
-      // Every command that rewrites a layer can be slow on a large photograph,
-      // so they all report through the same window.
-      const result = await runBusy(label, () => compute(cloneCanvas(source)))
+      /*
+       * Every command that rewrites a layer can be slow on a large photograph,
+       * so they all report through the same window.
+       *
+       * Whether the window has to be put up before the work starts is decided
+       * by the size of the picture rather than by a list of commands. A filter
+       * is a loop over every pixel: on a snapshot it is done before anyone
+       * could notice, on a 24-megapixel frame the same loop takes seconds and
+       * holds the thread throughout, so nothing would get drawn afterwards.
+       * Commands that are slow whatever the size — the fills, the networks —
+       * say so for themselves.
+       */
+      const heavy = options.heavy === true || source.width * source.height >= HEAVY_PIXELS
+      const result = await runBusy(label, () => compute(cloneCanvas(source)), { heavy })
       if (!result) return
       withLayer((canvas) => {
         const ctx = context2d(canvas)
@@ -1971,15 +2063,15 @@ export default function App() {
     if (!seed) { contentAwareFill(copy, selection); return copy }
     patchFill(copy, mask, { seed, rounds: settingsRef.current.fillRounds, iterations: settingsRef.current.fillIterations })
     return copy
-  }), [computeOnLayer, neuralFor, note, tr])
+  }, { heavy: true }), [computeOnLayer, neuralFor, note, tr])
 
   /** Select Sky: the scene-parsing network when it is here, the colour heuristic otherwise. */
-  const skySelection = useCallback(async (canvas: HTMLCanvasElement): Promise<Selection> => {
+  const skySelection = useCallback(async (canvas: HTMLCanvasElement): Promise<Selection> => runBusy(tr('selectSky'), async () => {
     const neural = await neuralFor('sky')
     if (neural) return runSky(neural.runner, neural.spec, canvas)
     const { skyStep, skyDrift, skyHorizon } = settingsRef.current
     return selectSky(canvas, { step: skyStep, drift: skyDrift, horizon: skyHorizon })
-  }, [neuralFor])
+  }, { heavy: true }), [neuralFor, runBusy, tr])
 
   /**
    * Content-Aware Fill: Telea inpainting makes the first guess and PatchMatch
@@ -1999,7 +2091,7 @@ export default function App() {
     if (!seed) { contentAwareFill(copy, selection); return copy }
     patchFill(copy, mask, { seed, rounds: settingsRef.current.fillRounds, iterations: settingsRef.current.fillIterations })
     return copy
-  }), [computeOnLayer, note, tr])
+  }, { heavy: true }), [computeOnLayer, note, tr])
 
   /** Everything below the active layer, composited: what Harmonize matches to. */
   const compositeBelowActive = () => {
@@ -2009,12 +2101,16 @@ export default function App() {
   }
 
   /** Harmonize: the layer's colours re-solved so its edge meets what is behind it (Poisson blending). */
-  const harmonizeLayer = () => computeOnLayer(tr('harmonize'), async (copy) => {
+  const harmonizeLayer = () => {
     const current = docRef.current
     const index = current.layers.findIndex((layer) => layer.id === current.activeLayerId)
-    if (index <= 0) { harmonize(copy, selectionRef.current); return copy }
-    return poissonBlend(copy, compositeBelowActive(), false)
-  })
+    // Only the Poisson solve is slow. With nothing underneath, this is a
+    // colour shift that is over before a window could be worth drawing.
+    return computeOnLayer(tr('harmonize'), async (copy) => {
+      if (index <= 0) { harmonize(copy, selectionRef.current); return copy }
+      return poissonBlend(copy, compositeBelowActive(), false)
+    }, { heavy: index > 0 })
+  }
 
   /**
    * The GrabCut silhouette of what is in `box` (the whole picture, inset,
@@ -2026,32 +2122,34 @@ export default function App() {
     setStatus('working')
     await paintFrame()
     try {
-      const neural = await neuralFor('subject')
-      if (neural) {
-        if (!box) return (await runSubject(neural.runner, neural.spec, source)).selection
-        // With a box the network sees only the box, and its answer is laid
-        // back into the full frame.
-        const x0 = Math.max(0, Math.floor(Math.min(box.x, box.x + box.width)))
-        const y0 = Math.max(0, Math.floor(Math.min(box.y, box.y + box.height)))
-        const x1 = Math.min(source.width, Math.ceil(Math.max(box.x, box.x + box.width)))
-        const y1 = Math.min(source.height, Math.ceil(Math.max(box.y, box.y + box.height)))
-        const crop = createCanvas(Math.max(1, x1 - x0), Math.max(1, y1 - y0))
-        context2d(crop).drawImage(source, x0, y0, crop.width, crop.height, 0, 0, crop.width, crop.height)
-        const { selection } = await runSubject(neural.runner, neural.spec, crop)
-        const mask = new Uint8Array(source.width * source.height)
-        for (let y = 0; y < crop.height; y += 1) {
-          for (let x = 0; x < crop.width; x += 1) mask[(y0 + y) * source.width + x0 + x] = selection.mask?.[y * crop.width + x] ?? 0
+      return await runBusy(tr('selectSubject'), async () => {
+        const neural = await neuralFor('subject')
+        if (neural) {
+          if (!box) return (await runSubject(neural.runner, neural.spec, source)).selection
+          // With a box the network sees only the box, and its answer is laid
+          // back into the full frame.
+          const x0 = Math.max(0, Math.floor(Math.min(box.x, box.x + box.width)))
+          const y0 = Math.max(0, Math.floor(Math.min(box.y, box.y + box.height)))
+          const x1 = Math.min(source.width, Math.ceil(Math.max(box.x, box.x + box.width)))
+          const y1 = Math.min(source.height, Math.ceil(Math.max(box.y, box.y + box.height)))
+          const crop = createCanvas(Math.max(1, x1 - x0), Math.max(1, y1 - y0))
+          context2d(crop).drawImage(source, x0, y0, crop.width, crop.height, 0, 0, crop.width, crop.height)
+          const { selection } = await runSubject(neural.runner, neural.spec, crop)
+          const mask = new Uint8Array(source.width * source.height)
+          for (let y = 0; y < crop.height; y += 1) {
+            for (let x = 0; x < crop.width; x += 1) mask[(y0 + y) * source.width + x0 + x] = selection.mask?.[y * crop.width + x] ?? 0
+          }
+          return { kind: 'mask' as const, ...maskBounds(mask, source.width, source.height), mask }
         }
-        return { kind: 'mask', ...maskBounds(mask, source.width, source.height), mask }
-      }
-      const inset = { x: source.width * 0.04, y: source.height * 0.04, width: source.width * 0.92, height: source.height * 0.92 }
-      // GrabCut answers per pixel and leaves crumbs of background scattered
-      // across the picture; Select Subject returns one object, so tidy it.
-      const { grabCutIterations, subjectTidy, subjectKeepRatio } = settingsRef.current
-      const cut = await grabCutSelection(source, box ?? inset, grabCutIterations)
-      if (!subjectTidy) return cut
-      const mask = tidySubjectMask(cut.mask ?? new Uint8Array(source.width * source.height), source.width, source.height, subjectKeepRatio)
-      return { kind: 'mask', ...maskBounds(mask, source.width, source.height), mask }
+        const inset = { x: source.width * 0.04, y: source.height * 0.04, width: source.width * 0.92, height: source.height * 0.92 }
+        // GrabCut answers per pixel and leaves crumbs of background scattered
+        // across the picture; Select Subject returns one object, so tidy it.
+        const { grabCutIterations, subjectTidy, subjectKeepRatio } = settingsRef.current
+        const cut = await grabCutSelection(source, box ?? inset, grabCutIterations)
+        if (!subjectTidy) return cut
+        const mask = tidySubjectMask(cut.mask ?? new Uint8Array(source.width * source.height), source.width, source.height, subjectKeepRatio)
+        return { kind: 'mask' as const, ...maskBounds(mask, source.width, source.height), mask }
+      }, { heavy: true })
     } catch {
       return box ? objectSelectRect(source, box, Math.max(12, settingsRef.current.fillTolerance)) : selectSubjectAuto(source)
     } finally {
@@ -2087,7 +2185,7 @@ export default function App() {
       .catch(() => selectSubjectAuto(copy))
     clearSelectionPixels(copy, invertSelection(cut, copy.width, copy.height))
     return copy
-  })
+  }, { heavy: true })
 
   /**
    * Super Zoom / Generative Upscale: the super-resolution network doubles the
@@ -2103,14 +2201,20 @@ export default function App() {
     await paintFrame()
     try {
       const neural = await neuralFor('upscale')
-      let up: HTMLCanvasElement
-      if (neural) {
-        const progress = (pass: number) => (done: number, total: number) => setStatusDetail(`${Math.round(((pass + done / total) / (factor === 4 ? 2 : 1)) * 100)}%`)
-        up = await runUpscale(neural.runner, neural.spec, source, progress(0))
-        if (factor === 4) up = await runUpscale(neural.runner, neural.spec, up, progress(1))
-      } else {
-        up = generativeUpscale(source, factor)
-      }
+      // The network runs tile by tile and can say how many it has done, so
+      // this is one of the few jobs whose bar is a real fraction.
+      const up = await runBusy(tr('genUpscale'), async (report) => {
+        if (!neural) return generativeUpscale(source, factor)
+        const passes = factor === 4 ? 2 : 1
+        const progress = (pass: number) => (done: number, total: number) => {
+          const fraction = (pass + done / Math.max(1, total)) / passes
+          report(fraction)
+          setStatusDetail(`${Math.round(fraction * 100)}%`)
+        }
+        let result = await runUpscale(neural.runner, neural.spec, source, progress(0))
+        if (factor === 4) result = await runUpscale(neural.runner, neural.spec, result, progress(1))
+        return result
+      }, { heavy: true })
       snapshot(tr('genUpscale'))
       canvasesRef.current.set(layer.id, up)
       setDoc({ ...docRef.current, width: up.width, height: up.height })
@@ -2130,7 +2234,7 @@ export default function App() {
     const depth = await runDepth(neural.runner, neural.spec, copy)
     depthBlur(copy, depth, 2 + (amount / 100) * 14, 1, selectionRef.current)
     return copy
-  })
+  }, { heavy: true })
 
   /** Snaps a document point to guides and the grid when snapping is on. */
   const snapPoint = useCallback((point: Point): Point => {
@@ -3197,18 +3301,22 @@ export default function App() {
       return
     }
     setStatus('working')
-    for (const file of chosen.files) {
-      try {
-        await openFiles([file], 'open')
-        playAction(action)
-        await exportImage(settingsRef.current.exportFormat)
-      } catch (cause) {
-        showError(tr('batch'), file.name, cause)
-        break
+    // A batch knows exactly how far along it is, and which file it is on.
+    await runBusy(tr('batch'), async (report) => {
+      for (const [index, file] of chosen.files.entries()) {
+        report(index / chosen.files.length, file.name)
+        try {
+          await openFiles([file], 'open')
+          playAction(action)
+          await exportImage(settingsRef.current.exportFormat)
+        } catch (cause) {
+          showError(tr('batch'), file.name, cause)
+          break
+        }
       }
-    }
+    })
     setStatus('ready')
-  }, [exportImage, openFiles, playAction, showError, tr])
+  }, [exportImage, openFiles, playAction, runBusy, showError, tr])
 
   /* ------------------------------------------------------- layer comps */
 
@@ -3717,7 +3825,7 @@ export default function App() {
   const importVideo = async (file: Blob, name: string) => {
     try {
       setStatus('working')
-      const frames = await extractVideoFrames(file, 12)
+      const frames = await runBusy(tr('importVideo'), () => extractVideoFrames(file, 12))
       if (!frames.length) return
       const first = frames[0].canvas
       const layers: LayerMeta[] = []
@@ -3750,7 +3858,7 @@ export default function App() {
     if (!frames.length) return
     try {
       setStatus('working')
-      const blob = await recordFrames(frames)
+      const blob = await runBusy(tr('exportVideo'), () => recordFrames(frames))
       const reader = new FileReader()
       const dataUrl = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(String(reader.result))
@@ -4239,10 +4347,10 @@ export default function App() {
     try {
       const frames = items.map((item) => item.canvas)
       // Features first; without OpenCV, the translation-only search in documentOps.
-      const aligned = await alignedToFirst(frames, 'perspective').catch(() => {
+      const aligned = await runBusy(tr('autoAlign'), () => alignedToFirst(frames, 'perspective').catch(() => {
         const offsets = autoAlignLayers(frames)
         return frames.map((frame, index) => shiftCanvas(frame, offsets[index].dx, offsets[index].dy))
-      })
+      }), { heavy: true })
       snapshot(tr('autoAlign'))
       const current = docRef.current
       items.forEach((item, index) => {
@@ -4268,7 +4376,7 @@ export default function App() {
     try {
       const frames = items.map((item) => item.canvas)
       // Distance-transform weights first; without OpenCV, the feathered bounds in documentOps.
-      const perLayer = await blendAligned(frames).then((result) => result.perLayer).catch(() => autoBlendLayers(frames))
+      const perLayer = await runBusy(tr('autoBlend'), () => blendAligned(frames).then((result) => result.perLayer).catch(() => autoBlendLayers(frames)), { heavy: true })
       snapshot(tr('autoBlend'))
       const current = docRef.current
       items.forEach((item, index) => {
@@ -4327,12 +4435,13 @@ export default function App() {
         // first one's plane; the strip layout only decides the fallback.
         const layout = String(options.layout ?? 'auto') as 'auto' | 'horizontal' | 'vertical'
         const frames = items.map((item) => item.canvas)
-        let result: { canvas: HTMLCanvasElement }
-        try {
-          result = await stitchCanvases(frames, layout === 'auto' ? 'perspective' : 'translation', options.blend !== false)
-        } catch {
-          result = photomerge(frames, layout, options.blend !== false)
-        }
+        const result = await runBusy(tr('photomerge'), async () => {
+          try {
+            return await stitchCanvases(frames, layout === 'auto' ? 'perspective' : 'translation', options.blend !== false)
+          } catch {
+            return photomerge(frames, layout, options.blend !== false)
+          }
+        }, { heavy: true })
         singleToDocument(tr('photomerge'), result.canvas)
         note('photomergeDone')
         return
@@ -4340,14 +4449,14 @@ export default function App() {
       if (kind === 'mergeHdr') {
         if (items.length < 2) { note('hdrNeedsLayers'); return }
         const frames = items.map((item) => item.canvas)
-        let fused: HTMLCanvasElement
-        try {
-          const aligned = await alignedToFirst(frames, 'translation')
-          fused = await exposureFusion(aligned)
-        } catch {
-          const offsets = autoAlignLayers(frames)
-          fused = mergeToHdr(frames.map((frame, index) => shiftCanvas(frame, offsets[index].dx, offsets[index].dy)))
-        }
+        const fused = await runBusy(tr('mergeHdr'), async () => {
+          try {
+            return await exposureFusion(await alignedToFirst(frames, 'translation'))
+          } catch {
+            const offsets = autoAlignLayers(frames)
+            return mergeToHdr(frames.map((frame, index) => shiftCanvas(frame, offsets[index].dx, offsets[index].dy)))
+          }
+        }, { heavy: true })
         singleToDocument(tr('mergeHdr'), fused)
         return
       }
@@ -4355,21 +4464,26 @@ export default function App() {
         const mode = String(options.mode ?? 'mean')
         const width = items[0].canvas.width
         const height = items[0].canvas.height
-        const planes = items.map((item) => context2d(resizeCanvasContent(item.canvas, width, height)).getImageData(0, 0, width, height).data)
-        const out = createCanvas(width, height)
-        const ctx = context2d(out)
-        const image = ctx.createImageData(width, height)
-        const values: number[] = []
-        for (let i = 0; i < image.data.length; i += 4) {
-          for (let c = 0; c < 3; c += 1) {
-            values.length = 0
-            for (const plane of planes) values.push(plane[i + c])
-            values.sort((a, b) => a - b)
-            image.data[i + c] = mode === 'median' ? values[values.length >> 1] : mode === 'max' ? values[values.length - 1] : mode === 'min' ? values[0] : mode === 'range' ? values[values.length - 1] - values[0] : values.reduce((a, b) => a + b, 0) / values.length
+        // Sorting every stack of samples, for every pixel, over every frame:
+        // the one place here where even a small picture is worth a window.
+        const out = await runBusy(tr('statistics'), async () => {
+          const planes = items.map((item) => context2d(resizeCanvasContent(item.canvas, width, height)).getImageData(0, 0, width, height).data)
+          const canvas = createCanvas(width, height)
+          const ctx = context2d(canvas)
+          const image = ctx.createImageData(width, height)
+          const values: number[] = []
+          for (let i = 0; i < image.data.length; i += 4) {
+            for (let c = 0; c < 3; c += 1) {
+              values.length = 0
+              for (const plane of planes) values.push(plane[i + c])
+              values.sort((a, b) => a - b)
+              image.data[i + c] = mode === 'median' ? values[values.length >> 1] : mode === 'max' ? values[values.length - 1] : mode === 'min' ? values[0] : mode === 'range' ? values[values.length - 1] - values[0] : values.reduce((a, b) => a + b, 0) / values.length
+            }
+            image.data[i + 3] = 255
           }
-          image.data[i + 3] = 255
-        }
-        ctx.putImageData(image, 0, 0)
+          ctx.putImageData(image, 0, 0)
+          return canvas
+        }, { heavy: true })
         snapshot(tr('statistics'))
         const layer = createLayerMeta(`${tr('statistics')} · ${tr(`mode${mode.charAt(0).toUpperCase()}${mode.slice(1)}`)}`)
         canvasesRef.current.set(layer.id, out)
@@ -4381,7 +4495,7 @@ export default function App() {
         // cut out and levelled; a picture with no separate prints on it is
         // trimmed to its content and levelled by its dominant edge instead.
         const current = docRef.current
-        const photos = await findPhotosOnScan(compositeDocument(current, canvasesRef.current)).catch(() => [] as HTMLCanvasElement[])
+        const photos = await runBusy(tr('cropStraighten'), () => findPhotosOnScan(compositeDocument(current, canvasesRef.current)).catch(() => [] as HTMLCanvasElement[]), { heavy: true })
         const whole = photos.length === 1 && photos[0].width * photos[0].height > current.width * current.height * 0.85
         if (photos.length && !whole) {
           photos.forEach((photo, index) => singleToDocument(`${current.name.replace(/\.[^.]+$/, '')} ${index + 1}`, photo))
@@ -4603,6 +4717,20 @@ export default function App() {
   const runCommandUnguarded = (id: string) => {
     setMenu(null)
     setContextMenu(null)
+
+    // The recent files are menu rows of their own: a path opens it, the bare
+    // prefix is the row that empties the list. Both run without a document.
+    if (id.startsWith(RECENT_FORGET_PREFIX)) {
+      forgetRecent(id.slice(RECENT_FORGET_PREFIX.length) || undefined)
+      return
+    }
+    if (id.startsWith(RECENT_PREFIX)) {
+      const path = id.slice(RECENT_PREFIX.length)
+      if (!path) forgetRecent()
+      else void readPath(path)
+      return
+    }
+
     const current = docRef.current
     if (!current) return
 
@@ -5027,6 +5155,20 @@ export default function App() {
   }
 
   /** Toggle commands that should read as pressed in the menu and on the toolbar. */
+  /**
+   * Commands that cannot do anything at this moment, so their buttons say so
+   * rather than looking ready and doing nothing when pressed.
+   *
+   * `historyMeta` is state, refreshed by `bump()` whenever the document
+   * changes, so the buttons follow the stacks without anything else to keep in
+   * step.
+   */
+  const isCommandDisabled = (id: string) => {
+    if (id === 'edit.undo') return historyMeta.undo.length === 0
+    if (id === 'edit.redo') return historyMeta.redo.length === 0
+    return false
+  }
+
   const isCommandActive = (id: string) => {
     if (id.startsWith('window.')) {
       const tab = id.slice('window.'.length)
@@ -5070,9 +5212,28 @@ export default function App() {
     }
   }
 
+  /** A menu's rows: the File menu carries the recent files, the rest are fixed. */
+  const menuRows = useCallback((menu: CommandMenuId) => (
+    menu === 'file'
+      ? fileMenuWithRecents(settings.recentFiles, { file: FileImage, clear: Trash })
+      : commandsInMenu(menu)
+  ), [settings.recentFiles])
+
+  /** The ✕ on a recent-file row: that one file, or the whole list. */
+  const forgetRecentRow = useCallback((id: string) => {
+    if (!id.startsWith(RECENT_PREFIX)) return
+    forgetRecent(id.slice(RECENT_PREFIX.length) || undefined)
+  }, [forgetRecent])
+
   const commandLabel = useCallback((command: AppCommand) => {
     if (command.menu === 'layer' && command.id.startsWith('adjLayer.')) {
       return `${tr('adjLayer')} · ${tr(command.label)}`
+    }
+    // A recent file shows its name, not the whole path, which would be too
+    // wide for a menu; the path is in the tooltip.
+    if (command.id.startsWith(RECENT_PREFIX) && command.forgettable) {
+      const cut = Math.max(command.label.lastIndexOf('/'), command.label.lastIndexOf('\\'))
+      return cut >= 0 ? command.label.slice(cut + 1) : command.label
     }
     return tr(command.label)
   }, [tr])
@@ -5618,6 +5779,7 @@ export default function App() {
     if (!window.electronMenuApi || !anchor) return false
     const box = anchor.getBoundingClientRect()
     const active = commands.filter((command) => isCommandActive(command.id)).map((command) => command.id)
+    const disabled = commands.filter((command) => isCommandDisabled(command.id)).map((command) => command.id)
     const overrides: Record<string, string> = {}
     for (const command of commandsInMenu(id)) {
       const label = commandLabel(command)
@@ -5625,7 +5787,7 @@ export default function App() {
     }
     try {
       return await window.electronMenuApi.open(
-        { menu: id, language, theme: settings.theme, active, overrides },
+        { menu: id, language, theme: settings.theme, active, disabled, overrides, recentFiles: settings.recentFiles },
         { x: window.screenX + box.left, y: window.screenY + box.bottom + 2, width: box.width, height: box.height },
       )
     } catch {
@@ -6396,10 +6558,13 @@ export default function App() {
               {menu === id && (
                 <MenuDrop anchor={menuAnchor} className="menu-tree-drop">
                   <MenuTree
-                    rows={commandsInMenu(id)}
+                    rows={menuRows(id)}
+                    onForget={forgetRecentRow}
+                    forgetLabel={tr('forgetRecent')}
                     label={commandLabel}
                     sectionLabel={tr}
                     isActive={isCommandActive}
+                    isDisabled={isCommandDisabled}
                     onChoose={runCommand}
                   />
                 </MenuDrop>
@@ -6468,12 +6633,14 @@ export default function App() {
                   data-tooltip={command.accel ? `${commandLabel(command)} (${command.accel})` : commandLabel(command)}
                   aria-label={commandLabel(command)}
                   aria-pressed={isCommandActive(command.id)}
+                  disabled={isCommandDisabled(command.id)}
                   onClick={() => runCommand(command.id)}
                 >
                   <CommandIcon size={16} />
                 </button>
               )
-              if (command.id !== 'view.zoomIn') return button
+              // The reading sits between the two, as it reads on the scale.
+              if (command.id !== 'view.zoomOut') return button
               return (
                 <Fragment key={command.id}>
                   {button}
@@ -6491,12 +6658,28 @@ export default function App() {
           </div>
         ))}
 
+          {/*
+            The four commands that get a button of their own. Their icons come
+            from the catalog like every other button's: written out here, they
+            drifted — Select Subject kept the sparkle of the Spot Healing tool
+            long after the catalog had moved on.
+          */}
           <div className="tool-bar-group tool-bar-tasks">
             <span className="tool-bar-divider" aria-hidden="true" />
-            <button data-tooltip={tr('selectSubject')} aria-label={tr('selectSubject')} onClick={() => runCommand('select.subject')}><Sparkles size={16} /></button>
-            <button data-tooltip={tr('removeBg')} aria-label={tr('removeBg')} onClick={() => runCommand('select.removeBg')}><Eraser size={16} /></button>
-            <button data-tooltip={tr('genFill')} aria-label={tr('genFill')} onClick={() => runCommand('edit.genFill')}><WandSparkles size={16} /></button>
-            <button data-tooltip={tr('harmonize')} aria-label={tr('harmonize')} onClick={() => runCommand('edit.harmonize')}><Blend size={16} /></button>
+            {(['select.subject', 'select.removeBg', 'edit.genFill', 'edit.harmonize'] as const).map((id) => {
+              const command = findCommand(id)
+              if (!command) return null
+              return (
+                <button
+                  key={id}
+                  data-tooltip={tr(command.label)}
+                  aria-label={tr(command.label)}
+                  onClick={() => runCommand(id)}
+                >
+                  <CommandIcon id={id} />
+                </button>
+              )
+            })}
           </div>
 
           <div className="tool-bar-group tool-bar-colors">

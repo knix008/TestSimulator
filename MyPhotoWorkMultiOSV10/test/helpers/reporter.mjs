@@ -31,10 +31,18 @@ const HEAVY = '═'.repeat(78)
 /** `ms` as a short string: 1.2s, 410ms. */
 const plainDuration = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`)
 
-/** The same, yellow once it is slow enough to notice, padded before colouring. */
+/*
+ * Red is failure and nothing else.
+ *
+ * A slow test used to be red too, so a passing file that took half a second
+ * looked exactly like a broken one, and the only way to tell was to read the
+ * number. Time is reported in yellow when it is worth noticing and in bold
+ * yellow when it is worth doing something about; the ✘, the FAIL badge and the
+ * failure counts keep red to themselves.
+ */
 function duration(ms, width = 0) {
   const text = plainDuration(ms).padStart(width)
-  if (ms >= 500) return red(text)
+  if (ms >= 500) return bold(yellow(text))
   if (ms >= 100) return yellow(text)
   return grey(text)
 }
@@ -44,7 +52,7 @@ function bar(ms, worst) {
   const width = 8
   const filled = worst > 0 ? Math.max(ms > 0 ? 1 : 0, Math.round((ms / worst) * width)) : 0
   const glyph = '█'.repeat(filled) + dim('·'.repeat(width - filled))
-  if (ms >= 500) return red(glyph)
+  // Never red: this bar is about time, and red means a test failed.
   if (ms >= 100) return yellow(glyph)
   return blue(glyph)
 }
@@ -127,6 +135,8 @@ export default async function* report(source) {
   out.push('')
 
   out.push(`  ${bold('Per file')}`)
+  // What the colours mean, said once rather than left to be inferred.
+  out.push(grey(`    ${red('red')} = a failure · ${yellow('yellow')} = over 100ms · ${bold(yellow('bold yellow'))} = over 500ms · ${grey('grey')} = quick`))
   out.push(grey(`    ${'file'.padEnd(30)}${'checks'.padStart(7)}${'passed'.padStart(8)}${'failed'.padStart(8)}${'time'.padStart(9)}   share`))
   for (const [name, row] of rows) {
     const status = row.fail ? red(String(row.fail).padStart(8)) : green('0'.padStart(8))

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { aboutFacts } from '../src/aboutInfo.ts'
+import { commands } from '../src/commands.ts'
 import { t } from '../src/i18n.ts'
 
 const root = new URL('..', import.meta.url)
@@ -17,7 +18,16 @@ const mainProcess = read('electron/main.cjs')
 
 test('the task actions and the colour controls live on the toolbar row', () => {
   const toolBar = appSource.slice(appSource.indexOf('className="tool-bar"'), appSource.indexOf('className="options-bar"'))
-  for (const key of ['selectSubject', 'removeBg', 'genFill', 'harmonize', 'foreground', 'backgroundColor', 'swap']) {
+  /*
+   * The four task actions name themselves through the catalog rather than in
+   * place — written out here their icons drifted, and Select Subject kept the
+   * Spot Healing tool's sparkle long after the catalog had moved on.
+   */
+  for (const id of ['select.subject', 'select.removeBg', 'edit.genFill', 'edit.harmonize']) {
+    assert.ok(toolBar.includes(`'${id}'`), `${id} is not on the toolbar row`)
+  }
+  assert.ok(toolBar.includes('tr(command.label)'), 'the task actions no longer take their names from the catalog')
+  for (const key of ['foreground', 'backgroundColor', 'swap']) {
     assert.ok(toolBar.includes(`tr('${key}')`), `${key} is not on the toolbar row`)
   }
   // …and no longer below it.
@@ -55,7 +65,11 @@ test('the window cannot be made narrower than the toolbar row needs', () => {
 
 test('the task actions are icon-only but still named for the reader', () => {
   const toolBar = appSource.slice(appSource.indexOf('tool-bar-group tool-bar-tasks'), appSource.indexOf('className="options-bar"'))
-  for (const key of ['selectSubject', 'removeBg', 'genFill', 'harmonize', 'swap']) {
+  // The four task actions are named from the catalog, in one place for all of them.
+  assert.ok(toolBar.includes('aria-label={tr(command.label)}'), 'the task actions have no accessible name')
+  assert.ok(toolBar.includes('data-tooltip={tr(command.label)}'), 'the task actions have no tooltip')
+  assert.ok(toolBar.includes('<CommandIcon id={id} />'), 'the task actions draw an icon of their own again')
+  for (const key of ['swap']) {
     assert.ok(toolBar.includes(`aria-label={tr('${key}')}`), `${key} has no accessible name`)
     assert.ok(toolBar.includes(`data-tooltip={tr('${key}')}`), `${key} has no tooltip`)
   }
@@ -151,4 +165,17 @@ test('the About and Settings windows are wide enough not to scroll', () => {
       `the ${name} window can still show a scrollbar`,
     )
   }
+})
+
+test('no command appears twice on the toolbar row', () => {
+  /*
+   * Select Subject was on it twice: once from the catalog and once from the
+   * task group at the end of the same row, ten buttons apart and identical.
+   * The task group is where it belongs, so the catalog no longer claims it.
+   */
+  const tasks = ['select.subject', 'select.removeBg', 'edit.genFill', 'edit.harmonize']
+  const onRow = commands.filter((command) => command.toolbar).map((command) => command.id)
+  const twice = onRow.filter((id) => tasks.includes(id))
+  assert.deepEqual(twice, [], `these are on the toolbar row twice: ${twice.join(', ')}`)
+  assert.equal(new Set(onRow).size, onRow.length, 'a command is listed twice for the toolbar')
 })

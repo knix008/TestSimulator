@@ -61,8 +61,19 @@ test('every filter has an icon, and each group has one for its tab', () => {
   }
   // Two different filters may share an icon, but not all of them: the icons
   // are there to tell entries apart.
-  const distinct = new Set(filterCatalog.map((item) => filterIcon(item.id)))
-  assert.ok(distinct.size > 40, `only ${distinct.size} different icons across ${filterCatalog.length} filters`)
+  /*
+   * Every filter has an icon of its own. The gallery shows them a tab at a
+   * time, so a repeat between tabs went unnoticed there; the Filter menu is a
+   * single list of ninety-seven rows, and there every repeat is two entries
+   * that look alike.
+   */
+  const seen = new Map()
+  for (const item of filterCatalog) {
+    const icon = filterIcon(item.id)
+    assert.equal(seen.get(icon), undefined, `${item.id} and ${seen.get(icon)} wear the same icon`)
+    seen.set(icon, item.id)
+  }
+  assert.equal(seen.size, filterCatalog.length, 'a filter is missing an icon of its own')
 })
 
 test('the gallery window shows the icons and puts the sentence where the gap was', () => {

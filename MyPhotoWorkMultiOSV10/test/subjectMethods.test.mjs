@@ -85,11 +85,14 @@ test('a long job puts a window up, and only once it has run long enough to need 
   assert.ok(BUSY_AFTER_MS >= 200, 'the busy window would flash on every quick filter')
   assert.ok(BUSY_AFTER_MS <= 1000, 'a long job would look frozen before the window appeared')
   const busy = busySource
-  assert.ok(busy.includes('elapsed < BUSY_AFTER_MS'), 'the window no longer waits before appearing')
+  // The wait is carried on the job now rather than recomputed here: a job that
+  // holds the thread asks to be shown at once, and the rest keep the grace
+  // period. See busy.test.mjs.
+  assert.ok(busy.includes('job.visible'), 'the window no longer waits before appearing')
   assert.ok(busy.includes('<progress'), 'the busy window has no progress bar')
 
   const app = read('src', 'App.tsx')
   assert.ok(app.includes('const runBusy = useCallback'), 'there is no way to run a job with a window in front of it')
-  assert.ok(app.includes('await runBusy(label, () => compute(cloneCanvas(source)))'), 'the layer commands no longer report themselves')
+  assert.ok(app.includes('await runBusy(label, () => compute(cloneCanvas(source)), { heavy })'), 'the layer commands no longer report themselves')
   assert.ok(app.includes('<BusyOverlay job={busy}'), 'the busy window is never drawn')
 })

@@ -112,12 +112,24 @@
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
+/*
+ * A command that cannot do anything now says so before it is pressed. Undo
+ * with an empty history is the case that prompted this: the button took the
+ * click and nothing happened, which reads as a fault rather than as nothing
+ * to undo. The dropdown is in the list too — it is a window of its own, and
+ * was the last place still showing the rows live.
+ */
 .menu-bar button:disabled,
+.menu-tree button:disabled,
 .tool-bar button:disabled,
 .options-bar button:disabled,
 .panel button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.menu-tree button:disabled:hover {
+  background: transparent;
 }
 
 .brand {
@@ -2820,4 +2832,41 @@
   margin: 3px 0 0;
   min-height: 0;
   width: auto;
+}
+
+/*
+ * A recent file in the File menu, with the ✕ that drops it from the list. The
+ * row and its ✕ are one grid cell, so the columns of a two-column dropdown
+ * still line up.
+ */
+.menu-row-forgettable {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+}
+
+.menu-row-forgettable > button:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.menu-row-forgettable > button:first-child span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-forget {
+  flex: 0 0 auto;
+  justify-content: center;
+  min-height: 26px;
+  opacity: 0.55;
+  padding: 2px 6px;
+  width: auto;
+}
+
+.menu-forget:hover {
+  color: var(--accent);
+  opacity: 1;
 }

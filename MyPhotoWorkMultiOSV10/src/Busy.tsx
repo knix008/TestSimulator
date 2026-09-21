@@ -24,6 +24,13 @@ export type BusyJob = {
   detail?: string
   /** When the job began, so the wait can be shown and the flash avoided. */
   startedAt: number
+  /**
+   * Whether this job's window belongs on the screen. The job decides, not the
+   * window: one that yields while it works is given the usual grace period by
+   * a timer, and one that holds the thread says yes from the start, because
+   * no timer of its own would ever get to fire.
+   */
+  visible: boolean
 }
 
 /** How long a job must run before it is worth putting a window in front of someone. */
@@ -31,10 +38,14 @@ export const BUSY_AFTER_MS = 400
 
 export function BusyOverlay({ job, language, waitingLabel }: { job: BusyJob | null; language: string; waitingLabel: string }) {
   /*
-   * `now` exists only to bring the component back at a steady beat: whether
-   * the window has waited long enough to appear, and how long it has been
-   * there, are both read from the job's own start time. Nothing is stored that
-   * could disagree with it.
+   * `now` is here for the elapsed time only, and is kept fresh by a timer.
+   *
+   * Whether to appear at all is no longer decided from it. It used to be, and
+   * that was why a frozen window stayed blank: the stored time was whatever
+   * it had been at the last tick, so a job beginning now looked to the window
+   * as though it had not started yet — and the timer that would have put that
+   * right cannot fire while the job holds the thread. The window meant to say
+   * "this will take a while" was the one thing guaranteed not to arrive.
    */
   const [now, setNow] = useState(() => Date.now())
   const startedAt = job?.startedAt ?? 0
@@ -45,11 +56,15 @@ export function BusyOverlay({ job, language, waitingLabel }: { job: BusyJob | nu
     return () => window.clearInterval(tick)
   }, [startedAt])
 
-  if (!job) return null
-  const elapsed = Math.max(0, now - job.startedAt)
-  // A job that finishes in a blink should not put a window on the screen.
-  if (elapsed < BUSY_AFTER_MS) return null
-  const seconds = (elapsed / 1000).toFixed(elapsed >= 10000 ? 0 : 1)
+  // A job that finishes in a blink never asks to be shown at all.
+  if (!job || !job.visible) return null
+  /*
+   * The clock only starts reading true once the timer has ticked, and while a
+   * job holds the thread it never will. Rather than show a stopped 0.0s, which
+   * would be its own small lie, the time is left off until there is one.
+   */
+  const elapsed = now - job.startedAt
+  const seconds = elapsed > 0 ? (elapsed / 1000).toFixed(elapsed >= 10000 ? 0 : 1) : null
   const percent = job.fraction === null ? null : Math.round(Math.max(0, Math.min(1, job.fraction)) * 100)
 
   return (
@@ -62,7 +77,7 @@ export function BusyOverlay({ job, language, waitingLabel }: { job: BusyJob | nu
         {job.detail && <p className="busy-detail">{job.detail}</p>}
         <progress max={1} value={job.fraction ?? undefined} />
         <p className="busy-detail">
-          {percent === null ? waitingLabel : `${percent}%`} · {seconds}s
+          {percent === null ? waitingLabel : `${percent}%`}{seconds === null ? '' : ` · ${seconds}s`}
         </p>
       </div>
     </div>

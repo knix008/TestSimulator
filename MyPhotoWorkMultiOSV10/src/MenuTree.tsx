@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, X } from 'lucide-react'
 import { menuColumns, menuEntries, type AppCommand } from './commands'
 
 /**
@@ -12,12 +12,21 @@ import { menuColumns, menuEntries, type AppCommand } from './commands'
  * closes when the pointer reaches any other top-level row, which is how a
  * native menu behaves; moving into the submenu itself keeps it open.
  */
-export function MenuTree({ rows, label, sectionLabel, isActive, onChoose }: {
+export function MenuTree({ rows, label, sectionLabel, isActive, isDisabled, onChoose, onForget, forgetLabel }: {
   rows: AppCommand[]
   label: (command: AppCommand) => string
   sectionLabel: (section: string) => string
   isActive: (id: string) => boolean
+  /** A row that cannot do anything now is shown, but not offered. */
+  isDisabled?: (id: string) => boolean
   onChoose: (id: string) => void
+  /**
+   * Rows that can be taken off the menu — the recent files — get a small ✕ of
+   * their own. Without it the only way to drop one file from the list is to
+   * drop all of them.
+   */
+  onForget?: (id: string) => void
+  forgetLabel?: string
 }) {
   const entries = menuEntries(rows)
   const layout = menuColumns(entries)
@@ -36,9 +45,11 @@ export function MenuTree({ rows, label, sectionLabel, isActive, onChoose }: {
 
   const rowOf = (command: AppCommand, inSubmenu = false) => {
     const Icon = command.icon
-    return (
+    const forgettable = Boolean(onForget && command.forgettable)
+    const button = (
       <button
         className={isActive(command.id) ? 'active' : ''}
+        disabled={isDisabled?.(command.id) ?? false}
         onPointerEnter={inSubmenu ? undefined : () => setOpen(null)}
         onClick={() => onChoose(command.id)}
       >
@@ -46,6 +57,21 @@ export function MenuTree({ rows, label, sectionLabel, isActive, onChoose }: {
         <span>{label(command)}</span>
         {command.accel && <kbd>{command.accel}</kbd>}
       </button>
+    )
+    if (!forgettable) return button
+    return (
+      <span className="menu-row-forgettable">
+        {button}
+        <button
+          className="menu-forget"
+          data-tooltip={forgetLabel}
+          aria-label={forgetLabel}
+          onPointerEnter={inSubmenu ? undefined : () => setOpen(null)}
+          onClick={(event) => { event.stopPropagation(); onForget?.(command.id) }}
+        >
+          <X size={13} />
+        </button>
+      </span>
     )
   }
 
