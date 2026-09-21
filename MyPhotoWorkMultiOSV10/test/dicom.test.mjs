@@ -39,7 +39,7 @@ test('the DICM magic is read at byte 128, not at the start of the file', () => {
 })
 
 test('a CT slice decodes to a grey image with the windowing applied', async () => {
-  const { canvas, details } = await readDicom(dicomBytes())
+  const { canvas } = await readDicom(dicomBytes())
   assert.equal(canvas.width, 512)
   assert.equal(canvas.height, 512)
 

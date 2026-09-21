@@ -1,8 +1,13 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { createElement, useEffect, useState, type ReactNode } from 'react'
+import { NumberField, Slider as RangeSlider } from './controls'
+import { filterDescription, filterGroupIcon, filterIcon } from './filterInfo'
 import { useLivePreview } from './usePreview'
 import { formatBytes, modelStore, type ModelProgress } from './lib/models'
 import { modelSpec, modelSpecs, type ModelTask } from './lib/neural'
-import { Layers2, Plus, Sparkles, X } from 'lucide-react'
+import { CLASSICAL, recommendedModels, subjectMethods } from './subjectMethods'
+import {
+  BrainCircuit, Check, Download, FolderOpen, Layers2, Plus, RotateCcw, Sparkles, Trash, X,
+} from 'lucide-react'
 import { t } from './i18n'
 import type { DialogName, DialogPayload, DialogResult } from './dialogMeta'
 import { NumberStepper } from './dialogs'
@@ -31,7 +36,7 @@ type Tr = (key: string) => string
 function Slider({ label, value, min, max, step = 1, onChange, suffix }: { label: string; value: number; min: number; max: number; step?: number; onChange: (next: number) => void; suffix?: string }) {
   return (
     <label>{label}
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+      <RangeSlider min={min} max={max} step={step} value={value} onChange={(next) => onChange(next)} />
       <span>{Number.isInteger(step) ? Math.round(value) : value}{suffix ?? ''}</span>
     </label>
   )
@@ -46,12 +51,16 @@ function PreviewToggle({ tr, value, onChange }: { tr: Tr; value: boolean; onChan
   )
 }
 
-function Actions({ tr, onClose, onApply, extra, applyLabel = 'apply' }: { tr: Tr; onClose: () => void; onApply: () => void; extra?: ReactNode; applyLabel?: string }) {
+function Actions({ tr, onClose, onApply, extra, applyLabel = 'apply', applyDisabled = false }: { tr: Tr; onClose: () => void; onApply: () => void; extra?: ReactNode; applyLabel?: string; applyDisabled?: boolean }) {
   return (
     <div className="dialog-actions">
       {extra}
-      <button onClick={onClose}>{tr('cancel')}</button>
-      <button className="primary" onClick={onApply}>{tr(applyLabel)}</button>
+      <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+      {/* Nothing chosen, nothing to apply: the button says so rather than doing nothing when pressed. */}
+      <button className="primary" disabled={applyDisabled} onClick={onApply}>
+        <Check size={14} aria-hidden="true" />
+        <span>{tr(applyLabel)}</span>
+      </button>
     </div>
   )
 }
@@ -128,7 +137,7 @@ function AdjustmentDialog({ payload, onResult, onClose, asCameraRaw = false }: B
         onApply={() => onResult({ action: 'apply', ...values })}
         extra={(
           <>
-            <button onClick={() => setAdjustment(defaultAdjustment(adjustment.type))}>{tr('reset')}</button>
+            <button onClick={() => setAdjustment(defaultAdjustment(adjustment.type))}><RotateCcw size={14} aria-hidden="true" /><span>{tr('reset')}</span></button>
             {layerAllowed && <button onClick={() => onResult({ action: 'layer', ...values })}><Layers2 size={15} /><span>{tr('adjLayer')}</span></button>}
           </>
         )}
@@ -155,7 +164,7 @@ function LutDialog({ payload, onResult, onClose }: BodyProps) {
         </select>
       </label>
       <Slider label={tr('lutStrength')} value={strength} min={0} max={100} onChange={setStrength} />
-      <button onClick={() => onResult({ action: 'load' })}>{tr('lutLoad')}</button>
+      <button onClick={() => onResult({ action: 'load' })}><FolderOpen size={13} aria-hidden="true" /><span>{tr('lutLoad')}</span></button>
       <PreviewToggle tr={tr} value={preview} onChange={setPreview} />
       <Actions
         tr={tr}
@@ -215,7 +224,7 @@ function MatchColorDialog({ payload, onResult, onClose }: BodyProps) {
   const [preview, setPreview] = useState(true)
   const values = { sourceId, luminance, intensity, fade, neutralize }
   useLivePreview(preview, values, onResult)
-  if (!layers.length) return <><p className="dialog-hint">{tr('matchNeedsLayer')}</p><div className="dialog-actions"><button className="primary" onClick={onClose}>{tr('close')}</button></div></>
+  if (!layers.length) return <><p className="dialog-hint">{tr('matchNeedsLayer')}</p><div className="dialog-actions"><button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button></div></>
   return (
     <>
       <LayerPicker tr={tr} label="matchSource" layers={layers} value={sourceId} onChange={setSourceId} />
@@ -507,7 +516,7 @@ function CustomFilterDialog({ payload, onResult, onClose }: BodyProps) {
       <p className="dialog-hint">{tr('kernelLabel')}</p>
       <div className="kernel-grid">
         {kernel.map((value, index) => (
-          <input key={index} type="number" value={value} onChange={(event) => setKernel((current) => current.map((v, i) => (i === index ? Number(event.target.value) : v)))} />
+          <NumberField key={index} value={value} onChange={(next) => setKernel((current) => current.map((v, i) => (i === index ? next : v)))} />
         ))}
       </div>
       <div className="dialog-grid">
@@ -676,7 +685,7 @@ function LayerStyleDialog({ payload, onResult }: BodyProps) {
         onClose={() => onResult({ action: 'cancel' })}
         onApply={() => onResult({ action: 'apply', effects })}
         applyLabel="ok"
-        extra={<button onClick={() => setEffects(defaultEffects())}>{tr('reset')}</button>}
+        extra={<button onClick={() => setEffects(defaultEffects())}><RotateCcw size={14} aria-hidden="true" /><span>{tr('reset')}</span></button>}
       />
     </>
   )
@@ -707,7 +716,7 @@ function GradientEditorDialog({ payload, onResult, onClose }: BodyProps) {
       {def.stops.map((stop, index) => (
         <div className="channel-row" key={`c${index}`}>
           <input type="color" value={resolvedColor(stop.color)} onChange={(event) => setStop(index, { color: event.target.value })} />
-          <input type="range" min={0} max={100} value={Math.round(stop.position * 100)} onChange={(event) => setStop(index, { position: Number(event.target.value) / 100 })} />
+          <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setStop(index, { position: next / 100 })} />
           <span>{Math.round(stop.position * 100)}%</span>
           <button data-tooltip={tr('removeStop')} aria-label={tr('removeStop')} disabled={def.stops.length <= 2} onClick={() => setDef((current) => ({ ...current, stops: current.stops.filter((_, i) => i !== index) }))}><X size={13} /></button>
         </div>
@@ -716,9 +725,9 @@ function GradientEditorDialog({ payload, onResult, onClose }: BodyProps) {
       <h3>{tr('stopOpacity')}</h3>
       {def.opacityStops.map((stop, index) => (
         <div className="channel-row" key={`o${index}`}>
-          <input type="range" min={0} max={100} value={Math.round(stop.opacity * 100)} onChange={(event) => setOpacityStop(index, { opacity: Number(event.target.value) / 100 })} />
+          <RangeSlider min={0} max={100} value={Math.round(stop.opacity * 100)} onChange={(next) => setOpacityStop(index, { opacity: next / 100 })} />
           <span>{Math.round(stop.opacity * 100)}%</span>
-          <input type="range" min={0} max={100} value={Math.round(stop.position * 100)} onChange={(event) => setOpacityStop(index, { position: Number(event.target.value) / 100 })} />
+          <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setOpacityStop(index, { position: next / 100 })} />
           <span>{Math.round(stop.position * 100)}%</span>
           <button data-tooltip={tr('removeStop')} aria-label={tr('removeStop')} disabled={def.opacityStops.length <= 2} onClick={() => setDef((current) => ({ ...current, opacityStops: current.opacityStops.filter((_, i) => i !== index) }))}><X size={13} /></button>
         </div>
@@ -752,7 +761,7 @@ function NeuralDialog({ payload, onResult, onClose }: BodyProps) {
       <Slider label={tr('amountLabel')} value={amount} min={0} max={100} onChange={setAmount} />
       <p className="dialog-hint">{tr('neuralHint')}</p>
       <PreviewToggle tr={tr} value={preview} onChange={setPreview} />
-      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', ...values })} extra={<button onClick={() => onResult({ action: 'models' })}>{tr('neuralModels')}</button>} />
+      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', ...values })} extra={<button onClick={() => onResult({ action: 'models' })}><BrainCircuit size={13} aria-hidden="true" /><span>{tr('neuralModels')}</span></button>} />
     </>
   )
 }
@@ -821,8 +830,8 @@ function NeuralModelsDialog({ payload, onResult, onClose }: BodyProps) {
                   <div className="model-actions">
                     <span className={ready ? 'model-status ready' : 'model-status'}>{running ? `${tr('modelDownloading')} ${Math.round(fraction * 100)}%` : ready ? tr('modelReady') : tr('modelMissing')}</span>
                     {ready
-                      ? <button onClick={() => remove(spec.id)}>{tr('modelDelete')}</button>
-                      : <button className="primary" disabled={Boolean(running)} onClick={() => download(spec.id)}>{tr('modelDownload')}</button>}
+                      ? <button onClick={() => remove(spec.id)}><Trash size={13} aria-hidden="true" /><span>{tr('modelDelete')}</span></button>
+                      : <button className="primary" disabled={Boolean(running)} onClick={() => download(spec.id)}><Download size={13} aria-hidden="true" /><span>{tr('modelDownload')}</span></button>}
                   </div>
                 </div>
               )
@@ -831,7 +840,7 @@ function NeuralModelsDialog({ payload, onResult, onClose }: BodyProps) {
         ))}
       </div>
       <div className="dialog-actions">
-        <button className="primary" onClick={() => { onResult({ action: 'refresh', downloaded }); onClose() }}>{tr('ok')}</button>
+        <button className="primary" onClick={() => { onResult({ action: 'refresh', downloaded }); onClose() }}><Check size={14} aria-hidden="true" /><span>{tr('ok')}</span></button>
       </div>
     </>
   )
@@ -845,7 +854,8 @@ function NoteDialog({ payload, onResult, onClose }: BodyProps) {
   return (
     <>
       <label>{tr('noteText')}<textarea rows={4} value={text} onChange={(event) => setText(event.target.value)} /></label>
-      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', id: payload.note?.id, text })} applyLabel="ok" />
+      {/* An empty note is not worth pinning to the picture. */}
+      <Actions tr={tr} onClose={onClose} applyDisabled={!text.trim()} onApply={() => onResult({ action: 'apply', id: payload.note?.id, text })} applyLabel="ok" />
     </>
   )
 }
@@ -871,7 +881,8 @@ function FindReplaceDialog({ payload, onResult, onClose }: BodyProps) {
       <label>{tr('findText')}<input value={find} onChange={(event) => setFind(event.target.value)} /></label>
       <label>{tr('replaceText')}<input value={replace} onChange={(event) => setReplace(event.target.value)} /></label>
       <label className="check-row"><input type="checkbox" checked={matchCase} onChange={(event) => setMatchCase(event.target.checked)} />{tr('matchCase')}</label>
-      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', find, replace, matchCase })} applyLabel="replaceAll" />
+      {/* With nothing to look for there is nothing to replace. */}
+      <Actions tr={tr} onClose={onClose} applyDisabled={!find} onApply={() => onResult({ action: 'apply', find, replace, matchCase })} applyLabel="replaceAll" />
     </>
   )
 }
@@ -908,8 +919,8 @@ function OpenRecentDialog({ payload, onResult, onClose }: BodyProps) {
         </div>
       )}
       <div className="dialog-actions">
-        <button onClick={() => onResult({ action: 'clear' })}>{tr('clearRecent')}</button>
-        <button className="primary" onClick={onClose}>{tr('close')}</button>
+        <button onClick={() => onResult({ action: 'clear' })}><Trash size={13} aria-hidden="true" /><span>{tr('clearRecent')}</span></button>
+        <button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button>
       </div>
     </>
   )
@@ -931,7 +942,7 @@ function KeyboardShortcutsDialog({ payload, onResult, onClose }: BodyProps) {
           </label>
         ))}
       </div>
-      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', shortcuts: map })} applyLabel="ok" extra={<button onClick={() => onResult({ action: 'reset' })}>{tr('reset')}</button>} />
+      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', shortcuts: map })} applyLabel="ok" extra={<button onClick={() => onResult({ action: 'reset' })}><RotateCcw size={14} aria-hidden="true" /><span>{tr('reset')}</span></button>} />
     </>
   )
 }
@@ -1120,7 +1131,8 @@ function CheckSpellingDialog({ payload, onResult, onClose }: BodyProps) {
           ))}
         </>
       )}
-      <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', fixes })} applyLabel="replaceAll" />
+      {/* Nothing to correct, nothing to replace. */}
+      <Actions tr={tr} onClose={onClose} applyDisabled={suspects.length === 0} onApply={() => onResult({ action: 'apply', fixes })} applyLabel="replaceAll" />
     </>
   )
 }
@@ -1157,6 +1169,14 @@ function StatisticsDialog({ payload, onResult, onClose }: BodyProps) {
 
 /** The Filter Gallery: every filter grouped, applied with a live preview of the chosen one. */
 /**
+ * A filter's icon, or its group's, looked up by name. Written as components so
+ * the lookup happens inside one rather than assigning a capitalised local in
+ * the middle of a render.
+ */
+const FilterGlyph = ({ id, size }: { id: string; size: number }) => createElement(filterIcon(id), { size, 'aria-hidden': 'true' })
+const GroupGlyph = ({ group, size }: { group: string; size: number }) => createElement(filterGroupIcon(group), { size, 'aria-hidden': 'true' })
+
+/**
  * The Filter Gallery: one tab per filter group, the group's filters as a
  * grid of buttons, and the two sliders beside them. Nothing in the window
  * scrolls — the window is sized for the largest group — so the Cancel and
@@ -1172,27 +1192,239 @@ export function FilterGalleryBody({ payload, onResult, onClose }: BodyProps) {
   const values = { id: selected ?? '', radius, amount, extra: 0 }
   useLivePreview(Boolean(selected), values, onResult)
   const groupLabel = (id: string) => tr(`group${id.charAt(0).toUpperCase()}${id.slice(1)}`)
+  const inGroup = filterCatalog.filter((item) => item.group === group)
+  const description = selected ? filterDescription(payload.language, selected) : ''
   return (
     <>
       <div className="settings-tabs gallery-tabs">
         {groups.map((id) => (
-          <button key={id} className={group === id ? 'active' : ''} onClick={() => setGroup(id)}>{groupLabel(id)}</button>
+          <button key={id} className={group === id ? 'active' : ''} onClick={() => setGroup(id)}>
+            <GroupGlyph group={id} size={14} />
+            <span>{groupLabel(id)}</span>
+          </button>
         ))}
       </div>
       <div className="gallery-layout">
         <div className="gallery-grid">
-          {filterCatalog.filter((item) => item.group === group).map((item) => (
-            <button key={item.id} className={selected === item.id ? 'active' : ''} onClick={() => setSelected(item.id)}>{tr(item.id)}</button>
+          {inGroup.map((item) => (
+            <button
+              key={item.id}
+              className={selected === item.id ? 'active' : ''}
+              onClick={() => setSelected(item.id)}
+              data-tooltip={filterDescription(payload.language, item.id)}
+            >
+              <FilterGlyph id={item.id} size={15} />
+              <span>{tr(item.id)}</span>
+            </button>
           ))}
         </div>
         <div className="gallery-controls">
-          <h3>{selected ? tr(selected) : groupLabel(group)}</h3>
+          <h3 className="gallery-title">
+            {selected ? <FilterGlyph id={selected} size={17} /> : null}
+            <span>{selected ? tr(selected) : groupLabel(group)}</span>
+          </h3>
+          {/*
+            The panel used to sit empty once a filter was picked. It now says
+            what the filter does, which is the only place in the window that
+            can: a grid of 117 names teaches nothing on its own.
+          */}
+          <p className="gallery-about">{description || tr('galleryPick')}</p>
           <Slider label={tr('radiusLabel')} value={radius} min={0.5} max={60} step={0.5} onChange={setRadius} />
           <Slider label={tr('amountLabel')} value={amount} min={0} max={200} onChange={setAmount} />
-          <p className="dialog-hint">{selected ? '' : tr('galleryPick')}</p>
+          <p className="dialog-hint gallery-count">{tr('galleryCount').replace('{n}', String(inGroup.length)).replace('{group}', groupLabel(group))}</p>
         </div>
       </div>
-      <Actions tr={tr} onClose={onClose} onApply={() => selected && onResult({ action: 'apply', ...values })} />
+      <Actions tr={tr} onClose={onClose} applyDisabled={!selected} onApply={() => selected && onResult({ action: 'apply', ...values })} />
+    </>
+  )
+}
+
+/**
+ * Remove Background, and the choice of how.
+ *
+ * The three subject models differ by a factor of forty in size and visibly in
+ * how they handle hair, and the built-in GrabCut needs no download at all. The
+ * editor used to pick for you, silently, from whatever happened to be on the
+ * machine. Here the methods are listed with what each costs and what it is
+ * good at, the one that is missing offers to fetch itself with a progress bar,
+ * and the choice is remembered for next time.
+ */
+function RemoveBackgroundDialog({ payload, onResult, onClose }: BodyProps) {
+  const tr = (key: string) => t(payload.language, key)
+  const methods = subjectMethods()
+  const [downloaded, setDownloaded] = useState<string[]>(payload.models?.downloaded ?? [])
+  const [chosen, setChosen] = useState(payload.subjectMethod || CLASSICAL)
+  const [progress, setProgress] = useState<ModelProgress | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const store = modelStore()
+    let cancelled = false
+    void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
+    const off = store.onProgress((next) => {
+      setProgress(next)
+      if (!next.done) return
+      if (next.error) setError(next.error)
+      void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
+    })
+    return () => { cancelled = true; off() }
+  }, [])
+
+  const method = methods.find((item) => item.id === chosen) ?? methods[0]
+  const ready = method.bytes === 0 || downloaded.includes(method.id)
+  const fetching = Boolean(progress && !progress.done && progress.id === method.id)
+  const fraction = progress && progress.total > 0 ? progress.received / progress.total : 0
+
+  const fetchModel = () => {
+    setError('')
+    setProgress({ id: method.id, received: 0, total: method.bytes, done: false })
+    void modelStore().download(method.id).catch((cause: unknown) => {
+      setError(String(cause instanceof Error ? cause.message : cause))
+      setProgress(null)
+    })
+  }
+
+  return (
+    <>
+      <div className="method-list">
+        {methods.map((item) => {
+          const have = item.bytes === 0 || downloaded.includes(item.id)
+          return (
+            <label key={item.id} className={`method-row${chosen === item.id ? ' active' : ''}`}>
+              <input
+                type="radio"
+                name="subjectMethod"
+                checked={chosen === item.id}
+                onChange={() => { setChosen(item.id); setError('') }}
+              />
+              <span className="method-text">
+                <strong>{item.name}</strong>
+                <span className="method-size">{item.bytes === 0 ? tr('methodBuiltIn') : formatBytes(item.bytes)}</span>
+                <span className={have ? 'method-state ready' : 'method-state'}>{have ? tr('methodReady') : tr('methodNotDownloaded')}</span>
+                <span className="method-note">{tr(item.note)} · {tr('modelLicense')}: {item.license}</span>
+              </span>
+            </label>
+          )
+        })}
+      </div>
+
+      {!ready && (
+        <div className="method-fetch">
+          {/* The missing model fetches itself here rather than sending you to another window. */}
+          <p className="dialog-hint">{tr('methodNeedsDownload').replace('{size}', formatBytes(method.bytes))}</p>
+          {fetching && <progress max={1} value={fraction} />}
+          {fetching && <p className="dialog-hint">{formatBytes(progress?.received ?? 0)} / {formatBytes(progress?.total ?? method.bytes)}</p>}
+          {error && <p className="model-error">{error}</p>}
+          {!fetching && (
+            <button onClick={fetchModel}>
+              <Download size={13} aria-hidden="true" />
+              <span>{tr('methodDownload')}</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      <Actions
+        tr={tr}
+        onClose={onClose}
+        applyDisabled={!ready || fetching}
+        onApply={() => onResult({ action: 'apply', method: chosen })}
+        applyLabel="removeBgApply"
+      />
+    </>
+  )
+}
+
+/**
+ * The first-run offer: the models the editor would like to have, what they
+ * cost, and a way to say no.
+ *
+ * Nothing is fetched without being asked for. The window is shown once; the
+ * answer either way is remembered, and the Neural Models window is always
+ * there for a change of mind.
+ */
+function ModelSetupDialog({ payload, onResult, onClose }: BodyProps) {
+  const tr = (key: string) => t(payload.language, key)
+  const wanted = recommendedModels.map((id) => modelSpec(id)).filter((spec): spec is NonNullable<typeof spec> => Boolean(spec))
+  const [downloaded, setDownloaded] = useState<string[]>(payload.models?.downloaded ?? [])
+  const [progress, setProgress] = useState<Record<string, ModelProgress>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [started, setStarted] = useState(false)
+
+  useEffect(() => {
+    const store = modelStore()
+    let cancelled = false
+    void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
+    const off = store.onProgress((next) => {
+      setProgress((current) => ({ ...current, [next.id]: next }))
+      if (!next.done) return
+      if (next.error) setErrors((current) => ({ ...current, [next.id]: next.error ?? '' }))
+      void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
+    })
+    return () => { cancelled = true; off() }
+  }, [])
+
+  const missing = wanted.filter((spec) => !downloaded.includes(spec.id))
+  const total = missing.reduce((sum, spec) => sum + spec.bytes, 0)
+  const busy = Object.values(progress).some((item) => !item.done)
+
+  const fetchAll = () => {
+    setStarted(true)
+    for (const spec of missing) {
+      setProgress((current) => ({ ...current, [spec.id]: { id: spec.id, received: 0, total: spec.bytes, done: false } }))
+      void modelStore().download(spec.id).catch((cause: unknown) => {
+        setErrors((current) => ({ ...current, [spec.id]: String(cause instanceof Error ? cause.message : cause) }))
+      })
+    }
+  }
+
+  return (
+    <>
+      <div className="method-list">
+        {wanted.map((spec) => {
+          const have = downloaded.includes(spec.id)
+          const item = progress[spec.id]
+          const running = item && !item.done
+          const fraction = item && item.total > 0 ? item.received / item.total : 0
+          return (
+            <div key={spec.id} className="method-row">
+              <span className="method-text">
+                <strong>{spec.name}</strong>
+                <span className="method-size">{formatBytes(spec.bytes)}</span>
+                <span className={have ? 'method-state ready' : 'method-state'}>{have ? tr('methodReady') : tr('methodNotDownloaded')}</span>
+                <span className="method-note">{tr(spec.note)} · {tr('modelLicense')}: {spec.license}</span>
+                {running && <progress max={1} value={fraction} />}
+                {errors[spec.id] && <span className="model-error">{errors[spec.id]}</span>}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      <p className="dialog-hint">
+        {missing.length === 0
+          ? tr('setupAllHere')
+          : tr('setupTotal').replace('{n}', String(missing.length)).replace('{size}', formatBytes(total))}
+      </p>
+      <div className="dialog-actions">
+        <button onClick={() => onResult({ action: 'skip' })}>
+          <X size={14} aria-hidden="true" />
+          <span>{tr('setupLater')}</span>
+        </button>
+        <button
+          className="primary"
+          disabled={busy || missing.length === 0}
+          onClick={fetchAll}
+        >
+          <Download size={14} aria-hidden="true" />
+          <span>{tr('setupFetch')}</span>
+        </button>
+        {(started && !busy) || missing.length === 0 ? (
+          <button className="primary" onClick={onClose}>
+            <Check size={14} aria-hidden="true" />
+            <span>{tr('close')}</span>
+          </button>
+        ) : null}
+      </div>
     </>
   )
 }
@@ -1240,6 +1472,8 @@ export function ExtraDialogBody(props: BodyProps): ReactNode {
     case 'vanishingPoint': return <VanishingPointDialog {...props} />
     case 'statistics': return <StatisticsDialog {...props} />
     case 'filterGallery': return <FilterGalleryBody {...props} />
+    case 'removeBg': return <RemoveBackgroundDialog {...props} />
+    case 'modelSetup': return <ModelSetupDialog {...props} />
     default: return null
   }
 }

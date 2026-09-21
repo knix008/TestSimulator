@@ -1,8 +1,6 @@
 import type { ComponentType } from 'react'
 import {
-  Aperture, Blend, BookOpen, Box, Camera, Compass, Crop, Download, Droplets, FilePlus, Frame, Grid3x3, History, Info, Keyboard,
-  LayoutGrid, Layers2, Magnet, PaintBucket, Palette, Pencil, Printer, Ratio, Ruler, Search, Settings2, SlidersHorizontal, Sparkles,
-  Spline, Square, SquareDashed, StickyNote, Sun, Sunrise, TriangleAlert, Type, Move, Film, Scan, Book,
+  Aperture, Blend, Book, BookOpen, Box, Camera, Compass, Crop, Download, Droplets, Eraser, FilePlus, Film, Frame, Grid3x3, History, Info, Keyboard, Layers2, LayoutGrid, Magnet, Move, PaintBucket, Palette, Pencil, Printer, Ratio, Ruler, Scan, Search, Settings2, SlidersHorizontal, Sparkles, Spline, Square, SquareDashed, StickyNote, Sun, Sunrise, TriangleAlert, Type,
 } from 'lucide-react'
 import { t } from './i18n'
 import type { AdjustmentType, AppSettings, CurveData, Language, LayerEffects, LevelsData, PageOrientation, TextData, ThreeDData } from './lib/types'
@@ -26,6 +24,7 @@ export type DialogName =
   | 'openRecent' | 'keyboardShortcuts' | 'contactSheet' | 'fitImage' | 'photomerge' | 'fade' | 'skyReplace'
   | 'perspectiveWarp' | 'duotone' | 'indexed' | 'checkSpelling' | 'vanishingPoint' | 'adaptiveWideAngle'
   | 'statistics' | 'namePrompt' | 'imageProcessor' | 'transformSelection' | 'neuralModels'
+  | 'removeBg' | 'modelSetup'
 
 export type DialogResult = { action: string; [key: string]: unknown }
 
@@ -79,6 +78,8 @@ export type DialogPayload = {
   recentFiles?: string[]
   /** The Neural Models window: which weights are on this machine, and the task a command was after. */
   models?: { downloaded: string[]; needed?: string; webgpu: boolean; useWebgpu: boolean; threads: number }
+  /** Which method Remove Background should start on. */
+  subjectMethod?: string
   /** The tool letter keys, for the shortcuts window. */
   shortcuts?: { tool: string; key: string; label: string }[]
   /** The note being edited. */
@@ -156,6 +157,8 @@ const DIALOG_ICONS: Record<DialogName, ComponentType<{ size?: number }>> = {
   gradientEditor: Blend,
   neural: Sparkles,
   neuralModels: Sparkles,
+  removeBg: Eraser,
+  modelSetup: Download,
   note: StickyNote,
   findReplace: Search,
   exportAs: Download,
@@ -235,6 +238,8 @@ const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
   gradientEditor: 'gradientEditor',
   neural: 'neuralFilters',
   neuralModels: 'neuralModelsTitle',
+  removeBg: 'removeBg',
+  modelSetup: 'modelSetupTitle',
   note: 'noteText',
   findReplace: 'findReplace',
   exportAs: 'exportAs',

@@ -346,6 +346,63 @@ export function traceShape(ctx: CanvasRenderingContext2D, shape: ShapeData) {
     ctx.lineTo(x + w * 0.62, y + h * 0.65)
     ctx.lineTo(x, y + h * 0.65)
     ctx.closePath()
+  } else if (shape.kind === 'diamond') {
+    ctx.moveTo(x + w / 2, y)
+    ctx.lineTo(x + w, y + h / 2)
+    ctx.lineTo(x + w / 2, y + h)
+    ctx.lineTo(x, y + h / 2)
+    ctx.closePath()
+  } else if (shape.kind === 'cross') {
+    // An X: the arms run corner to corner rather than along the axes.
+    const t = Math.min(Math.abs(w), Math.abs(h)) * 0.22
+    const cx = x + w / 2
+    const cy = y + h / 2
+    ctx.moveTo(x, y + t)
+    ctx.lineTo(x + t, y); ctx.lineTo(cx, cy - t); ctx.lineTo(x + w - t, y)
+    ctx.lineTo(x + w, y + t); ctx.lineTo(cx + t, cy); ctx.lineTo(x + w, y + h - t)
+    ctx.lineTo(x + w - t, y + h); ctx.lineTo(cx, cy + t); ctx.lineTo(x + t, y + h)
+    ctx.lineTo(x, y + h - t); ctx.lineTo(cx - t, cy)
+    ctx.closePath()
+  } else if (shape.kind === 'chevron') {
+    ctx.moveTo(x, y)
+    ctx.lineTo(x + w * 0.55, y)
+    ctx.lineTo(x + w, y + h / 2)
+    ctx.lineTo(x + w * 0.55, y + h)
+    ctx.lineTo(x, y + h)
+    ctx.lineTo(x + w * 0.45, y + h / 2)
+    ctx.closePath()
+  } else if (shape.kind === 'speech') {
+    const tail = h * 0.22
+    const body = h - tail
+    const r = Math.min(w, body) * 0.18
+    ctx.roundRect(x, y, w, body, r)
+    ctx.moveTo(x + w * 0.22, y + body)
+    ctx.lineTo(x + w * 0.2, y + h)
+    ctx.lineTo(x + w * 0.44, y + body)
+    ctx.closePath()
+  } else if (shape.kind === 'moon') {
+    const cx = x + w / 2
+    const cy = y + h / 2
+    ctx.arc(cx, cy, Math.min(w, h) / 2, Math.PI * 0.5, Math.PI * 1.5, false)
+    ctx.bezierCurveTo(cx + w * 0.42, cy - h * 0.34, cx + w * 0.42, cy + h * 0.34, cx, cy + Math.min(w, h) / 2)
+    ctx.closePath()
+  } else if (shape.kind === 'lightning') {
+    ctx.moveTo(x + w * 0.55, y)
+    ctx.lineTo(x + w * 0.12, y + h * 0.56)
+    ctx.lineTo(x + w * 0.44, y + h * 0.56)
+    ctx.lineTo(x + w * 0.34, y + h)
+    ctx.lineTo(x + w * 0.88, y + h * 0.4)
+    ctx.lineTo(x + w * 0.54, y + h * 0.4)
+    ctx.closePath()
+  } else if (shape.kind === 'plus') {
+    const a = w / 3
+    const b = h / 3
+    ctx.moveTo(x + a, y)
+    ctx.lineTo(x + a * 2, y); ctx.lineTo(x + a * 2, y + b); ctx.lineTo(x + w, y + b)
+    ctx.lineTo(x + w, y + b * 2); ctx.lineTo(x + a * 2, y + b * 2); ctx.lineTo(x + a * 2, y + h)
+    ctx.lineTo(x + a, y + h); ctx.lineTo(x + a, y + b * 2); ctx.lineTo(x, y + b * 2)
+    ctx.lineTo(x, y + b); ctx.lineTo(x + a, y + b)
+    ctx.closePath()
   } else if (shape.kind === 'custom' && shape.outline?.length) {
     // A defined shape: its anchors and handles scaled into the box.
     const nodes = shape.outline

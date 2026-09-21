@@ -586,7 +586,7 @@ The right-hand end of the menu bar holds the theme control, the language switch
 (Korean / English) and the Settings and About windows. The guide you are reading
 is on the 창 / Window menu, at the bottom.
 
-Settings is a preferences window on five tabs, each split into titled
+Settings is a preferences window on six tabs, each split into titled
 sections, tall enough that no tab scrolls:
 
 - **일반 / General** — language and the number of history states; the theme,
@@ -603,6 +603,41 @@ sections, tall enough that no tab scrolls:
 - **브러시 / Brush** — the tip defaults (size, hardness, opacity, spacing,
   angle, roundness, scatter) and the saved brushes.
 - **내보내기 / Export** — the format and the transparent-background setting.
+- **엔진 / Engine** — the numbers the algorithms themselves work with, for the
+  three commands whose right setting depends on the photograph:
+  - *Content-Aware Fill and the Remove tool* — **finishing rounds** (1–8,
+    four by default) and **searches per round**. More rounds bring back the
+    texture of the filled patch and cost time; past five the fill bands.
+  - *Select Subject, Object Selection, Remove Background* — **GrabCut
+    iterations**, a switch for **tidying the result into one object**, and how
+    large a piece has to be, against the biggest, to survive that tidying. At
+    100% only the single biggest piece is kept; lower it when an arm or a prop
+    reads as separate from the body.
+  - *Select Sky and Sky Replacement* — the **colour step** between neighbouring
+    pixels that stops the sky growing, how far the colour may **drift** from
+    the band at the top of the picture, and the **horizon allowance**. A
+    smaller step stops earlier at the horizon; a smaller drift can lose a sky
+    that shades from one end to the other.
+
+  These apply to the built-in algorithms. With the matching neural model
+  downloaded in 편집 ▸ 뉴럴 모델, the model runs instead and these are unused.
+
+**The Filter Gallery** lists the filters of one group at a time, each with an
+icon and its name. Hovering a filter says what it does; picking one puts that
+sentence in the panel on the right, above the radius and amount sliders, and
+previews it on the picture. The sentences describe what happens to the
+photograph — "pools the colour and darkens the edges, the way watercolour
+dries" — so the window is a way to learn the filters, not only to run them.
+Apply stays greyed out until a filter is chosen.
+
+**Sliders and numbers everywhere in the editor** behave the same way: the
+handle and the number beside it follow the mouse, but the picture is redrawn
+when you let go, not while you drag. A preview runs the whole image through the
+filter, and doing that for every pixel of a drag would make the drag as slow as
+the filter for a result thrown away a moment later — only the value you stop on
+is worth drawing. A number you type in commits when you press Enter or move to
+something else, so typing "120" does not redraw at 1, then 12, then 120; the
+buttons either side of a number are a single step and act at once.
 
 Each number has a decrease and an increase button. **기본 설정으로 되돌리기 /
 Reset to defaults** (bottom left) puts every setting in the window back to its

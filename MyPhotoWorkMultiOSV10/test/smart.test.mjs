@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  applySmartFilters, compositeDocument, createBlankDocument, createLayerMeta, placeSmartObject,
+  applySmartFilters, compositeDocument, createBlankDocument, placeSmartObject,
   setSmartFilterRunner, smartSourceKey,
 } from '../src/lib/canvas.ts'
 import { applyGalleryFilter } from '../src/lib/gallery.ts'

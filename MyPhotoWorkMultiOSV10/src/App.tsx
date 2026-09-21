@@ -1,5 +1,8 @@
 import { createElement, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { BusyOverlay, type BusyJob } from './Busy'
+import { resolveSubjectMethod } from './subjectMethods'
+import { NumberField, Slider } from './controls'
 import {
   ArrowLeftRight, Blend, ChevronDown, Copy, Crop, Eraser, FlipHorizontal, FlipVertical, Info, Minus, PaintBucket, Palette, PenTool, Plus,
   Scissors, Settings2, Sparkles, Square, SquareDashed, Trash, WandSparkles, X, Check, Frame, Wand,
@@ -29,12 +32,12 @@ import { artHistoryDab, healingBrushDab, historyBrushDab, liquifyDab, loadMixer,
 import { alignChain, applyHomography, blendAligned, exposureFusion, findPhotosOnScan, grabCutSelection, inpaintCanvas, stitchCanvases, warpCanvas as warpByHomography } from './lib/cv'
 import { patchFill, poissonBlend } from './lib/inpaint'
 import { modelStore } from './lib/models'
-import { bestModelFor, depthBlur, runDepth, runInpaint, runSky, runSubject, runUpscale, type ModelSpec, type ModelTask, type Runner } from './lib/neural'
-import { decontaminateEdge, objectSelectRect, refineMask, selectFocusArea, selectSky, selectSubjectAuto } from './lib/segment'
+import { bestModelFor, depthBlur, modelSpecs, runDepth, runInpaint, runSky, runSubject, runUpscale, type ModelSpec, type ModelTask, type Runner } from './lib/neural'
+import { decontaminateEdge, objectSelectRect, refineMask, selectFocusArea, selectSky, selectSubjectAuto, tidySubjectMask } from './lib/segment'
 import { applyImage, applyLut, autoContrast, autoTone, calculations, desaturate, fadeTo, hdrToning, lutById, lutChoices, matchColor, parseCube, registerLut, rotateArbitrary, rotatedSize } from './lib/adjustExtra'
 import { gradientPresets, paintGradientDef, resolveGradient, type GradientDef } from './lib/gradients'
 import { extraFilters } from './lib/moreFilters'
-import { alignOffsets, autoAlignLayers, bitmapMode, checkSpelling, contactSheet, defringe, distributeOffsets, duotone, fitImage, gamutWarning, indexedColor, layerBounds, mergeToHdr, normaliseOutline, photomerge, proofCmyk, removeMatte, rotateLayerCanvas, shiftCanvas, traceCanvasToPaths } from './lib/documentOps'
+import { alignOffsets, autoAlignLayers, autoBlendLayers, bitmapMode, checkSpelling, contactSheet, defringe, distributeOffsets, duotone, fitImage, gamutWarning, indexedColor, layerBounds, mergeToHdr, normaliseOutline, photomerge, proofCmyk, removeMatte, rotateLayerCanvas, shiftCanvas, traceCanvasToPaths } from './lib/documentOps'
 import { writePsd } from './lib/psd'
 import { createPath, drawPathOverlay, fillPathOnto, hitTestPaths, movePathPoint, pathFromPoints, pathNode, pathToSelection, smoothNode, smoothPath, strokePathOnto, translatePath, type PathHit } from './lib/paths'
 import { applyCurves, applyLevels, autoLevels } from './lib/curves'
@@ -50,7 +53,7 @@ import { keepsWindowOpen } from './dialogMeta'
 import { defaultAdjustment, defaultCurves, defaultEffects, defaultSettings, panelTabs, shapeKindForTool, type Adjustment, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type Language, type LayerEffects, type LevelsData, type PageOrientation, type PanelTab, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type ActionScript, type ActionStep, type AnimationFrame, type LayerComp, type LayerMeta, type SmartFilter, type TextData, type TextWarpStyle, type ThreeDData, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
 import { applyTheme, themeLabel, themes } from './themes'
 import { DocumentTabs, PanelSwitch, type PanelContext } from './panels'
-import { panelLabelKey } from './panelMeta'
+import { panelIcon, panelLabelKey, panelShortKey } from './panelMeta'
 import './App.css'
 
 const minRight = 280
@@ -442,6 +445,9 @@ const defaultToolKeys: Record<string, Tool> = {
 
 const cropRatios: Record<AppSettings['cropRatio'], number | null> = { free: null, original: 0, '1:1': 1, '4:3': 4 / 3, '3:2': 3 / 2, '16:9': 16 / 9 }
 
+/** A panel tab's icon. A component, so no capitalised local is made mid-render. */
+const PanelTabIcon = ({ tab }: { tab: PanelTab }) => createElement(panelIcon(tab), { size: 14, 'aria-hidden': 'true' })
+
 export default function App() {
   const startup = useMemo(() => createBlankDocument('Untitled', 1280, 720, 'transparent', 'Layer'), [])
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
@@ -454,6 +460,13 @@ export default function App() {
   const [menu, setMenu] = useState<MenuId>(null)
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [status, setStatus] = useState('ready')
+  /*
+   * The long job in front of the user, if any. Every command that can take
+   * seconds goes through `runBusy`, which puts it here; the window shows
+   * itself only once the job has run long enough to be worth reporting.
+   */
+  const [busy, setBusy] = useState<BusyJob | null>(null)
+  const busyRef = useRef<BusyJob | null>(null)
   /** Progress of a long operation, shown after the status word. */
   const [statusDetail, setStatusDetail] = useState('')
   const [savedNote, setSavedNote] = useState(false)
@@ -707,6 +720,7 @@ export default function App() {
 
   const openDialogRef = useRef<(name: DialogName, extra?: Partial<DialogPayload>) => void>(() => {})
   useEffect(() => { openDialogRef.current = openDialog }, [openDialog])
+
 
   const closeAllDialogs = useCallback(() => {
     if (window.electronDialogApi) {
@@ -1829,6 +1843,30 @@ export default function App() {
    * history entry, locks and mask target are all honoured. Failures land in
    * the error window under `label`.
    */
+  /**
+   * Runs a job with the busy window in front of it, and takes it away again
+   * however the job ends. `report` lets the job say how far it has got; a job
+   * that cannot tell leaves the bar indeterminate and shows the time instead.
+   */
+  const runBusy = useCallback(async <T,>(label: string, job: (report: (fraction: number | null, detail?: string) => void) => Promise<T>): Promise<T> => {
+    const started = Date.now()
+    const entry: BusyJob = { label, fraction: null, startedAt: started }
+    busyRef.current = entry
+    setBusy(entry)
+    const report = (fraction: number | null, detail?: string) => {
+      if (busyRef.current !== entry) return
+      const next = { ...entry, fraction, detail, startedAt: started }
+      busyRef.current = next
+      setBusy(next)
+    }
+    try {
+      return await job(report)
+    } finally {
+      busyRef.current = null
+      setBusy(null)
+    }
+  }, [])
+
   const computeOnLayer = useCallback(async (label: string, compute: (copy: HTMLCanvasElement) => Promise<HTMLCanvasElement | null>) => {
     const current = docRef.current
     const source = canvasesRef.current.get(current.activeLayerId)
@@ -1836,7 +1874,9 @@ export default function App() {
     setStatus('working')
     await paintFrame()
     try {
-      const result = await compute(cloneCanvas(source))
+      // Every command that rewrites a layer can be slow on a large photograph,
+      // so they all report through the same window.
+      const result = await runBusy(label, () => compute(cloneCanvas(source)))
       if (!result) return
       withLayer((canvas) => {
         const ctx = context2d(canvas)
@@ -1848,7 +1888,7 @@ export default function App() {
     } finally {
       setStatus('ready')
     }
-  }, [showError, tr, withLayer])
+  }, [runBusy, showError, tr, withLayer])
 
   /* --------------------------------------------------------- neural models */
 
@@ -1862,14 +1902,48 @@ export default function App() {
     openDialog('neuralModels', { models: { downloaded, needed, webgpu: typeof navigator !== 'undefined' && 'gpu' in navigator, useWebgpu: settingsRef.current.neuralWebgpu, threads: typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated ? Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1)) : 1 } })
   }, [modelsAvailable, openDialog])
 
+  /** Remove Background's own window: which method, and a way to fetch it. */
+  const openRemoveBackground = useCallback(async () => {
+    const downloaded = await modelsAvailable()
+    openDialog('removeBg', {
+      subjectMethod: settingsRef.current.subjectMethod,
+      models: { downloaded, webgpu: false, useWebgpu: settingsRef.current.neuralWebgpu, threads: 1 },
+    })
+  }, [modelsAvailable, openDialog])
+
+  /*
+   * The first-run offer. Nothing is fetched without being asked for, so on the
+   * first launch with no models present the editor says what it would like to
+   * have and what that costs; the answer either way is remembered.
+   */
+  useEffect(() => {
+    if (settingsRef.current.modelsPrompted) return
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void modelsAvailable().then((downloaded) => {
+        if (cancelled || settingsRef.current.modelsPrompted) return
+        setSettings((current) => ({ ...current, modelsPrompted: true }))
+        openDialogRef.current('modelSetup', {
+          models: { downloaded, webgpu: false, useWebgpu: settingsRef.current.neuralWebgpu, threads: 1 },
+        })
+      })
+    }, 1500)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   /**
    * The best downloaded model for a task, loaded and ready to run, or null,
    * in which case the caller uses the classical method. The Neural Models
    * window (Edit menu, or the button in Neural Filters) is where models are
    * fetched; a command never downloads on its own.
    */
-  const neuralFor = useCallback(async (task: ModelTask): Promise<{ spec: ModelSpec; runner: Runner } | null> => {
-    const spec = bestModelFor(task, await modelsAvailable(), settingsRef.current.neuralWebgpu)
+  /** `wanted` names a particular model; without it, the best one downloaded. */
+  const neuralFor = useCallback(async (task: ModelTask, wanted?: string): Promise<{ spec: ModelSpec; runner: Runner } | null> => {
+    const available = await modelsAvailable()
+    const spec = wanted && available.includes(wanted)
+      ? modelSpecs.find((item) => item.id === wanted) ?? null
+      : bestModelFor(task, available, settingsRef.current.neuralWebgpu)
     if (!spec) return null
     const { runnerFor } = await import('./lib/ort')
     return { spec, runner: await runnerFor(spec.id, settingsRef.current.neuralWebgpu) }
@@ -1895,7 +1969,7 @@ export default function App() {
       seed = undefined
     }
     if (!seed) { contentAwareFill(copy, selection); return copy }
-    patchFill(copy, mask, { seed })
+    patchFill(copy, mask, { seed, rounds: settingsRef.current.fillRounds, iterations: settingsRef.current.fillIterations })
     return copy
   }), [computeOnLayer, neuralFor, note, tr])
 
@@ -1903,7 +1977,8 @@ export default function App() {
   const skySelection = useCallback(async (canvas: HTMLCanvasElement): Promise<Selection> => {
     const neural = await neuralFor('sky')
     if (neural) return runSky(neural.runner, neural.spec, canvas)
-    return selectSky(canvas)
+    const { skyStep, skyDrift, skyHorizon } = settingsRef.current
+    return selectSky(canvas, { step: skyStep, drift: skyDrift, horizon: skyHorizon })
   }, [neuralFor])
 
   /**
@@ -1922,7 +1997,7 @@ export default function App() {
       seed = undefined
     }
     if (!seed) { contentAwareFill(copy, selection); return copy }
-    patchFill(copy, mask, { seed })
+    patchFill(copy, mask, { seed, rounds: settingsRef.current.fillRounds, iterations: settingsRef.current.fillIterations })
     return copy
   }), [computeOnLayer, note, tr])
 
@@ -1970,7 +2045,13 @@ export default function App() {
         return { kind: 'mask', ...maskBounds(mask, source.width, source.height), mask }
       }
       const inset = { x: source.width * 0.04, y: source.height * 0.04, width: source.width * 0.92, height: source.height * 0.92 }
-      return await grabCutSelection(source, box ?? inset, 5)
+      // GrabCut answers per pixel and leaves crumbs of background scattered
+      // across the picture; Select Subject returns one object, so tidy it.
+      const { grabCutIterations, subjectTidy, subjectKeepRatio } = settingsRef.current
+      const cut = await grabCutSelection(source, box ?? inset, grabCutIterations)
+      if (!subjectTidy) return cut
+      const mask = tidySubjectMask(cut.mask ?? new Uint8Array(source.width * source.height), source.width, source.height, subjectKeepRatio)
+      return { kind: 'mask', ...maskBounds(mask, source.width, source.height), mask }
     } catch {
       return box ? objectSelectRect(source, box, Math.max(12, settingsRef.current.fillTolerance)) : selectSubjectAuto(source)
     } finally {
@@ -1978,8 +2059,15 @@ export default function App() {
     }
   }
 
-  const removeBackground = () => computeOnLayer(tr('removeBg'), async (copy) => {
-    const neural = await neuralFor('subject')
+  /**
+   * Remove Background, by the method chosen in its own window: one of the
+   * three subject models, or the built-in GrabCut. An empty choice still means
+   * "whatever is best on this machine", which is what the command did before
+   * the choice existed, so a menu item or a recorded action keeps working.
+   */
+  const removeBackground = (chosenMethod?: string) => computeOnLayer(tr('removeBg'), async (copy) => {
+    const method = resolveSubjectMethod(chosenMethod ?? settingsRef.current.subjectMethod, await modelsAvailable())
+    const neural = method.spec ? await neuralFor('subject', method.id) : null
     if (neural) {
       const { soft } = await runSubject(neural.runner, neural.spec, copy)
       const ctx = context2d(copy)
@@ -1988,8 +2076,16 @@ export default function App() {
       ctx.putImageData(image, 0, 0)
       return copy
     }
-    const subject = await grabCutSelection(copy, { x: copy.width * 0.04, y: copy.height * 0.04, width: copy.width * 0.92, height: copy.height * 0.92 }, 5).catch(() => selectSubjectAuto(copy))
-    clearSelectionPixels(copy, invertSelection(subject, copy.width, copy.height))
+    const box = { x: copy.width * 0.04, y: copy.height * 0.04, width: copy.width * 0.92, height: copy.height * 0.92 }
+    const { grabCutIterations, subjectTidy, subjectKeepRatio } = settingsRef.current
+    const cut = await grabCutSelection(copy, box, grabCutIterations)
+      .then((found) => {
+        if (!subjectTidy) return found
+        const mask = tidySubjectMask(found.mask ?? new Uint8Array(copy.width * copy.height), copy.width, copy.height, subjectKeepRatio)
+        return { kind: 'mask' as const, ...maskBounds(mask, copy.width, copy.height), mask }
+      })
+      .catch(() => selectSubjectAuto(copy))
+    clearSelectionPixels(copy, invertSelection(cut, copy.width, copy.height))
     return copy
   })
 
@@ -4141,7 +4237,12 @@ export default function App() {
     setStatus('working')
     await paintFrame()
     try {
-      const aligned = await alignedToFirst(items.map((item) => item.canvas), 'perspective')
+      const frames = items.map((item) => item.canvas)
+      // Features first; without OpenCV, the translation-only search in documentOps.
+      const aligned = await alignedToFirst(frames, 'perspective').catch(() => {
+        const offsets = autoAlignLayers(frames)
+        return frames.map((frame, index) => shiftCanvas(frame, offsets[index].dx, offsets[index].dy))
+      })
       snapshot(tr('autoAlign'))
       const current = docRef.current
       items.forEach((item, index) => {
@@ -4165,7 +4266,9 @@ export default function App() {
     setStatus('working')
     await paintFrame()
     try {
-      const { perLayer } = await blendAligned(items.map((item) => item.canvas))
+      const frames = items.map((item) => item.canvas)
+      // Distance-transform weights first; without OpenCV, the feathered bounds in documentOps.
+      const perLayer = await blendAligned(frames).then((result) => result.perLayer).catch(() => autoBlendLayers(frames))
       snapshot(tr('autoBlend'))
       const current = docRef.current
       items.forEach((item, index) => {
@@ -4795,7 +4898,7 @@ export default function App() {
       case 'select.subject': void segmentInto(null).then((fresh) => setSelection(fresh)); return
       case 'select.sky': void skySelection(compositeDocument(current, canvasesRef.current)).then((sky) => setSelection(sky)); return
       case 'select.distractions': setSelection(findDistractions(sampleSource())); return
-      case 'select.removeBg': void removeBackground(); return
+      case 'select.removeBg': void openRemoveBackground(); return
       case 'select.selectAndMask':
         if (!selectionRef.current) void segmentInto(null).then((fresh) => setSelection(fresh))
         openDialog('selectAndMask')
@@ -5414,6 +5517,15 @@ export default function App() {
         return
       }
       case 'neuralModels':
+        return
+      case 'removeBg': {
+        // The window has said which method; it is remembered and then run.
+        const method = String(result.method ?? '')
+        setSettings((current) => ({ ...current, subjectMethod: method }))
+        void removeBackground(method)
+        return
+      }
+      case 'modelSetup':
         return
       case 'vanishingPoint':
         if (cropCornersRef.current.length === 4) applyPerspectiveCrop()
@@ -6143,6 +6255,9 @@ export default function App() {
     (window as unknown as { __mpw?: unknown }).__mpw = {
       frame, history: historyMeta, undo: undoRef.current.length, tab: settings.rightTab, layers: doc.layers.length, selection: selection ? { ...selection, mask: undefined } : null,
       run: (id: string) => runCommandRef.current(id), dialog: (name: DialogName, result: DialogResult) => applyDialogResultRef.current(name, result), tool: (id: Tool) => setTool(id),
+      // Opens a window by name, so a script can walk through all of them and photograph each.
+      openDialog: (name: DialogName, extra?: Partial<DialogPayload>) => openDialogRef.current(name, extra),
+      closeDialogs: () => { window.electronDialogApi?.closeAll() },
       layerCanvas: () => canvasesRef.current.get(docRef.current.activeLayerId) ?? null, select: (next: Selection | null) => setSelection(next), bump,
     }
   })
@@ -6412,7 +6527,7 @@ export default function App() {
               return (
                 <label key={control.key} data-tooltip={tr(control.label)}>
                   {tr(control.label)}
-                  <input type="range" min={control.min} max={control.max} step={control.step ?? 1} value={Math.round(value)} onChange={(event) => setSettings((c) => ({ ...c, [control.key]: Number(event.target.value) / scale }))} />
+                  <Slider min={control.min} max={control.max} step={control.step ?? 1} value={Math.round(value)} onChange={(next) => setSettings((c) => ({ ...c, [control.key]: next / scale }))} />
                   <span className="option-value">{Math.round(value)}</span>
                 </label>
               )
@@ -6421,7 +6536,7 @@ export default function App() {
               return (
                 <label key={control.key} data-tooltip={tr(control.label)}>
                   {tr(control.label)}
-                  <input type="number" min={control.min} max={control.max} value={settings[control.key] as number} onChange={(event) => setSettings((c) => ({ ...c, [control.key]: Number(event.target.value) }))} />
+                  <NumberField min={control.min} max={control.max} value={settings[control.key] as number} onChange={(next) => setSettings((c) => ({ ...c, [control.key]: next }))} />
                 </label>
               )
             }
@@ -6450,7 +6565,7 @@ export default function App() {
               return (
                 <span key="font" className="option-pair">
                   <label>{tr('font')}<input type="text" value={fontFamily} onChange={(event) => setFontFamily(event.target.value)} /></label>
-                  <label>{tr('fontSize')}<input type="number" min={8} max={400} value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
+                  <label>{tr('fontSize')}<NumberField min={8} max={400} value={fontSize} onChange={(next) => setFontSize(next)} /></label>
                 </span>
               )
             }
@@ -6525,9 +6640,9 @@ export default function App() {
           })}
           {transformBox && (
             <span className="option-pair transform-actions">
-              <label>{tr('transformW')}<input type="number" value={Math.round(transformBox.width)} onChange={(event) => setTransformBox((box) => (box ? { ...box, width: Number(event.target.value) } : box))} /></label>
-              <label>{tr('transformH')}<input type="number" value={Math.round(transformBox.height)} onChange={(event) => setTransformBox((box) => (box ? { ...box, height: Number(event.target.value) } : box))} /></label>
-              <label>{tr('transformAngle')}<input type="number" value={Math.round(transformBox.angle)} onChange={(event) => setTransformBox((box) => (box ? { ...box, angle: Number(event.target.value) } : box))} /></label>
+              <label>{tr('transformW')}<NumberField value={Math.round(transformBox.width)} onChange={(next) => setTransformBox((box) => (box ? { ...box, width: next } : box))} /></label>
+              <label>{tr('transformH')}<NumberField value={Math.round(transformBox.height)} onChange={(next) => setTransformBox((box) => (box ? { ...box, height: next } : box))} /></label>
+              <label>{tr('transformAngle')}<NumberField value={Math.round(transformBox.angle)} onChange={(next) => setTransformBox((box) => (box ? { ...box, angle: next } : box))} /></label>
               <button data-tooltip={tr('flipH')} onClick={() => setTransformBox((box) => (box ? { ...box, flipX: !box.flipX } : box))}><FlipHorizontal size={15} /></button>
               <button data-tooltip={tr('flipV')} onClick={() => setTransformBox((box) => (box ? { ...box, flipY: !box.flipY } : box))}><FlipVertical size={15} /></button>
               <button className="primary" data-tooltip={tr('applyTransformAction')} onClick={commitTransform}><Sparkles size={15} /><span>{tr('applyTransformAction')}</span></button>
@@ -6612,7 +6727,8 @@ export default function App() {
                 data-tooltip={tr(panelLabelKey(tab))}
                 onClick={() => setSettings((c) => ({ ...c, rightTab: tab }))}
               >
-                <span>{tr(panelLabelKey(tab))}</span>
+                <PanelTabIcon tab={tab} />
+                <span>{tr(panelShortKey(tab))}</span>
               </button>
             ))}
           </div>
@@ -6630,6 +6746,9 @@ export default function App() {
         <span>{settings.proofColors ? tr('proofOn') : settings.gamutWarning ? tr('gamutOn') : ''}</span>
         <span className={savedNote ? 'status-saved' : ''}>{savedNote ? tr('saved') : tr(status)}{status === 'working' && statusDetail ? ` ${statusDetail}` : ''}</span>
       </footer>
+
+      {/* A long job owns the document until it ends, so it is said so plainly. */}
+      <BusyOverlay job={busy} language={language} waitingLabel={tr('busyWorking')} />
 
       {tooltip && createPortal(
         <div className={`app-tooltip place-${tooltip.place}`} style={{ left: tooltip.x, top: tooltip.y }} role="tooltip">

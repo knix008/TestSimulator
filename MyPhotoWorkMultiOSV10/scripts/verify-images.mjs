@@ -266,7 +266,7 @@ for (const file of files) {
   assert.equal(psd.height, canvas.height, `${file} PSD lost height`)
   assert.equal(psd.colorMode, 'rgb')
   assert.equal(psd.depth, 8)
-  assert.deepEqual(psd.layers.map((item) => item.meta.name), [file, 'Photo folder', 'Grey overlay'], `${file} PSD layers came back in a different order`)
+  assert.deepEqual(psd.layers.map((entry) => entry.meta.name), [file, 'Photo folder', 'Grey overlay'], `${file} PSD layers came back in a different order`)
   const [photoLayer, folderLayer, overlayLayer] = psd.layers
   assert.equal(folderLayer.meta.kind, 'group')
   assert.equal(overlayLayer.meta.parentId, folderLayer.meta.id, `${file} PSD overlay fell out of its folder`)

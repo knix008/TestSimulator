@@ -161,7 +161,7 @@ test('applyTransform on a zero-size box yields an empty canvas rather than throw
 })
 
 test('flipCanvas mirrors horizontally and vertically', () => {
-  const source = canvasFrom(8, 8, (x, y) => (x < 4 ? [255, 0, 0] : [0, 0, 255]))
+  const source = canvasFrom(8, 8, (x, _y) => (x < 4 ? [255, 0, 0] : [0, 0, 255]))
   const h = flipCanvas(source, 'x')
   assert.deepEqual(px(h, 1, 4), [0, 0, 255, 255])
   assert.deepEqual(px(h, 6, 4), [255, 0, 0, 255])

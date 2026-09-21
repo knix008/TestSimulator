@@ -31,8 +31,8 @@ import { decodeImageSource, encodeExport, isHeifSource, restoreProject, serializ
 import { isDicomSource } from '../src/lib/dicom.ts'
 import { describeFile, imageStatistics, readJpegExif } from '../src/lib/metadata.ts'
 import {
-  canvasFromUrl, cloneCanvas, compositeDocument, context2d, createBlankDocument, createCanvas, createLayerMeta,
-  padCanvas, placeSmartObject, resizeCanvasContent, sampleComposite, setSmartFilterRunner, smartSourceKey,
+  cloneCanvas, compositeDocument, context2d, createBlankDocument, createCanvas, createLayerMeta,
+  padCanvas, resizeCanvasContent, sampleComposite, setSmartFilterRunner, smartSourceKey,
 } from '../src/lib/canvas.ts'
 import { defaultAdjustment, defaultEffects, warpStyles } from '../src/lib/types.ts'
 import { applyAdjustmentCanvas, levelsStretch } from '../src/lib/adjustments.ts'
@@ -41,10 +41,8 @@ import {
   applyImage, applyLut, autoContrast, autoTone, builtInLuts, calculations, desaturate, fadeTo, hdrToning, matchColor,
   rotateArbitrary,
 } from '../src/lib/adjustExtra.ts'
-import { autoColor, channelMixer, equalize, gradientMap, replaceColor, selectiveColor } from '../src/lib/colorTools.ts'
-import {
-  adjustBrightnessContrast, adjustHueSaturation, clearSelectionPixels, gaussianBlur, histogram, sharpen,
-} from '../src/lib/filters.ts'
+import { autoColor, gradientMap, replaceColor } from '../src/lib/colorTools.ts'
+import { clearSelectionPixels, gaussianBlur, histogram, sharpen } from '../src/lib/filters.ts'
 import { applyGalleryFilter, interactiveFilters } from '../src/lib/gallery.ts'
 import { customKernel, extraFilters } from '../src/lib/moreFilters.ts'
 import { applyColorMode, builtInProfiles, convertProfile } from '../src/lib/colorModes.ts'
@@ -111,18 +109,45 @@ mkdirSync(featuresDir, { recursive: true })
 /** The longest side a working copy is brought down to, so the sweep finishes in minutes. */
 const workingSide = fullSize ? Infinity : 512
 
+/*
+ * Colour on a terminal, off when the output is piped or NO_COLOR is set, forced
+ * on by FORCE_COLOR. The log file keeps the plain text either way.
+ */
+const ansiOn = process.env.FORCE_COLOR
+  ? true
+  : Boolean(process.stdout.isTTY) && !process.env.NO_COLOR && process.env.TERM !== 'dumb'
+const ansiPaint = (code) => (text) => (ansiOn ? `\u001b[${code}m${text}\u001b[0m` : String(text))
+const ansiBold = ansiPaint(1)
+const ansiDim = ansiPaint(2)
+const ansiRed = ansiPaint(31)
+const ansiGreen = ansiPaint(32)
+const ansiYellow = ansiPaint(33)
+const ansiBlue = ansiPaint(36)
+const ansiGrey = ansiPaint(90)
+const ansiOnGreen = ansiPaint('1;97;42')
+const ansiOnRed = ansiPaint('1;97;41')
+// eslint-disable-next-line no-control-regex -- stripping ANSI means matching the escape itself
+const ansiPlain = (text) => String(text).replace(/\u001b\[[0-9;]*m/g, '')
+
 const transcript = []
+/** Written to the log (without colour) and shown on screen (with). */
 const say = (line = '') => {
-  transcript.push(line)
+  transcript.push(ansiPlain(line))
   process.stdout.write(`${line}\n`)
 }
+/**
+ * Written to the log only. One line per feature per photo is 1,440 lines of
+ * scrollback; the detail belongs in `out/verify-features.log`, and what reaches
+ * the screen is a tally per photo, every failure, and the summary at the end.
+ */
+const log = (line = '') => { transcript.push(line) }
 
 // Noise, scatter and the stroke jitter draw on Math.random; seeded, so two
 // runs of the script leave the same pictures behind.
-let seed = 0x9e3779b9
+let randomState = 0x9e3779b9
 Math.random = () => {
-  seed = (seed * 1664525 + 1013904223) >>> 0
-  return seed / 0x100000000
+  randomState = (randomState * 1664525 + 1013904223) >>> 0
+  return randomState / 0x100000000
 }
 
 /* ------------------------------------------------------------ measuring */
@@ -172,16 +197,6 @@ function meanLuma(canvas) {
   return sum / (data.length / 4)
 }
 
-function meanSaturation(canvas) {
-  const data = pixels(canvas)
-  let sum = 0
-  for (let i = 0; i < data.length; i += 4) {
-    const max = Math.max(data[i], data[i + 1], data[i + 2])
-    const min = Math.min(data[i], data[i + 1], data[i + 2])
-    sum += max ? (max - min) / max : 0
-  }
-  return sum / (data.length / 4)
-}
 
 function countMask(mask) {
   let n = 0
@@ -648,7 +663,7 @@ feature({ id: 'tool-navigation', menu: 'Tools', ps: 'Hand / Rotate View / Zoom',
 
 /* ---- File */
 
-feature({ id: 'file-new', menu: 'File', ps: 'New (white, background colour, transparent)', cmd: ['file.new'], run: (c) => {
+feature({ id: 'file-new', menu: 'File', ps: 'New (white, background colour, transparent)', cmd: ['file.new'], run: () => {
   const white = createBlankDocument('New', 200, 120, '#ffffff', 'Background')
   const clear = createBlankDocument('New', 200, 120, 'transparent', 'Layer 1')
   const a = compositeDocument(white.document, white.canvases)
@@ -684,7 +699,7 @@ feature({ id: 'file-save-project', menu: 'File', ps: 'Save / Save As / Save a Co
   return { canvas: back, note: `${(JSON.stringify(project).length / 1024).toFixed(0)} kB project, reopened identical; revert = reopening this` }
 } })
 feature({ id: 'file-savePsd', menu: 'File', ps: 'Save as PSD (layers, group, mask, blend)', cmd: ['file.savePsd'], run: async (c) => {
-  const { document, layer, canvases } = singleLayerDocument(c.stem, c.work)
+  const { document, layer } = singleLayerDocument(c.stem, c.work)
   const folder = createLayerMeta('Folder', 'group')
   const overlayLayer = createLayerMeta('Overlay')
   overlayLayer.parentId = folder.id
@@ -1637,7 +1652,9 @@ for (const [index, photo] of photos.entries()) {
     tile: makePatternTile(work, rectSelection(Math.round(w * 0.4), Math.round(h * 0.4), 48, 48)),
   }
   const label = isHeifSource(file) ? `${file} (HEIF)` : isDicomSource(file) ? `${file} (DICOM)` : file
-  say(`${label}: ${photo.source.width}x${photo.source.height}, working copy ${w}x${h}`)
+  log(`${label}: ${photo.source.width}x${photo.source.height}, working copy ${w}x${h}`)
+  const startedPhoto = performance.now()
+  const before = results.length
 
   for (const entry of features) {
     const began = performance.now()
@@ -1672,7 +1689,7 @@ for (const [index, photo] of photos.entries()) {
         writeFileSync(path.join(featuresDir, name), canvas.toBuffer('image/png'))
       }
       outcome = { ok: true, name, note: result.note ?? '', difference, ms: performance.now() - began }
-      say(`  ok   ${entry.id.padEnd(30)} ${difference === null ? '' : `Δ ${difference.toFixed(1).padStart(5)}`}${outcome.note ? `  ${outcome.note}` : ''}`)
+      log(`  ok   ${entry.id.padEnd(30)} ${difference === null ? '' : `Δ ${difference.toFixed(1).padStart(5)}`}${outcome.note ? `  ${outcome.note}` : ''}`)
     } catch (error) {
       failures += 1
       outcome = { ok: false, name: null, note: error.message, difference: null, ms: performance.now() - began }
@@ -1680,8 +1697,15 @@ for (const [index, photo] of photos.entries()) {
     }
     results.push({ stem, file, feature: entry, ...outcome })
   }
-  say('')
+  const mine = results.slice(before)
+  const failed = mine.filter((row) => !row.ok).length
+  const took = ((performance.now() - startedPhoto) / 1000).toFixed(1)
+  photo.seconds = Number(took)
+  const verdict = failed ? ansiRed(`${failed} FAILED`) : ansiGreen('all ok')
+  say(`  ${ansiBlue(label.padEnd(22))} ${String(mine.length - failed).padStart(4)}/${String(mine.length).padEnd(5)}${verdict}   ${ansiGrey(`${photo.source.width}x${photo.source.height} → ${w}x${h}`)}   ${ansiYellow(`${took}s`)}`)
+  log('')
 }
+say('')
 
 /* ------------------------------------------------------------- coverage */
 
@@ -1711,7 +1735,6 @@ const finishedAt = new Date()
 const seconds = ((finishedAt - startedAt) / 1000).toFixed(1)
 const passed = results.filter((row) => row.ok).length
 
-writeFileSync(path.join(outDir, 'verify-features.log'), `${transcript.join('\n')}\n`, 'utf8')
 
 const menuNames = { file: 'File', edit: 'Edit', image: 'Image', layer: 'Layer', typeMenu: 'Type', selectMenu: 'Select', filter: 'Filter', threeD: '3D', view: 'View', windowMenu: 'Window', Tools: 'Tools' }
 const statusMark = { pixels: '✅ 픽셀로 확인', ui: '🖥 창/보기 전용', missing: '⬜ 미확인' }
@@ -1825,8 +1848,89 @@ ${rows.map((r) => `  <figure class="${r.ok ? '' : 'bad'}">
 `
 writeFileSync(path.join(outDir, 'features.html'), html, 'utf8')
 
-say(`${passed}/${results.length} feature runs passed in ${seconds}s; ${missing.length} catalog item(s) not covered${missing.length ? `: ${missing.map((row) => row.id).join(', ')}` : ''}`)
-say('Open out/features.html to see them, or read out/features.md.')
+/* -------------------------------------------------------------- summary */
+
+const HEAVY = '═'.repeat(78)
+const LIGHT = '─'.repeat(62)
+const field = (name, value) => say(`  ${name.padEnd(14)}${value}`)
+const failedRuns = results.filter((row) => !row.ok)
+
+say(HEAVY)
+say(`  ${ansiBold('SUMMARY')} — Photoshop features over real photographs`)
+say(HEAVY)
+say('')
+field('Result', failures
+  ? ansiOnRed(` ${failures} OF ${results.length} RUNS FAILED `)
+  : ansiOnGreen(` ALL ${results.length} RUNS PASSED `))
+field('Coverage', missing.length
+  ? ansiRed(`${missing.length} of ${coverage.length} catalogue items NOT COVERED`)
+  : ansiGreen(`all ${coverage.length} catalogue items accounted for`))
+field('Ran', `${features.length} features × ${photos.length} photo(s) = ${results.length} runs`)
+field('Photos', `${photos.map((p) => p.file).join(', ')}${fullSize ? ' (full size)' : ` (working copies ≤ ${workingSide}px)`}`)
+field('Took', `${seconds}s, finished ${finishedAt.toISOString()}`)
+say('')
+
+say(`  ${ansiBold('Per photo')}`)
+say(ansiGrey(`    ${'photo'.padEnd(20)}${'runs'.padStart(7)}${'passed'.padStart(8)}${'failed'.padStart(8)}   share of the run`))
+const slowest = Math.max(1, ...photos.map((photo) => photo.seconds ?? 0))
+for (const photo of photos) {
+  const mine = results.filter((row) => row.stem === photo.stem)
+  const bad = mine.filter((row) => !row.ok).length
+  const width = 10
+  const filled = Math.max(1, Math.round(((photo.seconds ?? 0) / slowest) * width))
+  const meter = ansiBlue('█'.repeat(filled)) + ansiDim('·'.repeat(width - filled))
+  say(`    ${photo.file.padEnd(20)}${String(mine.length).padStart(7)}${ansiGreen(String(mine.length - bad).padStart(8))}${bad ? ansiRed(String(bad).padStart(8)) : ansiGreen('0'.padStart(8))}   ${meter} ${ansiYellow(`${(photo.seconds ?? 0).toFixed(1)}s`)}`)
+}
+say('')
+
+say(`  ${ansiBold('Catalogue coverage')}`)
+say(ansiGrey(`    ${'menu'.padEnd(10)}${'items'.padStart(7)}${'by pixels'.padStart(11)}${'window/view'.padStart(13)}${'uncovered'.padStart(11)}   coverage`))
+const tally = (rows, status) => rows.filter((row) => row.status === status).length
+const meterFor = (part, whole) => {
+  const width = 10
+  const filled = whole ? Math.round((part / whole) * width) : 0
+  return ansiGreen('█'.repeat(filled)) + ansiDim('·'.repeat(width - filled))
+}
+for (const menu of menuKeys) {
+  const rows = byMenu(menu)
+  if (!rows.length) continue
+  const gap = tally(rows, 'missing')
+  say(`    ${menuNames[menu].padEnd(10)}${String(rows.length).padStart(7)}${ansiGreen(String(tally(rows, 'pixels')).padStart(11))}${ansiYellow(String(tally(rows, 'ui')).padStart(13))}${gap ? ansiRed(String(gap).padStart(11)) : ansiGrey('0'.padStart(11))}   ${meterFor(rows.length - gap, rows.length)}`)
+}
+say(ansiGrey(`    ${LIGHT}`))
+say(`    ${ansiBold('TOTAL'.padEnd(10))}${ansiBold(String(coverage.length).padStart(7))}${ansiGreen(String(tally(coverage, 'pixels')).padStart(11))}${ansiYellow(String(tally(coverage, 'ui')).padStart(13))}${missing.length ? ansiRed(String(missing.length).padStart(11)) : ansiGrey('0'.padStart(11))}   ${meterFor(coverage.length - missing.length, coverage.length)}`)
+say('')
+
+if (failedRuns.length) {
+  say(`  ${ansiBold(ansiRed(`Failures (${failedRuns.length})`))}`)
+  // One line per distinct reason, with the photos it happened on.
+  const grouped = new Map()
+  for (const row of failedRuns) {
+    const key = `${row.feature.id} ${row.note}`
+    grouped.set(key, [...(grouped.get(key) ?? []), row.file])
+  }
+  for (const [key, where] of grouped) {
+    const [id, reason] = key.split(' ')
+    say(`    ${ansiRed('✘')} ${ansiBold(id.padEnd(26))} ${where.length === photos.length ? 'every photo' : where.join(', ')}`)
+    say(`      ${reason}`)
+  }
+  say('')
+}
+
+if (missing.length) {
+  say(`  ${ansiBold(ansiRed(`Not covered (${missing.length})`))}`)
+  say(`    ${missing.map((row) => row.id).join(', ')}`)
+  say('')
+}
+
+say(`  ${ansiBold('Output')}`)
+say('    out/features.html         the gallery: every result picture, per photo')
+say('    out/features.md           per-item results and the coverage table')
+say('    out/verify-features.log   every run, one line each')
+say(HEAVY)
+
+writeFileSync(path.join(outDir, 'verify-features.log'), `${transcript.join('\n')}\n`, 'utf8')
+
 if (failures || missing.length) {
   process.exitCode = 1
 }

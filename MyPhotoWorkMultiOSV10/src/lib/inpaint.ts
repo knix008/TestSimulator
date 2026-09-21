@@ -160,8 +160,20 @@ function patchDistance(level: Level, tx: number, ty: number, sx: number, sy: num
 
 type Field = { sx: Int32Array; sy: Int32Array; cost: Float32Array }
 
-/** One level's fill: the nearest-neighbour field is searched, then voted into the hole, `rounds` times. */
-function fillLevel(level: Level, field: Field, sourceList: Int32Array, rounds: number, iterations: number, random: () => number) {
+/**
+ * One level's fill: the nearest-neighbour field is searched, then voted into
+ * the hole, `rounds` times.
+ *
+ * Averaging every patch that covers a pixel is what makes the coarse levels
+ * converge, but carried into the finest level it is a blur: a filled hole came
+ * back with about a sixth of the detail of the picture around it, the
+ * washed-out patch you could see. `crisp` keeps the average's low frequencies
+ * and adds the high frequencies of the single patch that matched best, which
+ * is grain without the seams that taking the winner outright would leave.
+ * Sharper rounds also give the next round's search something real to match, so
+ * the finest level runs more of them; past four the fill starts to band.
+ */
+function fillLevel(level: Level, field: Field, sourceList: Int32Array, rounds: number, iterations: number, random: () => number, crisp = false) {
   const { width, height, rgb, hole } = level
   const { target, source } = classify(level)
   const { sx, sy, cost } = field
@@ -208,6 +220,8 @@ function fillLevel(level: Level, field: Field, sourceList: Int32Array, rounds: n
     // Voting: every patch that overlaps the hole contributes its match's pixels.
     const acc = new Float32Array(width * height * 3)
     const count = new Float32Array(width * height)
+    const winner = crisp ? new Float32Array(width * height) : null
+    const winnerRgb = winner ? new Float32Array(width * height * 3) : null
     for (let i = 0; i < target.length; i += 1) {
       if (!target[i]) continue
       const tx = i % width
@@ -225,14 +239,65 @@ function fillLevel(level: Level, field: Field, sourceList: Int32Array, rounds: n
           const s = ((sy[i] + dy) * width + sx[i] + dx) * 3
           acc[q * 3] += rgb[s] * weight; acc[q * 3 + 1] += rgb[s + 1] * weight; acc[q * 3 + 2] += rgb[s + 2] * weight
           count[q] += weight
+          if (winner && winnerRgb && weight > winner[q]) {
+            winner[q] = weight
+            winnerRgb[q * 3] = rgb[s]; winnerRgb[q * 3 + 1] = rgb[s + 1]; winnerRgb[q * 3 + 2] = rgb[s + 2]
+          }
         }
       }
     }
+    /*
+     * The averaged colours carry the shading across the hole correctly but no
+     * grain; the winning patch carries the grain but, taken outright, shows
+     * where one patch ends and the next begins. So the hole gets the average's
+     * low frequencies and the winner's high ones: the winner minus its own
+     * local mean is the detail it contributes.
+     */
+    const smooth = winner && winnerRgb ? localMean(winnerRgb, winner, width, height, 2) : null
     for (let q = 0; q < count.length; q += 1) {
       if (!hole[q] || count[q] <= 0) continue
-      rgb[q * 3] = acc[q * 3] / count[q]; rgb[q * 3 + 1] = acc[q * 3 + 1] / count[q]; rgb[q * 3 + 2] = acc[q * 3 + 2] / count[q]
+      const r = acc[q * 3] / count[q]
+      const g = acc[q * 3 + 1] / count[q]
+      const b = acc[q * 3 + 2] / count[q]
+      if (smooth && winner && winnerRgb && winner[q] > 0) {
+        rgb[q * 3] = clampByte(r + winnerRgb[q * 3] - smooth[q * 3])
+        rgb[q * 3 + 1] = clampByte(g + winnerRgb[q * 3 + 1] - smooth[q * 3 + 1])
+        rgb[q * 3 + 2] = clampByte(b + winnerRgb[q * 3 + 2] - smooth[q * 3 + 2])
+        continue
+      }
+      rgb[q * 3] = r; rgb[q * 3 + 1] = g; rgb[q * 3 + 2] = b
     }
   }
+}
+
+const clampByte = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v)
+
+/** A box mean of `rgb` over the square of side 2r+1, counting only entries `has` marks. */
+function localMean(rgb: Float32Array, has: Float32Array, width: number, height: number, r: number) {
+  const out = new Float32Array(rgb.length)
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const q = y * width + x
+      if (!has[q]) continue
+      let sr = 0
+      let sg = 0
+      let sb = 0
+      let n = 0
+      for (let dy = -r; dy <= r; dy += 1) {
+        const yy = y + dy
+        if (yy < 0 || yy >= height) continue
+        for (let dx = -r; dx <= r; dx += 1) {
+          const xx = x + dx
+          if (xx < 0 || xx >= width) continue
+          const p = yy * width + xx
+          if (!has[p]) continue
+          sr += rgb[p * 3]; sg += rgb[p * 3 + 1]; sb += rgb[p * 3 + 2]; n += 1
+        }
+      }
+      out[q * 3] = sr / n; out[q * 3 + 1] = sg / n; out[q * 3 + 2] = sb / n
+    }
+  }
+  return out
 }
 
 function sourcesOf(level: Level) {
@@ -248,7 +313,7 @@ function sourcesOf(level: Level) {
  * first guess for the hole (Telea inpainting, say) that the coarsest level
  * starts from instead of a flat colour.
  */
-export function patchFill(canvas: HTMLCanvasElement, mask: Uint8Array, options: { seed?: HTMLCanvasElement; iterations?: number; randomSeed?: number } = {}) {
+export function patchFill(canvas: HTMLCanvasElement, mask: Uint8Array, options: { seed?: HTMLCanvasElement; iterations?: number; rounds?: number; randomSeed?: number } = {}) {
   const width = canvas.width
   const height = canvas.height
   const ctx = context2d(canvas)
@@ -274,6 +339,9 @@ export function patchFill(canvas: HTMLCanvasElement, mask: Uint8Array, options: 
   }
   const random = rng(options.randomSeed ?? 1234567)
   const iterations = options.iterations ?? 4
+  // Rounds at the finest level: Preferences ▸ Engine, because how many a
+  // picture needs depends on the picture.
+  const fineRounds = Math.max(1, Math.round(options.rounds ?? 4))
   let previous: { level: Level; field: Field } | null = null
   for (let index = levels.length - 1; index >= 0; index -= 1) {
     const level = levels[index]
@@ -319,7 +387,7 @@ export function patchFill(canvas: HTMLCanvasElement, mask: Uint8Array, options: 
       }
     }
     const finest = index === 0
-    fillLevel(level, field, sourceList, finest ? 2 : 3, finest ? Math.max(2, iterations - 1) : iterations, random)
+    fillLevel(level, field, sourceList, finest ? fineRounds : 3, finest ? Math.max(2, iterations - 1) : iterations, random, finest)
     previous = { level, field }
   }
   for (let i = 0; i < width * height; i += 1) {

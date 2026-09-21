@@ -27,7 +27,17 @@ const ranges: Partial<Record<keyof AppSettings, [number, number]>> = {
   mixerFlow: [0.02, 1],
   liquifyPressure: [0.05, 1],
   historyStates: [5, 500],
+  fillRounds: [1, 8],
+  fillIterations: [1, 10],
+  grabCutIterations: [1, 12],
+  subjectKeepRatio: [0.02, 1],
+  skyStep: [4, 96],
+  skyDrift: [16, 255],
+  skyHorizon: [1, 4],
 }
+
+/** The engine numbers must stay whole where the algorithm counts with them. */
+const wholeNumbers: (keyof AppSettings)[] = ['fillRounds', 'fillIterations', 'grabCutIterations', 'skyStep', 'skyDrift']
 
 export function loadSettings(): AppSettings {
   if (typeof window === 'undefined') {
@@ -63,6 +73,10 @@ export function loadSettings(): AppSettings {
     }
     settings.shapeSides = Math.round(settings.shapeSides)
     settings.magneticWidth = Math.round(settings.magneticWidth)
+    for (const key of wholeNumbers) {
+      const value = settings[key]
+      if (typeof value === 'number') (settings as unknown as Record<string, number>)[key] = Math.round(value)
+    }
     // Actions and brushes come back from storage, where anything could be;
     // only entries that still look like the real thing are kept.
     settings.actions = Array.isArray(parsed.actions)

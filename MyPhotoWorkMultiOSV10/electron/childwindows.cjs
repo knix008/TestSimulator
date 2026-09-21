@@ -97,6 +97,8 @@ const DIALOG_SPECS = {
   gradientEditor: { width: 520, height: 640, minWidth: 420 },
   neural: { width: 440, height: 330, resizable: false },
   neuralModels: { width: 640, height: 560, resizable: true },
+  removeBg: { width: 560, height: 560, resizable: true },
+  modelSetup: { width: 560, height: 480, resizable: true },
   note: { width: 420, height: 240, resizable: false },
   findReplace: { width: 420, height: 270, resizable: false },
   exportAs: { width: 440, height: 330, resizable: false },

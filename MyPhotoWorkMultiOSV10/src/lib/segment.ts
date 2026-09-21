@@ -297,10 +297,37 @@ export function selectSubjectAuto(canvas: HTMLCanvasElement): Selection {
   return toSelection(keep, width, height)
 }
 
+/**
+ * One subject, no speckle: the biggest piece of the mask, plus anything of
+ * comparable size, with the holes inside it filled. GrabCut answers per pixel
+ * and leaves crumbs of background scattered around the picture; Photoshop's
+ * Select Subject returns a single object.
+ */
+export function tidySubjectMask(mask: Uint8Array, width: number, height: number, keepRatio = 0.2) {
+  const scale = Math.max(1, Math.round(Math.min(width, height) / 160))
+  let out = openMask(mask, width, height, scale)
+  out = fillHoles(out, width, height)
+  const { labels, sizes } = labelComponents(out, width, height)
+  const largest = Math.max(0, ...sizes.slice(1))
+  if (!largest) return out
+  const keep = new Uint8Array(out.length)
+  for (let i = 0; i < out.length; i += 1) if (out[i] && sizes[labels[i]] >= largest * keepRatio) keep[i] = 255
+  return keep
+}
+
 /* -------------------------------------------------------------------- sky */
 
-/** Sky: the bright, blue-leaning region that touches the top edge. */
-export function selectSky(canvas: HTMLCanvasElement): Selection {
+/** Sky: the bright, blue-leaning region that touches the top edge, stopping at the horizon. */
+export type SkyOptions = {
+  /** How big a colour step between neighbours stops the sky growing. */
+  step?: number
+  /** How far the colour may drift from the band at the top before it is no longer that sky. */
+  drift?: number
+  /** The horizon, as a multiple of the typical run of sky down a column. */
+  horizon?: number
+}
+
+export function selectSky(canvas: HTMLCanvasElement, options: SkyOptions = {}): Selection {
   const { width, height } = canvas
   const data = context2d(canvas).getImageData(0, 0, width, height).data
   const looksLikeSky = (i: number) => {
@@ -308,12 +335,61 @@ export function selectSky(canvas: HTMLCanvasElement): Selection {
     const g = data[i + 1]
     const b = data[i + 2]
     const bright = (r + g + b) / 3
-    const blueish = b >= r && b >= g - 12
-    const pale = bright > 170 && Math.max(r, g, b) - Math.min(r, g, b) < 40
+    // Blue-leaning, not cyan: pool water has green as strong as blue, sky does not.
+    const blueish = b >= r + 8 && b >= g + 4
+    const pale = bright > 170 && Math.max(r, g, b) - Math.min(r, g, b) < 24
     return data[i + 3] > 8 && (blueish && bright > 70 || pale)
   }
   const candidate = new Uint8Array(width * height)
   for (let i = 0; i < candidate.length; i += 1) if (looksLikeSky(i * 4)) candidate[i] = 255
+  // What the sky looks like in this picture, from the band along the top.
+  const band = Math.max(1, Math.round(height * 0.05))
+  let sr = 0
+  let sg = 0
+  let sb = 0
+  let samples = 0
+  for (let y = 0; y < band; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x
+      if (!candidate[index]) continue
+      const i = index * 4
+      sr += data[i]; sg += data[i + 1]; sb += data[i + 2]; samples += 1
+    }
+  }
+  const skyR = samples ? sr / samples : 0
+  const skyG = samples ? sg / samples : 0
+  const skyB = samples ? sb / samples : 0
+  /*
+   * Sea, a pool and a pale wall all pass `looksLikeSky`, and they touch the sky
+   * at the horizon, so a plain flood fill runs straight down the picture. Two
+   * gates stop it: a step gate, because a sky shades gradually while a horizon
+   * is a jump, and a drift gate against the band above, because a gradient that
+   * has wandered far enough is no longer the same sky.
+   */
+  const step = options.step ?? 26
+  const drift = options.drift ?? 96
+  /*
+   * A white ceiling and a bright pool pass `looksLikeSky` too, and in a picture
+   * shot from a terrace they touch the sky, so the gates above are not enough on
+   * their own. Sky also has a shape: in every column it is a run starting at the
+   * top. The typical length of those runs is where the horizon is, and nothing
+   * well below it is sky, whatever its colour.
+   */
+  const runs: number[] = []
+  for (let x = 0; x < width; x += 1) {
+    let run = 0
+    while (run < height && candidate[run * width + x]) run += 1
+    if (run) runs.push(run)
+  }
+  runs.sort((a, b) => a - b)
+  // The deeper runs, not the median: a subject standing in front of the sky
+  // cuts its own column short and must not drag the horizon up with it.
+  const typical = runs.length ? runs[Math.floor(runs.length * 0.75)] : height
+  const floor = Math.min(height, Math.round(typical * (options.horizon ?? 1.3)) + Math.round(height * 0.03))
+  const jump = (a: number, b: number) => Math.max(
+    Math.abs(data[a] - data[b]), Math.abs(data[a + 1] - data[b + 1]), Math.abs(data[a + 2] - data[b + 2]),
+  )
+  const strayed = (i: number) => !samples || Math.hypot(data[i] - skyR, data[i + 1] - skyG, data[i + 2] - skyB) > drift
   // Only what connects to the top edge counts: a blue shirt does not.
   const mask = new Uint8Array(width * height)
   const stack: number[] = []
@@ -330,6 +406,8 @@ export function selectSky(canvas: HTMLCanvasElement): Selection {
     const next = [x > 0 ? index - 1 : -1, x < width - 1 ? index + 1 : -1, y > 0 ? index - width : -1, y < height - 1 ? index + width : -1]
     for (const j of next) {
       if (j < 0 || mask[j] || !candidate[j]) continue
+      if ((j - (j % width)) / width >= floor) continue
+      if (jump(index * 4, j * 4) > step || strayed(j * 4)) continue
       mask[j] = 255
       stack.push(j)
     }

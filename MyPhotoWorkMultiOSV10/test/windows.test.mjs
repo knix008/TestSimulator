@@ -37,14 +37,16 @@ test('every dialog has a window size, and the settings window is a preferences w
     assert.ok(specs[name].width >= 320, `${name} is too narrow`)
     assert.ok(specs[name].height >= 180, `${name} is too short`)
   }
-  // The settings are on tabs: a window of a set size whose page scrolls, wide
-  // enough for two controls side by side, and resizable for a long page.
+  // The settings are on tabs: a window of a set size, wide enough for two
+  // controls side by side, and every page laid out to fit inside it. A page
+  // that outgrows the window is split in two rather than given a scrollbar,
+  // because a setting below the fold is a setting nobody finds.
   assert.ok(specs.settings.width >= 560, 'the settings window should be wide enough for two controls side by side')
   assert.ok(specs.settings.width <= 700, 'the settings window has grown back into a scroll of everything')
   assert.ok(specs.settings.height >= 560, 'the settings window is too short for a page')
-  assert.equal(specs.settings.resizable, true, 'the settings window cannot be resized for a long page')
-  assert.match(cssSource, /\.dialog-window > \.dialog\.settings-dialog \{[^}]*height: 100vh/, 'the settings dialog does not fill its window, so the page cannot scroll')
-  assert.match(cssSource, /\.settings-page \{[^}]*overflow-y: auto/, 'the settings page does not scroll')
+  assert.equal(specs.settings.resizable, true, 'the settings window cannot be resized')
+  assert.match(cssSource, /\.dialog-window > \.dialog\.settings-dialog \{[^}]*height: 100vh/, 'the settings dialog does not fill its window')
+  assert.doesNotMatch(cssSource, /\.settings-page \{[^}]*overflow-y: auto/, 'the settings page scrolls again instead of being split')
   assert.match(cssSource, /\.dialog-window \.settings-dialog \.dialog-content \{[^}]*overflow: hidden/, 'the content would keep growing the window')
 })
 
@@ -399,11 +401,13 @@ test('a number in the settings window has a step button either side', () => {
   assert.match(stepper, /Math\.min\(max, Math\.max\(min, next\)\)/, 'typing could go out of range')
   assert.match(stepper, /type="number"/, 'the value can no longer be typed')
 
-  // Both settings numbers use it, and so do the size dialogs.
+  // Every counted setting uses it, and so do the size dialogs. The count grows
+  // as pages are added, so what is asserted is that none is left bare.
   const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'helpGuide':"))
-  assert.equal((settings.match(/<NumberStepper/g) ?? []).length, 5, 'a settings number is still a bare input')
+  assert.ok((settings.match(/<NumberStepper/g) ?? []).length >= 5, 'the settings window lost its steppers')
+  assert.doesNotMatch(settings, /<input\s+type="number"/, 'a settings number is still a bare input')
   // Every preference the editor keeps is on one of the pages, and there is a way back to the defaults.
-  for (const key of ['showRulers', 'showGrid', 'showGuides', 'showPixelGrid', 'smartGuides', 'showSlices', 'showNotes', 'extras', 'snapEnabled', 'snapToGuides', 'snapToGrid', 'lockGuides', 'proofColors', 'gamutWarning', 'rulerUnits', 'rightWidth', 'selectionMode', 'marqueeFeather', 'antiAlias', 'wandContiguous', 'sampleAllLayers', 'fillTolerance', 'eyedropperSample', 'cloneAligned', 'patternImpressionist', 'brushHardness', 'brushOpacity', 'historyStates', 'neuralWebgpu', 'exportFormat', 'exportTransparent', 'recentFiles']) {
+  for (const key of ['showRulers', 'showGrid', 'showGuides', 'showPixelGrid', 'smartGuides', 'showSlices', 'showNotes', 'extras', 'snapEnabled', 'snapToGuides', 'snapToGrid', 'lockGuides', 'proofColors', 'gamutWarning', 'rulerUnits', 'rightWidth', 'selectionMode', 'marqueeFeather', 'antiAlias', 'wandContiguous', 'sampleAllLayers', 'fillTolerance', 'eyedropperSample', 'cloneAligned', 'patternImpressionist', 'brushHardness', 'brushOpacity', 'historyStates', 'neuralWebgpu', 'exportFormat', 'exportTransparent', 'recentFiles', 'fillRounds', 'fillIterations', 'grabCutIterations', 'subjectTidy', 'subjectKeepRatio', 'skyStep', 'skyDrift', 'skyHorizon']) {
     assert.ok(settings.includes(`'${key}'`) || settings.includes(`${key}:`) || settings.includes(`settings.${key}`), `the ${key} preference has no control in the settings window`)
   }
   assert.match(settings, /const resetPreferences = /, 'there is no way back to the defaults')

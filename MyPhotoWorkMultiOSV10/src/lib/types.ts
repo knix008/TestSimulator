@@ -28,7 +28,7 @@ export type AdjustmentType =
   | 'equalize'
 
 export type GradientKind = 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond'
-export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'polygon' | 'line' | 'star' | 'heart' | 'arrow' | 'triangle' | 'custom'
+export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'polygon' | 'line' | 'star' | 'heart' | 'arrow' | 'triangle' | 'diamond' | 'cross' | 'chevron' | 'speech' | 'moon' | 'lightning' | 'plus' | 'custom'
 export type FillKind = 'solid' | 'gradient' | 'pattern'
 
 export type Tool =
@@ -655,6 +655,38 @@ export type AppSettings = {
   brushTipId: string
   /** Try the GPU for the neural networks (experimental); off runs them on the CPU threads. */
   neuralWebgpu: boolean
+  /**
+   * Which method Remove Background and Select Subject use: a model id, or
+   * 'classical' for the built-in GrabCut, or '' to take the best model that
+   * happens to be downloaded.
+   */
+  subjectMethod: string
+  /** Whether the first-run offer to fetch the models has been made. */
+  modelsPrompted: boolean
+
+  /*
+   * The engine's own numbers. Every one of these was a constant inside an
+   * algorithm until it turned out that the right value depends on the picture:
+   * a fill over foliage wants more rounds than a fill over a wall, and a sky
+   * heuristic tuned for a blue sky is wrong for a sunset. The Engine tab in
+   * Preferences is where they live now.
+   */
+  /** Content-Aware Fill: PatchMatch rounds at the finest level. Higher is slower and sharper; past 5 it bands. */
+  fillRounds: number
+  /** Content-Aware Fill: search passes per round. */
+  fillIterations: number
+  /** Select Subject / Object Selection: GrabCut iterations. */
+  grabCutIterations: number
+  /** Select Subject: keep pieces at least this fraction of the biggest one. 1 keeps only the biggest. */
+  subjectKeepRatio: number
+  /** Select Subject: tidy GrabCut's answer into one object instead of using it as it comes. */
+  subjectTidy: boolean
+  /** Select Sky: how big a colour step between neighbours stops the sky growing. */
+  skyStep: number
+  /** Select Sky: how far the colour may drift from the band at the top of the picture. */
+  skyDrift: number
+  /** Select Sky: the horizon, as a multiple of the typical run of sky down a column. */
+  skyHorizon: number
 }
 
 export type ErrorDetails = { title: string; message: string; details: string }
@@ -875,6 +907,16 @@ export const defaultSettings: AppSettings = {
   paintTarget: 'layer',
   brushTipId: '',
   neuralWebgpu: false,
+  subjectMethod: '',
+  modelsPrompted: false,
+  fillRounds: 4,
+  fillIterations: 4,
+  grabCutIterations: 5,
+  subjectKeepRatio: 0.2,
+  subjectTidy: true,
+  skyStep: 26,
+  skyDrift: 96,
+  skyHorizon: 1.3,
 }
 
 export const documentPresets: { id: string; width: number; height: number }[] = [

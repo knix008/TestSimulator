@@ -1,5 +1,9 @@
 import { createElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Copy, Layers2, Minus, Plus, RotateCcw, Sparkles, X } from 'lucide-react'
+import {
+  BrainCircuit, Check, Copy, Download, Keyboard, Layers2, Minus, Plus, Printer, RefreshCw, RotateCcw, Save, Sparkles, Tag, Trash, X,
+} from 'lucide-react'
+import { Slider } from './controls'
+import { dialogDescription } from './dialogInfo'
 import { t } from './i18n'
 import { copyText } from './lib/errors'
 import type { MetaSection } from './lib/metadata'
@@ -9,7 +13,6 @@ import { ExtraDialogBody } from './dialogsExtra'
 import { useLivePreview } from './usePreview'
 import { themeLabel, themes } from './themes'
 import { curveLut, addCurvePoint, removeCurvePoint } from './lib/curves'
-import { filterCatalog } from './catalog'
 import { supportsTransparency } from './lib/imageIO'
 import { colorFamilies, defaultChannelMix, defaultInkShift, type ChannelMix, type ColorFamily, type InkShift } from './lib/colorTools'
 import { builtInProfiles } from './lib/colorModes'
@@ -66,6 +69,15 @@ export function DialogFrame({
           <X size={15} />
         </button>
       </header>
+      {/*
+        A title is not an explanation: "Apply Image", "Calculations" and "Fade"
+        are all accurate and none of them says what pressing Apply would do.
+        The line under the title does, in one sentence, for every window that
+        has one to give.
+      */}
+      {dialogDescription(language, name) && (
+        <p className="dialog-about">{dialogDescription(language, name)}</p>
+      )}
       <div className="dialog-content">{children}</div>
     </div>
   )
@@ -95,9 +107,19 @@ export function NumberStepper({
   language: Language
   onChange: (next: number) => void
 }) {
+  const [typed, setTyped] = useState<string | null>(null)
   const clamp = (next: number) => Math.min(max, Math.max(min, next))
   // Rounded to the step so repeated clicks cannot drift off the grid.
-  const nudge = (direction: 1 | -1) => onChange(clamp(Math.round((value + direction * step) / step) * step))
+  const nudge = (direction: 1 | -1) => {
+    setTyped(null)
+    onChange(clamp(Math.round((value + direction * step) / step) * step))
+  }
+  const commitTyped = () => {
+    if (typed === null) return
+    const next = Number(typed)
+    setTyped(null)
+    if (Number.isFinite(next) && clamp(next) !== value) onChange(clamp(next))
+  }
 
   return (
     <span className="number-stepper">
@@ -110,16 +132,24 @@ export function NumberStepper({
       >
         <Minus size={14} />
       </button>
+      {/*
+        The buttons either side are a single step and answer at once. Typing is
+        held back until Enter or until the field is left, so entering "120" does
+        not redraw the picture at 1, then 12, then 120.
+      */}
       <input
         type="number"
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={(event) => {
-          const next = Number(event.target.value)
-          if (Number.isFinite(next)) onChange(clamp(next))
+        value={typed ?? value}
+        onChange={(event) => setTyped(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return
+          event.preventDefault()
+          commitTyped()
         }}
+        onBlur={commitTyped}
       />
       <button
         type="button"
@@ -302,7 +332,7 @@ export function DialogBody({
   const [warpBend, setWarpBend] = useState(40)
   const [profileId, setProfileId] = useState(payload.profile?.current ?? 'srgb')
   const [brushName, setBrushName] = useState('')
-  const [settingsTab, setSettingsTab] = useState<'general' | 'view' | 'tools' | 'brush' | 'export'>('general')
+  const [settingsTab, setSettingsTab] = useState<'general' | 'theme' | 'view' | 'tools' | 'brush' | 'export' | 'engine' | 'selection' | 'sky'>('general')
   const [solid, setSolid] = useState<ThreeDData>(() => payload.threeD ?? defaultThreeD())
   const [warpH, setWarpH] = useState(0)
   const [warpV, setWarpV] = useState(0)
@@ -394,8 +424,8 @@ export function DialogBody({
           {previewRow}
           {previewRow}
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'ok', width: Math.max(1, adjust.width), height: Math.max(1, adjust.height), background })}>{tr('ok')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'ok', width: Math.max(1, adjust.width), height: Math.max(1, adjust.height), background })}><Check size={14} aria-hidden="true" /><span>{tr('ok')}</span></button>
           </div>
         </>
       )
@@ -409,8 +439,8 @@ export function DialogBody({
           </div>
           <p className="dialog-hint">{tr('skewHint')}</p>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', horizontal: skewH, vertical: skewV })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', horizontal: skewH, vertical: skewV })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -419,13 +449,13 @@ export function DialogBody({
       return (
         <>
           <label>{tr('amount')}
-            <input type="range" min={-100} max={100} value={perspectiveAmount} onChange={(event) => setPerspectiveAmount(Number(event.target.value))} />
+            <Slider min={-100} max={100} value={perspectiveAmount} onChange={(next) => setPerspectiveAmount(next)} />
             <span>{perspectiveAmount}</span>
           </label>
           <p className="dialog-hint">{tr('perspectiveHint')}</p>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', amount: perspectiveAmount })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', amount: perspectiveAmount })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -446,9 +476,9 @@ export function DialogBody({
             </div>
           ))}
           <div className="dialog-actions">
-            <button onClick={() => setCorners([{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }])}>{tr('reset')}</button>
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', corners })}>{tr('apply')}</button>
+            <button onClick={() => setCorners([{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }])}><RotateCcw size={14} aria-hidden="true" /><span>{tr('reset')}</span></button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', corners })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -462,12 +492,12 @@ export function DialogBody({
               {warpStyles.map((style) => <option key={style} value={style}>{tr(`warp${style.charAt(0).toUpperCase()}${style.slice(1)}`)}</option>)}
             </select>
           </label>
-          <label>{tr('warpBend')}<input type="range" min={-100} max={100} value={warpBend} onChange={(event) => setWarpBend(Number(event.target.value))} /><span>{warpBend}</span></label>
-          <label>{tr('warpH')}<input type="range" min={-100} max={100} value={warpH} onChange={(event) => setWarpH(Number(event.target.value))} /><span>{warpH}</span></label>
-          <label>{tr('warpV')}<input type="range" min={-100} max={100} value={warpV} onChange={(event) => setWarpV(Number(event.target.value))} /><span>{warpV}</span></label>
+          <label>{tr('warpBend')}<Slider min={-100} max={100} value={warpBend} onChange={(next) => setWarpBend(next)} /><span>{warpBend}</span></label>
+          <label>{tr('warpH')}<Slider min={-100} max={100} value={warpH} onChange={(next) => setWarpH(next)} /><span>{warpH}</span></label>
+          <label>{tr('warpV')}<Slider min={-100} max={100} value={warpV} onChange={(next) => setWarpV(next)} /><span>{warpV}</span></label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', style: warpStyle, bend: warpBend, horizontal: warpH, vertical: warpV })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', style: warpStyle, bend: warpBend, horizontal: warpH, vertical: warpV })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -486,8 +516,8 @@ export function DialogBody({
           <p className="dialog-hint">{tr('contentScaleHint')}</p>
           <p className="dialog-hint">{tr('protectSkinHint')}</p>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', width: adjust.width, height: adjust.height, protectSkin })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', width: adjust.width, height: adjust.height, protectSkin })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -496,55 +526,52 @@ export function DialogBody({
       return (
         <>
           <label>{tr('depth')}
-            <input type="range" min={0} max={200} value={solid.depth} onChange={(event) => setSolid((c) => ({ ...c, depth: Number(event.target.value) }))} />
+            <Slider min={0} max={200} value={solid.depth} onChange={(next) => setSolid((c) => ({ ...c, depth: next }))} />
             <span>{solid.depth}</span>
           </label>
           <label>{tr('rotateXAxis')}
-            <input type="range" min={-90} max={90} value={solid.rotateX} onChange={(event) => setSolid((c) => ({ ...c, rotateX: Number(event.target.value) }))} />
+            <Slider min={-90} max={90} value={solid.rotateX} onChange={(next) => setSolid((c) => ({ ...c, rotateX: next }))} />
             <span>{solid.rotateX}</span>
           </label>
           <label>{tr('rotateYAxis')}
-            <input type="range" min={-90} max={90} value={solid.rotateY} onChange={(event) => setSolid((c) => ({ ...c, rotateY: Number(event.target.value) }))} />
+            <Slider min={-90} max={90} value={solid.rotateY} onChange={(next) => setSolid((c) => ({ ...c, rotateY: next }))} />
             <span>{solid.rotateY}</span>
           </label>
           <label>{tr('rotateZAxis')}
-            <input type="range" min={-180} max={180} value={solid.rotateZ} onChange={(event) => setSolid((c) => ({ ...c, rotateZ: Number(event.target.value) }))} />
+            <Slider min={-180} max={180} value={solid.rotateZ} onChange={(next) => setSolid((c) => ({ ...c, rotateZ: next }))} />
             <span>{solid.rotateZ}</span>
           </label>
           <label>{tr('perspectiveAmount')}
-            <input
-              type="range"
+            <Slider
               min={0}
               max={100}
               value={Math.round(solid.perspective * 100)}
-              onChange={(event) => setSolid((c) => ({ ...c, perspective: Number(event.target.value) / 100 }))}
+              onChange={(next) => setSolid((c) => ({ ...c, perspective: next / 100 }))}
             />
             <span>{Math.round(solid.perspective * 100)}</span>
           </label>
           <div className="dialog-grid">
             <label>{tr('lightX')}
-              <input
-                type="range"
+              <Slider
                 min={-100}
                 max={100}
                 value={Math.round(solid.lightX * 100)}
-                onChange={(event) => setSolid((c) => ({ ...c, lightX: Number(event.target.value) / 100 }))}
+                onChange={(next) => setSolid((c) => ({ ...c, lightX: next / 100 }))}
               />
             </label>
             <label>{tr('lightY')}
-              <input
-                type="range"
+              <Slider
                 min={-100}
                 max={100}
                 value={Math.round(solid.lightY * 100)}
-                onChange={(event) => setSolid((c) => ({ ...c, lightY: Number(event.target.value) / 100 }))}
+                onChange={(next) => setSolid((c) => ({ ...c, lightY: next / 100 }))}
               />
             </label>
           </div>
           <div className="dialog-actions">
-            <button onClick={() => setSolid(defaultThreeD())}>{tr('reset')}</button>
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', threeD: solid })}>{tr('apply')}</button>
+            <button onClick={() => setSolid(defaultThreeD())}><RotateCcw size={14} aria-hidden="true" /><span>{tr('reset')}</span></button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', threeD: solid })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -564,9 +591,9 @@ export function DialogBody({
           </label>
           <p className="dialog-hint">{tr('profileHint')}</p>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button onClick={() => onResult({ action: 'assign', profile: profileId })}>{tr('profileAssign')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'convert', profile: profileId })}>{tr('profileConvert')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button onClick={() => onResult({ action: 'assign', profile: profileId })}><Tag size={13} aria-hidden="true" /><span>{tr('profileAssign')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'convert', profile: profileId })}><RefreshCw size={13} aria-hidden="true" /><span>{tr('profileConvert')}</span></button>
           </div>
         </>
       )
@@ -578,8 +605,8 @@ export function DialogBody({
             <input value={channelName} onChange={(event) => setChannelName(event.target.value)} />
           </label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', name: channelName.trim() || tr('channel') })}>{tr('ok')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', name: channelName.trim() || tr('channel') })}><Check size={14} aria-hidden="true" /><span>{tr('ok')}</span></button>
           </div>
         </>
       )
@@ -609,8 +636,8 @@ export function DialogBody({
               </>
             )}
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" disabled={!chosen} onClick={() => onResult({ action: 'apply', channelId: chosen, combine })}>{tr('ok')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" disabled={!chosen} onClick={() => onResult({ action: 'apply', channelId: chosen, combine })}><Check size={14} aria-hidden="true" /><span>{tr('ok')}</span></button>
           </div>
         </>
       )
@@ -637,11 +664,11 @@ export function DialogBody({
             </select>
           </label>
           <label>{tr('opacity')}
-            <input type="range" min={5} max={100} value={fillOpacity} onChange={(event) => setFillOpacity(Number(event.target.value))} />
+            <Slider min={5} max={100} value={fillOpacity} onChange={(next) => setFillOpacity(next)} />
             <span>{fillOpacity}</span>
           </label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
             <button
               className="primary"
               onClick={() => onResult({
@@ -653,7 +680,8 @@ export function DialogBody({
                 patternId: fillWith.startsWith('pattern:') ? fillWith.slice('pattern:'.length) : '',
               })}
             >
-              {tr('apply')}
+              <Check size={14} aria-hidden="true" />
+              <span>{tr('apply')}</span>
             </button>
           </div>
         </>
@@ -675,8 +703,8 @@ export function DialogBody({
             <input type="color" value={strokeColor} onChange={(event) => setStrokeColor(event.target.value)} />
           </label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', color: strokeColor, width: strokeWidth, where: strokeWhere })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', color: strokeColor, width: strokeWidth, where: strokeWhere })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -688,8 +716,8 @@ export function DialogBody({
             <NumberStepper language={language} min={1} max={200} value={adjust.radius} onChange={(radius) => setAdjust((current) => ({ ...current, radius }))} />
           </label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', radius: adjust.radius, modify: payload.modify ?? 'expand' })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', radius: adjust.radius, modify: payload.modify ?? 'expand' })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -699,12 +727,12 @@ export function DialogBody({
         <>
           <p className="dialog-hint">{tr('colorRangeHint')}</p>
           <label>{tr('tolerance')}
-            <input type="range" min={0} max={255} value={tolerance} onChange={(event) => setTolerance(Number(event.target.value))} />
+            <Slider min={0} max={255} value={tolerance} onChange={(next) => setTolerance(next)} />
             <span>{tolerance}</span>
           </label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', tolerance })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', tolerance })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -721,14 +749,14 @@ export function DialogBody({
               <option value="blue">{tr('blueChannel')}</option>
             </select>
           </label>
-          <label>{tr('redChannel')}<input type="range" min={-200} max={200} value={row.r} onChange={(event) => patchRow({ r: Number(event.target.value) })} /><span>{row.r}</span></label>
-          <label>{tr('greenChannel')}<input type="range" min={-200} max={200} value={row.g} onChange={(event) => patchRow({ g: Number(event.target.value) })} /><span>{row.g}</span></label>
-          <label>{tr('blueChannel')}<input type="range" min={-200} max={200} value={row.b} onChange={(event) => patchRow({ b: Number(event.target.value) })} /><span>{row.b}</span></label>
-          <label>{tr('constant')}<input type="range" min={-100} max={100} value={row.constant} onChange={(event) => patchRow({ constant: Number(event.target.value) })} /><span>{row.constant}</span></label>
+          <label>{tr('redChannel')}<Slider min={-200} max={200} value={row.r} onChange={(next) => patchRow({ r: next })} /><span>{row.r}</span></label>
+          <label>{tr('greenChannel')}<Slider min={-200} max={200} value={row.g} onChange={(next) => patchRow({ g: next })} /><span>{row.g}</span></label>
+          <label>{tr('blueChannel')}<Slider min={-200} max={200} value={row.b} onChange={(next) => patchRow({ b: next })} /><span>{row.b}</span></label>
+          <label>{tr('constant')}<Slider min={-100} max={100} value={row.constant} onChange={(next) => patchRow({ constant: next })} /><span>{row.constant}</span></label>
           <div className="dialog-actions">
-            <button onClick={() => setMix(defaultChannelMix())}>{tr('reset')}</button>
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', mix })}>{tr('apply')}</button>
+            <button onClick={() => setMix(defaultChannelMix())}><RotateCcw size={14} aria-hidden="true" /><span>{tr('reset')}</span></button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', mix })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -742,14 +770,14 @@ export function DialogBody({
               {colorFamilies.map((item) => <option key={item} value={item}>{tr(item)}</option>)}
             </select>
           </label>
-          <label>{tr('inkCyan')}<input type="range" min={-100} max={100} value={ink.cyan} onChange={(event) => setInk((c) => ({ ...c, cyan: Number(event.target.value) }))} /><span>{ink.cyan}</span></label>
-          <label>{tr('inkMagenta')}<input type="range" min={-100} max={100} value={ink.magenta} onChange={(event) => setInk((c) => ({ ...c, magenta: Number(event.target.value) }))} /><span>{ink.magenta}</span></label>
-          <label>{tr('inkYellow')}<input type="range" min={-100} max={100} value={ink.yellow} onChange={(event) => setInk((c) => ({ ...c, yellow: Number(event.target.value) }))} /><span>{ink.yellow}</span></label>
-          <label>{tr('inkBlack')}<input type="range" min={-100} max={100} value={ink.black} onChange={(event) => setInk((c) => ({ ...c, black: Number(event.target.value) }))} /><span>{ink.black}</span></label>
+          <label>{tr('inkCyan')}<Slider min={-100} max={100} value={ink.cyan} onChange={(next) => setInk((c) => ({ ...c, cyan: next }))} /><span>{ink.cyan}</span></label>
+          <label>{tr('inkMagenta')}<Slider min={-100} max={100} value={ink.magenta} onChange={(next) => setInk((c) => ({ ...c, magenta: next }))} /><span>{ink.magenta}</span></label>
+          <label>{tr('inkYellow')}<Slider min={-100} max={100} value={ink.yellow} onChange={(next) => setInk((c) => ({ ...c, yellow: next }))} /><span>{ink.yellow}</span></label>
+          <label>{tr('inkBlack')}<Slider min={-100} max={100} value={ink.black} onChange={(next) => setInk((c) => ({ ...c, black: next }))} /><span>{ink.black}</span></label>
           <div className="dialog-actions">
-            <button onClick={() => setInk(defaultInkShift())}>{tr('reset')}</button>
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', family, shift: ink })}>{tr('apply')}</button>
+            <button onClick={() => setInk(defaultInkShift())}><RotateCcw size={14} aria-hidden="true" /><span>{tr('reset')}</span></button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', family, shift: ink })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -762,8 +790,8 @@ export function DialogBody({
             <label>{tr('toColor')}<input type="color" value={mapTo} onChange={(event) => setMapTo(event.target.value)} /></label>
           </div>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', from: mapFrom, to: mapTo })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', from: mapFrom, to: mapTo })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -774,12 +802,12 @@ export function DialogBody({
           <p className="dialog-hint">{tr('replaceFromHint')}</p>
           <label>{tr('toColor')}<input type="color" value={replaceWith} onChange={(event) => setReplaceWith(event.target.value)} /></label>
           <label>{tr('tolerance')}
-            <input type="range" min={0} max={255} value={tolerance} onChange={(event) => setTolerance(Number(event.target.value))} />
+            <Slider min={0} max={255} value={tolerance} onChange={(next) => setTolerance(next)} />
             <span>{tolerance}</span>
           </label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', to: replaceWith, tolerance })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', to: replaceWith, tolerance })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -806,8 +834,8 @@ export function DialogBody({
             ))}
           </div>
           <div className="dialog-actions">
-            <button onClick={() => void copyText(infoAsText(sections, tr))}>{tr('copyDetails')}</button>
-            <button className="primary" onClick={onClose}>{tr('close')}</button>
+            <button onClick={() => void copyText(infoAsText(sections, tr))}><Copy size={13} aria-hidden="true" /><span>{tr('copyDetails')}</span></button>
+            <button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button>
           </div>
         </>
       )
@@ -844,13 +872,14 @@ export function DialogBody({
           </div>
           <p className="dialog-hint">{tr('printHint')}</p>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
             <button
               className="primary"
               disabled={!preview}
               onClick={() => onResult({ action: 'print', orientation, deviceName, copies })}
             >
-              {tr('print')}
+              <Printer size={13} aria-hidden="true" />
+              <span>{tr('print')}</span>
             </button>
           </div>
         </>
@@ -880,8 +909,8 @@ export function DialogBody({
           </label>
           {keepsAlpha ? null : <p className="dialog-hint">{tr('exportOpaqueHint')}</p>}
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'export' })}>{tr('export')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'export' })}><Download size={13} aria-hidden="true" /><span>{tr('export')}</span></button>
           </div>
         </>
       )
@@ -890,11 +919,11 @@ export function DialogBody({
     case 'brightness':
       return (
         <>
-          <label>{tr('brightness')}<input type="range" min={-100} max={100} value={adjust.brightness} onChange={(event) => setAdjust((c) => ({ ...c, brightness: Number(event.target.value) }))} /><span>{adjust.brightness}</span></label>
-          <label>{tr('contrast')}<input type="range" min={-100} max={100} value={adjust.contrast} onChange={(event) => setAdjust((c) => ({ ...c, contrast: Number(event.target.value) }))} /><span>{adjust.contrast}</span></label>
+          <label>{tr('brightness')}<Slider min={-100} max={100} value={adjust.brightness} onChange={(next) => setAdjust((c) => ({ ...c, brightness: next }))} /><span>{adjust.brightness}</span></label>
+          <label>{tr('contrast')}<Slider min={-100} max={100} value={adjust.contrast} onChange={(next) => setAdjust((c) => ({ ...c, contrast: next }))} /><span>{adjust.contrast}</span></label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', brightness: adjust.brightness, contrast: adjust.contrast })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', brightness: adjust.brightness, contrast: adjust.contrast })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -902,12 +931,12 @@ export function DialogBody({
     case 'hue':
       return (
         <>
-          <label>{tr('hue')}<input type="range" min={-180} max={180} value={adjust.hue} onChange={(event) => setAdjust((c) => ({ ...c, hue: Number(event.target.value) }))} /><span>{adjust.hue}</span></label>
-          <label>{tr('saturation')}<input type="range" min={-100} max={100} value={adjust.saturation} onChange={(event) => setAdjust((c) => ({ ...c, saturation: Number(event.target.value) }))} /><span>{adjust.saturation}</span></label>
-          <label>{tr('lightness')}<input type="range" min={-100} max={100} value={adjust.lightness} onChange={(event) => setAdjust((c) => ({ ...c, lightness: Number(event.target.value) }))} /><span>{adjust.lightness}</span></label>
+          <label>{tr('hue')}<Slider min={-180} max={180} value={adjust.hue} onChange={(next) => setAdjust((c) => ({ ...c, hue: next }))} /><span>{adjust.hue}</span></label>
+          <label>{tr('saturation')}<Slider min={-100} max={100} value={adjust.saturation} onChange={(next) => setAdjust((c) => ({ ...c, saturation: next }))} /><span>{adjust.saturation}</span></label>
+          <label>{tr('lightness')}<Slider min={-100} max={100} value={adjust.lightness} onChange={(next) => setAdjust((c) => ({ ...c, lightness: next }))} /><span>{adjust.lightness}</span></label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', hue: adjust.hue, saturation: adjust.saturation, lightness: adjust.lightness })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', hue: adjust.hue, saturation: adjust.saturation, lightness: adjust.lightness })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -916,11 +945,11 @@ export function DialogBody({
     case 'feather':
       return (
         <>
-          <label>{tr('radius')}<input type="range" min={0.5} max={20} step={0.5} value={adjust.radius} onChange={(event) => setAdjust((c) => ({ ...c, radius: Number(event.target.value) }))} /><span>{adjust.radius}</span></label>
+          <label>{tr('radius')}<Slider min={0.5} max={20} step={0.5} value={adjust.radius} onChange={(next) => setAdjust((c) => ({ ...c, radius: next }))} /><span>{adjust.radius}</span></label>
           {name === 'blur' ? previewRow : null}
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', radius: adjust.radius })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', radius: adjust.radius })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -928,10 +957,10 @@ export function DialogBody({
     case 'sharpen':
       return (
         <>
-          <label>{tr('amount')}<input type="range" min={10} max={150} value={adjust.amount} onChange={(event) => setAdjust((c) => ({ ...c, amount: Number(event.target.value) }))} /><span>{adjust.amount}</span></label>
+          <label>{tr('amount')}<Slider min={10} max={150} value={adjust.amount} onChange={(next) => setAdjust((c) => ({ ...c, amount: next }))} /><span>{adjust.amount}</span></label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', amount: adjust.amount })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', amount: adjust.amount })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -939,12 +968,12 @@ export function DialogBody({
     case 'cameraRaw':
       return (
         <>
-          <label>{tr('brightness')}<input type="range" min={-100} max={100} value={adjust.brightness} onChange={(event) => setAdjust((c) => ({ ...c, brightness: Number(event.target.value) }))} /><span>{adjust.brightness}</span></label>
-          <label>{tr('contrast')}<input type="range" min={-100} max={100} value={adjust.contrast} onChange={(event) => setAdjust((c) => ({ ...c, contrast: Number(event.target.value) }))} /><span>{adjust.contrast}</span></label>
-          <label>{tr('saturation')}<input type="range" min={-100} max={100} value={adjust.saturation} onChange={(event) => setAdjust((c) => ({ ...c, saturation: Number(event.target.value) }))} /><span>{adjust.saturation}</span></label>
+          <label>{tr('brightness')}<Slider min={-100} max={100} value={adjust.brightness} onChange={(next) => setAdjust((c) => ({ ...c, brightness: next }))} /><span>{adjust.brightness}</span></label>
+          <label>{tr('contrast')}<Slider min={-100} max={100} value={adjust.contrast} onChange={(next) => setAdjust((c) => ({ ...c, contrast: next }))} /><span>{adjust.contrast}</span></label>
+          <label>{tr('saturation')}<Slider min={-100} max={100} value={adjust.saturation} onChange={(next) => setAdjust((c) => ({ ...c, saturation: next }))} /><span>{adjust.saturation}</span></label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', brightness: adjust.brightness, contrast: adjust.contrast, saturation: adjust.saturation })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', brightness: adjust.brightness, contrast: adjust.contrast, saturation: adjust.saturation })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -969,8 +998,8 @@ export function DialogBody({
           <div className="dialog-actions">
             <button onClick={() => setCurves((current) => ({ ...current, [channel]: defaultCurves()[channel] }))}><RotateCcw size={15} /><span>{tr('resetCurve')}</span></button>
             <button onClick={() => onResult({ action: 'layer', curves })}><Layers2 size={15} /><span>{tr('adjLayer')}</span></button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', curves })}>{tr('apply')}</button>
-            <button onClick={onClose}>{tr('cancel')}</button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', curves })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
           </div>
         </>
       )
@@ -980,36 +1009,20 @@ export function DialogBody({
         <>
           <fieldset>
             <legend>{tr('inputLevels')}</legend>
-            <label>{tr('blackPoint')}<input type="range" min={0} max={254} value={levels.black} onChange={(event) => setLevels((c) => ({ ...c, black: Number(event.target.value) }))} /><span>{levels.black}</span></label>
-            <label>{tr('gammaLabel')}<input type="range" min={10} max={300} value={Math.round(levels.gamma * 100)} onChange={(event) => setLevels((c) => ({ ...c, gamma: Number(event.target.value) / 100 }))} /><span>{levels.gamma.toFixed(2)}</span></label>
-            <label>{tr('whitePoint')}<input type="range" min={1} max={255} value={levels.white} onChange={(event) => setLevels((c) => ({ ...c, white: Number(event.target.value) }))} /><span>{levels.white}</span></label>
+            <label>{tr('blackPoint')}<Slider min={0} max={254} value={levels.black} onChange={(next) => setLevels((c) => ({ ...c, black: next }))} /><span>{levels.black}</span></label>
+            <label>{tr('gammaLabel')}<Slider min={10} max={300} value={Math.round(levels.gamma * 100)} onChange={(next) => setLevels((c) => ({ ...c, gamma: next / 100 }))} /><span>{levels.gamma.toFixed(2)}</span></label>
+            <label>{tr('whitePoint')}<Slider min={1} max={255} value={levels.white} onChange={(next) => setLevels((c) => ({ ...c, white: next }))} /><span>{levels.white}</span></label>
           </fieldset>
           <fieldset>
             <legend>{tr('outputLevels')}</legend>
-            <label>{tr('blackPoint')}<input type="range" min={0} max={255} value={levels.outBlack} onChange={(event) => setLevels((c) => ({ ...c, outBlack: Number(event.target.value) }))} /><span>{levels.outBlack}</span></label>
-            <label>{tr('whitePoint')}<input type="range" min={0} max={255} value={levels.outWhite} onChange={(event) => setLevels((c) => ({ ...c, outWhite: Number(event.target.value) }))} /><span>{levels.outWhite}</span></label>
+            <label>{tr('blackPoint')}<Slider min={0} max={255} value={levels.outBlack} onChange={(next) => setLevels((c) => ({ ...c, outBlack: next }))} /><span>{levels.outBlack}</span></label>
+            <label>{tr('whitePoint')}<Slider min={0} max={255} value={levels.outWhite} onChange={(next) => setLevels((c) => ({ ...c, outWhite: next }))} /><span>{levels.outWhite}</span></label>
           </fieldset>
           <div className="dialog-actions">
             <button onClick={() => payload.autoLevels && setLevels({ ...payload.autoLevels, gamma: 1 })}><Sparkles size={15} /><span>{tr('autoAction')}</span></button>
             <button onClick={() => onResult({ action: 'layer', levels })}><Layers2 size={15} /><span>{tr('adjLayer')}</span></button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', levels })}>{tr('apply')}</button>
-            <button onClick={onClose}>{tr('cancel')}</button>
-          </div>
-        </>
-      )
-
-    case 'filterGallery':
-      return (
-        <>
-          <div className="filter-gallery-list">
-            {filterCatalog.map((item) => (
-              <button key={item.id} onClick={() => onResult({ action: 'filter', id: item.id })}>
-                {tr(`group${item.group.charAt(0).toUpperCase()}${item.group.slice(1)}`)} · {tr(item.id)}
-              </button>
-            ))}
-          </div>
-          <div className="dialog-actions">
-            <button onClick={onClose}>{tr('close')}</button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', levels })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
           </div>
         </>
       )
@@ -1023,8 +1036,8 @@ export function DialogBody({
             <label>{tr('height')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
           </div>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'apply', width: adjust.width, height: adjust.height })}>{tr('apply')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'apply', width: adjust.width, height: adjust.height })}><Check size={14} aria-hidden="true" /><span>{tr('apply')}</span></button>
           </div>
         </>
       )
@@ -1075,12 +1088,12 @@ export function DialogBody({
             </select>
           </label>
           <label>{tr('warpBend')}
-            <input type="range" min={-100} max={100} value={type.warpBend} onChange={(event) => setType((c) => ({ ...c, warpBend: Number(event.target.value) }))} />
+            <Slider min={-100} max={100} value={type.warpBend} onChange={(next) => setType((c) => ({ ...c, warpBend: next }))} />
             <span>{type.warpBend}</span>
           </label>
           <div className="dialog-actions">
-            <button onClick={onClose}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'ok', text, ...type })}>{tr('ok')}</button>
+            <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'ok', text, ...type })}><Check size={14} aria-hidden="true" /><span>{tr('ok')}</span></button>
           </div>
         </>
       )
@@ -1090,9 +1103,9 @@ export function DialogBody({
         <>
           <p>{tr('unsavedMessage')}</p>
           <div className="dialog-actions">
-            <button onClick={() => onResult({ action: 'discard' })}>{tr('discard')}</button>
-            <button onClick={() => onResult({ action: 'cancel' })}>{tr('cancel')}</button>
-            <button className="primary" onClick={() => onResult({ action: 'save' })}>{tr('saveChanges')}</button>
+            <button onClick={() => onResult({ action: 'discard' })}><Trash size={13} aria-hidden="true" /><span>{tr('discard')}</span></button>
+            <button onClick={() => onResult({ action: 'cancel' })}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
+            <button className="primary" onClick={() => onResult({ action: 'save' })}><Save size={13} aria-hidden="true" /><span>{tr('saveChanges')}</span></button>
           </div>
         </>
       )
@@ -1102,7 +1115,7 @@ export function DialogBody({
       // One page of settings at a time, the way a preferences window reads:
       // the tabs pick a page, the page scrolls if it must, and the reset and
       // close buttons stay put underneath.
-      const tabs = ['general', 'view', 'tools', 'brush', 'export'] as const
+      const tabs = ['general', 'theme', 'view', 'tools', 'brush', 'export', 'engine', 'selection', 'sky'] as const
       const check = (key: keyof AppSettings, label: string) => (
         <label className="check-row" key={String(key)}>
           <input type="checkbox" checked={Boolean(settings[key])} onChange={(event) => patchSettings({ [key]: event.target.checked } as Partial<AppSettings>)} />
@@ -1112,7 +1125,7 @@ export function DialogBody({
       const percent = (key: 'brushHardness' | 'brushOpacity' | 'brushSpacing' | 'brushRoundness' | 'brushScatter', label: string, min: number, max: number) => (
         <label className="settings-range">
           <span>{tr(label)}</span>
-          <input type="range" min={min} max={max} value={Math.round(settings[key] * 100)} onChange={(event) => patchSettings({ [key]: Number(event.target.value) / 100 } as Partial<AppSettings>)} />
+          <Slider min={min} max={max} value={Math.round(settings[key] * 100)} onChange={(next) => patchSettings({ [key]: next / 100 } as Partial<AppSettings>)} />
           <span className="range-value">{Math.round(settings[key] * 100)}</span>
         </label>
       )
@@ -1160,6 +1173,16 @@ export function DialogBody({
                   </div>
                   <p className="settings-field-hint">{tr('snapshotHint')}</p>
                 </section>
+              </>
+            )}
+
+            {/*
+              Twenty themes are a page of their own. Sharing one with the
+              language and the history settings put the last section 7px past
+              the bottom of a window that does not scroll.
+            */}
+            {settingsTab === 'theme' && (
+              <>
                 <section className="settings-section">
                   <h3>{tr('theme')}</h3>
                   <div className="settings-themes">
@@ -1179,9 +1202,9 @@ export function DialogBody({
                 <section className="settings-section">
                   <h3>{tr('settingsSectionMore')}</h3>
                   <div className="settings-buttons">
-                    <button onClick={() => onResult({ action: 'open', dialog: 'keyboardShortcuts' })}>{tr('keyboardShortcuts')}</button>
-                    <button onClick={() => onResult({ action: 'open', dialog: 'neuralModels' })}>{tr('neuralModels')}</button>
-                    <button disabled={settings.recentFiles.length === 0} onClick={() => patchSettings({ recentFiles: [] })}>{`${tr('clearRecent')} (${settings.recentFiles.length})`}</button>
+                    <button onClick={() => onResult({ action: 'open', dialog: 'keyboardShortcuts' })}><Keyboard size={13} aria-hidden="true" /><span>{tr('keyboardShortcuts')}</span></button>
+                    <button onClick={() => onResult({ action: 'open', dialog: 'neuralModels' })}><BrainCircuit size={13} aria-hidden="true" /><span>{tr('neuralModels')}</span></button>
+                    <button disabled={settings.recentFiles.length === 0} onClick={() => patchSettings({ recentFiles: [] })}><Trash size={13} aria-hidden="true" /><span>{`${tr('clearRecent')} (${settings.recentFiles.length})`}</span></button>
                   </div>
                   {check('neuralWebgpu', 'modelUseWebgpu')}
                 </section>
@@ -1297,7 +1320,7 @@ export function DialogBody({
                   {percent('brushSpacing', 'brushSpacing', 2, 200)}
                   <label className="settings-range">
                     <span>{tr('brushAngle')}</span>
-                    <input type="range" min={-180} max={180} value={settings.brushAngle} onChange={(event) => patchSettings({ brushAngle: Number(event.target.value) })} />
+                    <Slider min={-180} max={180} value={settings.brushAngle} onChange={(next) => patchSettings({ brushAngle: next })} />
                     <span className="range-value">{settings.brushAngle}</span>
                   </label>
                   {percent('brushRoundness', 'brushRoundness', 5, 100)}
@@ -1379,11 +1402,93 @@ export function DialogBody({
                 </div>
               </section>
             )}
+
+            {settingsTab === 'engine' && (
+              <>
+                <p className="settings-field-hint">{tr('engineIntro')}</p>
+                <section className="settings-section">
+                  <h3>{tr('engineSectionFill')}</h3>
+                  <div className="dialog-grid">
+                    <label className="settings-field">
+                      <span className="settings-field-name">{tr('fillRounds')}</span>
+                      <NumberStepper language={settings.language} min={1} max={8} step={1} value={settings.fillRounds} onChange={(fillRounds) => patchSettings({ fillRounds })} />
+                    </label>
+                    <label className="settings-field">
+                      <span className="settings-field-name">{tr('fillIterations')}</span>
+                      <NumberStepper language={settings.language} min={1} max={10} step={1} value={settings.fillIterations} onChange={(fillIterations) => patchSettings({ fillIterations })} />
+                    </label>
+                  </div>
+                  <p className="settings-field-hint">{tr('fillRoundsHint')}</p>
+                </section>
+              </>
+            )}
+
+            {/*
+              The selection engine is a page of its own. On one page with the
+              fill settings it ran 176px past the window, and this window is a
+              set size that does not scroll.
+            */}
+            {settingsTab === 'selection' && (
+              <>
+                <p className="settings-field-hint">{tr('engineIntro')}</p>
+                <section className="settings-section">
+                  <h3>{tr('engineSectionSubject')}</h3>
+                  <div className="dialog-grid">
+                    <label className="settings-field">
+                      <span className="settings-field-name">{tr('grabCutIterations')}</span>
+                      <NumberStepper language={settings.language} min={1} max={12} step={1} value={settings.grabCutIterations} onChange={(grabCutIterations) => patchSettings({ grabCutIterations })} />
+                    </label>
+                  </div>
+                  <label className="check-row">
+                    <input type="checkbox" checked={settings.subjectTidy} onChange={(event) => patchSettings({ subjectTidy: event.target.checked })} />
+                    {tr('subjectTidy')}
+                  </label>
+                  <label className="settings-range">
+                    <span>{tr('subjectKeepRatio')}</span>
+                    <Slider
+                      min={2}
+                      max={100}
+                      disabled={!settings.subjectTidy}
+                      value={Math.round(settings.subjectKeepRatio * 100)}
+                      onChange={(next) => patchSettings({ subjectKeepRatio: next / 100 })}
+                    />
+                    <span className="range-value">{Math.round(settings.subjectKeepRatio * 100)}</span>
+                  </label>
+                  <p className="settings-field-hint">{tr('subjectKeepRatioHint')}</p>
+                </section>
+              </>
+            )}
+
+            {/* The sky gates are a page of their own; with the subject settings they ran 38px past the window. */}
+            {settingsTab === 'sky' && (
+              <>
+                <p className="settings-field-hint">{tr('engineIntro')}</p>
+                <section className="settings-section">
+                  <h3>{tr('engineSectionSky')}</h3>
+                  <label className="settings-range">
+                    <span>{tr('skyStep')}</span>
+                    <Slider min={4} max={96} value={settings.skyStep} onChange={(next) => patchSettings({ skyStep: next })} />
+                    <span className="range-value">{settings.skyStep}</span>
+                  </label>
+                  <label className="settings-range">
+                    <span>{tr('skyDrift')}</span>
+                    <Slider min={16} max={255} value={settings.skyDrift} onChange={(next) => patchSettings({ skyDrift: next })} />
+                    <span className="range-value">{settings.skyDrift}</span>
+                  </label>
+                  <label className="settings-range">
+                    <span>{tr('skyHorizon')}</span>
+                    <Slider min={100} max={400} value={Math.round(settings.skyHorizon * 100)} onChange={(next) => patchSettings({ skyHorizon: next / 100 })} />
+                    <span className="range-value">{settings.skyHorizon.toFixed(2)}</span>
+                  </label>
+                  <p className="settings-field-hint">{tr('skyHint')}</p>
+                </section>
+              </>
+            )}
           </div>
 
           <div className="dialog-actions settings-actions">
-            <button onClick={resetPreferences} data-tooltip={tr('resetSettingsHint')}>{tr('resetSettings')}</button>
-            <button className="primary" onClick={onClose}>{tr('close')}</button>
+            <button onClick={resetPreferences} data-tooltip={tr('resetSettingsHint')}><RotateCcw size={13} aria-hidden="true" /><span>{tr('resetSettings')}</span></button>
+            <button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button>
           </div>
         </>
       )
@@ -1402,7 +1507,7 @@ export function DialogBody({
             ))}
           </div>
           <div className="dialog-actions">
-            <button className="primary" onClick={onClose}>{tr('close')}</button>
+            <button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button>
           </div>
         </>
       )
@@ -1433,7 +1538,7 @@ export function DialogBody({
               const text = facts.map((fact) => `${fact.label}: ${fact.value}`).join('\n')
               void copyText(`${t(language, 'appName')}\n${text}`).then((ok) => setCopied(ok ? 'copied' : 'copyFailed'))
             }}><Copy size={15} /><span>{copied ? tr(copied) : tr('copyDetails')}</span></button>
-            <button className="primary" onClick={onClose}>{tr('close')}</button>
+            <button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button>
           </div>
         </>
       )
@@ -1458,7 +1563,7 @@ export function DialogBody({
               <Copy size={15} />
               <span>{copied ? tr(copied) : tr('copyDetails')}</span>
             </button>
-            <button className="primary" onClick={onClose}>{tr('close')}</button>
+            <button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button>
           </div>
         </>
       )

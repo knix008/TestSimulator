@@ -1,9 +1,34 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+
+/**
+ * OpenCV ships Emscripten's glue, which reaches for `fs`, `path` and `crypto`
+ * on the branches it takes when it thinks it is running under Node. In a
+ * browser those branches are dead, but the bundler still has to resolve the
+ * imports: it externalises them and warns, and an externalised builtin throws
+ * if anything ever does reach it. Resolving them to an empty module — for
+ * imports from that package only, so nothing else is affected — removes the
+ * warning and the trap together.
+ */
+export function opencvNodeBuiltins(): Plugin {
+  const builtins = new Set(['fs', 'path', 'crypto', 'node:fs', 'node:path', 'node:crypto'])
+  const stub = '\0opencv-node-builtin-stub'
+  return {
+    name: 'opencv-node-builtins',
+    enforce: 'pre',
+    resolveId(source, importer) {
+      if (builtins.has(source) && importer?.includes('@techstark/opencv-js')) return stub
+      return null
+    },
+    load(id) {
+      return id === stub ? 'export default {}' : null
+    },
+  }
+}
 
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  plugins: [react(), opencvNodeBuiltins()],
   // ONNX Runtime ships its WebAssembly glue pre-built and self-referencing;
   // Vite's dependency pre-bundling rewrites it into something that throws
   // inside the wasm callbacks, so it is served as it is.

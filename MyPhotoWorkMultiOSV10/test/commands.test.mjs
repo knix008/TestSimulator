@@ -118,7 +118,7 @@ test('accelerator hints only appear on commands, and the menu renders them', () 
   const withAccel = commands.filter((command) => command.accel)
   assert.ok(withAccel.length > 5, 'no command advertises a shortcut')
   for (const command of withAccel) {
-    assert.match(command.accel, /^[\w+\-. \[\]';]+$/, `${command.id} has an odd accelerator "${command.accel}"`)
+    assert.match(command.accel, /^[\w+\-. [\]';]+$/, `${command.id} has an odd accelerator "${command.accel}"`)
   }
   const tree = readFileSync(fileURLToPath(new URL('../src/MenuTree.tsx', import.meta.url)), 'utf8')
   assert.ok(tree.includes('{command.accel && <kbd>{command.accel}</kbd>}'), 'the menu never renders the accelerator')

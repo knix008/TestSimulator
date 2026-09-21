@@ -24,7 +24,7 @@
     "dist:linux": "npm run build:icons && npm run build && node scripts/package-app.cjs --linux AppImage deb rpm && node scripts/copy-installers.cjs",
     "postinstall": "node node_modules/electron/install.js",
     "pretest": "npm run build:icons && npm run build:info",
-    "test": "node --test --import ./test/helpers/setup.mjs test/*.test.mjs",
+    "test": "node --test --test-reporter=./test/helpers/reporter.mjs --import ./test/helpers/setup.mjs test/*.test.mjs",
     "verify:images": "node --import ./test/helpers/setup.mjs scripts/verify-images.mjs",
     "lint": "eslint .",
     "preview": "vite preview",

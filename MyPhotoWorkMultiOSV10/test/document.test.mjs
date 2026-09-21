@@ -325,7 +325,7 @@ test('a new document carries the empty path, slice, frame and measure collection
 test('padCanvas crops what leaves the canvas, which is why a move must keep the original', () => {
   // The bug this documents: re-padding an already-shifted canvas loses whatever
   // went past the edge, so dragging a layer out and back came back clipped.
-  const source = canvasFrom(8, 8, (x, y) => (x < 2 ? [255, 0, 0] : [0, 0, 255]))
+  const source = canvasFrom(8, 8, (x, _y) => (x < 2 ? [255, 0, 0] : [0, 0, 255]))
 
   const stepped = padCanvas(padCanvas(source, 8, 8, -4, 0), 8, 8, 4, 0)
   assert.equal(px(stepped, 0, 4)[3], 0, 'shifting out and back in two steps loses the red band')

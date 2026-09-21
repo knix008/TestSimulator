@@ -19,4 +19,24 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    /*
+     * The verification scripts, the test files and their helpers. These were
+     * outside the lint until a colour helper named `grey` was shadowed by a
+     * greyscale canvas of the same name, three hundred lines further in, and
+     * the whole verification run died with "grey is not a function" — which
+     * `no-shadow` names on sight.
+     */
+    files: ['**/*.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+    rules: {
+      'no-shadow': 'error',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
 ])

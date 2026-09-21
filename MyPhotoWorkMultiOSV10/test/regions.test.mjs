@@ -130,7 +130,7 @@ test('rectAt picks the topmost region under the cursor', () => {
 })
 
 test('cropToRect cuts the region out at its own size', () => {
-  const source = canvasFrom(32, 32, (x, y) => (x >= 8 && x < 16 ? [255, 0, 0] : [0, 0, 255]))
+  const source = canvasFrom(32, 32, (x, _y) => (x >= 8 && x < 16 ? [255, 0, 0] : [0, 0, 255]))
   const out = cropToRect(source, { x: 8, y: 4, width: 8, height: 8 })
   assert.equal(out.width, 8)
   assert.equal(out.height, 8)

@@ -23,11 +23,11 @@ function exifJpeg() {
   const ascii = (offset, text) => {
     for (let i = 0; i < text.length; i += 1) tiff[offset + i] = text.charCodeAt(i)
   }
-  const entry = (at, tag, type, count, value) => {
+  const entry = (at, tag, type, count, payload) => {
     view.setUint16(at, tag, true)
     view.setUint16(at + 2, type, true)
     view.setUint32(at + 4, count, true)
-    view.setUint32(at + 8, value, true)
+    view.setUint32(at + 8, payload, true)
   }
 
   ascii(0, 'II')
