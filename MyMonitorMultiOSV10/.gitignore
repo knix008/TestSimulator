@@ -1,0 +1,72 @@
+# ── 의존성 ──────────────────────────────────────────────────────
+node_modules/
+app/node_modules/
+
+# ── 빌드 산출물 ─────────────────────────────────────────────────
+app/dist/
+app/out/
+app/release/
+release/
+out/
+web/dist/
+*.asar
+build/
+cmake-build-*/
+agent/build/
+agent/out/
+agent/dist/
+test/.tmp/
+
+# 빌드 후 루트에 하나만 복사되는 설치 파일 (scripts/copy-installer.js)
+MyMonitor-Setup-*.exe
+MyMonitor-*.dmg
+MyMonitor-*.AppImage
+MyMonitor_*.deb
+MyMonitor-*-mac.zip
+MyMonitor-*-win.zip
+
+# 생성되는 Windows 아이콘 (원본은 app/assets/icon.png)
+app/assets/icon.ico
+
+# ── 컴파일 · 링크 잔여 ──────────────────────────────────────────
+*.obj
+*.o
+*.exe
+*.pdb
+*.ilk
+*.dll
+*.so
+*.dylib
+
+# ── 로그 · 사용자 데이터 ────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+user-data/
+
+# ── OS · 편집기 ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vs/
+.vscode/
+.idea/
+.cursor/
+*.swp
+*~
+*.user
+
+# ── 환경 변수 · 비밀 ────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── 임시 · 캐시 ─────────────────────────────────────────────────
+*.tmp
+*.temp
+.cache/
+
+# ── Electron 크래시 덤프 ────────────────────────────────────────
+*.dmp
+crashpad/

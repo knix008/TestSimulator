@@ -1,0 +1,117 @@
+{
+  "name": "mymonitor-multios",
+  "version": "10.0.0",
+  "description": "Cross-platform remote resource monitor (Electron + MMON agents)",
+  "main": "main.js",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "web": "node ../scripts/build-web.js && node ../scripts/serve-web.js",
+    "web:serve": "node ../scripts/serve-web.js",
+    "test": "node --test \"../test/*.test.js\"",
+    "test:protocol": "node scripts/test-protocol.js",
+    "dist": "electron-builder --win --x64",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:web": "node ../scripts/build-web.js"
+  },
+  "dependencies": {
+    "systeminformation": "^5.25.11"
+  },
+  "optionalDependencies": {
+    "serialport": "^12.0.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.mymonitor.multios",
+    "productName": "MyMonitor",
+    "executableName": "MyMonitor",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**/*",
+      "renderer/**/*",
+      "certs/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "lib/sample-worker.js",
+      "lib/collector.js",
+      "lib/simulate.js",
+      "**/node_modules/serialport/**",
+      "**/node_modules/@serialport/**"
+    ],
+    "icon": "assets/icon.png",
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "verifyUpdateCodeSignature": false,
+      "sign": "./scripts/skip-win-sign.js"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyMonitor",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "icon": "assets/icon.png",
+      "category": "public.app-category.utilities",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Utility;Monitor;System;",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "@serialport/bindings-cpp@12.0.1": true
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "mymonitor-multios",
+  "version": "10.0.0",
+  "private": true,
+  "description": "MyMonitor MultiOS workspace",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "scripts": {
+    "start": "npm start --prefix app",
+    "web": "node scripts/build-web.js && node scripts/serve-web.js",
+    "web:serve": "node scripts/serve-web.js",
+    "start:web": "npm run web",
+    "agent": "agent\\dist\\windows\\mmon-agent.exe --listen 0.0.0.0:9510",
+    "build": "npm run build:agent",
+    "build:agent": "node scripts/build-agent.js",
+    "build:agent:debug": "node scripts/build-agent.js --debug",
+    "build:app": "node scripts/build-app.js",
+    "build:win": "node scripts/build-app.js --win",
+    "build:mac": "node scripts/build-app.js --mac",
+    "build:linux": "node scripts/build-app.js --linux",
+    "build:web": "node scripts/build-web.js",
+    "dist": "node scripts/build-app.js",
+    "dist:win": "node scripts/build-app.js --win",
+    "dist:mac": "node scripts/build-app.js --mac",
+    "dist:linux": "node scripts/build-app.js --linux",
+    "dist:web": "node scripts/build-web.js",
+    "copy:installer": "node scripts/copy-installer.js",
+    "rebuild": "npm run clean && npm run dist",
+    "clean": "node scripts/clean.js",
+    "test": "node scripts/run-tests.js",
+    "test:protocol": "node app/scripts/test-protocol.js",
+    "test:unit": "node scripts/run-tests.js",
+    "test:watch": "node scripts/run-tests.js --watch"
+  }
+}
