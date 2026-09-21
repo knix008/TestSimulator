@@ -196,6 +196,59 @@ function firstDir(cands) {
   return '';
 }
 
+// Cygwin / MSYS / Git-usr tools inherit cmd's stdin pipe and close that
+// handle on exit, so cmd /K sees EOF and dies with "process exited with
+// code 0". Give those commands NUL instead; builtins and interactive
+// programs keep the pipe.
+const CMD_BUILTIN = new Set(BUILTINS.cmd);
+function isPosixWinTool(exe) {
+  if (!exe) return false;
+  if (/[\\/](?:cygwin(?:64)?|msys(?:64|32)?|Git[\\/]usr)(?:[\\/]|$)/i.test(exe)) return true;
+  const dir = path.dirname(exe);
+  try { return fs.existsSync(path.join(dir, 'cygwin1.dll')) || fs.existsSync(path.join(dir, 'msys-2.0.dll')); } catch { return false; }
+}
+function firstToken(line) {
+  const s = String(line || '').trim();
+  if (!s) return '';
+  if (s.startsWith('"')) {
+    const e = s.indexOf('"', 1);
+    return e > 0 ? s.slice(1, e) : s.slice(1);
+  }
+  const m = s.match(/^(\S+)/);
+  return m ? m[1] : '';
+}
+function resolveCommand(token) {
+  if (!token) return '';
+  if (/[\\/]/.test(token) || path.isAbsolute(token)) {
+    return resolveExe(token) || resolveExe(/\.exe$/i.test(token) ? token : `${token}.exe`);
+  }
+  return findOnPath(token);
+}
+function injectNulRedirect(line) {
+  const s = String(line);
+  let i = 0, q = '';
+  while (i < s.length) {
+    const c = s[i];
+    if (q) { if (c === q) q = ''; i++; continue; }
+    if (c === '"' || c === "'") { q = c; i++; continue; }
+    if (c === '>' && s[i + 1] === '&') { i += 2; continue; }
+    if ((c === '&' && s[i + 1] === '&') || (c === '|' && s[i + 1] === '|') || c === '|' || c === '&') {
+      return `${s.slice(0, i).trimEnd()} <nul ${s.slice(i)}`;
+    }
+    i++;
+  }
+  return `${s.trimEnd()} <nul`;
+}
+function protectCmdLine(line) {
+  const text = String(line || '');
+  if (!text.trim()) return text;
+  if (/(?:^|[\s|&])(?:\d)?<\s*(?!&)/.test(text)) return text;
+  const token = firstToken(text);
+  if (!token || CMD_BUILTIN.has(token.toLowerCase())) return text;
+  if (!isPosixWinTool(resolveCommand(token))) return text;
+  return injectNulRedirect(text);
+}
+
 const posixSource = (f) => `. "${String(f).replace(/\\/g, '/')}";`;
 const posixDef = (cmd, extra = {}) => ({ cmd, args: extra.args || ['-s'], ext: '.sh', scriptEnc: 'utf8', source: posixSource, cwdLine: `echo "${MARK}$PWD;$?"`, eol: '\n', init: POSIX_INIT, kind: 'sh', ...extra });
 const fishDef = (cmd, extra = {}) => ({ cmd, args: extra.args || ['--no-config'], ext: '.fish', scriptEnc: 'utf8', source: (f) => `source "${String(f).replace(/\\/g, '/')}"`, cwdLine: `echo "${MARK}$PWD;$status"`, eol: '\n', kind: 'sh', ...extra });
@@ -536,16 +589,22 @@ function createTerminals() {
   // so the prompt stays. Only the user's close button sets `dead`.
   function onShellGone(s, code, err) {
     s.code = code;
-    s.exited = false;
     s.idle = true;
     s.pending = '';
     s.pendingCr = false;
     s.expectPrompt = !!s.def.promptMark;
-    push(s, err ? `\n[${err}]\n` : `\n[process exited with code ${code}]\n`);
     const now = Date.now();
     s.restartAt = (s.restartAt || []).filter((t) => now - t < 4000);
     s.restartAt.push(now);
-    if (s.restartAt.length <= MAX_RESTARTS) launch(s);
+    // Cygwin `ls` and `exit` must not look like the tab died: relaunch quietly.
+    if (s.restartAt.length <= MAX_RESTARTS) {
+      s.exited = false;
+      launch(s);
+      wake(s);
+      return;
+    }
+    s.exited = true;
+    push(s, err ? `\n[${err}]\n` : `\n[process exited with code ${code}]\n`);
     wake(s);
   }
   function ensureProc(s) {
@@ -641,9 +700,10 @@ function createTerminals() {
       s.idle = false;
       s.lastCmd = line;
       wake(s);   // readers see the busy phase, so the return to idle (the prompt, a fresh git status) is never missed
+      const runLine = s.def.kind === 'cmd' ? protectCmdLine(line) : line;
       // The command goes into the script file (with the exit-status / marker lines that belong there), the
       // stdin gets the one line that runs it — followed by the marker, unless the script prints it.
-      const body = `${preLine ? `${preLine}${shellEol}` : ''}${line}${shellEol}${rcLine ? `${rcLine}${shellEol}` : ''}${markerInFile ? `${cwdLine}${shellEol}` : ''}`;
+      const body = `${preLine ? `${preLine}${shellEol}` : ''}${runLine}${shellEol}${rcLine ? `${rcLine}${shellEol}` : ''}${markerInFile ? `${cwdLine}${shellEol}` : ''}`;
       const bytes = iconv.encode(body, scriptEnc || 'utf8');
       fs.writeFileSync(s.scriptFile, bom ? Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), bytes]) : bytes);
       send(`${source(s.scriptFile)}${markerInFile ? '' : ` ${cwdLine}`}${shellEol}`);
@@ -769,4 +829,4 @@ function createTerminals() {
   return api;
 }
 
-module.exports = { createTerminals, isReadOnly, repoRoot, parseEtcShells, parseWtCommandLine, parseWtProfiles, parseJsonc };
+module.exports = { createTerminals, isReadOnly, repoRoot, parseEtcShells, parseWtCommandLine, parseWtProfiles, parseJsonc, protectCmdLine, isPosixWinTool };

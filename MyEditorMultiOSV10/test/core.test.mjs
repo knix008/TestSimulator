@@ -238,10 +238,12 @@ test('terminal: cwd + exit status markers, CR pass-through, input line ending', 
       d = await drain(d.seq, 8000);
       assert.equal(d.r.exited, false, 'ls must not close the command prompt');
       assert.equal(d.r.idle, true);
+      assert.doesNotMatch(d.text, /process exited/, 'ls must not print a process-exited banner');
       T.run({ id: s.id, line: 'echo still-here' });
       d = await drain(d.seq);
       assert.equal(d.text.trim(), 'still-here');
       assert.equal(d.r.exited, false);
+      assert.doesNotMatch(d.text, /process exited/);
       T.run({ id: s.id, line: 'exit' });
       d = await drain(d.seq, 5000);
       assert.equal(d.r.exited, false, 'exit must not close the terminal');
