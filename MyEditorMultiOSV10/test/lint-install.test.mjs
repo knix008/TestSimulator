@@ -121,7 +121,12 @@ test('untitled markdown is checked and lint.run forgets cached bins after instal
   assert.match(dlg, /onApplied/);
   assert.match(dlg, /lintToolsAt/);
   const app = fs.readFileSync(path.join(root, 'src', 'App.jsx'), 'utf8');
-  assert.match(app, /if \(!doc\.langName\) return;/);
+  assert.match(app, /detectLanguageFromText/);
+  assert.match(app, /languageByName\(doc\.langName\)/);
+  assert.match(app, /if \(!booted \|\| !settings\.lint\) return/);
+  assert.match(app, /setBooted\(true\);\s*if \(settingsRef\.current\.lint\) lintAll\(\)/);
+  assert.match(app, /scheduleLint\(doc\.id, 0\)/);
+  assert.match(app, /\.catch\(\(\) => \{ scheduleLint\(doc\.id, 0\); \}\)/);
   assert.doesNotMatch(app, /Markdown && !doc\.path/);
   assert.match(app, /patch\.lintToolsAt/);
   const inst = fs.readFileSync(path.join(root, 'src', 'dialogs', 'InstallDialog.jsx'), 'utf8');
@@ -175,6 +180,52 @@ test('installed checkers still report findings after a rescan, including untitle
     assert.equal(named.error, null, `${c.language}/${c.tool} file: ${named.error}`);
     assert.ok((named.diagnostics || []).some((d) => c.want.test(d.message)), `${c.language}/${c.tool} file findings: ${(named.diagnostics || []).map((d) => d.message).join(' | ')}`);
   }
+});
+
+test('node --check can use Electron when node is not on PATH', () => {
+  const { nodeExe, electronAsNode, isElectronBin } = require('../core/lint');
+  assert.equal(electronAsNode(), null);
+  assert.equal(isElectronBin('C:\\\\Program Files\\\\My Editor\\\\My Editor.exe'), true);
+  assert.equal(isElectronBin('C:\\\\Users\\\\x\\\\AppData\\\\Local\\\\Programs\\\\MyEditor\\\\MyEditor.exe'), true);
+  assert.equal(isElectronBin('C:\\\\app\\\\electron.exe'), true);
+  assert.equal(isElectronBin('C:\\\\nodejs\\\\node.exe'), false);
+  const n = nodeExe();
+  assert.ok(n, 'a node binary is available in this test environment');
+});
+
+test('applyToolPath prepends the app tools bin so a GUI launch finds checkers', () => {
+  const { extraBinDirs, applyToolPath } = require('../core/pathenv');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'med-path-'));
+  const bin = path.join(tmp, 'node', 'node_modules', '.bin');
+  fs.mkdirSync(bin, { recursive: true });
+  assert.ok(extraBinDirs(tmp).some((d) => d.toLowerCase() === bin.toLowerCase()));
+  const before = process.env.PATH;
+  try {
+    const added = applyToolPath(tmp);
+    const parts = (process.env.PATH || '').split(path.delimiter).map((d) => d.toLowerCase());
+    assert.ok(added.some((d) => d.toLowerCase() === bin.toLowerCase()) || parts.includes(bin.toLowerCase()));
+    assert.ok(parts.includes(bin.toLowerCase()));
+  } finally {
+    process.env.PATH = before;
+  }
+});
+
+test('eslint fallback config is copied out of app.asar for the child process', () => {
+  const { configForChild } = require('../core/lint');
+  const real = path.join(root, 'core', 'eslint-fallback.config.cjs');
+  assert.equal(configForChild(real), real);
+  const asarDir = path.join(os.tmpdir(), 'med-asar', 'app.asar', 'core');
+  fs.mkdirSync(asarDir, { recursive: true });
+  const asarFile = path.join(asarDir, 'eslint-fallback.config.cjs');
+  fs.copyFileSync(real, asarFile);
+  const out = configForChild(asarFile);
+  assert.ok(!out.includes(`${path.sep}app.asar${path.sep}`), out);
+  assert.ok(fs.existsSync(out));
+  assert.equal(fs.readFileSync(out, 'utf8'), fs.readFileSync(real, 'utf8'));
+  const api = fs.readFileSync(path.join(root, 'core', 'api.js'), 'utf8');
+  assert.match(api, /applyToolPath\(toolsDir\)/);
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.ok((pkg.build.asarUnpack || []).some((p) => /eslint-fallback/.test(p)));
 });
 
 test('Windows Store python stubs are not treated as an installed Python', () => {

@@ -443,6 +443,7 @@ if (!gotLock) {
   app.on('open-file', (e, p) => { e.preventDefault(); sendOpenFiles([p]); });
 
   app.whenReady().then(() => {
+    try { require('../core/pathenv').applyToolPath(path.join(app.getPath('userData'), 'tools')); } catch { /* optional */ }
     api = createApi({
       name: 'electron',
       version: app.getVersion(),

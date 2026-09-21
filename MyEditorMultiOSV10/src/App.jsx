@@ -20,7 +20,7 @@ import {
   onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac, openPopup, openPrintWindow, sendSettingsPatch, onSettingsPatch, printHtml,
 } from './lib/backend';
 import { createState, settingsEffects, languageEffect, readOnlyEffect, commands, searchApi, applySaveTransforms, cursorInfo } from './lib/editor';
-import { detectLanguage, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
+import { detectLanguage, detectLanguageFromText, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
 import { commands as md } from './lib/markdown';
 import { resolveFormatter, toolLabel } from './lib/formatters';
 import { HexView } from './components/HexView';
@@ -218,6 +218,10 @@ export default function App() {
     if (dirty !== doc.dirty) patchDoc(id, { dirty });
     setDocVersion((v) => v + 1);
     schedulePersist();
+    if (doc && !doc.path && !doc.language && !doc.langName) {
+      const inferred = detectLanguageFromText(u.state.doc.toString());
+      if (inferred) applyLanguage({ ...doc, langName: inferred.name });
+    }
     scheduleLint(id);
     scheduleFmtCheck(id);
     scheduleAutoSave(id);
@@ -238,10 +242,11 @@ export default function App() {
     return () => window.removeEventListener('blur', onBlur);
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── linting: the language's checker runs in the backend, a moment after the
-  // last edit, and its findings come back as gutter markers / underlines. The
-  // editor is never blocked: the run is a separate process and the result is
-  // applied only if the document has not changed meanwhile (then it is rerun).
+  // ── linting: the language's checker runs in the backend as soon as a file
+  // is opened or restored, and again a moment after the last edit. Findings
+  // come back as gutter markers / underlines. The editor is never blocked:
+  // the run is a separate process and the result is applied only if the
+  // document has not changed meanwhile (then it is rerun).
   const lintTimers = useRef(new Map());
   const lintRuns = useRef(new Map());   // id → text that was sent
   const scheduleLint = (id, delay = 700) => {
@@ -256,11 +261,14 @@ export default function App() {
     const state = getState(id);
     if (!doc || !state || !settingsRef.current.lint) return;
     if (doc.kind === 'hex') { patchDoc(id, { lint: null }); return; }
-    if (!doc.langName) return;
     const text = state.doc.toString();
+    const guessed = detectLanguage(doc.name) || detectLanguageFromText(text);
+    const language = doc.langName || (doc.language && doc.language !== PLAIN ? doc.language : null) || (guessed && guessed.name) || null;
+    if (!language) return;
+    if (!doc.langName) patchDoc(id, { langName: language });
     lintRuns.current.set(id, text);
     let r;
-    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language: doc.langName, text, tool: (settingsRef.current.linters || {})[doc.langName] || 'auto' }); } catch (e) { r = { tool: null, diagnostics: [], error: e.message }; }
+    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language, text, tool: (settingsRef.current.linters || {})[language] || 'auto' }); } catch (e) { r = { tool: null, diagnostics: [], error: e.message }; }
     if (r && r.cancelled) return;
     if (lintRuns.current.get(id) !== text) return;
     lintRuns.current.delete(id);
@@ -554,12 +562,17 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     window.addEventListener('mouseup', up);
   };
 
-  const lintAll = () => { for (const d of docsRef.current) { if (settingsRef.current.lint) scheduleLint(d.id, 50); else clearLint(d.id); } };
+  const lintAll = () => { for (const d of docsRef.current) { if (settingsRef.current.lint) scheduleLint(d.id, 0); else clearLint(d.id); } };
   useEffect(() => {
     if (activeId == null || !settings.lint) return undefined;
-    scheduleLint(activeId, 80);
+    scheduleLint(activeId, 0);
     return undefined;
   }, [activeId, settings.lint]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!booted || !settings.lint) return undefined;
+    lintAll();
+    return undefined;
+  }, [booted]);   // eslint-disable-line react-hooks/exhaustive-deps
   handlersRef.current.onUpdate = (u) => { setCursor(cursorInfo(u.state)); };
 
   const newDocState = (text, { selection } = {}) => {
@@ -589,9 +602,10 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
 
   // ── language (async: grammars load on first use) ──
   const applyLanguage = useCallback((doc) => {
-    const desc = doc.language ? (doc.language === PLAIN ? null : languageByName(doc.language)) : detectLanguage(doc.name);
+    const desc = doc.language ? (doc.language === PLAIN ? null : languageByName(doc.language)) : detectLanguage(doc.name) || languageByName(doc.langName);
     const langName = desc ? desc.name : null;
     if (langName !== doc.langName) patchDoc(doc.id, { langName });
+    scheduleLint(doc.id, 0);
     loadLanguage(desc).then((support) => {
       const cur = getDoc(doc.id);
       if (!cur || (cur.langName || null) !== langName) return;
@@ -600,8 +614,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       // Dockerfiles and Kubernetes manifests (YAML) complete their own vocabulary (lib/devops.js) on top of the grammar.
       const extra = support && support.language && (langName === 'Dockerfile' ? [support.language.data.of({ autocomplete: dockerfileCompletion })] : langName === 'YAML' ? [support.language.data.of({ autocomplete: kubernetesCompletion })] : []);
       dispatchTo(doc.id, { effects: languageEffect([support, live, extra || []]) });
-      scheduleLint(doc.id, 200);
-    }).catch(() => { /* a grammar failed to load: plain text */ });
+      scheduleLint(doc.id, 0);
+    }).catch(() => { scheduleLint(doc.id, 0); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1181,6 +1195,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       }
       bootedRef.current = true;
       setBooted(true);
+      if (settingsRef.current.lint) lintAll();
       rendererReady();
     })();
     return () => { cancelled = true; };

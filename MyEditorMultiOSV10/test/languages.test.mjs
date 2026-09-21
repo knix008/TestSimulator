@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  detectLanguage, languageByName, FEATURED_LANGUAGES, ALL_LANGUAGES, OTHER_LANGUAGES, PLAIN,
+  detectLanguage, detectLanguageFromText, languageByName, FEATURED_LANGUAGES, ALL_LANGUAGES, OTHER_LANGUAGES, PLAIN,
 } from '../src/lib/languages.js';
 
 function nameOf(file) {
@@ -90,6 +90,16 @@ for (const name of FEATURED) {
     assert.ok(FEATURED_LANGUAGES.some((d) => d.name === name), name);
   });
 }
+
+test('detectLanguageFromText guesses an untitled buffer', () => {
+  const name = (s) => { const d = detectLanguageFromText(s); return d ? d.name : null; };
+  assert.equal(name(''), null);
+  assert.equal(name('export function f() { return 1; }\n'), 'JavaScript');
+  assert.equal(name('def f():\n    return 1\n'), 'Python');
+  assert.equal(name('{"a": 1}\n'), 'JSON');
+  assert.equal(name('apiVersion: v1\nkind: Pod\n'), 'YAML');
+  assert.equal(name('#!/usr/bin/env python3\nprint(1)\n'), 'Python');
+});
 
 test('plain text has no language description', () => {
   assert.equal(languageByName(PLAIN), null);

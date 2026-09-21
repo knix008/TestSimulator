@@ -33,6 +33,30 @@ export function languageByName(name) {
 }
 
 // The language for a file name — a LanguageDescription, or null for plain text.
+// Untitled / auto documents have no extension: guess from the buffer so
+// lint and highlighting can start before the file is saved.
+export function detectLanguageFromText(text) {
+  const raw = String(text || '');
+  const s = raw.slice(0, 8000);
+  const t = s.trim();
+  if (!t) return null;
+  const first = t.split(/\r?\n/, 1)[0];
+  if (first.startsWith('#!')) {
+    if (/\bpython/.test(first)) return byName.get('Python');
+    if (/\b(node|nodejs)\b/.test(first)) return byName.get('JavaScript');
+    if (/\b(bash|sh|zsh|ksh|dash)\b/.test(first)) return byName.get('Shell');
+    if (/\bruby/.test(first)) return byName.get('Ruby');
+    if (/\bphp/.test(first)) return byName.get('PHP');
+  }
+  if (/^\s*<\?php/.test(t)) return byName.get('PHP');
+  if (/^\s*\{[\s\S]*\}\s*$/.test(t) && /"[^"]+"\s*:/.test(t)) return byName.get('JSON');
+  if (/^\s*apiVersion\s*:/m.test(s) && /^\s*kind\s*:/m.test(s)) return byName.get('YAML');
+  if (/^\s*(FROM|RUN|CMD|COPY|ENTRYPOINT)\s+\S+/im.test(s) && !/[{;]/.test(s)) return byName.get('Dockerfile');
+  if (/^\s*(def |class |import |from \w+ import |async def )/m.test(s)) return byName.get('Python');
+  if (/^\s*(function |export |const |let |var |import |require\()/m.test(s)) return byName.get('JavaScript');
+  return null;
+}
+
 export function detectLanguage(fileName) {
   if (!fileName) return null;
   const base = fileName.replace(/^.*[\\/]/, '');
