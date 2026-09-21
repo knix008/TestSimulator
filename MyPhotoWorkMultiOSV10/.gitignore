@@ -16,27 +16,37 @@ dist-ssr
 release
 *.tsbuildinfo
 
-# Results of `npm run verify:images` (the real photos in images/ taken through
-# the whole open -> edit -> export -> print pipeline). Rebuilt from scratch every
-# run; open out/index.html locally to look at them.
+# Vite's pre-bundled dependency cache. It normally lives inside node_modules,
+# but `cacheDir` can move it, and a stale one is worth deleting rather than
+# committing: leftover Electron processes holding it open made the optimiser
+# fail with EPERM, and the window came up blank while the source was fine.
+.vite/
+
+# Results of `npm run verify:images` and `npm run verify:features` (the real
+# photos in images/ taken through the whole open -> edit -> export -> print
+# pipeline, and every tool and command run over the same photos). Rebuilt from
+# scratch every run; open out/index.html and out/features.html locally.
 out/
 
 # Generated before every build, never edited by hand.
 #   src/build-info.json   <- scripts/generate-build-info.cjs (changes every build)
-#   build/icon.*          <- scripts/create-icons.cjs, rendered from public/app-icon.svg
-# `npm test` regenerates both first, so a fresh clone still passes.
+#   build/                <- scripts/create-icons.cjs, rendered from public/app-icon.svg
+# The whole of build/ is that script's output — icon.ico, icon.png and the
+# Linux icon set — so the directory is ignored rather than the three names it
+# happens to hold today. `npm test` regenerates both first, so a fresh clone
+# still passes.
 src/build-info.json
-build/icon.ico
-build/icon.png
-build/icons/
+build/
 
-# Packaged installers copied to the project root by scripts/copy-installers.cjs
+# Packaged installers copied to the project root by scripts/copy-installers.cjs,
+# and the delta file electron-builder writes beside the Windows one.
 /*.exe
 /*.dmg
 /*.AppImage
 /*.deb
 /*.rpm
 /*.zip
+/*.blockmap
 
 # Scratch output from the packaging and screenshot helpers
 screenshots/
@@ -47,6 +57,12 @@ screenshots/
 *.onnx
 *.part.onnx
 *.tmp.mjs
+
+# Nothing here needs a secret, so a .env file is a mistake rather than a
+# configuration. `*.local` above only catches `.env.local`.
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*

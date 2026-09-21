@@ -1,171 +1,177 @@
 # My Photo Work V1.0
 
-My Photo Work V1.0 is a professional-grade layered raster photo editor built with Vite, React, and Electron. The same codebase runs in the browser and as a desktop app on Windows, macOS, and Linux.
+My Photo Work V1.0 은 Vite · React · Electron 으로 만든 레이어 기반 래스터 사진 편집기입니다. 같은 코드가 브라우저에서도, Windows·macOS·Linux 데스크톱 앱으로도 그대로 돌아갑니다.
 
-## Features
+## 기능
 
-- Layer-based editing with visibility, lock, opacity, blend modes (including hue/saturation/color/luminosity), reorder, duplicate, merge down, flatten, **groups**, **adjustment layers**, **fill layers**, **live text layers**, **shape layers**, **layer masks**, and **layer styles**.
-- Full tool strip with flyout groups: move/artboard, marquees, lassos, object/quick/wand, crop/slice/frame, sample tools, retouch (heal/remove/patch/clone), brushes, erasers, gradient/bucket, blur/sharpen/smudge, dodge/burn/sponge, pen/path, type, shapes, hand/rotate view/zoom.
-- **Clipboard**: cut, copy, copy merged, paste and paste-into-selection, with the system clipboard used as well where the browser allows it. **Fill** and **Stroke** paint a selection or draw a line along its edge, inside, outside or centred.
-- **Selection modifiers**: expand, contract, border, smooth, feather, grow, similar, colour range, and reselect.
-- **Free transform** (Ctrl+T) with scale, rotate, mirror and numeric W/H/angle entry; flip the document or a single layer.
-- **Curves and Levels** editors with per-channel control, a monotone spline, auto black/white points, and the option to apply destructively or as an adjustment layer.
-- **Channel mixer, selective colour, gradient map, replace colour, equalize and auto colour**, plus rotate 180 and trim.
-- **Clipping masks**: a layer, including an adjustment layer, can be confined to the shape of the one below it.
-- **Smart objects and smart filters**: a layer can be placed from an untouched original, so scaling never loses anything, and filters sit on a stack that can be switched off, re-tuned or removed at any time.
-- **Channels**: the three colour channels shown separately, plus saved selections as alpha channels that survive the project file and can be loaded back to replace, add to, subtract from or intersect the selection.
-- **Transform**: skew, distort, perspective, warp (eleven preset shapes), puppet warp with pins, and content-aware scale by seam carving, which carves every layer with the same seams so they stay lined up.
-- **Type**: paragraphs with line height, letter spacing, indents and paragraph spacing; type warped into the same eleven shapes; type set along a path.
-- **Colour modes and management**: RGB, greyscale, CMYK and Lab; 8 or 16 bits per channel, with 16-bit TIFF written at full depth; four RGB working spaces that can be assigned or converted to, and ICC profiles read out of the files that carry them.
-- **Actions**: record what you do, play it back, and run it over a folder of files. **Layer comps** remember an arrangement of the layers and restore it.
-- **Timeline**: frame-by-frame animation, exported as an animated GIF written by the app itself, or recorded as video; video files can be imported as frames.
-- **Patterns and brushes**: define a pattern from a selection and tile it; save brush tips with size, hardness, opacity, spacing, angle, roundness and scatter.
-- **3D**: a layer extruded into a lit solid that can be turned in space, with adjustable depth, rotation, perspective and light direction.
-- **Vector paths**: pen, freeform pen and curvature pen, with anchor/handle editing, stroke, fill, and path-to-selection.
-- **Shape tools** (rectangle, rounded rectangle, ellipse, polygon, line, custom) that create editable shape layers.
-- **Polygonal and magnetic lassos**, **patch** and **content-aware move**, **perspective crop**, **slices** (with per-slice export), **frames**, and a **ruler** that reports distance and angle.
-- Adjustments and filters: Camera Raw-style develop, brightness/contrast, hue/saturation, invert, grayscale, auto levels, Gaussian/motion/box/radial blur, sharpen, unsharp mask, high pass, noise, median, dust and scratches, mosaic, crystallize, find edges, emboss, oil paint, solarize, clouds, vignette, lens flare, offset, minimum, maximum, twirl, ripple, wave, spherize, pinch, liquify, neural-style skin smooth.
-- Local generative-job tools: content-aware / generative fill, generative expand, generative upscale, Harmonize, Select Subject, Remove Background, Find Distractions. These run on-device; no cloud service is contacted and no account is needed.
-- Open PNG, JPG, GIF, WebP, AVIF, BMP, TIFF, **HEIC/HEIF** (`.heic`, `.heif`, `.hif` — decoded in-app with libheif, since no browser reads them), **DICOM** (`.dcm`, with rescale, windowing and MONOCHROME1 handled), and the native `.mpw` project format. Place extra images as new layers.
-- Save layered projects (`.mpw` v2) and export PNG, JPG, WebP, AVIF, GIF, or TIFF, with a **transparent background** option for the formats that can store alpha.
-- **Print** (Ctrl+P) in one window: the page on its sheet, the printer, the orientation and the number of copies together, then straight to the printer. In a browser the system print dialog is used instead, since nothing else can reach a printer there.
-- **Image information** window: the file, the document, pixel statistics, and the header the file itself carried — EXIF for a photo, IHDR for a PNG, the tag set for a DICOM.
-- Separate title bar, menu bar and icon toolbar; every menu dropdown and dialog opens as its own movable window that can overhang the app and is closed with it. Menus fold their groups into submenus that open beside the row; the toolbar stays on one line, which sets the window's minimum width (1280 px); the Filter Gallery is a tabbed, fixed-size window and Settings a preferences window with sections and a reset button.
-- Drag images or `.mpw` projects onto the window from the desktop.
-- Undo/redo, zoom/pan/rotate view, rulers graduated like a tape (numbered, half and fine ticks on both axes), quick mask, transparency checkerboard, optional grid, RGB histogram, Korean/English UI, 20 dark/light themes.
-- Every failure opens a window naming the action and showing the full error, stack and environment, ready to copy.
-- **Photoshop parity** (see [PhotoshopParity.md](PhotoshopParity.md) for the item-by-item status): the whole Photoshop menu set — File, Edit, Image, Layer, Type, Select, Filter, 3D, View and Window — with **several open documents in tabs**; **live preview** in every adjustment and filter window; **selection add/subtract/intersect** (Shift, Alt, Shift+Alt, or the option bar) with feather and anti-alias; **layer masks that can be painted**, disabled, inverted, applied and deleted; **layer styles** with all ten effects and their parameters (drop/inner shadow, outer/inner glow, bevel & emboss, satin, colour/gradient/pattern overlay, stroke) plus saved styles; **PSD open and save** (layers, groups, masks, blend modes, opacity, 8/16-bit RGB, greyscale, CMYK, indexed); the **History panel** with named snapshots and a history-brush source; **guides** (drag from the rulers, New Guide, layouts, lock, snap), pixel grid, notes, artboards, colour samplers with RGB readouts and a measurement log; **panels** for Properties, Navigator, Color, Swatches, Gradients, Patterns, Styles, Shapes, Brushes, Clone Source, Tool Presets, Character, Paragraph, Glyphs, Measurement Log and Notes; a **gradient editor** with any number of colour and opacity stops; **Select and Mask** (smooth, feather, contrast, shift edge, edge radius, decontaminate, four outputs), Transform Selection, Focus Area, Sky, Object Selection by dragging a box and a Quick Selection brush; **Colour Lookup** (built-in looks and `.cube` files), HDR Toning, Match Color, Desaturate, Auto Tone/Contrast, arbitrary rotation, Apply Image, Calculations, Duotone, Indexed Colour and Bitmap modes; **ninety more filters** — Surface/Lens/Smart/Shape Blur, the Blur Gallery (Field, Iris, Tilt-Shift, Path, Spin), Displace, Polar Coordinates, Shear, ZigZag, Ocean Ripple, Glass, Diffuse Glow, Despeckle, Reduce Noise, Colour Halftone, Facet, Fragment, Mezzotint, Pointillize, Difference Clouds, Fibers, Lighting Effects, Flame, Tree, Picture Frame, Sharpen More/Edges, Smart Sharpen, Shake Reduction, Diffuse, Extrude, Tiles, Trace Contour, Wind, De-Interlace, NTSC Colours, Custom kernel, HSB/HSA, Lens Correction, Adaptive Wide Angle, Vanishing Point (paste into a plane), Liquify as a real brush (forward warp, twirl, pucker, bloat, reconstruct, freeze/thaw) and all 46 Filter Gallery effects; the **Mixer, History, Art History, Pattern Stamp and Healing brushes** do what their names say; **the classical computer-vision commands are the real thing**, built on OpenCV (WebAssembly, loaded on first use) and two pieces of pure TypeScript: Photomerge and Auto-Align match features frame to frame and warp with a RANSAC homography (rotation and perspective, not just a shift), Auto-Blend fades each layer by its distance from its own edge, Merge to HDR is Mertens exposure fusion, Content-Aware Fill / Generative Fill / the Remove tool are PatchMatch inpainting seeded by Telea, Harmonize is Poisson seamless cloning, Object Selection and Select Subject are GrabCut, Crop & Straighten finds each print on the scanner bed and levels it into its own document, and the Clone Stamp inside a Vanishing Point plane clones along the plane's perspective; **local neural networks** (ONNX Runtime, WebAssembly on every core, WebGPU opt-in) for the commands Photoshop backs with models — Select Subject / Remove Background / Object Selection (U²-Net, Silueta, ISNet), Select Sky and Sky Replacement (SegFormer), Depth Blur (Depth Anything V2), Generative Fill and the Remove tool (LaMa), Super Zoom and Generative Upscale (Swin2SR) — with the weights fetched once from their public repositories through Edit ▸ Neural Models…, stored on this machine and never uploaded, and each command falling back to its classical method when a model is not downloaded; Load Files into Stack, Statistics, Contact Sheet, Fit Image and Image Processor; Fade, Paste in Place/Outside, Check Spelling, Find and Replace, Define Brush/Custom Shape, Sky Replacement, Perspective Warp, Purge, Keyboard Shortcuts (rebindable tool keys), Preferences; Proof Colours, Gamut Warning, screen modes, Extras, Pattern Preview; layer align/distribute/link, locks, matting, New Layer via Copy/Cut, Smart Object edit/replace/export contents, vector masks from paths; type to shape, work paths, glyphs, underline/strike/caps/baseline, anti-aliasing, type masks, orientation.
-- Desktop packaging for Windows (NSIS), macOS (DMG/ZIP), and Linux (AppImage/DEB/RPM) from the same codebase.
+- **레이어 편집**: 표시/잠금/불투명도, 혼합 모드(색조·채도·색상·광도 포함), 순서 변경, 복제, 아래와 병합, 배경으로 이미지 병합, **그룹**, **조정 레이어**, **칠 레이어**, **살아 있는 문자 레이어**, **모양 레이어**, **레이어 마스크**, **레이어 스타일**.
+- **전체 도구 막대**와 플라이아웃 그룹: 이동/대지, 선택 윤곽, 올가미, 개체/빠른 선택/자동 선택, 자르기/분할 영역/프레임, 샘플 도구, 리터치(복구/제거/패치/복제), 브러시, 지우개, 그레이디언트/페인트 통, 흐림/선명/손가락, 닷지/번/스폰지, 펜/패스, 문자, 모양, 손/뷰 회전/돋보기.
+- **클립보드**: 오려내기, 복사, 병합하여 복사, 붙여넣기와 선택 영역 안에 붙여넣기. 브라우저가 허용하는 범위에서 시스템 클립보드도 함께 씁니다. **칠**과 **획**은 선택 영역을 칠하거나 그 가장자리를 따라 안쪽·바깥쪽·가운데로 선을 그립니다.
+- **선택 영역 수정**: 확대, 축소, 테두리, 매끄럽게, 페더, 선택 영역 확장, 유사 영역 선택, 색상 범위, 다시 선택.
+- **자유 변형**(Ctrl+T): 크기 조절, 회전, 대칭, 폭·높이·각도 직접 입력. 문서 전체 또는 레이어 하나만 뒤집기.
+- **커브·레벨** 편집기: 채널별 조정, 단조 스플라인, 자동 검정/흰색 점, 픽셀에 바로 적용하거나 조정 레이어로 얹기.
+- **채널 혼합, 선택 색상, 그레이디언트 맵, 색상 대체, 평균화, 자동 색상**, 180° 회전, 잘라내기.
+- **클리핑 마스크**: 조정 레이어를 포함한 어떤 레이어든 바로 아래 레이어의 모양 안으로 가둘 수 있습니다.
+- **고급 개체와 고급 필터**: 원본을 손대지 않은 채 레이어로 넣을 수 있어 크기를 줄였다 키워도 잃는 것이 없고, 필터는 언제든 끄고 다시 조정하고 지울 수 있는 스택에 쌓입니다.
+- **채널**: 세 색상 채널을 따로 보여 주고, 저장한 선택 영역이 알파 채널이 되어 프로젝트 파일에 남으며, 다시 불러와 선택 영역을 대체·추가·제외·교차시킬 수 있습니다.
+- **변형**: 기울이기, 왜곡, 원근, 뒤틀기(열한 가지 모양), 핀을 꽂는 퍼펫 뒤틀기, 그리고 심 카빙으로 하는 내용 인식 비율. 모든 레이어를 같은 심으로 깎아 서로 어긋나지 않습니다.
+- **문자**: 행간·자간·들여쓰기·단락 간격이 있는 단락, 같은 열한 가지 모양으로 뒤튼 문자, 패스를 따라 흐르는 문자.
+- **색상 모드와 관리**: RGB, 회색 음영, CMYK, Lab. 채널당 8비트 또는 16비트이며 16비트 TIFF 는 깊이를 그대로 씁니다. 네 가지 RGB 작업 공간을 지정하거나 변환할 수 있고, 파일이 품고 있는 ICC 프로파일을 읽어 냅니다.
+- **액션**: 한 일을 기록해 다시 재생하고, 폴더 전체에 걸쳐 돌립니다. **레이어 구성**은 레이어의 배치를 기억했다 되살립니다.
+- **타임라인**: 프레임 단위 애니메이션. 앱이 직접 쓰는 애니메이션 GIF 로 내보내거나 동영상으로 녹화하며, 동영상 파일을 프레임으로 가져올 수도 있습니다.
+- **패턴과 브러시**: 선택 영역에서 패턴을 정의해 타일로 깔고, 크기·경도·불투명도·간격·각도·원형율·분산을 담은 브러시 모양을 저장합니다.
+- **3D**: 레이어를 빛이 닿는 입체로 돌출시켜 공간에서 돌립니다. 깊이·회전·원근·빛 방향을 조정할 수 있습니다.
+- **벡터 패스**: 펜, 자유 형태 펜, 곡률 펜. 기준점과 핸들 편집, 획, 칠, 패스를 선택 영역으로.
+- **모양 도구**(사각형, 둥근 사각형, 타원, 다각형, 선, 사용자 정의)로 편집할 수 있는 모양 레이어를 만듭니다.
+- **다각형·자석 올가미**, **패치**와 **내용 인식 이동**, **원근 자르기**, **분할 영역**(영역별 내보내기), **프레임**, 거리와 각도를 알려 주는 **눈금자 도구**.
+- 조정과 필터: Camera Raw 식 현상, 명도/대비, 색조/채도, 반전, 회색 음영, 자동 레벨, 가우시안/동작/상자/방사형 흐림, 선명 효과, 언샵 마스크, 하이 패스, 노이즈, 중간값, 먼지와 스크래치, 모자이크, 수정화, 가장자리 찾기, 엠보스, 유화, 솔라리제이션, 구름, 비네팅, 렌즈 플레어, 오프셋, 최소값, 최대값, 소용돌이, 잔물결, 파형, 구형화, 핀치, 픽셀 유동화, 뉴럴 식 피부 보정.
+- 기기 안에서 도는 생성형 작업: 내용 인식 채우기 / 생성형 채우기, 생성형 확장, 생성형 확대, 하모나이즈, 피사체 선택, 배경 제거, 방해 요소 찾기. 전부 이 컴퓨터에서 돌며 어떤 클라우드 서비스에도 연결하지 않고 계정도 필요 없습니다. **배경 제거는 방법을 고를 수 있고** — U²-Net, Silueta, ISNet, 또는 내장 GrabCut — 없는 모델은 받아 오겠느냐고 물은 뒤 진행률을 보여 주며 내려받습니다. 첫 실행 때는 무엇이든 받기 전에 먼저 묻습니다.
+- PNG, JPG, GIF, WebP, AVIF, BMP, TIFF, **HEIC/HEIF**(`.heic`, `.heif`, `.hif` — 어떤 브라우저도 읽지 못하므로 libheif 로 앱 안에서 디코딩), **DICOM**(`.dcm`, rescale·windowing·MONOCHROME1 처리), 그리고 자체 프로젝트 형식 `.mpw` 를 엽니다. 다른 이미지를 새 레이어로 가져올 수도 있습니다.
+- 레이어가 살아 있는 프로젝트(`.mpw` v2)를 저장하고 PNG, JPG, WebP, AVIF, GIF, TIFF 로 내보냅니다. 알파를 담을 수 있는 형식에는 **투명 배경** 선택이 붙습니다.
+- **인쇄**(Ctrl+P)를 한 창에서: 용지 위의 페이지, 프린터, 방향, 매수를 함께 놓고 곧바로 프린터로 보냅니다. 브라우저에서는 그곳에서 프린터에 닿는 유일한 방법인 시스템 인쇄 대화상자를 씁니다.
+- **이미지 정보** 창: 파일, 문서, 픽셀 통계, 그리고 파일 자신이 지니고 있던 헤더 — 사진이면 EXIF, PNG 면 IHDR, DICOM 이면 태그 전체.
+- 제목 표시줄·메뉴 막대·아이콘 툴바가 각각 따로 있고, 모든 메뉴 드롭다운과 대화상자는 앱 밖으로 걸칠 수 있는 자기만의 창으로 열려 앱과 함께 닫힙니다. 메뉴는 그룹을 하위 메뉴로 접어 행 옆에 펼치고, 툴바는 한 줄을 지키며 그것이 창의 최소 너비(1280px)를 정합니다. 필터 갤러리는 탭이 있는 고정 크기 창, 환경 설정은 구획과 초기화 단추가 있는 설정 창입니다.
+- 바탕화면에서 이미지나 `.mpw` 프로젝트를 창 위로 끌어다 놓을 수 있습니다.
+- **슬라이더가 마우스에 곧바로 반응합니다.** 손잡이와 옆의 숫자는 드래그를 그대로 따라가고, 사진은 드래그가 끝날 때 한 번만 다시 그립니다. 숫자를 칠 때도 글자마다가 아니라 Enter 를 누르거나 칸을 벗어날 때 반영됩니다.
+- **실행 취소/다시 실행**(Ctrl+Z / Ctrl+Y)이 툴바와 편집 메뉴에 있고, 되돌릴 것이 없으면 흐려집니다. 작업 내역 패널이 단계마다 이름을 붙여 두어 어느 지점으로든 건너뛸 수 있습니다. 확대/축소·화면 이동·뷰 회전, 줄자처럼 눈금이 매겨진 눈금자(양축에 숫자·반눈금·잔눈금), 빠른 마스크, 투명 바둑판, 선택하면 나오는 격자, RGB 히스토그램, 한국어/영어 UI, 20가지 어두운/밝은 테마.
+- **오래 걸리는 작업에는 진행 창**이 뜹니다 — 내용 인식 채우기, 파노라마, 프로세서에서 도는 신경망. 작업 이름을 말해 주고, 스스로 셀 수 있는 작업은 실제 백분율을(일괄 처리는 파일 이름을, 생성형 확대는 타일 수를), 셀 수 없는 작업은 경과 시간을 보여 줍니다. 프로세서를 붙잡는 작업은 일을 시작하기 **전에** 창을 띄우고, 나머지는 0.5초가 지나야 띄우므로 눈 깜짝할 새 끝나는 수백 가지 필터가 창을 깜빡이게 하지 않습니다.
+- **모든 창이 스스로를 설명합니다**: 필터마다, 대화상자마다 무엇을 하는지 한 줄씩 지니고 있어 고르면 조작부 옆에 나옵니다. 그리고 이 프로그램의 모든 단추는 같은 메뉴나 같은 도구 그룹 안의 다른 단추가 쓰지 않는 아이콘을 답니다.
+- **최근 파일**이 파일 메뉴에 남고 하나씩 또는 전부 지울 수 있으며, 열기 대화상자는 지난번에 있던 폴더로 돌아옵니다.
+- 어떤 실패든 무슨 작업이었는지 이름을 달고 오류·스택·환경 전부를 보여 주는 창이 열리며, 그대로 복사할 수 있습니다.
+- **Photoshop 대응**(항목별 상태는 [PhotoshopParity.md](PhotoshopParity.md)): 파일·편집·이미지·레이어·문자·선택·필터·3D·보기·창 — Photoshop 메뉴 전체. **여러 문서를 탭으로** 동시에 열고, 모든 조정·필터 창에 **실시간 미리보기**가 있으며, **선택 영역 추가/제외/교차**(Shift, Alt, Shift+Alt 또는 옵션 막대)에 페더와 앤티앨리어스가 붙습니다. **칠할 수 있는 레이어 마스크**를 끄고, 반전하고, 적용하고, 지웁니다. **레이어 스타일**은 열 가지 효과와 그 매개변수를 모두 갖추고(드롭/내부 그림자, 외부/내부 광선, 경사와 엠보스, 새틴, 색상/그레이디언트/패턴 오버레이, 획) 저장한 스타일도 있습니다. **PSD 열기와 저장**(레이어, 그룹, 마스크, 혼합 모드, 불투명도, 8/16비트 RGB, 회색 음영, CMYK, 인덱스). 이름을 붙인 스냅샷과 작업 내역 브러시 원본을 갖춘 **작업 내역 패널**, **안내선**(눈금자에서 끌어오기, 새 안내선, 레이아웃, 잠금, 스냅), 픽셀 격자, 메모, 대지, RGB 값을 읽어 주는 색상 샘플러와 측정 기록. **패널**은 속성, 내비게이터, 색상, 색상 견본, 그레이디언트, 패턴, 스타일, 모양, 브러시, 복제 원본, 도구 사전 설정, 문자, 단락, 글리프, 측정 기록, 메모. 색상 정지점과 불투명도 정지점을 얼마든지 둘 수 있는 **그레이디언트 편집기**. **선택 및 마스크**(매끄럽게, 페더, 대비, 가장자리 이동, 가장자리 반경, 색상 정화, 네 가지 출력), 선택 영역 변형, 초점 영역, 하늘, 상자를 끌어 쓰는 개체 선택과 빠른 선택 브러시. **색상 검색**(내장 룩과 `.cube` 파일), HDR 토닝, 색상 일치, 채도 감소, 자동 톤/대비, 임의 각도 회전, 이미지 적용, 계산, 듀오톤·인덱스 색상·비트맵 모드. **아흔 가지 필터가 더** — 표면/렌즈/고급/모양 흐림, 흐림 갤러리(필드, 조리개, 기울기-이동, 패스, 회전), 변위, 극좌표, 지그재그, 바다 물결, 유리, 광선 확산, 스페클 제거, 노이즈 감소, 색상 하프톤, 단면화, 파편, 메조틴트, 점묘화, 차이 구름, 섬유, 조명 효과, 화염, 나무, 사진 프레임, 더 선명하게/가장자리 선명하게, 고급 선명 효과, 흔들기 감소, 분산, 돌출, 타일, 윤곽선 추적, 바람, 인터레이스 제거, NTSC 색상, 사용자 정의 커널, HSB/HSA, 렌즈 교정, 응용 광각, 소실점(평면 안에 붙여넣기), 진짜 브러시로 동작하는 픽셀 유동화(앞으로 뒤틀기, 소용돌이, 오목, 볼록, 재구성, 고정/해제), 그리고 필터 갤러리 효과 46가지 전부. **혼합, 작업 내역, 아트 작업 내역, 패턴 도장, 복구 브러시**는 이름 그대로 동작합니다. **고전 컴퓨터 비전 명령들은 진짜입니다** — OpenCV(WebAssembly, 처음 쓸 때 불러옴)와 순수 TypeScript 두 조각 위에 있습니다. Photomerge 와 자동 정렬은 프레임 사이의 특징을 맞춰 RANSAC 호모그래피로 뒤틀고(단순 이동이 아니라 회전과 원근), 자동 혼합은 각 레이어를 자기 가장자리로부터의 거리로 흐립니다. HDR 로 병합은 Mertens 노출 융합, 내용 인식 채우기 / 생성형 채우기 / 제거 도구는 Telea 로 씨를 뿌린 PatchMatch 인페인팅, 하모나이즈는 푸아송 심리스 클로닝, 개체 선택과 피사체 선택은 GrabCut, 사진 자르고 똑바르게는 스캐너 판 위의 인화지를 하나씩 찾아 수평을 맞춰 각각 문서로 만들고, 소실점 평면 안의 복제 도장은 그 평면의 원근을 따라 복제합니다. **기기 안의 신경망**(ONNX Runtime, 모든 코어에서 도는 WebAssembly, 선택하면 WebGPU)은 Photoshop 이 모델로 뒷받침하는 명령들에 씁니다 — 피사체 선택 / 배경 제거 / 개체 선택(U²-Net, Silueta, ISNet), 하늘 선택과 하늘 대체(SegFormer), 깊이 흐림(Depth Anything V2), 생성형 채우기와 제거 도구(LaMa), 슈퍼 줌과 생성형 확대(Swin2SR). 가중치는 편집 ▸ 뉴럴 모델… 에서 공개 저장소로부터 한 번 받아 이 컴퓨터에 두며 어디에도 올리지 않고, 모델이 없으면 각 명령은 고전적 방법으로 되돌아갑니다. 파일을 스택으로 불러오기, 통계, 밀착 인화, 이미지 맞추기, 이미지 처리기. 흐리게 하기, 제자리에/바깥에 붙여넣기, 맞춤법 검사, 찾기와 바꾸기, 브러시/사용자 정의 모양 정의, 하늘 대체, 원근 뒤틀기, 제거, 키보드 단축키(도구 키 재지정), 환경 설정. 저해상도 인쇄 색상, 색상 영역 경고, 화면 모드, 표시 여부, 패턴 미리보기. 레이어 정렬/분포/연결, 잠금, 매트, 복사한/오려낸 레이어, 고급 개체 편집/교체/내용 내보내기, 패스에서 만든 벡터 마스크. 문자를 모양으로, 작업 패스, 글리프, 밑줄/취소선/대문자/기준선, 앤티앨리어스, 문자 마스크, 방향.
+- 같은 코드에서 Windows(NSIS), macOS(DMG/ZIP), Linux(AppImage/DEB/RPM) 설치본을 만듭니다.
 
-See [UsersGuide.md](UsersGuide.md) for how to use the editor and [Architecture.md](Architecture.md) for the internal design.
+쓰는 법은 [UsersGuide.md](UsersGuide.md), 내부 설계는 [Architecture.md](Architecture.md) 를 보세요.
 
-## Development
+## 개발
 
 ```bash
 npm install
 npm start
 ```
 
-For the web-only Vite server during development:
+개발 중 웹만 띄우려면:
 
 ```bash
 npm run dev
 ```
 
-## Tests
+## 시험
 
 ```bash
 npm test
 ```
 
-Runs the suite under `test/` with `node --test`. It exercises the editing engine
-directly against a real 2D canvas — no browser and no bundler — covering colour
-maths, selections, adjustments, filters, layer compositing, the painting tools,
-paths, transforms, history, settings, the `.mpw` format, error reporting and the
-Korean/English tables. A second group reads the source to check the wiring: that
-every tool in the strip is reachable, that every menu command has a handler, and
-that the popup windows, icons and launchers are configured as they should be.
+`test/` 아래를 `node --test` 로 돌립니다 — 현재 **47개 파일, 725개 검사**입니다.
+브라우저도 번들러도 끼우지 않고 진짜 2D 캔버스에 대고 편집 엔진을 직접
+돌리며, 색상 연산·선택 영역·조정·필터·레이어 합성·그리기 도구·패스·변형·작업
+내역·설정·`.mpw` 와 PSD 형식·OpenCV 기반 명령·신경망 전후처리·오류 보고·가장자리
+상황(빈 문서, 1픽셀 레이어, 캔버스 밖 선택 영역)·한국어/영어 표를 덮습니다.
+두 번째 묶음은 소스를 읽어 배선을 확인합니다. 도구 막대의 모든 도구에 닿을 수
+있는지, 메뉴 명령마다 처리기가 있는지, 한 메뉴 안의 두 단추가 같은 아이콘을
+달고 있지는 않은지, 아직 날것 슬라이더를 쓰는 창이 남아 있지는 않은지, 오래
+걸리는 명령마다 진행 창을 띄우는지, 그리고 팝업 창·아이콘·실행 스크립트가
+제대로 설정되어 있는지.
 
-`npm test` regenerates the build stamp and the icons first, so a fresh clone
-passes without a build. See [Architecture.md](Architecture.md) for how the
-harness works.
+실행하면 파일마다 무엇을 확인했는지 보여 준 뒤 요약을 찍습니다. **빨간색은
+실패, 오직 그것뿐**입니다. 노란색은 100ms 를 넘긴 것, 굵은 노란색은 500ms 를
+넘긴 것이고, 범례를 표와 함께 인쇄합니다.
+
+`npm test` 는 빌드 스탬프와 아이콘을 먼저 다시 만들므로, 막 받아 온 저장소도
+빌드 없이 통과합니다. 시험 장치가 어떻게 돌아가는지는
+[Architecture.md](Architecture.md) 에 있습니다.
 
 ```bash
 npm run verify:images
 ```
 
-Walks the real open → composite → export → print pipeline over every photo in
-`images/`, at full camera resolution, including the HEIC and the DICOM slice. It
-asserts as it goes — a non-zero exit means a feature is broken — and leaves
-everything it produced in **`out/`**: the composites, the exports in each
-format, a transparent/opaque pair, the 3D, warp, carve, animation, 16-bit and
-pattern results, and the print preview and page. `out/index.html` shows them
-side by side, `out/report.md` lists what each file is evidence of, and
-`out/verify-images.log` is the transcript.
+`images/` 의 사진 하나하나를 열기 → 합성 → 내보내기 → 인쇄 파이프라인에 카메라
+해상도 그대로 태웁니다. HEIC 와 DICOM 한 장도 포함합니다. 가는 동안 스스로
+단정하며 — 0이 아닌 종료 코드는 기능이 깨졌다는 뜻입니다 — 만들어 낸 것을 전부
+**`out/`** 에 남깁니다: 합성 결과, 형식별 내보내기, 투명/불투명 한 쌍, 3D·뒤틀기·
+심 카빙·애니메이션·16비트·패턴 결과, 인쇄 미리보기와 페이지. `out/index.html`
+이 나란히 보여 주고, `out/report.md` 가 각 파일이 무엇의 증거인지 적어 두며,
+`out/verify-images.log` 가 전체 기록입니다.
 
 ```bash
-npm run verify:features            # working copies, longest side 512px
-npm run verify:features -- --full  # the photos at full size
+npm run verify:features            # 작업 사본, 긴 변 512px
+npm run verify:features -- --full  # 사진 원본 크기
 ```
 
-Runs the rest of the editor over the same photos: every tool and every
-Image/Edit/Layer/Type/Select/Filter/3D command that changes pixels or the
-document, through the engine functions the menus call, on each photo. It
-asserts as it goes and keeps every result as `out/features/<photo>-<feature>.png`
-(selections tinted red, paths outlined); `out/features.html` is the gallery,
-`out/features.md` the record with a coverage table for every command and tool
-in the catalog, `out/verify-features.log` the transcript.
+같은 사진에 편집기의 나머지를 돌립니다. 픽셀이나 문서를 바꾸는 모든 도구와
+모든 이미지/편집/레이어/문자/선택/필터/3D 명령을, 메뉴가 부르는 바로 그 엔진
+함수를 통해 사진마다 실행합니다. 가는 동안 단정하고 결과를
+`out/features/<사진>-<항목>.png` 로 남기며(선택 영역은 붉게, 패스는 윤곽선으로),
+`out/features.html` 이 갤러리, `out/features.md` 가 카탈로그의 모든 명령과 도구에
+대한 커버리지 표를 담은 기록, `out/verify-features.log` 가 전체 기록입니다.
 
-`out/` is rebuilt on every run and is not committed; open the galleries
-locally. Looking at the pictures is the point — the seam-carving bug in
-Content-Aware Scale, and the clone stamp sampling from the mirrored point, were
-found by looking rather than by asserting.
+`out/` 은 실행할 때마다 새로 만들어지고 커밋하지 않습니다. 갤러리는 로컬에서
+여세요. **그림을 눈으로 보는 것이 핵심입니다** — 내용 인식 비율의 심 카빙 결함과
+복제 도장이 거울상 지점에서 표본을 뜨던 문제는 단정이 아니라 눈으로 찾았습니다.
 
-## Build
+## 빌드
 
-Web build:
+웹 빌드:
 
 ```bash
 npm run build:web
 ```
 
-Windows installer (`build:win` is an alias of `dist:win`):
+Windows 설치 파일(`build:win` 은 `dist:win` 의 다른 이름):
 
 ```bash
 npm run build:win
 ```
 
-macOS packages:
+macOS 패키지:
 
 ```bash
 npm run dist:mac
 ```
 
-Linux packages:
+Linux 패키지:
 
 ```bash
 npm run dist:linux
 ```
 
-Each `dist:*` script generates the icons and the build stamp, builds the web
-bundle, packages with electron-builder, and then runs
-`scripts/copy-installers.cjs`, which copies the freshly built installer into the
-project root. Build output lives under `release/`.
+`dist:*` 스크립트는 아이콘과 빌드 스탬프를 만들고, 웹 번들을 빌드하고,
+electron-builder 로 포장한 뒤 `scripts/copy-installers.cjs` 를 돌려 방금 만든
+설치 파일을 프로젝트 루트로 복사합니다. 빌드 산출물은 `release/` 아래에 있습니다.
 
-The `dist:*` scripts package through `scripts/package-app.cjs` rather than
-calling electron-builder directly. Packaging writes about a hundred megabytes of
-`.exe`, `.dll` and archive into `release/` and then renames and deletes those
-files moments later; on Windows, whatever scans new executables can still have
-one open at that point, and the build dies with `EPERM: operation not permitted`
-on a rename or `EBUSY: resource busy or locked` on a delete — on files nothing
-else is using. The wrapper clears what an earlier run left behind, and retries a
-lock three times with a growing wait. Any other failure is reported the first
-time. `npm run clean:release` does the clearing on its own.
+`dist:*` 는 electron-builder 를 직접 부르지 않고 `scripts/package-app.cjs` 를
+거칩니다. 포장 과정은 `.exe`·`.dll`·압축 파일 백 메가바이트쯤을 `release/` 에
+썼다가 몇 순간 뒤 이름을 바꾸고 지우는데, Windows 에서는 새 실행 파일을 검사하는
+무언가가 그 시점에 파일을 아직 붙들고 있을 수 있어, 아무도 쓰지 않는 파일에 대고
+이름 변경이 `EPERM: operation not permitted`, 삭제가 `EBUSY: resource busy or
+locked` 로 빌드가 죽습니다. 래퍼는 이전 실행이 남긴 것을 먼저 치우고, 잠긴
+파일은 기다리는 시간을 늘려 가며 세 번 다시 시도합니다. 그 밖의 실패는 처음
+나온 그대로 보고합니다. `npm run clean:release` 는 치우는 일만 따로 합니다.
 
-Generated files are not committed. `scripts/create-icons.cjs` renders
-`build/icon.ico`, `build/icon.png` and the Linux icon set from
-`public/app-icon.svg` — one source for the executable, the installer, the
-uninstaller, the taskbar and both shortcuts — and
-`scripts/generate-build-info.cjs` writes `src/build-info.json` with the version,
-build time and commit that the About window shows.
+생성되는 파일은 커밋하지 않습니다. `scripts/create-icons.cjs` 가
+`public/app-icon.svg` 하나에서 `build/icon.ico`, `build/icon.png` 와 Linux 아이콘
+묶음을 렌더링해 — 실행 파일, 설치 관리자, 제거 관리자, 작업 표시줄, 두 바로
+가기가 모두 한 원본을 씁니다 — `scripts/generate-build-info.cjs` 가 정보 창이
+보여 주는 버전·빌드 시각·커밋을 `src/build-info.json` 에 씁니다.
 
-macOS packages should be built on macOS, and Linux packages should be built on Linux or a suitable CI runner.
+macOS 패키지는 macOS 에서, Linux 패키지는 Linux 또는 그에 맞는 CI 러너에서
+빌드해야 합니다.
 
-## Repository layout
+## 저장소 구성
 
-| Path | What is in it |
+| 경로 | 무엇이 들었는가 |
 | ---- | ------------- |
-| `src/lib/` | The platform-independent editing engine: colour, selections, filters, paths, transforms, the document model |
-| `src/` | The React app, the command catalog, the popup bodies and the i18n tables |
-| `electron/` | The desktop shell: the main window, native file dialogs and the popup windows |
-| `scripts/` | The launchers, the packaging wrapper, the icon and build-stamp generators and the image verification run |
-| `test/` | The `node --test` suite and its DOM/canvas harness |
-| `images/` | Sample photos, including a HEIC and a DICOM slice, used by `npm run verify:images` and `verify:features` |
-| `out/` | What those runs produced (ignored by git): the galleries, the reports and every file they wrote |
+| `src/lib/` | 플랫폼과 무관한 편집 엔진: 색상, 선택 영역, 필터, 패스, 변형, 문서 모델 |
+| `src/` | React 앱, 명령 카탈로그, 팝업 본문, i18n 표 |
+| `electron/` | 데스크톱 껍데기: 메인 창, 네이티브 파일 대화상자, 팝업 창 |
+| `scripts/` | 실행 스크립트, 포장 래퍼, 아이콘·빌드 스탬프 생성기, 실사진 검증 |
+| `test/` | `node --test` 시험 묶음과 DOM/캔버스 시험 장치 |
+| `images/` | 예제 사진. HEIC 한 장과 DICOM 한 장을 포함하며 `npm run verify:images`·`verify:features` 가 씁니다 |
+| `out/` | 그 두 실행이 만들어 낸 것(git 제외): 갤러리, 보고서, 그리고 남긴 파일 전부 |
 
-## Program Information
+## 프로그램 정보
 
-- Program: My Photo Work V1.0
-- Version: 1.0.0
-- Creator: SHKWON(knix008@naver.com)
-- Licence: MIT
+- 프로그램: My Photo Work V1.0
+- 버전: 1.0.0
+- 만든이: SHKWON(knix008@naver.com)
+- 라이선스: MIT

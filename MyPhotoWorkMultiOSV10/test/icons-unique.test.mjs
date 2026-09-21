@@ -1,12 +1,17 @@
 /*
- * No two rows of the same menu wear the same icon.
+ * No two rows of the menus wear the same icon. Anywhere.
  *
- * Across menus a shared icon is usually right — a bin means delete wherever it
- * appears, and it would be perverse to draw it differently in the Layer menu
- * than in the View menu. Inside one dropdown it is the opposite: two rows that
- * look identical are two rows you have to read to tell apart, which is what
- * the icon was there to save you. Fifty-three icons were in that position,
- * covering 147 rows.
+ * This started as a within-one-dropdown rule, on the reasoning that a bin
+ * means delete wherever it appears and it would be perverse to draw it
+ * differently in the Layer menu than in the View menu. That reasoning turned
+ * out to describe almost none of the sharing that was actually there: 88 icons
+ * were worn by 265 of the 410 commands, and one sparkle stood for
+ * Content-Aware Fill, Auto Tone, Layer Style, Anti-Alias, Select Similar,
+ * Neural Filters, 3D Effects and the Styles panel at once. An icon that means
+ * eight things means none of them.
+ *
+ * So every command now has one of its own, picked to say what its label says.
+ * The same holds for the 66 tools in the strip and for the 117 filters.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -32,6 +37,38 @@ test('no two commands in the same menu share an icon', () => {
   assert.deepEqual(clashes, [], clashes.join('\n'))
 })
 
+test('no two commands anywhere in the menus share an icon', () => {
+  /*
+   * This used to be a within-a-menu rule, on the reasoning that a bin means
+   * delete wherever it appears. In practice the sharing was not that: 88 icons
+   * were worn by 265 commands, eight of them by eight commands each — one
+   * sparkle stood for Content-Aware Fill, Auto Tone, Layer Style, Anti-Alias,
+   * Select Similar, Neural Filters, 3D Effects and the Styles panel at once,
+   * which tells the reader nothing about any of them. Every command now has an
+   * icon of its own, chosen to say what its label says.
+   */
+  const seen = new Map()
+  const clashes = []
+  for (const command of commands) {
+    const twin = seen.get(command.icon)
+    if (twin) clashes.push(`${twin.menu}/${twin.label} and ${command.menu}/${command.label} look the same`)
+    else seen.set(command.icon, command)
+  }
+  assert.deepEqual(clashes, [], clashes.join('\n'))
+  assert.equal(seen.size, commands.length, 'a command is missing an icon of its own')
+})
+
+test('the icons are distinct components, not two names for one drawing', () => {
+  /*
+   * lucide ships aliases — Trash is Trash2, Magnet is MagnetIcon, Wand2 is
+   * WandSparkles — so two rows can name different icons and draw the same
+   * thing. Comparing the components rather than the names is what catches it,
+   * and it caught several of these while they were being assigned.
+   */
+  const components = new Set(commands.map((command) => command.icon))
+  assert.equal(components.size, commands.length, 'two commands share a component under different names')
+})
+
 test('every command still has an icon, and they are drawable', () => {
   for (const command of commands) {
     const icon = command.icon
@@ -42,7 +79,7 @@ test('every command still has an icon, and they are drawable', () => {
 
 test('the catalog draws on a wide enough vocabulary to be worth reading', () => {
   const distinct = new Set(commands.map((command) => command.icon))
-  assert.ok(distinct.size >= 120, `only ${distinct.size} different icons across ${commands.length} commands`)
+  assert.equal(distinct.size, commands.length, `only ${distinct.size} different icons across ${commands.length} commands`)
 })
 
 test('no two tools in the strip share an icon', () => {

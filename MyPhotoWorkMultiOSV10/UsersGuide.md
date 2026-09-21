@@ -1,771 +1,700 @@
-# Users Guide — My Photo Work V1.0
+# 사용 설명서 — My Photo Work V1.0
 
-## Starting
+## 시작하기
 
-- Desktop: `npm start`
-- Browser: `npm run dev`, then open http://127.0.0.1:5173
+- 데스크톱: `npm start`
+- 브라우저: `npm run dev` 후 http://127.0.0.1:5173 열기
 
-You begin on a 1280×720 transparent canvas. **파일 → 새로 만들기 / File → New** picks
-another size or background.
+1280×720 투명 캔버스로 시작합니다. **파일 → 새로 만들기**에서 다른 크기나 배경을
+고를 수 있습니다.
 
-You can also drag images or `.mpw` projects onto the window from the desktop. A
-drop onto an untouched document opens it; a drop onto one you have edited places
-the images as new layers.
+바탕화면에서 이미지나 `.mpw` 프로젝트를 창 위로 끌어다 놓아도 됩니다. 손대지 않은
+문서 위에 놓으면 그 파일을 열고, 이미 편집한 문서 위에 놓으면 새 레이어로 들어옵니다.
 
-## The window
+## 창
 
-Four rows sit above the canvas:
+캔버스 위에 네 줄이 있습니다.
 
-| Row | What it holds |
+| 줄 | 무엇이 있는가 |
 | --- | --- |
-| Title bar | The app icon, the document name and size, and the window buttons |
-| Menu bar | Every command, grouped: File, Edit, Image, Layer, Type, Select, Filter, 3D, View, Window — then the theme button (click to step, arrow to pick), the language switch, Settings and About |
-| Toolbar | The commands you reach for constantly, as icons — with the zoom percentage between the zoom-out and zoom-in buttons — followed by Select subject / Remove background / Generative fill / Harmonize and the foreground–swap–background colours |
-| Options bar | The current tool and its own settings, with a one-line reminder of what the tool does |
+| 제목 표시줄 | 앱 아이콘, 문서 이름과 크기, 창 단추 |
+| 메뉴 막대 | 모든 명령을 갈래로 묶어: 파일, 편집, 이미지, 레이어, 문자, 선택, 필터, 3D, 보기, 창 — 그 뒤에 테마 단추(누르면 다음 테마, 화살표로 고르기), 언어 전환, 설정, 정보 |
+| 툴바 | 늘 손이 가는 명령을 아이콘으로 — 축소와 확대 단추 사이에 확대 비율 — 이어서 피사체 선택 / 배경 제거 / 생성형 채우기 / 하모나이즈, 그리고 전경–교환–배경 색 |
+| 옵션 막대 | 지금 도구와 그 설정, 그리고 그 도구가 무엇을 하는지 한 줄 설명 |
 
-The tool strip runs down the left edge. Clicking a group that is already active
-cycles through its tools, the way a flyout group does.
+도구 막대는 왼쪽 가장자리를 따라 내려갑니다. 이미 켜져 있는 그룹을 다시 누르면 그
+그룹의 도구를 차례로 돌아갑니다. 플라이아웃 그룹이 그렇게 동작합니다.
 
-Menus and every dialog open as **separate windows**. They can be dragged
-anywhere, a long menu can overhang the app, and they all close with it. Pressing
-a button that opens a dialog raises the one that is already open rather than
-making a second.
+메뉴와 모든 대화상자는 **각각 별도의 창**으로 열립니다. 아무 데로나 끌 수 있고, 긴
+메뉴는 앱 밖으로 걸쳐도 되며, 모두 앱과 함께 닫힙니다. 대화상자를 여는 단추를 다시
+누르면 새 창을 만들지 않고 이미 열린 창을 앞으로 가져옵니다.
 
-A menu shows its main commands in one list; a row ending in **▸** stands for a
-group — Filter's Blur, Artistic and Sketch, Layer's masks, Image's adjustments
-— and opens that group as a small **submenu** beside the row when you hover or
-click it, the way Photoshop's menus do. Nothing is dealt into columns any more.
+메뉴는 주요 명령을 한 목록으로 보여 주고, **▸** 로 끝나는 행은 그룹을 뜻합니다 —
+필터의 흐림·예술 효과·스케치, 레이어의 마스크, 이미지의 조정 — 이 행에 마우스를
+올리거나 누르면 그 그룹이 행 옆에 작은 **하위 메뉴**로 열립니다. Photoshop 메뉴와
+같은 방식이고, 더는 여러 열로 나누지 않습니다.
 
-The window cannot be made narrower than **1280 px**, which is what the toolbar
-needs to stay on one line with every button showing. The resize handle is the
-ribbed corner at the bottom right.
+창은 **1280px** 보다 좁아지지 않습니다. 툴바가 단추를 다 보여 주면서 한 줄을 지키는
+데 필요한 너비입니다. 크기 조절 손잡이는 오른쪽 아래 구석의 줄무늬입니다.
 
-The zoom percentage sits in the toolbar between **축소 / Zoom out** and
-**확대 / Zoom in**, where it reads as the number those two buttons are changing.
-Clicking it goes back to 100%.
+확대 비율은 툴바의 **축소**와 **확대** 사이에 있습니다. 그 두 단추가 바꾸고 있는
+숫자로 읽히는 자리입니다. 누르면 100% 로 돌아갑니다.
 
-## Tools
+## 도구
 
-### Selecting
+### 선택
 
-| Key | Tool | What it does |
+| 키 | 도구 | 하는 일 |
 | --- | --- | --- |
-| M / Shift+M | Marquee, ellipse | Drag a rectangular or elliptical selection |
-| M | Row, column | Click to select a one-pixel row or column |
-| L | Lasso | Drag a freehand outline |
-| Shift+L | Polygonal lasso | Click corner to corner; Enter or a double-click closes it |
-| L | Magnetic lasso | Trace an edge and the outline snaps to it; Edge width sets how far it looks |
-| W | Magic wand, quick select | Click to take a similar-coloured area; Tolerance sets how similar |
-| W | Object select | One click takes the subject |
+| M / Shift+M | 사각형·타원 선택 윤곽 | 끌어서 사각형이나 타원으로 선택 |
+| M | 행·열 선택 | 눌러서 1픽셀 가로줄이나 세로줄을 선택 |
+| L | 올가미 | 손으로 끌어 윤곽을 그림 |
+| Shift+L | 다각형 올가미 | 모서리마다 눌러 가며 그림. Enter 나 더블클릭으로 닫힘 |
+| L | 자석 올가미 | 가장자리를 따라가면 윤곽이 붙음. 가장자리 폭이 얼마나 멀리 보는지를 정함 |
+| W | 자동 선택·빠른 선택 | 눌러서 비슷한 색 영역을 가져옴. 허용치가 얼마나 비슷해야 하는지를 정함 |
+| W | 개체 선택 | 한 번 누르면 피사체를 가져옴 |
 
-Ctrl/Cmd+A selects everything and Ctrl/Cmd+D deselects. **Ctrl/Cmd+Shift+D**
-brings the last selection back, which is what to reach for after deselecting by
-mistake.
+Ctrl/Cmd+A 로 전체 선택, Ctrl/Cmd+D 로 선택 해제합니다. **Ctrl/Cmd+Shift+D** 는 마지막
+선택을 되살립니다. 실수로 선택을 푼 뒤 찾을 것이 이것입니다.
 
-#### Changing a selection you already have
+#### 이미 있는 선택 영역 고치기
 
-Every entry below is on the **선택 / Select** menu and works on whatever is
-selected, whether it was drawn with the marquee, traced with a lasso or taken
-with the wand.
+아래는 모두 **선택** 메뉴에 있고, 선택 윤곽으로 그렸든 올가미로 그렸든 자동 선택으로
+가져왔든 지금 선택된 것에 그대로 동작합니다.
 
-| Command | What it does |
+| 명령 | 하는 일 |
 | --- | --- |
-| **선택 영역 넓히기 / Expand** | Pushes the edge out by the number of pixels you give |
-| **선택 영역 좁히기 / Contract** | Pulls it in by the same amount, including where it meets the canvas edge |
-| **선택 테두리 / Border** | Replaces the selection with a band straddling its edge — select the outline of a shape rather than the shape |
-| **선택 매끄럽게 / Smooth** | Rounds the corners off, fills pinholes and removes single-pixel spurs; the cure for a ragged wand selection |
-| **잔물결 / Feather** | Softens the edge so what you do next fades out instead of stopping dead |
-| **인접 영역 확장 / Grow** | Spreads into the touching pixels that look like the ones already selected |
-| **유사 영역 선택 / Similar** | Takes every pixel of that colour anywhere in the image, connected or not |
-| **색상 범위 / Colour range** | Selects by colour alone: everything close to the current foreground colour |
+| **선택 영역 넓히기** | 지정한 픽셀만큼 가장자리를 바깥으로 밀어냄 |
+| **선택 영역 좁히기** | 같은 만큼 안으로 당김. 캔버스 가장자리와 만나는 곳도 포함 |
+| **선택 테두리** | 선택 영역을 그 가장자리를 걸치는 띠로 바꿈 — 도형이 아니라 도형의 윤곽을 선택 |
+| **선택 매끄럽게** | 모서리를 둥글리고 바늘구멍을 메우며 1픽셀 돌기를 없앰. 너덜너덜한 자동 선택의 처방 |
+| **잔물결(페더)** | 가장자리를 부드럽게 해 다음에 하는 일이 뚝 끊기지 않고 흐려지게 함 |
+| **인접 영역 확장** | 이미 선택된 픽셀과 닮은, 맞닿은 픽셀로 번져 나감 |
+| **유사 영역 선택** | 이어져 있든 아니든 그 색의 모든 픽셀을 가져옴 |
+| **색상 범위** | 색만으로 선택: 현재 전경색에 가까운 모든 것 |
 
-Grow and Similar use the same **Tolerance** as the magic wand, set in Settings.
-Colour range has its own tolerance slider, so you can widen or narrow the catch
-without leaving the window. All of them can be undone with Ctrl/Cmd+Z.
+인접 영역 확장과 유사 영역 선택은 자동 선택과 같은 **허용치**를 쓰며, 설정에서
+정합니다. 색상 범위는 자기 허용치 슬라이더가 있어 창을 떠나지 않고 폭을 넓히거나
+좁힐 수 있습니다. 모두 Ctrl/Cmd+Z 로 되돌릴 수 있습니다.
 
-**선택 / Select** also inverts the selection, finds distractions, and removes the
-background in one step.
+**선택** 메뉴에는 선택 반전, 방해 요소 찾기, 그리고 한 번에 배경을 없애는 명령도
+있습니다.
 
-### Copying, pasting, filling and stroking
+### 복사, 붙여넣기, 칠하기, 선 그리기
 
-These live on the **편집 / Edit** menu.
+**편집** 메뉴에 있습니다.
 
-| Command | Keys | What it does |
+| 명령 | 키 | 하는 일 |
 | --- | --- | --- |
-| **잘라내기 / Cut** | Ctrl/Cmd+X | Takes the selected pixels out of the active layer |
-| **복사 / Copy** | Ctrl/Cmd+C | Copies them from the active layer |
-| **병합하여 복사 / Copy merged** | Ctrl/Cmd+Shift+C | Copies what the selection shows of the *whole* image, every layer flattened together |
-| **붙여넣기 / Paste** | Ctrl/Cmd+V | Drops what was copied in as a new layer |
-| **선택 영역 안에 붙여넣기 / Paste into** | — | The same, masked by the current selection, so it only shows inside it |
-| **칠 / Fill** | — | Floods the selection with the foreground, background, white or black, at the opacity you choose |
-| **선 / Stroke** | — | Draws a line along the edge of the selection, inside it, outside it or centred on it |
+| **잘라내기** | Ctrl/Cmd+X | 선택한 픽셀을 활성 레이어에서 떼어 냄 |
+| **복사** | Ctrl/Cmd+C | 활성 레이어에서 복사 |
+| **병합하여 복사** | Ctrl/Cmd+Shift+C | 선택 영역이 보여 주는 *이미지 전체*를, 모든 레이어를 합쳐 복사 |
+| **붙여넣기** | Ctrl/Cmd+V | 복사한 것을 새 레이어로 놓음 |
+| **선택 영역 안에 붙여넣기** | — | 같지만 현재 선택 영역으로 가려져 그 안에만 보임 |
+| **칠** | — | 선택 영역을 전경색·배경색·흰색·검정으로, 고른 불투명도로 채움 |
+| **선(획)** | — | 선택 영역의 가장자리를 따라 안쪽·바깥쪽·가운데로 선을 그림 |
 
-A copy also goes to the system clipboard where the browser allows it, so it can
-be pasted into another program. With nothing selected, Copy takes the whole
-layer. Paste puts the pixels where the selection is, or in the middle of the
-document when there is none.
+브라우저가 허용하는 범위에서 복사본은 시스템 클립보드에도 올라가므로 다른 프로그램에
+붙여 넣을 수 있습니다. 아무것도 선택하지 않았으면 복사는 레이어 전체를 가져옵니다.
+붙여넣기는 선택 영역이 있는 자리에, 없으면 문서 가운데에 놓습니다.
 
-### Painting and retouching
+### 그리기와 리터치
 
-| Key | Tool | What it does |
+| 키 | 도구 | 하는 일 |
 | --- | --- | --- |
-| B | Brush, pencil | Paint. `[` and `]` change the size; Hardness sets the edge |
-| B | Colour replace | Repaints the clicked colour with the foreground |
-| E | Eraser, background eraser, magic eraser | Erase by stroke, by colour, or a whole area at a click |
-| S | Clone stamp | **Alt-click to set the source**, then drag to copy from it |
-| J | Spot heal, heal, patch | Blend a blemish away; the patch tool drags a selection onto clean pixels |
-| J | Content-aware move | Drag a selection somewhere else and the hole is filled in |
-| O | Dodge, burn, sponge | Lighten, darken, or change saturation under the brush |
-| — | Blur, sharpen, smudge | Soften, sharpen, or smear where you drag |
-| G | Bucket, gradient | Flood-fill, or drag one of five gradient kinds |
+| B | 브러시, 연필 | 칠하기. `[` 와 `]` 로 크기, 경도로 가장자리를 정함 |
+| B | 색상 대체 | 누른 색을 전경색으로 다시 칠함 |
+| E | 지우개, 배경 지우개, 자동 지우개 | 획으로, 색으로, 또는 한 번 눌러 영역째 지움 |
+| S | 복제 도장 | **Alt+클릭으로 원본을 정하고** 끌어서 그곳에서 복제 |
+| J | 스팟 복구, 복구, 패치 | 티를 섞어 없앰. 패치 도구는 선택 영역을 깨끗한 픽셀 위로 끎 |
+| J | 내용 인식 이동 | 선택 영역을 다른 곳으로 끌면 빈자리가 채워짐 |
+| O | 닷지, 번, 스폰지 | 브러시 아래를 밝게, 어둡게, 또는 채도를 바꿈 |
+| — | 흐림, 선명, 손가락 | 끄는 자리를 부드럽게, 선명하게, 또는 문지름 |
+| G | 페인트 통, 그레이디언트 | 플러드 필, 또는 다섯 가지 그레이디언트 중 하나를 끎 |
 
-### Shapes, paths and type
+### 모양, 패스, 문자
 
-| Key | Tool | What it does |
+| 키 | 도구 | 하는 일 |
 | --- | --- | --- |
-| P | Pen | Click for corners, drag for curves, Enter to close |
-| Shift+P | Curvature pen | Click only; the curve is smoothed for you |
-| P | Freeform pen | Draw a path freehand |
-| A / Shift+A | Path select, direct select | Move a whole path, or drag its anchors and handles |
-| U | Rectangle, rounded rectangle, ellipse, polygon, line, custom | Drag to draw; Shift keeps it regular. Each becomes an editable shape layer |
-| T / Shift+T | Type, vertical type | Click, type, then OK |
+| P | 펜 | 누르면 모서리, 끌면 곡선. Enter 로 닫음 |
+| Shift+P | 곡률 펜 | 누르기만 하면 곡선을 알아서 매끄럽게 |
+| P | 자유 형태 펜 | 손으로 패스를 그림 |
+| A / Shift+A | 패스 선택, 직접 선택 | 패스 전체를 옮기거나 기준점과 핸들을 끎 |
+| U | 사각형, 둥근 사각형, 타원, 다각형, 선, 사용자 정의 | 끌어서 그림. Shift 로 정형. 각각 편집할 수 있는 모양 레이어가 됨 |
+| T / Shift+T | 문자, 세로 문자 | 누르고, 치고, 확인 |
 
-With a path selected, the options bar can stroke it, fill it, turn it into a
-selection, or delete it.
+패스를 선택하면 옵션 막대에서 획을 두르거나 칠하거나 선택 영역으로 바꾸거나 지울 수
+있습니다.
 
-### Crop, measure and view
+### 자르기, 재기, 보기
 
-| Key | Tool | What it does |
+| 키 | 도구 | 하는 일 |
 | --- | --- | --- |
-| C | Crop | Drag a box, Enter to apply, Esc to cancel |
-| Shift+C | Perspective crop | Click four corners, Enter to straighten them |
-| C | Slice | Drag a region you can export on its own |
-| K | Frame | Drag a frame; the layer shows only inside it |
-| I | Eyedropper, sampler | Sample a colour, or drop a marker |
-| I | Ruler | Drag to measure; the distance and angle appear in the Info panel |
-| I | Note, count | Leave a note or a numbered marker |
-| H / Space | Hand | Pan |
-| R | Rotate view | Drag to turn the view; double-click to straighten it |
-| Z | Zoom | Click to zoom in, Alt-click to zoom out |
-| X | Swap | Exchange the foreground and background colours |
+| C | 자르기 | 상자를 끌고 Enter 로 적용, Esc 로 취소 |
+| Shift+C | 원근 자르기 | 네 모서리를 누르고 Enter 로 똑바르게 |
+| C | 분할 영역 | 따로 내보낼 영역을 끎 |
+| K | 프레임 | 프레임을 끌면 레이어가 그 안에만 보임 |
+| I | 스포이드, 색상 샘플러 | 색을 뜨거나 표식을 남김 |
+| I | 눈금자 | 끌어서 잼. 거리와 각도가 정보 패널에 나옴 |
+| I | 메모, 카운트 | 메모나 번호 표식을 남김 |
+| H / Space | 손 | 화면 이동 |
+| R | 뷰 회전 | 끌어서 뷰를 돌림. 더블클릭으로 똑바르게 |
+| Z | 돋보기 | 눌러서 확대, Alt+클릭으로 축소 |
+| X | 색 교환 | 전경색과 배경색을 맞바꿈 |
 
-Ctrl/Cmd+wheel zooms, the wheel or a Space-drag pans.
+Ctrl/Cmd+휠로 확대·축소, 휠이나 Space+드래그로 화면 이동합니다.
 
-**보기 / View** turns on the grid and the rulers. The rulers read in document
-pixels: a full-height rule at every number, a half-height mark between two of
-them, and short marks every tenth.
+**보기** 메뉴에서 격자와 눈금자를 켭니다. 눈금자는 문서 픽셀로 읽습니다. 숫자마다
+전체 높이 선, 그 둘 사이에 반 높이 표시, 10분의 1마다 짧은 표시입니다.
 
-## Transforming
+## 변형
 
-Ctrl/Cmd+T starts a free transform on the active layer. Drag the corners to
-scale, the grip above the box to rotate, or the box itself to move it.
+Ctrl/Cmd+T 로 활성 레이어의 자유 변형을 시작합니다. 모서리를 끌면 크기, 상자 위의
+손잡이를 끌면 회전, 상자 자체를 끌면 이동입니다.
 
-- **Shift** on a corner keeps the aspect ratio; on the rotate grip it snaps to 15°
-- **Alt** resizes around the centre
-- Dragging a grip past the opposite edge mirrors the layer
-- The options bar takes exact width, height and angle, and has its own flip buttons
-- **Enter** applies, **Esc** cancels
+- 모서리에서 **Shift** 는 비율을 지키고, 회전 손잡이에서는 15° 단위로 붙습니다
+- **Alt** 는 가운데를 기준으로 크기를 바꿉니다
+- 손잡이를 반대편 가장자리 너머로 끌면 레이어가 뒤집힙니다
+- 옵션 막대에서 정확한 폭·높이·각도를 넣을 수 있고 자체 뒤집기 단추가 있습니다
+- **Enter** 로 적용, **Esc** 로 취소
 
-**이미지 / Image** rotates or flips the whole document; **레이어 / Layer** flips a
-single layer.
+**이미지** 메뉴는 문서 전체를, **레이어** 메뉴는 레이어 하나를 회전하거나 뒤집습니다.
 
-## Layers
+## 레이어
 
-The right-hand panel lists layers top to bottom.
+오른쪽 패널이 레이어를 위에서 아래로 나열합니다.
 
-- The eye and the padlock control visibility and editing
-- Opacity, fill opacity and the blend mode apply while compositing
-- **레이어 / Layer** adds, duplicates, deletes, merges, flattens, groups and ungroups
-- **보이는 레이어 병합 / Merge visible** flattens the layers that are switched on and leaves the hidden ones alone; **이미지 병합 / Flatten** takes everything
-- **레이어 래스터화 / Rasterize** bakes a text, shape or fill layer down to pixels, after which it paints like any other layer
-- **맨 앞으로 / 앞으로 / 뒤로 / 맨 뒤로** move the layer up and down the stack
-- Layer styles: drop shadow, stroke, colour overlay, inner and outer glow, bevel
-- A layer mask hides part of a layer without deleting it
-- **클리핑 마스크 / Clipping mask** makes the layer show only where the layer below it has pixels — the way to confine a texture, a colour wash or an adjustment to the shape underneath it
+- 눈과 자물쇠가 표시 여부와 편집 가능 여부를 다룹니다
+- 불투명도, 칠 불투명도, 혼합 모드는 합성할 때 적용됩니다
+- **레이어** 메뉴에서 추가·복제·삭제·병합·이미지 병합·그룹·그룹 해제
+- **보이는 레이어 병합**은 켜져 있는 레이어만 합치고 숨긴 것은 그대로 둡니다.
+  **이미지 병합**은 전부 가져갑니다
+- **레이어 래스터화**는 문자·모양·칠 레이어를 픽셀로 구워 냅니다. 그다음부터는 여느
+  레이어처럼 칠해집니다
+- **맨 앞으로 / 앞으로 / 뒤로 / 맨 뒤로** 가 레이어를 더미 안에서 올리고 내립니다
+- 레이어 스타일: 드롭 그림자, 획, 색상 오버레이, 내부·외부 광선, 경사
+- 레이어 마스크는 지우지 않으면서 레이어의 일부를 가립니다
+- **클리핑 마스크**는 바로 아래 레이어에 픽셀이 있는 곳에만 이 레이어가 보이게 합니다
+  — 질감이나 색 덧칠, 조정을 아래 모양 안에 가두는 방법입니다
 
-Beyond ordinary raster layers there are **adjustment**, **fill**, **live text**,
-**shape** and **group** layers. An adjustment layer changes everything painted
-beneath it and can be switched off at any time.
+평범한 래스터 레이어 말고도 **조정**, **칠**, **살아 있는 문자**, **모양**, **그룹**
+레이어가 있습니다. 조정 레이어는 자기 아래에 칠해진 모든 것을 바꾸며 언제든 끌 수
+있습니다.
 
-Dragging a layer out of frame and back does not clip it: the move always
-replays from the layer's untouched pixels.
+레이어를 화면 밖으로 끌고 나갔다 들어와도 잘리지 않습니다. 이동은 늘 레이어의 손대지
+않은 픽셀에서 다시 재생되기 때문입니다.
 
-## Smart objects and smart filters
+## 고급 개체와 고급 필터
 
-A layer can be made **스마트 오브젝트 / smart object** from 레이어 ▸ 스마트
-오브젝트로 변환. What the layer draws at that moment is frozen as an untouched
-original, and the document draws from that original every time. Scale it down to
-a thumbnail and back up and it comes back sharp, because nothing was ever
-resampled twice.
+레이어 ▸ 고급 개체로 변환으로 레이어를 **고급 개체**로 만들 수 있습니다. 그 순간
+레이어가 그리고 있던 것이 손대지 않은 원본으로 얼어붙고, 문서는 매번 그 원본에서
+그립니다. 엄지손톱만 하게 줄였다 다시 키워도 또렷하게 돌아옵니다. 두 번 리샘플링된
+적이 없기 때문입니다.
 
-Apply a filter to a smart layer and it does not touch the pixels: it goes onto
-the layer's **스마트 필터 / smart filter** stack, listed in the Layers panel.
-Each entry has a switch and a strength, and a bin. Turn one off and the image
-underneath is exactly what it was. **레이어 래스터화 / Rasterize** bakes the
-placement and the whole stack down to plain pixels when you want it permanent.
+고급 레이어에 필터를 걸면 픽셀에 손대지 않고 그 레이어의 **고급 필터** 스택에
+얹힙니다. 레이어 패널에 목록이 나옵니다. 항목마다 스위치와 세기, 그리고 휴지통이
+있습니다. 하나를 끄면 그 아래 이미지는 정확히 이전 그대로입니다. 영구히 굳히고 싶을
+때 **레이어 래스터화**가 배치와 스택 전체를 평범한 픽셀로 구워 냅니다.
 
-## Channels
+## 채널
 
-The **채널 / Channels** tab of the right-hand panel shows the picture split into
-red, green and blue, and keeps the selections you save.
+오른쪽 패널의 **채널** 탭은 그림을 빨강·초록·파랑으로 나눠 보여 주고, 저장한 선택
+영역을 보관합니다.
 
-- **선택 ▸ 선택 영역 저장** keeps the current selection as a named alpha channel.
-- **선택 ▸ 선택 영역 불러오기** brings one back, either on its own or combined
-  with what is selected: **바꾸기 / 더하기 / 빼기 / 교차**.
-- The panel lists what has been saved; clicking a name loads it, and the bin
-  next to it throws it away.
+- **선택 ▸ 선택 영역 저장**이 현재 선택을 이름 붙인 알파 채널로 남깁니다.
+- **선택 ▸ 선택 영역 불러오기**가 그것을 되살립니다. 그대로 가져오거나 지금 선택된
+  것과 합칩니다: **바꾸기 / 더하기 / 빼기 / 교차**.
+- 패널이 저장된 것을 나열합니다. 이름을 누르면 불러오고, 옆의 휴지통이 버립니다.
 
-Saved selections travel in the `.mpw` file, so a mask you spent time on is still
-there tomorrow.
+저장한 선택 영역은 `.mpw` 파일에 함께 실려 가므로, 공들여 만든 마스크는 내일도 그
+자리에 있습니다.
 
-## Transforming further
+## 더 많은 변형
 
-편집 ▸ 자유 변형 handles scale and rotation. The rest of the Edit menu covers
-what it cannot:
+편집 ▸ 자유 변형이 크기와 회전을 맡습니다. 편집 메뉴의 나머지가 그것이 못 하는 일을
+합니다.
 
-| Command | What it does |
+| 명령 | 하는 일 |
 | --- | --- |
-| **기울이기 / Skew** | Slides the top and bottom, or the sides, past each other |
-| **왜곡 / Distort** | Moves each of the four corners on its own, x and y |
-| **원근 / Perspective** | Narrows one edge, so the image leans away |
-| **뒤틀기 / Warp** | Bends it into one of eleven shapes — arch, bulge, flag, wave, fish and the rest — with a bend slider and two distortion sliders |
-| **퍼펫 뒤틀기 / Puppet warp** | Pin the parts that should stay put, drag a pin to move that part. Enter applies, Esc cancels |
-| **내용 인식 비율 / Content-aware scale** | Changes the size by carving away the least interesting columns first, so the subject keeps its shape. **피부톤 보호 / Protect skin tones** is on by default and keeps the seams off faces and arms; turn it off for a picture with nobody in it. Every layer is carved with the same seams, so they stay lined up |
+| **기울이기** | 위와 아래를, 또는 양옆을 서로 어긋나게 밀어냅니다 |
+| **왜곡** | 네 모서리를 각각 x·y 로 따로 옮깁니다 |
+| **원근** | 한쪽 가장자리를 좁혀 이미지가 기울어 보이게 합니다 |
+| **뒤틀기** | 열한 가지 모양 — 아치, 돌출, 깃발, 물결, 물고기 등 — 으로 구부립니다. 구부리기 슬라이더 하나와 왜곡 슬라이더 둘이 붙습니다 |
+| **퍼펫 뒤틀기** | 그대로 있어야 할 부분에 핀을 꽂고, 핀을 끌어 그 부분을 움직입니다. Enter 로 적용, Esc 로 취소 |
+| **내용 인식 비율** | 가장 재미없는 열부터 깎아 내며 크기를 바꿔 피사체가 모양을 지키게 합니다. **피부톤 보호**가 기본으로 켜져 있어 이음매가 얼굴과 팔을 피해 갑니다. 사람이 없는 사진에서는 끄세요. 모든 레이어를 같은 이음매로 깎으므로 서로 어긋나지 않습니다 |
 
-### Content-aware scale, and protecting people
+### 내용 인식 비율, 그리고 사람을 지키는 일
 
-Ordinary scaling squashes everything equally. This one looks for the emptiest
-column of pixels running top to bottom — a stretch of sky, a flat wall, still
-water — takes that out, and repeats until the picture is the width you asked
-for. The subject keeps its proportions and the empty parts give way.
+평범한 크기 조절은 모든 것을 똑같이 눌러 찌그러뜨립니다. 이것은 위에서 아래로
+이어지는 가장 텅 빈 픽셀 열 — 하늘 한 자락, 평평한 벽, 잔잔한 물 — 을 찾아 들어내고,
+원하는 폭이 될 때까지 되풀이합니다. 피사체는 비율을 지키고 빈 곳이 양보합니다.
 
-Left to itself that goes wrong on a photograph of a person, because it measures
-how busy a part of the picture is and skin is smooth: a cheek has less going on
-in it than the leaves behind it, so the carving eats the face and leaves the
-hedge alone. **피부톤 보호 / Protect skin tones** is the answer and it is on by
-default. It recognises skin by its colour rather than by its texture, covers it
-out to its outline, and makes the seams go round.
+그냥 두면 사람 사진에서 잘못됩니다. 그림의 어느 부분이 얼마나 복잡한지를 재는데
+피부는 매끈하기 때문입니다. 뺨은 뒤의 잎사귀보다 벌어지는 일이 적어서, 깎아 내기가
+얼굴을 먹고 울타리는 그냥 둡니다. **피부톤 보호**가 그 답이며 기본으로 켜져 있습니다.
+질감이 아니라 색으로 피부를 알아보고, 윤곽까지 덮어, 이음매가 돌아가게 합니다.
 
-Turn it off for a picture with nobody in it — a landscape, a still life, a
-diagram — where there is nothing to protect and the protection can only get in
-the way. It already switches itself off in effect for anything greyscale, such
-as a black-and-white scan or a DICOM slice, because there is no colour there to
-mistake for skin.
+사람이 없는 사진 — 풍경, 정물, 도표 — 에서는 끄세요. 지킬 것이 없고 보호는 방해만
+될 수 있습니다. 흑백 스캔이나 DICOM 한 장처럼 회색 음영인 것에는 이미 사실상 스스로
+꺼집니다. 피부로 오인할 색이 거기에는 없기 때문입니다.
 
-Every layer is carved with the same seams, chosen from the flattened picture, so
-a stack of layers stays lined up instead of tearing apart.
+이음매는 평평하게 합친 그림에서 고르고 모든 레이어를 같은 이음매로 깎으므로, 여러
+레이어가 찢어지지 않고 나란히 남습니다.
 
-## Type
+## 문자
 
-문자 ▸ 문자 입력 (or the type tool) opens one window for the whole type layer:
+문자 ▸ 문자 입력(또는 문자 도구)이 문자 레이어 전체를 위한 창 하나를 엽니다.
 
-- The text itself, over as many lines as you like.
-- **글자 크기 / 행간 / 자간 / 들여쓰기 / 단락 간격** — a blank line starts a new
-  paragraph, and the indent applies to the first line of each.
-- **정렬**, bold and italic.
-- **패스 위의 문자 / Type on a path** — pick a path and the text follows it,
-  each character turned to face along the curve.
-- **모양 / Shape** and **구부리기 / Bend** warp the finished type into the same
-  eleven shapes the layer Warp command uses.
+- 글 자체를, 몇 줄이든.
+- **글자 크기 / 행간 / 자간 / 들여쓰기 / 단락 간격** — 빈 줄이 새 단락을 시작하고,
+  들여쓰기는 각 단락의 첫 줄에 적용됩니다.
+- **정렬**, 굵게, 기울임.
+- **패스 위의 문자** — 패스를 고르면 글이 그것을 따라가며, 글자마다 곡선을 향해
+  돌아갑니다.
+- **모양**과 **구부리기**가 완성된 글자를 레이어 뒤틀기와 같은 열한 가지 모양으로
+  뒤틉니다.
 
-Opening the window with a type layer selected edits that layer rather than
-adding another.
+문자 레이어를 선택한 채 창을 열면 새 레이어를 더하지 않고 그 레이어를 고칩니다.
 
-## Colour modes, depth and profiles
+## 색상 모드, 비트 깊이, 프로파일
 
-이미지 ▸ 모드 switches the document between **RGB**, **회색조**, **CMYK** and
-**Lab**. The layers themselves stay RGBA; the mode is applied when the document
-is composited, so switching back costs nothing and loses nothing.
+이미지 ▸ 모드가 문서를 **RGB**, **회색조**, **CMYK**, **Lab** 사이에서 바꿉니다.
+레이어 자체는 RGBA 그대로이고 모드는 문서를 합성할 때 적용되므로, 되돌아가는 데
+드는 비용도 잃는 것도 없습니다.
 
-이미지 ▸ **8비트/채널** and **16비트/채널** set the working depth. At 16 bits,
-adjustments are computed at full precision and TIFF is written with sixteen bits
-per channel, which is what to use when a photo will be corrected hard or handed
-to something else.
+이미지 ▸ **8비트/채널**과 **16비트/채널**이 작업 깊이를 정합니다. 16비트에서는 조정이
+온전한 정밀도로 계산되고 TIFF 가 채널당 16비트로 기록됩니다. 사진을 세게 보정하거나
+다른 곳에 넘길 때 쓸 설정입니다.
 
-이미지 ▸ **색상 프로파일** picks the working space from the four the editor
-knows, by the names the ICC standard gives them, and does one of two things:
+이미지 ▸ **색상 프로파일**이 편집기가 아는 네 가지 작업 공간 중 하나를 ICC 표준이
+부르는 이름으로 고르고, 둘 중 하나를 합니다.
 
-- **프로파일 지정 / Assign** leaves the numbers alone and changes how they are
-  read. Use it when a file arrived untagged and you know what it is.
-- **프로파일 변환 / Convert** rewrites the numbers so the colours keep looking
-  the same in the new space.
+- **프로파일 지정**은 숫자를 그대로 두고 그것을 읽는 방식을 바꿉니다. 태그 없이 온
+  파일이고 그것이 무엇인지 알 때 씁니다.
+- **프로파일 변환**은 새 공간에서도 색이 같아 보이도록 숫자를 다시 씁니다.
 
-A JPEG that carries an ICC profile is read and its name shown here and in the
-image information window, so a photo that looks flat can be explained rather
-than guessed at.
+ICC 프로파일을 지닌 JPEG 는 그것을 읽어 여기와 이미지 정보 창에 이름을 보여 줍니다.
+밋밋해 보이는 사진을 짐작하는 대신 설명할 수 있습니다.
 
-## Actions, batches and layer comps
+## 액션, 일괄 처리, 레이어 컴프
 
-The **액션 / Actions** tab records what you do and plays it back.
+**액션** 탭이 한 일을 기록해 다시 재생합니다.
 
-1. **기록 시작 / Start recording**, then work as usual: every menu command and
-   every window answer is noted.
-2. Give it a name and save it. The action is kept with your settings, so it is
-   still there next time.
-3. **▶** replays it on the open document. Windows do not open during a replay —
-   the answers they were given the first time are used again.
-4. The layers button next to it runs the action over a folder of files, saving
-   each one in the current export format. That needs the desktop app.
+1. **기록 시작**을 누른 뒤 평소처럼 작업합니다. 메뉴 명령 하나하나와 창의 답
+   하나하나가 적힙니다.
+2. 이름을 붙여 저장합니다. 액션은 설정과 함께 보관되므로 다음에도 그대로 있습니다.
+3. **▶** 가 열린 문서에 재생합니다. 재생 중에는 창이 열리지 않습니다 — 처음에 주었던
+   답을 다시 씁니다.
+4. 옆의 레이어 단추가 폴더 전체에 액션을 돌리며 현재 내보내기 형식으로 하나씩
+   저장합니다. 데스크톱 앱이 필요합니다.
 
-**레이어 컴프 / Layer comps** in the same tab remember which layers are showing,
-at what opacity and blend mode. Capture as many arrangements as you like and
-click one to put it back — the way to keep three versions of a design in one
-document.
+같은 탭의 **레이어 컴프**는 어떤 레이어가 어떤 불투명도와 혼합 모드로 보이고 있는지를
+기억합니다. 배치를 원하는 만큼 담아 두고 하나를 눌러 되돌립니다. 한 문서 안에 디자인
+세 가지를 보관하는 방법입니다.
 
-## Animation and video
+## 애니메이션과 동영상
 
-The **타임라인 / Timeline** tab builds a frame-by-frame animation.
+**타임라인** 탭이 프레임 단위 애니메이션을 만듭니다.
 
-- Set the layers to what the frame should show, then **프레임 추가**.
-- Each frame has its own delay in milliseconds.
-- **▶** plays it in the document itself; the square stops it.
-- **GIF로 내보내기** writes an animated GIF — encoded by the app, with a palette
-  chosen per frame, so no colour is borrowed from the first frame.
-- **동영상으로 내보내기** records the frames as a WebM video.
+- 프레임이 보여 줄 대로 레이어를 맞춘 뒤 **프레임 추가**.
+- 프레임마다 자기 지연 시간(밀리초)이 있습니다.
+- **▶** 가 문서 안에서 재생하고 네모가 멈춥니다.
+- **GIF로 내보내기**가 애니메이션 GIF 를 씁니다. 앱이 직접 인코딩하고 프레임마다
+  팔레트를 고르므로 첫 프레임에서 색을 빌려 오지 않습니다.
+- **동영상으로 내보내기**가 프레임을 WebM 동영상으로 녹화합니다.
 
-파일 ▸ **동영상 가져오기** samples a video file into twelve evenly spaced frames,
-each becoming a layer and a timeline frame, ready to edit or re-export.
+파일 ▸ **동영상 가져오기**가 동영상 파일을 고르게 나눈 열두 프레임으로 뜹니다. 각각이
+레이어이자 타임라인 프레임이 되어 곧바로 고치거나 다시 내보낼 수 있습니다.
 
-## Patterns and brushes
+## 패턴과 브러시
 
-편집 ▸ **패턴 정의** takes the selection — or the whole layer when nothing is
-selected — and keeps it as a tile. Defined patterns appear in the 편집 ▸ 칠
-window, where choosing one tiles it across the selection instead of flooding it
-with a colour. A pattern fill layer repeats it as well.
+편집 ▸ **패턴 정의**가 선택 영역을 — 아무것도 선택하지 않았으면 레이어 전체를 —
+타일로 보관합니다. 정의한 패턴은 편집 ▸ 칠 창에 나타나고, 거기서 하나를 고르면 색으로
+채우는 대신 선택 영역에 타일로 깝니다. 패턴 칠 레이어도 그것을 되풀이합니다.
 
-The Settings window's **브러시 / Brushes** section shapes the tip: **간격**
-between dabs, **각도**, **원형률** (below 100 the tip is flattened) and
-**분산**, which throws the dabs off the line and turns a stroke into a spray.
-Save the current tip under a name and it is one click away afterwards.
+설정 창의 **브러시** 구획이 브러시 모양을 정합니다. 찍는 자국 사이의 **간격**,
+**각도**, **원형률**(100 아래면 납작해집니다), 그리고 자국을 선 밖으로 흩뿌려 획을
+스프레이로 만드는 **분산**. 현재 모양을 이름 붙여 저장하면 다음부터는 한 번 누르면
+됩니다.
 
 ## 3D
 
-3D ▸ **돌출(3D)** turns the active layer into a lit solid: the flat artwork
-becomes the face, and the depth is built behind it.
+3D ▸ **돌출(3D)**이 활성 레이어를 빛이 닿는 입체로 바꿉니다. 평평한 그림이 앞면이
+되고 그 뒤로 깊이가 세워집니다.
 
-- **두께 / Depth** is how far back it goes.
-- **X축 / Y축 / Z축 회전** turn it in space.
-- **원근 강도** is how strongly the far side shrinks; at 0 the view is flat.
-- **조명 X / Y** move the light, which brightens the face turned towards it and
-  darkens the sides.
+- **두께**는 얼마나 뒤로 가는지.
+- **X축 / Y축 / Z축 회전**이 공간에서 돌립니다.
+- **원근 강도**는 먼 쪽이 얼마나 줄어드는지. 0이면 평평한 시점입니다.
+- **조명 X / Y** 가 빛을 옮깁니다. 빛을 향한 면은 밝아지고 옆면은 어두워집니다.
 
-The layer stays editable — paint on it, and the solid is rebuilt from the new
-artwork. 3D ▸ **3D 해제** puts it back flat, and 레이어 ▸ 래스터화 bakes the
-render into pixels.
+레이어는 계속 편집할 수 있습니다 — 그 위에 칠하면 새 그림으로 입체가 다시 세워집니다.
+3D ▸ **3D 해제**가 다시 평평하게 만들고, 레이어 ▸ 래스터화가 렌더 결과를 픽셀로
+굽습니다.
 
-## Adjustments and filters
+## 조정과 필터
 
-**이미지 / Image** holds brightness/contrast, hue/saturation, Camera Raw,
-**Curves**, **Levels**, auto levels, invert and greyscale, and the colour work
-below.
+**이미지** 메뉴에 명도/대비, 색조/채도, Camera Raw, **커브**, **레벨**, 자동 레벨,
+반전, 회색 음영, 그리고 아래의 색 작업이 있습니다.
 
-| Command | What it is for |
+| 명령 | 무엇에 쓰는가 |
 | --- | --- |
-| **자동 색상 / Auto colour** | Stretches each of red, green and blue on its own, which pulls a colour cast out of a photo. Auto Levels moves all three together and so keeps the cast |
-| **평준화 / Equalize** | Spreads the tones so every brightness is equally common; opens up a flat, hazy image |
-| **채널 혼합 / Channel mixer** | Builds each output channel from the three input ones, with a constant. The route to a proper black and white conversion, or to swapping channels outright |
-| **선택 색상 / Selective colour** | Shifts the cyan, magenta, yellow and black in one family of colours — the reds, the blues, the neutrals — and leaves the rest alone |
-| **그레이디언트 맵 / Gradient map** | Repaints the image from its own brightness, reading a two-colour gradient. Duotones and split-tones come from here |
-| **색상 바꾸기 / Replace colour** | Swaps everything close to the foreground colour for another colour, fading out at the edge of the tolerance so no hard rim is left |
+| **자동 색상** | 빨강·초록·파랑을 각각 따로 늘려 사진의 색 기울기를 빼냅니다. 자동 레벨은 셋을 함께 옮기므로 기울기가 그대로 남습니다 |
+| **평준화** | 밝기마다 똑같이 흔해지도록 톤을 펼칩니다. 밋밋하고 뿌연 이미지를 열어 줍니다 |
+| **채널 혼합** | 출력 채널 하나하나를 입력 세 채널과 상수로 만듭니다. 제대로 된 흑백 변환으로, 또는 채널을 통째로 바꾸는 길로 |
+| **선택 색상** | 한 색 갈래 — 빨강 계열, 파랑 계열, 중성색 — 안의 시안·마젠타·노랑·검정을 옮기고 나머지는 그대로 둡니다 |
+| **그레이디언트 맵** | 이미지 자신의 밝기에서 두 색 그레이디언트를 읽어 다시 칠합니다. 듀오톤과 스플릿 토닝이 여기서 나옵니다 |
+| **색상 바꾸기** | 전경색에 가까운 모든 것을 다른 색으로 바꿉니다. 허용치 가장자리에서 흐려지므로 딱딱한 테두리가 남지 않습니다 |
 
-**180도 회전 / Rotate 180** and **여백 잘라내기 / Trim** are on the same menu:
-Trim crops away the fully transparent border around everything visible, which is
-what to run after erasing a background.
+**180도 회전**과 **여백 잘라내기**도 같은 메뉴에 있습니다. 여백 잘라내기는 보이는 것
+주위의 완전히 투명한 테두리를 잘라 내므로, 배경을 지운 뒤에 돌릴 명령입니다.
 
-- **Curves** edits each channel on a 256×256 grid. Click to add a point, drag to
-  move it, double-click to remove it.
-- **Levels** sets the input black point, gamma and white point plus the output
-  range, with an Auto button that reads them off the layer.
+- **커브**는 채널마다 256×256 격자에서 편집합니다. 눌러서 점을 더하고, 끌어서 옮기고,
+  더블클릭으로 없앱니다.
+- **레벨**은 입력 검정 점·감마·흰색 점과 출력 범위를 정합니다. 레이어에서 값을 읽어
+  오는 자동 단추가 있습니다.
 
-Either can be applied to the layer or added as an adjustment layer.
+둘 다 레이어에 바로 적용하거나 조정 레이어로 얹을 수 있습니다.
 
-**필터 / Filter** holds the gallery. The **필터 갤러리 / Filter Gallery** window
-has one **tab per group**; the group's filters are a grid of buttons, the two
-sliders sit beside them, and the window is a fixed size that never scrolls, so
-취소 / Cancel and 적용 / Apply are always where they were. The groups, as the
-menu lists them:
+**필터** 메뉴에 갤러리가 있습니다. **필터 갤러리** 창은 **그룹마다 탭 하나**이고, 그
+그룹의 필터가 단추 격자로 놓이며, 슬라이더 둘이 그 옆에 붙고, 창은 고정 크기로 결코
+스크롤하지 않으므로 취소와 적용은 늘 있던 자리에 있습니다. 메뉴가 나열하는 그룹은
+이렇습니다.
 
-- **흐림 / Blur** — Gaussian, motion, box, and radial blur as a spin or a zoom
-- **선명 / Sharpen** — sharpen, **unsharp mask** (a threshold, so an edge is
-  sharpened and the flat areas are not), high pass
-- **노이즈 / Noise** — add noise, **median** (kills speckle), **dust and
-  scratches** (a median that only fires where a pixel is far from its
-  neighbours, so real detail survives)
-- **픽셀화 / Pixelate** — mosaic, crystallize
-- **왜곡 / Distort** — liquify, twirl, ripple, wave, spherize, pinch
-- **스타일화 / Stylize** — find edges, emboss, solarize
-- **렌더 / Render** — clouds, vignette, lens flare
-- **기타 / Other** — offset, minimum (spreads the dark), maximum (spreads the light)
-- **예술 효과 / Artistic** — oil paint; **뉴럴 / Neural** — skin smoothing
+- **흐림** — 가우시안, 동작, 상자, 그리고 회전이나 확대로 도는 방사형 흐림
+- **선명** — 선명 효과, **언샵 마스크**(한계값이 있어 가장자리만 선명해지고 평평한
+  곳은 그대로), 하이 패스
+- **노이즈** — 노이즈 추가, **중간값**(얼룩을 없앱니다), **먼지와 스크래치**(픽셀이
+  이웃에서 멀 때만 작동하는 중간값이라 진짜 디테일은 살아남습니다)
+- **픽셀화** — 모자이크, 수정화
+- **왜곡** — 픽셀 유동화, 소용돌이, 잔물결, 파형, 구형화, 핀치
+- **스타일화** — 가장자리 찾기, 엠보스, 솔라리제이션
+- **렌더** — 구름, 비네팅, 렌즈 플레어
+- **기타** — 오프셋, 최소값(어두운 쪽을 넓힘), 최대값(밝은 쪽을 넓힘)
+- **예술 효과** — 유화. **뉴럴** — 피부 보정
 
-The gallery takes its radius and amount from the last Blur and Sharpen windows
-you used, so set those first if the default is too strong.
+갤러리는 마지막에 쓴 흐림·선명 창의 반경과 양을 가져오므로, 기본값이 너무 세면 그쪽을
+먼저 맞추세요.
 
-The generative jobs — content-aware fill, generative expand, generative upscale,
-Harmonize, Select Subject, Remove Background, Find Distractions — run on your own
-machine. They do not use a cloud model.
+생성형 작업 — 내용 인식 채우기, 생성형 확장, 생성형 확대, 하모나이즈, 피사체 선택,
+배경 제거, 방해 요소 찾기 — 는 이 컴퓨터에서 돕니다. 클라우드 모델을 쓰지 않습니다.
 
-**An active selection limits every one of these to the selected pixels of the
-active layer.**
+**선택 영역이 있으면 이 모든 것이 활성 레이어의 선택된 픽셀로 한정됩니다.**
 
-## Files
+## 파일
 
-- **열기 / Open** replaces the document with an image or a `.mpw` project
-- **이미지 가져오기 / Place** adds a file as a new layer
-- **저장 / 다른 이름으로 저장** writes a layered `.mpw` project
-- **내보내기 / Export** flattens to PNG, JPG, WebP, AVIF, GIF or TIFF
-- **인쇄 / Print** previews the page, then sends it to your printer
-- **이미지 정보 / Image information** lists everything known about what is open
-- With the slice-select tool, a single slice can be exported on its own
+- **열기** 는 문서를 이미지나 `.mpw` 프로젝트로 바꿉니다
+- **이미지 가져오기** 는 파일을 새 레이어로 더합니다
+- **저장 / 다른 이름으로 저장** 은 레이어가 살아 있는 `.mpw` 프로젝트를 씁니다
+- **내보내기** 는 PNG, JPG, WebP, AVIF, GIF, TIFF 로 평평하게 만들어 내보냅니다
+- **인쇄** 는 페이지를 미리 보여 준 뒤 프린터로 보냅니다
+- **이미지 정보** 는 열려 있는 것에 대해 아는 것을 모두 나열합니다
+- 분할 영역 선택 도구로 영역 하나만 따로 내보낼 수 있습니다
 
-Unsaved changes are confirmed before New, Open, Close, or quitting.
+저장하지 않은 변경은 새로 만들기·열기·닫기·종료 전에 확인합니다.
 
-### Opening a photo
+### 사진 열기
 
-파일 ▸ 열기 (Ctrl/Cmd+O), the folder button on the toolbar, and dragging a file
-onto the window all do the same thing. You can also drop several files at once:
-onto an untouched document they open one after another, and onto a document you
-have already edited they arrive as new layers.
+파일 ▸ 열기(Ctrl/Cmd+O), 툴바의 폴더 단추, 창 위로 파일 끌어다 놓기 — 모두 같은
+일을 합니다. 여러 파일을 한꺼번에 놓아도 됩니다. 손대지 않은 문서 위에서는 차례로
+열리고, 이미 편집한 문서 위에서는 새 레이어로 들어옵니다.
 
-The editor reads PNG, JPG, GIF, BMP, WebP, AVIF, TIFF, **HEIC / HEIF** and
-**DICOM**, plus its own `.mpw` projects.
+편집기는 PNG, JPG, GIF, BMP, WebP, AVIF, TIFF, **HEIC / HEIF**, **DICOM**, 그리고
+자기 `.mpw` 프로젝트를 읽습니다.
 
-### HEIC and HEIF photos
+### HEIC·HEIF 사진
 
-Phones and mirrorless cameras save their full-quality stills as HEIF — `.heic`
-on an iPhone, `.heif` elsewhere, `.hif` on Fujifilm bodies. No browser can show
-those files, so the editor decodes them itself:
+휴대폰과 미러리스 카메라는 최고 화질 사진을 HEIF 로 저장합니다 — iPhone 은 `.heic`,
+그 밖에는 `.heif`, 후지필름 바디는 `.hif`. 어떤 브라우저도 그 파일을 보여 주지 못하므로
+편집기가 직접 디코딩합니다.
 
-1. 파일 ▸ 열기, pick the `.heic` file, or drag it onto the window.
-2. The first HEIC of a session takes a moment longer while the decoder loads —
-   about two megabytes, fetched once and then kept for every file after it.
-3. The photo opens as a normal raster layer at its full resolution. From there
-   every tool, adjustment and filter works exactly as it does on a JPG.
+1. 파일 ▸ 열기에서 `.heic` 파일을 고르거나 창 위로 끌어다 놓습니다.
+2. 한 세션의 첫 HEIC 는 디코더를 불러오느라 조금 더 걸립니다 — 2메가바이트쯤이고, 한
+   번 받으면 그다음 파일부터는 그대로 씁니다.
+3. 사진이 원래 해상도 그대로 평범한 래스터 레이어로 열립니다. 그때부터 모든 도구와
+   조정과 필터가 JPG 에서와 똑같이 동작합니다.
 
-A HEIC holding several frames — a burst, or the stills of a Live Photo — opens
-at its **primary** frame, the one the camera shows in its gallery; the image
-information window says how many frames the file held.
+프레임을 여러 장 담은 HEIC — 연사나 Live Photo 의 스틸 — 은 카메라가 갤러리에서
+보여 주는 **primary** 프레임으로 열리고, 이미지 정보 창이 파일이 몇 프레임을 담고
+있었는지 알려 줍니다.
 
-Saving back to HEIC is not offered: the format's encoder is patent-encumbered
-and is not part of the app. Use 내보내기 to write the edited photo as PNG (no
-quality loss), TIFF (no quality loss, larger) or JPG.
+HEIC 로 되저장하는 기능은 제공하지 않습니다. 이 형식의 인코더는 특허에 묶여 있어 앱에
+들어 있지 않습니다. 내보내기로 PNG(화질 손실 없음), TIFF(화질 손실 없음, 더 큼),
+JPG 중에 고르세요.
 
-`images/test04.heic` in the project folder is a sample you can open to try this.
-It comes from Nokia's public HEIF conformance set; replace it with a photo from
-your own phone whenever you like.
+프로젝트 폴더의 `images/test04.heic` 가 시험해 볼 수 있는 예제입니다. Nokia 의 공개
+HEIF 적합성 세트에서 왔고, 원하면 언제든 직접 찍은 사진으로 바꾸세요.
 
-### Exporting, and the transparent background
+### 내보내기와 투명 배경
 
-파일 ▸ 내보내기 (or the download button on the toolbar) opens a small window
-with two controls:
+파일 ▸ 내보내기(또는 툴바의 내려받기 단추)가 조작부 둘이 있는 작은 창을 엽니다.
 
-- **형식 / Format** — PNG, JPG, WebP, AVIF, GIF or TIFF.
-- **투명 배경 유지 / Keep transparent background** — whether the see-through
-  parts of the picture stay see-through in the file.
+- **형식** — PNG, JPG, WebP, AVIF, GIF, TIFF.
+- **투명 배경 유지** — 그림의 비치는 부분이 파일에서도 비칠지.
 
-Tick the box and erased areas, a document created on a transparent background
-and any layer you have faded are written with their transparency intact. Clear
-it and the same picture is laid on a white sheet first, which is what you want
-for a photo that will be printed, emailed or put on a white page.
+켜면 지운 자리, 투명 배경으로 만든 문서, 흐리게 한 레이어가 투명함을 지닌 채
+기록됩니다. 끄면 같은 그림이 먼저 흰 종이 위에 놓입니다. 인쇄하거나 메일로 보내거나
+흰 페이지에 올릴 사진에 필요한 쪽입니다.
 
-The box only applies to the formats that can actually store transparency: PNG,
-WebP, AVIF, GIF and TIFF. Choose **JPG** and the box greys out with a line
-explaining why — JPEG has no alpha channel at all, so a JPG is always written on
-white, whatever the box says. Nothing about your document changes either way;
-only the exported file differs.
+이 항목은 실제로 투명함을 담을 수 있는 형식에만 적용됩니다: PNG, WebP, AVIF, GIF,
+TIFF. **JPG** 를 고르면 항목이 흐려지고 이유를 한 줄로 설명합니다 — JPEG 에는 알파
+채널이 아예 없어서, 항목을 어떻게 해 두든 JPG 는 늘 흰 바탕에 기록됩니다. 어느 쪽이든
+문서 자체는 달라지지 않고 내보낸 파일만 달라집니다.
 
-Both choices are remembered and are also on the Settings window, where they
-decide the format a single slice is exported with.
+두 선택 모두 기억되고 설정 창에도 있습니다. 거기서는 분할 영역 하나를 내보낼 형식도
+정합니다.
 
-### Printing
+### 인쇄
 
-파일 ▸ 인쇄, the printer button on the toolbar, or **Ctrl/Cmd+P**.
+파일 ▸ 인쇄, 툴바의 프린터 단추, 또는 **Ctrl/Cmd+P**.
 
-One window opens, and it is both the preview and the print dialog — the page as
-it will come out, with the settings beside it:
+창 하나가 열리고, 그것이 미리보기이자 인쇄 대화상자입니다 — 나올 모습 그대로의
+페이지와 그 옆의 설정.
 
-- The **sheet** is drawn to paper proportions with the same 10 mm margin the
-  printed page uses, and the picture sits inside it, flattened onto white —
-  transparency means nothing on paper.
-- **프린터 / Printer** lists the printers this computer has, with the one your
-  system calls the default already chosen.
-- **용지 방향 / Orientation** starts on the way round that suits the picture:
-  landscape for a wide photo, portrait for a tall one. Change it and the sheet
-  in the preview turns with it, as the paper will.
-- **매수 / Copies** is how many to print.
-- **인쇄 / Print** sends the job straight to that printer. **취소 / Cancel**
-  closes the window and prints nothing.
+- **용지**는 인쇄 페이지와 같은 10mm 여백으로 종이 비율에 맞춰 그려지고, 그 안에
+  그림이 흰 바탕 위에 평평하게 놓입니다 — 종이 위에서 투명함은 의미가 없습니다.
+- **프린터**는 이 컴퓨터의 프린터를 나열하며, 시스템이 기본이라 부르는 것이 이미
+  골라져 있습니다.
+- **용지 방향**은 그림에 맞는 쪽으로 시작합니다. 가로로 긴 사진이면 가로, 세로로 긴
+  사진이면 세로. 바꾸면 미리보기의 용지도 종이가 그러하듯 함께 돕니다.
+- **매수**는 몇 장을 인쇄할지.
+- **인쇄**가 작업을 그 프린터로 곧장 보냅니다. **취소**는 창을 닫고 아무것도 인쇄하지
+  않습니다.
 
-The window is a fixed size and never scrolls: the sheet, all three settings and
-both buttons are on screen together, and turning the page to landscape shortens
-the sheet rather than pushing anything out of reach.
+이 창은 고정 크기이며 결코 스크롤하지 않습니다. 용지, 설정 셋, 단추 둘이 한 화면에
+함께 있고, 가로로 돌리면 무언가를 손 닿지 않는 곳으로 밀어내는 대신 용지가 짧아집니다.
 
-The image is scaled to fill the page inside the margin, keeping its proportions,
-so nothing is cropped and nothing is stretched. Only the picture is printed: no
-toolbar, no panels, no background.
+이미지는 비율을 지킨 채 여백 안을 채우도록 맞춰지므로 잘리지도 늘어나지도 않습니다.
+그림만 인쇄됩니다. 툴바도 패널도 배경도 나오지 않습니다.
 
-In a browser there is no way to print except through the browser's own print
-dialog, so that one opens instead — it carries its own preview, and the printer
-and paper are chosen there. Choosing **Save as PDF** (or **Microsoft Print to
-PDF**) in it is the quickest way to get a PDF of the document.
+브라우저에서는 브라우저 자신의 인쇄 대화상자 말고는 인쇄할 길이 없으므로 그쪽이 대신
+열립니다. 거기에 자체 미리보기가 있고 프린터와 용지도 거기서 고릅니다. 그 안에서
+**PDF로 저장**(또는 **Microsoft Print to PDF**)을 고르는 것이 문서를 PDF 로 얻는 가장
+빠른 길입니다.
 
-### DICOM (.dcm) medical images
+### DICOM(.dcm) 의료 영상
 
-A CT, MR, ultrasound or X-ray study is stored as DICOM, one file per slice. Open
-`.dcm` (or `.dicom`) the same way as any other image; files written without an
-extension at all are recognised by their contents.
+CT, MR, 초음파, X선 검사는 DICOM 으로, 한 장당 파일 하나로 저장됩니다. `.dcm`(또는
+`.dicom`)을 다른 이미지와 똑같이 열면 되고, 확장자가 아예 없는 파일은 내용을 보고
+알아봅니다.
 
-A DICOM file holds measurements rather than screen colours, so the editor does
-what a viewer does before it can show anything:
+DICOM 파일은 화면 색이 아니라 측정값을 담고 있으므로, 편집기는 무엇이든 보여 주기
+전에 뷰어가 하는 일을 합니다.
 
-- **Rescale** — the slope and intercept in the file turn stored values into real
-  units, such as Hounsfield numbers on a CT.
-- **Window** — the centre and width in the file pick the slice of that range the
-  screen shows. Files that name no window are windowed from their own data, so
-  the whole range is visible; from there, 이미지 ▸ 밝기/대비 or Levels adjusts it
-  the way a radiologist's window control would.
-- **MONOCHROME1** files, where zero means white, are inverted to match.
+- **Rescale** — 파일 안의 기울기와 절편이 저장값을 실제 단위로 바꿉니다. CT 라면
+  하운스필드 수치 같은 것입니다.
+- **Window** — 파일 안의 중심과 폭이 그 범위에서 화면이 보여 줄 구간을 고릅니다.
+  창을 명시하지 않은 파일은 자기 데이터로 윈도잉해 전체 범위가 보이게 하고, 거기서
+  이미지 ▸ 밝기/대비나 레벨이 방사선사의 윈도우 조작처럼 조정합니다.
+- 0이 흰색을 뜻하는 **MONOCHROME1** 파일은 거기에 맞춰 반전합니다.
 
-Uncompressed studies — implicit and explicit VR, little and big endian — and
-baseline JPEG are read. A study compressed with JPEG 2000, JPEG-LS or RLE is
-named in the error rather than opened as a blank image. Colour (RGB) images,
-such as an ultrasound capture, keep their colour; multi-frame files open at
-their first frame.
+압축하지 않은 검사 — 암시적·명시적 VR, 리틀·빅 엔디안 — 와 베이스라인 JPEG 를
+읽습니다. JPEG 2000, JPEG-LS, RLE 로 압축된 검사는 빈 이미지로 여는 대신 오류에
+이름을 밝힙니다. 초음파 캡처 같은 컬러(RGB) 영상은 색을 지키고, 다중 프레임 파일은 첫
+프레임으로 열립니다.
 
-Everything the file says about the patient, the study and the equipment is in
-the image information window, described below. `images/test05.dcm` is a sample
-CT slice you can open to try this — one of the DICOM standard's own
-"CompressedSamples" study files, as redistributed for conformance testing.
+파일이 환자·검사·장비에 대해 말하는 모든 것이 아래에 설명한 이미지 정보 창에 있습니다.
+`images/test05.dcm` 가 시험해 볼 수 있는 예제 CT 한 장입니다. DICOM 표준 자체의
+"CompressedSamples" 검사 파일 중 하나로, 적합성 시험용으로 재배포된 것입니다.
 
-Saving back to DICOM is not offered — the editor is a photo editor, and a slice
-you have painted on is no longer a record of anything. Export to PNG or TIFF
-instead.
+DICOM 으로 되저장하는 기능은 제공하지 않습니다. 이 프로그램은 사진 편집기이고, 그
+위에 칠을 한 슬라이스는 더는 무엇의 기록도 아니기 때문입니다. PNG 나 TIFF 로
+내보내세요.
 
-### Image information
+### 이미지 정보
 
-이미지 ▸ 이미지 정보, or the ⓘ button on the toolbar, opens a window with four
-blocks of facts about what is open:
+이미지 ▸ 이미지 정보, 또는 툴바의 ⓘ 단추가 열려 있는 것에 대한 사실을 네 덩어리로
+보여 주는 창을 엽니다.
 
-- **파일 / File** — the name it was opened from, where it lives on disk, the
-  format and the size of the file.
-- **이미지 / Image** — the pixel size, the megapixel count, the aspect ratio,
-  the colour mode, how many layers there are and what the background is.
-- **픽셀 / Pixels** — measured from the flattened document as it stands now, not
-  from the file: the mean R, G and B, the mean brightness, the range from the
-  darkest pixel to the lightest, and how much of the picture is fully or partly
-  see-through. Watching the range while you work is the quickest way to see
-  whether an adjustment has crushed the blacks or blown the highlights.
-- **상세 정보 / Details** — whatever the file's own header carried. A photo from
-  a camera shows its EXIF: the camera and lens, the date it was taken, the
-  exposure, aperture, ISO and focal length, the metering and white balance. A
-  PNG shows its bit depth and colour type. A DICOM shows its tags — modality,
-  study and series, the patient, the equipment, the slice thickness and pixel
-  spacing, the transfer syntax and the window that was applied. A file that
-  carries nothing says so rather than showing invented values.
+- **파일** — 어떤 이름으로 열렸는지, 디스크의 어디에 있는지, 형식과 파일 크기.
+- **이미지** — 픽셀 크기, 메가픽셀 수, 화면 비율, 색상 모드, 레이어가 몇 개인지,
+  배경이 무엇인지.
+- **픽셀** — 파일이 아니라 지금 이 순간 평평하게 합친 문서에서 잽니다. 평균 R·G·B,
+  평균 밝기, 가장 어두운 픽셀에서 가장 밝은 픽셀까지의 범위, 그리고 그림의 얼마나가
+  완전히 또는 부분적으로 비치는지. 작업하면서 범위를 지켜보는 것이 조정이 검정을
+  뭉갰는지 밝은 곳을 날렸는지 알아보는 가장 빠른 길입니다.
+- **상세 정보** — 파일 자신의 헤더가 지니고 있던 것. 카메라로 찍은 사진은 EXIF 를
+  보여 줍니다. 카메라와 렌즈, 찍은 날짜, 노출·조리개·ISO·초점 거리, 측광과 화이트
+  밸런스. PNG 는 비트 깊이와 색상 유형을. DICOM 은 태그를 — 모달리티, 검사와 시리즈,
+  환자, 장비, 슬라이스 두께와 픽셀 간격, 전송 구문과 적용된 윈도우. 아무것도 지니지
+  않은 파일은 지어낸 값을 보여 주는 대신 없다고 말합니다.
 
-**내용 복사 / Copy details** puts the whole window on the clipboard as plain
-text, which is what to paste into a note or a bug report.
+**내용 복사**가 창 전체를 평문으로 클립보드에 올립니다. 메모나 버그 보고에 붙여 넣을
+것이 이것입니다.
 
-The window reads the document as it is at the moment it opens, so close and
-reopen it after an edit to see the new numbers.
+이 창은 열리는 순간의 문서를 읽으므로, 편집한 뒤 새 수치를 보려면 닫았다 다시 여세요.
 
-## Settings, the guide and About
+## 설정, 안내서, 정보
 
-The right-hand panel has twenty-five tabs — 레이어, 속성, 조정, 작업 내역, 채널,
+오른쪽 패널에는 스물다섯 개 탭이 있습니다 — 레이어, 속성, 조정, 작업 내역, 채널,
 패스, 탐색기, 정보, 색상, 색상 견본, 그레이디언트, 패턴, 스타일, 모양, 브러시, 복제
-원본, 도구 사전 설정, 문자, 단락, 글리프, 액션, 레이어 컴프, 타임라인, 측정 로그
-and 메모 — laid out three to a row at the top of the panel, all of them
-visible; the panel scrolls as one. The 창 / Window menu switches between them,
-and so does clicking a tab.
+원본, 도구 사전 설정, 문자, 단락, 글리프, 액션, 레이어 컴프, 타임라인, 측정 로그,
+메모. 패널 위쪽에 한 줄에 셋씩 놓여 전부 보이고, 패널은 하나로 스크롤합니다.
+창 메뉴로도, 탭을 눌러서도 오갈 수 있습니다.
 
-The theme control at the right-hand end of the menu bar is two buttons in one:
-clicking the wide half **steps to the next theme** — its tooltip names the one
-coming up — and the arrow beside it opens the full list of twenty to pick from.
+메뉴 막대 오른쪽 끝의 테마 조작부는 단추 둘이 하나로 되어 있습니다. 넓은 쪽을 누르면
+**다음 테마로 넘어가고**(툴팁이 다음에 올 테마를 알려 줍니다), 옆의 화살표가 스무
+가지 전체 목록을 엽니다.
 
-The right-hand end of the menu bar holds the theme control, the language switch
-(Korean / English) and the Settings and About windows. The guide you are reading
-is on the 창 / Window menu, at the bottom.
+메뉴 막대 오른쪽 끝에는 테마 조작부, 언어 전환(한국어 / English), 그리고 설정과 정보
+창이 있습니다. 지금 읽고 있는 안내서는 창 메뉴 맨 아래에 있습니다.
 
-Settings is a preferences window on six tabs, each split into titled
-sections, tall enough that no tab scrolls:
+설정은 여섯 탭짜리 설정 창이고, 탭마다 제목이 붙은 구획으로 나뉘며, 어느 탭도
+스크롤하지 않을 만큼 높이가 넉넉합니다.
 
-- **일반 / General** — language and the number of history states; the theme,
-  four swatches to a row; shortcuts to the Keyboard Shortcuts and Neural Models
-  windows, a button that clears the recent files list, and the WebGPU switch
-  for the neural models.
-- **보기 / View** — what is shown (rulers, grid, guides, pixel grid, smart
-  guides, slices, notes, paths, extras, pattern preview), the snap settings
-  (snap, to guides, to grid, lock guides), the ruler units, the panel width,
-  proof colours and the gamut warning.
-- **도구 / Tools** — the selection defaults (mode, feather, anti-alias,
-  contiguous, sample all layers) and the sampling and fill settings (tolerance,
-  eyedropper sample size, aligned clone, impressionist pattern stamp).
-- **브러시 / Brush** — the tip defaults (size, hardness, opacity, spacing,
-  angle, roundness, scatter) and the saved brushes.
-- **내보내기 / Export** — the format and the transparent-background setting.
-- **엔진 / Engine** — the numbers the algorithms themselves work with, for the
-  three commands whose right setting depends on the photograph:
-  - *Content-Aware Fill and the Remove tool* — **finishing rounds** (1–8,
-    four by default) and **searches per round**. More rounds bring back the
-    texture of the filled patch and cost time; past five the fill bands.
-  - *Select Subject, Object Selection, Remove Background* — **GrabCut
-    iterations**, a switch for **tidying the result into one object**, and how
-    large a piece has to be, against the biggest, to survive that tidying. At
-    100% only the single biggest piece is kept; lower it when an arm or a prop
-    reads as separate from the body.
-  - *Select Sky and Sky Replacement* — the **colour step** between neighbouring
-    pixels that stops the sky growing, how far the colour may **drift** from
-    the band at the top of the picture, and the **horizon allowance**. A
-    smaller step stops earlier at the horizon; a smaller drift can lose a sky
-    that shades from one end to the other.
+- **일반** — 언어와 작업 내역 단계 수. 테마는 한 줄에 색 견본 넷. 키보드 단축키와
+  뉴럴 모델 창으로 가는 바로 가기, 최근 파일 목록을 비우는 단추, 그리고 뉴럴 모델용
+  WebGPU 스위치.
+- **보기** — 무엇을 보여 줄지(눈금자, 격자, 안내선, 픽셀 격자, 스마트 안내선, 분할
+  영역, 메모, 패스, 표시 여부, 패턴 미리보기), 스냅 설정(스냅, 안내선에, 격자에,
+  안내선 잠금), 눈금자 단위, 패널 너비, 저해상도 인쇄 색상과 색상 영역 경고.
+- **도구** — 선택 기본값(모드, 페더, 앤티앨리어스, 인접, 모든 레이어에서 표본) 과
+  표본·채우기 설정(허용치, 스포이드 표본 크기, 정렬된 복제, 인상주의 패턴 도장).
+- **브러시** — 브러시 모양 기본값(크기, 경도, 불투명도, 간격, 각도, 원형률, 분산)과
+  저장한 브러시.
+- **내보내기** — 형식과 투명 배경 설정.
+- **엔진** — 알고리즘 자신이 쓰는 수치. 알맞은 값이 사진마다 다른 세 명령을 위한
+  것입니다.
+  - *내용 인식 채우기와 제거 도구* — **마무리 라운드**(1–8, 기본 4)와 **라운드당
+    검색**. 라운드가 많을수록 채운 자리의 질감이 살아나고 시간이 듭니다. 다섯을
+    넘으면 채움에 띠가 생깁니다.
+  - *피사체 선택, 개체 선택, 배경 제거* — **GrabCut 반복**, **결과를 하나의 개체로
+    정리**할지 여부, 그리고 그 정리에서 살아남으려면 가장 큰 조각에 견주어 얼마나
+    커야 하는지. 100% 면 가장 큰 조각 하나만 남습니다. 팔이나 소품이 몸과 떨어진
+    것으로 읽히면 값을 낮추세요.
+  - *하늘 선택과 하늘 대체* — 하늘이 더 번지는 것을 멈추는 이웃 픽셀 사이의 **색
+    단차**, 그림 맨 위 띠에서 색이 얼마나 **이탈**해도 되는지, 그리고 **수평선
+    허용치**. 단차가 작으면 수평선에서 더 일찍 멈추고, 이탈이 작으면 한쪽 끝에서
+    다른 끝으로 물드는 하늘을 놓칠 수 있습니다.
 
-  These apply to the built-in algorithms. With the matching neural model
-  downloaded in 편집 ▸ 뉴럴 모델, the model runs instead and these are unused.
+  이 값들은 내장 알고리즘에 적용됩니다. 편집 ▸ 뉴럴 모델에서 해당 모델을 받아 두면
+  모델이 대신 돌고 이 값들은 쓰이지 않습니다.
 
-**Opening a file** starts in the folder the last one came from, remembered
-across restarts. The File menu's **Open Recent** submenu lists the last twenty
-files you worked on: each row opens its file, the ✕ beside it drops that one
-file from the list, and the row at the bottom empties the list altogether.
+**파일을 열면** 마지막에 열었던 폴더에서 시작하고, 프로그램을 다시 켜도 기억합니다.
+파일 메뉴의 **최근 파일** 하위 메뉴가 최근에 작업한 파일 스무 개를 나열합니다. 행을
+누르면 그 파일이 열리고, 옆의 ✕ 가 그 파일 하나를 목록에서 빼며, 맨 아래 행이 목록을
+통째로 비웁니다.
 
-**The Filter Gallery** lists the filters of one group at a time, each with an
-icon and its name. Hovering a filter says what it does; picking one puts that
-sentence in the panel on the right, above the radius and amount sliders, and
-previews it on the picture. The sentences describe what happens to the
-photograph — "pools the colour and darkens the edges, the way watercolour
-dries" — so the window is a way to learn the filters, not only to run them.
-Apply stays greyed out until a filter is chosen.
+**필터 갤러리**는 한 번에 한 그룹의 필터를 아이콘과 이름으로 나열합니다. 필터에
+마우스를 올리면 무엇을 하는지 말해 주고, 하나를 고르면 그 문장이 오른쪽 패널의 반경·
+양 슬라이더 위에 놓이며 그림에 미리보기가 걸립니다. 문장은 사진에 무슨 일이 일어나는지
+를 설명합니다 — "수채 물감이 마르듯 색이 고이고 가장자리가 짙어집니다" — 그래서 이
+창은 필터를 돌리는 곳일 뿐 아니라 익히는 곳이기도 합니다. 필터를 고르기 전까지 적용은
+흐려져 있습니다.
 
-**Sliders and numbers everywhere in the editor** behave the same way: the
-handle and the number beside it follow the mouse, but the picture is redrawn
-when you let go, not while you drag. A preview runs the whole image through the
-filter, and doing that for every pixel of a drag would make the drag as slow as
-the filter for a result thrown away a moment later — only the value you stop on
-is worth drawing. A number you type in commits when you press Enter or move to
-something else, so typing "120" does not redraw at 1, then 12, then 120; the
-buttons either side of a number are a single step and act at once.
+**편집기 어디에서나 슬라이더와 숫자**는 같은 방식으로 동작합니다. 손잡이와 옆의 숫자는
+마우스를 따라가지만, 그림은 손을 뗄 때 다시 그립니다. 미리보기는 이미지 전체를 필터에
+통과시키는 일이고, 드래그의 픽셀마다 그것을 하면 잠시 뒤 버려질 결과를 위해 드래그가
+필터 속도로 느려집니다 — 멈춘 그 값만이 그릴 가치가 있습니다. 직접 친 숫자는 Enter 를
+누르거나 다른 곳으로 옮길 때 반영되므로 "120" 을 쳐도 1, 12, 120 으로 세 번 그리지
+않습니다. 숫자 양옆의 단추는 한 단계씩이라 곧바로 적용됩니다.
 
-Each number has a decrease and an increase button. **기본 설정으로 되돌리기 /
-Reset to defaults** (bottom left) puts every setting in the window back to its
-default; what you have made — brushes, gradients, swatches, shapes, tool
-presets, styles, workspaces, actions — and the recent files list are kept, and
-so is the language.
+숫자마다 감소·증가 단추가 붙습니다. 왼쪽 아래의 **기본 설정으로 되돌리기**가 그 창의
+모든 설정을 기본값으로 돌립니다. 직접 만든 것 — 브러시, 그레이디언트, 색상 견본, 모양,
+도구 사전 설정, 스타일, 작업 영역, 액션 — 과 최근 파일 목록은 그대로 두고, 언어도
+지킵니다.
 
-About lists the version, build time, commit, author, licence, the Electron and
-Chromium versions and the platform — and copies all of it in one click, which is
-the quickest way to describe your setup in a bug report.
+정보 창은 버전, 빌드 시각, 커밋, 만든이, 라이선스, Electron 과 Chromium 버전, 플랫폼을
+나열하고, 한 번 눌러 전부 복사합니다. 버그 보고에 환경을 설명하는 가장 빠른 길입니다.
 
-## While a job is running
+## 작업이 도는 동안
 
-Some of this takes a while. A content-aware fill over a large frame, a
-panorama of four exposures, a network running on the processor: seconds, and
-sometimes minutes. While one of those runs, the program holds on to the
-screen and will not answer a click, because the work and the drawing happen
-in the same place.
+어떤 일은 시간이 걸립니다. 큰 화면에 거는 내용 인식 채우기, 네 장짜리 파노라마,
+프로세서에서 도는 신경망은 수 초, 때로는 수 분입니다. 그중 하나가 도는 동안 프로그램은
+화면을 붙들고 클릭에 답하지 않습니다. 일하는 곳과 그리는 곳이 같은 자리이기 때문입니다.
 
-So it says so. A window comes up naming the job, with a bar underneath: a
-real percentage where the job can count what it is doing — **일괄 처리 /
-Batch** names each file as it reaches it, **생성형 확대 / Super Zoom** counts
-its tiles — and an elapsed time where it cannot. It appears at once for the
-jobs that are always slow, and after about half a second for the rest, so the
-hundreds of filters that finish in a blink do not make it flash.
+그래서 그렇다고 말해 줍니다. 작업 이름을 단 창이 뜨고 그 아래에 막대가 붙습니다.
+스스로 셀 수 있는 작업은 실제 백분율을 — **일괄 처리**는 닿는 파일마다 이름을,
+**생성형 확대**는 타일 수를 — 셀 수 없는 작업은 경과 시간을 보여 줍니다. 늘 느린
+작업에는 곧바로 뜨고 나머지에는 0.5초쯤 지나 뜨므로, 눈 깜짝할 새 끝나는 수백 가지
+필터가 창을 깜빡이게 하지 않습니다.
 
-The spinner may sit still while the work is going on. That is expected: the
-job has the thread and nothing on the page can move until it gives it back.
-The window being there at all is the point — it is the difference between a
-program that is working and one that has stopped.
+일이 도는 동안 회전 막대는 멈춰 있을 수 있습니다. 그럴 만합니다. 작업이 스레드를 쥐고
+있으니 그것을 돌려주기 전까지 페이지의 어떤 것도 움직일 수 없습니다. **창이 떠 있다는
+것 자체**가 핵심입니다 — 일하고 있는 프로그램과 멈춰 버린 프로그램의 차이가 그것입니다.
 
-## Undo and redo
+## 실행 취소와 다시 실행
 
-**편집 / Edit** holds **실행 취소 / Undo** (Ctrl+Z) and **다시 실행 / Redo**
-(Ctrl+Y), and both have a button on the toolbar. They are greyed out when
-there is nothing behind them: at the start of a session Undo is dead, and
-Redo comes to life only once something has been undone. A greyed button is
-not broken; there is simply nothing there to go back to.
+**편집** 메뉴에 **실행 취소**(Ctrl+Z)와 **다시 실행**(Ctrl+Y)이 있고, 둘 다 툴바에
+단추가 있습니다. 되돌릴 것이 없으면 흐려집니다. 세션을 막 시작하면 실행 취소는 죽어
+있고, 다시 실행은 무언가를 되돌린 뒤에야 살아납니다. 흐린 단추는 고장 난 것이 아니라
+돌아갈 곳이 없다는 뜻입니다.
 
-The **작업 내역 / History** panel on the right lists the steps by name and
-jumps to any of them.
-## When something goes wrong
+오른쪽의 **작업 내역** 패널이 단계마다 이름을 붙여 나열하고 어느 지점으로든 건너뜁니다.
 
-Any failure opens a window naming what was being done and showing the full
-detail: the error, its stack, the document, the tool and the environment. The
-text is selectable, and **내용 복사 / Copy details** puts all of it on the
-clipboard.
+## 잘못되었을 때
 
-## Photoshop's way of working
+어떤 실패든 무슨 일을 하던 중이었는지 이름을 달고 상세를 전부 보여 주는 창이 열립니다.
+오류, 스택, 문서, 도구, 환경. 글자는 선택할 수 있고 **내용 복사**가 전부를 클립보드에
+올립니다.
 
-Everything in the Photoshop menus has a row here of the same name, so the guide
-only lists what behaves differently from the older release.
+## Photoshop 의 방식
 
-- **Selections combine.** Shift adds, Alt subtracts and Shift+Alt intersects with
-  every selection tool, or pick the mode in the option bar; feather and
-  anti-alias are there too. The Quick Selection brush grows into similar pixels as
-  you drag; the Object Selection tool takes a box and keeps what stands out from
-  its rim; Select ▸ Sky, Focus Area and Select and Mask do what their names say.
-- **Masks are painted.** Click the mask thumbnail in the Layers panel (or make a
-  mask) and the brushes, gradient and fill write into the mask — white reveals,
-  black hides — until you click the layer thumbnail again. Layer ▸ Layer Mask
-  has disable, invert, apply and delete. Q enters Quick Mask.
-- **Windows preview live.** Every adjustment and filter window shows its effect
-  on the picture as you move the sliders; Cancel puts it back.
-- **History.** The History panel lists every state with the tool or command that
-  made it; click one to go back. Camera makes a named snapshot. The circle beside
-  a state makes it the History Brush source.
-- **Layer styles.** Layer ▸ Layer Style (or double-click a layer) opens all ten
-  effects with their settings; save one as a style and re-apply it from the
-  Styles panel.
-- **Guides.** Drag out of a ruler to make one, drag it back to remove it; View ▸
-  New Guide, New Guide Layout, Lock Guides, and Snap to guides and grid.
-- **Documents.** Open several; tabs above the picture switch between them
-  (Ctrl+Tab). Edit Smart Object Contents opens the original in its own tab and
-  Save writes it back.
-- **PSD.** Open and Save as PSD keep layers, groups, masks, opacity and blend
-  modes; text, styles and smart objects travel as their rendered pixels.
-- **Liquify** is a brush: choose forward warp, twirl, pucker, bloat, reconstruct,
-  freeze or thaw in the option bar, then Enter applies and Esc cancels.
-- **Menus fold.** A menu shows its main commands; a row with a ▸ opens a
-  submenu beside it when you hover or click it, the way Photoshop's do.
-- **The picture-analysis commands are real, and run on this machine.**
-  Photomerge and Auto-Align match features between frames and warp each into
-  place (rotation and perspective included); Auto-Blend fades each layer at its
-  edge; Merge to HDR fuses the exposures; Content-Aware Fill, Generative Fill
-  and the Remove tool rebuild a hole from the texture around it (PatchMatch);
-  Harmonize re-solves a pasted layer's colours so its edge meets the background
-  (Poisson blending); Object Selection and Select Subject cut the object out with
-  GrabCut; Crop & Straighten finds each print on a scanned page and opens it
-  upright in its own tab. The first of these you use loads OpenCV (a moment's
-  pause); nothing is downloaded and nothing leaves the computer.
-- **Vanishing Point clones in perspective.** Define the plane with four
-  clicks, press S for the Clone Stamp, Alt-click a source on the plane and
-  paint: what you clone shrinks and leans with the plane. Apply still pastes the
-  clipboard into the plane.
-- **Neural models, if you want them.** Edit ▸ Neural Models… lists the
-  networks the app can use — subject cut-out (U²-Net, Silueta, ISNet), sky
-  (SegFormer), depth (Depth Anything V2), object removal (LaMa) and
-  super-resolution (Swin2SR) — with their sizes and licences. Download one and
-  Select Subject, Remove Background, Object Selection, Select Sky, Sky
-  Replacement, Depth Blur, Generative Fill, the Remove tool, Super Zoom and
-  Generative Upscale use it from then on; without it they use the classical
-  method described above. The weights are fetched once from their public
-  repositories, kept on this computer and run on it (all CPU cores; WebGPU is a
-  checkbox in the same window). Nothing you edit leaves the machine.
-- **Neural Filters' skin smoothing, colorize and restore** remain algorithms
-  and say so.
+Photoshop 메뉴에 있는 모든 것이 여기에 같은 이름의 행으로 있습니다. 그래서 이 안내서는
+이전 판과 다르게 동작하는 것만 적습니다.
 
-## Keyboard
+- **선택 영역이 합쳐집니다.** 모든 선택 도구에서 Shift 는 더하고 Alt 는 빼고
+  Shift+Alt 는 교차합니다. 옵션 막대에서 모드를 골라도 되고, 페더와 앤티앨리어스도
+  거기 있습니다. 빠른 선택 브러시는 끌수록 닮은 픽셀로 번지고, 개체 선택 도구는 상자를
+  받아 테두리에서 도드라지는 것을 남깁니다. 선택 ▸ 하늘, 초점 영역, 선택 및 마스크는
+  이름 그대로 합니다.
+- **마스크는 칠하는 것입니다.** 레이어 패널의 마스크 미리보기를 누르면(또는 마스크를
+  만들면) 브러시·그레이디언트·칠이 마스크에 씁니다 — 흰색이 드러내고 검정이 가립니다
+  — 레이어 미리보기를 다시 누를 때까지. 레이어 ▸ 레이어 마스크에 해제, 반전, 적용,
+  삭제가 있습니다. Q 로 빠른 마스크에 들어갑니다.
+- **창은 실시간으로 미리 보여 줍니다.** 모든 조정·필터 창이 슬라이더를 움직이는 대로
+  그림에 효과를 보여 주고, 취소가 되돌립니다.
+- **작업 내역.** 작업 내역 패널이 상태마다 그것을 만든 도구나 명령과 함께 나열하고,
+  하나를 누르면 그리로 돌아갑니다. 카메라가 이름 붙인 스냅샷을 만듭니다. 상태 옆의
+  동그라미가 그것을 작업 내역 브러시의 원본으로 삼습니다.
+- **레이어 스타일.** 레이어 ▸ 레이어 스타일(또는 레이어 더블클릭)이 열 가지 효과를
+  설정과 함께 엽니다. 하나를 스타일로 저장하면 스타일 패널에서 다시 걸 수 있습니다.
+- **안내선.** 눈금자에서 끌어내 만들고 도로 끌어 넣어 없앱니다. 보기 ▸ 새 안내선, 새
+  안내선 레이아웃, 안내선 잠금, 그리고 안내선·격자에 스냅.
+- **문서.** 여러 개를 엽니다. 그림 위의 탭이 그 사이를 오갑니다(Ctrl+Tab). 고급 개체
+  내용 편집이 원본을 자기 탭으로 열고, 저장이 되씁니다.
+- **PSD.** PSD 열기와 PSD 로 저장이 레이어, 그룹, 마스크, 불투명도, 혼합 모드를
+  지킵니다. 문자·스타일·고급 개체는 렌더링된 픽셀로 오갑니다.
+- **픽셀 유동화는 브러시입니다.** 옵션 막대에서 앞으로 뒤틀기, 소용돌이, 오목, 볼록,
+  재구성, 고정, 해제를 고른 뒤 Enter 로 적용, Esc 로 취소합니다.
+- **메뉴는 접힙니다.** 메뉴는 주요 명령을 보여 주고, ▸ 가 붙은 행은 마우스를 올리거나
+  누르면 옆에 하위 메뉴를 엽니다. Photoshop 이 그렇게 합니다.
+- **그림을 분석하는 명령들은 진짜이고, 이 컴퓨터에서 돕니다.** Photomerge 와 자동
+  정렬은 프레임 사이의 특징을 맞춰 각각을 제자리로 뒤틉니다(회전과 원근 포함). 자동
+  혼합은 레이어마다 가장자리를 흐립니다. HDR 로 병합은 노출을 융합합니다. 내용 인식
+  채우기, 생성형 채우기, 제거 도구는 주변 질감에서 구멍을 다시 세웁니다(PatchMatch).
+  하모나이즈는 붙여 넣은 레이어의 색을 다시 풀어 가장자리가 배경과 만나게 합니다
+  (푸아송 블렌딩). 개체 선택과 피사체 선택은 GrabCut 으로 개체를 오려 냅니다. 사진
+  자르고 똑바르게는 스캔한 페이지에서 인화지를 하나씩 찾아 자기 탭에 똑바로 엽니다.
+  이 중 처음 쓰는 것이 OpenCV 를 불러옵니다(잠깐 멈춥니다). 아무것도 내려받지 않고
+  아무것도 컴퓨터를 떠나지 않습니다.
+- **소실점은 원근으로 복제합니다.** 네 번 눌러 평면을 정하고, S 로 복제 도장을 고르고,
+  평면 위의 원본을 Alt+클릭한 뒤 칠하면 복제한 것이 평면을 따라 줄어들고 기웁니다.
+  적용은 여전히 클립보드를 평면 안에 붙여 넣습니다.
+- **뉴럴 모델, 원한다면.** 편집 ▸ 뉴럴 모델… 이 앱이 쓸 수 있는 신경망을 크기와
+  라이선스와 함께 나열합니다 — 피사체 오려 내기(U²-Net, Silueta, ISNet), 하늘
+  (SegFormer), 깊이(Depth Anything V2), 개체 제거(LaMa), 초해상(Swin2SR). 하나를
+  받으면 그때부터 피사체 선택, 배경 제거, 개체 선택, 하늘 선택, 하늘 대체, 깊이 흐림,
+  생성형 채우기, 제거 도구, 슈퍼 줌, 생성형 확대가 그것을 씁니다. 없으면 위에 적은
+  고전적 방법을 씁니다. 가중치는 공개 저장소에서 한 번 받아 이 컴퓨터에 두고 여기서
+  돌립니다(모든 CPU 코어. WebGPU 는 같은 창의 체크 상자입니다). 편집하는 무엇도
+  컴퓨터를 떠나지 않습니다.
+- **뉴럴 필터의 피부 보정·색 입히기·복원**은 여전히 알고리즘이며 그렇다고 밝힙니다.
 
-| Keys | Action |
+## 키보드
+
+| 키 | 동작 |
 | --- | --- |
-| Ctrl/Cmd+N / O / S / Shift+S | New, Open, Save, Save As |
-| Ctrl/Cmd+P | Open the print preview |
-| Ctrl/Cmd+Z / Shift+Z or Y | Undo, Redo |
-| Ctrl/Cmd+A / D | Select all, Deselect |
-| Ctrl/Cmd+Shift+D | Reselect what was just deselected |
-| Ctrl/Cmd+X / C / V | Cut, Copy, Paste |
-| Ctrl/Cmd+Shift+C | Copy merged — every layer, flattened |
-| Ctrl/Cmd+T | Free transform |
-| Delete / Backspace | Clear the selected pixels |
-| Enter | Apply a crop, a transform, or close a path or lasso |
-| Esc | Cancel whatever is in progress |
-| `[` `]` | Brush size |
-| X | Swap the foreground and background colours |
-| Space | Pan with any tool held |
+| Ctrl/Cmd+N / O / S / Shift+S | 새로 만들기, 열기, 저장, 다른 이름으로 저장 |
+| Ctrl/Cmd+P | 인쇄 미리보기 열기 |
+| Ctrl/Cmd+Z / Shift+Z 또는 Y | 실행 취소, 다시 실행 |
+| Ctrl/Cmd+A / D | 전체 선택, 선택 해제 |
+| Ctrl/Cmd+Shift+D | 방금 해제한 선택을 되살리기 |
+| Ctrl/Cmd+X / C / V | 잘라내기, 복사, 붙여넣기 |
+| Ctrl/Cmd+Shift+C | 병합하여 복사 — 모든 레이어를 합쳐서 |
+| Ctrl/Cmd+T | 자유 변형 |
+| Delete / Backspace | 선택한 픽셀 지우기 |
+| Enter | 자르기·변형 적용, 또는 패스·올가미 닫기 |
+| Esc | 진행 중인 것을 취소 |
+| `[` `]` | 브러시 크기 |
+| X | 전경색과 배경색 교환 |
+| Space | 어떤 도구에서든 누른 채 화면 이동 |

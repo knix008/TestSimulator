@@ -1,195 +1,209 @@
-# Architecture
+# 구조
 
-My Photo Work V1.0 is a cross-platform raster photo editor. The same React app runs in the browser (Vite) and inside a desktop shell (Electron).
+My Photo Work V1.0 은 멀티 플랫폼 래스터 사진 편집기입니다. 같은 React 앱이 브라우저(Vite)에서도, 데스크톱 껍데기(Electron) 안에서도 그대로 돕니다.
 
-## Technology stack
+## 기술 스택
 
-| Layer      | Technology                                             |
+| 층 | 기술 |
 | ---------- | ------------------------------------------------------ |
 | UI         | React 19 + TypeScript                                  |
-| Bundler    | Vite 8                                                 |
-| Desktop    | Electron 43 (`electron/main.cjs`), packaged with electron-builder |
-| Icons      | lucide-react                                           |
-| TIFF codec | `utif`                                                 |
-| HEIC/HEIF codec | `libheif-js` (WASM, decode only, loaded on demand) |
-| DICOM reader | `dicom-parser` for the data set; the pixel pipeline is our own |
-| Computer vision | `@techstark/opencv-js` (OpenCV 5 as WebAssembly, ~13 MB, its own chunk loaded on first use) |
-| Neural inference | `onnxruntime-web` 1.30 (`/wasm` build on the CPU threads by default, `/webgpu` build when opted in); the weights are not in the repository |
+| 번들러     | Vite 8                                                 |
+| 데스크톱   | Electron 43 (`electron/main.cjs`), electron-builder 로 포장 |
+| 아이콘     | lucide-react                                           |
+| TIFF 코덱  | `utif`                                                 |
+| HEIC/HEIF 코덱 | `libheif-js` (WASM, 디코딩 전용, 필요할 때 불러옴) |
+| DICOM 판독 | 데이터 세트는 `dicom-parser`, 픽셀 파이프라인은 자체 구현 |
+| 컴퓨터 비전 | `@techstark/opencv-js` (OpenCV 5 의 WebAssembly 판, 약 13MB, 처음 쓸 때 불러오는 별도 청크) |
+| 신경망 추론 | `onnxruntime-web` 1.30 (기본은 CPU 스레드에서 도는 `/wasm` 빌드, 선택하면 `/webgpu` 빌드). 가중치는 저장소에 들어 있지 않습니다 |
 
-## Process / module layout
+## 프로세스 / 모듈 구성
 
-The window chrome is four stacked rows: a **title bar** (the window's drag
-handle and its minimise/maximise/close buttons), a **menu bar**, an **icon
-toolbar**, and the contextual **options bar**. The menu bar and the toolbar are
-both generated from `src/commands.ts`, so the toolbar is simply the commands
-flagged `toolbar`, still grouped by their menu category.
+창 상단은 네 줄이 쌓인 구조입니다. **제목 표시줄**(창을 끄는 손잡이와 최소화·최대화·닫기 단추),
+**메뉴 막대**, **아이콘 툴바**, 그리고 상황에 따라 바뀌는 **옵션 막대**. 메뉴 막대와 툴바는 둘 다
+`src/commands.ts` 에서 생성되므로, 툴바는 `toolbar` 표시가 붙은 명령들을 메뉴 갈래별로 묶어
+놓은 것일 뿐입니다.
 
-Every popup window sizes itself to its content: `DialogHost` measures the
-dialog and the main process resizes the window to match, clamped to the display.
-Fixed sizes could not track the content — some dialogs clipped their buttons and
-others left a band of dead space beneath them.
+팝업 창은 저마다 내용에 맞춰 크기를 정합니다. `DialogHost` 가 대화상자를 재고 메인 프로세스가
+창을 그에 맞게, 화면 크기 안으로 조여 가며 조정합니다. 크기를 고정해 두면 내용을 따라갈 수
+없어서, 어떤 대화상자는 단추가 잘리고 어떤 대화상자는 아래에 죽은 여백이 남았습니다.
 
-Popups are not rendered inside the app window. Each menu dropdown and each
-dialog is a child `BrowserWindow` that loads this same bundle with a hash route
-(`#menu=` / `#dialog=`), because a frameless window clips its own HTML: the
-Layer menu is about forty rows tall and could not otherwise be shown, and an
-in-page dialog cannot be dragged out of the way. `electron/childwindows.cjs`
-owns them — one window per dialog name, reopening raises the existing one, and
-every popup is destroyed with the main window.
+팝업은 앱 창 안에서 그려지지 않습니다. 메뉴 드롭다운 하나하나, 대화상자 하나하나가 같은 번들을
+해시 경로(`#menu=` / `#dialog=`)로 불러오는 자식 `BrowserWindow` 입니다. 테두리 없는 창은 자기
+HTML 을 잘라 버리기 때문입니다 — 레이어 메뉴는 마흔 줄쯤 되어 다른 방법으로는 보여 줄 수 없고,
+페이지 안의 대화상자는 옆으로 치울 수 없습니다. `electron/childwindows.cjs` 가 이들을 관리합니다.
+대화상자 이름당 창 하나, 다시 열면 있던 창을 앞으로, 모든 팝업은 메인 창과 함께 사라집니다.
 
-**Those routes carry no name, and that is the whole of why popups open fast.**
-Creating a `BrowserWindow` is cheap; starting the renderer behind it is not —
-the bundle is parsed, React mounts and the popup chunk is fetched. Paying that
-per click is what made popups feel slow, and closing a dialog used to destroy
-its window, so the second open of the same dialog cost exactly as much as the
-first. A nameless route makes every popup window interchangeable, so the main
-process can hand one its identity over IPC (`dialog:payload` / `menu:payload`).
-Three things follow:
+**그 경로에는 이름이 없고, 팝업이 빠르게 열리는 이유가 전부 거기에 있습니다.** `BrowserWindow`
+를 만드는 일은 싸지만 그 뒤의 렌더러를 띄우는 일은 그렇지 않습니다 — 번들을 파싱하고, React 가
+마운트하고, 팝업 청크를 받아 옵니다. 그 값을 클릭마다 치르는 것이 팝업을 느리게 만들었고,
+대화상자를 닫으면 창을 없애 버렸으니 같은 대화상자를 두 번째로 여는 값이 첫 번째와 정확히
+같았습니다. 이름 없는 경로는 모든 팝업 창을 서로 바꿔 쓸 수 있게 만들고, 메인 프로세스가 그중
+하나에게 IPC(`dialog:payload` / `menu:payload`)로 정체를 쥐여 줍니다. 그래서 세 가지가 따라옵니다.
 
-- A dismissed dialog is **hidden and returned to a pool**, not destroyed.
-- The pool is **filled in the background** 1.2s after the editor finishes
-  loading, along with the single menu window, so even the first click is warm.
-- One menu window serves **every** dropdown; it is told which menu to show.
+- 닫힌 대화상자는 없어지지 않고 **숨겨져 풀로 돌아갑니다**.
+- 풀은 편집기가 다 뜬 뒤 1.2초에 **뒤에서 채워집니다**. 메뉴 창 하나도 함께여서 첫 클릭조차
+  이미 데워져 있습니다.
+- 메뉴 창 **하나**가 모든 드롭다운을 맡습니다. 어느 메뉴를 보여 줄지 전달받을 뿐입니다.
 
-Measured end to end — click to painted popup — that is 20–60 ms for a dialog
-and 13–45 ms for a menu, against a full renderer start-up before.
+클릭에서 팝업이 그려질 때까지 끝에서 끝까지 재면 대화상자 20–60ms, 메뉴 13–45ms 입니다.
+예전에는 렌더러를 처음부터 띄우는 값이 그대로 들었습니다.
 
-Because a pooled renderer keeps its React tree between uses, each opening
-carries an `openId` and `DialogHost` keys the dialog on it. Without that a
-reopened form would come back holding whatever was typed into it last time.
+풀에서 돌아온 렌더러는 React 트리를 그대로 지니고 있으므로, 열 때마다 `openId` 를 함께 보내고
+`DialogHost` 가 그 값을 키로 씁니다. 그러지 않으면 다시 연 입력 양식이 지난번에 친 내용을
+그대로 품고 나옵니다.
 
-A long menu is dealt into columns (`menuColumns` in `src/commands.ts`) rather
-than running off the screen. The rows and the separators are the grid's own
-cells — hence the `Fragment` rather than a wrapper element per row — so the
-columns share one set of row tracks and stay in step with each other.
+긴 메뉴는 화면 밖으로 흘러내리지 않도록 여러 열로 나눕니다(`src/commands.ts` 의 `menuColumns`).
+행과 구분선은 그리드 자신의 칸이어서 — 행마다 감싸는 요소를 두는 대신 `Fragment` 를 쓰는 이유가
+이것입니다 — 열들이 행 트랙 하나를 공유해 서로 어긋나지 않습니다.
 
-Each route is a lazy chunk (`src/routes.ts`), so a popup window downloads and
-parses only what it needs. A menu listing a dozen rows has no use for the canvas
-engine, the filters or the file codecs — splitting took the largest chunk from
-506 kB to 223 kB. Because each route is now its own chunk, `MenuHost` and
-`DialogHost` import `App.css` themselves rather than relying on the editor
-having already pulled it in.
+경로마다 지연 청크(`src/routes.ts`)여서 팝업 창은 자기에게 필요한 것만 받아 파싱합니다. 열두 줄
+짜리 메뉴에 캔버스 엔진도, 필터도, 파일 코덱도 쓸 일이 없습니다 — 나누고 나니 가장 큰 청크가
+506kB 에서 223kB 로 줄었습니다. 이제 경로마다 자기 청크이므로 `MenuHost` 와 `DialogHost` 는
+편집기가 이미 끌어왔겠거니 하지 않고 `App.css` 를 스스로 import 합니다.
 
 ```
 index.html
- └─ src/main.tsx            → routes on the hash: <App/> | <MenuHost/> | <DialogHost/>
-     └─ src/routes.ts       → the three lazily-loaded entry points
-     └─ src/App.tsx         → chrome, pointer dispatch, file/layer commands
-        ├─ src/i18n.ts
-        ├─ src/catalog.ts     → the tool strip's flyout groups
-        ├─ src/commands.ts    → the menu bar and toolbar commands
-        ├─ src/toolOptions.ts → what the contextual options bar shows per tool
-        ├─ src/dialogs.tsx    → every popup body, shared by both renderings
-        ├─ src/dialogMeta.ts  → popup names, icons and titles
-        ├─ src/aboutInfo.ts   → the facts the About window lists
+ └─ src/main.tsx            → 해시로 경로를 나눔: <App/> | <MenuHost/> | <DialogHost/>
+     └─ src/routes.ts       → 지연 로딩되는 세 진입점
+     └─ src/App.tsx         → 창 구조, 포인터 분배, 파일·레이어 명령
+        ├─ src/i18n.ts + i18nExtra.ts → 한국어/영어 표
+        ├─ src/catalog.ts     → 도구 막대의 플라이아웃 그룹
+        ├─ src/commands.ts    → 메뉴 막대와 툴바 명령
+        ├─ src/toolOptions.ts → 도구별로 옵션 막대가 보여 줄 것
+        ├─ src/dialogs.tsx    → 모든 팝업 본문, 두 렌더링이 공유
+        ├─ src/dialogMeta.ts  → 팝업의 이름·아이콘·제목
+        ├─ src/dialogInfo.ts  → 팝업마다 무엇을 하는 곳인지 한 문장
+        ├─ src/filterInfo.ts  → 필터 117개에 대해 같은 것, 아이콘까지
+        ├─ src/panelMeta.ts   → 오른쪽 패널들의 이름과 아이콘
+        ├─ src/themes.ts      → 스무 가지 테마의 색상 토큰
+        ├─ src/controls.tsx   → 모든 창이 쓰는 Slider 와 NumberField
+        ├─ src/adjusting.ts   → 드래그 중인지 여부, 그 둘을 위해
+        ├─ src/Busy.tsx       → 오래 걸리는 작업이 스스로 앞에 띄우는 창
+        ├─ src/subjectMethods.ts → 배경 제거가 어느 분할기를 쓸 것인가
+        ├─ src/aboutInfo.ts   → 정보 창이 나열하는 사실들
         └─ src/lib/*
-electron/main.cjs           → window, native open/save, close confirm
-electron/childwindows.cjs   → menu popups and dialogs as separate windows
-electron/preload.cjs        → contextBridge file/window/menu/dialog APIs
-scripts/create-icons.cjs        → public/app-icon.svg → every platform's icons
-scripts/generate-build-info.cjs → src/build-info.json for the About window
-scripts/electron-dev.mjs        → starts Vite, then Electron
+electron/main.cjs           → 창, 네이티브 열기/저장, 닫기 확인
+electron/childwindows.cjs   → 메뉴 팝업과 대화상자를 별도 창으로
+electron/preload.cjs        → contextBridge 로 여는 파일/창/메뉴/대화상자 API
+scripts/create-icons.cjs        → public/app-icon.svg → 모든 플랫폼의 아이콘
+scripts/generate-build-info.cjs → 정보 창을 위한 src/build-info.json
+scripts/electron-dev.mjs        → Vite 를 띄운 뒤 Electron
 ```
 
-`src/MenuTree.tsx` is the one dropdown both hosts render: `menuEntries` in
-`commands.ts` folds every command that carries a `section` into a submenu row,
-the tree opens that group's column beside the row on hover, and each column
-draws its own panel, so a submenu is a small box level with its row. The popup
-window sizes itself to the tree (it widens when a submenu opens) and the
-browser build's in-page dropdown holds the same tree.
+`src/MenuTree.tsx` 는 두 호스트가 함께 그리는 단 하나의 드롭다운입니다. `commands.ts` 의
+`menuEntries` 가 `section` 을 지닌 명령을 모두 하위 메뉴 행으로 접고, 트리는 그 그룹의 열을
+행 옆으로 펼치며, 각 열이 자기 패널을 그리므로 하위 메뉴는 자기 행과 나란한 작은 상자가 됩니다.
+팝업 창은 트리에 맞춰 크기를 정하고(하위 메뉴가 열리면 넓어집니다) 브라우저 빌드의 페이지 안
+드롭다운도 같은 트리를 씁니다.
 
-`src/dialogsExtra.tsx` holds the windows added for Photoshop parity, one
-component per window, and `src/panels.tsx` the right-hand panels, which read the
-editor's state through one `PanelContext` object. `src/usePreview.ts` is the hook
-every pixel-changing window uses: each edit is sent as a `preview` result, the
-editor draws the active layer as the sliders would leave it, and only Apply
-writes it (`pixelOperation` in App.tsx is the one place a window's answer becomes
-a pixel operation, for both). `src/adjustmentFields.ts` lists the sliders each
-adjustment shows, shared by the Adjustment window and the Properties panel.
+`src/dialogsExtra.tsx` 는 Photoshop 대응으로 더해진 창들을 창 하나당 컴포넌트 하나로 담고,
+`src/panels.tsx` 는 오른쪽 패널들을 담습니다. 패널은 편집기의 상태를 `PanelContext` 객체 하나로
+읽습니다. `src/usePreview.ts` 는 픽셀을 바꾸는 모든 창이 쓰는 훅입니다. 편집 하나하나가
+`preview` 결과로 전달되면 편집기가 슬라이더가 만들어 낼 모습대로 활성 레이어를 그리고, 적용을
+눌러야 실제로 씁니다(`App.tsx` 의 `pixelOperation` 이 창의 답을 픽셀 작업으로 바꾸는 유일한
+자리이며, 두 경로 모두 여기를 지납니다). `src/adjustmentFields.ts` 는 조정마다 어떤 슬라이더를
+보여 줄지 적어 두고, 조정 창과 속성 패널이 함께 씁니다.
 
-Several documents can be open at once: each is a `DocumentSlot` (model, pixels,
-history, file) parked in a map while another is shown, and the tab strip above
-the stage switches between them. A smart object's contents open as a slot of
-their own that writes back into the parent on save.
+`src/controls.tsx` 가 슬라이더를 마우스에 반응하게 만드는 자리입니다. range 입력은 드래그
+1픽셀마다 change 를 보내고, 예전에는 그때마다 사진 전체를 필터로 다시 그렸습니다. 그래서
+손잡이가 필터 속도로 움직였고, 그 프레임은 다음 이벤트가 곧바로 버렸습니다. `Slider` 는
+숫자만 실시간으로 두고 — 손잡이와 옆의 숫자는 마우스를 따라갑니다 — 드래그의 시작과 끝을
+`src/adjusting.ts` 에 알립니다. `usePreview` 가 그 끝을 기다리므로 사진은 드래그가 끝날 때
+한 번만 다시 그려집니다. `NumberField` 는 글자마다가 아니라 Enter 또는 포커스를 잃을 때
+확정하므로, "120" 을 치면 세 번이 아니라 한 번 그립니다.
 
-`src/dialogs.tsx` and `src/dialogMeta.ts` are split so the dialog module exports
-components only; the same reason `aboutInfo.ts` is separate — it is plain logic,
-so the tests can import it without a JSX transform.
+`src/Busy.tsx` 는 느린 작업이 스스로 앞에 세우는 창인데, 흥미로운 대목은 **언제 나타날지를
+어떻게 정하는가** 입니다. 여기서 느린 일은 대개 수백만 픽셀을 도는 루프 하나이고, 그 루프가
+도는 동안 페이지에서는 아무 일도 일어나지 않습니다 — 타이머도 안 돌고 프레임도 안 그려집니다.
+충분히 기다렸는지를 창이 스스로 판단한다면 그것은 **작업이 멈춰 세운 시계**를 읽는 셈이고,
+예전 코드가 정확히 그랬기에 정작 창이 필요한 작업에서는 창이 뜨지 않았습니다. 그래서 판단을
+작업 쪽으로 옮겼습니다(`BusyJob.visible`). 양보하며 도는 작업은 타이머가 400ms 뒤에 띄우고,
+스레드를 쥐는 작업은 **일을 시작하기 전에** 띄우되 `runBusy` 가 `nextPaint()` 로 화면이 실제로
+그것을 그렸는지 확인하고 나서 시작합니다. 어떤 작업이 스레드를 쥐는지는 명령 목록이 아니라
+사진 크기로 판단하고(`HEAVY_PIXELS`), 크기와 상관없이 느린 것 — 패치 탐색, 푸아송 풀이,
+신경망 — 만 스스로 그렇다고 말합니다.
 
-`src/lib` holds the platform-independent engine:
+`src/filterInfo.ts` 와 `src/dialogInfo.ts` 는 창들이 자기를 설명하는 말입니다. 필터마다,
+대화상자마다 두 언어로 한 줄씩이고, 무언가를 고르면 조작부 옆 공간에 나옵니다. 아이콘도 함께
+담고 있는데 그 덕에 시험할 수 있습니다 — 한 메뉴의 두 행, 도구 막대의 두 도구가 같은 아이콘을
+달 수 없고, 그러면 `icons-unique.test.mjs` 가 실패합니다.
 
-| Module | Responsibility |
+문서는 한 번에 여러 개를 열 수 있습니다. 각각이 `DocumentSlot`(모델, 픽셀, 작업 내역, 파일)
+이고 다른 문서를 보는 동안 맵 안에 세워 두며, 스테이지 위의 탭 줄이 그 사이를 오갑니다.
+고급 개체의 내용은 자기만의 슬롯으로 열려 저장할 때 부모에 되씁니다.
+
+`src/dialogs.tsx` 와 `src/dialogMeta.ts` 를 나눈 것은 대화상자 모듈이 컴포넌트만 내보내게 하기
+위해서입니다. `aboutInfo.ts` 를 따로 둔 이유도 같습니다 — 그것은 순수한 로직이므로 시험이
+JSX 변환 없이 import 할 수 있습니다.
+
+`src/lib` 에 플랫폼과 무관한 엔진이 있습니다.
+
+| 모듈 | 맡은 일 |
 | ------ | -------------- |
-| `color` / `adjustments` / `curves` | colour maths, the Camera Raw sliders, real Curves and Levels tables |
-| `selection` / `regions` | marquees, lassos, wand, flood fill; magnetic-lasso edge snapping, patch, content-aware move, perspective crop, slices, frames, ruler |
-| `filters` / `effects` / `tools` / `ai` | the Filter menu, layer styles, the brush family, the on-device generative jobs |
-| `paths` | vector paths: anchors, bezier handles, hit testing, stroke/fill, path→selection |
-| `transform` | the free-transform box, its handles, and the resampling that commits it |
-| `canvas` / `history` / `imageIO` | the document model, undo snapshots, `.mpw` and raster codecs |
-| `dicom` / `metadata` | the DICOM reader, and the header facts the information window lists |
-| `colorTools` / `colorMath` / `distort` / `detail` | the colour operations with more than one setting, the maths behind them, the filters that move pixels, and the filters that read a pixel's neighbours |
-| `warp` / `typeset` / `three` | the four-corner and mesh transforms, setting type, and the 3D extrusion |
-| `colorModes` / `depth` / `channels` | colour spaces and ICC profiles, 16-bit buffers, and channels |
-| `gif` / `video` / `patterns` / `gallery` | the GIF encoder, video in and out, pattern tiles, and the one place a filter id becomes a call |
-| `errors` | turning anything thrown into a report the user can read and paste |
-| `brushes` | the brushes that read from somewhere else: mixer, history, art history, pattern stamp, healing brush, quick selection, Liquify |
-| `segment` | the segmenters: Object Selection, Select Subject, Sky, Focus Area, Select and Mask's refinements, morphology |
-| `moreFilters` | the rest of the Filter menu and the Filter Gallery: ninety filters composed from one small kit (source copy, blur, edge map, noise, backward remap) |
-| `adjustExtra` | Colour Lookup (`.cube` parsing, built-in looks, a LUT registry), HDR Toning, Match Color, Desaturate, Auto Tone/Contrast, arbitrary rotation, Apply Image, Calculations, Fade |
-| `gradients` | multi-stop gradient definitions, presets, the ramp and the five geometries |
-| `documentOps` | align/distribute, matting, tracing pixels to paths, alignment search, Photomerge, Auto-Blend, Merge to HDR, contact sheet, Duotone/Indexed/Bitmap, gamut and proof, spelling |
-| `psd` | Photoshop's file format, read and written (layers, groups, masks, RLE, 8/16-bit, RGB/Gray/CMYK/Indexed/Lab) |
-| `cv` | the OpenCV-backed commands: ORB + RANSAC homographies for alignment and stitching, distance-transform blending, Mertens exposure fusion, GrabCut, Telea inpainting, the scanner-bed photo finder, a bilateral denoiser. OpenCV (`@techstark/opencv-js`, ~13MB of WebAssembly) is a separate chunk that loads on first use; every Mat is freed by the `scope` helper |
-| `inpaint` | pure TypeScript: PatchMatch hole filling (coarse to fine, nearest-neighbour field search alternating with patch voting) behind Content-Aware Fill, and the Poisson solver (multigrid-warmed Gauss-Seidel) behind Harmonize |
-| `neural` | the model registry (source URL, size, licence, input size and normalisation) and the pre/post-processing around each network — saliency map to selection, ADE20K logits to a sky mask, inverse depth to a depth map and the depth-driven blur, LaMa's 512px crop-and-paste, Swin2SR's overlapping tiles. Takes a `Runner`, so it is tested against stand-ins |
-| `models` | where the weights live: the main process's files under userData (streamed download with progress, `.part.onnx` until complete) or the browser's Cache API |
-| `ort` | ONNX Runtime itself, reached only by dynamic import: the plain WebAssembly build on all-but-one core (the shell sends COOP/COEP headers so the page is cross-origin isolated), or the WebGPU build when the setting asks for it, rebuilt on the CPU if a GPU run throws |
-| `view` | the tick spacing shared by the grid and the rulers |
+| `color` / `adjustments` / `curves` | 색상 연산, Camera Raw 슬라이더, 진짜 커브·레벨 표 |
+| `selection` / `regions` | 선택 윤곽, 올가미, 자동 선택, 플러드 필. 자석 올가미의 가장자리 스냅, 패치, 내용 인식 이동, 원근 자르기, 분할 영역, 프레임, 눈금자 |
+| `filters` / `effects` / `tools` / `ai` | 필터 메뉴, 레이어 스타일, 브러시 일가, 기기 안에서 도는 생성형 작업 |
+| `paths` | 벡터 패스: 기준점, 베지어 핸들, 적중 판정, 획/칠, 패스→선택 영역 |
+| `transform` | 자유 변형 상자와 핸들, 그리고 그것을 확정하는 리샘플링 |
+| `canvas` / `history` / `imageIO` | 문서 모델, 실행 취소 스냅샷, `.mpw` 와 래스터 코덱 |
+| `dicom` / `metadata` | DICOM 판독기, 그리고 정보 창이 나열하는 헤더 사실들 |
+| `colorTools` / `colorMath` / `distort` / `detail` | 설정이 둘 이상인 색상 작업, 그 뒤의 연산, 픽셀을 옮기는 필터, 이웃 픽셀을 읽는 필터 |
+| `warp` / `typeset` / `three` | 네 모서리·메시 변형, 문자 조판, 3D 돌출 |
+| `colorModes` / `depth` / `channels` | 색 공간과 ICC 프로파일, 16비트 버퍼, 채널 |
+| `gif` / `video` / `patterns` / `gallery` | GIF 인코더, 동영상 입출력, 패턴 타일, 그리고 필터 id 가 호출이 되는 단 한 자리 |
+| `errors` | 던져진 무엇이든 사용자가 읽고 붙여 넣을 수 있는 보고서로 |
+| `brushes` | 다른 곳에서 읽어 오는 브러시들: 혼합, 작업 내역, 아트 작업 내역, 패턴 도장, 복구 브러시, 빠른 선택, 픽셀 유동화 |
+| `segment` | 분할기들: 개체 선택, 피사체 선택, 하늘, 초점 영역, 선택 및 마스크의 다듬기, 형태학 연산 |
+| `moreFilters` | 필터 메뉴의 나머지와 필터 갤러리: 작은 도구 한 벌(원본 복사, 흐림, 가장자리 맵, 노이즈, 역방향 재사상)로 조립한 아흔 가지 필터 |
+| `adjustExtra` | 색상 검색(`.cube` 파싱, 내장 룩, LUT 레지스트리), HDR 토닝, 색상 일치, 채도 감소, 자동 톤/대비, 임의 각도 회전, 이미지 적용, 계산, 흐리게 하기 |
+| `gradients` | 여러 정지점 그레이디언트 정의, 사전 설정, 램프, 다섯 가지 기하 |
+| `documentOps` | 정렬/분포, 매트, 픽셀을 패스로 추적, 정렬 탐색, Photomerge, 자동 혼합, HDR 로 병합, 밀착 인화, 듀오톤/인덱스/비트맵, 색상 영역과 저해상도 인쇄, 맞춤법 |
+| `psd` | Photoshop 파일 형식, 읽기와 쓰기(레이어, 그룹, 마스크, RLE, 8/16비트, RGB/Gray/CMYK/Indexed/Lab) |
+| `cv` | OpenCV 기반 명령들: 정렬과 이어 붙이기를 위한 ORB + RANSAC 호모그래피, 거리 변환 혼합, Mertens 노출 융합, GrabCut, Telea 인페인팅, 스캐너 판 위 사진 찾기, 양방향 노이즈 제거. OpenCV(`@techstark/opencv-js`, WebAssembly 약 13MB)는 처음 쓸 때 불러오는 별도 청크이고, 모든 Mat 은 `scope` 도우미가 해제합니다 |
+| `inpaint` | 순수 TypeScript: 내용 인식 채우기 뒤의 PatchMatch 구멍 메우기(거친 단계에서 고운 단계로, 최근접 이웃 필드 탐색과 패치 투표를 번갈아), 그리고 하모나이즈 뒤의 푸아송 풀이(멀티그리드로 데운 가우스-자이델) |
+| `neural` | 모델 레지스트리(원본 URL, 크기, 라이선스, 입력 크기와 정규화)와 신경망마다의 전후처리 — 돌출도 맵을 선택 영역으로, ADE20K 로짓을 하늘 마스크로, 역깊이를 깊이 맵과 깊이 기반 흐림으로, LaMa 의 512px 잘라 붙이기, Swin2SR 의 겹치는 타일. `Runner` 를 받으므로 대역으로 시험합니다 |
+| `models` | 가중치가 사는 곳: 메인 프로세스가 userData 아래에 두는 파일(진행률과 함께 스트리밍 다운로드, 끝날 때까지는 `.part.onnx`) 또는 브라우저의 Cache API |
+| `ort` | ONNX Runtime 자체. 동적 import 로만 닿습니다. 코어 하나를 뺀 전부에서 도는 평범한 WebAssembly 빌드(껍데기가 COOP/COEP 헤더를 보내므로 페이지가 교차 출처 격리 상태입니다), 또는 설정이 원할 때 WebGPU 빌드. GPU 실행이 던지면 CPU 로 다시 세웁니다 |
+| `view` | 격자와 눈금자가 함께 쓰는 눈금 간격 |
 
-## Errors
+## 오류
 
-Nothing fails silently. `reportError` in `App.tsx` is the single entry point: it
-builds a report with `lib/errors.ts` — the action, the error and its stack, the
-document, the tool and the environment — and opens the error popup, where the
-text is selectable and one button copies all of it.
+조용히 실패하는 것은 없습니다. `App.tsx` 의 `reportError` 가 유일한 입구입니다. `lib/errors.ts`
+로 보고서를 — 작업, 오류와 스택, 문서, 도구, 환경 — 만들어 오류 팝업을 열고, 거기서 글자를
+선택할 수 있으며 단추 하나가 전부를 복사합니다.
 
-It is reached from four directions: the global `error` and `unhandledrejection`
-handlers, a `guard()` wrapper around every menu command, filter and dialog
-result, the explicit calls in the file paths, and an IPC channel that forwards
-failures out of the popup windows, which are separate renderers and would
-otherwise take their errors down with them.
+닿는 길은 네 갈래입니다. 전역 `error` 와 `unhandledrejection` 처리기, 모든 메뉴 명령·필터·
+대화상자 결과를 감싸는 `guard()`, 파일 경로에서의 명시적 호출, 그리고 팝업 창에서 실패를
+실어 보내는 IPC 채널. 팝업은 별도 렌더러여서 그러지 않으면 자기 오류를 안고 함께 사라집니다.
 
-`copyText()` falls back to a hidden textarea and `execCommand`, from the days
-when a packaged popup was loaded over `file://` — not a secure context — where
-`navigator.clipboard` does not exist; the fallback is kept for the browser build
-served from an insecure origin.
+`copyText()` 는 숨긴 textarea 와 `execCommand` 로 되돌아갑니다. 포장된 팝업이 `file://` 로
+— 보안 컨텍스트가 아닙니다 — 불려 오던 시절의 흔적으로, 그곳에는 `navigator.clipboard` 가
+없었습니다. 안전하지 않은 출처에서 제공되는 브라우저 빌드를 위해 그대로 둡니다.
 
-### The bundle scheme
+### 번들 스킴
 
-Packaged, the windows load `app://bundle/index.html` (with a hash route for a
-popup) rather than the `dist/index.html` file: `childwindows.cjs` registers the
-`app` scheme as standard and secure before the app is ready and serves `dist/`
-on it with `protocol.handle`, adding the `Cross-Origin-Opener-Policy` and
-`Cross-Origin-Embedder-Policy: credentialless` headers a file cannot carry.
-That makes the page cross-origin isolated, so `SharedArrayBuffer` exists and
-ONNX Runtime runs a model on every core. The dev server's pages get the same
-headers from a `webRequest` hook (which leaves a response alone when it already
-has them, since a doubled header is a list Chromium rejects). Vite's `base` stays
-`./`, so the split chunks resolve under either origin.
+포장된 상태에서 창들은 `dist/index.html` 파일이 아니라 `app://bundle/index.html`(팝업이면 해시
+경로를 붙여)을 불러옵니다. `childwindows.cjs` 가 앱이 준비되기 전에 `app` 스킴을 표준이자
+안전한 것으로 등록하고 `protocol.handle` 로 `dist/` 를 제공하면서, 파일이 실을 수 없는
+`Cross-Origin-Opener-Policy` 와 `Cross-Origin-Embedder-Policy: credentialless` 헤더를 붙입니다.
+그래야 페이지가 교차 출처 격리 상태가 되어 `SharedArrayBuffer` 가 존재하고 ONNX Runtime 이
+모든 코어에서 모델을 돌립니다. 개발 서버의 페이지에는 `webRequest` 훅이 같은 헤더를 줍니다
+(이미 있으면 손대지 않습니다. 헤더가 둘이면 Chromium 이 거부하는 목록이 되기 때문입니다).
+Vite 의 `base` 는 `./` 그대로여서 나뉜 청크가 어느 출처에서도 풀립니다.
 
-## Generated files
+## 생성되는 파일
 
-Neither is committed; both are rebuilt by `npm test` and by every `build` and
-`dist:*` script.
+둘 다 커밋하지 않으며, `npm test` 와 모든 `build`·`dist:*` 스크립트가 다시 만듭니다.
 
-| File | Made by | Why |
+| 파일 | 만드는 것 | 왜 |
 | ---- | ------- | --- |
-| `build/icon.ico`, `build/icon.png`, `build/icons/**` | `scripts/create-icons.cjs` | One render of `public/app-icon.svg` drives the executable, the installer, the uninstaller, the taskbar and both shortcuts, so they cannot drift apart |
-| `src/build-info.json` | `scripts/generate-build-info.cjs` | Version, build time and commit for the About window; it changes on every build, so tracking it would only create churn |
+| `build/icon.ico`, `build/icon.png`, `build/icons/**` | `scripts/create-icons.cjs` | `public/app-icon.svg` 를 한 번 렌더링한 것이 실행 파일, 설치 관리자, 제거 관리자, 작업 표시줄, 두 바로 가기를 모두 이끌어 서로 어긋날 수가 없습니다 |
+| `src/build-info.json` | `scripts/generate-build-info.cjs` | 정보 창을 위한 버전·빌드 시각·커밋. 빌드할 때마다 바뀌므로 추적해 봐야 잡음만 생깁니다 |
 
-## Data model
+## 데이터 모델
 
-A document is a fixed-size canvas plus an ordered stack of raster layers. Pixel buffers live in a `Map<layerId, HTMLCanvasElement>` (not React state). React state holds only metadata:
+문서는 크기가 고정된 캔버스 하나와 순서가 있는 래스터 레이어 더미입니다. 픽셀 버퍼는 React
+상태가 아니라 `Map<layerId, HTMLCanvasElement>` 에 있습니다. React 상태에는 메타데이터만 둡니다.
 
 ```ts
 type LayerMeta = { id, name, visible, opacity, fillOpacity, blendMode, locked, kind,
@@ -200,242 +214,236 @@ type PhotoDocument = { name, width, height, background, layers, activeLayerId, f
                        colorMode }
 ```
 
-Index 0 is the bottom layer. The right-hand panel lists layers from top to bottom, the way every layered editor shows them.
+0번이 맨 아래 레이어입니다. 오른쪽 패널은 레이어를 위에서 아래로 나열합니다. 레이어를 다루는
+편집기들이 늘 그렇게 보여 주기 때문입니다.
 
-The compositor keeps one extra value as it walks the stack: `clipBase`, the last
-layer drawn that was not itself clipped. A layer marked `clipped` is cut to that
-one's alpha before it is drawn, and a clipped *adjustment* layer multiplies its
-coverage by the same alpha. That is the whole of clipping masks; consecutive
-clipped layers all hang off the same base, which is what a clipping group is.
+합성기는 더미를 훑으면서 값 하나를 더 들고 다닙니다. `clipBase` — 마지막으로 그린, 자신은
+클리핑되지 않은 레이어입니다. `clipped` 표시가 붙은 레이어는 그리기 전에 그 레이어의 알파로
+잘리고, 클리핑된 *조정* 레이어는 자기 적용 범위에 같은 알파를 곱합니다. 클리핑 마스크는 그게
+전부입니다. 연달아 클리핑된 레이어들은 모두 같은 바탕에 걸리며, 그것이 클리핑 그룹입니다.
 
-The four Select ▸ Modify commands share one distance field: a two-pass chamfer
-transform over the selection mask, which gives every pixel its distance to the
-nearest pixel of the opposite state in one pass over the image rather than a
-radius search per pixel. Expand keeps what is within the radius of the inside,
-Contract drops what is within the radius of the outside, and Border keeps the
-band that straddles the edge. Beyond the canvas counts as unselected, so a
-selection running off the edge is still contracted there.
+선택 ▸ 수정의 네 명령은 거리 필드 하나를 함께 씁니다. 선택 마스크 위를 두 번 지나는 chamfer
+변환으로, 픽셀마다 반대 상태의 가장 가까운 픽셀까지의 거리를 픽셀당 반경 탐색이 아니라 이미지
+한 번 훑기로 얻습니다. 확대는 안쪽에서 반경 안에 드는 것을 남기고, 축소는 바깥쪽에서 반경 안에
+드는 것을 버리며, 테두리는 가장자리를 걸치는 띠를 남깁니다. 캔버스 밖은 선택되지 않은 것으로
+치므로 가장자리를 넘어가는 선택 영역도 거기서 제대로 축소됩니다.
 
-Selection is a rectangle, ellipse, or per-pixel mask. Brush, eraser, fill, gradient, text, and filters all clip to that selection.
+선택 영역은 사각형이거나 타원이거나 픽셀 단위 마스크입니다. 브러시, 지우개, 칠, 그레이디언트,
+문자, 필터가 모두 그 선택 영역으로 잘립니다.
 
-## Rendering
+## 렌더링
 
-1. Composite visible layers onto an offscreen canvas (`compositeDocument`) using
-   each layer's opacity, blend mode and mask. An adjustment layer re-reads what
-   is beneath it and applies its sliders, curve or level table in place.
-2. Draw a checkerboard, then the composite, scaled by zoom, pan and view angle,
-   onto the viewport canvas.
-3. Overlay the grid and rulers, the marching ants, the vector paths, the
-   slice/frame/ruler regions, the free-transform box, and any live preview
-   (gradient, shape draft, lasso in progress).
+1. 보이는 레이어를 오프스크린 캔버스에 합성합니다(`compositeDocument`). 레이어마다의 불투명도,
+   혼합 모드, 마스크를 씁니다. 조정 레이어는 자기 아래에 있는 것을 다시 읽어 슬라이더나 커브,
+   레벨 표를 그 자리에 적용합니다.
+2. 바둑판을 그리고, 그 위에 합성 결과를 확대율·이동·뷰 각도에 맞춰 뷰포트 캔버스에 그립니다.
+3. 격자와 눈금자, 행진하는 개미, 벡터 패스, 분할 영역/프레임/눈금자 영역, 자유 변형 상자, 그리고
+   진행 중인 미리보기(그레이디언트, 그리는 중인 모양, 그리는 중인 올가미)를 덧그립니다.
 
-The grid and the rulers are painted onto the viewport, not behind it: the canvas
-fills the stage and is drawn opaque, so a CSS background was invisible.
+격자와 눈금자는 뷰포트 뒤가 아니라 뷰포트 위에 칠합니다. 캔버스가 스테이지를 가득 채우고
+불투명하게 그려지므로 CSS 배경은 보이지 않았습니다.
 
-While a transform is live the layer's pixels are previewed by warping an
-untouched copy — the stored canvas is only rewritten when the transform is
-applied.
+변형이 진행되는 동안 레이어의 픽셀은 손대지 않은 사본을 뒤틀어 미리보기로 보여 주고, 저장된
+캔버스는 변형을 적용할 때에만 다시 씁니다.
 
-The RGB histogram is computed from the active layer only.
+RGB 히스토그램은 활성 레이어만으로 계산합니다.
 
-## Tools
+## 도구
 
-Pointer events convert screen coordinates to document space (`(client - pan) / zoom`).
-`handlePointerDown` / `Move` / `Up` in `App.tsx` dispatch **every** tool in the
-catalog; `test/wiring.test.mjs` fails if a tool is ever added to the strip
-without a branch here.
+포인터 이벤트가 화면 좌표를 문서 공간으로 바꿉니다(`(client - pan) / zoom`). `App.tsx` 의
+`handlePointerDown` / `Move` / `Up` 이 카탈로그의 **모든** 도구를 분배합니다. 여기에 분기를
+두지 않고 도구를 막대에 추가하면 `test/wiring.test.mjs` 가 실패합니다.
 
-The contextual options bar is generated from the `toolOptions` table rather than
-from per-tool JSX, so each control renders and behaves identically wherever it
-appears, and every tool is guaranteed a row with a one-line hint in both
-languages.
+상황에 따라 바뀌는 옵션 막대는 도구별 JSX 가 아니라 `toolOptions` 표에서 생성됩니다. 그래서
+같은 조작부는 어디에 나타나든 똑같이 그려지고 똑같이 동작하며, 모든 도구가 두 언어로 된 한 줄
+설명이 붙은 줄을 반드시 갖습니다.
 
-- **Move** replays from a pristine copy of the layer at the accumulated offset,
-  so dragging out of frame and back is lossless however many drags it takes. The
-  copy is dropped as soon as the layer is edited any other way.
-- **Marquee / ellipse / lasso / polygonal / magnetic / wand** build a `Selection`.
-  The magnetic lasso snaps each sample to the strongest nearby Sobel edge.
-- **Brush family** runs through one `paintDab` switch, so blur, sharpen, clone,
-  heal and the rest each do their own work rather than falling through to a
-  plain stroke.
-- **Fill** flood-fills by Chebyshev colour distance.
-- **Gradient** paints linear, radial, angle, reflected or diamond.
-- **Pen / curvature / freeform** build a `PathShape` of bezier anchors, which can
-  then be stroked, filled or turned into a selection.
-- **Shape tools** create an editable shape layer rather than rasterising.
-- **Text** adds a live text layer, re-rasterised on every composite.
-- **Crop / perspective crop** apply to every layer and the document size.
-- **Slice / frame / ruler** add regions to the document; a slice can be exported
-  on its own, a frame clips its layer.
-- **Eyedropper** samples the composite.
-- **Hand / rotate view / zoom / wheel** pan, turn and scale the view.
+- **이동**은 누적된 오프셋만큼 레이어의 원본 사본에서 다시 그립니다. 그래서 화면 밖으로 끌고
+  나갔다 들어와도, 몇 번을 끌든 잃는 것이 없습니다. 레이어를 다른 방식으로 편집하면 사본을
+  곧바로 버립니다.
+- **선택 윤곽 / 타원 / 올가미 / 다각형 / 자석 / 자동 선택**이 `Selection` 을 만듭니다. 자석
+  올가미는 표본마다 근처에서 가장 센 Sobel 가장자리로 붙습니다.
+- **브러시 일가**는 `paintDab` 스위치 하나를 지납니다. 그래서 흐림, 선명, 복제, 복구 등이 평범한
+  획으로 흘러내리지 않고 저마다 제 일을 합니다.
+- **페인트 통**은 체비쇼프 색 거리로 플러드 필 합니다.
+- **그레이디언트**는 선형, 원형, 각도, 반사, 다이아몬드를 칠합니다.
+- **펜 / 곡률 / 자유 형태**는 베지어 기준점으로 `PathShape` 를 만들고, 이는 획을 두르거나
+  칠하거나 선택 영역으로 바꿀 수 있습니다.
+- **모양 도구**는 래스터화하지 않고 편집할 수 있는 모양 레이어를 만듭니다.
+- **문자**는 살아 있는 문자 레이어를 더하고, 합성할 때마다 다시 래스터화합니다.
+- **자르기 / 원근 자르기**는 모든 레이어와 문서 크기에 적용됩니다.
+- **분할 영역 / 프레임 / 눈금자**는 문서에 영역을 더합니다. 분할 영역은 따로 내보낼 수 있고
+  프레임은 자기 레이어를 자릅니다.
+- **스포이드**는 합성 결과에서 표본을 뜹니다.
+- **손 / 뷰 회전 / 돋보기 / 휠**이 뷰를 옮기고 돌리고 키웁니다.
 
-## History and files
+## 작업 내역과 파일
 
-Undo/redo snapshots clone document metadata and every layer canvas (capped at 30). The native project format `.mpw` is JSON with PNG data URLs per layer. Raster export flattens the composite; TIFF is encoded with `utif`.
+실행 취소/다시 실행 스냅샷은 문서 메타데이터와 모든 레이어 캔버스를 복제합니다(30개 상한).
+자체 프로젝트 형식 `.mpw` 는 레이어마다 PNG 데이터 URL 을 담은 JSON 입니다. 래스터 내보내기는
+합성 결과를 평평하게 만들고, TIFF 는 `utif` 로 인코딩합니다.
 
-`decodeImageSource` routes a file by extension and MIME type: `.mpw` to the
-project reader, TIFF to `utif`, HEIF to `libheif-js`, and everything else to the
-browser's own `<img>` decoder. HEIF has no browser decoder anywhere, so the
-1.9 MB WASM build is reached through a dynamic `import()` — Rollup gives it its
-own chunk, which is fetched the first time a `.heic` is opened and kept for the
-rest of the session. The decoder returns every top-level frame; the one flagged
-primary becomes the layer, and all of them are freed, since each holds WASM heap.
-There is no HEIF encoder in the build, so export offers PNG/TIFF/JPG instead.
+`decodeImageSource` 가 확장자와 MIME 형식으로 파일을 보냅니다. `.mpw` 는 프로젝트 판독기로,
+TIFF 는 `utif` 로, HEIF 는 `libheif-js` 로, 나머지는 브라우저 자신의 `<img>` 디코더로.
+HEIF 는 어느 브라우저에도 디코더가 없으므로 1.9MB 짜리 WASM 빌드를 동적 `import()` 로 닿습니다
+— Rollup 이 자기 청크를 주고, `.heic` 를 처음 열 때 받아 와 그 세션 동안 지니고 있습니다.
+디코더는 최상위 프레임을 전부 돌려주며 primary 로 표시된 것이 레이어가 되고, 전부 해제합니다.
+저마다 WASM 힙을 쥐고 있기 때문입니다. 빌드에 HEIF 인코더는 없으므로 내보내기는 PNG/TIFF/JPG
+를 대신 제안합니다.
 
-DICOM is its own module because the work is not decoding but display: a data set
-holds measurements, so `readDicom` applies the modality LUT (rescale slope and
-intercept), then the VOI LUT (window centre and width, taken from the data when
-the file names none), inverts MONOCHROME1, and reads the pixels through a
-`DataView` so explicit big-endian files come out the same as little-endian ones.
-Encapsulated pixel data is only unwrapped for baseline JPEG, which the browser
-can decode; anything else is reported by the name of its transfer syntax rather
-than opened blank. The tags it reads out travel with the image, as the rows the
-information window shows.
+DICOM 이 자기 모듈인 것은 어려운 일이 디코딩이 아니라 표시이기 때문입니다. 데이터 세트는
+측정값을 담고 있으므로 `readDicom` 은 modality LUT(rescale 기울기와 절편)를 적용하고, 이어
+VOI LUT(창 중심과 폭. 파일이 말하지 않으면 데이터에서 구합니다)를 적용하고, MONOCHROME1 을
+반전하고, 픽셀을 `DataView` 로 읽어 명시적 빅엔디안 파일도 리틀엔디안과 똑같이 나오게 합니다.
+캡슐화된 픽셀 데이터는 브라우저가 디코딩할 수 있는 베이스라인 JPEG 에 한해 풀고, 그 밖의 것은
+빈 화면으로 여는 대신 전송 구문 이름을 들어 보고합니다. 읽어 낸 태그는 이미지와 함께 다니며
+정보 창이 보여 주는 행이 됩니다.
 
-`metadata.ts` holds the rest of what that window lists: an EXIF reader that
-walks a JPEG's markers to its APP1 segment and then the TIFF IFDs inside it
-(including the Exif sub-directory), a PNG header reader, and the pixel
-statistics. Rows carry either a translated key or the label the format itself
-uses — "FNumber" and "Modality" are what the reader expects to see.
+`metadata.ts` 에 그 창이 나열하는 나머지가 있습니다. JPEG 의 마커를 따라 APP1 구획까지, 그
+안의 TIFF IFD 까지(Exif 하위 디렉터리 포함) 걸어가는 EXIF 판독기, PNG 헤더 판독기, 그리고 픽셀
+통계. 각 행은 번역된 키를 지니거나 형식 자신이 쓰는 이름표를 지닙니다 — "FNumber" 와
+"Modality" 는 판독기가 보기를 기대하는 그대로입니다.
 
-`encodeExport(canvas, format, quality, transparent)` decides the background:
-`transparent` only reaches the file for the formats in `transparentFormats`
-(PNG, WebP, AVIF, GIF, TIFF), and anything else — JPEG always — goes through
-`flattenOnto`, which lays the picture on white. `printableDocument` builds the page — the flattened image on a white sheet,
-inside a `@page` margin — and where it goes depends on the shell. Under Electron
-the print window has already asked for the printer, the orientation and the
-copies, so `print:job` loads that markup into a hidden window and calls
-`webContents.print({ silent: true })`: one window, no second dialog asking the
-same questions. In a browser nothing can reach a printer except the system
-dialog, so `printDataUrl` hands the same markup to an off-screen iframe and
-calls `print()` on it — which prints the image alone rather than the editor.
+`encodeExport(canvas, format, quality, transparent)` 가 배경을 정합니다. `transparent` 는
+`transparentFormats`(PNG, WebP, AVIF, GIF, TIFF)에 있는 형식에서만 파일까지 닿고, 그 밖의
+것은 — JPEG 는 언제나 — `flattenOnto` 를 지나 흰 바탕에 놓입니다. `printableDocument` 가
+페이지를 만듭니다 — `@page` 여백 안, 흰 용지 위에 놓인 평평한 이미지 — 그다음은 껍데기에
+달렸습니다. Electron 에서는 인쇄 창이 이미 프린터와 방향과 매수를 물었으므로 `print:job` 이
+그 마크업을 숨긴 창에 실어 `webContents.print({ silent: true })` 를 부릅니다. 창 하나, 같은
+질문을 다시 하는 두 번째 대화상자는 없습니다. 브라우저에서는 시스템 대화상자 말고는 프린터에
+닿을 길이 없으므로 `printDataUrl` 이 같은 마크업을 화면 밖 iframe 에 넘기고 `print()` 를
+부릅니다 — 편집기가 아니라 이미지만 인쇄됩니다.
 
-In Electron, `files:open` / `files:save` / `files:write` use native dialogs. In the browser, `<input type=file>` and Blob downloads replace them. Closing a dirty document asks to save first (`window:close-request`).
+Electron 에서는 `files:open` / `files:save` / `files:write` 가 네이티브 대화상자를 씁니다.
+브라우저에서는 `<input type=file>` 과 Blob 내려받기가 그 자리를 대신합니다. 고치던 문서를
+닫으면 먼저 저장할지 묻습니다(`window:close-request`).
 
-## Desktop shell
+## 데스크톱 껍데기
 
-`electron/main.cjs` creates a frameless window and exposes IPC over a
-`contextBridge` preload. Its minimum size is set by the toolbar row, which holds
-every command, the contextual actions and the colour controls on one line and
-never scrolls — so no button can end up out of reach.
+`electron/main.cjs` 가 테두리 없는 창을 만들고 `contextBridge` 프리로드로 IPC 를 엽니다.
+최소 크기는 툴바 줄이 정합니다. 모든 명령과 상황별 작업과 색상 조작부를 한 줄에 놓고 결코
+스크롤하지 않으므로, 손이 닿지 않는 단추가 생길 수 없습니다.
 
-Both the main window and the popups prefer the dev server when unpackaged but
-fall back to the built bundle: otherwise a popup opened while Vite was down came
-up blank while the main window, started earlier, still looked fine.
+메인 창도 팝업도 포장되지 않았을 때는 개발 서버를 먼저 찾되 빌드된 번들로 되돌아갑니다.
+그러지 않으면 Vite 가 내려간 사이에 연 팝업만 빈 화면으로 뜨고, 먼저 시작한 메인 창은 멀쩡해
+보이는 일이 생깁니다.
 
-Printing goes straight to the printer: the print window has already asked for
-the printer, the orientation and the copies, so a second system dialog would
-only ask again. The default printer is read from the OS — the Windows registry's
-`Device` value, or `lpstat -d` on CUPS — because Chromium's `getPrintersAsync()`
-returns only `name`, `displayName`, `description` and `options`, with no
-`isDefault` at all, and the window would otherwise preselect whichever printer
-the OS happened to list first.
+인쇄는 곧바로 프린터로 갑니다. 인쇄 창이 이미 프린터와 방향과 매수를 물었으므로 두 번째
+시스템 대화상자는 같은 것을 또 묻기만 할 뿐입니다. 기본 프린터는 OS 에서 읽습니다 — Windows
+레지스트리의 `Device` 값, 또는 CUPS 의 `lpstat -d`. Chromium 의 `getPrintersAsync()` 는
+`name`, `displayName`, `description`, `options` 만 돌려주고 `isDefault` 는 아예 없어서,
+그러지 않으면 창이 OS 가 먼저 나열한 프린터를 골라 놓습니다.
 
-Packaging uses electron-builder (NSIS / DMG+ZIP / AppImage+DEB+RPM), with the
-executable, installer, uninstaller and both shortcuts all pinned to the one
-generated `build/icon.ico`.
+포장은 electron-builder(NSIS / DMG+ZIP / AppImage+DEB+RPM)로 하며, 실행 파일·설치 관리자·
+제거 관리자·두 바로 가기가 모두 생성된 `build/icon.ico` 하나에 못박혀 있습니다.
 
-`npm run verify:images` walks every file in `images/` through the real open →
-composite → export → transparency → 3D/warp/carve/GIF/16-bit/pattern → print
-pipeline, asserting as it goes, and leaves what it produced in `out/`:
-`index.html` as a gallery, `report.md` as the written record and
-`verify-images.log` as the transcript. `npm run verify:features` then runs the
-rest of the editor — every tool and pixel/document command in the catalog,
-through the engine functions the menus call — over working copies of the same
-photos (`--full` for full size), asserting that each one runs, keeps the
-picture's size, changes it when it should and stays inside a selection, and
-leaves a picture per result in `out/features/` with `features.html`,
-`features.md` (a coverage table over every command and tool) and
-`verify-features.log`. The directory is rebuilt each run and ignored by git;
-the pictures are there to be looked at, because an assertion that passed is not
-the same as a result somebody has looked at — the seam-carving bug below and
-the clone stamp's mirrored sample were both found that way.
+`npm run verify:images` 는 `images/` 의 모든 파일을 실제 열기 → 합성 → 내보내기 → 투명 →
+3D/뒤틀기/심 카빙/GIF/16비트/패턴 → 인쇄 파이프라인에 태우며 가는 동안 단정하고, 만들어 낸
+것을 `out/` 에 남깁니다. `index.html` 이 갤러리, `report.md` 가 글로 쓴 기록,
+`verify-images.log` 가 전체 기록입니다. 이어 `npm run verify:features` 가 편집기의 나머지를
+— 카탈로그의 모든 도구와 픽셀/문서 명령을, 메뉴가 부르는 엔진 함수를 통해 — 같은 사진의 작업
+사본에 돌립니다(`--full` 이면 원본 크기). 각각이 실행되는지, 사진 크기를 지키는지, 바꿔야 할 때
+바꾸는지, 선택 영역 안에 머무는지를 단정하고, 결과마다 그림 하나를 `out/features/` 에
+`features.html`, `features.md`(모든 명령과 도구에 대한 커버리지 표), `verify-features.log` 와
+함께 남깁니다. 이 디렉터리는 실행할 때마다 새로 만들어지고 git 에서 제외됩니다. 그림은 눈으로
+보라고 있는 것입니다. 통과한 단정은 누군가 눈으로 본 결과와 같지 않기 때문입니다 — 아래의 심
+카빙 결함과 복제 도장의 거울상 표본은 둘 다 그렇게 찾았습니다.
 
-### Content-Aware Scale
+### 내용 인식 비율
 
-Seam carving removes the cheapest top-to-bottom path through an energy map, over
-and over. Two things were wrong with it, and only the pictures showed either.
+심 카빙은 에너지 맵을 위에서 아래로 가로지르는 가장 싼 경로를 지우기를 거듭합니다. 여기에
+두 가지가 잘못돼 있었고, 둘 다 그림만이 보여 주었습니다.
 
-**The seam removed was not the seam that was costed.** The dynamic-programming
-pass records, for each pixel, the offset to its cheapest predecessor in the row
-above; the backtrack then subtracted that offset instead of adding it, so the
-path traced back was a mirror image of the path the cost table had chosen. It
-left the cheap region immediately and tore through whatever lay in the other
-direction — which is why a carve used to rip a ragged edge through the subject
-while leaving empty background untouched. `test/warp.test.mjs` now sends a cheap
-diagonal lane through expensive noise: only a correct backtrack can follow it.
+**지워진 심은 값이 매겨진 심이 아니었습니다.** 동적 계획 단계는 픽셀마다 윗줄에서 가장 싼
+선행자까지의 오프셋을 적어 두는데, 역추적이 그 오프셋을 더하지 않고 빼고 있었습니다. 그래서
+되짚은 경로는 비용 표가 고른 경로의 거울상이었습니다. 싼 구역을 곧바로 떠나 반대 방향에 있는
+무엇이든 뚫고 지나갔고, 그래서 카빙이 텅 빈 배경은 건드리지 않은 채 피사체를 너덜너덜하게
+찢어 놓았습니다. 이제 `test/warp.test.mjs` 가 비싼 노이즈 사이로 싼 대각선 길을 하나 내어
+보냅니다. 올바른 역추적만이 그 길을 따라갈 수 있습니다.
 
-**Gradient energy alone protects the wrong things.** Skin is smooth, so a cheek
-has less local contrast than the foliage behind it, and the seams went through
-the person rather than the background. `skinLikelihood` adds the colour the
-gradient cannot see, and `skinMap` spreads it with a max filter — not a blur, so
-a face stays covered to its outline — after which skin costs `SKIN_COST` on top
-of its gradient. Expensive, not forbidden: when the whole frame is skin the
-carve still has to take the least bad path rather than fail.
+**기울기 에너지만으로는 엉뚱한 것을 지킵니다.** 피부는 매끈해서 뺨은 뒤의 잎사귀보다 국소
+대비가 낮고, 심은 배경이 아니라 사람을 지나갔습니다. `skinLikelihood` 가 기울기가 볼 수 없는
+색을 더하고, `skinMap` 이 그것을 최대값 필터로 — 흐림이 아닙니다, 얼굴이 윤곽까지 덮이도록 —
+퍼뜨린 뒤, 피부에는 자기 기울기 위에 `SKIN_COST` 가 얹힙니다. 금지가 아니라 비싸게 만드는
+것입니다. 화면 전체가 피부일 때도 카빙은 실패하는 대신 가장 덜 나쁜 길을 가야 하니까요.
 
-The detector keys on **hue angle in the Cb/Cr plane**, not on a box around the
-textbook Cb 77–127 / Cr 133–173 ranges. Those ranges describe skin straight out
-of a camera; measured on the photos in `images/`, a desaturated edit puts the
-same face at Cb 126 / Cr 136, well outside them, and a fixed box found 0.7% of
-that frame. Keyed on hue — a band 40° either side of 118°, weighted by how far
-the colour is from grey — it finds 15%, and still finds nothing at all in a
-greyscale DICOM slice, which is what keeps the protection out of the way where
-it has no business being.
+이 검출기는 교과서적인 Cb 77–127 / Cr 133–173 범위를 두른 상자가 아니라 **Cb/Cr 평면의 색상
+각도**에 반응합니다. 그 범위는 카메라에서 갓 나온 피부를 말합니다. `images/` 의 사진들에서
+재어 보니 채도를 낮춘 보정본에서는 같은 얼굴이 Cb 126 / Cr 136 으로 한참 밖에 있었고, 고정된
+상자는 그 화면의 0.7% 를 찾았습니다. 색상 각도로 — 118° 를 중심으로 양쪽 40° 의 띠, 회색에서
+얼마나 먼지로 가중 — 잡으니 15% 를 찾고, 회색 음영 DICOM 한 장에서는 여전히 아무것도 찾지
+않습니다. 그 덕에 이 보호가 낄 자리가 아닌 곳에는 끼지 않습니다.
 
-## Tests
+## 시험
 
-`npm test` runs `node --test` over `test/*.test.mjs`. There is no bundler and no
-browser in the loop: `test/helpers/setup.mjs` is loaded through `--import` and
-does two jobs before any test file is evaluated.
+`npm test` 가 `test/*.test.mjs` 를 `node --test` 로 돌립니다. 번들러도 브라우저도 끼지
+않습니다. `test/helpers/setup.mjs` 가 `--import` 로 불려 와 어떤 시험 파일이 평가되기 전에
+두 가지 일을 합니다.
 
-- `ts-hooks.mjs` registers a resolve hook. Node 24 strips the types from `.ts`
-  files itself, but it never guesses extensions, so the hook re-adds the `.ts`
-  the app's extensionless imports rely on. It also maps the bare `utif`
-  specifier to a shim, because Node's CommonJS interop exposes fewer named
-  exports for that package than Rollup does at build time.
-- `dom.mjs` installs the browser globals the pixel code expects — `document`,
-  `window`, `localStorage`, `Image`, `ImageData` — with
-  `document.createElement('canvas')` returning a real Skia canvas from
-  `@napi-rs/canvas`. Filters, blend modes, gradients, text and `ctx.filter`
-  therefore run against a genuine 2D implementation rather than a stub.
+- `ts-hooks.mjs` 가 resolve 훅을 겁니다. Node 24 는 `.ts` 파일의 타입을 스스로 벗겨 내지만
+  확장자는 결코 짐작하지 않으므로, 훅이 앱의 확장자 없는 import 가 기대는 `.ts` 를 다시
+  붙입니다. 또 맨 `utif` 지정자를 shim 으로 보냅니다. Node 의 CommonJS interop 이 그 패키지에
+  대해 빌드 시점의 Rollup 보다 적은 이름을 노출하기 때문입니다.
+- `dom.mjs` 가 픽셀 코드가 기대하는 브라우저 전역을 설치합니다 — `document`, `window`,
+  `localStorage`, `Image`, `ImageData` — 그리고 `document.createElement('canvas')` 가
+  `@napi-rs/canvas` 의 진짜 Skia 캔버스를 돌려주게 합니다. 그래서 필터, 혼합 모드,
+  그레이디언트, 문자, `ctx.filter` 가 껍데기가 아니라 진짜 2D 구현 위에서 돕니다.
 
-`test/helpers/pixels.mjs` holds the shared vocabulary: canvas builders,
-`px()`/`assertPixel()` readers, `meanDiff()`, and `withSeededRandom()` for the
-filters that call `Math.random`.
+`test/helpers/reporter.mjs` 가 실행 결과를 인쇄합니다. 파일마다 무엇을 확인했는지 보여 준 뒤,
+개수와 가장 느린 파일과 파일별 표가 있는 요약을 찍습니다. 색은 하나에 하나씩을 뜻하고 범례를
+함께 인쇄합니다 — **빨간색은 실패, 오직 그것뿐**이고, 노란색은 100ms 초과, 굵은 노란색은
+500ms 초과입니다. 예전에는 빨간색이 느림도 뜻해서, 반 초 걸린 통과한 파일이 깨진 파일과 똑같아
+보였고 숫자를 읽는 수밖에 구별할 길이 없었습니다.
 
-| File | Covers |
+`test/helpers/pixels.mjs` 에 공용 어휘가 있습니다. 캔버스 생성기, `px()`/`assertPixel()`
+판독기, `meanDiff()`, 그리고 `Math.random` 을 부르는 필터를 위한 `withSeededRandom()`.
+
+| 파일 | 덮는 것 |
 | ---- | ------ |
-| `harness.test.mjs` | the loader and canvas shim themselves |
-| `color.test.mjs` | hex/RGB/HSV/HSL conversions and round trips |
-| `selection.test.mjs` | marquee, ellipse, lasso, wand, flood fill, feather, invert, bucket |
-| `adjustments.test.mjs` | each Camera Raw slider in isolation, plus auto levels |
-| `filters.test.mjs` | every Filter menu entry, each also checked against a selection |
-| `document.test.mjs` | layer order, opacity, blend modes, masks, adjustment/fill/text/shape layers, eyedropper |
-| `tools.test.mjs` | brush, pencil, eraser, gradient, type, clone, heal, dodge/burn, sponge, red-eye, smudge |
-| `effects.test.mjs` | layer styles and the text/shape rasterisers |
-| `generative.test.mjs` | content-aware fill, expand, upscale, Harmonize, Select Subject, Find Distractions, Liquify |
-| `history.test.mjs` | snapshot isolation and the 30-state cap |
-| `settings.test.mjs` | localStorage validation and the theme table |
-| `imageio.test.mjs` | `.mpw` round trip, v1 migration, TIFF, HEIF decoding, transparent export, the print page and preview, every export format |
-| `selectionOps.test.mjs` | expand, contract, border, smooth, grow, similar and colour range |
-| `colorTools.test.mjs` | the channel mixer, selective colour, gradient map, replace colour, equalize and auto colour |
-| `newFilters.test.mjs` | the distortions and the neighbourhood filters, including that a backward mapping leaves no holes |
-| `smart.test.mjs` | smart filters, smart objects and the alpha channels a saved selection becomes |
-| `warp.test.mjs` | skew, distort, perspective, the warp shapes, puppet pins and seam carving |
-| `typeset.test.mjs` | paragraphs, letter spacing, type on a path and the type warp |
-| `colorModes.test.mjs` | Lab and CMYK round trips, profile conversion, ICC parsing, and the 16-bit TIFF |
-| `media.test.mjs` | the GIF encoder against a real decoder, the 3D lighting, and pattern tiling |
-| `dicom.test.mjs` | the DICOM magic, windowing, the tag rows, and the routing into them |
-| `metadata.test.mjs` | EXIF read out of a JPEG built for the test, PNG headers, pixel statistics |
-| `i18n.test.mjs` | Korean/English coverage for every tool, blend mode, adjustment and filter |
-| `paths.test.mjs` | the vector path model behind the pen and path-selection tools |
-| `curves.test.mjs` | Curves and Levels lookup tables, the editors' point maths, auto levels |
-| `transform.test.mjs` | free-transform box maths, handle hit testing, resampling, flips |
-| `regions.test.mjs` | magnetic-lasso edge snapping, patch, content-aware move, perspective crop, slices, frames, ruler |
-| `wiring.test.mjs` | that every catalogued tool has an options row and is reachable from the canvas dispatch |
-| `commands.test.mjs` | that the menu bar and toolbar agree, and every command has a handler |
-| `windows.test.mjs` | popup windows, the menu overhang, the viewport grid and rulers, drag & drop |
-| `scripts.test.mjs` | the `npm start` launchers |
-| `errors.test.mjs` | the error report, the clipboard fallback and the reporting wiring |
-| `icons.test.mjs` | that the installer, executable, taskbar and shortcut icons all come from one SVG |
+| `harness.test.mjs` | 로더와 캔버스 shim 자체 |
+| `color.test.mjs` | hex/RGB/HSV/HSL 변환과 왕복 |
+| `selection.test.mjs` | 선택 윤곽, 타원, 올가미, 자동 선택, 플러드 필, 페더, 반전, 페인트 통 |
+| `adjustments.test.mjs` | Camera Raw 슬라이더 하나하나, 그리고 자동 레벨 |
+| `filters.test.mjs` | 필터 메뉴의 모든 항목. 각각 선택 영역에 대해서도 확인 |
+| `document.test.mjs` | 레이어 순서, 불투명도, 혼합 모드, 마스크, 조정/칠/문자/모양 레이어, 스포이드 |
+| `tools.test.mjs` | 브러시, 연필, 지우개, 그레이디언트, 문자, 복제, 복구, 닷지/번, 스폰지, 적목, 손가락 |
+| `effects.test.mjs` | 레이어 스타일과 문자/모양 래스터라이저 |
+| `generative.test.mjs` | 내용 인식 채우기, 확장, 확대, 하모나이즈, 피사체 선택, 방해 요소 찾기, 픽셀 유동화 |
+| `history.test.mjs` | 스냅샷 격리와 30개 상한 |
+| `settings.test.mjs` | localStorage 검증과 테마 표 |
+| `imageio.test.mjs` | `.mpw` 왕복, v1 이주, TIFF, HEIF 디코딩, 투명 내보내기, 인쇄 페이지와 미리보기, 모든 내보내기 형식 |
+| `selectionOps.test.mjs` | 확대, 축소, 테두리, 매끄럽게, 선택 영역 확장, 유사 영역, 색상 범위 |
+| `colorTools.test.mjs` | 채널 혼합, 선택 색상, 그레이디언트 맵, 색상 대체, 평균화, 자동 색상 |
+| `newFilters.test.mjs` | 왜곡 필터와 이웃 픽셀 필터. 역방향 사상이 구멍을 남기지 않는지 포함 |
+| `smart.test.mjs` | 고급 필터, 고급 개체, 저장한 선택 영역이 되는 알파 채널 |
+| `warp.test.mjs` | 기울이기, 왜곡, 원근, 뒤틀기 모양, 퍼펫 핀, 심 카빙 |
+| `typeset.test.mjs` | 단락, 자간, 패스를 따르는 문자, 문자 뒤틀기 |
+| `colorModes.test.mjs` | Lab·CMYK 왕복, 프로파일 변환, ICC 파싱, 16비트 TIFF |
+| `media.test.mjs` | 진짜 디코더에 대고 확인하는 GIF 인코더, 3D 조명, 패턴 타일링 |
+| `dicom.test.mjs` | DICOM 매직, windowing, 태그 행, 그리고 그리로 가는 경로 |
+| `metadata.test.mjs` | 시험용으로 만든 JPEG 에서 읽어 낸 EXIF, PNG 헤더, 픽셀 통계 |
+| `i18n.test.mjs` | 모든 도구·혼합 모드·조정·필터에 대한 한국어/영어 커버리지 |
+| `paths.test.mjs` | 펜과 패스 선택 도구 뒤의 벡터 패스 모델 |
+| `curves.test.mjs` | 커브·레벨 룩업 표, 편집기의 점 연산, 자동 레벨 |
+| `transform.test.mjs` | 자유 변형 상자 연산, 핸들 적중 판정, 리샘플링, 뒤집기 |
+| `regions.test.mjs` | 자석 올가미 가장자리 스냅, 패치, 내용 인식 이동, 원근 자르기, 분할 영역, 프레임, 눈금자 |
+| `wiring.test.mjs` | 카탈로그의 모든 도구에 옵션 줄이 있고 캔버스 분배에서 닿을 수 있는지 |
+| `commands.test.mjs` | 메뉴 막대와 툴바가 어긋나지 않는지, 명령마다 처리기가 있는지 |
+| `windows.test.mjs` | 팝업 창, 메뉴 넘침, 뷰포트 격자와 눈금자, 끌어다 놓기 |
+| `scripts.test.mjs` | `npm start` 실행 스크립트 |
+| `errors.test.mjs` | 오류 보고서, 클립보드 대체 경로, 보고 배선 |
+| `icons.test.mjs` | 설치 관리자·실행 파일·작업 표시줄·바로 가기 아이콘이 모두 SVG 하나에서 나오는지 |
+| `parity.test.mjs` | Photoshop 대응 명령들을 카탈로그에 대고 항목별로 |
+| `psd.test.mjs` | PSD 판독기와 기록기가 레이어·그룹·마스크·모드를 왕복시키는지 |
+| `documentOps.test.mjs` | 정렬/분포, 매트, 추적, Photomerge, 자동 혼합, HDR 로 병합, 밀착 인화, 듀오톤/인덱스/비트맵 |
+| `cv.test.mjs` | OpenCV 기반 명령들, 그리고 OpenCV 가 뜨지 않을 때 깨끗이 되돌아가는지 |
+| `neural.test.mjs` | 신경망마다의 전후처리. 대역 `Runner` 로 돌리므로 가중치가 필요 없습니다 |
+| `subjectMethods.test.mjs` | 배경 제거가 정하는 분할기, 그리고 첫 실행 때의 다운로드 제안 |
+| `robustness.test.mjs` | 아무것도 없을 때, 1픽셀일 때, 선택 영역이 캔버스 밖일 때, 선언한 의존성이 설치돼 있지 않을 때 엔진이 하는 일 |
+| `controls.test.mjs` | 날것 range·number 입력을 쥐고 있는 창이 남아 있지 않은지. 그래야 전부가 다시 그리기를 미룹니다 |
+| `busy.test.mjs` | 진행 창: 스레드를 쥐는 작업이 시작하기 *전에* 창을 띄우는지, 오래 걸리는 명령마다 창을 여는지, 되돌릴 것이 없으면 실행 취소/다시 실행이 흐려지는지 |
+| `filterInfo.test.mjs` | 필터 117개가 두 언어로 설명을 갖고 저마다의 아이콘을 다는지 |
+| `dialogInfo.test.mjs` | 팝업 창 75개에 대해 같은 것 |
+| `icons-unique.test.mjs` | 한 메뉴의 두 행, 도구 막대의 두 도구, 툴바 단추와 그 옆 도구가 같은 아이콘을 달지 않는지 |
+| `chrome.test.mjs` | 툴바 한 줄, 그 최소 너비, 크기 조절 표시, 정보 창의 사실들 |
+| `chrome-icons.test.mjs` | 창 구조의 모든 단추가 아이콘을 직접 적지 않고 카탈로그에서 가져오는지 |

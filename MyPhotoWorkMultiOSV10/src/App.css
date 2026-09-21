@@ -113,19 +113,27 @@
 }
 
 /*
- * A command that cannot do anything now says so before it is pressed. Undo
+ * A button that cannot do anything now says so before it is pressed. Undo
  * with an empty history is the case that prompted this: the button took the
  * click and nothing happened, which reads as a fault rather than as nothing
- * to undo. The dropdown is in the list too — it is a window of its own, and
- * was the last place still showing the rows live.
+ * to undo.
+ *
+ * This is written for every button in the program rather than for a list of
+ * places, because a list is a thing to be left behind. It was: the dropdown
+ * was missing from it, and so was every popup window — "Download now" in the
+ * model window stayed looking perfectly live after the last model had
+ * arrived, and it was inert the whole time. Nothing here wants a disabled
+ * button that looks pressable, so nothing needs to be named.
  */
-.menu-bar button:disabled,
-.menu-tree button:disabled,
-.tool-bar button:disabled,
-.options-bar button:disabled,
-.panel button:disabled {
+button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+/* And it does not light up under the pointer, which would undo the saying. */
+button:disabled:hover {
+  background: inherit;
+  border-color: var(--border);
 }
 
 .menu-tree button:disabled:hover {

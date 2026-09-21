@@ -217,3 +217,44 @@ test('the window is not gated on a clock the job itself has stopped', () => {
   // The elapsed time may be stale; it must not be shown as though it were not.
   assert.match(busySource, /elapsed > 0 \?/, 'a stopped clock would be shown as a real elapsed time')
 })
+
+test('a button that cannot be pressed looks like one, wherever it is', () => {
+  /*
+   * The rule used to name the places it applied to, and a list is a thing to
+   * be left behind. It was: the dropdown was missing from it, and so was every
+   * popup window — "Download now" in the model window went on looking
+   * perfectly live after the last model had arrived, and had been inert the
+   * whole time. Nothing here wants a disabled button that looks pressable.
+   */
+  const css = read('src/App.css')
+  assert.match(css, /^button:disabled \{/m, 'disabled buttons are styled by a list of places again')
+  const rule = css.slice(css.indexOf('\nbutton:disabled {'))
+  const block = rule.slice(0, rule.indexOf('}'))
+  assert.match(block, /opacity: 0\.45/, 'a disabled button is not faded')
+  assert.match(block, /cursor: not-allowed/, 'the pointer still says it can be pressed')
+  assert.match(css, /button:disabled:hover/, 'a disabled button lights up under the pointer')
+})
+
+test('a model counts as here the moment it says so, not a round trip later', () => {
+  /*
+   * Both model windows read the list back from the main process when a
+   * download ends, which is the truth but is not instant. Until it answers,
+   * "Download now" would still be offering to fetch what had just arrived.
+   */
+  const extra = read('src/dialogsExtra.tsx')
+  const adds = [...extra.matchAll(/setDownloaded\(\(current\) => \(current\.includes\(next\.id\) \? current : \[\.\.\.current, next\.id\]\)\)/g)]
+  assert.equal(adds.length, 2, 'the first-run window and the Neural Models window should both do this')
+  // And a failed download must not count as one that arrived.
+  for (const at of [extra.indexOf('function ModelSetupDialog'), extra.indexOf('function NeuralModelsDialog')]) {
+    const body = extra.slice(at, at + 1600)
+    const guard = "if (next.error) { setErrors((current) => ({ ...current, [next.id]: next.error ?? '' })); return }"
+    assert.ok(body.includes(guard), 'a download that failed is still counted as a model that is here')
+  }
+})
+
+test('the first-run window cannot offer to fetch what is already here', () => {
+  const extra = read('src/dialogsExtra.tsx')
+  const body = extra.slice(extra.indexOf('function ModelSetupDialog'), extra.indexOf('function ModelSetupDialog') + 4000)
+  assert.match(body, /disabled=\{busy \|\| missing\.length === 0\}/, 'Download now stays live with nothing left to download')
+  assert.match(body, /const missing = wanted\.filter\(\(spec\) => !downloaded\.includes\(spec\.id\)\)/, 'what is missing is no longer worked out from what is here')
+})

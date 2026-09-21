@@ -784,10 +784,11 @@ function NeuralModelsDialog({ payload, onResult, onClose }: BodyProps) {
     void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
     const off = store.onProgress((next) => {
       setProgress((current) => ({ ...current, [next.id]: next }))
-      if (next.done) {
-        if (next.error) setErrors((current) => ({ ...current, [next.id]: next.error ?? '' }))
-        void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
-      }
+      if (!next.done) return
+      if (next.error) { setErrors((current) => ({ ...current, [next.id]: next.error ?? '' })); return }
+      // Here as soon as it says so; the re-listing confirms it a moment later.
+      if (!cancelled) setDownloaded((current) => (current.includes(next.id) ? current : [...current, next.id]))
+      void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
     })
     return () => { cancelled = true; off() }
   }, [])
@@ -1358,7 +1359,14 @@ function ModelSetupDialog({ payload, onResult, onClose }: BodyProps) {
     const off = store.onProgress((next) => {
       setProgress((current) => ({ ...current, [next.id]: next }))
       if (!next.done) return
-      if (next.error) setErrors((current) => ({ ...current, [next.id]: next.error ?? '' }))
+      if (next.error) { setErrors((current) => ({ ...current, [next.id]: next.error ?? '' })); return }
+      /*
+       * Counted as here the moment it says it has arrived, as well as asked
+       * for again. The re-listing is the truth, but it is a round trip to the
+       * main process, and until it answers, the button offering to fetch what
+       * is missing would still be offering to fetch this.
+       */
+      if (!cancelled) setDownloaded((current) => (current.includes(next.id) ? current : [...current, next.id]))
       void store.list().then((ids) => { if (!cancelled) setDownloaded(ids) })
     })
     return () => { cancelled = true; off() }
