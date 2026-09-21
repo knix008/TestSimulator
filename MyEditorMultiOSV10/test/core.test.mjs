@@ -153,6 +153,9 @@ test('session: terminal / theme / preview defaults', () => {
   assert.equal(s.termCr, 'overwrite');
   assert.equal(s.prompt, null);
   assert.equal(s.autocomplete, true);
+  assert.equal(s.showTerminal, false);
+  assert.equal(s.showLog, false);
+  assert.equal(s.showLint, false);
   assert.equal(s.htmlPreview, false);
   assert.deepEqual(s.customThemes, []);
 });
@@ -229,6 +232,24 @@ test('terminal: cwd + exit status markers, CR pass-through, input line ending', 
     T.run({ id: s.id, line: 'node -e "process.stdout.write(process.env.FORCE_COLOR + process.env.CLICOLOR_FORCE + String(process.env.LANG) + String.fromCharCode(10))"' });
     d = await drain(d.seq);
     assert.match(d.text.trim(), /^11.*utf-?8$/i);
+    // Cygwin/MSYS `ls` on PATH must not kill the Command Prompt session.
+    if (win) {
+      T.run({ id: s.id, line: 'ls' });
+      d = await drain(d.seq, 8000);
+      assert.equal(d.r.exited, false, 'ls must not close the command prompt');
+      assert.equal(d.r.idle, true);
+      T.run({ id: s.id, line: 'echo still-here' });
+      d = await drain(d.seq);
+      assert.equal(d.text.trim(), 'still-here');
+      assert.equal(d.r.exited, false);
+      T.run({ id: s.id, line: 'exit' });
+      d = await drain(d.seq, 5000);
+      assert.equal(d.r.exited, false, 'exit must not close the terminal');
+      T.run({ id: s.id, line: 'echo after-exit' });
+      d = await drain(d.seq, 5000);
+      assert.equal(d.r.exited, false);
+      assert.match(d.text, /after-exit/);
+    }
   } finally {
     T.kill({ id: s.id });
     T.shutdown();
@@ -255,6 +276,18 @@ test('api: term.read honours the long poll (idle + wait) and term.run passes the
     for (let i = 0; i < 20; i++) { const x = await api.call('term.read', { id: s.id, since: seq, idle: false, wait: 300 }); if (x.chunks.length) { seq = x.seq; text += x.chunks.map((c) => c.text).join(''); } if (x.idle) break; }
     assert.equal(text.trim(), JSON.stringify('typed' + String.fromCharCode(13, 10)));
   } finally { await api.call('term.kill', { id: s.id }); }
+});
+
+test('cmd starts without AutoRun so Cygwin tools cannot close the session', () => {
+  const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'core', 'terminal.js'), 'utf8');
+  assert.match(src, /\/D',\s*'\/Q',\s*'\/K'/);
+  assert.match(src, /CLINK_NOAUTORUN/);
+  assert.match(src, /disable_pcon/);
+  assert.match(src, /must not close the tab/);
+  const panel = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'components', 'TerminalPanel.jsx'), 'utf8');
+  assert.doesNotMatch(panel, /\{!exited && \(/);
+  const app = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'App.jsx'), 'utf8');
+  assert.match(app, /onExit=\{reviveTerminal\}/);
 });
 
 test('term.shells lists only shells found on this computer', async () => {

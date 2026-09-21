@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { encodeIco } from '../scripts/ico.mjs';
 import {
   isBinaryImageName, isSvgName, isImageName, isDicomName, isHeicName,
-  openKind, paneView, restoreAsPicture,
+  openKind, openMode, paneView, restoreAsPicture, MAX_TEXT,
 } from '../src/lib/imagekind.js';
 
 const require = createRequire(import.meta.url);
@@ -160,12 +160,18 @@ test('raster extensions open as a picture; SVG stays text', () => {
   assert.equal(openKind('logo.svg'), 'svg');
   assert.equal(openKind('logo.SVG'), 'svg');
   assert.equal(openKind('notes.txt'), 'unknown');
-  assert.equal(openKind('sample.png', { force: true }), 'text');
+  assert.equal(openKind('sample.png', { force: true }), 'picture', 'a raster is not opened as text');
   assert.equal(isImageName('x.png'), true);
   assert.equal(isImageName('x.svg'), true);
   assert.equal(isImageName('x.js'), false);
   assert.equal(isDicomName('scan.dcm'), true);
   assert.equal(isHeicName('IMG.HEIC'), true);
+  assert.equal(openMode({ name: 'app.exe', sniff: { binary: true, size: 100 } }), 'hex');
+  assert.equal(openMode({ name: 'photo.png' }), 'hex');
+  assert.equal(openMode({ name: 'notes.txt', sniff: { binary: false, size: 20 } }), 'text');
+  assert.equal(openMode({ name: 'huge.txt', sniff: { binary: false, size: MAX_TEXT + 1 } }), 'too-big');
+  assert.equal(openMode({ name: 'huge.bin', sniff: { binary: true, size: MAX_TEXT + 1 } }), 'hex');
+  assert.equal(openMode({ name: 'app.exe', sniff: { binary: true }, force: true }), 'text');
 });
 
 test('a picture pane fills with the image: no minimap, Hexa optional beside it', () => {
@@ -190,6 +196,10 @@ test('a picture pane fills with the image: no minimap, Hexa optional beside it',
   const bin = paneView({ kind: 'hex', name: 'app.exe' }, { minimap: true });
   assert.equal(bin.fillPicture, false);
   assert.equal(bin.hexDump, true);
+  assert.equal(bin.minimap, true);
+  const text = paneView({ kind: 'text', name: 'notes.txt' }, { minimap: true });
+  assert.equal(text.hexDump, false);
+  assert.equal(text.fillPicture, false);
 });
 
 test('opening each raster fixture is sniffed as binary and yields a data URL', async () => {
@@ -347,6 +357,19 @@ test('App.jsx new split panes take the last document of the existing pane', () =
   assert.match(src, /sourceId/);
   assert.match(src, /docId: sourceId/);
   assert.match(src, /viewsOfDoc/);
+});
+
+test('a binary hex dump has no text view', () => {
+  const app = fs.readFileSync(path.join(root, 'src', 'App.jsx'), 'utf8');
+  assert.doesNotMatch(app, /hexAsText|onOpenAsText/);
+  assert.match(app, /if \(s && s\.binary\) \{ report\(\{ message: t\('prog_hex'\) \}\); return await openHex/);
+  assert.match(app, /e\.code === 'EBINARY' && !force\) return openHex/);
+  assert.match(app, /A binary file stays in this view/);
+  const hex = fs.readFileSync(path.join(root, 'src', 'components', 'HexView.jsx'), 'utf8');
+  assert.doesNotMatch(hex, /onOpenAsText|hex_as_text/);
+  assert.match(hex, /there is no\n\/\/ text view|there is no text view/);
+  const i18n = fs.readFileSync(path.join(root, 'src', 'lib', 'i18n.js'), 'utf8');
+  assert.doesNotMatch(i18n, /hex_as_text/);
 });
 
 test('App.jsx keeps picture + Hexa inside each pane, not beside the whole split', () => {

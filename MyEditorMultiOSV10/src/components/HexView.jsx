@@ -6,8 +6,8 @@
 // a small one; only the visible rows are in the DOM. Read-only: clicking
 // selects a byte (shift-click a range) which is highlighted in both columns
 // and described in the footer; Ctrl+C copies the selection as hex (up to
-// 1 MB), Ctrl+A selects everything. The header offers to open the file as
-// text after all (a text file with a stray NUL byte is taken for binary).
+// 1 MB), Ctrl+A selects everything. A binary file stays here — there is no
+// text view.
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { writeClipboardText } from '../lib/backend';
@@ -28,7 +28,7 @@ const MAX_SCROLL = 30 * 1000 * 1000;
 const fmtSize = (n) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : n < 1024 * 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(2)} MB` : `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`);
 
 // read(offset, length) → a promise of a Uint8Array; `version` changes when the file did (reload): the cache starts over.
-export function HexView({ size, name, read, version, fontSize, onOpenAsText, onClose, onMessage, width }) {
+export function HexView({ size, name, read, version, fontSize, onClose, onMessage, width }) {
   useLanguage();
   const scrollRef = useRef(null);
   const cache = useRef(new Map());              // chunk index → Uint8Array
@@ -162,7 +162,6 @@ export function HexView({ size, name, read, version, fontSize, onOpenAsText, onC
         <span className="hex-name ellipsis" title={name}>{name}</span>
         <span className="muted small">{t('hex_info', { size: fmtSize(size), bytes: size.toLocaleString() })}</span>
         <span className="spacer" />
-        {onOpenAsText && <button className="btn small" onClick={onOpenAsText} title={t('hex_as_text_tip')}>{t('hex_as_text')}</button>}
         {onClose && <button type="button" className="icon-btn" onClick={onClose} title={t('close')}><Icon name="close" size={14} /></button>}
       </div>
       <div className="hex-scroll" ref={scrollRef} tabIndex={0} onScroll={(e) => setTop(e.currentTarget.scrollTop)} onKeyDown={onKey}>

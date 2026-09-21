@@ -5,7 +5,7 @@
 // same in the desktop app and the web version.
 //
 // The shells are started so that they print neither a prompt nor an echo of
-// the command (cmd: /Q and a PROMPT made of a marker that is stripped,
+// the command (cmd: /D /Q and a PROMPT made of a marker that is stripped,
 // PowerShell: -Command -, bash: -s): the panel draws the prompt itself, at
 // the end of the output, and types the command there.
 //
@@ -137,6 +137,29 @@ const COLOR_ENV = { TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR:
 // the panel — reading UTF-8 — shows them broken; without any locale ls prints them as "?" or octal escapes.
 const utf8Lang = () => { const l = process.env.LANG; return l && /utf-?8/i.test(l) ? l : 'C.UTF-8'; };
 
+// Windows: keep AutoRun (Clink) and Cygwin/MSYS ConPTY away from the piped
+// shell. Cygwin `ls` (and friends on PATH) otherwise allocate a pseudo-console
+// and cmd.exe exits when that console is torn down — the panel just closes.
+function withEnvFlags(cur, ...flags) {
+  const parts = String(cur || '').split(/\s+/).filter(Boolean);
+  for (const f of flags) if (!parts.includes(f)) parts.push(f);
+  return parts.join(' ');
+}
+function shellEnv(def) {
+  const env = {
+    ...process.env,
+    ...COLOR_ENV,
+    LANG: utf8Lang(),
+    ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])),
+  };
+  if (process.platform === 'win32') {
+    env.CLINK_NOAUTORUN = '1';
+    env.CYGWIN = withEnvFlags(env.CYGWIN, 'disable_pcon', 'nodosfilewarning');
+    env.MSYS = withEnvFlags(env.MSYS, 'disable_pcon');
+  }
+  return { ...env, ...(def.env || {}) };
+}
+
 function resolveExe(p) {
   if (!p) return '';
   try {
@@ -188,7 +211,9 @@ function psDef(cmd, extra = {}) {
 function cmdDef(cmd, extra = {}) {
   const cp = extra.encoding || consoleCodePage();
   return {
-    cmd, args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true,
+    // /D skips HKCU AutoRun (Clink inject). A hooked clink plus a Cygwin tool
+    // on PATH (`ls`) can tear the piped cmd down, which looks like the panel closed.
+    cmd, args: ['/D', '/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true,
     preLine: '(call )', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n', encoding: cp, kind: 'cmd', ...extra,
   };
 }
@@ -484,6 +509,53 @@ function createTerminals() {
   function wake(s) { const w = s.waiters; s.waiters = []; for (const f of w) f(); }
   function cleanup(s) { try { fs.unlinkSync(s.scriptFile); } catch { /* gone */ } }
 
+  const MAX_RESTARTS = 3;
+  function launch(s) {
+    const dir = s.cwd && fs.existsSync(s.cwd) ? s.cwd : os.homedir();
+    const args = typeof s.def.makeArgs === 'function' ? s.def.makeArgs(dir) : (s.def.args || []);
+    const proc = spawn(s.def.cmd, args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: shellEnv(s.def) });
+    s.proc = proc;
+    s.exited = false;
+    const enc = s.enc || s.def.encoding || 'utf8';
+    s.enc = enc;
+    const decOut = mixedDecoder(enc), decErr = mixedDecoder(enc);
+    proc.stdout.on('data', (d) => push(s, decOut(d)));
+    proc.stderr.on('data', (d) => push(s, decErr(d)));
+    proc.stdin.on('error', () => { /* the exit handler reports it */ });
+    proc.on('error', (err) => {
+      if (s.proc !== proc) return;
+      if (s.dead) { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); wake(s); } else onShellGone(s, null, err.message);
+    });
+    proc.on('exit', (code) => {
+      if (s.proc !== proc) return;
+      if (s.dead) { s.exited = true; s.code = code; cleanup(s); wake(s); } else onShellGone(s, code);
+    });
+    if (s.def.init) proc.stdin.write(iconv.encode(`${s.def.init}${s.def.eol}`, enc));
+  }
+  // An error or `exit` must not close the tab: the same session is relaunched
+  // so the prompt stays. Only the user's close button sets `dead`.
+  function onShellGone(s, code, err) {
+    s.code = code;
+    s.exited = false;
+    s.idle = true;
+    s.pending = '';
+    s.pendingCr = false;
+    s.expectPrompt = !!s.def.promptMark;
+    push(s, err ? `\n[${err}]\n` : `\n[process exited with code ${code}]\n`);
+    const now = Date.now();
+    s.restartAt = (s.restartAt || []).filter((t) => now - t < 4000);
+    s.restartAt.push(now);
+    if (s.restartAt.length <= MAX_RESTARTS) launch(s);
+    wake(s);
+  }
+  function ensureProc(s) {
+    if (s.dead) return false;
+    if (s.proc && s.proc.exitCode == null) return true;
+    s.exited = false;
+    launch(s);
+    return !!s.proc;
+  }
+
   function push(s, text) {
     // Pull the cwd markers (and cmd's prompt marks) out of the stream;
     // everything else is output. A marker (and, for cmd, the blank line
@@ -541,27 +613,17 @@ function createTerminals() {
       let dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
       try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch { dir = os.homedir(); }
       const id = nextId++;
-      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', pendingCr: false, expectPrompt: !!def.promptMark, idle: true, rc: 0, waiters: [], changed: false, exited: false, code: null, def, proc: null };
+      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', pendingCr: false, expectPrompt: !!def.promptMark, idle: true, rc: 0, waiters: [], changed: false, exited: false, code: null, def, proc: null, dead: false, restarts: 0 };
       s.scriptFile = path.join(os.tmpdir(), `med-term-${process.pid}-${id}${def.ext}`);
-      const args = typeof def.makeArgs === 'function' ? def.makeArgs(dir) : (def.args || []);
-      const proc = spawn(def.cmd, args, { cwd: dir, stdio: 'pipe', windowsHide: true, env: { ...process.env, ...COLOR_ENV, LANG: utf8Lang(), ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])), ...(def.env || {}) } });
-      s.proc = proc;
-      const enc = def.encoding || 'utf8';
-      s.enc = enc;
-      const decOut = mixedDecoder(enc), decErr = mixedDecoder(enc);   // streaming: a multibyte character split across chunks survives
-      proc.stdout.on('data', (d) => push(s, decOut(d)));
-      proc.stderr.on('data', (d) => push(s, decErr(d)));
-      proc.stdin.on('error', () => { /* the exit handler reports it */ });
-      proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); wake(s); });
-      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); wake(s); });
-      if (def.init) proc.stdin.write(iconv.encode(`${def.init}${def.eol}`, enc));   // aliases (posix) — prints nothing
+      s.enc = def.encoding || 'utf8';
+      launch(s);
       sessions.set(id, s);
       return { id, shell: s.shell, label: s.label, cwd: s.cwd };
     },
 
     write({ id, data }) {
       const s = sessions.get(id);
-      if (!s || s.exited) return false;
+      if (!s || s.dead || !ensureProc(s)) return false;
       s.proc.stdin.write(iconv.encode(data, s.enc || 'utf8'));
       return true;
     },
@@ -572,7 +634,7 @@ function createTerminals() {
     // ('lf' | 'crlf'; settings › terminal) or, by default, the shell's own.
     run({ id, line, eol }) {
       const s = sessions.get(id);
-      if (!s || s.exited) return false;
+      if (!s || s.dead || !ensureProc(s)) return false;
       const { eol: shellEol, cwdLine, bom, markerInFile, source, rcLine, preLine, scriptEnc } = s.def;
       const send = (text) => s.proc.stdin.write(iconv.encode(text, s.enc || 'utf8'));
       if (!s.idle) { send(`${line}${eol === 'lf' ? '\n' : eol === 'crlf' ? '\r\n' : shellEol}`); return true; }
@@ -604,6 +666,7 @@ function createTerminals() {
     kill({ id }) {
       const s = sessions.get(id);
       if (!s) return false;
+      s.dead = true;
       try { s.proc.kill(); } catch { /* already gone */ }
       cleanup(s);
       wake(s);
@@ -699,7 +762,7 @@ function createTerminals() {
     },
 
     shutdown() {
-      for (const s of sessions.values()) { try { s.proc.kill(); } catch { /* gone */ } cleanup(s); wake(s); }
+      for (const s of sessions.values()) { s.dead = true; try { s.proc.kill(); } catch { /* gone */ } cleanup(s); wake(s); }
       sessions.clear();
     },
   });

@@ -14,7 +14,7 @@ import { EditorView } from '@codemirror/view';
 import { indentSelection } from '@codemirror/commands';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { applyTheme, nextThemeId, themeById, setCustomThemes } from './themes';
-import { SETTINGS_DEFAULTS, pickSettings } from './lib/settings';
+import { SETTINGS_DEFAULTS, pickSettings, toggleBottomPanel, hideBottomPanel, activeBottomTab } from './lib/settings';
 import {
   call, isElectron, nativeDialog, setDialogFallback, writeClipboardText, readClipboardText, onOpenFiles, rendererReady, pathForFile,
   onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac, openPopup, openPrintWindow, sendSettingsPatch, onSettingsPatch, printHtml,
@@ -158,6 +158,7 @@ export default function App() {
   const actionRef = useRef(null);
   // Terminal panel: sessions live in the host (core/terminal.js); here only their tabs.
   const [terms, setTerms] = useState([]);
+  const termsRef = useRef([]); termsRef.current = terms;
   const [activeTerm, setActiveTerm] = useState(null);
   const [shells, setShells] = useState([]);
   const termNo = useRef(1);
@@ -845,7 +846,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   // else is a hex dump (components/HexView.jsx) in a read-only document whose
   // editor state stays empty. The hex view fetches the bytes it shows through
   // file.readRange (hexRef holds the reader), so the file's size does not
-  // matter. "텍스트로 열기" in its header reopens it as text.
+  // matter. A binary file stays in this view — it is not reopened as text.
   const decodeBase64 = (b64) => { const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; };
   const hexReader = (path) => async (offset, length) => decodeBase64((await call('file.readRange', { path, offset, length })).base64);
   const ensureHexReader = (doc) => {
@@ -875,13 +876,6 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       return null;
     }
   };
-  const hexAsText = async (id) => {
-    const doc = getDoc(id);
-    if (!doc || !doc.path) return;
-    removeDocs([id]);
-    await openPath(doc.path, { force: true });
-  };
-
   const openFiles = async (paths) => {
     const run = async (report) => {
       let last = null;
@@ -1352,20 +1346,15 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     if (id === 'toggleTerminal' || id === 'toggleLog' || id === 'toggleLintPanel' || id === 'lintPanel') {
       const tab = id === 'toggleLog' ? 'log' : (id === 'toggleLintPanel' || id === 'lintPanel' ? 'lint' : 'terminal');
       const st = settingsRef.current;
-      const showing = st.termVisible && (st.bottomTab || 'terminal') === tab;
-      if (id !== 'lintPanel' && showing) {
-        changeSettings({ termVisible: false });
-        return undefined;
-      }
-      const patch = { termVisible: true, bottomTab: tab };
+      const patch = toggleBottomPanel(st, tab);
       if (st.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
-      if (tab === 'lint' && !st.lint) patch.lint = true;
+      if (tab === 'lint' && patch.showLint && !st.lint) patch.lint = true;
       changeSettings(patch);
-      if (tab === 'terminal') {
+      if (patch.showTerminal) {
         if (!terms.length) newTerminal();
         call('term.shells', { refresh: true }).then(setShells).catch(() => {});
       }
-      if (tab === 'lint' && settingsRef.current.lint && activeIdRef.current != null) runLint(activeIdRef.current);
+      if (patch.showLint && (st.lint || patch.lint) && activeIdRef.current != null) runLint(activeIdRef.current);
       return undefined;
     }
     if (id.startsWith('svg:')) return withView((vw) => insertSvgTag(vw, id.slice(4)));   // the SVG bar: an element at the cursor
@@ -1477,16 +1466,28 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       const tm = { id: r.id, title: `${r.label} ${termNo.current++}`, shell: r.shell, cwd: r.cwd, buffer: [], seq: 0 };
       setTerms((ts) => [...ts, tm]);
       setActiveTerm(r.id);
-      if (!settingsRef.current.termVisible || settingsRef.current.bottomTab !== 'terminal') {
-        const patch = { termVisible: true, bottomTab: 'terminal' };
+      if (!settingsRef.current.showTerminal) {
+        const patch = { showTerminal: true, termVisible: true, bottomTab: 'terminal' };
         if (settingsRef.current.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
         changeSettings(patch);
+      } else if (settingsRef.current.bottomTab !== 'terminal') {
+        changeSettings({ bottomTab: 'terminal' });
       }
     } catch (e) { await showError(t('error_title'), e.message, e); }
   };
   const closeTerminal = (id) => {
     call('term.kill', { id }).catch(() => {});
     setTerms((ts) => { const next = ts.filter((x) => x.id !== id); if (activeTerm === id) setActiveTerm(next.length ? next[next.length - 1].id : null); return next; });
+  };
+  // A dead shell (error, exit, Cygwin ls …) must not remove the tab or hide the panel.
+  const reviveTerminal = async (id) => {
+    const tm = termsRef.current.find((x) => x.id === id);
+    if (!tm) return;
+    try {
+      const r = await call('term.create', { cwd: tm.cwd, shell: tm.shell });
+      setTerms((ts) => ts.map((x) => (x.id === id ? { ...x, id: r.id, cwd: r.cwd, seq: 0 } : x)));
+      setActiveTerm((cur) => (cur === id ? r.id : cur));
+    } catch { /* the tab stays; the next command retries */ }
   };
   const termSplitRef = useRef(null);
   const onTermResizeStart = (e) => {
@@ -1717,9 +1718,9 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       { id: 'split:grid', icon: 'splitGrid', label: t('split_grid'), checked: settings.split === 'grid', radio: true, shortcut: sc('Ctrl+Alt+4') },
       { id: 'nextPane', icon: 'nextPane', label: t('next_pane'), shortcut: 'F6', disabled: settings.split === 'none' },
       { sep: true },
-      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: settings.termVisible && (settings.bottomTab || 'terminal') === 'terminal', shortcut: sc('Ctrl+`') },
-      { id: 'toggleLog', label: t('log_tab'), icon: 'log', checked: settings.termVisible && settings.bottomTab === 'log' },
-      { id: 'toggleLintPanel', label: t('lint_tab'), icon: 'lint', checked: settings.termVisible && settings.bottomTab === 'lint' },
+      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: !!settings.showTerminal, shortcut: sc('Ctrl+`') },
+      { id: 'toggleLog', label: t('log_tab'), icon: 'log', checked: !!settings.showLog },
+      { id: 'toggleLintPanel', label: t('lint_tab'), icon: 'lint', checked: !!settings.showLint },
       { id: 'newTerminal', icon: 'terminalPlus', label: t('term_new'), shortcut: sc('Ctrl+Shift+`') },
       { sep: true },
       { id: 'zoomIn', label: t('zoom_in'), icon: 'zoomIn', shortcut: sc('Ctrl++') },
@@ -2028,7 +2029,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
                     {pd && pd.kind === 'hex' && !isBinaryImageName(pd.name) && ensureHexReader(pd) && (
                       <div className="pane-media">
                         <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}
-                          onOpenAsText={() => hexAsText(pd.id)} onMessage={setMessage} />
+                          onMessage={setMessage} />
                       </div>
                     )}
                     </div>
@@ -2073,11 +2074,12 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
             )}
           </div>
         </div>
-        {settings.termVisible && (
+        {(settings.showTerminal || settings.showLog || settings.showLint) && (
           <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
-            onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings({ termVisible: false })}
-            onExit={() => {}} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} termColor={settings.termColor !== false}
-            panel={settings.bottomTab || 'terminal'} onPanel={(tab) => { changeSettings({ bottomTab: tab }); if (tab === 'terminal' && !terms.length) newTerminal(); if (tab === 'lint' && settings.lint && activeIdRef.current != null) runLint(activeIdRef.current); }}
+            onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings(hideBottomPanel())}
+            onExit={reviveTerminal} onSettings={() => action('termSettings')} prompt={settings.prompt} env={termEnv} termEol={settings.termEol} termCr={settings.termCr} termColor={settings.termColor !== false}
+            panel={activeBottomTab(settings)} panels={{ terminal: !!settings.showTerminal, log: !!settings.showLog, lint: !!settings.showLint }}
+            onPanel={(tab) => { changeSettings({ bottomTab: tab }); if (tab === 'terminal' && !terms.length) newTerminal(); if (tab === 'lint' && settings.lint && activeIdRef.current != null) runLint(activeIdRef.current); }}
             lintDoc={cur} lint={cur ? cur.lint : null} lintEnabled={!!settings.lint}
             onLintGoto={(d) => { withView((vw) => { const ln = Math.min(Math.max(1, d.line || 1), vw.state.doc.lines); const line = vw.state.doc.line(ln); const pos = Math.min(line.from + Math.max(0, (d.col || 1) - 1), line.to); vw.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) }); vw.focus(); }); }}
             onLintRefresh={() => { if (activeIdRef.current != null) runLint(activeIdRef.current); }}

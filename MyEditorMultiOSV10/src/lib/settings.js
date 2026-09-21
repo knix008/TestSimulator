@@ -56,7 +56,10 @@ export const SETTINGS_DEFAULTS = {
   rowFracs: [],            // multi: row heights as fractions
   splitY: 0.5,             // editor panes: share of the top row (rows / grid)
   termVisible: false,
-  bottomTab: 'terminal',   // bottom panel: terminal | log | lint
+  showTerminal: false,     // toolbar 터미널 button — independent of log / problems
+  showLog: false,          // toolbar 로그 button
+  showLint: false,         // toolbar Problems button
+  bottomTab: 'terminal',   // which of the open bottom tabs is in front
   termHeight: 195,         // ~8 output lines (12.5px × 1.45) + header, splitter, padding
   termCwd: '',
   termShell: '',
@@ -97,10 +100,52 @@ export const RESET_KEYS = [
 ];
 export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, k === 'prompt' ? PROMPT_DEFAULT : Array.isArray(SETTINGS_DEFAULTS[k]) ? [] : typeof SETTINGS_DEFAULTS[k] === 'object' && SETTINGS_DEFAULTS[k] ? {} : SETTINGS_DEFAULTS[k]]));
 
+export const BOTTOM_PANEL_FLAGS = { terminal: 'showTerminal', log: 'showLog', lint: 'showLint' };
+
+export function visibleBottomTabs(st) {
+  const tabs = [];
+  if (st && st.showTerminal) tabs.push('terminal');
+  if (st && st.showLog) tabs.push('log');
+  if (st && st.showLint) tabs.push('lint');
+  return tabs;
+}
+
+export function activeBottomTab(st) {
+  const tabs = visibleBottomTabs(st);
+  if (!tabs.length) return (st && st.bottomTab) || 'terminal';
+  const cur = (st && st.bottomTab) || 'terminal';
+  return tabs.includes(cur) ? cur : tabs[0];
+}
+
+export function toggleBottomPanel(st, tab) {
+  const flag = BOTTOM_PANEL_FLAGS[tab];
+  if (!flag) return {};
+  const on = !(st && st[flag]);
+  const next = { ...(st || {}), [flag]: on };
+  if (on) next.bottomTab = tab;
+  const tabs = visibleBottomTabs(next);
+  next.termVisible = tabs.length > 0;
+  if (!on && tabs.length && ((st && st.bottomTab) || 'terminal') === tab) next.bottomTab = tabs[0];
+  return { [flag]: on, termVisible: next.termVisible, bottomTab: next.bottomTab };
+}
+
+export function hideBottomPanel() {
+  return { showTerminal: false, showLog: false, showLint: false, termVisible: false };
+}
+
 export function pickSettings(obj) {
   const out = {};
   for (const k of SETTING_KEYS) out[k] = obj && obj[k] !== undefined && obj[k] !== null ? obj[k] : SETTINGS_DEFAULTS[k];   // null (the session's "unset" prompt) takes the default too
   if (out.termHeight === 75) out.termHeight = SETTINGS_DEFAULTS.termHeight;   // previous default: too short for eight lines
+  if (obj && obj.showTerminal == null && obj.showLog == null && obj.showLint == null) {
+    if (obj.termVisible) {
+      const tab = obj.bottomTab || 'terminal';
+      out.showTerminal = tab === 'terminal';
+      out.showLog = tab === 'log';
+      out.showLint = tab === 'lint';
+    }
+  }
+  out.termVisible = !!(out.showTerminal || out.showLog || out.showLint);
   return out;
 }
 

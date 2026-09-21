@@ -66,10 +66,13 @@ const DEFAULTS = {
   splitY: 0.5,             // share of the top row (rows / grid)
   paneDocs: [],            // which tab each pane showed (indices into tabs)
   activePane: 0,
-  termVisible: false,      // terminal panel shown
-  bottomTab: 'terminal',   // bottom panel tab: terminal | log | lint
+  termVisible: false,      // any of the three bottom tabs is on
+  showTerminal: false,     // toolbar 터미널 — independent of log / problems
+  showLog: false,          // toolbar 로그
+  showLint: false,         // toolbar Problems
+  bottomTab: 'terminal',   // which of the open bottom tabs is in front
   termHeight: 195,         // ~8 output lines (12.5px × 1.45) + header, splitter, padding
-  sessionVersion: 5,       // see the migrations in load()
+  sessionVersion: 6,       // see the migrations in load()
   termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)
   termShell: '',           // shell of a new terminal (id from term.shells); '' = the first one offered
   termColor: true,         // terminal output in colour (ANSI + error / warning / link highlighting); false = plain
@@ -130,6 +133,18 @@ function createSession(configDir) {
     if (savedVersion < 3 && data.termHeight === 180) data.termHeight = DEFAULTS.termHeight;   // v3: lower still
     if (savedVersion < 4 && data.termHeight === 150) data.termHeight = DEFAULTS.termHeight;   // v4: half of the previous default
     if (savedVersion < 5 && data.termHeight === 75) data.termHeight = DEFAULTS.termHeight;    // v5: about eight output lines
+    if (savedVersion < 6 && data.showTerminal == null && data.showLog == null && data.showLint == null) {
+      if (data.termVisible) {
+        const tab = data.bottomTab || 'terminal';
+        data.showTerminal = tab === 'terminal';
+        data.showLog = tab === 'log';
+        data.showLint = tab === 'lint';
+      } else {
+        data.showTerminal = false;
+        data.showLog = false;
+        data.showLint = false;
+      }
+    }
     data.sessionVersion = DEFAULTS.sessionVersion;
     return data;
   }

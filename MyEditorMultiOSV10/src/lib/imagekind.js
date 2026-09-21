@@ -25,11 +25,22 @@ export function restoreAsPicture(tab) {
 }
 
 // How the editor opens a path from its name alone (before sniffing unknown binaries).
+// A raster stays a picture even if `force` is set — binary files have no text view.
 export function openKind(name, { force = false } = {}) {
-  if (force) return 'text';
   if (isSvgName(name)) return 'svg';
   if (isBinaryImageName(name)) return 'picture';
-  return 'unknown';
+  return force ? 'text' : 'unknown';
+}
+
+// App.jsx openPathNow: sniff + name → how the file is shown. Binary (picture
+// or an unknown dump) always goes to the hex view; it is never opened as text.
+export const MAX_TEXT = 64 * 1024 * 1024;
+export function openMode({ name, sniff, force = false, encoding = null } = {}) {
+  if (force || encoding) return 'text';
+  if (isBinaryImageName(name)) return 'hex';
+  if (sniff && sniff.binary) return 'hex';
+  if (sniff && sniff.size > MAX_TEXT) return 'too-big';
+  return 'text';
 }
 
 // What one editor pane should show for a document (fill picture, Hexa beside it, hex dump, minimap).

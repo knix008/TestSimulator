@@ -14,6 +14,9 @@
 // bar redrawing its line — either overwrites the line (as a terminal does),
 // breaks it, or is dropped (termCr); the line ending Enter sends to a running
 // program is the shell's own, LF or CRLF (termEol).
+//
+// Terminal / Log / Problems tabs follow the toolbar buttons (showTerminal /
+// showLog / showLint). Each button is independent; only the on tabs appear.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
@@ -151,7 +154,7 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr, term
         try {
           const r = await call('term.read', { id: term.id, since: seqRef.current, idle: idleRef.current, wait: WAIT_MS });
           if (stop) return;
-          if (!r) { setExited(true); return; }
+          if (!r) { onExit(term.id); await new Promise((res) => setTimeout(res, 400)); continue; }
           if (r.chunks.length) { seqRef.current = r.seq; append(r.chunks.map((c) => c.text).join('')); }
           const idleNow = r.idle !== false;
           const cwdChanged = r.cwd !== cwdRef.current;
@@ -166,7 +169,7 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr, term
           // directory changed.
           const idleChanged = idleChangedTo(r);   // tracked on every answer, busy ones included
           if (cwdChanged || (idleNow && (idleChanged || cmdSentRef.current))) { cmdSentRef.current = false; refreshGit(); }
-          if (r.exited) { if (!exited) { setExited(true); onExit(term.id); } return; }
+          if (r.exited) { setExited(false); idleRef.current = true; setIdle(true); }
         } catch { await new Promise((res) => setTimeout(res, 300)); }
       }
     };
@@ -266,17 +269,13 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr, term
     <div className={`term-view ${active ? '' : 'hidden'}`}>
       <pre className="term-out selectable" ref={outRef} onClick={() => { if (!window.getSelection().toString() && inputRef.current) inputRef.current.focus(); }}>
         {transcript}
-        {!exited && (
-          // While the first git status of a directory is being read the prompt line is kept invisible
-          // (opacity, not unmounted: the input keeps the focus and what is typed meanwhile).
-          <span className={`term-live ${idle && !gitReady ? 'pending' : ''}`}>
-            {idle && gitReady && <TermPrompt config={prompt} env={env} shell={term.shell} cwd={cwd} git={git} rc={rc} ms={ms} stale={gitStale} />}
-            <span className="term-inline" data-value={input}>
-              <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off" autoCorrect="off"
-                onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} />
-            </span>
+        <span className={`term-live ${idle && !gitReady ? 'pending' : ''}`}>
+          {idle && gitReady && <TermPrompt config={prompt} env={env} shell={term.shell} cwd={cwd} git={git} rc={rc} ms={ms} stale={gitStale} />}
+          <span className="term-inline" data-value={input}>
+            <input ref={inputRef} value={input} title={t('term_placeholder')} spellCheck={false} autoComplete="off" autoCapitalize="off" autoCorrect="off"
+              onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} onPaste={onPaste} />
           </span>
-        )}
+        </span>
       </pre>
     </div>
   );
@@ -285,7 +284,7 @@ function TerminalView({ term, active, onExit, prompt, env, termEol, termCr, term
 export function TerminalPanel({
   terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, onSettings, height, onResizeStart,
   prompt, env, termEol, termCr, termColor = true,
-  panel = 'terminal', onPanel,
+  panel = 'terminal', panels, onPanel,
   lintDoc, lint, lintEnabled, onLintGoto, onLintRefresh,
   logEntries, onLogClear,
 }) {
@@ -298,20 +297,28 @@ export function TerminalPanel({
     call('term.shells', { refresh: true }).then((x) => { if (Array.isArray(x)) setShellList(x); }).catch(() => {});
   };
   const shellItems = shellList.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
-  const tab = panel === 'log' || panel === 'lint' ? panel : 'terminal';
-  const mode = (id) => `panel-mode ${tab === id ? 'active' : ''}`;
+  const open = {
+    terminal: !!(panels && panels.terminal),
+    log: !!(panels && panels.log),
+    lint: !!(panels && panels.lint),
+  };
+  const openTabs = ['terminal', 'log', 'lint'].filter((id) => open[id]);
+  const tab = openTabs.includes(panel) ? panel : (openTabs[0] || 'terminal');
   const lintCount = lint && lint.total ? lint.total : 0;
+  const mode = (id) => `panel-mode ${tab === id ? 'active' : ''}`;
   return (
     <div className="term-panel" style={{ height }}>
       <div className="h-splitter" onMouseDown={onResizeStart} />
       <div className="term-head">
-        <div className="panel-modes" role="tablist">
-          <button type="button" className={mode('terminal')} onClick={() => onPanel && onPanel('terminal')}><Icon name="terminal" size={14} /> {t('terminal')}</button>
-          <button type="button" className={mode('log')} onClick={() => onPanel && onPanel('log')}><Icon name="log" size={14} /> {t('log_tab')}</button>
-          <button type="button" className={mode('lint')} onClick={() => onPanel && onPanel('lint')}>
-            <Icon name="lint" size={14} /> {t('lint_tab')}
-            {lintCount > 0 ? <span className={`panel-badge ${lint.error ? 'err' : lint.warning ? 'warn' : ''}`}>{lintCount}</span> : null}
-          </button>
+        <div className="panel-modes" role="tablist" data-tab={tab}>
+          {open.terminal && <button type="button" className={mode('terminal')} onClick={() => onPanel && onPanel('terminal')}><Icon name="terminal" size={14} /> {t('terminal')}</button>}
+          {open.log && <button type="button" className={mode('log')} onClick={() => onPanel && onPanel('log')}><Icon name="log" size={14} /> {t('log_tab')}</button>}
+          {open.lint && (
+            <button type="button" className={mode('lint')} onClick={() => onPanel && onPanel('lint')}>
+              <Icon name="lint" size={14} /> {t('lint_tab')}
+              {lintCount > 0 ? <span className={`panel-badge ${lint.error ? 'err' : lint.warning ? 'warn' : ''}`}>{lintCount}</span> : null}
+            </button>
+          )}
         </div>
         {tab === 'terminal' && (
           <>
