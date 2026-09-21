@@ -118,7 +118,7 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     'format.tools': async ({ dir, refresh }) => formatter.tools({ dir, refresh: !!refresh }),
     'format.run': async (opts) => formatter.run(opts || {}),
     // ── Installing a missing formatter (progress popup) ──
-    'install.start': async ({ tool, reinstall }) => installer.start({ tool, reinstall: !!reinstall }),
+    'install.start': async ({ tool, reinstall, installRuntime }) => installer.start({ tool, reinstall: !!reinstall, installRuntime: !!installRuntime }),
     'install.status': async ({ id, since, wait }) => installer.status({ id, since, wait }),
     'install.cancel': async ({ id }) => installer.cancel({ id }),
     // ── Find in files ──

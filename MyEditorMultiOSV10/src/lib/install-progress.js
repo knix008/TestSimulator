@@ -15,6 +15,7 @@ export const INSTALL_KIND_LABEL = {
   gem: 'inst_kind_gem',
   rustup: 'inst_kind_rustup',
   psmodule: 'inst_kind_ps',
+  runtime: 'inst_kind_runtime',
 };
 
 const FETCH_RE = /collecting |downloading |downloaded |fetched |resolv(?:ing|ed) |npm http|GET http/i;

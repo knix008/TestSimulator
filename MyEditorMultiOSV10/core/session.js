@@ -96,6 +96,9 @@ const DEFAULTS = {
   printWrap: true,         // code print: wrap long lines
   printFontSize: 9.5,      // code print: type size in pt
   printLineHeight: 1.45,   // code print: line height
+  printPaper: 'a4',        // a4 · letter · legal · a5
+  printLandscape: false,
+  printMargin: 12,         // mm
   folder: '',
   windowBounds: null,
   tabs: [],          // [{ path, name, cursor, scrollTop, draft, encoding, eol, language }]

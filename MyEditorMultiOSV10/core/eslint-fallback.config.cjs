@@ -3,7 +3,7 @@
 // typescript-eslint in the project.
 module.exports = [
   {
-    files: ['**/*.js', '**/*.mjs', '**/*.cjs', '**/*.jsx'],
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs', '**/*.jsx', 'stdin.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',

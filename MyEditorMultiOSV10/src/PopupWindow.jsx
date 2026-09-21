@@ -57,11 +57,16 @@ export function PopupWindow({ kind, tab = '' }) {
   }, [kind]);
 
   const change = (patch) => {
-    setSettingsState((prev) => ({ ...prev, ...patch }));
-    if (patch.customThemes !== undefined) setCustomThemes(patch.customThemes);
-    if (patch.theme !== undefined || patch.customThemes !== undefined) { const th = applyTheme({ ...(settingsRef.current || {}), ...patch }.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
-    if (patch.language !== undefined) setLanguage(patch.language);
-    call('session.save', patch).catch(() => {});
+    const rest = { ...patch };
+    delete rest.formatToolsAt;
+    delete rest.lintToolsAt;
+    if (Object.keys(rest).length) {
+      setSettingsState((prev) => ({ ...prev, ...rest }));
+      if (rest.customThemes !== undefined) setCustomThemes(rest.customThemes);
+      if (rest.theme !== undefined || rest.customThemes !== undefined) { const th = applyTheme({ ...(settingsRef.current || {}), ...rest }.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
+      if (rest.language !== undefined) setLanguage(rest.language);
+      call('session.save', rest).catch(() => {});
+    }
     sendSettingsPatch(patch);
   };
   const close = () => windowControl('close');

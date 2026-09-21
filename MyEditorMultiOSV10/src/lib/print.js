@@ -1,7 +1,7 @@
 // Print HTML for a code listing. Settings › print (and the preview toolbar)
 // choose the page chrome and how pretty the listing looks: syntax colour,
-// zebra rows, a gutter, wrap, type size. A frame or page numbers split the
-// listing into A4 pages so each printed sheet has its own border / footer.
+// zebra rows, a gutter, wrap, type size. The listing is always split into
+// A4 pages (one sheet per page) so the preview and the printout stay readable.
 import { highlightTree, tags as t, tagHighlighter } from '@lezer/highlight';
 import { syntaxTree, ensureSyntaxTree } from '@codemirror/language';
 
@@ -13,6 +13,13 @@ function yieldToUi() {
 }
 
 function pageOf(n, total) { return `${n} / ${total}`; }
+
+export const PRINT_PAPERS = {
+  a4: { id: 'a4', w: 210, h: 297, electron: 'A4' },
+  letter: { id: 'letter', w: 215.9, h: 279.4, electron: 'Letter' },
+  legal: { id: 'legal', w: 215.9, h: 355.6, electron: 'Legal' },
+  a5: { id: 'a5', w: 148, h: 210, electron: 'A5' },
+};
 
 export const PRINT_DEFAULTS = {
   printHeader: true,
@@ -27,11 +34,39 @@ export const PRINT_DEFAULTS = {
   printWrap: true,
   printFontSize: 9.5,
   printLineHeight: 1.45,
+  printPaper: 'a4',
+  printLandscape: false,
+  printMargin: 12,
 };
+
+export function paperOf(id) {
+  return PRINT_PAPERS[id] || PRINT_PAPERS.a4;
+}
+
+export function pageSizeMm(o) {
+  const p = paperOf(o && o.printPaper);
+  return (o && o.printLandscape) ? { w: p.h, h: p.w } : { w: p.w, h: p.h };
+}
+
+export function pageSizePx(o) {
+  const { w, h } = pageSizeMm(o);
+  const mm = 96 / 25.4;
+  return { w: Math.round(w * mm), h: Math.round(h * mm) };
+}
+
+export function electronPageSize(id) {
+  return paperOf(id).electron;
+}
+
+function marginMm(o) {
+  const v = Number(o && o.printMargin);
+  return Number.isFinite(v) ? Math.max(6, Math.min(30, v)) : 12;
+}
 
 export function printOptsOf(settings) {
   const s = settings || {};
   const n = (k, d) => { const v = Number(s[k]); return Number.isFinite(v) && v > 0 ? v : d; };
+  const paper = paperOf(s.printPaper).id;
   return {
     printHeader: s.printHeader !== false,
     printLineNumbers: s.printLineNumbers !== false,
@@ -47,6 +82,9 @@ export function printOptsOf(settings) {
     printLineHeight: n('printLineHeight', 1.45),
     tabSize: Math.max(1, Math.min(16, n('tabSize', 4))),
     printFont: String(s.fontFamily || '').trim(),
+    printPaper: paper,
+    printLandscape: !!s.printLandscape,
+    printMargin: marginMm(s),
   };
 }
 
@@ -145,7 +183,9 @@ function linesPerPage(o) {
   const pt = Number(o.printFontSize) || 9.5;
   const lh = Number(o.printLineHeight) || 1.45;
   const lineMm = Math.max(3.2, pt * lh * 0.352778);
-  let usable = 297 - 26;
+  const { h } = pageSizeMm(o);
+  const m = marginMm(o);
+  let usable = h - m * 2;
   if (o.printHeader || o.printDate) usable -= 10;
   if (o.printPageNumbers) usable -= 8;
   return Math.max(8, Math.floor(usable / lineMm) - 1);
@@ -181,12 +221,29 @@ function pageHead(path, lang, o, date) {
   return `<div class="page-head"><span class="file">${left}</span><span>${right}</span></div>`;
 }
 
+function pageHtml(rows, index, total, o, { label, lang, date, digits, htmlLines, per }) {
+  const head = pageHead(label, lang, o, date);
+  const numbered = !!o.printPageNumbers;
+  const foot = numbered ? `<div class="page-foot">${pageOf(index + 1, total)}</div>` : '';
+  const frame = o.printBorder ? ' framed' : '';
+  const from = index * per;
+  return `<div class="page${numbered ? ' has-foot' : ''}" data-n="${pageOf(index + 1, total)}">${head}<div class="page-body${frame}">${codeTable(rows, from + 1, o, digits, htmlLines, from)}</div>${foot}</div>`;
+}
+
+function chunkLines(lines, per) {
+  const chunks = [];
+  for (let i = 0; i < lines.length; i += per) chunks.push(lines.slice(i, i + per));
+  return chunks.length ? chunks : [['']];
+}
+
 function codeCss(o) {
   const pt = Number(o.printFontSize) || 9.5;
   const lh = Number(o.printLineHeight) || 1.45;
   const wrap = o.printWrap !== false;
   const font = o.printFont ? `"${String(o.printFont).replace(/["\\]/g, '')}",` : '';
   const gutter = o.printGutter && o.printLineNumbers;
+  const size = pageSizeMm(o);
+  const box = { w: size.w, h: size.h, m: marginMm(o) };
   return `html,body{margin:0}
 body{font-family:Segoe UI,Malgun Gothic,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;color:#1f2328;font-size:12pt}
 table.code{width:100%;border-collapse:collapse;font-family:${font}Cascadia Mono,Consolas,D2Coding,Menlo,monospace;font-size:${pt}pt}
@@ -204,15 +261,25 @@ body.bw .c{color:#6e7781}body.bw .k,body.bw .h,body.bw .st{font-weight:700}
 body.bw .page-head,body.bw .title{border-bottom-color:#d0d7de}
 .page-head .lang,.title .lang{margin-left:8px;font-size:8pt;color:#8b949e}
 .page-foot{font-size:9pt;color:#656d76;text-align:center;padding-top:6px}
-.page{width:210mm;height:297mm;box-sizing:border-box;padding:12mm 14mm 10mm;background:#fff;display:flex;flex-direction:column;break-after:page;page-break-after:always}
+.page{width:${box.w}mm;height:${box.h}mm;box-sizing:border-box;padding:${box.m}mm;background:#fff;display:flex;flex-direction:column;break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid}
 .page:last-child{break-after:auto;page-break-after:auto}
 .page-body{flex:1;min-height:0;overflow:hidden}
 .page-body.framed{border:1px solid #8b949e;border-radius:2px;padding:5px 6px}
-.sheet{margin:16mm 15mm}
-.sheet.framed table.code{border:1px solid #8b949e}
-@page{size:A4;margin:0}
-@media screen{body.paged{background:#c8c8c8;padding:10px 0}body.paged .page{box-shadow:0 1px 6px rgba(0,0,0,.28);margin:0 auto 10px}}
-@media print{-webkit-print-color-adjust:exact;print-color-adjust:exact}`;
+@page{size:${box.w}mm ${box.h}mm;margin:0}
+@media screen{body.paged{background:#b7b7b7;padding:14px 0 22px}body.paged .page{box-shadow:0 3px 14px rgba(0,0,0,.32);margin:0 auto 22px;outline:1px solid rgba(15,23,42,.12)}body.paged .page:last-child{margin-bottom:8px}body.paged .page:not(.has-foot)::after{content:attr(data-n);display:block;text-align:center;font:8.5pt Segoe UI,Malgun Gothic,sans-serif;color:#656d76;padding-top:2px}}
+@media print{-webkit-print-color-adjust:exact;print-color-adjust:exact;body.paged{background:#fff;padding:0}body.paged .page{box-shadow:none;margin:0;outline:none}body.paged .page::after{content:none}}`;
+}
+
+function listingPages(lines, htmlLines, o, { label, lang, date }) {
+  const per = linesPerPage(o);
+  const digits = String(Math.max(1, lines.length)).length;
+  const chunks = chunkLines(lines, per);
+  const ctx = { label, lang, date, digits, htmlLines, per };
+  return chunks.map((rows, i) => pageHtml(rows, i, chunks.length, o, ctx));
+}
+
+function bodyClass(o) {
+  return ['paged', o.printColor ? '' : 'bw'].filter(Boolean).join(' ');
 }
 
 // A numbered listing of `text`. `lineHtml` is highlightCodeLines() output.
@@ -220,31 +287,8 @@ export function buildCodePrintHtml({ title, path, lang, text, lineHtml, opts }) 
   const o = { ...PRINT_DEFAULTS, tabSize: 4, printFont: '', ...opts };
   const useHi = o.printSyntax && Array.isArray(lineHtml);
   const lines = String(text || '').split('\n');
-  const htmlLines = useHi ? lineHtml : null;
-  const digits = String(Math.max(1, lines.length)).length;
-  const label = path || title || '';
-  const date = formatDate();
-  const paginate = o.printBorder || o.printPageNumbers;
-  const cls = [paginate ? 'paged' : '', o.printColor ? '' : 'bw'].filter(Boolean).join(' ');
-  let body;
-  if (paginate) {
-    const per = linesPerPage(o);
-    const chunks = [];
-    for (let i = 0; i < lines.length; i += per) chunks.push(lines.slice(i, i + per));
-    if (!chunks.length) chunks.push(['']);
-    body = chunks.map((rows, i) => {
-      const head = pageHead(label, lang, o, date);
-      const foot = o.printPageNumbers ? `<div class="page-foot">${pageOf(i + 1, chunks.length)}</div>` : '';
-      const frame = o.printBorder ? ' framed' : '';
-      return `<div class="page">${head}<div class="page-body${frame}">${codeTable(rows, i * per + 1, o, digits, htmlLines, i * per)}</div>${foot}</div>`;
-    }).join('');
-  } else {
-    const head = (o.printHeader || o.printDate)
-      ? `<div class="title"><span class="file">${o.printHeader ? `${esc(label)}${lang ? `<span class="lang">${esc(lang)}</span>` : ''}` : ''}</span><span>${o.printDate ? esc(date) : ''}</span></div>`
-      : '';
-    body = `<div class="sheet${o.printBorder ? ' framed' : ''}">${head}${codeTable(lines, 1, o, digits, htmlLines, 0)}</div>`;
-  }
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title || '')}</title><style>${codeCss(o)}</style></head><body class="${cls}">${body}</body></html>`;
+  const body = listingPages(lines, useHi ? lineHtml : null, o, { label: path || title || '', lang, date: formatDate() }).join('');
+  return wrapPrintHtml(title, o, bodyClass(o), body);
 }
 
 function wrapPrintHtml(title, o, cls, body) {
@@ -256,51 +300,25 @@ export async function buildCodePrintHtmlAsync({ title, path, lang, text, lineHtm
   const useHi = o.printSyntax && Array.isArray(lineHtml);
   const lines = String(text || '').split('\n');
   const htmlLines = useHi ? lineHtml : null;
-  const digits = String(Math.max(1, lines.length)).length;
   const label = path || title || '';
   const date = formatDate();
-  const paginate = o.printBorder || o.printPageNumbers;
-  const cls = [paginate ? 'paged' : '', o.printColor ? '' : 'bw'].filter(Boolean).join(' ');
   if (onProgress) onProgress(0.7);
   await yieldToUi();
+  const per = linesPerPage(o);
+  const digits = String(Math.max(1, lines.length)).length;
+  const chunks = chunkLines(lines, per);
+  const ctx = { label, lang, date, digits, htmlLines, per };
+  const pages = [];
   const total = Math.max(1, lines.length);
   let done = 0;
-  const tick = async (n) => {
-    done += n;
+  for (let i = 0; i < chunks.length; i++) {
+    pages.push(pageHtml(chunks[i], i, chunks.length, o, ctx));
+    done += chunks[i].length;
     if (onProgress) onProgress(0.7 + 0.28 * Math.min(1, done / total));
-    if (done % 200 < n) await yieldToUi();
-  };
-  let body;
-  if (paginate) {
-    const per = linesPerPage(o);
-    const chunks = [];
-    for (let i = 0; i < lines.length; i += per) chunks.push(lines.slice(i, i + per));
-    if (!chunks.length) chunks.push(['']);
-    const pages = [];
-    for (let i = 0; i < chunks.length; i++) {
-      const rows = chunks[i];
-      const head = pageHead(label, lang, o, date);
-      const foot = o.printPageNumbers ? `<div class="page-foot">${pageOf(i + 1, chunks.length)}</div>` : '';
-      const frame = o.printBorder ? ' framed' : '';
-      pages.push(`<div class="page">${head}<div class="page-body${frame}">${codeTable(rows, i * per + 1, o, digits, htmlLines, i * per)}</div>${foot}</div>`);
-      await tick(rows.length);
-    }
-    body = pages.join('');
-  } else {
-    const head = (o.printHeader || o.printDate)
-      ? `<div class="title"><span class="file">${o.printHeader ? `${esc(label)}${lang ? `<span class="lang">${esc(lang)}</span>` : ''}` : ''}</span><span>${o.printDate ? esc(date) : ''}</span></div>`
-      : '';
-    const parts = [];
-    const step = 250;
-    for (let i = 0; i < lines.length; i += step) {
-      const slice = lines.slice(i, i + step);
-      parts.push(codeTable(slice, i + 1, o, digits, htmlLines, i).replace(/^<table class="code"><tbody>/, '').replace(/<\/tbody><\/table>$/, ''));
-      await tick(slice.length);
-    }
-    body = `<div class="sheet${o.printBorder ? ' framed' : ''}">${head}<table class="code"><tbody>${parts.join('')}</tbody></table></div>`;
+    if (i % 2 === 1) await yieldToUi();
   }
   if (onProgress) onProgress(1);
-  return wrapPrintHtml(title, o, cls, body);
+  return wrapPrintHtml(title, o, bodyClass(o), pages.join(''));
 }
 
 export function isPagedPrint(html) {

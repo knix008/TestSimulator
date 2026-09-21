@@ -2,7 +2,7 @@
 // (general · files · editor, in two columns), theme, terminal, formatting,
 // lint and print (code-listing options). Changes apply immediately and are
 // persisted.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES, themeById, baseColorsOf, setCustomThemes, CUSTOM_COLOR_KEYS } from '../themes';
 import { PromptEditor } from './PromptEditor';
@@ -14,6 +14,7 @@ import { isElectron, nativeDialog, call } from '../lib/backend';
 import { toolLabel } from '../lib/formatters';
 import { resetPatch } from '../lib/settings';
 import { FEATURED_LANGUAGES, PLAIN } from '../lib/languages';
+import { PRINT_PAPERS, pageSizeMm, printOptsOf } from '../lib/print';
 
 // A number with − / + buttons at its sides (typing works too): value, step, min, max, digits after the point.
 function Stepper({ value, onChange, step = 1, min = 0, max = 100, digits = 0, width = 70, unit }) {
@@ -45,21 +46,11 @@ const SAMPLE_ROWS = [
   ['}', '}'],
 ];
 
-function PrintSettingsSample({ settings }) {
-  const o = {
-    printHeader: settings.printHeader !== false,
-    printLineNumbers: settings.printLineNumbers !== false,
-    printBorder: !!settings.printBorder,
-    printPageNumbers: !!settings.printPageNumbers,
-    printDate: !!settings.printDate,
-    printSyntax: settings.printSyntax !== false,
-    printColor: settings.printColor !== false,
-    printZebra: settings.printZebra !== false,
-    printGutter: settings.printGutter !== false,
-  };
+function PrintSampleSheet({ o, page, total }) {
   const cls = `print-sample${o.printBorder ? ' framed' : ''}${o.printZebra ? ' zebra' : ''}${o.printGutter && o.printLineNumbers ? ' gutter' : ''}${o.printColor ? '' : ' bw'}`;
+  const size = pageSizeMm(o);
   return (
-    <div className={cls}>
+    <div className={cls} style={{ aspectRatio: `${size.w} / ${size.h}` }}>
       {(o.printHeader || o.printDate) && (
         <div className="print-sample-head">
           <span>{o.printHeader ? <>main.c <span className="lang">C</span></> : ''}</span>
@@ -70,13 +61,26 @@ function PrintSettingsSample({ settings }) {
         <tbody>
           {SAMPLE_ROWS.map(([hi, plain], i) => (
             <tr key={i} className={o.printZebra && (i + 1) % 2 === 0 ? 'z' : ''}>
-              {o.printLineNumbers && <td className="ln">{i + 1}</td>}
-              <td className="src" dangerouslySetInnerHTML={{ __html: o.printSyntax ? hi : plain }} />
+              {o.printLineNumbers && <td className="ln">{page === 1 ? i + 1 : i + 5}</td>}
+              <td className="src" dangerouslySetInnerHTML={{ __html: page === 1 && o.printSyntax ? hi : plain }} />
             </tr>
           ))}
         </tbody>
       </table>
-      {o.printPageNumbers && <div className="print-sample-foot">{t('print_page_of', { n: 1, total: 1 })}</div>}
+      {o.printPageNumbers && <div className="print-sample-foot">{t('print_page_of', { n: page, total })}</div>}
+    </div>
+  );
+}
+
+function PrintSettingsSample({ settings }) {
+  const o = printOptsOf(settings);
+  return (
+    <div>
+      <p className="muted small print-sample-meta">{t(`set_print_paper_${o.printPaper}`)} · {t(o.printLandscape ? 'print_landscape' : 'print_portrait')} · {o.printMargin} mm</p>
+      <div className={`print-sample-pages${o.printLandscape ? ' landscape' : ''}`}>
+        <PrintSampleSheet o={o} page={1} total={2} />
+        <PrintSampleSheet o={o} page={2} total={2} />
+      </div>
     </div>
   );
 }
@@ -124,10 +128,11 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
   const [installMsg, setInstallMsg] = useState(null);
   const [askReinstall, setAskReinstall] = useState(null);   // { lang, tool } — the tool is installed already: the user decides
   const [askLintInstall, setAskLintInstall] = useState(null);   // { lang, tool } — a missing checker: ask before installing
+  const [askRuntime, setAskRuntime] = useState(null);           // { lang, tool, kind, pm, runtime } — Python / Node.js missing
   const [askReset, setAskReset] = useState(false);          // 기본값으로 되돌리기 asked
   // (Re)installs the tool chosen for a language. An installed one is only
   // replaced when the user chooses so (remove + fresh install).
-  const installTool = async (lang, decided = null) => {
+  const installTool = async (lang, decided = null, { installRuntime = false } = {}) => {
     const id = (settings.formatters || {})[lang];
     const list = (tools || {})[lang] || [];
     const tool = list.find((x) => x.id === id) || (id === 'auto' || !id ? list.find((x) => x.installable) : null);
@@ -136,21 +141,45 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
     setInstallMsg(null);
     if (tool.available && decided == null) { setAskReinstall({ lang, tool }); return; }
     let st;
-    try { st = await call('install.start', { tool: tool.id, reinstall: tool.available && decided === 'reinstall' }); } catch (e) { st = { error: e.message }; }
+    try { st = await call('install.start', { tool: tool.id, reinstall: tool.available && decided === 'reinstall', installRuntime }); } catch (e) { st = { error: e.message }; }
     if (st.error) { setInstallMsg(st.error); return; }
     if (st.manual) { setInstallMsg(st.manual); return; }
+    if (st.missing && st.runtime) { setAskRuntime({ lang, tool, kind: 'format', decided, runtime: st.runtime, pm: st.missing }); return; }
     if (st.missing) { setInstallMsg(t('inst_missing_pm', { pm: st.missing, tool: tool.id })); return; }
-    setJob({ tool: tool.id, id: st.id });
+    setJob({ tool: tool.id, lang, id: st.id, kind: 'format', installRuntime });
   };
-  const startLintInstall = async (tool) => {
+  const startLintInstall = async (tool, lang, { installRuntime = false } = {}) => {
     if (!tool.installable) { setInstallMsg(tool.hint || t('inst_no_recipe', { tool: tool.id })); return; }
     setInstallMsg(null);
     let st;
-    try { st = await call('install.start', { tool: tool.id }); } catch (e) { st = { error: e.message }; }
+    try { st = await call('install.start', { tool: tool.id, installRuntime }); } catch (e) { st = { error: e.message }; }
     if (st.error) { setInstallMsg(st.error); return; }
     if (st.manual) { setInstallMsg(st.manual); return; }
+    if (st.missing && st.runtime) { setAskRuntime({ lang, tool, kind: 'lint', runtime: st.runtime, pm: st.missing }); return; }
     if (st.missing) { setInstallMsg(t('inst_missing_pm', { pm: st.missing, tool: tool.id })); return; }
-    setJob({ tool: tool.id, id: st.id });
+    setJob({ tool: tool.id, lang, id: st.id, kind: 'lint', installRuntime });
+  };
+  const appliedJob = useRef(null);
+  const applyInstalled = async (ok, done) => {
+    if (!ok || !done || appliedJob.current === done.id) return;
+    appliedJob.current = done.id;
+    setRescan(true);
+    setTools(null);
+    setLintRefresh(true);
+    setLinters(null);
+    if (done.kind === 'lint') {
+      try { await call('lint.tools', { dir: formatDir, refresh: true }); } catch { /* listing catches up */ }
+      const next = { ...(settings.linters || {}) };
+      if (done.lang && done.tool) next[done.lang] = done.tool;
+      onChange({ linters: next, lint: true, lintToolsAt: Date.now() });
+      return;
+    }
+    try {
+      const listed = await call('format.tools', { dir: formatDir, refresh: true });
+      setTools(listed);
+      if (onTools) onTools(listed);
+    } catch { /* the toolbar label catches up */ }
+    onChange({ formatToolsAt: Date.now() });
   };
   const setLinter = (lang, id) => {
     onChange({ linters: { ...(settings.linters || {}), [lang]: id } });
@@ -400,14 +429,19 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
       {askLintInstall && (
         <ConfirmDialog title={t('inst_ask_title', { tool: askLintInstall.tool.id })} message={t('inst_ask_lint_msg', { tool: askLintInstall.tool.id, lang: askLintInstall.lang })} icon="download" kind="info" width={520}
           buttons={[{ id: 'yes', label: t('inst_ask_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }]}
-          onResult={(r) => { const a = askLintInstall; setAskLintInstall(null); if (r === 'yes') startLintInstall(a.tool); }} />
+          onResult={(r) => { const a = askLintInstall; setAskLintInstall(null); if (r === 'yes') startLintInstall(a.tool, a.lang); }} />
+      )}
+      {askRuntime && (
+        <ConfirmDialog title={t('inst_ask_runtime_title', { pm: askRuntime.pm })} message={t('inst_ask_runtime_msg', { pm: askRuntime.pm, tool: askRuntime.tool.id })} icon="download" kind="info" width={520}
+          buttons={[{ id: 'yes', label: t('inst_ask_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }]}
+          onResult={(r) => { const a = askRuntime; setAskRuntime(null); if (r !== 'yes') return; if (a.kind === 'lint') startLintInstall(a.tool, a.lang, { installRuntime: true }); else installTool(a.lang, a.decided, { installRuntime: true }); }} />
       )}
       {askReset && (
         <ConfirmDialog title={t('set_reset_title')} message={t('set_reset_msg')} icon="refresh" kind="info"
           buttons={[{ id: 'yes', label: t('set_reset_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }]}
           onResult={(r) => { setAskReset(false); if (r === 'yes') onChange(resetPatch()); }} />
       )}
-      {job && <InstallDialog tool={job.tool} jobId={job.id} onResult={(ok) => { setJob(null); setRescan(true); setTools(null); setLintRefresh(true); setLinters(null); if (ok) onChange({ linters: { ...(settings.linters || {}) } }); }} />}
+      {job && <InstallDialog tool={job.tool} jobId={job.id} installRuntime={!!job.installRuntime} onApplied={(ok) => applyInstalled(ok, job)} onResult={async (ok) => { const done = job; setJob(null); await applyInstalled(ok, done); }} />}
       {tab === 'lint' && (
         <div className="settings-format">
           <label className="check settings-check"><input type="checkbox" checked={!!settings.lint} onChange={(e) => onChange({ lint: e.target.checked })} /><span>{t('set_lint')}</span></label>
@@ -436,8 +470,24 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
         <div className="settings-cols">
           <div className="settings-col">
             <fieldset className="settings-group">
-              <legend>{t('set_print_code')}</legend>
+              <legend>{t('set_print_page_setup')}</legend>
               <p className="muted small" style={{ margin: '0 0 10px' }}>{t('set_print_hint')}</p>
+              <div className="form-grid settings-grid">
+                <label htmlFor="print-paper">{t('set_print_paper')}</label>
+                <select id="print-paper" value={settings.printPaper || 'a4'} onChange={(e) => onChange({ printPaper: e.target.value })}>
+                  {Object.keys(PRINT_PAPERS).map((id) => <option key={id} value={id}>{t(`set_print_paper_${id}`)}</option>)}
+                </select>
+                <label htmlFor="print-orient">{t('set_print_orient')}</label>
+                <select id="print-orient" value={settings.printLandscape ? 'landscape' : 'portrait'} onChange={(e) => onChange({ printLandscape: e.target.value === 'landscape' })}>
+                  <option value="portrait">{t('print_portrait')}</option>
+                  <option value="landscape">{t('print_landscape')}</option>
+                </select>
+                <label>{t('set_print_margin')}</label>
+                <Stepper value={settings.printMargin || 12} onChange={(n) => onChange({ printMargin: n })} step={1} min={6} max={25} digits={0} unit="mm" />
+              </div>
+            </fieldset>
+            <fieldset className="settings-group">
+              <legend>{t('set_print_code')}</legend>
               <div className="form-grid settings-grid">
                 <label />
                 <Check id="printHeader" label={t('set_print_header')} settings={settings} onChange={onChange} />

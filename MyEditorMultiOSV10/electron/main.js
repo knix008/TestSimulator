@@ -259,7 +259,7 @@ function runPrintJob(html, opts) {
         copies,
         color: !(opts && opts.color === false),
         landscape: !!(opts && opts.landscape),
-        pageSize: 'A4',
+        pageSize: ({ a4: 'A4', letter: 'Letter', legal: 'Legal', a5: 'A5' })[String((opts && (opts.pageSize || opts.printPaper)) || 'a4')] || 'A4',
       }, (success, failureReason) => done(success, failureReason));
     });
     hidden.loadURL(`data:text/html;charset=utf-8;base64,${Buffer.from(String(html || ''), 'utf8').toString('base64')}`);

@@ -1,11 +1,10 @@
-// Installing a formatter that is not there: when the user chose a tool that
-// is not installed and formats a document, the app offers to install it and
-// runs the package manager for it here, streaming the output to the
-// progress popup (install.start → install.status long poll). Where a tool
-// lands is private to the app when possible (npm packages go under
-// <config>/tools/node), otherwise the user's own location (pip --user,
-// cargo, go, gem, rustup, PowerShell modules); core/format.js knows how to
-// find and run each of those.
+// Installing a formatter or checker that is not there: the app offers to
+// install it and runs the package manager here, streaming the output to the
+// progress popup (install.start → install.status long poll). npm packages go
+// under <config>/tools/node via `node npm-cli.js` (not npm.cmd — that crashes
+// on Windows with 0xC0000409 when the prefix path contains a space, as in
+// "My Editor"). Other tools land in the user's own location (pip --user,
+// cargo, go, gem, rustup, PowerShell modules).
 'use strict';
 
 const { spawn } = require('child_process');
@@ -13,6 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { onPath } = require('./lint');
+const { findPython, findNode, findNpmCli, installRuntime, runtimeMissing } = require('./runtime');
 
 // tool id → how to install it. kind: npm | pip | cargo | go | gem | rustup | psmodule | manual
 const RECIPES = {
@@ -47,7 +47,24 @@ const RECIPES = {
   xmllint: { kind: 'manual', hint: 'libxml2 의 xmllint 를 설치하세요 (Windows: choco install xsltproc / Linux: libxml2-utils)' },
 };
 
-const python = () => onPath('python') || onPath('python3') || onPath('py');
+const python = (toolsDir) => findPython(toolsDir);
+
+function childEnv(base) {
+  const env = { ...base, PIP_DISABLE_PIP_VERSION_CHECK: '1', NO_COLOR: '1' };
+  delete env.ELECTRON_RUN_AS_NODE;
+  delete env.ELECTRON_NO_ASAR;
+  return env;
+}
+
+function isNtCrash(code) {
+  return code === 3221226505 || code === -1073740791 || (code >>> 0) === 0xC0000409;
+}
+
+function exitNote(code) {
+  if (code === 0) return '\n[installed]\n';
+  if (isNtCrash(code)) return `\n[exit code ${code} — npm.cmd crashed (Windows 0xC0000409). Install through node npm-cli.js instead.]\n`;
+  return `\n[exit code ${code}]\n`;
+}
 
 // The command line that installs a recipe (null when a package manager is
 // missing → { missing }). With `reinstall` whatever is there is replaced: the
@@ -56,12 +73,20 @@ const python = () => onPath('python') || onPath('python3') || onPath('py');
 function commandFor(recipe, toolsDir, reinstall = false) {
   switch (recipe.kind) {
     case 'npm': {
-      const npm = onPath('npm'); if (!npm) return { missing: 'npm (Node.js)' };
-      fs.mkdirSync(toolsDir, { recursive: true });
-      if (reinstall) { try { fs.rmSync(path.join(toolsDir, 'node', 'node_modules', recipe.pkg), { recursive: true, force: true }); } catch { /* not there */ } }
-      return { cmd: npm, args: ['install', '--no-fund', '--no-audit', ...(reinstall ? ['--force'] : []), '--prefix', path.join(toolsDir, 'node'), recipe.pkg], shell: /\.cmd$/i.test(npm) };
+      const prefix = path.join(toolsDir, 'node');
+      fs.mkdirSync(prefix, { recursive: true });
+      if (reinstall) { try { fs.rmSync(path.join(prefix, 'node_modules', recipe.pkg), { recursive: true, force: true }); } catch { /* not there */ } }
+      const args = ['install', '--no-fund', '--no-audit', ...(reinstall ? ['--force'] : []), '--prefix', prefix, recipe.pkg];
+      // npm.cmd via cmd.exe dies with 0xC0000409 when --prefix has a space
+      // (the app's folder is "My Editor"). node + npm-cli.js avoids cmd.exe.
+      const via = findNpmCli(toolsDir);
+      if (via) return { cmd: via.node, args: [via.cli, ...args] };
+      const npm = onPath('npm');
+      if (!npm && !findNode(toolsDir)) return runtimeMissing('npm');
+      if (!npm) return runtimeMissing('npm');
+      return { cmd: npm, args, shell: /\.(cmd|bat)$/i.test(npm) };
     }
-    case 'pip': { const py = python(); if (!py) return { missing: 'Python' }; return { cmd: py, args: ['-m', 'pip', 'install', '--user', '--upgrade', ...(reinstall ? ['--force-reinstall', '--no-cache-dir'] : []), recipe.pkg] }; }
+    case 'pip': { const py = python(toolsDir); if (!py) return runtimeMissing('pip'); return { cmd: py, args: ['-m', 'pip', 'install', '--user', '--upgrade', ...(reinstall ? ['--force-reinstall', '--no-cache-dir'] : []), recipe.pkg] }; }
     case 'cargo': { const cargo = onPath('cargo'); if (!cargo) return { missing: 'cargo (Rust)' }; return { cmd: cargo, args: ['install', ...(reinstall ? ['--force'] : []), recipe.crate] }; }
     case 'go': { const go = onPath('go'); if (!go) return { missing: 'go' }; return { cmd: go, args: ['install', recipe.pkg] }; }
     case 'gem': { const gem = onPath('gem'); if (!gem) return { missing: 'gem (Ruby)' }; return { cmd: gem, args: ['install', ...(reinstall ? ['--force'] : []), recipe.pkg], shell: /\.(cmd|bat)$/i.test(gem) }; }
@@ -69,6 +94,13 @@ function commandFor(recipe, toolsDir, reinstall = false) {
     case 'psmodule': { const ps = onPath('pwsh') || onPath('powershell'); if (!ps) return { missing: 'PowerShell' }; return { cmd: ps, args: ['-NoProfile', '-NonInteractive', '-Command', `Install-Module ${recipe.module} -Scope CurrentUser -Force -AllowClobber; Get-Module -ListAvailable ${recipe.module} | Select-Object -First 1 | Out-String`] }; }
     default: return { manual: recipe.hint };
   }
+}
+
+function spawnInstall(step, env) {
+  // Do not concatenate a quoted command line for shell:true — Node then wraps
+  // it again in cmd.exe /s /c "…", and npm.cmd abort()s (exit 3221226505).
+  if (step.shell) return spawn(step.cmd, step.args, { stdio: 'pipe', windowsHide: true, shell: true, env });
+  return spawn(step.cmd, step.args, { stdio: 'pipe', windowsHide: true, env });
 }
 
 function createInstaller({ toolsDir }) {
@@ -79,36 +111,67 @@ function createInstaller({ toolsDir }) {
 
   return {
     recipes: () => Object.fromEntries(Object.entries(RECIPES).map(([k, r]) => [k, { kind: r.kind, hint: r.hint || null }])),
-    // Starts installing `tool`. → { id } | { manual: hint } | { missing: what }
-    start({ tool, reinstall = false }) {
+    // Starts installing `tool`. → { id } | { manual: hint } | { missing, runtime? }
+    // `installRuntime`: if Python / Node.js is missing, install it first then the tool.
+    start({ tool, reinstall = false, installRuntime: wantRuntime = false }) {
       const recipe = RECIPES[tool];
       if (!recipe) return { error: `no install recipe for ${tool}` };
-      const c = commandFor(recipe, toolsDir, reinstall);
+      let c = commandFor(recipe, toolsDir, reinstall);
       if (c.manual) return { manual: c.manual };
-      if (c.missing) return { missing: c.missing };
+      if (c.missing && !(wantRuntime && c.runtime)) return { missing: c.missing, runtime: c.runtime || null };
       const id = nextId++;
-      const j = { id, tool, kind: recipe.kind, state: 'running', code: null, log: [], seq: 0, waiters: [], proc: null, command: `${path.basename(c.cmd)} ${c.args.join(' ')}` };
+      const j = { id, tool, kind: c.runtime ? 'runtime' : recipe.kind, state: 'running', code: null, log: [], seq: 0, waiters: [], proc: null, command: '', afterRuntime: null };
       jobs.set(id, j);
+      const beginPackage = () => {
+        const next = commandFor(recipe, toolsDir, reinstall);
+        if (next.missing) { j.state = 'failed'; log(j, `[${next.missing} still missing]\n`); wake(j); return; }
+        j.kind = recipe.kind;
+        j.command = `${path.basename(next.cmd)} ${next.args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')}`;
+        runStep(next, !next.then);
+      };
       const runStep = (step, last) => {
-        log(j, `$ ${path.basename(step.cmd)} ${step.args.join(' ')}\n`);
+        log(j, `$ ${path.basename(step.cmd)} ${step.args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')}\n`);
+        j.command = `${path.basename(step.cmd)} ${step.args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')}`;
         let proc;
         try {
-          const env = { ...process.env, PIP_DISABLE_PIP_VERSION_CHECK: '1', NO_COLOR: '1' };
-          proc = step.shell
-            ? spawn(`"${step.cmd}" ${step.args.map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)).join(' ')}`, { stdio: 'pipe', windowsHide: true, shell: true, env })
-            : spawn(step.cmd, step.args, { stdio: 'pipe', windowsHide: true, env });
-        } catch (err) { j.state = 'failed'; log(j, `[${err.message}]\n`); return; }
+          proc = spawnInstall(step, childEnv(process.env));
+        } catch (err) { j.state = 'failed'; log(j, `[${err.message}]\n`); wake(j); return; }
         j.proc = proc;
         proc.stdout.on('data', (d) => log(j, d.toString('utf8')));
         proc.stderr.on('data', (d) => log(j, d.toString('utf8')));
-        proc.on('error', (err) => { j.state = 'failed'; log(j, `[${err.message}]\n`); });
+        proc.on('error', (err) => { j.state = 'failed'; log(j, `[${err.message}]\n`); wake(j); });
         proc.on('close', (code) => {
-          if (j.state === 'cancelled') { j.code = code; log(j, '\n[cancelled]\n'); return; }
+          if (j.state === 'cancelled') { j.code = code; log(j, '\n[cancelled]\n'); wake(j); return; }
           if (!last && code === 0 && step.then) { runStep(step.then, true); return; }
-          j.code = code; j.state = code === 0 ? 'done' : 'failed'; log(j, code === 0 ? '\n[installed]\n' : `\n[exit code ${code}]\n`);
+          if (code === 0 && j.afterRuntime) { j.afterRuntime = null; try { require('./lint').forgetBins(); } catch { /* circular load */ } beginPackage(); return; }
+          j.code = code; j.state = code === 0 ? 'done' : 'failed'; log(j, exitNote(code));
+          if (code === 0) {
+            try { require('./lint').forgetBins(); } catch { /* circular load */ }
+            try { require('./format').refresh(); } catch { /* optional */ }
+          }
+          wake(j);
         });
         proc.stdin.end();
       };
+      if (c.missing && wantRuntime && c.runtime) {
+        j.kind = 'runtime';
+        j.command = `install ${c.runtime}`;
+        j.afterRuntime = true;
+        log(j, `installing ${c.missing} first\n`);
+        const stop = { killed: false };
+        j.proc = { kill() { stop.killed = true; } };
+        installRuntime(c.runtime, toolsDir, (text) => log(j, text)).then(() => {
+          if (j.state === 'cancelled' || stop.killed) { log(j, '\n[cancelled]\n'); wake(j); return; }
+          try { require('./lint').forgetBins(); } catch { /* circular load */ }
+          j.afterRuntime = null;
+          beginPackage();
+        }).catch((err) => {
+          if (j.state === 'cancelled') return;
+          j.state = 'failed'; log(j, `[${err.message}]\n`); wake(j);
+        });
+        return { id };
+      }
+      j.command = `${path.basename(c.cmd)} ${c.args.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')}`;
       runStep(c, !c.then);
       return { id };
     },
@@ -126,4 +189,4 @@ function createInstaller({ toolsDir }) {
   };
 }
 
-module.exports = { createInstaller, RECIPES };
+module.exports = { createInstaller, RECIPES, commandFor, findNpmCli, isNtCrash };

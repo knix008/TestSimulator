@@ -38,9 +38,11 @@ function findExe(name) {
 }
 const PIP_MODULES = [...new Set(Object.values(RECIPES).filter((r) => r.kind === 'pip' && r.module).map((r) => r.module))];
 let pyProbe = null;            // Promise<{ py, mods: Set }> — the modules python can find, checked once
-function probePython() {
+function probePython(toolsDir) {
   if (pyProbe) return pyProbe;
-  const py = findExe('python') || findExe('python3') || findExe('py');
+  let py = null;
+  try { py = require('./runtime').findPython(toolsDir); } catch { py = null; }
+  if (!py) py = findExe('python') || findExe('python3') || findExe('py');
   if (!py) { pyProbe = Promise.resolve({ py: null, mods: new Set() }); return pyProbe; }
   const script = 'import importlib.util,sys\nprint(",".join(m for m in sys.argv[1:] if importlib.util.find_spec(m)))';
   pyProbe = new Promise((resolve) => {
@@ -153,7 +155,7 @@ function createFormatter({ toolsDir } = {}) {
     // Which tools exist for each language, and whether each is installed (project folder first for npm tools).
     async tools({ dir, refresh: again = false } = {}) {
       if (again) refresh();
-      pyKnown = await probePython();
+      pyKnown = await probePython(toolsDir);
       const out = {};
       for (const [lang, list] of Object.entries(FORMATTERS)) out[lang] = list.map((t) => ({ id: t.id, label: t.label, available: !!findTool(t, dir, toolsDir), installable: !!(RECIPES[t.id] && RECIPES[t.id].kind !== 'manual'), hint: RECIPES[t.id] && RECIPES[t.id].hint ? RECIPES[t.id].hint : null }));
       return out;
@@ -163,7 +165,7 @@ function createFormatter({ toolsDir } = {}) {
       const list = FORMATTERS[language];
       if (!list) return { error: 'no formatter for this language', tool: null };
       const dir = file ? path.dirname(file) : undefined;
-      pyKnown = await probePython();
+      pyKnown = await probePython(toolsDir);
       let chosen = null;
       if (tool && tool !== 'auto') chosen = list.find((t) => t.id === tool) || null;
       else chosen = list.find((t) => findTool(t, dir, toolsDir)) || null;
@@ -187,4 +189,4 @@ function createFormatter({ toolsDir } = {}) {
   };
 }
 
-module.exports = { createFormatter, FORMATTERS, formatXml };
+module.exports = { createFormatter, FORMATTERS, formatXml, refresh };

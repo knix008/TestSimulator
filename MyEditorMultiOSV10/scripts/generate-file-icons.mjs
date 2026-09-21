@@ -88,9 +88,9 @@ function iconSvg({ label, bg, fg = '#ffffff' }) {
   <rect x="26" y="20" width="180" height="180" rx="44" fill="url(#face)"/>
   <rect x="26" y="20" width="180" height="180" rx="44" fill="url(#spec)"/>
   <rect x="28" y="22" width="176" height="176" rx="42" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3"/>
-  <path d="M78 42h52l36 36v88a8 8 0 0 1-8 8H78a8 8 0 0 1-8-8V50a8 8 0 0 1 8-8z" fill="url(#p)" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M130 42v28a8 8 0 0 0 8 8h28" fill="#cbd5e1" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M86 92h40M86 108h52M86 124h44" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/>
+  <path d="M58 28h72l48 48v112a12 12 0 0 1-12 12H58a12 12 0 0 1-12-12V40a12 12 0 0 1 12-12z" fill="url(#p)" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M130 28v40a12 12 0 0 0 12 12h36" fill="#cbd5e1" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M72 92h56M72 112h72M72 132h60" stroke="#cbd5e1" stroke-width="8" stroke-linecap="round"/>
   <rect x="36" y="150" width="160" height="64" rx="12" fill="${bg}" stroke="rgba(0,0,0,0.28)" stroke-width="3"/>
   <text x="116" y="${182 + fs_ * 0.32}" text-anchor="middle" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-weight="800" font-size="${fs_}" fill="${fg}">${safe}</text>
 </svg>`;

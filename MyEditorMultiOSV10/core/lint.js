@@ -12,7 +12,7 @@
 // document (typing keeps only the latest check), and is killed after 30 s.
 'use strict';
 
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -74,13 +74,71 @@ function npmTool(name, dir) {
 }
 
 // ── running a tool ──
-function exec(cmd, args, { cwd, input, timeout = TIMEOUT, signal, env } = {}) {
+let pyUser = null;   // { scripts, site } | false — pip --user layout, looked up once
+const pipModCache = new Map();
+let binsToolsDir = null;   // the app's tools folder, so a Node/Python we just installed is found
+function forgetBins() { exeCache.clear(); resetPathIndex(); pipModCache.clear(); pyUser = null; }
+function pythonExe(toolsDir) {
+  try { const p = require('./runtime').findPython(toolsDir); if (p) return p; } catch { /* circular load */ }
+  return onPath('python') || onPath('python3') || onPath('py');
+}
+function pythonUserDirs(toolsDir) {
+  if (pyUser !== null) return pyUser || { scripts: null, site: null };
+  const py = pythonExe(toolsDir);
+  if (!py) { pyUser = false; return { scripts: null, site: null }; }
+  try {
+    const r = spawnSync(py, ['-c', 'import site; print(site.USER_BASE); print(site.USER_SITE)'], { encoding: 'utf8', timeout: 8000, windowsHide: true });
+    const lines = String(r.stdout || '').trim().split(/\r?\n/).filter(Boolean);
+    pyUser = {
+      scripts: lines[0] ? path.join(lines[0], process.platform === 'win32' ? 'Scripts' : 'bin') : null,
+      site: lines[1] || null,
+    };
+  } catch { pyUser = false; }
+  return pyUser || { scripts: null, site: null };
+}
+function pipModuleOnDisk(mod, toolsDir) {
+  if (!mod) return false;
+  if (pipModCache.has(mod)) return pipModCache.get(mod);
+  const { site } = pythonUserDirs(toolsDir);
+  let ok = false;
+  if (site) {
+    const n = String(mod).replace(/\./g, path.sep);
+    ok = fs.existsSync(path.join(site, n)) || fs.existsSync(path.join(site, `${n}.py`));
+  }
+  pipModCache.set(mod, ok);
+  return ok;
+}
+
+// npm's Windows shims are .cmd files. Spawning them through cmd.exe crashes
+// with 0xC0000409 when the path contains a space ("My Editor"). Run the
+// JavaScript entry with node instead.
+function unwrapNpmShim(cmd) {
+  if (!cmd || typeof cmd !== 'string' || !/\.(cmd|bat)$/i.test(cmd)) return null;
+  let text;
+  try { text = fs.readFileSync(cmd, 'utf8'); } catch { return null; }
+  const m = text.match(/"%dp0%\\([^"]+\.js)"/i) || text.match(/"%~dp0%\\([^"]+\.js)"/i);
+  if (!m) return null;
+  const script = path.normalize(path.join(path.dirname(cmd), m[1]));
+  if (!fs.existsSync(script)) return null;
+  const node = (() => { try { return require('./runtime').findNode(binsToolsDir) || onPath('node'); } catch { return onPath('node'); } })();
+  if (!node) return null;
+  return { cmd: node, pre: [script] };
+}
+
+function exec(cmd, args, opts = {}) {
+  if (cmd && typeof cmd === 'object' && cmd.cmd) return exec(cmd.cmd, [...(cmd.pre || []), ...args], opts);
+  const shim = unwrapNpmShim(cmd);
+  if (shim) return execRaw(shim.cmd, [...shim.pre, ...args], opts);
+  return execRaw(cmd, args, opts);
+}
+
+function execRaw(cmd, args, { cwd, input, timeout = TIMEOUT, signal, env } = {}) {
   return new Promise((resolve) => {
     let proc;
     const shell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(cmd);
     try {
       proc = shell
-        ? spawn(`"${cmd}" ${args.map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)).join(' ')}`, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, shell: true, env: env || process.env })
+        ? spawn(cmd, args, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, shell: true, env: env || process.env })
         : spawn(cmd, args, { cwd: cwd || undefined, stdio: 'pipe', windowsHide: true, env: env || process.env });
     } catch (err) { resolve({ code: -1, stdout: '', stderr: String(err.message), error: err.message }); return; }
     let stdout = '', stderr = '';
@@ -171,10 +229,11 @@ const RUFF = T('ruff', 'ruff', () => onPath('ruff'), async ({ text, file, dir, s
   return { tool: 'ruff', diagnostics: list.map((d) => D(d.location && d.location.row, d.location && d.location.column, `${d.message}${d.code ? ` (${d.code})` : ''}`, /^E9|^F(63|7|82)/.test(d.code || '') ? 'error' : 'warning', { endLine: d.end_location && d.end_location.row, endCol: d.end_location && d.end_location.column, source: d.code })) };
 });
 const PYFLAKES = T('pyflakes', 'pyflakes', () => onPath('pyflakes'), async ({ text, dir, signal }, exe) => {
-  // pyflakes reads stdin when given no file; through python when only the module is installed.
-  const direct = /pyflakes/i.test(path.basename(exe));
-  const r = direct ? await exec(exe, [], { cwd: dir, input: text, signal }) : await exec(exe, ['-m', 'pyflakes'], { cwd: dir, input: text, signal });
-  if (r.error || /No module named/i.test(r.stderr)) return direct ? { tool: 'pyflakes', error: r.error || r.stderr.trim() } : null;
+  // stdin with no file; `{ cmd, pre: ['-m', 'pyflakes'] }` when only the module is installed.
+  const name = typeof exe === 'string' ? path.basename(exe) : '';
+  const extra = typeof exe === 'string' && !/pyflakes/i.test(name) ? ['-m', 'pyflakes'] : [];
+  const r = await exec(exe, extra, { cwd: dir, input: text, signal });
+  if (r.error || /No module named/i.test(r.stderr)) return extra.length ? null : { tool: 'pyflakes', error: r.error || r.stderr.trim() };
   return { tool: 'pyflakes', diagnostics: parseColon(r.stdout + '\n' + r.stderr, { severityOf: (l) => (/undefined name|invalid syntax|SyntaxError|unexpected indent/i.test(l) ? 'error' : 'warning') }) };
 });
 const PY_SYNTAX = T('python', 'python (문법만)', () => onPath('python') || onPath('python3') || onPath('py'), async ({ text, file, dir, signal }, py) => {
@@ -344,14 +403,7 @@ const MARKDOWNLINT = T('markdownlint', 'markdownlint', ({ dir }) => npmTool('mar
   try { list = JSON.parse(r.stderr.trim() || r.stdout.trim() || '[]'); } catch { return { tool: 'markdownlint', diagnostics: [] }; }
   return { tool: 'markdownlint', diagnostics: list.map((d) => D(d.lineNumber, d.errorRange ? d.errorRange[0] : 1, `${d.ruleDescription}${d.errorDetail ? ` — ${d.errorDetail}` : ''} (${(d.ruleNames || [])[0] || ''})`, 'warning', { source: (d.ruleNames || [])[0] })) };
 });
-const STYLELINT = T('stylelint', 'stylelint', ({ dir }) => npmTool('stylelint', dir), async ({ text, file, dir, signal }, sl) => {
-  const r = await exec(sl, ['--stdin', '--stdin-filename', file || 'stdin.css', '--formatter', 'json'], { cwd: dir, input: text, signal });
-  if (r.error) return { tool: 'stylelint', error: r.error };
-  let list;
-  try { list = JSON.parse(r.stdout || r.stderr); } catch { return { tool: 'stylelint', error: (r.stderr || '').trim().split('\n')[0] || 'no configuration (.stylelintrc)' }; }
-  const w = (list[0] && list[0].warnings) || [];
-  return { tool: 'stylelint', diagnostics: w.map((m) => D(m.line, m.column, `${m.text}`, m.severity === 'error' ? 'error' : 'warning', { endLine: m.endLine, endCol: m.endColumn, source: m.rule })) };
-});
+const STYLELINT = T('stylelint', 'stylelint', ({ dir }) => npmTool('stylelint', dir), stylelintRun);
 const JAVAC = T('javac', 'javac -Xlint', () => onPath('javac'), async ({ text, dir, name, signal }, javac) => withTempFile(name || 'Main.java', text, async (tmp, tmpDir) => {
   const r = await exec(javac, ['-Xlint:all', '-proc:none', '-d', tmpDir, tmp], { cwd: dir, signal, timeout: 60000 });
   if (r.error) return { tool: 'javac', error: r.error };
@@ -384,23 +436,51 @@ const LINTERS = {
 const ESLINT_FALLBACK = path.join(__dirname, 'eslint-fallback.config.cjs');
 const ESLINT_IGNORED = /File ignored because no matching configuration/i;
 const ESLINT_NO_CONFIG = /couldn't find (a )?configuration|ESLint couldn't find/i;
+const STYLELINT_FALLBACK = path.join(__dirname, 'stylelint-fallback.config.cjs');
+const STYLELINT_NO_CONFIG = /no configuration|couldn't find a configuration|No configuration provided/i;
 
-async function eslint({ text, file, dir, signal }, es, again = false) {
-  const args = ['--format', 'json', '--stdin', ...(file ? ['--stdin-filename', file] : []), '--no-error-on-unmatched-pattern'];
+async function eslint({ text, file, dir, name, signal }, es, again = false) {
+  const n = (file && path.basename(file)) || name || '';
+  const filename = /\.(cjs|mjs|js|jsx|ts|tsx)$/i.test(n) ? n : 'stdin.js';
+  const args = ['--format', 'json', '--stdin', '--stdin-filename', filename, '--no-error-on-unmatched-pattern'];
   if (again) args.push('--no-config-lookup', '--config', ESLINT_FALLBACK);
   const r = await exec(es, args, { cwd: dir, input: text, signal });
   if (r.error) return { tool: 'eslint', error: r.error };
   let list;
   try { list = JSON.parse(r.stdout); } catch {
     const raw = (r.stderr || r.stdout).trim();
-    if (!again && ESLINT_NO_CONFIG.test(raw)) return eslint({ text, file, dir, signal }, es, true);
+    if (!again && (ESLINT_NO_CONFIG.test(raw) || !raw)) return eslint({ text, file, dir, name, signal }, es, true);
     return { tool: 'eslint', error: raw.split('\n')[0] || 'unreadable output' };
   }
   const msgs = ((list[0] && list[0].messages) || []).filter((m) => !ESLINT_IGNORED.test(m.message || ''));
   if (!again && !msgs.length && ((list[0] && list[0].messages) || []).some((m) => ESLINT_IGNORED.test(m.message || ''))) {
-    return eslint({ text, file, dir, signal }, es, true);
+    return eslint({ text, file, dir, name, signal }, es, true);
+  }
+  if (!again && !msgs.length && !(list[0] && list[0].messages && list[0].messages.length) && r.code) {
+    return eslint({ text, file, dir, name, signal }, es, true);
   }
   return { tool: 'eslint', diagnostics: msgs.map((m) => D(m.line, m.column, `${m.message}${m.ruleId ? ` (${m.ruleId})` : ''}`, m.fatal || m.severity === 2 ? 'error' : 'warning', { endLine: m.endLine, endCol: m.endColumn, source: m.ruleId || undefined })) };
+}
+
+async function stylelintRun({ text, file, name, dir, language, signal }, sl, again = false) {
+  const n = (file && path.basename(file)) || name || '';
+  const ext = language === 'SCSS' ? '.scss' : language === 'LESS' ? '.less' : '.css';
+  const filename = /\.(css|scss|less|sass)$/i.test(n) ? n : `stdin${ext}`;
+  const args = ['--stdin', '--stdin-filename', filename, '--formatter', 'json'];
+  if (again) args.push('--config', STYLELINT_FALLBACK);
+  const r = await exec(sl, args, { cwd: dir, input: text, signal });
+  if (r.error) return { tool: 'stylelint', error: r.error };
+  let list;
+  try { list = JSON.parse(r.stdout || r.stderr || ''); } catch {
+    const raw = (r.stderr || r.stdout).trim();
+    if (!again && (STYLELINT_NO_CONFIG.test(raw) || !raw)) return stylelintRun({ text, file, name, dir, language, signal }, sl, true);
+    return { tool: 'stylelint', error: raw.split('\n')[0] || 'no configuration (.stylelintrc)' };
+  }
+  const w = (list[0] && list[0].warnings) || [];
+  if (!again && !w.length && r.code && STYLELINT_NO_CONFIG.test(r.stderr || r.stdout || '')) {
+    return stylelintRun({ text, file, name, dir, language, signal }, sl, true);
+  }
+  return { tool: 'stylelint', diagnostics: w.map((m) => D(m.line, m.column, `${m.text}`, m.severity === 'error' ? 'error' : 'warning', { endLine: m.endLine, endCol: m.endColumn, source: m.rule })) };
 }
 
 // Runs the language's checker chosen by `choice` ('auto' | tool id | 'none'); null from a tool's run means
@@ -430,14 +510,27 @@ function appNpmBin(name, toolsDir) {
   const bin = path.join(toolsDir, 'node', 'node_modules', '.bin', process.platform === 'win32' ? `${name}.cmd` : name);
   return fs.existsSync(bin) ? bin : null;
 }
-function inUserBins(name) {
+function inUserBins(name, toolsDir) {
   const dirs = [path.join(os.homedir(), '.local', 'bin'), path.join(os.homedir(), '.cargo', 'bin'), path.join(os.homedir(), 'go', 'bin')];
+  const { scripts } = pythonUserDirs(toolsDir);
+  if (scripts) dirs.push(scripts);
+  if (process.env.GOBIN) dirs.push(process.env.GOBIN);
+  if (process.env.GOPATH) for (const g of process.env.GOPATH.split(path.delimiter)) if (g) dirs.push(path.join(g, 'bin'));
   if (process.platform === 'win32') {
     const roaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
     const local = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-    for (const root of [path.join(roaming, 'Python'), path.join(local, 'Programs', 'Python')]) {
-      try { for (const n of fs.readdirSync(root)) dirs.push(path.join(root, n, 'Scripts')); } catch { /* not there */ }
+    dirs.push(path.join(roaming, 'Python', 'Scripts'), path.join(roaming, 'npm'));
+    for (const root of [path.join(roaming, 'Python'), path.join(local, 'Programs', 'Python'), path.join(local, 'Python')]) {
+      try { for (const n of fs.readdirSync(root)) dirs.push(path.join(root, n, 'Scripts'), path.join(root, n, 'bin')); } catch { /* not there */ }
     }
+    const pkgs = path.join(local, 'Packages');
+    try {
+      for (const n of fs.readdirSync(pkgs)) {
+        if (!/^PythonSoftwareFoundation/i.test(n)) continue;
+        const localPkgs = path.join(pkgs, n, 'LocalCache', 'local-packages');
+        try { for (const py of fs.readdirSync(localPkgs)) dirs.push(path.join(localPkgs, py, 'Scripts')); } catch { /* not there */ }
+      }
+    } catch { /* not there */ }
   }
   const exts = process.platform === 'win32' ? ['.exe', '.cmd', '.bat', ''] : [''];
   for (const d of dirs) for (const e of exts) { const p = path.join(d, name + e); if (fs.existsSync(p)) return p; }
@@ -446,12 +539,31 @@ function inUserBins(name) {
 function locateByRecipe(id, toolsDir, ctx) {
   const rec = recipeOf(id);
   if (!rec || rec.kind === 'manual') return null;
-  const bin = rec.bin || (rec.kind === 'npm' ? rec.pkg : rec.module || rec.crate || id);
-  if (rec.kind === 'npm') return appNpmBin(bin, toolsDir) || npmTool(bin, ctx && ctx.dir);
-  if (rec.kind === 'psmodule') return null;
-  return onPath(bin) || inUserBins(bin);
+  if (rec.kind === 'npm') {
+    const bin = rec.bin || rec.pkg;
+    return appNpmBin(bin, toolsDir) || npmTool(bin, ctx && ctx.dir);
+  }
+  if (rec.kind === 'psmodule') {
+    const ps = onPath('pwsh') || onPath('powershell');
+    return (id === 'pssa' || rec.module === 'PSScriptAnalyzer') && pssaModuleDir() && ps ? ps : null;
+  }
+  if (rec.kind === 'pip') {
+    const name = rec.bin || rec.module || rec.pkg;
+    const exe = onPath(name) || inUserBins(name, toolsDir);
+    if (exe) return exe;
+    const py = pythonExe(toolsDir);
+    if (py && rec.module && pipModuleOnDisk(rec.module, toolsDir)) return { cmd: py, pre: ['-m', rec.module] };
+    return null;
+  }
+  const name = rec.bin || rec.crate || rec.module || id;
+  return onPath(name) || inUserBins(name, toolsDir);
 }
 function resolveLintExe(t, ctx) {
+  const rec = recipeOf(t.id);
+  if (rec && rec.kind !== 'manual') {
+    const installed = locateByRecipe(t.id, ctx && ctx.toolsDir, ctx);
+    if (installed) return installed;
+  }
   const hit = t.find(ctx);
   if (hit) return hit;
   return locateByRecipe(t.id, ctx && ctx.toolsDir, ctx);
@@ -475,23 +587,27 @@ function lintTools(dir, toolsDir) {
 
 function createLinter({ toolsDir } = {}) {
   const running = new Map();   // doc id → { kill }
+  binsToolsDir = toolsDir || binsToolsDir;
   return {
     languages: () => Object.keys(LINTERS),
     // { dir, refresh } → { language: [{ id, label, available, installable }] } — the settings' dropdowns
     tools: ({ dir, refresh: again = false } = {}) => {
-      if (again) { exeCache.clear(); resetPathIndex(); }
+      binsToolsDir = toolsDir || binsToolsDir;
+      if (again) forgetBins();
       return lintTools(dir, toolsDir);
     },
     // { id, path, name, language, text, tool } → { tool, diagnostics, error }; `tool` is the settings' choice for the language
     async run({ id, path: file, name, language, text, tool: choice }) {
+      binsToolsDir = toolsDir || binsToolsDir;
       if (!LINTERS[language]) return { tool: null, diagnostics: [], supported: false };
       if (typeof text !== 'string' || text.length > MAX_TEXT) return { tool: null, diagnostics: [], skipped: 'too large' };
+      forgetBins();
       const prev = running.get(id);
       if (prev && prev.kill) prev.kill();
       const signal = {};
       running.set(id, signal);
       try {
-        const r = await lintWith(language, { text, file: file || '', name: name || (file ? path.basename(file) : ''), dir: file ? path.dirname(file) : os.homedir(), signal, toolsDir }, choice || 'auto');
+        const r = await lintWith(language, { text, file: file || '', name: name || (file ? path.basename(file) : ''), dir: file ? path.dirname(file) : os.homedir(), signal, toolsDir, language }, choice || 'auto');
         if (running.get(id) !== signal) return { tool: r.tool || null, diagnostics: [], cancelled: true };
         return { tool: r.tool || null, diagnostics: (r.diagnostics || []).filter((d) => d.message).slice(0, 500), error: r.error || null, off: !!r.off };
       } catch (e) {
@@ -503,4 +619,4 @@ function createLinter({ toolsDir } = {}) {
   };
 }
 
-module.exports = { createLinter, LINTERS, lintWith, lintTools, resolveLintExe, onPath, npmTool, resetPathIndex, exec, withTempFile };
+module.exports = { createLinter, LINTERS, lintWith, lintTools, resolveLintExe, locateByRecipe, onPath, npmTool, resetPathIndex, forgetBins, unwrapNpmShim, exec, withTempFile };

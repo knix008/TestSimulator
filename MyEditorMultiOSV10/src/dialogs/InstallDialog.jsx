@@ -15,15 +15,20 @@ function StepMark({ status }) {
   return <span className="inst-dot" />;
 }
 
-export function InstallDialog({ tool, jobId, onResult, doneLabel }) {
+export function InstallDialog({ tool, jobId: jobId0, onResult, onApplied, doneLabel, installRuntime = false }) {
   useLanguage();
+  const [jobId, setJobId] = useState(jobId0);
   const [state, setState] = useState('running');
   const [command, setCommand] = useState('');
   const [kind, setKind] = useState('');
   const [log, setLog] = useState('');
   const [showLog, setShowLog] = useState(false);
   const logRef = useRef(null);
+  const onAppliedRef = useRef(onApplied);
+  onAppliedRef.current = onApplied;
+  const applied = useRef(false);
 
+  useEffect(() => { applied.current = false; }, [jobId]);
   useEffect(() => {
     let stop = false;
     let since = 0;
@@ -39,6 +44,10 @@ export function InstallDialog({ tool, jobId, onResult, doneLabel }) {
         setKind(st.kind || '');
         setState(st.state);
         if (st.state === 'failed' || st.state === 'cancelled') setShowLog(true);
+        if (st.state === 'done' && !applied.current) {
+          applied.current = true;
+          try { await onAppliedRef.current?.(true); } catch { /* listing / re-check is best-effort */ }
+        }
         if (st.state !== 'running') return;
       }
     })();
@@ -46,15 +55,36 @@ export function InstallDialog({ tool, jobId, onResult, doneLabel }) {
   }, [jobId]);
   useEffect(() => { const el = logRef.current; if (el) el.scrollTop = el.scrollHeight; }, [log, showLog]);
 
+  const retry = async () => {
+    setLog('');
+    setCommand('');
+    setShowLog(false);
+    setState('running');
+    let st;
+    try { st = await call('install.start', { tool, reinstall: true, installRuntime }); } catch (e) { st = { error: e.message }; }
+    if (st.error || st.manual || st.missing) {
+      setState('failed');
+      setLog(st.error || st.manual || (st.missing ? t('inst_missing_pm', { pm: st.missing, tool }) : ''));
+      setShowLog(true);
+      return;
+    }
+    applied.current = false;
+    setJobId(st.id);
+  };
+
   const running = state === 'running';
   const title = t(running ? 'inst_title' : state === 'done' ? 'inst_done' : state === 'cancelled' ? 'inst_cancelled' : 'inst_failed', { tool });
   const steps = installProgress(state, log);
   const kindLabel = kind && INSTALL_KIND_LABEL[kind] ? t(INSTALL_KIND_LABEL[kind]) : '';
+  const canRetry = state === 'failed' || state === 'cancelled';
   return (
     <Dialog title={title} icon={state === 'done' ? 'check' : state === 'failed' ? 'warning' : 'download'} kind={state === 'failed' ? 'danger' : 'info'} width={640} onClose={() => { if (running) call('install.cancel', { id: jobId }).catch(() => {}); onResult(state === 'done'); }}
       footer={running
         ? <button className="btn" onClick={() => call('install.cancel', { id: jobId }).catch(() => {})}>{t('cancel')}</button>
-        : <button className="btn primary" onClick={() => onResult(state === 'done')}>{state === 'done' ? (doneLabel || t('close')) : t('close')}</button>}>
+        : <>
+            {canRetry && <button className="btn primary" onClick={retry}>{t('inst_retry')}</button>}
+            <button className={canRetry ? 'btn' : 'btn primary'} onClick={() => onResult(state === 'done')}>{state === 'done' ? (doneLabel || t('close')) : t('close')}</button>
+          </>}>
       <div className="inst">
         <div className="inst-head">
           {running ? <span className="inst-spinner" /> : <Icon name={state === 'done' ? 'check' : 'warning'} size={16} />}

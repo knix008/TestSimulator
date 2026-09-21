@@ -1,6 +1,6 @@
 // Print preview: the HTML that will be sent to the printer (a rendered
-// Markdown / HTML page, a picture, or a numbered listing) is shown on a
-// paper-sized sheet. For a code listing the toolbar repeats the print
+// Markdown / HTML page, a picture, or a numbered listing) is shown as
+// separate A4 sheets. For a code listing the toolbar repeats the print
 // options (settings › print) so they can be tried on the page. On the
 // desktop this dialog fills its own window; Print sends the page to the
 // chosen printer. Cancel closes.
@@ -8,12 +8,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Icons';
 import { Dialog } from './Dialogs';
-import { buildCodePrintHtmlAsync, isPagedPrint, printOptsOf } from '../lib/print';
+import { buildCodePrintHtmlAsync, isPagedPrint, printOptsOf, pageSizePx, PRINT_PAPERS } from '../lib/print';
 import { withProgress } from '../lib/progress';
 import { isElectron, listPrinters, printHtml } from '../lib/backend';
 
-const PAPER_W = 794;    // A4 width at 96 dpi
-const PAPER_H = 1123;   // one A4 page — short documents still look like a page
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5];
 
 function printLabels() {
@@ -41,18 +39,20 @@ export function PrintPreviewDialog({ html: html0, title, path, lang, text, lineH
   const [html, setHtml] = useState(html0);
   const [zoom, setZoom] = useState(1);
   const [fit, setFit] = useState(true);
-  const [pageH, setPageH] = useState(PAPER_H);
+  const [pageH, setPageH] = useState(() => pageSizePx(printOptsOf(settings)).h);
   const [printers, setPrinters] = useState([]);
   const [deviceName, setDeviceName] = useState('');
   const [copies, setCopies] = useState(1);
   const [color, setColor] = useState(true);
-  const [landscape, setLandscape] = useState(false);
+  const [landscape, setLandscape] = useState(!!settings.printLandscape);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const paged = isPagedPrint(html);
   const opts = printOptsOf(settings);
+  const sheet = pageSizePx(opts);
+  useEffect(() => { setLandscape(!!opts.printLandscape); }, [opts.printLandscape]);
   const skipFirst = useRef(true);
 
   useEffect(() => { setHtml(html0); skipFirst.current = true; }, [html0]);
@@ -84,18 +84,18 @@ export function PrintPreviewDialog({ html: html0, title, path, lang, text, lineH
   useEffect(() => {
     const el = stageRef.current;
     if (!el || !fit) return undefined;
-    const apply = () => setZoom(Math.max(0.25, Math.min(1, (el.clientWidth - 40) / (landscape ? PAPER_H : PAPER_W))));
+    const apply = () => setZoom(Math.max(0.25, Math.min(1, (el.clientWidth - 40) / sheet.w)));
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [fit, landscape]);
+  }, [fit, landscape, sheet.w]);
 
   // The iframe grows with its document so the sheet is as tall as the printout.
   const measure = () => {
     const doc = frameRef.current && frameRef.current.contentDocument;
     if (!doc) return;
-    const h = Math.max(doc.documentElement.scrollHeight, (doc.body && doc.body.scrollHeight) || 0, landscape ? PAPER_W : PAPER_H);
+    const h = Math.max(doc.documentElement.scrollHeight, (doc.body && doc.body.scrollHeight) || 0, sheet.h);
     setPageH(h);
   };
   const onLoad = () => {
@@ -117,7 +117,7 @@ export function PrintPreviewDialog({ html: html0, title, path, lang, text, lineH
     const i = ZOOMS.reduce((best, z, n) => (Math.abs(z - from) < Math.abs(ZOOMS[best] - from) ? n : best), 0);
     pickZoom(ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, i + dir))]);
   };
-  const printOpts = () => ({ deviceName, copies, color, landscape });
+  const printOpts = () => ({ deviceName, copies, color, landscape, pageSize: opts.printPaper });
   const go = async () => {
     if (busy) return;
     if (embedded && isElectron) {
@@ -150,7 +150,7 @@ export function PrintPreviewDialog({ html: html0, title, path, lang, text, lineH
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (id) => { if (onPrintOpts) onPrintOpts({ [id]: !opts[id] }); };
-  const sheetW = landscape ? PAPER_H : PAPER_W;
+  const sheetW = sheet.w;
 
   return (
     <Dialog title={t('print_title')} icon="print" kind="info" className="print-preview" width={1100} embedded={embedded} onClose={() => onResult(null)} onEnter={go}
@@ -193,8 +193,16 @@ export function PrintPreviewDialog({ html: html0, title, path, lang, text, lineH
           </select>
           <label htmlFor="med-copies">{t('print_copies')}</label>
           <input id="med-copies" type="number" min="1" max="99" value={copies} onChange={(e) => setCopies(Math.max(1, Math.min(99, Number(e.target.value) || 1)))} />
+          <label htmlFor="med-paper">{t('set_print_paper')}</label>
+          <select id="med-paper" value={opts.printPaper} onChange={(e) => onPrintOpts && onPrintOpts({ printPaper: e.target.value })}>
+            {Object.keys(PRINT_PAPERS).map((id) => <option key={id} value={id}>{t(`set_print_paper_${id}`)}</option>)}
+          </select>
           <label htmlFor="med-layout">{t('print_layout')}</label>
-          <select id="med-layout" value={landscape ? 'landscape' : 'portrait'} onChange={(e) => setLandscape(e.target.value === 'landscape')}>
+          <select id="med-layout" value={landscape ? 'landscape' : 'portrait'} onChange={(e) => {
+            const next = e.target.value === 'landscape';
+            setLandscape(next);
+            if (onPrintOpts) onPrintOpts({ printLandscape: next });
+          }}>
             <option value="portrait">{t('print_portrait')}</option>
             <option value="landscape">{t('print_landscape')}</option>
           </select>

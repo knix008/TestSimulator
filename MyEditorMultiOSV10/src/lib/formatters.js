@@ -2,7 +2,7 @@
 // core/format.js run(): the chosen tool, or with 'auto' the first installed
 // one, and the editor's own re-indent when nothing is. Used by the toolbar
 // label next to the format button and by the settings › 정렬 tab.
-import { t } from './i18n';
+import { t } from './i18n.js';
 
 // Display name of a tool from format.tools (the bundled ones are translated).
 export const toolLabel = (x) => ({ 'prettier-builtin': t('fmt_prettier_builtin'), prettier: t('fmt_prettier_ext'), 'builtin-json': t('fmt_builtin_json'), 'builtin-xml': t('fmt_builtin_xml') })[x.id] || x.label;

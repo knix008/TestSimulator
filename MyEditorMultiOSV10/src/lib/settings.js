@@ -83,6 +83,9 @@ export const SETTINGS_DEFAULTS = {
   printWrap: true,         // code print: wrap long lines
   printFontSize: 9.5,      // code print: type size in pt
   printLineHeight: 1.45,   // code print: line height
+  printPaper: 'a4',        // a4 · letter · legal · a5
+  printLandscape: false,   // page orientation
+  printMargin: 12,         // page margin in mm
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
@@ -97,6 +100,7 @@ export const RESET_KEYS = [
   'formatters', 'linters', 'formatOnSave', 'termCwd', 'termShell', 'termColor', 'termEol', 'termCr', 'prompt',
   'printHeader', 'printLineNumbers', 'printBorder', 'printPageNumbers', 'printDate',
   'printSyntax', 'printColor', 'printZebra', 'printGutter', 'printWrap', 'printFontSize', 'printLineHeight',
+  'printPaper', 'printLandscape', 'printMargin',
 ];
 export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, k === 'prompt' ? PROMPT_DEFAULT : Array.isArray(SETTINGS_DEFAULTS[k]) ? [] : typeof SETTINGS_DEFAULTS[k] === 'object' && SETTINGS_DEFAULTS[k] ? {} : SETTINGS_DEFAULTS[k]]));
 

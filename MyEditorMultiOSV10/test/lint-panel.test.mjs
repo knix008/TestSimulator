@@ -82,7 +82,7 @@ test('the bottom panel has Terminal, Log and Lint tabs', () => {
   assert.match(app, /toggleBottomPanel\(st, tab\)/);
   assert.match(app, /hideBottomPanel\(\)/);
   assert.match(app, /panels=\{\{ terminal: !!settings\.showTerminal, log: !!settings\.showLog, lint: !!settings\.showLint \}\}/);
-  assert.match(app, /items: r\.diagnostics/);
+  assert.match(app, /items: \(r && r\.diagnostics\) \|\| \[\]/);
   assert.match(app, /\[activeId, settings\.lint\]/);
   const toolbar = fs.readFileSync(path.join(root, 'src', 'components', 'Toolbar.jsx'), 'utf8');
   assert.match(toolbar, /id: 'toggleTerminal'/);

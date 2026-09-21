@@ -91,7 +91,7 @@
       <feDropShadow dx="2" dy="6" stdDeviation="4" flood-color="#020617" flood-opacity="0.4"/>
     </filter>
     <clipPath id="faceClip"><rect x="46" y="30" width="396" height="396" rx="92"/></clipPath>
-    <clipPath id="imgClip"><rect x="0" y="0" width="86" height="108" rx="10"/></clipPath>
+    <clipPath id="imgClip"><rect x="0" y="0" width="108" height="136" rx="12"/></clipPath>
   </defs>
 
   <!-- ground contact shadow: the tile is sitting in space -->
@@ -112,61 +112,61 @@
     <rect x="46" y="30" width="396" height="396" fill="url(#spec)"/>
     <ellipse cx="150" cy="70" rx="210" ry="88" fill="#ffffff" fill-opacity="0.22"/>
     <ellipse cx="390" cy="390" rx="200" ry="110" fill="#020617" fill-opacity="0.28"/>
-    <!-- shallow well: a dent in the 3D face, small enough that the tile still reads -->
-    <rect x="108" y="108" width="272" height="248" rx="56" fill="url(#well)"/>
-    <rect x="112" y="112" width="264" height="240" rx="52" fill="none" stroke="#020617" stroke-opacity="0.28" stroke-width="3"/>
-    <rect x="110" y="110" width="264" height="36" rx="18" fill="#ffffff" fill-opacity="0.1"/>
+    <!-- well: room for the larger document fan -->
+    <rect x="88" y="88" width="312" height="280" rx="52" fill="url(#well)"/>
+    <rect x="92" y="92" width="304" height="272" rx="48" fill="none" stroke="#020617" stroke-opacity="0.28" stroke-width="3"/>
+    <rect x="90" y="90" width="304" height="40" rx="20" fill="#ffffff" fill-opacity="0.1"/>
   </g>
   <rect x="49" y="33" width="390" height="390" rx="89" fill="none" stroke="url(#bevel)" stroke-width="6"/>
   <rect x="46" y="30" width="396" height="396" rx="92" fill="none" stroke="#020617" stroke-opacity="0.28" stroke-width="2"/>
 
-  <!-- documents: small, so the 3D tile reads first -->
-  <g transform="translate(256 226) scale(0.72) translate(-256 -228)">
+  <!-- documents: large enough to read as files, still inside the 3D tile -->
+  <g transform="translate(256 232) scale(0.96) translate(-256 -232)">
     <!-- image card, back left -->
-    <g transform="translate(132 118) rotate(-16)" filter="url(#cardSh)">
-      <rect x="6" y="8" width="86" height="108" rx="10" fill="#075985"/>
+    <g transform="translate(118 102) rotate(-16)" filter="url(#cardSh)">
+      <rect x="7" y="10" width="108" height="136" rx="12" fill="#075985"/>
       <g clip-path="url(#imgClip)">
-        <rect x="0" y="0" width="86" height="108" fill="url(#sky)"/>
-        <circle cx="62" cy="26" r="12" fill="#fbbf24"/>
-        <path d="M0 84 L24 54 L44 76 L60 62 L86 90 L86 108 L0 108 Z" fill="#16a34a"/>
-        <path d="M0 94 L18 74 L36 90 L54 78 L86 100 L86 108 L0 108 Z" fill="#15803d"/>
+        <rect x="0" y="0" width="108" height="136" fill="url(#sky)"/>
+        <circle cx="78" cy="32" r="15" fill="#fbbf24"/>
+        <path d="M0 104 L30 68 L54 94 L74 78 L108 112 L108 136 L0 136 Z" fill="#16a34a"/>
+        <path d="M0 116 L22 92 L44 112 L68 96 L108 124 L108 136 L0 136 Z" fill="#15803d"/>
       </g>
-      <rect x="0" y="0" width="86" height="108" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="3"/>
+      <rect x="0" y="0" width="108" height="136" rx="12" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="3.5"/>
     </g>
 
     <!-- hex card, back right -->
-    <g transform="translate(292 108) rotate(14)" filter="url(#cardSh)">
-      <rect x="5" y="8" width="86" height="108" rx="10" fill="#020617"/>
-      <rect x="0" y="0" width="86" height="108" rx="10" fill="url(#hex)"/>
-      <rect x="0" y="0" width="86" height="108" rx="10" fill="none" stroke="#94a3b8" stroke-opacity="0.7" stroke-width="2.5"/>
-      <g font-family="Consolas, 'Courier New', monospace" font-size="13" font-weight="700" fill="#7dd3fc">
-        <text x="8" y="28">4D 5A</text>
-        <text x="8" y="46" fill="#a5f3fc">00 03</text>
-        <text x="8" y="64">FF FE</text>
-        <text x="8" y="82" fill="#a5f3fc">89 50</text>
-        <text x="8" y="100">0A 1A</text>
+    <g transform="translate(286 92) rotate(14)" filter="url(#cardSh)">
+      <rect x="6" y="10" width="108" height="136" rx="12" fill="#020617"/>
+      <rect x="0" y="0" width="108" height="136" rx="12" fill="url(#hex)"/>
+      <rect x="0" y="0" width="108" height="136" rx="12" fill="none" stroke="#94a3b8" stroke-opacity="0.7" stroke-width="3"/>
+      <g font-family="Consolas, 'Courier New', monospace" font-size="16" font-weight="700" fill="#7dd3fc">
+        <text x="10" y="34">4D 5A</text>
+        <text x="10" y="56" fill="#a5f3fc">00 03</text>
+        <text x="10" y="78">FF FE</text>
+        <text x="10" y="100" fill="#a5f3fc">89 50</text>
+        <text x="10" y="122">0A 1A</text>
       </g>
     </g>
 
-    <!-- code sheet, front — smaller than the cards behind it -->
-    <g transform="translate(186 142)" filter="url(#cardSh)">
-      <rect x="6" y="10" width="118" height="148" rx="10" fill="url(#pageSide)"/>
-      <path d="M0 12 h78 l32 32 v104 a10 10 0 0 1-10 10 H10 a10 10 0 0 1-10-10 V22 a10 10 0 0 1 10-10z" fill="url(#page)"/>
-      <path d="M78 12 v22 a10 10 0 0 0 10 10 h22z" fill="url(#fold)"/>
-      <rect x="0" y="12" width="110" height="146" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.65" stroke-width="1.6"/>
-      <rect x="14" y="58" width="28" height="8" rx="4" fill="#7c3aed"/>
-      <rect x="46" y="58" width="44" height="8" rx="4" fill="#94a3b8"/>
-      <rect x="22" y="76" width="40" height="8" rx="4" fill="#15803d"/>
-      <rect x="66" y="76" width="24" height="8" rx="4" fill="#94a3b8"/>
-      <rect x="22" y="94" width="26" height="8" rx="4" fill="#c2410c"/>
-      <rect x="52" y="94" width="42" height="8" rx="4" fill="#1d4ed8"/>
-      <rect x="14" y="112" width="58" height="8" rx="4" fill="#94a3b8"/>
-      <rect x="58" y="126" width="6" height="16" rx="2" fill="#0ea5e9"/>
+    <!-- code sheet, front -->
+    <g transform="translate(168 128)" filter="url(#cardSh)">
+      <rect x="8" y="12" width="148" height="186" rx="12" fill="url(#pageSide)"/>
+      <path d="M0 14 h98 l40 40 v132 a12 12 0 0 1-12 12 H12 a12 12 0 0 1-12-12 V26 a12 12 0 0 1 12-12z" fill="url(#page)"/>
+      <path d="M98 14 v28 a12 12 0 0 0 12 12 h28z" fill="url(#fold)"/>
+      <rect x="0" y="14" width="138" height="184" rx="12" fill="none" stroke="#ffffff" stroke-opacity="0.65" stroke-width="2"/>
+      <rect x="18" y="72" width="36" height="10" rx="5" fill="#7c3aed"/>
+      <rect x="58" y="72" width="56" height="10" rx="5" fill="#94a3b8"/>
+      <rect x="28" y="94" width="50" height="10" rx="5" fill="#15803d"/>
+      <rect x="82" y="94" width="30" height="10" rx="5" fill="#94a3b8"/>
+      <rect x="28" y="116" width="32" height="10" rx="5" fill="#c2410c"/>
+      <rect x="64" y="116" width="52" height="10" rx="5" fill="#1d4ed8"/>
+      <rect x="18" y="138" width="72" height="10" rx="5" fill="#94a3b8"/>
+      <rect x="72" y="156" width="8" height="20" rx="2" fill="#0ea5e9"/>
     </g>
   </g>
 
   <!-- pencil: a short 3D cylinder (wood + highlight + dark side) -->
-  <g transform="translate(308 276) rotate(42) scale(0.86)" filter="url(#penSh)">
+  <g transform="translate(322 292) rotate(42) scale(0.92)" filter="url(#penSh)">
     <rect x="-11" y="-6" width="26" height="96" rx="5" fill="#78350f"/>
     <rect x="-13" y="-8" width="26" height="96" rx="5" fill="url(#woodL)"/>
     <rect x="-13" y="-8" width="26" height="16" rx="5" fill="url(#eraser)"/>

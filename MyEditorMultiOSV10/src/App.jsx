@@ -28,7 +28,7 @@ import { Outline } from './components/Outline';
 import { markdownLive, imageBase } from './lib/mdlive';
 import { dockerfileCompletion, kubernetesCompletion } from './lib/devops';
 import { fileToDataUrl, isImageFile, resolveImageSrc, analyzeImage, encodeImage, icoDisplaySrc } from './lib/images';
-import { buildCodePrintHtmlAsync, highlightCodeLinesAsync, printOptsOf } from './lib/print';
+import { buildCodePrintHtmlAsync, highlightCodeLinesAsync, printOptsOf, pageSizeMm } from './lib/print';
 import { withProgress, yieldToUi } from './lib/progress';
 import { renderMarkdown } from './lib/markdown';
 import { applyDiagnostics, clearDiagnostics, countDiagnostics, nextDiagnostic } from './lib/lint';
@@ -256,21 +256,22 @@ export default function App() {
     const state = getState(id);
     if (!doc || !state || !settingsRef.current.lint) return;
     if (doc.kind === 'hex') { patchDoc(id, { lint: null }); return; }
-    if (!doc.langName || doc.langName === 'Markdown' && !doc.path) { return; }
+    if (!doc.langName) return;
     const text = state.doc.toString();
     lintRuns.current.set(id, text);
     let r;
-    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language: doc.langName, text, tool: (settingsRef.current.linters || {})[doc.langName] || 'auto' }); } catch { r = null; }
-    if (!r || r.cancelled || lintRuns.current.get(id) !== text) return;
+    try { r = await call('lint.run', { id, path: doc.path || '', name: doc.name, language: doc.langName, text, tool: (settingsRef.current.linters || {})[doc.langName] || 'auto' }); } catch (e) { r = { tool: null, diagnostics: [], error: e.message }; }
+    if (r && r.cancelled) return;
+    if (lintRuns.current.get(id) !== text) return;
     lintRuns.current.delete(id);
     const cur = getDoc(id);
     const st = getState(id);
     if (!cur || !st) return;
     if (st.doc.toString() !== text) { scheduleLint(id, 300); return; }
-    dispatchTo(id, applyDiagnostics(st, r.diagnostics || []));
+    dispatchTo(id, applyDiagnostics(st, (r && r.diagnostics) || []));
     const after = getState(id);
     const counts = after ? countDiagnostics(after) : { error: 0, warning: 0, info: 0, total: 0 };
-    patchDoc(id, { lint: { tool: r.tool, error: r.error || null, error_msg: r.error || null, items: r.diagnostics || [], ...counts } });
+    patchDoc(id, { lint: { tool: r && r.tool, error_msg: (r && r.error) || null, items: (r && r.diagnostics) || [], pending: false, ...counts } });
   };
   const clearLint = (id) => { const st = getState(id); if (st) dispatchTo(id, clearDiagnostics(st)); patchDoc(id, { lint: null }); };
   // ── printing (파일 › 인쇄, Ctrl+P): the desktop app opens a separate
@@ -324,12 +325,17 @@ export default function App() {
         report({ message: t('prog_print_pages'), value: 0.7 });
         return buildCodePrintHtmlAsync({ title, path: doc.path || doc.name, lang: doc.langName, text, lineHtml, opts: printOpts }, (v) => report({ value: v, message: t('prog_print_pages') }));
       }
-      const css = `body{font-family:Segoe UI,Malgun Gothic,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;color:#111;margin:18mm 16mm;font-size:12pt;line-height:1.55}
+      const paper = pageSizeMm(printOpts);
+      const css = `html,body{margin:0}body{font-family:Segoe UI,Malgun Gothic,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;color:#111;font-size:12pt;line-height:1.55}
 h1{font-size:1.8em;border-bottom:1px solid #999;padding-bottom:4px}h2{font-size:1.45em;border-bottom:1px solid #bbb;padding-bottom:3px}h3{font-size:1.2em}
-pre,code{font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospace;font-size:10.5pt}pre{background:#f4f4f4;border:1px solid #ddd;border-radius:4px;padding:8px;white-space:pre-wrap;word-break:break-all}
-img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:collapse}.md table td,.md table th{border:1px solid #bbb;padding:3px 8px}blockquote{border-left:3px solid #999;margin:0;padding:2px 12px;color:#444}
-.pic{display:flex;justify-content:center}.title{font-size:10pt;color:#666;border-bottom:1px solid #ccc;margin-bottom:12px;padding-bottom:4px}@page{margin:0}`;
-      return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body><div class="title">${esc(doc.path || doc.name)}</div>${body}</body></html>`;
+pre,code{font-family:Cascadia Mono,Consolas,D2Coding,Menlo,monospace;font-size:10.5pt}pre{background:#f4f4f4;border:1px solid #ddd;border-radius:4px;padding:8px;white-space:pre-wrap;word-break:break-all;break-inside:avoid}
+img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{border-collapse:collapse}.md table td,.md table th{border:1px solid #bbb;padding:3px 8px}blockquote{border-left:3px solid #999;margin:0;padding:2px 12px;color:#444}
+.pic{display:flex;justify-content:center}.title{font-size:10pt;color:#666;border-bottom:1px solid #ccc;margin-bottom:12px;padding-bottom:4px}
+.page{width:${paper.w}mm;min-height:${paper.h}mm;box-sizing:border-box;padding:${printOpts.printMargin}mm;background:#fff}
+@page{size:${paper.w}mm ${paper.h}mm;margin:0}
+@media screen{body{background:#b7b7b7;padding:14px 0 22px}.page{box-shadow:0 3px 14px rgba(0,0,0,.32);margin:0 auto 22px}}
+@media print{body{background:#fff;padding:0}.page{box-shadow:none;margin:0;width:auto}}`;
+      return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body class="paged"><div class="page"><div class="title">${esc(doc.path || doc.name)}</div>${body}</div></body></html>`;
     });
     html = built;
     const job = { html, title, code: isCode, text: isCode ? text : undefined, path: doc.path || doc.name, lang: isCode ? doc.langName : undefined, lineHtml };
@@ -389,8 +395,16 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
           try { st = await call('install.start', { tool: r.tool }); } catch (e) { st = { error: e.message }; }
           if (st.error) { setMessage(`${t('inst_failed', { tool: r.tool })}: ${st.error}`); return false; }
           if (st.manual) { await showError(t('inst_manual_title', { tool: r.tool }), st.manual); return false; }
-          if (st.missing) { await showError(t('inst_manual_title', { tool: r.tool }), t('inst_missing_pm', { pm: st.missing, tool: r.tool })); return false; }
-          const ok = await ask({ type: 'install', tool: r.tool, jobId: st.id });
+          let withRuntime = false;
+          if (st.missing && st.runtime) {
+            const go = await confirm(t('inst_ask_runtime_title', { pm: st.missing }), t('inst_ask_runtime_msg', { pm: st.missing, tool: r.tool }), [{ id: 'yes', label: t('inst_ask_yes'), kind: 'primary' }, { id: 'cancel', label: t('cancel') }], { icon: 'download', kind: 'info' });
+            if (go !== 'yes') return false;
+            withRuntime = true;
+            try { st = await call('install.start', { tool: r.tool, installRuntime: true }); } catch (e) { st = { error: e.message }; }
+            if (st.error) { setMessage(`${t('inst_failed', { tool: r.tool })}: ${st.error}`); return false; }
+            if (st.missing) { await showError(t('inst_manual_title', { tool: r.tool }), t('inst_missing_pm', { pm: st.missing, tool: r.tool })); return false; }
+          } else if (st.missing) { await showError(t('inst_manual_title', { tool: r.tool }), t('inst_missing_pm', { pm: st.missing, tool: r.tool })); return false; }
+          const ok = await ask({ type: 'install', tool: r.tool, jobId: st.id, installRuntime: withRuntime });
           if (!ok) return false;
           try { setFmtTools(await call('format.tools', { dir: fmtDirRef.current, refresh: true })); } catch { /* the label catches up on the next listing */ }   // forget the cached "not installed"
           return formatDoc(id, { quiet });
@@ -1196,12 +1210,21 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
   // Settings changed in a separate window (settings popup): apply, don't save again, don't echo back.
   useEffect(() => onSettingsPatch((patch) => {
     // The settings window looked the formatters up again (다시 찾기 / an install): take the backend's new list for the toolbar label.
-    if (patch.formatToolsAt) { call('format.tools', { dir: fmtDirRef.current }).then(setFmtTools).catch(() => {}); return; }
     if (patch.settingsTab) return;   // a note for the settings window only (which tab to show)
     changeSettings(patch, { fromRemote: true });
   }), []);   // eslint-disable-line react-hooks/exhaustive-deps
   const changeSettings = (patch, { fromRemote = false } = {}) => {
-    const next = setSettings(patch);
+    if (patch.formatToolsAt) call('format.tools', { dir: fmtDirRef.current }).then(setFmtTools).catch(() => {});
+    if (patch.lintToolsAt) call('lint.tools', { dir: fmtDirRef.current, refresh: true }).catch(() => {});
+    const rest = { ...patch };
+    delete rest.formatToolsAt;
+    delete rest.lintToolsAt;
+    if (!Object.keys(rest).length) {
+      if (patch.lintToolsAt) lintAll();
+      if (!fromRemote && patch.lintToolsAt) sendSettingsPatch(patch);
+      return;
+    }
+    const next = setSettings(rest);
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
     if (patch.customThemes !== undefined) setCustomThemes(next.customThemes);
     if (patch.theme !== undefined || patch.customThemes !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
@@ -1209,8 +1232,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
     if (editorKeys.some((k) => patch[k] !== undefined)) applyEditorSettings(next);
     if (patch.mdWysiwyg !== undefined) for (const d of docsRef.current) if (d.langName === 'Markdown') applyLanguage(d);
     if (patch.spellCodeAll !== undefined) { setSpellOptions({ codeAll: !!next.spellCodeAll }); spellRefreshAll([viewRef.current]); }
-    if (patch.lint !== undefined || patch.linters !== undefined) lintAll();
-    if (!fromRemote) { call('session.save', patch).catch(() => {}); sendSettingsPatch(patch); }
+    if (patch.lint !== undefined || patch.linters !== undefined || patch.lintToolsAt) lintAll();
+    if (!fromRemote) { call('session.save', rest).catch(() => {}); sendSettingsPatch(patch); }
   };
   const toggleSetting = (k) => changeSettings({ [k]: !settingsRef.current[k] });
   const zoom = Math.round((settings.fontSize / BASE_FONT) * 100);
@@ -2101,7 +2124,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid}table{border-collapse:col
       {dialog && dialog.type === 'goto' && <GotoLineDialog lines={cursor.lines} current={cursor.line} onClose={closeDialog} onGo={(l, c) => { closeDialog(); withView((v) => commands.gotoLine(v, l, c)); }} />}
       {dialog && dialog.type === 'language' && <LanguagePicker current={(getDoc(dialog.docId) || {}).language || 'auto'} onClose={closeDialog} onPick={(name) => { closeDialog(); setDocLanguage(dialog.docId, name); }} />}
       {dialog && dialog.type === 'encoding' && <EncodingPicker title={t('reopen_as')} encodings={(info && info.encodings) || []} current={cur && cur.encoding} onClose={closeDialog} onPick={(id) => { closeDialog(); reopenWith(activeIdRef.current, id); }} />}
-      {dialog && dialog.type === 'install' && <InstallDialog tool={dialog.tool} jobId={dialog.jobId} doneLabel={t('inst_use')} onResult={closeDialog} />}
+      {dialog && dialog.type === 'install' && <InstallDialog tool={dialog.tool} jobId={dialog.jobId} installRuntime={!!dialog.installRuntime} doneLabel={t('inst_use')} onResult={closeDialog} />}
       {dialog && dialog.type === 'printPreview' && <PrintPreviewDialog html={dialog.html} title={dialog.title} path={dialog.path} lang={dialog.lang} text={dialog.text} lineHtml={dialog.lineHtml} code={dialog.code} settings={settings} onPrintOpts={changeSettings} onResult={closeDialog} />}
       {dialog && dialog.type === 'imageExport' && <ImageExportDialog src={dialog.src} alt={dialog.alt} onResult={closeDialog} />}
       {dialog && dialog.type === 'mdImage' && <ImageDialog base={cur && cur.path ? dirName(cur.path) : folder || ''} home={info && info.home} sep={(info && info.sep) || '/'}

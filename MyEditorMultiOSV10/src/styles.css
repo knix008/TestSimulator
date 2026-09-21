@@ -580,7 +580,10 @@ input:disabled, select:disabled { opacity: 0.55; }
 .settings-tab { background: none; border: 0; padding: 6px 14px; color: var(--fg-muted); border-bottom: 2px solid transparent; }
 .settings-tab:hover { color: var(--fg); }
 .settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.print-sample { background: #fff; color: #1f2328; border-radius: 4px; padding: 10px 12px; font-size: 12px; min-height: 160px; display: flex; flex-direction: column; }
+.print-sample-meta { margin: 0 0 8px; }
+.print-sample-pages { display: flex; gap: 10px; align-items: stretch; }
+.print-sample-pages.landscape { flex-direction: column; }
+.print-sample { background: #fff; color: #1f2328; border-radius: 4px; padding: 10px 12px; font-size: 12px; min-height: 0; flex: 1; display: flex; flex-direction: column; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); }
 .print-sample.framed { outline: 1px solid #8b949e; outline-offset: -1px; }
 .print-sample-head { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; color: #656d76; border-bottom: 1.5px solid #0969da; padding-bottom: 4px; margin-bottom: 8px; }
 .print-sample-head .lang { margin-left: 6px; font-size: 10px; color: #8b949e; }
