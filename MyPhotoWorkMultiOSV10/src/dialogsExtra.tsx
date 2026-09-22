@@ -537,6 +537,12 @@ const styleTabLabel: Record<StyleTab, string> = {
   dropShadow: 'dropShadow', innerShadow: 'innerShadow', outerGlow: 'outerGlow', innerGlow: 'innerGlow', bevel: 'bevel', satin: 'satin',
   colorOverlay: 'overlayFx', gradientOverlay: 'gradientOverlay', patternOverlay: 'patternOverlay', stroke: 'strokeFx',
 }
+// One sentence per effect, shown the moment it is selected — the same way the
+// Filter Gallery explains a filter, so every list of choices reads alike.
+const styleTabAbout: Record<StyleTab, string> = {
+  dropShadow: 'aboutDropShadow', innerShadow: 'aboutInnerShadow', outerGlow: 'aboutOuterGlow', innerGlow: 'aboutInnerGlow', bevel: 'aboutBevel', satin: 'aboutSatin',
+  colorOverlay: 'aboutColorOverlay', gradientOverlay: 'aboutGradientOverlay', patternOverlay: 'aboutPatternOverlay', stroke: 'aboutStroke',
+}
 
 function LayerStyleDialog({ payload, onResult }: BodyProps) {
   const tr = (key: string) => t(payload.language, key)
@@ -565,6 +571,7 @@ function LayerStyleDialog({ payload, onResult }: BodyProps) {
         </div>
         <div className="style-page">
           <h3>{tr(styleTabLabel[tab])}</h3>
+          <p className="style-about">{tr(styleTabAbout[tab])}</p>
           {!enabled && <p className="dialog-hint">{tr('styleOff')}</p>}
           {tab === 'dropShadow' && (
             <>
@@ -712,27 +719,31 @@ function GradientEditorDialog({ payload, onResult, onClose }: BodyProps) {
       </label>
       <div className="gradient-preview" style={{ background: gradientCss(def, fg, bg) }} />
       <label>{tr('presetName')}<input value={def.name} onChange={(event) => setDef((current) => ({ ...current, name: event.target.value }))} /></label>
-      <h3>{tr('stopColor')}</h3>
-      {def.stops.map((stop, index) => (
-        <div className="channel-row" key={`c${index}`}>
-          <input type="color" value={resolvedColor(stop.color)} onChange={(event) => setStop(index, { color: event.target.value })} />
-          <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setStop(index, { position: next / 100 })} />
-          <span>{Math.round(stop.position * 100)}%</span>
-          <button data-tooltip={tr('removeStop')} aria-label={tr('removeStop')} disabled={def.stops.length <= 2} onClick={() => setDef((current) => ({ ...current, stops: current.stops.filter((_, i) => i !== index) }))}><X size={13} /></button>
-        </div>
-      ))}
-      <button onClick={() => setDef((current) => ({ ...current, stops: [...current.stops, { position: 0.5, color: fg }] }))}><Plus size={13} /><span>{tr('addStop')}</span></button>
-      <h3>{tr('stopOpacity')}</h3>
-      {def.opacityStops.map((stop, index) => (
-        <div className="channel-row" key={`o${index}`}>
-          <RangeSlider min={0} max={100} value={Math.round(stop.opacity * 100)} onChange={(next) => setOpacityStop(index, { opacity: next / 100 })} />
-          <span>{Math.round(stop.opacity * 100)}%</span>
-          <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setOpacityStop(index, { position: next / 100 })} />
-          <span>{Math.round(stop.position * 100)}%</span>
-          <button data-tooltip={tr('removeStop')} aria-label={tr('removeStop')} disabled={def.opacityStops.length <= 2} onClick={() => setDef((current) => ({ ...current, opacityStops: current.opacityStops.filter((_, i) => i !== index) }))}><X size={13} /></button>
-        </div>
-      ))}
-      <button onClick={() => setDef((current) => ({ ...current, opacityStops: [...current.opacityStops, { position: 0.5, opacity: 1 }] }))}><Plus size={13} /><span>{tr('addStop')}</span></button>
+      <div className="stop-list">
+        <h3>{tr('stopColor')}</h3>
+        {def.stops.map((stop, index) => (
+          <div className="stop-row" key={`c${index}`}>
+            <input type="color" value={resolvedColor(stop.color)} onChange={(event) => setStop(index, { color: event.target.value })} />
+            <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setStop(index, { position: next / 100 })} />
+            <span>{Math.round(stop.position * 100)}%</span>
+            <button data-tooltip={tr('removeStop')} aria-label={tr('removeStop')} disabled={def.stops.length <= 2} onClick={() => setDef((current) => ({ ...current, stops: current.stops.filter((_, i) => i !== index) }))}><X size={13} /></button>
+          </div>
+        ))}
+        <button onClick={() => setDef((current) => ({ ...current, stops: [...current.stops, { position: 0.5, color: fg }] }))}><Plus size={13} /><span>{tr('addStop')}</span></button>
+      </div>
+      <div className="stop-list">
+        <h3>{tr('stopOpacity')}</h3>
+        {def.opacityStops.map((stop, index) => (
+          <div className="stop-row opacity" key={`o${index}`}>
+            <RangeSlider min={0} max={100} value={Math.round(stop.opacity * 100)} onChange={(next) => setOpacityStop(index, { opacity: next / 100 })} />
+            <span>{Math.round(stop.opacity * 100)}%</span>
+            <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setOpacityStop(index, { position: next / 100 })} />
+            <span>{Math.round(stop.position * 100)}%</span>
+            <button data-tooltip={tr('removeStop')} aria-label={tr('removeStop')} disabled={def.opacityStops.length <= 2} onClick={() => setDef((current) => ({ ...current, opacityStops: current.opacityStops.filter((_, i) => i !== index) }))}><X size={13} /></button>
+          </div>
+        ))}
+        <button onClick={() => setDef((current) => ({ ...current, opacityStops: [...current.opacityStops, { position: 0.5, opacity: 1 }] }))}><Plus size={13} /><span>{tr('addStop')}</span></button>
+      </div>
       <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', gradient: def })} applyLabel="saveGradient" />
     </>
   )
@@ -822,18 +833,16 @@ function NeuralModelsDialog({ payload, onResult, onClose }: BodyProps) {
               const fraction = running && progress[spec.id].total > 0 ? progress[spec.id].received / progress[spec.id].total : 0
               return (
                 <div key={spec.id} className="model-row">
+                  <div className="model-name"><strong>{spec.name}</strong><span className="model-size">{formatBytes(spec.bytes)}</span></div>
                   <div className="model-text">
-                    <strong>{spec.name}</strong> <span className="model-size">{formatBytes(spec.bytes)}</span>
                     <div className="model-note">{tr(spec.note)} · {tr('modelLicense')}: {spec.license}</div>
                     {running && <progress max={1} value={fraction} />}
                     {errors[spec.id] && <div className="model-error">{errors[spec.id]}</div>}
                   </div>
-                  <div className="model-actions">
-                    <span className={ready ? 'model-status ready' : 'model-status'}>{running ? `${tr('modelDownloading')} ${Math.round(fraction * 100)}%` : ready ? tr('modelReady') : tr('modelMissing')}</span>
-                    {ready
-                      ? <button onClick={() => remove(spec.id)}><Trash size={13} aria-hidden="true" /><span>{tr('modelDelete')}</span></button>
-                      : <button className="primary" disabled={Boolean(running)} onClick={() => download(spec.id)}><Download size={13} aria-hidden="true" /><span>{tr('modelDownload')}</span></button>}
-                  </div>
+                  <span className={ready ? 'model-status ready' : 'model-status'}>{running ? `${tr('modelDownloading')} ${Math.round(fraction * 100)}%` : ready ? tr('modelReady') : tr('modelMissing')}</span>
+                  {ready
+                    ? <button onClick={() => remove(spec.id)}><Trash size={13} aria-hidden="true" /><span>{tr('modelDelete')}</span></button>
+                    : <button className="primary" disabled={Boolean(running)} onClick={() => download(spec.id)}><Download size={13} aria-hidden="true" /><span>{tr('modelDownload')}</span></button>}
                 </div>
               )
             })}
@@ -915,8 +924,16 @@ function OpenRecentDialog({ payload, onResult, onClose }: BodyProps) {
   return (
     <>
       {files.length === 0 ? <p className="dialog-hint">{tr('noRecent')}</p> : (
-        <div className="filter-gallery-list">
-          {files.map((file) => <button key={file} onClick={() => onResult({ action: 'open', path: file })}>{file}</button>)}
+        <div className="recent-list">
+          {files.map((file) => {
+            const cut = Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\'))
+            return (
+              <button key={file} onClick={() => onResult({ action: 'open', path: file })} data-tooltip={file}>
+                <span>{cut >= 0 ? file.slice(cut + 1) : file}</span>
+                {cut >= 0 && <span className="recent-dir">{file.slice(0, cut)}</span>}
+              </button>
+            )
+          })}
         </div>
       )}
       <div className="dialog-actions">

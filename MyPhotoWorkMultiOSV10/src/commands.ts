@@ -95,7 +95,7 @@ export const menuIcons: Record<MenuId, IconComponent> = {
 }
 
 /** An icon per adjustment, so the Layer menu's twenty-one rows are told apart. */
-const adjustmentIcons: Record<string, IconComponent> = {
+export const adjustmentIcons: Record<string, IconComponent> = {
   brightness: LampCeiling,
   levels: ChartColumnIncreasing,
   curves: ChartSpline,

@@ -38,7 +38,7 @@ let openSequence = 0
 const DIALOG_SPECS = {
   // Wider than the old in-page panel so each row fits label + control on one
   // line, and fixed: the layout is designed for exactly this size.
-  settings: { width: 620, height: 760, resizable: true, minWidth: 560 },
+  settings: { width: 620, height: 560, resizable: true, minWidth: 560 },
   about: { width: 560, height: 470, resizable: false },
   helpGuide: { width: 660, height: 620, resizable: false },
   error: { width: 620, height: 420, minWidth: 420 },
@@ -94,16 +94,16 @@ const DIALOG_SPECS = {
   blurGallery: { width: 440, height: 320, resizable: false },
   customFilter: { width: 460, height: 420, resizable: false },
   layerStyle: { width: 760, height: 620, minWidth: 620 },
-  gradientEditor: { width: 520, height: 640, minWidth: 420 },
+  gradientEditor: { width: 520, height: 560, minWidth: 420 },
   neural: { width: 440, height: 330, resizable: false },
-  neuralModels: { width: 640, height: 560, resizable: true },
+  neuralModels: { width: 800, height: 640, resizable: true },
   removeBg: { width: 560, height: 560, resizable: true },
   modelSetup: { width: 560, height: 480, resizable: true },
   note: { width: 420, height: 240, resizable: false },
   findReplace: { width: 420, height: 270, resizable: false },
   exportAs: { width: 440, height: 330, resizable: false },
   openRecent: { width: 560, height: 420, minWidth: 420 },
-  keyboardShortcuts: { width: 460, height: 620, minWidth: 380 },
+  keyboardShortcuts: { width: 640, height: 560, minWidth: 560 },
   contactSheet: { width: 440, height: 230, resizable: false },
   fitImage: { width: 440, height: 230, resizable: false },
   photomerge: { width: 440, height: 240, resizable: false },

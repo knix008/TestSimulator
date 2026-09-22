@@ -78,11 +78,25 @@ export default function DialogHost({ name: routeName }: { name: string }) {
     }
     report()
     const observer = new ResizeObserver(report)
-    observer.observe(node)
+    // The dialog box is capped at the window, so when a page grows past it
+    // (Layer Style's Bevel after Drop Shadow, a Settings tab) the box does not
+    // change size and the observer on it alone stays silent. Watching the
+    // content's children catches that growth, and re-watching after each DOM
+    // change catches the children a new page brings.
+    const watch = () => {
+      observer.disconnect()
+      observer.observe(node)
+      const content = node.querySelector('.dialog-content')
+      if (content) for (const child of content.children) observer.observe(child)
+    }
+    watch()
+    const mutations = new MutationObserver(() => { watch(); report() })
+    mutations.observe(node, { childList: true, subtree: true })
     // Fonts and the icon SVGs land after the first paint and change the height.
     const settle = window.setTimeout(report, 120)
     return () => {
       observer.disconnect()
+      mutations.disconnect()
       window.clearTimeout(settle)
     }
   }, [payload])

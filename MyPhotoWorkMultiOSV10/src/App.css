@@ -498,6 +498,30 @@ button:disabled:hover {
   text-align: right;
 }
 
+/* A checkbox and its name are one line, everywhere. The grid above stacks
+   them on two rows, and a class on the label (.check-row, .style-tab) loses to
+   `.dialog label` on specificity, so the rule lives here instead of on each. */
+.dialog label:has(> input[type='checkbox']) {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.dialog label:has(> input[type='checkbox']) > input[type='checkbox'] {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* A colour swatch sits beside its name, in the same first column the slider
+   names use, so a page of sliders and colours lines up. Stacked, each swatch
+   cost a row of its own. */
+.dialog label:has(> input[type='color']) {
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: minmax(64px, max-content) auto;
+  justify-content: start;
+}
+
 /* A range input has an intrinsic width of its own; in a narrow column it must
    give way rather than push the value off the edge. */
 .dialog label:has(> input[type='range']) > input[type='range'] {
@@ -643,7 +667,13 @@ button:disabled:hover {
   border-radius: 8px;
   box-shadow: 0 24px 90px rgba(0, 0, 0, 0.4);
   color: var(--text-primary);
+  /* A column, capped at the viewport: in the page (no window of its own) a
+     tall dialog scrolls its content and keeps its buttons in reach, rather
+     than running off the top and bottom of the screen. */
+  display: flex;
+  flex-direction: column;
   left: 50%;
+  max-height: calc(100vh - 40px);
   max-width: min(720px, calc(100vw - 40px));
   overflow: visible;
   padding: 24px;
@@ -1086,12 +1116,24 @@ button:disabled:hover {
   min-width: 300px;
 }
 
-.curves-dialog .dialog-row,
-.levels-dialog label {
+.curves-dialog .dialog-row {
   align-items: center;
   display: flex;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+/* Name, track, value — the name never wraps onto a second line. */
+.levels-dialog label {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(64px, max-content) minmax(0, 1fr) minmax(3em, max-content);
+  margin-bottom: 6px;
+}
+
+.levels-dialog label:last-child {
+  margin-bottom: 0;
 }
 
 .levels-dialog fieldset {
@@ -1233,6 +1275,12 @@ button:disabled:hover {
   max-height: 520px;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+/* In its own window the sheet is shown whole; the window takes the height. */
+.dialog-window .info-sheet {
+  max-height: none;
+  overflow: visible;
 }
 
 .info-sheet h3 {
@@ -1626,6 +1674,22 @@ button:disabled:hover {
   margin-top: 2px;
 }
 
+/* Nothing in the content gives up height. While the window is still smaller
+   than the page, a flex child would shrink to fit — the gradient preview came
+   out as a one-pixel line — and the height then reported would be that of the
+   squashed layout, so the window never grew to show it properly. */
+.dialog-content > * {
+  flex-shrink: 0;
+}
+
+/* The content's own gap already separates the rows; the label margin on top
+   of it only spread each window taller. */
+.dialog-content > label,
+.dialog-content > .dialog-grid > label,
+.style-page > label {
+  margin-bottom: 0;
+}
+
 .about-icon {
   height: 84px;
   margin: 4px auto 0;
@@ -1637,6 +1701,35 @@ button:disabled:hover {
   gap: 6px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow-y: auto;
+}
+
+/* Open Recent: one file per line, the name first and the folder after it in
+   a quieter colour; a long path is cut short rather than scrolled sideways. */
+.recent-list {
+  display: grid;
+  gap: 4px;
+}
+
+.recent-list button {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+}
+
+.recent-list button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-list button > .recent-dir {
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  font-size: 12px;
+  min-width: 0;
 }
 
 /* Theme swatches, four to a row, so the list stays short. */
@@ -1853,10 +1946,6 @@ button:disabled:hover {
    page scrolls, so the dialog fills the window and the content never grows it. */
 .dialog-window .about-dialog .dialog-content {
   overflow-y: visible;
-}
-
-.dialog-window > .dialog.settings-dialog {
-  height: 100vh;
 }
 
 .dialog-window .settings-dialog .dialog-content {
@@ -2273,6 +2362,49 @@ button:disabled:hover {
   width: 100%;
 }
 
+/* One line per stop: colour (or opacity), its position, and the bin. Two
+   rows per stop made the window nearly a thousand pixels tall. */
+.stop-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) 3em auto;
+}
+
+.stop-row.opacity {
+  grid-template-columns: minmax(0, 1fr) 3em minmax(0, 1fr) 3em auto;
+}
+
+.stop-row > span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.stop-row input[type='range'] {
+  min-width: 0;
+  width: 100%;
+}
+
+.stop-row > button {
+  padding: 4px 6px;
+}
+
+.stop-list {
+  display: grid;
+  gap: 4px;
+}
+
+.stop-list h3 {
+  font-size: 13px;
+  margin: 6px 0 2px;
+}
+
+.stop-list > button {
+  justify-self: start;
+}
+
 .brush-preview {
   background: var(--control-bg);
   border: 1px solid var(--border);
@@ -2326,15 +2458,13 @@ button:disabled:hover {
 /* The Neural Models window: one section per task, one row per model. */
 .model-list {
   display: grid;
-  gap: 10px;
-  max-height: 380px;
-  overflow: auto;
+  gap: 6px;
 }
 
 .model-task {
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 6px 10px;
 }
 
 .model-task.needed {
@@ -2343,15 +2473,25 @@ button:disabled:hover {
 
 .model-task h3 {
   font-size: 13px;
-  margin: 0 0 6px;
+  margin: 0 0 2px;
 }
 
+/* One line per model: name, what it is for, whether it is here, the button.
+   Stacked, nine models needed a list that scrolled inside the window. */
 .model-row {
   align-items: center;
   border-top: 1px solid var(--border);
+  display: grid;
+  gap: 4px 12px;
+  grid-template-columns: minmax(150px, max-content) minmax(0, 1fr) auto auto;
+  padding: 5px 0;
+}
+
+.model-name {
   display: flex;
-  gap: 12px;
-  padding: 6px 0;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  align-items: baseline;
 }
 
 .model-row:first-of-type {
@@ -2359,7 +2499,6 @@ button:disabled:hover {
 }
 
 .model-text {
-  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -2380,11 +2519,8 @@ button:disabled:hover {
   font-size: 12px;
 }
 
-.model-actions {
-  align-items: flex-end;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.model-row > button {
+  white-space: nowrap;
 }
 
 .model-status {
@@ -2420,9 +2556,20 @@ button:disabled:hover {
   padding: 4px 6px;
 }
 
+/* `.dialog label` gives every label a bottom margin; a list of tabs wants none. */
+.dialog .style-tab {
+  margin-bottom: 0;
+}
+
 .style-tab.active {
   background: var(--control-bg);
   border-color: var(--accent);
+}
+
+/* The page is wide enough for the sentence on one or two lines. */
+.style-page .style-about {
+  margin-bottom: 4px;
+  min-height: 0;
 }
 
 .style-tab input {
@@ -2531,18 +2678,20 @@ button:disabled:hover {
   text-align: center;
 }
 
+/* Two columns of tools: one column of twenty-five rows had to scroll. */
 .shortcut-list {
   display: grid;
-  gap: 4px;
-  max-height: 420px;
-  overflow-y: auto;
+  gap: 4px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.dialog .shortcut-row,
 .shortcut-row {
   align-items: center;
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) 48px auto;
+  margin-bottom: 0;
 }
 
 .shortcut-row input {
@@ -2574,6 +2723,7 @@ button:disabled:hover {
   flex: 0 0 auto;
 }
 
+.style-about,
 .gallery-about {
   background: var(--panel-2, rgba(127, 127, 127, 0.12));
   border-left: 2px solid var(--accent);

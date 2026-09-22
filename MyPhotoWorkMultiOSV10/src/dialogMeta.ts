@@ -3,6 +3,8 @@ import {
   Aperture, Blend, Book, BookOpen, Box, Camera, Compass, Crop, Download, Droplets, Eraser, FilePlus, Film, Frame, Grid3x3, History, Info, Keyboard, Layers2, LayoutGrid, Magnet, Move, PaintBucket, Palette, Pencil, Printer, Ratio, Ruler, Scan, Search, Settings2, SlidersHorizontal, Sparkles, Spline, Square, SquareDashed, StickyNote, Sun, Sunrise, TriangleAlert, Type,
 } from 'lucide-react'
 import { t } from './i18n'
+import { adjustmentIcons } from './commands'
+import { filterIcon } from './filterInfo'
 import type { AdjustmentType, AppSettings, CurveData, Language, LayerEffects, LevelsData, PageOrientation, TextData, ThreeDData } from './lib/types'
 import type { MetaSection } from './lib/metadata'
 import type { GradientDef } from './lib/gradients'
@@ -262,7 +264,12 @@ const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
   transformSelection: 'transformSelection',
 }
 
-export function dialogIcon(name: DialogName) {
+export function dialogIcon(name: DialogName, payload?: DialogPayload) {
+  // The generic filter and adjustment windows wear the icon of what they
+  // drive, the same one the menu row that opened them shows, so the title
+  // reads as that command's and not as a generic "settings".
+  if (name === 'filterParams' && payload?.filterId) return filterIcon(payload.filterId)
+  if (name === 'adjustment' && payload?.adjustmentType && adjustmentIcons[payload.adjustmentType]) return adjustmentIcons[payload.adjustmentType]
   return DIALOG_ICONS[name] ?? Info
 }
 

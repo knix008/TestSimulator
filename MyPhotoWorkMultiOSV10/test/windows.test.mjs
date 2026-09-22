@@ -37,17 +37,36 @@ test('every dialog has a window size, and the settings window is a preferences w
     assert.ok(specs[name].width >= 320, `${name} is too narrow`)
     assert.ok(specs[name].height >= 180, `${name} is too short`)
   }
-  // The settings are on tabs: a window of a set size, wide enough for two
-  // controls side by side, and every page laid out to fit inside it. A page
-  // that outgrows the window is split in two rather than given a scrollbar,
-  // because a setting below the fold is a setting nobody finds.
+  // The settings are on tabs: a window wide enough for two controls side by
+  // side, and every page laid out to fit — the window takes the height of the
+  // page it is showing, like every other dialog, so the short pages are not
+  // padded out to the tallest one. A page never scrolls: a setting below the
+  // fold is a setting nobody finds.
   assert.ok(specs.settings.width >= 560, 'the settings window should be wide enough for two controls side by side')
   assert.ok(specs.settings.width <= 700, 'the settings window has grown back into a scroll of everything')
-  assert.ok(specs.settings.height >= 560, 'the settings window is too short for a page')
   assert.equal(specs.settings.resizable, true, 'the settings window cannot be resized')
-  assert.match(cssSource, /\.dialog-window > \.dialog\.settings-dialog \{[^}]*height: 100vh/, 'the settings dialog does not fill its window')
+  assert.doesNotMatch(cssSource, /\.dialog-window > \.dialog\.settings-dialog \{[^}]*height: 100vh/, 'the settings window is pinned to one height, so the short pages sit in dead space')
   assert.doesNotMatch(cssSource, /\.settings-page \{[^}]*overflow-y: auto/, 'the settings page scrolls again instead of being split')
   assert.match(cssSource, /\.dialog-window \.settings-dialog \.dialog-content \{[^}]*overflow: hidden/, 'the content would keep growing the window')
+})
+
+test('a popup window grows to the page it shows, and nothing inside it is squashed', () => {
+  const host = read('src/DialogHost.tsx')
+  // The dialog box is capped at the window, so a page that grows past it
+  // (Layer Style's Bevel after Drop Shadow) leaves the box the same size; only
+  // watching the content's children, and re-watching after each DOM change,
+  // catches that growth and lets the window follow.
+  assert.match(host, /observer\.observe\(child\)/, 'the content children are not watched, so a taller page clips its buttons')
+  assert.match(host, /new MutationObserver/, 'a page switch does not re-measure the window')
+  // A flex child that gives up height while the window is still small is
+  // measured at that squashed height, and the window never grows past it.
+  assert.match(cssSource, /\.dialog-content > \* \{[^}]*flex-shrink: 0/, 'content rows can be squashed to fit the window')
+  // Lists that scrolled inside a window: the window grows to show them whole.
+  for (const list of ['.model-list', '.shortcut-list']) {
+    const rule = cssSource.slice(cssSource.indexOf(`${list} {`), cssSource.indexOf('}', cssSource.indexOf(`${list} {`)))
+    assert.doesNotMatch(rule, /max-height/, `${list} scrolls inside its window instead of the window fitting it`)
+  }
+  assert.match(cssSource, /\.dialog-window \.info-sheet \{[^}]*max-height: none/, 'the image information sheet scrolls inside its own window')
 })
 
 test('a dialog window is owned by the main window and is movable', () => {
@@ -175,7 +194,11 @@ test('every dialog window has an icon, a title and a close button', () => {
   const frame = dialogSource.slice(dialogSource.indexOf('export function DialogFrame'), dialogSource.indexOf('/* ------------------------------------------------------------ curve editor */'))
   assert.match(frame, /dialog-title-bar/, 'no title bar')
   assert.match(frame, /className="dialog-close"/, 'there is no close button')
-  assert.ok(frame.includes('dialogIcon(name)'), 'the title bar shows no icon')
+  // The icon follows the command: the generic filter and adjustment windows
+  // show the icon of the filter or adjustment they drive, so the payload goes in.
+  assert.ok(frame.includes('dialogIcon(name, payload)'), 'the title bar shows no icon')
+  assert.match(dialogMeta, /name === 'filterParams' && payload\?\.filterId\) return filterIcon/, 'the filter window does not wear its filter’s icon')
+  assert.match(dialogMeta, /name === 'adjustment' && payload\?\.adjustmentType/, 'the adjustment window does not wear its adjustment’s icon')
   // Settings, About and Help all go through the same frame, so all three get one.
   for (const name of ['settings', 'about', 'helpGuide']) {
     assert.ok(dialogMeta.includes(`${name}:`), `${name} has no icon or title entry`)

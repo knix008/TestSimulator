@@ -58,7 +58,7 @@ export function DialogFrame({
   return (
     <div className={classes}>
       <header className="dialog-title-bar">
-        {createElement(dialogIcon(name), { size: 16 })}
+        {createElement(dialogIcon(name, payload), { size: 16 })}
         <h2>{dialogTitle(name, language, payload)}</h2>
         <button
           className="dialog-close"
@@ -691,14 +691,16 @@ export function DialogBody({
     case 'stroke':
       return (
         <>
-          <label>{tr('strokeWidth')}<NumberStepper language={language} min={1} max={64} value={strokeWidth} onChange={setStrokeWidth} /></label>
-          <label>{tr('strokeWhere')}
-            <select value={strokeWhere} onChange={(event) => setStrokeWhere(event.target.value as typeof strokeWhere)}>
-              <option value="inside">{tr('strokeInside')}</option>
-              <option value="center">{tr('strokeCenter')}</option>
-              <option value="outside">{tr('strokeOutside')}</option>
-            </select>
-          </label>
+          <div className="dialog-grid">
+            <label>{tr('strokeWidth')}<NumberStepper language={language} min={1} max={64} value={strokeWidth} onChange={setStrokeWidth} /></label>
+            <label>{tr('strokeWhere')}
+              <select value={strokeWhere} onChange={(event) => setStrokeWhere(event.target.value as typeof strokeWhere)}>
+                <option value="inside">{tr('strokeInside')}</option>
+                <option value="center">{tr('strokeCenter')}</option>
+                <option value="outside">{tr('strokeOutside')}</option>
+              </select>
+            </label>
+          </div>
           <label>{tr('color')}
             <input type="color" value={strokeColor} onChange={(event) => setStrokeColor(event.target.value)} />
           </label>
@@ -1068,25 +1070,29 @@ export function DialogBody({
               </select>
             </label>
           </div>
-          <label className="check-row">
-            <input type="checkbox" checked={type.bold} onChange={(event) => setType((c) => ({ ...c, bold: event.target.checked }))} />
-            {tr('bold')}
-          </label>
-          <label className="check-row">
-            <input type="checkbox" checked={type.italic} onChange={(event) => setType((c) => ({ ...c, italic: event.target.checked }))} />
-            {tr('italic')}
-          </label>
-          <label>{tr('textOnPath')}
-            <select value={type.pathId} onChange={(event) => setType((c) => ({ ...c, pathId: event.target.value }))}>
-              <option value="">{tr('noPath')}</option>
-              {(payload.paths ?? []).map((path) => <option key={path.id} value={path.id}>{path.name}</option>)}
-            </select>
-          </label>
-          <label>{tr('warpStyle')}
-            <select value={type.warpStyle} onChange={(event) => setType((c) => ({ ...c, warpStyle: event.target.value as TextWarpStyle }))}>
-              {warpStyles.map((style) => <option key={style} value={style}>{tr(`warp${style.charAt(0).toUpperCase()}${style.slice(1)}`)}</option>)}
-            </select>
-          </label>
+          <div className="dialog-grid">
+            <label className="check-row">
+              <input type="checkbox" checked={type.bold} onChange={(event) => setType((c) => ({ ...c, bold: event.target.checked }))} />
+              {tr('bold')}
+            </label>
+            <label className="check-row">
+              <input type="checkbox" checked={type.italic} onChange={(event) => setType((c) => ({ ...c, italic: event.target.checked }))} />
+              {tr('italic')}
+            </label>
+          </div>
+          <div className="dialog-grid">
+            <label>{tr('textOnPath')}
+              <select value={type.pathId} onChange={(event) => setType((c) => ({ ...c, pathId: event.target.value }))}>
+                <option value="">{tr('noPath')}</option>
+                {(payload.paths ?? []).map((path) => <option key={path.id} value={path.id}>{path.name}</option>)}
+              </select>
+            </label>
+            <label>{tr('warpStyle')}
+              <select value={type.warpStyle} onChange={(event) => setType((c) => ({ ...c, warpStyle: event.target.value as TextWarpStyle }))}>
+                {warpStyles.map((style) => <option key={style} value={style}>{tr(`warp${style.charAt(0).toUpperCase()}${style.slice(1)}`)}</option>)}
+              </select>
+            </label>
+          </div>
           <label>{tr('warpBend')}
             <Slider min={-100} max={100} value={type.warpBend} onChange={(next) => setType((c) => ({ ...c, warpBend: next }))} />
             <span>{type.warpBend}</span>
