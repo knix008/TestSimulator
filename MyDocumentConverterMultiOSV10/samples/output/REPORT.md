@@ -1,17 +1,17 @@
 # Sample conversion report
 
-생성 / generated: 2026-09-22T05:17:32.227Z · `npm run samples:convert`
+생성 / generated: 2026-09-22T05:40:05.723Z · `npm run samples:convert`
 
 읽은 샘플 49개 × 출력 형식 68종 = 변환 3332건, 실패 0건. 12개 대표 형식(html, markdown, docx, odt, rtf, epub, latex, rst, plain, postscript, json, pptx)의 결과 파일이 이 폴더에 있고, 나머지 형식은 메모리에서 변환만 검증했습니다.
 49 samples × 68 output formats = 3332 conversions, 0 failed. Files for 12 representative targets are stored here; the other writers were run in memory.
 
 ## 샘플별 결과 / Per sample
 
-### markdown/commonmark.md (`commonmark`) — 24 blocks read in 6 ms, 68/68 targets OK
+### markdown/commonmark.md (`commonmark`) — 24 blocks read in 7 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
-| markdown | OK | 1,895 | 2 ms | [markdown/commonmark/markdown.md](markdown/commonmark/markdown.md) |
+| markdown | OK | 1,895 | 3 ms | [markdown/commonmark/markdown.md](markdown/commonmark/markdown.md) |
 | markdown_strict | OK | 1,893 | 0 ms |  |
 | markdown_phpextra | OK | 1,895 | 0 ms |  |
 | markdown_mmd | OK | 1,895 | 0 ms |  |
@@ -23,14 +23,14 @@
 | html | OK | 5,563 | 1 ms | [markdown/commonmark/html.html](markdown/commonmark/html.html) |
 | html5 | OK | 5,563 | 0 ms |  |
 | html4 | OK | 5,743 | 0 ms |  |
-| chunkedhtml | OK | 14,030 | 3 ms |  |
+| chunkedhtml | OK | 14,030 | 4 ms |  |
 | plain | OK | 1,610 | 2 ms | [markdown/commonmark/plain.txt](markdown/commonmark/plain.txt) |
 | ansi | OK | 2,199 | 1 ms |  |
-| rst | OK | 2,098 | 1 ms | [markdown/commonmark/rst.rst](markdown/commonmark/rst.rst) |
-| latex | OK | 2,650 | 2 ms | [markdown/commonmark/latex.tex](markdown/commonmark/latex.tex) |
-| beamer | OK | 2,469 | 0 ms |  |
-| context | OK | 2,798 | 0 ms |  |
-| texinfo | OK | 2,255 | 1 ms |  |
+| rst | OK | 2,098 | 2 ms | [markdown/commonmark/rst.rst](markdown/commonmark/rst.rst) |
+| latex | OK | 2,650 | 18 ms | [markdown/commonmark/latex.tex](markdown/commonmark/latex.tex) |
+| beamer | OK | 2,469 | 1 ms |  |
+| context | OK | 2,798 | 1 ms |  |
+| texinfo | OK | 2,255 | 0 ms |  |
 | org | OK | 1,901 | 0 ms |  |
 | textile | OK | 1,930 | 0 ms |  |
 | asciidoc | OK | 2,157 | 0 ms |  |
@@ -44,19 +44,19 @@
 | xwiki | OK | 2,050 | 0 ms |  |
 | zimwiki | OK | 1,577 | 0 ms |  |
 | jira | OK | 1,861 | 0 ms |  |
-| man | OK | 1,792 | 0 ms |  |
-| ms | OK | 1,813 | 0 ms |  |
-| docx | OK | 10,386 | 38 ms | [markdown/commonmark/docx.docx](markdown/commonmark/docx.docx) |
-| odt | OK | 19,389 | 6 ms | [markdown/commonmark/odt.odt](markdown/commonmark/odt.odt) |
+| man | OK | 1,792 | 1 ms |  |
+| ms | OK | 1,813 | 1 ms |  |
+| docx | OK | 10,383 | 44 ms | [markdown/commonmark/docx.docx](markdown/commonmark/docx.docx) |
+| odt | OK | 19,389 | 7 ms | [markdown/commonmark/odt.odt](markdown/commonmark/odt.odt) |
 | opendocument | OK | 17,136 | 1 ms |  |
 | rtf | OK | 4,597 | 2 ms | [markdown/commonmark/rtf.rtf](markdown/commonmark/rtf.rtf) |
-| postscript | OK | 219,274 | 19 ms | [markdown/commonmark/postscript.ps](markdown/commonmark/postscript.ps) |
-| pptx | OK | 45,843 | 4 ms | [markdown/commonmark/pptx.pptx](markdown/commonmark/pptx.pptx) |
+| postscript | OK | 219,274 | 21 ms | [markdown/commonmark/postscript.ps](markdown/commonmark/postscript.ps) |
+| pptx | OK | 45,843 | 5 ms | [markdown/commonmark/pptx.pptx](markdown/commonmark/pptx.pptx) |
 | icml | OK | 38,706 | 1 ms |  |
-| epub | OK | 8,498 | 3 ms | [markdown/commonmark/epub.epub](markdown/commonmark/epub.epub) |
+| epub | OK | 8,498 | 4 ms | [markdown/commonmark/epub.epub](markdown/commonmark/epub.epub) |
 | epub3 | OK | 8,498 | 1 ms |  |
-| epub2 | OK | 8,692 | 3 ms |  |
-| fb2 | OK | 2,534 | 0 ms |  |
+| epub2 | OK | 8,692 | 4 ms |  |
+| fb2 | OK | 2,534 | 1 ms |  |
 | revealjs | OK | 3,410 | 0 ms |  |
 | slidy | OK | 3,185 | 0 ms |  |
 | slideous | OK | 5,249 | 0 ms |  |
@@ -69,12 +69,12 @@
 | jats_archiving | OK | 3,225 | 0 ms |  |
 | jats_articleauthoring | OK | 3,218 | 0 ms |  |
 | jats_publishing | OK | 3,214 | 0 ms |  |
-| tei | OK | 2,943 | 0 ms |  |
+| tei | OK | 2,943 | 1 ms |  |
 | opml | OK | 2,811 | 0 ms |  |
 | bibtex | OK | 1 | 0 ms |  |
 | biblatex | OK | 1 | 0 ms |  |
 | csljson | OK | 3 | 0 ms |  |
-| json | OK | 7,610 | 1 ms | [markdown/commonmark/json.json](markdown/commonmark/json.json) |
+| json | OK | 7,610 | 2 ms | [markdown/commonmark/json.json](markdown/commonmark/json.json) |
 | native | OK | 5,187 | 0 ms |  |
 | csv | OK | 1,054 | 0 ms |  |
 | tsv | OK | 1,054 | 0 ms |  |
@@ -84,8 +84,8 @@
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
-| markdown | OK | 1,784 | 1 ms | [markdown/commonmark_x/markdown.md](markdown/commonmark_x/markdown.md) |
-| markdown_strict | OK | 1,889 | 0 ms |  |
+| markdown | OK | 1,784 | 2 ms | [markdown/commonmark_x/markdown.md](markdown/commonmark_x/markdown.md) |
+| markdown_strict | OK | 1,889 | 1 ms |  |
 | markdown_phpextra | OK | 1,762 | 0 ms |  |
 | markdown_mmd | OK | 1,779 | 0 ms |  |
 | gfm | OK | 1,767 | 0 ms |  |
@@ -119,12 +119,12 @@
 | jira | OK | 1,564 | 0 ms |  |
 | man | OK | 1,984 | 0 ms |  |
 | ms | OK | 2,023 | 0 ms |  |
-| docx | OK | 10,990 | 10 ms | [markdown/commonmark_x/docx.docx](markdown/commonmark_x/docx.docx) |
-| odt | OK | 23,081 | 4 ms | [markdown/commonmark_x/odt.odt](markdown/commonmark_x/odt.odt) |
+| docx | OK | 10,989 | 10 ms | [markdown/commonmark_x/docx.docx](markdown/commonmark_x/docx.docx) |
+| odt | OK | 23,081 | 3 ms | [markdown/commonmark_x/odt.odt](markdown/commonmark_x/odt.odt) |
 | opendocument | OK | 20,828 | 1 ms |  |
-| rtf | OK | 7,014 | 1 ms | [markdown/commonmark_x/rtf.rtf](markdown/commonmark_x/rtf.rtf) |
-| postscript | OK | 223,280 | 15 ms | [markdown/commonmark_x/postscript.ps](markdown/commonmark_x/postscript.ps) |
-| pptx | OK | 50,784 | 3 ms | [markdown/commonmark_x/pptx.pptx](markdown/commonmark_x/pptx.pptx) |
+| rtf | OK | 7,014 | 2 ms | [markdown/commonmark_x/rtf.rtf](markdown/commonmark_x/rtf.rtf) |
+| postscript | OK | 223,280 | 18 ms | [markdown/commonmark_x/postscript.ps](markdown/commonmark_x/postscript.ps) |
+| pptx | OK | 50,784 | 4 ms | [markdown/commonmark_x/pptx.pptx](markdown/commonmark_x/pptx.pptx) |
 | icml | OK | 45,962 | 1 ms |  |
 | epub | OK | 9,627 | 2 ms | [markdown/commonmark_x/epub.epub](markdown/commonmark_x/epub.epub) |
 | epub3 | OK | 9,627 | 1 ms |  |
@@ -172,8 +172,8 @@
 | chunkedhtml | OK | 14,579 | 1 ms |  |
 | plain | OK | 1,734 | 1 ms | [markdown/djot/plain.txt](markdown/djot/plain.txt) |
 | ansi | OK | 2,450 | 0 ms |  |
-| rst | OK | 2,075 | 2 ms | [markdown/djot/rst.rst](markdown/djot/rst.rst) |
-| latex | OK | 2,758 | 2 ms | [markdown/djot/latex.tex](markdown/djot/latex.tex) |
+| rst | OK | 2,075 | 1 ms | [markdown/djot/rst.rst](markdown/djot/rst.rst) |
+| latex | OK | 2,758 | 1 ms | [markdown/djot/latex.tex](markdown/djot/latex.tex) |
 | beamer | OK | 2,604 | 0 ms |  |
 | context | OK | 3,703 | 0 ms |  |
 | texinfo | OK | 2,319 | 0 ms |  |
@@ -192,14 +192,14 @@
 | jira | OK | 1,596 | 0 ms |  |
 | man | OK | 1,902 | 0 ms |  |
 | ms | OK | 1,910 | 0 ms |  |
-| docx | OK | 10,680 | 11 ms | [markdown/djot/docx.docx](markdown/djot/docx.docx) |
+| docx | OK | 10,677 | 8 ms | [markdown/djot/docx.docx](markdown/djot/docx.docx) |
 | odt | OK | 22,223 | 3 ms | [markdown/djot/odt.odt](markdown/djot/odt.odt) |
 | opendocument | OK | 19,970 | 1 ms |  |
-| rtf | OK | 6,403 | 1 ms | [markdown/djot/rtf.rtf](markdown/djot/rtf.rtf) |
-| postscript | OK | 217,915 | 13 ms | [markdown/djot/postscript.ps](markdown/djot/postscript.ps) |
-| pptx | OK | 45,033 | 3 ms | [markdown/djot/pptx.pptx](markdown/djot/pptx.pptx) |
+| rtf | OK | 6,403 | 2 ms | [markdown/djot/rtf.rtf](markdown/djot/rtf.rtf) |
+| postscript | OK | 217,915 | 20 ms | [markdown/djot/postscript.ps](markdown/djot/postscript.ps) |
+| pptx | OK | 45,033 | 4 ms | [markdown/djot/pptx.pptx](markdown/djot/pptx.pptx) |
 | icml | OK | 40,325 | 0 ms |  |
-| epub | OK | 9,004 | 1 ms | [markdown/djot/epub.epub](markdown/djot/epub.epub) |
+| epub | OK | 9,004 | 2 ms | [markdown/djot/epub.epub](markdown/djot/epub.epub) |
 | epub3 | OK | 9,004 | 1 ms |  |
 | epub2 | OK | 9,198 | 1 ms |  |
 | fb2 | OK | 2,750 | 0 ms |  |
@@ -226,7 +226,7 @@
 | tsv | OK | 93 | 0 ms |  |
 | ipynb | OK | 2,830 | 0 ms |  |
 
-### markdown/gfm.md (`gfm`) — 24 blocks read in 0 ms, 68/68 targets OK
+### markdown/gfm.md (`gfm`) — 24 blocks read in 1 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
@@ -265,16 +265,16 @@
 | jira | OK | 1,582 | 0 ms |  |
 | man | OK | 1,997 | 0 ms |  |
 | ms | OK | 2,015 | 0 ms |  |
-| docx | OK | 10,838 | 9 ms | [markdown/gfm/docx.docx](markdown/gfm/docx.docx) |
-| odt | OK | 22,914 | 2 ms | [markdown/gfm/odt.odt](markdown/gfm/odt.odt) |
+| docx | OK | 10,838 | 11 ms | [markdown/gfm/docx.docx](markdown/gfm/docx.docx) |
+| odt | OK | 22,914 | 3 ms | [markdown/gfm/odt.odt](markdown/gfm/odt.odt) |
 | opendocument | OK | 20,661 | 1 ms |  |
-| rtf | OK | 6,826 | 1 ms | [markdown/gfm/rtf.rtf](markdown/gfm/rtf.rtf) |
-| postscript | OK | 232,733 | 12 ms | [markdown/gfm/postscript.ps](markdown/gfm/postscript.ps) |
+| rtf | OK | 6,826 | 2 ms | [markdown/gfm/rtf.rtf](markdown/gfm/rtf.rtf) |
+| postscript | OK | 232,733 | 15 ms | [markdown/gfm/postscript.ps](markdown/gfm/postscript.ps) |
 | pptx | OK | 48,440 | 3 ms | [markdown/gfm/pptx.pptx](markdown/gfm/pptx.pptx) |
 | icml | OK | 43,281 | 1 ms |  |
 | epub | OK | 9,588 | 2 ms | [markdown/gfm/epub.epub](markdown/gfm/epub.epub) |
-| epub3 | OK | 9,588 | 1 ms |  |
-| epub2 | OK | 9,782 | 2 ms |  |
+| epub3 | OK | 9,588 | 2 ms |  |
+| epub2 | OK | 9,782 | 1 ms |  |
 | fb2 | OK | 3,023 | 0 ms |  |
 | revealjs | OK | 4,424 | 0 ms |  |
 | slidy | OK | 4,199 | 0 ms |  |
@@ -338,11 +338,11 @@
 | jira | OK | 1,564 | 0 ms |  |
 | man | OK | 1,984 | 0 ms |  |
 | ms | OK | 2,023 | 0 ms |  |
-| docx | OK | 10,986 | 8 ms | [markdown/markdown/docx.docx](markdown/markdown/docx.docx) |
+| docx | OK | 10,987 | 8 ms | [markdown/markdown/docx.docx](markdown/markdown/docx.docx) |
 | odt | OK | 23,081 | 2 ms | [markdown/markdown/odt.odt](markdown/markdown/odt.odt) |
 | opendocument | OK | 20,828 | 1 ms |  |
-| rtf | OK | 7,014 | 1 ms | [markdown/markdown/rtf.rtf](markdown/markdown/rtf.rtf) |
-| postscript | OK | 223,280 | 12 ms | [markdown/markdown/postscript.ps](markdown/markdown/postscript.ps) |
+| rtf | OK | 7,014 | 5 ms | [markdown/markdown/rtf.rtf](markdown/markdown/rtf.rtf) |
+| postscript | OK | 223,280 | 14 ms | [markdown/markdown/postscript.ps](markdown/markdown/postscript.ps) |
 | pptx | OK | 50,784 | 3 ms | [markdown/markdown/pptx.pptx](markdown/markdown/pptx.pptx) |
 | icml | OK | 45,962 | 0 ms |  |
 | epub | OK | 9,627 | 2 ms | [markdown/markdown/epub.epub](markdown/markdown/epub.epub) |
@@ -366,7 +366,7 @@
 | bibtex | OK | 1 | 0 ms |  |
 | biblatex | OK | 1 | 0 ms |  |
 | csljson | OK | 3 | 0 ms |  |
-| json | OK | 9,482 | 1 ms | [markdown/markdown/json.json](markdown/markdown/json.json) |
+| json | OK | 9,482 | 2 ms | [markdown/markdown/json.json](markdown/markdown/json.json) |
 | native | OK | 7,028 | 0 ms |  |
 | csv | OK | 93 | 0 ms |  |
 | tsv | OK | 93 | 0 ms |  |
@@ -392,7 +392,7 @@
 | plain | OK | 1,874 | 1 ms | [markdown/markdown_mmd/plain.txt](markdown/markdown_mmd/plain.txt) |
 | ansi | OK | 2,656 | 0 ms |  |
 | rst | OK | 2,229 | 1 ms | [markdown/markdown_mmd/rst.rst](markdown/markdown_mmd/rst.rst) |
-| latex | OK | 2,888 | 1 ms | [markdown/markdown_mmd/latex.tex](markdown/markdown_mmd/latex.tex) |
+| latex | OK | 2,888 | 3 ms | [markdown/markdown_mmd/latex.tex](markdown/markdown_mmd/latex.tex) |
 | beamer | OK | 2,742 | 0 ms |  |
 | context | OK | 3,922 | 0 ms |  |
 | texinfo | OK | 2,621 | 0 ms |  |
@@ -411,14 +411,14 @@
 | jira | OK | 1,562 | 0 ms |  |
 | man | OK | 1,974 | 0 ms |  |
 | ms | OK | 2,013 | 0 ms |  |
-| docx | OK | 10,974 | 7 ms | [markdown/markdown_mmd/docx.docx](markdown/markdown_mmd/docx.docx) |
+| docx | OK | 10,980 | 8 ms | [markdown/markdown_mmd/docx.docx](markdown/markdown_mmd/docx.docx) |
 | odt | OK | 23,033 | 2 ms | [markdown/markdown_mmd/odt.odt](markdown/markdown_mmd/odt.odt) |
 | opendocument | OK | 20,780 | 1 ms |  |
 | rtf | OK | 7,020 | 1 ms | [markdown/markdown_mmd/rtf.rtf](markdown/markdown_mmd/rtf.rtf) |
-| postscript | OK | 223,216 | 12 ms | [markdown/markdown_mmd/postscript.ps](markdown/markdown_mmd/postscript.ps) |
-| pptx | OK | 51,097 | 2 ms | [markdown/markdown_mmd/pptx.pptx](markdown/markdown_mmd/pptx.pptx) |
+| postscript | OK | 223,216 | 14 ms | [markdown/markdown_mmd/postscript.ps](markdown/markdown_mmd/postscript.ps) |
+| pptx | OK | 51,097 | 3 ms | [markdown/markdown_mmd/pptx.pptx](markdown/markdown_mmd/pptx.pptx) |
 | icml | OK | 46,404 | 0 ms |  |
-| epub | OK | 9,457 | 2 ms | [markdown/markdown_mmd/epub.epub](markdown/markdown_mmd/epub.epub) |
+| epub | OK | 9,457 | 3 ms | [markdown/markdown_mmd/epub.epub](markdown/markdown_mmd/epub.epub) |
 | epub3 | OK | 9,457 | 1 ms |  |
 | epub2 | OK | 9,741 | 1 ms |  |
 | fb2 | OK | 3,095 | 0 ms |  |
@@ -484,16 +484,16 @@
 | jira | OK | 1,562 | 0 ms |  |
 | man | OK | 1,941 | 0 ms |  |
 | ms | OK | 1,958 | 0 ms |  |
-| docx | OK | 10,834 | 8 ms | [markdown/markdown_phpextra/docx.docx](markdown/markdown_phpextra/docx.docx) |
+| docx | OK | 10,838 | 9 ms | [markdown/markdown_phpextra/docx.docx](markdown/markdown_phpextra/docx.docx) |
 | odt | OK | 22,751 | 2 ms | [markdown/markdown_phpextra/odt.odt](markdown/markdown_phpextra/odt.odt) |
 | opendocument | OK | 20,498 | 1 ms |  |
 | rtf | OK | 6,858 | 1 ms | [markdown/markdown_phpextra/rtf.rtf](markdown/markdown_phpextra/rtf.rtf) |
-| postscript | OK | 219,414 | 11 ms | [markdown/markdown_phpextra/postscript.ps](markdown/markdown_phpextra/postscript.ps) |
-| pptx | OK | 51,482 | 2 ms | [markdown/markdown_phpextra/pptx.pptx](markdown/markdown_phpextra/pptx.pptx) |
+| postscript | OK | 219,414 | 13 ms | [markdown/markdown_phpextra/postscript.ps](markdown/markdown_phpextra/postscript.ps) |
+| pptx | OK | 51,482 | 3 ms | [markdown/markdown_phpextra/pptx.pptx](markdown/markdown_phpextra/pptx.pptx) |
 | icml | OK | 48,179 | 0 ms |  |
 | epub | OK | 9,273 | 2 ms | [markdown/markdown_phpextra/epub.epub](markdown/markdown_phpextra/epub.epub) |
 | epub3 | OK | 9,273 | 1 ms |  |
-| epub2 | OK | 9,467 | 3 ms |  |
+| epub2 | OK | 9,467 | 2 ms |  |
 | fb2 | OK | 2,937 | 0 ms |  |
 | revealjs | OK | 4,051 | 0 ms |  |
 | slidy | OK | 3,826 | 0 ms |  |
@@ -512,7 +512,7 @@
 | bibtex | OK | 1 | 0 ms |  |
 | biblatex | OK | 1 | 0 ms |  |
 | csljson | OK | 3 | 0 ms |  |
-| json | OK | 9,674 | 2 ms | [markdown/markdown_phpextra/json.json](markdown/markdown_phpextra/json.json) |
+| json | OK | 9,674 | 1 ms | [markdown/markdown_phpextra/json.json](markdown/markdown_phpextra/json.json) |
 | native | OK | 7,148 | 0 ms |  |
 | csv | OK | 93 | 0 ms |  |
 | tsv | OK | 93 | 0 ms |  |
@@ -557,14 +557,14 @@
 | jira | OK | 1,858 | 0 ms |  |
 | man | OK | 1,792 | 0 ms |  |
 | ms | OK | 1,813 | 0 ms |  |
-| docx | OK | 10,382 | 8 ms | [markdown/markdown_strict/docx.docx](markdown/markdown_strict/docx.docx) |
+| docx | OK | 10,380 | 7 ms | [markdown/markdown_strict/docx.docx](markdown/markdown_strict/docx.docx) |
 | odt | OK | 19,389 | 2 ms | [markdown/markdown_strict/odt.odt](markdown/markdown_strict/odt.odt) |
-| opendocument | OK | 17,136 | 0 ms |  |
+| opendocument | OK | 17,136 | 1 ms |  |
 | rtf | OK | 4,597 | 1 ms | [markdown/markdown_strict/rtf.rtf](markdown/markdown_strict/rtf.rtf) |
-| postscript | OK | 219,262 | 11 ms | [markdown/markdown_strict/postscript.ps](markdown/markdown_strict/postscript.ps) |
+| postscript | OK | 219,262 | 14 ms | [markdown/markdown_strict/postscript.ps](markdown/markdown_strict/postscript.ps) |
 | pptx | OK | 45,843 | 2 ms | [markdown/markdown_strict/pptx.pptx](markdown/markdown_strict/pptx.pptx) |
 | icml | OK | 38,706 | 0 ms |  |
-| epub | OK | 8,475 | 1 ms | [markdown/markdown_strict/epub.epub](markdown/markdown_strict/epub.epub) |
+| epub | OK | 8,475 | 2 ms | [markdown/markdown_strict/epub.epub](markdown/markdown_strict/epub.epub) |
 | epub3 | OK | 8,475 | 1 ms |  |
 | epub2 | OK | 8,669 | 1 ms |  |
 | fb2 | OK | 2,534 | 0 ms |  |
@@ -630,16 +630,16 @@
 | jira | OK | 1,574 | 0 ms |  |
 | man | OK | 2,004 | 0 ms |  |
 | ms | OK | 2,044 | 0 ms |  |
-| docx | OK | 10,965 | 8 ms | [markup/asciidoc/docx.docx](markup/asciidoc/docx.docx) |
+| docx | OK | 10,968 | 9 ms | [markup/asciidoc/docx.docx](markup/asciidoc/docx.docx) |
 | odt | OK | 23,069 | 2 ms | [markup/asciidoc/odt.odt](markup/asciidoc/odt.odt) |
 | opendocument | OK | 20,816 | 1 ms |  |
 | rtf | OK | 7,004 | 1 ms | [markup/asciidoc/rtf.rtf](markup/asciidoc/rtf.rtf) |
-| postscript | OK | 224,909 | 11 ms | [markup/asciidoc/postscript.ps](markup/asciidoc/postscript.ps) |
-| pptx | OK | 50,808 | 2 ms | [markup/asciidoc/pptx.pptx](markup/asciidoc/pptx.pptx) |
+| postscript | OK | 224,909 | 14 ms | [markup/asciidoc/postscript.ps](markup/asciidoc/postscript.ps) |
+| pptx | OK | 50,808 | 3 ms | [markup/asciidoc/pptx.pptx](markup/asciidoc/pptx.pptx) |
 | icml | OK | 45,962 | 0 ms |  |
 | epub | OK | 9,034 | 2 ms | [markup/asciidoc/epub.epub](markup/asciidoc/epub.epub) |
 | epub3 | OK | 9,034 | 1 ms |  |
-| epub2 | OK | 9,318 | 2 ms |  |
+| epub2 | OK | 9,318 | 1 ms |  |
 | fb2 | OK | 3,118 | 0 ms |  |
 | revealjs | OK | 3,875 | 0 ms |  |
 | slidy | OK | 3,650 | 0 ms |  |
@@ -703,14 +703,14 @@
 | jira | OK | 1,536 | 0 ms |  |
 | man | OK | 1,866 | 0 ms |  |
 | ms | OK | 1,887 | 0 ms |  |
-| docx | OK | 10,645 | 8 ms | [markup/haddock/docx.docx](markup/haddock/docx.docx) |
+| docx | OK | 10,650 | 9 ms | [markup/haddock/docx.docx](markup/haddock/docx.docx) |
 | odt | OK | 22,588 | 2 ms | [markup/haddock/odt.odt](markup/haddock/odt.odt) |
 | opendocument | OK | 20,335 | 1 ms |  |
 | rtf | OK | 6,579 | 1 ms | [markup/haddock/rtf.rtf](markup/haddock/rtf.rtf) |
-| postscript | OK | 227,130 | 13 ms | [markup/haddock/postscript.ps](markup/haddock/postscript.ps) |
+| postscript | OK | 227,130 | 14 ms | [markup/haddock/postscript.ps](markup/haddock/postscript.ps) |
 | pptx | OK | 47,752 | 3 ms | [markup/haddock/pptx.pptx](markup/haddock/pptx.pptx) |
 | icml | OK | 44,282 | 0 ms |  |
-| epub | OK | 8,315 | 1 ms | [markup/haddock/epub.epub](markup/haddock/epub.epub) |
+| epub | OK | 8,315 | 2 ms | [markup/haddock/epub.epub](markup/haddock/epub.epub) |
 | epub3 | OK | 8,315 | 1 ms |  |
 | epub2 | OK | 8,509 | 1 ms |  |
 | fb2 | OK | 2,846 | 0 ms |  |
@@ -776,12 +776,12 @@
 | jira | OK | 1,660 | 0 ms |  |
 | man | OK | 2,104 | 0 ms |  |
 | ms | OK | 2,152 | 0 ms |  |
-| docx | OK | 10,995 | 8 ms | [markup/html/docx.docx](markup/html/docx.docx) |
+| docx | OK | 11,004 | 8 ms | [markup/html/docx.docx](markup/html/docx.docx) |
 | odt | OK | 23,634 | 2 ms | [markup/html/odt.odt](markup/html/odt.odt) |
 | opendocument | OK | 21,381 | 1 ms |  |
 | rtf | OK | 7,387 | 1 ms | [markup/html/rtf.rtf](markup/html/rtf.rtf) |
-| postscript | OK | 224,590 | 12 ms | [markup/html/postscript.ps](markup/html/postscript.ps) |
-| pptx | OK | 55,524 | 3 ms | [markup/html/pptx.pptx](markup/html/pptx.pptx) |
+| postscript | OK | 224,590 | 14 ms | [markup/html/postscript.ps](markup/html/postscript.ps) |
+| pptx | OK | 55,524 | 5 ms | [markup/html/pptx.pptx](markup/html/pptx.pptx) |
 | icml | OK | 48,351 | 0 ms |  |
 | epub | OK | 10,184 | 2 ms | [markup/html/epub.epub](markup/html/epub.epub) |
 | epub3 | OK | 10,184 | 1 ms |  |
@@ -849,16 +849,16 @@
 | jira | OK | 1,603 | 0 ms |  |
 | man | OK | 2,011 | 0 ms |  |
 | ms | OK | 2,052 | 0 ms |  |
-| docx | OK | 10,976 | 7 ms | [markup/latex/docx.docx](markup/latex/docx.docx) |
+| docx | OK | 10,975 | 10 ms | [markup/latex/docx.docx](markup/latex/docx.docx) |
 | odt | OK | 23,258 | 2 ms | [markup/latex/odt.odt](markup/latex/odt.odt) |
 | opendocument | OK | 21,005 | 1 ms |  |
 | rtf | OK | 7,042 | 1 ms | [markup/latex/rtf.rtf](markup/latex/rtf.rtf) |
-| postscript | OK | 223,975 | 12 ms | [markup/latex/postscript.ps](markup/latex/postscript.ps) |
-| pptx | OK | 49,826 | 2 ms | [markup/latex/pptx.pptx](markup/latex/pptx.pptx) |
+| postscript | OK | 223,975 | 15 ms | [markup/latex/postscript.ps](markup/latex/postscript.ps) |
+| pptx | OK | 49,826 | 3 ms | [markup/latex/pptx.pptx](markup/latex/pptx.pptx) |
 | icml | OK | 47,092 | 1 ms |  |
 | epub | OK | 9,517 | 2 ms | [markup/latex/epub.epub](markup/latex/epub.epub) |
 | epub3 | OK | 9,517 | 1 ms |  |
-| epub2 | OK | 9,801 | 1 ms |  |
+| epub2 | OK | 9,801 | 2 ms |  |
 | fb2 | OK | 3,180 | 0 ms |  |
 | revealjs | OK | 4,376 | 0 ms |  |
 | slidy | OK | 4,145 | 0 ms |  |
@@ -922,14 +922,14 @@
 | jira | OK | 1,556 | 0 ms |  |
 | man | OK | 1,940 | 0 ms |  |
 | ms | OK | 1,979 | 0 ms |  |
-| docx | OK | 10,931 | 7 ms | [markup/muse/docx.docx](markup/muse/docx.docx) |
+| docx | OK | 10,933 | 8 ms | [markup/muse/docx.docx](markup/muse/docx.docx) |
 | odt | OK | 23,047 | 2 ms | [markup/muse/odt.odt](markup/muse/odt.odt) |
 | opendocument | OK | 20,794 | 1 ms |  |
 | rtf | OK | 6,904 | 1 ms | [markup/muse/rtf.rtf](markup/muse/rtf.rtf) |
-| postscript | OK | 222,207 | 11 ms | [markup/muse/postscript.ps](markup/muse/postscript.ps) |
-| pptx | OK | 50,784 | 2 ms | [markup/muse/pptx.pptx](markup/muse/pptx.pptx) |
-| icml | OK | 45,962 | 0 ms |  |
-| epub | OK | 8,804 | 1 ms | [markup/muse/epub.epub](markup/muse/epub.epub) |
+| postscript | OK | 222,207 | 14 ms | [markup/muse/postscript.ps](markup/muse/postscript.ps) |
+| pptx | OK | 50,784 | 3 ms | [markup/muse/pptx.pptx](markup/muse/pptx.pptx) |
+| icml | OK | 45,962 | 1 ms |  |
+| epub | OK | 8,804 | 2 ms | [markup/muse/epub.epub](markup/muse/epub.epub) |
 | epub3 | OK | 8,804 | 1 ms |  |
 | epub2 | OK | 9,088 | 1 ms |  |
 | fb2 | OK | 3,118 | 0 ms |  |
@@ -995,14 +995,14 @@
 | jira | OK | 1,587 | 0 ms |  |
 | man | OK | 1,950 | 0 ms |  |
 | ms | OK | 1,994 | 0 ms |  |
-| docx | OK | 10,838 | 7 ms | [markup/org/docx.docx](markup/org/docx.docx) |
+| docx | OK | 10,841 | 7 ms | [markup/org/docx.docx](markup/org/docx.docx) |
 | odt | OK | 22,757 | 2 ms | [markup/org/odt.odt](markup/org/odt.odt) |
 | opendocument | OK | 20,504 | 1 ms |  |
 | rtf | OK | 6,760 | 1 ms | [markup/org/rtf.rtf](markup/org/rtf.rtf) |
-| postscript | OK | 219,388 | 11 ms | [markup/org/postscript.ps](markup/org/postscript.ps) |
-| pptx | OK | 52,084 | 2 ms | [markup/org/pptx.pptx](markup/org/pptx.pptx) |
+| postscript | OK | 219,388 | 14 ms | [markup/org/postscript.ps](markup/org/postscript.ps) |
+| pptx | OK | 52,084 | 3 ms | [markup/org/pptx.pptx](markup/org/pptx.pptx) |
 | icml | OK | 47,489 | 0 ms |  |
-| epub | OK | 8,726 | 1 ms | [markup/org/epub.epub](markup/org/epub.epub) |
+| epub | OK | 8,726 | 2 ms | [markup/org/epub.epub](markup/org/epub.epub) |
 | epub3 | OK | 8,726 | 1 ms |  |
 | epub2 | OK | 9,010 | 1 ms |  |
 | fb2 | OK | 2,962 | 0 ms |  |
@@ -1068,12 +1068,12 @@
 | jira | OK | 1,984 | 0 ms |  |
 | man | OK | 2,154 | 0 ms |  |
 | ms | OK | 2,161 | 0 ms |  |
-| docx | OK | 10,097 | 7 ms | [markup/plain/docx.docx](markup/plain/docx.docx) |
+| docx | OK | 10,096 | 9 ms | [markup/plain/docx.docx](markup/plain/docx.docx) |
 | odt | OK | 17,808 | 2 ms | [markup/plain/odt.odt](markup/plain/odt.odt) |
 | opendocument | OK | 15,555 | 1 ms |  |
 | rtf | OK | 4,558 | 1 ms | [markup/plain/rtf.rtf](markup/plain/rtf.rtf) |
-| postscript | OK | 177,186 | 10 ms | [markup/plain/postscript.ps](markup/plain/postscript.ps) |
-| pptx | OK | 53,611 | 2 ms | [markup/plain/pptx.pptx](markup/plain/pptx.pptx) |
+| postscript | OK | 177,186 | 13 ms | [markup/plain/postscript.ps](markup/plain/postscript.ps) |
+| pptx | OK | 53,611 | 3 ms | [markup/plain/pptx.pptx](markup/plain/pptx.pptx) |
 | icml | OK | 54,453 | 0 ms |  |
 | epub | OK | 7,215 | 2 ms | [markup/plain/epub.epub](markup/plain/epub.epub) |
 | epub3 | OK | 7,215 | 1 ms |  |
@@ -1141,14 +1141,14 @@
 | jira | OK | 563 | 0 ms |  |
 | man | OK | 724 | 0 ms |  |
 | ms | OK | 754 | 0 ms |  |
-| docx | OK | 9,654 | 6 ms | [markup/pod/docx.docx](markup/pod/docx.docx) |
-| odt | OK | 17,132 | 1 ms | [markup/pod/odt.odt](markup/pod/odt.odt) |
-| opendocument | OK | 14,879 | 0 ms |  |
+| docx | OK | 9,654 | 7 ms | [markup/pod/docx.docx](markup/pod/docx.docx) |
+| odt | OK | 17,132 | 2 ms | [markup/pod/odt.odt](markup/pod/odt.odt) |
+| opendocument | OK | 14,879 | 1 ms |  |
 | rtf | OK | 2,001 | 1 ms | [markup/pod/rtf.rtf](markup/pod/rtf.rtf) |
-| postscript | OK | 114,353 | 9 ms | [markup/pod/postscript.ps](markup/pod/postscript.ps) |
-| pptx | OK | 31,766 | 4 ms | [markup/pod/pptx.pptx](markup/pod/pptx.pptx) |
+| postscript | OK | 114,353 | 11 ms | [markup/pod/postscript.ps](markup/pod/postscript.ps) |
+| pptx | OK | 31,766 | 3 ms | [markup/pod/pptx.pptx](markup/pod/pptx.pptx) |
 | icml | OK | 16,602 | 0 ms |  |
-| epub | OK | 7,248 | 2 ms | [markup/pod/epub.epub](markup/pod/epub.epub) |
+| epub | OK | 7,248 | 3 ms | [markup/pod/epub.epub](markup/pod/epub.epub) |
 | epub3 | OK | 7,248 | 1 ms |  |
 | epub2 | OK | 7,573 | 1 ms |  |
 | fb2 | OK | 1,350 | 0 ms |  |
@@ -1175,11 +1175,11 @@
 | tsv | OK | 298 | 0 ms |  |
 | ipynb | OK | 1,294 | 0 ms |  |
 
-### markup/rst.rst (`rst`) — 23 blocks read in 2 ms, 68/68 targets OK
+### markup/rst.rst (`rst`) — 23 blocks read in 5 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
-| markdown | OK | 1,758 | 1 ms | [markup/rst/markdown.md](markup/rst/markdown.md) |
+| markdown | OK | 1,758 | 2 ms | [markup/rst/markdown.md](markup/rst/markdown.md) |
 | markdown_strict | OK | 1,901 | 0 ms |  |
 | markdown_phpextra | OK | 1,765 | 0 ms |  |
 | markdown_mmd | OK | 1,750 | 0 ms |  |
@@ -1188,14 +1188,14 @@
 | commonmark_x | OK | 1,758 | 0 ms |  |
 | markua | OK | 1,778 | 0 ms |  |
 | djot | OK | 1,748 | 0 ms |  |
-| html | OK | 5,841 | 1 ms | [markup/rst/html.html](markup/rst/html.html) |
+| html | OK | 5,841 | 2 ms | [markup/rst/html.html](markup/rst/html.html) |
 | html5 | OK | 5,841 | 0 ms |  |
 | html4 | OK | 6,030 | 0 ms |  |
-| chunkedhtml | OK | 33,000 | 1 ms |  |
-| plain | OK | 1,887 | 1 ms | [markup/rst/plain.txt](markup/rst/plain.txt) |
+| chunkedhtml | OK | 33,000 | 2 ms |  |
+| plain | OK | 1,887 | 2 ms | [markup/rst/plain.txt](markup/rst/plain.txt) |
 | ansi | OK | 3,033 | 0 ms |  |
-| rst | OK | 2,338 | 1 ms | [markup/rst/rst.rst](markup/rst/rst.rst) |
-| latex | OK | 2,893 | 1 ms | [markup/rst/latex.tex](markup/rst/latex.tex) |
+| rst | OK | 2,338 | 2 ms | [markup/rst/rst.rst](markup/rst/rst.rst) |
+| latex | OK | 2,893 | 2 ms | [markup/rst/latex.tex](markup/rst/latex.tex) |
 | beamer | OK | 2,711 | 0 ms |  |
 | context | OK | 3,661 | 0 ms |  |
 | texinfo | OK | 2,579 | 0 ms |  |
@@ -1214,16 +1214,16 @@
 | jira | OK | 1,646 | 0 ms |  |
 | man | OK | 1,990 | 0 ms |  |
 | ms | OK | 2,027 | 0 ms |  |
-| docx | OK | 10,830 | 7 ms | [markup/rst/docx.docx](markup/rst/docx.docx) |
-| odt | OK | 22,758 | 2 ms | [markup/rst/odt.odt](markup/rst/odt.odt) |
+| docx | OK | 10,834 | 9 ms | [markup/rst/docx.docx](markup/rst/docx.docx) |
+| odt | OK | 22,758 | 3 ms | [markup/rst/odt.odt](markup/rst/odt.odt) |
 | opendocument | OK | 20,505 | 1 ms |  |
-| rtf | OK | 6,882 | 1 ms | [markup/rst/rtf.rtf](markup/rst/rtf.rtf) |
-| postscript | OK | 226,204 | 11 ms | [markup/rst/postscript.ps](markup/rst/postscript.ps) |
-| pptx | OK | 62,143 | 5 ms | [markup/rst/pptx.pptx](markup/rst/pptx.pptx) |
-| icml | OK | 49,585 | 0 ms |  |
-| epub | OK | 12,085 | 2 ms | [markup/rst/epub.epub](markup/rst/epub.epub) |
+| rtf | OK | 6,882 | 2 ms | [markup/rst/rtf.rtf](markup/rst/rtf.rtf) |
+| postscript | OK | 226,204 | 15 ms | [markup/rst/postscript.ps](markup/rst/postscript.ps) |
+| pptx | OK | 62,143 | 4 ms | [markup/rst/pptx.pptx](markup/rst/pptx.pptx) |
+| icml | OK | 49,585 | 1 ms |  |
+| epub | OK | 12,085 | 4 ms | [markup/rst/epub.epub](markup/rst/epub.epub) |
 | epub3 | OK | 12,085 | 1 ms |  |
-| epub2 | OK | 12,846 | 1 ms |  |
+| epub2 | OK | 12,846 | 2 ms |  |
 | fb2 | OK | 2,977 | 0 ms |  |
 | revealjs | OK | 3,682 | 0 ms |  |
 | slidy | OK | 3,493 | 0 ms |  |
@@ -1248,7 +1248,7 @@
 | tsv | OK | 93 | 0 ms |  |
 | ipynb | OK | 2,883 | 0 ms |  |
 
-### markup/t2t.t2t (`t2t`) — 9 blocks read in 1 ms, 68/68 targets OK
+### markup/t2t.t2t (`t2t`) — 9 blocks read in 2 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
@@ -1287,14 +1287,14 @@
 | jira | OK | 490 | 0 ms |  |
 | man | OK | 692 | 0 ms |  |
 | ms | OK | 730 | 0 ms |  |
-| docx | OK | 9,865 | 7 ms | [markup/t2t/docx.docx](markup/t2t/docx.docx) |
-| odt | OK | 18,000 | 1 ms | [markup/t2t/odt.odt](markup/t2t/odt.odt) |
-| opendocument | OK | 15,747 | 0 ms |  |
-| rtf | OK | 2,404 | 1 ms | [markup/t2t/rtf.rtf](markup/t2t/rtf.rtf) |
-| postscript | OK | 111,581 | 9 ms | [markup/t2t/postscript.ps](markup/t2t/postscript.ps) |
-| pptx | OK | 29,294 | 4 ms | [markup/t2t/pptx.pptx](markup/t2t/pptx.pptx) |
+| docx | OK | 9,864 | 10 ms | [markup/t2t/docx.docx](markup/t2t/docx.docx) |
+| odt | OK | 18,000 | 2 ms | [markup/t2t/odt.odt](markup/t2t/odt.odt) |
+| opendocument | OK | 15,747 | 1 ms |  |
+| rtf | OK | 2,404 | 2 ms | [markup/t2t/rtf.rtf](markup/t2t/rtf.rtf) |
+| postscript | OK | 111,581 | 15 ms | [markup/t2t/postscript.ps](markup/t2t/postscript.ps) |
+| pptx | OK | 29,294 | 3 ms | [markup/t2t/pptx.pptx](markup/t2t/pptx.pptx) |
 | icml | OK | 15,186 | 0 ms |  |
-| epub | OK | 6,871 | 1 ms | [markup/t2t/epub.epub](markup/t2t/epub.epub) |
+| epub | OK | 6,871 | 2 ms | [markup/t2t/epub.epub](markup/t2t/epub.epub) |
 | epub3 | OK | 6,871 | 1 ms |  |
 | epub2 | OK | 7,148 | 1 ms |  |
 | fb2 | OK | 1,429 | 0 ms |  |
@@ -1360,13 +1360,13 @@
 | jira | OK | 1,570 | 0 ms |  |
 | man | OK | 1,908 | 0 ms |  |
 | ms | OK | 1,929 | 0 ms |  |
-| docx | OK | 10,710 | 7 ms | [markup/textile/docx.docx](markup/textile/docx.docx) |
-| odt | OK | 22,574 | 1 ms | [markup/textile/odt.odt](markup/textile/odt.odt) |
-| opendocument | OK | 20,321 | 0 ms |  |
+| docx | OK | 10,715 | 8 ms | [markup/textile/docx.docx](markup/textile/docx.docx) |
+| odt | OK | 22,574 | 2 ms | [markup/textile/odt.odt](markup/textile/odt.odt) |
+| opendocument | OK | 20,321 | 1 ms |  |
 | rtf | OK | 6,687 | 1 ms | [markup/textile/rtf.rtf](markup/textile/rtf.rtf) |
-| postscript | OK | 215,561 | 11 ms | [markup/textile/postscript.ps](markup/textile/postscript.ps) |
+| postscript | OK | 215,561 | 15 ms | [markup/textile/postscript.ps](markup/textile/postscript.ps) |
 | pptx | OK | 51,984 | 6 ms | [markup/textile/pptx.pptx](markup/textile/pptx.pptx) |
-| icml | OK | 48,558 | 0 ms |  |
+| icml | OK | 48,558 | 1 ms |  |
 | epub | OK | 8,327 | 2 ms | [markup/textile/epub.epub](markup/textile/epub.epub) |
 | epub3 | OK | 8,327 | 1 ms |  |
 | epub2 | OK | 8,521 | 1 ms |  |
@@ -1388,7 +1388,7 @@
 | bibtex | OK | 1 | 0 ms |  |
 | biblatex | OK | 1 | 0 ms |  |
 | csljson | OK | 3 | 0 ms |  |
-| json | OK | 9,450 | 4 ms | [markup/textile/json.json](markup/textile/json.json) |
+| json | OK | 9,450 | 1 ms | [markup/textile/json.json](markup/textile/json.json) |
 | native | OK | 6,955 | 0 ms |  |
 | csv | OK | 93 | 0 ms |  |
 | tsv | OK | 93 | 0 ms |  |
@@ -1398,7 +1398,7 @@
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
-| markdown | OK | 2,046 | 2 ms | [markup/typst/markdown.md](markup/typst/markdown.md) |
+| markdown | OK | 2,046 | 1 ms | [markup/typst/markdown.md](markup/typst/markdown.md) |
 | markdown_strict | OK | 2,153 | 0 ms |  |
 | markdown_phpextra | OK | 2,026 | 0 ms |  |
 | markdown_mmd | OK | 2,026 | 0 ms |  |
@@ -1407,14 +1407,14 @@
 | commonmark_x | OK | 2,046 | 0 ms |  |
 | markua | OK | 2,063 | 0 ms |  |
 | djot | OK | 2,029 | 0 ms |  |
-| html | OK | 6,640 | 2 ms | [markup/typst/html.html](markup/typst/html.html) |
+| html | OK | 6,640 | 1 ms | [markup/typst/html.html](markup/typst/html.html) |
 | html5 | OK | 6,640 | 0 ms |  |
 | html4 | OK | 6,778 | 0 ms |  |
-| chunkedhtml | OK | 15,451 | 2 ms |  |
-| plain | OK | 2,233 | 2 ms | [markup/typst/plain.txt](markup/typst/plain.txt) |
+| chunkedhtml | OK | 15,451 | 1 ms |  |
+| plain | OK | 2,233 | 1 ms | [markup/typst/plain.txt](markup/typst/plain.txt) |
 | ansi | OK | 2,994 | 0 ms |  |
-| rst | OK | 2,646 | 2 ms | [markup/typst/rst.rst](markup/typst/rst.rst) |
-| latex | OK | 3,303 | 2 ms | [markup/typst/latex.tex](markup/typst/latex.tex) |
+| rst | OK | 2,646 | 1 ms | [markup/typst/rst.rst](markup/typst/rst.rst) |
+| latex | OK | 3,303 | 1 ms | [markup/typst/latex.tex](markup/typst/latex.tex) |
 | beamer | OK | 3,165 | 0 ms |  |
 | context | OK | 4,149 | 0 ms |  |
 | texinfo | OK | 3,030 | 0 ms |  |
@@ -1433,14 +1433,14 @@
 | jira | OK | 1,864 | 0 ms |  |
 | man | OK | 2,284 | 0 ms |  |
 | ms | OK | 2,318 | 0 ms |  |
-| docx | OK | 11,102 | 14 ms | [markup/typst/docx.docx](markup/typst/docx.docx) |
-| odt | OK | 23,637 | 3 ms | [markup/typst/odt.odt](markup/typst/odt.odt) |
+| docx | OK | 11,106 | 7 ms | [markup/typst/docx.docx](markup/typst/docx.docx) |
+| odt | OK | 23,637 | 2 ms | [markup/typst/odt.odt](markup/typst/odt.odt) |
 | opendocument | OK | 21,384 | 1 ms |  |
 | rtf | OK | 7,482 | 1 ms | [markup/typst/rtf.rtf](markup/typst/rtf.rtf) |
-| postscript | OK | 231,961 | 14 ms | [markup/typst/postscript.ps](markup/typst/postscript.ps) |
-| pptx | OK | 57,522 | 5 ms | [markup/typst/pptx.pptx](markup/typst/pptx.pptx) |
+| postscript | OK | 231,961 | 16 ms | [markup/typst/postscript.ps](markup/typst/postscript.ps) |
+| pptx | OK | 57,522 | 3 ms | [markup/typst/pptx.pptx](markup/typst/pptx.pptx) |
 | icml | OK | 53,677 | 0 ms |  |
-| epub | OK | 9,997 | 2 ms | [markup/typst/epub.epub](markup/typst/epub.epub) |
+| epub | OK | 9,997 | 4 ms | [markup/typst/epub.epub](markup/typst/epub.epub) |
 | epub3 | OK | 9,997 | 1 ms |  |
 | epub2 | OK | 10,363 | 1 ms |  |
 | fb2 | OK | 3,454 | 0 ms |  |
@@ -1506,12 +1506,12 @@
 | jira | OK | 511 | 0 ms |  |
 | man | OK | 735 | 0 ms |  |
 | ms | OK | 750 | 0 ms |  |
-| docx | OK | 9,824 | 8 ms | [wiki/creole/docx.docx](wiki/creole/docx.docx) |
+| docx | OK | 9,823 | 6 ms | [wiki/creole/docx.docx](wiki/creole/docx.docx) |
 | odt | OK | 18,259 | 2 ms | [wiki/creole/odt.odt](wiki/creole/odt.odt) |
 | opendocument | OK | 16,006 | 1 ms |  |
 | rtf | OK | 2,640 | 1 ms | [wiki/creole/rtf.rtf](wiki/creole/rtf.rtf) |
-| postscript | OK | 109,308 | 10 ms | [wiki/creole/postscript.ps](wiki/creole/postscript.ps) |
-| pptx | OK | 29,888 | 5 ms | [wiki/creole/pptx.pptx](wiki/creole/pptx.pptx) |
+| postscript | OK | 109,308 | 14 ms | [wiki/creole/postscript.ps](wiki/creole/postscript.ps) |
+| pptx | OK | 29,888 | 2 ms | [wiki/creole/pptx.pptx](wiki/creole/pptx.pptx) |
 | icml | OK | 16,054 | 0 ms |  |
 | epub | OK | 6,189 | 2 ms | [wiki/creole/epub.epub](wiki/creole/epub.epub) |
 | epub3 | OK | 6,189 | 1 ms |  |
@@ -1579,14 +1579,14 @@
 | jira | OK | 1,590 | 0 ms |  |
 | man | OK | 1,957 | 0 ms |  |
 | ms | OK | 1,974 | 0 ms |  |
-| docx | OK | 10,820 | 9 ms | [wiki/dokuwiki/docx.docx](wiki/dokuwiki/docx.docx) |
-| odt | OK | 22,681 | 2 ms | [wiki/dokuwiki/odt.odt](wiki/dokuwiki/odt.odt) |
-| opendocument | OK | 20,428 | 0 ms |  |
-| rtf | OK | 6,689 | 1 ms | [wiki/dokuwiki/rtf.rtf](wiki/dokuwiki/rtf.rtf) |
-| postscript | OK | 217,731 | 11 ms | [wiki/dokuwiki/postscript.ps](wiki/dokuwiki/postscript.ps) |
-| pptx | OK | 52,401 | 4 ms | [wiki/dokuwiki/pptx.pptx](wiki/dokuwiki/pptx.pptx) |
+| docx | OK | 10,824 | 11 ms | [wiki/dokuwiki/docx.docx](wiki/dokuwiki/docx.docx) |
+| odt | OK | 22,681 | 3 ms | [wiki/dokuwiki/odt.odt](wiki/dokuwiki/odt.odt) |
+| opendocument | OK | 20,428 | 2 ms |  |
+| rtf | OK | 6,689 | 2 ms | [wiki/dokuwiki/rtf.rtf](wiki/dokuwiki/rtf.rtf) |
+| postscript | OK | 217,731 | 18 ms | [wiki/dokuwiki/postscript.ps](wiki/dokuwiki/postscript.ps) |
+| pptx | OK | 52,401 | 3 ms | [wiki/dokuwiki/pptx.pptx](wiki/dokuwiki/pptx.pptx) |
 | icml | OK | 49,684 | 0 ms |  |
-| epub | OK | 8,649 | 2 ms | [wiki/dokuwiki/epub.epub](wiki/dokuwiki/epub.epub) |
+| epub | OK | 8,649 | 3 ms | [wiki/dokuwiki/epub.epub](wiki/dokuwiki/epub.epub) |
 | epub3 | OK | 8,649 | 1 ms |  |
 | epub2 | OK | 8,843 | 1 ms |  |
 | fb2 | OK | 3,009 | 0 ms |  |
@@ -1613,7 +1613,7 @@
 | tsv | OK | 93 | 0 ms |  |
 | ipynb | OK | 2,830 | 0 ms |  |
 
-### wiki/jira.jira (`jira`) — 24 blocks read in 2 ms, 68/68 targets OK
+### wiki/jira.jira (`jira`) — 24 blocks read in 1 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
@@ -1652,14 +1652,14 @@
 | jira | OK | 1,621 | 0 ms |  |
 | man | OK | 1,950 | 0 ms |  |
 | ms | OK | 1,971 | 0 ms |  |
-| docx | OK | 10,712 | 8 ms | [wiki/jira/docx.docx](wiki/jira/docx.docx) |
+| docx | OK | 10,718 | 7 ms | [wiki/jira/docx.docx](wiki/jira/docx.docx) |
 | odt | OK | 22,649 | 2 ms | [wiki/jira/odt.odt](wiki/jira/odt.odt) |
-| opendocument | OK | 20,396 | 0 ms |  |
+| opendocument | OK | 20,396 | 1 ms |  |
 | rtf | OK | 6,688 | 1 ms | [wiki/jira/rtf.rtf](wiki/jira/rtf.rtf) |
-| postscript | OK | 217,939 | 12 ms | [wiki/jira/postscript.ps](wiki/jira/postscript.ps) |
-| pptx | OK | 51,441 | 2 ms | [wiki/jira/pptx.pptx](wiki/jira/pptx.pptx) |
+| postscript | OK | 217,939 | 14 ms | [wiki/jira/postscript.ps](wiki/jira/postscript.ps) |
+| pptx | OK | 51,441 | 3 ms | [wiki/jira/pptx.pptx](wiki/jira/pptx.pptx) |
 | icml | OK | 47,337 | 0 ms |  |
-| epub | OK | 8,406 | 1 ms | [wiki/jira/epub.epub](wiki/jira/epub.epub) |
+| epub | OK | 8,406 | 2 ms | [wiki/jira/epub.epub](wiki/jira/epub.epub) |
 | epub3 | OK | 8,406 | 1 ms |  |
 | epub2 | OK | 8,600 | 1 ms |  |
 | fb2 | OK | 2,887 | 0 ms |  |
@@ -1705,8 +1705,8 @@
 | chunkedhtml | OK | 14,455 | 1 ms |  |
 | plain | OK | 1,848 | 1 ms | [wiki/mediawiki/plain.txt](wiki/mediawiki/plain.txt) |
 | ansi | OK | 2,796 | 0 ms |  |
-| rst | OK | 2,193 | 1 ms | [wiki/mediawiki/rst.rst](wiki/mediawiki/rst.rst) |
-| latex | OK | 3,036 | 1 ms | [wiki/mediawiki/latex.tex](wiki/mediawiki/latex.tex) |
+| rst | OK | 2,193 | 2 ms | [wiki/mediawiki/rst.rst](wiki/mediawiki/rst.rst) |
+| latex | OK | 3,036 | 2 ms | [wiki/mediawiki/latex.tex](wiki/mediawiki/latex.tex) |
 | beamer | OK | 2,855 | 0 ms |  |
 | context | OK | 3,682 | 0 ms |  |
 | texinfo | OK | 2,674 | 0 ms |  |
@@ -1725,16 +1725,16 @@
 | jira | OK | 1,609 | 0 ms |  |
 | man | OK | 2,001 | 0 ms |  |
 | ms | OK | 2,021 | 0 ms |  |
-| docx | OK | 10,813 | 7 ms | [wiki/mediawiki/docx.docx](wiki/mediawiki/docx.docx) |
-| odt | OK | 23,069 | 1 ms | [wiki/mediawiki/odt.odt](wiki/mediawiki/odt.odt) |
-| opendocument | OK | 20,816 | 0 ms |  |
+| docx | OK | 10,812 | 7 ms | [wiki/mediawiki/docx.docx](wiki/mediawiki/docx.docx) |
+| odt | OK | 23,069 | 2 ms | [wiki/mediawiki/odt.odt](wiki/mediawiki/odt.odt) |
+| opendocument | OK | 20,816 | 1 ms |  |
 | rtf | OK | 6,890 | 1 ms | [wiki/mediawiki/rtf.rtf](wiki/mediawiki/rtf.rtf) |
 | postscript | OK | 218,128 | 13 ms | [wiki/mediawiki/postscript.ps](wiki/mediawiki/postscript.ps) |
-| pptx | OK | 51,027 | 5 ms | [wiki/mediawiki/pptx.pptx](wiki/mediawiki/pptx.pptx) |
+| pptx | OK | 51,027 | 2 ms | [wiki/mediawiki/pptx.pptx](wiki/mediawiki/pptx.pptx) |
 | icml | OK | 47,193 | 0 ms |  |
-| epub | OK | 8,777 | 1 ms | [wiki/mediawiki/epub.epub](wiki/mediawiki/epub.epub) |
+| epub | OK | 8,777 | 2 ms | [wiki/mediawiki/epub.epub](wiki/mediawiki/epub.epub) |
 | epub3 | OK | 8,777 | 1 ms |  |
-| epub2 | OK | 8,971 | 1 ms |  |
+| epub2 | OK | 8,971 | 2 ms |  |
 | fb2 | OK | 3,065 | 0 ms |  |
 | revealjs | OK | 3,645 | 0 ms |  |
 | slidy | OK | 3,420 | 0 ms |  |
@@ -1798,11 +1798,11 @@
 | jira | OK | 482 | 0 ms |  |
 | man | OK | 686 | 0 ms |  |
 | ms | OK | 701 | 0 ms |  |
-| docx | OK | 9,770 | 7 ms | [wiki/tikiwiki/docx.docx](wiki/tikiwiki/docx.docx) |
+| docx | OK | 9,771 | 6 ms | [wiki/tikiwiki/docx.docx](wiki/tikiwiki/docx.docx) |
 | odt | OK | 18,153 | 2 ms | [wiki/tikiwiki/odt.odt](wiki/tikiwiki/odt.odt) |
-| opendocument | OK | 15,900 | 0 ms |  |
+| opendocument | OK | 15,900 | 1 ms |  |
 | rtf | OK | 2,485 | 1 ms | [wiki/tikiwiki/rtf.rtf](wiki/tikiwiki/rtf.rtf) |
-| postscript | OK | 105,244 | 9 ms | [wiki/tikiwiki/postscript.ps](wiki/tikiwiki/postscript.ps) |
+| postscript | OK | 105,244 | 11 ms | [wiki/tikiwiki/postscript.ps](wiki/tikiwiki/postscript.ps) |
 | pptx | OK | 27,622 | 2 ms | [wiki/tikiwiki/pptx.pptx](wiki/tikiwiki/pptx.pptx) |
 | icml | OK | 15,243 | 0 ms |  |
 | epub | OK | 6,173 | 1 ms | [wiki/tikiwiki/epub.epub](wiki/tikiwiki/epub.epub) |
@@ -1871,14 +1871,14 @@
 | jira | OK | 476 | 0 ms |  |
 | man | OK | 683 | 0 ms |  |
 | ms | OK | 698 | 0 ms |  |
-| docx | OK | 9,770 | 7 ms | [wiki/twiki/docx.docx](wiki/twiki/docx.docx) |
-| odt | OK | 18,150 | 3 ms | [wiki/twiki/odt.odt](wiki/twiki/odt.odt) |
-| opendocument | OK | 15,897 | 1 ms |  |
+| docx | OK | 9,768 | 7 ms | [wiki/twiki/docx.docx](wiki/twiki/docx.docx) |
+| odt | OK | 18,150 | 2 ms | [wiki/twiki/odt.odt](wiki/twiki/odt.odt) |
+| opendocument | OK | 15,897 | 0 ms |  |
 | rtf | OK | 2,482 | 1 ms | [wiki/twiki/rtf.rtf](wiki/twiki/rtf.rtf) |
-| postscript | OK | 105,216 | 9 ms | [wiki/twiki/postscript.ps](wiki/twiki/postscript.ps) |
+| postscript | OK | 105,216 | 11 ms | [wiki/twiki/postscript.ps](wiki/twiki/postscript.ps) |
 | pptx | OK | 27,619 | 2 ms | [wiki/twiki/pptx.pptx](wiki/twiki/pptx.pptx) |
 | icml | OK | 15,240 | 0 ms |  |
-| epub | OK | 6,147 | 1 ms | [wiki/twiki/epub.epub](wiki/twiki/epub.epub) |
+| epub | OK | 6,147 | 3 ms | [wiki/twiki/epub.epub](wiki/twiki/epub.epub) |
 | epub3 | OK | 6,147 | 1 ms |  |
 | epub2 | OK | 6,259 | 1 ms |  |
 | fb2 | OK | 1,277 | 0 ms |  |
@@ -1905,7 +1905,7 @@
 | tsv | OK | 52 | 0 ms |  |
 | ipynb | OK | 1,236 | 0 ms |  |
 
-### wiki/vimwiki.wiki (`vimwiki`) — 10 blocks read in 1 ms, 68/68 targets OK
+### wiki/vimwiki.wiki (`vimwiki`) — 10 blocks read in 2 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
@@ -1944,12 +1944,12 @@
 | jira | OK | 550 | 0 ms |  |
 | man | OK | 757 | 0 ms |  |
 | ms | OK | 785 | 0 ms |  |
-| docx | OK | 9,869 | 8 ms | [wiki/vimwiki/docx.docx](wiki/vimwiki/docx.docx) |
+| docx | OK | 9,870 | 7 ms | [wiki/vimwiki/docx.docx](wiki/vimwiki/docx.docx) |
 | odt | OK | 18,519 | 2 ms | [wiki/vimwiki/odt.odt](wiki/vimwiki/odt.odt) |
-| opendocument | OK | 16,266 | 0 ms |  |
+| opendocument | OK | 16,266 | 1 ms |  |
 | rtf | OK | 2,753 | 1 ms | [wiki/vimwiki/rtf.rtf](wiki/vimwiki/rtf.rtf) |
-| postscript | OK | 114,562 | 9 ms | [wiki/vimwiki/postscript.ps](wiki/vimwiki/postscript.ps) |
-| pptx | OK | 30,068 | 3 ms | [wiki/vimwiki/pptx.pptx](wiki/vimwiki/pptx.pptx) |
+| postscript | OK | 114,562 | 11 ms | [wiki/vimwiki/postscript.ps](wiki/vimwiki/postscript.ps) |
+| pptx | OK | 30,068 | 2 ms | [wiki/vimwiki/pptx.pptx](wiki/vimwiki/pptx.pptx) |
 | icml | OK | 16,495 | 0 ms |  |
 | epub | OK | 7,087 | 2 ms | [wiki/vimwiki/epub.epub](wiki/vimwiki/epub.epub) |
 | epub3 | OK | 7,087 | 1 ms |  |
@@ -2019,12 +2019,12 @@
 | ms | OK | 2,033 | 0 ms |  |
 | docx | OK | 10,704 | 7 ms | [man/man/docx.docx](man/man/docx.docx) |
 | odt | OK | 22,903 | 2 ms | [man/man/odt.odt](man/man/odt.odt) |
-| opendocument | OK | 20,650 | 0 ms |  |
+| opendocument | OK | 20,650 | 1 ms |  |
 | rtf | OK | 7,023 | 1 ms | [man/man/rtf.rtf](man/man/rtf.rtf) |
-| postscript | OK | 231,747 | 11 ms | [man/man/postscript.ps](man/man/postscript.ps) |
-| pptx | OK | 52,913 | 4 ms | [man/man/pptx.pptx](man/man/pptx.pptx) |
+| postscript | OK | 231,747 | 15 ms | [man/man/postscript.ps](man/man/postscript.ps) |
+| pptx | OK | 52,913 | 2 ms | [man/man/pptx.pptx](man/man/pptx.pptx) |
 | icml | OK | 47,719 | 0 ms |  |
-| epub | OK | 9,613 | 1 ms | [man/man/epub.epub](man/man/epub.epub) |
+| epub | OK | 9,613 | 2 ms | [man/man/epub.epub](man/man/epub.epub) |
 | epub3 | OK | 9,613 | 1 ms |  |
 | epub2 | OK | 9,982 | 1 ms |  |
 | fb2 | OK | 3,078 | 0 ms |  |
@@ -2090,14 +2090,14 @@
 | jira | OK | 584 | 0 ms |  |
 | man | OK | 799 | 0 ms |  |
 | ms | OK | 837 | 0 ms |  |
-| docx | OK | 9,582 | 7 ms | [man/mdoc/docx.docx](man/mdoc/docx.docx) |
-| odt | OK | 17,173 | 1 ms | [man/mdoc/odt.odt](man/mdoc/odt.odt) |
-| opendocument | OK | 14,920 | 0 ms |  |
-| rtf | OK | 2,008 | 1 ms | [man/mdoc/rtf.rtf](man/mdoc/rtf.rtf) |
-| postscript | OK | 116,455 | 10 ms | [man/mdoc/postscript.ps](man/mdoc/postscript.ps) |
+| docx | OK | 9,583 | 7 ms | [man/mdoc/docx.docx](man/mdoc/docx.docx) |
+| odt | OK | 17,173 | 2 ms | [man/mdoc/odt.odt](man/mdoc/odt.odt) |
+| opendocument | OK | 14,920 | 1 ms |  |
+| rtf | OK | 2,008 | 2 ms | [man/mdoc/rtf.rtf](man/mdoc/rtf.rtf) |
+| postscript | OK | 116,455 | 11 ms | [man/mdoc/postscript.ps](man/mdoc/postscript.ps) |
 | pptx | OK | 39,012 | 2 ms | [man/mdoc/pptx.pptx](man/mdoc/pptx.pptx) |
 | icml | OK | 19,001 | 0 ms |  |
-| epub | OK | 9,038 | 1 ms | [man/mdoc/epub.epub](man/mdoc/epub.epub) |
+| epub | OK | 9,038 | 2 ms | [man/mdoc/epub.epub](man/mdoc/epub.epub) |
 | epub3 | OK | 9,038 | 1 ms |  |
 | epub2 | OK | 9,607 | 1 ms |  |
 | fb2 | OK | 1,442 | 0 ms |  |
@@ -2124,7 +2124,7 @@
 | tsv | OK | 341 | 0 ms |  |
 | ipynb | OK | 1,336 | 0 ms |  |
 
-### office/docx.docx (`docx`) — 27 blocks read in 57 ms, 68/68 targets OK
+### office/docx.docx (`docx`) — 27 blocks read in 64 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
@@ -2163,14 +2163,14 @@
 | jira | OK | 1,623 | 0 ms |  |
 | man | OK | 2,034 | 0 ms |  |
 | ms | OK | 2,078 | 0 ms |  |
-| docx | OK | 10,655 | 9 ms | [office/docx/docx.docx](office/docx/docx.docx) |
-| odt | OK | 23,343 | 1 ms | [office/docx/odt.odt](office/docx/odt.odt) |
+| docx | OK | 10,655 | 7 ms | [office/docx/docx.docx](office/docx/docx.docx) |
+| odt | OK | 23,343 | 2 ms | [office/docx/odt.odt](office/docx/odt.odt) |
 | opendocument | OK | 21,090 | 1 ms |  |
 | rtf | OK | 7,007 | 1 ms | [office/docx/rtf.rtf](office/docx/rtf.rtf) |
-| postscript | OK | 219,060 | 14 ms | [office/docx/postscript.ps](office/docx/postscript.ps) |
+| postscript | OK | 219,060 | 12 ms | [office/docx/postscript.ps](office/docx/postscript.ps) |
 | pptx | OK | 53,146 | 2 ms | [office/docx/pptx.pptx](office/docx/pptx.pptx) |
 | icml | OK | 49,608 | 0 ms |  |
-| epub | OK | 9,194 | 1 ms | [office/docx/epub.epub](office/docx/epub.epub) |
+| epub | OK | 9,194 | 2 ms | [office/docx/epub.epub](office/docx/epub.epub) |
 | epub3 | OK | 9,194 | 1 ms |  |
 | epub2 | OK | 9,560 | 1 ms |  |
 | fb2 | OK | 3,123 | 0 ms |  |
@@ -2236,12 +2236,12 @@
 | jira | OK | 1,648 | 0 ms |  |
 | man | OK | 2,072 | 0 ms |  |
 | ms | OK | 2,110 | 0 ms |  |
-| docx | OK | 10,904 | 6 ms | [office/odt/docx.docx](office/odt/docx.docx) |
+| docx | OK | 10,900 | 7 ms | [office/odt/docx.docx](office/odt/docx.docx) |
 | odt | OK | 23,288 | 2 ms | [office/odt/odt.odt](office/odt/odt.odt) |
 | opendocument | OK | 21,035 | 1 ms |  |
 | rtf | OK | 7,173 | 1 ms | [office/odt/rtf.rtf](office/odt/rtf.rtf) |
 | postscript | OK | 223,941 | 11 ms | [office/odt/postscript.ps](office/odt/postscript.ps) |
-| pptx | OK | 53,820 | 3 ms | [office/odt/pptx.pptx](office/odt/pptx.pptx) |
+| pptx | OK | 53,820 | 2 ms | [office/odt/pptx.pptx](office/odt/pptx.pptx) |
 | icml | OK | 49,888 | 0 ms |  |
 | epub | OK | 9,422 | 2 ms | [office/odt/epub.epub](office/odt/epub.epub) |
 | epub3 | OK | 9,422 | 1 ms |  |
@@ -2283,14 +2283,14 @@
 | commonmark_x | OK | 1,784 | 0 ms |  |
 | markua | OK | 1,790 | 0 ms |  |
 | djot | OK | 1,742 | 0 ms |  |
-| html | OK | 6,939 | 1 ms | [office/postscript/html.html](office/postscript/html.html) |
+| html | OK | 6,939 | 2 ms | [office/postscript/html.html](office/postscript/html.html) |
 | html5 | OK | 6,939 | 0 ms |  |
 | html4 | OK | 7,077 | 0 ms |  |
 | chunkedhtml | OK | 11,295 | 1 ms |  |
 | plain | OK | 1,870 | 1 ms | [office/postscript/plain.txt](office/postscript/plain.txt) |
 | ansi | OK | 2,657 | 0 ms |  |
 | rst | OK | 2,242 | 1 ms | [office/postscript/rst.rst](office/postscript/rst.rst) |
-| latex | OK | 2,909 | 1 ms | [office/postscript/latex.tex](office/postscript/latex.tex) |
+| latex | OK | 2,909 | 2 ms | [office/postscript/latex.tex](office/postscript/latex.tex) |
 | beamer | OK | 2,763 | 0 ms |  |
 | context | OK | 3,945 | 0 ms |  |
 | texinfo | OK | 2,620 | 0 ms |  |
@@ -2309,14 +2309,14 @@
 | jira | OK | 1,564 | 0 ms |  |
 | man | OK | 1,984 | 0 ms |  |
 | ms | OK | 2,023 | 0 ms |  |
-| docx | OK | 10,988 | 5 ms | [office/postscript/docx.docx](office/postscript/docx.docx) |
+| docx | OK | 10,989 | 10 ms | [office/postscript/docx.docx](office/postscript/docx.docx) |
 | odt | OK | 23,081 | 2 ms | [office/postscript/odt.odt](office/postscript/odt.odt) |
 | opendocument | OK | 20,828 | 1 ms |  |
 | rtf | OK | 7,014 | 1 ms | [office/postscript/rtf.rtf](office/postscript/rtf.rtf) |
-| postscript | OK | 223,276 | 10 ms | [office/postscript/postscript.ps](office/postscript/postscript.ps) |
-| pptx | OK | 50,784 | 2 ms | [office/postscript/pptx.pptx](office/postscript/pptx.pptx) |
+| postscript | OK | 223,276 | 13 ms | [office/postscript/postscript.ps](office/postscript/postscript.ps) |
+| pptx | OK | 50,784 | 3 ms | [office/postscript/pptx.pptx](office/postscript/pptx.pptx) |
 | icml | OK | 45,962 | 0 ms |  |
-| epub | OK | 9,627 | 1 ms | [office/postscript/epub.epub](office/postscript/epub.epub) |
+| epub | OK | 9,627 | 2 ms | [office/postscript/epub.epub](office/postscript/epub.epub) |
 | epub3 | OK | 9,627 | 1 ms |  |
 | epub2 | OK | 9,911 | 1 ms |  |
 | fb2 | OK | 3,118 | 0 ms |  |
@@ -2382,14 +2382,14 @@
 | jira | OK | 1,643 | 0 ms |  |
 | man | OK | 2,018 | 0 ms |  |
 | ms | OK | 2,057 | 0 ms |  |
-| docx | OK | 10,625 | 6 ms | [office/rtf/docx.docx](office/rtf/docx.docx) |
+| docx | OK | 10,622 | 6 ms | [office/rtf/docx.docx](office/rtf/docx.docx) |
 | odt | OK | 22,953 | 2 ms | [office/rtf/odt.odt](office/rtf/odt.odt) |
 | opendocument | OK | 20,700 | 1 ms |  |
 | rtf | OK | 6,868 | 1 ms | [office/rtf/rtf.rtf](office/rtf/rtf.rtf) |
-| postscript | OK | 230,239 | 10 ms | [office/rtf/postscript.ps](office/rtf/postscript.ps) |
-| pptx | OK | 52,779 | 2 ms | [office/rtf/pptx.pptx](office/rtf/pptx.pptx) |
-| icml | OK | 49,085 | 0 ms |  |
-| epub | OK | 9,191 | 1 ms | [office/rtf/epub.epub](office/rtf/epub.epub) |
+| postscript | OK | 230,239 | 15 ms | [office/rtf/postscript.ps](office/rtf/postscript.ps) |
+| pptx | OK | 52,779 | 5 ms | [office/rtf/pptx.pptx](office/rtf/pptx.pptx) |
+| icml | OK | 49,085 | 1 ms |  |
+| epub | OK | 9,191 | 2 ms | [office/rtf/epub.epub](office/rtf/epub.epub) |
 | epub3 | OK | 9,191 | 1 ms |  |
 | epub2 | OK | 9,581 | 1 ms |  |
 | fb2 | OK | 3,145 | 0 ms |  |
@@ -2455,14 +2455,14 @@
 | jira | OK | 1,660 | 0 ms |  |
 | man | OK | 2,104 | 0 ms |  |
 | ms | OK | 2,152 | 0 ms |  |
-| docx | OK | 11,003 | 7 ms | [ebook/epub/docx.docx](ebook/epub/docx.docx) |
-| odt | OK | 23,634 | 1 ms | [ebook/epub/odt.odt](ebook/epub/odt.odt) |
+| docx | OK | 10,997 | 8 ms | [ebook/epub/docx.docx](ebook/epub/docx.docx) |
+| odt | OK | 23,634 | 2 ms | [ebook/epub/odt.odt](ebook/epub/odt.odt) |
 | opendocument | OK | 21,381 | 1 ms |  |
 | rtf | OK | 7,387 | 1 ms | [ebook/epub/rtf.rtf](ebook/epub/rtf.rtf) |
-| postscript | OK | 224,590 | 11 ms | [ebook/epub/postscript.ps](ebook/epub/postscript.ps) |
-| pptx | OK | 55,524 | 2 ms | [ebook/epub/pptx.pptx](ebook/epub/pptx.pptx) |
-| icml | OK | 48,351 | 0 ms |  |
-| epub | OK | 10,184 | 1 ms | [ebook/epub/epub.epub](ebook/epub/epub.epub) |
+| postscript | OK | 224,590 | 12 ms | [ebook/epub/postscript.ps](ebook/epub/postscript.ps) |
+| pptx | OK | 55,524 | 3 ms | [ebook/epub/pptx.pptx](ebook/epub/pptx.pptx) |
+| icml | OK | 48,351 | 1 ms |  |
+| epub | OK | 10,184 | 5 ms | [ebook/epub/epub.epub](ebook/epub/epub.epub) |
 | epub3 | OK | 10,184 | 1 ms |  |
 | epub2 | OK | 10,550 | 1 ms |  |
 | fb2 | OK | 3,190 | 0 ms |  |
@@ -2528,14 +2528,14 @@
 | jira | OK | 1,631 | 0 ms |  |
 | man | OK | 1,990 | 0 ms |  |
 | ms | OK | 2,030 | 0 ms |  |
-| docx | OK | 10,796 | 8 ms | [ebook/fb2/docx.docx](ebook/fb2/docx.docx) |
+| docx | OK | 10,798 | 8 ms | [ebook/fb2/docx.docx](ebook/fb2/docx.docx) |
 | odt | OK | 22,718 | 2 ms | [ebook/fb2/odt.odt](ebook/fb2/odt.odt) |
 | opendocument | OK | 20,465 | 1 ms |  |
 | rtf | OK | 6,856 | 1 ms | [ebook/fb2/rtf.rtf](ebook/fb2/rtf.rtf) |
-| postscript | OK | 224,968 | 10 ms | [ebook/fb2/postscript.ps](ebook/fb2/postscript.ps) |
+| postscript | OK | 224,968 | 12 ms | [ebook/fb2/postscript.ps](ebook/fb2/postscript.ps) |
 | pptx | OK | 52,251 | 2 ms | [ebook/fb2/pptx.pptx](ebook/fb2/pptx.pptx) |
 | icml | OK | 48,963 | 0 ms |  |
-| epub | OK | 9,613 | 1 ms | [ebook/fb2/epub.epub](ebook/fb2/epub.epub) |
+| epub | OK | 9,613 | 2 ms | [ebook/fb2/epub.epub](ebook/fb2/epub.epub) |
 | epub3 | OK | 9,613 | 1 ms |  |
 | epub2 | OK | 9,979 | 1 ms |  |
 | fb2 | OK | 3,293 | 0 ms |  |
@@ -2601,14 +2601,14 @@
 | jira | OK | 517 | 0 ms |  |
 | man | OK | 697 | 0 ms |  |
 | ms | OK | 735 | 0 ms |  |
-| docx | OK | 9,869 | 6 ms | [xml/bits/docx.docx](xml/bits/docx.docx) |
+| docx | OK | 9,870 | 6 ms | [xml/bits/docx.docx](xml/bits/docx.docx) |
 | odt | OK | 17,937 | 1 ms | [xml/bits/odt.odt](xml/bits/odt.odt) |
 | opendocument | OK | 15,684 | 0 ms |  |
 | rtf | OK | 2,456 | 1 ms | [xml/bits/rtf.rtf](xml/bits/rtf.rtf) |
-| postscript | OK | 117,522 | 9 ms | [xml/bits/postscript.ps](xml/bits/postscript.ps) |
+| postscript | OK | 117,522 | 10 ms | [xml/bits/postscript.ps](xml/bits/postscript.ps) |
 | pptx | OK | 29,843 | 2 ms | [xml/bits/pptx.pptx](xml/bits/pptx.pptx) |
-| icml | OK | 16,031 | 1 ms |  |
-| epub | OK | 6,880 | 1 ms | [xml/bits/epub.epub](xml/bits/epub.epub) |
+| icml | OK | 16,031 | 0 ms |  |
+| epub | OK | 6,880 | 2 ms | [xml/bits/epub.epub](xml/bits/epub.epub) |
 | epub3 | OK | 6,880 | 1 ms |  |
 | epub2 | OK | 7,157 | 1 ms |  |
 | fb2 | OK | 1,429 | 0 ms |  |
@@ -2674,14 +2674,14 @@
 | jira | OK | 1,591 | 0 ms |  |
 | man | OK | 2,012 | 0 ms |  |
 | ms | OK | 2,052 | 0 ms |  |
-| docx | OK | 10,950 | 6 ms | [xml/docbook/docx.docx](xml/docbook/docx.docx) |
+| docx | OK | 10,947 | 7 ms | [xml/docbook/docx.docx](xml/docbook/docx.docx) |
 | odt | OK | 23,046 | 2 ms | [xml/docbook/odt.odt](xml/docbook/odt.odt) |
 | opendocument | OK | 20,793 | 1 ms |  |
 | rtf | OK | 6,981 | 1 ms | [xml/docbook/rtf.rtf](xml/docbook/rtf.rtf) |
-| postscript | OK | 221,490 | 11 ms | [xml/docbook/postscript.ps](xml/docbook/postscript.ps) |
-| pptx | OK | 49,448 | 2 ms | [xml/docbook/pptx.pptx](xml/docbook/pptx.pptx) |
+| postscript | OK | 221,490 | 16 ms | [xml/docbook/postscript.ps](xml/docbook/postscript.ps) |
+| pptx | OK | 49,448 | 5 ms | [xml/docbook/pptx.pptx](xml/docbook/pptx.pptx) |
 | icml | OK | 46,463 | 0 ms |  |
-| epub | OK | 8,849 | 1 ms | [xml/docbook/epub.epub](xml/docbook/epub.epub) |
+| epub | OK | 8,849 | 2 ms | [xml/docbook/epub.epub](xml/docbook/epub.epub) |
 | epub3 | OK | 8,849 | 1 ms |  |
 | epub2 | OK | 9,133 | 1 ms |  |
 | fb2 | OK | 3,129 | 0 ms |  |
@@ -2747,14 +2747,14 @@
 | jira | OK | 1,552 | 0 ms |  |
 | man | OK | 1,959 | 0 ms |  |
 | ms | OK | 1,999 | 0 ms |  |
-| docx | OK | 10,911 | 5 ms | [xml/jats/docx.docx](xml/jats/docx.docx) |
-| odt | OK | 23,003 | 1 ms | [xml/jats/odt.odt](xml/jats/odt.odt) |
+| docx | OK | 10,914 | 7 ms | [xml/jats/docx.docx](xml/jats/docx.docx) |
+| odt | OK | 23,003 | 2 ms | [xml/jats/odt.odt](xml/jats/odt.odt) |
 | opendocument | OK | 20,750 | 1 ms |  |
 | rtf | OK | 6,926 | 1 ms | [xml/jats/rtf.rtf](xml/jats/rtf.rtf) |
-| postscript | OK | 221,207 | 10 ms | [xml/jats/postscript.ps](xml/jats/postscript.ps) |
-| pptx | OK | 49,313 | 2 ms | [xml/jats/pptx.pptx](xml/jats/pptx.pptx) |
+| postscript | OK | 221,207 | 13 ms | [xml/jats/postscript.ps](xml/jats/postscript.ps) |
+| pptx | OK | 49,313 | 5 ms | [xml/jats/pptx.pptx](xml/jats/pptx.pptx) |
 | icml | OK | 46,410 | 0 ms |  |
-| epub | OK | 8,795 | 1 ms | [xml/jats/epub.epub](xml/jats/epub.epub) |
+| epub | OK | 8,795 | 2 ms | [xml/jats/epub.epub](xml/jats/epub.epub) |
 | epub3 | OK | 8,795 | 1 ms |  |
 | epub2 | OK | 9,079 | 1 ms |  |
 | fb2 | OK | 3,069 | 0 ms |  |
@@ -2820,14 +2820,14 @@
 | jira | OK | 1,564 | 0 ms |  |
 | man | OK | 1,984 | 0 ms |  |
 | ms | OK | 2,023 | 0 ms |  |
-| docx | OK | 10,986 | 6 ms | [xml/opml/docx.docx](xml/opml/docx.docx) |
+| docx | OK | 10,990 | 8 ms | [xml/opml/docx.docx](xml/opml/docx.docx) |
 | odt | OK | 23,081 | 2 ms | [xml/opml/odt.odt](xml/opml/odt.odt) |
 | opendocument | OK | 20,828 | 1 ms |  |
 | rtf | OK | 7,014 | 1 ms | [xml/opml/rtf.rtf](xml/opml/rtf.rtf) |
-| postscript | OK | 223,280 | 11 ms | [xml/opml/postscript.ps](xml/opml/postscript.ps) |
+| postscript | OK | 223,280 | 13 ms | [xml/opml/postscript.ps](xml/opml/postscript.ps) |
 | pptx | OK | 50,784 | 2 ms | [xml/opml/pptx.pptx](xml/opml/pptx.pptx) |
 | icml | OK | 45,962 | 0 ms |  |
-| epub | OK | 9,627 | 1 ms | [xml/opml/epub.epub](xml/opml/epub.epub) |
+| epub | OK | 9,627 | 2 ms | [xml/opml/epub.epub](xml/opml/epub.epub) |
 | epub3 | OK | 9,627 | 1 ms |  |
 | epub2 | OK | 9,911 | 1 ms |  |
 | fb2 | OK | 3,118 | 0 ms |  |
@@ -2893,14 +2893,14 @@
 | jira | OK | 387 | 0 ms |  |
 | man | OK | 558 | 0 ms |  |
 | ms | OK | 565 | 0 ms |  |
-| docx | OK | 9,391 | 5 ms | [biblio/biblatex/docx.docx](biblio/biblatex/docx.docx) |
+| docx | OK | 9,395 | 5 ms | [biblio/biblatex/docx.docx](biblio/biblatex/docx.docx) |
 | odt | OK | 15,827 | 2 ms | [biblio/biblatex/odt.odt](biblio/biblatex/odt.odt) |
 | opendocument | OK | 13,574 | 0 ms |  |
 | rtf | OK | 963 | 1 ms | [biblio/biblatex/rtf.rtf](biblio/biblatex/rtf.rtf) |
-| postscript | OK | 46,081 | 8 ms | [biblio/biblatex/postscript.ps](biblio/biblatex/postscript.ps) |
+| postscript | OK | 46,081 | 10 ms | [biblio/biblatex/postscript.ps](biblio/biblatex/postscript.ps) |
 | pptx | OK | 24,713 | 2 ms | [biblio/biblatex/pptx.pptx](biblio/biblatex/pptx.pptx) |
 | icml | OK | 10,309 | 0 ms |  |
-| epub | OK | 5,885 | 1 ms | [biblio/biblatex/epub.epub](biblio/biblatex/epub.epub) |
+| epub | OK | 5,885 | 2 ms | [biblio/biblatex/epub.epub](biblio/biblatex/epub.epub) |
 | epub3 | OK | 5,885 | 1 ms |  |
 | epub2 | OK | 5,997 | 1 ms |  |
 | fb2 | OK | 968 | 0 ms |  |
@@ -2966,14 +2966,14 @@
 | jira | OK | 431 | 0 ms |  |
 | man | OK | 586 | 0 ms |  |
 | ms | OK | 593 | 0 ms |  |
-| docx | OK | 9,471 | 7 ms | [biblio/bibtex/docx.docx](biblio/bibtex/docx.docx) |
-| odt | OK | 15,766 | 1 ms | [biblio/bibtex/odt.odt](biblio/bibtex/odt.odt) |
-| opendocument | OK | 13,513 | 0 ms |  |
-| rtf | OK | 1,100 | 1 ms | [biblio/bibtex/rtf.rtf](biblio/bibtex/rtf.rtf) |
-| postscript | OK | 64,851 | 8 ms | [biblio/bibtex/postscript.ps](biblio/bibtex/postscript.ps) |
+| docx | OK | 9,469 | 7 ms | [biblio/bibtex/docx.docx](biblio/bibtex/docx.docx) |
+| odt | OK | 15,766 | 2 ms | [biblio/bibtex/odt.odt](biblio/bibtex/odt.odt) |
+| opendocument | OK | 13,513 | 1 ms |  |
+| rtf | OK | 1,100 | 2 ms | [biblio/bibtex/rtf.rtf](biblio/bibtex/rtf.rtf) |
+| postscript | OK | 64,851 | 11 ms | [biblio/bibtex/postscript.ps](biblio/bibtex/postscript.ps) |
 | pptx | OK | 25,839 | 2 ms | [biblio/bibtex/pptx.pptx](biblio/bibtex/pptx.pptx) |
 | icml | OK | 11,835 | 0 ms |  |
-| epub | OK | 5,895 | 1 ms | [biblio/bibtex/epub.epub](biblio/bibtex/epub.epub) |
+| epub | OK | 5,895 | 2 ms | [biblio/bibtex/epub.epub](biblio/bibtex/epub.epub) |
 | epub3 | OK | 5,895 | 1 ms |  |
 | epub2 | OK | 6,007 | 1 ms |  |
 | fb2 | OK | 976 | 0 ms |  |
@@ -3039,14 +3039,14 @@
 | jira | OK | 433 | 0 ms |  |
 | man | OK | 588 | 0 ms |  |
 | ms | OK | 595 | 0 ms |  |
-| docx | OK | 9,463 | 5 ms | [biblio/csljson/docx.docx](biblio/csljson/docx.docx) |
-| odt | OK | 15,765 | 1 ms | [biblio/csljson/odt.odt](biblio/csljson/odt.odt) |
-| opendocument | OK | 13,512 | 0 ms |  |
+| docx | OK | 9,469 | 5 ms | [biblio/csljson/docx.docx](biblio/csljson/docx.docx) |
+| odt | OK | 15,765 | 3 ms | [biblio/csljson/odt.odt](biblio/csljson/odt.odt) |
+| opendocument | OK | 13,512 | 1 ms |  |
 | rtf | OK | 1,091 | 1 ms | [biblio/csljson/rtf.rtf](biblio/csljson/rtf.rtf) |
-| postscript | OK | 65,863 | 8 ms | [biblio/csljson/postscript.ps](biblio/csljson/postscript.ps) |
+| postscript | OK | 65,863 | 9 ms | [biblio/csljson/postscript.ps](biblio/csljson/postscript.ps) |
 | pptx | OK | 25,838 | 2 ms | [biblio/csljson/pptx.pptx](biblio/csljson/pptx.pptx) |
 | icml | OK | 11,834 | 0 ms |  |
-| epub | OK | 5,894 | 1 ms | [biblio/csljson/epub.epub](biblio/csljson/epub.epub) |
+| epub | OK | 5,894 | 2 ms | [biblio/csljson/epub.epub](biblio/csljson/epub.epub) |
 | epub3 | OK | 5,894 | 1 ms |  |
 | epub2 | OK | 6,006 | 1 ms |  |
 | fb2 | OK | 975 | 0 ms |  |
@@ -3112,14 +3112,14 @@
 | jira | OK | 268 | 0 ms |  |
 | man | OK | 389 | 0 ms |  |
 | ms | OK | 396 | 0 ms |  |
-| docx | OK | 9,247 | 5 ms | [biblio/endnotexml/docx.docx](biblio/endnotexml/docx.docx) |
-| odt | OK | 15,360 | 1 ms | [biblio/endnotexml/odt.odt](biblio/endnotexml/odt.odt) |
+| docx | OK | 9,248 | 6 ms | [biblio/endnotexml/docx.docx](biblio/endnotexml/docx.docx) |
+| odt | OK | 15,360 | 2 ms | [biblio/endnotexml/odt.odt](biblio/endnotexml/odt.odt) |
 | opendocument | OK | 13,107 | 1 ms |  |
 | rtf | OK | 640 | 1 ms | [biblio/endnotexml/rtf.rtf](biblio/endnotexml/rtf.rtf) |
-| postscript | OK | 41,736 | 12 ms | [biblio/endnotexml/postscript.ps](biblio/endnotexml/postscript.ps) |
-| pptx | OK | 23,111 | 3 ms | [biblio/endnotexml/pptx.pptx](biblio/endnotexml/pptx.pptx) |
+| postscript | OK | 41,736 | 10 ms | [biblio/endnotexml/postscript.ps](biblio/endnotexml/postscript.ps) |
+| pptx | OK | 23,111 | 2 ms | [biblio/endnotexml/pptx.pptx](biblio/endnotexml/pptx.pptx) |
 | icml | OK | 7,870 | 0 ms |  |
-| epub | OK | 5,654 | 1 ms | [biblio/endnotexml/epub.epub](biblio/endnotexml/epub.epub) |
+| epub | OK | 5,654 | 2 ms | [biblio/endnotexml/epub.epub](biblio/endnotexml/epub.epub) |
 | epub3 | OK | 5,654 | 1 ms |  |
 | epub2 | OK | 5,766 | 1 ms |  |
 | fb2 | OK | 739 | 0 ms |  |
@@ -3146,7 +3146,7 @@
 | tsv | OK | 5 | 0 ms |  |
 | ipynb | OK | 611 | 0 ms |  |
 
-### biblio/ris.ris (`ris`) — 4 blocks read in 0 ms, 68/68 targets OK
+### biblio/ris.ris (`ris`) — 4 blocks read in 1 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
@@ -3185,14 +3185,14 @@
 | jira | OK | 429 | 0 ms |  |
 | man | OK | 584 | 0 ms |  |
 | ms | OK | 591 | 0 ms |  |
-| docx | OK | 9,462 | 6 ms | [biblio/ris/docx.docx](biblio/ris/docx.docx) |
-| odt | OK | 15,762 | 1 ms | [biblio/ris/odt.odt](biblio/ris/odt.odt) |
+| docx | OK | 9,463 | 6 ms | [biblio/ris/docx.docx](biblio/ris/docx.docx) |
+| odt | OK | 15,762 | 3 ms | [biblio/ris/odt.odt](biblio/ris/odt.odt) |
 | opendocument | OK | 13,509 | 1 ms |  |
-| rtf | OK | 1,088 | 1 ms | [biblio/ris/rtf.rtf](biblio/ris/rtf.rtf) |
-| postscript | OK | 64,703 | 8 ms | [biblio/ris/postscript.ps](biblio/ris/postscript.ps) |
-| pptx | OK | 25,835 | 3 ms | [biblio/ris/pptx.pptx](biblio/ris/pptx.pptx) |
+| rtf | OK | 1,088 | 2 ms | [biblio/ris/rtf.rtf](biblio/ris/rtf.rtf) |
+| postscript | OK | 64,703 | 11 ms | [biblio/ris/postscript.ps](biblio/ris/postscript.ps) |
+| pptx | OK | 25,835 | 5 ms | [biblio/ris/pptx.pptx](biblio/ris/pptx.pptx) |
 | icml | OK | 11,831 | 0 ms |  |
-| epub | OK | 5,891 | 3 ms | [biblio/ris/epub.epub](biblio/ris/epub.epub) |
+| epub | OK | 5,891 | 2 ms | [biblio/ris/epub.epub](biblio/ris/epub.epub) |
 | epub3 | OK | 5,891 | 1 ms |  |
 | epub2 | OK | 6,003 | 1 ms |  |
 | fb2 | OK | 972 | 0 ms |  |
@@ -3258,14 +3258,14 @@
 | jira | OK | 108 | 0 ms |  |
 | man | OK | 217 | 0 ms |  |
 | ms | OK | 224 | 0 ms |  |
-| docx | OK | 9,239 | 5 ms | [data/csv/docx.docx](data/csv/docx.docx) |
-| odt | OK | 17,866 | 1 ms | [data/csv/odt.odt](data/csv/odt.odt) |
-| opendocument | OK | 15,613 | 0 ms |  |
+| docx | OK | 9,238 | 8 ms | [data/csv/docx.docx](data/csv/docx.docx) |
+| odt | OK | 17,866 | 3 ms | [data/csv/odt.odt](data/csv/odt.odt) |
+| opendocument | OK | 15,613 | 1 ms |  |
 | rtf | OK | 2,271 | 1 ms | [data/csv/rtf.rtf](data/csv/rtf.rtf) |
-| postscript | OK | 46,299 | 8 ms | [data/csv/postscript.ps](data/csv/postscript.ps) |
+| postscript | OK | 46,299 | 11 ms | [data/csv/postscript.ps](data/csv/postscript.ps) |
 | pptx | OK | 22,145 | 2 ms | [data/csv/pptx.pptx](data/csv/pptx.pptx) |
 | icml | OK | 7,125 | 0 ms |  |
-| epub | OK | 5,608 | 1 ms | [data/csv/epub.epub](data/csv/epub.epub) |
+| epub | OK | 5,608 | 2 ms | [data/csv/epub.epub](data/csv/epub.epub) |
 | epub3 | OK | 5,608 | 1 ms |  |
 | epub2 | OK | 5,720 | 1 ms |  |
 | fb2 | OK | 722 | 0 ms |  |
@@ -3292,11 +3292,11 @@
 | tsv | OK | 93 | 0 ms |  |
 | ipynb | OK | 563 | 0 ms |  |
 
-### data/ipynb.ipynb (`ipynb`) — 23 blocks read in 0 ms, 68/68 targets OK
+### data/ipynb.ipynb (`ipynb`) — 23 blocks read in 1 ms, 68/68 targets OK
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
-| markdown | OK | 1,744 | 1 ms | [data/ipynb/markdown.md](data/ipynb/markdown.md) |
+| markdown | OK | 1,744 | 2 ms | [data/ipynb/markdown.md](data/ipynb/markdown.md) |
 | markdown_strict | OK | 1,850 | 0 ms |  |
 | markdown_phpextra | OK | 1,749 | 0 ms |  |
 | markdown_mmd | OK | 1,747 | 0 ms |  |
@@ -3305,10 +3305,10 @@
 | commonmark_x | OK | 1,744 | 0 ms |  |
 | markua | OK | 1,736 | 0 ms |  |
 | djot | OK | 1,697 | 0 ms |  |
-| html | OK | 6,749 | 1 ms | [data/ipynb/html.html](data/ipynb/html.html) |
+| html | OK | 6,749 | 2 ms | [data/ipynb/html.html](data/ipynb/html.html) |
 | html5 | OK | 6,749 | 0 ms |  |
 | html4 | OK | 6,878 | 0 ms |  |
-| chunkedhtml | OK | 11,093 | 1 ms |  |
+| chunkedhtml | OK | 11,093 | 2 ms |  |
 | plain | OK | 1,789 | 1 ms | [data/ipynb/plain.txt](data/ipynb/plain.txt) |
 | ansi | OK | 2,609 | 0 ms |  |
 | rst | OK | 2,115 | 1 ms | [data/ipynb/rst.rst](data/ipynb/rst.rst) |
@@ -3331,16 +3331,16 @@
 | jira | OK | 1,549 | 0 ms |  |
 | man | OK | 1,957 | 0 ms |  |
 | ms | OK | 1,973 | 0 ms |  |
-| docx | OK | 10,829 | 7 ms | [data/ipynb/docx.docx](data/ipynb/docx.docx) |
+| docx | OK | 10,837 | 8 ms | [data/ipynb/docx.docx](data/ipynb/docx.docx) |
 | odt | OK | 22,743 | 2 ms | [data/ipynb/odt.odt](data/ipynb/odt.odt) |
 | opendocument | OK | 20,490 | 1 ms |  |
 | rtf | OK | 6,725 | 1 ms | [data/ipynb/rtf.rtf](data/ipynb/rtf.rtf) |
-| postscript | OK | 229,247 | 14 ms | [data/ipynb/postscript.ps](data/ipynb/postscript.ps) |
-| pptx | OK | 46,697 | 4 ms | [data/ipynb/pptx.pptx](data/ipynb/pptx.pptx) |
-| icml | OK | 42,016 | 1 ms |  |
-| epub | OK | 8,908 | 3 ms | [data/ipynb/epub.epub](data/ipynb/epub.epub) |
+| postscript | OK | 229,247 | 16 ms | [data/ipynb/postscript.ps](data/ipynb/postscript.ps) |
+| pptx | OK | 46,697 | 6 ms | [data/ipynb/pptx.pptx](data/ipynb/pptx.pptx) |
+| icml | OK | 42,016 | 0 ms |  |
+| epub | OK | 8,908 | 2 ms | [data/ipynb/epub.epub](data/ipynb/epub.epub) |
 | epub3 | OK | 8,908 | 1 ms |  |
-| epub2 | OK | 9,020 | 1 ms |  |
+| epub2 | OK | 9,020 | 2 ms |  |
 | fb2 | OK | 2,944 | 0 ms |  |
 | revealjs | OK | 4,333 | 0 ms |  |
 | slidy | OK | 4,102 | 0 ms |  |
@@ -3359,7 +3359,7 @@
 | bibtex | OK | 1 | 0 ms |  |
 | biblatex | OK | 1 | 0 ms |  |
 | csljson | OK | 3 | 0 ms |  |
-| json | OK | 8,912 | 2 ms | [data/ipynb/json.json](data/ipynb/json.json) |
+| json | OK | 8,912 | 1 ms | [data/ipynb/json.json](data/ipynb/json.json) |
 | native | OK | 6,700 | 0 ms |  |
 | csv | OK | 93 | 0 ms |  |
 | tsv | OK | 93 | 0 ms |  |
@@ -3369,7 +3369,7 @@
 
 | 대상 / Target | 결과 | 크기 | 시간 | 파일 |
 |---|:-:|--:|--:|---|
-| markdown | OK | 1,784 | 1 ms | [data/json/markdown.md](data/json/markdown.md) |
+| markdown | OK | 1,784 | 2 ms | [data/json/markdown.md](data/json/markdown.md) |
 | markdown_strict | OK | 1,889 | 0 ms |  |
 | markdown_phpextra | OK | 1,762 | 0 ms |  |
 | markdown_mmd | OK | 1,779 | 0 ms |  |
@@ -3382,7 +3382,7 @@
 | html5 | OK | 6,939 | 0 ms |  |
 | html4 | OK | 7,077 | 0 ms |  |
 | chunkedhtml | OK | 11,295 | 1 ms |  |
-| plain | OK | 1,870 | 2 ms | [data/json/plain.txt](data/json/plain.txt) |
+| plain | OK | 1,870 | 1 ms | [data/json/plain.txt](data/json/plain.txt) |
 | ansi | OK | 2,657 | 0 ms |  |
 | rst | OK | 2,242 | 1 ms | [data/json/rst.rst](data/json/rst.rst) |
 | latex | OK | 2,909 | 1 ms | [data/json/latex.tex](data/json/latex.tex) |
@@ -3404,13 +3404,13 @@
 | jira | OK | 1,564 | 0 ms |  |
 | man | OK | 1,984 | 0 ms |  |
 | ms | OK | 2,023 | 0 ms |  |
-| docx | OK | 10,986 | 8 ms | [data/json/docx.docx](data/json/docx.docx) |
+| docx | OK | 10,989 | 8 ms | [data/json/docx.docx](data/json/docx.docx) |
 | odt | OK | 23,081 | 2 ms | [data/json/odt.odt](data/json/odt.odt) |
 | opendocument | OK | 20,828 | 1 ms |  |
 | rtf | OK | 7,014 | 1 ms | [data/json/rtf.rtf](data/json/rtf.rtf) |
-| postscript | OK | 223,240 | 11 ms | [data/json/postscript.ps](data/json/postscript.ps) |
-| pptx | OK | 50,784 | 5 ms | [data/json/pptx.pptx](data/json/pptx.pptx) |
-| icml | OK | 45,962 | 1 ms |  |
+| postscript | OK | 223,240 | 13 ms | [data/json/postscript.ps](data/json/postscript.ps) |
+| pptx | OK | 50,784 | 3 ms | [data/json/pptx.pptx](data/json/pptx.pptx) |
+| icml | OK | 45,962 | 0 ms |  |
 | epub | OK | 9,627 | 2 ms | [data/json/epub.epub](data/json/epub.epub) |
 | epub3 | OK | 9,627 | 1 ms |  |
 | epub2 | OK | 9,911 | 1 ms |  |
@@ -3451,7 +3451,7 @@
 | commonmark_x | OK | 1,784 | 0 ms |  |
 | markua | OK | 1,790 | 0 ms |  |
 | djot | OK | 1,742 | 0 ms |  |
-| html | OK | 6,939 | 1 ms | [data/native/html.html](data/native/html.html) |
+| html | OK | 6,939 | 2 ms | [data/native/html.html](data/native/html.html) |
 | html5 | OK | 6,939 | 0 ms |  |
 | html4 | OK | 7,077 | 0 ms |  |
 | chunkedhtml | OK | 11,295 | 1 ms |  |
@@ -3477,14 +3477,14 @@
 | jira | OK | 1,564 | 0 ms |  |
 | man | OK | 1,984 | 0 ms |  |
 | ms | OK | 2,023 | 0 ms |  |
-| docx | OK | 10,988 | 7 ms | [data/native/docx.docx](data/native/docx.docx) |
+| docx | OK | 10,990 | 6 ms | [data/native/docx.docx](data/native/docx.docx) |
 | odt | OK | 23,081 | 2 ms | [data/native/odt.odt](data/native/odt.odt) |
 | opendocument | OK | 20,828 | 1 ms |  |
-| rtf | OK | 7,014 | 1 ms | [data/native/rtf.rtf](data/native/rtf.rtf) |
-| postscript | OK | 223,240 | 11 ms | [data/native/postscript.ps](data/native/postscript.ps) |
-| pptx | OK | 50,784 | 5 ms | [data/native/pptx.pptx](data/native/pptx.pptx) |
+| rtf | OK | 7,014 | 2 ms | [data/native/rtf.rtf](data/native/rtf.rtf) |
+| postscript | OK | 223,240 | 14 ms | [data/native/postscript.ps](data/native/postscript.ps) |
+| pptx | OK | 50,784 | 2 ms | [data/native/pptx.pptx](data/native/pptx.pptx) |
 | icml | OK | 45,962 | 0 ms |  |
-| epub | OK | 9,627 | 1 ms | [data/native/epub.epub](data/native/epub.epub) |
+| epub | OK | 9,627 | 2 ms | [data/native/epub.epub](data/native/epub.epub) |
 | epub3 | OK | 9,627 | 1 ms |  |
 | epub2 | OK | 9,911 | 1 ms |  |
 | fb2 | OK | 3,118 | 0 ms |  |
@@ -3550,14 +3550,14 @@
 | jira | OK | 108 | 0 ms |  |
 | man | OK | 217 | 0 ms |  |
 | ms | OK | 224 | 0 ms |  |
-| docx | OK | 9,238 | 5 ms | [data/tsv/docx.docx](data/tsv/docx.docx) |
+| docx | OK | 9,239 | 6 ms | [data/tsv/docx.docx](data/tsv/docx.docx) |
 | odt | OK | 17,866 | 2 ms | [data/tsv/odt.odt](data/tsv/odt.odt) |
 | opendocument | OK | 15,613 | 0 ms |  |
 | rtf | OK | 2,271 | 1 ms | [data/tsv/rtf.rtf](data/tsv/rtf.rtf) |
-| postscript | OK | 46,299 | 8 ms | [data/tsv/postscript.ps](data/tsv/postscript.ps) |
+| postscript | OK | 46,299 | 11 ms | [data/tsv/postscript.ps](data/tsv/postscript.ps) |
 | pptx | OK | 22,145 | 2 ms | [data/tsv/pptx.pptx](data/tsv/pptx.pptx) |
 | icml | OK | 7,125 | 0 ms |  |
-| epub | OK | 5,608 | 1 ms | [data/tsv/epub.epub](data/tsv/epub.epub) |
+| epub | OK | 5,608 | 2 ms | [data/tsv/epub.epub](data/tsv/epub.epub) |
 | epub3 | OK | 5,608 | 1 ms |  |
 | epub2 | OK | 5,720 | 1 ms |  |
 | fb2 | OK | 722 | 0 ms |  |

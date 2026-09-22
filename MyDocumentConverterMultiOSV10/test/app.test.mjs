@@ -26,7 +26,7 @@ check('commands', 'every command has a unique id, an icon, a label and a menu', 
     ids.add(command.id)
     assert.ok(command.icon && (typeof command.icon === 'function' || typeof command.icon === 'object'), `${command.id} has no icon`)
     assert.ok(command.label, `${command.id} has no label`)
-    assert.ok([...menuOrder, 'context'].includes(command.menu), `${command.id} in unknown menu`)
+    assert.ok([...menuOrder, 'context', 'outputContext'].includes(command.menu), `${command.id} in unknown menu`)
   }
 })
 

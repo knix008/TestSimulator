@@ -230,6 +230,18 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       await hook('h.closeMenu()')
       return `${rows} rows`
     })
+    await step('menus', 'the converted-output pane has its own context menu with an export item', async () => {
+      await hook("h.contextMenu(1000, 400, 'outputContext')")
+      const popup = await waitFor(() => (childWindows.getMenuWindow() && childWindows.getMenuWindow().isVisible() && childWindows.getMenuWindow().getBounds().height > 40 ? childWindows.getMenuWindow() : null))
+      const labels = await popup.webContents.executeJavaScript("[...document.querySelectorAll('.menu-column button')].map((b) => b.textContent)", true)
+      assert(labels.some((label) => /내보내기|Export/.test(label)), `no export item: ${labels.join(' | ')}`)
+      assert(labels.some((label) => /결과 복사|Copy .*output/i.test(label)), 'no copy-output item')
+      assert(labels.length >= 6, `${labels.length} rows`)
+      await shot('03-menu-output-context', popup)
+      await hook('h.closeMenu()')
+      await waitFor(() => !popup.isVisible())
+      return labels.join(' | ')
+    })
     await step('menus', 'File › Open recent lists files with a remove button', async () => {
       const file = path.join(outDir, 'recent-sample.md')
       await fs.writeFile(file, '# Recent\n\nHello.\n', 'utf8')

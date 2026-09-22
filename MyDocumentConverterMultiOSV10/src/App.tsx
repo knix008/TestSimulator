@@ -871,8 +871,10 @@ export default function App() {
 
   const isCommandDisabled = useCallback((id: string) => {
     const doc = docsRef.current.find((item) => item.id === activeIdRef.current)
-    const needsDoc = ['file.save', 'file.saveAs', 'file.saveProject', 'file.export', 'file.print', 'file.closeTab', 'file.closeAll', 'edit.cut', 'edit.copy', 'edit.paste', 'edit.selectAll', 'edit.copyOutput', 'edit.metadata', 'convert.run', 'convert.swap', 'convert.useOutputAsSource', 'tools.stats', 'ctx.cut', 'ctx.copy', 'ctx.paste', 'ctx.selectAll', 'ctx.convert', 'ctx.copyOutput', 'ctx.stats', 'ctx.closeTab']
+    const needsDoc = ['file.save', 'file.saveAs', 'file.saveProject', 'file.export', 'file.print', 'file.closeTab', 'file.closeAll', 'edit.cut', 'edit.copy', 'edit.paste', 'edit.selectAll', 'edit.copyOutput', 'edit.metadata', 'convert.run', 'convert.swap', 'convert.useOutputAsSource', 'tools.stats', 'ctx.cut', 'ctx.copy', 'ctx.paste', 'ctx.selectAll', 'ctx.convert', 'ctx.copyOutput', 'ctx.export', 'ctx.stats', 'ctx.closeTab', 'octx.export', 'octx.copyOutput', 'octx.useAsSource', 'octx.convert', 'octx.swap', 'octx.print', 'octx.stats']
     if (needsDoc.includes(id) && !doc) return true
+    // Nothing to save, copy or reuse until a conversion has produced output.
+    if ((id === 'octx.export' || id === 'octx.copyOutput' || id === 'octx.useAsSource' || id === 'ctx.export' || id === 'file.export' || id === 'edit.copyOutput' || id === 'ctx.copyOutput' || id === 'convert.useOutputAsSource') && !doc?.output) return true
     if ((id === 'edit.undo' || id === 'ctx.undo') && !(doc && doc.history.undo.length)) return true
     if ((id === 'edit.redo' || id === 'ctx.redo') && !(doc && doc.history.redo.length)) return true
     if ((id === 'edit.cut' || id === 'edit.paste' || id === 'ctx.cut' || id === 'ctx.paste') && doc?.sourceBytes) return true
@@ -909,9 +911,9 @@ export default function App() {
       case 'file.save': if (doc) void saveDoc(doc, 'save'); return
       case 'file.saveAs': if (doc) void saveDoc(doc, 'saveAs'); return
       case 'file.saveProject': if (doc) void saveDoc(doc, 'project'); return
-      case 'file.export': if (doc) void exportOutput(doc); return
+      case 'file.export': case 'ctx.export': case 'octx.export': if (doc) void exportOutput(doc); return
       case 'file.batch': openDialog('batch'); return
-      case 'file.print': void openPrint(); return
+      case 'file.print': case 'octx.print': void openPrint(); return
       case 'file.closeTab': case 'ctx.closeTab': if (doc) closeDocs([doc.id]); return
       case 'file.closeAll': closeDocs(docsRef.current.map((item) => item.id)); return
       case 'file.exit': if (window.electronWindowApi) void window.electronWindowApi.close(); else window.close(); return
@@ -921,7 +923,7 @@ export default function App() {
       case 'edit.copy': case 'ctx.copy': void clipboard('copy'); return
       case 'edit.paste': case 'ctx.paste': void clipboard('paste'); return
       case 'edit.selectAll': case 'ctx.selectAll': void clipboard('selectAll'); return
-      case 'edit.copyOutput': case 'ctx.copyOutput':
+      case 'edit.copyOutput': case 'ctx.copyOutput': case 'octx.copyOutput':
         if (doc?.output) void copyText(doc.output.text ?? (doc.output.bytes ? bytesToBase64(doc.output.bytes) : '')).then((ok) => { if (ok) note('copiedOutput'); else reportErrorRef.current(t(settingsRef.current.language, 'errorClipboard'), new Error('write refused')) })
         return
       case 'edit.metadata': openDialog('metadata'); return
@@ -943,16 +945,16 @@ export default function App() {
         return
       }
       case 'lang.ko': case 'lang.en': setSettings((current) => ({ ...current, language: id === 'lang.ko' ? 'ko' : 'en' })); return
-      case 'convert.run': case 'ctx.convert': if (doc) { note('converting'); scheduleConvert(doc.id, true) } return
-      case 'convert.swap': if (doc && getFormat(doc.to).read && getFormat(doc.from).write && !doc.sourceBytes) setFormats(doc.id, { from: doc.to, to: doc.from }); return
+      case 'convert.run': case 'ctx.convert': case 'octx.convert': if (doc) { note('converting'); scheduleConvert(doc.id, true) } return
+      case 'convert.swap': case 'octx.swap': if (doc && getFormat(doc.to).read && getFormat(doc.from).write && !doc.sourceBytes) setFormats(doc.id, { from: doc.to, to: doc.from }); return
       case 'convert.autoConvert': setSettings((current) => ({ ...current, autoConvert: !current.autoConvert })); return
-      case 'convert.useOutputAsSource':
+      case 'convert.useOutputAsSource': case 'octx.useAsSource':
         if (doc?.output && getFormat(doc.to).read === 'text' && doc.output.text !== undefined) {
           addDoc(createDoc({ name: `${stripExtension(doc.name)}.${doc.output.extension}`, source: doc.output.text, from: doc.to, to: doc.from === doc.to ? settingsRef.current.defaultTo : doc.from, options: { ...doc.options } }))
         }
         return
       case 'convert.formats': openDialog('formats'); return
-      case 'tools.stats': case 'ctx.stats': if (doc) openDialog('stats'); return
+      case 'tools.stats': case 'ctx.stats': case 'octx.stats': if (doc) openDialog('stats'); return
       case 'tools.showInFolder': if (doc?.path) void window.electronFileApi?.showInFolder(doc.path); return
       case 'tools.background': openDialog('settings'); return
       case 'tools.clearBackground': setSettings((current) => ({ ...current, hasBackgroundImage: false })); return
@@ -1014,12 +1016,12 @@ export default function App() {
     })
   }, [hideTooltip, menu, openMenuWindow])
 
-  const openContextMenu = useCallback((event: React.MouseEvent) => {
+  const openContextMenu = useCallback((event: React.MouseEvent, which: 'context' | 'outputContext' = 'context') => {
     event.preventDefault()
     const x = event.clientX
     const y = event.clientY
-    void openMenuWindow('context', { x: window.screenX + x, y: window.screenY + y, width: 0, height: 0 }).then((opened) => {
-      if (!opened) { setContextAt({ x, y }); setMenu('context') }
+    void openMenuWindow(which, { x: window.screenX + x, y: window.screenY + y, width: 0, height: 0 }).then((opened) => {
+      if (!opened) { setContextAt({ x, y }); setMenu(which) }
     })
   }, [openMenuWindow])
 
@@ -1256,7 +1258,7 @@ export default function App() {
       themes: () => themes.map((item) => item.id),
       openMenu: (id: MenuId) => { const button = document.querySelector(`.menu-bar .menu-group:nth-child(${menuOrder.indexOf(id) + 1}) button`) as HTMLElement | null; if (button) openMenu(id, button) },
       closeMenu: () => { setMenu(null); void window.electronMenuApi?.close() },
-      contextMenu: (x: number, y: number) => void openMenuWindow('context', { x: window.screenX + x, y: window.screenY + y, width: 0, height: 0 }),
+      contextMenu: (x: number, y: number, which: 'context' | 'outputContext' = 'context') => void openMenuWindow(which, { x: window.screenX + x, y: window.screenY + y, width: 0, height: 0 }),
       closeDocs: (ids: string[]) => closeDocs(ids),
       toolbar: () => [...document.querySelectorAll('.tool-bar button')].map((node) => ({ tooltip: node.getAttribute('data-tooltip') ?? '', label: node.getAttribute('aria-label') ?? '', disabled: (node as HTMLButtonElement).disabled })),
       toolbarWidth: () => { const bar = toolbarRef.current; if (!bar) return 0; const children = [...bar.children] as HTMLElement[]; return children.reduce((sum, child) => sum + (child.classList.contains('tool-spacer') ? 8 : child.offsetWidth), 0) + 6 * Math.max(0, children.length - 1) + 20 },
@@ -1553,7 +1555,7 @@ export default function App() {
                 </div>
               )}
               {showOutput && (
-                <div className="pane pane-output">
+                <div className="pane pane-output" onContextMenu={(event) => openContextMenu(event, 'outputContext')}>
                   <div className="pane-head">
                     <span>{tr('outputPane')}</span>
                     <span className="pane-format">{formatName(active.to, language)}{active.converting ? ' …' : ''}</span>
@@ -1617,9 +1619,9 @@ export default function App() {
 
       {dropActive && <div className="drop-overlay"><p>{tr('dropHint')}</p></div>}
 
-      {menu === 'context' && contextAt && (
+      {(menu === 'context' || menu === 'outputContext') && contextAt && (
         <div className="menu-drop" style={{ left: contextAt.x, top: contextAt.y }} onPointerDown={(event) => event.stopPropagation()}>
-          <MenuTree rows={commandsInMenu('context')} label={commandLabel} sectionLabel={(section) => sectionLabelFor(settings.language, section, tr)} isActive={isCommandActive} isDisabled={isCommandDisabled} onChoose={runCommand} />
+          <MenuTree rows={commandsInMenu(menu)} label={commandLabel} sectionLabel={(section) => sectionLabelFor(settings.language, section, tr)} isActive={isCommandActive} isDisabled={isCommandDisabled} onChoose={runCommand} />
         </div>
       )}
 

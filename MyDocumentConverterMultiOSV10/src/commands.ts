@@ -15,7 +15,7 @@ import type { RecentFile } from './lib/settings'
  * They replace native <select>s, whose popup takes the OS highlight colours
  * and could not be read on every theme.
  */
-export type MenuId = 'file' | 'edit' | 'view' | 'convert' | 'tools' | 'help' | 'context' | 'theme' | 'from' | 'to'
+export type MenuId = 'file' | 'edit' | 'view' | 'convert' | 'tools' | 'help' | 'context' | 'outputContext' | 'theme' | 'from' | 'to'
 
 export type AppCommand = {
   id: string
@@ -51,6 +51,7 @@ export const menuIcons: Record<MenuId, AppCommand['icon']> = {
   tools: SlidersHorizontal,
   help: Info,
   context: SquareDashedMousePointer,
+  outputContext: SquareDashedMousePointer,
   theme: Palette,
   from: FileInput,
   to: FileDown,
@@ -142,8 +143,18 @@ export const commands: AppCommand[] = [
   { id: 'ctx.selectAll', label: 'edit.selectAll', icon: TextSelect, menu: 'context' },
   { id: 'ctx.convert', label: 'convert.run', icon: Play, menu: 'context', separatorBefore: true },
   { id: 'ctx.copyOutput', label: 'edit.copyOutput', icon: ClipboardCopy, menu: 'context' },
+  { id: 'ctx.export', label: 'file.export', icon: FileOutput, menu: 'context' },
   { id: 'ctx.stats', label: 'tools.stats', icon: Sigma, menu: 'context', separatorBefore: true },
   { id: 'ctx.closeTab', label: 'file.closeTab', icon: X, menu: 'context', separatorBefore: true },
+
+  // Context menu of the converted-output pane
+  { id: 'octx.export', label: 'file.export', icon: FileOutput, menu: 'outputContext' },
+  { id: 'octx.copyOutput', label: 'edit.copyOutput', icon: ClipboardCopy, menu: 'outputContext' },
+  { id: 'octx.useAsSource', label: 'convert.useOutputAsSource', icon: FileCode, menu: 'outputContext', separatorBefore: true },
+  { id: 'octx.convert', label: 'convert.run', icon: Play, menu: 'outputContext', separatorBefore: true },
+  { id: 'octx.swap', label: 'convert.swap', icon: ArrowLeftRight, menu: 'outputContext' },
+  { id: 'octx.print', label: 'file.print', icon: Printer, menu: 'outputContext', separatorBefore: true },
+  { id: 'octx.stats', label: 'tools.stats', icon: Sigma, menu: 'outputContext' },
 ]
 
 export const toolbarCommands = commands.filter((command) => command.toolbar)
