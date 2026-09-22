@@ -19,7 +19,6 @@ import {
   IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconImage,
   IconSelectText, IconDownload, IconClip, IconClose, IconComment,
 } from './components/Icons.jsx';
-} from './components/Icons.jsx';
 
 import {
   loadDocument, getOutline, destToLocation, getDocumentInfo, getPageText, extractPageImages,
