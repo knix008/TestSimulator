@@ -1,0 +1,68 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{ulem}
+\usepackage{fixltx2e}
+\usepackage[margin=20mm,a4paper]{geometry}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\small,breaklines=true}
+\usepackage{kotex}
+
+\date{}
+
+\begin{document}
+
+
+\section*{소개 (Introduction)}\label{소개-introduction}
+
+TikiWiki 는 \textbf{굵게}, \emph{기울임}, \verb|코드| 와
+\href{https://example.com}{링크} 를 지원합니다.
+This line is in English.
+
+\subsection*{목록 (Lists)}\label{목록-lists}
+
+\begin{itemize}
+\item 첫 번째 항목
+\item 두 번째 항목
+\begin{itemize}
+\item 중첩된 항목
+\end{itemize}
+\item 세 번째 항목
+\end{itemize}
+
+\begin{enumerate}
+\item 순서가 있는 항목
+\item 두 번째
+\item 세 번째
+\end{enumerate}
+
+\subsection*{코드 (Code)}\label{코드-code}
+
+\begin{lstlisting}[language=js]
+function greet(name) {
+  console.log('Hello, ' + name)
+}
+\end{lstlisting}
+
+\subsection*{표 (Table)}\label{표-table}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{ll}
+\toprule
+형식 & 확장자 \\
+\midrule
+Markdown & .md \\
+HTML & .html \\
+DOCX & .docx \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}

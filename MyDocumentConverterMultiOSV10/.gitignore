@@ -1,0 +1,12 @@
+node_modules/
+dist/
+release/
+build/icon.ico
+build/icon.png
+build/file-icon.ico
+build/file-icon.png
+build/icons/
+src/build-info.json
+npm-install.log
+*.log
+test-results/

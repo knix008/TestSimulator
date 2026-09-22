@@ -1,0 +1,34 @@
+[
+  {
+    "id": "kwon2026",
+    "type": "article-journal",
+    "title": "Converting documents without an external engine",
+    "author": [{ "family": "Kwon", "given": "Suho" }, { "family": "Doe", "given": "Jane" }],
+    "container-title": "Journal of Document Engineering",
+    "issued": { "date-parts": [[2026, 9]] },
+    "volume": "12",
+    "issue": "3",
+    "page": "101-118",
+    "DOI": "10.1000/jde.2026.12.3.101",
+    "URL": "https://example.com/jde/2026/12/3"
+  },
+  {
+    "id": "macfarlane2024",
+    "type": "book",
+    "title": "Pandoc User's Guide",
+    "author": [{ "family": "MacFarlane", "given": "John" }],
+    "publisher": "pandoc.org",
+    "publisher-place": "Berkeley",
+    "issued": { "date-parts": [[2024]] },
+    "URL": "https://pandoc.org/MANUAL.html"
+  },
+  {
+    "id": "lee2025",
+    "type": "paper-conference",
+    "title": "천지인 입력기의 다중 플랫폼 이식",
+    "author": [{ "family": "Lee", "given": "Minsoo" }],
+    "container-title": "한국 소프트웨어 학회 학술대회",
+    "issued": { "date-parts": [[2025]] },
+    "page": "45-52"
+  }
+]

@@ -1,0 +1,41 @@
+.Dd September 22, 2026
+.Dt MDCV 1
+.Os
+.Sh NAME
+.Nm mdcv
+.Nd My Document Converter 의 mdoc 샘플
+.Sh SYNOPSIS
+.Nm
+.Op Fl f Ar format
+.Op Fl t Ar format
+.Ar file
+.Sh DESCRIPTION
+mdoc 은 BSD 매뉴얼 페이지 형식입니다.
+.Em 기울임
+과
+.Sy 굵게
+와
+.Ql 코드
+를 씁니다. This sentence is in English.
+.Pp
+옵션은 다음과 같습니다.
+.Bl -tag -width Ds
+.It Fl f Ar format
+입력 형식을 지정합니다.
+.It Fl t Ar format
+출력 형식을 지정합니다.
+.El
+.Sh EXAMPLES
+.Bl -bullet
+.It
+첫 번째 항목
+.It
+두 번째 항목
+.It
+세 번째 항목
+.El
+.Bd -literal
+mdcv -f markdown -t html sample.md
+.Ed
+.Sh SEE ALSO
+.Xr pandoc 1

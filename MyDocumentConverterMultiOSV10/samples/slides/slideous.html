@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+<meta charset="utf-8" />
+<meta name="generator" content="My Document Converter" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Document Converter 샘플 문서</title>
+<meta name="author" content="SHKWON" />
+<meta name="version" content="Slideous" />
+<style>
+html, body { margin: 0; height: 100%; font-family: Georgia, "Malgun Gothic", serif; background: #ffffff; color: #1a1a1a; }
+.slide { display: none; padding: 5vh 8vw; box-sizing: border-box; min-height: 100vh; font-size: 1.6em; line-height: 1.4; }
+.slide.active { display: block; }
+.slide h1 { font-size: 2.2em; text-align: center; margin-top: 30vh; }
+.slide h2 { font-size: 1.6em; border-bottom: 2px solid #1a5fb4; padding-bottom: 0.2em; }
+.slide pre { font-size: 0.6em; background: #f4f4f4; padding: 0.8em; overflow: auto; }
+.slide table { border-collapse: collapse; } .slide th, .slide td { border: 1px solid #999; padding: 0.2em 0.6em; }
+.slide img { max-width: 100%; }
+.slide-counter { position: fixed; right: 1em; bottom: 0.6em; font-size: 0.8em; color: #888; }
+@media print { .slide { display: block; page-break-after: always; } }
+
+.layout { display: none; }</style>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+</head>
+<body>
+<div class="layout"><div id="controls"></div><div id="currentSlide"></div><div id="header"></div><div id="footer"><h1>My Document Converter 샘플 문서</h1></div></div>
+<div class="presentation">
+<div class="slide" id="title-slide">
+<h1 class="title">My Document Converter 샘플 문서</h1><p class="author">SHKWON</p><p class="date">2026-09-22</p>
+</div>
+<div class="slide" id="소개-introduction">
+<h1>소개 (Introduction)</h1>
+<p>이 문서는 <strong>My Document Converter</strong> 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는 원본입니다.
+<em>강조</em>, <strong>굵게</strong>, <del>취소선</del>, <code>인라인 코드</code>, H<sub>2</sub>O 와 x<sup>2</sup>, 그리고 <a href="https://example.com" title="Example">링크</a>를 담고 있습니다.
+This paragraph is in English so that Latin-only formats still show something readable.</p>
+<h2 id="목록-lists">목록 (Lists)</h2>
+<ul>
+<li>첫 번째 항목</li>
+<li>두 번째 항목
+<ul>
+<li>중첩된 항목</li>
+<li>또 하나의 중첩 항목</li>
+</ul></li>
+<li>세 번째 항목</li>
+</ul>
+<ol>
+<li>순서가 있는 항목</li>
+<li>두 번째</li>
+<li>세 번째</li>
+</ol>
+<ul class="task-list">
+<li class="task-list-item"><input type="checkbox" disabled checked /> 끝난 일</li>
+<li class="task-list-item"><input type="checkbox" disabled /> 남은 일</li>
+</ul>
+<dl>
+<dt>용어</dt>
+<dd><p>용어에 대한 정의입니다.</p></dd>
+<dt>Pandoc</dt>
+<dd><p>범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.</p></dd>
+</dl>
+<h2 id="코드-code">코드 (Code)</h2>
+<pre class="sourceCode js"><code class="language-js">function greet(name) {
+  console.log(`Hello, ${name}!`)
+}
+greet('world')</code></pre>
+<h2 id="표-table">표 (Table)</h2>
+<table>
+<caption>지원 형식의 일부</caption>
+<thead>
+<tr><th style="text-align: left;">형식</th><th style="text-align: center;">확장자</th><th style="text-align: center;">읽기</th><th style="text-align: right;">쓰기</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: left;">Markdown</td><td style="text-align: center;">.md</td><td style="text-align: center;">O</td><td style="text-align: right;">O</td></tr>
+<tr><td style="text-align: left;">HTML</td><td style="text-align: center;">.html</td><td style="text-align: center;">O</td><td style="text-align: right;">O</td></tr>
+<tr><td style="text-align: left;">DOCX</td><td style="text-align: center;">.docx</td><td style="text-align: center;">O</td><td style="text-align: right;">O</td></tr>
+<tr><td style="text-align: left;">EPUB</td><td style="text-align: center;">.epub</td><td style="text-align: center;">O</td><td style="text-align: right;">O</td></tr>
+</tbody>
+</table>
+<h2 id="인용과-수식-quote-and-math">인용과 수식 (Quote and math)</h2>
+<blockquote>
+<p>좋은 문서는 어떤 형식으로도 읽힙니다.
+— 누군가</p>
+</blockquote>
+<p>인라인 수식 <span class="math inline">\(E = mc^2\)</span> 과 블록 수식:</p>
+<p><span class="math display">\[\int_0^1 x^2\,dx = \frac{1}{3}\]</span></p>
+<h2 id="각주와-그림-footnote-and-figure">각주와 그림 (Footnote and figure)</h2>
+<p>각주가 붙은 문장입니다.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> 자동 링크 <a href="https://pandoc.org">https://pandoc.org</a> 와 <a href="mailto:knix008@naver.com">mailto:knix008@naver.com</a> 도 있습니다.</p>
+<p><img src="../public/app-icon.svg" alt="프로그램 아이콘" title="My Document Converter" /></p>
+<aside class="notes"><ol><li><p>각주의 내용입니다.</p></li></ol></aside>
+</div>
+<div class="slide">
+<p>마지막 문단입니다. 줄 끝에 두 칸을 두면<br />
+강제 줄바꿈이 됩니다.</p>
+</div>
+</div>
+<div class="slide-counter"></div>
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var counter = document.querySelector('.slide-counter');
+  var current = Math.max(0, Math.min(slides.length - 1, parseInt(location.hash.slice(1) || '1', 10) - 1));
+  function show(index) {
+    current = Math.max(0, Math.min(slides.length - 1, index));
+    slides.forEach(function (slide, k) { slide.classList.toggle('active', k === current); });
+    if (counter) counter.textContent = (current + 1) + ' / ' + slides.length;
+    history.replaceState(null, '', '#' + (current + 1));
+  }
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'ArrowRight' || event.key === ' ' || event.key === 'PageDown' || event.key === 'ArrowDown') { show(current + 1); event.preventDefault(); }
+    if (event.key === 'ArrowLeft' || event.key === 'PageUp' || event.key === 'ArrowUp') { show(current - 1); event.preventDefault(); }
+    if (event.key === 'Home') show(0);
+    if (event.key === 'End') show(slides.length - 1);
+  });
+  document.addEventListener('click', function (event) { if (!event.target.closest('a')) show(current + 1); });
+  show(current);
+})();
+</script>
+</body>
+</html>

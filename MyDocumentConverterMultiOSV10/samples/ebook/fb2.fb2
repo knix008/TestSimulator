@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+<description>
+<title-info>
+<genre>unrecognised</genre>
+<author>
+<first-name>SHKWON</first-name>
+<last-name></last-name>
+</author>
+<book-title>My Document Converter 샘플 문서</book-title>
+<date>2026-09-22</date>
+<lang>en</lang>
+</title-info>
+<document-info><program-used>My Document Converter</program-used></document-info>
+</description>
+<body>
+<title><p>My Document Converter 샘플 문서</p></title>
+<section>
+<title><p>소개 (Introduction)</p></title>
+<p>이 문서는 <strong>My Document Converter</strong> 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는 원본입니다. <emphasis>강조</emphasis>, <strong>굵게</strong>, <strikethrough>취소선</strikethrough>, <code>인라인 코드</code>, H<sub>2</sub>O 와 x<sup>2</sup>, 그리고 <a l:href="https://example.com">링크</a>를 담고 있습니다. This paragraph is in English so that Latin-only formats still show something readable.</p>
+<section>
+<title><p>목록 (Lists)</p></title>
+<p>• 첫 번째 항목</p>
+<p>• 두 번째 항목 • 중첩된 항목
+• 또 하나의 중첩 항목</p>
+<p>• 세 번째 항목</p>
+<p>1. 순서가 있는 항목</p>
+<p>2. 두 번째</p>
+<p>3. 세 번째</p>
+<p>• 끝난 일</p>
+<p>• 남은 일</p>
+<p><strong>용어</strong> 용어에 대한 정의입니다.</p>
+<p><strong>Pandoc</strong> 범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.</p>
+</section>
+<section>
+<title><p>코드 (Code)</p></title>
+<p><code>function greet(name) {</code></p>
+<p><code>  console.log(`Hello, ${name}!`)</code></p>
+<p><code>}</code></p>
+<p><code>greet('world')</code></p>
+</section>
+<section>
+<title><p>표 (Table)</p></title>
+<table>
+<tr><th>형식</th><th>확장자</th><th>읽기</th><th>쓰기</th></tr>
+<tr><td>Markdown</td><td>.md</td><td>O</td><td>O</td></tr>
+<tr><td>HTML</td><td>.html</td><td>O</td><td>O</td></tr>
+<tr><td>DOCX</td><td>.docx</td><td>O</td><td>O</td></tr>
+<tr><td>EPUB</td><td>.epub</td><td>O</td><td>O</td></tr>
+</table>
+</section>
+<section>
+<title><p>인용과 수식 (Quote and math)</p></title>
+<cite>
+<p>좋은 문서는 어떤 형식으로도 읽힙니다. — 누군가</p>
+</cite>
+<p>인라인 수식 <code>E = mc^2</code> 과 블록 수식:</p>
+<p><code>\int_0^1 x^2\,dx = \frac{1}{3}</code></p>
+</section>
+<section>
+<title><p>각주와 그림 (Footnote and figure)</p></title>
+<p>각주가 붙은 문장입니다.<a l:href="#note1" type="note">[1]</a> 자동 링크 <a l:href="https://pandoc.org">https://pandoc.org</a> 와 <a l:href="mailto:knix008@naver.com">mailto:knix008@naver.com</a> 도 있습니다.</p>
+<p><image l:href="#../public/app-icon.svg" alt="프로그램 아이콘"/></p>
+<empty-line/>
+<p>마지막 문단입니다. 줄 끝에 두 칸을 두면 강제 줄바꿈이 됩니다.</p>
+</section>
+</section>
+</body>
+<body name="notes">
+<section id="note1"><title><p>1</p></title><p>각주의 내용입니다.</p></section>
+</body>
+</FictionBook>

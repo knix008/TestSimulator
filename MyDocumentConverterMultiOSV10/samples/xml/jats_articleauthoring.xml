@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Article Authoring DTD v1.3 20210610//EN" "https://jats.nlm.nih.gov/articleauthoring/1.3/JATS-articleauthoring1-3.dtd">
+<article xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:mml="http://www.w3.org/1998/Math/MathML" dtd-version="1.3" article-type="other">
+<front>
+<journal-meta><journal-title-group/><issn/></journal-meta>
+<article-meta>
+<title-group><article-title>My Document Converter 샘플 문서</article-title></title-group>
+<contrib-group>
+<contrib contrib-type="author"><string-name>SHKWON</string-name></contrib>
+</contrib-group>
+<pub-date date-type="pub" iso-8601-date="2026-09-22"><day>22</day><month>09</month><year>2026</year></pub-date>
+</article-meta>
+</front>
+<body>
+<sec id="소개-introduction">
+<title>소개 (Introduction)</title>
+<p>이 문서는 <bold>My Document Converter</bold> 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는 원본입니다.
+<italic>강조</italic>, <bold>굵게</bold>, <strike>취소선</strike>, <monospace>인라인 코드</monospace>, H<sub>2</sub>O 와 x<sup>2</sup>, 그리고 <ext-link ext-link-type="uri" xlink:href="https://example.com">링크</ext-link>를 담고 있습니다.
+This paragraph is in English so that Latin-only formats still show something readable.</p>
+<sec id="목록-lists">
+<title>목록 (Lists)</title>
+<list list-type="bullet">
+<list-item>
+<p>첫 번째 항목</p>
+</list-item>
+<list-item>
+<p>두 번째 항목</p>
+<list list-type="bullet">
+<list-item>
+<p>중첩된 항목</p>
+</list-item>
+<list-item>
+<p>또 하나의 중첩 항목</p>
+</list-item>
+</list>
+</list-item>
+<list-item>
+<p>세 번째 항목</p>
+</list-item>
+</list>
+<list list-type="order">
+<list-item>
+<p>순서가 있는 항목</p>
+</list-item>
+<list-item>
+<p>두 번째</p>
+</list-item>
+<list-item>
+<p>세 번째</p>
+</list-item>
+</list>
+<list list-type="bullet">
+<list-item>
+<p>끝난 일</p>
+</list-item>
+<list-item>
+<p>남은 일</p>
+</list-item>
+</list>
+<def-list>
+<def-item>
+<term>용어</term>
+<def>
+<p>용어에 대한 정의입니다.</p>
+</def>
+</def-item>
+<def-item>
+<term>Pandoc</term>
+<def>
+<p>범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.</p>
+</def>
+</def-item>
+</def-list>
+</sec>
+<sec id="코드-code">
+<title>코드 (Code)</title>
+<preformat language="js">function greet(name) {
+  console.log(`Hello, ${name}!`)
+}
+greet('world')</preformat>
+</sec>
+<sec id="표-table">
+<title>표 (Table)</title>
+<table-wrap>
+<caption><p>지원 형식의 일부</p></caption>
+<table>
+<thead>
+<tr><th align="left">형식</th><th align="center">확장자</th><th align="center">읽기</th><th align="right">쓰기</th></tr>
+</thead>
+<tbody>
+<tr><td align="left">Markdown</td><td align="center">.md</td><td align="center">O</td><td align="right">O</td></tr>
+<tr><td align="left">HTML</td><td align="center">.html</td><td align="center">O</td><td align="right">O</td></tr>
+<tr><td align="left">DOCX</td><td align="center">.docx</td><td align="center">O</td><td align="right">O</td></tr>
+<tr><td align="left">EPUB</td><td align="center">.epub</td><td align="center">O</td><td align="right">O</td></tr>
+</tbody>
+</table>
+</table-wrap>
+</sec>
+<sec id="인용과-수식-quote-and-math">
+<title>인용과 수식 (Quote and math)</title>
+<disp-quote>
+<p>좋은 문서는 어떤 형식으로도 읽힙니다.
+— 누군가</p>
+</disp-quote>
+<p>인라인 수식 <inline-formula><tex-math><![CDATA[E = mc^2]]></tex-math></inline-formula> 과 블록 수식:</p>
+<p><disp-formula><tex-math><![CDATA[\int_0^1 x^2\,dx = \frac{1}{3}]]></tex-math></disp-formula></p>
+</sec>
+<sec id="각주와-그림-footnote-and-figure">
+<title>각주와 그림 (Footnote and figure)</title>
+<p>각주가 붙은 문장입니다.<fn id="fn1"><label>1</label><p>각주의 내용입니다.</p></fn> 자동 링크 <ext-link ext-link-type="uri" xlink:href="https://pandoc.org">https://pandoc.org</ext-link> 와 <ext-link ext-link-type="uri" xlink:href="mailto:knix008@naver.com">mailto:knix008@naver.com</ext-link> 도 있습니다.</p>
+<p><inline-graphic mimetype="image" xlink:href="../public/app-icon.svg"/></p>
+<p>마지막 문단입니다. 줄 끝에 두 칸을 두면<break/>강제 줄바꿈이 됩니다.</p>
+</sec>
+</sec>
+</body>
+</article>

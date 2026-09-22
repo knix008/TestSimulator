@@ -1,0 +1,111 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{ulem}
+\usepackage{fixltx2e}
+\usepackage[margin=20mm,a4paper]{geometry}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\small,breaklines=true}
+\usepackage{kotex}
+
+\date{}
+
+\begin{document}
+
+
+\section*{My Document Converter 샘플 문서}\label{my-document-converter-샘플-문서}
+
+\section*{소개 (Introduction)}\label{소개-introduction}
+
+이 문서는 \textbf{My Document Converter} 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는
+원본입니다.
+\emph{강조}, \textbf{굵게}, \sout{취소선}, \verb|인라인 코드|, H\textsubscript{2}O 와
+x\textsuperscript{2}, 그리고
+\href{https://example.com}{링크}를 담고 있습니다. This paragraph is in English so
+that
+Latin-only formats still show something readable.
+
+\subsection*{목록 (Lists)}\label{목록-lists}
+
+\begin{itemize}
+\item 첫 번째 항목
+\item 두 번째 항목
+\begin{itemize}
+\item 중첩된 항목
+\item 또 하나의 중첩 항목
+\end{itemize}
+\item 세 번째 항목
+\end{itemize}
+
+\begin{enumerate}
+\item 순서가 있는 항목
+\item 두 번째
+\item 세 번째
+\end{enumerate}
+
+\begin{itemize}
+\item $\boxtimes$ 끝난 일
+\item $\square$ 남은 일
+\end{itemize}
+
+\begin{description}
+\item[용어] 용어에 대한 정의입니다.
+\item[Pandoc] 범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.
+\end{description}
+
+\subsection*{코드 (Code)}\label{코드-code}
+
+\begin{lstlisting}[language=js]
+function greet(name) {
+  console.log(`Hello, ${name}!`)
+}
+greet('world')
+\end{lstlisting}
+
+\subsection*{표 (Table)}\label{표-table}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lccr}
+\toprule
+형식 & 확장자 & 읽기 & 쓰기 \\
+\midrule
+Markdown & .md & O & O \\
+HTML & .html & O & O \\
+DOCX & .docx & O & O \\
+EPUB & .epub & O & O \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\^{} 지원 형식의 일부
+
+\subsection*{인용과 수식 (Quote and math)}\label{인용과-수식-quote-and-math}
+
+\begin{quote}
+좋은 문서는 어떤 형식으로도 읽힙니다. --- 누군가
+\end{quote}
+
+인라인 수식 \$\verb|E = mc^2| 과 블록 수식:
+
+\[`\int_0^1 x^2\,dx = \frac{1}{3}`
+
+## 각주와 그림 (Footnote and figure)
+
+각주가 붙은 문장입니다.[^1] 자동 링크 <https://pandoc.org> 와
+<mailto:knix008@naver.com> 도 있습니다.
+
+![프로그램 아이콘](../public/app-icon.svg)
+
+* * * *
+
+마지막 문단입니다. 줄 끝에 두 칸을 두면\
+강제 줄바꿈이 됩니다.\]
+
+\end{document}

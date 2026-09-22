@@ -1,0 +1,6 @@
+| 형식       | 확장자   | 읽기  | 쓰기  |
+| -------- | ----- | --- | --- |
+| Markdown | .md   | O   | O   |
+| HTML     | .html | O   | O   |
+| DOCX     | .docx | O   | O   |
+| EPUB     | .epub | O   | O   |

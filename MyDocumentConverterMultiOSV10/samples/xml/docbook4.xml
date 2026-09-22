@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<article>
+<articleinfo>
+<title>My Document Converter 샘플 문서</title>
+<author>
+<othername>SHKWON</othername>
+</author>
+<date>2026-09-22</date>
+</articleinfo>
+<sect1 id="소개-introduction">
+<title>소개 (Introduction)</title>
+<para>이 문서는 <emphasis role="strong">My Document Converter</emphasis> 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는 원본입니다.
+<emphasis>강조</emphasis>, <emphasis role="strong">굵게</emphasis>, <emphasis role="strikethrough">취소선</emphasis>, <literal>인라인 코드</literal>, H<subscript>2</subscript>O 와 x<superscript>2</superscript>, 그리고 <ulink url="https://example.com">링크</ulink>를 담고 있습니다.
+This paragraph is in English so that Latin-only formats still show something readable.</para>
+<sect2 id="목록-lists">
+<title>목록 (Lists)</title>
+<itemizedlist>
+<listitem>
+<para>첫 번째 항목</para>
+</listitem>
+<listitem>
+<para>두 번째 항목</para>
+<itemizedlist>
+<listitem>
+<para>중첩된 항목</para>
+</listitem>
+<listitem>
+<para>또 하나의 중첩 항목</para>
+</listitem>
+</itemizedlist>
+</listitem>
+<listitem>
+<para>세 번째 항목</para>
+</listitem>
+</itemizedlist>
+<orderedlist>
+<listitem>
+<para>순서가 있는 항목</para>
+</listitem>
+<listitem>
+<para>두 번째</para>
+</listitem>
+<listitem>
+<para>세 번째</para>
+</listitem>
+</orderedlist>
+<itemizedlist>
+<listitem>
+<para>끝난 일</para>
+</listitem>
+<listitem>
+<para>남은 일</para>
+</listitem>
+</itemizedlist>
+<variablelist>
+<varlistentry>
+<term>용어</term>
+<listitem>
+<para>용어에 대한 정의입니다.</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>Pandoc</term>
+<listitem>
+<para>범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.</para>
+</listitem>
+</varlistentry>
+</variablelist>
+</sect2>
+<sect2 id="코드-code">
+<title>코드 (Code)</title>
+<programlisting language="js">function greet(name) {
+  console.log(`Hello, ${name}!`)
+}
+greet('world')</programlisting>
+</sect2>
+<sect2 id="표-table">
+<title>표 (Table)</title>
+<table>
+<title>지원 형식의 일부</title>
+<tgroup cols="4">
+<colspec colnum="1" colname="col1"/>
+<colspec colnum="2" colname="col2"/>
+<colspec colnum="3" colname="col3"/>
+<colspec colnum="4" colname="col4"/>
+<thead>
+<row>
+<entry align="left">형식</entry>
+<entry align="center">확장자</entry>
+<entry align="center">읽기</entry>
+<entry align="right">쓰기</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry align="left">Markdown</entry>
+<entry align="center">.md</entry>
+<entry align="center">O</entry>
+<entry align="right">O</entry>
+</row>
+<row>
+<entry align="left">HTML</entry>
+<entry align="center">.html</entry>
+<entry align="center">O</entry>
+<entry align="right">O</entry>
+</row>
+<row>
+<entry align="left">DOCX</entry>
+<entry align="center">.docx</entry>
+<entry align="center">O</entry>
+<entry align="right">O</entry>
+</row>
+<row>
+<entry align="left">EPUB</entry>
+<entry align="center">.epub</entry>
+<entry align="center">O</entry>
+<entry align="right">O</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+</sect2>
+<sect2 id="인용과-수식-quote-and-math">
+<title>인용과 수식 (Quote and math)</title>
+<blockquote>
+<para>좋은 문서는 어떤 형식으로도 읽힙니다.
+— 누군가</para>
+</blockquote>
+<para>인라인 수식 <inlineequation><mathphrase>E = mc^2</mathphrase></inlineequation> 과 블록 수식:</para>
+<para><informalequation><mathphrase>\int_0^1 x^2\,dx = \frac{1}{3}</mathphrase></informalequation></para>
+</sect2>
+<sect2 id="각주와-그림-footnote-and-figure">
+<title>각주와 그림 (Footnote and figure)</title>
+<para>각주가 붙은 문장입니다.<footnote><para>각주의 내용입니다.</para></footnote> 자동 링크 <ulink url="https://pandoc.org">https://pandoc.org</ulink> 와 <ulink url="mailto:knix008@naver.com">mailto:knix008@naver.com</ulink> 도 있습니다.</para>
+<para><inlinemediaobject><imageobject><imagedata fileref="../public/app-icon.svg"/></imageobject><textobject><phrase>프로그램 아이콘</phrase></textobject></inlinemediaobject></para>
+<para>마지막 문단입니다. 줄 끝에 두 칸을 두면<sbr/>강제 줄바꿈이 됩니다.</para>
+</sect2>
+</sect1>
+</article>

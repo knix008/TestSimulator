@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xml>
+  <records>
+    <record>
+      <rec-number>1</rec-number>
+      <ref-type name="Journal Article">17</ref-type>
+      <contributors>
+        <authors>
+          <author>Kwon, Suho</author>
+          <author>Doe, Jane</author>
+        </authors>
+      </contributors>
+      <titles>
+        <title>Converting documents without an external engine</title>
+        <secondary-title>Journal of Document Engineering</secondary-title>
+      </titles>
+      <periodical><full-title>Journal of Document Engineering</full-title></periodical>
+      <pages>101-118</pages>
+      <volume>12</volume>
+      <number>3</number>
+      <dates><year>2026</year></dates>
+      <urls><related-urls><url>https://example.com/jde/2026/12/3</url></related-urls></urls>
+      <electronic-resource-num>10.1000/jde.2026.12.3.101</electronic-resource-num>
+    </record>
+    <record>
+      <rec-number>2</rec-number>
+      <ref-type name="Book">6</ref-type>
+      <contributors>
+        <authors>
+          <author>MacFarlane, John</author>
+        </authors>
+      </contributors>
+      <titles>
+        <title>Pandoc User's Guide</title>
+      </titles>
+      <publisher>pandoc.org</publisher>
+      <pub-location>Berkeley</pub-location>
+      <dates><year>2024</year></dates>
+    </record>
+  </records>
+</xml>

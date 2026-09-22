@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+<teiHeader>
+<fileDesc>
+<titleStmt>
+<title>My Document Converter 샘플 문서</title>
+<author>SHKWON</author>
+</titleStmt>
+<publicationStmt><p>Produced by My Document Converter.</p></publicationStmt>
+<sourceDesc><p>Born digital.</p></sourceDesc>
+</fileDesc>
+<profileDesc>
+<creation><date>2026-09-22</date></creation>
+</profileDesc>
+</teiHeader>
+<text>
+<body>
+<div type="level1" xml:id="소개-introduction">
+<head>소개 (Introduction)</head>
+<p>이 문서는 <hi rend="bold">My Document Converter</hi> 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는 원본입니다.
+<hi rend="italic">강조</hi>, <hi rend="bold">굵게</hi>, <hi rend="strikethrough">취소선</hi>, <code>인라인 코드</code>, H<hi rend="subscript">2</hi>O 와 x<hi rend="superscript">2</hi>, 그리고 <ref target="https://example.com">링크</ref>를 담고 있습니다.
+This paragraph is in English so that Latin-only formats still show something readable.</p>
+<div type="level2" xml:id="목록-lists">
+<head>목록 (Lists)</head>
+<list rend="bulleted">
+<item>
+<p>첫 번째 항목</p>
+</item>
+<item>
+<p>두 번째 항목</p>
+<list rend="bulleted">
+<item>
+<p>중첩된 항목</p>
+</item>
+<item>
+<p>또 하나의 중첩 항목</p>
+</item>
+</list>
+</item>
+<item>
+<p>세 번째 항목</p>
+</item>
+</list>
+<list rend="numbered">
+<item>
+<p>순서가 있는 항목</p>
+</item>
+<item>
+<p>두 번째</p>
+</item>
+<item>
+<p>세 번째</p>
+</item>
+</list>
+<list rend="bulleted">
+<item>
+<p>끝난 일</p>
+</item>
+<item>
+<p>남은 일</p>
+</item>
+</list>
+<list type="gloss">
+<label>용어</label>
+<item>
+<p>용어에 대한 정의입니다.</p>
+</item>
+<label>Pandoc</label>
+<item>
+<p>범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.</p>
+</item>
+</list>
+</div>
+<div type="level2" xml:id="코드-code">
+<head>코드 (Code)</head>
+<eg rend="js">function greet(name) {
+  console.log(`Hello, ${name}!`)
+}
+greet('world')</eg>
+</div>
+<div type="level2" xml:id="표-table">
+<head>표 (Table)</head>
+<table>
+<head>지원 형식의 일부</head>
+<row role="label"><cell>형식</cell><cell>확장자</cell><cell>읽기</cell><cell>쓰기</cell></row>
+<row><cell>Markdown</cell><cell>.md</cell><cell>O</cell><cell>O</cell></row>
+<row><cell>HTML</cell><cell>.html</cell><cell>O</cell><cell>O</cell></row>
+<row><cell>DOCX</cell><cell>.docx</cell><cell>O</cell><cell>O</cell></row>
+<row><cell>EPUB</cell><cell>.epub</cell><cell>O</cell><cell>O</cell></row>
+</table>
+</div>
+<div type="level2" xml:id="인용과-수식-quote-and-math">
+<head>인용과 수식 (Quote and math)</head>
+<quote>
+<p>좋은 문서는 어떤 형식으로도 읽힙니다.
+— 누군가</p>
+</quote>
+<p>인라인 수식 <formula notation="TeX">E = mc^2</formula> 과 블록 수식:</p>
+<p><formula notation="TeX">\int_0^1 x^2\,dx = \frac{1}{3}</formula></p>
+</div>
+<div type="level2" xml:id="각주와-그림-footnote-and-figure">
+<head>각주와 그림 (Footnote and figure)</head>
+<p>각주가 붙은 문장입니다.<note place="foot"><p>각주의 내용입니다.</p></note> 자동 링크 <ref target="https://pandoc.org">https://pandoc.org</ref> 와 <ref target="mailto:knix008@naver.com">mailto:knix008@naver.com</ref> 도 있습니다.</p>
+<p><figure><graphic url="../public/app-icon.svg"/><head>프로그램 아이콘</head></figure></p>
+<milestone unit="undefined" rend="separator"/>
+<p>마지막 문단입니다. 줄 끝에 두 칸을 두면<lb/>강제 줄바꿈이 됩니다.</p>
+</div>
+</div>
+</body>
+</text>
+</TEI>

@@ -1,0 +1,57 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{ulem}
+\usepackage{fixltx2e}
+\usepackage[margin=20mm,a4paper]{geometry}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\usepackage{kotex}
+\title{MDCV(1)}
+
+\date{September 22, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{NAME}\label{name}
+
+\textbf{mdcv} --- My Document Converter 의 mdoc 샘플
+
+\section*{SYNOPSIS}\label{synopsis}
+
+\textbf{} [Fl f Ar format] [Fl t Ar format] \emph{file}
+
+\section*{DESCRIPTION}\label{description}
+
+mdoc 은 BSD 매뉴얼 페이지 형식입니다. \emph{기울임} 과 \textbf{굵게} 와 \verb|코드| 를 씁니다.
+This sentence is in English.
+
+옵션은 다음과 같습니다.
+
+\begin{description}
+\item[\textbf{-f Ar format}] 입력 형식을 지정합니다.
+\item[\textbf{-t Ar format}] 출력 형식을 지정합니다.
+\end{description}
+
+\section*{EXAMPLES}\label{examples}
+
+\begin{itemize}
+\item 첫 번째 항목
+\item 두 번째 항목
+\item 세 번째 항목
+\end{itemize}
+
+\begin{verbatim}
+mdcv -f markdown -t html sample.md
+\end{verbatim}
+
+\section*{SEE ALSO}\label{see-also}
+
+\textbf{pandoc(1)}
+
+\end{document}

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<book xmlns:xlink="http://www.w3.org/1999/xlink">
+  <book-meta>
+    <book-title-group>
+      <book-title>My Document Converter 샘플</book-title>
+    </book-title-group>
+    <contrib-group>
+      <contrib contrib-type="author"><string-name>SHKWON</string-name></contrib>
+    </contrib-group>
+    <pub-date><year>2026</year></pub-date>
+  </book-meta>
+  <book-body>
+    <book-part book-part-type="chapter">
+      <book-part-meta>
+        <title-group><title>소개 (Introduction)</title></title-group>
+      </book-part-meta>
+      <body>
+        <p>BITS 는 JATS 를 책에 맞게 확장한 XML 형식입니다. <bold>굵게</bold>, <italic>기울임</italic>, <monospace>코드</monospace> 와 <ext-link ext-link-type="uri" xlink:href="https://example.com">링크</ext-link> 를 씁니다.</p>
+        <p>This paragraph is in English.</p>
+        <sec>
+          <title>목록 (Lists)</title>
+          <list list-type="bullet">
+            <list-item><p>첫 번째 항목</p></list-item>
+            <list-item><p>두 번째 항목</p></list-item>
+            <list-item><p>세 번째 항목</p></list-item>
+          </list>
+          <list list-type="order">
+            <list-item><p>순서가 있는 항목</p></list-item>
+            <list-item><p>두 번째</p></list-item>
+          </list>
+        </sec>
+        <sec>
+          <title>코드 (Code)</title>
+          <preformat>function greet(name) {
+  console.log('Hello, ' + name)
+}</preformat>
+        </sec>
+        <sec>
+          <title>표 (Table)</title>
+          <table-wrap>
+            <table>
+              <thead><tr><th>형식</th><th>확장자</th></tr></thead>
+              <tbody>
+                <tr><td>Markdown</td><td>.md</td></tr>
+                <tr><td>HTML</td><td>.html</td></tr>
+              </tbody>
+            </table>
+          </table-wrap>
+        </sec>
+      </body>
+    </book-part>
+  </book-body>
+</book>

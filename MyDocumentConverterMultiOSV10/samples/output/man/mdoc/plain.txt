@@ -1,0 +1,41 @@
+MDCV(1)
+=======
+September 22, 2026
+
+NAME
+====
+
+mdcv — My Document Converter 의 mdoc 샘플
+
+SYNOPSIS
+========
+
+[Fl f Ar format] [Fl t Ar format] file
+
+DESCRIPTION
+===========
+
+mdoc 은 BSD 매뉴얼 페이지 형식입니다. 기울임 과 굵게 와 코드 를 씁니다. This sentence is in
+English.
+
+옵션은 다음과 같습니다.
+
+-f Ar format
+    입력 형식을 지정합니다.
+
+-t Ar format
+    출력 형식을 지정합니다.
+
+EXAMPLES
+========
+
+- 첫 번째 항목
+- 두 번째 항목
+- 세 번째 항목
+
+    mdcv -f markdown -t html sample.md
+
+SEE ALSO
+========
+
+pandoc(1)

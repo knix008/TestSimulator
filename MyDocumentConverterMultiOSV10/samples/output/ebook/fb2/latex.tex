@@ -1,0 +1,98 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{ulem}
+\usepackage{fixltx2e}
+\usepackage[margin=20mm,a4paper]{geometry}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\usepackage{kotex}
+\title{My Document Converter 샘플 문서}
+\author{SHKWON}
+\date{2026-09-22}
+
+\begin{document}
+\maketitle
+
+\section*{<p>My Document Converter 샘플 문서</p>}\label{pmy-document-converter-샘플-문서p}
+
+\section*{<p>소개 (Introduction)</p>}\label{p소개-introductionp}
+
+이 문서는 \textbf{My Document Converter} 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는
+원본입니다. \emph{강조}, \textbf{굵게}, \sout{취소선}, \verb|인라인 코드|,
+H\textsubscript{2}O 와 x\textsuperscript{2}, 그리고
+\href{https://example.com}{링크}를 담고 있습니다. This paragraph is in English so
+that Latin-only formats still show something readable.
+
+\subsection*{<p>목록 (Lists)</p>}\label{p목록-listsp}
+
+• 첫 번째 항목
+
+• 두 번째 항목 • 중첩된 항목 • 또 하나의 중첩 항목
+
+• 세 번째 항목
+
+1. 순서가 있는 항목
+
+2. 두 번째
+
+3. 세 번째
+
+• 끝난 일
+
+• 남은 일
+
+\textbf{용어} 용어에 대한 정의입니다.
+
+\textbf{Pandoc} 범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.
+
+\subsection*{<p>코드 (Code)</p>}\label{p코드-codep}
+
+\verb|function greet(name) {|
+
+\verb|  console.log(`Hello, ${name}!`)|
+
+\verb|}|
+
+\verb|greet('world')|
+
+\subsection*{<p>표 (Table)</p>}\label{p표-tablep}
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{llll}
+\toprule
+형식 & 확장자 & 읽기 & 쓰기 \\
+\midrule
+Markdown & .md & O & O \\
+HTML & .html & O & O \\
+DOCX & .docx & O & O \\
+EPUB & .epub & O & O \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{<p>인용과 수식 (Quote and math)</p>}\label{p인용과-수식-quote-and-mathp}
+
+\begin{quote}
+좋은 문서는 어떤 형식으로도 읽힙니다. --- 누군가
+\end{quote}
+
+인라인 수식 \verb|E = mc^2| 과 블록 수식:
+
+\verb|\int_0^1 x^2\,dx = \frac{1}{3}|
+
+\subsection*{<p>각주와 그림 (Footnote and figure)</p>}\label{p각주와-그림-footnote-and-figurep}
+
+각주가 붙은 문장입니다.\footnote{[1]} 자동 링크 \url{https://pandoc.org} 와
+\url{mailto:knix008@naver.com} 도 있습니다.
+
+\includegraphics[width=\linewidth,keepaspectratio]{../public/app-icon.svg}
+
+마지막 문단입니다. 줄 끝에 두 칸을 두면 강제 줄바꿈이 됩니다.
+
+\end{document}

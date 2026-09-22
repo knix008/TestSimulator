@@ -1,0 +1,87 @@
+// Typst document produced by My Document Converter
+#let horizontalrule = [#line(start: (25%, 0%), end: (75%, 0%))]
+#set document(title: "My Document Converter 샘플 문서", author: "SHKWON")
+#set page(paper: "a4", margin: 20mm, numbering: "1")
+#set text(size: 11pt, lang: "ko")
+#set par(justify: true)
+
+#align(center)[#block(inset: 2em)[
+#text(weight: "bold", size: 1.5em)[My Document Converter 샘플 문서]
+\
+#text(size: 1.1em)[SHKWON]
+\
+2026-09-22
+]]
+
+= 소개 (Introduction) <소개-introduction>
+
+이 문서는 *My Document Converter* 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는 원본입니다.
+_강조_, *굵게*, #strike[취소선], `인라인 코드`, H#sub[2]O 와 x#super[2], 그리고
+#link("https://example.com")[링크]를 담고 있습니다.
+This paragraph is in English so that Latin-only formats still show
+something readable.
+
+== 목록 (Lists) <목록-lists>
+
+- 첫 번째 항목
+- 두 번째 항목
+  - 중첩된 항목
+  - 또 하나의 중첩 항목
+- 세 번째 항목
+
++ 순서가 있는 항목
++ 두 번째
++ 세 번째
+
+- ☒ 끝난 일
+- ☐ 남은 일
+
+/ 용어: 용어에 대한 정의입니다.
+/ Pandoc: 범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.
+
+== 코드 (Code) <코드-code>
+
+```js
+function greet(name) {
+  console.log(`Hello, ${name}!`)
+}
+greet('world')
+```
+
+== 표 (Table) <표-table>
+
+#figure(
+  align(center)[#table(
+    columns: 4,
+    align: (left,center,center,right,),
+    table.header([형식], [확장자], [읽기], [쓰기],),
+    [Markdown], [.md], [O], [O],
+    [HTML], [.html], [O], [O],
+    [DOCX], [.docx], [O], [O],
+    [EPUB], [.epub], [O], [O],
+  )]
+  , caption: [지원 형식의 일부]
+)
+
+== 인용과 수식 (Quote and math) <인용과-수식-quote-and-math>
+
+#quote(block: true)[
+좋은 문서는 어떤 형식으로도 읽힙니다.
+— 누군가
+]
+
+인라인 수식 $E = mc^2$ 과 블록 수식:
+
+$ \int_0^1 x^2\,dx = \frac{1}{3} $
+
+== 각주와 그림 (Footnote and figure) <각주와-그림-footnote-and-figure>
+
+각주가 붙은 문장입니다.#footnote[각주의 내용입니다.] 자동 링크 #link("https://pandoc.org") 와
+#link("mailto:knix008@naver.com") 도 있습니다.
+
+#image("../public/app-icon.svg", alt: "프로그램 아이콘")
+
+#horizontalrule
+
+마지막 문단입니다. 줄 끝에 두 칸을 두면\
+강제 줄바꿈이 됩니다.

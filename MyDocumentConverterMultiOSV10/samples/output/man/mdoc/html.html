@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+<meta charset="utf-8" />
+<meta name="generator" content="My Document Converter" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MDCV(1)</title>
+<meta name="dcterms.date" content="September 22, 2026" />
+<style>
+html { color: #1a1a1a; background-color: #fdfdfd; }
+body { margin: 0 auto; max-width: 40em; padding: 40px 50px; hyphens: auto; overflow-wrap: break-word; text-rendering: optimizeLegibility; font-kerning: normal; font-family: Georgia, "Noto Serif", "Malgun Gothic", serif; font-size: 16px; line-height: 1.6; }
+@media (max-width: 600px) { body { font-size: 0.9em; padding: 12px; } h1 { font-size: 1.8em; } }
+@media print { html { background-color: white; } body { background-color: transparent; color: black; font-size: 12pt; padding: 0; max-width: none; } p { orphans: 3; widows: 3; } h2, h3, h4 { page-break-after: avoid; } }
+p { margin: 1em 0; }
+a { color: #1a5fb4; } a:visited { color: #5e3a9e; }
+img { max-width: 100%; }
+h1, h2, h3, h4, h5, h6 { margin-top: 1.4em; line-height: 1.25; }
+h5, h6 { font-size: 1em; font-style: italic; }
+h6 { font-weight: normal; }
+ol, ul { padding-left: 1.7em; margin-top: 1em; }
+li > ol, li > ul { margin-top: 0; }
+blockquote { margin: 1em 0 1em 1.7em; padding-left: 1em; border-left: 2px solid #e6e6e6; color: #606060; }
+code { font-family: Menlo, Monaco, Consolas, "Lucida Console", monospace; font-size: 85%; margin: 0; hyphens: manual; }
+pre { margin: 1em 0; overflow: auto; padding: 0.8em 1em; background: #f4f4f4; border-radius: 4px; }
+pre code { padding: 0; overflow: visible; overflow-wrap: normal; }
+.sourceCode { background-color: transparent; overflow: visible; }
+hr { background-color: #1a1a1a; border: none; height: 1px; margin: 1em 0; }
+table { margin: 1em 0; border-collapse: collapse; width: 100%; overflow-x: auto; display: block; font-variant-numeric: lining-nums tabular-nums; }
+table caption { margin-bottom: 0.75em; }
+tbody { margin-top: 0.5em; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; }
+th { border-top: 1px solid #1a1a1a; padding: 0.25em 0.5em 0.25em 0.5em; }
+td { padding: 0.125em 0.5em 0.25em 0.5em; }
+header { margin-bottom: 4em; text-align: center; }
+#TOC li { list-style: none; }
+#TOC ul { padding-left: 1.3em; }
+#TOC > ul { padding-left: 0; }
+#TOC a:not(:hover) { text-decoration: none; }
+div.abstract, div.note, div.warning, div.tip, div.important, div.caution, div.example, div.sidebar { border-left: 4px solid #1a5fb4; background: #f0f5fc; padding: 0.5em 1em; margin: 1em 0; }
+div.warning, div.caution { border-color: #c64600; background: #fff4ec; }
+.task-list-item input { margin-right: 0.5em; }
+.line-block { white-space: pre-line; }
+.footnotes { font-size: 0.9em; }
+.footnotes ol { padding-left: 1.5em; }
+dl dt { font-weight: bold; margin-top: 0.7em; }
+dl dd { margin-left: 1.7em; }
+sup, sub { line-height: 0; }
+.smallcaps { font-variant: small-caps; }
+.underline { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">MDCV(1)</h1>
+<p class="date">September 22, 2026</p>
+</header>
+<h1 id="name">NAME</h1>
+<p><strong>mdcv</strong> — My Document Converter 의 mdoc 샘플</p>
+<h1 id="synopsis">SYNOPSIS</h1>
+<p><strong></strong> [Fl f Ar format] [Fl t Ar format] <em>file</em></p>
+<h1 id="description">DESCRIPTION</h1>
+<p>mdoc 은 BSD 매뉴얼 페이지 형식입니다. <em>기울임</em> 과 <strong>굵게</strong> 와 <code>코드</code> 를 씁니다. This sentence is in English.</p>
+<p>옵션은 다음과 같습니다.</p>
+<dl>
+<dt><strong>-f Ar format</strong></dt>
+<dd>입력 형식을 지정합니다.</dd>
+<dt><strong>-t Ar format</strong></dt>
+<dd>출력 형식을 지정합니다.</dd>
+</dl>
+<h1 id="examples">EXAMPLES</h1>
+<ul>
+<li>첫 번째 항목</li>
+<li>두 번째 항목</li>
+<li>세 번째 항목</li>
+</ul>
+<pre class="sourceCode"><code>mdcv -f markdown -t html sample.md</code></pre>
+<h1 id="see-also">SEE ALSO</h1>
+<p><strong>pandoc(1)</strong></p>
+</body>
+</html>

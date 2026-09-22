@@ -1,0 +1,180 @@
+{
+  "name": "mydocumentconvertermultiosv10",
+  "productName": "My Document Converter V1.0",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A Pandoc-style document converter for Web, Windows, macOS and Linux: Markdown, HTML, DOCX, ODT, EPUB, PDF, LaTeX, reStructuredText, Org, AsciiDoc, Textile, MediaWiki, RTF and more.",
+  "author": "SHKWON <knix008@naver.com>",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "start": "npm run electron:dev",
+    "dev": "npm run build:info && vite --host 127.0.0.1 --port 5174 --strictPort",
+    "electron": "node scripts/start-electron.mjs",
+    "electron:dev": "node scripts/electron-dev.mjs",
+    "build": "npm run build:info && tsc -b && vite build",
+    "build:web": "npm run build",
+    "build:icons": "node scripts/create-icons.cjs",
+    "build:info": "node scripts/generate-build-info.cjs",
+    "clean:release": "node scripts/clean-release.cjs",
+    "dist": "npm run build:icons && npm run build && node scripts/package-app.cjs && node scripts/copy-installers.cjs",
+    "dist:win": "npm run build:icons && npm run build && node scripts/package-app.cjs --win nsis && node scripts/copy-installers.cjs",
+    "build:win": "npm run dist:win",
+    "dist:mac": "npm run build:icons && npm run build && node scripts/package-app.cjs --mac dmg zip && node scripts/copy-installers.cjs",
+    "build:mac": "npm run dist:mac",
+    "dist:linux": "npm run build:icons && npm run build && node scripts/package-app.cjs --linux AppImage deb rpm && node scripts/copy-installers.cjs",
+    "build:linux": "npm run dist:linux",
+    "postinstall": "node node_modules/electron/install.js",
+    "pretest": "npm run build:info",
+    "test": "node scripts/test-all.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "preview": "vite preview",
+    "test:unit": "node scripts/test-all.mjs --unit",
+    "test:gui": "node scripts/test-all.mjs --gui",
+    "samples": "node --import ./test/helpers/setup.mjs scripts/make-samples.mjs",
+    "samples:convert": "node --import ./test/helpers/setup.mjs scripts/convert-samples.mjs",
+    "test:raw": "node --test --test-reporter=./test/helpers/reporter.mjs --import ./test/helpers/setup.mjs test/*.test.mjs"
+  },
+  "build": {
+    "appId": "com.shkwon.mydocumentconverter",
+    "productName": "My Document Converter V1.0",
+    "executableName": "MyDocumentConverter",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.ico",
+      "build/icon.png",
+      "build/file-icon.ico",
+      "build/file-icon.png",
+      "build/icons/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "build/file-icon.ico",
+        "to": "file-icon.ico"
+      },
+      {
+        "from": "build/file-icon.png",
+        "to": "file-icon.png"
+      }
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "fileAssociations": [
+      {
+        "ext": "mdcv",
+        "name": "My Document Converter Project",
+        "description": "My Document Converter project",
+        "mimeType": "application/x-mydocumentconverter",
+        "role": "Editor",
+        "icon": "build/file-icon.ico"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "My Document Converter V1.0",
+      "uninstallDisplayName": "My Document Converter V1.0",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "include": "build/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "fileAssociations": [
+        {
+          "ext": "mdcv",
+          "name": "My Document Converter Project",
+          "role": "Editor",
+          "icon": "build/file-icon.png"
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "icon": "build/icons",
+      "category": "Office",
+      "maintainer": "SHKWON <knix008@naver.com>",
+      "desktop": {
+        "entry": {
+          "Name": "My Document Converter V1.0",
+          "Comment": "Convert documents between formats",
+          "MimeType": "application/x-mydocumentconverter;text/markdown;text/html;"
+        }
+      }
+    },
+    "deb": {
+      "afterInstall": "build/linux/after-install.sh",
+      "afterRemove": "build/linux/after-remove.sh"
+    },
+    "rpm": {
+      "afterInstall": "build/linux/after-install.sh",
+      "afterRemove": "build/linux/after-remove.sh"
+    }
+  },
+  "dependencies": {
+    "docx": "^9.5.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^1.28.0",
+    "mammoth": "^1.11.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@jspawn/ghostscript-wasm": "^0.0.2",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
+  }
+}

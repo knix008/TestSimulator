@@ -1,0 +1,147 @@
+% ConTeXt document produced by My Document Converter
+\setuppapersize[A4]
+\setuplayout[width=middle,height=middle,backspace=20mm,topspace=20mm]
+\setupbodyfont[11pt]
+\setupwhitespace[medium]
+\setuphead[section,subsection,subsubsection][style=\tfa\bf]
+\setupinteraction[state=start,color=blue]
+\starttext
+\startalignment[center]
+\blank[2*big]
+{\tfd My Document Converter 샘플 문서}
+\blank[3*medium]
+{\tfa SHKWON}
+\blank[2*medium]
+{\tfa 2026-09-22}
+\blank[3*medium]
+\stopalignment
+
+\startsubject[title={소개 (Introduction)},reference={소개-introduction}]
+
+이 문서는 {\bf My Document Converter} 가 지원하는 모든 출력 형식의 샘플을 만드는 데 쓰이는 원본입니다.
+{\em 강조}, {\bf 굵게}, \overstrikes{취소선}, \type{인라인 코드}, H\low{2}O 와
+x\high{2}, 그리고 \useURL[url1][https://example.com][][링크]\from[url1]를 담고
+있습니다.
+This paragraph is in English so that Latin-only formats still show
+something readable.
+
+\startsubsubject[title={목록 (Lists)},reference={목록-lists}]
+
+\startitemize[packed]
+\item 첫 번째 항목
+\item 두 번째 항목
+\startitemize[packed]
+\item 중첩된 항목
+\item 또 하나의 중첩 항목
+\stopitemize
+\item 세 번째 항목
+\stopitemize
+
+\startitemize[n,packed]
+\item 순서가 있는 항목
+\item 두 번째
+\item 세 번째
+\stopitemize
+
+\startitemize[packed]
+\item \boxplus 끝난 일
+\item \square 남은 일
+\stopitemize
+
+\startdescription{용어}
+용어에 대한 정의입니다.
+\stopdescription
+\startdescription{Pandoc}
+범용 문서 변환기. 이 프로그램은 같은 형식 집합을 자체 엔진으로 다룹니다.
+\stopdescription
+
+\stopsubsubject
+
+\startsubsubject[title={코드 (Code)},reference={코드-code}]
+
+\starttyping[option=js]
+function greet(name) {
+  console.log(`Hello, ${name}!`)
+}
+greet('world')
+\stoptyping
+
+\stopsubsubject
+
+\startsubsubject[title={표 (Table)},reference={표-table}]
+
+\startplacetable[title={지원 형식의 일부}]
+\startxtable
+\startxtablehead[head]
+\startxrow
+\startxcell[align=right] {\bf 형식} \stopxcell
+\startxcell[align=middle] {\bf 확장자} \stopxcell
+\startxcell[align=middle] {\bf 읽기} \stopxcell
+\startxcell[align=left] {\bf 쓰기} \stopxcell
+\stopxrow
+\stopxtablehead
+\startxtablebody[body]
+\startxrow
+\startxcell[align=right] Markdown \stopxcell
+\startxcell[align=middle] .md \stopxcell
+\startxcell[align=middle] O \stopxcell
+\startxcell[align=left] O \stopxcell
+\stopxrow
+\startxrow
+\startxcell[align=right] HTML \stopxcell
+\startxcell[align=middle] .html \stopxcell
+\startxcell[align=middle] O \stopxcell
+\startxcell[align=left] O \stopxcell
+\stopxrow
+\startxrow
+\startxcell[align=right] DOCX \stopxcell
+\startxcell[align=middle] .docx \stopxcell
+\startxcell[align=middle] O \stopxcell
+\startxcell[align=left] O \stopxcell
+\stopxrow
+\startxrow
+\startxcell[align=right] EPUB \stopxcell
+\startxcell[align=middle] .epub \stopxcell
+\startxcell[align=middle] O \stopxcell
+\startxcell[align=left] O \stopxcell
+\stopxrow
+\stopxtablebody
+\stopxtable
+\stopplacetable
+
+\stopsubsubject
+
+\startsubsubject[title={인용과 수식 (Quote and math)},reference={인용과-수식-quote-and-math}]
+
+\startblockquote
+좋은 문서는 어떤 형식으로도 읽힙니다.
+— 누군가
+\stopblockquote
+
+인라인 수식 $E = mc^2$ 과 블록 수식:
+
+\startformula
+\int_0^1 x^2\,dx = \frac{1}{3}
+\stopformula
+
+\stopsubsubject
+
+\startsubsubject[title={각주와 그림 (Footnote and figure)},reference={각주와-그림-footnote-and-figure}]
+
+각주가 붙은 문장입니다.\footnote{각주의 내용입니다.} 자동 링크
+\useURL[url2][https://pandoc.org][][https://pandoc.org]\from[url2] 와
+\useURL[url3][mailto:knix008@naver.com][][mailto:knix008@naver.com]\from[url3]
+도 있습니다.
+
+\externalfigure[../public/app-icon.svg]
+
+\thinrule
+
+마지막 문단입니다. 줄 끝에 두 칸을 두면\crlf
+강제 줄바꿈이 됩니다.
+
+\stopsubsubject
+
+\stopsubject
+
+\stoptext
