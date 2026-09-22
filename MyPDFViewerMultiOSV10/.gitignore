@@ -45,6 +45,14 @@ coverage/
 /*.pdfvw
 /*-annotated.pdf
 
+# Windows reserved device names. A stray `nul` (from `> nul` or similar)
+# cannot be opened by Git and makes `git add .` fail.
+/nul
+/NUL
+/con
+/prn
+/aux
+
 # ── Local / editor / OS noise ───────────────────────────
 *.log
 npm-debug.log*
