@@ -1,84 +1,117 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Icon of MyPDFViewer's own document type (.pdfvw workspace file).
-     Deliberately different from the app icon — a 3D document sheet with a
-     folded corner rather than a rounded tile — so the two never get confused
-     in a file listing, while keeping the same lighting language: transparent
-     background, glossy body, top-left specular highlight. -->
+     Thick 3D sheet: stacked offset copies for depth, folded corner,
+     glossy top and a top-left specular. -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="page" x1="0" y1="0" x2="0.45" y2="1">
+    <linearGradient id="page" x1="0.04" y1="0" x2="0.5" y2="1">
       <stop offset="0"    stop-color="#ffffff"/>
-      <stop offset="0.55" stop-color="#f0eae6"/>
-      <stop offset="1"    stop-color="#cfc2bb"/>
+      <stop offset="0.48" stop-color="#f3ece7"/>
+      <stop offset="1"    stop-color="#c4b2a9"/>
+    </linearGradient>
+    <linearGradient id="pageFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b39c92"/>
+      <stop offset="1" stop-color="#5a4740"/>
+    </linearGradient>
+    <linearGradient id="pageRight" x1="0" y1="0" x2="1" y2="0.15">
+      <stop offset="0" stop-color="#9a867c"/>
+      <stop offset="1" stop-color="#3a2c28"/>
     </linearGradient>
     <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e6d8d2"/>
-      <stop offset="1" stop-color="#a9958c"/>
+      <stop offset="0" stop-color="#f3e8e2"/>
+      <stop offset="1" stop-color="#a08c83"/>
     </linearGradient>
     <linearGradient id="band" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"    stop-color="#ff8f7a"/>
-      <stop offset="0.45" stop-color="#e0403a"/>
-      <stop offset="1"    stop-color="#7e1418"/>
+      <stop offset="0"    stop-color="#ff9d88"/>
+      <stop offset="0.42" stop-color="#e0403a"/>
+      <stop offset="1"    stop-color="#6a1016"/>
+    </linearGradient>
+    <linearGradient id="bandDepth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a181e"/>
+      <stop offset="1" stop-color="#3a080c"/>
     </linearGradient>
     <linearGradient id="bandgloss" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.55"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.06"/>
-      <stop offset="1"   stop-color="#000000" stop-opacity="0.18"/>
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="0.46" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.22"/>
     </linearGradient>
-    <radialGradient id="fspec" cx="0.26" cy="0.20" r="0.7">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.9"/>
-      <stop offset="0.34" stop-color="#ffffff" stop-opacity="0.22"/>
-      <stop offset="0.78" stop-color="#ffffff" stop-opacity="0"/>
+    <radialGradient id="fspec" cx="0.22" cy="0.14" r="0.74">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="0.3"  stop-color="#ffffff" stop-opacity="0.2"/>
+      <stop offset="0.74" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="fglow" cx="0.5" cy="0.5" r="0.5">
       <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
       <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="fpic" x1="0" y1="0" x2="0.4" y2="1">
-      <stop offset="0" stop-color="#8fd3ff"/>
-      <stop offset="1" stop-color="#2f7fb8"/>
+    <radialGradient id="fground" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"    stop-color="#221814" stop-opacity="0.48"/>
+      <stop offset="0.66" stop-color="#221814" stop-opacity="0.12"/>
+      <stop offset="1"    stop-color="#221814" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fpic" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#b6e4ff"/>
+      <stop offset="1" stop-color="#1c6aa3"/>
     </linearGradient>
-    <filter id="fdrop" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="24" stdDeviation="26" flood-color="#241a16" flood-opacity="0.45"/>
+    <filter id="flift" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="3" dy="8" stdDeviation="8" flood-color="#1c1210" flood-opacity="0.36"/>
     </filter>
   </defs>
 
-  <!-- Document body with a folded top-right corner (transparent outside) -->
-  <g filter="url(#fdrop)">
-    <path d="M212 108 h396 l232 232 v520 a68 68 0 0 1 -68 68 H212 a68 68 0 0 1 -68 -68 V176 a68 68 0 0 1 68 -68 z"
-          fill="url(#page)"/>
-    <path d="M608 108 l232 232 h-176 a56 56 0 0 1 -56 -56 z" fill="url(#fold)"/>
+  <ellipse cx="528" cy="916" rx="310" ry="50" fill="url(#fground)"/>
+
+  <!-- 3D sheet: front and right walls, then the lit page. Outside stays transparent. -->
+  <path fill="url(#pageFront)" d="
+    M 268 840
+    H 760
+    A 68 68 0 0 0 828 808
+    L 852 860
+    A 68 68 0 0 1 760 900
+    H 268
+    A 68 68 0 0 1 176 860
+    L 132 808
+    A 68 68 0 0 0 268 840
+    Z"/>
+  <path fill="url(#pageRight)" d="
+    M 828 320
+    V 808
+    A 68 68 0 0 1 760 840
+    L 784 892
+    A 68 68 0 0 0 852 860
+    V 360
+    Z"/>
+  <path d="M200 88 h396 l232 232 v520 a68 68 0 0 1 -68 68 H200 a68 68 0 0 1 -68 -68 V156 a68 68 0 0 1 68 -68 z"
+        fill="url(#page)"/>
+  <path d="M596 88 l232 232 h-176 a56 56 0 0 1 -56 -56 z" fill="url(#fold)"/>
+
+  <g transform="translate(-6 -26)">
+    <rect x="156" y="534" width="560" height="176" rx="34" fill="url(#bandDepth)"/>
+    <g filter="url(#flift)">
+      <rect x="144" y="520" width="560" height="176" rx="34" fill="url(#band)"/>
+      <rect x="144" y="520" width="560" height="176" rx="34" fill="url(#bandgloss)"/>
+      <text x="196" y="646" fill="#ffffff"
+            font-family="Segoe UI, Arial, Helvetica, sans-serif" font-weight="700" font-size="128">PDF</text>
+    </g>
+
+    <g fill="#9aa3ad">
+      <rect x="212" y="384" width="300" height="24" rx="12"/>
+      <rect x="212" y="434" width="228" height="24" rx="12" opacity="0.7"/>
+    </g>
+
+    <g transform="translate(596 700) rotate(-8)">
+      <rect x="10" y="14" width="216" height="164" rx="24" fill="#6d5850"/>
+      <g filter="url(#flift)">
+        <rect width="216" height="164" rx="24" fill="#ffffff"/>
+        <rect x="14" y="14" width="188" height="136" rx="16" fill="url(#fpic)"/>
+        <circle cx="66" cy="58" r="21" fill="#ffe9a8"/>
+        <path d="M28 138 l52 -60 l44 46 l32 -30 l50 58 z" fill="#1f5f86" opacity="0.88"/>
+      </g>
+    </g>
   </g>
 
-  <!-- Foreground artwork, nudged up so it is not bottom-heavy. -->
-  <g transform="translate(0 -30)">
-  <!-- Red PDF band -->
-  <g>
-    <rect x="144" y="520" width="560" height="176" rx="34" fill="url(#band)"/>
-    <rect x="144" y="520" width="560" height="176" rx="34" fill="url(#bandgloss)"/>
-    <text x="196" y="646" fill="#ffffff"
-          font-family="Segoe UI, Arial, Helvetica, sans-serif" font-weight="700" font-size="128">PDF</text>
-  </g>
-
-  <!-- Text lines above the band -->
-  <g fill="#a9b1bb">
-    <rect x="212" y="384" width="300" height="24" rx="12"/>
-    <rect x="212" y="434" width="228" height="24" rx="12" opacity="0.7"/>
-  </g>
-
-  <!-- Copied-out image chip (the workspace holds clipped text + images) -->
-  <g transform="translate(596 700) rotate(-8)">
-    <rect width="216" height="164" rx="24" fill="#ffffff" stroke="#c9c1bb" stroke-width="6"/>
-    <rect x="14" y="14" width="188" height="136" rx="16" fill="url(#fpic)"/>
-    <circle cx="66" cy="58" r="21" fill="#ffe9a8"/>
-    <path d="M28 138 l52 -60 l44 46 l32 -30 l50 58 z" fill="#1f5f86" opacity="0.85"/>
-  </g>
-  </g>
-
-  <!-- Gloss + top-left highlight over the whole sheet -->
-  <path d="M212 108 h396 l232 232 v120 Q 500 560 144 452 V176 a68 68 0 0 1 68 -68 z"
-        fill="#ffffff" opacity="0.16"/>
-  <path d="M212 108 h396 l232 232 v520 a68 68 0 0 1 -68 68 H212 a68 68 0 0 1 -68 -68 V176 a68 68 0 0 1 68 -68 z"
+  <path d="M200 88 h396 l232 232 v110 Q 500 540 132 430 V156 a68 68 0 0 1 68 -68 z"
+        fill="#ffffff" opacity="0.2"/>
+  <path d="M200 88 h396 l232 232 v520 a68 68 0 0 1 -68 68 H200 a68 68 0 0 1 -68 -68 V156 a68 68 0 0 1 68 -68 z"
         fill="url(#fspec)"/>
-  <ellipse cx="300" cy="230" rx="132" ry="92" fill="url(#fglow)" opacity="0.7" transform="rotate(-26 300 230)"/>
+  <ellipse cx="292" cy="208" rx="136" ry="94" fill="url(#fglow)" opacity="0.76" transform="rotate(-26 292 208)"/>
 </svg>

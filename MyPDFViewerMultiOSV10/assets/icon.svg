@@ -1,140 +1,159 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- MyPDFViewer application icon.
-     A 3D rounded tile (glossy, top-left specular highlight) floating on a fully
-     transparent background — no opaque border, so it composites cleanly on any
-     desktop. On top: a PDF sheet being inspected by a magnifier, with a text
-     line and an image tile being lifted off it (read PDFs → copy text/images). -->
+     The red background is a 3D rounded block (top + front + right faces).
+     Canvas outside the block is transparent — no framed border. -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Main 3D body gradient: lit from the top-left, dark at the bottom-right -->
-    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"    stop-color="#ff8f7a"/>
-      <stop offset="0.42" stop-color="#e0403a"/>
-      <stop offset="1"    stop-color="#6b0f14"/>
+    <linearGradient id="top" x1="0.08" y1="0" x2="0.88" y2="1">
+      <stop offset="0"    stop-color="#ffd2c2"/>
+      <stop offset="0.2"  stop-color="#ff6f58"/>
+      <stop offset="0.55" stop-color="#d3222a"/>
+      <stop offset="1"    stop-color="#6a1018"/>
     </linearGradient>
-
-    <!-- Bevelled edge: bright lip on top, shadowed lip at the bottom -->
-    <linearGradient id="bevel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.92"/>
-      <stop offset="0.12" stop-color="#ffffff" stop-opacity="0.15"/>
-      <stop offset="1"    stop-color="#000000" stop-opacity="0.38"/>
+    <linearGradient id="front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#9a1c24"/>
+      <stop offset="0.4" stop-color="#5c0d14"/>
+      <stop offset="1"   stop-color="#2a0609"/>
     </linearGradient>
-
-    <!-- Top-left specular reflection (the "light source") -->
-    <radialGradient id="spec" cx="0.28" cy="0.24" r="0.72">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.85"/>
-      <stop offset="0.32" stop-color="#ffffff" stop-opacity="0.26"/>
-      <stop offset="0.74" stop-color="#ffffff" stop-opacity="0"/>
+    <linearGradient id="right" x1="0" y1="0" x2="1" y2="0.2">
+      <stop offset="0" stop-color="#7a141c"/>
+      <stop offset="1" stop-color="#1f0407"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0.04" y1="0" x2="0.18" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.88"/>
+      <stop offset="0.14" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.7"  stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.28"/>
+    </linearGradient>
+    <radialGradient id="spec" cx="0.22" cy="0.16" r="0.78">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.86"/>
+      <stop offset="0.3"  stop-color="#ffffff" stop-opacity="0.2"/>
+      <stop offset="0.68" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-
-    <!-- Concentrated top-left glow spot -->
     <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.35"/>
-      <stop offset="1"    stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.32"/>
+      <stop offset="1"   stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-
-    <!-- Glossy sweep across the upper half -->
     <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.55"/>
-      <stop offset="0.48" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.06"/>
       <stop offset="0.5"  stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
-
-    <!-- Paper sheet shading -->
+    <radialGradient id="ground" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"    stop-color="#220508" stop-opacity="0.42"/>
+      <stop offset="0.62" stop-color="#220508" stop-opacity="0.12"/>
+      <stop offset="1"    stop-color="#220508" stop-opacity="0"/>
+    </radialGradient>
     <linearGradient id="sheet" x1="0" y1="0" x2="0.3" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#e6dcd8"/>
+      <stop offset="0.75" stop-color="#f2e9e5"/>
+      <stop offset="1" stop-color="#cfc0b9"/>
     </linearGradient>
-
-    <!-- Magnifier glass: tinted, translucent, lit from the top-left -->
+    <linearGradient id="sheetDepth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b39f97"/>
+      <stop offset="1" stop-color="#6d5a53"/>
+    </linearGradient>
     <linearGradient id="glass" x1="0" y1="0" x2="0.7" y2="1">
-      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.72"/>
-      <stop offset="0.5" stop-color="#bfe4ff" stop-opacity="0.30"/>
-      <stop offset="1"   stop-color="#2b6f9e" stop-opacity="0.30"/>
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="0.48" stop-color="#b7e0ff" stop-opacity="0.32"/>
+      <stop offset="1"    stop-color="#1a547e" stop-opacity="0.4"/>
     </linearGradient>
-    <linearGradient id="ring" x1="0" y1="0" x2="0.6" y2="1">
+    <linearGradient id="ring" x1="0" y1="0" x2="0.55" y2="1">
       <stop offset="0"   stop-color="#ffffff"/>
-      <stop offset="0.45" stop-color="#cfd8e0"/>
-      <stop offset="1"   stop-color="#5b6773"/>
+      <stop offset="0.42" stop-color="#cfd8e0"/>
+      <stop offset="1"   stop-color="#3a444e"/>
     </linearGradient>
     <linearGradient id="handle" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"   stop-color="#eef2f6"/>
-      <stop offset="0.5" stop-color="#9aa6b2"/>
-      <stop offset="1"   stop-color="#4a545f"/>
+      <stop offset="0"   stop-color="#f5f8fb"/>
+      <stop offset="0.5" stop-color="#8f9ba7"/>
+      <stop offset="1"   stop-color="#2a333c"/>
     </linearGradient>
-
-    <!-- The lifted image tile (a small picture being copied out) -->
-    <linearGradient id="pic" x1="0" y1="0" x2="0.4" y2="1">
-      <stop offset="0" stop-color="#8fd3ff"/>
-      <stop offset="1" stop-color="#2f7fb8"/>
+    <linearGradient id="pic" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#b6e4ff"/>
+      <stop offset="1" stop-color="#1c6aa3"/>
     </linearGradient>
-
-    <filter id="dropshadow" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#3a0508" flood-opacity="0.45"/>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="3" dy="8" stdDeviation="8" flood-color="#1a0406" flood-opacity="0.38"/>
     </filter>
-    <filter id="cardshadow" x="-60%" y="-60%" width="220%" height="220%">
-      <feDropShadow dx="0" dy="10" stdDeviation="13" flood-color="#3a0508" flood-opacity="0.42"/>
-    </filter>
-    <filter id="softshadow" x="-60%" y="-60%" width="220%" height="220%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#20303c" flood-opacity="0.45"/>
-    </filter>
+    <clipPath id="face">
+      <rect x="132" y="88" width="728" height="668" rx="156" ry="156"/>
+    </clipPath>
   </defs>
 
-  <!-- ── 3D tile body (transparent outside the rounded rectangle) ── -->
-  <g filter="url(#dropshadow)">
-    <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#body)"/>
-  </g>
-  <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#bevel)" opacity="0.55"/>
+  <!-- Transparent canvas. Soft ground contact only. -->
+  <ellipse cx="530" cy="912" rx="300" ry="46" fill="url(#ground)"/>
 
-  <!-- Foreground artwork, nudged up so the tile reads optically centred. -->
-  <g transform="translate(0 -34)">
-  <!-- ── PDF sheet ── -->
-  <g filter="url(#cardshadow)">
-    <!-- folded corner is cut out of the page outline -->
-    <path d="M300 258 h258 l128 128 v396 a34 34 0 0 1 -34 34 H300 a34 34 0 0 1 -34 -34 V292 a34 34 0 0 1 34 -34 z"
-          fill="url(#sheet)"/>
-    <path d="M558 258 l128 128 h-98 a30 30 0 0 1 -30 -30 z" fill="#c9b9b4"/>
+  <!-- 3D block: front wall, right wall, then the lit top. No ring around the tile. -->
+  <path fill="url(#front)" d="
+    M 288 756
+    H 736
+    A 156 156 0 0 0 860 688
+    L 888 744
+    A 156 156 0 0 1 736 820
+    H 288
+    A 156 156 0 0 1 160 744
+    L 132 688
+    A 156 156 0 0 0 288 756
+    Z"/>
+  <path fill="url(#right)" d="
+    M 860 244
+    V 688
+    A 156 156 0 0 1 736 756
+    L 764 812
+    A 156 156 0 0 0 888 744
+    V 300
+    A 156 156 0 0 0 860 244
+    Z"/>
+
+  <rect x="132" y="88" width="728" height="668" rx="156" ry="156" fill="url(#top)"/>
+  <rect x="132" y="88" width="728" height="668" rx="156" ry="156" fill="url(#bevel)" opacity="0.5"/>
+
+  <g transform="translate(-8 -52)">
+    <path d="M318 276 h250 l124 124 v392 a28 28 0 0 1 -28 28 H318 a28 28 0 0 1 -28 -28 V304 a28 28 0 0 1 28 -28 z"
+          transform="translate(12 16)" fill="url(#sheetDepth)"/>
+    <g filter="url(#soft)">
+      <path d="M306 258 h250 l124 124 v392 a32 32 0 0 1 -32 32 H306 a32 32 0 0 1 -32 -32 V290 a32 32 0 0 1 32 -32 z"
+            fill="url(#sheet)"/>
+      <path d="M556 258 l124 124 h-94 a30 30 0 0 1 -30 -30 z" fill="#c6b4ad"/>
+    </g>
+
+    <g fill="#c22f2c" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-weight="700" font-size="108">
+      <text x="324" y="470">PDF</text>
+    </g>
+    <g fill="#8b959f">
+      <rect x="324" y="520" width="288" height="18" rx="9"/>
+      <rect x="324" y="560" width="230" height="18" rx="9" opacity="0.75"/>
+      <rect x="324" y="600" width="258" height="18" rx="9" opacity="0.55"/>
+    </g>
+    <rect x="314" y="642" width="254" height="32" rx="11" fill="#2f7fb8" opacity="0.28"/>
+    <rect x="324" y="650" width="234" height="16" rx="8" fill="#2f7fb8"/>
+
+    <g transform="translate(548 582) rotate(-10)">
+      <rect x="10" y="14" width="188" height="144" rx="18" fill="#6a4a42"/>
+      <g filter="url(#soft)">
+        <rect width="188" height="144" rx="18" fill="#ffffff"/>
+        <rect x="10" y="10" width="168" height="124" rx="12" fill="url(#pic)"/>
+        <circle cx="56" cy="50" r="17" fill="#ffe9a8"/>
+        <path d="M22 122 l44 -52 l38 40 l28 -26 l42 50 z" fill="#1f5f86" opacity="0.88"/>
+      </g>
+    </g>
+
+    <g filter="url(#soft)">
+      <rect x="708" y="680" width="132" height="40" rx="20"
+            transform="rotate(45 708 680)" fill="#2a323b"/>
+      <rect x="698" y="670" width="132" height="40" rx="20"
+            transform="rotate(45 698 670)" fill="url(#handle)"/>
+      <circle cx="648" cy="492" r="116" fill="#2a333c"/>
+      <circle cx="640" cy="484" r="116" fill="url(#glass)"/>
+      <circle cx="640" cy="484" r="116" fill="none" stroke="url(#ring)" stroke-width="26"/>
+      <circle cx="640" cy="484" r="102" fill="none" stroke="#ffffff" stroke-opacity="0.3" stroke-width="3"/>
+      <path d="M570 416 a98 98 0 0 1 86 -36 a116 116 0 0 0 -96 66 z" fill="#ffffff" opacity="0.82"/>
+    </g>
   </g>
 
-  <!-- "PDF" wordmark on the sheet -->
-  <g fill="#c22f2c" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-weight="700" font-size="112">
-    <text x="318" y="474">PDF</text>
-  </g>
-  <!-- Body text lines -->
-  <g fill="#9aa3ad">
-    <rect x="318" y="524" width="300" height="20" rx="10"/>
-    <rect x="318" y="566" width="240" height="20" rx="10" opacity="0.75"/>
-    <rect x="318" y="608" width="272" height="20" rx="10" opacity="0.55"/>
-  </g>
-
-  <!-- ── Selected text line being copied out (highlighted + duplicate above) ── -->
-  <rect x="308" y="650" width="266" height="34" rx="12" fill="#2f7fb8" opacity="0.28"/>
-  <rect x="318" y="658" width="246" height="18" rx="9" fill="#2f7fb8"/>
-
-  <!-- ── Image tile being lifted off the page ── -->
-  <g filter="url(#softshadow)" transform="translate(556 596) rotate(-9)">
-    <rect width="196" height="150" rx="20" fill="#ffffff"/>
-    <rect x="10" y="10" width="176" height="130" rx="14" fill="url(#pic)"/>
-    <circle cx="60" cy="52" r="19" fill="#ffe9a8"/>
-    <path d="M22 128 l48 -56 l40 42 l30 -28 l46 54 z" fill="#1f5f86" opacity="0.85"/>
-  </g>
-
-  <!-- ── Magnifier (viewing) — sits right of the "PDF" wordmark ── -->
-  <g filter="url(#softshadow)">
-    <rect x="700" y="676" width="140" height="44" rx="22"
-          transform="rotate(45 700 676)" fill="url(#handle)"/>
-    <circle cx="642" cy="486" r="122" fill="url(#glass)"/>
-    <circle cx="642" cy="486" r="122" fill="none" stroke="url(#ring)" stroke-width="28"/>
-    <!-- glass highlight -->
-    <path d="M568 416 a104 104 0 0 1 90 -38 a122 122 0 0 0 -102 70 z" fill="#ffffff" opacity="0.75"/>
-  </g>
-  </g>
-
-  <!-- ── Glossy top sweep + top-left specular highlight ── -->
-  <path d="M 132 300 A 180 180 0 0 1 312 120 L 712 120 A 180 180 0 0 1 892 300 L 892 470 Q 512 560 132 470 Z"
-        fill="url(#gloss)"/>
-  <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#spec)"/>
-  <!-- Bright top-left glint -->
-  <ellipse cx="300" cy="278" rx="140" ry="104" fill="url(#glow)" opacity="0.75" transform="rotate(-28 300 278)"/>
+  <path d="M132 244 A156 156 0 0 1 288 88 L704 88 A156 156 0 0 1 860 244 L860 400 Q 496 486 132 400 Z"
+        fill="url(#gloss)" clip-path="url(#face)"/>
+  <rect x="132" y="88" width="728" height="668" rx="156" ry="156" fill="url(#spec)"/>
+  <ellipse cx="292" cy="220" rx="138" ry="98" fill="url(#glow)" opacity="0.8" transform="rotate(-30 292 220)"/>
 </svg>
