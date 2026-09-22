@@ -165,6 +165,50 @@ describe('Sidebar outline', () => {
   });
 });
 
+describe('Sidebar header actions', () => {
+  it('puts image extract on the Images title row', async () => {
+    await setLanguage('en');
+    const onExtractImages = vi.fn();
+    const { getByTitle, container } = renderSide({
+      panel: 'images',
+      doc: {},
+      onExtractImages,
+    });
+    const btn = getByTitle('Extract from this page');
+    expect(container.querySelector('.side-head').contains(btn)).toBe(true);
+    expect(container.querySelector('.side-body .side-actions')).toBeFalsy();
+    fireEvent.click(btn);
+    expect(onExtractImages).toHaveBeenCalledWith(1);
+  });
+
+  it('disables image extract until a document is open', async () => {
+    await setLanguage('en');
+    const onExtractImages = vi.fn();
+    const { getByTitle } = renderSide({ panel: 'images', doc: null, onExtractImages });
+    expect(getByTitle('Extract from this page').disabled).toBe(true);
+    fireEvent.click(getByTitle('Extract from this page'));
+    expect(onExtractImages).not.toHaveBeenCalled();
+  });
+
+  it('puts comment and attach icons on the Comments title row', async () => {
+    await setLanguage('en');
+    const onAddComment = vi.fn();
+    const onAttachFile = vi.fn();
+    const { getByTitle, container } = renderSide({
+      panel: 'comments',
+      doc: {},
+      onAddComment,
+      onAttachFile,
+    });
+    const head = container.querySelector('.side-head');
+    fireEvent.click(getByTitle('Add comment'));
+    fireEvent.click(getByTitle('Attach file'));
+    expect(head.contains(getByTitle('Add comment'))).toBe(true);
+    expect(onAddComment).toHaveBeenCalled();
+    expect(onAttachFile).toHaveBeenCalled();
+  });
+});
+
 describe('Sidebar splitter', () => {
   it('shows a separator when the panel is open', async () => {
     await setLanguage('en');

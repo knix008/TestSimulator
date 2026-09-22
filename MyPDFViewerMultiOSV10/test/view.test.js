@@ -4,7 +4,8 @@ import {
   nextZoom, clampPage, normalizeRotation, cycleTool,
   stripRemoteError, failMessage, windowTitle, bookmarkLabel, isHttpUrl,
   computeScale, pagePlaceholderSize, mergeRectsIntoLines,
-  hitTestRegion, normalizeDragRect, isMeaningfulCapture, nextSidebar,
+  hitTestRegion, normalizeDragRect, isMeaningfulCapture, regionToFrac, regionMarkStyle,
+  visibleRegionBox, nextSidebar,
   clampPopupPos, pickCopyText, paintedSelectionToRects,
   bookmarkRecord, bookmarkAnchorY, bookmarkPaintRects, locFromTop, hasPageLoc, clamp01,
 } from '../src/lib/view.js';
@@ -244,6 +245,45 @@ describe('selection / image hit / capture', () => {
     expect(isMeaningfulCapture({ width: 5, height: 20 })).toBe(false);
     expect(isMeaningfulCapture({ width: 20, height: 5 })).toBe(false);
     expect(isMeaningfulCapture(null)).toBe(false);
+  });
+
+  it('keeps a finished region as a page-relative rectangle', () => {
+    const frac = regionToFrac({ x: 50, y: 100, width: 200, height: 80 }, 400, 800);
+    expect(frac).toEqual({ x: 0.125, y: 0.125, w: 0.5, h: 0.1 });
+    expect(regionMarkStyle(frac)).toEqual({
+      left: '12.5%', top: '12.5%', width: '50%', height: '10%',
+    });
+    expect(regionToFrac({ x: 0, y: 0, width: 10, height: 10 }, 0, 10)).toBe(null);
+    expect(regionToFrac(null, 400, 800)).toBe(null);
+    expect(regionMarkStyle(null)).toBe(null);
+    expect(regionMarkStyle({ x: 0.1, y: 0.2 })).toBe(null);
+  });
+
+  it('still paints the rectangle after the drag is released', () => {
+    const drag = { x0: 40, y0: 80, x1: 200, y1: 160 };
+    expect(visibleRegionBox(drag, null)).toEqual({ left: 40, top: 80, width: 160, height: 80 });
+    const mark = regionToFrac(normalizeDragRect(drag), 400, 800);
+    expect(visibleRegionBox(null, { page: 2, ...mark })).toEqual({
+      left: '10%', top: '10%', width: '40%', height: '10%',
+    });
+    expect(visibleRegionBox(null, null)).toBe(null);
+  });
+
+  it('prefers the live drag over a previously committed mark', () => {
+    const mark = { page: 1, x: 0.1, y: 0.1, w: 0.2, h: 0.2 };
+    const live = visibleRegionBox({ x0: 8, y0: 8, x1: 48, y1: 28 }, mark);
+    expect(live).toEqual({ left: 8, top: 8, width: 40, height: 20 });
+    expect(visibleRegionBox(null, mark)).toEqual({
+      left: '10%', top: '10%', width: '20%', height: '20%',
+    });
+  });
+
+  it('keeps the committed box when zoom changes the page pixel size', () => {
+    const mark = regionToFrac({ x: 100, y: 50, width: 100, height: 50 }, 400, 200);
+    const at100 = regionMarkStyle(mark);
+    const at200 = regionMarkStyle(mark);
+    expect(at100).toEqual(at200);
+    expect(at100).toEqual({ left: '25%', top: '25%', width: '25%', height: '25%' });
   });
 });
 

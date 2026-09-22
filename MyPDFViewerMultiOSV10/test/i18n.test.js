@@ -68,6 +68,8 @@ describe('otherLang', () => {
     expect(otherLang('ko')).toBe('en');
     expect(otherLang('en')).toBe('ko');
     expect(otherLang('en-GB')).toBe('ko');
+    expect(otherLang('ko-KR')).toBe('en');
+    expect(otherLang('KO')).toBe('en');
     expect(otherLang('')).toBe('en');
   });
 });

@@ -53,6 +53,10 @@ describe('dialog windows do not scroll or clip their chrome', () => {
     expect(css).toMatch(/\.folder-tree\s*\{[^}]*--tree-line:/s);
     expect(css).toMatch(/\.tree \.tree > li::before/);
     expect(css).toMatch(/\.tree \.tree > li::after/);
+    expect(css).toMatch(/\.side-head\s*\{[^}]*font-weight:\s*700/s);
+    expect(css).toMatch(/\.side-head-actions\s*\{[^}]*margin-left:\s*auto/s);
+    expect(css).toMatch(/\.marquee\s*\{[^}]*z-index:\s*8/s);
+    expect(css).toMatch(/\.marquee\.picked\s*\{[^}]*border-style:\s*solid/s);
   });
 
   it('keeps the page viewer as a scrollport so zoom can show scrollbars', () => {

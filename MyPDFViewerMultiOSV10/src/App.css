@@ -653,10 +653,14 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .annots { position: absolute; inset: 0; pointer-events: none; }
 .annot { position: absolute; border-radius: 2px; mix-blend-mode: multiply; }
 .marquee {
-  position: absolute; border: 3px dashed var(--accent);
-  border-radius: 3px; background: rgba(255, 255, 255, 0.18); pointer-events: none;
-  /* A dark halo keeps the dashes readable over both light and dark content. */
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  position: absolute; box-sizing: border-box; pointer-events: none; z-index: 8;
+  border: 2px dashed var(--accent); border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+.marquee.picked {
+  border-style: solid; border-width: 3px;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 .text-marquee {
   position: absolute; pointer-events: none; z-index: 4;

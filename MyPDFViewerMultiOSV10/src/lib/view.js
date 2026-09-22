@@ -199,6 +199,39 @@ export function isMeaningfulCapture(rect) {
   return !!rect && rect.width >= MIN_CAPTURE && rect.height >= MIN_CAPTURE;
 }
 
+// A finished region lives as a 0..1 box on its page so zoom / layout
+// changes do not wipe the rectangle the user just drew.
+export function regionToFrac(rect, pageW, pageH) {
+  const w = Number(pageW) || 0;
+  const h = Number(pageH) || 0;
+  if (w <= 0 || h <= 0 || !rect) return null;
+  return {
+    x: rect.x / w,
+    y: rect.y / h,
+    w: rect.width / w,
+    h: rect.height / h,
+  };
+}
+
+export function regionMarkStyle(mark) {
+  if (!mark || mark.w == null || mark.h == null) return null;
+  return {
+    left: `${mark.x * 100}%`,
+    top: `${mark.y * 100}%`,
+    width: `${mark.w * 100}%`,
+    height: `${mark.h * 100}%`,
+  };
+}
+
+// What the page paints: the live drag, or the committed mark after release.
+export function visibleRegionBox(drag, mark) {
+  if (drag) {
+    const r = normalizeDragRect(drag);
+    return { left: r.x, top: r.y, width: r.width, height: r.height };
+  }
+  return regionMarkStyle(mark);
+}
+
 export function nextSidebar(sidebar) {
   return sidebar === 'none' ? 'thumbnails' : 'none';
 }

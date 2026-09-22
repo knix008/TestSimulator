@@ -427,6 +427,56 @@ describe('Toolbar language flags', () => {
     expect(screen.queryByRole('option', { name: /한국어/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Choose a language/ })).toBeNull();
   });
+
+  it('shows the Union Jack while the UI is Korean', async () => {
+    await setLanguage('ko');
+    const noop = () => {};
+    render(
+      <Toolbar
+        settings={{ ...DEFAULT_SETTINGS, theme: 'dark', lang: 'ko' }}
+        doc={null}
+        pageNumber={1}
+        numPages={0}
+        scale={1}
+        hasSelection={false}
+        dirty={false}
+        history={{ canUndo: false, canRedo: false, undo: noop, redo: noop }}
+        tool="text"
+        onTool={noop}
+        panel="none"
+        onOpen={noop}
+        onOpenUrl={noop}
+        onOpenRecent={noop}
+        onRemoveRecent={noop}
+        onClearRecent={noop}
+        onSave={noop}
+        onSaveAs={noop}
+        onCopyText={noop}
+        onSelectPage={noop}
+        onExtractImages={noop}
+        onExportText={noop}
+        onHighlight={noop}
+        onComment={noop}
+        onComments={noop}
+        onBookmarks={noop}
+        onBookmark={noop}
+        onGoToPage={noop}
+        onZoom={noop}
+        onZoomMode={noop}
+        onRotate={noop}
+        onLayout={noop}
+        onSearch={noop}
+        onTogglePanel={noop}
+        onTheme={noop}
+        onLang={noop}
+        onSettings={noop}
+        onAbout={noop}
+        onPrint={noop}
+      />,
+    );
+    expect(document.body.innerHTML).toContain('#012169');
+    expect(document.body.innerHTML).not.toContain('#CD2E3A');
+  });
 });
 
 describe('Toolbar panel buttons', () => {

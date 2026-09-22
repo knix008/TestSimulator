@@ -104,4 +104,21 @@ describe('readLevel', () => {
       { name: 'jan.pdf', kind: 'pdf' },
     ]);
   });
+
+  it('does not list names that only contain pdf', () => {
+    const pathMod = { resolve: (p) => p, join: (...parts) => parts.join('/') };
+    const root = '/mix';
+    const listing = { [root]: ['notes.pdfvw', 'mypdf.txt', 'guide.pdfx', 'ok.PDF'] };
+    const files = new Set(listing[root].map((n) => `${root}/${n}`));
+    const fs = {
+      existsSync: (p) => p === root || files.has(p),
+      statSync: (p) => ({
+        isDirectory: () => p === root,
+        isFile: () => files.has(p),
+        size: 4,
+      }),
+      readdirSync: (p) => listing[p] || [],
+    };
+    expect(readLevel(fs, pathMod, root).map((e) => e.name)).toEqual(['ok.PDF']);
+  });
 });

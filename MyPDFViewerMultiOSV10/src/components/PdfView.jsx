@@ -6,7 +6,7 @@ import { commentCardPos, workspaceNoteToComment, workspaceAttachmentToComment } 
 import { matchOutlineTitle, lineTextNearPoint } from '../lib/nav.js';
 import {
   computeScale, mergeRectsIntoLines, pagePlaceholderSize,
-  hitTestRegion, normalizeDragRect, isMeaningfulCapture,
+  hitTestRegion, normalizeDragRect, isMeaningfulCapture, regionToFrac, visibleRegionBox,
   pickCopyText, paintedSelectionToRects, locFromTop, hasPageLoc, bookmarkPaintRects,
 } from '../lib/view.js';
 import { collectLayerSearchHits, scrollOffsetForHit } from '../lib/search.js';
@@ -72,6 +72,14 @@ const PdfView = forwardRef(function PdfView({
   const [selection, setSelection] = useState(NO_SELECTION);
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
+  const [regionMark, setRegionMark] = useState(null);
+
+  useEffect(() => {
+    if (tool !== 'region') setRegionMark(null);
+  }, [tool]);
+  useEffect(() => {
+    setRegionMark(null);
+  }, [doc]);
 
   // ── Container measurement (drives fit-width / fit-page) ──
   useLayoutEffect(() => {
@@ -805,6 +813,8 @@ const PdfView = forwardRef(function PdfView({
             selection={selection[num] || null}
             tool={tool}
             onRegionCapture={onRegionCapture}
+            regionMark={regionMark?.page === num ? regionMark : null}
+            onRegionMark={setRegionMark}
             onImagePick={onImagePick}
             selectedImage={selectedImage && selectedImage.page === num ? selectedImage : null}
             onContextMenuAt={onContextMenu}
@@ -832,7 +842,8 @@ const PdfView = forwardRef(function PdfView({
 // what made the selection flicker on long documents.
 const PageView = React.memo(function PageView({
   doc, num, scale, rotation, baseSize, annotations, selection,
-  tool, onRegionCapture, onImagePick, selectedImage, onContextMenuAt, onError, register,
+  tool, onRegionCapture, onImagePick, selectedImage, onRegionMark, regionMark,
+  onContextMenuAt, onError, register,
   outline, onFollowLink, onGoToPage, searchQuery, searchActive, onSearchHit,
   bookmarks, activeBookmarkId, activeCommentId,
 }) {
@@ -977,7 +988,9 @@ const PageView = React.memo(function PageView({
     const p = localPoint(e, e.currentTarget);
     if (regionTool) {
       e.preventDefault();
+      onRegionMark?.(null);
       setDrag({ x0: p.x, y0: p.y, x1: p.x, y1: p.y });
+      try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
       return;
     }
     if (textTool) {
@@ -1078,22 +1091,23 @@ const PageView = React.memo(function PageView({
     setDrag(null);
 
     // Too small to be a deliberate rectangle — treat it as a stray click.
-    if (!isMeaningfulCapture(rect)) return;
+    if (!isMeaningfulCapture(rect)) {
+      onRegionMark?.(null);
+      return;
+    }
+    const box = wrapRef.current?.getBoundingClientRect();
+    const mark = regionToFrac(rect, box?.width || placeholder.width, box?.height || placeholder.height);
+    if (mark) onRegionMark?.({ page: num, ...mark });
     if (!canvasRef.current) return;
     try {
       const shot = cropCanvas(canvasRef.current, rect);
-      onRegionCapture?.({ ...shot, page: num, ...at });
+      onRegionCapture?.({ ...shot, page: num, rect, ...at });
     } catch (err) {
       onError?.(err, 'copy');
     }
   };
 
-  const dragRect = drag ? {
-    left: Math.min(drag.x0, drag.x1),
-    top: Math.min(drag.y0, drag.y1),
-    width: Math.abs(drag.x1 - drag.x0),
-    height: Math.abs(drag.y1 - drag.y0),
-  } : null;
+  const dragRect = visibleRegionBox(drag, regionMark);
 
   const painted = selection;
   const overImage = imageTool && !!hover;
@@ -1121,7 +1135,7 @@ const PageView = React.memo(function PageView({
       onPointerMove={moveDrag}
       onPointerUp={(e) => { finishTextDrag(e); endDrag(e); pickImage(e); }}
       onPointerCancel={(e) => { finishTextDrag(e); endDrag(e); setHover(null); }}
-      onPointerLeave={(e) => { if (!textDrag) { endDrag(e); setHover(null); } }}
+      onPointerLeave={() => { setHover(null); }}
       onContextMenu={onContextMenu}
     >
       <canvas className="page-canvas" ref={canvasRef} />
@@ -1267,7 +1281,12 @@ const PageView = React.memo(function PageView({
         </div>
       ) : null}
 
-      {dragRect ? <div className="marquee" style={dragRect} /> : null}
+      {dragRect ? (
+        <div
+          className={`marquee${regionMark && !drag ? ' picked' : ''}`}
+          style={dragRect}
+        />
+      ) : null}
       {!rendered ? <div className="page-skeleton"><span>{num}</span></div> : null}
     </div>
   );
