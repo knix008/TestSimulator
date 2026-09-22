@@ -136,6 +136,20 @@ function registerIpc(api, getWindow, dialogs = {}, windows = {}) {
       return { ok: false, error: serializeError(err) };
     }
   });
+  // The same document as a PDF for the print dialog's preview: { pdf (base64), pages }.
+  ipcMain.handle('print:preview', async (event, spec) => {
+    if (!windows.printPreview) return { ok: false, error: { code: 'UNSUPPORTED', message: 'no preview' } };
+    try {
+      return { ok: true, data: await windows.printPreview(spec || {}, BrowserWindow.fromWebContents(event.sender)) };
+    } catch (err) {
+      return { ok: false, error: serializeError(err) };
+    }
+  });
+  // The printers the system knows: [{ name, displayName, isDefault }].
+  ipcMain.handle('print:printers', async () => {
+    try { return { ok: true, data: windows.printers ? await windows.printers() : [] }; }
+    catch (err) { return { ok: false, error: serializeError(err) }; }
+  });
 
   // ── Menu popup (see main.js) ──
   // A menu is drawn in its own frameless window, so it is never cut off by the
@@ -146,7 +160,7 @@ function registerIpc(api, getWindow, dialogs = {}, windows = {}) {
     return { ok: true, data: windows.showMenuPopup(spec || {}, BrowserWindow.fromWebContents(event.sender)) };
   });
   ipcMain.on('menu:size', (_event, { width, height, seq }) => { if (windows.placeMenuPopup) windows.placeMenuPopup(width, height, seq); });
-  ipcMain.on('menu:pick', (_event, { id, seq }) => { if (windows.menuPopupPick) windows.menuPopupPick(id, seq); });
+  ipcMain.on('menu:pick', (_event, { id, seq, keep }) => { if (windows.menuPopupPick) windows.menuPopupPick(id, seq, !!keep); });
   ipcMain.on('menu:close', (_event, { seq } = {}) => { if (windows.hideMenuPopup) windows.hideMenuPopup('close', seq); });
 }
 

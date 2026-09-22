@@ -9,6 +9,7 @@ import { writeClipboardText, fitWindow } from '../lib/backend';
 import { SettingsDialog } from './SettingsDialog';
 import { ViewerDialog, EditorDialog, MultiRenameDialog } from './ToolDialogs';
 import { InfoDialog } from './InfoDialog';
+import { PrintDialog } from './PrintDialog';
 import { describeError } from '../lib/errors';
 
 // ── Frame ─────────────────────────────────────────────────
@@ -275,6 +276,7 @@ const RENDERERS = {
   viewer: ViewerDialog,
   editor: EditorDialog,
   multiRename: MultiRenameDialog,
+  print: PrintDialog,
 };
 
 export function DialogHost({ stack, resolve }) {
@@ -334,6 +336,8 @@ export function useDialogs() {
     viewer: (spec) => push({ type: 'viewer', ...spec }),
     editor: (spec) => push({ type: 'editor', ...spec }),
     multiRename: (spec) => push({ type: 'multiRename', ...spec }),
+    // print({ doc, setup, onError }) — the print dialog (preview + page setup) for a document built by lib/print.js.
+    print: (spec) => push({ type: 'print', ...spec }),
     get isOpen() { return stack.length > 0; },
   };
 }

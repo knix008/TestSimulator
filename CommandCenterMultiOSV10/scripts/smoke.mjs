@@ -29,8 +29,8 @@ if (!fs.existsSync(path.join(root, 'dist', 'index.html'))) {
 // Seed the private profile so the panels open somewhere deterministic.
 const left = opt('left') || root;
 const right = opt('right') || path.join(root, 'src');
-// --width <px>: start the main window at that width (e.g. the minimum) to check the layout.
-fs.writeFileSync(path.join(profile, 'session.json'), JSON.stringify({ left, right, splitter: 0.5, language: opt('lang') || 'ko', theme: opt('theme') || 'dark', windowBounds: opt('width') ? { width: Number(opt('width')), height: 700 } : undefined, ...(opt('session') ? JSON.parse(opt('session')) : {}) }, null, 2));   // --session '{…}' merges extra keys
+// (--width is no longer needed: the main window always opens at its minimum size; a saved size is ignored.)
+fs.writeFileSync(path.join(profile, 'session.json'), JSON.stringify({ left, right, splitter: 0.5, language: opt('lang') || 'ko', theme: opt('theme') || 'dark', ...(opt('session') ? JSON.parse(opt('session')) : {}) }, null, 2));   // --session '{…}' merges extra keys
 
 async function electronShot(name = 'main', script = null, url = null) {
   const electronPath = require('electron');
@@ -112,7 +112,7 @@ const SCENARIOS = {
   compress: `(() => { const row = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr')[2]; row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); setTimeout(() => window.__cc.action('compress', 'left'), 150); })()`,
   search: `(() => { window.__cc.action('search', 'left'); setTimeout(() => { const inp = document.querySelector('.search-window input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, '*.jsx'); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.form.requestSubmit(); }, 300); })()`,
   about: `(() => { window.__cc.action('about'); })()`,   // not returned: the promise settles only when the dialog closes
-  light_en: `(() => { window.__cc.action('toggleTheme'); window.__cc.action('toggleLanguage'); setTimeout(() => { const lbl = document.querySelectorAll('.side-label')[1]; lbl.click(); }, 200); })()`,
+  light_en: `(() => { window.__cc.action('toggleTheme'); window.__cc.action('toggleLanguage'); setTimeout(() => { const lbl = document.querySelectorAll('.tree-btn')[1]; lbl.click(); }, 200); })()`,
   themes: `document.querySelector('.tb-split-caret').click()`,
   menu_view: `document.querySelectorAll('.menu-title')[2].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))`,
   menu_file: `document.querySelectorAll('.menu-title')[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))`,
@@ -121,6 +121,10 @@ const SCENARIOS = {
   drives: `document.querySelector('.drive-btn').click()`,
   settings: `(() => { window.__cc.action('settings'); })()`,
   settings_terminal: `(() => { window.__cc.action('settings'); setTimeout(() => document.querySelectorAll('.settings-tab')[1].click(), 300); })()`,
+  // The print dialog (preview + page setup) on README.md — a PDF preview on the desktop, the paged document in the browser.
+  print: `(() => { window.__cc.navigate('left', ${JSON.stringify(root)}); const go = (n) => { const rows = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr'); const row = Array.from(rows).find((r) => r.textContent.includes('README.md')); if (!row) { if (n < 20) setTimeout(() => go(n + 1), 300); return; } row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); setTimeout(() => window.__cc.action('print', 'left'), 150); }; go(0); })()`,
+  // Both folder trees open (View › folder tree).
+  trees: `(() => { window.__cc.action('treeLeft'); window.__cc.action('treeRight'); })()`,
   theme_nord: `window.__cc.action('theme:nord')`,
   theme_sunset: `window.__cc.action('theme:sunset')`,
   error: `window.__cc.call('fs.mkdir', { dir: (window.__cc.session.left || '') + '/__no_such_dir__/x', name: 'y' }).then(() => 'unexpected: created', (e) => { window.__cc.dialogs.error(e); return 'error shown'; })`,

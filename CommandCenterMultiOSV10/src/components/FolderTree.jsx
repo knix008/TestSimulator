@@ -1,6 +1,9 @@
-// Collapsible folder tree shown under a panel's path bar (click the panel's
-// side label to toggle it). Roots = home, /, /tmp, drives and mounts; children
-// load lazily; the tree expands to the panel's current folder when opened.
+// The folder tree of a panel: a pane beside the file list (View › folder
+// tree, or the panel's side label) that stays open. Roots = home, /, /tmp,
+// drives and mounts; children load lazily; the tree expands to the panel's
+// current folder when opened and follows it as the panel moves. A click opens
+// the folder in the panel (the pane stays), double-click / the chevron folds
+// a branch.
 import React, { useEffect, useRef, useState } from 'react';
 import { call } from '../lib/backend';
 import { t, useLanguage } from '../lib/i18n';
@@ -18,7 +21,7 @@ function isUnder(root, p) {
   return q === r || q.startsWith(r + '/') || q.startsWith(r + '\\');
 }
 
-export function FolderTree({ currentPath, onSelect }) {
+export function FolderTree({ currentPath, onSelect, width }) {
   useLanguage();
   const [nodes, setNodes] = useState([]);     // top-level roots
   const [selected, setSelected] = useState(currentPath);
@@ -45,6 +48,33 @@ export function FolderTree({ currentPath, onSelect }) {
     }
   };
 
+  // Expand the tree down to `target` (loading what is not loaded yet) and select it. `top` is the root list
+  // to start from; the loaded children of a node are reused, so following the panel costs one fs.subdirs
+  // per new level only.
+  const topRef = useRef([]);
+  const expandTo = async (target, top, isAlive) => {
+    const best = top.filter((n) => isUnder(n.path, target)).sort((a, b) => b.path.length - a.path.length)[0];
+    if (!best) return;
+    let node = best;
+    let kids = node.children || await load(node.path);
+    if (node.children) setNodes((prev) => patch(prev, node.path, (x) => ({ ...x, expanded: true })));
+    const rel = target.slice(node.path.length).split(/[\\/]+/).filter(Boolean);
+    for (const part of rel) {
+      if (!isAlive()) return;
+      const next = kids.find((k) => k.name.toLowerCase() === part.toLowerCase());
+      if (!next) break;
+      node = next;
+      kids = node.children || await load(node.path);
+      if (node.children) setNodes((prev) => patch(prev, node.path, (x) => ({ ...x, expanded: true })));
+    }
+    if (!isAlive()) return;
+    setSelected(node.path);
+    setTimeout(() => {
+      const el = boxRef.current && boxRef.current.querySelector('.tree-row.selected');
+      if (el) el.scrollIntoView({ block: 'nearest' });
+    }, 30);
+  };
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -58,29 +88,23 @@ export function FolderTree({ currentPath, onSelect }) {
         children: null,
         expanded: false,
       }));
+      topRef.current = top;
       setNodes(top);
-      // Expand down to the current folder.
-      const best = top.filter((n) => isUnder(n.path, currentPath)).sort((a, b) => b.path.length - a.path.length)[0];
-      if (!best) return;
-      let node = best;
-      let kids = await load(node.path);
-      const rel = currentPath.slice(node.path.length).split(/[\\/]+/).filter(Boolean);
-      for (const part of rel) {
-        if (!alive) return;
-        const next = kids.find((k) => k.name.toLowerCase() === part.toLowerCase());
-        if (!next) break;
-        node = next;
-        kids = await load(node.path);
-      }
-      setSelected(node.path);
-      setTimeout(() => {
-        const el = boxRef.current && boxRef.current.querySelector('.tree-row.selected');
-        if (el) el.scrollIntoView({ block: 'center' });
-      }, 30);
+      await expandTo(currentPath, top, () => alive);
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The panel moved (double-click in the list, the path bar, a tab …): follow it.
+  const nodesRef = useRef(nodes); nodesRef.current = nodes;
+  useEffect(() => {
+    if (!nodesRef.current.length || isSamePath(selected, currentPath)) return undefined;
+    let alive = true;
+    expandTo(currentPath, nodesRef.current, () => alive);
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPath]);
 
   const toggle = async (n) => {
     if (n.expanded) { setNodes((prev) => patch(prev, n.path, (x) => ({ ...x, expanded: false }))); return; }
@@ -106,5 +130,5 @@ export function FolderTree({ currentPath, onSelect }) {
     </React.Fragment>
   ));
 
-  return <div className="folder-tree" ref={boxRef}>{render(nodes, 0)}</div>;
+  return <div className="folder-tree" ref={boxRef} style={width ? { width } : undefined}>{render(nodes, 0)}</div>;
 }

@@ -6,7 +6,7 @@ import { DialogFrame } from './Dialogs';
 import { t } from '../lib/i18n';
 import { formatSize, baseName } from '../lib/format';
 import { Icon } from '../components/Icons';
-import { buildPrintHtml, printDocument } from '../lib/print';
+import { PrintDialog } from './PrintDialog';
 import { ImageView } from '../components/ImageView';
 
 // ── Viewer (F3) ───────────────────────────────────────────
@@ -38,19 +38,20 @@ export function ViewerDialog({ spec, done }) {
   const [imageInfo, setImageInfo] = useState('');
   const hexText = useMemo(() => (hex ? hexDump(bytesOf(data).subarray(0, 256 * 1024)) : ''), [hex, data]);
   const lines = useMemo(() => (data.kind === 'text' ? (data.text.match(/\n/g) || []).length + 1 : 0), [data]);
-  const [printing, setPrinting] = useState(false);
+  const [printDoc, setPrintDoc] = useState(null);   // the print dialog (preview + page setup) is open for this document
+  const printing = !!printDoc;
   // Ctrl+P prints what is shown: the image, the text (wrapped as on screen) or the hex dump.
   const canPrint = data.kind === 'image' ? !data.truncated && !!data.base64 : true;
-  const print = async () => {
+  const print = () => {
     if (!canPrint || printing) return;
     // A picture is printed by its pane (decoded, rotated as shown).
     if (data.kind === 'image') { if (imageRef.current) imageRef.current.print(); return; }
     const name = baseName(path);
-    const html = buildPrintHtml({ title: name, kind: 'text', text: hex ? hexText : data.text, wrap: wrap && !hex, fontSize: prefs.printFontSize, tabSize: prefs.editorTabSize, meta: hex ? t('viewer_hex') : `${data.encoding}${data.truncated ? ` · ${t('viewer_truncated')}` : ''}` });
-    setPrinting(true);
-    try { await printDocument({ html, title: name }); }
-    catch (err) { if (spec.onPrintError) spec.onPrintError(err); }
-    finally { setPrinting(false); }
+    setPrintDoc({ title: name, kind: 'text', text: hex ? hexText : data.text, wrap: wrap && !hex, fontSize: prefs.printFontSize, tabSize: prefs.editorTabSize, meta: hex ? t('viewer_hex') : `${data.encoding}${data.truncated ? ` · ${t('viewer_truncated')}` : ''}` });
+  };
+  const printDone = (r) => {
+    setPrintDoc(null);
+    if (spec.onStatus && r) spec.onStatus(t(r.ok ? 'print_sent' : 'print_cancelled', { name: baseName(path) }));
   };
   const printRef = useRef(print); printRef.current = print;
   useEffect(() => {
@@ -84,11 +85,12 @@ export function ViewerDialog({ spec, done }) {
       {data.kind === 'image' && (
         data.truncated
           ? <p className="muted">{t('viewer_too_large')}</p>
-          : <ImageView ref={imageRef} spec={{ data, path, canOpen: spec.canOpen, onOpen: spec.onOpen, onInfo: setImageInfo, onStatus: spec.onStatus, onError: spec.onPrintError, onSaved: spec.onSaved }} />
+          : <ImageView ref={imageRef} spec={{ data, path, prefs, canOpen: spec.canOpen, onOpen: spec.onOpen, onInfo: setImageInfo, onStatus: spec.onStatus, onError: spec.onPrintError, onSaved: spec.onSaved }} />
       )}
       {data.kind !== 'image' && (
         <pre className={`viewer-text ${wrap && !hex ? 'wrap' : ''}`} style={{ fontSize: prefs.viewerFontSize ? `${prefs.viewerFontSize}px` : undefined }}>{hex ? hexText : data.text}</pre>
       )}
+      {printDoc && <PrintDialog spec={{ doc: printDoc, setup: prefs.printSetup, onError: (err) => { if (spec.onPrintError) spec.onPrintError(err); } }} done={printDone} />}
     </DialogFrame>
   );
 }
@@ -101,18 +103,15 @@ export function EditorDialog({ spec, done }) {
   const [text, setText] = useState(spec.text);
   const [saved, setSaved] = useState(spec.text);
   const [busy, setBusy] = useState(false);
-  const [printing, setPrinting] = useState(false);
+  const [printDoc, setPrintDoc] = useState(null);   // the print dialog is open for this text
+  const printing = !!printDoc;
   const ref = useRef(null);
   const dirty = text !== saved;
   // Ctrl+P prints the text as it is in the editor — unsaved changes included.
-  const print = async () => {
+  const print = () => {
     if (printing) return;
     const name = baseName(spec.path);
-    const html = buildPrintHtml({ title: dirty ? `${name} *` : name, kind: 'text', text, wrap: !!prefs.editorWrap, fontSize: prefs.printFontSize, tabSize: prefs.editorTabSize, meta: 'UTF-8' });
-    setPrinting(true);
-    try { await printDocument({ html, title: name }); }
-    catch (err) { if (spec.onPrintError) spec.onPrintError(err); }
-    finally { setPrinting(false); }
+    setPrintDoc({ title: dirty ? `${name} *` : name, kind: 'text', text, wrap: !!prefs.editorWrap, fontSize: prefs.printFontSize, tabSize: prefs.editorTabSize, meta: 'UTF-8' });
   };
   useEffect(() => { if (spec.onDirty) spec.onDirty(dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
@@ -149,6 +148,7 @@ export function EditorDialog({ spec, done }) {
       </>}>
       <textarea ref={ref} className="editor-text" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} spellCheck={false} wrap={prefs.editorWrap ? 'soft' : 'off'}
         style={{ fontSize: prefs.editorFontSize ? `${prefs.editorFontSize}px` : undefined, tabSize: prefs.editorTabSize || 4 }} />
+      {printDoc && <PrintDialog spec={{ doc: printDoc, setup: prefs.printSetup, onError: (err) => { if (spec.onPrintError) spec.onPrintError(err); } }} done={() => setPrintDoc(null)} />}
     </DialogFrame>
   );
 }

@@ -16,7 +16,7 @@ import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, all
 import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile } from './lib/settings';
 import { History } from './lib/history';
 import { ResizeGrip } from './components/ResizeGrip';
-import { canPrintData, buildPrintHtml, printDocument } from './lib/print';
+import { canPrintData } from './lib/print';
 import { isImageName, decodeImage, renderImage } from './lib/images';
 
 function applyFontSize(px) {
@@ -39,6 +39,7 @@ function stripArchiveExt(name) {
 }
 
 const MAX_LOG = 2000;
+const RECENT_DIRS_MAX = 10;   // File › recent folders
 let logSeq = 0;
 
 // Text of an error for the log tab (the dialog shows the full details).
@@ -108,8 +109,19 @@ export default function App() {
   useEffect(() => { if (session) history.max = Math.max(1, Number(session.historyMax) || 50); }, [session && session.historyMax]); // eslint-disable-line react-hooks/exhaustive-deps
   // Folders each panel visited (Alt+↓), newest first.
   const [dirHistory, setDirHistory] = useState({ left: [], right: [] });
+  const lastDirs = useRef({ left: null, right: null });
   useEffect(() => {
     if (!session) return;
+    // File › recent folders: the same visits, both panels together, kept in the session (see RECENT_DIRS_MAX).
+    const recent = (session.recentDirs || []).filter((p) => typeof p === 'string');
+    let next = recent;
+    for (const side of ['left', 'right']) {
+      const p = session[side];
+      if (!p || lastDirs.current[side] === p) continue;   // only the panel that moved goes to the top
+      lastDirs.current[side] = p;
+      if (next[0] !== p) next = [p, ...next.filter((x) => x !== p)].slice(0, RECENT_DIRS_MAX);
+    }
+    if (next !== recent) saveSession({ recentDirs: next });
     setDirHistory((h) => {
       let next = h;
       for (const side of ['left', 'right']) {
@@ -756,15 +768,14 @@ export default function App() {
         try { const d = await decodeImage(data, e.name); mime = 'image/png'; base64 = renderImage(d, 0).toDataURL('image/png').split(',')[1]; }
         catch (err) { await dialogs.error(err, t('img_decode_failed', { name: e.name })); return; }
       }
-      const html = buildPrintHtml({
-        title: e.name, kind: data.kind, text: data.text, mime, base64,
-        wrap: session.viewerWrap !== false, fontSize: session.printFontSize, tabSize: session.editorTabSize,
-        meta: data.kind === 'text' ? data.encoding : data.mime,
+      // The print dialog: a preview and the page setup (paper, orientation, margins, scale, copies, pages …).
+      const r = await dialogs.print({
+        doc: { title: e.name, kind: data.kind, text: data.text, mime, base64, wrap: session.viewerWrap !== false, fontSize: session.printFontSize, tabSize: session.editorTabSize, meta: data.kind === 'text' ? data.encoding : data.mime },
+        setup: session.printSetup,
+        onError: (err) => dialogs.error(err, t('print_failed')),
       });
-      try {
-        const r = await printDocument({ html, title: e.name });
-        setStatus(t(r && r.cancelled ? 'print_cancelled' : 'print_sent', { name: e.name }));
-      } catch (err) { await dialogs.error(err, t('print_failed')); }
+      if (r && r.ok) setStatus(t('print_sent', { name: e.name }));
+      else if (r && r.cancelled) setStatus(t('print_cancelled'));
       return;
     }
     if (!(info && info.capabilities.print)) { await dialogs.error(t(data.truncated ? 'print_too_large' : 'print_unsupported', { name: e.name })); return; }
@@ -861,6 +872,9 @@ export default function App() {
   const onAction = async (id, side = active) => {
     if (!session) return;
     if (id.startsWith('theme:')) { setTheme(id.slice(6)); return; }
+    if (id.startsWith('recent:')) { await navigate(side, id.slice(7)); return; }
+    if (id.startsWith('recentRemove:')) { saveSession({ recentDirs: (session.recentDirs || []).filter((p) => p !== id.slice(13)) }); return; }
+    if (id === 'recentClear') { saveSession({ recentDirs: [] }); setStatus(t('recent_cleared')); return; }
     try {
       await runAction(id, side);
     } catch (err) {
@@ -893,6 +907,8 @@ export default function App() {
       case 'selectSameExt': panel(side) && panel(side).selectSameExt(true); break;
       case 'dirHistory': panel(side) && panel(side).openHistory(); break;
       case 'hotlist': panel(side) && panel(side).openHotlist(); break;
+      case 'treeLeft': saveSession({ leftTree: !session.leftTree }); break;
+      case 'treeRight': saveSession({ rightTree: !session.rightTree }); break;
       case 'drives': panel(side) && panel(side).openDrives(); break;
       case 'parent': panel(side) && panel(side).goUp(); break;
       case 'root': navigate(side, rootOf(pathOf(side))); break;
@@ -1065,6 +1081,9 @@ export default function App() {
 
   const menuState = useMemo(() => ({
     showHidden: !!(session && session.showHidden),
+    recentDirs: (session && session.recentDirs) || [],
+    treeLeft: !!(session && session.leftTree),
+    treeRight: !!(session && session.rightTree),
     theme: session ? session.theme : 'dark',
     themes: allThemes(),
     hasSelection: selCount[active] > 0,
@@ -1116,6 +1135,10 @@ export default function App() {
     onDropFiles: ({ dest, move, drop }) => { dropTransfer(dest, move, drop).catch(showError); },
     history: dirHistory[side],
     hotlist: session.hotlist || [],
+    treeOpen: !!session[`${side}Tree`],
+    onTreeToggle: (open) => saveSession({ [`${side}Tree`]: open }),
+    treeWidth: Number(session[`${side}TreeWidth`]) || 200,
+    onTreeWidth: (w) => saveSession({ [`${side}TreeWidth`]: w }),
     columns: { perm: session.showPerm !== false, date: session.showDate !== false, type: session.showType !== false, size: session.showSize !== false },
     tabs: tabsOf(side),
     tabIndex: tabIndexOf(side),

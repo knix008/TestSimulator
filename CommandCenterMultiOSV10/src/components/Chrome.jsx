@@ -2,7 +2,7 @@
 // MyEditor) and the icon toolbar, drawn in-app so they look the same in the
 // desktop app and in the browser. View holds the bottom dock (log /
 // terminals); the toolbar has a terminal button. The right end of the
-// toolbar holds the theme picker (20 themes), the language toggle and the
+// toolbar holds the theme picker (30 themes), the language toggle and the
 // About button. Toolbar buttons are icon-only; the tooltip (and aria-label)
 // carries the description.
 import React, { useState } from 'react';
@@ -10,6 +10,11 @@ import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { allThemes, themeById, nextThemeId } from '../themes';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
+
+// A long path in the recent-folders list keeps its start and its end ("C:\Home\…\src\components").
+function shortenPath(p, max = 64) {
+  return p.length <= max ? p : `${p.slice(0, 22)}…${p.slice(-(max - 23))}`;
+}
 
 export function MenuBar({ onAction, state }) {
   useLanguage();
@@ -25,6 +30,13 @@ export function MenuBar({ onAction, state }) {
       { sep: true },
       { id: 'newFolder', label: t('new_folder'), icon: 'folderNew', shortcut: 'F7' },
       { id: 'newFile', label: t('new_file'), icon: 'fileNew', shortcut: 'Shift+F4' },
+      { sep: true },
+      // The last folders opened in either panel (newest first, at most RECENT_DIRS_MAX, kept in the session):
+      // a click opens one in the active panel, its ✕ drops it from the list, the last entry clears the list.
+      ...((state.recentDirs || []).length
+        ? state.recentDirs.map((p) => ({ id: `recent:${p}`, label: shortenPath(p), icon: 'history', remove: `recentRemove:${p}`, removeTitle: t('recent_remove') }))
+        : [{ id: 'recentNone', label: t('recent_dirs_empty'), icon: 'history', disabled: true }]),
+      { id: 'recentClear', label: t('recent_dirs_clear'), icon: 'delete', disabled: !(state.recentDirs || []).length },
       { sep: true },
       { id: 'quit', label: t('quit'), icon: 'quit', shortcut: 'Alt+F4' },
     ],
@@ -68,6 +80,9 @@ export function MenuBar({ onAction, state }) {
       { id: 'dirHistory', label: t('dir_history'), icon: 'history', shortcut: 'Alt+↓' },
       { id: 'hotlist', label: t('hotlist'), icon: 'star', shortcut: 'Ctrl+D' },
       { sep: true },
+      { id: 'treeLeft', label: t('tree_left'), icon: 'tree', checked: state.treeLeft },
+      { id: 'treeRight', label: t('tree_right'), icon: 'tree', checked: state.treeRight },
+      { sep: true },
       { id: 'toggleHidden', label: t('show_hidden'), icon: 'eye', checked: state.showHidden, shortcut: 'Ctrl+H' },
       { id: 'toggleToolbar', label: t('set_show_toolbar'), icon: 'panelBottom', checked: state.showToolbar },
       { id: 'toggleFnBar', label: t('fn_bar'), icon: 'panelBottom', checked: state.fnBar },
@@ -99,7 +114,7 @@ export function MenuBar({ onAction, state }) {
       ))}
       {open && (
         <ContextMenu anchorEl={open.el} x={0} y={0} items={menus[open.id]} onClose={() => setOpen(null)}
-          onPick={(id) => { setOpen(null); onAction(id); }} />
+          onPick={(id, keep) => { if (!keep) setOpen(null); onAction(id); }} />
       )}
     </div>
   );

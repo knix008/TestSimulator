@@ -45,7 +45,7 @@ export function MenuPopup() {
   }, [menu]);
 
   const close = useCallback(() => { const api = bridge(); if (api && api.closeMenuPopup) api.closeMenuPopup(); }, []);
-  const pick = useCallback((id) => { const api = bridge(); if (api && api.menuPick) api.menuPick(id, seqRef.current); }, []);
+  const pick = useCallback((id, keep = false) => { const api = bridge(); if (api && api.menuPick) api.menuPick(id, seqRef.current, keep); }, []);
 
   useEffect(() => {
     const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
@@ -68,6 +68,7 @@ export function MenuPopup() {
             <span className="ctx-label">{it.label}</span>
             {it.icon && it.checked && <Icon name="check" size={14} className="ctx-check" />}
             {it.shortcut && <span className="ctx-shortcut">{it.shortcut}</span>}
+            {it.remove && <span className="ctx-remove" role="button" title={it.removeTitle} onClick={(e) => { e.stopPropagation(); pick(it.remove, true); }}><Icon name="close" size={12} /></span>}
           </button>
         )))}
     </div>

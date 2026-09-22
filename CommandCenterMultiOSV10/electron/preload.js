@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld('commandCenter', {
   dialog: (kind, opts) => ipcRenderer.invoke('dialog', kind, opts),
   // Prints a self-contained HTML document through the system print dialog (see ipc.js print:html).
   printHtml: (spec) => ipcRenderer.invoke('print:html', spec),
+  // The document as a PDF for the print preview, and the system's printers (ipc.js print:preview / print:printers).
+  printPreview: (spec) => ipcRenderer.invoke('print:preview', spec),
+  printers: () => ipcRenderer.invoke('print:printers'),
   quit: () => ipcRenderer.send('app:quit'),
 
   // Drag & drop with the desktop (src/lib/dragdrop.js): the path behind a File dropped from
@@ -75,7 +78,8 @@ contextBridge.exposeInMainWorld('commandCenter', {
     return () => ipcRenderer.removeListener('menu:show', handler);
   },
   menuSize: (width, height, seq) => ipcRenderer.send('menu:size', { width, height, seq }),
-  menuPick: (id, seq) => ipcRenderer.send('menu:pick', { id, seq }),
+  // `keep`: the pick is reported but the menu stays open (the ✕ of a removable entry).
+  menuPick: (id, seq, keep = false) => ipcRenderer.send('menu:pick', { id, seq, keep }),
 
   postMessage: (msg) => ipcRenderer.send('win:message', msg),
   onMessage: (cb) => {

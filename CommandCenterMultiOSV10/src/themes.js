@@ -1,4 +1,4 @@
-// 20 built-in themes (12 dark, 8 light) — the same set as the sibling apps —
+// 30 built-in themes (15 dark, 15 light) —
 // applied as CSS custom properties on :root. `mk` derives the secondary
 // tokens (selection, active-panel glow, shadow) from the few that define a
 // look, so a theme is just its base colours.
@@ -134,6 +134,56 @@ export const THEMES = [
     bg: '#f8f2e6', raised: '#fffaf1', panel: '#f1e8d8', hover: '#e8dcc6', active: '#dccbb0',
     border: '#dccfb9', borderStrong: '#bfa98a', text: '#33271a', textDim: '#7d6a52',
     accent: '#b45f06', accentStrong: '#8a4604', accentText: '#ffffff', danger: '#c8432f', folder: '#c98a2e', file: '#9a866c',
+  }),
+  mk('gruvbox', '그루브박스', 'Gruvbox', 'dark', {
+    bg: '#1d2021', raised: '#32302f', panel: '#282828', hover: '#3c3836', active: '#504945',
+    border: '#3c3836', borderStrong: '#665c54', text: '#ebdbb2', textDim: '#bdae93',
+    accent: '#fabd2f', accentStrong: '#fe8019', accentText: '#1d2021', danger: '#fb4934', folder: '#fabd2f', file: '#83a598',
+  }),
+  mk('oneDark', '원 다크', 'One Dark', 'dark', {
+    bg: '#21252b', raised: '#2c313a', panel: '#282c34', hover: '#333842', active: '#3e4451',
+    border: '#3a3f4b', borderStrong: '#545b68', text: '#abb2bf', textDim: '#8b929e',
+    accent: '#61afef', accentStrong: '#c678dd', accentText: '#0e1a26', danger: '#e06c75', folder: '#e5c07b', file: '#98c379',
+  }),
+  mk('tokyoNight', '도쿄 나이트', 'Tokyo Night', 'dark', {
+    bg: '#16161e', raised: '#24283b', panel: '#1a1b26', hover: '#292e42', active: '#33384f',
+    border: '#292e42', borderStrong: '#414868', text: '#c0caf5', textDim: '#8f9ac0',
+    accent: '#7aa2f7', accentStrong: '#bb9af7', accentText: '#0f1424', danger: '#f7768e', folder: '#e0af68', file: '#7dcfff',
+  }),
+  mk('paper', '페이퍼', 'Paper', 'light', {
+    bg: '#fafafa', raised: '#ffffff', panel: '#f1f1f1', hover: '#e6e6e6', active: '#d9d9d9',
+    border: '#dcdcdc', borderStrong: '#b5b5b5', text: '#212121', textDim: '#616161',
+    accent: '#455a64', accentStrong: '#263238', accentText: '#ffffff', danger: '#c62828', folder: '#d19a1d', file: '#757575',
+  }),
+  mk('lemon', '레몬', 'Lemon', 'light', {
+    bg: '#fffbe6', raised: '#fffef7', panel: '#fff6cc', hover: '#fdefb0', active: '#f7e48f',
+    border: '#efe3a8', borderStrong: '#d4c46a', text: '#3d3300', textDim: '#7a6d2a',
+    accent: '#c79100', accentStrong: '#9a6f00', accentText: '#ffffff', danger: '#c8432f', folder: '#d9a300', file: '#9c8f5a',
+  }),
+  mk('sky', '스카이', 'Sky', 'light', {
+    bg: '#eef6ff', raised: '#ffffff', panel: '#e2efff', hover: '#d2e5fc', active: '#bcd7f7',
+    border: '#cfe0f4', borderStrong: '#96bce4', text: '#10253d', textDim: '#4b6786',
+    accent: '#2f80ed', accentStrong: '#1c5fbf', accentText: '#ffffff', danger: '#d9484f', folder: '#f2a83b', file: '#6f8fb5',
+  }),
+  mk('peach', '피치', 'Peach', 'light', {
+    bg: '#fff3ec', raised: '#fffaf7', panel: '#ffe8da', hover: '#fddac6', active: '#f9c9ad',
+    border: '#f3d6c4', borderStrong: '#dcab8e', text: '#3f2418', textDim: '#84584a',
+    accent: '#ff7a45', accentStrong: '#e05a2b', accentText: '#ffffff', shadow: '0 10px 30px rgba(120,60,30,0.16)', folder: '#f0a03c', file: '#b08670',
+  }),
+  mk('olive', '올리브', 'Olive', 'light', {
+    bg: '#f6f7ef', raised: '#fdfdf8', panel: '#edf0e0', hover: '#e2e7cf', active: '#d3dbb8',
+    border: '#dde2c8', borderStrong: '#b3bd8e', text: '#26301a', textDim: '#5d6a47',
+    accent: '#6b8e23', accentStrong: '#4f6b1a', accentText: '#ffffff', danger: '#c8432f', folder: '#c9a227', file: '#7f8f62',
+  }),
+  mk('slate', '슬레이트', 'Slate', 'light', {
+    bg: '#eef0f3', raised: '#f8f9fb', panel: '#e4e7ec', hover: '#d8dce4', active: '#c8ced9',
+    border: '#d2d7df', borderStrong: '#a4adbb', text: '#1f2633', textDim: '#5a6577',
+    accent: '#5c6bc0', accentStrong: '#3949ab', accentText: '#ffffff', danger: '#c62828', folder: '#e0a92a', file: '#7b86a0',
+  }),
+  mk('plum', '플럼', 'Plum', 'light', {
+    bg: '#f9f2f8', raised: '#fefbfe', panel: '#f2e6f0', hover: '#ead8e7', active: '#dfc5db',
+    border: '#e6d5e3', borderStrong: '#c4a3bf', text: '#341c30', textDim: '#6e5169',
+    accent: '#8e24aa', accentStrong: '#6a1b9a', accentText: '#ffffff', shadow: '0 10px 30px rgba(90,30,80,0.16)', folder: '#e0a92a', file: '#9c7d98',
   }),
 ];
 

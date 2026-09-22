@@ -59,6 +59,8 @@ const paths = {
   multiRename: <><path d="M4 6h9M4 12h9M4 18h9" /><path d="M20.5 5.5a1.5 1.5 0 0 1 0 2L16 12l-3 1 1-3 4.5-4.5a1.5 1.5 0 0 1 2 0z" /></>,
   select: <><rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="4 3" /><path d="M8 12l3 3 5-6" /></>,
   print: <><path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="7" /><path d="M18 12h.01" /></>,
+  portrait: <><rect x="6" y="3" width="12" height="18" rx="1.5" /><path d="M9 8h6M9 12h6M9 16h4" /></>,
+  landscape: <><rect x="3" y="6" width="18" height="12" rx="1.5" /><path d="M7 10h10M7 14h6" /></>,
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="M21 16l-5-5-8 8" /></>,
   zoomIn: <><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4M11 8v6M8 11h6" /></>,
   zoomOut: <><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4M8 11h6" /></>,
@@ -78,6 +80,7 @@ const paths = {
   splitV: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 12h18" /></>,
   tabs: <><path d="M3 8h18v12H3z" /><path d="M3 8V5a1 1 0 0 1 1-1h6l2 2M12 4h4a1 1 0 0 1 1 1v3" /></>,
   tabNew: <><path d="M3 8h18v12H3z" /><path d="M3 8V5a1 1 0 0 1 1-1h6l2 2h4" /><path d="M12 11v6M9 14h6" /></>,
+  panelLeft: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M5.5 8.5h1.5M5.5 12h1.5M5.5 15.5h1.5" /></>,
   panelBottom: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 14h18" /></>,
 };
 

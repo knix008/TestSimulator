@@ -49,7 +49,7 @@ function compareEntries(a, b, sort) {
 }
 
 export const FilePanel = forwardRef(function FilePanel(props, ref) {
-  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onPreview, onAction, onDropFiles, capabilities, history = [], hotlist = [], onHotlistChange, columns, quickSearch = true, spaceMeasures = true, tabs = [], tabIndex = 0, onTabSelect, onTabNew, onTabClose, onTabCloseOthers, onTabToOther } = props;
+  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onPreview, onAction, onDropFiles, capabilities, history = [], hotlist = [], onHotlistChange, treeOpen = false, onTreeToggle, treeWidth = 200, onTreeWidth, columns, quickSearch = true, spaceMeasures = true, tabs = [], tabIndex = 0, onTabSelect, onTabNew, onTabClose, onTabCloseOthers, onTabToOther } = props;
   useLanguage();
 
   const [entries, setEntries] = useState([]);
@@ -57,7 +57,6 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   const [selected, setSelected] = useState(() => new Set());
   const [cursor, setCursor] = useState(-1);
   const [anchor, setAnchor] = useState(-1);
-  const [treeOpen, setTreeOpen] = useState(false);
   const [menu, setMenu] = useState(null);       // { x, y }
   const [extractable, setExtractable] = useState(false);
   const [driveMenu, setDriveMenu] = useState(null);   // anchor element
@@ -104,7 +103,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     }
   }, [path, showHidden]);
 
-  useEffect(() => { load(false); setCursor(-1); setAnchor(-1); setTreeOpen(false); setDirSizes(new Map()); setQuick(''); }, [path, showHidden]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(false); setCursor(-1); setAnchor(-1); setDirSizes(new Map()); setQuick(''); }, [path, showHidden]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Directory watch (debounced refresh)
   useEffect(() => {
@@ -497,8 +496,9 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
         <button className="icon-btn" title={t('home')} onClick={() => onAction('home')}><Icon name="home" /></button>
         <button className="icon-btn hist-btn" title={t('tip_history')} onClick={(e) => { onActivate(); setHistoryMenu(historyMenu ? null : e.currentTarget); }}><Icon name="history" /></button>
         <button className={`icon-btn hot-btn ${inHotlist ? 'on' : ''}`} title={t('tip_hotlist')} onClick={(e) => { onActivate(); setHotMenu(hotMenu ? null : e.currentTarget); }}><Icon name="star" /></button>
-        <button className={`side-label ${treeOpen ? 'open' : ''}`} title={t('folder_tree')} onClick={() => setTreeOpen((v) => !v)}>
-          <Icon name="tree" size={14} /> {t(side)}
+        {/* the folder-tree pane toggle: icon only (no side label), lit while the pane is open */}
+        <button className={`icon-btn tree-btn ${treeOpen ? 'on' : ''}`} title={t('folder_tree')} aria-label={t('folder_tree')} onClick={() => { onActivate(); if (onTreeToggle) onTreeToggle(!treeOpen); }}>
+          <Icon name="panelLeft" />
         </button>
         <div className="breadcrumb">
           {crumbs.map((c, i) => (
@@ -510,7 +510,21 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
         </div>
       </div>
 
-      {treeOpen && <FolderTree currentPath={path} onSelect={(p) => { setTreeOpen(false); onNavigate(p); }} />}
+      {/* The folder tree (View › folder tree / the side label) is a pane on the left of the list that stays open;
+          a click in it opens the folder here. */}
+      <div className="panel-main">
+      {treeOpen && <>
+        <FolderTree currentPath={path} width={treeWidth} onSelect={(p) => { onActivate(); onNavigate(p); }} />
+        {/* drag the edge to resize the tree (the width is kept in the session) */}
+        <div className="tree-resize" onMouseDown={(e) => {
+          e.preventDefault();
+          const x0 = e.clientX, w0 = treeWidth;
+          const max = Math.max(120, (e.currentTarget.parentElement.clientWidth || 600) - 260);
+          const move = (ev) => { if (onTreeWidth) onTreeWidth(Math.max(120, Math.min(max, w0 + ev.clientX - x0))); };
+          const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+          window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+        }} />
+      </>}
 
       <div className={`table-wrap ${dropAt === -1 ? 'drop-here' : ''}`} ref={bodyRef} tabIndex={0} onKeyDown={onKeyDown} onContextMenu={onContextMenu} onMouseDown={onEmptyClick}
         onDragOver={onDragOver} onDragEnter={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
@@ -547,6 +561,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
         </table>
         {error && <div className="panel-empty">{t('panel_error', { msg: error })}</div>}
         {quick && <div className="quick-search"><Icon name="search" size={12} /><span>{quick}</span></div>}
+      </div>
       </div>
 
       <div className="panel-status ellipsis" title={status}>{status}</div>

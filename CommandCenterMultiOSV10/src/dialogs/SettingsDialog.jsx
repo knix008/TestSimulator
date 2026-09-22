@@ -108,7 +108,7 @@ export function SettingsDialog({ spec, done }) {
   const Check = ({ k, label }) => (<><span /><label className="check"><input type="checkbox" checked={!!v[k]} onChange={(e) => set(k, e.target.checked)} /> {label}</label></>);
 
   return (
-    <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={1280} windowed={spec.windowed} className="settings"
+    <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={1040} windowed={spec.windowed} className="settings"
       footer={<>
         <button className="btn" onClick={() => setV({ ...SETTINGS_DEFAULTS, language: v.language })}>{t('set_defaults')}</button>
         <span className="spacer" />

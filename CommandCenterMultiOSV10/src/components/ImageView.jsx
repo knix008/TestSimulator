@@ -10,7 +10,7 @@ import React, { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, use
 import { t } from '../lib/i18n';
 import { call, isElectron, pickSavePath } from '../lib/backend';
 import { decodeImage, renderImage, encodeImage, blobToBase64, withExt, SAVE_FORMATS } from '../lib/images';
-import { buildPrintHtml, printDocument } from '../lib/print';
+import { PrintDialog } from '../dialogs/PrintDialog';
 import { dirName, joinPath, baseName } from '../lib/format';
 import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
@@ -177,16 +177,18 @@ export const ImageView = forwardRef(function ImageView({ spec }, ref) {
   // ── Commands (the toolbar buttons and the context menu share them) ──
   const picture = () => renderImage(decoded, rot);
 
-  const print = async () => {
-    if (!decoded || busy) return;
-    setBusy('print');
+  // The print dialog (preview + page setup) for the picture as shown (decoded, rotated).
+  const [printDoc, setPrintDoc] = useState(null);
+  const print = () => {
+    if (!decoded || busy || printDoc) return;
     try {
       const canvas = picture();
-      const html = buildPrintHtml({ title: name, kind: 'image', mime: 'image/png', base64: canvas.toDataURL('image/png').split(',')[1], meta: `${canvas.width} × ${canvas.height}` });
-      const r = await printDocument({ html, title: name });
-      if (spec.onStatus) spec.onStatus(t(r && r.cancelled ? 'print_cancelled' : 'print_sent', { name }));
+      setPrintDoc({ title: name, kind: 'image', mime: 'image/png', base64: canvas.toDataURL('image/png').split(',')[1], meta: `${canvas.width} × ${canvas.height}` });
     } catch (err) { if (spec.onError) spec.onError(err, t('print_failed')); }
-    finally { setBusy(''); }
+  };
+  const printDone = (r) => {
+    setPrintDoc(null);
+    if (spec.onStatus && r) spec.onStatus(t(r.ok ? 'print_sent' : 'print_cancelled', { name }));
   };
 
   const saveAs = async (format) => {
@@ -315,6 +317,7 @@ export const ImageView = forwardRef(function ImageView({ spec }, ref) {
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menu.save ? menuItems.filter((it) => it.id && it.id.startsWith('save:')) : menuItems} onClose={() => setMenu(null)} onPick={onPick} />
       )}
+      {printDoc && <PrintDialog spec={{ doc: printDoc, setup: spec.prefs && spec.prefs.printSetup, onError: (err) => { if (spec.onError) spec.onError(err, t('print_failed')); } }} done={printDone} />}
     </div>
   );
 });

@@ -1,4 +1,4 @@
-/* Command Center — 20 themes set from src/themes.js as CSS variables on :root.
+/* Command Center — 30 themes set from src/themes.js as CSS variables on :root.
    The values here are the "midnight" defaults shown until the session loads. */
 :root {
   --bg: #12161c;
@@ -100,8 +100,6 @@ button:disabled { cursor: default; opacity: 0.45; }
 .drive-btn:hover { background: var(--bg-hover); }
 .drive-btn .caret { color: var(--fg-muted); }
 .icon-btn:hover { background: var(--bg-hover); }
-.side-label { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 3px 8px; border-radius: 4px; color: var(--fg-muted); font-weight: 600; }
-.side-label:hover, .side-label.open { background: var(--bg-hover); color: var(--fg); }
 .breadcrumb { flex: 1; display: flex; align-items: center; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
 .breadcrumb::-webkit-scrollbar { display: none; }
 .crumb { background: none; border: 0; padding: 2px 5px; border-radius: 4px; color: var(--fg); }
@@ -110,7 +108,13 @@ button:disabled { cursor: default; opacity: 0.45; }
 .crumb-sep { color: var(--fg-muted); margin: 0 1px; }
 
 /* ── Folder tree ── */
-.folder-tree { max-height: 240px; overflow: auto; border-bottom: 1px solid var(--border); padding: 4px 6px; background: var(--bg-elev); }
+/* the folder tree: a pane beside the file list (View › folder tree), the list takes the rest */
+.panel-main { flex: 1; min-height: 0; display: flex; }
+.folder-tree { flex: none; width: 200px; max-width: 60%; min-width: 0; overflow: auto; padding: 4px 6px; background: var(--bg-elev); scrollbar-width: thin; box-sizing: border-box; }
+.tree-resize { flex: none; width: 5px; cursor: col-resize; background: var(--border); }
+.tree-resize:hover { background: var(--accent); }
+/* beside the tree the list may be narrower than its columns: it scrolls sideways rather than losing the name column */
+.panel-main .table-wrap .file-table { min-width: 520px; }
 .tree-row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
 .tree-row:hover { background: var(--bg-hover); }
 .tree-row.selected { background: var(--bg-sel); }
@@ -229,6 +233,10 @@ button:disabled { cursor: default; opacity: 0.45; }
 .ctx-item:hover:not(:disabled) .ctx-icon { color: var(--fg); }
 .ctx-label { flex: 1; }
 .ctx-shortcut { color: var(--fg-muted); font-size: 11px; }
+/* the ✕ of a removable entry (File › recent folders): dim until the row is hovered */
+.ctx-remove { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin: -2px -4px -2px 0; border-radius: 3px; color: var(--fg-muted); opacity: 0.55; }
+.ctx-item:hover .ctx-remove { opacity: 1; }
+.ctx-remove:hover { background: var(--bg-hover); color: var(--danger); }
 .ctx-item.checked .ctx-icon { color: var(--accent); }
 .ctx-check { color: var(--accent); flex: none; }
 .ctx-sep { height: 1px; flex: none; background: var(--border); margin: 4px 6px; }
@@ -493,7 +501,7 @@ input:disabled, select:disabled { opacity: 0.5; }
 .pe-preset-out { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 0 3px; border: 0; margin: 0; font-size: 10px; line-height: 1.5; overflow: hidden; white-space: pre; height: 28px; pointer-events: none; width: 100%; box-sizing: border-box; flex: none; text-align: left; }
 .pe-preset-out .term-prompt { display: block; width: max-content; white-space: pre; }
 .pe-preset-out .pseg { height: 1.5em; line-height: 1.5em; }
-.pe-preset-name { font-size: 11px; color: var(--fg-muted); height: 16px; line-height: 16px; flex: none; padding-left: 3px; }
+.pe-preset-name { display: block; max-width: 100%; font-size: 11px; color: var(--fg-muted); height: 16px; line-height: 16px; flex: none; padding-left: 3px; }   /* a long name ends in … (the tooltip has it whole) instead of being cut by the card */
 .pe-preset.active .pe-preset-name { color: var(--fg); }
 .pe-quick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pe-quick .check { white-space: nowrap; }
@@ -534,7 +542,7 @@ input:disabled, select:disabled { opacity: 0.5; }
 /* section heading inside a settings grid (spans both columns) */
 .settings-section { grid-column: 1 / -1; margin-top: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--fg-muted); font-size: 12px; }
 /* theme tab: one card per theme in its own colours; click = apply */
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 5px; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 5px; }   /* 8 columns in the 1040 px settings window: 15 themes on two rows */
 .theme-card { display: flex; flex-direction: column; gap: 3px; padding: 4px 5px; border: 2px solid transparent; border-radius: 6px; text-align: left; height: 58px; box-sizing: border-box; overflow: hidden; }
 .theme-badge { color: var(--accent); margin-right: 3px; }
 .theme-card:hover { filter: brightness(1.12); }
@@ -555,6 +563,24 @@ input:disabled, select:disabled { opacity: 0.5; }
 .dlg.settings.windowed .settings-pane > .form-grid { flex: none; }
 /* the measuring pass: the pane takes its natural height, out of sight, so each tab can be measured */
 .dlg.settings .settings-pane.measuring { visibility: hidden; flex: none; height: auto; overflow: visible; }
+/* ── Print dialog: the setup on the left, the preview (a PDF, or the paged document in the browser) on the right ── */
+.dlg.print-dlg .dlg-body { padding: 10px 12px; }
+.print-body { display: flex; gap: 14px; height: min(620px, calc(100vh - 150px)); min-height: 320px; }
+.print-form { flex: none; width: 330px; align-content: start; gap: 9px 10px; }
+.print-form select { width: 100%; min-width: 0; }
+.print-form .check { white-space: nowrap; }
+.print-orient .check, .print-pages .check { margin-right: 6px; }
+.print-form input.invalid { border-color: var(--danger); }
+.print-preview { flex: 1; min-width: 0; position: relative; background: #6b6f76; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.print-pdf { width: 100%; height: 100%; border: 0; display: block; background: #6b6f76; }
+.print-loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 8px 14px; background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow); font-size: 12px; white-space: nowrap; }
+.print-approx-scroll { position: absolute; inset: 0; overflow: auto; padding: 16px; }
+.print-approx-box { margin: 0 auto; overflow: hidden; }
+.print-approx { position: relative; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.45); }
+.print-break { position: absolute; left: 0; right: 0; height: 0; border-top: 2px dashed #d33; pointer-events: none; }
+.print-break span { position: absolute; right: 4px; top: 2px; font-size: 10px; color: #d33; background: rgba(255,255,255,0.85); padding: 0 4px; border-radius: 3px; }
+.print-approx-note { text-align: center; padding: 10px 0 0; color: #e8e8e8; }
+.print-count { flex: 1; text-align: left; }
 /* number fields: − value + */
 .num-field { gap: 4px; }
 .num-btn { flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;

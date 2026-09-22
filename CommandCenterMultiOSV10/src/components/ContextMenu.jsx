@@ -22,7 +22,7 @@ const POPUP_TIMEOUT_MS = 500;   // the popup window has this long to report itse
 // The items as the popup window needs them: plain data, no React (it draws them itself).
 const plainItems = (items) => items.map((it) => (it.sep
   ? { sep: true }
-  : { id: it.id, label: it.label, icon: it.icon, shortcut: it.shortcut, checked: !!it.checked, disabled: !!it.disabled, swatch: it.swatch, swatchBg: it.swatchBg }));
+  : { id: it.id, label: it.label, icon: it.icon, shortcut: it.shortcut, checked: !!it.checked, disabled: !!it.disabled, swatch: it.swatch, swatchBg: it.swatchBg, remove: it.remove, removeTitle: it.removeTitle }));
 
 export function ContextMenu({ x, y, items, onPick, onClose, anchorEl }) {
   const ref = useRef(null);
@@ -46,7 +46,8 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl }) {
     liveRef.current = true;
     doneRef.current = false;
     const offShown = menuPopup.onShown(() => { shownRef.current = true; });
-    const offPicked = menuPopup.onPicked(({ id }) => { if (!liveRef.current) return; liveRef.current = false; cb.current.onPick(id); });
+    // A `keep` pick (the ✕ of a removable entry) leaves the menu open: the owner drops the entry and the items are re-sent below.
+    const offPicked = menuPopup.onPicked(({ id, keep }) => { if (!liveRef.current) return; if (!keep) liveRef.current = false; cb.current.onPick(id, !!keep); });
     const offClosed = menuPopup.onClosed(() => { if (!liveRef.current) return; liveRef.current = false; cb.current.onClose(); });
     // A popup that never reports itself on screen is no use: draw the menu in this window instead, so a
     // menu always appears even if the popup window cannot be shown on this system.
@@ -163,6 +164,8 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl }) {
             <span className="ctx-label">{it.label}</span>
             {it.icon && it.checked && <Icon name="check" size={14} className="ctx-check" />}
             {it.shortcut && <span className="ctx-shortcut">{it.shortcut}</span>}
+            {/* `remove`: a ✕ at the right end picks that id instead (a folder-history entry is dropped without leaving the menu) */}
+            {it.remove && <span className="ctx-remove" role="button" title={it.removeTitle} onClick={(e) => { e.stopPropagation(); onPick(it.remove, true); }}><Icon name="close" size={12} /></span>}
           </button>
         ))}
     </div>

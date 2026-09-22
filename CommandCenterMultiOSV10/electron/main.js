@@ -42,7 +42,7 @@ let api = null;
 // Tool windows (viewer, editor, multi-rename, search, settings): independent
 // top-level windows that close together with the main window.
 const toolWins = new Set();
-const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [1280, 960], about: [560, 400] };   // fits the tallest tab (theme / prompt: ~760 px of content + 130 chrome) with no scrollbar and no waste; clamped to the screen below
+const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [1040, 960], about: [560, 400] };   // fits the tallest tab (theme / prompt: ~760 px of content + 130 chrome) with no scrollbar and no waste; clamped to the screen below
 // Every tool window exists at most once: a second request focuses the open one
 // (and hands it the new arguments — see ipc.js). The settings window has a fixed size.
 const SINGLETON = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about']);
@@ -229,20 +229,26 @@ function watchMenuOwner(owner) {
   owner.on('resize', () => { if (owner === menuOwner) hideMenuPopup('owner-resize'); });
 }
 
-function menuPopupPick(id, seq) {
+// `keep`: the menu stays on screen (the owner re-sends its items — a removable entry was dropped).
+function menuPopupPick(id, seq, keep = false) {
   if (seq !== menuSeq) return;
   const owner = menuOwner;
-  hideMenuPopup('pick', undefined, false);
-  if (owner && !owner.isDestroyed()) owner.webContents.send('menu:picked', { id });
+  if (!keep) hideMenuPopup('pick', undefined, false);
+  if (owner && !owner.isDestroyed()) owner.webContents.send('menu:picked', { id, keep });
 }
 
 // ── Printing ──
 // The renderer builds a self-contained HTML document (src/lib/print.js: a text file as a <pre>, an
-// image as an <img>) and hands it here. It is rendered in a hidden window of its own — the app's
-// theme and chrome never reach the paper — and the system print dialog is opened for it. The
-// document goes through a temporary file: a data: URL would hit Chromium's limit with a big image.
+// image as an <img>; the page size, orientation, margins and scale are CSS in the document itself, so
+// the preview and the paper agree) and hands it here. It is rendered in a hidden window of its own —
+// the app's theme and chrome never reach the paper — and either
+//   • printed: silently on the chosen printer with the chosen copies / page range (the print dialog
+//     of the app, src/dialogs/PrintDialog.jsx, is the dialog), or through the system dialog when no
+//     printer is named, or
+//   • turned into a PDF (printToPDF) for the preview in that dialog.
+// The document goes through a temporary file: a data: URL would hit Chromium's limit with a big image.
 let printSeq = 0;
-function printHtml({ html, title }, owner) {
+function withPrintWindow({ html, title }, owner, work) {
   return new Promise((resolve) => {
     const dir = path.join(app.getPath('temp'), 'command-center-print');
     fs.mkdirSync(dir, { recursive: true });
@@ -264,18 +270,64 @@ function printHtml({ html, title }, owner) {
     win.on('closed', () => finish({ ok: false, cancelled: true }));
     win.webContents.on('did-fail-load', (_e, code, desc) => finish({ ok: false, error: `${desc || 'load failed'} (${code})` }));
     win.webContents.once('did-finish-load', () => {
-      // Give images a frame to decode before the dialog snapshots the page.
+      // Give images a frame to decode before the page is snapshotted.
       setTimeout(() => {
         if (settled) return;
-        win.webContents.print({ silent: false, printBackground: true }, (success, reason) => {
-          // Chromium reports "cancelled" when the user backs out of the dialog — not an error.
-          if (success) finish({ ok: true });
-          else finish(/cancel/i.test(reason || '') ? { ok: false, cancelled: true } : { ok: false, error: reason || 'print failed' });
-        });
+        work(win).then(finish, (err) => finish({ ok: false, error: err && err.message ? err.message : String(err) }));
       }, 150);
     });
     win.loadFile(file);
   });
+}
+
+// Paper names the print dialog offers → what webContents.print / printToPDF take (B5 is not a named size).
+const PAPER_SIZES = { A3: 'A3', A4: 'A4', A5: 'A5', Letter: 'Letter', Legal: 'Legal', Tabloid: 'Tabloid', B5: { width: 176000, height: 250000 } };
+const PAPER_INCHES = { A3: [11.69, 16.54], A4: [8.27, 11.69], A5: [5.83, 8.27], Letter: [8.5, 11], Legal: [8.5, 14], Tabloid: [11, 17], B5: [6.93, 9.84] };
+
+// options: { deviceName, copies, pageRanges: [{from,to}] (0-based), landscape, paper, color }
+function printHtml({ html, title, options }, owner) {
+  const o = options || {};
+  return withPrintWindow({ html, title }, owner, (win) => new Promise((resolve) => {
+    const opts = { silent: !!o.deviceName, printBackground: true };   // default margins = the document's own @page rule (a 'none' / custom type would override it)
+    if (o.deviceName) opts.deviceName = o.deviceName;
+    if (o.copies > 1) opts.copies = Math.min(99, Math.floor(o.copies));
+    if (Array.isArray(o.pageRanges) && o.pageRanges.length) opts.pageRanges = o.pageRanges;
+    if (typeof o.landscape === 'boolean') opts.landscape = o.landscape;
+    if (o.paper && PAPER_SIZES[o.paper]) opts.pageSize = PAPER_SIZES[o.paper];
+    if (o.color === false) opts.color = false;
+    win.webContents.print(opts, (success, reason) => {
+      // Chromium reports "cancelled" when the user backs out of the dialog — not an error.
+      if (success) resolve({ ok: true });
+      else resolve(/cancel/i.test(reason || '') ? { ok: false, cancelled: true } : { ok: false, error: reason || 'print failed' });
+    });
+  }));
+}
+
+// The preview: the same document as a PDF (base64) plus its page count.
+function printPreview({ html, title, options }, owner) {
+  const o = options || {};
+  return withPrintWindow({ html, title }, owner, async (win) => {
+    const size = PAPER_INCHES[o.paper] || PAPER_INCHES.A4;
+    const pdf = await win.webContents.printToPDF({
+      printBackground: true,
+      // The document's @page rule (size, orientation, margins) is what the paper gets, so the PDF follows it too.
+      preferCSSPageSize: true,
+      pageSize: { width: o.landscape ? size[1] : size[0], height: o.landscape ? size[0] : size[1] },
+      landscape: !!o.landscape,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      ...(o.pageRanges ? { pageRanges: o.pageRanges } : {}),
+    });
+    const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+    return { ok: true, pdf: pdf.toString('base64'), pages };
+  });
+}
+
+// The printers the system knows (the print dialog's printer list); the default one is flagged.
+async function printers() {
+  const wc = (mainWin && !mainWin.isDestroyed() ? mainWin : BrowserWindow.getAllWindows()[0] || null);
+  if (!wc) return [];
+  const list = await wc.webContents.getPrintersAsync();
+  return list.map((p) => ({ name: p.name, displayName: p.displayName || p.name, isDefault: !!p.isDefault }));
 }
 
 function iconPath() {
@@ -286,11 +338,11 @@ function iconPath() {
 function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
-  const MIN_W = 1142, MIN_H = 600;   // outer size; ≈ 1126 px of content — see .app min-width in styles.css
+  const MIN_W = 1142, MIN_H = 713;   // outer size (1126×674 of content) — see .app min-width in styles.css
   const win = new BrowserWindow({
-    // Saved bounds from an older build may be smaller than today's minimum — Electron does not clamp them itself.
-    width: Math.max(MIN_W, saved && saved.width ? saved.width : 1280),
-    height: Math.max(MIN_H, saved && saved.height ? saved.height : 780),
+    // The window always opens at its minimum size; only the last position is restored.
+    width: MIN_W,
+    height: MIN_H,
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
     // Wide enough for the full icon toolbar (measured ~1110 px) in either language, so
@@ -313,7 +365,6 @@ function createWindow() {
     },
   });
   mainWin = win;
-  if (saved && saved.maximized) win.maximize();
 
   win.once('ready-to-show', () => win.show());
 
@@ -476,7 +527,7 @@ if (!gotLock) {
         const r = await dialog.showOpenDialog(owner || mainWin, { defaultPath: defaultPath || undefined, properties: ['openFile'], filters: filters || undefined });
         return r.canceled ? null : r.filePaths[0];
       },
-    }, { openToolWindow, toolWins: () => toolWins, showMenuPopup, placeMenuPopup, menuPopupPick, hideMenuPopup, printHtml });
+    }, { openToolWindow, toolWins: () => toolWins, showMenuPopup, placeMenuPopup, menuPopupPick, hideMenuPopup, printHtml, printPreview, printers });
     createWindow();
     // The menu popup is kept alive and hidden, so opening a menu never waits for a page to load.
     if (!argValue('smoke-url')) mainWin.once('ready-to-show', () => { try { menuPopupWindow(); } catch { /* menus fall back to drawing in the window */ } });
