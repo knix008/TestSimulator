@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { clampPopupPos } from '../lib/view.js';
 
 // Reusable context menu. `items` is a list of:
 //   { icon: Component, label, onClick, disabled, danger }  or  { separator: true }
@@ -6,31 +7,40 @@ export default function ContextMenu({ open, x, y, items, onClose }) {
   const ref = useRef(null);
   const [pos, setPos] = useState({ x, y });
 
-  useEffect(() => { setPos({ x, y }); }, [x, y]);
-
-  // Clamp inside the viewport once measured.
+  // Measure after layout and pin the menu inside the window. A later effect
+  // must not write the raw click point back — that is what put the menu
+  // under the window edge.
   useLayoutEffect(() => {
-    if (!open || !ref.current) return;
-    const r = ref.current.getBoundingClientRect();
-    let nx = x, ny = y;
-    if (x + r.width > window.innerWidth) nx = Math.max(4, window.innerWidth - r.width - 4);
-    if (y + r.height > window.innerHeight) ny = Math.max(4, window.innerHeight - r.height - 4);
-    if (nx !== pos.x || ny !== pos.y) setPos({ x: nx, y: ny });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, x, y]);
+    if (!open) return;
+    const el = ref.current;
+    setPos(clampPopupPos({
+      x,
+      y,
+      width: el?.offsetWidth || 224,
+      height: el?.offsetHeight || 0,
+      viewW: window.innerWidth,
+      viewH: window.innerHeight,
+    }));
+  }, [open, x, y, items]);
 
   useEffect(() => {
     if (!open) return;
-    const close = () => onClose();
+    const onPointerDown = (e) => {
+      if (ref.current?.contains(e.target)) return;
+      onClose();
+    };
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('mousedown', close);
-    window.addEventListener('resize', close);
-    window.addEventListener('blur', close);
+    // Capture: a bubble listener misses clicks that stopPropagation, and a
+    // window mousedown that closed the menu before click fired is why Copy
+    // (and other items) did nothing.
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('resize', onClose);
+    window.addEventListener('blur', onClose);
     window.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('mousedown', close);
-      window.removeEventListener('resize', close);
-      window.removeEventListener('blur', close);
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('resize', onClose);
+      window.removeEventListener('blur', onClose);
       window.removeEventListener('keydown', onKey);
     };
   }, [open, onClose]);
@@ -42,7 +52,13 @@ export default function ContextMenu({ open, x, y, items, onClose }) {
       ref={ref}
       className="ctxmenu"
       style={{ left: pos.x, top: pos.y }}
-      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => {
+        // Keep the page text selection; a default mousedown here collapses it
+        // and Copy then reads an empty range.
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {items.map((it, i) => {
@@ -51,9 +67,14 @@ export default function ContextMenu({ open, x, y, items, onClose }) {
         return (
           <button
             key={i}
+            type="button"
             className={`ctxmenu-item${it.danger ? ' danger' : ''}`}
             disabled={it.disabled}
-            onClick={() => { onClose(); it.onClick?.(); }}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              it.onClick?.();
+              onClose();
+            }}
           >
             <span className="ci-icon">{Ico ? <Ico size={16} /> : null}</span>
             <span className="ci-label">{it.label}</span>

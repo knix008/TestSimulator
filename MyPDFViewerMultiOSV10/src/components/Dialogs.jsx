@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Modal from './Modal.jsx';
 import { IconAlert, IconCopy, IconCheck, IconDownload, IconUrl, IconText } from './Icons.jsx';
 import { copyText, formatBytes } from '../lib/platform.js';
+import { isHttpUrl } from '../lib/view.js';
 
 // ── Error dialog ──────────────────────────────────────────
 // Errors are never swallowed: the user sees what the app was doing, the exact
@@ -51,6 +52,7 @@ export function ErrorDialog({ error, onClose }) {
       icon={IconAlert}
       onClose={onClose}
       width={620}
+      className="error-modal"
       closeOnBackdrop={false}
       closeLabel={t('error.close')}
       footer={(
@@ -101,7 +103,7 @@ export function ProgressDialog({ task, onCancel }) {
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={t(`progress.${kind}`, kind)}>
-      <div className="modal progress-modal" style={{ width: 460 }}>
+      <div className="modal progress-modal" style={{ '--modal-width': '460px' }}>
         <div className="modal-head">
           <span className="modal-head-icon"><IconDownload size={17} /></span>
           <h2 className="modal-title">{t(`progress.${kind}`, kind)}</h2>
@@ -139,41 +141,58 @@ export function PromptDialog({ open, kind, error, onSubmit, onClose }) {
 
   if (!open) return null;
   const isUrl = kind === 'url';
+  const isComment = kind === 'comment';
 
   const submit = () => {
     const v = value.trim();
-    if (isUrl && !/^https?:\/\//i.test(v)) { setLocalError(t('url.invalid')); return; }
+    if (isUrl && !isHttpUrl(v)) { setLocalError(t('url.invalid')); return; }
     if (!v) return;
     onSubmit(v);
   };
 
+  const title = isUrl ? t('url.title') : isComment ? t('comment.title') : t('password.title');
+  const label = isUrl ? t('url.label') : isComment ? t('comment.label') : t('password.label');
+  const action = isUrl ? t('url.open') : isComment ? t('comment.ok') : t('password.ok');
+
   return (
     <Modal
       open
-      title={isUrl ? t('url.title') : t('password.title')}
+      title={title}
       icon={isUrl ? IconUrl : IconText}
       onClose={onClose}
       width={520}
+      className="prompt-modal"
       closeLabel={t('common.cancel')}
       footer={(
         <>
           <div className="spacer" />
           <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
-          <button className="btn primary" onClick={submit}>{isUrl ? t('url.open') : t('password.ok')}</button>
+          <button className="btn primary" onClick={submit}>{action}</button>
         </>
       )}
     >
       <label className="field">
-        <span className="field-label">{isUrl ? t('url.label') : t('password.label')}</span>
-        <input
-          data-autofocus
-          className="input"
-          type={isUrl ? 'url' : 'password'}
-          value={value}
-          placeholder={isUrl ? t('url.placeholder') : ''}
-          onChange={(e) => { setValue(e.target.value); setLocalError(''); }}
-          onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-        />
+        <span className="field-label">{label}</span>
+        {isComment ? (
+          <textarea
+            data-autofocus
+            className="input"
+            rows={4}
+            value={value}
+            placeholder={t('comment.placeholder')}
+            onChange={(e) => { setValue(e.target.value); setLocalError(''); }}
+          />
+        ) : (
+          <input
+            data-autofocus
+            className="input"
+            type={isUrl ? 'url' : 'password'}
+            value={value}
+            placeholder={isUrl ? t('url.placeholder') : ''}
+            onChange={(e) => { setValue(e.target.value); setLocalError(''); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+          />
+        )}
       </label>
       {(localError || error) ? <p className="field-error">{localError || error}</p> : null}
     </Modal>
@@ -202,7 +221,7 @@ export function PropertiesDialog({ open, doc, onClose }) {
   ].filter(([, v]) => v !== undefined && v !== null && v !== '');
 
   return (
-    <Modal open title={t('props.title')} icon={IconText} onClose={onClose} width={600}
+    <Modal open title={t('props.title')} icon={IconText} onClose={onClose} width={600} className="props-modal"
       closeLabel={t('common.ok')}
       footer={(<><div className="spacer" /><button className="btn primary" onClick={onClose} data-autofocus>{t('common.ok')}</button></>)}
     >
@@ -213,6 +232,37 @@ export function PropertiesDialog({ open, doc, onClose }) {
           ))}
         </tbody>
       </table>
+    </Modal>
+  );
+}
+
+// Asked before quitting (or replacing the open document) when bookmarks,
+// comments or other workspace edits have not been written to a .pdfvw file.
+export function UnsavedDialog({ open, onSave, onDiscard, onCancel }) {
+  const { t } = useTranslation();
+  if (!open) return null;
+  return (
+    <Modal
+      open
+      title={t('unsaved.title')}
+      icon={IconAlert}
+      onClose={onCancel}
+      width={480}
+      className="unsaved-modal"
+      closeOnBackdrop={false}
+      closeLabel={t('common.cancel')}
+      footer={(
+        <>
+          <button className="btn" type="button" onClick={onDiscard}>{t('unsaved.discard')}</button>
+          <div className="spacer" />
+          <button className="btn" type="button" onClick={onCancel}>{t('common.cancel')}</button>
+          <button className="btn primary" type="button" onClick={onSave} data-autofocus>
+            {t('common.save')}
+          </button>
+        </>
+      )}
+    >
+      <p className="unsaved-message">{t('unsaved.message')}</p>
     </Modal>
   );
 }

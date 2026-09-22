@@ -8,6 +8,16 @@ import { renderPage } from './pdf.js';
 
 export const PRINT_SCOPES = ['all', 'current', 'custom'];
 export const PRINT_DPI = 150;   // good enough for text, small enough to stay responsive
+export const PREVIEW_MAX_WIDTH = 240;
+export const PREVIEW_MAX_HEIGHT = 300;
+
+// Which page of the current selection the preview should show.
+export function clampPreviewIndex(index, count) {
+  if (!count) return 0;
+  const n = Number(index);
+  const i = Number.isFinite(n) ? Math.trunc(n) : 0;
+  return Math.min(Math.max(0, i), count - 1);
+}
 
 // Parses "1-5, 8, 11-13" into a sorted, de-duplicated list of page numbers.
 // Returns { pages, error }: `error` is a message key when the text is unusable.
@@ -69,6 +79,19 @@ export async function renderPagesForPrint({ doc, pages, rotation = 0, dpi = PRIN
   }
   onProgress?.({ done: pages.length, total: pages.length });
   return sheets;
+}
+
+// One page, scaled to fit the print-dialog preview pane.
+export async function renderPreviewPage({
+  doc, pageNumber, canvas, rotation = 0,
+  maxWidth = PREVIEW_MAX_WIDTH, maxHeight = PREVIEW_MAX_HEIGHT,
+}) {
+  const page = await doc.getPage(pageNumber);
+  const base = page.getViewport({ scale: 1, rotation: (page.rotate + rotation) % 360 });
+  const scale = Math.min(maxWidth / Math.max(1, base.width), maxHeight / Math.max(1, base.height), 1);
+  const res = await renderPage({ page, canvas, scale, rotation, dpr: 1 });
+  await res.task.promise;
+  return { page: pageNumber, width: res.viewport.width, height: res.viewport.height };
 }
 
 // One image per sheet, each on its own piece of paper.

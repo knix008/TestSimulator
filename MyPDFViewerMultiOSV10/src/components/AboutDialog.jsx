@@ -57,6 +57,7 @@ export default function AboutDialog({ open, onClose }) {
       icon={IconInfo}
       onClose={onClose}
       width={560}
+      className="about-modal"
       closeLabel={t('about.close')}
       footer={(
         <>

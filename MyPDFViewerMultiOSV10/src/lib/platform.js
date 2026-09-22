@@ -121,6 +121,34 @@ export async function writeTextTo(filePath, content) {
   return api.writeText({ filePath, content });
 }
 
+export async function writeBinaryTo(filePath, bytes) {
+  if (!isElectron) throw new Error('Writing to a path is only available in the desktop app.');
+  return api.writeBinary({ filePath, data: bytes });
+}
+
+// Any file, used to attach a document to the current PDF page.
+export function pickAnyFile() {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      input.remove();
+      if (!file) { resolve(null); return; }
+      const buf = await file.arrayBuffer();
+      resolve({
+        data: new Uint8Array(buf),
+        name: file.name,
+        mime: file.type || 'application/octet-stream',
+        size: file.size,
+      });
+    }, { once: true });
+    input.click();
+  });
+}
+
 // Two-step save, for data whose encoding depends on the chosen file type:
 // ask for the destination first, then encode, then write. Returns null when
 // the user cancels. On the web there is no path to pick, so `encode` is called

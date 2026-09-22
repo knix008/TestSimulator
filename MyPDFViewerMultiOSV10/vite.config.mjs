@@ -27,4 +27,11 @@ export default defineConfig({
     emptyOutDir: true,
     chunkSizeWarningLimit: 2500,
   },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./test/setup.js'],
+    include: ['test/**/*.test.{js,jsx}'],
+    restoreMocks: true,
+    reporters: ['dot', './test/reporters/summary.mjs'],
+  },
 });

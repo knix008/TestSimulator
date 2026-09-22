@@ -11,25 +11,29 @@ import Tooltip from './components/Tooltip.jsx';
 import Toasts from './components/Toasts.jsx';
 import SettingsDialog from './components/SettingsDialog.jsx';
 import AboutDialog from './components/AboutDialog.jsx';
-import { ErrorDialog, ProgressDialog, PromptDialog, PropertiesDialog } from './components/Dialogs.jsx';
+import { ErrorDialog, ProgressDialog, PromptDialog, PropertiesDialog, UnsavedDialog } from './components/Dialogs.jsx';
 import CaptureDialog from './components/CaptureDialog.jsx';
 import PrintDialog from './components/PrintDialog.jsx';
 import {
   IconCopy, IconSelectAll, IconMarquee, IconHighlight, IconBookmark, IconZoomIn,
   IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconImage,
-  IconSelectText, IconDownload, IconClip, IconClose,
+  IconSelectText, IconDownload, IconClip, IconClose, IconComment,
+} from './components/Icons.jsx';
 } from './components/Icons.jsx';
 
 import {
-  loadDocument, getOutline, destToPage, getDocumentInfo, getPageText, extractPageImages,
-  searchDocument, getImageDataUrl, cropCanvas,
+  loadDocument, getOutline, destToLocation, getDocumentInfo, getPageText, extractPageImages,
+  searchDocument, getDocumentComments, getImageDataUrl, cropCanvas,
 } from './lib/pdf.js';
 import {
   isElectron, api, openFileDialog, readPath, downloadUrl, copyText, copyImage,
-  saveText, writeTextTo, baseName, dirName, pathExists, saveEncoded,
+  saveText, writeTextTo, saveBinary, pickAnyFile,
+  baseName, dirName, pathExists, saveEncoded, openExternal,
 } from './lib/platform.js';
+import { namedActionPage } from './lib/nav.js';
 import {
   loadSettings, persistSettings, DEFAULT_SETTINGS, addRecentFile, removeRecentFile,
+  clampSidebarWidth,
   addRecentDir, applyFontSettings, applyTheme,
 } from './lib/settings.js';
 import { useHistory, EMPTY_WORKSPACE, newId } from './lib/history.js';
@@ -39,9 +43,17 @@ import {
 import { encodeImage, formatById, formatByExtension, saveFilters } from './lib/image.js';
 import { renderPagesForPrint, printViaBrowser } from './lib/print.js';
 import i18n, { setLanguage } from './i18n.js';
-
-const HIGHLIGHT_COLOR = 'rgba(255, 214, 0, 0.42)';
-const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8];
+import {
+  HIGHLIGHT_COLOR, cycleTool, nextZoom, clampPage, normalizeRotation,
+  failMessage, windowTitle, bookmarkLabel, nextSidebar, pickCopyText,
+  bookmarkRecord, bookmarkAnchorY,
+} from './lib/view.js';
+import { pageOccurrence } from './lib/search.js';
+import { commentAnchorY, mergeCommentList } from './lib/comments.js';
+import {
+  writeWorkspaceIntoPdf, attachmentRecord, base64ToBytes, MAX_ATTACHMENT_BYTES,
+  suggestedPdfCopyName,
+} from './lib/pdf-write.js';
 
 export default function App() {
   const { t } = useTranslation();
@@ -65,10 +77,21 @@ export default function App() {
   const workspace = history.state;
   const [workspacePath, setWorkspacePath] = useState(null);
   const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
+  const [unsavedOpen, setUnsavedOpen] = useState(false);
+  const unsavedResolve = useRef(null);
+  const leaveOrCancelRef = useRef(async () => true);
+  const savePdfRef = useRef(async () => false);
 
   // ── Interaction ────────────────────────────────────────
   const [selectionText, setSelectionText] = useState('');
-  const [search, setSearch] = useState({ query: '', results: [], busy: false });
+  const selectionTextRef = useRef('');
+  const [search, setSearch] = useState({ query: '', results: [], busy: false, active: null });
+  const [activeBookmark, setActiveBookmark] = useState(null);
+  const [activeComment, setActiveComment] = useState(null);
+  const [docComments, setDocComments] = useState({ items: [], busy: false });
+  const commentsKeyRef = useRef(null);
   const [menu, setMenu] = useState({ open: false, x: 0, y: 0, items: [] });
 
   // ── Dialogs / feedback ─────────────────────────────────
@@ -88,6 +111,7 @@ export default function App() {
   const viewRef = useRef(null);
   const passwordRetry = useRef(null);
   const searchAbort = useRef(null);
+  const commentDraft = useRef(null);
 
   // Which mouse tool is active: select text, or select a region / picture.
   const tool = settings.tool;
@@ -107,7 +131,7 @@ export default function App() {
     // "Error invoking remote method 'fs:readBinary': Error: …" — the user only
     // needs the part after that, while the raw text stays in the details.
     const raw = err?.message || String(err) || 'Unknown error';
-    const message = raw.replace(/^Error invoking remote method '[^']*':\s*(Error:\s*)?/, '');
+    const message = failMessage(err);
     const details = [
       err?.name ? `${err.name}: ${raw}` : raw,
       err?.stack || '',
@@ -214,7 +238,11 @@ export default function App() {
         data,
       });
       setImages([]);
-      setSearch({ query: '', results: [], busy: false });
+      setSearch({ query: '', results: [], busy: false, active: null });
+      setActiveBookmark(null);
+      setActiveComment(null);
+      commentsKeyRef.current = null;
+      setDocComments({ items: [], busy: false });
       setSelectionText('');
 
       setDocInfo(null);
@@ -227,13 +255,15 @@ export default function App() {
         try { setDocInfo(await getDocumentInfo(pdf)); } catch { /* properties stay empty */ }
         try {
           const raw = await getOutline(pdf);
-          // Walk the tree, turning each destination into a real page number.
+          // Walk the tree, turning each destination into a page + in-page Y.
           const resolve = async (nodes) => {
             const out = [];
             for (const node of nodes) {
+              const loc = node.dest ? await destToLocation(pdf, node.dest) : null;
               out.push({
                 ...node,
-                page: node.dest ? await destToPage(pdf, node.dest) : null,
+                page: loc?.page ?? null,
+                loc,
                 items: node.items.length ? await resolve(node.items) : [],
               });
             }
@@ -289,6 +319,7 @@ export default function App() {
 
   const openViaDialog = useCallback(async () => {
     try {
+      if (!(await leaveOrCancelRef.current())) return;
       if (!isElectron) {
         const picked = await openFileDialog({});
         if (picked) await openBytes(picked);
@@ -320,6 +351,7 @@ export default function App() {
 
   const openFromUrl = useCallback(async (url) => {
     setPrompt({ open: false, kind: 'url', error: '' });
+    if (!(await leaveOrCancelRef.current())) return;
     try {
       const payload = await withProgress('downloading', url, (onProgress) =>
         downloadUrl(url, { onProgress }));
@@ -334,7 +366,10 @@ export default function App() {
   useEffect(() => {
     if (!isElectron || !settingsReady) return undefined;
     api.takePendingOpen().then((p) => { if (p) openByPath(p); }).catch(() => {});
-    return api.onOpenPath((p) => openByPath(p));
+    return api.onOpenPath(async (p) => {
+      if (!(await leaveOrCancelRef.current())) return;
+      openByPath(p);
+    });
   }, [settingsReady, openByPath]);
 
   // ── Saving the workspace ───────────────────────────────
@@ -351,7 +386,7 @@ export default function App() {
   }), [file, pageNumber, settings, scale, workspace]);
 
   const saveWorkspaceAs = useCallback(async () => {
-    if (!doc) return;
+    if (!doc) return false;
     try {
       const defaultName = `${(file?.name || 'document').replace(/\.pdf$/i, '')}.${WORKSPACE_EXT}`;
       const saved = await withProgress('saving', defaultName, (onProgress) => saveText({
@@ -361,19 +396,21 @@ export default function App() {
         filters: [{ name: 'MyPDFViewer Workspace', extensions: [WORKSPACE_EXT] }],
         onProgress,
       }));
-      if (!saved) return;
+      if (!saved) return false;
       setWorkspacePath(typeof saved === 'string' ? saved : null);
       setDirty(false);
       setStatusMessage(t('status.saved', { name: baseName(saved) }));
       toast(t('status.saved', { name: baseName(saved) }), 'ok');
+      return true;
     } catch (err) {
       fail(err, 'workspace');
+      return false;
     }
   }, [doc, file, fail, settings.lastDir, t, toast, withProgress, workspaceJson]);
 
   const saveWorkspace = useCallback(async () => {
-    if (!doc) return;
-    if (!workspacePath || !isElectron) { await saveWorkspaceAs(); return; }
+    if (!doc) return false;
+    if (!workspacePath || !isElectron) return saveWorkspaceAs();
     try {
       await withProgress('saving', baseName(workspacePath), async (onProgress) => {
         onProgress({ done: 0, total: 1 });
@@ -383,10 +420,117 @@ export default function App() {
       setDirty(false);
       setStatusMessage(t('status.saved', { name: baseName(workspacePath) }));
       toast(t('status.saved', { name: baseName(workspacePath) }), 'ok');
+      return true;
     } catch (err) {
       fail(err, 'workspace', { file: workspacePath });
+      return false;
     }
   }, [doc, fail, saveWorkspaceAs, t, toast, withProgress, workspaceJson, workspacePath]);
+
+  const reloadAfterPdfSave = useCallback(async (bytes, filePath) => {
+    await openBytes({
+      data: bytes,
+      name: filePath ? baseName(filePath) : (file?.name || 'document.pdf'),
+      path: filePath || file?.path || null,
+      size: bytes.length,
+    }, {
+      restore: {
+        workspace: {
+          ...workspace,
+          annotations: [],
+          bookmarks: [],
+          attachments: [],
+        },
+        view: {
+          page: pageNumber,
+          zoomMode: settings.zoomMode,
+          zoom: settings.zoomMode === 'custom' ? scale : settings.zoom,
+          rotation: settings.rotation,
+          pageLayout: settings.pageLayout,
+        },
+      },
+    });
+    if (workspace.clips.length) setDirty(true);
+  }, [file, openBytes, pageNumber, scale, settings, workspace]);
+
+  const savePdfAs = useCallback(async () => {
+    if (!doc || !file?.data) return false;
+    try {
+      const bytes = await withProgress('saving', file.name || 'document.pdf', async (onProgress) => {
+        onProgress({ done: 0, total: 1 });
+        const out = await writeWorkspaceIntoPdf(file.data, workspace);
+        onProgress({ done: 1, total: 1 });
+        return out;
+      });
+      const saved = await saveBinary({
+        defaultName: suggestedPdfCopyName(file.name || 'document.pdf'),
+        defaultDir: settings.lastDir,
+        bytes,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      });
+      if (!saved) return false;
+      const nextPath = isElectron && typeof saved === 'string' ? saved : file.path;
+      await reloadAfterPdfSave(bytes, nextPath);
+      toast(t('status.savedPdf', { name: baseName(saved) }), 'ok');
+      return true;
+    } catch (err) {
+      fail(err, 'pdf');
+      return false;
+    }
+  }, [doc, fail, file, reloadAfterPdfSave, settings.lastDir, t, toast, withProgress, workspace]);
+
+  const savePdf = useCallback(async () => savePdfAs(), [savePdfAs]);
+  savePdfRef.current = savePdf;
+
+  const askUnsaved = useCallback(() => {
+    if (unsavedResolve.current) unsavedResolve.current('cancel');
+    return new Promise((resolve) => {
+      unsavedResolve.current = resolve;
+      setUnsavedOpen(true);
+    });
+  }, []);
+
+  const finishUnsaved = useCallback((choice) => {
+    setUnsavedOpen(false);
+    const resolve = unsavedResolve.current;
+    unsavedResolve.current = null;
+    resolve?.(choice);
+  }, []);
+
+  const leaveOrCancel = useCallback(async () => {
+    if (!dirtyRef.current) return true;
+    const choice = await askUnsaved();
+    if (choice === 'cancel') return false;
+    if (choice === 'save') return !!(await savePdfRef.current());
+    return true;
+  }, [askUnsaved]);
+  leaveOrCancelRef.current = leaveOrCancel;
+
+  const forceCloseApp = useCallback(() => {
+    if (isElectron) api.win.forceClose();
+    else window.close();
+  }, []);
+
+  const handleAppClose = useCallback(async () => {
+    if (!(await leaveOrCancel())) return;
+    forceCloseApp();
+  }, [forceCloseApp, leaveOrCancel]);
+
+  useEffect(() => {
+    if (!isElectron || !api.win?.onCloseRequest) return undefined;
+    return api.win.onCloseRequest(() => { handleAppClose(); });
+  }, [handleAppClose]);
+
+  useEffect(() => {
+    if (isElectron) return undefined;
+    const onBefore = (e) => {
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBefore);
+    return () => window.removeEventListener('beforeunload', onBefore);
+  }, []);
 
   // ── Workspace edits (all undoable) ─────────────────────
   const editWorkspace = useCallback((updater, label) => {
@@ -399,9 +543,11 @@ export default function App() {
   }, [editWorkspace]);
 
   // ── Copying ────────────────────────────────────────────
-  const copySelection = useCallback(async () => {
-    const text = selectionText || window.getSelection()?.toString() || '';
-    if (!text.trim()) { toast(t('error.noSelection'), 'warn'); return; }
+  const copyTextValue = useCallback(async (text, { warnIfEmpty = true } = {}) => {
+    if (!text.trim()) {
+      if (warnIfEmpty) toast(t('error.noSelection'), 'warn');
+      return;
+    }
     try {
       await copyText(text);
       addClip({ kind: 'text', page: pageNumber, content: text }, t('toolbar.copyText'));
@@ -410,7 +556,23 @@ export default function App() {
     } catch (err) {
       fail(err, 'copy');
     }
-  }, [addClip, fail, pageNumber, selectionText, t, toast]);
+  }, [addClip, fail, pageNumber, t, toast]);
+
+  const copySelection = useCallback(async (override) => {
+    const text = pickCopyText(
+      typeof override === 'string' ? override : '',
+      selectionTextRef.current,
+      window.getSelection()?.toString(),
+    );
+    await copyTextValue(text);
+  }, [copyTextValue]);
+
+  const onTextSelectionChange = useCallback((text) => {
+    const next = text || '';
+    selectionTextRef.current = next;
+    setSelectionText(next);
+    if (settings.autoCopyText && next.trim()) copyTextValue(next, { warnIfEmpty: false });
+  }, [copyTextValue, settings.autoCopyText]);
 
   const copyPageText = useCallback(async () => {
     if (!doc) return;
@@ -442,7 +604,7 @@ export default function App() {
       { kind: 'image', page: shot.page, content: shot.dataUrl, width: shot.width, height: shot.height },
       t('menu.copyAsImage')
     );
-    if (settings.captureAction === 'copy') {
+    if (settings.autoCopyRegion || settings.captureAction === 'copy') {
       await copyCapture(shot);
       keep();
       return;
@@ -462,7 +624,7 @@ export default function App() {
         { icon: IconImage, label: t('capture.title'), onClick: () => setCapture(shot) },
       ],
     });
-  }, [addClip, copyCapture, settings.captureAction, t]);
+  }, [addClip, copyCapture, settings.autoCopyRegion, settings.captureAction, t]);
 
   // Reads the selected picture at its full embedded resolution, falling back to
   // a crop of the rendered page when the original bitmap cannot be decoded.
@@ -673,56 +835,207 @@ export default function App() {
     searchAbort.current?.abort();
     const controller = new AbortController();
     searchAbort.current = controller;
-    setSearch({ query, results: [], busy: true });
+    setSearch({ query, results: [], busy: true, active: null });
     try {
       const results = await searchDocument(doc, query, { signal: controller.signal });
-      setSearch({ query, results, busy: false });
+      setSearch({ query, results, busy: false, active: null });
       setStatusMessage(t('side.results', { count: results.length }));
     } catch (err) {
-      setSearch({ query, results: [], busy: false });
+      setSearch({ query, results: [], busy: false, active: null });
       fail(err, 'search');
     }
   }, [doc, fail, t]);
 
   // ── Annotations / bookmarks ────────────────────────────
-  const addHighlight = useCallback(() => {
-    const sel = viewRef.current?.getSelectionRects();
-    if (!sel) { toast(t('error.noSelection'), 'warn'); return; }
+  const applyHighlight = useCallback((sel) => {
+    if (!sel?.rects?.length) { toast(t('error.noSelection'), 'warn'); return; }
     const annots = sel.rects.map((rect) => ({
-      id: newId(), page: sel.page, kind: 'highlight', rect, color: HIGHLIGHT_COLOR, text: sel.text.slice(0, 200),
+      id: newId(), page: sel.page, kind: 'highlight', rect, color: HIGHLIGHT_COLOR,
+      text: String(sel.text || '').slice(0, 200),
     }));
     editWorkspace((w) => ({ ...w, annotations: [...w.annotations, ...annots] }), t('toolbar.highlight'));
     viewRef.current?.clearSelection();
   }, [editWorkspace, t, toast]);
 
-  const addBookmark = useCallback(() => {
+  const addHighlight = useCallback(() => {
+    applyHighlight(viewRef.current?.getSelectionRects());
+  }, [applyHighlight]);
+
+  const addComment = useCallback((sel) => {
+    const shot = sel?.rects?.length ? sel : viewRef.current?.getSelectionRects();
+    if (!shot?.rects?.length) { toast(t('error.noSelection'), 'warn'); return; }
+    commentDraft.current = shot;
+    setPrompt({ open: true, kind: 'comment', error: '' });
+  }, [t, toast]);
+
+  const saveComment = useCallback((text) => {
+    const shot = commentDraft.current;
+    commentDraft.current = null;
+    setPrompt({ open: false, kind: 'comment', error: '' });
+    if (!shot?.rects?.length || !String(text || '').trim()) return;
+    const note = {
+      id: newId(),
+      page: shot.page,
+      kind: 'note',
+      rect: shot.rects[0],
+      rects: shot.rects,
+      color: 'rgba(255, 196, 0, 0.42)',
+      text: String(text).trim(),
+    };
+    editWorkspace((w) => ({ ...w, annotations: [...w.annotations, note] }), t('menu.comment'));
+    viewRef.current?.clearSelection();
+    setActiveComment({ id: note.id, stamp: Date.now() });
+    setSettings((s) => ({ ...s, sidebar: 'comments' }));
+    toast(t('menu.comment'), 'ok');
+  }, [editWorkspace, t, toast]);
+
+  const addBookmark = useCallback((textOverride, selectionOverride) => {
     if (!doc) return;
-    const label = (selectionText || '').trim().slice(0, 60) || `${t('common.page')} ${pageNumber}`;
-    editWorkspace((w) => ({ ...w, bookmarks: [...w.bookmarks, { id: newId(), page: pageNumber, label }] }), t('menu.addBookmark'));
+    const selection = selectionOverride?.rects?.length
+      ? selectionOverride
+      : viewRef.current?.getSelectionRects();
+    const label = bookmarkLabel(
+      pickCopyText(
+        typeof textOverride === 'string' ? textOverride : '',
+        selection?.text,
+        selectionTextRef.current,
+      ),
+      `${t('common.page')} ${pageNumber}`,
+    );
+    const rec = bookmarkRecord({
+      page: pageNumber,
+      label,
+      selection,
+      viewY: viewRef.current?.getVisibleFracY?.(pageNumber),
+    });
+    const id = newId();
+    editWorkspace((w) => ({ ...w, bookmarks: [...w.bookmarks, { id, ...rec }] }), t('menu.addBookmark'));
+    setActiveBookmark({ id, stamp: Date.now() });
+    setSettings((s) => ({ ...s, sidebar: 'bookmarks' }));
     toast(`${t('menu.addBookmark')} — ${label}`, 'ok');
-  }, [doc, editWorkspace, pageNumber, selectionText, t, toast]);
+  }, [doc, editWorkspace, pageNumber, t, toast]);
+
+  const attachFile = useCallback(async () => {
+    if (!doc) return;
+    try {
+      const picked = await pickAnyFile();
+      if (!picked) return;
+      if (picked.size > MAX_ATTACHMENT_BYTES) {
+        throw new Error(`Attachment is larger than ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))} MB.`);
+      }
+      const rec = attachmentRecord({
+        page: pageNumber,
+        name: picked.name,
+        mime: picked.mime,
+        bytes: picked.data,
+        y: viewRef.current?.getVisibleFracY?.(pageNumber) ?? 0.08,
+      });
+      editWorkspace(
+        (w) => ({ ...w, attachments: [...(w.attachments || []), { id: newId(), ...rec }] }),
+        t('menu.attachFile'),
+      );
+      setSettings((s) => ({ ...s, sidebar: 'comments' }));
+      toast(t('status.attached', { name: picked.name }), 'ok');
+    } catch (err) {
+      fail(err, 'attach');
+    }
+  }, [doc, editWorkspace, fail, pageNumber, t, toast]);
+
+  const saveAttachment = useCallback(async (item) => {
+    const name = item?.filename || item?.name || 'attachment';
+    const raw = item?.fileData || item?.data;
+    const bytes = raw instanceof Uint8Array ? raw : base64ToBytes(raw);
+    if (!bytes.length) return;
+    try {
+      const saved = await saveBinary({
+        defaultName: name,
+        defaultDir: settings.lastDir,
+        bytes,
+      });
+      if (saved) toast(t('status.saved', { name: baseName(saved) }), 'ok');
+    } catch (err) {
+      fail(err, 'save');
+    }
+  }, [fail, settings.lastDir, t, toast]);
 
   // ── View controls ──────────────────────────────────────
-  const goToPage = useCallback((n) => {
+  const goToPage = useCallback((n, loc) => {
     if (!doc) return;
-    const clamped = Math.min(Math.max(1, n), doc.numPages);
+    const clamped = clampPage(n, doc.numPages);
     setPageNumber(clamped);
-    viewRef.current?.scrollToPage(clamped, 'smooth');
+    viewRef.current?.scrollToPage(clamped, 'smooth', loc || null);
   }, [doc]);
+
+  const goToBookmark = useCallback((b) => {
+    if (!b) return;
+    setActiveBookmark({ id: b.id, stamp: Date.now() });
+    goToPage(b.page, { fracY: bookmarkAnchorY(b) });
+  }, [goToPage]);
+
+  const goToComment = useCallback((c) => {
+    if (!c) return;
+    setActiveComment({ id: c.id, page: c.page, stamp: Date.now() });
+    goToPage(c.page, { fracY: commentAnchorY(c) });
+  }, [goToPage]);
+
+  const commentItems = useMemo(
+    () => mergeCommentList(docComments.items, workspace.annotations, workspace.attachments),
+    [docComments.items, workspace.annotations, workspace.attachments],
+  );
+
+  useEffect(() => {
+    if (!doc || settings.sidebar !== 'comments') return undefined;
+    const key = `${file?.path || file?.name || ''}:${file?.size || 0}:${doc.numPages}`;
+    if (commentsKeyRef.current === key) return undefined;
+    commentsKeyRef.current = key;
+    let cancelled = false;
+    setDocComments({ items: [], busy: true });
+    getDocumentComments(doc)
+      .then((items) => { if (!cancelled) setDocComments({ items, busy: false }); })
+      .catch(() => { if (!cancelled) setDocComments({ items: [], busy: false }); });
+    return () => { cancelled = true; };
+  }, [doc, file?.path, file?.name, file?.size, settings.sidebar]);
+
+  const goToSearchHit = useCallback((hit) => {
+    if (!hit) return;
+    setSearch((s) => ({
+      ...s,
+      active: {
+        page: hit.page,
+        index: hit.index,
+        pageHit: pageOccurrence(s.results, hit),
+        stamp: Date.now(),
+      },
+    }));
+    goToPage(hit.page);
+  }, [goToPage]);
+
+  const followLink = useCallback(async (link) => {
+    if (!link) return;
+    if (link.url) {
+      try { await openExternal(link.url); }
+      catch (err) { fail(err, 'open'); }
+      return;
+    }
+    const named = namedActionPage(link.action, pageNumber, doc?.numPages || 1);
+    if (named) { goToPage(named); return; }
+    if (link.dest && doc) {
+      try {
+        const loc = await destToLocation(doc, link.dest);
+        if (loc?.page) goToPage(loc.page, loc);
+      } catch (err) { fail(err, 'open'); }
+    }
+  }, [doc, fail, goToPage, pageNumber]);
 
   const changeZoom = useCallback((dir) => {
     setSettings((s) => {
       const current = s.zoomMode === 'custom' ? s.zoom : scale;
-      const idx = ZOOM_STEPS.findIndex((z) => z > current + 0.001);
-      const next = dir > 0
-        ? ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, idx === -1 ? ZOOM_STEPS.length - 1 : idx)]
-        : ZOOM_STEPS[Math.max(0, (idx === -1 ? ZOOM_STEPS.length : idx) - 2)];
-      return { ...s, zoomMode: 'custom', zoom: next };
+      return { ...s, zoomMode: 'custom', zoom: nextZoom(current, dir) };
     });
   }, [scale]);
 
   const rotate = useCallback((delta) => {
-    setSettings((s) => ({ ...s, rotation: ((s.rotation + delta) % 360 + 360) % 360 }));
+    setSettings((s) => ({ ...s, rotation: normalizeRotation(s.rotation + delta) }));
   }, []);
 
   // ── Recent files ───────────────────────────────────────
@@ -751,7 +1064,7 @@ export default function App() {
 
   // ── Window title ───────────────────────────────────────
   useEffect(() => {
-    const title = file ? `${file.name}${dirty ? ' •' : ''} — MyPDFViewer` : 'MyPDFViewer';
+    const title = windowTitle(file?.name, dirty);
     document.title = title;
     if (isElectron) api.win.setTitle(title).catch(() => {});
   }, [file, dirty]);
@@ -763,7 +1076,7 @@ export default function App() {
       const mod = e.ctrlKey || e.metaKey;
 
       if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); openViaDialog(); return; }
-      if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveWorkspace(); return; }
+      if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); savePdf(); return; }
       if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); history.undo(); return; }
       if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
         e.preventDefault(); history.redo(); return;
@@ -778,7 +1091,7 @@ export default function App() {
       if (mod && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         // Cycle text → image → region → text.
-        setTool(tool === 'text' ? 'image' : tool === 'image' ? 'region' : 'text');
+        setTool(cycleTool(tool));
         return;
       }
       if (mod && e.key === '1') { e.preventDefault(); setTool('text'); return; }
@@ -793,7 +1106,7 @@ export default function App() {
       if (mod && (e.key === '+' || e.key === '=')) { e.preventDefault(); changeZoom(1); return; }
       if (mod && e.key === '-') { e.preventDefault(); changeZoom(-1); return; }
       if (mod && e.key === '0') { e.preventDefault(); setSettings((s) => ({ ...s, zoomMode: 'actual' })); return; }
-      if (e.key === 'F9') { e.preventDefault(); setSettings((s) => ({ ...s, sidebar: s.sidebar === 'none' ? 'thumbnails' : 'none' })); return; }
+      if (e.key === 'F9') { e.preventDefault(); setSettings((s) => ({ ...s, sidebar: nextSidebar(s.sidebar) })); return; }
       if (inField) return;
       if (e.key === 'PageDown' || (e.key === 'ArrowRight' && !mod)) { goToPage(pageNumber + 1); }
       else if (e.key === 'PageUp' || (e.key === 'ArrowLeft' && !mod)) { goToPage(pageNumber - 1); }
@@ -806,7 +1119,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [changeZoom, copySelection, doc, goToPage, history, openViaDialog, pageNumber, saveWorkspace,
+  }, [changeZoom, copySelection, doc, goToPage, history, openViaDialog, pageNumber, savePdf,
     selectedImage, setTool, tool]);
 
   // ── Drag & drop ────────────────────────────────────────
@@ -816,6 +1129,7 @@ export default function App() {
     setDragOver(false);
     const dropped = e.dataTransfer?.files?.[0];
     if (!dropped) return;
+    if (!(await leaveOrCancelRef.current())) return;
     try {
       if (isElectron && dropped.path) { await openByPath(dropped.path); return; }
       const buf = await dropped.arrayBuffer();
@@ -828,9 +1142,23 @@ export default function App() {
   }, [fail, openByPath, openBytes]);
 
   // ── Context menu ───────────────────────────────────────
+  const closeContextMenu = useCallback(() => {
+    setMenu((m) => (m.open ? { ...m, open: false } : m));
+  }, []);
+
   const openContextMenu = useCallback((e, ctx = {}) => {
     e.preventDefault();
-    const hasSel = !!(selectionText || window.getSelection()?.toString());
+    // Snapshot now. Clicking a menu item collapses the live range, so Copy /
+    // Highlight / Bookmark must not read window.getSelection() later.
+    const snapText = pickCopyText(
+      ctx.selectionText,
+      selectionTextRef.current,
+      selectionText,
+      window.getSelection()?.toString(),
+    );
+    const hasSel = !!snapText;
+    const highlightShot = viewRef.current?.getSelectionRects()
+      || (hasSel ? { page: pageNumber, text: snapText, rects: [] } : null);
 
     // A right-click straight onto a picture selects it and acts on that one.
     const picked = ctx.imageHit ? { page: ctx.page, ...ctx.imageHit } : selectedImage;
@@ -846,16 +1174,18 @@ export default function App() {
 
     const items = [
       ...imageItems,
-      { icon: IconCopy, label: t('menu.copySelection'), onClick: copySelection, disabled: !hasSel },
-      { icon: IconHighlight, label: t('menu.highlight'), onClick: addHighlight, disabled: !hasSel },
+      { icon: IconCopy, label: t('menu.copySelection'), onClick: () => copySelection(snapText), disabled: !hasSel },
+      { icon: IconHighlight, label: t('menu.highlight'), onClick: () => applyHighlight(highlightShot), disabled: !hasSel || !highlightShot?.rects?.length },
+      { icon: IconComment, label: t('menu.comment'), onClick: () => addComment(highlightShot), disabled: !hasSel || !highlightShot?.rects?.length },
       { icon: IconSelectAll, label: t('menu.selectAll'), onClick: () => viewRef.current?.selectPageText(pageNumber), disabled: !doc },
-      { icon: IconCopy, label: t('menu.copyPageText'), onClick: copyPageText, disabled: !doc },
+      { icon: IconCopy, label: t('menu.copyPageText'), onClick: () => copyPageText(), disabled: !doc },
       { separator: true },
       { icon: IconSelectText, label: t('menu.textTool'), onClick: () => setTool('text'), disabled: !doc },
       { icon: IconImage, label: t('menu.imageTool'), onClick: () => setTool('image'), disabled: !doc },
       { icon: IconMarquee, label: t('menu.regionTool'), onClick: () => setTool('region'), disabled: !doc },
       { icon: IconImage, label: t('toolbar.images'), onClick: () => extractImages(pageNumber), disabled: !doc },
-      { icon: IconBookmark, label: t('menu.addBookmark'), onClick: addBookmark, disabled: !doc },
+      { icon: IconBookmark, label: t('menu.addBookmark'), onClick: () => addBookmark(snapText, highlightShot), disabled: !doc },
+      { icon: IconClip, label: t('menu.attachFile'), onClick: () => attachFile(), disabled: !doc },
       { separator: true },
       { icon: IconPrev, label: t('menu.prev'), onClick: () => goToPage(pageNumber - 1), disabled: !doc || pageNumber <= 1 },
       { icon: IconNext, label: t('menu.next'), onClick: () => goToPage(pageNumber + 1), disabled: !doc || pageNumber >= (doc?.numPages || 1) },
@@ -865,7 +1195,7 @@ export default function App() {
       { icon: IconRotateRight, label: t('menu.rotate'), onClick: () => rotate(90), disabled: !doc },
     ];
     setMenu({ open: true, x: e.clientX, y: e.clientY, items });
-  }, [addBookmark, addHighlight, changeZoom, copyPageText, copySelection, copySelectedImage, doc, extractImages,
+  }, [addBookmark, addComment, applyHighlight, attachFile, changeZoom, copyPageText, copySelection, copySelectedImage, doc, extractImages,
     goToPage, keepSelectedImage, pageNumber, rotate, saveSelectedImage, selectedImage, selectionText, setTool, t]);
 
   // ── Derived ────────────────────────────────────────────
@@ -874,8 +1204,9 @@ export default function App() {
     [file, dirty, t]
   );
 
-  const changeLang = useCallback(() => {
-    const next = i18n.language === 'ko' ? 'en' : 'ko';
+  const changeLang = useCallback((lng) => {
+    const current = String(i18n.language || '').startsWith('ko') ? 'ko' : 'en';
+    const next = lng === 'ko' || lng === 'en' ? lng : (current === 'ko' ? 'en' : 'ko');
     setLanguage(next);
     setSettings((s) => ({ ...s, lang: next }));
   }, []);
@@ -911,13 +1242,19 @@ export default function App() {
         onOpenRecent={openRecent}
         onRemoveRecent={(key) => setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, key) }))}
         onClearRecent={() => setSettings((s) => ({ ...s, recentFiles: [] }))}
-        onSave={saveWorkspace}
-        onSaveAs={saveWorkspaceAs}
+        onSave={savePdf}
+        onSaveAs={savePdfAs}
+        onSaveWorkspace={saveWorkspace}
+        onSaveWorkspaceAs={saveWorkspaceAs}
+        onAttachFile={attachFile}
         onCopyText={copySelection}
         onSelectPage={() => viewRef.current?.selectPageText(pageNumber)}
         onExtractImages={extractImages}
         onExportText={exportText}
         onHighlight={addHighlight}
+        onComment={addComment}
+        onComments={() => setSettings((s) => ({ ...s, sidebar: s.sidebar === 'comments' ? 'none' : 'comments' }))}
+        onBookmarks={() => setSettings((s) => ({ ...s, sidebar: s.sidebar === 'bookmarks' ? 'none' : 'bookmarks' }))}
         onBookmark={addBookmark}
         onGoToPage={goToPage}
         onZoom={changeZoom}
@@ -925,7 +1262,10 @@ export default function App() {
         onRotate={rotate}
         onLayout={() => setSettings((s) => ({ ...s, pageLayout: s.pageLayout === 'single' ? 'continuous' : 'single' }))}
         onSearch={() => {
-          setSettings((s) => ({ ...s, sidebar: 'search' }));
+          setSettings((s) => ({
+            ...s,
+            sidebar: s.sidebar === 'search' ? 'none' : 'search',
+          }));
           setTimeout(() => document.querySelector('[data-search-input]')?.focus(), 60);
         }}
         onTogglePanel={() => setSettings((s) => ({ ...s, sidebar: s.sidebar === 'none' ? 'thumbnails' : 'none' }))}
@@ -939,6 +1279,8 @@ export default function App() {
       <div className="workarea">
         <Sidebar
           panel={settings.sidebar}
+          width={settings.sidebarWidth}
+          onResize={(w) => setSettings((s) => ({ ...s, sidebarWidth: clampSidebarWidth(w) }))}
           onPanel={(p) => setSettings((s) => ({ ...s, sidebar: p }))}
           doc={doc}
           pageNumber={pageNumber}
@@ -948,7 +1290,25 @@ export default function App() {
           onExtractImages={extractImages}
           extracting={extracting}
           search={{ ...search, run: runSearch }}
+          onGoToSearchHit={goToSearchHit}
           bookmarks={workspace.bookmarks}
+          activeBookmarkId={activeBookmark?.id}
+          onGoToBookmark={goToBookmark}
+          comments={commentItems}
+          commentsBusy={docComments.busy}
+          activeCommentId={activeComment?.id}
+          onGoToComment={goToComment}
+          onAddComment={addComment}
+          onAttachFile={attachFile}
+          onSaveAttachment={saveAttachment}
+          onRemoveComment={(id) => editWorkspace(
+            (w) => ({
+              ...w,
+              annotations: w.annotations.filter((a) => a.id !== id),
+              attachments: (w.attachments || []).filter((a) => a.id !== id),
+            }),
+            t('common.delete')
+          )}
           clips={workspace.clips}
           onCopyImage={copyImageItem}
           onSaveImage={(im) => saveImageItem(im, 'extracted')}
@@ -994,16 +1354,25 @@ export default function App() {
             rotation={settings.rotation}
             layout={settings.pageLayout}
             invert={settings.invertPages}
-            annotations={workspace.annotations}
+            annotations={[...workspace.annotations, ...(workspace.attachments || [])]}
             tool={tool}
             onRegionCapture={onRegionCapture}
             onImagePick={onImagePick}
             selectedImage={selectedImage}
-            onSelectionChange={setSelectionText}
+            onSelectionChange={onTextSelectionChange}
+            autoCopyText={settings.autoCopyText}
             onContextMenu={openContextMenu}
             onScaleChange={setScale}
             onZoomStep={changeZoom}
             onError={fail}
+            outline={outline}
+            onFollowLink={followLink}
+            onGoToPage={goToPage}
+            searchQuery={search.query}
+            searchActive={search.active}
+            bookmarks={workspace.bookmarks}
+            activeBookmarkId={activeBookmark?.id}
+            activeCommentId={activeComment?.id}
             emptyState={(
               <div className="welcome">
                 <img src="./icon.svg" alt="" width="120" height="120" />
@@ -1038,7 +1407,7 @@ export default function App() {
         x={menu.x}
         y={menu.y}
         items={menu.items}
-        onClose={() => setMenu((m) => ({ ...m, open: false }))}
+        onClose={closeContextMenu}
       />
 
       <SettingsDialog
@@ -1064,16 +1433,25 @@ export default function App() {
         onClose={() => setShowProps(false)}
       />
 
+      <UnsavedDialog
+        open={unsavedOpen}
+        onSave={() => finishUnsaved('save')}
+        onDiscard={() => finishUnsaved('discard')}
+        onCancel={() => finishUnsaved('cancel')}
+      />
+
       <PromptDialog
         open={prompt.open}
         kind={prompt.kind}
         error={prompt.error}
         onClose={() => {
           if (prompt.kind === 'password') passwordRetry.current = null;
+          if (prompt.kind === 'comment') commentDraft.current = null;
           setPrompt({ open: false, kind: prompt.kind, error: '' });
         }}
         onSubmit={(value) => {
           if (prompt.kind === 'url') { openFromUrl(value); return; }
+          if (prompt.kind === 'comment') { saveComment(value); return; }
           setPrompt({ open: false, kind: 'password', error: '' });
           try { passwordRetry.current?.(value); } catch (err) { fail(err, 'open'); }
         }}
@@ -1101,8 +1479,10 @@ export default function App() {
 
       <PrintDialog
         open={showPrint}
+        doc={doc}
         numPages={doc?.numPages || 0}
         pageNumber={pageNumber}
+        rotation={settings.rotation}
         settings={settings}
         onChange={setSettings}
         onPrint={printPages}

@@ -9,7 +9,7 @@
 //   • persisted settings / recent files under userData
 //   • receiving files handed over by the shell (file associations, "Open with")
 const {
-  app, BrowserWindow, ipcMain, dialog, Menu, shell, session, protocol, net, clipboard, nativeImage,
+  app, BrowserWindow, ipcMain, dialog, Menu, shell, session, protocol, net, clipboard, nativeImage, screen,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -81,6 +81,7 @@ function deliverOpen(win, filePath) {
 }
 
 let mainWin = null;
+let themePopup = null;
 
 // Floor and ceiling for the measured toolbar minimum: never let the window get
 // unusably narrow, and never let a runaway measurement make it unresizable.
@@ -126,6 +127,15 @@ function createWindow() {
   win.on('unmaximize', sendMax);
 
   // Closing the main window tears down everything else and quits.
+  // The renderer is asked first when there is unsaved work; forceClose
+  // sets this flag so the second close goes through.
+  win.webContents.on('did-finish-load', () => { win.__rendererReady = true; });
+  win.on('close', (e) => {
+    if (win.__allowClose || !win.__rendererReady) return;
+    if (win.webContents.isDestroyed() || win.webContents.isCrashed()) return;
+    e.preventDefault();
+    win.webContents.send('win:close-request');
+  });
   win.on('closed', () => {
     mainWin = null;
     for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.destroy();
@@ -518,6 +528,13 @@ ipcMain.handle('win:toggleMaximize', (e) => {
   return w.isMaximized();
 });
 ipcMain.handle('win:close', (e) => { BrowserWindow.fromWebContents(e.sender)?.close(); });
+ipcMain.handle('win:forceClose', (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w.isDestroyed()) return false;
+  w.__allowClose = true;
+  w.close();
+  return true;
+});
 ipcMain.handle('win:isMaximized', (e) => !!BrowserWindow.fromWebContents(e.sender)?.isMaximized());
 ipcMain.handle('win:setTitle', (e, title) => {
   const w = BrowserWindow.fromWebContents(e.sender);
@@ -566,5 +583,102 @@ ipcMain.handle('win:setMinWidth', (e, width) => {
     const [cw, ch] = w.getSize();
     if (cw < min) w.setSize(min, ch);
   }
+  return true;
+});
+
+function placeThemePopup(win, anchor) {
+  if (!win || win.isDestroyed()) return;
+  const [width, height] = win.getSize();
+  const display = screen.getDisplayNearestPoint({ x: anchor.x, y: anchor.y });
+  const wa = display.workArea;
+  let x = Math.round(anchor.x);
+  let y = Math.round(anchor.y);
+  if (x + width > wa.x + wa.width) x = wa.x + wa.width - width;
+  if (x < wa.x) x = wa.x;
+  if (y + height > wa.y + wa.height) {
+    const above = Math.round((anchor.aboveY ?? y) - height - 6);
+    y = above >= wa.y ? above : wa.y + wa.height - height;
+  }
+  if (y < wa.y) y = wa.y;
+  win.setPosition(x, y);
+}
+
+function closeThemePopup() {
+  if (themePopup && !themePopup.isDestroyed()) {
+    themePopup.__allowClose = true;
+    themePopup.close();
+  }
+  themePopup = null;
+}
+
+ipcMain.handle('win:getContentBounds', (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w.isDestroyed()) return null;
+  return w.getContentBounds();
+});
+
+ipcMain.handle('win:openThemePopup', (e, payload = {}) => {
+  const parent = BrowserWindow.fromWebContents(e.sender);
+  closeThemePopup();
+  const width = Math.max(160, Math.round(Number(payload.width) || 210));
+  const current = String(payload.current || 'dark');
+  const anchor = {
+    x: Number(payload.x) || 0,
+    y: Number(payload.y) || 0,
+    aboveY: Number(payload.aboveY) || Number(payload.y) || 0,
+  };
+  const popup = new BrowserWindow({
+    parent: parent && !parent.isDestroyed() ? parent : undefined,
+    frame: false,
+    width,
+    height: 720,
+    x: Math.round(anchor.x),
+    y: Math.round(anchor.y),
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: false,
+    backgroundColor: '#1e1918',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    },
+  });
+  popup.__allowClose = true;
+  popup.__themeAnchor = anchor;
+  themePopup = popup;
+  const q = `?popup=theme&current=${encodeURIComponent(current)}`;
+  if (isDev) popup.loadURL(DEV_URL + q);
+  else popup.loadURL(`${APP_ORIGIN}/index.html${q}`);
+  popup.once('ready-to-show', () => {
+    if (popup.isDestroyed()) return;
+    placeThemePopup(popup, popup.__themeAnchor);
+    popup.show();
+  });
+  popup.on('blur', () => closeThemePopup());
+  popup.on('closed', () => { if (themePopup === popup) themePopup = null; });
+  return true;
+});
+
+ipcMain.handle('win:setPopupSize', (e, { width, height } = {}) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w.isDestroyed()) return false;
+  const nw = Math.max(120, Math.round(Number(width) || 0));
+  const nh = Math.max(40, Math.round(Number(height) || 0));
+  if (!Number.isFinite(nw) || !Number.isFinite(nh)) return false;
+  w.setContentSize(nw, nh);
+  if (w.__themeAnchor) placeThemePopup(w, w.__themeAnchor);
+  return true;
+});
+
+ipcMain.handle('win:pickTheme', (e, id) => {
+  const theme = String(id || '');
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('theme:picked', theme);
+  closeThemePopup();
   return true;
 });

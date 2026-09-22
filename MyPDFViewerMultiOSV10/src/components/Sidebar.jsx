@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   IconGrid, IconOutline, IconImage, IconSearch, IconBookmark, IconClip,
-  IconCopy, IconDownload, IconTrash, IconChevron,
+  IconComment, IconCopy, IconDownload, IconTrash, IconChevron,
 } from './Icons.jsx';
+import { isSameSearchHit } from '../lib/search.js';
+import { commentPreview } from '../lib/comments.js';
 
 const PANELS = [
   { id: 'thumbnails', icon: IconGrid, key: 'side.thumbnails' },
@@ -11,24 +13,59 @@ const PANELS = [
   { id: 'search', icon: IconSearch, key: 'side.search' },
   { id: 'images', icon: IconImage, key: 'side.images' },
   { id: 'bookmarks', icon: IconBookmark, key: 'side.bookmarks' },
+  { id: 'comments', icon: IconComment, key: 'side.comments' },
   { id: 'clips', icon: IconClip, key: 'side.clips' },
 ];
 
 // The left panel. One rail of tabs plus the active panel; each tab has a
 // tooltip, like every other control in the app.
 export default function Sidebar({
-  panel, onPanel,
+  panel, onPanel, width, onResize,
   doc, pageNumber, onGoToPage,
   outline, images, onExtractImages, extracting,
-  search, bookmarks, clips,
+  search, onGoToSearchHit, bookmarks, activeBookmarkId, onGoToBookmark,
+  comments = [], commentsBusy = false, activeCommentId, onGoToComment, onAddComment, onAttachFile, onSaveAttachment, onRemoveComment, clips,
   onCopyImage, onSaveImage, onRemoveBookmark, onCopyClip, onSaveClip, onRemoveClip,
 }) {
   const { t } = useTranslation();
+  const drag = useRef(null);
 
-  // The panel is a fixed width (see --side-width in App.css); only the rail
-  // remains when every panel is closed.
+  const pointX = (e) => {
+    const x = Number(e.clientX);
+    return Number.isFinite(x) ? x : Number(e.nativeEvent?.clientX) || 0;
+  };
+  const onSplitDown = (e) => {
+    if (e.button != null && e.button !== 0) return;
+    if (drag.current) return;
+    e.preventDefault();
+    drag.current = { x: pointX(e), w: width };
+    document.body.classList.add('resizing-sidebar');
+    const move = (ev) => {
+      if (!drag.current) return;
+      onResize?.(drag.current.w + (pointX(ev) - drag.current.x));
+    };
+    const up = () => {
+      drag.current = null;
+      document.body.classList.remove('resizing-sidebar');
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('mouseup', up);
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+  };
+
+  // The rail stays put; the panel width is --side-width and the splitter on
+  // the right edge is what the user drags.
   return (
-    <aside className={`sidebar${panel === 'none' ? ' collapsed' : ''}`}>
+    <aside
+      className={`sidebar${panel === 'none' ? ' collapsed' : ''}`}
+      style={{ '--side-width': `${width}px` }}
+    >
       <nav className="side-rail">
         {PANELS.map(({ id, icon: Icon, key }) => (
           <button
@@ -55,7 +92,7 @@ export default function Sidebar({
                 : <OutlineTree nodes={outline} onGoToPage={onGoToPage} currentPage={pageNumber} />
             )}
 
-            {panel === 'search' && <SearchPanel search={search} onGoToPage={onGoToPage} />}
+            {panel === 'search' && <SearchPanel search={search} onGoToPage={onGoToPage} onGoToSearchHit={onGoToSearchHit} />}
 
             {panel === 'images' && (
               <>
@@ -92,7 +129,11 @@ export default function Sidebar({
                   <ul className="bm-list">
                     {bookmarks.map((b) => (
                       <li key={b.id}>
-                        <button className="side-item" onClick={() => onGoToPage(b.page)} title={b.label}>
+                        <button
+                          className={`side-item${activeBookmarkId === b.id ? ' active' : ''}`}
+                          onClick={() => (onGoToBookmark ? onGoToBookmark(b) : onGoToPage(b.page))}
+                          title={b.label}
+                        >
                           <IconBookmark size={14} />
                           <span className="ol-title">{b.label}</span>
                           <span className="ol-page">{b.page}</span>
@@ -104,6 +145,68 @@ export default function Sidebar({
                     ))}
                   </ul>
                 )
+            )}
+
+            {panel === 'comments' && (
+              <>
+                <div className="side-actions">
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={() => onAddComment?.()}
+                    disabled={!doc}
+                    title={t('tip.comment')}
+                  >
+                    {t('side.addComment')}
+                  </button>
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={() => onAttachFile?.()}
+                    disabled={!doc}
+                    title={t('tip.attach')}
+                  >
+                    {t('side.addAttachment')}
+                  </button>
+                </div>
+                {commentsBusy && comments.length === 0 ? (
+                  <p className="empty">{t('side.commentsLoading')}</p>
+                ) : comments.length === 0 ? (
+                  <p className="empty">{t('side.noComments')}</p>
+                ) : (
+                  <ul className="comment-list">
+                    {comments.map((c) => {
+                      const preview = commentPreview(c) || t('side.commentFallback');
+                      const key = `${c.source || 'item'}-${c.page}-${c.id}`;
+                      return (
+                        <li key={key}>
+                          <button
+                            className={`side-item${activeCommentId === c.id ? ' active' : ''}`}
+                            onClick={() => (onGoToComment ? onGoToComment(c) : onGoToPage(c.page))}
+                            title={preview}
+                          >
+                            <span className="comment-row">
+                              {c.kind === 'fileattachment' ? <IconClip size={14} /> : <IconComment size={14} />}
+                              <span className="ol-title">{preview}</span>
+                              <span className="ol-page">{c.page}</span>
+                            </span>
+                          </button>
+                          {c.kind === 'fileattachment' && (c.fileData || c.data) ? (
+                            <button className="icon-btn" onClick={() => onSaveAttachment?.(c)} title={t('menu.saveAttachment')}>
+                              <IconDownload size={14} />
+                            </button>
+                          ) : null}
+                          {c.removable !== false && c.source !== 'pdf' ? (
+                            <button className="icon-btn" onClick={() => onRemoveComment?.(c.id)} title={t('common.delete')}>
+                              <IconTrash size={14} />
+                            </button>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
             )}
 
             {panel === 'clips' && (
@@ -131,6 +234,18 @@ export default function Sidebar({
             )}
           </div>
         </div>
+      ) : null}
+
+      {panel !== 'none' ? (
+        <div
+          className="side-splitter"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t('side.resize')}
+          title={t('side.resize')}
+          onPointerDown={onSplitDown}
+          onMouseDown={onSplitDown}
+        />
       ) : null}
     </aside>
   );
@@ -178,7 +293,7 @@ function OutlineTree({ nodes, onGoToPage, currentPage }) {
 
               <button
                 className="tree-label"
-                onClick={() => (node.page ? onGoToPage(node.page) : hasKids && toggle(node.id))}
+                onClick={() => (node.page ? onGoToPage(node.page, node.loc) : hasKids && toggle(node.id))}
                 title={node.title}
               >
                 <span className="ol-title">{node.title || '—'}</span>
@@ -282,9 +397,10 @@ function Thumb({ doc, num, active, onClick }) {
 }
 
 // ── Search ────────────────────────────────────────────────
-function SearchPanel({ search, onGoToPage }) {
+function SearchPanel({ search, onGoToPage, onGoToSearchHit }) {
   const { t } = useTranslation();
   const [term, setTerm] = useState(search.query || '');
+  const go = onGoToSearchHit || ((h) => onGoToPage(h.page));
 
   return (
     <div className="search-panel">
@@ -313,7 +429,11 @@ function SearchPanel({ search, onGoToPage }) {
           <ul className="hit-list">
             {search.results.slice(0, 500).map((h, i) => (
               <li key={i}>
-                <button className="side-item" onClick={() => onGoToPage(h.page)} title={h.snippet}>
+                <button
+                  className={`side-item${isSameSearchHit(search.active, h) ? ' active' : ''}`}
+                  onClick={() => go(h)}
+                  title={h.snippet}
+                >
                   <span className="hit-page">{t('side.page', { n: h.page })}</span>
                   <span className="hit-text">{h.snippet}</span>
                 </button>

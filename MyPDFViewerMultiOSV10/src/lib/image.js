@@ -99,7 +99,7 @@ export async function previewDataUrl(dataUrl, formatId, quality) {
 }
 
 // ── BMP (24-bit, bottom-up) ───────────────────────────────
-function encodeBmp(rgba, width, height) {
+export function encodeBmp(rgba, width, height) {
   const rowSize = (width * 3 + 3) & ~3;      // rows are padded to 4 bytes
   const pixelBytes = rowSize * height;
   const out = new Uint8Array(54 + pixelBytes);
@@ -285,7 +285,7 @@ function lzwEncode(indices, minCodeSize) {
   return Uint8Array.from(blocks);
 }
 
-function encodeGif(rgba, width, height) {
+export function encodeGif(rgba, width, height) {
   const { indices, palette, colors } = quantize(rgba, 256);
 
   // The colour table size must be a power of two, at least 2 entries.
@@ -297,7 +297,10 @@ function encodeGif(rgba, width, height) {
   const minCodeSize = Math.max(2, bits);
   const data = lzwEncode(indices, minCodeSize);
 
-  const out = new Uint8Array(13 + tableSize * 3 + 10 + data.length + 1);
+  // Logical screen (13) + colour table + image descriptor (10) + minCodeSize +
+  // LZW sub-blocks + trailer. The minCodeSize byte was easy to drop and then
+  // the trailer was written one past the end of the buffer (and silently lost).
+  const out = new Uint8Array(13 + tableSize * 3 + 10 + 1 + data.length + 1);
   const view = new DataView(out.buffer);
   let p = 0;
 

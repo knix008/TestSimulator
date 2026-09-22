@@ -28,12 +28,30 @@ src/build-info.json
 *.snap
 *.blockmap
 
+# ── Tests / local tooling ───────────────────────────────
+coverage/
+.vitest/
+*.lcov
+
+# ── Secrets / machine-local ─────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+
+# ── Accidental user output in the project root ──────────
+# (fixtures under test/ stay tracked)
+/*.pdf
+/*.pdfvw
+/*-annotated.pdf
+
 # ── Local / editor / OS noise ───────────────────────────
 *.log
 npm-debug.log*
 .vite/
 .DS_Store
 Thumbs.db
+desktop.ini
 .idea/
 .vscode/*
 !.vscode/extensions.json

@@ -14,7 +14,9 @@
                     │     │                                                              │
                     │     ├─ components/  Toolbar · Sidebar · PdfView · StatusBar · 대화상자
                     │     │                                                              │
-                    │     ├─ lib/pdf.js      pdf.js 래퍼 (렌더 · 텍스트 · 이미지 · 검색)  │
+                    │     ├─ lib/pdf.js      pdf.js 래퍼 (렌더 · 텍스트 · 이미지 · 주석 읽기 · 검색) │
+                    │     ├─ lib/pdf-write.js 주석·책갈피·첨부를 PDF에 쓰기 (pdf-lib)     │
+                    │     ├─ lib/comments.js PDF/작업 주석 정규화                         │
                     │     ├─ lib/image.js    PNG/JPEG/WebP/GIF/BMP 인코딩                │
                     │     ├─ lib/history.js  스냅샷 실행취소                              │
                     │     ├─ lib/workspace.js .pdfvw 직렬화                               │
@@ -59,6 +61,7 @@ pdf.js는 **모듈 워커**를 띄우고 cmap·글꼴 데이터를 **fetch** 로
 | `getImageDataUrl` | 이름으로 그림 하나를 원본 해상도로 꺼냅니다 |
 | `cropCanvas` | 렌더된 캔버스에서 사각형을 잘라냅니다 |
 | `getOutline` / `destToPage` | 목차를 **계층 구조 그대로** 돌려주고, 각 목적지를 실제 쪽 번호로 변환 |
+| `getPageComments` / `getDocumentComments` | PDF 네이티브 주석(형광펜·메모·첨부 등)을 페이지 좌표로 읽습니다 |
 
 ### 그림 위치 계산 (`getPageImageRegions`)
 
@@ -129,6 +132,8 @@ JPEG·WebP는 품질 0.9에서 평균 1.8 수준입니다. GIF는 libvips(sharp)
 
 ## 5.5 목차 트리와 이미지 선택 — `src/components/Sidebar.jsx`, `PdfView.jsx`
 
+* **너비 조절** — 패널과 페이지 사이의 `.side-splitter` 를 끌어 `clampSidebarWidth()` 범위 안에서
+  `settings.sidebarWidth` 를 바꿉니다.
 * **목차 트리** — `getOutline()` 이 자식을 품은 노드 배열을 돌려주고, `OutlineTree` 가 재귀로 그립니다.
   접힘 상태는 노드 id 집합 하나로 관리합니다. 부모–자식 연결선은 CSS만으로 그립니다:
   중첩된 `li` 마다 왼쪽에 세로 줄기(`::before`)와 행으로 들어가는 짧은 가로선(`::after`)을 두고,
@@ -160,7 +165,7 @@ JPEG·WebP는 품질 0.9에서 평균 1.8 수준입니다. GIF는 libvips(sharp)
 
 ## 6. 실행 취소 / 다시 실행 — `src/lib/history.js`
 
-되돌릴 대상(형광펜 · 책갈피 · 클립 · 회전)은 작은 평범한 객체이므로,
+되돌릴 대상(형광펜 · 코멘트 · 책갈피 · 첨부 · 클립 · 회전)은 작은 평범한 객체이므로,
 명령 쌍(do/undo)을 만드는 대신 **스냅샷을 통째로 쌓는 방식**을 씁니다.
 구현이 단순해 버그가 적고, "실행 취소: 책갈피 추가" 같은 라벨이 자연히 따라옵니다. 최대 100단계입니다.
 
@@ -174,7 +179,7 @@ JPEG·WebP는 품질 0.9에서 평균 1.8 수준입니다. GIF는 libvips(sharp)
   "version": 1,
   "pdf":  { "path": "C:/…/문서.pdf", "name": "문서.pdf", "size": 123456 },
   "view": { "page": 3, "zoomMode": "fit-width", "rotation": 0, "pageLayout": "continuous" },
-  "workspace": { "annotations": [...], "bookmarks": [...], "clips": [...] }
+  "workspace": { "annotations": [...], "bookmarks": [...], "clips": [...], "attachments": [...] }
 }
 ```
 
@@ -190,6 +195,31 @@ PDF 자체는 넣지 않고 **경로만 가리킵니다.** 형식이 다르거�
 
 ---
 
+## 7.5 PDF에 다시 쓰기 — `src/lib/pdf-write.js`
+
+작업 내용(형광펜 · 코멘트 · 책갈피 · 파일 첨부)을 **원본 바이트에 더해** 새 PDF를 만듭니다.
+`pdf-lib` 가 주석 사전 · Outline · EmbeddedFiles 를 추가하고, 이미 PDF에 들어 있던 내용은 그대로 둡니다.
+
+* 좌표는 작업 공간의 0..1 위-왼쪽 사각형을 PDF 포인트(아래-왼쪽)로 바꿉니다.
+* **Ctrl+S / PDF로 저장** 은 항상 저장 대화상자를 엽니다. 기본 이름은
+  `suggestedPdfCopyName()` 이 만든 `문서이름-annotated.pdf` 입니다. 원본을 덮어쓰지 않습니다.
+* 저장에 성공하면 그 복사본을 다시 열어, 방금 쓴 주석이 PDF 네이티브 주석으로 보이게 합니다.
+* 암호가 걸린 PDF에 쓰는 것은 지원하지 않습니다.
+
+창을 닫을 때 저장하지 않은 주석이 있으면 `win:close-request` → `UnsavedDialog` 가
+PDF 저장을 권합니다 (`win:forceClose` 로만 실제로 닫힙니다).
+
+---
+
+## 7.6 테마 목록이 창 밖으로 나가는 이유
+
+웹 내용은 BrowserWindow 밖으로 그릴 수 없습니다. 20개 테마를 스크롤 없이 보여 주려면
+메인 프로세스에서 **프레임 없는 자식 창**(`win:openThemePopup`)을 화면 좌표에 띄웁니다.
+`?popup=theme` 로 [ThemePopup.jsx](src/components/ThemePopup.jsx) 만 로드하고,
+고른 테마는 `theme:picked` 로 메인 창에 돌아옵니다. 웹 빌드에서는 페이지 안 드롭다운이 열립니다.
+
+---
+
 ## 8. 설정과 상태 유지 — `src/lib/settings.js`
 
 * 모든 설정은 **하나의 평범한 객체**이고, 바뀔 때마다 localStorage에 쓰고
@@ -197,6 +227,8 @@ PDF 자체는 넣지 않고 **경로만 가리킵니다.** 형식이 다르거�
 * 읽을 때는 `normalize()` 가 기본값 위에 덮어쓰면서 **모르는 키를 버리고 타입·범위를 강제**합니다.
   오래된 설정 파일이 앱에 이상한 값을 주입할 수 없습니다.
 * 최근 파일 10개 · 최근 폴더 10개, 마지막 폴더, 마지막으로 본 쪽을 함께 보관합니다.
+* 테마는 [src/lib/themes.js](src/lib/themes.js) 의 20개 id 와 `App.css` 의 `:root[data-theme]` 블록이 한 쌍입니다.
+* 선택 후 자동 복사 플래그(`autoCopyText` / `autoCopyImage` / `autoCopyRegion`)도 여기에 있습니다.
 
 ---
 
@@ -217,6 +249,7 @@ PDF 자체는 넣지 않고 **경로만 가리킵니다.** 형식이 다르거�
 | 명령 | 결과 |
 | --- | --- |
 | `npm start` | Vite 개발 서버 + Electron (소스 수정이 즉시 반영). 시작 전에 `scripts/free-port.mjs` 가 5179 포트를 잡고 있는 이전 프로세스를 정리하므로, 비정상 종료 뒤에도 바로 다시 실행됩니다 |
+| `npm test` | Vitest. `dot` 리포터와 [test/reporters/summary.mjs](test/reporters/summary.mjs) 한국어 표 |
 | `npm run web` | 브라우저용 개발 서버 |
 | `npm run build` | 웹 배포용 정적 파일 → `dist/` |
 | `npm run build:win` / `:mac` / `:linux` | 설치 파일 → `release/` (그리고 프로젝트 최상위로 복사) |
@@ -240,8 +273,11 @@ electron/          main.js · preload.js
 public/pdfjs/      pdf.js 런타임 데이터(cmaps · standard_fonts) — 생성물
 scripts/           아이콘 · 빌드정보 · pdf.js 자산 · 실행 · 설치파일 복사
 src/components/    Toolbar · Sidebar · PdfView · StatusBar · TitleBar ·
-                   Modal · Dialogs · CaptureDialog · SettingsDialog · AboutDialog ·
-                   ContextMenu · Tooltip · Toasts · Icons
-src/lib/           pdf · image · history · workspace · settings · platform · themes · fonts · ico
+                   ThemePopup · Modal · Dialogs · CaptureDialog · SettingsDialog ·
+                   AboutDialog · PrintDialog · ContextMenu · Tooltip · Toasts · Icons
+src/lib/           pdf · pdf-write · comments · image · history · workspace ·
+                   settings · platform · view · text-select · search · nav ·
+                   print · themes · fonts · ico
 src/i18n.js        한국어 · 영어 문자열
+test/              Vitest 스위트 · fixtures · reporters/summary.mjs
 ```

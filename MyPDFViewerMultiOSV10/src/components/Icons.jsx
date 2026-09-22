@@ -99,8 +99,74 @@ export const IconInfo = (p) => (
 export const IconLang = (p) => (
   <S {...p}><path d="M3 6h11M8.5 4v2c0 4-2 7-5.5 9M6 12c1.6 3 4 4.8 7 5.6" /><path d="m13 21 4.2-10 4.2 10M14.6 17.5h5.2" /></S>
 );
+
+// Language flags. Drawn as filled 3:2 rectangles so they stay readable at
+// toolbar size; they do not use the stroke icon wrapper.
+function FlagSvg({ size = 18, children, ...rest }) {
+  const w = Number(size) || 18;
+  const h = Math.max(8, Math.round(w * 2 / 3));
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 36 24"
+      className="lang-flag"
+      aria-hidden="true"
+      focusable="false"
+      {...rest}
+    >
+      {children}
+    </svg>
+  );
+}
+
+export const FlagKo = (p) => (
+  <FlagSvg {...p}>
+    <rect width="36" height="24" rx="2.2" fill="#fff" />
+    <g transform="translate(18 12)">
+      <circle r="6.4" fill="#CD2E3A" />
+      <path d="M0-6.4A6.4 6.4 0 0 1 0 6.4A3.2 3.2 0 0 1 0 0A3.2 3.2 0 0 0 0-6.4Z" fill="#0047A0" />
+      <circle cy="-3.2" r="3.2" fill="#CD2E3A" />
+      <circle cy="3.2" r="3.2" fill="#0047A0" />
+    </g>
+    <rect width="36" height="24" rx="2.2" fill="none" stroke="rgba(0,0,0,0.22)" strokeWidth="1" />
+  </FlagSvg>
+);
+
+export const FlagEn = (p) => (
+  <FlagSvg {...p}>
+    <rect width="36" height="24" rx="2.2" fill="#B22234" />
+    <rect y="1.85" width="36" height="1.85" fill="#fff" />
+    <rect y="5.54" width="36" height="1.85" fill="#fff" />
+    <rect y="9.23" width="36" height="1.85" fill="#fff" />
+    <rect y="12.92" width="36" height="1.85" fill="#fff" />
+    <rect y="16.62" width="36" height="1.85" fill="#fff" />
+    <rect y="20.31" width="36" height="1.85" fill="#fff" />
+    <rect width="14.4" height="12.9" rx="1.2" fill="#3C3B6E" />
+    {[
+      [2.4, 2.2], [5.4, 2.2], [8.4, 2.2], [11.4, 2.2],
+      [3.9, 4.4], [6.9, 4.4], [9.9, 4.4],
+      [2.4, 6.6], [5.4, 6.6], [8.4, 6.6], [11.4, 6.6],
+      [3.9, 8.8], [6.9, 8.8], [9.9, 8.8],
+      [2.4, 11], [5.4, 11], [8.4, 11], [11.4, 11],
+    ].map(([x, y], i) => (
+      <circle key={i} cx={x} cy={y} r="0.7" fill="#fff" />
+    ))}
+    <rect width="36" height="24" rx="2.2" fill="none" stroke="rgba(0,0,0,0.22)" strokeWidth="1" />
+  </FlagSvg>
+);
+
+export function IconFlag({ lang = 'ko', ...p }) {
+  return lang === 'en' ? <FlagEn {...p} /> : <FlagKo {...p} />;
+}
 export const IconTheme = (p) => (
-  <S {...p}><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none" /></S>
+  <S {...p}>
+    <path d="M12 3.6c-4.6 0-8.4 3.5-8.4 7.9 0 3.2 2.1 5.8 5.1 5.8h1.3c.8 0 1.3.7 1 1.5-.3.8.3 1.6 1.1 1.6 4.1 0 7.7-3.9 7.7-9 0-4.1-3.4-7.8-7.8-7.8z" />
+    <circle cx="8.2" cy="10.2" r="1.05" fill="currentColor" stroke="none" />
+    <circle cx="11.4" cy="7.8" r="1.05" fill="currentColor" stroke="none" />
+    <circle cx="15.2" cy="8.6" r="1.05" fill="currentColor" stroke="none" />
+    <circle cx="16.2" cy="12.2" r="1.05" fill="currentColor" stroke="none" />
+  </S>
 );
 export const IconFirst = (p) => (<S {...p}><path d="M18 5v14M15 12l-8 6V6z" /></S>);
 export const IconLast = (p) => (<S {...p}><path d="M6 5v14M9 12l8 6V6z" /></S>);
@@ -114,6 +180,9 @@ export const IconTrash = (p) => (
 );
 export const IconBookmark = (p) => (
   <S {...p}><path d="M6 4h12v17l-6-4-6 4z" /></S>
+);
+export const IconComment = (p) => (
+  <S {...p}><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-5l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" /></S>
 );
 export const IconAlert = (p) => (
   <S {...p}><path d="M12 3.5 22 20H2z" /><path d="M12 10v4M12 17v.6" /></S>

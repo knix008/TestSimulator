@@ -2,14 +2,15 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  IconOpen, IconUrl, IconRecent, IconSave, IconSaveAs, IconUndo, IconRedo, IconCopy,
-  IconSelectAll, IconMarquee, IconImage, IconText, IconHighlight, IconBookmark,
+  IconOpen, IconUrl, IconRecent, IconSave, IconSaveAs, IconUndo, IconRedo, IconCopy, IconClip,
+  IconSelectAll, IconMarquee, IconImage, IconText, IconHighlight, IconBookmark, IconComment,
   IconFirst, IconPrev, IconNext, IconLast, IconZoomIn, IconZoomOut, IconFitWidth,
   IconFitPage, IconActual, IconRotateLeft, IconRotateRight, IconSearch, IconSidebar,
-  IconSettings, IconInfo, IconLang, IconTheme, IconTrash, IconDown, IconLayout, IconFolder,
+  IconSettings, IconInfo, IconFlag, IconTheme, IconTrash, IconDown, IconLayout, IconFolder,
   IconSelectText, IconPrint,
 } from './Icons.jsx';
-import { THEMES } from '../lib/themes.js';
+import { THEMES, nextTheme } from '../lib/themes.js';
+import { LANGUAGES } from '../i18n.js';
 import { api, isElectron } from '../lib/platform.js';
 
 // The window must never be narrow enough to hide a toolbar button. How much the
@@ -76,10 +77,16 @@ function ToolButton({ icon: Icon, label, tip, onClick, disabled, active, showLab
 
 // A toolbar button that opens a small popup menu below itself.
 //
+// Pass `onAction` to split the control: the icon runs that action (cycle a
+// theme, …) and only the chevron on the right opens the menu.
+//
 // The menu is rendered into <body> through a portal: the toolbar scrolls
 // horizontally, and an overflow container clips absolutely positioned
 // children — which silently hid the whole recent-files list.
-function MenuButton({ icon: Icon, label, tip, disabled, showLabel, children, width = 300 }) {
+function MenuButton({
+  icon: Icon, label, tip, menuTip, disabled, showLabel, children, width = 300, onAction,
+  constrain = true, overflowWindow = false, menuValue,
+}) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const btnRef = useRef(null);
@@ -87,11 +94,26 @@ function MenuButton({ icon: Icon, label, tip, disabled, showLabel, children, wid
 
   const place = useCallback(() => {
     const el = btnRef.current;
+    const pop = popRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const left = Math.max(6, Math.min(r.left, window.innerWidth - width - 6));
-    setPos({ left, top: r.bottom + 6, maxHeight: Math.max(180, window.innerHeight - r.bottom - 20) });
-  }, [width]);
+    const w = pop?.offsetWidth || width;
+    const h = pop?.offsetHeight || 0;
+    let left = r.left;
+    let top = r.bottom + 6;
+    if (constrain) {
+      left = Math.max(6, Math.min(r.left, window.innerWidth - w - 6));
+      if (h && top + h > window.innerHeight - 6) {
+        const above = r.top - h - 6;
+        top = above >= 6 ? above : Math.max(6, window.innerHeight - h - 6);
+      }
+    }
+    setPos({ left, top });
+  }, [constrain, width]);
+
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -101,6 +123,7 @@ function MenuButton({ icon: Icon, label, tip, disabled, showLabel, children, wid
     };
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
     const reflow = () => place();
+    place();
     document.addEventListener('mousedown', close);
     document.addEventListener('keydown', onKey);
     window.addEventListener('resize', reflow);
@@ -114,32 +137,83 @@ function MenuButton({ icon: Icon, label, tip, disabled, showLabel, children, wid
     };
   }, [open, place]);
 
+  const openDetached = () => {
+    if (!overflowWindow || !isElectron || !api.win?.openThemePopup) return false;
+    const el = btnRef.current;
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    void (async () => {
+      const bounds = await api.win.getContentBounds?.();
+      if (!bounds) {
+        place();
+        setOpen(true);
+        return;
+      }
+      await api.win.openThemePopup({
+        x: bounds.x + r.left,
+        y: bounds.y + r.bottom + 6,
+        aboveY: bounds.y + r.top,
+        width,
+        current: menuValue,
+      });
+    })();
+    return true;
+  };
+
   const toggle = () => {
     if (open) { setOpen(false); return; }
+    if (openDetached()) return;
     place();
     setOpen(true);
   };
 
+  const split = typeof onAction === 'function';
+
   return (
-    <span className="menu-wrap">
-      <button
-        ref={btnRef}
-        className={`tbtn${open ? ' active' : ''}${showLabel ? ' with-label' : ''}`}
-        onClick={toggle}
-        disabled={disabled}
-        title={tip || label}
-        aria-label={label}
-        aria-expanded={open}
-      >
-        <Icon size={18} />
-        {showLabel ? <span className="tbtn-label">{label}</span> : null}
-        <IconDown size={11} />
-      </button>
+    <span className={`menu-wrap${split ? ' split' : ''}`} ref={btnRef}>
+      {split ? (
+        <>
+          <button
+            className={`tbtn${showLabel ? ' with-label' : ''}`}
+            onClick={() => { setOpen(false); onAction(); }}
+            disabled={disabled}
+            title={tip || label}
+            aria-label={label}
+          >
+            <Icon size={18} />
+            {showLabel ? <span className="tbtn-label">{label}</span> : null}
+          </button>
+          <button
+            className={`tbtn chevron${open ? ' active' : ''}`}
+            onClick={toggle}
+            disabled={disabled}
+            title={menuTip || tip || label}
+            aria-label={menuTip || label}
+            aria-expanded={open}
+            aria-haspopup="listbox"
+          >
+            <IconDown size={11} />
+          </button>
+        </>
+      ) : (
+        <button
+          className={`tbtn${open ? ' active' : ''}${showLabel ? ' with-label' : ''}`}
+          onClick={toggle}
+          disabled={disabled}
+          title={tip || label}
+          aria-label={label}
+          aria-expanded={open}
+        >
+          <Icon size={18} />
+          {showLabel ? <span className="tbtn-label">{label}</span> : null}
+          <IconDown size={11} />
+        </button>
+      )}
       {open && pos ? createPortal(
         <div
           ref={popRef}
           className="dropdown"
-          style={{ left: pos.left, top: pos.top, width, maxHeight: pos.maxHeight }}
+          style={{ left: pos.left, top: pos.top, width }}
           onClick={() => setOpen(false)}
         >
           {children}
@@ -154,8 +228,9 @@ export default function Toolbar({
   settings, doc, pageNumber, numPages, scale, hasSelection, dirty,
   history, tool, onTool, panel,
   onOpen, onOpenUrl, onOpenRecent, onRemoveRecent, onClearRecent,
-  onSave, onSaveAs, onCopyText, onSelectPage, onExtractImages, onExportText,
-  onHighlight, onBookmark,
+  onSave, onSaveAs, onSaveWorkspace, onSaveWorkspaceAs, onAttachFile,
+  onCopyText, onSelectPage, onExtractImages, onExportText,
+  onHighlight, onComment, onComments, onBookmarks, onBookmark,
   onGoToPage, onZoom, onZoomMode, onRotate, onLayout,
   onSearch, onTogglePanel, onTheme, onLang, onSettings, onAbout, onPrint,
 }) {
@@ -171,6 +246,11 @@ export default function Toolbar({
   ]);
 
   useEffect(() => { setPageInput(String(pageNumber)); }, [pageNumber]);
+
+  useEffect(() => {
+    if (!isElectron || !api.win?.onThemePicked) return undefined;
+    return api.win.onThemePicked((id) => onTheme(id));
+  }, [onTheme]);
 
   const commitPage = () => {
     const n = parseInt(pageInput, 10);
@@ -198,6 +278,18 @@ export default function Toolbar({
               <IconSave size={15} /><span className="dd-name wide">{t('toolbar.save')}</span><span className="dd-key">Ctrl+S</span></button></li>
             <li><button className="dd-item" onClick={onSaveAs} disabled={!doc} title={t('tip.saveAs')}>
               <IconSaveAs size={15} /><span className="dd-name wide">{t('toolbar.saveAs')}</span></button></li>
+            {onAttachFile ? (
+              <li><button className="dd-item" onClick={onAttachFile} disabled={!doc} title={t('tip.attach')}>
+                <IconClip size={15} /><span className="dd-name wide">{t('toolbar.attach')}</span></button></li>
+            ) : null}
+            {onSaveWorkspace ? (
+              <li><button className="dd-item" onClick={onSaveWorkspace} disabled={!doc} title={t('tip.saveWorkspace')}>
+                <IconSave size={15} /><span className="dd-name wide">{t('toolbar.saveWorkspace')}</span></button></li>
+            ) : null}
+            {onSaveWorkspaceAs ? (
+              <li><button className="dd-item" onClick={onSaveWorkspaceAs} disabled={!doc} title={t('tip.saveWorkspaceAs')}>
+                <IconSaveAs size={15} /><span className="dd-name wide">{t('toolbar.saveWorkspaceAs')}</span></button></li>
+            ) : null}
             <li><button className="dd-item" onClick={onExportText} disabled={!doc} title={t('tip.exportText')}>
               <IconText size={15} /><span className="dd-name wide">{t('toolbar.exportText')}</span></button></li>
             <li><button className="dd-item" onClick={onPrint} disabled={!doc} title={t('tip.print')}>
@@ -297,15 +389,45 @@ export default function Toolbar({
 
       <div className="toolbar-sep" />
 
-      {/* Copying */}
+      {/* Copy, markup and the left-panel tools that belong on the bar. */}
       <div className="toolbar-group">
         <ToolButton icon={IconCopy} label={t('toolbar.copyText')} tip={t('tip.copyText')} onClick={onCopyText} disabled={!hasSelection} showLabel={showLabel} />
+        <ToolButton icon={IconHighlight} label={t('toolbar.highlight')} tip={t('tip.highlight')} onClick={onHighlight} disabled={!hasSelection} showLabel={showLabel} />
+        <ToolButton
+          icon={IconComment}
+          label={t('toolbar.comments')}
+          tip={t('tip.comments')}
+          onClick={onComments}
+          disabled={!doc}
+          active={panel === 'comments'}
+          showLabel={showLabel}
+        />
+        <ToolButton
+          icon={IconBookmark}
+          label={t('toolbar.bookmarks')}
+          tip={t('tip.bookmarks')}
+          onClick={onBookmarks}
+          disabled={!doc}
+          active={panel === 'bookmarks'}
+          showLabel={showLabel}
+        />
+        <ToolButton
+          icon={IconSearch}
+          label={t('toolbar.search')}
+          tip={t('tip.search')}
+          onClick={onSearch}
+          disabled={!doc}
+          active={panel === 'search'}
+          showLabel={showLabel}
+        />
         <MenuButton icon={IconSelectAll} label={t('toolbar.copyMenu')} tip={t('tip.copyMenu')} showLabel={showLabel} width={260}>
           <ul className="dd-list">
             <li><button className="dd-item" onClick={onSelectPage} disabled={!doc} title={t('tip.selectAll')}>
               <IconSelectAll size={15} /><span className="dd-name wide">{t('toolbar.selectAll')}</span><span className="dd-key">Ctrl+A</span></button></li>
             <li><button className="dd-item" onClick={onHighlight} disabled={!hasSelection} title={t('tip.highlight')}>
               <IconHighlight size={15} /><span className="dd-name wide">{t('toolbar.highlight')}</span></button></li>
+            <li><button className="dd-item" onClick={onComment} disabled={!hasSelection} title={t('tip.comment')}>
+              <IconComment size={15} /><span className="dd-name wide">{t('menu.comment')}</span></button></li>
             <li><button className="dd-item" onClick={() => onExtractImages(pageNumber)} disabled={!doc} title={t('tip.images')}>
               <IconImage size={15} /><span className="dd-name wide">{t('toolbar.images')}</span></button></li>
             <li><button className="dd-item" onClick={onBookmark} disabled={!doc} title={t('menu.addBookmark')}>
@@ -384,14 +506,26 @@ export default function Toolbar({
         <ToolButton icon={IconSearch} label={t('toolbar.search')} tip={t('tip.search')} onClick={onSearch} disabled={!doc} active={panel === 'search'} />
         <ToolButton icon={IconSidebar} label={t('toolbar.sidebar')} tip={t('tip.sidebar')} onClick={onTogglePanel} active={panel !== 'none'} />
 
-        <MenuButton icon={IconTheme} label={t('toolbar.theme')} tip={t('tip.theme')} width={210}>
-          <ul className="dd-list themes">
+        <MenuButton
+          icon={IconTheme}
+          label={t('toolbar.theme')}
+          tip={t('tip.theme', { name: nextTheme(settings.theme) })}
+          menuTip={t('tip.themePick')}
+          width={210}
+          constrain={false}
+          overflowWindow
+          menuValue={settings.theme}
+          onAction={() => onTheme(nextTheme(settings.theme))}
+        >
+          <ul className="dd-list themes" role="listbox" aria-label={t('toolbar.theme')}>
             {THEMES.map((th) => (
               <li key={th.id}>
                 <button
                   className={`dd-item${settings.theme === th.id ? ' active' : ''}`}
                   onClick={() => onTheme(th.id)}
                   title={th.id}
+                  role="option"
+                  aria-selected={settings.theme === th.id}
                 >
                   <span className="theme-swatch small">
                     {th.bars.map((c, i) => <i key={i} style={{ background: c }} />)}
@@ -403,7 +537,31 @@ export default function Toolbar({
           </ul>
         </MenuButton>
 
-        <ToolButton icon={IconLang} label={t('toolbar.lang')} tip={t('tip.lang')} onClick={onLang} />
+        <MenuButton
+          icon={(p) => <IconFlag lang={settings.lang} {...p} />}
+          label={t('toolbar.lang')}
+          tip={t('tip.lang')}
+          menuTip={t('tip.langPick')}
+          width={180}
+          onAction={() => onLang()}
+        >
+          <ul className="dd-list" role="listbox" aria-label={t('toolbar.lang')}>
+            {LANGUAGES.map((lng) => (
+              <li key={lng.id}>
+                <button
+                  className={`dd-item${settings.lang === lng.id ? ' active' : ''}`}
+                  onClick={() => onLang(lng.id)}
+                  title={lng.native}
+                  role="option"
+                  aria-selected={settings.lang === lng.id}
+                >
+                  <IconFlag lang={lng.id} size={18} />
+                  <span className="dd-name wide">{lng.native}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </MenuButton>
         <ToolButton icon={IconSettings} label={t('toolbar.settings')} tip={t('tip.settings')} onClick={onSettings} />
         <ToolButton icon={IconInfo} label={t('toolbar.about')} tip={t('tip.about')} onClick={onAbout} />
       </div>

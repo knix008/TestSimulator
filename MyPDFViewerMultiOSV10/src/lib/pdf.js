@@ -4,6 +4,7 @@
 // Electron's Chromium and in the older browsers a web deployment has to serve.
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
+import { normalizeComment } from './comments.js';
 
 export const { TextLayer, OPS, PixelsPerInch } = pdfjsLib;
 
@@ -298,14 +299,103 @@ export async function getOutline(doc) {
   return walk(raw, 0);
 }
 
-// Resolves an outline destination to a 1-based page number.
-export async function destToPage(doc, dest) {
+// Resolves a destination (named or explicit) to a 1-based page and, when the
+// dest is XYZ / FitH, the PDF-space Y to scroll to (origin at the page bottom).
+export async function destToLocation(doc, dest) {
   try {
+    if (dest == null) return null;
     const explicit = typeof dest === 'string' ? await doc.getDestination(dest) : dest;
     if (!explicit) return null;
-    const index = await doc.getPageIndex(explicit[0]);
-    return index + 1;
+    let index;
+    if (typeof explicit[0] === 'number') index = explicit[0];
+    else index = await doc.getPageIndex(explicit[0]);
+    if (!Number.isFinite(index)) return null;
+    const spec = explicit[1];
+    const name = typeof spec === 'string' ? spec : spec?.name;
+    let pdfTop = null;
+    if (name === 'XYZ' && Number.isFinite(Number(explicit[3]))) pdfTop = Number(explicit[3]);
+    else if ((name === 'FitH' || name === 'FitBH') && Number.isFinite(Number(explicit[2]))) {
+      pdfTop = Number(explicit[2]);
+    }
+    return { page: index + 1, pdfTop, name: name || null };
   } catch { return null; }
+}
+
+export async function destToPage(doc, dest) {
+  const loc = await destToLocation(doc, dest);
+  return loc?.page ?? null;
+}
+
+const LINK_TYPE = 2; // pdf.js AnnotationType.LINK
+
+// Clickable in-page links (TOC entries, cross-refs, URLs) in viewport pixels.
+export async function getPageLinks(page, viewport) {
+  let annots = [];
+  try { annots = await page.getAnnotations({ intent: 'display' }); } catch { return []; }
+  const links = [];
+  for (const a of annots || []) {
+    const isLink = a.annotationType === LINK_TYPE || a.subtype === 'Link';
+    if (!isLink) continue;
+    if (!a.dest && !a.url && !a.unsafeUrl && !a.action) continue;
+    const raw = a.rect || [0, 0, 0, 0];
+    const vr = typeof viewport.convertToViewportRectangle === 'function'
+      ? viewport.convertToViewportRectangle(raw)
+      : raw;
+    const x1 = vr[0]; const y1 = vr[1]; const x2 = vr[2]; const y2 = vr[3];
+    links.push({
+      id: a.id || `link-${links.length}`,
+      dest: a.dest || null,
+      url: a.url || a.unsafeUrl || null,
+      action: a.action || null,
+      title: a.title || a.contentsObj?.str || '',
+      rect: {
+        x: Math.min(x1, x2),
+        y: Math.min(y1, y2),
+        width: Math.abs(x2 - x1),
+        height: Math.abs(y2 - y1),
+      },
+    });
+  }
+  return links;
+}
+
+// Highlight / underline / sticky-note / FreeText comments in viewport pixels.
+export async function getPageComments(page, viewport) {
+  let annots = [];
+  try { annots = await page.getAnnotations({ intent: 'display' }); } catch { return []; }
+  const convert = typeof viewport?.convertToViewportRectangle === 'function'
+    ? (r) => viewport.convertToViewportRectangle(r)
+    : null;
+  const out = [];
+  for (const a of annots || []) {
+    const comment = normalizeComment(a, { convertRect: convert, id: `c${out.length}` });
+    if (comment) out.push(comment);
+  }
+  return out;
+}
+
+// Every comment in the document, with the page and a 0..1 landing so the
+// sidebar list can jump to the marked passage.
+export async function getDocumentComments(doc, { onProgress, signal } = {}) {
+  const total = doc?.numPages || 0;
+  const out = [];
+  for (let i = 1; i <= total; i++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    const page = await doc.getPage(i);
+    const viewport = page.getViewport({ scale: 1 });
+    const found = await getPageComments(page, viewport);
+    const h = Number(viewport?.height) || 1;
+    for (const c of found) {
+      const y = Number(c.rects?.[0]?.y) || 0;
+      out.push({
+        ...c,
+        page: i,
+        fracY: h > 0 ? Math.min(1, Math.max(0, y / h)) : 0,
+      });
+    }
+    onProgress?.({ done: i, total });
+  }
+  return out;
 }
 
 // Title / author / producer, plus the raw info dictionary for the properties view.
@@ -338,6 +428,7 @@ export async function searchDocument(doc, query, { onProgress, signal } = {}) {
     const page = await doc.getPage(p);
     const text = (await getPageText(page)).replace(/\s+/g, ' ');
     const hay = text.toLowerCase();
+    let pageHit = 0;
     let from = 0;
     for (;;) {
       const at = hay.indexOf(needle, from);
@@ -345,9 +436,11 @@ export async function searchDocument(doc, query, { onProgress, signal } = {}) {
       hits.push({
         page: p,
         index: at,
+        pageHit,
         snippet: text.slice(Math.max(0, at - 40), at + needle.length + 40).trim(),
         match: text.slice(at, at + needle.length),
       });
+      pageHit += 1;
       from = at + needle.length;
       if (hits.length > 2000) break;
     }

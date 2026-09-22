@@ -7,6 +7,24 @@ import { loadPersistedState, writeLocalState, readLocalState } from './platform.
 
 export const MAX_RECENT_FILES = 10;
 export const MAX_RECENT_DIRS = 10;
+export const FONT_SIZE_MIN = 10;
+export const FONT_SIZE_MAX = 24;
+export const SIDEBAR_WIDTH_MIN = 180;
+export const SIDEBAR_WIDTH_MAX = 560;
+export const SIDEBAR_WIDTH_DEFAULT = 264;
+
+export function clampSidebarWidth(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return SIDEBAR_WIDTH_DEFAULT;
+  return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, Math.round(v)));
+}
+
+export function stepFontSize(size, dir, step = 1) {
+  const n = Number(size);
+  const base = Number.isFinite(n) ? Math.round(n) : DEFAULT_SETTINGS.fontSize;
+  const next = base + (dir < 0 ? -step : step);
+  return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, next));
+}
 
 export const DEFAULT_SETTINGS = {
   // Appearance
@@ -24,6 +42,7 @@ export const DEFAULT_SETTINGS = {
   pageLayout: 'continuous',  // single | continuous — continuous scrolling by default
   rotation: 0,
   sidebar: 'thumbnails',     // thumbnails | outline | images | search | none
+  sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
   tool: 'text',              // text | image | region
   showStatusBar: true,
   showToolbarLabels: false,
@@ -34,7 +53,9 @@ export const DEFAULT_SETTINGS = {
   captureFormat: 'png',      // png | jpeg | webp | gif | bmp — for saved captures
   captureQuality: 0.92,      // JPEG / WebP quality, 0..1
   captureAction: 'ask',      // ask = show the capture dialog, copy = copy at once
+  autoCopyText: false,       // copying a text box as soon as it is selected
   autoCopyImage: false,      // clicking a picture with the image tool also copies it
+  autoCopyRegion: false,     // dragging a rectangle copies that area at once
   printScope: 'all',         // all | current | custom — remembered between prints
   rememberLastPage: true,
 
@@ -61,10 +82,16 @@ export function normalize(raw) {
   }
   out.recentFiles = out.recentFiles.filter((f) => f && typeof f.path === 'string').slice(0, MAX_RECENT_FILES);
   out.recentDirs = out.recentDirs.filter((d) => typeof d === 'string').slice(0, MAX_RECENT_DIRS);
-  out.fontSize = Math.min(24, Math.max(10, out.fontSize));
+  out.fontSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, out.fontSize));
+  out.sidebarWidth = clampSidebarWidth(out.sidebarWidth);
   out.captureQuality = Math.min(1, Math.max(0.1, out.captureQuality));
   if (!['text', 'image', 'region'].includes(out.tool)) out.tool = 'text';
   out.minImageSize = Math.min(512, Math.max(1, out.minImageSize));
+  // Older files only stored captureAction. "copy" meant auto-copy the region.
+  if (raw && typeof raw === 'object' && raw.autoCopyRegion == null && raw.captureAction === 'copy') {
+    out.autoCopyRegion = true;
+  }
+  out.captureAction = out.autoCopyRegion ? 'copy' : 'ask';
   return out;
 }
 

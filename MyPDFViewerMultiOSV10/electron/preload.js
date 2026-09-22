@@ -51,6 +51,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     minimize: () => ipcRenderer.invoke('win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('win:toggleMaximize'),
     close: () => ipcRenderer.invoke('win:close'),
+    forceClose: () => ipcRenderer.invoke('win:forceClose'),
+    onCloseRequest: (cb) => {
+      const h = () => cb();
+      ipcRenderer.on('win:close-request', h);
+      return () => ipcRenderer.removeListener('win:close-request', h);
+    },
     isMaximized: () => ipcRenderer.invoke('win:isMaximized'),
     setTitle: (t) => ipcRenderer.invoke('win:setTitle', t),
     setMinWidth: (w) => ipcRenderer.invoke('win:setMinWidth', w),
@@ -60,6 +66,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       const h = (_e, v) => cb(v);
       ipcRenderer.on('win:maximized', h);
       return () => ipcRenderer.removeListener('win:maximized', h);
+    },
+    getContentBounds: () => ipcRenderer.invoke('win:getContentBounds'),
+    openThemePopup: (payload) => ipcRenderer.invoke('win:openThemePopup', payload),
+    setPopupSize: (payload) => ipcRenderer.invoke('win:setPopupSize', payload),
+    pickTheme: (id) => ipcRenderer.invoke('win:pickTheme', id),
+    onThemePicked: (cb) => {
+      const h = (_e, id) => cb(id);
+      ipcRenderer.on('theme:picked', h);
+      return () => ipcRenderer.removeListener('theme:picked', h);
     },
   },
 });

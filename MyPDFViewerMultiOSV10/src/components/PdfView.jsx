@@ -1,7 +1,18 @@
 import React, {
   forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState,
 } from 'react';
-import { renderPage, renderTextLayer, cropCanvas, getPageImageRegions } from '../lib/pdf.js';
+import { renderPage, renderTextLayer, cropCanvas, getPageImageRegions, getPageLinks, getPageComments } from '../lib/pdf.js';
+import { commentCardPos, workspaceNoteToComment, workspaceAttachmentToComment } from '../lib/comments.js';
+import { matchOutlineTitle, lineTextNearPoint } from '../lib/nav.js';
+import {
+  computeScale, mergeRectsIntoLines, pagePlaceholderSize,
+  hitTestRegion, normalizeDragRect, isMeaningfulCapture,
+  pickCopyText, paintedSelectionToRects, locFromTop, hasPageLoc, bookmarkPaintRects,
+} from '../lib/view.js';
+import { collectLayerSearchHits, scrollOffsetForHit } from '../lib/search.js';
+import {
+  MIN_TEXT_DRAG, rangeAtPoint, caretAtPoint, applyStreamSelection,
+} from '../lib/text-select.js';
 
 // The page area: renders pages to canvases, lays a real (selectable) text layer
 // over each one, paints highlights and the current text selection, and hosts
@@ -13,38 +24,15 @@ import { renderPage, renderTextLayer, cropCanvas, getPageImageRegions } from '..
 
 const NEAR = '900px'; // how far outside the viewport a page starts rendering
 const NO_ANNOTATIONS = [];   // one shared instance, so the memo below holds
+const NO_BOOKMARKS = [];
 const NO_SELECTION = {};     // ditto, for the painted-selection lookup
 
 // Turning pages with the wheel in the single-page layout.
 const REST_MS = 200;     // a scrollable page must sit at its edge this long first
 const TURN_GAP_MS = 400; // …and one flick of the wheel never skips two pages
 
-// The browser paints a text selection span by span, which looks speckled on a
-// PDF text layer. Merging the selection's client rectangles into one block per
-// line gives the solid, unmistakable selection users expect.
-function mergeRectsIntoLines(rects) {
-  const items = rects
-    .filter((r) => r.width > 0.5 && r.height > 0.5)
-    .map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
-    .sort((a, b) => a.top - b.top || a.left - b.left);
-
-  const lines = [];
-  for (const r of items) {
-    const mid = (r.top + r.bottom) / 2;
-    // Same line when this rect's vertical centre falls inside an existing line.
-    const line = lines.find((l) => mid >= l.top - 1 && mid <= l.bottom + 1);
-    if (line) {
-      line.left = Math.min(line.left, r.left);
-      line.right = Math.max(line.right, r.right);
-      line.top = Math.min(line.top, r.top);
-      line.bottom = Math.max(line.bottom, r.bottom);
-    } else {
-      lines.push({ ...r });
-    }
-  }
-  return lines;
-}
-
+// The text tool selects in reading order: from a start column, through whole
+// lines, to an end column. The highlight is one solid block per line.
 const PdfView = forwardRef(function PdfView({
   doc,
   pageNumber,
@@ -60,11 +48,20 @@ const PdfView = forwardRef(function PdfView({
   onImagePick,          // an embedded image clicked → { page, id } (selects it)
   selectedImage,        // { page, id } currently selected, drawn highlighted
   onSelectionChange,
+  autoCopyText = false,
   onContextMenu,
   onScaleChange,
   onZoomStep,
   onError,
   emptyState,
+  outline,
+  onFollowLink,
+  onGoToPage,
+  searchQuery = '',
+  searchActive = null,
+  bookmarks = NO_BOOKMARKS,
+  activeBookmarkId = null,
+  activeCommentId = null,
 }, ref) {
   const scrollRef = useRef(null);
   const pageRefs = useRef(new Map());   // page number → { wrapper, canvas, textLayer }
@@ -73,6 +70,8 @@ const PdfView = forwardRef(function PdfView({
   // Painted selection, keyed by page: { [page]: [{ left, top, width, height }] }.
   // A selection that runs across a page break paints on every page it covers.
   const [selection, setSelection] = useState(NO_SELECTION);
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
 
   // ── Container measurement (drives fit-width / fit-page) ──
   useLayoutEffect(() => {
@@ -102,20 +101,10 @@ const PdfView = forwardRef(function PdfView({
   }, [doc, onError]);
 
   // ── Effective scale ─────────────────────────────────────
-  const scale = useMemo(() => {
-    if (!baseSize || !viewport.width) return zoomMode === 'custom' ? zoom : 1;
-    const rotated = (rotation / 90) % 2 !== 0;
-    const w = rotated ? baseSize.height : baseSize.width;
-    const h = rotated ? baseSize.width : baseSize.height;
-    const padX = 56;   // page margins inside the scroller
-    const padY = 48;
-    switch (zoomMode) {
-      case 'fit-width': return Math.max(0.1, (viewport.width - padX) / w);
-      case 'fit-page': return Math.max(0.1, Math.min((viewport.width - padX) / w, (viewport.height - padY) / h));
-      case 'actual': return 1;
-      default: return zoom;
-    }
-  }, [baseSize, viewport, zoomMode, zoom, rotation]);
+  const scale = useMemo(
+    () => computeScale({ baseSize, viewport, zoomMode, zoom, rotation }),
+    [baseSize, viewport, zoomMode, zoom, rotation],
+  );
 
   useEffect(() => { onScaleChange?.(scale); }, [scale, onScaleChange]);
 
@@ -131,9 +120,61 @@ const PdfView = forwardRef(function PdfView({
     return map;
   }, [annotations]);
 
+  const bookmarksByPage = useMemo(() => {
+    const map = new Map();
+    for (const b of bookmarks) {
+      const list = map.get(b.page);
+      if (list) list.push(b);
+      else map.set(b.page, [b]);
+    }
+    return map;
+  }, [bookmarks]);
+
+  const pendingLoc = useRef(null); // { page, loc } until the target page reports pdfHeight
+
+  const applyPageLoc = useCallback((entry, loc, root, behavior) => {
+    const fromTop = locFromTop(loc, entry?.pdfHeight);
+    if (fromTop == null || !entry?.wrapper || !root) return false;
+    const pageH = entry.wrapper.offsetHeight || 1;
+    if (layout === 'single') {
+      root.scrollTo({ top: Math.max(0, fromTop * pageH - 24), behavior });
+    } else {
+      const delta = entry.wrapper.getBoundingClientRect().top - root.getBoundingClientRect().top;
+      root.scrollTo({ top: Math.max(0, root.scrollTop + delta - 12 + fromTop * pageH), behavior });
+    }
+    return true;
+  }, [layout]);
+
   const registerPage = useCallback((num, entry) => {
     if (entry) pageRefs.current.set(num, entry);
     else pageRefs.current.delete(num);
+    const pending = pendingLoc.current;
+    if (pending && pending.page === num && entry?.wrapper && (pending.loc?.fracY != null || entry?.pdfHeight > 0)) {
+      pendingLoc.current = null;
+      applyPageLoc(entry, pending.loc, scrollRef.current, 'auto');
+    }
+  }, [applyPageLoc]);
+
+  const lastSearchScroll = useRef('');
+  const onSearchHit = useCallback((page, hit, stamp) => {
+    const key = `${stamp || ''}:${page}:${hit?.start ?? ''}:${hit?.index ?? ''}`;
+    if (lastSearchScroll.current === key) return;
+    lastSearchScroll.current = key;
+    const entry = pageRefs.current.get(page);
+    const root = scrollRef.current;
+    const rect = hit?.rects?.[0];
+    if (!entry?.wrapper || !root || !rect) return;
+    const rootBox = root.getBoundingClientRect();
+    const wrapBox = entry.wrapper.getBoundingClientRect();
+    const top = scrollOffsetForHit({
+      rootTop: rootBox.top,
+      wrapTop: wrapBox.top,
+      rootScroll: root.scrollTop,
+      rootHeight: root.clientHeight,
+      hitTop: rect.top,
+      hitHeight: rect.height,
+    });
+    if (top != null) root.scrollTo({ top, behavior: 'smooth' });
   }, []);
 
   // ── Which pages are mounted ─────────────────────────────
@@ -281,27 +322,44 @@ const PdfView = forwardRef(function PdfView({
   // This scrolls the page container itself rather than calling scrollIntoView:
   // scrollIntoView also scrolls every scrollable ancestor, which pushes the
   // toolbar and title bar off the top of the window.
-  const scrollToPage = useCallback((num, behavior = 'auto') => {
+  const scrollToPage = useCallback((num, behavior = 'auto', loc = null) => {
     const entry = pageRefs.current.get(num);
     const root = scrollRef.current;
-    if (!entry?.wrapper || !root) return;
+    if (!entry?.wrapper || !root) {
+      if (hasPageLoc(loc)) pendingLoc.current = { page: num, loc };
+      return;
+    }
     if (layout === 'single') {
       // Turning back with the wheel should show the foot of the previous page,
       // not its head — otherwise scrolling up jumps over a screenful of text.
       const edge = landEdge.current;
       landEdge.current = null;
-      root.scrollTo({
-        top: edge === 'bottom' ? root.scrollHeight : 0,
-        behavior: edge ? 'auto' : behavior,
-      });
+      if (edge) {
+        pendingLoc.current = null;
+        root.scrollTo({ top: edge === 'bottom' ? root.scrollHeight : 0, behavior: 'auto' });
+        return;
+      }
+      if (applyPageLoc(entry, loc, root, behavior)) {
+        pendingLoc.current = null;
+        return;
+      }
+      if (hasPageLoc(loc)) pendingLoc.current = { page: num, loc };
+      else pendingLoc.current = null;
+      root.scrollTo({ top: 0, behavior });
       return;
     }
     // Ignore the scroll-driven page updates this programmatic scroll causes.
     suppressScrollSync.current = true;
-    const delta = entry.wrapper.getBoundingClientRect().top - root.getBoundingClientRect().top;
-    root.scrollTo({ top: Math.max(0, root.scrollTop + delta - 12), behavior });
+    if (applyPageLoc(entry, loc, root, behavior)) {
+      pendingLoc.current = null;
+    } else {
+      if (hasPageLoc(loc)) pendingLoc.current = { page: num, loc };
+      else pendingLoc.current = null;
+      const delta = entry.wrapper.getBoundingClientRect().top - root.getBoundingClientRect().top;
+      root.scrollTo({ top: Math.max(0, root.scrollTop + delta - 12), behavior });
+    }
     setTimeout(() => { suppressScrollSync.current = false; }, behavior === 'smooth' ? 700 : 250);
-  }, [layout]);
+  }, [applyPageLoc, layout]);
 
   // ── Keeping a drag from grabbing text elsewhere on the page ──
   // A PDF text layer is a scatter of absolutely positioned spans with wide
@@ -454,6 +512,7 @@ const PdfView = forwardRef(function PdfView({
   const pageSigs = useRef(new Map());   // page → signature of the lines it holds
 
   const lastText = useRef('');
+  const spatialRef = useRef(null); // { page, text, lines, layerBox } from a box-select
 
   const refreshSelection = useCallback(() => {
     const sel = window.document.getSelection();
@@ -475,7 +534,11 @@ const PdfView = forwardRef(function PdfView({
       setSelection(next);
     };
 
-    if (!text || sel.rangeCount === 0) { pageSigs.current.clear(); commit(NO_SELECTION); return; }
+    if (!text || sel.rangeCount === 0) {
+      pageSigs.current.clear();
+      commit(NO_SELECTION);
+      return;
+    }
 
     const range = sel.getRangeAt(0);
     const raw = [...range.getClientRects()];
@@ -553,7 +616,10 @@ const PdfView = forwardRef(function PdfView({
 
   // The painted selection is positioned in CSS pixels, so it has to be redrawn
   // whenever the page geometry changes.
-  useEffect(() => { refreshSelection(); }, [scale, rotation, layout, refreshSelection]);
+  useEffect(() => {
+    spatialRef.current = null;
+    refreshSelection();
+  }, [scale, rotation, layout, refreshSelection]);
 
   // ── Imperative API used by the toolbar / menus ──────────
   useImperativeHandle(ref, () => ({
@@ -565,6 +631,7 @@ const PdfView = forwardRef(function PdfView({
       if (!entry?.textLayer) return false;
       const layer = entry.textLayer;
       dragging.current = false;
+      spatialRef.current = null;
       parkEndBlock(layer);
       const sel = window.getSelection();
       const range = document.createRange();
@@ -584,34 +651,66 @@ const PdfView = forwardRef(function PdfView({
       return pageRefs.current.get(num)?.canvas || null;
     },
 
+    // How far down the page the viewport currently sits (0 = top, 1 = bottom).
+    getVisibleFracY(num) {
+      const entry = pageRefs.current.get(num);
+      const root = scrollRef.current;
+      if (!entry?.wrapper || !root) return 0;
+      const wrap = entry.wrapper.getBoundingClientRect();
+      const rootBox = root.getBoundingClientRect();
+      if (!(wrap.height > 0)) return 0;
+      return Math.min(1, Math.max(0, (rootBox.top - wrap.top) / wrap.height));
+    },
+
     // Current selection as page-relative rectangles (0..1), so a highlight
-    // keeps its place at any zoom or rotation.
+    // keeps its place at any zoom or rotation. Falls back to the painted
+    // blocks when a click (context menu) has already cleared the native range.
     getSelectionRects() {
+      const spatial = spatialRef.current;
+      if (spatial?.lines?.length && spatial.layerBox?.width) {
+        const { page, text, lines, layerBox } = spatial;
+        return {
+          page,
+          text,
+          rects: paintedSelectionToRects(lines, layerBox),
+        };
+      }
       const sel = window.getSelection();
-      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
-      const text = sel.toString();
-      let page = 0;
-      let entry = null;
-      for (const [num, e] of pageRefs.current) {
-        if (e?.textLayer && (e.textLayer.contains(sel.anchorNode) || e.textLayer.contains(sel.focusNode))) {
-          page = num; entry = e; break;
+      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+        const text = sel.toString();
+        let page = 0;
+        let entry = null;
+        for (const [num, e] of pageRefs.current) {
+          if (e?.textLayer && (e.textLayer.contains(sel.anchorNode) || e.textLayer.contains(sel.focusNode))) {
+            page = num; entry = e; break;
+          }
+        }
+        if (entry) {
+          const box = entry.textLayer.getBoundingClientRect();
+          const rects = mergeRectsIntoLines([...sel.getRangeAt(0).getClientRects()]).map((r) => ({
+            x: (r.left - box.left) / box.width,
+            y: (r.top - box.top) / box.height,
+            w: (r.right - r.left) / box.width,
+            h: (r.bottom - r.top) / box.height,
+          }));
+          if (rects.length) return { page, rects, text };
         }
       }
-      if (!entry) return null;
-      const box = entry.textLayer.getBoundingClientRect();
-      const rects = mergeRectsIntoLines([...sel.getRangeAt(0).getClientRects()]).map((r) => ({
-        x: (r.left - box.left) / box.width,
-        y: (r.top - box.top) / box.height,
-        w: (r.right - r.left) / box.width,
-        h: (r.bottom - r.top) / box.height,
-      }));
+      const painted = selectionRef.current || NO_SELECTION;
+      const pages = Object.keys(painted);
+      if (!pages.length || !lastText.current) return null;
+      const page = Number(pages[0]);
+      const entry = pageRefs.current.get(page);
+      const box = entry?.textLayer?.getBoundingClientRect();
+      const rects = paintedSelectionToRects(painted[page], box);
       if (!rects.length) return null;
-      return { page, rects, text };
+      return { page, rects, text: lastText.current };
     },
 
     clearSelection() {
       window.getSelection()?.removeAllRanges();
       dragging.current = false;
+      spatialRef.current = null;
       parkAllEndBlocks();
       prevRange.current = null;
       selectionSig.current = '';
@@ -628,6 +727,23 @@ const PdfView = forwardRef(function PdfView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNumber, layout, doc]);
 
+  const applySpatialSelect = useCallback(({ page, text, lines, layerBox }) => {
+    spatialRef.current = lines.length ? { page, text, lines, layerBox } : null;
+    lastText.current = text;
+    onSelectionChange?.(text);
+    if (!lines.length) {
+      selectionSig.current = '';
+      pageSigs.current.clear();
+      setSelection(NO_SELECTION);
+      return;
+    }
+    const next = { [page]: lines };
+    selectionSig.current = `spatial:${page}:${lines.map((l) => `${Math.round(l.left)},${Math.round(l.top)}`).join('|')}`;
+    pageSigs.current.clear();
+    pageSigs.current.set(page, { sig: selectionSig.current, lines });
+    setSelection(next);
+  }, [onSelectionChange]);
+
   if (!doc) {
     return <div className="pageview empty" ref={scrollRef}>{emptyState}</div>;
   }
@@ -636,7 +752,9 @@ const PdfView = forwardRef(function PdfView({
     <div
       className={`pageview tool-${tool}${invert ? ' invert' : ''}`}
       ref={scrollRef}
-      onContextMenu={(e) => onContextMenu?.(e, {})}
+      onContextMenu={(e) => onContextMenu?.(e, {
+        selectionText: pickCopyText(lastText.current, window.getSelection()?.toString()),
+      })}
       onMouseDown={(e) => {
         const layer = e.target.closest?.('.textLayer');
         if (!layer) return;
@@ -660,16 +778,17 @@ const PdfView = forwardRef(function PdfView({
         // A finished text drag offers its actions straight away. The menu is
         // opened from the release position, and only for a drag that actually
         // selected something — a plain click still just moves the caret.
-        if (tool !== 'text' || e.button !== 0) return;
+        if (tool !== 'text' || e.button !== 0 || autoCopyText) return;
         if (!e.target.closest?.('.textLayer')) return;
         const { clientX, clientY } = e;
         // One tick, so the selection the menu asks about is the final one.
         setTimeout(() => {
-          const sel = window.getSelection();
-          if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+          const live = window.getSelection()?.toString() || '';
+          const text = pickCopyText(live, lastText.current);
+          if (!text.trim()) return;
           onContextMenu?.({
             preventDefault() {}, stopPropagation() {}, clientX, clientY,
-          }, {});
+          }, { selectionText: text });
         }, 0);
       }}
     >
@@ -691,6 +810,15 @@ const PdfView = forwardRef(function PdfView({
             onContextMenuAt={onContextMenu}
             onError={onError}
             register={registerPage}
+            outline={outline}
+            onFollowLink={onFollowLink}
+            onGoToPage={onGoToPage}
+            searchQuery={searchQuery}
+            searchActive={searchActive}
+            onSearchHit={onSearchHit}
+            bookmarks={bookmarksByPage.get(num) || NO_BOOKMARKS}
+            activeBookmarkId={activeBookmarkId}
+            activeCommentId={activeCommentId}
           />
         ))}
       </div>
@@ -705,6 +833,8 @@ const PdfView = forwardRef(function PdfView({
 const PageView = React.memo(function PageView({
   doc, num, scale, rotation, baseSize, annotations, selection,
   tool, onRegionCapture, onImagePick, selectedImage, onContextMenuAt, onError, register,
+  outline, onFollowLink, onGoToPage, searchQuery, searchActive, onSearchHit,
+  bookmarks, activeBookmarkId, activeCommentId,
 }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -713,22 +843,24 @@ const PageView = React.memo(function PageView({
   const [rendered, setRendered] = useState(false);
   const [size, setSize] = useState(null);
   const [drag, setDrag] = useState(null);        // rectangle being dragged
+  const [textDrag, setTextDrag] = useState(null); // stream-select on the text tool
+  const [cssSize, setCssSize] = useState(null);   // canvas / text-layer CSS px
   const [regions, setRegions] = useState([]);    // embedded image rectangles
+  const [links, setLinks] = useState([]);        // in-page TOC / cross-ref links
+  const [pdfComments, setPdfComments] = useState([]);
   const [hover, setHover] = useState(null);      // image under the pointer
+  const [textReady, setTextReady] = useState(0);
+  const [searchMarks, setSearchMarks] = useState([]);
+  const pdfHeightRef = useRef(0);
 
   const regionTool = tool === 'region';   // drag a rectangle out of the page
   const imageTool = tool === 'image';     // click a picture to select it
+  const textTool = tool === 'text';
 
-  // Placeholder geometry before the real page is measured.
-  const placeholder = useMemo(() => {
-    const src = size || baseSize;
-    if (!src) return { width: 600, height: 850 };
-    const rotated = (rotation / 90) % 2 !== 0;
-    return {
-      width: Math.round((rotated ? src.height : src.width) * scale),
-      height: Math.round((rotated ? src.width : src.height) * scale),
-    };
-  }, [size, baseSize, scale, rotation]);
+  // Prefer the rendered viewport size so the wrapper, canvas and text layer
+  // stay pixel-identical. `inset: 0` on a differently-sized wrapper stretched
+  // the spans and made the caret miss the glyph the user clicked.
+  const placeholder = cssSize || pagePlaceholderSize({ size, baseSize, scale, rotation });
 
   useEffect(() => {
     register(num, { wrapper: wrapRef.current, canvas: canvasRef.current, textLayer: textRef.current });
@@ -758,6 +890,7 @@ const PageView = React.memo(function PageView({
         if (cancelled) return;
         const intrinsic = page.getViewport({ scale: 1 });
         setSize({ width: intrinsic.width, height: intrinsic.height });
+        pdfHeightRef.current = page.view ? (page.view[3] - page.view[1]) : intrinsic.height;
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -765,20 +898,42 @@ const PageView = React.memo(function PageView({
         task = res.task;
         await task.promise;
         if (cancelled) return;
+        const cssW = Math.max(1, Math.floor(res.viewport.width));
+        const cssH = Math.max(1, Math.floor(res.viewport.height));
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
+        setCssSize({ width: cssW, height: cssH });
         setRendered(true);
 
         if (textRef.current) {
-          textRef.current.style.width = `${Math.floor(res.width)}px`;
-          textRef.current.style.height = `${Math.floor(res.height)}px`;
+          textRef.current.style.width = `${cssW}px`;
+          textRef.current.style.height = `${cssH}px`;
           await renderTextLayer({ page, container: textRef.current, viewport: res.viewport });
+          if (!cancelled) setTextReady((n) => n + 1);
         }
         if (cancelled) return;
 
-        // Image rectangles, so a picture can be picked with a single click.
+        register(num, {
+          wrapper: wrapRef.current,
+          canvas: canvasRef.current,
+          textLayer: textRef.current,
+          pdfHeight: pdfHeightRef.current,
+        });
+
         try {
           const found = await getPageImageRegions(page, res.viewport);
           if (!cancelled) setRegions(found);
         } catch { /* picking simply stays unavailable for this page */ }
+
+        try {
+          const found = await getPageLinks(page, res.viewport);
+          if (!cancelled) setLinks(found);
+        } catch { if (!cancelled) setLinks([]); }
+
+        try {
+          const found = await getPageComments(page, res.viewport);
+          if (!cancelled) setPdfComments(found);
+        } catch { if (!cancelled) setPdfComments([]); }
       } catch (err) {
         if (cancelled || err?.name === 'RenderingCancelledException') return;
         onError?.(err, 'render');
@@ -791,29 +946,100 @@ const PageView = React.memo(function PageView({
     };
   }, [visible, doc, num, scale, rotation, onError]);
 
+  // Paint every match of the current search on this page. The clicked hit
+  // is marked active so it can be scrolled into view.
+  useEffect(() => {
+    if (!textReady || !searchQuery?.trim()) {
+      setSearchMarks([]);
+      return;
+    }
+    const layer = textRef.current;
+    if (!layer) {
+      setSearchMarks([]);
+      return;
+    }
+    const hits = collectLayerSearchHits(layer, searchQuery);
+    const active = searchActive?.page === num ? Number(searchActive.pageHit) : -1;
+    setSearchMarks(hits.map((h, i) => ({ ...h, active: i === active })));
+    if (active >= 0 && hits[active]) onSearchHit?.(num, hits[active], searchActive.stamp);
+  }, [textReady, searchQuery, searchActive, num, onSearchHit]);
+
   // ── Pointer handling for the region / image tool ────────
   const localPoint = (e, el) => {
     const box = el.getBoundingClientRect();
     return { x: e.clientX - box.left, y: e.clientY - box.top };
   };
 
-  const regionAt = useCallback((pt) => regions.find((r) => (
-    pt.x >= r.rect.x && pt.x <= r.rect.x + r.rect.width
-    && pt.y >= r.rect.y && pt.y <= r.rect.y + r.rect.height
-  )) || null, [regions]);
+  const regionAt = useCallback((pt) => hitTestRegion(regions, pt), [regions]);
 
   const startDrag = (e) => {
-    // The image tool never drags: a click on a picture is handled on mouse-up.
-    if (!regionTool || e.button !== 0) return;
-    e.preventDefault();
+    if (e.button !== 0) return;
     const p = localPoint(e, e.currentTarget);
-    setDrag({ x0: p.x, y0: p.y, x1: p.x, y1: p.y });
+    if (regionTool) {
+      e.preventDefault();
+      setDrag({ x0: p.x, y0: p.y, x1: p.x, y1: p.y });
+      return;
+    }
+    if (textTool) {
+      e.preventDefault();
+      const start = caretAtPoint(textRef.current, e.clientX, e.clientY);
+      if (start) applyStreamSelection(start, start);
+      setTextDrag({
+        x0: p.x, y0: p.y, x1: p.x, y1: p.y,
+        start,
+        active: false,
+      });
+      try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+    }
   };
 
   const moveDrag = (e) => {
     const p = localPoint(e, e.currentTarget);
     if (drag) { setDrag((d) => ({ ...d, x1: p.x, y1: p.y })); return; }
+    if (textDrag) {
+      const next = { ...textDrag, x1: p.x, y1: p.y };
+      if (!next.active && (Math.abs(next.x1 - next.x0) >= MIN_TEXT_DRAG || Math.abs(next.y1 - next.y0) >= MIN_TEXT_DRAG)) {
+        next.active = true;
+      }
+      if (next.start) {
+        const end = caretAtPoint(textRef.current, e.clientX, e.clientY);
+        if (end) applyStreamSelection(next.start, end);
+      }
+      setTextDrag(next);
+      return;
+    }
     if (imageTool) setHover(regionAt(p));
+  };
+
+  const finishTextDrag = (e) => {
+    const dragState = textDrag;
+    setTextDrag(null);
+    const layer = textRef.current;
+    if (!dragState || !layer) return;
+
+    if (dragState.active && dragState.start && e) {
+      const end = caretAtPoint(layer, e.clientX, e.clientY);
+      if (end) applyStreamSelection(dragState.start, end);
+      return;
+    }
+
+    if (e && !dragState.start) {
+      const range = rangeAtPoint(layer, e.clientX, e.clientY);
+      if (range) {
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+    }
+
+    // TOC pages that are just text (no Link annotations): a click on a line
+    // that matches an outline title jumps to that section.
+    if (e && outline?.length) {
+      const line = lineTextNearPoint(layer, e.clientX, e.clientY);
+      const hit = matchOutlineTitle(line, outline);
+      if (hit?.page) onGoToPage?.(hit.page, hit.loc);
+      else if (hit?.dest && onFollowLink) onFollowLink({ dest: hit.dest });
+    }
   };
 
   // Image tool: a plain click selects whichever picture is under the pointer.
@@ -839,22 +1065,20 @@ const PageView = React.memo(function PageView({
   const onContextMenu = (e) => {
     const hit = imageTool ? regionAt(localPoint(e, e.currentTarget)) : null;
     e.stopPropagation();
-    onContextMenuAt?.(e, hit ? { page: num, imageHit: { id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect } } : {});
+    const selectionText = pickCopyText(window.getSelection()?.toString());
+    onContextMenuAt?.(e, hit
+      ? { page: num, imageHit: { id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect }, selectionText }
+      : { selectionText });
   };
 
   const endDrag = (e) => {
     if (!drag) return;
     const at = e ? { clientX: e.clientX, clientY: e.clientY } : null;
-    const rect = {
-      x: Math.min(drag.x0, drag.x1),
-      y: Math.min(drag.y0, drag.y1),
-      width: Math.abs(drag.x1 - drag.x0),
-      height: Math.abs(drag.y1 - drag.y0),
-    };
+    const rect = normalizeDragRect(drag);
     setDrag(null);
 
     // Too small to be a deliberate rectangle — treat it as a stray click.
-    if (rect.width < 6 || rect.height < 6) return;
+    if (!isMeaningfulCapture(rect)) return;
     if (!canvasRef.current) return;
     try {
       const shot = cropCanvas(canvasRef.current, rect);
@@ -871,7 +1095,21 @@ const PageView = React.memo(function PageView({
     height: Math.abs(drag.y1 - drag.y0),
   } : null;
 
+  const painted = selection;
   const overImage = imageTool && !!hover;
+  const pageW = placeholder.width;
+  const pageH = placeholder.height;
+  const comments = useMemo(() => {
+    const notes = (annotations || [])
+      .filter((a) => a.kind === 'note')
+      .map((a) => workspaceNoteToComment(a, pageW, pageH))
+      .filter(Boolean);
+    const files = (annotations || [])
+      .filter((a) => a.kind === 'fileattachment')
+      .map((a) => workspaceAttachmentToComment(a, pageW, pageH))
+      .filter(Boolean);
+    return [...pdfComments, ...notes, ...files];
+  }, [annotations, pdfComments, pageW, pageH]);
 
   return (
     <div
@@ -879,27 +1117,64 @@ const PageView = React.memo(function PageView({
       ref={wrapRef}
       data-page={num}
       style={{ width: placeholder.width, height: placeholder.height }}
-      onMouseDown={startDrag}
-      onMouseMove={moveDrag}
-      onMouseUp={(e) => { endDrag(e); pickImage(e); }}
-      onMouseLeave={(e) => { endDrag(e); setHover(null); }}
+      onPointerDown={startDrag}
+      onPointerMove={moveDrag}
+      onPointerUp={(e) => { finishTextDrag(e); endDrag(e); pickImage(e); }}
+      onPointerCancel={(e) => { finishTextDrag(e); endDrag(e); setHover(null); }}
+      onPointerLeave={(e) => { if (!textDrag) { endDrag(e); setHover(null); } }}
       onContextMenu={onContextMenu}
     >
       <canvas className="page-canvas" ref={canvasRef} />
 
-      {/* Painted selection sits under the text layer so the text stays hit-testable. */}
-      {selection ? (
+      {/* One block per selected line, under the text layer. */}
+      {painted ? (
         <div className="sel-layer">
-          {selection.map((l, i) => (
-            <div key={i} className="sel-block" style={{ left: l.left, top: l.top, width: l.width, height: l.height }} />
+          {painted.map((l, i) => (
+            <div
+              key={i}
+              className="sel-block"
+              style={{ left: l.left, top: l.top, width: l.width, height: l.height }}
+            />
           ))}
+        </div>
+      ) : null}
+
+      {searchMarks.length ? (
+        <div className="search-layer" aria-hidden="true">
+          {searchMarks.flatMap((m, i) => (m.rects || []).map((r, j) => (
+            <div
+              key={`${i}-${j}`}
+              className={`search-block${m.active ? ' active' : ''}`}
+              style={{ left: r.left, top: r.top, width: r.width, height: r.height }}
+            />
+          )))}
         </div>
       ) : null}
 
       <div className="textLayer" ref={textRef} />
 
+      {links.length ? (
+        <div className="pdf-links">
+          {links.map((link) => (
+            <a
+              key={link.id}
+              className="pdf-link"
+              href={link.url || '#'}
+              title={link.title || link.url || ''}
+              style={{ left: link.rect.x, top: link.rect.y, width: link.rect.width, height: link.rect.height }}
+              onPointerDown={(ev) => ev.stopPropagation()}
+              onClick={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                onFollowLink?.(link);
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
+
       <div className="annots">
-        {annotations.map((a) => (
+        {annotations.filter((a) => a.kind !== 'note').map((a) => (
           <div
             key={a.id}
             className={`annot ${a.kind}`}
@@ -914,6 +1189,70 @@ const PageView = React.memo(function PageView({
           />
         ))}
       </div>
+
+      {comments.length ? (
+        <div className="comment-layer">
+          {comments.map((c) => {
+            const anchor = c.rects[0] || { x: 0, y: 0, width: 0, height: 0 };
+            const card = commentCardPos(anchor, pageW, pageH);
+            const body = [c.author, c.text].filter(Boolean).join(' — ');
+            return (
+              <div key={c.id} className={`comment-item kind-${c.kind}${activeCommentId === c.id ? ' active' : ''}`}>
+                {c.rects.map((r, i) => (
+                  <div
+                    key={i}
+                    className={`comment-mark ${c.kind}`}
+                    style={{
+                      left: r.x, top: r.y, width: r.width, height: r.height,
+                      background: c.kind === 'underline' || c.kind === 'strikeout' || c.kind === 'squiggly'
+                        ? 'transparent'
+                        : c.color,
+                    }}
+                    title={body}
+                  />
+                ))}
+                {c.text || c.author ? (
+                  <div
+                    className={`comment-card${activeCommentId === c.id ? ' active' : ''}`}
+                    style={{ left: card.left, top: card.top }}
+                    title={body}
+                  >
+                    {c.author ? <div className="comment-author">{c.author}</div> : null}
+                    {c.text ? <div className="comment-text">{c.text}</div> : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {bookmarks?.length ? (
+        <div className="bm-layer" aria-hidden="true">
+          {bookmarks.map((b) => {
+            const marks = bookmarkPaintRects(b);
+            if (!marks.length) return null;
+            const on = activeBookmarkId === b.id;
+            return (
+              <div key={b.id}>
+                {marks.map((r, i) => (
+                  <div
+                    key={i}
+                    className={`bm-block${on ? ' active' : ''}`}
+                    style={{
+                      left: `${r.x * 100}%`,
+                      top: `${r.y * 100}%`,
+                      width: `${r.w * 100}%`,
+                      height: `${r.h * 100}%`,
+                    }}
+                    title={b.label}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {/* Outline every picture while the image tool is active. */}
       {imageTool && regions.length ? (

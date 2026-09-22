@@ -12,6 +12,7 @@ export default function Modal({
   children,
   footer,
   width = 560,
+  className = '',
   closeOnBackdrop = true,
   closeLabel = 'Close',
 }) {
@@ -56,8 +57,8 @@ export default function Modal({
       onMouseDown={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) onClose?.(); }}
     >
       <div
-        className="modal"
-        style={{ width }}
+        className={`modal${className ? ` ${className}` : ''}`}
+        style={{ '--modal-width': typeof width === 'number' ? `${width}px` : width }}
         ref={panelRef}
         role="dialog"
         aria-modal="true"

@@ -14,12 +14,32 @@ export const THEMES = [
   { id: 'ocean', bars: ['#0b1e2a', '#122b3a', '#3fc1c9'] },
   { id: 'mocha', bars: ['#1c1512', '#261c17', '#d9a066'] },
   { id: 'sky', bars: ['#eef4fb', '#ffffff', '#2f7fe0'] },
+  { id: 'lavender', bars: ['#f4eef8', '#ffffff', '#7c5cbf'] },
+  { id: 'ember', bars: ['#1a100c', '#261812', '#e07040'] },
+  { id: 'slate', bars: ['#1c1e22', '#26282d', '#7d8fa3'] },
+  { id: 'matcha', bars: ['#f2f4e8', '#ffffff', '#5a8f3c'] },
+  { id: 'grape', bars: ['#16101c', '#201628', '#a86ad4'] },
+  { id: 'sand', bars: ['#f6efe4', '#fffaf3', '#c47a3a'] },
+  { id: 'ice', bars: ['#eef6f6', '#ffffff', '#2a9aaa'] },
+  { id: 'crimson', bars: ['#180c10', '#241418', '#e04560'] },
 ];
 
 export const THEME_IDS = THEMES.map((t) => t.id);
 
+// Walks the shipped list in order and wraps. An unknown id starts at the first.
+export function nextTheme(id) {
+  if (!THEME_IDS.length) return id || 'dark';
+  const i = THEME_IDS.indexOf(id);
+  return THEME_IDS[(i + 1 + THEME_IDS.length) % THEME_IDS.length];
+}
+
+export const DARK_THEME_IDS = new Set([
+  'dark', 'midnight', 'nord', 'forest', 'rose', 'contrast', 'ocean', 'mocha',
+  'ember', 'slate', 'grape', 'crimson',
+]);
+
 // The colour the page area is tinted with per theme (the paper itself always
 // stays white so PDFs render truthfully).
 export function isDarkTheme(id) {
-  return ['dark', 'midnight', 'nord', 'forest', 'rose', 'contrast', 'ocean', 'mocha'].includes(id);
+  return DARK_THEME_IDS.has(id);
 }

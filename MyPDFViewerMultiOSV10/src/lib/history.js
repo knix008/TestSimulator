@@ -6,12 +6,14 @@
 // labels fall out for free.
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-const LIMIT = 100;
+export const HISTORY_LIMIT = 100;
+const LIMIT = HISTORY_LIMIT;
 
 export const EMPTY_WORKSPACE = {
   annotations: [],   // { id, page, kind: 'highlight'|'note', rect, color, text }
   clips: [],         // { id, kind: 'text'|'image', page, content, width, height, at }
-  bookmarks: [],     // { id, page, label }
+  bookmarks: [],     // { id, page, label, y, rects? }
+  attachments: [],   // { id, page, kind: 'fileattachment', name, data, mime, y }
   rotation: 0,
 };
 

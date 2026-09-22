@@ -33,6 +33,7 @@ export function serializeWorkspace({ file, page, view, workspace }) {
       annotations: workspace?.annotations || [],
       clips: workspace?.clips || [],
       bookmarks: workspace?.bookmarks || [],
+      attachments: workspace?.attachments || [],
       rotation: workspace?.rotation || 0,
     },
   }, null, 2);
@@ -61,6 +62,7 @@ export function parseWorkspace(text) {
       annotations: data.workspace?.annotations || [],
       clips: data.workspace?.clips || [],
       bookmarks: data.workspace?.bookmarks || [],
+      attachments: data.workspace?.attachments || [],
       rotation: data.workspace?.rotation || 0,
     },
   };

@@ -57,6 +57,7 @@ export default function CaptureDialog({ capture, settings, onChange, onCopy, onS
       icon={IconMarquee}
       onClose={onClose}
       width={620}
+      className="capture-modal"
       closeLabel={t('common.cancel')}
       footer={(
         <>
@@ -96,7 +97,7 @@ export default function CaptureDialog({ capture, settings, onChange, onCopy, onS
 
       <label className="field">
         <span className="field-label">{t('capture.format')}</span>
-        <div className="row">
+        <div className="row seg-row seg-fill">
           {IMAGE_FORMATS.map((f) => (
             <button
               key={f.id}
