@@ -10,8 +10,13 @@
 // the cursor (Space on a folder also measures it), Num+ / Num- select or
 // unselect by pattern, Num* inverts, Alt+Num+ selects the same extension,
 // typing letters quick-searches the list, Backspace goes up.
+//
+// Rows can be dragged (to the other panel, a folder row, Explorer / Finder /
+// the desktop) and the list takes drops from all of those (lib/dragdrop.js);
+// App receives `onDropFiles` and runs the transfer.
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { call, watchDir } from '../lib/backend';
+import { beginDrag, endDrag, carriesFiles, dropEffectFor, readDrop, draggingPaths } from '../lib/dragdrop';
 import { isImageName } from '../lib/images';
 import { t, useLanguage } from '../lib/i18n';
 import { breadcrumbs, dirName, baseName, formatSize, sizeDisplay, typeDisplay, driveOf, globToRegExp } from '../lib/format';
@@ -44,7 +49,7 @@ function compareEntries(a, b, sort) {
 }
 
 export const FilePanel = forwardRef(function FilePanel(props, ref) {
-  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onPreview, onAction, capabilities, history = [], hotlist = [], onHotlistChange, columns, quickSearch = true, spaceMeasures = true, tabs = [], tabIndex = 0, onTabSelect, onTabNew, onTabClose, onTabCloseOthers, onTabToOther } = props;
+  const { side, path, active, sort, showHidden, suspendWatch, onNavigate, onActivate, onSortChange, onSelectionChange, onOpenEntry, onPreview, onAction, onDropFiles, capabilities, history = [], hotlist = [], onHotlistChange, columns, quickSearch = true, spaceMeasures = true, tabs = [], tabIndex = 0, onTabSelect, onTabNew, onTabClose, onTabCloseOthers, onTabToOther } = props;
   useLanguage();
 
   const [entries, setEntries] = useState([]);
@@ -63,6 +68,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   const [tabList, setTabList] = useState(null);           // anchor element of the "every tab" menu
   const [dirSizes, setDirSizes] = useState(() => new Map());  // folder → measured size (Space)
   const [quick, setQuick] = useState('');                 // quick-search buffer
+  const [dropAt, setDropAt] = useState(null);             // drag over the list: row index of a folder, -1 = the panel's folder, null = none
   const quickTimer = useRef(null);
   const bodyRef = useRef(null);
   const tabScrollRef = useRef(null);
@@ -299,6 +305,51 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     }
   };
 
+  // ── Drag & drop (lib/dragdrop.js) ──
+  // A row drags the selection it belongs to, or itself alone. A drop lands in the folder row under the
+  // cursor (`..` = the parent), anywhere else in this panel's folder. Copy by default, Shift = move (F5 / F6).
+  const onRowDragStart = (e, i) => {
+    const entry = sorted[i];
+    if (!entry || entry.isUp) { e.preventDefault(); return; }
+    const items = selected.has(entry.path) ? selectedEntries : [entry];
+    if (!selected.has(entry.path)) selectIndex(i);
+    beginDrag(e, items);
+  };
+  // The folder row under the cursor (-1: the panel itself). A folder that is being dragged cannot take itself.
+  const dropTargetOf = (e) => {
+    const row = e.target && e.target.closest ? e.target.closest('tr[data-index]') : null;
+    if (!row) return -1;
+    const i = Number(row.dataset.index);
+    const entry = sorted[i];
+    if (!entry || !entry.isDir) return -1;
+    const own = draggingPaths();
+    if (own && !entry.isUp && own.includes(entry.path)) return -1;
+    return i;
+  };
+  const onDragOver = (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = dropEffectFor(e);
+    const at = dropTargetOf(e);
+    setDropAt((v) => (v === at ? v : at));
+  };
+  const onDragLeave = (e) => {
+    if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+    setDropAt(null);
+  };
+  const onDrop = (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    setDropAt(null);
+    const at = dropTargetOf(e);
+    const dest = at >= 0 ? sorted[at].path : path;
+    const move = dropEffectFor(e) === 'move';
+    const drop = readDrop(e);   // reads the data transfer now; the folder walk (browser) finishes later
+    endDrag();
+    onActivate();
+    if (onDropFiles) onDropFiles({ dest, move, drop });
+  };
+
   // ── Status line ──
   const status = useMemo(() => {
     if (error) return t('panel_error', { msg: error });
@@ -461,7 +512,8 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
 
       {treeOpen && <FolderTree currentPath={path} onSelect={(p) => { setTreeOpen(false); onNavigate(p); }} />}
 
-      <div className="table-wrap" ref={bodyRef} tabIndex={0} onKeyDown={onKeyDown} onContextMenu={onContextMenu} onMouseDown={onEmptyClick}>
+      <div className={`table-wrap ${dropAt === -1 ? 'drop-here' : ''}`} ref={bodyRef} tabIndex={0} onKeyDown={onKeyDown} onContextMenu={onContextMenu} onMouseDown={onEmptyClick}
+        onDragOver={onDragOver} onDragEnter={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
         <table className="file-table">
           <thead>
             <tr>
@@ -476,7 +528,9 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
           <tbody>
             {sorted.map((e, i) => (
               <tr key={e.isUp ? '..' : e.path} data-index={i}
-                className={`${selected.has(e.path) && !e.isUp ? 'selected' : ''} ${i === cursor ? 'cursor' : ''} ${e.hidden ? 'hidden-entry' : ''}`}
+                className={`${selected.has(e.path) && !e.isUp ? 'selected' : ''} ${i === cursor ? 'cursor' : ''} ${e.hidden ? 'hidden-entry' : ''} ${i === dropAt ? 'drop-target' : ''}`}
+                draggable={!e.isUp}
+                onDragStart={(ev) => onRowDragStart(ev, i)} onDragEnd={endDrag}
                 onMouseDown={(ev) => onRowMouseDown(ev, i)}
                 onDoubleClick={() => activate(e)}>
                 <td className="c-name">

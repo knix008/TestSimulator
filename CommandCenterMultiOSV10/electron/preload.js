@@ -1,7 +1,7 @@
 // Preload: the only bridge between the sandboxed renderer and the main process.
 // src/lib/backend.js uses `window.commandCenter` when it exists (desktop app)
 // and falls back to HTTP against server/server.js otherwise (web version).
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('commandCenter', {
   host: 'electron',
@@ -30,6 +30,12 @@ contextBridge.exposeInMainWorld('commandCenter', {
   // Prints a self-contained HTML document through the system print dialog (see ipc.js print:html).
   printHtml: (spec) => ipcRenderer.invoke('print:html', spec),
   quit: () => ipcRenderer.send('app:quit'),
+
+  // Drag & drop with the desktop (src/lib/dragdrop.js): the path behind a File dropped from
+  // Explorer / Finder, and a native drag of files out of a panel (ipc.js drag:start) that
+  // resolves once the drag is over.
+  pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch { return (file && file.path) || ''; } },
+  startDrag: (paths) => ipcRenderer.invoke('drag:start', { paths }),
 
   // Tool windows (see ipc.js): open one, fetch this window's arguments, close
   // this window, and the message bus between all windows of the app.

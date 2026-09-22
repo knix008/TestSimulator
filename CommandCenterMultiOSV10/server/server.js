@@ -78,9 +78,66 @@ function authorized(req, url) {
   return url.searchParams.get('token') === TOKEN;
 }
 
+// Drag & drop with the browser (src/lib/dragdrop.js): a file dragged out of a
+// panel is fetched as a download, files dropped on a panel are streamed in.
+function downloadFile(req, res, url) {
+  const p = url.searchParams.get('path') || '';
+  fs.stat(p, (err, st) => {
+    if (err || !st.isFile()) return send(res, 404, { ok: false, error: { code: 'ENOENT', message: `Not a file: ${p}`, path: p } });
+    const name = path.basename(p);
+    res.writeHead(200, {
+      'content-type': MIME[path.extname(p).toLowerCase()] || 'application/octet-stream',
+      'content-length': st.size,
+      'content-disposition': `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+      'cache-control': 'no-store',
+    });
+    if (req.method === 'HEAD') return res.end();
+    fs.createReadStream(p).on('error', () => res.destroy()).pipe(res);
+  });
+}
+
+// POST /api/upload?dir=<folder>&rel=<name or sub/path/name>[&overwrite=1][&mkdir=1]
+// The body is the file (`mkdir=1`: no body, an empty folder is created). `rel` stays inside `dir`.
+async function uploadFile(req, res, url) {
+  const dir = url.searchParams.get('dir') || '';
+  const rel = (url.searchParams.get('rel') || '').replace(/\\/g, '/');
+  const overwrite = url.searchParams.get('overwrite') === '1';
+  const mkdir = url.searchParams.get('mkdir') === '1';
+  const fail = (status, code, message) => send(res, status, { ok: false, error: { code, message, path: rel } });
+  if (!dir || !rel) return fail(400, 'EINVAL', 'dir and rel are required');
+  if (path.isAbsolute(rel) || rel.split('/').some((s) => s === '..' || s === '')) return fail(400, 'EINVAL', `Bad relative path: ${rel}`);
+  const base = path.resolve(dir);
+  const dest = path.resolve(base, ...rel.split('/'));
+  if (!dest.startsWith(base + path.sep)) return fail(400, 'EINVAL', `Outside the folder: ${rel}`);
+  try {
+    if (!(await fsops.isDirectory(base))) return fail(400, 'ENOTDIR', `Destination is not a folder: ${dir}`);
+    if (mkdir) {
+      await fs.promises.mkdir(dest, { recursive: true });
+      return send(res, 200, { ok: true, data: { path: dest } });
+    }
+    const existed = await fsops.exists(dest);
+    if (existed && !overwrite) { req.resume(); return fail(200, 'EXISTS', `Already exists: ${rel}`); }
+    if (existed && (await fsops.isDirectory(dest))) return fail(200, 'EISDIR', `A folder is in the way: ${rel}`);
+    await fs.promises.mkdir(path.dirname(dest), { recursive: true });
+    await new Promise((resolve, reject) => {
+      const out = fs.createWriteStream(dest);
+      req.on('error', reject);
+      out.on('error', reject);
+      out.on('finish', resolve);
+      req.on('aborted', () => { out.destroy(); fs.unlink(dest, () => reject(new Error('Upload aborted'))); });
+      req.pipe(out);
+    });
+    send(res, 200, { ok: true, data: { path: dest, existed } });
+  } catch (err) {
+    send(res, 200, { ok: false, error: serializeError(err) });
+  }
+}
+
 async function handleApi(req, res, url) {
   if (!authorized(req, url)) return send(res, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
   const name = decodeURIComponent(url.pathname.slice('/api/'.length));
+  if (name === 'download' && (req.method === 'GET' || req.method === 'HEAD')) return downloadFile(req, res, url);
+  if (name === 'upload' && req.method === 'POST') return uploadFile(req, res, url);
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: { code: 'METHOD', message: 'POST only' } });
   let args = {};
   try {

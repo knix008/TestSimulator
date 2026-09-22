@@ -1,8 +1,21 @@
 // IPC bridge: exposes core/api.js to the renderer and pushes job updates and
 // directory-change notifications to it.
-const { ipcMain, BrowserWindow, screen } = require('electron');
+const { ipcMain, BrowserWindow, screen, nativeImage } = require('electron');
 const fs = require('fs');
+const path = require('path');
 const { serializeError } = require('../core/api');
+
+// The image under the cursor while files are dragged out of a panel (macOS insists on one).
+let dragIconCache = null;
+function dragIcon() {
+  if (dragIconCache) return dragIconCache;
+  try {
+    dragIconCache = nativeImage.createFromBuffer(fs.readFileSync(path.join(__dirname, '..', 'build', 'icons', 'png', '32x32.png')));
+  } catch {
+    dragIconCache = nativeImage.createEmpty();
+  }
+  return dragIconCache;
+}
 
 function registerIpc(api, getWindow, dialogs = {}, windows = {}) {
   // Pushed to every window: a tool window (the search window, say) follows its own jobs.
@@ -45,6 +58,21 @@ function registerIpc(api, getWindow, dialogs = {}, windows = {}) {
     const w = watchers.get(id);
     if (w) { try { w.close(); } catch { /* ignore */ } watchers.delete(id); }
   }
+
+  // ── Drag out of a panel (preload startDrag) ──
+  // The renderer cancels its HTML5 drag and asks for a native one, so the files can be dropped on
+  // Explorer / Finder / the desktop — and back on a panel, where they arrive as ordinary dropped
+  // files. Resolves when the drag has ended (the OS does the copy / move for an outside target).
+  ipcMain.handle('drag:start', (event, { paths } = {}) => {
+    const files = (paths || []).filter((p) => typeof p === 'string' && p);
+    if (!files.length) return { ok: false, error: { code: 'EMPTY', message: 'nothing to drag' } };
+    try {
+      event.sender.startDrag({ files, icon: dragIcon() });
+      return { ok: true, data: { count: files.length } };
+    } catch (err) {
+      return { ok: false, error: serializeError(err) };
+    }
+  });
 
   ipcMain.on('app:quit', () => {
     const win = getWindow();

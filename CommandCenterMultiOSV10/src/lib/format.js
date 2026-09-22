@@ -45,6 +45,17 @@ export function dirName(p) {
   return d;
 }
 
+// Whether two paths name the same folder / file: trailing separators and, on Windows, case and
+// the direction of the slashes do not count.
+export function samePath(a, b) {
+  const norm = (p) => {
+    let s = String(p || '');
+    if (sep === '\\') s = s.replace(/\//g, '\\').toLowerCase();
+    return s.length > 1 ? s.replace(/[\\/]+$/, '') || s : s;
+  };
+  return norm(a) === norm(b);
+}
+
 // Splits a path into breadcrumb components: [{label, path}].
 export function breadcrumbs(p) {
   if (!p) return [];

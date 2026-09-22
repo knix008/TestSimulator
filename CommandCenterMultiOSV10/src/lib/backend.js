@@ -161,6 +161,37 @@ export function quitApp() {
   else window.close();
 }
 
+// ── Drag & drop with the outside (see src/lib/dragdrop.js) ──
+
+// Desktop: the path behind a File dropped from Explorer / Finder ('' in the browser, which uploads instead).
+export function droppedFilePath(file) {
+  if (!isElectron || !electron.pathForFile) return '';
+  try { return electron.pathForFile(file) || ''; } catch { return ''; }
+}
+
+// Desktop: drags `paths` natively so they can be dropped on the OS; resolves when the drag is over.
+export async function startNativeDrag(paths) {
+  if (!isElectron || !electron.startDrag) return;
+  unwrap(await electron.startDrag(paths), 'drag error');
+}
+
+// Browser: one dropped file (or an empty folder when `file` is null) into `dir` at the relative
+// path `rel` (server/server.js /api/upload). `overwrite` replaces a file that is already there;
+// otherwise an EXISTS error comes back.
+export async function uploadFile(file, dir, rel, { overwrite = false, signal } = {}) {
+  const headers = {};
+  const token = webToken();
+  if (token) headers.authorization = `Bearer ${token}`;
+  const q = new URLSearchParams({ dir, rel });
+  if (overwrite) q.set('overwrite', '1');
+  if (!file) q.set('mkdir', '1');
+  else headers['content-type'] = 'application/octet-stream';
+  const res = await fetch(`./api/upload?${q}`, { method: 'POST', headers, body: file || undefined, signal });
+  let body;
+  try { body = await res.json(); } catch { throw new Error(`HTTP ${res.status}`); }
+  return unwrap(body, `HTTP ${res.status}`);
+}
+
 // Native save-as picker (image save / convert) — desktop only; the browser downloads instead.
 export async function pickSavePath(defaultPath, filters) {
   if (!isElectron || !electron.dialog) return null;

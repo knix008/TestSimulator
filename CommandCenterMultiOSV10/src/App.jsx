@@ -4,9 +4,9 @@
 // bottom dock (operation log + terminal tabs) and every action that needs a
 // dialog, a job with progress, or the other panel.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder, pickFile, openWindow, onAppMessage, postToApp, canOpenWindows } from './lib/backend';
+import { call, runJob, cancelJob, resolveConflict, readClipboardText, writeClipboardText, quitApp, hostName, pickFolder, pickFile, openWindow, onAppMessage, postToApp, canOpenWindows, uploadFile } from './lib/backend';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
-import { setSeparator, joinPath, baseName, dirName, getSeparator } from './lib/format';
+import { setSeparator, joinPath, baseName, dirName, getSeparator, samePath } from './lib/format';
 import { FilePanel } from './components/FilePanel';
 import { MenuBar, Toolbar, FnBar } from './components/Chrome';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
@@ -305,6 +305,15 @@ export default function App() {
     return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onRejection); };
   }, [showError]);
 
+  // A file dropped anywhere but on a panel list (toolbar, dock, …) must not make the page navigate
+  // to it; the panels handle their own drops (FilePanel) before this runs.
+  useEffect(() => {
+    const swallow = (e) => { if (!e.defaultPrevented) { e.preventDefault(); if (e.type === 'dragover') e.dataTransfer.dropEffect = 'none'; } };
+    window.addEventListener('dragover', swallow);
+    window.addEventListener('drop', swallow);
+    return () => { window.removeEventListener('dragover', swallow); window.removeEventListener('drop', swallow); };
+  }, []);
+
   const refreshBoth = () => { panels.left.current && panels.left.current.refresh(); panels.right.current && panels.right.current.refresh(); };
 
   // Records a finished transfer; only entries that landed on a fresh path are
@@ -315,12 +324,10 @@ export default function App() {
   };
 
   // ── Actions ──
-  const transfer = async (side, move) => {
-    const p = panel(side);
-    if (!p) return;
-    const sources = p.getSelectedPaths();
-    if (!sources.length) { setStatus(t(move ? 'select_move' : 'select_copy')); return; }
-    const dest = pathOf(other(side));
+  // Copies or moves `sources` into the folder `dest` with the progress dialog: F5 / F6, a drop on a
+  // panel, the search window's "→ left / right panel".
+  const transferPaths = async (dest, sources, move = false) => {
+    if (!sources.length) return;
     const verb = t(move ? 'move_verb' : 'copy_verb');
     const final = await runWithProgress(t(move ? 'moving' : 'copying'), 'ops.transfer', { sources, dest, move });
     refreshBoth();
@@ -338,18 +345,72 @@ export default function App() {
     }
   };
 
+  const transfer = async (side, move) => {
+    const p = panel(side);
+    if (!p) return;
+    const sources = p.getSelectedPaths();
+    if (!sources.length) { setStatus(t(move ? 'select_move' : 'select_copy')); return; }
+    await transferPaths(pathOf(other(side)), sources, move);
+  };
+
   // Copies `sources` into a panel's folder (the search window's "→ left / right panel").
-  const copyPathsTo = async (side, sources) => {
-    if (!sources.length) return;
-    const dest = pathOf(side);
-    const final = await runWithProgress(t('copying'), 'ops.transfer', { sources, dest, move: false });
+  const copyPathsTo = (side, sources) => transferPaths(pathOf(side), sources, false);
+
+  // A drop on a panel (lib/dragdrop.js): paths — our own rows or files from the desktop — go through
+  // ops.transfer; files the browser received from the OS are uploaded to the server.
+  const dropTransfer = async (dest, move, drop) => {
+    let got;
+    try { got = await drop; } catch (err) { await showError(err); return; }
+    if (got.paths) {
+      // Rows dropped on the folder they are in already: nothing to do.
+      const sources = got.paths.filter((p) => !samePath(dirName(p), dest));
+      if (!sources.length) { setStatus(t('drop_same_folder')); return; }
+      await transferPaths(dest, sources, move);
+    } else if (got.uploads) {
+      await uploadDropped(dest, got.uploads);
+    }
+  };
+
+  // Browser only: uploads [{ file, rel }] into `dest`, one request per file (rel keeps the dropped
+  // folder structure). Conflicts are settled once, for the top-level names that already exist.
+  const uploadDropped = async (dest, uploads) => {
+    if (!uploads.length) return;
+    const tops = [...new Set(uploads.map((u) => u.rel.split('/')[0]))];
+    const existing = [];
+    for (const name of tops) { try { if ((await call('fs.exists', { path: joinPath(dest, name) })).exists) existing.push(name); } catch { /* skip */ } }
+    let overwrite = false;
+    if (existing.length) {
+      overwrite = await dialogs.confirm({ title: t('upload_title'), message: t('upload_exists', { n: existing.length, names: existing.slice(0, 8).join('\n') + (existing.length > 8 ? '\n…' : '') }), yesLabel: t('overwrite'), noLabel: t('skip') });
+    }
+    const list = overwrite ? uploads : uploads.filter((u) => !existing.includes(u.rel.split('/')[0]));
+    if (!list.length) { setStatus(t('upload_nothing')); return; }
+    const ctl = new AbortController();
+    const job = { current: 0, total: list.length, detail: '' };
+    const dlg = dialogs.open({ type: 'progress', verb: t('uploading'), job: { ...job }, cancelled: false, onCancel: () => { ctl.abort(); dlg.update({ cancelled: true }); } });
+    setBusy((b) => b + 1);
+    let done = 0, failed = 0, cancelled = false;
+    try {
+      for (const u of list) {
+        if (ctl.signal.aborted) { cancelled = true; break; }
+        dlg.update({ job: { ...job, detail: u.rel } });
+        try {
+          await uploadFile(u.file, dest, u.rel, { overwrite, signal: ctl.signal });
+          done++;
+        } catch (err) {
+          if (ctl.signal.aborted) { cancelled = true; break; }
+          failed++;
+          addLog('error', `${u.rel}: ${err.message || err}`);
+        }
+        job.current++;
+      }
+    } finally {
+      dlg.close();
+      setBusy((b) => Math.max(0, b - 1));
+    }
     refreshBoth();
-    if (final.status === 'done') {
-      recordTransfer(final, dest, false);
-      const st = final.result || { copied: 0, skipped: 0 };
-      setStatus(st.skipped ? t('transfer_skipped', { n: st.copied, verb: t('copy_verb'), skipped: st.skipped, dest }) : t('transfer_done', { n: st.copied, dest, verb: t('copy_verb') }));
-    } else if (final.status === 'cancelled') setStatus(t('copy_cancelled'));
-    else await dialogs.error(final.error || t('copy_failed'), final.errorDetail);
+    if (cancelled) setStatus(t('upload_cancelled', { n: done }));
+    else if (failed) setStatus(t('upload_failed', { n: done, failed }));
+    else setStatus(t('uploaded', { n: done, dest }));
   };
 
   const newEntry = async (side, kind) => {
@@ -1052,6 +1113,7 @@ export default function App() {
     onOpenEntry: (entry) => openEntry(side, entry),
     onPreview: session.imagePreview !== false ? (entry) => { previewImage(side, entry, false).catch(() => {}); } : undefined,
     onAction: (id) => onAction(id, side),
+    onDropFiles: ({ dest, move, drop }) => { dropTransfer(dest, move, drop).catch(showError); },
     history: dirHistory[side],
     hotlist: session.hotlist || [],
     columns: { perm: session.showPerm !== false, date: session.showDate !== false, type: session.showType !== false, size: session.showSize !== false },
