@@ -10,6 +10,7 @@ import {
   IconSelectText, IconPrint,
 } from './Icons.jsx';
 import { THEMES, nextTheme } from '../lib/themes.js';
+import { otherLang } from '../i18n.js';
 import { api, isElectron } from '../lib/platform.js';
 
 // The window must never be narrow enough to hide a toolbar button. How much the
@@ -537,7 +538,7 @@ export default function Toolbar({
         </MenuButton>
 
         <ToolButton
-          icon={(p) => <IconFlag lang={settings.lang} {...p} />}
+          icon={(p) => <IconFlag lang={otherLang(settings.lang)} {...p} />}
           label={t('toolbar.lang')}
           tip={t('tip.lang')}
           onClick={() => onLang()}

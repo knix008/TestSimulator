@@ -418,7 +418,9 @@ describe('Toolbar language flags', () => {
       />,
     );
     expect(document.querySelector('.lang-flag')).toBeTruthy();
-    expect(document.body.innerHTML).toContain('#012169');
+    // English UI shows the Korean flag (the language you switch to).
+    expect(document.body.innerHTML).toContain('#CD2E3A');
+    expect(document.body.innerHTML).not.toContain('#012169');
     fireEvent.click(screen.getByRole('button', { name: 'Language' }));
     expect(onLang).toHaveBeenCalledTimes(1);
     expect(onLang).toHaveBeenCalledWith();

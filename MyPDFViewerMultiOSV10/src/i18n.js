@@ -843,6 +843,10 @@ export const LANGUAGES = [
   { id: 'en', native: 'English' },
 ];
 
+export function otherLang(lang) {
+  return String(lang || '').toLowerCase().startsWith('en') ? 'ko' : 'en';
+}
+
 export function setLanguage(lng) {
   try { localStorage.setItem('mypdfviewer-lang', lng); } catch { /* ignore */ }
   return i18n.changeLanguage(lng);

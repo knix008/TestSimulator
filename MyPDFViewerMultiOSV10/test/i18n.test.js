@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import i18n, { setLanguage } from '../src/i18n.js';
+import i18n, { setLanguage, otherLang } from '../src/i18n.js';
 
 function flatten(obj, prefix = '') {
   const keys = [];
@@ -60,6 +60,15 @@ describe('language packs', () => {
       expect(koKeys).toContain(key);
       expect(enKeys).toContain(key);
     }
+  });
+});
+
+describe('otherLang', () => {
+  it('returns the language the toolbar flag should switch to', () => {
+    expect(otherLang('ko')).toBe('en');
+    expect(otherLang('en')).toBe('ko');
+    expect(otherLang('en-GB')).toBe('ko');
+    expect(otherLang('')).toBe('en');
   });
 });
 
