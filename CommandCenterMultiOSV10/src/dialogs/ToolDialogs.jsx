@@ -8,11 +8,17 @@ import { formatSize, baseName } from '../lib/format';
 import { Icon } from '../components/Icons';
 import { PrintDialog } from './PrintDialog';
 import { ImageView } from '../components/ImageView';
+import { MediaView } from '../components/MediaView';
+import { mediaUrl } from '../lib/media';
 
 // ── Viewer (F3) ───────────────────────────────────────────
 // spec.data is the fs.readFile result: text (with encoding), image (base64)
 // or binary (base64 of the first part, shown as a hex dump).
 
+// Hex dump in hex-editor form: a heading row (offset column, the 16 byte columns, the ASCII column)
+// and one line per 16 bytes. The heading is a separate element in the viewer (.hex-head) so it stays
+// put while the dump scrolls — this returns only the lines.
+export const HEX_HEAD = `${'offset'.padEnd(8)}  ${Array.from({ length: 8 }, (_, i) => i.toString(16).padStart(2, '0')).join(' ')}  ${Array.from({ length: 8 }, (_, i) => (i + 8).toString(16).padStart(2, '0')).join(' ')}  ${'0123456789abcdef'}`;
 function hexDump(bytes) {
   const lines = [];
   for (let off = 0; off < bytes.length; off += 16) {
@@ -34,6 +40,9 @@ export function ViewerDialog({ spec, done }) {
   const prefs = spec.prefs || {};
   const [wrap, setWrap] = useState(prefs.viewerWrap !== false);
   const [hex, setHex] = useState(data.kind === 'binary');
+  const media = data.kind === 'media';
+  const pdf = data.kind === 'pdf';
+  const plain = data.kind !== 'image' && !media && !pdf;   // text / binary: the <pre> pane and its options
   const imageRef = useRef(null);
   const [imageInfo, setImageInfo] = useState('');
   const hexText = useMemo(() => (hex ? hexDump(bytesOf(data).subarray(0, 256 * 1024)) : ''), [hex, data]);
@@ -41,7 +50,7 @@ export function ViewerDialog({ spec, done }) {
   const [printDoc, setPrintDoc] = useState(null);   // the print dialog (preview + page setup) is open for this document
   const printing = !!printDoc;
   // Ctrl+P prints what is shown: the image, the text (wrapped as on screen) or the hex dump.
-  const canPrint = data.kind === 'image' ? !data.truncated && !!data.base64 : true;
+  const canPrint = data.kind === 'image' ? !data.truncated && !!data.base64 : data.kind !== 'media';
   const print = () => {
     if (!canPrint || printing) return;
     // A picture is printed by its pane (decoded, rotated as shown).
@@ -67,28 +76,43 @@ export function ViewerDialog({ spec, done }) {
   }, [done, data.kind]);
   const info = data.kind === 'image'
     ? `${data.mime}  ·  ${formatSize(data.size)}${imageInfo ? `  ·  ${imageInfo}` : ''}`
+    : media
+      ? (imageInfo || `${formatSize(data.size)}  ·  ${data.mime}`)
+    : pdf
+      ? `PDF  ·  ${formatSize(data.size)}`
     : data.kind === 'text'
       ? `${data.encoding}  ·  ${t('viewer_lines', { n: lines })}  ·  ${formatSize(data.size)}${data.truncated ? `  ·  ${t('viewer_truncated')}` : ''}`
       : `${t('viewer_binary')}  ·  ${formatSize(data.size)}${data.truncated ? `  ·  ${t('viewer_truncated')}` : ''}`;
   return (
-    <DialogFrame title={`${spec.preview ? t('preview_title') : t('viewer_title')} — ${baseName(path)}`} onClose={() => done()} icon={spec.preview ? 'image' : 'view'} width={900} className={spec.preview ? 'viewer preview' : 'viewer'} windowed={spec.windowed}
+    <DialogFrame title={`${media ? t('media_title') : spec.preview ? t('preview_title') : t('viewer_title')} — ${baseName(path)}`} onClose={() => done()} icon={media ? (data.media === 'video' ? 'video' : 'audio') : pdf ? 'view' : spec.preview ? 'image' : 'view'} width={900} className={spec.preview ? 'viewer preview' : 'viewer'} windowed={spec.windowed}
       footer={<>
         <span className="muted small ellipsis" title={path}>{info}</span>
         <span className="spacer" />
-        {data.kind !== 'image' && !hex && <label className="check"><input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} /> {t('viewer_wrap')}</label>}
-        {data.kind !== 'image' && <label className="check"><input type="checkbox" checked={hex} onChange={(e) => setHex(e.target.checked)} /> {t('viewer_hex')}</label>}
-        {spec.canOpen && <button className="btn" onClick={() => { spec.onOpen(); }}><Icon name="open" /> {t('viewer_open_app')}</button>}
-        {data.kind !== 'image' && <button className="btn" onClick={print} disabled={!canPrint || printing} title={t('tip_print_view')}><Icon name="print" /> {t('print')} (Ctrl+P)</button>}
-        {data.kind === 'text' && <button className="btn" onClick={() => done('edit')}><Icon name="edit" /> {t('edit_file')} (F4)</button>}
+        {!plain && spec.canOpen && <button className="btn" onClick={() => { spec.onOpen(); }}><Icon name="open" /> {t('viewer_open_app')}</button>}
         <button className="btn primary" onClick={() => done()}>{t('close')}</button>
       </>}>
+      {/* text / binary: the options and actions in a bar at the top (the footer keeps the file facts and Close) */}
+      {plain && (
+        <div className="imgview-bar viewer-bar">
+          <button className={`tb-btn ${wrap && !hex ? 'on' : ''}`} disabled={hex} title={`${t('viewer_wrap')} (Ctrl+W)`} onClick={() => setWrap((w) => !w)}><Icon name="wrap" /> {t('viewer_wrap')}</button>
+          <button className={`tb-btn ${hex ? 'on' : ''}`} title={`${t('viewer_hex')} (Ctrl+H)`} onClick={() => setHex((h) => !h)}><Icon name="hex" /> {t('viewer_hex')}</button>
+          <span className="tb-sep" />
+          <button className="tb-btn" onClick={print} disabled={!canPrint || printing} title={t('tip_print_view')}><Icon name="print" /> {t('print')} (Ctrl+P)</button>
+          {data.kind === 'text' && <button className="tb-btn" onClick={() => done('edit')} title={t('edit_file')}><Icon name="edit" /> {t('edit_file')} (F4)</button>}
+          {spec.canOpen && <button className="tb-btn" onClick={() => { spec.onOpen(); }}><Icon name="open" /> {t('viewer_open_app')}</button>}
+        </div>
+      )}
       {data.kind === 'image' && (
         data.truncated
           ? <p className="muted">{t('viewer_too_large')}</p>
           : <ImageView ref={imageRef} spec={{ data, path, prefs, canOpen: spec.canOpen, onOpen: spec.onOpen, onInfo: setImageInfo, onStatus: spec.onStatus, onError: spec.onPrintError, onSaved: spec.onSaved }} />
       )}
-      {data.kind !== 'image' && (
-        <pre className={`viewer-text ${wrap && !hex ? 'wrap' : ''}`} style={{ fontSize: prefs.viewerFontSize ? `${prefs.viewerFontSize}px` : undefined }}>{hex ? hexText : data.text}</pre>
+      {media && <MediaView spec={{ data, path, onInfo: setImageInfo, onError: spec.onPrintError }} />}
+      {/* PDF: the host's own PDF viewer (Chromium's in the app, the browser's on the web) over the streaming URL */}
+      {pdf && <iframe className="pdf-frame" title={baseName(path)} src={mediaUrl(path)} />}
+      {plain && hex && <pre className="viewer-text hex-head" style={{ fontSize: prefs.viewerFontSize ? `${prefs.viewerFontSize}px` : undefined }}>{HEX_HEAD}</pre>}
+      {plain && (
+        <pre className={`viewer-text ${wrap && !hex ? 'wrap' : ''} ${hex ? 'hex' : ''}`} style={{ fontSize: prefs.viewerFontSize ? `${prefs.viewerFontSize}px` : undefined }}>{hex ? hexText : data.text}</pre>
       )}
       {printDoc && <PrintDialog spec={{ doc: printDoc, setup: prefs.printSetup, onError: (err) => { if (spec.onPrintError) spec.onPrintError(err); } }} done={printDone} />}
     </DialogFrame>

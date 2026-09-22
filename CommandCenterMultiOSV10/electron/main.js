@@ -5,8 +5,9 @@
 //   • native bits the core cannot do on its own: open with the default app,
 //     move to the OS trash, the system clipboard, printing
 //   • smoke-test hook: --smoke-shot=<png> screenshots the window and quits
-const { app, BrowserWindow, Menu, shell, clipboard, nativeImage, dialog, screen } = require('electron');
+const { app, BrowserWindow, Menu, shell, clipboard, nativeImage, dialog, screen, protocol } = require('electron');
 const path = require('path');
+const { Readable } = require('stream');
 const fs = require('fs');
 
 const { registerIpc } = require('./ipc');
@@ -492,7 +493,32 @@ if (!gotLock) {
     mainWin.focus();
   });
 
+  // cc-media://file/?p=<path>: a local video / audio / image streamed to the viewer's <video> / <audio>
+  // (src/lib/media.js mediaUrl). A scheme of its own because the page is http:// in development and
+  // file:// in production and neither may load arbitrary file: URLs; Range requests (seeking) are honoured.
+  protocol.registerSchemesAsPrivileged([{ scheme: 'cc-media', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true } }]);
   app.whenReady().then(() => {
+    protocol.handle('cc-media', (req) => {
+      const p = new URL(req.url).searchParams.get('p') || '';
+      const ext = path.extname(p).toLowerCase();
+      const mime = fsops.MEDIA_TYPES[ext] || fsops.IMAGE_TYPES[ext] || fsops.DOC_TYPES[ext];
+      if (!mime) return new Response('unsupported', { status: 415 });
+      let st;
+      try { st = fs.statSync(p); } catch { return new Response('not found', { status: 404 }); }
+      if (!st.isFile()) return new Response('not a file', { status: 404 });
+      const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get('range') || '');
+      let start = 0, end = st.size - 1, status = 200;
+      if (range && st.size > 0) {
+        if (range[1]) { start = Number(range[1]); end = range[2] ? Math.min(Number(range[2]), st.size - 1) : st.size - 1; }
+        else if (range[2]) { start = Math.max(0, st.size - Number(range[2])); }
+        if (start > end || start >= st.size) return new Response(null, { status: 416, headers: { 'content-range': `bytes */${st.size}` } });
+        status = 206;
+      }
+      const headers = { 'content-type': mime, 'content-length': String(end - start + 1), 'accept-ranges': 'bytes' };
+      if (status === 206) headers['content-range'] = `bytes ${start}-${end}/${st.size}`;
+      const body = st.size === 0 ? null : Readable.toWeb(fs.createReadStream(p, { start, end }));
+      return new Response(body, { status, headers });
+    });
     api = createApi({
       name: 'electron',
       version: app.getVersion(),

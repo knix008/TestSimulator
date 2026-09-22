@@ -2,13 +2,21 @@
 // server/server.js are CommonJS), so a bare .js config would be loaded through
 // the deprecated CJS Node API of Vite.
 import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
+
+// The DICOM codecs (@cornerstonejs/codec-*) are Emscripten builds whose glue does `require('fs')` /
+// `require('path')` inside an `if (ENVIRONMENT_IS_NODE)` branch that never runs in the renderer
+// (no `process` in the page). Vite still resolves the names and warns on every build that it
+// "externalized" them; pointing both at an empty module keeps the log clean without changing anything.
+const empty = fileURLToPath(new URL('./src/lib/empty-module.js', import.meta.url));
 
 // Production Electron loads dist/index.html via file:// and the web server
 // serves it from any path, so every asset path must be relative.
 export default defineConfig({
   base: './',
   plugins: [react()],
+  resolve: { alias: [{ find: /^(fs|path)$/, replacement: empty }] },
   server: {
     port: 5185,
     strictPort: true,

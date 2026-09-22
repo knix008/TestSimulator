@@ -110,7 +110,9 @@ export async function decodeDicom(bytes) {
   };
 
   // ── Rendering ──
-  const state = { frame: 0, wc: undefined, ww: undefined, invert: photometric === 'MONOCHROME1', gray, frames, modality, fileWindows, slope, intercept, range: null, presets: modality === 'CT' ? CT_PRESETS : [] };
+  const state = { frame: 0, wc: undefined, ww: undefined, invert: photometric === 'MONOCHROME1', gray, frames, modality, fileWindows, slope, intercept, range: null, presets: modality === 'CT' ? CT_PRESETS : [],
+    // cine playback interval in ms: Frame Time (0018,1063), else Cine Rate (0018,0040) / Recommended Display Frame Rate (0008,2144) in fps, else 10 fps
+    frameTime: num(str('x00181063')) > 0 ? num(str('x00181063')) : num(str('x00180040')) > 0 ? 1000 / num(str('x00180040')) : num(str('x00082144')) > 0 ? 1000 / num(str('x00082144')) : 100 };
   const show = async (opts = {}) => {
     if (Number.isFinite(opts.frame)) state.frame = Math.max(0, Math.min(frames - 1, opts.frame));
     if (Number.isFinite(opts.wc)) state.wc = opts.wc;

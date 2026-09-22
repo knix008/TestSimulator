@@ -18,6 +18,7 @@ import { History } from './lib/history';
 import { ResizeGrip } from './components/ResizeGrip';
 import { canPrintData } from './lib/print';
 import { isImageName, decodeImage, renderImage } from './lib/images';
+import { isMediaName } from './lib/media';
 
 function applyFontSize(px) {
   document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 12)}px`);
@@ -723,14 +724,16 @@ export default function App() {
     const r = await dialogs.viewer({ path: e.path, data, prefs: prefsOf(), canOpen: !!(info && info.capabilities.open), onOpen: () => call('fs.open', { path: e.path }).catch((err) => dialogs.error(err)), onPrintError: (err) => dialogs.error(err, t('print_failed')), onStatus: setStatus, onSaved: () => { p && p.refresh(); } });
     if (r === 'edit') await editFile(side, e, data);
   };
-  // A click on an image in the list (and the 'preview' action): the preview window — one for the app,
-  // shown without taking the focus, following every image clicked. HEIC / DICOM / TIFF are decoded in it.
+  // A click on a file in the list (and the 'preview' action): the preview window — one for the app, shown
+  // without taking the focus, following every file clicked. An image is decoded there (HEIC / DICOM / TIFF
+  // too), a video / audio plays, a text file gets the viewer with its Edit button (the window turns into the
+  // editor), anything else the hex dump.
   const previewImage = async (side, entry, explicit) => {
     const p = panel(side);
     const e = entry || (p && p.getCursorEntry());
     if (!e || e.isDir) { if (explicit) setStatus(t('view_none')); return; }
-    if (!isImageName(e.name)) { if (explicit) setStatus(t('preview_not_image', { name: e.name })); return; }
-    if (explicit || canOpenWindows) { await openTool('preview', { path: e.path }, { title: `${t('preview_title')} — ${e.name}` }); return; }
+    const title = isMediaName(e.name) ? 'media_title' : isImageName(e.name) ? 'preview_title' : 'viewer_title';
+    if (explicit || canOpenWindows) { await openTool('preview', { path: e.path }, { title: `${t(title)} — ${e.name}` }); return; }
   };
   // F4: a plain text editor; the file is written back as UTF-8.
   const editFile = async (side, entry, data) => {
@@ -1124,7 +1127,7 @@ export default function App() {
       setSelCount((c) => (c[side] === entries.length ? c : { ...c, [side]: entries.length }));
       const dir = entries.length === 1 && entries[0].isDir;
       setSelIsDir((d) => (d[side] === dir ? d : { ...d, [side]: dir }));
-      const img = entries.length === 1 && !entries[0].isDir && isImageName(entries[0].name);
+      const img = entries.length === 1 && !entries[0].isDir;   // any file can be previewed (image · media · text · hex)
       setSelImage((x) => (x[side] === img ? x : { ...x, [side]: img }));
       const p = panels[side].current;
       setTimeout(() => setExtractable((x) => ({ ...x, [side]: !!(p && p.isExtractable()) })), 60);

@@ -17,7 +17,6 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { call, watchDir } from '../lib/backend';
 import { beginDrag, endDrag, carriesFiles, dropEffectFor, readDrop, draggingPaths } from '../lib/dragdrop';
-import { isImageName } from '../lib/images';
 import { t, useLanguage } from '../lib/i18n';
 import { breadcrumbs, dirName, baseName, formatSize, sizeDisplay, typeDisplay, driveOf, globToRegExp } from '../lib/format';
 import { Icon } from './Icons';
@@ -414,7 +413,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     { id: 'view', label: t('view_file'), icon: 'view', shortcut: 'F3', disabled: !(single && !selectedEntries[0].isDir) },
     { id: 'edit', label: t('edit_file'), icon: 'edit', shortcut: 'F4', disabled: !(single && !selectedEntries[0].isDir) },
     { id: 'print', label: t('print'), icon: 'print', shortcut: 'Ctrl+P', disabled: !(single && !selectedEntries[0].isDir) },
-    { id: 'preview', label: t('preview'), icon: 'image', disabled: !(single && !selectedEntries[0].isDir && isImageName(selectedEntries[0].name)) },
+    { id: 'preview', label: t('preview'), icon: 'image', disabled: !(single && !selectedEntries[0].isDir) },
     { sep: true },
     { id: 'copyOther', label: t('ctx_copy_other'), icon: 'copy', disabled: !hasSel },
     { id: 'moveOther', label: t('ctx_move_other'), icon: 'move', disabled: !hasSel },

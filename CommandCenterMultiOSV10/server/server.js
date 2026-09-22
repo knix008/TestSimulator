@@ -96,6 +96,31 @@ function downloadFile(req, res, url) {
   });
 }
 
+// GET /api/media?path=<file>: a video / audio / image file streamed inline for the viewer's <video> /
+// <audio> / <img>, with Range requests (seeking) — only files readFile calls media or image are served.
+function streamMedia(req, res, url) {
+  const p = url.searchParams.get('path') || '';
+  const ext = path.extname(p).toLowerCase();
+  const mime = fsops.MEDIA_TYPES[ext] || fsops.IMAGE_TYPES[ext] || fsops.DOC_TYPES[ext];
+  if (!mime) return send(res, 415, { ok: false, error: { code: 'UNSUPPORTED', message: `Not a media file: ${p}`, path: p } });
+  fs.stat(p, (err, st) => {
+    if (err || !st.isFile()) return send(res, 404, { ok: false, error: { code: 'ENOENT', message: `Not a file: ${p}`, path: p } });
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    let start = 0, end = st.size - 1, status = 200;
+    if (range && st.size > 0) {
+      if (range[1]) { start = Number(range[1]); end = range[2] ? Math.min(Number(range[2]), st.size - 1) : st.size - 1; }
+      else if (range[2]) { start = Math.max(0, st.size - Number(range[2])); }
+      if (start > end || start >= st.size) { res.writeHead(416, { 'content-range': `bytes */${st.size}` }); return res.end(); }
+      status = 206;
+    }
+    const headers = { 'content-type': mime, 'content-length': end - start + 1, 'accept-ranges': 'bytes', 'cache-control': 'no-store' };
+    if (status === 206) headers['content-range'] = `bytes ${start}-${end}/${st.size}`;
+    res.writeHead(status, headers);
+    if (req.method === 'HEAD') return res.end();
+    fs.createReadStream(p, { start, end }).on('error', () => res.destroy()).pipe(res);
+  });
+}
+
 // POST /api/upload?dir=<folder>&rel=<name or sub/path/name>[&overwrite=1][&mkdir=1]
 // The body is the file (`mkdir=1`: no body, an empty folder is created). `rel` stays inside `dir`.
 async function uploadFile(req, res, url) {
@@ -137,6 +162,7 @@ async function handleApi(req, res, url) {
   if (!authorized(req, url)) return send(res, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
   const name = decodeURIComponent(url.pathname.slice('/api/'.length));
   if (name === 'download' && (req.method === 'GET' || req.method === 'HEAD')) return downloadFile(req, res, url);
+  if (name === 'media' && (req.method === 'GET' || req.method === 'HEAD')) return streamMedia(req, res, url);
   if (name === 'upload' && req.method === 'POST') return uploadFile(req, res, url);
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: { code: 'METHOD', message: 'POST only' } });
   let args = {};

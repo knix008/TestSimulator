@@ -123,6 +123,51 @@ const SCENARIOS = {
   settings_terminal: `(() => { window.__cc.action('settings'); setTimeout(() => document.querySelectorAll('.settings-tab')[1].click(), 300); })()`,
   // The print dialog (preview + page setup) on README.md — a PDF preview on the desktop, the paged document in the browser.
   print: `(() => { window.__cc.navigate('left', ${JSON.stringify(root)}); const go = (n) => { const rows = document.querySelectorAll('.file-panel')[0].querySelectorAll('tbody tr'); const row = Array.from(rows).find((r) => r.textContent.includes('README.md')); if (!row) { if (n < 20) setTimeout(() => go(n + 1), 300); return; } row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); setTimeout(() => window.__cc.action('print', 'left'), 150); }; go(0); })()`,
+  // Every file in samples/ through the in-app viewer: an image must decode (the <img> of the picture gets a
+  // size), a video / audio must reach readyState ≥ 1 (metadata — it is playing from the host's stream), a
+  // multi-frame DICOM must show its frame bar and its contact sheet. The result lists one line per file.
+  samples: `(async () => { try {
+    const dir = ${JSON.stringify(path.join(root, 'samples'))};
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const until = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await wait(100); } return null; };
+    const list = (await window.__cc.call('fs.list', { path: dir })).entries.filter((e) => !e.isDir);
+    const out = [];
+    for (const e of list) {
+      let data;
+      try { data = await window.__cc.call('fs.readFile', { path: e.path }); } catch (err) { out.push(e.name + ': readFile FAILED ' + err.message); continue; }
+      if (data.kind !== 'image' && data.kind !== 'media' && data.kind !== 'pdf') { out.push(e.name + ': kind ' + data.kind + ' (not previewable)'); continue; }
+      const done = window.__cc.dialogs.viewer({ path: e.path, data, prefs: {} });
+      let line = e.name + ': ' + data.kind + (data.media ? '/' + data.media : '') + ' → ';
+      if (data.kind === 'image') {
+        const img = await until(() => { const el = document.querySelector('.dlg.viewer .imgview-canvas img'); return el && el.naturalWidth ? el : null; }, 8000);
+        const err = document.querySelector('.dlg.viewer .imgview-error');
+        line += img ? img.naturalWidth + '×' + img.naturalHeight : err ? 'DECODE ERROR ' + err.textContent : 'TIMEOUT';
+        const frames = document.querySelector('.dlg.viewer .imgview-frameno');
+        if (frames) {
+          line += ' · ' + frames.textContent.trim();
+          document.querySelector('.dlg.viewer .imgview-dicom button[aria-label]:last-of-type');
+          const g = Array.from(document.querySelectorAll('.dlg.viewer .imgview-dicom .tb-btn')).find((b) => b.title && b.title.includes('(G)'));
+          if (g) { g.click(); const cells = await until(() => { const c = document.querySelectorAll('.dlg.viewer .sheet-cell img'); return c.length && Array.from(c).every((i) => i.naturalWidth) ? c : null; }, 15000); line += ' · sheet ' + (cells ? cells.length + ' frames' : 'TIMEOUT'); }
+        }
+      } else if (data.kind === 'pdf') {
+        const f = await until(() => document.querySelector('.dlg.viewer iframe.pdf-frame'), 3000);
+        line += f ? 'pdf frame ' + f.src.split('?')[0] : 'NO FRAME';
+      } else {
+        const el = await until(() => { const m = document.querySelector('.dlg.viewer .media-el'); return m && m.readyState >= 1 ? m : null; }, 8000);
+        const err = document.querySelector('.dlg.viewer .media-error');
+        line += el ? (el.videoWidth ? el.videoWidth + '×' + el.videoHeight + ' ' : '') + el.duration.toFixed(1) + 's' + (el.paused ? ' (paused)' : ' playing') : err ? 'PLAY ERROR ' + err.textContent : 'TIMEOUT';
+      }
+      out.push(line);
+      const close = document.querySelector('.dlg.viewer .dlg-footer .btn.primary'); if (close) close.click();
+      await done; await wait(150);
+    }
+    // leave the last one open for the screenshot
+    const last = list.find((e) => /\.dcm$/i.test(e.name) && /multiframe\.dcm/i.test(e.name)) || list[0];
+    const d2 = await window.__cc.call('fs.readFile', { path: last.path });
+    window.__cc.dialogs.viewer({ path: last.path, data: d2, prefs: {} });
+    setTimeout(() => { const g = Array.from(document.querySelectorAll('.dlg.viewer .imgview-dicom .tb-btn')).find((b) => b.title && b.title.includes('(G)')); if (g) g.click(); }, 1500);
+    return out.join(String.fromCharCode(10));
+  } catch (err) { return 'SCENARIO ERROR: ' + (err && err.stack || err); } })()`,
   // Both folder trees open (View › folder tree).
   trees: `(() => { window.__cc.action('treeLeft'); window.__cc.action('treeRight'); })()`,
   theme_nord: `window.__cc.action('theme:nord')`,

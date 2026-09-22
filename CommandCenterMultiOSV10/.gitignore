@@ -22,8 +22,10 @@ public/icon.svg
 *.blockmap
 
 # ── Smoke-test output (npm run smoke): screenshots (main + tool windows), scripts, private profile ──
-# (.smoke/images/ holds the HEIC / DICOM / TIFF samples fetched for the preview and file-info checks — see UsersGuide § 3)
 .smoke/
+# samples/ (images · video · audio · DICOM for the tests and `npm run smoke -- --scenario samples`) is committed;
+# scripts/generate-samples.mjs rewrites the generated ones and leaves its Electron recording script behind only on a crash
+samples/.record.cjs
 .icons-preview.png
 .npm-install.log
 

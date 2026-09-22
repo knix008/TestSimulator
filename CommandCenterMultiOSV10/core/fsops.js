@@ -401,6 +401,21 @@ const IMAGE_TYPES = {
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.avif': 'image/avif', '.apng': 'image/apng',
   '.heic': 'image/heic', '.heif': 'image/heif', '.hif': 'image/heif', '.dcm': 'application/dicom', '.dicom': 'application/dicom', '.tif': 'image/tiff', '.tiff': 'image/tiff',
 };
+// Video / audio: never read into memory — readFile only names them (kind 'media') and the UI streams
+// the file (electron cc-media:// protocol, web GET /api/media, both with Range support). Keep in step
+// with src/lib/media.js. What actually plays depends on the host's codecs (Chromium: H.264/AAC/VP8/VP9/
+// AV1/Opus/Vorbis/FLAC/MP3/WAV; a browser may lack some).
+const MEDIA_TYPES = {
+  '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.webm': 'video/webm', '.mkv': 'video/x-matroska', '.mov': 'video/quicktime', '.ogv': 'video/ogg', '.avi': 'video/x-msvideo', '.mpg': 'video/mpeg', '.mpeg': 'video/mpeg', '.3gp': 'video/3gpp', '.ts': 'video/mp2t', '.wmv': 'video/x-ms-wmv',
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.flac': 'audio/flac', '.ogg': 'audio/ogg', '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.weba': 'audio/webm', '.wma': 'audio/x-ms-wma', '.aif': 'audio/aiff', '.aiff': 'audio/aiff', '.mid': 'audio/midi', '.midi': 'audio/midi',
+};
+// PDF: shown by the host's own PDF viewer (Chromium plugin / the browser) from the same streaming URL as media.
+const DOC_TYPES = { '.pdf': 'application/pdf' };
+// 'video' | 'audio' | null for a path (by extension).
+function mediaKind(p) {
+  const m = MEDIA_TYPES[path.extname(p).toLowerCase()];
+  return m ? m.split('/')[0] : null;
+}
 const TEXT_LIMIT = 8 * 1024 * 1024;
 const IMAGE_LIMIT = 24 * 1024 * 1024;
 const HEX_LIMIT = 256 * 1024;
@@ -417,6 +432,13 @@ function looksBinary(buf) {
   return odd > 2 && odd / n > 0.01;
 }
 
+// The first `n` bytes of a file.
+async function sampleOf(p, n) {
+  const fh = await fsp.open(p, 'r');
+  try { const buf = Buffer.alloc(n); const { bytesRead } = await fh.read(buf, 0, n, 0); return buf.slice(0, bytesRead); }
+  finally { await fh.close(); }
+}
+
 function decodeText(buf) {
   if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return { text: buf.slice(2).toString('utf16le'), encoding: 'UTF-16 LE' };
   if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) {
@@ -431,11 +453,16 @@ function decodeText(buf) {
   return { text, encoding: 'UTF-8' };
 }
 
-// { kind: 'text' | 'image' | 'binary', size, truncated, text?, encoding?, mime?, base64? }
+// { kind: 'text' | 'image' | 'binary' | 'media', size, truncated, text?, encoding?, mime?, base64?, media? }
 async function readFile(p) {
   const st = await fsp.stat(p);
   if (st.isDirectory()) throw Object.assign(new Error('EISDIR'), { code: 'EISDIR', path: p });
   const ext = path.extname(p).toLowerCase();
+  // .ts is MPEG transport stream only when it is not TypeScript: a text probe decides.
+  if (MEDIA_TYPES[ext] && !(ext === '.ts' && !looksBinary(await sampleOf(p, 4096)))) {
+    return { kind: 'media', media: MEDIA_TYPES[ext].split('/')[0], mime: MEDIA_TYPES[ext], size: st.size, truncated: false };
+  }
+  if (DOC_TYPES[ext]) return { kind: 'pdf', mime: DOC_TYPES[ext], size: st.size, truncated: false };
   if (IMAGE_TYPES[ext]) {
     if (st.size > IMAGE_LIMIT) return { kind: 'image', size: st.size, truncated: true, mime: IMAGE_TYPES[ext] };
     const buf = await fsp.readFile(p);
@@ -880,6 +907,10 @@ module.exports = {
   renamePath,
   renameMany,
   readFile,
+  mediaKind,
+  MEDIA_TYPES,
+  DOC_TYPES,
+  IMAGE_TYPES,
   writeText,
   writeBytes,
   fileInfo,

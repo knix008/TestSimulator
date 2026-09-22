@@ -36,12 +36,18 @@ export const ImageView = forwardRef(function ImageView({ spec }, ref) {
   const [dicom, setDicom] = useState(null);
   const dicomBusy = useRef(false);
   const dicomNext = useRef(null);
+  // Multi-frame DICOM: every frame at once (a contact sheet) instead of one frame — see the ⊞ button.
+  const [sheet, setSheet] = useState(false);
+  // Cine: the frames played one after another (▶ button / Space), looping, at the file's frame rate.
+  const [playing, setPlaying] = useState(false);
+  const frameRef = useRef(0);   // the frame shown last (the timer reads it; state lags behind the decoder)
+  const [sheetUrls, setSheetUrls] = useState([]);   // one data URL per frame, rendered with the current window
 
   // Decode once per file.
   useEffect(() => {
     let alive = true;
     setDecoded(null); setError(''); setZoom('fit'); setRot(0);
-    setDicom(null);
+    setDicom(null); setSheet(false); setSheetUrls([]); setPlaying(false); frameRef.current = 0;
     decodeImage(data, name).then((d) => { if (alive) { setDecoded(d); setDicom(d.dicom ? { ...d.dicom } : null); } }, (err) => { if (alive) setError(err && err.message ? err.message : String(err)); });
     return () => { alive = false; };
   }, [data, name]);
@@ -79,6 +85,34 @@ export const ImageView = forwardRef(function ImageView({ spec }, ref) {
       .finally(() => { dicomBusy.current = false; const next = dicomNext.current; dicomNext.current = null; if (next) applyDicom(next); });
   };
   const dicomFrame = (i) => { if (dicom && dicom.frames > 1) applyDicom({ frame: Math.max(0, Math.min(dicom.frames - 1, i)) }); };
+  // The sheet: every frame rendered in turn with the current window / inversion (decoded frames are cached by
+  // the decoder, so this costs one pass of window mapping per frame), then the current frame is put back.
+  useEffect(() => {
+    if (!sheet || !decoded || !decoded.dicom || !dicom) return undefined;
+    let alive = true;
+    (async () => {
+      const urls = [];
+      for (let i = 0; i < dicom.frames; i++) {
+        const r = await decoded.dicom.show({ frame: i });
+        if (!alive) return;
+        urls.push(r.canvas.toDataURL('image/png'));
+        if (i % 4 === 3 || i === dicom.frames - 1) setSheetUrls(urls.slice());
+      }
+      await decoded.dicom.show({ frame: dicom.frame });
+    })().catch((err) => { if (spec.onError) spec.onError(err, t('img_decode_failed', { name })); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet, dicom && dicom.wc, dicom && dicom.ww, dicom && dicom.invert, decoded]);
+  const pickFrame = (i) => { setSheet(false); dicomFrame(i); };
+  useEffect(() => { if (dicom) frameRef.current = dicom.frame; }, [dicom && dicom.frame]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!playing || !dicom || dicom.frames < 2) return undefined;
+    const ms = Math.max(20, Math.min(2000, dicom.frameTime || 100));
+    const timer = setInterval(() => { if (!dicomBusy.current) applyDicom({ frame: (frameRef.current + 1) % dicom.frames }); }, ms);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, dicom && dicom.frames, dicom && dicom.frameTime, decoded]);
+  const togglePlay = () => { if (dicom && dicom.frames > 1) { setSheet(false); setPlaying((v) => !v); } };
   const dicomWindow = (wc, ww) => applyDicom({ wc, ww });
   const dicomPreset = (id) => {
     if (!dicom) return;
@@ -167,6 +201,8 @@ export const ImageView = forwardRef(function ImageView({ spec }, ref) {
       else if (dicom && (e.key === 'ArrowRight' || e.key === 'PageDown') && !ctrl) { e.preventDefault(); dicomFrame(dicom.frame + 1); }
       else if (dicom && e.key === 'Home' && !ctrl) { e.preventDefault(); dicomFrame(0); }
       else if (dicom && e.key === 'End' && !ctrl) { e.preventDefault(); dicomFrame(dicom.frames - 1); }
+      else if (dicom && dicom.frames > 1 && e.key.toLowerCase() === 'g' && !ctrl) { e.preventDefault(); setSheet((v) => !v); }
+      else if (dicom && dicom.frames > 1 && e.key === ' ' && !ctrl) { e.preventDefault(); togglePlay(); }
       else if (dicom && dicom.gray && e.key.toLowerCase() === 'i' && !ctrl) { e.preventDefault(); applyDicom({ invert: !dicom.invert }); }
       else if (dicom && dicom.gray && e.key.toLowerCase() === 'w' && !ctrl) { e.preventDefault(); dicomPreset(dicom.fileWindows.length ? 'file:0' : 'auto'); }
     };
@@ -286,6 +322,8 @@ export const ImageView = forwardRef(function ImageView({ spec }, ref) {
             <input type="range" className="imgview-frames" min={0} max={dicom.frames - 1} value={dicom.frame} onChange={(e) => dicomFrame(Number(e.target.value))} title={t('dcm_frame')} />
             <button className="tb-btn tb-icon-only" title={`${t('dcm_next_frame')} (→)`} aria-label={t('dcm_next_frame')} onClick={() => dicomFrame(dicom.frame + 1)} disabled={dicom.frame >= dicom.frames - 1}><Icon name="chevronRight" /></button>
             <span className="imgview-frameno">{t('dcm_frame')} {dicom.frame + 1} / {dicom.frames}</span>
+            <button className={`tb-btn tb-icon-only ${playing ? 'on' : ''}`} title={`${t(playing ? 'dcm_pause' : 'dcm_play')} (Space) — ${Math.round(1000 / Math.max(20, Math.min(2000, dicom.frameTime || 100)))} fps`} aria-label={t(playing ? 'dcm_pause' : 'dcm_play')} onClick={togglePlay}><Icon name={playing ? 'pause' : 'play'} /></button>
+            <button className={`tb-btn tb-icon-only ${sheet ? 'on' : ''}`} title={`${t('dcm_all_frames')} (G)`} aria-label={t('dcm_all_frames')} onClick={() => setSheet((v) => !v)}><Icon name="grid" /></button>
             {dicom.gray && <span className="tb-sep" />}
           </>}
           {dicom.gray && <>
@@ -307,7 +345,17 @@ export const ImageView = forwardRef(function ImageView({ spec }, ref) {
         onContextMenu={(e) => { e.preventDefault(); if (decoded) setMenu({ x: e.clientX, y: e.clientY }); }}
         style={{ cursor: decoded ? 'grab' : undefined }} title={dicom && dicom.gray ? t('tip_dcm_drag') : undefined}>
         {error && <div className="imgview-error"><Icon name="image" size={28} /><div>{t('img_decode_failed', { name })}</div><div className="muted small">{error}</div></div>}
-        {decoded && (
+        {decoded && sheet && dicom && (
+          <div className="imgview-sheet">
+            {Array.from({ length: dicom.frames }, (_, i) => (
+              <button type="button" key={i} className={`sheet-cell ${i === dicom.frame ? 'current' : ''}`} onClick={() => pickFrame(i)} title={`${t('dcm_frame')} ${i + 1}`}>
+                {sheetUrls[i] ? <img src={sheetUrls[i]} alt={`${i + 1}`} draggable={false} /> : <span className="sheet-wait">…</span>}
+                <span className="sheet-no">{i + 1}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {decoded && !sheet && (
           <div className="imgview-canvas" style={{ width: Math.max(1, Math.round(imgW * z)), height: Math.max(1, Math.round(imgH * z)) }}>
             <img src={decoded.url} alt={name} draggable={false}
               style={{ width: Math.round(decoded.width * z), height: Math.round(decoded.height * z), transform: `translate(-50%, -50%) rotate(${rot * 90}deg)`, imageRendering: z >= 4 ? 'pixelated' : 'auto' }} />

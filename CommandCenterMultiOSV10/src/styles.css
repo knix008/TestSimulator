@@ -350,6 +350,23 @@ input:disabled, select:disabled { opacity: 0.5; }
 .dlg.viewer .dlg-body, .dlg.editor .dlg-body { display: flex; flex-direction: column; min-height: 0; height: calc(100vh - 140px); padding: 0; }
 .dlg.viewer .dlg-footer, .dlg.editor .dlg-footer { align-items: center; }
 .dlg.viewer .dlg-footer .btn { white-space: nowrap; flex: none; }
+/* PDF pane: the host's PDF viewer */
+.pdf-frame { flex: 1; min-height: 0; width: 100%; border: 0; background: #525659; }
+/* video / audio pane (MediaView) */
+.mediaview { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; position: relative; outline: none; }
+.mediaview.audio { background: var(--bg); }
+.mediaview video.media-el { width: 100%; height: 100%; object-fit: contain; outline: none; }
+.audio-box { display: flex; flex-direction: column; align-items: center; gap: 14px; width: min(520px, 90%); }
+.audio-art { width: 140px; height: 140px; border-radius: 50%; display: grid; place-items: center; background: var(--bg-elev); color: var(--accent); border: 1px solid var(--border); }
+.audio-name { max-width: 100%; font-weight: 600; }
+.audio-box audio.media-el { width: 100%; outline: none; }
+.media-error { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-elev); color: var(--danger); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow); font-size: 12px; max-width: 90%; }
+.media-error.muted { color: var(--fg-muted); top: auto; bottom: 60px; }
+.viewer-bar .tb-btn.on { color: var(--accent); background: var(--bg-sel-inactive); }
+.tb-sep { width: 1px; height: 18px; background: var(--border); margin: 0 6px; }
+/* hex editor form: the heading row stays above the scrolling dump, in the same monospace grid */
+.viewer-text.hex-head { flex: none; padding-bottom: 4px; padding-top: 8px; margin: 0; border-bottom: 1px solid var(--border); color: var(--fg-muted); font-weight: 600; user-select: none; overflow: hidden; }
+.viewer-text.hex { padding-top: 6px; }
 .viewer-text { flex: 1; margin: 0; padding: 12px 14px; overflow: auto; font-family: var(--mono); font-size: 12px; line-height: 1.5; user-select: text; white-space: pre; tab-size: 4; }
 .viewer-text.wrap { white-space: pre-wrap; word-break: break-all; }
 .viewer-image { flex: 1; overflow: auto; display: grid; place-items: center; padding: 12px; background: repeating-conic-gradient(color-mix(in srgb, var(--fg) 6%, transparent) 0 25%, transparent 0 50%) 0 0 / 20px 20px; }
@@ -371,6 +388,14 @@ input:disabled, select:disabled { opacity: 0.5; }
 .imgview-wl input { width: 60px; padding: 2px 4px; font-size: var(--fs); }
 .imgview-wl { margin-right: 4px; }
 .imgview-hint { margin-left: auto; padding-left: 6px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* multi-frame DICOM contact sheet */
+.imgview-sheet { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-content: start; }
+.sheet-cell { position: relative; display: grid; place-items: center; aspect-ratio: 1; background: #000; border: 2px solid var(--border); border-radius: 4px; padding: 0; overflow: hidden; cursor: pointer; }
+.sheet-cell:hover { border-color: var(--accent); }
+.sheet-cell.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.sheet-cell img { width: 100%; height: 100%; object-fit: contain; }
+.sheet-no { position: absolute; left: 4px; bottom: 3px; font-size: 11px; color: #fff; background: rgba(0,0,0,0.55); padding: 0 5px; border-radius: 3px; }
+.sheet-wait { color: var(--fg-muted); }
 .imgview-stage { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 12px; background: repeating-conic-gradient(color-mix(in srgb, var(--fg) 6%, transparent) 0 25%, transparent 0 50%) 0 0 / 20px 20px; user-select: none; }
 .imgview-stage:active { cursor: grabbing !important; }
 .imgview-canvas { position: relative; margin: auto; flex: none; }
