@@ -12,7 +12,7 @@
                     │                                                                   │
    사용자 입력 ───▶ │  App.jsx  ── 상태 소유: 문서 · 설정 · 작업내용(undo/redo) · 대화상자 │
                     │     │                                                              │
-                    │     ├─ components/  Toolbar · Sidebar · PdfView · StatusBar · 대화상자
+                    │     ├─ components/  Toolbar · TabBar · Sidebar · FolderTree · PdfView · StatusBar · 대화상자
                     │     │                                                              │
                     │     ├─ lib/pdf.js      pdf.js 래퍼 (렌더 · 텍스트 · 이미지 · 주석 읽기 · 검색) │
                     │     ├─ lib/pdf-write.js 주석·책갈피·첨부를 PDF에 쓰기 (pdf-lib)     │
@@ -20,14 +20,16 @@
                     │     ├─ lib/image.js    PNG/JPEG/WebP/GIF/BMP 인코딩                │
                     │     ├─ lib/history.js  스냅샷 실행취소                              │
                     │     ├─ lib/workspace.js .pdfvw 직렬화                               │
+                    │     ├─ lib/tabs.js     문서 탭 식별 · 이웃 · 넘침                   │
+                    │     ├─ lib/folders.js  폴더 트리 항목 (확장자 pdf 만)               │
                     │     ├─ lib/settings.js 설정 기본값 · 정규화 · 최근 파일             │
                     │     └─ lib/platform.js ◀── 런타임 차이를 흡수하는 유일한 지점       │
                     └───────────────┬───────────────────────────────────────────────────┘
                                     │ contextBridge (preload.js)
                     ┌───────────────▼───────────────────────────────────────────────────┐
                     │  electron/main.js — 창 · app:// 프로토콜 · 네이티브 대화상자 ·      │
-                    │                     파일 입출력(진행률) · 다운로드 · 클립보드 ·      │
-                    │                     설정 저장 · 파일 연결 처리                       │
+                    │                     파일 입출력(진행률) · 폴더 목록 · 다운로드 ·     │
+                    │                     클립보드 · 설정 저장 · 파일 연결 처리            │
                     └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -133,16 +135,42 @@ JPEG·WebP는 품질 0.9에서 평균 1.8 수준입니다. GIF는 libvips(sharp)
 ## 5.5 목차 트리와 이미지 선택 — `src/components/Sidebar.jsx`, `PdfView.jsx`
 
 * **너비 조절** — 패널과 페이지 사이의 `.side-splitter` 를 끌어 `clampSidebarWidth()` 범위 안에서
-  `settings.sidebarWidth` 를 바꿉니다.
+  `settings.sidebarWidth` 를 바꿉니다. 기본값은 220px (`SIDEBAR_WIDTH_DEFAULT`).
+* **제목 줄 동작** — 폴더 열기 · 목차 모두 펼치기/접기 · 이미지 추출 · 주석/첨부는
+  `.side-head-actions` 의 아이콘 버튼입니다. 본문 안에 텍스트 버튼을 두지 않습니다.
+* **폴더 트리** — 데스크톱만. `fs:readDir` → [electron/folder-list.js](electron/folder-list.js) 가
+  `stat()` 으로 한 단계를 읽고, [src/lib/folders.js](src/lib/folders.js) 의 `toFolderEntries()` 가
+  **마지막 확장자가 정확히 `pdf` 인 파일**만 남깁니다 (`.pdfvw`, `mypdf.txt` 는 제외).
+  [FolderTree.jsx](src/components/FolderTree.jsx) 는 하위 폴더를 한 단계 미리 읽고,
+  PDF가 있는 폴더는 펼쳐서 파일이 보이게 합니다. 빈 폴더에 “없다”는 문구는 내지 않습니다.
 * **목차 트리** — `getOutline()` 이 자식을 품은 노드 배열을 돌려주고, `OutlineTree` 가 재귀로 그립니다.
-  접힘 상태는 노드 id 집합 하나로 관리합니다. 부모–자식 연결선은 CSS만으로 그립니다:
+  접힘 상태는 노드 id 집합 하나로 관리합니다. 현재 쪽의 강조는
+  `outlineActiveId()` 가 고른 **한 항목만** (`selectedId`) 칠합니다.
+  부모–자식 연결선은 CSS만으로 그립니다:
   중첩된 `li` 마다 왼쪽에 세로 줄기(`::before`)와 행으로 들어가는 짧은 가로선(`::after`)을 두고,
   **마지막 자식의 줄기는 가로선 높이에서 끊어** 가지가 깔끔하게 닫히게 합니다.
+  선 색은 `--muted` 를 연하게 섞어 글보다 눈에 덜 띄게 합니다.
 
 * **이미지 선택** — 그림을 클릭하면 *선택만* 되고 클립보드는 건드리지 않습니다.
   복사·저장·클립 보관은 오른쪽 클릭 메뉴가 제공합니다. 메뉴는 클릭 지점의 그림을 함께 받아
   (`onContextMenu(e, { page, imageHit })`), 선택되어 있지 않은 그림 위에서 바로 오른쪽 클릭해도
   그 그림에 대해 동작합니다.
+
+---
+
+## 5.6 문서 탭 — `src/lib/tabs.js`, `src/components/TabBar.jsx`
+
+열린 PDF마다 탭과 `sessionsRef` 스냅샷을 둡니다. 같은 경로를 다시 열면 그 탭으로 포커스하고,
+PDF 저장 후 다시 열 때만 탭을 교체합니다.
+
+* `documentKey` / `findTabByFile` 이 경로 또는 `이름+크기` 로 탭을 찾습니다.
+* `TabBar` 는 `<main className="viewer">` 안에 있어 **좌측 패널 위가 아니라 문서 위**에만 놓입니다.
+* 탭이 막대를 넘치면 오른쪽 `<` `>` (`tabScrollOverflow`) 로 `scrollLeft` 를 옮깁니다.
+* `Ctrl+W` 는 현재 탭, `Ctrl+Tab` / `Ctrl+Shift+Tab` 은 `nextTabId` 로 이웃 탭입니다.
+  더러운 탭을 닫거나 창을 닫을 때는 기존 `UnsavedDialog` 경로를 탑니다.
+
+페이지 뷰어(`.pageview`)는 `min-width/min-height: 0` 과 `overflow: auto` 로,
+확대 후 내용이 뷰어보다 크면 스크롤바가 나타납니다.
 
 ---
 
@@ -226,7 +254,7 @@ PDF 저장을 권합니다 (`win:forceClose` 로만 실제로 닫힙니다).
   데스크톱에서는 `userData/settings.json` 으로도 복사합니다.
 * 읽을 때는 `normalize()` 가 기본값 위에 덮어쓰면서 **모르는 키를 버리고 타입·범위를 강제**합니다.
   오래된 설정 파일이 앱에 이상한 값을 주입할 수 없습니다.
-* 최근 파일 10개 · 최근 폴더 10개, 마지막 폴더, 마지막으로 본 쪽을 함께 보관합니다.
+* 최근 파일 10개 · 최근 폴더 10개, 마지막 폴더(`folderRoot`), 마지막으로 본 쪽을 함께 보관합니다.
 * 테마는 [src/lib/themes.js](src/lib/themes.js) 의 20개 id 와 `App.css` 의 `:root[data-theme]` 블록이 한 쌍입니다.
 * 선택 후 자동 복사 플래그(`autoCopyText` / `autoCopyImage` / `autoCopyRegion`)도 여기에 있습니다.
 
@@ -249,7 +277,7 @@ PDF 저장을 권합니다 (`win:forceClose` 로만 실제로 닫힙니다).
 | 명령 | 결과 |
 | --- | --- |
 | `npm start` | Vite 개발 서버 + Electron (소스 수정이 즉시 반영). 시작 전에 `scripts/free-port.mjs` 가 5179 포트를 잡고 있는 이전 프로세스를 정리하므로, 비정상 종료 뒤에도 바로 다시 실행됩니다 |
-| `npm test` | Vitest. `dot` 리포터와 [test/reporters/summary.mjs](test/reporters/summary.mjs) 한국어 표 |
+| `npm test` | Vitest. [test/reporters/summary.mjs](test/reporters/summary.mjs) 만 사용합니다. 분류(파일/스위트)는 녹색, 각 항목은 무색 제목 + 초록/빨강 표시이며 진행 점(`…`)은 없습니다 |
 | `npm run web` | 브라우저용 개발 서버 |
 | `npm run build` | 웹 배포용 정적 파일 → `dist/` |
 | `npm run build:win` / `:mac` / `:linux` | 설치 파일 → `release/` (그리고 프로젝트 최상위로 복사) |
@@ -269,15 +297,15 @@ PDF 저장을 권합니다 (`win:forceClose` 로만 실제로 닫힙니다).
 assets/            icon.svg · file-icon.svg (원본 아이콘)
 build/icons/       생성된 ico · icns · png
 build/installer.nsh NSIS 사용자 정의(바로가기 선택, 파일 형식 등록)
-electron/          main.js · preload.js
+electron/          main.js · preload.js · folder-list.js
 public/pdfjs/      pdf.js 런타임 데이터(cmaps · standard_fonts) — 생성물
 scripts/           아이콘 · 빌드정보 · pdf.js 자산 · 실행 · 설치파일 복사
-src/components/    Toolbar · Sidebar · PdfView · StatusBar · TitleBar ·
+src/components/    Toolbar · TabBar · Sidebar · FolderTree · PdfView · StatusBar · TitleBar ·
                    ThemePopup · Modal · Dialogs · CaptureDialog · SettingsDialog ·
                    AboutDialog · PrintDialog · ContextMenu · Tooltip · Toasts · Icons
-src/lib/           pdf · pdf-write · comments · image · history · workspace ·
+src/lib/           pdf · pdf-write · comments · tabs · folders · image · history · workspace ·
                    settings · platform · view · text-select · search · nav ·
-                   print · themes · fonts · ico
+                   print · themes · fonts
 src/i18n.js        한국어 · 영어 문자열
 test/              Vitest 스위트 · fixtures · reporters/summary.mjs
 ```

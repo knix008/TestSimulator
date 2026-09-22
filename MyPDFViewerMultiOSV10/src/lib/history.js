@@ -57,6 +57,19 @@ export function useHistory(initial = EMPTY_WORKSPACE) {
     return entry.label;
   }, [rerender]);
 
+  const exportSnapshot = useCallback(() => ({
+    state,
+    past: past.current.slice(),
+    future: future.current.slice(),
+  }), [state]);
+
+  const restoreSnapshot = useCallback((snap) => {
+    past.current = Array.isArray(snap?.past) ? snap.past.slice() : [];
+    future.current = Array.isArray(snap?.future) ? snap.future.slice() : [];
+    setState(snap?.state ?? EMPTY_WORKSPACE);
+    rerender();
+  }, [rerender]);
+
   const redo = useCallback(() => {
     if (!future.current.length) return null;
     const entry = future.current[future.current.length - 1];
@@ -75,12 +88,14 @@ export function useHistory(initial = EMPTY_WORKSPACE) {
     reset,
     undo,
     redo,
+    exportSnapshot,
+    restoreSnapshot,
     canUndo: past.current.length > 0,
     canRedo: future.current.length > 0,
     undoLabel: past.current.length ? past.current[past.current.length - 1].label : '',
     redoLabel: future.current.length ? future.current[future.current.length - 1].label : '',
     depth: past.current.length,
-  }), [state, commit, reset, undo, redo]);
+  }), [state, commit, reset, undo, redo, exportSnapshot, restoreSnapshot]);
 }
 
 export function newId() {

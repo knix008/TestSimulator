@@ -143,6 +143,36 @@ describe('useHistory', () => {
     expect(result.current.canUndo).toBe(true);
   });
 
+  it('exportSnapshot / restoreSnapshot park and resume a tab session', () => {
+    const { result } = renderHook(() => useHistory());
+    act(() => result.current.commit(ws({ rotation: 90 }), 'Rotate'));
+    act(() => result.current.commit(ws({ rotation: 180, bookmarks: [{ id: 'b' }] }), 'Bookmark'));
+    let snap;
+    act(() => { snap = result.current.exportSnapshot(); });
+    expect(snap.state.rotation).toBe(180);
+    expect(snap.past).toHaveLength(2);
+
+    act(() => result.current.reset(ws({ rotation: 0 })));
+    expect(result.current.canUndo).toBe(false);
+
+    act(() => result.current.restoreSnapshot(snap));
+    expect(result.current.state.rotation).toBe(180);
+    expect(result.current.state.bookmarks).toHaveLength(1);
+    expect(result.current.canUndo).toBe(true);
+    expect(result.current.undoLabel).toBe('Bookmark');
+
+    act(() => result.current.undo());
+    expect(result.current.state.rotation).toBe(90);
+    expect(result.current.canRedo).toBe(true);
+  });
+
+  it('restoreSnapshot with no payload returns to EMPTY_WORKSPACE', () => {
+    const { result } = renderHook(() => useHistory(ws({ rotation: 90 })));
+    act(() => result.current.restoreSnapshot(null));
+    expect(result.current.state).toEqual(EMPTY_WORKSPACE);
+    expect(result.current.canUndo).toBe(false);
+  });
+
   it('can undo a highlight then a bookmark in reverse order', () => {
     const { result } = renderHook(() => useHistory());
     act(() => result.current.commit(ws({

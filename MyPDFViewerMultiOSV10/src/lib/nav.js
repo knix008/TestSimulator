@@ -14,12 +14,24 @@ export function stripTrailingPageNumber(s) {
   return String(s || '').replace(/\s+\d{1,4}\s*$/, '').trim();
 }
 
-function flattenOutline(nodes, out = []) {
+export function flattenOutline(nodes, out = []) {
   for (const n of nodes || []) {
     out.push(n);
     if (n.items?.length) flattenOutline(n.items, out);
   }
   return out;
+}
+
+// One outline row for the current page: the deepest entry on that page.
+// Several headings often share a page; only one of them should be painted.
+export function outlineActiveId(nodes, page) {
+  if (!page) return null;
+  let best = null;
+  for (const n of flattenOutline(nodes)) {
+    if (n.page !== page) continue;
+    if (!best || (n.level ?? 0) >= (best.level ?? 0)) best = n;
+  }
+  return best?.id || null;
 }
 
 // Best outline entry whose title matches a clicked TOC line.

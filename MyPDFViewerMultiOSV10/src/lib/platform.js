@@ -6,6 +6,8 @@
 //
 // Every long-running operation (open / save / download) reports progress so the
 // UI can put a progress dialog in front of the user.
+import { toFolderEntries } from './folders.js';
+
 export const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
 export const isElectron = !!(api && api.isElectron);
 
@@ -29,39 +31,52 @@ function withTask(onProgress) {
 // ── Opening ───────────────────────────────────────────────
 
 // Web-only: prompts with a file picker and reads the chosen file.
-function pickFileWeb(accept) {
+function fileToPayload(file) {
+  return file.arrayBuffer().then((buf) => ({
+    data: new Uint8Array(buf),
+    name: file.name,
+    path: null,
+    dir: null,
+    size: file.size,
+    mtime: file.lastModified,
+  }));
+}
+
+function pickFileWeb(accept, { multiple = false } = {}) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = accept;
+    if (multiple) input.multiple = true;
     input.style.display = 'none';
     document.body.appendChild(input);
     // `cancel` is not reliable across browsers; a null resolve on blur+timeout
     // would race the change event, so we simply resolve on change only.
     input.addEventListener('change', async () => {
-      const file = input.files?.[0];
+      const files = [...(input.files || [])];
       input.remove();
-      if (!file) { resolve(null); return; }
-      const buf = await file.arrayBuffer();
-      resolve({
-        data: new Uint8Array(buf),
-        name: file.name,
-        path: null,
-        dir: null,
-        size: file.size,
-        mtime: file.lastModified,
-      });
+      if (!files.length) { resolve(null); return; }
+      if (!multiple) {
+        resolve(await fileToPayload(files[0]));
+        return;
+      }
+      resolve(await Promise.all(files.map(fileToPayload)));
     }, { once: true });
     input.click();
   });
 }
 
 // Opens a PDF (or .pdfvw workspace). Returns { data, name, path, dir, size }
-// or null when the user cancels.
-export async function openFileDialog({ defaultDir, onProgress } = {}) {
-  if (!isElectron) return pickFileWeb('.pdf,.pdfvw,application/pdf');
-  const filePath = await api.openPdfDialog({ defaultDir });
+// or null when the user cancels. With `multi`, returns an array of those.
+export async function openFileDialog({ defaultDir, onProgress, multi } = {}) {
+  if (!isElectron) return pickFileWeb('.pdf,.pdfvw,application/pdf', { multiple: !!multi });
+  const filePath = await api.openPdfDialog({ defaultDir, multi });
   if (!filePath) return null;
+  if (multi && Array.isArray(filePath)) {
+    const out = [];
+    for (const p of filePath) out.push(await readPath(p, { onProgress }));
+    return out;
+  }
   return readPath(filePath, { onProgress });
 }
 
@@ -85,6 +100,11 @@ export async function pathExists(p) {
 export async function pickDirectory(defaultDir) {
   if (!isElectron) return null;
   return api.pickDirectory({ defaultDir });
+}
+
+export async function listDirectory(dirPath) {
+  if (!isElectron || !dirPath) return [];
+  try { return toFolderEntries(await api.readDir(dirPath)); } catch { return []; }
 }
 
 // ── Saving ────────────────────────────────────────────────

@@ -10,7 +10,6 @@ import {
   IconSelectText, IconPrint,
 } from './Icons.jsx';
 import { THEMES, nextTheme } from '../lib/themes.js';
-import { LANGUAGES } from '../i18n.js';
 import { api, isElectron } from '../lib/platform.js';
 
 // The window must never be narrow enough to hide a toolbar button. How much the
@@ -537,31 +536,12 @@ export default function Toolbar({
           </ul>
         </MenuButton>
 
-        <MenuButton
+        <ToolButton
           icon={(p) => <IconFlag lang={settings.lang} {...p} />}
           label={t('toolbar.lang')}
           tip={t('tip.lang')}
-          menuTip={t('tip.langPick')}
-          width={180}
-          onAction={() => onLang()}
-        >
-          <ul className="dd-list" role="listbox" aria-label={t('toolbar.lang')}>
-            {LANGUAGES.map((lng) => (
-              <li key={lng.id}>
-                <button
-                  className={`dd-item${settings.lang === lng.id ? ' active' : ''}`}
-                  onClick={() => onLang(lng.id)}
-                  title={lng.native}
-                  role="option"
-                  aria-selected={settings.lang === lng.id}
-                >
-                  <IconFlag lang={lng.id} size={18} />
-                  <span className="dd-name wide">{lng.native}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </MenuButton>
+          onClick={() => onLang()}
+        />
         <ToolButton icon={IconSettings} label={t('toolbar.settings')} tip={t('tip.settings')} onClick={onSettings} />
         <ToolButton icon={IconInfo} label={t('toolbar.about')} tip={t('tip.about')} onClick={onAbout} />
       </div>

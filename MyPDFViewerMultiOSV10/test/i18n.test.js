@@ -51,8 +51,10 @@ describe('language packs', () => {
       'capture.fmt.png', 'capture.fmt.gif', 'capture.fmt.bmp',
       'error.ctx.print', 'error.notPdf', 'error.password',
       'side.outline', 'side.bookmarks', 'side.comments', 'side.clips',
+      'side.folders', 'side.pickFolder', 'side.noFolder',
       'settings.tabs.appearance', 'about.version',
       'unsaved.title', 'unsaved.message', 'unsaved.discard',
+      'tabs.list', 'tabs.close', 'tabs.prev', 'tabs.next', 'tip.closeTab',
     ];
     for (const key of expected) {
       expect(koKeys).toContain(key);
@@ -87,6 +89,18 @@ describe('setLanguage', () => {
     expect(i18n.t('print.allHint', { n: 9 })).toContain('9');
     await setLanguage('ko');
     expect(i18n.t('status.chars', { n: 4 })).toBe('4자');
+  });
+
+  it('names the document tab strip and its overflow buttons', async () => {
+    await setLanguage('ko');
+    expect(i18n.t('tabs.list')).toBe('열린 문서');
+    expect(i18n.t('tabs.prev')).toBe('이전 탭');
+    expect(i18n.t('tabs.next')).toBe('다음 탭');
+    expect(i18n.t('tip.closeTab')).toMatch(/Ctrl\+W/);
+    await setLanguage('en');
+    expect(i18n.t('tabs.list')).toBe('Open documents');
+    expect(i18n.t('tabs.prev')).toBe('Previous tabs');
+    expect(i18n.t('tabs.next')).toBe('Next tabs');
   });
 
   it('does not HTML-escape interpolated values', async () => {

@@ -49,5 +49,31 @@ describe('dialog windows do not scroll or clip their chrome', () => {
     expect(css).toMatch(/\.comment-mark\s*\{[^}]*border:\s*none/s);
     expect(css).toMatch(/\.comment-card\s*\{/s);
     expect(css).toMatch(/\.side-splitter\s*\{[^}]*cursor:\s*col-resize/s);
+    expect(css).toMatch(/\.outline-tree \.tree-row\.current\s*\{[^}]*background:/s);
+    expect(css).toMatch(/\.folder-tree\s*\{[^}]*--tree-line:/s);
+    expect(css).toMatch(/\.tree \.tree > li::before/);
+    expect(css).toMatch(/\.tree \.tree > li::after/);
+  });
+
+  it('keeps the page viewer as a scrollport so zoom can show scrollbars', () => {
+    expect(css).toMatch(/\.viewer\s*\{[^}]*min-height:\s*0/s);
+    expect(css).toMatch(/\.viewer\s*\{[^}]*flex-direction:\s*column/s);
+    expect(css).toMatch(/\.viewer\s*\{[^}]*overflow:\s*hidden/s);
+    expect(css).toMatch(/\.pageview\s*\{[^}]*min-width:\s*0/s);
+    expect(css).toMatch(/\.pageview\s*\{[^}]*min-height:\s*0/s);
+    expect(css).toMatch(/\.pageview\s*\{[^}]*overflow:\s*auto/s);
+    expect(css).toMatch(/\.pagestack\s*\{[^}]*width:\s*max-content/s);
+    expect(css).toMatch(/\.pagestack\s*\{[^}]*min-width:\s*100%/s);
+    expect(css).toMatch(/\.pageview::-webkit-scrollbar\s*\{[^}]*width:\s*12px/s);
+    expect(css).toMatch(/\.pageview\.empty\s*\{[^}]*overflow:\s*hidden/s);
+  });
+
+  it('pins overflow < > buttons on the right of the document tab strip', () => {
+    expect(css).toMatch(/\.tabbar\s*\{[^}]*display:\s*flex/s);
+    expect(css).toMatch(/\.tabbar-scroll\s*\{[^}]*overflow-x:\s*auto/s);
+    expect(css).toMatch(/\.tabbar-scroll\s*\{[^}]*scrollbar-width:\s*none/s);
+    expect(css).toMatch(/\.tabbar-nav\s*\{[^}]*flex:\s*none/s);
+    expect(css).toMatch(/\.tabbar-nav\s*\{[^}]*border-left:/s);
+    expect(css).toMatch(/\.tabbar-nav-btn\s*\{[^}]*width:\s*22px/s);
   });
 });

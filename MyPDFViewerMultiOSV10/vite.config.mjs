@@ -32,6 +32,6 @@ export default defineConfig({
     setupFiles: ['./test/setup.js'],
     include: ['test/**/*.test.{js,jsx}'],
     restoreMocks: true,
-    reporters: ['dot', './test/reporters/summary.mjs'],
+    reporters: ['./test/reporters/summary.mjs'],
   },
 });

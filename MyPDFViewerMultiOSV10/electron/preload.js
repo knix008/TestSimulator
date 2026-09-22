@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   home: () => ipcRenderer.invoke('fs:home'),
   exists: (p) => ipcRenderer.invoke('fs:exists', p),
   stat: (p) => ipcRenderer.invoke('fs:stat', p),
+  readDir: (p) => ipcRenderer.invoke('fs:readDir', p),
   readBinary: (payload) => ipcRenderer.invoke('fs:readBinary', payload),
   readText: (p) => ipcRenderer.invoke('fs:readText', p),
   writeText: (payload) => ipcRenderer.invoke('fs:writeText', payload),

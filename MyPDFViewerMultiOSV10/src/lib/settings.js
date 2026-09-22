@@ -11,7 +11,7 @@ export const FONT_SIZE_MIN = 10;
 export const FONT_SIZE_MAX = 24;
 export const SIDEBAR_WIDTH_MIN = 180;
 export const SIDEBAR_WIDTH_MAX = 560;
-export const SIDEBAR_WIDTH_DEFAULT = 264;
+export const SIDEBAR_WIDTH_DEFAULT = 220;
 
 export function clampSidebarWidth(n) {
   const v = Number(n);
@@ -41,8 +41,9 @@ export const DEFAULT_SETTINGS = {
   zoom: 1,                   // used when zoomMode === 'custom'
   pageLayout: 'continuous',  // single | continuous — continuous scrolling by default
   rotation: 0,
-  sidebar: 'thumbnails',     // thumbnails | outline | images | search | none
+  sidebar: 'thumbnails',     // folders | thumbnails | outline | images | search | none
   sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
+  folderRoot: '',            // last folder shown in the left tree view
   tool: 'text',              // text | image | region
   showStatusBar: true,
   showToolbarLabels: false,

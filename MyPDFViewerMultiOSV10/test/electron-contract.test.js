@@ -23,7 +23,7 @@ describe('preload ↔ main IPC contract', () => {
   it('covers the file / dialog / clipboard / print / window surface', () => {
     const required = [
       'app:getInfo', 'app:takePendingOpen',
-      'fs:home', 'fs:exists', 'fs:stat', 'fs:readBinary', 'fs:readText', 'fs:writeText', 'fs:writeBinary',
+      'fs:home', 'fs:exists', 'fs:stat', 'fs:readDir', 'fs:readBinary', 'fs:readText', 'fs:writeText', 'fs:writeBinary',
       'dialog:openPdf', 'dialog:pickDirectory', 'dialog:saveText', 'dialog:saveBinary', 'dialog:pickSavePath',
       'net:download', 'print:pages',
       'clipboard:writeText', 'clipboard:writeImage',

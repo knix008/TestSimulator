@@ -2,12 +2,31 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   IconGrid, IconOutline, IconImage, IconSearch, IconBookmark, IconClip,
-  IconComment, IconCopy, IconDownload, IconTrash, IconChevron,
+  IconComment, IconCopy, IconDownload, IconTrash, IconChevron, IconFolder, IconFolderOpen,
+  IconExpandAll, IconCollapseAll, IconExtract,
 } from './Icons.jsx';
 import { isSameSearchHit } from '../lib/search.js';
 import { commentPreview } from '../lib/comments.js';
+import { outlineActiveId } from '../lib/nav.js';
+import FolderTree from './FolderTree.jsx';
+
+function HeadAction({ title, onClick, disabled, children }) {
+  return (
+    <button
+      className="icon-btn side-head-action"
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+    >
+      {children}
+    </button>
+  );
+}
 
 const PANELS = [
+  { id: 'folders', icon: IconFolder, key: 'side.folders' },
   { id: 'thumbnails', icon: IconGrid, key: 'side.thumbnails' },
   { id: 'outline', icon: IconOutline, key: 'side.outline' },
   { id: 'search', icon: IconSearch, key: 'side.search' },
@@ -26,9 +45,15 @@ export default function Sidebar({
   search, onGoToSearchHit, bookmarks, activeBookmarkId, onGoToBookmark,
   comments = [], commentsBusy = false, activeCommentId, onGoToComment, onAddComment, onAttachFile, onSaveAttachment, onRemoveComment, clips,
   onCopyImage, onSaveImage, onRemoveBookmark, onCopyClip, onSaveClip, onRemoveClip,
+  folderRoot = '', currentFilePath = '', desktop = false, onPickFolder, onOpenFolderFile, loadFolder,
 }) {
   const { t } = useTranslation();
   const drag = useRef(null);
+  const [outlineControls, setOutlineControls] = useState({
+    expandable: false,
+    expandAll: () => {},
+    collapseAll: () => {},
+  });
 
   const pointX = (e) => {
     const x = Number(e.clientX);
@@ -82,25 +107,68 @@ export default function Sidebar({
 
       {panel !== 'none' ? (
         <div className="side-panel">
-          <div className="side-head">{t(`side.${panel}`)}</div>
+          <div className="side-head">
+            <span className="side-head-title">{t(`side.${panel}`)}</span>
+            <span className="side-head-actions">
+              {panel === 'folders' ? (
+                <HeadAction title={t('side.pickFolder')} onClick={() => onPickFolder?.()} disabled={!desktop}>
+                  <IconFolderOpen size={16} />
+                </HeadAction>
+              ) : null}
+              {panel === 'outline' && outlineControls.expandable ? (
+                <>
+                  <HeadAction title={t('side.expandAll')} onClick={outlineControls.expandAll}>
+                    <IconExpandAll size={16} />
+                  </HeadAction>
+                  <HeadAction title={t('side.collapseAll')} onClick={outlineControls.collapseAll}>
+                    <IconCollapseAll size={16} />
+                  </HeadAction>
+                </>
+              ) : null}
+              {panel === 'images' ? (
+                <HeadAction
+                  title={t('side.extract')}
+                  onClick={() => onExtractImages(pageNumber)}
+                  disabled={!doc || extracting}
+                >
+                  <IconExtract size={16} />
+                </HeadAction>
+              ) : null}
+              {panel === 'comments' ? (
+                <>
+                  <HeadAction title={t('side.addComment')} onClick={() => onAddComment?.()} disabled={!doc}>
+                    <IconComment size={16} />
+                  </HeadAction>
+                  <HeadAction title={t('side.addAttachment')} onClick={() => onAttachFile?.()} disabled={!doc}>
+                    <IconClip size={16} />
+                  </HeadAction>
+                </>
+              ) : null}
+            </span>
+          </div>
           <div className="side-body">
+            {panel === 'folders' && (
+              <FolderTree
+                root={folderRoot}
+                currentPath={currentFilePath}
+                desktop={desktop}
+                onOpenFile={onOpenFolderFile}
+                loadFolder={loadFolder}
+              />
+            )}
+
             {panel === 'thumbnails' && <Thumbnails doc={doc} current={pageNumber} onGoToPage={onGoToPage} />}
 
             {panel === 'outline' && (
               outline.length === 0
                 ? <p className="empty">{t('side.noOutline')}</p>
-                : <OutlineTree nodes={outline} onGoToPage={onGoToPage} currentPage={pageNumber} />
+                : <OutlineTree nodes={outline} onGoToPage={onGoToPage} currentPage={pageNumber} onControls={setOutlineControls} />
             )}
 
             {panel === 'search' && <SearchPanel search={search} onGoToPage={onGoToPage} onGoToSearchHit={onGoToSearchHit} />}
 
             {panel === 'images' && (
               <>
-                <div className="side-actions">
-                  <button className="btn small" onClick={() => onExtractImages(pageNumber)} disabled={!doc || extracting} title={t('side.extract')}>
-                    {t('side.extract')}
-                  </button>
-                </div>
                 {images.length === 0 ? (
                   <p className="empty">{t('side.noImages')}</p>
                 ) : (
@@ -149,26 +217,6 @@ export default function Sidebar({
 
             {panel === 'comments' && (
               <>
-                <div className="side-actions">
-                  <button
-                    className="btn small"
-                    type="button"
-                    onClick={() => onAddComment?.()}
-                    disabled={!doc}
-                    title={t('tip.comment')}
-                  >
-                    {t('side.addComment')}
-                  </button>
-                  <button
-                    className="btn small"
-                    type="button"
-                    onClick={() => onAttachFile?.()}
-                    disabled={!doc}
-                    title={t('tip.attach')}
-                  >
-                    {t('side.addAttachment')}
-                  </button>
-                </div>
                 {commentsBusy && comments.length === 0 ? (
                   <p className="empty">{t('side.commentsLoading')}</p>
                 ) : comments.length === 0 ? (
@@ -254,9 +302,19 @@ export default function Sidebar({
 // ── Outline tree ──────────────────────────────────────────
 // A real tree: branches fold away, and parents are joined to their children by
 // connector lines (drawn in CSS from the list items themselves).
-function OutlineTree({ nodes, onGoToPage, currentPage }) {
+function OutlineTree({ nodes, onGoToPage, currentPage, onControls }) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(() => new Set());
+  const [selectedId, setSelectedId] = useState(() => outlineActiveId(nodes, currentPage));
+  const fromClick = useRef(false);
+
+  useEffect(() => {
+    if (fromClick.current) {
+      fromClick.current = false;
+      return;
+    }
+    setSelectedId(outlineActiveId(nodes, currentPage));
+  }, [nodes, currentPage]);
 
   const allParents = useMemo(() => {
     const ids = [];
@@ -264,6 +322,14 @@ function OutlineTree({ nodes, onGoToPage, currentPage }) {
     walk(nodes);
     return ids;
   }, [nodes]);
+
+  useEffect(() => {
+    onControls?.({
+      expandable: allParents.length > 0,
+      expandAll: () => setCollapsed(new Set()),
+      collapseAll: () => setCollapsed(new Set(allParents)),
+    });
+  }, [allParents, onControls]);
 
   const toggle = (id) => setCollapsed((prev) => {
     const next = new Set(prev);
@@ -278,7 +344,7 @@ function OutlineTree({ nodes, onGoToPage, currentPage }) {
         const isCollapsed = collapsed.has(node.id);
         return (
           <li key={node.id} className={hasKids ? 'branch' : 'leaf'}>
-            <div className={`tree-row${node.page && node.page === currentPage ? ' current' : ''}`}>
+            <div className={`tree-row${node.id === selectedId ? ' current' : ''}`}>
               {hasKids ? (
                 <button
                   className="tree-toggle"
@@ -293,7 +359,15 @@ function OutlineTree({ nodes, onGoToPage, currentPage }) {
 
               <button
                 className="tree-label"
-                onClick={() => (node.page ? onGoToPage(node.page, node.loc) : hasKids && toggle(node.id))}
+                onClick={() => {
+                  if (!node.page) {
+                    if (hasKids) toggle(node.id);
+                    return;
+                  }
+                  fromClick.current = true;
+                  setSelectedId(node.id);
+                  onGoToPage(node.page, node.loc);
+                }}
                 title={node.title}
               >
                 <span className="ol-title">{node.title || '—'}</span>
@@ -309,16 +383,6 @@ function OutlineTree({ nodes, onGoToPage, currentPage }) {
 
   return (
     <div className="outline-tree">
-      {allParents.length ? (
-        <div className="side-actions">
-          <button className="btn small" onClick={() => setCollapsed(new Set())} title={t('side.expandAll')}>
-            {t('side.expandAll')}
-          </button>
-          <button className="btn small" onClick={() => setCollapsed(new Set(allParents))} title={t('side.collapseAll')}>
-            {t('side.collapseAll')}
-          </button>
-        </div>
-      ) : null}
       {renderLevel(nodes)}
     </div>
   );

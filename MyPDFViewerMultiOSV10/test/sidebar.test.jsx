@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, waitFor } from '@testing-library/react';
 import '../src/i18n.js';
 import { setLanguage } from '../src/i18n.js';
 import Sidebar from '../src/components/Sidebar.jsx';
@@ -45,7 +45,8 @@ describe('Sidebar comments tool', () => {
     expect(container.querySelector('.comment-list')).toBeTruthy();
     fireEvent.click(getByTitle('check the figure'));
     expect(onGoToComment).toHaveBeenCalledWith(expect.objectContaining({ id: 'n1', page: 2 }));
-    expect(getByText('Add comment')).toBeTruthy();
+    expect(getByTitle('Add comment')).toBeTruthy();
+    expect(getByTitle('Attach file')).toBeTruthy();
   });
 
   it('lists attached PDF comments and jumps to that passage', async () => {
@@ -61,6 +62,106 @@ describe('Sidebar comments tool', () => {
     fireEvent.click(getByTitle('check this'));
     expect(onGoToComment).toHaveBeenCalledWith(expect.objectContaining({ id: 'H1', page: 4, fracY: 0.22 }));
     expect(queryByTitle('Delete')).toBeNull();
+  });
+});
+
+describe('Sidebar folder tree', () => {
+  it('shows a folders rail button and lists subfolders plus PDFs', async () => {
+    await setLanguage('en');
+    const onOpenFolderFile = vi.fn();
+    const loadFolder = vi.fn(async (dir) => {
+      if (dir === '/docs') {
+        return [
+          { name: 'invoices', path: '/docs/invoices', kind: 'dir' },
+          { name: 'report.pdf', path: '/docs/report.pdf', kind: 'pdf', size: 12 },
+        ];
+      }
+      return [];
+    });
+    const { container, getByLabelText, getByTitle, getByText } = renderSide({
+      panel: 'folders',
+      desktop: true,
+      folderRoot: '/docs',
+      loadFolder,
+      onOpenFolderFile,
+    });
+    expect(getByLabelText('Folders')).toBeTruthy();
+    expect(getByTitle('Open folder')).toBeTruthy();
+    await waitFor(() => expect(getByText('report.pdf')).toBeTruthy());
+    expect(getByText('invoices')).toBeTruthy();
+    expect(container.querySelector('.folder-tree .tree')).toBeTruthy();
+    fireEvent.click(getByTitle('/docs/report.pdf'));
+    expect(onOpenFolderFile).toHaveBeenCalledWith('/docs/report.pdf');
+  });
+
+  it('shows PDF files that live inside a nested folder', async () => {
+    await setLanguage('en');
+    const loadFolder = vi.fn(async (dir) => {
+      if (dir === '/docs') {
+        return [{ name: 'invoices', path: '/docs/invoices', kind: 'dir' }];
+      }
+      if (dir === '/docs/invoices') {
+        return [
+          { name: 'jan.pdf', path: '/docs/invoices/jan.pdf', kind: 'pdf', size: 20 },
+          { name: 'feb.pdf', path: '/docs/invoices/feb.pdf', kind: 'pdf', size: 30 },
+        ];
+      }
+      return [];
+    });
+    const { getByText } = renderSide({
+      panel: 'folders',
+      desktop: true,
+      folderRoot: '/docs',
+      loadFolder,
+    });
+    await waitFor(() => expect(getByText('invoices')).toBeTruthy());
+    await waitFor(() => expect(getByText('jan.pdf')).toBeTruthy());
+    expect(getByText('feb.pdf')).toBeTruthy();
+  });
+
+  it('asks the user to pick a folder when none is open', async () => {
+    await setLanguage('en');
+    const onPickFolder = vi.fn();
+    const { getByText, getByTitle } = renderSide({
+      panel: 'folders',
+      desktop: true,
+      folderRoot: '',
+      onPickFolder,
+    });
+    expect(getByText(/Choose a folder/)).toBeTruthy();
+    fireEvent.click(getByTitle('Open folder'));
+    expect(onPickFolder).toHaveBeenCalled();
+  });
+});
+
+describe('Sidebar outline', () => {
+  it('paints only the selected heading when several share a page', async () => {
+    await setLanguage('en');
+    const outline = [
+      {
+        id: 'ch', title: 'Chapter', page: 3, level: 0, loc: null,
+        items: [
+          { id: 'a', title: 'Alpha', page: 3, level: 1, loc: null, items: [] },
+          { id: 'b', title: 'Beta', page: 3, level: 1, loc: null, items: [] },
+        ],
+      },
+    ];
+    const { container, getByTitle, getByText } = renderSide({
+      panel: 'outline',
+      pageNumber: 3,
+      outline,
+    });
+    await waitFor(() => expect(getByTitle('Expand all')).toBeTruthy());
+    expect(container.querySelector('.side-head .side-head-actions')).toBeTruthy();
+    expect(getByTitle('Collapse all')).toBeTruthy();
+    expect(container.querySelector('.outline-tree .side-actions')).toBeFalsy();
+    const painted = () => [...container.querySelectorAll('.outline-tree .tree-row.current')]
+      .map((el) => el.textContent);
+    expect(painted()).toEqual(['Beta3']);
+    fireEvent.click(getByTitle('Chapter'));
+    expect(painted()).toEqual(['Chapter3']);
+    fireEvent.click(getByTitle('Alpha'));
+    expect(painted()).toEqual(['Alpha3']);
   });
 });
 

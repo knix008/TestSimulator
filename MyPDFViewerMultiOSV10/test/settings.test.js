@@ -27,6 +27,7 @@ describe('defaults', () => {
     expect(DEFAULT_SETTINGS.rememberLastPage).toBe(true);
     expect(DEFAULT_SETTINGS.recentFiles).toEqual([]);
     expect(DEFAULT_SETTINGS.recentDirs).toEqual([]);
+    expect(DEFAULT_SETTINGS.folderRoot).toBe('');
   });
 
   it('caps recent lists at 10', () => {
@@ -90,7 +91,7 @@ describe('normalize', () => {
   });
 
   it('clamps the sidebar panel width', () => {
-    expect(clampSidebarWidth(264)).toBe(264);
+    expect(clampSidebarWidth(220)).toBe(220);
     expect(clampSidebarWidth(10)).toBe(SIDEBAR_WIDTH_MIN);
     expect(clampSidebarWidth(9999)).toBe(SIDEBAR_WIDTH_MAX);
     expect(clampSidebarWidth('nope')).toBe(SIDEBAR_WIDTH_DEFAULT);

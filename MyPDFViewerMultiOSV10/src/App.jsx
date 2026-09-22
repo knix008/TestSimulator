@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 
 import TitleBar from './components/TitleBar.jsx';
+import TabBar from './components/TabBar.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import PdfView from './components/PdfView.jsx';
@@ -26,7 +27,7 @@ import {
 } from './lib/pdf.js';
 import {
   isElectron, api, openFileDialog, readPath, downloadUrl, copyText, copyImage,
-  saveText, writeTextTo, saveBinary, pickAnyFile,
+  saveText, writeTextTo, saveBinary, pickAnyFile, pickDirectory, listDirectory,
   baseName, dirName, pathExists, saveEncoded, openExternal,
 } from './lib/platform.js';
 import { namedActionPage } from './lib/nav.js';
@@ -49,6 +50,7 @@ import {
 } from './lib/view.js';
 import { pageOccurrence } from './lib/search.js';
 import { commentAnchorY, mergeCommentList } from './lib/comments.js';
+import { documentKey, tabLabel, findTabByFile, neighborTabId, nextTabId, anyTabDirty } from './lib/tabs.js';
 import {
   writeWorkspaceIntoPdf, attachmentRecord, base64ToBytes, MAX_ATTACHMENT_BYTES,
   suggestedPdfCopyName,
@@ -82,6 +84,13 @@ export default function App() {
   const unsavedResolve = useRef(null);
   const leaveOrCancelRef = useRef(async () => true);
   const savePdfRef = useRef(async () => false);
+  const [tabs, setTabs] = useState([]);
+  const [activeTabId, setActiveTabId] = useState(null);
+  const tabsRef = useRef([]);
+  const activeTabIdRef = useRef(null);
+  const sessionsRef = useRef(new Map());
+  tabsRef.current = tabs;
+  activeTabIdRef.current = activeTabId;
 
   // ── Interaction ────────────────────────────────────────
   const [selectionText, setSelectionText] = useState('');
@@ -111,6 +120,13 @@ export default function App() {
   const passwordRetry = useRef(null);
   const searchAbort = useRef(null);
   const commentDraft = useRef(null);
+  const captureRef = useRef(() => ({}));
+  const applySessionRef = useRef(() => {});
+  const liveDocRef = useRef(null);
+  const liveFileRef = useRef(null);
+  const docLoadGen = useRef(0);
+  liveDocRef.current = doc;
+  liveFileRef.current = file;
 
   // Which mouse tool is active: select text, or select a region / picture.
   const tool = settings.tool;
@@ -184,10 +200,151 @@ export default function App() {
     if (settingsReady) persistSettings(settings);
   }, [settings, settingsReady]);
 
+  const captureSession = useCallback(() => ({
+    file,
+    doc,
+    docInfo,
+    pageNumber,
+    scale,
+    outline,
+    images,
+    history: history.exportSnapshot(),
+    workspacePath,
+    dirty,
+    search,
+    activeBookmark,
+    activeComment,
+    docComments,
+    selectedImage,
+    selectionText,
+    commentsKey: commentsKeyRef.current,
+    view: {
+      zoomMode: settings.zoomMode,
+      zoom: settings.zoom,
+      rotation: settings.rotation,
+      pageLayout: settings.pageLayout,
+    },
+  }), [file, doc, docInfo, pageNumber, scale, outline, images, history, workspacePath, dirty,
+    search, activeBookmark, activeComment, docComments, selectedImage, selectionText, settings]);
+  captureRef.current = captureSession;
+
+  const applySession = useCallback((s) => {
+    if (!s) return;
+    docLoadGen.current += 1;
+    setFile(s.file || null);
+    setDoc(s.doc || null);
+    setDocInfo(s.docInfo || null);
+    setPageNumber(s.pageNumber || 1);
+    setScale(s.scale || 1);
+    setOutline(s.outline || []);
+    setImages(s.images || []);
+    history.restoreSnapshot(s.history);
+    setWorkspacePath(s.workspacePath || null);
+    setDirty(!!s.dirty);
+    setSearch(s.search || { query: '', results: [], busy: false, active: null });
+    setActiveBookmark(s.activeBookmark || null);
+    setActiveComment(s.activeComment || null);
+    setDocComments(s.docComments || { items: [], busy: false });
+    setSelectedImage(s.selectedImage || null);
+    setSelectionText(s.selectionText || '');
+    commentsKeyRef.current = s.commentsKey || null;
+    if (s.view) {
+      setSettings((prev) => ({
+        ...prev,
+        zoomMode: s.view.zoomMode ?? prev.zoomMode,
+        zoom: s.view.zoom ?? prev.zoom,
+        rotation: s.view.rotation ?? prev.rotation,
+        pageLayout: s.view.pageLayout ?? prev.pageLayout,
+      }));
+    }
+  }, [history]);
+  applySessionRef.current = applySession;
+
+  const parkCurrentTab = useCallback(() => {
+    const id = activeTabIdRef.current;
+    if (!id) return;
+    const snap = captureRef.current();
+    if (!snap.file && !snap.doc) return;
+    sessionsRef.current.set(id, snap);
+    setTabs((list) => list.map((t) => (
+      t.id === id
+        ? { ...t, dirty: !!snap.dirty, name: tabLabel(snap.file) || t.name, path: snap.file?.path || '', key: documentKey(snap.file) || t.key }
+        : t
+    )));
+  }, []);
+
+  const switchToTab = useCallback((id) => {
+    if (!id || id === activeTabIdRef.current) return;
+    parkCurrentTab();
+    const snap = sessionsRef.current.get(id);
+    if (!snap) return;
+    applySessionRef.current(snap);
+    setActiveTabId(id);
+  }, [parkCurrentTab]);
+
+  const clearLiveDocument = useCallback(() => {
+    setDoc(null);
+    setFile(null);
+    setDocInfo(null);
+    setOutline([]);
+    setImages([]);
+    history.reset(EMPTY_WORKSPACE);
+    setWorkspacePath(null);
+    setDirty(false);
+    setSearch({ query: '', results: [], busy: false, active: null });
+    setActiveBookmark(null);
+    setActiveComment(null);
+    setDocComments({ items: [], busy: false });
+    setSelectedImage(null);
+    setSelectionText('');
+    commentsKeyRef.current = null;
+    setPageNumber(1);
+    docLoadGen.current += 1;
+  }, [history]);
+
+  const closeTab = useCallback(async (id) => {
+    if (!id) return;
+    const wasActive = id === activeTabIdRef.current;
+    if (!wasActive) {
+      const parked = sessionsRef.current.get(id);
+      if (parked?.dirty) {
+        switchToTab(id);
+        if (!(await leaveOrCancelRef.current())) return;
+        id = activeTabIdRef.current;
+      }
+    } else if (!(await leaveOrCancelRef.current())) {
+      return;
+    }
+
+    const snap = sessionsRef.current.get(id) || captureRef.current();
+    if (snap?.doc) {
+      try { await snap.doc.destroy(); } catch { /* already gone */ }
+    }
+    sessionsRef.current.delete(id);
+    const nextId = neighborTabId(tabsRef.current, id);
+    setTabs((list) => list.filter((t) => t.id !== id));
+    if (id === activeTabIdRef.current) {
+      if (nextId && sessionsRef.current.has(nextId)) {
+        applySessionRef.current(sessionsRef.current.get(nextId));
+        setActiveTabId(nextId);
+      } else {
+        clearLiveDocument();
+        setActiveTabId(null);
+      }
+    }
+  }, [switchToTab, clearLiveDocument]);
+
+  useEffect(() => {
+    const id = activeTabId;
+    if (!id) return;
+    setTabs((list) => list.map((t) => (t.id === id && t.dirty !== dirty ? { ...t, dirty } : t)));
+  }, [dirty, activeTabId]);
+
   // ── Opening documents ──────────────────────────────────
 
   // Turns raw bytes into an open document. Handles both PDFs and workspaces.
-  const openBytes = useCallback(async (payload, { restore } = {}) => {
+  // A new file becomes its own tab unless `replace` is set (Save-as reload).
+  const openBytes = useCallback(async (payload, { restore, replace = false } = {}) => {
     const { data, name, path: filePath, size } = payload;
     try {
       // A .pdfvw workspace points at a PDF: load that, then restore the work.
@@ -202,7 +359,7 @@ export default function App() {
         const pdfBytes = await withProgress('opening', baseName(parsed.pdfPath), (onProgress) =>
           readPath(parsed.pdfPath, { onProgress }));
         setWorkspacePath(filePath || null);
-        await openBytes(pdfBytes, { restore: parsed });
+        await openBytes(pdfBytes, { restore: { ...parsed, workspaceFilePath: filePath || null } });
         return;
       }
 
@@ -224,18 +381,33 @@ export default function App() {
       });
 
       const pdf = await loadingTask.promise;
-
-      // Release the previous document before swapping it out.
-      if (doc) { try { await doc.destroy(); } catch { /* already gone */ } }
-
-      setDoc(pdf);
-      setFile({
+      const nextFile = {
         name,
         path: filePath || null,
         dir: filePath ? dirName(filePath) : null,
         size: size ?? data.length,
         data,
-      });
+      };
+      const key = documentKey(nextFile);
+      const existing = !replace ? findTabByFile(tabsRef.current, nextFile) : null;
+      if (existing) {
+        switchToTab(existing.id);
+        setStatusMessage(t('status.loaded', { name }));
+        return;
+      }
+
+      if (replace) {
+        const prev = sessionsRef.current.get(activeTabIdRef.current);
+        const toDestroy = prev?.doc || liveDocRef.current;
+        if (toDestroy && toDestroy !== pdf) {
+          try { await toDestroy.destroy(); } catch { /* already gone */ }
+        }
+      } else if (activeTabIdRef.current && (liveFileRef.current || liveDocRef.current)) {
+        parkCurrentTab();
+      }
+
+      setDoc(pdf);
+      setFile(nextFile);
       setImages([]);
       setSearch({ query: '', results: [], busy: false, active: null });
       setActiveBookmark(null);
@@ -246,12 +418,22 @@ export default function App() {
 
       setDocInfo(null);
       setOutline([]);
+      const loadGen = ++docLoadGen.current;
 
       // Metadata and the outline are not needed to show page 1, and resolving
       // every outline destination costs a page lookup each — so both run after
       // the document is already on screen.
       (async () => {
-        try { setDocInfo(await getDocumentInfo(pdf)); } catch { /* properties stay empty */ }
+        const patchParked = (partial) => {
+          for (const [id, s] of sessionsRef.current) {
+            if (s.doc === pdf) sessionsRef.current.set(id, { ...s, ...partial });
+          }
+        };
+        try {
+          const info = await getDocumentInfo(pdf);
+          if (docLoadGen.current === loadGen) setDocInfo(info);
+          else patchParked({ docInfo: info });
+        } catch { /* properties stay empty */ }
         try {
           const raw = await getOutline(pdf);
           // Walk the tree, turning each destination into a page + in-page Y.
@@ -268,14 +450,18 @@ export default function App() {
             }
             return out;
           };
-          setOutline(await resolve(raw));
+          const nextOutline = await resolve(raw);
+          if (docLoadGen.current === loadGen) setOutline(nextOutline);
+          else patchParked({ outline: nextOutline });
         } catch { /* the document simply has no usable outline */ }
       })();
 
       // Restore either the saved workspace or the last session's position.
+      let startPage = 1;
       if (restore) {
         history.reset(restore.workspace);
-        setPageNumber(Math.min(Math.max(1, restore.view?.page || 1), pdf.numPages));
+        startPage = Math.min(Math.max(1, restore.view?.page || 1), pdf.numPages);
+        setPageNumber(startPage);
         setSettings((s) => ({
           ...s,
           zoomMode: restore.view?.zoomMode || s.zoomMode,
@@ -284,6 +470,7 @@ export default function App() {
           pageLayout: restore.view?.pageLayout || s.pageLayout,
         }));
         setDirty(false);
+        if (restore.workspaceFilePath) setWorkspacePath(restore.workspaceFilePath);
       } else {
         history.reset(EMPTY_WORKSPACE);
         setWorkspacePath(null);
@@ -291,7 +478,45 @@ export default function App() {
         const remembered = settings.rememberLastPage
           ? settings.recentFiles.find((f) => (f.path || f.name) === (filePath || name))?.page
           : null;
-        setPageNumber(Math.min(Math.max(1, remembered || 1), pdf.numPages));
+        startPage = Math.min(Math.max(1, remembered || 1), pdf.numPages);
+        setPageNumber(startPage);
+      }
+
+      const tabId = (replace && activeTabIdRef.current) ? activeTabIdRef.current : newId();
+      sessionsRef.current.set(tabId, {
+        file: nextFile,
+        doc: pdf,
+        docInfo: null,
+        pageNumber: startPage,
+        scale: 1,
+        outline: [],
+        images: [],
+        history: { state: restore?.workspace || EMPTY_WORKSPACE, past: [], future: [] },
+        workspacePath: restore?.workspaceFilePath || (restore ? workspacePath : null) || null,
+        dirty: false,
+        search: { query: '', results: [], busy: false, active: null },
+        activeBookmark: null,
+        activeComment: null,
+        docComments: { items: [], busy: false },
+        selectedImage: null,
+        selectionText: '',
+        commentsKey: null,
+        view: restore?.view || {
+          zoomMode: settings.zoomMode,
+          zoom: settings.zoom,
+          rotation: settings.rotation,
+          pageLayout: settings.pageLayout,
+        },
+      });
+      const tabMeta = { id: tabId, key, name, path: filePath || '', dirty: false };
+      if (replace && activeTabIdRef.current) {
+        tabsRef.current = tabsRef.current.map((t) => (t.id === tabId ? tabMeta : t));
+        setTabs(tabsRef.current);
+      } else {
+        tabsRef.current = [...tabsRef.current, tabMeta];
+        setTabs(tabsRef.current);
+        setActiveTabId(tabId);
+        activeTabIdRef.current = tabId;
       }
 
       // Recent files / folders.
@@ -314,21 +539,24 @@ export default function App() {
       fail(err, 'open', { file: filePath || name });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc, fail, history, settings.rememberLastPage, settings.recentFiles, t, toast, withProgress]);
+  }, [fail, history, parkCurrentTab, settings.rememberLastPage, settings.recentFiles,
+    settings.pageLayout, settings.rotation, settings.zoom, settings.zoomMode, switchToTab,
+    t, toast, withProgress, workspacePath]);
 
   const openViaDialog = useCallback(async () => {
     try {
-      if (!(await leaveOrCancelRef.current())) return;
       if (!isElectron) {
-        const picked = await openFileDialog({});
-        if (picked) await openBytes(picked);
+        const picked = await openFileDialog({ multi: true });
+        const list = Array.isArray(picked) ? picked : (picked ? [picked] : []);
+        for (const item of list) await openBytes(item);
         return;
       }
       // Ask for the path first — showing anything of our own beforehand only
       // delays the system dialog — then report progress while reading.
-      const filePath = await api.openPdfDialog({ defaultDir: settings.lastDir });
-      if (!filePath) return;
-      await openByPathRef.current(filePath);
+      const picked = await api.openPdfDialog({ defaultDir: settings.lastDir, multi: true });
+      if (!picked) return;
+      const paths = Array.isArray(picked) ? picked : [picked];
+      for (const filePath of paths) await openByPathRef.current(filePath);
     } catch (err) {
       fail(err, 'open');
     }
@@ -350,7 +578,6 @@ export default function App() {
 
   const openFromUrl = useCallback(async (url) => {
     setPrompt({ open: false, kind: 'url', error: '' });
-    if (!(await leaveOrCancelRef.current())) return;
     try {
       const payload = await withProgress('downloading', url, (onProgress) =>
         downloadUrl(url, { onProgress }));
@@ -366,7 +593,6 @@ export default function App() {
     if (!isElectron || !settingsReady) return undefined;
     api.takePendingOpen().then((p) => { if (p) openByPath(p); }).catch(() => {});
     return api.onOpenPath(async (p) => {
-      if (!(await leaveOrCancelRef.current())) return;
       openByPath(p);
     });
   }, [settingsReady, openByPath]);
@@ -433,6 +659,7 @@ export default function App() {
       path: filePath || file?.path || null,
       size: bytes.length,
     }, {
+      replace: true,
       restore: {
         workspace: {
           ...workspace,
@@ -511,9 +738,29 @@ export default function App() {
   }, []);
 
   const handleAppClose = useCallback(async () => {
-    if (!(await leaveOrCancel())) return;
+    parkCurrentTab();
+    if (anyTabDirty(tabsRef.current, dirtyRef.current, activeTabIdRef.current)) {
+      const dirtyIds = [];
+      if (dirtyRef.current && activeTabIdRef.current) dirtyIds.push(activeTabIdRef.current);
+      for (const tab of tabsRef.current) {
+        if (tab.dirty && tab.id !== activeTabIdRef.current) dirtyIds.push(tab.id);
+      }
+      const choice = await askUnsaved();
+      if (choice === 'cancel') return;
+      if (choice === 'save') {
+        for (const id of dirtyIds) {
+          if (id !== activeTabIdRef.current) switchToTab(id);
+          if (!(await savePdfRef.current())) return;
+        }
+      }
+    }
+    for (const snap of sessionsRef.current.values()) {
+      if (snap?.doc) {
+        try { await snap.doc.destroy(); } catch { /* already gone */ }
+      }
+    }
     forceCloseApp();
-  }, [forceCloseApp, leaveOrCancel]);
+  }, [askUnsaved, forceCloseApp, parkCurrentTab, switchToTab]);
 
   useEffect(() => {
     if (!isElectron || !api.win?.onCloseRequest) return undefined;
@@ -523,7 +770,7 @@ export default function App() {
   useEffect(() => {
     if (isElectron) return undefined;
     const onBefore = (e) => {
-      if (!dirtyRef.current) return;
+      if (!anyTabDirty(tabsRef.current, dirtyRef.current, activeTabIdRef.current)) return;
       e.preventDefault();
       e.returnValue = '';
     };
@@ -1076,6 +1323,17 @@ export default function App() {
 
       if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); openViaDialog(); return; }
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); savePdf(); return; }
+      if (mod && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        if (activeTabIdRef.current) closeTab(activeTabIdRef.current);
+        return;
+      }
+      if (mod && e.key === 'Tab') {
+        e.preventDefault();
+        const next = nextTabId(tabsRef.current, activeTabIdRef.current, e.shiftKey ? -1 : 1);
+        if (next) switchToTab(next);
+        return;
+      }
       if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); history.undo(); return; }
       if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
         e.preventDefault(); history.redo(); return;
@@ -1118,25 +1376,26 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [changeZoom, copySelection, doc, goToPage, history, openViaDialog, pageNumber, savePdf,
-    selectedImage, setTool, tool]);
+  }, [changeZoom, closeTab, copySelection, doc, goToPage, history, openViaDialog, pageNumber,
+    savePdf, selectedImage, setTool, switchToTab, tool]);
 
   // ── Drag & drop ────────────────────────────────────────
   const [dragOver, setDragOver] = useState(false);
   const onDrop = useCallback(async (e) => {
     e.preventDefault();
     setDragOver(false);
-    const dropped = e.dataTransfer?.files?.[0];
-    if (!dropped) return;
-    if (!(await leaveOrCancelRef.current())) return;
+    const dropped = [...(e.dataTransfer?.files || [])];
+    if (!dropped.length) return;
     try {
-      if (isElectron && dropped.path) { await openByPath(dropped.path); return; }
-      const buf = await dropped.arrayBuffer();
-      await openBytes({
-        data: new Uint8Array(buf), name: dropped.name, path: null, size: dropped.size,
-      });
+      for (const item of dropped) {
+        if (isElectron && item.path) { await openByPath(item.path); continue; }
+        const buf = await item.arrayBuffer();
+        await openBytes({
+          data: new Uint8Array(buf), name: item.name, path: null, size: item.size,
+        });
+      }
     } catch (err) {
-      fail(err, 'open', { file: dropped.name });
+      fail(err, 'open', { file: dropped[0]?.name });
     }
   }, [fail, openByPath, openBytes]);
 
@@ -1340,10 +1599,33 @@ export default function App() {
             (w) => ({ ...w, clips: w.clips.filter((c) => c.id !== id) }),
             t('common.delete')
           )}
+          folderRoot={settings.folderRoot}
+          currentFilePath={file?.path || ''}
+          desktop={isElectron}
+          onPickFolder={async () => {
+            const picked = await pickDirectory(settings.folderRoot || settings.lastDir);
+            if (!picked) return;
+            setSettings((s) => ({
+              ...s,
+              folderRoot: picked,
+              lastDir: picked,
+              recentDirs: addRecentDir(s.recentDirs, picked),
+              sidebar: 'folders',
+            }));
+          }}
+          onOpenFolderFile={openByPath}
+          loadFolder={listDirectory}
         />
 
         <main className={`viewer${dragOver ? ' dragging' : ''}`}>
+          <TabBar
+            tabs={tabs}
+            activeId={activeTabId}
+            onSelect={switchToTab}
+            onClose={closeTab}
+          />
           <PdfView
+            key={activeTabId || 'empty'}
             ref={viewRef}
             doc={doc}
             pageNumber={pageNumber}

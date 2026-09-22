@@ -187,6 +187,52 @@ body {
 .winbtn:hover { background: var(--bg-3); color: var(--text); }
 .winbtn-close:hover { background: #e81123; color: #fff; }
 
+/* ── Document tabs ─────────────────────────────────────── */
+.tabbar {
+  display: flex; flex: none; min-height: 30px; align-items: stretch;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.tabbar-scroll {
+  display: flex; flex: 1; min-width: 0;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+}
+.tabbar-scroll::-webkit-scrollbar { height: 0; width: 0; display: none; }
+.tabbar-nav {
+  display: flex; flex: none; align-items: stretch;
+  border-left: 1px solid var(--border); background: var(--bg-2);
+}
+.tabbar-nav-btn {
+  width: 22px; padding: 0; border: none; background: transparent;
+  color: var(--text-dim); display: grid; place-items: center; cursor: pointer;
+}
+.tabbar-nav-btn + .tabbar-nav-btn { border-left: 1px solid var(--border); }
+.tabbar-nav-btn:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
+.tabbar-nav-btn:disabled { opacity: 0.35; cursor: default; }
+.doctab {
+  display: flex; align-items: center; gap: 6px;
+  max-width: 220px; height: 30px; flex: none;
+  padding: 0 4px 0 12px;
+  border: none; border-right: 1px solid var(--border);
+  background: transparent; color: var(--muted);
+  cursor: pointer; font: inherit; font-size: 12px;
+}
+.doctab:hover { background: var(--bg-3); color: var(--text); }
+.doctab.active {
+  background: var(--bg-2); color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.doctab-name {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.doctab-dot { color: var(--accent); margin-right: 4px; }
+.doctab-close {
+  flex: none; width: 18px; height: 18px; padding: 0;
+  border: none; border-radius: 4px; background: transparent;
+  color: inherit; display: grid; place-items: center; cursor: pointer;
+}
+.doctab-close:hover { background: var(--bg-3); color: var(--text); }
+
 /* ── Toolbar ───────────────────────────────────────────── */
 .toolbar {
   display: flex; align-items: center; gap: 4px; padding: 6px 10px;
@@ -231,6 +277,7 @@ body {
   border: none; border-radius: 6px; background: transparent; color: var(--text-dim); cursor: pointer;
 }
 .icon-btn:hover { background: var(--bg-3); color: var(--text); }
+.icon-btn:disabled, .icon-btn:disabled:hover { opacity: 0.35; cursor: default; background: transparent; }
 
 .btn {
   display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px;
@@ -328,7 +375,7 @@ html.theme-popup, html.theme-popup body, html.theme-popup #root {
 .workarea { display: flex; flex: 1; min-height: 0; }
 
 /* ── Sidebar ───────────────────────────────────────────── */
-:root { --side-rail: 48px; --side-width: 264px; }
+:root { --side-rail: 48px; --side-width: 220px; }
 .sidebar {
   position: relative; display: flex; flex: none; background: var(--bg-2);
   width: calc(var(--side-rail) + var(--side-width));
@@ -364,9 +411,14 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   width: var(--side-width); flex: none; min-width: 0;
 }
 .side-head {
-  padding: 10px 12px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.07em;
-  color: var(--muted); border-bottom: 1px solid var(--border); flex: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px 8px 12px; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text); border-bottom: 1px solid var(--border); flex: none;
 }
+.side-head-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-head-actions { display: flex; align-items: center; gap: 2px; flex: none; margin-left: auto; }
+.side-head-action { flex: none; color: var(--text); }
+.side-head-action:hover:not(:disabled) { color: var(--accent); }
 .side-body { flex: 1; overflow: auto; padding: 8px; }
 .side-actions { display: flex; gap: 6px; padding: 0 2px 8px; }
 
@@ -387,7 +439,15 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* Connector lines are drawn by the list items: a vertical stem down the left
    of each child, and a short elbow into its row. The stem on the last child
    stops at the elbow so the branch closes off cleanly. */
-.outline-tree { --tree-line: var(--border); --tree-indent: 15px; --tree-elbow: 14px; }
+.outline-tree, .folder-tree {
+  --tree-line: color-mix(in srgb, var(--muted) 32%, transparent);
+  --tree-indent: 15px;
+  --tree-elbow: 14px;
+}
+.folder-tree { --tree-line: color-mix(in srgb, var(--muted) 32%, transparent); --tree-indent: 16px; }
+.tree-kind { flex: none; color: var(--muted); display: grid; place-items: center; }
+.tree-row.file .tree-kind { color: var(--text-dim); }
+.tree-empty { padding: 4px 8px 8px 28px; }
 .tree { list-style: none; margin: 0; padding: 0; }
 .tree .tree { padding-left: var(--tree-indent); }
 .tree li { position: relative; }
@@ -405,6 +465,10 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 
 .tree-row { display: flex; align-items: center; gap: 2px; border-radius: 7px; }
 .tree-row:hover { background: var(--bg-3); }
+.outline-tree .tree-row.current {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.outline-tree .tree-row.current .ol-title { color: var(--accent); font-weight: 600; }
 .tree-row.current .ol-title { color: var(--accent); font-weight: 600; }
 
 .tree-toggle {
@@ -421,7 +485,6 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   padding: 5px 8px 5px 2px; border: none; border-radius: 7px; background: transparent;
   color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer;
 }
-.outline-tree .side-actions { padding-bottom: 10px; }
 .bm-list li, .hit-list li, .comment-list li { display: flex; align-items: center; gap: 2px; }
 .comment-list li { align-items: flex-start; }
 .comment-row { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
@@ -452,10 +515,36 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .img-actions { display: flex; gap: 2px; }
 
 /* ── Viewer ────────────────────────────────────────────── */
-.viewer { position: relative; flex: 1; min-width: 0; display: flex; }
-.pageview { flex: 1; overflow: auto; background: var(--page-bg); position: relative; }
-.pageview.empty { display: grid; place-items: center; }
-.pagestack { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 24px 28px; }
+/* min-height/min-width 0 keeps the flex item inside the window. Without that
+   the stack grows with the pages, the chrome clips it, and no scrollbar appears
+   even after zooming in. */
+.viewer {
+  position: relative; flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.pageview {
+  flex: 1; min-width: 0; min-height: 0;
+  overflow: auto; background: var(--page-bg); position: relative;
+  scrollbar-width: auto;
+  scrollbar-color: var(--muted) color-mix(in srgb, var(--page-bg) 65%, var(--bg-3));
+}
+.pageview.empty { display: grid; place-items: center; overflow: hidden; }
+.pagestack {
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  padding: 24px 28px; box-sizing: border-box;
+  width: max-content; min-width: 100%;
+}
+.pageview::-webkit-scrollbar { width: 12px; height: 12px; }
+.pageview::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--page-bg) 65%, var(--bg-3));
+}
+.pageview::-webkit-scrollbar-thumb {
+  background: var(--muted); border-radius: 6px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+.pageview::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim); background-clip: content-box;
+}
 
 .page {
   position: relative; flex: none; background: #fff;

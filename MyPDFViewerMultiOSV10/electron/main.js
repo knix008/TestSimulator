@@ -15,6 +15,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { pathToFileURL } = require('url');
+const { readLevel } = require('./folder-list');
 
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
 const DEV_URL = 'http://localhost:5179';
@@ -246,6 +247,8 @@ ipcMain.handle('fs:stat', (_e, p) => {
     return { size: st.size, mtime: st.mtimeMs, dir: path.dirname(p), name: path.basename(p) };
   } catch { return null; }
 });
+
+ipcMain.handle('fs:readDir', (_e, dirPath) => readLevel(fs, path, dirPath));
 
 // Reads a file in chunks, reporting progress so the renderer can show a
 // progress dialog for large PDFs. Returns the bytes as a Uint8Array.

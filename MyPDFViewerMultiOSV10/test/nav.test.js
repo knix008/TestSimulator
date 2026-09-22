@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeOutlineTitle, stripTrailingPageNumber, matchOutlineTitle,
-  lineTextNearPoint, namedActionPage,
+  lineTextNearPoint, namedActionPage, outlineActiveId,
 } from '../src/lib/nav.js';
 
 describe('normalizeOutlineTitle / stripTrailingPageNumber', () => {
@@ -44,6 +44,30 @@ describe('matchOutlineTitle', () => {
     expect(matchOutlineTitle('Unrelated heading', outline)).toBe(null);
     expect(matchOutlineTitle('Introduction', [])).toBe(null);
     expect(matchOutlineTitle('Introduction', [{ title: 'Introduction', page: null }])).toBe(null);
+  });
+});
+
+describe('outlineActiveId', () => {
+  const outline = [
+    {
+      id: 'ch', title: 'Chapter', page: 5, level: 0,
+      items: [
+        { id: 's1', title: 'A', page: 5, level: 1, items: [] },
+        { id: 's2', title: 'B', page: 5, level: 1, items: [] },
+        { id: 's3', title: 'C', page: 6, level: 1, items: [] },
+      ],
+    },
+  ];
+
+  it('paints only the deepest entry on a page that has several headings', () => {
+    expect(outlineActiveId(outline, 5)).toBe('s2');
+    expect(outlineActiveId(outline, 6)).toBe('s3');
+  });
+
+  it('returns null when no entry lives on that page', () => {
+    expect(outlineActiveId(outline, 1)).toBe(null);
+    expect(outlineActiveId([], 5)).toBe(null);
+    expect(outlineActiveId(outline, null)).toBe(null);
   });
 });
 

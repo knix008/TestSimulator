@@ -135,23 +135,13 @@ export const FlagKo = (p) => (
 
 export const FlagEn = (p) => (
   <FlagSvg {...p}>
-    <rect width="36" height="24" rx="2.2" fill="#B22234" />
-    <rect y="1.85" width="36" height="1.85" fill="#fff" />
-    <rect y="5.54" width="36" height="1.85" fill="#fff" />
-    <rect y="9.23" width="36" height="1.85" fill="#fff" />
-    <rect y="12.92" width="36" height="1.85" fill="#fff" />
-    <rect y="16.62" width="36" height="1.85" fill="#fff" />
-    <rect y="20.31" width="36" height="1.85" fill="#fff" />
-    <rect width="14.4" height="12.9" rx="1.2" fill="#3C3B6E" />
-    {[
-      [2.4, 2.2], [5.4, 2.2], [8.4, 2.2], [11.4, 2.2],
-      [3.9, 4.4], [6.9, 4.4], [9.9, 4.4],
-      [2.4, 6.6], [5.4, 6.6], [8.4, 6.6], [11.4, 6.6],
-      [3.9, 8.8], [6.9, 8.8], [9.9, 8.8],
-      [2.4, 11], [5.4, 11], [8.4, 11], [11.4, 11],
-    ].map(([x, y], i) => (
-      <circle key={i} cx={x} cy={y} r="0.7" fill="#fff" />
-    ))}
+    <rect width="36" height="24" rx="2.2" fill="#012169" />
+    <path d="M0 0L36 24M36 0L0 24" stroke="#fff" strokeWidth="5.2" />
+    <path d="M0 0L36 24M36 0L0 24" stroke="#C8102E" strokeWidth="2.2" />
+    <rect x="14.4" width="7.2" height="24" fill="#fff" />
+    <rect y="8.4" width="36" height="7.2" fill="#fff" />
+    <rect x="15.6" width="4.8" height="24" fill="#C8102E" />
+    <rect y="9.6" width="36" height="4.8" fill="#C8102E" />
     <rect width="36" height="24" rx="2.2" fill="none" stroke="rgba(0,0,0,0.22)" strokeWidth="1" />
   </FlagSvg>
 );
@@ -193,6 +183,15 @@ export const IconDownload = (p) => (
 export const IconFolder = (p) => (
   <S {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></S>
 );
+export const IconFolderOpen = (p) => (
+  <S {...p}>
+    <path d="M3 10h18l-2.2 9.2A1.5 1.5 0 0 1 17.35 20.5H6.65a1.5 1.5 0 0 1-1.45-1.3L3 10z" />
+    <path d="M4 7.5h5l2 2" />
+  </S>
+);
+export const IconPdf = (p) => (
+  <S {...p}><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v5h5" /><path d="M8.5 15.5h3.2a1.6 1.6 0 0 0 0-3.2H8.5V18" /></S>
+);
 export const IconClip = (p) => (
   <S {...p}><path d="M15 7 8.5 13.5a2.5 2.5 0 0 0 3.5 3.5L19 10a4.5 4.5 0 0 0-6.4-6.4L5.5 10.7a6.5 6.5 0 0 0 9.2 9.2L20 14.6" /></S>
 );
@@ -209,6 +208,15 @@ export const IconLayout = (p) => (
 // the `open` class so the change animates).
 export const IconChevron = ({ className = '', ...p }) => (
   <S {...p} className={`chev ${className}`}><path d="m9 5 7 7-7 7" /></S>
+);
+export const IconExpandAll = (p) => (
+  <S {...p}><path d="m7 9 5 5 5-5" /><path d="m7 4 5 5 5-5" /></S>
+);
+export const IconCollapseAll = (p) => (
+  <S {...p}><path d="m7 15 5-5 5 5" /><path d="m7 20 5-5 5 5" /></S>
+);
+export const IconExtract = (p) => (
+  <S {...p}><rect x="4" y="3" width="16" height="11" rx="1.5" /><path d="M12 10v11M9 18l3 3 3-3" /></S>
 );
 // Printer: paper feeding out of the top of the machine.
 export const IconPrint = (p) => (
