@@ -17,5 +17,10 @@ export default defineConfig({
     // Build output and smoke screenshots must not trigger dev reloads.
     watch: { ignored: ['**/release/**', '**/dist/**', '**/.smoke/**', '**/build/**'] },
   },
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
+  // The biggest chunk is libheif-js/wasm-bundle (~1.95 MB): the HEIC / HEIF decoder with its
+  // WebAssembly inlined as base64. It is already a lazy import (src/lib/images.js, fetched only
+  // when a HEIC file is previewed) and cannot be split further — the separate .wasm variant
+  // needs fetch(), which the desktop build's file:// origin does not allow. The DICOM codecs
+  // (cornerstone, ≤ 0.6 MB each) are lazy chunks of their own too.
+  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 2100 },
 });
