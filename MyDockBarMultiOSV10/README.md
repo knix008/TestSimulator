@@ -29,7 +29,7 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
 - Auto-hide with independent show and hide delays and a peek sliver
 - Optionally shows icons for applications that are currently open, alongside
   the pinned ones
-- Drag files onto the dock — or onto the Dock Items tab — to add them. The
+- Drag files onto the dock — or onto the Items tab — to add them. The
   landing position is shown by the icons **parting around a gap**, not by an
   outline drawn over the bar, and the same gap drives reordering. The icons
   slide between positions rather than jumping: the gap is a slot in the layout
@@ -86,7 +86,10 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
 
 **Integration**
 - Tray menu with theme / position / language / auto-hide shortcuts —
-  every menu entry carries an icon
+  every menu entry carries an icon. With only two languages, the language
+  entry is a one-click toggle flying the flag of the language it switches to,
+  rather than a submenu
+- The same language toggle sits in the dock's own context menu
 - English and Korean throughout, in the menus and the settings window
 - Scans installed applications per platform (Start Menu shortcuts on Windows,
   `/Applications` bundles on macOS, `.desktop` entries on Linux)
@@ -96,6 +99,11 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
 **Settings window**
 - Fixed size, and never scrolls: eight tabs, each laid out to fit, with the two
   unbounded lists (dock items, installed applications) paged rather than scrolled
+- The tabs are grouped by what a setting is about, not by what it happens to
+  touch: Appearance is what the dock is made of, Zoom is what the icons do,
+  Position is where the dock sits including how far up the window stack, and
+  Behaviour is what the dock does on its own. The window is then sized to the
+  one tab that needs the most room, which is Themes
 - Every tab carries the same glyph the native menus use for that idea
 - Every numeric setting has −/+ step buttons beside its slider, on one line
 - OK and Reset buttons in a persistent action bar
