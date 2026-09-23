@@ -1,3 +1,54 @@
+# Dependencies
 node_modules/
+
+# Packaged output
 dist/
+out/
+
+# ---------------------------------------------------------------------------
+# Generated artwork.
+#
+# Everything in build/ except installer.nsh is produced by `npm run icons`
+# from scripts/make-icons.js and scripts/menu-glyphs.js - about 2MB of binaries
+# that would otherwise churn on every tweak to the drawing code. `prestart`,
+# `predev` and `pretest` regenerate them when they are missing or stale, so a
+# fresh clone works without any extra step.
+#
+# build/installer.nsh is hand-written and IS tracked.
+# ---------------------------------------------------------------------------
+build/*
+!build/installer.nsh
+
+# Logs
 *.log
+npm-debug.log*
+yarn-error.log*
+
+# Local runtime data, if the app is ever pointed at the working directory
+.electron-user-data/
+userData/
+
+# Test and coverage output
+coverage/
+.nyc_output/
+*.tap
+
+# Editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.swp
+*~
+
+# Operating system
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Electron / electron-builder caches
+.electron/
+.electron-gyp/
+.cache/

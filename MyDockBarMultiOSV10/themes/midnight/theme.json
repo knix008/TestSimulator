@@ -1,0 +1,38 @@
+{
+  "id": "midnight",
+  "name": "Midnight",
+  "author": "MyDockBar",
+  "description": "Near-black capsule that keeps out of the way. (pill shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(65,67,85,0.94), rgba(21,23,39,0.96))",
+    "--plate-border": "1px solid rgba(153,154,164,0.3)",
+    "--plate-radius": "999px",
+    "--plate-shadow": "0 10px 26px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(8px)",
+    "--reflection-opacity": "0.22",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(191,194,217,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(6,6,11,0.55)",
+    "--indicator-color": "#838bd8",
+    "--indicator-glow": "0 0 10px rgba(131,139,216,0.9)",
+    "--tooltip-bg": "rgba(20,20,26,0.96)",
+    "--tooltip-fg": "#e5e7f5",
+    "--tooltip-border": "1px solid rgba(131,139,216,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#838bd8"
+  },
+  "ui": {
+    "--bg": "#191a1f",
+    "--bg-raised": "#25262d",
+    "--bg-sunken": "#121317",
+    "--fg": "#e9eaf1",
+    "--fg-dim": "#8d90b0",
+    "--line": "#383943",
+    "--accent": "#838bd8",
+    "--accent-fg": "#111217",
+    "--danger": "#ff7a72"
+  }
+}

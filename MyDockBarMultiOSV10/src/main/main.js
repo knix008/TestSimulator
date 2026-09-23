@@ -81,6 +81,10 @@ function start() {
       dockWindow,
       pointerWatch,
       syncRunningWatch,
+      // Lets a dock click skip the window lookup for programs that are not
+      // running, which is what made launching feel sluggish.
+      // null means 'not being tracked', which falls back to asking the OS.
+      runningNames: () => (runningWatch.timer ? runningWatch.names : null),
       reloadAll: () => {
         for (const win of BrowserWindow.getAllWindows()) {
           if (!win.isDestroyed()) win.webContents.reload();

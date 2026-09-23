@@ -235,7 +235,11 @@
       preview.className = `theme-preview${theme.dark === false ? ' light-bg' : ''}`;
       const plate = document.createElement('div');
       plate.className = 'mini-plate';
-      for (let i = 0; i < 3; i += 1) plate.appendChild(document.createElement('i'));
+      for (let i = 0; i < 3; i += 1) {
+        const slot = document.createElement('i');
+        slot.appendChild(document.createElement('b'));
+        plate.appendChild(slot);
+      }
       preview.appendChild(plate);
 
       const accent = document.createElement('div');
@@ -273,8 +277,25 @@
 
     plate.style.background = vars['--plate-bg'] || '';
     plate.style.border = vars['--plate-border'] || '';
-    plate.style.borderRadius = '5px';
     plate.style.boxShadow = vars['--plate-shadow'] || '';
+
+    // Shape, shown rather than described: the same radius and clip the real
+    // bar uses, scaled down. A px radius is divided so a 999px pill still
+    // reads as a pill at thumbnail size instead of a rectangle.
+    plate.style.borderRadius = miniRadius(vars['--plate-radius']);
+    plate.style.clipPath = vars['--plate-clip'] && vars['--plate-clip'] !== 'none'
+      ? vars['--plate-clip']
+      : 'none';
+
+    // Per-icon tiles, for the shapes that have them.
+    for (const slot of plate.querySelectorAll('i')) {
+      slot.style.background = vars['--item-bg'] || 'transparent';
+      slot.style.border = vars['--item-border'] && vars['--item-border'] !== 'none'
+        ? vars['--item-border']
+        : 'none';
+      slot.style.borderRadius = miniRadius(vars['--item-radius'] || '0px');
+      slot.style.boxShadow = vars['--item-shadow'] || 'none';
+    }
 
     // A desktop-like backdrop drawn from the theme's own palette.
     const far = ui['--bg-sunken'] || (theme.dark === false ? '#c9d4e2' : '#0e1118');
@@ -285,6 +306,15 @@
     for (const dot of plate.querySelectorAll('i')) {
       dot.style.background = theme.dark === false ? 'rgba(30,40,55,.72)' : 'rgba(255,255,255,.88)';
     }
+  }
+
+  /**
+   * Scale a CSS radius down for the thumbnail. Each px value is divided by
+   * three so the proportions survive; percentages and keywords pass through.
+   */
+  function miniRadius(value) {
+    if (!value) return '0px';
+    return String(value).replace(/(\d*\.?\d+)px/g, (_m, n) => `${Math.max(1, Math.round(Number(n) / 3))}px`);
   }
 
   const previewCache = new Map();

@@ -94,15 +94,47 @@ async function linuxFocus(id) {
 /* -------------------------------- public -------------------------------- */
 
 /**
- * @param {string} target the executable path the dock entry points at
- * @returns {Promise<Array<{id:string, title:string}>>}
+ * Enumerating windows means spawning a shell, which is far too slow to sit
+ * between a click and the window coming forward. Results are cached briefly
+ * and the cache is warmed on hover, so the click itself reads memory.
  */
-async function list(target) {
-  if (!target) return [];
+const cache = new Map();
+const CACHE_MS = 4000;
+
+async function lookup(target) {
   if (process.platform === 'win32') return windowsList(target);
   // macOS activation is handled by `open -a`, so there is nothing to choose.
   if (process.platform === 'darwin') return [];
   return linuxList(target);
+}
+
+/**
+ * @param {string} target the executable path the dock entry points at
+ * @param {{maxAge?:number}} [options] how stale an answer may be; 0 forces a
+ *        fresh lookup
+ * @returns {Promise<Array<{id:string, title:string}>>}
+ */
+async function list(target, options = {}) {
+  if (!target) return [];
+
+  const maxAge = options.maxAge === undefined ? CACHE_MS : options.maxAge;
+  const hit = cache.get(target);
+  if (hit && Date.now() - hit.at < maxAge) return hit.windows;
+  // A lookup already in flight is shared rather than duplicated.
+  if (hit && hit.pending) return hit.pending;
+
+  const pending = lookup(target).then((windows) => {
+    cache.set(target, { at: Date.now(), windows });
+    return windows;
+  }).catch(() => []);
+
+  cache.set(target, { at: hit ? hit.at : 0, windows: hit ? hit.windows : [], pending });
+  return pending;
+}
+
+/** Warm the cache without waiting for the answer. */
+function prefetch(target) {
+  if (target) list(target).catch(() => {});
 }
 
 /** @returns {Promise<boolean>} whether the window was raised */
@@ -113,4 +145,4 @@ async function focus(id) {
   return false;
 }
 
-module.exports = { list, focus, psQuote };
+module.exports = { list, prefetch, focus, psQuote };

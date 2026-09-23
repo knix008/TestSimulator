@@ -1,0 +1,38 @@
+{
+  "id": "leopard",
+  "name": "Leopard",
+  "author": "MyDockBar",
+  "description": "The Leopard shelf, receding into the screen with a lit front edge. (shelf3d shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(32,30,27,0.5) 0%, rgba(76,71,67,0.4) 58%, rgba(179,177,176,0.6) 74%, rgba(179,177,176,0.6) 77%, rgba(45,41,37,0.62) 80%, rgba(21,19,17,0.72) 100%)",
+    "--plate-border": "1px solid rgba(175,173,171,0.4)",
+    "--plate-radius": "6px",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(235,235,234,0.5)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.46",
+    "--plate-clip": "polygon(3% 0, 97% 0, 100% 100%, 0 100%)",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(208,204,200,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(11,10,9,0.55)",
+    "--indicator-color": "#c7af94",
+    "--indicator-glow": "0 0 10px rgba(199,175,148,0.9)",
+    "--tooltip-bg": "rgba(24,23,22,0.96)",
+    "--tooltip-fg": "#f5eee5",
+    "--tooltip-border": "1px solid rgba(199,175,148,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#c7af94"
+  },
+  "ui": {
+    "--bg": "#1d1c1b",
+    "--bg-raised": "#2a2928",
+    "--bg-sunken": "#151414",
+    "--fg": "#f1ede9",
+    "--fg-dim": "#b09f8d",
+    "--line": "#3f3d3c",
+    "--accent": "#c7af94",
+    "--accent-fg": "#151413",
+    "--danger": "#ff7a72"
+  }
+}

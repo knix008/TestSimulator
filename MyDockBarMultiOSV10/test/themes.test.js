@@ -82,13 +82,34 @@ describe('theme contents', () => {
 });
 
 describe('colour separation', () => {
-  it('keeps neighbouring palettes far enough apart in hue', () => {
-    const hues = generator.PALETTES.map((p) => p.hue).sort((a, b) => a - b);
+  it('gives every palette a visibly different colour', () => {
+    // Hue alone is the wrong measure: two greys three degrees apart are still
+    // the same grey, and the near-neutral palettes are deliberately close in
+    // hue. What matters is the colour that actually comes out.
     const tooClose = [];
-    for (let i = 1; i < hues.length; i += 1) {
-      if (hues[i] - hues[i - 1] < 4) tooClose.push(`${hues[i - 1]}/${hues[i]}`);
+    for (const dark of [true, false]) {
+      const bases = generator.PALETTES.map((entry) => ({
+        name: entry.name,
+        base: generator.paletteFor(entry, dark).base,
+      }));
+      for (let i = 0; i < bases.length; i += 1) {
+        for (let j = i + 1; j < bases.length; j += 1) {
+          const gap = colourDistance(bases[i].base, bases[j].base);
+          if (gap < 6) tooClose.push(`${bases[i].name}/${bases[j].name} (${gap})`);
+        }
+      }
     }
-    assert.deepStrictEqual(tooClose, [], `hues nearly identical: ${tooClose.join(', ')}`);
+    assert.deepStrictEqual(tooClose, [], `palettes look alike: ${tooClose.join(', ')}`);
+  });
+
+  it('separates the near-neutral palettes by lightness', () => {
+    // Hue cannot tell these apart, so something else has to.
+    const neutrals = generator.PALETTES.filter((entry) => entry.sat < 20);
+    assert.ok(neutrals.length >= 3, 'expected several near-neutral palettes');
+
+    const lightnesses = neutrals.map((entry) => 30 + (entry.lift || 0));
+    assert.strictEqual(new Set(lightnesses).size, neutrals.length,
+      `neutral palettes share a lightness: ${lightnesses.join(', ')}`);
   });
 
   it('gives dark and light variants clearly different backgrounds', () => {
@@ -125,6 +146,16 @@ describe('hsl conversion', () => {
     assert.strictEqual(generator.hsl(420, 100, 50), generator.hsl(60, 100, 50));
   });
 });
+
+function colourDistance(a, b) {
+  const rgb = (hex) => {
+    const n = parseInt(hex.replace('#', ''), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const [r1, g1, b1] = rgb(a);
+  const [r2, g2, b2] = rgb(b);
+  return Math.round(Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2));
+}
 
 function luminance(hex) {
   const n = parseInt(hex.replace('#', ''), 16);

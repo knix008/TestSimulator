@@ -85,17 +85,31 @@ function itemFromPath(target, label) {
     } catch { /* fall through to the generic case */ }
   }
 
+  // An installed application already has a name and an icon the system knows
+  // it by; a bare filename like "notepad++.exe" is a poor substitute.
+  const known = isDir ? null : appScanner.scan().find(
+    (entry) => entry.path.toLowerCase() === target.toLowerCase(),
+  );
+
   return {
     id: newId(),
     type: isDir ? 'folder' : 'app',
-    label: label || path.basename(target) || target,
+    label: label || (known && known.label) || prettyName(target),
     path: target,
     args: '',
-    icon: '',
+    icon: (known && known.icon) || '',
   };
 }
 
-function register({ config, dockWindow, pointerWatch, syncRunningWatch, reloadAll }) {
+/** "notepad++.exe" -> "Notepad++", as a last resort. */
+function prettyName(target) {
+  const base = path.basename(target, path.extname(target)) || target;
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+function register({
+  config, dockWindow, pointerWatch, syncRunningWatch, runningNames, reloadAll,
+}) {
   const t = (key, vars) => i18n.translate(activeLocale(config), key, vars);
 
   /**
@@ -274,6 +288,14 @@ function register({ config, dockWindow, pointerWatch, syncRunningWatch, reloadAl
     if (!item.path || item.type === 'url' || item.type === 'folder') return false;
     if (item.path.startsWith('dock:') || item.path.startsWith('system:')) return false;
 
+    // Only worth asking the OS about a program that is actually running. The
+    // process list is already polled for the running indicator, so this is a
+    // set lookup rather than a second, much slower, window enumeration. A null
+    // set means nothing is being tracked, so fall through and ask properly.
+    const known = runningNames && runningNames();
+    const key = item.path.split(/[\\/]/).pop().toLowerCase();
+    if (known && key && !known.has(key)) return false;
+
     let windows = [];
     try {
       windows = await appWindows.list(item.path);
@@ -283,7 +305,13 @@ function register({ config, dockWindow, pointerWatch, syncRunningWatch, reloadAl
     }
 
     if (!windows.length) return false;
-    if (windows.length === 1) return appWindows.focus(windows[0].id);
+    if (windows.length === 1) {
+      // Started, not awaited: raising a window is the OS's business and takes
+      // a few hundred milliseconds, which should not be time the dock spends
+      // unresponsive to the next click.
+      appWindows.focus(windows[0].id).catch(() => {});
+      return true;
+    }
 
     // Several windows: let the user pick, showing each window's title beside
     // the application's own icon.
@@ -327,6 +355,17 @@ function register({ config, dockWindow, pointerWatch, syncRunningWatch, reloadAl
 
   ipcMain.on('dock:mouse-enter', () => dockWindow.reveal());
   ipcMain.on('dock:mouse-leave', () => dockWindow.scheduleHide());
+
+  // Warmed while the pointer is on an icon, so clicking it does not have to
+  // wait for a window enumeration.
+  ipcMain.on('dock:prefetch-windows', (_e, target) => {
+    if (!config.get().dock.focusRunningWindow || !target) return;
+    if (target.startsWith('dock:') || target.startsWith('system:')) return;
+    const known = runningNames && runningNames();
+    const key = String(target).split(/[\\/]/).pop().toLowerCase();
+    if (known && key && !known.has(key)) return;
+    appWindows.prefetch(target);
+  });
 
   ipcMain.on('dock:interactive-rect', (_e, rect) => {
     if (pointerWatch) pointerWatch.setRect(rect);

@@ -197,6 +197,28 @@ const SHAPES = {
     '--item-inset': '-5px',
   }),
 
+  /**
+   * The RocketDock/Leopard shelf: a floor receding into the screen with a
+   * bright lip along its front edge, and strong reflections on it.
+   */
+  shelf3d: (p) => ({
+    '--plate-radius': '6px',
+    '--plate-clip': 'polygon(3% 0, 97% 0, 100% 100%, 0 100%)',
+    '--icon-radius': '0px',
+    '--sep-width': '2px',
+    '--plate-bg': `linear-gradient(180deg, `
+      + `${rgba(shade(p.base, -0.42), 0.5)} 0%, `
+      + `${rgba(shade(p.base, 0.1), 0.4)} 58%, `
+      + `${rgba(shade(p.base, 0.62), 0.6)} 74%, `
+      + `${rgba(shade(p.base, 0.62), 0.6)} 77%, `
+      + `${rgba(shade(p.base, -0.2), 0.62)} 80%, `
+      + `${rgba(shade(p.base, -0.62), 0.72)} 100%)`,
+    '--plate-border': `1px solid ${rgba(shade(p.base, 0.6), 0.4)}`,
+    '--plate-shadow': `0 12px 30px ${rgba('#000000', 0.55)}, `
+      + `inset 0 1px 0 ${rgba(shade(p.base, 0.9), 0.5)}`,
+    '--reflection-opacity': '0.46',
+  }),
+
   /** No bar at all: the icons float on the desktop. */
   floating: () => ({
     '--plate-radius': '0px',
@@ -214,8 +236,11 @@ const SHAPES = {
 
 /**
  * hue   position on the colour wheel - kept well apart between neighbours
- * sat   saturation; the neutral sits near zero on purpose
- * style which surface treatment the pair uses
+ * sat   saturation; the near-neutrals sit close to zero on purpose
+ * lift  lightness offset. Hue cannot separate two greys, so the neutral
+ *       palettes are told apart by how light or dark they are instead.
+ * shape structural form - see SHAPES
+ * style surface treatment - see STYLES
  */
 const PALETTES = [
   { slug: 'aqua', name: 'Aqua', hue: 197, sat: 74, shape: 'bar', style: 'glass', desc: 'Clear water blue.' },
@@ -226,7 +251,7 @@ const PALETTES = [
   { slug: 'magenta', name: 'Magenta', hue: 320, sat: 72, shape: 'notched', style: 'neon', desc: 'Hot magenta tubing.' },
   { slug: 'rose', name: 'Rose', hue: 342, sat: 66, shape: 'tile', style: 'glass', desc: 'Blush rose with a pearly sheen.' },
   { slug: 'ruby', name: 'Ruby', hue: 354, sat: 72, shape: 'slot', style: 'glass', desc: 'Polished ruby red.' },
-  { slug: 'crimson', name: 'Crimson', hue: 350, sat: 52, shape: 'floating', style: 'matte', desc: 'Deep crimson velvet.' },
+  { slug: 'crimson', name: 'Crimson', hue: 352, sat: 58, lift: -7, shape: 'floating', style: 'matte', desc: 'Deep crimson velvet.' },
   { slug: 'scarlet', name: 'Scarlet', hue: 5, sat: 78, shape: 'tile', style: 'neon', desc: 'Hot scarlet against near-black.' },
   { slug: 'ember', name: 'Ember', hue: 18, sat: 76, shape: 'bar', style: 'solid', desc: 'Banked embers, orange-red.' },
   { slug: 'amber', name: 'Amber', hue: 34, sat: 74, shape: 'slot', style: 'solid', desc: 'Warm amber and brass.' },
@@ -235,7 +260,14 @@ const PALETTES = [
   { slug: 'emerald', name: 'Emerald', hue: 148, sat: 60, shape: 'tray', style: 'solid', desc: 'Rich jewel-green.' },
   { slug: 'jade', name: 'Jade', hue: 168, sat: 56, shape: 'notched', style: 'glass', desc: 'Cool jade with a soft glow.' },
   { slug: 'teal', name: 'Teal', hue: 184, sat: 66, shape: 'slab', style: 'neon', desc: 'Luminous teal on deep water.' },
-  { slug: 'graphite', name: 'Graphite', hue: 220, sat: 8, shape: 'tile', style: 'matte', desc: 'Neutral graphite. Stays out of the way.' },
+  // Modelled on the classic RocketDock skins.
+  { slug: 'classic', name: 'Classic', hue: 210, sat: 16, lift: 2, shape: 'bar', style: 'glass', desc: 'The default RocketDock bar: dark translucent glass with a glossy top.' },
+  { slug: 'leopard', name: 'Leopard', hue: 32, sat: 9, lift: -10, shape: 'shelf3d', style: 'glass', desc: 'The Leopard shelf, receding into the screen with a lit front edge.' },
+  { slug: 'aero', name: 'Aero', hue: 200, sat: 40, shape: 'tray', style: 'glass', desc: 'A thin frosted Aero strip against the screen edge.' },
+  { slug: 'timber', name: 'Timber', hue: 28, sat: 46, shape: 'shelf3d', style: 'solid', desc: 'A varnished wooden shelf, the warmest of the old skins.' },
+  { slug: 'brushed', name: 'Brushed', hue: 192, sat: 7, lift: 12, shape: 'slab', style: 'solid', desc: 'Brushed metal with a hard edge.' },
+  { slug: 'midnight', name: 'Midnight', hue: 234, sat: 30, lift: -14, shape: 'pill', style: 'matte', desc: 'Near-black capsule that keeps out of the way.' },
+  { slug: 'graphite', name: 'Graphite', hue: 260, sat: 9, lift: 6, shape: 'tile', style: 'matte', desc: 'Neutral graphite. Stays out of the way.' },
 ];
 
 /* ------------------------------ derivation -------------------------------- */
@@ -243,18 +275,19 @@ const PALETTES = [
 /** The dock colours for one half of a palette pair. */
 function paletteFor(entry, dark) {
   const { hue: h, sat: s } = entry;
+  const lift = entry.lift || 0;
   return dark
     ? {
-      base: hsl(h, s, 30),
+      base: hsl(h, s, 30 + lift),
       accent: hsl(h, Math.min(96, s + 22), 68),
       sep: hsl(h, s * 0.85, 80),
       tipBg: hsl(h, s * 0.5, 9),
       tipFg: hsl(h, 45, 93),
     }
     : {
-      base: hsl(h, s * 0.45, 85),
+      base: hsl(h, s * 0.72, 84 + lift * 0.6),
       accent: hsl(h, s, 42),
-      sep: hsl(h, s * 0.6, 42),
+      sep: hsl(h, s * 0.7, 40),
       tipBg: hsl(h, 35, 98),
       tipFg: hsl(h, 50, 16),
     };

@@ -1,0 +1,38 @@
+{
+  "id": "brushed-light",
+  "name": "Brushed Light",
+  "author": "MyDockBar",
+  "description": "Brushed metal with a hard edge, on a light surface. (slab shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, #eff0f1 0%, #e7e9ea 42%, #868788 100%)",
+    "--plate-border": "1px solid rgba(248,248,249,0.45)",
+    "--plate-radius": "0px",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(254,254,254,0.55), inset 0 -2px 6px rgba(0,0,0,0.3)",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.28",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "3px",
+    "--sep-color": "rgba(97,105,107,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(46,47,47,0.32)",
+    "--indicator-color": "#647073",
+    "--indicator-glow": "0 0 10px rgba(100,112,115,0.9)",
+    "--tooltip-bg": "rgba(248,251,252,0.96)",
+    "--tooltip-fg": "#14353d",
+    "--tooltip-border": "1px solid rgba(100,112,115,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#647073"
+  },
+  "ui": {
+    "--bg": "#f5f5f5",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#e8e8e8",
+    "--fg": "#1b2d32",
+    "--fg-dim": "#5a757c",
+    "--line": "#d0d2d2",
+    "--accent": "#647073",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

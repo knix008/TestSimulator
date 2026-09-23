@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('dockApi', {
     onRunning: (handler) => on('dock:running', handler),
     onRunningApps: (handler) => on('dock:running-apps', handler),
     launchPath: (target) => invoke('items:launch-path', target),
+    prefetchWindows: (target) => ipcRenderer.send('dock:prefetch-windows', target),
     // The region that should capture clicks; the rest of the window stays
     // click-through so the desktop underneath keeps working.
     setInteractiveRect: (rect) => ipcRenderer.send('dock:interactive-rect', rect),

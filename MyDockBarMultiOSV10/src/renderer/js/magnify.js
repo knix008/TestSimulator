@@ -39,7 +39,10 @@
    * @param {number[]} opts.sizes   resting length of each item along the dock axis
    * @param {number}   opts.unit    nominal icon size (drives the zoom radius)
    * @param {number}   opts.gap     spacing between items
-   * @param {number}   opts.origin  coordinate of the first item's leading edge at rest
+   * @param {number}   opts.origin  coordinate the row is drawn from
+   * @param {number} [opts.restOrigin] where the icons sit at rest. The falloff
+   *        curve is measured against this, so shifting `origin` to centre the
+   *        expansion on the pointer does not drag the curve along with it.
    * @param {number|null} opts.cursor pointer position along the axis, or null at rest
    * @param {number} [opts.spread] px of expansion to hold constant. When given,
    *        whatever the magnification is not currently using is redistributed
@@ -48,7 +51,10 @@
    * @returns {{scales:number[], starts:number[], widths:number[], restLength:number}}
    */
   function layout(opts) {
-    const { sizes, unit, gap, origin, cursor, maxZoom, zoomRange, animation, spread } = opts;
+    const {
+      sizes, unit, gap, origin, cursor, maxZoom, zoomRange, animation, spread,
+    } = opts;
+    const restOrigin = opts.restOrigin === undefined ? origin : opts.restOrigin;
     const n = sizes.length;
     const restLength = n ? sizes.reduce((a, b) => a + b, 0) + gap * (n - 1) : 0;
 
@@ -56,8 +62,9 @@
     const widths = new Array(n);
     const starts = new Array(n);
 
-    // Resting centres, used to decide how much each item grows.
-    let walk = origin;
+    // Resting centres, used to decide how much each item grows. Measured from
+    // where the icons actually sit, not from wherever the row is drawn.
+    let walk = restOrigin;
     const centers = new Array(n);
     for (let i = 0; i < n; i += 1) {
       centers[i] = walk + sizes[i] / 2;
@@ -142,7 +149,7 @@
     const samples = Math.max(32, n * 4);
     for (let i = 0; i <= samples; i += 1) {
       const cursor = (restLength * i) / samples;
-      const result = layout({ ...opts, origin: 0, cursor, spread: 0 });
+      const result = layout({ ...opts, origin: 0, restOrigin: 0, cursor, spread: 0 });
       let used = 0;
       for (let k = 0; k < n; k += 1) used += result.widths[k] - sizes[k];
       peak = Math.max(peak, used);

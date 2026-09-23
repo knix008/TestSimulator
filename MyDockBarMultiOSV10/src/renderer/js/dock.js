@@ -82,14 +82,6 @@
         ...state.runningApps,
       ];
 
-    // While something is being dragged over the dock, a blank item of icon
-    // width is spliced in at the landing position. The surrounding icons part
-    // around it, which shows where the drop will go without drawing anything
-    // over the bar.
-    if (state.dropIndex !== null) {
-      const at = Math.max(0, Math.min(pinned.length, state.dropIndex));
-      list.splice(at, 0, { id: 'drop-gap', type: 'gap', label: '', path: '', transient: true });
-    }
     return list;
   }
 
@@ -302,9 +294,19 @@
    */
   function barMetrics(intensity) {
     const g = state.geom;
-    const length = Math.ceil(g.restLength + g.spread * intensity + g.axisPad * 2);
+    const extra = state.dropIndex === null ? 0 : g.iconSize + g.gap;
+    const length = Math.ceil(g.restLength + extra + g.spread * intensity + g.axisPad * 2);
     const start = Math.round((g.stageAxis - length) / 2);
-    return { start, length, origin: start + g.axisPad };
+
+    // Where the icons sit when nothing is magnified. The row is drawn from
+    // `origin`, which slides left by half the spread as the dock wakes up so
+    // the expansion ends up centred on the pointer rather than all to one
+    // side; `restOrigin` stays put so the falloff curve keeps measuring from
+    // the icons' real positions.
+    const restLength = Math.ceil(g.restLength + extra + g.axisPad * 2);
+    const restOrigin = Math.round((g.stageAxis - restLength) / 2) + g.axisPad;
+
+    return { start, length, origin: start + g.axisPad, restOrigin };
   }
 
   function renderFrame() {
@@ -316,11 +318,20 @@
     const active = state.intensity > 0.0015 && state.cursor !== null;
     const bar = barMetrics(state.intensity);
 
+    // A drag opens a slot at the landing position. It exists only in the
+    // layout maths - creating a real node would replace the others and they
+    // would jump into place instead of sliding.
+    const gapAt = state.dropIndex;
+    const sizes = gapAt === null
+      ? g.sizes
+      : [...g.sizes.slice(0, gapAt), g.iconSize, ...g.sizes.slice(gapAt)];
+
     const result = layout({
-      sizes: g.sizes,
+      sizes,
       unit: g.iconSize,
       gap: g.gap,
       origin: bar.origin,
+      restOrigin: bar.restOrigin,
       cursor: active ? state.cursor : null,
       maxZoom: 1 + amplitude,
       zoomRange: dock.zoomRange,
@@ -331,25 +342,27 @@
     });
 
     state.layout = result;
-    place(result, bar);
+    place(result, bar, gapAt);
     positionTooltip();
   }
 
   /** Position the nodes and the plate from a computed layout. */
-  function place(result, bar) {
+  function place(result, bar, gapAt) {
     const g = state.geom;
     const dock = state.cfg.dock;
     const horizontal = isHorizontal();
     const n = state.drawn.length;
 
     for (let i = 0; i < n; i += 1) {
+      // Real icons skip over the slot the drag has opened.
+      const slot = gapAt === null || i < gapAt ? i : i + 1;
       const node = state.nodes[i];
       // Snap to whole pixels: a fractional position makes the browser resample
       // the icon every frame, which looks like shimmer even when the geometry
       // underneath is perfectly steady.
-      const offset = Math.round(result.starts[i]);
-      const axisSize = Math.round(result.widths[i]);
-      const crossSize = Math.round(g.iconSize * result.scales[i]);
+      const offset = Math.round(result.starts[slot]);
+      const axisSize = Math.round(result.widths[slot]);
+      const crossSize = Math.round(g.iconSize * result.scales[slot]);
       const st = node.style;
 
       if (horizontal) {
@@ -395,7 +408,7 @@
    * @param {boolean} immediate skip the ease, e.g. after a relayout
    */
   function paint(immediate) {
-    state.targetIntensity = state.cursor === null ? 0 : 1;
+    state.targetIntensity = (state.cursor === null || state.dropIndex !== null) ? 0 : 1;
     if (immediate) state.intensity = state.targetIntensity;
     renderFrame();
     if (!immediate) ensureLoop();
@@ -481,7 +494,13 @@
   function onPointerMove(event) {
     state.cursor = axisOf(event);
     const idx = nearestIndex(state.cursor);
-    if (idx !== state.hoverIndex) state.hoverIndex = idx;
+    if (idx !== state.hoverIndex) {
+      state.hoverIndex = idx;
+      // Settling on an icon is the cue to find out whether that program
+      // already has a window, well before the click that needs the answer.
+      const item = idx >= 0 ? state.drawn[idx] : null;
+      if (item && item.path) api.dock.prefetchWindows(item.path);
+    }
     paint(false);
   }
 
@@ -574,7 +593,7 @@
     const g = state.geom;
     if (!g) return state.items.length;
 
-    let walk = barMetrics(state.intensity).origin;
+    let walk = barMetrics(state.intensity).restOrigin;
     for (let i = 0; i < state.items.length; i += 1) {
       const size = itemAxisSize(state.items[i], g.iconSize);
       if (cursor < walk + size / 2) return i;
@@ -586,17 +605,26 @@
   function setDropIndex(index) {
     if (state.dropIndex === index) return;
     state.dropIndex = index;
-    render();
+    // Magnification is suppressed during a drag: the pointer is carrying
+    // something, and letting the two animations fight makes both look wrong.
+    el.body.classList.add('reordering');
+    state.targetIntensity = 0;
+    paint(false);
   }
 
   function clearDropIndex() {
     if (state.dropIndex === null) return;
     state.dropIndex = null;
-    render();
+    paint(false);
+    // Leave the transition on long enough for the icons to close the gap.
+    setTimeout(() => el.body.classList.remove('reordering'), 220);
   }
 
   function setupDragAndDrop() {
     let depth = 0;
+    // Set by our own drop handler. If a drag of one of our icons ends without
+    // it, the icon was released somewhere else and the user meant to remove it.
+    let droppedOnDock = false;
 
     const carriesFiles = (event) =>
       !!event.dataTransfer && Array.from(event.dataTransfer.types).includes('Files');
@@ -627,6 +655,7 @@
     el.body.addEventListener('drop', async (event) => {
       event.preventDefault();
       depth = 0;
+      droppedOnDock = true;
 
       const index = state.dropIndex === null ? state.items.length : state.dropIndex;
       const internal = state.dragIndex;
@@ -662,14 +691,32 @@
 
       state.dragIndex = state.items.findIndex((it) => it.id === item.id);
       if (state.dragIndex < 0) { event.preventDefault(); return; }
+      droppedOnDock = false;
       state.nodes[index].classList.add('dragging');
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', String(state.dragIndex));
     });
 
-    el.items.addEventListener('dragend', () => {
+    el.items.addEventListener('dragend', async (event) => {
+      const from = state.dragIndex;
       state.dragIndex = -1;
       clearDropIndex();
+      for (const node of state.nodes) node.classList.remove('dragging');
+
+      // Released away from the dock: that is how an icon is taken off it.
+      if (from < 0 || droppedOnDock || state.cfg.dock.lockItems) return;
+
+      const item = state.items[from];
+      if (!item || item.protected) return;
+
+      const index = state.drawn.findIndex((it) => it.id === item.id);
+      if (index >= 0) {
+        state.nodes[index].classList.add('vanishing');
+        await new Promise((resolve) => { setTimeout(resolve, 340); });
+      }
+
+      state.items = await api.items.remove(item.id);
+      render();
     });
 
     el.items.addEventListener('mousedown', (event) => {

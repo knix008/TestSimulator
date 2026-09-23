@@ -27,11 +27,21 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
   the pinned ones
 - Drag files onto the dock — or onto the Dock Items tab — to add them. The
   landing position is shown by the icons **parting around a gap**, not by an
-  outline drawn over the bar, and the same gap drives reordering.
+  outline drawn over the bar, and the same gap drives reordering. The icons
+  slide between positions rather than jumping: the gap is a slot in the layout
+  maths, not a node in the list, so nothing is rebuilt and a CSS transition can
+  carry them.
+- **Drag an icon off the dock to remove it** — it shrinks away as it goes.
+  Blocked while the dock is locked, and never for the built-in entries.
+- Anything added from the dock's context menu — an application, a folder, a
+  separator — lands where the pointer was, not at the end.
 - Lock / unlock the dock and toggle auto-hide from the tray menu or the dock's
   own context menu
 - Clicking an application that is already open **raises its window** instead of
-  starting a second copy; with several windows open it offers a chooser
+  starting a second copy; with several windows open it offers a chooser.
+  The window lookup is cached and warmed as soon as the pointer settles on an
+  icon, and the raise itself is not awaited, so a click returns in ~5ms rather
+  than the ~635ms it took when the lookup sat on the click path.
 - The Trash shows whether it is holding anything, and can be emptied from its
   context menu
 - A custom icon is remembered per target: remove an entry, add it back later,
@@ -44,14 +54,21 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
   never swallows clicks meant for the desktop
 
 **Theming**
-- 36 built-in themes: 18 palettes, each in a **dark and a light** variant, so
+- 48 built-in themes: 24 palettes, each in a **dark and a light** variant, so
   the two families are always the same size. Hues are spread around the wheel
   so no two cards in the picker read alike, and five of the palettes are reds
-  (Ruby, Scarlet, Crimson, Ember, Rose)
-- Themes change **shape as well as colour**, the way RocketDock skins do: nine
-  forms — `bar`, `pill`, `slab`, `tray`, `shelf`, `notched`, `tile`, `slot` and
-  `floating` — clip the plate differently and, for `tile` and `slot`, give every
-  icon its own raised or recessed backing
+  (Ruby, Scarlet, Crimson, Ember, Rose). Near-neutral palettes cannot be
+  separated by hue — two greys three degrees apart are the same grey — so they
+  are separated by lightness instead, and the test that guards this measures
+  the colour that actually comes out rather than the hue that went in.
+- Each card previews its theme's real shape and colours, with the name centred
+- Themes change **shape as well as colour**, the way RocketDock skins do: ten
+  forms — `bar`, `pill`, `slab`, `tray`, `shelf`, `shelf3d`, `notched`, `tile`,
+  `slot` and `floating` — clip the plate differently and, for `tile` and `slot`,
+  give every icon its own raised or recessed backing
+- Six of the palettes are modelled on the classic RocketDock skins: **Classic**
+  (the default glossy bar), **Leopard** (the perspective shelf with a lit front
+  edge), **Aero**, **Timber**, **Brushed** and **Midnight**
 - Four surface styles on top of that: glass, solid, neon and matte
 - Choosing a theme re-skins the settings window too, not just the bar
 - Every card previews the theme with its own colours and an accent stripe
@@ -289,7 +306,16 @@ Two details worth knowing:
   and nowhere else.
 
   The effect is that the distance added across that window is the same at every
-  pointer position, so icons outside it do not drift. Measured, a 4px pointer
+  pointer position, so icons outside it do not drift.
+
+- **The zoom is centred on the pointer.** The row is drawn from an origin
+  shifted half a spread to the left, so the expansion lands symmetrically
+  around the pointer rather than all to one side. The falloff curve is measured
+  from a *separate* resting origin — measuring it from the shifted one put the
+  peak half a spread away from the pointer, which is what made the growth look
+  heavier on one side. Measured, the pointer now sits within ±5px of the
+  hovered icon's centre across the dock, and that icon is always the one that
+  grows most. Measured, a 4px pointer
   step moves the icons under the pointer 1–3px and every icon more than two
   away exactly 0px — where the earlier anchored layout translated *every* icon
   by ~0.5px per step and swung the bar's own ends by ~30px across a sweep.

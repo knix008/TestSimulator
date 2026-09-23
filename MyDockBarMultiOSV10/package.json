@@ -10,17 +10,20 @@
   "license": "MIT",
   "main": "src/main/main.js",
   "scripts": {
+    "prestart": "node scripts/ensure-icons.js",
     "start": "electron .",
+    "predev": "node scripts/ensure-icons.js",
     "dev": "electron . --dev",
-    "icons": "node scripts/make-icons.js",
-    "pack": "npm run icons && electron-builder --dir",
-    "dist": "npm run icons && electron-builder",
-    "dist:win": "npm run icons && electron-builder --win",
-    "dist:mac": "npm run icons && electron-builder --mac",
-    "dist:linux": "npm run icons && electron-builder --linux",
+    "pretest": "node scripts/ensure-icons.js",
     "test": "node --test --test-concurrency=1 --test-reporter=./scripts/test-reporter.js \"test/*.test.js\"",
     "test:tap": "node --test \"test/*.test.js\"",
-    "themes": "node scripts/make-themes.js"
+    "icons": "node scripts/make-icons.js",
+    "themes": "node scripts/make-themes.js",
+    "pack": "npm run icons && electron-builder --dir",
+    "build": "npm run icons && electron-builder",
+    "build:win": "npm run icons && electron-builder --win",
+    "build:mac": "npm run icons && electron-builder --mac",
+    "build:linux": "npm run icons && electron-builder --linux"
   },
   "devDependencies": {
     "electron": "^44.4.4",

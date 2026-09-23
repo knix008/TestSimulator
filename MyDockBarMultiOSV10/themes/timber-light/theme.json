@@ -1,0 +1,38 @@
+{
+  "id": "timber-light",
+  "name": "Timber Light",
+  "author": "MyDockBar",
+  "description": "A varnished wooden shelf, the warmest of the old skins, on a light surface. (shelf3d shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(132,124,117,0.5) 0%, rgba(231,217,206,0.4) 58%, rgba(245,239,234,0.6) 74%, rgba(245,239,234,0.6) 77%, rgba(182,170,161,0.62) 80%, rgba(87,81,76,0.72) 100%)",
+    "--plate-border": "1px solid rgba(244,238,233,0.4)",
+    "--plate-radius": "6px",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(252,251,250,0.5)",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.46",
+    "--plate-clip": "polygon(3% 0, 97% 0, 100% 100%, 0 100%)",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(135,100,69,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(46,43,40,0.32)",
+    "--indicator-color": "#9c683a",
+    "--indicator-glow": "0 0 10px rgba(156,104,58,0.9)",
+    "--tooltip-bg": "rgba(252,250,248,0.96)",
+    "--tooltip-fg": "#3d2714",
+    "--tooltip-border": "1px solid rgba(156,104,58,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#9c683a"
+  },
+  "ui": {
+    "--bg": "#f6f5f4",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#ebe8e5",
+    "--fg": "#32251b",
+    "--fg-dim": "#7c6a5a",
+    "--line": "#d6d1cc",
+    "--accent": "#9c683a",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "timber",
+  "name": "Timber",
+  "author": "MyDockBar",
+  "description": "A varnished wooden shelf, the warmest of the old skins. (shelf3d shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(65,43,24,0.5) 0%, rgba(126,92,62,0.4) 58%, rgba(201,186,174,0.6) 74%, rgba(201,186,174,0.6) 77%, rgba(90,59,33,0.62) 80%, rgba(43,28,16,0.72) 100%)",
+    "--plate-border": "1px solid rgba(198,183,169,0.4)",
+    "--plate-radius": "6px",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(241,237,234,0.5)",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.46",
+    "--plate-clip": "polygon(3% 0, 97% 0, 100% 100%, 0 100%)",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(224,203,184,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(22,15,8,0.55)",
+    "--indicator-color": "#e5aa76",
+    "--indicator-glow": "0 0 10px rgba(229,170,118,0.9)",
+    "--tooltip-bg": "rgba(28,23,18,0.96)",
+    "--tooltip-fg": "#f5ede5",
+    "--tooltip-border": "1px solid rgba(229,170,118,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#e5aa76"
+  },
+  "ui": {
+    "--bg": "#211c18",
+    "--bg-raised": "#2f2823",
+    "--bg-sunken": "#181411",
+    "--fg": "#f1ede9",
+    "--fg-dim": "#b09d8d",
+    "--line": "#463d35",
+    "--accent": "#e5aa76",
+    "--accent-fg": "#191410",
+    "--danger": "#ff7a72"
+  }
+}

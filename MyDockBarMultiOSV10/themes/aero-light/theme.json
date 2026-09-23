@@ -1,0 +1,38 @@
+{
+  "id": "aero-light",
+  "name": "Aero Light",
+  "author": "MyDockBar",
+  "description": "A thin frosted Aero strip against the screen edge, on a light surface. (tray shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(223,233,238,0.42) 0%, rgba(202,218,226,0.34) 48%, rgba(121,131,136,0.42) 100%)",
+    "--plate-border": "1px solid rgba(231,238,242,0.5)",
+    "--plate-radius": "16px 16px 0 0",
+    "--plate-shadow": "0 14px 40px rgba(51,55,57,0.5), inset 0 1px 0 rgba(250,251,252,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(73,112,131,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(40,44,45,0.32)",
+    "--indicator-color": "#407996",
+    "--indicator-glow": "0 0 10px rgba(64,121,150,0.9)",
+    "--tooltip-bg": "rgba(248,250,252,0.96)",
+    "--tooltip-fg": "#14303d",
+    "--tooltip-border": "1px solid rgba(64,121,150,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#407996"
+  },
+  "ui": {
+    "--bg": "#f4f5f6",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#e6e9ea",
+    "--fg": "#1b2a32",
+    "--fg-dim": "#5a717c",
+    "--line": "#cdd2d5",
+    "--accent": "#407996",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}
