@@ -5,6 +5,13 @@ node_modules/
 dist/
 out/
 
+# Installers copied to the project root by scripts/copy-installer.js
+/MyDockBar-*.exe
+/MyDockBar-*.dmg
+/MyDockBar-*.AppImage
+/MyDockBar-*.deb
+/MyDockBar-*.rpm
+
 # ---------------------------------------------------------------------------
 # Generated artwork.
 #

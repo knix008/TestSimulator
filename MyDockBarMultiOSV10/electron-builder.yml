@@ -6,6 +6,10 @@ directories:
   buildResources: build
   output: dist
 
+# The finished installers are also copied to the project root, so the file you
+# hand to someone is next to the README rather than buried in dist/.
+afterAllArtifactBuild: scripts/copy-installer.js
+
 # Only what the app actually loads at runtime.
 files:
   - src/**/*

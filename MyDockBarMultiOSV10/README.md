@@ -4,7 +4,11 @@ A themeable application dock for **Windows, macOS and Linux**, built with Electr
 It takes its cues from RocketDock: a translucent bar pinned to a screen edge, icons
 that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortcuts.
 
-![the dock](build/icon.png)
+| Document | For |
+| --- | --- |
+| **[UsersGuide.md](UsersGuide.md)** | Installing and using the dock (한국어) |
+| **[Architecture.md](Architecture.md)** | How it is built, and why the awkward parts are the way they are |
+| this file | Feature list, build commands, theme format |
 
 ---
 
@@ -160,6 +164,7 @@ Two parts of the tree are produced by scripts rather than written by hand.
 | Path | Produced by | In git? |
 | --- | --- | --- |
 | `build/` (except `installer.nsh`) | `npm run icons` | no — ~2MB of binaries that would churn on every tweak to the drawing code |
+| `MyDockBar-*.exe` etc. in the root | a build | no — copies of the `dist/` artifacts |
 | `themes/` | `npm run themes` | yes — small JSON, shipped with the app, and the worked example the theme format is documented against |
 
 `build/installer.nsh` is hand-written and is tracked.
@@ -182,8 +187,21 @@ npm run build         # every target this host can produce
 npm run pack          # unpacked app tree only, for a quick look
 ```
 
-Output lands in `dist/`. Each of these regenerates the artwork first, so there
-is no separate step to remember.
+Output lands in `dist/`, and **the** finished installer is copied to the
+project root by [`scripts/copy-installer.js`](scripts/copy-installer.js) — the
+file you would hand to someone ends up next to the README rather than buried in
+`dist/`. It runs from electron-builder's `afterAllArtifactBuild` hook, so it
+applies however the build was started.
+
+A multi-architecture build produces the same installer more than once
+(`…-Setup.exe` alongside `…-Setup-x64.exe` and `…-Setup-arm64.exe`); the one
+copied is the combined build that runs anywhere, and copies left by an earlier
+build are cleared. Different *formats* are not duplicates, so a Linux build
+keeps one AppImage, one `.deb` and one `.rpm`. Update metadata, blockmaps and
+intermediate archives are never copied, and every artifact remains in `dist/`.
+
+Each of these regenerates the artwork first, so there is no separate step to
+remember.
 
 **Each platform must be built on that platform.** A Windows host cannot produce a
 macOS `.dmg` (it needs macOS tooling) or an AppImage (its assembly step needs
@@ -304,6 +322,7 @@ scripts/
   menu-glyphs.js     the glyph drawings themselves
   make-themes.js     the palette/shape table that generates themes/
   ensure-icons.js    regenerates the artwork when it is missing or stale
+  copy-installer.js  copies finished installers to the project root
   test-reporter.js   the grouped, colourised test output
 test/              tests that run on plain Node
 ```
