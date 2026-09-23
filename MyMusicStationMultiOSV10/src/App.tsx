@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { appCacheDir, appConfigDir, join, tempDir } from '@tauri-apps/api/path'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { exists, mkdir, readDir, readFile, readTextFile, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
@@ -469,6 +470,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const loadMusicFolderRef = useRef<(folderPath: string) => Promise<void>>(async () => {})
   const loadPlaylistFromPathRef = useRef<(playlistPath: string) => Promise<boolean>>(async () => false)
   const openPathsFromOsRef = useRef<(paths: string[]) => Promise<void>>(async () => {})
+  const handleDroppedPathsRef = useRef<(paths: string[]) => Promise<void>>(async () => {})
   const ensurePlayableTrackRef = useRef<(track: Track) => Promise<Track>>(async (track) => track)
   const removeTrackFromPlaylistRef = useRef<(trackId: string) => void>(() => {})
   const restoreSessionPlaylistRef = useRef<(raw: string) => Promise<boolean>>(async () => false)
@@ -526,6 +528,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [extractMessage, setExtractMessage] = useState('')
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null)
   const [folderProgress, setFolderProgress] = useState<{ phase: 'scanning' | 'loading'; loaded: number; total: number } | null>(null)
+  const [isFileDragOver, setIsFileDragOver] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgressPopupData | null>(null)
   const [themeMessage, setThemeMessage] = useState('')
   const [showThemePicker, setShowThemePicker] = useState(false)
@@ -1747,6 +1750,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     if (!audioPaths.length) {
+      if (!playlistPaths.length) {
+        pushStatus(labels.dropFilesEmpty, 'info')
+      }
       return
     }
 
@@ -1780,6 +1786,44 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   openPathsFromOsRef.current = openPathsFromOs
 
+  const handleDroppedPaths = async (paths: string[]) => {
+    if (!paths.length) {
+      return
+    }
+
+    const filePaths: string[] = []
+    const folderPaths: string[] = []
+
+    for (const path of paths) {
+      const lower = path.toLowerCase()
+      if (lower.endsWith('.mplist') || audioExtensions.some((extension) => lower.endsWith(extension))) {
+        filePaths.push(path)
+        continue
+      }
+
+      try {
+        await readDir(path)
+        folderPaths.push(path)
+      } catch {
+        // Not a readable folder / unsupported file — skip.
+      }
+    }
+
+    if (filePaths.length) {
+      await openPathsFromOsRef.current(filePaths)
+    }
+
+    for (const folderPath of folderPaths) {
+      await loadMusicFolderRef.current(folderPath)
+    }
+
+    if (!filePaths.length && !folderPaths.length) {
+      pushStatus(labels.dropFilesEmpty, 'info')
+    }
+  }
+
+  handleDroppedPathsRef.current = handleDroppedPaths
+
   useEffect(() => {
     let cancelled = false
     let unlisten: (() => void) | undefined
@@ -1806,6 +1850,48 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
       unlisten = dispose
     })
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    let unlisten: (() => void) | undefined
+
+    void getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (cancelled) {
+          return
+        }
+
+        const { type } = event.payload
+        if (type === 'enter' || type === 'over') {
+          setIsFileDragOver(true)
+          return
+        }
+
+        if (type === 'leave') {
+          setIsFileDragOver(false)
+          return
+        }
+
+        if (type === 'drop') {
+          setIsFileDragOver(false)
+          const paths = event.payload.paths ?? []
+          void handleDroppedPathsRef.current(paths)
+        }
+      })
+      .then((dispose) => {
+        if (cancelled) {
+          dispose()
+          return
+        }
+        unlisten = dispose
+      })
+      .catch((error) => console.warn('[drop] listen failed', error))
 
     return () => {
       cancelled = true
@@ -3602,7 +3688,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   return (
     <main
-      className={`station-shell${wallpaperEnabled && wallpaperUrl ? ' has-wallpaper' : ''}${miniMode ? ' mini-mode' : ''}`}
+      className={`station-shell${wallpaperEnabled && wallpaperUrl ? ' has-wallpaper' : ''}${miniMode ? ' mini-mode' : ''}${isFileDragOver ? ' file-drag-over' : ''}`}
       style={
         {
           '--panel-opacity': String(panelOpacity),
@@ -3619,6 +3705,12 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <img className="wallpaper-layer" src={wallpaperUrl} alt="" draggable={false} />
           <div className="wallpaper-dim" aria-hidden="true" />
         </>
+      )}
+      {isFileDragOver && (
+        <div className="file-drop-overlay" aria-hidden="true">
+          <FileAudio size={28} />
+          <span>{labels.dropFilesHint}</span>
+        </div>
       )}
       <audio
         ref={audioRef}
