@@ -528,7 +528,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const [extractMessage, setExtractMessage] = useState('')
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null)
   const [folderProgress, setFolderProgress] = useState<{ phase: 'scanning' | 'loading'; loaded: number; total: number } | null>(null)
-  const [isFileDragOver, setIsFileDragOver] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgressPopupData | null>(null)
   const [themeMessage, setThemeMessage] = useState('')
   const [showThemePicker, setShowThemePicker] = useState(false)
@@ -1358,6 +1357,33 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         throw new Error('missing media source')
       }
 
+      // Wait until the element has data after load() so play() is not aborted.
+      if (audio.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        await Promise.race([
+          new Promise<void>((resolve, reject) => {
+            const onReady = () => {
+              cleanup()
+              resolve()
+            }
+            const onError = () => {
+              cleanup()
+              reject(audio.error ?? new Error('media error'))
+            }
+            const cleanup = () => {
+              audio.removeEventListener('canplay', onReady)
+              audio.removeEventListener('error', onError)
+            }
+            audio.addEventListener('canplay', onReady, { once: true })
+            audio.addEventListener('error', onError, { once: true })
+          }),
+          new Promise<void>((resolve) => {
+            window.setTimeout(resolve, 4000)
+          }),
+        ]).catch(() => {
+          // Fall through and still attempt play().
+        })
+      }
+
       const usingWebAudio = ensureAudioGraph()
 
       // Kick off both promises synchronously so WebView2 keeps user activation.
@@ -1382,6 +1408,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       })
       clearStatus()
       setIsPlaying(true)
+      // Always clear the idle spectrum placeholder when playback actually starts
+      // (drag-drop / autoplay may not reliably hit the element onPlay path first).
+      showTransportOverlay('play')
 
       if (usingWebAudio) {
         drawSpectrum()
@@ -1447,6 +1476,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
+  const clearTransportOverlay = () => {
+    if (transportOverlayTimerRef.current !== null) {
+      window.clearTimeout(transportOverlayTimerRef.current)
+      transportOverlayTimerRef.current = null
+    }
+
+    setTransportOverlay(null)
+  }
+
   const showTransportOverlay = (kind: TransportOverlay) => {
     if (transportOverlayTimerRef.current !== null) {
       window.clearTimeout(transportOverlayTimerRef.current)
@@ -1455,7 +1493,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     setTransportOverlay(kind)
 
-    if (kind === 'spectrum') {
+    // Idle placeholder ('spectrum') and pause stay until the next transport change.
+    // Play/stop flash briefly, then play clears and stop returns to the idle icon.
+    if (kind === 'spectrum' || kind === 'pause') {
       return
     }
 
@@ -1463,6 +1503,32 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       setTransportOverlay(kind === 'stop' ? 'spectrum' : null)
       transportOverlayTimerRef.current = null
     }, 3000)
+  }
+
+  const syncTransportOverlayFromPlayback = () => {
+    const audio = audioRef.current
+
+    if (!currentTrackId) {
+      showTransportOverlay('spectrum')
+      return
+    }
+
+    if (isPlaying) {
+      // Analyzer (or a brief play mark) is the display — never keep the idle icon.
+      if (showSpectrum) {
+        clearTransportOverlay()
+      } else {
+        showTransportOverlay('play')
+      }
+      return
+    }
+
+    if ((audio?.currentTime ?? 0) > 0 && !audio?.ended) {
+      showTransportOverlay('pause')
+      return
+    }
+
+    showTransportOverlay('stop')
   }
 
   useEffect(() => {
@@ -1689,33 +1755,30 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   removeTrackFromPlaylistRef.current = removeTrackFromPlaylist
 
-  const addTracks = (nextTracks: Track[]) => {
+  const addTracks = (nextTracks: Track[], options?: { selectFirst?: boolean }) => {
     if (!nextTracks.length) {
-      return 0
+      return { addedCount: 0, firstAdded: null as Track | null }
     }
 
-    let addedCount = 0
+    const selectFirst = options?.selectFirst !== false
+    const previousTracks = tracksRef.current
+    const uniqueTracks = nextTracks.filter((track) => !trackAlreadyExists(track, previousTracks))
+    const firstAdded = uniqueTracks[0] ?? null
+    const addedCount = uniqueTracks.length
 
-    setTracks((previousTracks) => {
-      const uniqueTracks = nextTracks.filter((track) => !trackAlreadyExists(track, previousTracks))
-      addedCount = uniqueTracks.length
-
-      if (!uniqueTracks.length) {
-        return previousTracks
-      }
-
-      return [...uniqueTracks, ...previousTracks]
-    })
-
-    if (addedCount > 0) {
-      const firstNew = nextTracks.find((track) => !trackAlreadyExists(track, tracksRef.current))
-      if (firstNew) {
-        setCurrentTrackId(firstNew.id)
-      }
-      setIsPlaying(false)
+    if (!uniqueTracks.length) {
+      return { addedCount: 0, firstAdded: null }
     }
 
-    return addedCount
+    const next = [...uniqueTracks, ...previousTracks]
+    tracksRef.current = next
+    setTracks(next)
+
+    if (selectFirst && firstAdded) {
+      setCurrentTrackId(firstAdded.id)
+    }
+
+    return { addedCount, firstAdded }
   }
 
   const openAudioFiles = async () => {
@@ -1766,21 +1829,41 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     if (!pathsToLoad.length) {
       pushStatus(labels.tracksAlreadyLoaded, 'info')
+      const existing = tracksRef.current.find(
+        (track) =>
+          track.filePath && audioPaths.some((path) => normalizePathKey(path) === normalizePathKey(track.filePath!)),
+      )
+      if (existing) {
+        await loadAndPlayTrack(existing)
+      }
       return
     }
 
-    const newTracks = await mapWithConcurrency(pathsToLoad, loadConcurrency, (path) =>
-      createTrackFromPath(path, fileNameFromPath(path)),
-    )
-    const playable = newTracks.filter((track) => track.source)
-    const added = addTracks(playable)
+    const newTracks = (
+      await mapWithConcurrency(pathsToLoad, loadConcurrency, async (path) => {
+        try {
+          return await createTrackFromPath(path, fileNameFromPath(path))
+        } catch (error) {
+          console.warn('[open] failed to load dropped/opened file', path, error)
+          return null
+        }
+      })
+    ).filter((track): track is Track => Boolean(track?.source))
 
-    if (added < audioPaths.length) {
+    if (!newTracks.length) {
+      pushStatus(labels.dropFilesEmpty, 'info')
+      return
+    }
+
+    const { addedCount, firstAdded } = addTracks(newTracks, { selectFirst: false })
+
+    if (addedCount < audioPaths.length) {
       pushStatus(labels.tracksAlreadyLoaded, 'info')
     }
 
-    if (playable[0]) {
-      loadAndPlayTrack(playable[0])
+    const toPlay = firstAdded ?? newTracks[0]
+    if (toPlay) {
+      await loadAndPlayTrack(toPlay)
     }
   }
 
@@ -1815,6 +1898,14 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     for (const folderPath of folderPaths) {
       await loadMusicFolderRef.current(folderPath)
+    }
+
+    // Folder-only drops: play the first newly listed track.
+    if (!filePaths.length && folderPaths.length) {
+      const first = tracksRef.current[0]
+      if (first) {
+        await loadAndPlayTrack(first)
+      }
     }
 
     if (!filePaths.length && !folderPaths.length) {
@@ -1863,26 +1954,12 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     void getCurrentWebview()
       .onDragDropEvent((event) => {
-        if (cancelled) {
+        if (cancelled || event.payload.type !== 'drop') {
           return
         }
 
-        const { type } = event.payload
-        if (type === 'enter' || type === 'over') {
-          setIsFileDragOver(true)
-          return
-        }
-
-        if (type === 'leave') {
-          setIsFileDragOver(false)
-          return
-        }
-
-        if (type === 'drop') {
-          setIsFileDragOver(false)
-          const paths = event.payload.paths ?? []
-          void handleDroppedPathsRef.current(paths)
-        }
+        const paths = event.payload.paths ?? []
+        void handleDroppedPathsRef.current(paths)
       })
       .then((dispose) => {
         if (cancelled) {
@@ -1966,9 +2043,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         })
       ).filter((track) => track.source)
 
-      const added = addTracks(folderTracks)
+      const { addedCount } = addTracks(folderTracks)
 
-      if (added < audioPaths.length) {
+      if (addedCount < audioPaths.length) {
         pushStatus(labels.tracksAlreadyLoaded, 'info')
       }
     } finally {
@@ -3395,10 +3472,19 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   // Rebind the spectrum loop to the canvas that just mounted for the new layout;
   // the previous animation frame kept drawing to the now-detached canvas.
+  // Also re-show play/pause/stop so the new layout mirrors the current track state.
+  const miniModeReadyRef = useRef(false)
   useEffect(() => {
     if (isPlaying && showSpectrum && sourceNodeRef.current) {
       drawSpectrum()
     }
+
+    if (!miniModeReadyRef.current) {
+      miniModeReadyRef.current = true
+      return
+    }
+
+    syncTransportOverlayFromPlayback()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miniMode])
 
@@ -3688,7 +3774,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   return (
     <main
-      className={`station-shell${wallpaperEnabled && wallpaperUrl ? ' has-wallpaper' : ''}${miniMode ? ' mini-mode' : ''}${isFileDragOver ? ' file-drag-over' : ''}`}
+      className={`station-shell${wallpaperEnabled && wallpaperUrl ? ' has-wallpaper' : ''}${miniMode ? ' mini-mode' : ''}`}
       style={
         {
           '--panel-opacity': String(panelOpacity),
@@ -3705,12 +3791,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           <img className="wallpaper-layer" src={wallpaperUrl} alt="" draggable={false} />
           <div className="wallpaper-dim" aria-hidden="true" />
         </>
-      )}
-      {isFileDragOver && (
-        <div className="file-drop-overlay" aria-hidden="true">
-          <FileAudio size={28} />
-          <span>{labels.dropFilesHint}</span>
-        </div>
       )}
       <audio
         ref={audioRef}
