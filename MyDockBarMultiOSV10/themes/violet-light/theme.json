@@ -1,0 +1,38 @@
+{
+  "id": "violet-light",
+  "name": "Violet Light",
+  "author": "MyDockBar",
+  "description": "Electric violet with a halo, on a light surface. (tray shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(108,103,114,0.92), rgba(43,41,46,0.95))",
+    "--plate-border": "1px solid rgba(102,36,178,0.65)",
+    "--plate-radius": "16px 16px 0 0",
+    "--plate-shadow": "0 0 26px rgba(102,36,178,0.42), 0 14px 34px rgba(0,0,0,0.6), inset 0 1px 0 rgba(104,65,150,0.4)",
+    "--plate-backdrop": "blur(14px) saturate(170%)",
+    "--reflection-opacity": "0.4",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(104,65,150,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(43,41,46,0.32)",
+    "--indicator-color": "#6624b2",
+    "--indicator-glow": "0 0 10px rgba(102,36,178,0.9)",
+    "--tooltip-bg": "rgba(250,248,252,0.96)",
+    "--tooltip-fg": "#27143d",
+    "--tooltip-border": "1px solid rgba(102,36,178,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#6624b2"
+  },
+  "ui": {
+    "--bg": "#f5f3f6",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#e8e4ec",
+    "--fg": "#251b32",
+    "--fg-dim": "#6a5a7c",
+    "--line": "#d1cad8",
+    "--accent": "#6624b2",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

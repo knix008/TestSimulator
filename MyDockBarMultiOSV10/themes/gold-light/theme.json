@@ -1,0 +1,38 @@
+{
+  "id": "gold-light",
+  "name": "Gold Light",
+  "author": "MyDockBar",
+  "description": "Bright polished gold, on a light surface. (pill shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(239,236,225,0.42) 0%, rgba(229,224,205,0.34) 48%, rgba(137,134,123,0.42) 100%)",
+    "--plate-border": "1px solid rgba(243,241,233,0.5)",
+    "--plate-radius": "999px",
+    "--plate-shadow": "0 14px 40px rgba(57,56,51,0.5), inset 0 1px 0 rgba(252,252,250,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(152,133,62,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(46,45,41,0.32)",
+    "--indicator-color": "#b69620",
+    "--indicator-glow": "0 0 10px rgba(182,150,32,0.9)",
+    "--tooltip-bg": "rgba(252,251,248,0.96)",
+    "--tooltip-fg": "#3d3414",
+    "--tooltip-border": "1px solid rgba(182,150,32,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#b69620"
+  },
+  "ui": {
+    "--bg": "#f6f6f3",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#eceae4",
+    "--fg": "#322d1b",
+    "--fg-dim": "#7c755a",
+    "--line": "#d8d5ca",
+    "--accent": "#b69620",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

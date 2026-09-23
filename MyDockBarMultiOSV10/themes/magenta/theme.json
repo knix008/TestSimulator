@@ -1,0 +1,38 @@
+{
+  "id": "magenta",
+  "name": "Magenta",
+  "author": "MyDockBar",
+  "description": "Hot magenta tubing. (notched shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(66,11,48,0.92), rgba(26,4,19,0.95))",
+    "--plate-border": "1px solid rgba(250,97,199,0.65)",
+    "--plate-radius": "10px",
+    "--plate-shadow": "0 0 26px rgba(250,97,199,0.42), 0 14px 34px rgba(0,0,0,0.6), inset 0 1px 0 rgba(235,173,214,0.4)",
+    "--plate-backdrop": "blur(14px) saturate(170%)",
+    "--reflection-opacity": "0.4",
+    "--plate-clip": "polygon(0 0, 100% 0, 100% 62%, 97% 100%, 3% 100%, 0 62%)",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(235,173,214,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(26,4,19,0.55)",
+    "--indicator-color": "#fa61c7",
+    "--indicator-glow": "0 0 10px rgba(250,97,199,0.9)",
+    "--tooltip-bg": "rgba(31,15,26,0.96)",
+    "--tooltip-fg": "#f5e5f0",
+    "--tooltip-border": "1px solid rgba(250,97,199,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#fa61c7"
+  },
+  "ui": {
+    "--bg": "#23151e",
+    "--bg-raised": "#321f2c",
+    "--bg-sunken": "#1a0f16",
+    "--fg": "#f1e9ee",
+    "--fg-dim": "#b08da4",
+    "--line": "#4a3042",
+    "--accent": "#fa61c7",
+    "--accent-fg": "#1c0d17",
+    "--danger": "#ff7a72"
+  }
+}

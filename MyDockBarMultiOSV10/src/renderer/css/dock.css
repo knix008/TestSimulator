@@ -1,0 +1,250 @@
+/* ------------------------------------------------------------------ *
+ * Base dock styling. Everything a theme is allowed to change is read
+ * from a CSS custom property with a sane fallback, so a theme that sets
+ * only two or three variables still renders correctly.
+ * ------------------------------------------------------------------ */
+
+:root {
+  --plate-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+  --plate-border: 1px solid rgba(255, 255, 255, 0.28);
+  --plate-radius: 18px;
+  /* Shape, not just colour: a theme can clip the plate to a non-rectangle and
+   * give every icon its own tile, the way RocketDock skins differ from each
+   * other structurally rather than only in palette. */
+  --plate-clip: none;
+  --item-bg: transparent;
+  --item-border: none;
+  --item-radius: 0px;
+  --item-shadow: none;
+  --item-inset: 0px;
+  --plate-shadow: 0 10px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  --plate-backdrop: blur(18px) saturate(150%);
+  --plate-inset: 0px;
+
+  --sep-color: rgba(255, 255, 255, 0.34);
+  --sep-width: 2px;
+
+  --icon-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+  --icon-radius: 0px;
+  --reflection-opacity: 0.32;
+  --reflection-gap: 2px;
+
+  --indicator-color: #7fd7ff;
+  --indicator-glow: 0 0 8px rgba(127, 215, 255, 0.9);
+  --indicator-size: 5px;
+
+  --tooltip-bg: rgba(22, 24, 30, 0.94);
+  --tooltip-fg: #f2f4f8;
+  --tooltip-border: 1px solid rgba(255, 255, 255, 0.16);
+  --tooltip-radius: 8px;
+  --tooltip-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  --tooltip-font: 12.5px/1.2 -apple-system, "Segoe UI", system-ui, "Noto Sans KR", sans-serif;
+
+  --drop-accent: #6cc6ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  /* The dock is chrome: nothing in it should be selectable or draggable. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ----------------------------- the plate ---------------------------- */
+
+.plate {
+  position: absolute;
+  background: var(--plate-bg);
+  border: var(--plate-border);
+  border-radius: var(--plate-radius);
+  box-shadow: var(--plate-shadow);
+  backdrop-filter: var(--plate-backdrop);
+  -webkit-backdrop-filter: var(--plate-backdrop);
+  clip-path: var(--plate-clip);
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+
+body.plate-hidden .plate { opacity: 0; }
+
+/* ----------------------------- the items ---------------------------- */
+
+.items {
+  position: absolute;
+  inset: 0;
+}
+
+.dock-item {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  will-change: transform, left, top, width, height;
+}
+
+.dock-item .icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: var(--icon-radius);
+  filter: drop-shadow(var(--icon-shadow));
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+/* A mirrored copy of the icon, faded out — the classic dock reflection.
+ * It always falls below the icon, the way a real reflection would, whichever
+ * screen edge the dock is docked to. */
+body.reflections .dock-item .icon {
+  -webkit-box-reflect: below var(--reflection-gap)
+    linear-gradient(to bottom, transparent 42%, rgba(255, 255, 255, var(--reflection-opacity)) 100%);
+}
+
+body.pos-left.reflections .dock-item .icon,
+body.pos-right.reflections .dock-item .icon { -webkit-box-reflect: unset; }
+
+.dock-item.separator .icon { display: none; }
+
+.dock-item .sep-line {
+  width: var(--sep-width);
+  height: 62%;
+  border-radius: var(--sep-width);
+  background: var(--sep-color);
+  align-self: center;
+}
+
+body.pos-left .dock-item .sep-line,
+body.pos-right .dock-item .sep-line {
+  width: 62%;
+  height: var(--sep-width);
+}
+
+/* Running-application dot. */
+.dock-item .indicator {
+  position: absolute;
+  width: var(--indicator-size);
+  height: var(--indicator-size);
+  border-radius: 50%;
+  background: var(--indicator-color);
+  box-shadow: var(--indicator-glow);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.dock-item.running .indicator { opacity: 1; }
+
+body.pos-bottom .dock-item .indicator { bottom: -7px; left: 50%; transform: translateX(-50%); }
+body.pos-top    .dock-item .indicator { top: -7px;    left: 50%; transform: translateX(-50%); }
+body.pos-left   .dock-item .indicator { left: -7px;   top: 50%;  transform: translateY(-50%); }
+body.pos-right  .dock-item .indicator { right: -7px;  top: 50%;  transform: translateY(-50%); }
+
+/* --------------------------- click effects -------------------------- */
+
+/* Gravity, not a sine wave: each leg gets its own easing so the icon
+ * decelerates into the apex and accelerates back down, and the rebounds decay
+ * the way a real bounce does. */
+@keyframes dock-bounce {
+  0%   { transform: translateY(0);    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1); }
+  26%  { transform: translateY(-32%); animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4); }
+  52%  { transform: translateY(0);    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1); }
+  68%  { transform: translateY(-12%); animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4); }
+  84%  { transform: translateY(0);    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1); }
+  92%  { transform: translateY(-4%);  animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes dock-pop {
+  0%   { transform: scale(1);    animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1); }
+  38%  { transform: scale(0.86); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+  72%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes dock-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(3px); }
+}
+
+.dock-item.fx-bounce .icon-inner { animation: dock-bounce 900ms linear; }
+.dock-item.fx-pop    .icon-inner { animation: dock-pop 420ms linear; }
+.dock-item.fx-error  .icon-inner { animation: dock-shake 420ms ease-in-out; }
+
+.icon-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* The per-icon tile a "tile" or "slot" themed dock draws behind each icon.
+ * Themes that do not want one leave --item-bg transparent. */
+.dock-item .tile {
+  position: absolute;
+  inset: var(--item-inset);
+  border-radius: var(--item-radius);
+  background: var(--item-bg);
+  border: var(--item-border);
+  box-shadow: var(--item-shadow);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.dock-item.separator .tile { display: none; }
+
+/* ------------------------------ tooltip ----------------------------- */
+
+.tooltip {
+  position: absolute;
+  padding: 5px 10px;
+  max-width: 280px;
+  font: var(--tooltip-font);
+  color: var(--tooltip-fg);
+  background: var(--tooltip-bg);
+  border: var(--tooltip-border);
+  border-radius: var(--tooltip-radius);
+  box-shadow: var(--tooltip-shadow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.tooltip.show { opacity: 1; transform: translateY(0); }
+
+/* ------------------------------ drop gap ---------------------------- */
+
+/* The landing position is shown by the icons parting around an empty slot,
+ * not by an outline drawn over the bar. */
+.dock-item.gap { pointer-events: none; }
+
+/* Gap the dragged item leaves behind while reordering. */
+.dock-item.dragging { opacity: 0.35; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-item.fx-bounce .icon-inner,
+  .dock-item.fx-pop .icon-inner,
+  .dock-item.fx-error .icon-inner { animation: none; }
+  .tooltip { transition: none; }
+}

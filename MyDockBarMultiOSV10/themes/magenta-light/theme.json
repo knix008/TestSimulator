@@ -1,0 +1,38 @@
+{
+  "id": "magenta-light",
+  "name": "Magenta Light",
+  "author": "MyDockBar",
+  "description": "Hot magenta tubing, on a light surface. (notched shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(115,102,111,0.92), rgba(46,41,44,0.95))",
+    "--plate-border": "1px solid rgba(184,30,133,0.65)",
+    "--plate-radius": "10px",
+    "--plate-shadow": "0 0 26px rgba(184,30,133,0.42), 0 14px 34px rgba(0,0,0,0.6), inset 0 1px 0 rgba(153,61,123,0.4)",
+    "--plate-backdrop": "blur(14px) saturate(170%)",
+    "--reflection-opacity": "0.4",
+    "--plate-clip": "polygon(0 0, 100% 0, 100% 62%, 97% 100%, 3% 100%, 0 62%)",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(153,61,123,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(46,41,44,0.32)",
+    "--indicator-color": "#b81e85",
+    "--indicator-glow": "0 0 10px rgba(184,30,133,0.9)",
+    "--tooltip-bg": "rgba(252,248,250,0.96)",
+    "--tooltip-fg": "#3d1430",
+    "--tooltip-border": "1px solid rgba(184,30,133,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#b81e85"
+  },
+  "ui": {
+    "--bg": "#f6f3f5",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#ece4e9",
+    "--fg": "#321b2a",
+    "--fg-dim": "#7c5a71",
+    "--line": "#d8cad4",
+    "--accent": "#b81e85",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

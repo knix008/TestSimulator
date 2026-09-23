@@ -1,0 +1,38 @@
+{
+  "id": "aqua-light",
+  "name": "Aqua Light",
+  "author": "MyDockBar",
+  "description": "Clear water blue, on a light surface. (bar shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(224,235,239,0.42) 0%, rgba(204,222,229,0.34) 48%, rgba(122,133,137,0.42) 100%)",
+    "--plate-border": "1px solid rgba(232,240,243,0.5)",
+    "--plate-radius": "18px",
+    "--plate-shadow": "0 14px 40px rgba(51,56,57,0.5), inset 0 1px 0 rgba(250,252,252,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(60,128,155,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(41,44,46,0.32)",
+    "--indicator-color": "#1c8dba",
+    "--indicator-glow": "0 0 10px rgba(28,141,186,0.9)",
+    "--tooltip-bg": "rgba(248,251,252,0.96)",
+    "--tooltip-fg": "#14323d",
+    "--tooltip-border": "1px solid rgba(28,141,186,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#1c8dba"
+  },
+  "ui": {
+    "--bg": "#f3f6f6",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#e4eaec",
+    "--fg": "#1b2b32",
+    "--fg-dim": "#5a737c",
+    "--line": "#cad4d9",
+    "--accent": "#1c8dba",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

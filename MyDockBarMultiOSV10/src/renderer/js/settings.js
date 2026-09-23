@@ -1,0 +1,1108 @@
+/* Settings window controller.
+ *
+ * The window is a fixed size and never scrolls, so the two unbounded lists
+ * (dock items and installed applications) are paged rather than scrolled, and
+ * the item editor takes the list's place instead of growing below it. */
+(function () {
+  'use strict';
+
+  const api = window.dockApi;
+  const Glyphs = window.DockGlyphs;
+  const I18n = window.DockI18n;
+  const $ = (id) => document.getElementById(id);
+
+  let t = I18n.make('en');
+
+  /** Re-label every element carrying a data-i18n key. */
+  function applyTranslations() {
+    for (const node of document.querySelectorAll('[data-i18n]')) {
+      node.textContent = t(node.dataset.i18n);
+    }
+    $('app-filter').placeholder = t('m.filterApps');
+    document.title = `MyDockBar — ${t('tab.general')}`;
+  }
+
+  const ITEMS_PER_PAGE = 8;
+  const APPS_PER_PAGE = 8;
+
+  const state = {
+    cfg: null,
+    items: [],
+    apps: [],
+    editingId: null,
+    applying: false,
+    itemPage: 0,
+    appPage: 0,
+    displays: [],
+  };
+
+  /* ------------------------------ plumbing ------------------------------ */
+
+  function toast(message) {
+    const node = $('toast');
+    node.textContent = message;
+    node.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => node.classList.remove('show'), 2200);
+  }
+
+  const patchDock = (partial) => api.config.patch({ dock: partial });
+
+  /** Items are locked: adding, removing and reordering are all refused. */
+  const locked = () => !!(state.cfg && state.cfg.dock.lockItems);
+
+  /**
+   * Bind a range input to a dock setting. The slider is wrapped in a row with a
+   * step-down button, a step-up button and the current value, so every numeric
+   * setting can be nudged exactly one step without dragging.
+   */
+  function bindRange(id, format) {
+    const input = $(id);
+    const readout = $(`v-${id}`);
+    const show = () => { if (readout) readout.textContent = format(Number(input.value)); };
+
+    const commit = () => {
+      show();
+      if (state.applying) return;
+      state.cfg.dock[id] = Number(input.value);
+      renderZoomPreview();
+      patchDock({ [id]: Number(input.value) });
+    };
+
+    const wrap = document.createElement('div');
+    wrap.className = 'num';
+    input.parentNode.insertBefore(wrap, input);
+
+    const step = (direction) => {
+      const size = Number(input.step) || 1;
+      const min = Number(input.min);
+      const max = Number(input.max);
+      const next = Number(input.value) + direction * size;
+      // Re-round to the step grid so repeated float steps cannot drift.
+      const snapped = Math.round(next / size) * size;
+      input.value = String(Math.min(max, Math.max(min, Number(snapped.toFixed(6)))));
+      commit();
+    };
+
+    const button = (label, direction, title) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'step ghost';
+      b.textContent = label;
+      b.title = title;
+      b.addEventListener('click', () => step(direction));
+      return b;
+    };
+
+    wrap.append(button('−', -1, `Decrease ${id}`), input, button('+', 1, `Increase ${id}`));
+    if (readout) wrap.appendChild(readout);
+
+    input.addEventListener('input', commit);
+    return { input, show };
+  }
+
+  function bindSelect(id, apply) {
+    const input = $(id);
+    input.addEventListener('change', () => {
+      if (state.applying) return;
+      state.cfg.dock[id] = input.value;
+      renderZoomPreview();
+      renderMonitorMap();
+      (apply || patchDock)({ [id]: input.value });
+    });
+    return input;
+  }
+
+  function bindCheck(id, apply) {
+    const input = $(id);
+    input.addEventListener('change', () => {
+      if (!state.applying) (apply || patchDock)({ [id]: input.checked });
+    });
+    return input;
+  }
+
+  const ranges = {};
+  const px = (v) => t('u.px', { n: v });
+
+  function setupBindings() {
+    ranges.iconSize = bindRange('iconSize', px);
+    ranges.spacing = bindRange('spacing', px);
+    ranges.padding = bindRange('padding', px);
+    ranges.opacity = bindRange('opacity', (v) => `${Math.round(v * 100)}%`);
+    ranges.plateOpacity = bindRange('plateOpacity', (v) => `${Math.round(v * 100)}%`);
+    ranges.maxZoom = bindRange('maxZoom', (v) => `${v.toFixed(2)}x`);
+    ranges.zoomRange = bindRange('zoomRange', (v) => t('u.icons', { n: v.toFixed(1) }));
+    ranges.edgeOffset = bindRange('edgeOffset', px);
+    ranges.autoShowDelay = bindRange('autoShowDelay', (v) => t('u.ms', { n: v }));
+    ranges.autoHideDelay = bindRange('autoHideDelay', (v) => t('u.ms', { n: v }));
+    ranges.autoHidePeek = bindRange('autoHidePeek', px);
+    ranges.plateThickness = bindRange('plateThickness', (v) => (v === 0 ? t('o.auto') : t('u.px', { n: v })));
+
+    bindSelect('animation');
+    bindSelect('clickEffect');
+    bindSelect('position');
+    bindSelect('align');
+    bindSelect('display');
+    bindSelect('stackingLevel');
+
+    // Locale lives at the top level of the config, not under `dock`.
+    $('locale').addEventListener('change', () => {
+      if (state.applying) return;
+      api.config.patch({ locale: $('locale').value });
+    });
+
+    for (const id of ['showLabels', 'showReflection', 'showRunningIndicator',
+      'showRunningApps', 'focusRunningWindow', 'autoHide', 'alwaysOnTop',
+      'showOnAllWorkspaces', 'lockItems']) {
+      bindCheck(id);
+    }
+
+    bindCheck('startWithOS', (partial) => api.config.patch(partial));
+  }
+
+  /* ------------------------------- tabs -------------------------------- */
+
+  function setupTabs() {
+    for (const tab of document.querySelectorAll('.tab')) {
+      tab.addEventListener('click', () => {
+        for (const other of document.querySelectorAll('.tab')) other.classList.toggle('active', other === tab);
+        for (const panel of document.querySelectorAll('.panel')) {
+          panel.classList.toggle('active', panel.id === `tab-${tab.dataset.tab}`);
+        }
+        if (tab.dataset.tab === 'apps' && !state.apps.length) loadApps();
+        if (tab.dataset.tab === 'zoom') renderZoomPreview();
+        if (tab.dataset.tab === 'position') renderMonitorMap();
+      });
+    }
+  }
+
+  function showTab(name) {
+    const tab = document.querySelector(`.tab[data-tab="${name}"]`);
+    if (tab) tab.click();
+  }
+
+  /* ------------------------------ paging ------------------------------- */
+
+  /** Render a Prev / "n of m" / Next control, or nothing when it all fits. */
+  function renderPager(node, page, pageCount, onChange) {
+    node.textContent = '';
+    if (pageCount <= 1) return;
+
+    const prev = document.createElement('button');
+    prev.className = 'icon-btn ghost';
+    prev.textContent = t('b.prev');
+    prev.disabled = page === 0;
+    prev.addEventListener('click', () => onChange(page - 1));
+
+    const label = document.createElement('span');
+    label.className = 'page-label';
+    label.textContent = `${page + 1} / ${pageCount}`;
+
+    const next = document.createElement('button');
+    next.className = 'icon-btn ghost';
+    next.textContent = t('b.next');
+    next.disabled = page >= pageCount - 1;
+    next.addEventListener('click', () => onChange(page + 1));
+
+    node.append(prev, label, next);
+  }
+
+  /* ------------------------------ themes ------------------------------- */
+
+  async function renderThemes() {
+    const themes = await api.themes.list();
+    const dark = themes.filter((t) => t.dark !== false);
+    const light = themes.filter((t) => t.dark === false);
+
+    fillThemeGrid($('theme-grid-dark'), dark);
+    fillThemeGrid($('theme-grid-light'), light);
+
+    $('dark-count').textContent = `(${dark.length})`;
+    $('light-count').textContent = `(${light.length})`;
+    $('theme-count').textContent = t('m.themesAvailable', { n: themes.length });
+  }
+
+  function fillThemeGrid(grid, themes) {
+    grid.textContent = '';
+    for (const theme of themes) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = `theme-card${theme.id === state.cfg.themeId ? ' selected' : ''}`;
+      card.dataset.id = theme.id;
+      card.title = theme.description || theme.name;
+
+      const preview = document.createElement('div');
+      preview.className = `theme-preview${theme.dark === false ? ' light-bg' : ''}`;
+      const plate = document.createElement('div');
+      plate.className = 'mini-plate';
+      for (let i = 0; i < 3; i += 1) plate.appendChild(document.createElement('i'));
+      preview.appendChild(plate);
+
+      const accent = document.createElement('div');
+      accent.className = 'theme-accent';
+
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = theme.name;
+
+      card.append(preview, accent, name);
+      card.addEventListener('click', async () => {
+        await api.config.patch({ theme: theme.id });
+        toast(`Theme: ${theme.name}`);
+      });
+      grid.appendChild(card);
+      applyPreviewStyle(card, theme.id);
+    }
+  }
+
+/**
+   * Paint each card with that theme's own colours: the plate uses the real
+   * plate variables, and the backdrop behind it is built from the theme's
+   * palette so translucent themes show what they actually look like and no
+   * two cards read the same at a glance.
+   */
+  async function applyPreviewStyle(card, themeId) {
+    const theme = await previewVariables(themeId);
+    if (!theme) return;
+
+    const vars = theme.variables || {};
+    const ui = theme.ui || {};
+    const plate = card.querySelector('.mini-plate');
+    const preview = card.querySelector('.theme-preview');
+    const accent = ui['--accent'] || vars['--indicator-color'] || '#8fa8c8';
+
+    plate.style.background = vars['--plate-bg'] || '';
+    plate.style.border = vars['--plate-border'] || '';
+    plate.style.borderRadius = '5px';
+    plate.style.boxShadow = vars['--plate-shadow'] || '';
+
+    // A desktop-like backdrop drawn from the theme's own palette.
+    const far = ui['--bg-sunken'] || (theme.dark === false ? '#c9d4e2' : '#0e1118');
+    preview.style.background = `linear-gradient(135deg, ${accent} -40%, ${far} 78%)`;
+
+    // The accent stripe is what makes neighbouring cards tell apart fastest.
+    card.style.setProperty('--card-accent', accent);
+    for (const dot of plate.querySelectorAll('i')) {
+      dot.style.background = theme.dark === false ? 'rgba(30,40,55,.72)' : 'rgba(255,255,255,.88)';
+    }
+  }
+
+  const previewCache = new Map();
+  async function previewVariables(themeId) {
+    if (!previewCache.has(themeId)) {
+      previewCache.set(themeId, await api.themes.variables(themeId));
+    }
+    return previewCache.get(themeId);
+  }
+
+  /* ------------------------------- items ------------------------------- */
+
+  function renderItems() {
+    const list = $('item-list');
+    list.textContent = '';
+
+    const pageCount = Math.max(1, Math.ceil(state.items.length / ITEMS_PER_PAGE));
+    state.itemPage = Math.min(Math.max(0, state.itemPage), pageCount - 1);
+
+    if (!state.items.length) {
+      list.appendChild(emptyRow(t('m.dockEmpty')));
+      renderPager($('item-pager'), 0, 1, () => {});
+      return;
+    }
+
+    const start = state.itemPage * ITEMS_PER_PAGE;
+    state.items.slice(start, start + ITEMS_PER_PAGE).forEach((item, offset) => {
+      const index = start + offset;
+      const row = document.createElement('li');
+      row.dataset.id = item.id;
+      row.dataset.index = String(index);
+      row.draggable = true;
+      if (item.type === 'separator') row.classList.add('separator-row');
+
+      const grip = document.createElement('span');
+      grip.className = 'grip';
+      grip.textContent = '⣿';
+      grip.title = t('m.dragHint');
+
+      const img = document.createElement('img');
+      img.src = Glyphs.forItem(item);
+      img.alt = '';
+      if (item.type === 'separator') img.style.visibility = 'hidden';
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = item.type === 'separator' ? t('menu.separator') : (item.label || t('menu.unnamed'));
+      const target = document.createElement('div');
+      target.className = 'target';
+      target.textContent = item.path || '';
+      meta.append(label, target);
+
+      const edit = document.createElement('button');
+      edit.className = 'icon-btn ghost';
+      edit.textContent = t('b.edit');
+      edit.addEventListener('click', () => openEditor(item.id));
+
+      const remove = document.createElement('button');
+      remove.className = 'icon-btn danger';
+      remove.textContent = t('b.remove');
+      if (item.protected) {
+        remove.disabled = true;
+        remove.title = t('m.builtIn');
+        row.classList.add('built-in');
+      }
+      remove.addEventListener('click', async () => {
+        if (item.protected) return;
+        state.items = await api.items.remove(item.id);
+        if (state.editingId === item.id) closeEditor();
+        renderItems();
+      });
+
+      row.append(grip, img, meta, edit, remove);
+      list.appendChild(row);
+    });
+
+    renderPager($('item-pager'), state.itemPage, pageCount, (page) => {
+      state.itemPage = page;
+      renderItems();
+    });
+
+    applyLockState();
+  }
+
+  /**
+   * Reflect the lock in the UI. The main process refuses the same operations
+   * regardless; this is so the buttons do not lie about what will happen.
+   */
+  function applyLockState() {
+    const isLocked = locked();
+    for (const id of ['add-app', 'add-folder', 'add-separator', 'add-url']) {
+      $(id).disabled = isLocked;
+    }
+    for (const row of $('item-list').querySelectorAll('li')) {
+      const builtIn = row.classList.contains('built-in');
+      for (const button of row.querySelectorAll('button.danger')) {
+        button.disabled = isLocked || builtIn;
+      }
+      row.draggable = !isLocked && !!row.dataset.index;
+    }
+    for (const button of $('app-list').querySelectorAll('button.primary')) {
+      button.disabled = isLocked;
+    }
+    $('item-hint').textContent = isLocked ? t('m.lockedHint') : t('m.dragHint');
+  }
+
+  function emptyRow(text) {
+    const row = document.createElement('li');
+    row.className = 'empty';
+    row.textContent = text;
+    return row;
+  }
+
+  /**
+   * Dropping files anywhere on the Dock Items tab adds them, the same way
+   * dropping onto the dock itself does.
+   */
+  function setupItemDrop() {
+    const panel = $('tab-items');
+    let depth = 0;
+
+    const carriesFiles = (event) =>
+      !!event.dataTransfer && Array.from(event.dataTransfer.types).includes('Files');
+
+    panel.addEventListener('dragenter', (event) => {
+      if (!carriesFiles(event)) return;
+      depth += 1;
+      if (!locked()) panel.classList.add('dropping');
+    });
+
+    panel.addEventListener('dragover', (event) => {
+      if (!carriesFiles(event)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = locked() ? 'none' : 'copy';
+    });
+
+    panel.addEventListener('dragleave', () => {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) panel.classList.remove('dropping');
+    });
+
+    panel.addEventListener('drop', async (event) => {
+      if (!carriesFiles(event)) return;
+      event.preventDefault();
+      depth = 0;
+      panel.classList.remove('dropping');
+
+      if (locked()) { toast(t('m.locked')); return; }
+
+      const paths = Array.from(event.dataTransfer.files || [])
+        .map((file) => api.pathForFile(file))
+        .filter(Boolean);
+      if (!paths.length) return;
+
+      state.items = await api.items.addPaths(paths);
+      state.itemPage = Math.floor(Math.max(0, state.items.length - 1) / ITEMS_PER_PAGE);
+      renderItems();
+    });
+  }
+
+  function setupItemDrag() {
+    const list = $('item-list');
+    let from = -1;
+
+    list.addEventListener('dragstart', (event) => {
+      const row = event.target.closest('li');
+      if (!row || !row.dataset.index || locked()) { event.preventDefault(); return; }
+      from = Number(row.dataset.index);
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(from));
+    });
+
+    list.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      const row = event.target.closest('li');
+      for (const other of list.children) other.classList.remove('drag-over');
+      if (row) row.classList.add('drag-over');
+    });
+
+    list.addEventListener('dragleave', (event) => {
+      const row = event.target.closest('li');
+      if (row) row.classList.remove('drag-over');
+    });
+
+    list.addEventListener('drop', async (event) => {
+      event.preventDefault();
+      const row = event.target.closest('li');
+      for (const other of list.children) other.classList.remove('drag-over');
+      if (!row || from < 0 || !row.dataset.index) return;
+      const to = Number(row.dataset.index);
+      if (to === from) return;
+      state.items = await api.items.move(from, to);
+      from = -1;
+      renderItems();
+    });
+  }
+
+  /* ------------------------------ editor ------------------------------- */
+
+  function openEditor(id) {
+    const item = state.items.find((it) => it.id === id);
+    if (!item) return;
+    state.editingId = id;
+
+    // The editor replaces the list rather than stacking under it, so the
+    // panel's height never changes and the window never needs to scroll.
+    $('item-list').style.display = 'none';
+    const editor = $('item-editor');
+    editor.classList.remove('hidden');
+    editor.textContent = '';
+
+    const title = document.createElement('h2');
+    title.textContent = item.type === 'separator'
+      ? t('menu.separator')
+      : t('m.editing', { name: item.label || '' });
+    editor.appendChild(title);
+
+    if (item.type !== 'separator') {
+      editor.appendChild(textField(t('m.label'), item.label || '', (value) => save({ label: value })));
+
+      const targetRow = textField(t('m.target'), item.path || '', (value) => save({ path: value }));
+      const browse = document.createElement('button');
+      browse.className = 'icon-btn ghost';
+      browse.textContent = t('b.browse');
+      browse.addEventListener('click', async () => {
+        const picked = await api.dialog.pickTarget();
+        if (picked) { await save({ path: picked }); openEditor(id); }
+      });
+      targetRow.appendChild(browse);
+      editor.appendChild(targetRow);
+
+      editor.appendChild(textField(t('m.arguments'), item.args || '', (value) => save({ args: value })));
+
+      const iconRow = document.createElement('label');
+      iconRow.className = 'field';
+      const iconLabel = document.createElement('span');
+      iconLabel.textContent = t('m.customIcon');
+      const iconActions = document.createElement('div');
+      iconActions.className = 'row';
+
+      const preview = document.createElement('img');
+      preview.src = Glyphs.forItem(item);
+      preview.alt = '';
+      preview.style.cssText = 'width:26px;height:26px;object-fit:contain';
+      iconActions.appendChild(preview);
+
+      const choose = document.createElement('button');
+      choose.className = 'icon-btn ghost';
+      choose.textContent = t('b.pickIcon');
+      choose.addEventListener('click', () => openIconPicker(item));
+      iconActions.appendChild(choose);
+
+      if (item.icon) {
+        const clear = document.createElement('button');
+        clear.className = 'icon-btn ghost';
+        clear.textContent = t('b.useDefault');
+        clear.addEventListener('click', async () => { await save({ icon: '' }); openEditor(id); });
+        iconActions.appendChild(clear);
+      }
+      iconRow.append(iconLabel, iconActions);
+      editor.appendChild(iconRow);
+    }
+
+    const done = document.createElement('button');
+    done.className = 'ghost';
+    done.textContent = t('b.back');
+    done.addEventListener('click', closeEditor);
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.marginTop = '14px';
+    row.appendChild(done);
+    editor.appendChild(row);
+
+    async function save(patch) {
+      state.items = await api.items.update(id, patch);
+      renderItems();
+    }
+  }
+
+  /* --------------------------- icon picker ---------------------------- */
+
+  const PROGRAM_FILE = /\.(exe|dll|ico|ocx|cpl|mun)$/i;
+
+  /**
+   * RocketDock-style icon chooser: the automatic icon, every icon stored
+   * inside the item's own program file, a built-in glyph, or any image on
+   * disk. Program files routinely carry dozens of icons that the shell's
+   * default extraction never surfaces, which is what makes an icon look
+   * wrong or missing in the first place.
+   */
+  function openIconPicker(item) {
+    const modal = $('icon-picker');
+    modal.textContent = '';
+    modal.classList.remove('hidden');
+
+    const sheet = document.createElement('div');
+    sheet.className = 'sheet';
+
+    const header = document.createElement('header');
+    header.textContent = t('m.iconPickTitle', { name: item.label || '' });
+
+    const body = document.createElement('div');
+    body.className = 'body';
+
+    const sourceRow = document.createElement('div');
+    sourceRow.className = 'row';
+
+    const status = document.createElement('span');
+    status.className = 'hint';
+    status.style.margin = '0';
+
+    const grid = document.createElement('div');
+    grid.className = 'icon-grid';
+
+    const footer = document.createElement('footer');
+    const cancel = document.createElement('button');
+    cancel.className = 'ghost';
+    cancel.textContent = t('b.back');
+    cancel.addEventListener('click', closeIconPicker);
+
+    const apply = document.createElement('button');
+    apply.className = 'primary';
+    apply.textContent = t('b.ok');
+    apply.disabled = true;
+    apply.addEventListener('click', () => commit());
+    footer.append(cancel, apply);
+
+    let chosen = null;
+
+    function select(button, value) {
+      for (const other of grid.querySelectorAll('button')) other.classList.remove('selected');
+      button.classList.add('selected');
+      chosen = value;
+      apply.disabled = false;
+    }
+
+    function addTile(src, value, title) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.title = title || '';
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = '';
+      img.addEventListener('error', () => button.remove(), { once: true });
+      button.appendChild(img);
+      button.addEventListener('click', () => select(button, value));
+      button.addEventListener('dblclick', () => { select(button, value); commit(); });
+      grid.appendChild(button);
+      return button;
+    }
+
+    function showBuiltIn() {
+      grid.textContent = '';
+      chosen = null;
+      apply.disabled = true;
+      addTile(Glyphs.forItem({ ...item, icon: '' }), { icon: '' }, t('m.iconAuto'));
+      for (const [name, url] of Object.entries(Glyphs.all)) addTile(url, { icon: url }, name);
+      status.textContent = t('m.iconBuiltIn');
+    }
+
+    async function showFromProgram(target) {
+      grid.textContent = '';
+      chosen = null;
+      apply.disabled = true;
+      status.textContent = t('m.iconExtracting');
+      let found = [];
+      try {
+        found = await api.icons.fromProgram(target);
+      } catch (err) {
+        console.error('[settings] icon extraction failed:', err);
+      }
+      if (!found.length) {
+        status.textContent = t('m.iconNoneFound');
+        return;
+      }
+      for (const entry of found) addTile(entry.url, { file: entry.file }, `${entry.size}px`);
+      status.textContent = `${found.length} — ${target}`;
+    }
+
+    function sourceButton(labelKey, handler) {
+      const b = document.createElement('button');
+      b.className = 'icon-btn ghost';
+      b.textContent = t(labelKey);
+      b.addEventListener('click', handler);
+      return b;
+    }
+
+    sourceRow.append(
+      sourceButton('m.iconBuiltIn', showBuiltIn),
+      sourceButton('m.iconFromExe', async () => {
+        const target = item.path && PROGRAM_FILE.test(item.path)
+          ? item.path
+          : await api.icons.pickProgram();
+        if (target) showFromProgram(target);
+      }),
+      sourceButton('m.iconFromFile', async () => {
+        const picked = await api.dialog.pickIcon();
+        if (picked) commitIcon(picked);
+      }),
+    );
+
+    async function commitIcon(iconPath) {
+      state.items = await api.items.update(item.id, { icon: iconPath });
+      closeIconPicker();
+      renderItems();
+      openEditor(item.id);
+    }
+
+    async function commit() {
+      if (!chosen) return;
+      if (chosen.file) commitIcon(await api.icons.useFile(chosen.file));
+      else commitIcon(chosen.icon);
+    }
+
+    body.append(sourceRow, grid, status);
+    sheet.append(header, body, footer);
+    modal.appendChild(sheet);
+
+    // Open on the item's own program file when it has one - that is where the
+    // icon the user expected almost always lives.
+    if (item.path && PROGRAM_FILE.test(item.path)) showFromProgram(item.path);
+    else showBuiltIn();
+  }
+
+  function closeIconPicker() {
+    const modal = $('icon-picker');
+    modal.classList.add('hidden');
+    modal.textContent = '';
+  }
+
+  function closeEditor() {
+    state.editingId = null;
+    $('item-editor').classList.add('hidden');
+    $('item-list').style.display = '';
+  }
+
+  function textField(labelText, value, onCommit) {
+    const wrap = document.createElement('label');
+    wrap.className = 'field';
+    const span = document.createElement('span');
+    span.textContent = labelText;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    let last = value;
+    const commit = () => {
+      if (input.value === last) return;
+      last = input.value;
+      onCommit(input.value);
+    };
+    input.addEventListener('change', commit);
+    input.addEventListener('blur', commit);
+    wrap.append(span, input);
+    return wrap;
+  }
+
+  /* --------------------------- installed apps --------------------------- */
+
+  async function loadApps(force) {
+    $('apps-status').textContent = t('m.scanning');
+    state.apps = await api.apps.scan({ force: !!force });
+    state.appPage = 0;
+    renderApps();
+  }
+
+  function filteredApps() {
+    const filter = $('app-filter').value.trim().toLowerCase();
+    return filter
+      ? state.apps.filter((entry) => entry.label.toLowerCase().includes(filter))
+      : state.apps;
+  }
+
+  function renderApps() {
+    const list = $('app-list');
+    list.textContent = '';
+
+    const visible = filteredApps();
+    const pageCount = Math.max(1, Math.ceil(visible.length / APPS_PER_PAGE));
+    state.appPage = Math.min(Math.max(0, state.appPage), pageCount - 1);
+
+    $('apps-status').textContent = t('m.appCount', { shown: visible.length, total: state.apps.length });
+
+    if (!visible.length) {
+      list.appendChild(emptyRow(t('m.noMatch')));
+      renderPager($('app-pager'), 0, 1, () => {});
+      return;
+    }
+
+    const start = state.appPage * APPS_PER_PAGE;
+    for (const entry of visible.slice(start, start + APPS_PER_PAGE)) {
+      const row = document.createElement('li');
+
+      const img = document.createElement('img');
+      img.src = entry.iconUrl || Glyphs.get('unknown');
+      img.alt = '';
+      img.addEventListener('error', () => { img.src = Glyphs.get('unknown'); }, { once: true });
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = entry.label;
+      const target = document.createElement('div');
+      target.className = 'target';
+      target.textContent = entry.path;
+      meta.append(label, target);
+
+      const add = document.createElement('button');
+      add.className = 'icon-btn primary';
+      add.textContent = t('b.add');
+      add.addEventListener('click', async () => {
+        state.items = await api.items.add({
+          type: 'app', label: entry.label, path: entry.path, args: entry.args || '', icon: entry.icon || '',
+        });
+        renderItems();
+        toast(`Added ${entry.label}`);
+      });
+
+      row.append(img, meta, add);
+      list.appendChild(row);
+    }
+
+    renderPager($('app-pager'), state.appPage, pageCount, (page) => {
+      state.appPage = page;
+      renderApps();
+    });
+
+    applyLockState();
+  }
+
+  /* ------------------------------ previews ------------------------------ */
+
+  /** A live sketch of the magnification curve using the current settings. */
+  function renderZoomPreview() {
+    const node = $('zoom-preview');
+    if (!node || !state.cfg) return;
+    const dock = state.cfg.dock;
+    node.textContent = '';
+
+    const count = 11;
+    const centre = (count - 1) / 2;
+    const base = 16;
+
+    for (let i = 0; i < count; i += 1) {
+      const t = (i - centre) / Math.max(0.01, dock.zoomRange);
+      const scale = 1 + Math.max(0, dock.maxZoom - 1) * kernel(t, dock.animation);
+      const bar = document.createElement('i');
+      bar.style.height = `${Math.round(base * scale)}px`;
+      bar.style.width = `${Math.round(16 * Math.min(scale, 2.2))}px`;
+      node.appendChild(bar);
+    }
+  }
+
+  /** Mirrors the falloff curve used by the dock itself. */
+  function kernel(t, mode) {
+    const a = Math.abs(t);
+    if (mode === 'none' || a >= 1) return 0;
+    if (mode === 'linear') return 1 - a;
+    if (mode === 'cosine') return Math.cos((a * Math.PI) / 2);
+    return 1 - a * a;
+  }
+
+  /** A scaled sketch of the desktop showing which edge the dock sits on. */
+  function renderMonitorMap() {
+    const node = $('monitor-map');
+    if (!node || !state.cfg || !state.displays.length) return;
+    node.textContent = '';
+
+    const minX = Math.min(...state.displays.map((d) => d.bounds.x));
+    const minY = Math.min(...state.displays.map((d) => d.bounds.y));
+    const maxX = Math.max(...state.displays.map((d) => d.bounds.x + d.bounds.width));
+    const maxY = Math.max(...state.displays.map((d) => d.bounds.y + d.bounds.height));
+
+    const pad = 8;
+    const box = node.getBoundingClientRect();
+    if (!box.width) return;
+
+    const scale = Math.min(
+      (box.width - pad * 2) / Math.max(1, maxX - minX),
+      (box.height - pad * 2) / Math.max(1, maxY - minY),
+    );
+    const offsetX = pad + ((box.width - pad * 2) - (maxX - minX) * scale) / 2;
+    const offsetY = pad + ((box.height - pad * 2) - (maxY - minY) * scale) / 2;
+
+    const chosen = String(state.cfg.dock.display);
+    for (const display of state.displays) {
+      const active = chosen === display.id
+        || (chosen === 'primary' && display.primary)
+        || chosen === 'cursor';
+
+      const screen = document.createElement('div');
+      screen.className = `screen${active ? ' active' : ''}`;
+      screen.style.left = `${offsetX + (display.bounds.x - minX) * scale}px`;
+      screen.style.top = `${offsetY + (display.bounds.y - minY) * scale}px`;
+      screen.style.width = `${display.bounds.width * scale}px`;
+      screen.style.height = `${display.bounds.height * scale}px`;
+      screen.textContent = display.primary ? 'Primary' : '';
+
+      if (active) {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        const pos = state.cfg.dock.position;
+        if (pos === 'bottom' || pos === 'top') {
+          bar.style.left = '18%';
+          bar.style.right = '18%';
+          bar.style.height = '5px';
+          bar.style[pos] = '3px';
+        } else {
+          bar.style.top = '18%';
+          bar.style.bottom = '18%';
+          bar.style.width = '5px';
+          bar.style[pos] = '3px';
+        }
+        screen.appendChild(bar);
+      }
+      node.appendChild(screen);
+    }
+  }
+
+  /* ------------------------------ displays ------------------------------ */
+
+  async function renderDisplays() {
+    const select = $('display');
+    state.displays = await api.system.displays();
+    select.textContent = '';
+
+    const primary = document.createElement('option');
+    primary.value = 'primary';
+    primary.textContent = 'Primary monitor';
+    select.appendChild(primary);
+
+    const cursor = document.createElement('option');
+    cursor.value = 'cursor';
+    cursor.textContent = 'Monitor with the pointer';
+    select.appendChild(cursor);
+
+    for (const display of state.displays) {
+      const option = document.createElement('option');
+      option.value = display.id;
+      option.textContent = `${display.label} (${display.bounds.width}×${display.bounds.height})`;
+      select.appendChild(option);
+    }
+    select.value = String(state.cfg.dock.display);
+  }
+
+  /* ------------------------------ actions ------------------------------- */
+
+  function setupActions() {
+    $('open-theme-folder').addEventListener('click', () => api.themes.openFolder());
+
+    $('add-app').addEventListener('click', async () => {
+      if (locked()) { toast(t('m.locked')); return; }
+      await api.dialog.addApp();
+      state.items = await api.items.get();
+      renderItems();
+    });
+
+    $('add-folder').addEventListener('click', async () => {
+      if (locked()) { toast(t('m.locked')); return; }
+      await api.dialog.addFolder();
+      state.items = await api.items.get();
+      renderItems();
+    });
+
+    $('add-separator').addEventListener('click', async () => {
+      if (locked()) { toast(t('m.locked')); return; }
+      state.items = await api.items.add({ type: 'separator', label: '', path: '' });
+      state.itemPage = Math.floor((state.items.length - 1) / ITEMS_PER_PAGE);
+      renderItems();
+    });
+
+    $('add-url').addEventListener('click', async () => {
+      if (locked()) { toast(t('m.locked')); return; }
+      state.items = await api.items.add({ type: 'url', label: 'New link', path: 'https://example.com' });
+      state.itemPage = Math.floor((state.items.length - 1) / ITEMS_PER_PAGE);
+      renderItems();
+      openEditor(state.items[state.items.length - 1].id);
+    });
+
+    $('rescan').addEventListener('click', () => loadApps(true));
+    $('app-filter').addEventListener('input', () => { state.appPage = 0; renderApps(); });
+
+    $('cfg-export').addEventListener('click', async () => {
+      const result = await api.config.export();
+      if (result.ok) toast('Settings exported.');
+    });
+
+    $('cfg-import').addEventListener('click', async () => {
+      const result = await api.config.import();
+      if (result.ok) toast('Settings imported.');
+      else if (result.error) toast(`Import failed: ${result.error}`);
+    });
+
+    $('cache-clear').addEventListener('click', async () => {
+      await api.system.clearIconCache();
+      toast('Icon cache cleared.');
+    });
+
+    $('cfg-reset').addEventListener('click', async () => {
+      await api.config.reset();
+      toast('Settings reset to defaults.');
+    });
+
+    $('cfg-ok').addEventListener('click', () => api.settings.ok());
+    $('quit-app').addEventListener('click', () => api.app.quit());
+
+    // Escape closes the icon picker first, then the window.
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (!$('icon-picker').classList.contains('hidden')) closeIconPicker();
+      else api.settings.ok();
+    });
+
+    api.settings.onFocusItem((id) => {
+      const index = state.items.findIndex((it) => it.id === id);
+      if (index >= 0) state.itemPage = Math.floor(index / ITEMS_PER_PAGE);
+      showTab('items');
+      renderItems();
+      openEditor(id);
+    });
+  }
+
+  /* ------------------------------- apply -------------------------------- */
+
+  function applySnapshot(snapshot) {
+    state.cfg = snapshot;
+    state.applying = true;
+
+    if (t.locale !== snapshot.resolvedLocale) {
+      t = I18n.make(snapshot.resolvedLocale);
+      applyTranslations();
+      for (const entry of Object.values(ranges)) entry.show();
+    }
+
+    const dock = snapshot.dock;
+    for (const [id, entry] of Object.entries(ranges)) {
+      entry.input.value = String(dock[id]);
+      entry.show();
+    }
+
+    $('animation').value = dock.animation;
+    $('clickEffect').value = dock.clickEffect;
+    $('position').value = dock.position;
+    $('align').value = dock.align;
+    $('stackingLevel').value = dock.stackingLevel;
+    $('locale').value = snapshot.locale;
+    if ($('display').options.length) $('display').value = String(dock.display);
+
+    for (const id of ['showLabels', 'showReflection', 'showRunningIndicator',
+      'showRunningApps', 'focusRunningWindow', 'autoHide', 'alwaysOnTop',
+      'showOnAllWorkspaces', 'lockItems']) {
+      $(id).checked = !!dock[id];
+    }
+    $('startWithOS').checked = !!snapshot.startWithOS;
+
+    $('about-version').textContent = `v${snapshot.version}`;
+    const platform = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[snapshot.platform]
+      || snapshot.platform;
+    $('about-platform').textContent = t('m.runningOn', { platform });
+
+    applyChrome(snapshot.theme);
+
+    state.applying = false;
+
+    for (const card of document.querySelectorAll('.theme-card')) {
+      card.classList.toggle('selected', card.dataset.id === snapshot.themeId);
+    }
+    renderZoomPreview();
+    renderMonitorMap();
+    applyLockState();
+  }
+
+  /**
+   * Repaint the settings window with the palette the active theme ships, so
+   * choosing a dock theme re-skins the whole application. Themes without a
+   * `ui` block fall back to the stylesheet's own light/dark defaults.
+   */
+  function applyChrome(theme) {
+    const root = document.documentElement;
+    for (const name of Array.from(root.style)) {
+      if (name.startsWith('--')) root.style.removeProperty(name);
+    }
+    root.dataset.theme = theme && theme.dark === false ? 'light' : 'dark';
+    if (!theme || !theme.ui) return;
+    for (const [key, value] of Object.entries(theme.ui)) {
+      root.style.setProperty(key.startsWith('--') ? key : `--${key}`, String(value));
+    }
+  }
+
+  async function boot() {
+    setupBindings();
+    setupTabs();
+    setupActions();
+    setupItemDrag();
+    setupItemDrop();
+
+    const snapshot = await api.config.get();
+    applySnapshot(snapshot);
+    await renderDisplays();
+    await renderThemes();
+
+    state.items = await api.items.get();
+    renderItems();
+    applySnapshot(snapshot);
+
+    api.config.onChange(async (next) => {
+      const localeChanged = next.resolvedLocale !== state.cfg.resolvedLocale;
+      applySnapshot(next);
+      state.items = await api.items.get();
+      renderItems();
+      if (localeChanged) await renderThemes();
+    });
+  }
+
+  boot().catch((err) => {
+    console.error('[settings] boot failed:', err);
+    toast(`Failed to load settings: ${err.message}`);
+  });
+})();

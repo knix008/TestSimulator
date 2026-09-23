@@ -1,0 +1,38 @@
+{
+  "id": "jade",
+  "name": "Jade",
+  "author": "MyDockBar",
+  "description": "Cool jade with a soft glow. (notched shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(122,173,163,0.42) 0%, rgba(34,119,102,0.34) 48%, rgba(20,71,61,0.42) 100%)",
+    "--plate-border": "1px solid rgba(156,194,186,0.5)",
+    "--plate-radius": "10px",
+    "--plate-shadow": "0 14px 40px rgba(9,30,26,0.5), inset 0 1px 0 rgba(233,241,240,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "polygon(0 0, 100% 0, 100% 62%, 97% 100%, 3% 100%, 0 62%)",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(180,228,219,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(7,24,20,0.55)",
+    "--indicator-color": "#6eedd4",
+    "--indicator-glow": "0 0 10px rgba(110,237,212,0.9)",
+    "--tooltip-bg": "rgba(17,29,27,0.96)",
+    "--tooltip-fg": "#e5f5f2",
+    "--tooltip-border": "1px solid rgba(110,237,212,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#6eedd4"
+  },
+  "ui": {
+    "--bg": "#17221f",
+    "--bg-raised": "#21302d",
+    "--bg-sunken": "#101917",
+    "--fg": "#e9f1f0",
+    "--fg-dim": "#8db0a9",
+    "--line": "#334743",
+    "--accent": "#6eedd4",
+    "--accent-fg": "#0f1a18",
+    "--danger": "#ff7a72"
+  }
+}

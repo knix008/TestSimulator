@@ -1,0 +1,38 @@
+{
+  "id": "ember-light",
+  "name": "Ember Light",
+  "author": "MyDockBar",
+  "description": "Banked embers, orange-red, on a light surface. (bar shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, #eee2dc 0%, #e6d4cc 42%, #857b76 100%)",
+    "--plate-border": "1px solid rgba(248,242,240,0.45)",
+    "--plate-radius": "18px",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(254,253,252,0.55), inset 0 -2px 6px rgba(0,0,0,0.3)",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.28",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(156,88,58,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(46,42,41,0.32)",
+    "--indicator-color": "#bc4b1a",
+    "--indicator-glow": "0 0 10px rgba(188,75,26,0.9)",
+    "--tooltip-bg": "rgba(252,249,248,0.96)",
+    "--tooltip-fg": "#3d2114",
+    "--tooltip-border": "1px solid rgba(188,75,26,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#bc4b1a"
+  },
+  "ui": {
+    "--bg": "#f7f4f3",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#ede6e4",
+    "--fg": "#32221b",
+    "--fg-dim": "#7c645a",
+    "--line": "#d9cec9",
+    "--accent": "#bc4b1a",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

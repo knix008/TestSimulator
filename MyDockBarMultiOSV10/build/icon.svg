@@ -1,0 +1,212 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+  <linearGradient id="wallBack" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2b3d8f"/>
+    <stop offset="1" stop-color="#101838"/>
+  </linearGradient>
+  <linearGradient id="wallL" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#101a44"/>
+    <stop offset="1" stop-color="#25357e"/>
+  </linearGradient>
+  <linearGradient id="wallR" x1="1" y1="0" x2="0" y2="0">
+    <stop offset="0" stop-color="#0c1332"/>
+    <stop offset="1" stop-color="#1d2b69"/>
+  </linearGradient>
+  <linearGradient id="floorG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#1b2a6e"/>
+    <stop offset=".55" stop-color="#16204f"/>
+    <stop offset="1" stop-color="#080c20"/>
+  </linearGradient>
+
+  <radialGradient id="roomGlow" cx=".5" cy=".42" r=".62">
+    <stop offset="0" stop-color="#9fc4ff" stop-opacity=".45"/>
+    <stop offset="1" stop-color="#9fc4ff" stop-opacity="0"/>
+  </radialGradient>
+
+  <linearGradient id="bgSheen" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".30"/>
+    <stop offset=".42" stop-color="#ffffff" stop-opacity=".04"/>
+    <stop offset=".43" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/>
+    <stop offset=".5" stop-color="#ffffff" stop-opacity=".12"/>
+    <stop offset="1" stop-color="#ffffff" stop-opacity=".32"/>
+  </linearGradient>
+
+  <linearGradient id="plateTopG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#cfe2ff" stop-opacity=".50"/>
+    <stop offset=".55" stop-color="#8fb4f0" stop-opacity=".28"/>
+    <stop offset="1" stop-color="#dcebff" stop-opacity=".44"/>
+  </linearGradient>
+  <linearGradient id="plateEdgeG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".70"/>
+    <stop offset=".35" stop-color="#7ea3e0" stop-opacity=".40"/>
+    <stop offset="1" stop-color="#121a3c" stop-opacity=".66"/>
+  </linearGradient>
+
+  <radialGradient id="contact" cx=".5" cy=".5" r=".5">
+    <stop offset="0" stop-color="#03060f" stop-opacity=".66"/>
+    <stop offset="1" stop-color="#03060f" stop-opacity="0"/>
+  </radialGradient>
+
+  <linearGradient id="faceShade" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#000000" stop-opacity=".18"/>
+    <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+  </linearGradient>
+
+  <linearGradient id="mirror" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".28"/>
+    <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <linearGradient id="wordFace" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff"/>
+    <stop offset=".46" stop-color="#dbe8ff"/>
+    <stop offset=".54" stop-color="#9dbaf0"/>
+    <stop offset="1" stop-color="#ffffff"/>
+  </linearGradient>
+  <linearGradient id="wordRim" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".95"/>
+    <stop offset="1" stop-color="#5f7fc4" stop-opacity=".55"/>
+  </linearGradient>
+
+  
+  <linearGradient id="cATop" x1="0" y1="0" x2="0.4" y2="1">
+    <stop offset="0" stop-color="#ffd487"/><stop offset="1" stop-color="#ffb13d"/>
+  </linearGradient>
+  <linearGradient id="cALeft" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f08a12"/><stop offset="1" stop-color="#c96a05"/>
+  </linearGradient>
+  <linearGradient id="cARight" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#d97a08"/><stop offset="1" stop-color="#a05403"/>
+  </linearGradient>
+  
+  <linearGradient id="cBTop" x1="0" y1="0" x2="0.4" y2="1">
+    <stop offset="0" stop-color="#a8ecff"/><stop offset="1" stop-color="#4fc9f2"/>
+  </linearGradient>
+  <linearGradient id="cBLeft" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#1c9fd6"/><stop offset="1" stop-color="#0d76a8"/>
+  </linearGradient>
+  <linearGradient id="cBRight" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#127fb4"/><stop offset="1" stop-color="#0a5c85"/>
+  </linearGradient>
+  
+  <linearGradient id="cCTop" x1="0" y1="0" x2="0.4" y2="1">
+    <stop offset="0" stop-color="#e3c9ff"/><stop offset="1" stop-color="#b98cff"/>
+  </linearGradient>
+  <linearGradient id="cCLeft" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#8a55e8"/><stop offset="1" stop-color="#6335bf"/>
+  </linearGradient>
+  <linearGradient id="cCRight" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#7343cf"/><stop offset="1" stop-color="#4d2699"/>
+  </linearGradient>
+
+  <clipPath id="badge">
+    <rect x="72" y="72" width="880" height="880" rx="210" ry="210"/>
+  </clipPath>
+</defs>
+
+<ellipse cx="512" cy="948" rx="392" ry="52" fill="#000000" opacity=".28"/>
+
+<g clip-path="url(#badge)">
+  <!-- the room -->
+  <rect x="72" y="72" width="880" height="880" fill="url(#wallBack)"/>
+  <polygon points="72,72 268,404 268,72" fill="url(#wallL)"/>
+  <polygon points="952,72 756,72 756,404" fill="url(#wallR)"/>
+  <polygon points="268,404 756,404 952,838 72,838" fill="url(#floorG)"/>
+  <g stroke="#7fa6ff" stroke-opacity=".20" stroke-width="2">
+    <line x1="268" y1="404" x2="-248" y2="838"/>
+    <line x1="329" y1="404" x2="-58" y2="838"/>
+    <line x1="390" y1="404" x2="132" y2="838"/>
+    <line x1="451" y1="404" x2="322" y2="838"/>
+    <line x1="512" y1="404" x2="512" y2="838"/>
+    <line x1="573" y1="404" x2="702" y2="838"/>
+    <line x1="634" y1="404" x2="892" y2="838"/>
+    <line x1="695" y1="404" x2="1082" y2="838"/>
+    <line x1="756" y1="404" x2="1272" y2="838"/>
+    <line x1="260.15999999999997" y1="421.36" x2="763.84" y2="421.36"/>
+    <line x1="236.64" y1="473.44" x2="787.36" y2="473.44"/>
+    <line x1="197.44" y1="560.24" x2="826.56" y2="560.24"/>
+    <line x1="142.56" y1="681.76" x2="881.44" y2="681.76"/>
+  </g>
+  <rect x="72" y="72" width="880" height="880" fill="url(#roomGlow)"/>
+
+  <!-- contact shadows sit on the floor, under the cubes -->
+  <ellipse cx="340" cy="574" rx="132" ry="37" fill="url(#contact)"/>
+  <ellipse cx="684" cy="574" rx="132" ry="37" fill="url(#contact)"/>
+  <ellipse cx="512" cy="600" rx="158" ry="45" fill="url(#contact)"/>
+
+  
+  <g>
+    <polygon points="340,376 440,426 340,476 240,426" fill="url(#cATop)"/>
+    <polygon points="240,426 340,476 340,614 240,564" fill="url(#cALeft)"/>
+    <polygon points="340,476 440,426 440,564 340,614" fill="url(#cARight)"/>
+    <!-- specular streak along the top-left edge -->
+    <polygon points="240,426 340,376 340,393 274,436"
+             fill="#ffffff" fill-opacity=".34"/>
+    <polygon points="240,426 240,564 260,550.2 260,434"
+             fill="#ffffff" fill-opacity=".14"/>
+    <polygon points="240,426 340,476 340,614 240,564" fill="url(#faceShade)"/>
+  </g>
+
+  <g>
+    <polygon points="512,335 628,392 512,449 396,392" fill="url(#cBTop)"/>
+    <polygon points="396,392 512,449 512,645 396,588" fill="url(#cBLeft)"/>
+    <polygon points="512,449 628,392 628,588 512,645" fill="url(#cBRight)"/>
+    <!-- specular streak along the top-left edge -->
+    <polygon points="396,392 512,335 512,354.38 435.44,403.4"
+             fill="#ffffff" fill-opacity=".34"/>
+    <polygon points="396,392 396,588 419.2,568.4 419.2,401.12"
+             fill="#ffffff" fill-opacity=".14"/>
+    <polygon points="396,392 512,449 512,645 396,588" fill="url(#faceShade)"/>
+  </g>
+
+  <g>
+    <polygon points="684,376 784,426 684,476 584,426" fill="url(#cCTop)"/>
+    <polygon points="584,426 684,476 684,614 584,564" fill="url(#cCLeft)"/>
+    <polygon points="684,476 784,426 784,564 684,614" fill="url(#cCRight)"/>
+    <!-- specular streak along the top-left edge -->
+    <polygon points="584,426 684,376 684,393 618,436"
+             fill="#ffffff" fill-opacity=".34"/>
+    <polygon points="584,426 584,564 604,550.2 604,434"
+             fill="#ffffff" fill-opacity=".14"/>
+    <polygon points="584,426 684,476 684,614 584,564" fill="url(#faceShade)"/>
+  </g>
+
+  <!-- glass shelf in front of the cubes -->
+  <polygon points="212,540 812,540 884,644 140,644" fill="url(#plateTopG)"/>
+  <polygon points="212,540 812,540 884,644 140,644" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="3"/>
+  <polygon points="140,644 884,644 878,690 146,690" fill="url(#plateEdgeG)"/>
+  <polygon points="140,644 884,644 878,690 146,690" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="2"/>
+
+  <g opacity=".5">
+    <polygon points="340,574 424,596 340,622 256,596" fill="url(#mirror)"/>
+    <polygon points="512,598 610,624 512,656 414,624" fill="url(#mirror)"/>
+    <polygon points="684,574 768,596 684,622 600,596" fill="url(#mirror)"/>
+  </g>
+
+  <!-- wordmark -->
+  <!-- The extrusion grows down-right, so the anchor shifts back by half of
+       it to keep the finished word optically centred. -->
+  <text x="519.65" y="827.3" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,32%)">Dock</text>
+  <text x="517.95" y="825.6" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,35%)">Dock</text>
+  <text x="516.25" y="823.9" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,38%)">Dock</text>
+  <text x="514.5500000000001" y="822.2" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,41%)">Dock</text>
+  <text x="512.85" y="820.5" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,44%)">Dock</text>
+  <text x="511.15000000000003" y="818.8" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,48%)">Dock</text>
+  <text x="509.45000000000005" y="817.1" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,51%)">Dock</text>
+  <text x="507.75" y="815.4" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,54%)">Dock</text>
+  <text x="506.05" y="813.7" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="hsl(218,42%,57%)">Dock</text>
+  <text x="504.35" y="812" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="url(#wordFace)">Dock</text>
+  <text x="504.35" y="812" font-family="Arial Black, Arial Bold, Arial, Helvetica, sans-serif" font-weight="900" font-size="152" letter-spacing="2" text-anchor="middle" fill="none" stroke="url(#wordRim)" stroke-width="2.5">Dock</text>
+
+  <rect x="72" y="72" width="880" height="880" fill="url(#bgSheen)"/>
+</g>
+
+<rect x="72" y="72" width="880" height="880" rx="210" ry="210"
+      fill="none" stroke="url(#rim)" stroke-width="7"/>
+<rect x="82" y="82" width="860" height="860" rx="202" ry="202"
+      fill="none" stroke="#ffffff" stroke-opacity=".10" stroke-width="3"/>
+</svg>

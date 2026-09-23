@@ -1,0 +1,32 @@
+{
+  "name": "mydockbar",
+  "productName": "MyDockBar",
+  "version": "1.0.0",
+  "description": "A cross-platform, theme-able application dock for Windows, macOS and Linux.",
+  "author": {
+    "name": "Suho Kwon",
+    "email": "suho.kwon@gmail.com"
+  },
+  "license": "MIT",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "icons": "node scripts/make-icons.js",
+    "pack": "npm run icons && electron-builder --dir",
+    "dist": "npm run icons && electron-builder",
+    "dist:win": "npm run icons && electron-builder --win",
+    "dist:mac": "npm run icons && electron-builder --mac",
+    "dist:linux": "npm run icons && electron-builder --linux",
+    "test": "node --test --test-concurrency=1 --test-reporter=./scripts/test-reporter.js \"test/*.test.js\"",
+    "test:tap": "node --test \"test/*.test.js\"",
+    "themes": "node scripts/make-themes.js"
+  },
+  "devDependencies": {
+    "electron": "^44.4.4",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.4"
+  },
+  "desktopName": "mydockbar.desktop"
+}

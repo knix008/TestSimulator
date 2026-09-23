@@ -1,0 +1,38 @@
+{
+  "id": "lime-light",
+  "name": "Lime Light",
+  "author": "MyDockBar",
+  "description": "Fresh lime green, on a light surface. (shelf shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(226,231,215,0.94), rgba(163,168,153,0.96))",
+    "--plate-border": "1px solid rgba(239,242,233,0.3)",
+    "--plate-radius": "8px",
+    "--plate-shadow": "0 10px 26px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(8px)",
+    "--reflection-opacity": "0.22",
+    "--plate-clip": "polygon(2% 0, 98% 0, 100% 100%, 0 100%)",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(120,144,70,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(44,45,41,0.32)",
+    "--indicator-color": "#80a92d",
+    "--indicator-glow": "0 0 10px rgba(128,169,45,0.9)",
+    "--tooltip-bg": "rgba(250,252,248,0.96)",
+    "--tooltip-fg": "#303d14",
+    "--tooltip-border": "1px solid rgba(128,169,45,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#80a92d"
+  },
+  "ui": {
+    "--bg": "#f5f6f3",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#e9ece5",
+    "--fg": "#2a321b",
+    "--fg-dim": "#717c5a",
+    "--line": "#d3d7cb",
+    "--accent": "#80a92d",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

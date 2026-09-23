@@ -1,0 +1,38 @@
+{
+  "id": "teal-light",
+  "name": "Teal Light",
+  "author": "MyDockBar",
+  "description": "Luminous teal on deep water, on a light surface. (slab shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(103,114,114,0.92), rgba(41,45,46,0.95))",
+    "--plate-border": "1px solid rgba(36,168,178,0.65)",
+    "--plate-radius": "0px",
+    "--plate-shadow": "0 0 26px rgba(36,168,178,0.42), 0 14px 34px rgba(0,0,0,0.6), inset 0 1px 0 rgba(65,144,150,0.4)",
+    "--plate-backdrop": "blur(14px) saturate(170%)",
+    "--reflection-opacity": "0.4",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "3px",
+    "--sep-color": "rgba(65,144,150,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(41,45,46,0.32)",
+    "--indicator-color": "#24a8b2",
+    "--indicator-glow": "0 0 10px rgba(36,168,178,0.9)",
+    "--tooltip-bg": "rgba(248,251,252,0.96)",
+    "--tooltip-fg": "#143a3d",
+    "--tooltip-border": "1px solid rgba(36,168,178,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#24a8b2"
+  },
+  "ui": {
+    "--bg": "#f3f6f6",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#e4ebec",
+    "--fg": "#1b3032",
+    "--fg-dim": "#5a7a7c",
+    "--line": "#cad7d8",
+    "--accent": "#24a8b2",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

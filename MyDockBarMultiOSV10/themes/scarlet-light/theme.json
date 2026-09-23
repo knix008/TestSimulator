@@ -1,0 +1,43 @@
+{
+  "id": "scarlet-light",
+  "name": "Scarlet Light",
+  "author": "MyDockBar",
+  "description": "Hot scarlet against near-black, on a light surface. (tile shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(115,103,102,0.92), rgba(46,41,41,0.95))",
+    "--plate-border": "1px solid rgba(191,37,24,0.65)",
+    "--plate-radius": "14px",
+    "--plate-shadow": "0 0 26px rgba(191,37,24,0.42), 0 14px 34px rgba(0,0,0,0.6), inset 0 1px 0 rgba(157,65,57,0.4)",
+    "--plate-backdrop": "blur(14px) saturate(170%)",
+    "--reflection-opacity": "0.4",
+    "--plate-clip": "none",
+    "--icon-radius": "6px",
+    "--sep-width": "2px",
+    "--item-bg": "rgba(239,223,221,0.28)",
+    "--item-border": "1px solid rgba(248,240,239,0.35)",
+    "--item-radius": "10px",
+    "--item-shadow": "inset 0 1px 0 rgba(255,255,255,0.25)",
+    "--item-inset": "-4px",
+    "--sep-color": "rgba(157,65,57,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(46,41,41,0.32)",
+    "--indicator-color": "#bf2518",
+    "--indicator-glow": "0 0 10px rgba(191,37,24,0.9)",
+    "--tooltip-bg": "rgba(252,248,248,0.96)",
+    "--tooltip-fg": "#3d1814",
+    "--tooltip-border": "1px solid rgba(191,37,24,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#bf2518"
+  },
+  "ui": {
+    "--bg": "#f7f3f3",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#ede4e3",
+    "--fg": "#321d1b",
+    "--fg-dim": "#7c5d5a",
+    "--line": "#d9cbc9",
+    "--accent": "#bf2518",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

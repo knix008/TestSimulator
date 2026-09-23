@@ -1,0 +1,147 @@
+appId: com.suhokwon.mydockbar
+productName: MyDockBar
+copyright: Copyright © 2026 Suho Kwon
+
+directories:
+  buildResources: build
+  output: dist
+
+# Only what the app actually loads at runtime.
+files:
+  - src/**/*
+  - themes/**/*
+  - package.json
+  - build/icon.png
+  - build/tray.png
+  - build/tray@2x.png
+  - build/trayTemplate.png
+  - build/trayTemplate@2x.png
+  - build/menu/**/*
+  - "!**/*.map"
+
+asar: true
+compression: normal
+electronLanguages:
+  - en-US
+  - ko
+
+# --------------------------------------------------------------------------
+# Windows
+# --------------------------------------------------------------------------
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+  artifactName: MyDockBar-${version}-Setup-${arch}.${ext}
+  executableName: MyDockBar
+  fileAssociations: []
+
+nsis:
+  # Assisted (multi-page) installer: the user picks the folder and sees the
+  # "remove the previous version?" prompt from build/installer.nsh.
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: MyDockBar
+  menuCategory: false
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  differentialPackage: false
+  include: build/installer.nsh
+  installerIcon: build/installerIcon.ico
+  uninstallerIcon: build/uninstallerIcon.ico
+  installerHeaderIcon: build/icon.ico
+  installerHeader: build/installerHeader.bmp
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/uninstallerSidebar.bmp
+  license: LICENSE.txt
+  multiLanguageInstaller: true
+  displayLanguageSelector: true
+  installerLanguages:
+    - en_US
+    - ko_KR
+  uninstallDisplayName: MyDockBar ${version}
+
+# --------------------------------------------------------------------------
+# macOS
+# --------------------------------------------------------------------------
+mac:
+  icon: build/icon.png
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  artifactName: MyDockBar-${version}-${arch}.${ext}
+  darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  extendInfo:
+    # The dock is a background agent: no Dock tile, no menu bar of its own.
+    LSUIElement: true
+    NSHighResolutionCapable: true
+
+dmg:
+  title: MyDockBar ${version}
+  icon: build/icon.png
+  contents:
+    - x: 140
+      y: 190
+      type: file
+    - x: 400
+      y: 190
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+
+# --------------------------------------------------------------------------
+# Linux
+# --------------------------------------------------------------------------
+linux:
+  icon: build/icons
+  executableName: mydockbar
+  # Ties the installed .desktop file, StartupWMClass and Electron's app_id
+  # together so desktop environments associate the running window with it.
+  syncDesktopName: true
+  category: Utility
+  synopsis: Themeable application dock
+  description: >
+    MyDockBar is a themeable application dock for Windows, macOS and Linux,
+    with magnifying icons, auto-hide, multi-monitor support and drag-and-drop
+    shortcuts.
+  desktop:
+    entry:
+      Name: MyDockBar
+      Comment: Themeable application dock
+      Categories: Utility;DesktopSettings;
+      StartupNotify: "false"
+      StartupWMClass: mydockbar
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+    - target: rpm
+      arch: [x64]
+  artifactName: MyDockBar-${version}-${arch}.${ext}
+
+deb:
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libsecret-1-0
+
+appImage:
+  license: LICENSE.txt
