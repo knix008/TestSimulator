@@ -5,8 +5,13 @@ const { BrowserWindow } = require('electron');
 
 let win = null;
 
-const WIDTH = 1000;
-const HEIGHT = 660;
+/* The window is sized to the one tab that needs the most room - Themes, whose
+ * two grids of 24 cards set both numbers - and every other tab is laid out to
+ * fit inside that. Shrinking either of these without first shortening that tab
+ * is what makes content disappear off the bottom, because nothing here
+ * scrolls. */
+const WIDTH = 880;
+const HEIGHT = 600;
 
 function open(parentTheme) {
   if (win && !win.isDestroyed()) {

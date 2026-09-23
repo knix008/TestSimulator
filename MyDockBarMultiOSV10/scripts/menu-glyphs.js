@@ -45,6 +45,45 @@ const CHECK_BADGE = `
   <path d="M41 48.5l4.5 4.5L55 43" fill="none" stroke="#ffffff" stroke-width="5"
         stroke-linecap="round" stroke-linejoin="round"/>`;
 
+/* ------------------------------- flags --------------------------------- *
+ * Both flags are drawn in the same box so the language item does not jump
+ * size when it toggles, and both are simplified for 16px: a Union Jack's
+ * offset diagonals and a taegukgi's trigram gaps are a fraction of a pixel at
+ * that size, so they are drawn centred and solid rather than as mush.
+ * ----------------------------------------------------------------------- */
+
+const FLAG = { x: 4, y: 13, w: 56, h: 38 };
+const FLAG_EDGE = '<rect x="4" y="13" width="56" height="38" rx="4" fill="none" '
+  + 'stroke="rgba(0,0,0,.35)" stroke-width="2"/>';
+
+/**
+ * One trigram: three bars, each solid or broken, turned so they lie across the
+ * line back to the middle of the flag - which is how the four of them sit on
+ * the real thing.
+ */
+function trigram(cx, cy, bars) {
+  const mid = { x: FLAG.x + FLAG.w / 2, y: FLAG.y + FLAG.h / 2 };
+  const angle = (Math.atan2(mid.y - cy, mid.x - cx) * 180) / Math.PI + 90;
+  const half = 6.4;
+  const thick = 2.3;
+  const step = 3.4;
+
+  const parts = bars.map((solid, i) => {
+    const y = cy + (i - 1) * step - thick / 2;
+    if (solid) {
+      return `<rect x="${(cx - half).toFixed(2)}" y="${y.toFixed(2)}" `
+        + `width="${(half * 2).toFixed(2)}" height="${thick}" rx="0.6"/>`;
+    }
+    const piece = half * 0.72;
+    return `<rect x="${(cx - half).toFixed(2)}" y="${y.toFixed(2)}" `
+      + `width="${piece.toFixed(2)}" height="${thick}" rx="0.6"/>`
+      + `<rect x="${(cx + half - piece).toFixed(2)}" y="${y.toFixed(2)}" `
+      + `width="${piece.toFixed(2)}" height="${thick}" rx="0.6"/>`;
+  });
+
+  return `<g fill="#16161d" transform="rotate(${angle.toFixed(2)} ${cx} ${cy})">${parts.join('')}</g>`;
+}
+
 /** Outline of a display, with one edge filled to show where the dock sits. */
 function screenWithEdge(edge) {
   const bars = {
@@ -190,6 +229,34 @@ const GLYPHS = {
   <rect x="14" y="14" width="36" height="6" rx="3" fill="${GREY}"/>
   <rect x="26" y="7" width="12" height="6" rx="2.5" fill="${GREY}"/>
   <path d="M44 44l14 14M58 44L44 58" stroke="${RED}" stroke-width="5" stroke-linecap="round"/>`,
+
+  // Korean: white field, the taegeuk turned onto its usual axis, and the four
+  // trigrams - solid bars for geon, broken ones for the rest.
+  'flag-ko': `
+  <rect x="4" y="13" width="56" height="38" rx="4" fill="#ffffff"/>
+  <g transform="rotate(-33.69 32 32)">
+    <circle cx="32" cy="32" r="10.5" fill="#0047a0"/>
+    <path d="M21.5 32a10.5 10.5 0 0 1 21 0a5.25 5.25 0 0 1-10.5 0a5.25 5.25 0 0 0-10.5 0z"
+          fill="#cd2e3a"/>
+  </g>
+  ${trigram(14.5, 22, [true, true, true])}
+  ${trigram(49.5, 22, [false, true, false])}
+  ${trigram(14.5, 42, [true, false, true])}
+  ${trigram(49.5, 42, [false, false, false])}
+  ${FLAG_EDGE}`,
+
+  // British: the diagonals are drawn centred rather than counterchanged,
+  // which is the part of a Union Jack that survives being 16 pixels wide.
+  'flag-en': `
+  <defs><clipPath id="uk"><rect x="4" y="13" width="56" height="38" rx="4"/></clipPath></defs>
+  <g clip-path="url(#uk)">
+    <rect x="4" y="13" width="56" height="38" fill="#012169"/>
+    <path d="M4 13L60 51M60 13L4 51" stroke="#ffffff" stroke-width="9"/>
+    <path d="M4 13L60 51M60 13L4 51" stroke="#c8102e" stroke-width="4"/>
+    <path d="M32 13v38M4 32h56" stroke="#ffffff" stroke-width="13"/>
+    <path d="M32 13v38M4 32h56" stroke="#c8102e" stroke-width="7"/>
+  </g>
+  ${FLAG_EDGE}`,
 
   'pos-bottom': screenWithEdge('bottom'),
   'pos-top': screenWithEdge('top'),

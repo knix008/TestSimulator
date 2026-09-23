@@ -16,11 +16,15 @@
   --danger: #ff6b6b;
   --radius: 10px;
 
-  --tabs-h: 44px;
-  --foot-h: 36px;
-  --actions-h: 52px;
-  --pad-x: 22px;
-  --pad-y: 16px;
+  /* The chrome around a panel. Every one of these comes straight off the
+   * height available to the tab that needs the most of it, so they are kept
+   * as small as they can be while the strip and the buttons stay comfortable.
+   * settings-window.js sizes the window from the same budget. */
+  --tabs-h: 40px;
+  --foot-h: 34px;
+  --actions-h: 46px;
+  --pad-x: 20px;
+  --pad-y: 14px;
 
   color-scheme: dark;
 }
@@ -88,7 +92,7 @@ body {
   color: var(--fg-dim);
   font: inherit;
   font-weight: 500;
-  padding: 8px 12px;
+  padding: 7px 11px;
   border-radius: 7px 7px 0 0;
   cursor: pointer;
   white-space: nowrap;
@@ -132,7 +136,7 @@ h2 {
   flex: 0 0 auto;
 }
 .col h2 + .field, .col h2 + .check { margin-top: 0; }
-.col h2:not(:first-child) { margin-top: 22px; }
+.col h2:not(:first-child) { margin-top: 18px; }
 
 /* Two-column layout used by the short settings tabs. */
 .cols {
@@ -273,10 +277,14 @@ button.icon-btn { padding: 4px 9px; font-size: 12px; }
 .theme-groups h2:first-child { margin-top: 0; }
 .theme-groups .count { text-transform: none; letter-spacing: 0; opacity: 0.75; }
 
+/* Eight columns takes the 24 themes in each group to exactly three rows, and
+ * three rows of this height is what the panel has room for. Both numbers move
+ * together: a fourth row, or a taller one, is the Themes tab asking the whole
+ * window to grow again. */
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  grid-auto-rows: 66px;
+  grid-template-columns: repeat(8, 1fr);
+  grid-auto-rows: 58px;
   gap: 6px;
   flex: 0 0 auto;
 }
@@ -383,7 +391,7 @@ button.icon-btn { padding: 4px 9px; font-size: 12px; }
   border-radius: 8px;
   background: var(--bg-raised);
   flex: 0 0 auto;
-  height: 44px;
+  height: 42px;
 }
 
 .rows li.drag-over { border-color: var(--accent); border-style: dashed; }

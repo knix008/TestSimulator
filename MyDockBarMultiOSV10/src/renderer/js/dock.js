@@ -4,6 +4,8 @@
 
   const api = window.dockApi;
   const { layout, peakSpread, approach } = window.DockMagnify;
+  const Tip = window.DockTooltip;
+  const Metrics = window.DockMetrics;
   const Glyphs = window.DockGlyphs;
 
   const el = {
@@ -37,7 +39,6 @@
     lastRect: null,
   };
 
-  const TOOLTIP_SPACE = 28;
   const STAGE_MARGIN = 24;
   // The gap at the two ends of the bar is fixed: the padding setting only ever
   // adjusts the thickness direction, so shrinking it cannot pull the end icons
@@ -158,23 +159,31 @@
     const sizes = state.drawn.map((it) => itemAxisSize(it, iconSize));
     const restLength = n ? sizes.reduce((a, b) => a + b, 0) + gap * (n - 1) : iconSize;
 
-    // Reflections are only drawn for a horizontal dock, so a vertical one must
-    // not reserve the space for them or its icons end up off-centre.
-    const reflection = dock.showReflection && isHorizontal() ? Math.round(iconSize * 0.18) : 0;
+    // How deep the background is, and how far in from its edge the icons sit.
+    // The gap either side of an icon is the same at every screen edge, so the
+    // dock looks the same whichever way round it is turned.
+    const cross = Metrics.crossMetrics({
+      iconSize,
+      padding: pad,
+      plateThickness: dock.plateThickness,
+      showReflection: dock.showReflection,
+      vertical: !isHorizontal(),
+    });
+    const plateCross = cross.plate;
+    const anchor = cross.anchor;
 
-    // Distance from the plate's outer edge to the icon. The reflection lives in
-    // this gap, and the plate is made twice as deep so the space above an icon
-    // matches the space below it on every edge of the screen.
-    //
-    // A non-zero plateThickness overrides that height; the icon stays centred
-    // in it, so the gaps above and below remain equal.
-    const autoCross = iconSize + (pad + reflection) * 2;
-    const plateCross = dock.plateThickness > 0
-      ? Math.max(iconSize + 4, Math.round(dock.plateThickness))
-      : autoCross;
-    const anchor = (plateCross - iconSize) / 2;
-
-    const tooltipRoom = dock.showLabels ? TOOLTIP_SPACE : 6;
+    // Names are shown inside the dock's own window, so the window has to be
+    // big enough to hold the longest of them. On a vertical dock that means a
+    // window far wider than the icons; on a short horizontal one it means a
+    // window wider than the row.
+    const label = labelExtent();
+    const vertical = !isHorizontal();
+    const tooltipRoom = Tip.crossRoom({
+      showLabels: dock.showLabels,
+      vertical,
+      labelWidth: label.width,
+      labelHeight: label.height,
+    });
     const stageCross = Math.ceil(
       Math.max(plateCross, anchor + iconSize * dock.maxZoom) + tooltipRoom + 10,
     );
@@ -198,7 +207,10 @@
     // The window is sized for the widest the bar can ever get, because resizing
     // an OS window mid-hover is what makes a dock feel unsteady. The window is
     // transparent, so the spare room simply is not visible.
-    const stageAxis = Math.ceil(restLength + spread + AXIS_PAD * 2 + STAGE_MARGIN * 2);
+    const stageAxis = Math.max(
+      Math.ceil(restLength + spread + AXIS_PAD * 2 + STAGE_MARGIN * 2),
+      Tip.axisRoom({ showLabels: dock.showLabels, vertical, labelWidth: label.width }),
+    );
 
     state.geom = {
       sizes, restLength, plateCross, stageAxis, stageCross,
@@ -445,6 +457,44 @@
    * Tooltip
    * --------------------------------------------------------------- */
 
+  /**
+   * How much space the longest item name needs, measured in the tooltip's own
+   * font. Measured with a canvas rather than by writing each name into the
+   * element: this runs during layout, and one text measurement per item is a
+   * great deal cheaper than one reflow per item.
+   */
+  function labelExtent() {
+    const empty = { width: 0, height: 0 };
+    if (!state.cfg.dock.showLabels) return empty;
+
+    const labels = state.drawn
+      .filter((item) => item.type !== 'separator' && item.label)
+      .map((item) => String(item.label));
+    if (!labels.length) return empty;
+
+    if (!labelExtent.ctx) {
+      labelExtent.ctx = document.createElement('canvas').getContext('2d');
+    }
+    const ctx = labelExtent.ctx;
+    const style = getComputedStyle(el.tooltip);
+    // `font` is empty in browsers that cannot serialise the shorthand, so fall
+    // back to assembling it from the longhands.
+    ctx.font = style.font
+      || `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+
+    let widest = 0;
+    for (const text of labels) widest = Math.max(widest, ctx.measureText(text).width);
+
+    const sides = (prop) => parseFloat(style[prop]) || 0;
+    const padX = sides('paddingLeft') + sides('paddingRight')
+      + sides('borderLeftWidth') + sides('borderRightWidth');
+    const padY = sides('paddingTop') + sides('paddingBottom')
+      + sides('borderTopWidth') + sides('borderBottomWidth');
+    const line = parseFloat(style.lineHeight) || (parseFloat(style.fontSize) || 12.5) * 1.2;
+
+    return { width: Math.ceil(widest + padX) + 1, height: Math.ceil(line + padY) };
+  }
+
   function positionTooltip() {
     if (state.hoverIndex < 0 || !state.cfg.dock.showLabels) {
       el.tooltip.classList.remove('show');
@@ -462,20 +512,20 @@
     const node = state.nodes[state.hoverIndex];
     const box = node.getBoundingClientRect();
     const tip = el.tooltip.getBoundingClientRect();
-    const dock = state.cfg.dock;
-    const s = el.tooltip.style;
 
-    if (isHorizontal()) {
-      let left = box.left + box.width / 2 - tip.width / 2;
-      left = Math.max(4, Math.min(window.innerWidth - tip.width - 4, left));
-      s.left = `${left}px`;
-      s.top = dock.position === 'bottom' ? `${box.top - tip.height - 8}px` : `${box.bottom + 8}px`;
-    } else {
-      let top = box.top + box.height / 2 - tip.height / 2;
-      top = Math.max(4, Math.min(window.innerHeight - tip.height - 4, top));
-      s.top = `${top}px`;
-      s.left = dock.position === 'left' ? `${box.right + 8}px` : `${box.left - tip.width - 8}px`;
-    }
+    // Clamped on both axes, not just the one the dock runs along: the window
+    // is sized for the longest name, but a name longer than the cap, or a
+    // stale size from a config change still in flight, must still land inside
+    // it rather than be cut off at the window edge.
+    const at = Tip.place({
+      position: state.cfg.dock.position,
+      box,
+      tip: { width: tip.width, height: tip.height },
+      view: { width: window.innerWidth, height: window.innerHeight },
+    });
+
+    el.tooltip.style.left = `${at.left}px`;
+    el.tooltip.style.top = `${at.top}px`;
   }
 
   /* --------------------------------------------------------------- *
@@ -734,6 +784,42 @@
   function applyBodyClasses() {
     const dock = state.cfg.dock;
     el.body.className = `pos-${dock.position}${dock.showReflection ? ' reflections' : ''}`;
+    applyEffectDirection(dock);
+  }
+
+  /** Unit vectors for the four directions a launched icon can travel. */
+  const FX_VECTOR = {
+    up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0],
+  };
+
+  /** Away from the screen edge the dock is docked against. */
+  const FX_AWAY_FROM_EDGE = {
+    bottom: 'up', top: 'down', left: 'right', right: 'left',
+  };
+
+  /**
+   * Point the click effect somewhere the icon can actually go.
+   *
+   * An icon resting on the bottom of the screen can only bounce upwards, and
+   * one down the left-hand edge can only bounce to the right - a fixed
+   * translateY would drive the icons of a side dock into the screen edge
+   * instead of away from it. 'auto' works that out from the position; the four
+   * explicit directions are for anyone who wants it otherwise.
+   *
+   * The error shake runs across the bounce, along the bar, so a failed launch
+   * wobbles between its neighbours instead of retracing the same line.
+   */
+  function applyEffectDirection(dock) {
+    const choice = !dock.clickEffectDirection || dock.clickEffectDirection === 'auto'
+      ? FX_AWAY_FROM_EDGE[dock.position] || 'up'
+      : dock.clickEffectDirection;
+    const [x, y] = FX_VECTOR[choice] || FX_VECTOR.up;
+
+    const style = document.documentElement.style;
+    style.setProperty('--fx-x', String(x));
+    style.setProperty('--fx-y', String(y));
+    style.setProperty('--fx-shake-x', String(Math.abs(y)));
+    style.setProperty('--fx-shake-y', String(Math.abs(x)));
   }
 
   /** Put the running dot under any drawn item whose executable is running. */
@@ -780,7 +866,13 @@
     setupDragAndDrop();
 
     api.config.onChange((next) => { refresh(next); });
-    api.dock.onHiddenChanged((hidden) => {
+    api.dock.onHiddenChanged((info) => {
+      // Older payloads were a bare boolean; the slide added a duration.
+      const hidden = info && typeof info === 'object' ? !!info.hidden : !!info;
+      const ms = info && typeof info === 'object' ? Number(info.duration) || 0 : 0;
+      // Fade over exactly as long as the window takes to travel, so the dock
+      // dissolves as it sinks instead of blinking out at either end of it.
+      el.body.style.setProperty('--slide-ms', `${ms}ms`);
       el.body.classList.toggle('plate-hidden', hidden);
       if (hidden) { state.cursor = null; state.hoverIndex = -1; paint(false); }
     });

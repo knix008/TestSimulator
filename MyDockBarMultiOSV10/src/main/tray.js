@@ -57,15 +57,16 @@ function rebuild({ dockWindow, settingsWindow, themes, config, onThemeChange, on
     },
   }));
 
-  const languages = [
-    { id: 'auto', key: 'lang.auto' },
-    { id: 'en', key: 'lang.en' },
-    { id: 'ko', key: 'lang.ko' },
-  ].map((entry) => ({
-    label: t(entry.key),
-    icon: menuIcons.get(current.locale === entry.id ? 'language-active' : 'language'),
-    click: () => onLocaleChange(entry.id),
-  }));
+  // One item that switches to the other language rather than a submenu of
+  // three: with only two languages, a submenu is a second click for an answer
+  // there is only one of. Both the name and the flag are the language being
+  // offered, not the one in force, so the item reads as the button it is.
+  const otherLocale = locale === 'ko' ? 'en' : 'ko';
+  const languageToggle = {
+    label: t(`lang.${otherLocale}`),
+    icon: menuIcons.get(otherLocale === 'ko' ? 'flag-ko' : 'flag-en'),
+    click: () => onLocaleChange(otherLocale),
+  };
 
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: t('menu.app'), icon: menuIcons.get('dock'), enabled: false },
@@ -79,7 +80,7 @@ function rebuild({ dockWindow, settingsWindow, themes, config, onThemeChange, on
         : [{ label: t('menu.noThemes'), icon: menuIcons.get('theme'), enabled: false }],
     },
     { label: t('menu.position'), icon: menuIcons.get(`pos-${current.dock.position}`), submenu: positions },
-    { label: t('menu.language'), icon: menuIcons.get('language'), submenu: languages },
+    languageToggle,
     {
       label: current.dock.lockItems ? t('menu.unlock') : t('menu.lock'),
       icon: menuIcons.get(current.dock.lockItems ? 'locked' : 'unlocked'),

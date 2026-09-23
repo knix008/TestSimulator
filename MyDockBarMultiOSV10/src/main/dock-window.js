@@ -2,8 +2,12 @@
 
 const path = require('path');
 const { BrowserWindow, screen } = require('electron');
+const slide = require('./slide');
 
 const MIN = { width: 80, height: 80 };
+
+/** Roughly one frame: the slide is redrawn this often while it runs. */
+const FRAME_MS = 16;
 
 class DockWindow {
   constructor(config) {
@@ -11,8 +15,12 @@ class DockWindow {
     this.win = null;
     this.contentSize = { width: 400, height: 90 };
     this.hidden = false;
+    // How far along the auto-hide slide the window is: 0 fully out, 1 fully
+    // away. Anything in between means it is moving right now.
+    this.slide = 0;
     this._hideTimer = null;
     this._showTimer = null;
+    this._slideTimer = null;
     this._onDisplayChange = () => this.reposition();
   }
 
@@ -65,6 +73,7 @@ class DockWindow {
     screen.on('display-removed', this._onDisplayChange);
 
     this.win.on('closed', () => {
+      this.cancelSlide();
       screen.removeListener('display-metrics-changed', this._onDisplayChange);
       screen.removeListener('display-added', this._onDisplayChange);
       screen.removeListener('display-removed', this._onDisplayChange);
@@ -80,7 +89,9 @@ class DockWindow {
 
   applyAlwaysOnTop(dock = this.config.get().dock) {
     if (!this.alive()) return;
-    if (!dock.alwaysOnTop || dock.stackingLevel === 'normal') {
+    // 'normal' is what "not on top" means, so the stacking level is the whole
+    // setting; a separate always-on-top switch could only ever contradict it.
+    if (dock.stackingLevel === 'normal') {
       this.win.setAlwaysOnTop(false);
       return;
     }
@@ -122,12 +133,10 @@ class DockWindow {
     this.reposition();
   }
 
-  reposition() {
-    if (!this.alive()) return;
-
+  /** Where the window rests when the dock is fully out, and fully hidden. */
+  slideStops() {
     const dock = this.config.get().dock;
-    const display = this.targetDisplay();
-    const area = display.workArea;
+    const area = this.targetDisplay().workArea;
     const { width: w, height: h } = this.contentSize;
 
     let x;
@@ -149,23 +158,103 @@ class DockWindow {
         : area.y + area.height - h - offset;
     }
 
-    if (this.hidden) {
-      const peek = Math.max(1, dock.autoHidePeek);
-      if (dock.position === 'bottom') y = area.y + area.height - peek;
-      else if (dock.position === 'top') y = area.y - h + peek;
-      else if (dock.position === 'left') x = area.x - w + peek;
-      else x = area.x + area.width - peek;
-    }
+    const shown = { x: Math.round(x), y: Math.round(y) };
+    const away = slide.awayOrigin(shown, {
+      position: dock.position,
+      area,
+      width: w,
+      height: h,
+      peek: dock.autoHidePeek,
+    });
+    return { shown, away, width: w, height: h };
+  }
 
-    this.win.setBounds({ x: Math.round(x), y: Math.round(y), width: w, height: h });
-    this.applyAlwaysOnTop(dock);
+  /** Move the window to wherever the slide currently stands. */
+  place() {
+    if (!this.alive()) return;
+    const { shown, away, width, height } = this.slideStops();
+    const at = slide.originAt(shown, away, this.slide);
+    this.win.setBounds({ x: at.x, y: at.y, width, height });
+  }
+
+  reposition() {
+    if (!this.alive()) return;
+    this.place();
+    this.applyAlwaysOnTop();
+  }
+
+  /** How long a full hide or reveal should take, in milliseconds. */
+  slideMs() {
+    const ms = this.config.get().dock.autoHideAnimation;
+    return Number.isFinite(ms) ? Math.max(0, ms) : 0;
+  }
+
+  /** True while the dock is part-way between out and away. */
+  sliding() {
+    return !!this._slideTimer;
   }
 
   setHidden(hidden) {
     if (this.hidden === hidden) return;
     this.hidden = hidden;
-    this.reposition();
-    this.send('dock:hidden-changed', hidden);
+
+    const ms = this.slideMs();
+    // The renderer fades the dock out over the same span, so the two halves of
+    // the effect finish together instead of one snapping ahead of the other.
+    this.send('dock:hidden-changed', { hidden, duration: ms });
+    this.slideTo(hidden ? 1 : 0, ms);
+  }
+
+  /**
+   * Walk the window to `target` (0 out, 1 away) over `ms`, easing at both ends.
+   * Starting a new slide part-way through simply redirects the one in flight,
+   * so a dock caught on its way out returns from where it had got to rather
+   * than jumping back to the edge first.
+   */
+  slideTo(target, ms) {
+    this.cancelSlide();
+    if (!this.alive()) { this.slide = target; return; }
+
+    const from = this.slide;
+    const span = slide.duration(ms, from, target);
+    if (!span) {
+      this.slide = target;
+      this.reposition();
+      return;
+    }
+
+    const started = Date.now();
+    this._slideTimer = setInterval(() => {
+      if (!this.alive()) { this.cancelSlide(); return; }
+      const t = (Date.now() - started) / span;
+      if (t >= 1) {
+        this.slide = target;
+        this.cancelSlide();
+      } else {
+        this.slide = from + (target - from) * slide.ease(t);
+      }
+      this.place();
+    }, FRAME_MS);
+  }
+
+  cancelSlide() {
+    clearInterval(this._slideTimer);
+    this._slideTimer = null;
+  }
+
+  /**
+   * The strip that wakes a hidden dock, in window-local coordinates.
+   *
+   * Not simply "the whole window": while the dock slides out, the window is
+   * still largely on screen and sweeping across the desktop, so treating all
+   * of it as a hot zone would have the dock spring back the moment it passed
+   * under the pointer. Only the sliver at the screen edge counts.
+   */
+  hotRect() {
+    if (!this.alive()) return null;
+    const dock = this.config.get().dock;
+    const band = slide.edgeBand(dock.position, this.targetDisplay().workArea, dock.autoHidePeek);
+    return slide.localOverlap(this.win.getBounds(), band);
   }
 
   scheduleHide() {

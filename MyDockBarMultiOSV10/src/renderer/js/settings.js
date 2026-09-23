@@ -20,7 +20,7 @@
   const TAB_ICONS = {
     general: 'settings',
     themes: 'theme',
-    icons: 'app',
+    appearance: 'app',
     zoom: 'zoom',
     position: 'pos-bottom',
     behaviour: 'toggle-on',
@@ -165,10 +165,12 @@
     ranges.autoShowDelay = bindRange('autoShowDelay', (v) => t('u.ms', { n: v }));
     ranges.autoHideDelay = bindRange('autoHideDelay', (v) => t('u.ms', { n: v }));
     ranges.autoHidePeek = bindRange('autoHidePeek', px);
+    ranges.autoHideAnimation = bindRange('autoHideAnimation', (v) => (v === 0 ? t('o.instant') : t('u.ms', { n: v })));
     ranges.plateThickness = bindRange('plateThickness', (v) => (v === 0 ? t('o.auto') : t('u.px', { n: v })));
 
     bindSelect('animation');
     bindSelect('clickEffect');
+    bindSelect('clickEffectDirection');
     bindSelect('position');
     bindSelect('align');
     bindSelect('display');
@@ -181,7 +183,7 @@
     });
 
     for (const id of ['showLabels', 'showReflection', 'showRunningIndicator',
-      'showRunningApps', 'focusRunningWindow', 'autoHide', 'alwaysOnTop',
+      'showRunningApps', 'focusRunningWindow', 'autoHide',
       'showOnAllWorkspaces', 'lockItems']) {
       bindCheck(id);
     }
@@ -1088,6 +1090,7 @@
 
     $('animation').value = dock.animation;
     $('clickEffect').value = dock.clickEffect;
+    $('clickEffectDirection').value = dock.clickEffectDirection;
     $('position').value = dock.position;
     $('align').value = dock.align;
     $('stackingLevel').value = dock.stackingLevel;
@@ -1095,7 +1098,7 @@
     if ($('display').options.length) $('display').value = String(dock.display);
 
     for (const id of ['showLabels', 'showReflection', 'showRunningIndicator',
-      'showRunningApps', 'focusRunningWindow', 'autoHide', 'alwaysOnTop',
+      'showRunningApps', 'focusRunningWindow', 'autoHide',
       'showOnAllWorkspaces', 'lockItems']) {
       $(id).checked = !!dock[id];
     }

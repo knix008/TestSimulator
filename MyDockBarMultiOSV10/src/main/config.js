@@ -24,12 +24,18 @@ function defaults() {
       zoomRange: 2,              // how many icons on each side are affected
       animation: 'parabolic',    // parabolic | linear | none
       clickEffect: 'bounce',     // bounce | pop | none
+      // Which way a launched icon travels. 'auto' points it away from the
+      // screen edge the dock is docked against, which is up for a dock along
+      // the bottom and right for one down the left-hand side.
+      clickEffectDirection: 'auto', // auto | up | down | left | right
       autoHide: false,
       autoHidePeek: 3,           // px left visible when hidden
       autoHideDelay: 450,        // ms before hiding again
       autoShowDelay: 60,         // ms the pointer must rest on the edge first
-      alwaysOnTop: true,
-      // How far above other windows the dock floats.
+      autoHideAnimation: 260,    // ms the dock takes to slide away or back; 0 = instant
+      // How far above other windows the dock floats. 'normal' leaves it in the
+      // ordinary stacking order, so this one setting covers "always on top"
+      // as well as how far on top.
       // normal | floating | screen-saver
       stackingLevel: 'screen-saver',
       showOnAllWorkspaces: true,

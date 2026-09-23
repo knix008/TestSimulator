@@ -1,6 +1,14 @@
 'use strict';
 
 const { screen } = require('electron');
+const slide = require('./slide');
+
+/**
+ * Grace band around the dock. Leaving it by a hair should not start the dock
+ * hiding, and it has to be wide enough to span the gap between the sliver of
+ * an auto-hidden dock and the plate that is sliding up to meet the pointer.
+ */
+const NEAR_DOCK = 48;
 
 /**
  * A transparent dock window is a rectangle: without help it would swallow every
@@ -59,17 +67,19 @@ class PointerWatch {
     const local = { x: point.x - bounds.x, y: point.y - bounds.y };
     const inWindow = local.x >= 0 && local.y >= 0 && local.x < bounds.width && local.y < bounds.height;
 
-    // When auto-hidden the whole visible sliver is a hot zone, otherwise only
-    // the plate the renderer told us about.
-    const hot = dock.hidden ? { x: 0, y: 0, width: bounds.width, height: bounds.height } : this.rect;
-    const inHot = !!hot
-      && local.x >= hot.x && local.x < hot.x + hot.width
-      && local.y >= hot.y && local.y < hot.y + hot.height;
+    const call = slide.decide({
+      point: local,
+      hidden: dock.hidden,
+      sliding: dock.sliding(),
+      plate: this.rect,
+      sliver: dock.hidden ? dock.hotRect() : null,
+      margin: NEAR_DOCK,
+    });
 
-    this.apply(inHot);
+    this.apply(call.interactive);
 
-    if (inHot) dock.scheduleShow();
-    else if (!inWindow) dock.scheduleHide();
+    if (call.show) dock.scheduleShow();
+    else if (call.hide) dock.scheduleHide();
 
     // Poll hard only while the pointer is in the neighbourhood.
     const near = inWindow || withinMargin(local, bounds, 60);

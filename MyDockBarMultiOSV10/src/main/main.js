@@ -21,10 +21,27 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('disable-gpu-compositing');
 }
 
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
+// One dock, one process. Windows offers a Start menu entry, a desktop
+// shortcut, a login item and the installer's "run it now" box, so a second
+// launch while the dock is already sitting in the tray is routine rather than
+// exceptional. The instance that loses the lock has initialised nothing yet,
+// so it leaves immediately: `exit` rather than `quit`, which would walk the
+// shutdown lifecycle - window-all-closed, before-quit, will-quit - of an
+// application that never started, and tear down the tray icon and the saved
+// configuration belonging to the copy that is still running.
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);
 } else {
+  app.setAppUserModelId('com.suhokwon.mydockbar');
+  app.setPath('crashDumps', path.join(app.getPath('temp'), 'mydockbar-crashes'));
+
+  // macOS: the dock is chrome, so keep it out of the system Dock and app switcher.
+  if (process.platform === 'darwin') {
+    app.whenReady().then(() => {
+      if (app.dock) app.dock.hide();
+    });
+  }
+
   start();
 }
 
@@ -118,13 +135,3 @@ function start() {
 
   app.on('will-quit', () => tray.destroy());
 }
-
-// macOS: the dock is chrome, so keep it out of the system Dock and app switcher.
-if (process.platform === 'darwin') {
-  app.whenReady().then(() => {
-    if (app.dock) app.dock.hide();
-  });
-}
-
-app.setAppUserModelId('com.suhokwon.mydockbar');
-app.setPath('crashDumps', path.join(app.getPath('temp'), 'mydockbar-crashes'));

@@ -8,18 +8,59 @@
   <link rel="stylesheet" href="css/settings.css" />
 </head>
 <body>
+  <!-- Tabs run from the whole application inwards: what MyDockBar is, then how
+       the dock looks, then where it sits and how it acts, then what is on it. -->
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="general" role="tab"><span data-i18n="tab.general">General</span></button>
     <button class="tab" data-tab="themes" role="tab"><span data-i18n="tab.themes">Themes</span></button>
-    <button class="tab" data-tab="icons" role="tab"><span data-i18n="tab.icons">Icons</span></button>
+    <button class="tab" data-tab="appearance" role="tab"><span data-i18n="tab.appearance">Appearance</span></button>
     <button class="tab" data-tab="zoom" role="tab"><span data-i18n="tab.zoom">Zoom</span></button>
     <button class="tab" data-tab="position" role="tab"><span data-i18n="tab.position">Position</span></button>
     <button class="tab" data-tab="behaviour" role="tab"><span data-i18n="tab.behaviour">Behaviour</span></button>
-    <button class="tab" data-tab="items" role="tab"><span data-i18n="tab.items">Dock Items</span></button>
+    <button class="tab" data-tab="items" role="tab"><span data-i18n="tab.items">Items</span></button>
     <button class="tab" data-tab="apps" role="tab"><span data-i18n="tab.apps">Applications</span></button>
   </nav>
 
   <main>
+    <!-- ------------------------------- General ------------------------------- *
+         Everything about MyDockBar itself rather than about the dock.          -->
+    <section id="tab-general" class="panel active">
+      <div class="cols">
+        <div class="col">
+          <h2 data-i18n="h.language">Language</h2>
+          <label class="field">
+            <span data-i18n="f.language">Language</span>
+            <select id="locale">
+              <option value="auto" data-i18n="lang.auto">Same as system</option>
+              <option value="en" data-i18n="lang.en">English</option>
+              <option value="ko" data-i18n="lang.ko">한국어</option>
+            </select>
+          </label>
+
+          <h2 data-i18n="h.startup">Startup</h2>
+          <label class="check"><input type="checkbox" id="startWithOS" /> <span data-i18n="c.startWithOS">Start at login</span></label>
+
+          <h2 data-i18n="h.configuration">Configuration</h2>
+          <div class="stack">
+            <button id="cfg-export" class="ghost" data-i18n="b.export">Export settings…</button>
+            <button id="cfg-import" class="ghost" data-i18n="b.import">Import settings…</button>
+            <button id="cache-clear" class="ghost" data-i18n="b.clearCache">Clear icon cache</button>
+          </div>
+        </div>
+        <div class="col">
+          <h2 data-i18n="h.about">About</h2>
+          <p class="about">
+            <strong>MyDockBar</strong> <span id="about-version"></span><br />
+            <span data-i18n="m.aboutBody"></span><br />
+            <span id="about-platform"></span>
+          </p>
+          <div class="stack">
+            <button id="quit-app" class="danger" data-i18n="b.quit">Quit MyDockBar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ------------------------------- Themes -------------------------------- -->
     <section id="tab-themes" class="panel">
       <div class="theme-groups">
@@ -34,8 +75,9 @@
       </footer>
     </section>
 
-    <!-- -------------------------------- Icons -------------------------------- -->
-    <section id="tab-icons" class="panel">
+    <!-- ----------------------------- Appearance ------------------------------ *
+         How big the dock is and what it is made of - nothing that moves.       -->
+    <section id="tab-appearance" class="panel">
       <div class="cols">
         <div class="col">
           <h2 data-i18n="h.sizeSpacing">Size &amp; spacing</h2>
@@ -55,6 +97,7 @@
             <span data-i18n="f.plateThickness">Background height</span>
             <input type="range" id="plateThickness" min="0" max="220" step="2" /><em id="v-plateThickness"></em>
           </label>
+          <p class="hint" data-i18n="m.paddingHint"></p>
         </div>
         <div class="col">
           <h2 data-i18n="h.transparency">Transparency</h2>
@@ -67,16 +110,15 @@
             <input type="range" id="plateOpacity" min="0" max="1" step="0.05" /><em id="v-plateOpacity"></em>
           </label>
 
-          <h2 data-i18n="h.decoration">Decoration</h2>
+          <h2 data-i18n="h.display">Display</h2>
+          <label class="check"><input type="checkbox" id="showLabels" /> <span data-i18n="c.showLabels">Show labels on hover</span></label>
           <label class="check"><input type="checkbox" id="showReflection" /> <span data-i18n="c.showReflection">Show icon reflections</span></label>
-          <label class="check"><input type="checkbox" id="showRunningIndicator" /> <span data-i18n="c.showRunning">Dot under running applications</span></label>
-          <label class="check"><input type="checkbox" id="showRunningApps" /> <span data-i18n="c.showRunningApps">Also show open applications</span></label>
-          <p class="hint" data-i18n="m.paddingHint"></p>
         </div>
       </div>
     </section>
 
-    <!-- -------------------------------- Zoom --------------------------------- -->
+    <!-- -------------------------------- Zoom --------------------------------- *
+         Everything the icons do when the pointer or a click reaches them.      -->
     <section id="tab-zoom" class="panel">
       <div class="cols">
         <div class="col">
@@ -98,6 +140,8 @@
               <option value="none" data-i18n="o.none">None</option>
             </select>
           </label>
+
+          <h2 data-i18n="h.launchEffect">Launch effect</h2>
           <label class="field">
             <span data-i18n="f.clickEffect">Click effect</span>
             <select id="clickEffect">
@@ -106,16 +150,28 @@
               <option value="none" data-i18n="o.none">None</option>
             </select>
           </label>
+          <label class="field">
+            <span data-i18n="f.clickEffectDirection">Direction</span>
+            <select id="clickEffectDirection">
+              <option value="auto" data-i18n="o.dirAuto">Away from the edge</option>
+              <option value="up" data-i18n="o.dirUp">Up</option>
+              <option value="down" data-i18n="o.dirDown">Down</option>
+              <option value="left" data-i18n="o.dirLeft">Left</option>
+              <option value="right" data-i18n="o.dirRight">Right</option>
+            </select>
+          </label>
         </div>
         <div class="col">
           <h2 data-i18n="h.preview">Preview</h2>
           <div id="zoom-preview" class="zoom-preview"></div>
           <p class="hint" data-i18n="m.zoomHint"></p>
+          <p class="hint" data-i18n="m.effectHint"></p>
         </div>
       </div>
     </section>
 
-    <!-- ------------------------------- Position ------------------------------ -->
+    <!-- ------------------------------- Position ------------------------------ *
+         Where the dock is on screen, including how far up the window stack.    -->
     <section id="tab-position" class="panel">
       <div class="cols">
         <div class="col">
@@ -141,6 +197,17 @@
             <span data-i18n="f.edgeOffset">Offset from edge</span>
             <input type="range" id="edgeOffset" min="0" max="120" step="1" /><em id="v-edgeOffset"></em>
           </label>
+
+          <h2 data-i18n="h.window">Window</h2>
+          <label class="field">
+            <span data-i18n="f.stackingLevel">Window priority</span>
+            <select id="stackingLevel">
+              <option value="screen-saver" data-i18n="o.levelTop">Above everything</option>
+              <option value="floating" data-i18n="o.levelFloating">Above normal windows</option>
+              <option value="normal" data-i18n="o.levelNormal">Normal</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="showOnAllWorkspaces" /> <span data-i18n="c.allWorkspaces">All workspaces</span></label>
         </div>
         <div class="col">
           <h2 data-i18n="h.monitor">Monitor</h2>
@@ -153,7 +220,9 @@
       </div>
     </section>
 
-    <!-- ------------------------------ Behaviour ------------------------------ -->
+    <!-- ------------------------------ Behaviour ------------------------------ *
+         What the dock does on its own: hiding, tracking what is running, and
+         whether it will let its own contents be changed.                       -->
     <section id="tab-behaviour" class="panel">
       <div class="cols">
         <div class="col">
@@ -171,25 +240,21 @@
             <span data-i18n="f.autoHidePeek">Visible sliver</span>
             <input type="range" id="autoHidePeek" min="1" max="20" step="1" /><em id="v-autoHidePeek"></em>
           </label>
+          <label class="field">
+            <span data-i18n="f.autoHideAnimation">Slide time</span>
+            <input type="range" id="autoHideAnimation" min="0" max="800" step="20" /><em id="v-autoHideAnimation"></em>
+          </label>
           <p class="hint" data-i18n="m.autoHideHint"></p>
         </div>
         <div class="col">
-          <h2 data-i18n="h.window">Window</h2>
-          <label class="field">
-            <span data-i18n="f.stackingLevel">Window priority</span>
-            <select id="stackingLevel">
-              <option value="screen-saver" data-i18n="o.levelTop">Above everything</option>
-              <option value="floating" data-i18n="o.levelFloating">Above normal windows</option>
-              <option value="normal" data-i18n="o.levelNormal">Normal</option>
-            </select>
-          </label>
-          <label class="check"><input type="checkbox" id="alwaysOnTop" /> <span data-i18n="c.alwaysOnTop">Always on top</span></label>
-          <label class="check"><input type="checkbox" id="showOnAllWorkspaces" /> <span data-i18n="c.allWorkspaces">All workspaces</span></label>
-          <label class="check"><input type="checkbox" id="lockItems" /> <span data-i18n="c.lockItems">Lock items</span></label>
+          <h2 data-i18n="h.running">Running applications</h2>
+          <label class="check"><input type="checkbox" id="showRunningIndicator" /> <span data-i18n="c.showRunning">Dot under running applications</span></label>
+          <label class="check"><input type="checkbox" id="showRunningApps" /> <span data-i18n="c.showRunningApps">Also show open applications</span></label>
           <label class="check"><input type="checkbox" id="focusRunningWindow" /> <span data-i18n="c.focusRunning">Raise open windows</span></label>
+          <p class="hint" data-i18n="m.runningHint"></p>
 
-          <h2 data-i18n="h.startup">Startup</h2>
-          <label class="check"><input type="checkbox" id="startWithOS" /> <span data-i18n="c.startWithOS">Start at login</span></label>
+          <h2 data-i18n="h.items">Items</h2>
+          <label class="check"><input type="checkbox" id="lockItems" /> <span data-i18n="c.lockItems">Lock items</span></label>
         </div>
       </div>
     </section>
@@ -222,44 +287,6 @@
         <div class="pager" id="app-pager"></div>
         <span class="hint" id="apps-status"></span>
       </footer>
-    </section>
-
-    <!-- ------------------------------- General ------------------------------- -->
-    <section id="tab-general" class="panel active">
-      <div class="cols">
-        <div class="col">
-          <h2 data-i18n="h.display">Display</h2>
-          <label class="check"><input type="checkbox" id="showLabels" /> <span data-i18n="c.showLabels">Show labels on hover</span></label>
-
-          <h2 data-i18n="h.language">Language</h2>
-          <label class="field">
-            <span data-i18n="f.language">Language</span>
-            <select id="locale">
-              <option value="auto" data-i18n="lang.auto">Same as system</option>
-              <option value="en" data-i18n="lang.en">English</option>
-              <option value="ko" data-i18n="lang.ko">한국어</option>
-            </select>
-          </label>
-
-          <h2 data-i18n="h.configuration">Configuration</h2>
-          <div class="stack">
-            <button id="cfg-export" class="ghost" data-i18n="b.export">Export settings…</button>
-            <button id="cfg-import" class="ghost" data-i18n="b.import">Import settings…</button>
-            <button id="cache-clear" class="ghost" data-i18n="b.clearCache">Clear icon cache</button>
-          </div>
-        </div>
-        <div class="col">
-          <h2 data-i18n="h.about">About</h2>
-          <p class="about">
-            <strong>MyDockBar</strong> <span id="about-version"></span><br />
-            <span data-i18n="m.aboutBody"></span><br />
-            <span id="about-platform"></span>
-          </p>
-          <div class="stack">
-            <button id="quit-app" class="danger" data-i18n="b.quit">Quit MyDockBar</button>
-          </div>
-        </div>
-      </div>
     </section>
   </main>
 

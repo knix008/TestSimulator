@@ -100,4 +100,16 @@ describe('interface coverage', () => {
     const missing = [...new Set(used)].filter((key) => !(key in i18n.STRINGS.en));
     assert.deepStrictEqual(missing, [], `main process uses undefined keys: ${missing.join(', ')}`);
   });
+
+  it('defines every key the settings script asks for at runtime', () => {
+    // Labels built in JavaScript - a slider's unit, or a word shown in place
+    // of a number - never appear in the markup, so the data-i18n sweep misses
+    // them entirely.
+    const source = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'js', 'settings.js'), 'utf8');
+    const used = [...source.matchAll(/\bt\((['`])([a-z]+\.[A-Za-z]+)\1/g)].map((m) => m[2]);
+    assert.ok(used.length > 5, 'expected the settings script to translate its own labels');
+
+    const missing = [...new Set(used)].filter((key) => !(key in i18n.STRINGS.en));
+    assert.deepStrictEqual(missing, [], `settings.js uses undefined keys: ${missing.join(', ')}`);
+  });
 });

@@ -62,6 +62,17 @@ html, body {
   position: relative;
   width: 100%;
   height: 100%;
+  /* Auto-hide slides the whole window to the screen edge; the stage dissolves
+   * over the same span so the dock sinks out of sight rather than vanishing.
+   * `--slide-ms` is set from the duration the main process actually used. */
+  transition: opacity var(--slide-ms, 260ms) cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Fading out is weighted late, so the dock stays solid while it is still on
+ * screen and only thins as the last of it slips past the edge. */
+body.plate-hidden .stage {
+  opacity: 0;
+  transition-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
 }
 
 /* ----------------------------- the plate ---------------------------- */
@@ -79,7 +90,6 @@ html, body {
   pointer-events: none;
 }
 
-body.plate-hidden .plate { opacity: 0; }
 
 /* ----------------------------- the items ---------------------------- */
 
@@ -180,17 +190,52 @@ body.pos-right  .dock-item .indicator { right: -7px;  top: 50%;  transform: tran
 
 /* --------------------------- click effects -------------------------- */
 
+/* The direction a launched icon travels, as a unit vector the keyframes below
+ * scale. A bounce only reads as a bounce when it moves away from the surface
+ * the icon is standing on, so a dock along the bottom throws its icons up, one
+ * down the left-hand side throws them to the right, and so on. `--fx-shake`
+ * runs along the bar instead, across the bounce, so a failed launch wobbles
+ * between its neighbours rather than into the desktop.
+ *
+ * Both are set from the renderer, which is where the position and the user's
+ * own choice of direction are known. The values here are the fallback for a
+ * dock along the bottom. */
+:root {
+  --fx-x: 0;
+  --fx-y: -1;
+  --fx-shake-x: 1;
+  --fx-shake-y: 0;
+}
+
 /* Gravity, not a sine wave: each leg gets its own easing so the icon
  * decelerates into the apex and accelerates back down, and the rebounds decay
  * the way a real bounce does. */
 @keyframes dock-bounce {
-  0%   { transform: translateY(0);    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1); }
-  26%  { transform: translateY(-32%); animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4); }
-  52%  { transform: translateY(0);    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1); }
-  68%  { transform: translateY(-12%); animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4); }
-  84%  { transform: translateY(0);    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1); }
-  92%  { transform: translateY(-4%);  animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4); }
-  100% { transform: translateY(0); }
+  0% {
+    transform: translate(0, 0);
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  26% {
+    transform: translate(calc(var(--fx-x) * 32%), calc(var(--fx-y) * 32%));
+    animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4);
+  }
+  52% {
+    transform: translate(0, 0);
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  68% {
+    transform: translate(calc(var(--fx-x) * 12%), calc(var(--fx-y) * 12%));
+    animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4);
+  }
+  84% {
+    transform: translate(0, 0);
+    animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  92% {
+    transform: translate(calc(var(--fx-x) * 4%), calc(var(--fx-y) * 4%));
+    animation-timing-function: cubic-bezier(0.64, 0, 0.78, 0.4);
+  }
+  100% { transform: translate(0, 0); }
 }
 
 @keyframes dock-pop {
@@ -201,11 +246,11 @@ body.pos-right  .dock-item .indicator { right: -7px;  top: 50%;  transform: tran
 }
 
 @keyframes dock-shake {
-  0%, 100% { transform: translateX(0); }
-  20%      { transform: translateX(-6px); }
-  40%      { transform: translateX(6px); }
-  60%      { transform: translateX(-4px); }
-  80%      { transform: translateX(3px); }
+  0%, 100% { transform: translate(0, 0); }
+  20%      { transform: translate(calc(var(--fx-shake-x) * -6px), calc(var(--fx-shake-y) * -6px)); }
+  40%      { transform: translate(calc(var(--fx-shake-x) * 6px),  calc(var(--fx-shake-y) * 6px)); }
+  60%      { transform: translate(calc(var(--fx-shake-x) * -4px), calc(var(--fx-shake-y) * -4px)); }
+  80%      { transform: translate(calc(var(--fx-shake-x) * 3px),  calc(var(--fx-shake-y) * 3px)); }
 }
 
 .dock-item.fx-bounce .icon-inner { animation: dock-bounce 900ms linear; }
@@ -240,7 +285,9 @@ body.pos-right  .dock-item .indicator { right: -7px;  top: 50%;  transform: tran
 .tooltip {
   position: absolute;
   padding: 5px 10px;
-  max-width: 280px;
+  /* Matches DockTooltip.MAX_LABEL: the window reserves room up to this width,
+   * so anything narrower than the cap is shown in full rather than ellipsised. */
+  max-width: 420px;
   font: var(--tooltip-font);
   color: var(--tooltip-fg);
   background: var(--tooltip-bg);
@@ -269,6 +316,7 @@ body.pos-right  .dock-item .indicator { right: -7px;  top: 50%;  transform: tran
 .dock-item.dragging { opacity: 0.35; }
 
 @media (prefers-reduced-motion: reduce) {
+  .stage { transition: none; }
   body.reordering .dock-item { transition: none; }
   .dock-item.vanishing .icon-inner { animation-duration: 1ms; }
   .dock-item.fx-bounce .icon-inner,

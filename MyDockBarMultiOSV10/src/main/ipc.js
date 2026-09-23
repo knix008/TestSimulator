@@ -475,6 +475,20 @@ function register({
           pushConfig();
         },
       },
+      // The same one-click language switch the tray menu offers, named and
+      // flagged for the language it moves to rather than the one in force.
+      (() => {
+        const other = activeLocale(config) === 'ko' ? 'en' : 'ko';
+        return {
+          label: t(`lang.${other}`),
+          icon: menuIcons.get(other === 'ko' ? 'flag-ko' : 'flag-en'),
+          click: () => {
+            config.patch({ locale: other });
+            tray.rebuild(trayDeps());
+            pushConfig();
+          },
+        };
+      })(),
       { label: t('menu.dockSettings'), icon: menuIcons.get('settings'), click: () => settingsWindow.open() },
       { label: t('menu.reload'), icon: menuIcons.get('reload'), click: () => reloadAll() },
       { type: 'separator' },
