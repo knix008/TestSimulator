@@ -120,6 +120,23 @@ fn ensure_parent_dir(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn normalize_path_key(path: &Path) -> String {
+    let raw = path.to_string_lossy().replace('/', "\\").to_ascii_lowercase();
+    raw.strip_prefix(r"\\?\").unwrap_or(&raw).to_string()
+}
+
+/// True when both paths refer to the same filesystem entry (string form or canonicalize).
+fn paths_are_same_file(left: &Path, right: &Path) -> bool {
+    if left == right || normalize_path_key(left) == normalize_path_key(right) {
+        return true;
+    }
+
+    match (fs::canonicalize(left), fs::canonicalize(right)) {
+        (Ok(a), Ok(b)) => a == b || normalize_path_key(&a) == normalize_path_key(&b),
+        _ => false,
+    }
+}
+
 fn audio_quality_args(format: &str, quality: &str) -> Vec<&'static str> {
     match (format, quality) {
         ("flac" | "wav", _) | (_, "high") => vec!["--audio-quality", "0"],
@@ -441,7 +458,7 @@ fn extract_audio_from_url_blocking(
         })
         .ok_or_else(|| "추출된 오디오 파일을 찾을 수 없습니다.".to_string())?;
 
-    if produced != output {
+    if !paths_are_same_file(&produced, &output) {
         if output.exists() {
             let _ = fs::remove_file(&output);
         }
