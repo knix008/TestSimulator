@@ -13,6 +13,7 @@ const appScanner = require('./app-scanner');
 const seed = require('./seed');
 const { PointerWatch } = require('./pointer-watch');
 const { RunningWatch } = require('./running');
+const trash = require('./trash');
 
 // Transparent, click-through-free windows need the compositor on Linux, and
 // several distros still ship it off by default under X11.
@@ -48,6 +49,7 @@ if (!app.requestSingleInstanceLock()) {
 function start() {
   const config = new Config();
   let dockWindow = null;
+  let trashWatch = null;
 
   app.on('second-instance', () => {
     // A second launch means "show me the dock", not "start another copy".
@@ -84,6 +86,20 @@ function start() {
       dockWindow.send('dock:running-apps', await api.decorateRunningApps(payload.apps));
     });
 
+    // The bin fills and empties from outside the dock, so the OS tells us the
+    // moment it does and the Trash icon is repainted straight away. Nothing is
+    // watched at all unless a Trash icon is actually on the dock to show it.
+    const syncTrashWatch = () => {
+      const wanted = config.get().items.some((item) => item.path === 'system:trash');
+      if (wanted === !!trashWatch) return;
+      if (!wanted) { trashWatch.stop(); trashWatch = null; return; }
+      trashWatch = trash.watch((info) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          if (!win.isDestroyed()) win.webContents.send('dock:trash', info);
+        }
+      });
+    };
+
     const syncRunningWatch = () => {
       const dock = config.get().dock;
       if (dock.showRunningIndicator || dock.showRunningApps) {
@@ -98,6 +114,7 @@ function start() {
       dockWindow,
       pointerWatch,
       syncRunningWatch,
+      syncTrashWatch,
       // Lets a dock click skip the window lookup for programs that are not
       // running, which is what made launching feel sluggish.
       // null means 'not being tracked', which falls back to asking the OS.
@@ -111,6 +128,7 @@ function start() {
     });
 
     syncRunningWatch();
+    syncTrashWatch();
     tray.create(api.trayDeps());
 
     app.on('activate', () => {
@@ -133,5 +151,8 @@ function start() {
     config.saveNow();
   });
 
-  app.on('will-quit', () => tray.destroy());
+  app.on('will-quit', () => {
+    if (trashWatch) { trashWatch.stop(); trashWatch = null; }
+    tray.destroy();
+  });
 }

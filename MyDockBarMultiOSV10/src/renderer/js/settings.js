@@ -171,6 +171,8 @@
     bindSelect('animation');
     bindSelect('clickEffect');
     bindSelect('clickEffectDirection');
+    bindSelect('removeEffect').addEventListener('change', playRemovePreview);
+    $('remove-preview-play').addEventListener('click', playRemovePreview);
     bindSelect('position');
     bindSelect('align');
     bindSelect('display');
@@ -184,7 +186,7 @@
 
     for (const id of ['showLabels', 'showReflection', 'showRunningIndicator',
       'showRunningApps', 'focusRunningWindow', 'autoHide',
-      'showOnAllWorkspaces', 'lockItems']) {
+      'showOnAllWorkspaces', 'showInTaskbar', 'lockItems']) {
       bindCheck(id);
     }
 
@@ -201,7 +203,7 @@
           panel.classList.toggle('active', panel.id === `tab-${tab.dataset.tab}`);
         }
         if (tab.dataset.tab === 'apps' && !state.apps.length) loadApps();
-        if (tab.dataset.tab === 'zoom') renderZoomPreview();
+        if (tab.dataset.tab === 'zoom') { renderZoomPreview(); drawRemoveSample(); }
         if (tab.dataset.tab === 'position') renderMonitorMap();
       });
     }
@@ -880,6 +882,102 @@
 
   /* ------------------------------ previews ------------------------------ */
 
+  /**
+   * The drag-off sample. It borrows the dock's own classes from
+   * css/effects.css, so choosing an effect here shows the animation the dock
+   * will really play rather than an impression of it.
+   */
+  const REMOVE_EFFECTS = {
+    poof: 520, shrink: 380, fade: 260, drop: 460, suck: 440, shatter: 460, none: 0,
+  };
+
+  let removeDemoTimer = null;
+
+  /** The sample icon, sitting still. */
+  function drawRemoveSample() {
+    const node = $('remove-preview');
+    if (!node || !state.cfg) return null;
+
+    clearTimeout(removeDemoTimer);
+    node.textContent = '';
+    node.className = 'remove-preview';
+
+    const inner = document.createElement('div');
+    inner.className = 'icon-inner';
+    const img = document.createElement('img');
+    img.src = Glyphs.get('folder');
+    img.alt = '';
+    inner.appendChild(img);
+    node.appendChild(inner);
+    return { node, inner, img };
+  }
+
+  function playRemovePreview() {
+    const drawn = drawRemoveSample();
+    if (!drawn) return;
+    const { node, inner, img } = drawn;
+
+    const name = state.cfg.dock.removeEffect;
+    const effect = Object.prototype.hasOwnProperty.call(REMOVE_EFFECTS, name) ? name : 'poof';
+    const ms = REMOVE_EFFECTS[effect];
+    if (!ms) return;
+
+    // A frame's grace, so the animation starts from the icon actually drawn.
+    requestAnimationFrame(() => {
+      node.classList.add('vanishing', `vanish-${effect}`);
+      if (effect === 'poof') node.appendChild(removePuff());
+      if (effect === 'shatter') node.appendChild(removeShards(img.src));
+      // Put the icon back afterwards, so the sample can be played again.
+      removeDemoTimer = setTimeout(() => {
+        node.className = 'remove-preview';
+        node.textContent = '';
+        node.appendChild(inner);
+        inner.removeAttribute('style');
+      }, ms + 120);
+    });
+  }
+
+  function removePuff() {
+    const wrap = document.createElement('div');
+    wrap.className = 'puff';
+    for (let i = 0; i < 6; i += 1) {
+      const angle = ((Math.PI * 2 * i) / 6) - Math.PI / 2;
+      const reach = 105 + (i % 2) * 45;
+      const cloud = document.createElement('i');
+      cloud.style.setProperty('--px', `${Math.round(Math.cos(angle) * reach)}%`);
+      cloud.style.setProperty('--py', `${Math.round(Math.sin(angle) * reach)}%`);
+      cloud.style.animationDelay = `${i * 20}ms`;
+      wrap.appendChild(cloud);
+    }
+    return wrap;
+  }
+
+  function removeShards(src) {
+    const wrap = document.createElement('div');
+    wrap.className = 'shards';
+    const grid = 3;
+    const step = 100 / grid;
+    for (let row = 0; row < grid; row += 1) {
+      for (let col = 0; col < grid; col += 1) {
+        const piece = document.createElement('i');
+        piece.style.left = `${col * step}%`;
+        piece.style.top = `${row * step}%`;
+        piece.style.width = `${step}%`;
+        piece.style.height = `${step}%`;
+        piece.style.backgroundImage = `url("${src}")`;
+        piece.style.backgroundSize = `${grid * 100}% ${grid * 100}%`;
+        piece.style.backgroundPosition = `${(col * 100) / (grid - 1)}% ${(row * 100) / (grid - 1)}%`;
+        const dx = col - (grid - 1) / 2;
+        const dy = row - (grid - 1) / 2;
+        piece.style.setProperty('--px', `${Math.round(dx * 130)}%`);
+        piece.style.setProperty('--py', `${Math.round(dy * 130 + 90)}%`);
+        piece.style.setProperty('--spin', `${Math.round((dx + dy) * 60)}deg`);
+        wrap.appendChild(piece);
+      }
+    }
+    return wrap;
+  }
+
   /** A live sketch of the magnification curve using the current settings. */
   function renderZoomPreview() {
     const node = $('zoom-preview');
@@ -1091,6 +1189,7 @@
     $('animation').value = dock.animation;
     $('clickEffect').value = dock.clickEffect;
     $('clickEffectDirection').value = dock.clickEffectDirection;
+    $('removeEffect').value = dock.removeEffect;
     $('position').value = dock.position;
     $('align').value = dock.align;
     $('stackingLevel').value = dock.stackingLevel;
@@ -1099,7 +1198,7 @@
 
     for (const id of ['showLabels', 'showReflection', 'showRunningIndicator',
       'showRunningApps', 'focusRunningWindow', 'autoHide',
-      'showOnAllWorkspaces', 'lockItems']) {
+      'showOnAllWorkspaces', 'showInTaskbar', 'lockItems']) {
       $(id).checked = !!dock[id];
     }
     $('startWithOS').checked = !!snapshot.startWithOS;
@@ -1118,6 +1217,7 @@
     }
     renderZoomPreview();
     renderMonitorMap();
+    drawRemoveSample();
     applyLockState();
   }
 

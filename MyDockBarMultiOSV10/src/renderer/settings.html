@@ -6,6 +6,7 @@
         content="default-src 'none'; img-src file: data:; style-src 'self' 'unsafe-inline'; script-src 'self';" />
   <title>MyDockBar Settings</title>
   <link rel="stylesheet" href="css/settings.css" />
+  <link rel="stylesheet" href="css/effects.css" />
 </head>
 <body>
   <!-- Tabs run from the whole application inwards: what MyDockBar is, then how
@@ -151,6 +152,18 @@
             </select>
           </label>
           <label class="field">
+            <span data-i18n="f.removeEffect">Drag off the dock</span>
+            <select id="removeEffect">
+              <option value="poof" data-i18n="o.poof">Poof</option>
+              <option value="shrink" data-i18n="o.shrink">Shrink away</option>
+              <option value="shatter" data-i18n="o.shatter">Shatter</option>
+              <option value="suck" data-i18n="o.suck">Spin away</option>
+              <option value="drop" data-i18n="o.drop">Fall off</option>
+              <option value="fade" data-i18n="o.fade">Fade out</option>
+              <option value="none" data-i18n="o.none">None</option>
+            </select>
+          </label>
+          <label class="field">
             <span data-i18n="f.clickEffectDirection">Direction</span>
             <select id="clickEffectDirection">
               <option value="auto" data-i18n="o.dirAuto">Away from the edge</option>
@@ -166,6 +179,12 @@
           <div id="zoom-preview" class="zoom-preview"></div>
           <p class="hint" data-i18n="m.zoomHint"></p>
           <p class="hint" data-i18n="m.effectHint"></p>
+          <div class="row">
+            <div id="remove-preview" class="remove-preview"></div>
+            <button type="button" id="remove-preview-play" class="ghost"
+                    data-i18n="b.playEffect">Play it</button>
+          </div>
+          <p class="hint" data-i18n="m.removeHint"></p>
         </div>
       </div>
     </section>
@@ -208,6 +227,8 @@
             </select>
           </label>
           <label class="check"><input type="checkbox" id="showOnAllWorkspaces" /> <span data-i18n="c.allWorkspaces">All workspaces</span></label>
+          <label class="check"><input type="checkbox" id="showInTaskbar" /> <span data-i18n="c.showInTaskbar">Show MyDockBar on the taskbar</span></label>
+          <p class="hint" data-i18n="m.taskbarHint"></p>
         </div>
         <div class="col">
           <h2 data-i18n="h.monitor">Monitor</h2>

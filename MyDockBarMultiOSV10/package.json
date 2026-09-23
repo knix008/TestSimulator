@@ -19,11 +19,15 @@
     "test:tap": "node --test \"test/*.test.js\"",
     "icons": "node scripts/make-icons.js",
     "themes": "node scripts/make-themes.js",
-    "pack": "npm run icons && electron-builder --dir",
-    "build": "npm run icons && electron-builder",
-    "build:win": "npm run icons && electron-builder --win",
-    "build:mac": "npm run icons && electron-builder --mac",
-    "build:linux": "npm run icons && electron-builder --linux"
+    "pack": "node scripts/ensure-icons.js && electron-builder --dir",
+    "build": "node scripts/ensure-icons.js && electron-builder",
+    "build:win": "node scripts/ensure-icons.js && electron-builder --win",
+    "build:mac": "node scripts/ensure-icons.js && electron-builder --mac",
+    "build:linux": "node scripts/ensure-icons.js && electron-builder --linux",
+    "build:fast": "node scripts/ensure-icons.js && electron-builder -c.compression=store",
+    "release:win": "node scripts/ensure-icons.js && electron-builder --win --x64 --arm64",
+    "release:mac": "node scripts/ensure-icons.js && electron-builder --mac --x64 --arm64",
+    "release:linux": "node scripts/ensure-icons.js && electron-builder --linux --x64 --arm64"
   },
   "devDependencies": {
     "electron": "^44.4.4",

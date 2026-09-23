@@ -34,9 +34,14 @@ electronLanguages:
 # --------------------------------------------------------------------------
 win:
   icon: build/icon.ico
+  # No `arch:` here on purpose. Pinning one makes the config win over the
+  # command line, so every build became all of them: naming two architectures
+  # doubles the packaging AND makes electron-builder emit a third, combined
+  # installer holding both - three passes of the slowest step in the build.
+  # Left alone it builds for the machine doing the building, which is what an
+  # edit-and-try loop wants; `npm run release:win` asks for both to ship.
   target:
     - target: nsis
-      arch: [x64, arm64]
   artifactName: MyDockBar-${version}-Setup-${arch}.${ext}
   executableName: MyDockBar
   fileAssociations: []
@@ -76,11 +81,10 @@ nsis:
 mac:
   icon: build/icon.png
   category: public.app-category.utilities
+  # Architectures come from the command line; see the note under `win`.
   target:
     - target: dmg
-      arch: [x64, arm64]
     - target: zip
-      arch: [x64, arm64]
   artifactName: MyDockBar-${version}-${arch}.${ext}
   darkModeSupport: true
   hardenedRuntime: true
@@ -127,13 +131,11 @@ linux:
       Categories: Utility;DesktopSettings;
       StartupNotify: "false"
       StartupWMClass: mydockbar
+  # Architectures come from the command line; see the note under `win`.
   target:
     - target: AppImage
-      arch: [x64, arm64]
     - target: deb
-      arch: [x64, arm64]
     - target: rpm
-      arch: [x64]
   artifactName: MyDockBar-${version}-${arch}.${ext}
 
 deb:

@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('dockApi', {
     contextMenu: (itemId, insertIndex) => invoke('dock:context-menu', { itemId, insertIndex }),
     onHiddenChanged: (handler) => on('dock:hidden-changed', handler),
     onRunning: (handler) => on('dock:running', handler),
+    onPointer: (handler) => on('dock:pointer', handler),
     onRunningApps: (handler) => on('dock:running-apps', handler),
     launchPath: (target) => invoke('items:launch-path', target),
     prefetchWindows: (target) => ipcRenderer.send('dock:prefetch-windows', target),

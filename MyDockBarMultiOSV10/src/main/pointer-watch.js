@@ -27,6 +27,67 @@ class PointerWatch {
     this.nearMs = 16;
     this.farMs = 120;
     this.currentMs = 0;
+    this.menuOpen = false;
+    this.fed = undefined;    // last pointer pushed to the dock, to skip repeats
+  }
+
+  /**
+   * A popup menu takes the mouse: while one is up the dock's window sees no
+   * move and no leave at all, so icons magnified under the pointer would stay
+   * magnified wherever it went next, and stay that way after the menu closed.
+   *
+   * We already know where the cursor is, so for as long as the menu is open
+   * the dock is fed it from here instead - and once more as the menu closes,
+   * so it settles on whatever is true by then.
+   */
+  setMenuOpen(open) {
+    if (this.menuOpen === open) return;
+    this.menuOpen = open;
+    if (open) { this.tick(); this.schedule(this.nearMs); return; }
+
+    const local = this.localPoint();
+    if (local) this.feed(local, true);
+  }
+
+  /** Where the cursor is in the dock window's own coordinates. */
+  localPoint() {
+    const dock = this.dockWindow;
+    if (!dock.alive() || !dock.win.isVisible()) return null;
+    const point = screen.getCursorScreenPoint();
+    const bounds = dock.win.getBounds();
+    return { x: point.x - bounds.x, y: point.y - bounds.y };
+  }
+
+  /**
+   * Hand the dock the cursor, in its own window's coordinates, or `null` for
+   * "not on the plate".
+   *
+   * The leave half matters even with no menu in sight. Once the pointer is
+   * off the plate this window is made click-through, and a window that is
+   * click-through stops being sent mouse messages - including the `mouseleave`
+   * the dock was waiting for. Whichever of the two lands first is a race, so
+   * the dock is told outright instead of being left magnified around a pointer
+   * that is no longer there.
+   *
+   * @param {boolean} track also follow the pointer across the plate. Off by
+   *   default: while the dock is being sent real mouse events, its own
+   *   handlers know more than this poll does.
+   */
+  feed(local, track) {
+    const plate = this.rect;
+    const inside = !!plate && !!local
+      && local.x >= plate.x && local.x < plate.x + plate.width
+      && local.y >= plate.y && local.y < plate.y + plate.height;
+
+    if (inside && !track) { this.fed = undefined; return; }
+
+    const point = inside
+      ? { x: Math.round(local.x), y: Math.round(local.y), quiet: this.menuOpen }
+      : null;
+    const key = point ? `${point.x},${point.y},${point.quiet}` : 'away';
+    if (key === this.fed) return;
+    this.fed = key;
+    this.dockWindow.send('dock:pointer', point);
   }
 
   setRect(rect) {
@@ -77,6 +138,7 @@ class PointerWatch {
     });
 
     this.apply(call.interactive);
+    this.feed(local, this.menuOpen);
 
     if (call.show) dock.scheduleShow();
     else if (call.hide) dock.scheduleHide();

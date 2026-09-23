@@ -58,30 +58,44 @@
        <path d="M64 30 26 62l5 6 33-27 33 27 5-6z" fill="#fff"/>`,
       plate('#5aa9ff', '#1d5fd0', 'bgHome')),
 
-    // Empty: a plain bin, lid closed, nothing inside.
+    /* The two Trash faces share one background on purpose: the state has to
+     * read from the drawing itself, so that it still reads when a theme tints
+     * the plate or the icon is sitting at 24px. Empty is a cool, pale bin,
+     * see-through, with its lid shut. Full is an amber one, packed solid, lid
+     * knocked askew, paper heaped over the rim. Colour, fill and silhouette
+     * all differ - no two of them could be mistaken at a glance. */
+
+    // Empty: a cool pale bin, lid closed, and you can see straight through it.
     'system:trash': svg(
       `${rounded('url(#bgTrash)')}
-       <path d="M44 48h40l-4 48a6 6 0 0 1-6 6H54a6 6 0 0 1-6-6z" fill="#fff" fill-opacity=".92"/>
-       <rect x="38" y="38" width="52" height="9" rx="4" fill="#fff"/>
-       <rect x="56" y="30" width="16" height="8" rx="3" fill="#fff"/>
-       <g stroke="#9aa4b2" stroke-width="3" stroke-linecap="round">
-         <path d="M58 60v30M64 60v30M70 60v30"/></g>`,
+       <g fill="#ccd8e8">
+         <rect x="57" y="38" width="15" height="7" rx="3"/>
+         <rect x="34" y="45" width="60" height="11" rx="5"/>
+       </g>
+       <path d="M46 58h36l-4 40a7 7 0 0 1-7 6H57a7 7 0 0 1-7-6z"
+             fill="#ccd8e8" fill-opacity=".13" stroke="#ccd8e8" stroke-width="5"
+             stroke-linejoin="round"/>
+       <g stroke="#9db0c6" stroke-width="4" stroke-linecap="round">
+         <path d="M58 70v24M64 70v24M70 70v24"/></g>`,
       plate('#9aa4b2', '#4a5563', 'bgTrash')),
 
-    // Full: the lid is tilted off and paper is piled above the rim.
+    // Full: the same bin in amber, packed solid, its lid pushed up and off.
     'system:trash-full': svg(
       `${rounded('url(#bgTrashF)')}
-       <g fill="#ffe9a8">
-         <path d="M52 40l10-14 9 7-7 11z"/>
-         <path d="M68 34l13-9 6 9-11 8z"/>
-         <path d="M44 42l7-12 8 6-5 10z"/>
+       <g transform="rotate(-10 64 31)" fill="#ffb93c">
+         <rect x="57" y="19" width="15" height="7" rx="3"/>
+         <rect x="34" y="26" width="60" height="11" rx="5"/>
        </g>
-       <path d="M44 48h40l-4 48a6 6 0 0 1-6 6H54a6 6 0 0 1-6-6z" fill="#fff" fill-opacity=".97"/>
-       <rect x="36" y="38" width="56" height="9" rx="4" fill="#fff"
-             transform="rotate(-6 64 42)"/>
-       <g stroke="#6f7987" stroke-width="3" stroke-linecap="round">
-         <path d="M58 60v30M64 60v30M70 60v30"/></g>`,
-      plate('#ffc860', '#c07a12', 'bgTrashF')),
+       <g fill="#ffffff">
+         <circle cx="52" cy="47" r="9"/>
+         <circle cx="66" cy="42" r="11"/>
+         <circle cx="79" cy="48" r="8"/>
+       </g>
+       <rect x="42" y="50" width="44" height="9" rx="4" fill="#ffb93c"/>
+       <path d="M46 59h36l-4 39a7 7 0 0 1-7 6H57a7 7 0 0 1-7-6z" fill="url(#binFull)"/>
+       <g stroke="#8a4a04" stroke-width="4" stroke-linecap="round">
+         <path d="M58 70v24M64 70v24M70 70v24"/></g>`,
+      plate('#9aa4b2', '#4a5563', 'bgTrashF') + plate('#ffc44f', '#d97008', 'binFull')),
 
     'system:show-desktop': svg(
       `${rounded('url(#bgDesk)')}

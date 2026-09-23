@@ -116,21 +116,8 @@ body.reordering .dock-item {
               height 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/* Dragged off the dock: the icon shrinks into nothing rather than blinking
- * out, so it is clear the drop removed it. */
-@keyframes dock-vanish {
-  0%   { transform: scale(1) translateY(0); opacity: 1; }
-  35%  { transform: scale(1.18) translateY(-12%); opacity: 0.9; }
-  100% { transform: scale(0.1) translateY(30%); opacity: 0; }
-}
-
-.dock-item.vanishing {
-  pointer-events: none;
-  z-index: 5;
-}
-.dock-item.vanishing .icon-inner { animation: dock-vanish 380ms cubic-bezier(0.4, 0, 0.7, 0.4) forwards; }
-.dock-item.vanishing .indicator,
-.dock-item.vanishing .tile { opacity: 0; }
+/* Dragged off the dock: see css/effects.css, which the settings window shares
+ * so its preview plays the real animation. */
 
 .dock-item .icon {
   width: 100%;
@@ -318,7 +305,6 @@ body.pos-right  .dock-item .indicator { right: -7px;  top: 50%;  transform: tran
 @media (prefers-reduced-motion: reduce) {
   .stage { transition: none; }
   body.reordering .dock-item { transition: none; }
-  .dock-item.vanishing .icon-inner { animation-duration: 1ms; }
   .dock-item.fx-bounce .icon-inner,
   .dock-item.fx-pop .icon-inner,
   .dock-item.fx-error .icon-inner { animation: none; }

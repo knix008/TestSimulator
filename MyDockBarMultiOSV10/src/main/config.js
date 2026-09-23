@@ -28,6 +28,9 @@ function defaults() {
       // screen edge the dock is docked against, which is up for a dock along
       // the bottom and right for one down the left-hand side.
       clickEffectDirection: 'auto', // auto | up | down | left | right
+      // What an icon does on its way out when it is dragged off the dock.
+      // poof | shrink | fade | drop | suck | shatter | none
+      removeEffect: 'poof',
       autoHide: false,
       autoHidePeek: 3,           // px left visible when hidden
       autoHideDelay: 450,        // ms before hiding again
@@ -39,6 +42,9 @@ function defaults() {
       // normal | floating | screen-saver
       stackingLevel: 'screen-saver',
       showOnAllWorkspaces: true,
+      // Whether MyDockBar itself gets a button on the OS taskbar. Off by
+      // default: the dock is chrome, and it already lives in the tray.
+      showInTaskbar: false,
       showLabels: true,
       showReflection: true,
       showRunningIndicator: true,

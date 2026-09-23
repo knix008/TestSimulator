@@ -13,7 +13,11 @@
  * anywhere. Different *formats* are not duplicates of each other, so a Linux
  * build that produced an AppImage, a .deb and a .rpm keeps one of each.
  *
- * Update metadata, blockmaps and intermediate archives are never copied.
+ * Update metadata, blockmaps and intermediate archives are never copied, and
+ * neither is a draft build. `npm run build:fast` skips compression to turn a
+ * two-minute build into a ten-second one, which is exactly what you want while
+ * checking that the installer still works - and exactly what you do not want
+ * sitting in the root as the copy you hand to someone.
  */
 
 const fs = require('fs');
@@ -67,6 +71,12 @@ function clearStale(keep) {
 }
 
 module.exports = async function copyInstaller(buildResult) {
+  const configuration = buildResult.configuration || {};
+  if (configuration.compression === 'store') {
+    console.log('[copy-installer] draft build, leaving the root copy alone');
+    return [];
+  }
+
   const installers = (buildResult.artifactPaths || []).filter((file) => isInstaller(path.basename(file)));
   if (!installers.length) return [];
 

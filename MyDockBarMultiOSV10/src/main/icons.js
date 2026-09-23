@@ -131,26 +131,61 @@ async function resolve(item) {
   return extract(target);
 }
 
-/** Pull the icon out of an executable / .app / .lnk, using the on-disk cache. */
-async function extract(target) {
+/**
+ * Pull the icon out of an executable / .app / .lnk, using the on-disk cache.
+ * Returns the cached file and, when one had to be extracted, the bitmap too -
+ * so a cache that cannot be written still has something to show.
+ */
+async function extractParts(target) {
   let mtimeMs = 0;
   try {
     mtimeMs = fs.statSync(target).mtimeMs;
   } catch {
-    return null;
+    return { file: null, image: null };
   }
 
   const cached = readCached(target, mtimeMs);
-  if (cached) return pathToUrl(cached);
+  if (cached) return { file: cached, image: null };
 
   try {
     const image = await app.getFileIcon(target, { size: 'large' });
-    const saved = store(target, image);
-    if (saved) return pathToUrl(saved);
-    return toDataUrl(image);
+    return { file: store(target, image), image };
   } catch (err) {
     console.error(`[icons] extraction failed for ${target}:`, err.message);
-    return null;
+    return { file: null, image: null };
+  }
+}
+
+async function extract(target) {
+  const { file, image } = await extractParts(target);
+  if (file) return pathToUrl(file);
+  return toDataUrl(image);
+}
+
+/**
+ * The icon a target carries by default, copied into the app's own storage and
+ * returned as a plain path - which is what a dock entry stores.
+ *
+ * Used when an item is added, so that a dropped or picked program arrives with
+ * its icon already set rather than blank: the entry then shows a picture the
+ * user can see, swap out, or reset to automatic. The copy is deliberate. The
+ * extraction cache is disposable and can be cleared from the settings window,
+ * and an entry's icon should not go with it.
+ */
+async function adoptDefault(target) {
+  if (!target) return '';
+
+  const ext = path.extname(target).toLowerCase();
+  const source = (DIRECT.has(ext) && fs.existsSync(target))
+    ? target
+    : (await extractParts(target)).file;
+  if (!source) return '';
+
+  try {
+    return importCustomIcon(source) || '';
+  } catch (err) {
+    console.error(`[icons] could not adopt the icon for ${target}:`, err.message);
+    return '';
   }
 }
 
@@ -188,4 +223,4 @@ function clearCache() {
   }
 }
 
-module.exports = { resolve, extract, importCustomIcon, clearCache, pathToUrl, findLinuxThemeIcon };
+module.exports = { resolve, extract, adoptDefault, importCustomIcon, clearCache, pathToUrl, findLinuxThemeIcon };

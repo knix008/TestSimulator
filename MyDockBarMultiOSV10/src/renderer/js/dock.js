@@ -138,9 +138,14 @@
    * Geometry
    * --------------------------------------------------------------- */
 
-  /** The Trash shows whether it is holding anything. */
+  /**
+   * The Trash draws itself full or empty. A hand-picked icon still wins: the
+   * user asked for that picture, so the state is not worth overruling them.
+   */
   function iconFor(item) {
-    if (item.path === 'system:trash' && !state.trashEmpty) return Glyphs.get('system:trash-full');
+    if (item.path === 'system:trash' && !item.icon) {
+      return Glyphs.get(state.trashEmpty ? 'system:trash' : 'system:trash-full');
+    }
     return Glyphs.forItem(item);
   }
 
@@ -610,12 +615,6 @@
       ? await api.dock.launchPath(item.path)
       : await api.items.launch(item.id);
 
-    if (item.path === 'system:trash') {
-      setTimeout(async () => {
-        const info = await api.trash.state();
-        if (info.empty !== state.trashEmpty) { state.trashEmpty = info.empty; render(); }
-      }, 1200);
-    }
     if (!result || result.ok === false) {
       node.classList.add('fx-error');
       setTimeout(() => node.classList.remove('fx-error'), 500);
@@ -650,6 +649,84 @@
       walk += size + g.gap;
     }
     return state.items.length;
+  }
+
+  /**
+   * How long each drag-out effect runs, in step with css/effects.css. The
+   * entry is only taken off the dock once its animation has finished, so the
+   * icon is never yanked out from under the picture of it leaving.
+   */
+  const REMOVE_EFFECTS = {
+    poof: 520, shrink: 380, fade: 260, drop: 460, suck: 440, shatter: 460, none: 0,
+  };
+
+  /** The smoke for the poof effect: clouds thrown out from the icon. */
+  function puffClouds() {
+    const wrap = document.createElement('div');
+    wrap.className = 'puff';
+    const count = 6;
+    for (let i = 0; i < count; i += 1) {
+      const angle = ((Math.PI * 2 * i) / count) - Math.PI / 2;
+      const reach = 105 + (i % 2) * 45;
+      const cloud = document.createElement('i');
+      cloud.style.setProperty('--px', `${Math.round(Math.cos(angle) * reach)}%`);
+      cloud.style.setProperty('--py', `${Math.round(Math.sin(angle) * reach)}%`);
+      cloud.style.animationDelay = `${i * 20}ms`;
+      wrap.appendChild(cloud);
+    }
+    return wrap;
+  }
+
+  /**
+   * The pieces for the shatter effect. Each one carries its own slice of the
+   * icon as a background, so what flies apart is the picture itself rather
+   * than a generic spray of squares.
+   */
+  function shards(src) {
+    const wrap = document.createElement('div');
+    wrap.className = 'shards';
+    if (!src) return wrap;
+
+    const grid = 3;
+    const step = 100 / grid;
+    for (let row = 0; row < grid; row += 1) {
+      for (let col = 0; col < grid; col += 1) {
+        const piece = document.createElement('i');
+        piece.style.left = `${col * step}%`;
+        piece.style.top = `${row * step}%`;
+        piece.style.width = `${step}%`;
+        piece.style.height = `${step}%`;
+        piece.style.backgroundImage = `url("${src}")`;
+        piece.style.backgroundSize = `${grid * 100}% ${grid * 100}%`;
+        piece.style.backgroundPosition = `${(col * 100) / (grid - 1)}% ${(row * 100) / (grid - 1)}%`;
+
+        // Outwards from the middle, so the icon comes apart rather than
+        // sliding off in one direction.
+        const dx = col - (grid - 1) / 2;
+        const dy = row - (grid - 1) / 2;
+        piece.style.setProperty('--px', `${Math.round(dx * 130)}%`);
+        piece.style.setProperty('--py', `${Math.round(dy * 130 + 90)}%`);
+        piece.style.setProperty('--spin', `${Math.round((dx + dy) * 60)}deg`);
+        wrap.appendChild(piece);
+      }
+    }
+    return wrap;
+  }
+
+  /** Play the configured farewell on `node`; resolves once it has finished. */
+  function playRemoveEffect(node) {
+    const name = state.cfg.dock.removeEffect;
+    const effect = Object.prototype.hasOwnProperty.call(REMOVE_EFFECTS, name) ? name : 'poof';
+    const ms = REMOVE_EFFECTS[effect];
+    if (!ms) return Promise.resolve();
+
+    node.classList.add('vanishing', `vanish-${effect}`);
+    if (effect === 'poof') node.appendChild(puffClouds());
+    if (effect === 'shatter') {
+      const img = node.querySelector('img.icon');
+      node.appendChild(shards(img && img.src));
+    }
+    return new Promise((resolve) => { setTimeout(resolve, ms); });
   }
 
   function setDropIndex(index) {
@@ -760,10 +837,7 @@
       if (!item || item.protected) return;
 
       const index = state.drawn.findIndex((it) => it.id === item.id);
-      if (index >= 0) {
-        state.nodes[index].classList.add('vanishing');
-        await new Promise((resolve) => { setTimeout(resolve, 340); });
-      }
+      if (index >= 0) await playRemoveEffect(state.nodes[index]);
 
       state.items = await api.items.remove(item.id);
       render();
@@ -881,8 +955,23 @@
       markRunning();
     });
 
-    // The bin's contents change from outside the dock, so poll for them and
-    // refresh straight after anything that could have emptied it.
+    // The main process hands us the cursor for the moments this window cannot
+    // see it for itself - while a popup menu holds the mouse, and as the
+    // pointer leaves, when being made click-through can cost us the
+    // `mouseleave`. `null` means "off the plate", and relaxes the
+    // magnification exactly as leaving would. `quiet` suppresses the name: a
+    // tooltip floating beside an open menu helps nobody.
+    api.dock.onPointer((point) => {
+      const cursor = point ? (isHorizontal() ? point.x : point.y) : null;
+      const hover = (point && !point.quiet) ? nearestIndex(cursor) : -1;
+      if (cursor === state.cursor && hover === state.hoverIndex) return;
+      state.cursor = cursor;
+      state.hoverIndex = hover;
+      paint(false);
+    });
+
+    // The main process watches the bin and pushes every change, so this only
+    // settles the icon on startup and covers a reload that missed a push.
     const refreshTrash = async () => {
       const hasTrash = state.items.some((item) => item.path === 'system:trash');
       if (!hasTrash) return;
@@ -892,7 +981,7 @@
       render();
     };
     refreshTrash();
-    setInterval(refreshTrash, 15000);
+    setInterval(refreshTrash, 30000);
     api.trash.onChange((info) => {
       if (!info || info.empty === state.trashEmpty) return;
       state.trashEmpty = info.empty;

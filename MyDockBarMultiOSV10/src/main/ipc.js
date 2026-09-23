@@ -101,6 +101,21 @@ function itemFromPath(target, label) {
   };
 }
 
+/**
+ * Whether a newly created entry should be given its target's own icon.
+ *
+ * An icon that is already set stays: either the user chose it, or the
+ * shortcut named one, and neither should be quietly overwritten. The dock's
+ * own entries draw themselves, and a web link has no file to read an icon
+ * out of.
+ */
+function canAdoptIcon(item) {
+  if (!item || item.icon || item.type === 'separator' || item.type === 'url') return false;
+  const target = item.path;
+  if (!target || typeof target !== 'string') return false;
+  return !target.startsWith('dock:') && !target.startsWith('system:');
+}
+
 /** "notepad++.exe" -> "Notepad++", as a last resort. */
 function prettyName(target) {
   const base = path.basename(target, path.extname(target)) || target;
@@ -108,7 +123,7 @@ function prettyName(target) {
 }
 
 function register({
-  config, dockWindow, pointerWatch, syncRunningWatch, runningNames, reloadAll,
+  config, dockWindow, pointerWatch, syncRunningWatch, syncTrashWatch, runningNames, reloadAll,
 }) {
   const t = (key, vars) => i18n.translate(activeLocale(config), key, vars);
 
@@ -133,6 +148,20 @@ function register({
     config.patch({ iconMemory: { [key]: item.icon } });
   }
 
+  /**
+   * Give a new entry an icon of its own.
+   *
+   * Everything added - dropped on the dock, picked from a dialog, chosen in
+   * the settings window - arrives with its program's own icon already set,
+   * rather than blank. The entry then shows the user a picture they can see
+   * and swap out, and the icon picker's "automatic" option puts it back.
+   */
+  async function withDefaultIcon(item) {
+    if (!canAdoptIcon(item)) return item;
+    const adopted = await icons.adoptDefault(item.path);
+    return adopted ? { ...item, icon: adopted } : item;
+  }
+
   /** Reapply a previously chosen icon when the same target comes back. */
   function recallIcon(item) {
     if (!item || item.icon) return item;
@@ -146,7 +175,26 @@ function register({
     }
   };
 
-  const pushConfig = () => broadcast('config:changed', snapshot(config));
+  /**
+   * Show a popup menu. The pointer watch has to know: a menu that is up takes
+   * every mouse event away from the dock, so the dock has to be told where the
+   * cursor goes by someone else until the menu is dismissed.
+   */
+  function popup(template, event) {
+    const menu = Menu.buildFromTemplate(template);
+    if (pointerWatch) pointerWatch.setMenuOpen(true);
+    menu.popup({
+      window: BrowserWindow.fromWebContents(event.sender),
+      callback: () => { if (pointerWatch) pointerWatch.setMenuOpen(false); },
+    });
+  }
+
+  const pushConfig = () => {
+    // Adding or removing the Trash entry is what decides whether the bin is
+    // worth watching at all.
+    if (syncTrashWatch) syncTrashWatch();
+    broadcast('config:changed', snapshot(config));
+  };
 
   /* ------------------------------ config ------------------------------ */
 
@@ -218,7 +266,7 @@ function register({
     const items = config.get().items.slice();
     for (const target of paths) {
       if (!target) continue;
-      items.push(recallIcon(itemFromPath(target)));
+      items.push(await withDefaultIcon(recallIcon(itemFromPath(target))));
     }
     config.setItems(items);
     pushConfig();
@@ -229,7 +277,8 @@ function register({
     if (locked()) return withIcons(config.get().items);
     const items = config.get().items.slice();
     const at = Math.max(0, Math.min(items.length, Number(index) || 0));
-    const added = (paths || []).filter(Boolean).map((target) => recallIcon(itemFromPath(target)));
+    const added = await Promise.all((paths || []).filter(Boolean)
+      .map((target) => withDefaultIcon(recallIcon(itemFromPath(target)))));
     items.splice(at, 0, ...added);
     config.setItems(items);
     pushConfig();
@@ -239,17 +288,26 @@ function register({
   ipcMain.handle('items:add', async (_e, item) => {
     if (locked()) return withIcons(config.get().items);
     const items = config.get().items.slice();
-    items.push(recallIcon({
+    items.push(await withDefaultIcon(recallIcon({
       id: newId(), type: 'app', label: 'New item', path: '', args: '', icon: '', ...item,
-    }));
+    })));
     config.setItems(items);
     pushConfig();
     return withIcons(items);
   });
 
   ipcMain.handle('items:update', async (_e, { id, patch }) => {
-    const items = config.get().items.map((it) => (it.id === id ? { ...it, ...patch } : it));
-    if (patch && 'icon' in patch) rememberIcon(items.find((it) => it.id === id));
+    const before = config.get().items.find((it) => it.id === id);
+    let next = patch;
+    // Pointing an entry at a different program: if its icon was only the old
+    // program's, it should become the new one's rather than linger.
+    if (before && patch && patch.path && patch.path !== before.path && !('icon' in patch)) {
+      next = { ...patch, icon: '' };
+      const withIcon = await withDefaultIcon({ ...before, ...next });
+      next = { ...next, icon: withIcon.icon || '' };
+    }
+    const items = config.get().items.map((it) => (it.id === id ? { ...it, ...next } : it));
+    if (next && 'icon' in next) rememberIcon(items.find((it) => it.id === id));
     config.setItems(items);
     pushConfig();
     return withIcons(items);
@@ -327,9 +385,7 @@ function register({
       { label: t('menu.newWindow'), icon: menuIcons.get('open'), click: () => launcher.launch(item) },
     ];
 
-    Menu.buildFromTemplate(template).popup({
-      window: BrowserWindow.fromWebContents(event.sender),
-    });
+    popup(template, event);
     return true;
   }
 
@@ -495,9 +551,7 @@ function register({
       { label: t('menu.quit'), icon: menuIcons.get('quit'), click: () => { app.isQuitting = true; app.quit(); } },
     );
 
-    Menu.buildFromTemplate(template).popup({
-      window: BrowserWindow.fromWebContents(event.sender),
-    });
+    popup(template, event);
     return true;
   });
 
@@ -685,4 +739,4 @@ function register({
   return { snapshot: () => snapshot(config), pushConfig, trayDeps, itemFromPath, newId, decorateRunningApps };
 }
 
-module.exports = { register, snapshot, itemFromPath, newId };
+module.exports = { register, snapshot, itemFromPath, newId, canAdoptIcon };

@@ -40,7 +40,7 @@ class DockWindow {
       minimizable: false,
       maximizable: false,
       fullscreenable: false,
-      skipTaskbar: true,
+      skipTaskbar: !dock.showInTaskbar,
       acceptFirstMouse: true,
       roundedCorners: false,
       // The dock is chrome, not a document: keep it out of the window cycle.
@@ -60,6 +60,7 @@ class DockWindow {
 
     this.applyAlwaysOnTop(dock);
     this.applyWorkspaceVisibility(dock);
+    this.applyTaskbar(dock);
 
     this.win.once('ready-to-show', () => {
       this.win.showInactive(); // never steal focus from whatever the user is doing
@@ -85,6 +86,12 @@ class DockWindow {
 
   alive() {
     return this.win && !this.win.isDestroyed();
+  }
+
+  /** Whether the dock claims a button on the OS taskbar. */
+  applyTaskbar(dock = this.config.get().dock) {
+    if (!this.alive()) return;
+    this.win.setSkipTaskbar(!dock.showInTaskbar);
   }
 
   applyAlwaysOnTop(dock = this.config.get().dock) {
@@ -306,6 +313,7 @@ class DockWindow {
     const dock = this.config.get().dock;
     this.applyAlwaysOnTop(dock);
     this.applyWorkspaceVisibility(dock);
+    this.applyTaskbar(dock);
     if (!dock.autoHide && this.hidden) this.setHidden(false);
     this.reposition();
   }

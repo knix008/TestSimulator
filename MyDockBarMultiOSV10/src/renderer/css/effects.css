@@ -1,0 +1,147 @@
+/* Removal effects: what an icon does when it is dragged off the dock.
+ *
+ * Shared by the dock and by the settings window, so the little sample in the
+ * settings preview is the same animation the dock will actually play rather
+ * than an impression of it. Every effect is driven by one class on the item -
+ * `vanishing` plus `vanish-<name>` - and the durations here are mirrored by
+ * REMOVE_EFFECTS in dock.js, which decides how long to wait before the entry
+ * is taken out of the list for real.
+ */
+
+.vanishing {
+  pointer-events: none;
+  z-index: 5;
+}
+
+.vanishing .indicator,
+.vanishing .tile { opacity: 0; }
+
+/* -- Poof: the icon disappears inside a puff of smoke. ------------------- */
+
+@keyframes dock-vanish-poof {
+  0%   { transform: scale(1);   opacity: 1; }
+  45%  { transform: scale(0.6); opacity: 0.45; }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
+.vanish-poof .icon-inner {
+  animation: dock-vanish-poof 300ms ease-in forwards;
+}
+
+/* The clouds themselves, one `i` each, thrown outwards by the --px/--py the
+ * renderer sets on them. Percentages are of the cloud, not of the icon, which
+ * keeps the puff in proportion at every icon size. */
+.puff {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.puff i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: 42%;
+  margin: -21% 0 0 -21%;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle at 34% 32%,
+    rgba(255, 255, 255, 0.96), rgba(226, 232, 240, 0.8) 52%, rgba(148, 163, 184, 0) 72%);
+  animation: dock-puff 520ms cubic-bezier(0.18, 0.7, 0.4, 1) forwards;
+}
+
+@keyframes dock-puff {
+  0%   { opacity: 0;    transform: translate(0, 0) scale(0.35); }
+  22%  { opacity: 0.95; }
+  100% { opacity: 0;    transform: translate(var(--px, 0), var(--py, 0)) scale(1.6); }
+}
+
+/* -- Shrink: swells, then falls away to nothing. ------------------------- */
+
+@keyframes dock-vanish-shrink {
+  0%   { transform: scale(1) translateY(0); opacity: 1; }
+  35%  { transform: scale(1.18) translateY(-12%); opacity: 0.9; }
+  100% { transform: scale(0.1) translateY(30%); opacity: 0; }
+}
+
+.vanish-shrink .icon-inner {
+  animation: dock-vanish-shrink 380ms cubic-bezier(0.4, 0, 0.7, 0.4) forwards;
+}
+
+/* -- Fade: simply gone. -------------------------------------------------- */
+
+@keyframes dock-vanish-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.vanish-fade .icon-inner {
+  animation: dock-vanish-fade 260ms ease-out forwards;
+}
+
+/* -- Drop: tips over the edge and falls out of the dock. ----------------- */
+
+@keyframes dock-vanish-drop {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  25%  { transform: translateY(-14%) rotate(-8deg); opacity: 1; }
+  100% { transform: translateY(190%) rotate(34deg); opacity: 0; }
+}
+
+.vanish-drop .icon-inner {
+  animation: dock-vanish-drop 460ms cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
+}
+
+/* -- Suck: spins away into a point. -------------------------------------- */
+
+@keyframes dock-vanish-suck {
+  0%   { transform: scale(1) rotate(0deg); opacity: 1; }
+  70%  { transform: scale(0.35) rotate(300deg); opacity: 0.7; }
+  100% { transform: scale(0) rotate(430deg); opacity: 0; }
+}
+
+.vanish-suck .icon-inner {
+  animation: dock-vanish-suck 440ms cubic-bezier(0.5, 0, 0.75, 0.2) forwards;
+}
+
+/* -- Shatter: breaks apart and scatters. --------------------------------- */
+
+@keyframes dock-vanish-shatter {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.05); opacity: 0; }
+}
+
+.vanish-shatter .icon-inner {
+  animation: dock-vanish-shatter 320ms ease-out forwards;
+}
+
+.shards {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Each shard carries a slice of the icon as its own background, so what flies
+ * apart is the picture rather than a generic spray of squares. */
+.shards i {
+  position: absolute;
+  background-repeat: no-repeat;
+  opacity: 0;
+  animation: dock-shard 460ms cubic-bezier(0.3, 0.5, 0.4, 1) forwards;
+}
+
+@keyframes dock-shard {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px, 0), var(--py, 0)) rotate(var(--spin, 90deg)) scale(0.4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vanish-poof .icon-inner,
+  .vanish-shrink .icon-inner,
+  .vanish-fade .icon-inner,
+  .vanish-drop .icon-inner,
+  .vanish-suck .icon-inner,
+  .vanish-shatter .icon-inner { animation-duration: 1ms; }
+  .puff i,
+  .shards i { animation: none; opacity: 0; }
+}
