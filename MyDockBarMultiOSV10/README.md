@@ -38,10 +38,9 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
 - Lock / unlock the dock and toggle auto-hide from the tray menu or the dock's
   own context menu
 - Clicking an application that is already open **raises its window** instead of
-  starting a second copy; with several windows open it offers a chooser.
-  The window lookup is cached and warmed as soon as the pointer settles on an
-  icon, and the raise itself is not awaited, so a click returns in ~5ms rather
-  than the ~635ms it took when the lookup sat on the click path.
+  starting a second copy; with several windows open it offers a chooser. The
+  window lookup is cached and warmed as soon as the pointer settles on an icon,
+  which takes it off the click path.
 - The Trash shows whether it is holding anything, and can be emptied from its
   context menu
 - A custom icon is remembered per target: remove an entry, add it back later,
@@ -93,6 +92,7 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
 **Settings window**
 - Fixed size, and never scrolls: eight tabs, each laid out to fit, with the two
   unbounded lists (dock items, installed applications) paged rather than scrolled
+- Every tab carries the same glyph the native menus use for that idea
 - Every numeric setting has −/+ step buttons beside its slider, on one line
 - OK and Reset buttons in a persistent action bar
 
@@ -108,9 +108,12 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
 
 ```bash
 npm install
-npm run icons     # generates the app artwork; required before the first run
 npm start
 ```
+
+That is the whole of it. The artwork under `build/` is generated rather than
+committed, and `prestart` builds it on the first run — see
+[Generated files](#generated-files).
 
 > On Windows, if the app exits immediately with no window, check that
 > `ELECTRON_RUN_AS_NODE` is not set in your shell — it makes the Electron binary
@@ -138,26 +141,49 @@ output is not a terminal, or when `NO_COLOR` is set.
     ✔ keeps the hovered icon under the pointer                 0.3ms
 
   ──────────────────────────────────────────────────────────────
-  groups 22  |  tests 92  |  passed 92  |  failed 0
+  groups 23  |  tests 100  |  passed 100  |  failed 0
 ```
 
-The suite covers the magnification maths, settings merging, the translation
-table (including that every string is translated and every `data-i18n` key
-exists), the theme generator and its colour separation, PE icon extraction,
-`.desktop` parsing, the first-run seed, running-process filtering, and menu
-icon coverage.
+The suite covers the magnification maths (including that the row holds one
+length, that the end icons never move, that nothing more than three icons from
+the pointer shifts, and that no gap balloons), settings merging, the
+translation table (every string translated, every `data-i18n` key defined), the
+theme generator and its colour separation, PE icon extraction, `.desktop`
+parsing, the first-run seed, running-process filtering, and menu icon coverage.
+
+---
+
+## Generated files
+
+Two parts of the tree are produced by scripts rather than written by hand.
+
+| Path | Produced by | In git? |
+| --- | --- | --- |
+| `build/` (except `installer.nsh`) | `npm run icons` | no — ~2MB of binaries that would churn on every tweak to the drawing code |
+| `themes/` | `npm run themes` | yes — small JSON, shipped with the app, and the worked example the theme format is documented against |
+
+`build/installer.nsh` is hand-written and is tracked.
+
+`prestart`, `predev` and `pretest` run
+[`scripts/ensure-icons.js`](scripts/ensure-icons.js), which regenerates the
+artwork when it is missing or older than the scripts that draw it. A fresh
+clone therefore needs nothing beyond `npm install`. `npm run icons` rebuilds
+unconditionally.
 
 ---
 
 ## Building installers
 
 ```bash
-npm run dist:win     # NSIS installer (.exe)
-npm run dist:mac     # DMG + zip
-npm run dist:linux   # AppImage + deb + rpm
+npm run build:win     # NSIS installer (.exe)
+npm run build:mac     # DMG + zip
+npm run build:linux   # AppImage + deb + rpm
+npm run build         # every target this host can produce
+npm run pack          # unpacked app tree only, for a quick look
 ```
 
-Output lands in `dist/`.
+Output lands in `dist/`. Each of these regenerates the artwork first, so there
+is no separate step to remember.
 
 **Each platform must be built on that platform.** A Windows host cannot produce a
 macOS `.dmg` (it needs macOS tooling) or an AppImage (its assembly step needs
@@ -273,9 +299,25 @@ src/preload/       the contextBridge API surface
 src/renderer/      dock UI (index.html) and settings UI (settings.html)
   js/magnify.js      the magnification maths, kept DOM-free
 themes/            built-in themes
-scripts/           artwork generation
+scripts/
+  make-icons.js      the application icon, tray, installer art and menu glyphs
+  menu-glyphs.js     the glyph drawings themselves
+  make-themes.js     the palette/shape table that generates themes/
+  ensure-icons.js    regenerates the artwork when it is missing or stale
+  test-reporter.js   the grouped, colourised test output
 test/              tests that run on plain Node
 ```
+
+### npm scripts
+
+| Script | Does |
+| --- | --- |
+| `start`, `dev` | run the app (`dev` adds `--dev`) |
+| `test`, `test:tap` | run the suite, grouped or as plain TAP |
+| `icons` | rebuild all artwork unconditionally |
+| `themes` | regenerate `themes/` from the palette table |
+| `pack` | unpacked app tree, no installer |
+| `build`, `build:win`, `build:mac`, `build:linux` | installers |
 
 Two details worth knowing:
 
@@ -334,6 +376,24 @@ Two details worth knowing:
   picks. `pe-icons.js` walks the PE resource tree itself and rebuilds each
   `RT_GROUP_ICON` into a standalone `.ico`, which is what lets the picker offer
   all 300-odd icons a program like Notepad++ actually ships.
+
+- **Raising someone else's window.** Windows only lets the process that
+  currently owns the foreground hand it to another, and the dock deliberately
+  never takes focus — so `WScript.Shell`'s `AppActivate` returns `False` and
+  nothing happens. `app-windows.js` brackets `SetForegroundWindow` with
+  `AttachThreadInput` against the foreground thread, which is the documented way
+  round it, and un-minimises the window first so restoring it afterwards cannot
+  put it back behind something else.
+
+- **Holding the gaps even.** The row is held at one length so the bar and the
+  outer icons stay put. That means absorbing the difference between the
+  expansion the pointer is currently causing and the figure the row was sized
+  for. Sizing for the *maximum* made that difference largest exactly where
+  there were fewest gaps to take it — on an end icon, where half the
+  magnification curve hangs off the row — and the neighbouring gap grew from
+  10px to 23px. The row is now sized for the midpoint of the range and the
+  difference is shared across every gap, which keeps them between 8.9 and
+  10.3px wherever the pointer is.
 
 ---
 

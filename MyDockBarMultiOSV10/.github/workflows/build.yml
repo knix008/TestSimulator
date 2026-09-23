@@ -15,13 +15,13 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            target: --win
+            script: build:win
             artifact: windows
           - os: macos-latest
-            target: --mac
+            script: build:mac
             artifact: macos
           - os: ubuntu-latest
-            target: --linux
+            script: build:linux
             artifact: linux
 
     runs-on: ${{ matrix.os }}
@@ -37,14 +37,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `pretest` generates the artwork, which is not in version control.
       - name: Run tests
         run: npm test
 
-      - name: Generate artwork
-        run: npm run icons
-
-      - name: Build
-        run: npx electron-builder ${{ matrix.target }} --publish never
+      - name: Build installers
+        run: npm run ${{ matrix.script }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

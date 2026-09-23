@@ -306,11 +306,10 @@ function register({
 
     if (!windows.length) return false;
     if (windows.length === 1) {
-      // Started, not awaited: raising a window is the OS's business and takes
-      // a few hundred milliseconds, which should not be time the dock spends
-      // unresponsive to the next click.
-      appWindows.focus(windows[0].id).catch(() => {});
-      return true;
+      // Awaited on purpose. If the window cannot be raised - it closed since
+      // the list was cached, or the OS refused - saying so lets the caller
+      // fall back to launching, instead of the click doing nothing at all.
+      return appWindows.focus(windows[0].id);
     }
 
     // Several windows: let the user pick, showing each window's title beside

@@ -35,9 +35,10 @@ function psQuote(value) {
 /* ------------------------------- Windows -------------------------------- */
 
 async function windowsList(target) {
+  // The handle, not just the process id: raising a window needs the handle.
   const script = `Get-Process | Where-Object { $_.MainWindowHandle -ne 0 } | `
     + `Where-Object { try { $_.Path -eq ${psQuote(target)} } catch { $false } } | `
-    + `ForEach-Object { "$($_.Id)|$($_.MainWindowTitle)" }`;
+    + `ForEach-Object { "$([int64]$_.MainWindowHandle)|$($_.MainWindowTitle)" }`;
 
   const { err, stdout } = await run('powershell.exe', [...POWERSHELL, script]);
   if (err) return [];
@@ -48,19 +49,69 @@ async function windowsList(target) {
     if (!trimmed) continue;
     const split = trimmed.indexOf('|');
     if (split < 1) continue;
-    const pid = Number(trimmed.slice(0, split));
+    const handle = trimmed.slice(0, split);
     const title = trimmed.slice(split + 1).trim();
-    if (!Number.isFinite(pid)) continue;
-    windows.push({ id: String(pid), title: title || `#${pid}` });
+    if (!/^\d+$/.test(handle)) continue;
+    windows.push({ id: handle, title: title || `#${handle}` });
   }
   return windows;
 }
 
+/**
+ * Win32 sequence for raising someone else's window.
+ *
+ * SetForegroundWindow on its own is refused unless the caller already owns the
+ * foreground, so the call is bracketed by AttachThreadInput: while attached to
+ * the foreground thread's input queue, the restriction does not apply. The
+ * window is un-minimised first, since restoring it afterwards would put it
+ * behind whatever is in front.
+ */
+const ACTIVATE_SOURCE = `
+using System;
+using System.Runtime.InteropServices;
+public static class DockActivate {
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool ShowWindowAsync(IntPtr h, int cmd);
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr pid);
+  [DllImport("user32.dll")] static extern bool AttachThreadInput(uint from, uint to, bool attach);
+  [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
+  [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+  const int SW_RESTORE = 9;
+
+  public static bool Activate(IntPtr h) {
+    if (h == IntPtr.Zero) return false;
+    if (IsIconic(h)) ShowWindowAsync(h, SW_RESTORE);
+
+    uint foreground = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
+    uint self = GetCurrentThreadId();
+    uint owner = GetWindowThreadProcessId(h, IntPtr.Zero);
+
+    AttachThreadInput(self, foreground, true);
+    AttachThreadInput(owner, foreground, true);
+
+    BringWindowToTop(h);
+    bool ok = SetForegroundWindow(h);
+
+    AttachThreadInput(owner, foreground, false);
+    AttachThreadInput(self, foreground, false);
+
+    return ok || GetForegroundWindow() == h;
+  }
+}`;
+
 async function windowsFocus(id) {
-  // AppActivate takes a process id and raises that process's main window.
-  const script = `$s = New-Object -ComObject WScript.Shell; $s.AppActivate([int]${Number(id)})`;
-  const { err } = await run('powershell.exe', [...POWERSHELL, script]);
-  return !err;
+  const handle = String(Number(id));
+  const script = `Add-Type @'${ACTIVATE_SOURCE}\n'@; `
+    + `if ([DockActivate]::Activate([IntPtr]${handle})) { 'ok' } else { 'failed' }`;
+
+  const { err, stdout } = await run('powershell.exe', [...POWERSHELL, script]);
+  if (err) {
+    console.warn('[app-windows] could not raise window:', err.message);
+    return false;
+  }
+  return stdout.includes('ok');
 }
 
 /* -------------------------------- Linux --------------------------------- */

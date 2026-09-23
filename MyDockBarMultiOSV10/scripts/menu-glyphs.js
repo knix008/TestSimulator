@@ -151,6 +151,19 @@ const GLYPHS = {
   <rect x="4" y="18" width="56" height="28" rx="14" fill="${GREY}" fill-opacity=".55"/>
   <circle cx="18" cy="32" r="10" fill="#ffffff"/>`,
 
+  zoom: `
+  <circle cx="27" cy="27" r="17" fill="none" stroke="${BLUE}" stroke-width="6"/>
+  <path d="M39 39l16 16" stroke="${BLUE}" stroke-width="7" stroke-linecap="round"/>
+  <path d="M27 19v16M19 27h16" stroke="${BLUE}" stroke-width="5" stroke-linecap="round"/>`,
+
+  apps: `
+  <g fill="${BLUE}">
+    <rect x="8" y="8" width="20" height="20" rx="5"/>
+    <rect x="36" y="8" width="20" height="20" rx="5" fill-opacity=".62"/>
+    <rect x="8" y="36" width="20" height="20" rx="5" fill-opacity=".62"/>
+    <rect x="36" y="36" width="20" height="20" rx="5" fill-opacity=".4"/>
+  </g>`,
+
   language: `
   <circle cx="32" cy="32" r="24" fill="none" stroke="${BLUE}" stroke-width="5"/>
   <ellipse cx="32" cy="32" rx="10" ry="24" fill="none" stroke="${BLUE}" stroke-width="4"/>

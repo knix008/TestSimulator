@@ -13,6 +13,35 @@
 
   let t = I18n.make('en');
 
+  /**
+   * The glyph each tab shows, from the same set the native menus draw from so
+   * an idea never has two different pictures.
+   */
+  const TAB_ICONS = {
+    general: 'settings',
+    themes: 'theme',
+    icons: 'app',
+    zoom: 'zoom',
+    position: 'pos-bottom',
+    behaviour: 'toggle-on',
+    items: 'dock',
+    apps: 'apps',
+  };
+
+  function decorateTabs() {
+    for (const tab of document.querySelectorAll('.tab')) {
+      const glyph = TAB_ICONS[tab.dataset.tab];
+      if (!glyph || tab.querySelector('img')) continue;
+
+      const img = document.createElement('img');
+      img.src = `../../build/menu/${glyph}.png`;
+      img.alt = '';
+      // A missing glyph must not leave a broken-image box in the tab strip.
+      img.addEventListener('error', () => img.remove(), { once: true });
+      tab.prepend(img);
+    }
+  }
+
   /** Re-label every element carrying a data-i18n key. */
   function applyTranslations() {
     for (const node of document.querySelectorAll('[data-i18n]')) {
@@ -1107,6 +1136,7 @@
   }
 
   async function boot() {
+    decorateTabs();
     setupBindings();
     setupTabs();
     setupActions();
