@@ -195,19 +195,32 @@
     getPrinters: async () => [],
 
     // Print through the browser: a popup with just the picture (sized like the preview), closed after the dialog
-    printImage: async ({ dataUrl, title, pageSize, landscape, marginMm, imgWmm, imgHmm, color } = {}) => {
+    printImage: async ({ dataUrl, title, pageSize, landscape, marginMm, imgWmm, imgHmm, color, header, footer, headerMm, footerMm } = {}) => {
       if (!dataUrl) return { error: 'Nothing to print' };
       const w = window.open('', '_blank', 'width=900,height=700');
       if (!w) return { error: 'Popup blocked' };
       const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
       const m = Number.isFinite(marginMm) ? marginMm : 10;
       const size = pageSize ? (pageSize + ' ' + (landscape ? 'landscape' : 'portrait')) : 'auto';
-      const imgCss = (imgWmm && imgHmm) ? 'width:' + imgWmm + 'mm;height:' + imgHmm + 'mm' : 'max-width:100%;max-height:100vh;object-fit:contain';
+      const imgCss = (imgWmm && imgHmm) ? 'width:' + imgWmm + 'mm;height:' + imgHmm + 'mm' : 'max-width:100%;max-height:100%;object-fit:contain';
       const filter = color === 'gray' ? 'filter:grayscale(1);' : '';
+      const hm = Number(headerMm) || 0;
+      const fm = Number(footerMm) || 0;
+      const band = (mm, slots) => {
+        if (!(mm > 0) || !slots) return '';
+        return '<div class="band" style="height:' + mm + 'mm"><span class="l">' + esc(slots.left) + '</span>'
+          + '<span class="c">' + esc(slots.center) + '</span><span class="r">' + esc(slots.right) + '</span></div>';
+      };
       w.document.open();
       w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title>'
-        + '<style>@page{size:' + size + ';margin:' + m + 'mm}html,body{margin:0;padding:0;width:100%;height:100%;background:#fff}body{display:flex;align-items:center;justify-content:center;overflow:hidden}img{' + imgCss + ';' + filter + '}</style>'
-        + '</head><body><img src="' + dataUrl + '" alt=""></body></html>');
+        + '<style>@page{size:' + size + ';margin:' + m + 'mm}html,body{margin:0;padding:0;width:100%;height:100%;background:#fff}'
+        + 'body{display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden}'
+        + '.band{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;font:10pt/1.2 system-ui,sans-serif;color:#111}'
+        + '.band span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}'
+        + '.band .l{text-align:left}.band .c{text-align:center}.band .r{text-align:right}'
+        + '.pic{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}'
+        + 'img{' + imgCss + ';' + filter + '}</style>'
+        + '</head><body>' + band(hm, header) + '<div class="pic"><img src="' + dataUrl + '" alt=""></div>' + band(fm, footer) + '</body></html>');
       w.document.close();
       await new Promise((r) => { const i = w.document.querySelector('img'); if (!i || i.complete) r(); else { i.onload = () => r(); i.onerror = () => r(); } });
       w.focus();

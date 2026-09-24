@@ -536,6 +536,7 @@
     const buttons = [
       { id:'btn-open-file',   icon:'openFile',   tip:'toolbar.openFile',   action: () => _pickOpenFile() },
       { id:'btn-open-folder', icon:'openFolder', tip:'toolbar.openFolder', action: () => _pickOpenFolder() },
+      { id:'btn-print',       icon:'print',      tip:'toolbar.print',      action: _openPrintPreview, disabled: true },
       { separator: true },
       { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { _undoEdit(); }, disabled: true },
       { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { _redoEdit(); }, disabled: true },
@@ -553,7 +554,6 @@
       { id:'btn-next',        icon:'next',       tip:'toolbar.next',       action: _nextImage, disabled: true },
       { separator: true },
       { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
-      { id:'btn-print',       icon:'print',      tip:'toolbar.print',      action: _openPrintPreview, disabled: true },
       { separator: true },
       // Zoom: [−] [100%] [+] — the percentage box sits between the two buttons
       { id:'btn-zoom-out',    icon:'zoomOut',    tip:'toolbar.zoomOut',    action: () => _zoom(0.8),  disabled: true },
@@ -976,24 +976,48 @@
     return !state.isVideo && !state.isAudio && (Editor.isLoaded() || !!state.isAnimated);
   }
 
-  function _printableDataUrl() {
-    if (Editor.isLoaded()) return Editor.exportAsDataUrl('image/png');
+  /** Canvas / image already on screen — no PNG encode. Used for instant preview. */
+  function _printSource() {
+    if (Editor.isLoaded() && displayCanvas && displayCanvas.width) return displayCanvas;
+    if (displayCanvas && displayCanvas.width) return displayCanvas;
     if (state.isAnimated) {
-      // Paused → the frozen frame; playing → snapshot the <img> (the freeze canvas is blank until first pause)
-      if (animFreeze && animFreeze.style.display !== 'none' && animFreeze.width) {
-        try { return animFreeze.toDataURL('image/png'); } catch { /* fall through */ }
-      }
-      if (animImg && animImg.naturalWidth) {
-        try {
-          const c = document.createElement('canvas');
-          c.width = animImg.naturalWidth; c.height = animImg.naturalHeight;
-          c.getContext('2d').drawImage(animImg, 0, 0);
-          return c.toDataURL('image/png');
-        } catch { /* fall through */ }
-      }
-      return state.animatedDataUrl || null;
+      if (animFreeze && animFreeze.style.display !== 'none' && animFreeze.width) return animFreeze;
+      if (animImg && animImg.naturalWidth) return animImg;
     }
     return null;
+  }
+
+  function _printableDataUrl() {
+    const src = _printSource();
+    if (src && src.toDataURL) {
+      try { return src.toDataURL('image/png'); } catch { /* fall through */ }
+    }
+    if (src && src.naturalWidth) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = src.naturalWidth;
+        c.height = src.naturalHeight;
+        c.getContext('2d').drawImage(src, 0, 0);
+        return c.toDataURL('image/png');
+      } catch { /* fall through */ }
+    }
+    return state.animatedDataUrl || null;
+  }
+
+  function _blitPrintPreview(src) {
+    const dest = document.getElementById('print-preview-img');
+    if (!dest || !src) return;
+    const sw = src.naturalWidth || src.width || 0;
+    const sh = src.naturalHeight || src.height || 0;
+    if (!sw || !sh) return;
+    const max = 1600;
+    const s = Math.min(1, max / sw, max / sh);
+    dest.width = Math.max(1, Math.round(sw * s));
+    dest.height = Math.max(1, Math.round(sh * s));
+    const ctx = dest.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'medium';
+    ctx.drawImage(src, 0, 0, dest.width, dest.height);
   }
 
   /* Print preview: paper / orientation / margins / scale are chosen here, the page is
@@ -1001,7 +1025,7 @@
    * (the system default is pre-selected). */
   const PRINT_PAPERS = { A4: [210, 297], Letter: [215.9, 279.4], Legal: [215.9, 355.6], A3: [297, 420], A5: [148, 210], Tabloid: [279.4, 431.8] };
   const PRINT_PREFS_KEY = 'printPrefs';
-  const _print = { dataUrl: null, imgW: 0, imgH: 0, printers: [], busy: false };
+  const _print = { dataUrl: null, imgW: 0, imgH: 0, printers: [], printersCache: null, printersCacheAt: 0, busy: false };
 
   function _loadPrintPrefs() {
     try { return JSON.parse(localStorage.getItem(PRINT_PREFS_KEY) || '{}') || {}; } catch { return {}; }
@@ -1010,6 +1034,11 @@
   function _readPrintForm() {
     const q = (id) => document.getElementById(id);
     const radio = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
+    const headerKind = ['filename', 'date', 'both', 'custom'].includes(q('print-header-kind')?.value)
+      ? q('print-header-kind').value : 'filename';
+    const headerAlign = radio('print-header-align') || 'center';
+    const pageNoPos = q('print-pageno-pos')?.value || 'footer-center';
+    const pageNoFmt = q('print-pageno-fmt')?.value || 'nOfN';
     return {
       printer:  q('print-printer')?.value || '',
       paper:    PRINT_PAPERS[q('print-paper-size')?.value] ? q('print-paper-size').value : 'A4',
@@ -1019,6 +1048,13 @@
       scalePct: Math.min(400, Math.max(5, parseFloat(q('print-scale-pct')?.value) || 100)),
       copies:   Math.min(99, Math.max(1, parseInt(q('print-copies')?.value, 10) || 1)),
       color:    q('print-color')?.value === 'gray' ? 'gray' : 'color',
+      headerOn:    !!q('print-header-on')?.checked,
+      headerKind,
+      headerAlign: ['left', 'center', 'right'].includes(headerAlign) ? headerAlign : 'center',
+      headerText:  q('print-header-text')?.value || '',
+      pageNoOn:    !!q('print-pageno-on')?.checked,
+      pageNoPos:   /^(header|footer)-(left|center|right)$/.test(pageNoPos) ? pageNoPos : 'footer-center',
+      pageNoFmt:   ['n', 'nOfN', 'pageN', 'dash'].includes(pageNoFmt) ? pageNoFmt : 'nOfN',
     };
   }
 
@@ -1033,6 +1069,66 @@
     if (q('print-scale-pct')) q('print-scale-pct').value = String(f.scalePct);
     if (q('print-copies')) q('print-copies').value = String(f.copies);
     if (q('print-color')) q('print-color').value = f.color;
+    if (q('print-header-on')) q('print-header-on').checked = f.headerOn !== false;
+    if (q('print-header-kind') && f.headerKind) q('print-header-kind').value = f.headerKind;
+    const halign = document.querySelector(`input[name="print-header-align"][value="${f.headerAlign || 'center'}"]`);
+    if (halign) halign.checked = true;
+    if (q('print-header-text') && f.headerText != null) q('print-header-text').value = f.headerText;
+    if (q('print-pageno-on')) q('print-pageno-on').checked = f.pageNoOn !== false;
+    if (q('print-pageno-pos') && f.pageNoPos) q('print-pageno-pos').value = f.pageNoPos;
+    if (q('print-pageno-fmt') && f.pageNoFmt) q('print-pageno-fmt').value = f.pageNoFmt;
+  }
+
+  const PRINT_BAND_MM = 7;
+
+  function _printFileName() {
+    return state.currentFile ? state.currentFile.split(/[/\\]/).pop() : (I18n.t('app.title') || 'Image');
+  }
+
+  function _printHeadingText(f) {
+    if (!f.headerOn) return '';
+    const name = _printFileName();
+    const date = new Date().toLocaleDateString(state.lang === 'ko' ? 'ko-KR' : undefined);
+    if (f.headerKind === 'date') return date;
+    if (f.headerKind === 'both') return `${name}  ·  ${date}`;
+    if (f.headerKind === 'custom') return String(f.headerText || '').trim();
+    return name;
+  }
+
+  function _printPageNumberText(f, page = 1, total = 1) {
+    if (!f.pageNoOn) return '';
+    const t = I18n.t.bind(I18n);
+    if (f.pageNoFmt === 'n') return String(page);
+    if (f.pageNoFmt === 'pageN') return (t('print.pageN') || 'Page {n}').replace('{n}', String(page));
+    if (f.pageNoFmt === 'dash') return `- ${page} -`;
+    return (t('print.nOfN') || '{n} / {total}').replace('{n}', String(page)).replace('{total}', String(total));
+  }
+
+  function _putPrintSlot(band, align, text) {
+    if (!text) return;
+    if (band[align]) band[align] = `${band[align]}  ·  ${text}`;
+    else band[align] = text;
+  }
+
+  /** Header / footer slot text for the current form (page 1 of 1 for a single image). */
+  function _printChrome(f) {
+    const header = { left: '', center: '', right: '' };
+    const footer = { left: '', center: '', right: '' };
+    const heading = _printHeadingText(f);
+    if (heading) _putPrintSlot(header, f.headerAlign || 'center', heading);
+    const pageNo = _printPageNumberText(f);
+    if (pageNo) {
+      const [band, align] = String(f.pageNoPos || 'footer-center').split('-');
+      _putPrintSlot(band === 'header' ? header : footer, align || 'center', pageNo);
+    }
+    const headerOn = !!(header.left || header.center || header.right);
+    const footerOn = !!(footer.left || footer.center || footer.right);
+    return {
+      header,
+      footer,
+      headerMm: headerOn ? PRINT_BAND_MM : 0,
+      footerMm: footerOn ? PRINT_BAND_MM : 0,
+    };
   }
 
   /** Page geometry (mm) for the current form: paper, orientation and the image box. */
@@ -1042,8 +1138,9 @@
     const landscape = f.orient === 'landscape' || (f.orient === 'auto' && imgLandscape);
     const pw = landscape ? ph0 : pw0;
     const ph = landscape ? pw0 : ph0;
+    const chrome = _printChrome(f);
     const cw = Math.max(1, pw - 2 * f.marginMm);
-    const ch = Math.max(1, ph - 2 * f.marginMm);
+    const ch = Math.max(1, ph - 2 * f.marginMm - chrome.headerMm - chrome.footerMm);
     let iw = 0, ih = 0;
     if (_print.imgW && _print.imgH) {
       const fit = Math.min(cw / _print.imgW, ch / _print.imgH);
@@ -1053,7 +1150,7 @@
       iw = _print.imgW * k;
       ih = _print.imgH * k;
     }
-    return { pw, ph, cw, ch, iw, ih, landscape };
+    return { pw, ph, cw, ch, iw, ih, landscape, ...chrome };
   }
 
   function _renderPrintPreview() {
@@ -1065,18 +1162,46 @@
     const img = document.getElementById('print-preview-img');
     if (!stage || !paper || !content || !img) return;
 
-    const sw = stage.clientWidth - 32, sh = stage.clientHeight - 32;
+    const sw = Math.max(40, (stage.clientWidth || stage.offsetWidth || 520) - 32);
+    const sh = Math.max(40, (stage.clientHeight || stage.offsetHeight || 460) - 32);
     const k = Math.max(0.01, Math.min(sw / L.pw, sh / L.ph));      // mm → preview px
     paper.style.width = `${L.pw * k}px`;
     paper.style.height = `${L.ph * k}px`;
     paper.classList.toggle('gray', f.color === 'gray');
-    content.style.left = content.style.top = `${f.marginMm * k}px`;
+    content.style.left = `${f.marginMm * k}px`;
+    content.style.top = `${(f.marginMm + L.headerMm) * k}px`;
     content.style.width = `${L.cw * k}px`;
     content.style.height = `${L.ch * k}px`;
     img.style.width = `${L.iw * k}px`;
     img.style.height = `${L.ih * k}px`;
 
+    const fontPx = Math.max(7, 3.2 * k);
+    const fillBand = (id, slots, mm, top) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const on = mm > 0;
+      el.hidden = !on;
+      if (!on) return;
+      el.style.left = el.style.right = `${f.marginMm * k}px`;
+      if (top) el.style.top = `${f.marginMm * k}px`;
+      else el.style.bottom = `${f.marginMm * k}px`;
+      el.style.height = `${mm * k}px`;
+      el.style.fontSize = `${fontPx}px`;
+      const set = (side, text) => {
+        const s = document.getElementById(`${id}-${side === 'center' ? 'c' : side[0]}`);
+        if (s) s.textContent = text || '';
+      };
+      set('left', slots.left);
+      set('center', slots.center);
+      set('right', slots.right);
+    };
+    fillBand('print-header', L.header, L.headerMm, true);
+    fillBand('print-footer', L.footer, L.footerMm, false);
+
     document.getElementById('print-scale-custom-wrap')?.toggleAttribute('hidden', f.scale !== 'custom');
+    document.getElementById('print-header-custom-wrap')?.toggleAttribute('hidden', !f.headerOn || f.headerKind !== 'custom');
+    document.getElementById('print-header-opts')?.toggleAttribute('hidden', !f.headerOn);
+    document.getElementById('print-pageno-opts')?.toggleAttribute('hidden', !f.pageNoOn);
     const info = document.getElementById('print-page-info');
     if (info) {
       const t = I18n.t.bind(I18n);
@@ -1089,13 +1214,12 @@
     try { localStorage.setItem(PRINT_PREFS_KEY, JSON.stringify({ ...f, printer: undefined })); } catch {}
   }
 
-  async function _fillPrinterList() {
+  function _applyPrinters(printers) {
     const sel = document.getElementById('print-printer');
     if (!sel) return;
     const t = I18n.t.bind(I18n);
+    const prev = sel.value;
     sel.innerHTML = '';
-    let printers = [];
-    try { printers = (await window.electronAPI.getPrinters?.()) || []; } catch { printers = []; }
     _print.printers = printers;
     if (!printers.length) {
       const opt = document.createElement('option');
@@ -1104,7 +1228,6 @@
       sel.appendChild(opt);
       return;
     }
-    // System default printer first and pre-selected
     printers = [...printers].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
     for (const pr of printers) {
       const opt = document.createElement('option');
@@ -1113,7 +1236,20 @@
       if (pr.isDefault) opt.selected = true;
       sel.appendChild(opt);
     }
-    if (!printers.some((pr) => pr.isDefault)) sel.selectedIndex = 0;
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+    else if (!printers.some((pr) => pr.isDefault)) sel.selectedIndex = 0;
+  }
+
+  async function _fillPrinterList() {
+    if (_print.printersCache && (Date.now() - _print.printersCacheAt < 60000)) {
+      _applyPrinters(_print.printersCache);
+      return;
+    }
+    let printers = [];
+    try { printers = (await window.electronAPI.getPrinters?.()) || []; } catch { printers = []; }
+    _print.printersCache = printers;
+    _print.printersCacheAt = Date.now();
+    _applyPrinters(printers);
   }
 
   function _initPrintDialog() {
@@ -1121,42 +1257,53 @@
     if (!overlay) return;
     overlay.querySelectorAll('select, input').forEach((el) => {
       el.addEventListener('change', _renderPrintPreview);
-      if (el.type === 'number') el.addEventListener('input', _renderPrintPreview);
+      if (el.type === 'number' || el.type === 'text') el.addEventListener('input', _renderPrintPreview);
     });
     document.getElementById('print-go')?.addEventListener('click', () => _printImage());
     window.addEventListener('resize', () => { if (overlay.classList.contains('visible')) _renderPrintPreview(); });
+    _fillPrinterList();
   }
 
   async function _openPrintPreview() {
     if (!_canPrint()) return;
-    const dataUrl = _printableDataUrl();
-    if (!dataUrl) return;
-    const img = document.getElementById('print-preview-img');
-    if (!img) return;
-    _print.dataUrl = dataUrl;
-    await new Promise((resolve) => {
-      img.onload = () => { _print.imgW = img.naturalWidth; _print.imgH = img.naturalHeight; resolve(); };
-      img.onerror = () => { _print.imgW = _print.imgH = 0; resolve(); };
-      img.src = dataUrl;
+    const src = _printSource();
+    if (!src) return;
+    _print.dataUrl = null;
+    _print.imgW = src.naturalWidth || src.width || 0;
+    _print.imgH = src.naturalHeight || src.height || 0;
+    _writePrintForm({
+      paper: 'A4', orient: 'auto', marginMm: 10, scale: 'fit', scalePct: 100, copies: 1, color: 'color',
+      headerOn: true, headerKind: 'filename', headerAlign: 'center', headerText: '',
+      pageNoOn: true, pageNoPos: 'footer-center', pageNoFmt: 'nOfN',
+      ..._loadPrintPrefs(),
     });
-    _writePrintForm({ paper: 'A4', orient: 'auto', marginMm: 10, scale: 'fit', scalePct: 100, copies: 1, color: 'color', ..._loadPrintPrefs() });
     _showDialog('print-overlay');
+    _blitPrintPreview(src);
+    const stage = document.getElementById('print-preview-stage');
+    if (stage) void stage.offsetHeight;
     _renderPrintPreview();
-    await _fillPrinterList();
+    requestAnimationFrame(_renderPrintPreview);
+    _fillPrinterList();
   }
 
   /** "Print" in the preview: send to the selected printer without another dialog. */
   async function _printImage() {
-    if (_print.busy || !_print.dataUrl) return;
+    if (_print.busy) return;
     const f = _readPrintForm();
     const L = _printLayout(f);
-    const title = state.currentFile ? state.currentFile.split(/[/\\]/).pop() : (I18n.t('app.title') || 'Image');
+    const title = _printFileName();
     const goBtn = document.getElementById('print-go');
     _print.busy = true;
     if (goBtn) { goBtn.disabled = true; goBtn.querySelector('span').textContent = I18n.t('print.printing'); }
     try {
+      const dataUrl = _print.dataUrl || _printableDataUrl();
+      if (!dataUrl) {
+        _showError(I18n.t('error.print') || 'Could not print the image.', '');
+        return;
+      }
+      _print.dataUrl = dataUrl;
       const res = await window.electronAPI.printImage({
-        dataUrl: _print.dataUrl,
+        dataUrl,
         title,
         deviceName: f.printer || undefined,
         copies: f.copies,
@@ -1166,6 +1313,10 @@
         imgWmm: Math.round(L.iw * 100) / 100,
         imgHmm: Math.round(L.ih * 100) / 100,
         color: f.color,
+        header: L.header,
+        footer: L.footer,
+        headerMm: L.headerMm,
+        footerMm: L.footerMm,
       });
       if (res && res.error && res.error !== 'cancelled') {
         _showError(I18n.t('error.print') || 'Could not print the image.', res.error);
@@ -8014,6 +8165,7 @@
       'theme-dark':    () => _applyTheme('dark'),
       'theme-light':   () => _applyTheme('light'),
       'theme-next':    _nextTheme,
+      'print':         _openPrintPreview,
       'show-settings': _openSettings,
       'lang-ko': async () => { state.lang = 'ko'; localStorage.setItem('lang','ko'); await _refreshLang(); },
       'lang-en': async () => { state.lang = 'en'; localStorage.setItem('lang','en'); await _refreshLang(); },

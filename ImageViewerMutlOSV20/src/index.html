@@ -899,70 +899,150 @@
         <div class="print-preview-col">
           <div class="print-preview-stage" id="print-preview-stage">
             <div class="print-paper" id="print-paper">
+              <div class="print-band print-header" id="print-header">
+                <span class="print-slot print-slot-l" id="print-header-l"></span>
+                <span class="print-slot print-slot-c" id="print-header-c"></span>
+                <span class="print-slot print-slot-r" id="print-header-r"></span>
+              </div>
               <div class="print-content" id="print-content">
-                <img id="print-preview-img" alt="" draggable="false">
+                <canvas id="print-preview-img"></canvas>
+              </div>
+              <div class="print-band print-footer" id="print-footer">
+                <span class="print-slot print-slot-l" id="print-footer-l"></span>
+                <span class="print-slot print-slot-c" id="print-footer-c"></span>
+                <span class="print-slot print-slot-r" id="print-footer-r"></span>
               </div>
             </div>
           </div>
           <div class="print-page-info" id="print-page-info"></div>
         </div>
         <div class="print-controls-col">
-          <div class="resize-label" data-i18n="print.printer">Printer</div>
-          <select id="print-printer" class="resize-select"></select>
+          <label class="print-field print-field-full">
+            <span data-i18n="print.printer">Printer</span>
+            <select id="print-printer" class="resize-select"></select>
+          </label>
 
-          <div class="resize-label" data-i18n="print.paper">Paper size</div>
-          <select id="print-paper-size" class="resize-select">
-            <option value="A4">A4 (210 × 297 mm)</option>
-            <option value="Letter">Letter (216 × 279 mm)</option>
-            <option value="Legal">Legal (216 × 356 mm)</option>
-            <option value="A3">A3 (297 × 420 mm)</option>
-            <option value="A5">A5 (148 × 210 mm)</option>
-            <option value="Tabloid">Tabloid (279 × 432 mm)</option>
-          </select>
-
-          <div class="resize-label" data-i18n="print.orientation">Orientation</div>
-          <div class="resize-mode-row" role="radiogroup">
-            <label class="resize-chip"><input type="radio" name="print-orient" value="auto" checked> <span data-i18n="print.auto">Auto</span></label>
-            <label class="resize-chip"><input type="radio" name="print-orient" value="portrait"> <span data-i18n="print.portrait">Portrait</span></label>
-            <label class="resize-chip"><input type="radio" name="print-orient" value="landscape"> <span data-i18n="print.landscape">Landscape</span></label>
-          </div>
-
-          <div class="resize-label" data-i18n="print.margins">Margins</div>
-          <select id="print-margins" class="resize-select">
-            <option value="0" data-i18n="print.marginNone">None</option>
-            <option value="5" data-i18n="print.marginNarrow">Narrow (5 mm)</option>
-            <option value="10" selected data-i18n="print.marginNormal">Normal (10 mm)</option>
-            <option value="20" data-i18n="print.marginWide">Wide (20 mm)</option>
-          </select>
-
-          <div class="resize-label" data-i18n="print.scale">Scale</div>
-          <div class="resize-mode-row" role="radiogroup">
-            <label class="resize-chip"><input type="radio" name="print-scale" value="fit" checked> <span data-i18n="print.fit">Fit to page</span></label>
-            <label class="resize-chip"><input type="radio" name="print-scale" value="actual"> <span data-i18n="print.actual">Actual size</span></label>
-            <label class="resize-chip"><input type="radio" name="print-scale" value="custom"> <span data-i18n="print.custom">Custom</span></label>
-          </div>
-          <div class="resize-fields" id="print-scale-custom-wrap" hidden>
-            <label class="resize-field">
-              <span data-i18n="print.scalePct">Scale (% of fit)</span>
-              <span class="resize-field-inline">
-                <input id="print-scale-pct" type="number" min="5" max="400" step="1" value="100">
-                <span>%</span>
-              </span>
+          <div class="print-pair">
+            <label class="print-field">
+              <span data-i18n="print.paper">Paper size</span>
+              <select id="print-paper-size" class="resize-select">
+                <option value="A4">A4 (210 × 297 mm)</option>
+                <option value="Letter">Letter (216 × 279 mm)</option>
+                <option value="Legal">Legal (216 × 356 mm)</option>
+                <option value="A3">A3 (297 × 420 mm)</option>
+                <option value="A5">A5 (148 × 210 mm)</option>
+                <option value="Tabloid">Tabloid (279 × 432 mm)</option>
+              </select>
+            </label>
+            <label class="print-field">
+              <span data-i18n="print.margins">Margins</span>
+              <select id="print-margins" class="resize-select">
+                <option value="0" data-i18n="print.marginNone">None</option>
+                <option value="5" data-i18n="print.marginNarrow">Narrow (5 mm)</option>
+                <option value="10" selected data-i18n="print.marginNormal">Normal (10 mm)</option>
+                <option value="20" data-i18n="print.marginWide">Wide (20 mm)</option>
+              </select>
             </label>
           </div>
 
-          <div class="resize-fields">
-            <label class="resize-field">
+          <div class="print-field print-field-full">
+            <span data-i18n="print.orientation">Orientation</span>
+            <div class="resize-mode-row" role="radiogroup">
+              <label class="resize-chip"><input type="radio" name="print-orient" value="auto" checked> <span data-i18n="print.auto">Auto</span></label>
+              <label class="resize-chip"><input type="radio" name="print-orient" value="portrait"> <span data-i18n="print.portrait">Portrait</span></label>
+              <label class="resize-chip"><input type="radio" name="print-orient" value="landscape"> <span data-i18n="print.landscape">Landscape</span></label>
+            </div>
+          </div>
+
+          <div class="print-field print-field-full">
+            <span data-i18n="print.scale">Scale</span>
+            <div class="resize-mode-row" role="radiogroup">
+              <label class="resize-chip"><input type="radio" name="print-scale" value="fit" checked> <span data-i18n="print.fit">Fit to page</span></label>
+              <label class="resize-chip"><input type="radio" name="print-scale" value="actual"> <span data-i18n="print.actual">Actual size</span></label>
+              <label class="resize-chip"><input type="radio" name="print-scale" value="custom"> <span data-i18n="print.custom">Custom</span></label>
+            </div>
+          </div>
+          <label class="print-field print-field-full" id="print-scale-custom-wrap" hidden>
+            <span data-i18n="print.scalePct">Scale (% of fit)</span>
+            <span class="resize-field-inline">
+              <input id="print-scale-pct" type="number" min="5" max="400" step="1" value="100">
+              <span>%</span>
+            </span>
+          </label>
+
+          <div class="print-pair">
+            <label class="print-field">
               <span data-i18n="print.copies">Copies</span>
               <input id="print-copies" type="number" min="1" max="99" step="1" value="1">
             </label>
-            <label class="resize-field">
+            <label class="print-field">
               <span data-i18n="print.color">Color</span>
               <select id="print-color" class="resize-select">
                 <option value="color" data-i18n="print.colorColor">Color</option>
                 <option value="gray" data-i18n="print.grayscale">Grayscale</option>
               </select>
             </label>
+          </div>
+
+          <div class="resize-divider"></div>
+
+          <label class="resize-check">
+            <input type="checkbox" id="print-header-on" checked>
+            <span data-i18n="print.headerShow">Show header</span>
+          </label>
+          <div id="print-header-opts" class="print-opts">
+            <div class="print-pair">
+              <label class="print-field">
+                <span data-i18n="print.headerContent">Header text</span>
+                <select id="print-header-kind" class="resize-select">
+                  <option value="filename" data-i18n="print.headerFilename">File name</option>
+                  <option value="date" data-i18n="print.headerDate">Date</option>
+                  <option value="both" data-i18n="print.headerBoth">File name + date</option>
+                  <option value="custom" data-i18n="print.headerCustom">Custom</option>
+                </select>
+              </label>
+              <div class="print-field">
+                <span data-i18n="print.headerAlign">Header position</span>
+                <div class="resize-mode-row" role="radiogroup">
+                  <label class="resize-chip"><input type="radio" name="print-header-align" value="left"> <span data-i18n="print.alignLeft">Left</span></label>
+                  <label class="resize-chip"><input type="radio" name="print-header-align" value="center" checked> <span data-i18n="print.alignCenter">Center</span></label>
+                  <label class="resize-chip"><input type="radio" name="print-header-align" value="right"> <span data-i18n="print.alignRight">Right</span></label>
+                </div>
+              </div>
+            </div>
+            <label class="print-field print-field-full" id="print-header-custom-wrap" hidden>
+              <span data-i18n="print.headerText">Custom header</span>
+              <input id="print-header-text" type="text" maxlength="200" spellcheck="false">
+            </label>
+          </div>
+
+          <label class="resize-check">
+            <input type="checkbox" id="print-pageno-on" checked>
+            <span data-i18n="print.pageNoShow">Show page number</span>
+          </label>
+          <div id="print-pageno-opts" class="print-opts">
+            <div class="print-pair">
+              <label class="print-field">
+                <span data-i18n="print.pageNoPos">Number position</span>
+                <select id="print-pageno-pos" class="resize-select">
+                  <option value="footer-center" data-i18n="print.posFooterCenter" selected>Footer center</option>
+                  <option value="footer-left" data-i18n="print.posFooterLeft">Footer left</option>
+                  <option value="footer-right" data-i18n="print.posFooterRight">Footer right</option>
+                  <option value="header-left" data-i18n="print.posHeaderLeft">Header left</option>
+                  <option value="header-center" data-i18n="print.posHeaderCenter">Header center</option>
+                  <option value="header-right" data-i18n="print.posHeaderRight">Header right</option>
+                </select>
+              </label>
+              <label class="print-field">
+                <span data-i18n="print.pageNoFmt">Number format</span>
+                <select id="print-pageno-fmt" class="resize-select">
+                  <option value="nOfN" data-i18n="print.fmtNofN">1 / 1</option>
+                  <option value="n" data-i18n="print.fmtN">1</option>
+                  <option value="pageN" data-i18n="print.fmtPageN">Page 1</option>
+                  <option value="dash" data-i18n="print.fmtDash">- 1 -</option>
+                </select>
+              </label>
+            </div>
           </div>
         </div>
       </div>

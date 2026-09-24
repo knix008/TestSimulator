@@ -495,28 +495,36 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
 .theme-swatch { border-radius: 3px; }
 
 /* ========== Print preview dialog ========== */
-.print-dialog-box {
-  min-width: 720px;
-  max-width: min(900px, calc(100vw - 32px));
-  width: 860px;
-  max-height: min(90vh, 760px);
+.dialog-box.print-dialog-box {
+  width: min(1020px, calc(100vw - 28px));
+  min-width: 780px;
+  max-width: none;
+  height: min(640px, calc(100vh - 28px));
+  max-height: calc(100vh - 28px);
+  overflow: hidden;
 }
-.print-dialog-body {
+.dialog-box.print-dialog-box .dialog-header { padding: 10px 14px 8px; flex-shrink: 0; }
+.dialog-box.print-dialog-box .dialog-footer { padding: 8px 14px; flex-shrink: 0; }
+.dialog-body.print-dialog-body {
   display: grid;
-  grid-template-columns: 1fr 280px;
-  gap: 16px;
-  padding: 14px 16px 10px;
-  overflow: auto;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 14px;
+  padding: 10px 14px 8px;
+  overflow: hidden;
+  min-height: 0;
 }
 .print-preview-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
+  min-height: 0;
 }
 .print-preview-stage {
   width: 100%;
-  height: 460px;
+  flex: 1;
+  min-height: 0;
+  height: auto;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-tertiary);
@@ -540,6 +548,29 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   outline: 1px dashed rgba(0,0,0,0.15);
   outline-offset: -1px;
 }
+.print-band {
+  position: absolute;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  color: #1a1a1a;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.15;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.print-band[hidden] { display: none; }
+.print-slot {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 1px;
+}
+.print-slot-l { text-align: left; }
+.print-slot-c { text-align: center; }
+.print-slot-r { text-align: right; }
+.print-paper.gray .print-band { filter: grayscale(1); }
 #print-preview-img {
   display: block;
   flex-shrink: 0;
@@ -556,16 +587,49 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
 .print-controls-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.print-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
 }
-.print-controls-col .resize-label { margin-top: 4px; }
-#print-scale-custom-wrap[hidden] { display: none; }
-.print-controls-col .resize-field input[type="number"] { width: 100%; }
+.print-field > span:first-child {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+.print-field-full { width: 100%; }
+.print-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.print-opts { display: flex; flex-direction: column; gap: 6px; }
+.print-controls-col .resize-mode-row { flex-wrap: nowrap; gap: 4px; }
+.print-controls-col .resize-chip {
+  flex: 1;
+  justify-content: center;
+  padding: 3px 4px;
+  font-size: 11px;
+}
+.print-controls-col .resize-select,
+.print-controls-col .print-field input[type="number"],
+.print-controls-col .print-field input[type="text"] { width: 100%; }
+.print-controls-col .resize-divider { margin: 2px 0; }
+.print-controls-col .resize-check { margin-top: 2px; }
+#print-scale-custom-wrap[hidden],
+#print-header-custom-wrap[hidden],
+#print-header-opts[hidden],
+#print-pageno-opts[hidden] { display: none; }
 @media (max-width: 800px) {
-  .print-dialog-box { min-width: 0; width: calc(100vw - 24px); }
-  .print-dialog-body { grid-template-columns: 1fr; }
-  .print-preview-stage { height: 260px; }
+  .dialog-box.print-dialog-box { min-width: 0; width: calc(100vw - 16px); height: calc(100vh - 16px); }
+  .dialog-body.print-dialog-body { grid-template-columns: 1fr; }
+  .print-preview-stage { min-height: 200px; }
 }
 
 /* ========== Settings dialog ========== */

@@ -419,6 +419,11 @@ function buildMenu(translations) {
           accelerator: 'CmdOrCtrl+C',
           click: () => mainWindow && mainWindow.webContents.send('menu-action', 'copy-clipboard'),
         },
+        {
+          label: t('menu.print'),
+          accelerator: 'CmdOrCtrl+P',
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'print'),
+        },
         { type: 'separator' },
         {
           label: t('menu.settings'),
@@ -1795,19 +1800,37 @@ ipcMain.handle('decode-dicom', async (event, filePath) => {
  * chosen printer (silent) — no second system dialog. */
 const PRINT_PAGE_SIZES = new Set(['A3', 'A4', 'A5', 'Legal', 'Letter', 'Tabloid']);
 
-function _printPageHtml(dataUrl, title, { marginMm = 10, imgWmm, imgHmm, color } = {}) {
+function _printPageHtml(dataUrl, title, {
+  marginMm = 10, imgWmm, imgHmm, color, header, footer, headerMm = 0, footerMm = 0,
+} = {}) {
   const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const imgCss = (imgWmm > 0 && imgHmm > 0)
     ? `width: ${imgWmm}mm; height: ${imgHmm}mm;`
-    : 'max-width: 100%; max-height: 100vh; object-fit: contain;';
+    : 'max-width: 100%; max-height: 100%; object-fit: contain;';
   const filter = color === 'gray' ? 'filter: grayscale(1);' : '';
+  const band = (cls, mm, slots) => {
+    if (!(mm > 0) || !slots) return '';
+    return `<div class="band ${cls}" style="height:${mm}mm">`
+      + `<span class="l">${esc(slots.left)}</span>`
+      + `<span class="c">${esc(slots.center)}</span>`
+      + `<span class="r">${esc(slots.right)}</span></div>`;
+  };
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
   @page { margin: ${marginMm}mm; }
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
-  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  body { display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+  .band { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center;
+          font: 10pt/1.2 "Segoe UI", system-ui, sans-serif; color: #111; }
+  .band span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .band .l { text-align: left; } .band .c { text-align: center; } .band .r { text-align: right; }
+  .pic { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   img { ${imgCss} ${filter} }
-</style></head><body><img src="${dataUrl}" alt=""></body></html>`;
+</style></head><body>
+${band('hdr', headerMm, header)}
+<div class="pic"><img src="${dataUrl}" alt=""></div>
+${band('ftr', footerMm, footer)}
+</body></html>`;
 }
 
 ipcMain.handle('get-printers', async () => {
@@ -1828,7 +1851,7 @@ ipcMain.handle('get-printers', async () => {
 });
 
 ipcMain.handle('print-image', async (event, opts = {}) => {
-  const { dataUrl, title, deviceName, copies, landscape, pageSize, marginMm, imgWmm, imgHmm, color } = opts;
+  const { dataUrl, title, deviceName, copies, landscape, pageSize, marginMm, imgWmm, imgHmm, color, header, footer, headerMm, footerMm } = opts;
   if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return { error: 'Nothing to print' };
   let win = null;
   try {
@@ -1838,7 +1861,9 @@ ipcMain.handle('print-image', async (event, opts = {}) => {
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
     const mm = Number.isFinite(marginMm) ? Math.max(0, marginMm) : 10;
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(_printPageHtml(dataUrl, title, { marginMm: mm, imgWmm, imgHmm, color })));
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(_printPageHtml(dataUrl, title, {
+      marginMm: mm, imgWmm, imgHmm, color, header, footer, headerMm, footerMm,
+    })));
     await win.webContents.executeJavaScript(
       'new Promise((r) => { const i = document.querySelector("img"); if (!i || i.complete) r(); else { i.onload = () => r(); i.onerror = () => r(); } })'
     );
