@@ -1569,21 +1569,27 @@ body.resizing-row * {
 #status-progress {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   min-width: 0;
   max-width: 42%;
   flex-shrink: 1;
+  margin-left: auto;
+  text-align: right;
 }
 #status-progress[hidden] { display: none; }
+#status-progress.is-done .status-progress-track,
+#status-progress.is-done #status-progress-pct { display: none; }
 #status-progress-msg {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
   color: var(--status-text);
+  text-align: right;
 }
 .status-progress-track {
-  width: 88px;
+  width: 120px;
   height: 6px;
   flex-shrink: 0;
   border-radius: 3px;
@@ -1595,6 +1601,7 @@ body.resizing-row * {
   width: 0%;
   border-radius: 3px;
   background: var(--accent);
+  transition: width 0.32s ease-out;
 }
 #status-progress-pct {
   flex-shrink: 0;

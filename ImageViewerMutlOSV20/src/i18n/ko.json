@@ -305,7 +305,7 @@
   "progress.applying": "결과 적용 중…",
   "progress.effectTitle": "효과 적용",
   "progress.effectApplying": "효과를 적용하는 중…",
-  "progress.done": "완료",
+  "progress.done": "Loading Done.",
   "progress.resizing": "이미지 크기를 조절하는 중…",
   "progress.saving": "저장 중…",
   "progress.copying": "클립보드에 복사 중…",

@@ -1418,19 +1418,11 @@
     try {
       if (predicted && dlg) {
         showNow(8, I18n.t(messageKey));
-        await dlg.yieldFrame();
-        showNow(18);
-        await dlg.yieldFrame();
       } else if (dlg && delayMs > 0) {
         timer = setTimeout(() => showNow(8, I18n.t(messageKey)), delayMs);
       }
       const result = await Promise.resolve(work(dlg));
       if (timer) { clearTimeout(timer); timer = null; }
-      if (shown) {
-        dlg.stopCreep();
-        dlg.set(100, I18n.t('progress.done') || 'Done');
-        await dlg.yieldFrame(60);
-      }
       return result;
     } finally {
       if (timer) clearTimeout(timer);
@@ -1445,12 +1437,6 @@
     const mapped = I18n.t(`progress.${key}`);
     if (mapped && mapped !== `progress.${key}`) return mapped;
     return key || '';
-  }
-
-  function _isSlowOpen(filePath) {
-    return !!(filePath && (
-      FormatSupport.isHeic(filePath) || FormatSupport.isTiff(filePath) || FormatSupport.isDcm(filePath)
-    ));
   }
 
   function _fileAlreadyInList(filePath) {
@@ -1477,7 +1463,9 @@
     _openingFile = filePath;
     const fileName = filePath.split(/[/\\]/).pop();
     let progressShown = false;
+    let openSettled = false;
     const showOpenProgress = (percent, messageKey) => {
+      if (openSettled) return;
       const dlg = _pd();
       if (!dlg) return;
       if (!progressShown) {
@@ -1494,15 +1482,12 @@
       dlg.set(percent != null ? percent : 0, _openProgressLabel(messageKey || 'opening', fileName));
       if (percent >= 90) dlg.stopCreep();
     };
-    const progressTimer = setTimeout(
-      () => showOpenProgress(8, 'opening'),
-      _isSlowOpen(filePath) ? 50 : 400
-    );
     const unsubProgress = window.electronAPI.onOpenProgress
       ? window.electronAPI.onOpenProgress(({ percent, message }) => {
           showOpenProgress(percent, message);
         })
       : null;
+    showOpenProgress(6, 'opening');
 
     try {
       const result = await _withTimeout(
@@ -1565,12 +1550,6 @@
 
       _updateToolbarForMedia(mediaKind);
       _showLoading(false);
-      if (progressShown) {
-        const dlg = _pd();
-        dlg?.stopCreep();
-        dlg?.set(100, I18n.t('progress.done') || 'Done');
-        await dlg?.yieldFrame(90);
-      }
 
       FileTree.setSelected(filePath, { center });
       const dir = await window.electronAPI.pathDirname(filePath);
@@ -1601,9 +1580,9 @@
         e
       );
     } finally {
-      clearTimeout(progressTimer);
+      openSettled = true;
       if (typeof unsubProgress === 'function') unsubProgress();
-      _pd()?.hide();
+      if (progressShown) _pd()?.hide();
       if (_openingFile === filePath) _openingFile = null;
       _ignoreWatchUntil = Math.max(_ignoreWatchUntil, Date.now() + 2500);
       _showLoading(false);
@@ -4051,8 +4030,6 @@
       if (state.editMode) _ewFit();
       ProgressDialog.set(85, I18n.t('progress.applying') || 'Applying result…');
       await ProgressDialog.yieldFrame();
-      ProgressDialog.set(100, I18n.t('progress.done') || 'Done');
-      await ProgressDialog.yieldFrame(80);
       _updateUndoRedoBtns();
       _ewUpdateSelBtns();
       _updateStatus({ dims: true });
@@ -4123,8 +4100,6 @@
       Editor.cropAfterBackgroundRemove(cropBounds);
       Editor.saveHistory();
       if (state.editMode) _ewFit();
-      ProgressDialog.set(100, I18n.t('progress.done') || 'Done');
-      await ProgressDialog.yieldFrame(120);
       _updateUndoRedoBtns();
       _ewUpdateSelBtns();
       _updateStatus({ dims: true });
@@ -7080,7 +7055,9 @@
     let _creepTimer = null;
     let _creepCap = 90;
     let _visible = false;
+    let _active = false;
     let _message = '';
+    let _doneTimer = null; // leftover timer from a previous finish, if any
 
     function _els() {
       return {
@@ -7102,30 +7079,65 @@
       if (e.message) e.message.textContent = _message;
     }
 
+    function _setDoneUi(on) {
+      const e = _els();
+      e.wrap?.classList.toggle('is-done', !!on);
+    }
+
+    function _cancelDoneTimer() {
+      if (_doneTimer) {
+        clearTimeout(_doneTimer);
+        _doneTimer = null;
+      }
+    }
+
+    function _snapFill(widthPct) {
+      const e = _els();
+      if (!e.fill) return;
+      e.fill.style.transition = 'none';
+      e.fill.style.width = `${widthPct}%`;
+      void e.fill.offsetWidth;
+      e.fill.style.transition = '';
+    }
+
     function show({ title, message, percent } = {}) {
+      _cancelDoneTimer();
       stopCreep();
       _percent = 0;
+      _active = true;
       _visible = true;
       const e = _els();
-      if (e.wrap) e.wrap.hidden = false;
+      if (e.wrap) {
+        e.wrap.hidden = false;
+        e.wrap.classList.remove('is-done');
+      }
+      _snapFill(0);
       set(percent != null ? percent : 0, message || title || '', true);
     }
 
     /** @param {boolean} [force] allow decreasing (reset) */
     function set(percent, message, force) {
-      if (!_visible) {
-        _visible = true;
-        const e = _els();
-        if (e.wrap) e.wrap.hidden = false;
-      }
+      if (!_active) return;
+      _visible = true;
+      const e = _els();
+      if (e.wrap) e.wrap.hidden = false;
       const raw = Math.max(0, Math.min(100, Number(percent) || 0));
       _percent = force ? raw : Math.max(_percent, raw);
       _paint(message);
     }
 
-    function hide() {
+    function hide(resultMessage) {
       stopCreep();
+      const e = _els();
+      const wasShown = _active || (e.wrap && !e.wrap.hidden);
+      _active = false;
       _visible = false;
+      if (!wasShown) return;
+      const done = resultMessage != null ? resultMessage : (I18n.t('progress.done') || 'Loading Done.');
+      _percent = 100;
+      _paint(done);
+      _setDoneUi(true);
+      if (e.wrap) e.wrap.hidden = false;
     }
 
     /** Slowly advance toward `cap` while inference runs (no true ORT %). */
@@ -7133,10 +7145,10 @@
       stopCreep();
       _creepCap = cap;
       _creepTimer = setInterval(() => {
-        if (_percent >= _creepCap) return;
-        const step = _percent < 50 ? 1.2 : _percent < 75 ? 0.6 : 0.25;
+        if (!_active || _percent >= _creepCap) return;
+        const step = _percent < 50 ? 2.4 : _percent < 75 ? 1.2 : 0.5;
         set(Math.min(_creepCap, _percent + step));
-      }, 400);
+      }, 200);
     }
 
     function stopCreep() {

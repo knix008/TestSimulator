@@ -1319,7 +1319,9 @@ ipcMain.handle('read-file-bytes', async (event, filePath) => {
 
 ipcMain.handle('read-file-base64', async (event, filePath) => {
   try {
+    _sendOpenProgress(event, 12, 'reading');
     const data = await fs.promises.readFile(filePath);
+    _sendOpenProgress(event, 72, 'decoding');
     const ext = path.extname(filePath).toLowerCase().slice(1);
     const mimeMap = {
       jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
@@ -1331,6 +1333,7 @@ ipcMain.handle('read-file-base64', async (event, filePath) => {
       srt: 'text/plain', smi: 'text/plain',
     };
     const mime = mimeMap[ext] || 'application/octet-stream';
+    _sendOpenProgress(event, 90, 'displaying');
     return `data:${mime};base64,${data.toString('base64')}`;
   } catch (err) {
     return { error: err.message };

@@ -1080,19 +1080,7 @@ window.Editor = (() => {
     }
 
     try {
-      if (show) {
-        await dlg.yieldFrame();
-        if (gen !== _effectRenderGen) return undefined;
-        dlg.set(18, _tProgress(messageKey, 'Working…'));
-        await dlg.yieldFrame();
-        if (gen !== _effectRenderGen) return undefined;
-      }
       const result = work();
-      if (show && gen === _effectRenderGen && _effectProgressOwner === gen) {
-        dlg.stopCreep();
-        dlg.set(100, _tProgress('progress.done', 'Done'));
-        await dlg.yieldFrame(60);
-      }
       return result;
     } finally {
       if (show && _effectProgressOwner === gen) {
@@ -1119,22 +1107,9 @@ window.Editor = (() => {
     }
 
     try {
-      if (show) {
-        await dlg.yieldFrame();
-        if (gen !== _effectRenderGen) return false;
-        dlg.set(18, _tProgress('progress.effectApplying', 'Applying effects…'));
-        await dlg.yieldFrame();
-        if (gen !== _effectRenderGen) return false;
-      }
-
       if (gen !== _effectRenderGen) return false;
       _render();
 
-      if (show && gen === _effectRenderGen && _effectProgressOwner === gen) {
-        dlg.stopCreep();
-        dlg.set(100, _tProgress('progress.done', 'Done'));
-        await dlg.yieldFrame(70);
-      }
       return gen === _effectRenderGen;
     } finally {
       if (show && _effectProgressOwner === gen) {
