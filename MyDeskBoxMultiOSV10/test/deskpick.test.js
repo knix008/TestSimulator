@@ -44,6 +44,48 @@ test('휴지통 그림 위를 누르면 그 아이콘이 잡힌다', () => {
   assert.equal(pick.pickIcon([folder, bin], { x: 800, y: 400 }), null);
 });
 
+test('아이콘 옆의 빈 곳에서 시작한 사각형만 새 박스이다', () => {
+  const icons = [folder];
+  const beside = { x: folder.x + 24 + 80, y: folder.y + 20 };
+  assert.equal(pick.iconAt(icons, beside), null);
+  assert.equal(pick.iconAt(icons, { x: folder.x + 24, y: folder.y + 20 }).name, 'Projects');
+  const empty = { x: 400, y: 400, width: 200, height: 160 };
+  assert.equal(pick.shouldOfferFence(empty, icons), true);
+  assert.equal(pick.shouldOfferFence({ x: 0, y: 40, width: 200, height: 160 }, icons), false);
+});
+
+test('빈 곳을 끌면 박스를 물을 수 있고, 아이콘을 걸치면 고르기이다', () => {
+  const icons = [folder, bin];
+  const empty = { x: 400, y: 400, width: 200, height: 160 };
+  const overFolder = { x: 0, y: 60, width: 200, height: 160 };
+  const tiny = { x: 400, y: 400, width: 40, height: 30 };
+  assert.equal(pick.shouldOfferFence(empty, icons), true);
+  assert.equal(pick.shouldOfferFence(overFolder, icons), false);
+  assert.equal(pick.shouldOfferFence(tiny, icons), false);
+  assert.equal(pick.shouldOfferFence(overFolder, [{ x: 20000, y: 2000 }]), true);
+  assert.equal(pick.shouldOfferFence(null, icons), false);
+});
+
+test('모서리만 걸친 아이콘도 여러 개 고르기로 본다', () => {
+  const icon = { x: 100, y: 100 };
+  const graze = { x: 160, y: 170, width: 200, height: 120 };
+  const miss = { x: 172, y: 100, width: 200, height: 120 };
+  assert.equal(pick.rectCoversIcon(graze, [icon]), true);
+  assert.equal(pick.rectCoversIcon(miss, [icon]), false);
+  assert.equal(pick.rectCoversIcon(graze, [{ x: -2000, y: 100 }]), false);
+});
+
+test('옮기는 동안 튀어나온 박스 아이콘만 다시 치운다', () => {
+  const shown = { x: 40, y: 40 };
+  const parked = { x: 20000, y: 2000 };
+  assert.equal(pick.dragIconAction(shown, { wanted: true, known: true, dragging: true, cursorOnIt: false }), 'park');
+  assert.equal(pick.dragIconAction(shown, { wanted: true, known: true, dragging: true, cursorOnIt: true }), 'leave');
+  assert.equal(pick.dragIconAction(shown, { wanted: false, known: false, dragging: true }), 'leave');
+  assert.equal(pick.dragIconAction(parked, { wanted: false, known: false, dragging: true }), 'leave');
+  assert.equal(pick.dragIconAction(parked, { wanted: false, known: false, dragging: false }), 'restore');
+  assert.equal(pick.dragIconAction(shown, { wanted: true, known: true, dragging: false }), 'park');
+});
+
 test('여덟 픽셀을 끌면 담고, 그 미만이나 빈 좌표는 담지 않는다', () => {
   assert.equal(pick.movedEnough({ x: 0, y: 0 }, { x: 8, y: 0 }), true);
   assert.equal(pick.movedEnough({ x: 0, y: 0 }, { x: 3, y: 4 }), false);

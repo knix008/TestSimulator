@@ -8,7 +8,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const koffi = require('koffi');
 const { sameName, isOnDesktop, listDesktopFiles } = require('./files');
-const { pickIcon, isDesktopTarget, shellPathFor, movedEnough } = require('../../shared/deskpick');
+const { pickIcon, iconAt, isDesktopTarget, shellPathFor, movedEnough, shouldOfferFence, dragIconAction } = require('../../shared/deskpick');
 const deskgrid = require('../../shared/deskgrid');
 
 const user32 = koffi.load('user32.dll');
@@ -548,7 +548,7 @@ function itemForIcon(icon) {
 
 function iconUnder(pos) {
   const listed = withList((session) => (session ? readAll(session) : [])) || [];
-  return pickIcon(listed, pos);
+  return iconAt(listed, pos);
 }
 
 function desktopAt(pos) {
@@ -572,8 +572,13 @@ function toDipPoint(pos) {
 }
 
 function gather(items, blocks) {
-  if (!items || mouseDown()) return false;
-  syncShellIcons(items);
+  if (!items) return false;
+  // 단추를 누른 채로는 자리를 되돌리거나 밀지 않는다.
+  // 박스에 담긴 아이콘이 끌어 옮기는 동안 제자리로 튀어나오는 것만 바로 다시 치운다.
+  const dragging = mouseDown();
+  if (!dragging) syncShellIcons(items);
+  const cursor = { x: 0, y: 0 };
+  const knowCursor = dragging && GetCursorPos(cursor);
   // 치울 수 있는 것은 바탕화면 폴더에 있는 것뿐이다.
   const mine = items.filter((item) => isOnDesktop(item.path));
   const walls = (blocks || []).map(toPhysicalRect);
@@ -588,13 +593,19 @@ function gather(items, blocks) {
       // 이름이 박스 안의 것과 같으면 어떤 경우에도 바탕화면으로 되돌리지 않는다.
       // 잠깐 못 알아본 사이에 되돌리면 아이콘이 나타났다 사라져 어지럽다.
       const known = wanted || items.some((item) => sameName(icon.name, item.name));
-      if (wanted) {
-        if (!isParked(icon)) {
-          homes.set(keyOf(icon.name), { x: icon.x, y: icon.y });
-          const spotAt = parkSpot(icon.index);
-          moves.push({ index: icon.index, x: spotAt.x, y: spotAt.y });
-        }
-      } else if (isParked(icon)) {
+      const action = dragIconAction(icon, {
+        wanted,
+        known,
+        dragging,
+        cursorOnIt: knowCursor && pickIcon([icon], cursor) === icon,
+      });
+      if (action === 'park') {
+        if (!dragging) homes.set(keyOf(icon.name), { x: icon.x, y: icon.y });
+        const spotAt = parkSpot(icon.index);
+        moves.push({ index: icon.index, x: spotAt.x, y: spotAt.y });
+      } else if (action === 'leave') {
+        continue;
+      } else if (action === 'restore') {
         if (known) continue;
         const home = homes.get(keyOf(icon.name)) || defaultSpot(spot);
         spot += 1;
@@ -681,6 +692,7 @@ function watchDrag(onRect, onSettle, onDrop) {
   let held = null;
   let wasDown = false;
   let settleTimer = null;
+  let lastKeep = 0;
   const settle = () => {
     if (typeof onSettle !== 'function') return;
     clearTimeout(settleTimer);
@@ -701,8 +713,11 @@ function watchDrag(onRect, onSettle, onDrop) {
       const icon = onDesktop ? iconUnder(pos) : null;
       // 휴지통처럼 파일이 아닌 항목도 여기서 잡아 둔다. 손을 떼는 곳이 박스면 그 박스로 넣는다.
       held = icon ? { name: icon.name, x: pos.x, y: pos.y } : null;
+      // 빈 곳에서 시작한 끌기만 새 박스 후보이다. 아이콘 위는 그 아이콘을 옮기는 것이다.
       start = onDesktop && !icon ? { x: pos.x, y: pos.y } : null;
-      if (onDesktop && icon) settle();
+    } else if (down && wasDown && !start && Date.now() - lastKeep > 70) {
+      lastKeep = Date.now();
+      if (typeof onSettle === 'function') onSettle();
     } else if (!down && wasDown) {
       const dragged = held;
       held = null;
@@ -724,7 +739,9 @@ function watchDrag(onRect, onSettle, onDrop) {
           height: Math.abs(pos.y - from.y),
         };
         // 잠깐 흔들린 것은 사각형으로 보지 않는다.
-        if (rect.width >= 120 && rect.height >= 90) onRect(toDipRect(rect));
+        // 그 안에 아이콘이 있으면 여러 개를 고른 것이지, 박스를 그리는 것이 아니다.
+        const listed = withList((session) => (session ? readAll(session) : [])) || [];
+        if (shouldOfferFence(rect, listed)) onRect(toDipRect(rect));
         else settle();
       } else {
         settle();
