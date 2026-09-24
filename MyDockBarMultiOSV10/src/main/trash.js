@@ -159,8 +159,46 @@ async function windowsState(rescan) {
   return answered ? { empty: true, known: true } : { empty: false, known: false };
 }
 
-async function windowsEmpty() {
-  const { err } = await run('powershell.exe', [...POWERSHELL, 'Clear-RecycleBin -Force -ErrorAction Stop']);
+/**
+ * How Windows is asked to empty the bin.
+ *
+ * `Clear-RecycleBin -Force` calls SHEmptyRecycleBin with SHERB_NOPROGRESSUI,
+ * so the bin disappears with nothing on screen. The menu click is already the
+ * confirmation (SHERB_NOCONFIRMATION = 1); the progress window and the sound
+ * stay on, which is the dialog Explorer shows while the bin actually empties.
+ *
+ * The dock is often always-on-top, so the dialog is owned by the dock window
+ * and stacks above it. A non-numeric handle is ignored rather than interpolated
+ * into the script.
+ *
+ * `windowsHide` stays off: hiding the process also hides the progress window.
+ *
+ * @param {string|null} ownerHwnd decimal HWND, or null for the desktop
+ * @returns {{command:string, args:string[], windowsHide:boolean}}
+ */
+function windowsEmptyLaunch(ownerHwnd) {
+  const hwnd = /^-?\d+$/.test(String(ownerHwnd || '')) ? String(ownerHwnd) : '0';
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "Add-Type -Namespace MyDockBar -Name Recycle -MemberDefinition '" +
+      '[DllImport("shell32.dll", CharSet = CharSet.Unicode)] ' +
+      'public static extern int SHEmptyRecycleBin(System.IntPtr hwnd, string pszRootPath, uint dwFlags);' +
+      "'",
+    `$code = [MyDockBar.Recycle]::SHEmptyRecycleBin([IntPtr]([int64]${hwnd}), $null, 1)`,
+    // The progress dialog has a Cancel button. ERROR_CANCELLED (0x800704C7)
+    // means the user stopped it, which is not a failure.
+    'if ($code -ne 0 -and $code -ne -2147023673) { Write-Error ([string]$code); exit 1 }',
+  ].join('; ');
+  return {
+    command: 'powershell.exe',
+    args: ['-NoProfile', '-STA', '-WindowStyle', 'Hidden', '-Command', script],
+    windowsHide: false,
+  };
+}
+
+async function windowsEmpty(ownerHwnd) {
+  const launch = windowsEmptyLaunch(ownerHwnd);
+  const { err } = await run(launch.command, launch.args, { windowsHide: launch.windowsHide });
   if (err) return { ok: false, error: err.message };
   return { ok: true };
 }
@@ -223,9 +261,15 @@ function state() {
   return linuxState();
 }
 
-/** @returns {Promise<{ok:boolean, error?:string}>} */
-function empty() {
-  if (process.platform === 'win32') return windowsEmpty();
+/**
+ * Empty the bin. On Windows, `ownerHwnd` is the dock's HWND as a decimal
+ * string so the progress dialog stacks above an always-on-top dock.
+ *
+ * @param {string|null} [ownerHwnd]
+ * @returns {Promise<{ok:boolean, error?:string}>}
+ */
+function empty(ownerHwnd) {
+  if (process.platform === 'win32') return windowsEmpty(ownerHwnd);
   if (process.platform === 'darwin') return macEmpty();
   return linuxEmpty();
 }
@@ -365,4 +409,5 @@ module.exports = {
   holdsItem,
   isDeletedItem,
   MAC_IGNORED,
+  windowsEmptyLaunch,
 };

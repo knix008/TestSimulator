@@ -101,6 +101,30 @@ describe('scanning a bin', () => {
   });
 });
 
+describe('emptying on Windows shows the progress dialog', () => {
+  const { windowsEmptyLaunch } = trash;
+
+  it('asks the shell to show progress, not to delete in silence', () => {
+    const launch = windowsEmptyLaunch(null);
+    const script = launch.args[launch.args.length - 1];
+    assert.strictEqual(launch.windowsHide, false);
+    assert.match(script, /SHEmptyRecycleBin/);
+    assert.doesNotMatch(script, /Clear-RecycleBin/);
+    assert.match(script, /\[int64\]0\)/);
+  });
+
+  it('owns the dialog with the dock window so it stays above the dock', () => {
+    const script = windowsEmptyLaunch('-42').args.at(-1);
+    assert.match(script, /\[int64\]-42\)/);
+  });
+
+  it('refuses a handle that is not a number', () => {
+    const script = windowsEmptyLaunch('$(Remove-Item *)').args.at(-1);
+    assert.match(script, /\[int64\]0\)/);
+    assert.doesNotMatch(script, /Remove-Item/);
+  });
+});
+
 describe('the state the dock is given', () => {
   it('answers with just the two facts the dock needs', async () => {
     const info = await trash.state();

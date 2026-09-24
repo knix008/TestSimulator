@@ -122,6 +122,20 @@ function prettyName(target) {
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
 
+/**
+ * The dock's HWND as a signed decimal string.
+ *
+ * The emptying progress dialog is owned by this window, so it stacks above a
+ * dock that is always on top. A missing window means the desktop owns it.
+ */
+function dockHwnd(dockWindow) {
+  if (!dockWindow || !dockWindow.alive()) return null;
+  const buf = dockWindow.win.getNativeWindowHandle();
+  if (!buf || buf.length < 4) return null;
+  const bits = buf.length >= 8 ? buf.readBigUInt64LE(0) : BigInt(buf.readUInt32LE(0));
+  return BigInt.asIntN(64, bits).toString();
+}
+
 function register({
   config, dockWindow, pointerWatch, syncRunningWatch, syncTrashWatch, runningNames, reloadAll,
 }) {
@@ -459,7 +473,7 @@ function register({
           icon: menuIcons.get('trash-empty'),
           enabled: !full.empty,
           click: async () => {
-            const result = await trash.empty();
+            const result = await trash.empty(dockHwnd(dockWindow));
             if (!result.ok && result.error) console.error('[trash]', result.error);
             broadcast('dock:trash', await trash.state());
           },
@@ -590,7 +604,7 @@ function register({
   });
 
   ipcMain.handle('trash:state', async () => trash.state());
-  ipcMain.handle('trash:empty', async () => trash.empty());
+  ipcMain.handle('trash:empty', async () => trash.empty(dockHwnd(dockWindow)));
 
   /* ------------------------------ themes ------------------------------ */
 
