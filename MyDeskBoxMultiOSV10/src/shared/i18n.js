@@ -31,6 +31,7 @@
       'tray.quit': '종료',
 
       'menu.open': '열기',
+      'menu.emptyBin': '휴지통 비우기',
       'menu.eject': '바탕화면으로 꺼내기',
       'menu.rename': '이름 바꾸기',
       'menu.collapse': '접기',
@@ -50,6 +51,9 @@
       'dialog.create': '여기에 박스를 만들까요?',
       'dialog.createDetail': '이 자리의 바탕화면 아이콘은 옆으로 밀려납니다.',
       'dialog.make': '만들기',
+      'dialog.emptyBin': '휴지통을 비울까요?',
+      'dialog.emptyBinDetail': '휴지통에 있는 항목이 모두 지워집니다.',
+      'dialog.empty': '비우기',
 
       'box.folder': '폴더',
       'box.shortcut': '바로가기',
@@ -94,6 +98,7 @@
       'tray.quit': 'Quit',
 
       'menu.open': 'Open',
+      'menu.emptyBin': 'Empty Recycle Bin',
       'menu.eject': 'Move to Desktop',
       'menu.rename': 'Rename',
       'menu.collapse': 'Collapse',
@@ -113,6 +118,9 @@
       'dialog.create': 'Create a box here?',
       'dialog.createDetail': 'Desktop icons in this area move aside.',
       'dialog.make': 'Create',
+      'dialog.emptyBin': 'Empty the Recycle Bin?',
+      'dialog.emptyBinDetail': 'Everything in the Recycle Bin will be deleted.',
+      'dialog.empty': 'Empty',
 
       'box.folder': 'Folders',
       'box.shortcut': 'Shortcuts',

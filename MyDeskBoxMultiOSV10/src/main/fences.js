@@ -11,6 +11,7 @@ const icons = require('./icons');
 const ask = require('./ask');
 const themes = require('./themes');
 const i18n = require('../shared/i18n');
+const deliver = require('../shared/deliver');
 const thumbCache = new Map();
 
 function createHost(state) {
@@ -137,6 +138,9 @@ function createHost(state) {
         path: item.path,
         label: desktop.labelOf(item.name),
         icon: await thumb(item.path),
+        shortcut: deliver.isShortcut(item.path),
+        folder: isDirectory(item.path),
+        recycle: deliver.isRecycle(item.path),
       });
     }
     return {
@@ -484,7 +488,101 @@ function showGhost(iconUrl, screenX, screenY) {
     await dropFiles(target.id, [item], index);
   }
 
-  async function dropFiles(id, filePaths, index) {
+  function isDirectory(filePath) {
+    if (!filePath || deliver.isShortcut(filePath) || deliver.isRecycle(filePath)) return false;
+    try {
+      return fs.statSync(filePath).isDirectory();
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  function shortcutLink(filePath) {
+    if (process.platform !== 'win32' || !/\.lnk$/i.test(filePath)) return null;
+    try {
+      const link = shell.readShortcutLink(filePath);
+      return link && link.target ? link : null;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function launch(plan) {
+    if (!plan) return;
+    if (typeof shell.launch === 'function') {
+      shell.launch(plan);
+      return;
+    }
+    const { spawn } = require('child_process');
+    const child = spawn(plan.command, plan.args, {
+      detached: true,
+      stdio: 'ignore',
+      cwd: plan.cwd || undefined,
+    });
+    child.unref();
+  }
+
+  async function moveInto(filePath, dir) {
+    const dest = path.join(dir, path.basename(filePath));
+    if (path.resolve(dest) === path.resolve(filePath)) return false;
+    if (fs.existsSync(dest)) return false;
+    try {
+      await fs.promises.rename(filePath, dest);
+    } catch (err) {
+      if (!err || err.code !== 'EXDEV') throw err;
+      await fs.promises.copyFile(filePath, dest);
+      await fs.promises.unlink(filePath);
+    }
+    return true;
+  }
+
+  // moved 면 박스에서 빠진다. handed 면 프로그램에만 넘기고 박스에는 남긴다.
+  async function sendInto(filePath, intoPath) {
+    if (!filePath || !intoPath || filePath === intoPath) return '';
+    if (deliver.isRecycle(intoPath)) {
+      await shell.trashItem(filePath);
+      return 'moved';
+    }
+    if (isDirectory(intoPath)) {
+      return (await moveInto(filePath, intoPath)) ? 'moved' : '';
+    }
+    const link = shortcutLink(intoPath);
+    if (link && isDirectory(link.target)) {
+      return (await moveInto(filePath, link.target)) ? 'moved' : '';
+    }
+    const plan = deliver.handPlan(link, filePath);
+    if (plan) {
+      launch(plan);
+      return 'handed';
+    }
+    return '';
+  }
+
+  function takeOut(filePath) {
+    for (const fence of state.fences) {
+      fence.items = fence.items.filter((item) => item.path !== filePath);
+    }
+  }
+
+  async function dropFiles(id, filePaths, index, intoPath) {
+    if (intoPath) {
+      let changed = false;
+      for (const entry of filePaths || []) {
+        const item = toItem(entry);
+        if (!item) continue;
+        const done = await sendInto(item.path, intoPath);
+        if (done === 'moved') {
+          takeOut(item.path);
+          changed = true;
+        }
+      }
+      if (changed) {
+        persist();
+        await pushAll();
+        refreshIcons();
+        return;
+      }
+    }
     const fence = fenceById(id);
     if (!fence) return;
     const incoming = [];
@@ -514,8 +612,19 @@ function showGhost(iconUrl, screenX, screenY) {
     refreshIcons();
   }
 
-  async function transfer(fromId, filePath, screenX, screenY) {
+  async function transfer(fromId, filePath, screenX, screenY, intoPath) {
     hideGhost();
+    if (intoPath && intoPath !== filePath) {
+      const done = await sendInto(filePath, intoPath);
+      if (done === 'moved') {
+        takeOut(filePath);
+        persist();
+        await pushAll();
+        refreshIcons();
+      }
+      clearHover();
+      if (done) return;
+    }
     const target = hit(screenX, screenY);
     if (!target) {
       await eject(fromId, filePath, screenX, screenY);
@@ -673,6 +782,19 @@ function showGhost(iconUrl, screenX, screenY) {
     }];
   }
 
+  async function emptyBin() {
+    const yes = await ask.confirm({
+      title: say('dialog.emptyBin'),
+      detail: say('dialog.emptyBinDetail'),
+      confirm: say('dialog.empty'),
+      cancel: say('dialog.cancel'),
+      icon: icons.menu('remove'),
+      danger: true,
+    });
+    if (!yes) return;
+    if (typeof desktop.emptyRecycle === 'function') desktop.emptyRecycle();
+  }
+
   function showMenu(id, filePath) {
     const fence = fenceById(id);
     const win = wins.get(id);
@@ -681,6 +803,15 @@ function showGhost(iconUrl, screenX, screenY) {
     if (filePath) {
       template.push(
         { label: say('menu.open'), icon: icons.menu('open'), click: () => openItem(filePath) },
+      );
+      if (deliver.isRecycle(filePath)) {
+        template.push({
+          label: say('menu.emptyBin'),
+          icon: icons.menu('remove'),
+          click: () => emptyBin(),
+        });
+      }
+      template.push(
         {
           label: say('menu.eject'),
           icon: icons.menu('eject'),

@@ -33,10 +33,16 @@ function install(host) {
     payload.id,
     payload.filePath,
     payload.screenX,
-    payload.screenY
+    payload.screenY,
+    payload.into
   ));
 
-  ipcMain.handle('fence:drop', (_event, payload) => host.dropFiles(payload.id, payload.paths, payload.index));
+  ipcMain.handle('fence:drop', (_event, payload) => host.dropFiles(
+    payload.id,
+    payload.paths,
+    payload.index,
+    payload.into
+  ));
 
   ipcMain.on('box:open', (_event, id) => host.openSettings(id));
 

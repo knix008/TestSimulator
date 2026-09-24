@@ -47,6 +47,27 @@ test('아이콘을 눌러 연 메뉴에는 열기와 꺼내기가 그림과 함�
   for (const item of items) assert.ok(item.icon, `'${item.where}' 에 그림이 없다`);
 });
 
+test('휴지통을 오른쪽 단추로 누르면 비우기가 있다', async () => {
+  const state = baseState({
+    fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron, desktop } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.showMenu('a', 'shell:RecycleBinFolder');
+  const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '휴지통 비우기');
+  assert.ok(item, '휴지통 메뉴에 비우기가 없다');
+  assert.ok(item.icon, '비우기에 그림이 없다');
+
+  host.showMenu('a', 'C:/Desktop/노트.txt');
+  const plain = flatten(electron.menus.at(-1)).map((entry) => entry.label);
+  assert.equal(plain.includes('휴지통 비우기'), false);
+
+  electron.setDialogAnswer(0);
+  await item.click();
+  assert.equal(desktop.calls.emptied, 1);
+});
+
 test('접힘 여부에 따라 글씨와 그림이 함께 바뀐다', () => {
   const { host, electron } = openOne();
   host.showMenu('a', null);

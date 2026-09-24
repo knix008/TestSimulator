@@ -12,6 +12,7 @@ const SHARED = path.join(ROOT, 'src', 'shared');
 // 창이 <script> 로 읽는 파일과 그 파일이 남기는 이름.
 const SCRIPTS = [
   ['arrange.js', 'DeskArrange'],
+  ['deliver.js', 'DeskDeliver'],
   ['taps.js', 'DeskTaps'],
   ['i18n.js', 'DeskI18n'],
   ['deskgrid.js', 'DeskGrid'],

@@ -43,6 +43,10 @@ function watchDoubleClick() {
   return () => {};
 }
 
+function emptyRecycle() {
+  return false;
+}
+
 function shutdown() {}
 
 module.exports = {
@@ -56,5 +60,6 @@ module.exports = {
   shellItems,
   watchDrag,
   watchDoubleClick,
+  emptyRecycle,
   shutdown,
 };

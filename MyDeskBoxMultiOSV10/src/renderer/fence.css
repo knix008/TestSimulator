@@ -174,6 +174,26 @@ html, body {
     box-shadow 150ms linear;
 }
 
+.icon .mark {
+  display: none;
+}
+
+/* 바로가기는 그림 왼쪽 아래에 화살표를 얹어 바로가기처럼 보이게 한다. */
+.icon.shortcut .mark {
+  display: block;
+  position: absolute;
+  left: 18px;
+  top: 34px;
+  width: 16px;
+  height: 16px;
+  background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23fff' stroke='%23000' stroke-width='1' d='M3 12 L8 3 L9.2 6.2 L13 5.2 L8.2 13 Z'/%3E%3C/svg%3E");
+}
+
+.icon.hot {
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.75);
+}
+
 .icon img {
   width: 44px;
   height: 44px;

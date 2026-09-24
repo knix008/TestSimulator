@@ -73,6 +73,7 @@ const CoInitializeEx = ole32.func('int32 __stdcall CoInitializeEx(void *reserved
 const CoTaskMemFree = ole32.func('void __stdcall CoTaskMemFree(void *p)');
 // 휴지통처럼 파일이 아닌 항목은 이름이 아니라 셸 항목 식별자(PIDL)로 다룬다.
 const SHChangeNotify = shell32.func('void __stdcall SHChangeNotify(uint32 eventId, uint32 flags, void *item1, void *item2)');
+const SHEmptyRecycleBinW = shell32.func('int32 __stdcall SHEmptyRecycleBinW(void *hwnd, void *root, uint32 flags)');
 const SHParseDisplayName = shell32.func('int32 __stdcall SHParseDisplayName(str16 name, void *bind, _Out_ void **pidl, uint32 wantIn, _Out_ uint32 *gotOut)');
 const SHGetFileInfoPidl = shell32.func('uintptr __stdcall SHGetFileInfoW(void *pidl, uint32 attrs, _Out_ SHFILEINFOW *info, uint32 size, uint32 flags)');
 
@@ -937,6 +938,16 @@ function claimSingleInstance() {
   }
 }
 
+function emptyRecycle() {
+  try {
+    // 우리 창에서 이미 물어봤으므로 윈도우 확인 창은 띄우지 않는다.
+    SHEmptyRecycleBinW(null, null, 0x00000001);
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}
+
 function shutdown() {
   restoreShellIcons();
   guard(() => restoreArrange());
@@ -973,6 +984,7 @@ module.exports = {
   mouseDown,
   watchDrag,
   watchDoubleClick,
+  emptyRecycle,
   shutdown,
   debugList,
 };

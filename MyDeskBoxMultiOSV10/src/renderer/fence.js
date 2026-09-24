@@ -68,7 +68,7 @@ function ensureIcon(item) {
     el.type = 'button';
     el.className = 'icon';
     el.dataset.path = item.path;
-    el.innerHTML = '<img alt=""><span></span>';
+    el.innerHTML = '<img alt=""><i class="mark"></i><span></span>';
     el.addEventListener('pointerdown', onIconDown);
     el.addEventListener('contextmenu', (event) => {
       event.preventDefault();
@@ -77,6 +77,10 @@ function ensureIcon(item) {
     });
     body.appendChild(el);
   }
+  el.classList.toggle('shortcut', !!item.shortcut);
+  el.classList.toggle('folder', !!item.folder);
+  el.classList.toggle('recycle', !!item.recycle);
+  el.classList.toggle('hot', !!(drag && drag.into === item.path));
   el.querySelector('span').textContent = item.label || item.name;
   const img = el.querySelector('img');
   if (item.icon) img.src = item.icon;
@@ -105,7 +109,7 @@ function layout() {
   const grid = window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, fence.collapsed);
   const active = (hover && hover.filePath) || (drag && drag.path) || null;
   const mine = icons.some((icon) => icon.path === active);
-  const showGap = !!(hover && active);
+  const showGap = !!(hover && active) && !(drag && drag.into);
   let shown = icons.slice();
   if ((showGap && mine) || (!showGap && drag && mine)) {
     shown = shown.filter((icon) => icon.path !== active);
@@ -142,6 +146,23 @@ function layout() {
 // 두 번 누르면 실행한다. 세는 방법은 shared/taps.js 에 있다.
 const taps = window.DeskTaps.createTaps();
 
+function receiverAt(clientX, clientY, exceptPath) {
+  const x = localX(clientX);
+  const y = scrolled(localY(clientY));
+  const grid = window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, false);
+  for (const node of body.querySelectorAll('.icon')) {
+    if (node.dataset.path === exceptPath || node.classList.contains('dragging')) continue;
+    if (!node.classList.contains('folder') && !node.classList.contains('shortcut') && !node.classList.contains('recycle')) {
+      continue;
+    }
+    const left = Number.parseFloat(node.style.left);
+    const top = Number.parseFloat(node.style.top) + grid.titleH;
+    if (!window.DeskDeliver.onPicture(x - left, y - top)) continue;
+    return node.dataset.path;
+  }
+  return null;
+}
+
 function onIconDown(event) {
   if (event.button !== 0 || !fence) return;
   event.preventDefault();
@@ -162,6 +183,7 @@ function onIconDown(event) {
       icon: icon ? icon.icon : '',
       localX: localX(ev.clientX),
       localY: localY(ev.clientY),
+      into: receiverAt(ev.clientX, ev.clientY, path),
     };
     desk.hover({
       filePath: path,
@@ -180,12 +202,14 @@ function onIconDown(event) {
     }
     // 끌어 옮긴 뒤에는 두 번 누른 것으로 세지 않는다.
     taps.forget();
+    const into = drag && drag.into;
     drag = null;
     desk.transfer({
       id,
       filePath: path,
       screenX: ev.screenX,
       screenY: ev.screenY,
+      into,
     });
   };
   el.addEventListener('pointermove', move);
@@ -314,8 +338,9 @@ body.addEventListener('drop', (event) => {
   const grid = window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, false);
   const index = window.DeskArrange.insertIndex(localX(event.clientX), scrolled(localY(event.clientY)), grid, icons.length);
   const paths = [...event.dataTransfer.files].map((file) => desk.pathForFile(file)).filter(Boolean);
+  const into = receiverAt(event.clientX, event.clientY, null);
   hover = null;
-  if (paths.length) desk.dropFiles({ id, paths, index });
+  if (paths.length) desk.dropFiles({ id, paths, index, into });
 });
 
 function startRename() {
