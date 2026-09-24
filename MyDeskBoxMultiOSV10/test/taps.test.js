@@ -45,6 +45,22 @@ test('세 번 눌러도 한 번만 실행한다', () => {
   assert.equal(taps.tap('a.lnk'), true);
 });
 
+test('누르기 전에는 기다리는 아이콘이 없다', () => {
+  const { taps } = fake();
+  assert.equal(taps.pending(), null);
+  taps.tap('a.lnk');
+  assert.equal(taps.pending(), 'a.lnk');
+  taps.forget();
+  assert.equal(taps.pending(), null);
+});
+
+test('빈 대상은 두 번 눌러도 실행하지 않는다', () => {
+  const { taps, wait } = fake();
+  assert.equal(taps.tap(null), false);
+  wait(40);
+  assert.equal(taps.tap(null), false);
+});
+
 test('끌어 옮긴 뒤에는 두 번 누른 것으로 세지 않는다', () => {
   const { taps, wait } = fake();
   taps.tap('a.lnk');

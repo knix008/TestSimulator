@@ -88,6 +88,28 @@ test('놓을 자리가 없으면 그대로 둔다', () => {
   assert.deepEqual(moves, [], '갈 곳이 없으면 건드리지 않는다');
 });
 
+test('아주 좁은 간격은 칸 크기로 쓰지 않는다', () => {
+  assert.equal(grid.smallestGap([0, 4, 80], 76), 76);
+  assert.equal(grid.smallestGap([10], 98), 98);
+  assert.equal(grid.smallestGap([], 98), 98);
+});
+
+test('칸의 오른쪽과 아래 경계는 그 칸에 속하지 않는다', () => {
+  const box = { x: 10, y: 20, width: 30, height: 40 };
+  assert.equal(grid.inside({ x: 10, y: 20 }, box), true);
+  assert.equal(grid.inside({ x: 39, y: 59 }, box), true);
+  assert.equal(grid.inside({ x: 40, y: 20 }, box), false);
+  assert.equal(grid.inside({ x: 10, y: 60 }, box), false);
+});
+
+test('아이콘 자리는 칸에서 가장자리를 뺀 크기이다', () => {
+  const metrics = { x0: 0, y0: 0, dx: 76, dy: 98 };
+  const rect = grid.iconRect({ col: 1, row: 0 }, metrics);
+  assert.equal(rect.x, 76 + grid.INSET);
+  assert.equal(rect.width, 76 - grid.INSET * 2);
+  assert.equal(rect.height, 98 - grid.INSET * 2);
+});
+
 test('겹침 판정', () => {
   const a = { x: 0, y: 0, width: 10, height: 10 };
   assert.equal(grid.overlaps(a, { x: 5, y: 5, width: 10, height: 10 }), true);

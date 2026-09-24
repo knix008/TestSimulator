@@ -21,6 +21,22 @@ test('바탕화면에 있는 항목만 바탕화면 아이콘과 짝짓는다', 
   assert.equal(files.isOnDesktop(null), false);
 });
 
+test('휴지통 경로는 파일이 아니어도 바탕화면 항목이다', () => {
+  assert.equal(files.isShellItem('shell:RecycleBinFolder'), true);
+  assert.equal(files.isOnDesktop('shell:RecycleBinFolder'), true);
+  assert.equal(files.isShellItem('C:/Desktop/노트.txt'), false);
+  assert.equal(files.isShellItem(''), false);
+  assert.equal(files.isShellItem(null), false);
+});
+
+test('숨김 파일과 바탕화면 설정 파일은 목록에서 뺀다', () => {
+  const names = files.listDesktopFiles().map((file) => file.name.toLowerCase());
+  assert.equal(names.includes('desktop.ini'), false);
+  assert.equal(names.includes('.localized'), false);
+  assert.equal(names.includes('.ds_store'), false);
+  assert.equal(names.some((name) => name.startsWith('.')), false);
+});
+
 test('바로가기 이름은 확장자를 떼고 견준다', () => {
   assert.equal(files.labelOf('MyClock.lnk'), 'MyClock');
   assert.equal(files.labelOf('사이트.url'), '사이트');

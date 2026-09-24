@@ -51,6 +51,31 @@ test('창은 박스보다 그림자 자리만큼 크고, 되돌리면 그대로�
   assert.deepEqual(back, { x: 100, y: 200, width: 400, height: 300 });
 });
 
+test('한 걸음은 스물여덟을 넘지 않고, 방향은 목표를 따른다', () => {
+  assert.equal(arrange.ease(0, 200), 28);
+  assert.equal(arrange.ease(200, 0), 172);
+  assert.equal(arrange.ease(10, 11), 11);
+});
+
+test('맨 앞과 맨 뒤에 끼워 넣으면 그 칸만 비운다', () => {
+  assert.deepEqual(arrange.gapSlots(3, 0, 2), [1, 2, 3]);
+  assert.deepEqual(arrange.gapSlots(3, 3, 2), [0, 1, 2]);
+  assert.deepEqual(arrange.gapSlots(3, 99, 2), [0, 1, 2]);
+  assert.deepEqual(arrange.gapSlots(0, 0, 2), []);
+});
+
+test('칸 번호는 왼쪽에서 오른쪽으로, 다음 줄로 넘어간다', () => {
+  assert.deepEqual(arrange.placeIndex(0, 3), { col: 0, row: 0 });
+  assert.deepEqual(arrange.placeIndex(3, 3), { col: 0, row: 1 });
+  assert.deepEqual(arrange.placeIndex(5, 3), { col: 2, row: 1 });
+});
+
+test('접으면 아이콘 줄은 없어도 칸 수는 하나 남는다', () => {
+  const grid = arrange.gridOf(400, 40, true);
+  assert.equal(grid.rows, 1);
+  assert.ok(grid.cols >= 1);
+});
+
 test('접은 박스는 제목 줄만 남는다', () => {
   const fence = { x: 0, y: 0, w: 400, h: 300, collapsed: true };
   assert.equal(arrange.panelHeight(fence), arrange.TITLE_H + 4);

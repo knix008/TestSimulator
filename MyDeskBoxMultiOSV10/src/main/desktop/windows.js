@@ -141,6 +141,13 @@ let turnedOffSnapToGrid = false;
 
 function init(dir) {
   homeFile = path.join(dir, 'icon-homes.json');
+  process.once('exit', () => {
+    try {
+      restoreShellIcons();
+    } catch (_err) {
+      /* 끝나는 중에는 더 할 일이 없다. */
+    }
+  });
   try {
     const parsed = JSON.parse(fs.readFileSync(homeFile, 'utf8'));
     if (parsed && parsed.homes) {
@@ -437,10 +444,17 @@ function applyMoves(session, moves) {
 
 // items 는 박스에 담긴 것, blocks 는 박스가 차지한 자리다.
 // 담긴 것은 화면 밖으로 치우고, 박스 자리에 남은 바탕화면 아이콘은 밖으로 밀어낸다.
+// reg.exe 는 값이 없을 때 콘솔 코드로 오류를 찍는다. 출력을 받아 두고 화면에는 내지 않는다.
+const REG_STDIO = ['ignore', 'pipe', 'pipe'];
+
+function reg(args) {
+  return execFileSync('reg', args, { encoding: 'utf8', windowsHide: true, stdio: REG_STDIO });
+}
+
 function readHide(clsid) {
   for (const key of HIDE_ICON_KEYS) {
     try {
-      const out = execFileSync('reg', ['query', key, '/v', clsid], { encoding: 'utf8', windowsHide: true });
+      const out = reg(['query', key, '/v', clsid]);
       const match = /0x([0-9a-f]+)/i.exec(out);
       if (match) return parseInt(match[1], 16);
     } catch (_err) {
@@ -453,7 +467,7 @@ function readHide(clsid) {
 function writeHide(clsid, value) {
   for (const key of HIDE_ICON_KEYS) {
     try {
-      execFileSync('reg', ['add', key, '/v', clsid, '/t', 'REG_DWORD', '/d', String(value), '/f'], { windowsHide: true });
+      reg(['add', key, '/v', clsid, '/t', 'REG_DWORD', '/d', String(value), '/f']);
     } catch (_err) {
       /* 한 키가 없어도 다른 쪽은 적는다. */
     }
@@ -466,6 +480,27 @@ function refreshShellIcons() {
   } catch (_err) {
     /* 알림이 실패해도 레지스트리 값은 남는다. */
   }
+}
+
+// 앱이 숨긴 셸 아이콘을 바탕화면에 다시 나타낸다.
+// 우리가 숨기기 전에 이미 숨겨 둔 값(1)만 그대로 두고, 기록 없는 숨김도 보이게 되돌린다.
+function restoreShellIcons() {
+  let changed = false;
+  for (const shellPath of Object.keys(SHELL_CLSID)) {
+    const clsid = SHELL_CLSID[shellPath];
+    const prev = shellPrev.get(shellPath) === 1 ? 1 : 0;
+    if (readHide(clsid) !== prev) {
+      writeHide(clsid, prev);
+      changed = true;
+    }
+    if (shellPrev.has(shellPath)) {
+      shellPrev.delete(shellPath);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  refreshShellIcons();
+  persistHomes();
 }
 
 // 박스에 담긴 휴지통 같은 항목은 바탕화면에서 지운다. 빼면 원래 보이던 대로 되돌린다.
@@ -578,7 +613,7 @@ function gather(items, blocks) {
 
 function release(items) {
   if (!items) return;
-  syncShellIcons([]);
+  restoreShellIcons();
   const mine = items.filter((item) => isOnDesktop(item.path));
   guard(() => withList((session) => {
     if (!session) return;
@@ -886,7 +921,7 @@ function claimSingleInstance() {
 }
 
 function shutdown() {
-  syncShellIcons([]);
+  restoreShellIcons();
   guard(() => restoreArrange());
   if (claim) {
     try {
