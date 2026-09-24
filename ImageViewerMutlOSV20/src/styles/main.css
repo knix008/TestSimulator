@@ -259,6 +259,29 @@ body.frameless #win-ctrl-gutter { display: block; }
 .menubar-btn.is-open { background: var(--btn-hover); }
 .menubar-btn.is-open { background: var(--btn-active); }
 .menubar-btn u { text-decoration: underline; text-underline-offset: 2px; }
+.menubar-sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 6px;
+  background: var(--toolbar-border);
+  flex-shrink: 0;
+}
+.menubar-icon-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+.menubar-icon-btn svg { width: 15px; height: 15px; fill: currentColor; }
+.menubar-icon-btn:hover { background: var(--btn-hover); }
 
 /* ========== Toolbar ========== */
 #toolbar {
@@ -815,7 +838,42 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   flex-shrink: 0;
 }
 
-.panel-header .panel-title { flex: 1; }
+.panel-header .panel-title { flex: 0 0 auto; margin-right: 6px; }
+.tree-drive-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.tree-drive-bar::-webkit-scrollbar { display: none; }
+.tree-drive-btn {
+  flex-shrink: 0;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: none;
+  cursor: pointer;
+  line-height: 16px;
+}
+.tree-drive-btn:hover {
+  background: var(--btn-hover);
+  color: var(--text-primary);
+}
+.tree-drive-btn.active {
+  background: var(--bg-selected);
+  border-color: var(--bg-selected);
+  color: #fff;
+}
 
 .panel-header .panel-btn {
   width: 20px;

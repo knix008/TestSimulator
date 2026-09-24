@@ -214,6 +214,7 @@
         _openFirstInDir(p);
       }
     },
+    onDriveSelect: (p) => { _openFolder(p, { instant: true }); },
     onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
     onImport: (info) => {
       if (!info) return;
@@ -533,6 +534,9 @@
   function _buildToolbar() {
     // File / folder / save / export / print live in the menu bar's File menu (see _buildMenubar)
     const buttons = [
+      { id:'btn-open-file',   icon:'openFile',   tip:'toolbar.openFile',   action: () => _pickOpenFile() },
+      { id:'btn-open-folder', icon:'openFolder', tip:'toolbar.openFolder', action: () => _pickOpenFolder() },
+      { separator: true },
       { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { _undoEdit(); }, disabled: true },
       { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { _redoEdit(); }, disabled: true },
       { separator: true },
@@ -3751,19 +3755,24 @@
     await FileTree.refresh({ force: true });
   }
 
-  async function _openFolder(dirPath, { openFirst = true } = {}) {
-    await _runOpWithProgress(async () => {
+  async function _openFolder(dirPath, { openFirst = true, instant = false } = {}) {
+    const work = async () => {
       _rememberRecentDir(dirPath);
       if (window.electronAPI.platform === 'web') {
         await FileTree.loadDrives();
       }
       await FileTree.revealPath(dirPath);
       _watchDir(dirPath);
-    }, {
-      titleKey: 'progress.openTitle',
-      messageKey: 'progress.openingFolder',
-      delayMs: 280,
-    });
+    };
+    if (instant) {
+      await work();
+    } else {
+      await _runOpWithProgress(work, {
+        titleKey: 'progress.openTitle',
+        messageKey: 'progress.openingFolder',
+        delayMs: 280,
+      });
+    }
     if (!openFirst) return;
     const opened = await _openFirstInDir(dirPath);
     if (!opened) {

@@ -9,6 +9,7 @@ window.FileTree = (() => {
   let _expandedDirs  = new Set();
   let _onSelect      = null;    // callback(filePath)
   let _onDirOpen     = null;    // callback(dirPath)
+  let _onDriveSelect = null;    // callback(drivePath)
   let _onContextMenu = null;
   let _onImport      = null;    // callback({ destDir, mode, count, ... })
   let _dropHoverEl   = null;
@@ -21,10 +22,11 @@ window.FileTree = (() => {
   const VIDEO_EXTS = FormatSupport.VIDEO_EXTS;
   const AUDIO_EXTS = FormatSupport.AUDIO_EXTS;
 
-  function init(container, { onSelect, onDirOpen, onContextMenu, onImport }) {
+  function init(container, { onSelect, onDirOpen, onDriveSelect, onContextMenu, onImport }) {
     _container = container;
     _onSelect  = onSelect;
     _onDirOpen = onDirOpen;
+    _onDriveSelect = onDriveSelect || null;
     _onContextMenu = onContextMenu || null;
     _onImport = onImport || null;
     window.electronAPI.getPathSep().then(sep => { _pathSep = sep; });
@@ -223,6 +225,41 @@ window.FileTree = (() => {
     return _drives.some(d => _pathsEqual(d.path, p));
   }
 
+  function _driveForPath(p) {
+    if (!p) return null;
+    const n = _norm(p);
+    let best = null;
+    for (const d of _drives) {
+      const dn = _norm(d.path);
+      if (n === dn || n.startsWith(dn + '\\') || n.startsWith(dn + '/')) {
+        if (!best || dn.length > _norm(best.path).length) best = d;
+      }
+    }
+    return best;
+  }
+
+  function _renderDriveBar() {
+    const bar = document.getElementById('tree-drive-bar');
+    if (!bar) return;
+    const current = _driveForPath(_focusPath);
+    const frag = document.createDocumentFragment();
+    for (const d of _drives) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tree-drive-btn' + (_pathsEqual(current?.path, d.path) ? ' active' : '');
+      btn.textContent = d.name;
+      btn.title = d.path;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (_onDriveSelect) _onDriveSelect(d.path);
+        else if (_onDirOpen) _onDirOpen(d.path, { activate: true });
+      });
+      frag.appendChild(btn);
+    }
+    bar.replaceChildren(frag);
+  }
+
   function _updatePathBar(dirPath) {
     const bar = document.getElementById('tree-path-bar');
     if (!bar) return;
@@ -230,17 +267,20 @@ window.FileTree = (() => {
       bar.hidden = true;
       bar.textContent = '';
       bar.removeAttribute('title');
+      _renderDriveBar();
       return;
     }
     bar.hidden = false;
     bar.textContent = dirPath;
     bar.title = dirPath;
+    _renderDriveBar();
   }
 
   async function loadDrives() {
     const result = await window.electronAPI.listDrives();
     _drives = Array.isArray(result) ? result : [];
     _ready = true;
+    _renderDriveBar();
     await _renderRoot();
   }
 
@@ -250,6 +290,7 @@ window.FileTree = (() => {
     if (!dirPath) {
       _focusPath = null;
       _updatePathBar(null);
+      _renderDriveBar();
       await _renderRoot();
       return;
     }
@@ -258,6 +299,7 @@ window.FileTree = (() => {
     _expandedDirs = new Set(ancestors);
     _focusPath = ancestors.length ? ancestors[ancestors.length - 1] : dirPath;
     _updatePathBar(_focusPath);
+    _renderDriveBar();
     await _renderRoot();
     _highlightSelected();
     _flushCenterOrEnsureVisible();
@@ -740,6 +782,7 @@ window.FileTree = (() => {
       await _renderRoot();
       _highlightSelected();
       if (_focusPath) _updatePathBar(_focusPath);
+      _renderDriveBar();
       _flushCenterOrEnsureVisible(prevScroll);
     } finally {
       _refreshing = false;

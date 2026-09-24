@@ -44,9 +44,7 @@
         <div id="file-tree-panel">
           <div class="panel-header">
             <span class="panel-title" data-i18n="tree.title">EXPLORER</span>
-            <button class="panel-btn" id="panel-open-folder" data-i18n-title="toolbar.openFolder">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 20H4c-1.11 0-2-.9-2-2V6c0-1.11.89-2 2-2h6l2 2h7c1.11 0 2 .9 2 2H4v10l2.14-8H21l-2.14 8c-.3 1.11-1.37 2-2.5 2z"/></svg>
-            </button>
+            <div id="tree-drive-bar" class="tree-drive-bar" role="toolbar" aria-label="Drives"></div>
           </div>
           <div id="tree-path-bar" hidden title=""></div>
           <div id="file-tree-scroll">
@@ -1037,12 +1035,6 @@
   <script src="./js/app.js"></script>
 
   <script>
-    // Wire up panel open-folder button
-    document.getElementById('panel-open-folder')?.addEventListener('click', () => {
-      window.FileDialog?.openFolder().then((r) => {
-        if (r && !r.canceled && r.filePath) window.dispatchEvent(new CustomEvent('app-open-folder', { detail: r.filePath }));
-      });
-    });
     document.getElementById('ft-open-link')?.addEventListener('click', () => {
       window.FileDialog?.openFolder().then((r) => {
         if (r && !r.canceled && r.filePath) window.dispatchEvent(new CustomEvent('app-open-folder', { detail: r.filePath }));
