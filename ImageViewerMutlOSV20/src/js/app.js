@@ -7126,13 +7126,6 @@
     function hide() {
       stopCreep();
       _visible = false;
-      _percent = 0;
-      _message = '';
-      const e = _els();
-      if (e.wrap) e.wrap.hidden = true;
-      if (e.fill) e.fill.style.width = '0%';
-      if (e.pct) e.pct.textContent = '0%';
-      if (e.message) e.message.textContent = '';
     }
 
     /** Slowly advance toward `cap` while inference runs (no true ORT %). */
