@@ -5,6 +5,7 @@ const { Tray, Menu, nativeImage, app } = require('electron');
 
 const menuIcons = require('./menu-icons');
 const i18n = require('../shared/i18n');
+const placement = require('../shared/placement');
 
 let tray = null;
 
@@ -48,7 +49,7 @@ function rebuild({ dockWindow, settingsWindow, themes, config, onThemeChange, on
     click: () => onThemeChange(theme.id),
   }));
 
-  const positions = ['bottom', 'top', 'left', 'right'].map((pos) => ({
+  const positions = placement.POSITIONS.map((pos) => ({
     label: t(`pos.${pos}`),
     icon: menuIcons.get(current.dock.position === pos ? `pos-${pos}-active` : `pos-${pos}`),
     click: () => {

@@ -173,7 +173,10 @@
     bindSelect('clickEffectDirection');
     bindSelect('removeEffect').addEventListener('change', playRemovePreview);
     $('remove-preview-play').addEventListener('click', playRemovePreview);
-    bindSelect('position');
+    bindSelect('position', (patch) => {
+      syncAlignEnabled();
+      patchDock(patch);
+    });
     bindSelect('align');
     bindSelect('display');
     bindSelect('stackingLevel');
@@ -999,6 +1002,41 @@
     }
   }
 
+  /**
+   * A corner already names which end the bar sits on, so the alignment
+   * control would only contradict it.
+   */
+  function syncAlignEnabled() {
+    const select = $('align');
+    if (!select || !state.cfg) return;
+    select.disabled = DockPlacement.resolve(state.cfg.dock.position).corner;
+  }
+
+  /** Draw the dock on the monitor sketch, including a bar tucked into a corner. */
+  function paintMonitorBar(bar, position, align) {
+    const place = DockPlacement.resolve(position, align);
+    bar.style[place.edge] = '3px';
+    if (place.vertical) {
+      bar.style.width = '5px';
+      if (place.align === 'center') {
+        bar.style.top = '18%';
+        bar.style.bottom = '18%';
+      } else {
+        bar.style.height = '28%';
+        bar.style[place.align === 'start' ? 'top' : 'bottom'] = '8%';
+      }
+      return;
+    }
+    bar.style.height = '5px';
+    if (place.align === 'center') {
+      bar.style.left = '18%';
+      bar.style.right = '18%';
+      return;
+    }
+    bar.style.width = '28%';
+    bar.style[place.align === 'start' ? 'left' : 'right'] = '8%';
+  }
+
   /** Mirrors the falloff curve used by the dock itself. */
   function kernel(t, mode) {
     const a = Math.abs(t);
@@ -1047,18 +1085,7 @@
       if (active) {
         const bar = document.createElement('div');
         bar.className = 'bar';
-        const pos = state.cfg.dock.position;
-        if (pos === 'bottom' || pos === 'top') {
-          bar.style.left = '18%';
-          bar.style.right = '18%';
-          bar.style.height = '5px';
-          bar.style[pos] = '3px';
-        } else {
-          bar.style.top = '18%';
-          bar.style.bottom = '18%';
-          bar.style.width = '5px';
-          bar.style[pos] = '3px';
-        }
+        paintMonitorBar(bar, state.cfg.dock.position, state.cfg.dock.align);
         screen.appendChild(bar);
       }
       node.appendChild(screen);
@@ -1192,6 +1219,7 @@
     $('removeEffect').value = dock.removeEffect;
     $('position').value = dock.position;
     $('align').value = dock.align;
+    syncAlignEnabled();
     $('stackingLevel').value = dock.stackingLevel;
     $('locale').value = snapshot.locale;
     if ($('display').options.length) $('display').value = String(dock.display);

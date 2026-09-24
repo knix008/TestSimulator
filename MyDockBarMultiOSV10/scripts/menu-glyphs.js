@@ -91,6 +91,10 @@ function screenWithEdge(edge) {
     top: '<rect x="12" y="16" width="40" height="10" rx="3"/>',
     left: '<rect x="12" y="16" width="10" height="32" rx="3"/>',
     right: '<rect x="42" y="16" width="10" height="32" rx="3"/>',
+    'bottom-left': '<rect x="12" y="38" width="22" height="10" rx="3"/>',
+    'bottom-right': '<rect x="30" y="38" width="22" height="10" rx="3"/>',
+    'top-left': '<rect x="12" y="16" width="22" height="10" rx="3"/>',
+    'top-right': '<rect x="30" y="16" width="22" height="10" rx="3"/>',
   };
   return `
   <rect x="6" y="10" width="52" height="44" rx="7" fill="none" stroke="${GREY}" stroke-width="5"/>
@@ -262,11 +266,16 @@ const GLYPHS = {
   'pos-top': screenWithEdge('top'),
   'pos-left': screenWithEdge('left'),
   'pos-right': screenWithEdge('right'),
+  'pos-bottom-left': screenWithEdge('bottom-left'),
+  'pos-bottom-right': screenWithEdge('bottom-right'),
+  'pos-top-left': screenWithEdge('top-left'),
+  'pos-top-right': screenWithEdge('top-right'),
 };
 
 // Every "choose one of these" entry gets an -active twin carrying a check badge,
 // because a menu item that owns an icon cannot also show a radio mark.
-for (const name of ['theme', 'language', 'pos-bottom', 'pos-top', 'pos-left', 'pos-right']) {
+for (const name of ['theme', 'language', 'pos-bottom', 'pos-top', 'pos-left', 'pos-right',
+  'pos-bottom-left', 'pos-bottom-right', 'pos-top-left', 'pos-top-right']) {
   GLYPHS[`${name}-active`] = GLYPHS[name] + CHECK_BADGE;
 }
 

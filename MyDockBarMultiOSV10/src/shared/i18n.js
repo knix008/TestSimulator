@@ -49,6 +49,10 @@
       'pos.top': 'Top',
       'pos.left': 'Left',
       'pos.right': 'Right',
+      'pos.bottom-left': 'Bottom left',
+      'pos.bottom-right': 'Bottom right',
+      'pos.top-left': 'Top left',
+      'pos.top-right': 'Top right',
 
       // tabs
       'tab.themes': 'Themes',
@@ -250,6 +254,10 @@
       'pos.top': '위',
       'pos.left': '왼쪽',
       'pos.right': '오른쪽',
+      'pos.bottom-left': '왼쪽 아래',
+      'pos.bottom-right': '오른쪽 아래',
+      'pos.top-left': '왼쪽 위',
+      'pos.top-right': '오른쪽 위',
 
       'tab.themes': '테마',
       'tab.appearance': '모양',

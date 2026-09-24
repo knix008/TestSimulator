@@ -3,6 +3,7 @@
 const path = require('path');
 const { BrowserWindow, screen } = require('electron');
 const slide = require('./slide');
+const placement = require('../shared/placement');
 
 const MIN = { width: 80, height: 80 };
 
@@ -148,26 +149,26 @@ class DockWindow {
 
     let x;
     let y;
-    const vertical = dock.position === 'left' || dock.position === 'right';
+    const place = placement.resolve(dock.position, dock.align);
     // An auto-hiding dock has to sit flush against the edge, otherwise the
     // pointer that reveals it lands in the gap and it hides straight away.
     const offset = dock.autoHide ? 0 : dock.edgeOffset;
 
-    if (vertical) {
-      y = alignWithin(area.y, area.height, h, dock.align);
-      x = dock.position === 'left'
+    if (place.vertical) {
+      y = alignWithin(area.y, area.height, h, place.align);
+      x = place.edge === 'left'
         ? area.x + offset
         : area.x + area.width - w - offset;
     } else {
-      x = alignWithin(area.x, area.width, w, dock.align);
-      y = dock.position === 'top'
+      x = alignWithin(area.x, area.width, w, place.align);
+      y = place.edge === 'top'
         ? area.y + offset
         : area.y + area.height - h - offset;
     }
 
     const shown = { x: Math.round(x), y: Math.round(y) };
     const away = slide.awayOrigin(shown, {
-      position: dock.position,
+      position: place.edge,
       area,
       width: w,
       height: h,
@@ -260,7 +261,8 @@ class DockWindow {
   hotRect() {
     if (!this.alive()) return null;
     const dock = this.config.get().dock;
-    const band = slide.edgeBand(dock.position, this.targetDisplay().workArea, dock.autoHidePeek);
+    const place = placement.resolve(dock.position, dock.align);
+    const band = slide.edgeBand(place.edge, this.targetDisplay().workArea, dock.autoHidePeek);
     return slide.localOverlap(this.win.getBounds(), band);
   }
 

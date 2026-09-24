@@ -84,7 +84,7 @@ test('every glyph name used by the menus has a generated png', () => {
     }
     // Template-literal forms such as `pos-${position}` expand to every variant.
     for (const match of source.matchAll(/menuIcons\.get\(`([a-z-]+)-\$\{[^}]+\}([a-z-]*)`\)/g)) {
-      for (const suffix of ['bottom', 'top', 'left', 'right']) {
+      for (const suffix of ['bottom', 'top', 'left', 'right', 'bottom-left', 'bottom-right', 'top-left', 'top-right']) {
         used.add(`${match[1]}-${suffix}${match[2]}`);
       }
     }

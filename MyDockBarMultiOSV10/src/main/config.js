@@ -12,7 +12,7 @@ function defaults() {
   return {
     version: CONFIG_VERSION,
     dock: {
-      position: 'bottom',        // top | bottom | left | right
+      position: 'bottom',        // edge, or a corner: bottom-left | bottom-right | top-left | top-right
       display: 'primary',        // 'primary' | 'cursor' | <display id>
       align: 'center',           // start | center | end
       edgeOffset: 0,             // px away from the screen edge
