@@ -174,10 +174,23 @@
     bindSelect('removeEffect').addEventListener('change', playRemovePreview);
     $('remove-preview-play').addEventListener('click', playRemovePreview);
     bindSelect('position', (patch) => {
-      syncAlignEnabled();
+      syncAlignChoices();
       patchDock(patch);
     });
-    bindSelect('align');
+    bindSelect('align', (patch) => {
+      const place = DockPlacement.resolve(state.cfg.dock.position);
+      // A corner already picked its end. Choosing another end here means the
+      // plain edge plus that choice, so the two controls never disagree.
+      if (place.corner) {
+        state.cfg.dock.position = place.edge;
+        $('position').value = place.edge;
+        patchDock({ position: place.edge, align: patch.align });
+      } else {
+        patchDock(patch);
+      }
+      syncAlignChoices();
+      renderMonitorMap();
+    });
     bindSelect('display');
     bindSelect('stackingLevel');
 
@@ -1003,13 +1016,27 @@
   }
 
   /**
-   * A corner already names which end the bar sits on, so the alignment
-   * control would only contradict it.
+   * The second choice runs along the edge. A dock on the top or bottom offers
+   * left and right; one on the left or right offers top and bottom.
    */
-  function syncAlignEnabled() {
+  function syncAlignChoices() {
     const select = $('align');
-    if (!select || !state.cfg) return;
-    select.disabled = DockPlacement.resolve(state.cfg.dock.position).corner;
+    const label = $('align-label');
+    if (!select || !label || !state.cfg) return;
+    const place = DockPlacement.resolve(state.cfg.dock.position, state.cfg.dock.align);
+    const sides = place.vertical
+      ? [['start', 'pos.top'], ['center', 'o.center'], ['end', 'pos.bottom']]
+      : [['start', 'pos.left'], ['center', 'o.center'], ['end', 'pos.right']];
+    label.dataset.i18n = place.vertical ? 'f.alignEnds' : 'f.alignSides';
+    label.textContent = t(label.dataset.i18n);
+    sides.forEach(([value, key], index) => {
+      const option = select.options[index];
+      option.value = value;
+      option.dataset.i18n = key;
+      option.textContent = t(key);
+    });
+    select.value = place.align;
+    select.disabled = false;
   }
 
   /** Draw the dock on the monitor sketch, including a bar tucked into a corner. */
@@ -1218,8 +1245,7 @@
     $('clickEffectDirection').value = dock.clickEffectDirection;
     $('removeEffect').value = dock.removeEffect;
     $('position').value = dock.position;
-    $('align').value = dock.align;
-    syncAlignEnabled();
+    syncAlignChoices();
     $('stackingLevel').value = dock.stackingLevel;
     $('locale').value = snapshot.locale;
     if ($('display').options.length) $('display').value = String(dock.display);

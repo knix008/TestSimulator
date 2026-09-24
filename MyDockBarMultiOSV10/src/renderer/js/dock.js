@@ -47,8 +47,8 @@
   const AXIS_PAD = 12;
 
   /** The edge the dock is actually resting on. A corner uses that edge's layout. */
-  const place = () => Placement.resolve(state.cfg.dock.position, state.cfg.dock.align);
-  const isHorizontal = () => !place().vertical;
+  const dockPlace = () => Placement.resolve(state.cfg.dock.position, state.cfg.dock.align);
+  const isHorizontal = () => !dockPlace().vertical;
 
   /* --------------------------------------------------------------- *
    * Theme
@@ -226,7 +226,7 @@
     };
 
     const horizontal = isHorizontal();
-    const edge = place().edge;
+    const edge = dockPlace().edge;
     const width = horizontal ? stageAxis : stageCross;
     const height = horizontal ? stageCross : stageAxis;
 
@@ -268,7 +268,7 @@
 
     const cross = Math.ceil(Math.max(g.plateCross, g.anchor + g.iconSize * dock.maxZoom));
     const horizontal = isHorizontal();
-    const edge = place().edge;
+    const edge = dockPlace().edge;
 
     const rect = horizontal
       ? {
@@ -373,7 +373,7 @@
     const g = state.geom;
     const dock = state.cfg.dock;
     const horizontal = isHorizontal();
-    const edge = place().edge;
+    const edge = dockPlace().edge;
     const n = state.drawn.length;
 
     for (let i = 0; i < n; i += 1) {
@@ -529,7 +529,7 @@
     // stale size from a config change still in flight, must still land inside
     // it rather than be cut off at the window edge.
     const at = Tip.place({
-      position: place().edge,
+      position: dockPlace().edge,
       box,
       tip: { width: tip.width, height: tip.height },
       view: { width: window.innerWidth, height: window.innerHeight },
@@ -863,7 +863,7 @@
 
   function applyBodyClasses() {
     const dock = state.cfg.dock;
-    el.body.className = `pos-${place().edge}${dock.showReflection ? ' reflections' : ''}`;
+    el.body.className = `pos-${dockPlace().edge}${dock.showReflection ? ' reflections' : ''}`;
     applyEffectDirection(dock);
   }
 
@@ -891,7 +891,7 @@
    */
   function applyEffectDirection(dock) {
     const choice = !dock.clickEffectDirection || dock.clickEffectDirection === 'auto'
-      ? FX_AWAY_FROM_EDGE[place().edge] || 'up'
+      ? FX_AWAY_FROM_EDGE[dockPlace().edge] || 'up'
       : dock.clickEffectDirection;
     const [x, y] = FX_VECTOR[choice] || FX_VECTOR.up;
 
