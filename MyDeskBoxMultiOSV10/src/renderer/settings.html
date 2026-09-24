@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>박스 설정</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <div id="panel">
+    <header id="head">
+      <img id="mark" alt="" />
+      <span id="heading"></span>
+      <button id="close" type="button">×</button>
+    </header>
+
+    <div id="body">
+      <section class="row">
+        <span class="tag" id="nameTag"></span>
+        <input id="name" type="text" spellcheck="false" />
+      </section>
+
+      <section class="row">
+        <span class="tag" id="themeTag"></span>
+        <div id="themes" class="grid"></div>
+      </section>
+
+      <section class="row">
+        <span class="tag" id="customTag"></span>
+        <div class="pickers">
+          <label class="picker"><input id="bg" type="color" /><span id="bgTag"></span></label>
+          <label class="picker"><input id="bar" type="color" /><span id="barTag"></span></label>
+        </div>
+      </section>
+
+      <section class="row">
+        <span class="tag" id="cornerTag"></span>
+        <div class="stepper">
+          <button class="step" data-act="corner-" type="button">−</button>
+          <input id="corner" type="range" />
+          <button class="step" data-act="corner+" type="button">+</button>
+          <output id="cornerOut"></output>
+        </div>
+      </section>
+
+      <section class="row">
+        <span class="tag" id="opacityTag"></span>
+        <div class="stepper">
+          <button class="step" data-act="opacity-" type="button">−</button>
+          <input id="opacity" type="range" />
+          <button class="step" data-act="opacity+" type="button">+</button>
+          <output id="opacityOut"></output>
+        </div>
+      </section>
+
+      <section class="row pair">
+        <span class="tag plain" id="collapseTag"></span>
+        <button id="collapse" class="switch" type="button" role="switch"><span></span></button>
+      </section>
+    </div>
+
+    <footer id="foot">
+      <button id="reset" type="button"></button>
+      <button id="ok" type="button" class="primary"></button>
+    </footer>
+  </div>
+  <script src="../shared/i18n.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
