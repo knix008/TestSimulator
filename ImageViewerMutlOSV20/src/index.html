@@ -233,6 +233,15 @@
             <audio id="audio-player" controls style="width:80%;max-width:500px;"></audio>
             <div id="audio-filename" style="font-size:14px;opacity:0.7;text-align:center;"></div>
           </div>
+
+          <button type="button" class="viewer-nav-btn viewer-nav-prev is-disabled" id="viewer-nav-prev"
+            data-i18n-title="toolbar.prev" title="Previous image" hidden aria-label="Previous image">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+          <button type="button" class="viewer-nav-btn viewer-nav-next is-disabled" id="viewer-nav-next"
+            data-i18n-title="toolbar.next" title="Next image" hidden aria-label="Next image">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+          </button>
         </div>
 
         <!-- Effects Panel (slides in from right) -->
@@ -267,6 +276,13 @@
       <div class="status-sep" id="status-probe-sep" hidden></div>
       <div class="status-item" id="status-probe" hidden></div>
       <div id="status-spacer"></div>
+      <div id="status-progress" hidden>
+        <span id="status-progress-msg"></span>
+        <div id="status-progress-bar" class="status-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="status-progress-fill" class="status-progress-fill"></div>
+        </div>
+        <span id="status-progress-pct">0%</span>
+      </div>
       <div class="status-item" id="status-msg"></div>
     </div>
 
@@ -484,6 +500,14 @@
       </div>
       <div id="edit-canvas-area">
         <!-- The shared image-wrapper is moved here during edit mode -->
+        <button type="button" class="viewer-nav-btn viewer-nav-prev is-disabled" id="ew-nav-prev"
+          data-i18n-title="toolbar.prev" title="Previous image" hidden aria-label="Previous image">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button type="button" class="viewer-nav-btn viewer-nav-next is-disabled" id="ew-nav-next"
+          data-i18n-title="toolbar.next" title="Next image" hidden aria-label="Next image">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+        </button>
       </div>
       <div id="edit-adjust-panel">
         <div class="panel-header">
@@ -688,14 +712,14 @@
           <tr><td>Rotate Left</td><td><kbd>Ctrl</kbd>+<kbd>[</kbd></td></tr>
           <tr><td>Rotate Right</td><td><kbd>Ctrl</kbd>+<kbd>]</kbd></td></tr>
           <tr><td data-i18n="shortcuts.resize">Resize Image</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td></tr>
-          <tr><td>Previous Image</td><td><kbd>←</kbd></td></tr>
-          <tr><td>Next Image</td><td><kbd>→</kbd></td></tr>
+          <tr><td>Previous Image</td><td><kbd>←</kbd> / <kbd>Page Up</kbd></td></tr>
+          <tr><td>Next Image</td><td><kbd>→</kbd> / <kbd>Page Down</kbd></td></tr>
           <tr><td>Undo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td></tr>
           <tr><td>Redo</td><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
           <tr><td>Copy</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
           <tr><td>Clear Selection / Cancel</td><td><kbd>Esc</kbd></td></tr>
           <tr><td>Fullscreen</td><td><kbd>F11</kbd></td></tr>
-          <tr><td>DICOM: Previous / Next Frame</td><td><kbd>PgUp</kbd> / <kbd>PgDn</kbd></td></tr>
+          <tr><td>DICOM: Previous / Next Frame</td><td><kbd>Ctrl</kbd>+<kbd>PgUp</kbd> / <kbd>Ctrl</kbd>+<kbd>PgDn</kbd></td></tr>
           <tr><td>DICOM: First / Last Frame</td><td><kbd>Home</kbd> / <kbd>End</kbd></td></tr>
           <tr><td>DICOM: Play Frames</td><td><kbd>Space</kbd></td></tr>
           <tr><td>DICOM: Invert / Reset Window</td><td><kbd>I</kbd> / <kbd>W</kbd></td></tr>

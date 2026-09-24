@@ -237,12 +237,22 @@
   });
 
   let _refreshTimer = null;
+  function _normWatchPath(p) {
+    return String(p || '').replace(/\//g, '\\').replace(/[\\/]+$/, '').toLowerCase();
+  }
+  function _cancelTreeRefresh() {
+    if (_refreshTimer) {
+      clearTimeout(_refreshTimer);
+      _refreshTimer = null;
+    }
+  }
   function _scheduleTreeRefresh() {
     clearTimeout(_refreshTimer);
     _refreshTimer = setTimeout(async () => {
+      if (_openingFile || Date.now() < _ignoreWatchUntil) return;
+      // Keep prev/next in sync only. Do not rebuild the explorer DOM.
+      _ignoreWatchUntil = Date.now() + 2500;
       try {
-        await FileTree.refresh();
-        // Keep prev/next list in sync with disk after external changes / DnD
         if (state.currentFile) {
           const dir = await window.electronAPI.pathDirname(state.currentFile);
           state.fileList = await FileTree.getImageFilesInDir(dir);
@@ -252,9 +262,9 @@
           _updateNavButtons();
         }
       } catch (e) {
-        console.warn('tree refresh failed:', e);
+        console.warn('file list sync failed:', e);
       }
-    }, 150);
+      }, 400);
   }
 
   /* ─── Tooltip: toolbar buttons ─── */
@@ -285,6 +295,7 @@
 
   /* ─── Keyboard shortcuts ─── */
   _initKeyboard();
+  _initViewerNavButtons();
   _initMediaCues();
   _initDicomBar();
   _initDicomOverlay();
@@ -349,7 +360,7 @@
           await FileTree.loadDrives();
           await FileTree.revealPath('/');
           await _openFile(p, { center: true });
-          await FileTree.refresh();
+          await FileTree.refresh({ force: true });
           FileTree.setSelected(p, { center: true });
           return;
         }
@@ -359,7 +370,7 @@
         await FileTree.loadDrives();
         await FileTree.revealPath('/');
         await _openFile(p, { center: true });
-        await FileTree.refresh();
+        await FileTree.refresh({ force: true });
         FileTree.setSelected(p, { center: true });
       }
       return;
@@ -372,7 +383,7 @@
       const stats = await window.electronAPI.getFileStats(p);
       if (stats && !stats.error && stats.isDirectory) {
         await _openFolder(p);
-        await FileTree.refresh();
+        await FileTree.refresh({ force: true });
         return;
       }
     }
@@ -386,7 +397,7 @@
         const dir = await window.electronAPI.pathDirname(p);
         await _openFile(p, { center: true });
         await FileTree.revealPath(dir);
-        await FileTree.refresh();
+        await FileTree.refresh({ force: true });
         FileTree.setSelected(p, { center: true });
         return;
       }
@@ -398,7 +409,7 @@
       const dir = await window.electronAPI.pathDirname(p);
       await _openFile(p, { center: true });
       await FileTree.revealPath(dir);
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       FileTree.setSelected(p, { center: true });
     }
   });
@@ -409,23 +420,23 @@
       const dir = await window.electronAPI.pathDirname(p);
       await _openFile(p, { center: true });
       await FileTree.revealPath(dir);
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       FileTree.setSelected(p, { center: true });
     } catch (_) {
       await _openFile(p, { center: true });
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       FileTree.setSelected(p, { center: true });
     }
   });
   window.electronAPI.onOpenFolder(async (p) => {
     await _openFolder(p);
-    await FileTree.refresh();
+    await FileTree.refresh({ force: true });
   });
   window.addEventListener('app-open-folder', async (e) => {
     const p = e.detail;
     if (!p) return;
     await _openFolder(p);
-    await FileTree.refresh();
+    await FileTree.refresh({ force: true });
   });
   window.addEventListener('app-open-file', async (e) => {
     const p = e.detail;
@@ -437,32 +448,31 @@
 
   /* ─── File / directory watching ─── */
   async function _watchDir(dirPath) {
-    if (_watchedDir === dirPath) return;
+    if (!dirPath) return;
+    if (_normWatchPath(_watchedDir) === _normWatchPath(dirPath)) return;
     if (_watchedDir) await window.electronAPI.unwatchDirectory(_watchedDir);
     _watchedDir = dirPath;
     await window.electronAPI.watchDirectory(dirPath);
   }
 
   async function _watchCurrentFile(filePath) {
-    if (_watchedFile === filePath) return;
+    if (_normWatchPath(_watchedFile) === _normWatchPath(filePath)) return;
     if (_watchedFile) await window.electronAPI.unwatchFile(_watchedFile);
     _watchedFile = filePath;
     if (filePath) await window.electronAPI.watchFile(filePath);
   }
 
-  window.electronAPI.onDirectoryChanged((dirPath) => {
-    if (Date.now() < _ignoreWatchUntil) return;
-    // Any watched folder change → refresh explorer (path compare used to be too strict)
+  window.electronAPI.onDirectoryChanged(() => {
+    if (_openingFile || Date.now() < _ignoreWatchUntil) return;
     _scheduleTreeRefresh();
   });
 
   window.electronAPI.onFileChanged(async (filePath) => {
-    if (Date.now() < _ignoreWatchUntil) return;
-    if (_openingFile) return;
-    if (state.currentFile === filePath && !state.isDirty) {
+    if (_openingFile || Date.now() < _ignoreWatchUntil) return;
+    // Content change only — do not rebuild the folder tree.
+    if (state.currentFile && _normWatchPath(state.currentFile) === _normWatchPath(filePath) && !state.isDirty) {
       await _openFile(filePath);
     }
-    _scheduleTreeRefresh();
   });
 
   /* ─── Initial viewer state ─── */
@@ -483,7 +493,7 @@
       try {
         const dir = await window.electronAPI.pathDirname(launchFile);
         await FileTree.revealPath(dir);
-        await FileTree.refresh();
+        await FileTree.refresh({ force: true });
         FileTree.setSelected(launchFile, { center: true });
       } catch (_) { /* folder may be gone */ }
       _openFile(launchFile, { center: true }).catch(() => {});
@@ -890,8 +900,8 @@
       { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', disabled: !hasVisual, action: () => _fitToWindow() },
       { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', disabled: !hasImg,    action: () => _actualSize() },
       { separator: true },
-      { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '←', disabled: !canPrev, action: () => _prevImage() },
-      { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→', disabled: !canNext, action: () => _nextImage() },
+      { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '← / Page Up', disabled: !canPrev, action: () => _prevImage() },
+      { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→ / Page Down', disabled: !canNext, action: () => _nextImage() },
       { separator: true },
       ..._dicomContextItems(),
       !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
@@ -1304,10 +1314,7 @@
 
     const set = (id, on) => _setChromeBtn(document.getElementById(id), on);
 
-    const hasMedia = k !== 'none';
     const isImage = k === 'image';
-    const canPrev = hasMedia && state.fileIndex > 0;
-    const canNext = hasMedia && state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1;
 
     // Navigation / view (available for images; limited for A/V)
     set('btn-zoom-in', isImage || k === 'video' || state.isAnimated);
@@ -1316,8 +1323,7 @@
     set('btn-actual', isImage || state.isAnimated);
     const zd = document.getElementById('zoom-display');
     if (zd) zd.disabled = !(isImage || k === 'video' || state.isAnimated);
-    set('btn-prev', canPrev);
-    set('btn-next', canNext);
+    _updateNavButtons();
 
     // Image editing only
     set('btn-save', isImage);
@@ -1447,10 +1453,19 @@
     ));
   }
 
+  function _fileAlreadyInList(filePath) {
+    if (!filePath || !state.fileList?.length) return false;
+    if (FileTree.indexOfPath) return FileTree.indexOfPath(state.fileList, filePath) >= 0;
+    return state.fileList.indexOf(filePath) >= 0;
+  }
+
   async function _openFile(filePath, { center = false } = {}) {
     if (!filePath) return;
     // Prevent overlapping opens (Windows fs.watch often fires when we read the file)
     if (_openingFile && _openingFile === filePath) return;
+    // Reading the file/dir on Windows trips fs.watch — keep the explorer still.
+    _cancelTreeRefresh();
+    _ignoreWatchUntil = Date.now() + 4000;
     if (state.editMode) {
       const same = state.currentFile &&
         String(state.currentFile).replace(/\\/g, '/').toLowerCase() ===
@@ -1561,13 +1576,15 @@
       const dir = await window.electronAPI.pathDirname(filePath);
       _rememberRecentDir(dir);
       _watchDir(dir);
-      state.fileList  = await FileTree.getImageFilesInDir(dir);
+      if (!_fileAlreadyInList(filePath)) {
+        state.fileList = await FileTree.getImageFilesInDir(dir);
+      }
       state.fileIndex = FileTree.indexOfPath
         ? FileTree.indexOfPath(state.fileList, filePath)
         : state.fileList.indexOf(filePath);
       _updateNavButtons();
 
-      _ignoreWatchUntil = Date.now() + 800;
+      _ignoreWatchUntil = Date.now() + 4000;
       _watchCurrentFile(filePath);
       _clearDirty();
       try {
@@ -1588,6 +1605,7 @@
       if (typeof unsubProgress === 'function') unsubProgress();
       _pd()?.hide();
       if (_openingFile === filePath) _openingFile = null;
+      _ignoreWatchUntil = Math.max(_ignoreWatchUntil, Date.now() + 2500);
       _showLoading(false);
     }
   }
@@ -1598,6 +1616,7 @@
     const list = state.fileList || [];
     [list[idx + 1], list[idx - 1]].forEach((p) => {
       if (p && (FormatSupport.isHeic(p) || FormatSupport.isTiff(p))) {
+        _ignoreWatchUntil = Date.now() + 4000;
         window.electronAPI.convertToPng(p).catch(() => {});
       }
     });
@@ -2638,7 +2657,7 @@
       await _showError(I18n.t('dialog.save.error') || 'Could not save the file.', failure);
       return;
     }
-    try { await FileTree.refresh(); } catch { /* ignore */ }
+    try { await FileTree.refresh({ force: true }); } catch { /* ignore */ }
     _updateStatus({ msg: `${written} ${I18n.t('dicom.framesExported')}` });
     await window.electronAPI.showMessageBox({
       type: 'info',
@@ -2688,7 +2707,7 @@
     const mime = format === 'json' ? 'application/json' : format === 'csv' ? 'text/csv' : 'text/plain';
     const wr = await window.electronAPI.writeFile({ filePath: dlg.filePath, dataUrl: _dicomTextDataUrl(_dicomTagsText(format), mime) });
     if (wr && wr.success) {
-      try { await FileTree.refresh(); } catch { /* ignore */ }
+      try { await FileTree.refresh({ force: true }); } catch { /* ignore */ }
       _updateStatus({ msg: t('dicom.tagsExported') });
     } else {
       await _showError(t('dialog.save.error') || 'Could not save the file.', (wr && wr.error) || '');
@@ -2710,12 +2729,14 @@
     if (!d || !_dicomHasBar() || state.editMode) return false;
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return false;
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'PageUp' || e.key === 'PageDown') && d.frames > 1) {
+      _dicomFrame(e.key === 'PageUp' ? d.state.frame - 1 : d.state.frame + 1);
+      return true;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return false;
     // Measurement tool in progress: Esc leaves it (before the viewer's own Esc handling)
     if (e.key === 'Escape' && (_dicomTool || _dicomDraft)) { _dicomSetTool(null); return true; }
     if (d.frames > 1) {
-      if (e.key === 'PageUp')   { _dicomFrame(d.state.frame - 1); return true; }
-      if (e.key === 'PageDown') { _dicomFrame(d.state.frame + 1); return true; }
       if (e.key === 'Home')     { _dicomFrame(0); return true; }
       if (e.key === 'End')      { _dicomFrame(d.frames - 1); return true; }
       if (e.key === ' ' || e.code === 'Space') { _dicomToggleCine(); return true; }
@@ -2748,8 +2769,8 @@
     const items = [];
     if (d.frames > 1) {
       items.push({ icon: Icons.mediaPlay, label: t('dicom.frames'), submenu: () => [
-        { icon: Icons.prev, label: t('dicom.prevFrame'), shortcut: 'PgUp', disabled: d.state.frame <= 0, action: () => _dicomFrame(d.state.frame - 1) },
-        { icon: Icons.next, label: t('dicom.nextFrame'), shortcut: 'PgDn', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.state.frame + 1) },
+        { icon: Icons.prev, label: t('dicom.prevFrame'), shortcut: 'Ctrl+PgUp', disabled: d.state.frame <= 0, action: () => _dicomFrame(d.state.frame - 1) },
+        { icon: Icons.next, label: t('dicom.nextFrame'), shortcut: 'Ctrl+PgDn', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.state.frame + 1) },
         { label: t('dicom.firstFrame'), shortcut: 'Home', disabled: d.state.frame <= 0, action: () => _dicomFrame(0) },
         { label: t('dicom.lastFrame'), shortcut: 'End', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.frames - 1) },
         { separator: true },
@@ -3736,7 +3757,7 @@
       const dir = await window.electronAPI.pathDirname(p);
       await _openFile(p, { center: true });
       await FileTree.revealPath(dir);
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       FileTree.setSelected(p, { center: true });
     } catch (_) {
       await _openFile(p, { center: true });
@@ -3748,7 +3769,7 @@
     const r = await window.FileDialog.openFolder();
     if (!r || r.canceled || !r.filePath) return;
     await _openFolder(r.filePath);
-    await FileTree.refresh();
+    await FileTree.refresh({ force: true });
   }
 
   async function _openFolder(dirPath, { openFirst = true } = {}) {
@@ -4444,7 +4465,7 @@
     _hideDialog('resize-overlay');
 
     if (saved) {
-      try { await FileTree.refresh(); } catch (_) { /* ignore */ }
+      try { await FileTree.refresh({ force: true }); } catch (_) { /* ignore */ }
       _updateStatus({ msg: I18n.t('status.saved') || 'Saved' });
       if (window.electronAPI?.showMessageBox) {
         await window.electronAPI.showMessageBox({
@@ -4559,9 +4580,40 @@
   }
 
   function _updateNavButtons() {
-    _setChromeBtn(document.getElementById('btn-prev'), state.fileIndex > 0);
-    _setChromeBtn(document.getElementById('btn-next'),
-      state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1);
+    const canPrev = state.fileIndex > 0;
+    const canNext = state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1;
+    const show = !!state.currentFile;
+    _setChromeBtn(document.getElementById('btn-prev'), canPrev);
+    _setChromeBtn(document.getElementById('btn-next'), canNext);
+    document.querySelectorAll('.viewer-nav-prev').forEach((el) => {
+      el.hidden = !show;
+      _setChromeBtn(el, canPrev);
+    });
+    document.querySelectorAll('.viewer-nav-next').forEach((el) => {
+      el.hidden = !show;
+      _setChromeBtn(el, canNext);
+    });
+  }
+
+  function _initViewerNavButtons() {
+    document.querySelectorAll('.viewer-nav-prev').forEach((el) => {
+      el.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); });
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (el.classList.contains('is-disabled')) return;
+        _prevImage();
+      });
+    });
+    document.querySelectorAll('.viewer-nav-next').forEach((el) => {
+      el.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); });
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (el.classList.contains('is-disabled')) return;
+        _nextImage();
+      });
+    });
   }
 
   /* ════════════════════════════════════════════
@@ -6149,7 +6201,7 @@
       const wr = await window.electronAPI.writeFile({ filePath: savePath, dataUrl });
       if (wr && wr.success) {
         dlg?.set(90);
-        try { await FileTree.refresh(); } catch (_) { /* ignore */ }
+        try { await FileTree.refresh({ force: true }); } catch (_) { /* ignore */ }
       }
       return wr;
     }, { messageKey: 'progress.saving', kind: 'encode' });
@@ -6815,10 +6867,7 @@
 
   function _reflowInfoPanel() {
     if (!infoContent) return;
-    const panel = document.getElementById('info-panel');
     requestAnimationFrame(() => {
-      if (panel) void panel.offsetHeight;
-      void infoContent.offsetWidth;
       const y = infoContent.scrollTop;
       infoContent.scrollTop = y + 1;
       infoContent.scrollTop = y;
@@ -7025,48 +7074,50 @@
     return new Promise(resolve => { _errorResolve = resolve; });
   }
 
-  /** Modal progress dialog with bar + percent (used by bg-remove algorithms). */
+  /** Status-bar progress (no modal — the overlay caused folder-view flicker). */
   const ProgressDialog = (() => {
     let _percent = 0;
     let _creepTimer = null;
     let _creepCap = 90;
     let _visible = false;
+    let _message = '';
 
     function _els() {
       return {
-        overlay: document.getElementById('progress-overlay'),
-        title: document.getElementById('progress-title'),
-        message: document.getElementById('progress-message'),
-        fill: document.getElementById('progress-bar-fill'),
-        bar: document.getElementById('progress-bar'),
-        pct: document.getElementById('progress-percent'),
+        wrap: document.getElementById('status-progress'),
+        message: document.getElementById('status-progress-msg'),
+        fill: document.getElementById('status-progress-fill'),
+        bar: document.getElementById('status-progress-bar'),
+        pct: document.getElementById('status-progress-pct'),
       };
     }
 
     function _paint(message) {
       const e = _els();
       const shown = Math.round(_percent);
+      if (message != null) _message = message;
       if (e.fill) e.fill.style.width = `${shown}%`;
       if (e.pct) e.pct.textContent = `${shown}%`;
       if (e.bar) e.bar.setAttribute('aria-valuenow', String(shown));
-      if (message != null && e.message) e.message.textContent = message;
+      if (e.message) e.message.textContent = _message;
     }
 
     function show({ title, message, percent } = {}) {
-      const e = _els();
-      if (!e.overlay) return;
       stopCreep();
       _percent = 0;
       _visible = true;
-      if (e.title) e.title.textContent = title || I18n.t('progress.title') || 'Progress';
-      if (e.message) e.message.textContent = message || '';
-      set(percent != null ? percent : 0, message, true);
-      e.overlay.style.display = 'flex';
-      e.overlay.classList.add('visible');
+      const e = _els();
+      if (e.wrap) e.wrap.hidden = false;
+      set(percent != null ? percent : 0, message || title || '', true);
     }
 
     /** @param {boolean} [force] allow decreasing (reset) */
     function set(percent, message, force) {
+      if (!_visible) {
+        _visible = true;
+        const e = _els();
+        if (e.wrap) e.wrap.hidden = false;
+      }
       const raw = Math.max(0, Math.min(100, Number(percent) || 0));
       _percent = force ? raw : Math.max(_percent, raw);
       _paint(message);
@@ -7075,14 +7126,13 @@
     function hide() {
       stopCreep();
       _visible = false;
-      const e = _els();
-      if (!e.overlay) return;
-      e.overlay.classList.remove('visible');
-      e.overlay.style.display = 'none';
       _percent = 0;
-      _paint();
+      _message = '';
+      const e = _els();
+      if (e.wrap) e.wrap.hidden = true;
       if (e.fill) e.fill.style.width = '0%';
       if (e.pct) e.pct.textContent = '0%';
+      if (e.message) e.message.textContent = '';
     }
 
     /** Slowly advance toward `cap` while inference runs (no true ORT %). */
@@ -7138,7 +7188,7 @@
         mode: mode === 'move' ? 'move' : 'copy',
       });
       dlg?.set(88, I18n.t('progress.applying') || 'Applying result…');
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       return transfer;
     }, {
       messageKey: mode === 'move' ? 'progress.moving' : 'progress.copyingFiles',
@@ -7219,7 +7269,7 @@
               FileTree.forgetPath(p);
               if (state.currentFile === p) { state.currentFile = null; _showPlaceholder(true); _clearDirty(); }
             }
-            await FileTree.refresh();
+            await FileTree.refresh({ force: true });
             if (state.currentFile) {
               const dir = await window.electronAPI.pathDirname(state.currentFile);
               state.fileList = await FileTree.getImageFilesInDir(dir);
@@ -7312,7 +7362,7 @@
         _updateNavButtons();
       }
 
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
 
       try {
         const parent = await window.electronAPI.pathDirname(filePath);
@@ -7376,8 +7426,8 @@
         { icon: Icons.reset,    label: t('context.resetAll'), action: _resetAll },
       ] },
       !isAv && { separator: true },
-      { icon: Icons.prev,    label: t('context.prev'), shortcut: '←', disabled: state.fileIndex <= 0,                         action: _prevImage },
-      { icon: Icons.next,    label: t('context.next'), shortcut: '→', disabled: state.fileIndex >= state.fileList.length - 1, action: _nextImage },
+      { icon: Icons.prev,    label: t('context.prev'), shortcut: '← / Page Up', disabled: state.fileIndex <= 0,                         action: _prevImage },
+      { icon: Icons.next,    label: t('context.next'), shortcut: '→ / Page Down', disabled: state.fileIndex >= state.fileList.length - 1, action: _nextImage },
       !isWeb && { separator: true },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !state.currentFile,
         action: () => state.currentFile && _showInExplorer() },
@@ -7760,8 +7810,8 @@
       // Arrow keys inside a text / number field or a select (Settings, DICOM bar …) edit that field
       const tagName = (e.target && e.target.tagName) || '';
       const typing = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || e.target?.isContentEditable;
-      if (e.key === 'ArrowLeft'  && !typing) { e.preventDefault(); _prevImage(); return; }
-      if (e.key === 'ArrowRight' && !typing) { e.preventDefault(); _nextImage(); return; }
+      if ((e.key === 'ArrowLeft' || e.key === 'PageUp') && !typing) { e.preventDefault(); _prevImage(); return; }
+      if ((e.key === 'ArrowRight' || e.key === 'PageDown') && !typing) { e.preventDefault(); _nextImage(); return; }
       if (e.key === ' ' || e.code === 'Space') {
         const tag = (e.target && e.target.tagName) || '';
         if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;

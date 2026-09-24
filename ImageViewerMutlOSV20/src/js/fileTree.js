@@ -15,6 +15,7 @@ window.FileTree = (() => {
   let _pathSep       = '/';
   let _ready         = false;
   let _centerOnce    = false;   // center explorer row only on first open
+  let _refreshing    = false;
 
   const IMAGE_EXTS = FormatSupport.IMAGE_EXTS;
   const VIDEO_EXTS = FormatSupport.VIDEO_EXTS;
@@ -211,7 +212,7 @@ window.FileTree = (() => {
 
   function _norm(p) {
     if (!p) return '';
-    return p.replace(/[\\/]+$/, '').toLowerCase();
+    return String(p).replace(/\//g, '\\').replace(/[\\/]+$/, '').toLowerCase();
   }
 
   function _pathsEqual(a, b) {
@@ -269,28 +270,45 @@ window.FileTree = (() => {
 
   function getRoot()         { return _focusPath; }
   function getSelected()     { return _selectedPath; }
-  function setSelected(p, { center = false } = {}) {
+  function setSelected(p, { center = false, scroll = true } = {}) {
+    if (_pathsEqual(_selectedPath, p) && !center && !_selectedPaths.size) {
+      if (scroll) _scrollRowIfNeeded();
+      return;
+    }
+    const prev = _selectedPath;
     _selectedPath = p;
-    _highlightSelected();
+    const oldEl = prev ? _findTreeItem(prev) : null;
+    const newEl = p ? _findTreeItem(p) : null;
+    if (oldEl !== newEl) {
+      oldEl?.classList.remove('selected');
+      newEl?.classList.add('selected');
+    }
+    if (_selectedPaths.size) {
+      for (const extra of _selectedPaths) {
+        if (_pathsEqual(extra, p) || _pathsEqual(extra, prev)) continue;
+        _findTreeItem(extra)?.classList.remove('selected');
+      }
+      _selectedPaths.clear();
+    }
     if (center) {
       _centerOnce = true;
       _scrollOpenFileToCenter();
       return;
     }
     _centerOnce = false;
-    _scrollRow('nearest');
+    if (scroll) _scrollRowIfNeeded();
   }
 
   /* ── Rendering ── */
   async function _renderRoot() {
     if (!_container) return;
-    _container.innerHTML = '';
 
     if (!_drives.length) {
-      _container.innerHTML = `<div id="file-tree-empty">
-        <span data-i18n="tree.noDir"></span><br>
-        <span class="open-folder-link" data-i18n="tree.openFolder" id="ft-open-link"></span>
-      </div>`;
+      const empty = document.createElement('div');
+      empty.id = 'file-tree-empty';
+      empty.innerHTML = `<span data-i18n="tree.noDir"></span><br>
+        <span class="open-folder-link" data-i18n="tree.openFolder" id="ft-open-link"></span>`;
+      _container.replaceChildren(empty);
       I18n.applyToDOM();
       document.getElementById('ft-open-link')?.addEventListener('click', () => {
         window.FileDialog?.openFolder().then((r) => {
@@ -302,10 +320,9 @@ window.FileTree = (() => {
       return;
     }
 
+    // Build off-DOM so the explorer does not blank/flicker between paints.
     const rootEl = document.createElement('div');
     rootEl.className = 'tree-root';
-    _container.appendChild(rootEl);
-
     for (const drive of _drives) {
       await _renderEntry(rootEl, {
         name: drive.name,
@@ -314,27 +331,36 @@ window.FileTree = (() => {
         isDrive: true,
       }, 0);
     }
+    _container.replaceChildren(rootEl);
   }
 
   async function _renderDir(parent, dirPath, depth) {
-    // Clear any "Loading..." placeholder before painting entries
-    parent.innerHTML = '';
     let entries;
     try {
       entries = await window.electronAPI.readDirectory(dirPath);
     } catch (e) {
-      parent.innerHTML = `<div class="tree-item" style="padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px">${e.message || 'Error'}</div>`;
+      const err = document.createElement('div');
+      err.className = 'tree-item';
+      err.style.cssText = `padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px`;
+      err.textContent = e.message || 'Error';
+      parent.replaceChildren(err);
       return;
     }
     if (!entries || entries.error) {
       const msg = (entries && entries.error) ? entries.error : (I18n.t('tree.empty') || 'Empty');
-      parent.innerHTML = `<div class="tree-item" style="padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px">${msg}</div>`;
+      const empty = document.createElement('div');
+      empty.className = 'tree-item';
+      empty.style.cssText = `padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px`;
+      empty.textContent = msg;
+      parent.replaceChildren(empty);
       return;
     }
 
+    const frag = document.createDocumentFragment();
     for (const entry of entries) {
-      await _renderEntry(parent, entry, depth);
+      await _renderEntry(frag, entry, depth);
     }
+    parent.replaceChildren(frag);
   }
 
   async function _renderEntry(parent, entry, depth) {
@@ -550,11 +576,9 @@ window.FileTree = (() => {
 
   function _highlightSelected() {
     if (!_container) return;
-    _container.querySelectorAll('.tree-item.selected').forEach(el => el.classList.remove('selected'));
     _container.querySelectorAll('.tree-item[data-path]').forEach(el => {
-      if (_pathsEqual(el.dataset.path, _selectedPath) || _selectedPaths.has(el.dataset.path)) {
-        el.classList.add('selected');
-      }
+      const on = _pathsEqual(el.dataset.path, _selectedPath) || _selectedPaths.has(el.dataset.path);
+      el.classList.toggle('selected', on);
     });
   }
 
@@ -566,15 +590,31 @@ window.FileTree = (() => {
     return null;
   }
 
+  function _isRowVisible(el) {
+    if (!el || !_container) return false;
+    const cRect = _container.getBoundingClientRect();
+    const eRect = el.getBoundingClientRect();
+    return eRect.top >= cRect.top && eRect.bottom <= cRect.bottom;
+  }
+
+  function _scrollRowIfNeeded() {
+    const el = _findTreeItem(_selectedPath);
+    if (!el || _isRowVisible(el)) return;
+    _scrollRow('nearest');
+  }
+
   function _scrollRow(mode) {
     const path = _selectedPath || _focusPath;
     if (!path || !_container) return;
+    const el = _findTreeItem(_selectedPath) || _findTreeItem(path);
+    if (!el) return;
+    if (mode !== 'center' && _isRowVisible(el)) return;
     const run = () => {
-      const el = _findTreeItem(_selectedPath) || _findTreeItem(path);
-      if (!el) return;
+      const row = _findTreeItem(_selectedPath) || _findTreeItem(path);
+      if (!row) return;
       const scroller = _container;
       const cRect = scroller.getBoundingClientRect();
-      const eRect = el.getBoundingClientRect();
+      const eRect = row.getBoundingClientRect();
       const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
       if (mode === 'center') {
         const top = scroller.scrollTop + (eRect.top - cRect.top) - (scroller.clientHeight / 2) + (eRect.height / 2);
@@ -644,22 +684,66 @@ window.FileTree = (() => {
     }
   }
 
-  /** Re-read disk and redraw, keeping expanded folders / selection. */
-  async function refresh() {
+  function _visiblePathSignature() {
+    if (!_container) return '';
+    return Array.from(_container.querySelectorAll('.tree-item[data-path]'))
+      .map((el) => _norm(el.dataset.path))
+      .join('\n');
+  }
+
+  async function _walkExpandedPaths(dirPath, out) {
+    if (![..._expandedDirs].some((p) => _pathsEqual(p, dirPath))) return;
+    let entries;
+    try {
+      entries = await window.electronAPI.readDirectory(dirPath);
+    } catch {
+      return;
+    }
+    if (!entries || entries.error) return;
+    for (const entry of entries) {
+      out.push(_norm(entry.path));
+      if (entry.isDirectory || entry.isDrive) await _walkExpandedPaths(entry.path, out);
+    }
+  }
+
+  async function _expectedPathSignature() {
+    const paths = [];
+    for (const drive of _drives) {
+      paths.push(_norm(drive.path));
+      await _walkExpandedPaths(drive.path, paths);
+    }
+    return paths.join('\n');
+  }
+
+  /**
+   * Re-read disk. Without `{ force: true }` the explorer DOM is left as-is
+   * (selection-only updates go through setSelected).
+   */
+  async function refresh({ force = false } = {}) {
+    if (!force) return;
+    if (_refreshing) return;
     if (!_ready) {
       await loadDrives();
       return;
     }
-    // Re-probe drives in case volumes were added/removed
+    _refreshing = true;
     try {
-      const result = await window.electronAPI.listDrives();
-      if (Array.isArray(result) && result.length) _drives = result;
-    } catch {}
-    const prevScroll = _container ? _container.scrollTop : 0;
-    await _renderRoot();
-    _highlightSelected();
-    if (_focusPath) _updatePathBar(_focusPath);
-    _flushCenterOrEnsureVisible(prevScroll);
+      try {
+        const result = await window.electronAPI.listDrives();
+        if (Array.isArray(result) && result.length) _drives = result;
+      } catch {}
+      try {
+        const expected = await _expectedPathSignature();
+        if (expected && expected === _visiblePathSignature()) return;
+      } catch { /* fall through to a full rebuild */ }
+      const prevScroll = _container ? _container.scrollTop : 0;
+      await _renderRoot();
+      _highlightSelected();
+      if (_focusPath) _updatePathBar(_focusPath);
+      _flushCenterOrEnsureVisible(prevScroll);
+    } finally {
+      _refreshing = false;
+    }
   }
 
   return {

@@ -827,6 +827,7 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   overflow-y: auto;
   overflow-x: auto;
   padding: 2px 0;
+  contain: content;
 }
 
 #file-tree-empty {
@@ -1083,6 +1084,58 @@ body.resizing-row * {
 
 #viewer-container.drag-mode { cursor: grab; }
 #viewer-container.dragging { cursor: grabbing !important; }
+
+.viewer-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  width: 48px;
+  height: 72px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(16, 16, 16, 0.62);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+.viewer-nav-btn svg {
+  width: 30px;
+  height: 30px;
+  fill: currentColor;
+}
+.viewer-nav-prev { left: 12px; }
+.viewer-nav-next { right: 12px; }
+#viewer-container:hover .viewer-nav-btn:not([hidden]),
+#edit-canvas-area:hover .viewer-nav-btn:not([hidden]) {
+  opacity: 0.9;
+  pointer-events: auto;
+}
+#viewer-container:hover .viewer-nav-btn.is-disabled,
+#edit-canvas-area:hover .viewer-nav-btn.is-disabled {
+  opacity: 0.28;
+  pointer-events: none;
+  cursor: default;
+}
+.viewer-nav-btn:hover:not(.is-disabled) {
+  background: rgba(8, 8, 8, 0.82);
+  opacity: 1;
+}
+.viewer-nav-btn:active:not(.is-disabled) {
+  transform: translateY(-50%) scale(0.96);
+}
+.viewer-nav-btn[hidden] {
+  display: none !important;
+}
 
 #image-wrapper {
   position: absolute;
@@ -1483,6 +1536,42 @@ body.resizing-row * {
 
 #status-spacer { flex: 1; }
 
+#status-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 42%;
+  flex-shrink: 1;
+}
+#status-progress[hidden] { display: none; }
+#status-progress-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  color: var(--status-text);
+}
+.status-progress-track {
+  width: 88px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.18);
+  overflow: hidden;
+}
+.status-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+#status-progress-pct {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.6em;
+}
+
 /* ========== Custom Context Menu ========== */
 #context-menu {
   position: fixed;
@@ -1699,10 +1788,10 @@ body.resizing-row * {
   pointer-events: auto;
 }
 
-/* Progress dialog sits above the edit window */
-.progress-overlay {
-  z-index: 50010;
-  pointer-events: all;
+/* Progress is shown in the status bar — keep the modal unused. */
+.progress-overlay,
+#progress-overlay {
+  display: none !important;
 }
 .progress-dialog-box {
   min-width: 360px;
