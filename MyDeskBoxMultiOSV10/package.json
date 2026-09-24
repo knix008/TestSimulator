@@ -14,10 +14,10 @@
     "test": "node --test --test-reporter=./tools/reporter.js test/*.test.js",
     "icons": "node tools/make-icons.js",
     "pack": "electron-builder --dir",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
+    "build": "electron-builder && node tools/copy-installer.js",
+    "build:win": "electron-builder --win && node tools/copy-installer.js",
+    "build:mac": "electron-builder --mac && node tools/copy-installer.js",
+    "build:linux": "electron-builder --linux && node tools/copy-installer.js",
     "test:tap": "node --test test/*.test.js"
   },
   "dependencies": {

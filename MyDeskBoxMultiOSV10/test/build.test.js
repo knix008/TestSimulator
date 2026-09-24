@@ -13,8 +13,29 @@ test('운영체제별 설치 파일 만들기 명령이 있다', () => {
   for (const name of ['build', 'build:win', 'build:mac', 'build:linux']) {
     assert.ok(pkg.scripts[name], `npm run ${name} 이 없다`);
     assert.match(pkg.scripts[name], /electron-builder/);
+    assert.match(pkg.scripts[name], /tools\/copy-installer\.js/, '설치 파일을 루트로 복사하지 않는다');
   }
   assert.ok(pkg.devDependencies['electron-builder'], 'electron-builder 가 없다');
+});
+
+test('설치 파일 하나만 루트로 복사한다', () => {
+  const os = require('node:os');
+  const { pickInstaller, copyInstaller } = require('../tools/copy-installer');
+  assert.equal(
+    pickInstaller(['MyDeskBox-Setup-1.0.0-x64.exe', 'MyDeskBox-Setup-1.0.0-x64.exe.blockmap', 'builder-debug.yml'], 'win32'),
+    'MyDeskBox-Setup-1.0.0-x64.exe'
+  );
+  assert.equal(pickInstaller(['MyDeskBox-1.0.0-x64.dmg', 'MyDeskBox-1.0.0-x64.zip'], 'darwin'), 'MyDeskBox-1.0.0-x64.dmg');
+  assert.equal(pickInstaller(['MyDeskBox-1.0.0-x64.AppImage', 'MyDeskBox-1.0.0-x64.deb'], 'linux'), 'MyDeskBox-1.0.0-x64.deb');
+
+  const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-dist-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-root-'));
+  fs.writeFileSync(path.join(dist, 'MyDeskBox-Setup-1.0.0-x64.exe'), 'installer');
+  fs.writeFileSync(path.join(dist, 'MyDeskBox-Setup-1.0.0-x64.exe.blockmap'), 'map');
+  const copied = copyInstaller({ dist, root, platform: 'win32' });
+  assert.equal(copied.name, 'MyDeskBox-Setup-1.0.0-x64.exe');
+  assert.equal(fs.readFileSync(path.join(root, copied.name), 'utf8'), 'installer');
+  assert.equal(fs.readdirSync(root).length, 1);
 });
 
 test('세 운영체제의 묶음 종류를 모두 정해 두었다', () => {
