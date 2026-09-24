@@ -7603,6 +7603,12 @@
       await _clearRecentFolderHistory();
       _syncSettingsDialog();
     });
+    document.getElementById('settings-set-default')?.addEventListener('click', () => _setAsDefaultImageViewer());
+    document.getElementById('settings-open-default-apps')?.addEventListener('click', async () => {
+      if (window.electronAPI.openDefaultAppsSettings) {
+        await window.electronAPI.openDefaultAppsSettings();
+      }
+    });
     // Viewer
     const zoomStep = document.getElementById('settings-zoom-step');
     zoomStep?.addEventListener('change', () => _setPref('zoomStep', zoomStep.value));
@@ -7731,6 +7737,7 @@
       recentCount.textContent = (t('settings.recentCount') || '{n}').replace('{n}', String(n));
     }
     document.getElementById('settings-clear-recent')?.toggleAttribute('disabled', !_getRecentDirs().length);
+    _refreshAssocStatus();
     // Viewer
     const zoomStep = document.getElementById('settings-zoom-step');
     if (zoomStep) zoomStep.value = String(parseInt(_pref('zoomStep'), 10) || 10);
@@ -7750,6 +7757,111 @@
   function _openSettings() {
     _syncSettingsDialog();
     _showDialog('settings-overlay');
+  }
+
+  function _assocChipLabels() {
+    return ['JPG', 'PNG', 'GIF', 'BMP', 'WEBP', 'AVIF', 'SVG', 'ICO', 'TIFF', 'HEIC', 'DICOM'];
+  }
+
+  function _assocChipExts(label) {
+    const map = {
+      JPG: ['jpg', 'jpeg'],
+      PNG: ['png'],
+      GIF: ['gif'],
+      BMP: ['bmp'],
+      WEBP: ['webp'],
+      AVIF: ['avif'],
+      SVG: ['svg'],
+      ICO: ['ico'],
+      TIFF: ['tif', 'tiff'],
+      HEIC: ['heic', 'heif', 'hif'],
+      DICOM: ['dcm', 'dicom'],
+    };
+    return map[label] || [];
+  }
+
+  function _paintAssocStatus(status, extraMsg) {
+    const t = I18n.t.bind(I18n);
+    const chips = document.getElementById('settings-assoc-exts');
+    const statusEl = document.getElementById('settings-assoc-status');
+    const setBtn = document.getElementById('settings-set-default');
+    const openBtn = document.getElementById('settings-open-default-apps');
+    const items = status && Array.isArray(status.items) ? status.items : [];
+    const isDefault = (ext) => items.some((it) => it.ext === ext && it.isDefault);
+    if (chips) {
+      chips.innerHTML = _assocChipLabels().map((label) => {
+        const on = _assocChipExts(label).some(isDefault);
+        return `<span class="settings-ext-chip${on ? ' is-default' : ''}">${label}</span>`;
+      }).join('');
+    }
+    const supported = !!(status && status.supported);
+    const isWeb = window.electronAPI.platform === 'web';
+    if (setBtn) setBtn.disabled = isWeb || !supported;
+    if (openBtn) openBtn.hidden = isWeb || window.electronAPI.platform !== 'win32';
+    if (!statusEl) return;
+    if (extraMsg) {
+      statusEl.textContent = extraMsg;
+      return;
+    }
+    if (isWeb) {
+      statusEl.textContent = t('settings.assocWeb');
+      return;
+    }
+    if (!supported) {
+      statusEl.textContent = t('settings.assocUnsupported');
+      return;
+    }
+    const n = items.filter((it) => it.isDefault).length;
+    const total = items.length || 0;
+    if (n >= total && total > 0) statusEl.textContent = t('settings.assocAll');
+    else if (n > 0) statusEl.textContent = (t('settings.assocSome') || '{n} / {total}').replace('{n}', String(n)).replace('{total}', String(total));
+    else statusEl.textContent = t('settings.assocNone');
+  }
+
+  async function _refreshAssocStatus() {
+    if (!window.electronAPI.getFileAssocStatus) {
+      _paintAssocStatus({ supported: false, items: [] });
+      return;
+    }
+    try {
+      const status = await window.electronAPI.getFileAssocStatus();
+      _paintAssocStatus(status);
+    } catch {
+      _paintAssocStatus({ supported: false, items: [] });
+    }
+  }
+
+  async function _setAsDefaultImageViewer() {
+    const t = I18n.t.bind(I18n);
+    const setBtn = document.getElementById('settings-set-default');
+    if (setBtn) setBtn.disabled = true;
+    try {
+      if (!window.electronAPI.setDefaultImageViewer) {
+        _paintAssocStatus({ supported: false, items: [] }, t('settings.assocUnsupported'));
+        return;
+      }
+      const result = await window.electronAPI.setDefaultImageViewer();
+      const status = result && result.status ? result.status : await window.electronAPI.getFileAssocStatus?.();
+      if (!result || result.unsupported) {
+        _paintAssocStatus(status || { supported: false, items: [] }, t('settings.assocUnsupported'));
+        return;
+      }
+      if (!result.ok) {
+        _paintAssocStatus(status || { supported: true, items: [] }, t('settings.assocError'));
+        return;
+      }
+      const n = status?.items?.filter((it) => it.isDefault).length || 0;
+      const total = status?.items?.length || 0;
+      const all = total > 0 && n >= total;
+      _paintAssocStatus(status, all ? t('settings.assocDone') : t('settings.assocRegistered'));
+      if (!all && window.electronAPI.openDefaultAppsSettings) {
+        await window.electronAPI.openDefaultAppsSettings();
+      }
+    } catch {
+      _paintAssocStatus({ supported: true, items: [] }, t('settings.assocError'));
+    } finally {
+      if (setBtn) setBtn.disabled = false;
+    }
   }
 
   function _syncMenu() {

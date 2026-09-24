@@ -574,7 +574,37 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   align-items: center;
 }
 .settings-theme-row .resize-select { flex: 1; min-width: 0; }
-.settings-dialog-box { width: 560px; min-width: 560px; max-width: 560px; height: 430px; max-height: none; }
+.settings-dialog-box { width: 560px; min-width: 560px; max-width: 560px; height: 510px; max-height: none; }
+.settings-row-assoc {
+  align-items: start;
+  min-height: 0 !important;
+}
+.settings-assoc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-self: end;
+}
+.settings-assoc-actions .settings-btn { justify-self: stretch; width: 100%; }
+.settings-ext-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.settings-ext-chip {
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+.settings-ext-chip.is-default {
+  background: var(--accent);
+  color: #fff;
+}
 .settings-dialog-box .dialog-body.settings-body { flex: 1; overflow: hidden; padding: 6px 16px 10px; }
 .settings-tabs {
   display: flex;

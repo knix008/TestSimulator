@@ -87,6 +87,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOpenFile: (cb) => ipcRenderer.on('open-file', (_, p) => cb(p)),
   getLaunchFile: () => ipcRenderer.invoke('get-launch-file'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+  getFileAssocStatus: () => ipcRenderer.invoke('get-file-assoc-status'),
+  setDefaultImageViewer: () => ipcRenderer.invoke('set-default-image-viewer'),
+  openDefaultAppsSettings: () => ipcRenderer.invoke('open-default-apps-settings'),
   onOpenFolder: (cb) => ipcRenderer.on('open-folder', (_, p) => cb(p)),
   onMenuAction: (cb) => ipcRenderer.on('menu-action', (_, action) => cb(action)),
 

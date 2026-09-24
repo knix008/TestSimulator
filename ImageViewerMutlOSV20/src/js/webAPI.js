@@ -403,6 +403,10 @@
     removeListener: () => {},
     removeAllListeners: () => {},
 
+    getFileAssocStatus: async () => ({ platform: 'web', supported: false, items: [] }),
+    setDefaultImageViewer: async () => ({ ok: false, unsupported: true, platform: 'web' }),
+    openDefaultAppsSettings: async () => ({ ok: false, unsupported: true, platform: 'web' }),
+
     platform: 'web',
     isWeb: true,
   };

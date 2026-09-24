@@ -1953,6 +1953,157 @@ ipcMain.handle('get-app-info', () => {
     isPackaged: !!app.isPackaged,
   };
 });
+
+/* ── Default image-viewer file associations (per-user, Windows) ── */
+const IMAGE_ASSOC = [
+  { ext: 'jpg',  progId: 'ImageViewer.jpeg', desc: 'JPEG Image' },
+  { ext: 'jpeg', progId: 'ImageViewer.jpeg', desc: 'JPEG Image' },
+  { ext: 'png',  progId: 'ImageViewer.png',  desc: 'PNG Image' },
+  { ext: 'gif',  progId: 'ImageViewer.gif',  desc: 'GIF Image' },
+  { ext: 'bmp',  progId: 'ImageViewer.bmp',  desc: 'BMP Image' },
+  { ext: 'webp', progId: 'ImageViewer.webp', desc: 'WebP Image' },
+  { ext: 'avif', progId: 'ImageViewer.avif', desc: 'AVIF Image' },
+  { ext: 'svg',  progId: 'ImageViewer.svg',  desc: 'SVG Image' },
+  { ext: 'ico',  progId: 'ImageViewer.ico',  desc: 'Windows Icon' },
+  { ext: 'tif',  progId: 'ImageViewer.tiff', desc: 'TIFF Image' },
+  { ext: 'tiff', progId: 'ImageViewer.tiff', desc: 'TIFF Image' },
+  { ext: 'heic', progId: 'ImageViewer.heic', desc: 'HEIC Image' },
+  { ext: 'heif', progId: 'ImageViewer.heic', desc: 'HEIC Image' },
+  { ext: 'hif',  progId: 'ImageViewer.heic', desc: 'HEIC Image' },
+  { ext: 'dcm',  progId: 'ImageViewer.dcm',  desc: 'DICOM Image' },
+  { ext: 'dicom',progId: 'ImageViewer.dcm',  desc: 'DICOM Image' },
+];
+
+function _regExec(args) {
+  const { execFile } = require('child_process');
+  return new Promise((resolve) => {
+    execFile('reg.exe', args, { windowsHide: true, timeout: 8000 }, (err, stdout) => {
+      resolve({ ok: !err, stdout: String(stdout || '') });
+    });
+  });
+}
+
+function _parseRegSz(stdout) {
+  const m = String(stdout || '').match(/REG_SZ\s+(.+)\s*$/m);
+  return m ? m[1].trim() : '';
+}
+
+function _isOurProgId(progId) {
+  return /^ImageViewer\./i.test(String(progId || ''));
+}
+
+function _assocLaunch() {
+  const exe = process.execPath;
+  const iconFile = fs.existsSync(path.join(__dirname, 'src', 'assets', 'icon.ico'))
+    ? path.join(__dirname, 'src', 'assets', 'icon.ico')
+    : exe;
+  const cmd = app.isPackaged
+    ? `"${exe}" "%1"`
+    : `"${exe}" "${path.join(__dirname, 'main.js')}" "%1"`;
+  return { exe, icon: `${iconFile},0`, cmd };
+}
+
+async function _queryProgId(ext) {
+  const userChoice = await _regExec([
+    'query',
+    `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.${ext}\\UserChoice`,
+    '/v', 'ProgId',
+  ]);
+  const chosen = _parseRegSz(userChoice.stdout);
+  if (chosen) return chosen;
+  const hkcu = await _regExec(['query', `HKCU\\Software\\Classes\\.${ext}`, '/ve']);
+  const a = _parseRegSz(hkcu.stdout);
+  if (a) return a;
+  const hkcr = await _regExec(['query', `HKCR\\.${ext}`, '/ve']);
+  return _parseRegSz(hkcr.stdout);
+}
+
+async function _getFileAssocStatus() {
+  if (process.platform !== 'win32') {
+    return {
+      platform: process.platform,
+      supported: false,
+      items: IMAGE_ASSOC.map((a) => ({ ext: a.ext, isDefault: false })),
+    };
+  }
+  const items = [];
+  for (const a of IMAGE_ASSOC) {
+    const progId = await _queryProgId(a.ext);
+    items.push({ ext: a.ext, progId, isDefault: _isOurProgId(progId) });
+  }
+  return {
+    platform: 'win32',
+    supported: true,
+    items,
+    defaultCount: items.filter((i) => i.isDefault).length,
+    total: items.length,
+  };
+}
+
+async function _regAdd(key, valueName, data) {
+  const args = ['add', key, '/f', '/t', 'REG_SZ'];
+  if (valueName == null || valueName === '') args.push('/ve');
+  else args.push('/v', String(valueName));
+  args.push('/d', String(data));
+  return _regExec(args);
+}
+
+async function _setDefaultImageViewer() {
+  if (process.platform !== 'win32') {
+    return { ok: false, unsupported: true, platform: process.platform };
+  }
+  const { icon, cmd } = _assocLaunch();
+  const capRoot = 'HKCU\\Software\\com.shkwon.imageviewer\\Capabilities';
+  await _regAdd(`${capRoot}`, 'ApplicationName', 'Image Viewer');
+  await _regAdd(`${capRoot}`, 'ApplicationDescription', 'Image Viewer');
+  await _regAdd(`${capRoot}`, 'ApplicationIcon', icon);
+  await _regAdd('HKCU\\Software\\RegisteredApplications', 'Image Viewer', 'Software\\com.shkwon.imageviewer\\Capabilities');
+
+  const written = new Set();
+  for (const a of IMAGE_ASSOC) {
+    const progKey = `HKCU\\Software\\Classes\\${a.progId}`;
+    if (!written.has(a.progId)) {
+      written.add(a.progId);
+      await _regAdd(progKey, '', a.desc);
+      await _regAdd(`${progKey}\\DefaultIcon`, '', icon);
+      await _regAdd(`${progKey}\\shell\\open\\command`, '', cmd);
+    }
+    await _regAdd(`HKCU\\Software\\Classes\\.${a.ext}`, '', a.progId);
+    await _regAdd(`HKCU\\Software\\Classes\\.${a.ext}\\OpenWithProgids`, a.progId, '');
+    await _regAdd(`${capRoot}\\FileAssociations`, `.${a.ext}`, a.progId);
+  }
+
+  try {
+    const { execFile } = require('child_process');
+    execFile('ie4uinit.exe', ['-show'], { windowsHide: true }, () => {});
+  } catch {}
+  const status = await _getFileAssocStatus();
+  return { ok: true, status };
+}
+
+async function _openDefaultAppsSettings() {
+  if (process.platform === 'win32') {
+    try {
+      await shell.openExternal('ms-settings:defaultapps');
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+  if (process.platform === 'darwin') {
+    try {
+      await shell.openExternal('x-apple.systempreferences:com.apple.settings.Storage');
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+  return { ok: false, unsupported: true, platform: process.platform };
+}
+
+ipcMain.handle('get-file-assoc-status', () => _getFileAssocStatus());
+ipcMain.handle('set-default-image-viewer', () => _setDefaultImageViewer());
+ipcMain.handle('open-default-apps-settings', () => _openDefaultAppsSettings());
 ipcMain.handle('open-folder-dialog', async () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('menu-action', 'open-folder');
