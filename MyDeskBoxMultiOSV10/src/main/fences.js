@@ -475,6 +475,15 @@ function showGhost(iconUrl, screenX, screenY) {
     return { name: path.basename(filePath), path: filePath };
   }
 
+  async function acceptDesktopDrop(item, dip) {
+    if (!item || !item.path || !dip) return;
+    const target = hit(dip.x, dip.y);
+    if (!target) return;
+    if (target.items.some((entry) => entry.path === item.path)) return;
+    const index = indexAt(target, dip.x, dip.y, item.path);
+    await dropFiles(target.id, [item], index);
+  }
+
   async function dropFiles(id, filePaths, index) {
     const fence = fenceById(id);
     if (!fence) return;
@@ -897,6 +906,7 @@ function showGhost(iconUrl, screenX, screenY) {
     applyBounds,
     setCollapsed,
     dropFiles,
+    acceptDesktopDrop,
     transfer,
     hover,
     clearHover,

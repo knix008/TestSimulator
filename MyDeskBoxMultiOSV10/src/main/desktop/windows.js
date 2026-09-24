@@ -5,8 +5,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const koffi = require('koffi');
-const { sameName, isOnDesktop } = require('./files');
+const { sameName, isOnDesktop, listDesktopFiles } = require('./files');
+const { pickIcon, isDesktopTarget, shellPathFor, movedEnough } = require('../../shared/deskpick');
 const deskgrid = require('../../shared/deskgrid');
 
 const user32 = koffi.load('user32.dll');
@@ -30,6 +32,7 @@ const UpdateWindow = user32.func('int __stdcall UpdateWindow(void *hwnd)');
 const SetWindowLongPtrW = user32.func('int64 __stdcall SetWindowLongPtrW(void *hwnd, int index, int64 value)');
 const DeskPoint = koffi.struct('DeskPoint', { x: 'int32', y: 'int32' });
 const GetCursorPos = user32.func('int __stdcall GetCursorPos(_Out_ DeskPoint *pos)');
+const WindowFromPoint = user32.func('void * __stdcall WindowFromPoint(DeskPoint pt)');
 
 // 탐색기가 쓰는 것과 같은 그림을 얻기 위한 선언
 const SHFILEINFOW = koffi.struct('SHFILEINFOW', {
@@ -69,6 +72,7 @@ const DeleteObject = gdi32.func('int __stdcall DeleteObject(void *handle)');
 const CoInitializeEx = ole32.func('int32 __stdcall CoInitializeEx(void *reserved, uint32 flags)');
 const CoTaskMemFree = ole32.func('void __stdcall CoTaskMemFree(void *p)');
 // 휴지통처럼 파일이 아닌 항목은 이름이 아니라 셸 항목 식별자(PIDL)로 다룬다.
+const SHChangeNotify = shell32.func('void __stdcall SHChangeNotify(uint32 eventId, uint32 flags, void *item1, void *item2)');
 const SHParseDisplayName = shell32.func('int32 __stdcall SHParseDisplayName(str16 name, void *bind, _Out_ void **pidl, uint32 wantIn, _Out_ uint32 *gotOut)');
 const SHGetFileInfoPidl = shell32.func('uintptr __stdcall SHGetFileInfoW(void *pidl, uint32 attrs, _Out_ SHFILEINFOW *info, uint32 size, uint32 flags)');
 
@@ -98,6 +102,18 @@ const SHELL_ITEMS = [
   'shell:UsersFilesFolder',
   'shell:ControlPanelFolder',
 ];
+// 자리만 옮기면 탐색기가 되돌려 놓는 항목이다. 박스에 넣는 동안은 바탕화면에서 숨긴다.
+const SHELL_CLSID = {
+  'shell:RecycleBinFolder': '{645FF040-5081-101B-9F08-00AA002F954E}',
+  'shell:MyComputerFolder': '{20D04FE0-3AEA-1069-A2D8-08002B30309D}',
+  'shell:NetworkPlacesFolder': '{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}',
+  'shell:UsersFilesFolder': '{59031A47-3F72-44A7-89C5-5595FE6B30EE}',
+  'shell:ControlPanelFolder': '{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}',
+};
+const HIDE_ICON_KEYS = [
+  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\HideDesktopIcons\\NewStartPanel',
+  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\HideDesktopIcons\\ClassicStartMenu',
+];
 const SHIL_EXTRALARGE = 2;
 const SHIL_LARGE = 0;
 const ILD_TRANSPARENT = 1;
@@ -113,6 +129,8 @@ const LVM_SETEXTENDEDLISTVIEWSTYLE = 0x1036;
 const LVS_EX_SNAPTOGRID = 0x00080000;
 
 let homes = new Map();
+// 우리가 숨긴 셸 항목의, 숨기기 전 레지스트리 값.
+let shellPrev = new Map();
 let homeFile = null;
 let prepared = false;
 let warned = false;
@@ -129,6 +147,7 @@ function init(dir) {
       homes = new Map(Object.entries(parsed.homes));
       turnedOffAutoArrange = !!parsed.autoArrange;
       turnedOffSnapToGrid = !!parsed.snapToGrid;
+      shellPrev = new Map(Object.entries(parsed.shellPrev || {}));
     } else {
       homes = new Map(Object.entries(parsed));
     }
@@ -147,6 +166,7 @@ function persistHomes() {
     autoArrange: turnedOffAutoArrange,
     snapToGrid: turnedOffSnapToGrid,
     homes: obj,
+    shellPrev: Object.fromEntries(shellPrev),
   }));
 }
 
@@ -417,8 +437,108 @@ function applyMoves(session, moves) {
 
 // items 는 박스에 담긴 것, blocks 는 박스가 차지한 자리다.
 // 담긴 것은 화면 밖으로 치우고, 박스 자리에 남은 바탕화면 아이콘은 밖으로 밀어낸다.
+function readHide(clsid) {
+  for (const key of HIDE_ICON_KEYS) {
+    try {
+      const out = execFileSync('reg', ['query', key, '/v', clsid], { encoding: 'utf8', windowsHide: true });
+      const match = /0x([0-9a-f]+)/i.exec(out);
+      if (match) return parseInt(match[1], 16);
+    } catch (_err) {
+      /* 값이 없으면 보이는 상태다. */
+    }
+  }
+  return 0;
+}
+
+function writeHide(clsid, value) {
+  for (const key of HIDE_ICON_KEYS) {
+    try {
+      execFileSync('reg', ['add', key, '/v', clsid, '/t', 'REG_DWORD', '/d', String(value), '/f'], { windowsHide: true });
+    } catch (_err) {
+      /* 한 키가 없어도 다른 쪽은 적는다. */
+    }
+  }
+}
+
+function refreshShellIcons() {
+  try {
+    SHChangeNotify(0x08000000, 0x1000, null, null);
+  } catch (_err) {
+    /* 알림이 실패해도 레지스트리 값은 남는다. */
+  }
+}
+
+// 박스에 담긴 휴지통 같은 항목은 바탕화면에서 지운다. 빼면 원래 보이던 대로 되돌린다.
+function syncShellIcons(items) {
+  const wanted = new Set(
+    (items || []).filter((item) => String(item.path || '').startsWith('shell:')).map((item) => item.path)
+  );
+  let changed = false;
+  for (const shellPath of Object.keys(SHELL_CLSID)) {
+    const hide = wanted.has(shellPath);
+    const tracked = shellPrev.has(shellPath);
+    if (hide === tracked) continue;
+    const clsid = SHELL_CLSID[shellPath];
+    if (hide) {
+      shellPrev.set(shellPath, readHide(clsid));
+      writeHide(clsid, 1);
+    } else {
+      const prev = shellPrev.get(shellPath) === 1 ? 1 : 0;
+      shellPrev.delete(shellPath);
+      writeHide(clsid, prev);
+    }
+    changed = true;
+  }
+  if (!changed) return;
+  refreshShellIcons();
+  persistHomes();
+}
+
+function shellNameTable() {
+  const rows = [];
+  for (const shellPath of SHELL_ITEMS) {
+    const info = shellInfo(shellPath);
+    if (info && info.name) rows.push({ name: info.name, path: shellPath });
+  }
+  return rows;
+}
+
+function itemForIcon(icon) {
+  if (!icon || !icon.name) return null;
+  const shell = shellPathFor(icon.name, shellNameTable(), sameName);
+  if (shell) return shell;
+  const file = listDesktopFiles().find((entry) => sameName(icon.name, entry.name));
+  return file ? { name: file.name, path: file.path } : null;
+}
+
+function iconUnder(pos) {
+  const listed = withList((session) => (session ? readAll(session) : [])) || [];
+  return pickIcon(listed, pos);
+}
+
+function desktopAt(pos) {
+  let hwnd = null;
+  try {
+    hwnd = WindowFromPoint({ x: pos.x, y: pos.y });
+  } catch (_err) {
+    hwnd = null;
+  }
+  return isDesktopTarget(className(hwnd), className(GetForegroundWindow()));
+}
+
+function toDipPoint(pos) {
+  try {
+    const { screen } = require('electron');
+    const dip = screen.screenToDipPoint({ x: pos.x, y: pos.y });
+    return { x: Math.round(dip.x), y: Math.round(dip.y) };
+  } catch (_err) {
+    return { x: pos.x, y: pos.y };
+  }
+}
+
 function gather(items, blocks) {
   if (!items || mouseDown()) return false;
+  syncShellIcons(items);
   // 치울 수 있는 것은 바탕화면 폴더에 있는 것뿐이다.
   const mine = items.filter((item) => isOnDesktop(item.path));
   const walls = (blocks || []).map(toPhysicalRect);
@@ -458,6 +578,7 @@ function gather(items, blocks) {
 
 function release(items) {
   if (!items) return;
+  syncShellIcons([]);
   const mine = items.filter((item) => isOnDesktop(item.path));
   guard(() => withList((session) => {
     if (!session) return;
@@ -507,8 +628,7 @@ function place(win) {
 function cursorOnIcon() {
   const pos = { x: 0, y: 0 };
   if (!GetCursorPos(pos)) return false;
-  const listed = withList((session) => (session ? readAll(session) : [])) || [];
-  return listed.some((icon) => Math.abs(icon.x - pos.x) < 70 && pos.y >= icon.y - 8 && pos.y <= icon.y + 84);
+  return !!iconUnder(pos);
 }
 
 function className(hwnd) {
@@ -521,8 +641,9 @@ function className(hwnd) {
 // 바탕화면 빈 곳에서 왼쪽 단추로 사각형을 끌면 그 자리를 알려 준다.
 // 사각형이 아니어도 바탕화면에서 손을 떼면 onSettle 을 부른다.
 // 아이콘을 옮긴 직후 바로 다시 정리해야 나타났다 사라지는 일이 없다.
-function watchDrag(onRect, onSettle) {
+function watchDrag(onRect, onSettle, onDrop) {
   let start = null;
+  let held = null;
   let wasDown = false;
   let settleTimer = null;
   const settle = () => {
@@ -541,13 +662,23 @@ function watchDrag(onRect, onSettle) {
     if (!GetCursorPos(pos)) return;
 
     if (down && !wasDown) {
-      const fg = className(GetForegroundWindow());
-      const onDesktop = fg === 'Progman' || fg === 'WorkerW';
-      // 아이콘 위에서 시작했다면 아이콘을 끄는 중이다.
-      start = onDesktop && !cursorOnIcon() ? { x: pos.x, y: pos.y } : null;
-      // 아이콘을 끄는 중이라면 손을 뗀 뒤에 자리를 다시 봐야 한다.
-      if (onDesktop && !start) settle();
+      const onDesktop = desktopAt(pos);
+      const icon = onDesktop ? iconUnder(pos) : null;
+      // 휴지통처럼 파일이 아닌 항목도 여기서 잡아 둔다. 손을 떼는 곳이 박스면 그 박스로 넣는다.
+      held = icon ? { name: icon.name, x: pos.x, y: pos.y } : null;
+      start = onDesktop && !icon ? { x: pos.x, y: pos.y } : null;
+      if (onDesktop && icon) settle();
     } else if (!down && wasDown) {
+      const dragged = held;
+      held = null;
+      if (dragged && movedEnough(dragged, pos) && typeof onDrop === 'function') {
+        try {
+          const item = itemForIcon(dragged);
+          if (item) onDrop(item, toDipPoint(pos));
+        } catch (_err) {
+          /* 이름을 못 읽으면 이번 끌기는 버린다. */
+        }
+      }
       if (start) {
         const from = start;
         start = null;
@@ -755,6 +886,7 @@ function claimSingleInstance() {
 }
 
 function shutdown() {
+  syncShellIcons([]);
   guard(() => restoreArrange());
   if (claim) {
     try {

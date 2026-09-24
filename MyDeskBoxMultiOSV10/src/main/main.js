@@ -46,6 +46,28 @@ if (!app.requestSingleInstanceLock()) {
   start();
 }
 
+function workArea() {
+  try {
+    const { screen } = require('electron');
+    const area = screen.getPrimaryDisplay().workArea;
+    return { x: area.x, y: area.y, width: area.width, height: area.height };
+  } catch (_err) {
+    return { x: 0, y: 0, width: 1280, height: 800 };
+  }
+}
+
+// 설치 후 처음에는 바탕화면 항목을 폴더, 바로가기, 문서 같은 박스로 나눠 담는다.
+function seedDesktop(state, desktop, store) {
+  const catalog = require('../shared/catalog');
+  const i18n = require('../shared/i18n');
+  const files = typeof desktop.listDesktopFiles === 'function' ? desktop.listDesktopFiles() : [];
+  const shell = typeof desktop.shellItems === 'function' ? desktop.shellItems() : [];
+  const lang = state.settings.lang;
+  const made = catalog.planFences(files, shell, workArea(), (kind) => i18n.t(lang, `box.${kind}`));
+  if (!made.length) return;
+  state.fences = made.map((raw) => store.normalizeFence(raw));
+}
+
 function start() {
   const store = require('./store');
   const i18n = require('../shared/i18n');
@@ -97,17 +119,20 @@ ${detail}`);
     stopClick = desktop.watchDoubleClick(() => host.toggleHidden());
     stopDrag = desktop.watchDrag(
       (rect) => host.offerFence(rect),
-      () => host.refreshIcons()
+      () => host.refreshIcons(),
+      (item, dip) => host.acceptDesktopDrop(item, dip)
     );
     stopWatch = desktop.watchDesktop(() => host.refreshIcons());
+    const firstRun = !state.didWelcome;
+    if (firstRun) {
+      state.didWelcome = true;
+      seedDesktop(state, desktop, store);
+      store.save(state);
+    }
     host.openAll();
     setInterval(() => {
       if (!desktop.mouseDown()) host.refreshIcons();
     }, 3000);
-    if (!state.didWelcome) {
-      state.didWelcome = true;
-      store.save(state);
-      host.beginDraw();
-    }
+    if (firstRun && !state.fences.length) host.beginDraw();
   });
 }

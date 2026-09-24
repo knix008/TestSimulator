@@ -168,6 +168,41 @@ test('다른 박스 위로 끌 때도 아이콘이 계속 보인다', () => {
   assert.equal(ghost.isVisible(), true);
 });
 
+test('바탕화면에서 끌어 온 휴지통은 그 박스에 담긴다', async () => {
+  const state = baseState({ fences: [fence({ x: 100, y: 100, w: 400, h: 300 })] });
+  const { host, electron, desktop } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+
+  await host.acceptDesktopDrop(
+    { name: '휴지통', path: 'shell:RecycleBinFolder' },
+    { x: 180, y: 180 }
+  );
+
+  assert.deepEqual(
+    state.fences[0].items.map((item) => item.path),
+    ['shell:RecycleBinFolder']
+  );
+  assert.ok(
+    desktop.calls.gather.at(-1).includes('shell:RecycleBinFolder'),
+    '담은 뒤 바탕화면에서 휴지통을 거둔다'
+  );
+});
+
+test('박스 밖에 놓은 휴지통은 담지 않는다', async () => {
+  const state = baseState({ fences: [fence({ x: 100, y: 100, w: 200, h: 160 })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+
+  await host.acceptDesktopDrop(
+    { name: '휴지통', path: 'shell:RecycleBinFolder' },
+    { x: 900, y: 900 }
+  );
+
+  assert.equal(state.fences[0].items.length, 0);
+});
+
 test('휴지통처럼 끌어 넣을 수 없는 항목은 메뉴로 담는다', async () => {
   const state = baseState({ fences: [fence()] });
   const { host, electron } = loadHost(state);
