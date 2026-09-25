@@ -1,0 +1,327 @@
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  user-select: none;
+}
+
+/* 기본은 그림자가 없다. 창이 박스와 같아서 옆 박스를 가리지 않는다.
+   판 색은 fence.js 가 테마에 맞춰 칠한다. */
+#panel {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border-radius: 20px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  /* 안쪽 선으로 두께를 만든다. 바깥 그림자는 그림자를 켰을 때만 얹는다. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset -1px 0 0 rgba(0, 0, 0, 0.20),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.30),
+    inset 0 -18px 28px -22px rgba(0, 0, 0, 0.55);
+}
+
+/* 그림자를 켜면 창이 사방 18px 커지고, 그 여백에 그림자가 떨어진다. */
+#panel.shadow {
+  inset: 18px;
+  box-shadow:
+    0 22px 38px -14px rgba(0, 0, 0, 0.62),
+    0 8px 16px -8px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset -1px 0 0 rgba(0, 0, 0, 0.20),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.30),
+    inset 0 -18px 28px -22px rgba(0, 0, 0, 0.55);
+}
+
+/* 위에서 비치는 빛. 유리처럼 살짝 도드라져 보인다. */
+#panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    radial-gradient(120% 60% at 22% -10%, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(200deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 34%);
+}
+
+#title {
+  position: relative;
+  z-index: 2;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  color: white;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  cursor: grab;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 3px 8px -2px rgba(0, 0, 0, 0.45);
+}
+
+#title:active {
+  cursor: grabbing;
+}
+
+/* 제목 줄 오른쪽의 설정 단추. 박스에 손이 갔을 때만 보인다. */
+#gear {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 140ms linear, background-color 140ms linear;
+}
+
+#panel:hover #gear { opacity: 0.85; }
+#gear:hover { opacity: 1; background: rgba(255, 255, 255, 0.2); }
+#gear:active { transform: translateY(1px); }
+
+#gear img {
+  width: 15px;
+  height: 15px;
+  display: block;
+  margin: 0 auto;
+  filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+
+#panel.light #gear img { filter: none; }
+
+#title input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: white;
+  font: inherit;
+  outline: none;
+  text-shadow: none;
+}
+
+#body {
+  position: absolute;
+  inset: 36px 0 0 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* 아이콘이 화면 밖으로 살짝 기울 수 있게 깊이를 준다. */
+  perspective: 900px;
+  perspective-origin: 50% 40%;
+}
+
+/* 칸 계산이 좌우 12px 를 비워 두므로 그 자리에 막대를 둔다. 아이콘과 겹치지 않는다. */
+#body::-webkit-scrollbar {
+  width: 10px;
+}
+
+#body::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  background-clip: content-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+#body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.75);
+  background-clip: content-box;
+}
+
+#floor {
+  position: relative;
+  width: 1px;
+  pointer-events: none;
+}
+
+/* 밝은 테마에서는 글씨를 어둡게 두고 그림자를 뺀다. */
+#panel.light .icon span {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.75);
+}
+
+#panel.light #title {
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
+}
+
+#panel.light #body::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.45);
+  background-clip: content-box;
+}
+
+.icon {
+  position: absolute;
+  width: 86px;
+  height: 88px;
+  margin: 0;
+  padding: 8px 4px 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition:
+    left 170ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    top 170ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 150ms linear,
+    box-shadow 150ms linear;
+}
+
+.icon .mark {
+  display: none;
+}
+
+/* 바로가기는 그림 왼쪽 아래에 화살표를 얹어 바로가기처럼 보이게 한다. */
+.icon.shortcut .mark {
+  display: block;
+  position: absolute;
+  left: 18px;
+  top: 34px;
+  width: 16px;
+  height: 16px;
+  background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23fff' stroke='%23000' stroke-width='1' d='M3 12 L8 3 L9.2 6.2 L13 5.2 L8.2 13 Z'/%3E%3C/svg%3E");
+}
+
+.icon.hot {
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.75);
+}
+
+.icon img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  /* 두 겹의 그림자로 아이콘이 판 위에 떠 있는 것처럼 보이게 한다. */
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35))
+    drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
+  transition: filter 150ms linear, transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.icon span {
+  max-width: 78px;
+  max-height: 2.4em;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+/* 얹혀 있는 판이 떠오르는 느낌 */
+.icon:hover {
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-3px) rotateX(7deg);
+  box-shadow:
+    0 8px 14px -6px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+.icon:hover img {
+  transform: translateY(-1px) scale(1.04);
+  filter:
+    drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35))
+    drop-shadow(0 8px 12px rgba(0, 0, 0, 0.5));
+}
+
+.icon:active {
+  transform: translateY(1px) rotateX(0deg) scale(0.97);
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.35),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.16);
+}
+
+#panel.light .icon:hover {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.icon.over {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* 끌고 있는 아이콘은 판에서 완전히 들려 나온다. */
+.icon.dragging {
+  z-index: 4;
+  transition: none;
+  pointer-events: none;
+  background: transparent;
+  transform: scale(1.14) rotate(-4deg);
+  box-shadow: none;
+}
+
+.icon.dragging img {
+  filter:
+    drop-shadow(0 3px 3px rgba(0, 0, 0, 0.4))
+    drop-shadow(0 14px 18px rgba(0, 0, 0, 0.55));
+}
+
+.icon.away {
+  visibility: hidden;
+}
+
+/* 오른쪽 아래의 크기 조절 표시. 박스에 손이 갔을 때만 보인다. */
+#grip {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 15px;
+  height: 15px;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms linear;
+  /* 빗금 세 줄로 잡는 자리를 알려 준다. 눈에 거슬리지 않게 흐리게 둔다. */
+  background:
+    linear-gradient(135deg, transparent 0 44%, rgba(255, 255, 255, 0.34) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 15px 15px,
+    linear-gradient(135deg, transparent 0 44%, rgba(255, 255, 255, 0.28) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 10px 10px,
+    linear-gradient(135deg, transparent 0 44%, rgba(255, 255, 255, 0.22) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 5px 5px;
+}
+
+#panel:hover #grip { opacity: 1; }
+#panel.collapsed #grip { opacity: 0; }
+
+#panel.light #grip {
+  background:
+    linear-gradient(135deg, transparent 0 44%, rgba(15, 23, 42, 0.30) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 15px 15px,
+    linear-gradient(135deg, transparent 0 44%, rgba(15, 23, 42, 0.24) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 10px 10px,
+    linear-gradient(135deg, transparent 0 44%, rgba(15, 23, 42, 0.18) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 5px 5px;
+}
+
+.edge {
+  position: absolute;
+  z-index: 5;
+}
+
+.edge.n, .edge.s { left: 14px; right: 14px; height: 6px; cursor: ns-resize; }
+.edge.e, .edge.w { top: 14px; bottom: 14px; width: 6px; cursor: ew-resize; }
+.edge.n { top: 0; }
+.edge.s { bottom: 0; }
+.edge.e { right: 0; }
+.edge.w { left: 0; }
+.edge.ne, .edge.nw, .edge.sw { width: 14px; height: 14px; }
+.edge.se { width: 20px; height: 20px; }
+.edge.ne { top: 0; right: 0; cursor: nesw-resize; }
+.edge.nw { top: 0; left: 0; cursor: nwse-resize; }
+.edge.se { right: 0; bottom: 0; cursor: nwse-resize; }
+.edge.sw { left: 0; bottom: 0; cursor: nesw-resize; }
