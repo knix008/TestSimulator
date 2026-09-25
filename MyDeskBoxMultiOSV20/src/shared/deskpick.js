@@ -13,6 +13,53 @@ function isDesktopTarget(underClass, foregroundClass) {
   return DESKTOP_CLASS.has(foregroundClass);
 }
 
+// 바탕화면을 두 번 누른 것을 센다. 시간과 자리만 보는 순수한 셈이다.
+//
+// 누름(내려감)을 센다. 뗌을 세면 손이 빠른 사람의 첫 클릭을 통째로 놓친다.
+// 사이 시간과 허용 범위는 운영체제가 알려 준 값을 그대로 받는다.
+// 320밀리초처럼 박아 두면 보통 속도로 두 번 누른 것이 두 번으로 세지지 않는다.
+function createDeskTaps(options) {
+  const limit = () => {
+    const found = options && options.limit;
+    const ms = typeof found === 'function' ? found() : found;
+    return Number.isFinite(ms) && ms > 0 ? ms : 500;
+  };
+  const slop = () => {
+    const found = options && options.slop;
+    const box = typeof found === 'function' ? found() : found;
+    return box && Number.isFinite(box.x) ? box : { x: 4, y: 4 };
+  };
+  let last = 0;
+  let where = null;
+
+  return {
+    // 눌렀다. 두 번째 누름이면 true.
+    press(now, pos) {
+      const room = slop();
+      const near = !!where
+        && Math.abs(pos.x - where.x) <= room.x
+        && Math.abs(pos.y - where.y) <= room.y;
+      if (last && now - last <= limit() && near) {
+        // 세 번째 누름이 또 세지 않게 지운다.
+        last = 0;
+        where = null;
+        return true;
+      }
+      last = now;
+      where = { x: pos.x, y: pos.y };
+      return false;
+    },
+    // 바탕화면이 아닌 곳을 눌렀다. 세던 것을 버린다.
+    forget() {
+      last = 0;
+      where = null;
+    },
+    pending() {
+      return last;
+    },
+  };
+}
+
 // 커서 아래의 아이콘. 그림과 이름 글자까지 포함한다.
 function pickIcon(icons, pos) {
   let best = null;
@@ -73,6 +120,7 @@ function shellPathFor(name, shellItems, sameName) {
 
 const api = {
   isDesktopTarget,
+  createDeskTaps,
   pickIcon,
   iconAt,
   movedEnough,

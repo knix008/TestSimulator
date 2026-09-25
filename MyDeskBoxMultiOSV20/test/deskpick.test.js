@@ -134,3 +134,72 @@ test('커서 아래가 박스 창이면 바탕화면 끌기로 보지 않는다'
   assert.equal(pick.isDesktopTarget('', 'Progman'), true);
   assert.equal(pick.isDesktopTarget('', 'Chrome_WidgetWin_1'), false);
 });
+
+// 바탕화면 두 번 누르기.
+// 사이 시간은 사용자가 제어판에서 정한 값을 따른다. Windows 기본값은 500밀리초다.
+test('보통 속도로 두 번 누른 것을 두 번으로 센다', () => {
+  const taps = pick.createDeskTaps({ limit: 500, slop: { x: 4, y: 4 } });
+  assert.equal(taps.press(1000, { x: 200, y: 300 }), false, '첫 누름은 아직 아니다');
+  assert.equal(taps.press(1400, { x: 201, y: 302 }), true, '400밀리초 뒤는 두 번 누른 것이다');
+});
+
+test('너무 느리게 누른 것은 두 번으로 세지 않는다', () => {
+  const taps = pick.createDeskTaps({ limit: 500, slop: { x: 4, y: 4 } });
+  taps.press(1000, { x: 200, y: 300 });
+  assert.equal(taps.press(1600, { x: 200, y: 300 }), false);
+});
+
+test('멀리 떨어진 두 번째 누름은 두 번으로 세지 않는다', () => {
+  const taps = pick.createDeskTaps({ limit: 500, slop: { x: 4, y: 4 } });
+  taps.press(1000, { x: 200, y: 300 });
+  assert.equal(taps.press(1200, { x: 260, y: 300 }), false, '자리가 멀면 다른 클릭이다');
+});
+
+test('세 번 눌러도 한 번만 센다', () => {
+  const taps = pick.createDeskTaps({ limit: 500, slop: { x: 4, y: 4 } });
+  taps.press(1000, { x: 10, y: 10 });
+  assert.equal(taps.press(1150, { x: 10, y: 10 }), true);
+  assert.equal(taps.press(1300, { x: 10, y: 10 }), false, '세 번째가 또 세졌다');
+});
+
+test('바탕화면이 아닌 곳을 누르면 세던 것을 버린다', () => {
+  const taps = pick.createDeskTaps({ limit: 500, slop: { x: 4, y: 4 } });
+  taps.press(1000, { x: 10, y: 10 });
+  taps.forget();
+  assert.equal(taps.press(1150, { x: 10, y: 10 }), false, '사이에 딴 곳을 눌렀는데 세졌다');
+  assert.equal(taps.pending(), 1150);
+});
+
+// 운영체제가 알려 준 값을 그때그때 읽어야 설정을 바꿔도 따라간다.
+test('사이 시간과 허용 범위를 부를 때마다 읽는다', () => {
+  let limit = 200;
+  const taps = pick.createDeskTaps({ limit: () => limit, slop: () => ({ x: 4, y: 4 }) });
+  taps.press(1000, { x: 10, y: 10 });
+  assert.equal(taps.press(1400, { x: 10, y: 10 }), false, '짧은 설정에서는 세지 않는다');
+
+  // 설정을 늘린 뒤 처음부터 다시 센다.
+  limit = 800;
+  taps.forget();
+  taps.press(2000, { x: 10, y: 10 });
+  assert.equal(taps.press(2400, { x: 10, y: 10 }), true, '설정을 늘렸는데 따라가지 않는다');
+});
+
+test('값을 주지 않으면 500밀리초와 4픽셀로 본다', () => {
+  const taps = pick.createDeskTaps();
+  taps.press(1000, { x: 10, y: 10 });
+  assert.equal(taps.press(1490, { x: 12, y: 12 }), true);
+});
+
+// 빈 바탕화면을 두 번 누르는 것은 아이콘을 두 번 눌러 여는 것만큼 정확할 까닭이 없다.
+// 실제로 재 보니 두 번 누르는 사이 손이 20픽셀 넘게 움직였다.
+test('손이 조금 움직여도 두 번으로 센다', () => {
+  const taps = pick.createDeskTaps({ limit: 500, slop: { x: 28, y: 28 } });
+  taps.press(1000, { x: 1258, y: 998 });
+  assert.equal(taps.press(1185, { x: 1252, y: 1021 }), true, '23픽셀 움직인 것을 두 번으로 세지 않았다');
+});
+
+test('아주 멀리 떨어진 것은 그래도 두 번이 아니다', () => {
+  const taps = pick.createDeskTaps({ limit: 500, slop: { x: 28, y: 28 } });
+  taps.press(1000, { x: 200, y: 300 });
+  assert.equal(taps.press(1150, { x: 200, y: 400 }), false, '100픽셀 떨어진 것은 다른 클릭이다');
+});

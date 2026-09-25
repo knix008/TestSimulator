@@ -16,6 +16,7 @@ const {
   shellPathFor,
   movedEnough,
   shouldOfferFence,
+  createDeskTaps,
 } = require('../../shared/deskpick');
 
 const user32 = koffi.load('user32.dll');
@@ -41,6 +42,9 @@ const UpdateWindow = user32.func('int __stdcall UpdateWindow(void *hwnd)');
 const SetWindowLongPtrW = user32.func('int64 __stdcall SetWindowLongPtrW(void *hwnd, int index, int64 value)');
 const DeskPoint = koffi.struct('DeskPoint', { x: 'int32', y: 'int32' });
 const GetCursorPos = user32.func('int __stdcall GetCursorPos(_Out_ DeskPoint *pos)');
+// 두 번 누르기로 셀 시간과 허용 범위. 사용자가 제어판에서 정한 값을 그대로 따른다.
+const GetDoubleClickTime = user32.func('uint32 __stdcall GetDoubleClickTime()');
+const GetSystemMetrics = user32.func('int __stdcall GetSystemMetrics(int index)');
 const SetWindowPos = user32.func('int __stdcall SetWindowPos(void *hwnd, void *after, int x, int y, int w, int h, uint32 flags)');
 const DeskRect = koffi.struct('DeskRect', { left: 'int32', top: 'int32', right: 'int32', bottom: 'int32' });
 const GetClientRect = user32.func('int __stdcall GetClientRect(void *hwnd, _Out_ DeskRect *rect)');
@@ -1074,9 +1078,51 @@ function watchDrag(onRect, onSettle, onDrop) {
   };
 }
 
+const SM_CXDOUBLECLK = 36;
+const SM_CYDOUBLECLK = 37;
+
+// 사용자가 정한 두 번 누르기 시간. 너무 짧거나 긴 값은 손본다.
+function doubleTime() {
+  try {
+    const ms = Number(GetDoubleClickTime());
+    if (!Number.isFinite(ms) || ms <= 0) return 500;
+    return Math.max(200, Math.min(1000, ms));
+  } catch (_err) {
+    return 500;
+  }
+}
+
+// 두 번째 누름이 첫 번째와 얼마나 떨어져도 되는지.
+//
+// 운영체제가 주는 값(보통 4픽셀)은 아이콘을 두 번 눌러 여는 데 쓰는 잣대다.
+// 여기서 하는 일은 '빈 바탕화면을 두 번 눌러 박스를 감추기'라서 그만한 정확도가
+// 필요 없다. 실제로 재 보니 손이 두 번 누르는 사이 20픽셀 넘게 움직였고,
+// 4픽셀로 재면 그 모두를 두 번으로 세지 않았다. 넉넉하게 잡는다.
+const SLOP_FLOOR = 28;
+
+function doubleSlop() {
+  try {
+    return {
+      x: Math.max(SLOP_FLOOR, (Number(GetSystemMetrics(SM_CXDOUBLECLK)) || 0) * 4),
+      y: Math.max(SLOP_FLOOR, (Number(GetSystemMetrics(SM_CYDOUBLECLK)) || 0) * 4),
+    };
+  } catch (_err) {
+    return { x: SLOP_FLOOR, y: SLOP_FLOOR };
+  }
+}
+
+// 바탕화면 빈 곳을 두 번 누르면 박스를 감추고, 다시 두 번 누르면 보여 준다.
+//
+// 누름(내려감)을 센다. 뗌을 세면 손이 빠른 사람의 첫 클릭을 통째로 놓친다.
+// 버튼 상태는 물어볼 때의 값만 알려 주므로, 누르고 떼는 일이 두 번의 물음 사이에
+// 모두 끝나면 우리 눈에는 아무 일도 없던 것이 된다. 그래서 16밀리초마다 묻는다.
+//
+// 세는 일 자체는 deskpick.createDeskTaps 가 한다. 사이 시간과 허용 범위는
+// 사용자가 제어판에서 정한 값(GetDoubleClickTime, SM_CXDOUBLECLK)을 그대로 따른다.
+// 320밀리초처럼 박아 두면 보통 속도로 두 번 누른 것이 두 번으로 세지지 않는다.
 function watchDoubleClick(onToggle) {
+  const taps = createDeskTaps({ limit: doubleTime, slop: doubleSlop });
   let wasDown = false;
-  let last = 0;
   const timer = setInterval(() => {
     let down = false;
     try {
@@ -1084,15 +1130,33 @@ function watchDoubleClick(onToggle) {
     } catch (_err) {
       return;
     }
-    if (wasDown && !down) {
-      const now = Date.now();
-      const fg = className(GetForegroundWindow());
-      const empty = fg === 'Progman' || fg === 'WorkerW';
-      if (empty && now - last < 320 && !cursorOnIcon()) onToggle();
-      last = now;
+    if (down && !wasDown) {
+      const pos = { x: 0, y: 0 };
+      let read = false;
+      try {
+        read = !!GetCursorPos(pos);
+      } catch (_err) {
+        read = false;
+      }
+      // 커서 아래가 바탕화면이어야 한다. 앞 창만 보면 박스 위에서 누른 것도 잡힌다.
+      const onDesk = read && desktopAt(pos);
+      const onIcon = onDesk && cursorOnIcon();
+      if (!onDesk || onIcon) {
+        // 창 이름을 읽는 일은 자취를 남길 때만 한다. 누를 때마다 부르면 값이 비싸다.
+        if (TRACE) {
+          const under = read ? className(WindowFromPoint({ x: pos.x, y: pos.y })) : '(못 읽음)';
+          trace(`누름 ${pos.x},${pos.y} 밑=${under} 앞=${className(GetForegroundWindow())} 아이콘=${onIcon} -> 세지 않는다`);
+        }
+        taps.forget();
+      } else {
+        const twice = taps.press(Date.now(), pos);
+        if (TRACE) trace(`누름 ${pos.x},${pos.y} 두 번째=${twice}`);
+        if (twice) onToggle();
+      }
     }
     wasDown = down;
-  }, 40);
+  }, 16);
+  if (typeof timer.unref === 'function') timer.unref();
   return () => clearInterval(timer);
 }
 

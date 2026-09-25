@@ -324,3 +324,44 @@ test('자리만 옮기면 크기는 손대지 않는다', () => {
   );
   assert.deepEqual([moved.width, moved.height], [301, 241], '자리를 옮겼는데 크기가 바뀌었다');
 });
+
+// 끌고 가다 다른 박스에 닿으면 거기서 멈춘다.
+// 놓은 뒤에 밀어내면 박스가 갑자기 딴 자리로 뛴다.
+test('끌다 닿으면 그 자리에서 멈춘다', () => {
+  const wall = [{ x: 500, y: 300, width: 300, height: 300 }];
+  const from = { x: 100, y: 350, width: 200, height: 200 };
+  const to = { x: 600, y: 350, width: 200, height: 200 };
+  const moved = grid.slideTo(from, to, wall);
+  assert.equal(moved.x, 300, '벽에 붙어 멈추지 않았다');
+  assert.equal(grid.overlaps(moved, wall[0]), false, '벽을 파고들었다');
+});
+
+test('비껴가는 길은 막지 않는다', () => {
+  const wall = [{ x: 500, y: 300, width: 300, height: 300 }];
+  const from = { x: 100, y: 50, width: 200, height: 200 };
+  const to = { x: 900, y: 50, width: 200, height: 200 };
+  assert.deepEqual(grid.slideTo(from, to, wall), { ...to });
+});
+
+test('가로가 막히면 세로로는 갈 수 있다', () => {
+  const wall = [{ x: 500, y: 300, width: 300, height: 300 }];
+  const from = { x: 100, y: 350, width: 200, height: 200 };
+  const to = { x: 600, y: 700, width: 200, height: 200 };
+  const moved = grid.slideTo(from, to, wall);
+  assert.equal(grid.overlaps(moved, wall[0]), false);
+  assert.equal(moved.y, 700, '세로로 간 것까지 막았다');
+});
+
+test('이미 겹친 상대는 벽으로 보지 않는다', () => {
+  // 겹친 채로 저장된 박스는 비켜 줄 길이 없다. 그 상대는 없는 것으로 본다.
+  const wall = [{ x: 500, y: 300, width: 300, height: 300 }];
+  const from = { x: 550, y: 350, width: 200, height: 200 };
+  const to = { x: 560, y: 360, width: 200, height: 200 };
+  assert.deepEqual(grid.slideTo(from, to, wall), { ...to });
+});
+
+test('벽이 없으면 가려던 자리로 간다', () => {
+  const from = { x: 0, y: 0, width: 100, height: 100 };
+  const to = { x: 400, y: 400, width: 100, height: 100 };
+  assert.deepEqual(grid.slideTo(from, to, []), { ...to });
+});

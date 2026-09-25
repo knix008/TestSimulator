@@ -759,9 +759,9 @@ function createHost(state) {
     return true;
   }
 
-  // 박스끼리는 겹치지 않는다. 겹쳤으면 가장 적게 움직이는 쪽으로 비킨다.
-  function keepApart(fence, what) {
-    const others = state.fences
+  // 이 박스 말고 지금 놓여 있는 박스들의 자리.
+  function otherRects(fence) {
+    return state.fences
       .filter((entry) => entry.id !== fence.id)
       .map((entry) => ({
         x: entry.x,
@@ -769,6 +769,32 @@ function createHost(state) {
         width: entry.w,
         height: arrange.panelHeight(entry),
       }));
+  }
+
+  // 끌고 가다 다른 박스에 닿으면 거기서 멈춘다.
+  // 놓은 뒤에 밀어내면 박스가 갑자기 딴 자리로 뛰므로, 끄는 동안 벽처럼 막는다.
+  function slideAlong(fence, from) {
+    const others = otherRects(fence);
+    if (!others.length) return false;
+    const moved = deskgrid.slideTo(
+      from,
+      { x: fence.x, y: fence.y, width: fence.w, height: arrange.panelHeight(fence) },
+      others
+    );
+    if (moved.x === fence.x && moved.y === fence.y) return false;
+    fence.x = Math.round(moved.x);
+    fence.y = Math.round(moved.y);
+    return true;
+  }
+
+  function overlapsOthers(fence) {
+    const rect = { x: fence.x, y: fence.y, width: fence.w, height: arrange.panelHeight(fence) };
+    return otherRects(fence).some((other) => deskgrid.overlaps(rect, other));
+  }
+
+  // 박스끼리는 겹치지 않는다. 겹쳤으면 가장 적게 움직이는 쪽으로 비킨다.
+  function keepApart(fence, what) {
+    const others = otherRects(fence);
     if (!others.length) return false;
     // 크기만 바꾼 것이면 자리를 지키고 크기로 비켜 준다.
     if (what && what.place === false && trimToFit(fence, others)) return true;
@@ -814,6 +840,8 @@ function createHost(state) {
     const win = wins.get(id);
     if (!fence || !win || win.isDestroyed()) return;
     const last = settled.get(id) || { x: fence.x, y: fence.y, w: fence.w, h: fence.h };
+    // 끌기 전 자리. 여기서 어디까지 갈 수 있는지 잰다.
+    const from = { x: fence.x, y: fence.y, width: fence.w, height: arrange.panelHeight(fence) };
     fence.x = rect.x;
     fence.y = rect.y;
     const wasW = fence.w;
@@ -822,7 +850,9 @@ function createHost(state) {
       fence.w = Math.max(180, rect.w);
       fence.h = Math.max(160, rect.h);
     }
-    // 끄는 동안에는 손을 따라오게 두고, 손을 뗄 때 줄을 맞춘다.
+    // 다른 박스에 닿으면 거기서 멈춘다. 끄는 동안에도 그렇게 해야
+    // 보이는 자리가 곧 놓일 자리가 되어, 손을 뗀 뒤에 박스가 뛰지 않는다.
+    slideAlong(fence, from);
     if (save) {
       // 크기만 바꾼 것이면 자리는 손대지 않는다. 크기를 줄였을 뿐인데
       // 박스가 옆으로 뛰면 무엇을 한 것인지 알 수 없다.
@@ -830,7 +860,15 @@ function createHost(state) {
         place: fence.x !== last.x || fence.y !== last.y,
         size: fence.w !== last.w || fence.h !== last.h,
       };
+      // 줄을 맞추다 남의 자리를 덮으면 맞추지 않은 자리가 낫다.
+      const before = { x: fence.x, y: fence.y, w: fence.w, h: fence.h };
       snapToGrid(fence, what);
+      if (overlapsOthers(fence)) {
+        fence.x = before.x;
+        fence.y = before.y;
+        fence.w = before.w;
+        fence.h = before.h;
+      }
       keepApart(fence, what);
     }
     clampToScreen(fence);

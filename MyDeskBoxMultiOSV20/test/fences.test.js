@@ -663,3 +663,46 @@ test('그림 파일은 종류 그림 대신 그림 자체를 보여 준다', () 
   // 아주 큰 그림까지 읽으면 박스를 그리다 멈춘다.
   assert.match(source, /PICTURE_MAX/, '큰 그림을 가려내지 않는다');
 });
+
+// 끌고 가다 다른 박스에 닿으면 거기서 멈춘다. 손을 뗀 뒤에 뛰면 안 된다.
+test('끄는 동안 다른 박스를 파고들지 않는다', () => {
+  const state = baseState({
+    fences: [
+      fence({ id: 'a', x: 100, y: 300, w: 200, h: 200 }),
+      fence({ id: 'b', x: 500, y: 300, w: 300, h: 300 }),
+    ],
+  });
+  const { host, desktop, electron } = loadHost(state);
+  desktop.useGrid({ x0: 14, y0: 2, dx: 76, dy: 98 });
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+
+  // a 를 b 쪽으로 쭉 끈다(아직 손을 떼지 않았다).
+  host.applyBounds('a', { x: 600, y: 300, w: 200, h: 200 }, false);
+
+  const [a, b] = state.fences;
+  assert.equal(a.x, 300, `벽에 붙어 멈추지 않았다: ${a.x}`);
+  const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  assert.equal(overlap, false, '끄는 동안 박스를 파고들었다');
+});
+
+test('손을 떼도 끄는 동안 보이던 자리에 그대로 놓인다', () => {
+  const state = baseState({
+    fences: [
+      fence({ id: 'a', x: 100, y: 300, w: 200, h: 200 }),
+      fence({ id: 'b', x: 500, y: 300, w: 300, h: 300 }),
+    ],
+  });
+  const { host, desktop, electron } = loadHost(state);
+  desktop.useGrid({ x0: 14, y0: 2, dx: 76, dy: 98 });
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+
+  host.applyBounds('a', { x: 600, y: 300, w: 200, h: 200 }, false);
+  const shown = { x: state.fences[0].x, y: state.fences[0].y };
+  host.applyBounds('a', { x: 600, y: 300, w: 200, h: 200 }, true);
+
+  const a = state.fences[0];
+  assert.ok(Math.abs(a.x - shown.x) <= 2 && Math.abs(a.y - shown.y) <= 2,
+    `손을 떼자 박스가 뛰었다: ${shown.x},${shown.y} -> ${a.x},${a.y}`);
+});

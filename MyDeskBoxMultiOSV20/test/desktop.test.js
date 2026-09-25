@@ -111,3 +111,41 @@ test('예전 판이 해 둔 것을 되돌리는 길은 남겨 둔다', () => {
   assert.match(source, /function release\(items\)[\s\S]*?showLayer\(true\)/, '되돌릴 때 층을 되살리지 않는다');
   assert.match(source, /function release\(items\)[\s\S]*?homeAll\(\)/, '되돌릴 때 아이콘 자리를 되돌리지 않는다');
 });
+
+// 바탕화면 빈 곳을 두 번 누르면 박스를 감추고, 다시 두 번 누르면 보여 준다.
+// 이 길은 탐색기를 직접 두드리므로 검사에서 부를 수 없다. 조건이 제자리에 있는지 글로 본다.
+test('두 번 누르기는 운영체제가 정한 시간을 따른다', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'desktop', 'windows.js'), 'utf8');
+
+  // 320밀리초처럼 박아 두면 보통 속도로 두 번 누른 것이 세지지 않는다.
+  assert.match(source, /function doubleTime\(\)[\s\S]*?GetDoubleClickTime\(\)/, '사이 시간을 운영체제에게 묻지 않는다');
+  assert.match(source, /function doubleSlop\(\)[\s\S]*?SM_CXDOUBLECLK/, '허용 범위를 운영체제에게 묻지 않는다');
+  assert.doesNotMatch(source, /now - last < 320/, '사이 시간이 박혀 있다');
+
+  // 뗌을 세면 빠른 손의 첫 클릭을 통째로 놓친다. 누름을 세야 한다.
+  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?if \(down && !wasDown\)/, '누름을 세지 않는다');
+  // 자주 물어야 짧은 클릭을 놓치지 않는다.
+  const every = /function watchDoubleClick\(onToggle\)[\s\S]*?\}, (\d+)\);/.exec(source);
+  assert.ok(every && Number(every[1]) <= 20, `너무 뜸하게 묻는다: ${every && every[1]}밀리초`);
+
+  // 커서 아래가 바탕화면이어야 한다. 앞 창만 보면 박스 위에서 누른 것도 잡힌다.
+  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?desktopAt\(pos\)/, '커서 아래를 보지 않는다');
+  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?cursorOnIcon\(\)/, '아이콘 위에서도 감춘다');
+  // 세는 일은 순수한 셈에 맡긴다.
+  assert.match(source, /createDeskTaps\(/, '두 번 누르기 셈을 쓰지 않는다');
+});
+
+test('두 번 누르기가 숨김을 뒤집도록 이어져 있다', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+  assert.match(main, /watchDoubleClick\(\(\) => host\.toggleHidden\(\)\)/, '두 번 눌러도 숨기지 않는다');
+});
+
+// 운영체제가 주는 4픽셀은 아이콘을 두 번 눌러 여는 잣대다.
+// 빈 바탕화면을 두 번 누르는 데에 그만한 정확도를 요구하면 손이 조금만 움직여도 세지 않는다.
+test('두 번 누르기 자리 범위를 넉넉히 잡는다', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'desktop', 'windows.js'), 'utf8');
+  assert.match(source, /SLOP_FLOOR = (\d+)/, '최소 범위가 없다');
+  const floor = Number(/SLOP_FLOOR = (\d+)/.exec(source)[1]);
+  assert.ok(floor >= 20, `자리 범위가 너무 좁다: ${floor}픽셀`);
+  assert.match(source, /function doubleSlop\(\)[\s\S]*?SLOP_FLOOR/, '최소 범위를 쓰지 않는다');
+});

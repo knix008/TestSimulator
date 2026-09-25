@@ -237,6 +237,34 @@
     return out;
   }
 
+  // 끌고 가다 다른 박스에 닿으면 거기서 멈춘다.
+  //
+  // 놓은 뒤에 밀어내면 박스가 갑자기 딴 자리로 뛴다. 손이 끄는 동안 벽에 닿듯
+  // 멈춰 주면, 보이는 자리가 곧 놓일 자리가 되어 놀랄 일이 없다.
+  // 이미 겹친 채로 시작한 박스는 그 상대를 없는 것으로 본다. 비켜 줄 방법이 없다.
+  function slideTo(from, to, blocks) {
+    if (!from || !to) return to;
+    const walls = (blocks || []).filter((block) => !overlaps(from, block));
+    if (!walls.length) return { ...to };
+    let cur = { ...from, width: to.width, height: to.height };
+    for (const [axis, span] of [['x', 'width'], ['y', 'height']]) {
+      const want = to[axis];
+      if (want === cur[axis]) continue;
+      const moved = { ...cur, [axis]: want };
+      const hit = walls.find((block) => overlaps(moved, block));
+      if (!hit) {
+        cur = moved;
+        continue;
+      }
+      // 닿는 자리에서 멈춘다.
+      cur = {
+        ...cur,
+        [axis]: want > cur[axis] ? hit[axis] - cur[span] : hit[axis] + hit[span],
+      };
+    }
+    return cur;
+  }
+
   // 박스끼리는 겹치지 않는다.
   //
   // 겹친 만큼 가장 짧은 쪽으로 밀어낸다. 옆으로 조금만 비키면 될 일을
@@ -271,7 +299,7 @@
     return out;
   }
 
-  const api = { FALLBACK, INSET, MAGNET, metrics, steady, wrap, smallestGap, pushOut, cellOf, pointOf, iconRect, overlaps, inside, blocked, relocate, snapRect };
+  const api = { FALLBACK, INSET, MAGNET, metrics, steady, wrap, smallestGap, pushOut, slideTo, cellOf, pointOf, iconRect, overlaps, inside, blocked, relocate, snapRect };
 
   root.DeskGrid = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
