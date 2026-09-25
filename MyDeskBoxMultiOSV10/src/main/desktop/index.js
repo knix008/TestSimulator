@@ -10,6 +10,7 @@ const platform = process.platform === 'win32'
 
 module.exports = {
   listDesktopFiles: files.listDesktopFiles,
+  desktopDirectories: files.desktopDirectories,
   watchDesktop: files.watchDesktop,
   labelOf: files.labelOf,
   isOnDesktop: files.isOnDesktop,

@@ -77,6 +77,7 @@ function start() {
   const ipc = require('./ipc');
 
   let host = null;
+  let sweep = null;
   let stopWatch = () => {};
   let stopClick = () => {};
   let stopDrag = () => {};
@@ -87,13 +88,43 @@ function start() {
 
   app.on('window-all-closed', () => {});
 
-  app.on('before-quit', () => {
-    stopWatch();
-    stopClick();
-    stopDrag();
-    if (host) desktop.release(host.captured());
-    desktop.shutdown();
-  });
+  // 끝낼 때 바탕화면을 켜기 전 모습으로 돌려놓는다.
+  // 담아 둔 파일은 원래 있던 폴더로, 밀어낸 아이콘은 적어 둔 자리로 간다.
+  // 두 번 불러도 한 번만 한다. 어느 길로 끝나든 이 하나를 거친다.
+  let restored = false;
+
+  function restoreDesktop() {
+    if (restored) return;
+    restored = true;
+    try {
+      stopWatch();
+      stopClick();
+      stopDrag();
+      if (sweep) clearInterval(sweep);
+      if (host && typeof host.putBack === 'function') host.putBack();
+      if (host) desktop.release(host.captured());
+      desktop.shutdown();
+    } catch (_err) {
+      /* 끝나는 중에는 더 할 일이 없다. */
+    }
+  }
+
+  app.on('before-quit', restoreDesktop);
+
+  // 트레이로 끝내지 않는 길도 있다. npm start 를 Ctrl+C 로 끊거나,
+  // 작업 관리자로 끊거나, 로그아웃으로 창이 닫히는 경우다.
+  // 그때도 파일이 박스 폴더에 남아 있으면 바탕화면이 빈 채로 남는다.
+  process.on('exit', restoreDesktop);
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
+    try {
+      process.on(signal, () => {
+        restoreDesktop();
+        app.exit(0);
+      });
+    } catch (_err) {
+      /* 이 운영체제에 없는 신호면 그냥 넘어간다. */
+    }
+  }
 
   app.whenReady().then(() => {
     const state = store.load();
@@ -130,7 +161,7 @@ ${detail}`);
       store.save(state);
     }
     host.openAll();
-    setInterval(() => {
+    sweep = setInterval(() => {
       if (!desktop.mouseDown()) host.refreshIcons();
     }, 3000);
     if (firstRun && !state.fences.length) host.beginDraw();

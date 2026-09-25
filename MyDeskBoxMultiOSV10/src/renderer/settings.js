@@ -14,9 +14,12 @@ const cornerOut = el('cornerOut');
 const opacityEl = el('opacity');
 const opacityOut = el('opacityOut');
 const collapseEl = el('collapse');
+const shadowEl = el('shadow');
 
 let lang = window.DeskI18n.DEFAULT_LANG;
 let fence = null;
+// 그림자는 모든 박스에 함께 걸린다. 트레이 메뉴의 그것과 같은 값이다.
+let shadow = false;
 // 우리가 보낸 값이 되돌아와 손을 방해하지 않도록 잠깐 막는다.
 let holding = false;
 
@@ -85,6 +88,7 @@ desk.onBoxSettings((payload) => {
   el('cornerTag').textContent = say('menu.corner');
   el('opacityTag').textContent = say('menu.opacity');
   el('collapseTag').textContent = say('settings.collapse');
+  el('shadowTag').textContent = say('settings.shadow');
   el('reset').textContent = say('settings.reset');
   el('ok').textContent = say('settings.ok');
   el('close').title = say('settings.ok');
@@ -115,6 +119,8 @@ desk.onBoxSettings((payload) => {
   }
 
   collapseEl.setAttribute('aria-checked', String(!!fence.collapsed));
+  shadow = !!payload.shadow;
+  shadowEl.setAttribute('aria-checked', String(shadow));
   requestAnimationFrame(fit);
 });
 
@@ -143,6 +149,7 @@ bgEl.addEventListener('input', () => send({ custom: { bg: bgEl.value, bar: barEl
 barEl.addEventListener('input', () => send({ custom: { bg: bgEl.value, bar: barEl.value } }));
 
 collapseEl.addEventListener('click', () => send({ collapsed: !fence.collapsed }));
+shadowEl.addEventListener('click', () => send({ shadow: !shadow }));
 el('reset').addEventListener('click', () => desk.boxReset(id));
 el('ok').addEventListener('click', () => desk.boxClose(id));
 el('close').addEventListener('click', () => desk.boxClose(id));

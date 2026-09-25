@@ -20,11 +20,6 @@ function install(host) {
     host.setScroll(payload.id, payload.top);
   });
 
-  ipcMain.on('fence:hover', (_event, payload) => {
-    if (!payload) host.clearHover();
-    else host.hover(payload.filePath, payload.screenX, payload.screenY, payload.icon);
-  });
-
   ipcMain.handle('fence:collapse', (_event, payload) => {
     host.setCollapsed(payload.id, payload.collapsed);
   });

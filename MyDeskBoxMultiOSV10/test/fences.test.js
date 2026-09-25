@@ -56,7 +56,6 @@ test('숨기면 창이 사라지고 다시 보이면 돌아온다', () => {
 
   host.toggleHidden();
   assert.equal(win.isVisible(), false);
-  assert.equal(desktop.calls.release.length, 1, '숨기면 바탕화면 아이콘을 되돌린다');
 
   host.toggleHidden();
   assert.equal(win.isVisible(), true);
@@ -80,62 +79,64 @@ test('숨김이 바뀌면 트레이가 알 수 있게 알려 준다', () => {
   assert.equal(calls, 2);
 });
 
-test('박스에 담긴 항목은 늘 바탕화면에서 치운다', () => {
-  const one = realItem('gather-a.lnk');
-  const state = baseState({ fences: [fence({ items: [one] })] });
+// 담는다는 것은 그 아이콘을 박스 자리로 모은다는 뜻이다.
+// 파일은 옮기지도, 감추지도 않는다. 바탕화면 폴더의 내용은 그대로여야 한다.
+test('박스에 담아도 파일은 있던 자리에 그대로 있다', () => {
+  const one = realItem('into-a.lnk');
+  const from = one.path;
+  const state = baseState({ fences: [fence({ title: '일감', items: [one] })] });
   const { host, desktop } = loadHost(state);
   host.openAll();
+  host.refreshIcons();
 
-  assert.equal(desktop.calls.gather.length >= 1, true, '박스를 열면 곧바로 거둔다');
-  assert.deepEqual(desktop.calls.gather.at(-1), [one.path]);
-  assert.equal(desktop.calls.release.length, 0, '보이는 동안에는 되돌리지 않는다');
+  const box = state.fences[0];
+  assert.equal(fs.existsSync(from), true, '파일이 제자리에서 사라졌다');
+  assert.equal(box.items[0].path, from, '박스가 딴 자리를 가리킨다');
+  assert.equal(desktop.calls.hidden.length, 0, '파일을 감췄다');
+  // 아이콘 자리만 바꾼다. 그 일은 layoutGroups 가 한다.
+  assert.equal(desktop.calls.grouped.length > 0, true, '아이콘을 박스 자리로 모으지 않았다');
+  const last = desktop.calls.grouped.at(-1);
+  assert.deepEqual(last.map((group) => group.names), [['into-a.lnk']]);
 });
 
-test('박스를 숨기면 항목이 바탕화면으로 돌아간다', () => {
+test('바탕화면에서 사라진 항목은 박스에서도 빠진다', () => {
+  const one = realItem('gone-a.lnk');
+  const state = baseState({ fences: [fence({ items: [one] })] });
+  const { host } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+
+  fs.rmSync(one.path);
+  host.refreshIcons();
+  assert.deepEqual(state.fences[0].items, [], '바탕화면에서 지웠는데 박스에 남아 있다');
+});
+
+test('박스 이름을 바꿔도 담긴 것은 그대로다', () => {
+  const one = realItem('rename-a.lnk');
+  const state = baseState({ fences: [fence({ title: '처음', items: [one] })] });
+  const { host } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+
+  host.rename('a', '나중');
+  const box = state.fences[0];
+  assert.equal(box.title, '나중');
+  assert.equal(box.items[0].path, one.path, '이름을 바꿨다고 파일이 움직였다');
+  assert.equal(fs.existsSync(one.path), true);
+});
+
+test('박스를 숨겨도 담긴 파일은 그대로 있다', () => {
   const one = realItem('hide-a.lnk');
   const state = baseState({ fences: [fence({ items: [one] })] });
-  const { host, desktop } = loadHost(state);
+  const { host } = loadHost(state);
   host.openAll();
+  host.refreshIcons();
+  const kept = state.fences[0].items[0].path;
 
   host.toggleHidden();
-  assert.deepEqual(desktop.calls.release.at(-1), [one.path]);
-
+  assert.equal(fs.existsSync(kept), true, '숨겼다고 파일을 옮기면 안 된다');
   host.toggleHidden();
-  assert.deepEqual(desktop.calls.gather.at(-1), [one.path], '다시 보이면 또 거둔다');
-});
-
-test('여러 박스의 항목을 한꺼번에 거둔다', () => {
-  const one = realItem('both-a.lnk');
-  const two = realItem('both-b.lnk');
-  const state = baseState({
-    fences: [fence({ id: 'a', items: [one] }), fence({ id: 'b', items: [two] })],
-  });
-  const { host, desktop } = loadHost(state);
-  host.openAll();
-  assert.deepEqual(desktop.calls.gather.at(-1).sort(), [one.path, two.path].sort());
-});
-
-test('박스가 차지한 자리를 바탕화면 쪽에 알려 준다', () => {
-  const state = baseState({ fences: [fence({ id: 'a', x: 100, y: 200, w: 300, h: 240 })] });
-  const { host, electron, desktop } = loadHost(state);
-  host.openAll();
-  for (const win of electron.windows) win.ready();
-
-  const blocks = desktop.calls.blocks.at(-1);
-  assert.equal(blocks.length, 1, '박스 자리를 하나 넘긴다');
-  assert.deepEqual(blocks[0], { x: 100, y: 200, width: 300, height: 240 });
-});
-
-test('숨긴 동안에는 자리를 차지하지 않는다', () => {
-  const state = baseState({ fences: [fence()] });
-  const { host, desktop } = loadHost(state);
-  host.openAll();
-  host.toggleHidden();
-  host.toggleHidden();
-  assert.equal(desktop.calls.blocks.at(-1).length, 1);
-
-  host.toggleHidden();
-  assert.equal(desktop.calls.release.length >= 1, true, '숨기면 아이콘을 되돌린다');
+  assert.equal(state.fences[0].items[0].path, kept);
 });
 
 test('바탕화면에서 끈 사각형은 물어본 뒤에 만든다', async () => {
@@ -179,4 +180,33 @@ test('바탕화면을 다루는 앱은 한 번에 하나만 뜬다', () => {
   const first = desktop.claimSingleInstance();
   assert.equal(typeof first, 'boolean');
   assert.equal(desktop.claimSingleInstance(), first);
+});
+
+// 휴지통도 바탕화면 목록에 든 아이콘이다. 다른 것처럼 박스 자리로 모으면 된다.
+// 레지스트리로 감추면 탐색기에서도 사라지므로 그렇게 하지 않는다.
+test('셸 항목도 감추지 않고 박스 자리로 모은다', () => {
+  const state = baseState({
+    fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, desktop } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+
+  assert.deepEqual(desktop.calls.shell.at(-1), [], '셸 아이콘을 감추라고 알렸다');
+  assert.deepEqual(desktop.calls.grouped.at(-1).map((group) => group.names), [['휴지통']]);
+});
+
+// 꺼내기는 그 아이콘을 박스 밖 원래 자리로 돌려놓는 일이다. 파일은 움직이지 않는다.
+test('박스에서 꺼내면 아이콘만 제자리로 돌아간다', async () => {
+  const one = realItem('out-a.lnk');
+  const state = baseState({ fences: [fence({ title: '일감', items: [one] })] });
+  const { host, desktop } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+
+  await host.eject('a', one.path);
+
+  assert.deepEqual(state.fences[0].items, [], '박스에서 빠지지 않았다');
+  assert.equal(fs.existsSync(one.path), true, '파일이 움직였다');
+  assert.deepEqual(desktop.calls.homed.at(-1), ['out-a.lnk'], '제자리로 돌려놓지 않았다');
 });

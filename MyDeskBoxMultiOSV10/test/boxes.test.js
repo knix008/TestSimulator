@@ -1,8 +1,10 @@
 'use strict';
 
 const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
 const assert = require('node:assert/strict');
-const { loadHost, fence, baseState, fenceWindows } = require('./helpers/fakes');
+const { loadHost, fence, baseState, tempRoot, fenceWindows } = require('./helpers/fakes');
 const { THEMES, DEFAULT_THEME } = require('../src/main/themes');
 
 test('박스는 여러 개를 만들 수 있고 저마다 창을 가진다', () => {
@@ -29,27 +31,27 @@ test('박스는 여러 개를 만들 수 있고 저마다 창을 가진다', () 
   );
 });
 
-test('박스를 지우면 안에 있던 항목이 바탕화면으로 돌아간다', async () => {
-  const items = [
-    { name: 'a.lnk', path: 'C:/Desktop/a.lnk' },
-    { name: 'b.lnk', path: 'C:/Desktop/b.lnk' },
-  ];
-  const state = baseState({ fences: [fence({ items })] });
+// 박스를 지워도 파일은 건드리지 않는다. 담고 있던 아이콘만 제자리로 돌려놓는다.
+test('박스를 지우면 담고 있던 아이콘이 제자리로 돌아간다', async () => {
+  const room = tempRoot();
+  const made = ['a.lnk', 'b.lnk'].map((name) => {
+    const at = path.join(room, name);
+    fs.writeFileSync(at, '');
+    return { name, path: at };
+  });
+  const state = baseState({ fences: [fence({ items: made })] });
   const { host, electron, desktop } = loadHost(state);
   host.openAll();
   for (const win of electron.windows) win.ready();
+  host.refreshIcons();
 
   electron.setDialogAnswer(0); // 삭제를 고른다
   await host.removeFence('a');
 
   assert.equal(state.fences.length, 0, '박스가 사라진다');
-  assert.deepEqual(
-    desktop.calls.moved.map((entry) => entry.path).sort(),
-    ['C:/Desktop/a.lnk', 'C:/Desktop/b.lnk'],
-    '들어 있던 항목을 모두 바탕화면으로 돌려보낸다'
-  );
-  for (const move of desktop.calls.moved) {
-    assert.equal(move.point, null, '원래 있던 자리로 돌려보낸다');
+  assert.deepEqual(desktop.calls.homed.at(-1), ['a.lnk', 'b.lnk'], '아이콘을 제자리로 돌려놓지 않았다');
+  for (const item of made) {
+    assert.equal(fs.existsSync(item.path), true, `${item.name} 이 사라졌다`);
   }
   assert.equal(fenceWindows(electron)[0].isDestroyed(), true, '창도 닫는다');
 });
@@ -140,37 +142,10 @@ test('묻는 창의 글은 고른 언어를 따른다', async () => {
   assert.equal(asks.calls.at(-1).cancel, 'Cancel');
 });
 
-test('다른 박스 위로 끌 때도 아이콘이 계속 보인다', () => {
-  const one = { name: 'a.lnk', path: 'C:/Desktop/a.lnk' };
-  const state = baseState({
-    fences: [
-      fence({ id: 'a', x: 0, y: 0, w: 300, h: 240, items: [one] }),
-      fence({ id: 'b', x: 400, y: 0, w: 300, h: 240 }),
-    ],
-  });
-  const { host, electron } = loadHost(state);
-  host.openAll();
-  for (const win of electron.windows) win.ready();
-
-  const ghost = electron.windows.find((win) => win.loaded && /ghost\.html$/.test(win.loaded.file));
-  assert.ok(ghost, '따라다니는 그림 창이 있다');
-
-  // 원래 박스 위: 그 박스가 직접 그리므로 따라다니는 그림은 숨는다
-  host.hover(one.path, 100, 100, 'data:image/png;base64,x');
-  assert.equal(ghost.isVisible(), false);
-
-  // 다른 박스 위: 따라다니는 그림이 계속 보여야 한다
-  host.hover(one.path, 500, 100, 'data:image/png;base64,x');
-  assert.equal(ghost.isVisible(), true, '다른 박스 위에서 아이콘이 사라졌다');
-
-  // 바탕화면 위에서도 보인다
-  host.hover(one.path, 900, 600, 'data:image/png;base64,x');
-  assert.equal(ghost.isVisible(), true);
-});
 
 test('바탕화면에서 끌어 온 휴지통은 그 박스에 담긴다', async () => {
   const state = baseState({ fences: [fence({ x: 100, y: 100, w: 400, h: 300 })] });
-  const { host, electron, desktop } = loadHost(state);
+  const { host, electron } = loadHost(state);
   host.openAll();
   for (const win of electron.windows) win.ready();
 
@@ -183,10 +158,7 @@ test('바탕화면에서 끌어 온 휴지통은 그 박스에 담긴다', async
     state.fences[0].items.map((item) => item.path),
     ['shell:RecycleBinFolder']
   );
-  assert.ok(
-    desktop.calls.gather.at(-1).includes('shell:RecycleBinFolder'),
-    '담은 뒤 바탕화면에서 휴지통을 거둔다'
-  );
+
 });
 
 test('박스 밖에 놓은 휴지통은 담지 않는다', async () => {

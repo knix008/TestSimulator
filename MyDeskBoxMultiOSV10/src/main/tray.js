@@ -70,7 +70,44 @@ function install(host) {
           click: () => host.setDefaultOpacity(value),
         })),
       },
+      {
+        label: say('tray.openWith'),
+        icon: icons.menu('open'),
+        submenu: [
+          {
+            label: say('tray.openDouble'),
+            icon: icons.menu('open'),
+            type: 'radio',
+            checked: settings.openWith !== 'single',
+            click: () => host.setOpenWith('double'),
+          },
+          {
+            label: say('tray.openSingle'),
+            icon: icons.menu('open'),
+            type: 'radio',
+            checked: settings.openWith === 'single',
+            click: () => host.setOpenWith('single'),
+          },
+        ],
+      },
+      {
+        label: say('tray.shadow'),
+        icon: icons.menu('draw'),
+        type: 'checkbox',
+        checked: !!settings.shadow,
+        click: (item) => host.setShadow(item.checked),
+      },
       { type: 'separator' },
+      {
+        label: say('tray.putBack'),
+        icon: icons.menu('eject'),
+        click: () => host.putBack(),
+      },
+      {
+        label: say('tray.boxRoot'),
+        icon: icons.menu('folder'),
+        click: () => shell.openPath(host.boxRoot()),
+      },
       {
         label: say('tray.folder'),
         icon: icons.menu('folder'),

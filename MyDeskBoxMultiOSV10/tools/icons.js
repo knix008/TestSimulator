@@ -83,6 +83,32 @@ function wordBox(x, y, h) {
   return d.union(...parts);
 }
 
+// 'Box' 를 낱말 모양으로 짠다. B 는 키가 크고, o 와 x 는 낮다.
+// 세 낱자를 같은 밑줄에 맞춰야 낱말로 읽힌다.
+const SMALL_CAP = 0.72;
+
+function wordBoxWord(x, y, h) {
+  const t = h * 0.2;
+  const gap = h * 0.13;
+  const low = h * SMALL_CAP;
+  const base = y + h;
+  const wB = h * 0.62;
+  const wO = low * 0.92;
+  const wX = low * 0.88;
+  let at = x;
+  const parts = [glyphB(at, y, wB, h, t)];
+  at += wB + gap;
+  parts.push(glyphO(at, base - low, wO, low, t * 0.95));
+  at += wO + gap;
+  parts.push(glyphX(at, base - low, wX, low, t * 0.95));
+  return d.union(...parts);
+}
+
+function wordBoxWordWidth(h) {
+  const low = h * SMALL_CAP;
+  return h * 0.62 + low * 0.92 + low * 0.88 + h * 0.13 * 2;
+}
+
 function wordBoxWidth(h) {
   return h * (0.62 + 0.70 + 0.66) + h * 0.15 * 2;
 }
@@ -100,9 +126,10 @@ function emboss(canvas, shape, depth, steps) {
 
 // 앱 아이콘.
 // 아이콘을 담아 두는 판 하나를 정면에서 보되, 아래에 두께와 그림자를 두어 입체로 보이게 한다.
-// 글자나 떠다니는 조각은 두지 않는다. 작게 줄여도 무엇인지 알아볼 수 있어야 한다.
+// 판 아래에는 'Box' 를 도톰하게 새긴다. 작은 크기에서는 뭉개지므로 글자를 빼고 판만 둔다.
 
-const PLATE = { cx: 0.5, cy: 0.495, hw: 0.275, hh: 0.235, r: 0.072 };
+// 아래에 'Box' 글자를 둘 자리를 비우느라 판을 조금 위로 올린다.
+const PLATE = { cx: 0.5, cy: 0.425, hw: 0.275, hh: 0.235, r: 0.072 };
 const THICK = 0.036;
 
 function plateShape(dy = 0, inset = 0) {
@@ -159,12 +186,28 @@ function boxArt(canvas) {
 
   // 담겨 있는 아이콘
   const dots = small
-    ? [[0.415, 0.585], [0.585, 0.585]]
-    : [[0.405, 0.525], [0.595, 0.525], [0.405, 0.655], [0.595, 0.655]];
+    ? [[0.415, 0.515], [0.585, 0.515]]
+    : [[0.405, 0.455], [0.595, 0.455], [0.405, 0.585], [0.595, 0.585]];
   const radius = small ? 0.062 : 0.047;
   for (const [x, y] of dots) {
     canvas.fill(d.circle(x, y + 0.010, radius), [30, 64, 160], 0.22);
     canvas.fill(d.circle(x, y, radius), d.linear(0, y - radius, 0, y + radius, [96, 165, 250], [29, 78, 216]));
+  }
+
+  // 판 아래의 'Box'. 뒤로 밀린 층을 쌓아 도톰하게 만들고, 앞면은 밝게 칠한다.
+  if (!small) {
+    const h = 0.155;
+    const x = 0.5 - wordBoxWordWidth(h) / 2;
+    const y = 0.765;
+    const word = wordBoxWord(x, y, h);
+    canvas.fill((px, py) => word(px, py - 0.012), [8, 20, 56], 0.22);
+    emboss(canvas, word, 0.018, 5);
+    canvas.fill(word, d.linear(0, y, 0, y + h, [255, 255, 255], [198, 222, 252]));
+    canvas.fill(
+      d.intersect(d.outline(word, 0.006), d.convex([[0, 0], [1, 0], [1, y + h * 0.4], [0, y + h * 0.4]])),
+      [255, 255, 255],
+      0.55
+    );
   }
 
   // 제목 줄 맨 위의 가는 빛. 판이 도톰해 보이게 한다.

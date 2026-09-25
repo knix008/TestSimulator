@@ -5,11 +5,18 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const koffi = require('koffi');
-const { sameName, isOnDesktop, listDesktopFiles } = require('./files');
-const { pickIcon, iconAt, isDesktopTarget, shellPathFor, movedEnough, shouldOfferFence, dragIconAction } = require('../../shared/deskpick');
+const { sameName, isOnDesktop, listDesktopFiles, desktopDirectories } = require('./files');
 const deskgrid = require('../../shared/deskgrid');
+const {
+  pickIcon,
+  iconAt,
+  isDesktopTarget,
+  shellPathFor,
+  movedEnough,
+  shouldOfferFence,
+} = require('../../shared/deskpick');
 
 const user32 = koffi.load('user32.dll');
 const kernel32 = koffi.load('kernel32.dll');
@@ -27,12 +34,28 @@ const GetClassNameW = user32.func('int __stdcall GetClassNameW(void *hwnd, _Out_
 const GetAsyncKeyState = user32.func('int16 __stdcall GetAsyncKeyState(int key)');
 const GetForegroundWindow = user32.func('void * __stdcall GetForegroundWindow()');
 const GetWindowLongPtrW = user32.func('int64 __stdcall GetWindowLongPtrW(void *hwnd, int index)');
-const InvalidateRect = user32.func('int __stdcall InvalidateRect(void *hwnd, void *rect, int erase)');
+const InvalidateRect = user32.func('int __stdcall InvalidateRect(void *hwnd, void *rect, int erase)');
+const PostMessageW = user32.func('int __stdcall PostMessageW(void *hwnd, uint32 msg, uint64 wParam, uint64 lParam)');
 const UpdateWindow = user32.func('int __stdcall UpdateWindow(void *hwnd)');
 const SetWindowLongPtrW = user32.func('int64 __stdcall SetWindowLongPtrW(void *hwnd, int index, int64 value)');
 const DeskPoint = koffi.struct('DeskPoint', { x: 'int32', y: 'int32' });
 const GetCursorPos = user32.func('int __stdcall GetCursorPos(_Out_ DeskPoint *pos)');
+const SetWindowPos = user32.func('int __stdcall SetWindowPos(void *hwnd, void *after, int x, int y, int w, int h, uint32 flags)');
+const DeskRect = koffi.struct('DeskRect', { left: 'int32', top: 'int32', right: 'int32', bottom: 'int32' });
+const GetClientRect = user32.func('int __stdcall GetClientRect(void *hwnd, _Out_ DeskRect *rect)');
+const GetParent = user32.func('void * __stdcall GetParent(void *hwnd)');
+const ShowWindow = user32.func('int __stdcall ShowWindow(void *hwnd, int cmd)');
+const IsWindowVisible = user32.func('int __stdcall IsWindowVisible(void *hwnd)');
 const WindowFromPoint = user32.func('void * __stdcall WindowFromPoint(DeskPoint pt)');
+const GetWindow = user32.func('void * __stdcall GetWindow(void *h, uint32 cmd)');
+// 창 번호를 숫자로 주고받는 짝. koffi 는 void * 자리에 숫자를 넣으면 널로 본다.
+// Electron 이 주는 창 번호는 숫자라 이 짝을 써야 한다.
+const SetParentN = user32.func('uintptr __stdcall SetParent(uintptr child, uintptr parent)');
+const SetWindowPosN = user32.func('int __stdcall SetWindowPos(uintptr h, uintptr after, int x, int y, int w, int hh, uint32 flags)');
+const IsChildN = user32.func('int __stdcall IsChild(uintptr parent, uintptr child)');
+const GetWindowLongPtrN = user32.func('int64 __stdcall GetWindowLongPtrW(uintptr h, int index)');
+const SetWindowLongPtrN = user32.func('int64 __stdcall SetWindowLongPtrW(uintptr h, int index, int64 value)');
+const GetWindowRectN = user32.func('int __stdcall GetWindowRect(uintptr h, _Out_ DeskRect *r)');
 
 // 탐색기가 쓰는 것과 같은 그림을 얻기 위한 선언
 const SHFILEINFOW = koffi.struct('SHFILEINFOW', {
@@ -72,8 +95,10 @@ const DeleteObject = gdi32.func('int __stdcall DeleteObject(void *handle)');
 const CoInitializeEx = ole32.func('int32 __stdcall CoInitializeEx(void *reserved, uint32 flags)');
 const CoTaskMemFree = ole32.func('void __stdcall CoTaskMemFree(void *p)');
 // 휴지통처럼 파일이 아닌 항목은 이름이 아니라 셸 항목 식별자(PIDL)로 다룬다.
-const SHChangeNotify = shell32.func('void __stdcall SHChangeNotify(uint32 eventId, uint32 flags, void *item1, void *item2)');
-const SHEmptyRecycleBinW = shell32.func('int32 __stdcall SHEmptyRecycleBinW(void *hwnd, void *root, uint32 flags)');
+const SHEmptyRecycleBinW = shell32.func('int32 __stdcall SHEmptyRecycleBinW(uintptr hwnd, void *root, uint32 flags)');
+// 휴지통에 무엇이 들었는지 묻는다. 크기와 개수를 준다.
+const SHQUERYRBINFO = koffi.struct('SHQUERYRBINFO', { cbSize: 'uint32', i64Size: 'int64', i64NumItems: 'int64' });
+const SHQueryRecycleBinW = shell32.func('int32 __stdcall SHQueryRecycleBinW(str16 root, _Inout_ SHQUERYRBINFO *info);');
 const SHParseDisplayName = shell32.func('int32 __stdcall SHParseDisplayName(str16 name, void *bind, _Out_ void **pidl, uint32 wantIn, _Out_ uint32 *gotOut)');
 const SHGetFileInfoPidl = shell32.func('uintptr __stdcall SHGetFileInfoW(void *pidl, uint32 attrs, _Out_ SHFILEINFOW *info, uint32 size, uint32 flags)');
 
@@ -81,17 +106,48 @@ const OpenProcess = kernel32.func('void * __stdcall OpenProcess(uint32 access, i
 const CloseHandle = kernel32.func('int __stdcall CloseHandle(void *handle)');
 const CreateMutexW = kernel32.func('void * __stdcall CreateMutexW(void *attrs, int owner, str16 name)');
 const GetLastError = kernel32.func('uint32 __stdcall GetLastError()');
+const GetFileAttributesW = kernel32.func('uint32 __stdcall GetFileAttributesW(str16 path)');
+const SetFileAttributesW = kernel32.func('int __stdcall SetFileAttributesW(str16 path, uint32 attrs)');
+const SHChangeNotifyPath = shell32.func('void __stdcall SHChangeNotify(uint32 eventId, uint32 flags, str16 item1, void *item2)');
 const VirtualAllocEx = kernel32.func('uint64 __stdcall VirtualAllocEx(void *process, uint64 address, uintptr size, uint32 type, uint32 protect)');
 const VirtualFreeEx = kernel32.func('int __stdcall VirtualFreeEx(void *process, uint64 address, uintptr size, uint32 type)');
 const WriteProcessMemory = kernel32.func('int __stdcall WriteProcessMemory(void *process, uint64 address, uint8_t *buffer, uintptr size, void *written)');
 const ReadProcessMemory = kernel32.func('int __stdcall ReadProcessMemory(void *process, uint64 address, _Out_ uint8_t *buffer, uintptr size, void *read)');
 
+// 무슨 일이 언제 일어났는지 적어 두는 자리. MYDESKBOX_TRACE 가 있을 때만 쓴다.
+const TRACE = process.env.MYDESKBOX_TRACE || '';
+function trace(line) {
+  if (!TRACE) return;
+  try {
+    fs.appendFileSync(TRACE, `${new Date().toISOString().slice(11, 23)} ${line}
+`);
+  } catch (_err) {
+    /* 기록에 실패해도 하던 일은 계속한다. */
+  }
+}
+
+const SW_HIDE = 0;
+const SW_SHOWNA = 8;
+const SWP_NOMOVE = 0x0002;
+const SWP_NOZORDER = 0x0004;
+const SWP_NOACTIVATE = 0x0010;
+const WM_SETREDRAW = 0x000B;
+const WM_COMMAND = 0x0111;
+// 바탕화면 보기의 '새로 고침'. 목록만 다시 읽고 아이콘 그림 곳간은 건드리지 않는다.
+const DESKTOP_REFRESH = 0x7103;
 const LVM_GETITEMCOUNT = 0x1004;
 const LVM_GETITEMPOSITION = 0x1010;
-const LVM_SETITEMPOSITION32 = 0x1031;
+const LVM_SETITEMPOSITION32 = 0x1031;
+// 좌표를 lParam 에 담는 옛 메시지. 탐색기의 답을 기다리지 않고 보낼 수 있다.
+const LVM_SETITEMPOSITION = 0x100f;
 const LVM_GETITEMTEXTW = 0x1073;
+const LVM_GETWORKAREAS = 0x1046;
 const PROCESS_RIGHTS = 0x0008 | 0x0010 | 0x0020 | 0x0400;
 const GWL_STYLE = -16;
+const GW_CHILD = 5;
+const GW_HWNDNEXT = 2;
+const WS_CHILD = 0x40000000;
+const WS_POPUP = 0x80000000;
 const SHGFI_SYSICONINDEX = 0x4000;
 const SHGFI_DISPLAYNAME = 0x0200;
 const SHGFI_PIDL = 0x0008;
@@ -132,6 +188,7 @@ const LVS_EX_SNAPTOGRID = 0x00080000;
 let homes = new Map();
 // 우리가 숨긴 셸 항목의, 숨기기 전 레지스트리 값.
 let shellPrev = new Map();
+let fileAttrs = new Map();
 let homeFile = null;
 let prepared = false;
 let warned = false;
@@ -142,8 +199,17 @@ let turnedOffSnapToGrid = false;
 
 function init(dir) {
   homeFile = path.join(dir, 'icon-homes.json');
+  // 앞선 판이 넓혀 둔 채 끝났을 수 있다. 먼저 제자리로 돌려놓는다.
+  guard(() => normalizeList());
   process.once('exit', () => {
     try {
+      if (listFrozen) listRedraw(true);
+      // 갑자기 끝나도 바탕화면은 원래대로 두고 나간다.
+      homeAll();
+      restoreArrange();
+      for (const filePath of [...fileAttrs.keys()]) {
+        if (revealFile(filePath)) notifyItem(filePath);
+      }
       restoreShellIcons();
     } catch (_err) {
       /* 끝나는 중에는 더 할 일이 없다. */
@@ -156,12 +222,17 @@ function init(dir) {
       turnedOffAutoArrange = !!parsed.autoArrange;
       turnedOffSnapToGrid = !!parsed.snapToGrid;
       shellPrev = new Map(Object.entries(parsed.shellPrev || {}));
+      fileAttrs = new Map(Object.entries(parsed.fileAttrs || {}).map(([key, value]) => [key, Number(value)]));
+      // 갑자기 끝났어도 밀어낸 아이콘을 알아보고 제자리로 돌려놓을 수 있게 적어 둔다.
+      for (const key of parsed.nudged || []) nudged.add(key);
     } else {
       homes = new Map(Object.entries(parsed));
     }
   } catch (_err) {
     homes = new Map();
   }
+  // 예전 판이 꺼 둔 자동 정렬이 남아 있으면 아이콘을 옮겨도 자리가 고정된다.
+  guard(() => restoreArrange());
 }
 
 function persistHomes() {
@@ -174,7 +245,9 @@ function persistHomes() {
     autoArrange: turnedOffAutoArrange,
     snapToGrid: turnedOffSnapToGrid,
     homes: obj,
+    nudged: [...nudged],
     shellPrev: Object.fromEntries(shellPrev),
+    fileAttrs: Object.fromEntries(fileAttrs),
   }));
 }
 
@@ -189,6 +262,10 @@ function exStyleOf(list) {
   return Number(BigInt(SendMessageW(list, LVM_GETEXTENDEDLISTVIEWSTYLE, 0n, 0n)) & 0xffffffffn);
 }
 
+// 자동 정렬이 켜져 있으면 탐색기가 아이콘 자리를 되돌려 놓는다. 창 스타일에서 지운다.
+// 격자에 맞춤(LVS_EX_SNAPTOGRID)은 건드리지 않는다.
+// 그 비트를 담아 LVM_SETEXTENDEDLISTVIEWSTYLE 을 보내면 comctl32 가 모든 아이콘을
+// 격자로 끌어모은다. 치워 둔 아이콘이 화면 안으로 튀어나오는 것이 바로 그것이었다.
 function manualArrange(list) {
   const style = styleOf(list);
   const autoOn = (style & LVS_AUTOARRANGE) !== 0;
@@ -197,23 +274,45 @@ function manualArrange(list) {
     persistHomes();
   }
   if (autoOn) SetWindowLongPtrW(list, GWL_STYLE, BigInt(style & ~LVS_AUTOARRANGE));
+}
 
-  // 격자에 맞춤이 켜져 있으면 화면 밖으로 치운 아이콘이 되돌아온다.
-  const snapOn = (exStyleOf(list) & LVS_EX_SNAPTOGRID) !== 0;
-  if (snapOn && !turnedOffSnapToGrid) {
-    turnedOffSnapToGrid = true;
-    persistHomes();
-  }
-  if (snapOn) {
-    SendMessageW(list, LVM_SETEXTENDEDLISTVIEWSTYLE, BigInt(LVS_EX_SNAPTOGRID), 0n);
-  }
+// 예전 판은 격자 보정을 피하려고 아이콘 영역과 목록 창을 화면 밖까지 넓혔다.
+// 탐색기는 그래도 손을 뗄 때 아이콘을 모니터 안으로 끌어들였고,
+// 탐색기 창 크기를 건드린 탓에 바탕화면이 이름만 그려지는 일까지 생겼다.
+// 그래서 넓히지 않는다. 남아 있는 넓힘만 제자리로 돌려놓는다.
+function normalizeList() {
+  const list = findListView();
+  if (!list) return;
+  // 앞선 판이 감춘 채 끝났을 수 있다.
+  showLayer(true);
+  // 앞선 판이 셸 아이콘을 감춘 채 끝났을 수도 있다. 되돌려 놓고 시작한다.
+  restoreShellIcons();
+  // LVM_SETWORKAREAS 는 보내지 않는다. 그 메시지 하나에 바탕화면 아이콘의 그림이
+  // 모두 사라지고 이름만 남는다. 탐색기를 다시 띄우기 전에는 돌아오지 않는다.
+  // 앱을 켤 때마다 여기를 지나므로, 이것이 '켜면 아이콘이 사라진다'의 까닭이었다.
+  const parent = GetParent(list);
+  if (!parent) return;
+  const rect = {};
+  if (!GetClientRect(parent, rect)) return;
+  const width = rect.right - rect.left;
+  const height = rect.bottom - rect.top;
+  if (width <= 0 || height <= 0) return;
+  const now = {};
+  if (!GetClientRect(list, now)) return;
+  // 목록 창 크기는 함부로 건드리지 않는다. 끝낸 뒤 바탕화면이 이름만 그려지는 것을 보았다.
+  // 앞선 판이 넓혀 둔 것만 되돌린다. 좁히기만 하고, 넓히지는 않는다.
+  if (now.right - now.left <= width && now.bottom - now.top <= height) return;
+  trace(`앞선 판이 넓혀 둔 목록 창을 ${width}x${height} 로 좁힘`);
+  SetWindowPos(list, null, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 function restoreArrange() {
+  normalizeList();
   if (!turnedOffAutoArrange && !turnedOffSnapToGrid) return;
   const list = findListView();
   if (!list) return;
 
+  // 예전 판이 꺼 둔 격자에 맞춤을 한 번만 되돌린다. 이제는 우리가 끄지 않는다.
   if (turnedOffSnapToGrid) {
     SendMessageW(list, LVM_SETEXTENDEDLISTVIEWSTYLE, BigInt(LVS_EX_SNAPTOGRID), BigInt(LVS_EX_SNAPTOGRID));
     if ((exStyleOf(list) & LVS_EX_SNAPTOGRID) !== 0) turnedOffSnapToGrid = false;
@@ -252,6 +351,73 @@ function findListView() {
   }
 }
 
+// 박스 판을 아이콘 층 뒤에 둔다. Fences 가 하는 일이 이것이다.
+//
+// Progman 의 자식은 z 순서대로 SHELLDLL_DefView(아이콘 층), 그 다음 WorkerW(그림 층)이다.
+// 그림 층에 창을 붙이면 아이콘보다 뒤에 그려진다. 파일도, 아이콘 자리도 건드리지 않는다.
+//
+// SetParent 만으로는 되지 않는다. WS_POPUP 을 떼고 WS_CHILD 를 붙여야 붙는다.
+// 그러지 않으면 조용히 실패하고 창이 그대로 앞에 남는다. 계측으로 확인했다.
+function wallpaperLayer() {
+  const progman = FindWindowW('Progman', 'Program Manager') || FindWindowW('Progman', null);
+  if (!progman) return 0;
+  let child = GetWindow(progman, GW_CHILD);
+  let sawDefView = false;
+  while (child) {
+    const name = classOf(child);
+    if (name === 'SHELLDLL_DefView') sawDefView = true;
+    else if (name === 'WorkerW' && sawDefView) return Number(koffi.address(child));
+    child = GetWindow(child, GW_HWNDNEXT);
+  }
+  return 0;
+}
+
+function behindIcons(handle) {
+  const hwnd = Number(handle) || 0;
+  if (!hwnd) return false;
+  return guard(() => {
+    const layer = wallpaperLayer();
+    if (!layer) return false;
+    const style = BigInt.asUintN(64, BigInt(GetWindowLongPtrN(hwnd, GWL_STYLE)));
+    const next = (style & ~BigInt(WS_POPUP)) | BigInt(WS_CHILD);
+    if (next !== style) SetWindowLongPtrN(hwnd, GWL_STYLE, BigInt.asIntN(64, next));
+    SetParentN(hwnd, layer);
+    const ok = !!IsChildN(layer, hwnd);
+    trace(ok ? '판을 아이콘 층 뒤로 넣었다' : '판을 아이콘 층 뒤로 넣지 못했다');
+    return ok;
+  });
+}
+
+// 아이콘 층 뒤로 들어간 창은 좌표가 부모 기준이다.
+// 부모는 화면 전체를 덮으므로 그 왼쪽 위를 빼 준다. 모니터가 여럿이면 음수일 수 있다.
+function placeBehind(handle, rect) {
+  const hwnd = Number(handle) || 0;
+  if (!hwnd || !rect) return false;
+  return guard(() => {
+    const layer = wallpaperLayer();
+    if (!layer) return false;
+    const box = {};
+    if (!GetWindowRectN(layer, box)) return false;
+    const at = toPhysicalRect(rect);
+    if (!at) return false;
+    return !!SetWindowPosN(
+      hwnd,
+      0,
+      at.x - box.left,
+      at.y - box.top,
+      at.width,
+      at.height,
+      SWP_NOACTIVATE | SWP_NOZORDER
+    );
+  });
+}
+
+function classOf(hwnd) {
+  const buf = Buffer.alloc(512);
+  const n = GetClassNameW(hwnd, buf, 255);
+  return Buffer.from(buf.subarray(0, n * 2)).toString('ucs2');
+}
+
 function listIn(parent) {
   if (!parent) return null;
   const defView = FindWindowExW(parent, null, 'SHELLDLL_DefView', null);
@@ -277,8 +443,12 @@ function withList(fn) {
   }
 }
 
+function itemCount(session) {
+  return Number(SendMessageW(session.list, LVM_GETITEMCOUNT, 0n, 0n));
+}
+
 function readAll(session) {
-  const count = Number(SendMessageW(session.list, LVM_GETITEMCOUNT, 0n, 0n));
+  const count = itemCount(session);
   const items = [];
   const limit = Math.min(count, 400);
   for (let index = 0; index < limit; index += 1) {
@@ -322,6 +492,16 @@ function writePos(session, index, x, y) {
   SendMessageW(session.list, LVM_SETITEMPOSITION32, BigInt(index), pointAt);
 }
 
+// 박스를 끄는 동안 쓰는 빠른 길.
+// SendMessage 는 탐색기가 그 메시지를 처리할 때까지 우리를 멈춰 세운다(아이콘 하나에 1.5ms 남짓).
+// LVM_SETITEMPOSITION 은 좌표를 lParam 에 담으므로 건너편 메모리가 필요 없고,
+// 그래서 PostMessage 로 던져 두고 갈 수 있다. 좌표는 16비트라 화면 안에서만 쓴다.
+function postPos(list, index, x, y) {
+  if (x < 0 || y < 0 || x > 32767 || y > 32767) return false;
+  const lParam = BigInt(((y & 0xffff) << 16) | (x & 0xffff)) & 0xffffffffn;
+  return !!PostMessageW(list, LVM_SETITEMPOSITION, BigInt(index), lParam);
+}
+
 function decodeUtf16(buf) {
   let end = buf.length;
   for (let i = 0; i + 1 < buf.length; i += 2) {
@@ -336,10 +516,6 @@ function decodeUtf16(buf) {
 // 치워 둔 아이콘을 두는 자리.
 // 음수 좌표는 탐색기가 되돌려 놓는 항목이 있어(휴지통 등) 오른쪽 멀리로 보낸다.
 const PARK_X = 20000;
-
-function parkSpot(index) {
-  return { x: PARK_X, y: 2000 + (index % 60) * 8 };
-}
 
 function isParked(icon) {
   // 예전 판에서 음수 자리에 치워 둔 것도 알아본다.
@@ -366,23 +542,6 @@ function defaultSpot(index) {
   }
 }
 
-// 창 자리(DIP)를 바탕화면 아이콘이 쓰는 실제 픽셀 자리로 옮긴다.
-function toPhysicalRect(rect) {
-  try {
-    const { screen } = require('electron');
-    const tl = screen.dipToScreenPoint({ x: rect.x, y: rect.y });
-    const br = screen.dipToScreenPoint({ x: rect.x + rect.width, y: rect.y + rect.height });
-    return {
-      x: Math.round(tl.x),
-      y: Math.round(tl.y),
-      width: Math.round(br.x - tl.x),
-      height: Math.round(br.y - tl.y),
-    };
-  } catch (_err) {
-    return rect;
-  }
-}
-
 function toDipRect(rect) {
   try {
     const { screen } = require('electron');
@@ -396,18 +555,6 @@ function toDipRect(rect) {
     };
   } catch (_err) {
     return { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
-  }
-}
-
-// 아이콘을 놓을 수 있는 넓이. 작업 표시줄을 뺀 자리다.
-function desktopArea() {
-  try {
-    const { screen } = require('electron');
-    const display = screen.getPrimaryDisplay();
-    const area = display.workArea;
-    return toPhysicalRect({ x: area.x, y: area.y, width: area.width, height: area.height });
-  } catch (_err) {
-    return { x: 0, y: 0, width: 1920, height: 1080 };
   }
 }
 
@@ -432,15 +579,44 @@ function guard(fn) {
 }
 
 // 옮길 것이 하나도 없으면 탐색기 설정을 건드리지 않는다.
-function applyMoves(session, moves) {
+function applyMoves(session, moves, keepArrange, live) {
   if (!moves.length) return false;
-  manualArrange(session.list);
-  for (const move of moves) writePos(session, move.index, move.x, move.y);
+  // 자리를 한 번 옮기려고 자동 정렬을 끄면, 그 뒤로는 아이콘을 끌어도 자리가 고정된다.
+  if (!keepArrange) manualArrange(session.list);
+  for (const move of moves) {
+    if (live && postPos(session.list, move.index, move.x, move.y)) continue;
+    writePos(session, move.index, move.x, move.y);
+  }
+  // 옮긴 자리는 읽어 둔 목록에도 반영한다. 끄는 동안 같은 것을 되풀이해 옮기지 않는다.
+  if (listCache) {
+    for (const move of moves) {
+      const found = listCache.items.find((icon) => icon.index === move.index);
+      if (found) {
+        found.x = move.x;
+        found.y = move.y;
+      }
+    }
+  }
   // 자리를 바꾼 뒤에는 바탕화면을 다시 그리게 한다. 그러지 않으면 옛 그림이 남는다.
-  InvalidateRect(session.list, null, 1);
-  UpdateWindow(session.list);
-  persistHomes();
+  // UpdateWindow 는 탐색기가 다 그릴 때까지 우리를 멈춰 세운다(계측 8.4ms).
+  // 박스를 끄는 동안에는 알리기만 하고 그리는 때는 탐색기에 맡긴다.
+  if (!listFrozen) {
+    InvalidateRect(session.list, null, 1);
+    if (!live) UpdateWindow(session.list);
+  }
+  if (!live) persistHomes();
   return true;
+}
+
+// 바탕화면 목록 읽기. 박스를 끄는 동안에는 방금 읽은 것을 다시 쓴다.
+// 우리가 옮긴 자리는 applyMoves 가 여기에 반영하므로 어긋나지 않는다.
+let listCache = null;
+
+function readMaybeCached(session, live) {
+  if (live && listCache && Date.now() - listCache.at < 900) return listCache.items;
+  const items = readAll(session);
+  listCache = { at: Date.now(), items };
+  return items;
 }
 
 // items 는 박스에 담긴 것, blocks 는 박스가 차지한 자리다.
@@ -475,11 +651,19 @@ function writeHide(clsid, value) {
   }
 }
 
+// 셸 아이콘을 감추거나 되살린 뒤, 바탕화면이 그 값을 다시 읽게 한다.
+// SHCNE_ASSOCCHANGED 는 쓰지 않는다. 그 알림 하나에 셸이 아이콘 그림 곳간을 통째로
+// 다시 만들고, 그동안 바탕화면이 그림 없이 이름만 그려진다. 계측으로 확인했다.
+// 바탕화면 보기에 '새로 고침'만 보내면 목록만 다시 읽고 그림 곳간은 건드리지 않는다.
 function refreshShellIcons() {
   try {
-    SHChangeNotify(0x08000000, 0x1000, null, null);
+    const list = findListView();
+    const view = list ? GetParent(list) : null;
+    if (!view) return;
+    // 탐색기가 바쁘면 기다리지 않는다. 다음 새로 고침 때 따라온다.
+    SendMessageTimeoutW(view, WM_COMMAND, DESKTOP_REFRESH, 0, 0, 200, null);
   } catch (_err) {
-    /* 알림이 실패해도 레지스트리 값은 남는다. */
+    /* 새로 고침이 실패해도 레지스트리 값은 남는다. */
   }
 }
 
@@ -504,7 +688,43 @@ function restoreShellIcons() {
   persistHomes();
 }
 
-// 박스에 담긴 휴지통 같은 항목은 바탕화면에서 지운다. 빼면 원래 보이던 대로 되돌린다.
+// 박스에 담아도 파일은 건드리지 않는다. 옮기지도, 감추지도 않는다.
+// 아래는 예전 판이 숨김 속성을 붙여 둔 파일을 다시 보이게 되돌리는 길이다.
+const FILE_ATTRIBUTE_HIDDEN = 0x2;
+const FILE_ATTRIBUTE_SYSTEM = 0x4;
+const INVALID_FILE_ATTRIBUTES = 0xffffffff;
+
+function notifyItem(filePath) {
+  try {
+    SHChangeNotifyPath(0x00002000, 0x0005 | 0x1000, filePath, null);
+  } catch (_err) {
+    /* 알림이 실패해도 속성은 남는다. */
+  }
+}
+
+function revealFile(filePath) {
+  if (!filePath || String(filePath).startsWith('shell:')) return false;
+  const saved = fileAttrs.has(filePath) ? (fileAttrs.get(filePath) >>> 0) : null;
+  fileAttrs.delete(filePath);
+  const attr = GetFileAttributesW(filePath) >>> 0;
+  if (attr === INVALID_FILE_ATTRIBUTES) return false;
+  const next = saved == null ? (attr & ~(FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) >>> 0 : saved;
+  if (next === attr) return false;
+  return !!SetFileAttributesW(filePath, next);
+}
+
+function revealStored() {
+  const paths = [...fileAttrs.keys()];
+  let changed = false;
+  for (const filePath of paths) {
+    if (revealFile(filePath)) {
+      notifyItem(filePath);
+      changed = true;
+    }
+  }
+  if (changed) persistHomes();
+}
+
 function syncShellIcons(items) {
   const wanted = new Set(
     (items || []).filter((item) => String(item.path || '').startsWith('shell:')).map((item) => item.path)
@@ -572,96 +792,241 @@ function toDipPoint(pos) {
   }
 }
 
-function gather(items, blocks) {
-  if (!items) return false;
-  // 단추를 누른 채로는 자리를 되돌리거나 밀지 않는다.
-  // 박스에 담긴 아이콘이 끌어 옮기는 동안 제자리로 튀어나오는 것만 바로 다시 치운다.
-  const dragging = mouseDown();
-  if (!dragging) syncShellIcons(items);
-  const cursor = { x: 0, y: 0 };
-  const knowCursor = dragging && GetCursorPos(cursor);
-  // 치울 수 있는 것은 바탕화면 폴더에 있는 것뿐이다.
-  const mine = items.filter((item) => isOnDesktop(item.path));
-  const walls = (blocks || []).map(toPhysicalRect);
+
+// 바탕화면에 남겨 둘 아이콘이 하나도 없으면 아이콘 층을 통째로 감춘다.
+// 윈도우의 '바탕화면 아이콘 표시' 끄기와 같은 방법이다.
+// 자리를 옮겨 숨기는 것과 달리 되돌려 놓을 자리가 없어, 탐색기가 끌어낼 수도 없다.
+// 바탕화면 오른쪽 단추 메뉴는 그대로 뜬다.
+let layerHidden = false;
+
+function showLayer(on) {
+  const list = findListView();
+  if (!list) return false;
+  const now = !!IsWindowVisible(list);
+  if (now === !!on) {
+    layerHidden = !on;
+    return false;
+  }
+  trace(on ? '아이콘 층을 보인다' : '아이콘 층을 감춘다');
+  // SW_SHOWNA 는 창을 앞으로 끌어내지 않고 보이기만 한다.
+  ShowWindow(list, on ? SW_SHOWNA : SW_HIDE);
+  layerHidden = !on;
+  return true;
+}
+
+let listFrozen = false;
+
+function listRedraw(on) {
+  const list = findListView();
+  if (!list) return;
+  trace(on ? '다시 그리기 켬' : '다시 그리기 끔');
+  SendMessageTimeoutW(list, WM_SETREDRAW, on ? 1 : 0, 0, 0, 50, null);
+  listFrozen = !on;
+  if (on) {
+    InvalidateRect(list, null, 1);
+    UpdateWindow(list);
+  }
+}
+
+// 예전 판이 바탕화면에 해 둔 것을 되돌린다.
+// 이제 박스는 제 폴더에서 돌아가므로 바탕화면 아이콘은 건드리지 않는다.
+// 예전 판으로 쓰던 사람이 올라왔을 때만 할 일이 남아 있다.
+function release(items) {
+  showLayer(true);
+  restoreShellIcons();
+  for (const item of items || []) {
+    if (item && item.path && !String(item.path).startsWith('shell:') && revealFile(item.path)) notifyItem(item.path);
+  }
+  for (const filePath of [...fileAttrs.keys()]) {
+    if (revealFile(filePath)) notifyItem(filePath);
+  }
+  homeAll();
+  persistHomes();
+}
+
+// 박스가 깔고 앉은 바탕화면 아이콘을 빈 칸으로 밀어낸다.
+// 옮기는 자리는 모두 화면 안이다. 탐색기가 되돌릴 까닭이 없어 다툼이 생기지 않는다.
+// 이번에 우리가 밀어낸 아이콘의 이름. 끝낼 때 적어 둔 자리로 돌려놓는다.
+const nudged = new Set();
+
+function nudge(blocks) {
+  const walls = (blocks || []).map(toPhysicalRect).filter(Boolean);
+  if (!walls.length) return false;
   return guard(() => withList((session) => {
     if (!session) return false;
     const listed = readAll(session);
-    const moves = [];
-    const loose = [];
-    let spot = 0;
-    for (const icon of listed) {
-      const wanted = mine.some((item) => sameName(icon.name, item.name));
-      // 이름이 박스 안의 것과 같으면 어떤 경우에도 바탕화면으로 되돌리지 않는다.
-      // 잠깐 못 알아본 사이에 되돌리면 아이콘이 나타났다 사라져 어지럽다.
-      const known = wanted || items.some((item) => sameName(icon.name, item.name));
-      const action = dragIconAction(icon, {
-        wanted,
-        known,
-        dragging,
-        cursorOnIt: knowCursor && pickIcon([icon], cursor) === icon,
-      });
-      if (action === 'park') {
-        if (!dragging) homes.set(keyOf(icon.name), { x: icon.x, y: icon.y });
-        const spotAt = parkSpot(icon.index);
-        moves.push({ index: icon.index, x: spotAt.x, y: spotAt.y });
-      } else if (action === 'leave') {
-        continue;
-      } else if (action === 'restore') {
-        if (known) continue;
-        const home = homes.get(keyOf(icon.name)) || defaultSpot(spot);
-        spot += 1;
-        moves.push({ index: icon.index, x: home.x, y: home.y });
-      } else if (!known) {
-        loose.push(icon);
-      }
+    if (!listed.length) return false;
+    // 화면 밖에 있는 아이콘은 박스에 가린 것처럼 다루어 화면 안으로 들인다.
+    const origin = walls[0];
+    const visible = listed.map((icon) => (
+      isParked(icon) ? { ...icon, x: origin.x + 1, y: origin.y + 1 } : icon
+    ));
+    const moves = deskgrid.relocate(visible, walls, desktopArea());
+    if (!moves.length) return false;
+    // 옮기기 전 자리를 적어 둔다. 적어 두지 않으면 끝낼 때 돌려놓을 곳을 모른다.
+    // 이미 적힌 것은 그대로 둔다. 처음 자리가 진짜 제자리이기 때문이다.
+    const byIndex = new Map(listed.map((icon) => [icon.index, icon]));
+    for (const move of moves) {
+      const icon = byIndex.get(move.index);
+      if (!icon) continue;
+      const key = keyOf(icon.name);
+      if (!homes.has(key) && !isParked(icon)) homes.set(key, { x: icon.x, y: icon.y });
+      nudged.add(key);
     }
-    // 박스가 깔고 앉은 아이콘을 빈 칸으로 옮긴다. 펜스처럼 자리를 비워 준다.
-    if (walls.length && loose.length) {
-      for (const move of deskgrid.relocate(loose, walls, desktopArea())) moves.push(move);
-    }
-    return applyMoves(session, moves);
+    trace(`박스에 가린 아이콘 ${moves.length}개를 옆으로 옮긴다`);
+    return applyMoves(session, moves, true);
   }));
 }
 
-function release(items) {
-  if (!items) return;
-  restoreShellIcons();
-  const mine = items.filter((item) => isOnDesktop(item.path));
-  guard(() => withList((session) => {
-    if (!session) return;
-    const listed = readAll(session);
+// 박스에 담긴 바탕화면 아이콘을 그 박스 안으로 모은다.
+// 파일은 건드리지 않는다. 탐색기 목록도 그대로고, 아이콘 자리만 바꾼다.
+//
+// 자리는 탐색기가 쓰는 격자에 맞춘다. 격자 크기는 지금 놓인 아이콘들에서 읽어 오므로
+// 화면 배율이나 아이콘 크기 설정이 달라도 따라간다. 임의의 간격으로 놓으면
+// 아이콘이 박스 밖으로 반쯤 삐져나온다.
+//
+// groups 는 [{ names, rect }] 이고 rect 는 아이콘을 놓을 수 있는 안쪽 넓이(DIP)다.
+function layoutGroups(groups, blocks, live) {
+  const ready = (groups || []).filter((group) => group && group.rect && group.rect.width > 20);
+  const walls = (blocks || []).map(toPhysicalRect).filter(Boolean);
+  return guard(() => withList((session) => {
+    if (!session) return false;
+    const listed = readMaybeCached(session, live);
+    if (!listed.length) return false;
+    const grid = deskgrid.metrics(listed);
     const moves = [];
-    let spot = 0;
-    for (const icon of listed) {
-      const wanted = mine.some((item) => sameName(icon.name, item.name));
-      if (!wanted || !isParked(icon)) continue;
-      const home = homes.get(keyOf(icon.name)) || defaultSpot(spot);
-      spot += 1;
+    const taken = new Set();
+    const spoken = new Set();
+
+    for (const group of ready) {
+      const area = toPhysicalRect(group.rect);
+      if (!area) continue;
+      // 박스 안에서 격자에 맞는 첫 칸.
+      // 탐색기는 '격자에 맞춤'이 켜져 있으면 우리가 보낸 자리도 제 격자로 끌어당긴다.
+      // 계측으로 확인했다. 그러니 격자를 벗어난 자리는 쓸 수 없고, 박스 안쪽으로
+      // 들어오는 첫 칸을 골라야 한다. 반올림하면 아이콘이 제목 줄 위로 올라간다.
+      // 남는 빈자리는 박스가 격자의 어디에 놓였느냐에 달렸다. Fences 도 같다.
+      const nudgeIn = 4 / grid.dy; // 몇 픽셀 겹치는 것은 눈에 띄지 않는다
+      const col0 = Math.ceil((area.x - grid.x0) / grid.dx - 4 / grid.dx);
+      const row0 = Math.ceil((area.y - grid.y0) / grid.dy - nudgeIn);
+      // 칸 수는 내림이다. 박스 밖으로 삐져나가지 않아야 한다.
+      const cols = Math.max(1, Math.floor((area.x + area.width - (grid.x0 + col0 * grid.dx)) / grid.dx));
+      const rows = Math.max(1, Math.floor((area.y + area.height - (grid.y0 + row0 * grid.dy)) / grid.dy));
+      let slot = 0;
+      for (const name of group.names || []) {
+        const icon = listed.find((entry) => sameName(entry.name, name));
+        if (!icon || spoken.has(icon.index)) continue;
+        spoken.add(icon.index);
+        // 가로로 채운 뒤 아랫줄로 내려간다. 박스는 옆으로 넓으므로 이쪽이 자리를 덜 버린다.
+        const col = col0 + (slot % cols);
+        const row = row0 + Math.floor(slot / cols);
+        slot += 1;
+        if (row >= row0 + rows) continue; // 박스가 낮아 더 담을 자리가 없다
+        const at = deskgrid.pointOf({ col, row }, grid);
+        taken.add(`${col},${row}`);
+        if (Math.abs(icon.x - at.x) < 4 && Math.abs(icon.y - at.y) < 4) continue;
+        // 담기 전 자리를 적어 둔다. 끝낼 때 그 자리로 돌려놓는다.
+        const key = keyOf(icon.name);
+        if (!homes.has(key) && !isParked(icon)) homes.set(key, { x: icon.x, y: icon.y });
+        nudged.add(key);
+        moves.push({ index: icon.index, x: at.x, y: at.y });
+      }
+    }
+
+    // 박스에 담기지 않은 아이콘이 박스 자리에 남아 있으면 밖으로 밀어낸다.
+    if (walls.length) {
+      const free = listed.filter((icon) => !spoken.has(icon.index));
+      const away = deskgrid.relocate(free, walls, desktopArea(), grid)
+        .filter((move) => !taken.has(`${deskgrid.cellOf(move, grid).col},${deskgrid.cellOf(move, grid).row}`));
+      for (const move of away) {
+        const icon = listed.find((entry) => entry.index === move.index);
+        if (!icon) continue;
+        const key = keyOf(icon.name);
+        if (!homes.has(key) && !isParked(icon)) homes.set(key, { x: icon.x, y: icon.y });
+        nudged.add(key);
+        moves.push(move);
+      }
+    }
+
+    if (!moves.length) return false;
+    trace(`아이콘 ${moves.length}개를 박스 자리로 옮긴다`);
+    // 자동 정렬이 켜져 있으면 탐색기가 자리를 곧바로 되돌린다.
+    // 끄지 않으면 3초마다 같은 아이콘을 다시 옮기는 끝없는 다툼이 된다.
+    // 끈 것은 적어 두었다가 끝낼 때 restoreArrange 가 되돌린다.
+    return applyMoves(session, moves, false, live);
+  }));
+}
+
+function refreshFolder(dir) {
+  if (!dir) return;
+  try {
+    SHChangeNotifyPath(0x00001000, 0x0005 | 0x1000, dir, null);
+  } catch (_err) {
+    /* 알림이 없어도 탐색기가 곧 알아챈다. */
+  }
+}
+
+// 창 자리(DIP)를 바탕화면 아이콘이 쓰는 실제 픽셀 자리로 옮긴다.
+function toPhysicalRect(rect) {
+  if (!rect) return null;
+  try {
+    const { screen } = require('electron');
+    const tl = screen.dipToScreenPoint({ x: rect.x, y: rect.y });
+    const br = screen.dipToScreenPoint({ x: rect.x + rect.width, y: rect.y + rect.height });
+    return {
+      x: Math.round(tl.x),
+      y: Math.round(tl.y),
+      width: Math.round(br.x - tl.x),
+      height: Math.round(br.y - tl.y),
+    };
+  } catch (_err) {
+    return rect;
+  }
+}
+
+// 아이콘을 놓을 수 있는 넓이. 작업 표시줄을 뺀 자리다.
+function desktopArea() {
+  try {
+    const { screen } = require('electron');
+    const area = screen.getPrimaryDisplay().workArea;
+    return toPhysicalRect({ x: area.x, y: area.y, width: area.width, height: area.height });
+  } catch (_err) {
+    return { x: 0, y: 0, width: 1920, height: 1080 };
+  }
+}
+
+// 박스에 담기 전에 그 아이콘이 있던 자리를 적어 둔다.
+// 나중에 바탕화면으로 돌려줄 때 그 자리에 놓는다.
+function noteHome(name) {
+  if (!name) return false;
+  return guard(() => withList((session) => {
+    if (!session) return false;
+    const icon = readAll(session).find((entry) => sameName(entry.name, name));
+    if (!icon || isParked(icon)) return false;
+    homes.set(keyOf(icon.name), { x: icon.x, y: icon.y });
+    persistHomes();
+    return true;
+  }));
+}
+
+// 바탕화면으로 돌려준 아이콘을 적어 둔 자리에 놓는다.
+// 자리를 모르면 탐색기가 정한 자리에 그대로 둔다.
+function putHome(names) {
+  const want = (names || []).filter(Boolean);
+  if (!want.length) return false;
+  return guard(() => withList((session) => {
+    if (!session) return false;
+    const moves = [];
+    for (const icon of readAll(session)) {
+      if (!want.some((name) => sameName(icon.name, name))) continue;
+      const home = homes.get(keyOf(icon.name));
+      if (!home) continue;
+      if (home.x === icon.x && home.y === icon.y) continue;
       moves.push({ index: icon.index, x: home.x, y: home.y });
     }
-    applyMoves(session, moves);
-  }));
-}
-
-function moveIcon(item, dipPoint) {
-  if (!item || !isOnDesktop(item.path)) return false;
-  return guard(() => withList((session) => {
-    if (!session) return false;
-    const listed = readAll(session);
-    const icon = listed.find((entry) => sameName(entry.name, item.name));
-    if (!icon) return false;
-    let pos = homes.get(keyOf(icon.name)) || defaultSpot(icon.index);
-    if (dipPoint) {
-      try {
-        const { screen } = require('electron');
-        const phys = screen.dipToScreenPoint(dipPoint);
-        pos = { x: Math.round(phys.x), y: Math.round(phys.y) };
-      } catch (_err) {
-        pos = { x: Math.round(dipPoint.x), y: Math.round(dipPoint.y) };
-      }
-    }
-    homes.set(keyOf(icon.name), pos);
-    return applyMoves(session, [{ index: icon.index, x: pos.x, y: pos.y }]);
+    if (!moves.length) return false;
+    trace(`돌려준 아이콘 ${moves.length}개를 적어 둔 자리에 놓는다`);
+    return applyMoves(session, moves);
   }));
 }
 
@@ -687,13 +1052,13 @@ function className(hwnd) {
 
 // 바탕화면 빈 곳에서 왼쪽 단추로 사각형을 끌면 그 자리를 알려 준다.
 // 사각형이 아니어도 바탕화면에서 손을 떼면 onSettle 을 부른다.
-// 아이콘을 옮긴 직후 바로 다시 정리해야 나타났다 사라지는 일이 없다.
+// 담긴 아이콘은 목록에 없으므로 끄는 동안 그려질 일이 없다. 그래서 그리기를 멈추지 않는다.
 function watchDrag(onRect, onSettle, onDrop) {
   let start = null;
   let held = null;
   let wasDown = false;
   let settleTimer = null;
-  let lastKeep = 0;
+  let lastWatch = 0;
   const settle = () => {
     if (typeof onSettle !== 'function') return;
     clearTimeout(settleTimer);
@@ -716,10 +1081,8 @@ function watchDrag(onRect, onSettle, onDrop) {
       held = icon ? { name: icon.name, x: pos.x, y: pos.y } : null;
       // 빈 곳에서 시작한 끌기만 새 박스 후보이다. 아이콘 위는 그 아이콘을 옮기는 것이다.
       start = onDesktop && !icon ? { x: pos.x, y: pos.y } : null;
-    } else if (down && wasDown && !start && Date.now() - lastKeep > 70) {
-      lastKeep = Date.now();
-      if (typeof onSettle === 'function') onSettle();
     } else if (!down && wasDown) {
+      // 떼는 순간 탐색기가 화면 밖 아이콘을 끌어낸다. 곧바로, 그리고 잠깐 더 쫓아가 되치운다.
       const dragged = held;
       held = null;
       if (dragged && movedEnough(dragged, pos) && typeof onDrop === 'function') {
@@ -747,9 +1110,12 @@ function watchDrag(onRect, onSettle, onDrop) {
       } else {
         settle();
       }
+    } else if (!down && Date.now() - lastWatch > 250) {
+      // 탐색기가 목록을 다시 채웠는지 이따금 살핀다. 길이만 묻는 싼 확인이다.
+      lastWatch = Date.now();
     }
     wasDown = down;
-  }, 40);
+  }, 16);
   return () => {
     clearTimeout(settleTimer);
     clearInterval(timer);
@@ -938,17 +1304,90 @@ function claimSingleInstance() {
   }
 }
 
-function emptyRecycle() {
+// 휴지통에 든 항목 수. 0 이면 비울 것이 없다. 물어보지 못했으면 -1 이다.
+function recycleCount() {
   try {
-    // 우리 창에서 이미 물어봤으므로 윈도우 확인 창은 띄우지 않는다.
-    SHEmptyRecycleBinW(null, null, 0x00000001);
+    const info = { cbSize: koffi.sizeof(SHQUERYRBINFO), i64Size: 0, i64NumItems: 0 };
+    if (SHQueryRecycleBinW(null, info) !== 0) return -1;
+    return Number(info.i64NumItems);
+  } catch (_err) {
+    return -1;
+  }
+}
+
+// 이 자리에서 바로 부르면 윈도우가 창을 닫을 때까지 앱이 멈춘다.
+// 그래서 empty-bin.js 를 따로 띄운다. 그쪽을 띄우지 못했을 때만 여기서 부른다.
+function emptyHere(owner) {
+  try {
+    SHEmptyRecycleBinW(Number(owner) || 0, null, 0);
+    // 빈 휴지통 그림으로 바뀌도록 바탕화면만 새로 고친다.
+    // 여기서도 SHCNE_ASSOCCHANGED 는 쓰지 않는다. 아이콘 그림 곳간이 통째로 다시 만들어진다.
+    refreshShellIcons();
     return true;
   } catch (_err) {
     return false;
   }
 }
 
+// 휴지통 비우기. 물어보는 창과 진행률은 윈도우가 그대로 보여 준다.
+// owner 는 그 창을 띄울 주인 창 번호다.
+function emptyRecycle(owner) {
+  return new Promise((resolve) => {
+    let child = null;
+    try {
+      child = spawn(process.execPath, [path.join(__dirname, 'empty-bin.js'), String(owner || 0)], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+        windowsHide: true,
+        stdio: 'ignore',
+      });
+    } catch (_err) {
+      resolve(emptyHere(owner));
+      return;
+    }
+    child.once('error', () => resolve(emptyHere(owner)));
+    child.once('exit', (code) => {
+      // 1 은 그쪽에서 부르지 못했다는 뜻이다. 그때만 이 자리에서 다시 부른다.
+      if (code === 1) resolve(emptyHere(owner));
+      else resolve(code === 0);
+    });
+  });
+}
+
+// 치워 둔 아이콘을 모두 원래 자리로 돌려놓는다.
+// 박스 목록을 못 받는 자리(갑작스러운 종료)에서도 이름만으로 되돌릴 수 있어야 한다.
+function homeAll() {
+  showLayer(true);
+  return guard(() => withList((session) => {
+    if (!session) return false;
+    const listed = readAll(session);
+    const moves = [];
+    let spot = 0;
+    for (const icon of listed) {
+      const key = keyOf(icon.name);
+      // 화면 밖에 치워 둔 것은 적어 둔 자리로, 없으면 화면 안 빈 자리로 들인다.
+      if (isParked(icon)) {
+        const home = homes.get(key) || defaultSpot(spot);
+        spot += 1;
+        moves.push({ index: icon.index, x: home.x, y: home.y });
+        continue;
+      }
+      // 박스가 가려서 우리가 옆으로 밀어낸 것도 제자리로 돌려놓는다.
+      // 그러지 않으면 앱을 끝내도 바탕화면이 켜기 전 모습으로 돌아가지 않는다.
+      if (!nudged.has(key)) continue;
+      const home = homes.get(key);
+      if (!home) continue;
+      if (icon.x === home.x && icon.y === home.y) continue;
+      moves.push({ index: icon.index, x: home.x, y: home.y });
+    }
+    nudged.clear();
+    return applyMoves(session, moves);
+  }));
+}
+
 function shutdown() {
+  if (listFrozen) listRedraw(true);
+  // 박스가 들고 있던 것뿐 아니라, 화면 밖에 남은 아이콘을 모두 되돌린다.
+  guard(() => homeAll());
   restoreShellIcons();
   guard(() => restoreArrange());
   if (claim) {
@@ -970,6 +1409,40 @@ function debugList(limit) {
   });
 }
 
+function heldDir() {
+  if (!homeFile) return '';
+  return path.join(path.dirname(homeFile), 'held');
+}
+
+function spareName(dir, base) {
+  const ext = path.extname(base);
+  const stem = path.basename(base, ext);
+  let n = 1;
+  let dest = path.join(dir, base);
+  while (fs.existsSync(dest)) {
+    dest = path.join(dir, `${stem} (${n})${ext}`);
+    n += 1;
+  }
+  return dest;
+}
+
+// 예전 판이 바탕화면 밖으로 옮겨 둔 파일을 제자리로 되돌린다.
+function unstashFile(filePath) {
+  const dir = heldDir();
+  if (!dir || !filePath || path.normalize(path.dirname(filePath)) !== path.normalize(dir)) return filePath;
+  const desk = desktopDirectories()[0];
+  if (!desk) return filePath;
+  try {
+    if (!fs.existsSync(filePath)) return filePath;
+    revealFile(filePath);
+    const dest = spareName(desk, path.basename(filePath));
+    fs.renameSync(filePath, dest);
+    return dest;
+  } catch (_err) {
+    return filePath;
+  }
+}
+
 module.exports = {
   nativeIcons: true,
   claimSingleInstance,
@@ -978,13 +1451,22 @@ module.exports = {
   init,
   prepare,
   place,
-  gather,
   release,
-  moveIcon,
+  syncShellIcons,
+  behindIcons,
+  placeBehind,
+  layoutGroups,
+  revealFile,
+  nudge,
+  noteHome,
+  refreshFolder,
+  putHome,
+  unstashFile,
   mouseDown,
   watchDrag,
   watchDoubleClick,
   emptyRecycle,
+  recycleCount,
   shutdown,
   debugList,
 };

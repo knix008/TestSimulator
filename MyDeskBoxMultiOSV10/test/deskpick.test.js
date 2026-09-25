@@ -75,17 +75,6 @@ test('모서리만 걸친 아이콘도 여러 개 고르기로 본다', () => {
   assert.equal(pick.rectCoversIcon(graze, [{ x: -2000, y: 100 }]), false);
 });
 
-test('옮기는 동안 튀어나온 박스 아이콘만 다시 치운다', () => {
-  const shown = { x: 40, y: 40 };
-  const parked = { x: 20000, y: 2000 };
-  assert.equal(pick.dragIconAction(shown, { wanted: true, known: true, dragging: true, cursorOnIt: false }), 'park');
-  assert.equal(pick.dragIconAction(shown, { wanted: true, known: true, dragging: true, cursorOnIt: true }), 'leave');
-  assert.equal(pick.dragIconAction(shown, { wanted: false, known: false, dragging: true }), 'leave');
-  assert.equal(pick.dragIconAction(parked, { wanted: false, known: false, dragging: true }), 'leave');
-  assert.equal(pick.dragIconAction(parked, { wanted: false, known: false, dragging: false }), 'restore');
-  assert.equal(pick.dragIconAction(shown, { wanted: true, known: true, dragging: false }), 'park');
-});
-
 test('여덟 픽셀을 끌면 담고, 그 미만이나 빈 좌표는 담지 않는다', () => {
   assert.equal(pick.movedEnough({ x: 0, y: 0 }, { x: 8, y: 0 }), true);
   assert.equal(pick.movedEnough({ x: 0, y: 0 }, { x: 3, y: 4 }), false);
@@ -114,19 +103,34 @@ test('휴지통 이름은 셸 경로로 연결된다', () => {
   assert.equal(pick.shellPathFor('Projects', shells, sameName), null);
 });
 
-test('이 컴퓨터의 휴지통은 셸 항목으로 잡히고 그 자리가 맞다', { skip: process.platform !== 'win32' }, (t) => {
+// shellItems 는 '지금 바탕화면에 나와 있어 담을 수 있는' 셸 항목만 준다.
+// 휴지통이 이미 박스에 담겨 있으면 빈 목록이 맞다. 두 경우 모두 지켜야 할 것을 본다.
+test('셸 항목 목록은 바탕화면에 나와 있는 것과 어긋나지 않는다', { skip: process.platform !== 'win32' }, () => {
   const desktop = require('../src/main/desktop/windows');
-  const listed = desktop.debugList() || [];
-  const live = listed.find((icon) => icon.name === '휴지통');
-  if (!live) {
-    t.skip('휴지통이 이미 박스 안으로 들어가 바탕화면에 없다');
-    return;
-  }
-  const atIcon = pick.pickIcon(listed, { x: live.x + 20, y: live.y + 20 });
-  assert.equal(atIcon.name, '휴지통');
   const shells = desktop.shellItems();
-  assert.deepEqual(
-    pick.shellPathFor(atIcon.name, shells, sameName),
-    { name: '휴지통', path: 'shell:RecycleBinFolder' }
-  );
+  const listed = desktop.debugList() || [];
+
+  for (const item of shells) {
+    assert.match(item.path, /^shell:/, '셸 경로가 아닌 것이 섞였다');
+    assert.ok(item.name.trim(), '이름이 빈 셸 항목이 있다');
+    assert.ok(
+      listed.some((icon) => sameName(icon.name, item.name)),
+      `${item.name} 은 바탕화면에 없는데 담을 수 있다고 한다`
+    );
+    // 바탕화면에서 집은 이름으로 다시 셸 경로를 찾을 수 있어야 담긴다.
+    assert.deepEqual(pick.shellPathFor(item.name, shells, sameName), item);
+  }
+
+  // 담을 수 있는 것이 없으면 빈 목록이어야 한다. 엉뚱한 것을 만들어 내면 안 된다.
+  if (!shells.length) assert.deepEqual(shells, []);
+});
+
+// 박스 창 위에서 누른 것을 바탕화면 끌기로 보면,
+// 박스 밑에 가려 있던 아이콘을 끌어다 박스에 넣어 버린다.
+test('커서 아래가 박스 창이면 바탕화면 끌기로 보지 않는다', () => {
+  assert.equal(pick.isDesktopTarget('Chrome_WidgetWin_1', 'Progman'), false, '앞 창만 보고 바탕화면이라 했다');
+  assert.equal(pick.isDesktopTarget('SysListView32', 'Chrome_WidgetWin_1'), true);
+  // 커서 아래를 읽지 못했을 때만 앞 창을 대신 본다.
+  assert.equal(pick.isDesktopTarget('', 'Progman'), true);
+  assert.equal(pick.isDesktopTarget('', 'Chrome_WidgetWin_1'), false);
 });

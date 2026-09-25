@@ -59,7 +59,12 @@ html, body {
   line-height: 1;
   cursor: pointer;
 }
-#close:hover { background: rgba(255, 255, 255, 0.14); }
+/* 닫기 단추는 손이 올라가면 붉게 물든다. 창을 닫는다는 뜻을 눈에 보이게 한다. */
+#close:hover {
+  background: #e5484d;
+  color: #fff;
+}
+#close:active { background: #c93d41; }
 
 /* 창을 내용에 맞춰 늘리므로 스크롤 막대는 두지 않는다. */
 #body {

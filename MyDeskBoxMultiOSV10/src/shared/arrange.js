@@ -38,21 +38,27 @@
   }
 
   // 박스 자리에서 창 자리를 구한다. 되돌릴 때는 panelRect 를 쓴다.
-  function windowRect(fence) {
+  function margin(shadow) {
+    return shadow ? SHADOW : 0;
+  }
+
+  function windowRect(fence, shadow) {
+    const pad = margin(shadow);
     return {
-      x: Math.round(fence.x) - SHADOW,
-      y: Math.round(fence.y) - SHADOW,
-      width: Math.round(fence.w) + SHADOW * 2,
-      height: Math.round(panelHeight(fence)) + SHADOW * 2,
+      x: Math.round(fence.x) - pad,
+      y: Math.round(fence.y) - pad,
+      width: Math.round(fence.w) + pad * 2,
+      height: Math.round(panelHeight(fence)) + pad * 2,
     };
   }
 
-  function panelRect(bounds) {
+  function panelRect(bounds, shadow) {
+    const pad = margin(shadow);
     return {
-      x: bounds.x + SHADOW,
-      y: bounds.y + SHADOW,
-      width: Math.max(0, bounds.width - SHADOW * 2),
-      height: Math.max(0, bounds.height - SHADOW * 2),
+      x: bounds.x + pad,
+      y: bounds.y + pad,
+      width: Math.max(0, bounds.width - pad * 2),
+      height: Math.max(0, bounds.height - pad * 2),
     };
   }
 

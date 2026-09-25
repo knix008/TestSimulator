@@ -68,3 +68,23 @@ test('창 안에서 쓰는 이름이 전역을 더럽히지 않는다', () => {
     assert.equal(context[leaked], undefined, `${leaked} 이 전역으로 새 나갔다`);
   }
 });
+
+// 박스는 창 둘로 이루어진다.
+//  - 판 창: 바탕화면 아이콘 층 '뒤'에 들어가 판만 그린다. 마우스를 받지 않는다.
+//  - 테두리 창: 앞에 떠서 제목 줄과 가장자리만 그린다.
+// 테두리 창의 가운데는 그 아래 바탕화면 아이콘이 받아야 하므로 마우스를 흘려보낸다.
+// 흘려보내지 않으면 박스 안의 아이콘을 고르지도, 두 번 눌러 열지도 못한다.
+test('테두리 창은 가운데의 마우스를 아이콘으로 흘려보낸다', () => {
+  const main = fs.readFileSync(path.join(ROOT, 'src', 'main', 'fences.js'), 'utf8');
+  assert.match(main, /setIgnoreMouseEvents\(ignore, \{ forward: true \}\)/, '마우스를 흘려보내지 않는다');
+  assert.match(main, /function passClicks\(\)[\s\S]*?const ignore = !chrome/, '제목 줄과 가장자리를 가리지 않는다');
+
+  // 판을 앞에 두면 아이콘이 판 뒤로 가려 보인다. 반드시 아이콘 층 뒤로 넣어야 한다.
+  assert.match(main, /desktop\.behindIcons\(handle\)/, '판을 아이콘 층 뒤로 넣지 않는다');
+
+  // 테두리 창은 제목 줄만 그린다. 판과 광택은 뒤쪽 창이 그린다.
+  const css = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.css'), 'utf8');
+  const panelRule = /#panel \{([^}]*)\}/.exec(css);
+  assert.ok(panelRule, '#panel 규칙이 없다');
+  assert.match(panelRule[1], /background:\s*transparent/, '테두리 창이 판까지 그린다');
+});

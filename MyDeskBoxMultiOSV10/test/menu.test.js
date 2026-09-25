@@ -63,9 +63,48 @@ test('휴지통을 오른쪽 단추로 누르면 비우기가 있다', async () 
   const plain = flatten(electron.menus.at(-1)).map((entry) => entry.label);
   assert.equal(plain.includes('휴지통 비우기'), false);
 
-  electron.setDialogAnswer(0);
   await item.click();
   assert.equal(desktop.calls.emptied, 1);
+});
+
+// 지울지 묻는 창과 진행률은 윈도우가 보여 준다. 우리가 먼저 물으면 두 번 묻게 된다.
+test('휴지통 비우기는 우리 확인 창 없이 시스템에 맡긴다', async () => {
+  const state = baseState({
+    fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron, desktop, asks } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.showMenu('a', 'shell:RecycleBinFolder');
+  const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '휴지통 비우기');
+
+  // 우리 창이라면 '아니오' 에 해당하는 답이어도 시스템이 묻고 지운다.
+  asks.reply = false;
+  await item.click();
+  assert.equal(asks.calls.length, 0, '우리가 또 물었다');
+  assert.equal(desktop.calls.emptied, 1);
+
+  // 시스템 창이 박스 뒤로 숨지 않게 주인 창 번호를 넘긴다.
+  const [owner] = desktop.calls.binOwners;
+  assert.equal(typeof owner, 'number');
+  assert.ok(owner > 0, '주인 창 번호를 넘기지 않았다');
+});
+
+// 비우기를 그만두면 아무것도 지워지지 않았으므로 다시 그릴 것도 없다.
+test('시스템 창에서 그만두면 박스를 다시 그리지 않는다', async () => {
+  const state = baseState({
+    fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron, desktop } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  desktop.module.emptyRecycle = () => Promise.resolve(false);
+  host.showMenu('a', 'shell:RecycleBinFolder');
+  const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '휴지통 비우기');
+  const [win] = fenceWindows(electron);
+  const before = win.messages('fence:state').length;
+  await item.click();
+  assert.equal(win.messages('fence:state').length, before, '지우지도 않고 다시 그렸다');
 });
 
 test('접힘 여부에 따라 글씨와 그림이 함께 바뀐다', () => {
@@ -132,4 +171,42 @@ test('트레이 메뉴에 프로그램 정보가 있다', () => {
   assert.ok(about.icon, '그림이 없다');
   assert.match(about.icon.path, /info\.png$/);
   assert.equal(typeof about.click, 'function', '누를 수 있어야 한다');
+});
+
+// 박스 안에서 바로 지울 수 있어야 한다. 박스에서만 빼는 것이 아니라 파일이 없어져야 한다.
+test('박스 항목을 지우면 파일이 휴지통으로 간다', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const room = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-trash-'));
+  const file = path.join(room, '지울 것.txt');
+  fs.writeFileSync(file, '');
+
+  const state = baseState({ fences: [fence({ items: [{ name: '지울 것.txt', path: file }] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.refreshIcons();
+  const at = state.fences[0].items[0].path;
+
+  host.showMenu('a', at);
+  const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '삭제');
+  assert.ok(item, '지우기가 메뉴에 없다');
+  assert.ok(item.icon, '지우기에 그림이 없다');
+  await item.click();
+
+  assert.deepEqual(electron.shell.trashed, [at], '파일을 휴지통으로 보내지 않았다');
+  assert.deepEqual(state.fences[0].items, [], '박스에 그대로 남아 있다');
+});
+
+test('휴지통 같은 셸 항목은 지우기를 누를 수 없다', () => {
+  const state = baseState({
+    fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.showMenu('a', 'shell:RecycleBinFolder');
+  const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '삭제');
+  assert.equal(item.enabled, false, '지울 파일이 없는데 누를 수 있다');
 });

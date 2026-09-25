@@ -41,13 +41,20 @@ test('이동은 한 번에 끝나지 않고 목표에 닿는다', () => {
 
 test('창은 박스보다 그림자 자리만큼 크고, 되돌리면 그대로다', () => {
   const fence = { x: 100, y: 200, w: 400, h: 300, collapsed: false };
-  const outer = arrange.windowRect(fence);
+  const plain = arrange.windowRect(fence);
+  assert.equal(plain.x, 100);
+  assert.equal(plain.y, 200);
+  assert.equal(plain.width, 400);
+  assert.equal(plain.height, 300);
+  assert.deepEqual(arrange.panelRect(plain), { x: 100, y: 200, width: 400, height: 300 });
+
+  const outer = arrange.windowRect(fence, true);
   assert.equal(outer.x, 100 - arrange.SHADOW);
   assert.equal(outer.y, 200 - arrange.SHADOW);
   assert.equal(outer.width, 400 + arrange.SHADOW * 2);
   assert.equal(outer.height, 300 + arrange.SHADOW * 2);
 
-  const back = arrange.panelRect(outer);
+  const back = arrange.panelRect(outer, true);
   assert.deepEqual(back, { x: 100, y: 200, width: 400, height: 300 });
 });
 
@@ -79,5 +86,6 @@ test('접으면 아이콘 줄은 없어도 칸 수는 하나 남는다', () => {
 test('접은 박스는 제목 줄만 남는다', () => {
   const fence = { x: 0, y: 0, w: 400, h: 300, collapsed: true };
   assert.equal(arrange.panelHeight(fence), arrange.TITLE_H + 4);
-  assert.equal(arrange.windowRect(fence).height, arrange.TITLE_H + 4 + arrange.SHADOW * 2);
+  assert.equal(arrange.windowRect(fence).height, arrange.TITLE_H + 4);
+  assert.equal(arrange.windowRect(fence, true).height, arrange.TITLE_H + 4 + arrange.SHADOW * 2);
 });

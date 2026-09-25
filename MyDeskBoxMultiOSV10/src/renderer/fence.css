@@ -8,37 +8,24 @@ html, body {
   user-select: none;
 }
 
-/* 창은 박스보다 사방 18px 크다. 그 여백에 그림자가 떨어진다. */
+/* 기본은 그림자가 없다. 창이 박스와 같아서 옆 박스를 가리지 않는다. */
 #panel {
   position: absolute;
-  inset: 18px;
+  inset: 0;
   box-sizing: border-box;
   border-radius: 20px;
   overflow: hidden;
   isolation: isolate;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  /* 바깥 그림자로 띄우고, 안쪽 선으로 두께를 만든다. */
-  box-shadow:
-    0 22px 38px -14px rgba(0, 0, 0, 0.62),
-    0 8px 16px -8px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 1px 0 0 rgba(255, 255, 255, 0.16),
-    inset -1px 0 0 rgba(0, 0, 0, 0.20),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.30),
-    inset 0 -18px 28px -22px rgba(0, 0, 0, 0.55);
+  /* 판과 광택은 아이콘 뒤의 창(panel.*)이 그린다. 여기는 비워 둔다. */
+  background: transparent;
+}
+
+/* 그림자를 켜면 창이 사방 18px 커지고, 그 여백에 그림자가 떨어진다. */
+#panel.shadow {
+  inset: 18px;
 }
 
 /* 위에서 비치는 빛. 유리처럼 살짝 도드라져 보인다. */
-#panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  background:
-    radial-gradient(120% 60% at 22% -10%, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 60%),
-    linear-gradient(200deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 34%);
-}
 
 #title {
   position: relative;

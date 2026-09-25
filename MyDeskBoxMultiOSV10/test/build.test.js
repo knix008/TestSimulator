@@ -80,6 +80,8 @@ test('설치 스크립트가 바로 가기를 물어보고 만든다', () => {
   // 고르지 않으면 지우고, 지울 때도 치운다.
   assert.equal((nsh.match(/Delete "\$DESKTOP/g) || []).length >= 2, true);
   assert.equal((nsh.match(/Delete "\$SMPROGRAMS/g) || []).length >= 2, true);
+  assert.match(nsh, /un\.RestoreHeld/, '지울 때 박스에 둔 파일을 되돌리지 않는다');
+  assert.match(nsh, /mydeskbox\\held/, '보관 폴더를 찾지 않는다');
 });
 
 test('설치 스크립트의 글이 한국어와 영어 두 벌이다', () => {

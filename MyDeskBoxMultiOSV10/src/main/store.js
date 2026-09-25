@@ -19,6 +19,11 @@ function defaults() {
       theme: themes.DEFAULT_THEME,
       opacity: themes.DEFAULT_OPACITY,
       corner: themes.DEFAULT_CORNER,
+      shadow: false,
+      // 박스 안의 아이콘을 한 번 눌러 열지, 두 번 눌러 열지.
+      openWith: 'double',
+      // 박스들이 쓰는 보관함 폴더. 비워 두면 집 폴더 아래 MyDeskBox 를 쓴다.
+      root: '',
     },
     fences: [],
   };
@@ -45,6 +50,8 @@ function load() {
       data.hidden = !!parsed.hidden;
       Object.assign(data.settings, parsed.settings || {});
       data.settings.lang = i18n.langOf(data.settings.lang);
+      data.settings.openWith = data.settings.openWith === 'single' ? 'single' : 'double';
+      data.settings.root = typeof data.settings.root === 'string' ? data.settings.root : '';
       if (Array.isArray(parsed.fences)) data.fences = parsed.fences.map(normalizeFence);
     }
   } catch (_err) {
@@ -67,12 +74,17 @@ function normalizeFence(raw) {
     corner: themes.cornerRadius(raw.corner),
     custom: normalizeCustom(raw.custom),
     collapsed: !!raw.collapsed,
+    // 이 박스가 쓰는 폴더 이름. 보관함 폴더 아래에 있다.
+    folder: typeof raw.folder === 'string' ? raw.folder : '',
     items: [],
   };
   if (Array.isArray(raw.items)) {
     for (const item of raw.items) {
       if (!item || !item.path) continue;
-      fence.items.push({ name: String(item.name || path.basename(item.path)), path: String(item.path) });
+      const kept = { name: String(item.name || path.basename(item.path)), path: String(item.path) };
+      // 담기 전에 있던 폴더. 끝낼 때 그 자리로 돌려준다.
+      if (typeof item.home === 'string' && item.home) kept.home = item.home;
+      fence.items.push(kept);
     }
   }
   return fence;

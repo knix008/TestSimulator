@@ -115,4 +115,36 @@ FunctionEnd
 !macro customUnInstall
   Delete "$DESKTOP\${PRODUCT_FILENAME}.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_FILENAME}.lnk"
+  Call un.RestoreHeld
 !macroend
+
+; 아래는 제거 프로그램에만 들어가는 코드이다.
+; 설치 프로그램을 만들 때도 읽히면 NSIS 가 '쓰지 않는 제거 코드' 로 보고 경고를 낸다.
+; electron-builder 는 경고를 오류로 다루므로 반드시 걸러 내야 한다.
+!ifdef BUILD_UNINSTALLER
+
+; 박스에 넣어 둔 파일은 설정 폴더에 있다. 지우기 전에 바탕화면으로 되돌린다.
+; 예전 판이 파일을 held 폴더로 옮겨 두었을 때를 위한 것이다.
+Function un.RestoreHeld
+  IfFileExists "$APPDATA\mydeskbox\held\*.*" 0 heldDone
+  FindFirst $0 $1 "$APPDATA\mydeskbox\held\*.*"
+  heldLoop:
+    StrCmp $1 "" heldClose
+    StrCmp $1 "." heldNext
+    StrCmp $1 ".." heldNext
+    IfFileExists "$DESKTOP\$1" 0 heldMove
+      StrCpy $2 "$DESKTOP\restored-$1"
+      Goto heldGo
+    heldMove:
+      StrCpy $2 "$DESKTOP\$1"
+    heldGo:
+      Rename "$APPDATA\mydeskbox\held\$1" "$2"
+    heldNext:
+      FindNext $0 $1
+      Goto heldLoop
+    heldClose:
+      FindClose $0
+  heldDone:
+FunctionEnd
+
+!endif ; BUILD_UNINSTALLER
