@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><title>Image Viewer 기능 테스트</title>
+<style>
+  :root { font-family: "Segoe UI", system-ui, sans-serif; }
+  body { margin: 0; background: #0f172a; color: #e2e8f0; }
+  .hero { padding: 28px 32px 20px; background: #1e293b; border-bottom: 3px solid #22c55e; }
+  h1 { margin: 0 0 8px; font-size: 26px; color: #f8fafc; }
+  .sub { color: #94a3b8; font-size: 13px; }
+  .files { margin-top: 10px; color: #93c5fd; font-size: 12px; }
+  .files code { background: #334155; padding: 1px 6px; border-radius: 4px; color: #bfdbfe; }
+  .stats { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .stat { min-width: 110px; padding: 12px 16px; border-radius: 10px; }
+  .stat b { display: block; font-size: 26px; line-height: 1.1; }
+  .stat span { font-size: 12px; opacity: .85; }
+  .s-total { background: #334155; }
+  .s-pass { background: #14532d; color: #86efac; }
+  .s-fail { background: #7f1d1d; color: #fecaca; }
+  .s-rate { background: #1e3a5f; color: #93c5fd; }
+  .s-time { background: #3b0764; color: #e9d5ff; }
+  .s-avg { background: #422006; color: #fde68a; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .toc a { display: flex; gap: 8px; align-items: baseline; background: #0f172a; border-left: 3px solid var(--c); color: #e2e8f0; text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; }
+  .toc b { color: var(--c); font-size: 12px; }
+  .toc span, .toc em { color: #94a3b8; font-style: normal; }
+  .slow { margin: 16px 28px 0; background: #1e293b; border-radius: 12px; padding: 14px 16px; }
+  .slow h3 { margin: 0 0 8px; font-size: 13px; color: #fbbf24; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 5px 8px; border-top: 1px solid #334155; }
+  td.ms { color: #fbbf24; font-variant-numeric: tabular-nums; width: 90px; }
+  main { padding: 20px 28px 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .suite { background: #1e293b; border-radius: 12px; padding: 14px 16px 10px; border-left: 5px solid var(--c); }
+  .suite.wide { grid-column: 1 / -1; }
+  .suite header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .suite h2 { margin: 0; font-size: 15px; color: var(--c); }
+  .meta { font-size: 12px; color: #94a3b8; }
+  .bar { height: 6px; background: #334155; border-radius: 3px; margin: 8px 0 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c); }
+  .row { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 8px; align-items: start; padding: 6px 0; border-top: 1px solid #334155; font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+  .ok .dot, .chip.ok i { background: #22c55e; }
+  .bad .dot, .chip.bad i { background: #ef4444; }
+  .name { color: #e2e8f0; }
+  .ms { color: #fbbf24; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .tag { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+  .pass { background: #166534; color: #bbf7d0; }
+  .fail { background: #991b1b; color: #fecaca; }
+  .err { grid-column: 2 / -1; color: #fca5a5; font-size: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; background: #0f172a; border-radius: 999px; padding: 3px 8px 3px 6px; font-size: 11px; color: #cbd5e1; }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; }
+  .chip em { color: #fbbf24; font-style: normal; font-variant-numeric: tabular-nums; }
+</style></head>
+<body>
+  <div class="hero">
+    <h1>Image Viewer 1.0.2 기능 테스트</h1>
+    <div class="sub">2026-09-24T13:57:52.675Z · 455 cases · tests/cases</div>
+    <div class="files"><code>dicom-media.js</code> · <code>edit-window.js</code> · <code>effects.js</code> · <code>file-navigation.js</code> · <code>folder-drives-chrome.js</code> · <code>formats-samples.js</code> · <code>ipc-packaging.js</code> · <code>menus-shortcuts.js</code> · <code>print.js</code> · <code>status-i18n-theme.js</code></div>
+    <div class="stats">
+      <div class="stat s-total"><b>455</b><span>전체</span></div>
+      <div class="stat s-pass"><b>455</b><span>통과</span></div>
+      <div class="stat s-fail"><b>0</b><span>실패</span></div>
+      <div class="stat s-rate"><b>100%</b><span>성공률</span></div>
+      <div class="stat s-time"><b>31 ms</b><span>총 실행 시간</span></div>
+      <div class="stat s-avg"><b>0.07 ms</b><span>평균 / 케이스</span></div>
+    </div>
+    <nav class="toc"><a href="#s0" style="--c:#3b82f6"><b>File &amp; navigation</b><span>26/26</span><em>0.37 ms</em></a><a href="#s1" style="--c:#f97316"><b>Menus &amp; shortcuts</b><span>20/20</span><em>0.62 ms</em></a><a href="#s2" style="--c:#8b5cf6"><b>Print</b><span>50/50</span><em>0.96 ms</em></a><a href="#s3" style="--c:#ec4899"><b>Edit window</b><span>39/39</span><em>1.5 ms</em></a><a href="#s4" style="--c:#f59e0b"><b>Effects</b><span>126/126</span><em>12 ms</em></a><a href="#s5" style="--c:#14b8a6"><b>Formats &amp; samples</b><span>50/50</span><em>0.47 ms</em></a><a href="#s6" style="--c:#22c55e"><b>DICOM &amp; media</b><span>36/36</span><em>0.35 ms</em></a><a href="#s7" style="--c:#84cc16"><b>Folder drives &amp; viewer chrome</b><span>21/21</span><em>0.12 ms</em></a><a href="#s8" style="--c:#06b6d4"><b>Status, i18n, theme</b><span>54/54</span><em>2.3 ms</em></a><a href="#s9" style="--c:#6366f1"><b>IPC &amp; packaging</b><span>33/33</span><em>0.19 ms</em></a></nav>
+  </div>
+  <div class="slow">
+    <h3>실행이 길었던 케이스</h3>
+    <table>
+  <tr class="ok">
+    <td class="ms">0.43 ms</td>
+    <td>Status, i18n, theme</td>
+    <td>ko.json and en.json have the same keys</td>
+  </tr>
+  <tr class="ok">
+    <td class="ms">0.38 ms</td>
+    <td>Edit window</td>
+    <td>Edit window has in-app save / unsaved popups</td>
+  </tr>
+  <tr class="ok">
+    <td class="ms">0.35 ms</td>
+    <td>Status, i18n, theme</td>
+    <td>i18n namespace effects is non-empty in ko/en</td>
+  </tr>
+  <tr class="ok">
+    <td class="ms">0.30 ms</td>
+    <td>Effects</td>
+    <td>Preset blueprint</td>
+  </tr>
+  <tr class="ok">
+    <td class="ms">0.24 ms</td>
+    <td>Effects</td>
+    <td>Preset selenium</td>
+  </tr>
+  <tr class="ok">
+    <td class="ms">0.22 ms</td>
+    <td>Effects</td>
+    <td>Effect buttons include icon + label</td>
+  </tr>
+  <tr class="ok">
+    <td class="ms">0.21 ms</td>
+    <td>Effects</td>
+    <td>Preset platinum</td>
+  </tr>
+  <tr class="ok">
+    <td class="ms">0.20 ms</td>
+    <td>Effects</td>
+    <td>Preset lith</td>
+  </tr></table>
+  </div>
+  <main>
+    <section class="suite " id="s0" style="--c:#3b82f6">
+      <header>
+        <h2>File &amp; navigation</h2>
+        <div class="meta">26/26 통과 · 0.37 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="row ok">
+        <span class="dot"></span>
+        <span class="name">File menu includes Open File</span>
+        <span class="ms">0.03 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">File menu includes Open Folder</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">File menu includes Save As</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">File menu includes Print</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">File menu includes Settings</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">File menu includes Exit</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">File menu is built by _fileMenuItems</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Open File</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Open Folder</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Print</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Undo</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Redo</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Fit</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Actual size</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Rotate left</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Rotate right</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Flip H</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Flip V</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Resize</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Previous</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Next</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar has Edit</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Toolbar order is Open File → Open Folder → Print</span>
+        <span class="ms">0.04 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">In-app file dialog overlay exists</span>
+        <span class="ms">0.09 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Folder tree setSelected does not rebuild the tree</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Folder tree refresh is opt-in via force</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div>
+    </section>
+    <section class="suite " id="s1" style="--c:#f97316">
+      <header>
+        <h2>Menus &amp; shortcuts</h2>
+        <div class="meta">20/20 통과 · 0.62 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder main menubar</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder edit menubar</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder File</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Edit</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder View</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Effects</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Help</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Theme</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Language</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Export</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Edit File</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Edit Edit</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Menu builder Edit View</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Shortcut Ctrl+O open</span>
+        <span class="ms">0.06 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Shortcut Ctrl+P print</span>
+        <span class="ms">0.12 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Shortcut previous image</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Shortcut next image</span>
+        <span class="ms">0.06 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Shortcut save</span>
+        <span class="ms">0.11 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Shortcut undo</span>
+        <span class="ms">0.11 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Shortcuts dialog lists keys</span>
+        <span class="ms">0.03 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div>
+    </section>
+    <section class="suite wide" id="s2" style="--c:#8b5cf6">
+      <header>
+        <h2>Print</h2>
+        <div class="meta">50/50 통과 · 0.96 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="chips"><span class="chip ok" title="Print overlay has #print-overlay · 0.02 ms">
+        <i></i>Print overlay has #print-overlay<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-preview-stage · 0.01 ms">
+        <i></i>Print overlay has #print-preview-stage<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-paper · 0.02 ms">
+        <i></i>Print overlay has #print-paper<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-header · 0.02 ms">
+        <i></i>Print overlay has #print-header<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-footer · 0.02 ms">
+        <i></i>Print overlay has #print-footer<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-preview-img · 0.01 ms">
+        <i></i>Print overlay has #print-preview-img<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-content · 0.01 ms">
+        <i></i>Print overlay has #print-content<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-page-info · 0.01 ms">
+        <i></i>Print overlay has #print-page-info<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-go · 0.05 ms">
+        <i></i>Print overlay has #print-go<em>0.05 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-header-l · 0.01 ms">
+        <i></i>Print overlay has #print-header-l<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-header-c · 0.02 ms">
+        <i></i>Print overlay has #print-header-c<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-header-r · 0.01 ms">
+        <i></i>Print overlay has #print-header-r<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-footer-l · 0.01 ms">
+        <i></i>Print overlay has #print-footer-l<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-footer-c · 0.01 ms">
+        <i></i>Print overlay has #print-footer-c<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print overlay has #print-footer-r · 0.01 ms">
+        <i></i>Print overlay has #print-footer-r<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print form has #print-printer · 0.02 ms">
+        <i></i>Print form has #print-printer<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print form has #print-paper-size · 0.01 ms">
+        <i></i>Print form has #print-paper-size<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print form has #print-margins · 0.02 ms">
+        <i></i>Print form has #print-margins<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print form has #print-scale-pct · 0.01 ms">
+        <i></i>Print form has #print-scale-pct<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print form has #print-copies · 0.02 ms">
+        <i></i>Print form has #print-copies<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print form has #print-color · 0.02 ms">
+        <i></i>Print form has #print-color<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print form has #print-header-on · 0.01 ms">
+        <i></i>Print form has #print-header-on<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print form has #print-header-kind · 0.01 ms">
+        <i></i>Print form has #print-header-kind<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print form has #print-pageno-on · 0.01 ms">
+        <i></i>Print form has #print-pageno-on<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print form has #print-pageno-pos · 0.01 ms">
+        <i></i>Print form has #print-pageno-pos<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print form has #print-pageno-fmt · 0.01 ms">
+        <i></i>Print form has #print-pageno-fmt<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print dialog CSS forbids scrollbars · 0.02 ms">
+        <i></i>Print dialog CSS forbids scrollbars<em>0.02 ms</em>
+      </span><span class="chip ok" title="Print opens by blit, not PNG encode · 0.06 ms">
+        <i></i>Print opens by blit, not PNG encode<em>0.06 ms</em>
+      </span><span class="chip ok" title="Native File menu and IPC print exist · 0.04 ms">
+        <i></i>Native File menu and IPC print exist<em>0.04 ms</em>
+      </span><span class="chip ok" title="Layout auto-orient A4 · 0.13 ms">
+        <i></i>Layout auto-orient A4<em>0.13 ms</em>
+      </span><span class="chip ok" title="Layout auto-orient Letter · 0.02 ms">
+        <i></i>Layout auto-orient Letter<em>0.02 ms</em>
+      </span><span class="chip ok" title="Layout auto-orient Legal · <0.01 ms">
+        <i></i>Layout auto-orient Legal<em><0.01 ms</em>
+      </span><span class="chip ok" title="Layout auto-orient A3 · <0.01 ms">
+        <i></i>Layout auto-orient A3<em><0.01 ms</em>
+      </span><span class="chip ok" title="Layout auto-orient A5 · <0.01 ms">
+        <i></i>Layout auto-orient A5<em><0.01 ms</em>
+      </span><span class="chip ok" title="Layout auto-orient Tabloid · <0.01 ms">
+        <i></i>Layout auto-orient Tabloid<em><0.01 ms</em>
+      </span><span class="chip ok" title="Header and footer reserve 7 mm each · 0.04 ms">
+        <i></i>Header and footer reserve 7 mm each<em>0.04 ms</em>
+      </span><span class="chip ok" title="Custom 50% scale is half of fit · 0.07 ms">
+        <i></i>Custom 50% scale is half of fit<em>0.07 ms</em>
+      </span><span class="chip ok" title="Page number format n · 0.10 ms">
+        <i></i>Page number format n<em>0.10 ms</em>
+      </span><span class="chip ok" title="Page number format nOfN · <0.01 ms">
+        <i></i>Page number format nOfN<em><0.01 ms</em>
+      </span><span class="chip ok" title="Page number format pageN · <0.01 ms">
+        <i></i>Page number format pageN<em><0.01 ms</em>
+      </span><span class="chip ok" title="Page number format dash · <0.01 ms">
+        <i></i>Page number format dash<em><0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.title · 0.01 ms">
+        <i></i>Print i18n print.title<em>0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.headerShow · <0.01 ms">
+        <i></i>Print i18n print.headerShow<em><0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.pageNoShow · <0.01 ms">
+        <i></i>Print i18n print.pageNoShow<em><0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.pageN · <0.01 ms">
+        <i></i>Print i18n print.pageN<em><0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.nOfN · <0.01 ms">
+        <i></i>Print i18n print.nOfN<em><0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.printer · <0.01 ms">
+        <i></i>Print i18n print.printer<em><0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.paper · <0.01 ms">
+        <i></i>Print i18n print.paper<em><0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.margins · <0.01 ms">
+        <i></i>Print i18n print.margins<em><0.01 ms</em>
+      </span><span class="chip ok" title="Print i18n print.copies · <0.01 ms">
+        <i></i>Print i18n print.copies<em><0.01 ms</em>
+      </span></div>
+    </section>
+    <section class="suite " id="s3" style="--c:#ec4899">
+      <header>
+        <h2>Edit window</h2>
+        <div class="meta">39/39 통과 · 1.5 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit chrome has #edit-window</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit chrome has #ew-menubar</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit chrome has #ew-toolbar-row</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit chrome has #ew-status-bar</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit chrome has #ew-status-progress</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit chrome has #edit-window-titlebar</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit chrome has #edit-effects-panel</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit chrome has #edit-canvas-area</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: pointer</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: rect select</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: lasso</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: polygon</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: magic wand</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: cut</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: copy</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: background remove</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: crop selection</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool: clear selection</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: rotate left</span>
+        <span class="ms">0.06 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: rotate right</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: flip H</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: flip V</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: resize</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: print</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: undo</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: redo</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: zoom in</span>
+        <span class="ms">0.05 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: zoom out</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: fit</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: save</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: apply</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit action: cancel</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Preset panel min width follows effect labels</span>
+        <span class="ms">0.09 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit tool change recalculates window min width</span>
+        <span class="ms">0.15 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit Print button is wired to preview</span>
+        <span class="ms">0.11 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit File menu includes Print</span>
+        <span class="ms">0.03 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Effect progress is shown on the edit status bar</span>
+        <span class="ms">0.18 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Edit window has in-app save / unsaved popups</span>
+        <span class="ms">0.38 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Effect apply also opens the progress popup</span>
+        <span class="ms">0.14 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div>
+    </section>
+    <section class="suite wide" id="s4" style="--c:#f59e0b">
+      <header>
+        <h2>Effects</h2>
+        <div class="meta">126/126 통과 · 12 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="chips"><span class="chip ok" title="Category catFilmColor is tagged · 0.08 ms">
+        <i></i>Category catFilmColor is tagged<em>0.08 ms</em>
+      </span><span class="chip ok" title="Category catSlide is tagged · 0.10 ms">
+        <i></i>Category catSlide is tagged<em>0.10 ms</em>
+      </span><span class="chip ok" title="Category catBW is tagged · 0.10 ms">
+        <i></i>Category catBW is tagged<em>0.10 ms</em>
+      </span><span class="chip ok" title="Category catInstant is tagged · 0.08 ms">
+        <i></i>Category catInstant is tagged<em>0.08 ms</em>
+      </span><span class="chip ok" title="Category catCinema is tagged · 0.09 ms">
+        <i></i>Category catCinema is tagged<em>0.09 ms</em>
+      </span><span class="chip ok" title="Category catCreative is tagged · 0.08 ms">
+        <i></i>Category catCreative is tagged<em>0.08 ms</em>
+      </span><span class="chip ok" title="Effect buttons include icon + label · 0.22 ms">
+        <i></i>Effect buttons include icon + label<em>0.22 ms</em>
+      </span><span class="chip ok" title="Category accent CSS variable exists · 0.03 ms">
+        <i></i>Category accent CSS variable exists<em>0.03 ms</em>
+      </span><span class="chip ok" title="Editor defines 117 presets · 0.01 ms">
+        <i></i>Editor defines 117 presets<em>0.01 ms</em>
+      </span><span class="chip ok" title="Preset grayscale · 0.11 ms">
+        <i></i>Preset grayscale<em>0.11 ms</em>
+      </span><span class="chip ok" title="Preset sepia · 0.09 ms">
+        <i></i>Preset sepia<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset invert · 0.09 ms">
+        <i></i>Preset invert<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset vivid · 0.09 ms">
+        <i></i>Preset vivid<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset fade · 0.08 ms">
+        <i></i>Preset fade<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset cool · 0.08 ms">
+        <i></i>Preset cool<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset warm · 0.08 ms">
+        <i></i>Preset warm<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset vintage · 0.08 ms">
+        <i></i>Preset vintage<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset dramatic · 0.08 ms">
+        <i></i>Preset dramatic<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset emboss · 0.09 ms">
+        <i></i>Preset emboss<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset edge · 0.08 ms">
+        <i></i>Preset edge<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset noir · 0.09 ms">
+        <i></i>Preset noir<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset soft · 0.09 ms">
+        <i></i>Preset soft<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset crisp · 0.09 ms">
+        <i></i>Preset crisp<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset sunset · 0.10 ms">
+        <i></i>Preset sunset<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset arctic · 0.10 ms">
+        <i></i>Preset arctic<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset pastel · 0.10 ms">
+        <i></i>Preset pastel<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset matte · 0.09 ms">
+        <i></i>Preset matte<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset neon · 0.09 ms">
+        <i></i>Preset neon<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset moonlight · 0.09 ms">
+        <i></i>Preset moonlight<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset golden · 0.10 ms">
+        <i></i>Preset golden<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset bleach · 0.10 ms">
+        <i></i>Preset bleach<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset pop · 0.08 ms">
+        <i></i>Preset pop<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset crossprocess · 0.08 ms">
+        <i></i>Preset crossprocess<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset highkey · 0.08 ms">
+        <i></i>Preset highkey<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset lowkey · 0.10 ms">
+        <i></i>Preset lowkey<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset silver · 0.11 ms">
+        <i></i>Preset silver<em>0.11 ms</em>
+      </span><span class="chip ok" title="Preset polaroid · 0.17 ms">
+        <i></i>Preset polaroid<em>0.17 ms</em>
+      </span><span class="chip ok" title="Preset lomo · 0.17 ms">
+        <i></i>Preset lomo<em>0.17 ms</em>
+      </span><span class="chip ok" title="Preset filmcamera · 0.11 ms">
+        <i></i>Preset filmcamera<em>0.11 ms</em>
+      </span><span class="chip ok" title="Preset disposable · 0.10 ms">
+        <i></i>Preset disposable<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset portra · 0.11 ms">
+        <i></i>Preset portra<em>0.11 ms</em>
+      </span><span class="chip ok" title="Preset ektar · 0.10 ms">
+        <i></i>Preset ektar<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset fuji400h · 0.08 ms">
+        <i></i>Preset fuji400h<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset superia · 0.08 ms">
+        <i></i>Preset superia<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset lomochrome · 0.09 ms">
+        <i></i>Preset lomochrome<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset kodachrome · 0.09 ms">
+        <i></i>Preset kodachrome<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset velvia · 0.09 ms">
+        <i></i>Preset velvia<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset provia · 0.09 ms">
+        <i></i>Preset provia<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset slide · 0.09 ms">
+        <i></i>Preset slide<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset trix · 0.08 ms">
+        <i></i>Preset trix<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset delta3200 · 0.08 ms">
+        <i></i>Preset delta3200<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset tmax100 · 0.08 ms">
+        <i></i>Preset tmax100<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset sx70 · 0.08 ms">
+        <i></i>Preset sx70<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset instax · 0.10 ms">
+        <i></i>Preset instax<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset sprocket · 0.08 ms">
+        <i></i>Preset sprocket<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset holga · 0.09 ms">
+        <i></i>Preset holga<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset cinestill · 0.08 ms">
+        <i></i>Preset cinestill<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset vision3500t · 0.08 ms">
+        <i></i>Preset vision3500t<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset expired · 0.08 ms">
+        <i></i>Preset expired<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset expiredcool · 0.09 ms">
+        <i></i>Preset expiredcool<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset redscale · 0.08 ms">
+        <i></i>Preset redscale<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset bleachbypass · 0.08 ms">
+        <i></i>Preset bleachbypass<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset crossfuji · 0.09 ms">
+        <i></i>Preset crossfuji<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset nightflash · 0.09 ms">
+        <i></i>Preset nightflash<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset halfFrame · 0.09 ms">
+        <i></i>Preset halfFrame<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset doubleExp · 0.08 ms">
+        <i></i>Preset doubleExp<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset autumn · 0.10 ms">
+        <i></i>Preset autumn<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset spring · 0.10 ms">
+        <i></i>Preset spring<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset dusk · 0.09 ms">
+        <i></i>Preset dusk<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset fog · 0.09 ms">
+        <i></i>Preset fog<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset dream · 0.09 ms">
+        <i></i>Preset dream<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset hdr · 0.08 ms">
+        <i></i>Preset hdr<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset infrared · 0.08 ms">
+        <i></i>Preset infrared<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset newspaper · 0.09 ms">
+        <i></i>Preset newspaper<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset sketch · 0.10 ms">
+        <i></i>Preset sketch<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset retro70 · 0.08 ms">
+        <i></i>Preset retro70<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset retro80 · 0.08 ms">
+        <i></i>Preset retro80<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset tungsten · 0.08 ms">
+        <i></i>Preset tungsten<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset chrome · 0.10 ms">
+        <i></i>Preset chrome<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset orton · 0.10 ms">
+        <i></i>Preset orton<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset comic · 0.09 ms">
+        <i></i>Preset comic<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset xray · 0.09 ms">
+        <i></i>Preset xray<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset clarity · 0.09 ms">
+        <i></i>Preset clarity<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset cyanotype · 0.09 ms">
+        <i></i>Preset cyanotype<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset tealorange · 0.09 ms">
+        <i></i>Preset tealorange<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset underwater · 0.09 ms">
+        <i></i>Preset underwater<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset desert · 0.10 ms">
+        <i></i>Preset desert<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset forest · 0.10 ms">
+        <i></i>Preset forest<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset lavender · 0.08 ms">
+        <i></i>Preset lavender<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset candy · 0.09 ms">
+        <i></i>Preset candy<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset midnight · 0.08 ms">
+        <i></i>Preset midnight<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset thermal · 0.08 ms">
+        <i></i>Preset thermal<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset blueprint · 0.30 ms">
+        <i></i>Preset blueprint<em>0.30 ms</em>
+      </span><span class="chip ok" title="Preset selenium · 0.24 ms">
+        <i></i>Preset selenium<em>0.24 ms</em>
+      </span><span class="chip ok" title="Preset platinum · 0.21 ms">
+        <i></i>Preset platinum<em>0.21 ms</em>
+      </span><span class="chip ok" title="Preset lith · 0.20 ms">
+        <i></i>Preset lith<em>0.20 ms</em>
+      </span><span class="chip ok" title="Preset muted · 0.11 ms">
+        <i></i>Preset muted<em>0.11 ms</em>
+      </span><span class="chip ok" title="Preset cyberpunk · 0.10 ms">
+        <i></i>Preset cyberpunk<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset vaporwave · 0.09 ms">
+        <i></i>Preset vaporwave<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset charcoal · 0.08 ms">
+        <i></i>Preset charcoal<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset ink · 0.08 ms">
+        <i></i>Preset ink<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset bloom · 0.10 ms">
+        <i></i>Preset bloom<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset punch · 0.10 ms">
+        <i></i>Preset punch<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset flat · 0.09 ms">
+        <i></i>Preset flat<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset winter · 0.11 ms">
+        <i></i>Preset winter<em>0.11 ms</em>
+      </span><span class="chip ok" title="Preset summer · 0.10 ms">
+        <i></i>Preset summer<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset rainy · 0.09 ms">
+        <i></i>Preset rainy<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset peach · 0.10 ms">
+        <i></i>Preset peach<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset coral · 0.10 ms">
+        <i></i>Preset coral<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset amethyst · 0.08 ms">
+        <i></i>Preset amethyst<em>0.08 ms</em>
+      </span><span class="chip ok" title="Preset copper · 0.10 ms">
+        <i></i>Preset copper<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset denim · 0.10 ms">
+        <i></i>Preset denim<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset gothic · 0.10 ms">
+        <i></i>Preset gothic<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset romance · 0.09 ms">
+        <i></i>Preset romance<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset duotone · 0.09 ms">
+        <i></i>Preset duotone<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset glitch · 0.09 ms">
+        <i></i>Preset glitch<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset watercolor · 0.10 ms">
+        <i></i>Preset watercolor<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset anime · 0.10 ms">
+        <i></i>Preset anime<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset silhouette · 0.09 ms">
+        <i></i>Preset silhouette<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset amber · 0.10 ms">
+        <i></i>Preset amber<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset steel · 0.10 ms">
+        <i></i>Preset steel<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset push · 0.09 ms">
+        <i></i>Preset push<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset pull · 0.09 ms">
+        <i></i>Preset pull<em>0.09 ms</em>
+      </span><span class="chip ok" title="Preset midcentury · 0.10 ms">
+        <i></i>Preset midcentury<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset horror · 0.10 ms">
+        <i></i>Preset horror<em>0.10 ms</em>
+      </span><span class="chip ok" title="Preset miniature · 0.09 ms">
+        <i></i>Preset miniature<em>0.09 ms</em>
+      </span></div>
+    </section>
+    <section class="suite wide" id="s5" style="--c:#14b8a6">
+      <header>
+        <h2>Formats &amp; samples</h2>
+        <div class="meta">50/50 통과 · 0.47 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="chips"><span class="chip ok" title="Image ext .jpg is classified · 0.06 ms">
+        <i></i>Image ext .jpg is classified<em>0.06 ms</em>
+      </span><span class="chip ok" title="Image ext .jpeg is classified · 0.01 ms">
+        <i></i>Image ext .jpeg is classified<em>0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .png is classified · <0.01 ms">
+        <i></i>Image ext .png is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .gif is classified · <0.01 ms">
+        <i></i>Image ext .gif is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .bmp is classified · <0.01 ms">
+        <i></i>Image ext .bmp is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .webp is classified · <0.01 ms">
+        <i></i>Image ext .webp is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .svg is classified · <0.01 ms">
+        <i></i>Image ext .svg is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .ico is classified · <0.01 ms">
+        <i></i>Image ext .ico is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .tiff is classified · <0.01 ms">
+        <i></i>Image ext .tiff is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .tif is classified · <0.01 ms">
+        <i></i>Image ext .tif is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .heic is classified · <0.01 ms">
+        <i></i>Image ext .heic is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .heif is classified · <0.01 ms">
+        <i></i>Image ext .heif is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .hif is classified · <0.01 ms">
+        <i></i>Image ext .hif is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .dcm is classified · <0.01 ms">
+        <i></i>Image ext .dcm is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .dicom is classified · <0.01 ms">
+        <i></i>Image ext .dicom is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Image ext .avif is classified · <0.01 ms">
+        <i></i>Image ext .avif is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .mp4 is classified · 0.01 ms">
+        <i></i>Video ext .mp4 is classified<em>0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .webm is classified · <0.01 ms">
+        <i></i>Video ext .webm is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .ogv is classified · <0.01 ms">
+        <i></i>Video ext .ogv is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .mov is classified · <0.01 ms">
+        <i></i>Video ext .mov is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .avi is classified · <0.01 ms">
+        <i></i>Video ext .avi is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .mkv is classified · <0.01 ms">
+        <i></i>Video ext .mkv is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .m4v is classified · <0.01 ms">
+        <i></i>Video ext .m4v is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .flv is classified · <0.01 ms">
+        <i></i>Video ext .flv is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .wmv is classified · <0.01 ms">
+        <i></i>Video ext .wmv is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .3gp is classified · <0.01 ms">
+        <i></i>Video ext .3gp is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .mpeg is classified · <0.01 ms">
+        <i></i>Video ext .mpeg is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .mpg is classified · <0.01 ms">
+        <i></i>Video ext .mpg is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .ts is classified · <0.01 ms">
+        <i></i>Video ext .ts is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .m2ts is classified · <0.01 ms">
+        <i></i>Video ext .m2ts is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .vob is classified · <0.01 ms">
+        <i></i>Video ext .vob is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .rm is classified · <0.01 ms">
+        <i></i>Video ext .rm is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Video ext .rmvb is classified · <0.01 ms">
+        <i></i>Video ext .rmvb is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .mp3 is classified · <0.01 ms">
+        <i></i>Audio ext .mp3 is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .wav is classified · <0.01 ms">
+        <i></i>Audio ext .wav is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .flac is classified · <0.01 ms">
+        <i></i>Audio ext .flac is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .aac is classified · <0.01 ms">
+        <i></i>Audio ext .aac is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .m4a is classified · <0.01 ms">
+        <i></i>Audio ext .m4a is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .ogg is classified · <0.01 ms">
+        <i></i>Audio ext .ogg is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .opus is classified · <0.01 ms">
+        <i></i>Audio ext .opus is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .wma is classified · <0.01 ms">
+        <i></i>Audio ext .wma is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .mid is classified · <0.01 ms">
+        <i></i>Audio ext .mid is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .midi is classified · <0.01 ms">
+        <i></i>Audio ext .midi is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .aiff is classified · <0.01 ms">
+        <i></i>Audio ext .aiff is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Audio ext .aif is classified · <0.01 ms">
+        <i></i>Audio ext .aif is classified<em><0.01 ms</em>
+      </span><span class="chip ok" title="Unknown .txt is not an image · 0.01 ms">
+        <i></i>Unknown .txt is not an image<em>0.01 ms</em>
+      </span><span class="chip ok" title="FormatSupport exposes animated / TIFF / HEIC / DICOM helpers · 0.02 ms">
+        <i></i>FormatSupport exposes animated / TIFF / HEIC / DICOM helpers<em>0.02 ms</em>
+      </span><span class="chip ok" title="Sample SVG exists and is readable · 0.14 ms">
+        <i></i>Sample SVG exists and is readable<em>0.14 ms</em>
+      </span><span class="chip ok" title="App icons exist as svg / png / ico · 0.06 ms">
+        <i></i>App icons exist as svg / png / ico<em>0.06 ms</em>
+      </span><span class="chip ok" title="App icon SVG includes a pencil · 0.11 ms">
+        <i></i>App icon SVG includes a pencil<em>0.11 ms</em>
+      </span></div>
+    </section>
+    <section class="suite " id="s6" style="--c:#22c55e">
+      <header>
+        <h2>DICOM &amp; media</h2>
+        <div class="meta">36/36 통과 · 0.35 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM decoder module is present</span>
+        <span class="ms">0.11 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dicom-controls</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-prev-frame</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-next-frame</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-frame</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-play</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-fps</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-preset</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-wc</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-ww</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-invert</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-reset</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-colormap</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-overlays</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-annot</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-tool-ruler</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-tool-angle</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-tool-ellipse</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-tool-rect</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-meas-clear</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM UI #dcm-overlay</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #video-player</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #audio-player</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #mc-play</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #mc-pause</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #mc-stop</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #mc-seek</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #mc-time</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #mc-mute</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #mc-volume</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Media UI #mc-subtitle</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM function _dicomApply</span>
+        <span class="ms">0.03 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM function _dicomFrame</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM function _dicomWindow</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM function _dicomSyncBar</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">DICOM function _setDicomSession</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div>
+    </section>
+    <section class="suite " id="s7" style="--c:#84cc16">
+      <header>
+        <h2>Folder drives &amp; viewer chrome</h2>
+        <div class="meta">21/21 통과 · 0.12 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Drive buttons live in the folder-view title</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Virtual prev/next on the image pane</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Dialog #settings-overlay exists</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Dialog #shortcuts-overlay exists</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Dialog #resize-overlay exists</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Dialog #about-overlay exists</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Dialog #error-overlay exists</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Dialog #context-menu exists</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon print is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon edit is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon openFile is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon openFolder is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon rotateLeft is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon rotateRight is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon flipH is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon flipV is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon undo is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon redo is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon settings is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Icon drive is defined</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">Drive-bar CSS exists</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div>
+    </section>
+    <section class="suite wide" id="s8" style="--c:#06b6d4">
+      <header>
+        <h2>Status, i18n, theme</h2>
+        <div class="meta">54/54 통과 · 2.3 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="chips"><span class="chip ok" title="Main status bar has progress (no modal overlay for load) · 0.03 ms">
+        <i></i>Main status bar has progress (no modal overlay for load)<em>0.03 ms</em>
+      </span><span class="chip ok" title="Status bar has #status-zoom · 0.01 ms">
+        <i></i>Status bar has #status-zoom<em>0.01 ms</em>
+      </span><span class="chip ok" title="Status bar has #status-dims · <0.01 ms">
+        <i></i>Status bar has #status-dims<em><0.01 ms</em>
+      </span><span class="chip ok" title="Status bar has #status-format · <0.01 ms">
+        <i></i>Status bar has #status-format<em><0.01 ms</em>
+      </span><span class="chip ok" title="Status bar has #status-idx · <0.01 ms">
+        <i></i>Status bar has #status-idx<em><0.01 ms</em>
+      </span><span class="chip ok" title="Status bar has #status-msg · <0.01 ms">
+        <i></i>Status bar has #status-msg<em><0.01 ms</em>
+      </span><span class="chip ok" title="Status bar has #status-progress-msg · <0.01 ms">
+        <i></i>Status bar has #status-progress-msg<em><0.01 ms</em>
+      </span><span class="chip ok" title="Status bar has #status-progress-pct · <0.01 ms">
+        <i></i>Status bar has #status-progress-pct<em><0.01 ms</em>
+      </span><span class="chip ok" title="ko.json and en.json have the same keys · 0.43 ms">
+        <i></i>ko.json and en.json have the same keys<em>0.43 ms</em>
+      </span><span class="chip ok" title="i18n namespace about is non-empty in ko/en · 0.14 ms">
+        <i></i>i18n namespace about is non-empty in ko/en<em>0.14 ms</em>
+      </span><span class="chip ok" title="i18n namespace app is non-empty in ko/en · 0.12 ms">
+        <i></i>i18n namespace app is non-empty in ko/en<em>0.12 ms</em>
+      </span><span class="chip ok" title="i18n namespace bgAlgo is non-empty in ko/en · 0.08 ms">
+        <i></i>i18n namespace bgAlgo is non-empty in ko/en<em>0.08 ms</em>
+      </span><span class="chip ok" title="i18n namespace context is non-empty in ko/en · 0.09 ms">
+        <i></i>i18n namespace context is non-empty in ko/en<em>0.09 ms</em>
+      </span><span class="chip ok" title="i18n namespace dialog is non-empty in ko/en · 0.07 ms">
+        <i></i>i18n namespace dialog is non-empty in ko/en<em>0.07 ms</em>
+      </span><span class="chip ok" title="i18n namespace dicom is non-empty in ko/en · 0.07 ms">
+        <i></i>i18n namespace dicom is non-empty in ko/en<em>0.07 ms</em>
+      </span><span class="chip ok" title="i18n namespace editWindow is non-empty in ko/en · 0.06 ms">
+        <i></i>i18n namespace editWindow is non-empty in ko/en<em>0.06 ms</em>
+      </span><span class="chip ok" title="i18n namespace effects is non-empty in ko/en · 0.35 ms">
+        <i></i>i18n namespace effects is non-empty in ko/en<em>0.35 ms</em>
+      </span><span class="chip ok" title="i18n namespace error is non-empty in ko/en · 0.06 ms">
+        <i></i>i18n namespace error is non-empty in ko/en<em>0.06 ms</em>
+      </span><span class="chip ok" title="i18n namespace fd is non-empty in ko/en · 0.06 ms">
+        <i></i>i18n namespace fd is non-empty in ko/en<em>0.06 ms</em>
+      </span><span class="chip ok" title="i18n namespace info is non-empty in ko/en · 0.06 ms">
+        <i></i>i18n namespace info is non-empty in ko/en<em>0.06 ms</em>
+      </span><span class="chip ok" title="i18n namespace menu is non-empty in ko/en · 0.05 ms">
+        <i></i>i18n namespace menu is non-empty in ko/en<em>0.05 ms</em>
+      </span><span class="chip ok" title="i18n namespace placeholder is non-empty in ko/en · 0.05 ms">
+        <i></i>i18n namespace placeholder is non-empty in ko/en<em>0.05 ms</em>
+      </span><span class="chip ok" title="i18n namespace print is non-empty in ko/en · 0.05 ms">
+        <i></i>i18n namespace print is non-empty in ko/en<em>0.05 ms</em>
+      </span><span class="chip ok" title="i18n namespace progress is non-empty in ko/en · 0.05 ms">
+        <i></i>i18n namespace progress is non-empty in ko/en<em>0.05 ms</em>
+      </span><span class="chip ok" title="i18n namespace resize is non-empty in ko/en · 0.05 ms">
+        <i></i>i18n namespace resize is non-empty in ko/en<em>0.05 ms</em>
+      </span><span class="chip ok" title="i18n namespace save is non-empty in ko/en · 0.04 ms">
+        <i></i>i18n namespace save is non-empty in ko/en<em>0.04 ms</em>
+      </span><span class="chip ok" title="i18n namespace settings is non-empty in ko/en · 0.05 ms">
+        <i></i>i18n namespace settings is non-empty in ko/en<em>0.05 ms</em>
+      </span><span class="chip ok" title="i18n namespace shortcuts is non-empty in ko/en · 0.04 ms">
+        <i></i>i18n namespace shortcuts is non-empty in ko/en<em>0.04 ms</em>
+      </span><span class="chip ok" title="i18n namespace status is non-empty in ko/en · 0.04 ms">
+        <i></i>i18n namespace status is non-empty in ko/en<em>0.04 ms</em>
+      </span><span class="chip ok" title="i18n namespace theme is non-empty in ko/en · 0.08 ms">
+        <i></i>i18n namespace theme is non-empty in ko/en<em>0.08 ms</em>
+      </span><span class="chip ok" title="i18n namespace toolbar is non-empty in ko/en · 0.04 ms">
+        <i></i>i18n namespace toolbar is non-empty in ko/en<em>0.04 ms</em>
+      </span><span class="chip ok" title="i18n namespace tree is non-empty in ko/en · 0.03 ms">
+        <i></i>i18n namespace tree is non-empty in ko/en<em>0.03 ms</em>
+      </span><span class="chip ok" title="Korean print / effect strings are localized · 0.03 ms">
+        <i></i>Korean print / effect strings are localized<em>0.03 ms</em>
+      </span><span class="chip ok" title="Theme registry has 20 themes · 0.01 ms">
+        <i></i>Theme registry has 20 themes<em>0.01 ms</em>
+      </span><span class="chip ok" title="Theme dark is registered · <0.01 ms">
+        <i></i>Theme dark is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme midnight is registered · <0.01 ms">
+        <i></i>Theme midnight is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme dracula is registered · <0.01 ms">
+        <i></i>Theme dracula is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme monokai is registered · <0.01 ms">
+        <i></i>Theme monokai is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme nord is registered · <0.01 ms">
+        <i></i>Theme nord is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme solarized-dark is registered · <0.01 ms">
+        <i></i>Theme solarized-dark is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme one-dark is registered · <0.01 ms">
+        <i></i>Theme one-dark is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme gruvbox-dark is registered · <0.01 ms">
+        <i></i>Theme gruvbox-dark is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme tokyo-night is registered · <0.01 ms">
+        <i></i>Theme tokyo-night is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme catppuccin-mocha is registered · <0.01 ms">
+        <i></i>Theme catppuccin-mocha is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme light is registered · <0.01 ms">
+        <i></i>Theme light is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme solarized-light is registered · <0.01 ms">
+        <i></i>Theme solarized-light is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme github-light is registered · <0.01 ms">
+        <i></i>Theme github-light is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme gruvbox-light is registered · <0.01 ms">
+        <i></i>Theme gruvbox-light is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme nord-light is registered · <0.01 ms">
+        <i></i>Theme nord-light is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme catppuccin-latte is registered · <0.01 ms">
+        <i></i>Theme catppuccin-latte is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme one-light is registered · <0.01 ms">
+        <i></i>Theme one-light is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme rose-pine-dawn is registered · <0.01 ms">
+        <i></i>Theme rose-pine-dawn is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme paper is registered · <0.01 ms">
+        <i></i>Theme paper is registered<em><0.01 ms</em>
+      </span><span class="chip ok" title="Theme sky is registered · <0.01 ms">
+        <i></i>Theme sky is registered<em><0.01 ms</em>
+      </span></div>
+    </section>
+    <section class="suite " id="s9" style="--c:#6366f1">
+      <header>
+        <h2>IPC &amp; packaging</h2>
+        <div class="meta">33/33 통과 · 0.19 ms</div>
+      </header>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes readDirectory</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes listDrives</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes pathAncestors</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes readFileBytes</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes printImage</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes getPrinters</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes readFileBase64</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes decodeDicom</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes windowClose</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes windowMinimize</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes windowMaximize</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes getFileAssocStatus</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes setDefaultImageViewer</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes openDefaultAppsSettings</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes watchDirectory</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes watchFile</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes openFileDialog</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">preload exposes openFolderDialog</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">main handles print-image</span>
+        <span class="ms">0.03 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">main handles list-drives</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">main handles read-directory</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">main handles decode-dicom</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">main handles get-printers</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">main handles watch-directory</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">main handles get-file-assoc-status</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">main builds print HTML</span>
+        <span class="ms">0.02 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">package.json version and appId</span>
+        <span class="ms">0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">package script start</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">package script test</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">package script create-icons</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">package script build:win</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">package script build:mac</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div><div class="row ok">
+        <span class="dot"></span>
+        <span class="name">package script build:linux</span>
+        <span class="ms"><0.01 ms</span>
+        <span class="tag pass">PASS</span>
+        
+      </div>
+    </section></main>
+</body></html>

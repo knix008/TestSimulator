@@ -1356,7 +1356,7 @@
         w += parseFloat(getComputedStyle(child).minWidth) || 8;
       } else if (child.id === 'edit-window-title') {
         w += parseFloat(getComputedStyle(child).maxWidth) || 168;
-      } else if (child.classList.contains('ew-toolbar') || child.classList.contains('ew-group')) {
+      } else if (child.classList.contains('ew-toolbar') || child.classList.contains('ew-group') || child.classList.contains('ew-actions')) {
         // Do not use the clipped box — sum the real button widths
         w += _measureFlexContentWidth(child);
       } else {
@@ -1401,6 +1401,25 @@
     _appliedMinWidth = width;
     if (window.electronAPI.windowSetMinSize) {
       window.electronAPI.windowSetMinSize(width, 600);
+    }
+    return width;
+  }
+
+  async function _syncEditChromeMinSize() {
+    if (!state.editMode) return;
+    const minW = _syncWindowMinSize({ force: true });
+    if (!minW || !window.electronAPI.windowGetBounds || !window.electronAPI.windowApplySize) return;
+    try {
+      const b = await window.electronAPI.windowGetBounds();
+      if (!b || b.maximized || b.width >= minW) return;
+      await window.electronAPI.windowApplySize({
+        width: minW,
+        height: Math.max(600, b.height || 600),
+        minWidth: minW,
+        minHeight: 600,
+      });
+    } catch (e) {
+      console.warn('edit chrome min size:', e);
     }
   }
 
@@ -1563,6 +1582,7 @@
           title: I18n.t(titleKey) || I18n.t('progress.title') || 'Progress',
           message: msg || I18n.t(messageKey) || '',
           percent: percent != null ? percent : 8,
+          modal: !!document.getElementById('edit-window')?.classList.contains('visible'),
         });
         dlg.startCreep(90);
       } else {
@@ -4181,6 +4201,7 @@
       title: I18n.t('progress.title') || 'Progress',
       message: `${I18n.t('progress.bgRemove') || 'Removing background…'} (${algoLabel})`,
       percent: 5,
+      modal: !!state.editMode,
     });
     try {
       await ProgressDialog.yieldFrame();
@@ -4219,6 +4240,7 @@
       title: I18n.t('progress.title') || 'Progress',
       message: `${I18n.t('bgAlgo.rembgRunning') || 'Removing background (AI)…'} (${algoLabel})`,
       percent: 0,
+      modal: !!state.editMode,
     });
     ProgressDialog.startCreep(88);
     await ProgressDialog.yieldFrame();
@@ -4602,15 +4624,15 @@
     if (saved) {
       try { await FileTree.refresh({ force: true }); } catch (_) { /* ignore */ }
       _updateStatus({ msg: I18n.t('status.saved') || 'Saved' });
-      if (window.electronAPI?.showMessageBox) {
-        await window.electronAPI.showMessageBox({
-          type: 'info',
-          title: I18n.t('dialog.save.title') || 'Saved',
-          message: I18n.t('dialog.save.success') || 'File saved successfully.',
-          detail: savePath,
-          buttons: ['OK'],
-        });
-      }
+      await _saveRelatedPrompt({
+        title: I18n.t('dialog.save.title') || 'Saved',
+        message: I18n.t('dialog.save.success') || 'File saved successfully.',
+        detail: savePath,
+        buttons: [I18n.t('error.ok') || 'OK'],
+        defaultId: 0,
+        cancelId: 0,
+        icon: 'save',
+      });
     }
   }
 
@@ -4754,12 +4776,60 @@
   /* ════════════════════════════════════════════
      Effects Panel
   ════════════════════════════════════════════ */
+  let _editEffectsMinW = 200;
+
+  function _withEditWindowMeasured(fn) {
+    const win = document.getElementById('edit-window');
+    if (!win) return fn();
+    const temp = !win.classList.contains('visible') && !win.classList.contains('measuring');
+    if (temp) win.classList.add('measuring');
+    try { return fn(); }
+    finally { if (temp) win.classList.remove('measuring'); }
+  }
+
+  function _presetPanelMinWidth() {
+    const root = document.getElementById('edit-effects-content');
+    if (!root) return 260;
+    return _withEditWindowMeasured(() => {
+      let maxBtn = 0;
+      root.querySelectorAll('.preset-btn').forEach((btn) => {
+        const label = btn.querySelector('.preset-label');
+        const icon = btn.querySelector('.preset-icon');
+        const cs = getComputedStyle(btn);
+        const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        const gap = parseFloat(cs.columnGap || cs.gap) || 0;
+        const iconW = icon ? Math.max(icon.getBoundingClientRect().width, 16) : 0;
+        const labW = label ? Math.max(label.scrollWidth, 0) : 0;
+        maxBtn = Math.max(maxBtn, pad + iconW + gap + labW);
+      });
+      if (!maxBtn) return 260;
+      const contentCs = getComputedStyle(root);
+      const contentPad = (parseFloat(contentCs.paddingLeft) || 0) + (parseFloat(contentCs.paddingRight) || 0);
+      const presets = root.querySelector('.effect-presets');
+      const pcs = presets ? getComputedStyle(presets) : null;
+      const catPad = pcs ? (parseFloat(pcs.paddingLeft) || 0) + (parseFloat(pcs.paddingRight) || 0) : 12;
+      const gridGap = pcs ? (parseFloat(pcs.columnGap || pcs.gap) || 6) : 6;
+      return Math.ceil(contentPad + catPad + gridGap + 2 * maxBtn + 16);
+    });
+  }
+
+  function _applyPresetPanelMinWidth() {
+    const panel = document.getElementById('edit-effects-panel');
+    if (!panel) return;
+    _editEffectsMinW = Math.max(240, _presetPanelMinWidth());
+    panel.style.minWidth = `${_editEffectsMinW}px`;
+    const saved = parseInt(localStorage.getItem('editEffectsPanelWidth') || '', 10);
+    const next = saved >= _editEffectsMinW ? saved : _editEffectsMinW;
+    panel.style.width = `${next}px`;
+  }
+
   function _buildEffectsPanel() {
     _buildEffectsPanelIn('effects-content', 'eff');
     if (document.getElementById('edit-effects-content')) {
       _buildEffectsPanelIn('edit-effects-content', 'ew-eff', 'presets');
       _buildEffectsPanelIn('edit-adjust-content', 'ew-eff', 'adjust');
       _ewEffectsBuilt = true;
+      requestAnimationFrame(() => _applyPresetPanelMinWidth());
     }
   }
 
@@ -4769,6 +4839,28 @@
 
   function _clearPresetActive(idPrefix) {
     _presetRoot(idPrefix)?.querySelectorAll('.preset-btn').forEach((b) => b.classList.remove('active'));
+  }
+
+  async function _applyEffectPreset(id, btn, idPrefix) {
+    _clearPresetActive(idPrefix);
+    if (btn) btn.classList.add('active');
+    const name = I18n.t(`effects.${id}`) || id;
+    const msg = (I18n.t('progress.effectNamed') || 'Applying {name}…').replace('{name}', name);
+    ProgressDialog.show({
+      title: I18n.t('progress.effectTitle') || 'Applying effect',
+      message: msg,
+      percent: 8,
+      modal: true,
+    });
+    ProgressDialog.startCreep(88);
+    await ProgressDialog.yieldFrame();
+    try {
+      await Editor.applyPreset(id);
+      _syncSlidersFromEffects(idPrefix);
+      await ProgressDialog.yieldFrame();
+    } finally {
+      ProgressDialog.hide(I18n.t('progress.effectDone') || 'Effect applied.');
+    }
   }
 
   function _buildEffectsPanelIn(containerId, idPrefix, mode = 'all') {
@@ -4971,20 +5063,37 @@
       { key: 'catCreative',  ids: ['neon', 'chrome', 'hdr', 'infrared', 'nightvision', 'thermal', 'dream', 'orton', 'cyanotype', 'watercolor', 'anime', 'comic', 'xray', 'emboss', 'edge', 'duotone', 'blueprint', 'miniature'] },
     ];
 
-    const _makePresetBtn = (id) => {
+    const FX_CAT_ICON = {
+      catFilmColor: '<svg viewBox="0 0 24 24"><path d="M18 3H6c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM8 19H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V9h2v2zm0-4H6V5h2v2zm10 12h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V9h2v2zm0-4h-2V5h2v2z"/></svg>',
+      catSlide:     '<svg viewBox="0 0 24 24"><path d="M1 5h4v14H1V5zm18 0h4v14h-4V5zM7 3h10c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm1 3v12l9-6-9-6z"/></svg>',
+      catBW:        '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/></svg>',
+      catInstant:   '<svg viewBox="0 0 24 24"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2zm1 3v8h10V6H7zm2 10h3v2H9v-2z"/></svg>',
+      catCinema:    '<svg viewBox="0 0 24 24"><path d="M18 4 20 8h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>',
+      catProcess:   '<svg viewBox="0 0 24 24"><path d="M6 2v2h1v3.17A7.002 7.002 0 0 0 5 14c0 3.87 3.13 7 7 7s7-3.13 7-7a7 7 0 0 0-2-4.83V4h1V2H6zm4 2h4v2.1A6.97 6.97 0 0 0 12 6c-.7 0-1.37.1-2 .28V4z"/></svg>',
+      catWarm:      '<svg viewBox="0 0 24 24"><path d="M6.76 4.84 5 3.07 3.58 4.5 5.35 6.26l1.41-1.42zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/></svg>',
+      catCool:      '<svg viewBox="0 0 24 24"><path d="M12 2 10.5 6H8l2.5 2.2L9.2 12 12 9.8 14.8 12l-1.3-3.8L16 6h-2.5L12 2zm-7 9 1.8 1.2L6 15l3.8-1.3L12 17l2.2-3.3L18 15l-.8-2.8L19 11h-5l-2 3-2-3H5z"/></svg>',
+      catBasic:     '<svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>',
+      catCreative:  '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01A1.49 1.49 0 0 1 14.22 16H16a5 5 0 0 0 5-5c0-4.42-4.03-8-9-8zM6.5 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>',
+      catMisc:      '<svg viewBox="0 0 24 24"><path d="M12 2 9.2 8.6 2 9.2l5.5 4.8L5.8 21 12 17.3 18.2 21l-1.7-7L22 9.2l-7.2-.6z"/></svg>',
+    };
+
+    const _makePresetBtn = (id, catKey) => {
       const label = _labelOf[id] || `effects.${id}`;
       const btn = document.createElement('button');
       btn.className = 'preset-btn';
-      btn.setAttribute('data-i18n', label);
-      btn.textContent = I18n.t(label);
       btn.dataset.preset = id;
+      btn.title = I18n.t(label);
+      const icon = document.createElement('span');
+      icon.className = 'preset-icon';
+      icon.innerHTML = FX_CAT_ICON[catKey] || FX_CAT_ICON.catMisc;
+      const lab = document.createElement('span');
+      lab.className = 'preset-label';
+      lab.setAttribute('data-i18n', label);
+      lab.textContent = I18n.t(label);
+      btn.appendChild(icon);
+      btn.appendChild(lab);
       if (activePreset === id) btn.classList.add('active');
-      btn.addEventListener('click', () => {
-        _clearPresetActive(idPrefix);
-        btn.classList.add('active');
-        Editor.applyPreset(id);
-        _syncSlidersFromEffects(idPrefix);
-      });
+      btn.addEventListener('click', () => { _applyEffectPreset(id, btn, idPrefix); });
       return btn;
     };
 
@@ -4992,6 +5101,7 @@
       if (!ids.length) return;
       const section = document.createElement('div');
       section.className = 'fx-cat';
+      section.dataset.cat = catKey;
       if (persist && localStorage.getItem(`fxCat:${catKey}`) === '1') section.classList.add('collapsed');
 
       const header = document.createElement('button');
@@ -5014,7 +5124,7 @@
 
       const body = document.createElement('div');
       body.className = 'fx-cat-body effect-presets';
-      ids.forEach((id) => body.appendChild(_makePresetBtn(id)));
+      ids.forEach((id) => body.appendChild(_makePresetBtn(id, catKey)));
 
       section.appendChild(header);
       section.appendChild(body);
@@ -5759,6 +5869,7 @@
     _updateMediaControlsVisibility();
     _dicomSyncBar();
     _ewSyncTitle();
+    _updateStatus({ zoom: true, dims: true });
 
     Editor.clearSelection();
     _setTool('pointer');
@@ -5796,6 +5907,124 @@
     });
   }
 
+  function _editWindowOpen() {
+    return !!document.getElementById('edit-window')?.classList.contains('visible');
+  }
+
+  let _confirmFinish = null;
+
+  function _appConfirm({
+    title = '',
+    message = '',
+    detail = '',
+    buttons = ['OK'],
+    defaultId = 0,
+    cancelId = buttons.length - 1,
+    icon = 'save',
+  } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('confirm-overlay');
+      const titleEl = document.getElementById('confirm-title');
+      const iconEl = document.getElementById('confirm-title-icon');
+      const msgEl = document.getElementById('confirm-message');
+      const detailEl = document.getElementById('confirm-detail');
+      const footer = document.getElementById('confirm-footer');
+      const closeBtn = document.getElementById('confirm-close');
+      if (!overlay || !footer) {
+        resolve({ response: cancelId, canceled: true });
+        return;
+      }
+
+      if (titleEl) titleEl.textContent = title;
+      if (iconEl) {
+        iconEl.dataset.icon = icon;
+        iconEl.innerHTML = (window.Icons && Icons[icon]) || iconEl.innerHTML || '';
+      }
+      if (msgEl) msgEl.textContent = message;
+      if (detailEl) {
+        const text = String(detail || '').trim();
+        detailEl.hidden = !text;
+        detailEl.textContent = text;
+      }
+
+      footer.replaceChildren();
+      let settled = false;
+      const finish = (response, canceled) => {
+        if (settled) return;
+        settled = true;
+        _confirmFinish = null;
+        overlay.style.display = 'none';
+        overlay.classList.remove('visible');
+        resolve({ response, canceled: !!canceled });
+      };
+      _confirmFinish = () => finish(cancelId, true);
+
+      buttons.forEach((label, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = label;
+        if (i === defaultId) btn.classList.add('primary');
+        btn.addEventListener('click', () => finish(i, i === cancelId));
+        footer.appendChild(btn);
+      });
+      closeBtn?.addEventListener('click', _confirmFinish, { once: true });
+
+      overlay.style.display = 'flex';
+      overlay.classList.add('visible');
+      footer.querySelector('.primary')?.focus();
+    });
+  }
+
+  async function _saveRelatedPrompt(opts) {
+    if (_editWindowOpen() || !window.electronAPI?.showMessageBox) {
+      return _appConfirm(opts);
+    }
+    return window.electronAPI.showMessageBox(opts);
+  }
+
+  let _unsavedFinish = null;
+
+  function _fillDataIcons(root) {
+    (root || document).querySelectorAll('[data-icon]').forEach((el) => {
+      const name = el.dataset.icon;
+      if (name && window.Icons && Icons[name] && !el.querySelector('svg')) {
+        el.innerHTML = Icons[name];
+      }
+    });
+  }
+
+  function _unsavedPrompt() {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('unsaved-overlay');
+      if (!overlay) {
+        resolve({ response: 2, canceled: true });
+        return;
+      }
+      _fillDataIcons(overlay);
+      let settled = false;
+      const finish = (response, canceled) => {
+        if (settled) return;
+        settled = true;
+        _unsavedFinish = null;
+        overlay.style.display = 'none';
+        overlay.classList.remove('visible');
+        resolve({ response, canceled: !!canceled });
+      };
+      _unsavedFinish = () => finish(2, true);
+      const bind = (id, response, canceled) => {
+        const el = document.getElementById(id);
+        if (el) el.onclick = () => finish(response, canceled);
+      };
+      bind('unsaved-save', 0, false);
+      bind('unsaved-dont', 1, false);
+      bind('unsaved-cancel', 2, true);
+      bind('unsaved-close', 2, true);
+      overlay.style.display = 'flex';
+      overlay.classList.add('visible');
+      document.getElementById('unsaved-save')?.focus();
+    });
+  }
+
   let _editClosePrompting = false;
 
   async function _requestCloseEditWindow(apply) {
@@ -5815,19 +6044,7 @@
     if (_editClosePrompting) return false;
     _editClosePrompting = true;
     try {
-      const t = I18n.t.bind(I18n);
-      const result = await window.electronAPI.showMessageBox({
-        type: 'question',
-        title: t('dialog.unsaved.title') || 'Unsaved Changes',
-        message: t('dialog.unsaved.message') || 'You have unsaved changes.\nDo you want to save before closing?',
-        buttons: [
-          t('dialog.unsaved.save') || 'Save',
-          t('dialog.unsaved.dontSave') || "Don't Save",
-          t('dialog.unsaved.cancel') || 'Cancel',
-        ],
-        defaultId: 0,
-        cancelId: 2,
-      });
+      const result = await _unsavedPrompt();
       if (result.response === 2 || result.canceled) return false;
       if (result.response === 0) {
         const saved = await _saveAs(false, { useChangedName: true });
@@ -5937,6 +6154,7 @@
     ['ew-flip-h',    'flipH',       'toolbar.flipH',        () => { _flip('h'); }],
     ['ew-flip-v',    'flipV',       'toolbar.flipV',        () => { _flip('v'); }],
     ['ew-resize',    'resize',      'toolbar.resize',       () => { _openResizeDialog(); }],
+    ['ew-print',     'print',       'toolbar.print',        () => { _openPrintPreview(); }],
     ['ew-undo',      'undo',        'editWindow.undo',      () => { _undoEdit(); }],
     ['ew-redo',      'redo',        'editWindow.redo',      () => { _redoEdit(); }],
     ['ew-zoom-in',   'zoomIn',      'toolbar.zoomIn',       () => _ewZoomBy(1.25)],
@@ -5960,6 +6178,10 @@
     _ewActionIconMap.forEach(([id, icon]) => {
       const btn = document.getElementById(id);
       if (btn) btn.innerHTML = Icons[icon] || '';
+    });
+    document.querySelectorAll('#ew-save .ew-action-icon, #ew-cancel .ew-action-icon, #ew-apply .ew-action-icon').forEach((el) => {
+      const name = el.dataset.icon;
+      if (name && Icons[name]) el.innerHTML = Icons[name];
     });
   }
 
@@ -6076,6 +6298,7 @@
 
     const tolWrap = document.getElementById('ew-tolerance-wrap');
     if (tolWrap) tolWrap.style.display = tool === 'magic-wand' ? 'flex' : 'none';
+    requestAnimationFrame(() => { _syncEditChromeMinSize(); });
 
     editCanvasArea.classList.remove('drag-mode','select-mode');
     if (tool === 'pointer') {
@@ -6199,6 +6422,7 @@
       { icon: Icons.flipH,       label: t('menu.flipHorizontal'), action: () => { _flip('h'); } },
       { icon: Icons.flipV,       label: t('menu.flipVertical'),   action: () => { _flip('v'); } },
       { icon: Icons.resize,      label: t('context.resize'),      action: () => { _openResizeDialog(); } },
+      { icon: Icons.print,       label: t('menu.print'),          shortcut: 'Ctrl+P', action: () => { _openPrintPreview(); } },
       { separator: true },
       { icon: Icons.undo, label: t('editWindow.undo'), disabled: !Editor.canUndo(), action: () => { _undoEdit(); } },
       { icon: Icons.redo,  label: t('editWindow.redo'), disabled: !Editor.canRedo(), action: () => { _redoEdit(); } },
@@ -6211,6 +6435,7 @@
     _buildEffectsPanelIn('edit-effects-content', 'ew-eff', 'presets');
     _buildEffectsPanelIn('edit-adjust-content', 'ew-eff', 'adjust');
     _ewEffectsBuilt = true;
+    requestAnimationFrame(() => _applyPresetPanelMinWidth());
   }
 
   /* Effects panel buttons */
@@ -6339,19 +6564,25 @@
         try { await FileTree.refresh({ force: true }); } catch (_) { /* ignore */ }
       }
       return wr;
-    }, { messageKey: 'progress.saving', kind: 'encode' });
+    }, {
+      messageKey: 'progress.saving',
+      kind: 'encode',
+      force: _editWindowOpen(),
+    });
 
     if (!writeResult || writeResult.error === 'export') return false;
     if (writeResult && writeResult.success) {
       _clearDirty();
       const msg = I18n.t('status.saved') || `Saved: ${savePath.split(/[/\\]/).pop()}`;
       _updateStatus({ msg });
-      await window.electronAPI.showMessageBox({
-        type: 'info',
+      await _saveRelatedPrompt({
         title: I18n.t('dialog.save.title') || 'Saved',
         message: I18n.t('dialog.save.success') || 'File saved successfully.',
         detail: savePath,
-        buttons: ['OK'],
+        buttons: [I18n.t('error.ok') || 'OK'],
+        defaultId: 0,
+        cancelId: 0,
+        icon: 'save',
       });
       if (andClose) window.electronAPI.closeWindow();
       return true;
@@ -7039,14 +7270,23 @@
   ════════════════════════════════════════════ */
   function _updateStatus({ filePath, zoom, dims, msg, dicomMeta } = {}) {
     const pct = Math.round(state.zoom * 100);
-    if (statusZoom) statusZoom.textContent = `${I18n.t('status.zoom')}: ${pct}%`;
+    const zoomText = `${I18n.t('status.zoom')}: ${pct}%`;
+    if (statusZoom) statusZoom.textContent = zoomText;
+    const ewZoom = document.getElementById('ew-status-zoom');
+    if (ewZoom) ewZoom.textContent = zoomText;
 
+    let dimText = null;
     if (Editor.isLoaded()) {
       const d = Editor.getDimensions();
-      if (statusDims) statusDims.textContent = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
+      dimText = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
     } else if (state.isAnimated || state.isVideo) {
       const d = _getViewerDims();
-      if (statusDims && d.w && d.h) statusDims.textContent = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
+      if (d.w && d.h) dimText = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
+    }
+    if (dimText) {
+      if (statusDims) statusDims.textContent = dimText;
+      const ewDims = document.getElementById('ew-status-dims');
+      if (ewDims) ewDims.textContent = dimText;
     }
 
     if (statusIdx && state.fileList.length > 0) {
@@ -7054,7 +7294,7 @@
         `${I18n.t('status.index')} ${state.fileIndex + 1} ${I18n.t('status.of')} ${state.fileList.length}`;
     }
 
-    if (state.currentFile && statusFmt) {
+    if (state.currentFile) {
       let fmt = FormatSupport.getExtension(state.currentFile).toUpperCase();
       const d = state.dicom;
       if (d) {
@@ -7065,10 +7305,16 @@
         else if (d.gray && Number.isFinite(d.state.wc)) bits.push(`C ${_dicomFmt(d.state.wc)} / W ${_dicomFmt(d.state.ww)}`);
         if (bits.length) fmt += ` · ${bits.join(' · ')}`;
       }
-      statusFmt.textContent = fmt;
+      if (statusFmt) statusFmt.textContent = fmt;
+      const ewFmt = document.getElementById('ew-status-format');
+      if (ewFmt) ewFmt.textContent = fmt;
     }
 
-    if (msg && statusMsg) statusMsg.textContent = msg;
+    if (msg) {
+      if (statusMsg) statusMsg.textContent = msg;
+      const ewMsg = document.getElementById('ew-status-msg');
+      if (ewMsg) ewMsg.textContent = msg;
+    }
   }
 
   /* ════════════════════════════════════════════
@@ -7209,7 +7455,7 @@
     return new Promise(resolve => { _errorResolve = resolve; });
   }
 
-  /** Status-bar progress (no modal — the overlay caused folder-view flicker). */
+  /** Status-bar progress; optional modal for long edit-window work. */
   const ProgressDialog = (() => {
     let _percent = 0;
     let _creepTimer = null;
@@ -7217,31 +7463,71 @@
     let _visible = false;
     let _active = false;
     let _message = '';
+    let _modal = false;
     let _doneTimer = null; // leftover timer from a previous finish, if any
 
-    function _els() {
+    function _elsList() {
+      return [
+        {
+          wrap: document.getElementById('status-progress'),
+          message: document.getElementById('status-progress-msg'),
+          fill: document.getElementById('status-progress-fill'),
+          bar: document.getElementById('status-progress-bar'),
+          pct: document.getElementById('status-progress-pct'),
+        },
+        {
+          wrap: document.getElementById('ew-status-progress'),
+          message: document.getElementById('ew-status-progress-msg'),
+          fill: document.getElementById('ew-status-progress-fill'),
+          bar: document.getElementById('ew-status-progress-bar'),
+          pct: document.getElementById('ew-status-progress-pct'),
+        },
+      ].filter((e) => e.wrap);
+    }
+
+    function _modalEls() {
       return {
-        wrap: document.getElementById('status-progress'),
-        message: document.getElementById('status-progress-msg'),
-        fill: document.getElementById('status-progress-fill'),
-        bar: document.getElementById('status-progress-bar'),
-        pct: document.getElementById('status-progress-pct'),
+        overlay: document.getElementById('progress-overlay'),
+        title: document.getElementById('progress-title'),
+        message: document.getElementById('progress-message'),
+        fill: document.getElementById('progress-bar-fill'),
+        bar: document.getElementById('progress-bar'),
+        pct: document.getElementById('progress-percent'),
       };
     }
 
+    function _setModalVisible(on, title) {
+      const m = _modalEls();
+      if (!m.overlay) return;
+      if (on) {
+        if (m.title && title) m.title.textContent = title;
+        m.overlay.style.display = 'flex';
+        m.overlay.classList.add('visible');
+      } else {
+        m.overlay.style.display = 'none';
+        m.overlay.classList.remove('visible');
+      }
+    }
+
     function _paint(message) {
-      const e = _els();
       const shown = Math.round(_percent);
       if (message != null) _message = message;
-      if (e.fill) e.fill.style.width = `${shown}%`;
-      if (e.pct) e.pct.textContent = `${shown}%`;
-      if (e.bar) e.bar.setAttribute('aria-valuenow', String(shown));
-      if (e.message) e.message.textContent = _message;
+      for (const e of _elsList()) {
+        if (e.fill) e.fill.style.width = `${shown}%`;
+        if (e.pct) e.pct.textContent = `${shown}%`;
+        if (e.bar) e.bar.setAttribute('aria-valuenow', String(shown));
+        if (e.message) e.message.textContent = _message;
+      }
+      if (!_modal) return;
+      const m = _modalEls();
+      if (m.fill) m.fill.style.width = `${shown}%`;
+      if (m.pct) m.pct.textContent = `${shown}%`;
+      if (m.bar) m.bar.setAttribute('aria-valuenow', String(shown));
+      if (m.message) m.message.textContent = _message;
     }
 
     function _setDoneUi(on) {
-      const e = _els();
-      e.wrap?.classList.toggle('is-done', !!on);
+      for (const e of _elsList()) e.wrap.classList.toggle('is-done', !!on);
     }
 
     function _cancelDoneTimer() {
@@ -7252,25 +7538,31 @@
     }
 
     function _snapFill(widthPct) {
-      const e = _els();
-      if (!e.fill) return;
-      e.fill.style.transition = 'none';
-      e.fill.style.width = `${widthPct}%`;
-      void e.fill.offsetWidth;
-      e.fill.style.transition = '';
+      const fills = _elsList().map((e) => e.fill).filter(Boolean);
+      if (_modal) {
+        const m = _modalEls();
+        if (m.fill) fills.push(m.fill);
+      }
+      for (const fill of fills) {
+        fill.style.transition = 'none';
+        fill.style.width = `${widthPct}%`;
+        void fill.offsetWidth;
+        fill.style.transition = '';
+      }
     }
 
-    function show({ title, message, percent } = {}) {
+    function show({ title, message, percent, modal } = {}) {
       _cancelDoneTimer();
       stopCreep();
       _percent = 0;
       _active = true;
       _visible = true;
-      const e = _els();
-      if (e.wrap) {
+      _modal = !!modal;
+      for (const e of _elsList()) {
         e.wrap.hidden = false;
         e.wrap.classList.remove('is-done');
       }
+      _setModalVisible(_modal, title || '');
       _snapFill(0);
       set(percent != null ? percent : 0, message || title || '', true);
     }
@@ -7279,8 +7571,7 @@
     function set(percent, message, force) {
       if (!_active) return;
       _visible = true;
-      const e = _els();
-      if (e.wrap) e.wrap.hidden = false;
+      for (const e of _elsList()) e.wrap.hidden = false;
       const raw = Math.max(0, Math.min(100, Number(percent) || 0));
       _percent = force ? raw : Math.max(_percent, raw);
       _paint(message);
@@ -7288,8 +7579,8 @@
 
     function hide(resultMessage) {
       stopCreep();
-      const e = _els();
-      const wasShown = _active || (e.wrap && !e.wrap.hidden);
+      const list = _elsList();
+      const wasShown = _active || _modal || list.some((e) => !e.wrap.hidden);
       _active = false;
       _visible = false;
       if (!wasShown) return;
@@ -7297,7 +7588,9 @@
       _percent = 100;
       _paint(done);
       _setDoneUi(true);
-      if (e.wrap) e.wrap.hidden = false;
+      for (const e of list) e.wrap.hidden = false;
+      if (_modal) _setModalVisible(false);
+      _modal = false;
     }
 
     /** Slowly advance toward `cap` while inference runs (no true ORT %). */
@@ -8099,8 +8392,18 @@
         }
       }
       if (e.key === 'Escape') {
+        if (_unsavedFinish) {
+          e.preventDefault();
+          _unsavedFinish();
+          return;
+        }
+        if (_confirmFinish) {
+          e.preventDefault();
+          _confirmFinish();
+          return;
+        }
         const openDlg = [...document.querySelectorAll('.dialog-overlay')].find((el) => {
-          if (el.id === 'progress-overlay' || el.id === 'file-dialog-overlay') return false;
+          if (el.id === 'progress-overlay' || el.id === 'file-dialog-overlay' || el.id === 'confirm-overlay' || el.id === 'unsaved-overlay') return false;
           return el.classList.contains('visible') || el.style.display === 'flex';
         });
         if (openDlg) {
@@ -8265,8 +8568,15 @@
     btn.addEventListener('pointerup', close);
   });
 
+  document.getElementById('confirm-overlay')?.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'confirm-overlay') _confirmFinish?.();
+  });
+  document.getElementById('unsaved-overlay')?.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'unsaved-overlay') _unsavedFinish?.();
+  });
+
   document.querySelectorAll('.dialog-overlay').forEach(overlay => {
-    if (overlay.id === 'progress-overlay' || overlay.id === 'file-dialog-overlay') return;
+    if (overlay.id === 'progress-overlay' || overlay.id === 'file-dialog-overlay' || overlay.id === 'confirm-overlay' || overlay.id === 'unsaved-overlay') return;
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) _hideDialogEl(overlay);
     });
@@ -8387,13 +8697,7 @@
     const handle = document.getElementById('edit-effects-resize');
     if (!panel || !handle) return;
 
-    const MIN_W = 200;
-    const MAX_W = 480;
-
-    const saved = parseInt(localStorage.getItem('editEffectsPanelWidth') || '', 10);
-    if (saved >= MIN_W && saved <= MAX_W) {
-      panel.style.width = `${saved}px`;
-    }
+    const MAX_W = 560;
 
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -8404,7 +8708,7 @@
       document.body.classList.add('resizing-col');
 
       const onMove = (ev) => {
-        const w = Math.min(Math.max(startW + (ev.clientX - startX), MIN_W), MAX_W);
+        const w = Math.min(Math.max(startW + (ev.clientX - startX), _editEffectsMinW), MAX_W);
         panel.style.width = `${Math.round(w)}px`;
       };
       const onUp = () => {

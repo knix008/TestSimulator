@@ -1063,6 +1063,10 @@ window.Editor = (() => {
     return window._ProgressDialog || null;
   }
 
+  function _editWindowOpen() {
+    return !!document.getElementById('edit-window')?.classList.contains('visible');
+  }
+
   async function _runSyncWithProgress(work, { messageKey = 'progress.applying', kind = 'render' } = {}) {
     const dlg = _progressDialog();
     const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
@@ -1075,6 +1079,7 @@ window.Editor = (() => {
         title: _tProgress('progress.title', 'Progress'),
         message: _tProgress(messageKey, 'Working…'),
         percent: 6,
+        modal: _editWindowOpen(),
       });
       dlg.startCreep(90);
     }
@@ -1102,6 +1107,7 @@ window.Editor = (() => {
         title: _tProgress('progress.effectTitle', _tProgress('progress.title', 'Progress')),
         message: _tProgress('progress.effectApplying', 'Applying effects…'),
         percent: 4,
+        modal: _editWindowOpen(),
       });
       dlg.startCreep(90);
     }
@@ -1119,6 +1125,8 @@ window.Editor = (() => {
     }
   }
 
+  let _effectRenderTail = Promise.resolve();
+
   function _requestEffectRender(wantProgress, saveHist) {
     const prev = _effectRenderQueued;
     _effectRenderQueued = {
@@ -1128,10 +1136,10 @@ window.Editor = (() => {
     if (_effectRenderBusy) {
       // Abort in-flight pass after its next yield; latest effects win.
       _effectRenderGen++;
-      return;
+      return _effectRenderTail;
     }
     _effectRenderBusy = true;
-    (async () => {
+    _effectRenderTail = (async () => {
       try {
         while (_effectRenderQueued) {
           const job = _effectRenderQueued;
@@ -1144,10 +1152,11 @@ window.Editor = (() => {
         if (_effectRenderQueued) {
           const again = _effectRenderQueued;
           _effectRenderQueued = null;
-          _requestEffectRender(again.wantProgress, again.saveHist);
+          await _requestEffectRender(again.wantProgress, again.saveHist);
         }
       }
     })();
+    return _effectRenderTail;
   }
 
   function _buildFilterString() {
@@ -1542,8 +1551,8 @@ window.Editor = (() => {
     Object.assign(effects, border);
     const preset = PRESETS[name];
     if (preset) Object.assign(effects, preset);
-    if (JSON.stringify(effects) === before) return;
-    _requestEffectRender(true, true);
+    if (JSON.stringify(effects) === before) return Promise.resolve();
+    return _requestEffectRender(true, true);
   }
 
   /* ═══════════════════════════════════════════

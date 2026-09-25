@@ -305,6 +305,8 @@
   "progress.applying": "Applying result…",
   "progress.effectTitle": "Applying effect",
   "progress.effectApplying": "Applying effects…",
+  "progress.effectNamed": "Applying {name}…",
+  "progress.effectDone": "Effect applied.",
   "progress.done": "Loading Done.",
   "progress.resizing": "Resizing image…",
   "progress.saving": "Saving…",
