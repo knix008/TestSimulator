@@ -41,7 +41,7 @@ class DockWindow {
       minimizable: false,
       maximizable: false,
       fullscreenable: false,
-      skipTaskbar: !dock.showInTaskbar,
+      skipTaskbar: !this.wantsTaskbar(dock),
       acceptFirstMouse: true,
       roundedCorners: false,
       // The dock is chrome, not a document: keep it out of the window cycle.
@@ -64,7 +64,7 @@ class DockWindow {
     this.applyTaskbar(dock);
 
     this.win.once('ready-to-show', () => {
-      this.win.showInactive(); // never steal focus from whatever the user is doing
+      this.showInactive();
       this.reposition();
     });
 
@@ -89,10 +89,29 @@ class DockWindow {
     return this.win && !this.win.isDestroyed();
   }
 
+  /**
+   * A login item must stay off the taskbar. Windows puts a button back when
+   * the window is shown, so the tray is the only icon that launch is allowed.
+   */
+  wantsTaskbar(dock = this.config.get().dock) {
+    if (this.config.get().startWithOS) return false;
+    return !!dock.showInTaskbar;
+  }
+
   /** Whether the dock claims a button on the OS taskbar. */
   applyTaskbar(dock = this.config.get().dock) {
     if (!this.alive()) return;
-    this.win.setSkipTaskbar(!dock.showInTaskbar);
+    this.win.setSkipTaskbar(!this.wantsTaskbar(dock));
+  }
+
+  /**
+   * Show without taking focus. Showing clears the skip-taskbar flag on
+   * Windows, so it has to be put back or a login launch grows a taskbar button.
+   */
+  showInactive() {
+    if (!this.alive()) return;
+    this.win.showInactive();
+    this.applyTaskbar();
   }
 
   applyAlwaysOnTop(dock = this.config.get().dock) {
@@ -327,7 +346,7 @@ class DockWindow {
   toggleVisible() {
     if (!this.alive()) return;
     if (this.win.isVisible()) this.win.hide();
-    else this.win.showInactive();
+    else this.showInactive();
   }
 }
 

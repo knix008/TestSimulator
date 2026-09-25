@@ -1003,5 +1003,12 @@
     window.addEventListener('resize', () => paint(true));
   }
 
-  boot().catch((err) => console.error('[dock] boot failed:', err));
+  window.addEventListener('error', (event) => {
+    api.app.reportError(event.error || event.message);
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    api.app.reportError(event.reason);
+  });
+
+  boot().catch((err) => api.app.reportError(err));
 })();

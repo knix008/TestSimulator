@@ -219,6 +219,11 @@
       'm.iconPickTitle': 'Choose an icon for "{name}"',
       'm.iconNoneFound': 'No icons found in that file.',
       'm.iconExtracting': 'Reading icons…',
+      'error.title': 'A serious error occurred',
+      'error.hint': 'Select the text below, or use Copy.',
+      'error.copy': 'Copy',
+      'error.copied': 'Copied',
+      'error.close': 'Close',
     },
 
     ko: {
@@ -420,6 +425,11 @@
       'm.iconPickTitle': '"{name}"의 아이콘 선택',
       'm.iconNoneFound': '해당 파일에서 아이콘을 찾지 못했습니다.',
       'm.iconExtracting': '아이콘을 읽는 중…',
+      'error.title': '심각한 오류가 발생했습니다',
+      'error.hint': '아래 내용을 선택하거나 복사를 누르세요.',
+      'error.copy': '복사',
+      'error.copied': '복사했습니다',
+      'error.close': '닫기',
     },
   };
 

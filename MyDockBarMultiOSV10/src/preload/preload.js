@@ -94,6 +94,7 @@ contextBridge.exposeInMainWorld('dockApi', {
 
   app: {
     quit: () => invoke('app:quit'),
+    reportError: (error) => ipcRenderer.send('app:report-error', error && error.stack ? error.stack : String(error || '')),
   },
 
   /**

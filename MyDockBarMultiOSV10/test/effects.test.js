@@ -114,10 +114,12 @@ describe('the taskbar setting', () => {
 
   it('is what the dock window actually asks the OS for', () => {
     const source = read('src/main/dock-window.js');
-    assert.ok(/skipTaskbar: !dock\.showInTaskbar/.test(source),
+    assert.ok(/skipTaskbar: !this\.wantsTaskbar\(dock\)/.test(source),
       'the window is still created with a hard-coded skipTaskbar');
-    assert.ok(/setSkipTaskbar\(!dock\.showInTaskbar\)/.test(source),
+    assert.ok(/setSkipTaskbar\(!this\.wantsTaskbar\(dock\)\)/.test(source),
       'changing the setting never reaches the live window');
+    assert.ok(/startWithOS\) return false/.test(source),
+      'a login launch can still take a taskbar button');
     assert.ok(/applyConfig\(\)[\s\S]{0,400}applyTaskbar\(/.test(source),
       'applyConfig does not reapply the taskbar setting');
   });

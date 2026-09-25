@@ -14,6 +14,9 @@ const seed = require('./seed');
 const { PointerWatch } = require('./pointer-watch');
 const { RunningWatch } = require('./running');
 const trash = require('./trash');
+const errorReport = require('./error-report');
+
+errorReport.install();
 
 // Transparent, click-through-free windows need the compositor on Linux, and
 // several distros still ship it off by default under X11.
@@ -55,7 +58,7 @@ function start() {
     // A second launch means "show me the dock", not "start another copy".
     if (dockWindow && dockWindow.alive()) {
       dockWindow.reveal();
-      if (!dockWindow.win.isVisible()) dockWindow.win.showInactive();
+      if (!dockWindow.win.isVisible()) dockWindow.showInactive();
     }
   });
 
@@ -132,7 +135,7 @@ function start() {
     tray.create(api.trayDeps());
 
     app.on('activate', () => {
-      if (dockWindow && dockWindow.alive()) dockWindow.win.showInactive();
+      if (dockWindow && dockWindow.alive()) dockWindow.showInactive();
       else {
         dockWindow = new DockWindow(config);
         dockWindow.create();

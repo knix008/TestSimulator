@@ -1318,8 +1318,15 @@
     });
   }
 
+  window.addEventListener('error', (event) => {
+    api.app.reportError(event.error || event.message);
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    api.app.reportError(event.reason);
+  });
+
   boot().catch((err) => {
-    console.error('[settings] boot failed:', err);
+    api.app.reportError(err);
     toast(`Failed to load settings: ${err.message}`);
   });
 })();
