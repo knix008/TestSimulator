@@ -30,7 +30,7 @@ describe('gui extended workbenches', () => {
   })
 
   it('[GUI] the new menus are reachable and every item has an icon and a label', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     for (const id of ['sketchMenu', 'surfaceMenu', 'assemblyMenu', 'annotateMenu', 'analyzeMenu', 'manufactureMenu', 'bimMenu', 'sketchupMenu']) {
       const menu = MENUS.find((entry) => entry.id === id)
@@ -45,7 +45,7 @@ describe('gui extended workbenches', () => {
   })
 
   it('[GUI] SketchUp push/pull adds a solid from the SketchUp menu', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await openMenu(user, 'sketchupMenu')
     await user.click(screen.getByTestId('menuitem-suRectangleTool'))
@@ -56,7 +56,7 @@ describe('gui extended workbenches', () => {
   })
 
   it('[GUI] FEM analysis opens a copyable report dialog', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-box'))
     await openMenu(user, 'analyzeMenu')
@@ -68,7 +68,7 @@ describe('gui extended workbenches', () => {
   })
 
   it('[GUI] BIM wall, window and schedule work from the architecture menu', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await openMenu(user, 'bimMenu')
     await user.click(screen.getByTestId('menuitem-bimWall'))
@@ -83,7 +83,7 @@ describe('gui extended workbenches', () => {
   })
 
   it('[GUI] the workbench picker switches the tool panel to CATIA and SketchUp sets', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     const picker = screen.getByTestId('workbench')
     for (const id of ['gsd', 'sheetMetal', 'kinematics', 'knowledge', 'drafting', 'sketchup', 'sandbox']) {
@@ -96,7 +96,7 @@ describe('gui extended workbenches', () => {
   })
 
   it('[GUI] sheet metal wall, flange and unfold report the developed length', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.selectOptions(screen.getByTestId('workbench'), 'sheetMetal')
     const grid = screen.getByTestId('tool-grid')
@@ -108,7 +108,7 @@ describe('gui extended workbenches', () => {
   })
 
   it('[GUI] a failing command shows the error dialog instead of crashing', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await openMenu(user, 'assemblyMenu')
     await user.click(screen.getByTestId('menuitem-asmExplode'))

@@ -119,7 +119,7 @@ describe('toolbar and dialogs', () => {
   })
 
   it('[GUI] the zoom stepper shows the percentage and steps it', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     const value = screen.getByTestId('tb-zoom-value')
     expect(value.textContent).toBe('100%')
@@ -134,7 +134,7 @@ describe('toolbar and dialogs', () => {
   })
 
   it('[GUI] the light control toggles and moves the key light', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     const button = screen.getByTestId('tb-light')
     expect(button.className).toContain('on')
@@ -161,7 +161,7 @@ describe('toolbar and dialogs', () => {
   })
 
   it('[GUI] the export dialog offers every format and exports', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
     const createObjectURL = vi.fn(() => 'blob:mock')
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
@@ -181,7 +181,7 @@ describe('toolbar and dialogs', () => {
   })
 
   it('[GUI] export is reachable from the File menu', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     expect(MENUS.find((menu) => menu.id === 'file')?.items.some((item) => item.id === 'export')).toBe(true)
     expect(TOOLBAR).toContain('export')
@@ -191,7 +191,7 @@ describe('toolbar and dialogs', () => {
   })
 
   it('[GUI] settings groups its rows in boxes and steps numbers', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     const panel = screen.getByTestId('settings-panel')
@@ -209,7 +209,7 @@ describe('toolbar and dialogs', () => {
   })
 
   it('[GUI] the custom theme tab edits and applies the palette', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     await user.click(screen.getByTestId('settings-tab-theme'))
@@ -222,7 +222,7 @@ describe('toolbar and dialogs', () => {
   })
 
   it('[GUI] the parameter dialog explains the command instead of citing a reference', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.selectOptions(screen.getByTestId('workbench'), 'partDesign')
     const grid = screen.getByTestId('tool-grid')
@@ -240,7 +240,7 @@ describe('toolbar and dialogs', () => {
   })
 
   it('[GUI] recent files can be pruned from the settings dialog', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     const state = activeDocument(createInitialState())
     expect(state).toBeTruthy()

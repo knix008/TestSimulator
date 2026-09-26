@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MENUS, TOOLBAR } from '../src/core/menus'
+import { WORKBENCHES } from '../src/core/workbenches'
+import { TOOL_CATEGORIES, categoryById, categoryName, groupTools, toolCategory } from '../src/core/toolgroups'
 import { COMMAND_LABELS } from '../src/core/labels'
 import { menuIcon } from '../src/core/i18n'
 import { DRAW_STYLES, drawStyleSpec, isShadeMode } from '../src/core/model'
@@ -131,5 +133,45 @@ describe('icons', () => {
     const shared = [...owners].filter(([, list]) => list.length > 1)
     expect(shared.map(([icon, list]) => `${icon}: ${list.join(', ')}`)).toEqual([])
     expect(ids.length).toBeGreaterThan(380)
+  })
+})
+
+describe('tool groups', () => {
+  it('[Layout] every workbench tool lands in a named group', () => {
+    const known = new Set(TOOL_CATEGORIES.map((category) => category.id))
+    const loose: string[] = []
+    for (const workbench of WORKBENCHES) {
+      for (const tool of workbench.tools) {
+        const id = toolCategory(tool)
+        expect(known.has(id), `${tool} -> ${id}`).toBe(true)
+        if (id === 'other') loose.push(tool)
+      }
+    }
+    // Nothing falls through to the catch-all group.
+    expect(loose).toEqual([])
+    expect(toolCategory('draft')).toBe('dress')
+    expect(toolCategory('draftLine')).toBe('draft2d')
+    expect(toolCategory('smWall')).toBe('manufacture')
+    expect(toolCategory('suPushPull')).toBe('sketchup')
+    expect(categoryName('ko', 'boolean')).toBe('불리언')
+    expect(categoryName('en', 'boolean')).toBe('Booleans')
+    expect(categoryById('nope').id).toBe('other')
+  })
+
+  it('[Layout] a workbench keeps its tools, in group order', () => {
+    const part = WORKBENCHES.find((workbench) => workbench.id === 'partDesign')!
+    const groups = groupTools(part.tools)
+    expect(groups.length).toBeGreaterThan(3)
+    // Every tool appears once, and the groups follow the declared order.
+    expect(groups.flatMap((group) => group.tools).sort()).toEqual([...part.tools].sort())
+    const order = TOOL_CATEGORIES.map((category) => category.id)
+    const seen = groups.map((group) => group.category.id)
+    expect(seen).toEqual([...seen].sort((a, b) => order.indexOf(a) - order.indexOf(b)))
+    expect(seen).toContain('sketch')
+    expect(seen).toContain('boolean')
+    // Tools inside a group keep the workbench's own order.
+    const booleans = groups.find((group) => group.category.id === 'boolean')!.tools
+    expect(booleans).toEqual(['union', 'cut', 'common', 'xor'])
+    expect(groupTools([])).toEqual([])
   })
 })

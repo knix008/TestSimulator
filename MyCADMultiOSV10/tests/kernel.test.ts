@@ -14,7 +14,7 @@ import {
   ADDON_CATALOG, addonCommands, addonReport, addonThemes, availableAddons, checkCompatibility,
   installAddon, parseManifest, sanitizeInstalled, setAddonEnabled, uninstallAddon
 } from '../src/core/addons'
-import { dragPosition, rayPlanePoint, snapPoint } from '../src/core/viewnav'
+import { MIN_DRAG_STEP, dragPosition, rayPlanePoint, snapPoint } from '../src/core/viewnav'
 import { activeDocument, createInitialState, reducer } from '../src/core/store'
 import { createSolid } from '../src/core/model'
 import { findMaterial } from '../src/core/materials'
@@ -351,6 +351,19 @@ describe('mouse dragging', () => {
       snap: 0
     })
     expect(vertical?.y).toBeCloseTo(45)
+
+    // Even with snapping off a drag lands on whole millimetres.
+    const fine = dragPosition({
+      origin: { x: 30.4, y: 100, z: 10.6 },
+      direction: { x: 0, y: -1, z: 0 },
+      grabPoint: { x: 0, y: 20.2, z: 0 },
+      offset: { x: 0, y: 0, z: 0 },
+      cameraDirection: { x: 0, y: -1, z: 0 },
+      vertical: false,
+      snap: 0
+    })
+    expect(fine).toEqual({ x: 30, y: 20, z: 11 })
+    expect(MIN_DRAG_STEP).toBe(1)
   })
 
   it('[Drag] the store moves the solid, keeps history and respects the lock', () => {

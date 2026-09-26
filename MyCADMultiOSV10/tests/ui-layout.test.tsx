@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/ui/App'
 import { AUTHOR, POPUP_SIZE } from '../src/core/buildInfo'
-import { MIN_PANEL_WIDTH, clampLightAngles, lightAngles, lightPosition, propertyPanelWidth, raySphereDirection, toolPanelWidth } from '../src/core/viewnav'
+import { MIN_PANEL_WIDTH, PANEL_ROOM, clampLightAngles, lightAngles, lightPosition, propertyPanelWidth, raySphereDirection, toolPanelWidth } from '../src/core/viewnav'
 import { LIGHT_KINDS, defaultSettings, sanitizeLight, sanitizeSettings } from '../src/core/settings'
 import { THEMES } from '../src/core/themes'
 import { TOOLBAR_GROUPS } from '../src/core/menus'
@@ -51,7 +51,7 @@ describe('tool panel width', () => {
     const wide = toolPanelWidth([40, 160, 48])
     expect(wide).toBeGreaterThan(narrow)
     expect(narrow).toBeGreaterThanOrEqual(MIN_PANEL_WIDTH)
-    expect(toolPanelWidth([])).toBe(140)
+    expect(toolPanelWidth([])).toBe(MIN_PANEL_WIDTH)
     expect(toolPanelWidth([2000])).toBeLessThanOrEqual(480)
     // Two columns of a 120 px label plus the icon columns and the padding.
     expect(toolPanelWidth([120])).toBe(120 * 2 + 19 * 2 + 2 + 10)
@@ -73,7 +73,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] a splitter sits on each side of the canvas', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     const splitter = screen.getByTestId('panel-splitter')
     const propertySplitter = screen.getByTestId('property-splitter')
@@ -102,6 +102,10 @@ describe('application chrome', () => {
     // Label, minus, the value and plus, inside the group box and clear of the
     // scroll bar: 38 + 4 + (20 + 2 + 62 + 2 + 20) + 14 + 16 + 16.
     expect(propertyPanelWidth()).toBe(194)
+    // Both panels are held to that row plus a little room, and to the same
+    // number, so neither one can be dragged past what the other one needs.
+    expect(MIN_PANEL_WIDTH).toBe(propertyPanelWidth() + PANEL_ROOM)
+    expect(MIN_PANEL_WIDTH).toBeGreaterThan(propertyPanelWidth())
     expect(propertyPanelWidth({ input: 100 })).toBe(propertyPanelWidth() + 38)
     expect(defaultSettings().rightPanelWidth).toBe(0)
     expect(sanitizeSettings({ rightPanelWidth: 240 }).rightPanelWidth).toBe(240)
@@ -109,7 +113,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] the about window shows the mark, the build and the author on screen', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-about'))
     const icon = screen.getByTestId('about-icon') as HTMLImageElement
@@ -147,7 +151,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] Escape closes an open menu', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('menu-view'))
     expect(screen.getByTestId('menu-popup')).toBeTruthy()
@@ -156,7 +160,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] the toolbar resets the view and steps the text size', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-iso'))
     await user.click(screen.getByTestId('tb-zoom-in'))
@@ -176,7 +180,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] the tree and the specification tree mark what is selected', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-box'))
     const solidButton = screen.getAllByTestId(/^solid-/)[0]
@@ -197,7 +201,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] the properties panel puts every value between steppers', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-box'))
     await user.click(screen.getAllByTestId(/^solid-/)[0])
@@ -216,7 +220,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] the light control offers every kind of source', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-light-menu'))
     for (const kind of LIGHT_KINDS) {
@@ -236,7 +240,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] the toolbar opens and closes both side panels', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     const workspace = screen.getByTestId('workspace')
     const left = screen.getByTestId('left-panel')
@@ -270,7 +274,7 @@ describe('application chrome', () => {
   })
 
   it('[GUI] the theme gallery lives in one settings tab', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     expect(screen.queryByTestId('settings-tab-customTheme')).toBeNull()

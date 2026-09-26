@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../src/ui/App'
-import { MENUS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/core/menus'
+import { MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/core/menus'
 import { toolbarMinWidth } from '../src/core/buildInfo'
 import { THEMES, themeById, themeVars, themesByMode } from '../src/core/themes'
 import { defaultSettings, sanitizeSettings } from '../src/core/settings'
@@ -116,7 +116,7 @@ describe('application shell', () => {
   })
 
   it('[GUI] the language button shows the flag of the language it switches to', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     // Korean UI -> Union Jack.
     expect(screen.getByTestId('flag-en')).toBeTruthy()
@@ -129,7 +129,7 @@ describe('application shell', () => {
   })
 
   it('[GUI] every menu item is rendered, with an icon, however long the menu is', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     const longest = MENUS.reduce((best, menu) => (menu.items.length > best.items.length ? menu : best), MENUS[0])
     await user.click(screen.getByTestId(`menu-${longest.id}`))
@@ -144,7 +144,7 @@ describe('application shell', () => {
   })
 
   it('[GUI] the theme gallery applies any of the forty palettes', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     await user.click(screen.getByTestId('settings-tab-theme'))
@@ -162,7 +162,7 @@ describe('application shell', () => {
   })
 
   it('[GUI] the toolbar theme button cycles themes and its dropdown picks one', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     const app = screen.getByTestId('app')
     expect(app.getAttribute('data-theme')).toBe('dark')
@@ -193,7 +193,7 @@ describe('application shell', () => {
   })
 
   it('[GUI] settings keeps viewport and print defaults', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     await user.click(screen.getByTestId('settings-tab-viewport'))
@@ -215,7 +215,7 @@ describe('application shell', () => {
   })
 
   it('[GUI] the print dialog previews the sheet and prints on demand', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined)
     render(<App />)
     await user.click(screen.getByTestId('tb-box'))
@@ -242,7 +242,7 @@ describe('application shell', () => {
 
   it('[GUI] the toolbar minimum width covers every button', async () => {
     render(<App />)
-    const expected = toolbarMinWidth(TOOLBAR_GROUPS, TOOLBAR_RIGHT.length)
+    const expected = toolbarMinWidth(TOOLBAR_GROUPS, TOOLBAR_CONTROLS.length + TOOLBAR_RIGHT.length)
     const buttons = TOOLBAR_GROUPS.flat().length + TOOLBAR_RIGHT.length
     expect(expected).toBeGreaterThan(buttons * 30)
     await waitFor(() =>

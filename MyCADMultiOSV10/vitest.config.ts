@@ -26,6 +26,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // A jsdom suite that renders the whole App takes seconds by construction,
+    // so the runner's own slow mark would fire on every GUI file and say
+    // nothing. The summary reporter lists anything at or over a second instead.
+    slowTestThreshold: 4000,
     setupFiles: ['./tests/setup.ts'],
     reporters: ['default', './tests/summary-reporter.ts'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],

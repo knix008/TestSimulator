@@ -210,10 +210,19 @@ export const TOOLBAR_GROUPS: string[][] = [
   ['front', 'top', 'iso', 'fit', 'resetView', 'grid', 'ruler']
 ]
 
-/** Pinned to the right edge of the toolbar. */
-export const TOOLBAR_RIGHT: string[] = ['toolPanel', 'propertyPanel', 'font-dec', 'font-value', 'font-inc', 'zoom-out', 'zoom-value', 'zoom-in', 'light', 'language', 'theme', 'settings', 'about']
+/**
+ * Controls with their own component, left aligned after the command groups:
+ * the two panel toggles, the text-size stepper, the zoom stepper and the light
+ * rig. Only the language, theme, settings and about buttons stay on the right.
+ */
+export const TOOLBAR_CONTROLS: string[] = [
+  'toolPanel', 'propertyPanel', 'font-dec', 'font-value', 'font-inc', 'zoom-out', 'zoom-value', 'zoom-in', 'light'
+]
 
-export const TOOLBAR: readonly string[] = [...TOOLBAR_GROUPS.flat(), ...TOOLBAR_RIGHT]
+/** Pinned to the right edge of the toolbar. */
+export const TOOLBAR_RIGHT: string[] = ['language', 'theme', 'settings', 'about']
+
+export const TOOLBAR: readonly string[] = [...TOOLBAR_GROUPS.flat(), ...TOOLBAR_CONTROLS, ...TOOLBAR_RIGHT]
 
 export const CONTEXT_ITEMS: MenuEntry[] = [
   { id: 'copy', labelKey: 'copy', icon: menuIcon('copy') },

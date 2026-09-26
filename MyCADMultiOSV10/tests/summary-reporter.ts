@@ -17,6 +17,9 @@ const paint = {
   white: useColor ? '\x1b[97m' : ''
 }
 
+/** A test at or over this is listed in the report's slow section. */
+const SLOW_MS = 1000
+
 const categoryColors = [paint.cyan, paint.blue, paint.magenta, paint.yellow, paint.green, paint.white]
 
 interface Row {
@@ -112,6 +115,21 @@ export default class SummaryReporter implements Reporter {
         const markColor = row.failed ? `${paint.red}✗${paint.reset}` : `${paint.green}✓${paint.reset}`
         const nameColor = row.failed ? paint.red : paint.white
         color.push(`  ${markColor}  ${nameColor}${padded}${paint.reset}  ${paint.dim}${formatMs(row.duration)}${paint.reset}`)
+      }
+      plain.push('')
+      color.push('')
+    }
+
+    // Slow tests stay visible in the report even though the runner only
+    // highlights the ones past its own threshold.
+    const slow = [...groups.values()].flat().filter((row) => row.duration >= SLOW_MS)
+    slow.sort((a, b) => b.duration - a.duration)
+    if (slow.length) {
+      plain.push(`Slowest (${SLOW_MS} ms and over)`)
+      color.push(`${paint.bold}${paint.yellow}Slowest (${SLOW_MS} ms and over)${paint.reset}`)
+      for (const row of slow.slice(0, 5)) {
+        plain.push(`  ${row.name}  ${formatMs(row.duration)}`)
+        color.push(`  ${paint.white}${row.name}${paint.reset}  ${paint.dim}${formatMs(row.duration)}${paint.reset}`)
       }
       plain.push('')
       color.push('')

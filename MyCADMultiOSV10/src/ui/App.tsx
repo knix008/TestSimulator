@@ -2,13 +2,14 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import { AUTHOR, MIN_WINDOW_HEIGHT, PROJECT_URL, toolbarMinWidth, windowTitle } from '../core/buildInfo'
 import { licenseLines, shortcutLines } from '../core/knowledge'
 import { formatLength, formatVolume, unitSuffix } from '../core/units'
-import { MIN_PANEL_WIDTH, propertyPanelWidth, toolPanelWidth } from '../core/viewnav'
+import { MIN_PANEL_WIDTH, toolPanelWidth } from '../core/viewnav'
+import { categoryName, groupTools } from '../core/toolgroups'
 import { decodeClipboard } from '../core/clipboard'
 import { directoryOf } from '../core/recent'
 import { detectBrowserFonts, FALLBACK_FONTS, mergeFonts } from '../core/fonts'
 import { menuIcon, translate, type MessageKey } from '../core/i18n'
 import { commandHelp } from '../core/labels'
-import { CONTEXT_ITEMS, MENUS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../core/menus'
+import { CONTEXT_ITEMS, MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../core/menus'
 import { hasCommand, runCommandById, type CommandEffect } from '../core/commands'
 import { createSolid, type SolidKind, type ViewPreset } from '../core/model'
 import { pageToSvg, selectionDistance } from '../core/print'
@@ -82,7 +83,7 @@ export function App() {
   const theme = resolveTheme(state.settings.theme, state.settings.customTheme)
   // The static figure covers the toolbar; the measured one also covers the
   // menu bar, whose width depends on the language and the chosen font.
-  const staticMinWidth = useMemo(() => toolbarMinWidth(TOOLBAR_GROUPS, TOOLBAR_RIGHT.length) + 40, [])
+  const staticMinWidth = useMemo(() => toolbarMinWidth(TOOLBAR_GROUPS, TOOLBAR_CONTROLS.length + TOOLBAR_RIGHT.length) + 40, [])
   const minWindowWidth = Math.max(staticMinWidth, measuredWidth)
   const t = useCallback((key: MessageKey | string) => translate(state.settings.language, key), [state.settings.language])
   /** Tooltip: the command name plus its one-line description when there is one. */
@@ -167,9 +168,9 @@ export function App() {
     const grid = toolGridRef.current
     if (!grid) return
     // Both side panels share this width, so it also has to fit a property row.
-    const natural = Math.max(toolPanelWidth(measureLabelWidths(grid)), propertyPanelWidth())
+    const natural = Math.max(toolPanelWidth(measureLabelWidths(grid)), MIN_PANEL_WIDTH)
     setNaturalPanelWidth(natural)
-    setRightPanel((current) => (current > 0 ? Math.max(current, propertyPanelWidth()) : natural))
+    setRightPanel((current) => (current > 0 ? Math.max(current, MIN_PANEL_WIDTH) : natural))
     // The panel opens at the narrowest width that fits its labels, and a width
     // stored by an older, roomier build comes back down to it.
     setPanelWidth((current) => (current > 0 ? Math.min(current, natural) : natural))
@@ -200,10 +201,10 @@ export function App() {
   const startPropertyResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
     const startX = event.clientX
-    const startWidth = rightPanel || propertyPanelWidth()
+    const startWidth = rightPanel || MIN_PANEL_WIDTH
     const move = (pointer: PointerEvent) => {
       // Dragging left widens it; one whole property row is the floor.
-      const width = Math.max(propertyPanelWidth(), Math.min(window.innerWidth - 460, startWidth - (pointer.clientX - startX)))
+      const width = Math.max(MIN_PANEL_WIDTH, Math.min(window.innerWidth - 460, startWidth - (pointer.clientX - startX)))
       setRightPanel(Math.round(width))
     }
     const finish = (pointer: PointerEvent) => {
@@ -973,7 +974,7 @@ export function App() {
   const leftWidth = Math.max(MIN_PANEL_WIDTH, panelWidth || naturalPanelWidth || 320)
   // The property panel matches the narrowest the tool panel can be, and never
   // gets narrower than one property row needs.
-  const rightWidth = Math.max(propertyPanelWidth(), rightPanel || naturalPanelWidth || 320)
+  const rightWidth = Math.max(MIN_PANEL_WIDTH, rightPanel || naturalPanelWidth || 320)
   const openMenuItems = MENUS.find((item) => item.id === menu)
   const recentInMenu = menu === 'file' ? state.settings.recentFiles.length : 0
   const popupLayout = useMemo(() => {
@@ -1076,7 +1077,6 @@ export function App() {
             ))}
           </span>
         ))}
-        <span className="toolbar-spacer" />
         <span className="toolbar-sep" />
         {(['toolPanel', 'propertyPanel'] as const).map((id) => {
           const open = id === 'toolPanel' ? showToolPanel : showPropertyPanel
@@ -1113,7 +1113,7 @@ export function App() {
           label={t('lightRig')}
           onChange={(patch) => dispatch({ type: 'patch-settings', patch: { light: { ...state.settings.light, ...patch } } })}
         />
-        <span className="toolbar-sep" />
+        <span className="toolbar-spacer" />
         <button
           type="button"
           className="tool tool-flag"
@@ -1150,12 +1150,23 @@ export function App() {
       >
         <aside className="panel left" data-testid="left-panel" hidden={!showToolPanel} style={{ gridColumn: 1 }}>
           <h2 className="panel-title">{t('toolsPanel')}</h2>
-          <div className="tool-grid" data-testid="tool-grid" ref={toolGridRef}>
-            {workbenchTools(workbench).map((id) => (
-              <button key={id} type="button" className={state.tool === id ? 'tool on' : 'tool'} title={tip(id)} onClick={() => runCommand(id)}>
-                <span className="menu-icon">{menuIcon(id)}</span>
-                <span className="ellipsis">{t(id)}</span>
-              </button>
+          <div className="tool-groups" data-testid="tool-grid" ref={toolGridRef}>
+            {groupTools(workbenchTools(workbench)).map((group) => (
+              <section className="tool-group" key={group.category.id} data-testid={`tool-group-${group.category.id}`}>
+                <h3 className="tool-group-title">
+                  <span className="menu-icon">{group.category.icon}</span>
+                  <span className="ellipsis">{categoryName(state.settings.language, group.category.id)}</span>
+                  <span className="tool-group-count">{group.tools.length}</span>
+                </h3>
+                <div className="tool-grid">
+                  {group.tools.map((id) => (
+                    <button key={id} type="button" className={state.tool === id ? 'tool on' : 'tool'} title={tip(id)} onClick={() => runCommand(id)}>
+                      <span className="menu-icon">{menuIcon(id)}</span>
+                      <span className="ellipsis">{t(id)}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
           <h2 className="panel-title">{t('specTree')}</h2>
@@ -1230,7 +1241,7 @@ export function App() {
           onDoubleClick={() => {
             const grid = toolGridRef.current
             if (!grid) return
-            const natural = Math.max(toolPanelWidth(measureLabelWidths(grid)), propertyPanelWidth())
+            const natural = Math.max(toolPanelWidth(measureLabelWidths(grid)), MIN_PANEL_WIDTH)
             setPanelWidth(natural)
             dispatch({ type: 'patch-settings', patch: { leftPanelWidth: natural } })
           }}
@@ -1273,7 +1284,7 @@ export function App() {
           style={{ gridColumn: 4 }}
           onPointerDown={startPropertyResize}
           onDoubleClick={() => {
-            const natural = Math.max(naturalPanelWidth || 0, propertyPanelWidth())
+            const natural = Math.max(naturalPanelWidth || 0, MIN_PANEL_WIDTH)
             setRightPanel(natural)
             dispatch({ type: 'patch-settings', patch: { rightPanelWidth: natural } })
           }}

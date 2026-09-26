@@ -42,6 +42,12 @@ button:hover { border-color: var(--accent); }
 .panel { background: var(--panel-alt); border-right: 1px solid var(--line); padding: 0; overflow: auto; }
 .panel.right { border-right: 0; border-left: 1px solid var(--line); }
 .panel-title { margin: 0; padding: 6px 8px; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); background: var(--bg); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.tool-groups { padding: 2px 0 6px; }
+/* Each workbench shows its commands grouped by what they do. */
+.tool-group + .tool-group { margin-top: 2px; }
+.tool-group-title { display: flex; align-items: center; gap: 4px; margin: 0; padding: 4px 6px 2px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tool-group-title .menu-icon { flex: 0 0 auto; font-size: 11px; }
+.tool-group-title .tool-group-count { margin-left: auto; font-weight: 400; opacity: .8; }
 .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px 2px; }
 .panel .tool-grid .tool { width: 100%; min-width: 0; height: 24px; justify-content: flex-start; gap: 3px; margin: 0; padding: 0 2px; border-radius: 2px; background: var(--button); letter-spacing: -0.01em; }
 .panel .tool-grid .tool .menu-icon { width: 13px; text-align: center; flex: 0 0 13px; }

@@ -546,7 +546,7 @@ export function Viewport({
         ))}
       </div>
       {settings.ruler ? <ScaleRuler zoom={zoom} radius={settings.autoScaleAxes ? sceneRadius(boundingBoxOf(doc.solids.filter((solid) => solid.visible))) : 0} /> : null}
-      <div className="nav-hint">Wheel zoom · Drag rotate · Right drag pan · Drag object to move (Shift: up/down, Alt: no snap) · Drag ☀ to move the light</div>
+      <div className="nav-hint">Wheel zoom · Drag rotate · Right drag pan · Drag object to move (Shift: up/down, Alt: 1 mm steps) · Drag ☀ to move the light</div>
     </div>
   )
 }

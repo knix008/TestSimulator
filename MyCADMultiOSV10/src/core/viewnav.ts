@@ -114,11 +114,16 @@ export function snapPoint(
   return { x: round(point.x), y: round(point.y), z: round(point.z) }
 }
 
+/** Smallest step a mouse drag may move a solid, in millimetres. */
+export const MIN_DRAG_STEP = 1
+
 /**
  * New position of a dragged object: the pointer ray is intersected with the
  * drag plane and the grab offset is re-applied, then snapped.
  *
  * `vertical` drags along Y on a plane facing the camera instead of the ground.
+ * Dragging never produces a fraction: with snapping switched off the position
+ * still lands on whole millimetres.
  */
 export function dragPosition(options: {
   origin: { x: number; y: number; z: number }
@@ -143,7 +148,7 @@ export function dragPosition(options: {
     y: hit.y + options.offset.y,
     z: hit.z + options.offset.z
   }
-  return snapPoint(moved, options.snap)
+  return snapPoint(moved, Math.max(MIN_DRAG_STEP, options.snap || 0))
 }
 
 /** Where the key light sits for an azimuth/elevation pair, in degrees. */
@@ -210,9 +215,6 @@ export function clampLightAngles(azimuth: number, elevation: number): { azimuth:
  * Narrowest tool panel that still shows every button's icon and full label.
  * `labelWidths` are the measured text widths of the labels in pixels.
  */
-/** Narrowest the tool panel may ever get: two columns of icons with no label. */
-export const MIN_PANEL_WIDTH = 104
-
 /**
  * Narrowest property panel that shows a whole row without clipping: the axis
  * label, the minus button, the value and the plus button, inside the group box
@@ -225,13 +227,23 @@ export function propertyPanelWidth(
   return Math.ceil(label + rowGap + stepper + groupPadding + groupMargin + scrollbar)
 }
 
+/** Room left beyond the strict fit so rows do not sit flush against the edge. */
+export const PANEL_ROOM = 34
+
+/**
+ * The width both side panels are held to: a whole property row plus that room.
+ * The tool panel and the property panel share it, so neither one can be dragged
+ * narrower than the other's content needs.
+ */
+export const MIN_PANEL_WIDTH = propertyPanelWidth() + PANEL_ROOM
+
 /**
  * Narrowest tool panel that still shows the icons and all but the longest
  * labels. Sizing for the very longest label would widen every button, so the
  * panel follows the 80th percentile and lets the few outliers ellipsize.
  */
 export function toolPanelWidth(labelWidths: number[], columns = 2): number {
-  if (labelWidths.length === 0) return 140
+  if (labelWidths.length === 0) return MIN_PANEL_WIDTH
   // icon column + gap + horizontal padding of one button
   const iconAndPadding = 12 + 3 + 4
   const sorted = [...labelWidths].sort((a, b) => a - b)

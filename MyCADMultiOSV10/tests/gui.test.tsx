@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../src/ui/App'
-import { MENUS, TOOLBAR, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/core/menus'
+import { MENUS, TOOLBAR, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/core/menus'
 import { toolbarMinWidth } from '../src/core/buildInfo'
 import { serializeDocument } from '../src/core/serialize'
 import { createDocument, createSolid } from '../src/core/model'
@@ -17,8 +17,7 @@ describe('gui', () => {
     localStorage.clear()
   })
 
-  it('[GUI] renders the title, toolbar tooltips, menus, panels, and status bar', async () => {
-    const user = userEvent.setup()
+  it('[GUI] renders the title, toolbar tooltips, panels, and status bar', async () => {
     render(<App />)
     expect(document.title).toContain('MyCAD 1.0.0')
     expect(document.querySelector('.titlebar')).toBeNull()
@@ -32,7 +31,7 @@ describe('gui', () => {
     expect(screen.getByTestId('statusbar').textContent).toContain('mm')
     // The window may never be narrower than the toolbar it has to show.
     const minWidth = Number(screen.getByTestId('app').getAttribute('data-min-window-width'))
-    expect(minWidth).toBeGreaterThanOrEqual(toolbarMinWidth(TOOLBAR_GROUPS, TOOLBAR_RIGHT.length))
+    expect(minWidth).toBeGreaterThanOrEqual(toolbarMinWidth(TOOLBAR_GROUPS, TOOLBAR_CONTROLS.length + TOOLBAR_RIGHT.length))
     expect(minWidth).toBeGreaterThan(TOOLBAR.length * 30)
     expect(screen.getByTestId('app').style.minWidth).toBe(`${minWidth}px`)
     // Language, settings and about sit at the right end, after the spacer.
@@ -44,7 +43,12 @@ describe('gui', () => {
       expect(spacer!.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     }
     expect(screen.getByTestId('flag-en')).toBeTruthy()
+    await waitFor(() => expect(screen.getByTestId('app').getAttribute('data-min-window-width')).toBeTruthy())
+  })
 
+  it('[GUI] every menu opens with an icon and a label on each item', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
     for (const menu of MENUS) {
       await user.click(screen.getByTestId(`menu-${menu.id}`))
       const popup = screen.getByTestId('menu-popup')
@@ -61,7 +65,7 @@ describe('gui', () => {
   })
 
   it('[GUI] models, undo, copy, paste, themes, language, fonts, and recent files', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-box'))
     expect(screen.getByTestId('status-objects').textContent).toContain('1')
@@ -92,7 +96,7 @@ describe('gui', () => {
       ...JSON.parse(JSON.stringify({ language: 'ko', theme: 'dark', fontFamily: 'Segoe UI', fontSize: 13, fontStyle: 'normal', backgroundImage: null, backgroundOpacity: 40, grid: true, snap: 10, lastDirectories: { open: 'D:/cad', save: '', import: '', background: '' } })),
       recentFiles: Array.from({ length: 10 }, (_item, index) => ({ path: `D:/cad/part-${index}.mycad`, name: `part-${index}.mycad`, openedAt: index }))
     }))
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     await user.click(screen.getByTestId('settings-tab-recent'))
@@ -106,7 +110,7 @@ describe('gui', () => {
   })
 
   it('[GUI] shows a copyable error, progress, print preview, tabs, and drop', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const writeText = vi.fn(async () => undefined)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText, readText: async () => '' } })
     render(<App />)
@@ -150,7 +154,7 @@ describe('gui', () => {
   })
 
   it('[GUI] asks before closing a dirty document and edits properties', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-sphere'))
     const name = screen.getByLabelText('이름')
