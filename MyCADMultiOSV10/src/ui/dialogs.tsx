@@ -7,7 +7,7 @@ import { commandHelp, lightKindKey } from '../core/labels'
 import { menuIcon, translate } from '../core/i18n'
 import { pageSizeMm, pageToSvg, type PrintPage, type PrintScope, type PageSetup } from '../core/print'
 import { EXPORT_FORMATS, exportFileName, type ExportFormat } from '../core/exporters'
-import { LIGHT_KINDS, defaultLight, type Settings, type ThemeId, type FontStyleName, type Lang, type LightKind } from '../core/settings'
+import { LIGHT_KINDS, MAX_LIGHTS, defaultLight, newLight, type Settings, type ThemeId, type FontStyleName, type Lang, type LightKind } from '../core/settings'
 import { NAVIGATION_STYLES, type NavigationStyle } from '../core/viewnav'
 import { UNIT_SCHEMAS, type UnitSchema } from '../core/units'
 import { DRAW_STYLES, type ShadeMode } from '../core/model'
@@ -698,6 +698,43 @@ export function SettingsDialog({
               </fieldset>
               <fieldset className="field-group">
                 <legend>{t('lightRig')}</legend>
+                {/* The scene's lights. Picking one points every control below
+                    at it; each keeps its own kind, colour and place. */}
+                <div className="row"><span>{t('lightList')}</span>
+                  <span className="light-row" data-testid="settings-light-list">
+                    {settings.lights.map((item, index) => (
+                      <button
+                        type="button"
+                        key={index}
+                        className={index === settings.activeLight ? 'on' : ''}
+                        aria-pressed={index === settings.activeLight}
+                        data-testid={`settings-light-${index}`}
+                        title={`${index + 1}. ${t(lightKindKey(item.kind))}`}
+                        style={{ borderBottom: `3px solid ${item.enabled ? item.color : 'transparent'}` }}
+                        onClick={() => onChange({ lights: settings.lights, activeLight: index })}
+                      >{index + 1}</button>
+                    ))}
+                    {settings.lights.length < MAX_LIGHTS ? (
+                      <button
+                        type="button"
+                        data-testid="settings-light-add"
+                        title={t('lightAdd')}
+                        onClick={() => onChange({ lights: [...settings.lights, newLight(settings.lights)], activeLight: settings.lights.length })}
+                      >{`${menuIcon('lightAdd')}`}</button>
+                    ) : null}
+                    {settings.lights.length > 1 ? (
+                      <button
+                        type="button"
+                        data-testid="settings-light-remove"
+                        title={t('lightRemove')}
+                        onClick={() => onChange({
+                          lights: settings.lights.filter((_item, at) => at !== settings.activeLight),
+                          activeLight: Math.max(0, settings.activeLight - 1)
+                        })}
+                      >{`${menuIcon('lightRemove')}`}</button>
+                    ) : null}
+                  </span>
+                </div>
                 <label className="row"><span>{t('lightRig')}</span>
                   <input aria-label={t('lightRig')} data-testid="light-enabled" type="checkbox" checked={settings.light.enabled} onChange={() => onChange({ light: { ...settings.light, enabled: !settings.light.enabled } })} />
                 </label>

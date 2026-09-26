@@ -105,6 +105,39 @@ export function LightBulb({ on, size = 17 }: { on: boolean; size?: number }) {
   )
 }
 
+/**
+ * The origin triad as the viewport draws it: Y up, X to the lower right and
+ * Z to the lower left, in the same three colours. Switched off, the arms are
+ * drawn in the button's own colour so the button reads as unlit.
+ */
+export function AxesMark({ on, size = 17 }: { on: boolean; size?: number }) {
+  // The arms meet at the origin, 120° apart, the way an isometric view shows
+  // three axes at right angles.
+  const arms = [
+    { d: 'M12 13.2V3.4', color: '#3cba54', head: 'M9.9 5.3 12 3 14.1 5.3', name: 'Y' },
+    { d: 'M12 13.2 3.5 18.1', color: '#3b82e2', head: 'M6.1 17.6 3.1 18.4 3.9 15.4', name: 'Z' },
+    { d: 'M12 13.2 20.5 18.1', color: '#e23b3b', head: 'M17.9 17.6 20.9 18.4 20.1 15.4', name: 'X' }
+  ]
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      role="img"
+      aria-label={on ? 'axes shown' : 'axes hidden'}
+      data-testid={on ? 'axes-on' : 'axes-off'}
+    >
+      {arms.map((arm) => (
+        <g key={arm.name} stroke={on ? arm.color : 'currentColor'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+          <path d={arm.d} />
+          <path d={arm.head} />
+        </g>
+      ))}
+      <circle cx="12" cy="13.2" r="1.3" fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
 /** The flag for the language the button switches to. */
 export function LanguageFlag({ language, size = 20 }: { language: 'ko' | 'en'; size?: number }) {
   return language === 'ko' ? <UnionJack size={size} /> : <Taegukgi size={size} />

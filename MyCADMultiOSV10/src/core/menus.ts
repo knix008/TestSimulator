@@ -48,7 +48,7 @@ export const MENUS: MenuDef[] = [
     { id: 'delete', labelKey: 'delete', icon: menuIcon('delete') },
     { id: 'selectAll', labelKey: 'selectAll', icon: menuIcon('selectAll') }
   ]},
-  { id: 'view', labelKey: 'view', breaks: ['grid', 'shaded', 'zoomIn', 'asIs', 'projection', 'toolPanel'], items: [
+  { id: 'view', labelKey: 'view', breaks: ['grid', 'showAxes', 'shaded', 'zoomIn', 'asIs', 'projection', 'toolPanel'], items: [
     { id: 'front', labelKey: 'front', icon: menuIcon('front') },
     { id: 'back', labelKey: 'back', icon: menuIcon('back') },
     { id: 'left', labelKey: 'left', icon: menuIcon('left') },
@@ -58,6 +58,7 @@ export const MENUS: MenuDef[] = [
     { id: 'iso', labelKey: 'iso', icon: menuIcon('iso') },
     { id: 'grid', labelKey: 'grid', icon: menuIcon('grid') },
     { id: 'ruler', labelKey: 'ruler', icon: menuIcon('ruler') },
+    { id: 'showAxes', labelKey: 'showAxes', icon: menuIcon('showAxes') },
     { id: 'shaded', labelKey: 'shaded', icon: menuIcon('shaded') },
     { id: 'wireframe', labelKey: 'wireframe', icon: menuIcon('wireframe') },
     { id: 'zoomIn', labelKey: 'zoomIn', icon: menuIcon('zoomIn') },
@@ -214,7 +215,7 @@ export const TOOLBAR_GROUPS: string[][] = [
   ['undo', 'redo'],
   ['select', 'box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'],
   ['delete', 'copy', 'paste'],
-  ['front', 'top', 'iso', 'fit', 'resetView', 'grid', 'ruler']
+  ['front', 'top', 'iso', 'fit', 'resetView', 'grid', 'ruler', 'showAxes']
 ]
 
 /**

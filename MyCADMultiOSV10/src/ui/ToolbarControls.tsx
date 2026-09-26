@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { THEMES, allThemes, resolveTheme, themesByMode, type Theme, type ThemeMode } from '../core/themes'
-import { LIGHT_KINDS, defaultLight, type Lang, type LightKind, type LightRig } from '../core/settings'
+import { LIGHT_KINDS, MAX_LIGHTS, defaultLight, newLight, type Lang, type LightKind, type LightRig } from '../core/settings'
 import { menuIcon, translate } from '../core/i18n'
 import { LightBulb } from './Flags'
 import { lightKindKey } from '../core/labels'
@@ -211,14 +211,20 @@ export function lightKindName(language: Lang, kind: LightKind): string {
  */
 export function LightPicker({
   light,
+  lights,
+  activeLight,
   language,
   label,
-  onChange
+  onChange,
+  onLights
 }: {
   light: LightRig
+  lights: LightRig[]
+  activeLight: number
   language: Lang
   label: string
   onChange: (patch: Partial<LightRig>) => void
+  onLights: (lights: LightRig[], activeLight: number) => void
 }) {
   const [open, setOpen] = useState(false)
   const host = useDismiss(open, () => setOpen(false))
@@ -243,6 +249,44 @@ export function LightPicker({
       >▾</button>
       {open ? (
         <div className="light-menu" data-testid="light-menu">
+          {/* Every light in the scene. The one picked here is the one the
+              controls below move, colour and switch. */}
+          <div className="row light-list-row">
+            <span>{translate(language, 'lightList')}</span>
+            <div className="chip-row" data-testid="light-list">
+              {lights.map((item, index) => (
+                <span key={index} className="light-chip">
+                  <button
+                    type="button"
+                    className={index === activeLight ? 'on swatch-chip' : 'swatch-chip'}
+                    aria-pressed={index === activeLight}
+                    data-testid={`light-pick-${index}`}
+                    title={`${index + 1}. ${lightKindName(language, item.kind)}${item.enabled ? '' : ' (off)'}`}
+                    style={{ background: item.enabled ? item.color : 'transparent' }}
+                    onClick={() => onLights(lights, index)}
+                  >{index + 1}</button>
+                  {lights.length > 1 ? (
+                    <button
+                      type="button"
+                      className="light-drop"
+                      data-testid={`light-remove-${index}`}
+                      title={`${translate(language, 'lightRemove')} ${index + 1}`}
+                      onClick={() => onLights(lights.filter((_item, at) => at !== index), Math.max(0, index === 0 ? 0 : index - 1))}
+                    >✕</button>
+                  ) : null}
+                </span>
+              ))}
+              {lights.length < MAX_LIGHTS ? (
+                <button
+                  type="button"
+                  className="light-add"
+                  data-testid="light-add"
+                  title={translate(language, 'lightAdd')}
+                  onClick={() => onLights([...lights, newLight(lights)], lights.length)}
+                >+</button>
+              ) : null}
+            </div>
+          </div>
           <div className="row light-kinds">
             <span>{translate(language, 'lightKind')}</span>
             <div className="chip-row" data-testid="light-kinds">

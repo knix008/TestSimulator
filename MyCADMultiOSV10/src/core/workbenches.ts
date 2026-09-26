@@ -9,25 +9,25 @@ export interface WorkbenchDef {
 }
 
 export const WORKBENCHES: WorkbenchDef[] = [
-  { id: 'partDesign', labelKey: 'partDesign', tools: ['sketchRect', 'sketchCircle', 'sketchPolygon', 'pad', 'pocket', 'revolve', 'groove', 'loft', 'pipe', 'helix', 'fillet', 'chamfer', 'draft', 'shell', 'thickness', 'mirror', 'linearPattern', 'polarPattern', 'rectPattern', 'hole', 'counterbore', 'countersink', 'union', 'cut', 'common', 'xor', 'updatePart'] },
-  { id: 'part', labelKey: 'part', tools: ['box', 'cylinder', 'sphere', 'cone', 'torus', 'plane', 'wedge', 'prism', 'ellipsoid', 'tubePrim', 'spiralPrim', 'ringPrim', 'pyramid', 'pad', 'revolve', 'loft', 'union', 'cut', 'common', 'xor', 'booleanFragments', 'compound', 'thickness', 'offset3d', 'ruled', 'crossSections', 'section', 'fillet', 'chamfer', 'partArea'] },
-  { id: 'sketcher', labelKey: 'sketcher', tools: ['sketchRect', 'sketchCircle', 'sketchPolygon', 'sketchRectConstrained', 'sketchSolve2d', 'sketchConstraintCheck', 'sketchDof', 'solveConstraints', 'coincidence', 'offsetMate', 'parameter', 'measure'] },
-  { id: 'draft', labelKey: 'draftWb', tools: ['draftLine', 'draftWire', 'draftRect', 'draftPolygonWire', 'draftCircleWire', 'draftEllipseWire', 'draftArcWire', 'draftBSplineWire', 'draftBezierWire', 'draftFillet', 'draftOffset', 'draftTrimex', 'draftJoin', 'draftSplit', 'draftUpgrade', 'draftDowngrade', 'draftMove', 'draftRotate', 'draftScale', 'draftMirror', 'draftStretch', 'orthoArray', 'polarArray', 'circularArray', 'pathArray', 'pointArray', 'shapeStringCmd', 'draftDimension', 'draftText', 'wireToFace'] },
-  { id: 'techdraw', labelKey: 'techdraw', tools: ['techdrawPage', 'techdrawSection', 'techdrawDetail', 'techdrawDim', 'techdrawHatch', 'techdrawBom', 'exportPageSvg', 'exportPageDxf', 'front', 'top', 'iso', 'print'] },
-  { id: 'mesh', labelKey: 'meshWb', tools: ['importStl', 'exportStl', 'exportObj', 'meshEvaluate', 'meshDecimate', 'meshRefine', 'meshHarmonize', 'meshFlip', 'meshScale', 'meshSmooth', 'meshFillHoles', 'meshSectionCmd', 'measure'] },
-  { id: 'points', labelKey: 'pointsWb', tools: ['importPoints', 'pointsDownsample', 'measureBoxCmd', 'measure'] },
+  { id: 'partDesign', labelKey: 'partDesign', tools: ['sketchRect', 'sketchCircle', 'sketchPolygon', 'pad', 'pocket', 'revolve', 'groove', 'loft', 'pipe', 'helix', 'fillet', 'chamfer', 'draft', 'shell', 'thickness', 'mirror', 'linearPattern', 'polarPattern', 'rectPattern', 'hole', 'counterbore', 'countersink', 'union', 'cut', 'common', 'xor', 'updatePart', 'pdAdditiveBox', 'pdAdditiveCylinder', 'pdAdditiveSphere', 'pdSubtractiveBox', 'pdSubtractiveCylinder', 'pdMultiTransform'] },
+  { id: 'part', labelKey: 'part', tools: ['box', 'cylinder', 'sphere', 'cone', 'torus', 'plane', 'wedge', 'prism', 'ellipsoid', 'tubePrim', 'spiralPrim', 'ringPrim', 'pyramid', 'pad', 'revolve', 'loft', 'union', 'cut', 'common', 'xor', 'booleanFragments', 'compound', 'thickness', 'offset3d', 'ruled', 'crossSections', 'section', 'fillet', 'chamfer', 'partArea', 'partJoinConnect', 'partJoinEmbed', 'partJoinCutout', 'partSliceApart', 'partShapeBuilder', 'partRefine', 'partCheckGeometry', 'partDefeature'] },
+  { id: 'sketcher', labelKey: 'sketcher', tools: ['sketchRect', 'sketchCircle', 'sketchPolygon', 'sketchRectConstrained', 'sketchSolve2d', 'sketchConstraintCheck', 'sketchDof', 'solveConstraints', 'coincidence', 'offsetMate', 'parameter', 'measure', 'sketchLine', 'sketchArcTool', 'sketchEllipse', 'sketchSlot', 'sketchBSplineTool', 'sketchTrimEdge', 'sketchExtendEdge', 'sketchSplitEdge', 'sketchExternal', 'sketchConstruction', 'sketchHorizontal', 'sketchVertical', 'sketchParallel', 'sketchPerpendicular', 'sketchTangent', 'sketchEqual', 'sketchSymmetric', 'sketchLock', 'sketchBlock', 'sketchDistanceX', 'sketchDistanceY'] },
+  { id: 'draft', labelKey: 'draftWb', tools: ['draftLine', 'draftWire', 'draftRect', 'draftPolygonWire', 'draftCircleWire', 'draftEllipseWire', 'draftArcWire', 'draftBSplineWire', 'draftBezierWire', 'draftFillet', 'draftOffset', 'draftTrimex', 'draftJoin', 'draftSplit', 'draftUpgrade', 'draftDowngrade', 'draftMove', 'draftRotate', 'draftScale', 'draftMirror', 'draftStretch', 'orthoArray', 'polarArray', 'circularArray', 'pathArray', 'pointArray', 'shapeStringCmd', 'draftDimension', 'draftText', 'wireToFace', 'draftWorkingPlane', 'draftLayer', 'draftSnapToggle', 'draftShape2DView', 'draftToSketch', 'draftLabel', 'draftHatchFace', 'draftSlope'] },
+  { id: 'techdraw', labelKey: 'techdraw', tools: ['techdrawPage', 'techdrawSection', 'techdrawDetail', 'techdrawDim', 'techdrawHatch', 'techdrawBom', 'exportPageSvg', 'exportPageDxf', 'front', 'top', 'iso', 'print', 'techdrawBalloon', 'techdrawLeader', 'techdrawCenterline', 'techdrawCosmetic', 'techdrawWeld', 'techdrawRichText'] },
+  { id: 'mesh', labelKey: 'meshWb', tools: ['importStl', 'exportStl', 'exportObj', 'meshEvaluate', 'meshDecimate', 'meshRefine', 'meshHarmonize', 'meshFlip', 'meshScale', 'meshSmooth', 'meshFillHoles', 'meshSectionCmd', 'measure', 'meshUnionCmd', 'meshCutCmd', 'meshIntersectCmd', 'meshTrimByPlane', 'meshSplitComponents', 'meshCurvature'] },
+  { id: 'points', labelKey: 'pointsWb', tools: ['importPoints', 'pointsDownsample', 'measureBoxCmd', 'measure', 'pointsToMesh', 'pointsStructure', 'pointsMerge'] },
   { id: 'reverse', labelKey: 'reverseWb', tools: ['importPoints', 'fitPlaneCmd', 'fitSphereCmd', 'approxSurface', 'inspect'] },
   { id: 'surface', labelKey: 'surfaceWb', tools: ['surfaceFill', 'gsdFill', 'gsdBlend', 'gsdExtrude', 'gsdOffsetSurf', 'gsdJoin', 'gsdSplit', 'gsdBoundary', 'gsdHeal', 'loft', 'ruled'] },
   { id: 'spreadsheet', labelKey: 'spreadsheet', tools: ['sheetFill', 'sheetRecompute', 'sheetBindParams', 'sheetExportCsv', 'parameter', 'updatePart', 'expressionEval'] },
   { id: 'assembly', labelKey: 'assembly', tools: ['asmProduct', 'asmCoincident', 'asmOffset', 'asmAngle', 'asmContact', 'asmSolve', 'asmExplode', 'asmBom', 'asmInertia', 'asmMeasure', 'asmTree', 'coincidence', 'offsetMate', 'inertia'] },
-  { id: 'fem', labelKey: 'fem', tools: ['femMesh', 'femMaterial', 'femConstraintFixed', 'femConstraintForce', 'femSolve', 'femBeamCmd', 'femTruss', 'femFrequency', 'femThermal', 'femCheck', 'femBar', 'feaMeshCmd', 'feaSolveCmd'] },
-  { id: 'cam', labelKey: 'cam', tools: ['camProfile', 'camPocketOp', 'camDrill', 'camSurface', 'camHelix', 'camEngrave', 'camAdaptive', 'camPost', 'camStats', 'exportGcode', 'pocketPath'] },
+  { id: 'fem', labelKey: 'fem', tools: ['femMesh', 'femMaterial', 'femConstraintFixed', 'femConstraintForce', 'femSolve', 'femBeamCmd', 'femTruss', 'femFrequency', 'femThermal', 'femCheck', 'femBar', 'feaMeshCmd', 'feaSolveCmd', 'femPressure', 'femDisplacement', 'femContact', 'femSpring', 'femTemperature', 'femHeatFlux', 'femBeamSection', 'femResultShow'] },
+  { id: 'cam', labelKey: 'cam', tools: ['camProfile', 'camPocketOp', 'camDrill', 'camSurface', 'camHelix', 'camEngrave', 'camAdaptive', 'camPost', 'camStats', 'exportGcode', 'pocketPath', 'camWaterline', 'camDeburr', 'camVcarve', 'camDressupTag', 'camDressupDogbone', 'camSimulate', 'camToolBitLibrary'] },
   { id: 'bim', labelKey: 'bim', tools: ['bimWall', 'bimColumn', 'bimBeam', 'bimSlab', 'bimRoof', 'bimWindow', 'bimDoor', 'bimStairs', 'bimSpace', 'bimRailing', 'bimLevels', 'bimSchedule', 'bimExportIfc', 'bimFootprint', 'exportIfc'] },
   { id: 'material', labelKey: 'materialWb', tools: ['materialAssign', 'massProps', 'materialLibrary', 'inertia'] },
   { id: 'measureWb', labelKey: 'measureWb', tools: ['measureDistanceCmd', 'measureAngleCmd', 'measureAreaCmd', 'measureVolumeCmd', 'measureBoxCmd', 'measure'] },
   { id: 'inspection', labelKey: 'inspectionWb', tools: ['inspect', 'meshEvaluate', 'dmuClash', 'measureDistanceCmd'] },
   { id: 'robot', labelKey: 'robotWb', tools: ['robotPose', 'dmuRevolute', 'dmuPrismatic', 'dmuSimulate'] },
-  { id: 'openscad', labelKey: 'openscadWb', tools: ['importOpenScad', 'union', 'cut', 'common', 'runMacro'] },
+  { id: 'openscad', labelKey: 'openscadWb', tools: ['importOpenScad', 'union', 'cut', 'common', 'runMacro', 'scadHull', 'scadMinkowski'] },
   { id: 'macro', labelKey: 'macroWb', tools: ['runMacro', 'pythonRunCmd', 'expressionEval', 'sheetRecompute', 'kwTree'] },
   { id: 'kernel', labelKey: 'kernelWb', tools: ['brepInfo', 'brepChamfer', 'brepFillet', 'brepEdgesCmd', 'nurbsCurveCmd', 'nurbsCircleCmd', 'nurbsArcCmd', 'nurbsSurfaceCmd', 'nurbsExtrudeCmd'] },
   { id: 'addons', labelKey: 'addonsWb', tools: ['addonListCmd', 'addonInstallCmd', 'addonToggleCmd', 'addonRunCmd', 'addonUninstallCmd'] },
@@ -64,4 +64,27 @@ export function sketchToGcode(width: number, height: number): string {
 export function femStress(area: number, force = 1000): number {
   if (area <= 0) return 0
   return force / area
+}
+
+/**
+ * Tools the window drives through its part dialog rather than the command
+ * registry: each one asks for a length, an angle or a count before it runs.
+ */
+export const PART_OPERATIONS: string[] = ['sketchRect', 'sketchCircle', 'sketchPolygon', 'pad', 'pocket', 'revolve', 'loft', 'pipe', 'helix', 'fillet', 'chamfer', 'mirror', 'linearPattern', 'polarPattern', 'hole', 'shaft', 'groove', 'draft', 'shell', 'rectPattern', 'translate', 'rotateBody', 'scaleBody', 'counterbore', 'countersink', 'refPlane', 'parameter', 'offsetMate']
+
+/** The six primitives the window adds straight to the document. */
+export const BASIC_PRIMITIVES: string[] = ['box', 'sphere', 'cylinder', 'cone', 'torus', 'plane']
+
+/**
+ * Tools the window runs itself: file handling, the view commands, the booleans
+ * on the current selection, and the imports that need a file picker.
+ */
+export const WINDOW_TOOLS: string[] = ['about', 'align', 'asIs', 'coincidence', 'common', 'copy', 'cut', 'delete', 'download', 'duplicate', 'export', 'exportDxf', 'exportGcode', 'exportIfc', 'exportObj', 'exportStl', 'exportSvg', 'femBar', 'femCheck', 'fit', 'flatLines', 'grid', 'hiddenLine', 'hide', 'homepage', 'importOpenScad', 'importPoints', 'importStl', 'inertia', 'inspect', 'language', 'license', 'measure', 'new', 'noShading', 'open', 'openUrl', 'paste', 'pocketPath', 'points', 'print', 'projection', 'propertyPanel', 'redo', 'resetView', 'robotPose', 'ruler', 'save', 'saveAs', 'section', 'select', 'selectAll', 'settings', 'shaded', 'shortcuts', 'showAxes', 'solveConstraints', 'surfaceFill', 'toolPanel', 'undo', 'union', 'updatePart', 'usage', 'wireframe', 'zoomIn', 'zoomOut']
+
+/**
+ * Every tool the application can run, whether the command registry handles it
+ * or the window does. A menu item or a tool button may point at any of these.
+ */
+export function isAvailableTool(id: string, inRegistry: (tool: string) => boolean): boolean {
+  return inRegistry(id) || PART_OPERATIONS.includes(id) || BASIC_PRIMITIVES.includes(id) || WINDOW_TOOLS.includes(id)
 }

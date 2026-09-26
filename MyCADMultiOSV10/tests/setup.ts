@@ -23,3 +23,27 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     disconnect() {}
   } as typeof ResizeObserver
 }
+
+// jsdom has no PointerEvent, so a dispatched pointer event arrives without the
+// coordinates a browser would carry. A MouseEvent stands in for it.
+if (typeof globalThis.PointerEvent === 'undefined') {
+  class JsdomPointerEvent extends MouseEvent {
+    readonly pointerId: number
+    readonly pointerType: string
+    readonly isPrimary: boolean
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init)
+      this.pointerId = init.pointerId ?? 1
+      this.pointerType = init.pointerType ?? 'mouse'
+      this.isPrimary = init.isPrimary ?? true
+    }
+  }
+  globalThis.PointerEvent = JsdomPointerEvent as unknown as typeof PointerEvent
+}
+
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => undefined
+  Element.prototype.releasePointerCapture = () => undefined
+  Element.prototype.hasPointerCapture = () => false
+}
+

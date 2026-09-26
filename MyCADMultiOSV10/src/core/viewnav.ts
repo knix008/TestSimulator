@@ -83,16 +83,33 @@ export function roundStep(value: number): number {
 }
 
 /**
- * A round grid for the current view. The step follows the zoom the same way
- * the scale ruler's ticks do, so the lines keep roughly the same spacing on
- * screen however far in or out the camera is, and the sheet stays wide enough
- * to run past the edges of the viewport.
+ * A ruler tick as text. The number of decimals follows the spacing, so a
+ * 50 mm ruler reads "100" and a 0.2 mm one reads "0.4" — never
+ * 0.30000000000000004, however far the camera is zoomed in.
  */
-export function gridSpec(radius: number, zoom = 100): { size: number; divisions: number; step: number } {
-  const target = viewSpan(radius, zoom) * 1.8
-  const step = Math.max(0.01, roundStep(target / 24))
-  const divisions = Math.max(10, Math.min(60, Math.round(target / step)))
-  return { size: step * divisions, divisions, step }
+export function tickLabel(value: number, step: number): string {
+  const decimals = step >= 1 ? 0 : Math.min(6, Math.ceil(-Math.log10(step)))
+  const text = value.toFixed(decimals)
+  return /^-0(\.0*)?$/.test(text) ? text.slice(1) : text
+}
+
+/**
+ * A round grid for the current view.
+ *
+ * The step follows the zoom the same way the scale ruler's ticks do, so the
+ * lines keep roughly the same spacing on screen however far in or out the
+ * camera is. The sheet then reaches whichever is further out, the edges of the
+ * viewport or the model itself, so no part is ever left sitting on bare
+ * background. `panLimit` is how far the grid may slide with the camera before
+ * the model would fall off it.
+ */
+export function gridSpec(radius: number, zoom = 100): { size: number; divisions: number; step: number; panLimit: number } {
+  const span = viewSpan(radius, zoom)
+  const step = Math.max(0.01, roundStep((span * 1.8) / 24))
+  const reach = Math.max(span * 0.9, radius + span * 0.5)
+  const divisions = Math.max(10, Math.min(400, Math.round((reach * 2) / step)))
+  const size = step * divisions
+  return { size, divisions, step, panLimit: Math.max(0, size / 2 - radius) }
 }
 
 /** Label size that stays readable whatever the scene scale is. */

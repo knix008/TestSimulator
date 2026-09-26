@@ -48,6 +48,15 @@ export interface DocumentExtras {
   levels: BimLevel[]
   /** Material assignment per solid id. */
   materialOf: Record<string, string>
+  /** Sketcher constraints, as FreeCAD's solver lists them. */
+  sketchConstraints: SketchConstraint[]
+}
+
+/** One sketcher constraint: what it holds and the freedom it removes. */
+export interface SketchConstraint {
+  id: string
+  kind: string
+  dof: number
 }
 
 export function createExtras(): DocumentExtras {
@@ -73,7 +82,8 @@ export function createExtras(): DocumentExtras {
     designTable: null,
     bimElements: [],
     levels: [],
-    materialOf: {}
+    materialOf: {},
+    sketchConstraints: []
   }
 }
 
@@ -89,6 +99,7 @@ export function cloneExtras(extras: DocumentExtras | undefined): DocumentExtras 
     components: (extras.components ?? []).map((definition) => ({ ...definition, solids: definition.solids.slice(), origin: { ...definition.origin } })),
     instances: (extras.instances ?? []).map((instance) => ({ ...instance, position: { ...instance.position }, rotation: { ...instance.rotation }, scale: { ...instance.scale } })),
     tags: (extras.tags ?? base.tags).map((tag) => ({ ...tag })),
+    sketchConstraints: (extras.sketchConstraints ?? []).map((item) => ({ ...item })),
     scenes: (extras.scenes ?? []).map((scene) => ({ ...scene, hiddenTags: scene.hiddenTags.slice() })),
     materials: (extras.materials ?? base.materials).map((material) => ({ ...material })),
     shadows: { ...(extras.shadows ?? base.shadows) },

@@ -4,7 +4,7 @@ import { findMaterial } from './materials'
 import { solidVolume } from './part'
 import { boundingBoxOf, surfaceArea } from './primitives'
 
-export type ConstraintKind = 'fixed' | 'force' | 'pressure' | 'displacement' | 'temperature' | 'heatflux' | 'contact'
+export type ConstraintKind = 'fixed' | 'force' | 'pressure' | 'displacement' | 'temperature' | 'heatflux' | 'contact' | 'spring'
 
 export interface FemConstraint {
   id: string

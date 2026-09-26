@@ -3,7 +3,7 @@ import { cloneSolid, createDocument, createSolid, type CadDocument, type ShadeMo
 import type { Feature, Sketch } from './part'
 import { cloneExtras, type DocumentExtras } from './extras'
 import { clearRecent, rememberRecent, removeRecent } from './recent'
-import { defaultSettings, type Settings } from './settings'
+import { syncLights, defaultSettings, type Settings } from './settings'
 
 export interface HistoryEntry {
   past: CadDocument[]
@@ -91,7 +91,7 @@ export type Action =
   | { type: 'activate'; id: string }
   | { type: 'close-doc'; id: string }
   | { type: 'load-doc'; doc: CadDocument; path?: string }
-  | { type: 'mark-saved'; path: string }
+  | { type: 'mark-saved'; path: string; id?: string }
   | { type: 'add-solid'; kind: SolidKind }
   | { type: 'update-solid'; id: string; patch: Partial<Solid> }
   | { type: 'select'; ids: string[]; additive?: boolean }
@@ -126,8 +126,21 @@ export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'replace-settings':
       return { ...state, settings: action.settings }
-    case 'patch-settings':
-      return { ...state, settings: { ...state.settings, ...action.patch, lastDirectories: action.patch.lastDirectories ?? state.settings.lastDirectories, recentFiles: action.patch.recentFiles ?? state.settings.recentFiles } }
+    case 'patch-settings': {
+      const merged = {
+        ...state.settings,
+        ...action.patch,
+        lastDirectories: action.patch.lastDirectories ?? state.settings.lastDirectories,
+        recentFiles: action.patch.recentFiles ?? state.settings.recentFiles
+      }
+      // Editing one light, adding one or switching to another all end up in
+      // the same three fields, so they are settled in one place.
+      const touchedList = action.patch.lights !== undefined || action.patch.activeLight !== undefined
+      const settings = action.patch.light !== undefined || touchedList
+        ? { ...merged, ...syncLights(merged, touchedList ? 'list' : 'light') }
+        : merged
+      return { ...state, settings }
+    }
     case 'new-doc': {
       const seq = state.seq + 1
       const doc = createDocument(`doc-${seq}`, `Untitled ${state.documents.length + 1}`)
@@ -176,11 +189,15 @@ export function reducer(state: AppState, action: Action): AppState {
       }
     }
     case 'mark-saved': {
-      const current = activeDocument(state)
+      // Saving on the way out walks every changed tab, so the document that
+      // was written is named rather than assumed to be the active one.
+      const current = state.documents.find((item) => item.id === action.id) ?? activeDocument(state)
       const name = action.path.split(/[/\\]/).pop()?.replace(/\.mycad$/i, '') || current.name
       const recentFiles = rememberRecent(state.settings.recentFiles, { path: action.path, name })
+      const saved = { ...current, dirty: false, filePath: action.path, name }
       return {
-        ...withActive(state, { ...current, dirty: false, filePath: action.path, name }, false),
+        ...state,
+        documents: state.documents.map((item) => (item.id === current.id ? saved : item)),
         settings: { ...state.settings, recentFiles }
       }
     }

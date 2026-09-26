@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('mycad', {
   supportedExtensions: () => ipcRenderer.invoke('supported-extensions'),
   setMinSize: (width, height) => ipcRenderer.invoke('set-min-size', width, height),
   saveFile: (opts) => ipcRenderer.invoke('save-file', opts),
+  writeFile: (filePath, content) => ipcRenderer.invoke('write-file', { filePath, content }),
   showMenu: (payload) => ipcRenderer.invoke('show-menu', payload),
   openPopup: (payload) => ipcRenderer.invoke('open-popup', payload),
   syncState: (payload) => ipcRenderer.send('sync-state', payload),

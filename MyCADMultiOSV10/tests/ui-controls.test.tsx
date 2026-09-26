@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/ui/App'
 import { EXPORT_FORMATS, exportFileName, runExport } from '../src/core/exporters'
 import { createCustomTheme, resolveTheme, sanitizeTheme, THEME_TOKENS } from '../src/core/themes'
-import { defaultLight, defaultSettings, sanitizeLight, sanitizeSettings } from '../src/core/settings'
+import { SETTINGS_KEY, defaultLight, defaultSettings, newLight, sanitizeLight, sanitizeSettings, syncLights } from '../src/core/settings'
 import { activeDocument, createInitialState, reducer } from '../src/core/store'
 import { createDocument, createSolid } from '../src/core/model'
 import { menuIcon } from '../src/core/i18n'
@@ -247,5 +247,71 @@ describe('toolbar and dialogs', () => {
     await user.click(screen.getByTestId('tb-settings'))
     await user.click(screen.getByTestId('settings-tab-recent'))
     expect(screen.getByTestId('settings-panel').textContent).toContain('/10')
+  })
+})
+
+describe('several lights', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('[Light] a scene starts with one light and keeps it in step with the list', () => {
+    const settings = defaultSettings()
+    expect(settings.lights).toHaveLength(1)
+    expect(settings.activeLight).toBe(0)
+    expect(settings.lights[0]).toEqual(settings.light)
+
+    // Editing the light writes through to the list it belongs to.
+    const edited = syncLights({ ...settings, light: { ...settings.light, color: '#ffd9a0' } })
+    expect(edited.lights[0].color).toBe('#ffd9a0')
+
+    // Picking another light points `light` at it.
+    const two = syncLights({ ...settings, lights: [settings.light, newLight([settings.light])], activeLight: 1 }, 'list')
+    expect(two.lights).toHaveLength(2)
+    expect(two.light).toEqual(two.lights[1])
+    expect(two.light.color).not.toBe(two.lights[0].color)
+
+    // The fill light belongs to the scene, so it is shared.
+    const brighter = syncLights({ ...two, light: { ...two.light, ambient: 1.4 } })
+    expect(brighter.lights.map((item) => item.ambient)).toEqual([1.4, 1.4])
+
+    // A settings file written before lights were a list still opens.
+    const legacy = sanitizeSettings({ light: { kind: 'spot', color: '#a8d8ff' } })
+    expect(legacy.lights).toHaveLength(1)
+    expect(legacy.lights[0].kind).toBe('spot')
+    expect(legacy.light.color).toBe('#a8d8ff')
+    // And one written after keeps every light in it.
+    const many = sanitizeSettings({ lights: [defaultLight(), { ...defaultLight(), kind: 'point' }], activeLight: 1 })
+    expect(many.lights.map((item) => item.kind)).toEqual(['directional', 'point'])
+    expect(many.light.kind).toBe('point')
+  })
+
+  it('[GUI] the toolbar adds, picks and removes lights', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.click(screen.getByTestId('tb-light-menu'))
+    expect(screen.getAllByTestId(/^light-pick-/)).toHaveLength(1)
+
+    // Add two more, each arriving with its own colour and kind.
+    await user.click(screen.getByTestId('light-add'))
+    await user.click(screen.getByTestId('light-add'))
+    const stored = () => JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')
+    await waitFor(() => expect(stored().lights).toHaveLength(3))
+    expect(new Set(stored().lights.map((item: { color: string }) => item.color)).size).toBe(3)
+    expect(stored().activeLight).toBe(2)
+
+    // The controls edit whichever light is picked.
+    await user.click(screen.getByTestId('light-pick-1'))
+    await waitFor(() => expect(stored().activeLight).toBe(1))
+    await user.click(screen.getByTestId('light-kind-spot'))
+    await waitFor(() => expect(stored().lights[1].kind).toBe('spot'))
+    expect(stored().lights[0].kind).toBe('directional')
+    await user.click(screen.getByTestId('light-color-ffe0b0'))
+    await waitFor(() => expect(stored().lights[1].color).toBe('#ffe0b0'))
+
+    // And one can be taken away again.
+    await user.click(screen.getByTestId('light-remove-1'))
+    await waitFor(() => expect(stored().lights).toHaveLength(2))
+    expect(stored().lights.some((item: { kind: string }) => item.kind === 'spot')).toBe(false)
   })
 })

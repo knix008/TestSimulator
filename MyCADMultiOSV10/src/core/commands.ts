@@ -26,6 +26,7 @@ import {
 } from './nurbs'
 import { meshVolume, solveVolume, volumeMesh, volumeReport } from './fea'
 import { runPython } from './python'
+import { PARITY_COMMANDS } from './parity'
 import {
   boundingBoxOf, booleanFragments, compoundSolids, crossSections, makePrimitive,
   offsetSolid, ruledSurface, surfaceArea, thicknessSolid, xorSolids
@@ -1787,7 +1788,9 @@ export const COMMANDS: Record<string, Command> = {
   ...knowledgeCommands,
   ...assemblyCommands,
   ...sketchupCommands,
-  ...kernelCommands
+  ...kernelCommands,
+  // The FreeCAD tools the workbenches above did not already cover.
+  ...PARITY_COMMANDS
 }
 
 export const COMMAND_IDS = Object.keys(COMMANDS)

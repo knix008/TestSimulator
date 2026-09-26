@@ -93,6 +93,14 @@ function createWindow() {
     }, 500)
   })
 
+  // A file dropped anywhere in the window is for the document to open; it
+  // must never replace the app with the file itself.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const here = mainWindow.webContents.getURL()
+    if (url !== here) event.preventDefault()
+  })
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+
   mainWindow.webContents.on('did-finish-load', () => {
     const initial = pendingOpenPath || fileFromArgv(process.argv)
     pendingOpenPath = null
@@ -239,6 +247,17 @@ ipcMain.handle('save-file', async (_event, opts) => {
   if (result.canceled || !result.filePath) return { canceled: true }
   fs.writeFileSync(result.filePath, opts.content ?? '')
   return { canceled: false, filePath: result.filePath, directory: path.dirname(result.filePath) }
+})
+// Ctrl+S on a file that already has a path: write it back, no dialog.
+ipcMain.handle('write-file', async (_event, opts) => {
+  const filePath = String(opts?.filePath || '')
+  if (!filePath) return { ok: false, error: 'no path' }
+  try {
+    fs.writeFileSync(filePath, opts.content ?? '')
+    return { ok: true, filePath, directory: path.dirname(filePath) }
+  } catch (error) {
+    return { ok: false, error: error.message }
+  }
 })
 ipcMain.handle('show-menu', async (event, payload) => {
   const child = openChild({ kind: 'menu', width: 280, height: Math.min(720, 36 + payload.items.length * 28), title: 'Menu' })

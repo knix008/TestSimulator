@@ -6,7 +6,8 @@ import { MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/c
 import { toolbarMinWidth } from '../src/core/buildInfo'
 import { THEMES, themeById, themeVars, themesByMode } from '../src/core/themes'
 import { defaultSettings, sanitizeSettings } from '../src/core/settings'
-import { axisLength, gridSpec, roundStep, sceneRadius, viewDistance, viewSpan } from '../src/core/viewnav'
+import { axisLength, gridSpec, roundStep, sceneRadius, tickLabel, viewDistance, viewSpan } from '../src/core/viewnav'
+import { canShiftTabs, nextTabStart, tabStartFor, visibleTabCount } from '../src/core/tabs'
 import { boundingBoxOf } from '../src/core/primitives'
 import { createSolid } from '../src/core/model'
 import { defaultPageSetup, layoutPage, pageSizeMm, pageToSvg, sanitizePageSetup } from '../src/core/print'
@@ -120,6 +121,95 @@ describe('scene scaling', () => {
     const steps = [10, 25, 50, 100, 200, 400, 800].map((zoom) => gridSpec(120, zoom).step)
     for (let i = 1; i < steps.length; i++) expect(steps[i]).toBeLessThanOrEqual(steps[i - 1])
     expect(steps[0]).toBeGreaterThan(steps[steps.length - 1])
+  })
+
+  it('[View] the grid reaches the model however far the camera zooms in', () => {
+    for (const radius of [20, 120, 900, 5000, 40000]) {
+      for (const zoom of [10, 50, 100, 200, 400, 800]) {
+        const grid = gridSpec(radius, zoom)
+        const where = `${radius} @ ${zoom}%`
+        // The solids live within ±radius of the origin, so the sheet has to be
+        // at least that wide: zooming in must not leave a part on bare floor.
+        expect(grid.size / 2, where).toBeGreaterThanOrEqual(radius)
+        // And it still covers what the camera sees.
+        expect(grid.size, where).toBeGreaterThanOrEqual(viewSpan(radius, zoom))
+        expect(grid.divisions, where).toBeLessThanOrEqual(400)
+      }
+    }
+  })
+
+  it('[View] panning slides the grid only as far as the model can spare', () => {
+    // A small model in a wide view: the grid may follow the camera a long way.
+    expect(gridSpec(20, 100).panLimit).toBeGreaterThan(50)
+    // Panning by the limit still leaves the whole model on the grid.
+    for (const radius of [0, 20, 900, 40000]) {
+      for (const zoom of [25, 100, 400]) {
+        const grid = gridSpec(radius, zoom)
+        const where = `${radius} @ ${zoom}%`
+        expect(grid.panLimit, where).toBeGreaterThanOrEqual(0)
+        expect(grid.panLimit + radius, where).toBeLessThanOrEqual(grid.size / 2 + 1e-9)
+      }
+    }
+  })
+})
+
+describe('scale ruler', () => {
+  it('[View] tick labels stay short however far the camera zooms in', () => {
+    // Whole millimetres while the spacing is a millimetre or more.
+    expect(tickLabel(100, 50)).toBe('100')
+    expect(tickLabel(-20, 10)).toBe('-20')
+    expect(tickLabel(0.5, 1)).toBe('1')
+    // Finer spacings show just enough decimals, and no floating-point tails.
+    expect(tickLabel(0.1 + 0.2, 0.1)).toBe('0.3')
+    expect(tickLabel(0.30000000000000004, 0.1)).toBe('0.3')
+    expect(tickLabel(0.05, 0.05)).toBe('0.05')
+    expect(tickLabel(-0, 0.1)).toBe('0.0')
+    expect(tickLabel(-0.0001, 0.1)).toBe('0.0')
+    // Even at an absurd zoom the label is a handful of characters.
+    for (const zoom of [100, 1000, 10000, 100000]) {
+      const step = roundStep(viewSpan(0, zoom) / 12)
+      const label = tickLabel(step * 3, step)
+      expect(label.length, `${zoom}%`).toBeLessThanOrEqual(8)
+      expect(label, `${zoom}%`).not.toMatch(/\d{4,}$/)
+    }
+  })
+})
+
+describe('tab strip', () => {
+  it('[Tabs] the row shows as many tabs as the window has room for', () => {
+    // Wide enough for everything: no arrows, every document on screen.
+    expect(visibleTabCount(1200, 5)).toBe(5)
+    expect(visibleTabCount(1200, 6)).toBe(6)
+    // 900 px holds five 180 px tabs exactly; the sixth pushes the arrows out
+    // and the row keeps whole tabs only.
+    expect(visibleTabCount(900, 5)).toBe(5)
+    expect(visibleTabCount(900, 9)).toBe(4)
+    expect(visibleTabCount(420, 9)).toBe(2)
+    // Never fewer than one, however cramped, and unmeasured means show all.
+    expect(visibleTabCount(60, 9)).toBe(1)
+    expect(visibleTabCount(0, 9)).toBe(9)
+  })
+
+  it('[Tabs] the strip scrolls to whichever document is active', () => {
+    // Four visible out of nine: activating one further along moves the window.
+    expect(tabStartFor(0, 0, 9, 4)).toBe(0)
+    expect(tabStartFor(3, 0, 9, 4)).toBe(0)
+    expect(tabStartFor(4, 0, 9, 4)).toBe(1)
+    expect(tabStartFor(8, 0, 9, 4)).toBe(5)
+    // Going back scrolls the other way, and never past the ends.
+    expect(tabStartFor(1, 5, 9, 4)).toBe(1)
+    expect(tabStartFor(8, 5, 9, 4)).toBe(5)
+    expect(tabStartFor(0, 9, 9, 4)).toBe(0)
+  })
+
+  it('[Tabs] the arrows step one tab at a time and stop at the ends', () => {
+    expect(canShiftTabs('prev', 0, 9, 4)).toBe(false)
+    expect(canShiftTabs('next', 0, 9, 4)).toBe(true)
+    expect(nextTabStart('next', 0, 9, 4)).toBe(1)
+    expect(nextTabStart('prev', 0, 9, 4)).toBe(0)
+    expect(nextTabStart('next', 5, 9, 4)).toBe(5)
+    // Everything fits: the arrows do nothing because they are not there.
+    expect(canShiftTabs('next', 0, 3, 4)).toBe(false)
   })
 })
 

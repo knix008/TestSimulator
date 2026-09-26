@@ -1,12 +1,23 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/ui/App'
 import { MENUS, TOOLBAR, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/core/menus'
 import { toolbarMinWidth } from '../src/core/buildInfo'
 import { serializeDocument } from '../src/core/serialize'
 import { createDocument, createSolid } from '../src/core/model'
 import { SETTINGS_KEY } from '../src/core/settings'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+const readSample = (name: string) => readFileSync(join(process.cwd(), 'sample', name), 'utf8')
+
+/** Pretend the tab strip is this wide, the way a narrow window would be. */
+function narrowTabs(width: number) {
+  const strip = screen.getByTestId('tabstrip')
+  Object.defineProperty(strip, 'clientWidth', { value: width, configurable: true })
+  fireEvent(window, new Event('resize'))
+}
 
 function jsonFile(name: string, text: string) {
   return new File([text], name, { type: 'application/json' })
@@ -132,6 +143,8 @@ describe('gui', () => {
     await waitFor(() => expect(screen.getByTestId('status-objects').textContent).toContain('1'))
 
     for (let i = 0; i < 4; i++) await user.click(screen.getByTestId('tb-new'))
+    // A narrow window cannot show five tabs, so the strip grows its arrows.
+    narrowTabs(420)
     expect(screen.getByTestId('tab-prev')).toBeTruthy()
     expect(screen.getByTestId('tab-next')).toBeTruthy()
     await user.click(screen.getByTestId('tab-next'))
@@ -166,6 +179,152 @@ describe('gui', () => {
     expect(screen.getByTestId('confirm-message').textContent).toContain('저장')
     await user.click(screen.getByTestId('confirm-cancel'))
     expect(screen.queryByTestId('confirm-message')).toBeNull()
+  })
+
+  it('[GUI] a file dragged in from the desktop opens wherever it lands', async () => {
+    render(<App />)
+    await screen.findByTestId('viewport')
+    const doc = createDocument('doc', 'Plate')
+    doc.solids = [createSolid('box', 'b', 1)]
+
+    // Dropped on the tool panel rather than the canvas: still opened.
+    fireEvent.drop(screen.getByTestId('left-panel'), { dataTransfer: { files: [jsonFile('plate.mycad', serializeDocument(doc))] } })
+    await waitFor(() => expect(screen.getByTestId('status-objects').textContent).toContain('1'))
+
+    // And a drop that misses the app entirely is caught by the window, so the
+    // desktop never gets to replace the app with the file it dragged in.
+    const outside = createDocument('doc2', 'Second')
+    outside.solids = [createSolid('sphere', 's', 1), createSolid('box', 'b2', 2)]
+    const stray = new Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(stray, 'dataTransfer', {
+      value: { files: [jsonFile('two.mycad', serializeDocument(outside))], dropEffect: 'none', types: ['Files'] }
+    })
+    await act(async () => { document.body.dispatchEvent(stray) })
+    expect(stray.defaultPrevented).toBe(true)
+    await waitFor(() => expect(screen.getByTestId('status-objects').textContent).toContain('2'))
+
+    // Dragging over the window offers a copy, the way a desktop drop should.
+    const over = new Event('dragover', { bubbles: true, cancelable: true })
+    const transfer = { dropEffect: 'none', types: ['Files'] }
+    Object.defineProperty(over, 'dataTransfer', { value: transfer })
+    await act(async () => { window.dispatchEvent(over) })
+    expect(over.defaultPrevented).toBe(true)
+    expect(transfer.dropEffect).toBe('copy')
+  })
+
+  it('[GUI] every supported CAD format can be dragged into the document', async () => {
+    render(<App />)
+    const canvas = await screen.findByTestId('viewport')
+    // One file per reader, each dropped straight onto the canvas.
+    const drops: Array<[string, string]> = [
+      ['plate.ply', 'PLY'],
+      ['gear.off', 'OFF'],
+      ['pyramid.stl', 'STL'],
+      ['plate.obj', 'OBJ'],
+      ['bracket.step', 'STEP'],
+      ['assembly.dae', 'Collada'],
+      ['profile.igs', 'IGES'],
+      ['profile.dxf', 'DXF']
+    ].map(([name, label]) => [name, label] as [string, string])
+    for (const [name, label] of drops) {
+      const file = new File([readSample(name)], name, { type: 'text/plain' })
+      fireEvent.drop(canvas, { dataTransfer: { files: [file] } })
+      // The status line names the reader that took the file.
+      await waitFor(() => expect(screen.getByTestId('status-text').textContent, name).toContain(label))
+      await waitFor(() => expect(screen.getByTestId('status-text').textContent, name).toContain(name))
+    }
+    // Eight files in, and the solids from them are all in one document.
+    expect(Number(screen.getByTestId('status-objects').textContent?.replace(/[^0-9]/g, ''))).toBeGreaterThanOrEqual(6)
+  })
+
+  it('[GUI] Ctrl+S writes the open file back without asking where', async () => {
+    const user = userEvent.setup({ delay: null })
+    const written: Array<{ path: string; content: string }> = []
+    const saveFile = vi.fn(async () => ({ canceled: true }))
+    const bridge = {
+      isElectron: true,
+      pathForFile: (file: File) => `D:/cad/${file.name}`,
+      writeFile: async (path: string, content: string) => {
+        written.push({ path, content })
+        return { ok: true, filePath: path, directory: 'D:/cad' }
+      },
+      saveFile
+    }
+    Object.defineProperty(window, 'mycad', { value: bridge, configurable: true, writable: true })
+
+    render(<App />)
+    const doc = createDocument('doc', 'Plate')
+    doc.solids = [createSolid('box', 'b', 1)]
+    const canvas = await screen.findByTestId('viewport')
+    fireEvent.drop(canvas, { dataTransfer: { files: [jsonFile('plate.mycad', serializeDocument(doc))] } })
+    await waitFor(() => expect(screen.getByTestId('status-objects').textContent).toContain('1'))
+
+    // Change something, then Ctrl+S: it goes straight back to the same file.
+    await user.click(screen.getByTestId('tb-sphere'))
+    await waitFor(() => expect(screen.getByTestId('status-dirty').textContent).toBe('수정됨'))
+    await user.keyboard('{Control>}s{/Control}')
+    await waitFor(() => expect(written).toHaveLength(1))
+    expect(written[0].path).toBe('D:/cad/plate.mycad')
+    expect(written[0].content).toContain('mycad')
+    expect(saveFile).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByTestId('status-dirty').textContent).toBe('저장됨'))
+
+    // Save As still asks, so a copy can go somewhere else.
+    await user.click(screen.getByTestId('menu-file'))
+    await user.click(screen.getByTestId('menuitem-saveAs'))
+    await waitFor(() => expect(saveFile).toHaveBeenCalled())
+    Reflect.deleteProperty(window as unknown as Record<string, unknown>, 'mycad')
+  })
+
+  it('[GUI] quitting with unsaved changes asks, and saving covers every tab', async () => {
+    const user = userEvent.setup({ delay: null })
+    const written: string[] = []
+    let requestClose: (() => void) | null = null
+    const confirmClose = vi.fn()
+    const bridge = {
+      isElectron: true,
+      pathForFile: (file: File) => `D:/cad/${file.name}`,
+      writeFile: async (path: string) => {
+        written.push(path)
+        return { ok: true, filePath: path, directory: 'D:/cad' }
+      },
+      saveFile: vi.fn(async () => ({ canceled: false, filePath: 'D:/cad/untitled.mycad', directory: 'D:/cad' })),
+      onRequestClose: (cb: () => void) => {
+        requestClose = cb
+        return () => { requestClose = null }
+      },
+      confirmClose
+    }
+    Object.defineProperty(window, 'mycad', { value: bridge, configurable: true, writable: true })
+
+    render(<App />)
+    const first = createDocument('doc', 'Plate')
+    first.solids = [createSolid('box', 'b', 1)]
+    const canvas = await screen.findByTestId('viewport')
+    fireEvent.drop(canvas, { dataTransfer: { files: [jsonFile('plate.mycad', serializeDocument(first))] } })
+    await waitFor(() => expect(screen.getByTestId('status-objects').textContent).toContain('1'))
+
+    // A second tab, changed and never saved anywhere.
+    await user.click(screen.getByTestId('tb-new'))
+    await user.click(screen.getByTestId('tb-box'))
+    await waitFor(() => expect(screen.getByTestId('status-dirty').textContent).toBe('수정됨'))
+
+    // Back to the first tab and change that one too.
+    await user.click(screen.getByTitle(/plate/i))
+    await user.click(screen.getByTestId('tb-sphere'))
+    await waitFor(() => expect(screen.getByTestId('status-dirty').textContent).toBe('수정됨'))
+
+    // The window is closing: the app asks before anything is thrown away.
+    await act(async () => { requestClose?.() })
+    expect(screen.getByTestId('confirm-message').textContent).toContain('저장')
+    expect(confirmClose).not.toHaveBeenCalled()
+
+    await user.click(screen.getByTestId('confirm-save'))
+    // The tab with a file goes straight back to it; the new one is asked about.
+    await waitFor(() => expect(written).toContain('D:/cad/plate.mycad'))
+    await waitFor(() => expect(bridge.saveFile).toHaveBeenCalled())
+    await waitFor(() => expect(confirmClose).toHaveBeenCalledWith(true))
+    Reflect.deleteProperty(window as unknown as Record<string, unknown>, 'mycad')
   })
 
   it('[GUI] zooms with ctrl and the mouse wheel', async () => {

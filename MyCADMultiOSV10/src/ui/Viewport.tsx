@@ -7,9 +7,11 @@ import type { Settings } from '../core/settings'
 import {
   axisLabelSize, axisLength, cameraFromOrbit, clampLightAngles, dragPosition, gridSpec,
   lightAngles, lightPosition, navAction, orbitForPreset, panOrbit, raySphereDirection, rotateOrbit,
-  sceneRadius, viewDistance, viewSpan, roundStep, type OrbitState
+  sceneRadius, tickLabel, viewDistance, viewSpan, roundStep, type OrbitState
 } from '../core/viewnav'
 import { boundingBoxOf } from '../core/primitives'
+import { formatLength } from '../core/units'
+import type { UnitSchema } from '../core/units'
 import { themeById } from '../core/themes'
 
 export function Viewport({
@@ -24,6 +26,7 @@ export function Viewport({
   onPreset,
   onMoveSolid,
   onMoveLight,
+  onMoveScaleMarker,
   resetKey = 0
 }: {
   doc: CadDocument
@@ -38,7 +41,8 @@ export function Viewport({
   /** called once when a drag finishes, with the new position */
   onMoveSolid: (id: string, position: { x: number; y: number; z: number }) => void
   /** called once when the light gizmo is dropped, with its new angles */
-  onMoveLight: (angles: { azimuth: number; elevation: number }) => void
+  onMoveLight: (angles: { azimuth: number; elevation: number }, index: number) => void
+  onMoveScaleMarker: (at: { x: number; y: number } | null) => void
   /** changing this value re-centres the camera on the default view */
   resetKey?: number
 }) {
@@ -112,113 +116,144 @@ export function Viewport({
       const at = cameraFromOrbit(orbit.current, distance)
       camera.position.set(at.x, at.y, at.z)
       camera.lookAt(orbit.current.tx, orbit.current.ty, orbit.current.tz)
-      // Panning slides the grid along with the camera, by whole steps, so the
-      // lines stay under the model and still sit on round coordinates.
+      // Panning slides the grid along with the camera, by whole steps so the
+      // lines stay on round coordinates, and only as far as the model can
+      // spare: the part itself always keeps grid under it.
       if (gridHelper) {
-        const onStep = (value: number) => Math.round(value / grid.step) * grid.step
+        const onStep = (value: number) => {
+          const stepped = Math.round(value / grid.step) * grid.step
+          return Math.max(-grid.panLimit, Math.min(grid.panLimit, stepped))
+        }
         gridHelper.position.set(onStep(orbit.current.tx), 0, onStep(orbit.current.tz))
       }
     }
     placeCamera()
-    // Lighting rig: the toolbar light control moves the key light around the
-    // model and sets both strengths.
-    const rig = settings.light
-    // Switching the light off leaves a dim flat fill so the model stays
-    // readable, and the gizmo turns grey.
-    const ambient = new THREE.AmbientLight(0xffffff, rig.enabled ? rig.ambient : Math.max(0.18, rig.ambient * 0.35))
+    // Lighting rig: the scene may hold several lights, each with its own
+    // kind, colour and place in the sky. The toolbar edits one of them; the
+    // markers in the canvas can all be dragged.
+    const rigs = settings.lights?.length ? settings.lights : [settings.light]
+    const anyOn = rigs.some((item) => item.enabled)
+    // The fill light belongs to the scene: switched off everywhere, a dim
+    // flat fill stays so the model is still readable.
+    const fill = rigs[0]?.ambient ?? 0.65
+    const ambient = new THREE.AmbientLight(0xffffff, anyOn ? fill : Math.max(0.18, fill * 0.35))
     scene.add(ambient)
     const reach = Math.max(200, radius * 3)
-    const place = lightPosition(rig.azimuth, rig.elevation, reach)
-    // The key light comes in several kinds. Each source keeps its own angular
-    // offset from the rig angles, so dragging the gizmo moves the whole set.
-    const strength = rig.enabled ? rig.intensity : 0
-    const keyColor = new THREE.Color(rig.color || '#ffffff')
     type Mover = { light: { position: { set: (x: number, y: number, z: number) => void } }; dAzimuth: number; dElevation: number }
-    const movers: Mover[] = []
-    const track = (light: Mover['light'], dAzimuth = 0, dElevation = 0) => {
-      movers.push({ light, dAzimuth, dElevation })
-      scene.add(light)
-      return light
+    interface Lamp {
+      index: number
+      marker: THREE.Mesh
+      aim: (azimuth: number, elevation: number) => void
+      angles: { azimuth: number; elevation: number }
     }
-    if (rig.kind === 'point') {
-      // decay 0 keeps the brightness independent of the model size.
-      track(new THREE.PointLight(keyColor, strength * 1.3, 0, 0))
-    } else if (rig.kind === 'spot') {
-      const spot = new THREE.SpotLight(keyColor, strength * 2.2, 0, Math.PI / 5, 0.4, 0)
-      spot.target.position.set(0, 0, 0)
-      scene.add(spot.target)
-      track(spot)
-    } else if (rig.kind === 'hemisphere') {
-      track(new THREE.HemisphereLight(keyColor, 0x2f353d, strength * 1.2))
-      track(new THREE.DirectionalLight(keyColor, strength * 0.35))
-    } else if (rig.kind === 'threePoint') {
-      track(new THREE.DirectionalLight(keyColor, strength))
-      track(new THREE.DirectionalLight(keyColor, strength * 0.45), 120, -20)
-      track(new THREE.DirectionalLight(keyColor, strength * 0.3), -145, 12)
-    } else if (rig.kind !== 'ambientOnly') {
-      track(new THREE.DirectionalLight(keyColor, strength))
-    }
-    if (rig.kind === 'ambientOnly') {
-      // Flat, shadowless light: only the fill stays, raised so shapes read.
-      ambient.intensity = rig.enabled ? Math.max(rig.ambient, rig.intensity) : Math.max(0.18, rig.ambient * 0.35)
-    }
-    const aimLights = (azimuth: number, elevation: number) => {
-      for (const mover of movers) {
-        const at = lightPosition(azimuth + mover.dAzimuth, Math.max(-85, Math.min(89, elevation + mover.dElevation)), reach)
-        mover.light.position.set(at.x, at.y, at.z)
-      }
-    }
-    aimLights(rig.azimuth, rig.elevation)
+    const lamps: Lamp[] = []
+    // Everything the lamps put in the scene, so it can all be thrown away
+    // together when the view is rebuilt.
+    const lampObjects: THREE.Object3D[] = []
 
-    // The light is drawn in the scene while it is on: a sun marker with rays
-    // and a line back to the origin, which can be dragged to move it. Switched
-    // off, there is nothing to show and nothing to grab.
-    const showLight = rig.enabled
-    const lightGizmo = new THREE.Group()
-    const markerRadius = Math.max(2, reach * 0.045)
-    const lightColor = rig.enabled ? new THREE.Color(rig.color || '#ffffff').lerp(new THREE.Color(0xffd166), 0.45) : new THREE.Color(0x8b96a3)
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(markerRadius, 20, 14),
-      new THREE.MeshBasicMaterial({ color: lightColor, depthTest: false, transparent: true, opacity: 0.95 })
-    )
-    marker.renderOrder = 4
-    marker.userData.light = true
-    lightGizmo.add(marker)
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI * 2 * i) / 8
-      const ray = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(Math.cos(angle) * markerRadius * 1.3, Math.sin(angle) * markerRadius * 1.3, 0),
-          new THREE.Vector3(Math.cos(angle) * markerRadius * 2, Math.sin(angle) * markerRadius * 2, 0)
-        ]),
-        new THREE.LineBasicMaterial({ color: lightColor, depthTest: false, transparent: true, opacity: 0.9 })
+    rigs.forEach((rig, index) => {
+      const place = lightPosition(rig.azimuth, rig.elevation, reach)
+      // Each source keeps its own angular offset from the rig angles, so
+      // dragging one marker moves the whole set that belongs to it.
+      const strength = rig.enabled ? rig.intensity : 0
+      const keyColor = new THREE.Color(rig.color || '#ffffff')
+      const movers: Mover[] = []
+      const track = (light: Mover['light'], dAzimuth = 0, dElevation = 0) => {
+        movers.push({ light, dAzimuth, dElevation })
+        scene.add(light as unknown as THREE.Object3D)
+        return light
+      }
+      if (rig.kind === 'point') {
+        // decay 0 keeps the brightness independent of the model size.
+        track(new THREE.PointLight(keyColor, strength * 1.3, 0, 0))
+      } else if (rig.kind === 'spot') {
+        const spot = new THREE.SpotLight(keyColor, strength * 2.2, 0, Math.PI / 5, 0.4, 0)
+        spot.target.position.set(0, 0, 0)
+        scene.add(spot.target)
+        track(spot)
+      } else if (rig.kind === 'hemisphere') {
+        track(new THREE.HemisphereLight(keyColor, 0x2f353d, strength * 1.2))
+        track(new THREE.DirectionalLight(keyColor, strength * 0.35))
+      } else if (rig.kind === 'threePoint') {
+        track(new THREE.DirectionalLight(keyColor, strength))
+        track(new THREE.DirectionalLight(keyColor, strength * 0.45), 120, -20)
+        track(new THREE.DirectionalLight(keyColor, strength * 0.3), -145, 12)
+      } else if (rig.kind !== 'ambientOnly') {
+        track(new THREE.DirectionalLight(keyColor, strength))
+      }
+      if (rig.kind === 'ambientOnly' && rig.enabled) {
+        // Flat, shadowless light: only the fill stays, raised so shapes read.
+        ambient.intensity = Math.max(ambient.intensity, rig.intensity)
+      }
+
+      // The light is drawn in the scene while it is on: a sun marker with rays
+      // and a line back to the origin, which can be dragged to move it.
+      // Switched off, there is nothing to show and nothing to grab.
+      const lightGizmo = new THREE.Group()
+      const markerRadius = Math.max(2, reach * 0.045)
+      const lightColor = rig.enabled
+        ? new THREE.Color(rig.color || '#ffffff').lerp(new THREE.Color(0xffd166), 0.45)
+        : new THREE.Color(0x8b96a3)
+      const marker = new THREE.Mesh(
+        new THREE.SphereGeometry(markerRadius, 20, 14),
+        new THREE.MeshBasicMaterial({ color: lightColor, depthTest: false, transparent: true, opacity: 0.95 })
       )
-      ray.renderOrder = 4
-      lightGizmo.add(ray)
-    }
-    const beamGeometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(place.x, place.y, place.z)
-    ])
-    const beam = new THREE.Line(
-      beamGeometry,
-      new THREE.LineBasicMaterial({ color: lightColor, depthTest: false, transparent: true, opacity: 0.45 })
-    )
-    beam.renderOrder = 3
-    lightGizmo.position.set(place.x, place.y, place.z)
-    lightGizmo.visible = showLight
-    beam.visible = showLight
-    if (showLight) {
-      scene.add(lightGizmo)
-      scene.add(beam)
-    }
-    const placeLight = (angles: { azimuth: number; elevation: number }) => {
-      const next = lightPosition(angles.azimuth, angles.elevation, reach)
-      aimLights(angles.azimuth, angles.elevation)
-      lightGizmo.position.set(next.x, next.y, next.z)
-      beamGeometry.setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(next.x, next.y, next.z)])
-      beamGeometry.attributes.position.needsUpdate = true
-    }
+      marker.renderOrder = 4
+      marker.userData.light = true
+      marker.userData.lightIndex = index
+      lightGizmo.add(marker)
+      for (let i = 0; i < 8; i++) {
+        const angle = (Math.PI * 2 * i) / 8
+        const ray = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(Math.cos(angle) * markerRadius * 1.3, Math.sin(angle) * markerRadius * 1.3, 0),
+            new THREE.Vector3(Math.cos(angle) * markerRadius * 2, Math.sin(angle) * markerRadius * 2, 0)
+          ]),
+          new THREE.LineBasicMaterial({ color: lightColor, depthTest: false, transparent: true, opacity: 0.9 })
+        )
+        ray.renderOrder = 4
+        lightGizmo.add(ray)
+      }
+      // The light being edited wears a ring, so it is clear which one the
+      // toolbar sliders move.
+      if (index === (settings.activeLight ?? 0) && rigs.length > 1) {
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(markerRadius * 2.2, markerRadius * 2.6, 28),
+          new THREE.MeshBasicMaterial({ color: lightColor, depthTest: false, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+        )
+        ring.renderOrder = 4
+        lightGizmo.add(ring)
+      }
+      const beamGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(place.x, place.y, place.z)
+      ])
+      const beam = new THREE.Line(
+        beamGeometry,
+        new THREE.LineBasicMaterial({ color: lightColor, depthTest: false, transparent: true, opacity: 0.45 })
+      )
+      beam.renderOrder = 3
+      lightGizmo.position.set(place.x, place.y, place.z)
+      lightGizmo.visible = rig.enabled
+      beam.visible = rig.enabled
+      if (rig.enabled) {
+        scene.add(lightGizmo)
+        scene.add(beam)
+      }
+      const aim = (azimuth: number, elevation: number) => {
+        for (const mover of movers) {
+          const at = lightPosition(azimuth + mover.dAzimuth, Math.max(-85, Math.min(89, elevation + mover.dElevation)), reach)
+          mover.light.position.set(at.x, at.y, at.z)
+        }
+        const next = lightPosition(azimuth, elevation, reach)
+        lightGizmo.position.set(next.x, next.y, next.z)
+        beamGeometry.setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(next.x, next.y, next.z)])
+        beamGeometry.attributes.position.needsUpdate = true
+      }
+      aim(rig.azimuth, rig.elevation)
+      lampObjects.push(lightGizmo, beam)
+      lamps.push({ index, marker, aim, angles: { azimuth: rig.azimuth, elevation: rig.elevation } })
+    })
     const theme = themeById(settings.theme)
     if (settings.grid) {
       gridHelper = new THREE.GridHelper(grid.size, grid.divisions, theme.colors.gridMajor, theme.colors.gridMinor)
@@ -370,8 +405,13 @@ export function Viewport({
       return raycaster
     }
     const pickHit = (event: PointerEvent | MouseEvent) => castRay(event).intersectObjects(meshes, false)[0]
-    const pickLight = (event: PointerEvent | MouseEvent) =>
-      showLight ? castRay(event).intersectObject(marker, false)[0] : undefined
+    const pickLight = (event: PointerEvent | MouseEvent) => {
+      for (const lamp of lamps) {
+        if (!lamp.marker.visible && !lamp.marker.parent) continue
+        if (castRay(event).intersectObject(lamp.marker, false)[0]) return lamp
+      }
+      return undefined
+    }
     const pick = (event: PointerEvent | MouseEvent) => pickHit(event)?.object.userData.id as string | undefined
 
     // Dragging moves the picked solid on the ground plane; shift drags it
@@ -385,7 +425,7 @@ export function Viewport({
       moved: boolean
       last: { x: number; y: number; z: number }
     } | null = null
-    let dragLight: { moved: boolean; last: { azimuth: number; elevation: number } } | null = null
+    let dragLight: { index: number; moved: boolean; last: { azimuth: number; elevation: number }; aim: Lamp['aim'] } | null = null
     let drag: { button: number; x: number; y: number; moved: number } | null = null
     const onPointer = (event: PointerEvent) => {
       drag = { button: event.button, x: event.clientX, y: event.clientY, moved: 0 }
@@ -393,8 +433,9 @@ export function Viewport({
       if (event.button !== 0) return
       // The light marker is grabbed before the model, so it stays reachable
       // even when it sits in front of a solid.
-      if (pickLight(event)) {
-        dragLight = { moved: false, last: { azimuth: rig.azimuth, elevation: rig.elevation } }
+      const lamp = pickLight(event)
+      if (lamp) {
+        dragLight = { index: lamp.index, moved: false, last: { ...lamp.angles }, aim: lamp.aim }
         return
       }
       const hit = pickHit(event)
@@ -443,7 +484,7 @@ export function Viewport({
             lightAngles(direction).azimuth,
             lightAngles(direction).elevation
           )
-          placeLight(angles)
+          dragLight.aim(angles.azimuth, angles.elevation)
           dragLight.last = angles
           dragLight.moved = true
           handlers.current.onCursor({ x: angles.azimuth, y: angles.elevation, z: 0 })
@@ -489,7 +530,7 @@ export function Viewport({
         dragLight = null
         if (finished.moved) {
           drag = null
-          handlers.current.onMoveLight(finished.last)
+          handlers.current.onMoveLight(finished.last, finished.index)
           return
         }
       }
@@ -544,11 +585,9 @@ export function Viewport({
       disposeObject(axes)
       disposeObject(cornerAxes)
       for (const highlight of highlights) disposeObject(highlight)
-      disposeObject(lightGizmo)
-      beam.geometry.dispose()
-      ;(beam.material as THREE.Material).dispose()
+      for (const object of lampObjects) disposeObject(object)
     }
-  }, [doc, settings.grid, settings.theme, settings.showAxes, settings.autoScaleAxes, settings.snap, settings.light, settings.projection, settings.clip, settings.navigation, zoom, resetKey])
+  }, [doc, settings.grid, settings.theme, settings.showAxes, settings.autoScaleAxes, settings.snap, settings.light, settings.lights, settings.activeLight, settings.projection, settings.clip, settings.navigation, zoom, resetKey])
 
   const layerStyle = settings.backgroundImage
     ? { backgroundImage: `url(${settings.backgroundImage})`, opacity: settings.backgroundOpacity / 100 }
@@ -577,7 +616,96 @@ export function Viewport({
         ))}
       </div>
       {settings.ruler ? <ScaleRuler zoom={zoom} radius={settings.autoScaleAxes ? sceneRadius(boundingBoxOf(doc.solids.filter((solid) => solid.visible))) : 0} /> : null}
+      <ScaleMarker
+        zoom={zoom}
+        radius={settings.autoScaleAxes ? sceneRadius(boundingBoxOf(doc.solids.filter((solid) => solid.visible))) : 0}
+        units={settings.units ?? 'mm'}
+        at={settings.scaleMarker}
+        onMove={onMoveScaleMarker}
+      />
       <div className="nav-hint">Wheel zoom · Drag rotate · Right drag pan · Drag object to move (Shift: up/down, Alt: 1 mm steps) · Drag ☀ to move the light</div>
+    </div>
+  )
+}
+
+/**
+ * The scale marker: a bar of a round length with the distance it stands for.
+ * It can be dragged anywhere on the canvas and goes back to its corner when
+ * the view is reset.
+ */
+function ScaleMarker({
+  zoom,
+  radius,
+  units,
+  at,
+  onMove
+}: {
+  zoom: number
+  radius: number
+  units: UnitSchema
+  at: { x: number; y: number } | null
+  onMove: (at: { x: number; y: number } | null) => void
+}) {
+  const host = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  const [dragging, setDragging] = useState<{ dx: number; dy: number } | null>(null)
+  useEffect(() => {
+    const parent = host.current?.parentElement
+    if (!parent) return
+    const measure = () => setSize({ width: parent.clientWidth, height: parent.clientHeight })
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(parent)
+    return () => observer.disconnect()
+  }, [])
+  // Before the canvas has been measured — a fresh mount, or a headless run —
+  // assume an ordinary window so the marker is still drawn.
+  const height = size.height > 0 ? size.height : 600
+  const width0 = size.width > 0 ? size.width : 900
+  const pxPerMm = height / Math.max(1e-6, viewSpan(radius, zoom))
+  // A round distance that comes out somewhere near 140 px on screen.
+  const distance = roundStep(140 / pxPerMm)
+  const width = Math.max(24, distance * pxPerMm)
+  const home = { x: 18, y: 42 }
+  // A pointer event without coordinates (a synthetic one, say) must not turn
+  // the marker's position into NaN.
+  const place = at && Number.isFinite(at.x) && Number.isFinite(at.y) ? at : home
+  const left = Math.max(4, Math.min(Math.max(4, width0 - width - 12), place.x))
+  const bottom = Math.max(4, Math.min(Math.max(4, height - 40), place.y))
+  return (
+    <div
+      ref={host}
+      className={dragging ? 'scale-marker dragging' : 'scale-marker'}
+      data-testid="scale-marker"
+      data-distance={distance}
+      style={{ left, bottom, width }}
+      title={`${formatLength(distance, units)}`}
+      onPointerDown={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        const box = event.currentTarget.getBoundingClientRect()
+        setDragging({ dx: event.clientX - box.left, dy: box.bottom - event.clientY })
+        event.currentTarget.setPointerCapture?.(event.pointerId)
+      }}
+      onPointerMove={(event) => {
+        if (!dragging) return
+        event.stopPropagation()
+        const parent = host.current?.parentElement
+        if (!parent) return
+        const box = parent.getBoundingClientRect()
+        const x = Math.round(event.clientX - box.left - dragging.dx)
+        const y = Math.round(box.bottom - event.clientY - dragging.dy)
+        if (Number.isFinite(x) && Number.isFinite(y)) onMove({ x, y })
+      }}
+      onPointerUp={(event) => {
+        event.stopPropagation()
+        setDragging(null)
+        event.currentTarget.releasePointerCapture?.(event.pointerId)
+      }}
+    >
+      <span className="scale-marker-label" data-testid="scale-marker-label">{formatLength(distance, units)}</span>
+      <span className="scale-marker-bar" aria-hidden="true" />
     </div>
   )
 }
@@ -620,9 +748,9 @@ function RulerEdge({ axis, length, pxPerMm }: { axis: 'x' | 'y'; length: number;
   return (
     <div className={`scale-ruler ${axis === 'x' ? 'horizontal' : 'vertical'}`}>
       {ticks.map((tick) => (
-        <span key={tick.value}>
+        <span key={tickLabel(tick.value, minor)}>
           <i className={tick.isMajor ? 'scale-tick major' : 'scale-tick minor'} style={axis === 'x' ? { left: tick.offset } : { bottom: tick.offset }} />
-          {tick.isMajor ? <b className="scale-label" style={axis === 'x' ? { left: tick.offset } : { bottom: tick.offset }}>{tick.value}</b> : null}
+          {tick.isMajor ? <b className="scale-label" style={axis === 'x' ? { left: tick.offset } : { bottom: tick.offset }}>{tickLabel(tick.value, major)}</b> : null}
         </span>
       ))}
     </div>

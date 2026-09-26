@@ -12,7 +12,7 @@ import { menuIcon, translate, type MessageKey } from '../core/i18n'
 import { commandHelp } from '../core/labels'
 import { CONTEXT_ITEMS, MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT, menuPopupLayout, menuRowCount, menuSections } from '../core/menus'
 import { hasCommand, runCommandById, type CommandEffect } from '../core/commands'
-import { createSolid, type ShadeMode, type SolidKind, type ViewPreset } from '../core/model'
+import { createSolid, type CadDocument, type ShadeMode, type SolidKind, type ViewPreset } from '../core/model'
 import { pageToSvg, selectionDistance } from '../core/print'
 import { fileTypeFor, importCsv, importFile, openFilters } from '../core/fileTypes'
 import { runExport } from '../core/exporters'
@@ -20,23 +20,22 @@ import { installAddon } from '../core/addons'
 import { buildPrintPages, defaultPageSetup, type PageSetup, type PrintScope } from '../core/print'
 import { LANGUAGES, browserStorage, fontCss, sanitizeSettings, type Lang } from '../core/settings'
 import { resolveTheme, themeVars } from '../core/themes'
-import { LanguageFlag } from './Flags'
+import { AxesMark, LanguageFlag } from './Flags'
 import { FontControl, LightPicker, ThemePicker, ZoomControl } from './ToolbarControls'
 import { fileNameFromPath, parseDocument, serializeDocument } from '../core/serialize'
 import { activeDocument, canRedo, canUndo, createInitialState, reducer, type AppState } from '../core/store'
 import { parseStl, toAsciiStl } from '../core/stl'
 import { sketchesToDxf, sketchesToSvg } from '../core/drawing'
 import { booleanSolids, filletBox, helixSolid, holeTool, linearPattern, loftSketches, makeSketch, mirrorSolid, padSketch, pipeSketch, polarPattern, rebuildFeatureSolid, revolveSketch, solidVolume, toObj, type WorkPlane } from '../core/part'
-import { WORKBENCHES, femStress, sketchToGcode, workbenchTools, type WorkbenchId } from '../core/workbenches'
+import { BASIC_PRIMITIVES, PART_OPERATIONS, WORKBENCHES, femStress, sketchToGcode, workbenchTools, type WorkbenchId } from '../core/workbenches'
 import { compileOpenScad, femBar, forwardKinematics, inspectSolids, parsePoints, pocketGcode, pointCloudSolid, solveSketchConstraints, surfaceFromSketch, toIfc } from '../core/extended'
 import { draftSolid, evaluateFormula, inertiaOf, rectangularPattern, referencePlane, shaft, groove, shellSolid, solveMate, specTreeRows, steppedHole, transformSolid, updateSketchFromParameters } from '../core/catia'
-import { nextTabStart, tabsOverflow, tabWindow } from '../core/tabs'
+import { nextTabStart, tabStartFor, tabWindow, visibleTabCount } from '../core/tabs'
 import { AboutDialog, ConfirmDialog, ErrorDialog, ExportDialog, NumberField, PartDialog, PrintDialog, ProgressDialog, ReportDialog, SettingsDialog, UsageDialog } from './dialogs'
 // three.js is a megabyte of its own, so the canvas arrives as its own chunk and
 // a window that never draws (the settings window) never downloads it.
 const Viewport = lazy(() => import('./Viewport').then((module) => ({ default: module.Viewport })))
 
-const VISIBLE_TABS = 4
 type DialogKind = 'about' | 'settings' | 'print' | 'error' | 'confirm' | 'part' | 'usage' | 'report' | 'export' | null
 
 async function readFile(file: Blob): Promise<string> {
@@ -65,6 +64,8 @@ export function App() {
   const [pageSetup, setPageSetup] = useState<PageSetup>(defaultPageSetup())
   const [pageIndex, setPageIndex] = useState(0)
   const [tabStart, setTabStart] = useState(0)
+  const [tabRoom, setTabRoom] = useState(0)
+  const tabsRef = useRef<HTMLDivElement>(null)
   const [loaded, setLoaded] = useState(false)
   const [partOp, setPartOp] = useState('sketchRect')
   const [workbench, setWorkbench] = useState<WorkbenchId>('partDesign')
@@ -296,10 +297,23 @@ export function App() {
     if (path) dispatch({ type: 'remember-dir', key: 'open', directory: directoryOf(path) })
   }, [])
 
-  const saveActive = useCallback(async (forceDialog: boolean) => {
-    const current = activeDocument(state)
+  /**
+   * Write one document out. Ctrl+S on a file that already has a path writes
+   * straight back to it; everything else asks where to put it.
+   */
+  const saveDocument = useCallback(async (current: CadDocument, forceDialog: boolean) => {
     let path = !forceDialog ? current.filePath : undefined
     const content = serializeDocument({ ...current, name: current.name })
+    if (path && window.mycad?.writeFile) {
+      const written = await window.mycad.writeFile(path, content)
+      if (!written?.ok) {
+        showError(new Error(written?.error || path))
+        return false
+      }
+      dispatch({ type: 'remember-dir', key: 'save', directory: written.directory || directoryOf(path) })
+      dispatch({ type: 'mark-saved', path, id: current.id })
+      return true
+    }
     if (window.mycad?.saveFile) {
       const result = await window.mycad.saveFile({
         title: t('save'),
@@ -322,18 +336,28 @@ export function App() {
       URL.revokeObjectURL(url)
       path = path || suggested
     }
-    if (path) dispatch({ type: 'mark-saved', path })
+    if (path) dispatch({ type: 'mark-saved', path, id: current.id })
     return true
-  }, [state, t])
+  }, [state, showError, t])
+
+  const saveActive = useCallback(
+    (forceDialog: boolean) => saveDocument(activeDocument(state), forceDialog),
+    [saveDocument, state]
+  )
+
+  /** Every tab that still holds changes, in the order they are shown. */
+  const dirtyDocuments = useCallback(() => state.documents.filter((item) => item.dirty), [state])
 
   const requestClose = useCallback((after?: () => void) => {
-    if (!activeDocument(state).dirty) {
+    // Closing with changes anywhere — not only in the tab on screen — asks
+    // first, so nothing is thrown away without the user saying so.
+    if (dirtyDocuments().length === 0) {
       after?.()
       return
     }
     setPendingClose(() => after ?? (() => undefined))
     setDialog('confirm')
-  }, [state])
+  }, [dirtyDocuments])
 
   function applyBoolean(operation: 'union' | 'cut' | 'common') {
     const selected = doc.solids.filter((solid) => doc.selection.includes(solid.id))
@@ -616,8 +640,7 @@ export function App() {
   const runCommand = useCallback(async (id: string) => {
     setMenu(null)
     setContext(null)
-    const kinds: SolidKind[] = ['box', 'sphere', 'cylinder', 'cone', 'torus', 'plane']
-    if (kinds.includes(id as SolidKind)) {
+    if (BASIC_PRIMITIVES.includes(id)) {
       dispatch({ type: 'add-solid', kind: id as SolidKind })
       dispatch({ type: 'set-tool', tool: id })
       return
@@ -713,6 +736,10 @@ export function App() {
         case 'ruler':
           dispatch({ type: 'toggle-ruler' })
           break
+        case 'showAxes':
+          // X, Y and Z go on and off together: shown, or not shown.
+          dispatch({ type: 'patch-settings', patch: { showAxes: state.settings.showAxes === false } })
+          break
         case 'shaded':
           dispatch({ type: 'set-shade', shade: 'shaded' })
           break
@@ -760,9 +787,11 @@ export function App() {
           dispatch({ type: 'patch-settings', patch: { showPropertyPanel: !state.settings.showPropertyPanel } })
           break
         case 'resetView':
-          // Back to the default isometric view: preset, zoom and any pan.
+          // Back to the default isometric view: preset, zoom, any pan, and
+          // the scale marker back to its corner.
           dispatch({ type: 'set-preset', preset: 'iso' })
           dispatch({ type: 'set-zoom', zoom: 100 })
+          dispatch({ type: 'patch-settings', patch: { scaleMarker: null } })
           setViewReset((value) => value + 1)
           break
         case 'export':
@@ -924,7 +953,7 @@ export function App() {
           applyBoolean(id as 'union' | 'cut' | 'common')
           break
         default:
-          if (['sketchRect', 'sketchCircle', 'sketchPolygon', 'pad', 'pocket', 'revolve', 'loft', 'pipe', 'helix', 'fillet', 'chamfer', 'mirror', 'linearPattern', 'polarPattern', 'hole', 'shaft', 'groove', 'draft', 'shell', 'rectPattern', 'translate', 'rotateBody', 'scaleBody', 'counterbore', 'countersink', 'refPlane', 'parameter', 'offsetMate'].includes(id)) {
+          if (PART_OPERATIONS.includes(id)) {
             setPartOp(id)
             setDialog('part')
           }
@@ -1069,9 +1098,69 @@ export function App() {
     }
   }, [openAnyFile, openText, showError, t, withProgress])
 
+  // The tab row is as wide as the window lets it be, so the number of tabs on
+  // screen follows the window rather than a fixed count.
+  useLayoutEffect(() => {
+    const strip = tabsRef.current?.parentElement
+    if (!strip) return
+    const measure = () => setTabRoom(strip.clientWidth)
+    measure()
+    window.addEventListener('resize', measure)
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(strip)
+    return () => {
+      window.removeEventListener('resize', measure)
+      observer?.disconnect()
+    }
+  }, [])
+
+  // Switching to another document scrolls the strip to it — but only then, so
+  // the arrows can walk along the strip without being pulled back.
+  const scrolledTo = useRef<string | null>(null)
+  useEffect(() => {
+    if (scrolledTo.current === state.activeId) return
+    scrolledTo.current = state.activeId
+    const index = state.documents.findIndex((item) => item.id === state.activeId)
+    setTabStart((start) => tabStartFor(index, start, state.documents.length, visibleTabCount(tabRoom, state.documents.length)))
+  }, [state.activeId, state.documents, tabRoom])
+
+  // Files dragged in from the desktop: the window itself accepts them, so a
+  // drop that lands on a panel, the menu bar or the gap between them opens the
+  // file too, and a stray drop can never navigate away from the app.
+  useEffect(() => {
+    const onDragOver = (event: DragEvent) => {
+      if (!event.dataTransfer) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+    }
+    const onDrop = (event: DragEvent) => {
+      // The canvas handler runs first; anything it took is already prevented.
+      if (event.defaultPrevented) return
+      const files = Array.from(event.dataTransfer?.files ?? [])
+      event.preventDefault()
+      if (files.length > 0) void onDropFiles(files)
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [onDropFiles])
+
+  // Toolbar buttons that show whether the thing they control is on.
+  const toolbarToggles: Record<string, boolean> = {
+    grid: state.settings.grid,
+    ruler: state.settings.ruler,
+    showAxes: state.settings.showAxes !== false
+  }
+
   const font = fontCss(state.settings.fontStyle)
-  const visibleTabs = tabWindow(state.documents, tabStart, VISIBLE_TABS)
-  const overflow = tabsOverflow(state.documents.length, VISIBLE_TABS)
+  // How many tabs the window has room for right now. Every open file keeps
+  // its own canvas; the strip just decides how many of them are on screen.
+  const maxVisibleTabs = visibleTabCount(tabRoom, state.documents.length)
+  const visibleTabs = tabWindow(state.documents, tabStart, maxVisibleTabs)
+  const overflow = state.documents.length > maxVisibleTabs
   const measured = selectionDistance(doc)
   const units = state.settings.units ?? 'mm'
   const showToolPanel = state.settings.showToolPanel !== false
@@ -1109,7 +1198,11 @@ export function App() {
         fontWeight: font.fontWeight,
         fontStyle: font.fontStyle
       }}
-      onDragOver={(event) => event.preventDefault()}
+      onDragOver={(event) => {
+        event.preventDefault()
+        // Tell the desktop this is a copy, so the cursor says so too.
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+      }}
       onDrop={(event) => {
         event.preventDefault()
         void onDropFiles(Array.from(event.dataTransfer.files))
@@ -1236,8 +1329,18 @@ export function App() {
           <span key={group[0]} style={{ display: 'contents' }}>
             {index > 0 ? <span className="toolbar-sep" /> : null}
             {group.map((id) => (
-              <button key={id} type="button" className={(id === 'ruler' && state.settings.ruler) || (id === 'grid' && state.settings.grid) ? 'tool on' : 'tool'} data-testid={`tb-${id}`} title={t(id)} onClick={() => runCommand(id)}>
-                <span className="menu-icon">{menuIcon(id)}</span>
+              <button
+                key={id}
+                type="button"
+                className={toolbarToggles[id] ? 'tool on' : 'tool'}
+                data-testid={`tb-${id}`}
+                // The axes button says what the next click does.
+                title={id === 'showAxes' && toolbarToggles.showAxes ? t('hideAxes') : t(id)}
+                onClick={() => runCommand(id)}
+              >
+                <span className="menu-icon">
+                  {id === 'showAxes' ? <AxesMark on={toolbarToggles.showAxes} /> : menuIcon(id)}
+                </span>
               </button>
             ))}
           </span>
@@ -1274,9 +1377,12 @@ export function App() {
         <span className="toolbar-sep" />
         <LightPicker
           light={state.settings.light}
+          lights={state.settings.lights}
+          activeLight={state.settings.activeLight}
           language={state.settings.language}
           label={t('lightRig')}
           onChange={(patch) => dispatch({ type: 'patch-settings', patch: { light: { ...state.settings.light, ...patch } } })}
+          onLights={(lights, activeLight) => dispatch({ type: 'patch-settings', patch: { lights, activeLight } })}
         />
         <span className="toolbar-spacer" />
         <button
@@ -1405,8 +1511,8 @@ export function App() {
         </aside>
         <main className="center" style={{ gridColumn: 2 }}>
           <div className="tabstrip" data-testid="tabstrip">
-            {overflow ? <button type="button" data-testid="tab-prev" title={t('tabPrev')} onClick={() => setTabStart(nextTabStart('prev', tabStart, state.documents.length, VISIBLE_TABS))}>{'<'}</button> : null}
-            <div className="tabs-row">
+            {overflow ? <button type="button" data-testid="tab-prev" title={t('tabPrev')} onClick={() => setTabStart(nextTabStart('prev', tabStart, state.documents.length, maxVisibleTabs))}>{'<'}</button> : null}
+            <div className="tabs-row" ref={tabsRef} data-testid="tabs-row">
               {visibleTabs.map((item) => (
                 <button key={item.id} type="button" className={item.id === state.activeId ? 'tab on' : 'tab'} data-testid={`tab-${item.id}`} title={item.name} onClick={() => dispatch({ type: 'activate', id: item.id })}>
                   <span>{item.name}{item.dirty ? ' *' : ''}</span>
@@ -1414,7 +1520,7 @@ export function App() {
                 </button>
               ))}
             </div>
-            {overflow ? <button type="button" data-testid="tab-next" title={t('tabNext')} onClick={() => setTabStart(nextTabStart('next', tabStart, state.documents.length, VISIBLE_TABS))}>{'>'}</button> : null}
+            {overflow ? <button type="button" data-testid="tab-next" title={t('tabNext')} onClick={() => setTabStart(nextTabStart('next', tabStart, state.documents.length, maxVisibleTabs))}>{'>'}</button> : null}
           </div>
           <Suspense fallback={<div className="viewport" data-testid="viewport-loading" />}>
           <Viewport
@@ -1429,7 +1535,12 @@ export function App() {
             resetKey={viewReset}
             onPreset={(preset) => dispatch({ type: 'set-preset', preset })}
           onMoveSolid={(id, position) => dispatch({ type: 'move-solid', id, position })}
-          onMoveLight={(angles) => dispatch({ type: 'patch-settings', patch: { light: { ...state.settings.light, ...angles } } })}
+          onMoveScaleMarker={(at) => dispatch({ type: 'patch-settings', patch: { scaleMarker: at } })}
+          onMoveLight={(angles, index) => dispatch({
+            type: 'patch-settings',
+            // Dragging a marker moves that light, whichever one it is.
+            patch: { lights: state.settings.lights.map((item, at) => (at === index ? { ...item, ...angles } : item)), activeLight: index }
+          })}
           />
           </Suspense>
         </main>
@@ -1574,7 +1685,10 @@ export function App() {
           discardLabel={t('discard')}
           cancelLabel={t('cancel')}
           onSave={async () => {
-            await saveActive(false)
+            // Save every tab that has changes, not just the one on screen.
+            for (const item of dirtyDocuments()) {
+              if (!(await saveDocument(item, false))) return
+            }
             const next = pendingClose
             setDialog(null)
             setPendingClose(null)

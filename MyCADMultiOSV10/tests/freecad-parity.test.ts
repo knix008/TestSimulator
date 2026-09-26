@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { MENUS, TOOLBAR } from '../src/core/menus'
-import { WORKBENCHES } from '../src/core/workbenches'
+import { WORKBENCHES, isAvailableTool } from '../src/core/workbenches'
 import { TOOL_CATEGORIES, categoryById, categoryName, groupTools, toolCategory } from '../src/core/toolgroups'
 import { COMMAND_LABELS } from '../src/core/labels'
+import { COMMAND_IDS, hasCommand, runCommandById } from '../src/core/commands'
+import { translate } from '../src/core/i18n'
 import { menuIcon } from '../src/core/i18n'
 import { DRAW_STYLES, drawStyleSpec, isShadeMode } from '../src/core/model'
 import { NAVIGATION_STYLES, navAction } from '../src/core/viewnav'
@@ -115,6 +117,94 @@ describe('help', () => {
     expect(shortcutLines('en').length).toBe(shortcutLines('ko').length)
     expect(licenseLines('ko')[0]).toContain('MIT')
     expect(licenseLines('en')[0]).toContain('MIT')
+  })
+})
+
+describe('freecad tool coverage', () => {
+  /** The tools FreeCAD's workbenches put on their toolbars. */
+  const EXPECTED: Record<string, string[]> = {
+    sketcher: [
+      'sketchLine', 'sketchArcTool', 'sketchCircle', 'sketchEllipse', 'sketchSlot', 'sketchPolygon',
+      'sketchBSplineTool', 'sketchTrimEdge', 'sketchExtendEdge', 'sketchSplitEdge', 'sketchExternal',
+      'sketchConstruction', 'sketchHorizontal', 'sketchVertical', 'sketchParallel', 'sketchPerpendicular',
+      'sketchTangent', 'sketchEqual', 'sketchSymmetric', 'sketchLock', 'sketchBlock',
+      'sketchDistanceX', 'sketchDistanceY'
+    ],
+    part: [
+      'box', 'cylinder', 'sphere', 'cone', 'torus', 'prism', 'wedge', 'union', 'cut', 'common', 'xor',
+      'booleanFragments', 'partJoinConnect', 'partJoinEmbed', 'partJoinCutout', 'partSliceApart',
+      'partShapeBuilder', 'partRefine', 'partCheckGeometry', 'partDefeature', 'section', 'crossSections'
+    ],
+    partDesign: [
+      'pad', 'pocket', 'revolve', 'groove', 'loft', 'pipe', 'helix', 'fillet', 'chamfer', 'draft',
+      'thickness', 'hole', 'mirror', 'linearPattern', 'polarPattern', 'pdAdditiveBox', 'pdAdditiveCylinder',
+      'pdAdditiveSphere', 'pdSubtractiveBox', 'pdSubtractiveCylinder', 'pdMultiTransform'
+    ],
+    mesh: [
+      'importStl', 'exportStl', 'meshEvaluate', 'meshDecimate', 'meshRefine', 'meshSmooth',
+      'meshFillHoles', 'meshUnionCmd', 'meshCutCmd', 'meshIntersectCmd', 'meshTrimByPlane',
+      'meshSplitComponents', 'meshCurvature'
+    ],
+    techdraw: [
+      'techdrawPage', 'techdrawSection', 'techdrawDetail', 'techdrawDim', 'techdrawHatch', 'techdrawBom',
+      'techdrawBalloon', 'techdrawLeader', 'techdrawCenterline', 'techdrawCosmetic', 'techdrawWeld',
+      'techdrawRichText'
+    ],
+    fem: [
+      'femMesh', 'femMaterial', 'femConstraintFixed', 'femConstraintForce', 'femPressure',
+      'femDisplacement', 'femContact', 'femSpring', 'femTemperature', 'femHeatFlux', 'femBeamSection',
+      'femSolve', 'femResultShow', 'femFrequency', 'femThermal'
+    ],
+    cam: [
+      'camProfile', 'camPocketOp', 'camDrill', 'camSurface', 'camHelix', 'camEngrave', 'camAdaptive',
+      'camWaterline', 'camDeburr', 'camVcarve', 'camDressupTag', 'camDressupDogbone', 'camSimulate',
+      'camToolBitLibrary', 'camPost'
+    ],
+    draft: [
+      'draftLine', 'draftWire', 'draftRect', 'draftCircleWire', 'draftArcWire', 'draftBSplineWire',
+      'draftFillet', 'draftOffset', 'draftTrimex', 'draftMove', 'draftRotate', 'draftScale',
+      'draftWorkingPlane', 'draftLayer', 'draftSnapToggle', 'draftShape2DView', 'draftToSketch',
+      'draftLabel', 'draftHatchFace', 'draftSlope', 'orthoArray', 'polarArray', 'pathArray'
+    ],
+    points: ['importPoints', 'pointsDownsample', 'pointsToMesh', 'pointsStructure', 'pointsMerge'],
+    openscad: ['importOpenScad', 'union', 'cut', 'common', 'scadHull', 'scadMinkowski']
+  }
+
+  it('[FreeCAD] every workbench offers the tools FreeCAD puts on its toolbars', () => {
+    for (const [id, tools] of Object.entries(EXPECTED)) {
+      const workbench = WORKBENCHES.find((item) => item.id === id)
+      expect(workbench, id).toBeTruthy()
+      const missing = tools.filter((tool) => !workbench!.tools.includes(tool))
+      expect(missing, id).toEqual([])
+    }
+  })
+
+  it('[FreeCAD] each of those tools is a command that runs and is labelled', () => {
+    const tools = [...new Set(Object.values(EXPECTED).flat())]
+    for (const tool of tools) {
+      // Either the registry runs it, or the window asks for its numbers first.
+      expect(isAvailableTool(tool, hasCommand), tool).toBe(true)
+      expect(translate('ko', tool), tool).not.toBe(tool)
+      expect(translate('en', tool), tool).not.toBe(tool)
+      expect(menuIcon(tool), tool).not.toBe('•')
+      expect(toolCategory(tool), tool).toBeTruthy()
+    }
+    // The registry has grown past the 300 commands the workbenches list.
+    expect(COMMAND_IDS.length).toBeGreaterThan(300)
+  })
+
+  it('[FreeCAD] the sketcher solver counts the freedom its constraints remove', () => {
+    const doc = createDocument('doc', 'Sketch')
+    let counter = 0
+    const ctx = { doc, nextId: () => `tmp-${(counter += 1)}` }
+    const first = runCommandById('sketchHorizontal', ctx)
+    expect(first?.extras?.sketchConstraints).toHaveLength(1)
+    doc.extras.sketchConstraints = first!.extras!.sketchConstraints!
+    const second = runCommandById('sketchLock', ctx)
+    expect(second?.extras?.sketchConstraints).toHaveLength(2)
+    // Horizontal takes one degree of freedom, lock takes two.
+    expect(second!.extras!.sketchConstraints!.reduce((total, item) => total + item.dof, 0)).toBe(3)
+    expect(second?.status).toContain('3')
   })
 })
 

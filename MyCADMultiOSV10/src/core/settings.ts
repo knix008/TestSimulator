@@ -37,7 +37,7 @@ export interface Settings {
   snap: number
   /** grow the axes and the grid with the model */
   autoScaleAxes: boolean
-  /** show the origin axes in the viewport */
+  /** show the origin axes in the viewport: all three at once */
   showAxes: boolean
   /** default page setup used by the print dialog */
   print: PageSetup
@@ -47,12 +47,18 @@ export interface Settings {
   customTheme: Theme
   /** viewport lighting rig */
   light: LightRig
+  /** every light in the scene; `light` is the one being edited */
+  lights: LightRig[]
+  /** which light the toolbar, the settings window and the gizmo work on */
+  activeLight: number
   /** camera projection, as FreeCAD's View menu switches it */
   projection: Projection
   /** mouse navigation style */
   navigation: NavigationStyle
   /** unit schema used to show lengths, areas and volumes */
   units: UnitSchema
+  /** where the scale marker sits on the canvas, null for its usual corner */
+  scaleMarker: { x: number; y: number } | null
   /** section planes along each axis */
   clip: ClipPlane[]
   /** tool panel on the left is open */
@@ -122,6 +128,55 @@ export function defaultLight(): LightRig {
   return { azimuth: 135, elevation: 50, intensity: 1.1, ambient: 0.65, kind: 'directional', color: '#ffffff', enabled: true }
 }
 
+/** How many lights one scene may hold. */
+export const MAX_LIGHTS = 8
+
+/** A second, third … light: same rig, a different colour to tell them apart. */
+export const LIGHT_COLORS = ['#ffffff', '#ffd9a0', '#a8d8ff', '#ffc4d6', '#c9f7c0', '#e3c9ff', '#fff1a8', '#b9f2ef']
+
+/** A new light for the scene, placed where the one before it is not. */
+export function newLight(existing: LightRig[]): LightRig {
+  const base = defaultLight()
+  const index = existing.length
+  return {
+    ...base,
+    kind: index % 2 === 1 ? 'point' : base.kind,
+    color: LIGHT_COLORS[index % LIGHT_COLORS.length],
+    azimuth: (base.azimuth + index * 95) % 360,
+    elevation: Math.max(-20, Math.min(90, base.elevation - index * 12)),
+    intensity: index === 0 ? base.intensity : Math.max(0.3, base.intensity * 0.6)
+  }
+}
+
+/**
+ * Keep `light`, `lights` and `activeLight` telling the same story: whatever
+ * was edited wins, the active index stays inside the list, and the fill light
+ * is shared by the whole rig because there is only one scene to fill.
+ */
+export function syncLights(
+  settings: { light: LightRig; lights?: LightRig[]; activeLight?: number },
+  edited: 'light' | 'list' = 'light'
+): { light: LightRig; lights: LightRig[]; activeLight: number } {
+  const list = (settings.lights?.length ? settings.lights : [settings.light]).slice(0, MAX_LIGHTS).map(sanitizeLight)
+  const active = Math.max(0, Math.min(list.length - 1, settings.activeLight ?? 0))
+  if (edited === 'list') {
+    return { light: { ...list[active] }, lights: list, activeLight: active }
+  }
+  const light = sanitizeLight(settings.light)
+  // The ambient fill belongs to the scene, not to one lamp.
+  const lights = list.map((item, index) => (index === active ? { ...light } : { ...item, ambient: light.ambient }))
+  return { light, lights, activeLight: active }
+}
+
+/** The scale marker's place on the canvas, or null for the default corner. */
+function sanitizeMarker(raw: unknown): { x: number; y: number } | null {
+  if (!raw || typeof raw !== 'object') return null
+  const value = raw as { x?: unknown; y?: unknown }
+  if (typeof value.x !== 'number' || typeof value.y !== 'number') return null
+  if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) return null
+  return { x: value.x, y: value.y }
+}
+
 export function sanitizeLight(input: unknown): LightRig {
   const base = defaultLight()
   if (!input || typeof input !== 'object') return base
@@ -161,9 +216,12 @@ export function defaultSettings(): Settings {
     addons: [],
     customTheme: createCustomTheme(),
     light: defaultLight(),
+    lights: [defaultLight()],
+    activeLight: 0,
     projection: 'perspective',
     navigation: 'cad',
     units: 'mm',
+    scaleMarker: null,
     clip: defaultClip(),
     showToolPanel: true,
     showPropertyPanel: true
@@ -224,10 +282,19 @@ export function sanitizeSettings(input: unknown): Settings {
     print: sanitizePageSetup(raw.print),
     addons: sanitizeInstalled(raw.addons),
     customTheme: sanitizeTheme(raw.customTheme),
-    light: sanitizeLight(raw.light),
+    ...syncLights(
+      {
+        light: sanitizeLight(raw.light),
+        lights: Array.isArray(raw.lights) ? raw.lights.map(sanitizeLight) : undefined,
+        activeLight: typeof raw.activeLight === 'number' ? raw.activeLight : 0
+      },
+      // A file written before lights were a list has only `light` to go on.
+      Array.isArray(raw.lights) && raw.lights.length > 0 ? 'list' : 'light'
+    ),
     projection: raw.projection === 'orthographic' ? 'orthographic' : 'perspective',
     navigation: NAVIGATION_STYLES.includes(raw.navigation as NavigationStyle) ? (raw.navigation as NavigationStyle) : base.navigation,
     units: isUnitSchema(raw.units) ? raw.units : base.units,
+    scaleMarker: sanitizeMarker(raw.scaleMarker),
     clip: sanitizeClip(raw.clip),
     showToolPanel: typeof raw.showToolPanel === 'boolean' ? raw.showToolPanel : base.showToolPanel,
     showPropertyPanel: typeof raw.showPropertyPanel === 'boolean' ? raw.showPropertyPanel : base.showPropertyPanel

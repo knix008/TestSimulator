@@ -6,6 +6,7 @@ import { AUTHOR, POPUP_SIZE } from '../src/core/buildInfo'
 import { MIN_PANEL_WIDTH, PANEL_ROOM, clampLightAngles, lightAngles, lightPosition, propertyPanelWidth, raySphereDirection, toolPanelWidth } from '../src/core/viewnav'
 import { LIGHT_KINDS, sanitizeLight, sanitizeSettings } from '../src/core/settings'
 import { THEMES } from '../src/core/themes'
+import { SETTINGS_KEY } from '../src/core/settings'
 import { MENUS, MENU_SECTION_THRESHOLD, TOOLBAR_GROUPS, menuPopupLayout, menuRowCount, menuSections } from '../src/core/menus'
 
 describe('light placement', () => {
@@ -247,6 +248,65 @@ describe('application chrome', () => {
     await waitFor(() => expect(screen.getByTestId('context-menu')).toBeTruthy())
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByTestId('context-menu')).toBeNull())
+  })
+
+  it('[GUI] one button shows or hides the X, Y and Z axes together', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    const button = screen.getByTestId('tb-showAxes')
+    const saved = () => JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')
+    // Axes start shown, and the button offers to hide them.
+    expect(button.className).toContain('on')
+    expect(button.getAttribute('title')).toContain('없음')
+
+    await user.click(button)
+    await waitFor(() => expect(saved().showAxes).toBe(false))
+    expect(screen.getByTestId('tb-showAxes').className).not.toContain('on')
+    expect(screen.getByTestId('tb-showAxes').getAttribute('title')).toBe('좌표축 표시')
+
+    await user.click(screen.getByTestId('tb-showAxes'))
+    await waitFor(() => expect(saved().showAxes).toBe(true))
+    expect(screen.getByTestId('tb-showAxes').className).toContain('on')
+
+    // The button draws the triad itself: an arm up, one to the lower left and
+    // one to the lower right, in the axis colours while they are shown.
+    const mark = screen.getByTestId('axes-on')
+    const arms = [...mark.querySelectorAll('g')]
+    expect(arms).toHaveLength(3)
+    expect(arms.map((arm) => arm.getAttribute('stroke'))).toEqual(['#3cba54', '#3b82e2', '#e23b3b'])
+    const [up, left, right] = arms.map((arm) => arm.querySelector('path')!.getAttribute('d')!)
+    // Up from the origin, then down to the left, then down to the right.
+    expect(up).toContain('V3.4')
+    expect(left).toContain('3.5 18.1')
+    expect(right).toContain('20.5 18.1')
+
+    // The View menu and the settings window drive the same one switch.
+    await user.click(screen.getByTestId('menu-view'))
+    await user.click(screen.getByTestId('menuitem-showAxes'))
+    await waitFor(() => expect(saved().showAxes).toBe(false))
+    // Switched off, the same triad is drawn unlit.
+    expect(screen.getByTestId('axes-off')).toBeTruthy()
+  })
+
+  it('[GUI] the scale marker sits on the canvas, drags and goes home', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    const marker = await screen.findByTestId('scale-marker')
+    // It says how long it is, in the document's units.
+    expect(screen.getByTestId('scale-marker-label').textContent).toMatch(/mm$/)
+    expect(Number(marker.dataset.distance)).toBeGreaterThan(0)
+    const saved = () => JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')
+    expect(saved().scaleMarker ?? null).toBeNull()
+
+    // Dragging moves it, and where it lands is remembered.
+    fireEvent.pointerDown(marker, { clientX: 40, clientY: 400, pointerId: 1 })
+    fireEvent.pointerMove(marker, { clientX: 220, clientY: 260, pointerId: 1 })
+    fireEvent.pointerUp(marker, { clientX: 220, clientY: 260, pointerId: 1 })
+    await waitFor(() => expect(saved().scaleMarker).toBeTruthy())
+
+    // Resetting the view puts it back in its corner.
+    await user.click(screen.getByTestId('tb-resetView'))
+    await waitFor(() => expect(saved().scaleMarker).toBeNull())
   })
 
   it('[GUI] the toolbar resets the view and steps the text size', async () => {

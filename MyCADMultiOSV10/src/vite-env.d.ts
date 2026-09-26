@@ -19,6 +19,7 @@ interface MycadApi {
   setMinSize?: (width: number, height: number) => Promise<boolean>
   openFile: (opts: { title: string; filters: { name: string; extensions: string[] }[]; defaultPath?: string }) => Promise<{ canceled: boolean; filePath?: string; content?: string; directory?: string }>
   saveFile: (opts: { title: string; filters: { name: string; extensions: string[] }[]; defaultPath?: string; content: string }) => Promise<{ canceled: boolean; filePath?: string; directory?: string }>
+  writeFile?: (filePath: string, content: string) => Promise<{ ok: boolean; filePath?: string; directory?: string; error?: string }>
   showMenu: (payload: { x: number; y: number; items: { id: string; label: string; icon: string; enabled: boolean }[] }) => Promise<string | null>
   openPopup: (payload: { kind: string; width: number; height: number; title: string }) => Promise<void>
   /** send settings (and the draw style) to every other window */
