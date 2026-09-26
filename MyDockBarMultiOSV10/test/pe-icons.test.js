@@ -11,6 +11,25 @@ const pe = require('../src/main/pe-icons');
 const onWindows = process.platform === 'win32';
 const outDir = path.join(os.tmpdir(), 'mydockbar-pe-icons-test');
 
+/**
+ * Run `fn` with `console.warn` captured rather than printed.
+ *
+ * The module says out loud when it cannot read a file, which is what the app
+ * wants and what makes a test report look like something went wrong - the
+ * unreadable file below is put there on purpose. Captured, the warning can be
+ * asserted instead of merely watched scrolling past.
+ */
+function quietly(fn) {
+  const spoken = [];
+  const warn = console.warn;
+  console.warn = (...args) => { spoken.push(args.join(' ')); };
+  try {
+    return { value: fn(), spoken: spoken.join('\n') };
+  } finally {
+    console.warn = warn;
+  }
+}
+
 describe('PE header parsing', () => {
   it('rejects data that is not a PE file', () => {
     assert.strictEqual(pe.readHeaders(Buffer.alloc(8)), null);
@@ -34,7 +53,13 @@ describe('PE header parsing', () => {
 
 describe('icon extraction', () => {
   it('returns an empty list rather than throwing on a missing file', () => {
-    assert.deepStrictEqual(pe.extractAll(path.join(outDir, 'nope.exe'), outDir), []);
+    const missing = path.join(outDir, 'nope.exe');
+    const { value, spoken } = quietly(() => pe.extractAll(missing, outDir));
+    assert.deepStrictEqual(value, []);
+    // Silently returning nothing would leave a blank icon with no way to find
+    // out why, so the file it could not read has to be named.
+    assert.match(spoken, /cannot read/);
+    assert.ok(spoken.includes(missing), 'the warning does not say which file');
   });
 
   it('returns an empty list for a non-PE file', () => {
