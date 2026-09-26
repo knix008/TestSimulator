@@ -415,6 +415,9 @@ for (let i = 0; i <= 6; i++) {
 }
 write('scan-points.asc', scanLines.join('\n'))
 
+// The same cloud in the bare .xyz form, which has no header line.
+write('scan-points.xyz', scanLines.filter((line) => !line.startsWith('#')).join('\n'))
+
 write('building.ifc', [
   'ISO-10303-21;',
   'HEADER;',
@@ -452,6 +455,8 @@ for (let pass = 1; pass <= 3; pass++) {
 }
 gcode.push('M5', 'M30')
 write('pocket.nc', gcode.join('\n'))
+// Same toolpath under the other G-code extension the app accepts.
+write('profile.gcode', gcode.join('\n'))
 
 write('parameters.csv', [
   'Width,Height,Thickness,Area',
@@ -508,7 +513,7 @@ write('macro.py', [
   '    print("hole", i + 1, "at", i * 20)'
 ].join('\n'))
 
-write('addon-manifest.json', JSON.stringify({
+const addonManifest = JSON.stringify({
   id: 'hex-nuts',
   name: { ko: '육각 너트', en: 'Hex nuts' },
   version: '1.0.0',
@@ -531,7 +536,12 @@ write('addon-manifest.json', JSON.stringify({
       ].join('\n')
     }
   ]
-}, null, 2))
+}, null, 2)
+
+// The same package under both names: the plain manifest, and the
+// extension the installer associates with MyCAD.
+write('addon-manifest.json', addonManifest)
+write('hex-nuts.mycadaddon', addonManifest)
 
 /* ───────────────────────────── manifest + README ────────────────────────── */
 
@@ -562,6 +572,9 @@ const DESCRIPTIONS = {
   'spreadsheet.csv': '수식이 든 CSV 시트',
   'macro.mycadmacro': '매크로 스크립트 샘플',
   'macro.py': 'Python 매크로 (Part API, 불리언, 반복문)',
+  'scan-points.xyz': '같은 점군의 XYZ 형식 (헤더 없음)',
+  'profile.gcode': '같은 포켓 가공 경로의 .gcode 형식',
+  'hex-nuts.mycadaddon': '설치용 애드온 패키지 (.mycadaddon 연결 테스트)',
   'addon-manifest.json': '애드온 매니페스트 (설치/실행 테스트)'
 }
 

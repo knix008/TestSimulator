@@ -525,15 +525,24 @@ function writePng(file, png) {
   fs.writeFileSync(file, PNG.sync.write(png))
 }
 
+// assets/ holds every icon the project uses: the window and executable icon,
+// the document icon, the Linux icon set and the favicon the web build serves.
+// electron-builder, the NSIS installer and the shortcuts all read them there.
+const assets = path.join(root, 'assets')
 const sizes = [16, 24, 32, 48, 64, 128, 256, 512]
-writePng(path.join(root, 'build', 'icon.png'), drawAppIcon(256))
-writePng(path.join(root, 'public', 'favicon.png'), drawAppIcon(256))
-writePng(path.join(root, 'build', 'file-icon.png'), drawFileIcon(256))
+writePng(path.join(assets, 'icon.png'), drawAppIcon(256))
+writePng(path.join(assets, 'file-icon.png'), drawFileIcon(256))
 for (const size of sizes) {
-  writePng(path.join(root, 'build', 'icons', `${size}x${size}.png`), drawAppIcon(size))
+  writePng(path.join(assets, 'icons', `${size}x${size}.png`), drawAppIcon(size))
 }
 const icoBuffers = [16, 32, 48, 64, 128, 256].map((size) => PNG.sync.write(drawAppIcon(size)))
 const fileIco = [16, 32, 48, 256].map((size) => PNG.sync.write(drawFileIcon(size)))
-fs.writeFileSync(path.join(root, 'build', 'icon.ico'), await pngToIco(icoBuffers))
-fs.writeFileSync(path.join(root, 'build', 'file-icon.ico'), await pngToIco(fileIco))
-console.log('icons written')
+fs.mkdirSync(assets, { recursive: true })
+fs.writeFileSync(path.join(assets, 'icon.ico'), await pngToIco(icoBuffers))
+fs.writeFileSync(path.join(assets, 'file-icon.ico'), await pngToIco(fileIco))
+
+// The web build serves its favicon from public/, so it gets a copy of the
+// same file rather than a second drawing.
+writePng(path.join(root, 'public', 'favicon.png'), drawAppIcon(256))
+
+console.log(`icons written to assets/ (${sizes.length + 4} files)`)

@@ -31,6 +31,19 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    // The 3D kernel is one library and cannot be split further, so it gets its
+    // own chunk: the app and React stay small and cacheable, and a window that
+    // never draws (the settings window) never downloads it.
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          if (id.includes('three-mesh-bvh') || id.includes('three-bvh-csg') || /[\\/]three[\\/]/.test(id)) return 'three'
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react'
+          return undefined
+        }
+      }
+    }
   }
 })

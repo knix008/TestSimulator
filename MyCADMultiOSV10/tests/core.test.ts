@@ -8,7 +8,7 @@ import { translate } from '../src/core/i18n'
 import { MENUS, menuIsSingleColumn, TOOLBAR } from '../src/core/menus'
 import { createSolid, distance } from '../src/core/model'
 import { buildPrintPages, defaultPageSetup, pagePixelSize } from '../src/core/print'
-import { rememberRecent, removeRecent } from '../src/core/recent'
+import { directoryOf, lastDirectory, rememberRecent, removeRecent, suggestedPath } from '../src/core/recent'
 import { parseDocument, serializeDocument } from '../src/core/serialize'
 import { cameraFromOrbit, panOrbit, rotateOrbit } from '../src/core/viewnav'
 import { clampOpacity, defaultSettings, sanitizeSettings } from '../src/core/settings'
@@ -150,21 +150,109 @@ describe('model', () => {
 })
 
 describe('packaging', () => {
+  it('[Build] one command per target, for the web and every desktop OS', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'))
+    const scripts = pkg.scripts as Record<string, string>
+    for (const name of ['build:web', 'build:win', 'build:mac', 'build:linux', 'build:all']) {
+      expect(scripts[name], name).toBeTruthy()
+    }
+    // The web build typechecks before it bundles.
+    expect(scripts['build:web']).toContain('tsc --noEmit')
+    expect(scripts['build:web']).toContain('vite build')
+    // Each desktop target asks for that platform only, through the wrapper that
+    // clears release/ first and retries a locked packaging step.
+    expect(scripts['build:win']).toBe('npm run dist:win')
+    for (const name of ['dist', 'dist:win', 'dist:mac', 'dist:linux', 'build:all']) {
+      expect(scripts[name], name).toContain('scripts/package.mjs')
+      expect(scripts[name], name).toContain('build:clean')
+    }
+    expect(scripts['dist:win']).toContain('--win nsis')
+    expect(scripts['dist:mac']).toContain('--mac')
+    expect(scripts['dist:linux']).toContain('--linux')
+    expect(scripts['build:all']).toContain('-mwl')
+    // The Windows installer needs the generated association include.
+    expect(scripts['dist:win']).toContain('build:installer')
+    // Packaging uses the Electron that npm installed, so nothing is extracted
+    // into release/ and renamed while the scanner still holds it.
+    expect(pkg.build.electronDist).toBe('node_modules/electron/dist')
+  })
+
+  it('[File] dialogs reuse the folder that was last worked in', () => {
+    const dirs = { open: '', save: '', import: '', background: '' }
+    // With nothing remembered yet a dialog just gets the file name.
+    expect(lastDirectory(dirs, 'save')).toBe('')
+    expect(suggestedPath('', 'part.mycad')).toBe('part.mycad')
+
+    // Opening a file makes the next save start in that same folder.
+    const opened = { ...dirs, open: 'D:/cad/projects' }
+    expect(lastDirectory(opened, 'save')).toBe('D:/cad/projects')
+    expect(lastDirectory(opened, 'import')).toBe('D:/cad/projects')
+    expect(suggestedPath('D:/cad/projects', 'part.mycad')).toBe('D:/cad/projects/part.mycad')
+
+    // Each kind still prefers its own folder once it has one.
+    const both = { ...opened, save: 'D:/cad/out', import: 'D:/cad/meshes' }
+    expect(lastDirectory(both, 'save')).toBe('D:/cad/out')
+    expect(lastDirectory(both, 'open')).toBe('D:/cad/projects')
+    expect(lastDirectory(both, 'import')).toBe('D:/cad/meshes')
+    expect(lastDirectory(both, 'background')).toBe('D:/cad/projects')
+
+    // Windows separators survive, and a trailing one is not doubled.
+    expect(suggestedPath('C:\\Users\\me\\cad', 'part.mycad')).toBe('C:\\Users\\me\\cad\\part.mycad')
+    expect(suggestedPath('C:\\Users\\me\\cad\\', 'part.mycad')).toBe('C:\\Users\\me\\cad\\part.mycad')
+    expect(suggestedPath('D:/cad/', 'part.stl')).toBe('D:/cad/part.stl')
+    expect(directoryOf('D:/cad/projects/part.mycad')).toBe('D:/cad/projects')
+
+    // The reducer keeps what it is told, and settings carry it across runs.
+    let state = createInitialState()
+    state = reducer(state, { type: 'remember-dir', key: 'save', directory: 'D:/cad/out' })
+    expect(state.settings.lastDirectories.save).toBe('D:/cad/out')
+    expect(sanitizeSettings(state.settings).lastDirectories.save).toBe('D:/cad/out')
+  })
+
+  it('[Electron] only one instance runs, and the installer asks before removing', () => {
+    const main = fs.readFileSync(path.resolve('electron/main.cjs'), 'utf8')
+    expect(main).toContain('requestSingleInstanceLock')
+    expect(main).toContain("app.on('second-instance'")
+    // The second launch hands over its file and exits instead of opening a window.
+    expect(main).toMatch(/if \(!gotLock\) \{[^}]*app\.quit\(\)/)
+    expect(main).toContain('MIN_HEIGHT = 760')
+
+    const nsis = fs.readFileSync(path.resolve('build/installer.nsh'), 'utf8')
+    expect(nsis).toContain('MB_YESNO')
+    expect(nsis).toContain('removeOld')
+    expect(nsis).toContain('keepOld')
+    // The uninstaller only runs on the branch the user chose.
+    const removal = nsis.slice(nsis.indexOf('removeOld:'), nsis.indexOf('keepOld:'))
+    expect(removal).toContain("ExecWait '$R0'")
+    expect(nsis.slice(0, nsis.indexOf('MB_YESNO'))).not.toContain("ExecWait '$R0'")
+  })
+
   it('[Installer] supports Korean and English and replaces an existing install', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('package.json'), 'utf8'))
     const script = fs.readFileSync(path.resolve('build/installer.nsh'), 'utf8')
     expect(pkg.build.nsis.displayLanguageSelector).toBe(true)
     expect(pkg.build.nsis.installerLanguages).toEqual(['en_US', 'ko_KR'])
-    expect(pkg.build.win.icon).toBe('build/icon.ico')
-    expect(pkg.build.nsis.installerIcon).toBe('build/icon.ico')
+    expect(pkg.build.win.icon).toBe('assets/icon.ico')
+    expect(pkg.build.nsis.installerIcon).toBe('assets/icon.ico')
     expect(pkg.build.fileAssociations[0].ext).toBe('mycad')
-    expect(pkg.build.fileAssociations[0].icon).toBe('file-icon.ico')
+    expect(pkg.build.fileAssociations[0].icon).toBe('assets/file-icon.ico')
     expect(script).toContain('QuietUninstallString')
     expect(script).toContain('1042')
     expect(script).toContain('삭제하시겠습니까')
     expect(script).toContain('RMDir /r "$INSTDIR"')
-    expect(pkg.build.linux.icon).toBe('build/icons')
-    expect(pkg.build.mac.icon).toBe('build/icon.png')
+    expect(pkg.build.linux.icon).toBe('assets/icons')
+    // Everything the shell shows comes out of assets/, and the executable has
+    // to carry the icon or every shortcut falls back to Electron's own.
+    // buildResources stays on build/, where the NSIS include lives.
+    expect(pkg.build.directories.buildResources).toBe('build')
+    expect(pkg.build.win.signAndEditExecutable).toBeUndefined()
+    for (const entry of pkg.build.extraResources as Array<{ from: string }>) {
+      expect(entry.from.startsWith('assets/') || entry.from === 'sample').toBe(true)
+    }
+    for (const file of ['assets/icon.ico', 'assets/icon.png', 'assets/file-icon.ico', 'assets/icons/256x256.png']) {
+      expect(fs.existsSync(path.resolve(file)), file).toBe(true)
+    }
+    expect(pkg.build.mac.icon).toBe('assets/icon.png')
   })
 
   it('[Electron] uses one icon, child popups, and a minimum width that fits the toolbar', () => {

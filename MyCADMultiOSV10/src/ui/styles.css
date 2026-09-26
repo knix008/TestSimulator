@@ -39,7 +39,13 @@ button:hover { border-color: var(--accent); }
 .toolbar-sep { width: 1px; align-self: stretch; margin: 4px 3px; background: var(--line); flex: 0 0 1px; }
 .tool, .menu-root, .tree { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; flex: 0 0 auto; white-space: nowrap; }
 .workspace { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 320px 6px minmax(0, 1fr) 6px 280px; min-width: 0; }
-.panel { background: var(--panel-alt); border-right: 1px solid var(--line); padding: 0; overflow: auto; }
+/* The gutter is reserved, so showing or hiding the bar never shifts the rows,
+   and the panel never scrolls sideways. */
+.panel { background: var(--panel-alt); border-right: 1px solid var(--line); padding: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.panel::-webkit-scrollbar { width: 10px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+.panel::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: content-box; }
 .panel.right { border-right: 0; border-left: 1px solid var(--line); }
 .panel-title { margin: 0; padding: 6px 8px; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); background: var(--bg); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .tool-groups { padding: 2px 0 6px; }
@@ -117,7 +123,7 @@ button:hover { border-color: var(--accent); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 input[type="range"] { width: 120px; }
 .panel .tree { width: calc(100% - 8px); margin: 1px 4px; border-radius: 2px; background: transparent; }
-.panel.right .row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 4px; margin-left: 8px; margin-right: 8px; }
+.panel.right .row { display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: center; gap: 6px; margin-left: 12px; margin-right: 10px; }
 /* Nothing in the property panel may reach past its edge, however narrow it is. */
 .panel.right .row > input, .panel.right .row > select { width: 100%; min-width: 0; }
 @media print {
@@ -248,17 +254,25 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 
 /* numeric field with steppers */
 .number-field { display: inline-flex; align-items: center; gap: 2px; }
-.number-field button { width: 24px; height: 24px; padding: 0; line-height: 1; }
+/* The unit follows the plus button, at the same size as the rest of the row. */
+.number-suffix { min-width: 24px; padding-left: 4px; color: var(--text); white-space: nowrap; }
+.number-field button { width: 24px; height: 24px; padding: 0; line-height: 1; cursor: pointer; transition: background .12s, border-color .12s, color .12s; }
+/* Only the button under the pointer inverts, so it is obvious which one a
+   click will hit. (The rows around a stepper are plain divs, not labels: a
+   label hands its hover and its clicks to the first control inside it, which
+   used to light up the minus button whenever the row was pointed at.) */
+.number-field button:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.number-field button:active { background: color-mix(in srgb, var(--accent) 72%, var(--text)); border-color: var(--accent); color: var(--bg); }
+.number-field button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .number-field input { width: 84px; height: 24px; text-align: right; font-variant-numeric: tabular-nums; }
 .panel .number-field input { width: 62px; }
 .panel .number-field .number-suffix { display: none; }
 .panel .number-field button { width: 20px; height: 22px; }
-.panel.right .field-group { margin: 4px 8px 8px; padding: 4px 6px 6px; }
+.panel.right .field-group { margin: 6px 10px 10px; padding: 6px 8px 8px; }
 .panel.right .field-group legend { padding: 0 4px; color: var(--muted); font-size: 11px; }
-.panel.right .field-group .row { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 4px; margin: 2px 0; }
+.panel.right .field-group .row { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 6px; margin: 3px 0 3px 4px; }
 .about-mark { display: block; color: var(--text); }
 .tool-about:hover .about-mark { color: var(--accent); }
-.number-suffix { min-width: 24px; color: var(--muted); font-size: 11px; }
 
 /* custom theme colour grid */
 .color-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -334,3 +348,35 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 /* Native controls follow the theme, not the dark default of :root. */
 .app[data-theme-mode="light"] { color-scheme: light; }
 .app[data-theme-mode="dark"] { color-scheme: dark; }
+
+/* Shown by ErrorBoundary when a render fails: the report, ready to copy. */
+.crash { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; background: #12161c; color: #e7eef5; font-family: 'Segoe UI', system-ui, sans-serif; }
+.crash-card { display: flex; flex-direction: column; gap: 12px; width: min(860px, 100%); max-height: 100%; padding: 20px 22px; background: #1b222c; border: 1px solid #3a4754; border-radius: 10px; }
+.crash-card h1 { margin: 0; font-size: 20px; }
+.crash-lead { margin: 0; font-size: 13px; line-height: 1.6; color: #b9c6d4; white-space: normal; }
+.crash-report { flex: 1 1 auto; min-height: 120px; margin: 0; padding: 12px; overflow: auto; background: #0e1319; border: 1px solid #2a3542; border-radius: 6px; font-family: Consolas, 'Courier New', monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.crash-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.crash-actions button { height: 30px; padding: 0 14px; background: #2c3844; color: #e7eef5; border: 1px solid #3a4754; border-radius: 4px; }
+.crash-actions button:hover { border-color: #3ec1ff; }
+
+/* With the -/+ buttons there, the browser's own spinner is noise. */
+.number-field input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+.number-field input[type="number"]::-webkit-outer-spin-button,
+.number-field input[type="number"]::-webkit-inner-spin-button { appearance: none; -webkit-appearance: none; margin: 0; }
+.error-headline { font-weight: 600; white-space: normal; line-height: 1.5; }
+.popup .error-detail { flex: 1 1 auto; min-height: 0; margin: 6px 0 0; padding: 10px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-family: Consolas, 'Courier New', monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; scrollbar-width: thin; }
+.popup .error-detail::-webkit-scrollbar { width: 9px; }
+.popup .error-detail::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
+
+/* Recent files sit in the File menu: open one, drop one, or clear the list. */
+.menu-section { margin: 6px 4px 2px; padding: 0 4px; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.menu-popup .recent-item { display: flex; align-items: center; gap: 2px; padding: 0; background: transparent; }
+.recent-open { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 6px; background: transparent; border: 0; text-align: left; color: var(--text); }
+.recent-open:hover, .recent-remove:hover { background: var(--button); }
+.recent-remove { flex: 0 0 auto; width: 24px; height: 24px; padding: 0; background: transparent; border: 0; color: var(--muted); }
+.recent-remove:hover { color: var(--danger); }
+
+/* The panel headings carry their own close button. */
+.panel-title { display: flex; align-items: center; gap: 6px; }
+.panel-close { flex: 0 0 auto; width: 20px; height: 18px; margin-left: auto; padding: 0; background: transparent; border: 0; color: var(--muted); font-size: 11px; line-height: 1; }
+.panel-close:hover { color: var(--danger); background: var(--button); }

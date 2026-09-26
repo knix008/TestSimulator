@@ -78,12 +78,20 @@
       "description": "기울어진 평면 위 점군 49개 (평면/구/곡면 근사)"
     },
     {
+      "name": "scan-points.xyz",
+      "description": "같은 점군의 XYZ 형식 (헤더 없음)"
+    },
+    {
       "name": "building.ifc",
       "description": "IFC4 건물 (IFC 가져오기)"
     },
     {
       "name": "pocket.nc",
       "description": "G코드 포켓 가공 (3패스)"
+    },
+    {
+      "name": "profile.gcode",
+      "description": "같은 포켓 가공 경로의 .gcode 형식"
     },
     {
       "name": "parameters.csv",
@@ -108,6 +116,10 @@
     {
       "name": "addon-manifest.json",
       "description": "애드온 매니페스트 (설치/실행 테스트)"
+    },
+    {
+      "name": "hex-nuts.mycadaddon",
+      "description": "설치용 애드온 패키지 (.mycadaddon 연결 테스트)"
     }
   ]
 }

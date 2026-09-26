@@ -10,11 +10,23 @@ components, tags, scenes, section planes).
 
 ```
 npm install
-npm start          # Electron app against the Vite dev server
-npm run dev        # browser only
-npm test           # 481 tests
-npm run dist:win   # NSIS installer (macOS: dist:mac, Linux: dist:linux)
+npm start           # Electron app against the Vite dev server
+npm run dev         # browser only
+npm test            # 493 tests
+
+npm run build:web   # static site in dist/
+npm run build:win   # NSIS installer
+npm run build:mac   # dmg
+npm run build:linux # AppImage and deb
+npm run build:all   # the web build and all three desktop targets
 ```
+
+Each desktop command builds the web bundle first and leaves its installer in
+`release/`. A target can only be built on a host that supports it (a dmg needs
+macOS), so `build:all` is for a machine or CI runner with all three toolchains.
+The Windows installer asks whether an installation it finds should be removed
+first, and MyCAD runs one instance at a time: launching it again brings the open
+window forward, with whatever file was passed on the command line.
 
 ## What is in the box
 

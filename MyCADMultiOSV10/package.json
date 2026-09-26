@@ -3,7 +3,7 @@
   "productName": "MyCAD",
   "version": "1.0.0",
   "description": "Cross-platform 3D CAD for Web, Windows, macOS, and Linux.",
-  "author": "SHKWON <knix008@naver.com>",
+  "author": "shkwon <knix008@naver.com>",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -15,22 +15,26 @@
     "build:samples": "node scripts/create-samples.mjs",
     "build:installer": "node scripts/create-installer.mjs",
     "build": "npm run build:icons && tsc --noEmit && vite build",
-    "build:web": "npm run build:icons && vite build",
+    "build:web": "npm run build:icons && tsc --noEmit && vite build",
     "preview": "vite preview",
     "postinstall": "node scripts/patch-bvh.mjs",
     "test": "node scripts/patch-bvh.mjs && node scripts/create-samples.mjs && node scripts/create-installer.mjs && vitest run",
-    "dist": "npm run build && npm run build:installer && electron-builder && node scripts/copy-installers.cjs",
-    "dist:win": "npm run build && npm run build:installer && electron-builder --win nsis && node scripts/copy-installers.cjs",
+    "dist": "npm run build:clean && npm run build && npm run build:installer && node scripts/package.mjs && node scripts/copy-installers.cjs",
+    "dist:win": "npm run build:clean && npm run build && npm run build:installer && node scripts/package.mjs --win nsis && node scripts/copy-installers.cjs",
     "build:win": "npm run dist:win",
-    "dist:mac": "npm run build && electron-builder --mac dmg && node scripts/copy-installers.cjs",
+    "dist:mac": "npm run build:clean && npm run build && node scripts/package.mjs --mac dmg && node scripts/copy-installers.cjs",
     "build:mac": "npm run dist:mac",
-    "dist:linux": "npm run build && electron-builder --linux AppImage deb && node scripts/copy-installers.cjs",
-    "build:linux": "npm run dist:linux"
+    "dist:linux": "npm run build:clean && npm run build && node scripts/package.mjs --linux AppImage deb && node scripts/copy-installers.cjs",
+    "build:linux": "npm run dist:linux",
+    "build:all": "npm run build:clean && npm run build:web && npm run build:installer && node scripts/package.mjs -mwl && node scripts/copy-installers.cjs",
+    "dist:all": "npm run build:all",
+    "build:clean": "node scripts/prepare-dist.mjs"
   },
   "build": {
     "appId": "com.shkwon.mycad",
     "productName": "MyCAD",
     "executableName": "MyCAD",
+    "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -38,10 +42,10 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "build/icon.ico",
-      "build/icon.png",
-      "build/file-icon.ico",
-      "build/file-icon.png",
+      "assets/icon.ico",
+      "assets/icon.png",
+      "assets/file-icon.ico",
+      "assets/file-icon.png",
       "package.json"
     ],
     "extraResources": [
@@ -50,11 +54,11 @@
         "to": "sample"
       },
       {
-        "from": "build/file-icon.ico",
+        "from": "assets/file-icon.ico",
         "to": "file-icon.ico"
       },
       {
-        "from": "build/icon.ico",
+        "from": "assets/icon.ico",
         "to": "icon.ico"
       }
     ],
@@ -66,7 +70,7 @@
         "ext": "mycad",
         "name": "MyCAD.Document",
         "description": "MyCAD 3D Document",
-        "icon": "file-icon.ico",
+        "icon": "assets/file-icon.ico",
         "role": "Editor",
         "mimeType": "application/x-mycad"
       }
@@ -75,8 +79,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "build/icon.ico",
-      "signAndEditExecutable": false
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -86,9 +89,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "MyCAD",
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
-      "installerHeaderIcon": "build/icon.ico",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
       "deleteAppDataOnUninstall": false,
       "displayLanguageSelector": true,
       "installerLanguages": [
@@ -96,13 +99,14 @@
         "ko_KR"
       ],
       "include": "build/installer.nsh",
-      "artifactName": "MyCAD-Setup-${version}.${ext}"
+      "artifactName": "MyCAD-Setup-${version}.${ext}",
+      "menuCategory": false
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "build/icon.png",
+      "icon": "assets/icon.png",
       "category": "public.app-category.graphics-design",
       "identity": null
     },
@@ -111,7 +115,7 @@
         "AppImage",
         "deb"
       ],
-      "icon": "build/icons",
+      "icon": "assets/icons",
       "category": "Graphics",
       "artifactName": "MyCAD-${version}.${ext}"
     }

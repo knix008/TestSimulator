@@ -2,9 +2,9 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/ui/App'
-import { AUTHOR, MIN_WINDOW_HEIGHT, POPUP_SIZE } from '../src/core/buildInfo'
+import { AUTHOR, POPUP_SIZE } from '../src/core/buildInfo'
 import { MIN_PANEL_WIDTH, PANEL_ROOM, clampLightAngles, lightAngles, lightPosition, propertyPanelWidth, raySphereDirection, toolPanelWidth } from '../src/core/viewnav'
-import { LIGHT_KINDS, defaultSettings, sanitizeLight, sanitizeSettings } from '../src/core/settings'
+import { LIGHT_KINDS, sanitizeLight, sanitizeSettings } from '../src/core/settings'
 import { THEMES } from '../src/core/themes'
 import { TOOLBAR_GROUPS } from '../src/core/menus'
 
@@ -59,11 +59,11 @@ describe('tool panel width', () => {
     expect(toolPanelWidth([40, 44, 48, 52, 300])).toBe(toolPanelWidth([40, 44, 48, 52, 56]))
   })
 
-  it('[Layout] settings keep the chosen width', () => {
-    expect(defaultSettings().leftPanelWidth).toBe(0)
-    expect(sanitizeSettings({ leftPanelWidth: 380 }).leftPanelWidth).toBe(380)
-    expect(sanitizeSettings({ leftPanelWidth: 5000 }).leftPanelWidth).toBe(640)
-    expect(sanitizeSettings({ leftPanelWidth: 'wide' }).leftPanelWidth).toBe(0)
+  it('[Layout] both side panels share one fixed width', () => {
+    // Neither panel resizes any more, so the layout only has to be wide enough
+    // for the widest of the two contents.
+    expect(MIN_PANEL_WIDTH).toBeGreaterThanOrEqual(propertyPanelWidth())
+    expect(toolPanelWidth([40, 52, 48])).toBeGreaterThanOrEqual(MIN_PANEL_WIDTH)
   })
 })
 
@@ -72,39 +72,31 @@ describe('application chrome', () => {
     localStorage.clear()
   })
 
-  it('[GUI] a splitter sits on each side of the canvas', async () => {
+  it('[GUI] both panels are a fixed width and close from their own heading', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
-    const splitter = screen.getByTestId('panel-splitter')
-    const propertySplitter = screen.getByTestId('property-splitter')
-    for (const handle of [splitter, propertySplitter]) {
-      expect(handle.getAttribute('role')).toBe('separator')
-      expect(handle.getAttribute('aria-orientation')).toBe('vertical')
-    }
     const workspace = screen.getByTestId('left-panel').parentElement as HTMLElement
-    // Tool panel, splitter, canvas, splitter, and a property panel that is as
-    // wide as the tool panel and never narrower than one property row.
-    const columns = workspace.style.gridTemplateColumns.match(/^(\d+)px 6px minmax\(0, 1fr\) 6px (\d+)px$/)
+    // Tool panel, canvas, property panel: no splitter between them.
+    expect(screen.queryByTestId('panel-splitter')).toBeNull()
+    expect(screen.queryByTestId('property-splitter')).toBeNull()
+    const columns = workspace.style.gridTemplateColumns.match(/^(\d+)px minmax\(0, 1fr\) (\d+)px$/)
     expect(columns, workspace.style.gridTemplateColumns).toBeTruthy()
     expect(columns![2]).toBe(columns![1])
-    expect(Number(columns![2])).toBeGreaterThanOrEqual(propertyPanelWidth())
-    // Each panel sits on its own side of the canvas.
-    const panel = screen.getByTestId('left-panel')
-    const right = screen.getByTestId('right-panel')
-    expect(panel.compareDocumentPosition(splitter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(propertySplitter.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    await user.click(splitter)
-    await user.click(propertySplitter)
-    await waitFor(() => expect(screen.getByTestId('app').getAttribute('data-min-window-width')).toBeTruthy())
-  })
+    expect(Number(columns![1])).toBeGreaterThanOrEqual(propertyPanelWidth())
 
-  it('[GUI] the settings window is a fixed size that fits the smallest window', () => {
-    // The dialog never resizes, so the window minimum has to leave room for it.
-    expect(POPUP_SIZE.settings).toEqual({ width: 1040, height: 700 })
-    expect(MIN_WINDOW_HEIGHT).toBeGreaterThanOrEqual(POPUP_SIZE.settings.height + 40)
-    for (const popup of Object.values(POPUP_SIZE)) {
-      expect(popup.height).toBeLessThanOrEqual(MIN_WINDOW_HEIGHT - 40)
-    }
+    // Each heading closes its own panel, and the toolbar brings it back.
+    await user.click(screen.getByTestId('close-tool-panel'))
+    expect(screen.getByTestId('left-panel').hidden).toBe(true)
+    expect(workspace.style.gridTemplateColumns.startsWith('0px ')).toBe(true)
+    await user.click(screen.getByTestId('tb-toolPanel'))
+    expect(screen.getByTestId('left-panel').hidden).toBe(false)
+
+    await user.click(screen.getByTestId('close-property-panel'))
+    expect(screen.getByTestId('right-panel').hidden).toBe(true)
+    expect(workspace.style.gridTemplateColumns.endsWith(' 0px')).toBe(true)
+    await user.click(screen.getByTestId('tb-propertyPanel'))
+    expect(screen.getByTestId('right-panel').hidden).toBe(false)
+    await waitFor(() => expect(screen.getByTestId('app').getAttribute('data-min-window-width')).toBeTruthy())
   })
 
   it('[GUI] a property row fits inside the narrowest property panel', () => {
@@ -116,9 +108,7 @@ describe('application chrome', () => {
     expect(MIN_PANEL_WIDTH).toBe(propertyPanelWidth() + PANEL_ROOM)
     expect(MIN_PANEL_WIDTH).toBeGreaterThan(propertyPanelWidth())
     expect(propertyPanelWidth({ input: 100 })).toBe(propertyPanelWidth() + 38)
-    expect(defaultSettings().rightPanelWidth).toBe(0)
-    expect(sanitizeSettings({ rightPanelWidth: 240 }).rightPanelWidth).toBe(240)
-    expect(sanitizeSettings({ rightPanelWidth: 5000 }).rightPanelWidth).toBe(640)
+
   })
 
   it('[GUI] the about window shows the mark, the build and the author on screen', async () => {
@@ -259,15 +249,13 @@ describe('application chrome', () => {
 
     await user.click(screen.getByTestId('tb-toolPanel'))
     expect(screen.getByTestId('left-panel').hidden).toBe(true)
-    expect(screen.getByTestId('panel-splitter').hidden).toBe(true)
     // The closed panel takes no width, and the canvas keeps its own column.
     const rightColumn = workspace.style.gridTemplateColumns.split(' ').at(-1)
-    expect(workspace.style.gridTemplateColumns).toBe(`0px 0px minmax(0, 1fr) 6px ${rightColumn}`)
+    expect(workspace.style.gridTemplateColumns).toBe(`0px minmax(0, 1fr) ${rightColumn}`)
 
     await user.click(screen.getByTestId('tb-propertyPanel'))
     expect(screen.getByTestId('right-panel').hidden).toBe(true)
-    expect(screen.getByTestId('property-splitter').hidden).toBe(true)
-    expect(workspace.style.gridTemplateColumns).toBe('0px 0px minmax(0, 1fr) 0px 0px')
+    expect(workspace.style.gridTemplateColumns).toBe('0px minmax(0, 1fr) 0px')
 
     await user.click(screen.getByTestId('tb-toolPanel'))
     await user.click(screen.getByTestId('tb-propertyPanel'))

@@ -46,6 +46,9 @@ export function Viewport({
   const orbit = useRef<OrbitState>({ azimuth: Math.PI / 4, polar: 0.9, tx: 0, ty: 0, tz: 0 })
   const preset = useRef(doc.preset)
   const resetSeen = useRef(resetKey)
+  // Radius the camera was last framed for, and the shapes that produced it.
+  const frameRadius = useRef<number | null>(null)
+  const framingKey = useRef('')
   const handlers = useRef({ onSelect, onCursor, onContext, onZoom, onMoveSolid, onMoveLight })
   handlers.current = { onSelect, onCursor, onContext, onZoom, onMoveSolid, onMoveLight }
 
@@ -76,7 +79,16 @@ export function Viewport({
     const radius = settings.autoScaleAxes ? sceneRadius(boundingBoxOf(visible)) : 0
     const axisSpan = axisLength(radius)
     const grid = gridSpec(radius)
-    const distance = viewDistance(radius, zoom)
+    // The camera is framed for how big the model is, not for where it sits:
+    // dragging a solid across the scene must not change the magnification.
+    const framing = visible
+      .map((solid) => `${solid.id}:${solid.size.x},${solid.size.y},${solid.size.z},${solid.size.radius},${solid.scale.x},${solid.scale.y},${solid.scale.z}`)
+      .join('|')
+    if (framingKey.current !== framing || frameRadius.current === null) {
+      framingKey.current = framing
+      frameRadius.current = radius
+    }
+    const distance = viewDistance(frameRadius.current ?? radius, zoom)
     const near = Math.max(0.05, distance / 4000)
     const far = Math.max(5000, distance * 12)
     // Orthographic is FreeCAD's default for drafting; the frustum is sized so
@@ -86,6 +98,7 @@ export function Viewport({
     const camera = orthographic
       ? new THREE.OrthographicCamera(-halfHeight, halfHeight, halfHeight, -halfHeight, -far, far)
       : new THREE.PerspectiveCamera(45, 1, near, far)
+    if (resetSeen.current !== resetKey) frameRadius.current = radius
     if (preset.current !== doc.preset || resetSeen.current !== resetKey) {
       preset.current = doc.preset
       resetSeen.current = resetKey
@@ -148,8 +161,10 @@ export function Viewport({
     }
     aimLights(rig.azimuth, rig.elevation)
 
-    // The light itself is drawn in the scene: a sun marker with rays and a
-    // line back to the origin, and it can be dragged to move the light.
+    // The light is drawn in the scene while it is on: a sun marker with rays
+    // and a line back to the origin, which can be dragged to move it. Switched
+    // off, there is nothing to show and nothing to grab.
+    const showLight = rig.enabled
     const lightGizmo = new THREE.Group()
     const markerRadius = Math.max(2, reach * 0.045)
     const lightColor = rig.enabled ? new THREE.Color(rig.color || '#ffffff').lerp(new THREE.Color(0xffd166), 0.45) : new THREE.Color(0x8b96a3)
@@ -181,9 +196,13 @@ export function Viewport({
       new THREE.LineBasicMaterial({ color: lightColor, depthTest: false, transparent: true, opacity: 0.45 })
     )
     beam.renderOrder = 3
-    scene.add(beam)
     lightGizmo.position.set(place.x, place.y, place.z)
-    scene.add(lightGizmo)
+    lightGizmo.visible = showLight
+    beam.visible = showLight
+    if (showLight) {
+      scene.add(lightGizmo)
+      scene.add(beam)
+    }
     const placeLight = (angles: { azimuth: number; elevation: number }) => {
       const next = lightPosition(angles.azimuth, angles.elevation, reach)
       aimLights(angles.azimuth, angles.elevation)
@@ -340,7 +359,8 @@ export function Viewport({
       return raycaster
     }
     const pickHit = (event: PointerEvent | MouseEvent) => castRay(event).intersectObjects(meshes, false)[0]
-    const pickLight = (event: PointerEvent | MouseEvent) => castRay(event).intersectObject(marker, false)[0]
+    const pickLight = (event: PointerEvent | MouseEvent) =>
+      showLight ? castRay(event).intersectObject(marker, false)[0] : undefined
     const pick = (event: PointerEvent | MouseEvent) => pickHit(event)?.object.userData.id as string | undefined
 
     // Dragging moves the picked solid on the ground plane; shift drags it

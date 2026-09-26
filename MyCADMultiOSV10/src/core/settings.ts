@@ -44,8 +44,6 @@ export interface Settings {
   customTheme: Theme
   /** viewport lighting rig */
   light: LightRig
-  /** width of the tool panel in pixels; 0 means "measure it" */
-  leftPanelWidth: number
   /** camera projection, as FreeCAD's View menu switches it */
   projection: Projection
   /** mouse navigation style */
@@ -54,8 +52,6 @@ export interface Settings {
   units: UnitSchema
   /** section planes along each axis */
   clip: ClipPlane[]
-  /** width of the property panel in pixels; 0 means "measure it" */
-  rightPanelWidth: number
   /** tool panel on the left is open */
   showToolPanel: boolean
   /** property panel on the right is open */
@@ -166,8 +162,6 @@ export function defaultSettings(): Settings {
     navigation: 'cad',
     units: 'mm',
     clip: defaultClip(),
-    leftPanelWidth: 0,
-    rightPanelWidth: 0,
     showToolPanel: true,
     showPropertyPanel: true
   }
@@ -232,12 +226,6 @@ export function sanitizeSettings(input: unknown): Settings {
     navigation: NAVIGATION_STYLES.includes(raw.navigation as NavigationStyle) ? (raw.navigation as NavigationStyle) : base.navigation,
     units: isUnitSchema(raw.units) ? raw.units : base.units,
     clip: sanitizeClip(raw.clip),
-    leftPanelWidth: typeof raw.leftPanelWidth === 'number' && Number.isFinite(raw.leftPanelWidth)
-      ? Math.max(0, Math.min(640, Math.round(raw.leftPanelWidth)))
-      : 0,
-    rightPanelWidth: typeof raw.rightPanelWidth === 'number' && Number.isFinite(raw.rightPanelWidth)
-      ? Math.max(0, Math.min(640, Math.round(raw.rightPanelWidth)))
-      : 0,
     showToolPanel: typeof raw.showToolPanel === 'boolean' ? raw.showToolPanel : base.showToolPanel,
     showPropertyPanel: typeof raw.showPropertyPanel === 'boolean' ? raw.showPropertyPanel : base.showPropertyPanel
   }

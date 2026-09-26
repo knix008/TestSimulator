@@ -24,14 +24,17 @@ MyCAD 기능 테스트용 샘플 파일입니다. `npm run build:samples` 로 �
 | `profile.dxf` | DXF 프로파일 도면 (LINE + CIRCLE) |
 | `bracket.scad` | OpenSCAD 소스 (importOpenScad) |
 | `scan-points.asc` | 기울어진 평면 위 점군 49개 (평면/구/곡면 근사) |
+| `scan-points.xyz` | 같은 점군의 XYZ 형식 (헤더 없음) |
 | `building.ifc` | IFC4 건물 (IFC 가져오기) |
 | `pocket.nc` | G코드 포켓 가공 (3패스) |
+| `profile.gcode` | 같은 포켓 가공 경로의 .gcode 형식 |
 | `parameters.csv` | 파라미터 표 (CSV 읽기) |
 | `design-table.csv` | CATIA 디자인 테이블 3구성 |
 | `spreadsheet.csv` | 수식이 든 CSV 시트 |
 | `macro.mycadmacro` | 매크로 스크립트 샘플 |
 | `macro.py` | Python 매크로 (Part API, 불리언, 반복문) |
 | `addon-manifest.json` | 애드온 매니페스트 (설치/실행 테스트) |
+| `hex-nuts.mycadaddon` | 설치용 애드온 패키지 (.mycadaddon 연결 테스트) |
 
 ## 사용법
 

@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { AUTHOR, MIN_WINDOW_HEIGHT, POPUP_SIZE, PROJECT_URL, toolbarMinWidth, windowTitle } from '../core/buildInfo'
+import { errorHeadline, errorReport } from '../core/report'
 import { licenseLines, shortcutLines } from '../core/knowledge'
 import { formatLength, formatVolume, unitSuffix } from '../core/units'
 import { MIN_PANEL_WIDTH, toolPanelWidth } from '../core/viewnav'
 import { categoryName, groupTools } from '../core/toolgroups'
 import { decodeClipboard } from '../core/clipboard'
-import { directoryOf } from '../core/recent'
+import { directoryOf, lastDirectory, suggestedPath } from '../core/recent'
 import { detectBrowserFonts, FALLBACK_FONTS, mergeFonts } from '../core/fonts'
 import { menuIcon, translate, type MessageKey } from '../core/i18n'
 import { commandHelp } from '../core/labels'
@@ -31,7 +32,9 @@ import { compileOpenScad, femBar, forwardKinematics, inspectSolids, parsePoints,
 import { draftSolid, evaluateFormula, inertiaOf, rectangularPattern, referencePlane, shaft, groove, shellSolid, solveMate, specTreeRows, steppedHole, transformSolid, updateSketchFromParameters } from '../core/catia'
 import { nextTabStart, tabsOverflow, tabWindow } from '../core/tabs'
 import { AboutDialog, ConfirmDialog, ErrorDialog, ExportDialog, NumberField, PartDialog, PrintDialog, ProgressDialog, ReportDialog, SettingsDialog, UsageDialog } from './dialogs'
-import { Viewport } from './Viewport'
+// three.js is a megabyte of its own, so the canvas arrives as its own chunk and
+// a window that never draws (the settings window) never downloads it.
+const Viewport = lazy(() => import('./Viewport').then((module) => ({ default: module.Viewport })))
 
 const VISIBLE_TABS = 4
 type DialogKind = 'about' | 'settings' | 'print' | 'error' | 'confirm' | 'part' | 'usage' | 'report' | 'export' | null
@@ -70,8 +73,6 @@ export function App() {
   const [measuredWidth, setMeasuredWidth] = useState(0)
   // Bumped by the toolbar reset button; the viewport re-centres when it changes.
   const [viewReset, setViewReset] = useState(0)
-  const [rightPanel, setRightPanel] = useState(state.settings.rightPanelWidth || 0)
-  const [panelWidth, setPanelWidth] = useState(state.settings.leftPanelWidth || 0)
   const [naturalPanelWidth, setNaturalPanelWidth] = useState(0)
   const toolGridRef = useRef<HTMLDivElement>(null)
   const menubarRef = useRef<HTMLElement>(null)
@@ -116,6 +117,7 @@ export function App() {
   useEffect(() => {
     document.title = windowTitle()
   }, [])
+
 
   // The settings window is a separate renderer, so it sends what it changed and
   // the main window applies it. `sent` stops the echo coming straight back.
@@ -192,61 +194,52 @@ export function App() {
     // Both side panels share this width, so it also has to fit a property row.
     const natural = Math.max(toolPanelWidth(measureLabelWidths(grid)), MIN_PANEL_WIDTH)
     setNaturalPanelWidth(natural)
-    setRightPanel((current) => (current > 0 ? Math.max(current, MIN_PANEL_WIDTH) : natural))
-    // The panel opens at the narrowest width that fits its labels, and a width
-    // stored by an older, roomier build comes back down to it.
-    setPanelWidth((current) => (current > 0 ? Math.min(current, natural) : natural))
   }, [workbench, state.settings.language, state.settings.fontFamily, state.settings.fontSize])
 
-  const startPanelResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const startX = event.clientX
-    const startWidth = panelWidth
-    const move = (pointer: PointerEvent) => {
-      // Down to a narrow icon strip, never wider than the canvas allows.
-      const width = Math.max(MIN_PANEL_WIDTH, Math.min(window.innerWidth - 460, startWidth + (pointer.clientX - startX)))
-      setPanelWidth(Math.round(width))
-    }
-    const finish = (pointer: PointerEvent) => {
-      move(pointer)
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', finish)
-      setPanelWidth((width) => {
-        dispatch({ type: 'patch-settings', patch: { leftPanelWidth: width } })
-        return width
-      })
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', finish)
-  }, [naturalPanelWidth, panelWidth])
 
-  const startPropertyResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const startX = event.clientX
-    const startWidth = rightPanel || MIN_PANEL_WIDTH
-    const move = (pointer: PointerEvent) => {
-      // Dragging left widens it; one whole property row is the floor.
-      const width = Math.max(MIN_PANEL_WIDTH, Math.min(window.innerWidth - 460, startWidth - (pointer.clientX - startX)))
-      setRightPanel(Math.round(width))
-    }
-    const finish = (pointer: PointerEvent) => {
-      move(pointer)
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', finish)
-      setRightPanel((width) => {
-        dispatch({ type: 'patch-settings', patch: { rightPanelWidth: width } })
-        return width
-      })
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', finish)
-  }, [rightPanel])
 
-  const showError = useCallback((caught: unknown) => {
+  // Kept in refs so the error report can read the current state without making
+  // showError depend on every change.
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const workbenchRef = useRef(workbench)
+  workbenchRef.current = workbench
+
+  const showError = useCallback((caught: unknown, source = 'command') => {
     const err = caught instanceof Error ? caught : new Error(String(caught))
-    setError({ message: err.message, detail: err.stack || err.message })
+    setError({
+      message: errorHeadline(err),
+      detail: errorReport(err, {
+        source,
+        // The window can be gone by the time a late rejection lands.
+        platform: typeof window === 'undefined' ? undefined : window.mycad?.platform,
+        details: {
+          document: activeDocument(stateRef.current).name,
+          workbench: workbenchRef.current,
+          solids: activeDocument(stateRef.current).solids.length,
+          language: stateRef.current.settings.language
+        }
+      })
+    })
     setDialog('error')
   }, [])
+
+  // Anything that escapes a handler - a bad callback, a rejected promise -
+  // still ends up in the error popup with the full report behind it.
+  useEffect(() => {
+    const onWindowError = (event: ErrorEvent) => {
+      // Chromium reports this one for harmless layout loops; it is not a fault.
+      if (event.message?.includes('ResizeObserver loop')) return
+      showError(event.error ?? event.message, 'window')
+    }
+    const onRejection = (event: PromiseRejectionEvent) => showError(event.reason, 'promise')
+    window.addEventListener('error', onWindowError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('error', onWindowError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
+  }, [showError])
 
   const withProgress = useCallback(async (title: string, message: string, task: () => Promise<void>) => {
     setProgress({ title, message, percent: 8 })
@@ -277,13 +270,14 @@ export function App() {
     if (window.mycad?.saveFile) {
       const result = await window.mycad.saveFile({
         title: t('save'),
-        defaultPath: path || state.settings.lastDirectories.save,
+        // Start where the last file went, with this document's name filled in.
+        defaultPath: path || suggestedPath(lastDirectory(state.settings.lastDirectories, 'save'), `${current.name}.mycad`),
         content,
         filters: [{ name: 'MyCAD', extensions: ['mycad'] }]
       })
       if (result.canceled || !result.filePath) return false
       path = result.filePath
-      if (result.directory) dispatch({ type: 'remember-dir', key: 'save', directory: result.directory })
+      dispatch({ type: 'remember-dir', key: 'save', directory: result.directory || directoryOf(result.filePath) })
     } else if (!path || forceDialog) {
       const suggested = `${current.name}.mycad`
       const blob = new Blob([content], { type: 'application/json' })
@@ -436,7 +430,26 @@ export function App() {
    * Open command and by files the operating system hands over because they are
    * associated with MyCAD.
    */
+  /** Open a file from the recent list, by path. */
+  const openRecent = useCallback(async (path: string) => {
+    setMenu(null)
+    try {
+      const read = await window.mycad?.readPath?.(path)
+      if (!read?.ok || read.content === undefined) {
+        throw new Error(read?.error || path)
+      }
+      await withProgress(t('progress'), t('busyOpen'), async () => {
+        await openAnyFileRef.current(path, read.content as string)
+      })
+    } catch (caught) {
+      showError(caught, 'recent')
+    }
+  }, [showError, t, withProgress])
+
   const openAnyFile = useCallback(async (path: string, text: string) => {
+    // Whatever kind of file this was, the next dialog starts in its folder.
+    const directory = directoryOf(path)
+    if (directory) dispatch({ type: 'remember-dir', key: 'open', directory })
     const lower = path.toLowerCase()
     if (lower.endsWith('.csv')) {
       dispatch({ type: 'remember-recent', path })
@@ -477,6 +490,11 @@ export function App() {
     }
     dispatch({ type: 'set-status', status: result.status })
   }, [doc.extras.wires, state.settings.addons])
+
+  // `openRecent` is declared first so the menu can call it, and reaches the
+  // real implementation through this ref.
+  const openAnyFileRef = useRef(openAnyFile)
+  openAnyFileRef.current = openAnyFile
 
   // Files opened from the shell (double click, "open with", second instance).
   useEffect(() => {
@@ -546,12 +564,12 @@ export function App() {
       if (window.mycad?.saveFile) {
         const saved = await window.mycad.saveFile({
           title: t('export'),
-          defaultPath: state.settings.lastDirectories.save || result.name,
+          defaultPath: suggestedPath(lastDirectory(state.settings.lastDirectories, 'save'), result.name),
           content: result.text,
           filters: [{ name: result.format.label[state.settings.language], extensions: [result.format.ext] }]
         })
         if (saved.canceled) return
-        if (saved.directory) dispatch({ type: 'remember-dir', key: 'save', directory: saved.directory })
+        if (saved.filePath) dispatch({ type: 'remember-dir', key: 'save', directory: saved.directory || directoryOf(saved.filePath) })
       } else {
         downloadText(result.name, result.text)
       }
@@ -594,7 +612,7 @@ export function App() {
           if (window.mycad?.openFile) {
             const result = await window.mycad.openFile({
               title: t('open'),
-              defaultPath: state.settings.lastDirectories.open,
+              defaultPath: lastDirectory(state.settings.lastDirectories, 'open'),
               filters: openFilters(state.settings.language)
             })
             if (!result.canceled && result.content && result.filePath) {
@@ -889,12 +907,15 @@ export function App() {
       const content = toAsciiStl(doc.selection.length ? doc.solids.filter((solid) => doc.selection.includes(solid.id)) : doc.solids)
       if (window.mycad?.saveFile) {
         await withProgress(t('progress'), t('busySave'), async () => {
-          await window.mycad?.saveFile({
+          const saved = await window.mycad?.saveFile({
             title: t('exportStl'),
-            defaultPath: state.settings.lastDirectories.import,
+            defaultPath: suggestedPath(lastDirectory(state.settings.lastDirectories, 'import'), `${doc.name}.stl`),
             content,
             filters: [{ name: 'STL', extensions: ['stl'] }]
           })
+          if (saved?.filePath) {
+            dispatch({ type: 'remember-dir', key: 'import', directory: saved.directory || directoryOf(saved.filePath) })
+          }
         })
       } else {
         const blob = new Blob([content], { type: 'model/stl' })
@@ -905,6 +926,22 @@ export function App() {
         link.click()
         URL.revokeObjectURL(url)
       }
+      return
+    }
+    if (window.mycad?.openFile) {
+      // The desktop dialog opens where the last mesh came from.
+      const picked = await window.mycad.openFile({
+        title: t('importStl'),
+        defaultPath: lastDirectory(state.settings.lastDirectories, 'import'),
+        filters: [{ name: 'STL', extensions: ['stl'] }]
+      })
+      if (picked.canceled || !picked.content || !picked.filePath) return
+      const filePath = picked.filePath
+      const text = picked.content
+      dispatch({ type: 'remember-dir', key: 'import', directory: picked.directory || directoryOf(filePath) })
+      await withProgress(t('progress'), t('busyOpen'), async () => {
+        dispatch({ type: 'add-mesh', solid: parseStl(text, `sol-${state.seq + 1}`) })
+      })
       return
     }
     const input = document.createElement('input')
@@ -1004,10 +1041,9 @@ export function App() {
   const units = state.settings.units ?? 'mm'
   const showToolPanel = state.settings.showToolPanel !== false
   const showPropertyPanel = state.settings.showPropertyPanel !== false
-  const leftWidth = Math.max(MIN_PANEL_WIDTH, panelWidth || naturalPanelWidth || 320)
-  // The property panel matches the narrowest the tool panel can be, and never
-  // gets narrower than one property row needs.
-  const rightWidth = Math.max(MIN_PANEL_WIDTH, rightPanel || naturalPanelWidth || 320)
+  // Both panels are the same fixed width: wide enough for a whole property row
+  // and for the tool labels. They open and close, they do not resize.
+  const panelSize = Math.max(MIN_PANEL_WIDTH, naturalPanelWidth || MIN_PANEL_WIDTH)
   const openMenuItems = MENUS.find((item) => item.id === menu)
   const recentInMenu = menu === 'file' ? state.settings.recentFiles.length : 0
   const popupLayout = useMemo(() => {
@@ -1090,12 +1126,50 @@ export function App() {
                 <span className="menu-label">{t(item.labelKey)}</span>
               </button>
             ))}
-            {menu === 'file' ? state.settings.recentFiles.map((file) => (
-              <button key={file.path} type="button" role="menuitem" className="menu-item" title={file.path} onClick={() => void runCommand('open')}>
-                <span className="menu-icon">{menuIcon('recent')}</span>
-                <span className="menu-label">{file.name}</span>
-              </button>
-            )) : null}
+            {menu === 'file' && state.settings.recentFiles.length > 0 ? (
+              <>
+                <p className="menu-section">{t('recent')}</p>
+                {state.settings.recentFiles.map((file) => (
+                  <span className="menu-item recent-item" key={file.path}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="recent-open"
+                      data-testid={`recent-${file.name}`}
+                      title={file.path}
+                      onClick={() => void openRecent(file.path)}
+                    >
+                      <span className="menu-icon">{menuIcon('recent')}</span>
+                      <span className="menu-label ellipsis">{file.name}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="recent-remove"
+                      data-testid={`recent-remove-${file.name}`}
+                      title={`${t('remove')}: ${file.name}`}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        dispatch({ type: 'remove-recent', path: file.path })
+                      }}
+                    >✕</button>
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="menu-item"
+                  data-testid="recent-clear"
+                  title={t('clearRecent')}
+                  onClick={() => {
+                    dispatch({ type: 'clear-recent' })
+                    setMenu(null)
+                  }}
+                >
+                  <span className="menu-icon">{menuIcon('clearRecent')}</span>
+                  <span className="menu-label">{t('clearRecent')}</span>
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -1178,11 +1252,20 @@ export function App() {
         className="workspace"
         data-testid="workspace"
         style={{
-          gridTemplateColumns: `${showToolPanel ? leftWidth : 0}px ${showToolPanel ? 6 : 0}px minmax(0, 1fr) ${showPropertyPanel ? 6 : 0}px ${showPropertyPanel ? rightWidth : 0}px`
+          gridTemplateColumns: `${showToolPanel ? panelSize : 0}px minmax(0, 1fr) ${showPropertyPanel ? panelSize : 0}px`
         }}
       >
         <aside className="panel left" data-testid="left-panel" hidden={!showToolPanel} style={{ gridColumn: 1 }}>
-          <h2 className="panel-title">{t('toolsPanel')}</h2>
+          <h2 className="panel-title">
+            <span className="ellipsis">{t('toolsPanel')}</span>
+            <button
+              type="button"
+              className="panel-close"
+              data-testid="close-tool-panel"
+              title={`${t('toolPanel')}: ${t('hide')}`}
+              onClick={() => runCommand('toolPanel')}
+            >✕</button>
+          </h2>
           <div className="tool-groups" data-testid="tool-grid" ref={toolGridRef}>
             {groupTools(workbenchTools(workbench)).map((group) => (
               <section className="tool-group" key={group.category.id} data-testid={`tool-group-${group.category.id}`}>
@@ -1262,24 +1345,7 @@ export function App() {
             </button>
           ))}
         </aside>
-        <div
-          className="splitter"
-          data-testid="panel-splitter"
-          hidden={!showToolPanel}
-          style={{ gridColumn: 2 }}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={t('toolsPanel')}
-          onPointerDown={startPanelResize}
-          onDoubleClick={() => {
-            const grid = toolGridRef.current
-            if (!grid) return
-            const natural = Math.max(toolPanelWidth(measureLabelWidths(grid)), MIN_PANEL_WIDTH)
-            setPanelWidth(natural)
-            dispatch({ type: 'patch-settings', patch: { leftPanelWidth: natural } })
-          }}
-        />
-        <main className="center" style={{ gridColumn: 3 }}>
+        <main className="center" style={{ gridColumn: 2 }}>
           <div className="tabstrip" data-testid="tabstrip">
             {overflow ? <button type="button" data-testid="tab-prev" title={t('tabPrev')} onClick={() => setTabStart(nextTabStart('prev', tabStart, state.documents.length, VISIBLE_TABS))}>{'<'}</button> : null}
             <div className="tabs-row">
@@ -1292,6 +1358,7 @@ export function App() {
             </div>
             {overflow ? <button type="button" data-testid="tab-next" title={t('tabNext')} onClick={() => setTabStart(nextTabStart('next', tabStart, state.documents.length, VISIBLE_TABS))}>{'>'}</button> : null}
           </div>
+          <Suspense fallback={<div className="viewport" data-testid="viewport-loading" />}>
           <Viewport
             doc={doc}
             settings={state.settings}
@@ -1306,24 +1373,19 @@ export function App() {
           onMoveSolid={(id, position) => dispatch({ type: 'move-solid', id, position })}
           onMoveLight={(angles) => dispatch({ type: 'patch-settings', patch: { light: { ...state.settings.light, ...angles } } })}
           />
+          </Suspense>
         </main>
-        <div
-          className="splitter"
-          data-testid="property-splitter"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={t('properties')}
-          hidden={!showPropertyPanel}
-          style={{ gridColumn: 4 }}
-          onPointerDown={startPropertyResize}
-          onDoubleClick={() => {
-            const natural = Math.max(naturalPanelWidth || 0, MIN_PANEL_WIDTH)
-            setRightPanel(natural)
-            dispatch({ type: 'patch-settings', patch: { rightPanelWidth: natural } })
-          }}
-        />
-        <aside className="panel right" data-testid="right-panel" hidden={!showPropertyPanel} style={{ gridColumn: 5 }}>
-          <h2 className="panel-title">{t('properties')}</h2>
+        <aside className="panel right" data-testid="right-panel" hidden={!showPropertyPanel} style={{ gridColumn: 3 }}>
+          <h2 className="panel-title">
+            <span className="ellipsis">{t('properties')}</span>
+            <button
+              type="button"
+              className="panel-close"
+              data-testid="close-property-panel"
+              title={`${t('propertyPanel')}: ${t('hide')}`}
+              onClick={() => runCommand('propertyPanel')}
+            >✕</button>
+          </h2>
           {doc.selection.length === 0 ? <p className="row">{t('emptyProps')}</p> : null}
           {doc.solids.filter((solid) => doc.selection.includes(solid.id)).slice(0, 1).map((solid) => (
             <PropertyEditor key={solid.id} solidId={solid.id} state={state} t={t} dispatch={dispatch} />
@@ -1503,7 +1565,7 @@ function PropertyEditor({
       <fieldset className="field-group">
         <legend>{`${t('position')} (${unitSuffix(units)})`}</legend>
         {axes.map((axis) => (
-          <label className="row" key={axis}><span>{axis.toUpperCase()}</span>
+          <div className="row" key={axis}><span>{axis.toUpperCase()}</span>
             <NumberField
               id={`prop-position-${axis}`}
               label={`${t('position')} ${axis}`}
@@ -1512,13 +1574,13 @@ function PropertyEditor({
               suffix="mm"
               onChange={(value) => setNumber('position', axis, value)}
             />
-          </label>
+          </div>
         ))}
       </fieldset>
       <fieldset className="field-group">
         <legend>{`${t('rotation')} (°)`}</legend>
         {axes.map((axis) => (
-          <label className="row" key={axis}><span>{axis.toUpperCase()}</span>
+          <div className="row" key={axis}><span>{axis.toUpperCase()}</span>
             <NumberField
               id={`prop-rotation-${axis}`}
               label={`${t('rotation')} ${axis}`}
@@ -1529,13 +1591,13 @@ function PropertyEditor({
               suffix="°"
               onChange={(value) => setNumber('rotation', axis, value)}
             />
-          </label>
+          </div>
         ))}
       </fieldset>
       <fieldset className="field-group">
         <legend>{`${t('dimensions')} (${unitSuffix(units)})`}</legend>
         {axes.map((axis) => (
-          <label className="row" key={axis}><span>{axis.toUpperCase()}</span>
+          <div className="row" key={axis}><span>{axis.toUpperCase()}</span>
             <NumberField
               id={`prop-size-${axis}`}
               label={`${t('dimensions')} ${axis}`}
@@ -1545,16 +1607,16 @@ function PropertyEditor({
               suffix="mm"
               onChange={(value) => setNumber('size', axis, value)}
             />
-          </label>
+          </div>
         ))}
-        <label className="row"><span>R</span>
+        <div className="row"><span>R</span>
           <NumberField id="prop-size-radius" label={`${t('dimensions')} r`} value={solid.size.radius} min={0} step={1} suffix="mm" onChange={(value) => setNumber('size', 'radius', value)} />
-        </label>
+        </div>
       </fieldset>
       <fieldset className="field-group">
         <legend>{t('scale')}</legend>
         {axes.map((axis) => (
-          <label className="row" key={axis}><span>{axis.toUpperCase()}</span>
+          <div className="row" key={axis}><span>{axis.toUpperCase()}</span>
             <NumberField
               id={`prop-scale-${axis}`}
               label={`${t('scale')} ${axis}`}
@@ -1563,17 +1625,17 @@ function PropertyEditor({
               step={0.1}
               onChange={(value) => setNumber('scale', axis, value)}
             />
-          </label>
+          </div>
         ))}
       </fieldset>
       <fieldset className="field-group">
         <legend>{t('material')}</legend>
-        <label className="row"><span>{t('metalness')}</span>
+        <div className="row"><span>{t('metalness')}</span>
           <NumberField id="prop-metalness" label={t('metalness')} value={solid.metalness} min={0} max={1} step={0.05} onChange={(value) => dispatch({ type: 'update-solid', id: solid.id, patch: { metalness: value } })} />
-        </label>
-        <label className="row"><span>{t('roughness')}</span>
+        </div>
+        <div className="row"><span>{t('roughness')}</span>
           <NumberField id="prop-roughness" label={t('roughness')} value={solid.roughness} min={0} max={1} step={0.05} onChange={(value) => dispatch({ type: 'update-solid', id: solid.id, patch: { roughness: value } })} />
-        </label>
+        </div>
       </fieldset>
       <label className="row"><span>{t('visible')}</span><input aria-label={t('visible')} type="checkbox" checked={solid.visible} onChange={(event) => dispatch({ type: 'update-solid', id: solid.id, patch: { visible: event.target.checked } })} /></label>
       <label className="row"><span>{t('locked')}</span><input aria-label={t('locked')} type="checkbox" checked={solid.locked} onChange={(event) => dispatch({ type: 'update-solid', id: solid.id, patch: { locked: event.target.checked } })} /></label>

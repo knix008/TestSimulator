@@ -8,9 +8,16 @@ const APP_TITLE = 'MyCAD 1.0.0'
 // Keep in sync with toolbarMinWidth() in src/core/buildInfo.ts: every toolbar
 // button, the separators and the right-aligned buttons must stay visible.
 const MIN_WIDTH = 980
-const MIN_HEIGHT = 680
+// Keep in sync with MIN_WINDOW_HEIGHT in src/core/buildInfo.ts: the settings
+// window is a fixed 1040x700 and has to fit inside the application window.
+const MIN_HEIGHT = 760
+// Only one MyCAD runs at a time. A second launch hands its arguments to the
+// running one (see the `second-instance` handler) and exits straight away.
 const gotLock = app.requestSingleInstanceLock()
-if (!gotLock) app.quit()
+if (!gotLock) {
+  app.quit()
+  process.exit(0)
+}
 
 app.setName('MyCAD')
 const userData = path.join(app.getPath('appData'), 'MyCAD')
@@ -144,8 +151,9 @@ function openChild(options) {
 app.on('before-quit', closeChildren)
 app.whenReady().then(createWindow)
 app.on('second-instance', (_event, argv) => {
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore()
+    if (!mainWindow.isVisible()) mainWindow.show()
     mainWindow.focus()
   }
   sendOpenPath(fileFromArgv(argv))

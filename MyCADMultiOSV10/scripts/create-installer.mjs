@@ -42,11 +42,18 @@ function nsh() {
   lines.push('!include "nsDialogs.nsh"')
   lines.push('')
   lines.push(`!define MYCAD_ASSOC_COUNT ${CHOOSABLE.length}`)
+  // Only the installer has the wizard page; declaring these in the uninstaller
+  // pass as well would make makensis warn about unused variables, and
+  // electron-builder turns NSIS warnings into errors.
+  lines.push('!ifndef BUILD_UNINSTALLER')
   lines.push('Var AssocDialog')
+  lines.push('Var AssocAllButton')
+  lines.push('Var AssocNoneButton')
   CHOOSABLE.forEach((type, index) => {
     lines.push(`Var AssocBox${index}`)
     lines.push(`Var AssocState${index}`)
   })
+  lines.push('!endif')
   lines.push('')
 
   // Default states, applied before the page is shown.
@@ -64,11 +71,15 @@ function nsh() {
   lines.push('  ${If} $AssocDialog == error')
   lines.push('    Abort')
   lines.push('  ${EndIf}')
+  // MUI2 is only loaded for the installer pass; the uninstaller compiles the
+  // same file without it, so the header text is set only when it exists.
+  lines.push('  !ifmacrodef MUI_HEADER_TEXT')
   lines.push('  ${If} $LANGUAGE == 1042')
   lines.push('    !insertmacro MUI_HEADER_TEXT "파일 형식 연결" "MyCAD로 열 파일 형식을 선택하세요."')
   lines.push('  ${Else}')
   lines.push('    !insertmacro MUI_HEADER_TEXT "File associations" "Choose which file types open with MyCAD."')
   lines.push('  ${EndIf}')
+  lines.push('  !endif')
   CHOOSABLE.forEach((type, index) => {
     const column = index < Math.ceil(CHOOSABLE.length / 2) ? 0 : 1
     const row = index < Math.ceil(CHOOSABLE.length / 2) ? index : index - Math.ceil(CHOOSABLE.length / 2)
@@ -85,7 +96,35 @@ function nsh() {
     lines.push(`    ${'${NSD_Check}'} $AssocBox${index}`)
     lines.push('  ${EndIf}')
   })
+  const buttonRow = Math.ceil(CHOOSABLE.length / 2) * ROW_HEIGHT + 4
+  lines.push(`  ${'${NSD_CreateButton}'} 0u ${buttonRow}u 80u 14u ""`)
+  lines.push('  Pop $AssocAllButton')
+  lines.push(`  ${'${NSD_CreateButton}'} 86u ${buttonRow}u 80u 14u ""`)
+  lines.push('  Pop $AssocNoneButton')
+  lines.push('  ${If} $LANGUAGE == 1042')
+  lines.push(`    ${'${NSD_SetText}'} $AssocAllButton "전체 선택"`)
+  lines.push(`    ${'${NSD_SetText}'} $AssocNoneButton "전체 해제"`)
+  lines.push('  ${Else}')
+  lines.push(`    ${'${NSD_SetText}'} $AssocAllButton "Select all"`)
+  lines.push(`    ${'${NSD_SetText}'} $AssocNoneButton "Clear all"`)
+  lines.push('  ${EndIf}')
+  lines.push(`  ${'${NSD_OnClick}'} $AssocAllButton MyCadAssocSelectAll`)
+  lines.push(`  ${'${NSD_OnClick}'} $AssocNoneButton MyCadAssocSelectNone`)
   lines.push('  nsDialogs::Show')
+  lines.push('!macroend')
+  lines.push('')
+
+  // Tick or clear every box at once, from the two buttons on the page.
+  lines.push('!macro MyCadAssocCheckAll')
+  CHOOSABLE.forEach((type, index) => {
+    lines.push(`  ${'${NSD_Check}'} $AssocBox${index}`)
+  })
+  lines.push('!macroend')
+  lines.push('')
+  lines.push('!macro MyCadAssocUncheckAll')
+  CHOOSABLE.forEach((type, index) => {
+    lines.push(`  ${'${NSD_Uncheck}'} $AssocBox${index}`)
+  })
   lines.push('!macroend')
   lines.push('')
 

@@ -53,8 +53,9 @@ export function NumberField({
         step={step}
         onChange={(event) => onChange(clamp(Number(event.target.value)))}
       />
-      {suffix ? <span className="number-suffix">{suffix}</span> : null}
       <button type="button" data-testid={`${id}-inc`} title={`${label} +`} onClick={() => onChange(clamp(value + step))}>+</button>
+      {/* minus, the value, plus - and only then the unit. */}
+      {suffix ? <span className="number-suffix">{suffix}</span> : null}
     </span>
   )
 }
@@ -165,8 +166,8 @@ export function ErrorDialog({
   const full = `${message}\n${detail}`.trim()
   return (
     <PopupFrame kind="error" title={label} icon={menuIcon('error')} onClose={onClose}>
-      <p className="row" data-testid="error-message">{message}</p>
-      <p className="row" data-testid="error-detail">{detail}</p>
+      <p className="row error-headline" data-testid="error-message">{message}</p>
+      <pre className="error-detail" data-testid="error-detail">{detail}</pre>
       <div className="row popup-actions">
         <button
           type="button"
@@ -474,9 +475,9 @@ export function SettingsDialog({
               </fieldset>
               <fieldset className="field-group">
                 <legend>{t('snap')}</legend>
-                <label className="row"><span>{t('snap')}</span>
+                <div className="row"><span>{t('snap')}</span>
                   <NumberField id="snap" label={t('snap')} value={settings.snap} min={0} max={100} step={1} suffix="mm" onChange={(value) => onChange({ snap: value })} />
-                </label>
+                </div>
               </fieldset>
             </>
           ) : null}
@@ -578,9 +579,9 @@ export function SettingsDialog({
                   {fonts.map((font) => <option key={font} value={font}>{font}</option>)}
                 </select>
               </label>
-              <label className="row"><span>{t('fontSize')}</span>
+              <div className="row"><span>{t('fontSize')}</span>
                 <NumberField id="font-size" label={t('fontSize')} value={settings.fontSize} min={8} max={72} step={1} suffix="px" onChange={(value) => onChange({ fontSize: value })} />
-              </label>
+              </div>
               <label className="row"><span>{t('fontStyle')}</span>
                 <select aria-label={t('fontStyle')} data-testid="font-style" value={settings.fontStyle} onChange={(event) => onChange({ fontStyle: event.target.value as FontStyleName })}>
                   <option value="normal">{t('normal')}</option>
@@ -608,9 +609,9 @@ export function SettingsDialog({
                 <label className="row"><span>{t('autoScaleAxes')}</span>
                   <input aria-label={t('autoScaleAxes')} data-testid="auto-scale-axes" type="checkbox" checked={settings.autoScaleAxes} onChange={() => onChange({ autoScaleAxes: !settings.autoScaleAxes })} />
                 </label>
-                <label className="row"><span>{t('snap')}</span>
+                <div className="row"><span>{t('snap')}</span>
                   <NumberField id="snap-viewport" label={t('snap')} value={settings.snap} min={0} max={100} step={1} suffix="mm" onChange={(value) => onChange({ snap: value })} />
-                </label>
+                </div>
               </fieldset>
               <fieldset className="field-group">
                 <legend>{t('units')}</legend>
@@ -721,18 +722,18 @@ export function SettingsDialog({
                     onChange={(event) => onChange({ light: { ...settings.light, color: event.target.value } })}
                   />
                 </label>
-                <label className="row"><span>{settings.language === 'ko' ? '방향' : 'Azimuth'}</span>
+                <div className="row"><span>{settings.language === 'ko' ? '방향' : 'Azimuth'}</span>
                   <NumberField id="light-azimuth-field" label="azimuth" value={settings.light.azimuth} min={-180} max={180} step={5} suffix="°" onChange={(value) => onChange({ light: { ...settings.light, azimuth: value } })} />
-                </label>
-                <label className="row"><span>{settings.language === 'ko' ? '높이' : 'Elevation'}</span>
+                </div>
+                <div className="row"><span>{settings.language === 'ko' ? '높이' : 'Elevation'}</span>
                   <NumberField id="light-elevation-field" label="elevation" value={settings.light.elevation} min={-20} max={90} step={5} suffix="°" onChange={(value) => onChange({ light: { ...settings.light, elevation: value } })} />
-                </label>
-                <label className="row"><span>{settings.language === 'ko' ? '세기' : 'Intensity'}</span>
+                </div>
+                <div className="row"><span>{settings.language === 'ko' ? '세기' : 'Intensity'}</span>
                   <NumberField id="light-intensity-field" label="intensity" value={settings.light.intensity} min={0} max={3} step={0.05} onChange={(value) => onChange({ light: { ...settings.light, intensity: value } })} />
-                </label>
-                <label className="row"><span>{settings.language === 'ko' ? '환경광' : 'Ambient'}</span>
+                </div>
+                <div className="row"><span>{settings.language === 'ko' ? '환경광' : 'Ambient'}</span>
                   <NumberField id="light-ambient-field" label="ambient" value={settings.light.ambient} min={0} max={2} step={0.05} onChange={(value) => onChange({ light: { ...settings.light, ambient: value } })} />
-                </label>
+                </div>
               </fieldset>
             </div>
           ) : null}
@@ -752,12 +753,12 @@ export function SettingsDialog({
                     <option value="landscape">{t('landscape')}</option>
                   </select>
                 </label>
-                <label className="row"><span>{t('margin')}</span>
+                <div className="row"><span>{t('margin')}</span>
                   <NumberField id="default-margin" label={t('margin')} value={printSetup.marginMm} min={0} max={40} step={1} suffix="mm" onChange={(value) => patchPrint({ marginMm: value })} />
-                </label>
-                <label className="row"><span>{t('copies')}</span>
+                </div>
+                <div className="row"><span>{t('copies')}</span>
                   <NumberField id="default-copies" label={t('copies')} value={printSetup.copies} min={1} max={99} step={1} onChange={(value) => patchPrint({ copies: value })} />
-                </label>
+                </div>
               </fieldset>
               <fieldset className="field-group">
                 <legend>{t('print_texts')}</legend>

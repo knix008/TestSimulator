@@ -10,7 +10,7 @@ function pixel(png: { width: number; data: Uint8Array }, x: number, y: number) {
 
 describe('icons', () => {
   it('[Icons] app icon has a transparent border and a bright upper-left glow', () => {
-    const png = PNG.sync.read(fs.readFileSync(path.resolve('build/icon.png')))
+    const png = PNG.sync.read(fs.readFileSync(path.resolve('assets/icon.png')))
     expect(pixel(png, 0, 0).a).toBe(0)
     expect(pixel(png, png.width - 1, 0).a).toBe(0)
     expect(pixel(png, 0, png.height - 1).a).toBe(0)
@@ -21,11 +21,11 @@ describe('icons', () => {
   })
 
   it('[Icons] document icon is a separate image from the application icon', () => {
-    const app = fs.readFileSync(path.resolve('build/icon.png'))
-    const file = fs.readFileSync(path.resolve('build/file-icon.png'))
+    const app = fs.readFileSync(path.resolve('assets/icon.png'))
+    const file = fs.readFileSync(path.resolve('assets/file-icon.png'))
     expect(app.equals(file)).toBe(false)
-    expect(fs.existsSync(path.resolve('build/icon.ico'))).toBe(true)
-    expect(fs.existsSync(path.resolve('build/file-icon.ico'))).toBe(true)
+    expect(fs.existsSync(path.resolve('assets/icon.ico'))).toBe(true)
+    expect(fs.existsSync(path.resolve('assets/file-icon.ico'))).toBe(true)
     expect(fs.existsSync(path.resolve('public/favicon.png'))).toBe(true)
   })
 })
