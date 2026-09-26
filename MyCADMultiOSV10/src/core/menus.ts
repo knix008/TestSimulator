@@ -1,4 +1,5 @@
 import { menuIcon } from './i18n'
+import { TOOL_CATEGORIES, toolCategory } from './toolgroups'
 
 export interface MenuEntry {
   id: string
@@ -11,6 +12,12 @@ export interface MenuDef {
   id: string
   labelKey: string
   items: MenuEntry[]
+  /**
+   * Item ids that start a new group: a separator is drawn in front of each of
+   * them. They are ids rather than entries, so everything that walks `items`
+   * still sees only real commands.
+   */
+  breaks?: string[]
 }
 
 function entry(id: string): MenuEntry {
@@ -18,7 +25,7 @@ function entry(id: string): MenuEntry {
 }
 
 export const MENUS: MenuDef[] = [
-  { id: 'file', labelKey: 'file', items: [
+  { id: 'file', labelKey: 'file', breaks: ['save', 'export', 'openUrl'], items: [
     { id: 'new', labelKey: 'new', icon: menuIcon('new') },
     { id: 'open', labelKey: 'open', icon: menuIcon('open') },
     { id: 'save', labelKey: 'save', icon: menuIcon('save') },
@@ -32,7 +39,7 @@ export const MENUS: MenuDef[] = [
     { id: 'openUrl', labelKey: 'openUrl', icon: menuIcon('openUrl') },
     { id: 'download', labelKey: 'download', icon: menuIcon('download') }
   ]},
-  { id: 'edit', labelKey: 'edit', items: [
+  { id: 'edit', labelKey: 'edit', breaks: ['copy', 'delete'], items: [
     { id: 'undo', labelKey: 'undo', icon: menuIcon('undo') },
     { id: 'redo', labelKey: 'redo', icon: menuIcon('redo') },
     { id: 'copy', labelKey: 'copy', icon: menuIcon('copy') },
@@ -41,7 +48,7 @@ export const MENUS: MenuDef[] = [
     { id: 'delete', labelKey: 'delete', icon: menuIcon('delete') },
     { id: 'selectAll', labelKey: 'selectAll', icon: menuIcon('selectAll') }
   ]},
-  { id: 'view', labelKey: 'view', items: [
+  { id: 'view', labelKey: 'view', breaks: ['grid', 'shaded', 'zoomIn', 'asIs', 'projection', 'toolPanel'], items: [
     { id: 'front', labelKey: 'front', icon: menuIcon('front') },
     { id: 'back', labelKey: 'back', icon: menuIcon('back') },
     { id: 'left', labelKey: 'left', icon: menuIcon('left') },
@@ -188,12 +195,12 @@ export const MENUS: MenuDef[] = [
     entry('addonListCmd'), entry('addonInstallCmd'), entry('addonToggleCmd'),
     entry('addonRunCmd'), entry('addonUninstallCmd')
   ]},
-  { id: 'tools', labelKey: 'tools', items: [
+  { id: 'tools', labelKey: 'tools', breaks: ['settings'], items: [
     { id: 'select', labelKey: 'select', icon: menuIcon('select') },
     { id: 'measure', labelKey: 'measure', icon: menuIcon('measure') },
     { id: 'settings', labelKey: 'settings', icon: menuIcon('settings') }
   ]},
-  { id: 'help', labelKey: 'help', items: [
+  { id: 'help', labelKey: 'help', breaks: ['about'], items: [
     { id: 'usage', labelKey: 'usage', icon: menuIcon('usage') },
     entry('shortcuts'),
     entry('license'),
@@ -235,4 +242,82 @@ export const CONTEXT_ITEMS: MenuEntry[] = [
 
 export function menuIsSingleColumn(items: MenuEntry[]): boolean {
   return items.every((item) => item.icon.length > 0 && item.labelKey.length > 0)
+}
+
+export interface PopupLayout {
+  columns: number
+  rows: number
+  width: number
+  left: number
+}
+
+/**
+ * How to lay a menu out so that it always fits on screen: fill a column to the
+ * height that is left under the menu bar, wrap into further columns, then even
+ * the columns out so the popup is no taller than it has to be.
+ */
+export function menuPopupLayout(options: {
+  count: number
+  anchorX: number
+  anchorY: number
+  viewportWidth: number
+  viewportHeight: number
+  /** height of one row, including the gap */
+  rowHeight?: number
+  /** title bar, padding and the margin kept to the bottom edge */
+  chrome?: number
+  columnWidth?: number
+}): PopupLayout {
+  const rowHeight = options.rowHeight ?? 29
+  const chrome = options.chrome ?? 60
+  const columnWidth = options.columnWidth ?? 196
+  const count = Math.max(1, options.count)
+
+  const heightForRows = Math.max(rowHeight * 3, options.viewportHeight - options.anchorY - chrome)
+  const perColumn = Math.max(3, Math.floor(heightForRows / rowHeight))
+  const widest = Math.max(1, Math.floor((options.viewportWidth - 16) / columnWidth))
+  // Enough columns for the whole menu, but never wider than the window.
+  const columns = Math.max(1, Math.min(widest, Math.ceil(count / perColumn)))
+  // Even the columns out: 52 items in 3 columns is 18 rows, not 23.
+  const rows = Math.min(perColumn, Math.max(1, Math.ceil(count / columns)))
+
+  const width = Math.min(options.viewportWidth - 16, columns * columnWidth + 12)
+  const left = Math.max(4, Math.min(options.anchorX, options.viewportWidth - width - 8))
+  return { columns, rows, width, left }
+}
+
+/** A menu longer than this is shown in labelled sections. */
+export const MENU_SECTION_THRESHOLD = 24
+
+export interface MenuSection {
+  /** category id from TOOL_CATEGORIES, or undefined for an unlabelled group */
+  category?: string
+  items: MenuEntry[]
+}
+
+/**
+ * How a menu is laid out inside its popup. Short menus stay as they are, with
+ * a separator in front of each group. A long one - Part has more than fifty
+ * commands - is split into the same categories the tool panel uses, so the
+ * columns can be read by heading instead of scanned end to end.
+ */
+export function menuSections(menu: MenuDef): MenuSection[] {
+  if (menu.items.length <= MENU_SECTION_THRESHOLD) return [{ items: menu.items }]
+  const order = new Map(TOOL_CATEGORIES.map((category, index) => [category.id, index]))
+  const buckets = new Map<string, MenuEntry[]>()
+  for (const item of menu.items) {
+    const id = toolCategory(item.id)
+    buckets.set(id, [...(buckets.get(id) ?? []), item])
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => (order.get(a[0]) ?? 99) - (order.get(b[0]) ?? 99))
+    .map(([category, items]) => ({ category, items }))
+}
+
+/** Rows a menu needs: its items, its separators and its section headings. */
+export function menuRowCount(menu: MenuDef): number {
+  const sections = menuSections(menu)
+  const headings = sections.filter((section) => section.category).length
+  const breaks = (menu.breaks ?? []).filter((id) => menu.items.some((item) => item.id === id))
+  return menu.items.length + breaks.length + headings
 }

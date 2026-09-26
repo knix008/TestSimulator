@@ -5,6 +5,9 @@ import { NAVIGATION_STYLES, type NavigationStyle } from './viewnav'
 import { isUnitSchema, type UnitSchema } from './units'
 
 export type Lang = 'ko' | 'en'
+
+/** Every language the interface ships with. */
+export const LANGUAGES: Lang[] = ['ko', 'en']
 export type { ThemeId }
 export type FontStyleName = 'normal' | 'italic' | 'bold' | 'bold-italic'
 

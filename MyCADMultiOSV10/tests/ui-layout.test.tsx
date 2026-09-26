@@ -6,7 +6,7 @@ import { AUTHOR, POPUP_SIZE } from '../src/core/buildInfo'
 import { MIN_PANEL_WIDTH, PANEL_ROOM, clampLightAngles, lightAngles, lightPosition, propertyPanelWidth, raySphereDirection, toolPanelWidth } from '../src/core/viewnav'
 import { LIGHT_KINDS, sanitizeLight, sanitizeSettings } from '../src/core/settings'
 import { THEMES } from '../src/core/themes'
-import { TOOLBAR_GROUPS } from '../src/core/menus'
+import { MENUS, MENU_SECTION_THRESHOLD, TOOLBAR_GROUPS, menuPopupLayout, menuRowCount, menuSections } from '../src/core/menus'
 
 describe('light placement', () => {
   it('[Light] position and angles round-trip', () => {
@@ -64,6 +64,91 @@ describe('tool panel width', () => {
     // for the widest of the two contents.
     expect(MIN_PANEL_WIDTH).toBeGreaterThanOrEqual(propertyPanelWidth())
     expect(toolPanelWidth([40, 52, 48])).toBeGreaterThanOrEqual(MIN_PANEL_WIDTH)
+  })
+})
+
+describe('menu popups', () => {
+  it('[Menu] a long menu wraps into columns that fit the window', () => {
+    const viewport = { viewportWidth: 1280, viewportHeight: 800 }
+    const rowHeight = 29
+    const fits = (layout: { columns: number; rows: number; width: number; left: number }, anchorY: number) => {
+      expect(layout.rows * rowHeight + anchorY + 44).toBeLessThanOrEqual(viewport.viewportHeight)
+      expect(layout.left + layout.width).toBeLessThanOrEqual(viewport.viewportWidth)
+      expect(layout.left).toBeGreaterThanOrEqual(4)
+    }
+
+    // A short menu stays in one column.
+    const small = menuPopupLayout({ count: 6, anchorX: 10, anchorY: 32, ...viewport })
+    expect(small.columns).toBe(1)
+    expect(small.rows).toBe(6)
+    fits(small, 32)
+
+    // A long one wraps, and the columns are evened out rather than filled to
+    // the brim: 52 items over 3 columns is 18 rows, not 23 and then 6.
+    const long = menuPopupLayout({ count: 52, anchorX: 10, anchorY: 32, ...viewport })
+    expect(long.columns).toBeGreaterThan(1)
+    expect(long.rows * long.columns).toBeGreaterThanOrEqual(52)
+    expect(long.rows).toBe(Math.ceil(52 / long.columns))
+    fits(long, 32)
+
+    // Opening low on the screen leaves less height, so it takes more columns.
+    const low = menuPopupLayout({ count: 52, anchorX: 10, anchorY: 560, ...viewport })
+    expect(low.columns).toBeGreaterThanOrEqual(long.columns)
+    fits(low, 560)
+
+    // Near the right edge the popup slides back inside the window.
+    const edge = menuPopupLayout({ count: 30, anchorX: 1240, anchorY: 32, ...viewport })
+    fits(edge, 32)
+
+    // And a menu longer than the screen can hold is capped by the width.
+    const huge = menuPopupLayout({ count: 400, anchorX: 10, anchorY: 32, ...viewport })
+    expect(huge.width).toBeLessThanOrEqual(viewport.viewportWidth - 16)
+    fits(huge, 32)
+  })
+
+  it('[Menu] separators are counted as rows', () => {
+    const file = MENUS.find((menu) => menu.id === 'file')!
+    expect(file.breaks).toEqual(['save', 'export', 'openUrl'])
+    expect(menuRowCount(file)).toBe(file.items.length + 3)
+    // Every break names an item that is really in the menu, and the row count
+    // covers the items, the separators and the section headings.
+    for (const menu of MENUS) {
+      for (const id of menu.breaks ?? []) {
+        expect(menu.items.some((item) => item.id === id), `${menu.id}/${id}`).toBe(true)
+      }
+      const sections = menuSections(menu)
+      const headings = sections.filter((section) => section.category).length
+      expect(menuRowCount(menu), menu.id).toBe(menu.items.length + (menu.breaks?.length ?? 0) + headings)
+      // Sections hold every item once, in the menu's own order within a group.
+      expect(sections.flatMap((section) => section.items)).toHaveLength(menu.items.length)
+      expect(new Set(sections.flatMap((section) => section.items.map((item) => item.id))).size).toBe(menu.items.length)
+    }
+
+    // A short menu is one plain section; a long one is split by category.
+    expect(menuSections(file)).toHaveLength(1)
+    expect(menuSections(file)[0].category).toBeUndefined()
+    const part = MENUS.find((menu) => menu.id === 'part')!
+    expect(part.items.length).toBeGreaterThan(MENU_SECTION_THRESHOLD)
+    const partSections = menuSections(part)
+    expect(partSections.length).toBeGreaterThan(3)
+    expect(partSections.every((section) => section.category)).toBe(true)
+  })
+
+  it('[GUI] the File menu draws a line between its groups', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.click(screen.getByTestId('menu-file'))
+    const popup = screen.getByTestId('menu-popup')
+    for (const id of ['save', 'export', 'openUrl']) {
+      const separator = screen.getByTestId(`menu-separator-${id}`)
+      const item = screen.getByTestId(`menuitem-${id}`)
+      // The line comes immediately before the item that starts the group.
+      expect(separator.nextElementSibling).toBe(item)
+    }
+    expect(popup.querySelectorAll('.menu-separator')).toHaveLength(3)
+    // The items themselves are untouched: still one button per command.
+    const file = MENUS.find((menu) => menu.id === 'file')!
+    expect(popup.querySelectorAll('.menu-item')).toHaveLength(file.items.length)
   })
 })
 
@@ -289,6 +374,45 @@ describe('application chrome', () => {
     await user.click(screen.getByTestId('theme-mode-light'))
     expect(screen.getAllByTestId(/^theme-(?!mode|grid)/)).toHaveLength(20)
     expect(THEMES).toHaveLength(40)
+  })
+
+  it('[GUI] switching language never changes the window minimum', async () => {
+    const user = userEvent.setup({ delay: null })
+    const setMinSize = vi.fn(async () => true)
+    Object.defineProperty(window, 'mycad', {
+      configurable: true,
+      value: { isElectron: true, platform: 'win32', setMinSize }
+    })
+    // jsdom gives everything a zero box, so widths are faked from the text:
+    // the Korean and English labels then really do measure differently.
+    const boxes = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const width = (this.textContent?.length ?? 0) * 7 + 20
+      return { width, height: 24, top: 0, left: 0, right: width, bottom: 24, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    })
+
+    try {
+      render(<App />)
+      await waitFor(() => expect(setMinSize).toHaveBeenCalled())
+      const measured = Number(screen.getByTestId('app').getAttribute('data-min-window-width'))
+      expect(measured).toBeGreaterThan(0)
+
+      await user.click(screen.getByTestId('tb-language'))
+      await waitFor(() => expect(screen.getByTestId('flag-ko')).toBeTruthy())
+      expect(Number(screen.getByTestId('app').getAttribute('data-min-window-width'))).toBe(measured)
+
+      await user.click(screen.getByTestId('tb-language'))
+      await waitFor(() => expect(screen.getByTestId('flag-en')).toBeTruthy())
+      expect(Number(screen.getByTestId('app').getAttribute('data-min-window-width'))).toBe(measured)
+
+      // The main process is never asked to change the window once it has been
+      // measured, so the window itself never moves.
+      const widths = setMinSize.mock.calls.map((call) => (call as unknown as number[])[0])
+      expect(widths.at(-1)).toBe(measured)
+      expect(new Set(widths.slice(widths.indexOf(measured)))).toEqual(new Set([measured]))
+    } finally {
+      boxes.mockRestore()
+      Reflect.deleteProperty(window, 'mycad')
+    }
   })
 
   it('[GUI] the window minimum keeps every bar visible', async () => {

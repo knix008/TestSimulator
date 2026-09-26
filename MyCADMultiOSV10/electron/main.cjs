@@ -186,14 +186,17 @@ ipcMain.handle('set-min-size', (event, width, height) => {
   const minWidth = Math.max(MIN_WIDTH, Math.min(2400, Math.round(Number(width) || MIN_WIDTH)))
   const minHeight = Math.max(MIN_HEIGHT, Math.min(1600, Math.round(Number(height) || MIN_HEIGHT)))
   // setMinimumSize works on the frame, the renderer measures its content, so
-  // the border and title bar have to be added on top.
-  const [frameWidth, frameHeight] = win.getSize()
-  const [contentWidth, contentHeight] = win.getContentSize()
-  const chromeWidth = Math.max(0, frameWidth - contentWidth)
-  const chromeHeight = Math.max(0, frameHeight - contentHeight)
+  // the border and title bar have to be added on top. Both figures are taken
+  // from the bounds pair, and the difference is clamped: while the window is
+  // being restored the two can disagree for a moment, and a bogus delta would
+  // push the minimum - and with it the window - up by a whole title bar.
+  const bounds = win.getBounds()
+  const content = win.getContentBounds()
+  const chromeWidth = Math.min(40, Math.max(0, bounds.width - content.width))
+  const chromeHeight = Math.min(80, Math.max(0, bounds.height - content.height))
   win.setMinimumSize(minWidth + chromeWidth, minHeight + chromeHeight)
-  if (contentWidth < minWidth || contentHeight < minHeight) {
-    win.setContentSize(Math.max(contentWidth, minWidth), Math.max(contentHeight, minHeight))
+  if (content.width < minWidth || content.height < minHeight) {
+    win.setContentSize(Math.max(content.width, minWidth), Math.max(content.height, minHeight))
   }
   return true
 })

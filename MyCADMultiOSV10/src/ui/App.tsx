@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { Fragment, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { AUTHOR, MIN_WINDOW_HEIGHT, POPUP_SIZE, PROJECT_URL, toolbarMinWidth, windowTitle } from '../core/buildInfo'
 import { errorHeadline, errorReport } from '../core/report'
 import { licenseLines, shortcutLines } from '../core/knowledge'
@@ -10,7 +10,7 @@ import { directoryOf, lastDirectory, suggestedPath } from '../core/recent'
 import { detectBrowserFonts, FALLBACK_FONTS, mergeFonts } from '../core/fonts'
 import { menuIcon, translate, type MessageKey } from '../core/i18n'
 import { commandHelp } from '../core/labels'
-import { CONTEXT_ITEMS, MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../core/menus'
+import { CONTEXT_ITEMS, MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT, menuPopupLayout, menuRowCount, menuSections } from '../core/menus'
 import { hasCommand, runCommandById, type CommandEffect } from '../core/commands'
 import { createSolid, type ShadeMode, type SolidKind, type ViewPreset } from '../core/model'
 import { pageToSvg, selectionDistance } from '../core/print'
@@ -18,7 +18,7 @@ import { fileTypeFor, importCsv, importFile, openFilters } from '../core/fileTyp
 import { runExport } from '../core/exporters'
 import { installAddon } from '../core/addons'
 import { buildPrintPages, defaultPageSetup, type PageSetup, type PrintScope } from '../core/print'
-import { browserStorage, fontCss, sanitizeSettings } from '../core/settings'
+import { LANGUAGES, browserStorage, fontCss, sanitizeSettings, type Lang } from '../core/settings'
 import { resolveTheme, themeVars } from '../core/themes'
 import { LanguageFlag } from './Flags'
 import { FontControl, LightPicker, ThemePicker, ZoomControl } from './ToolbarControls'
@@ -167,8 +167,41 @@ export function App() {
       walk(row)
       return Math.ceil(total)
     }
+    /**
+     * Width of the menu bar with the labels of one language, measured by
+     * swapping the text in place and reading the layout back. Nothing is
+     * painted in between, so this is invisible.
+     */
+    const menubarWidthIn = (lang: Lang): number => {
+      const bar = menubarRef.current
+      if (!bar) return 0
+      const labels = [...bar.querySelectorAll<HTMLElement>('.menu-root .menu-label')]
+      const options = [...bar.querySelectorAll<HTMLOptionElement>('[data-testid="workbench"] option')]
+      const before = [...labels, ...options].map((node) => node.textContent)
+      labels.forEach((node, index) => {
+        const entry = MENUS[index]
+        if (entry) node.textContent = translate(lang, entry.labelKey)
+      })
+      options.forEach((node, index) => {
+        const item = WORKBENCHES[index]
+        if (item) node.textContent = translate(lang, item.labelKey)
+      })
+      const width = rowWidth(bar)
+      ;[...labels, ...options].forEach((node, index) => {
+        node.textContent = before[index]
+      })
+      return width
+    }
+
     const measure = () => {
-      const needed = Math.min(2000, Math.ceil(Math.max(rowWidth(menubarRef.current), rowWidth(toolbarRef.current)) + 14))
+      // The window minimum has to hold the widest language, or switching the
+      // language would resize the window.
+      const bars = Math.max(
+        ...LANGUAGES.map(menubarWidthIn),
+        rowWidth(menubarRef.current),
+        rowWidth(toolbarRef.current)
+      )
+      const needed = Math.min(2000, Math.ceil(bars + 14))
       setMeasuredWidth((current) => (Math.abs(current - needed) > 2 ? needed : current))
     }
     measure()
@@ -180,7 +213,7 @@ export function App() {
       observer?.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [state.settings.language, state.settings.fontFamily, state.settings.fontSize, workbench])
+  }, [state.settings.fontFamily, state.settings.fontSize, workbench])
 
   useEffect(() => {
     void window.mycad?.setMinSize?.(minWindowWidth, MIN_WINDOW_HEIGHT)
@@ -1045,18 +1078,18 @@ export function App() {
   // and for the tool labels. They open and close, they do not resize.
   const panelSize = Math.max(MIN_PANEL_WIDTH, naturalPanelWidth || MIN_PANEL_WIDTH)
   const openMenuItems = MENUS.find((item) => item.id === menu)
-  const recentInMenu = menu === 'file' ? state.settings.recentFiles.length : 0
-  const popupLayout = useMemo(() => {
-    const count = (openMenuItems?.items.length ?? 0) + recentInMenu
-    const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight || 800
-    const viewportWidth = typeof window === 'undefined' ? 1280 : window.innerWidth || 1280
-    const rowHeight = 26
-    const rows = Math.max(4, Math.floor((viewportHeight - menuPos.y - 56) / rowHeight))
-    const columns = Math.max(1, Math.ceil(count / rows))
-    const width = Math.min(viewportWidth - 16, columns * 196 + 12)
-    const left = Math.max(4, Math.min(menuPos.x, viewportWidth - width - 8))
-    return { columns, width, left, rows }
-  }, [openMenuItems, recentInMenu, menuPos])
+  // The recent list adds its heading and the "clear all" row to the menu, and
+  // the popup has to count those when it decides how tall it can be.
+  const recentInMenu = menu === 'file' && state.settings.recentFiles.length > 0
+    ? state.settings.recentFiles.length + 2
+    : 0
+  const popupLayout = useMemo(() => menuPopupLayout({
+    count: (openMenuItems ? menuRowCount(openMenuItems) : 0) + recentInMenu,
+    anchorX: menuPos.x,
+    anchorY: menuPos.y,
+    viewportWidth: typeof window === 'undefined' ? 1280 : window.innerWidth || 1280,
+    viewportHeight: typeof window === 'undefined' ? 800 : window.innerHeight || 800
+  }), [openMenuItems, recentInMenu, menuPos])
 
   return (
     <div
@@ -1119,12 +1152,35 @@ export function App() {
               <strong>{t(openMenuItems.labelKey)}</strong>
             </span>
           </header>
-          <div className="menu-items" style={{ gridTemplateColumns: `repeat(${popupLayout.columns}, minmax(0, 1fr))` }}>
-            {openMenuItems.items.map((item) => (
-              <button key={item.id} type="button" role="menuitem" className="menu-item" data-testid={`menuitem-${item.id}`} title={tip(item.id)} onClick={() => runCommand(item.id)}>
-                <span className="menu-icon">{item.icon}</span>
-                <span className="menu-label">{t(item.labelKey)}</span>
-              </button>
+          <div
+            className="menu-items"
+            style={{
+              gridTemplateColumns: `repeat(${popupLayout.columns}, minmax(0, 1fr))`,
+              // Column by column, the way a desktop menu wraps when it runs out
+              // of room, so each column reads top to bottom.
+              gridTemplateRows: `repeat(${popupLayout.rows}, auto)`,
+              gridAutoFlow: 'column'
+            }}
+          >
+            {menuSections(openMenuItems).map((section) => (
+              <Fragment key={section.category ?? 'all'}>
+                {section.category ? (
+                  <p className="menu-section" data-testid={`menu-section-${section.category}`}>
+                    {categoryName(state.settings.language, section.category)}
+                  </p>
+                ) : null}
+                {section.items.map((item) => (
+                  <Fragment key={item.id}>
+                    {openMenuItems.breaks?.includes(item.id) ? (
+                      <span className="menu-separator" data-testid={`menu-separator-${item.id}`} aria-hidden="true" />
+                    ) : null}
+                    <button type="button" role="menuitem" className="menu-item" data-testid={`menuitem-${item.id}`} title={tip(item.id)} onClick={() => runCommand(item.id)}>
+                      <span className="menu-icon">{item.icon}</span>
+                      <span className="menu-label">{t(item.labelKey)}</span>
+                    </button>
+                  </Fragment>
+                ))}
+              </Fragment>
             ))}
             {menu === 'file' && state.settings.recentFiles.length > 0 ? (
               <>

@@ -380,3 +380,6 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .panel-title { display: flex; align-items: center; gap: 6px; }
 .panel-close { flex: 0 0 auto; width: 20px; height: 18px; margin-left: auto; padding: 0; background: transparent; border: 0; color: var(--muted); font-size: 11px; line-height: 1; }
 .panel-close:hover { color: var(--danger); background: var(--button); }
+
+/* Group separator inside a menu: a hair line across its own column. */
+.menu-separator { height: 1px; margin: 4px 8px; background: var(--line); opacity: .9; }
