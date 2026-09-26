@@ -97,11 +97,17 @@ function createWindow() {
     mainWindow.webContents.send('request-close')
   })
   mainWindow.on('closed', () => {
-    for (const child of children) {
-      if (!child.isDestroyed()) child.close()
-    }
+    closeChildren()
     mainWindow = null
   })
+}
+
+/** Close every popup window; the app never outlives its own dialogs. */
+function closeChildren() {
+  for (const child of children) {
+    if (!child.isDestroyed()) child.destroy()
+  }
+  children.clear()
 }
 
 function openChild(options) {
@@ -135,6 +141,7 @@ function openChild(options) {
   return child
 }
 
+app.on('before-quit', closeChildren)
 app.whenReady().then(createWindow)
 app.on('second-instance', (_event, argv) => {
   if (mainWindow) {
@@ -234,8 +241,28 @@ ipcMain.handle('show-menu', async (event, payload) => {
     child.webContents.once('did-finish-load', () => child.webContents.send('menu-data', payload))
   })
 })
+// One window per kind: asking again focuses the window that is already open.
+const popupWindows = new Map()
 ipcMain.handle('open-popup', async (_event, payload) => {
-  openChild(payload)
+  const kind = payload.kind || 'about'
+  const existing = popupWindows.get(kind)
+  if (existing && !existing.isDestroyed()) {
+    existing.show()
+    existing.focus()
+    return
+  }
+  const child = openChild(payload)
+  popupWindows.set(kind, child)
+  child.on('closed', () => popupWindows.delete(kind))
+})
+
+// A popup edits the same settings as the main window, so whatever it changes is
+// forwarded to every other window straight away.
+ipcMain.on('sync-state', (event, payload) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed() || win.webContents === event.sender) continue
+    win.webContents.send('sync-state', payload)
+  }
 })
 ipcMain.handle('print', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow

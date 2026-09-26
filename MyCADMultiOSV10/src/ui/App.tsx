@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { AUTHOR, MIN_WINDOW_HEIGHT, PROJECT_URL, toolbarMinWidth, windowTitle } from '../core/buildInfo'
+import { AUTHOR, MIN_WINDOW_HEIGHT, POPUP_SIZE, PROJECT_URL, toolbarMinWidth, windowTitle } from '../core/buildInfo'
 import { licenseLines, shortcutLines } from '../core/knowledge'
 import { formatLength, formatVolume, unitSuffix } from '../core/units'
 import { MIN_PANEL_WIDTH, toolPanelWidth } from '../core/viewnav'
@@ -11,7 +11,7 @@ import { menuIcon, translate, type MessageKey } from '../core/i18n'
 import { commandHelp } from '../core/labels'
 import { CONTEXT_ITEMS, MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../core/menus'
 import { hasCommand, runCommandById, type CommandEffect } from '../core/commands'
-import { createSolid, type SolidKind, type ViewPreset } from '../core/model'
+import { createSolid, type ShadeMode, type SolidKind, type ViewPreset } from '../core/model'
 import { pageToSvg, selectionDistance } from '../core/print'
 import { fileTypeFor, importCsv, importFile, openFilters } from '../core/fileTypes'
 import { runExport } from '../core/exporters'
@@ -116,6 +116,28 @@ export function App() {
   useEffect(() => {
     document.title = windowTitle()
   }, [])
+
+  // The settings window is a separate renderer, so it sends what it changed and
+  // the main window applies it. `sent` stops the echo coming straight back.
+  const sent = useRef('')
+  useEffect(() => {
+    return window.mycad?.onSyncState?.((payload) => {
+      if (payload.settings) {
+        const next = sanitizeSettings(payload.settings)
+        sent.current = JSON.stringify(next)
+        dispatch({ type: 'replace-settings', settings: next })
+      }
+      if (payload.shade) dispatch({ type: 'set-shade', shade: payload.shade as ShadeMode })
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!window.mycad?.syncState) return
+    const snapshot = JSON.stringify(state.settings)
+    if (snapshot === sent.current) return
+    sent.current = snapshot
+    window.mycad.syncState({ settings: state.settings })
+  }, [state.settings])
 
   // Nothing in the menu bar or the toolbar may be cut off: measure both after
   // every render that can change their width and raise the window minimum.
@@ -704,7 +726,18 @@ export function App() {
           dispatch({ type: 'patch-settings', patch: { language: state.settings.language === 'ko' ? 'en' : 'ko' } })
           break
         case 'settings':
-          setDialog('settings')
+          // On the desktop the settings live in their own window; the browser
+          // build keeps the in-page dialog.
+          if (window.mycad?.openPopup) {
+            await window.mycad.openPopup({
+              kind: 'settings',
+              width: POPUP_SIZE.settings.width,
+              height: POPUP_SIZE.settings.height,
+              title: `${windowTitle()} · ${t('settings')}`
+            })
+          } else {
+            setDialog('settings')
+          }
           break
         case 'about':
           setDialog('about')

@@ -324,6 +324,7 @@ export const COMMAND_LABELS: Record<string, CommandLabel> = {
   exportFormat: { ko: '형식', en: 'Format', icon: '↢' },
   options: { ko: '옵션', en: 'Options', icon: '⌽' },
   customTheme: { ko: '사용자 정의 테마', en: 'Custom theme', icon: '🖌' },
+  themePreset: { ko: '색 프리셋 (다크 20 · 라이트 20)', en: 'Colour presets (20 dark + 20 light)', icon: '⬜' },
   'font-dec': { ko: '글자 작게', en: 'Smaller text', icon: '−' },
   'font-value': { ko: '글자 크기 기본값', en: 'Reset text size', icon: 'A' },
   'font-inc': { ko: '글자 크게', en: 'Larger text', icon: '⌾' },

@@ -27,11 +27,11 @@ export function toolbarMinWidth(groups: readonly (readonly string[])[], rightBut
 }
 
 export const MIN_WINDOW_WIDTH = 1240
-export const MIN_WINDOW_HEIGHT = 680
+export const MIN_WINDOW_HEIGHT = 760
 
 export const POPUP_SIZE = {
   about: { width: 560, height: 400 },
-  settings: { width: 900, height: 620 },
+  settings: { width: 1040, height: 700 },
   error: { width: 520, height: 240 },
   progress: { width: 440, height: 168 },
   confirm: { width: 460, height: 188 },

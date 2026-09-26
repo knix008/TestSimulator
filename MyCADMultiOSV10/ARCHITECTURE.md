@@ -125,6 +125,24 @@ The document owns what is modelled; the settings own how it is shown.
   angles, panel widths and `navAction()`, which maps a pointer gesture to
   `rotate`, `pan` or `none` per navigation style.
 
+## Windows of its own
+
+`electron/main.cjs` can open a second window on the same bundle: `openChild()`
+loads the app with `?popup=<kind>`, and `src/main.tsx` renders `PopupHost`
+instead of `App` when that parameter is present. Settings use it on the desktop,
+so the window is a real OS window rather than an overlay.
+
+- One window per kind: asking again focuses the one already open.
+- The popup is its own renderer, so it loads the settings from disk itself and
+  sends every change over the `sync-state` channel; the main process forwards it
+  to the other windows, and `App` applies it. An echo guard keeps the two from
+  bouncing the same value back and forth.
+- Closing the application closes its popups (`before-quit` and the main window's
+  `closed` handler both call `closeChildren()`).
+- A popup window has no app shell behind it, so `PopupHost` paints the page
+  itself: theme variables, the body surface and `color-scheme`, which is what
+  native form controls follow.
+
 ## Files and the operating system
 
 `fileTypes.ts` is the single source of truth for what MyCAD can open. The same

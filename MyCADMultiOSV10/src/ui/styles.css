@@ -93,11 +93,13 @@ button:hover { border-color: var(--accent); }
 .menu-item { color: var(--text); display: flex; flex-direction: row; align-items: center; gap: 8px; width: 100%; height: 28px; text-align: left; white-space: nowrap; background: transparent; border: 0; }
 .menu-icon { width: 1.2em; text-align: center; flex: 0 0 auto; }
 .popup-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
-.popup { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; resize: none; display: flex; flex-direction: column; box-shadow: 0 16px 40px rgba(0,0,0,.4); }
+.popup { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; resize: none; display: flex; flex-direction: column; box-shadow: 0 16px 40px rgba(0,0,0,.4);
+  /* The size is fixed; these only stop a small window from cropping it. */
+  max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); }
 .popup, .popup * { scrollbar-width: none; }
 .popup *::-webkit-scrollbar { width: 0; height: 0; }
 .popup-body, .row { overflow: hidden; }
-.popup-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 36px; padding: 0 8px 0 10px; border-bottom: 1px solid var(--line); background: #12181f; flex: 0 0 36px; }
+.popup-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 36px; padding: 0 8px 0 10px; border-bottom: 1px solid var(--line); background: var(--panel-alt); color: var(--text); flex: 0 0 36px; }
 .popup-heading { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .popup-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-popup-title { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
@@ -236,13 +238,13 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .settings-tabs { display: flex; flex-direction: column; gap: 2px; padding-right: 8px; border-right: 1px solid var(--line); overflow: auto; }
 .settings-tabs button { display: flex; align-items: center; gap: 6px; justify-content: flex-start; height: 30px; padding: 0 8px; background: transparent; border-color: transparent; text-align: left; }
 .settings-tabs button.on { background: var(--button); border-color: var(--accent); color: var(--accent); }
-.settings-panel { min-height: 0; overflow: auto; padding-right: 6px; }
+.settings-panel { min-height: 0; overflow-x: hidden; overflow-y: auto; padding-right: 10px; }
 .settings-panel .row { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; align-items: center; gap: 8px; height: 34px; }
 .settings-panel .row > span:first-child { color: var(--muted); font-size: 12px; }
 .settings-panel .row input[type="checkbox"] { justify-self: start; width: 16px; height: 16px; }
 .settings-panel .row input[type="text"], .settings-panel .row select, .settings-panel .row input[type="file"] { width: 100%; min-width: 0; height: 26px; }
 .settings-panel .row.tabs { display: flex; gap: 6px; }
-.settings-panel .theme-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); max-height: 320px; }
+.settings-panel .theme-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 /* numeric field with steppers */
 .number-field { display: inline-flex; align-items: center; gap: 2px; }
@@ -303,3 +305,32 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .app[data-theme-mode="light"] .menu-popup { box-shadow: 0 10px 26px rgba(20, 30, 45, .22); }
 .app[data-theme-mode="light"] .splitter { opacity: .8; }
 .app[data-theme-mode="light"] .muted { color: color-mix(in srgb, var(--muted) 75%, var(--text)); }
+
+/* Colour presets inside the custom theme editor. */
+.preset-hint { margin: 0 0 6px; font-size: 11px; line-height: 1.5; white-space: normal; }
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 3px; }
+.preset-grid .theme-swatch { display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 6px; height: 24px; padding: 0 6px; font-size: 11px; }
+
+/* The settings list is the one place inside a popup that scrolls, so it is the
+   one place that shows a scroll bar; everything else has to fit. */
+.popup .settings-panel, .popup .settings-tabs { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.popup .settings-panel::-webkit-scrollbar, .popup .settings-tabs::-webkit-scrollbar { width: 9px; height: 9px; }
+.popup .settings-panel::-webkit-scrollbar-thumb, .popup .settings-tabs::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
+.popup .settings-panel::-webkit-scrollbar-thumb:hover, .popup .settings-tabs::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* A tab with many small groups lays them out side by side so it fits the
+   fixed settings window without scrolling. */
+.settings-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; align-items: start; }
+.settings-columns .row { grid-template-columns: 110px minmax(0, 1fr) auto; }
+/* Axis, on/off, offset and the flip button all on one line. */
+.settings-panel .row.clip-row { grid-template-columns: 26px 20px minmax(0, 1fr) 30px; }
+.settings-panel .row.clip-row > button { width: 28px; padding: 0; }
+
+/* A popup that has its own OS window fills it: no backdrop, no floating card. */
+.popup-window { height: 100%; background: var(--panel); }
+.popup-window .popup-backdrop { position: static; inset: auto; z-index: auto; height: 100%; background: none; display: block; }
+.popup-window .popup { width: 100% !important; height: 100% !important; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+
+/* Native controls follow the theme, not the dark default of :root. */
+.app[data-theme-mode="light"] { color-scheme: light; }
+.app[data-theme-mode="dark"] { color-scheme: dark; }

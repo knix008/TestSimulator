@@ -150,9 +150,9 @@ describe('tool groups', () => {
     // Nothing falls through to the catch-all group.
     expect(loose).toEqual([])
     expect(toolCategory('draft')).toBe('dress')
-    expect(toolCategory('draftLine')).toBe('draft2d')
-    expect(toolCategory('smWall')).toBe('manufacture')
-    expect(toolCategory('suPushPull')).toBe('sketchup')
+    expect(toolCategory('draftLine')).toBe('draw2d')
+    expect(toolCategory('smWall')).toBe('sheetmetal')
+    expect(toolCategory('suPushPull')).toBe('feature')
     expect(categoryName('ko', 'boolean')).toBe('불리언')
     expect(categoryName('en', 'boolean')).toBe('Booleans')
     expect(categoryById('nope').id).toBe('other')

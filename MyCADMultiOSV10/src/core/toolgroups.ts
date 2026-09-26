@@ -13,22 +13,27 @@ export interface ToolCategory {
 /** Display order of the groups; a workbench only shows the ones it fills. */
 export const TOOL_CATEGORIES: ToolCategory[] = [
   { id: 'sketch', ko: '스케치', en: 'Sketch', icon: '✎' },
-  { id: 'draft2d', ko: '2D 작도', en: '2D drafting', icon: '╱' },
+  { id: 'draw2d', ko: '2D 작도', en: '2D drafting', icon: '╱' },
   { id: 'primitive', ko: '기본 도형', en: 'Primitives', icon: '▣' },
   { id: 'feature', ko: '피처', en: 'Features', icon: '⬆' },
   { id: 'dress', ko: '마감', en: 'Dress-up', icon: '⌒' },
   { id: 'boolean', ko: '불리언', en: 'Booleans', icon: '∪' },
+  { id: 'modify', ko: '수정', en: 'Modify', icon: '⌗' },
   { id: 'transform', ko: '변환', en: 'Transform', icon: '⟳' },
   { id: 'pattern', ko: '패턴', en: 'Patterns', icon: '⋯' },
   { id: 'surface', ko: '서피스', en: 'Surfaces', icon: '◠' },
   { id: 'mesh', ko: '메쉬', en: 'Mesh', icon: '△' },
   { id: 'points', ko: '포인트', en: 'Points', icon: '∴' },
+  { id: 'organize', ko: '구성', en: 'Organize', icon: '⌥' },
   { id: 'assembly', ko: '어셈블리', en: 'Assembly', icon: '⊕' },
+  { id: 'kinematics', ko: '키네매틱스', en: 'Kinematics', icon: '⟲' },
   { id: 'analysis', ko: '해석', en: 'Analysis', icon: '⚖' },
-  { id: 'manufacture', ko: '제조', en: 'Manufacturing', icon: '⌁' },
+  { id: 'cam', ko: '가공', en: 'Machining', icon: '⌁' },
+  { id: 'sheetmetal', ko: '판금', en: 'Sheet metal', icon: '⊐' },
   { id: 'bim', ko: '건축', en: 'Architecture', icon: '⌂' },
   { id: 'drawing', ko: '도면', en: 'Drawings', icon: '📄' },
-  { id: 'sketchup', ko: '스케치업', en: 'SketchUp', icon: '✦' },
+  { id: 'annotation', ko: '주석', en: 'Annotation', icon: 'T' },
+  { id: 'spreadsheet', ko: '스프레드시트', en: 'Spreadsheet', icon: '▨' },
   { id: 'knowledge', ko: '지식공학', en: 'Knowledge', icon: 'ƒ' },
   { id: 'kernel', ko: '커널', en: 'Kernel', icon: '◱' },
   { id: 'measure', ko: '측정', en: 'Measure', icon: '📏' },
@@ -40,6 +45,35 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
 
 /** Commands whose category does not follow from their id. */
 const EXPLICIT: Record<string, string> = {
+  // Draft: drawing, modifying, transforming and annotating in 2D.
+  draftLine: 'draw2d', draftWire: 'draw2d', draftRect: 'draw2d', draftPolygonWire: 'draw2d',
+  draftCircleWire: 'draw2d', draftEllipseWire: 'draw2d', draftArcWire: 'draw2d',
+  draftBSplineWire: 'draw2d', draftBezierWire: 'draw2d',
+  draftFillet: 'modify', draftOffset: 'modify', draftTrimex: 'modify', draftJoin: 'modify',
+  draftSplit: 'modify', draftUpgrade: 'modify', draftDowngrade: 'modify',
+  draftMove: 'transform', draftRotate: 'transform', draftScale: 'transform',
+  draftMirror: 'transform', draftStretch: 'transform',
+  draftDimension: 'annotation', draftText: 'annotation',
+
+  // SketchUp: the same ideas under their SketchUp names.
+  suRectangleTool: 'draw2d', suCircleTool: 'draw2d', suPolygonTool: 'draw2d',
+  suArcTool: 'draw2d', suFreehand: 'draw2d',
+  suPushPull: 'feature', suFollowMe: 'feature', suOffsetFace: 'feature',
+  suSoften: 'dress', suSmoove: 'dress',
+  suSolidUnion: 'boolean', suSolidSubtract: 'boolean', suSolidIntersect: 'boolean',
+  suSolidTrim: 'boolean', suSolidSplit: 'boolean', suOuterShell: 'boolean', suIntersect: 'boolean',
+  suMoveCopies: 'pattern', suRotateCopies: 'pattern',
+  suMakeGroup: 'organize', suMakeComponent: 'organize', suPlaceInstance: 'organize',
+  suOutliner: 'organize', suTagAssign: 'organize', suTagToggle: 'organize', suExplode: 'organize',
+  suScene: 'view', suApplyScene: 'view', suStyle: 'view', suShadows: 'view',
+  suSection: 'view', suSectionCut: 'view', suWalk: 'view', suZoomExtents: 'view', suPaint: 'view',
+  suTape: 'measure', suProtractor: 'measure', suFaceInfo: 'measure',
+  suText3d: 'annotation',
+  suTerrain: 'surface', suContours: 'surface',
+
+  // Annotation and drawing helpers that do not follow their prefix.
+  shapeStringCmd: 'annotation', techdrawDim: 'annotation', techdrawHatch: 'annotation',
+
   sketchRect: 'sketch', sketchCircle: 'sketch', sketchPolygon: 'sketch',
   sketchRectConstrained: 'sketch', sketchSolve2d: 'sketch', sketchConstraintCheck: 'sketch',
   sketchDof: 'sketch', solveConstraints: 'sketch', coincidence: 'sketch', offsetMate: 'sketch',
@@ -52,7 +86,7 @@ const EXPLICIT: Record<string, string> = {
   pad: 'feature', pocket: 'feature', revolve: 'feature', groove: 'feature', loft: 'feature',
   pipe: 'feature', helix: 'feature', hole: 'feature', counterbore: 'feature',
   countersink: 'feature', section: 'feature', crossSections: 'feature', ruled: 'feature',
-  wireToFace: 'feature', shapeStringCmd: 'feature',
+  wireToFace: 'feature',
 
   fillet: 'dress', chamfer: 'dress', draft: 'dress', shell: 'dress', thickness: 'dress',
   offset3d: 'dress',
@@ -73,7 +107,7 @@ const EXPLICIT: Record<string, string> = {
   measure: 'measure', inspect: 'measure', partArea: 'measure', inertia: 'measure', massProps: 'measure',
   materialAssign: 'analysis', materialLibrary: 'analysis',
   expressionEval: 'knowledge', parameter: 'knowledge',
-  exportGcode: 'manufacture', pocketPath: 'manufacture', robotPose: 'manufacture',
+  exportGcode: 'cam', pocketPath: 'cam', robotPose: 'kinematics',
   print: 'drawing',
   front: 'view', top: 'view', iso: 'view',
   pythonRunCmd: 'script', runMacro: 'script',
@@ -83,11 +117,11 @@ const EXPLICIT: Record<string, string> = {
 /** Workbench prefixes, longest first where they would overlap. */
 const PREFIXES: Array<[string, string]> = [
   ['techdraw', 'drawing'], ['points', 'points'], ['measure', 'measure'], ['import', 'file'],
-  ['export', 'file'], ['addon', 'script'], ['draft', 'draft2d'], ['sheet', 'knowledge'],
+  ['export', 'file'], ['addon', 'script'], ['draft', 'draw2d'], ['sheet', 'spreadsheet'],
   ['brep', 'kernel'], ['mesh', 'mesh'], ['nurbs', 'surface'], ['gsd', 'surface'],
-  ['asm', 'assembly'], ['dmu', 'assembly'], ['fem', 'analysis'], ['fea', 'analysis'],
-  ['cam', 'manufacture'], ['bim', 'bim'], ['kw', 'knowledge'], ['sm', 'manufacture'],
-  ['su', 'sketchup']
+  ['asm', 'assembly'], ['dmu', 'kinematics'], ['fem', 'analysis'], ['fea', 'analysis'],
+  ['cam', 'cam'], ['bim', 'bim'], ['kw', 'knowledge'], ['sm', 'sheetmetal'],
+  ['su', 'organize']
 ]
 
 export function toolCategory(id: string): string {

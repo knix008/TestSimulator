@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/ui/App'
-import { AUTHOR, POPUP_SIZE } from '../src/core/buildInfo'
+import { AUTHOR, MIN_WINDOW_HEIGHT, POPUP_SIZE } from '../src/core/buildInfo'
 import { MIN_PANEL_WIDTH, PANEL_ROOM, clampLightAngles, lightAngles, lightPosition, propertyPanelWidth, raySphereDirection, toolPanelWidth } from '../src/core/viewnav'
 import { LIGHT_KINDS, defaultSettings, sanitizeLight, sanitizeSettings } from '../src/core/settings'
 import { THEMES } from '../src/core/themes'
@@ -96,6 +96,15 @@ describe('application chrome', () => {
     await user.click(splitter)
     await user.click(propertySplitter)
     await waitFor(() => expect(screen.getByTestId('app').getAttribute('data-min-window-width')).toBeTruthy())
+  })
+
+  it('[GUI] the settings window is a fixed size that fits the smallest window', () => {
+    // The dialog never resizes, so the window minimum has to leave room for it.
+    expect(POPUP_SIZE.settings).toEqual({ width: 1040, height: 700 })
+    expect(MIN_WINDOW_HEIGHT).toBeGreaterThanOrEqual(POPUP_SIZE.settings.height + 40)
+    for (const popup of Object.values(POPUP_SIZE)) {
+      expect(popup.height).toBeLessThanOrEqual(MIN_WINDOW_HEIGHT - 40)
+    }
   })
 
   it('[GUI] a property row fits inside the narrowest property panel', () => {
@@ -283,6 +292,11 @@ describe('application chrome', () => {
     expect(screen.getAllByTestId(/^theme-(?!mode|grid)/)).toHaveLength(20)
     await user.click(screen.getByTestId('theme-mode-custom'))
     expect(screen.getByTestId('custom-colors')).toBeTruthy()
+    // The custom theme can start from any of the forty presets.
+    const presets = screen.getByTestId('theme-presets')
+    expect(presets.querySelectorAll('button')).toHaveLength(40)
+    await user.click(screen.getByTestId('preset-mint'))
+    expect((screen.getByTestId('custom-bg') as HTMLInputElement).value).toBe(THEMES.find((theme) => theme.id === 'mint')!.colors.bg)
     expect(screen.queryByTestId('theme-grid')).toBeNull()
     await user.click(screen.getByTestId('theme-mode-light'))
     expect(screen.getAllByTestId(/^theme-(?!mode|grid)/)).toHaveLength(20)

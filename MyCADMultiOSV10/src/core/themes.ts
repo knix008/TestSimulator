@@ -40,209 +40,128 @@ function light(id: string, ko: string, en: string, colors: Theme['colors']): The
   return { id, mode: 'light', name: { ko, en }, colors }
 }
 
-export const THEMES: Theme[] = [
-  // ── dark ────────────────────────────────────────────────────────────────
-  dark('dark', '미드나이트', 'Midnight', {
-    bg: '#1b232c', panel: '#232c36', panelAlt: '#1a232c', line: '#3a4754', text: '#e7eef5', muted: '#9aabba',
-    accent: '#3ec1ff', button: '#2c3844', danger: '#d36b6b', viewportA: '#243240', viewportB: '#0c1218',
-    gridMajor: '#3d5a73', gridMinor: '#2a3b4a'
-  }),
-  dark('graphite', '그래파이트', 'Graphite', {
-    bg: '#2a2a2a', panel: '#333333', panelAlt: '#262626', line: '#555555', text: '#f2f2f2', muted: '#a8a8a8',
-    accent: '#d0a85c', button: '#3f3f3f', danger: '#cf6c5c', viewportA: '#3a3a3a', viewportB: '#161616',
-    gridMajor: '#5c5c5c', gridMinor: '#3a3a3a'
-  }),
-  dark('blueprint', '청사진', 'Blueprint', {
-    bg: '#0e2a43', panel: '#123352', panelAlt: '#0c2439', line: '#2f6f9f', text: '#e7f4ff', muted: '#8fbede',
-    accent: '#7fd0ff', button: '#18466c', danger: '#e08a7a', viewportA: '#124068', viewportB: '#06192a',
-    gridMajor: '#3f86bd', gridMinor: '#1d4d74'
-  }),
-  dark('contrast', '고대비', 'High contrast', {
-    bg: '#000000', panel: '#000000', panelAlt: '#000000', line: '#ffffff', text: '#ffffff', muted: '#d0d0d0',
-    accent: '#ffff00', button: '#111111', danger: '#ff5555', viewportA: '#101010', viewportB: '#000000',
-    gridMajor: '#ffffff', gridMinor: '#606060'
-  }),
-  dark('carbon', '카본', 'Carbon', {
-    bg: '#161616', panel: '#202020', panelAlt: '#121212', line: '#393939', text: '#f4f4f4', muted: '#a0a0a0',
-    accent: '#4589ff', button: '#2a2a2a', danger: '#fa4d56', viewportA: '#242424', viewportB: '#0b0b0b',
-    gridMajor: '#4a4a4a', gridMinor: '#2c2c2c'
-  }),
-  dark('ocean', '오션', 'Ocean', {
-    bg: '#0b1f2a', panel: '#12303e', panelAlt: '#0a1c26', line: '#1f5468', text: '#e2f4fb', muted: '#86b3c4',
-    accent: '#36d6d6', button: '#154254', danger: '#e2786a', viewportA: '#123948', viewportB: '#05131b',
-    gridMajor: '#2f7f97', gridMinor: '#16414f'
-  }),
-  dark('forest', '포레스트', 'Forest', {
-    bg: '#14231a', panel: '#1c3226', panelAlt: '#111e16', line: '#2f5740', text: '#e6f4ea', muted: '#93b8a1',
-    accent: '#5fd68a', button: '#234232', danger: '#d9776a', viewportA: '#1a3325', viewportB: '#08130d',
-    gridMajor: '#3d7754', gridMinor: '#234533'
-  }),
-  dark('plum', '플럼', 'Plum', {
-    bg: '#1d1424', panel: '#2a1d34', panelAlt: '#181020', line: '#4a3159', text: '#f2e9f8', muted: '#b298c2',
-    accent: '#c07bff', button: '#39264a', danger: '#e06f8c', viewportA: '#2b1d38', viewportB: '#100a16',
-    gridMajor: '#6a4780', gridMinor: '#3d2a4d'
-  }),
-  dark('ember', '엠버', 'Ember', {
-    bg: '#241812', panel: '#33231a', panelAlt: '#1d130e', line: '#5a3b29', text: '#fbeee6', muted: '#c5a996',
-    accent: '#ff9450', button: '#43301f', danger: '#ef5f4f', viewportA: '#33231a', viewportB: '#150c08',
-    gridMajor: '#7d5334', gridMinor: '#4a331f'
-  }),
-  dark('slate', '슬레이트', 'Slate', {
-    bg: '#1e242b', panel: '#2a323b', panelAlt: '#1a2027', line: '#414d59', text: '#e9eef3', muted: '#9caab8',
-    accent: '#8bb4ff', button: '#333d48', danger: '#e07b7b', viewportA: '#2b343d', viewportB: '#111519',
-    gridMajor: '#4d5b69', gridMinor: '#2d3640'
-  }),
-  dark('cobalt', '코발트', 'Cobalt', {
-    bg: '#062146', panel: '#0b2f5e', panelAlt: '#05193a', line: '#1c4f8c', text: '#e8f1ff', muted: '#8fb2dc',
-    accent: '#ffc857', button: '#103a6e', danger: '#ff7b72', viewportA: '#0c3466', viewportB: '#03112a',
-    gridMajor: '#2c6bb0', gridMinor: '#123f75'
-  }),
-  dark('mocha', '모카', 'Mocha', {
-    bg: '#1e1b18', panel: '#2b2723', panelAlt: '#191613', line: '#4a423a', text: '#f3ece4', muted: '#b6a18f',
-    accent: '#e0a96d', button: '#382f28', danger: '#d9776a', viewportA: '#2c2621', viewportB: '#12100e',
-    gridMajor: '#6b5c4d', gridMinor: '#3d352d'
-  }),
-  dark('nord', '노르드', 'Nord', {
-    bg: '#2e3440', panel: '#3b4252', panelAlt: '#272c36', line: '#4c566a', text: '#eceff4', muted: '#a8b3c4',
-    accent: '#88c0d0', button: '#434c5e', danger: '#bf616a', viewportA: '#3b4252', viewportB: '#20242c',
-    gridMajor: '#5c6a80', gridMinor: '#3b4354'
-  }),
-  dark('dracula', '드라큘라', 'Dracula', {
-    bg: '#282a36', panel: '#343746', panelAlt: '#21222c', line: '#4d5064', text: '#f8f8f2', muted: '#b6b9cc',
-    accent: '#bd93f9', button: '#3c3f52', danger: '#ff5555', viewportA: '#343746', viewportB: '#1a1b22',
-    gridMajor: '#5c6080', gridMinor: '#3a3d4e'
-  }),
-  dark('solarizedDark', '솔라라이즈드 다크', 'Solarized dark', {
-    bg: '#002b36', panel: '#073642', panelAlt: '#00232c', line: '#1f5a66', text: '#eee8d5', muted: '#93a1a1',
-    accent: '#b58900', button: '#0b4553', danger: '#dc322f', viewportA: '#073642', viewportB: '#001a21',
-    gridMajor: '#2e6f7d', gridMinor: '#0f4450'
-  }),
-  dark('monokai', '모노카이', 'Monokai', {
-    bg: '#272822', panel: '#31322c', panelAlt: '#20211c', line: '#4b4c44', text: '#f8f8f2', muted: '#b3b3a8',
-    accent: '#a6e22e', button: '#3a3b33', danger: '#f92672', viewportA: '#32332c', viewportB: '#191a16',
-    gridMajor: '#5d5e52', gridMinor: '#3b3c34'
-  }),
-  dark('tealDark', '틸 다크', 'Teal dark', {
-    bg: '#0f2224', panel: '#163134', panelAlt: '#0b1a1c', line: '#245a5f', text: '#e2f6f6', muted: '#8cbdbf',
-    accent: '#3fe0c8', button: '#1b4246', danger: '#e07a6a', viewportA: '#173538', viewportB: '#071213',
-    gridMajor: '#2d7d84', gridMinor: '#17474c'
-  }),
-  dark('roseDark', '로즈 다크', 'Rose dark', {
-    bg: '#241a1f', panel: '#33262c', panelAlt: '#1c1418', line: '#573d46', text: '#fbeaee', muted: '#c39ba7',
-    accent: '#ff8fab', button: '#42313a', danger: '#ef5f6f', viewportA: '#33262c', viewportB: '#140e11',
-    gridMajor: '#7a5765', gridMinor: '#45323a'
-  }),
-  dark('amberDark', '앰버 다크', 'Amber dark', {
-    bg: '#221c0e', panel: '#302814', panelAlt: '#1a150b', line: '#5b4a21', text: '#faf2dd', muted: '#c3b184',
-    accent: '#ffca3a', button: '#3f3419', danger: '#e2725b', viewportA: '#2f2714', viewportB: '#131007',
-    gridMajor: '#7d682e', gridMinor: '#4a3d1c'
-  }),
-  dark('steel', '스틸', 'Steel', {
-    bg: '#202833', panel: '#2b3542', panelAlt: '#1a212a', line: '#445266', text: '#e8edf4', muted: '#9aa8ba',
-    accent: '#60a5fa', button: '#35404f', danger: '#e06c75', viewportA: '#2c3744', viewportB: '#121821',
-    gridMajor: '#4f6076', gridMinor: '#2f3947'
-  }),
+/**
+ * Pastel palettes: every theme is built from a base hue, so the whole set keeps
+ * the same soft, low-saturation character. Dark themes pair a deep muted base
+ * with a light pastel accent, light themes a tinted off-white base with a
+ * readable mid-tone accent. The two high-contrast themes stay as they are,
+ * because softening them would defeat their purpose.
+ */
+function hsl(hue: number, saturation: number, lightness: number): string {
+  const h = ((hue % 360) + 360) % 360
+  const s = Math.max(0, Math.min(100, saturation)) / 100
+  const l = Math.max(0, Math.min(100, lightness)) / 100
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = l - c / 2
+  const [r, g, b] =
+    h < 60 ? [c, x, 0]
+      : h < 120 ? [x, c, 0]
+        : h < 180 ? [0, c, x]
+          : h < 240 ? [0, x, c]
+            : h < 300 ? [x, 0, c]
+              : [c, 0, x]
+  const hex = (value: number) => Math.round((value + m) * 255).toString(16).padStart(2, '0')
+  return `#${hex(r)}${hex(g)}${hex(b)}`
+}
 
-  // ── light ───────────────────────────────────────────────────────────────
-  light('light', '데이라이트', 'Daylight', {
-    bg: '#f4f7fb', panel: '#ffffff', panelAlt: '#eef3f9', line: '#d5dee8', text: '#1c2833', muted: '#5d6d7e',
-    accent: '#1478b8', button: '#e8eef5', danger: '#c0392b', viewportA: '#ffffff', viewportB: '#dbe6f0',
-    gridMajor: '#b7c7d6', gridMinor: '#d9e3ec'
+/** id, Korean name, English name, base hue, base saturation, accent hue. */
+type Spec = [string, string, string, number, number, number]
+
+function pastelDark([id, ko, en, hue, sat, accent]: Spec): Theme {
+  return dark(id, ko, en, {
+    bg: hsl(hue, sat, 12),
+    panel: hsl(hue, sat, 17),
+    panelAlt: hsl(hue, sat, 14),
+    line: hsl(hue, Math.max(6, sat - 2), 27),
+    text: hsl(hue, 22, 91),
+    muted: hsl(hue, 16, 67),
+    accent: hsl(accent, 58, 74),
+    button: hsl(hue, sat, 21),
+    danger: hsl(2, 58, 74),
+    viewportA: hsl(hue, sat, 18),
+    viewportB: hsl(hue, sat, 9),
+    gridMajor: hsl(hue, 18, 36),
+    gridMinor: hsl(hue, 16, 24)
+  })
+}
+
+function pastelLight([id, ko, en, hue, sat, accent]: Spec): Theme {
+  return light(id, ko, en, {
+    bg: hsl(hue, sat, 96),
+    panel: hsl(hue, Math.max(20, sat - 8), 99),
+    panelAlt: hsl(hue, sat, 93),
+    line: hsl(hue, Math.max(10, sat - 12), 83),
+    text: hsl(hue, 28, 23),
+    muted: hsl(hue, 18, 46),
+    // Dark enough on a near-white panel to clear the 3:1 contrast floor.
+    accent: hsl(accent, 58, 38),
+    button: hsl(hue, sat, 91),
+    danger: hsl(2, 52, 52),
+    viewportA: hsl(hue, Math.max(20, sat - 8), 99),
+    viewportB: hsl(hue, sat, 89),
+    gridMajor: hsl(hue, 22, 73),
+    gridMinor: hsl(hue, 20, 86)
+  })
+}
+
+const DARK_SPECS: Spec[] = [
+  ['dark', '미드나이트', 'Midnight', 225, 18, 200],
+  ['graphite', '그래파이트', 'Graphite', 220, 8, 210],
+  ['blueprint', '청사진', 'Blueprint', 208, 26, 196],
+  ['carbon', '카본', 'Carbon', 240, 6, 260],
+  ['ocean', '오션', 'Ocean', 196, 24, 180],
+  ['forest', '포레스트', 'Forest', 150, 20, 120],
+  ['plum', '플럼', 'Plum', 296, 18, 320],
+  ['ember', '엠버', 'Ember', 20, 20, 32],
+  ['slate', '슬레이트', 'Slate', 212, 12, 205],
+  ['cobalt', '코발트', 'Cobalt', 222, 28, 214],
+  ['mocha', '모카', 'Mocha', 26, 16, 38],
+  ['nord', '노르드', 'Nord', 215, 18, 193],
+  ['dracula', '드라큘라', 'Dracula', 262, 18, 286],
+  ['solarizedDark', '솔라라이즈드 다크', 'Solarized dark', 192, 22, 46],
+  ['monokai', '모노카이', 'Monokai', 70, 10, 86],
+  ['tealDark', '틸 다크', 'Teal dark', 176, 20, 166],
+  ['roseDark', '로즈 다크', 'Rose dark', 340, 16, 348],
+  ['amberDark', '앰버 다크', 'Amber dark', 40, 16, 44],
+  ['steel', '스틸', 'Steel', 205, 10, 198]
+]
+
+const LIGHT_SPECS: Spec[] = [
+  ['light', '데이라이트', 'Daylight', 210, 40, 205],
+  ['paper', '페이퍼', 'Paper', 40, 30, 30],
+  ['blueprintLight', '청사진 라이트', 'Blueprint light', 208, 46, 212],
+  ['sand', '샌드', 'Sand', 36, 42, 28],
+  ['mint', '민트', 'Mint', 156, 38, 164],
+  ['sky', '스카이', 'Sky', 198, 48, 202],
+  ['lavender', '라벤더', 'Lavender', 266, 36, 274],
+  ['roseLight', '로즈 라이트', 'Rose light', 342, 40, 340],
+  ['linen', '리넨', 'Linen', 32, 28, 24],
+  ['cloud', '클라우드', 'Cloud', 214, 26, 208],
+  ['solarizedLight', '솔라라이즈드 라이트', 'Solarized light', 46, 38, 196],
+  ['sepia', '세피아', 'Sepia', 30, 34, 20],
+  ['ice', '아이스', 'Ice', 190, 40, 186],
+  ['meadow', '메도우', 'Meadow', 120, 34, 130],
+  ['peach', '피치', 'Peach', 20, 46, 12],
+  ['silver', '실버', 'Silver', 210, 10, 216],
+  ['porcelain', '포슬린', 'Porcelain', 200, 16, 198],
+  ['latte', '라떼', 'Latte', 28, 32, 22],
+  ['graphiteLight', '그래파이트 라이트', 'Graphite light', 220, 10, 214]
+]
+
+export const THEMES: Theme[] = [
+  ...DARK_SPECS.map(pastelDark),
+  // Kept sharp on purpose: this one is the accessibility fallback.
+  dark('contrast', '고대비', 'High contrast', {
+    bg: '#000000', panel: '#000000', panelAlt: '#0a0a0a', line: '#ffffff', text: '#ffffff', muted: '#d0d0d0',
+    accent: '#ffff00', button: '#101010', danger: '#ff5555', viewportA: '#000000', viewportB: '#000000',
+    gridMajor: '#ffffff', gridMinor: '#6f6f6f'
   }),
-  light('paper', '페이퍼', 'Paper', {
-    bg: '#faf9f6', panel: '#ffffff', panelAlt: '#f2f0ea', line: '#ddd8cc', text: '#2b2a26', muted: '#6d685c',
-    accent: '#b3701f', button: '#eeebe2', danger: '#b23a3a', viewportA: '#ffffff', viewportB: '#e6e2d6',
-    gridMajor: '#c9c2b2', gridMinor: '#e2ded2'
-  }),
-  light('blueprintLight', '청사진 라이트', 'Blueprint light', {
-    bg: '#eaf2fb', panel: '#ffffff', panelAlt: '#dfeaf7', line: '#b7cfe8', text: '#123152', muted: '#4a6d90',
-    accent: '#1565c0', button: '#d8e6f6', danger: '#c0392b', viewportA: '#f4f9ff', viewportB: '#cfe0f2',
-    gridMajor: '#9dbede', gridMinor: '#c8dcf0'
-  }),
+  ...LIGHT_SPECS.map(pastelLight),
   light('contrastLight', '고대비 라이트', 'High contrast light', {
     bg: '#ffffff', panel: '#ffffff', panelAlt: '#ffffff', line: '#000000', text: '#000000', muted: '#333333',
     accent: '#0000ee', button: '#f0f0f0', danger: '#cc0000', viewportA: '#ffffff', viewportB: '#e8e8e8',
     gridMajor: '#000000', gridMinor: '#909090'
-  }),
-  light('sand', '샌드', 'Sand', {
-    bg: '#f7f1e6', panel: '#fffdf8', panelAlt: '#efe6d6', line: '#ddcdb4', text: '#3a3122', muted: '#7a6a52',
-    accent: '#c07a2b', button: '#ece0cc', danger: '#b5452f', viewportA: '#fffdf8', viewportB: '#e4d7c0',
-    gridMajor: '#c9b795', gridMinor: '#e0d3ba'
-  }),
-  light('mint', '민트', 'Mint', {
-    bg: '#eefaf4', panel: '#ffffff', panelAlt: '#e0f4ea', line: '#b8e0cd', text: '#123528', muted: '#4b7c66',
-    accent: '#14a06e', button: '#d7f0e3', danger: '#c0523f', viewportA: '#f7fffb', viewportB: '#d2ece0',
-    gridMajor: '#9dd4bb', gridMinor: '#c8e8d9'
-  }),
-  light('sky', '스카이', 'Sky', {
-    bg: '#eef6ff', panel: '#ffffff', panelAlt: '#e0eefc', line: '#bcd9f2', text: '#10304d', muted: '#4a7396',
-    accent: '#1e88e5', button: '#d8eafb', danger: '#c0392b', viewportA: '#f8fcff', viewportB: '#d3e6f8',
-    gridMajor: '#a3c8e6', gridMinor: '#cadff2'
-  }),
-  light('lavender', '라벤더', 'Lavender', {
-    bg: '#f5f1fb', panel: '#ffffff', panelAlt: '#ece4f7', line: '#d3c4ea', text: '#2e2140', muted: '#6b5c85',
-    accent: '#7c4dff', button: '#e5dbf5', danger: '#c0392b', viewportA: '#fbf8ff', viewportB: '#e2d7f2',
-    gridMajor: '#bda9dd', gridMinor: '#dccfee'
-  }),
-  light('roseLight', '로즈 라이트', 'Rose light', {
-    bg: '#fdf1f4', panel: '#ffffff', panelAlt: '#f7e3e9', line: '#eec6d2', text: '#40202b', muted: '#8a5c6a',
-    accent: '#e05780', button: '#f6dde4', danger: '#c0392b', viewportA: '#fff8fa', viewportB: '#f2d8e0',
-    gridMajor: '#e0aabb', gridMinor: '#f0d2dc'
-  }),
-  light('linen', '리넨', 'Linen', {
-    bg: '#f6f4ef', panel: '#ffffff', panelAlt: '#ece8df', line: '#d8d2c6', text: '#33302a', muted: '#6f6a5f',
-    accent: '#8a7a4e', button: '#e9e5da', danger: '#b5452f', viewportA: '#fdfcf9', viewportB: '#e3ded2',
-    gridMajor: '#c6bfae', gridMinor: '#ded8cb'
-  }),
-  light('cloud', '클라우드', 'Cloud', {
-    bg: '#f2f5f8', panel: '#ffffff', panelAlt: '#e8edf3', line: '#ccd6e0', text: '#26313b', muted: '#5f6f7d',
-    accent: '#0f89a8', button: '#e2e9f1', danger: '#c0392b', viewportA: '#fbfcfe', viewportB: '#dde5ed',
-    gridMajor: '#b3c1cf', gridMinor: '#d5dee7'
-  }),
-  light('solarizedLight', '솔라라이즈드 라이트', 'Solarized light', {
-    bg: '#fdf6e3', panel: '#fffbf0', panelAlt: '#f3ecd8', line: '#ded6bf', text: '#073642', muted: '#657b83',
-    accent: '#268bd2', button: '#efe8d3', danger: '#dc322f', viewportA: '#fffcf2', viewportB: '#ece3ca',
-    gridMajor: '#cbc0a2', gridMinor: '#e3dac2'
-  }),
-  light('sepia', '세피아', 'Sepia', {
-    bg: '#f4ecdf', panel: '#fdf7ec', panelAlt: '#eadfcc', line: '#d6c5a8', text: '#3d3123', muted: '#7b6a53',
-    accent: '#9c6b30', button: '#e7dbc4', danger: '#a8422c', viewportA: '#fdf7ec', viewportB: '#e2d3b8',
-    gridMajor: '#c6b18c', gridMinor: '#ded0b6'
-  }),
-  light('ice', '아이스', 'Ice', {
-    bg: '#eff8fa', panel: '#ffffff', panelAlt: '#e0f1f5', line: '#bcdfe8', text: '#14323a', muted: '#4b7683',
-    accent: '#0aa2c0', button: '#d7eef4', danger: '#c0523f', viewportA: '#f9fdff', viewportB: '#d3e9f0',
-    gridMajor: '#a3cfda', gridMinor: '#c9e4eb'
-  }),
-  light('meadow', '메도우', 'Meadow', {
-    bg: '#f2f8ec', panel: '#ffffff', panelAlt: '#e6f2da', line: '#c6dfb2', text: '#243318', muted: '#5c7a45',
-    accent: '#4c9a2a', button: '#dcecd0', danger: '#b5452f', viewportA: '#fbfff7', viewportB: '#dbeccb',
-    gridMajor: '#b1d196', gridMinor: '#d2e6c2'
-  }),
-  light('peach', '피치', 'Peach', {
-    bg: '#fff4ec', panel: '#ffffff', panelAlt: '#fae5d8', line: '#f0cdb7', text: '#40291c', muted: '#8a6450',
-    accent: '#e2703a', button: '#f8e0d1', danger: '#c0392b', viewportA: '#fffaf6', viewportB: '#f5dbc9',
-    gridMajor: '#e6bda2', gridMinor: '#f2d8c6'
-  }),
-  light('silver', '실버', 'Silver', {
-    bg: '#f1f2f4', panel: '#ffffff', panelAlt: '#e6e8ec', line: '#cdd1d8', text: '#23262b', muted: '#5f656e',
-    accent: '#5b6b7d', button: '#e0e3e8', danger: '#b5452f', viewportA: '#fafbfc', viewportB: '#dcdfe5',
-    gridMajor: '#b7bcc6', gridMinor: '#d6d9df'
-  }),
-  light('porcelain', '포슬린', 'Porcelain', {
-    bg: '#fbfbfd', panel: '#ffffff', panelAlt: '#f0f1f5', line: '#dcdee6', text: '#1f2430', muted: '#626a7c',
-    accent: '#3f51b5', button: '#eaecf3', danger: '#c0392b', viewportA: '#ffffff', viewportB: '#e6e8f0',
-    gridMajor: '#c3c7d6', gridMinor: '#e0e3ec'
-  }),
-  light('latte', '라떼', 'Latte', {
-    bg: '#f5efe7', panel: '#fffaf4', panelAlt: '#ebe1d5', line: '#d9c9b6', text: '#3a2e24', muted: '#7d6a58',
-    accent: '#a5682a', button: '#e8dccc', danger: '#b5452f', viewportA: '#fffaf4', viewportB: '#e4d7c6',
-    gridMajor: '#cbb69c', gridMinor: '#e0d3c2'
-  }),
-  light('graphiteLight', '그래파이트 라이트', 'Graphite light', {
-    bg: '#eceef0', panel: '#ffffff', panelAlt: '#e1e4e7', line: '#c6cace', text: '#202325', muted: '#5a6065',
-    accent: '#c07a1f', button: '#dcdfe3', danger: '#b5452f', viewportA: '#f7f8f9', viewportB: '#d7dbdf',
-    gridMajor: '#b2b7bd', gridMinor: '#d2d6da'
   })
 ]
 

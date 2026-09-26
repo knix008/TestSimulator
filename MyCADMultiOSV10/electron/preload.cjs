@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('mycad', {
   saveFile: (opts) => ipcRenderer.invoke('save-file', opts),
   showMenu: (payload) => ipcRenderer.invoke('show-menu', payload),
   openPopup: (payload) => ipcRenderer.invoke('open-popup', payload),
+  syncState: (payload) => ipcRenderer.send('sync-state', payload),
+  onSyncState: (cb) => {
+    const listener = (_event, payload) => cb(payload)
+    ipcRenderer.on('sync-state', listener)
+    return () => ipcRenderer.removeListener('sync-state', listener)
+  },
   print: () => ipcRenderer.invoke('print'),
   download: (url) => ipcRenderer.invoke('download', url),
   onDownloadProgress: (cb) => {

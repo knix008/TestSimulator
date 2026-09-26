@@ -21,6 +21,9 @@ interface MycadApi {
   saveFile: (opts: { title: string; filters: { name: string; extensions: string[] }[]; defaultPath?: string; content: string }) => Promise<{ canceled: boolean; filePath?: string; directory?: string }>
   showMenu: (payload: { x: number; y: number; items: { id: string; label: string; icon: string; enabled: boolean }[] }) => Promise<string | null>
   openPopup: (payload: { kind: string; width: number; height: number; title: string }) => Promise<void>
+  /** send settings (and the draw style) to every other window */
+  syncState?: (payload: { settings?: unknown; shade?: string }) => void
+  onSyncState?: (cb: (payload: { settings?: unknown; shade?: string }) => void) => () => void
   print: () => Promise<void>
   download: (url: string) => Promise<{ ok: boolean; text?: string; error?: string }>
   onDownloadProgress: (cb: (progress: { percent: number; message: string }) => void) => () => void

@@ -35,7 +35,7 @@ npm run dist:win   # NSIS installer (macOS: dist:mac, Linux: dist:linux)
 | Extensions | Addon manager: catalogue, manifest validation, install/enable/uninstall, addon-contributed commands and themes |
 | View | Seven draw styles (as is, shaded, flat lines, wireframe, points, hidden line, no shading), perspective or orthographic camera, X/Y/Z section planes, four navigation styles (CAD, Blender, touchpad, Maya), six key-light kinds with colour and nine rigs |
 | Units | mm, cm, m, inch and foot schemas for the status bar, measurements and volumes |
-| Interface | 22 menus, 30 workbenches, 225 commands, 40 built-in themes (20 dark + 20 light) plus an editable custom theme, resizable tool and property panels, Korean and English |
+| Interface | 22 menus, 30 workbenches, 225 commands, a tool panel grouped by what the commands do, 40 pastel themes (20 dark + 20 light) plus a custom theme that can start from any preset, resizable tool and property panels, Korean and English |
 
 ## Documentation
 

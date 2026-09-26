@@ -524,6 +524,32 @@ export function SettingsDialog({
               </fieldset>
               {mode === 'custom' ? (
                 <fieldset className="field-group">
+                  <legend>{t('themePreset')}</legend>
+                  <p className="muted preset-hint">{settings.language === 'ko'
+                    ? '프리셋을 고르면 그 색이 사용자 정의 테마로 복사됩니다. 아래에서 각 색을 바꿀 수 있습니다.'
+                    : 'Picking a preset copies its colours into the custom theme; each colour can then be edited below.'}</p>
+                  <div className="preset-grid" data-testid="theme-presets">
+                    {THEMES.map((preset) => (
+                      <button
+                        type="button"
+                        key={preset.id}
+                        className="theme-swatch"
+                        data-testid={`preset-${preset.id}`}
+                        title={`${preset.name[settings.language]} (${preset.mode === 'dark' ? 'Dark' : 'Light'})`}
+                        onClick={() => onChange({
+                          customTheme: { ...custom, mode: preset.mode, colors: { ...preset.colors } },
+                          theme: 'custom'
+                        })}
+                      >
+                        <ThemeSwatch theme={preset} size={14} />
+                        <span className="ellipsis">{preset.name[settings.language]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
+              {mode === 'custom' ? (
+                <fieldset className="field-group">
                   <legend>{t('color')}</legend>
                   <div className="color-grid" data-testid="custom-colors">
                     {THEME_TOKENS.map((token) => (
@@ -567,7 +593,7 @@ export function SettingsDialog({
           ) : null}
 
           {active === 'viewport' ? (
-            <>
+            <div className="settings-columns">
               <fieldset className="field-group">
                 <legend>{t('viewport')}</legend>
                 <label className="row"><span>{t('grid')}</span>
@@ -633,7 +659,7 @@ export function SettingsDialog({
               <fieldset className="field-group">
                 <legend>{t('clipping')}</legend>
                 {settings.clip.map((plane, index) => (
-                  <label className="row" key={plane.axis}><span>{plane.axis.toUpperCase()}</span>
+                  <label className="row clip-row" key={plane.axis}><span>{plane.axis.toUpperCase()}</span>
                     <input
                       type="checkbox"
                       aria-label={`${t('clipping')} ${plane.axis}`}
@@ -708,7 +734,7 @@ export function SettingsDialog({
                   <NumberField id="light-ambient-field" label="ambient" value={settings.light.ambient} min={0} max={2} step={0.05} onChange={(value) => onChange({ light: { ...settings.light, ambient: value } })} />
                 </label>
               </fieldset>
-            </>
+            </div>
           ) : null}
 
           {active === 'printTab' ? (
