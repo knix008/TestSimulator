@@ -54,12 +54,25 @@ describe('telling the dock the pointer has left', () => {
     assert.deepStrictEqual(pointers(), []);
   });
 
-  it('says it once, not on every tick', () => {
+  it('repeats it over the next few polls, then falls silent', () => {
+    // The dock is being sent real mouse events too, and Chromium can deliver
+    // one it coalesced earlier *after* this message - putting the dock back
+    // under a pointer that has gone, where nothing would arrive to correct it.
+    // Saying it more than once leaves the last word here.
     const watch = watcher();
-    watch.feed({ x: 10, y: 10 }, false);
-    watch.feed({ x: 12, y: 11 }, false);
-    watch.feed({ x: 400, y: 300 }, false);
-    assert.deepStrictEqual(pointers(), [null]);
+    for (let i = 0; i < 10; i += 1) watch.feed({ x: 10 + i, y: 10 }, false);
+    const said = pointers();
+    assert.ok(said.length > 1 && said.length < 10, `sent ${said.length} times`);
+    assert.ok(said.every((p) => p === null));
+  });
+
+  it('starts counting the repeats afresh each time the pointer leaves', () => {
+    const watch = watcher();
+    for (let i = 0; i < 10; i += 1) watch.feed({ x: 10, y: 10 }, false);
+    const first = pointers().length;
+    watch.feed({ x: 150, y: 60 }, false);   // back over the dock
+    for (let i = 0; i < 10; i += 1) watch.feed({ x: 10, y: 10 }, false);
+    assert.strictEqual(pointers().length, first * 2);
   });
 
   it('says it again after the pointer has been back on the plate', () => {

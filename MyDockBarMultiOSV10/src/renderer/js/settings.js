@@ -281,7 +281,7 @@
       card.title = theme.description || theme.name;
 
       const preview = document.createElement('div');
-      preview.className = `theme-preview${theme.dark === false ? ' light-bg' : ''}`;
+      preview.className = 'theme-preview';
       const plate = document.createElement('div');
       plate.className = 'mini-plate';
       for (let i = 0; i < 3; i += 1) {
@@ -310,9 +310,9 @@
 
 /**
    * Paint each card with that theme's own colours: the plate uses the real
-   * plate variables, and the backdrop behind it is built from the theme's
-   * palette so translucent themes show what they actually look like and no
-   * two cards read the same at a glance.
+   * plate variables, on the window's own surface so the silhouette is what
+   * the eye lands on. The colour is on the stripe below the bar, which tells
+   * neighbouring cards apart faster than a tinted backdrop ever did.
    */
   async function applyPreviewStyle(card, themeId) {
     const theme = await previewVariables(themeId);
@@ -321,12 +321,11 @@
     const vars = theme.variables || {};
     const ui = theme.ui || {};
     const plate = card.querySelector('.mini-plate');
-    const preview = card.querySelector('.theme-preview');
     const accent = ui['--accent'] || vars['--indicator-color'] || '#8fa8c8';
 
     plate.style.background = vars['--plate-bg'] || '';
     plate.style.border = vars['--plate-border'] || '';
-    plate.style.boxShadow = vars['--plate-shadow'] || '';
+    plate.style.boxShadow = miniShadow(vars['--plate-shadow']);
 
     // Shape, shown rather than described: the same radius and clip the real
     // bar uses, scaled down. A px radius is divided so a 999px pill still
@@ -346,10 +345,6 @@
       slot.style.boxShadow = vars['--item-shadow'] || 'none';
     }
 
-    // A desktop-like backdrop drawn from the theme's own palette.
-    const far = ui['--bg-sunken'] || (theme.dark === false ? '#c9d4e2' : '#0e1118');
-    preview.style.background = `linear-gradient(135deg, ${accent} -40%, ${far} 78%)`;
-
     // The accent stripe is what makes neighbouring cards tell apart fastest.
     card.style.setProperty('--card-accent', accent);
     for (const dot of plate.querySelectorAll('i')) {
@@ -364,6 +359,25 @@
   function miniRadius(value) {
     if (!value) return '0px';
     return String(value).replace(/(\d*\.?\d+)px/g, (_m, n) => `${Math.max(1, Math.round(Number(n) / 3))}px`);
+  }
+
+  /**
+   * The same for a shadow, plus a hairline of its own.
+   *
+   * A bar's real shadow is cast for a bar the height of a finger - `0 14px
+   * 40px` spreads far outside a thumbnail and shows up as nothing at all. Sized
+   * down it sits under the miniature the way it sits under the bar. The
+   * hairline is neutral grey rather than any theme colour, and it is what keeps
+   * a pale bar legible on a pale window and a dark one on a dark window.
+   */
+  function miniShadow(value) {
+    const ring = '0 0 0 1px rgba(127, 127, 127, 0.3)';
+    if (!value || value === 'none') return ring;
+    const scaled = String(value).replace(/(\d*\.?\d+)px/g, (_m, n) => {
+      const px = Number(n) / 4;
+      return `${px < 0.5 ? Math.sign(px) * Math.ceil(Math.abs(px)) : Math.round(px * 10) / 10}px`;
+    });
+    return `${scaled}, ${ring}`;
   }
 
   const previewCache = new Map();

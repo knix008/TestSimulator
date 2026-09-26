@@ -38,6 +38,7 @@
     trashEmpty: true,
     stage: null,
     lastRect: null,
+    awayAt: 0,             // when we last learned the pointer had left, or 0
   };
 
   const STAGE_MARGIN = 24;
@@ -380,16 +381,29 @@
       // Real icons skip over the slot the drag has opened.
       const slot = gapAt === null || i < gapAt ? i : i + 1;
       const node = state.nodes[i];
-      // Snap to whole pixels: a fractional position makes the browser resample
-      // the icon every frame, which looks like shimmer even when the geometry
-      // underneath is perfectly steady.
-      const offset = Math.round(result.starts[slot]);
+      // Position to the fraction of a pixel, and move by a transform so the
+      // compositor carries it rather than the layout.
+      //
+      // Snapping each icon to a whole pixel was what made the row tremble.
+      // Magnifying an icon steals room from the gaps, which are shared out
+      // along the whole row, so every icon - including the ones sitting at
+      // their resting size far from the pointer - is nudged by a fraction of a
+      // pixel as the pointer moves. Rounding turned those fractions into whole
+      // pixels flicked back and forth from one frame to the next: 264, 263,
+      // 264, 264, 263. Sub-pixel it simply glides.
+      //
+      // The sizes stay whole, because those really are redrawn at each new
+      // value and a fractional box would resample the icon every frame. Only
+      // an icon the pointer is already on top of changes size, and it is
+      // visibly growing at the time; the rest keep one size throughout.
+      const offset = result.starts[slot];
       const axisSize = Math.round(result.widths[slot]);
       const crossSize = Math.round(g.iconSize * result.scales[slot]);
       const st = node.style;
 
       if (horizontal) {
-        st.left = `${offset}px`;
+        st.transform = `translate3d(${offset.toFixed(2)}px, 0, 0)`;
+        st.left = '0px';
         st.width = `${axisSize}px`;
         st.height = `${crossSize}px`;
         if (edge === 'bottom') {
@@ -401,7 +415,8 @@
         }
         st.right = '';
       } else {
-        st.top = `${offset}px`;
+        st.transform = `translate3d(0, ${offset.toFixed(2)}px, 0)`;
+        st.top = '0px';
         st.height = `${axisSize}px`;
         st.width = `${crossSize}px`;
         if (edge === 'left') {
@@ -552,7 +567,72 @@
     return node ? Number(node.dataset.index) : -1;
   }
 
+  /**
+   * Note that the pointer has gone, and when we found out.
+   *
+   * Chromium coalesces mouse moves and hands them over on its own schedule, so
+   * a move made while the pointer was still on the dock can be delivered
+   * *after* the main process has told us it left. Acting on one of those
+   * magnifies the dock around a pointer that is no longer there - and the
+   * window is click-through by then, so no further mouse event ever arrives to
+   * put it right and the icons stay blown up. Keeping the time lets those late
+   * arrivals be recognised for what they are.
+   */
+  function markAway() {
+    state.awayAt = performance.now();
+    state.cursor = null;
+    state.hoverIndex = -1;
+  }
+
+  /** A move the pointer had already made by the time we heard it had left. */
+  function isStale(event) {
+    return state.awayAt > 0 && event.timeStamp > 0 && event.timeStamp < state.awayAt;
+  }
+
+  /**
+   * Is this event on the dock at all?
+   *
+   * The window is far bigger than the dock - it reserves room for the
+   * magnification and for the names - so most of it is empty air the pointer
+   * can sit in without ever leaving the window, and `mouseleave` says nothing
+   * about crossing off the plate. Measured against the widest the bar can ever
+   * get, which is also the most the main process will ever treat as dock, so
+   * this only ever agrees with it: a pointer out here is one it has already
+   * decided has gone.
+   */
+  function onPlate(event) {
+    const g = state.geom;
+    if (!g || !state.stage) return true;
+
+    const bar = barMetrics(1);
+    const axis = isHorizontal() ? event.clientX : event.clientY;
+    if (axis < bar.start || axis > bar.start + bar.length) return false;
+
+    const depth = Math.ceil(Math.max(g.plateCross, g.anchor + g.iconSize * state.cfg.dock.maxZoom));
+    const span = isHorizontal() ? state.stage.height : state.stage.width;
+    const edge = dockPlace().edge;
+    const near = (edge === 'top' || edge === 'left') ? 0 : span - depth;
+    const cross = isHorizontal() ? event.clientY : event.clientX;
+    return cross >= near && cross <= near + depth;
+  }
+
   function onPointerMove(event) {
+    if (isStale(event)) return;
+
+    // Off the plate: relax now rather than waiting to be told. The poll in the
+    // main process would say so within a frame or two, but its message and
+    // this stream of mouse events reach us by different routes, and a move
+    // that arrives after it would magnify the dock around a pointer that has
+    // gone - with the window click-through by then, nothing would follow to
+    // set it right.
+    if (!onPlate(event)) {
+      if (state.cursor === null) return;
+      markAway();
+      paint(false);
+      return;
+    }
+
+    state.awayAt = 0;
     state.cursor = axisOf(event);
     const idx = nearestIndex(state.cursor);
     if (idx !== state.hoverIndex) {
@@ -589,8 +669,7 @@
   }
 
   function onPointerLeave() {
-    state.cursor = null;
-    state.hoverIndex = -1;
+    markAway();
     el.tooltip.classList.remove('show');
     paint(false);
     api.dock.mouseLeave();
@@ -954,7 +1033,7 @@
       // dissolves as it sinks instead of blinking out at either end of it.
       el.body.style.setProperty('--slide-ms', `${ms}ms`);
       el.body.classList.toggle('plate-hidden', hidden);
-      if (hidden) { state.cursor = null; state.hoverIndex = -1; paint(false); }
+      if (hidden) { markAway(); paint(false); }
     });
     api.dock.onRunning((names) => {
       state.running = new Set(names);
@@ -970,6 +1049,10 @@
     api.dock.onPointer((point) => {
       const cursor = point ? (isHorizontal() ? point.x : point.y) : null;
       const hover = (point && !point.quiet) ? nearestIndex(cursor) : -1;
+      // Even a repeat of "gone" is worth noting: the main process says it more
+      // than once precisely so that a mouse move still in flight cannot have
+      // the last word, and that only works if each one moves the mark on.
+      if (cursor === null) state.awayAt = performance.now();
       if (cursor === state.cursor && hover === state.hoverIndex) return;
       state.cursor = cursor;
       state.hoverIndex = hover;

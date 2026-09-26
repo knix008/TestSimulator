@@ -328,7 +328,12 @@ button.icon-btn { padding: 4px 9px; font-size: 12px; }
   flex: 0 0 auto;
 }
 
-/* A miniature dock, painted with the theme's own plate variables. */
+/* A miniature dock, painted with the theme's own plate variables.
+ *
+ * The surface behind it is the window's own, not the theme's: a card that
+ * tinted its backdrop to match the bar it was showing hid the very thing the
+ * card is for - the shape of the bar. The theme's colour is on the stripe
+ * below, where it is read at a glance without painting over the silhouette. */
 .theme-preview {
   flex: 1 1 auto;
   min-height: 0;
@@ -336,9 +341,9 @@ button.icon-btn { padding: 4px 9px; font-size: 12px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #2b3550, #101725);
+  background: var(--bg-sunken);
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.22);
 }
 
 .theme-preview .mini-plate {
@@ -432,10 +437,14 @@ button.icon-btn { padding: 4px 9px; font-size: 12px; }
 
 /* --------------------------- misc panel content -------------------------- */
 
+/* Same surface and the same theme colour as everything else in the window:
+ * this used to be a fixed navy panel with fixed blue bars, which sat in a
+ * light window looking like a hole cut in it. */
 .zoom-preview {
   height: 92px;
   border-radius: 9px;
-  background: linear-gradient(135deg, #2b3550, #101725);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.22);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -446,7 +455,8 @@ button.icon-btn { padding: 4px 9px; font-size: 12px; }
 .zoom-preview i {
   display: block;
   width: 16px;
-  background: linear-gradient(180deg, #7fc4ff, #2f7ae5);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0)),
+              var(--accent);
   border-radius: 3px;
   flex: 0 0 auto;
 }
@@ -576,7 +586,12 @@ button.icon-btn { padding: 4px 9px; font-size: 12px; }
   border-radius: 8px;
   background: var(--bg-raised);
 }
-.icon-grid button.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(75,155,255,.3); }
+.icon-grid button.selected {
+  border-color: var(--accent);
+  /* The theme's accent, not a fixed blue: every other selected thing in the
+   * window glows in the colour the chosen theme brought with it. */
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
 .icon-grid img { width: 40px; height: 40px; object-fit: contain; }
 
 .about { color: var(--fg-dim); margin: 0 0 14px; }

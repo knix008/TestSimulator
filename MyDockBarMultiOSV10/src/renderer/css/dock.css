@@ -103,15 +103,18 @@ body.plate-hidden .stage {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  will-change: transform, left, top, width, height;
+  /* The row is placed with a transform, to the fraction of a pixel: the
+   * compositor then moves the icons rather than the layout rounding them to
+   * whole pixels, which is what made the resting icons tremble as a neighbour
+   * grew. */
+  will-change: transform, width, height;
 }
 
 /* Only while a drag is in progress. Magnification is driven frame by frame and
  * must stay instant, but the gap opening and the icons swapping places are
  * discrete jumps that need carrying. */
 body.reordering .dock-item {
-  transition: left 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
-              top 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+  transition: transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
               width 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
               height 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }

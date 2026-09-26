@@ -11,6 +11,17 @@ const slide = require('./slide');
 const NEAR_DOCK = 48;
 
 /**
+ * How many polls go on saying the pointer has left after it has.
+ *
+ * Once should be enough, but the dock is also being sent real mouse events,
+ * and Chromium can deliver a move it coalesced earlier *after* this message -
+ * magnifying the dock around a pointer that has gone, with the window now
+ * click-through and no further event coming to correct it. Repeating it over
+ * the next few polls means the last word is always ours.
+ */
+const AWAY_REPEATS = 3;
+
+/**
  * A transparent dock window is a rectangle: without help it would swallow every
  * click in its empty corners. We poll the cursor and make the window
  * click-through except while the pointer is actually over the dock plate.
@@ -29,6 +40,7 @@ class PointerWatch {
     this.currentMs = 0;
     this.menuOpen = false;
     this.fed = undefined;    // last pointer pushed to the dock, to skip repeats
+    this.away = 0;           // consecutive "the pointer has left" messages sent
   }
 
   /**
@@ -79,13 +91,15 @@ class PointerWatch {
       && local.x >= plate.x && local.x < plate.x + plate.width
       && local.y >= plate.y && local.y < plate.y + plate.height;
 
-    if (inside && !track) { this.fed = undefined; return; }
+    if (inside && !track) { this.fed = undefined; this.away = 0; return; }
 
     const point = inside
       ? { x: Math.round(local.x), y: Math.round(local.y), quiet: this.menuOpen }
       : null;
     const key = point ? `${point.x},${point.y},${point.quiet}` : 'away';
-    if (key === this.fed) return;
+    // A still pointer is not worth repeating; a departed one is, up to a point.
+    if (key === this.fed && (point || this.away >= AWAY_REPEATS)) return;
+    this.away = point ? 0 : this.away + 1;
     this.fed = key;
     this.dockWindow.send('dock:pointer', point);
   }
