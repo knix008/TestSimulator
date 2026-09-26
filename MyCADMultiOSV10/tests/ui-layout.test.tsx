@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/ui/App'
@@ -241,6 +241,12 @@ describe('application chrome', () => {
     expect(screen.getByTestId('menu-popup')).toBeTruthy()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByTestId('menu-popup')).toBeNull())
+
+    // The right-click menu over the canvas closes the same way.
+    fireEvent.contextMenu(screen.getByTestId('viewport'), { clientX: 200, clientY: 160 })
+    await waitFor(() => expect(screen.getByTestId('context-menu')).toBeTruthy())
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByTestId('context-menu')).toBeNull())
   })
 
   it('[GUI] the toolbar resets the view and steps the text size', async () => {

@@ -7,7 +7,7 @@ import type { Settings } from '../core/settings'
 import {
   axisLabelSize, axisLength, cameraFromOrbit, clampLightAngles, dragPosition, gridSpec,
   lightAngles, lightPosition, navAction, orbitForPreset, panOrbit, raySphereDirection, rotateOrbit,
-  sceneRadius, viewDistance, type OrbitState
+  sceneRadius, viewDistance, viewSpan, roundStep, type OrbitState
 } from '../core/viewnav'
 import { boundingBoxOf } from '../core/primitives'
 import { themeById } from '../core/themes'
@@ -78,7 +78,9 @@ export function Viewport({
     const visible = doc.solids.filter((solid) => solid.visible)
     const radius = settings.autoScaleAxes ? sceneRadius(boundingBoxOf(visible)) : 0
     const axisSpan = axisLength(radius)
-    const grid = gridSpec(radius)
+    // The grid follows the zoom: the step is chosen for what the camera can
+    // see, so the lines keep the same spacing on screen at every magnification.
+    const grid = gridSpec(radius, zoom)
     // The camera is framed for how big the model is, not for where it sits:
     // dragging a solid across the scene must not change the magnification.
     const framing = visible
@@ -105,10 +107,17 @@ export function Viewport({
       const next = orbitForPreset(doc.preset)
       orbit.current = { ...orbit.current, ...next, tx: 0, ty: 0, tz: 0 }
     }
+    let gridHelper: THREE.GridHelper | null = null
     const placeCamera = () => {
       const at = cameraFromOrbit(orbit.current, distance)
       camera.position.set(at.x, at.y, at.z)
       camera.lookAt(orbit.current.tx, orbit.current.ty, orbit.current.tz)
+      // Panning slides the grid along with the camera, by whole steps, so the
+      // lines stay under the model and still sit on round coordinates.
+      if (gridHelper) {
+        const onStep = (value: number) => Math.round(value / grid.step) * grid.step
+        gridHelper.position.set(onStep(orbit.current.tx), 0, onStep(orbit.current.tz))
+      }
     }
     placeCamera()
     // Lighting rig: the toolbar light control moves the key light around the
@@ -212,7 +221,9 @@ export function Viewport({
     }
     const theme = themeById(settings.theme)
     if (settings.grid) {
-      scene.add(new THREE.GridHelper(grid.size, grid.divisions, theme.colors.gridMajor, theme.colors.gridMinor))
+      gridHelper = new THREE.GridHelper(grid.size, grid.divisions, theme.colors.gridMajor, theme.colors.gridMinor)
+      scene.add(gridHelper)
+      placeCamera()
     }
     const axes = createAxes(axisSpan, axisLabelSize(axisSpan))
     axes.visible = settings.showAxes !== false
@@ -583,8 +594,7 @@ function ScaleRuler({ zoom, radius }: { zoom: number; radius: number }) {
     observer.observe(parent)
     return () => observer.disconnect()
   }, [])
-  const distance = viewDistance(radius, zoom)
-  const worldHeight = 2 * distance * Math.tan((45 * Math.PI) / 360)
+  const worldHeight = viewSpan(radius, zoom)
   const pxPerMm = size.height > 0 ? size.height / worldHeight : 0
   return (
     <div ref={host} data-testid="scale-ruler">
@@ -596,8 +606,7 @@ function ScaleRuler({ zoom, radius }: { zoom: number; radius: number }) {
 
 function RulerEdge({ axis, length, pxPerMm }: { axis: 'x' | 'y'; length: number; pxPerMm: number }) {
   if (length < 8 || pxPerMm <= 0) return null
-  const steps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
-  const major = steps.find((step) => step * pxPerMm >= 56) ?? 5000
+  const major = roundStep(56 / pxPerMm)
   const minor = major / 5
   const half = length / 2
   const ticks = []

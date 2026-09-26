@@ -122,14 +122,14 @@ describe('file types', () => {
     expect((stl.solids[0].mesh?.positions.length ?? 0) / 9).toBe(12)
 
     const obj = importFile('plate.obj', sample('plate.obj'))
-    expect(obj.solids.length).toBeGreaterThan(0)
+    expect(obj.solids.map((item) => item.name)).toEqual(['Plate', 'Boss', 'Rib'])
     expect(solidVolume(obj.solids[0])).toBeGreaterThan(0)
 
     const dxf = importFile('profile.dxf', sample('profile.dxf'))
-    expect(dxf.wires.length).toBe(5)
+    expect(dxf.wires.length).toBe(24)
 
     const svg = importFile('profile.svg', sample('profile.svg'))
-    expect(svg.wires.length).toBe(2)
+    expect(svg.wires.length).toBe(9)
 
     const scad = importFile('bracket.scad', sample('bracket.scad'))
     expect(scad.solids).toHaveLength(1)
@@ -138,7 +138,7 @@ describe('file types', () => {
     expect(ifc.report.join('\n')).toContain('Level 1')
 
     const points = importFile('scan-points.asc', sample('scan-points.asc'))
-    expect(points.report[0]).toBe('49 points')
+    expect(points.report[0]).toBe('169 points')
 
     const gcode = importFile('pocket.nc', sample('pocket.nc'))
     expect(gcode.wires).toHaveLength(1)

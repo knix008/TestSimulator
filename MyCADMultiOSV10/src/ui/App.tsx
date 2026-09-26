@@ -1012,8 +1012,10 @@ export function App() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        // An open menu closes on Escape, like any other desktop menu bar.
+        // An open menu closes on Escape, like any other desktop menu bar, and
+        // so does the right-click menu over the canvas.
         setMenu(null)
+        setContext(null)
         return
       }
       const target = event.target as HTMLElement

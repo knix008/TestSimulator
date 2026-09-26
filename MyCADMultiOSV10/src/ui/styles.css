@@ -91,10 +91,20 @@ button:hover { border-color: var(--accent); }
 .tab { display: inline-flex; align-items: center; gap: 8px; max-width: 180px; }
 .statusbar { flex: 0 0 26px; height: 26px; padding: 0; border-top: 1px solid var(--line); background: var(--panel-alt); gap: 0; font-size: 12px; color: var(--text); z-index: 5; }
 .statusbar span { display: inline-flex; align-items: center; height: 100%; padding: 0 8px; border-right: 1px solid #2a3642; }
-.size-grip { position: fixed; right: 0; bottom: 0; z-index: 6; width: 16px; height: 16px; padding: 0; border: 0; cursor: nwse-resize; background:
-  linear-gradient(135deg, transparent 0 55%, #9aabba 55% 68%, transparent 68%) 1px 9px / 6px 6px no-repeat,
-  linear-gradient(135deg, transparent 0 55%, #9aabba 55% 68%, transparent 68%) 5px 5px / 6px 6px no-repeat,
-  linear-gradient(135deg, transparent 0 55%, #9aabba 55% 68%, transparent 68%) 9px 1px / 6px 6px no-repeat; }
+/* The resize marker in the bottom right corner. `.statusbar span` also
+   matches it and is more specific than a bare `.size-grip`, which is what
+   stretched it down the whole right edge; this selector wins instead. The
+   three diagonal dashes are drawn in currentColor so they follow the theme. */
+.statusbar .size-grip {
+  position: fixed; right: 0; bottom: 0; z-index: 6;
+  width: 16px; height: 16px; padding: 0; border: 0;
+  color: var(--muted); cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 0 62%, currentColor 62% 78%, transparent 78%) 2px 10px / 5px 5px no-repeat,
+    linear-gradient(135deg, transparent 0 62%, currentColor 62% 78%, transparent 78%) 6px 6px / 5px 5px no-repeat,
+    linear-gradient(135deg, transparent 0 62%, currentColor 62% 78%, transparent 78%) 10px 2px / 5px 5px no-repeat;
+}
+.statusbar .size-grip:hover { color: var(--accent); }
 .menu-popup { color: var(--text); position: fixed; z-index: 80; display: flex; flex-direction: column; flex-wrap: nowrap; min-width: 220px; padding: 4px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.35); overflow: visible; }
 .menu-item { color: var(--text); display: flex; flex-direction: row; align-items: center; gap: 8px; width: 100%; height: 28px; text-align: left; white-space: nowrap; background: transparent; border: 0; }
 .menu-icon { width: 1.2em; text-align: center; flex: 0 0 auto; }
@@ -383,3 +393,8 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 
 /* Group separator inside a menu: a hair line across its own column. */
 .menu-separator { height: 1px; margin: 4px 8px; background: var(--line); opacity: .9; }
+/* The bulb sits on the text colour and turns accent while the light is on. */
+.light-mark svg { display: block; }
+.toolbar .tool.on .light-mark svg { color: var(--accent); }
+.light-menu .light-reset-row { grid-template-columns: 62px minmax(0, 1fr); height: 26px; }
+.light-menu .light-reset { display: inline-flex; align-items: center; gap: 6px; justify-self: start; height: 22px; padding: 0 8px; font-size: 11px; }

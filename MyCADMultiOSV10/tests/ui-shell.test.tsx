@@ -6,7 +6,7 @@ import { MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/c
 import { toolbarMinWidth } from '../src/core/buildInfo'
 import { THEMES, themeById, themeVars, themesByMode } from '../src/core/themes'
 import { defaultSettings, sanitizeSettings } from '../src/core/settings'
-import { axisLength, gridSpec, sceneRadius, viewDistance } from '../src/core/viewnav'
+import { axisLength, gridSpec, roundStep, sceneRadius, viewDistance, viewSpan } from '../src/core/viewnav'
 import { boundingBoxOf } from '../src/core/primitives'
 import { createSolid } from '../src/core/model'
 import { defaultPageSetup, layoutPage, pageSizeMm, pageToSvg, sanitizePageSetup } from '../src/core/print'
@@ -94,6 +94,32 @@ describe('scene scaling', () => {
       const mantissa = grid.step / Math.pow(10, Math.floor(Math.log10(grid.step)))
       expect([1, 2, 5, 10], String(radius)).toContain(Math.round(mantissa))
     }
+  })
+
+  it('[View] round steps climb 1, 2, 5, 10 whatever the value asked for', () => {
+    expect([0.4, 1, 1.2, 2, 3, 5, 7, 10, 23, 60, 140].map(roundStep))
+      .toEqual([0.5, 1, 2, 2, 5, 5, 10, 10, 50, 100, 200])
+  })
+
+  it('[View] the grid step follows the zoom, so the lines keep their spacing', () => {
+    for (const radius of [0, 40, 900, 20000]) {
+      for (const zoom of [10, 25, 50, 100, 200, 400, 800]) {
+        const grid = gridSpec(radius, zoom)
+        const where = `${radius} @ ${zoom}%`
+        // Roughly the same number of lines across the view at every zoom, and
+        // the sheet always reaches past the edges of what the camera sees.
+        const across = viewSpan(radius, zoom) / grid.step
+        expect(across, where).toBeGreaterThan(4)
+        expect(across, where).toBeLessThan(30)
+        expect(grid.size, where).toBeGreaterThanOrEqual(viewSpan(radius, zoom))
+        const mantissa = grid.step / Math.pow(10, Math.floor(Math.log10(grid.step)))
+        expect([1, 2, 5, 10], where).toContain(Math.round(mantissa))
+      }
+    }
+    // Zooming in never coarsens the grid, and zooming out never refines it.
+    const steps = [10, 25, 50, 100, 200, 400, 800].map((zoom) => gridSpec(120, zoom).step)
+    for (let i = 1; i < steps.length; i++) expect(steps[i]).toBeLessThanOrEqual(steps[i - 1])
+    expect(steps[0]).toBeGreaterThan(steps[steps.length - 1])
   })
 })
 

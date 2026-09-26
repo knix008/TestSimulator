@@ -341,6 +341,30 @@ export function wireframeOf(triangles: number[], id = 'edge'): Wire[] {
   return wires
 }
 
+/** A coordinate as IGES real notation: short, and never 25.000000000000004. */
+function igesNumber(value: number): string {
+  const text = value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')
+  return text === '-0' ? '0' : text
+}
+
+/**
+ * Parameter data cut into the 64 columns a P line has room for. Every break
+ * falls after a comma, so a reader that joins the lines back together sees the
+ * record it was written from.
+ */
+function igesParameterLines(record: string): string[] {
+  const out: string[] = []
+  let rest = record
+  while (rest.length > 64) {
+    const cut = rest.lastIndexOf(',', 64)
+    const at = cut > 0 ? cut + 1 : 64
+    out.push(rest.slice(0, at))
+    rest = rest.slice(at)
+  }
+  out.push(rest)
+  return out
+}
+
 /** Write wires as an IGES file with one type 110 line entity per segment. */
 export function toIges(wires: Wire[], stamp: Date = new Date()): string {
   const day = `${stamp.toISOString().slice(0, 10).replace(/-/g, '')}000000`
@@ -366,12 +390,15 @@ export function toIges(wires: Wire[], stamp: Date = new Date()): string {
     for (let i = 0; i + 1 < wire.points.length; i++) {
       const a = wire.points[i]
       const b = wire.points[i + 1]
-      const record = `110,${a.x},${a.y},${a.z},${b.x},${b.y},${b.z};`
+      const record = `110,${igesNumber(a.x)},${igesNumber(a.y)},${igesNumber(a.z)},${igesNumber(b.x)},${igesNumber(b.y)},${igesNumber(b.z)};`
+      const rows = igesParameterLines(record)
       directory.push(pad(`     110${String(parameterLine).padStart(8)}       0       0       0       0       0       000000000D`, 'D', directoryLine))
-      directory.push(pad(`     110       0       0       1       0                               0D`, 'D', directoryLine + 1))
-      parameter.push(`${record.padEnd(64).slice(0, 64)} ${String(directoryLine).padStart(7)}P${String(parameterLine).padStart(7)}`)
+      directory.push(pad(`     110       0       0${String(rows.length).padStart(8)}       0                               0D`, 'D', directoryLine + 1))
+      rows.forEach((row, offset) => {
+        parameter.push(`${row.padEnd(64)} ${String(directoryLine).padStart(7)}P${String(parameterLine + offset).padStart(7)}`)
+      })
       directoryLine += 2
-      parameterLine += 1
+      parameterLine += rows.length
       segments += 1
     }
   }

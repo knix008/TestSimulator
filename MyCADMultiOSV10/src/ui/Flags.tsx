@@ -71,6 +71,40 @@ export function Taegukgi({ size = 20 }: { size?: number }) {
   )
 }
 
+/**
+ * The light switch: a bulb that lights up. Off it is an empty glass outline,
+ * on it is filled and throws rays, so the two states read at a glance even at
+ * 17 px. It draws in `currentColor`, so the toolbar's own accent applies.
+ */
+export function LightBulb({ on, size = 17 }: { on: boolean; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      role="img"
+      aria-label={on ? 'light on' : 'light off'}
+      data-testid={on ? 'bulb-on' : 'bulb-off'}
+    >
+      {on ? (
+        <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M12 1.5v2.2M3.9 4.4l1.6 1.6M20.1 4.4l-1.6 1.6M1.8 12.5h2.2M20 12.5h2.2" />
+        </g>
+      ) : null}
+      {/* glass */}
+      <path
+        d="M12 4.6a5.4 5.4 0 0 0-3.2 9.7c.6.5 1 1.2 1.1 1.9h4.2c.1-.7.5-1.4 1.1-1.9A5.4 5.4 0 0 0 12 4.6z"
+        fill={on ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {/* base */}
+      <path d="M9.7 18.1h4.6M10.4 20.4h3.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 /** The flag for the language the button switches to. */
 export function LanguageFlag({ language, size = 20 }: { language: 'ko' | 'en'; size?: number }) {
   return language === 'ko' ? <UnionJack size={size} /> : <Taegukgi size={size} />

@@ -65,20 +65,34 @@ export function axisLength(radius: number): number {
   return Math.max(80, Math.ceil((radius * 1.2) / 10) * 10)
 }
 
-/** A round grid that covers the model without becoming a moiré pattern. */
-export function gridSpec(radius: number): { size: number; divisions: number; step: number } {
-  const target = Math.max(200, radius * 2.4)
-  const rawStep = target / 20
-  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(1e-6, rawStep))))
-  const step = [1, 2, 5, 10].map((factor) => factor * magnitude).find((value) => value >= rawStep) ?? magnitude * 10
-  const divisions = Math.max(10, Math.min(60, Math.round(target / step)))
-  return { size: step * divisions, divisions, step }
-}
-
 /** Camera distance for a zoom percentage, framing the whole model at 100%. */
 export function viewDistance(radius: number, zoom: number): number {
   const base = Math.max(140, radius * 3.1)
   return base * (100 / Math.max(10, zoom))
+}
+
+/** How much of the world the 45° camera sees from top to bottom, in mm. */
+export function viewSpan(radius: number, zoom: number): number {
+  return 2 * viewDistance(radius, zoom) * Math.tan((45 * Math.PI) / 360)
+}
+
+/** The round number just at or above a value: 1, 2, 5, 10, 20, 50, 100 … */
+export function roundStep(value: number): number {
+  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(1e-6, value))))
+  return [1, 2, 5, 10].map((factor) => factor * magnitude).find((step) => step >= value) ?? magnitude * 10
+}
+
+/**
+ * A round grid for the current view. The step follows the zoom the same way
+ * the scale ruler's ticks do, so the lines keep roughly the same spacing on
+ * screen however far in or out the camera is, and the sheet stays wide enough
+ * to run past the edges of the viewport.
+ */
+export function gridSpec(radius: number, zoom = 100): { size: number; divisions: number; step: number } {
+  const target = viewSpan(radius, zoom) * 1.8
+  const step = Math.max(0.01, roundStep(target / 24))
+  const divisions = Math.max(10, Math.min(60, Math.round(target / step)))
+  return { size: step * divisions, divisions, step }
 }
 
 /** Label size that stays readable whatever the scene scale is. */

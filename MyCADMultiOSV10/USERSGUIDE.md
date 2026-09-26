@@ -241,11 +241,15 @@ MyCAD는 **STEP(.step/.stp)·IGES(.igs/.iges)·PLY·OFF·Collada(.dae)** 같은 
 
 ## 8. 샘플 파일로 익히기
 
-`sample/` 폴더에 형식별 예제 29개가 들어 있습니다.
-`box.mycad`, `assembly.mycad`, `bim-house.mycad`, `sketchup-scene.mycad`,
-`fem-beam.mycad`, `kinematics-crank.mycad`, `cube.stl`, `profile.dxf`,
-`bracket.scad`, `scan-points.asc`, `building.ifc`, `macro.py` 등을 열어 보면
-각 워크벤치가 무엇을 하는지 바로 확인할 수 있습니다.
+`sample/` 폴더에 형식별 예제 38개가 들어 있습니다.
+`box.mycad`, `assembly.mycad`(부품 11개), `patterns.mycad`, `bim-house.mycad`,
+`sketchup-scene.mycad`, `fem-beam.mycad`, `kinematics-crank.mycad`,
+`bracket.step`(리브·보스 브래킷), `gear.off`/`gear.stl`(스퍼 기어),
+`plate.ply`(구멍 뚫린 플레이트), `assembly.dae`(형상 3개), `profile.igs`,
+`plate.obj`, `profile.dxf`, `bracket.scad`, `scan-points.asc`, `building.ifc`,
+`pocket.nc`, `macro.py` 등을 열어 보면 각 워크벤치가 무엇을 하는지 바로
+확인할 수 있습니다. 대부분은 구멍·리브·이(teeth) 같은 요소가 들어 있는 닫힌
+솔리드이므로 메쉬 검사나 내보내기 왕복 검증에도 그대로 쓸 수 있습니다.
 설치본에도 함께 들어 있습니다.
 
 ---

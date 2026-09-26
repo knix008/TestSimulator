@@ -42,7 +42,7 @@
         "name": "Post",
         "kind": "cylinder",
         "position": {
-          "x": 0,
+          "x": -40,
           "y": 42,
           "z": 0
         },
@@ -71,11 +71,139 @@
       },
       {
         "id": "sol-3",
+        "name": "Post-2",
+        "kind": "cylinder",
+        "position": {
+          "x": 40,
+          "y": 42,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 20,
+          "y": 60,
+          "z": 20,
+          "radius": 10,
+          "tube": 6
+        },
+        "color": "#d6dee6",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-4",
+        "name": "Bearing block",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 87,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 40,
+          "y": 30,
+          "z": 40,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-5",
+        "name": "Shaft",
+        "kind": "cylinder",
+        "position": {
+          "x": 0,
+          "y": 87,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 90
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 16,
+          "y": 140,
+          "z": 16,
+          "radius": 8,
+          "tube": 6
+        },
+        "color": "#c0c6cc",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-6",
+        "name": "Pulley",
+        "kind": "torus",
+        "position": {
+          "x": 62,
+          "y": 87,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 90
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 60,
+          "y": 60,
+          "z": 60,
+          "radius": 26,
+          "tube": 8
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-7",
         "name": "Cap",
         "kind": "sphere",
         "position": {
           "x": 0,
-          "y": 78,
+          "y": 110,
           "z": 0
         },
         "rotation": {
@@ -100,6 +228,134 @@
         "roughness": 0.45,
         "visible": true,
         "locked": false
+      },
+      {
+        "id": "sol-8",
+        "name": "Bolt",
+        "kind": "cylinder",
+        "position": {
+          "x": -48,
+          "y": 12,
+          "z": 28
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 24,
+          "z": 10,
+          "radius": 5,
+          "tube": 6
+        },
+        "color": "#6f7b87",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-9",
+        "name": "Bolt-2",
+        "kind": "cylinder",
+        "position": {
+          "x": 48,
+          "y": 12,
+          "z": 28
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 24,
+          "z": 10,
+          "radius": 5,
+          "tube": 6
+        },
+        "color": "#6f7b87",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-10",
+        "name": "Bolt-3",
+        "kind": "cylinder",
+        "position": {
+          "x": -48,
+          "y": 12,
+          "z": -28
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 24,
+          "z": 10,
+          "radius": 5,
+          "tube": 6
+        },
+        "color": "#6f7b87",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-11",
+        "name": "Bolt-4",
+        "kind": "cylinder",
+        "position": {
+          "x": 48,
+          "y": 12,
+          "z": -28
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 24,
+          "z": 10,
+          "radius": 5,
+          "tube": 6
+        },
+        "color": "#6f7b87",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
       }
     ],
     "sketches": [],
@@ -111,11 +367,53 @@
         "solidIds": [
           "sol-1",
           "sol-2",
-          "sol-3"
+          "sol-3",
+          "sol-4"
         ],
         "length": 0,
         "angle": 0,
-        "count": 3,
+        "count": 4,
+        "radius": 0
+      },
+      {
+        "id": "feat-2",
+        "name": "Shaft",
+        "kind": "shaft",
+        "solidIds": [
+          "sol-5"
+        ],
+        "length": 140,
+        "angle": 0,
+        "count": 1,
+        "radius": 8
+      },
+      {
+        "id": "feat-3",
+        "name": "Bolt pattern",
+        "kind": "rectPattern",
+        "solidIds": [
+          "sol-8",
+          "sol-9",
+          "sol-10",
+          "sol-11"
+        ],
+        "length": 96,
+        "angle": 0,
+        "count": 4,
+        "radius": 0
+      },
+      {
+        "id": "feat-4",
+        "name": "Mates",
+        "kind": "mate",
+        "solidIds": [
+          "sol-4",
+          "sol-5",
+          "sol-6"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 6,
         "radius": 0
       }
     ],
@@ -129,6 +427,21 @@
         "name": "CapRadius",
         "value": 12,
         "formula": "PostHeight / 5"
+      },
+      {
+        "name": "ShaftLength",
+        "value": 140,
+        "formula": ""
+      },
+      {
+        "name": "PulleyRadius",
+        "value": 26,
+        "formula": "ShaftLength / 5 - 2"
+      },
+      {
+        "name": "BoltCount",
+        "value": 4,
+        "formula": ""
       }
     ],
     "mates": [
@@ -145,6 +458,34 @@
         "a": "Post",
         "b": "Cap",
         "value": 36
+      },
+      {
+        "id": "mate-3",
+        "kind": "fix",
+        "a": "Bearing block",
+        "b": "Shaft",
+        "value": 0
+      },
+      {
+        "id": "mate-4",
+        "kind": "angle",
+        "a": "Shaft",
+        "b": "Pulley",
+        "value": 90
+      },
+      {
+        "id": "mate-5",
+        "kind": "offset",
+        "a": "Post",
+        "b": "Post-2",
+        "value": 80
+      },
+      {
+        "id": "mate-6",
+        "kind": "offset",
+        "a": "Base",
+        "b": "Bearing block",
+        "value": 75
       }
     ],
     "section": false,

@@ -7,7 +7,7 @@ import { commandHelp, lightKindKey } from '../core/labels'
 import { menuIcon, translate } from '../core/i18n'
 import { pageSizeMm, pageToSvg, type PrintPage, type PrintScope, type PageSetup } from '../core/print'
 import { EXPORT_FORMATS, exportFileName, type ExportFormat } from '../core/exporters'
-import { LIGHT_KINDS, type Settings, type ThemeId, type FontStyleName, type Lang, type LightKind } from '../core/settings'
+import { LIGHT_KINDS, defaultLight, type Settings, type ThemeId, type FontStyleName, type Lang, type LightKind } from '../core/settings'
 import { NAVIGATION_STYLES, type NavigationStyle } from '../core/viewnav'
 import { UNIT_SCHEMAS, type UnitSchema } from '../core/units'
 import { DRAW_STYLES, type ShadeMode } from '../core/model'
@@ -731,6 +731,17 @@ export function SettingsDialog({
                 <div className="row"><span>{settings.language === 'ko' ? '세기' : 'Intensity'}</span>
                   <NumberField id="light-intensity-field" label="intensity" value={settings.light.intensity} min={0} max={3} step={0.05} onChange={(value) => onChange({ light: { ...settings.light, intensity: value } })} />
                 </div>
+                <label className="row"><span>{t('lightReset')}</span>
+                  <button
+                    type="button"
+                    data-testid="light-reset-field"
+                    title={t('lightReset')}
+                    onClick={() => {
+                      const home = defaultLight()
+                      onChange({ light: { ...settings.light, azimuth: home.azimuth, elevation: home.elevation } })
+                    }}
+                  >{`${menuIcon('lightReset')} ${settings.language === 'ko' ? '기본 위치' : 'Home'}`}</button>
+                </label>
                 <div className="row"><span>{settings.language === 'ko' ? '환경광' : 'Ambient'}</span>
                   <NumberField id="light-ambient-field" label="ambient" value={settings.light.ambient} min={0} max={2} step={0.05} onChange={(value) => onChange({ light: { ...settings.light, ambient: value } })} />
                 </div>

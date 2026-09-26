@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { THEMES, allThemes, resolveTheme, themesByMode, type Theme, type ThemeMode } from '../core/themes'
-import { LIGHT_KINDS, type Lang, type LightKind, type LightRig } from '../core/settings'
+import { LIGHT_KINDS, defaultLight, type Lang, type LightKind, type LightRig } from '../core/settings'
 import { menuIcon, translate } from '../core/i18n'
+import { LightBulb } from './Flags'
 import { lightKindKey } from '../core/labels'
 
 /** Small palette preview: background, panel, accent and text of a theme. */
@@ -230,7 +231,7 @@ export function LightPicker({
         title={`${label}: ${light.enabled ? 'on' : 'off'} · ${lightKindName(language, light.kind)} · ${Math.round(light.azimuth)}° / ${Math.round(light.elevation)}°`}
         onClick={() => onChange({ enabled: !light.enabled })}
       >
-        <span className="menu-icon">{light.enabled ? menuIcon(lightKindKey(light.kind)) : '☾'}</span>
+        <span className="menu-icon light-mark">{light.enabled ? <LightBulb on /> : '☾'}</span>
       </button>
       <button
         type="button"
@@ -333,6 +334,22 @@ export function LightPicker({
             />
             <b>{light.ambient.toFixed(2)}</b>
           </label>
+          <div className="row light-reset-row">
+            <span>{translate(language, 'lightReset')}</span>
+            <button
+              type="button"
+              className="light-reset"
+              data-testid="light-reset"
+              title={translate(language, 'lightReset')}
+              onClick={() => {
+                const home = defaultLight()
+                onChange({ azimuth: home.azimuth, elevation: home.elevation })
+              }}
+            >
+              <span className="menu-icon">{menuIcon('lightReset')}</span>
+              <span>{language === 'ko' ? '기본 위치' : 'Home'}</span>
+            </button>
+          </div>
           <div className="row light-presets">
             {LIGHT_PRESETS.map((preset) => (
               <button

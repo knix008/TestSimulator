@@ -314,6 +314,7 @@ export const COMMAND_LABELS: Record<string, CommandLabel> = {
   lightRig: { ko: '조명', en: 'Light', icon: '≴' },
   lightKind: { ko: '광원 종류', en: 'Light source', icon: '💡' },
   lightColor: { ko: '광원 색', en: 'Light colour', icon: '≳' },
+  lightReset: { ko: '광원 위치 초기화', en: 'Reset light position', icon: '⥁' },
   lightDirectional: { ko: '평행광', en: 'Directional', icon: '⟹' },
   lightPoint: { ko: '점광원', en: 'Point', icon: '⚬' },
   lightSpot: { ko: '스포트라이트', en: 'Spot', icon: '🔦' },

@@ -85,6 +85,150 @@ function boxTriangles(w, h, d, offset = [0, 0, 0]) {
   ]
 }
 
+/** Ring of triangles between two rings of points (a tube wall or a rim). */
+function skirt(lower, upper) {
+  const out = []
+  for (let i = 0; i < lower.length; i++) {
+    const j = (i + 1) % lower.length
+    out.push([lower[i], lower[j], upper[j]], [lower[i], upper[j], upper[i]])
+  }
+  return out
+}
+
+function ring(radius, y, segments, centre = [0, 0]) {
+  return Array.from({ length: segments }, (unused, i) => {
+    const angle = (Math.PI * 2 * i) / segments
+    return [centre[0] + Math.cos(angle) * radius, y, centre[1] + Math.sin(angle) * radius]
+  })
+}
+
+/** Solid cylinder: wall plus a fan for each cap. */
+function cylinderTriangles(radius, height, y = 0, segments = 24, centre = [0, 0]) {
+  const bottom = ring(radius, y, segments, centre)
+  const top = ring(radius, y + height, segments, centre)
+  const out = skirt(bottom, top)
+  const bottomCentre = [centre[0], y, centre[1]]
+  const topCentre = [centre[0], y + height, centre[1]]
+  for (let i = 0; i < segments; i++) {
+    const j = (i + 1) % segments
+    out.push([bottomCentre, bottom[j], bottom[i]], [topCentre, top[i], top[j]])
+  }
+  return out
+}
+
+/** Triangles filling the band between two closed loops of the same length. */
+function ringFace(inner, outer) {
+  const out = []
+  for (let i = 0; i < inner.length; i++) {
+    const j = (i + 1) % inner.length
+    out.push([inner[i], outer[i], outer[j]], [inner[i], outer[j], inner[j]])
+  }
+  return out
+}
+
+/** Points along a rectangle's outline, evenly spaced, starting bottom left. */
+function rectangleLoop(width, depth, y, segments) {
+  const x0 = -width / 2, x1 = width / 2
+  const z0 = -depth / 2, z1 = depth / 2
+  return Array.from({ length: segments }, (unused, i) => {
+    const u = (i / segments) * 4
+    if (u < 1) return [x0 + (x1 - x0) * u, y, z0]
+    if (u < 2) return [x1, y, z0 + (z1 - z0) * (u - 1)]
+    if (u < 3) return [x1 - (x1 - x0) * (u - 2), y, z1]
+    return [x0, y, z1 - (z1 - z0) * (u - 3)]
+  })
+}
+
+/**
+ * Plate with a round hole through the middle: outer wall, hole wall and two
+ * faces filled as a band between the outline and the hole. Closed, so its
+ * volume is exactly (width * depth - hole area) * thickness.
+ */
+function plateWithHole(width, depth, thickness, radius, segments = 48) {
+  const outerBottom = rectangleLoop(width, depth, 0, segments)
+  const outerTop = rectangleLoop(width, depth, thickness, segments)
+  const holeBottom = ring(radius, 0, segments)
+  const holeTop = ring(radius, thickness, segments)
+  return [
+    ...skirt(outerBottom, outerTop),
+    ...skirt(holeTop, holeBottom),
+    ...ringFace(holeBottom, outerBottom).map(([a, b, c]) => [a, c, b]),
+    ...ringFace(holeTop, outerTop)
+  ]
+}
+
+/** Spur gear: toothed rim, centre bore, and faces filled between the two. */
+function gearTriangles(teeth, rootRadius, tipRadius, thickness, bore = 8) {
+  const profile = []
+  for (let i = 0; i < teeth; i++) {
+    const step = (Math.PI * 2) / teeth
+    const base = i * step
+    for (const [fraction, radius] of [[0, rootRadius], [0.22, tipRadius], [0.5, tipRadius], [0.72, rootRadius]]) {
+      const angle = base + step * fraction
+      profile.push([Math.cos(angle) * radius, 0, Math.sin(angle) * radius])
+    }
+  }
+  const lift = (points, y) => points.map(([x, unused, z]) => [x, y, z])
+  const profileTop = lift(profile, thickness)
+  const boreBottom = ring(bore, 0, profile.length)
+  const boreTop = ring(bore, thickness, profile.length)
+  return [
+    ...skirt(profile, profileTop),
+    ...skirt(boreTop, boreBottom),
+    ...ringFace(boreBottom, profile).map(([a, b, c]) => [a, c, b]),
+    ...ringFace(boreTop, profileTop)
+  ]
+}
+
+/** Triangles of a cap: the loop closed onto its centre point. */
+function fanFace(loop, centre, upward) {
+  return loop.map((point, i) => {
+    const next = loop[(i + 1) % loop.length]
+    return upward ? [centre, point, next] : [centre, next, point]
+  })
+}
+
+/**
+ * Ziggurat: a stepped pyramid of square tiers, walls and steps all filled, so
+ * it stays a closed solid however many tiers it has.
+ */
+function steppedPyramidTriangles(base, tiers, tierHeight) {
+  const widths = Array.from({ length: tiers + 1 }, (unused, i) => base * (1 - i / (tiers + 1)))
+  const loopAt = (width, y) => rectangleLoop(width, width, y, 4)
+  const out = [...fanFace(loopAt(widths[0], 0), [0, 0, 0], false)]
+  let y = 0
+  for (let i = 0; i < tiers; i++) {
+    const lower = loopAt(widths[i], y)
+    const upper = loopAt(widths[i], y + tierHeight)
+    out.push(...skirt(lower, upper))
+    // The step back to the next, narrower tier.
+    out.push(...ringFace(loopAt(widths[i + 1], y + tierHeight), upper))
+    y += tierHeight
+  }
+  out.push(...fanFace(loopAt(widths[tiers], y), [0, y, 0], true))
+  return out
+}
+
+/** Unit normal of a triangle, for formats that carry them. */
+function normalOf([a, b, c]) {
+  const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]
+  const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]
+  const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+  const length = Math.hypot(...n) || 1
+  return n.map((value) => value / length)
+}
+
+/** L-bracket with a rib and mounting holes: several features in one mesh. */
+function bracketTriangles() {
+  return [
+    ...boxTriangles(70, 10, 50, [0, 0, 0]),
+    ...boxTriangles(10, 55, 50, [-30, 10, 0]),
+    ...boxTriangles(6, 34, 26, [-20, 10, 0]),
+    ...cylinderTriangles(5, 12, 10, 16, [18, -14]),
+    ...cylinderTriangles(5, 12, 10, 16, [18, 14])
+  ]
+}
+
 function pyramidTriangles(base, height) {
   const h = base / 2
   const corners = [[-h, 0, -h], [h, 0, -h], [h, 0, h], [-h, 0, h]]
@@ -153,6 +297,9 @@ function rectangleWire(id, name, width, height, y = 0) {
   }
 }
 
+// A five-tier ziggurat rather than a bare pyramid: steps, walls and two caps.
+const ziggurat = steppedPyramidTriangles(60, 5, 9)
+
 /* ───────────────────────────── .mycad documents ─────────────────────────── */
 
 write('box.mycad', document('box', {
@@ -172,52 +319,133 @@ write('primitives.mycad', document('primitives', {
 }))
 
 write('sketch-pad.mycad', document('sketch-pad', {
-  solids: [meshSolid('sol-1', 'pad-sketch-1', boxTriangles(40, 12, 30), '#4cc2ff')],
-  sketches: [sketch('sketch-1', 'rect', 40, 30)],
+  solids: [
+    meshSolid('sol-1', 'pad-sketch-1', plateWithHole(80, 50, 12, 9, 24), '#4cc2ff'),
+    meshSolid('sol-2', 'pad-sketch-2', cylinderTriangles(14, 26, 12, 24, [24, 0]), '#7dcea0'),
+    meshSolid('sol-3', 'pocket-sketch-3', boxTriangles(24, 6, 18, [-22, 9, 0]), '#f0a35e')
+  ],
+  sketches: [
+    sketch('sketch-1', 'rect', 80, 50),
+    sketch('sketch-2', 'circle', 28, 28, 6, 'xz'),
+    sketch('sketch-3', 'polygon', 24, 18, 6),
+    sketch('sketch-4', 'rect', 30, 12, 4, 'yz')
+  ],
   features: [
     feature('feat-1', 'Sketch', 'sketch', [], { length: 0.4 }),
-    feature('feat-2', 'Pad', 'pad', ['sol-1'], { length: 12 })
+    feature('feat-2', 'Pad', 'pad', ['sol-1'], { length: 12 }),
+    feature('feat-3', 'Boss', 'pad', ['sol-2'], { length: 26 }),
+    feature('feat-4', 'Pocket', 'pocket', ['sol-3'], { length: 6 }),
+    feature('feat-5', 'Hole', 'hole', ['sol-1'], { radius: 9 }),
+    feature('feat-6', 'Fillet', 'fillet', ['sol-1'], { radius: 3 })
   ],
   parameters: [
-    { name: 'Width', value: 40, formula: '' },
-    { name: 'Height', value: 30, formula: '' },
-    { name: 'PadLength', value: 12, formula: 'Width / 4 + 2' }
+    { name: 'Length', value: 80, formula: '' },
+    { name: 'Width', value: 40, formula: 'Length / 2' },
+    { name: 'Height', value: 50, formula: '' },
+    { name: 'PadLength', value: 12, formula: 'Width / 4 + 2' },
+    { name: 'BossRadius', value: 14, formula: 'Height / 4 + 1.5' },
+    { name: 'HoleRadius', value: 9, formula: 'BossRadius - 5' },
+    { name: 'FilletRadius', value: 3, formula: 'HoleRadius / 3' }
   ]
 }))
 
+// A bearing stand: plate, posts, bearing block, shaft, pulley and fasteners,
+// so the assembly commands have a real tree and several mates to work through.
 write('assembly.mycad', document('assembly', {
   solids: [
     solid({ id: 'sol-1', name: 'Base', size: { x: 120, y: 12, z: 80, radius: 20, tube: 6 }, position: { x: 0, y: 6, z: 0 }, color: '#9aa7b4' }),
-    solid({ id: 'sol-2', name: 'Post', kind: 'cylinder', size: { x: 20, y: 60, z: 20, radius: 10, tube: 6 }, position: { x: 0, y: 42, z: 0 }, color: '#d6dee6' }),
-    solid({ id: 'sol-3', name: 'Cap', kind: 'sphere', size: { x: 24, y: 24, z: 24, radius: 12, tube: 6 }, position: { x: 0, y: 78, z: 0 }, color: '#f0a35e' })
+    solid({ id: 'sol-2', name: 'Post', kind: 'cylinder', size: { x: 20, y: 60, z: 20, radius: 10, tube: 6 }, position: { x: -40, y: 42, z: 0 }, color: '#d6dee6' }),
+    solid({ id: 'sol-3', name: 'Post-2', kind: 'cylinder', size: { x: 20, y: 60, z: 20, radius: 10, tube: 6 }, position: { x: 40, y: 42, z: 0 }, color: '#d6dee6' }),
+    solid({ id: 'sol-4', name: 'Bearing block', size: { x: 40, y: 30, z: 40, radius: 20, tube: 6 }, position: { x: 0, y: 87, z: 0 }, color: '#8fb8ff' }),
+    solid({ id: 'sol-5', name: 'Shaft', kind: 'cylinder', size: { x: 16, y: 140, z: 16, radius: 8, tube: 6 }, position: { x: 0, y: 87, z: 0 }, rotation: { x: 0, y: 0, z: 90 }, color: '#c0c6cc' }),
+    solid({ id: 'sol-6', name: 'Pulley', kind: 'torus', size: { x: 60, y: 60, z: 60, radius: 26, tube: 8 }, position: { x: 62, y: 87, z: 0 }, rotation: { x: 0, y: 0, z: 90 }, color: '#f5d76e' }),
+    solid({ id: 'sol-7', name: 'Cap', kind: 'sphere', size: { x: 24, y: 24, z: 24, radius: 12, tube: 6 }, position: { x: 0, y: 110, z: 0 }, color: '#f0a35e' }),
+    solid({ id: 'sol-8', name: 'Bolt', kind: 'cylinder', size: { x: 10, y: 24, z: 10, radius: 5, tube: 6 }, position: { x: -48, y: 12, z: 28 }, color: '#6f7b87' }),
+    solid({ id: 'sol-9', name: 'Bolt-2', kind: 'cylinder', size: { x: 10, y: 24, z: 10, radius: 5, tube: 6 }, position: { x: 48, y: 12, z: 28 }, color: '#6f7b87' }),
+    solid({ id: 'sol-10', name: 'Bolt-3', kind: 'cylinder', size: { x: 10, y: 24, z: 10, radius: 5, tube: 6 }, position: { x: -48, y: 12, z: -28 }, color: '#6f7b87' }),
+    solid({ id: 'sol-11', name: 'Bolt-4', kind: 'cylinder', size: { x: 10, y: 24, z: 10, radius: 5, tube: 6 }, position: { x: 48, y: 12, z: -28 }, color: '#6f7b87' })
   ],
   mates: [
     { id: 'mate-1', kind: 'coincidence', a: 'Base', b: 'Post', value: 0 },
-    { id: 'mate-2', kind: 'offset', a: 'Post', b: 'Cap', value: 36 }
+    { id: 'mate-2', kind: 'offset', a: 'Post', b: 'Cap', value: 36 },
+    { id: 'mate-3', kind: 'fix', a: 'Bearing block', b: 'Shaft', value: 0 },
+    { id: 'mate-4', kind: 'angle', a: 'Shaft', b: 'Pulley', value: 90 },
+    { id: 'mate-5', kind: 'offset', a: 'Post', b: 'Post-2', value: 80 },
+    { id: 'mate-6', kind: 'offset', a: 'Base', b: 'Bearing block', value: 75 }
   ],
   parameters: [
     { name: 'PostHeight', value: 60, formula: '' },
-    { name: 'CapRadius', value: 12, formula: 'PostHeight / 5' }
-  ],
-  features: [feature('feat-1', 'Assembly', 'assembly', ['sol-1', 'sol-2', 'sol-3'], { count: 3 })]
-}))
-
-write('patterns.mycad', document('patterns', {
-  solids: [
-    solid({ id: 'sol-1', name: 'Tooth', size: { x: 12, y: 24, z: 12, radius: 6, tube: 2 }, position: { x: 0, y: 12, z: 0 } }),
-    solid({ id: 'sol-2', name: 'Tooth-2', size: { x: 12, y: 24, z: 12, radius: 6, tube: 2 }, position: { x: 30, y: 12, z: 0 } }),
-    solid({ id: 'sol-3', name: 'Tooth-3', size: { x: 12, y: 24, z: 12, radius: 6, tube: 2 }, position: { x: 60, y: 12, z: 0 } }),
-    solid({ id: 'sol-4', name: 'Tooth-p2', size: { x: 12, y: 24, z: 12, radius: 6, tube: 2 }, position: { x: 0, y: 12, z: 40 }, rotation: { x: 0, y: 90, z: 0 } })
+    { name: 'CapRadius', value: 12, formula: 'PostHeight / 5' },
+    { name: 'ShaftLength', value: 140, formula: '' },
+    { name: 'PulleyRadius', value: 26, formula: 'ShaftLength / 5 - 2' },
+    { name: 'BoltCount', value: 4, formula: '' }
   ],
   features: [
-    feature('feat-1', 'linearArray', 'pattern', ['sol-2', 'sol-3'], { count: 3, length: 30 }),
-    feature('feat-2', 'polarArray', 'pattern', ['sol-4'], { count: 4, radius: 40 })
+    feature('feat-1', 'Assembly', 'assembly', ['sol-1', 'sol-2', 'sol-3', 'sol-4'], { count: 4 }),
+    feature('feat-2', 'Shaft', 'shaft', ['sol-5'], { length: 140, radius: 8 }),
+    feature('feat-3', 'Bolt pattern', 'rectPattern', ['sol-8', 'sol-9', 'sol-10', 'sol-11'], { count: 4, length: 96 }),
+    feature('feat-4', 'Mates', 'mate', ['sol-4', 'sol-5', 'sol-6'], { count: 6 })
+  ]
+}))
+
+// A plate carrying a 4x3 linear grid of teeth and a ring of eight pins, which
+// is what the pattern commands are meant to produce.
+const patternTeeth = []
+for (let row = 0; row < 3; row++) {
+  for (let column = 0; column < 4; column++) {
+    patternTeeth.push(solid({
+      id: `sol-t${row}${column}`,
+      name: row === 0 && column === 0 ? 'Tooth' : `Tooth-${row * 4 + column + 1}`,
+      size: { x: 12, y: 24, z: 12, radius: 6, tube: 2 },
+      position: { x: column * 30, y: 12, z: row * 30 },
+      color: '#8fb8ff'
+    }))
+  }
+}
+const patternPins = Array.from({ length: 8 }, (unused, index) => {
+  const angle = (Math.PI * 2 * index) / 8
+  return solid({
+    id: `sol-p${index}`,
+    name: index === 0 ? 'Pin' : `Pin-${index + 1}`,
+    kind: 'cylinder',
+    size: { x: 10, y: 20, z: 10, radius: 5, tube: 2 },
+    position: { x: 45 + Math.cos(angle) * 60, y: 10, z: 30 + Math.sin(angle) * 60 },
+    rotation: { x: 0, y: (index * 360) / 8, z: 0 },
+    color: '#f5d76e'
+  })
+})
+write('patterns.mycad', document('patterns', {
+  solids: [
+    solid({ id: 'sol-1', name: 'Plate', size: { x: 240, y: 8, z: 200, radius: 20, tube: 6 }, position: { x: 45, y: 4, z: 30 }, color: '#9aa7b4' }),
+    ...patternTeeth,
+    ...patternPins
+  ],
+  features: [
+    feature('feat-1', 'Plate', 'primitive', ['sol-1']),
+    feature('feat-2', 'linearArray', 'pattern', patternTeeth.slice(1, 4).map((item) => item.id), { count: 4, length: 30 }),
+    feature('feat-3', 'rectArray', 'rectPattern', patternTeeth.slice(4).map((item) => item.id), { count: 8, length: 30 }),
+    feature('feat-4', 'polarArray', 'pattern', patternPins.map((item) => item.id), { count: 8, radius: 60 }),
+    feature('feat-5', 'mirror', 'mirror', ['sol-t02', 'sol-t03'], { count: 2 })
+  ],
+  parameters: [
+    { name: 'Pitch', value: 30, formula: '' },
+    { name: 'Rows', value: 3, formula: '' },
+    { name: 'Columns', value: 4, formula: '' },
+    { name: 'PinCount', value: 8, formula: 'Rows + Columns + 1' }
   ]
 }))
 
 write('mesh-pyramid.mycad', document('mesh-pyramid', {
-  solids: [meshSolid('sol-1', 'Pyramid', pyramidTriangles(60, 45), '#f1948a')],
-  features: [feature('feat-1', 'Pyramid', 'primitive', ['sol-1'])]
+  solids: [
+    meshSolid('sol-1', 'Stepped pyramid', ziggurat, '#f1948a'),
+    { ...meshSolid('sol-2', 'Gear', gearTriangles(14, 22, 30, 8, 6), '#7dcea0'), position: { x: 100, y: 0, z: 0 } },
+    { ...meshSolid('sol-3', 'Holed plate', plateWithHole(70, 45, 6, 8, 24), '#8fb8ff'), position: { x: -100, y: 0, z: 0 } }
+  ],
+  features: [
+    feature('feat-1', 'Stepped pyramid', 'primitive', ['sol-1']),
+    feature('feat-2', 'Gear', 'meshOp', ['sol-2'], { count: 14 }),
+    feature('feat-3', 'Holed plate', 'meshOp', ['sol-3'], { radius: 8 })
+  ]
 }))
 
 write('bim-house.mycad', document('bim-house', {
@@ -367,72 +595,154 @@ write('kinematics-crank.mycad', document('kinematics-crank', {
 write('cube.stl', asciiStl('cube', boxTriangles(40, 40, 40, [0, 0, 0])))
 
 // ── neutral CAD interchange formats ──────────────────────────────────────
-const cubeTriangles = boxTriangles(40, 40, 40, [0, 0, 0]).flatMap((triangle) => triangle.flat())
 // A fixed stamp keeps the generated samples byte-identical between runs.
 const SAMPLE_STAMP = new Date('2026-01-01T00:00:00.000Z')
+const flatten = (triangles) => triangles.flatMap((triangle) => triangle.flat())
+
+// The cube stays as the smallest possible smoke test; the rest carry parts
+// with holes, ribs and teeth, so importers meet real geometry.
+const cubeTriangles = flatten(boxTriangles(40, 40, 40, [0, 0, 0]))
 write('cube.step', toStep([{ name: 'cube', position: { x: 0, y: 0, z: 0 } }], () => cubeTriangles, SAMPLE_STAMP))
-write('plate.ply', toPly(boxTriangles(60, 8, 40, [0, 0, 0]).flatMap((triangle) => triangle.flat()), 'plate'))
-write('wedge.off', toOff(pyramidTriangles(50, 40).flatMap((triangle) => triangle.flat())))
-write('profile.igs', toIges([
+
+const bracketMesh = flatten(bracketTriangles())
+write('bracket.step', toStep([{ name: 'bracket', position: { x: 0, y: 0, z: 0 } }], () => bracketMesh, SAMPLE_STAMP))
+
+const plateMesh = flatten(plateWithHole(90, 60, 8, 12))
+write('plate.ply', toPly(plateMesh, 'mount plate with five holes'))
+
+const gearMesh = flatten(gearTriangles(18, 26, 34, 10, 8))
+write('gear.off', toOff(gearMesh))
+write('gear.stl', asciiStl('gear', gearTriangles(18, 26, 34, 10, 8)))
+write('wedge.off', toOff(flatten(pyramidTriangles(50, 40))))
+const igesWires = [
   {
     id: 'w1',
-    name: 'profile',
+    name: 'outline',
     closed: true,
     points: [
-      { x: 0, y: 0, z: 0 },
-      { x: 60, y: 0, z: 0 },
-      { x: 60, y: 0, z: 40 },
-      { x: 0, y: 0, z: 40 },
-      { x: 0, y: 0, z: 0 }
+      { x: -45, y: 0, z: -30 },
+      { x: 45, y: 0, z: -30 },
+      { x: 45, y: 0, z: 30 },
+      { x: -45, y: 0, z: 30 },
+      { x: -45, y: 0, z: -30 }
     ]
-  }
-], SAMPLE_STAMP))
-write('bracket.dae', [
+  },
+  {
+    id: 'w2',
+    name: 'slot',
+    closed: true,
+    points: [
+      { x: -10, y: 0, z: -8 },
+      { x: 10, y: 0, z: -8 },
+      { x: 10, y: 0, z: 8 },
+      { x: -10, y: 0, z: 8 },
+      { x: -10, y: 0, z: -8 }
+    ]
+  },
+  // Four bolt circles, approximated as 12-segment polygons.
+  ...[[-30, -18], [30, -18], [-30, 18], [30, 18]].map(([cx, cz], index) => ({
+    id: `w-hole-${index}`,
+    name: `hole ${index + 1}`,
+    closed: true,
+    points: Array.from({ length: 13 }, (unused, i) => {
+      const angle = (Math.PI * 2 * i) / 12
+      return { x: cx + Math.cos(angle) * 5, y: 0, z: cz + Math.sin(angle) * 5 }
+    })
+  }))
+]
+write('profile.igs', toIges(igesWires, SAMPLE_STAMP))
+write('assembly.dae', [
   '<?xml version="1.0" encoding="utf-8"?>',
   '<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">',
   '  <asset><up_axis>Y_UP</up_axis></asset>',
   '  <library_geometries>',
-  '    <geometry id="bracket" name="bracket"><mesh>',
-  '      <source id="bracket-positions">',
-  '        <float_array id="bracket-array" count="12">0 0 0  40 0 0  40 0 30  0 0 30</float_array>',
-  '      </source>',
-  '      <vertices id="bracket-vertices"><input semantic="POSITION" source="#bracket-positions"/></vertices>',
-  '      <triangles count="2" material="none">',
-  '        <input semantic="VERTEX" source="#bracket-vertices" offset="0"/>',
-  '        <p>0 1 2 0 2 3</p>',
-  '      </triangles>',
-  '    </mesh></geometry>',
+  // Three parts in one file: a housing, a shaft and a cover plate.
+  ...[
+    ['housing', flatten(boxTriangles(60, 30, 40, [0, 0, 0]))],
+    ['shaft', flatten(cylinderTriangles(6, 70, 8, 16, [0, 0]))],
+    ['cover', flatten(plateWithHole(60, 40, 4, 9, 24))]
+  ].flatMap(([name, mesh]) => {
+    const count = mesh.length / 3
+    return [
+      `    <geometry id="${name}" name="${name}"><mesh>`,
+      `      <source id="${name}-positions">`,
+      `        <float_array id="${name}-array" count="${mesh.length}">${mesh.map((value) => value.toFixed(3)).join(' ')}</float_array>`,
+      '      </source>',
+      `      <vertices id="${name}-vertices"><input semantic="POSITION" source="#${name}-positions"/></vertices>`,
+      `      <triangles count="${count / 3}" material="none">`,
+      `        <input semantic="VERTEX" source="#${name}-vertices" offset="0"/>`,
+      `        <p>${Array.from({ length: count }, (unused, i) => i).join(' ')}</p>`,
+      '      </triangles>',
+      '    </mesh></geometry>'
+    ]
+  }),
   '  </library_geometries>',
   '</COLLADA>'
 ].join('\n'))
-write('pyramid.stl', asciiStl('pyramid', pyramidTriangles(60, 45)))
+write('pyramid.stl', asciiStl('stepped pyramid', ziggurat))
 
-const objTriangles = boxTriangles(30, 30, 30)
-const objLines = ['# MyCAD sample OBJ', 'o Cube']
-const objVertices = []
-for (const triangle of objTriangles) for (const vertex of triangle) objVertices.push(vertex)
-for (const vertex of objVertices) objLines.push(`v ${vertex[0]} ${vertex[1]} ${vertex[2]}`)
-for (let i = 1; i <= objVertices.length; i += 3) objLines.push(`f ${i} ${i + 1} ${i + 2}`)
+// Three named groups, with normals and v//vn faces, so the OBJ reader meets
+// grouping, normal indices and a part that has a hole in it.
+const objParts = [
+  ['Plate', plateWithHole(80, 50, 6, 10, 24)],
+  ['Boss', cylinderTriangles(9, 16, 6, 20, [0, 0])],
+  ['Rib', boxTriangles(6, 20, 40, [-31, 16, 0])]
+]
+const objLines = ['# MyCAD sample OBJ: a holed plate with a boss and a stiffening rib']
+let objVertex = 1
+let objNormal = 1
+for (const [name, triangles] of objParts) {
+  objLines.push(`o ${name}`, `g ${name}`)
+  for (const triangle of triangles) {
+    for (const vertex of triangle) objLines.push(`v ${vertex.map((value) => value.toFixed(3)).join(' ')}`)
+  }
+  for (const triangle of triangles) objLines.push(`vn ${normalOf(triangle).map((value) => value.toFixed(4)).join(' ')}`)
+  triangles.forEach((unused, index) => {
+    const v = objVertex + index * 3
+    const n = objNormal + index
+    objLines.push(`f ${v}//${n} ${v + 1}//${n} ${v + 2}//${n}`)
+  })
+  objVertex += triangles.length * 3
+  objNormal += triangles.length
+}
 write('plate.obj', objLines.join('\n'))
 
 /* ───────────────────────────── 2D drawings ──────────────────────────────── */
 
+// A gasket outline: chamfered outer profile, an inner window, a slot and the
+// bolt circles, so the SVG reader meets polygons, a polyline and many circles.
+const svgBolts = [[-60, -30], [0, -30], [60, -30], [-60, 30], [0, 30], [60, 30]]
 write('profile.svg', [
   '<?xml version="1.0" encoding="UTF-8"?>',
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-200 -200 400 400">',
-  '<polygon points="-40,-15 40,-15 40,15 -40,15" />',
-  '<circle cx="0" cy="0" r="8" />',
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-120 -80 240 160">',
+  '<g id="outline">',
+  '<polygon points="-70,-40 70,-40 80,-30 80,30 70,40 -70,40 -80,30 -80,-30" />',
+  '<polygon points="-45,-20 45,-20 45,20 -45,20" />',
+  '</g>',
+  '<polyline points="-15,-6 15,-6 15,6 -15,6 -15,-6" />',
+  ...svgBolts.map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="5" />`),
   '</svg>'
 ].join('\n'))
 
 const dxf = ['0', 'SECTION', '2', 'ENTITIES']
-const dxfRect = [[-40, -15], [40, -15], [40, 15], [-40, 15]]
-for (let i = 0; i < dxfRect.length; i++) {
-  const [x1, y1] = dxfRect[i]
-  const [x2, y2] = dxfRect[(i + 1) % dxfRect.length]
-  dxf.push('0', 'LINE', '8', 'OUTLINE', '10', String(x1), '20', String(y1), '11', String(x2), '21', String(y2))
+const dxfLoop = (points, layer) => {
+  for (let i = 0; i < points.length; i++) {
+    const [x1, y1] = points[i]
+    const [x2, y2] = points[(i + 1) % points.length]
+    dxf.push('0', 'LINE', '8', layer, '10', String(x1), '20', String(y1), '11', String(x2), '21', String(y2))
+  }
 }
-dxf.push('0', 'CIRCLE', '8', 'HOLES', '10', '0', '20', '0', '40', '8')
+// The same gasket as the SVG: outer profile with chamfers, window and slot.
+dxfLoop([[-70, -40], [70, -40], [80, -30], [80, 30], [70, 40], [-70, 40], [-80, 30], [-80, -30]], 'OUTLINE')
+dxfLoop([[-45, -20], [45, -20], [45, 20], [-45, 20]], 'WINDOW')
+dxfLoop([[-15, -6], [15, -6], [15, 6], [-15, 6]], 'SLOT')
+for (const [cx, cy] of [[-60, -30], [0, -30], [60, -30], [-60, 30], [0, 30], [60, 30]]) {
+  dxf.push('0', 'CIRCLE', '8', 'HOLES', '10', String(cx), '20', String(cy), '40', '5')
+}
+// Centre marks on the middle hole, drawn on their own layer.
+for (const [[x1, y1], [x2, y2]] of [[[-8, 0], [8, 0]], [[0, -8], [0, 8]]]) {
+  dxf.push('0', 'LINE', '8', 'CENTRE', '10', String(x1), '20', String(y1), '11', String(x2), '21', String(y2))
+}
 dxf.push('0', 'ENDSEC', '0', 'EOF')
 write('profile.dxf', dxf.join('\n'))
 
@@ -440,17 +750,25 @@ write('profile.dxf', dxf.join('\n'))
 
 write('bracket.scad', [
   '// MyCAD sample: the subset of OpenSCAD the importer understands.',
-  'union(){',
-  '  cube(30);',
-  '  translate([20,0,0]) sphere(10);',
+  '// A base plate with a boss and a post, with two bores taken back out.',
+  'difference(){',
+  '  union(){',
+  '    cube([80,50,10]);',
+  '    translate([10,10,10]) cylinder(h=24, r=12);',
+  '    translate([55,15,10]) cube([20,20,30]);',
+  '    translate([65,25,40]) sphere(9);',
+  '  }',
+  '  translate([10,10,0]) cylinder(h=40, r=6);',
+  '  translate([65,25,0]) cylinder(h=20, r=5);',
   '}'
 ].join('\n'))
 
+// A denser cloud, still exactly on a tilted plane so the fit stays meaningful.
 const scanLines = ['# x y z scanned points on a tilted plane']
-for (let i = 0; i <= 6; i++) {
-  for (let j = 0; j <= 6; j++) {
-    const x = i * 10
-    const z = j * 10
+for (let i = 0; i <= 12; i++) {
+  for (let j = 0; j <= 12; j++) {
+    const x = i * 5
+    const z = j * 5
     const y = 5 + x * 0.2 + z * 0.1
     scanLines.push(`${x.toFixed(2)} ${y.toFixed(2)} ${z.toFixed(2)}`)
   }
@@ -459,6 +777,43 @@ write('scan-points.asc', scanLines.join('\n'))
 
 // The same cloud in the bare .xyz form, which has no header line.
 write('scan-points.xyz', scanLines.filter((line) => !line.startsWith('#')).join('\n'))
+
+/**
+ * A four-storey building: every storey carries walls, a slab, columns, windows
+ * and a door, and the roof sits on top — enough entities for the IFC importer
+ * and the schedule to have something to count.
+ */
+function ifcBody() {
+  const storeys = ['Basement', 'Level 1', 'Level 2', 'Roof Terrace']
+  const lines = []
+  let id = 10
+  storeys.forEach((name, index) => {
+    lines.push(`#${id++}=IFCBUILDINGSTOREY('0STOREY${String(index).padStart(14, '0')}',$,'${name}',$,$,$,$,$,.ELEMENT.,${index * 3000 - 3000});`)
+  })
+  const material = {
+    IFCWALLSTANDARDCASE: 'Concrete', IFCSLAB: 'Concrete', IFCCOLUMN: 'Steel',
+    IFCBEAM: 'Steel', IFCWINDOW: 'Aluminium', IFCDOOR: 'Oak', IFCROOF: 'Timber',
+    IFCSTAIR: 'Concrete', IFCRAILING: 'Steel'
+  }
+  const place = (type, name, storey) => {
+    lines.push(`#${id++}=${type}('${`${name}-${storey}`.padEnd(22, '0').slice(0, 22)}',$,'${name}','${type} ${storeys[storey]}',$,$,$,$,$);`)
+    lines.push(`#${id++}=IFCPROPERTYSINGLEVALUE('Material',$,IFCLABEL('${material[type]}'),$);`)
+  }
+  storeys.forEach((unused, storey) => {
+    place('IFCSLAB', 'Slab', storey)
+    for (let i = 0; i < 4; i++) place('IFCWALLSTANDARDCASE', 'Wall', storey)
+    for (let i = 0; i < 2; i++) place('IFCCOLUMN', 'Column', storey)
+    place('IFCBEAM', 'Beam', storey)
+    if (storey > 0) {
+      place('IFCWINDOW', 'Window', storey)
+      place('IFCSTAIR', 'Stair', storey)
+    }
+    if (storey === 1) place('IFCDOOR', 'Door', storey)
+  })
+  place('IFCROOF', 'Roof', storeys.length - 1)
+  place('IFCRAILING', 'Railing', storeys.length - 1)
+  return lines
+}
 
 write('building.ifc', [
   'ISO-10303-21;',
@@ -471,40 +826,64 @@ write('building.ifc', [
   "#1=IFCPROJECT('0PROJECT0000000000000',$,'MyCAD sample',$,$,$,$,$,$);",
   "#2=IFCSITE('0SITE00000000000000000',$,'Site',$,$,$,$,$,.ELEMENT.,$,$,$,$,$);",
   "#3=IFCBUILDING('0BUILDING00000000000',$,'Building',$,$,$,$,$,.ELEMENT.,$,$,$);",
-  "#10=IFCBUILDINGSTOREY('0STOREY00000000000000',$,'Level 1',$,$,$,$,$,.ELEMENT.,0);",
-  "#11=IFCBUILDINGSTOREY('0STOREY00000000000001',$,'Level 2',$,$,$,$,$,.ELEMENT.,3000);",
-  "#20=IFCWALLSTANDARDCASE('wall-1000000000000000',$,'Wall','wall Level 1',$,$,$,$,$);",
-  "#21=IFCPROPERTYSINGLEVALUE('Material',$,IFCLABEL('Concrete'),$);",
-  "#22=IFCSLAB('slab-1000000000000000',$,'Slab','slab Level 1',$,$,$,$,$);",
-  "#23=IFCPROPERTYSINGLEVALUE('Material',$,IFCLABEL('Concrete'),$);",
-  "#24=IFCWINDOW('window-10000000000000',$,'Window','window Level 1',$,$,$,$,$);",
-  "#25=IFCPROPERTYSINGLEVALUE('Material',$,IFCLABEL('Aluminium'),$);",
+  ...ifcBody(),
   'ENDSEC;',
   'END-ISO-10303-21;'
 ].join('\n'))
 
 /* ───────────────────────────── CAM and tables ───────────────────────────── */
 
-const gcode = ['( MYCAD SAMPLE - pocket )', 'G21', 'G90', 'G17', 'G94', 'T1 M6', 'S12000 M3']
-for (let pass = 1; pass <= 3; pass++) {
-  const z = (-pass).toFixed(3)
-  gcode.push('G0 X-17.000 Y-7.000 Z5.000')
-  gcode.push(`G1 X-17.000 Y-7.000 Z${z} F200`)
-  gcode.push(`G1 X17.000 Y-7.000 Z${z} F600`)
-  gcode.push(`G1 X17.000 Y7.000 Z${z} F600`)
-  gcode.push(`G1 X-17.000 Y7.000 Z${z} F600`)
-  gcode.push(`G1 X-17.000 Y-7.000 Z${z} F600`)
+// Roughing pocket: four depth passes, each one spiralling inwards, then the
+// bolt holes drilled with a peck cycle and a finishing tool.
+const gcode = ['( MYCAD SAMPLE - pocket and drill )', 'G21', 'G90', 'G17', 'G94', 'G40 G49 G80', 'T1 M6', '( 12 MM ROUGHER )', 'S12000 M3', 'M8']
+for (let pass = 1; pass <= 4; pass++) {
+  const z = (-pass * 1.5).toFixed(3)
+  gcode.push(`( PASS ${pass} )`)
+  gcode.push('G0 X-30.000 Y-15.000 Z5.000')
+  gcode.push(`G1 Z${z} F200`)
+  for (const [inset, feed] of [[0, 600], [6, 600], [12, 500]]) {
+    const x = (30 - inset).toFixed(3)
+    const y = (15 - inset).toFixed(3)
+    gcode.push(`G1 X${x} Y-${y} F${feed}`)
+    gcode.push(`G1 X${x} Y${y}`)
+    gcode.push(`G1 X-${x} Y${y}`)
+    gcode.push(`G1 X-${x} Y-${y}`)
+  }
+  gcode.push('G0 Z5.000')
 }
-gcode.push('M5', 'M30')
+gcode.push('M9', 'M5', 'T2 M6', '( 5 MM DRILL )', 'S3000 M3', 'G43 H2')
+for (const [x, y] of [[-24, -10], [24, -10], [24, 10], [-24, 10]]) {
+  gcode.push(`G0 X${x.toFixed(3)} Y${y.toFixed(3)}`)
+  gcode.push('G83 Z-8.000 R2.000 Q2.000 F120')
+}
+gcode.push('G80', 'G0 Z25.000', 'G28 G91 Z0', 'G90', 'M5', 'M30')
 write('pocket.nc', gcode.join('\n'))
-// Same toolpath under the other G-code extension the app accepts.
-write('profile.gcode', gcode.join('\n'))
+
+// A different program under the other extension: contouring with arcs.
+const contour = ['( MYCAD SAMPLE - contour )', 'G21', 'G90', 'G17', 'T3 M6', '( 8 MM FINISHER )', 'S9000 M3', 'M8']
+for (let pass = 1; pass <= 3; pass++) {
+  const z = (-pass * 2).toFixed(3)
+  contour.push(`( CONTOUR PASS ${pass} )`, 'G0 X-40.000 Y-25.000 Z2.000', `G1 Z${z} F180`)
+  contour.push('G1 X32.000 Y-25.000 F700')
+  contour.push('G3 X40.000 Y-17.000 I0.000 J8.000')
+  contour.push('G1 X40.000 Y17.000')
+  contour.push('G3 X32.000 Y25.000 I-8.000 J0.000')
+  contour.push('G1 X-32.000 Y25.000')
+  contour.push('G3 X-40.000 Y17.000 I0.000 J-8.000')
+  contour.push('G1 X-40.000 Y-17.000')
+  contour.push('G3 X-32.000 Y-25.000 I8.000 J0.000')
+  contour.push('G0 Z10.000')
+}
+contour.push('M9', 'M5', 'M30')
+write('profile.gcode', contour.join('\n'))
 
 write('parameters.csv', [
-  'Width,Height,Thickness,Area',
-  '40,25,2,1000',
-  '80,50,4,4000',
-  '120,75,6,9000'
+  'Width,Height,Thickness,Area,Mass',
+  '40,25,2,1000,0.0157',
+  '80,50,4,4000,0.1256',
+  '120,75,6,9000,0.4239',
+  '160,100,8,16000,1.0048',
+  '200,125,10,25000,1.9625'
 ].join('\n'))
 
 write('design-table.csv', [
@@ -512,14 +891,22 @@ write('design-table.csv', [
   'Width,Height,Thickness',
   '40,25,2',
   '80,50,4',
-  '120,75,6'
+  '120,75,6',
+  '160,100,8',
+  '200,125,10',
+  '240,150,12'
 ].join('\n'))
 
 write('spreadsheet.csv', [
   'Width,80',
   'Depth,50',
   'Area,=B1*B2',
-  'Total,=sum(B1:B3)'
+  'Total,=sum(B1:B3)',
+  'Thickness,6',
+  'Volume,=B3*B5',
+  'Density,0.00000785',
+  'Mass,=B6*B7',
+  'Cost,=B8*4200'
 ].join('\n'))
 
 write('macro.mycadmacro', [
@@ -590,10 +977,10 @@ write('hex-nuts.mycadaddon', addonManifest)
 const DESCRIPTIONS = {
   'box.mycad': '기본 박스 한 개 (파일 열기/저장 확인)',
   'primitives.mycad': '박스·구·원기둥·원뿔·토러스·평면 6종',
-  'sketch-pad.mycad': '스케치 + 패드 피처 + 파라미터 수식',
-  'assembly.mycad': '3개 부품 + 구속(mate) + 파라미터 (어셈블리/BOM/관성)',
-  'patterns.mycad': '선형/원형 패턴 결과',
-  'mesh-pyramid.mycad': '메쉬 솔리드 (메쉬 평가·감축·세분 테스트)',
+  'sketch-pad.mycad': '스케치 4개(3개 평면) + 패드/보스/포켓/홀/필렛 + 파라미터 수식',
+  'assembly.mycad': '베어링 스탠드 11개 부품 + 구속 6개 + 파라미터 (어셈블리/BOM/관성)',
+  'patterns.mycad': '4×3 선형 격자 12개 + 원형 패턴 핀 8개',
+  'mesh-pyramid.mycad': '닫힌 메쉬 3개: 계단 피라미드·기어·구멍 플레이트',
   'bim-house.mycad': 'BIM 요소·층 정보가 든 건물 (수량 산출/IFC 내보내기)',
   'sketchup-scene.mycad': '그룹·태그·장면·단면 평면이 든 SketchUp 스타일 모델',
   'spreadsheet.mycad': '별칭과 수식이 든 스프레드시트',
@@ -601,26 +988,29 @@ const DESCRIPTIONS = {
   'fem-beam.mycad': 'FEM 해석 컨테이너와 구속/하중이 든 외팔보',
   'kinematics-crank.mycad': '회전·직선 조인트가 든 크랭크 슬라이더',
   'cube.stl': 'ASCII STL 큐브 (STL 가져오기)',
-  'cube.step': 'STEP AP214 큐브 (STEP 가져오기/내보내기 왕복)',
-  'plate.ply': 'PLY 메쉬 플레이트 (ASCII)',
-  'wedge.off': 'OFF 메쉬 피라미드 (Geomview)',
-  'profile.igs': 'IGES 와이어프레임 사각 프로파일',
-  'bracket.dae': 'Collada 삼각형 메쉬 브래킷',
-  'pyramid.stl': 'ASCII STL 사각뿔',
-  'plate.obj': 'OBJ 메쉬',
-  'profile.svg': 'SVG 프로파일 도면',
-  'profile.dxf': 'DXF 프로파일 도면 (LINE + CIRCLE)',
-  'bracket.scad': 'OpenSCAD 소스 (importOpenScad)',
-  'scan-points.asc': '기울어진 평면 위 점군 49개 (평면/구/곡면 근사)',
-  'building.ifc': 'IFC4 건물 (IFC 가져오기)',
-  'pocket.nc': 'G코드 포켓 가공 (3패스)',
-  'parameters.csv': '파라미터 표 (CSV 읽기)',
-  'design-table.csv': 'CATIA 디자인 테이블 3구성',
-  'spreadsheet.csv': '수식이 든 CSV 시트',
+  'cube.step': 'STEP AP214 큐브 (왕복 검증용 최소 예제)',
+  'bracket.step': 'STEP L-브래킷: 리브 + 보스 2개 (면 1,500개 규모)',
+  'plate.ply': 'PLY 마운트 플레이트: 90×60×8, 관통 구멍 Ø24',
+  'gear.off': 'OFF 스퍼 기어: 이 18개 + 보어',
+  'gear.stl': 'STL 스퍼 기어 (메쉬 감축·법선 정리 테스트)',
+  'wedge.off': 'OFF 피라미드 (최소 예제)',
+  'profile.igs': 'IGES 와이어프레임: 외곽 + 슬롯 + 볼트 원 4개',
+  'assembly.dae': 'Collada 3개 형상(하우징·샤프트·커버)이 든 어셈블리',
+  'pyramid.stl': 'ASCII STL 계단식 피라미드 5단 (면 88개, 닫힌 솔리드)',
+  'plate.obj': 'OBJ 그룹 3개(플레이트·보스·리브) + 법선 + v//vn 면',
+  'profile.svg': 'SVG 가스켓 도면: 외곽·창·슬롯 + 볼트 원 6개',
+  'profile.dxf': 'DXF 가스켓 도면: 레이어 5개, LINE 18 + CIRCLE 6',
+  'bracket.scad': 'OpenSCAD 소스: 4개 형상 union + 보어 2개 difference',
+  'scan-points.asc': '기울어진 평면 위 점군 169개 (평면/구/곡면 근사)',
+  'building.ifc': 'IFC4 건물: 4개 층, 요소 41개 (IFC 가져오기)',
+  'pocket.nc': 'G코드 포켓 가공: 4패스 + 펙 드릴링, 공구 2개',
+  'parameters.csv': '파라미터 표 5구성 (CSV 읽기)',
+  'design-table.csv': 'CATIA 디자인 테이블 6구성',
+  'spreadsheet.csv': '수식 5개가 든 CSV 시트 (면적·부피·질량·원가)',
   'macro.mycadmacro': '매크로 스크립트 샘플',
   'macro.py': 'Python 매크로 (Part API, 불리언, 반복문)',
   'scan-points.xyz': '같은 점군의 XYZ 형식 (헤더 없음)',
-  'profile.gcode': '같은 포켓 가공 경로의 .gcode 형식',
+  'profile.gcode': '윤곽 가공 .gcode: G2/G3 원호 3패스',
   'hex-nuts.mycadaddon': '설치용 애드온 패키지 (.mycadaddon 연결 테스트)',
   'addon-manifest.json': '애드온 매니페스트 (설치/실행 테스트)'
 }

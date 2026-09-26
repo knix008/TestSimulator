@@ -11,19 +11,19 @@
     },
     {
       "name": "sketch-pad.mycad",
-      "description": "스케치 + 패드 피처 + 파라미터 수식"
+      "description": "스케치 4개(3개 평면) + 패드/보스/포켓/홀/필렛 + 파라미터 수식"
     },
     {
       "name": "assembly.mycad",
-      "description": "3개 부품 + 구속(mate) + 파라미터 (어셈블리/BOM/관성)"
+      "description": "베어링 스탠드 11개 부품 + 구속 6개 + 파라미터 (어셈블리/BOM/관성)"
     },
     {
       "name": "patterns.mycad",
-      "description": "선형/원형 패턴 결과"
+      "description": "4×3 선형 격자 12개 + 원형 패턴 핀 8개"
     },
     {
       "name": "mesh-pyramid.mycad",
-      "description": "메쉬 솔리드 (메쉬 평가·감축·세분 테스트)"
+      "description": "닫힌 메쉬 3개: 계단 피라미드·기어·구멍 플레이트"
     },
     {
       "name": "bim-house.mycad",
@@ -55,47 +55,59 @@
     },
     {
       "name": "cube.step",
-      "description": "STEP AP214 큐브 (STEP 가져오기/내보내기 왕복)"
+      "description": "STEP AP214 큐브 (왕복 검증용 최소 예제)"
+    },
+    {
+      "name": "bracket.step",
+      "description": "STEP L-브래킷: 리브 + 보스 2개 (면 1,500개 규모)"
     },
     {
       "name": "plate.ply",
-      "description": "PLY 메쉬 플레이트 (ASCII)"
+      "description": "PLY 마운트 플레이트: 90×60×8, 관통 구멍 Ø24"
+    },
+    {
+      "name": "gear.off",
+      "description": "OFF 스퍼 기어: 이 18개 + 보어"
+    },
+    {
+      "name": "gear.stl",
+      "description": "STL 스퍼 기어 (메쉬 감축·법선 정리 테스트)"
     },
     {
       "name": "wedge.off",
-      "description": "OFF 메쉬 피라미드 (Geomview)"
+      "description": "OFF 피라미드 (최소 예제)"
     },
     {
       "name": "profile.igs",
-      "description": "IGES 와이어프레임 사각 프로파일"
+      "description": "IGES 와이어프레임: 외곽 + 슬롯 + 볼트 원 4개"
     },
     {
-      "name": "bracket.dae",
-      "description": "Collada 삼각형 메쉬 브래킷"
+      "name": "assembly.dae",
+      "description": "Collada 3개 형상(하우징·샤프트·커버)이 든 어셈블리"
     },
     {
       "name": "pyramid.stl",
-      "description": "ASCII STL 사각뿔"
+      "description": "ASCII STL 계단식 피라미드 5단 (면 88개, 닫힌 솔리드)"
     },
     {
       "name": "plate.obj",
-      "description": "OBJ 메쉬"
+      "description": "OBJ 그룹 3개(플레이트·보스·리브) + 법선 + v//vn 면"
     },
     {
       "name": "profile.svg",
-      "description": "SVG 프로파일 도면"
+      "description": "SVG 가스켓 도면: 외곽·창·슬롯 + 볼트 원 6개"
     },
     {
       "name": "profile.dxf",
-      "description": "DXF 프로파일 도면 (LINE + CIRCLE)"
+      "description": "DXF 가스켓 도면: 레이어 5개, LINE 18 + CIRCLE 6"
     },
     {
       "name": "bracket.scad",
-      "description": "OpenSCAD 소스 (importOpenScad)"
+      "description": "OpenSCAD 소스: 4개 형상 union + 보어 2개 difference"
     },
     {
       "name": "scan-points.asc",
-      "description": "기울어진 평면 위 점군 49개 (평면/구/곡면 근사)"
+      "description": "기울어진 평면 위 점군 169개 (평면/구/곡면 근사)"
     },
     {
       "name": "scan-points.xyz",
@@ -103,27 +115,27 @@
     },
     {
       "name": "building.ifc",
-      "description": "IFC4 건물 (IFC 가져오기)"
+      "description": "IFC4 건물: 4개 층, 요소 41개 (IFC 가져오기)"
     },
     {
       "name": "pocket.nc",
-      "description": "G코드 포켓 가공 (3패스)"
+      "description": "G코드 포켓 가공: 4패스 + 펙 드릴링, 공구 2개"
     },
     {
       "name": "profile.gcode",
-      "description": "같은 포켓 가공 경로의 .gcode 형식"
+      "description": "윤곽 가공 .gcode: G2/G3 원호 3패스"
     },
     {
       "name": "parameters.csv",
-      "description": "파라미터 표 (CSV 읽기)"
+      "description": "파라미터 표 5구성 (CSV 읽기)"
     },
     {
       "name": "design-table.csv",
-      "description": "CATIA 디자인 테이블 3구성"
+      "description": "CATIA 디자인 테이블 6구성"
     },
     {
       "name": "spreadsheet.csv",
-      "description": "수식이 든 CSV 시트"
+      "description": "수식 5개가 든 CSV 시트 (면적·부피·질량·원가)"
     },
     {
       "name": "macro.mycadmacro",

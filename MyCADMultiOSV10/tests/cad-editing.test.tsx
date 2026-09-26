@@ -56,11 +56,17 @@ function open(name: string) {
 }
 
 describe('opening CAD files', () => {
+  /** Area of a regular n-gon that approximates a circle of that radius. */
+  const polygonArea = (radius: number, segments: number) =>
+    (segments / 2) * radius * radius * Math.sin((Math.PI * 2) / segments)
+
   const meshFiles: Array<[string, number]> = [
-    // file, expected volume in mm3 (the samples are a 40 mm cube, a 60x8x40
-    // plate and a 50 mm square pyramid 40 mm tall)
+    // file, expected volume in mm3, worked out from how the sample is built
     ['cube.step', 64000],
-    ['plate.ply', 60 * 8 * 40],
+    // 90 x 60 plate, 8 thick, with a 12 mm hole cut through it
+    ['plate.ply', (90 * 60 - polygonArea(12, 48)) * 8],
+    // 18-tooth gear, 10 thick, with an 8 mm bore
+    ['gear.off', 26288.9],
     ['wedge.off', (50 * 50 * 40) / 3],
     ['cube.stl', 64000]
   ]
@@ -73,16 +79,49 @@ describe('opening CAD files', () => {
     const positions = trianglePositions(doc.solids[0])
     expect(positions.length, name).toBeGreaterThan(24)
     expect(meshVolume(positions), name).toBeCloseTo(volume, 0)
+    // Every edge belongs to exactly two triangles: the part is a closed solid,
+    // which is what makes the volume above meaningful in the first place.
+    const edges = new Map<string, number>()
+    for (let i = 0; i + 8 < positions.length; i += 9) {
+      const corner = (k: number) => positions.slice(i + k * 3, i + k * 3 + 3).map((v) => v.toFixed(3)).join()
+      for (const [a, b] of [[0, 1], [1, 2], [2, 0]]) {
+        const key = [corner(a), corner(b)].sort().join('|')
+        edges.set(key, (edges.get(key) ?? 0) + 1)
+      }
+    }
+    expect([...edges.values()].filter((count) => count !== 2), name).toHaveLength(0)
   })
 
   it('[CAD] Collada and OBJ meshes arrive with their triangles', () => {
-    for (const name of ['bracket.dae', 'plate.obj']) {
+    for (const name of ['assembly.dae', 'plate.obj']) {
       const { result } = open(name)
       expect(result.solids.length, name).toBeGreaterThanOrEqual(1)
       const positions = trianglePositions(result.solids[0])
       expect(positions.length % 9, name).toBe(0)
       expect(positions.length, name).toBeGreaterThanOrEqual(18)
     }
+    // The Collada sample carries three parts, not one triangle.
+    const collada = open('assembly.dae')
+    expect(trianglePositions(collada.result.solids[0]).length / 9).toBeGreaterThan(100)
+  })
+
+  it('[CAD] the bracket sample is a part, not a box', () => {
+    const { result } = open('bracket.step')
+    const positions = trianglePositions(result.solids[0])
+    // Plate, upright, rib and two bosses: far more faces than a cube's twelve.
+    expect(positions.length / 9).toBeGreaterThan(50)
+    const spreadOf = (axis: 0 | 1 | 2) => {
+      let min = Infinity
+      let max = -Infinity
+      for (let i = axis; i < positions.length; i += 3) {
+        min = Math.min(min, positions[i])
+        max = Math.max(max, positions[i])
+      }
+      return max - min
+    }
+    expect(spreadOf(0)).toBeCloseTo(70, 0)
+    expect(spreadOf(1)).toBeCloseTo(65, 0)
+    expect(spreadOf(2)).toBeCloseTo(50, 0)
   })
 
   it('[CAD] IGES and DXF arrive as wires that land in the document', () => {
@@ -206,13 +245,17 @@ describe('saving it again', () => {
   })
 
   it('[CAD] wires from IGES export again as IGES', () => {
-    const { state } = open('profile.igs')
+    const { state, result } = open('profile.igs')
+    // Outline, slot and four bolt circles, every segment its own line entity.
+    expect(result.wires.length).toBeGreaterThan(40)
     const doc = activeDocument(state)
     const out = runExport('iges', { doc, selectedOnly: false })
     expect(out.text).toContain('110,')
     expect(out.name.endsWith('.igs')).toBe(true)
     const back = importFile('again.igs', out.text, {})
-    expect(back.wires.length).toBe(doc.extras.wires.length)
+    // One line entity per segment: a five-point outline comes back as four.
+    const segments = doc.extras.wires.reduce((total, wire) => total + wire.points.length - 1, 0)
+    expect(back.wires.length).toBe(segments)
   })
 })
 
@@ -258,7 +301,7 @@ describe('the same thing through the window', () => {
   })
 
   it('[GUI] PLY, OFF and Collada files open the same way', async () => {
-    for (const [file, label] of [['plate.ply', 'PLY'], ['wedge.off', 'OFF'], ['bracket.dae', 'Collada']]) {
+    for (const [file, label] of [['plate.ply', 'PLY'], ['gear.off', 'OFF'], ['assembly.dae', 'Collada']]) {
       const view = render(<App />)
       const viewport = await screen.findAllByTestId('viewport')
       fireEvent.drop(viewport[viewport.length - 1], {

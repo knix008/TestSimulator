@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseDocument, serializeDocument } from '../src/core/serialize'
 import { parseStl } from '../src/core/stl'
+import { parseDxfWires, parseSvgWires } from '../src/core/drawing'
 import { compileOpenScad, parsePoints } from '../src/core/extended'
 import { importIfc } from '../src/core/archwb'
 import { evaluateSheet, parseCsv } from '../src/core/spreadsheet'
@@ -11,7 +12,7 @@ import { parseMacro } from '../src/core/expressions'
 import { runPython } from '../src/core/python'
 import { addonCommands, installAddon, parseManifest } from '../src/core/addons'
 import { fitPlane, meshInfo } from '../src/core/meshwb'
-import { solidVolume } from '../src/core/part'
+import { parseObj, solidVolume } from '../src/core/part'
 import { boundingBoxOf } from '../src/core/primitives'
 import { schedule } from '../src/core/archwb'
 import { runAnalysis } from '../src/core/femwb'
@@ -77,24 +78,51 @@ describe('sample files', () => {
   it('[Sample] sketch-pad keeps the sketch, the pad feature and its formula', () => {
     const doc = openDocument('sketch-pad.mycad')
     expect(doc.sketches[0].shape).toBe('rect')
+    // Four sketches across three work planes, and a feature tree to match.
+    expect(doc.sketches.map((item) => item.shape)).toEqual(['rect', 'circle', 'polygon', 'rect'])
+    expect([...new Set(doc.sketches.map((item) => item.plane))].sort()).toEqual(['xy', 'xz', 'yz'])
     expect(doc.features.map((item) => item.kind)).toContain('pad')
+    expect(doc.features.map((item) => item.kind)).toContain('pocket')
     expect(doc.parameters.find((item) => item.name === 'PadLength')?.formula).toBe('Width / 4 + 2')
-    expect(meshInfo(doc.solids[0]).triangles).toBe(12)
+    // The padded body is a plate with a hole through it, and it is closed.
+    const info = meshInfo(doc.solids[0])
+    expect(info.triangles).toBe(192)
+    expect(info.closed).toBe(true)
+  })
+
+  it('[Sample] patterns carries the grid and the ring it names', () => {
+    const doc = openDocument('patterns.mycad')
+    // Plate, a 4x3 grid of teeth and a ring of eight pins.
+    expect(doc.solids).toHaveLength(21)
+    expect(doc.solids.filter((item) => item.name.startsWith('Tooth'))).toHaveLength(12)
+    expect(doc.solids.filter((item) => item.name.startsWith('Pin'))).toHaveLength(8)
+    expect(doc.features.map((item) => item.kind)).toContain('rectPattern')
+    expect(doc.parameters.find((item) => item.name === 'PinCount')?.value).toBe(8)
   })
 
   it('[Sample] assembly holds mates and parts for the assembly commands', () => {
     const doc = openDocument('assembly.mycad')
-    expect(doc.solids).toHaveLength(3)
-    expect(doc.mates.map((mate) => mate.kind)).toEqual(['coincidence', 'offset'])
+    // A bearing stand: plate, two posts, block, shaft, pulley, cap, four bolts.
+    expect(doc.solids).toHaveLength(11)
+    expect(doc.solids.map((item) => item.name)).toContain('Pulley')
+    expect(doc.mates.map((mate) => mate.kind)).toEqual(['coincidence', 'offset', 'fix', 'angle', 'offset', 'offset'])
+    expect(doc.parameters.find((item) => item.name === 'PulleyRadius')?.formula).toBe('ShaftLength / 5 - 2')
     const effect = runCommandById('asmBom', { doc, nextId: () => 'tmp' })
     expect(effect?.report?.lines.join('\n')).toContain('kg')
   })
 
-  it('[Sample] mesh-pyramid is a closed mesh', () => {
-    const info = meshInfo(openDocument('mesh-pyramid.mycad').solids[0])
-    expect(info.triangles).toBe(6)
+  it('[Sample] mesh-pyramid holds three closed meshes', () => {
+    const doc = openDocument('mesh-pyramid.mycad')
+    expect(doc.solids).toHaveLength(3)
+    const info = meshInfo(doc.solids[0])
+    // Five tiers of 9 mm: 9 * (60^2 + 50^2 + 40^2 + 30^2 + 20^2).
+    expect(info.triangles).toBe(88)
     expect(info.closed).toBe(true)
-    expect(info.volume).toBeGreaterThan(0)
+    expect(info.volume).toBeCloseTo(81000, 0)
+    for (const solid of doc.solids) {
+      expect(meshInfo(solid).closed, solid.name).toBe(true)
+      expect(meshInfo(solid).triangles, solid.name).toBeGreaterThan(50)
+    }
   })
 
   it('[Sample] bim-house schedules quantities and exports IFC', () => {
@@ -153,35 +181,65 @@ describe('sample files', () => {
     const cube = parseStl(read('cube.stl'), 'cube')
     expect(meshInfo(cube).triangles).toBe(12)
     expect(meshInfo(cube).closed).toBe(true)
-    const pyramid = parseStl(read('pyramid.stl'), 'pyramid')
-    expect(meshInfo(pyramid).triangles).toBe(6)
+    // The stepped pyramid: walls, steps and both caps, so it is closed too.
+    const pyramid = meshInfo(parseStl(read('pyramid.stl'), 'pyramid'))
+    expect(pyramid.triangles).toBe(88)
+    expect(pyramid.closed).toBe(true)
+    expect(pyramid.volume).toBeCloseTo(81000, 0)
+    // The gear is the big one: teeth, a bore and two faces.
+    const gear = meshInfo(parseStl(read('gear.stl'), 'gear'))
+    expect(gear.triangles).toBeGreaterThan(500)
+    expect(gear.closed).toBe(true)
   })
 
-  it('[Sample] OBJ, SVG and DXF drawings have the expected structure', () => {
+  it('[Sample] the OBJ file imports as three named, closed parts', () => {
     const obj = read('plate.obj')
-    expect(obj.split('\n').filter((line) => line.startsWith('v ')).length).toBe(36)
-    expect(obj.split('\n').filter((line) => line.startsWith('f ')).length).toBe(12)
+    // Normals and v//vn faces, not just bare triangles.
+    expect(obj.match(/^vn /gm)?.length).toBe(obj.match(/^f /gm)?.length)
+    expect(obj).toContain('//')
 
+    const parts = parseObj(obj, 'obj')
+    expect(parts.map((part) => part.name)).toEqual(['Plate', 'Boss', 'Rib'])
+    for (const part of parts) {
+      const info = meshInfo(part)
+      expect(info.closed, part.name).toBe(true)
+      expect(info.volume, part.name).toBeGreaterThan(0)
+    }
+    // The plate has a hole in it, so it holds less than a solid block would.
+    expect(meshInfo(parts[0]).volume).toBeLessThan(80 * 50 * 6)
+  })
+
+  it('[Sample] SVG and DXF carry the same gasket outline', () => {
     const svg = read('profile.svg')
     expect(svg).toContain('<svg')
-    expect(svg).toContain('<polygon')
-    expect(svg).toContain('<circle')
+    expect(svg).toContain('<polyline')
+    const svgWires = parseSvgWires(svg, 'svg')
+    // Outer profile, inner window, slot and six bolt circles.
+    expect(svgWires).toHaveLength(9)
+    expect(svgWires.filter((wire) => wire.name === 'Circle')).toHaveLength(6)
 
     const dxf = read('profile.dxf')
-    expect(dxf.match(/^LINE$/gm)).toHaveLength(4)
-    expect(dxf).toContain('CIRCLE')
+    expect(dxf.match(/^LINE$/gm)).toHaveLength(18)
+    expect(dxf.match(/^CIRCLE$/gm)).toHaveLength(6)
+    expect(dxf).toContain('CENTRE')
     expect(dxf.trim().endsWith('EOF')).toBe(true)
+    const dxfWires = parseDxfWires(dxf, 'dxf')
+    expect(dxfWires).toHaveLength(24)
+    expect(dxfWires.filter((wire) => wire.closed)).toHaveLength(6)
   })
 
   it('[Sample] OpenSCAD source compiles to a solid', () => {
     const solid = compileOpenScad(read('bracket.scad'))
-    expect(solid.mesh?.positions.length ?? 0).toBeGreaterThan(8)
-    expect(solidVolume(solid)).toBeGreaterThan(0)
+    // A union of four bodies with two bores cut out of it.
+    expect(solid.mesh?.positions.length ?? 0).toBeGreaterThan(1000)
+    const volume = solidVolume(solid)
+    expect(volume).toBeGreaterThan(40000)
+    expect(volume).toBeLessThan(80 * 50 * 10 + 24 * Math.PI * 144 + 20 * 20 * 30 + 4000)
   })
 
   it('[Sample] scanned points fit a tilted plane', () => {
     const points = parsePoints(read('scan-points.asc'))
-    expect(points).toHaveLength(49)
+    expect(points).toHaveLength(169)
     const fit = fitPlane(points)
     expect(fit.rms).toBeLessThan(1e-6)
     expect(Math.abs(fit.normal.y)).toBeGreaterThan(0.9)
@@ -189,16 +247,30 @@ describe('sample files', () => {
 
   it('[Sample] IFC file imports products and storeys', () => {
     const summary = importIfc(read('building.ifc'))
-    expect(summary.storeys).toEqual(['Level 1', 'Level 2'])
-    expect(summary.products.map((product) => product.type)).toContain('IFCWALLSTANDARDCASE')
+    expect(summary.storeys).toEqual(['Basement', 'Level 1', 'Level 2', 'Roof Terrace'])
+    const types = summary.products.map((product) => product.type)
+    expect(types).toContain('IFCWALLSTANDARDCASE')
+    expect(types).toContain('IFCCOLUMN')
+    expect(types).toContain('IFCROOF')
     expect(summary.products.map((product) => product.name)).toContain('Window')
+    // Four storeys with walls, slabs, columns and openings on each.
+    expect(summary.products.length).toBeGreaterThan(30)
   })
 
-  it('[Sample] G-code has three depth passes and ends with M30', () => {
+  it('[Sample] G-code has depth passes, a drill cycle and ends with M30', () => {
     const gcode = read('pocket.nc')
     expect(gcode.match(/Z-\d/g)?.length).toBeGreaterThanOrEqual(3)
     expect(gcode).toContain('G21')
+    // Two tools and a peck-drilling cycle for the bolt holes.
+    expect(gcode).toContain('T2 M6')
+    expect(gcode.match(/^G83 /gm)).toHaveLength(4)
     expect(gcode.trim().endsWith('M30')).toBe(true)
+
+    // The other extension carries a different program: contouring with arcs.
+    const contour = read('profile.gcode')
+    expect(contour).not.toBe(gcode)
+    expect(contour.match(/^G3 /gm)?.length).toBeGreaterThanOrEqual(12)
+    expect(contour.trim().endsWith('M30')).toBe(true)
   })
 
   it('[Sample] CSV files load as sheets and design tables', () => {
@@ -212,8 +284,9 @@ describe('sample files', () => {
 
     const table = parseDesignTable(read('design-table.csv'), 'Sizes')
     expect(table.columns).toEqual(['Width', 'Height', 'Thickness'])
-    expect(table.rows).toHaveLength(3)
+    expect(table.rows).toHaveLength(6)
     expect(table.rows[2]).toEqual([120, 75, 6])
+    expect(table.rows[5]).toEqual([240, 150, 12])
   })
 
   it('[Sample] macro script parses into commands', () => {
