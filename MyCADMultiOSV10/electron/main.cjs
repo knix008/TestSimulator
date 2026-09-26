@@ -30,6 +30,7 @@ const settingsFile = path.join(userData, 'settings.json')
 // FILE_TYPES in src/core/fileTypes.ts (tests/filetypes.test.ts checks it).
 const SUPPORTED_EXTENSIONS = [
   'mycad', 'stl', 'obj', 'dxf', 'svg', 'scad', 'ifc',
+  'step', 'stp', 'igs', 'iges', 'ply', 'off', 'dae',
   'asc', 'xyz', 'nc', 'gcode', 'mycadmacro', 'mycadaddon'
 ]
 let pendingOpenPath = null

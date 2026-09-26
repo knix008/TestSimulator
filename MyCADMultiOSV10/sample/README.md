@@ -18,6 +18,11 @@ MyCAD 기능 테스트용 샘플 파일입니다. `npm run build:samples` 로 �
 | `fem-beam.mycad` | FEM 해석 컨테이너와 구속/하중이 든 외팔보 |
 | `kinematics-crank.mycad` | 회전·직선 조인트가 든 크랭크 슬라이더 |
 | `cube.stl` | ASCII STL 큐브 (STL 가져오기) |
+| `cube.step` | STEP AP214 큐브 (STEP 가져오기/내보내기 왕복) |
+| `plate.ply` | PLY 메쉬 플레이트 (ASCII) |
+| `wedge.off` | OFF 메쉬 피라미드 (Geomview) |
+| `profile.igs` | IGES 와이어프레임 사각 프로파일 |
+| `bracket.dae` | Collada 삼각형 메쉬 브래킷 |
 | `pyramid.stl` | ASCII STL 사각뿔 |
 | `plate.obj` | OBJ 메쉬 |
 | `profile.svg` | SVG 프로파일 도면 |

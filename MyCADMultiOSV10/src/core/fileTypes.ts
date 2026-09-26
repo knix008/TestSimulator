@@ -3,6 +3,7 @@
 // the application runs when one of them is opened.
 import type { CadDocument, Solid } from './model'
 import { parseDocument } from './serialize'
+import { parseDae, parseIges, parseOff, parsePly, parseStep } from './cadformats'
 import { parseStl } from './stl'
 import { parseObj } from './part'
 import { parseDxfWires, parseSvgWires } from './drawing'
@@ -38,6 +39,13 @@ export const FILE_TYPES: FileTypeDef[] = [
   { ext: 'svg', name: 'MyCAD.Svg', description: { ko: 'SVG 도면', en: 'SVG drawing' }, mime: 'image/svg+xml', role: 'Viewer', kind: 'drawing' },
   { ext: 'scad', name: 'MyCAD.OpenScad', description: { ko: 'OpenSCAD 소스', en: 'OpenSCAD source' }, mime: 'text/x-scad', role: 'Viewer', kind: 'model' },
   { ext: 'ifc', name: 'MyCAD.Ifc', description: { ko: 'IFC 건축 모델', en: 'IFC building model' }, mime: 'application/x-step', role: 'Viewer', kind: 'model' },
+  { ext: 'step', name: 'MyCAD.Step', description: { ko: 'STEP 모델 (AP203/214)', en: 'STEP model (AP203/214)' }, mime: 'application/x-step', role: 'Viewer', kind: 'model' },
+  { ext: 'stp', name: 'MyCAD.StepAlt', description: { ko: 'STEP 모델', en: 'STEP model' }, mime: 'application/x-step', role: 'Viewer', kind: 'model' },
+  { ext: 'igs', name: 'MyCAD.Iges', description: { ko: 'IGES 와이어프레임', en: 'IGES wireframe' }, mime: 'model/iges', role: 'Viewer', kind: 'drawing' },
+  { ext: 'iges', name: 'MyCAD.IgesAlt', description: { ko: 'IGES 와이어프레임', en: 'IGES wireframe' }, mime: 'model/iges', role: 'Viewer', kind: 'drawing' },
+  { ext: 'ply', name: 'MyCAD.Ply', description: { ko: 'PLY 메쉬', en: 'PLY mesh' }, mime: 'model/mesh', role: 'Viewer', kind: 'mesh' },
+  { ext: 'off', name: 'MyCAD.Off', description: { ko: 'OFF 메쉬', en: 'OFF mesh' }, mime: 'model/mesh', role: 'Viewer', kind: 'mesh' },
+  { ext: 'dae', name: 'MyCAD.Collada', description: { ko: 'Collada 메쉬', en: 'Collada mesh' }, mime: 'model/vnd.collada+xml', role: 'Viewer', kind: 'mesh' },
   { ext: 'asc', name: 'MyCAD.Points', description: { ko: '점군 (ASC)', en: 'Point cloud (ASC)' }, mime: 'text/plain', role: 'Viewer', kind: 'points' },
   { ext: 'xyz', name: 'MyCAD.PointsXyz', description: { ko: '점군 (XYZ)', en: 'Point cloud (XYZ)' }, mime: 'text/plain', role: 'Viewer', kind: 'points' },
   { ext: 'nc', name: 'MyCAD.Gcode', description: { ko: 'G코드 가공 경로', en: 'G-code toolpath' }, mime: 'text/x-gcode', role: 'Viewer', kind: 'toolpath' },
@@ -128,6 +136,28 @@ export function importFile(path: string, text: string, options: { id?: string } 
         ...summary.products.map((product) => `${product.type} ${product.name}`)
       ]
       return { solids: [], wires: [], report, status: `IFC ${summary.products.length} products` }
+    }
+    case 'step':
+    case 'stp': {
+      const { solid, report } = parseStep(text, id, name.replace(/\.(step|stp)$/i, ''))
+      return { solids: [solid], wires: [], report, status: `STEP 가져오기 ${name}` }
+    }
+    case 'igs':
+    case 'iges': {
+      const { wires, report } = parseIges(text, id)
+      return { solids: [], wires, report, status: `IGES 가져오기 ${name}` }
+    }
+    case 'ply': {
+      const { solid, report } = parsePly(text, id, name.replace(/\.ply$/i, ''))
+      return { solids: [solid], wires: [], report, status: `PLY 가져오기 ${name}` }
+    }
+    case 'off': {
+      const { solid, report } = parseOff(text, id, name.replace(/\.off$/i, ''))
+      return { solids: [solid], wires: [], report, status: `OFF 가져오기 ${name}` }
+    }
+    case 'dae': {
+      const { solid, report } = parseDae(text, id, name.replace(/\.dae$/i, ''))
+      return { solids: [solid], wires: [], report, status: `Collada 가져오기 ${name}` }
     }
     case 'asc':
     case 'xyz': {

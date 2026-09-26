@@ -302,6 +302,33 @@ export function trianglePositions(solid: Solid): number[] {
   return out
 }
 
+/**
+ * The solid's triangles where they actually sit: position, rotation and scale
+ * applied. `trianglePositions` is the local geometry, which is what the scene
+ * graph wants; a file written to disk has to carry the placed geometry.
+ */
+export function worldTriangles(solid: Solid): number[] {
+  const local = trianglePositions(solid)
+  const matrix = new THREE.Matrix4().compose(
+    new THREE.Vector3(solid.position.x, solid.position.y, solid.position.z),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(
+      THREE.MathUtils.degToRad(solid.rotation.x),
+      THREE.MathUtils.degToRad(solid.rotation.y),
+      THREE.MathUtils.degToRad(solid.rotation.z)
+    )),
+    new THREE.Vector3(solid.scale.x, solid.scale.y, solid.scale.z)
+  )
+  const out = new Array<number>(local.length)
+  const point = new THREE.Vector3()
+  for (let i = 0; i + 2 < local.length; i += 3) {
+    point.set(local[i], local[i + 1], local[i + 2]).applyMatrix4(matrix)
+    out[i] = point.x
+    out[i + 1] = point.y
+    out[i + 2] = point.z
+  }
+  return out
+}
+
 export interface BoundingBox {
   min: Vec3
   max: Vec3

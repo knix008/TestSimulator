@@ -54,6 +54,26 @@
       "description": "ASCII STL 큐브 (STL 가져오기)"
     },
     {
+      "name": "cube.step",
+      "description": "STEP AP214 큐브 (STEP 가져오기/내보내기 왕복)"
+    },
+    {
+      "name": "plate.ply",
+      "description": "PLY 메쉬 플레이트 (ASCII)"
+    },
+    {
+      "name": "wedge.off",
+      "description": "OFF 메쉬 피라미드 (Geomview)"
+    },
+    {
+      "name": "profile.igs",
+      "description": "IGES 와이어프레임 사각 프로파일"
+    },
+    {
+      "name": "bracket.dae",
+      "description": "Collada 삼각형 메쉬 브래킷"
+    },
+    {
       "name": "pyramid.stl",
       "description": "ASCII STL 사각뿔"
     },

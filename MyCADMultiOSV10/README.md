@@ -47,6 +47,7 @@ window forward, with whatever file was passed on the command line.
 | Extensions | Addon manager: catalogue, manifest validation, install/enable/uninstall, addon-contributed commands and themes |
 | View | Seven draw styles (as is, shaded, flat lines, wireframe, points, hidden line, no shading), perspective or orthographic camera, X/Y/Z section planes, four navigation styles (CAD, Blender, touchpad, Maya), six key-light kinds with colour and nine rigs |
 | Units | mm, cm, m, inch and foot schemas for the status bar, measurements and volumes |
+| Interchange | STEP (AP203/214), IGES, PLY, OFF, Collada, STL, OBJ, DXF, SVG, OpenSCAD, IFC4, point clouds and G-code, in and out where the format allows |
 | Interface | 22 menus, 30 workbenches, 225 commands, a tool panel grouped by what the commands do, 40 pastel themes (20 dark + 20 light) plus a custom theme that can start from any preset, resizable tool and property panels, Korean and English |
 
 ## Documentation
@@ -69,10 +70,17 @@ tests/        481 tests (unit, contract and jsdom GUI)
 
 ## File formats
 
-MyCAD opens `.mycad`, `.stl`, `.obj`, `.dxf`, `.svg`, `.scad`, `.ifc`, `.asc`,
-`.xyz`, `.nc`, `.gcode`, `.mycadmacro`, `.mycadaddon` and `.csv`, and exports
-twelve formats (MyCAD, STL, OBJ, SVG, DXF, drawing SVG/DXF, IFC4, G-code, point
-cloud, CSV, macro, Python).
+MyCAD opens the neutral CAD formats - `.step`/`.stp` (AP203/214), `.igs`/`.iges`,
+`.ply`, `.off`, `.dae` - alongside `.mycad`, `.stl`, `.obj`, `.dxf`, `.svg`,
+`.scad`, `.ifc`, `.asc`, `.xyz`, `.nc`, `.gcode`, `.mycadmacro`, `.mycadaddon`
+and `.csv`. It exports sixteen formats: MyCAD, STEP, PLY, OFF, IGES, STL, OBJ,
+SVG, DXF, drawing SVG/DXF, IFC4, G-code, point cloud, CSV, macro and Python.
+
+The STEP reader follows the planar B-rep graph (`ADVANCED_FACE` → `EDGE_LOOP` →
+`VERTEX_POINT`), so a solid written by another system comes in as geometry
+rather than a bounding box; a file it cannot triangulate still opens, with a
+report line saying what was read. The writer emits AP214 that MyCAD reads back
+with the volume unchanged (`tests/cadformats.test.ts` pins that round trip).
 
 The Windows installer asks which of those extensions it should register; the
 `.mycad` document type is always associated. Uninstalling removes only the

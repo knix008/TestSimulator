@@ -15,6 +15,8 @@ const out = join(root, 'sample')
 
 mkdirSync(out, { recursive: true })
 
+import { toIges, toOff, toPly, toStep } from '../src/core/cadformats.ts'
+
 const written = []
 
 function write(name, text) {
@@ -363,6 +365,44 @@ write('kinematics-crank.mycad', document('kinematics-crank', {
 /* ───────────────────────────── mesh interchange ─────────────────────────── */
 
 write('cube.stl', asciiStl('cube', boxTriangles(40, 40, 40, [0, 0, 0])))
+
+// ── neutral CAD interchange formats ──────────────────────────────────────
+const cubeTriangles = boxTriangles(40, 40, 40, [0, 0, 0]).flatMap((triangle) => triangle.flat())
+write('cube.step', toStep([{ name: 'cube', position: { x: 0, y: 0, z: 0 } }], () => cubeTriangles))
+write('plate.ply', toPly(boxTriangles(60, 8, 40, [0, 0, 0]).flatMap((triangle) => triangle.flat()), 'plate'))
+write('wedge.off', toOff(pyramidTriangles(50, 40).flatMap((triangle) => triangle.flat())))
+write('profile.igs', toIges([
+  {
+    id: 'w1',
+    name: 'profile',
+    closed: true,
+    points: [
+      { x: 0, y: 0, z: 0 },
+      { x: 60, y: 0, z: 0 },
+      { x: 60, y: 0, z: 40 },
+      { x: 0, y: 0, z: 40 },
+      { x: 0, y: 0, z: 0 }
+    ]
+  }
+]))
+write('bracket.dae', [
+  '<?xml version="1.0" encoding="utf-8"?>',
+  '<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">',
+  '  <asset><up_axis>Y_UP</up_axis></asset>',
+  '  <library_geometries>',
+  '    <geometry id="bracket" name="bracket"><mesh>',
+  '      <source id="bracket-positions">',
+  '        <float_array id="bracket-array" count="12">0 0 0  40 0 0  40 0 30  0 0 30</float_array>',
+  '      </source>',
+  '      <vertices id="bracket-vertices"><input semantic="POSITION" source="#bracket-positions"/></vertices>',
+  '      <triangles count="2" material="none">',
+  '        <input semantic="VERTEX" source="#bracket-vertices" offset="0"/>',
+  '        <p>0 1 2 0 2 3</p>',
+  '      </triangles>',
+  '    </mesh></geometry>',
+  '  </library_geometries>',
+  '</COLLADA>'
+].join('\n'))
 write('pyramid.stl', asciiStl('pyramid', pyramidTriangles(60, 45)))
 
 const objTriangles = boxTriangles(30, 30, 30)
@@ -559,6 +599,11 @@ const DESCRIPTIONS = {
   'fem-beam.mycad': 'FEM 해석 컨테이너와 구속/하중이 든 외팔보',
   'kinematics-crank.mycad': '회전·직선 조인트가 든 크랭크 슬라이더',
   'cube.stl': 'ASCII STL 큐브 (STL 가져오기)',
+  'cube.step': 'STEP AP214 큐브 (STEP 가져오기/내보내기 왕복)',
+  'plate.ply': 'PLY 메쉬 플레이트 (ASCII)',
+  'wedge.off': 'OFF 메쉬 피라미드 (Geomview)',
+  'profile.igs': 'IGES 와이어프레임 사각 프로파일',
+  'bracket.dae': 'Collada 삼각형 메쉬 브래킷',
   'pyramid.stl': 'ASCII STL 사각뿔',
   'plate.obj': 'OBJ 메쉬',
   'profile.svg': 'SVG 프로파일 도면',

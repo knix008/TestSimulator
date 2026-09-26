@@ -10,7 +10,8 @@ import { createPage, pageToDxf, pageToSvg as drawingPageToSvg, projectionGroup }
 import { exportIfc, describeElement, makeLevels } from './archwb'
 import { sheetToCsv } from './spreadsheet'
 import { TOOL_LIBRARY, pocketOperation, postProcess, profileOperation } from './camwb'
-import { boundingBoxOf, trianglePositions } from './primitives'
+import { boundingBoxOf, trianglePositions, worldTriangles } from './primitives'
+import { toIges, toOff, toPly, toStep, wireframeOf } from './cadformats'
 
 export interface ExportContext {
   doc: CadDocument
@@ -57,6 +58,44 @@ export const EXPORT_FORMATS: ExportFormat[] = [
     mime: 'model/obj',
     scope: { ko: '삼각형 메쉬 + 객체 이름', en: 'Triangle mesh with object names' },
     build: (context) => toObj(pick(context))
+  },
+  {
+    id: 'step',
+    ext: 'step',
+    label: { ko: 'STEP (AP214)', en: 'STEP (AP214)' },
+    mime: 'application/x-step',
+    scope: { ko: '평면 면으로 된 B-rep 솔리드', en: 'B-rep solids with planar faces' },
+    build: (context) => toStep(pick(context), (solid) => worldTriangles(solid as Solid))
+  },
+  {
+    id: 'ply',
+    ext: 'ply',
+    label: { ko: 'PLY 메쉬', en: 'PLY mesh' },
+    mime: 'model/mesh',
+    scope: { ko: '삼각형 메쉬 (ASCII)', en: 'Triangle mesh (ASCII)' },
+    build: (context) => toPly(pick(context).flatMap((solid) => worldTriangles(solid)), context.doc.name)
+  },
+  {
+    id: 'off',
+    ext: 'off',
+    label: { ko: 'OFF 메쉬', en: 'OFF mesh' },
+    mime: 'model/mesh',
+    scope: { ko: '삼각형 메쉬 (Geomview)', en: 'Triangle mesh (Geomview)' },
+    build: (context) => toOff(pick(context).flatMap((solid) => worldTriangles(solid)))
+  },
+  {
+    id: 'iges',
+    ext: 'igs',
+    label: { ko: 'IGES 와이어프레임', en: 'IGES wireframe' },
+    mime: 'model/iges',
+    scope: { ko: '드래프트 와이어를 선 엔티티로', en: 'Draft wires as line entities' },
+    // Draft wires if the document has any; otherwise the edges of the solids,
+    // so a model without 2D geometry still exports something usable.
+    build: (context) => toIges(
+      context.doc.extras.wires.length > 0
+        ? context.doc.extras.wires
+        : wireframeOf(pick(context).flatMap((solid) => worldTriangles(solid)))
+    )
   },
   {
     id: 'svg',
