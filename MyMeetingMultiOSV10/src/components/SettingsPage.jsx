@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import SettingsForm from './SettingsForm';
-import { THEMES } from '../lib/themes';
+import { THEMES, rememberThemePref } from '../lib/themes';
 import { IconSettings, IconX } from './Icons';
 import { DEFAULT_EXPORT_SETTINGS } from '../lib/markdown';
 import { saveSettingsToDisk } from '../lib/platform';
@@ -32,6 +32,7 @@ export default function SettingsPage() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('mtg-theme', theme);
+    rememberThemePref(theme);
     saveSettingsToDisk();
   }, [theme]);
 
@@ -76,7 +77,7 @@ export default function SettingsPage() {
           settings={settings}
           onChange={patch}
           theme={theme}
-          onTheme={setTheme}
+          onTheme={(id) => { localStorage.setItem('mtg-theme-auto', '0'); setTheme(id); saveSettingsToDisk(); }}
           lang={lang}
           onLang={changeLang}
         />

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconPrinter, IconX } from './Icons';
+import PrintPreview from './PrintPreview';
 
 // Parse a page-range expression ("1,3,5-8") into a sorted, de-duplicated list of
 // 1-based page numbers, clamped to `total`. Returns [] when nothing is valid, so
@@ -38,22 +39,33 @@ export const DEFAULT_PRINT_OPTIONS = {
 // orientation, scale, N-up). The page count comes from a real pagination pass,
 // so the numbers shown here are the numbers that will be printed.
 export default function PrintDialog({
-  open, busy, pages, currentPage, printers = [], options, onOptions, onPrint, onClose,
+  open, busy, pages, currentPage, html, printers = [], options, onOptions, onPrint, onClose,
 }) {
   const { t } = useTranslation();
   const [scope, setScope] = useState('all'); // all | current | range
   const [range, setRange] = useState('');
+  const [view, setView] = useState(1);
   const rangeRef = useRef(null);
 
   const o = { ...DEFAULT_PRINT_OPTIONS, ...(options || {}) };
   const set = (patch) => onOptions({ ...o, ...patch });
 
-  // Reset the page selection every time the dialog is opened.
+  // Reset the page selection every time the dialog is opened. The preview
+  // starts on page 1; choosing "current page" jumps to that page afterwards.
   useEffect(() => {
     if (!open) return;
     setScope('all');
+    setView(1);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     setRange(currentPage ? String(currentPage) : '1');
   }, [open, currentPage]);
+
+  useEffect(() => {
+    if (open && scope === 'current' && currentPage) setView(currentPage);
+  }, [open, scope, currentPage]);
 
   useEffect(() => {
     if (open && scope === 'range') rangeRef.current?.focus();
@@ -85,6 +97,17 @@ export default function PrintDialog({
           <button className="iconbtn" onClick={onClose} disabled={busy} title={t('about.close')}><IconX /></button>
         </div>
 
+        <div className="print-layout">
+        <PrintPreview
+          html={html || ''}
+          view={view}
+          onView={setView}
+          included={selected}
+          landscape={o.landscape}
+          scaleFactor={o.scaleFactor}
+          color={o.color}
+          pagesPerSheet={o.pagesPerSheet}
+        />
         <div className="modal-body print-body">
           {/* ── Printer ──────────────────────────────────── */}
           {printers.length > 0 && (
@@ -209,6 +232,7 @@ export default function PrintDialog({
               </span>
             </label>
           </div>
+        </div>
         </div>
 
         <div className="modal-foot">

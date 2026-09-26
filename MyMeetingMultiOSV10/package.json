@@ -32,7 +32,8 @@
     "build:linux": "vite build && electron-builder --linux",
     "postbuild:linux": "node scripts/copy-installer.js",
     "copy:installer": "node scripts/copy-installer.js",
-    "preview": "vite preview --port 4179"
+    "preview": "vite preview --port 4179",
+    "test": "node test/runner.mjs"
   },
   "dependencies": {
     "dompurify": "^3.1.6",
@@ -50,6 +51,7 @@
     "cross-env": "^7.0.3",
     "electron": "^31.3.1",
     "electron-builder": "^24.13.3",
+    "jsdom": "^29.1.1",
     "sharp": "^0.33.4",
     "vite": "^5.4.1",
     "wait-on": "^7.2.0"

@@ -97,7 +97,11 @@ export async function computeTocPageMap(html) {
 // started from the parent once the frame has loaded — a <head> script would run
 // while <body> does not exist yet and paged.js would throw.
 function injectWebPaged(html) {
+  // The cover's screen rule uses 100vh, which paged.js can treat as the browser
+  // window rather than the page and then stall. Neutralise it only inside this
+  // pagination frame; the exported document is unchanged.
   const inject = `<script>window.PagedConfig={auto:false};</script>`
+    + `<style>@media screen{.cover{min-height:0 !important;height:auto !important}}</style>`
     + `<script src="${pagedPolyfillUrl}"></script>`;
   return html.includes('</head>') ? html.replace('</head>', `${inject}</head>`) : inject + html;
 }
@@ -195,6 +199,10 @@ function prunePages(doc, keep) {
 // page count plus the page every heading anchor (h-0, h-1 …) landed on.
 // Electron paginates in a hidden window, the web build in an off-screen iframe.
 // Returns null only when pagination is genuinely unavailable.
+// The web print dialog paginates once. printInfo keeps the per-page documents
+// so the preview does not have to lay the same file out a second time.
+let previewCache = null;
+
 export async function printInfo(html) {
   if (isElectron && api.printInfo) {
     try {
@@ -202,8 +210,62 @@ export async function printInfo(html) {
       return info && info.pages ? info : null;
     } catch { return null; }
   }
-  const info = await withPagedFrame(html, (_f, doc) => readPagedInfo(doc));
+  const info = await withPagedFrame(html, (_f, doc) => {
+    const pages = pagesFromPagedDoc(doc);
+    previewCache = pages.length ? { html, pages } : null;
+    return readPagedInfo(doc);
+  });
   return info && info.pages ? info : null;
+}
+
+export function cachedPrintPreview(html) {
+  return previewCache && previewCache.html === html ? previewCache.pages : null;
+}
+
+// Paginate `html` and return one standalone document per printed page, so the
+// print dialog can show the same layout the printer will use. Returns null when
+// pagination fails (the caller can fall back to the unpaginated document).
+// Freeze counter(page) margin boxes to the literal page number. Extracted
+// preview pages are standalone documents, so the CSS counter would otherwise
+// restart at 1 on every page.
+function freezePageNumbers(doc) {
+  const rules = [];
+  [...doc.querySelectorAll('.pagedjs_page')].forEach((p) => {
+    const n = p.getAttribute('data-page-number');
+    if (n == null) return;
+    p.querySelectorAll('.pagedjs_margin-content').forEach((m) => {
+      const c = (doc.defaultView.getComputedStyle(m, ':after').content) || '';
+      if (!c.includes('counter(page)')) return;
+      m.setAttribute('data-mtg-pgno', n);
+      rules.push(`.pagedjs_margin-content[data-mtg-pgno="${n}"]:after{content:${c.split('counter(page)').join(`"${n}"`)} !important}`);
+    });
+  });
+  if (!rules.length) return;
+  const st = doc.createElement('style');
+  st.textContent = rules.join('');
+  doc.head.appendChild(st);
+}
+
+function pagesFromPagedDoc(doc) {
+  freezePageNumbers(doc);
+  const styles = [...doc.querySelectorAll('style')].map((n) => n.outerHTML).join('');
+  return [...doc.querySelectorAll('.pagedjs_page')].map((p, i) => {
+    const n = parseInt(p.getAttribute('data-page-number'), 10) || (i + 1);
+    const rect = p.getBoundingClientRect();
+    const w = Math.round(rect.width) || 794;
+    const h = Math.round(rect.height) || 1123;
+    const srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8">${styles}`
+      + `<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}`
+      + `.pagedjs_page{margin:0 !important}</style></head><body>${p.outerHTML}</body></html>`;
+    return { n, w, h, srcdoc };
+  });
+}
+
+export async function buildPrintPreview(html) {
+  const cached = cachedPrintPreview(html);
+  if (cached) return cached;
+  const out = await withPagedFrame(html, (_frame, doc) => ({ pages: pagesFromPagedDoc(doc) }));
+  return out && out.pages && out.pages.length ? out.pages : null;
 }
 
 // The printers this machine can reach ([] on the web build, where the browser
@@ -279,7 +341,10 @@ function bytesToBase64(bytes) {
 // ── Settings persistence ──────────────────────────────────
 // localStorage is the live/cross-window store; on Electron we also mirror to a
 // userData JSON file so settings survive restarts even for file:// origins.
-const LS = { export: 'mtg-export', theme: 'mtg-theme', lang: 'mtg-lang', recent: 'mtg-recent' };
+const LS = {
+  export: 'mtg-export', theme: 'mtg-theme', lang: 'mtg-lang', recent: 'mtg-recent',
+  themeAuto: 'mtg-theme-auto', themeDark: 'mtg-theme-dark', themeLight: 'mtg-theme-light',
+};
 
 export function saveSettingsToDisk() {
   if (!isElectron || !api.saveSettings) return;
@@ -287,6 +352,9 @@ export function saveSettingsToDisk() {
     api.saveSettings({
       export: JSON.parse(localStorage.getItem(LS.export) || '{}'),
       theme: localStorage.getItem(LS.theme) || '',
+      themeAuto: localStorage.getItem(LS.themeAuto) || '0',
+      themeDark: localStorage.getItem(LS.themeDark) || '',
+      themeLight: localStorage.getItem(LS.themeLight) || '',
       lang: localStorage.getItem(LS.lang) || '',
       recent: JSON.parse(localStorage.getItem(LS.recent) || 'null'),
     });
@@ -302,6 +370,12 @@ export async function seedSettingsFromDisk() {
     if (!s) return;
     if (s.export && typeof s.export === 'object') localStorage.setItem(LS.export, JSON.stringify(s.export));
     if (s.theme) localStorage.setItem(LS.theme, s.theme);
+    if (s.themeAuto != null && s.themeAuto !== '') {
+      const on = s.themeAuto === true || s.themeAuto === '1' || s.themeAuto === 1;
+      localStorage.setItem(LS.themeAuto, on ? '1' : '0');
+    }
+    if (s.themeDark) localStorage.setItem(LS.themeDark, s.themeDark);
+    if (s.themeLight) localStorage.setItem(LS.themeLight, s.themeLight);
     if (s.lang) localStorage.setItem(LS.lang, s.lang);
     if (s.recent && typeof s.recent === 'object') localStorage.setItem(LS.recent, JSON.stringify(s.recent));
   } catch { /* ignore */ }

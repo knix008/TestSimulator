@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import TitleBar from './components/TitleBar';
 import OutlineTree from './components/OutlineTree';
-import { THEMES } from './lib/themes';
+import { THEMES, nextThemeId, rememberThemePref, preferredThemeForMode, systemThemeMode, themesByMode } from './lib/themes';
 import ContextMenu from './components/ContextMenu';
 import Tooltip from './components/Tooltip';
 import Toasts from './components/Toasts';
@@ -16,9 +16,9 @@ import RichEditor from './components/RichEditor';
 import {
   IconFilePlus, IconFolder, IconSave, IconSaveAs, IconExport, IconChevron, IconPrinter,
   IconMd, IconHtml, IconPdf, IconWord, IconPaper, IconTrash, IconInfo, IconSettings,
-  IconSun, IconMoon, IconX, IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
-  IconStars, IconSnow, IconLeaf, IconFlower, IconSunrise, IconContrast, IconBulb,
-  IconDroplet, IconCoffee, IconCloud, IconGlobe, IconHash, IconCalendar,
+  IconX, IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
+  IconRefresh, IconCheck, IconContrast, IconBulb,
+  IconGlobe, IconHash, IconCalendar,
   IconBold, IconItalic, IconStrike, IconUnderline, IconHeading, IconList, IconListOrdered, IconChecklist,
   IconQuote, IconCode, IconLink, IconTable, IconRule, IconImage, IconUndo, IconRedo,
 } from './components/Icons';
@@ -31,28 +31,9 @@ import {
   createEmptyMeeting, meetingToMarkdown, meetingToPlainText,
   meetingBaseName, isMeetingEmpty, lines, buildStructure } from './lib/meeting';
 import { TEMPLATES, templateName, templateMeeting } from './lib/templates';
+import { TIME_OPTIONS, TIME_RE, timeToMinutes } from './lib/time';
 
 const THEME_IDS = THEMES.map((t) => t.id);
-// Each theme shows its own toolbar glyph so the current theme is recognizable.
-const THEME_ICONS = {
-  dark: IconMoon, light: IconSun, white: IconBulb, midnight: IconStars, nord: IconSnow,
-  forest: IconLeaf, rose: IconFlower, solarized: IconSunrise, contrast: IconContrast,
-  ocean: IconDroplet, mocha: IconCoffee, sky: IconCloud,
-};
-
-// Time combobox: 15-minute options for the dropdown + a validator.
-const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
-  const h = String(Math.floor(i / 4)).padStart(2, '0');
-  const m = String((i % 4) * 15).padStart(2, '0');
-  return `${h}:${m}`;
-});
-const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
-const timeToMinutes = (s) => {
-  const m = String(s).trim().match(TIME_RE);
-  if (!m) return null;
-  const [hh, mm] = s.trim().split(':');
-  return Number(hh) * 60 + Number(mm);
-};
 
 function loadExportSettings() {
   try {
@@ -141,6 +122,8 @@ export default function App() {
     const s = localStorage.getItem('mtg-theme');
     return THEME_IDS.includes(s) ? s : 'dark';
   });
+  const [themeAuto, setThemeAuto] = useState(() => localStorage.getItem('mtg-theme-auto') === '1');
+  const [themeOpen, setThemeOpen] = useState(false);
   const [lang, setLang] = useState(i18n.language);
   const [exportSettings, setExportSettings] = useState(loadExportSettings);
   const [exportName, setExportName] = useState('');
@@ -173,6 +156,7 @@ export default function App() {
   const fileRef = useRef(null);
   const sampleRef = useRef(null);
   const exportRef = useRef(null);
+  const themeRef = useRef(null);
 
   // Localized labels baked into the exported/preview document.
   const docLabels = useMemo(() => ({
@@ -202,8 +186,21 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('mtg-theme', theme);
+    rememberThemePref(theme);
     saveSettingsToDisk();
   }, [theme]);
+
+  // "Auto" follows the OS appearance and applies the last theme chosen for that mode.
+  useEffect(() => {
+    localStorage.setItem('mtg-theme-auto', themeAuto ? '1' : '0');
+    saveSettingsToDisk();
+    if (!themeAuto) return undefined;
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const apply = () => setTheme(preferredThemeForMode(mq.matches ? 'light' : 'dark'));
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [themeAuto]);
 
   // Load the system font list once for the toolbar font picker.
   useEffect(() => {
@@ -351,6 +348,8 @@ export default function App() {
         try { setExportSettings((prev) => ({ ...prev, ...JSON.parse(e.newValue) })); } catch { /* ignore */ }
       } else if (e.key === 'mtg-theme' && e.newValue && THEME_IDS.includes(e.newValue)) {
         setTheme(e.newValue);
+      } else if (e.key === 'mtg-theme-auto') {
+        setThemeAuto(e.newValue === '1');
       } else if (e.key === 'mtg-lang' && e.newValue) {
         i18n.changeLanguage(e.newValue); setLang(e.newValue);
       }
@@ -369,6 +368,7 @@ export default function App() {
       } catch { /* ignore */ }
       const th = localStorage.getItem('mtg-theme');
       if (th && THEME_IDS.includes(th)) setTheme(th);
+      setThemeAuto(localStorage.getItem('mtg-theme-auto') === '1');
       const lg = localStorage.getItem('mtg-lang');
       if (lg && lg !== i18n.language) { i18n.changeLanguage(lg); setLang(lg); }
     };
@@ -377,15 +377,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!fileOpen && !sampleOpen && !exportOpen) return;
+    if (!fileOpen && !sampleOpen && !exportOpen && !themeOpen) return;
     const onDown = (e) => {
       if (fileRef.current && !fileRef.current.contains(e.target)) setFileOpen(false);
       if (sampleRef.current && !sampleRef.current.contains(e.target)) setSampleOpen(false);
       if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false);
+      if (themeRef.current && !themeRef.current.contains(e.target)) setThemeOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [fileOpen, sampleOpen, exportOpen]);
+  }, [fileOpen, sampleOpen, exportOpen, themeOpen]);
 
   // Record a successfully opened/saved/exported file path: update the last-used
   // directory and prepend it to the recent-files list (max 10, deduped).
@@ -830,8 +831,18 @@ export default function App() {
     saveSettingsToDisk();
   }
   function cycleTheme() {
-    const i = THEME_IDS.indexOf(theme);
-    setTheme(THEME_IDS[(i + 1) % THEME_IDS.length]);
+    setThemeAuto(false);
+    setTheme(nextThemeId(theme));
+  }
+  function pickTheme(id) {
+    setThemeAuto(false);
+    setTheme(id);
+    setThemeOpen(false);
+  }
+  function pickAutoTheme() {
+    setThemeAuto(true);
+    setTheme(preferredThemeForMode(systemThemeMode()));
+    setThemeOpen(false);
   }
   function openSettings() {
     if (isElectron) {
@@ -1076,7 +1087,7 @@ export default function App() {
     };
   }, [fullMarkdown, meeting.attendees, meeting.agenda]);
 
-  const ThemeIcon = THEME_ICONS[theme] || IconSun;
+  const activeTheme = THEMES.find((th) => th.id === theme) || THEMES[0];
 
   // A labeled text field for the details panel. Rendered via a plain function
   // (not a nested component) so inputs keep focus across re-renders.
@@ -1287,7 +1298,52 @@ export default function App() {
           <button className="iconbtn lang-btn" title={`${t('tip.lang')} — ${lang === 'ko' ? 'EN' : '한글'}`} onClick={toggleLang}>
             <IconGlobe /><span className="lang-code">{lang === 'ko' ? 'EN' : '한글'}</span>
           </button>
-          <button className="iconbtn" title={`${t('tip.theme')} — ${t(`theme.${theme}`)}`} onClick={cycleTheme}><ThemeIcon /></button>
+          <button className="iconbtn" title={t('tip.themeCycle')} onClick={cycleTheme}><IconRefresh /></button>
+          <div className="dropdown" ref={themeRef}>
+            <button
+              className={`tb-theme${themeAuto ? ' on' : ''}`}
+              title={`${t('tip.theme')} — ${t(`theme.${theme}`)}`}
+              onClick={() => {
+                setThemeOpen((v) => !v);
+                setFileOpen(false);
+                setSampleOpen(false);
+                setExportOpen(false);
+              }}
+            >
+              <span className="theme-swatch-mini" aria-hidden="true">
+                {activeTheme.bars.map((c, i) => <i key={i} style={{ background: c }} />)}
+              </span>
+              <span className="tb-theme-name">{themeAuto ? t('theme.auto') : t(`theme.${theme}`)}</span>
+              <IconChevron size={14} />
+            </button>
+            {themeOpen && (
+              <div className="dropdown-menu theme-menu">
+                <button className={`dropdown-item${themeAuto ? ' on' : ''}`} onClick={pickAutoTheme}>
+                  <IconContrast size={16} />
+                  <span>{t('theme.auto')}</span>
+                  {themeAuto && <span className="tick"><IconCheck size={14} /></span>}
+                </button>
+                {['dark', 'light'].map((mode) => (
+                  <React.Fragment key={mode}>
+                    <div className="dropdown-head">{t(mode === 'dark' ? 'theme.groupDark' : 'theme.groupLight')}</div>
+                    {themesByMode(mode).map((th) => (
+                      <button
+                        key={th.id}
+                        className={`dropdown-item${theme === th.id && !themeAuto ? ' on' : ''}`}
+                        onClick={() => pickTheme(th.id)}
+                      >
+                        <span className="theme-swatch-mini" aria-hidden="true">
+                          {th.bars.map((c, i) => <i key={i} style={{ background: c }} />)}
+                        </span>
+                        <span>{t(`theme.${th.id}`)}</span>
+                        {theme === th.id && !themeAuto && <span className="tick"><IconCheck size={14} /></span>}
+                      </button>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+          </div>
           <button className="iconbtn" title={t('tip.settings')} onClick={openSettings}><IconSettings /></button>
           <button className="iconbtn" title={t('tip.about')} onClick={openAbout}><IconInfo /></button>
         </div>
@@ -1417,7 +1473,9 @@ export default function App() {
           <span className="stat" title={t('stat.words')}>{t('stat.wAbbr')} {stats.words}</span>
           <span className="stat" title={t('stat.chars')}>{t('stat.cAbbr')} {stats.chars}</span>
           <span className="stat" title={t('settings.font')}>{exportSettings.fontFamily || t('settings.fontDefault')} · {exportSettings.fontSizePt}pt</span>
-          <span className="stat" title={t('settings.theme')}>{t(`theme.${theme}`)}</span>
+          <span className="stat" title={t('settings.theme')}>
+            {themeAuto ? `${t('theme.auto')} · ` : ''}{t(`theme.${theme}`)}
+          </span>
           {isElectron && (
             <span className="stat" title={docPath || t('status.unsavedFileHint')}>
               {docPath ? basenameOf(docPath) : t('status.unsavedFile')}
@@ -1435,6 +1493,7 @@ export default function App() {
         busy={printBusy}
         pages={printDoc?.pages || 0}
         currentPage={printDoc?.currentPage || 0}
+        html={printDoc?.html || ''}
         printers={printers}
         options={printOptions}
         onOptions={setPrintOptions}

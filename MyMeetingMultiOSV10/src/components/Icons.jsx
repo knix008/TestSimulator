@@ -44,6 +44,7 @@ export const IconDown = (p) => <S {...p}><path d="m6 9 6 6 6-6" /></S>;
 export const IconX = (p) => <S {...p}><path d="M18 6 6 18M6 6l12 12" /></S>;
 export const IconSun = (p) => <S {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></S>;
 export const IconMoon = (p) => <S {...p}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></S>;
+export const IconRefresh = (p) => <S {...p}><path d="M21 12a9 9 0 1 1-2.2-5.8" /><path d="M21 3v6h-6" /></S>;
 // Per-theme toolbar icons (one distinct glyph per theme).
 export const IconStars = (p) => <S {...p}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /><path d="M18 3.5l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z" /></S>;
 export const IconSnow = (p) => <S {...p}><path d="M12 2v20M2 12h20M5 5l14 14M19 5 5 19" /><path d="M12 6l-2 1.6M12 6l2 1.6M12 18l-2-1.6M12 18l2-1.6M6 12l1.6-2M6 12l1.6 2M18 12l-1.6-2M18 12l-1.6 2" /></S>;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getSystemFonts, fontsWith } from '../lib/fonts';
-import { THEMES } from '../lib/themes';
+import { themesByMode } from '../lib/themes';
 
 const ALIGNS = ['left', 'center', 'right'];
 const POS_ROWS = ['top', 'bottom'];
@@ -62,20 +62,27 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
             </div>
           </div>
         </div>
-        <div className="field">
+        <div className="field field-top">
           <label>{t('settings.theme')}</label>
           <div className="control">
-            <div className="theme-grid">
-              {THEMES.map((th) => (
-                <button
-                  key={th.id}
-                  className={`theme-swatch${theme === th.id ? ' on' : ''}`}
-                  onClick={() => onTheme(th.id)}
-                  title={t(`theme.${th.id}`)}
-                >
-                  <span className="bars">{th.bars.map((c, i) => <span key={i} style={{ background: c }} />)}</span>
-                  <span className="name">{t(`theme.${th.id}`)}</span>
-                </button>
+            <div className="theme-groups">
+              {['dark', 'light'].map((mode) => (
+                <div key={mode}>
+                  <div className="theme-group-name">{t(mode === 'dark' ? 'theme.groupDark' : 'theme.groupLight')}</div>
+                  <div className="theme-grid">
+                    {themesByMode(mode).map((th) => (
+                      <button
+                        key={th.id}
+                        className={`theme-swatch${theme === th.id ? ' on' : ''}`}
+                        onClick={() => onTheme(th.id)}
+                        title={t(`theme.${th.id}`)}
+                      >
+                        <span className="bars">{th.bars.map((c, i) => <span key={i} style={{ background: c }} />)}</span>
+                        <span className="name">{t(`theme.${th.id}`)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
