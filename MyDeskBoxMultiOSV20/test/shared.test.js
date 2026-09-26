@@ -97,3 +97,22 @@ test('아이콘 뒤에 넣던 판 창은 남아 있지 않다', () => {
     assert.equal(fs.existsSync(path.join(ROOT, 'src', 'renderer', name)), false, `${name} 이 남아 있다`);
   }
 });
+
+// 항목 이름 바꾸기는 메인 → 창 → 메인으로 한 바퀴 돈다.
+// 창은 DOM 이 있어야 돌아가므로 여기서는 길이 끊긴 자리가 없는지만 본다.
+test('항목 이름 바꾸기 길이 창까지 이어진다', () => {
+  const preload = fs.readFileSync(path.join(ROOT, 'src', 'preload', 'preload.js'), 'utf8');
+  assert.match(preload, /onRenameItem/, '창이 이름 바꾸기 알림을 받을 길이 없다');
+  assert.match(preload, /renameItem: \(id, filePath, name\)/, '창이 바꾼 이름을 보낼 길이 없다');
+
+  const ipc = fs.readFileSync(path.join(ROOT, 'src', 'main', 'ipc.js'), 'utf8');
+  assert.match(ipc, /fence:rename-item/, '메인이 바꾼 이름을 받지 않는다');
+  assert.match(ipc, /host\.renameItem\(/, '받은 이름을 아무도 다루지 않는다');
+
+  const code = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.js'), 'utf8');
+  assert.match(code, /desk\.onRenameItem\(/, '창이 이름 바꾸기를 시작하지 않는다');
+  assert.match(code, /desk\.renameItem\(/, '창이 바꾼 이름을 보내지 않는다');
+
+  const css = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.css'), 'utf8');
+  assert.match(css, /\.icon input\.edit/, '이름을 적을 자리의 모양이 없다');
+});

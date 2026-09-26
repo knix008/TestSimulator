@@ -167,7 +167,7 @@ test('파일을 휴지통 위에 놓으면 버리고 박스에서는 빠진다',
   await host.dropFiles(state.fences[0].id, [place.note], 0, 'shell:RecycleBinFolder');
   assert.deepEqual(electron.shell.trashed, [place.note]);
   assert.deepEqual(state.fences[0].items.map((item) => item.name), ['휴지통']);
-  assert.equal(fs.existsSync(place.note), true, '휴지통으로 보낸 파일은 테스트에서 지워지지 않는다');
+  assert.equal(fs.existsSync(place.note), false, '휴지통으로 보냈는데 그 자리에 남아 있다');
 });
 
 test('같은 이름이 이미 있으면 폴더로 넣지 않고 박스에 남긴다', async () => {
@@ -197,4 +197,80 @@ test('항목을 자기 위에 놓으면 그대로 둔다', async () => {
   assert.equal(electron.shell.trashed.length, 0);
   assert.equal(state.fences[0].items.length, 1);
   assert.equal(fs.existsSync(state.fences[0].items[0].path), true, '제자리에 놓았는데 파일이 사라졌다');
+});
+
+// 폴더도 바로가기도 휴지통도 아닌 항목 위에 놓으면, 그 항목을 실행하며 놓은 파일을 넘긴다.
+test('그 밖의 항목에는 파일을 입력으로 넘긴다', () => {
+  assert.equal(deliver.receiveKind({ path: 'C:/Desktop/tool.exe' }, 'linux'), 'hand', '프로그램 파일은 어디서나 받는다');
+  assert.equal(deliver.receiveKind({ path: 'C:/Desktop/노트.txt' }, 'win32'), 'hand', 'Windows 는 셸이 넘겨 준다');
+  assert.equal(deliver.receiveKind({ path: '/home/me/노트.txt' }, 'linux'), '', '넘길 프로그램을 모르는데 받는다고 한다');
+  assert.equal(deliver.receiveKind({ path: '/Applications/Edit.app' }, 'darwin'), 'hand');
+  assert.equal(deliver.isRunnable('C:/Desktop/tool.exe'), true);
+  assert.equal(deliver.isRunnable('C:/Desktop/노트.txt'), false);
+});
+
+test('프로그램 파일은 그대로 부르고, 문서는 운영체제에 맡긴다', () => {
+  assert.deepEqual(
+    deliver.openPlan('C:/Tools/tool.exe', 'C:/Desktop/노트.txt', 'win32'),
+    { command: 'C:/Tools/tool.exe', args: ['C:/Desktop/노트.txt'] }
+  );
+  assert.deepEqual(
+    deliver.openPlan('C:/Desktop/보고서.docx', 'C:/Desktop/노트.txt', 'win32'),
+    { command: 'cmd', args: ['/c', 'start', '', 'C:/Desktop/보고서.docx', 'C:/Desktop/노트.txt'] }
+  );
+  assert.deepEqual(
+    deliver.openPlan('/Applications/Edit.app', '/Users/me/노트.txt', 'darwin'),
+    { command: 'open', args: ['-a', '/Applications/Edit.app', '/Users/me/노트.txt'] }
+  );
+  assert.equal(deliver.openPlan('/home/me/노트.txt', '/home/me/그림.png', 'linux'), null);
+  assert.equal(deliver.openPlan('', 'C:/Desktop/노트.txt', 'win32'), null);
+  assert.equal(deliver.openPlan('C:/Tools/tool.exe', '', 'win32'), null);
+});
+
+test('프로그램 파일 위에 놓으면 그 프로그램이 파일을 열고, 파일은 박스에 남는다', async () => {
+  const place = desk();
+  const tool = path.join(place.root, 'tool.exe');
+  fs.writeFileSync(tool, 'exe');
+  const state = baseState({
+    fences: [fence({
+      items: [
+        { name: 'tool.exe', path: tool },
+        { name: '노트.txt', path: place.note },
+      ],
+    })],
+  });
+  const { host, electron } = loadHost(state);
+  const launched = [];
+  electron.shell.launch = (plan) => launched.push(plan);
+
+  await host.transfer('a', place.note, 0, 0, tool);
+
+  assert.deepEqual(launched, [{ command: tool, args: [place.note] }]);
+  assert.equal(fs.existsSync(place.note), true, '넘겨주기만 하면 파일은 그대로 있어야 한다');
+  assert.equal(state.fences[0].items.some((item) => item.path === place.note), true, '박스에서 빠졌다');
+});
+
+test('탐색기에서 프로그램 위에 놓으면 넘겨주기만 하고 박스에 담지 않는다', async () => {
+  const place = desk();
+  const tool = path.join(place.root, 'tool.exe');
+  fs.writeFileSync(tool, 'exe');
+  const state = baseState({ fences: [fence({ items: [{ name: 'tool.exe', path: tool }] })] });
+  const { host, electron } = loadHost(state);
+  const launched = [];
+  electron.shell.launch = (plan) => launched.push(plan);
+
+  await host.dropFiles('a', [place.note], 0, tool);
+
+  assert.equal(launched.length, 1, '프로그램에 넘기지 않았다');
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['tool.exe'], '넘겨준 파일을 박스에 담았다');
+  assert.equal(fs.existsSync(place.note), true, '넘겨준 파일을 옮겼다');
+});
+
+// Node 는 .bat 과 .cmd 를 직접 띄우지 못한다. 셸을 거쳐야 한다.
+test('일괄 파일은 셸을 거쳐 넘긴다', () => {
+  assert.equal(deliver.isRunnable('C:/Desktop/할일.bat'), false);
+  assert.deepEqual(
+    deliver.openPlan('C:/Desktop/할일.bat', 'C:/Desktop/노트.txt', 'win32'),
+    { command: 'cmd', args: ['/c', 'start', '', 'C:/Desktop/할일.bat', 'C:/Desktop/노트.txt'] }
+  );
 });

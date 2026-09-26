@@ -20,6 +20,8 @@ let lang = window.DeskI18n.DEFAULT_LANG;
 let items = [];
 let hover = null;
 let drag = null;
+// 이름을 바꾸고 있는 아이콘. { path, el, input }
+let editing = null;
 // 한 번 눌러 열지, 두 번 눌러 열지. 설정에서 고른다.
 let openWith = 'double';
 // 창은 그림자를 켜면 박스보다 사방으로 이만큼 크다.
@@ -155,16 +157,15 @@ function layout() {
 // 두 번 누르면 실행한다. 세는 방법은 shared/taps.js 에 있다.
 const taps = window.DeskTaps.createTaps();
 
-// 끌어다 놓은 자리에 폴더나 바로가기가 있으면 그 안으로 보낸다.
+// 끌어다 놓은 자리에 다른 항목의 그림이 있으면 그 항목에게 보낸다.
+// 폴더와 폴더 바로가기는 그 안으로, 휴지통은 버리기, 그 밖의 항목은 그것을 실행하며
+// 놓은 파일을 입력으로 받는다. 어느 쪽인지는 메인이 고른다.
 function receiverAt(clientX, clientY, exceptPath) {
   const x = localX(clientX);
   const y = scrolled(localY(clientY));
   const grid = window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, false);
   for (const node of body.querySelectorAll('.icon')) {
     if (node.dataset.path === exceptPath || node.classList.contains('dragging')) continue;
-    if (!node.classList.contains('folder') && !node.classList.contains('shortcut') && !node.classList.contains('recycle')) {
-      continue;
-    }
     const left = Number.parseFloat(node.style.left);
     const top = Number.parseFloat(node.style.top) + grid.titleH;
     if (!window.DeskDeliver.onPicture(x - left, y - top)) continue;
@@ -175,6 +176,8 @@ function receiverAt(clientX, clientY, exceptPath) {
 
 function onIconDown(event) {
   if (event.button !== 0 || !fence) return;
+  // 이름을 바꾸는 중인 아이콘은 끌지 않는다. 글자를 고르는 손짓이다.
+  if (editing && editing.el === event.currentTarget) return;
   event.preventDefault();
   event.stopPropagation();
   const el = event.currentTarget;
@@ -401,6 +404,55 @@ renameEl.addEventListener('keydown', (event) => {
 });
 renameEl.addEventListener('blur', commitRename);
 
+// 박스에 담긴 항목 하나의 이름. 아이콘의 글자 자리에 입력칸을 얹는다.
+// 박스 이름과 달리 이것은 박스 폴더 안의 파일 이름을 바꾸는 일이다.
+function labelOfItem(filePath) {
+  const item = itemByPath(filePath);
+  if (!item) return '';
+  return item.label || item.name || '';
+}
+
+function startItemRename(filePath) {
+  if (!fence || fence.collapsed) return;
+  commitItemRename();
+  const el = [...body.children].find((node) => node.dataset.path === filePath);
+  if (!el) return;
+  const input = document.createElement('input');
+  input.className = 'edit';
+  input.spellcheck = false;
+  input.value = labelOfItem(filePath);
+  el.appendChild(input);
+  el.classList.add('editing');
+  editing = { path: filePath, el, input };
+  // 입력칸 위의 손짓과 글쇠는 아이콘의 끌기·열기와 섞이지 않게 여기서 멈춘다.
+  input.addEventListener('pointerdown', (event) => event.stopPropagation());
+  input.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'Enter') commitItemRename();
+    if (event.key === 'Escape') stopItemRename();
+  });
+  input.addEventListener('blur', () => commitItemRename());
+  input.focus();
+  input.select();
+}
+
+function stopItemRename() {
+  if (!editing) return;
+  const { el, input } = editing;
+  editing = null;
+  el.classList.remove('editing');
+  input.remove();
+}
+
+function commitItemRename() {
+  if (!editing) return;
+  const filePath = editing.path;
+  const next = editing.input.value.trim();
+  const was = labelOfItem(filePath);
+  stopItemRename();
+  if (next && next !== was) desk.renameItem(id, filePath, next);
+}
+
 desk.onState((payload) => {
   if (!payload || payload.fence.id !== id) return;
   const wasDrag = drag;
@@ -409,6 +461,8 @@ desk.onState((payload) => {
   corner = payload.corner || null;
   lang = payload.lang || lang;
   items = payload.items || [];
+  // 이름을 바꾸던 항목이 목록에서 빠졌으면(이름이 바뀌었거나 없어졌다) 입력칸을 거둔다.
+  if (editing && !items.some((item) => item.path === editing.path)) stopItemRename();
   openWith = payload.openWith === 'single' ? 'single' : 'double';
   edge = payload.shadow ? window.DeskArrange.SHADOW : 0;
   panel.classList.toggle('shadow', !!payload.shadow);
@@ -423,6 +477,7 @@ desk.onHover((payload) => {
 
 desk.onResize(() => layout());
 desk.onRename(() => startRename());
+desk.onRenameItem((filePath) => startItemRename(filePath));
 desk.ready(id);
 
 window.addEventListener('resize', () => layout());

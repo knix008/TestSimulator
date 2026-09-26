@@ -123,6 +123,13 @@ function makeElectron(userData) {
     },
     trashItem: async (target) => {
       shell.trashed.push(target);
+      // 진짜 휴지통처럼 그 자리에서는 없어진다. 이것이 없으면 지운 파일이
+      // 박스 폴더에 남아, 폴더와 맞추는 길(settleBox)이 다시 담아 버린다.
+      try {
+        fs.rmSync(target, { recursive: true, force: true });
+      } catch (_err) {
+        /* 휴지통 같은 셸 항목은 지울 파일이 없다. */
+      }
     },
     readShortcutLink: (target) => {
       if (shell.links.has(target)) return shell.links.get(target);

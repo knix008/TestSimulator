@@ -277,3 +277,47 @@ test('박스 사이를 옮기면 앞 박스의 기록은 지운다', () => {
   const noted = JSON.parse(fs.readFileSync(path.join(root, 'restore.json'), 'utf8'));
   assert.deepEqual(noted.items.map((row) => row.path), [again.path], '앞 박스의 기록이 남았다');
 });
+
+// 바탕화면과 박스에 이름이 같은 항목이 따로 있을 수 있다. 담기 전에 알아야 묻을 수 있다.
+test('담으면 이름이 부딪히는 파일을 미리 알려 준다', () => {
+  const { root, desk } = fresh();
+  const fence = box();
+  hold.take(fence, fileIn(desk, '겹치는이름.txt', '먼저'));
+  const other = room('other');
+  const coming = fileIn(other, '겹치는이름.txt', '나중');
+
+  assert.equal(hold.clash(fence, coming.path), path.join(root, '일감', '겹치는이름.txt'));
+  assert.equal(hold.clash(fence, fileIn(other, '딴이름.txt').path), '', '부딪히지 않는 이름을 부딪힌다고 한다');
+  // 이미 박스 폴더에 있는 것은 자기 자신과 부딪히지 않는다.
+  assert.equal(hold.clash(fence, path.join(root, '일감', '겹치는이름.txt')), '');
+  assert.equal(hold.clash(box({ folder: '' }), coming.path), '', '폴더가 없는 박스에는 부딪힐 것이 없다');
+});
+
+test('박스 안의 파일 이름을 바꾸면 어디서 왔는지도 새 이름으로 따라간다', () => {
+  const { root, desk } = fresh();
+  const fence = box();
+  const moved = hold.take(fence, fileIn(desk, '처음.txt', '글'));
+
+  const next = hold.relabel(moved, '나중.txt');
+
+  assert.equal(next.path, path.join(root, '일감', '나중.txt'));
+  assert.equal(next.name, '나중.txt');
+  assert.equal(next.home, desk, '어디서 왔는지 잊었다');
+  assert.equal(fs.existsSync(moved.path), false, '예전 이름이 남아 있다');
+  assert.equal(fs.readFileSync(next.path, 'utf8'), '글');
+  assert.equal(hold.noted(next.path), desk, 'restore.json 이 새 이름을 모른다');
+  assert.equal(hold.noted(moved.path), '', 'restore.json 에 예전 이름이 남아 있다');
+
+  // 꺼내면 새 이름 그대로 담기 전 폴더로 간다.
+  assert.equal(hold.give(next), path.join(desk, '나중.txt'));
+});
+
+test('바꿀 수 없는 이름이면 파일을 건드리지 않는다', () => {
+  const { desk } = fresh();
+  const fence = box();
+  const moved = hold.take(fence, fileIn(desk, '그대로.txt', '글'));
+
+  assert.equal(hold.relabel(moved, ''), null);
+  assert.equal(hold.relabel(null, '뭐든.txt'), null);
+  assert.equal(fs.existsSync(moved.path), true, '이름을 바꾸지도 못하고 파일을 잃었다');
+});

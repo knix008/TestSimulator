@@ -706,3 +706,109 @@ test('손을 떼도 끄는 동안 보이던 자리에 그대로 놓인다', () =
   assert.ok(Math.abs(a.x - shown.x) <= 2 && Math.abs(a.y - shown.y) <= 2,
     `손을 떼자 박스가 뛰었다: ${shown.x},${shown.y} -> ${a.x},${a.y}`);
 });
+
+// 박스 이름과 달리 항목 이름은 박스 폴더 안의 파일 이름을 실제로 바꾸는 일이다.
+test('박스에 담긴 항목의 이름을 바꾼다', async () => {
+  const state = baseState({ fences: [fence({ title: '일감', items: [realItem('바꿀 것.txt')] })] });
+  const { host } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+  const before = state.fences[0].items[0].path;
+
+  await host.renameItem('a', before, '새 이름.txt');
+
+  const item = state.fences[0].items[0];
+  assert.equal(item.name, '새 이름.txt');
+  assert.equal(item.path, path.join(path.dirname(before), '새 이름.txt'), '박스 폴더를 벗어났다');
+  assert.equal(fs.existsSync(before), false, '예전 이름이 그대로 남아 있다');
+  assert.equal(fs.existsSync(item.path), true, '바꾼 이름의 파일이 없다');
+});
+
+// 탐색기가 확장자를 감추고 있으면 박스에도 감춘 이름이 적힌다.
+// 그 이름을 고쳐 준 것이므로 확장자는 우리가 다시 붙여 준다.
+test('확장자를 감춘 항목은 확장자를 그대로 이어 준다', async () => {
+  const state = baseState({ fences: [fence({ items: [realItem('바로가기.lnk')] })] });
+  const { host } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+  const before = state.fences[0].items[0].path;
+
+  await host.renameItem('a', before, '새 바로가기');
+
+  assert.equal(state.fences[0].items[0].name, '새 바로가기.lnk', '확장자를 잃었다');
+});
+
+test('셸 항목과 쓸 수 없는 이름은 바꾸지 않는다', async () => {
+  const bin = { name: '휴지통', path: 'shell:RecycleBinFolder' };
+  const state = baseState({ fences: [fence({ items: [realItem('그대로.txt'), bin] })] });
+  const { host } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+  const at = state.fences[0].items.find((item) => item.name === '그대로.txt').path;
+
+  // 폴더를 가리키는 글자가 든 이름, 빈 이름은 받지 않는다.
+  await host.renameItem('a', at, 'a/b');
+  await host.renameItem('a', at, '   ');
+  assert.equal(fs.existsSync(at), true, '쓸 수 없는 이름에 파일을 잃었다');
+  assert.equal(state.fences[0].items.find((item) => item.path === at).name, '그대로.txt');
+
+  // 휴지통은 바꿀 파일이 없다.
+  await host.renameItem('a', 'shell:RecycleBinFolder', '새 휴지통');
+  assert.equal(state.fences[0].items.find((item) => item.path === bin.path).name, '휴지통');
+});
+
+test('바꾸려는 이름이 박스에 이미 있으면 대체할지 묻는다', async () => {
+  const state = baseState({
+    fences: [fence({ items: [realItem('먼저.txt'), realItem('나중.txt')] })],
+  });
+  const { host, electron, asks } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+  const [first, second] = state.fences[0].items.map((item) => item.path);
+
+  // 기본 답은 '아니오'. 그러면 아무것도 바뀌지 않는다.
+  await host.renameItem('a', second, '먼저.txt');
+  assert.equal(asks.calls.length, 1, '대체할지 묻지 않았다');
+  assert.equal(fs.existsSync(second), true, '대체하지 않겠다고 했는데 이름을 바꿨다');
+  assert.equal(state.fences[0].items.length, 2);
+
+  electron.setDialogAnswer(0); // 대체를 고른다
+  await host.renameItem('a', second, '먼저.txt');
+  assert.deepEqual(electron.shell.trashed, [first], '박스에 있던 것을 휴지통으로 보내지 않았다');
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['먼저.txt'], '박스에 둘이 남았다');
+});
+
+// 바탕화면에도 박스에도 이름이 같은 항목이 따로 있을 수 있다.
+// 담으면 자리가 부딪히므로 몰래 번호를 붙이지 않고 먼저 묻는다.
+test('박스에 같은 이름이 있으면 담을 때 대체할지 묻는다', async () => {
+  const state = baseState({ fences: [fence({ title: '일감' })] });
+  const { host, electron, asks } = loadHost(state);
+  host.openAll();
+  const mine = path.join(SANDBOX, 'clash-먼저');
+  fs.mkdirSync(mine, { recursive: true });
+  const first = path.join(mine, '보고서.txt');
+  fs.writeFileSync(first, '먼저');
+
+  await host.dropFiles('a', [first], 0);
+  assert.equal(asks.calls.length, 0, '부딪힐 것이 없는데 물었다');
+  assert.equal(state.fences[0].items.length, 1);
+
+  const other = path.join(SANDBOX, 'clash-나중');
+  fs.mkdirSync(other, { recursive: true });
+  const second = path.join(other, '보고서.txt');
+  fs.writeFileSync(second, '나중');
+
+  await host.dropFiles('a', [second], 0);
+  assert.equal(asks.calls.length, 1, '대체할지 묻지 않았다');
+  assert.equal(fs.existsSync(second), true, '담지 않겠다고 했는데 파일을 옮겼다');
+  assert.equal(state.fences[0].items.length, 1, '묻고 거절했는데 하나 더 담았다');
+
+  electron.setDialogAnswer(0); // 대체를 고른다
+  await host.dropFiles('a', [second], 0);
+  assert.equal(electron.shell.trashed.length, 1, '박스에 있던 것을 휴지통으로 보내지 않았다');
+  assert.equal(fs.existsSync(second), false, '새로 담을 파일이 옮겨 가지 않았다');
+  assert.equal(state.fences[0].items.length, 1, '대체했는데 둘이 되었다');
+  // 비운 자리의 이름을 그대로 쓴다. 번호를 붙여 몰래 늘리지 않는다.
+  assert.equal(state.fences[0].items[0].name, '보고서.txt');
+  assert.equal(fs.readFileSync(state.fences[0].items[0].path, 'utf8'), '나중', '담은 것이 새 파일이 아니다');
+});

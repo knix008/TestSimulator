@@ -263,3 +263,53 @@ test('만든 이가 SHKWON 으로 적혀 있다', () => {
   assert.equal(pkg.author.name, 'SHKWON');
   assert.equal(pkg.author.email, 'knix008@naver.com');
 });
+
+// 항목 메뉴의 이름 바꾸기는 그 항목의, 박스 메뉴의 것은 박스의 이름을 고친다.
+// 둘이 한 메뉴에 나란히 서므로 이름표도 달라야 한다.
+test('항목과 박스의 이름 바꾸기가 따로 있다', () => {
+  const os = require('node:os');
+  const room = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-rename-'));
+  const file = path.join(room, '바꿀 것.txt');
+  fs.writeFileSync(file, '');
+
+  const state = baseState({ fences: [fence({ items: [{ name: '바꿀 것.txt', path: file }] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.refreshIcons();
+  const at = state.fences[0].items[0].path;
+  const win = fenceWindows(electron)[0];
+
+  host.showMenu('a', at);
+  const items = flatten(electron.menus.at(-1));
+  const one = items.find((entry) => entry.label === '이름 바꾸기');
+  const box = items.find((entry) => entry.label === '박스 이름 바꾸기');
+  assert.ok(one, '항목 이름 바꾸기가 메뉴에 없다');
+  assert.ok(one.icon, '이름 바꾸기에 그림이 없다');
+  assert.ok(box, '박스 이름 바꾸기가 메뉴에 없다');
+
+  one.click();
+  assert.deepEqual(win.messages('fence:rename-item'), [at], '어느 항목의 이름인지 알려 주지 않았다');
+  box.click();
+  assert.equal(win.messages('fence:rename').length, 1, '박스 이름 바꾸기가 항목을 고치려 한다');
+});
+
+test('빈 곳의 메뉴에는 항목 이름 바꾸기가 없다', () => {
+  const { host, electron } = openOne();
+  host.showMenu('a', null);
+  const labels = flatten(electron.menus.at(-1)).map((entry) => entry.label);
+  assert.equal(labels.includes('이름 바꾸기'), false, '고를 항목이 없는데 항목 이름 바꾸기가 있다');
+  assert.equal(labels.includes('박스 이름 바꾸기'), true);
+});
+
+test('휴지통 같은 셸 항목은 이름을 바꿀 수 없다', () => {
+  const state = baseState({
+    fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.showMenu('a', 'shell:RecycleBinFolder');
+  const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '이름 바꾸기');
+  assert.equal(item.enabled, false, '바꿀 파일이 없는데 누를 수 있다');
+});

@@ -74,6 +74,9 @@ function install(host) {
 
   ipcMain.handle('fence:rename', (_event, payload) => host.rename(payload.id, payload.title));
 
+  // 박스에 담긴 항목 하나의 이름. 박스 폴더 안의 파일 이름이 바뀐다.
+  ipcMain.handle('fence:rename-item', (_event, payload) => host.renameItem(payload.id, payload.filePath, payload.name));
+
   ipcMain.handle('fence:remove', (_event, id) => host.removeFence(id));
 
   ipcMain.handle('draw:finish', (_event, rect) => host.finishDraw(rect));

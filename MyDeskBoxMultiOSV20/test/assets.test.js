@@ -73,8 +73,8 @@ test('icns 머리말이 올바르다', () => {
   assert.equal(buf.readUInt32BE(4), buf.length, '적어 둔 길이와 실제 길이가 같아야 한다');
 });
 
-test('테마는 스무 가지이고 저마다 미리보기 그림이 있다', () => {
-  assert.equal(THEMES.length, 20, `테마가 ${THEMES.length}개다`);
+test('테마는 서른 가지이고 저마다 미리보기 그림이 있다', () => {
+  assert.equal(THEMES.length, 30, `테마가 ${THEMES.length}개다`);
   const ids = new Set(THEMES.map((theme) => theme.id));
   assert.equal(ids.size, THEMES.length, '테마 이름이 겹친다');
   for (const theme of THEMES) {

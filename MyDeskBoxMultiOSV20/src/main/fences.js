@@ -428,7 +428,8 @@ function createHost(state) {
     }
     const win = new BrowserWindow({
       width: 380 + arrange.SHADOW * 2,
-      height: 430 + arrange.SHADOW * 2,
+      // 테마 조각은 한 줄에 열 개씩 세 줄이다. 줄 하나가 27픽셀이다.
+      height: 457 + arrange.SHADOW * 2,
       frame: false,
       transparent: true,
       resizable: false,
@@ -461,7 +462,7 @@ function createHost(state) {
   // 크기는 고정이다. 항목은 창 안에서 탭으로 나뉘므로 내용에 맞춰 늘일 까닭이 없다.
   // 박스 하나의 설정 창(openSettings)과는 다른 창이다.
   const PREFS_W = 380;
-  const PREFS_H = 452;
+  const PREFS_H = 479;
   let prefsWin = null;
 
   function openPrefs() {
@@ -994,6 +995,8 @@ function createHost(state) {
       detached: true,
       stdio: 'ignore',
       cwd: plan.cwd || undefined,
+      // 셸을 거쳐 넘길 때 검은 창이 번쩍이지 않게 한다.
+      windowsHide: true,
     });
     child.unref();
   }
@@ -1012,6 +1015,11 @@ function createHost(state) {
     return true;
   }
 
+  // 아래 항목이 무엇이냐에 따라 갈린다.
+  //  - 폴더, 폴더를 가리키는 바로가기 : 그 안으로 옮긴다
+  //  - 휴지통 : 버린다
+  //  - 그 밖의 항목 : 그것을 실행하면서 놓은 파일을 입력으로 넘긴다
+  //
   // moved 면 박스에서 빠진다. handed 면 프로그램에만 넘기고 박스에는 남긴다.
   async function sendInto(filePath, intoPath) {
     if (!filePath || !intoPath || filePath === intoPath) return '';
@@ -1026,7 +1034,8 @@ function createHost(state) {
     if (link && isDirectory(link.target)) {
       return (await moveInto(filePath, link.target)) ? 'moved' : '';
     }
-    const plan = deliver.handPlan(link, filePath);
+    // 바로가기면 가리키는 프로그램에, 프로그램이나 문서면 그 항목에 그대로 넘긴다.
+    const plan = deliver.handPlan(link, filePath) || deliver.openPlan(intoPath, filePath, process.platform);
     if (plan) {
       launch(plan);
       return 'handed';
@@ -1043,6 +1052,7 @@ function createHost(state) {
   async function dropFiles(id, filePaths, index, intoPath) {
     if (intoPath) {
       let changed = false;
+      let handled = false;
       for (const entry of filePaths || []) {
         const item = toItem(entry);
         if (!item) continue;
@@ -1051,13 +1061,15 @@ function createHost(state) {
           takeOut(item.path);
           changed = true;
         }
+        if (done) handled = true;
       }
       if (changed) {
         persist();
         await pushAll();
         refreshIcons();
-        return;
       }
+      // 아래 항목이 받아 갔으면 박스에 새로 담을 것이 없다.
+      if (handled) return;
     }
     const fence = fenceById(id);
     if (!fence) return;
@@ -1071,6 +1083,8 @@ function createHost(state) {
         incoming.push(item);
         continue;
       }
+      // 박스에 같은 이름이 이미 있으면 대체할지 먼저 묻는다.
+      if (!(await clearClash(fence, item.path))) continue;
       const moved = bringIn(fence, item);
       if (moved) incoming.push({ ...moved, from: item.path });
     }
@@ -1087,6 +1101,96 @@ function createHost(state) {
     persist();
     await pushAll();
     refreshIcons();
+  }
+
+  // 같은 파일을 가리키는 두 경로인가. Windows 는 대소문자를 가리지 않는다.
+  function samePath(a, b) {
+    const one = path.resolve(String(a || ''));
+    const two = path.resolve(String(b || ''));
+    if (process.platform === 'win32') return one.toLowerCase() === two.toLowerCase();
+    return one === two;
+  }
+
+  // 같은 이름이 이미 있다. 대체할지 묻는다.
+  function askReplace(fence, name) {
+    return ask.confirm({
+      title: say('dialog.replace', { name, title: fence.title || say('box.untitled') }),
+      detail: say('dialog.replaceDetail'),
+      confirm: say('dialog.replaceGo'),
+      cancel: say('dialog.cancel'),
+      icon: icons.menu('remove'),
+      danger: true,
+    });
+  }
+
+  // 바탕화면과 박스에 이름이 같은 항목이 따로 있을 수 있다. 담으면 자리가 부딪힌다.
+  // 대체하겠다면 박스에 있던 것을 휴지통으로 보내 자리를 비운다.
+  // 그대로 두겠다면 담지 않는다. 파일은 있던 자리에 남는다.
+  async function clearClash(fence, filePath) {
+    const older = hold.clash(fence, filePath);
+    if (!older) return true;
+    const yes = await askReplace(fence, path.basename(String(filePath)));
+    if (!yes) return false;
+    try {
+      await shell.trashItem(older);
+    } catch (_err) {
+      // 지우지 못했으면 담지 않는다. 번호를 붙여 몰래 늘리지 않는다.
+      return false;
+    }
+    takeOut(older);
+    watchBin();
+    return true;
+  }
+
+  // 박스에 적힌 이름은 확장자를 감춘 것일 수 있다(탐색기 설정, 바로가기).
+  // 사람이 적어 준 것에 확장자가 없으면 원래 것을 그대로 붙여 준다.
+  function wantedName(item, text) {
+    // Windows 는 끝의 점과 빈칸을 말없이 떼어 낸다. 우리가 먼저 떼어 둔다.
+    const typed = String(text || '').trim().replace(/[. ]+$/, '');
+    if (!typed || /[\\/:*?"<>|]/.test(typed)) return '';
+    const ext = path.extname(item.path);
+    if (!ext) return typed;
+    const low = ext.toLowerCase();
+    // 확장자를 보여 주고 있었다면 사람이 적은 그대로가 온 이름이다.
+    if (typed.toLowerCase().endsWith(low)) return typed;
+    if (labelFor(item).toLowerCase().endsWith(low)) return typed;
+    return `${typed}${ext}`;
+  }
+
+  // 박스에 담긴 항목의 이름을 바꾼다. 박스 폴더 안의 파일 이름이 실제로 바뀐다.
+  // 휴지통 같은 셸 항목은 바꿀 파일이 없다.
+  async function renameItem(id, filePath, text) {
+    const fence = fenceById(id);
+    if (!fence) return;
+    const item = fence.items.find((entry) => entry.path === filePath);
+    if (!item) return;
+    if (desktop.isShellItem && desktop.isShellItem(item.path)) return;
+    const base = wantedName(item, text);
+    if (!base || base === path.basename(item.path)) return;
+    const dir = path.dirname(item.path);
+    const dest = path.join(dir, base);
+    // 대소문자만 바꾼 것은 그 파일 자신이라 물을 것이 없다.
+    if (!samePath(dest, item.path) && fs.existsSync(dest)) {
+      const yes = await askReplace(fence, base);
+      if (!yes) return;
+      try {
+        await shell.trashItem(dest);
+      } catch (_err) {
+        return;
+      }
+      takeOut(dest);
+      watchBin();
+    }
+    const moved = hold.relabel(item, base);
+    if (!moved) return;
+    // 적어 둔 이름표는 경로를 열쇠로 삼는다. 바뀐 경로는 다시 물어본다.
+    labels.delete(item.path);
+    item.name = moved.name;
+    item.path = moved.path;
+    if (moved.home) item.home = moved.home;
+    persist();
+    await push(id);
+    refreshFolders(dir);
   }
 
   // 박스 안에서 바로 지운다. 파일은 휴지통으로 간다.
@@ -1557,6 +1661,13 @@ function createHost(state) {
       }
       template.push(
         {
+          // 박스 폴더 안의 파일 이름을 바꾼다. 셸 항목은 바꿀 파일이 없다.
+          label: say('menu.rename'),
+          icon: icons.menu('rename'),
+          enabled: !(desktop.isShellItem && desktop.isShellItem(filePath)),
+          click: () => win.webContents.send('fence:rename-item', filePath),
+        },
+        {
           label: say('menu.eject'),
           icon: icons.menu('eject'),
           click: () => eject(id, filePath),
@@ -1572,7 +1683,8 @@ function createHost(state) {
     }
     template.push(
       {
-        label: say('menu.rename'),
+        // 항목 이름 바꾸기와 한 메뉴에 나란히 서므로 무엇의 이름인지 적어 둔다.
+        label: say('menu.renameBox'),
         icon: icons.menu('rename'),
         click: () => win.webContents.send('fence:rename'),
       },
@@ -1818,6 +1930,7 @@ function createHost(state) {
     acceptDesktopDrop,
     transfer,
     rename,
+    renameItem,
     removeFence,
     openItem,
     showMenu,

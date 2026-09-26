@@ -4,25 +4,37 @@
 // bg 는 박스 바탕, bar 는 제목 줄, text 는 글씨 색이다.
 // 값을 바꾸면 tools/make-icons.js 를 다시 돌려 테마 그림도 새로 만든다.
 
+// 색이 도는 차례로 늘어놓는다. 파랑에서 풀빛, 노랑, 붉은빛, 보랏빛을 지나
+// 무채색으로 끝난다. 설정 창은 한 줄에 열 개씩 보여 주므로 세 줄이 된다.
 const THEMES = [
   { id: 'ocean', label: { ko: '바다', en: 'Ocean' }, bg: '#2563eb', bar: '#1e3a8a', text: '#ffffff' },
+  { id: 'cobalt', label: { ko: '코발트', en: 'Cobalt' }, bg: '#1d4ed8', bar: '#172554', text: '#ffffff' },
+  { id: 'indigo', label: { ko: '남보라', en: 'Indigo' }, bg: '#4f46e5', bar: '#312e81', text: '#ffffff' },
   { id: 'sky', label: { ko: '하늘', en: 'Sky' }, bg: '#0ea5e9', bar: '#075985', text: '#ffffff' },
+  { id: 'lagoon', label: { ko: '석호', en: 'Lagoon' }, bg: '#06b6d4', bar: '#155e75', text: '#ffffff' },
   { id: 'teal', label: { ko: '청록', en: 'Teal' }, bg: '#0f766e', bar: '#134e4a', text: '#ffffff' },
   { id: 'mint', label: { ko: '민트', en: 'Mint' }, bg: '#10b981', bar: '#065f46', text: '#ffffff' },
+  { id: 'pine', label: { ko: '솔', en: 'Pine' }, bg: '#064e3b', bar: '#022c22', text: '#ffffff' },
   { id: 'forest', label: { ko: '숲', en: 'Forest' }, bg: '#16a34a', bar: '#14532d', text: '#ffffff' },
   { id: 'olive', label: { ko: '올리브', en: 'Olive' }, bg: '#65a30d', bar: '#3f6212', text: '#ffffff' },
+  { id: 'lime', label: { ko: '라임', en: 'Lime' }, bg: '#84cc16', bar: '#4d7c0f', text: '#0f172a' },
+  { id: 'lemon', label: { ko: '레몬', en: 'Lemon' }, bg: '#facc15', bar: '#a16207', text: '#0f172a' },
   { id: 'gold', label: { ko: '황금', en: 'Gold' }, bg: '#ca8a04', bar: '#713f12', text: '#ffffff' },
   { id: 'amber', label: { ko: '호박', en: 'Amber' }, bg: '#d97706', bar: '#78350f', text: '#ffffff' },
+  { id: 'peach', label: { ko: '복숭아', en: 'Peach' }, bg: '#fb923c', bar: '#9a3412', text: '#0f172a' },
   { id: 'sunset', label: { ko: '노을', en: 'Sunset' }, bg: '#ea580c', bar: '#7c2d12', text: '#ffffff' },
+  { id: 'cherry', label: { ko: '체리', en: 'Cherry' }, bg: '#dc2626', bar: '#7f1d1d', text: '#ffffff' },
   { id: 'coral', label: { ko: '산호', en: 'Coral' }, bg: '#f43f5e', bar: '#9f1239', text: '#ffffff' },
-  { id: 'rose', label: { ko: '장미', en: 'Rose' }, bg: '#be123c', bar: '#7f1d1d', text: '#ffffff' },
+  { id: 'rose', label: { ko: '장미', en: 'Rose' }, bg: '#be123c', bar: '#881337', text: '#ffffff' },
+  { id: 'wine', label: { ko: '포도주', en: 'Wine' }, bg: '#831843', bar: '#4c0519', text: '#ffffff' },
   { id: 'plum', label: { ko: '자두', en: 'Plum' }, bg: '#a21caf', bar: '#701a75', text: '#ffffff' },
+  { id: 'lilac', label: { ko: '라일락', en: 'Lilac' }, bg: '#c4b5fd', bar: '#7c3aed', text: '#0f172a' },
   { id: 'violet', label: { ko: '보라', en: 'Violet' }, bg: '#7c3aed', bar: '#4c1d95', text: '#ffffff' },
-  { id: 'indigo', label: { ko: '남보라', en: 'Indigo' }, bg: '#4f46e5', bar: '#312e81', text: '#ffffff' },
   { id: 'steel', label: { ko: '강철', en: 'Steel' }, bg: '#475569', bar: '#1e293b', text: '#ffffff' },
   { id: 'graphite', label: { ko: '흑연', en: 'Graphite' }, bg: '#334155', bar: '#0f172a', text: '#ffffff' },
   { id: 'stone', label: { ko: '자갈', en: 'Stone' }, bg: '#57534e', bar: '#292524', text: '#ffffff' },
   { id: 'mocha', label: { ko: '모카', en: 'Mocha' }, bg: '#92400e', bar: '#451a03', text: '#ffffff' },
+  { id: 'sand', label: { ko: '모래', en: 'Sand' }, bg: '#e7e5e4', bar: '#a8a29e', text: '#0f172a' },
   { id: 'mist', label: { ko: '안개', en: 'Mist' }, bg: '#cbd5e1', bar: '#64748b', text: '#0f172a' },
   { id: 'night', label: { ko: '밤', en: 'Night' }, bg: '#1e293b', bar: '#020617', text: '#e2e8f0' },
 ];

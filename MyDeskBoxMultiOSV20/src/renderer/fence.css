@@ -227,6 +227,41 @@ html, body {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
+/* 항목 이름을 바꾸는 동안 글자 자리에 얹히는 입력칸.
+   글씨가 판 색에 묻히지 않게 흰 바탕에 검은 글씨로 둔다. */
+.icon input.edit {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 56px;
+  z-index: 6;
+  box-sizing: border-box;
+  padding: 1px 3px;
+  border: 1px solid rgba(15, 23, 42, 0.45);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  outline: none;
+  user-select: text;
+}
+
+/* 바꾸는 동안에는 원래 글자를 감추고, 아이콘도 들리지 않게 둔다. */
+.icon.editing span {
+  visibility: hidden;
+}
+
+.icon.editing,
+.icon.editing:hover,
+.icon.editing:active {
+  transform: none;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+}
+
 /* 얹혀 있는 판이 떠오르는 느낌 */
 .icon:hover {
   background: rgba(255, 255, 255, 0.16);

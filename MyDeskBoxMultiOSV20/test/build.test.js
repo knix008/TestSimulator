@@ -117,3 +117,51 @@ test('설치할 때 예전 설정을 지울지 고를 수 있다', () => {
     assert.ok(nsh.includes(word), `${word} 가 없다`);
   }
 });
+
+test('이미 깔려 있으면 예전 설정을 지울지 묻지 않는다', () => {
+  assert.match(nsh, /Var HasOldApp/, '이미 깔렸는지 담을 자리가 없다');
+  assert.match(
+    nsh,
+    /ReadRegStr \$R0 SHELL_CONTEXT "\$\{INSTALL_REGISTRY_KEY\}" InstallLocation/,
+    '깔린 자리를 레지스트리에서 찾지 않는다'
+  );
+  // 지우는 칸은 깔려 있지 않을 때만 만든다.
+  assert.match(nsh, /\$\{ElseIf\} \$R7 == 1\s+\$\{NSD_CreateCheckbox\}[^\r\n]*\$R5/, '지우는 칸을 늘 만든다');
+  // 지우는 일에는 빗장을 두 겹으로 건다. 깔려 있으면 여기까지 와도 지우지 않는다.
+  assert.match(
+    nsh,
+    /\$\{If\} \$WipeData == \$\{BST_CHECKED\}\s+\$\{AndIf\} \$HasOldApp == 0/,
+    '깔려 있어도 설정을 지울 수 있다'
+  );
+  for (const word of ['이미 설치되어 있습니다', 'MyDeskBox is already installed']) {
+    assert.ok(nsh.includes(word), `${word} 가 없다`);
+  }
+});
+
+test('다시 깔 때 조용히 도는 제거 프로그램은 아무것도 건드리지 않는다', () => {
+  // 설치 프로그램은 예전 제거 프로그램을 --updated 로 한 번 돌린다.
+  // 그때 되돌리기를 하면 박스에 담아 둔 것이 바탕화면으로 쏟아진다.
+  assert.match(nsh, /\$\{IfNot\} \$\{isUpdated\}/, '다시 까는 길을 가려내지 않는다');
+  const guard = nsh.indexOf('${IfNot} ${isUpdated}');
+  const restore = nsh.indexOf('Call un.RestoreHeld');
+  assert.ok(guard >= 0 && restore > guard, '되돌리기가 빗장 밖에 있다');
+});
+
+test('설정을 지우기 전에 박스에 담긴 파일을 바탕화면으로 돌려준다', () => {
+  assert.match(nsh, /Function RestoreBoxFiles/, '돌려주는 차례가 없다');
+  assert.ok(nsh.includes('$APPDATA\\${PRODUCT_FILENAME}\\boxes'), '보관함을 찾지 않는다');
+  assert.match(nsh, /Call RestoreBoxFiles\s+RMDir \/r/, '돌려주기 전에 지운다');
+});
+
+test('다시 깔 때는 지금 있는 바로 가기를 그대로 따라간다', () => {
+  assert.match(
+    nsh,
+    /\$\{IfNot\} \$\{FileExists\} "\$DESKTOP\\\$\{PRODUCT_FILENAME\}\.lnk"\s+StrCpy \$MakeDesktop 0/,
+    '지워 둔 바탕화면 바로 가기가 되살아난다'
+  );
+  assert.match(
+    nsh,
+    /\$\{IfNot\} \$\{FileExists\} "\$SMPROGRAMS\\\$\{PRODUCT_FILENAME\}\.lnk"\s+StrCpy \$MakeStartMenu 0/,
+    '지워 둔 시작 메뉴 바로 가기가 되살아난다'
+  );
+});
