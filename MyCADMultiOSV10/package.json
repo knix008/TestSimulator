@@ -1,0 +1,128 @@
+{
+  "name": "mycad",
+  "productName": "MyCAD",
+  "version": "1.0.0",
+  "description": "Cross-platform 3D CAD for Web, Windows, macOS, and Linux.",
+  "author": "SHKWON <knix008@naver.com>",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "start": "npm run electron:dev",
+    "electron:dev": "concurrently -k \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "build:icons": "node scripts/create-icons.mjs",
+    "build": "npm run build:icons && tsc --noEmit && vite build",
+    "build:web": "npm run build:icons && vite build",
+    "preview": "vite preview",
+    "postinstall": "node scripts/patch-bvh.mjs",
+    "test": "node scripts/patch-bvh.mjs && vitest run",
+    "dist": "npm run build && electron-builder && node scripts/copy-installers.cjs",
+    "dist:win": "npm run build && electron-builder --win nsis && node scripts/copy-installers.cjs",
+    "build:win": "npm run dist:win",
+    "dist:mac": "npm run build && electron-builder --mac dmg && node scripts/copy-installers.cjs",
+    "build:mac": "npm run dist:mac",
+    "dist:linux": "npm run build && electron-builder --linux AppImage deb && node scripts/copy-installers.cjs",
+    "build:linux": "npm run dist:linux"
+  },
+  "build": {
+    "appId": "com.shkwon.mycad",
+    "productName": "MyCAD",
+    "executableName": "MyCAD",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.ico",
+      "build/icon.png",
+      "build/file-icon.ico",
+      "build/file-icon.png",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "fileAssociations": [
+      {
+        "ext": "mycad",
+        "name": "MyCAD.Document",
+        "description": "MyCAD 3D Document",
+        "icon": "file-icon.ico",
+        "role": "Editor",
+        "mimeType": "application/x-mycad"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyCAD",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "include": "build/installer.nsh",
+      "artifactName": "MyCAD-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.graphics-design",
+      "identity": null
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icons",
+      "category": "Graphics",
+      "artifactName": "MyCAD-${version}.${ext}"
+    }
+  },
+  "dependencies": {
+    "font-list": "^1.5.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.180.0",
+    "three-bvh-csg": "^0.0.18"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "electron": "^35.2.0",
+    "electron-builder": "^26.0.12",
+    "jsdom": "^26.1.0",
+    "png-to-ico": "^2.1.8",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.2",
+    "vitest": "^3.1.1",
+    "wait-on": "^8.0.3"
+  }
+}
