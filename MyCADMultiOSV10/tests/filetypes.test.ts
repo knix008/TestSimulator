@@ -67,6 +67,42 @@ describe('file types', () => {
     expect(main).toContain("app.on('open-file'")
   })
 
+  it('[File] every control on the association page is inside the page', () => {
+    // The MUI inner dialog is 300 x 140 dialog units. A control drawn past
+    // that is simply not displayed, which is how half the list went missing
+    // when the number of file types grew.
+    const nsh = readFileSync(join(root, 'build', 'installer-associations.nsh'), 'utf8')
+    const controls = [...nsh.matchAll(/NSD_Create(Checkbox|Button)\} (-?\d+)u (-?\d+)u (\d+)u (\d+)u/g)].map(
+      (match) => ({
+        kind: match[1],
+        x: Number(match[2]),
+        y: Number(match[3]),
+        width: Number(match[4]),
+        height: Number(match[5])
+      })
+    )
+    const selectable = FILE_TYPES.filter((type) => type.ext !== 'mycad').length
+    // One checkbox per selectable type, plus the two buttons.
+    expect(controls.filter((control) => control.kind === 'Checkbox')).toHaveLength(selectable)
+    expect(controls.filter((control) => control.kind === 'Button')).toHaveLength(2)
+    for (const control of controls) {
+      expect(control.x, JSON.stringify(control)).toBeGreaterThanOrEqual(0)
+      expect(control.y, JSON.stringify(control)).toBeGreaterThanOrEqual(0)
+      expect(control.x + control.width, JSON.stringify(control)).toBeLessThanOrEqual(300)
+      expect(control.y + control.height, JSON.stringify(control)).toBeLessThanOrEqual(140)
+    }
+    // Nothing overlaps: every control has its own rectangle.
+    for (let i = 0; i < controls.length; i++) {
+      for (let j = i + 1; j < controls.length; j++) {
+        const a = controls[i]
+        const b = controls[j]
+        const apart =
+          a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y
+        expect(apart, `${JSON.stringify(a)} overlaps ${JSON.stringify(b)}`).toBe(true)
+      }
+    }
+  })
+
   it('[File] extensions resolve to their type', () => {
     expect(fileExtension('C:/models/part.STL')).toBe('stl')
     expect(fileTypeFor('part.stl')?.name).toBe('MyCAD.Stl')
