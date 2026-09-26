@@ -151,7 +151,12 @@ export function parseStep(text: string, id: string, name = 'step'): { solid: Sol
  * planar face per triangle. It is verbose, as STEP is, but any CAD system can
  * read it, and `parseStep` reads it back.
  */
-export function toStep(solids: Array<{ name: string; mesh?: { positions: number[] } | undefined; position: { x: number; y: number; z: number } }>, triangles: (solid: unknown) => number[]): string {
+export function toStep(
+  solids: Array<{ name: string; mesh?: { positions: number[] } | undefined; position: { x: number; y: number; z: number } }>,
+  triangles: (solid: unknown) => number[],
+  /** Written into the header. Pass a fixed value to get a reproducible file. */
+  stamp: Date = new Date()
+): string {
   const lines: string[] = []
   let next = 1
   const id = () => `#${next++}`
@@ -227,7 +232,7 @@ export function toStep(solids: Array<{ name: string; mesh?: { positions: number[
   lines.push('ISO-10303-21;')
   lines.push('HEADER;')
   lines.push("FILE_DESCRIPTION ( ( 'MyCAD export' ), '2;1' );")
-  lines.push(`FILE_NAME ( '${productName}', '${new Date().toISOString()}', ( 'MyCAD' ), ( '' ), 'MyCAD', 'MyCAD', '' );`)
+  lines.push(`FILE_NAME ( '${productName}', '${stamp.toISOString()}', ( 'MyCAD' ), ( '' ), 'MyCAD', 'MyCAD', '' );`)
   lines.push("FILE_SCHEMA ( ( 'AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }' ) );")
   lines.push('ENDSEC;')
   lines.push('DATA;')
@@ -337,7 +342,8 @@ export function wireframeOf(triangles: number[], id = 'edge'): Wire[] {
 }
 
 /** Write wires as an IGES file with one type 110 line entity per segment. */
-export function toIges(wires: Wire[]): string {
+export function toIges(wires: Wire[], stamp: Date = new Date()): string {
+  const day = `${stamp.toISOString().slice(0, 10).replace(/-/g, '')}000000`
   const start: string[] = []
   const global: string[] = []
   const directory: string[] = []
@@ -348,8 +354,8 @@ export function toIges(wires: Wire[]): string {
   start.push(pad('MyCAD IGES export', 'S', 1))
   const globals = [
     '1H,', '1H;', '4HMyCAD', '9Hmycad.igs', '5HMyCAD', '5HMyCAD', '32', '38', '6', '308', '15',
-    '4HPART', '1.0', '2', '2HMM', '1', '0.08', `15H${new Date().toISOString().slice(0, 10).replace(/-/g, '')}000000`,
-    '1E-7', '1000.0', '5HMyCAD', '5HMyCAD', '11', '0', `15H${new Date().toISOString().slice(0, 10).replace(/-/g, '')}000000`, ';'
+    '4HPART', '1.0', '2', '2HMM', '1', '0.08', `15H${day}`,
+    '1E-7', '1000.0', '5HMyCAD', '5HMyCAD', '11', '0', `15H${day}`, ';'
   ].join(',')
   globals.match(/.{1,72}/g)?.forEach((chunk, index) => global.push(pad(chunk, 'G', index + 1)))
 

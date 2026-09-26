@@ -368,7 +368,9 @@ write('cube.stl', asciiStl('cube', boxTriangles(40, 40, 40, [0, 0, 0])))
 
 // ── neutral CAD interchange formats ──────────────────────────────────────
 const cubeTriangles = boxTriangles(40, 40, 40, [0, 0, 0]).flatMap((triangle) => triangle.flat())
-write('cube.step', toStep([{ name: 'cube', position: { x: 0, y: 0, z: 0 } }], () => cubeTriangles))
+// A fixed stamp keeps the generated samples byte-identical between runs.
+const SAMPLE_STAMP = new Date('2026-01-01T00:00:00.000Z')
+write('cube.step', toStep([{ name: 'cube', position: { x: 0, y: 0, z: 0 } }], () => cubeTriangles, SAMPLE_STAMP))
 write('plate.ply', toPly(boxTriangles(60, 8, 40, [0, 0, 0]).flatMap((triangle) => triangle.flat()), 'plate'))
 write('wedge.off', toOff(pyramidTriangles(50, 40).flatMap((triangle) => triangle.flat())))
 write('profile.igs', toIges([
@@ -384,7 +386,7 @@ write('profile.igs', toIges([
       { x: 0, y: 0, z: 0 }
     ]
   }
-]))
+], SAMPLE_STAMP))
 write('bracket.dae', [
   '<?xml version="1.0" encoding="utf-8"?>',
   '<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">',
