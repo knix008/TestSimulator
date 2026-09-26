@@ -1,0 +1,272 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-bim-house",
+    "name": "bim-house",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Slab",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 100,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 6000,
+          "y": 200,
+          "z": 4000,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#c9c9c2",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-2",
+        "name": "Wall",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 1550,
+          "z": -1900
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 6000,
+          "y": 2700,
+          "z": 200,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#d9d2c4",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-3",
+        "name": "Wall",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 1550,
+          "z": 1900
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 6000,
+          "y": 2700,
+          "z": 200,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#d9d2c4",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-4",
+        "name": "Column",
+        "kind": "box",
+        "position": {
+          "x": -2850,
+          "y": 1550,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 300,
+          "y": 2700,
+          "z": 300,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#bfc4c9",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-5",
+        "name": "Roof",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 2950,
+          "z": 0
+        },
+        "rotation": {
+          "x": 18,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 6400,
+          "y": 150,
+          "z": 4400,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#8c6b4f",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "Building",
+        "kind": "bim",
+        "solidIds": [
+          "sol-1",
+          "sol-2",
+          "sol-3",
+          "sol-4",
+          "sol-5"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 5,
+        "radius": 0
+      }
+    ],
+    "parameters": [],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded",
+    "extras": {
+      "levels": [
+        {
+          "name": "Level 1",
+          "elevation": 0,
+          "height": 3000
+        },
+        {
+          "name": "Level 2",
+          "elevation": 3000,
+          "height": 3000
+        }
+      ],
+      "bimElements": [
+        {
+          "id": "slab-sol-1",
+          "kind": "slab",
+          "name": "Slab",
+          "level": "Level 1",
+          "material": "Concrete",
+          "length": 6000,
+          "width": 4000,
+          "height": 200,
+          "solidId": "sol-1"
+        },
+        {
+          "id": "wall-sol-2",
+          "kind": "wall",
+          "name": "Wall",
+          "level": "Level 1",
+          "material": "Concrete",
+          "length": 6000,
+          "width": 200,
+          "height": 2700,
+          "solidId": "sol-2"
+        },
+        {
+          "id": "wall-sol-3",
+          "kind": "wall",
+          "name": "Wall",
+          "level": "Level 1",
+          "material": "Concrete",
+          "length": 6000,
+          "width": 200,
+          "height": 2700,
+          "solidId": "sol-3"
+        },
+        {
+          "id": "column-sol-4",
+          "kind": "column",
+          "name": "Column",
+          "level": "Level 1",
+          "material": "Steel",
+          "length": 300,
+          "width": 300,
+          "height": 2700,
+          "solidId": "sol-4"
+        },
+        {
+          "id": "roof-sol-5",
+          "kind": "roof",
+          "name": "Roof",
+          "level": "Level 2",
+          "material": "Wood",
+          "length": 6400,
+          "width": 4400,
+          "height": 150,
+          "solidId": "sol-5"
+        }
+      ],
+      "materialOf": {
+        "sol-1": "concrete",
+        "sol-2": "concrete",
+        "sol-3": "concrete",
+        "sol-4": "steel",
+        "sol-5": "wood"
+      }
+    }
+  }
+}

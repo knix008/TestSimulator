@@ -9,6 +9,14 @@ import { activeDocument, createInitialState, reducer } from '../src/core/store'
 import { orbitForPreset } from '../src/core/viewnav'
 import { femStress, sketchToGcode, WORKBENCHES } from '../src/core/workbenches'
 import { compileOpenScad, femBar, forwardKinematics, inspectSolids, parseIfc, parsePoints, pocketGcode, pointCloudSolid, solveSketchConstraints, surfaceFromSketch, toIfc } from '../src/core/extended'
+import { COMMAND_IDS, runCommandById, type CommandEffect } from '../src/core/commands'
+import { ADDON_CATALOG, installAddon } from '../src/core/addons'
+import { defaultSettings } from '../src/core/settings'
+import { draftRectangle } from '../src/core/draftwb'
+import { makeComponentDefinition, makeGroup, makeSectionPlane, saveScene } from '../src/core/sketchup'
+import { archWall, describeElement, makeLevels } from '../src/core/archwb'
+import { addJoint, createMechanism } from '../src/core/kinematics'
+import type { CadDocument } from '../src/core/model'
 
 function feature(name: string, kind: Feature['kind']): Feature {
   return { id: 'f', name, kind, solidIds: [], length: 12, angle: 90, count: 4, radius: 2 }
@@ -110,7 +118,7 @@ const checks: Record<string, () => void> = {
     expect(moved.position.x).toBe(first.position.x + 25)
   },
   parameter: () => {
-    const updated = updateSketchFromParameters(sketch(), [{ id: 'p', name: 'Width', formula: '80', value: 80 }])
+    const updated = updateSketchFromParameters(sketch(), [{ name: 'Width', formula: '80', value: 80 }])
     expect(updated.width).toBe(80)
   },
   measure: () => {
@@ -161,7 +169,7 @@ const checks: Record<string, () => void> = {
       feature: featurePad
     })
     const doc = activeDocument(rebuilt)
-    const updated = updateSketchFromParameters(doc.sketches[0], [{ id: 'w', name: 'Width', formula: '80', value: 80 }])
+    const updated = updateSketchFromParameters(doc.sketches[0], [{ name: 'Width', formula: '80', value: 80 }])
     const solid = padSketch(updated, 12, doc.solids[0].id)
     const next = reducer(rebuilt, { type: 'recompute-part', sketches: [updated], solid, replaceId: doc.solids[0].id })
     expect(solidVolume(activeDocument(next).solids[0])).toBeGreaterThan(solidVolume(before))
@@ -239,13 +247,103 @@ const checks: Record<string, () => void> = {
   }
 }
 
+
+/**
+ * Document used to exercise the registry commands: two selected solids, a
+ * sketch, a wire, a parameter and a section plane, so that every command finds
+ * the input it needs.
+ */
+function registryDocument(): CadDocument {
+  let state = reducer(createInitialState(), { type: 'add-solid', kind: 'box' })
+  state = reducer(state, { type: 'add-solid', kind: 'cylinder' })
+  const ids = activeDocument(state).solids.map((solid) => solid.id)
+  state = reducer(state, { type: 'select', ids })
+  const current = activeDocument(state)
+  // Both solids share the same region so booleans and intersections have work.
+  const solids = current.solids.map((solid, index) => ({
+    ...solid,
+    position: { x: index * 10, y: 20, z: 0 }
+  }))
+  const wall = archWall('wall-1', 4000, 2700, 200)
+  const group = makeGroup('group-1', 'Group1', solids, 'Structure')
+  const component = makeComponentDefinition('comp-1', 'Component1', solids)
+  const mechanism = addJoint(createMechanism(), {
+    id: 'joint-1',
+    kind: 'revolute',
+    a: solids[0].id,
+    b: solids[1].id,
+    axis: 'y',
+    origin: { ...solids[0].position },
+    min: 0,
+    max: 90,
+    ratio: 1
+  })
+  const extras = {
+    ...current.extras,
+    wires: [draftRectangle('wire-1', 40, 30), draftRectangle('wire-2', 20, 16)],
+    sectionPlanes: [makeSectionPlane('plane-1', { x: 0, y: 20, z: 0 }, { x: 0, y: 1, z: 0 })],
+    groups: [group],
+    components: [component],
+    levels: makeLevels(2),
+    bimElements: [describeElement(wall, 'wall')],
+    mechanism: { ...mechanism, fixed: [solids[0].id] }
+  }
+  return {
+    ...current,
+    solids,
+    sketches: [sketch('rect')],
+    parameters: [{ name: 'Width', value: 80, formula: '' }],
+    extras: {
+      ...extras,
+      scenes: [saveScene('Scene 1', extras.camera, extras.styleId, extras.shadows, extras.tags)]
+    }
+  }
+}
+
+function effectIsVisible(effect: CommandEffect): boolean {
+  return Boolean(
+    (effect.solids && effect.solids.length > 0) ||
+    effect.allSolids ||
+    effect.extras ||
+    effect.download ||
+    effect.report ||
+    effect.status ||
+    effect.parameter ||
+    effect.sketch ||
+    effect.mate
+  )
+}
+
+/** Every registry command must run on that document and report a change. */
+function registryCheck(id: string): () => void {
+  return () => {
+    let counter = 0
+    const settings = {
+      ...defaultSettings(),
+      addons: installAddon([], ADDON_CATALOG[0], 'catalog', '1.0.0', 0)
+    }
+    const effect = runCommandById(id, { doc: registryDocument(), settings, nextId: () => `tmp-${(counter += 1)}` })
+    expect(effect, id).not.toBeNull()
+    expect(effectIsVisible(effect as CommandEffect), id).toBe(true)
+    const solids = (effect as CommandEffect).solids ?? []
+    for (const solid of solids) {
+      expect(solid.id.length, id).toBeGreaterThan(0)
+      if (solid.kind === 'mesh') expect(solid.mesh?.positions.length ?? 0, id).toBeGreaterThan(8)
+    }
+  }
+}
+
+const registryChecks: Record<string, () => void> = Object.fromEntries(
+  COMMAND_IDS.map((id) => [id, registryCheck(id)])
+)
+
 describe('freecad behavior', () => {
-  for (const [tool, check] of Object.entries(checks)) {
+  for (const [tool, check] of Object.entries({ ...checks, ...registryChecks })) {
     it(`[FreeCAD] ${tool} changes the model`, check)
   }
 
   it('[FreeCAD] every workbench tool has a behavior check', () => {
-    const covered = new Set(Object.keys(checks))
+    const covered = new Set([...Object.keys(checks), ...Object.keys(registryChecks)])
     const missing = WORKBENCHES.flatMap((bench) => bench.tools.filter((tool) => !covered.has(tool)))
     expect(missing).toEqual([])
   })

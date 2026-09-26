@@ -87,9 +87,12 @@ export default class SummaryReporter implements Reporter {
       ''
     )
 
+    // Categories and rows are sorted by name, so two runs of the same suite
+    // write the same file and only real changes show up in a diff.
+    const ordered = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))
     let colorIndex = 0
-    for (const [category, rows] of groups) {
-      rows.sort((a, b) => Number(b.failed) - Number(a.failed) || b.duration - a.duration)
+    for (const [category, rows] of ordered) {
+      rows.sort((a, b) => Number(b.failed) - Number(a.failed) || a.name.localeCompare(b.name))
       const passed = rows.filter((row) => !row.failed).length
       const failed = rows.length - passed
       const duration = rows.reduce((sum, row) => sum + row.duration, 0)

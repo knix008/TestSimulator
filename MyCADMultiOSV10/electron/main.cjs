@@ -5,7 +5,9 @@ const http = require('http')
 const https = require('https')
 
 const APP_TITLE = 'MyCAD 1.0.0'
-const MIN_WIDTH = 1240
+// Keep in sync with toolbarMinWidth() in src/core/buildInfo.ts: every toolbar
+// button, the separators and the right-aligned buttons must stay visible.
+const MIN_WIDTH = 980
 const MIN_HEIGHT = 680
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) app.quit()
@@ -16,6 +18,30 @@ app.setPath('userData', userData)
 fs.mkdirSync(userData, { recursive: true })
 
 const settingsFile = path.join(userData, 'settings.json')
+
+// Every extension the installer can associate with MyCAD; keep in sync with
+// FILE_TYPES in src/core/fileTypes.ts (tests/filetypes.test.ts checks it).
+const SUPPORTED_EXTENSIONS = [
+  'mycad', 'stl', 'obj', 'dxf', 'svg', 'scad', 'ifc',
+  'asc', 'xyz', 'nc', 'gcode', 'mycadmacro', 'mycadaddon'
+]
+let pendingOpenPath = null
+
+function fileFromArgv(argv) {
+  return (argv || [])
+    .slice(1)
+    .filter((argument) => typeof argument === 'string' && !argument.startsWith('-'))
+    .find((argument) => SUPPORTED_EXTENSIONS.includes(path.extname(argument).slice(1).toLowerCase()))
+}
+
+function sendOpenPath(filePath) {
+  if (!filePath) return
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.send('open-path', filePath)
+    return
+  }
+  pendingOpenPath = filePath
+}
 let mainWindow = null
 const children = new Set()
 let allowClose = false
@@ -57,6 +83,12 @@ function createWindow() {
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed() && devUrl) mainWindow.loadURL(devUrl)
     }, 500)
+  })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    const initial = pendingOpenPath || fileFromArgv(process.argv)
+    pendingOpenPath = null
+    if (initial) mainWindow.webContents.send('open-path', initial)
   })
 
   mainWindow.on('close', (event) => {
@@ -104,17 +136,51 @@ function openChild(options) {
 }
 
 app.whenReady().then(createWindow)
-app.on('second-instance', () => {
+app.on('second-instance', (_event, argv) => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.focus()
   }
+  sendOpenPath(fileFromArgv(argv))
+})
+// macOS hands over documents through this event instead of argv.
+app.on('open-file', (event, filePath) => {
+  event.preventDefault()
+  sendOpenPath(filePath)
 })
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
 ipcMain.handle('get-version', () => '1.0.0')
+ipcMain.handle('read-path', async (_event, filePath) => {
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf8')
+    return { ok: true, content, filePath }
+  } catch (error) {
+    return { ok: false, error: String(error && error.message ? error.message : error) }
+  }
+})
+ipcMain.handle('supported-extensions', () => SUPPORTED_EXTENSIONS)
+// The renderer measures its own menu bar and toolbar and asks for a window
+// minimum that keeps every button reachable.
+ipcMain.handle('set-min-size', (event, width, height) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow
+  if (!win || win.isDestroyed()) return false
+  const minWidth = Math.max(MIN_WIDTH, Math.min(2400, Math.round(Number(width) || MIN_WIDTH)))
+  const minHeight = Math.max(MIN_HEIGHT, Math.min(1600, Math.round(Number(height) || MIN_HEIGHT)))
+  // setMinimumSize works on the frame, the renderer measures its content, so
+  // the border and title bar have to be added on top.
+  const [frameWidth, frameHeight] = win.getSize()
+  const [contentWidth, contentHeight] = win.getContentSize()
+  const chromeWidth = Math.max(0, frameWidth - contentWidth)
+  const chromeHeight = Math.max(0, frameHeight - contentHeight)
+  win.setMinimumSize(minWidth + chromeWidth, minHeight + chromeHeight)
+  if (contentWidth < minWidth || contentHeight < minHeight) {
+    win.setContentSize(Math.max(contentWidth, minWidth), Math.max(contentHeight, minHeight))
+  }
+  return true
+})
 ipcMain.handle('list-fonts', async () => {
   try {
     const { getFonts } = require('font-list')

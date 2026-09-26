@@ -189,14 +189,56 @@ export function inertiaOf(solid: Solid): { volume: number; area: number; cog: Ve
   return { volume, area, cog: { ...solid.position } }
 }
 
-export function specTreeLines(features: { name: string; kind: string }[], parameters: DesignParameter[], mates: Mate[]): string[] {
+/** One line of the specification tree, with the solids it stands for. */
+export interface SpecTreeRow {
+  /** stable key for the row */
+  key: string
+  /** indentation level, 0 for the part itself */
+  depth: number
+  label: string
+  /** solid ids the row selects when clicked; empty for headings */
+  refs: string[]
+}
+
+/**
+ * Specification tree of the document: part, body with its solids and features,
+ * the geometrical set of parameters and the constraint list. Rows carry the
+ * solids they stand for so the tree can drive and reflect the selection.
+ */
+export function specTreeRows(
+  features: { id?: string; name: string; kind: string; solidIds?: string[] }[],
+  parameters: DesignParameter[],
+  mates: Mate[],
+  solids: { id: string; name: string }[] = []
+): SpecTreeRow[] {
+  const everySolid = solids.map((solid) => solid.id)
   return [
-    'Part1',
-    '  PartBody',
-    ...features.map((feature) => `    ${feature.kind}: ${feature.name}`),
-    '  Geometrical Set.1',
-    ...parameters.map((item) => `    ${item.name} = ${item.formula || item.value}`),
-    '  Constraints',
-    ...mates.map((mate) => `    ${mate.kind} ${mate.a}/${mate.b}`)
+    { key: 'part', depth: 0, label: 'Part1', refs: everySolid },
+    { key: 'body', depth: 1, label: 'PartBody', refs: everySolid },
+    ...solids.map((solid) => ({ key: `solid:${solid.id}`, depth: 2, label: solid.name, refs: [solid.id] })),
+    ...features.map((feature, index) => ({
+      key: `feature:${feature.id ?? index}`,
+      depth: 2,
+      label: `${feature.kind}: ${feature.name}`,
+      refs: feature.solidIds ?? []
+    })),
+    { key: 'set', depth: 1, label: 'Geometrical Set.1', refs: [] },
+    ...parameters.map((item, index) => ({
+      key: `parameter:${item.name}:${index}`,
+      depth: 2,
+      label: `${item.name} = ${item.formula || item.value}`,
+      refs: []
+    })),
+    { key: 'constraints', depth: 1, label: 'Constraints', refs: [] },
+    ...mates.map((mate) => ({
+      key: `mate:${mate.id}`,
+      depth: 2,
+      label: `${mate.kind} ${mate.a}/${mate.b}`,
+      refs: [mate.a, mate.b]
+    }))
   ]
+}
+
+export function specTreeLines(features: { name: string; kind: string }[], parameters: DesignParameter[], mates: Mate[]): string[] {
+  return specTreeRows(features, parameters, mates).map((row) => `${'  '.repeat(row.depth)}${row.label}`)
 }

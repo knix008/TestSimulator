@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-200 -200 400 400">
+<polygon points="-40,-15 40,-15 40,15 -40,15" />
+<circle cx="0" cy="0" r="8" />
+</svg>

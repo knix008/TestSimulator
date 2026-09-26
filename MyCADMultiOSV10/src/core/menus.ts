@@ -1,15 +1,20 @@
-import { menuIcon, type MessageKey } from './i18n'
+import { menuIcon } from './i18n'
 
 export interface MenuEntry {
   id: string
-  labelKey: MessageKey
+  /** i18n message key, or a command id resolved through labels.ts. */
+  labelKey: string
   icon: string
 }
 
 export interface MenuDef {
   id: string
-  labelKey: MessageKey
+  labelKey: string
   items: MenuEntry[]
+}
+
+function entry(id: string): MenuEntry {
+  return { id, labelKey: id, icon: menuIcon(id) }
 }
 
 export const MENUS: MenuDef[] = [
@@ -18,6 +23,7 @@ export const MENUS: MenuDef[] = [
     { id: 'open', labelKey: 'open', icon: menuIcon('open') },
     { id: 'save', labelKey: 'save', icon: menuIcon('save') },
     { id: 'saveAs', labelKey: 'saveAs', icon: menuIcon('saveAs') },
+    entry('export'),
     { id: 'importStl', labelKey: 'importStl', icon: menuIcon('importStl') },
     { id: 'exportStl', labelKey: 'exportStl', icon: menuIcon('exportStl') },
     { id: 'exportObj', labelKey: 'exportObj', icon: menuIcon('exportObj') },
@@ -49,7 +55,16 @@ export const MENUS: MenuDef[] = [
     { id: 'wireframe', labelKey: 'wireframe', icon: menuIcon('wireframe') },
     { id: 'zoomIn', labelKey: 'zoomIn', icon: menuIcon('zoomIn') },
     { id: 'zoomOut', labelKey: 'zoomOut', icon: menuIcon('zoomOut') },
-    { id: 'fit', labelKey: 'fit', icon: menuIcon('fit') }
+    { id: 'fit', labelKey: 'fit', icon: menuIcon('fit') },
+    entry('resetView'),
+    entry('asIs'),
+    entry('flatLines'),
+    entry('points'),
+    entry('hiddenLine'),
+    entry('noShading'),
+    entry('projection'),
+    entry('toolPanel'),
+    entry('propertyPanel')
   ]},
   { id: 'insert', labelKey: 'insert', items: [
     { id: 'box', labelKey: 'box', icon: menuIcon('box') },
@@ -57,7 +72,9 @@ export const MENUS: MenuDef[] = [
     { id: 'cylinder', labelKey: 'cylinder', icon: menuIcon('cylinder') },
     { id: 'cone', labelKey: 'cone', icon: menuIcon('cone') },
     { id: 'torus', labelKey: 'torus', icon: menuIcon('torus') },
-    { id: 'plane', labelKey: 'plane', icon: menuIcon('plane') }
+    { id: 'plane', labelKey: 'plane', icon: menuIcon('plane') },
+    entry('wedge'), entry('prism'), entry('ellipsoid'), entry('tubePrim'),
+    entry('spiralPrim'), entry('ringPrim'), entry('pyramid')
   ]},
   { id: 'part', labelKey: 'part', items: [
     { id: 'sketchRect', labelKey: 'sketchRect', icon: menuIcon('sketchRect') },
@@ -95,7 +112,81 @@ export const MENUS: MenuDef[] = [
     { id: 'coincidence', labelKey: 'coincidence', icon: menuIcon('coincidence') },
     { id: 'offsetMate', labelKey: 'offsetMate', icon: menuIcon('offsetMate') },
     { id: 'inertia', labelKey: 'inertia', icon: menuIcon('inertia') },
-    { id: 'updatePart', labelKey: 'updatePart', icon: menuIcon('updatePart') }
+    { id: 'updatePart', labelKey: 'updatePart', icon: menuIcon('updatePart') },
+    entry('xor'), entry('booleanFragments'), entry('compound'), entry('thickness'),
+    entry('offset3d'), entry('crossSections'), entry('partArea'),
+    entry('meshEvaluate'), entry('meshDecimate'), entry('meshRefine'), entry('meshHarmonize'),
+    entry('meshFlip'), entry('meshScale'), entry('meshSmooth'), entry('meshFillHoles'),
+    entry('meshSectionCmd')
+  ]},
+  { id: 'sketchMenu', labelKey: 'sketchMenu', items: [
+    entry('sketchRect'), entry('sketchCircle'), entry('sketchPolygon'), entry('sketchRectConstrained'),
+    entry('sketchSolve2d'), entry('sketchConstraintCheck'), entry('sketchDof'),
+    entry('draftLine'), entry('draftWire'), entry('draftRect'), entry('draftPolygonWire'),
+    entry('draftCircleWire'), entry('draftEllipseWire'), entry('draftArcWire'),
+    entry('draftBSplineWire'), entry('draftBezierWire'), entry('draftFillet'), entry('draftOffset'),
+    entry('draftTrimex'), entry('draftJoin'), entry('draftSplit'), entry('draftUpgrade'),
+    entry('draftDowngrade'), entry('draftMove'), entry('draftRotate'), entry('draftScale'),
+    entry('draftMirror'), entry('draftStretch'), entry('orthoArray'), entry('polarArray'),
+    entry('circularArray'), entry('pathArray'), entry('pointArray'), entry('shapeStringCmd'),
+    entry('draftDimension'), entry('draftText'), entry('wireToFace')
+  ]},
+  { id: 'surfaceMenu', labelKey: 'surfaceMenu', items: [
+    entry('gsdExtrude'), entry('gsdRevolve'), entry('gsdSweep'), entry('gsdMultiSection'),
+    entry('gsdFill'), entry('gsdBlend'), entry('gsdOffsetSurf'), entry('gsdJoin'), entry('gsdSplit'),
+    entry('gsdBoundary'), entry('gsdHeal'), entry('gsdIso'), entry('gsdHelixCurve'),
+    entry('gsdSpline'), entry('gsdConic'), entry('ruled'), entry('surfaceFill')
+  ]},
+  { id: 'assemblyMenu', labelKey: 'assemblyMenu', items: [
+    entry('asmProduct'), entry('asmCoincident'), entry('asmOffset'), entry('asmAngle'),
+    entry('asmContact'), entry('asmSolve'), entry('asmExplode'), entry('asmBom'),
+    entry('asmInertia'), entry('asmMeasure'), entry('asmTree'),
+    entry('dmuRevolute'), entry('dmuPrismatic'), entry('dmuSimulate'), entry('dmuDof'),
+    entry('dmuClash'), entry('dmuEnvelope')
+  ]},
+  { id: 'annotateMenu', labelKey: 'annotateMenu', items: [
+    entry('techdrawPage'), entry('techdrawSection'), entry('techdrawDetail'), entry('techdrawDim'),
+    entry('techdrawHatch'), entry('techdrawBom'), entry('exportPageSvg'), entry('exportPageDxf')
+  ]},
+  { id: 'analyzeMenu', labelKey: 'analyzeMenu', items: [
+    entry('femMesh'), entry('femMaterial'), entry('femConstraintFixed'), entry('femConstraintForce'),
+    entry('femSolve'), entry('femBeamCmd'), entry('femTruss'), entry('femFrequency'), entry('femThermal'),
+    entry('materialAssign'), entry('massProps'), entry('materialLibrary'),
+    entry('measureDistanceCmd'), entry('measureAngleCmd'), entry('measureAreaCmd'),
+    entry('measureVolumeCmd'), entry('measureBoxCmd'), entry('expressionEval'), entry('runMacro'),
+    entry('kwFormula'), entry('kwRule'), entry('kwCheck'), entry('kwDesignTable'),
+    entry('kwApplyTable'), entry('kwTree')
+  ]},
+  { id: 'manufactureMenu', labelKey: 'manufactureMenu', items: [
+    entry('camProfile'), entry('camPocketOp'), entry('camDrill'), entry('camSurface'),
+    entry('camHelix'), entry('camEngrave'), entry('camAdaptive'), entry('camPost'), entry('camStats'),
+    entry('smWall'), entry('smFlange'), entry('smHem'), entry('smFolded'), entry('smUnfold'),
+    entry('smCheck'), entry('smExportDxf')
+  ]},
+  { id: 'bimMenu', labelKey: 'bimMenu', items: [
+    entry('bimWall'), entry('bimColumn'), entry('bimBeam'), entry('bimSlab'), entry('bimRoof'),
+    entry('bimWindow'), entry('bimDoor'), entry('bimStairs'), entry('bimSpace'), entry('bimRailing'),
+    entry('bimLevels'), entry('bimSchedule'), entry('bimExportIfc'), entry('bimFootprint')
+  ]},
+  { id: 'sketchupMenu', labelKey: 'sketchupMenu', items: [
+    entry('suRectangleTool'), entry('suCircleTool'), entry('suPolygonTool'), entry('suArcTool'),
+    entry('suFreehand'), entry('suPushPull'), entry('suFollowMe'), entry('suOffsetFace'),
+    entry('suIntersect'), entry('suSoften'), entry('suMakeGroup'), entry('suExplode'),
+    entry('suMakeComponent'), entry('suPlaceInstance'), entry('suTagAssign'), entry('suTagToggle'),
+    entry('suPaint'), entry('suStyle'), entry('suShadows'), entry('suScene'), entry('suApplyScene'),
+    entry('suSection'), entry('suSectionCut'), entry('suTape'), entry('suProtractor'),
+    entry('suFaceInfo'), entry('suText3d'), entry('suMoveCopies'), entry('suRotateCopies'),
+    entry('suSolidUnion'), entry('suSolidSubtract'), entry('suSolidTrim'), entry('suSolidSplit'),
+    entry('suSolidIntersect'), entry('suOuterShell'), entry('suTerrain'), entry('suContours'),
+    entry('suSmoove'), entry('suZoomExtents'), entry('suWalk'), entry('suOutliner')
+  ]},
+  { id: 'kernelMenu', labelKey: 'kernelMenu', items: [
+    entry('brepInfo'), entry('brepChamfer'), entry('brepFillet'), entry('brepEdgesCmd'),
+    entry('nurbsCurveCmd'), entry('nurbsCircleCmd'), entry('nurbsArcCmd'),
+    entry('nurbsSurfaceCmd'), entry('nurbsExtrudeCmd'),
+    entry('feaMeshCmd'), entry('feaSolveCmd'), entry('pythonRunCmd'),
+    entry('addonListCmd'), entry('addonInstallCmd'), entry('addonToggleCmd'),
+    entry('addonRunCmd'), entry('addonUninstallCmd')
   ]},
   { id: 'tools', labelKey: 'tools', items: [
     { id: 'select', labelKey: 'select', icon: menuIcon('select') },
@@ -103,15 +194,26 @@ export const MENUS: MenuDef[] = [
     { id: 'settings', labelKey: 'settings', icon: menuIcon('settings') }
   ]},
   { id: 'help', labelKey: 'help', items: [
-    { id: 'about', labelKey: 'about', icon: menuIcon('about') },
-    { id: 'usage', labelKey: 'usage', icon: menuIcon('usage') }
+    { id: 'usage', labelKey: 'usage', icon: menuIcon('usage') },
+    entry('shortcuts'),
+    entry('license'),
+    entry('homepage'),
+    { id: 'about', labelKey: 'about', icon: menuIcon('about') }
   ]}
 ]
 
-export const TOOLBAR = [
-  'new', 'open', 'save', 'undo', 'redo', 'select', 'box', 'sphere', 'cylinder', 'cone', 'torus', 'plane',
-  'delete', 'copy', 'paste', 'front', 'top', 'iso', 'zoomIn', 'zoomOut', 'fit', 'grid', 'ruler', 'print', 'settings', 'about'
-] as const
+export const TOOLBAR_GROUPS: string[][] = [
+  ['new', 'open', 'save', 'export', 'print'],
+  ['undo', 'redo'],
+  ['select', 'box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'],
+  ['delete', 'copy', 'paste'],
+  ['front', 'top', 'iso', 'fit', 'resetView', 'grid', 'ruler']
+]
+
+/** Pinned to the right edge of the toolbar. */
+export const TOOLBAR_RIGHT: string[] = ['toolPanel', 'propertyPanel', 'font-dec', 'font-value', 'font-inc', 'zoom-out', 'zoom-value', 'zoom-in', 'light', 'language', 'theme', 'settings', 'about']
+
+export const TOOLBAR: readonly string[] = [...TOOLBAR_GROUPS.flat(), ...TOOLBAR_RIGHT]
 
 export const CONTEXT_ITEMS: MenuEntry[] = [
   { id: 'copy', labelKey: 'copy', icon: menuIcon('copy') },

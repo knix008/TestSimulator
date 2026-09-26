@@ -62,5 +62,62 @@ export const USAGE: Record<string, { ko: string[]; en: string[] }> = {
   inspection: {
     ko: ['1. 솔리드 두 개를 선택합니다.', '2. 검사는 부피 차와 중심 거리를 상태바에 보여 줍니다.'],
     en: ['1. Select two solids.', '2. Inspect shows the volume delta and the distance between centers.']
+  },
+  reverse: {
+    ko: ['1. 점 가져오기로 스캔 점군을 불러옵니다.', '2. 평면 근사 또는 구 근사로 기본 형상을 찾습니다.', '3. 곡면 근사로 점군을 메쉬 곡면으로 만듭니다.'],
+    en: ['1. Import a scanned point cloud.', '2. Fit a plane or a sphere to it.', '3. Approximate surface turns the cloud into a mesh.']
+  },
+  material: {
+    ko: ['1. 솔리드를 선택하고 재질 지정을 누르면 재질이 순환합니다.', '2. 질량 특성으로 부피, 면적, 질량을 확인합니다.', '3. 재질 목록에서 밀도와 탄성계수를 봅니다.'],
+    en: ['1. Select a solid and cycle its material card.', '2. Mass properties reports volume, area, and mass.', '3. Material library lists density and modulus.']
+  },
+  measureWb: {
+    ko: ['1. 두 객체를 선택해 거리를 측정합니다.', '2. 각도, 면적, 부피를 각각 측정합니다.', '3. 바운딩 박스로 전체 크기를 확인합니다.'],
+    en: ['1. Select two objects to measure the distance.', '2. Measure angle, area, and volume.', '3. Bounding box reports the overall size.']
+  },
+  macro: {
+    ko: ['1. 매크로 실행으로 스크립트 명령을 해석합니다.', '2. 수식 계산으로 단위와 함수를 확인합니다.', '3. 시트 재계산으로 파라미터를 갱신합니다.'],
+    en: ['1. Run macro parses the script commands.', '2. Evaluate expression checks units and functions.', '3. Recompute sheet refreshes the parameters.']
+  },
+  gsd: {
+    ko: ['1. 와이어를 만들고 서피스 돌출이나 회전으로 면을 만듭니다.', '2. 스윕, 멀티섹션, 필, 블렌드로 곡면을 구성합니다.', '3. 조인, 분할, 힐링 검사로 스킨을 정리합니다.'],
+    en: ['1. Create a wire, then extrude or revolve it into a surface.', '2. Build shapes with sweep, multi-section, fill, and blend.', '3. Join, split, and healing check clean the skin.']
+  },
+  sheetMetal: {
+    ko: ['1. 시트메탈 월로 기준 판을 만듭니다.', '2. 플랜지와 헴을 추가해 굽힘을 정의합니다.', '3. 전개도로 전개 길이를 계산하고 DXF로 내보냅니다.'],
+    en: ['1. Create the base wall.', '2. Add flanges and hems to define the bends.', '3. Unfold computes the developed length and exports DXF.']
+  },
+  kinematics: {
+    ko: ['1. 두 부품을 선택해 회전 또는 직선 조인트를 만듭니다.', '2. 자유도 확인으로 구속 상태를 봅니다.', '3. 시뮬레이션과 간섭 검사로 동작을 확인합니다.'],
+    en: ['1. Select two parts and add a revolute or prismatic joint.', '2. Check the remaining degrees of freedom.', '3. Simulate and run clash detection.']
+  },
+  knowledge: {
+    ko: ['1. 수식 파라미터로 Height = Width/2 같은 관계를 만듭니다.', '2. 규칙과 체크로 설계 조건을 검증합니다.', '3. 디자인 테이블로 구성을 전환합니다.'],
+    en: ['1. Add a formula parameter such as Height = Width/2.', '2. Validate the design with rules and checks.', '3. Switch configurations with a design table.']
+  },
+  drafting: {
+    ko: ['1. 도면 페이지로 정면/평면/측면/아이소 투영을 만듭니다.', '2. 단면도와 상세도를 추가합니다.', '3. 치수와 부품표를 넣고 SVG 또는 DXF로 내보냅니다.'],
+    en: ['1. Create a page with front, top, right, and iso views.', '2. Add section and detail views.', '3. Add dimensions and a BOM, then export SVG or DXF.']
+  },
+  sketchup: {
+    ko: ['1. 사각형/원 도구로 면을 그립니다.', '2. 푸시/풀로 입체를 만들고 폴로미로 스윕합니다.', '3. 그룹, 컴포넌트, 태그, 장면으로 모델을 정리합니다.'],
+    en: ['1. Draw a face with the rectangle or circle tool.', '2. Push/Pull it into a solid and sweep with Follow Me.', '3. Organise with groups, components, tags, and scenes.']
+  },
+  solidTools: {
+    ko: ['1. 두 솔리드를 선택합니다.', '2. 합집합, 차집합, 트림, 교집합을 적용합니다.', '3. 아웃터 쉘로 외곽만 남깁니다.'],
+    en: ['1. Select two solids.', '2. Apply union, subtract, trim, or intersect.', '3. Outer shell keeps only the outside.']
+  },
+  sandbox: {
+    ko: ['1. 지형 생성으로 격자 지형을 만듭니다.', '2. 등고선 지형으로 컨투어를 삼각분할합니다.', '3. 스무브로 지형을 들어올립니다.'],
+    en: ['1. Create a grid terrain from scratch.', '2. Triangulate contours into a terrain.', '3. Smoove raises the terrain.']
+  },
+  kernel: {
+    ko: ['1. 솔리드를 선택하고 B-rep 정보로 위상을 확인합니다.', '2. B-rep 챔퍼/필렛은 반평면 절단과 구 민코프스키 합으로 정확히 계산합니다.', '3. NURBS 곡선·곡면으로 유리 곡선을 만듭니다.'],
+    en: ['1. Select a solid and inspect its B-rep topology.', '2. B-rep chamfer and fillet are exact: half-space clipping and a rolling ball.', '3. Build rational curves and surfaces with the NURBS tools.']
+  },
+  addons: {
+    ko: ['1. 애드온 목록에서 카탈로그를 확인합니다.', '2. 애드온 설치로 확장을 추가하고 사용 전환으로 켜고 끕니다.', '3. 애드온 명령 실행은 샌드박스 Python으로 동작합니다.'],
+    en: ['1. List the addon catalogue.', '2. Install an addon and toggle it on or off.', '3. Addon commands run through the sandboxed Python interpreter.']
   }
+
 }

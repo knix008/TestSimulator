@@ -7,7 +7,7 @@ import { solidGeometry } from './stl'
 
 export type WorkPlane = 'xy' | 'xz' | 'yz'
 export type SketchShape = 'rect' | 'circle' | 'polygon'
-export type FeatureKind = 'sketch' | 'pad' | 'pocket' | 'revolve' | 'fillet' | 'chamfer' | 'union' | 'cut' | 'common' | 'mirror' | 'linear' | 'polar' | 'hole' | 'align' | 'shaft' | 'groove' | 'draft' | 'shell' | 'rectPattern' | 'translate' | 'rotate' | 'scale' | 'counterbore' | 'countersink' | 'parameter' | 'mate' | 'loft' | 'pipe' | 'helix'
+export type FeatureKind = 'sketch' | 'pad' | 'pocket' | 'revolve' | 'fillet' | 'chamfer' | 'union' | 'cut' | 'common' | 'mirror' | 'linear' | 'polar' | 'hole' | 'align' | 'shaft' | 'groove' | 'draft' | 'shell' | 'rectPattern' | 'translate' | 'rotate' | 'scale' | 'counterbore' | 'countersink' | 'parameter' | 'mate' | 'loft' | 'pipe' | 'helix' | 'primitive' | 'surface' | 'wire' | 'meshOp' | 'bim' | 'sheetMetal' | 'terrain' | 'assembly' | 'text' | 'pattern'
 
 export interface Sketch {
   id: string
@@ -388,4 +388,53 @@ function positionsToGeometry(positions: number[]) {
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   return geometry
+}
+
+/** Import an OBJ mesh: vertices, faces (triangulated fan) and object names. */
+export function parseObj(text: string, id: string): Solid[] {
+  const vertices: number[][] = []
+  const groups: Array<{ name: string; positions: number[] }> = []
+  let current: { name: string; positions: number[] } | null = null
+  const ensure = (name: string) => {
+    if (current && current.name === name) return current
+    current = { name, positions: [] }
+    groups.push(current)
+    return current
+  }
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (line === '' || line.startsWith('#')) continue
+    const parts = line.split(/\s+/)
+    if (parts[0] === 'v') {
+      vertices.push([Number(parts[1]), Number(parts[2]), Number(parts[3])])
+      continue
+    }
+    if (parts[0] === 'o' || parts[0] === 'g') {
+      ensure(parts.slice(1).join(' ') || `object-${groups.length + 1}`)
+      continue
+    }
+    if (parts[0] !== 'f') continue
+    const target = current ?? ensure('object-1')
+    const corners = parts.slice(1).map((token) => {
+      const index = Number(token.split('/')[0])
+      return index < 0 ? vertices.length + index : index - 1
+    })
+    for (let i = 1; i + 1 < corners.length; i++) {
+      for (const index of [corners[0], corners[i], corners[i + 1]]) {
+        const vertex = vertices[index]
+        if (!vertex) continue
+        target.positions.push(vertex[0], vertex[1], vertex[2])
+      }
+    }
+  }
+  return groups
+    .filter((group) => group.positions.length >= 9)
+    .map((group, index) => {
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(group.positions, 3))
+      geometry.computeVertexNormals()
+      const solid = meshSolid(`${id}-${index}`, group.name, geometry, '#8fb8ff')
+      solid.name = group.name
+      return solid
+    })
 }

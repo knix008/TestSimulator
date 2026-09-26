@@ -22,7 +22,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_NAME__: JSON.stringify(pkg.productName),
     __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
-    __AUTHOR__: JSON.stringify('SHKWON(knix008@naver.com)')
+    __AUTHOR__: JSON.stringify('shkwon(knix008@naver.com)')
   },
   server: {
     host: '127.0.0.1',

@@ -1,9 +1,55 @@
 import type { Feature, Sketch } from './part'
 import type { DesignParameter, Mate } from './catia'
+import type { DocumentExtras } from './extras'
+import { createExtras } from './extras'
 
 export type SolidKind = 'box' | 'sphere' | 'cylinder' | 'cone' | 'torus' | 'plane' | 'mesh'
 export type ViewPreset = 'iso' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom'
-export type ShadeMode = 'shaded' | 'wireframe'
+/**
+ * Draw styles of FreeCAD's View menu. `asIs` follows each solid's own material,
+ * the rest override it for the whole scene.
+ */
+export type ShadeMode = 'asIs' | 'shaded' | 'flatLines' | 'wireframe' | 'points' | 'hiddenLine' | 'noShading'
+
+export const DRAW_STYLES: ShadeMode[] = ['asIs', 'shaded', 'flatLines', 'wireframe', 'points', 'hiddenLine', 'noShading']
+
+/** How a draw style is rendered: what geometry it draws and whether it is lit. */
+export interface DrawStyleSpec {
+  /** draw triangles as a wire mesh */
+  wireframe: boolean
+  /** draw the vertices instead of the faces */
+  points: boolean
+  /** faces react to the lighting rig */
+  lit: boolean
+  /** outline every face boundary on top of the surface */
+  edges: boolean
+  /** shade each facet flat instead of smoothing across it */
+  flat: boolean
+  /** paint the faces in the background colour so only the edges read */
+  blank: boolean
+}
+
+export function drawStyleSpec(mode: ShadeMode): DrawStyleSpec {
+  const base: DrawStyleSpec = { wireframe: false, points: false, lit: true, edges: false, flat: false, blank: false }
+  switch (mode) {
+    case 'wireframe':
+      return { ...base, wireframe: true, lit: false }
+    case 'points':
+      return { ...base, points: true, lit: false }
+    case 'flatLines':
+      return { ...base, edges: true, flat: true }
+    case 'hiddenLine':
+      return { ...base, lit: false, edges: true, blank: true }
+    case 'noShading':
+      return { ...base, lit: false }
+    default:
+      return base
+  }
+}
+
+export function isShadeMode(value: unknown): value is ShadeMode {
+  return typeof value === 'string' && DRAW_STYLES.includes(value as ShadeMode)
+}
 
 export interface Vec3 {
   x: number
@@ -41,6 +87,8 @@ export interface CadDocument {
   section: boolean
   parameters: DesignParameter[]
   mates: Mate[]
+  /** Draft wires, SketchUp groups/tags/scenes, spreadsheets, analyses, BIM data. */
+  extras: DocumentExtras
 }
 
 export interface ClipboardPayload {
@@ -115,7 +163,8 @@ export function createDocument(id: string, name: string): CadDocument {
     features: [],
     section: false,
     parameters: [],
-    mates: []
+    mates: [],
+    extras: createExtras()
   }
 }
 

@@ -1,4 +1,5 @@
 !include "LogicLib.nsh"
+!include "installer-associations.nsh"
 
 !macro customInit
   ReadRegStr $R0 SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}" "QuietUninstallString"
@@ -22,4 +23,28 @@
       RMDir /r "$R1"
     keepUserData:
   ${EndIf}
+
+  ; Start the association page with the recommended selection.
+  !insertmacro MyCadAssocDefaults
+!macroend
+
+; An extra wizard page: the user ticks the file types MyCAD should own.
+!macro customPageAfterChangeDir
+  Page custom MyCadAssocPageShow MyCadAssocPageLeaveFn
+!macroend
+
+Function MyCadAssocPageShow
+  !insertmacro MyCadAssocPageCreate
+FunctionEnd
+
+Function MyCadAssocPageLeaveFn
+  !insertmacro MyCadAssocPageLeave
+FunctionEnd
+
+!macro customInstall
+  !insertmacro MyCadWriteAssociations
+!macroend
+
+!macro customUnInstall
+  !insertmacro MyCadDeleteAssociations
 !macroend

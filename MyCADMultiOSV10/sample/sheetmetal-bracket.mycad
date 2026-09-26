@@ -1,0 +1,132 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-sheetmetal-bracket",
+    "name": "sheetmetal-bracket",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Wall1",
+        "kind": "box",
+        "position": {
+          "x": 50,
+          "y": 1,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 100,
+          "y": 2,
+          "z": 60,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#b9c6d2",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-2",
+        "name": "Flange1",
+        "kind": "box",
+        "position": {
+          "x": 100,
+          "y": 16,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 90
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 30,
+          "y": 2,
+          "z": 60,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#b9c6d2",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "SheetMetal",
+        "kind": "sheetMetal",
+        "solidIds": [
+          "sol-1",
+          "sol-2"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 2,
+        "radius": 0
+      }
+    ],
+    "parameters": [],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded",
+    "extras": {
+      "sheetMetal": {
+        "name": "Bracket",
+        "parameters": {
+          "thickness": 2,
+          "bendRadius": 2,
+          "kFactor": 0.44,
+          "defaultBendAngle": 90
+        },
+        "walls": [
+          {
+            "id": "wall-1",
+            "name": "Wall1",
+            "length": 100,
+            "width": 60,
+            "bendAngle": 0,
+            "bendRadius": 2
+          },
+          {
+            "id": "flange-1",
+            "name": "Flange1",
+            "length": 30,
+            "width": 60,
+            "bendAngle": 90,
+            "bendRadius": 2
+          },
+          {
+            "id": "flange-2",
+            "name": "Flange2",
+            "length": 20,
+            "width": 60,
+            "bendAngle": 90,
+            "bendRadius": 2
+          }
+        ]
+      }
+    }
+  }
+}

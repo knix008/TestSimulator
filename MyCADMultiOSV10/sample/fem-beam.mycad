@@ -1,0 +1,89 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-fem-beam",
+    "name": "fem-beam",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Beam",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 10,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 400,
+          "y": 20,
+          "z": 40,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#9aa7b4",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "Beam",
+        "kind": "primitive",
+        "solidIds": [
+          "sol-1"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 1,
+        "radius": 0
+      }
+    ],
+    "parameters": [],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded",
+    "extras": {
+      "analysis": {
+        "id": "analysis-1",
+        "name": "Cantilever",
+        "materialId": "steel",
+        "solver": "internal",
+        "meshSize": 5,
+        "constraints": [
+          {
+            "id": "fix-1",
+            "kind": "fixed",
+            "target": "Beam",
+            "value": 0
+          },
+          {
+            "id": "force-1",
+            "kind": "force",
+            "target": "Beam",
+            "value": 1500,
+            "direction": "y"
+          }
+        ]
+      },
+      "materialOf": {
+        "sol-1": "steel"
+      }
+    }
+  }
+}

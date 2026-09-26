@@ -1,4 +1,5 @@
 import type { Lang } from './settings'
+import { commandIcon, commandLabel } from './labels'
 
 const ko = {
   file: '파일', edit: '편집', view: '보기', insert: '삽입', tools: '도구', help: '도움말',
@@ -13,6 +14,7 @@ const ko = {
   properties: '속성', toolsPanel: '도구 모음', scene: '장면',
   name: '이름', color: '색상', position: '위치', rotation: '회전', scale: '크기 배율',
   metalness: '금속성', roughness: '거칠기', visible: '표시', locked: '잠금',
+  dimensions: '치수', material: '재질',
   statusReady: '준비', objects: '객체', selection: '선택', snap: '스냅', zoom: '배율', units: '단위', modified: '수정됨', saved: '저장됨',
   language: '언어', theme: '테마', font: '글꼴', fontSize: '글자 크기', fontStyle: '글자 스타일',
   recent: '최근 파일', clearRecent: '최근 파일 모두 삭제', remove: '삭제',
@@ -64,6 +66,7 @@ const en: Record<keyof typeof ko, string> = {
   properties: 'Properties', toolsPanel: 'Tools', scene: 'Scene',
   name: 'Name', color: 'Color', position: 'Position', rotation: 'Rotation', scale: 'Scale',
   metalness: 'Metalness', roughness: 'Roughness', visible: 'Visible', locked: 'Locked',
+  dimensions: 'Dimensions', material: 'Material',
   statusReady: 'Ready', objects: 'Objects', selection: 'Selection', snap: 'Snap', zoom: 'Zoom', units: 'Units', modified: 'Modified', saved: 'Saved',
   language: 'Language', theme: 'Theme', font: 'Font', fontSize: 'Font size', fontStyle: 'Font style',
   recent: 'Recent files', clearRecent: 'Clear all recent files', remove: 'Remove',
@@ -83,13 +86,13 @@ const en: Record<keyof typeof ko, string> = {
   tabPrev: 'Previous tabs', tabNext: 'Next tabs', downloadSample: 'Download sample',
   urlPrompt: 'URL', busyOpen: 'Opening file', busySave: 'Saving file', busyDownload: 'Downloading', busyLink: 'Opening link',
   width: 'Width', height: 'Height', depth: 'Depth', radius: 'Radius',
-  part: 'Part', sketch: 'Sketch', sketchRect: 'Rectangle sketch', sketchCircle: 'Circle sketch', sketchPolygon: 'Polygon sketch',
+  part: 'Part', sketch: 'Sketch', sketchRect: 'Rectangle', sketchCircle: 'Circle', sketchPolygon: 'Polygon',
   pad: 'Pad', pocket: 'Pocket', revolve: 'Revolve', fillet: 'Fillet', chamfer: 'Chamfer',
-  union: 'Union', cut: 'Cut', common: 'Common', mirror: 'Mirror', linearPattern: 'Linear pattern', polarPattern: 'Polar pattern',
+  union: 'Union', cut: 'Cut', common: 'Common', mirror: 'Mirror', linearPattern: 'Linear', polarPattern: 'Polar',
   hole: 'Hole', align: 'Align to origin', section: 'Section', features: 'Features', exportObj: 'Export OBJ',
   planeLabel: 'Work plane', length: 'Length', angle: 'Angle', count: 'Count', spacing: 'Spacing', axis: 'Axis', sides: 'Sides', diameter: 'Diameter', volume: 'Volume',
   reference: 'Reference: FreeCAD Part Design, CATIA',
-  shaft: 'Shaft', groove: 'Groove', draft: 'Draft', shell: 'Shell', rectPattern: 'Rectangular pattern',
+  shaft: 'Shaft', groove: 'Groove', draft: 'Draft', shell: 'Shell', rectPattern: 'Grid',
   translate: 'Translate', rotateBody: 'Rotate', scaleBody: 'Scale', counterbore: 'Counterbore', countersink: 'Countersink',
   refPlane: 'Reference plane', parameter: 'Parameter', coincidence: 'Coincidence', offsetMate: 'Offset',
   inertia: 'Inertia', updatePart: 'Update', specTree: 'Specification tree',
@@ -106,34 +109,43 @@ export type MessageKey = keyof typeof ko
 
 const dictionaries: Record<Lang, Record<MessageKey, string>> = { ko, en }
 
-export function translate(lang: Lang, key: MessageKey): string {
-  return dictionaries[lang][key] ?? dictionaries.en[key] ?? key
+/**
+ * Translate a message key. Command ids added by the extended workbenches live in
+ * labels.ts, so plain strings are accepted and fall back to that table.
+ */
+export function translate(lang: Lang, key: MessageKey | string): string {
+  const table = dictionaries[lang] as Record<string, string | undefined>
+  return table[key] ?? commandLabel(lang, key) ?? (dictionaries.en as Record<string, string | undefined>)[key] ?? key
 }
 
 export function menuIcon(id: string): string {
   const icons: Record<string, string> = {
-    file: '📁', edit: '✎', view: '👁', insert: '✚', tools: '🛠', help: 'ℹ', context: '☰',
+    file: '📁', edit: '✎', view: '👁', insert: '≱', tools: '🛠', help: '❓', context: '☰',
     error: '⚠', progress: '◔', confirm: '💾',
-    new: '✚', open: '📂', save: '💾', saveAs: '📝', importStl: '⬇', exportStl: '⬆', openUrl: '🔗', download: '☁',
-    undo: '↩', redo: '↪', copy: '⧉', paste: '📋', delete: '🗑', duplicate: '⧉', selectAll: '☑', select: '⌖',
+    new: '✚', open: '📂', save: '💾', saveAs: '📝', importStl: '⌷', exportStl: '⊇', openUrl: '🔗', download: '☁',
+    undo: '↩', redo: '↪', copy: '⧉', paste: '📋', delete: '🗑', duplicate: '↦', selectAll: '≭', select: '⌖',
     box: '▣', sphere: '●', cylinder: '◍', cone: '▲', torus: '◎', plane: '▬',
     front: '◻', back: '◼', left: '◀', right: '▶', top: '▴', bottom: '▾', iso: '◇',
-    grid: '▦', ruler: '📏', shaded: '◑', wireframe: '▦', zoomIn: '+', zoomOut: '−', fit: '⤢',
-    print: '🖨', settings: '⚙',     about: 'ℹ', measure: '📏', hide: '◌', show: '◉',
+    grid: '▦', ruler: '📏', shaded: '◑', wireframe: '⇊', zoomIn: '⌿', zoomOut: '≺', fit: '⤢',
+    light: '☼',
+    language: '⚑',
+    align: '⊹',
+    print: '🖨️', settings: '⚙',     about: 'ℹ️', measure: '⊾', hide: '◌', show: '◉',
     recent: '🕘', clearRecent: '✖',
-    sketchRect: '▭', sketchCircle: '◯', sketchPolygon: '⬡', pad: '⬆', pocket: '⬇', revolve: '↻',
-    fillet: '⌒', chamfer: '╱', union: '∪', cut: '−', common: '∩', mirror: '↔',
-    part: '▣', shaft: '↻', groove: '↺', draft: '⊿', shell: '▢', rectPattern: '▦',
-    translate: '→', rotateBody: '⟳', scaleBody: '⤢', counterbore: '◎', countersink: '◌',
-    refPlane: '▭', parameter: 'ƒ', coincidence: '⊕', offsetMate: '↔', inertia: '⚖', updatePart: '⟳',
-    loft: '△', pipe: '⌇', helix: '🌀', exportSvg: '◻', exportDxf: '📐',
-    section: '✂', hole: '⌀', linearPattern: '⋯', polarPattern: '✺', exportObj: '⬆',
+    sketchRect: '▭', sketchCircle: '◯', sketchPolygon: '⇡', pad: '⬆', pocket: '⬇', revolve: '≬',
+    fillet: '⌒', chamfer: '╱', union: '∪', cut: '≹', common: '∩', mirror: '↔',
+    part: '⬛', shaft: '↻', groove: '↺', draft: '⊿', shell: '▢', rectPattern: '⇌',
+    translate: '→', rotateBody: '⟳', scaleBody: '⇖', counterbore: '⇣', countersink: '◌',
+    refPlane: '⏥', parameter: '⇟', coincidence: '⊕', offsetMate: '⇙', inertia: '≥', updatePart: '⇕',
+    loft: '△', pipe: '⌇', helix: '🌀', exportSvg: '∌', exportDxf: '📐',
+    section: '✂', hole: '⌀', linearPattern: '≷', polarPattern: '⇚', exportObj: '⊆',
     partDesign: '▣', sketcher: '✎', draftWb: '╱', techdraw: '📄',
     meshWb: '△', spreadsheet: 'ƒ', assembly: '⊕', fem: '⚖', cam: '⌁', bim: '⌂',
-    usage: '?', femCheck: '⚖', exportGcode: '⌁',
-    solveConstraints: '⊥', importPoints: '∴', surfaceFill: '▭', robotPose: '🤖', importOpenScad: '{',
+    usage: '📖', femCheck: '⚖', exportGcode: '⌁',
+    solveConstraints: '⊥', importPoints: '∴', surfaceFill: '✪', robotPose: '🤖', importOpenScad: '{',
     inspect: '⌖', pocketPath: '⌁', exportIfc: '⌂', femBar: '▬',
+    shortcuts: '⌨', license: '≦', homepage: '🌐', release: '🏷',
     pointsWb: '∴', surfaceWb: '▭', robotWb: '🤖', openscadWb: '{', inspectionWb: '⌖'
   }
-  return icons[id] ?? '•'
+  return icons[id] ?? commandIcon(id) ?? '•'
 }

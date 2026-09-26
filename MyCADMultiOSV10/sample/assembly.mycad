@@ -1,0 +1,154 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-assembly",
+    "name": "assembly",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Base",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 6,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 120,
+          "y": 12,
+          "z": 80,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#9aa7b4",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-2",
+        "name": "Post",
+        "kind": "cylinder",
+        "position": {
+          "x": 0,
+          "y": 42,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 20,
+          "y": 60,
+          "z": 20,
+          "radius": 10,
+          "tube": 6
+        },
+        "color": "#d6dee6",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-3",
+        "name": "Cap",
+        "kind": "sphere",
+        "position": {
+          "x": 0,
+          "y": 78,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 24,
+          "y": 24,
+          "z": 24,
+          "radius": 12,
+          "tube": 6
+        },
+        "color": "#f0a35e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "Assembly",
+        "kind": "assembly",
+        "solidIds": [
+          "sol-1",
+          "sol-2",
+          "sol-3"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 3,
+        "radius": 0
+      }
+    ],
+    "parameters": [
+      {
+        "name": "PostHeight",
+        "value": 60,
+        "formula": ""
+      },
+      {
+        "name": "CapRadius",
+        "value": 12,
+        "formula": "PostHeight / 5"
+      }
+    ],
+    "mates": [
+      {
+        "id": "mate-1",
+        "kind": "coincidence",
+        "a": "Base",
+        "b": "Post",
+        "value": 0
+      },
+      {
+        "id": "mate-2",
+        "kind": "offset",
+        "a": "Post",
+        "b": "Cap",
+        "value": 36
+      }
+    ],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded"
+  }
+}

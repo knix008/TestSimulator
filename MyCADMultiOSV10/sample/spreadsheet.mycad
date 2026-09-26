@@ -1,0 +1,108 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-spreadsheet",
+    "name": "spreadsheet",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Plate",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 5,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 80,
+          "y": 10,
+          "z": 50,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#4cc2ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [],
+    "parameters": [
+      {
+        "name": "Width",
+        "value": 80,
+        "formula": ""
+      },
+      {
+        "name": "Depth",
+        "value": 50,
+        "formula": ""
+      },
+      {
+        "name": "Area",
+        "value": 4000,
+        "formula": "Width * Depth"
+      }
+    ],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded",
+    "extras": {
+      "sheet": {
+        "name": "Plate",
+        "cells": [
+          {
+            "ref": "A1",
+            "content": "Width"
+          },
+          {
+            "ref": "A2",
+            "content": "Depth"
+          },
+          {
+            "ref": "A3",
+            "content": "Area"
+          },
+          {
+            "ref": "A4",
+            "content": "Total"
+          },
+          {
+            "ref": "B1",
+            "content": "80",
+            "alias": "Width"
+          },
+          {
+            "ref": "B2",
+            "content": "50",
+            "alias": "Depth"
+          },
+          {
+            "ref": "B3",
+            "content": "=Width * Depth",
+            "alias": "Area"
+          },
+          {
+            "ref": "B4",
+            "content": "=sum(B1:B3)",
+            "alias": "Total"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,14 +1,25 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { AUTHOR, MIN_WINDOW_WIDTH, windowTitle } from '../core/buildInfo'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { AUTHOR, MIN_WINDOW_HEIGHT, PROJECT_URL, toolbarMinWidth, windowTitle } from '../core/buildInfo'
+import { licenseLines, shortcutLines } from '../core/knowledge'
+import { formatLength, formatVolume, unitSuffix } from '../core/units'
+import { MIN_PANEL_WIDTH, propertyPanelWidth, toolPanelWidth } from '../core/viewnav'
 import { decodeClipboard } from '../core/clipboard'
 import { directoryOf } from '../core/recent'
 import { detectBrowserFonts, FALLBACK_FONTS, mergeFonts } from '../core/fonts'
 import { menuIcon, translate, type MessageKey } from '../core/i18n'
-import { CONTEXT_ITEMS, MENUS, TOOLBAR } from '../core/menus'
+import { commandHelp } from '../core/labels'
+import { CONTEXT_ITEMS, MENUS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../core/menus'
+import { hasCommand, runCommandById, type CommandEffect } from '../core/commands'
 import { createSolid, type SolidKind, type ViewPreset } from '../core/model'
-import { selectionDistance } from '../core/print'
+import { pageToSvg, selectionDistance } from '../core/print'
+import { fileTypeFor, importCsv, importFile, openFilters } from '../core/fileTypes'
+import { runExport } from '../core/exporters'
+import { installAddon } from '../core/addons'
 import { buildPrintPages, defaultPageSetup, type PageSetup, type PrintScope } from '../core/print'
 import { browserStorage, fontCss, sanitizeSettings } from '../core/settings'
+import { resolveTheme, themeVars } from '../core/themes'
+import { LanguageFlag } from './Flags'
+import { FontControl, LightPicker, ThemePicker, ZoomControl } from './ToolbarControls'
 import { fileNameFromPath, parseDocument, serializeDocument } from '../core/serialize'
 import { activeDocument, canRedo, canUndo, createInitialState, reducer, type AppState } from '../core/store'
 import { parseStl, toAsciiStl } from '../core/stl'
@@ -16,13 +27,13 @@ import { sketchesToDxf, sketchesToSvg } from '../core/drawing'
 import { booleanSolids, filletBox, helixSolid, holeTool, linearPattern, loftSketches, makeSketch, mirrorSolid, padSketch, pipeSketch, polarPattern, rebuildFeatureSolid, revolveSketch, solidVolume, toObj, type WorkPlane } from '../core/part'
 import { WORKBENCHES, femStress, sketchToGcode, workbenchTools, type WorkbenchId } from '../core/workbenches'
 import { compileOpenScad, femBar, forwardKinematics, inspectSolids, parsePoints, pocketGcode, pointCloudSolid, solveSketchConstraints, surfaceFromSketch, toIfc } from '../core/extended'
-import { draftSolid, evaluateFormula, inertiaOf, rectangularPattern, referencePlane, shaft, groove, shellSolid, solveMate, specTreeLines, steppedHole, transformSolid, updateSketchFromParameters } from '../core/catia'
+import { draftSolid, evaluateFormula, inertiaOf, rectangularPattern, referencePlane, shaft, groove, shellSolid, solveMate, specTreeRows, steppedHole, transformSolid, updateSketchFromParameters } from '../core/catia'
 import { nextTabStart, tabsOverflow, tabWindow } from '../core/tabs'
-import { AboutDialog, ConfirmDialog, ErrorDialog, PartDialog, PrintDialog, ProgressDialog, SettingsDialog, UsageDialog } from './dialogs'
+import { AboutDialog, ConfirmDialog, ErrorDialog, ExportDialog, NumberField, PartDialog, PrintDialog, ProgressDialog, ReportDialog, SettingsDialog, UsageDialog } from './dialogs'
 import { Viewport } from './Viewport'
 
 const VISIBLE_TABS = 4
-type DialogKind = 'about' | 'settings' | 'print' | 'error' | 'confirm' | 'part' | 'usage' | null
+type DialogKind = 'about' | 'settings' | 'print' | 'error' | 'confirm' | 'part' | 'usage' | 'report' | 'export' | null
 
 async function readFile(file: Blob): Promise<string> {
   if (typeof (file as File).text === 'function') return (file as File).text()
@@ -53,10 +64,32 @@ export function App() {
   const [loaded, setLoaded] = useState(false)
   const [partOp, setPartOp] = useState('sketchRect')
   const [workbench, setWorkbench] = useState<WorkbenchId>('partDesign')
+  const [report, setReport] = useState<{ title: string; lines: string[] }>({ title: '', lines: [] })
+  const [printSheets, setPrintSheets] = useState('')
+  const [measuredWidth, setMeasuredWidth] = useState(0)
+  // Bumped by the toolbar reset button; the viewport re-centres when it changes.
+  const [viewReset, setViewReset] = useState(0)
+  const [rightPanel, setRightPanel] = useState(state.settings.rightPanelWidth || 0)
+  const [panelWidth, setPanelWidth] = useState(state.settings.leftPanelWidth || 0)
+  const [naturalPanelWidth, setNaturalPanelWidth] = useState(0)
+  const toolGridRef = useRef<HTMLDivElement>(null)
+  const menubarRef = useRef<HTMLElement>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
   const clipRef = useRef('')
+  const tempRef = useRef(0)
 
   const doc = activeDocument(state)
-  const t = useCallback((key: MessageKey) => translate(state.settings.language, key), [state.settings.language])
+  const theme = resolveTheme(state.settings.theme, state.settings.customTheme)
+  // The static figure covers the toolbar; the measured one also covers the
+  // menu bar, whose width depends on the language and the chosen font.
+  const staticMinWidth = useMemo(() => toolbarMinWidth(TOOLBAR_GROUPS, TOOLBAR_RIGHT.length) + 40, [])
+  const minWindowWidth = Math.max(staticMinWidth, measuredWidth)
+  const t = useCallback((key: MessageKey | string) => translate(state.settings.language, key), [state.settings.language])
+  /** Tooltip: the command name plus its one-line description when there is one. */
+  const tip = useCallback((id: string) => {
+    const help = commandHelp(state.settings.language, id)
+    return help ? `${translate(state.settings.language, id)} — ${help}` : translate(state.settings.language, id)
+  }, [state.settings.language])
   const pages = useMemo(
     () => buildPrintPages(state.documents, state.activeId, printScope, customIds, selectedOnly),
     [state.documents, state.activeId, printScope, customIds, selectedOnly]
@@ -82,6 +115,109 @@ export function App() {
   useEffect(() => {
     document.title = windowTitle()
   }, [])
+
+  // Nothing in the menu bar or the toolbar may be cut off: measure both after
+  // every render that can change their width and raise the window minimum.
+  useLayoutEffect(() => {
+    // Sum the intrinsic widths of the controls. Reading scrollWidth would feed
+    // back on itself, because the flexible spacer stretches the bar to
+    // whatever width the app already has.
+    const rowWidth = (row: HTMLElement | null): number => {
+      if (!row) return 0
+      let total = 0
+      const walk = (node: Element) => {
+        for (const child of Array.from(node.children)) {
+          const style = window.getComputedStyle(child)
+          if (style.display === 'contents') {
+            walk(child)
+            continue
+          }
+          if (child.classList.contains('toolbar-spacer')) {
+            total += 8
+            continue
+          }
+          total += child.getBoundingClientRect().width + 3
+        }
+      }
+      walk(row)
+      return Math.ceil(total)
+    }
+    const measure = () => {
+      const needed = Math.min(2000, Math.ceil(Math.max(rowWidth(menubarRef.current), rowWidth(toolbarRef.current)) + 14))
+      setMeasuredWidth((current) => (Math.abs(current - needed) > 2 ? needed : current))
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    if (menubarRef.current) observer?.observe(menubarRef.current)
+    if (toolbarRef.current) observer?.observe(toolbarRef.current)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [state.settings.language, state.settings.fontFamily, state.settings.fontSize, workbench])
+
+  useEffect(() => {
+    void window.mycad?.setMinSize?.(minWindowWidth, MIN_WINDOW_HEIGHT)
+  }, [minWindowWidth])
+
+  // The tool panel starts at the narrowest width that still shows every icon
+  // and label in full; after that the splitter decides.
+  useLayoutEffect(() => {
+    const grid = toolGridRef.current
+    if (!grid) return
+    // Both side panels share this width, so it also has to fit a property row.
+    const natural = Math.max(toolPanelWidth(measureLabelWidths(grid)), propertyPanelWidth())
+    setNaturalPanelWidth(natural)
+    setRightPanel((current) => (current > 0 ? Math.max(current, propertyPanelWidth()) : natural))
+    // The panel opens at the narrowest width that fits its labels, and a width
+    // stored by an older, roomier build comes back down to it.
+    setPanelWidth((current) => (current > 0 ? Math.min(current, natural) : natural))
+  }, [workbench, state.settings.language, state.settings.fontFamily, state.settings.fontSize])
+
+  const startPanelResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = panelWidth
+    const move = (pointer: PointerEvent) => {
+      // Down to a narrow icon strip, never wider than the canvas allows.
+      const width = Math.max(MIN_PANEL_WIDTH, Math.min(window.innerWidth - 460, startWidth + (pointer.clientX - startX)))
+      setPanelWidth(Math.round(width))
+    }
+    const finish = (pointer: PointerEvent) => {
+      move(pointer)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', finish)
+      setPanelWidth((width) => {
+        dispatch({ type: 'patch-settings', patch: { leftPanelWidth: width } })
+        return width
+      })
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', finish)
+  }, [naturalPanelWidth, panelWidth])
+
+  const startPropertyResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = rightPanel || propertyPanelWidth()
+    const move = (pointer: PointerEvent) => {
+      // Dragging left widens it; one whole property row is the floor.
+      const width = Math.max(propertyPanelWidth(), Math.min(window.innerWidth - 460, startWidth - (pointer.clientX - startX)))
+      setRightPanel(Math.round(width))
+    }
+    const finish = (pointer: PointerEvent) => {
+      move(pointer)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', finish)
+      setRightPanel((width) => {
+        dispatch({ type: 'patch-settings', patch: { rightPanelWidth: width } })
+        return width
+      })
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', finish)
+  }, [rightPanel])
 
   const showError = useCallback((caught: unknown) => {
     const err = caught instanceof Error ? caught : new Error(String(caught))
@@ -272,6 +408,137 @@ export function App() {
     return () => { off?.() }
   }, [requestClose])
 
+  /**
+   * Open any supported file: the same path is used by drag and drop, by the
+   * Open command and by files the operating system hands over because they are
+   * associated with MyCAD.
+   */
+  const openAnyFile = useCallback(async (path: string, text: string) => {
+    const lower = path.toLowerCase()
+    if (lower.endsWith('.csv')) {
+      dispatch({ type: 'remember-recent', path })
+      const loaded = importCsv(path, text)
+      dispatch({ type: 'patch-extras', patch: { sheet: loaded.sheet } })
+      setReport({
+        title: path.split(/[/\\]/).pop() ?? path,
+        lines: [
+          `cells ${loaded.sheet.cells.length}`,
+          ...Object.entries(loaded.values.values).slice(0, 12).map(([ref, value]) => `${ref} = ${value}`)
+        ]
+      })
+      setDialog('report')
+      return
+    }
+    dispatch({ type: 'remember-recent', path })
+    const result = importFile(path, text, { id: `imported-${Date.now()}` })
+    if (result.document) {
+      dispatch({ type: 'load-doc', doc: result.document, path })
+    }
+    if (result.solids.length > 0) {
+      dispatch({
+        type: 'apply-part',
+        solids: result.solids,
+        feature: { id: 'feat', name: path.split(/[/\\]/).pop() ?? 'import', kind: 'primitive', solidIds: [], length: 0, angle: 0, count: result.solids.length, radius: 0 }
+      })
+    }
+    if (result.wires.length > 0) {
+      dispatch({ type: 'patch-extras', patch: { wires: [...doc.extras.wires, ...result.wires] } })
+    }
+    if (result.addon) {
+      const addons = installAddon(state.settings.addons, result.addon, 'file', '1.0.0', Date.now())
+      dispatch({ type: 'patch-settings', patch: { addons } })
+    }
+    if (result.report.length > 0 && result.solids.length === 0 && !result.document) {
+      setReport({ title: path.split(/[/\\]/).pop() ?? path, lines: result.report })
+      setDialog('report')
+    }
+    dispatch({ type: 'set-status', status: result.status })
+  }, [doc.extras.wires, state.settings.addons])
+
+  // Files opened from the shell (double click, "open with", second instance).
+  useEffect(() => {
+    const off = window.mycad?.onOpenPath?.(async (filePath: string) => {
+      try {
+        const read = await window.mycad?.readPath?.(filePath)
+        if (!read?.ok || read.content === undefined) throw new Error(read?.error || filePath)
+        dispatch({ type: 'remember-dir', key: 'open', directory: directoryOf(filePath) })
+        await openAnyFile(filePath, read.content)
+      } catch (caught) {
+        showError(caught)
+      }
+    })
+    return () => { off?.() }
+  }, [openAnyFile, showError])
+
+  const applyEffect = useCallback((id: string, effect: CommandEffect) => {
+    if (effect.allSolids) dispatch({ type: 'replace-solids', solids: effect.allSolids })
+    const hasPart = (effect.solids && effect.solids.length > 0) || effect.sketch || effect.parameter || effect.mate
+    if (hasPart) {
+      dispatch({
+        type: 'apply-part',
+        solids: effect.solids ?? [],
+        replaceIds: effect.replaceIds,
+        feature: effect.feature ?? { id: 'feat', name: id, kind: 'primitive', solidIds: [], length: 0, angle: 0, count: 1, radius: 0 },
+        sketch: effect.sketch,
+        parameter: effect.parameter,
+        mate: effect.mate
+      })
+    }
+    if (effect.extras) dispatch({ type: 'patch-extras', patch: effect.extras })
+    if (effect.settingsPatch) dispatch({ type: 'patch-settings', patch: effect.settingsPatch })
+    if (effect.preset) dispatch({ type: 'set-preset', preset: effect.preset })
+    if (effect.shade) dispatch({ type: 'set-shade', shade: effect.shade })
+    if (effect.download) downloadText(effect.download.name, effect.download.text)
+    if (effect.report) {
+      setReport(effect.report)
+      setDialog('report')
+    }
+    dispatch({ type: 'set-status', status: effect.status ?? `${t(id)} ${t('saved')}` })
+  }, [t])
+
+  const printNow = useCallback(async () => {
+    if (pages.length === 0) return
+    const stamp = new Date()
+    const sheets: string[] = []
+    for (let copy = 0; copy < Math.max(1, pageSetup.copies); copy++) {
+      pages.forEach((page, index) => {
+        sheets.push(`<section class="print-sheet">${pageToSvg(page, pageSetup, index, pages.length, stamp)}</section>`)
+      })
+    }
+    setPrintSheets(sheets.join(''))
+    dispatch({ type: 'patch-settings', patch: { print: pageSetup } })
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    try {
+      if (window.mycad?.print) await window.mycad.print()
+      else window.print()
+    } catch (caught) {
+      showError(caught)
+    }
+  }, [pageSetup, pages, showError])
+
+  /** Write the document out in one of the supported formats. */
+  const exportAs = useCallback(async (formatId: string, selectedOnly: boolean) => {
+    try {
+      const result = runExport(formatId, { doc, selectedOnly })
+      if (window.mycad?.saveFile) {
+        const saved = await window.mycad.saveFile({
+          title: t('export'),
+          defaultPath: state.settings.lastDirectories.save || result.name,
+          content: result.text,
+          filters: [{ name: result.format.label[state.settings.language], extensions: [result.format.ext] }]
+        })
+        if (saved.canceled) return
+        if (saved.directory) dispatch({ type: 'remember-dir', key: 'save', directory: saved.directory })
+      } else {
+        downloadText(result.name, result.text)
+      }
+      dispatch({ type: 'set-status', status: `${t('export')}: ${result.name}` })
+      setDialog(null)
+    } catch (caught) {
+      showError(caught)
+    }
+  }, [doc, showError, state.settings.language, state.settings.lastDirectories.save, t])
+
   const runCommand = useCallback(async (id: string) => {
     setMenu(null)
     setContext(null)
@@ -286,6 +553,15 @@ export function App() {
       dispatch({ type: 'set-preset', preset: id as ViewPreset })
       return
     }
+    if (hasCommand(id)) {
+      try {
+        const effect = runCommandById(id, { doc, settings: state.settings, nextId: () => `tmp-${(tempRef.current += 1)}` })
+        if (effect) applyEffect(id, effect)
+      } catch (caught) {
+        showError(caught)
+      }
+      return
+    }
     try {
       switch (id) {
         case 'new':
@@ -296,19 +572,22 @@ export function App() {
             const result = await window.mycad.openFile({
               title: t('open'),
               defaultPath: state.settings.lastDirectories.open,
-              filters: [{ name: 'MyCAD', extensions: ['mycad'] }]
+              filters: openFilters(state.settings.language)
             })
-            if (!result.canceled && result.content) {
-              await withProgress(t('progress'), t('busyOpen'), async () => openText(result.content || '', result.filePath))
+            if (!result.canceled && result.content && result.filePath) {
+              const filePath = result.filePath
+              const content = result.content
+              await withProgress(t('progress'), t('busyOpen'), async () => { await openAnyFile(filePath, content) })
             }
           } else {
             const input = document.createElement('input')
             input.type = 'file'
-            input.accept = '.mycad,application/json'
+            input.accept = openFilters(state.settings.language)[0].extensions.map((ext) => `.${ext}`).join(',')
             input.onchange = async () => {
               const file = input.files?.[0]
               if (!file) return
-              await withProgress(t('progress'), t('busyOpen'), async () => openText(await readFile(file), file.name))
+              const text = await readFile(file)
+              await withProgress(t('progress'), t('busyOpen'), async () => { await openAnyFile(file.name, text) })
             }
             input.click()
           }
@@ -366,6 +645,31 @@ export function App() {
         case 'wireframe':
           dispatch({ type: 'set-shade', shade: 'wireframe' })
           break
+        case 'asIs':
+        case 'flatLines':
+        case 'points':
+        case 'hiddenLine':
+        case 'noShading':
+          dispatch({ type: 'set-shade', shade: id })
+          break
+        case 'projection':
+          dispatch({
+            type: 'patch-settings',
+            patch: { projection: state.settings.projection === 'orthographic' ? 'perspective' : 'orthographic' }
+          })
+          break
+        case 'shortcuts':
+          setReport({ title: t('shortcuts'), lines: shortcutLines(state.settings.language) })
+          setDialog('report')
+          break
+        case 'license':
+          setReport({ title: t('license'), lines: licenseLines(state.settings.language) })
+          setDialog('report')
+          break
+        case 'homepage':
+          if (window.mycad?.openExternal) await window.mycad.openExternal(PROJECT_URL)
+          else window.open(PROJECT_URL, '_blank', 'noopener')
+          break
         case 'zoomIn':
           dispatch({ type: 'set-zoom', zoom: state.zoom * 1.1 })
           break
@@ -375,9 +679,28 @@ export function App() {
         case 'fit':
           dispatch({ type: 'set-zoom', zoom: 100 })
           break
+        case 'toolPanel':
+          dispatch({ type: 'patch-settings', patch: { showToolPanel: !state.settings.showToolPanel } })
+          break
+        case 'propertyPanel':
+          dispatch({ type: 'patch-settings', patch: { showPropertyPanel: !state.settings.showPropertyPanel } })
+          break
+        case 'resetView':
+          // Back to the default isometric view: preset, zoom and any pan.
+          dispatch({ type: 'set-preset', preset: 'iso' })
+          dispatch({ type: 'set-zoom', zoom: 100 })
+          setViewReset((value) => value + 1)
+          break
+        case 'export':
+          setDialog('export')
+          break
         case 'print':
           setPageIndex(0)
+          setPageSetup({ ...state.settings.print })
           setDialog('print')
+          break
+        case 'language':
+          dispatch({ type: 'patch-settings', patch: { language: state.settings.language === 'ko' ? 'en' : 'ko' } })
           break
         case 'settings':
           setDialog('settings')
@@ -525,7 +848,7 @@ export function App() {
     } catch (caught) {
       showError(caught)
     }
-  }, [doc, openText, requestClose, saveActive, showError, state, t, withProgress])
+  }, [applyEffect, doc, openAnyFile, openText, requestClose, saveActive, showError, state, t, withProgress])
 
   async function handleStl(exporting: boolean) {
     if (exporting) {
@@ -584,6 +907,11 @@ export function App() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        // An open menu closes on Escape, like any other desktop menu bar.
+        setMenu(null)
+        return
+      }
       const target = event.target as HTMLElement
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return
       if (!event.ctrlKey && !event.metaKey) {
@@ -620,12 +948,12 @@ export function App() {
       const path = window.mycad?.pathForFile?.(file) || file.name
       dispatch({ type: 'remember-dir', key: 'open', directory: directoryOf(path) })
       try {
-        if (file.name.toLowerCase().endsWith('.stl')) {
-          const solid = parseStl(await readFile(file), `sol-drop-${file.name}`)
-          dispatch({ type: 'add-mesh', solid })
-        } else if (file.type.startsWith('image/')) {
+        if (file.type.startsWith('image/')) {
           const dataUrl = await blobToDataUrl(file)
           dispatch({ type: 'patch-settings', patch: { backgroundImage: dataUrl } })
+        } else if (fileTypeFor(file.name) || file.name.toLowerCase().endsWith('.csv')) {
+          const text = await readFile(file)
+          await withProgress(t('progress'), t('busyOpen'), async () => { await openAnyFile(path, text) })
         } else {
           await withProgress(t('progress'), t('busyOpen'), async () => openText(await readFile(file), path))
         }
@@ -633,22 +961,44 @@ export function App() {
         showError(caught)
       }
     }
-  }, [openText, showError, t, withProgress])
+  }, [openAnyFile, openText, showError, t, withProgress])
 
   const font = fontCss(state.settings.fontStyle)
   const visibleTabs = tabWindow(state.documents, tabStart, VISIBLE_TABS)
   const overflow = tabsOverflow(state.documents.length, VISIBLE_TABS)
   const measured = selectionDistance(doc)
+  const units = state.settings.units ?? 'mm'
+  const showToolPanel = state.settings.showToolPanel !== false
+  const showPropertyPanel = state.settings.showPropertyPanel !== false
+  const leftWidth = Math.max(MIN_PANEL_WIDTH, panelWidth || naturalPanelWidth || 320)
+  // The property panel matches the narrowest the tool panel can be, and never
+  // gets narrower than one property row needs.
+  const rightWidth = Math.max(propertyPanelWidth(), rightPanel || naturalPanelWidth || 320)
   const openMenuItems = MENUS.find((item) => item.id === menu)
+  const recentInMenu = menu === 'file' ? state.settings.recentFiles.length : 0
+  const popupLayout = useMemo(() => {
+    const count = (openMenuItems?.items.length ?? 0) + recentInMenu
+    const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight || 800
+    const viewportWidth = typeof window === 'undefined' ? 1280 : window.innerWidth || 1280
+    const rowHeight = 26
+    const rows = Math.max(4, Math.floor((viewportHeight - menuPos.y - 56) / rowHeight))
+    const columns = Math.max(1, Math.ceil(count / rows))
+    const width = Math.min(viewportWidth - 16, columns * 196 + 12)
+    const left = Math.max(4, Math.min(menuPos.x, viewportWidth - width - 8))
+    return { columns, width, left, rows }
+  }, [openMenuItems, recentInMenu, menuPos])
 
   return (
     <div
       className="app"
       data-theme={state.settings.theme}
-      data-min-window-width={MIN_WINDOW_WIDTH}
+      data-min-window-width={minWindowWidth}
+      data-theme-mode={theme.mode}
       data-testid="app"
       style={{
-        minWidth: MIN_WINDOW_WIDTH,
+        ...themeVars(theme),
+        colorScheme: theme.mode,
+        minWidth: minWindowWidth,
         fontFamily: state.settings.fontFamily,
         fontSize: state.settings.fontSize,
         fontWeight: font.fontWeight,
@@ -660,7 +1010,7 @@ export function App() {
         void onDropFiles(Array.from(event.dataTransfer.files))
       }}
     >
-      <nav className="menubar" data-testid="menubar">
+      <nav className="menubar" data-testid="menubar" ref={menubarRef}>
         {MENUS.map((entry) => (
           <button
             key={entry.id}
@@ -673,7 +1023,10 @@ export function App() {
               setMenuPos({ x: rect.left, y: rect.bottom })
               setMenu(menu === entry.id ? null : entry.id)
             }}
-          >{t(entry.labelKey)}</button>
+          >
+            <span className="menu-icon">{menuIcon(entry.id)}</span>
+            <span className="menu-label">{t(entry.labelKey)}</span>
+          </button>
         ))}
         <label className="workbench">
           <select aria-label={t('partDesign')} data-testid="workbench" value={workbench} onChange={(event) => setWorkbench(event.target.value as WorkbenchId)}>
@@ -682,45 +1035,124 @@ export function App() {
         </label>
       </nav>
       {openMenuItems ? (
-        <div className="menu-popup" role="menu" data-layout="single-column" data-testid="menu-popup" style={{ left: menuPos.x, top: menuPos.y }}>
+        <div
+          className="menu-popup"
+          role="menu"
+          data-layout={popupLayout.columns > 1 ? 'multi-column' : 'single-column'}
+          data-columns={popupLayout.columns}
+          data-testid="menu-popup"
+          style={{ left: popupLayout.left, top: menuPos.y, width: popupLayout.width }}
+        >
           <header className="popup-title menu-popup-title" data-testid="popup-title">
             <span className="popup-heading">
               <span className="menu-icon" data-testid="popup-icon">{menuIcon(openMenuItems.id)}</span>
               <strong>{t(openMenuItems.labelKey)}</strong>
             </span>
           </header>
-          {openMenuItems.items.map((item) => (
-            <button key={item.id} type="button" role="menuitem" className="menu-item" data-testid={`menuitem-${item.id}`} title={t(item.labelKey)} onClick={() => runCommand(item.id)}>
-              <span className="menu-icon">{item.icon}</span>
-              <span className="menu-label">{t(item.labelKey)}</span>
-            </button>
-          ))}
-          {menu === 'file' ? state.settings.recentFiles.map((file) => (
-            <button key={file.path} type="button" role="menuitem" className="menu-item" title={file.path} onClick={() => void runCommand('open')}>
-              <span className="menu-icon">{menuIcon('recent')}</span>
-              <span className="menu-label">{file.name}</span>
-            </button>
-          )) : null}
+          <div className="menu-items" style={{ gridTemplateColumns: `repeat(${popupLayout.columns}, minmax(0, 1fr))` }}>
+            {openMenuItems.items.map((item) => (
+              <button key={item.id} type="button" role="menuitem" className="menu-item" data-testid={`menuitem-${item.id}`} title={tip(item.id)} onClick={() => runCommand(item.id)}>
+                <span className="menu-icon">{item.icon}</span>
+                <span className="menu-label">{t(item.labelKey)}</span>
+              </button>
+            ))}
+            {menu === 'file' ? state.settings.recentFiles.map((file) => (
+              <button key={file.path} type="button" role="menuitem" className="menu-item" title={file.path} onClick={() => void runCommand('open')}>
+                <span className="menu-icon">{menuIcon('recent')}</span>
+                <span className="menu-label">{file.name}</span>
+              </button>
+            )) : null}
+          </div>
         </div>
       ) : null}
-      <div className="toolbar" data-testid="toolbar" style={{ minWidth: MIN_WINDOW_WIDTH - 16 }}>
-        {[['new', 'open', 'save'], ['undo', 'redo'], ['select', 'box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'], ['delete', 'copy', 'paste'], ['front', 'top', 'iso', 'zoomIn', 'zoomOut', 'fit', 'grid', 'ruler'], ['print', 'settings', 'about']].map((group, index) => (
+      <div className="toolbar" data-testid="toolbar" ref={toolbarRef}>
+        {TOOLBAR_GROUPS.map((group, index) => (
           <span key={group[0]} style={{ display: 'contents' }}>
             {index > 0 ? <span className="toolbar-sep" /> : null}
             {group.map((id) => (
-              <button key={id} type="button" className={(id === 'ruler' && state.settings.ruler) || (id === 'grid' && state.settings.grid) ? 'tool on' : 'tool'} data-testid={`tb-${id}`} title={t(id as MessageKey)} onClick={() => runCommand(id)}>
+              <button key={id} type="button" className={(id === 'ruler' && state.settings.ruler) || (id === 'grid' && state.settings.grid) ? 'tool on' : 'tool'} data-testid={`tb-${id}`} title={t(id)} onClick={() => runCommand(id)}>
                 <span className="menu-icon">{menuIcon(id)}</span>
               </button>
             ))}
           </span>
         ))}
+        <span className="toolbar-spacer" />
+        <span className="toolbar-sep" />
+        {(['toolPanel', 'propertyPanel'] as const).map((id) => {
+          const open = id === 'toolPanel' ? showToolPanel : showPropertyPanel
+          return (
+            <button
+              key={id}
+              type="button"
+              className={open ? 'tool on' : 'tool'}
+              data-testid={`tb-${id}`}
+              aria-pressed={open}
+              title={`${t(id)}: ${open ? t('show') : t('hide')}`}
+              onClick={() => runCommand(id)}
+            >
+              <span className="menu-icon">{menuIcon(id)}</span>
+            </button>
+          )
+        })}
+        <span className="toolbar-sep" />
+        <FontControl
+          size={state.settings.fontSize}
+          label={t('fontSize')}
+          onSize={(value) => dispatch({ type: 'patch-settings', patch: { fontSize: value } })}
+        />
+        <span className="toolbar-sep" />
+        <ZoomControl
+          zoom={state.zoom}
+          label={t('zoom')}
+          onZoom={(value) => dispatch({ type: 'set-zoom', zoom: value })}
+        />
+        <span className="toolbar-sep" />
+        <LightPicker
+          light={state.settings.light}
+          language={state.settings.language}
+          label={t('lightRig')}
+          onChange={(patch) => dispatch({ type: 'patch-settings', patch: { light: { ...state.settings.light, ...patch } } })}
+        />
+        <span className="toolbar-sep" />
+        <button
+          type="button"
+          className="tool tool-flag"
+          data-testid="tb-language"
+          title={`${t('language')}: ${state.settings.language === 'ko' ? t('english') : t('korean')}`}
+          onClick={() => runCommand('language')}
+        >
+          <LanguageFlag language={state.settings.language} size={15} />
+        </button>
+        <ThemePicker
+          themeId={state.settings.theme}
+          customTheme={state.settings.customTheme}
+          language={state.settings.language}
+          label={t('theme')}
+          onPick={(id) => dispatch({ type: 'patch-settings', patch: { theme: id } })}
+        />
+        <button type="button" className="tool" data-testid="tb-settings" title={t('settings')} onClick={() => runCommand('settings')}>
+          <span className="menu-icon">{menuIcon('settings')}</span>
+        </button>
+        <button type="button" className="tool tool-about" data-testid="tb-about" title={t('about')} onClick={() => runCommand('about')}>
+          <svg className="about-mark" data-testid="about-mark" viewBox="0 0 20 20" width={17} height={17} role="img" aria-label={t('about')}>
+            <circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            <circle cx="10" cy="5.6" r="1.2" fill="currentColor" />
+            <rect x="8.9" y="8.2" width="2.2" height="6.6" rx="1.1" fill="currentColor" />
+          </svg>
+        </button>
       </div>
-      <div className="workspace">
-        <aside className="panel left" data-testid="left-panel">
+      <div
+        className="workspace"
+        data-testid="workspace"
+        style={{
+          gridTemplateColumns: `${showToolPanel ? leftWidth : 0}px ${showToolPanel ? 6 : 0}px minmax(0, 1fr) ${showPropertyPanel ? 6 : 0}px ${showPropertyPanel ? rightWidth : 0}px`
+        }}
+      >
+        <aside className="panel left" data-testid="left-panel" hidden={!showToolPanel} style={{ gridColumn: 1 }}>
           <h2 className="panel-title">{t('toolsPanel')}</h2>
-          <div className="tool-grid" data-testid="tool-grid">
+          <div className="tool-grid" data-testid="tool-grid" ref={toolGridRef}>
             {workbenchTools(workbench).map((id) => (
-              <button key={id} type="button" className={state.tool === id ? 'tool on' : 'tool'} title={t(id)} onClick={() => runCommand(id)}>
+              <button key={id} type="button" className={state.tool === id ? 'tool on' : 'tool'} title={tip(id)} onClick={() => runCommand(id)}>
                 <span className="menu-icon">{menuIcon(id)}</span>
                 <span className="ellipsis">{t(id)}</span>
               </button>
@@ -728,29 +1160,82 @@ export function App() {
           </div>
           <h2 className="panel-title">{t('specTree')}</h2>
           <div className="spec-tree" data-testid="spec-tree">
-            {specTreeLines(doc.features ?? [], doc.parameters ?? [], doc.mates ?? []).map((line) => {
-              const depth = line.match(/^ */)?.[0].length ?? 0
+            {specTreeRows(doc.features ?? [], doc.parameters ?? [], doc.mates ?? [], doc.solids).map((row) => {
+              const refs = row.refs.filter((id) => doc.solids.some((solid) => solid.id === id))
+              const picked = refs.length > 0 && refs.every((id) => doc.selection.includes(id))
               return (
-                <p className="tree-node" key={line} style={{ paddingLeft: 8 + depth * 8 }}>
-                  <span className="twist">{depth === 0 ? '▾' : '▸'}</span>
-                  <span className="ellipsis">{line.trim()}</span>
-                </p>
+                <button
+                  type="button"
+                  className={picked ? 'tree-node on' : 'tree-node'}
+                  key={row.key}
+                  data-testid={`spec-row-${row.key}`}
+                  aria-pressed={picked}
+                  disabled={refs.length === 0}
+                  title={row.label}
+                  style={{ paddingLeft: 8 + row.depth * 8 }}
+                  onClick={() => dispatch({ type: 'select', ids: refs })}
+                >
+                  <span className="twist">{row.depth === 0 ? '▾' : refs.length ? '▸' : '·'}</span>
+                  <span className="ellipsis">{row.label}</span>
+                  {picked ? <span className="pick-mark" aria-hidden="true">✓</span> : null}
+                </button>
               )
             })}
           </div>
           <h2 className="panel-title">{t('features')}</h2>
-          {(doc.features ?? []).map((feature) => (
-            <p className="row" key={feature.id} data-testid={`feature-${feature.id}`}>{feature.name}</p>
-          ))}
+          {(doc.features ?? []).map((feature) => {
+            const picked = feature.solidIds.length > 0 && feature.solidIds.every((id) => doc.selection.includes(id))
+            return (
+              <button
+                type="button"
+                className={picked ? 'tree on' : 'tree'}
+                key={feature.id}
+                data-testid={`feature-${feature.id}`}
+                aria-pressed={picked}
+                title={feature.name}
+                onClick={() => dispatch({ type: 'select', ids: feature.solidIds })}
+              >
+                <span className="menu-icon">{menuIcon(feature.kind)}</span>
+                <span className="ellipsis">{feature.name}</span>
+                {picked ? <span className="pick-mark" aria-hidden="true">✓</span> : null}
+              </button>
+            )
+          })}
           <h2 className="panel-title">{t('scene')}</h2>
           {doc.solids.map((solid) => (
-            <button key={solid.id} type="button" className={doc.selection.includes(solid.id) ? 'tree on' : 'tree'} data-testid={`solid-${solid.id}`} title={solid.name} onClick={() => dispatch({ type: 'select', ids: [solid.id] })}>
+            <button
+              key={solid.id}
+              type="button"
+              className={doc.selection.includes(solid.id) ? 'tree on' : 'tree'}
+              data-testid={`solid-${solid.id}`}
+              aria-pressed={doc.selection.includes(solid.id)}
+              title={solid.name}
+              onClick={() => dispatch({ type: 'select', ids: [solid.id] })}
+            >
               <span className="menu-icon">{menuIcon(solid.kind)}</span>
-              <span>{solid.name}</span>
+              <span className="ellipsis">{solid.name}</span>
+              {doc.selection.includes(solid.id) ? <span className="pick-mark" aria-hidden="true">✓</span> : null}
             </button>
           ))}
         </aside>
-        <main className="center">
+        <div
+          className="splitter"
+          data-testid="panel-splitter"
+          hidden={!showToolPanel}
+          style={{ gridColumn: 2 }}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t('toolsPanel')}
+          onPointerDown={startPanelResize}
+          onDoubleClick={() => {
+            const grid = toolGridRef.current
+            if (!grid) return
+            const natural = Math.max(toolPanelWidth(measureLabelWidths(grid)), propertyPanelWidth())
+            setPanelWidth(natural)
+            dispatch({ type: 'patch-settings', patch: { leftPanelWidth: natural } })
+          }}
+        />
+        <main className="center" style={{ gridColumn: 3 }}>
           <div className="tabstrip" data-testid="tabstrip">
             {overflow ? <button type="button" data-testid="tab-prev" title={t('tabPrev')} onClick={() => setTabStart(nextTabStart('prev', tabStart, state.documents.length, VISIBLE_TABS))}>{'<'}</button> : null}
             <div className="tabs-row">
@@ -772,10 +1257,28 @@ export function App() {
             onContext={(x, y) => setContext({ x, y })}
             onDropFiles={(files) => void onDropFiles(files)}
             onZoom={onViewZoom}
+            resetKey={viewReset}
             onPreset={(preset) => dispatch({ type: 'set-preset', preset })}
+          onMoveSolid={(id, position) => dispatch({ type: 'move-solid', id, position })}
+          onMoveLight={(angles) => dispatch({ type: 'patch-settings', patch: { light: { ...state.settings.light, ...angles } } })}
           />
         </main>
-        <aside className="panel right" data-testid="right-panel">
+        <div
+          className="splitter"
+          data-testid="property-splitter"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t('properties')}
+          hidden={!showPropertyPanel}
+          style={{ gridColumn: 4 }}
+          onPointerDown={startPropertyResize}
+          onDoubleClick={() => {
+            const natural = Math.max(naturalPanelWidth || 0, propertyPanelWidth())
+            setRightPanel(natural)
+            dispatch({ type: 'patch-settings', patch: { rightPanelWidth: natural } })
+          }}
+        />
+        <aside className="panel right" data-testid="right-panel" hidden={!showPropertyPanel} style={{ gridColumn: 5 }}>
           <h2 className="panel-title">{t('properties')}</h2>
           {doc.selection.length === 0 ? <p className="row">{t('emptyProps')}</p> : null}
           {doc.solids.filter((solid) => doc.selection.includes(solid.id)).slice(0, 1).map((solid) => (
@@ -787,13 +1290,19 @@ export function App() {
         <span data-testid="status-text">{state.status === 'ready' ? t('statusReady') : state.status}</span>
         <span data-testid="status-objects">{t('objects')}: {doc.solids.length}</span>
         <span data-testid="status-selection">{t('selection')}: {doc.selection.length}</span>
-        <span data-testid="status-snap">{t('snap')}: {state.settings.snap}</span>
+        <span data-testid="status-snap">{t('snap')}: {formatLength(state.settings.snap, units)}</span>
         <span data-testid="status-zoom">{t('zoom')}: {state.zoom}</span>
-        <span data-testid="status-units">{t('units')}: mm</span>
+        <span data-testid="status-units">{t('units')}: {unitSuffix(units)}</span>
+        <span data-testid="status-style">{t('drawStyle')}: {t(doc.shade)}</span>
+        <span data-testid="status-projection">{t(state.settings.projection)}</span>
         <span data-testid="status-dirty">{doc.dirty ? t('modified') : t('saved')}</span>
         <span data-testid="status-doc">{doc.name}</span>
         <span data-testid="status-cursor">{state.cursor ? `${state.cursor.x}, ${state.cursor.y}, ${state.cursor.z}` : '0, 0, 0'}</span>
-        <span data-testid="status-measure">{state.tool === 'measure' && measured != null ? measured.toFixed(2) : doc.selection.length ? `${t('volume')}: ${solidVolume(doc.solids.find((solid) => solid.id === doc.selection[0]) || doc.solids[0]).toFixed(0)}` : ''}</span>
+        <span data-testid="status-measure">{state.tool === 'measure' && measured != null
+          ? formatLength(measured, units)
+          : doc.selection.length
+            ? `${t('volume')}: ${formatVolume(solidVolume(doc.solids.find((solid) => solid.id === doc.selection[0]) || doc.solids[0]), units)}`
+            : ''}</span>
         <span
           className="size-grip"
           data-testid="size-grip"
@@ -827,15 +1336,26 @@ export function App() {
             </span>
           </header>
           {CONTEXT_ITEMS.map((item) => (
-            <button key={item.id} type="button" role="menuitem" className="menu-item" title={t(item.labelKey)} onClick={() => runCommand(item.id)}>
+            <button key={item.id} type="button" role="menuitem" className="menu-item" title={tip(item.id)} onClick={() => runCommand(item.id)}>
               <span className="menu-icon">{item.icon}</span>
               <span className="menu-label">{t(item.labelKey)}</span>
             </button>
           ))}
         </div>
       ) : null}
-      {dialog === 'about' ? <AboutDialog platform={window.mycad?.platform || 'web'} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'about' ? <AboutDialog platform={window.mycad?.platform || 'web'} t={t} language={state.settings.language} onClose={() => setDialog(null)} /> : null}
       {dialog === 'usage' ? <UsageDialog lang={state.settings.language} t={t} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'export' ? (
+        <ExportDialog
+          doc={doc}
+          t={t}
+          language={state.settings.language}
+          selectionCount={doc.selection.length}
+          onExport={(formatId, selectedOnly) => { void exportAs(formatId, selectedOnly) }}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
+      {dialog === 'report' ? <ReportDialog title={report.title || t('reportTitle')} lines={report.lines} copyLabel={t('reportCopy')} closeLabel={t('close')} onClose={() => setDialog(null)} /> : null}
       {dialog === 'error' ? <ErrorDialog message={error.message} detail={error.detail} label={t('errorTitle')} copyLabel={t('copyError')} closeLabel={t('close')} onClose={() => setDialog(null)} /> : null}
       {dialog === 'settings' ? (
         <SettingsDialog
@@ -845,6 +1365,8 @@ export function App() {
           onChange={(patch) => dispatch({ type: 'patch-settings', patch })}
           onRemoveRecent={(path) => dispatch({ type: 'remove-recent', path })}
           onClearRecent={() => dispatch({ type: 'clear-recent' })}
+          shade={doc.shade}
+          onShade={(shade) => dispatch({ type: 'set-shade', shade })}
           onPickBackground={async (file) => {
             dispatch({ type: 'patch-settings', patch: { backgroundImage: await blobToDataUrl(file) } })
             dispatch({ type: 'remember-dir', key: 'background', directory: directoryOf(file.name) })
@@ -867,7 +1389,7 @@ export function App() {
           onSelectedOnly={setSelectedOnly}
           onSetup={setPageSetup}
           onPage={setPageIndex}
-          onPrint={() => { void window.mycad?.print?.(); window.print() }}
+          onPrint={() => { void printNow() }}
           onClose={() => setDialog(null)}
         />
       ) : null}
@@ -876,6 +1398,7 @@ export function App() {
           title={t(partOp as MessageKey)}
           op={partOp}
           t={t}
+          language={state.settings.language}
           onApply={applyPart}
           onClose={() => setDialog(null)}
         />
@@ -903,6 +1426,7 @@ export function App() {
         />
       ) : null}
       {progress ? <ProgressDialog title={progress.title} message={progress.message} percent={progress.percent} /> : null}
+      <div className="print-area" data-testid="print-area" dangerouslySetInnerHTML={{ __html: printSheets }} />
       <span className="sr" data-testid="undo-state">{canUndo(state) ? 'yes' : 'no'}</span>
       <span className="sr" data-testid="redo-state">{canRedo(state) ? 'yes' : 'no'}</span>
       <span className="sr" data-testid="author-credit">{AUTHOR}</span>
@@ -923,22 +1447,109 @@ function PropertyEditor({
 }) {
   const solid = activeDocument(state).solids.find((item) => item.id === solidId)
   if (!solid) return null
+  const units = state.settings.units ?? 'mm'
   const setNumber = (group: 'position' | 'rotation' | 'scale' | 'size', key: string, value: number) => {
     dispatch({ type: 'update-solid', id: solid.id, patch: { [group]: { ...solid[group], [key]: value } } as never })
   }
+  const axes = ['x', 'y', 'z'] as const
   return (
     <div data-testid="property-editor">
       <label className="row"><span>{t('name')}</span><input aria-label={t('name')} value={solid.name} onChange={(event) => dispatch({ type: 'update-solid', id: solid.id, patch: { name: event.target.value } })} /></label>
       <label className="row"><span>{t('color')}</span><input aria-label={t('color')} type="color" value={solid.color} onChange={(event) => dispatch({ type: 'update-solid', id: solid.id, patch: { color: event.target.value } })} /></label>
-      {(['x', 'y', 'z'] as const).map((axis) => (
-        <label className="row" key={axis}><span>{t('position')} {axis.toUpperCase()}</span>
-          <input aria-label={`${t('position')} ${axis}`} type="number" value={solid.position[axis]} onChange={(event) => setNumber('position', axis, Number(event.target.value))} />
+      <fieldset className="field-group">
+        <legend>{`${t('position')} (${unitSuffix(units)})`}</legend>
+        {axes.map((axis) => (
+          <label className="row" key={axis}><span>{axis.toUpperCase()}</span>
+            <NumberField
+              id={`prop-position-${axis}`}
+              label={`${t('position')} ${axis}`}
+              value={solid.position[axis]}
+              step={1}
+              suffix="mm"
+              onChange={(value) => setNumber('position', axis, value)}
+            />
+          </label>
+        ))}
+      </fieldset>
+      <fieldset className="field-group">
+        <legend>{`${t('rotation')} (°)`}</legend>
+        {axes.map((axis) => (
+          <label className="row" key={axis}><span>{axis.toUpperCase()}</span>
+            <NumberField
+              id={`prop-rotation-${axis}`}
+              label={`${t('rotation')} ${axis}`}
+              value={solid.rotation[axis]}
+              min={-360}
+              max={360}
+              step={5}
+              suffix="°"
+              onChange={(value) => setNumber('rotation', axis, value)}
+            />
+          </label>
+        ))}
+      </fieldset>
+      <fieldset className="field-group">
+        <legend>{`${t('dimensions')} (${unitSuffix(units)})`}</legend>
+        {axes.map((axis) => (
+          <label className="row" key={axis}><span>{axis.toUpperCase()}</span>
+            <NumberField
+              id={`prop-size-${axis}`}
+              label={`${t('dimensions')} ${axis}`}
+              value={solid.size[axis]}
+              min={0.1}
+              step={1}
+              suffix="mm"
+              onChange={(value) => setNumber('size', axis, value)}
+            />
+          </label>
+        ))}
+        <label className="row"><span>R</span>
+          <NumberField id="prop-size-radius" label={`${t('dimensions')} r`} value={solid.size.radius} min={0} step={1} suffix="mm" onChange={(value) => setNumber('size', 'radius', value)} />
         </label>
-      ))}
+      </fieldset>
+      <fieldset className="field-group">
+        <legend>{t('scale')}</legend>
+        {axes.map((axis) => (
+          <label className="row" key={axis}><span>{axis.toUpperCase()}</span>
+            <NumberField
+              id={`prop-scale-${axis}`}
+              label={`${t('scale')} ${axis}`}
+              value={solid.scale[axis]}
+              min={0.01}
+              step={0.1}
+              onChange={(value) => setNumber('scale', axis, value)}
+            />
+          </label>
+        ))}
+      </fieldset>
+      <fieldset className="field-group">
+        <legend>{t('material')}</legend>
+        <label className="row"><span>{t('metalness')}</span>
+          <NumberField id="prop-metalness" label={t('metalness')} value={solid.metalness} min={0} max={1} step={0.05} onChange={(value) => dispatch({ type: 'update-solid', id: solid.id, patch: { metalness: value } })} />
+        </label>
+        <label className="row"><span>{t('roughness')}</span>
+          <NumberField id="prop-roughness" label={t('roughness')} value={solid.roughness} min={0} max={1} step={0.05} onChange={(value) => dispatch({ type: 'update-solid', id: solid.id, patch: { roughness: value } })} />
+        </label>
+      </fieldset>
       <label className="row"><span>{t('visible')}</span><input aria-label={t('visible')} type="checkbox" checked={solid.visible} onChange={(event) => dispatch({ type: 'update-solid', id: solid.id, patch: { visible: event.target.checked } })} /></label>
       <label className="row"><span>{t('locked')}</span><input aria-label={t('locked')} type="checkbox" checked={solid.locked} onChange={(event) => dispatch({ type: 'update-solid', id: solid.id, patch: { locked: event.target.checked } })} /></label>
     </div>
   )
+}
+
+/**
+ * Intrinsic width of every tool label in the grid. The label spans stretch to
+ * their button, so their own box width says nothing about the text; the text is
+ * measured with the same font on a canvas instead.
+ */
+function measureLabelWidths(grid: HTMLElement): number[] {
+  const labels = [...grid.querySelectorAll<HTMLElement>('.tool .ellipsis')]
+  if (labels.length === 0) return []
+  const context = document.createElement('canvas').getContext('2d')
+  if (!context) return labels.map((label) => label.scrollWidth)
+  const style = getComputedStyle(labels[0])
+  context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  return labels.map((label) => context.measureText(label.textContent ?? '').width)
 }
 
 function downloadText(filename: string, content: string) {

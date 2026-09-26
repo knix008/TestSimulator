@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../src/ui/App'
-import { MENUS, TOOLBAR } from '../src/core/menus'
+import { MENUS, TOOLBAR, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/core/menus'
+import { toolbarMinWidth } from '../src/core/buildInfo'
 import { serializeDocument } from '../src/core/serialize'
 import { createDocument, createSolid } from '../src/core/model'
 import { SETTINGS_KEY } from '../src/core/settings'
@@ -29,13 +30,28 @@ describe('gui', () => {
     expect(screen.getByTestId('left-panel')).toBeTruthy()
     expect(screen.getByTestId('right-panel')).toBeTruthy()
     expect(screen.getByTestId('statusbar').textContent).toContain('mm')
-    expect(Number(screen.getByTestId('app').getAttribute('data-min-window-width'))).toBeGreaterThan(1000)
+    // The window may never be narrower than the toolbar it has to show.
+    const minWidth = Number(screen.getByTestId('app').getAttribute('data-min-window-width'))
+    expect(minWidth).toBeGreaterThanOrEqual(toolbarMinWidth(TOOLBAR_GROUPS, TOOLBAR_RIGHT.length))
+    expect(minWidth).toBeGreaterThan(TOOLBAR.length * 30)
+    expect(screen.getByTestId('app').style.minWidth).toBe(`${minWidth}px`)
+    // Language, settings and about sit at the right end, after the spacer.
+    const toolbar = screen.getByTestId('toolbar')
+    const spacer = toolbar.querySelector('.toolbar-spacer')
+    expect(spacer).toBeTruthy()
+    for (const id of TOOLBAR_RIGHT) {
+      const button = screen.getByTestId(`tb-${id}`)
+      expect(spacer!.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    expect(screen.getByTestId('flag-en')).toBeTruthy()
 
     for (const menu of MENUS) {
       await user.click(screen.getByTestId(`menu-${menu.id}`))
       const popup = screen.getByTestId('menu-popup')
-      expect(popup.getAttribute('data-layout')).toBe('single-column')
-      expect(getComputedStyle(popup).flexDirection === 'column' || popup.className.includes('menu-popup')).toBe(true)
+      // Long menus wrap into columns rather than being clipped by the window.
+      expect(['single-column', 'multi-column']).toContain(popup.getAttribute('data-layout'))
+      expect(Number(popup.getAttribute('data-columns'))).toBeGreaterThanOrEqual(1)
+      expect(within(popup).getAllByRole('menuitem').length).toBeGreaterThanOrEqual(menu.items.length)
       for (const item of menu.items) {
         const row = within(popup).getByTestId(`menuitem-${item.id}`)
         expect(within(row).getByText((_content, node) => node?.className === 'menu-icon')).toBeTruthy()
@@ -122,6 +138,7 @@ describe('gui', () => {
     await user.click(screen.getByLabelText('현재 문서'))
     await user.click(screen.getByLabelText('전체'))
     await user.click(screen.getByLabelText('사용자 지정'))
+    await user.click(screen.getByTestId('print-tab-layout'))
     await user.selectOptions(screen.getByLabelText('용지'), 'Letter')
     await user.selectOptions(screen.getByLabelText('방향'), 'landscape')
     await user.click(screen.getByTestId('print-now'))
@@ -139,7 +156,8 @@ describe('gui', () => {
     const name = screen.getByLabelText('이름')
     await user.clear(name)
     await user.type(name, 'Hub')
-    expect(screen.getByText('Hub')).toBeTruthy()
+    // The name shows in the scene list and in the specification tree.
+    expect(screen.getAllByText('Hub').length).toBeGreaterThanOrEqual(2)
     await user.click(screen.getByTestId('tb-new'))
     expect(screen.getByTestId('confirm-message').textContent).toContain('저장')
     await user.click(screen.getByTestId('confirm-cancel'))

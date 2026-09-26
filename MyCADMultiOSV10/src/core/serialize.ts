@@ -1,16 +1,17 @@
 import { FILE_EXTENSION } from './buildInfo'
-import { createDocument, type CadDocument, type Solid } from './model'
+import { cloneExtras } from './extras'
+import { createDocument, isShadeMode, type CadDocument, type Solid } from './model'
 
 export interface MycadFile {
   format: 'mycad'
-  version: 1
+  version: 1 | 2
   document: Omit<CadDocument, 'dirty' | 'selection'>
 }
 
 export function serializeDocument(doc: CadDocument): string {
   const file: MycadFile = {
     format: 'mycad',
-    version: 1,
+    version: 2,
     document: {
       id: doc.id,
       name: doc.name,
@@ -22,7 +23,8 @@ export function serializeDocument(doc: CadDocument): string {
       mates: doc.mates ?? [],
       section: doc.section === true,
       preset: doc.preset,
-      shade: doc.shade
+      shade: doc.shade,
+      extras: cloneExtras(doc.extras)
     }
   }
   return JSON.stringify(file, null, 2)
@@ -42,13 +44,14 @@ export function parseDocument(text: string, fallbackId: string): CadDocument {
   const doc = createDocument(src.id || fallbackId, src.name || 'Untitled')
   doc.filePath = src.filePath
   doc.preset = src.preset || 'iso'
-  doc.shade = src.shade || 'shaded'
+  doc.shade = isShadeMode(src.shade) ? src.shade : 'shaded'
   doc.solids = Array.isArray(src.solids) ? src.solids.map(normalizeSolid) : []
   doc.sketches = Array.isArray(src.sketches) ? src.sketches : []
   doc.features = Array.isArray(src.features) ? src.features : []
   doc.parameters = Array.isArray(src.parameters) ? src.parameters : []
   doc.mates = Array.isArray(src.mates) ? src.mates : []
   doc.section = src.section === true
+  doc.extras = cloneExtras(src.extras)
   doc.dirty = false
   return doc
 }

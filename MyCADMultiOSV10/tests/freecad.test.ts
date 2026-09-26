@@ -14,7 +14,17 @@ import { USAGE } from '../src/core/usage'
 import { orbitForPreset } from '../src/core/viewnav'
 import { femStress, sketchToGcode, WORKBENCHES, workbenchTools } from '../src/core/workbenches'
 
-const FREECAD_WORKBENCHES = ['partDesign', 'part', 'sketcher', 'draft', 'techdraw', 'mesh', 'spreadsheet', 'assembly', 'fem', 'cam', 'bim', 'points', 'surface', 'robot', 'openscad', 'inspection'] as const
+const FREECAD_WORKBENCHES = [
+  'partDesign', 'part', 'sketcher', 'draft', 'techdraw', 'mesh', 'points', 'reverse', 'surface',
+  'spreadsheet', 'assembly', 'fem', 'cam', 'bim', 'material', 'measureWb', 'inspection', 'robot',
+  'openscad', 'macro', 'kernel', 'addons'
+] as const
+
+/** CATIA workbenches mirrored on top of the FreeCAD set. */
+const CATIA_WORKBENCHES = ['gsd', 'sheetMetal', 'kinematics', 'knowledge', 'drafting'] as const
+
+/** SketchUp tool groups. */
+const SKETCHUP_WORKBENCHES = ['sketchup', 'solidTools', 'sandbox'] as const
 
 const NOT_PORTED = [
   'OpenCASCADE B-rep kernel',
@@ -22,8 +32,8 @@ const NOT_PORTED = [
 ]
 
 describe('freecad coverage', () => {
-  it('[FreeCAD] exposes the eleven workbenches with labels, tools, icons, and usage', () => {
-    expect(WORKBENCHES.map((item) => item.id)).toEqual([...FREECAD_WORKBENCHES])
+  it('[FreeCAD] exposes every workbench with labels, tools, icons, and usage', () => {
+    expect(WORKBENCHES.map((item) => item.id)).toEqual([...FREECAD_WORKBENCHES, ...CATIA_WORKBENCHES, ...SKETCHUP_WORKBENCHES])
     for (const bench of WORKBENCHES) {
       expect(translate('ko', bench.labelKey).length).toBeGreaterThan(0)
       expect(translate('en', bench.labelKey).length).toBeGreaterThan(0)
@@ -63,9 +73,9 @@ describe('freecad coverage', () => {
       expect(solid.mesh?.positions.length ?? 0, solid.name).toBeGreaterThan(0)
     }
     expect(solidVolume(pocket)).toBeGreaterThan(0)
-    const parameters = [{ id: 'p', name: 'Width', formula: '40', value: 40 }]
+    const parameters = [{ name: 'Width', formula: '40', value: 40 }]
     expect(evaluateFormula('Width/2', parameters)).toBe(20)
-    const updated = updateSketchFromParameters(sketch, [{ id: 'p', name: 'Width', formula: '80', value: 80 }])
+    const updated = updateSketchFromParameters(sketch, [{ name: 'Width', formula: '80', value: 80 }])
     expect(updated.width).toBe(80)
   })
 
@@ -89,11 +99,11 @@ describe('freecad coverage', () => {
       solids: [padSketch(makeSketch({ id: 'sk', shape: 'rect', width: 10, height: 10 }), 5, 'body')],
       sketch: makeSketch({ id: 'sk', shape: 'rect', width: 10, height: 10 }),
       feature: { id: 'f', name: 'pad', kind: 'pad', solidIds: [], length: 5, angle: 0, count: 1, radius: 0 },
-      parameter: { id: 'w', name: 'Width', formula: '10', value: 10 }
+      parameter: { name: 'Width', formula: '10', value: 10 }
     })
     expect(activeDocument(rebuilt).parameters).toHaveLength(1)
     const second = createSolid('box', 'b', 2)
-    const mated = solveMate(box, second, { id: 'm', kind: 'coincidence', value: 0 })
+    const mated = solveMate(box, second, { id: 'm', kind: 'coincidence', a: box.id, b: second.id, value: 0 })
     expect(mated.position).toEqual(box.position)
     expect(inertiaOf(box).volume).toBeGreaterThan(0)
     expect(orbitForPreset('front').polar).toBeCloseTo(Math.PI / 2)

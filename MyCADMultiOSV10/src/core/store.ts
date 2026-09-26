@@ -1,6 +1,7 @@
 import { decodeClipboard, encodeClipboard } from './clipboard'
 import { cloneSolid, createDocument, createSolid, type CadDocument, type ShadeMode, type Solid, type SolidKind, type ViewPreset } from './model'
 import type { Feature, Sketch } from './part'
+import { cloneExtras, type DocumentExtras } from './extras'
 import { clearRecent, rememberRecent, removeRecent } from './recent'
 import { defaultSettings, type Settings } from './settings'
 
@@ -34,7 +35,8 @@ export function snapshot(doc: CadDocument): CadDocument {
     sketches: (doc.sketches ?? []).map((sketch) => ({ ...sketch })),
     features: (doc.features ?? []).map((feature) => ({ ...feature, solidIds: feature.solidIds.slice() })),
     parameters: (doc.parameters ?? []).map((item) => ({ ...item })),
-    mates: (doc.mates ?? []).map((item) => ({ ...item }))
+    mates: (doc.mates ?? []).map((item) => ({ ...item })),
+    extras: cloneExtras(doc.extras)
   }
 }
 
@@ -108,6 +110,7 @@ export type Action =
   | { type: 'toggle-ruler' }
   | { type: 'set-status'; status: string }
   | { type: 'set-cursor'; cursor: { x: number; y: number; z: number } | null }
+  | { type: 'remember-recent'; path: string; name?: string }
   | { type: 'remove-recent'; path: string }
   | { type: 'clear-recent' }
   | { type: 'remember-dir'; key: keyof Settings['lastDirectories']; directory: string }
@@ -115,6 +118,9 @@ export type Action =
   | { type: 'apply-part'; solids: Solid[]; feature: Feature; sketch?: Sketch; replaceIds?: string[]; parameter?: import('./catia').DesignParameter; mate?: import('./catia').Mate }
   | { type: 'recompute-part'; sketches: Sketch[]; solid: Solid; replaceId: string }
   | { type: 'set-section'; enabled: boolean }
+  | { type: 'patch-extras'; patch: Partial<DocumentExtras>; record?: boolean }
+  | { type: 'replace-solids'; solids: Solid[] }
+  | { type: 'move-solid'; id: string; position: { x: number; y: number; z: number }; record?: boolean }
 
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -275,6 +281,14 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, status: action.status }
     case 'set-cursor':
       return { ...state, cursor: action.cursor }
+    case 'remember-recent': {
+      if (!action.path) return state
+      const name = action.name || action.path.split(/[/\\]/).pop() || action.path
+      return {
+        ...state,
+        settings: { ...state.settings, recentFiles: rememberRecent(state.settings.recentFiles, { path: action.path, name }) }
+      }
+    }
     case 'remove-recent':
       return { ...state, settings: { ...state.settings, recentFiles: removeRecent(state.settings.recentFiles, action.path) } }
     case 'clear-recent':
@@ -311,6 +325,29 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'set-section':
       return withActive(state, { ...activeDocument(state), section: action.enabled }, false)
+    case 'patch-extras': {
+      const current = activeDocument(state)
+      return withActive(state, {
+        ...current,
+        dirty: true,
+        extras: { ...cloneExtras(current.extras), ...action.patch }
+      }, action.record !== false)
+    }
+    case 'move-solid': {
+      const current = activeDocument(state)
+      const target = current.solids.find((solid) => solid.id === action.id)
+      if (!target || target.locked) return state
+      return withActive(state, {
+        ...current,
+        dirty: true,
+        selection: current.selection.includes(action.id) ? current.selection : [action.id],
+        solids: current.solids.map((solid) => (solid.id === action.id ? { ...solid, position: { ...action.position } } : solid))
+      }, action.record !== false)
+    }
+    case 'replace-solids': {
+      const current = activeDocument(state)
+      return withActive(state, { ...current, dirty: true, solids: action.solids, selection: [] }, true)
+    }
     case 'remember-dir':
       return {
         ...state,

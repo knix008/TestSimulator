@@ -1,0 +1,5 @@
+# CATIA style design table: one row per configuration
+Width,Height,Thickness
+40,25,2
+80,50,4
+120,75,6

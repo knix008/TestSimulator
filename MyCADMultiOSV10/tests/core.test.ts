@@ -7,7 +7,7 @@ import { mergeFonts } from '../src/core/fonts'
 import { translate } from '../src/core/i18n'
 import { MENUS, menuIsSingleColumn, TOOLBAR } from '../src/core/menus'
 import { createSolid, distance } from '../src/core/model'
-import { buildPrintPages, pagePixelSize } from '../src/core/print'
+import { buildPrintPages, defaultPageSetup, pagePixelSize } from '../src/core/print'
 import { rememberRecent, removeRecent } from '../src/core/recent'
 import { parseDocument, serializeDocument } from '../src/core/serialize'
 import { cameraFromOrbit, panOrbit, rotateOrbit } from '../src/core/viewnav'
@@ -112,7 +112,7 @@ describe('model', () => {
     expect(buildPrintPages([first, second], 'doc-1', 'all', [], false)).toHaveLength(2)
     expect(buildPrintPages([first, second], 'doc-1', 'current', [], false)).toHaveLength(1)
     expect(buildPrintPages([first, second], 'doc-1', 'custom', ['doc-2'], false)[0].objectCount).toBe(2)
-    expect(pagePixelSize({ paper: 'A4', orientation: 'landscape', marginMm: 10 }).width).toBeGreaterThan(1000)
+    expect(pagePixelSize({ ...defaultPageSetup(), paper: 'A4', orientation: 'landscape', marginMm: 10 }).width).toBeGreaterThan(1000)
   })
 
   it('[Tabs] shows chevrons only after the strip overflows', () => {
@@ -130,7 +130,7 @@ describe('model', () => {
 
   it('[Build] title contains the name and version and credits the author', () => {
     expect(windowTitle()).toBe('MyCAD 1.0.0')
-    expect(AUTHOR).toBe('SHKWON(knix008@naver.com)')
+    expect(AUTHOR).toBe('shkwon(knix008@naver.com)')
     expect(MIN_WINDOW_WIDTH).toBeGreaterThanOrEqual(1000)
   })
 

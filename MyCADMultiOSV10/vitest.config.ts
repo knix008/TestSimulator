@@ -21,7 +21,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_NAME__: JSON.stringify(pkg.productName),
     __BUILD_DATE__: JSON.stringify('2026-09-25T00:00:00.000Z'),
-    __AUTHOR__: JSON.stringify('SHKWON(knix008@naver.com)')
+    __AUTHOR__: JSON.stringify('shkwon(knix008@naver.com)')
   },
   test: {
     environment: 'jsdom',

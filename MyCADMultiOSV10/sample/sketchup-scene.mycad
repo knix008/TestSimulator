@@ -1,0 +1,261 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-sketchup-scene",
+    "name": "sketchup-scene",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Floor",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 5,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 400,
+          "y": 10,
+          "z": 400,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#c08a4e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-2",
+        "name": "Table",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 40,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 120,
+          "y": 60,
+          "z": 80,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#d7c3a5",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-3",
+        "name": "Chair",
+        "kind": "box",
+        "position": {
+          "x": 110,
+          "y": 45,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 45,
+          "y": 90,
+          "z": 45,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#9c5b4a",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "Room",
+        "kind": "assembly",
+        "solidIds": [
+          "sol-1",
+          "sol-2",
+          "sol-3"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 3,
+        "radius": 0
+      }
+    ],
+    "parameters": [],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded",
+    "extras": {
+      "wires": [
+        {
+          "id": "wire-1",
+          "name": "FloorOutline",
+          "closed": true,
+          "points": [
+            {
+              "x": -200,
+              "y": 10,
+              "z": -200
+            },
+            {
+              "x": 200,
+              "y": 10,
+              "z": -200
+            },
+            {
+              "x": 200,
+              "y": 10,
+              "z": 200
+            },
+            {
+              "x": -200,
+              "y": 10,
+              "z": 200
+            }
+          ]
+        }
+      ],
+      "groups": [
+        {
+          "id": "group-1",
+          "name": "Furniture",
+          "solidIds": [
+            "sol-2",
+            "sol-3"
+          ],
+          "tag": "Furniture",
+          "locked": false
+        }
+      ],
+      "tags": [
+        {
+          "name": "Untagged",
+          "visible": true,
+          "color": "#8fa0b0",
+          "dashes": "solid"
+        },
+        {
+          "name": "Structure",
+          "visible": true,
+          "color": "#7ec8ff",
+          "dashes": "solid"
+        },
+        {
+          "name": "Furniture",
+          "visible": true,
+          "color": "#f0a35e",
+          "dashes": "dash"
+        },
+        {
+          "name": "Site",
+          "visible": false,
+          "color": "#8fd18f",
+          "dashes": "dot"
+        }
+      ],
+      "styleId": "shaded",
+      "shadows": {
+        "enabled": true,
+        "timeOfDay": 15,
+        "dayOfYear": 172,
+        "latitude": 37.5,
+        "light": 80,
+        "dark": 45
+      },
+      "sectionPlanes": [
+        {
+          "id": "plane-1",
+          "name": "Section 1",
+          "origin": {
+            "x": 0,
+            "y": 45,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "active": true,
+          "fill": true
+        }
+      ],
+      "scenes": [
+        {
+          "name": "Scene 1",
+          "camera": {
+            "eye": {
+              "x": 320,
+              "y": 220,
+              "z": 320
+            },
+            "target": {
+              "x": 0,
+              "y": 40,
+              "z": 0
+            },
+            "up": {
+              "x": 0,
+              "y": 1,
+              "z": 0
+            },
+            "fieldOfView": 35,
+            "perspective": true,
+            "height": 300
+          },
+          "style": "shaded",
+          "shadows": {
+            "enabled": true,
+            "timeOfDay": 15,
+            "dayOfYear": 172,
+            "latitude": 37.5,
+            "light": 80,
+            "dark": 45
+          },
+          "hiddenTags": [
+            "Site"
+          ]
+        }
+      ]
+    }
+  }
+}

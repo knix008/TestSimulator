@@ -1,0 +1,171 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-patterns",
+    "name": "patterns",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Tooth",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 12,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#4cc2ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-2",
+        "name": "Tooth-2",
+        "kind": "box",
+        "position": {
+          "x": 30,
+          "y": 12,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#4cc2ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-3",
+        "name": "Tooth-3",
+        "kind": "box",
+        "position": {
+          "x": 60,
+          "y": 12,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#4cc2ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-4",
+        "name": "Tooth-p2",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 12,
+          "z": 40
+        },
+        "rotation": {
+          "x": 0,
+          "y": 90,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#4cc2ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "linearArray",
+        "kind": "pattern",
+        "solidIds": [
+          "sol-2",
+          "sol-3"
+        ],
+        "length": 30,
+        "angle": 0,
+        "count": 3,
+        "radius": 0
+      },
+      {
+        "id": "feat-2",
+        "name": "polarArray",
+        "kind": "pattern",
+        "solidIds": [
+          "sol-4"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 4,
+        "radius": 40
+      }
+    ],
+    "parameters": [],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded"
+  }
+}

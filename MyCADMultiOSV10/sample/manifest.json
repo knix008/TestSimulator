@@ -1,0 +1,113 @@
+{
+  "generator": "scripts/create-samples.mjs",
+  "files": [
+    {
+      "name": "box.mycad",
+      "description": "기본 박스 한 개 (파일 열기/저장 확인)"
+    },
+    {
+      "name": "primitives.mycad",
+      "description": "박스·구·원기둥·원뿔·토러스·평면 6종"
+    },
+    {
+      "name": "sketch-pad.mycad",
+      "description": "스케치 + 패드 피처 + 파라미터 수식"
+    },
+    {
+      "name": "assembly.mycad",
+      "description": "3개 부품 + 구속(mate) + 파라미터 (어셈블리/BOM/관성)"
+    },
+    {
+      "name": "patterns.mycad",
+      "description": "선형/원형 패턴 결과"
+    },
+    {
+      "name": "mesh-pyramid.mycad",
+      "description": "메쉬 솔리드 (메쉬 평가·감축·세분 테스트)"
+    },
+    {
+      "name": "bim-house.mycad",
+      "description": "BIM 요소·층 정보가 든 건물 (수량 산출/IFC 내보내기)"
+    },
+    {
+      "name": "sketchup-scene.mycad",
+      "description": "그룹·태그·장면·단면 평면이 든 SketchUp 스타일 모델"
+    },
+    {
+      "name": "spreadsheet.mycad",
+      "description": "별칭과 수식이 든 스프레드시트"
+    },
+    {
+      "name": "sheetmetal-bracket.mycad",
+      "description": "시트메탈 월/플랜지 (전개도·성형성 검사)"
+    },
+    {
+      "name": "fem-beam.mycad",
+      "description": "FEM 해석 컨테이너와 구속/하중이 든 외팔보"
+    },
+    {
+      "name": "kinematics-crank.mycad",
+      "description": "회전·직선 조인트가 든 크랭크 슬라이더"
+    },
+    {
+      "name": "cube.stl",
+      "description": "ASCII STL 큐브 (STL 가져오기)"
+    },
+    {
+      "name": "pyramid.stl",
+      "description": "ASCII STL 사각뿔"
+    },
+    {
+      "name": "plate.obj",
+      "description": "OBJ 메쉬"
+    },
+    {
+      "name": "profile.svg",
+      "description": "SVG 프로파일 도면"
+    },
+    {
+      "name": "profile.dxf",
+      "description": "DXF 프로파일 도면 (LINE + CIRCLE)"
+    },
+    {
+      "name": "bracket.scad",
+      "description": "OpenSCAD 소스 (importOpenScad)"
+    },
+    {
+      "name": "scan-points.asc",
+      "description": "기울어진 평면 위 점군 49개 (평면/구/곡면 근사)"
+    },
+    {
+      "name": "building.ifc",
+      "description": "IFC4 건물 (IFC 가져오기)"
+    },
+    {
+      "name": "pocket.nc",
+      "description": "G코드 포켓 가공 (3패스)"
+    },
+    {
+      "name": "parameters.csv",
+      "description": "파라미터 표 (CSV 읽기)"
+    },
+    {
+      "name": "design-table.csv",
+      "description": "CATIA 디자인 테이블 3구성"
+    },
+    {
+      "name": "spreadsheet.csv",
+      "description": "수식이 든 CSV 시트"
+    },
+    {
+      "name": "macro.mycadmacro",
+      "description": "매크로 스크립트 샘플"
+    },
+    {
+      "name": "macro.py",
+      "description": "Python 매크로 (Part API, 불리언, 반복문)"
+    },
+    {
+      "name": "addon-manifest.json",
+      "description": "애드온 매니페스트 (설치/실행 테스트)"
+    }
+  ]
+}
