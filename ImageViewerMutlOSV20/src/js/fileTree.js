@@ -481,6 +481,7 @@ window.FileTree = (() => {
 
     row.addEventListener('click', (e) => {
       e.stopPropagation();
+      _container?.focus({ preventScroll: true });
       if (!entry.isDirectory && !entry.isDrive && isSup && (e.ctrlKey || e.metaKey || e.shiftKey)) {
         _handleMultiClick(entry, e);
       } else {
@@ -492,7 +493,7 @@ window.FileTree = (() => {
     row.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (_onContextMenu) _onContextMenu({ ...entry, isDirectory: isDir }, e.clientX, e.clientY);
+      if (_onContextMenu) _onContextMenu({ ...entry, isDirectory: isDir, isDrive }, e.clientX, e.clientY);
     });
 
     // Drag-out to OS (Explorer, Desktop, other apps) — Electron only
@@ -639,6 +640,63 @@ window.FileTree = (() => {
     return eRect.top >= cRect.top && eRect.bottom <= cRect.bottom;
   }
 
+  function _visibleRows() {
+    if (!_container) return [];
+    return [..._container.querySelectorAll('.tree-item[data-path]')];
+  }
+
+  function _rowIndex(path) {
+    if (!path) return -1;
+    return _visibleRows().findIndex((el) => _pathsEqual(el.dataset.path, path));
+  }
+
+  function _isSupportedPath(path) {
+    const name = String(path || '').split(/[/\\]/).pop() || '';
+    const ext = FormatSupport.getExtension(name);
+    return IMAGE_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext);
+  }
+
+  async function _moveBy(delta) {
+    const rows = _visibleRows();
+    if (!rows.length) return false;
+    let i = _rowIndex(_selectedPath);
+    if (i < 0) i = _rowIndex(_focusPath);
+    if (i < 0) i = delta > 0 ? -1 : rows.length;
+    const next = i + delta;
+    if (next < 0 || next >= rows.length) return true;
+    const row = rows[next];
+    const path = row.dataset.path;
+    if (!path) return true;
+    const isDir = row.dataset.isDir === '1';
+    _selectedPath = path;
+    _selectedPaths.clear();
+    _highlightSelected();
+    _scrollRowIfNeeded();
+    if (isDir) {
+      _focusPath = path;
+      _updatePathBar(path);
+      return true;
+    }
+    if (_isSupportedPath(path) && _onSelect) await _onSelect(path);
+    return true;
+  }
+
+  function handleKey(e) {
+    if (!_container || !_ready && !_visibleRows().length) return false;
+    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _moveBy(1);
+      return true;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _moveBy(-1);
+      return true;
+    }
+    return false;
+  }
+
   function _scrollRowIfNeeded() {
     const el = _findTreeItem(_selectedPath);
     if (!el || _isRowVisible(el)) return;
@@ -700,6 +758,29 @@ window.FileTree = (() => {
     if (!list || !target) return -1;
     const n = _norm(target);
     return list.findIndex((p) => _norm(p) === n);
+  }
+
+  function _rewritePath(p, fromPath, toPath) {
+    if (!p || !fromPath || !toPath) return p;
+    const sep = /\\/.test(fromPath) ? '\\' : '/';
+    const norm = (s) => String(s).replace(/[/\\]+/g, sep).replace(/[\\/]+$/, '');
+    const np = norm(p);
+    const nf = norm(fromPath);
+    const nt = norm(toPath);
+    if (np.toLowerCase() === nf.toLowerCase()) return toPath;
+    const prefix = nf + sep;
+    if (np.toLowerCase().startsWith(prefix.toLowerCase())) return nt + np.slice(nf.length);
+    return p;
+  }
+
+  /** After a rename: keep expansion / selection pointed at the new path. */
+  function remapPath(fromPath, toPath) {
+    if (!fromPath || !toPath || _pathsEqual(fromPath, toPath)) return;
+    _expandedDirs = new Set([..._expandedDirs].map((p) => _rewritePath(p, fromPath, toPath)));
+    _selectedPath = _rewritePath(_selectedPath, fromPath, toPath);
+    _selectedPaths = new Set([..._selectedPaths].map((p) => _rewritePath(p, fromPath, toPath)));
+    _focusPath = _rewritePath(_focusPath, fromPath, toPath);
+    _lastClickedPath = _rewritePath(_lastClickedPath, fromPath, toPath);
   }
 
   /** Drop a path from expansion/selection state (after delete). */
@@ -791,6 +872,6 @@ window.FileTree = (() => {
 
   return {
     init, loadDrives, revealPath, openRoot, getRoot, getSelected, setSelected,
-    getSelectedPaths, getImageFilesInDir, indexOfPath, refresh, forgetPath,
+    getSelectedPaths, getImageFilesInDir, indexOfPath, refresh, forgetPath, remapPath, handleKey,
   };
 })();

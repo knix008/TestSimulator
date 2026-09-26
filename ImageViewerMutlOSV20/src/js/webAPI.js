@@ -385,6 +385,7 @@
     windowSetMinSize: async () => {},
     windowGetBounds: async () => null,
     windowApplySize: async () => {},
+    windowSetSize: async () => {},
     windowClose: async () => { window.close(); },
     windowIsMaximized: async () => false,
     toggleFullscreen: async () => {

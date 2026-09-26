@@ -61,10 +61,7 @@ const AUDIO_EXTS = new Set(['mp3','wav','flac','aac','m4a','ogg','opus','wma','m
 function fmtMs(ms) {
   const n = Number(ms);
   if (!Number.isFinite(n)) return '—';
-  if (n < 0.01) return '<0.01 ms';
-  if (n < 1) return `${n.toFixed(2)} ms`;
-  if (n < 10) return `${n.toFixed(1)} ms`;
-  return `${Math.round(n)} ms`;
+  return `${n.toFixed(3)} ms`;
 }
 
 function extractPresetIds(editorSrc) {

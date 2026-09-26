@@ -1067,10 +1067,21 @@ window.Editor = (() => {
     return !!document.getElementById('edit-window')?.classList.contains('visible');
   }
 
+  async function _yieldPaint() {
+    const dlg = _progressDialog();
+    if (dlg && typeof dlg.yieldFrame === 'function') {
+      await dlg.yieldFrame();
+      await dlg.yieldFrame();
+      return;
+    }
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
+
   async function _runSyncWithProgress(work, { messageKey = 'progress.applying', kind = 'render' } = {}) {
     const dlg = _progressDialog();
     const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
-    const show = !nested && !!(dlg && shouldShowOpProgress(kind));
+    const inEdit = _editWindowOpen();
+    const show = !nested && !!(dlg && (inEdit || shouldShowOpProgress(kind)));
     const gen = show ? ++_effectRenderGen : _effectRenderGen;
 
     if (show) {
@@ -1079,9 +1090,10 @@ window.Editor = (() => {
         title: _tProgress('progress.title', 'Progress'),
         message: _tProgress(messageKey, 'Working…'),
         percent: 6,
-        modal: _editWindowOpen(),
+        modal: inEdit,
       });
       dlg.startCreep(90);
+      await _yieldPaint();
     }
 
     try {
@@ -1099,27 +1111,31 @@ window.Editor = (() => {
     const gen = ++_effectRenderGen;
     const dlg = _progressDialog();
     const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
-    const show = !!(wantProgress && dlg && _isHeavyEffectRender() && !nested);
+    const inEdit = _editWindowOpen();
+    const show = !!(wantProgress && dlg && !nested && (inEdit || _isHeavyEffectRender()));
 
     if (show) {
       _effectProgressOwner = gen;
       dlg.show({
         title: _tProgress('progress.effectTitle', _tProgress('progress.title', 'Progress')),
         message: _tProgress('progress.effectApplying', 'Applying effects…'),
-        percent: 4,
-        modal: _editWindowOpen(),
+        percent: 8,
+        modal: inEdit,
       });
       dlg.startCreep(90);
+      await _yieldPaint();
     }
 
     try {
       if (gen !== _effectRenderGen) return false;
+      if (show) dlg.set(22);
       _render();
-
+      if (show) dlg.set(96);
+      if (show) await _yieldPaint();
       return gen === _effectRenderGen;
     } finally {
       if (show && _effectProgressOwner === gen) {
-        dlg.hide();
+        dlg.hide(_tProgress('progress.effectDone', 'Effect applied.'));
         if (_effectProgressOwner === gen) _effectProgressOwner = 0;
       }
     }

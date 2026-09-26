@@ -37,7 +37,6 @@
   // Declared before the first await: rAF callbacks below may run before later lets initialise
   let _appliedMinWidth = 0;
   let _ewFitW = 0, _ewFitH = 0;
-  let _savedMainBounds = null;
   let _settingsReady = false;   // _syncSettingsDialog() is a no-op until _initSettingsDialog() ran
 
   function _isEditableImage() {
@@ -147,6 +146,7 @@
   const statusZoom       = document.getElementById('status-zoom');
 
   let _openingFile = null;       // path currently being opened (re-entrancy guard)
+  let _openGen = 0;              // drop stale results when arrow-keying through files
   let _ignoreWatchUntil = 0;     // ignore fs.watch noise right after open/watch
   let _watchedDir  = null;
   let _watchedFile = null;
@@ -553,20 +553,18 @@
       { id:'btn-prev',        icon:'prev',       tip:'toolbar.prev',       action: _prevImage, disabled: true },
       { id:'btn-next',        icon:'next',       tip:'toolbar.next',       action: _nextImage, disabled: true },
       { separator: true },
-      { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
-      { separator: true },
       // Zoom: [−] [100%] [+] — the percentage box sits between the two buttons
       { id:'btn-zoom-out',    icon:'zoomOut',    tip:'toolbar.zoomOut',    action: () => _zoom(0.8),  disabled: true },
       { zoomDisplay: true },
       { id:'btn-zoom-in',     icon:'zoomIn',     tip:'toolbar.zoomIn',     action: () => _zoom(1.25), disabled: true },
+      { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
       { spacer: true },
-      { id:'btn-info',        icon:'info',       tip:'menu.about',         action: () => _showDialog('about-overlay') },
-      { separator: true },
       // Theme: palette = jump to the next theme, ▾ = pick one from the list
       { id:'btn-theme',       icon:'palette',    tip: _themeButtonTip,     action: _nextTheme },
       { id:'btn-theme-menu',  icon:'caretDown',  tip:'toolbar.themeMenu',  action: null, caretBtn: true, openMenu: (btn) => _openThemeMenu(btn) },
       { id:'btn-lang',        icon:null,         tip:'toolbar.lang',       action: _toggleLang, langBtn: true },
       { id:'btn-settings',    icon:'settings',   tip:'toolbar.settings',   action: _openSettings },
+      { id:'btn-info',        icon:'info',       tip:'menu.about',         action: () => _showDialog('about-overlay') },
     ];
 
     // Keep the zoom input before clearing
@@ -1380,53 +1378,47 @@
 
     const temp = !win.classList.contains('visible');
     if (temp) win.classList.add('measuring');
+    const tolWrap = document.getElementById('ew-tolerance-wrap');
+    const tolWas = tolWrap ? tolWrap.style.display : '';
+    if (tolWrap) tolWrap.style.display = 'flex';
     const width = _measureFlexContentWidth(bar, 'ew-spacer');
+    if (tolWrap) tolWrap.style.display = tolWas;
     if (temp) win.classList.remove('measuring');
     return width;
   }
 
+  const APP_MIN_HEIGHT = 600;
 
   function _mainMinWidth() {
-    return Math.max(_measureFlexContentWidth(toolbar, 'toolbar-spacer'), 1100) + 12;
+    return Math.max(_measureFlexContentWidth(toolbar, 'toolbar-spacer') + 12, 1200);
   }
 
   function _editMinWidth() {
-    return Math.max(_measureEditTitlebarWidth(), 1100) + 12;
+    return Math.max(_measureEditTitlebarWidth() + 12, 1200);
+  }
+
+  function _appMinWidth() {
+    return Math.max(_mainMinWidth(), _editMinWidth());
   }
 
   function _syncWindowMinSize(opts = {}) {
     const force = !!opts.force;
-    const width = state.editMode ? _editMinWidth() : _mainMinWidth();
-    if (!force && _appliedMinWidth && Math.abs(width - _appliedMinWidth) < 8) return;
+    const width = _appMinWidth();
+    if (!force && _appliedMinWidth && Math.abs(width - _appliedMinWidth) < 8) return width;
     _appliedMinWidth = width;
-    if (window.electronAPI.windowSetMinSize) {
-      window.electronAPI.windowSetMinSize(width, 600);
-    }
+    window.electronAPI.windowSetMinSize?.(width, APP_MIN_HEIGHT);
     return width;
   }
 
-  async function _syncEditChromeMinSize() {
-    if (!state.editMode) return;
-    const minW = _syncWindowMinSize({ force: true });
-    if (!minW || !window.electronAPI.windowGetBounds || !window.electronAPI.windowApplySize) return;
-    try {
-      const b = await window.electronAPI.windowGetBounds();
-      if (!b || b.maximized || b.width >= minW) return;
-      await window.electronAPI.windowApplySize({
-        width: minW,
-        height: Math.max(600, b.height || 600),
-        minWidth: minW,
-        minHeight: 600,
-      });
-    } catch (e) {
-      console.warn('edit chrome min size:', e);
-    }
+  function _syncEditChromeMinSize() {
+    _syncWindowMinSize({ force: true });
   }
 
   function _initWindowChrome() {
     const isWeb = window.electronAPI.platform === 'web';
     document.body.classList.toggle('frameless', !isWeb);
     document.body.classList.toggle('is-web', isWeb);
+    _initResizeGrips();
     if (isWeb) return;
 
     const minBtn = document.getElementById('win-min');
@@ -1446,6 +1438,50 @@
     window.electronAPI.onMaximizeChange?.((maximized) => _setMaximizedUi(!!maximized));
     window.electronAPI.windowIsMaximized?.().then((m) => _setMaximizedUi(!!m));
     requestAnimationFrame(() => _syncWindowMinSize());
+  }
+
+  function _initResizeGrips() {
+    const grips = [...document.querySelectorAll('.win-resize-grip')];
+    const tip = () => I18n.t('window.resize') || 'Resize';
+    grips.forEach((el) => {
+      el.title = tip();
+      Tooltip.attach?.(el, tip);
+    });
+    if (!window.electronAPI.windowGetBounds || !window.electronAPI.windowSetSize) return;
+    if (window.electronAPI.platform === 'web') return;
+
+    let drag = null;
+    let raf = 0;
+    const apply = () => {
+      raf = 0;
+      if (!drag) return;
+      window.electronAPI.windowSetSize(drag.w, drag.h);
+    };
+    const onMove = (e) => {
+      if (!drag) return;
+      drag.w = drag.startW + (e.screenX - drag.x);
+      drag.h = drag.startH + (e.screenY - drag.y);
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    const onUp = () => {
+      if (!drag) return;
+      drag = null;
+      document.body.classList.remove('resizing-se');
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    grips.forEach((el) => {
+      el.addEventListener('pointerdown', async (e) => {
+        if (e.button !== 0 || document.body.classList.contains('maximized')) return;
+        e.preventDefault();
+        const b = await window.electronAPI.windowGetBounds();
+        if (!b || b.maximized) return;
+        drag = { x: e.screenX, y: e.screenY, startW: b.width, startH: b.height, w: b.width, h: b.height };
+        document.body.classList.add('resizing-se');
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    });
   }
 
   function _setMaximizedUi(maximized) {
@@ -1636,9 +1672,11 @@
       if (!closed) return;
     }
     _openingFile = filePath;
+    const openGen = ++_openGen;
     const fileName = filePath.split(/[/\\]/).pop();
     let progressShown = false;
     let openSettled = false;
+    const openTitle = I18n.t('progress.openTitle') || I18n.t('progress.title') || 'Opening file';
     const showOpenProgress = (percent, messageKey) => {
       if (openSettled) return;
       const dlg = _pd();
@@ -1647,9 +1685,10 @@
         progressShown = true;
         _showLoading(false);
         dlg.show({
-          title: I18n.t('progress.openTitle') || I18n.t('progress.title') || 'Opening file',
+          title: openTitle,
           message: _openProgressLabel(messageKey || 'opening', fileName),
           percent: percent != null ? percent : 6,
+          modal: !!state.editMode,
         });
         dlg.startCreep(88);
         return;
@@ -1670,6 +1709,8 @@
         25000,
         I18n.t('error.openFile') || 'Opening this file took too long'
       );
+
+      if (openGen !== _openGen) return;
 
       if (result.type === 'error') {
         _showPlaceholder(true);
@@ -3975,6 +4016,10 @@
   }
 
   function _setZoom(z) {
+    if (state.editMode) {
+      _ewZoomTo(Math.min(Math.max(z, 0.02), 32));
+      return;
+    }
     _wantFit = false;
     state.zoom = Math.min(Math.max(z, 0.02), 32);
     _applyTransform();
@@ -4061,9 +4106,11 @@
   }
 
   function _updateZoomDisplay() {
-    const pct = Math.round(state.zoom * 100);
+    const pct = `${Math.round(state.zoom * 100)}%`;
     const zd = document.getElementById('zoom-display');
-    if (zd) zd.value = `${pct}%`;
+    const ezd = document.getElementById('ew-zoom-display');
+    if (zd) zd.value = pct;
+    if (ezd) ezd.value = pct;
   }
 
   function _initViewerInteraction() {
@@ -4854,9 +4901,11 @@
     });
     ProgressDialog.startCreep(88);
     await ProgressDialog.yieldFrame();
+    await ProgressDialog.yieldFrame();
     try {
       await Editor.applyPreset(id);
       _syncSlidersFromEffects(idPrefix);
+      ProgressDialog.set(96);
       await ProgressDialog.yieldFrame();
     } finally {
       ProgressDialog.hide(I18n.t('progress.effectDone') || 'Effect applied.');
@@ -5852,11 +5901,6 @@
       if (!ok) return;
     }
 
-    if (window.electronAPI.windowGetBounds) {
-      try { _savedMainBounds = await window.electronAPI.windowGetBounds(); }
-      catch { _savedMainBounds = null; }
-    }
-
     // Build the effects panel inside the edit window (first time)
     _buildEditEffectsPanel();
 
@@ -5884,26 +5928,8 @@
     _initEditWindowOnce();
 
     requestAnimationFrame(() => {
-      requestAnimationFrame(async () => {
-        const minW = _editMinWidth();
-        _appliedMinWidth = minW;
-        try {
-          const height = Math.max(600, _savedMainBounds?.height || 600);
-          if (window.electronAPI.windowApplySize) {
-            await window.electronAPI.windowApplySize({
-              width: minW,
-              height,
-              minWidth: minW,
-              minHeight: 600,
-            });
-          } else {
-            window.electronAPI.windowSetMinSize?.(minW, 600);
-          }
-        } catch (e) {
-          console.warn('edit window size:', e);
-        }
-        _ewFit();
-      });
+      _syncWindowMinSize({ force: true });
+      _ewFit();
     });
   }
 
@@ -6113,21 +6139,8 @@
     _updateUndoRedoBtns();
     _dicomSyncBar();
 
-    const saved = _savedMainBounds;
-    _savedMainBounds = null;
     requestAnimationFrame(() => {
-      const minW = _mainMinWidth();
-      _appliedMinWidth = minW;
-      if (saved && !saved.maximized && window.electronAPI.windowApplySize) {
-        window.electronAPI.windowApplySize({
-          width: saved.width,
-          height: saved.height,
-          minWidth: minW,
-          minHeight: 600,
-        });
-      } else {
-        window.electronAPI.windowSetMinSize?.(minW, 600);
-      }
+      _syncWindowMinSize({ force: true });
       if (_isEditableImage()) _fitToWindow();
     });
   }
@@ -6213,6 +6226,16 @@
     });
 
     _syncEditThemeLangBtns();
+    const ewZoom = document.getElementById('ew-zoom-display');
+    ewZoom?.addEventListener('change', () => {
+      const val = parseFloat(ewZoom.value);
+      if (!isNaN(val) && val > 0) _ewZoomTo(val / 100);
+      else _updateZoomDisplay();
+    });
+    ewZoom?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') ewZoom.blur();
+    });
+
     document.getElementById('ew-theme')?.addEventListener('click', () => { _nextTheme(); });
     document.getElementById('ew-lang')?.addEventListener('click', () => { _toggleLang(); });
     document.getElementById('ew-settings')?.addEventListener('click', () => { _openSettings(); });
@@ -6428,7 +6451,8 @@
       { icon: Icons.redo,  label: t('editWindow.redo'), disabled: !Editor.canRedo(), action: () => { _redoEdit(); } },
       { separator: true },
       { icon: Icons.effects, label: t('effects.reset'), action: () => { Editor.resetEffects(); _syncSlidersFromEffects('ew-eff'); document.getElementById('edit-effects-content')?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); } },
-    ]);
+      ..._imageFileOsMenuItems(),
+    ].filter(Boolean));
   }
 
   function _buildEditEffectsPanel() {
@@ -7551,6 +7575,13 @@
       }
     }
 
+    function enableModal(title) {
+      if (_modal) return;
+      _modal = true;
+      _setModalVisible(true, title || '');
+      _paint();
+    }
+
     function show({ title, message, percent, modal } = {}) {
       _cancelDoneTimer();
       stopCreep();
@@ -7620,7 +7651,7 @@
       });
     }
 
-    return { show, set, hide, startCreep, stopCreep, yieldFrame, isVisible: () => _visible };
+    return { show, set, hide, startCreep, stopCreep, yieldFrame, enableModal, isVisible: () => _visible };
   })();
   window._ProgressDialog = ProgressDialog;
 
@@ -7697,6 +7728,7 @@
       return p === entry.path || (entry.path && p.toLowerCase() === entry.path.toLowerCase());
     });
     const exportPaths = isMulti ? multiPaths : [entry.path];
+    const printables = (isMulti ? multiPaths : [entry.path]).filter((p) => FormatSupport.isImage?.(p));
 
     if (isMulti && isFile) {
       // Multi-selection context menu
@@ -7710,8 +7742,11 @@
           action: () => _exportSelectionToFolder(multiPaths, 'copy') },
         !isWeb && { icon: Icons.cut, label: `${t('context.moveToFolder')} (${multiPaths.length})`,
           action: () => _exportSelectionToFolder(multiPaths, 'move') },
+        printables.length && { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P',
+          action: () => _printPath(printables[0]) },
         !isWeb && { separator: true },
         !isWeb && { icon: Icons.delete, label: `${t('context.deleteFile')} (${multiPaths.length})`,
+          danger: true,
           action: async () => {
             const result = await window.electronAPI.showMessageBox({
               type: 'warning',
@@ -7748,6 +7783,8 @@
       isDir  &&          { icon: Icons.openFolder, label: t('context.openFolder'),    action: () => _openFolder(entry.path) },
       { separator: true },
       isFile && isSup && { icon: Icons.save,       label: t('context.saveAs'),        action: async () => { await _openFile(entry.path); _saveAs(); } },
+      isFile && FormatSupport.isImage?.(entry.path) && { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P',
+        action: () => _printPath(entry.path) },
       isFile &&          { icon: Icons.copy,       label: t('tree.copyPath'), action: () => navigator.clipboard.writeText(entry.path).catch(() => {}) },
       !isWeb && { icon: Icons.copy, label: t('context.copyToFolder'),
         action: () => _exportSelectionToFolder(exportPaths, 'copy') },
@@ -7756,9 +7793,146 @@
       !isWeb && { separator: true },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), action: () => window.electronAPI.showItemInFolder(entry.path) },
       !isWeb && { separator: true },
+      !isWeb && !entry.isDrive && { icon: Icons.edit, label: t('context.rename'),
+        action: () => _renameEntry(entry.path, isDir) },
       !isWeb && { icon: Icons.delete, label: isDir ? (t('context.deleteFolder') || t('context.deleteFile')) : t('context.deleteFile'),
-        action: () => _deleteFile(entry.path) },
+        danger: true, action: () => _deleteFile(entry.path) },
     ].filter(Boolean));
+  }
+
+  async function _printPath(filePath) {
+    if (!filePath) return;
+    const same = state.currentFile &&
+      String(state.currentFile).replace(/\\/g, '/').toLowerCase() ===
+      String(filePath).replace(/\\/g, '/').toLowerCase();
+    if (!same) await _openFile(filePath);
+    _openPrintPreview();
+  }
+
+  function _rewriteChildPath(p, fromPath, toPath) {
+    if (!p || !fromPath || !toPath) return p;
+    const sep = /\\/.test(fromPath) ? '\\' : '/';
+    const norm = (s) => String(s).replace(/[/\\]+/g, sep).replace(/[\\/]+$/, '');
+    const np = norm(p);
+    const nf = norm(fromPath);
+    const nt = norm(toPath);
+    if (np.toLowerCase() === nf.toLowerCase()) return toPath;
+    if (np.toLowerCase().startsWith((nf + sep).toLowerCase())) return nt + np.slice(nf.length);
+    return p;
+  }
+
+  let _renameFinish = null;
+
+  function _promptRename(currentName, isDir) {
+    const t = I18n.t.bind(I18n);
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('rename-overlay');
+      const input = document.getElementById('rename-input');
+      const errEl = document.getElementById('rename-error');
+      const label = document.getElementById('rename-label');
+      const title = document.getElementById('rename-title');
+      const iconEl = document.getElementById('rename-title-icon');
+      const okBtn = document.getElementById('rename-ok');
+      const cancelBtn = document.getElementById('rename-cancel');
+      const closeBtn = document.getElementById('rename-close');
+      if (!overlay || !input) {
+        resolve(null);
+        return;
+      }
+      if (title) title.textContent = t('context.rename');
+      if (label) label.textContent = t(isDir ? 'dialog.rename.folder' : 'dialog.rename.file');
+      if (iconEl) {
+        iconEl.dataset.icon = 'edit';
+        iconEl.innerHTML = (window.Icons && Icons.edit) || '';
+      }
+      if (errEl) { errEl.hidden = true; errEl.textContent = ''; }
+      input.value = currentName || '';
+      let settled = false;
+      const onKey = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); submit(); }
+        if (e.key === 'Escape') { e.preventDefault(); finish(null); }
+      };
+      const cleanup = () => {
+        okBtn?.removeEventListener('click', submit);
+        cancelBtn?.removeEventListener('click', onCancel);
+        closeBtn?.removeEventListener('click', onCancel);
+        input.removeEventListener('keydown', onKey);
+      };
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        _renameFinish = null;
+        overlay.style.display = 'none';
+        overlay.classList.remove('visible');
+        resolve(value);
+      };
+      const onCancel = () => finish(null);
+      const submit = () => {
+        const name = String(input.value || '').trim();
+        if (!name || name === '.' || name === '..' || /[\\/:*?"<>|]/.test(name)) {
+          if (errEl) {
+            errEl.hidden = false;
+            errEl.textContent = t('dialog.rename.invalid');
+          }
+          input.focus();
+          input.select();
+          return;
+        }
+        finish(name);
+      };
+      _renameFinish = onCancel;
+      okBtn?.addEventListener('click', submit);
+      cancelBtn?.addEventListener('click', onCancel);
+      closeBtn?.addEventListener('click', onCancel);
+      input.addEventListener('keydown', onKey);
+      overlay.style.display = 'flex';
+      overlay.classList.add('visible');
+      requestAnimationFrame(() => { input.focus(); input.select(); });
+    });
+  }
+
+  async function _renameEntry(filePath, isDir) {
+    if (!filePath || window.electronAPI.platform === 'web') return;
+    const t = I18n.t.bind(I18n);
+    const currentName = filePath.split(/[/\\]/).pop();
+    const nextName = await _promptRename(currentName, isDir);
+    if (!nextName || nextName === currentName) return;
+    const res = await window.electronAPI.renamePath(filePath, nextName);
+    if (!res || res.error) {
+      const msg = res?.error === 'exists' ? t('dialog.rename.exists')
+        : res?.error === 'Invalid name' ? t('dialog.rename.invalid')
+        : (t('dialog.rename.error') + (res?.error ? `\n${res.error}` : ''));
+      _showError(msg, null, t('context.rename'));
+      return;
+    }
+    const dest = res.path || filePath;
+    FileTree.remapPath?.(filePath, dest);
+    if (state.currentFile) state.currentFile = _rewriteChildPath(state.currentFile, filePath, dest);
+    if (Array.isArray(state.fileList)) {
+      state.fileList = state.fileList.map((p) => _rewriteChildPath(p, filePath, dest));
+      state.fileIndex = state.currentFile ? state.fileList.indexOf(state.currentFile) : -1;
+    }
+    const recents = _getRecentDirs().map((p) => _rewriteChildPath(p, filePath, dest));
+    try { localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(recents)); } catch {}
+    const last = localStorage.getItem('lastOpenedDir');
+    if (last) {
+      const nextLast = _rewriteChildPath(last, filePath, dest);
+      localStorage.setItem('lastOpenedDir', nextLast);
+      window.electronAPI.setLastOpenDir?.(nextLast);
+    }
+    if (_watchedDir) {
+      const nextWatch = _rewriteChildPath(_watchedDir, filePath, dest);
+      if (nextWatch !== _watchedDir) await _watchDir(nextWatch);
+    }
+    if (_watchedFile) {
+      const nextFile = _rewriteChildPath(_watchedFile, filePath, dest);
+      if (nextFile !== _watchedFile) await _watchCurrentFile(nextFile);
+    }
+    await FileTree.refresh({ force: true });
+    FileTree.setSelected?.(state.currentFile || dest);
+    _updateStatus();
+    if (state.currentFile) _updateInfoPanel(state.currentFile);
   }
 
   async function _deleteFile(filePath) {
@@ -7778,6 +7952,8 @@
       cancelId: 1,
     });
     if (result.response !== 0) return;
+
+    if (state.editMode) _closeEditWindow(false);
 
     try {
       await _runOpWithProgress(async () => {
@@ -7839,7 +8015,6 @@
     const hasImg = _isEditableImage();
     const hasSel = hasImg && Editor.hasSelection();
     const t = I18n.t.bind(I18n);
-    const isWeb = window.electronAPI.platform === 'web';
     const isAv = state.isVideo || state.isAudio;
     const isVideo = !!state.isVideo;
     const isAnim = !!state.isAnimated && !state.editMode;
@@ -7858,10 +8033,12 @@
       ..._dicomContextItems(),
       { icon: Icons.openFile,   label: t('context.openFile'),   action: () => _pickOpenFile() },
       { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
+      ..._imageFileOsMenuItems(),
       { separator: true },
       // Everyday actions stay top-level; transforms, zoom and the rest are grouped in flyouts
       hasImg && { icon: Icons.edit, label: t('toolbar.edit'), shortcut: 'Ctrl+E', action: _openEditWindow },
       hasImg && { icon: Icons.save,   label: t('context.saveAs'), action: _saveAs },
+      { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P', disabled: !_canPrint(), action: () => _openPrintPreview() },
       hasImg && { icon: Icons.copy,   label: t('context.copy'),   shortcut: 'Ctrl+C', action: _copyToClipboard },
       hasImg && { icon: Icons.rotateRight, label: t('context.transform'), submenu: () => [
         { icon: Icons.rotateLeft,  label: t('context.rotateLeft'),  shortcut: 'Ctrl+[', action: () => _rotate(-90) },
@@ -7886,10 +8063,19 @@
       !isAv && { separator: true },
       { icon: Icons.prev,    label: t('context.prev'), shortcut: '← / Page Up', disabled: state.fileIndex <= 0,                         action: _prevImage },
       { icon: Icons.next,    label: t('context.next'), shortcut: '→ / Page Down', disabled: state.fileIndex >= state.fileList.length - 1, action: _nextImage },
-      !isWeb && { separator: true },
-      !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !state.currentFile,
-        action: () => state.currentFile && _showInExplorer() },
     ].filter(Boolean));
+  }
+
+  function _imageFileOsMenuItems() {
+    if (window.electronAPI.platform === 'web') return [];
+    const t = I18n.t.bind(I18n);
+    const hasFile = !!state.currentFile;
+    return [
+      { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !hasFile,
+        action: () => hasFile && _showInExplorer() },
+      { icon: Icons.delete, label: t('context.deleteFile'), danger: true, disabled: !hasFile, shortcut: 'Del',
+        action: () => hasFile && _deleteFile(state.currentFile) },
+    ];
   }
 
   async function _showInExplorer() {
@@ -8009,10 +8195,6 @@
 
   /* ─── Settings dialog (theme · language · bg-removal algorithm · subtitles) ─── */
   function _initSettingsDialog() {
-    const themeSel = document.getElementById('settings-theme');
-    if (themeSel) {
-      themeSel.addEventListener('change', () => _applyTheme(themeSel.value));
-    }
     document.querySelectorAll('#settings-overlay .settings-lang-btn').forEach((btn) => {
       const flag = btn.querySelector('.settings-lang-flag');
       if (flag) flag.innerHTML = btn.dataset.lang === 'ko' ? Icons.flagKo : Icons.flagUs;
@@ -8132,28 +8314,62 @@
     window.location.reload();
   }
 
+  /** Build / refresh the Theme tab color buttons (one per registered theme). */
+  function _fillSettingsThemeButtons() {
+    const t = I18n.t.bind(I18n);
+    for (const kind of ['dark', 'light']) {
+      const host = document.getElementById(`settings-theme-${kind}`);
+      if (!host) continue;
+      host.setAttribute('role', 'radiogroup');
+      host.setAttribute('aria-label', t(kind === 'dark' ? 'menu.darkThemes' : 'menu.lightThemes'));
+      if (!host.childElementCount) {
+        for (const th of Themes.ofKind(kind)) {
+          const [bg, bar, accent] = th.swatch;
+          const name = Themes.label(th.id, t);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'settings-theme-btn';
+          btn.dataset.theme = th.id;
+          btn.title = name;
+          btn.setAttribute('role', 'radio');
+          btn.setAttribute('aria-checked', th.id === state.theme ? 'true' : 'false');
+          const preview = document.createElement('span');
+          preview.className = 'settings-theme-preview';
+          preview.style.setProperty('--sw-bg', bg);
+          preview.style.setProperty('--sw-bar', bar);
+          preview.style.setProperty('--sw-accent', accent);
+          const label = document.createElement('span');
+          label.className = 'settings-theme-name';
+          label.textContent = name;
+          btn.append(preview, label);
+          btn.addEventListener('click', () => _applyTheme(th.id));
+          host.appendChild(btn);
+        }
+      } else {
+        host.querySelectorAll('.settings-theme-btn').forEach((btn) => {
+          const name = Themes.label(btn.dataset.theme, t);
+          btn.title = name;
+          const label = btn.querySelector('.settings-theme-name');
+          if (label) label.textContent = name;
+        });
+      }
+    }
+    _syncSettingsThemeButtons();
+  }
+
+  function _syncSettingsThemeButtons() {
+    document.querySelectorAll('#settings-overlay .settings-theme-btn').forEach((btn) => {
+      const on = btn.dataset.theme === state.theme;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+
   /** Refill the settings controls from the current state (called on open, theme/lang change). */
   function _syncSettingsDialog() {
     if (!_settingsReady) return;
     const t = I18n.t.bind(I18n);
-    const themeSel = document.getElementById('settings-theme');
-    if (themeSel) {
-      themeSel.innerHTML = '';
-      for (const kind of ['dark', 'light']) {
-        const group = document.createElement('optgroup');
-        group.label = t(kind === 'dark' ? 'menu.darkThemes' : 'menu.lightThemes');
-        for (const th of Themes.ofKind(kind)) {
-          const opt = document.createElement('option');
-          opt.value = th.id;
-          opt.textContent = Themes.label(th.id, t);
-          if (th.id === state.theme) opt.selected = true;
-          group.appendChild(opt);
-        }
-        themeSel.appendChild(group);
-      }
-    }
-    const swatch = document.getElementById('settings-theme-swatch');
-    if (swatch) swatch.innerHTML = Themes.swatchSvg(state.theme);
+    _fillSettingsThemeButtons();
 
     document.querySelectorAll('#settings-overlay .settings-lang-btn').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.lang === state.lang);
@@ -8380,6 +8596,12 @@
       // Arrow keys inside a text / number field or a select (Settings, DICOM bar …) edit that field
       const tagName = (e.target && e.target.tagName) || '';
       const typing = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || e.target?.isContentEditable;
+      if (!typing && !state.editMode && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && FileTree.handleKey?.(e)) return;
+      if (!typing && !state.editMode && e.key === 'Delete' && state.currentFile && window.electronAPI.platform !== 'web') {
+        e.preventDefault();
+        _deleteFile(state.currentFile);
+        return;
+      }
       if ((e.key === 'ArrowLeft' || e.key === 'PageUp') && !typing) { e.preventDefault(); _prevImage(); return; }
       if ((e.key === 'ArrowRight' || e.key === 'PageDown') && !typing) { e.preventDefault(); _nextImage(); return; }
       if (e.key === ' ' || e.code === 'Space') {
@@ -8571,12 +8793,15 @@
   document.getElementById('confirm-overlay')?.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'confirm-overlay') _confirmFinish?.();
   });
+  document.getElementById('rename-overlay')?.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'rename-overlay') _renameFinish?.();
+  });
   document.getElementById('unsaved-overlay')?.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'unsaved-overlay') _unsavedFinish?.();
   });
 
   document.querySelectorAll('.dialog-overlay').forEach(overlay => {
-    if (overlay.id === 'progress-overlay' || overlay.id === 'file-dialog-overlay' || overlay.id === 'confirm-overlay' || overlay.id === 'unsaved-overlay') return;
+    if (overlay.id === 'progress-overlay' || overlay.id === 'file-dialog-overlay' || overlay.id === 'confirm-overlay' || overlay.id === 'unsaved-overlay' || overlay.id === 'rename-overlay') return;
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) _hideDialogEl(overlay);
     });

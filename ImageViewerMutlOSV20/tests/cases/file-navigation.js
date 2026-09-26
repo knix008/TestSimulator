@@ -4,7 +4,7 @@
 module.exports = {
   name: 'File & navigation',
   run({ test, each, src, h }) {
-    const { app, html, fileTree } = src;
+    const { app, html, fileTree, css } = src;
     const { assert, assertIncludes, exists } = h;
 
     const fileMenu = [
@@ -44,6 +44,18 @@ module.exports = {
       assertIncludes(app, `id:'${id}'`, id);
     });
 
+    test('Edit toolbar button sits to the right of Zoom In', () => {
+      const iZoomIn = app.indexOf("id:'btn-zoom-in'");
+      const iEdit = app.indexOf("id:'btn-edit'");
+      assert(iZoomIn > 0 && iEdit > iZoomIn, 'edit should follow zoom in');
+    });
+
+    test('About toolbar button sits to the right of Settings', () => {
+      const iSettings = app.indexOf("id:'btn-settings'");
+      const iInfo = app.lastIndexOf("id:'btn-info'");
+      assert(iSettings > 0 && iInfo > iSettings, 'info should follow settings');
+    });
+
     test('Toolbar order is Open File → Open Folder → Print', () => {
       const iFile = app.indexOf("id:'btn-open-file'");
       const iFolder = app.indexOf("id:'btn-open-folder'");
@@ -59,6 +71,57 @@ module.exports = {
     test('Folder tree setSelected does not rebuild the tree', () => {
       assertIncludes(fileTree, 'function setSelected', 'fileTree');
       assertIncludes(fileTree, 'scrollTop', 'scroll selected row into view');
+    });
+
+    test('Viewer and explorer context menus include Print', () => {
+      const viewer = app.slice(app.indexOf('function _showContextMenu'), app.indexOf('function _imageFileOsMenuItems'));
+      assertIncludes(viewer, "t('menu.print')", 'print in viewer menu');
+      const tree = app.slice(app.indexOf('function _showTreeContextMenu'), app.indexOf('async function _printPath'));
+      assertIncludes(tree, "t('menu.print')", 'print in explorer menu');
+      assertIncludes(app, 'function _printPath', 'print helper');
+    });
+
+    test('Image viewer context menu can delete the file', () => {
+      assertIncludes(app, 'function _showContextMenu', 'viewer context');
+      assertIncludes(app, 'function _imageFileOsMenuItems', 'file OS items');
+      const block = app.slice(app.indexOf('function _showContextMenu'), app.indexOf('function _imageFileOsMenuItems'));
+      assertIncludes(block, '_imageFileOsMenuItems', 'delete in viewer menu');
+      assertIncludes(app, "t('context.deleteFile')", 'delete label');
+    });
+
+    test('Explorer folder context menu can rename', () => {
+      const tree = app.slice(app.indexOf('function _showTreeContextMenu'), app.indexOf('async function _printPath'));
+      assertIncludes(tree, "t('context.rename')", 'rename in explorer menu');
+      assertIncludes(tree, '_renameEntry(entry.path, isDir)', 'rename action');
+      assertIncludes(app, 'function _renameEntry', 'rename helper');
+      assertIncludes(app, 'function _promptRename', 'rename dialog');
+      assertIncludes(html, 'id="rename-overlay"', 'rename overlay');
+      assertIncludes(html, 'id="rename-input"', 'rename input');
+    });
+
+    test('Explorer context Delete is marked danger (red)', () => {
+      const tree = app.slice(app.indexOf('function _showTreeContextMenu'), app.indexOf('async function _printPath'));
+      const first = tree.indexOf('Icons.delete');
+      const last = tree.lastIndexOf('Icons.delete');
+      assert(first >= 0 && last > first, 'multi and single delete items');
+      assertIncludes(tree.slice(first, first + 240), 'danger: true', 'multi-select delete');
+      assertIncludes(tree.slice(last, last + 240), 'danger: true', 'single delete');
+      assertIncludes(css, '.ctx-item.danger { color: var(--danger); }', 'danger color');
+      const ctx = h.read('src/js/contextMenu.js');
+      assertIncludes(ctx, "item.danger ? ' danger'", 'danger class applied');
+    });
+
+    test('Viewer and File menu Delete are marked danger', () => {
+      const os = app.slice(app.indexOf('function _imageFileOsMenuItems'), app.indexOf('async function _showInExplorer'));
+      assertIncludes(os, 'danger: true', 'viewer OS delete');
+      const file = app.slice(app.indexOf('function _fileMenuItems'), app.indexOf('async function _recentFolderItems'));
+      assertIncludes(file, "t('context.deleteFile'), danger: true", 'File menu delete');
+    });
+
+    test('Main window open progress stays on the status bar', () => {
+      const block = app.slice(app.indexOf('async function _openFile'), app.indexOf('function _prefetchConvertedNeighbors'));
+      assertIncludes(block, 'modal: !!state.editMode', 'main open is not a popup');
+      assertIncludes(block, 'showOpenProgress', 'status progress');
     });
 
     test('Folder tree refresh is opt-in via force', () => {

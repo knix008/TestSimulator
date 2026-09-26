@@ -59,7 +59,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - **Single-instance lock**: a second launch with a file path focuses the existing window and sends `open-file`.
 - Startup file from `process.argv` (Windows/Linux) or `open-file` (macOS); renderer reads it via `get-launch-file`.
 - Persists `lastOpenDir` under userData for open/save dialogs.
-- IPC: directory listing, **list-drives**, path helpers, file read/write (`read-file-base64`, `read-file-bytes` → raw `Uint8Array` for renderer-side decoders), TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode (fallback only — the renderer decodes DICOM itself), **read-image-meta** (exifr + sharp), **read-media-meta** (A/V container/codecs/duration/bitrate), dialogs, watchers, drag-out, window min/max/close.
+- IPC: directory listing, **list-drives**, path helpers, file read/write (`read-file-base64`, `read-file-bytes` → raw `Uint8Array` for renderer-side decoders), TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode (fallback only — the renderer decodes DICOM itself), **read-image-meta** (exifr + sharp), **read-media-meta** (A/V container/codecs/duration/bitrate), dialogs, watchers, drag-out, **rename-path** (basename-only, rejects `\/:*?"<>|`), **delete-file**, window min/max/close.
 - Close intercept for unsaved changes (`window-close` vs force close).
 - **AI background removal** (`rembg-remove`): spawns `scripts/rembg_worker.py` (`rembg1`=U2Net, `rembg2`=RMBG-2.0, `rembg3`=ISNet) and streams `rembg-progress` events.
   - **Auto-provisioning**: `_resolvePython` prefers the machine's existing Python (env override → `python`/`py` → previously app-installed); `_ensureRembgPackages` pip-installs `rembg`/`onnxruntime` on demand into that interpreter. Only if **no** Python exists does `_installManagedPython` download the official installer (Windows, per-user, isolated under `userData/python`) — it never replaces or downgrades a system Python.
@@ -80,18 +80,20 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - `FileRegistry`: maps virtual paths (`/…`) to `File` / `FileSystemDirectoryHandle`.
 - Open file → `<input type="file">`; open folder → `showDirectoryPicker()` or `webkitdirectory`.
 - Save → `showSaveFilePicker()` or `<a download>`.
-- No-ops / errors: `showItemInFolder`, `deleteFile`, `startDrag`, `fs.watch`, `readImageMeta`, `readMediaMeta`, `getLaunchFile`.
+- No-ops / errors: `showItemInFolder`, `renamePath`, `deleteFile`, `startDrag`, `fs.watch`, `readImageMeta`, `readMediaMeta`, `getLaunchFile`.
 
 ### `src/js/app.js` — Orchestrator
 - State: lang, theme, currentFile, fileList, zoom/pan, dirty flag, cached `imageMeta` / `mediaMeta` / `dicomMeta`.
 - **Edit window chrome**: `#edit-window-titlebar` (32 px drag region: brand "Edit Image", file name, window-button gutter), `#ew-menubar` (built by `_buildMenubarInto()` from `_ewMenubarDefs()` — File / Edit / View reuse the editor actions, Effects / Help share the main items; button ids `menubar-ew-*`, `_menubarOpen` keys carry the prefix) and `#ew-toolbar-row` (tool / action / transform / undo-redo / zoom / theme groups, spacer, Save · Cancel · Apply). `_editMinWidth()` measures the toolbar row (`_measureFlexContentWidth` now counts margins) and sizes the window on open.
-- **Preferences**: every persisted option is a `localStorage` key; `PREF_DEFAULTS` / `_pref()` / `_setPref()` / `PREF_KEYS` (app.js) back the Settings dialog (`_initSettingsDialog` — fixed-size, tabbed: General / Viewer & editing / DICOM / Media, `_syncSettingsDialog` refills it, `_resetAllSettings` clears `PREF_KEYS` and reloads). Options: `restoreSession`, `zoomStep`, `viewerChecker`, `imageSmoothing` (`_applyViewerPrefs` → CSS classes), `dicomDefaultFps`, `dicomOverlayColor`, `dicomAnnotations`, plus the older `theme`, `lang`, `bgRemoveAlgo`, `subtitlesEnabled`, `subtitleLanguage`, `mediaVolume` / `mediaMuted`.
+- **Preferences**: every persisted option is a `localStorage` key; `PREF_DEFAULTS` / `_pref()` / `_setPref()` / `PREF_KEYS` (app.js) back the Settings dialog (`_initSettingsDialog` — 640×580, tabbed: General / **Theme** / Viewer & editing / DICOM / Media, `_syncSettingsDialog` refills it, `_resetAllSettings` clears `PREF_KEYS` and reloads). The Theme tab is filled by `_fillSettingsThemeButtons()` (one color-preview button per `Themes` entry; click → `_applyTheme`). Options: `restoreSession`, `zoomStep`, `viewerChecker`, `imageSmoothing` (`_applyViewerPrefs` → CSS classes), `dicomDefaultFps`, `dicomOverlayColor`, `dicomAnnotations`, plus the older `theme`, `lang`, `bgRemoveAlgo`, `subtitlesEnabled`, `subtitleLanguage`, `mediaVolume` / `mediaMuted`.
 - **Chrome** is three rows: `#titlebar` (brand = icon · name · version, centred current-file name, drag region, fixed `#window-controls` at the right — 32 px, 40 px while the edit window is open), `#menubar` (built by `_buildMenubar()`), `#toolbar` (icon buttons + zoom input, no drag).
 - **Menu bar**: `_menubarDefs()` → File / Edit / View / Effects / Help; each menu is a `ContextMenu` dropdown built on open (`_fileMenuItems()` …) so enabled / checked state is always current. Every item has an icon (`icons.js`). `mousedown` on a menu button opens / toggles it (so the document click that closes menus cannot race), `mouseenter` on a sibling switches menus while one is open; `ContextMenu.show(x, y, items, { onHide })` clears the highlight. File menu: open file, open folder (click = browse; hover = **recent folders** flyout with per-row × via `item.remove` and `ContextMenu.refreshSubmenu()`), save as, **Export ▸** (`_exportAs(ext)` → `_saveAs(false, { ext })` presets the extension), **Print…** (`_printImage`), file info, show in Explorer, delete, exit (desktop only).
 - **Print**: toolbar 🖨 / File ▸ Print… / `Ctrl+P` → `_openPrintPreview()` (`#print-overlay`). The renderer exports the current view as PNG (`Editor.exportAsDataUrl`, or a snapshot of the animated frame), lists printers via `getPrinters` IPC (`webContents.getPrintersAsync`, default first + selected), and computes the page geometry in mm (`_printLayout`: paper table, auto/portrait/landscape, margins, fit / actual (96 dpi) / custom %) — the preview paper is drawn to scale. **Print** → `printImage` IPC with `{ deviceName, pageSize, landscape, marginMm, imgWmm, imgHmm, copies, color }`; main renders the image at exactly that mm size in a hidden `BrowserWindow` and calls `webContents.print({ silent: true, deviceName, pageSize, landscape, margins: custom(px), copies, color })` — no system dialog. Without a printer (web) it falls back to the popup + `window.print()` with `@page { size; margin }`. Paper/margin/scale prefs persist in `localStorage.printPrefs`.
 - **Themes**: `src/js/themes.js` is the registry (id, dark/light kind, name, swatch colours) shared by the renderer (`window.Themes`) and `main.js` (`require`). `main.css` defines per-theme `--t-*` base tokens under `[data-theme="<id>"]`; one shared `:root[data-theme]` block derives every other variable from them with `color-mix()`, and `:root[data-theme-kind="dark|light"]` holds the kind-only values (hover tints, shadows, tooltip). `_applyTheme(id)` sets both attributes, persists `theme`, and re-syncs toolbar / settings / native menu. Toolbar: palette button = `_nextTheme()` (wraps through the list), ▾ = `_openThemeMenu()` (ContextMenu with `Themes.swatchSvg`). Native menu actions are `theme:<id>`.
 - Language button shows the flag (`Icons.flagKo` / `Icons.flagUs`) of the **target** language (US flag when UI is Korean, Korean flag when UI is English).
-- **Settings dialog** (`#settings-overlay`, `_initSettingsDialog` / `_syncSettingsDialog`): theme select (optgroups by kind), language flag buttons, background-removal algorithm (mirrors `#ew-bg-algo` / `bgRemoveAlgo`), subtitles default. Opened by the gear toolbar button, File ▸ Settings…, or the `show-settings` menu action.
+- **Settings dialog** (`#settings-overlay`, `_initSettingsDialog` / `_syncSettingsDialog`): Theme tab color buttons, language flag buttons, background-removal algorithm (mirrors `#ew-bg-algo` / `bgRemoveAlgo`), subtitles default. Opened by the gear toolbar button, File ▸ Settings…, or the `show-settings` menu action.
+- **Status-bar progress**: file open / folder load paint `#status-progress` (and the edit-window twin) instead of a modal overlay on the main viewer. Edit-window long effects still use the modal `ProgressDialog`.
+- **Explorer rename**: tree context **Rename** → `#rename-overlay` (`_promptRename`) → `renamePath` IPC → `FileTree.remapPath` + rewrite of `state.currentFile` / `fileList` / recent dirs / watches.
 - Dialog headers use `.dialog-title` = `.dialog-title-icon[data-icon]` + label; icons are filled from `Icons` at init (the file dialog swaps `#fd-title-icon` per mode).
 - Toolbar, viewer, edit window, dirty title (`●`), save-as MIME by extension.
 - **Edit session dirty**: previews inside the edit window do not mark the file dirty; **Cancel** / Esc discards with no Save dialog; **Apply** commits the session and marks dirty only if something changed.
@@ -148,9 +150,17 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - Partial datasets thrown by dicom-parser (`{ exception, dataSet }`) are used when they still carry pixel data (truncated files).
 - `decode()` / `decodeToDisplay()` remain for the main-process fallback and old callers.
 
+### `src/js/themes.js` — Theme registry
+- Shared by the renderer (`window.Themes`) and `main.js` (`require`). 20 palettes (10 dark, 10 light) with `id`, `kind`, display name, `nameKey`, and a 3-color `swatch` used by menus and the Settings Theme tab.
+- `normalize` / `kindOf` / `ofKind` / `next` / `label` / `swatchSvg`. Colours themselves live in `main.css` (`[data-theme="<id>"]`).
+
 ### `src/js/fileTree.js` — Explorer
 - Roots from `listDrives()` (Windows letters, macOS volumes, Linux mounts; web → **Local Files**).
+- Drive buttons in the panel title (`#tree-drive-bar`) open that root immediately.
 - Lazy expand; `revealPath()` expands ancestors to a full absolute path.
+- `setSelected` only highlights the row (no tree rebuild); `scrollTop` moves the row into view if needed. `refresh({ force: true })` is the only structural rebuild.
+- `handleKey` / `_moveBy`: `ArrowUp` / `ArrowDown` move among visible rows and call `onSelect` for supported media (folders stay highlight-only). Wired from `app.js` when not typing and not in edit mode.
+- `remapPath` / `forgetPath` keep expansion and selection consistent after rename / delete.
 - Path bar shows the focused full path.
 - Drag-out to OS only when not in web mode.
 
@@ -217,7 +227,7 @@ Shared contract (`preload` and `webAPI`):
 | `setLastOpenDir` / `getLastOpenDir` | Dialog default folder |
 | `showMessageBox` / `updateMenu` | UI chrome |
 | `windowMinimize` / `windowMaximize` / `windowClose` / `toggleFullscreen` | Frameless chrome |
-| `showItemInFolder` / `deleteFile` / `startDrag` | Desktop-only |
+| `showItemInFolder` / `renamePath` / `deleteFile` / `startDrag` | Desktop-only |
 | `watchDirectory` / `watchFile` | Desktop live reload |
 | `onOpenFile` / `onOpenFolder` / `onMenuAction` / `onMaximizeChange` | Events |
 | `platform` | `'win32'` / `'darwin'` / `'linux'` / `'web'` |
@@ -288,3 +298,6 @@ Web mode is not packaged as a separate installer; deploy by serving `src/` (or r
 15. **AI provisioning, non-destructive** — rembg runs in a Python worker. The app installs only the missing packages into the user's existing Python and never downgrades or replaces it; downloading a fresh Python is a Windows-only last resort into an isolated `userData/python`. Progress is streamed and kept monotonic across download/install/inference phases.
 16. **Selection outlines are DPI/zoom-aware** — the selection canvas buffer matches the image's native pixels, so fixed-width strokes vanish on large images; widths are scaled by the display ratio (`_selScale`) to a constant on-screen thickness.
 17. **Curated, categorized presets** — the preset set is trimmed of near-duplicates and grouped into collapsible categories to reduce clutter while keeping distinct looks.
+18. **Status-bar progress for open** — a modal popup over the explorer caused flicker; load progress is painted on the status bar and left until the next status change.
+19. **Settings Theme tab** — palettes are buttons with live swatches, not a dropdown on General.
+20. **Feature tests** — `tests/run-feature-tests.js` loads every `tests/cases/*.js` suite, writes `tests/results.json` / `tests/results.html`, and prints a **summary** table then a **details** list (`# / result / name / execution time` to 3 decimal places, time right-aligned). `npm test -- --summary` prints the summary only.

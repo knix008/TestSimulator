@@ -2263,6 +2263,16 @@ ipcMain.handle('window-get-bounds', () => {
   const b = mainWindow.getBounds();
   return { x: b.x, y: b.y, width: b.width, height: b.height, maximized: _isWindowMaximized() };
 });
+ipcMain.handle('window-set-size', (_event, width, height) => {
+  if (!mainWindow || mainWindow.isDestroyed() || _isWindowMaximized()) return null;
+  const [minW, minH] = mainWindow.getMinimumSize();
+  const w = Math.max(minW, Math.round(Number(width) || 0));
+  const h = Math.max(minH, Math.round(Number(height) || 0));
+  const b = mainWindow.getBounds();
+  if (b.width === w && b.height === h) return b;
+  mainWindow.setBounds({ x: b.x, y: b.y, width: w, height: h });
+  return mainWindow.getBounds();
+});
 ipcMain.handle('window-apply-size', (_event, opts = {}) => {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
   const minW = Math.max(800, Math.round(Number(opts.minWidth || opts.width) || 0));
@@ -2398,6 +2408,26 @@ ipcMain.handle('set-unsaved-changes', (event, value) => {
 ipcMain.handle('close-window', () => {
   isForceClose = true;
   mainWindow && mainWindow.close();
+});
+
+ipcMain.handle('rename-path', async (event, { src, newName } = {}) => {
+  try {
+    if (!src || newName == null) return { error: 'Missing path or name' };
+    const name = String(newName).trim();
+    if (!name || name === '.' || name === '..' || /[\\/:*?"<>|]/.test(name)) {
+      return { error: 'Invalid name' };
+    }
+    const dest = path.join(path.dirname(src), name);
+    if (path.resolve(src) === path.resolve(dest)) return { success: true, path: src };
+    try {
+      await fs.promises.access(dest);
+      return { error: 'exists' };
+    } catch { /* dest is free */ }
+    await fs.promises.rename(src, dest);
+    return { success: true, path: dest };
+  } catch (err) {
+    return { error: err.message };
+  }
 });
 
 ipcMain.handle('delete-file', async (event, filePath) => {

@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowSetMinSize: (width, height) => ipcRenderer.invoke('window-set-min-size', width, height),
   windowGetBounds: () => ipcRenderer.invoke('window-get-bounds'),
   windowApplySize: (opts) => ipcRenderer.invoke('window-apply-size', opts),
+  windowSetSize: (width, height) => ipcRenderer.invoke('window-set-size', width, height),
   windowClose: () => ipcRenderer.invoke('window-close'),
   windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   toggleFullscreen: () => ipcRenderer.invoke('window-toggle-fullscreen'),
@@ -95,6 +96,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+  renamePath: (src, newName) => ipcRenderer.invoke('rename-path', { src, newName }),
   transferIntoDir: (opts) => ipcRenderer.invoke('transfer-into-dir', opts),
   pickDirectory: (opts) => ipcRenderer.invoke('pick-directory', opts),
   startDrag: (filePathOrPaths) => ipcRenderer.send('start-drag', filePathOrPaths),

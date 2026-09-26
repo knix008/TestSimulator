@@ -31,8 +31,13 @@ module.exports = {
       ["e.key === 'p'", 'Ctrl+P print'],
       ['PageUp', 'previous image'],
       ['PageDown', 'next image'],
+      ['ArrowLeft', 'previous image arrow'],
+      ['ArrowRight', 'next image arrow'],
+      ["e.key === 'ArrowUp'", 'explorer up'],
+      ["e.key === 'ArrowDown'", 'explorer down'],
       ["e.key === 's'", 'save'],
       ["e.key === 'z'", 'undo'],
+      ["e.key === 'Delete'", 'delete'],
     ];
     each(keys, ([needle, label]) => `Shortcut ${label}`, ([needle]) => {
       assertIncludes(app, needle, needle);

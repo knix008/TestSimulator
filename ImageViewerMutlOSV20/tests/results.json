@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T13:57:52.675Z",
+  "generatedAt": "2026-09-26T15:53:45.046Z",
   "version": "1.0.2",
   "casesDir": "tests/cases",
   "caseFiles": [
@@ -14,608 +14,798 @@
     "print.js",
     "status-i18n-theme.js"
   ],
-  "total": 455,
-  "passed": 455,
+  "total": 544,
+  "passed": 544,
   "failed": 0,
-  "totalMs": 30.7841,
-  "avgMs": 0.06765736263736263,
+  "totalMs": 45.5446,
+  "avgMs": 0.08372169117647059,
   "suites": [
     {
       "name": "File & navigation",
-      "passed": 26,
+      "file": "file-navigation.js",
+      "passed": 34,
       "failed": 0,
-      "total": 26,
-      "ms": 0.37409999999999993,
+      "total": 34,
+      "ms": 2.7975,
       "items": [
         {
+          "n": 207,
           "suite": "File & navigation",
           "name": "File menu includes Open File",
           "ok": true,
-          "ms": 0.0341
+          "ms": 0.0329
         },
         {
+          "n": 208,
           "suite": "File & navigation",
           "name": "File menu includes Open Folder",
           "ok": true,
-          "ms": 0.0093
+          "ms": 0.0103
         },
         {
+          "n": 209,
           "suite": "File & navigation",
           "name": "File menu includes Save As",
           "ok": true,
-          "ms": 0.0095
+          "ms": 0.0104
         },
         {
+          "n": 210,
           "suite": "File & navigation",
           "name": "File menu includes Print",
+          "ok": true,
+          "ms": 0.0113
+        },
+        {
+          "n": 211,
+          "suite": "File & navigation",
+          "name": "File menu includes Settings",
           "ok": true,
           "ms": 0.0093
         },
         {
-          "suite": "File & navigation",
-          "name": "File menu includes Settings",
-          "ok": true,
-          "ms": 0.0081
-        },
-        {
+          "n": 212,
           "suite": "File & navigation",
           "name": "File menu includes Exit",
           "ok": true,
-          "ms": 0.0114
+          "ms": 0.0128
         },
         {
+          "n": 213,
           "suite": "File & navigation",
           "name": "File menu is built by _fileMenuItems",
           "ok": true,
-          "ms": 0.0156
+          "ms": 0.0172
         },
         {
+          "n": 214,
           "suite": "File & navigation",
           "name": "Toolbar has Open File",
           "ok": true,
-          "ms": 0.0151
+          "ms": 0.0183
         },
         {
+          "n": 215,
           "suite": "File & navigation",
           "name": "Toolbar has Open Folder",
           "ok": true,
-          "ms": 0.0057
+          "ms": 0.0062
         },
         {
+          "n": 216,
           "suite": "File & navigation",
           "name": "Toolbar has Print",
           "ok": true,
-          "ms": 0.0066
+          "ms": 0.007
         },
         {
+          "n": 217,
           "suite": "File & navigation",
           "name": "Toolbar has Undo",
-          "ok": true,
-          "ms": 0.0071
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Redo",
-          "ok": true,
-          "ms": 0.0073
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Fit",
-          "ok": true,
-          "ms": 0.0074
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Actual size",
-          "ok": true,
-          "ms": 0.0063
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Rotate left",
-          "ok": true,
-          "ms": 0.0061
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Rotate right",
-          "ok": true,
-          "ms": 0.0112
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Flip H",
-          "ok": true,
-          "ms": 0.0084
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Flip V",
-          "ok": true,
-          "ms": 0.0061
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Resize",
-          "ok": true,
-          "ms": 0.0066
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Previous",
-          "ok": true,
-          "ms": 0.0074
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Next",
-          "ok": true,
-          "ms": 0.0073
-        },
-        {
-          "suite": "File & navigation",
-          "name": "Toolbar has Edit",
           "ok": true,
           "ms": 0.0076
         },
         {
+          "n": 218,
+          "suite": "File & navigation",
+          "name": "Toolbar has Redo",
+          "ok": true,
+          "ms": 0.0078
+        },
+        {
+          "n": 219,
+          "suite": "File & navigation",
+          "name": "Toolbar has Fit",
+          "ok": true,
+          "ms": 0.008
+        },
+        {
+          "n": 220,
+          "suite": "File & navigation",
+          "name": "Toolbar has Actual size",
+          "ok": true,
+          "ms": 0.0081
+        },
+        {
+          "n": 221,
+          "suite": "File & navigation",
+          "name": "Toolbar has Rotate left",
+          "ok": true,
+          "ms": 0.0065
+        },
+        {
+          "n": 222,
+          "suite": "File & navigation",
+          "name": "Toolbar has Rotate right",
+          "ok": true,
+          "ms": 0.0066
+        },
+        {
+          "n": 223,
+          "suite": "File & navigation",
+          "name": "Toolbar has Flip H",
+          "ok": true,
+          "ms": 0.0081
+        },
+        {
+          "n": 224,
+          "suite": "File & navigation",
+          "name": "Toolbar has Flip V",
+          "ok": true,
+          "ms": 0.0064
+        },
+        {
+          "n": 225,
+          "suite": "File & navigation",
+          "name": "Toolbar has Resize",
+          "ok": true,
+          "ms": 0.0093
+        },
+        {
+          "n": 226,
+          "suite": "File & navigation",
+          "name": "Toolbar has Previous",
+          "ok": true,
+          "ms": 0.0085
+        },
+        {
+          "n": 227,
+          "suite": "File & navigation",
+          "name": "Toolbar has Next",
+          "ok": true,
+          "ms": 0.0078
+        },
+        {
+          "n": 228,
+          "suite": "File & navigation",
+          "name": "Toolbar has Edit",
+          "ok": true,
+          "ms": 0.0086
+        },
+        {
+          "n": 229,
+          "suite": "File & navigation",
+          "name": "Edit toolbar button sits to the right of Zoom In",
+          "ok": true,
+          "ms": 0.0311
+        },
+        {
+          "n": 230,
+          "suite": "File & navigation",
+          "name": "About toolbar button sits to the right of Settings",
+          "ok": true,
+          "ms": 0.2996
+        },
+        {
+          "n": 231,
           "suite": "File & navigation",
           "name": "Toolbar order is Open File → Open Folder → Print",
           "ok": true,
-          "ms": 0.0352
+          "ms": 0.0976
         },
         {
+          "n": 232,
           "suite": "File & navigation",
           "name": "In-app file dialog overlay exists",
           "ok": true,
-          "ms": 0.0876
+          "ms": 0.0899
         },
         {
+          "n": 233,
           "suite": "File & navigation",
           "name": "Folder tree setSelected does not rebuild the tree",
           "ok": true,
-          "ms": 0.0245
+          "ms": 0.0283
         },
         {
+          "n": 234,
+          "suite": "File & navigation",
+          "name": "Viewer and explorer context menus include Print",
+          "ok": true,
+          "ms": 0.4083
+        },
+        {
+          "n": 235,
+          "suite": "File & navigation",
+          "name": "Image viewer context menu can delete the file",
+          "ok": true,
+          "ms": 0.2802
+        },
+        {
+          "n": 236,
+          "suite": "File & navigation",
+          "name": "Explorer folder context menu can rename",
+          "ok": true,
+          "ms": 0.421
+        },
+        {
+          "n": 237,
+          "suite": "File & navigation",
+          "name": "Explorer context Delete is marked danger (red)",
+          "ok": true,
+          "ms": 0.5132
+        },
+        {
+          "n": 238,
+          "suite": "File & navigation",
+          "name": "Viewer and File menu Delete are marked danger",
+          "ok": true,
+          "ms": 0.3146
+        },
+        {
+          "n": 239,
+          "suite": "File & navigation",
+          "name": "Main window open progress stays on the status bar",
+          "ok": true,
+          "ms": 0.062
+        },
+        {
+          "n": 240,
           "suite": "File & navigation",
           "name": "Folder tree refresh is opt-in via force",
           "ok": true,
-          "ms": 0.0133
+          "ms": 0.0227
         }
       ]
     },
     {
       "name": "Menus & shortcuts",
-      "passed": 20,
+      "file": "menus-shortcuts.js",
+      "passed": 25,
       "failed": 0,
-      "total": 20,
-      "ms": 0.6218,
+      "total": 25,
+      "ms": 1.2071000000000003,
       "items": [
         {
+          "n": 355,
           "suite": "Menus & shortcuts",
           "name": "Menu builder main menubar",
           "ok": true,
-          "ms": 0.0202
+          "ms": 0.0255
         },
         {
+          "n": 356,
           "suite": "Menus & shortcuts",
           "name": "Menu builder edit menubar",
           "ok": true,
-          "ms": 0.0065
+          "ms": 0.0071
         },
         {
+          "n": 357,
           "suite": "Menus & shortcuts",
           "name": "Menu builder File",
-          "ok": true,
-          "ms": 0.0079
-        },
-        {
-          "suite": "Menus & shortcuts",
-          "name": "Menu builder Edit",
-          "ok": true,
-          "ms": 0.0091
-        },
-        {
-          "suite": "Menus & shortcuts",
-          "name": "Menu builder View",
           "ok": true,
           "ms": 0.009
         },
         {
+          "n": 358,
+          "suite": "Menus & shortcuts",
+          "name": "Menu builder Edit",
+          "ok": true,
+          "ms": 0.0096
+        },
+        {
+          "n": 359,
+          "suite": "Menus & shortcuts",
+          "name": "Menu builder View",
+          "ok": true,
+          "ms": 0.0096
+        },
+        {
+          "n": 360,
           "suite": "Menus & shortcuts",
           "name": "Menu builder Effects",
           "ok": true,
-          "ms": 0.0089
+          "ms": 0.0137
         },
         {
+          "n": 361,
           "suite": "Menus & shortcuts",
           "name": "Menu builder Help",
           "ok": true,
-          "ms": 0.01
+          "ms": 0.011
         },
         {
+          "n": 362,
           "suite": "Menus & shortcuts",
           "name": "Menu builder Theme",
           "ok": true,
-          "ms": 0.0089
+          "ms": 0.0093
         },
         {
+          "n": 363,
           "suite": "Menus & shortcuts",
           "name": "Menu builder Language",
           "ok": true,
-          "ms": 0.0102
+          "ms": 0.0109
         },
         {
+          "n": 364,
           "suite": "Menus & shortcuts",
           "name": "Menu builder Export",
           "ok": true,
-          "ms": 0.0091
+          "ms": 0.0097
         },
         {
+          "n": 365,
           "suite": "Menus & shortcuts",
           "name": "Menu builder Edit File",
           "ok": true,
-          "ms": 0.0063
+          "ms": 0.007
         },
         {
+          "n": 366,
           "suite": "Menus & shortcuts",
           "name": "Menu builder Edit Edit",
           "ok": true,
-          "ms": 0.0064
+          "ms": 0.0068
         },
         {
+          "n": 367,
           "suite": "Menus & shortcuts",
           "name": "Menu builder Edit View",
           "ok": true,
-          "ms": 0.0066
+          "ms": 0.007
         },
         {
+          "n": 368,
           "suite": "Menus & shortcuts",
           "name": "Shortcut Ctrl+O open",
           "ok": true,
-          "ms": 0.0579
+          "ms": 0.0648
         },
         {
+          "n": 369,
           "suite": "Menus & shortcuts",
           "name": "Shortcut Ctrl+P print",
           "ok": true,
-          "ms": 0.1183
+          "ms": 0.157
         },
         {
+          "n": 370,
           "suite": "Menus & shortcuts",
           "name": "Shortcut previous image",
           "ok": true,
-          "ms": 0.0155
+          "ms": 0.0165
         },
         {
+          "n": 371,
           "suite": "Menus & shortcuts",
           "name": "Shortcut next image",
           "ok": true,
-          "ms": 0.0557
+          "ms": 0.0589
         },
         {
+          "n": 372,
+          "suite": "Menus & shortcuts",
+          "name": "Shortcut previous image arrow",
+          "ok": true,
+          "ms": 0.1585
+        },
+        {
+          "n": 373,
+          "suite": "Menus & shortcuts",
+          "name": "Shortcut next image arrow",
+          "ok": true,
+          "ms": 0.1389
+        },
+        {
+          "n": 374,
+          "suite": "Menus & shortcuts",
+          "name": "Shortcut explorer up",
+          "ok": true,
+          "ms": 0.0834
+        },
+        {
+          "n": 375,
+          "suite": "Menus & shortcuts",
+          "name": "Shortcut explorer down",
+          "ok": true,
+          "ms": 0.0759
+        },
+        {
+          "n": 376,
           "suite": "Menus & shortcuts",
           "name": "Shortcut save",
           "ok": true,
-          "ms": 0.1146
+          "ms": 0.1273
         },
         {
+          "n": 377,
           "suite": "Menus & shortcuts",
           "name": "Shortcut undo",
           "ok": true,
-          "ms": 0.1104
+          "ms": 0.1224
         },
         {
+          "n": 378,
+          "suite": "Menus & shortcuts",
+          "name": "Shortcut delete",
+          "ok": true,
+          "ms": 0.0355
+        },
+        {
+          "n": 379,
           "suite": "Menus & shortcuts",
           "name": "Shortcuts dialog lists keys",
           "ok": true,
-          "ms": 0.0303
+          "ms": 0.0318
         }
       ]
     },
     {
       "name": "Print",
+      "file": "print.js",
       "passed": 50,
       "failed": 0,
       "total": 50,
-      "ms": 0.9581,
+      "ms": 1.0683999999999996,
       "items": [
         {
+          "n": 380,
           "suite": "Print",
           "name": "Print overlay has #print-overlay",
           "ok": true,
-          "ms": 0.0237
+          "ms": 0.098
         },
         {
+          "n": 381,
           "suite": "Print",
           "name": "Print overlay has #print-preview-stage",
-          "ok": true,
-          "ms": 0.0133
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-paper",
-          "ok": true,
-          "ms": 0.0167
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-header",
-          "ok": true,
-          "ms": 0.0154
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-footer",
-          "ok": true,
-          "ms": 0.0153
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-preview-img",
-          "ok": true,
-          "ms": 0.0115
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-content",
-          "ok": true,
-          "ms": 0.0139
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-page-info",
-          "ok": true,
-          "ms": 0.0129
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-go",
-          "ok": true,
-          "ms": 0.0548
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-header-l",
-          "ok": true,
-          "ms": 0.0147
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-header-c",
-          "ok": true,
-          "ms": 0.018
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-header-r",
-          "ok": true,
-          "ms": 0.0133
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-footer-l",
-          "ok": true,
-          "ms": 0.0137
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-footer-c",
-          "ok": true,
-          "ms": 0.0128
-        },
-        {
-          "suite": "Print",
-          "name": "Print overlay has #print-footer-r",
-          "ok": true,
-          "ms": 0.0132
-        },
-        {
-          "suite": "Print",
-          "name": "Print form has #print-printer",
-          "ok": true,
-          "ms": 0.0211
-        },
-        {
-          "suite": "Print",
-          "name": "Print form has #print-paper-size",
-          "ok": true,
-          "ms": 0.0135
-        },
-        {
-          "suite": "Print",
-          "name": "Print form has #print-margins",
           "ok": true,
           "ms": 0.0157
         },
         {
+          "n": 382,
           "suite": "Print",
-          "name": "Print form has #print-scale-pct",
+          "name": "Print overlay has #print-paper",
           "ok": true,
-          "ms": 0.0147
+          "ms": 0.0195
         },
         {
+          "n": 383,
           "suite": "Print",
-          "name": "Print form has #print-copies",
+          "name": "Print overlay has #print-header",
           "ok": true,
-          "ms": 0.0176
+          "ms": 0.0188
         },
         {
+          "n": 384,
           "suite": "Print",
-          "name": "Print form has #print-color",
+          "name": "Print overlay has #print-footer",
           "ok": true,
-          "ms": 0.017
+          "ms": 0.0175
         },
         {
+          "n": 385,
           "suite": "Print",
-          "name": "Print form has #print-header-on",
-          "ok": true,
-          "ms": 0.0143
-        },
-        {
-          "suite": "Print",
-          "name": "Print form has #print-header-kind",
+          "name": "Print overlay has #print-preview-img",
           "ok": true,
           "ms": 0.0128
         },
         {
+          "n": 386,
           "suite": "Print",
-          "name": "Print form has #print-pageno-on",
+          "name": "Print overlay has #print-content",
           "ok": true,
-          "ms": 0.0142
+          "ms": 0.0157
         },
         {
+          "n": 387,
           "suite": "Print",
-          "name": "Print form has #print-pageno-pos",
+          "name": "Print overlay has #print-page-info",
           "ok": true,
-          "ms": 0.0147
+          "ms": 0.015
         },
         {
+          "n": 388,
           "suite": "Print",
-          "name": "Print form has #print-pageno-fmt",
+          "name": "Print overlay has #print-go",
+          "ok": true,
+          "ms": 0.0248
+        },
+        {
+          "n": 389,
+          "suite": "Print",
+          "name": "Print overlay has #print-header-l",
+          "ok": true,
+          "ms": 0.016
+        },
+        {
+          "n": 390,
+          "suite": "Print",
+          "name": "Print overlay has #print-header-c",
+          "ok": true,
+          "ms": 0.0153
+        },
+        {
+          "n": 391,
+          "suite": "Print",
+          "name": "Print overlay has #print-header-r",
           "ok": true,
           "ms": 0.0146
         },
         {
+          "n": 392,
+          "suite": "Print",
+          "name": "Print overlay has #print-footer-l",
+          "ok": true,
+          "ms": 0.0151
+        },
+        {
+          "n": 393,
+          "suite": "Print",
+          "name": "Print overlay has #print-footer-c",
+          "ok": true,
+          "ms": 0.0147
+        },
+        {
+          "n": 394,
+          "suite": "Print",
+          "name": "Print overlay has #print-footer-r",
+          "ok": true,
+          "ms": 0.0144
+        },
+        {
+          "n": 395,
+          "suite": "Print",
+          "name": "Print form has #print-printer",
+          "ok": true,
+          "ms": 0.0243
+        },
+        {
+          "n": 396,
+          "suite": "Print",
+          "name": "Print form has #print-paper-size",
+          "ok": true,
+          "ms": 0.0154
+        },
+        {
+          "n": 397,
+          "suite": "Print",
+          "name": "Print form has #print-margins",
+          "ok": true,
+          "ms": 0.0161
+        },
+        {
+          "n": 398,
+          "suite": "Print",
+          "name": "Print form has #print-scale-pct",
+          "ok": true,
+          "ms": 0.0161
+        },
+        {
+          "n": 399,
+          "suite": "Print",
+          "name": "Print form has #print-copies",
+          "ok": true,
+          "ms": 0.0195
+        },
+        {
+          "n": 400,
+          "suite": "Print",
+          "name": "Print form has #print-color",
+          "ok": true,
+          "ms": 0.0185
+        },
+        {
+          "n": 401,
+          "suite": "Print",
+          "name": "Print form has #print-header-on",
+          "ok": true,
+          "ms": 0.0159
+        },
+        {
+          "n": 402,
+          "suite": "Print",
+          "name": "Print form has #print-header-kind",
+          "ok": true,
+          "ms": 0.0149
+        },
+        {
+          "n": 403,
+          "suite": "Print",
+          "name": "Print form has #print-pageno-on",
+          "ok": true,
+          "ms": 0.0164
+        },
+        {
+          "n": 404,
+          "suite": "Print",
+          "name": "Print form has #print-pageno-pos",
+          "ok": true,
+          "ms": 0.016
+        },
+        {
+          "n": 405,
+          "suite": "Print",
+          "name": "Print form has #print-pageno-fmt",
+          "ok": true,
+          "ms": 0.0163
+        },
+        {
+          "n": 406,
           "suite": "Print",
           "name": "Print dialog CSS forbids scrollbars",
           "ok": true,
-          "ms": 0.021
+          "ms": 0.035
         },
         {
+          "n": 407,
           "suite": "Print",
           "name": "Print opens by blit, not PNG encode",
           "ok": true,
-          "ms": 0.0622
+          "ms": 0.0799
         },
         {
+          "n": 408,
           "suite": "Print",
           "name": "Native File menu and IPC print exist",
           "ok": true,
-          "ms": 0.0445
+          "ms": 0.0547
         },
         {
+          "n": 409,
           "suite": "Print",
           "name": "Layout auto-orient A4",
           "ok": true,
-          "ms": 0.1278
+          "ms": 0.1386
         },
         {
+          "n": 410,
           "suite": "Print",
           "name": "Layout auto-orient Letter",
           "ok": true,
-          "ms": 0.0186
+          "ms": 0.0198
         },
         {
+          "n": 411,
           "suite": "Print",
           "name": "Layout auto-orient Legal",
           "ok": true,
-          "ms": 0.0051
+          "ms": 0.0107
         },
         {
+          "n": 412,
           "suite": "Print",
           "name": "Layout auto-orient A3",
           "ok": true,
-          "ms": 0.0048
+          "ms": 0.0053
         },
         {
+          "n": 413,
           "suite": "Print",
           "name": "Layout auto-orient A5",
           "ok": true,
           "ms": 0.004
         },
         {
+          "n": 414,
           "suite": "Print",
           "name": "Layout auto-orient Tabloid",
           "ok": true,
           "ms": 0.0047
         },
         {
+          "n": 415,
           "suite": "Print",
           "name": "Header and footer reserve 7 mm each",
           "ok": true,
-          "ms": 0.0369
+          "ms": 0.0509
         },
         {
+          "n": 416,
           "suite": "Print",
           "name": "Custom 50% scale is half of fit",
           "ok": true,
-          "ms": 0.0653
+          "ms": 0.0934
         },
         {
+          "n": 417,
           "suite": "Print",
           "name": "Page number format n",
           "ok": true,
-          "ms": 0.1044
+          "ms": 0.0368
         },
         {
+          "n": 418,
           "suite": "Print",
           "name": "Page number format nOfN",
           "ok": true,
-          "ms": 0.0049
+          "ms": 0.001
         },
         {
+          "n": 419,
           "suite": "Print",
           "name": "Page number format pageN",
           "ok": true,
-          "ms": 0.0024
+          "ms": 0.0018
         },
         {
+          "n": 420,
           "suite": "Print",
           "name": "Page number format dash",
           "ok": true,
-          "ms": 0.0027
+          "ms": 0.0006
         },
         {
+          "n": 421,
           "suite": "Print",
           "name": "Print i18n print.title",
           "ok": true,
-          "ms": 0.0131
+          "ms": 0.0101
         },
         {
+          "n": 422,
           "suite": "Print",
           "name": "Print i18n print.headerShow",
           "ok": true,
-          "ms": 0.0003
+          "ms": 0.0005
         },
         {
+          "n": 423,
           "suite": "Print",
           "name": "Print i18n print.pageNoShow",
           "ok": true,
-          "ms": 0.0002
+          "ms": 0.0005
         },
         {
+          "n": 424,
           "suite": "Print",
           "name": "Print i18n print.pageN",
           "ok": true,
-          "ms": 0.0002
+          "ms": 0.0005
         },
         {
+          "n": 425,
           "suite": "Print",
           "name": "Print i18n print.nOfN",
           "ok": true,
-          "ms": 0.0001
+          "ms": 0.0004
         },
         {
+          "n": 426,
           "suite": "Print",
           "name": "Print i18n print.printer",
           "ok": true,
-          "ms": 0.0002
+          "ms": 0.0004
         },
         {
+          "n": 427,
           "suite": "Print",
           "name": "Print i18n print.paper",
           "ok": true,
-          "ms": 0.0003
+          "ms": 0.0004
         },
         {
+          "n": 428,
           "suite": "Print",
           "name": "Print i18n print.margins",
           "ok": true,
-          "ms": 0.0003
+          "ms": 0.0004
         },
         {
+          "n": 429,
           "suite": "Print",
           "name": "Print i18n print.copies",
           "ok": true,
@@ -625,2218 +815,3116 @@
     },
     {
       "name": "Edit window",
-      "passed": 39,
+      "file": "edit-window.js",
+      "passed": 44,
       "failed": 0,
-      "total": 39,
-      "ms": 1.4708,
+      "total": 44,
+      "ms": 2.1027,
       "items": [
         {
+          "n": 37,
           "suite": "Edit window",
           "name": "Edit chrome has #edit-window",
           "ok": true,
-          "ms": 0.0196
+          "ms": 0.0201
         },
         {
+          "n": 38,
           "suite": "Edit window",
           "name": "Edit chrome has #ew-menubar",
           "ok": true,
-          "ms": 0.0081
+          "ms": 0.0088
         },
         {
+          "n": 39,
           "suite": "Edit window",
           "name": "Edit chrome has #ew-toolbar-row",
-          "ok": true,
-          "ms": 0.0065
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit chrome has #ew-status-bar",
-          "ok": true,
-          "ms": 0.0085
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit chrome has #ew-status-progress",
           "ok": true,
           "ms": 0.0073
         },
         {
+          "n": 40,
           "suite": "Edit window",
-          "name": "Edit chrome has #edit-window-titlebar",
+          "name": "Edit chrome has #ew-status-bar",
           "ok": true,
-          "ms": 0.0061
+          "ms": 0.0093
         },
         {
+          "n": 41,
           "suite": "Edit window",
-          "name": "Edit chrome has #edit-effects-panel",
-          "ok": true,
-          "ms": 0.0076
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit chrome has #edit-canvas-area",
-          "ok": true,
-          "ms": 0.0077
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit tool: pointer",
-          "ok": true,
-          "ms": 0.0183
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit tool: rect select",
+          "name": "Edit chrome has #ew-status-progress",
           "ok": true,
           "ms": 0.0075
         },
         {
+          "n": 42,
           "suite": "Edit window",
-          "name": "Edit tool: lasso",
+          "name": "Edit chrome has #edit-window-titlebar",
           "ok": true,
-          "ms": 0.007
+          "ms": 0.0065
         },
         {
+          "n": 43,
           "suite": "Edit window",
-          "name": "Edit tool: polygon",
+          "name": "Edit chrome has #edit-effects-panel",
           "ok": true,
-          "ms": 0.0063
+          "ms": 0.0082
         },
         {
+          "n": 44,
           "suite": "Edit window",
-          "name": "Edit tool: magic wand",
+          "name": "Edit chrome has #edit-canvas-area",
           "ok": true,
-          "ms": 0.007
+          "ms": 0.0083
         },
         {
+          "n": 45,
           "suite": "Edit window",
-          "name": "Edit tool: cut",
+          "name": "Edit tool: pointer",
           "ok": true,
-          "ms": 0.0105
+          "ms": 0.0191
         },
         {
+          "n": 46,
           "suite": "Edit window",
-          "name": "Edit tool: copy",
-          "ok": true,
-          "ms": 0.0098
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit tool: background remove",
-          "ok": true,
-          "ms": 0.0072
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit tool: crop selection",
-          "ok": true,
-          "ms": 0.0091
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit tool: clear selection",
-          "ok": true,
-          "ms": 0.0097
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit action: rotate left",
-          "ok": true,
-          "ms": 0.0605
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit action: rotate right",
-          "ok": true,
-          "ms": 0.0087
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit action: flip H",
+          "name": "Edit tool: rect select",
           "ok": true,
           "ms": 0.0086
         },
         {
+          "n": 47,
+          "suite": "Edit window",
+          "name": "Edit tool: lasso",
+          "ok": true,
+          "ms": 0.0077
+        },
+        {
+          "n": 48,
+          "suite": "Edit window",
+          "name": "Edit tool: polygon",
+          "ok": true,
+          "ms": 0.0073
+        },
+        {
+          "n": 49,
+          "suite": "Edit window",
+          "name": "Edit tool: magic wand",
+          "ok": true,
+          "ms": 0.008
+        },
+        {
+          "n": 50,
+          "suite": "Edit window",
+          "name": "Edit tool: cut",
+          "ok": true,
+          "ms": 0.0118
+        },
+        {
+          "n": 51,
+          "suite": "Edit window",
+          "name": "Edit tool: copy",
+          "ok": true,
+          "ms": 0.0106
+        },
+        {
+          "n": 52,
+          "suite": "Edit window",
+          "name": "Edit tool: background remove",
+          "ok": true,
+          "ms": 0.008
+        },
+        {
+          "n": 53,
+          "suite": "Edit window",
+          "name": "Edit tool: crop selection",
+          "ok": true,
+          "ms": 0.0097
+        },
+        {
+          "n": 54,
+          "suite": "Edit window",
+          "name": "Edit tool: clear selection",
+          "ok": true,
+          "ms": 0.0105
+        },
+        {
+          "n": 55,
+          "suite": "Edit window",
+          "name": "Edit action: rotate left",
+          "ok": true,
+          "ms": 0.0189
+        },
+        {
+          "n": 56,
+          "suite": "Edit window",
+          "name": "Edit action: rotate right",
+          "ok": true,
+          "ms": 0.0095
+        },
+        {
+          "n": 57,
+          "suite": "Edit window",
+          "name": "Edit action: flip H",
+          "ok": true,
+          "ms": 0.0097
+        },
+        {
+          "n": 58,
           "suite": "Edit window",
           "name": "Edit action: flip V",
           "ok": true,
-          "ms": 0.0087
+          "ms": 0.0097
         },
         {
+          "n": 59,
           "suite": "Edit window",
           "name": "Edit action: resize",
           "ok": true,
-          "ms": 0.009
+          "ms": 0.0101
         },
         {
+          "n": 60,
           "suite": "Edit window",
           "name": "Edit action: print",
           "ok": true,
-          "ms": 0.0102
+          "ms": 0.0101
         },
         {
+          "n": 61,
           "suite": "Edit window",
           "name": "Edit action: undo",
           "ok": true,
-          "ms": 0.0102
+          "ms": 0.0129
         },
         {
+          "n": 62,
           "suite": "Edit window",
           "name": "Edit action: redo",
+          "ok": true,
+          "ms": 0.0203
+        },
+        {
+          "n": 63,
+          "suite": "Edit window",
+          "name": "Edit action: zoom in",
+          "ok": true,
+          "ms": 0.0506
+        },
+        {
+          "n": 64,
+          "suite": "Edit window",
+          "name": "Edit action: zoom out",
+          "ok": true,
+          "ms": 0.0105
+        },
+        {
+          "n": 65,
+          "suite": "Edit window",
+          "name": "Edit action: fit",
+          "ok": true,
+          "ms": 0.013
+        },
+        {
+          "n": 66,
+          "suite": "Edit window",
+          "name": "Edit action: save",
           "ok": true,
           "ms": 0.0107
         },
         {
-          "suite": "Edit window",
-          "name": "Edit action: zoom in",
-          "ok": true,
-          "ms": 0.0489
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit action: zoom out",
-          "ok": true,
-          "ms": 0.0098
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit action: fit",
-          "ok": true,
-          "ms": 0.0116
-        },
-        {
-          "suite": "Edit window",
-          "name": "Edit action: save",
-          "ok": true,
-          "ms": 0.0115
-        },
-        {
+          "n": 67,
           "suite": "Edit window",
           "name": "Edit action: apply",
           "ok": true,
-          "ms": 0.0099
+          "ms": 0.0092
         },
         {
+          "n": 68,
           "suite": "Edit window",
           "name": "Edit action: cancel",
           "ok": true,
-          "ms": 0.0098
+          "ms": 0.0094
         },
         {
+          "n": 69,
+          "suite": "Edit window",
+          "name": "Edit theme / language / settings sit on the right",
+          "ok": true,
+          "ms": 0.1003
+        },
+        {
+          "n": 70,
+          "suite": "Edit window",
+          "name": "Save / apply / cancel / print sit left of selection tools",
+          "ok": true,
+          "ms": 0.0607
+        },
+        {
+          "n": 71,
+          "suite": "Edit window",
+          "name": "Edit zoom controls are zoom-out, percent, zoom-in",
+          "ok": true,
+          "ms": 0.0362
+        },
+        {
+          "n": 72,
           "suite": "Edit window",
           "name": "Preset panel min width follows effect labels",
           "ok": true,
-          "ms": 0.0917
+          "ms": 0.0983
         },
         {
+          "n": 73,
+          "suite": "Edit window",
+          "name": "Edit and main windows share the same min size",
+          "ok": true,
+          "ms": 0.2649
+        },
+        {
+          "n": 74,
           "suite": "Edit window",
           "name": "Edit tool change recalculates window min width",
           "ok": true,
-          "ms": 0.153
+          "ms": 0.178
         },
         {
+          "n": 75,
           "suite": "Edit window",
           "name": "Edit Print button is wired to preview",
           "ok": true,
-          "ms": 0.1076
+          "ms": 0.1109
         },
         {
+          "n": 76,
           "suite": "Edit window",
           "name": "Edit File menu includes Print",
           "ok": true,
-          "ms": 0.0288
+          "ms": 0.0287
         },
         {
+          "n": 77,
           "suite": "Edit window",
           "name": "Effect progress is shown on the edit status bar",
           "ok": true,
-          "ms": 0.1773
+          "ms": 0.1912
         },
         {
+          "n": 78,
           "suite": "Edit window",
           "name": "Edit window has in-app save / unsaved popups",
           "ok": true,
-          "ms": 0.3764
+          "ms": 0.3897
         },
         {
+          "n": 79,
+          "suite": "Edit window",
+          "name": "Edit image context menu can delete the file",
+          "ok": true,
+          "ms": 0.0996
+        },
+        {
+          "n": 80,
           "suite": "Edit window",
           "name": "Effect apply also opens the progress popup",
           "ok": true,
-          "ms": 0.1441
+          "ms": 0.1623
         }
       ]
     },
     {
       "name": "Effects",
+      "file": "effects.js",
       "passed": 126,
       "failed": 0,
       "total": 126,
-      "ms": 12.207799999999999,
+      "ms": 14.148099999999998,
       "items": [
         {
+          "n": 81,
           "suite": "Effects",
           "name": "Category catFilmColor is tagged",
-          "ok": true,
-          "ms": 0.0753
-        },
-        {
-          "suite": "Effects",
-          "name": "Category catSlide is tagged",
-          "ok": true,
-          "ms": 0.1005
-        },
-        {
-          "suite": "Effects",
-          "name": "Category catBW is tagged",
-          "ok": true,
-          "ms": 0.0995
-        },
-        {
-          "suite": "Effects",
-          "name": "Category catInstant is tagged",
-          "ok": true,
-          "ms": 0.0822
-        },
-        {
-          "suite": "Effects",
-          "name": "Category catCinema is tagged",
-          "ok": true,
-          "ms": 0.0905
-        },
-        {
-          "suite": "Effects",
-          "name": "Category catCreative is tagged",
-          "ok": true,
-          "ms": 0.08
-        },
-        {
-          "suite": "Effects",
-          "name": "Effect buttons include icon + label",
-          "ok": true,
-          "ms": 0.2231
-        },
-        {
-          "suite": "Effects",
-          "name": "Category accent CSS variable exists",
-          "ok": true,
-          "ms": 0.0263
-        },
-        {
-          "suite": "Effects",
-          "name": "Editor defines 117 presets",
-          "ok": true,
-          "ms": 0.0139
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset grayscale",
-          "ok": true,
-          "ms": 0.1117
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset sepia",
-          "ok": true,
-          "ms": 0.0893
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset invert",
-          "ok": true,
-          "ms": 0.0929
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset vivid",
-          "ok": true,
-          "ms": 0.089
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset fade",
-          "ok": true,
-          "ms": 0.0835
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset cool",
-          "ok": true,
-          "ms": 0.0835
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset warm",
-          "ok": true,
-          "ms": 0.0834
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset vintage",
-          "ok": true,
-          "ms": 0.0777
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset dramatic",
-          "ok": true,
-          "ms": 0.08
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset emboss",
-          "ok": true,
-          "ms": 0.09
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset edge",
-          "ok": true,
-          "ms": 0.082
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset noir",
-          "ok": true,
-          "ms": 0.0914
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset soft",
-          "ok": true,
-          "ms": 0.086
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset crisp",
-          "ok": true,
-          "ms": 0.0871
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset sunset",
-          "ok": true,
-          "ms": 0.104
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset arctic",
-          "ok": true,
-          "ms": 0.1039
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset pastel",
-          "ok": true,
-          "ms": 0.0991
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset matte",
-          "ok": true,
-          "ms": 0.0941
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset neon",
-          "ok": true,
-          "ms": 0.0867
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset moonlight",
-          "ok": true,
-          "ms": 0.0871
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset golden",
-          "ok": true,
-          "ms": 0.0951
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset bleach",
-          "ok": true,
-          "ms": 0.1023
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset pop",
-          "ok": true,
-          "ms": 0.0847
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset crossprocess",
-          "ok": true,
-          "ms": 0.0839
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset highkey",
-          "ok": true,
-          "ms": 0.083
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset lowkey",
-          "ok": true,
-          "ms": 0.1
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset silver",
-          "ok": true,
-          "ms": 0.1088
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset polaroid",
-          "ok": true,
-          "ms": 0.1692
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset lomo",
-          "ok": true,
-          "ms": 0.1696
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset filmcamera",
-          "ok": true,
-          "ms": 0.1109
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset disposable",
-          "ok": true,
-          "ms": 0.0951
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset portra",
-          "ok": true,
-          "ms": 0.1123
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset ektar",
-          "ok": true,
-          "ms": 0.0995
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset fuji400h",
-          "ok": true,
-          "ms": 0.0799
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset superia",
-          "ok": true,
-          "ms": 0.0784
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset lomochrome",
-          "ok": true,
-          "ms": 0.0868
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset kodachrome",
-          "ok": true,
-          "ms": 0.0852
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset velvia",
-          "ok": true,
-          "ms": 0.0946
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset provia",
-          "ok": true,
-          "ms": 0.0939
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset slide",
-          "ok": true,
-          "ms": 0.0916
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset trix",
-          "ok": true,
-          "ms": 0.0831
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset delta3200",
-          "ok": true,
-          "ms": 0.0836
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset tmax100",
-          "ok": true,
-          "ms": 0.0774
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset sx70",
-          "ok": true,
-          "ms": 0.0837
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset instax",
-          "ok": true,
-          "ms": 0.1002
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset sprocket",
-          "ok": true,
-          "ms": 0.0791
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset holga",
-          "ok": true,
-          "ms": 0.0886
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset cinestill",
-          "ok": true,
-          "ms": 0.0845
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset vision3500t",
-          "ok": true,
-          "ms": 0.0849
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset expired",
-          "ok": true,
-          "ms": 0.0781
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset expiredcool",
-          "ok": true,
-          "ms": 0.0854
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset redscale",
-          "ok": true,
-          "ms": 0.0798
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset bleachbypass",
-          "ok": true,
-          "ms": 0.0817
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset crossfuji",
-          "ok": true,
-          "ms": 0.0862
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset nightflash",
-          "ok": true,
-          "ms": 0.0941
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset halfFrame",
-          "ok": true,
-          "ms": 0.0914
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset doubleExp",
-          "ok": true,
-          "ms": 0.0827
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset autumn",
-          "ok": true,
-          "ms": 0.0953
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset spring",
-          "ok": true,
-          "ms": 0.0971
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset dusk",
-          "ok": true,
-          "ms": 0.0879
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset fog",
-          "ok": true,
-          "ms": 0.0854
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset dream",
-          "ok": true,
-          "ms": 0.0938
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset hdr",
-          "ok": true,
-          "ms": 0.083
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset infrared",
-          "ok": true,
-          "ms": 0.082
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset newspaper",
-          "ok": true,
-          "ms": 0.0856
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset sketch",
-          "ok": true,
-          "ms": 0.0986
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset retro70",
-          "ok": true,
-          "ms": 0.0829
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset retro80",
-          "ok": true,
-          "ms": 0.0816
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset tungsten",
-          "ok": true,
-          "ms": 0.082
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset chrome",
-          "ok": true,
-          "ms": 0.0973
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset orton",
           "ok": true,
           "ms": 0.0954
         },
         {
+          "n": 82,
           "suite": "Effects",
-          "name": "Preset comic",
+          "name": "Category catSlide is tagged",
           "ok": true,
-          "ms": 0.0908
+          "ms": 0.1136
         },
         {
+          "n": 83,
           "suite": "Effects",
-          "name": "Preset xray",
+          "name": "Category catBW is tagged",
           "ok": true,
-          "ms": 0.0886
+          "ms": 0.1034
         },
         {
+          "n": 84,
           "suite": "Effects",
-          "name": "Preset clarity",
+          "name": "Category catInstant is tagged",
           "ok": true,
-          "ms": 0.0862
+          "ms": 0.0945
         },
         {
+          "n": 85,
           "suite": "Effects",
-          "name": "Preset cyanotype",
+          "name": "Category catCinema is tagged",
           "ok": true,
-          "ms": 0.0911
+          "ms": 0.1009
         },
         {
+          "n": 86,
           "suite": "Effects",
-          "name": "Preset tealorange",
+          "name": "Category catCreative is tagged",
           "ok": true,
-          "ms": 0.0894
+          "ms": 0.0914
         },
         {
+          "n": 87,
           "suite": "Effects",
-          "name": "Preset underwater",
+          "name": "Effect buttons include icon + label",
           "ok": true,
-          "ms": 0.0904
+          "ms": 0.2216
         },
         {
+          "n": 88,
           "suite": "Effects",
-          "name": "Preset desert",
+          "name": "Category accent CSS variable exists",
           "ok": true,
-          "ms": 0.098
+          "ms": 0.026
         },
         {
+          "n": 89,
           "suite": "Effects",
-          "name": "Preset forest",
+          "name": "Editor defines 117 presets",
           "ok": true,
-          "ms": 0.0994
+          "ms": 0.0119
         },
         {
+          "n": 90,
           "suite": "Effects",
-          "name": "Preset lavender",
+          "name": "Preset grayscale",
           "ok": true,
-          "ms": 0.0833
+          "ms": 0.1178
         },
         {
+          "n": 91,
           "suite": "Effects",
-          "name": "Preset candy",
-          "ok": true,
-          "ms": 0.0931
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset midnight",
-          "ok": true,
-          "ms": 0.0833
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset thermal",
-          "ok": true,
-          "ms": 0.0824
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset blueprint",
-          "ok": true,
-          "ms": 0.2971
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset selenium",
-          "ok": true,
-          "ms": 0.2418
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset platinum",
-          "ok": true,
-          "ms": 0.2051
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset lith",
-          "ok": true,
-          "ms": 0.1978
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset muted",
-          "ok": true,
-          "ms": 0.1125
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset cyberpunk",
-          "ok": true,
-          "ms": 0.1018
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset vaporwave",
-          "ok": true,
-          "ms": 0.0919
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset charcoal",
-          "ok": true,
-          "ms": 0.0837
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset ink",
-          "ok": true,
-          "ms": 0.0847
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset bloom",
-          "ok": true,
-          "ms": 0.0986
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset punch",
-          "ok": true,
-          "ms": 0.0993
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset flat",
-          "ok": true,
-          "ms": 0.0915
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset winter",
-          "ok": true,
-          "ms": 0.1064
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset summer",
-          "ok": true,
-          "ms": 0.0992
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset rainy",
-          "ok": true,
-          "ms": 0.0921
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset peach",
-          "ok": true,
-          "ms": 0.0955
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset coral",
-          "ok": true,
-          "ms": 0.101
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset amethyst",
-          "ok": true,
-          "ms": 0.0834
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset copper",
-          "ok": true,
-          "ms": 0.103
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset denim",
-          "ok": true,
-          "ms": 0.0977
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset gothic",
-          "ok": true,
-          "ms": 0.1018
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset romance",
-          "ok": true,
-          "ms": 0.0912
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset duotone",
-          "ok": true,
-          "ms": 0.0876
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset glitch",
-          "ok": true,
-          "ms": 0.09
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset watercolor",
-          "ok": true,
-          "ms": 0.0979
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset anime",
-          "ok": true,
-          "ms": 0.099
-        },
-        {
-          "suite": "Effects",
-          "name": "Preset silhouette",
+          "name": "Preset sepia",
           "ok": true,
           "ms": 0.0948
         },
         {
+          "n": 92,
           "suite": "Effects",
-          "name": "Preset amber",
+          "name": "Preset invert",
           "ok": true,
-          "ms": 0.1
+          "ms": 0.0916
         },
         {
+          "n": 93,
           "suite": "Effects",
-          "name": "Preset steel",
+          "name": "Preset vivid",
           "ok": true,
-          "ms": 0.0985
+          "ms": 0.0891
         },
         {
+          "n": 94,
           "suite": "Effects",
-          "name": "Preset push",
+          "name": "Preset fade",
           "ok": true,
-          "ms": 0.0927
+          "ms": 0.0869
         },
         {
+          "n": 95,
           "suite": "Effects",
-          "name": "Preset pull",
+          "name": "Preset cool",
+          "ok": true,
+          "ms": 0.1161
+        },
+        {
+          "n": 96,
+          "suite": "Effects",
+          "name": "Preset warm",
+          "ok": true,
+          "ms": 0.1389
+        },
+        {
+          "n": 97,
+          "suite": "Effects",
+          "name": "Preset vintage",
+          "ok": true,
+          "ms": 0.1069
+        },
+        {
+          "n": 98,
+          "suite": "Effects",
+          "name": "Preset dramatic",
+          "ok": true,
+          "ms": 0.1128
+        },
+        {
+          "n": 99,
+          "suite": "Effects",
+          "name": "Preset emboss",
+          "ok": true,
+          "ms": 0.1377
+        },
+        {
+          "n": 100,
+          "suite": "Effects",
+          "name": "Preset edge",
+          "ok": true,
+          "ms": 0.1156
+        },
+        {
+          "n": 101,
+          "suite": "Effects",
+          "name": "Preset noir",
+          "ok": true,
+          "ms": 0.1064
+        },
+        {
+          "n": 102,
+          "suite": "Effects",
+          "name": "Preset soft",
+          "ok": true,
+          "ms": 0.1105
+        },
+        {
+          "n": 103,
+          "suite": "Effects",
+          "name": "Preset crisp",
+          "ok": true,
+          "ms": 0.1164
+        },
+        {
+          "n": 104,
+          "suite": "Effects",
+          "name": "Preset sunset",
+          "ok": true,
+          "ms": 0.1132
+        },
+        {
+          "n": 105,
+          "suite": "Effects",
+          "name": "Preset arctic",
+          "ok": true,
+          "ms": 0.1183
+        },
+        {
+          "n": 106,
+          "suite": "Effects",
+          "name": "Preset pastel",
+          "ok": true,
+          "ms": 0.1309
+        },
+        {
+          "n": 107,
+          "suite": "Effects",
+          "name": "Preset matte",
+          "ok": true,
+          "ms": 0.1401
+        },
+        {
+          "n": 108,
+          "suite": "Effects",
+          "name": "Preset neon",
+          "ok": true,
+          "ms": 0.1273
+        },
+        {
+          "n": 109,
+          "suite": "Effects",
+          "name": "Preset moonlight",
+          "ok": true,
+          "ms": 0.1432
+        },
+        {
+          "n": 110,
+          "suite": "Effects",
+          "name": "Preset golden",
+          "ok": true,
+          "ms": 0.159
+        },
+        {
+          "n": 111,
+          "suite": "Effects",
+          "name": "Preset bleach",
+          "ok": true,
+          "ms": 0.1431
+        },
+        {
+          "n": 112,
+          "suite": "Effects",
+          "name": "Preset pop",
+          "ok": true,
+          "ms": 0.1302
+        },
+        {
+          "n": 113,
+          "suite": "Effects",
+          "name": "Preset crossprocess",
+          "ok": true,
+          "ms": 0.1279
+        },
+        {
+          "n": 114,
+          "suite": "Effects",
+          "name": "Preset highkey",
+          "ok": true,
+          "ms": 0.1374
+        },
+        {
+          "n": 115,
+          "suite": "Effects",
+          "name": "Preset lowkey",
+          "ok": true,
+          "ms": 0.1391
+        },
+        {
+          "n": 116,
+          "suite": "Effects",
+          "name": "Preset silver",
+          "ok": true,
+          "ms": 0.1889
+        },
+        {
+          "n": 117,
+          "suite": "Effects",
+          "name": "Preset polaroid",
+          "ok": true,
+          "ms": 0.1346
+        },
+        {
+          "n": 118,
+          "suite": "Effects",
+          "name": "Preset lomo",
+          "ok": true,
+          "ms": 0.1186
+        },
+        {
+          "n": 119,
+          "suite": "Effects",
+          "name": "Preset filmcamera",
+          "ok": true,
+          "ms": 0.0988
+        },
+        {
+          "n": 120,
+          "suite": "Effects",
+          "name": "Preset disposable",
+          "ok": true,
+          "ms": 0.0974
+        },
+        {
+          "n": 121,
+          "suite": "Effects",
+          "name": "Preset portra",
+          "ok": true,
+          "ms": 0.1087
+        },
+        {
+          "n": 122,
+          "suite": "Effects",
+          "name": "Preset ektar",
+          "ok": true,
+          "ms": 0.1204
+        },
+        {
+          "n": 123,
+          "suite": "Effects",
+          "name": "Preset fuji400h",
+          "ok": true,
+          "ms": 0.1215
+        },
+        {
+          "n": 124,
+          "suite": "Effects",
+          "name": "Preset superia",
+          "ok": true,
+          "ms": 0.1151
+        },
+        {
+          "n": 125,
+          "suite": "Effects",
+          "name": "Preset lomochrome",
+          "ok": true,
+          "ms": 0.1338
+        },
+        {
+          "n": 126,
+          "suite": "Effects",
+          "name": "Preset kodachrome",
+          "ok": true,
+          "ms": 0.1385
+        },
+        {
+          "n": 127,
+          "suite": "Effects",
+          "name": "Preset velvia",
+          "ok": true,
+          "ms": 0.1242
+        },
+        {
+          "n": 128,
+          "suite": "Effects",
+          "name": "Preset provia",
+          "ok": true,
+          "ms": 0.1175
+        },
+        {
+          "n": 129,
+          "suite": "Effects",
+          "name": "Preset slide",
+          "ok": true,
+          "ms": 0.122
+        },
+        {
+          "n": 130,
+          "suite": "Effects",
+          "name": "Preset trix",
+          "ok": true,
+          "ms": 0.1143
+        },
+        {
+          "n": 131,
+          "suite": "Effects",
+          "name": "Preset delta3200",
+          "ok": true,
+          "ms": 0.1436
+        },
+        {
+          "n": 132,
+          "suite": "Effects",
+          "name": "Preset tmax100",
+          "ok": true,
+          "ms": 0.0963
+        },
+        {
+          "n": 133,
+          "suite": "Effects",
+          "name": "Preset sx70",
+          "ok": true,
+          "ms": 0.091
+        },
+        {
+          "n": 134,
+          "suite": "Effects",
+          "name": "Preset instax",
+          "ok": true,
+          "ms": 0.0958
+        },
+        {
+          "n": 135,
+          "suite": "Effects",
+          "name": "Preset sprocket",
+          "ok": true,
+          "ms": 0.0896
+        },
+        {
+          "n": 136,
+          "suite": "Effects",
+          "name": "Preset holga",
+          "ok": true,
+          "ms": 0.1016
+        },
+        {
+          "n": 137,
+          "suite": "Effects",
+          "name": "Preset cinestill",
           "ok": true,
           "ms": 0.0909
         },
         {
+          "n": 138,
+          "suite": "Effects",
+          "name": "Preset vision3500t",
+          "ok": true,
+          "ms": 0.088
+        },
+        {
+          "n": 139,
+          "suite": "Effects",
+          "name": "Preset expired",
+          "ok": true,
+          "ms": 0.0846
+        },
+        {
+          "n": 140,
+          "suite": "Effects",
+          "name": "Preset expiredcool",
+          "ok": true,
+          "ms": 0.0871
+        },
+        {
+          "n": 141,
+          "suite": "Effects",
+          "name": "Preset redscale",
+          "ok": true,
+          "ms": 0.0865
+        },
+        {
+          "n": 142,
+          "suite": "Effects",
+          "name": "Preset bleachbypass",
+          "ok": true,
+          "ms": 0.0897
+        },
+        {
+          "n": 143,
+          "suite": "Effects",
+          "name": "Preset crossfuji",
+          "ok": true,
+          "ms": 0.0963
+        },
+        {
+          "n": 144,
+          "suite": "Effects",
+          "name": "Preset nightflash",
+          "ok": true,
+          "ms": 0.0969
+        },
+        {
+          "n": 145,
+          "suite": "Effects",
+          "name": "Preset halfFrame",
+          "ok": true,
+          "ms": 0.1001
+        },
+        {
+          "n": 146,
+          "suite": "Effects",
+          "name": "Preset doubleExp",
+          "ok": true,
+          "ms": 0.1068
+        },
+        {
+          "n": 147,
+          "suite": "Effects",
+          "name": "Preset autumn",
+          "ok": true,
+          "ms": 0.1189
+        },
+        {
+          "n": 148,
+          "suite": "Effects",
+          "name": "Preset spring",
+          "ok": true,
+          "ms": 0.124
+        },
+        {
+          "n": 149,
+          "suite": "Effects",
+          "name": "Preset dusk",
+          "ok": true,
+          "ms": 0.1106
+        },
+        {
+          "n": 150,
+          "suite": "Effects",
+          "name": "Preset fog",
+          "ok": true,
+          "ms": 0.0948
+        },
+        {
+          "n": 151,
+          "suite": "Effects",
+          "name": "Preset dream",
+          "ok": true,
+          "ms": 0.1038
+        },
+        {
+          "n": 152,
+          "suite": "Effects",
+          "name": "Preset hdr",
+          "ok": true,
+          "ms": 0.0942
+        },
+        {
+          "n": 153,
+          "suite": "Effects",
+          "name": "Preset infrared",
+          "ok": true,
+          "ms": 0.0956
+        },
+        {
+          "n": 154,
+          "suite": "Effects",
+          "name": "Preset newspaper",
+          "ok": true,
+          "ms": 0.1034
+        },
+        {
+          "n": 155,
+          "suite": "Effects",
+          "name": "Preset sketch",
+          "ok": true,
+          "ms": 0.1231
+        },
+        {
+          "n": 156,
+          "suite": "Effects",
+          "name": "Preset retro70",
+          "ok": true,
+          "ms": 0.1074
+        },
+        {
+          "n": 157,
+          "suite": "Effects",
+          "name": "Preset retro80",
+          "ok": true,
+          "ms": 0.102
+        },
+        {
+          "n": 158,
+          "suite": "Effects",
+          "name": "Preset tungsten",
+          "ok": true,
+          "ms": 0.102
+        },
+        {
+          "n": 159,
+          "suite": "Effects",
+          "name": "Preset chrome",
+          "ok": true,
+          "ms": 0.1162
+        },
+        {
+          "n": 160,
+          "suite": "Effects",
+          "name": "Preset orton",
+          "ok": true,
+          "ms": 0.1083
+        },
+        {
+          "n": 161,
+          "suite": "Effects",
+          "name": "Preset comic",
+          "ok": true,
+          "ms": 0.1117
+        },
+        {
+          "n": 162,
+          "suite": "Effects",
+          "name": "Preset xray",
+          "ok": true,
+          "ms": 0.1049
+        },
+        {
+          "n": 163,
+          "suite": "Effects",
+          "name": "Preset clarity",
+          "ok": true,
+          "ms": 0.0992
+        },
+        {
+          "n": 164,
+          "suite": "Effects",
+          "name": "Preset cyanotype",
+          "ok": true,
+          "ms": 0.1088
+        },
+        {
+          "n": 165,
+          "suite": "Effects",
+          "name": "Preset tealorange",
+          "ok": true,
+          "ms": 0.1103
+        },
+        {
+          "n": 166,
+          "suite": "Effects",
+          "name": "Preset underwater",
+          "ok": true,
+          "ms": 0.1172
+        },
+        {
+          "n": 167,
+          "suite": "Effects",
+          "name": "Preset desert",
+          "ok": true,
+          "ms": 0.1119
+        },
+        {
+          "n": 168,
+          "suite": "Effects",
+          "name": "Preset forest",
+          "ok": true,
+          "ms": 0.1178
+        },
+        {
+          "n": 169,
+          "suite": "Effects",
+          "name": "Preset lavender",
+          "ok": true,
+          "ms": 0.1082
+        },
+        {
+          "n": 170,
+          "suite": "Effects",
+          "name": "Preset candy",
+          "ok": true,
+          "ms": 0.1188
+        },
+        {
+          "n": 171,
+          "suite": "Effects",
+          "name": "Preset midnight",
+          "ok": true,
+          "ms": 0.101
+        },
+        {
+          "n": 172,
+          "suite": "Effects",
+          "name": "Preset thermal",
+          "ok": true,
+          "ms": 0.0977
+        },
+        {
+          "n": 173,
+          "suite": "Effects",
+          "name": "Preset blueprint",
+          "ok": true,
+          "ms": 0.1687
+        },
+        {
+          "n": 174,
+          "suite": "Effects",
+          "name": "Preset selenium",
+          "ok": true,
+          "ms": 0.105
+        },
+        {
+          "n": 175,
+          "suite": "Effects",
+          "name": "Preset platinum",
+          "ok": true,
+          "ms": 0.098
+        },
+        {
+          "n": 176,
+          "suite": "Effects",
+          "name": "Preset lith",
+          "ok": true,
+          "ms": 0.1052
+        },
+        {
+          "n": 177,
+          "suite": "Effects",
+          "name": "Preset muted",
+          "ok": true,
+          "ms": 0.1077
+        },
+        {
+          "n": 178,
+          "suite": "Effects",
+          "name": "Preset cyberpunk",
+          "ok": true,
+          "ms": 0.1345
+        },
+        {
+          "n": 179,
+          "suite": "Effects",
+          "name": "Preset vaporwave",
+          "ok": true,
+          "ms": 0.109
+        },
+        {
+          "n": 180,
+          "suite": "Effects",
+          "name": "Preset charcoal",
+          "ok": true,
+          "ms": 0.1123
+        },
+        {
+          "n": 181,
+          "suite": "Effects",
+          "name": "Preset ink",
+          "ok": true,
+          "ms": 0.1047
+        },
+        {
+          "n": 182,
+          "suite": "Effects",
+          "name": "Preset bloom",
+          "ok": true,
+          "ms": 0.118
+        },
+        {
+          "n": 183,
+          "suite": "Effects",
+          "name": "Preset punch",
+          "ok": true,
+          "ms": 0.1157
+        },
+        {
+          "n": 184,
+          "suite": "Effects",
+          "name": "Preset flat",
+          "ok": true,
+          "ms": 0.1052
+        },
+        {
+          "n": 185,
+          "suite": "Effects",
+          "name": "Preset winter",
+          "ok": true,
+          "ms": 0.1207
+        },
+        {
+          "n": 186,
+          "suite": "Effects",
+          "name": "Preset summer",
+          "ok": true,
+          "ms": 0.1197
+        },
+        {
+          "n": 187,
+          "suite": "Effects",
+          "name": "Preset rainy",
+          "ok": true,
+          "ms": 0.1175
+        },
+        {
+          "n": 188,
+          "suite": "Effects",
+          "name": "Preset peach",
+          "ok": true,
+          "ms": 0.1161
+        },
+        {
+          "n": 189,
+          "suite": "Effects",
+          "name": "Preset coral",
+          "ok": true,
+          "ms": 0.1187
+        },
+        {
+          "n": 190,
+          "suite": "Effects",
+          "name": "Preset amethyst",
+          "ok": true,
+          "ms": 0.1005
+        },
+        {
+          "n": 191,
+          "suite": "Effects",
+          "name": "Preset copper",
+          "ok": true,
+          "ms": 0.1222
+        },
+        {
+          "n": 192,
+          "suite": "Effects",
+          "name": "Preset denim",
+          "ok": true,
+          "ms": 0.1154
+        },
+        {
+          "n": 193,
+          "suite": "Effects",
+          "name": "Preset gothic",
+          "ok": true,
+          "ms": 0.1147
+        },
+        {
+          "n": 194,
+          "suite": "Effects",
+          "name": "Preset romance",
+          "ok": true,
+          "ms": 0.1002
+        },
+        {
+          "n": 195,
+          "suite": "Effects",
+          "name": "Preset duotone",
+          "ok": true,
+          "ms": 0.1055
+        },
+        {
+          "n": 196,
+          "suite": "Effects",
+          "name": "Preset glitch",
+          "ok": true,
+          "ms": 0.1221
+        },
+        {
+          "n": 197,
+          "suite": "Effects",
+          "name": "Preset watercolor",
+          "ok": true,
+          "ms": 0.1232
+        },
+        {
+          "n": 198,
+          "suite": "Effects",
+          "name": "Preset anime",
+          "ok": true,
+          "ms": 0.1235
+        },
+        {
+          "n": 199,
+          "suite": "Effects",
+          "name": "Preset silhouette",
+          "ok": true,
+          "ms": 0.1156
+        },
+        {
+          "n": 200,
+          "suite": "Effects",
+          "name": "Preset amber",
+          "ok": true,
+          "ms": 0.1176
+        },
+        {
+          "n": 201,
+          "suite": "Effects",
+          "name": "Preset steel",
+          "ok": true,
+          "ms": 0.1182
+        },
+        {
+          "n": 202,
+          "suite": "Effects",
+          "name": "Preset push",
+          "ok": true,
+          "ms": 0.1113
+        },
+        {
+          "n": 203,
+          "suite": "Effects",
+          "name": "Preset pull",
+          "ok": true,
+          "ms": 0.1062
+        },
+        {
+          "n": 204,
           "suite": "Effects",
           "name": "Preset midcentury",
           "ok": true,
-          "ms": 0.0962
+          "ms": 0.1178
         },
         {
+          "n": 205,
           "suite": "Effects",
           "name": "Preset horror",
           "ok": true,
-          "ms": 0.1018
+          "ms": 0.1197
         },
         {
+          "n": 206,
           "suite": "Effects",
           "name": "Preset miniature",
           "ok": true,
-          "ms": 0.0944
+          "ms": 0.1169
         }
       ]
     },
     {
       "name": "Formats & samples",
+      "file": "formats-samples.js",
       "passed": 50,
       "failed": 0,
       "total": 50,
-      "ms": 0.47000000000000014,
+      "ms": 1.4739999999999998,
       "items": [
         {
+          "n": 265,
           "suite": "Formats & samples",
           "name": "Image ext .jpg is classified",
           "ok": true,
-          "ms": 0.0564
+          "ms": 0.0718
         },
         {
+          "n": 266,
           "suite": "Formats & samples",
           "name": "Image ext .jpeg is classified",
           "ok": true,
-          "ms": 0.0144
+          "ms": 0.0186
         },
         {
+          "n": 267,
           "suite": "Formats & samples",
           "name": "Image ext .png is classified",
           "ok": true,
           "ms": 0.0019
         },
         {
+          "n": 268,
           "suite": "Formats & samples",
           "name": "Image ext .gif is classified",
-          "ok": true,
-          "ms": 0.0012
-        },
-        {
-          "suite": "Formats & samples",
-          "name": "Image ext .bmp is classified",
-          "ok": true,
-          "ms": 0.0012
-        },
-        {
-          "suite": "Formats & samples",
-          "name": "Image ext .webp is classified",
           "ok": true,
           "ms": 0.0011
         },
         {
+          "n": 269,
+          "suite": "Formats & samples",
+          "name": "Image ext .bmp is classified",
+          "ok": true,
+          "ms": 0.0009
+        },
+        {
+          "n": 270,
+          "suite": "Formats & samples",
+          "name": "Image ext .webp is classified",
+          "ok": true,
+          "ms": 0.0013
+        },
+        {
+          "n": 271,
           "suite": "Formats & samples",
           "name": "Image ext .svg is classified",
           "ok": true,
-          "ms": 0.001
+          "ms": 0.0009
         },
         {
+          "n": 272,
           "suite": "Formats & samples",
           "name": "Image ext .ico is classified",
           "ok": true,
           "ms": 0.0009
         },
         {
+          "n": 273,
           "suite": "Formats & samples",
           "name": "Image ext .tiff is classified",
           "ok": true,
-          "ms": 0.0016
+          "ms": 0.0017
         },
         {
+          "n": 274,
           "suite": "Formats & samples",
           "name": "Image ext .tif is classified",
           "ok": true,
-          "ms": 0.0053
+          "ms": 0.0057
         },
         {
+          "n": 275,
           "suite": "Formats & samples",
           "name": "Image ext .heic is classified",
           "ok": true,
-          "ms": 0.0016
+          "ms": 0.0018
         },
         {
+          "n": 276,
           "suite": "Formats & samples",
           "name": "Image ext .heif is classified",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.0008
         },
         {
+          "n": 277,
           "suite": "Formats & samples",
           "name": "Image ext .hif is classified",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.0008
         },
         {
+          "n": 278,
           "suite": "Formats & samples",
           "name": "Image ext .dcm is classified",
           "ok": true,
-          "ms": 0.0006
-        },
-        {
-          "suite": "Formats & samples",
-          "name": "Image ext .dicom is classified",
-          "ok": true,
-          "ms": 0.0011
-        },
-        {
-          "suite": "Formats & samples",
-          "name": "Image ext .avif is classified",
-          "ok": true,
           "ms": 0.0007
         },
         {
+          "n": 279,
           "suite": "Formats & samples",
-          "name": "Video ext .mp4 is classified",
+          "name": "Image ext .dicom is classified",
           "ok": true,
-          "ms": 0.0113
+          "ms": 0.0014
         },
         {
+          "n": 280,
           "suite": "Formats & samples",
-          "name": "Video ext .webm is classified",
+          "name": "Image ext .avif is classified",
           "ok": true,
           "ms": 0.001
         },
         {
+          "n": 281,
           "suite": "Formats & samples",
-          "name": "Video ext .ogv is classified",
+          "name": "Video ext .mp4 is classified",
+          "ok": true,
+          "ms": 0.0126
+        },
+        {
+          "n": 282,
+          "suite": "Formats & samples",
+          "name": "Video ext .webm is classified",
           "ok": true,
           "ms": 0.0011
         },
         {
+          "n": 283,
+          "suite": "Formats & samples",
+          "name": "Video ext .ogv is classified",
+          "ok": true,
+          "ms": 0.0009
+        },
+        {
+          "n": 284,
           "suite": "Formats & samples",
           "name": "Video ext .mov is classified",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.001
         },
         {
+          "n": 285,
           "suite": "Formats & samples",
           "name": "Video ext .avi is classified",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.0008
         },
         {
+          "n": 286,
           "suite": "Formats & samples",
           "name": "Video ext .mkv is classified",
           "ok": true,
           "ms": 0.0007
         },
         {
+          "n": 287,
           "suite": "Formats & samples",
           "name": "Video ext .m4v is classified",
           "ok": true,
-          "ms": 0.0006
+          "ms": 0.0007
         },
         {
+          "n": 288,
           "suite": "Formats & samples",
           "name": "Video ext .flv is classified",
           "ok": true,
-          "ms": 0.001
+          "ms": 0.0008
         },
         {
+          "n": 289,
           "suite": "Formats & samples",
           "name": "Video ext .wmv is classified",
           "ok": true,
-          "ms": 0.0011
+          "ms": 0.0014
         },
         {
+          "n": 290,
           "suite": "Formats & samples",
           "name": "Video ext .3gp is classified",
           "ok": true,
-          "ms": 0.0016
+          "ms": 0.0022
         },
         {
+          "n": 291,
           "suite": "Formats & samples",
           "name": "Video ext .mpeg is classified",
           "ok": true,
           "ms": 0.0009
         },
         {
+          "n": 292,
           "suite": "Formats & samples",
           "name": "Video ext .mpg is classified",
-          "ok": true,
-          "ms": 0.0008
-        },
-        {
-          "suite": "Formats & samples",
-          "name": "Video ext .ts is classified",
-          "ok": true,
-          "ms": 0.0012
-        },
-        {
-          "suite": "Formats & samples",
-          "name": "Video ext .m2ts is classified",
           "ok": true,
           "ms": 0.0009
         },
         {
+          "n": 293,
+          "suite": "Formats & samples",
+          "name": "Video ext .ts is classified",
+          "ok": true,
+          "ms": 0.0011
+        },
+        {
+          "n": 294,
+          "suite": "Formats & samples",
+          "name": "Video ext .m2ts is classified",
+          "ok": true,
+          "ms": 0.0012
+        },
+        {
+          "n": 295,
           "suite": "Formats & samples",
           "name": "Video ext .vob is classified",
           "ok": true,
           "ms": 0.0008
         },
         {
+          "n": 296,
           "suite": "Formats & samples",
           "name": "Video ext .rm is classified",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.0008
         },
         {
+          "n": 297,
           "suite": "Formats & samples",
           "name": "Video ext .rmvb is classified",
           "ok": true,
           "ms": 0.0008
         },
         {
+          "n": 298,
           "suite": "Formats & samples",
           "name": "Audio ext .mp3 is classified",
           "ok": true,
-          "ms": 0.0089
+          "ms": 0.0098
         },
         {
+          "n": 299,
           "suite": "Formats & samples",
           "name": "Audio ext .wav is classified",
+          "ok": true,
+          "ms": 0.0011
+        },
+        {
+          "n": 300,
+          "suite": "Formats & samples",
+          "name": "Audio ext .flac is classified",
+          "ok": true,
+          "ms": 0.0011
+        },
+        {
+          "n": 301,
+          "suite": "Formats & samples",
+          "name": "Audio ext .aac is classified",
           "ok": true,
           "ms": 0.001
         },
         {
-          "suite": "Formats & samples",
-          "name": "Audio ext .flac is classified",
-          "ok": true,
-          "ms": 0.0009
-        },
-        {
-          "suite": "Formats & samples",
-          "name": "Audio ext .aac is classified",
-          "ok": true,
-          "ms": 0.0008
-        },
-        {
+          "n": 302,
           "suite": "Formats & samples",
           "name": "Audio ext .m4a is classified",
           "ok": true,
-          "ms": 0.0012
+          "ms": 0.001
         },
         {
+          "n": 303,
           "suite": "Formats & samples",
           "name": "Audio ext .ogg is classified",
           "ok": true,
-          "ms": 0.0008
+          "ms": 0.0013
         },
         {
+          "n": 304,
           "suite": "Formats & samples",
           "name": "Audio ext .opus is classified",
           "ok": true,
-          "ms": 0.0009
+          "ms": 0.001
         },
         {
+          "n": 305,
           "suite": "Formats & samples",
           "name": "Audio ext .wma is classified",
           "ok": true,
           "ms": 0.0009
         },
         {
+          "n": 306,
           "suite": "Formats & samples",
           "name": "Audio ext .mid is classified",
           "ok": true,
-          "ms": 0.0011
+          "ms": 0.0012
         },
         {
+          "n": 307,
           "suite": "Formats & samples",
           "name": "Audio ext .midi is classified",
           "ok": true,
           "ms": 0.0018
         },
         {
+          "n": 308,
           "suite": "Formats & samples",
           "name": "Audio ext .aiff is classified",
+          "ok": true,
+          "ms": 0.0012
+        },
+        {
+          "n": 309,
+          "suite": "Formats & samples",
+          "name": "Audio ext .aif is classified",
           "ok": true,
           "ms": 0.001
         },
         {
-          "suite": "Formats & samples",
-          "name": "Audio ext .aif is classified",
-          "ok": true,
-          "ms": 0.0009
-        },
-        {
+          "n": 310,
           "suite": "Formats & samples",
           "name": "Unknown .txt is not an image",
           "ok": true,
-          "ms": 0.01
+          "ms": 0.0105
         },
         {
+          "n": 311,
           "suite": "Formats & samples",
           "name": "FormatSupport exposes animated / TIFF / HEIC / DICOM helpers",
           "ok": true,
-          "ms": 0.0161
+          "ms": 0.0122
         },
         {
+          "n": 312,
           "suite": "Formats & samples",
           "name": "Sample SVG exists and is readable",
           "ok": true,
-          "ms": 0.1396
+          "ms": 0.1959
         },
         {
+          "n": 313,
           "suite": "Formats & samples",
           "name": "App icons exist as svg / png / ico",
           "ok": true,
-          "ms": 0.0585
+          "ms": 0.826
         },
         {
+          "n": 314,
           "suite": "Formats & samples",
           "name": "App icon SVG includes a pencil",
           "ok": true,
-          "ms": 0.1093
+          "ms": 0.267
         }
       ]
     },
     {
       "name": "DICOM & media",
+      "file": "dicom-media.js",
       "passed": 36,
       "failed": 0,
       "total": 36,
-      "ms": 0.3534999999999999,
+      "ms": 0.3812999999999999,
       "items": [
         {
+          "n": 1,
           "suite": "DICOM & media",
           "name": "DICOM decoder module is present",
           "ok": true,
-          "ms": 0.1086
+          "ms": 0.1212
         },
         {
+          "n": 2,
           "suite": "DICOM & media",
           "name": "DICOM UI #dicom-controls",
           "ok": true,
-          "ms": 0.0191
+          "ms": 0.0201
         },
         {
+          "n": 3,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-prev-frame",
-          "ok": true,
-          "ms": 0.0054
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-next-frame",
-          "ok": true,
-          "ms": 0.0046
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-frame",
-          "ok": true,
-          "ms": 0.0066
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-play",
           "ok": true,
           "ms": 0.0044
         },
         {
+          "n": 4,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-next-frame",
+          "ok": true,
+          "ms": 0.0064
+        },
+        {
+          "n": 5,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-frame",
+          "ok": true,
+          "ms": 0.0071
+        },
+        {
+          "n": 6,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-play",
+          "ok": true,
+          "ms": 0.0046
+        },
+        {
+          "n": 7,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-fps",
           "ok": true,
-          "ms": 0.0047
+          "ms": 0.005
         },
         {
+          "n": 8,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-preset",
           "ok": true,
-          "ms": 0.0047
+          "ms": 0.0049
         },
         {
+          "n": 9,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-wc",
           "ok": true,
-          "ms": 0.0052
+          "ms": 0.0056
         },
         {
+          "n": 10,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-ww",
           "ok": true,
-          "ms": 0.0084
+          "ms": 0.01
         },
         {
+          "n": 11,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-invert",
           "ok": true,
-          "ms": 0.0072
+          "ms": 0.0067
         },
         {
+          "n": 12,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-reset",
           "ok": true,
           "ms": 0.0043
         },
         {
+          "n": 13,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-colormap",
           "ok": true,
-          "ms": 0.0033
+          "ms": 0.0034
         },
         {
+          "n": 14,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-overlays",
           "ok": true,
-          "ms": 0.0035
+          "ms": 0.0038
         },
         {
+          "n": 15,
           "suite": "DICOM & media",
           "name": "DICOM UI #dcm-annot",
-          "ok": true,
-          "ms": 0.0041
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-tool-ruler",
-          "ok": true,
-          "ms": 0.0036
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-tool-angle",
-          "ok": true,
-          "ms": 0.0036
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-tool-ellipse",
-          "ok": true,
-          "ms": 0.0057
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-tool-rect",
-          "ok": true,
-          "ms": 0.0045
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-meas-clear",
-          "ok": true,
-          "ms": 0.0039
-        },
-        {
-          "suite": "DICOM & media",
-          "name": "DICOM UI #dcm-overlay",
           "ok": true,
           "ms": 0.0042
         },
         {
+          "n": 16,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-tool-ruler",
+          "ok": true,
+          "ms": 0.0039
+        },
+        {
+          "n": 17,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-tool-angle",
+          "ok": true,
+          "ms": 0.0037
+        },
+        {
+          "n": 18,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-tool-ellipse",
+          "ok": true,
+          "ms": 0.0049
+        },
+        {
+          "n": 19,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-tool-rect",
+          "ok": true,
+          "ms": 0.0046
+        },
+        {
+          "n": 20,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-meas-clear",
+          "ok": true,
+          "ms": 0.0038
+        },
+        {
+          "n": 21,
+          "suite": "DICOM & media",
+          "name": "DICOM UI #dcm-overlay",
+          "ok": true,
+          "ms": 0.0044
+        },
+        {
+          "n": 22,
           "suite": "DICOM & media",
           "name": "Media UI #video-player",
           "ok": true,
-          "ms": 0.0094
+          "ms": 0.0095
         },
         {
+          "n": 23,
           "suite": "DICOM & media",
           "name": "Media UI #audio-player",
           "ok": true,
           "ms": 0.0049
         },
         {
+          "n": 24,
           "suite": "DICOM & media",
           "name": "Media UI #mc-play",
           "ok": true,
-          "ms": 0.0021
+          "ms": 0.0022
         },
         {
+          "n": 25,
           "suite": "DICOM & media",
           "name": "Media UI #mc-pause",
           "ok": true,
-          "ms": 0.0021
+          "ms": 0.0024
         },
         {
+          "n": 26,
           "suite": "DICOM & media",
           "name": "Media UI #mc-stop",
           "ok": true,
           "ms": 0.0021
         },
         {
+          "n": 27,
           "suite": "DICOM & media",
           "name": "Media UI #mc-seek",
           "ok": true,
-          "ms": 0.0021
+          "ms": 0.0022
         },
         {
+          "n": 28,
           "suite": "DICOM & media",
           "name": "Media UI #mc-time",
           "ok": true,
-          "ms": 0.0023
+          "ms": 0.0025
         },
         {
+          "n": 29,
           "suite": "DICOM & media",
           "name": "Media UI #mc-mute",
           "ok": true,
           "ms": 0.0029
         },
         {
+          "n": 30,
           "suite": "DICOM & media",
           "name": "Media UI #mc-volume",
           "ok": true,
-          "ms": 0.0031
+          "ms": 0.0032
         },
         {
+          "n": 31,
           "suite": "DICOM & media",
           "name": "Media UI #mc-subtitle",
           "ok": true,
-          "ms": 0.0022
+          "ms": 0.0023
         },
         {
+          "n": 32,
           "suite": "DICOM & media",
           "name": "DICOM function _dicomApply",
           "ok": true,
-          "ms": 0.0285
+          "ms": 0.0334
         },
         {
+          "n": 33,
           "suite": "DICOM & media",
           "name": "DICOM function _dicomFrame",
           "ok": true,
-          "ms": 0.02
+          "ms": 0.0213
         },
         {
+          "n": 34,
           "suite": "DICOM & media",
           "name": "DICOM function _dicomWindow",
           "ok": true,
-          "ms": 0.0186
+          "ms": 0.0197
         },
         {
+          "n": 35,
           "suite": "DICOM & media",
           "name": "DICOM function _dicomSyncBar",
           "ok": true,
-          "ms": 0.0173
+          "ms": 0.0185
         },
         {
+          "n": 36,
           "suite": "DICOM & media",
           "name": "DICOM function _setDicomSession",
           "ok": true,
-          "ms": 0.0163
+          "ms": 0.0172
         }
       ]
     },
     {
       "name": "Folder drives & viewer chrome",
-      "passed": 21,
+      "file": "folder-drives-chrome.js",
+      "passed": 24,
       "failed": 0,
-      "total": 21,
-      "ms": 0.12040000000000001,
+      "total": 24,
+      "ms": 0.3925,
       "items": [
         {
+          "n": 241,
           "suite": "Folder drives & viewer chrome",
           "name": "Drive buttons live in the folder-view title",
           "ok": true,
-          "ms": 0.0164
+          "ms": 0.0183
         },
         {
+          "n": 242,
+          "suite": "Folder drives & viewer chrome",
+          "name": "Main and edit windows have a SE resize grip",
+          "ok": true,
+          "ms": 0.0469
+        },
+        {
+          "n": 243,
           "suite": "Folder drives & viewer chrome",
           "name": "Virtual prev/next on the image pane",
           "ok": true,
-          "ms": 0.0149
+          "ms": 0.0148
         },
         {
+          "n": 244,
           "suite": "Folder drives & viewer chrome",
           "name": "Dialog #settings-overlay exists",
           "ok": true,
-          "ms": 0.0158
+          "ms": 0.018
         },
         {
+          "n": 245,
           "suite": "Folder drives & viewer chrome",
           "name": "Dialog #shortcuts-overlay exists",
           "ok": true,
-          "ms": 0.0106
+          "ms": 0.0125
         },
         {
+          "n": 246,
           "suite": "Folder drives & viewer chrome",
           "name": "Dialog #resize-overlay exists",
           "ok": true,
-          "ms": 0.0117
+          "ms": 0.0136
         },
         {
+          "n": 247,
           "suite": "Folder drives & viewer chrome",
           "name": "Dialog #about-overlay exists",
           "ok": true,
-          "ms": 0.0063
+          "ms": 0.0072
         },
         {
+          "n": 248,
           "suite": "Folder drives & viewer chrome",
           "name": "Dialog #error-overlay exists",
           "ok": true,
-          "ms": 0.005
+          "ms": 0.0053
         },
         {
+          "n": 249,
           "suite": "Folder drives & viewer chrome",
           "name": "Dialog #context-menu exists",
           "ok": true,
-          "ms": 0.0048
+          "ms": 0.0052
         },
         {
+          "n": 250,
           "suite": "Folder drives & viewer chrome",
           "name": "Icon print is defined",
           "ok": true,
-          "ms": 0.0073
+          "ms": 0.0078
         },
         {
+          "n": 251,
           "suite": "Folder drives & viewer chrome",
           "name": "Icon edit is defined",
           "ok": true,
-          "ms": 0.0014
+          "ms": 0.0016
         },
         {
+          "n": 252,
           "suite": "Folder drives & viewer chrome",
           "name": "Icon openFile is defined",
           "ok": true,
           "ms": 0.0005
         },
         {
+          "n": 253,
           "suite": "Folder drives & viewer chrome",
           "name": "Icon openFolder is defined",
           "ok": true,
-          "ms": 0.0005
+          "ms": 0.0006
         },
         {
+          "n": 254,
           "suite": "Folder drives & viewer chrome",
           "name": "Icon rotateLeft is defined",
           "ok": true,
-          "ms": 0.0004
-        },
-        {
-          "suite": "Folder drives & viewer chrome",
-          "name": "Icon rotateRight is defined",
-          "ok": true,
-          "ms": 0.0015
-        },
-        {
-          "suite": "Folder drives & viewer chrome",
-          "name": "Icon flipH is defined",
-          "ok": true,
           "ms": 0.0005
         },
         {
+          "n": 255,
+          "suite": "Folder drives & viewer chrome",
+          "name": "Icon rotateRight is defined",
+          "ok": true,
+          "ms": 0.0007
+        },
+        {
+          "n": 256,
+          "suite": "Folder drives & viewer chrome",
+          "name": "Icon flipH is defined",
+          "ok": true,
+          "ms": 0.0006
+        },
+        {
+          "n": 257,
           "suite": "Folder drives & viewer chrome",
           "name": "Icon flipV is defined",
           "ok": true,
           "ms": 0.0005
         },
         {
+          "n": 258,
           "suite": "Folder drives & viewer chrome",
           "name": "Icon undo is defined",
           "ok": true,
-          "ms": 0.0008
+          "ms": 0.0009
         },
         {
+          "n": 259,
           "suite": "Folder drives & viewer chrome",
           "name": "Icon redo is defined",
-          "ok": true,
-          "ms": 0.0012
-        },
-        {
-          "suite": "Folder drives & viewer chrome",
-          "name": "Icon settings is defined",
-          "ok": true,
-          "ms": 0.0048
-        },
-        {
-          "suite": "Folder drives & viewer chrome",
-          "name": "Icon drive is defined",
           "ok": true,
           "ms": 0.0013
         },
         {
+          "n": 260,
+          "suite": "Folder drives & viewer chrome",
+          "name": "Icon settings is defined",
+          "ok": true,
+          "ms": 0.006
+        },
+        {
+          "n": 261,
+          "suite": "Folder drives & viewer chrome",
+          "name": "Icon drive is defined",
+          "ok": true,
+          "ms": 0.0076
+        },
+        {
+          "n": 262,
+          "suite": "Folder drives & viewer chrome",
+          "name": "Explorer arrow keys open the selected image",
+          "ok": true,
+          "ms": 0.1894
+        },
+        {
+          "n": 263,
+          "suite": "Folder drives & viewer chrome",
+          "name": "Explorer keyboard skips folders and only opens media",
+          "ok": true,
+          "ms": 0.0193
+        },
+        {
+          "n": 264,
           "suite": "Folder drives & viewer chrome",
           "name": "Drive-bar CSS exists",
           "ok": true,
-          "ms": 0.0142
+          "ms": 0.0134
         }
       ]
     },
     {
       "name": "Status, i18n, theme",
-      "passed": 54,
+      "file": "status-i18n-theme.js",
+      "passed": 115,
       "failed": 0,
-      "total": 54,
-      "ms": 2.3070999999999997,
+      "total": 115,
+      "ms": 4.883,
       "items": [
         {
+          "n": 430,
           "suite": "Status, i18n, theme",
           "name": "Main status bar has progress (no modal overlay for load)",
           "ok": true,
-          "ms": 0.0349
+          "ms": 0.0381
         },
         {
+          "n": 431,
           "suite": "Status, i18n, theme",
           "name": "Status bar has #status-zoom",
           "ok": true,
-          "ms": 0.0114
+          "ms": 0.0131
         },
         {
+          "n": 432,
           "suite": "Status, i18n, theme",
           "name": "Status bar has #status-dims",
           "ok": true,
-          "ms": 0.005
+          "ms": 0.0056
         },
         {
+          "n": 433,
           "suite": "Status, i18n, theme",
           "name": "Status bar has #status-format",
           "ok": true,
-          "ms": 0.0069
+          "ms": 0.0052
         },
         {
+          "n": 434,
           "suite": "Status, i18n, theme",
           "name": "Status bar has #status-idx",
           "ok": true,
           "ms": 0.0056
         },
         {
+          "n": 435,
           "suite": "Status, i18n, theme",
           "name": "Status bar has #status-msg",
           "ok": true,
-          "ms": 0.005
+          "ms": 0.0054
         },
         {
+          "n": 436,
           "suite": "Status, i18n, theme",
           "name": "Status bar has #status-progress-msg",
           "ok": true,
-          "ms": 0.004
+          "ms": 0.0041
         },
         {
+          "n": 437,
           "suite": "Status, i18n, theme",
           "name": "Status bar has #status-progress-pct",
           "ok": true,
-          "ms": 0.004
+          "ms": 0.0042
         },
         {
+          "n": 438,
           "suite": "Status, i18n, theme",
           "name": "ko.json and en.json have the same keys",
           "ok": true,
-          "ms": 0.4272
+          "ms": 0.5224
         },
         {
+          "n": 439,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace about is non-empty in ko/en",
           "ok": true,
-          "ms": 0.1422
+          "ms": 0.1771
         },
         {
+          "n": 440,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace app is non-empty in ko/en",
           "ok": true,
-          "ms": 0.1178
+          "ms": 0.1228
         },
         {
+          "n": 441,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace bgAlgo is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0793
+          "ms": 0.4113
         },
         {
+          "n": 442,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace context is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0927
+          "ms": 0.1109
         },
         {
+          "n": 443,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace dialog is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0731
+          "ms": 0.0727
         },
         {
+          "n": 444,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace dicom is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0706
+          "ms": 0.0686
         },
         {
+          "n": 445,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace editWindow is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0606
+          "ms": 0.0755
         },
         {
+          "n": 446,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace effects is non-empty in ko/en",
           "ok": true,
-          "ms": 0.3501
+          "ms": 0.2008
         },
         {
+          "n": 447,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace error is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0624
+          "ms": 0.0916
         },
         {
+          "n": 448,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace fd is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0591
+          "ms": 0.0874
         },
         {
+          "n": 449,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace info is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0582
+          "ms": 0.0723
         },
         {
+          "n": 450,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace menu is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0503
+          "ms": 0.0614
         },
         {
+          "n": 451,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace placeholder is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0469
+          "ms": 0.0555
         },
         {
+          "n": 452,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace print is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0484
+          "ms": 0.0707
         },
         {
+          "n": 453,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace progress is non-empty in ko/en",
           "ok": true,
-          "ms": 0.054
+          "ms": 0.0584
         },
         {
+          "n": 454,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace resize is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0465
+          "ms": 0.0577
         },
         {
+          "n": 455,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace save is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0421
+          "ms": 0.0536
         },
         {
+          "n": 456,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace settings is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0455
+          "ms": 0.057
         },
         {
+          "n": 457,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace shortcuts is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0414
+          "ms": 0.2446
         },
         {
+          "n": 458,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace status is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0419
+          "ms": 0.0782
         },
         {
+          "n": 459,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace theme is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0824
+          "ms": 0.0632
         },
         {
+          "n": 460,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace toolbar is non-empty in ko/en",
           "ok": true,
-          "ms": 0.039
+          "ms": 0.067
         },
         {
+          "n": 461,
           "suite": "Status, i18n, theme",
           "name": "i18n namespace tree is non-empty in ko/en",
           "ok": true,
-          "ms": 0.0314
+          "ms": 0.0618
         },
         {
+          "n": 462,
+          "suite": "Status, i18n, theme",
+          "name": "i18n namespace window is non-empty in ko/en",
+          "ok": true,
+          "ms": 0.0558
+        },
+        {
+          "n": 463,
           "suite": "Status, i18n, theme",
           "name": "Korean print / effect strings are localized",
           "ok": true,
-          "ms": 0.0275
+          "ms": 0.0714
         },
         {
+          "n": 464,
           "suite": "Status, i18n, theme",
           "name": "Theme registry has 20 themes",
           "ok": true,
-          "ms": 0.01
+          "ms": 0.0264
         },
         {
+          "n": 465,
           "suite": "Status, i18n, theme",
           "name": "Theme dark is registered",
           "ok": true,
-          "ms": 0.0082
+          "ms": 0.017
         },
         {
+          "n": 466,
           "suite": "Status, i18n, theme",
           "name": "Theme midnight is registered",
+          "ok": true,
+          "ms": 0.0021
+        },
+        {
+          "n": 467,
+          "suite": "Status, i18n, theme",
+          "name": "Theme dracula is registered",
+          "ok": true,
+          "ms": 0.0014
+        },
+        {
+          "n": 468,
+          "suite": "Status, i18n, theme",
+          "name": "Theme monokai is registered",
+          "ok": true,
+          "ms": 0.0013
+        },
+        {
+          "n": 469,
+          "suite": "Status, i18n, theme",
+          "name": "Theme nord is registered",
+          "ok": true,
+          "ms": 0.0012
+        },
+        {
+          "n": 470,
+          "suite": "Status, i18n, theme",
+          "name": "Theme solarized-dark is registered",
+          "ok": true,
+          "ms": 0.0045
+        },
+        {
+          "n": 471,
+          "suite": "Status, i18n, theme",
+          "name": "Theme one-dark is registered",
+          "ok": true,
+          "ms": 0.0013
+        },
+        {
+          "n": 472,
+          "suite": "Status, i18n, theme",
+          "name": "Theme gruvbox-dark is registered",
+          "ok": true,
+          "ms": 0.0013
+        },
+        {
+          "n": 473,
+          "suite": "Status, i18n, theme",
+          "name": "Theme tokyo-night is registered",
+          "ok": true,
+          "ms": 0.0016
+        },
+        {
+          "n": 474,
+          "suite": "Status, i18n, theme",
+          "name": "Theme catppuccin-mocha is registered",
+          "ok": true,
+          "ms": 0.0023
+        },
+        {
+          "n": 475,
+          "suite": "Status, i18n, theme",
+          "name": "Theme light is registered",
+          "ok": true,
+          "ms": 0.0016
+        },
+        {
+          "n": 476,
+          "suite": "Status, i18n, theme",
+          "name": "Theme solarized-light is registered",
+          "ok": true,
+          "ms": 0.0018
+        },
+        {
+          "n": 477,
+          "suite": "Status, i18n, theme",
+          "name": "Theme github-light is registered",
+          "ok": true,
+          "ms": 0.0015
+        },
+        {
+          "n": 478,
+          "suite": "Status, i18n, theme",
+          "name": "Theme gruvbox-light is registered",
+          "ok": true,
+          "ms": 0.0017
+        },
+        {
+          "n": 479,
+          "suite": "Status, i18n, theme",
+          "name": "Theme nord-light is registered",
+          "ok": true,
+          "ms": 0.0017
+        },
+        {
+          "n": 480,
+          "suite": "Status, i18n, theme",
+          "name": "Theme catppuccin-latte is registered",
+          "ok": true,
+          "ms": 0.0018
+        },
+        {
+          "n": 481,
+          "suite": "Status, i18n, theme",
+          "name": "Theme one-light is registered",
+          "ok": true,
+          "ms": 0.0017
+        },
+        {
+          "n": 482,
+          "suite": "Status, i18n, theme",
+          "name": "Theme rose-pine-dawn is registered",
+          "ok": true,
+          "ms": 0.0016
+        },
+        {
+          "n": 483,
+          "suite": "Status, i18n, theme",
+          "name": "Theme paper is registered",
+          "ok": true,
+          "ms": 0.0019
+        },
+        {
+          "n": 484,
+          "suite": "Status, i18n, theme",
+          "name": "Theme sky is registered",
+          "ok": true,
+          "ms": 0.0023
+        },
+        {
+          "n": 485,
+          "suite": "Status, i18n, theme",
+          "name": "Settings dialog has a Theme tab with dark/light button grids",
+          "ok": true,
+          "ms": 0.1021
+        },
+        {
+          "n": 486,
+          "suite": "Status, i18n, theme",
+          "name": "Theme registry has 10 dark and 10 light palettes",
+          "ok": true,
+          "ms": 0.0574
+        },
+        {
+          "n": 487,
+          "suite": "Status, i18n, theme",
+          "name": "Theme dark has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0855
+        },
+        {
+          "n": 488,
+          "suite": "Status, i18n, theme",
+          "name": "Theme midnight has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0022
+        },
+        {
+          "n": 489,
+          "suite": "Status, i18n, theme",
+          "name": "Theme dracula has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0019
+        },
+        {
+          "n": 490,
+          "suite": "Status, i18n, theme",
+          "name": "Theme monokai has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0034
+        },
+        {
+          "n": 491,
+          "suite": "Status, i18n, theme",
+          "name": "Theme nord has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0007
+        },
+        {
+          "n": 492,
+          "suite": "Status, i18n, theme",
+          "name": "Theme solarized-dark has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0005
+        },
+        {
+          "n": 493,
+          "suite": "Status, i18n, theme",
+          "name": "Theme one-dark has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0005
+        },
+        {
+          "n": 494,
+          "suite": "Status, i18n, theme",
+          "name": "Theme gruvbox-dark has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0005
+        },
+        {
+          "n": 495,
+          "suite": "Status, i18n, theme",
+          "name": "Theme tokyo-night has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0009
+        },
+        {
+          "n": 496,
+          "suite": "Status, i18n, theme",
+          "name": "Theme catppuccin-mocha has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0039
+        },
+        {
+          "n": 497,
+          "suite": "Status, i18n, theme",
+          "name": "Theme light has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0022
+        },
+        {
+          "n": 498,
+          "suite": "Status, i18n, theme",
+          "name": "Theme solarized-light has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0007
+        },
+        {
+          "n": 499,
+          "suite": "Status, i18n, theme",
+          "name": "Theme github-light has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0006
+        },
+        {
+          "n": 500,
+          "suite": "Status, i18n, theme",
+          "name": "Theme gruvbox-light has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0004
+        },
+        {
+          "n": 501,
+          "suite": "Status, i18n, theme",
+          "name": "Theme nord-light has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0005
+        },
+        {
+          "n": 502,
+          "suite": "Status, i18n, theme",
+          "name": "Theme catppuccin-latte has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0004
+        },
+        {
+          "n": 503,
+          "suite": "Status, i18n, theme",
+          "name": "Theme one-light has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0004
+        },
+        {
+          "n": 504,
+          "suite": "Status, i18n, theme",
+          "name": "Theme rose-pine-dawn has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0004
+        },
+        {
+          "n": 505,
+          "suite": "Status, i18n, theme",
+          "name": "Theme paper has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0006
+        },
+        {
+          "n": 506,
+          "suite": "Status, i18n, theme",
+          "name": "Theme sky has a 3-color swatch",
+          "ok": true,
+          "ms": 0.0004
+        },
+        {
+          "n": 507,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"dark\"]",
+          "ok": true,
+          "ms": 0.0128
+        },
+        {
+          "n": 508,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"midnight\"]",
+          "ok": true,
+          "ms": 0.001
+        },
+        {
+          "n": 509,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"dracula\"]",
+          "ok": true,
+          "ms": 0.0009
+        },
+        {
+          "n": 510,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"monokai\"]",
+          "ok": true,
+          "ms": 0.001
+        },
+        {
+          "n": 511,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"nord\"]",
           "ok": true,
           "ms": 0.0011
         },
         {
+          "n": 512,
           "suite": "Status, i18n, theme",
-          "name": "Theme dracula is registered",
+          "name": "CSS defines [data-theme=\"solarized-dark\"]",
           "ok": true,
-          "ms": 0.0008
+          "ms": 0.0025
         },
         {
+          "n": 513,
           "suite": "Status, i18n, theme",
-          "name": "Theme monokai is registered",
+          "name": "CSS defines [data-theme=\"one-dark\"]",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.0014
         },
         {
+          "n": 514,
           "suite": "Status, i18n, theme",
-          "name": "Theme nord is registered",
+          "name": "CSS defines [data-theme=\"gruvbox-dark\"]",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.0013
         },
         {
+          "n": 515,
           "suite": "Status, i18n, theme",
-          "name": "Theme solarized-dark is registered",
+          "name": "CSS defines [data-theme=\"tokyo-night\"]",
+          "ok": true,
+          "ms": 0.0017
+        },
+        {
+          "n": 516,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"catppuccin-mocha\"]",
+          "ok": true,
+          "ms": 0.0022
+        },
+        {
+          "n": 517,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"light\"]",
+          "ok": true,
+          "ms": 0.0017
+        },
+        {
+          "n": 518,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"solarized-light\"]",
+          "ok": true,
+          "ms": 0.0021
+        },
+        {
+          "n": 519,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"github-light\"]",
+          "ok": true,
+          "ms": 0.0017
+        },
+        {
+          "n": 520,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"gruvbox-light\"]",
+          "ok": true,
+          "ms": 0.0022
+        },
+        {
+          "n": 521,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"nord-light\"]",
+          "ok": true,
+          "ms": 0.0019
+        },
+        {
+          "n": 522,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"catppuccin-latte\"]",
+          "ok": true,
+          "ms": 0.004
+        },
+        {
+          "n": 523,
+          "suite": "Status, i18n, theme",
+          "name": "CSS defines [data-theme=\"one-light\"]",
           "ok": true,
           "ms": 0.0024
         },
         {
+          "n": 524,
           "suite": "Status, i18n, theme",
-          "name": "Theme one-dark is registered",
+          "name": "CSS defines [data-theme=\"rose-pine-dawn\"]",
           "ok": true,
-          "ms": 0.0008
+          "ms": 0.0024
         },
         {
+          "n": 525,
           "suite": "Status, i18n, theme",
-          "name": "Theme gruvbox-dark is registered",
+          "name": "CSS defines [data-theme=\"paper\"]",
           "ok": true,
-          "ms": 0.0008
+          "ms": 0.0025
         },
         {
+          "n": 526,
           "suite": "Status, i18n, theme",
-          "name": "Theme tokyo-night is registered",
+          "name": "CSS defines [data-theme=\"sky\"]",
           "ok": true,
-          "ms": 0.0009
+          "ms": 0.0026
         },
         {
+          "n": 527,
           "suite": "Status, i18n, theme",
-          "name": "Theme catppuccin-mocha is registered",
+          "name": "Themes.next wraps from last palette to first",
           "ok": true,
-          "ms": 0.0015
+          "ms": 0.0499
         },
         {
+          "n": 528,
           "suite": "Status, i18n, theme",
-          "name": "Theme light is registered",
+          "name": "Themes.normalize falls back to dark",
           "ok": true,
-          "ms": 0.001
+          "ms": 0.0208
         },
         {
+          "n": 529,
           "suite": "Status, i18n, theme",
-          "name": "Theme solarized-light is registered",
+          "name": "Themes.label uses i18n keys for named defaults",
           "ok": true,
-          "ms": 0.001
+          "ms": 0.045
         },
         {
+          "n": 530,
           "suite": "Status, i18n, theme",
-          "name": "Theme github-light is registered",
+          "name": "Settings has general tab and panel",
           "ok": true,
-          "ms": 0.0009
+          "ms": 0.0362
         },
         {
+          "n": 531,
           "suite": "Status, i18n, theme",
-          "name": "Theme gruvbox-light is registered",
+          "name": "Settings has theme tab and panel",
           "ok": true,
-          "ms": 0.0011
+          "ms": 0.0249
         },
         {
+          "n": 532,
           "suite": "Status, i18n, theme",
-          "name": "Theme nord-light is registered",
+          "name": "Settings has viewer tab and panel",
           "ok": true,
-          "ms": 0.0012
+          "ms": 0.0242
         },
         {
+          "n": 533,
           "suite": "Status, i18n, theme",
-          "name": "Theme catppuccin-latte is registered",
+          "name": "Settings has dicom tab and panel",
           "ok": true,
-          "ms": 0.001
+          "ms": 0.025
         },
         {
+          "n": 534,
           "suite": "Status, i18n, theme",
-          "name": "Theme one-light is registered",
+          "name": "Settings has media tab and panel",
           "ok": true,
-          "ms": 0.0012
+          "ms": 0.0265
         },
         {
+          "n": 535,
           "suite": "Status, i18n, theme",
-          "name": "Theme rose-pine-dawn is registered",
+          "name": "Theme tab follows General in the settings tab strip",
           "ok": true,
-          "ms": 0.0011
+          "ms": 0.0511
         },
         {
+          "n": 536,
           "suite": "Status, i18n, theme",
-          "name": "Theme paper is registered",
+          "name": "General panel no longer hosts the theme dropdown",
           "ok": true,
-          "ms": 0.0015
+          "ms": 0.0509
         },
         {
+          "n": 537,
           "suite": "Status, i18n, theme",
-          "name": "Theme sky is registered",
+          "name": "Settings theme buttons apply the chosen palette",
           "ok": true,
-          "ms": 0.0018
+          "ms": 0.8961
+        },
+        {
+          "n": 538,
+          "suite": "Status, i18n, theme",
+          "name": "Settings dialog is 640×580 so theme buttons fit",
+          "ok": true,
+          "ms": 0.0224
+        },
+        {
+          "n": 539,
+          "suite": "Status, i18n, theme",
+          "name": "Theme tab CSS: grid",
+          "ok": true,
+          "ms": 0.0194
+        },
+        {
+          "n": 540,
+          "suite": "Status, i18n, theme",
+          "name": "Theme tab CSS: active state",
+          "ok": true,
+          "ms": 0.0039
+        },
+        {
+          "n": 541,
+          "suite": "Status, i18n, theme",
+          "name": "Theme tab CSS: color preview",
+          "ok": true,
+          "ms": 0.0036
+        },
+        {
+          "n": 542,
+          "suite": "Status, i18n, theme",
+          "name": "Theme tab CSS: theme name",
+          "ok": true,
+          "ms": 0.0038
+        },
+        {
+          "n": 543,
+          "suite": "Status, i18n, theme",
+          "name": "Theme tab CSS: five columns",
+          "ok": true,
+          "ms": 0.0065
+        },
+        {
+          "n": 544,
+          "suite": "Status, i18n, theme",
+          "name": "Theme tab strings are localized",
+          "ok": true,
+          "ms": 0.0283
         }
       ]
     },
     {
       "name": "IPC & packaging",
-      "passed": 33,
+      "file": "ipc-packaging.js",
+      "passed": 40,
       "failed": 0,
-      "total": 33,
-      "ms": 0.18919999999999995,
+      "total": 40,
+      "ms": 1.0648,
       "items": [
         {
+          "n": 315,
           "suite": "IPC & packaging",
           "name": "preload exposes readDirectory",
           "ok": true,
-          "ms": 0.0119
+          "ms": 0.0152
         },
         {
+          "n": 316,
           "suite": "IPC & packaging",
           "name": "preload exposes listDrives",
           "ok": true,
-          "ms": 0.0014
+          "ms": 0.0026
         },
         {
+          "n": 317,
           "suite": "IPC & packaging",
           "name": "preload exposes pathAncestors",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.0011
         },
         {
+          "n": 318,
           "suite": "IPC & packaging",
           "name": "preload exposes readFileBytes",
-          "ok": true,
-          "ms": 0.0009
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes printImage",
-          "ok": true,
-          "ms": 0.001
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes getPrinters",
-          "ok": true,
-          "ms": 0.0012
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes readFileBase64",
-          "ok": true,
-          "ms": 0.0008
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes decodeDicom",
-          "ok": true,
-          "ms": 0.0012
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes windowClose",
-          "ok": true,
-          "ms": 0.0014
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes windowMinimize",
-          "ok": true,
-          "ms": 0.0007
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes windowMaximize",
-          "ok": true,
-          "ms": 0.0005
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes getFileAssocStatus",
-          "ok": true,
-          "ms": 0.0018
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes setDefaultImageViewer",
-          "ok": true,
-          "ms": 0.0018
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes openDefaultAppsSettings",
-          "ok": true,
-          "ms": 0.0018
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes watchDirectory",
-          "ok": true,
-          "ms": 0.0014
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "preload exposes watchFile",
           "ok": true,
           "ms": 0.0015
         },
         {
+          "n": 319,
           "suite": "IPC & packaging",
-          "name": "preload exposes openFileDialog",
+          "name": "preload exposes printImage",
+          "ok": true,
+          "ms": 0.0014
+        },
+        {
+          "n": 320,
+          "suite": "IPC & packaging",
+          "name": "preload exposes getPrinters",
+          "ok": true,
+          "ms": 0.0015
+        },
+        {
+          "n": 321,
+          "suite": "IPC & packaging",
+          "name": "preload exposes readFileBase64",
+          "ok": true,
+          "ms": 0.0027
+        },
+        {
+          "n": 322,
+          "suite": "IPC & packaging",
+          "name": "preload exposes decodeDicom",
+          "ok": true,
+          "ms": 0.0016
+        },
+        {
+          "n": 323,
+          "suite": "IPC & packaging",
+          "name": "preload exposes windowClose",
+          "ok": true,
+          "ms": 0.0023
+        },
+        {
+          "n": 324,
+          "suite": "IPC & packaging",
+          "name": "preload exposes windowMinimize",
+          "ok": true,
+          "ms": 0.0012
+        },
+        {
+          "n": 325,
+          "suite": "IPC & packaging",
+          "name": "preload exposes windowMaximize",
+          "ok": true,
+          "ms": 0.0008
+        },
+        {
+          "n": 326,
+          "suite": "IPC & packaging",
+          "name": "preload exposes getFileAssocStatus",
+          "ok": true,
+          "ms": 0.0021
+        },
+        {
+          "n": 327,
+          "suite": "IPC & packaging",
+          "name": "preload exposes setDefaultImageViewer",
+          "ok": true,
+          "ms": 0.0024
+        },
+        {
+          "n": 328,
+          "suite": "IPC & packaging",
+          "name": "preload exposes openDefaultAppsSettings",
+          "ok": true,
+          "ms": 0.0029
+        },
+        {
+          "n": 329,
+          "suite": "IPC & packaging",
+          "name": "preload exposes watchDirectory",
+          "ok": true,
+          "ms": 0.0033
+        },
+        {
+          "n": 330,
+          "suite": "IPC & packaging",
+          "name": "preload exposes watchFile",
           "ok": true,
           "ms": 0.0022
         },
         {
+          "n": 331,
+          "suite": "IPC & packaging",
+          "name": "preload exposes openFileDialog",
+          "ok": true,
+          "ms": 0.0018
+        },
+        {
+          "n": 332,
           "suite": "IPC & packaging",
           "name": "preload exposes openFolderDialog",
           "ok": true,
-          "ms": 0.0007
+          "ms": 0.0014
         },
         {
+          "n": 333,
+          "suite": "IPC & packaging",
+          "name": "preload exposes renamePath",
+          "ok": true,
+          "ms": 0.003
+        },
+        {
+          "n": 334,
+          "suite": "IPC & packaging",
+          "name": "preload exposes deleteFile",
+          "ok": true,
+          "ms": 0.0027
+        },
+        {
+          "n": 335,
           "suite": "IPC & packaging",
           "name": "main handles print-image",
           "ok": true,
-          "ms": 0.0298
+          "ms": 0.0411
         },
         {
+          "n": 336,
           "suite": "IPC & packaging",
           "name": "main handles list-drives",
           "ok": true,
-          "ms": 0.0074
+          "ms": 0.0099
         },
         {
+          "n": 337,
           "suite": "IPC & packaging",
           "name": "main handles read-directory",
           "ok": true,
-          "ms": 0.0061
+          "ms": 0.0079
         },
         {
+          "n": 338,
           "suite": "IPC & packaging",
           "name": "main handles decode-dicom",
           "ok": true,
-          "ms": 0.0171
+          "ms": 0.0203
         },
         {
+          "n": 339,
           "suite": "IPC & packaging",
           "name": "main handles get-printers",
           "ok": true,
-          "ms": 0.0193
+          "ms": 0.0233
         },
         {
+          "n": 340,
           "suite": "IPC & packaging",
           "name": "main handles watch-directory",
           "ok": true,
-          "ms": 0.0223
+          "ms": 0.0264
         },
         {
+          "n": 341,
           "suite": "IPC & packaging",
           "name": "main handles get-file-assoc-status",
           "ok": true,
-          "ms": 0.0142
+          "ms": 0.0176
         },
         {
+          "n": 342,
+          "suite": "IPC & packaging",
+          "name": "main handles rename-path",
+          "ok": true,
+          "ms": 0.0313
+        },
+        {
+          "n": 343,
+          "suite": "IPC & packaging",
+          "name": "main handles delete-file",
+          "ok": true,
+          "ms": 0.0314
+        },
+        {
+          "n": 344,
           "suite": "IPC & packaging",
           "name": "main builds print HTML",
           "ok": true,
-          "ms": 0.0225
+          "ms": 0.0391
         },
         {
+          "n": 345,
           "suite": "IPC & packaging",
           "name": "package.json version and appId",
           "ok": true,
-          "ms": 0.0111
+          "ms": 0.0153
         },
         {
+          "n": 346,
           "suite": "IPC & packaging",
           "name": "package script start",
           "ok": true,
-          "ms": 0.0057
+          "ms": 0.0071
         },
         {
+          "n": 347,
           "suite": "IPC & packaging",
           "name": "package script test",
-          "ok": true,
-          "ms": 0.0003
-        },
-        {
-          "suite": "IPC & packaging",
-          "name": "package script create-icons",
           "ok": true,
           "ms": 0.0002
         },
         {
+          "n": 348,
+          "suite": "IPC & packaging",
+          "name": "package script create-icons",
+          "ok": true,
+          "ms": 0.0003
+        },
+        {
+          "n": 349,
           "suite": "IPC & packaging",
           "name": "package script build:win",
           "ok": true,
           "ms": 0.0001
         },
         {
+          "n": 350,
           "suite": "IPC & packaging",
           "name": "package script build:mac",
           "ok": true,
-          "ms": 0.0001
+          "ms": 0.0002
         },
         {
+          "n": 351,
           "suite": "IPC & packaging",
           "name": "package script build:linux",
           "ok": true,
-          "ms": 0.0001
+          "ms": 0.0002
+        },
+        {
+          "n": 352,
+          "suite": "IPC & packaging",
+          "name": "Test report lists every case name by default",
+          "ok": true,
+          "ms": 0.2927
+        },
+        {
+          "n": 353,
+          "suite": "IPC & packaging",
+          "name": "Every case reports a numeric execution time",
+          "ok": true,
+          "ms": 0.2687
+        },
+        {
+          "n": 354,
+          "suite": "IPC & packaging",
+          "name": "Test report separates summary from case details",
+          "ok": true,
+          "ms": 0.178
         }
       ]
     }

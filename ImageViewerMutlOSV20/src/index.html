@@ -47,7 +47,7 @@
             <div id="tree-drive-bar" class="tree-drive-bar" role="toolbar" aria-label="Drives"></div>
           </div>
           <div id="tree-path-bar" hidden title=""></div>
-          <div id="file-tree-scroll">
+          <div id="file-tree-scroll" tabindex="0">
             <div id="file-tree-empty">
               <div data-i18n="tree.noDir">No folder opened</div>
               <span class="open-folder-link" id="ft-open-link" data-i18n="tree.openFolder">Open Folder</span>
@@ -282,6 +282,9 @@
         </div>
         <span id="status-progress-pct">0%</span>
       </div>
+      <div class="win-resize-grip" role="presentation" data-i18n-title="window.resize" title="Resize">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="10" cy="2" r="1.15"/><circle cx="6" cy="6" r="1.15"/><circle cx="10" cy="6" r="1.15"/><circle cx="2" cy="10" r="1.15"/><circle cx="6" cy="10" r="1.15"/><circle cx="10" cy="10" r="1.15"/></svg>
+      </div>
     </div>
 
   </div><!-- /app -->
@@ -383,6 +386,30 @@ Do you want to save before closing?</p>
     </div>
   </div>
 
+  <!-- ═══ Rename Dialog ═══ -->
+  <div id="rename-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box rename-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="edit" id="rename-title-icon"></span>
+          <span id="rename-title" data-i18n="context.rename">Rename</span>
+        </span>
+        <button class="dialog-close-btn" id="rename-close" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <label class="rename-label" for="rename-input" id="rename-label"></label>
+        <input id="rename-input" class="rename-input" type="text" spellcheck="false" autocomplete="off">
+        <p id="rename-error" class="rename-error" hidden></p>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="primary" id="rename-ok" data-i18n="dialog.rename.ok">Rename</button>
+        <button type="button" id="rename-cancel" data-i18n="dialog.rename.cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ Confirm / Save Dialog ═══ -->
   <div id="confirm-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box confirm-dialog-box">
@@ -464,8 +491,21 @@ Do you want to save before closing?</p>
     <!-- Menu bar (File · Edit · View · Effects · Help — built by app.js) -->
     <div id="ew-menubar" role="menubar"></div>
 
-    <!-- Toolbar row: tools · actions · Save / Apply / Cancel -->
+    <!-- Toolbar row: save/apply/cancel/print · tools · theme/lang/settings -->
     <div id="ew-toolbar-row">
+      <div class="ew-actions">
+        <button type="button" class="ew-action-btn" id="ew-save" data-i18n-title="editWindow.saveNew">
+          <span class="ew-action-icon" data-icon="saveAs"></span>
+        </button>
+        <button type="button" class="ew-action-btn primary" id="ew-apply" data-i18n-title="editWindow.apply">
+          <span class="ew-action-icon" data-icon="edit"></span>
+        </button>
+        <button type="button" class="ew-action-btn danger" id="ew-cancel" data-i18n-title="editWindow.cancel">
+          <span class="ew-action-icon" data-icon="close"></span>
+        </button>
+        <button type="button" class="ew-btn" id="ew-print" data-i18n-title="toolbar.print"></button>
+      </div>
+      <div class="ew-sep"></div>
       <div class="ew-toolbar">
         <!-- Selection tools -->
         <div class="ew-group" role="group">
@@ -501,7 +541,6 @@ Do you want to save before closing?</p>
           <button class="ew-btn" id="ew-flip-h"   data-i18n-title="toolbar.flipH"></button>
           <button class="ew-btn" id="ew-flip-v"   data-i18n-title="toolbar.flipV"></button>
           <button class="ew-btn" id="ew-resize"   data-i18n-title="toolbar.resize"></button>
-          <button class="ew-btn" id="ew-print"    data-i18n-title="toolbar.print"></button>
         </div>
 
         <div class="ew-sep"></div>
@@ -514,36 +553,23 @@ Do you want to save before closing?</p>
 
         <div class="ew-sep"></div>
 
-        <!-- Zoom -->
+        <!-- Zoom: [−] [100%] [+] -->
         <div class="ew-group" role="group">
-          <button class="ew-btn" id="ew-zoom-in"  data-i18n-title="toolbar.zoomIn"></button>
           <button class="ew-btn" id="ew-zoom-out" data-i18n-title="toolbar.zoomOut"></button>
+          <div class="ew-zoom-wrap">
+            <input id="ew-zoom-display" type="text" value="100%" title="Zoom level">
+          </div>
+          <button class="ew-btn" id="ew-zoom-in"  data-i18n-title="toolbar.zoomIn"></button>
           <button class="ew-btn" id="ew-fit"      data-i18n-title="toolbar.fitWindow"></button>
-        </div>
-
-        <div class="ew-sep"></div>
-
-        <!-- Theme / Language / Settings -->
-        <div class="ew-group" role="group">
-          <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
-          <button class="ew-btn caret-btn" id="ew-theme-menu" data-i18n-title="toolbar.themeMenu" aria-haspopup="menu"></button>
-          <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"></button>
-          <button class="ew-btn" id="ew-settings" data-i18n-title="toolbar.settings"></button>
         </div>
       </div>
 
       <span class="ew-spacer"></span>
-      <!-- Save / Apply / Cancel -->
-      <div class="ew-actions">
-        <button type="button" class="ew-action-btn" id="ew-save" data-i18n-title="editWindow.saveNew">
-          <span class="ew-action-icon" data-icon="saveAs"></span>
-        </button>
-        <button type="button" class="ew-action-btn danger" id="ew-cancel" data-i18n-title="editWindow.cancel">
-          <span class="ew-action-icon" data-icon="close"></span>
-        </button>
-        <button type="button" class="ew-action-btn primary" id="ew-apply" data-i18n-title="editWindow.apply">
-          <span class="ew-action-icon" data-icon="edit"></span>
-        </button>
+      <div class="ew-group ew-chrome" role="group">
+        <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
+        <button class="ew-btn caret-btn" id="ew-theme-menu" data-i18n-title="toolbar.themeMenu" aria-haspopup="menu"></button>
+        <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"></button>
+        <button class="ew-btn" id="ew-settings" data-i18n-title="toolbar.settings"></button>
       </div>
     </div>
 
@@ -594,6 +620,9 @@ Do you want to save before closing?</p>
         </div>
         <span id="ew-status-progress-pct">0%</span>
       </div>
+      <div class="win-resize-grip" role="presentation" data-i18n-title="window.resize" title="Resize">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="10" cy="2" r="1.15"/><circle cx="6" cy="6" r="1.15"/><circle cx="10" cy="6" r="1.15"/><circle cx="2" cy="10" r="1.15"/><circle cx="6" cy="10" r="1.15"/><circle cx="10" cy="10" r="1.15"/></svg>
+      </div>
     </div>
   </div><!-- /edit-window -->
 
@@ -630,22 +659,13 @@ Do you want to save before closing?</p>
       <!-- Fixed-size, tabbed body: every tab fits without scrolling -->
       <div class="settings-tabs" role="tablist">
         <button type="button" class="settings-tab active" role="tab" data-tab="general" aria-selected="true" data-i18n="settings.tab.general">General</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="theme" aria-selected="false" data-i18n="settings.tab.theme">Theme</button>
         <button type="button" class="settings-tab" role="tab" data-tab="viewer" aria-selected="false" data-i18n="settings.tab.viewer">Viewer &amp; editing</button>
         <button type="button" class="settings-tab" role="tab" data-tab="dicom" aria-selected="false">DICOM</button>
         <button type="button" class="settings-tab" role="tab" data-tab="media" aria-selected="false" data-i18n="settings.tab.media">Media</button>
       </div>
       <div class="dialog-body settings-body">
         <div class="settings-panel active" data-panel="general" role="tabpanel">
-          <div class="settings-row">
-            <label for="settings-theme">
-              <span data-i18n="settings.theme">Theme</span>
-              <span class="settings-hint" data-i18n="settings.themeHint">10 dark and 10 light themes</span>
-            </label>
-            <div class="settings-theme-row">
-              <span id="settings-theme-swatch"></span>
-              <select id="settings-theme" class="resize-select"></select>
-            </div>
-          </div>
           <div class="settings-row">
             <span data-i18n="settings.language">Language</span>
             <div class="settings-lang-row" role="radiogroup">
@@ -678,6 +698,12 @@ Do you want to save before closing?</p>
               <button type="button" class="settings-btn" id="settings-open-default-apps" data-i18n="settings.openDefaultApps">Windows settings</button>
             </div>
           </div>
+        </div>
+        <div class="settings-panel" data-panel="theme" role="tabpanel">
+          <div class="settings-theme-kind" data-i18n="menu.darkThemes">Dark Themes</div>
+          <div id="settings-theme-dark" class="settings-theme-grid"></div>
+          <div class="settings-theme-kind" data-i18n="menu.lightThemes">Light Themes</div>
+          <div id="settings-theme-light" class="settings-theme-grid"></div>
         </div>
         <div class="settings-panel" data-panel="viewer" role="tabpanel">
           <div class="settings-row">
