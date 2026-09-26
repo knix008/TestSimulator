@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import TitleBar from './components/TitleBar';
 import OutlineTree from './components/OutlineTree';
-import { THEMES, nextThemeId, rememberThemePref, preferredThemeForMode, systemThemeMode, themesByMode } from './lib/themes';
+import { THEMES, nextThemeId, rememberThemePref, preferredThemeForMode, systemThemeMode } from './lib/themes';
+import { ThemeMenuList } from './components/ThemeMenu';
 import ContextMenu from './components/ContextMenu';
 import Tooltip from './components/Tooltip';
 import Toasts from './components/Toasts';
@@ -17,8 +19,8 @@ import {
   IconFilePlus, IconFolder, IconSave, IconSaveAs, IconExport, IconChevron, IconPrinter,
   IconMd, IconHtml, IconPdf, IconWord, IconPaper, IconTrash, IconInfo, IconSettings,
   IconX, IconCopy, IconCut, IconPaste, IconSelectAll, IconTarget,
-  IconRefresh, IconCheck, IconContrast, IconBulb,
-  IconGlobe, IconHash, IconCalendar,
+  IconRefresh, IconBulb,
+  IconHash, IconCalendar, IconFlagUK, IconFlagKR,
   IconBold, IconItalic, IconStrike, IconUnderline, IconHeading, IconList, IconListOrdered, IconChecklist,
   IconQuote, IconCode, IconLink, IconTable, IconRule, IconImage, IconUndo, IconRedo,
 } from './components/Icons';
@@ -157,6 +159,7 @@ export default function App() {
   const sampleRef = useRef(null);
   const exportRef = useRef(null);
   const themeRef = useRef(null);
+  const themeMenuRef = useRef(null);
 
   // Localized labels baked into the exported/preview document.
   const docLabels = useMemo(() => ({
@@ -382,11 +385,35 @@ export default function App() {
       if (fileRef.current && !fileRef.current.contains(e.target)) setFileOpen(false);
       if (sampleRef.current && !sampleRef.current.contains(e.target)) setSampleOpen(false);
       if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false);
-      if (themeRef.current && !themeRef.current.contains(e.target)) setThemeOpen(false);
+      const inThemeBtn = themeRef.current && themeRef.current.contains(e.target);
+      const inThemeMenu = themeMenuRef.current && themeMenuRef.current.contains(e.target);
+      if (!inThemeBtn && !inThemeMenu) setThemeOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [fileOpen, sampleOpen, exportOpen, themeOpen]);
+
+  useLayoutEffect(() => {
+    if (!themeOpen) return undefined;
+    const menu = themeMenuRef.current;
+    const anchor = themeRef.current?.querySelector('.tb-theme');
+    if (!menu || !anchor) return undefined;
+    const place = () => {
+      const r = anchor.getBoundingClientRect();
+      const width = menu.offsetWidth;
+      const height = menu.offsetHeight;
+      let left = r.right - width;
+      if (left < 8) left = 8;
+      if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - width);
+      let top = r.bottom + 4;
+      if (top + height > window.innerHeight - 8) top = Math.max(8, window.innerHeight - 8 - height);
+      menu.style.top = `${top}px`;
+      menu.style.left = `${left}px`;
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [themeOpen, lang]);
 
   // Record a successfully opened/saved/exported file path: update the last-used
   // directory and prepend it to the recent-files list (max 10, deduped).
@@ -455,8 +482,8 @@ export default function App() {
     if (duration) setTimeout(() => dismissToast(id), duration);
   }
 
-  function showError(message, detail = '') {
-    setErrorInfo({ title: t('error.title'), message: message || String(message), detail: detail || '' });
+  function showError(message, detail = '', title) {
+    setErrorInfo({ title: title || t('error.title'), message: message || String(message), detail: detail || '' });
   }
 
   // Default export/file name = meeting title (until the user edits it).
@@ -532,14 +559,30 @@ export default function App() {
     }
   }
 
+  // A recent path that is no longer on disk: drop it from history and say so.
+  function reportMissingFile(fullPath) {
+    removeRecent(fullPath);
+    const message = t('status.openMissing');
+    setStatus(message);
+    showError(message, fullPath, t('status.openMissingTitle'));
+  }
+
   // Reopen a file from the recent list (Electron reads the path directly).
   async function openRecent(fullPath) {
     setFileOpen(false);
     try {
       const content = await readPath(fullPath);
-      if (content == null) { showError(t('status.openErr', { msg: fullPath }), ''); return; }
+      if (content == null) {
+        reportMissingFile(fullPath);
+        return;
+      }
       applyOpened(basenameOf(fullPath), content, fullPath);
     } catch (err) {
+      const missing = /ENOENT|no such file/i.test(String(err?.message || err));
+      if (missing) {
+        reportMissingFile(fullPath);
+        return;
+      }
       showError(t('status.openErr', { msg: err?.message || String(err) }), err?.stack);
     }
   }
@@ -1295,8 +1338,13 @@ export default function App() {
         <div className="toolbar-spacer" />
         <div className="toolbar-group">
           <button className="iconbtn" title={t('tip.clear')} onClick={clearAll} disabled={empty}><IconTrash /></button>
-          <button className="iconbtn lang-btn" title={`${t('tip.lang')} — ${lang === 'ko' ? 'EN' : '한글'}`} onClick={toggleLang}>
-            <IconGlobe /><span className="lang-code">{lang === 'ko' ? 'EN' : '한글'}</span>
+          <button
+            className="iconbtn lang-btn"
+            title={`${t('tip.lang')} — ${lang === 'ko' ? 'English' : '한국어'}`}
+            aria-label={lang === 'ko' ? 'English' : '한국어'}
+            onClick={toggleLang}
+          >
+            {lang === 'ko' ? <IconFlagUK /> : <IconFlagKR />}
           </button>
           <button className="iconbtn" title={t('tip.themeCycle')} onClick={cycleTheme}><IconRefresh /></button>
           <div className="dropdown" ref={themeRef}>
@@ -1316,34 +1364,13 @@ export default function App() {
               <span className="tb-theme-name">{themeAuto ? t('theme.auto') : t(`theme.${theme}`)}</span>
               <IconChevron size={14} />
             </button>
-            {themeOpen && (
-              <div className="dropdown-menu theme-menu">
-                <button className={`dropdown-item${themeAuto ? ' on' : ''}`} onClick={pickAutoTheme}>
-                  <IconContrast size={16} />
-                  <span>{t('theme.auto')}</span>
-                  {themeAuto && <span className="tick"><IconCheck size={14} /></span>}
-                </button>
-                {['dark', 'light'].map((mode) => (
-                  <React.Fragment key={mode}>
-                    <div className="dropdown-head">{t(mode === 'dark' ? 'theme.groupDark' : 'theme.groupLight')}</div>
-                    {themesByMode(mode).map((th) => (
-                      <button
-                        key={th.id}
-                        className={`dropdown-item${theme === th.id && !themeAuto ? ' on' : ''}`}
-                        onClick={() => pickTheme(th.id)}
-                      >
-                        <span className="theme-swatch-mini" aria-hidden="true">
-                          {th.bars.map((c, i) => <i key={i} style={{ background: c }} />)}
-                        </span>
-                        <span>{t(`theme.${th.id}`)}</span>
-                        {theme === th.id && !themeAuto && <span className="tick"><IconCheck size={14} /></span>}
-                      </button>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </div>
-            )}
           </div>
+          {themeOpen && createPortal(
+            <div className="dropdown-menu theme-menu" role="menu" ref={themeMenuRef}>
+              <ThemeMenuList theme={theme} themeAuto={themeAuto} onAuto={pickAutoTheme} onPick={pickTheme} />
+            </div>,
+            document.body,
+          )}
           <button className="iconbtn" title={t('tip.settings')} onClick={openSettings}><IconSettings /></button>
           <button className="iconbtn" title={t('tip.about')} onClick={openAbout}><IconInfo /></button>
         </div>

@@ -24,6 +24,7 @@ export default async function suite(test) {
       const html = renderToStaticMarkup(icon({ size: 16 }));
       includes(html, '<svg', name);
       ok(/width="\d+"/.test(html), name);
+      if (name.startsWith('IconFlag')) continue;
       includes(html, 'currentColor', name);
     }
     includes(renderToStaticMarkup(Icons.IconRefresh()), 'width="18"');

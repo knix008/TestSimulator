@@ -84,3 +84,57 @@ export const IconWinMin = (p) => <S {...p} size={14}><path d="M5 12h14" /></S>;
 export const IconWinMax = (p) => <S {...p} size={14}><rect x="5" y="5" width="14" height="14" rx="1" /></S>;
 export const IconWinRestore = (p) => <S {...p} size={14}><rect x="7" y="7" width="11" height="11" rx="1" /><path d="M7 7V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2" /></S>;
 export const IconWinClose = (p) => <S {...p} size={14}><path d="M18 6 6 18M6 6l12 12" /></S>;
+
+// Language toggle flags. These keep their own colors; they are the language
+// the button will switch to, not the language currently in use.
+function Flag({ children, width = 26 }) {
+  const height = Math.round(width * 2 / 3);
+  return (
+    <svg className="lang-flag" width={width} height={height} viewBox="0 0 60 40" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+
+export function IconFlagUK({ width = 26 } = {}) {
+  return (
+    <Flag width={width}>
+      <clipPath id="flag-uk">
+        <rect width="60" height="40" rx="2" />
+      </clipPath>
+      <g clipPath="url(#flag-uk)">
+        <rect width="60" height="40" fill="#012169" />
+        <path d="M0 0 L60 40 M60 0 L0 40" stroke="#fff" strokeWidth="8" />
+        <path d="M0 0 L60 40 M60 0 L0 40" stroke="#C8102E" strokeWidth="4" />
+        <path d="M30 0 V40 M0 20 H60" stroke="#fff" strokeWidth="14" />
+        <path d="M30 0 V40 M0 20 H60" stroke="#C8102E" strokeWidth="8" />
+      </g>
+    </Flag>
+  );
+}
+
+function Bars({ broken = [false, false, false] }) {
+  return broken.map((isBroken, i) => (
+    isBroken
+      ? <g key={i}><rect x="-6" y={-4.2 + i * 3.2} width="4.6" height="1.6" /><rect x="1.4" y={-4.2 + i * 3.2} width="4.6" height="1.6" /></g>
+      : <rect key={i} x="-6" y={-4.2 + i * 3.2} width="12" height="1.6" />
+  ));
+}
+
+export function IconFlagKR({ width = 26 } = {}) {
+  return (
+    <Flag width={width}>
+      <rect width="60" height="40" rx="3" fill="#fff" stroke="#c5c5c5" strokeWidth="1" />
+      <g transform="translate(30 20)" fill="#141414">
+        <g transform="translate(-16 -9) rotate(56)"><Bars /></g>
+        <g transform="translate(16 -9) rotate(-56)"><Bars broken={[true, false, true]} /></g>
+        <g transform="translate(-16 9) rotate(-56)"><Bars broken={[false, true, false]} /></g>
+        <g transform="translate(16 9) rotate(56)"><Bars broken={[true, true, true]} /></g>
+      </g>
+      <g transform="translate(30 20)">
+        <circle r="8.2" fill="#CD2E3A" />
+        <path d="M0-8.2a8.2 8.2 0 0 0 0 16.4 4.1 4.1 0 0 0 0-8.2 4.1 4.1 0 0 1 0-8.2z" fill="#0047A0" />
+      </g>
+    </Flag>
+  );
+}
