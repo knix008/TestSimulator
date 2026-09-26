@@ -49,6 +49,24 @@
           </div>
         </div>
         <div class="col">
+          <h2 data-i18n="h.trash">Trash</h2>
+          <label class="field">
+            <span data-i18n="f.trashEmptyEffect">Emptying the Trash</span>
+            <select id="trashEmptyEffect">
+              <option value="smoke" data-i18n="o.smoke">Puff of smoke</option>
+              <option value="lift" data-i18n="o.lift">Contents fly out</option>
+              <option value="shake" data-i18n="o.shake">Shake it out</option>
+              <option value="crush" data-i18n="o.crush">Crush</option>
+              <option value="none" data-i18n="o.none">None</option>
+            </select>
+          </label>
+          <div class="row">
+            <div id="trash-preview" class="remove-preview"></div>
+            <button type="button" id="trash-preview-play" class="ghost"
+                    data-i18n="b.playEffect">Play it</button>
+          </div>
+          <p class="hint" data-i18n="m.trashEffectHint"></p>
+
           <h2 data-i18n="h.about">About</h2>
           <p class="about">
             <strong>MyDockBar</strong> <span id="about-version"></span><br />
@@ -152,7 +170,7 @@
             </select>
           </label>
           <label class="field">
-            <span data-i18n="f.removeEffect">Drag off the dock</span>
+            <span data-i18n="f.removeEffect">Removing an icon</span>
             <select id="removeEffect">
               <option value="poof" data-i18n="o.poof">Poof</option>
               <option value="shrink" data-i18n="o.shrink">Shrink away</option>

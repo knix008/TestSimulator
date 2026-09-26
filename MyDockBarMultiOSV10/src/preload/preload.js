@@ -84,6 +84,8 @@ contextBridge.exposeInMainWorld('dockApi', {
     state: () => invoke('trash:state'),
     empty: () => invoke('trash:empty'),
     onChange: (handler) => on('dock:trash', handler),
+    // Only a real emptying, not every time the bin happens to become empty.
+    onEmptied: (handler) => on('dock:trash-emptied', handler),
   },
 
   icons: {

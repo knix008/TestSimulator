@@ -173,6 +173,8 @@
     bindSelect('clickEffectDirection');
     bindSelect('removeEffect').addEventListener('change', playRemovePreview);
     $('remove-preview-play').addEventListener('click', playRemovePreview);
+    bindSelect('trashEmptyEffect').addEventListener('change', playTrashPreview);
+    $('trash-preview-play').addEventListener('click', playTrashPreview);
     bindSelect('position', (patch) => {
       syncAlignChoices();
       patchDock(patch);
@@ -220,6 +222,7 @@
         }
         if (tab.dataset.tab === 'apps' && !state.apps.length) loadApps();
         if (tab.dataset.tab === 'zoom') { renderZoomPreview(); drawRemoveSample(); }
+        if (tab.dataset.tab === 'general') drawTrashSample(false);
         if (tab.dataset.tab === 'position') renderMonitorMap();
       });
     }
@@ -1008,6 +1011,90 @@
     return wrap;
   }
 
+  /**
+   * The emptying sample. Same classes as the dock's own Trash icon, so what
+   * plays here is the effect the dock will play, and the bin it leaves behind
+   * is the empty one - the whole point of having emptied it.
+   */
+  const TRASH_EFFECTS = {
+    smoke: 560, lift: 620, shake: 420, crush: 380, none: 0,
+  };
+
+  let trashDemoTimer = null;
+
+  /** The sample bin, full or empty, sitting still. */
+  function drawTrashSample(empty) {
+    const node = $('trash-preview');
+    if (!node || !state.cfg) return null;
+
+    clearTimeout(trashDemoTimer);
+    node.textContent = '';
+    node.className = 'remove-preview';
+
+    const inner = document.createElement('div');
+    inner.className = 'icon-inner';
+    const img = document.createElement('img');
+    img.src = Glyphs.get(empty ? 'system:trash' : 'system:trash-full');
+    img.alt = '';
+    inner.appendChild(img);
+    node.appendChild(inner);
+    return { node, inner };
+  }
+
+  function playTrashPreview() {
+    const drawn = drawTrashSample(false);
+    if (!drawn) return;
+    const { node } = drawn;
+
+    const name = state.cfg.dock.trashEmptyEffect;
+    const effect = Object.prototype.hasOwnProperty.call(TRASH_EFFECTS, name) ? name : 'smoke';
+    const ms = TRASH_EFFECTS[effect];
+    // "None" is a real choice: the bin simply becomes the empty one, which is
+    // exactly what the dock does when nothing is set to play.
+    if (!ms) { drawTrashSample(true); return; }
+
+    // A frame's grace, so the animation starts from the bin actually drawn.
+    requestAnimationFrame(() => {
+      node.classList.add('trash-emptying', `trash-${effect}`);
+      if (effect === 'smoke') node.appendChild(trashSmoke());
+      if (effect === 'lift') node.appendChild(trashScraps());
+      // Leave the empty bin behind, ready to be played again.
+      trashDemoTimer = setTimeout(() => drawTrashSample(true), ms + 120);
+    });
+  }
+
+  function trashSmoke() {
+    const wrap = document.createElement('div');
+    wrap.className = 'smoke';
+    const count = 5;
+    for (let i = 0; i < count; i += 1) {
+      const angle = -Math.PI + (Math.PI * (i + 0.5)) / count;
+      const reach = 85 + (i % 2) * 40;
+      const cloud = document.createElement('i');
+      cloud.style.setProperty('--px', `${Math.round(Math.cos(angle) * reach * 0.8)}%`);
+      cloud.style.setProperty('--py', `${Math.round(Math.sin(angle) * reach) - 40}%`);
+      cloud.style.animationDelay = `${i * 45}ms`;
+      wrap.appendChild(cloud);
+    }
+    return wrap;
+  }
+
+  function trashScraps() {
+    const wrap = document.createElement('div');
+    wrap.className = 'scraps';
+    const count = 7;
+    for (let i = 0; i < count; i += 1) {
+      const spread = ((i / (count - 1)) - 0.5) * 2;
+      const scrap = document.createElement('i');
+      scrap.style.setProperty('--px', `${Math.round(spread * 120)}%`);
+      scrap.style.setProperty('--py', `${-140 - Math.round((1 - Math.abs(spread)) * 90)}%`);
+      scrap.style.setProperty('--spin', `${Math.round(spread * 320)}deg`);
+      scrap.style.animationDelay = `${i * 26}ms`;
+      wrap.appendChild(scrap);
+    }
+    return wrap;
+  }
+
   /** A live sketch of the magnification curve using the current settings. */
   function renderZoomPreview() {
     const node = $('zoom-preview');
@@ -1258,6 +1345,7 @@
     $('clickEffect').value = dock.clickEffect;
     $('clickEffectDirection').value = dock.clickEffectDirection;
     $('removeEffect').value = dock.removeEffect;
+    $('trashEmptyEffect').value = dock.trashEmptyEffect;
     $('position').value = dock.position;
     syncAlignChoices();
     $('stackingLevel').value = dock.stackingLevel;
@@ -1322,6 +1410,9 @@
     state.items = await api.items.get();
     renderItems();
     applySnapshot(snapshot);
+    // The full bin, waiting to be emptied: the sample is only redrawn when it
+    // is played, so without this the box beside the button starts out empty.
+    drawTrashSample(false);
 
     api.config.onChange(async (next) => {
       const localeChanged = next.resolvedLocale !== state.cfg.resolvedLocale;

@@ -814,6 +814,87 @@
     return new Promise((resolve) => { setTimeout(resolve, ms); });
   }
 
+  /**
+   * How long each emptying effect runs, in step with css/effects.css. The
+   * classes come off at the end so the Trash goes back to sitting still - it
+   * is not leaving the dock, so it must not be left mid-animation.
+   */
+  const TRASH_EFFECTS = {
+    smoke: 560, lift: 620, shake: 420, crush: 380, none: 0,
+  };
+
+  /** Clouds rising out of the bin, drifting up and out as they go. */
+  function trashSmoke() {
+    const wrap = document.createElement('div');
+    wrap.className = 'smoke';
+    const count = 5;
+    for (let i = 0; i < count; i += 1) {
+      // Fanned across the top rather than all the way round: smoke leaves the
+      // bin upwards, so the spread is over the half-circle above it.
+      const angle = -Math.PI + (Math.PI * (i + 0.5)) / count;
+      const reach = 85 + (i % 2) * 40;
+      const cloud = document.createElement('i');
+      cloud.style.setProperty('--px', `${Math.round(Math.cos(angle) * reach * 0.8)}%`);
+      cloud.style.setProperty('--py', `${Math.round(Math.sin(angle) * reach) - 40}%`);
+      cloud.style.animationDelay = `${i * 45}ms`;
+      wrap.appendChild(cloud);
+    }
+    return wrap;
+  }
+
+  /** Scraps of paper thrown up out of the bin, tumbling as they fly. */
+  function trashScraps() {
+    const wrap = document.createElement('div');
+    wrap.className = 'scraps';
+    const count = 7;
+    for (let i = 0; i < count; i += 1) {
+      const spread = ((i / (count - 1)) - 0.5) * 2;   // -1 … 1 across the bin
+      const scrap = document.createElement('i');
+      scrap.style.setProperty('--px', `${Math.round(spread * 120)}%`);
+      scrap.style.setProperty('--py', `${-140 - Math.round((1 - Math.abs(spread)) * 90)}%`);
+      scrap.style.setProperty('--spin', `${Math.round(spread * 320)}deg`);
+      scrap.style.animationDelay = `${i * 26}ms`;
+      wrap.appendChild(scrap);
+    }
+    return wrap;
+  }
+
+  /**
+   * Play the emptying effect over the Trash icon.
+   *
+   * Nothing is awaited by the caller: the icon has already been repainted as
+   * the empty bin, and the animation is decoration over the top of it. Every
+   * class and particle is taken off at the end, so a repaint in the middle of
+   * one - a theme change, an app opening - costs a cut-off animation and
+   * nothing worse.
+   */
+  function playTrashEffect() {
+    const index = state.drawn.findIndex((item) => item.path === 'system:trash');
+    if (index < 0) return;
+    const node = state.nodes[index];
+    if (!node) return;
+
+    const name = state.cfg.dock.trashEmptyEffect;
+    const effect = Object.prototype.hasOwnProperty.call(TRASH_EFFECTS, name) ? name : 'smoke';
+    const ms = TRASH_EFFECTS[effect];
+    if (!ms) return;
+
+    // A second emptying while the first is still playing restarts it, rather
+    // than adding a class that is already there and animating nothing.
+    node.classList.remove('trash-emptying', `trash-${effect}`);
+    for (const stale of node.querySelectorAll('.smoke, .scraps')) stale.remove();
+    void node.offsetWidth;
+
+    node.classList.add('trash-emptying', `trash-${effect}`);
+    if (effect === 'smoke') node.appendChild(trashSmoke());
+    if (effect === 'lift') node.appendChild(trashScraps());
+
+    setTimeout(() => {
+      node.classList.remove('trash-emptying', `trash-${effect}`);
+      for (const particles of node.querySelectorAll('.smoke, .scraps')) particles.remove();
+    }, ms + 60);
+  }
+
   function setDropIndex(index) {
     if (state.dropIndex === index) return;
     state.dropIndex = index;
@@ -994,6 +1075,26 @@
     }
   }
 
+  /**
+   * Say goodbye to entries this dock is drawing that `next` no longer has.
+   *
+   * A removal from the context menu or the settings window arrives here as an
+   * ordinary config change, so this is what gives it the same farewell as
+   * dragging the icon off. A drag-off has already played its own, and the node
+   * it played it on still carries `vanishing`, which is how it is recognised
+   * and not bid farewell twice.
+   */
+  function playFarewells(next) {
+    const keep = new Set(next.map((item) => item.id));
+    const leaving = state.nodes.filter((node, i) => {
+      const item = state.drawn[i];
+      return item && !item.transient && !keep.has(item.id)
+        && !node.classList.contains('vanishing');
+    });
+    if (!leaving.length) return Promise.resolve();
+    return Promise.all(leaving.map(playRemoveEffect));
+  }
+
   async function refresh(snapshot) {
     state.cfg = snapshot;
     applyTheme(snapshot.theme);
@@ -1006,7 +1107,11 @@
     state.intensity = 0;
     state.targetIntensity = 0;
     el.tooltip.classList.remove('show');
-    state.items = await api.items.get();
+    const items = await api.items.get();
+    // The icons hold their places until the farewell has finished; the list is
+    // only swapped afterwards, so nothing is yanked out from under it.
+    await playFarewells(items);
+    state.items = items;
     render();
     markRunning();
   }
@@ -1075,6 +1180,18 @@
       if (!info || info.empty === state.trashEmpty) return;
       state.trashEmpty = info.empty;
       render();
+    });
+
+    // The bin was emptied on purpose. Repaint first - the effect plays over an
+    // icon that is already the empty bin, which is the moment it describes -
+    // and then run it. `onChange` above has usually already done the repaint,
+    // in which case this only plays the effect.
+    api.trash.onEmptied((info) => {
+      if (info && info.empty && !state.trashEmpty) {
+        state.trashEmpty = true;
+        render();
+      }
+      playTrashEffect();
     });
 
     api.dock.onRunningApps((apps) => {

@@ -28,9 +28,14 @@ function defaults() {
       // screen edge the dock is docked against, which is up for a dock along
       // the bottom and right for one down the left-hand side.
       clickEffectDirection: 'auto', // auto | up | down | left | right
-      // What an icon does on its way out when it is dragged off the dock.
+      // What an icon does on its way out - dragged off the dock, or removed
+      // from a menu or the settings window.
       // poof | shrink | fade | drop | suck | shatter | none
       removeEffect: 'poof',
+      // What the Trash does as it is emptied. The icon stays put and goes back
+      // to sitting still afterwards; only the bin's contents leave.
+      // smoke | lift | shake | crush | none
+      trashEmptyEffect: 'smoke',
       autoHide: false,
       autoHidePeek: 3,           // px left visible when hidden
       autoHideDelay: 450,        // ms before hiding again

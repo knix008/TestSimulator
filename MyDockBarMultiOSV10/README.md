@@ -35,7 +35,8 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
   slide between positions rather than jumping: the gap is a slot in the layout
   maths, not a node in the list, so nothing is rebuilt and a CSS transition can
   carry them.
-- **Drag an icon off the dock to remove it** — it shrinks away as it goes.
+- **Drag an icon off the dock to remove it** — it plays the chosen farewell as
+  it goes, and so does a removal from its own menu or from the settings window.
   Blocked while the dock is locked, and never for the built-in entries.
 - Anything added from the dock's context menu — an application, a folder, a
   separator — lands where the pointer was, not at the end.
@@ -46,7 +47,8 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
   window lookup is cached and warmed as soon as the pointer settles on an icon,
   which takes it off the click path.
 - The Trash shows whether it is holding anything, and can be emptied from its
-  context menu
+  context menu, with a choice of effect - smoke, contents flying out, a shake,
+  a crush, or none - played over the icon once the bin is really empty
 - A custom icon is remembered per target: remove an entry, add it back later,
   and the icon you chose comes back with it
 - Separators, folders, URLs and built-in actions (Home, Show Desktop, Trash,

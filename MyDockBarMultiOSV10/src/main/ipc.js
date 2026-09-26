@@ -203,6 +203,27 @@ function register({
     });
   }
 
+  /**
+   * Empty the bin, then tell every window what happened.
+   *
+   * Announced rather than simply left to the watcher: the watcher reports that
+   * the bin is now empty, which is also what restoring the last file looks
+   * like, and only an emptying earns the effect the dock plays over its Trash
+   * icon. A cancelled or failed emptying announces nothing - the bin still has
+   * things in it, so there is nothing to celebrate.
+   */
+  async function emptyTrash() {
+    const result = await trash.empty(dockHwnd(dockWindow));
+    if (!result.ok) {
+      if (result.error) console.error('[trash]', result.error);
+      return result;
+    }
+    const info = await trash.state();
+    broadcast('dock:trash-emptied', info);
+    broadcast('dock:trash', info);
+    return result;
+  }
+
   const pushConfig = () => {
     // Adding or removing the Trash entry is what decides whether the bin is
     // worth watching at all.
@@ -472,11 +493,7 @@ function register({
           label: t('menu.emptyTrash'),
           icon: menuIcons.get('trash-empty'),
           enabled: !full.empty,
-          click: async () => {
-            const result = await trash.empty(dockHwnd(dockWindow));
-            if (!result.ok && result.error) console.error('[trash]', result.error);
-            broadcast('dock:trash', await trash.state());
-          },
+          click: () => emptyTrash(),
         });
       }
       if (item.path && !item.path.startsWith('dock:') && !item.path.startsWith('system:') && item.type !== 'url') {
@@ -604,7 +621,7 @@ function register({
   });
 
   ipcMain.handle('trash:state', async () => trash.state());
-  ipcMain.handle('trash:empty', async () => trash.empty(dockHwnd(dockWindow)));
+  ipcMain.handle('trash:empty', async () => emptyTrash());
 
   /* ------------------------------ themes ------------------------------ */
 
