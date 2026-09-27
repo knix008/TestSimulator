@@ -27,6 +27,7 @@ import {
 import { meshVolume, solveVolume, volumeMesh, volumeReport } from './fea'
 import { runPython } from './python'
 import { PARITY_COMMANDS } from './parity'
+import { GAP_COMMANDS } from './gap'
 import {
   boundingBoxOf, booleanFragments, compoundSolids, crossSections, makePrimitive,
   offsetSolid, ruledSurface, surfaceArea, thicknessSolid, xorSolids
@@ -1790,7 +1791,8 @@ export const COMMANDS: Record<string, Command> = {
   ...sketchupCommands,
   ...kernelCommands,
   // The FreeCAD tools the workbenches above did not already cover.
-  ...PARITY_COMMANDS
+  ...PARITY_COMMANDS,
+  ...GAP_COMMANDS
 }
 
 export const COMMAND_IDS = Object.keys(COMMANDS)

@@ -69,6 +69,8 @@ const EXPLICIT: Record<string, string> = {
   suSection: 'view', suSectionCut: 'view', suWalk: 'view', suZoomExtents: 'view', suPaint: 'view',
   suTape: 'measure', suProtractor: 'measure', suFaceInfo: 'measure',
   suText3d: 'annotation',
+  suDynamic: 'knowledge', suSnap: 'draw2d', suGeo: 'measure', suMatch: 'view',
+  suTexture: 'view', suSkpExport: 'file', suSkpImport: 'file',
   suTerrain: 'surface', suContours: 'surface',
 
   // Annotation and drawing helpers that do not follow their prefix.
@@ -199,7 +201,12 @@ const EXPLICIT: Record<string, string> = {
 
 /** Workbench prefixes, longest first where they would overlap. */
 const PREFIXES: Array<[string, string]> = [
-  ['techdraw', 'drawing'], ['points', 'points'], ['measure', 'measure'], ['import', 'file'],
+  ['techdraw', 'drawing'], ['image', 'primitive'], ['start', 'file'], ['plot', 'analysis'],
+  ['ship', 'analysis'], ['elec', 'analysis'], ['stru', 'analysis'], ['axis5', 'cam'],
+  ['lathe', 'cam'], ['photo', 'view'], ['web', 'file'], ['ias', 'mesh'], ['fst', 'surface'],
+  ['fta', 'annotation'], ['pip', 'feature'], ['lam', 'analysis'], ['mold', 'dress'],
+  ['lay', 'drawing'],
+  ['points', 'points'], ['measure', 'measure'], ['import', 'file'],
   ['export', 'file'], ['addon', 'script'], ['draft', 'draw2d'], ['sheet', 'spreadsheet'],
   ['brep', 'kernel'], ['mesh', 'mesh'], ['nurbs', 'surface'], ['gsd', 'surface'],
   ['asm', 'assembly'], ['dmu', 'kinematics'], ['fem', 'analysis'], ['fea', 'analysis'],

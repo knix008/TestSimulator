@@ -53,18 +53,40 @@ MyCAD는 한 번에 하나만 실행됩니다. 이미 떠 있는 상태에서 �
 기억된 것이 없으면 가장 가까운 용도의 폴더를 씁니다(파일을 연 직후 저장하면 그
 파일이 있던 폴더에서 시작합니다).
 
-MyCAD는 **STEP(.step/.stp)·IGES(.igs/.iges)·PLY·OFF·Collada(.dae)** 같은 표준 CAD
-교환 형식과 STL·OBJ·DXF·SVG·OpenSCAD·IFC·점군·G코드·CSV를 모두 엽니다. 열기 창의
-첫 필터가 "지원하는 모든 파일"이고, 그 아래에 형식별 필터가 있습니다.
+열기 창의 첫 필터가 "지원하는 모든 파일"이고, 그 아래에 형식별 필터가 있습니다.
 
 ### 열기
 
-- **파일 > 열기**로 지원 형식을 모두 볼 수 있습니다.
+- **파일 > 열기**로 아래 형식을 고를 수 있습니다. `.csv`는 이 목록에 없고, 뷰포트에 끌어다 놓으면 스프레드시트로 열립니다.
 - 탐색기에서 **파일을 뷰포트로 끌어다 놓아도** 됩니다.
 - 설치 시 연결한 형식은 **두 번 클릭만으로** MyCAD에서 열립니다.
 
-지원 형식: `.mycad` `.stl` `.obj` `.dxf` `.svg` `.scad` `.ifc` `.asc` `.xyz`
-`.nc` `.gcode` `.mycadmacro` `.mycadaddon` `.csv`
+### 지원하는 파일 형식
+
+| 확장자 | 내용 | 열면 |
+| --- | --- | --- |
+| `.mycad` | MyCAD 문서. 솔리드, 스케치, 피처, 파라미터, 부가 정보 | 현재 문서를 그 파일로 바꿉니다 |
+| `.stl` | 삼각형 메쉬. ASCII와 바이너리 | 메쉬 솔리드 하나 |
+| `.obj` | 삼각형 메쉬. 객체 이름을 유지 | 이름별 메쉬 솔리드 |
+| `.ply` | 삼각형 메쉬. ASCII, little-endian 바이너리, big-endian 바이너리 | 메쉬 솔리드 하나 |
+| `.off` | OFF 메쉬 | 메쉬 솔리드 하나 |
+| `.dae` | Collada 메쉬 | 메쉬 솔리드 하나 |
+| `.step` `.stp` | STEP AP203/214. 평면 면으로 된 B-rep(`ADVANCED_FACE` → `EDGE_LOOP` → `VERTEX_POINT`)을 삼각형으로 읽습니다. 면을 만들지 못한 파일도 열리고, 읽은 내용이 보고서에 남습니다 | 메쉬 솔리드 하나 |
+| `.igs` `.iges` | IGES 와이어프레임 | 와이어 |
+| `.dxf` | DXF 도면의 선과 원 | 와이어 |
+| `.svg` | SVG 도면의 선과 원 | 와이어 |
+| `.skp` | `SKP1`으로 시작하는 면 교환 텍스트. 각 줄이 `face 이름 x,y,z …` | 면을 삼각형으로 만든 메쉬 |
+| `.scad` | OpenSCAD 소스 | 컴파일된 솔리드 |
+| `.ifc` | IFC 건축 모델의 층과 요소 목록 | 보고서 |
+| `.asc` `.xyz` | 점군. 한 줄에 점 하나 | 점 솔리드 |
+| `.nc` `.gcode` | G코드 가공 경로 | 이동 구간을 잇는 와이어와 블록 수 보고서 |
+| `.mycadmacro` | 매크로. `box(40, 20, 10)` 같은 한 줄 명령, 또는 Python | 명령을 실행한 결과 |
+| `.mycadaddon` | 애드온 매니페스트(JSON) | 애드온 정보. 설치는 애드온 관리자에서 |
+| `.csv` | 스프레드시트 또는 디자인 테이블 | 시트. Windows 파일 연결 대상은 아닙니다 |
+
+`.stl`과 `.ply`를 글자 편집기로 저장하면 바이너리 좌표가 깨집니다. 그 두 형식은 바이너리일 때 바이트 그대로 읽습니다.
+
+SketchUp이 저장하는 바이너리 `.skp`, CATIA `.CATPart`·`.CATProduct`, FreeCAD `.FCStd`는 열지 않습니다.
 
 ### 최근 파일
 
@@ -78,7 +100,10 @@ MyCAD는 **STEP(.step/.stp)·IGES(.igs/.iges)·PLY·OFF·Collada(.dae)** 같은 
 | 형식 | 담기는 내용 |
 | --- | --- |
 | MyCAD 문서 | 피처·파라미터까지 포함한 문서 전체 |
-| STL / OBJ | 삼각형 메쉬 |
+| STL / OBJ | 삼각형 메쉬. STL은 ASCII로 저장합니다 |
+| STEP (`.step`) | 평면 면으로 된 AP214 B-rep |
+| PLY / OFF | 삼각형 메쉬. PLY는 ASCII로 저장합니다 |
+| IGES (`.igs`) | 와이어프레임 |
 | SVG / DXF 스케치 | 스케치 윤곽 |
 | 도면 SVG / DXF | 정면·평면·측면·아이소 4면 투영 도면 |
 | IFC4 | BIM 요소(없으면 솔리드를 벽으로) |
@@ -234,23 +259,27 @@ MyCAD는 **STEP(.step/.stp)·IGES(.igs/.iges)·PLY·OFF·Collada(.dae)** 같은 
 사용자 데이터(설정·최근 파일)의 삭제 여부도 따로 묻습니다.
 
 설치 중 **파일 형식 연결** 페이지에서 MyCAD로 열 형식을 체크합니다.
-`.mycad`는 MyCAD 고유 문서라 항상 연결되고, 나머지 12종은 선택 사항이며
-기본값은 자주 쓰는 형식만 켜져 있습니다. 제거하면 설치 때 만든 연결만 지워집니다.
+`.mycad`는 MyCAD 고유 문서라 항상 연결되고, 나머지 20종은 선택 사항입니다.
+기본으로 켜지는 형식은 `.stl` `.obj` `.dxf` `.scad` `.ifc` `.step` `.stp` `.ply`
+`.mycadmacro` `.mycadaddon`입니다. `.svg` `.igs` `.iges` `.off` `.dae` `.asc`
+`.xyz` `.nc` `.gcode` `.skp`는 목록에 있고 기본은 꺼져 있습니다. `.csv`는
+연결 대상이 아닙니다. 제거하면 설치 때 만든 연결만 지워집니다.
 
 ---
 
 ## 8. 샘플 파일로 익히기
 
-`sample/` 폴더에 형식별 예제 38개가 들어 있습니다.
+`sample/` 폴더에 형식별 예제 43개가 들어 있습니다.
 `box.mycad`, `assembly.mycad`(부품 11개), `patterns.mycad`, `bim-house.mycad`,
 `sketchup-scene.mycad`, `fem-beam.mycad`, `kinematics-crank.mycad`,
-`bracket.step`(리브·보스 브래킷), `gear.off`/`gear.stl`(스퍼 기어),
-`plate.ply`(구멍 뚫린 플레이트), `assembly.dae`(형상 3개), `profile.igs`,
+`bracket.step`(리브·보스 브래킷), `cube.stp`, `gear.off`/`gear.stl`(스퍼 기어),
+`plate.ply`와 `plate-binary.ply`(구멍 뚫린 플레이트), `cube-binary.stl`,
+`assembly.dae`(형상 3개), `profile.igs`/`profile.iges`, `room.skp`(바닥과 벽),
 `plate.obj`, `profile.dxf`, `bracket.scad`, `scan-points.asc`, `building.ifc`,
 `pocket.nc`, `macro.py` 등을 열어 보면 각 워크벤치가 무엇을 하는지 바로
 확인할 수 있습니다. 대부분은 구멍·리브·이(teeth) 같은 요소가 들어 있는 닫힌
 솔리드이므로 메쉬 검사나 내보내기 왕복 검증에도 그대로 쓸 수 있습니다.
-설치본에도 함께 들어 있습니다.
+설치본에도 함께 들어 있습니다. 파일별 설명은 `sample/README.md`에 있습니다.
 
 ---
 

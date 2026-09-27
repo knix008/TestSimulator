@@ -15,12 +15,18 @@ const out = join(root, 'sample')
 
 mkdirSync(out, { recursive: true })
 
-import { toIges, toOff, toPly, toStep } from '../src/core/cadformats.ts'
+import { toBinaryPly, toIges, toOff, toPly, toStep } from '../src/core/cadformats.ts'
+import { writeBinaryStl } from '../src/core/stl.ts'
 
 const written = []
 
 function write(name, text) {
   writeFileSync(join(out, name), text.endsWith('\n') ? text : `${text}\n`, 'utf8')
+  written.push(name)
+}
+
+function writeBytes(name, bytes) {
+  writeFileSync(join(out, name), bytes)
   written.push(name)
 }
 
@@ -602,13 +608,17 @@ const flatten = (triangles) => triangles.flatMap((triangle) => triangle.flat())
 // The cube stays as the smallest possible smoke test; the rest carry parts
 // with holes, ribs and teeth, so importers meet real geometry.
 const cubeTriangles = flatten(boxTriangles(40, 40, 40, [0, 0, 0]))
-write('cube.step', toStep([{ name: 'cube', position: { x: 0, y: 0, z: 0 } }], () => cubeTriangles, SAMPLE_STAMP))
+writeBytes('cube-binary.stl', writeBinaryStl(cubeTriangles))
+const cubeStep = toStep([{ name: 'cube', position: { x: 0, y: 0, z: 0 } }], () => cubeTriangles, SAMPLE_STAMP)
+write('cube.step', cubeStep)
+write('cube.stp', cubeStep)
 
 const bracketMesh = flatten(bracketTriangles())
 write('bracket.step', toStep([{ name: 'bracket', position: { x: 0, y: 0, z: 0 } }], () => bracketMesh, SAMPLE_STAMP))
 
 const plateMesh = flatten(plateWithHole(90, 60, 8, 12))
 write('plate.ply', toPly(plateMesh, 'mount plate with five holes'))
+writeBytes('plate-binary.ply', toBinaryPly(plateMesh))
 
 const gearMesh = flatten(gearTriangles(18, 26, 34, 10, 8))
 write('gear.off', toOff(gearMesh))
@@ -650,7 +660,9 @@ const igesWires = [
     })
   }))
 ]
-write('profile.igs', toIges(igesWires, SAMPLE_STAMP))
+const igesText = toIges(igesWires, SAMPLE_STAMP)
+write('profile.igs', igesText)
+write('profile.iges', igesText)
 write('assembly.dae', [
   '<?xml version="1.0" encoding="utf-8"?>',
   '<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">',
@@ -971,6 +983,14 @@ const addonManifest = JSON.stringify({
 // extension the installer associates with MyCAD.
 write('addon-manifest.json', addonManifest)
 write('hex-nuts.mycadaddon', addonManifest)
+write('room.skp', [
+  'SKP1',
+  'face Floor 0,0,0 4000,0,0 4000,0,3000 0,0,3000',
+  'face WallSouth 0,0,0 4000,0,0 4000,2700,0 0,2700,0',
+  'face WallEast 4000,0,0 4000,0,3000 4000,2700,3000 4000,2700,0',
+  'face WallNorth 4000,0,3000 0,0,3000 0,2700,3000 4000,2700,3000',
+  'face WallWest 0,0,3000 0,0,0 0,2700,0 0,2700,3000'
+].join('\n'))
 
 /* ───────────────────────────── manifest + README ────────────────────────── */
 
@@ -988,13 +1008,17 @@ const DESCRIPTIONS = {
   'fem-beam.mycad': 'FEM 해석 컨테이너와 구속/하중이 든 외팔보',
   'kinematics-crank.mycad': '회전·직선 조인트가 든 크랭크 슬라이더',
   'cube.stl': 'ASCII STL 큐브 (STL 가져오기)',
+  'cube-binary.stl': '바이너리 STL 큐브. ASCII 큐브와 같은 12개 삼각형',
   'cube.step': 'STEP AP214 큐브 (왕복 검증용 최소 예제)',
+  'cube.stp': '같은 STEP 큐브의 .stp 확장자',
   'bracket.step': 'STEP L-브래킷: 리브 + 보스 2개 (면 1,500개 규모)',
   'plate.ply': 'PLY 마운트 플레이트: 90×60×8, 관통 구멍 Ø24',
+  'plate-binary.ply': '같은 플레이트의 little-endian 바이너리 PLY',
   'gear.off': 'OFF 스퍼 기어: 이 18개 + 보어',
   'gear.stl': 'STL 스퍼 기어 (메쉬 감축·법선 정리 테스트)',
   'wedge.off': 'OFF 피라미드 (최소 예제)',
   'profile.igs': 'IGES 와이어프레임: 외곽 + 슬롯 + 볼트 원 4개',
+  'profile.iges': '같은 IGES 와이어프레임의 .iges 확장자',
   'assembly.dae': 'Collada 3개 형상(하우징·샤프트·커버)이 든 어셈블리',
   'pyramid.stl': 'ASCII STL 계단식 피라미드 5단 (면 88개, 닫힌 솔리드)',
   'plate.obj': 'OBJ 그룹 3개(플레이트·보스·리브) + 법선 + v//vn 면',
@@ -1012,7 +1036,8 @@ const DESCRIPTIONS = {
   'scan-points.xyz': '같은 점군의 XYZ 형식 (헤더 없음)',
   'profile.gcode': '윤곽 가공 .gcode: G2/G3 원호 3패스',
   'hex-nuts.mycadaddon': '설치용 애드온 패키지 (.mycadaddon 연결 테스트)',
-  'addon-manifest.json': '애드온 매니페스트 (설치/실행 테스트)'
+  'addon-manifest.json': '애드온 매니페스트 (설치/실행 테스트)',
+  'room.skp': 'SketchUp 면 교환 텍스트: 바닥과 벽 4면'
 }
 
 write('manifest.json', JSON.stringify({
@@ -1025,7 +1050,7 @@ for (const name of written) {
   if (name === 'manifest.json') continue
   readme.push(`| \`${name}\` | ${DESCRIPTIONS[name] ?? ''} |`)
 }
-readme.push('', '## 사용법', '', '- `.mycad`: 파일 > 열기 로 불러옵니다.', '- `.stl`: 파일 > STL 가져오기.', '- `.asc`: 점 워크벤치 > 점 가져오기 후 역설계 근사 명령.', '- `.scad`: OpenSCAD 워크벤치 > OpenSCAD 가져오기.', '- `.ifc`: 건축 메뉴 > IFC 관련 명령으로 확인.', '- `.csv`: 스프레드시트 / 지식공학(디자인 테이블).', '- `.nc`, `.svg`, `.dxf`, `.obj`: 내보내기 결과 비교용 기준 파일.')
+readme.push('', '## 사용법', '', '- `.mycad`: 파일 > 열기 로 불러옵니다.', '- `.stl`, `.ply`: ASCII와 바이너리 샘플이 있습니다. 바이너리는 글자로 열면 좌표가 깨집니다.', '- `.step`과 `.stp`, `.igs`와 `.iges`는 같은 내용의 두 확장자입니다.', '- `.skp`: 바닥과 벽이 있는 면 교환 텍스트입니다.', '- `.asc`: 점 워크벤치 > 점 가져오기 후 역설계 근사 명령.', '- `.scad`: OpenSCAD 워크벤치 > OpenSCAD 가져오기.', '- `.ifc`: 건축 메뉴 > IFC 관련 명령으로 확인.', '- `.csv`: 스프레드시트 / 지식공학(디자인 테이블).', '- `.nc`, `.svg`, `.dxf`, `.obj`: 내보내기 결과 비교용 기준 파일.')
 write('README.md', readme.join('\n'))
 
 console.log(`sample/: ${written.length} files`)

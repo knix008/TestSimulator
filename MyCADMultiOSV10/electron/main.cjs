@@ -31,7 +31,7 @@ const settingsFile = path.join(userData, 'settings.json')
 const SUPPORTED_EXTENSIONS = [
   'mycad', 'stl', 'obj', 'dxf', 'svg', 'scad', 'ifc',
   'step', 'stp', 'igs', 'iges', 'ply', 'off', 'dae',
-  'asc', 'xyz', 'nc', 'gcode', 'mycadmacro', 'mycadaddon'
+  'asc', 'xyz', 'nc', 'gcode', 'mycadmacro', 'mycadaddon', 'skp'
 ]
 let pendingOpenPath = null
 
@@ -177,10 +177,18 @@ app.on('window-all-closed', () => {
 })
 
 ipcMain.handle('get-version', () => '1.0.0')
+const BINARY_EXTENSIONS = new Set(['stl', 'ply'])
+
+function readFilePayload(filePath) {
+  const data = fs.readFileSync(filePath)
+  const ext = path.extname(filePath).slice(1).toLowerCase()
+  if (BINARY_EXTENSIONS.has(ext)) return { content: data.toString('base64'), encoding: 'base64' }
+  return { content: data.toString('utf8'), encoding: 'utf8' }
+}
+
 ipcMain.handle('read-path', async (_event, filePath) => {
   try {
-    const content = await fs.promises.readFile(filePath, 'utf8')
-    return { ok: true, content, filePath }
+    return { ok: true, filePath, ...readFilePayload(filePath) }
   } catch (error) {
     return { ok: false, error: String(error && error.message ? error.message : error) }
   }
@@ -236,7 +244,7 @@ ipcMain.handle('open-file', async (_event, opts) => {
   })
   if (result.canceled || !result.filePaths[0]) return { canceled: true }
   const filePath = result.filePaths[0]
-  return { canceled: false, filePath, content: fs.readFileSync(filePath, 'utf8'), directory: path.dirname(filePath) }
+  return { canceled: false, filePath, ...readFilePayload(filePath), directory: path.dirname(filePath) }
 })
 ipcMain.handle('save-file', async (_event, opts) => {
   const result = await dialog.showSaveDialog(mainWindow, {

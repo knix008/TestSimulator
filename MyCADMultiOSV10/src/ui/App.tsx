@@ -14,7 +14,7 @@ import { CONTEXT_ITEMS, MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT, 
 import { hasCommand, runCommandById, type CommandEffect } from '../core/commands'
 import { createSolid, type CadDocument, type ShadeMode, type SolidKind, type ViewPreset } from '../core/model'
 import { pageToSvg, selectionDistance } from '../core/print'
-import { fileTypeFor, importCsv, importFile, openFilters } from '../core/fileTypes'
+import { decodeBase64, fileTypeFor, importCsv, importFile, isBinaryExtension, openFilters } from '../core/fileTypes'
 import { runExport } from '../core/exporters'
 import { installAddon } from '../core/addons'
 import { buildPrintPages, defaultPageSetup, type PageSetup, type PrintScope } from '../core/print'
@@ -37,6 +37,15 @@ import { AboutDialog, ConfirmDialog, ErrorDialog, ExportDialog, NumberField, Par
 const Viewport = lazy(() => import('./Viewport').then((module) => ({ default: module.Viewport })))
 
 type DialogKind = 'about' | 'settings' | 'print' | 'error' | 'confirm' | 'part' | 'usage' | 'report' | 'export' | null
+
+function openedBody(content: string, encoding?: string): string | Uint8Array {
+  return encoding === 'base64' ? decodeBase64(content) : content
+}
+
+async function readBody(file: Blob, name: string): Promise<string | Uint8Array> {
+  if (isBinaryExtension(name) && typeof file.arrayBuffer === 'function') return new Uint8Array(await file.arrayBuffer())
+  return readFile(file)
+}
 
 async function readFile(file: Blob): Promise<string> {
   if (typeof (file as File).text === 'function') return (file as File).text()
@@ -492,25 +501,26 @@ export function App() {
     setMenu(null)
     try {
       const read = await window.mycad?.readPath?.(path)
-      if (!read?.ok || read.content === undefined) {
+      const content = read?.content
+      if (!read?.ok || content === undefined) {
         throw new Error(read?.error || path)
       }
       await withProgress(t('progress'), t('busyOpen'), async () => {
-        await openAnyFileRef.current(path, read.content as string)
+        await openAnyFileRef.current(path, openedBody(content, read.encoding))
       })
     } catch (caught) {
       showError(caught, 'recent')
     }
   }, [showError, t, withProgress])
 
-  const openAnyFile = useCallback(async (path: string, text: string) => {
+  const openAnyFile = useCallback(async (path: string, body: string | Uint8Array) => {
     // Whatever kind of file this was, the next dialog starts in its folder.
     const directory = directoryOf(path)
     if (directory) dispatch({ type: 'remember-dir', key: 'open', directory })
     const lower = path.toLowerCase()
     if (lower.endsWith('.csv')) {
       dispatch({ type: 'remember-recent', path })
-      const loaded = importCsv(path, text)
+      const loaded = importCsv(path, typeof body === 'string' ? body : new TextDecoder().decode(body))
       dispatch({ type: 'patch-extras', patch: { sheet: loaded.sheet } })
       setReport({
         title: path.split(/[/\\]/).pop() ?? path,
@@ -523,7 +533,7 @@ export function App() {
       return
     }
     dispatch({ type: 'remember-recent', path })
-    const result = importFile(path, text, { id: `imported-${Date.now()}` })
+    const result = importFile(path, body, { id: `imported-${Date.now()}` })
     if (result.document) {
       dispatch({ type: 'load-doc', doc: result.document, path })
     }
@@ -560,7 +570,7 @@ export function App() {
         const read = await window.mycad?.readPath?.(filePath)
         if (!read?.ok || read.content === undefined) throw new Error(read?.error || filePath)
         dispatch({ type: 'remember-dir', key: 'open', directory: directoryOf(filePath) })
-        await openAnyFile(filePath, read.content)
+        await openAnyFile(filePath, openedBody(read.content, read.encoding))
       } catch (caught) {
         showError(caught)
       }
@@ -674,7 +684,7 @@ export function App() {
             if (!result.canceled && result.content && result.filePath) {
               const filePath = result.filePath
               const content = result.content
-              await withProgress(t('progress'), t('busyOpen'), async () => { await openAnyFile(filePath, content) })
+              await withProgress(t('progress'), t('busyOpen'), async () => { await openAnyFile(filePath, openedBody(content, result.encoding)) })
             }
           } else {
             const input = document.createElement('input')
@@ -683,7 +693,7 @@ export function App() {
             input.onchange = async () => {
               const file = input.files?.[0]
               if (!file) return
-              const text = await readFile(file)
+              const text = await readBody(file, file.name)
               await withProgress(t('progress'), t('busyOpen'), async () => { await openAnyFile(file.name, text) })
             }
             input.click()
@@ -1002,7 +1012,7 @@ export function App() {
       const text = picked.content
       dispatch({ type: 'remember-dir', key: 'import', directory: picked.directory || directoryOf(filePath) })
       await withProgress(t('progress'), t('busyOpen'), async () => {
-        dispatch({ type: 'add-mesh', solid: parseStl(text, `sol-${state.seq + 1}`) })
+        dispatch({ type: 'add-mesh', solid: parseStl(openedBody(text, picked.encoding), `sol-${state.seq + 1}`) })
       })
       return
     }
@@ -1013,7 +1023,7 @@ export function App() {
       const file = input.files?.[0]
       if (!file) return
       await withProgress(t('progress'), t('busyOpen'), async () => {
-        const solid = parseStl(await readFile(file), `sol-${state.seq + 1}`)
+        const solid = parseStl(await readBody(file, file.name), `sol-${state.seq + 1}`)
         dispatch({ type: 'add-mesh', solid })
       })
     }
@@ -1087,7 +1097,7 @@ export function App() {
           const dataUrl = await blobToDataUrl(file)
           dispatch({ type: 'patch-settings', patch: { backgroundImage: dataUrl } })
         } else if (fileTypeFor(file.name) || file.name.toLowerCase().endsWith('.csv')) {
-          const text = await readFile(file)
+          const text = await readBody(file, file.name)
           await withProgress(t('progress'), t('busyOpen'), async () => { await openAnyFile(path, text) })
         } else {
           await withProgress(t('progress'), t('busyOpen'), async () => openText(await readFile(file), path))

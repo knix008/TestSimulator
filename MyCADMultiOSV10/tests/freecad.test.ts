@@ -17,14 +17,14 @@ import { femStress, sketchToGcode, WORKBENCHES, workbenchTools } from '../src/co
 const FREECAD_WORKBENCHES = [
   'partDesign', 'part', 'sketcher', 'draft', 'techdraw', 'mesh', 'points', 'reverse', 'surface',
   'spreadsheet', 'assembly', 'fem', 'cam', 'bim', 'material', 'measureWb', 'inspection', 'robot',
-  'openscad', 'macro', 'kernel', 'addons'
+  'openscad', 'macro', 'kernel', 'addons', 'start', 'image', 'plot', 'ship', 'web'
 ] as const
 
 /** CATIA workbenches mirrored on top of the FreeCAD set. */
-const CATIA_WORKBENCHES = ['gsd', 'sheetMetal', 'kinematics', 'knowledge', 'drafting'] as const
+const CATIA_WORKBENCHES = ['gsd', 'sheetMetal', 'kinematics', 'knowledge', 'drafting', 'imagine', 'freestyle', 'fta', 'electrical', 'piping', 'structure', 'composites', 'mold', 'catiaCam', 'photo'] as const
 
 /** SketchUp tool groups. */
-const SKETCHUP_WORKBENCHES = ['sketchup', 'solidTools', 'sandbox'] as const
+const SKETCHUP_WORKBENCHES = ['sketchup', 'solidTools', 'sandbox', 'layout', 'dynamic'] as const
 
 const NOT_PORTED = [
   'OpenCASCADE B-rep kernel',

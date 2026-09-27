@@ -54,8 +54,16 @@
       "description": "ASCII STL 큐브 (STL 가져오기)"
     },
     {
+      "name": "cube-binary.stl",
+      "description": "바이너리 STL 큐브. ASCII 큐브와 같은 12개 삼각형"
+    },
+    {
       "name": "cube.step",
       "description": "STEP AP214 큐브 (왕복 검증용 최소 예제)"
+    },
+    {
+      "name": "cube.stp",
+      "description": "같은 STEP 큐브의 .stp 확장자"
     },
     {
       "name": "bracket.step",
@@ -64,6 +72,10 @@
     {
       "name": "plate.ply",
       "description": "PLY 마운트 플레이트: 90×60×8, 관통 구멍 Ø24"
+    },
+    {
+      "name": "plate-binary.ply",
+      "description": "같은 플레이트의 little-endian 바이너리 PLY"
     },
     {
       "name": "gear.off",
@@ -80,6 +92,10 @@
     {
       "name": "profile.igs",
       "description": "IGES 와이어프레임: 외곽 + 슬롯 + 볼트 원 4개"
+    },
+    {
+      "name": "profile.iges",
+      "description": "같은 IGES 와이어프레임의 .iges 확장자"
     },
     {
       "name": "assembly.dae",
@@ -152,6 +168,10 @@
     {
       "name": "hex-nuts.mycadaddon",
       "description": "설치용 애드온 패키지 (.mycadaddon 연결 테스트)"
+    },
+    {
+      "name": "room.skp",
+      "description": "SketchUp 면 교환 텍스트: 바닥과 벽 4면"
     }
   ]
 }

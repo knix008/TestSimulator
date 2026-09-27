@@ -14,10 +14,10 @@ interface MycadApi {
   listFonts: () => Promise<string[]>
   loadSettings: () => Promise<unknown>
   saveSettings: (settings: unknown) => Promise<void>
-  readPath?: (filePath: string) => Promise<{ ok: boolean; content?: string; error?: string; filePath?: string }>
+  readPath?: (filePath: string) => Promise<{ ok: boolean; content?: string; encoding?: 'utf8' | 'base64'; error?: string; filePath?: string }>
   supportedExtensions?: () => Promise<string[]>
   setMinSize?: (width: number, height: number) => Promise<boolean>
-  openFile: (opts: { title: string; filters: { name: string; extensions: string[] }[]; defaultPath?: string }) => Promise<{ canceled: boolean; filePath?: string; content?: string; directory?: string }>
+  openFile: (opts: { title: string; filters: { name: string; extensions: string[] }[]; defaultPath?: string }) => Promise<{ canceled: boolean; filePath?: string; content?: string; encoding?: 'utf8' | 'base64'; directory?: string }>
   saveFile: (opts: { title: string; filters: { name: string; extensions: string[] }[]; defaultPath?: string; content: string }) => Promise<{ canceled: boolean; filePath?: string; directory?: string }>
   writeFile?: (filePath: string, content: string) => Promise<{ ok: boolean; filePath?: string; directory?: string; error?: string }>
   showMenu: (payload: { x: number; y: number; items: { id: string; label: string; icon: string; enabled: boolean }[] }) => Promise<string | null>

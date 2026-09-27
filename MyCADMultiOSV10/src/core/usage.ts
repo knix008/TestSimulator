@@ -115,6 +115,74 @@ export const USAGE: Record<string, { ko: string[]; en: string[] }> = {
     ko: ['1. 솔리드를 선택하고 B-rep 정보로 위상을 확인합니다.', '2. B-rep 챔퍼/필렛은 반평면 절단과 구 민코프스키 합으로 정확히 계산합니다.', '3. NURBS 곡선·곡면으로 유리 곡선을 만듭니다.'],
     en: ['1. Select a solid and inspect its B-rep topology.', '2. B-rep chamfer and fillet are exact: half-space clipping and a rolling ball.', '3. Build rational curves and surfaces with the NURBS tools.']
   },
+  start: {
+    ko: ['1. 파트 템플릿으로 100×40×60 바디를 만듭니다.', '2. 스케치 템플릿으로 40×30 사각형을 넣습니다.', '3. 어셈블리 템플릿은 부품 두 개를 80 mm 떨어뜨려 놓습니다.'],
+    en: ['1. Part template creates a 100×40×60 body.', '2. Sketch template adds a 40×30 rectangle.', '3. Assembly template places two parts 80 mm apart.']
+  },
+  image: {
+    ko: ['1. 이미지 평면은 XZ에 100×60 mm 사각형을 만듭니다.', '2. 이미지 보정은 픽셀 길이를 실제 mm로 나눕니다.'],
+    en: ['1. Image plane builds a 100×60 mm rectangle on XZ.', '2. Calibrate divides a real length by the pixel count.']
+  },
+  plot: {
+    ko: ['1. 곡선 플롯은 점 (0,0,0), (3,0,0), (3,0,4)의 길이 7을 계산합니다.', '2. 플롯 범위는 그 점들의 최소·최대를 보여 줍니다.'],
+    en: ['1. Plot curve reports length 7 for (0,0,0), (3,0,0), (3,0,4).', '2. Plot bounds reports the min and max of those points.']
+  },
+  ship: {
+    ko: ['1. 배수량은 L×B×T×Cb×밀도로 질량을 구합니다.', '2. 방형 계수는 배수 부피를 L×B×T로 나눕니다.', '3. 수선면은 L×B입니다.'],
+    en: ['1. Displacement is L×B×T×Cb×density.', '2. Block coefficient divides displaced volume by L×B×T.', '3. Waterplane area is L×B.']
+  },
+  web: {
+    ko: ['1. 작업대 도움말은 그 작업대의 사용 설명을 보여 줍니다.', '2. 북마크는 http(s) 주소만 기록합니다. 브라우저를 열지는 않습니다.'],
+    en: ['1. Workbench help shows that workbench’s usage text.', '2. Bookmark stores an http(s) address. It does not open a browser.']
+  },
+  imagine: {
+    ko: ['1. 세분은 삼각형 하나를 네 개로 나눕니다.', '2. 스무딩은 각 꼭짓점을 나머지 두 점의 중점으로 옮깁니다.'],
+    en: ['1. Subdivide splits one triangle into four.', '2. Smooth moves each corner to the midpoint of the other two.']
+  },
+  freestyle: {
+    ko: ['1. 에르미트 곡선은 양 끝 위치와 접선으로 중점을 계산합니다.', '2. 곡선 샘플은 그 곡선을 9개 점으로 나눕니다.'],
+    en: ['1. Hermite uses the end positions and tangents to place the midpoint.', '2. Curve samples divides that curve into 9 points.']
+  },
+  fta: {
+    ko: ['1. 최악 공차는 공차의 절대값 합입니다.', '2. RSS 공차는 제곱합의 제곱근입니다.', '3. 끼워맞춤은 구멍 지름에서 축 지름을 뺍니다.'],
+    en: ['1. Worst-case stack sums the absolute tolerances.', '2. RSS stack is the root of the sum of squares.', '3. Fit clearance subtracts the shaft from the hole.']
+  },
+  electrical: {
+    ko: ['1. 도체 저항은 비저항×길이/단면적입니다.', '2. 전압 강하는 전류에 그 저항을 곱합니다.'],
+    en: ['1. Conductor resistance is resistivity×length/area.', '2. Voltage drop multiplies that resistance by the current.']
+  },
+  piping: {
+    ko: ['1. 전개 길이는 직선과 엘보 호 길이를 더합니다.', '2. 엘보 길이는 반지름×각도(라디안)입니다.'],
+    en: ['1. Developed length adds the straight run and the elbow arc.', '2. Elbow length is radius times the angle in radians.']
+  },
+  structure: {
+    ko: ['1. 단면 계수는 직사각형 b×h²/6입니다.', '2. 굽힘 응력은 모멘트를 단면 계수로 나눕니다.'],
+    en: ['1. Section modulus of a rectangle is b×h²/6.', '2. Bending stress divides the moment by that modulus.']
+  },
+  composites: {
+    ko: ['1. 탄성계수는 섬유와 기지의 혼합률입니다.', '2. 적층 두께는 플라이 두께×매수입니다.'],
+    en: ['1. Modulus uses the rule of mixtures.', '2. Laminate thickness is ply thickness times the ply count.']
+  },
+  mold: {
+    ko: ['1. 수축 캐비티는 제품 치수에 수축률을 더합니다.', '2. 빼기 구배는 면 법선과 빼기 방향의 각입니다.'],
+    en: ['1. Shrink cavity enlarges the nominal size by the shrink percent.', '2. Draft angle is measured between the face normal and the pull direction.']
+  },
+  catiaCam: {
+    ko: ['1. 선반 가공은 지름을 절입량씩 줄인 뒤 마무리 패스를 냅니다.', '2. 5축 기울기는 면 법선을 공구 축으로 두는 A, B 각입니다.'],
+    en: ['1. Lathe turning steps the diameter down, then takes a finish pass.', '2. 5-axis tilt is the A and B angles that aim the tool along the face normal.']
+  },
+  photo: {
+    ko: ['1. 람베르트는 면이 빛을 정면으로 받으면 1입니다.', '2. 스튜디오 조명은 키·필·림 세 빛의 평균입니다.'],
+    en: ['1. Lambert is 1 when the face points straight at the light.', '2. Studio rig averages the key, fill and rim lights.']
+  },
+  layout: {
+    ko: ['1. 도면 축척 1:5는 모델 1000 mm를 용지 200 mm로 그립니다.', '2. A3 용지는 420×297 mm입니다.'],
+    en: ['1. Scale 1:5 draws 1000 mm of model as 200 mm on paper.', '2. An A3 sheet is 420×297 mm.']
+  },
+  dynamic: {
+    ko: ['1. 동적 속성은 LenX/50 같은 식을 계산합니다.', '2. 추론 스냅은 끝점을 중점보다 먼저 집습니다.', '3. SKP 텍스트는 면을 왕복합니다. SketchUp 바이너리 파일은 아닙니다.'],
+    en: ['1. Dynamic attributes evaluate formulas such as LenX/50.', '2. Inference snap prefers an endpoint over a midpoint.', '3. The SKP text round-trips faces. It is not a SketchUp binary file.']
+  },
   addons: {
     ko: ['1. 애드온 목록에서 카탈로그를 확인합니다.', '2. 애드온 설치로 확장을 추가하고 사용 전환으로 켜고 끕니다.', '3. 애드온 명령 실행은 샌드박스 Python으로 동작합니다.'],
     en: ['1. List the addon catalogue.', '2. Install an addon and toggle it on or off.', '3. Addon commands run through the sandboxed Python interpreter.']

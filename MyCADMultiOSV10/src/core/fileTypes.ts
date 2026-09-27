@@ -13,6 +13,7 @@ import { parseCsv, evaluateSheet } from './spreadsheet'
 import { parseDesignTable } from './knowledge'
 import { runPython } from './python'
 import { parseMacro } from './expressions'
+import { parseSkp, skpSolid } from './gap'
 import { createSolid } from './model'
 import { makePrimitive } from './primitives'
 import { parseManifest, type AddonManifest } from './addons'
@@ -33,7 +34,7 @@ export interface FileTypeDef {
 
 export const FILE_TYPES: FileTypeDef[] = [
   { ext: 'mycad', name: 'MyCAD.Document', description: { ko: 'MyCAD 3D 문서', en: 'MyCAD 3D document' }, mime: 'application/x-mycad', role: 'Editor', kind: 'document' },
-  { ext: 'stl', name: 'MyCAD.Stl', description: { ko: 'STL 메쉬', en: 'STL mesh' }, mime: 'model/stl', role: 'Viewer', kind: 'mesh' },
+  { ext: 'stl', name: 'MyCAD.Stl', description: { ko: 'STL 메쉬 (ASCII/바이너리)', en: 'STL mesh (ASCII/binary)' }, mime: 'model/stl', role: 'Viewer', kind: 'mesh' },
   { ext: 'obj', name: 'MyCAD.Obj', description: { ko: 'OBJ 메쉬', en: 'OBJ mesh' }, mime: 'model/obj', role: 'Viewer', kind: 'mesh' },
   { ext: 'dxf', name: 'MyCAD.Dxf', description: { ko: 'DXF 도면', en: 'DXF drawing' }, mime: 'image/vnd.dxf', role: 'Viewer', kind: 'drawing' },
   { ext: 'svg', name: 'MyCAD.Svg', description: { ko: 'SVG 도면', en: 'SVG drawing' }, mime: 'image/svg+xml', role: 'Viewer', kind: 'drawing' },
@@ -43,7 +44,7 @@ export const FILE_TYPES: FileTypeDef[] = [
   { ext: 'stp', name: 'MyCAD.StepAlt', description: { ko: 'STEP 모델', en: 'STEP model' }, mime: 'application/x-step', role: 'Viewer', kind: 'model' },
   { ext: 'igs', name: 'MyCAD.Iges', description: { ko: 'IGES 와이어프레임', en: 'IGES wireframe' }, mime: 'model/iges', role: 'Viewer', kind: 'drawing' },
   { ext: 'iges', name: 'MyCAD.IgesAlt', description: { ko: 'IGES 와이어프레임', en: 'IGES wireframe' }, mime: 'model/iges', role: 'Viewer', kind: 'drawing' },
-  { ext: 'ply', name: 'MyCAD.Ply', description: { ko: 'PLY 메쉬', en: 'PLY mesh' }, mime: 'model/mesh', role: 'Viewer', kind: 'mesh' },
+  { ext: 'ply', name: 'MyCAD.Ply', description: { ko: 'PLY 메쉬 (ASCII/바이너리)', en: 'PLY mesh (ASCII/binary)' }, mime: 'model/mesh', role: 'Viewer', kind: 'mesh' },
   { ext: 'off', name: 'MyCAD.Off', description: { ko: 'OFF 메쉬', en: 'OFF mesh' }, mime: 'model/mesh', role: 'Viewer', kind: 'mesh' },
   { ext: 'dae', name: 'MyCAD.Collada', description: { ko: 'Collada 메쉬', en: 'Collada mesh' }, mime: 'model/vnd.collada+xml', role: 'Viewer', kind: 'mesh' },
   { ext: 'asc', name: 'MyCAD.Points', description: { ko: '점군 (ASC)', en: 'Point cloud (ASC)' }, mime: 'text/plain', role: 'Viewer', kind: 'points' },
@@ -51,7 +52,8 @@ export const FILE_TYPES: FileTypeDef[] = [
   { ext: 'nc', name: 'MyCAD.Gcode', description: { ko: 'G코드 가공 경로', en: 'G-code toolpath' }, mime: 'text/x-gcode', role: 'Viewer', kind: 'toolpath' },
   { ext: 'gcode', name: 'MyCAD.GcodeAlt', description: { ko: 'G코드 가공 경로', en: 'G-code toolpath' }, mime: 'text/x-gcode', role: 'Viewer', kind: 'toolpath' },
   { ext: 'mycadmacro', name: 'MyCAD.Macro', description: { ko: 'MyCAD 매크로', en: 'MyCAD macro' }, mime: 'text/plain', role: 'Editor', kind: 'script' },
-  { ext: 'mycadaddon', name: 'MyCAD.Addon', description: { ko: 'MyCAD 애드온', en: 'MyCAD addon' }, mime: 'application/json', role: 'Editor', kind: 'data' }
+  { ext: 'mycadaddon', name: 'MyCAD.Addon', description: { ko: 'MyCAD 애드온', en: 'MyCAD addon' }, mime: 'application/json', role: 'Editor', kind: 'data' },
+  { ext: 'skp', name: 'MyCAD.Skp', description: { ko: 'SketchUp 면 교환 텍스트', en: 'SketchUp face exchange text' }, mime: 'text/plain', role: 'Viewer', kind: 'mesh' }
 ]
 
 export function fileExtension(path: string): string {
@@ -93,18 +95,33 @@ export interface ImportResult {
  * the corresponding workbench already uses, so a double-clicked file behaves
  * exactly like the matching import command.
  */
-export function importFile(path: string, text: string, options: { id?: string } = {}): ImportResult {
+/** Extensions whose body is bytes. Reading them as UTF-8 changes the floats. */
+export const BINARY_EXTENSIONS = ['stl', 'ply']
+
+export function isBinaryExtension(path: string): boolean {
+  return BINARY_EXTENSIONS.includes(fileExtension(path))
+}
+
+export function decodeBase64(content: string): Uint8Array {
+  const binary = atob(content)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i) & 255
+  return bytes
+}
+
+export function importFile(path: string, body: string | Uint8Array, options: { id?: string } = {}): ImportResult {
   const type = fileTypeFor(path)
   const id = options.id ?? 'imported'
   const name = path.split(/[/\\]/).pop() ?? path
   if (!type) throw new Error(`지원하지 않는 파일 형식입니다: ${name}`)
+  const text = typeof body === 'string' ? body : new TextDecoder().decode(body)
   switch (type.ext) {
     case 'mycad': {
       const document = parseDocument(text, id)
       return { document, solids: [], wires: [], report: [`${document.name}: ${document.solids.length} objects`], status: `${name} 열기` }
     }
     case 'stl': {
-      const solid = parseStl(text, id)
+      const solid = parseStl(body, id)
       solid.name = name.replace(/\.stl$/i, '')
       return { solids: [solid], wires: [], report: [`${solid.name}: ${(solid.mesh?.positions.length ?? 0) / 9} triangles`], status: `STL 가져오기 ${name}` }
     }
@@ -148,7 +165,7 @@ export function importFile(path: string, text: string, options: { id?: string } 
       return { solids: [], wires, report, status: `IGES 가져오기 ${name}` }
     }
     case 'ply': {
-      const { solid, report } = parsePly(text, id, name.replace(/\.ply$/i, ''))
+      const { solid, report } = parsePly(body, id, name.replace(/\.ply$/i, ''))
       return { solids: [solid], wires: [], report, status: `PLY 가져오기 ${name}` }
     }
     case 'off': {
@@ -198,6 +215,12 @@ export function importFile(path: string, text: string, options: { id?: string } 
     case 'mycadaddon': {
       const addon = parseManifest(text)
       return { solids: [], wires: [], addon, report: [`${addon.name.ko} ${addon.version} (${addon.kind})`], status: `애드온 ${addon.name.ko}` }
+    }
+    case 'skp': {
+      const faces = parseSkp(text)
+      const solid = skpSolid(text, id)
+      solid.name = name.replace(/\.skp$/i, '')
+      return { solids: [solid], wires: [], report: [`${faces.length} faces`], status: `SKP 가져오기 ${name}` }
     }
     default:
       throw new Error(`지원하지 않는 파일 형식입니다: ${name}`)

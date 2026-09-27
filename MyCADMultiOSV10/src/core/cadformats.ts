@@ -1,9 +1,9 @@
 // Neutral CAD interchange formats: STEP, IGES, PLY, OFF and Collada.
 //
 // These are the files other CAD systems hand over, so MyCAD reads them and
-// writes the ones it can write faithfully. Everything here is text in, text
-// out - no binary variants, which keeps the whole thing pure TypeScript and
-// testable without a fixture directory.
+// writes the ones it can write faithfully. PLY is read and written as ASCII
+// or as little- and big-endian binary. The binary body has to arrive as
+// bytes: decoding it as text first destroys the floats.
 //
 // What each reader understands is stated with the reader; a file that goes
 // beyond that still opens, with a report line saying what was taken from it.
@@ -413,8 +413,181 @@ export function toIges(wires: Wire[], stamp: Date = new Date()): string {
 
 /* ─────────────────────────────── PLY and OFF ─────────────────────────────── */
 
-/** ASCII PLY reader: vertices and polygon faces, triangulated on the way in. */
-export function parsePly(text: string, id: string, name = 'ply'): { solid: Solid; report: string[] } {
+const PLY_SIZE: Record<string, number> = {
+  char: 1, int8: 1, uchar: 1, uint8: 1,
+  short: 2, int16: 2, ushort: 2, uint16: 2,
+  int: 4, int32: 4, uint: 4, uint32: 4,
+  float: 4, float32: 4, double: 8, float64: 8
+}
+
+function readPlyNumber(view: DataView, offset: number, type: string, little: boolean): number {
+  switch (type) {
+    case 'char':
+    case 'int8':
+      return view.getInt8(offset)
+    case 'uchar':
+    case 'uint8':
+      return view.getUint8(offset)
+    case 'short':
+    case 'int16':
+      return view.getInt16(offset, little)
+    case 'ushort':
+    case 'uint16':
+      return view.getUint16(offset, little)
+    case 'int':
+    case 'int32':
+      return view.getInt32(offset, little)
+    case 'uint':
+    case 'uint32':
+      return view.getUint32(offset, little)
+    case 'float':
+    case 'float32':
+      return view.getFloat32(offset, little)
+    case 'double':
+    case 'float64':
+      return view.getFloat64(offset, little)
+    default:
+      throw new Error(`PLY 속성 형식을 읽을 수 없습니다: ${type}`)
+  }
+}
+
+interface PlyProperty {
+  name: string
+  type: string
+  list?: { count: string; index: string }
+}
+
+function plyHeader(text: string) {
+  let format: 'ascii' | 'little' | 'big' = 'ascii'
+  let vertexCount = 0
+  let faceCount = 0
+  let element = ''
+  const vertexProps: PlyProperty[] = []
+  const faceProps: PlyProperty[] = []
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (line.startsWith('format binary_little_endian')) format = 'little'
+    else if (line.startsWith('format binary_big_endian')) format = 'big'
+    else if (line.startsWith('format ascii')) format = 'ascii'
+    else if (line.startsWith('element vertex')) {
+      element = 'vertex'
+      vertexCount = Number(line.split(/\s+/)[2])
+    } else if (line.startsWith('element face')) {
+      element = 'face'
+      faceCount = Number(line.split(/\s+/)[2])
+    } else if (line.startsWith('element ')) element = ''
+    else if (line.startsWith('property ') && (element === 'vertex' || element === 'face')) {
+      const parts = line.split(/\s+/)
+      const property: PlyProperty = parts[1] === 'list'
+        ? { name: parts[4], type: parts[3], list: { count: parts[2], index: parts[3] } }
+        : { name: parts[2], type: parts[1] }
+      if (element === 'vertex') vertexProps.push(property)
+      else faceProps.push(property)
+    }
+  }
+  return { format, vertexCount, faceCount, vertexProps, faceProps }
+}
+
+function headerByteLength(bytes: Uint8Array): number {
+  const marker = [101, 110, 100, 95, 104, 101, 97, 100, 101, 114]
+  for (let i = 0; i + marker.length <= bytes.length; i++) {
+    if (!marker.every((byte, index) => bytes[i + index] === byte)) continue
+    let end = i + marker.length
+    if (bytes[end] === 13) end += 1
+    if (bytes[end] === 10) end += 1
+    return end
+  }
+  return -1
+}
+
+function parsePlyBytes(bytes: Uint8Array, id: string, name: string): { solid: Solid; report: string[] } {
+  const headerEnd = headerByteLength(bytes)
+  if (headerEnd < 0) throw new Error('PLY 헤더를 찾지 못했습니다.')
+  const header = plyHeader(new TextDecoder().decode(bytes.subarray(0, headerEnd)))
+  if (header.format === 'ascii') return parsePly(new TextDecoder().decode(bytes), id, name)
+  const little = header.format === 'little'
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  let offset = headerEnd
+  const xIndex = header.vertexProps.findIndex((property) => property.name === 'x')
+  const yIndex = header.vertexProps.findIndex((property) => property.name === 'y')
+  const zIndex = header.vertexProps.findIndex((property) => property.name === 'z')
+  const useNames = xIndex >= 0 && yIndex >= 0 && zIndex >= 0
+  const vertices: Array<[number, number, number]> = []
+  for (let i = 0; i < header.vertexCount; i++) {
+    const values: number[] = []
+    for (const property of header.vertexProps) {
+      if (property.list) throw new Error('정점의 리스트 속성은 지원하지 않습니다.')
+      values.push(readPlyNumber(view, offset, property.type, little))
+      offset += PLY_SIZE[property.type]
+    }
+    vertices.push(useNames ? [values[xIndex], values[yIndex], values[zIndex]] : [values[0], values[1], values[2]])
+  }
+  const list = header.faceProps.find((property) => property.list)
+  if (!list?.list) throw new Error('PLY 면 인덱스 목록이 없습니다.')
+  const positions: number[] = []
+  for (let i = 0; i < header.faceCount; i++) {
+    const count = readPlyNumber(view, offset, list.list.count, little)
+    offset += PLY_SIZE[list.list.count]
+    const corners: Array<[number, number, number]> = []
+    for (let corner = 0; corner < count; corner++) {
+      const index = readPlyNumber(view, offset, list.list.index, little)
+      offset += PLY_SIZE[list.list.index]
+      if (vertices[index]) corners.push(vertices[index])
+    }
+    if (corners.length >= 3) fan(corners, positions)
+  }
+  if (offset > bytes.length) throw new Error('바이너리 PLY 본문이 잘렸습니다.')
+  if (positions.length === 0) throw new Error('PLY에서 면을 찾지 못했습니다.')
+  return {
+    solid: meshSolid(id, name, positions),
+    report: [`PLY binary ${header.format}: ${vertices.length} vertices, ${header.faceCount} faces`]
+  }
+}
+
+/** Little-endian binary PLY: one vertex per corner and a triangle list. */
+export function toBinaryPly(triangles: number[]): Uint8Array {
+  if (triangles.length < 9 || triangles.length % 9 !== 0) throw new Error('PLY로 내보낼 삼각형이 없습니다.')
+  const vertexCount = triangles.length / 3
+  const faceCount = vertexCount / 3
+  const header = new TextEncoder().encode([
+    'ply',
+    'format binary_little_endian 1.0',
+    `element vertex ${vertexCount}`,
+    'property float x',
+    'property float y',
+    'property float z',
+    `element face ${faceCount}`,
+    'property list uchar int vertex_index',
+    'end_header',
+    ''
+  ].join('\n'))
+  const body = new Uint8Array(vertexCount * 12 + faceCount * 13)
+  const view = new DataView(body.buffer)
+  let offset = 0
+  for (let i = 0; i < triangles.length; i += 3) {
+    view.setFloat32(offset, triangles[i], true)
+    view.setFloat32(offset + 4, triangles[i + 1], true)
+    view.setFloat32(offset + 8, triangles[i + 2], true)
+    offset += 12
+  }
+  for (let face = 0; face < faceCount; face++) {
+    view.setUint8(offset, 3)
+    view.setInt32(offset + 1, face * 3, true)
+    view.setInt32(offset + 5, face * 3 + 1, true)
+    view.setInt32(offset + 9, face * 3 + 2, true)
+    offset += 13
+  }
+  const bytes = new Uint8Array(header.length + body.length)
+  bytes.set(header, 0)
+  bytes.set(body, header.length)
+  return bytes
+}
+
+/** PLY reader: ASCII, or little- and big-endian binary. Faces are triangulated. */
+export function parsePly(input: string | Uint8Array, id: string, name = 'ply'): { solid: Solid; report: string[] } {
+  if (typeof input !== 'string') return parsePlyBytes(input, id, name)
+  const text = input
+  if (/format\s+binary/i.test(text)) throw new Error('바이너리 PLY는 바이트로 열어야 합니다.')
   const lines = text.split(/\r?\n/)
   let vertexCount = 0
   let faceCount = 0

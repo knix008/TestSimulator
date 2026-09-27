@@ -31,6 +31,11 @@ export const WORKBENCHES: WorkbenchDef[] = [
   { id: 'macro', labelKey: 'macroWb', tools: ['runMacro', 'pythonRunCmd', 'expressionEval', 'sheetRecompute', 'kwTree'] },
   { id: 'kernel', labelKey: 'kernelWb', tools: ['brepInfo', 'brepChamfer', 'brepFillet', 'brepEdgesCmd', 'nurbsCurveCmd', 'nurbsCircleCmd', 'nurbsArcCmd', 'nurbsSurfaceCmd', 'nurbsExtrudeCmd'] },
   { id: 'addons', labelKey: 'addonsWb', tools: ['addonListCmd', 'addonInstallCmd', 'addonToggleCmd', 'addonRunCmd', 'addonUninstallCmd'] },
+  { id: 'start', labelKey: 'startWb', tools: ['startPart', 'startSketch', 'startAssembly'] },
+  { id: 'image', labelKey: 'imageWb', tools: ['imagePlane', 'imageCalibrate'] },
+  { id: 'plot', labelKey: 'plotWb', tools: ['plotCurve', 'plotBounds'] },
+  { id: 'ship', labelKey: 'shipWb', tools: ['shipDisplacement', 'shipBlock', 'shipWaterplane'] },
+  { id: 'web', labelKey: 'webWb', tools: ['webHelp', 'webBookmark'] },
 
   // ── CATIA ────────────────────────────────────────────────────────────────
   { id: 'gsd', labelKey: 'gsdWb', tools: ['gsdExtrude', 'gsdRevolve', 'gsdSweep', 'gsdMultiSection', 'gsdFill', 'gsdBlend', 'gsdOffsetSurf', 'gsdJoin', 'gsdSplit', 'gsdBoundary', 'gsdHeal', 'gsdIso', 'gsdHelixCurve', 'gsdSpline', 'gsdConic'] },
@@ -38,11 +43,23 @@ export const WORKBENCHES: WorkbenchDef[] = [
   { id: 'kinematics', labelKey: 'kinematicsWb', tools: ['dmuRevolute', 'dmuPrismatic', 'dmuSimulate', 'dmuDof', 'dmuClash', 'dmuEnvelope'] },
   { id: 'knowledge', labelKey: 'knowledgeWb', tools: ['kwFormula', 'kwRule', 'kwCheck', 'kwDesignTable', 'kwApplyTable', 'kwTree', 'parameter', 'updatePart'] },
   { id: 'drafting', labelKey: 'draftingWb', tools: ['techdrawPage', 'techdrawSection', 'techdrawDetail', 'techdrawDim', 'techdrawHatch', 'techdrawBom', 'exportPageSvg', 'exportPageDxf', 'exportSvg', 'exportDxf'] },
+  { id: 'imagine', labelKey: 'imagineWb', tools: ['iasSubdivide', 'iasSmooth'] },
+  { id: 'freestyle', labelKey: 'freestyleWb', tools: ['fstHermite', 'fstSamples'] },
+  { id: 'fta', labelKey: 'ftaWb', tools: ['ftaWorst', 'ftaRss', 'ftaFit'] },
+  { id: 'electrical', labelKey: 'electricalWb', tools: ['elecDrop', 'elecResistance'] },
+  { id: 'piping', labelKey: 'pipingWb', tools: ['pipDeveloped', 'pipElbow'] },
+  { id: 'structure', labelKey: 'structureWb', tools: ['struStress', 'struSection'] },
+  { id: 'composites', labelKey: 'compositesWb', tools: ['lamModulus', 'lamThickness'] },
+  { id: 'mold', labelKey: 'moldWb', tools: ['moldShrink', 'moldDraft'] },
+  { id: 'catiaCam', labelKey: 'catiaCamWb', tools: ['latheTurn', 'axis5Tilt'] },
+  { id: 'photo', labelKey: 'photoWb', tools: ['photoLambert', 'photoRig'] },
 
   // ── SketchUp ─────────────────────────────────────────────────────────────
   { id: 'sketchup', labelKey: 'sketchupWb', tools: ['suRectangleTool', 'suCircleTool', 'suPolygonTool', 'suArcTool', 'suFreehand', 'suPushPull', 'suFollowMe', 'suOffsetFace', 'suIntersect', 'suSoften', 'suMakeGroup', 'suExplode', 'suMakeComponent', 'suPlaceInstance', 'suTagAssign', 'suTagToggle', 'suPaint', 'suStyle', 'suShadows', 'suScene', 'suApplyScene', 'suSection', 'suSectionCut', 'suTape', 'suProtractor', 'suFaceInfo', 'suText3d', 'suMoveCopies', 'suRotateCopies', 'suZoomExtents', 'suWalk', 'suOutliner'] },
   { id: 'solidTools', labelKey: 'sketchupWb', tools: ['suSolidUnion', 'suSolidSubtract', 'suSolidTrim', 'suSolidSplit', 'suSolidIntersect', 'suOuterShell'] },
-  { id: 'sandbox', labelKey: 'sandboxWb', tools: ['suTerrain', 'suContours', 'suSmoove', 'meshSmooth', 'meshRefine'] }
+  { id: 'sandbox', labelKey: 'sandboxWb', tools: ['suTerrain', 'suContours', 'suSmoove', 'meshSmooth', 'meshRefine'] },
+  { id: 'layout', labelKey: 'layoutWb', tools: ['layScale', 'laySheet'] },
+  { id: 'dynamic', labelKey: 'dynamicWb', tools: ['suDynamic', 'suSnap', 'suGeo', 'suMatch', 'suTexture', 'suSkpExport', 'suSkpImport'] }
 ]
 
 export type WorkbenchId = string

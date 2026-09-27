@@ -3,6 +3,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseDocument, serializeDocument } from '../src/core/serialize'
 import { parseStl } from '../src/core/stl'
+import { parsePly } from '../src/core/cadformats'
+import { importFile } from '../src/core/fileTypes'
+import { parseSkp } from '../src/core/gap'
 import { parseDxfWires, parseSvgWires } from '../src/core/drawing'
 import { compileOpenScad, parsePoints } from '../src/core/extended'
 import { importIfc } from '../src/core/archwb'
@@ -26,6 +29,12 @@ function read(name: string): string {
   const path = join(SAMPLE_DIR, name)
   expect(existsSync(path), `${name} 이(가) 없습니다. npm run build:samples 를 실행하세요.`).toBe(true)
   return readFileSync(path, 'utf8')
+}
+
+function readBytes(name: string): Uint8Array {
+  const path = join(SAMPLE_DIR, name)
+  expect(existsSync(path), `${name} 이(가) 없습니다. npm run build:samples 를 실행하세요.`).toBe(true)
+  return new Uint8Array(readFileSync(path))
 }
 
 function openDocument(name: string) {
@@ -190,6 +199,38 @@ describe('sample files', () => {
     const gear = meshInfo(parseStl(read('gear.stl'), 'gear'))
     expect(gear.triangles).toBeGreaterThan(500)
     expect(gear.closed).toBe(true)
+  })
+
+  it('[Sample] binary STL and PLY match the ASCII samples', () => {
+    const ascii = meshInfo(parseStl(read('cube.stl'), 'ascii'))
+    const binary = meshInfo(parseStl(readBytes('cube-binary.stl'), 'binary'))
+    expect(binary.triangles).toBe(12)
+    expect(binary.triangles).toBe(ascii.triangles)
+    expect(binary.closed).toBe(true)
+    expect(binary.volume).toBeCloseTo(ascii.volume, 0)
+
+    const plateAscii = parsePly(read('plate.ply'), 'ascii')
+    const plateBinary = parsePly(readBytes('plate-binary.ply'), 'binary')
+    expect(plateBinary.report[0]).toContain('binary little')
+    expect(plateBinary.solid.mesh?.positions.length).toBe(plateAscii.solid.mesh?.positions.length)
+    expect(meshInfo(plateBinary.solid).volume).toBeCloseTo(meshInfo(plateAscii.solid).volume, 0)
+  })
+
+  it('[Sample] STEP and IGES open under both extensions', () => {
+    const step = importFile('cube.stp', read('cube.stp'))
+    expect(step.solids).toHaveLength(1)
+    expect(read('cube.stp')).toBe(read('cube.step'))
+
+    const iges = importFile('profile.iges', read('profile.iges'))
+    expect(iges.wires.length).toBeGreaterThan(0)
+    expect(read('profile.iges')).toBe(read('profile.igs'))
+  })
+
+  it('[Sample] the SKP room has a floor and four walls', () => {
+    const faces = parseSkp(read('room.skp'))
+    expect(faces.map((face) => face.name)).toEqual(['Floor', 'WallSouth', 'WallEast', 'WallNorth', 'WallWest'])
+    const opened = importFile('room.skp', read('room.skp'))
+    expect(opened.solids[0].mesh?.positions.length).toBe(90)
   })
 
   it('[Sample] the OBJ file imports as three named, closed parts', () => {

@@ -15,7 +15,7 @@ const root = join(here, '..')
 
 export const FILE_TYPES = [
   { ext: 'mycad', name: 'MyCAD.Document', ko: 'MyCAD 3D 문서', en: 'MyCAD 3D document', role: 'Editor', default: true, builtin: true },
-  { ext: 'stl', name: 'MyCAD.Stl', ko: 'STL 메쉬', en: 'STL mesh', role: 'Viewer', default: true },
+  { ext: 'stl', name: 'MyCAD.Stl', ko: 'STL 메쉬 (ASCII/바이너리)', en: 'STL mesh (ASCII/binary)', role: 'Viewer', default: true },
   { ext: 'obj', name: 'MyCAD.Obj', ko: 'OBJ 메쉬', en: 'OBJ mesh', role: 'Viewer', default: true },
   { ext: 'dxf', name: 'MyCAD.Dxf', ko: 'DXF 도면', en: 'DXF drawing', role: 'Viewer', default: true },
   { ext: 'svg', name: 'MyCAD.Svg', ko: 'SVG 도면', en: 'SVG drawing', role: 'Viewer', default: false },
@@ -25,7 +25,7 @@ export const FILE_TYPES = [
   { ext: 'stp', name: 'MyCAD.StepAlt', ko: 'STEP 모델', en: 'STEP model', role: 'Viewer', default: true },
   { ext: 'igs', name: 'MyCAD.Iges', ko: 'IGES 와이어프레임', en: 'IGES wireframe', role: 'Viewer', default: false },
   { ext: 'iges', name: 'MyCAD.IgesAlt', ko: 'IGES 와이어프레임', en: 'IGES wireframe', role: 'Viewer', default: false },
-  { ext: 'ply', name: 'MyCAD.Ply', ko: 'PLY 메쉬', en: 'PLY mesh', role: 'Viewer', default: true },
+  { ext: 'ply', name: 'MyCAD.Ply', ko: 'PLY 메쉬 (ASCII/바이너리)', en: 'PLY mesh (ASCII/binary)', role: 'Viewer', default: true },
   { ext: 'off', name: 'MyCAD.Off', ko: 'OFF 메쉬', en: 'OFF mesh', role: 'Viewer', default: false },
   { ext: 'dae', name: 'MyCAD.Collada', ko: 'Collada 메쉬', en: 'Collada mesh', role: 'Viewer', default: false },
   { ext: 'asc', name: 'MyCAD.Points', ko: '점군 (ASC)', en: 'Point cloud (ASC)', role: 'Viewer', default: false },
@@ -33,7 +33,8 @@ export const FILE_TYPES = [
   { ext: 'nc', name: 'MyCAD.Gcode', ko: 'G코드 가공 경로', en: 'G-code toolpath', role: 'Viewer', default: false },
   { ext: 'gcode', name: 'MyCAD.GcodeAlt', ko: 'G코드 가공 경로', en: 'G-code toolpath', role: 'Viewer', default: false },
   { ext: 'mycadmacro', name: 'MyCAD.Macro', ko: 'MyCAD 매크로', en: 'MyCAD macro', role: 'Editor', default: true },
-  { ext: 'mycadaddon', name: 'MyCAD.Addon', ko: 'MyCAD 애드온', en: 'MyCAD addon', role: 'Editor', default: true }
+  { ext: 'mycadaddon', name: 'MyCAD.Addon', ko: 'MyCAD 애드온', en: 'MyCAD addon', role: 'Editor', default: true },
+  { ext: 'skp', name: 'MyCAD.Skp', ko: 'SketchUp 면 교환 텍스트', en: 'SketchUp face exchange text', role: 'Viewer', default: false }
 ]
 
 /** .mycad is the application's own document type and is always registered. */

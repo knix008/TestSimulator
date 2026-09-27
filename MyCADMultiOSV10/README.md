@@ -70,21 +70,36 @@ tests/        481 tests (unit, contract and jsdom GUI)
 
 ## File formats
 
-MyCAD opens the neutral CAD formats - `.step`/`.stp` (AP203/214), `.igs`/`.iges`,
-`.ply`, `.off`, `.dae` - alongside `.mycad`, `.stl`, `.obj`, `.dxf`, `.svg`,
-`.scad`, `.ifc`, `.asc`, `.xyz`, `.nc`, `.gcode`, `.mycadmacro`, `.mycadaddon`
-and `.csv`. It exports sixteen formats: MyCAD, STEP, PLY, OFF, IGES, STL, OBJ,
-SVG, DXF, drawing SVG/DXF, IFC4, G-code, point cloud, CSV, macro and Python.
+Open (File > Open, drop on the viewport, or double-click after association):
 
-The STEP reader follows the planar B-rep graph (`ADVANCED_FACE` → `EDGE_LOOP` →
-`VERTEX_POINT`), so a solid written by another system comes in as geometry
-rather than a bounding box; a file it cannot triangulate still opens, with a
-report line saying what was read. The writer emits AP214 that MyCAD reads back
-with the volume unchanged (`tests/cadformats.test.ts` pins that round trip).
+| Extension | What it contains | What opens |
+| --- | --- | --- |
+| `.mycad` | Document: solids, sketches, features, parameters, extras | Replaces the current document |
+| `.stl` | Triangle mesh, ASCII or binary | One mesh solid |
+| `.obj` | Triangle mesh, object names kept | One mesh solid per object |
+| `.ply` | Triangle mesh: ASCII, little-endian binary, or big-endian binary | One mesh solid |
+| `.off` | OFF mesh | One mesh solid |
+| `.dae` | Collada mesh | One mesh solid |
+| `.step` `.stp` | STEP AP203/214. Planar B-rep (`ADVANCED_FACE` → `EDGE_LOOP` → `VERTEX_POINT`) is triangulated. A file that yields no faces still opens, and the report says what was read | One mesh solid |
+| `.igs` `.iges` | IGES wireframe | Wires |
+| `.dxf` | Drawing lines and circles | Wires |
+| `.svg` | Drawing lines and circles | Wires |
+| `.skp` | `SKP1` face-exchange text, one `face Name x,y,z …` line per face | One mesh built from those faces |
+| `.scad` | OpenSCAD source | The compiled solid |
+| `.ifc` | IFC storeys and products | A report of what was listed |
+| `.asc` `.xyz` | Point cloud, one point per line | A point solid |
+| `.nc` `.gcode` | G-code toolpath | A wire of the moves, plus a block count |
+| `.mycadmacro` | Macro: one call per line such as `box(40, 20, 10)`, or Python | The result of running it |
+| `.mycadaddon` | Addon manifest (JSON) | Addon details; install it from the addon manager |
+| `.csv` | Spreadsheet or design table. Drop it on the viewport; it is not in the Open dialog and not a Windows association | The sheet |
 
-The Windows installer asks which of those extensions it should register; the
-`.mycad` document type is always associated. Uninstalling removes only the
-associations the installer created.
+Binary `.stl` and `.ply` must be read as bytes. Saving either in a text editor changes the coordinates.
+
+SketchUp’s binary `.skp`, CATIA `.CATPart` and `.CATProduct`, and FreeCAD `.FCStd` are not opened. The `.skp` files MyCAD reads and writes are `SKP1` text.
+
+Export writes ASCII `.stl` and ASCII `.ply`. The export list is MyCAD, STEP (`.step`, AP214), PLY, OFF, IGES (`.igs`), STL, OBJ, SVG, DXF, drawing SVG/DXF, IFC4, G-code (`.nc`), point cloud (`.asc`), CSV, macro and Python. The STEP writer emits AP214 that MyCAD reads back with the volume unchanged (`tests/cadformats.test.ts` pins that round trip).
+
+The Windows installer asks which of 20 extensions to register. `.mycad` is always associated. Checked by default: `.stl` `.obj` `.dxf` `.scad` `.ifc` `.step` `.stp` `.ply` `.mycadmacro` `.mycadaddon`. Listed and unchecked: `.svg` `.igs` `.iges` `.off` `.dae` `.asc` `.xyz` `.nc` `.gcode` `.skp`. Uninstalling removes only the associations the installer created.
 
 ## Requirements
 
