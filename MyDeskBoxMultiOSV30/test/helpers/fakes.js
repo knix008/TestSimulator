@@ -655,6 +655,10 @@ function baseState(extra) {
     corner: themes.DEFAULT_CORNER,
     shadow: false,
     openWith: 'double',
+    // 이 아래의 검사는 대부분 '담으면 파일이 박스 폴더로 옮겨 간다' 는 길을 본다.
+    // 그래서 여기서는 옮기기로 못 박는다. 그대로 두기는 test/take.test.js 가 따로 본다.
+    // (프로그램의 기본값은 그대로 두기다. store.defaults 를 보는 검사가 그것을 지킨다.)
+    takeWith: 'move',
     // 규칙대로 저절로 담는 일은 사람이 켜 주기 전에는 하지 않는다.
     autoSort: false,
     rules: [],

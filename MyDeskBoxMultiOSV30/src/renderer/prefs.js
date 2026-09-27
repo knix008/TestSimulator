@@ -299,6 +299,7 @@ desk.onPrefs((payload) => {
   el('langTag').textContent = say('tray.language');
   el('startupTag').textContent = say('tray.startup');
   el('openTag').textContent = say('tray.openWith');
+  el('takeTag').textContent = say('tray.takeWith');
   el('shadowTag').textContent = say('settings.shadow');
   el('themeTag').textContent = say('tray.newTheme');
   el('cornerTag').textContent = say('tray.newCorner');
@@ -323,6 +324,14 @@ desk.onPrefs((payload) => {
     settings.openWith,
     (id) => send({ openWith: id })
   );
+  drawChips(
+    el('takes'),
+    [{ id: 'keep', label: say('tray.takeKeep') }, { id: 'move', label: say('tray.takeMove') }],
+    settings.takeWith,
+    (id) => send({ takeWith: id })
+  );
+  // 고른 것이 파일에 무슨 일을 하는지 한 줄로 적어 준다. 잘못 고르면 파일이 움직인다.
+  el('takeHint').textContent = say(settings.takeWith === 'move' ? 'prefs.takeMoveHint' : 'prefs.takeKeepHint');
   el('autoSortTag').textContent = say('rules.auto');
   el('rulesTag').textContent = say('rules.list');
   el('addRule').textContent = say('rules.add');

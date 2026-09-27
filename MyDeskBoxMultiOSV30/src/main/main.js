@@ -67,14 +67,17 @@ function planDesktop(state, desktop) {
   return catalog.planFences(files, shell, workArea(), (kind) => i18n.t(lang, `box.${kind}`));
 }
 
-// 첫 실행에 파일을 옮겨도 되는지 묻는다. 거절하면 빈 바탕화면으로 시작한다.
-async function askSort(lang, count) {
+// 첫 실행에 종류별로 나눠 담아도 되는지 묻는다. 거절하면 빈 바탕화면으로 시작한다.
+//
+// 담기 방식에 따라 일어나는 일이 다르므로 글도 다르다. 옮기기라면 파일이 움직이고,
+// 그대로 두기라면 보여 주기만 한다. 무슨 일이 일어나는지 모르고 고르게 두지 않는다.
+async function askSort(lang, count, keeping) {
   const i18n = require('../shared/i18n');
   const ask = require('./ask');
   try {
     return await ask.confirm({
       title: i18n.t(lang, 'dialog.sort'),
-      detail: i18n.t(lang, 'dialog.sortDetail', { n: count }),
+      detail: i18n.t(lang, keeping ? 'dialog.sortKeepDetail' : 'dialog.sortDetail', { n: count }),
       confirm: i18n.t(lang, 'dialog.sortGo'),
       cancel: i18n.t(lang, 'dialog.cancel'),
     });
@@ -262,7 +265,7 @@ ${detail}`);
       // 나눠 담으면 파일이 박스 폴더로 옮겨 간다. 그래서 먼저 묻는다.
       const planned = planDesktop(state, desktop);
       const count = planned.reduce((sum, box) => sum + box.items.length, 0);
-      if (count && await askSort(state.settings.lang, count)) {
+      if (count && await askSort(state.settings.lang, count, host.keeping())) {
         state.fences = planned.map((raw) => store.normalizeFence(raw));
       }
       store.save(state);

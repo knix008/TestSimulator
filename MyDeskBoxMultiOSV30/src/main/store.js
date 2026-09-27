@@ -33,6 +33,14 @@ function defaults() {
       shadow: false,
       // 박스 안의 아이콘을 한 번 눌러 열지, 두 번 눌러 열지.
       openWith: 'double',
+      // 박스에 담을 때 파일을 어떻게 할지.
+      //
+      //  keep — 있는 자리에 그대로 두고, 박스는 그것을 가리켜 보여 주기만 한다.
+      //         바탕화면에서 사라지지 않으므로 같은 항목이 두 곳에 함께 보인다.
+      //  move — 파일을 박스 폴더로 옮긴다. 바탕화면에서는 사라진다.
+      //
+      // 기본은 keep 이다. 담는 것만으로 사람의 파일이 움직이지 않는 쪽이 놀랄 일이 적다.
+      takeWith: 'keep',
       // 바탕화면에 새로 생긴 항목을 규칙대로 박스에 담을지.
       // 파일이 저절로 옮겨 가는 일이므로 사람이 켜 주기 전에는 하지 않는다.
       autoSort: false,
@@ -68,6 +76,7 @@ function load() {
       Object.assign(data.settings, parsed.settings || {});
       data.settings.lang = i18n.langOf(data.settings.lang);
       data.settings.openWith = data.settings.openWith === 'single' ? 'single' : 'double';
+      data.settings.takeWith = data.settings.takeWith === 'move' ? 'move' : 'keep';
       data.settings.openAtLogin = !!data.settings.openAtLogin;
       data.settings.autoSort = !!data.settings.autoSort;
       data.settings.rules = rules.normalizeRules(data.settings.rules);
@@ -141,6 +150,11 @@ function normalizeFence(raw) {
       const kept = { name: String(item.name || path.basename(item.path)), path: String(item.path) };
       // 담기 전에 있던 폴더. 끝낼 때 그 자리로 돌려준다.
       if (typeof item.home === 'string' && item.home) kept.home = item.home;
+      // 옮기지 않고 가리키기만 한 항목. 꺼내거나 끝낼 때 이 파일을 건드리지 않는다.
+      //
+      // 담을 때의 방식을 항목에 새겨 둔다. 설정만 보고 판단하면, 그대로 두기로 담은 뒤
+      // 설정을 옮기기로 바꾸고 끝냈을 때 남의 폴더에 있던 파일이 바탕화면으로 쏟아진다.
+      if (item.keep) kept.keep = true;
       fence.items.push(kept);
     }
   }

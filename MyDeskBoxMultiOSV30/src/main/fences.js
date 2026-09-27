@@ -96,6 +96,29 @@ function createHost(state) {
     return !!(fence && fence.portal);
   }
 
+  // ── 담는다는 것 ───────────────────────────────────────────────────────────
+  //
+  // 두 가지 방식이 있다.
+  //
+  //  그대로 두기(keep) — 파일은 있는 자리에 남고, 박스는 그것을 가리켜 보여 주기만 한다.
+  //    바탕화면에서 사라지지 않으므로 같은 항목이 두 곳에 함께 보인다. 기본값이다.
+  //  옮기기(move) — 파일을 이 박스의 폴더로 옮긴다. 바탕화면 폴더에서 빠지므로
+  //    탐색기가 그 아이콘을 더 그리지 않는다.
+  //
+  // 어느 쪽이든 박스가 깔고 앉은 자리의 바탕화면 아이콘은 옆으로 비켜 준다.
+  //
+  // **지금 설정이 아니라 항목에 새긴 표시(item.keep)를 보고 다룬다.** 그대로 두기로 담은 뒤
+  // 설정을 옮기기로 바꾸고 끝내면, 설정만 보는 코드는 남의 폴더에 있던 파일을 바탕화면으로
+  // 쏟아 놓는다. 담을 때 정해진 것은 그 항목에 그대로 남아 있어야 한다.
+  function keeping() {
+    return state.settings.takeWith !== 'move';
+  }
+
+  // 이 항목은 가리키고만 있는 것인가. 파일을 건드려도 되는지 묻는 자리마다 이것을 본다.
+  function pointsAt(item) {
+    return !!(item && item.keep);
+  }
+
   // ── 바탕화면 페이지 ───────────────────────────────────────────────────────
   //
   // 박스 묶음을 여러 벌 두고 갈아 쓴다. 한 페이지에 속한 박스만 창을 띄우고,
@@ -663,6 +686,7 @@ function createHost(state) {
     if (typeof patch.lang === 'string') setLang(patch.lang);
     if (typeof patch.openAtLogin === 'boolean') setLogin(patch.openAtLogin);
     if (typeof patch.openWith === 'string') setOpenWith(patch.openWith);
+    if (typeof patch.takeWith === 'string') setTakeWith(patch.takeWith);
     if (typeof patch.shadow === 'boolean') setShadow(patch.shadow);
     if (typeof patch.theme === 'string') setDefaultTheme(patch.theme);
     if (patch.corner !== undefined) setDefaultCorner(patch.corner);
@@ -1222,8 +1246,11 @@ function createHost(state) {
     for (const entry of filePaths) {
       const item = toItem(entry);
       if (!item) continue;
-      // 담는다는 것은 그 박스의 폴더로 옮긴다는 뜻이다.
+      // 같은 것을 한 박스에 두 번 담지 않는다. 그대로 두기에서는 파일이 그 자리에 남아
+      // 있으므로, 한 번 담은 것을 다시 끌어다 놓기 쉽다.
+      if (fence.items.some((held) => samePath(held.path, item.path))) continue;
       // 휴지통 같은 셸 항목은 파일이 아니므로 목록에만 담는다.
+      // 어느 방식이든 옮길 것이 없다.
       if (desktop.isShellItem && desktop.isShellItem(item.path)) {
         incoming.push(item);
         continue;
@@ -1272,7 +1299,11 @@ function createHost(state) {
   // 대체하겠다면 박스에 있던 것을 휴지통으로 보내 자리를 비운다.
   // 그대로 두겠다면 담지 않는다. 파일은 있던 자리에 남는다.
   // 이 파일을 담으면 무엇과 이름이 부딪히는가. 포털은 가리키는 폴더를 본다.
+  //
+  // 그대로 두기에서는 아무것도 쓰지 않으므로 부딪힐 파일이 없다. 같은 이름이 나란히
+  // 보일 수는 있지만, 그것은 서로 다른 폴더에 있는 다른 파일이다.
   function clashOf(fence, filePath) {
+    if (!isPortal(fence) && keeping()) return '';
     if (!isPortal(fence)) return hold.clash(fence, filePath);
     const from = String(filePath || '');
     if (!from || portal.inside(fence.portal, from)) return '';
@@ -1453,10 +1484,23 @@ function createHost(state) {
     else await dropFiles(target.id, [filePath], index);
   }
 
-  // 담는다는 것은 그 파일을 이 박스의 폴더로 옮긴다는 뜻이다.
-  // 옮기고 나면 바탕화면 폴더에서 빠지므로 탐색기가 그 아이콘을 더 그리지 않는다.
-  // 담기 전에 있던 폴더는 함께 적어 둔다. 꺼내거나 끝낼 때 그 자리로 돌려준다.
+  // 항목 하나를 이 박스에 들인다. 방식에 따라 하는 일이 다르다.
+  //
+  //  그대로 두기 — 파일을 건드리지 않고 그 자리를 가리켜 둔다. 가리킴 표시를 새긴다.
+  //  포털       — 가리키는 폴더로 옮긴다. 담기 전 자리는 적지 않는다. 그 폴더가 제자리다.
+  //  옮기기     — 이 박스의 폴더로 옮기고, 담기 전에 있던 폴더를 함께 적어 둔다.
+  //               꺼내거나 끝낼 때 그 자리로 돌려준다.
   function bringIn(fence, item) {
+    // 그대로 두기. 파일은 건드리지 않고 그 자리를 가리켜 둔다.
+    // 포털보다 먼저 볼 것은 아니다. 포털은 제 폴더로 모으는 것이 뜻이므로 그쪽이 앞선다.
+    if (!isPortal(fence) && keeping()) {
+      try {
+        if (!fs.existsSync(item.path)) return null;
+      } catch (_err) {
+        return null;
+      }
+      return { name: path.basename(item.path), path: item.path, keep: true };
+    }
     // 포털은 가리키는 폴더가 곧 그 박스다. 보관함을 거치지 않고 그 폴더로 옮긴다.
     // 담기 전 자리를 적어 두지 않는다. 포털에 있는 파일은 '담긴' 것이 아니라 그 폴더의 것이다.
     if (isPortal(fence)) {
@@ -1478,6 +1522,8 @@ function createHost(state) {
   function letGo(item, from) {
     if (!item) return false;
     if (desktop.isShellItem && desktop.isShellItem(item.path)) return putIconHome(item.name);
+    // 가리키고만 있던 것은 이미 제자리에 있다. 꺼낸다는 것은 목록에서 빼는 일뿐이다.
+    if (pointsAt(item)) return false;
     const going = isPortal(from) ? { ...item, home: desktopFolder() } : item;
     const back = hold.give(going);
     if (!back || back === item.path) return false;
@@ -1549,6 +1595,24 @@ function createHost(state) {
           kept.push(item);
           inFolder.delete(name);
         }
+        continue;
+      }
+      // 가리키고만 있는 항목은 폴더 밖에 있는 것이 정상이다. 있는 자리에 둔다.
+      //
+      // 항목에 새긴 표시가 지금 설정보다 앞선다. 그래야 그대로 두기로 담은 뒤 설정을
+      // 옮기기로 바꿔도, 폴더와 맞추는 이 길에서 사람의 파일이 끌려가지 않는다.
+      //
+      // 표시가 없는데 그대로 두기인 경우에도 여기로 온다. 첫 실행 분류처럼 bringIn 을
+      // 거치지 않고 목록에 바로 들어온 항목이 그렇다. 그때 표시를 새겨 둔다.
+      // 보관함 안에 있는 것은 여기서 두면 주인 없이 남으므로 아래로 보낸다.
+      if (pointsAt(item) || (keeping() && !hold.inside(item.path))) {
+        let there = false;
+        try {
+          there = fs.existsSync(item.path);
+        } catch (_err) {
+          there = false;
+        }
+        if (there) kept.push(pointsAt(item) ? item : { ...item, keep: true });
         continue;
       }
       // 아직 폴더 밖에 있는 것은 옮겨 담는다. 예전 판에서 올라온 박스가 이 길로 들어온다.
@@ -1682,10 +1746,14 @@ function createHost(state) {
   }
 
   // 이 이름을 이미 들고 있는 박스. 들고 있는 항목까지 함께 준다.
+  // 가리키고만 있는 항목은 건너뛴다. 그것은 바탕화면에 그대로 있어 탐색기 눈에 보이므로,
+  // 탐색기가 같은 이름을 두 번 만들지 않는다. 물을 일이 없고, 물어서 대체하면 사람이
+  // 바탕화면에 두고 쓰던 파일이 휴지통으로 간다.
   function holderOf(name) {
     for (const fence of state.fences) {
       for (const item of fence.items) {
         if (desktop.isShellItem && desktop.isShellItem(item.path)) continue;
+        if (pointsAt(item)) continue;
         if (sameLabel(path.basename(item.path), name)) return { fence, item };
       }
     }
@@ -1830,8 +1898,12 @@ function createHost(state) {
     // 박스를 숨긴 동안에는 감출 까닭이 없으므로 모두 되살린다.
     // 지금 보이는 페이지의 박스가 들고 있는 것만 감춘다. 다른 페이지로 넘긴 휴지통은
     // 그 박스가 화면에 없으므로 바탕화면 쪽 아이콘을 되살려 주어야 한다.
+    //
+    // 그대로 두기에서는 아무것도 감추지 않는다. 그 방식의 약속이 '있는 자리에 그대로' 이므로
+    // 휴지통만 감추면 약속이 어긋난다.
     if (typeof desktop.syncShellIcons === 'function') {
-      desktop.syncShellIcons(state.hidden ? [] : visibleFences().flatMap((fence) => fence.items));
+      const hide = state.hidden || keeping() ? [] : visibleFences().flatMap((fence) => fence.items);
+      desktop.syncShellIcons(hide);
     }
     if (changed) pushAll();
     if (state.hidden) {
@@ -1942,6 +2014,9 @@ function createHost(state) {
         names.push(item.name);
         continue;
       }
+      // 가리키고만 있던 것은 옮긴 적이 없다. 돌려줄 것도 없다.
+      // 여기서 hold.give 를 부르면 바탕화면이 아닌 폴더에서 가리킨 파일이 바탕화면으로 끌려온다.
+      if (pointsAt(item)) continue;
       const back = hold.give(item);
       if (back && back !== item.path) {
         refreshFolders(path.dirname(item.path), path.dirname(back));
@@ -2285,6 +2360,21 @@ function createHost(state) {
   function setDefaultCorner(corner) {
     state.settings.corner = themes.cornerRadius(corner);
     persist();
+    announce();
+  }
+
+  // 담을 때 파일을 옮길지, 있는 자리에 두고 가리킬지 정한다.
+  //
+  // 이미 담아 둔 것은 건드리지 않는다. 항목마다 담을 때의 방식이 새겨져 있고,
+  // 그것을 바꾸는 일은 파일을 옮기는 일이라 설정을 누른 것만으로 할 일이 아니다.
+  // 지금 담긴 것을 되돌리려면 '바탕화면으로 모두 돌려주기' 를 쓴다.
+  function setTakeWith(kind) {
+    const next = kind === 'move' ? 'move' : 'keep';
+    if (state.settings.takeWith === next) return;
+    state.settings.takeWith = next;
+    persist();
+    // 감춰 두었던 셸 아이콘을 방식에 맞게 다시 맞춘다.
+    refreshIcons();
     announce();
   }
 
@@ -2736,6 +2826,8 @@ function createHost(state) {
     setLogin,
     syncLogin,
     setLang,
+    setTakeWith,
+    keeping,
     setDefaultTheme,
     setDefaultCorner,
     setDefaultOpacity,

@@ -39,6 +39,37 @@ test('설정을 저장한 적이 없으면 시작할 때 실행이 켜져 있다
   assert.equal(store.defaults().settings.openAtLogin, true);
 });
 
+test('설정을 저장한 적이 없으면 담기는 그대로 두기다', () => {
+  // 담는 것만으로 사람의 파일이 움직이지 않는 쪽이 기본이어야 한다.
+  // 파일을 박스 폴더로 옮기는 방식은 설정에서 고를 수 있다.
+  assert.equal(store.defaults().settings.takeWith, 'keep');
+});
+
+test('담기 방식은 두 가지뿐이고 모르는 값은 그대로 두기로 읽는다', () => {
+  for (const [written, wanted] of [['move', 'move'], ['keep', 'keep'], ['엉뚱', 'keep'], [null, 'keep']]) {
+    fs.writeFileSync(file(), JSON.stringify({ settings: { takeWith: written } }));
+    assert.equal(store.load().settings.takeWith, wanted, `${JSON.stringify(written)} 을 잘못 읽는다`);
+  }
+});
+
+test('가리키고만 있다는 표시는 저장본에 남는다', () => {
+  const saved = store.defaults();
+  saved.fences = [store.normalizeFence({
+    id: 'a',
+    items: [
+      { name: '가리킴.txt', path: 'C:/Desktop/가리킴.txt', keep: true },
+      { name: '담김.txt', path: 'C:/boxes/일감/담김.txt', home: 'C:/Desktop' },
+    ],
+  })];
+  store.save(saved);
+
+  const items = store.load().fences[0].items;
+  assert.equal(items[0].keep, true, '가리킴 표시가 사라졌다');
+  assert.equal(items[0].home, undefined);
+  assert.equal(items[1].keep, undefined, '옮겨 담은 것에 가리킴 표시가 붙었다');
+  assert.equal(items[1].home, 'C:/Desktop');
+});
+
 test('저장한 자리와 설정을 그대로 다시 읽는다', () => {
   const saved = store.defaults();
   saved.didWelcome = true;

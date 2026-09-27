@@ -143,6 +143,27 @@ function install(host) {
         checked: !!settings.shadow,
         click: (item) => host.setShadow(item.checked),
       },
+      // 담을 때 파일을 옮길지, 있는 자리에 두고 가리킬지. 파일이 움직이는 일이라 눈에 띄게 둔다.
+      {
+        label: say('tray.takeWith'),
+        icon: icons.menu('gather'),
+        submenu: [
+          {
+            label: say('tray.takeKeep'),
+            icon: icons.menu('portal'),
+            type: 'radio',
+            checked: settings.takeWith !== 'move',
+            click: () => host.setTakeWith('keep'),
+          },
+          {
+            label: say('tray.takeMove'),
+            icon: icons.menu('gather'),
+            type: 'radio',
+            checked: settings.takeWith === 'move',
+            click: () => host.setTakeWith('move'),
+          },
+        ],
+      },
       { type: 'separator' },
       // 새로 생긴 바탕화면 항목을 규칙대로 담는다. 파일이 저절로 옮겨 가는 일이라
       // 사람이 켜 주기 전에는 하지 않는다. 규칙은 설정 창의 '규칙' 탭에서 적는다.
