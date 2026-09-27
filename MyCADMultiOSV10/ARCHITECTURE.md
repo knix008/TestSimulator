@@ -205,7 +205,7 @@ table drives:
 
 ## Testing strategy
 
-724 tests in four flavours:
+741 tests in four flavours:
 
 1. **Unit** - geometry and maths checked against analytic values (Steiner's
    formula, `FL/AE`, bend allowance, partition of unity for NURBS bases).
@@ -239,6 +239,10 @@ committed.
   (command ids, with one-line help texts used for tooltips and the parameter
   dialog). Code comments and identifiers are English.
 - Commands never mutate their input; they return an effect.
+- `size` is parametric and only some of its fields shape a given kind
+  (`sizeFieldsFor`); `scale` is a plain per-axis multiplier that every kind
+  honours. A property row for a field the geometry never reads is a row
+  that silently does nothing, so the panel asks first.
 - An effect that writes to `extras` needs something that draws it. Shipping
   the command alone leaves a tool that passes its tests and does nothing in
   the window.

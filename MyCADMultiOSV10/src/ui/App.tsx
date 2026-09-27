@@ -12,7 +12,7 @@ import { menuIcon, translate, type MessageKey } from '../core/i18n'
 import { commandHelp } from '../core/labels'
 import { CONTEXT_ITEMS, MENUS, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT, menuPopupLayout, menuRowCount, menuSections } from '../core/menus'
 import { hasCommand, runCommandById, type CommandEffect } from '../core/commands'
-import { createSolid, type CadDocument, type ShadeMode, type SolidKind, type ViewPreset } from '../core/model'
+import { createSolid, sizeFieldsFor, type CadDocument, type ShadeMode, type SizeField, type SolidKind, type ViewPreset } from '../core/model'
 import { pageToSvg, selectionDistance } from '../core/print'
 import { decodeBase64, fileTypeFor, importCsv, importFile, isBinaryExtension, openFilters } from '../core/fileTypes'
 import { runExport } from '../core/exporters'
@@ -1860,6 +1860,9 @@ function PropertyEditor({
     dispatch({ type: 'update-solid', id: solid.id, patch: { [group]: { ...solid[group], [key]: value } } as never })
   }
   const axes = ['x', 'y', 'z'] as const
+  const sizeFields = sizeFieldsFor(solid.kind)
+  const sizeFieldLabel = (field: SizeField) =>
+    field === 'radius' ? 'R' : field === 'tube' ? 'T' : field.toUpperCase()
   return (
     <div data-testid="property-editor">
       <label className="row"><span>{t('name')}</span><input aria-label={t('name')} value={solid.name} onChange={(event) => dispatch({ type: 'update-solid', id: solid.id, patch: { name: event.target.value } })} /></label>
@@ -1896,25 +1899,28 @@ function PropertyEditor({
           </div>
         ))}
       </fieldset>
-      <fieldset className="field-group">
-        <legend>{`${t('dimensions')} (${unitSuffix(units)})`}</legend>
-        {axes.map((axis) => (
-          <div className="row" key={axis}><span>{axis.toUpperCase()}</span>
-            <NumberField
-              id={`prop-size-${axis}`}
-              label={`${t('dimensions')} ${axis}`}
-              value={solid.size[axis]}
-              min={0.1}
-              step={1}
-              suffix="mm"
-              onChange={(value) => setNumber('size', axis, value)}
-            />
-          </div>
-        ))}
-        <div className="row"><span>R</span>
-          <NumberField id="prop-size-radius" label={`${t('dimensions')} r`} value={solid.size.radius} min={0} step={1} suffix="mm" onChange={(value) => setNumber('size', 'radius', value)} />
-        </div>
-      </fieldset>
+      {/* Only the fields that shape this kind: a sphere is its radius, a
+          cylinder a radius and a height. The rest were editable and silently
+          ignored, which read as X, Y and Z behaving differently from each
+          other. Scale below still works on all three axes for every kind. */}
+      {sizeFields.length > 0 ? (
+        <fieldset className="field-group">
+          <legend>{`${t('dimensions')} (${unitSuffix(units)})`}</legend>
+          {sizeFields.map((field) => (
+            <div className="row" key={field}><span>{sizeFieldLabel(field)}</span>
+              <NumberField
+                id={`prop-size-${field}`}
+                label={`${t('dimensions')} ${field}`}
+                value={solid.size[field]}
+                min={field === 'radius' || field === 'tube' ? 0 : 0.1}
+                step={1}
+                suffix="mm"
+                onChange={(value) => setNumber('size', field, value)}
+              />
+            </div>
+          ))}
+        </fieldset>
+      ) : null}
       <fieldset className="field-group">
         <legend>{t('scale')}</legend>
         {axes.map((axis) => (

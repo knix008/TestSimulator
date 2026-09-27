@@ -115,6 +115,28 @@ export function cloneSolid(solid: Solid, id: string): Solid {
   }
 }
 
+export type SizeField = 'x' | 'y' | 'z' | 'radius' | 'tube'
+
+/**
+ * The size fields that actually shape a solid of this kind.
+ *
+ * `solidGeometry` builds a sphere from its radius alone and a cylinder from a
+ * radius and a height, so offering X, Y and Z for those would be offering
+ * three boxes that do nothing when typed into. A mesh has no parametric size
+ * at all. Whatever this returns, `scale` still works on every axis of every
+ * kind, which is how a round solid is squashed.
+ */
+export function sizeFieldsFor(kind: SolidKind): SizeField[] {
+  switch (kind) {
+    case 'sphere': return ['radius']
+    case 'cylinder':
+    case 'cone': return ['radius', 'y']
+    case 'torus': return ['radius', 'tube']
+    case 'mesh': return []
+    default: return ['x', 'y', 'z']
+  }
+}
+
 const DEFAULT_SIZE = { x: 40, y: 40, z: 40, radius: 20, tube: 6 }
 
 export function createSolid(kind: SolidKind, id: string, index: number): Solid {
