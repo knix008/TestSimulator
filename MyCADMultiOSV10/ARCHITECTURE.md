@@ -205,7 +205,7 @@ table drives:
 
 ## Testing strategy
 
-741 tests in four flavours:
+743 tests in four flavours:
 
 1. **Unit** - geometry and maths checked against analytic values (Steiner's
    formula, `FL/AE`, bend allowance, partition of unity for NURBS bases).

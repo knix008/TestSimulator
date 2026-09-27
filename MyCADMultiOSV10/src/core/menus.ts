@@ -25,7 +25,7 @@ function entry(id: string): MenuEntry {
 }
 
 export const MENUS: MenuDef[] = [
-  { id: 'file', labelKey: 'file', breaks: ['save', 'export', 'openUrl'], items: [
+  { id: 'file', labelKey: 'file', breaks: ['save', 'export', 'print', 'openUrl'], items: [
     { id: 'new', labelKey: 'new', icon: menuIcon('new') },
     { id: 'open', labelKey: 'open', icon: menuIcon('open') },
     { id: 'save', labelKey: 'save', icon: menuIcon('save') },
@@ -36,6 +36,7 @@ export const MENUS: MenuDef[] = [
     { id: 'exportObj', labelKey: 'exportObj', icon: menuIcon('exportObj') },
     { id: 'exportSvg', labelKey: 'exportSvg', icon: menuIcon('exportSvg') },
     { id: 'exportDxf', labelKey: 'exportDxf', icon: menuIcon('exportDxf') },
+    { id: 'print', labelKey: 'print', icon: menuIcon('print') },
     { id: 'openUrl', labelKey: 'openUrl', icon: menuIcon('openUrl') },
     { id: 'download', labelKey: 'download', icon: menuIcon('download') }
   ]},

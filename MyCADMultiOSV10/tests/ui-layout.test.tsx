@@ -7,7 +7,7 @@ import { MIN_PANEL_WIDTH, PANEL_ROOM, clampLightAngles, lightAngles, lightPositi
 import { LIGHT_KINDS, sanitizeLight, sanitizeSettings } from '../src/core/settings'
 import { THEMES } from '../src/core/themes'
 import { SETTINGS_KEY } from '../src/core/settings'
-import { MENUS, MENU_SECTION_THRESHOLD, TOOLBAR_GROUPS, menuPopupLayout, menuRowCount, menuSections } from '../src/core/menus'
+import { MENUS, MENU_SECTION_THRESHOLD, TOOLBAR_GROUPS, TOOLBAR_RIGHT, menuPopupLayout, menuRowCount, menuSections } from '../src/core/menus'
 
 describe('light placement', () => {
   it('[Light] position and angles round-trip', () => {
@@ -109,8 +109,8 @@ describe('menu popups', () => {
 
   it('[Menu] separators are counted as rows', () => {
     const file = MENUS.find((menu) => menu.id === 'file')!
-    expect(file.breaks).toEqual(['save', 'export', 'openUrl'])
-    expect(menuRowCount(file)).toBe(file.items.length + 3)
+    expect(file.breaks).toEqual(['save', 'export', 'print', 'openUrl'])
+    expect(menuRowCount(file)).toBe(file.items.length + 4)
     // Every break names an item that is really in the menu, and the row count
     // covers the items, the separators and the section headings.
     for (const menu of MENUS) {
@@ -140,13 +140,13 @@ describe('menu popups', () => {
     render(<App />)
     await user.click(screen.getByTestId('menu-file'))
     const popup = screen.getByTestId('menu-popup')
-    for (const id of ['save', 'export', 'openUrl']) {
+    for (const id of ['save', 'export', 'print', 'openUrl']) {
       const separator = screen.getByTestId(`menu-separator-${id}`)
       const item = screen.getByTestId(`menuitem-${id}`)
       // The line comes immediately before the item that starts the group.
       expect(separator.nextElementSibling).toBe(item)
     }
-    expect(popup.querySelectorAll('.menu-separator')).toHaveLength(3)
+    expect(popup.querySelectorAll('.menu-separator')).toHaveLength(4)
     // The items themselves are untouched: still one button per command.
     const file = MENUS.find((menu) => menu.id === 'file')!
     expect(popup.querySelectorAll('.menu-item')).toHaveLength(file.items.length)
@@ -483,9 +483,33 @@ describe('application chrome', () => {
     expect(sanitizeSettings({}).showPropertyPanel).toBe(true)
   })
 
-  it('[GUI] printing sits next to exporting in the toolbar', () => {
+  it('[GUI] printing sits next to exporting on the toolbar and in the File menu', () => {
     const toolbar = TOOLBAR_GROUPS.find((group) => group.includes('print'))!
     expect(toolbar[toolbar.indexOf('print') - 1]).toBe('export')
+    const file = MENUS.find((menu) => menu.id === 'file')!
+    expect(file.items.map((item) => item.id)).toContain('print')
+  })
+
+  it('[GUI] every command on the toolbar can also be reached from a menu', () => {
+    // A command that only exists on the toolbar is one nobody finds by
+    // reading the menus: Print was missing from File for exactly that reason.
+    const inMenus = new Set(MENUS.flatMap((menu) => menu.items.map((item) => item.id)))
+    // The two pickers are not commands; each opens its own gallery and both
+    // are settable from the settings window.
+    const pickers = ['language', 'theme']
+    const missing = [...TOOLBAR_GROUPS.flat(), ...TOOLBAR_RIGHT]
+      .filter((id) => !inMenus.has(id) && !pickers.includes(id))
+    expect(missing).toEqual([])
+  })
+
+  it('[GUI] the File menu prints from its own item', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.click(screen.getByTestId('tb-box'))
+    await user.click(screen.getByTestId('menu-file'))
+    await user.click(screen.getByTestId('menuitem-print'))
+    expect(await screen.findByTestId('print-tabs')).toBeTruthy()
+    expect(screen.getByTestId('print-preview')).toBeTruthy()
   })
 
   it('[GUI] the gallery shows dark and light as two blocks, custom on its own tab', async () => {

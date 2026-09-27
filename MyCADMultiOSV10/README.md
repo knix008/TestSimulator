@@ -12,7 +12,7 @@ components, tags, scenes, section planes).
 npm install
 npm start           # Electron app against the Vite dev server
 npm run dev         # browser only
-npm test            # 741 tests
+npm test            # 743 tests
 
 npm run build:web   # static site in dist/
 npm run build:win   # NSIS installer
@@ -74,7 +74,7 @@ src/core/     geometry, document model, commands - no DOM, fully unit tested
 src/ui/       React components: App shell, viewport, dialogs, toolbar controls
 scripts/      icon, sample and installer generators
 sample/       ready-made test files for every import path
-tests/        741 tests (unit, contract and jsdom GUI)
+tests/        743 tests (unit, contract and jsdom GUI)
 ```
 
 ## File formats
