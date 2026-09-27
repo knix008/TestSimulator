@@ -109,8 +109,10 @@ describe('scene scaling', () => {
         const where = `${radius} @ ${zoom}%`
         // Roughly the same number of lines across the view at every zoom, and
         // the sheet always reaches past the edges of what the camera sees.
+        // The floor is what keeps the grid fine: `roundStep` can only stretch
+        // the step by a factor of 2.5, so the count never falls below ten.
         const across = viewSpan(radius, zoom) / grid.step
-        expect(across, where).toBeGreaterThan(4)
+        expect(across, where).toBeGreaterThan(10)
         expect(across, where).toBeLessThan(30)
         expect(grid.size, where).toBeGreaterThanOrEqual(viewSpan(radius, zoom))
         const mantissa = grid.step / Math.pow(10, Math.floor(Math.log10(grid.step)))
@@ -133,7 +135,7 @@ describe('scene scaling', () => {
         expect(grid.size / 2, where).toBeGreaterThanOrEqual(radius)
         // And it still covers what the camera sees.
         expect(grid.size, where).toBeGreaterThanOrEqual(viewSpan(radius, zoom))
-        expect(grid.divisions, where).toBeLessThanOrEqual(400)
+        expect(grid.divisions, where).toBeLessThanOrEqual(1000)
       }
     }
   })
@@ -292,9 +294,10 @@ describe('application shell', () => {
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     await user.click(screen.getByTestId('settings-tab-theme'))
-    // Dark and light are one gallery, so a light theme is one click away
-    // from a dark one rather than two.
-    expect(screen.getAllByTestId(/^theme-(?!grid|preset)/)).toHaveLength(41)
+    // Dark and light are two blocks on one page, so a light theme is one
+    // click away from a dark one rather than two.
+    expect(screen.getByTestId('theme-grid-dark').querySelectorAll('button')).toHaveLength(20)
+    expect(screen.getByTestId('theme-grid-light').querySelectorAll('button')).toHaveLength(20)
     await user.click(screen.getByTestId('theme-nord'))
     const app = screen.getByTestId('app')
     expect(app.getAttribute('data-theme')).toBe('nord')

@@ -170,19 +170,57 @@ describe('application chrome', () => {
     expect(columns![2]).toBe(columns![1])
     expect(Number(columns![1])).toBeGreaterThanOrEqual(propertyPanelWidth())
 
-    // Each heading closes its own panel, and the toolbar brings it back.
-    await user.click(screen.getByTestId('close-tool-panel'))
+    // The toolbar switch closes a panel and brings it back; the headings
+    // carry no hide button of their own any more.
+    expect(screen.queryByTestId('close-tool-panel')).toBeNull()
+    expect(screen.queryByTestId('close-property-panel')).toBeNull()
+
+    await user.click(screen.getByTestId('tb-toolPanel'))
     expect(screen.getByTestId('left-panel').hidden).toBe(true)
     expect(workspace.style.gridTemplateColumns.startsWith('0px ')).toBe(true)
     await user.click(screen.getByTestId('tb-toolPanel'))
     expect(screen.getByTestId('left-panel').hidden).toBe(false)
 
-    await user.click(screen.getByTestId('close-property-panel'))
+    await user.click(screen.getByTestId('tb-propertyPanel'))
     expect(screen.getByTestId('right-panel').hidden).toBe(true)
     expect(workspace.style.gridTemplateColumns.endsWith(' 0px')).toBe(true)
     await user.click(screen.getByTestId('tb-propertyPanel'))
     expect(screen.getByTestId('right-panel').hidden).toBe(false)
     await waitFor(() => expect(screen.getByTestId('app').getAttribute('data-min-window-width')).toBeTruthy())
+  })
+
+  it('[GUI] each block of the tool panel folds away from its own heading', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.click(screen.getByTestId('tb-box'))
+
+    const blocks = [
+      { id: 'tools', body: 'tool-grid' },
+      { id: 'specTree', body: 'spec-tree' }
+    ]
+    for (const block of blocks) {
+      const heading = screen.getByTestId(`fold-${block.id}`)
+      expect(heading.getAttribute('aria-expanded'), block.id).toBe('true')
+      expect(screen.getByTestId(block.body), block.id).toBeTruthy()
+
+      await user.click(heading)
+      expect(screen.getByTestId(`fold-${block.id}`).getAttribute('aria-expanded'), block.id).toBe('false')
+      expect(screen.queryByTestId(block.body), block.id).toBeNull()
+
+      await user.click(screen.getByTestId(`fold-${block.id}`))
+      expect(screen.getByTestId(block.body), block.id).toBeTruthy()
+    }
+
+    // The scene list folds too, and folding it leaves the others alone.
+    const solid = screen.getByTestId('left-panel').querySelector('[data-testid^="solid-"]')
+    expect(solid).toBeTruthy()
+    await user.click(screen.getByTestId('fold-scene'))
+    expect(screen.getByTestId('left-panel').querySelector('[data-testid^="solid-"]')).toBeNull()
+    expect(screen.getByTestId('tool-grid')).toBeTruthy()
+    expect(screen.getByTestId('fold-features')).toBeTruthy()
+
+    // Folding a block is not the same as closing the panel.
+    expect(screen.getByTestId('left-panel').hidden).toBe(false)
   })
 
   it('[GUI] a property row fits inside the narrowest property panel', () => {
@@ -415,7 +453,7 @@ describe('application chrome', () => {
     expect(sanitizeLight({ kind: 'nope', color: 'red' })).toMatchObject({ kind: 'directional', color: '#ffffff' })
   })
 
-  it('[GUI] the toolbar opens and closes both side panels', async () => {
+  it('[GUI] the toolbar and the View menu both open and close the side panels', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
     const workspace = screen.getByTestId('workspace')
@@ -424,6 +462,7 @@ describe('application chrome', () => {
     expect(left.hidden).toBe(false)
     expect(right.hidden).toBe(false)
 
+    // The toolbar carries both switches, next to the View menu's own items.
     await user.click(screen.getByTestId('tb-toolPanel'))
     expect(screen.getByTestId('left-panel').hidden).toBe(true)
     // The closed panel takes no width, and the canvas keeps its own column.
@@ -434,8 +473,10 @@ describe('application chrome', () => {
     expect(screen.getByTestId('right-panel').hidden).toBe(true)
     expect(workspace.style.gridTemplateColumns).toBe('0px minmax(0, 1fr) 0px')
 
-    await user.click(screen.getByTestId('tb-toolPanel'))
-    await user.click(screen.getByTestId('tb-propertyPanel'))
+    await user.click(screen.getByTestId('menu-view'))
+    await user.click(screen.getByTestId('menuitem-toolPanel'))
+    await user.click(screen.getByTestId('menu-view'))
+    await user.click(screen.getByTestId('menuitem-propertyPanel'))
     expect(screen.getByTestId('left-panel').hidden).toBe(false)
     expect(screen.getByTestId('right-panel').hidden).toBe(false)
     expect(sanitizeSettings({ showToolPanel: false }).showToolPanel).toBe(false)
@@ -447,30 +488,29 @@ describe('application chrome', () => {
     expect(toolbar[toolbar.indexOf('print') - 1]).toBe('export')
   })
 
-  it('[GUI] one gallery holds every theme, dark, light and custom together', async () => {
+  it('[GUI] the gallery shows dark and light as two blocks, custom on its own tab', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
-    expect(screen.queryByTestId('settings-tab-customTheme')).toBeNull()
     await user.click(screen.getByTestId('settings-tab-theme'))
 
-    // Forty palettes and the custom one, in a single list: no mode buttons to
-    // click through first.
+    // Both halves are on the page at once: no mode switch to click first.
     expect(screen.queryAllByTestId(/^theme-mode-/)).toHaveLength(0)
-    const grid = screen.getByTestId('theme-grid')
-    expect(grid.querySelectorAll('button')).toHaveLength(41)
+    expect(screen.getByTestId('theme-block-dark')).toBeTruthy()
+    expect(screen.getByTestId('theme-block-light')).toBeTruthy()
+    expect(screen.getByTestId('theme-grid-dark').querySelectorAll('button')).toHaveLength(20)
+    expect(screen.getByTestId('theme-grid-light').querySelectorAll('button')).toHaveLength(20)
     expect(THEMES).toHaveLength(40)
-    expect(screen.getByTestId('theme-custom')).toBeTruthy()
 
-    // The colours only appear once the custom theme is the one in use.
+    // The custom theme is a tab of its own, not a tile among the presets.
+    expect(screen.queryByTestId('theme-custom')).toBeNull()
     expect(screen.queryByTestId('custom-colors')).toBeNull()
-    await user.click(screen.getByTestId('theme-custom'))
+    await user.click(screen.getByTestId('settings-tab-customTheme'))
     expect(screen.getByTestId('custom-colors')).toBeTruthy()
-    // The gallery stays put underneath, so another theme is still one click away.
-    expect(screen.getByTestId('theme-grid')).toBeTruthy()
+    expect(screen.queryByTestId('theme-grid-dark')).toBeNull()
 
-    // Starting from an existing palette is a dropdown now, not a second grid
-    // of the same forty tiles.
+    // Starting from an existing palette is a dropdown, not a second grid of
+    // the same forty tiles.
     expect(screen.queryByTestId('theme-presets')).toBeNull()
     await user.selectOptions(screen.getByTestId('theme-preset'), 'mint')
     expect((screen.getByTestId('custom-bg') as HTMLInputElement).value).toBe(THEMES.find((theme) => theme.id === 'mint')!.colors.bg)

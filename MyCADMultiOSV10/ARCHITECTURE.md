@@ -108,12 +108,15 @@ outside the interpreter, so installing an addon cannot run arbitrary JavaScript.
   three.js mesh live and dispatches `move-solid` once on release. It carries
   `@ts-nocheck`, so `tsc` says nothing about it: a change here is only proven
   by running the application.
-- The menu bar is pointer-driven: `useCloseOnLeave` gives the bar and the panel
-  it opened one shared close timer, so moving between them keeps the menu open
-  and leaving the pair closes it after a short grace period. Hovering a root
-  opens it, which is why a click on a root opens rather than toggles — the
-  hover has already opened it — and why a press outside is what closes a menu
-  for anyone without a pointer.
+- A menu opens on a click and closes on a second one, so crossing the bar on
+  the way elsewhere leaves it alone. `useCloseOnLeave` then gives the bar and
+  the panel it opened one shared timer, so moving between them keeps the menu
+  open and leaving the pair closes it after a short grace period; a press
+  outside closes it too.
+- A dialog's `.popup-body` is a flex column that does not scroll, so anything
+  in it with a fixed `height` can be squeezed to nothing by the rows above:
+  that is how a long report came up blank. Rows carry `flex: 0 0 auto`, and a
+  list that can outgrow the window gets a scroller of its own.
 - `ToolbarControls.tsx` holds the split controls (theme palette, zoom stepper,
   text-size stepper, light rig); `dialogs.tsx` holds every popup, including the
   shared `NumberField`, which always reads `[−] value [+]`.
@@ -202,7 +205,7 @@ table drives:
 
 ## Testing strategy
 
-722 tests in four flavours:
+724 tests in four flavours:
 
 1. **Unit** - geometry and maths checked against analytic values (Steiner's
    formula, `FL/AE`, bend allowance, partition of unity for NURBS bases).

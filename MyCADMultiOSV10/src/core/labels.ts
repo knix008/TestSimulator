@@ -277,6 +277,7 @@ export const COMMAND_LABELS: Record<string, CommandLabel> = {
   knowledgeWb: { ko: '지식공학', en: 'Knowledgeware', icon: '∂' },
   draftingWb: { ko: '드래프팅', en: 'Drafting', icon: '▕' },
   sketchupWb: { ko: '스케치업', en: 'SketchUp', icon: '≣' },
+  solidToolsWb: { ko: '솔리드 도구', en: 'Solid tools', icon: '⧟' },
   sandboxWb: { ko: '샌드박스', en: 'Sandbox', icon: '≼' },
   macroWb: { ko: '매크로', en: 'Macro', icon: '⊍' },
 

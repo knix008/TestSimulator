@@ -67,7 +67,7 @@ button:hover { border-color: var(--accent); }
 .center { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
 .viewport { position: relative; flex: 1 1 auto; min-height: 0; background: radial-gradient(circle at 50% 40%, var(--viewport-a), var(--viewport-b) 72%); }
 .viewcube { position: absolute; z-index: 2; top: 10px; right: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
-.viewcube button { width: 46px; height: 22px; padding: 0; font-size: 10px; border-radius: 2px; background: color-mix(in srgb, var(--panel) 86%, transparent); color: var(--text); }
+.viewcube button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; font-size: 14px; line-height: 1; border-radius: 2px; background: color-mix(in srgb, var(--panel) 86%, transparent); color: var(--text); }
 .nav-hint { position: absolute; z-index: 2; left: 118px; bottom: 28px; font-size: 11px; color: var(--muted); pointer-events: none; }
 .scale-ruler { position: absolute; z-index: 2; pointer-events: none; color: var(--muted); font-size: 10px; }
 .scale-ruler.horizontal { left: 36px; right: 8px; bottom: 0; height: 22px; border-top: 1px solid var(--line); }
@@ -90,7 +90,9 @@ button:hover { border-color: var(--accent); }
 .tabs-row::-webkit-scrollbar { display: none; }
 .tab { display: inline-flex; align-items: center; gap: 8px; max-width: 180px; }
 .statusbar { flex: 0 0 26px; height: 26px; padding: 0; border-top: 1px solid var(--line); background: var(--panel-alt); gap: 0; font-size: 12px; color: var(--text); z-index: 5; }
-.statusbar span { display: inline-flex; align-items: center; height: 100%; padding: 0 8px; border-right: 1px solid #2a3642; }
+/* No dividers between the readings: the spacing separates them, and a rule
+   after every one turned the bar into a row of boxes. */
+.statusbar span { display: inline-flex; align-items: center; height: 100%; padding: 0 10px; }
 /* The resize marker in the bottom right corner. `.statusbar span` also
    matches it and is more specific than a bare `.size-grip`, which is what
    stretched it down the whole right edge; this selector wins instead. The
@@ -141,12 +143,21 @@ input[type="range"] { width: 120px; }
   .viewport { min-height: 0; }
 }
 
+.report-lines { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .report-line {
+  margin: 0;
+  padding: 1px 0;
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: 0.86em;
+  line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* No row in a dialog may be squeezed away by the ones above it: a flex column
+   shrinks `height` to nothing, and `.popup-body` does not scroll. Only the
+   shrink is pinned for a group box, so one that asks to grow still can. */
+.popup-body > .row { flex: 0 0 auto; }
+.popup-body > .field-group { flex-shrink: 0; }
 
 
 /* toolbar: language, settings and about pinned to the right edge */
@@ -171,11 +182,12 @@ input[type="range"] { width: 120px; }
 .menu-popup .recent-item:hover { background: var(--button); }
 
 /* theme gallery */
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 3px; padding: 4px 2px; max-height: 300px; overflow: auto; }
-.theme-swatch { display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 0 6px; height: 24px; font-size: 11px; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 4px; padding: 2px 2px 6px; }
+.theme-block + .theme-block { margin-top: 2px; }
+.theme-swatch { display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 0 6px; height: 30px; font-size: 12px; white-space: nowrap; }
 .theme-swatch.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .theme-chips { display: flex; gap: 3px; }
-.theme-chips i { width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--line); }
+.theme-chips i { width: 15px; height: 15px; border-radius: 3px; border: 1px solid var(--line); }
 
 /* print dialog: settings column on the left, live sheet preview on the right */
 .print-layout { flex: 1 1 auto; display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 14px; min-height: 0; }
@@ -248,7 +260,7 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 
 
 /* grouped settings / export boxes */
-.field-group { margin: 0 0 10px; padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.field-group { margin: 0 0 8px; padding: 6px 10px 8px; border: 1px solid var(--line); border-radius: 6px; }
 .field-group > legend { padding: 0 6px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 /* The format list takes whatever height the dialog has left over and scrolls
    as a whole, so each section can be as tall as it needs and the headings
@@ -271,7 +283,7 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .settings-tabs button { display: flex; align-items: center; gap: 6px; justify-content: flex-start; height: 30px; padding: 0 8px; background: transparent; border-color: transparent; text-align: left; }
 .settings-tabs button.on { background: var(--button); border-color: var(--accent); color: var(--accent); }
 .settings-panel { min-height: 0; overflow-x: hidden; overflow-y: auto; padding-right: 10px; }
-.settings-panel .row { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; align-items: center; gap: 8px; height: 34px; }
+.settings-panel .row { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; align-items: center; gap: 8px; height: 30px; }
 .settings-panel .row > span:first-child { color: var(--muted); font-size: 12px; }
 .settings-panel .row input[type="checkbox"] { justify-self: start; width: 16px; height: 16px; }
 .settings-panel .row input[type="text"], .settings-panel .row select, .settings-panel .row input[type="file"] { width: 100%; min-width: 0; height: 26px; }
@@ -287,6 +299,9 @@ button.primary { border-color: var(--accent); color: var(--accent); }
    label hands its hover and its clicks to the first control inside it, which
    used to light up the minus button whenever the row was pointed at.) */
 .number-field button:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+/* A stepper a checkbox has switched off still shows its value, greyed. */
+.number-field.off { opacity: .5; }
+.number-field.off button:hover { background: var(--button); border-color: var(--line); color: inherit; }
 .number-field button:active { background: color-mix(in srgb, var(--accent) 72%, var(--text)); border-color: var(--accent); color: var(--bg); }
 .number-field button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .number-field input { width: 84px; height: 24px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -300,7 +315,7 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .tool-about:hover .about-mark { color: var(--accent); }
 
 /* custom theme colour grid */
-.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
+.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 4px; }
 .color-row { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; }
 .color-row input[type="color"] { width: 34px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: transparent; }
 
@@ -400,6 +415,14 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 
 /* The panel headings carry their own close button. */
 .panel-title { display: flex; align-items: center; gap: 6px; }
+/* The heading of a panel block is the switch that folds it, so it fills the
+   row and leaves the close button on the end. */
+/* A note in a panel is prose, not a row: `.row` is one nowrap line of fixed
+   height, which cut this one off at the panel edge. */
+.panel-hint { margin: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
+.panel-fold { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; height: 16px; padding: 0; background: transparent; border: 0; border-radius: 2px; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; cursor: pointer; }
+.panel-fold:hover { color: var(--accent); }
+.fold-mark { flex: 0 0 auto; width: 10px; font-size: 9px; line-height: 1; }
 .panel-close { flex: 0 0 auto; width: 20px; height: 18px; margin-left: auto; padding: 0; background: transparent; border: 0; color: var(--muted); font-size: 11px; line-height: 1; }
 .panel-close:hover { color: var(--danger); background: var(--button); }
 

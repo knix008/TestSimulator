@@ -14,6 +14,7 @@ import { buildOverlay, mergeBounds, overlayBounds, overlayFramingKey } from '../
 import { formatLength } from '../core/units'
 import type { UnitSchema } from '../core/units'
 import { themeById } from '../core/themes'
+import { menuIcon, translate } from '../core/i18n'
 
 export function Viewport({
   doc,
@@ -656,8 +657,19 @@ export function Viewport({
     >
       <div className="viewport-bg" style={layerStyle} />
       <div className="viewcube" data-testid="viewcube">
+        {/* The icon carries the view; the name stays in the tooltip, where it
+            does not take four words of canvas. */}
         {(['top', 'front', 'right', 'iso'] as const).map((preset) => (
-          <button key={preset} type="button" title={preset} onClick={() => onPreset(preset)}>{preset}</button>
+          <button
+            key={preset}
+            type="button"
+            data-testid={`viewcube-${preset}`}
+            aria-label={translate(settings.language, preset)}
+            title={translate(settings.language, preset)}
+            onClick={() => onPreset(preset)}
+          >
+            <span className="menu-icon" aria-hidden="true">{menuIcon(preset)}</span>
+          </button>
         ))}
       </div>
       {settings.ruler ? <ScaleRuler zoom={zoom} radius={shownRadius} /> : null}

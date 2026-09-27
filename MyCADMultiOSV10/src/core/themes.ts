@@ -79,10 +79,13 @@ function pastelDark([id, ko, en, hue, sat, accent]: Spec): Theme {
     accent: hsl(accent, 58, 74),
     button: hsl(hue, sat, 21),
     danger: hsl(2, 58, 74),
-    viewportA: hsl(hue, sat, 18),
-    viewportB: hsl(hue, sat, 9),
-    gridMajor: hsl(hue, 18, 36),
-    gridMinor: hsl(hue, 16, 24)
+    // The drawing area is its own surface, not more panel: it sits a clear
+    // step away from `bg` and `panel` so the edge of the canvas is visible
+    // even with nothing modelled yet.
+    viewportA: hsl(hue, sat, 24),
+    viewportB: hsl(hue, sat, 6),
+    gridMajor: hsl(hue, 18, 40),
+    gridMinor: hsl(hue, 16, 27)
   })
 }
 
@@ -98,10 +101,12 @@ function pastelLight([id, ko, en, hue, sat, accent]: Spec): Theme {
     accent: hsl(accent, 58, 38),
     button: hsl(hue, sat, 91),
     danger: hsl(2, 52, 52),
-    viewportA: hsl(hue, Math.max(20, sat - 8), 99),
-    viewportB: hsl(hue, sat, 89),
-    gridMajor: hsl(hue, 22, 73),
-    gridMinor: hsl(hue, 20, 86)
+    // A light theme's panels are near white, so a near-white canvas had no
+    // edge at all: the drawing area is a tint darker than everything round it.
+    viewportA: hsl(hue, sat, 88),
+    viewportB: hsl(hue, sat, 77),
+    gridMajor: hsl(hue, 24, 55),
+    gridMinor: hsl(hue, 20, 70)
   })
 }
 
@@ -154,14 +159,16 @@ export const THEMES: Theme[] = [
   // Kept sharp on purpose: this one is the accessibility fallback.
   dark('contrast', '고대비', 'High contrast', {
     bg: '#000000', panel: '#000000', panelAlt: '#0a0a0a', line: '#ffffff', text: '#ffffff', muted: '#d0d0d0',
-    accent: '#ffff00', button: '#101010', danger: '#ff5555', viewportA: '#000000', viewportB: '#000000',
+    // Still black and white, but the canvas is a shade off the panels so its
+    // edge can be seen.
+    accent: '#ffff00', button: '#101010', danger: '#ff5555', viewportA: '#1c1c1c', viewportB: '#000000',
     gridMajor: '#ffffff', gridMinor: '#6f6f6f'
   }),
   ...LIGHT_SPECS.map(pastelLight),
   light('contrastLight', '고대비 라이트', 'High contrast light', {
     bg: '#ffffff', panel: '#ffffff', panelAlt: '#ffffff', line: '#000000', text: '#000000', muted: '#333333',
-    accent: '#0000ee', button: '#f0f0f0', danger: '#cc0000', viewportA: '#ffffff', viewportB: '#e8e8e8',
-    gridMajor: '#000000', gridMinor: '#909090'
+    accent: '#0000ee', button: '#f0f0f0', danger: '#cc0000', viewportA: '#e4e4e4', viewportB: '#cfcfcf',
+    gridMajor: '#000000', gridMinor: '#7a7a7a'
   })
 ]
 

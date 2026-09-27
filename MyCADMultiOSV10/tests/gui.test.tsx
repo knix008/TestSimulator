@@ -219,33 +219,38 @@ describe('gui', () => {
     await waitFor(() => expect(screen.queryByTestId('context-menu')).toBeNull())
   })
 
-  it('[GUI] the pointer alone opens a menu and moves from one to the next', async () => {
+  it('[GUI] a menu opens when it is picked, not when the pointer passes over it', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
     expect(screen.queryByTestId('menuitem-new')).toBeNull()
 
-    // No click: hovering the root is enough.
+    // Crossing the bar on the way somewhere else must leave it alone.
     await user.hover(screen.getByTestId('menu-file'))
+    await user.hover(screen.getByTestId('menu-edit'))
+    await afterCloseDelay()
+    expect(screen.queryByTestId('menuitem-new')).toBeNull()
+    expect(screen.queryByTestId('menuitem-undo')).toBeNull()
+
+    // A click opens it.
+    await user.click(screen.getByTestId('menu-file'))
     expect(screen.getByTestId('menuitem-new')).toBeTruthy()
 
-    // Along the bar, the panel follows the pointer.
-    await user.hover(screen.getByTestId('menu-edit'))
+    // Picking another root swaps the panel over.
+    await user.click(screen.getByTestId('menu-edit'))
     expect(screen.queryByTestId('menuitem-new')).toBeNull()
     expect(screen.getByTestId('menuitem-undo')).toBeTruthy()
 
-    // A click on the root it is already showing keeps it open: toggling would
-    // close the panel the hover just opened.
+    // Clicking the one already open closes it again.
     await user.click(screen.getByTestId('menu-edit'))
-    await afterCloseDelay()
-    expect(screen.getByTestId('menuitem-undo')).toBeTruthy()
+    expect(screen.queryByTestId('menuitem-undo')).toBeNull()
   })
 
   it('[GUI] a press outside closes an open menu, so a touch screen can leave one', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
-    await user.hover(screen.getByTestId('menu-file'))
+    await user.click(screen.getByTestId('menu-file'))
     expect(screen.getByTestId('menuitem-new')).toBeTruthy()
-    // pointerdown, not a hover: this is the path a tap takes.
+    // pointerdown somewhere else: this is the path a tap takes.
     fireEvent.pointerDown(screen.getByTestId('viewport'))
     expect(screen.queryByTestId('menuitem-new')).toBeNull()
 

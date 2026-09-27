@@ -105,9 +105,13 @@ export function tickLabel(value: number, step: number): string {
  */
 export function gridSpec(radius: number, zoom = 100): { size: number; divisions: number; step: number; panLimit: number } {
   const span = viewSpan(radius, zoom)
-  const step = Math.max(0.01, roundStep((span * 1.8) / 24))
+  // Roughly twice as many lines across the view as a 24-cell sheet gave: the
+  // step is a fraction of what the camera sees, so the spacing on screen is
+  // the same at every zoom. `roundStep` still keeps it on 1, 2 or 5.
+  const step = Math.max(0.01, roundStep((span * 1.8) / 48))
   const reach = Math.max(span * 0.9, radius + span * 0.5)
-  const divisions = Math.max(10, Math.min(400, Math.round((reach * 2) / step)))
+  // The finer step needs proportionally more cells to reach as far as before.
+  const divisions = Math.max(10, Math.min(1000, Math.round((reach * 2) / step)))
   const size = step * divisions
   return { size, divisions, step, panLimit: Math.max(0, size / 2 - radius) }
 }

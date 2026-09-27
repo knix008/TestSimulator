@@ -56,7 +56,7 @@ export const WORKBENCHES: WorkbenchDef[] = [
 
   // ── SketchUp ─────────────────────────────────────────────────────────────
   { id: 'sketchup', labelKey: 'sketchupWb', tools: ['suRectangleTool', 'suCircleTool', 'suPolygonTool', 'suArcTool', 'suFreehand', 'suPushPull', 'suFollowMe', 'suOffsetFace', 'suIntersect', 'suSoften', 'suMakeGroup', 'suExplode', 'suMakeComponent', 'suPlaceInstance', 'suTagAssign', 'suTagToggle', 'suPaint', 'suStyle', 'suShadows', 'suScene', 'suApplyScene', 'suSection', 'suSectionCut', 'suTape', 'suProtractor', 'suFaceInfo', 'suText3d', 'suMoveCopies', 'suRotateCopies', 'suZoomExtents', 'suWalk', 'suOutliner'] },
-  { id: 'solidTools', labelKey: 'sketchupWb', tools: ['suSolidUnion', 'suSolidSubtract', 'suSolidTrim', 'suSolidSplit', 'suSolidIntersect', 'suOuterShell'] },
+  { id: 'solidTools', labelKey: 'solidToolsWb', tools: ['suSolidUnion', 'suSolidSubtract', 'suSolidTrim', 'suSolidSplit', 'suSolidIntersect', 'suOuterShell'] },
   { id: 'sandbox', labelKey: 'sandboxWb', tools: ['suTerrain', 'suContours', 'suSmoove', 'meshSmooth', 'meshRefine'] },
   { id: 'layout', labelKey: 'layoutWb', tools: ['layScale', 'laySheet'] },
   { id: 'dynamic', labelKey: 'dynamicWb', tools: ['suDynamic', 'suSnap', 'suGeo', 'suMatch', 'suTexture', 'suSkpExport', 'suSkpImport'] }

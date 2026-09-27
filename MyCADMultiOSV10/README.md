@@ -12,7 +12,7 @@ components, tags, scenes, section planes).
 npm install
 npm start           # Electron app against the Vite dev server
 npm run dev         # browser only
-npm test            # 722 tests
+npm test            # 724 tests
 
 npm run build:web   # static site in dist/
 npm run build:win   # NSIS installer
@@ -48,7 +48,7 @@ window forward, with whatever file was passed on the command line.
 | View | Seven draw styles (as is, shaded, flat lines, wireframe, points, hidden line, no shading), a wireframe overlay for curves and annotations that frames itself even with no solid in the document, a draggable scale bar that can be switched off, perspective or orthographic camera, X/Y/Z section planes, four navigation styles (CAD, Blender, touchpad, Maya), six key-light kinds with colour and nine rigs |
 | Units | mm, cm, m, inch and foot schemas for the status bar, measurements and volumes |
 | Interchange | STEP (AP203/214), IGES, PLY, OFF, Collada, STL, OBJ, DXF, SVG, OpenSCAD, IFC4, point clouds and G-code, in and out where the format allows |
-| Interface | 16 menus that open on hover and close when the pointer leaves them, 47 workbenches, 344 registry commands (445 runnable tools counting the ones the window handles itself), a tool panel grouped by what the commands do, 40 pastel themes (20 dark + 20 light) plus a custom theme that can start from any preset, resizable tool and property panels, Korean and English |
+| Interface | 16 menus that close when the pointer leaves them, 47 workbenches, 344 registry commands (445 runnable tools counting the ones the window handles itself), a tool panel grouped by what the commands do, with every block foldable from its heading, 40 pastel themes (20 dark + 20 light) plus a custom theme that can start from any preset, resizable tool and property panels, Korean and English |
 
 Curves and annotations are document data, not solids: the Draft, GSD and
 SketchUp drawing tools, the section outlines and the sheet-metal flat pattern
@@ -74,7 +74,7 @@ src/core/     geometry, document model, commands - no DOM, fully unit tested
 src/ui/       React components: App shell, viewport, dialogs, toolbar controls
 scripts/      icon, sample and installer generators
 sample/       ready-made test files for every import path
-tests/        722 tests (unit, contract and jsdom GUI)
+tests/        724 tests (unit, contract and jsdom GUI)
 ```
 
 ## File formats

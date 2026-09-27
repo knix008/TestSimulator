@@ -190,6 +190,28 @@ describe('toolbar and dialogs', () => {
     expect(screen.getByTestId('export-formats')).toBeTruthy()
   })
 
+  it('[GUI] a long report shows its lines instead of collapsing them', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.click(screen.getByTestId('menu-help'))
+    await user.click(screen.getByTestId('menuitem-shortcuts'))
+
+    const lines = screen.getAllByTestId('report-line')
+    expect(lines.length).toBeGreaterThan(8)
+    expect(lines.map((line) => line.textContent).join(' ')).toContain('Ctrl+S')
+
+    // The lines live in a scroller of their own, and none of them is a fixed
+    // height `.row`: as flex items in a column that could not fit them they
+    // were squeezed to zero and the dialog came up blank.
+    const box = screen.getByTestId('report-lines')
+    for (const line of lines) {
+      expect(line.className).not.toContain('row')
+      expect(box.contains(line)).toBe(true)
+    }
+    // The buttons stay outside the scroller, so they are always reachable.
+    expect(box.contains(screen.getByTestId('close-report'))).toBe(false)
+  })
+
   it('[GUI] the export formats are listed under what they are for', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
@@ -235,12 +257,12 @@ describe('toolbar and dialogs', () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
+    // The custom theme has a tab to itself; the gallery tab is only presets.
     await user.click(screen.getByTestId('settings-tab-theme'))
-    // The custom theme is the last tile of the gallery: picking it both
-    // applies it and opens its colours, so there is no separate apply.
     expect(screen.queryByTestId('custom-colors')).toBeNull()
-    await user.click(screen.getByTestId('theme-custom'))
+    await user.click(screen.getByTestId('settings-tab-customTheme'))
     expect(screen.getAllByTestId(/^custom-(bg|accent|text)$/)).toHaveLength(3)
+    await user.click(screen.getByTestId('custom-apply'))
     const app = screen.getByTestId('app')
     await waitFor(() => expect(app.getAttribute('data-theme')).toBe('custom'))
     expect(app.style.getPropertyValue('--bg')).toBe(createCustomTheme().colors.bg)

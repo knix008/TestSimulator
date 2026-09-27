@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { AUTHOR, buildInfo, POPUP_SIZE } from '../core/buildInfo'
 import type { MessageKey } from '../core/i18n'
-import { THEMES, THEME_TOKENS, createCustomTheme, type ThemeMode } from '../core/themes'
+import { THEMES, THEME_TOKENS, createCustomTheme, themesByMode, type ThemeMode } from '../core/themes'
 import { ThemeSwatch } from './ToolbarControls'
 import { commandHelp, lightKindKey } from '../core/labels'
 import { menuIcon, translate } from '../core/i18n'
@@ -24,6 +24,7 @@ export function NumberField({
   max,
   step = 1,
   suffix,
+  disabled = false,
   onChange
 }: {
   id: string
@@ -33,6 +34,7 @@ export function NumberField({
   max?: number
   step?: number
   suffix?: string
+  disabled?: boolean
   onChange: (value: number) => void
 }) {
   const clamp = (next: number) => {
@@ -41,8 +43,8 @@ export function NumberField({
     return max === undefined ? withMin : Math.min(max, withMin)
   }
   return (
-    <span className="number-field">
-      <button type="button" data-testid={`${id}-dec`} title={`${label} −`} onClick={() => onChange(clamp(value - step))}>−</button>
+    <span className={disabled ? 'number-field off' : 'number-field'}>
+      <button type="button" data-testid={`${id}-dec`} title={`${label} −`} disabled={disabled} onClick={() => onChange(clamp(value - step))}>−</button>
       <input
         type="number"
         data-testid={id}
@@ -51,9 +53,10 @@ export function NumberField({
         min={min}
         max={max}
         step={step}
+        disabled={disabled}
         onChange={(event) => onChange(clamp(Number(event.target.value)))}
       />
-      <button type="button" data-testid={`${id}-inc`} title={`${label} +`} onClick={() => onChange(clamp(value + step))}>+</button>
+      <button type="button" data-testid={`${id}-inc`} title={`${label} +`} disabled={disabled} onClick={() => onChange(clamp(value + step))}>+</button>
       {/* minus, the value, plus - and only then the unit. */}
       {suffix ? <span className="number-suffix">{suffix}</span> : null}
     </span>
@@ -310,10 +313,9 @@ export function PrintDialog({
               <label className="row"><span>{t('selectedOnly')}</span>
                 <input aria-label={t('selectedOnly')} type="checkbox" checked={selectedOnly} onChange={(event) => onSelectedOnly(event.target.checked)} />
               </label>
-              <label className="row"><span>{t('copies')}</span>
-                <input aria-label={t('copies')} data-testid="print-copies" type="number" min={1} max={99} value={setup.copies}
-                  onChange={(event) => patch({ copies: Math.max(1, Math.min(99, Number(event.target.value) || 1)) })} />
-              </label>
+              <div className="row"><span>{t('copies')}</span>
+                <NumberField id="print-copies" label={t('copies')} value={setup.copies} min={1} max={99} step={1} onChange={(copies) => patch({ copies })} />
+              </div>
             </>
           ) : null}
 
@@ -330,9 +332,9 @@ export function PrintDialog({
                   <option value="landscape">{t('landscape')}</option>
                 </select>
               </label>
-              <label className="row"><span>{t('margin')}</span>
-                <input aria-label={t('margin')} type="number" min={0} max={40} value={setup.marginMm} onChange={(event) => patch({ marginMm: Number(event.target.value) })} />
-              </label>
+              <div className="row"><span>{t('margin')}</span>
+                <NumberField id="print-margin" label={t('margin')} value={setup.marginMm} min={0} max={40} step={1} suffix="mm" onChange={(marginMm) => patch({ marginMm })} />
+              </div>
               <label className="row"><span>{t('printView')}</span>
                 <select aria-label={t('printView')} data-testid="print-view" value={setup.view} onChange={(event) => patch({ view: event.target.value as PageSetup['view'] })}>
                   {(['iso', 'front', 'top', 'right', 'left', 'back', 'bottom'] as const).map((view) => <option key={view} value={view}>{t(view)}</option>)}
@@ -341,10 +343,9 @@ export function PrintDialog({
               <label className="row"><span>{t('fitToPage')}</span>
                 <input aria-label={t('fitToPage')} data-testid="print-fit" type="checkbox" checked={setup.fitToPage} onChange={(event) => patch({ fitToPage: event.target.checked })} />
               </label>
-              <label className="row"><span>{t('printScale')}</span>
-                <input aria-label={t('printScale')} data-testid="print-scale" type="number" min={5} max={1000} disabled={setup.fitToPage} value={setup.scalePercent}
-                  onChange={(event) => patch({ scalePercent: Number(event.target.value) })} />
-              </label>
+              <div className="row"><span>{t('printScale')}</span>
+                <NumberField id="print-scale" label={t('printScale')} value={setup.scalePercent} min={5} max={1000} step={5} suffix="%" disabled={setup.fitToPage} onChange={(scalePercent) => patch({ scalePercent })} />
+              </div>
               <label className="row"><span>{t('showBorder')}</span>
                 <input aria-label={t('showBorder')} type="checkbox" checked={setup.showBorder} onChange={(event) => patch({ showBorder: event.target.checked })} />
               </label>
@@ -429,7 +430,7 @@ export function SettingsDialog({
   shade?: ShadeMode
   onShade?: (shade: ShadeMode) => void
 }) {
-  const tabs = ['general', 'theme', 'font', 'viewport', 'printTab', 'appearance', 'recent'] as const
+  const tabs = ['general', 'theme', 'customTheme', 'font', 'viewport', 'printTab', 'appearance', 'recent'] as const
   const [active, setActive] = useState<(typeof tabs)[number]>('general')
   const printSetup = settings.print
   const patchPrint = (values: Partial<Settings['print']>) => onChange({ print: { ...printSetup, ...values } })
@@ -482,85 +483,80 @@ export function SettingsDialog({
           ) : null}
 
           {active === 'theme' ? (
-            <>
-              <fieldset className="field-group">
-                <legend>{t('theme')}</legend>
-                {/* One gallery, dark and light together with the custom theme
-                    as the last tile, the way the toolbar's theme menu already
-                    lists them. Splitting them behind mode buttons only made
-                    the same forty swatches take two clicks to reach. */}
-                <div className="theme-grid" data-testid="theme-grid">
-                  {THEMES.map((theme) => (
-                    <button
-                      type="button"
-                      key={theme.id}
-                      data-testid={`theme-${theme.id}`}
-                      className={settings.theme === theme.id ? 'theme-swatch on' : 'theme-swatch'}
-                      title={`${theme.name[settings.language]} · ${t(theme.mode)}`}
-                      onClick={() => onChange({ theme: theme.id })}
-                    >
-                      <ThemeSwatch theme={theme} size={14} />
-                      <span className="ellipsis">{theme.name[settings.language]}</span>
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    data-testid="theme-custom"
-                    className={settings.theme === 'custom' ? 'theme-swatch on' : 'theme-swatch'}
-                    title={t('customTheme')}
-                    onClick={() => onChange({ theme: 'custom' })}
-                  >
-                    <ThemeSwatch theme={custom} size={14} />
-                    <span className="ellipsis">{t('customTheme')}</span>
-                  </button>
-                </div>
-              </fieldset>
-              {settings.theme === 'custom' ? (
-                <fieldset className="field-group">
-                  <legend>{t('customTheme')}</legend>
-                  {/* Starting from an existing palette used to be a second
-                      grid of the same forty tiles; one list is enough. */}
-                  <label className="row"><span>{t('themePreset')}</span>
-                    <select
-                      aria-label={t('themePreset')}
-                      data-testid="theme-preset"
-                      value=""
-                      onChange={(event) => {
-                        const preset = THEMES.find((theme) => theme.id === event.target.value)
-                        if (!preset) return
-                        onChange({ customTheme: { ...custom, mode: preset.mode, colors: { ...preset.colors } } })
-                      }}
-                    >
-                      <option value="">{t('themePreset')}…</option>
-                      {THEMES.map((preset) => (
-                        <option key={preset.id} value={preset.id}>{`${t(preset.mode)} · ${preset.name[settings.language]}`}</option>
-                      ))}
-                    </select>
-                    <button type="button" data-testid="custom-reset" title={t('remove')} onClick={() => onChange({ customTheme: createCustomTheme(THEMES[0]) })}>{t('remove')}</button>
-                  </label>
-                  <label className="row"><span>{t('theme')}</span>
-                    <select aria-label={t('customTheme')} data-testid="custom-mode" value={custom.mode} onChange={(event) => onChange({ customTheme: { ...custom, mode: event.target.value as ThemeMode } })}>
-                      <option value="dark">{t('dark')}</option>
-                      <option value="light">{t('light')}</option>
-                    </select>
-                  </label>
-                  <div className="color-grid" data-testid="custom-colors">
-                    {THEME_TOKENS.map((token) => (
-                      <label className="color-row" key={token.key}>
-                        <input
-                          type="color"
-                          data-testid={`custom-${token.key}`}
-                          aria-label={settings.language === 'ko' ? token.ko : token.en}
-                          value={custom.colors[token.key]}
-                          onChange={(event) => patchCustom({ [token.key]: event.target.value } as Partial<Settings['customTheme']['colors']>)}
-                        />
-                        <span className="ellipsis">{settings.language === 'ko' ? token.ko : token.en}</span>
-                      </label>
+            <fieldset className="field-group">
+              <legend>{t('theme')}</legend>
+              {/* Dark and light each get their own labelled block, so the two
+                  halves read apart without a mode switch to click first: all
+                  forty are on the page at once. The custom theme has a tab of
+                  its own. */}
+              {(['dark', 'light'] as const).map((mode) => (
+                <div className="theme-block" key={mode} data-testid={`theme-block-${mode}`}>
+                  <p className="menu-section">{t(mode)} · {themesByMode(mode).length}</p>
+                  <div className="theme-grid" data-testid={`theme-grid-${mode}`}>
+                    {themesByMode(mode).map((theme) => (
+                      <button
+                        type="button"
+                        key={theme.id}
+                        data-testid={`theme-${theme.id}`}
+                        className={settings.theme === theme.id ? 'theme-swatch on' : 'theme-swatch'}
+                        title={`${theme.name[settings.language]} · ${t(theme.mode)}`}
+                        onClick={() => onChange({ theme: theme.id })}
+                      >
+                        <ThemeSwatch theme={theme} size={16} />
+                        <span className="ellipsis">{theme.name[settings.language]}</span>
+                      </button>
                     ))}
                   </div>
-                </fieldset>
-              ) : null}
-            </>
+                </div>
+              ))}
+            </fieldset>
+          ) : null}
+
+          {active === 'customTheme' ? (
+            <fieldset className="field-group">
+              <legend>{t('customTheme')}</legend>
+              {/* Starting from an existing palette used to be a second grid of
+                  the same forty tiles; one dropdown is enough. */}
+              <label className="row"><span>{t('themePreset')}</span>
+                <select
+                  aria-label={t('themePreset')}
+                  data-testid="theme-preset"
+                  value=""
+                  onChange={(event) => {
+                    const preset = THEMES.find((theme) => theme.id === event.target.value)
+                    if (!preset) return
+                    onChange({ customTheme: { ...custom, mode: preset.mode, colors: { ...preset.colors } } })
+                  }}
+                >
+                  <option value="">{t('themePreset')}…</option>
+                  {THEMES.map((preset) => (
+                    <option key={preset.id} value={preset.id}>{`${t(preset.mode)} · ${preset.name[settings.language]}`}</option>
+                  ))}
+                </select>
+                <button type="button" data-testid="custom-reset" title={t('remove')} onClick={() => onChange({ customTheme: createCustomTheme(THEMES[0]) })}>{t('remove')}</button>
+              </label>
+              <label className="row"><span>{t('theme')}</span>
+                <select aria-label={t('customTheme')} data-testid="custom-mode" value={custom.mode} onChange={(event) => onChange({ customTheme: { ...custom, mode: event.target.value as ThemeMode } })}>
+                  <option value="dark">{t('dark')}</option>
+                  <option value="light">{t('light')}</option>
+                </select>
+                <button type="button" data-testid="custom-apply" className={settings.theme === 'custom' ? 'primary on' : 'primary'} title={t('apply')} onClick={() => onChange({ theme: 'custom' })}>{t('apply')}</button>
+              </label>
+              <div className="color-grid" data-testid="custom-colors">
+                {THEME_TOKENS.map((token) => (
+                  <label className="color-row" key={token.key}>
+                    <input
+                      type="color"
+                      data-testid={`custom-${token.key}`}
+                      aria-label={settings.language === 'ko' ? token.ko : token.en}
+                      value={custom.colors[token.key]}
+                      onChange={(event) => patchCustom({ [token.key]: event.target.value } as Partial<Settings['customTheme']['colors']>)}
+                    />
+                    <span className="ellipsis">{settings.language === 'ko' ? token.ko : token.en}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           ) : null}
 
           {active === 'font' ? (
@@ -912,15 +908,33 @@ export function PartDialog({
         <select aria-label={t('planeLabel')} data-testid="part-plane" value={plane} onChange={(event) => setPlane(event.target.value as 'xy' | 'xz' | 'yz')}>
           <option value="xy">XY</option><option value="xz">XZ</option><option value="yz">YZ</option>
         </select></label> : null}
-      {show('width') ? <label className="row"><span>{t('width')}</span><input aria-label={t('width')} data-testid="part-width" type="number" value={width} onChange={(event) => setWidth(Number(event.target.value))} /></label> : null}
-      {show('height') ? <label className="row"><span>{t('height')}</span><input aria-label={t('height')} data-testid="part-height" type="number" value={height} onChange={(event) => setHeight(Number(event.target.value))} /></label> : null}
-      {show('sides') ? <label className="row"><span>{t('sides')}</span><input aria-label={t('sides')} data-testid="part-sides" type="number" value={sides} onChange={(event) => setSides(Number(event.target.value))} /></label> : null}
-      {show('length') ? <label className="row"><span>{t('length')}</span><input aria-label={t('length')} data-testid="part-length" type="number" value={length} onChange={(event) => setLength(Number(event.target.value))} /></label> : null}
-      {show('angle') ? <label className="row"><span>{t('angle')}</span><input aria-label={t('angle')} data-testid="part-angle" type="number" value={angle} onChange={(event) => setAngle(Number(event.target.value))} /></label> : null}
-      {show('radius') ? <label className="row"><span>{t('radius')}</span><input aria-label={t('radius')} data-testid="part-radius" type="number" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /></label> : null}
-      {show('diameter') ? <label className="row"><span>{t('diameter')}</span><input aria-label={t('diameter')} data-testid="part-diameter" type="number" value={diameter} onChange={(event) => setDiameter(Number(event.target.value))} /></label> : null}
-      {show('count') ? <label className="row"><span>{t('count')}</span><input aria-label={t('count')} data-testid="part-count" type="number" value={count} onChange={(event) => setCount(Number(event.target.value))} /></label> : null}
-      {show('spacing') ? <label className="row"><span>{t('spacing')}</span><input aria-label={t('spacing')} data-testid="part-spacing" type="number" value={spacing} onChange={(event) => setSpacing(Number(event.target.value))} /></label> : null}
+      {show('width') ? <div className="row"><span>{t('width')}</span>
+        <NumberField id="part-width" label={t('width')} value={width} min={0.1} step={1} suffix="mm" onChange={setWidth} />
+      </div> : null}
+      {show('height') ? <div className="row"><span>{t('height')}</span>
+        <NumberField id="part-height" label={t('height')} value={height} min={0.1} step={1} suffix="mm" onChange={setHeight} />
+      </div> : null}
+      {show('sides') ? <div className="row"><span>{t('sides')}</span>
+        <NumberField id="part-sides" label={t('sides')} value={sides} min={3} max={64} step={1} onChange={setSides} />
+      </div> : null}
+      {show('length') ? <div className="row"><span>{t('length')}</span>
+        <NumberField id="part-length" label={t('length')} value={length} step={1} suffix="mm" onChange={setLength} />
+      </div> : null}
+      {show('angle') ? <div className="row"><span>{t('angle')}</span>
+        <NumberField id="part-angle" label={t('angle')} value={angle} min={-360} max={360} step={1} suffix="°" onChange={setAngle} />
+      </div> : null}
+      {show('radius') ? <div className="row"><span>{t('radius')}</span>
+        <NumberField id="part-radius" label={t('radius')} value={radius} min={0} step={0.5} suffix="mm" onChange={setRadius} />
+      </div> : null}
+      {show('diameter') ? <div className="row"><span>{t('diameter')}</span>
+        <NumberField id="part-diameter" label={t('diameter')} value={diameter} min={0.1} step={0.5} suffix="mm" onChange={setDiameter} />
+      </div> : null}
+      {show('count') ? <div className="row"><span>{t('count')}</span>
+        <NumberField id="part-count" label={t('count')} value={count} min={1} max={200} step={1} onChange={setCount} />
+      </div> : null}
+      {show('spacing') ? <div className="row"><span>{t('spacing')}</span>
+        <NumberField id="part-spacing" label={t('spacing')} value={spacing} step={1} suffix="mm" onChange={setSpacing} />
+      </div> : null}
       {show('axis') ? <label className="row"><span>{t('axis')}</span>
         <select aria-label={t('axis')} data-testid="part-axis" value={axis} onChange={(event) => setAxis(event.target.value as 'x' | 'y' | 'z')}>
           <option value="x">X</option><option value="y">Y</option><option value="z">Z</option>
@@ -976,9 +990,15 @@ export function ReportDialog({
   const full = lines.join('\n')
   return (
     <PopupFrame kind="report" title={title} icon={menuIcon('reportTitle')} onClose={onClose}>
-      {lines.map((line, index) => (
-        <p className="row report-line" key={`${index}-${line}`} data-testid="report-line">{line}</p>
-      ))}
+      {/* The lines are prose in a scroller of their own. As fixed-height
+          `.row`s they were flex items in a column that could not fit them, so
+          a report longer than the window collapsed every line to nothing and
+          the dialog came up blank. */}
+      <div className="report-lines" data-testid="report-lines">
+        {lines.map((line, index) => (
+          <p className="report-line" key={`${index}-${line}`} data-testid="report-line">{line}</p>
+        ))}
+      </div>
       <div className="row popup-actions">
         <button
           type="button"

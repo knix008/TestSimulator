@@ -1,4 +1,4 @@
-import { Fragment, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { Fragment, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { AUTHOR, MIN_WINDOW_HEIGHT, POPUP_SIZE, PROJECT_URL, toolbarMinWidth, windowTitle } from '../core/buildInfo'
 import { errorHeadline, errorReport } from '../core/report'
 import { licenseLines, shortcutLines } from '../core/knowledge'
@@ -58,6 +58,49 @@ async function readFile(file: Blob): Promise<string> {
 }
 
 /**
+ * A block of a side panel whose heading folds it away.
+ *
+ * The heading is the switch, so there is no extra affordance to find, and
+ * `extra` keeps room for the buttons a heading already carries, such as the
+ * one that closes the whole panel.
+ */
+function PanelSection({
+  id,
+  title,
+  open,
+  onToggle,
+  extra,
+  children
+}: {
+  id: string
+  title: string
+  open: boolean
+  onToggle: () => void
+  extra?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <>
+      <h2 className="panel-title">
+        <button
+          type="button"
+          className="panel-fold"
+          data-testid={`fold-${id}`}
+          aria-expanded={open}
+          title={title}
+          onClick={onToggle}
+        >
+          <span className="fold-mark" aria-hidden="true">{open ? '▾' : '▸'}</span>
+          <span className="ellipsis">{title}</span>
+        </button>
+        {extra}
+      </h2>
+      {open ? children : null}
+    </>
+  )
+}
+
+/**
  * An open menu closes when the pointer leaves it.
  *
  * The handlers are meant to go on every element of one menu: the menu bar and
@@ -101,6 +144,14 @@ function useCloseOnLeave(open: boolean, close: () => void, delay = MENU_CLOSE_DE
 export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, () => createInitialState())
   const [fonts, setFonts] = useState<string[]>(FALLBACK_FONTS)
+  // Side-panel blocks the user has folded away, by id.
+  const [folded, setFolded] = useState<Record<string, boolean>>({})
+  const foldProps = (id: string, title: string) => ({
+    id,
+    title,
+    open: !folded[id],
+    onToggle: () => setFolded((current) => ({ ...current, [id]: !current[id] }))
+  })
   const [menu, setMenu] = useState<string | null>(null)
   const [menuPos, setMenuPos] = useState({ x: 8, y: 64 })
   const [context, setContext] = useState<{ x: number; y: number } | null>(null)
@@ -1296,15 +1347,17 @@ export function App() {
             className="menu-root"
             data-testid={`menu-${entry.id}`}
             title={t(entry.labelKey)}
-            // The pointer alone opens a menu, and moving along the bar swaps
-            // one for the next. A click is then only for the people who have
-            // no pointer to hover with, so it opens rather than toggles:
-            // toggling would close the panel the hover just opened.
-            onMouseEnter={(event) => {
-              menuHover.onMouseEnter()
+            // A menu opens when it is picked, not when the pointer merely
+            // passes over it, so crossing the bar on the way to the toolbar
+            // leaves it alone. Clicking the one already open closes it.
+            onMouseEnter={menuHover.onMouseEnter}
+            onClick={(event) => {
+              if (menu === entry.id) {
+                setMenu(null)
+                return
+              }
               openMenuUnder(entry.id, event.currentTarget)
             }}
-            onClick={(event) => openMenuUnder(entry.id, event.currentTarget)}
           >
             <span className="menu-icon">{menuIcon(entry.id)}</span>
             <span className="menu-label">{t(entry.labelKey)}</span>
@@ -1312,7 +1365,11 @@ export function App() {
         ))}
         <label className="workbench">
           <select aria-label={t('partDesign')} data-testid="workbench" value={workbench} onChange={(event) => setWorkbench(event.target.value as WorkbenchId)}>
-            {WORKBENCHES.map((item) => <option key={item.id} value={item.id}>{t(item.labelKey)}</option>)}
+            {/* A native option can only carry text, so the icon rides in
+                front of the name. */}
+            {WORKBENCHES.map((item) => (
+              <option key={item.id} value={item.id}>{`${menuIcon(item.labelKey)}  ${t(item.labelKey)}`}</option>
+            ))}
           </select>
         </label>
       </nav>
@@ -1427,6 +1484,8 @@ export function App() {
           </span>
         ))}
         <span className="toolbar-sep" />
+        {/* The same switch as the View menu and the panel title bars, kept on
+            the toolbar because it is the one people reach for. */}
         {(['toolPanel', 'propertyPanel'] as const).map((id) => {
           const open = id === 'toolPanel' ? showToolPanel : showPropertyPanel
           return (
@@ -1436,7 +1495,7 @@ export function App() {
               className={open ? 'tool on' : 'tool'}
               data-testid={`tb-${id}`}
               aria-pressed={open}
-              title={`${t(id)}: ${open ? t('show') : t('hide')}`}
+              title={`${t(id)}: ${open ? t('hide') : t('show')}`}
               onClick={() => runCommand(id)}
             >
               <span className="menu-icon">{menuIcon(id)}</span>
@@ -1501,16 +1560,9 @@ export function App() {
         }}
       >
         <aside className="panel left" data-testid="left-panel" hidden={!showToolPanel} style={{ gridColumn: 1 }}>
-          <h2 className="panel-title">
-            <span className="ellipsis">{t('toolsPanel')}</span>
-            <button
-              type="button"
-              className="panel-close"
-              data-testid="close-tool-panel"
-              title={`${t('toolPanel')}: ${t('hide')}`}
-              onClick={() => runCommand('toolPanel')}
-            >✕</button>
-          </h2>
+          {/* No hide button here: the toolbar switch and the View menu both
+              close the panel, and the heading folds this block instead. */}
+          <PanelSection {...foldProps('tools', t('toolsPanel'))}>
           <div className="tool-groups" data-testid="tool-grid" ref={toolGridRef}>
             {groupTools(workbenchTools(workbench)).map((group) => (
               <section className="tool-group" key={group.category.id} data-testid={`tool-group-${group.category.id}`}>
@@ -1530,7 +1582,8 @@ export function App() {
               </section>
             ))}
           </div>
-          <h2 className="panel-title">{t('specTree')}</h2>
+          </PanelSection>
+          <PanelSection {...foldProps('specTree', t('specTree'))}>
           <div className="spec-tree" data-testid="spec-tree">
             {specTreeRows(doc.features ?? [], doc.parameters ?? [], doc.mates ?? [], doc.solids).map((row) => {
               const refs = row.refs.filter((id) => doc.solids.some((solid) => solid.id === id))
@@ -1554,7 +1607,8 @@ export function App() {
               )
             })}
           </div>
-          <h2 className="panel-title">{t('features')}</h2>
+          </PanelSection>
+          <PanelSection {...foldProps('features', t('features'))}>
           {(doc.features ?? []).map((feature) => {
             const picked = feature.solidIds.length > 0 && feature.solidIds.every((id) => doc.selection.includes(id))
             return (
@@ -1573,7 +1627,8 @@ export function App() {
               </button>
             )
           })}
-          <h2 className="panel-title">{t('scene')}</h2>
+          </PanelSection>
+          <PanelSection {...foldProps('scene', t('scene'))}>
           {doc.solids.map((solid) => (
             <button
               key={solid.id}
@@ -1589,6 +1644,7 @@ export function App() {
               {doc.selection.includes(solid.id) ? <span className="pick-mark" aria-hidden="true">✓</span> : null}
             </button>
           ))}
+          </PanelSection>
         </aside>
         <main className="center" style={{ gridColumn: 2 }}>
           <div className="tabstrip" data-testid="tabstrip">
@@ -1628,15 +1684,8 @@ export function App() {
         <aside className="panel right" data-testid="right-panel" hidden={!showPropertyPanel} style={{ gridColumn: 3 }}>
           <h2 className="panel-title">
             <span className="ellipsis">{t('properties')}</span>
-            <button
-              type="button"
-              className="panel-close"
-              data-testid="close-property-panel"
-              title={`${t('propertyPanel')}: ${t('hide')}`}
-              onClick={() => runCommand('propertyPanel')}
-            >✕</button>
           </h2>
-          {doc.selection.length === 0 ? <p className="row">{t('emptyProps')}</p> : null}
+          {doc.selection.length === 0 ? <p className="panel-hint" data-testid="empty-props">{t('emptyProps')}</p> : null}
           {doc.solids.filter((solid) => doc.selection.includes(solid.id)).slice(0, 1).map((solid) => (
             <PropertyEditor key={solid.id} solidId={solid.id} state={state} t={t} dispatch={dispatch} />
           ))}
