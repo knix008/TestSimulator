@@ -80,8 +80,10 @@ function readDesktopDirectories() {
 
 const SKIP = new Set(['desktop.ini', '.localized', '.ds_store']);
 
-function listDesktopFiles() {
-  const files = [];
+// 바탕화면에 놓인 것의 이름과 자리. 파일인지 폴더인지는 보지 않는다.
+// 항목마다 stat 을 부르지 않으므로, 몇 초마다 훑어도 가볍다.
+function desktopEntries() {
+  const found = [];
   for (const dir of desktopDirectories()) {
     let names = [];
     try {
@@ -91,15 +93,23 @@ function listDesktopFiles() {
     }
     for (const name of names) {
       if (SKIP.has(name.toLowerCase()) || name.startsWith('.')) continue;
-      const full = path.join(dir, name);
-      let dirent = false;
-      try {
-        dirent = fs.statSync(full).isDirectory();
-      } catch (_err) {
-        continue;
-      }
-      files.push({ name, path: full, directory: dirent });
+      found.push({ name, path: path.join(dir, name) });
     }
+  }
+  return found;
+}
+
+// 위와 같되 폴더인지까지 본다. 첫 실행에 종류별로 나눠 담을 때 쓴다.
+function listDesktopFiles() {
+  const files = [];
+  for (const entry of desktopEntries()) {
+    let dirent = false;
+    try {
+      dirent = fs.statSync(entry.path).isDirectory();
+    } catch (_err) {
+      continue;
+    }
+    files.push({ name: entry.name, path: entry.path, directory: dirent });
   }
   return files;
 }
@@ -151,6 +161,7 @@ function watchDesktop(onChange) {
 
 module.exports = {
   desktopDirectories,
+  desktopEntries,
   isOnDesktop,
   isShellItem,
   listDesktopFiles,

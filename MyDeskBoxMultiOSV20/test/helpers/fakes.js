@@ -181,7 +181,16 @@ function makeElectron(userData) {
         getPath: () => userData,
         getFileIcon: async () => ({ isEmpty: () => true, toDataURL: () => '', getSize: () => ({ width: 0, height: 0 }) }),
         getName: () => 'MyDeskBox',
-        setLoginItemSettings() {},
+        // 설치본일 때만 시작프로그램에 적는다. 검사에서는 설치본인 것으로 둔다.
+        isPackaged: true,
+        login: { openAtLogin: false, path: '' },
+        setLoginItemSettings(options) {
+          this.login = { ...(options || {}) };
+        },
+        // 진짜 앱처럼 적어 둔 것을 그대로 돌려준다. 적은 적이 없으면 꺼져 있다.
+        getLoginItemSettings() {
+          return { openAtLogin: !!this.login.openAtLogin, executableWillLaunchAtLogin: !!this.login.openAtLogin };
+        },
         quit() {},
         on(event, fn) {
           const list = this.handlers.get(event) || [];
@@ -365,6 +374,23 @@ function makeDesktop() {
       },
       isOnDesktop: (filePath) => deskDirs.some((dir) => path.relative(dir, path.dirname(String(filePath))) === ''),
       desktopDirectories: () => deskDirs.slice(),
+      // 검사에서 바탕화면으로 본 폴더의 내용. 진짜 모듈처럼 폴더를 그대로 읽는다.
+      desktopEntries() {
+        const out = [];
+        for (const dir of deskDirs) {
+          let names = [];
+          try {
+            names = fs.readdirSync(dir);
+          } catch (_err) {
+            continue;
+          }
+          for (const name of names) {
+            if (name.startsWith('.')) continue;
+            out.push({ name, path: path.join(dir, name) });
+          }
+        }
+        return out;
+      },
       claimSingleInstance: () => true,
       unstashFile: (filePath) => filePath,
       recycleCount: () => 0,
@@ -385,10 +411,15 @@ function loadHost(state) {
   const storePath = path.join(root, 'store.js');
 
   // 묻는 창은 창을 띄우지 않고 미리 정한 답을 준다.
-  const asks = { reply: false, calls: [] };
+  // before 를 달아 두면 답을 주기 직전에 부른다. 묻는 동안 무엇이 바뀌는 경우를 흉내 낸다.
+  // hold 에 약속을 달아 두면 그것이 풀릴 때까지 답하지 않는다. 창이 떠 있는 동안을 흉내 낸다.
+  const asks = { reply: false, calls: [], before: null, hold: null };
   const askStub = {
     confirm(options) {
       asks.calls.push(options);
+      if (typeof asks.before === 'function') asks.before(options);
+      // 답은 풀리는 때에 읽는다. 창이 떠 있는 동안 검사가 답을 바꿀 수 있어야 한다.
+      if (asks.hold) return asks.hold.then(() => asks.reply);
       return Promise.resolve(asks.reply);
     },
   };
@@ -413,6 +444,8 @@ function loadHost(state) {
   const iconsPath = path.join(root, 'icons.js');
   delete require.cache[trayPath];
   delete require.cache[iconsPath];
+  // autostart 는 읽을 때 electron 을 붙잡는다. 검사마다 새로 읽어야 이번 가짜를 쓴다.
+  delete require.cache[path.join(root, 'autostart.js')];
 
   try {
     const { createHost } = require(fencesPath);
@@ -469,7 +502,7 @@ async function loadMain(state) {
   require.cache['\u0000desktop'] = { id: '\u0000desktop', filename: '\u0000desktop', loaded: true, exports: desktop.module };
   require.cache['\u0000ask'] = { id: '\u0000ask', filename: '\u0000ask', loaded: true, exports: askStub };
   require.cache['\u0000store'] = { id: '\u0000store', filename: '\u0000store', loaded: true, exports: storeStub };
-  for (const file of ['main.js', 'fences.js', 'tray.js', 'icons.js', 'ipc.js']) {
+  for (const file of ['main.js', 'fences.js', 'tray.js', 'icons.js', 'ipc.js', 'autostart.js']) {
     delete require.cache[path.join(root, file)];
   }
 

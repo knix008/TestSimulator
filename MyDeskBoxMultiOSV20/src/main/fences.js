@@ -8,6 +8,7 @@ const arrange = require('../shared/arrange');
 const deskgrid = require('../shared/deskgrid');
 const desktop = require('./desktop');
 const hold = require('./hold');
+const autostart = require('./autostart');
 
 const icons = require('./icons');
 const ask = require('./ask');
@@ -385,6 +386,26 @@ function createHost(state) {
 
   // 끌고 있는 동안 어느 박스 위인지 알려 준다.
   // 그 박스는 놓일 자리를 비워 두고, 나머지 박스는 비워 둔 자리를 거둔다.
+  // 커서 아래에 다른 항목의 그림이 있는가. 있으면 그 항목의 자리를 준다.
+  //
+  // 이 판단은 메인이 한다. 창이 제 안에서만 하면 제 창 밖은 알 수 없어,
+  // 다른 박스의 폴더나 바탕화면에서 끌어 온 것은 아무리 겨눠도 받아 주지 못했다.
+  // 박스 안 아이콘의 자리는 메인도 그대로 셀 수 있다(indexAt 과 같은 셈이다).
+  function receiverAt(fence, screenX, screenY, exceptPath) {
+    if (!fence || fence.collapsed) return null;
+    const bounds = boundsOf(fence.id);
+    if (!bounds) return null;
+    const grid = arrange.gridOf(bounds.width, bounds.height, false);
+    const localX = screenX - bounds.x;
+    const localY = screenY - bounds.y + (scrollTops.get(fence.id) || 0);
+    const shown = fence.items.filter((item) => item.path !== exceptPath);
+    for (let n = 0; n < shown.length; n += 1) {
+      const point = arrange.slotPoint(n, grid);
+      if (deliver.onPicture(localX - point.x, localY - point.y)) return shown[n].path;
+    }
+    return null;
+  }
+
   function hover(filePath, screenX, screenY, icon) {
     const target = hit(screenX, screenY);
     for (const fence of state.fences) {
@@ -397,6 +418,8 @@ function createHost(state) {
           filePath,
           localX: screenX - bounds.x,
           localY: screenY - bounds.y,
+          // 어느 항목 위인지 창에게 함께 알려 준다. 창은 그 항목을 밝혀 보여 준다.
+          into: receiverAt(target, screenX, screenY, filePath),
         });
       } else {
         win.webContents.send('fence:hover', null);
@@ -961,8 +984,11 @@ function createHost(state) {
     const target = hit(dip.x, dip.y);
     if (!target) return;
     if (target.items.some((entry) => entry.path === item.path)) return;
+    // 바탕화면에서 끌어 온 것도 박스 안 항목 위에 놓을 수 있어야 한다.
+    // 휴지통이면 버리고, 폴더면 그 안으로, 프로그램이면 그것에게 넘긴다.
+    const into = receiverAt(target, dip.x, dip.y, item.path);
     const index = indexAt(target, dip.x, dip.y, item.path);
-    await dropFiles(target.id, [item], index);
+    await dropFiles(target.id, [item], index, into);
   }
 
   function isDirectory(filePath) {
@@ -1267,8 +1293,12 @@ function createHost(state) {
   //  - 같은 박스 안  : 차례만 바꾼다
   //  - 다른 박스 위  : 그 박스의 폴더로 옮긴다
   //  - 박스 밖(바탕화면) : 담기 전 폴더로 돌려보낸다
-  async function transfer(fromId, filePath, screenX, screenY, intoPath) {
+  async function transfer(fromId, filePath, screenX, screenY) {
     hideGhost();
+    // 받을 항목은 손을 뗀 자리에서 다시 잰다. 창이 알려 준 값을 그대로 믿으면
+    // 제 창 안에서 끈 경우에만 맞고, 다른 박스로 건너간 경우에는 늘 비어 있다.
+    const landed = hit(screenX, screenY);
+    const intoPath = landed ? receiverAt(landed, screenX, screenY, filePath) : null;
     if (intoPath && intoPath !== filePath) {
       const done = await sendInto(filePath, intoPath);
       if (done === 'moved') {
@@ -1438,6 +1468,138 @@ function createHost(state) {
     return true;
   }
 
+  // ── 바탕화면에 새로 생긴 항목 ────────────────────────────────────────────
+  //
+  // 탐색기에서 '새 폴더' 나 '새 텍스트 문서' 를 만들면 바탕화면 폴더에 항목이 하나 생긴다.
+  // 그런데 같은 이름을 이미 어느 박스가 들고 있을 수 있다. 담긴 파일은 박스 폴더에 있어
+  // 탐색기 눈에 보이지 않으므로, 탐색기는 그것을 막아 주지 못한다. 그대로 두면 같은 이름이
+  // 바탕화면과 박스에 두 벌 생기고, 나중에 박스에 담을 때에야 부딪힌다.
+  //
+  // 그래서 생기자마자 묻는다. 대체하겠다면 박스에 있던 것은 휴지통으로 가고 새로 만든 것이
+  // 그 자리에 담긴다. 다시 만들겠다면 새로 만든 것을 바탕화면에 그대로 둔다.
+  // 한 번 물은 항목은 다시 묻지 않는다.
+
+  // 지난번에 본 바탕화면 항목. null 이면 아직 한 번도 보지 않은 것이다.
+  let seenOnDesk = null;
+  // 물어볼 차례를 기다리는 항목. 다른 물음이 떠 있으면 다음 차례로 미룬다.
+  const freshQueue = [];
+  let draining = false;
+
+  function deskPaths() {
+    if (typeof desktop.desktopEntries !== 'function') return [];
+    try {
+      return desktop.desktopEntries()
+        .filter((entry) => entry && entry.path)
+        .map((entry) => String(entry.path));
+    } catch (_err) {
+      return [];
+    }
+  }
+
+  // 같은 이름인가. Windows 는 대소문자를 가리지 않는다.
+  function sameLabel(a, b) {
+    const one = String(a || '');
+    const two = String(b || '');
+    if (!one || !two) return false;
+    if (process.platform === 'win32') return one.toLowerCase() === two.toLowerCase();
+    return one === two;
+  }
+
+  // 이 이름을 이미 들고 있는 박스. 들고 있는 항목까지 함께 준다.
+  function holderOf(name) {
+    for (const fence of state.fences) {
+      for (const item of fence.items) {
+        if (desktop.isShellItem && desktop.isShellItem(item.path)) continue;
+        if (sameLabel(path.basename(item.path), name)) return { fence, item };
+      }
+    }
+    return null;
+  }
+
+  // 바탕화면을 다시 볼 때마다 새로 생긴 항목을 찾아 둔다.
+  function watchFresh() {
+    const now = deskPaths();
+    const keys = new Set(now.map((at) => path.resolve(at)));
+    // 처음 보는 것이면 지금 있는 것은 모두 '이미 있던 것' 이다.
+    // 그러지 않으면 켜자마자 바탕화면에 있는 것을 하나씩 묻게 된다.
+    if (seenOnDesk === null) {
+      seenOnDesk = keys;
+      return;
+    }
+    for (const at of now) {
+      if (seenOnDesk.has(path.resolve(at))) continue;
+      if (holderOf(path.basename(at))) freshQueue.push(at);
+    }
+    seenOnDesk = keys;
+  }
+
+  // 미뤄 둔 물음을 하나씩 푼다. 다른 물음이 떠 있으면 다음 기회에 다시 온다.
+  function drainFresh() {
+    if (draining || asking || closing || !freshQueue.length) return;
+    draining = true;
+    (async () => {
+      try {
+        while (freshQueue.length && !closing) {
+          await offerReplace(freshQueue.shift());
+        }
+      } finally {
+        draining = false;
+      }
+    })();
+  }
+
+  // 새로 만든 것 하나. 대체할지 그대로 둘지 묻고, 대체하겠다면 박스로 옮긴다.
+  async function offerReplace(filePath) {
+    const name = path.basename(String(filePath || ''));
+    const found = holderOf(name);
+    if (!found) return false;
+    try {
+      if (!fs.existsSync(filePath)) return false;
+    } catch (_err) {
+      return false;
+    }
+    asking = true;
+    let yes = false;
+    try {
+      yes = await ask.confirm({
+        title: say('dialog.fresh', { name }),
+        detail: say('dialog.freshDetail', { title: found.fence.title || say('box.untitled') }),
+        confirm: say('dialog.freshGo'),
+        cancel: say('dialog.freshKeep'),
+        icon: icons.menu('remove'),
+        danger: true,
+      });
+    } finally {
+      asking = false;
+    }
+    if (!yes) return false;
+    return replaceHeld(found.fence, found.item, filePath);
+  }
+
+  // 박스에 있던 것을 새로 만든 것으로 바꾼다.
+  // 있던 것은 휴지통으로 가고, 새로 만든 것이 그 자리에 담긴다.
+  async function replaceHeld(fence, older, filePath) {
+    const at = fence.items.findIndex((item) => item.path === older.path);
+    // 묻는 동안 새로 만든 것이 없어졌을 수 있다. 사람이 지웠거나 다른 곳으로 옮긴 경우다.
+    // 그러면 바꿔 놓을 것이 없으므로 박스에 있던 것도 그대로 둔다.
+    // 이 빗장이 없으면 있던 것만 휴지통으로 가고 박스가 빈다.
+    try {
+      if (!fs.existsSync(filePath)) return false;
+    } catch (_err) {
+      return false;
+    }
+    try {
+      await shell.trashItem(older.path);
+    } catch (_err) {
+      // 지우지 못했으면 아무것도 하지 않는다. 새로 만든 것은 바탕화면에 그대로 있다.
+      return false;
+    }
+    takeOut(older.path);
+    watchBin();
+    await dropFiles(fence.id, [filePath], at < 0 ? fence.items.length : at);
+    return true;
+  }
+
   // 박스에 담긴 것은 진짜 바탕화면 아이콘이다. 그 아이콘을 박스 안 격자로 모으고,
   // 담기지 않은 아이콘이 박스 자리에 남아 있으면 밖으로 밀어낸다.
   // 파일은 옮기지도, 감추지도 않는다. 바탕화면 폴더의 내용은 그대로다.
@@ -1450,6 +1612,8 @@ function createHost(state) {
   function refreshIcons() {
     if (closing) return;
     watchBin();
+    watchFresh();
+    drainFresh();
     const changed = settleAll();
     // 휴지통 같은 셸 항목은 옮길 파일이 없다. 박스에 담으면 바탕화면 쪽 아이콘을
     // 레지스트리로 감추고, 박스 창이 대신 그린다. 끝낼 때 restoreShellIcons 가 되살린다.
@@ -1891,13 +2055,16 @@ function createHost(state) {
 
   function setLogin(on) {
     state.settings.openAtLogin = !!on;
-    try {
-      app.setLoginItemSettings({ openAtLogin: !!on });
-    } catch (_err) {
-      /* 설치본이 아니면 운영체제가 로그인 항목을 거절할 수 있다. */
-    }
+    // 설치본이 아니거나 운영체제가 거절하면 적히지 않는다. 그래도 고른 값은 남긴다.
+    autostart.apply(state.settings.openAtLogin, appName());
     persist();
     announce();
+  }
+
+  // 켜질 때 한 번. 설정에 적힌 대로 운영체제의 시작프로그램 목록을 다시 맞춘다.
+  // 다시 설치했거나 다른 자리에 설치했어도 이 길로 지금 자리가 다시 적힌다.
+  function syncLogin() {
+    return autostart.sync(state.settings.openAtLogin, appName());
   }
 
   function captured() {
@@ -1943,6 +2110,7 @@ function createHost(state) {
     cancelDraw,
     refreshIcons,
     setLogin,
+    syncLogin,
     setLang,
     setDefaultTheme,
     setDefaultCorner,

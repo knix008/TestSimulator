@@ -241,6 +241,9 @@ ${detail}`);
     }
     if (typeof desktop.init === 'function') desktop.init(app.getPath('userData'));
     host = createHost(state);
+    // 설치한 뒤 처음 켤 때 시작프로그램으로 자기를 적어 둔다.
+    // 그래야 시스템을 다시 켜도 박스가 그대로 돌아온다. 설정에서 끈 사람은 건드리지 않는다.
+    host.syncLogin();
     ipc.install(host);
     tray.install(host);
     stopClick = desktop.watchDoubleClick(() => host.toggleHidden());

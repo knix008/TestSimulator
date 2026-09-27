@@ -4,9 +4,36 @@
 // 폴더와 폴더를 가리키는 바로가기는 그 안으로, 휴지통은 버리기, 프로그램 바로가기는 그 프로그램에 넘긴다.
 // 그 밖의 항목 위에 놓으면 그 항목을 실행하면서 놓은 파일을 입력으로 넘긴다.
 
+// 칸 안에서 그림이 놓인 자리.
+//
+// 칸은 86×88 이고(arrange.js 의 CELL_W·CELL_H), 아이콘 칸은 padding 8px 4px 0 에
+// 가운데 정렬이며 그림은 44×44 이다(fence.css 의 .icon 과 .icon img).
+// 그래서 그림은 칸 안에서 가로 21..65, 세로 8..52 에 놓인다.
+//
+// 이 값이 그림과 어긋나면 눈에 보이는 그림과 받아 주는 자리가 따로 논다.
+// 앞서 가로를 4..48 로 잡아 두어, 그림의 오른쪽 절반은 아무리 겨눠도 받지 않고
+// 그림 왼쪽의 빈 여백은 받아 주었다. 아래 값은 셈으로 내어 어긋나지 않게 한다.
+const CELL_W = 86;
+const SIDE_PAD = 4;
+const TOP_PAD = 8;
+const ART = 44;
+const ART_X = SIDE_PAD + Math.round((CELL_W - SIDE_PAD * 2 - ART) / 2);
+
+// 그림 둘레로 조금 더 받아 준다. 끌고 가면서 44픽셀짜리 과녁을 맞히기는 어렵다.
+// 이만큼 넓혀도 칸 좌우에는 '사이에 끼우기' 로 쓸 자리가 15픽셀씩 남는다.
+const SLACK = 6;
+
+// 글자 줄(56픽셀 아래)까지 받지는 않는다. 거기까지 받으면 아래 줄에 끼워 넣을 수 없다.
+const PICTURE = {
+  left: ART_X - SLACK,
+  right: ART_X + ART + SLACK,
+  top: TOP_PAD - SLACK,
+  bottom: TOP_PAD + ART + 2,
+};
+
 // 칸 안에서 그림 위인지. 글자와 옆 여백은 아이템 사이라서 밀어 배열한다.
 function onPicture(dx, dy) {
-  return dx >= 4 && dx <= 48 && dy >= 8 && dy <= 52;
+  return dx >= PICTURE.left && dx <= PICTURE.right && dy >= PICTURE.top && dy <= PICTURE.bottom;
 }
 
 function isShortcut(filePath) {
@@ -90,7 +117,7 @@ function receiveKind(target, platform) {
   return handable(target.path, platform) ? 'hand' : '';
 }
 
-const api = { onPicture, isShortcut, isRecycle, isRunnable, receiveKind, splitArgs, handPlan, openPlan };
+const api = { onPicture, PICTURE, isShortcut, isRecycle, isRunnable, receiveKind, splitArgs, handPlan, openPlan };
 const root = typeof globalThis !== 'undefined' ? globalThis : this;
 root.DeskDeliver = api;
 if (typeof module === 'object' && module.exports) module.exports = api;

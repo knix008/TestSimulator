@@ -74,6 +74,10 @@
       'dialog.replace': "'{name}' 이름이 이미 '{title}' 박스에 있습니다.",
       'dialog.replaceDetail': '대체하면 박스에 있던 것은 휴지통으로 갑니다.',
       'dialog.replaceGo': '대체',
+      'dialog.fresh': "바탕화면에 '{name}' 을(를) 새로 만들었습니다.",
+      'dialog.freshDetail': "같은 이름이 '{title}' 박스에 이미 있습니다. 대체하면 새로 만든 것이 박스로 들어가고, 박스에 있던 것은 휴지통으로 갑니다.",
+      'dialog.freshGo': '대체',
+      'dialog.freshKeep': '새로 만들기',
 
       'box.folder': '폴더',
       'box.shortcut': '바로가기',
@@ -167,6 +171,10 @@
       'dialog.replace': "'{title}' already holds an item named '{name}'.",
       'dialog.replaceDetail': 'Replacing sends the one in the box to the trash.',
       'dialog.replaceGo': 'Replace',
+      'dialog.fresh': "You just created '{name}' on the desktop.",
+      'dialog.freshDetail': "'{title}' already holds an item with that name. Replacing moves the new one into the box and sends the one in the box to the trash.",
+      'dialog.freshGo': 'Replace',
+      'dialog.freshKeep': 'Keep the new one',
 
       'box.folder': 'Folders',
       'box.shortcut': 'Shortcuts',

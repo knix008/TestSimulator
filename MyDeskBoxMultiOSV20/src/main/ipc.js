@@ -32,12 +32,12 @@ function install(host) {
     host.setCollapsed(payload.id, payload.collapsed);
   });
 
+  // 받을 항목은 메인이 손을 뗀 자리에서 다시 잰다. 창은 어디서 뗐는지만 알려 준다.
   ipcMain.handle('fence:transfer', (_event, payload) => host.transfer(
     payload.id,
     payload.filePath,
     payload.screenX,
-    payload.screenY,
-    payload.into
+    payload.screenY
   ));
 
   ipcMain.handle('fence:drop', (_event, payload) => host.dropFiles(

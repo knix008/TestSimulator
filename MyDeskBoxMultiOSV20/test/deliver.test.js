@@ -6,7 +6,22 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const deliver = require('../src/shared/deliver');
+const arrange = require('../src/shared/arrange');
 const { loadHost, fence, baseState, fenceWindows } = require('./helpers/fakes');
+
+// fence() 가 주는 박스의 자리와 크기. 아래 셈은 이 값을 딛고 선다.
+const BOX = { x: 100, y: 100, w: 400, h: 300 };
+
+// 박스 안 n 번째 칸의 그림 한가운데(화면 좌표).
+// 여기서 손을 떼면 그 항목 위에 놓은 것이다. 끌고 있던 항목은 목록에서 빠지므로
+// n 은 그 항목을 뺀 뒤의 차례이다.
+function onPicture(index, box = BOX) {
+  const spot = arrange.slotPoint(index, arrange.gridOf(box.w, box.h, false));
+  return {
+    x: box.x + spot.x + Math.round((deliver.PICTURE.left + deliver.PICTURE.right) / 2),
+    y: box.y + spot.y + Math.round((deliver.PICTURE.top + deliver.PICTURE.bottom) / 2),
+  };
+}
 
 function desk() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-drop-'));
@@ -19,11 +34,39 @@ function desk() {
   return { root, folder, note, link };
 }
 
-test('그림 위에 놓으면 그 항목으로 보내고, 사이는 밀어 배열한다', () => {
-  assert.equal(deliver.onPicture(20, 24), true);
-  assert.equal(deliver.onPicture(70, 24), false);
-  assert.equal(deliver.onPicture(20, 70), false);
-  assert.equal(deliver.onPicture(2, 20), false);
+test('받아 주는 자리가 눈에 보이는 그림과 맞는다', () => {
+  // .icon 은 86픽셀 폭에 좌우 4픽셀 여백, 위 8픽셀 여백, 그림은 44×44 가운데 정렬.
+  // 그래서 그림은 가로 21..65, 세로 8..52 에 놓인다. 받아 주는 자리는 여기에 맞고,
+  // 겨누기 쉽도록 둘레로 조금 더 넓혔을 뿐이어야 한다.
+  const art = { left: 21, right: 65, top: 8, bottom: 52 };
+  const { PICTURE } = deliver;
+  assert.ok(PICTURE.left <= art.left && PICTURE.right >= art.right, `그림 ${art.left}..${art.right} 중 ${PICTURE.left}..${PICTURE.right} 만 받는다`);
+  assert.ok(PICTURE.top <= art.top && PICTURE.bottom >= art.bottom, '그림의 위아래를 다 받지 않는다');
+
+  // 그림 안이면 어디를 겨눠도 받는다. 가운데만 되는 것이 아니다.
+  for (const x of [art.left, 32, 43, 54, art.right]) {
+    for (const y of [art.top, 20, 30, 40, art.bottom]) {
+      assert.equal(deliver.onPicture(x, y), true, `그림 안 (${x}, ${y}) 을 받지 않는다`);
+    }
+  }
+
+  // 칸 좌우 끝과 글자 줄은 '사이에 끼우기' 로 남겨 둔다.
+  for (const [x, y] of [[0, 30], [8, 30], [78, 30], [85, 30], [43, 60], [43, 80]]) {
+    assert.equal(deliver.onPicture(x, y), false, `(${x}, ${y}) 에서는 끼워 넣을 수 없다`);
+  }
+
+  // 끼워 넣을 자리가 칸마다 좌우로 넉넉히 남아 있어야 한다.
+  assert.ok(PICTURE.left >= 12, '왼쪽에 끼워 넣을 자리가 없다');
+  assert.ok(arrange.CELL_W - PICTURE.right >= 12, '오른쪽에 끼워 넣을 자리가 없다');
+});
+
+test('칸 크기가 바뀌면 받아 주는 자리도 함께 고쳐야 한다', () => {
+  // deliver.js 의 PICTURE 는 arrange.js 의 칸 크기와 fence.css 의 값을 셈해 둔 것이다.
+  // 한쪽만 바뀌면 그림과 받아 주는 자리가 다시 어긋난다.
+  assert.equal(arrange.CELL_W, 86, 'deliver.js 의 셈을 함께 고쳐야 한다');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'fence.css'), 'utf8');
+  assert.match(css, /\.icon \{[^}]*width: 86px;[^}]*padding: 8px 4px 0;/s, '.icon 의 크기나 여백이 바뀌었다');
+  assert.match(css, /\.icon img \{[^}]*width: 44px;/s, '.icon img 의 크기가 바뀌었다');
 });
 
 test('바로가기와 휴지통을 가려 낸다', () => {
@@ -70,23 +113,32 @@ test('프로그램 바로가기 위에 놓으면 그 프로그램이 파일을 �
     })],
   });
   const { host, electron } = loadHost(state);
-  electron.shell.links.set(appLink, {
-    target: 'C:/Program Files/Editor/edit.exe',
-    args: '/nologo',
-    cwd: place.root,
-  });
   electron.shell.launch = (plan) => {
     electron.shell.launched = electron.shell.launched || [];
     electron.shell.launched.push(plan);
   };
-  await host.transfer('a', place.note, 0, 0, appLink);
+  // 박스를 띄우면 담긴 것이 박스 폴더로 옮겨 간다. 그 뒤의 자리로 견준다.
+  host.openAll();
+  const held = (name) => state.fences[0].items.find((item) => item.name === name).path;
+  const link = held('Editor.lnk');
+  const note = held('노트.txt');
+  electron.shell.links.set(link, {
+    target: 'C:/Program Files/Editor/edit.exe',
+    args: '/nologo',
+    cwd: place.root,
+  });
+
+  // 끌고 있던 노트를 뺀 첫 칸이 Editor.lnk 다. 그 그림 위에서 손을 뗀다.
+  const spot = onPicture(0);
+  await host.transfer('a', note, spot.x, spot.y);
+
   assert.deepEqual(electron.shell.launched, [{
     command: 'C:/Program Files/Editor/edit.exe',
-    args: ['/nologo', place.note],
+    args: ['/nologo', note],
     cwd: place.root,
   }]);
-  assert.equal(fs.existsSync(place.note), true);
-  assert.equal(state.fences[0].items.some((item) => item.path === place.note), true);
+  assert.equal(fs.existsSync(note), true);
+  assert.equal(state.fences[0].items.some((item) => item.path === note), true);
 });
 
 // 아이콘 그림은 이제 탐색기가 박스 위에 직접 그린다. 우리는 종류만 알면 된다.
@@ -146,8 +198,13 @@ test('폴더를 가리키는 바로가기 위에 놓아도 그 폴더로 들어�
     })],
   });
   const { host, electron } = loadHost(state);
-  electron.shell.links.set(place.link, { target: place.folder });
-  await host.transfer('a', place.note, 0, 0, place.link);
+  host.openAll();
+  const held = (name) => state.fences[0].items.find((item) => item.name === name).path;
+  electron.shell.links.set(held('Work.lnk'), { target: place.folder });
+
+  const spot = onPicture(0);
+  await host.transfer('a', held('노트.txt'), spot.x, spot.y);
+
   assert.equal(fs.existsSync(path.join(place.folder, '노트.txt')), true, '바로가기가 가리키는 폴더로 들어가지 않았다');
   // 바로가기는 박스에 남는다. 다만 자리는 박스 폴더 안이다.
   assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work.lnk']);
@@ -193,7 +250,8 @@ test('항목을 자기 위에 놓으면 그대로 둔다', async () => {
   });
   const { host, electron } = loadHost(state);
   host.openAll();
-  await host.transfer('a', place.note, 150, 150, place.note);
+  const spot = onPicture(0);
+  await host.transfer('a', place.note, spot.x, spot.y);
   assert.equal(electron.shell.trashed.length, 0);
   assert.equal(state.fences[0].items.length, 1);
   assert.equal(fs.existsSync(state.fences[0].items[0].path), true, '제자리에 놓았는데 파일이 사라졌다');
@@ -242,12 +300,17 @@ test('프로그램 파일 위에 놓으면 그 프로그램이 파일을 열고,
   const { host, electron } = loadHost(state);
   const launched = [];
   electron.shell.launch = (plan) => launched.push(plan);
+  host.openAll();
+  const held = (name) => state.fences[0].items.find((item) => item.name === name).path;
+  const inBox = held('tool.exe');
+  const note = held('노트.txt');
 
-  await host.transfer('a', place.note, 0, 0, tool);
+  const spot = onPicture(0);
+  await host.transfer('a', note, spot.x, spot.y);
 
-  assert.deepEqual(launched, [{ command: tool, args: [place.note] }]);
-  assert.equal(fs.existsSync(place.note), true, '넘겨주기만 하면 파일은 그대로 있어야 한다');
-  assert.equal(state.fences[0].items.some((item) => item.path === place.note), true, '박스에서 빠졌다');
+  assert.deepEqual(launched, [{ command: inBox, args: [note] }]);
+  assert.equal(fs.existsSync(note), true, '넘겨주기만 하면 파일은 그대로 있어야 한다');
+  assert.equal(state.fences[0].items.some((item) => item.path === note), true, '박스에서 빠졌다');
 });
 
 test('탐색기에서 프로그램 위에 놓으면 넘겨주기만 하고 박스에 담지 않는다', async () => {
@@ -272,5 +335,203 @@ test('일괄 파일은 셸을 거쳐 넘긴다', () => {
   assert.deepEqual(
     deliver.openPlan('C:/Desktop/할일.bat', 'C:/Desktop/노트.txt', 'win32'),
     { command: 'cmd', args: ['/c', 'start', '', 'C:/Desktop/할일.bat', 'C:/Desktop/노트.txt'] }
+  );
+});
+
+// ── 어디서 끌어 왔든 같은 자리에 놓을 수 있어야 한다 ───────────────────────
+//
+// 받을 항목을 고르는 일은 메인이 한다. 창이 제 안에서만 하면 제 창 밖은 알 수 없어,
+// 다른 박스나 바탕화면에서 끌어 온 것은 아무리 겨눠도 받아 주지 못했다.
+
+const FAR = { x: 700, y: 100, w: 400, h: 300 };
+
+function twoBoxes(near, far) {
+  const state = baseState({
+    fences: [
+      fence({ id: 'a', ...BOX, items: near }),
+      fence({ id: 'b', ...FAR, items: far }),
+    ],
+  });
+  const loaded = loadHost(state);
+  loaded.host.openAll();
+  return { ...loaded, state };
+}
+
+test('다른 박스의 폴더 위에 놓아도 그 폴더로 들어간다', async () => {
+  const place = desk();
+  const { host, state } = twoBoxes(
+    [{ name: '노트.txt', path: place.note }],
+    [{ name: 'Work', path: place.folder }]
+  );
+  const note = state.fences[0].items[0].path;
+  const work = state.fences[1].items[0].path;
+
+  const spot = onPicture(0, FAR);
+  await host.transfer('a', note, spot.x, spot.y);
+
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), true, '건너간 폴더로 들어가지 않았다');
+  assert.deepEqual(state.fences[0].items, [], '보낸 박스에 그대로 남았다');
+  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['Work'], '폴더 옆에 나란히 담겼다');
+});
+
+test('다른 박스의 휴지통 위에 놓으면 버린다', async () => {
+  const place = desk();
+  const { host, electron, state } = twoBoxes(
+    [{ name: '노트.txt', path: place.note }],
+    [{ name: '휴지통', path: 'shell:RecycleBinFolder' }]
+  );
+  const note = state.fences[0].items[0].path;
+
+  const spot = onPicture(0, FAR);
+  await host.transfer('a', note, spot.x, spot.y);
+
+  assert.deepEqual(electron.shell.trashed, [note]);
+  assert.deepEqual(state.fences[0].items, [], '버렸는데 박스에 남아 있다');
+  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['휴지통'], '휴지통 옆에 담겼다');
+});
+
+test('다른 박스의 빈 자리에 놓으면 그 박스에 담긴다', async () => {
+  const place = desk();
+  const { host, state } = twoBoxes(
+    [{ name: '노트.txt', path: place.note }],
+    [{ name: 'Work', path: place.folder }]
+  );
+  const note = state.fences[0].items[0].path;
+  const work = state.fences[1].items[0].path;
+
+  // 폴더의 그림이 아니라 그 오른쪽 칸(빈 자리)에 놓는다.
+  const spot = onPicture(1, FAR);
+  await host.transfer('a', note, spot.x, spot.y);
+
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, '빈 자리에 놓았는데 폴더로 들어갔다');
+  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['Work', '노트.txt']);
+});
+
+test('칸의 가장자리에 놓으면 받아 주지 않고 사이에 끼운다', async () => {
+  const place = desk();
+  const { host, state } = twoBoxes(
+    [{ name: '노트.txt', path: place.note }],
+    [{ name: 'Work', path: place.folder }]
+  );
+  const note = state.fences[0].items[0].path;
+  const work = state.fences[1].items[0].path;
+
+  // 폴더 칸의 왼쪽 끝. 그림 밖이므로 폴더가 받지 않는다.
+  const slot = arrange.slotPoint(0, arrange.gridOf(FAR.w, FAR.h, false));
+  await host.transfer('a', note, FAR.x + slot.x + 2, FAR.y + slot.y + 28);
+
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, '가장자리인데 폴더가 받았다');
+  assert.equal(state.fences[1].items.length, 2, '박스에 담기지도 않았다');
+});
+
+test('바탕화면에서 끌어 온 것도 박스 안 휴지통이 받는다', async () => {
+  const place = desk();
+  const state = baseState({
+    fences: [fence({ ...BOX, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+
+  const spot = onPicture(0);
+  await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, spot);
+
+  assert.deepEqual(electron.shell.trashed, [place.note], '바탕화면에서 끌어 온 것을 버리지 않았다');
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['휴지통'], '버린 것을 박스에 담았다');
+});
+
+test('바탕화면에서 끌어 온 것도 박스 안 폴더가 받는다', async () => {
+  const place = desk();
+  const state = baseState({
+    fences: [fence({ ...BOX, items: [{ name: 'Work', path: place.folder }] })],
+  });
+  const { host } = loadHost(state);
+  host.openAll();
+  const work = state.fences[0].items[0].path;
+
+  const spot = onPicture(0);
+  await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, spot);
+
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), true, '폴더로 들어가지 않았다');
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work'], '폴더 옆에 따로 담겼다');
+});
+
+test('바탕화면에서 끌어 온 것을 빈 자리에 놓으면 그냥 담는다', async () => {
+  const place = desk();
+  const state = baseState({
+    fences: [fence({ ...BOX, items: [{ name: 'Work', path: place.folder }] })],
+  });
+  const { host } = loadHost(state);
+  host.openAll();
+  const work = state.fences[0].items[0].path;
+
+  await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, onPicture(1));
+
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, '빈 자리인데 폴더로 들어갔다');
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work', '노트.txt']);
+});
+
+test('끌고 가는 동안 어느 항목이 받을지 그 박스에 알려 준다', () => {
+  const place = desk();
+  const { host, electron, state } = twoBoxes(
+    [{ name: '노트.txt', path: place.note }],
+    [{ name: 'Work', path: place.folder }]
+  );
+  const note = state.fences[0].items[0].path;
+  const work = state.fences[1].items[0].path;
+  const far = fenceWindows(electron).find((win) => win.loaded.opts.query.id === 'b');
+
+  // 폴더의 그림 위.
+  const on = onPicture(0, FAR);
+  host.hover(note, on.x, on.y, '');
+  assert.equal(far.messages('fence:hover').at(-1).into, work, '받을 항목을 알려 주지 않았다');
+
+  // 그 옆 빈 칸.
+  const off = onPicture(1, FAR);
+  host.hover(note, off.x, off.y, '');
+  assert.equal(far.messages('fence:hover').at(-1).into, null, '빈 자리인데 받는다고 알렸다');
+});
+
+test('제 자신 위에서는 받는다고 알리지 않는다', () => {
+  const place = desk();
+  const state = baseState({
+    fences: [fence({ ...BOX, items: [{ name: 'Work', path: place.folder }] })],
+  });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  const work = state.fences[0].items[0].path;
+  const win = fenceWindows(electron)[0];
+
+  const spot = onPicture(0);
+  host.hover(work, spot.x, spot.y, '');
+
+  assert.equal(win.messages('fence:hover').at(-1).into, null, '제 자신에게 넣으려 든다');
+});
+
+test('박스를 내려 본 상태에서도 눈에 보이는 항목이 받는다', async () => {
+  const place = desk();
+  // 400픽셀 폭이면 한 줄에 네 칸이다. 폴더는 둘째 줄 첫 칸에 둔다.
+  const fillers = ['가.txt', '나.txt', '다.txt', '라.txt'].map((name) => {
+    const at = path.join(place.root, name);
+    fs.writeFileSync(at, name);
+    return { name, path: at };
+  });
+  const { host, state } = twoBoxes(
+    [...fillers, { name: 'Work', path: place.folder }],
+    [{ name: '노트.txt', path: place.note }]
+  );
+  const grid = arrange.gridOf(BOX.w, BOX.h, false);
+  assert.equal(grid.cols, 4, '한 줄에 네 칸이라는 앞선 셈이 어긋났다');
+  const work = state.fences[0].items[4].path;
+  const note = state.fences[1].items[0].path;
+
+  // 한 줄만큼 내려 보면 둘째 줄의 폴더가 첫 줄 자리에 와 있다.
+  host.setScroll('a', grid.cellH);
+  const spot = onPicture(0, BOX);
+  await host.transfer('b', note, spot.x, spot.y);
+
+  assert.equal(
+    fs.existsSync(path.join(work, '노트.txt')),
+    true,
+    '내려 본 만큼을 셈에 넣지 않아 엉뚱한 항목이 받았다'
   );
 });

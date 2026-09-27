@@ -4,31 +4,52 @@ dist/
 out/
 build/Release/
 
-# 빌드 뒤 루트로 복사한 설치 파일
+# 빌드 뒤 루트로 복사한 설치 파일(tools/copy-installer.js).
+# 이름은 electron-builder 가 짓는다. nsis 와 dmg 는 package.json 에서 정해 두었지만
+# deb 는 package.json 의 name 을 따라 'mydeskbox_1.0.0_amd64.deb' 처럼 소문자에 밑줄이다.
+# 그래서 제품 이름과 꾸러미 이름 두 가지를 모두 적어 둔다.
 /MyDeskBox-Setup-*.exe
 /MyDeskBox-*.dmg
 /MyDeskBox-*.zip
 /MyDeskBox-*.deb
 /MyDeskBox-*.AppImage
+/mydeskbox[-_]*.deb
+/mydeskbox[-_]*.AppImage
+/mydeskbox[-_]*.zip
 
 # 로그와 임시 파일
 *.log
 npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# store.js 는 layout.json.tmp 에 쓴 뒤 이름을 바꾼다. 갑자기 끝나면 남을 수 있다.
 *.tmp
 *.tmp.*
+*.bak
+
+# 검사 결과
+coverage/
+.nyc_output/
 
 # 운영체제
 .DS_Store
+._*
+.AppleDouble
 Thumbs.db
+ehthumbs.db
 desktop.ini
+$RECYCLE.BIN/
 
 # 편집기
 .vscode/
 .idea/
+.vs/
+*.code-workspace
 *.swp
 *~
 
 # 로컬에서 띄울 때 쓰는 설정 폴더.
 # 설치본의 설정과 박스 보관함(boxes/)은 사용자 데이터 폴더에 있어 여기에 들어오지 않는다.
+# 검사가 만드는 폴더(mydeskbox-*)도 운영체제 임시 폴더에 생기므로 여기에 적을 것이 없다.
 userData/
 .env

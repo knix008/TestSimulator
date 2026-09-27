@@ -201,9 +201,18 @@ html, body {
   background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23fff' stroke='%23000' stroke-width='1' d='M3 12 L8 3 L9.2 6.2 L13 5.2 L8.2 13 Z'/%3E%3C/svg%3E");
 }
 
+/* 놓으면 이 항목이 받는다는 표시. 판 색이 어떻든 눈에 띄어야 하므로
+   바탕을 밝히는 것과 함께 그림을 조금 키운다. */
 .icon.hot {
   background: rgba(255, 255, 255, 0.28);
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.75);
+}
+
+.icon.hot img {
+  transform: scale(1.14);
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35))
+    drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55));
 }
 
 .icon img {

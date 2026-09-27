@@ -84,6 +84,16 @@ test('설치 스크립트가 바로 가기를 물어보고 만든다', () => {
   assert.match(nsh, /mydeskbox\\held/, '보관 폴더를 찾지 않는다');
 });
 
+test('지울 때 시작프로그램 자리도 함께 치운다', () => {
+  const RUN = 'Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+  assert.ok(nsh.includes(`DeleteRegValue HKCU "${RUN}" "\${PRODUCT_FILENAME}"`), '시작프로그램 자리를 치우지 않는다');
+  // 이름을 적어 주기 전 판은 AppUserModelId 로 적었다. 그것도 함께 치운다.
+  assert.ok(nsh.includes(`DeleteRegValue HKCU "${RUN}" "${pkg.build.appId}"`), '예전 판이 남긴 자리를 치우지 않는다');
+  // 앱이 적는 이름과 제거 프로그램이 찾는 이름이 같아야 한다.
+  const autostart = fs.readFileSync(path.join(ROOT, 'src', 'main', 'autostart.js'), 'utf8');
+  assert.ok(autostart.includes(`'${pkg.productName}'`), '앱이 적는 이름이 제품 이름과 다르다');
+});
+
 test('설치 스크립트의 글이 한국어와 영어 두 벌이다', () => {
   assert.match(nsh, /\$LANGUAGE == 1042/, '한국어를 가려내지 않는다');
   for (const word of ['바탕화면에 바로 가기 만들기', '시작 메뉴에 바로 가기 만들기']) {

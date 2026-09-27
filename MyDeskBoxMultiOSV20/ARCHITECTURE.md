@@ -18,6 +18,19 @@ npm start
 
 리눅스에서는 투명 창 스위치를 켜고, Windows에서는 창이 가려져도 그리기를 멈추지 않게 합니다. macOS에서는 Dock 아이콘을 숨깁니다. 창이 모두 닫혀도 프로세스는 트레이에 남습니다.
 
+창은 모두 `skipTaskbar: true`, `frame: false` 로 띄웁니다. 박스와 그리기 덮개뿐 아니라 설정 창과 묻는 창도 그렇습니다. 프로그램을 다루는 자리는 트레이 아이콘 하나입니다.
+
+### 로그인할 때 스스로 켜지기
+
+`src/main/autostart.js` 가 맡습니다. 설정의 `openAtLogin` 이 참이고 `app.isPackaged` 일 때만 운영체제에 적습니다.
+
+- Windows·macOS — `app.setLoginItemSettings`. Windows 는 `name` 을 `MyDeskBox` 로 적어 레지스트리 `Run` 키의 값 이름을 사람이 읽을 수 있게 둡니다. 제거 프로그램(`build/installer.nsh`)이 그 이름으로 찾아 치웁니다.
+- Linux — Electron 에 그 길이 없어 `~/.config/autostart/mydeskbox.desktop` 을 직접 둡니다. AppImage 면 `process.env.APPIMAGE` 를 `Exec` 에 적습니다. 안쪽 실행 파일은 켤 때마다 자리가 바뀌기 때문입니다.
+
+켤 때마다 `host.syncLogin()` 이 한 번 돕니다. 설정 쪽을 참으로 보고 운영체제를 다시 맞추므로, 다시 설치했거나 사람이 시작프로그램 목록에서 지웠어도 지금 자리가 다시 적힙니다. 끄기로 해 둔 경우에는 남아 있을 때만 지웁니다.
+
+개발본(`npm start`)을 등록하지 않는 까닭은 실행 파일이 `node_modules` 안에 있기 때문입니다. 그것을 적어 두면 폴더를 지운 뒤에도 로그인할 때마다 없어진 자리를 부릅니다.
+
 ## 디렉터리
 
 | 경로 | 역할 |
@@ -27,13 +40,15 @@ npm start
 | `src/main/hold.js` | 보관함 폴더. 파일을 담고 꺼내고, 어디서 왔는지 적어 둔다 |
 | `src/main/store.js` | `layout.json` 읽기·쓰기, 박스 값 정규화 |
 | `src/main/tray.js` | 트레이 메뉴 |
+| `src/main/autostart.js` | 로그인할 때 스스로 켜지기. Windows·macOS 는 로그인 항목, Linux 는 `.desktop` 파일 |
 | `src/main/themes.js` | 테마 30개, 모서리, 직접 고른 색 |
 | `src/main/ask.js`, `ipc.js` | 확인 창과 렌더러 IPC |
 | `src/main/desktop/index.js` | `win32` / `darwin` / 그 외를 고른다 |
-| `src/main/desktop/files.js` | 바탕화면 폴더, 이름 비교, 셸 경로 |
+| `src/main/desktop/files.js` | 바탕화면 폴더와 그 안의 목록, 이름 비교, 셸 경로 |
 | `src/main/desktop/windows.js` | 탐색기 리스트뷰 FFI (koffi). 아이콘 밀어내기, 격자 재기, 셸 아이콘 감추기 |
 | `src/main/desktop/empty-bin.js` | 휴지통 비우기. 시스템 창이 뜬 동안 앱이 멈추지 않게 따로 띄운다 |
-| `src/shared/arrange.js` | 박스 창과 그림자의 크기, 제목 줄 높이 |
+| `src/shared/arrange.js` | 박스 창과 그림자의 크기, 제목 줄 높이, 칸 크기와 칸 번호 |
+| `src/shared/deliver.js` | 칸 안에서 그림이 놓인 자리, 그 항목이 무엇을 받는지, 넘겨줄 때 부를 명령 |
 | `src/shared/deskgrid.js` | 바탕화면 칸, 박스를 격자에 맞추기, 가린 아이콘 밀어내기 |
 | `src/shared/deskpick.js` | 커서가 바탕화면 아이콘 위인지 |
 | `src/shared/catalog.js` | 첫 실행 분류 |
@@ -52,7 +67,7 @@ npm start
 | `tools/make-icons.js` | `assets/`를 코드로 다시 그린다 |
 | `tools/icon-check.js` | 바탕화면 아이콘에 그림이 남아 있는지 센다 |
 | `tools/shoot-desktop.js` | 가려져 있어도 바탕화면 층만 찍는다 |
-| `build/installer.nsh` | Windows 설치 스크립트 |
+| `build/installer.nsh` | Windows 설치 스크립트. 바로 가기 묻기, 지울 때 시작프로그램 자리 치우기 |
 | `test/` | `node --test` |
 
 `arrange.js`, `deskgrid.js`, `i18n.js`는 렌더러 `<script>`와 메인의 `require`가 함께 읽습니다. 전역 이름은 `DeskArrange`처럼 한 객체로만 내보냅니다.
@@ -146,7 +161,23 @@ npm start
 
 넘기는 방법은 `deliver.openPlan` 이 고릅니다. 프로그램 파일(`.exe`, `.com`)은 그대로 부르고 놓은 파일을 인자로 줍니다. 그 밖의 것은 Windows 에서는 셸이 짝지어 둔 프로그램에 맡기고(`cmd /c start`), macOS 는 `.app` 에만 `open -a` 로 넘깁니다. `.bat` 과 `.cmd` 도 이 셸 길로 갑니다. Node 는 그것을 직접 띄우지 못합니다. 넘길 프로그램을 알 수 없으면 아무것도 하지 않고, 차례만 바꾸거나 꺼내는 길로 돌아갑니다.
 
-칸 사이와 그림 위를 가르는 것은 `deliver.onPicture` 입니다. 그림 위가 아니면 밀어 배열하는 손짓이므로 넘겨주기로 보지 않습니다.
+#### 받아 주는 자리는 눈에 보이는 그림과 같아야 한다
+
+칸 사이와 그림 위를 가르는 것은 `deliver.onPicture` 이고, 그 자리는 `deliver.PICTURE` 입니다. 그림 위가 아니면 밀어 배열하는 손짓이므로 넘겨주기로 보지 않습니다.
+
+이 값은 `arrange.js` 의 칸 크기(86×88)와 `fence.css` 의 여백·그림 크기(`padding: 8px 4px 0`, 44×44, 가운데 정렬)에서 **셈해 냅니다**. 앞서는 가로를 `4..48` 로 적어 두었는데 그림은 `21..65` 에 놓입니다. 17픽셀이 어긋나 그림의 오른쪽 40%는 아무리 겨눠도 받지 않고, 그림 왼쪽의 빈 여백이 대신 받았습니다. 눈으로 겨눌 수 없는 과녁이었습니다.
+
+끌고 가면서 44픽셀짜리 과녁을 맞히기는 어려우므로 둘레로 6픽셀을 더 받아 줍니다. 그래도 칸 좌우에는 '사이에 끼우기' 로 쓸 자리가 15픽셀씩 남습니다. 글자 줄은 넓히지 않습니다. 거기까지 받으면 아래 줄에 끼워 넣을 수 없습니다.
+
+#### 어느 항목 위인지는 메인이 고른다
+
+`fences.js` 의 `receiverAt` 이 합니다.
+
+앞서는 박스 창이 제 DOM 을 훑어 골랐습니다. 창은 제 안쪽만 볼 수 있어, **다른 박스에서 건너온 것과 바탕화면에서 끌어 온 것은 아무리 겨눠도 받아 주지 못했습니다**. 박스 A 에서 끌면 좌표가 A 창 밖이라 늘 빈 값이 나왔고, `acceptDesktopDrop` 은 아예 묻지도 않았습니다.
+
+박스 안 아이콘의 자리는 `arrange.slotPoint` 로 메인도 그대로 셀 수 있습니다. `indexAt` 이 이미 그렇게 하고 있으므로 같은 셈을 한 번 더 할 뿐입니다. 이제 네 갈래(같은 박스, 다른 박스, 바탕화면, 탐색기)가 모두 같은 자를 씁니다.
+
+창은 끌고 가는 동안 `fence:hover` 로 받은 `into` 를 밝혀 보여 주기만 합니다(`.icon.hot`). 받을 항목이 정해지면 끼워 넣을 자리를 벌리지 않습니다 — 둘을 함께 보여 주면 무엇이 일어날지 알 수 없습니다. 탐색기에서 끌어다 놓는 길(HTML5 drag)만은 메인을 거치지 않으므로 창이 같은 셈을 직접 합니다.
 
 끄는 동안 아이콘이 눈에서 사라지면 안 됩니다. 박스 위에서는 그 박스가 자리를 비우고 아이콘을 직접 그리고, 박스 밖에서는 **따라다니는 작은 창**(`renderer/ghost.*`)이 그립니다. 어느 박스 위인지는 `hover` 가 알려 줍니다. 이 길이 없으면 박스 밖으로 나간 아이콘이 보이지 않아 무엇을 끌고 있는지 알 수 없습니다.
 
@@ -267,3 +298,17 @@ npm run test:tap
 ```
 
 `npm test`는 `tools/reporter.js`로 파일별 결과와 검사마다의 시간을 찍습니다. 기호는 ASCII만 써서 한글 콘솔에서 선 문자가 `?`로 보이지 않게 합니다. 운영체제 창을 띄우는 검사와, 창 없이 계산만 하는 검사를 나눕니다. 이 컴퓨터의 휴지통 자리는 바탕화면에 아이콘이 있을 때만 확인합니다.
+
+### 가짜 electron 과 require 캐시
+
+`test/helpers/fakes.js` 의 `loadHost`·`loadMain` 은 `Module._resolveFilename` 을 갈아 끼워 `electron` 과 바탕화면 모듈을 가짜로 바꿉니다. 여기에 걸리는 함정이 둘 있습니다.
+
+- **검사 파일 맨 위에서 `src/main` 의 모듈을 `require` 하면 안 됩니다.** Node 는 `부모 폴더 + 요청` 을 `relativeResolveCache` 에 적어 두므로, `src/main/store.js` 가 한 번 진짜 `electron` 을 읽고 나면 같은 폴더의 `main.js` 도 그것을 그대로 물려받아 가짜가 걸리지 않습니다. `main.js` 는 `electron.app` 이 없으면 `process.exit(1)` 이라 검사 파일 하나가 통째로 죽습니다. `store.js` 와 `autostart.js` 를 따로 보는 검사(`test/store.test.js`, `test/autostart.test.js`)가 제 가짜를 직접 끼우고 `fakes.js` 를 쓰지 않는 까닭입니다.
+- **읽을 때 `electron` 을 붙잡는 모듈은 `require.cache` 에서 지워야 합니다.** 지우지 않으면 앞 검사의 가짜를 그대로 씁니다. `fakes.js` 의 두 목록에 새 모듈을 함께 적습니다.
+
+### 창을 띄우지 않고 보는 것
+
+검사에는 진짜 창이 없으므로, 창이 하는 판단은 다음 두 가지로 봅니다.
+
+- **좌표로 본다.** 받아 주는 자리(`deliver.PICTURE`)와 칸 번호(`arrange.slotPoint`)는 둘 다 순수 계산이라, 화면 좌표를 만들어 `host.transfer` 나 `host.acceptDesktopDrop` 에 그대로 넘기면 실제로 지나가는 길과 같습니다. `test/deliver.test.js` 의 `onPicture(n, box)` 가 그 자리를 셈해 줍니다.
+- **소스를 센다.** 가짜로 바꿔 끼운 `ask.js` 처럼 창 수로는 볼 수 없는 것은 소스에서 직접 셉니다. `test/startup.test.js` 는 `src/main` 의 `new BrowserWindow(` 개수와 `skipTaskbar: true` 개수가 같은지 봅니다.

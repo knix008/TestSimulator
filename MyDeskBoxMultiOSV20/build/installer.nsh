@@ -265,6 +265,12 @@ FunctionEnd
   ${IfNot} ${isUpdated}
     Delete "$DESKTOP\${PRODUCT_FILENAME}.lnk"
     Delete "$SMPROGRAMS\${PRODUCT_FILENAME}.lnk"
+    ; 프로그램이 스스로 적어 둔 시작프로그램 자리를 치운다.
+    ; 남겨 두면 로그인할 때마다 없어진 실행 파일을 부른다.
+    ; 이름은 src/main/autostart.js 가 적는 것과 같아야 한다.
+    ; 'com.suhokwon.mydeskbox' 는 이름을 적어 주기 전 판이 남긴 것이다.
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_FILENAME}"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "com.suhokwon.mydeskbox"
     Call un.RestoreHeld
   ${EndIf}
 !macroend

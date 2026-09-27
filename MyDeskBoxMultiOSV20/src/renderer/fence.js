@@ -91,7 +91,7 @@ function ensureIcon(item) {
   el.classList.toggle('shortcut', !!item.shortcut);
   el.classList.toggle('folder', !!item.folder);
   el.classList.toggle('recycle', !!item.recycle);
-  el.classList.toggle('hot', !!(drag && drag.into === item.path));
+  el.classList.toggle('hot', receiver() === item.path);
   el.querySelector('span').textContent = item.label || item.name;
   const img = el.querySelector('img');
   if (item.icon) img.src = item.icon;
@@ -112,13 +112,24 @@ function scrolled(value) {
   return value + body.scrollTop;
 }
 
+// 지금 커서 아래에 있는 받을 항목.
+//
+// 손가락으로 끄는 길에서는 메인이 재어 알려 준다(hover.into). 창은 제 안쪽만
+// 볼 수 있어, 다른 박스에서 건너오거나 바탕화면에서 끌어 온 것은 알 수 없다.
+// 탐색기에서 끌어다 놓는 길은 메인을 거치지 않으므로 창이 직접 잰다.
+function receiver() {
+  return (hover && hover.into) || null;
+}
+
 function layout() {
   if (!fence) return;
   paintChrome();
   const grid = window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, fence.collapsed);
   const active = (hover && hover.filePath) || (drag && drag.path) || null;
   const mine = items.some((item) => item.path === active);
-  const showGap = !!(hover && active) && !(drag && drag.into);
+  // 받을 항목 위에 있는 동안에는 끼워 넣을 자리를 벌리지 않는다.
+  // 두 가지를 함께 보여 주면 무엇이 일어날지 알 수 없다.
+  const showGap = !!(hover && active) && !receiver();
   let shown = items.slice();
   if ((showGap && mine) || (!showGap && drag && mine)) {
     shown = shown.filter((item) => item.path !== active);
@@ -196,7 +207,6 @@ function onIconDown(event) {
       icon: item ? item.icon : '',
       localX: localX(ev.clientX),
       localY: localY(ev.clientY),
-      into: receiverAt(ev.clientX, ev.clientY, filePath),
     };
     desk.hover({
       filePath,
@@ -215,14 +225,13 @@ function onIconDown(event) {
     }
     // 끌어 옮긴 뒤에는 두 번 누른 것으로 세지 않는다.
     taps.forget();
-    const into = drag && drag.into;
     drag = null;
+    // 받을 항목은 메인이 손을 뗀 자리에서 다시 잰다. 여기서는 어디서 뗐는지만 알린다.
     desk.transfer({
       id,
       filePath,
       screenX: ev.screenX,
       screenY: ev.screenY,
-      into,
     });
   };
   el.addEventListener('pointermove', move);
@@ -357,7 +366,14 @@ body.addEventListener('scroll', () => {
 body.addEventListener('dragover', (event) => {
   event.preventDefault();
   if (!fence || drag) return;
-  hover = { filePath: '__external__', localX: localX(event.clientX), localY: localY(event.clientY) };
+  // 탐색기에서 끌고 오는 동안에도 어느 항목 위인지 보여 준다.
+  // 놓고 나서야 알게 되면 휴지통이나 폴더를 겨누기가 어렵다.
+  hover = {
+    filePath: '__external__',
+    localX: localX(event.clientX),
+    localY: localY(event.clientY),
+    into: receiverAt(event.clientX, event.clientY, null),
+  };
   layout();
 });
 

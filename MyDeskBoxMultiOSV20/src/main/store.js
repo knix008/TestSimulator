@@ -15,7 +15,8 @@ function defaults() {
     hidden: false,
     settings: {
       lang: i18n.guessLang(safeLocale()),
-      openAtLogin: false,
+      // 설치하고 시스템을 다시 켤 때 스스로 돌아와 있어야 한다. 끄고 싶으면 설정에서 끈다.
+      openAtLogin: true,
       theme: themes.DEFAULT_THEME,
       opacity: themes.DEFAULT_OPACITY,
       corner: themes.DEFAULT_CORNER,
@@ -52,6 +53,7 @@ function load() {
       Object.assign(data.settings, parsed.settings || {});
       data.settings.lang = i18n.langOf(data.settings.lang);
       data.settings.openWith = data.settings.openWith === 'single' ? 'single' : 'double';
+      data.settings.openAtLogin = !!data.settings.openAtLogin;
       data.settings.root = typeof data.settings.root === 'string' ? data.settings.root : '';
       if (Array.isArray(parsed.fences)) data.fences = parsed.fences.map(normalizeFence);
     }
