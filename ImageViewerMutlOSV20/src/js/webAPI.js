@@ -403,6 +403,7 @@
 
     showItemInFolder: async () => ({ error: 'Not available in web mode' }),
     deleteFile: async () => ({ error: 'Delete is not available in web mode' }),
+    readDirectoryDetailed: async (dirPath) => api.readDirectory(dirPath),
     transferIntoDir: async () => ({ error: 'Copy/move is not available in web mode' }),
     pickDirectory: async () => ({ canceled: true }),
 

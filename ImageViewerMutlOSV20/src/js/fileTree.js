@@ -17,6 +17,7 @@ window.FileTree = (() => {
   let _ready         = false;
   let _centerOnce    = false;   // center explorer row only on first open
   let _refreshing    = false;
+  let _foldersOnly   = false;   // browse mode: the tree shows folders, the grid shows files
 
   const IMAGE_EXTS = FormatSupport.IMAGE_EXTS;
   const VIDEO_EXTS = FormatSupport.VIDEO_EXTS;
@@ -342,6 +343,15 @@ window.FileTree = (() => {
   }
 
   /* ── Rendering ── */
+  function isFoldersOnly() { return _foldersOnly; }
+
+  async function setFoldersOnly(value) {
+    const next = !!value;
+    if (next === _foldersOnly) return;
+    _foldersOnly = next;
+    await refresh({ force: true });
+  }
+
   async function _renderRoot() {
     if (!_container) return;
 
@@ -398,8 +408,9 @@ window.FileTree = (() => {
       return;
     }
 
+    const rows = _foldersOnly ? entries.filter((e) => e.isDirectory || e.isDrive) : entries;
     const frag = document.createDocumentFragment();
-    for (const entry of entries) {
+    for (const entry of rows) {
       await _renderEntry(frag, entry, depth);
     }
     parent.replaceChildren(frag);
@@ -873,5 +884,6 @@ window.FileTree = (() => {
   return {
     init, loadDrives, revealPath, openRoot, getRoot, getSelected, setSelected,
     getSelectedPaths, getImageFilesInDir, indexOfPath, refresh, forgetPath, remapPath, handleKey,
+    setFoldersOnly, isFoldersOnly,
   };
 })();

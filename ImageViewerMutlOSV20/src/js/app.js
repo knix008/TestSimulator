@@ -39,6 +39,22 @@
   let _ewFitW = 0, _ewFitH = 0;
   let _settingsReady = false;   // _syncSettingsDialog() is a no-op until _initSettingsDialog() ran
 
+  // Read by the init calls further down (_initPrintDialog, _syncWindowMinSize,
+  // _initEditEffectsResize), which run before the bodies below are evaluated.
+  const APP_MIN_HEIGHT = 600;
+  const _print = { dataUrl: null, imgW: 0, imgH: 0, printers: [], printersCache: null, printersCacheAt: 0, busy: false };
+  let _editEffectsMinW = 200;
+
+  // Panel layout (explorer / file info). _buildToolbar() reads it while the module
+  // is still initialising, so it has to be declared before the init calls below.
+  const LAYOUT_KEY = 'panelLayoutV1';
+  const _layout = { tree: true, info: true, dock: 'left' };
+
+  // Browse mode (ACDSee-style): the explorer lists folders only and the
+  // selected folder is shown as a thumbnail contact sheet.
+  const BROWSE_KEY = 'browseModeV1';
+  let _browseMode = localStorage.getItem(BROWSE_KEY) === '1';
+
   function _isEditableImage() {
     return (Editor.isLoaded() || state.isAnimated) && !state.isVideo && !state.isAudio;
   }
@@ -210,6 +226,13 @@
     onDirOpen: (p, info = {}) => {
       _rememberRecentDir(p);
       _watchDir(p);
+      // Opening a folder always warms the thumbnail cache in the background
+      Thumbs.prefetchDir(p);
+      if (_browseMode) {
+        Browse.show(p);
+        Browse.open(p);
+        return;
+      }
       if (info.activate !== false) {
         _openFirstInDir(p);
       }
@@ -288,6 +311,8 @@
   /* ─── Sidebar / Info resize ─── */
   _initSidebarResize();
   _initVerticalResize();
+  _initPanelLayout();
+  _initBrowse();
   _initEditEffectsResize();
   _initEditAdjustResize();
 
@@ -310,10 +335,18 @@
     e.stopPropagation();
     _showContextMenu(e.clientX, e.clientY);
   }, true);
+  // Right-click on empty space in the tree: paste into the folder in view
   fileTreeScroll.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    // future: file-tree context menu
+    if (e.target?.closest?.('.tree-item')) return;   // rows post their own menu
+    _showTreeBlankContextMenu(e.clientX, e.clientY);
   });
+
+  // Ctrl+C / Ctrl+X / Ctrl+V act on files while the tree is the active pane,
+  // and on the image otherwise.
+  fileTreeScroll.addEventListener('mousedown', () => { state.activePane = 'tree'; }, true);
+  fileTreeScroll.addEventListener('focusin', () => { state.activePane = 'tree'; });
+  viewerContainer.addEventListener('mousedown', () => { state.activePane = 'viewer'; }, true);
 
   /* ─── Drag-and-drop ─── */
   function _dropPath(file) {
@@ -558,6 +591,12 @@
       { zoomDisplay: true },
       { id:'btn-zoom-in',     icon:'zoomIn',     tip:'toolbar.zoomIn',     action: () => _zoom(1.25), disabled: true },
       { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
+      { separator: true },
+      // Panels: show / hide the explorer and the file info, and move the info panel left ⇄ right
+      { id:'btn-browse',      icon:'viewGrid',   tip: _browseTip,          action: () => _toggleBrowseMode() },
+      { id:'btn-panel-tree',  icon:'folderOpen', tip: _treePanelTip,       action: () => _toggleTreePanel() },
+      { id:'btn-panel-info',  icon:'fileInfo',   tip: _infoPanelTip,       action: () => _toggleInfoPanel() },
+      { id:'btn-panel-dock',  icon:'panelRight', tip: _infoDockTip,        action: () => _toggleInfoDock() },
       { spacer: true },
       // Theme: palette = jump to the next theme, ▾ = pick one from the list
       { id:'btn-theme',       icon:'palette',    tip: _themeButtonTip,     action: _nextTheme },
@@ -1022,8 +1061,7 @@
    * drawn to scale, and "Print" sends the picture straight to the selected printer
    * (the system default is pre-selected). */
   const PRINT_PAPERS = { A4: [210, 297], Letter: [215.9, 279.4], Legal: [215.9, 355.6], A3: [297, 420], A5: [148, 210], Tabloid: [279.4, 431.8] };
-  const PRINT_PREFS_KEY = 'printPrefs';
-  const _print = { dataUrl: null, imgW: 0, imgH: 0, printers: [], printersCache: null, printersCacheAt: 0, busy: false };
+  const PRINT_PREFS_KEY = 'printPrefs';   // _print itself is declared at the top of the module
 
   function _loadPrintPrefs() {
     try { return JSON.parse(localStorage.getItem(PRINT_PREFS_KEY) || '{}') || {}; } catch { return {}; }
@@ -1386,8 +1424,6 @@
     if (temp) win.classList.remove('measuring');
     return width;
   }
-
-  const APP_MIN_HEIGHT = 600;
 
   function _mainMinWidth() {
     return Math.max(_measureFlexContentWidth(toolbar, 'toolbar-spacer') + 12, 1200);
@@ -3985,6 +4021,13 @@
         delayMs: 280,
       });
     }
+    // Every folder open warms the thumbnail cache; in browse mode it also fills the grid
+    Thumbs.prefetchDir(dirPath);
+    if (_browseMode) {
+      Browse.show(dirPath);
+      await Browse.open(dirPath);
+      return;
+    }
     if (!openFirst) return;
     const opened = await _openFirstInDir(dirPath);
     if (!opened) {
@@ -4821,9 +4864,8 @@
   }
 
   /* ════════════════════════════════════════════
-     Effects Panel
+     Effects Panel   (_editEffectsMinW is declared at the top of the module)
   ════════════════════════════════════════════ */
-  let _editEffectsMinW = 200;
 
   function _withEditWindowMeasured(fn) {
     const win = document.getElementById('edit-window');
@@ -6574,7 +6616,9 @@
     const ext = savePath.split('.').pop().toLowerCase();
     const fmtMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp' };
     const format  = fmtMap[ext] || 'image/png';
-    const quality = (format === 'image/jpeg' || format === 'image/webp') ? 0.92 : undefined;
+    const quality = (format === 'image/jpeg' || format === 'image/webp')
+      ? (Number.isFinite(dlgResult.quality) ? dlgResult.quality : 0.92)
+      : undefined;
 
     const writeResult = await _runOpWithProgress(async (dlg) => {
       const dataUrl = quality !== undefined
@@ -7668,19 +7712,26 @@
       title: mode === 'move' ? t('dialog.moveToFolder') : t('dialog.copyToFolder'),
     });
     if (!picked || picked.canceled || !picked.filePath) return;
-    const destDir = picked.filePath;
+    await _transferPathsInto(paths, picked.filePath, mode);
+  }
+
+  /** Copy or move the given paths into destDir, refresh the tree and report the outcome. */
+  async function _transferPathsInto(paths, destDir, mode) {
+    const t = I18n.t.bind(I18n);
+    if (!paths?.length || !destDir) return false;
+    const isMove = mode === 'move' || mode === 'cut';
 
     const result = await _runOpWithProgress(async (dlg) => {
       const transfer = await window.electronAPI.transferIntoDir({
         sources: paths,
         destDir,
-        mode: mode === 'move' ? 'move' : 'copy',
+        mode: isMove ? 'move' : 'copy',
       });
       dlg?.set(88, I18n.t('progress.applying') || 'Applying result…');
       await FileTree.refresh({ force: true });
       return transfer;
     }, {
-      messageKey: mode === 'move' ? 'progress.moving' : 'progress.copyingFiles',
+      messageKey: isMove ? 'progress.moving' : 'progress.copyingFiles',
       delayMs: 200,
       force: paths.length >= 5,
     });
@@ -7689,11 +7740,11 @@
       _updateStatus({
         msg: (t('status.dropError') || 'Error: {msg}').replace('{msg}', result.error),
       });
-      return;
+      return false;
     }
 
     const done = (result.results || []).filter((r) => r.dest && !r.skipped);
-    if (mode === 'move') {
+    if (isMove) {
       for (const r of done) {
         FileTree.forgetPath(r.src);
         const cur = state.currentFile;
@@ -7707,10 +7758,72 @@
       }
     }
 
-    const key = mode === 'move' ? 'status.moved' : 'status.copied';
+    const key = isMove ? 'status.moved' : 'status.copied';
     let msg = (t(key) || '{n}').replace('{n}', String(done.length));
     if (result.errors?.length) msg += ` (${result.errors.length} failed)`;
     _updateStatus({ msg });
+    return true;
+  }
+
+  /* ─── File clipboard: Explorer-style copy / cut / paste inside the tree ─── */
+  let _fileClipboard = { paths: [], mode: 'copy' };
+
+  function _clipboardHasFiles() {
+    return _fileClipboard.paths.length > 0;
+  }
+
+  function _clipboardSetFiles(paths, mode) {
+    const list = (paths || []).filter(Boolean);
+    if (!list.length) return;
+    _fileClipboard = { paths: list, mode: mode === 'cut' ? 'cut' : 'copy' };
+    const key = mode === 'cut' ? 'tree.clipCut' : 'tree.clipCopied';
+    _updateStatus({ msg: (I18n.t(key) || '{n}').replace('{n}', String(list.length)) });
+  }
+
+  /** Folder a paste lands in: the entry itself when it is a folder, else its parent. */
+  async function _pasteTargetDir(entry) {
+    if (!entry || !entry.path) return FileTree.getRoot();
+    if (entry.isDirectory) return entry.path;
+    try { return await window.electronAPI.pathDirname(entry.path); } catch { return FileTree.getRoot(); }
+  }
+
+  async function _pasteFilesInto(destDir) {
+    if (!destDir || !_clipboardHasFiles()) return;
+    const { paths, mode } = _fileClipboard;
+    const ok = await _transferPathsInto(paths, destDir, mode);
+    if (ok && mode === 'cut') _fileClipboard = { paths: [], mode: 'copy' };
+  }
+
+  /** Clipboard items for the tree menus (Explorer order: copy · cut · paste). */
+  function _treeClipboardItems(paths, entry) {
+    const t = I18n.t.bind(I18n);
+    if (window.electronAPI.platform === 'web') return [];
+    const n = paths.length;
+    const count = n > 1 ? ` (${n})` : '';
+    return [
+      { separator: true },
+      { icon: Icons.copy, label: t('context.copy') + count, shortcut: 'Ctrl+C',
+        disabled: !n, action: () => _clipboardSetFiles(paths, 'copy') },
+      { icon: Icons.cut, label: t('context.cut') + count, shortcut: 'Ctrl+X',
+        disabled: !n, action: () => _clipboardSetFiles(paths, 'cut') },
+      { icon: Icons.paste, label: t('context.paste'), shortcut: 'Ctrl+V',
+        disabled: !_clipboardHasFiles(),
+        action: async () => _pasteFilesInto(await _pasteTargetDir(entry)) },
+    ];
+  }
+
+  /** Menu for empty space in the tree — paste into the folder currently in view. */
+  function _showTreeBlankContextMenu(x, y) {
+    const t = I18n.t.bind(I18n);
+    const root = FileTree.getRoot();
+    const isWeb = window.electronAPI.platform === 'web';
+    ContextMenu.show(x, y, [
+      { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
+      !isWeb && { separator: true },
+      !isWeb && { icon: Icons.paste, label: t('context.paste'), shortcut: 'Ctrl+V',
+        disabled: !_clipboardHasFiles() || !root,
+        action: () => _pasteFilesInto(root) },
+    ].filter(Boolean));
   }
 
   function _showTreeContextMenu(entry, x, y) {
@@ -7742,6 +7855,7 @@
           action: () => _exportSelectionToFolder(multiPaths, 'copy') },
         !isWeb && { icon: Icons.cut, label: `${t('context.moveToFolder')} (${multiPaths.length})`,
           action: () => _exportSelectionToFolder(multiPaths, 'move') },
+        ..._treeClipboardItems(multiPaths, entry),
         printables.length && { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P',
           action: () => _printPath(printables[0]) },
         !isWeb && { separator: true },
@@ -7790,6 +7904,7 @@
         action: () => _exportSelectionToFolder(exportPaths, 'copy') },
       !isWeb && { icon: Icons.cut, label: t('context.moveToFolder'),
         action: () => _exportSelectionToFolder(exportPaths, 'move') },
+      ..._treeClipboardItems(exportPaths, entry),
       !isWeb && { separator: true },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), action: () => window.electronAPI.showItemInFolder(entry.path) },
       !isWeb && { separator: true },
@@ -8549,6 +8664,29 @@
   /* ════════════════════════════════════════════
      Keyboard
   ════════════════════════════════════════════ */
+  function _treeIsActivePane() { return state.activePane === 'tree'; }
+
+  /** Tree paths a Ctrl+C / Ctrl+X should act on (empty → the shortcut means the image). */
+  function _treeSelectionForShortcut() {
+    if (window.electronAPI.platform === 'web' || !_treeIsActivePane()) return [];
+    return FileTree.getSelectedPaths();
+  }
+
+  async function _pasteShortcut() {
+    if (!_clipboardHasFiles()) return;
+    const sel = FileTree.getSelectedPaths();
+    let dest = FileTree.getRoot();
+    if (_treeIsActivePane() && sel.length === 1) {
+      try {
+        const stats = await window.electronAPI.getFileStats(sel[0]);
+        dest = (stats && !stats.error && stats.isDirectory)
+          ? sel[0]
+          : await window.electronAPI.pathDirname(sel[0]);
+      } catch { /* keep the tree root */ }
+    }
+    await _pasteFilesInto(dest);
+  }
+
   function _initKeyboard() {
     document.addEventListener('keydown', (e) => {
       if (_isFileDialogOpen()) return;
@@ -8570,7 +8708,14 @@
         return;
       }
       if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); _saveAs(); return; }
-      if (ctrl && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); _openPrintPreview(); return; }
+      if (ctrl && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); _pasteShortcut(); return; }
+      if (ctrl && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        // In the tree, Ctrl+P pastes (user request); everywhere else it still prints.
+        if (_treeIsActivePane() && _clipboardHasFiles()) _pasteShortcut();
+        else _openPrintPreview();
+        return;
+      }
       if (ctrl && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); if (state.currentFile) _showFileInfoDialog(); return; }
       if (ctrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
@@ -8587,8 +8732,20 @@
         _redoEdit();
         return;
       }
-      if (ctrl && e.key === 'x') { e.preventDefault(); if (_isEditableImage()) _cutToClipboard(); return; }
-      if (ctrl && e.key === 'c') { e.preventDefault(); if (_isEditableImage()) _copyToClipboard(); return; }
+      if (ctrl && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        if (_treeSelectionForShortcut().length) _clipboardSetFiles(_treeSelectionForShortcut(), 'cut');
+        else if (_isEditableImage()) _cutToClipboard();
+        return;
+      }
+      if (ctrl && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        if (_treeSelectionForShortcut().length) _clipboardSetFiles(_treeSelectionForShortcut(), 'copy');
+        else if (_isEditableImage()) _copyToClipboard();
+        return;
+      }
+
+      if (e.key === 'Escape' && !ctrl && _browseBack()) { e.preventDefault(); return; }
 
       // DICOM: PgUp / PgDn / Home / End = frames, Space = cine, I = invert, W = reset window
       if (_dicomKeydown(e)) { e.preventDefault(); return; }
@@ -8811,13 +8968,193 @@
   });
 
   /* ════════════════════════════════════════════
+     Panel layout — explorer / file info: shown, hidden, docked left or right
+  ════════════════════════════════════════════ */
+  function _loadLayout() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}');
+      if (typeof saved.tree === 'boolean') _layout.tree = saved.tree;
+      if (typeof saved.info === 'boolean') _layout.info = saved.info;
+      if (saved.dock === 'left' || saved.dock === 'right') _layout.dock = saved.dock;
+    } catch { /* defaults */ }
+  }
+
+  function _saveLayout() {
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(_layout)); } catch { /* ignore */ }
+  }
+
+  function _treePanelTip() { return I18n.t(_layout.tree ? 'toolbar.hideTree' : 'toolbar.showTree'); }
+  function _infoPanelTip() { return I18n.t(_layout.info ? 'toolbar.hideInfo' : 'toolbar.showInfo'); }
+  function _infoDockTip()  { return I18n.t(_layout.dock === 'left' ? 'toolbar.infoDockRight' : 'toolbar.infoDockLeft'); }
+
+  function _applyPanelLayout() {
+    const tree  = document.getElementById('file-tree-panel');
+    const info  = document.getElementById('info-panel');
+    const vres  = document.getElementById('sidebar-v-resize');
+    const right = document.getElementById('right-sidebar');
+    if (!tree || !info || !sidebar || !right) return;
+
+    const infoLeft  = _layout.info && _layout.dock === 'left';
+    const infoRight = _layout.info && _layout.dock === 'right';
+
+    // Re-parent the panel so it always sits inside the dock it belongs to
+    const wantParent = infoRight ? right : sidebar;
+    if (info.parentElement !== wantParent) {
+      if (infoRight) right.appendChild(info);
+      else sidebar.insertBefore(info, document.getElementById('sidebar-resize-handle'));
+    }
+
+    tree.hidden = !_layout.tree;
+    info.hidden = !_layout.info;
+    right.hidden = !infoRight;
+    if (vres) vres.hidden = !(_layout.tree && infoLeft);
+
+    // The left sidebar disappears once neither of its panels is in it
+    sidebar.hidden = !(_layout.tree || infoLeft);
+
+    // A lone panel should fill its dock instead of keeping the split height
+    if (!(_layout.tree && infoLeft)) {
+      tree.style.flex = '';
+      tree.style.height = '';
+      info.style.flex = '';
+      info.style.height = '';
+      info.style.minHeight = '';
+    }
+
+    const dockBtn = document.getElementById('btn-panel-dock');
+    if (dockBtn) {
+      dockBtn.innerHTML = Icons[_layout.dock === 'left' ? 'panelRight' : 'panelLeft'] || '';
+      _setChromeBtn(dockBtn, _layout.info);
+    }
+    document.getElementById('btn-panel-tree')?.classList.toggle('active', _layout.tree);
+    document.getElementById('btn-panel-info')?.classList.toggle('active', _layout.info);
+
+    const dockHdrBtn = document.getElementById('info-dock-btn');
+    if (dockHdrBtn) dockHdrBtn.innerHTML = Icons[_layout.dock === 'left' ? 'panelRight' : 'panelLeft'] || '';
+  }
+
+  function _toggleTreePanel(force) {
+    _layout.tree = typeof force === 'boolean' ? force : !_layout.tree;
+    _saveLayout();
+    _applyPanelLayout();
+  }
+
+  function _toggleInfoPanel(force) {
+    _layout.info = typeof force === 'boolean' ? force : !_layout.info;
+    _saveLayout();
+    _applyPanelLayout();
+  }
+
+  function _toggleInfoDock(side) {
+    _layout.dock = (side === 'left' || side === 'right')
+      ? side
+      : (_layout.dock === 'left' ? 'right' : 'left');
+    if (!_layout.info) _layout.info = true;   // moving it implies showing it
+    _saveLayout();
+    _applyPanelLayout();
+  }
+
+  function _browseTip() { return I18n.t(_browseMode ? 'toolbar.browseOff' : 'toolbar.browseOn'); }
+
+  function _initBrowse() {
+    const host = document.getElementById('browse-view');
+    if (!host) return;
+    Browse.init(host, {
+      onOpenFile: (p) => { Browse.hide(); _openFile(p); },
+      onOpenDir: (p) => { _rememberRecentDir(p); _watchDir(p); FileTree.revealPath?.(p); },
+      onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
+    });
+    _applyBrowseMode({ initial: true });
+  }
+
+  function _applyBrowseMode({ initial = false } = {}) {
+    FileTree.setFoldersOnly?.(_browseMode);
+    document.getElementById('btn-browse')?.classList.toggle('active', _browseMode);
+    if (!_browseMode) {
+      Browse.hide();
+      return;
+    }
+    const dir = Browse.getDir() || FileTree.getRoot();
+    if (dir) {
+      Browse.show(dir);
+      if (!initial || !Browse.getDir()) Browse.open(dir);
+    } else {
+      Browse.show();
+    }
+  }
+
+  function _toggleBrowseMode(force) {
+    _browseMode = typeof force === 'boolean' ? force : !_browseMode;
+    try { localStorage.setItem(BROWSE_KEY, _browseMode ? '1' : '0'); } catch { /* ignore */ }
+    _applyBrowseMode();
+  }
+
+  /** In browse mode, Esc goes from the opened image back to the contact sheet. */
+  function _browseBack() {
+    if (!_browseMode || Browse.isVisible()) return false;
+    Browse.show(Browse.getDir() || FileTree.getRoot());
+    return true;
+  }
+
+  function _initPanelLayout() {
+    _loadLayout();
+    const closeBtn = document.getElementById('info-close-btn');
+    if (closeBtn) {
+      closeBtn.innerHTML = Icons.close || '';
+      Tooltip.attach(closeBtn, () => I18n.t('toolbar.hideInfo'));
+      closeBtn.addEventListener('click', () => _toggleInfoPanel(false));
+    }
+    const dockBtn = document.getElementById('info-dock-btn');
+    if (dockBtn) {
+      Tooltip.attach(dockBtn, _infoDockTip);
+      dockBtn.addEventListener('click', () => _toggleInfoDock());
+    }
+    _applyPanelLayout();
+    _initRightSidebarResize();
+  }
+
+  function _initRightSidebarResize() {
+    const handle = document.getElementById('right-sidebar-resize-handle');
+    const right = document.getElementById('right-sidebar');
+    if (!handle || !right) return;
+
+    const MIN_W = 280;
+    const MAX_W = 560;
+    const saved = parseInt(localStorage.getItem('rightSidebarWidth') || '', 10);
+    if (saved >= MIN_W && saved <= MAX_W) right.style.width = `${saved}px`;
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startW = right.getBoundingClientRect().width;
+      handle.classList.add('resizing');
+      document.body.classList.add('resizing-col');
+
+      const onMove = (ev) => {
+        const w = Math.min(Math.max(startW - (ev.clientX - startX), MIN_W), MAX_W);
+        right.style.width = `${Math.round(w)}px`;
+      };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.body.classList.remove('resizing-col');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        localStorage.setItem('rightSidebarWidth', String(Math.round(right.getBoundingClientRect().width)));
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  }
+
+  /* ════════════════════════════════════════════
      Sidebar Resize
   ════════════════════════════════════════════ */
   function _initSidebarResize() {
     const handle = document.getElementById('sidebar-resize-handle');
     if (!handle || !sidebar) return;
 
-    const MIN_W = 140;
+    const MIN_W = 280;
     const MAX_W = 500;
 
     // Restore previous width
@@ -8857,8 +9194,8 @@
     if (!handle || !tree || !info || !sidebar) return;
 
     const HANDLE_H = 5;
-    const MIN_TREE = 80;
-    const MIN_INFO = 100;
+    const MIN_TREE = 160;
+    const MIN_INFO = 160;
 
     function _applySplit(treeH) {
       const total = sidebar.getBoundingClientRect().height;

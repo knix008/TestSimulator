@@ -10,6 +10,9 @@ window.FileDialog = (() => {
   let _bound = false;
 
   const SAVE_EXTS = ['png', 'jpg', 'webp', 'bmp'];
+  const LOSSY_EXTS = ['jpg', 'jpeg', 'webp'];   // formats whose encoder takes a quality
+  const QUALITY_KEY = 'saveImageQuality';
+  const DEFAULT_QUALITY = 92;
   let _saveTypes = null;   // [[ext, label], …] for a non-image save (e.g. DICOM tag export); null → images
 
   function _saveExts() {
@@ -38,7 +41,33 @@ window.FileDialog = (() => {
       cancel: document.getElementById('fd-cancel'),
       ok: document.getElementById('fd-ok'),
       okLabel: document.getElementById('fd-ok-label'),
+      qualityRow: document.getElementById('fd-quality-row'),
+      quality: document.getElementById('fd-quality'),
+      qualityVal: document.getElementById('fd-quality-val'),
     };
+  }
+
+  /** Last quality the user picked (40–100), remembered across saves. */
+  function _savedQuality() {
+    const v = Number(localStorage.getItem(QUALITY_KEY));
+    return Number.isFinite(v) && v >= 40 && v <= 100 ? Math.round(v) : DEFAULT_QUALITY;
+  }
+
+  function _isLossyName(name) {
+    return LOSSY_EXTS.includes(_extOf(name));
+  }
+
+  /** Quality only applies to a lossy image save (JPEG / WebP) — hide it otherwise. */
+  function _refreshQuality() {
+    const e = _els();
+    if (!e.qualityRow) return;
+    const show = _mode === 'save' && !_saveTypes && _isLossyName(e.name?.value || '');
+    e.qualityRow.style.display = show ? 'flex' : 'none';
+  }
+
+  function _syncQualityLabel() {
+    const e = _els();
+    if (e.quality && e.qualityVal) e.qualityVal.textContent = e.quality.value;
   }
 
   function _bindOnce() {
@@ -69,6 +98,8 @@ window.FileDialog = (() => {
       if (_mode === 'save') _ensureSaveExt();
       _renderList();
     });
+    e.name?.addEventListener('input', () => _refreshQuality());
+    e.quality?.addEventListener('input', _syncQualityLabel);
     e.name?.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         ev.preventDefault();
@@ -232,6 +263,7 @@ window.FileDialog = (() => {
     } else if (ext !== want && want !== 'all') {
       e.name.value = `${name.replace(/\.[^.]+$/, '')}.${want}`;
     }
+    _refreshQuality();
   }
 
   async function _goTo(dirPath) {
@@ -371,7 +403,13 @@ window.FileDialog = (() => {
         if (!ok) return;
       }
     } catch {}
-    _finish({ canceled: false, filePath });
+    let quality;
+    if (!_saveTypes && _isLossyName(name) && e.quality) {
+      const pct = Math.min(100, Math.max(40, Math.round(Number(e.quality.value) || DEFAULT_QUALITY)));
+      quality = pct / 100;
+      try { localStorage.setItem(QUALITY_KEY, String(pct)); } catch { /* ignore */ }
+    }
+    _finish({ canceled: false, filePath, quality });
   }
 
   function _finish(result) {
@@ -437,6 +475,9 @@ window.FileDialog = (() => {
       }
     }
     if (e.name) e.name.value = nameHint || (mode === 'save' ? 'image.png' : '');
+    if (e.quality) e.quality.value = String(_savedQuality());
+    _syncQualityLabel();
+    _refreshQuality();
 
     _cwd = await _startDir(defaultPath);
     _selected = _cwd ? { path: _cwd, isDirectory: true, name: await _basename(_cwd) } : null;

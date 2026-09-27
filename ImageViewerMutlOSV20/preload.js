@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // File system
   readDirectory: (dirPath) => ipcRenderer.invoke('read-directory', dirPath),
+  readDirectoryDetailed: (dirPath) => ipcRenderer.invoke('read-directory-detailed', dirPath),
   listDrives: () => ipcRenderer.invoke('list-drives'),
   pathAncestors: (targetPath) => ipcRenderer.invoke('path-ancestors', targetPath),
   getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),

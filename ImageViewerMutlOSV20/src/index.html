@@ -58,10 +58,13 @@
         <!-- Vertical resize handle -->
         <div id="sidebar-v-resize"></div>
 
-        <!-- Info Panel -->
+        <!-- Info Panel (dockable: left sidebar or right sidebar) -->
         <div id="info-panel">
           <div class="panel-header">
             <span class="panel-title" data-i18n="info.title">FILE INFO</span>
+            <span class="panel-header-spacer"></span>
+            <button type="button" class="panel-hdr-btn" id="info-dock-btn"></button>
+            <button type="button" class="panel-hdr-btn" id="info-close-btn"></button>
           </div>
           <div id="info-content">
             <div class="info-no-file" data-i18n="info.noFile">No file selected</div>
@@ -74,6 +77,9 @@
 
       <!-- ── Viewer Area ── -->
       <div id="viewer-area">
+
+        <!-- Browse view: folder contact sheet (built by browse.js) -->
+        <div id="browse-view" hidden></div>
 
         <!-- Image/Canvas viewer -->
         <div id="viewer-container">
@@ -260,6 +266,11 @@
         </div>
 
       </div><!-- /viewer-area -->
+
+      <!-- ── Right Sidebar (the file-info panel docks here) ── -->
+      <div id="right-sidebar" hidden>
+        <div id="right-sidebar-resize-handle"></div>
+      </div>
     </div><!-- /main-area -->
 
     <!-- ═══ Status Bar ═══ -->
@@ -1188,6 +1199,12 @@ Do you want to save before closing?</p>
         <input id="fd-name" type="text" spellcheck="false">
         <select id="fd-filter"></select>
       </div>
+      <div class="fd-quality-row" id="fd-quality-row" style="display:none;">
+        <label for="fd-quality" data-i18n="fd.quality">Image quality</label>
+        <input id="fd-quality" type="range" min="40" max="100" step="1" value="92">
+        <span class="fd-quality-val" id="fd-quality-val">92</span>
+        <span class="fd-quality-hint" data-i18n="fd.qualityHint">Higher = better quality, larger file</span>
+      </div>
       <div class="dialog-footer">
         <button type="button" id="fd-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
         <button type="button" class="primary" id="fd-ok"><span id="fd-ok-label">Open</span></button>
@@ -1213,6 +1230,8 @@ Do you want to save before closing?</p>
   <script src="./js/tooltip.js"></script>
   <script src="./js/contextMenu.js"></script>
   <script src="./js/fileDialog.js"></script>
+  <script src="./js/thumbs.js"></script>
+  <script src="./js/browse.js"></script>
   <script src="./js/editor.js"></script>
   <script src="./js/fileTree.js"></script>
   <script src="./js/app.js"></script>
