@@ -143,8 +143,8 @@ function start() {
       /* 콘솔이 없어도 창으로는 알려 준다. */
     }
     restoreDesktop();
-    tell(text);
-    app.exit(1);
+    // 우리 창이 떠 있으면 그 창이 닫힐 때 끝낸다. 글을 베끼기 전에 꺼지면 안 된다.
+    if (!tell(text)) app.exit(1);
   }
 
   // 오류를 그대로 옮겨 적는다. 붙여 넣어 보낼 수 있어야 하므로 자취까지 담는다.
@@ -170,9 +170,132 @@ function start() {
     ].join('\n');
   }
 
-  // 시스템 창으로 알린다. 우리 창은 이미 믿을 수 없는 상태일 수 있다.
-  // '복사'를 고르면 오류 글이 클립보드로 간다. 그대로 붙여 넣어 보낼 수 있다.
+  // 오류 글을 보여 주는 창. 글은 골라 복사할 수 있고, '복사'를 누르면 전부 클립보드로 간다.
+  // 창을 띄우지 못하면 시스템 창으로 알린다. 그때는 우리 창을 믿을 수 없는 상태다.
+  // 창이 떠 있으면 true. 호출한 쪽은 창이 닫힐 때까지 끝내지 않는다.
   function tell(text) {
+    try {
+      if (openReport(text)) return true;
+    } catch (_err) {
+      /* 아래에서 시스템 창으로 알린다. */
+    }
+    tellSystem(text);
+    return false;
+  }
+
+  function openReport(text) {
+    const path = require('path');
+    const i18n = require('../shared/i18n');
+    const { BrowserWindow, ipcMain, screen, nativeImage } = electron;
+    const lang = i18n.langOf(spoken);
+    const report = {
+      title: i18n.t(lang, 'fatal.title'),
+      detail: i18n.t(lang, 'fatal.detail'),
+      copied: i18n.t(lang, 'fatal.copied'),
+      copy: i18n.t(lang, 'fatal.copy'),
+      close: i18n.t(lang, 'fatal.close'),
+      text,
+    };
+    const width = 520;
+    const height = 420;
+    let bounds = { width, height };
+    try {
+      const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+      bounds = {
+        x: Math.round(area.x + (area.width - width) / 2),
+        y: Math.round(area.y + (area.height - height) / 2.4),
+        width,
+        height,
+      };
+    } catch (_err) {
+      /* 화면을 모르면 기본 자리에 띄운다. */
+    }
+
+    let win;
+    try {
+      win = new BrowserWindow({
+        ...bounds,
+        title: report.title,
+        frame: false,
+        transparent: true,
+        resizable: false,
+        minimizable: false,
+        maximizable: false,
+        fullscreenable: false,
+        skipTaskbar: true,
+        alwaysOnTop: true,
+        hasShadow: false,
+        roundedCorners: false,
+        thickFrame: false,
+        show: false,
+        icon: nativeImage.createEmpty(),
+        backgroundColor: '#00000000',
+        webPreferences: {
+          preload: path.join(__dirname, '../preload/preload.js'),
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: false,
+        },
+      });
+    } catch (_err) {
+      return false;
+    }
+
+    let left = false;
+    const leave = () => {
+      if (left) return;
+      left = true;
+      try { ipcMain.removeListener('fatal:copy', onCopy); } catch (_err) {}
+      try { ipcMain.removeListener('fatal:close', onClose); } catch (_err) {}
+      try { if (!win.isDestroyed()) win.close(); } catch (_err) {}
+      try { app.exit(1); } catch (_err) {}
+    };
+    const onCopy = () => {
+      try {
+        clipboard.writeText(text);
+      } catch (_err) {
+        return;
+      }
+      try {
+        if (!win.isDestroyed()) win.webContents.send('fatal:copied', report.copied);
+      } catch (_err) {
+        /* 창이 글을 못 받아도 클립보드에는 들어가 있다. */
+      }
+    };
+    const onClose = () => leave();
+
+    try {
+      ipcMain.on('fatal:copy', onCopy);
+      ipcMain.on('fatal:close', onClose);
+      win.on('closed', leave);
+      win.loadFile(path.join(__dirname, '../renderer/fatal.html'), {
+        query: { report: JSON.stringify(report) },
+      });
+    } catch (_err) {
+      try { ipcMain.removeListener('fatal:copy', onCopy); } catch (_clean) {}
+      try { ipcMain.removeListener('fatal:close', onClose); } catch (_clean) {}
+      try { win.removeAllListeners('closed'); } catch (_clean) {}
+      try { if (!win.isDestroyed()) win.close(); } catch (_clean) {}
+      return false;
+    }
+
+    const reveal = () => {
+      try {
+        if (left || win.isDestroyed()) return;
+        win.show();
+        win.setAlwaysOnTop(true);
+        win.focus();
+      } catch (_err) {
+        /* 이미 보였거나 창이 없다. */
+      }
+    };
+    try { win.once('ready-to-show', reveal); } catch (_err) {}
+    setTimeout(reveal, 400);
+    return true;
+  }
+
+  // 우리 창을 띄우지 못했을 때의 알림. '복사'를 고르면 오류 글이 클립보드로 간다.
+  function tellSystem(text) {
     const i18n = require('../shared/i18n');
     const lang = i18n.langOf(spoken);
     for (let turn = 0; turn < 3; turn += 1) {

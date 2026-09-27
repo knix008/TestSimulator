@@ -45,4 +45,8 @@ contextBridge.exposeInMainWorld('desk', {
   prefsChange: (patch) => ipcRenderer.send('prefs:change', patch),
   prefsOpen: (what) => ipcRenderer.invoke('prefs:action', what),
   prefsClose: () => ipcRenderer.send('prefs:close'),
+  // 큰 오류 창. 글 전체를 클립보드로 보내거나 창을 닫는다.
+  fatalCopy: () => ipcRenderer.send('fatal:copy'),
+  fatalClose: () => ipcRenderer.send('fatal:close'),
+  onFatalCopied: (handler) => on('fatal:copied', handler),
 });

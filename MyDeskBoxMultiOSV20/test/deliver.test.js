@@ -168,6 +168,205 @@ test('담긴 항목의 종류를 알려 준다', async () => {
   assert.equal(byName['노트.txt'].recycle, false);
 });
 
+test('폴더를 다른 폴더 위에 놓으면 그 안으로 들어가고 박스에서는 빠진다', async () => {
+  const place = desk();
+  const bundle = path.join(place.root, '묶음');
+  fs.mkdirSync(bundle);
+  fs.writeFileSync(path.join(bundle, '안.txt'), 'in');
+  const state = baseState({
+    fences: [fence({
+      items: [
+        { name: 'Work', path: place.folder },
+        { name: '묶음', path: bundle },
+      ],
+    })],
+  });
+  const { host } = loadHost(state);
+  await host.dropFiles(state.fences[0].id, [bundle], 0, place.folder);
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work']);
+  const work = state.fences[0].items[0].path;
+  assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, '폴더가 그 안으로 들어가지 않았다');
+  assert.equal(fs.existsSync(bundle), false, '원래 자리에 폴더가 남아 있다');
+});
+
+// 이름 바꾸기가 거절되는 것만 흉내 낸 검사와 달리, 이쪽은 디스크를 실제로 건넌다.
+// 바탕화면이 C: 이고 폴더 바로가기가 D: 를 가리키는 경우가 그것이다.
+function otherPlace(from) {
+  if (process.platform !== 'win32') return '';
+  const mine = path.parse(path.resolve(from)).root.toLowerCase();
+  const candidates = [];
+  for (const letter of 'CDEFGHIJKLMNOPQRSTUVWXYZ') {
+    const root = `${letter}:\\`;
+    if (root.toLowerCase() === mine) continue;
+    candidates.push(path.join(root, 'Home'), root);
+  }
+  for (const dir of candidates) {
+    try {
+      if (!fs.statSync(dir).isDirectory()) continue;
+      const probe = fs.mkdtempSync(path.join(dir, 'mdb-probe-'));
+      fs.rmSync(probe, { recursive: true, force: true });
+      return dir;
+    } catch (_err) {
+      /* 쓸 수 없는 드라이브는 다음 것을 본다. */
+    }
+  }
+  return '';
+}
+
+test('실제로 다른 드라이브의 폴더와 그 바로가기에 넣는다', { skip: process.platform !== 'win32' }, async (t) => {
+  const place = desk();
+  const sinkRoot = otherPlace(place.root);
+  if (!sinkRoot) {
+    t.skip('쓸 수 있는 다른 드라이브가 없다');
+    return;
+  }
+  const sink = fs.mkdtempSync(path.join(sinkRoot, 'mdb-drop-'));
+  const work = path.join(sink, 'Work');
+  fs.mkdirSync(work);
+  const bundle = path.join(place.root, '묶음');
+  fs.mkdirSync(bundle);
+  fs.writeFileSync(path.join(bundle, '안.txt'), 'in');
+  try {
+    const folderState = baseState({
+      fences: [fence({ items: [{ name: '묶음', path: bundle }] })],
+    });
+    const folderHost = loadHost(folderState);
+    await folderHost.host.dropFiles(folderState.fences[0].id, [bundle], 0, work);
+    assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, '폴더가 다른 드라이브로 들어가지 않았다');
+    assert.equal(fs.existsSync(bundle), false, '원래 폴더가 남아 있다');
+    assert.deepEqual(folderState.fences[0].items, [], '넣은 폴더가 박스에 남았다');
+
+    const linkState = baseState({
+      fences: [fence({
+        items: [
+          { name: 'Work.lnk', path: place.link },
+          { name: '노트.txt', path: place.note },
+        ],
+      })],
+    });
+    const linkHost = loadHost(linkState);
+    linkHost.electron.shell.links.set(place.link, { target: work });
+    await linkHost.host.dropFiles(linkState.fences[0].id, [place.note], 0, place.link);
+    assert.equal(fs.readFileSync(path.join(work, '노트.txt'), 'utf8'), 'hello', '바로가기가 가리키는 폴더로 들어가지 않았다');
+    assert.equal(fs.existsSync(place.note), false, '바로가기에 넣은 파일이 원래 자리에 남았다');
+    assert.deepEqual(linkState.fences[0].items.map((item) => item.name), ['Work.lnk'], '바로가기 자체가 빠졌다');
+  } finally {
+    fs.rmSync(sink, { recursive: true, force: true });
+  }
+});
+
+test('다른 드라이브의 폴더로 넣어도 죽지 않고 폴더가 들어간다', async () => {
+  const place = desk();
+  const bundle = path.join(place.root, '묶음');
+  fs.mkdirSync(bundle);
+  fs.writeFileSync(path.join(bundle, '안.txt'), 'in');
+  const state = baseState({
+    fences: [fence({
+      items: [
+        { name: 'Work', path: place.folder },
+        { name: '묶음', path: bundle },
+      ],
+    })],
+  });
+  const { host } = loadHost(state);
+  const rename = fs.promises.rename;
+  fs.promises.rename = async () => {
+    const err = new Error('EXDEV: cross-device link not permitted');
+    err.code = 'EXDEV';
+    throw err;
+  };
+  try {
+    await host.dropFiles(state.fences[0].id, [bundle], 0, place.folder);
+  } finally {
+    fs.promises.rename = rename;
+  }
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work']);
+  const work = state.fences[0].items[0].path;
+  assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, '드라이브를 건너지 못했다');
+  assert.equal(fs.existsSync(bundle), false, '복사만 하고 원래 폴더를 남겼다');
+});
+
+test('파일을 휴지통에 넣어도 프로세스가 죽지 않고 그 자리에서 사라진다', { skip: process.platform !== 'win32' }, async () => {
+  const electron = require('electron');
+  assert.equal(typeof electron, 'string', 'electron 실행 파일을 찾지 못했다');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mdb-trash-'));
+  const file = path.join(dir, '노트.txt');
+  fs.writeFileSync(file, 'bye');
+  const script = path.join(dir, 'trash.js');
+  fs.writeFileSync(script, `'use strict';
+const { app, shell } = require('electron');
+const fs = require('fs');
+const file = ${JSON.stringify(file)};
+app.whenReady().then(async () => {
+  try {
+    await shell.trashItem(file);
+    console.log(fs.existsSync(file) ? 'STILL' : 'GONE');
+    app.exit(0);
+  } catch (err) {
+    console.error(err && err.stack || err);
+    app.exit(2);
+  }
+});
+`);
+  const { spawn } = require('child_process');
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const result = await new Promise((resolve, reject) => {
+    const child = spawn(electron, [script], { env });
+    let out = '';
+    child.stdout.on('data', (chunk) => { out += chunk; });
+    child.stderr.on('data', (chunk) => { out += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => resolve({ code, out }));
+  });
+  assert.equal(result.code, 0, result.out);
+  assert.match(result.out, /GONE/, result.out);
+  assert.equal(fs.existsSync(file), false, '휴지통으로 보냈는데 파일이 남아 있다');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('휴지통이 거절해도 앱이 죽지 않고 파일은 그대로 남는다', async () => {
+  const place = desk();
+  const state = baseState({
+    fences: [fence({
+      items: [
+        { name: '휴지통', path: 'shell:RecycleBinFolder' },
+        { name: '노트.txt', path: place.note },
+      ],
+    })],
+  });
+  const { host, electron } = loadHost(state);
+  electron.shell.trashItem = async () => {
+    throw new Error('locked');
+  };
+  await host.dropFiles(state.fences[0].id, [place.note], 0, 'shell:RecycleBinFolder');
+  assert.equal(fs.existsSync(place.note), true, '버리지 못했는데 파일이 사라졌다');
+  assert.equal(state.fences[0].items.some((item) => item.path === place.note), true, '실패했는데 박스에서 빠졌다');
+});
+
+test('없는 프로그램에 넘겨도 앱이 죽지 않고 파일은 박스에 남는다', async () => {
+  const place = desk();
+  const missing = path.join(place.root, '없는 프로그램.exe');
+  // 파일은 있으나 실행할 수 없는 것이다. 띄우기가 실패해도 앱이 죽으면 안 된다.
+  fs.writeFileSync(missing, 'not a program');
+  const state = baseState({
+    fences: [fence({
+      items: [
+        { name: '없는 프로그램.exe', path: missing },
+        { name: '노트.txt', path: place.note },
+      ],
+    })],
+  });
+  const { host } = loadHost(state);
+  host.openAll();
+  const held = (name) => state.fences[0].items.find((item) => item.name === name).path;
+  await host.transfer('a', held('노트.txt'), onPicture(0).x, onPicture(0).y);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const note = held('노트.txt');
+  assert.equal(fs.existsSync(note), true, '넘기지 못했는데 파일이 사라졌다');
+  assert.equal(state.fences[0].items.some((item) => item.path === note), true);
+});
+
 test('파일을 폴더 위에 놓으면 그 폴더로 들어가고 박스에서는 빠진다', async () => {
   const place = desk();
   const state = baseState({

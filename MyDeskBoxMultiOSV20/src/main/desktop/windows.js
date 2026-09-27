@@ -1044,7 +1044,8 @@ function watchDrag(onRect, onSettle, onDrop) {
       if (dragged && movedEnough(dragged, pos) && typeof onDrop === 'function') {
         try {
           const item = itemForIcon(dragged);
-          if (item) onDrop(item, toDipPoint(pos));
+          // 놓는 일은 비동기다. 거절된 약속을 받아 두지 않으면 앱이 죽는다.
+          if (item) Promise.resolve(onDrop(item, toDipPoint(pos))).catch(() => {});
         } catch (_err) {
           /* 이름을 못 읽으면 이번 끌기는 버린다. */
         }

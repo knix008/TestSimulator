@@ -114,6 +114,7 @@ function makeElectron(userData) {
   let answer = 0;
   // 오류 창에서 고를 단추. 0 이면 '복사', 1 이면 '닫기'.
   let fatalPick = 1;
+  const ipcListeners = new Map();
   const shell = {
     links: new Map(),
     trashed: [],
@@ -270,7 +271,22 @@ function makeElectron(userData) {
 
         on() {}
       },
-      ipcMain: { on() {}, handle() {} },
+      ipcMain: {
+        on(channel, fn) {
+          const list = ipcListeners.get(channel) || [];
+          list.push(fn);
+          ipcListeners.set(channel, list);
+        },
+        removeListener(channel, fn) {
+          const list = (ipcListeners.get(channel) || []).filter((item) => item !== fn);
+          ipcListeners.set(channel, list);
+        },
+        handle() {},
+        // 검사에서 창이 보낸 것처럼 그 채널의 손잡이를 부른다.
+        emit(channel, payload) {
+          for (const fn of ipcListeners.get(channel) || []) fn({}, payload);
+        },
+      },
     },
   };
 }

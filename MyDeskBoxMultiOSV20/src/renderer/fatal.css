@@ -1,0 +1,32 @@
+/* 오류 글은 골라서 복사할 수 있어야 한다. 묻는 창은 글을 고르지 못하게 해 두었다. */
+#report {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  resize: none;
+  overflow: auto;
+  white-space: pre;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  font-family: Consolas, "Cascadia Mono", "D2Coding", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #e8eefc;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+#report:focus {
+  outline: 2px solid rgba(147, 197, 253, 0.9);
+  outline-offset: 1px;
+}
+
+#copy {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(180deg, #5b9cf8, #2563eb);
+}

@@ -1013,32 +1013,80 @@ function createHost(state) {
   function launch(plan) {
     if (!plan) return;
     if (typeof shell.launch === 'function') {
-      shell.launch(plan);
+      try {
+        shell.launch(plan);
+      } catch (_err) {
+        // 넘기지 못해도 여기서 끝나면 안 된다. 바깥으로 새면 앱이 죽는다.
+      }
       return;
     }
     const { spawn } = require('child_process');
-    const child = spawn(plan.command, plan.args, {
-      detached: true,
-      stdio: 'ignore',
-      cwd: plan.cwd || undefined,
-      // 셸을 거쳐 넘길 때 검은 창이 번쩍이지 않게 한다.
-      windowsHide: true,
-    });
+    // 시작 위치가 없거나 끝이 빗금이면 띄우기 자체가 실패한다.
+    // 실패는 나중에 'error' 로 오고, 받아 주는 곳이 없으면 앱이 죽는다.
+    let cwd;
+    if (plan.cwd) {
+      cwd = String(plan.cwd).replace(/[\\/]+$/, '');
+      try {
+        if (!cwd || !fs.statSync(cwd).isDirectory()) cwd = undefined;
+      } catch (_err) {
+        cwd = undefined;
+      }
+    }
+    let child;
+    try {
+      child = spawn(plan.command, plan.args, {
+        detached: true,
+        stdio: 'ignore',
+        cwd,
+        // 셸을 거쳐 넘길 때 검은 창이 번쩍이지 않게 한다.
+        windowsHide: true,
+      });
+    } catch (_err) {
+      return;
+    }
+    child.on('error', () => {});
     child.unref();
+  }
+
+  // 폴더를 그 폴더 안(또는 그 자신)으로 옮기면 운영체제가 거절한다.
+  function nestedIn(parent, child) {
+    const from = path.resolve(parent);
+    const to = path.resolve(child);
+    const left = process.platform === 'win32' ? from.toLowerCase() : from;
+    const right = process.platform === 'win32' ? to.toLowerCase() : to;
+    if (right === left) return true;
+    const prefix = left.endsWith(path.sep) ? left : `${left}${path.sep}`;
+    return right.startsWith(prefix);
   }
 
   async function moveInto(filePath, dir) {
     const dest = path.join(dir, path.basename(filePath));
-    if (path.resolve(dest) === path.resolve(filePath)) return false;
-    if (fs.existsSync(dest)) return false;
+    if (nestedIn(filePath, dir) || nestedIn(filePath, dest)) return false;
+    try {
+      if (fs.existsSync(dest)) return false;
+    } catch (_err) {
+      return false;
+    }
     try {
       await fs.promises.rename(filePath, dest);
+      return true;
     } catch (err) {
-      if (!err || err.code !== 'EXDEV') throw err;
-      await fs.promises.copyFile(filePath, dest);
-      await fs.promises.unlink(filePath);
+      // 드라이브가 다르면 이름 바꾸기가 EXDEV 로 거절된다.
+      // 파일만 복사하면 폴더를 넣을 때 여기서 예외가 나 앱이 죽는다.
+      if (!err || err.code !== 'EXDEV') return false;
     }
-    return true;
+    try {
+      await fs.promises.cp(filePath, dest, { recursive: true });
+      await fs.promises.rm(filePath, { recursive: true, force: true });
+      return true;
+    } catch (_err) {
+      try {
+        await fs.promises.rm(dest, { recursive: true, force: true });
+      } catch (_clean) {
+        /* 반쯤 복사된 것은 치우되, 치우지 못해도 앱은 살아 있어야 한다. */
+      }
+      return false;
+    }
   }
 
   // 아래 항목이 무엇이냐에 따라 갈린다.
@@ -1049,24 +1097,33 @@ function createHost(state) {
   // moved 면 박스에서 빠진다. handed 면 프로그램에만 넘기고 박스에는 남긴다.
   async function sendInto(filePath, intoPath) {
     if (!filePath || !intoPath || filePath === intoPath) return '';
-    if (deliver.isRecycle(intoPath)) {
-      await shell.trashItem(filePath);
-      return 'moved';
+    try {
+      if (deliver.isRecycle(intoPath)) {
+        await shell.trashItem(filePath);
+        return 'moved';
+      }
+      if (isDirectory(intoPath)) {
+        return (await moveInto(filePath, intoPath)) ? 'moved' : '';
+      }
+      const link = shortcutLink(intoPath);
+      if (link && isDirectory(link.target)) {
+        return (await moveInto(filePath, link.target)) ? 'moved' : '';
+      }
+      // 실행 파일 바로가기만 그 프로그램에 인자와 시작 위치를 그대로 넘긴다.
+      // 그 밖의 대상은 셸이 짝지어 둔 프로그램으로 연다. 폴더나 문서를
+      // 실행 파일처럼 띄우면 실패가 앱을 죽인다.
+      const runnable = link && deliver.isRunnable(link.target);
+      const plan = (runnable ? deliver.handPlan(link, filePath) : null)
+        || deliver.openPlan((link && link.target) || intoPath, filePath, process.platform);
+      if (plan) {
+        launch(plan);
+        return 'handed';
+      }
+      return '';
+    } catch (_err) {
+      // 휴지통이 거절하거나 옮기기가 실패해도 앱은 계속 떠 있어야 한다.
+      return 'failed';
     }
-    if (isDirectory(intoPath)) {
-      return (await moveInto(filePath, intoPath)) ? 'moved' : '';
-    }
-    const link = shortcutLink(intoPath);
-    if (link && isDirectory(link.target)) {
-      return (await moveInto(filePath, link.target)) ? 'moved' : '';
-    }
-    // 바로가기면 가리키는 프로그램에, 프로그램이나 문서면 그 항목에 그대로 넘긴다.
-    const plan = deliver.handPlan(link, filePath) || deliver.openPlan(intoPath, filePath, process.platform);
-    if (plan) {
-      launch(plan);
-      return 'handed';
-    }
-    return '';
   }
 
   function takeOut(filePath) {
@@ -1454,7 +1511,9 @@ function createHost(state) {
     const items = captured();
     for (const fence of state.fences) {
       try {
-        emptyBox(fence);
+        // 파일은 바탕화면으로 돌려보내되, 어느 박스의 무엇이었는지는 남긴다.
+        // 다음 실행이 그 목록으로 박스를 다시 채운다.
+        fence.items = parkBox(fence);
       } catch (_err) {
         /* 하나가 막혀도 나머지는 돌려준다. */
       }
@@ -1466,6 +1525,29 @@ function createHost(state) {
     }
     if (typeof desktop.release === 'function') desktop.release(items);
     return true;
+  }
+
+  // 담긴 파일을 담기 전 폴더로 돌려보내고, 다시 담을 목록은 남긴다.
+  // 박스를 지우거나 사람이 모두 돌려준 경우에는 쓰지 않는다. 그때는 비우는 것이 맞다.
+  function parkBox(fence) {
+    const kept = [];
+    const names = [];
+    for (const item of fence.items) {
+      if (desktop.isShellItem && desktop.isShellItem(item.path)) {
+        kept.push(item);
+        if (item.name) names.push(item.name);
+        continue;
+      }
+      const back = hold.give(item);
+      if (!back) continue;
+      const home = item.home || path.dirname(back);
+      kept.push({ name: path.basename(back), path: back, home });
+      names.push(path.basename(back));
+      if (back !== item.path) refreshFolders(path.dirname(item.path), path.dirname(back));
+    }
+    hold.drop(fence);
+    if (names.length && typeof desktop.putHome === 'function') desktop.putHome(names);
+    return kept;
   }
 
   // ── 바탕화면에 새로 생긴 항목 ────────────────────────────────────────────

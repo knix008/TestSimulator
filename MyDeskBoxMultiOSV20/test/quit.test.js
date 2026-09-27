@@ -68,9 +68,39 @@ test('프로그램을 끝내면 담아 둔 항목을 하나도 빼놓지 않고 
     ['MyClock.lnk', 'Photos', '노트.txt'].sort(),
     '바탕화면에 돌아오지 않은 파일이 있다'
   );
-  for (const box of state.fences) assert.deepEqual(box.items, [], '박스가 아직 들고 있다');
+  // 바탕화면은 비우기 전으로 돌아가되, 어느 박스에 무엇이 있었는지는 남긴다.
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['MyClock.lnk', '노트.txt']);
+  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['휴지통', 'Photos']);
+  for (const item of state.fences.flatMap((box) => box.items)) {
+    if (String(item.path).startsWith('shell:')) continue;
+    assert.equal(path.dirname(item.path), desk, '기억한 자리가 바탕화면이 아니다');
+    assert.equal(fs.existsSync(item.path), true, '기억한 파일이 바탕화면에 없다');
+  }
   // 아이콘 자리를 되돌리는 일은 release 와 shutdown 이 한다.
   assert.ok(desktop.calls.release.at(-1), '아이콘 자리를 되돌리지 않았다');
+});
+
+test('다시 켜면 기억한 설정으로 박스 내용을 채운다', async () => {
+  const { state, desk } = boxed();
+  const first = await loadMain(state);
+  await first.quit();
+  assert.equal(fs.readdirSync(desk).length, 3, '끝내자 바탕화면이 비었다');
+
+  const again = await loadMain(state);
+  try {
+    assert.deepEqual(fs.readdirSync(desk).sort(), [], '다시 켰는데 바탕화면에 파일이 남았다');
+    assert.deepEqual(state.fences[0].items.map((item) => item.name), ['MyClock.lnk', '노트.txt']);
+    assert.deepEqual(state.fences[1].items.map((item) => item.name), ['휴지통', 'Photos']);
+    for (const item of state.fences.flatMap((box) => box.items)) {
+      if (String(item.path).startsWith('shell:')) continue;
+      assert.equal(fs.existsSync(item.path), true, `${item.name} 이 박스에 없다`);
+      assert.notEqual(path.dirname(item.path), desk, '박스에 담지 않고 바탕화면에 두었다');
+    }
+    assert.equal(state.fences[0].x, 100, '박스 자리를 잊었다');
+    assert.equal(state.fences[1].x, 600, '둘째 박스 자리를 잊었다');
+  } finally {
+    again.stop();
+  }
 });
 
 test('돌려준 파일의 내용은 그대로다', async () => {
@@ -123,6 +153,14 @@ test('창을 닫지 못하고 끝나도 파일이 돌아온다', async () => {
   assert.equal(fs.readdirSync(desk).length, 3, '갑자기 끝나니 파일이 남았다');
 });
 
+function fatalWindows(electron) {
+  return electron.windows.filter((win) => win.loaded && /fatal\.html$/.test(win.loaded.file));
+}
+
+function fatalReport(win) {
+  return JSON.parse(win.loaded.opts.query.report);
+}
+
 // 큰 오류로 멈출 때도 먼저 바탕화면을 되돌리고, 무슨 일이었는지 알려 준다.
 test('큰 오류가 나면 파일을 돌려준 뒤에 알린다', async () => {
   const { state, desk } = boxed();
@@ -131,22 +169,63 @@ test('큰 오류가 나면 파일을 돌려준 뒤에 알린다', async () => {
   crash(new Error('일부러 낸 오류'));
 
   assert.equal(fs.readdirSync(desk).length, 3, '오류가 났다고 파일을 두고 갔다');
-  const shown = electron.errors.at(-1);
-  assert.ok(shown, '오류를 알리지 않았다');
-  assert.match(shown.detail, /일부러 낸 오류/, '무슨 오류인지 보여 주지 않았다');
-  assert.match(shown.detail, /quit\.test\.js/, '어디서 났는지 보여 주지 않았다');
+  const shown = fatalWindows(electron);
+  assert.equal(shown.length, 1, '오류를 알리지 않았다');
+  assert.equal(electron.errors.length, 0, '우리 창과 시스템 창이 함께 떴다');
+  const report = fatalReport(shown[0]);
+  assert.match(report.text, /일부러 낸 오류/, '무슨 오류인지 보여 주지 않았다');
+  assert.match(report.text, /quit\.test\.js/, '어디서 났는지 보여 주지 않았다');
+  assert.equal(shown[0].options.alwaysOnTop, true, '오류 창이 다른 창 아래로 숨는다');
+  assert.equal(shown[0].options.skipTaskbar, true, '오류 창이 작업 표시줄에 따로 뜬다');
 });
 
 test('오류 창에서 고르면 내용이 클립보드로 간다', async () => {
   const { state } = boxed();
   const { electron, crash } = await loadMain(state);
-  electron.copyOnFatal();
 
   crash(new Error('베낄 오류'));
+  electron.module.ipcMain.emit('fatal:copy');
 
   assert.equal(electron.copied.length, 1, '복사를 골랐는데 클립보드로 가지 않았다');
   assert.match(electron.copied[0], /베낄 오류/);
   assert.match(electron.copied[0], /MyDeskBox/, '어느 판에서 났는지 함께 담지 않았다');
+  const shown = fatalWindows(electron);
+  assert.equal(shown[0].isDestroyed(), false, '복사하면 창이 닫혀 글을 다시 볼 수 없다');
+  assert.equal(shown[0].messages('fatal:copied').length, 1, '복사했는지를 창에 알려 주지 않았다');
+});
+
+test('오류 글은 창에서 골라 복사할 수 있다', () => {
+  const dir = path.join(__dirname, '..', 'src', 'renderer');
+  const html = fs.readFileSync(path.join(dir, 'fatal.html'), 'utf8');
+  const css = fs.readFileSync(path.join(dir, 'fatal.css'), 'utf8');
+  const js = fs.readFileSync(path.join(dir, 'fatal.js'), 'utf8');
+  assert.match(html, /<textarea[^>]*id="report"/, '오류 글을 담을 글상자가 없다');
+  assert.match(html, /readonly/, '글을 고치는 칸이 되었다');
+  assert.match(css, /user-select:\s*text/, '글상자 안을 고를 수 없다');
+  assert.match(js, /fatalCopy/, '전체를 복사하는 단추가 없다');
+  assert.match(js, /select\(/, '뜨자마자 글을 골라 두지 않는다');
+});
+
+test('오류 창을 띄우지 못하면 시스템 창으로 알리고 복사할 수 있다', async () => {
+  const { state, desk } = boxed();
+  const { electron, crash } = await loadMain(state);
+  electron.module.BrowserWindow = class {
+    constructor() {
+      throw new Error('창 없음');
+    }
+  };
+  electron.copyOnFatal();
+
+  crash(new Error('시스템 창 오류'));
+
+  assert.equal(fs.readdirSync(desk).length, 3, '시스템 창으로 알릴 때도 파일을 두고 갔다');
+  assert.equal(fatalWindows(electron).length, 0, '뜨지 못한 창이 남아 있다');
+  const shown = electron.errors.at(-1);
+  assert.ok(shown, '시스템 창으로도 알리지 않았다');
+  assert.match(shown.detail, /시스템 창 오류/);
+  assert.deepEqual(shown.buttons, ['복사', '닫기']);
+  assert.equal(electron.copied.length, 1, '시스템 창에서 복사가 되지 않았다');
+  assert.match(electron.copied[0], /시스템 창 오류/);
 });
 
 test('오류를 두 번 만나도 한 번만 알린다', async () => {
@@ -154,7 +233,145 @@ test('오류를 두 번 만나도 한 번만 알린다', async () => {
   const { electron, crash, hooks } = await loadMain(state);
   crash(new Error('처음'));
   for (const fn of hooks.get('uncaughtException')) fn(new Error('두 번째'));
-  assert.equal(electron.errors.length, 1, '오류 창이 두 번 떴다');
+  assert.equal(fatalWindows(electron).length, 1, '오류 창이 두 번 떴다');
+});
+
+// 앱이 끝날 때 넘긴 값을 모은다. main.js 는 app 을 그대로 쥐고 있으므로 바꿔 끼우면 보인다.
+function watchExit(electron) {
+  const codes = [];
+  electron.module.app.exit = (code) => codes.push(code);
+  return codes;
+}
+
+test('오류 창이 떠 있는 동안에는 앱이 끝나지 않는다', async () => {
+  const { state } = boxed();
+  const { electron, crash } = await loadMain(state);
+  const codes = watchExit(electron);
+
+  crash(new Error('기다리는 오류'));
+  electron.module.ipcMain.emit('fatal:copy');
+
+  assert.deepEqual(codes, [], '글을 베끼기 전에 앱이 끝났다');
+  assert.equal(fatalWindows(electron)[0].isDestroyed(), false, '오류 창이 저절로 닫혔다');
+});
+
+test('오류 창의 닫기를 누르면 창을 닫고 앱을 끝낸다', async () => {
+  const { state } = boxed();
+  const { electron, crash } = await loadMain(state);
+  const codes = watchExit(electron);
+
+  crash(new Error('닫을 오류'));
+  electron.module.ipcMain.emit('fatal:close');
+
+  assert.deepEqual(codes, [1], '닫기를 눌렀는데 오류로 끝내지 않았다');
+  assert.equal(fatalWindows(electron)[0].isDestroyed(), true, '닫기를 눌렀는데 창이 남았다');
+
+  // 닫은 뒤에는 손잡이도 떼어 낸다. 남으면 없는 창에 복사를 시도한다.
+  electron.module.ipcMain.emit('fatal:copy');
+  electron.module.ipcMain.emit('fatal:close');
+  assert.deepEqual(electron.copied, [], '닫은 창의 복사 단추가 아직 살아 있다');
+  assert.deepEqual(codes, [1], '앱을 두 번 끝냈다');
+});
+
+test('오류 창을 창 틀로 닫아도 앱을 끝낸다', async () => {
+  const { state } = boxed();
+  const { electron, crash } = await loadMain(state);
+  const codes = watchExit(electron);
+
+  crash(new Error('틀로 닫을 오류'));
+  fatalWindows(electron)[0].close();
+
+  assert.deepEqual(codes, [1], '창을 닫았는데 앱이 남았다');
+});
+
+test('오류 창이 글을 읽지 못하면 시스템 창으로 알리고 한 번만 끝낸다', async () => {
+  const { state, desk } = boxed();
+  const { electron, crash } = await loadMain(state);
+  const codes = watchExit(electron);
+  const Base = electron.module.BrowserWindow;
+  const made = [];
+  electron.module.BrowserWindow = class extends Base {
+    constructor(options) {
+      super(options);
+      made.push(this);
+    }
+
+    loadFile() {
+      throw new Error('읽지 못함');
+    }
+  };
+
+  crash(new Error('읽기 실패 오류'));
+
+  assert.equal(fs.readdirSync(desk).length, 3, '파일을 두고 갔다');
+  assert.equal(made.length, 1, '오류 창을 만들어 보지 않았다');
+  assert.equal(made[0].isDestroyed(), true, '글을 읽지 못한 창을 닫지 않았다');
+  assert.match(electron.errors.at(-1).detail, /읽기 실패 오류/, '시스템 창으로 넘기지 않았다');
+  assert.deepEqual(codes, [1], '앱을 끝내지 않았거나 두 번 끝냈다');
+});
+
+test('영어로 쓰면 오류 창도 영어로 보인다', async () => {
+  const { desk, made } = desktopWith('노트.txt');
+  const state = baseState({ settings: { lang: 'en' }, fences: [fence({ items: made })] });
+  const { electron, crash } = await loadMain(state);
+
+  crash(new Error('english error'));
+
+  assert.equal(fs.readdirSync(desk).length, 1);
+  const report = fatalReport(fatalWindows(electron)[0]);
+  assert.equal(report.title, 'MyDeskBox cannot continue');
+  assert.equal(report.copy, 'Copy');
+  assert.equal(report.close, 'Close');
+  assert.match(report.copied, /^Copied\./);
+});
+
+test('오류 창의 글은 두 언어 모두 갖추고 있다', () => {
+  const i18n = require('../src/shared/i18n');
+  for (const lang of Object.keys(i18n.TEXT)) {
+    for (const key of ['fatal.title', 'fatal.detail', 'fatal.copied', 'fatal.copy', 'fatal.close']) {
+      assert.ok(i18n.TEXT[lang][key], `${lang} 에 ${key} 가 없다`);
+    }
+  }
+});
+
+test('약속이 깨진 오류도 창으로 알리고 그대로 복사한다', async () => {
+  const { state } = boxed();
+  const { electron, hooks, stop } = await loadMain(state);
+  try {
+    for (const fn of hooks.get('unhandledRejection')) fn('깨진 약속');
+    electron.module.ipcMain.emit('fatal:copy');
+  } finally {
+    stop();
+  }
+  const report = fatalReport(fatalWindows(electron)[0]);
+  assert.match(report.text, /깨진 약속/, '글로 된 오류를 보여 주지 않았다');
+  assert.equal(electron.copied[0], report.text, '보여 준 글과 복사한 글이 다르다');
+});
+
+test('Error 가 아닌 것을 던져도 내용을 풀어 보여 준다', async () => {
+  const { state } = boxed();
+  const { electron, crash } = await loadMain(state);
+
+  crash({ code: 'E_BOX', where: '박스' });
+
+  const report = fatalReport(fatalWindows(electron)[0]);
+  assert.match(report.text, /"code": "E_BOX"/, '던진 값을 풀어 적지 않았다');
+  assert.match(report.text, /"where": "박스"/);
+  assert.match(report.text, /^MyDeskBox 1\.0\.0/, '어느 판인지 앞에 적지 않았다');
+});
+
+test('긴 오류 글도 자르지 않고 전부 복사한다', async () => {
+  const { state } = boxed();
+  const { electron, crash } = await loadMain(state);
+  const err = new Error('긴 오류');
+  err.stack = ['Error: 긴 오류', ...Array.from({ length: 400 }, (_, i) => `    at 자리${i} (file${i}.js:${i}:1)`)].join('\n');
+
+  crash(err);
+  electron.module.ipcMain.emit('fatal:copy');
+
+  const report = fatalReport(fatalWindows(electron)[0]);
+  assert.match(report.text, /자리399 \(file399\.js:399:1\)/, '긴 자취가 창에서 잘렸다');
+  assert.match(electron.copied[0], /자리0 \(file0\.js:0:1\)[\s\S]*자리399/, '복사한 글이 잘렸다');
 });
 
 // 앞선 실행이 전원 내림처럼 아무 길도 지나지 못하고 끝난 경우.
