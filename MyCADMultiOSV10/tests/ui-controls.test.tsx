@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/ui/App'
-import { EXPORT_FORMATS, exportFileName, runExport } from '../src/core/exporters'
+import { EXPORT_FORMATS, EXPORT_GROUPS, exportFileName, runExport } from '../src/core/exporters'
 import { createCustomTheme, resolveTheme, sanitizeTheme, THEME_TOKENS } from '../src/core/themes'
 import { SETTINGS_KEY, defaultLight, defaultSettings, newLight, sanitizeLight, sanitizeSettings, syncLights } from '../src/core/settings'
 import { activeDocument, createInitialState, reducer } from '../src/core/store'
@@ -190,6 +190,29 @@ describe('toolbar and dialogs', () => {
     expect(screen.getByTestId('export-formats')).toBeTruthy()
   })
 
+  it('[GUI] the export formats are listed under what they are for', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.click(screen.getByTestId('tb-export'))
+
+    // Every group that has formats gets a heading, every format lands in one
+    // group, and none is listed twice.
+    const sections = EXPORT_GROUPS
+      .map((group) => screen.queryByTestId(`export-group-${group.id}`))
+      .filter((section): section is HTMLElement => section !== null)
+    expect(sections.length).toBe(EXPORT_GROUPS.length)
+    const listed = sections.flatMap((section) => [...section.querySelectorAll('input[type="radio"]')])
+    expect(listed).toHaveLength(EXPORT_FORMATS.length)
+
+    // The two `.dxf` entries and the two `.svg` ones are only told apart by
+    // the heading they sit under, so that is what the grouping is for.
+    const drawings = screen.getByTestId('export-group-drawing')
+    expect(within(drawings).getByTestId('export-format-dxf')).toBeTruthy()
+    expect(within(drawings).getByTestId('export-format-drawingDxf')).toBeTruthy()
+    expect(within(screen.getByTestId('export-group-mesh')).getByTestId('export-format-stl')).toBeTruthy()
+    expect(within(screen.getByTestId('export-group-document')).getByTestId('export-format-mycad')).toBeTruthy()
+  })
+
   it('[GUI] settings groups its rows in boxes and steps numbers', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
@@ -213,9 +236,11 @@ describe('toolbar and dialogs', () => {
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     await user.click(screen.getByTestId('settings-tab-theme'))
-    await user.click(screen.getByTestId('theme-mode-custom'))
+    // The custom theme is the last tile of the gallery: picking it both
+    // applies it and opens its colours, so there is no separate apply.
+    expect(screen.queryByTestId('custom-colors')).toBeNull()
+    await user.click(screen.getByTestId('theme-custom'))
     expect(screen.getAllByTestId(/^custom-(bg|accent|text)$/)).toHaveLength(3)
-    await user.click(screen.getByTestId('custom-apply'))
     const app = screen.getByTestId('app')
     await waitFor(() => expect(app.getAttribute('data-theme')).toBe('custom'))
     expect(app.style.getPropertyValue('--bg')).toBe(createCustomTheme().colors.bg)

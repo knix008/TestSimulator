@@ -19,9 +19,22 @@ export interface ExportContext {
   selectedOnly: boolean
 }
 
+/** What a format is for, so the dialog can sort the list into sections. */
+export type ExportGroup = 'document' | 'mesh' | 'exchange' | 'drawing' | 'manufacturing' | 'data'
+
+export const EXPORT_GROUPS: { id: ExportGroup; label: { ko: string; en: string } }[] = [
+  { id: 'document', label: { ko: '문서', en: 'Document' } },
+  { id: 'mesh', label: { ko: '메쉬', en: 'Mesh' } },
+  { id: 'exchange', label: { ko: 'CAD 교환', en: 'CAD exchange' } },
+  { id: 'drawing', label: { ko: '도면', en: 'Drawings' } },
+  { id: 'manufacturing', label: { ko: '제조', en: 'Manufacturing' } },
+  { id: 'data', label: { ko: '데이터와 스크립트', en: 'Data and scripts' } }
+]
+
 export interface ExportFormat {
   id: string
   ext: string
+  group: ExportGroup
   label: { ko: string; en: string }
   mime: string
   /** what the format captures, shown in the dialog */
@@ -37,6 +50,7 @@ function pick(context: ExportContext): Solid[] {
 export const EXPORT_FORMATS: ExportFormat[] = [
   {
     id: 'mycad',
+    group: 'document',
     ext: 'mycad',
     label: { ko: 'MyCAD 문서', en: 'MyCAD document' },
     mime: 'application/x-mycad',
@@ -45,6 +59,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'stl',
+    group: 'mesh',
     ext: 'stl',
     label: { ko: 'STL 메쉬', en: 'STL mesh' },
     mime: 'model/stl',
@@ -53,6 +68,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'obj',
+    group: 'mesh',
     ext: 'obj',
     label: { ko: 'OBJ 메쉬', en: 'OBJ mesh' },
     mime: 'model/obj',
@@ -61,6 +77,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'step',
+    group: 'exchange',
     ext: 'step',
     label: { ko: 'STEP (AP214)', en: 'STEP (AP214)' },
     mime: 'application/x-step',
@@ -69,6 +86,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'ply',
+    group: 'mesh',
     ext: 'ply',
     label: { ko: 'PLY 메쉬', en: 'PLY mesh' },
     mime: 'model/mesh',
@@ -77,6 +95,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'off',
+    group: 'mesh',
     ext: 'off',
     label: { ko: 'OFF 메쉬', en: 'OFF mesh' },
     mime: 'model/mesh',
@@ -85,6 +104,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'iges',
+    group: 'exchange',
     ext: 'igs',
     label: { ko: 'IGES 와이어프레임', en: 'IGES wireframe' },
     mime: 'model/iges',
@@ -99,6 +119,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'svg',
+    group: 'drawing',
     ext: 'svg',
     label: { ko: 'SVG 스케치', en: 'SVG sketch' },
     mime: 'image/svg+xml',
@@ -107,6 +128,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'dxf',
+    group: 'drawing',
     ext: 'dxf',
     label: { ko: 'DXF 스케치', en: 'DXF sketch' },
     mime: 'image/vnd.dxf',
@@ -115,6 +137,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'drawingSvg',
+    group: 'drawing',
     ext: 'svg',
     label: { ko: '도면 SVG (정면·평면·측면·아이소)', en: 'Drawing SVG (four views)' },
     mime: 'image/svg+xml',
@@ -123,6 +146,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'drawingDxf',
+    group: 'drawing',
     ext: 'dxf',
     label: { ko: '도면 DXF (정면·평면·측면·아이소)', en: 'Drawing DXF (four views)' },
     mime: 'image/vnd.dxf',
@@ -131,6 +155,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'ifc',
+    group: 'exchange',
     ext: 'ifc',
     label: { ko: 'IFC4 건축 모델', en: 'IFC4 building model' },
     mime: 'application/x-step',
@@ -145,6 +170,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'gcode',
+    group: 'manufacturing',
     ext: 'nc',
     label: { ko: 'G코드 (윤곽 + 포켓)', en: 'G-code (profile + pocket)' },
     mime: 'text/x-gcode',
@@ -164,6 +190,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'points',
+    group: 'data',
     ext: 'asc',
     label: { ko: '점군 (ASC)', en: 'Point cloud (ASC)' },
     mime: 'text/plain',
@@ -185,6 +212,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'csv',
+    group: 'data',
     ext: 'csv',
     label: { ko: '스프레드시트 CSV', en: 'Spreadsheet CSV' },
     mime: 'text/csv',
@@ -211,6 +239,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'macro',
+    group: 'data',
     ext: 'mycadmacro',
     label: { ko: 'MyCAD 매크로', en: 'MyCAD macro' },
     mime: 'text/plain',
@@ -236,6 +265,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   },
   {
     id: 'python',
+    group: 'data',
     ext: 'py',
     label: { ko: 'Python 스크립트', en: 'Python script' },
     mime: 'text/x-python',
@@ -280,4 +310,11 @@ export function runExport(id: string, context: ExportContext): { name: string; t
   const text = format.build(context)
   if (!text || text.trim() === '') throw new Error(`${format.label.ko}: 내보낼 내용이 없습니다.`)
   return { name: exportFileName(context.doc, format), text, format }
+}
+
+/** The formats in dialog order: every non-empty group, with its own heading. */
+export function exportFormatsByGroup(): { group: (typeof EXPORT_GROUPS)[number]; formats: ExportFormat[] }[] {
+  return EXPORT_GROUPS
+    .map((group) => ({ group, formats: EXPORT_FORMATS.filter((format) => format.group === group.id) }))
+    .filter((section) => section.formats.length > 0)
 }

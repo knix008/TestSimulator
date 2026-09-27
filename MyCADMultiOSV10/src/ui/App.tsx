@@ -57,6 +57,47 @@ async function readFile(file: Blob): Promise<string> {
   })
 }
 
+/**
+ * An open menu closes when the pointer leaves it.
+ *
+ * The handlers are meant to go on every element of one menu: the menu bar and
+ * the panel it opened are two elements but one region, so moving from a root
+ * button down into its items must not close anything. They share this hook's
+ * timer, and entering either cancels the pending close.
+ *
+ * The delay is what makes it usable rather than twitchy: a pointer heading
+ * diagonally for an item can clip the corner for a frame, and closing on that
+ * would make the menu impossible to reach.
+ */
+export const MENU_CLOSE_DELAY = 260
+
+function useCloseOnLeave(open: boolean, close: () => void, delay = MENU_CLOSE_DELAY) {
+  const timer = useRef<number | null>(null)
+  // The caller passes a fresh arrow each render; the timer reads the latest.
+  const closeRef = useRef(close)
+  closeRef.current = close
+  const cancel = useCallback(() => {
+    if (timer.current === null) return
+    window.clearTimeout(timer.current)
+    timer.current = null
+  }, [])
+  // A menu closed by a click or by Escape must not leave a timer running that
+  // would then close whatever the user opened next.
+  useEffect(() => {
+    if (!open) cancel()
+    return cancel
+  }, [cancel, open])
+  const onMouseLeave = useCallback(() => {
+    if (!open) return
+    cancel()
+    timer.current = window.setTimeout(() => {
+      timer.current = null
+      closeRef.current()
+    }, delay)
+  }, [cancel, delay, open])
+  return { onMouseEnter: cancel, onMouseLeave }
+}
+
 export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, () => createInitialState())
   const [fonts, setFonts] = useState<string[]>(FALLBACK_FONTS)
@@ -746,6 +787,9 @@ export function App() {
         case 'ruler':
           dispatch({ type: 'toggle-ruler' })
           break
+        case 'scaleBar':
+          dispatch({ type: 'patch-settings', patch: { scaleBar: state.settings.scaleBar === false } })
+          break
         case 'showAxes':
           // X, Y and Z go on and off together: shown, or not shown.
           dispatch({ type: 'patch-settings', patch: { showAxes: state.settings.showAxes === false } })
@@ -1048,6 +1092,21 @@ export function App() {
     })
   }
 
+  // Without a pointer to move away there would be no way left to dismiss a
+  // menu, since the root click now opens rather than toggles: a press outside
+  // closes it, which is also how a touch screen gets out of one.
+  useEffect(() => {
+    if (!menu && !context) return
+    const onDown = (event: Event) => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest?.('.menu-popup')) return
+      setContext(null)
+      if (!target?.closest?.('.menu-root')) setMenu(null)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [context, menu])
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -1162,6 +1221,7 @@ export function App() {
   const toolbarToggles: Record<string, boolean> = {
     grid: state.settings.grid,
     ruler: state.settings.ruler,
+    scaleBar: state.settings.scaleBar !== false,
     showAxes: state.settings.showAxes !== false
   }
 
@@ -1179,6 +1239,16 @@ export function App() {
   // and for the tool labels. They open and close, they do not resize.
   const panelSize = Math.max(MIN_PANEL_WIDTH, naturalPanelWidth || MIN_PANEL_WIDTH)
   const openMenuItems = MENUS.find((item) => item.id === menu)
+  // The menu bar and the panel below it are one hover region.
+  const menuHover = useCloseOnLeave(Boolean(openMenuItems), () => setMenu(null))
+  const contextHover = useCloseOnLeave(Boolean(context), () => setContext(null))
+
+  /** Drop a menu panel under the root it belongs to. */
+  const openMenuUnder = useCallback((id: string, root: HTMLElement) => {
+    const rect = root.getBoundingClientRect()
+    setMenuPos({ x: rect.left, y: rect.bottom })
+    setMenu(id)
+  }, [])
   // The recent list adds its heading and the "clear all" row to the menu, and
   // the popup has to count those when it decides how tall it can be.
   const recentInMenu = menu === 'file' && state.settings.recentFiles.length > 0
@@ -1218,7 +1288,7 @@ export function App() {
         void onDropFiles(Array.from(event.dataTransfer.files))
       }}
     >
-      <nav className="menubar" data-testid="menubar" ref={menubarRef}>
+      <nav className="menubar" data-testid="menubar" ref={menubarRef} {...menuHover}>
         {MENUS.map((entry) => (
           <button
             key={entry.id}
@@ -1226,11 +1296,15 @@ export function App() {
             className="menu-root"
             data-testid={`menu-${entry.id}`}
             title={t(entry.labelKey)}
-            onClick={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect()
-              setMenuPos({ x: rect.left, y: rect.bottom })
-              setMenu(menu === entry.id ? null : entry.id)
+            // The pointer alone opens a menu, and moving along the bar swaps
+            // one for the next. A click is then only for the people who have
+            // no pointer to hover with, so it opens rather than toggles:
+            // toggling would close the panel the hover just opened.
+            onMouseEnter={(event) => {
+              menuHover.onMouseEnter()
+              openMenuUnder(entry.id, event.currentTarget)
             }}
+            onClick={(event) => openMenuUnder(entry.id, event.currentTarget)}
           >
             <span className="menu-icon">{menuIcon(entry.id)}</span>
             <span className="menu-label">{t(entry.labelKey)}</span>
@@ -1246,17 +1320,14 @@ export function App() {
         <div
           className="menu-popup"
           role="menu"
+          {...menuHover}
           data-layout={popupLayout.columns > 1 ? 'multi-column' : 'single-column'}
           data-columns={popupLayout.columns}
           data-testid="menu-popup"
           style={{ left: popupLayout.left, top: menuPos.y, width: popupLayout.width }}
         >
-          <header className="popup-title menu-popup-title" data-testid="popup-title">
-            <span className="popup-heading">
-              <span className="menu-icon" data-testid="popup-icon">{menuIcon(openMenuItems.id)}</span>
-              <strong>{t(openMenuItems.labelKey)}</strong>
-            </span>
-          </header>
+          {/* No title: the panel hangs off the root that names it, so
+              repeating "File" inside the File menu says nothing. */}
           <div
             className="menu-items"
             style={{
@@ -1613,7 +1684,7 @@ export function App() {
         />
       </footer>
       {context ? (
-        <div className="menu-popup" role="menu" data-layout="single-column" data-testid="context-menu" style={{ left: context.x, top: context.y }}>
+        <div className="menu-popup" role="menu" data-layout="single-column" data-testid="context-menu" {...contextHover} style={{ left: context.x, top: context.y }}>
           <header className="popup-title menu-popup-title" data-testid="popup-title">
             <span className="popup-heading">
               <span className="menu-icon" data-testid="popup-icon">{menuIcon('context')}</span>

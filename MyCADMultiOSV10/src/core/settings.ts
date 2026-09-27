@@ -34,6 +34,8 @@ export interface Settings {
   }
   grid: boolean
   ruler: boolean
+  /** the draggable scale bar in the viewport corner */
+  scaleBar: boolean
   snap: number
   /** grow the axes and the grid with the model */
   autoScaleAxes: boolean
@@ -209,6 +211,7 @@ export function defaultSettings(): Settings {
     lastDirectories: { open: '', save: '', import: '', background: '' },
     grid: true,
     ruler: true,
+    scaleBar: true,
     snap: 10,
     autoScaleAxes: true,
     showAxes: true,
@@ -276,6 +279,7 @@ export function sanitizeSettings(input: unknown): Settings {
     },
     grid: typeof raw.grid === 'boolean' ? raw.grid : base.grid,
     ruler: typeof raw.ruler === 'boolean' ? raw.ruler : base.ruler,
+    scaleBar: typeof raw.scaleBar === 'boolean' ? raw.scaleBar : base.scaleBar,
     snap: typeof raw.snap === 'number' ? Math.max(0, raw.snap) : base.snap,
     autoScaleAxes: typeof raw.autoScaleAxes === 'boolean' ? raw.autoScaleAxes : base.autoScaleAxes,
     showAxes: typeof raw.showAxes === 'boolean' ? raw.showAxes : base.showAxes,

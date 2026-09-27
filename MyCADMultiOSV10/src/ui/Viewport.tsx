@@ -10,6 +10,7 @@ import {
   sceneRadius, tickLabel, viewDistance, viewSpan, roundStep, type OrbitState
 } from '../core/viewnav'
 import { boundingBoxOf } from '../core/primitives'
+import { buildOverlay, mergeBounds, overlayBounds, overlayFramingKey } from '../core/overlay'
 import { formatLength } from '../core/units'
 import type { UnitSchema } from '../core/units'
 import { themeById } from '../core/themes'
@@ -80,7 +81,14 @@ export function Viewport({
     // The scene radius drives the axes, the grid, the near/far planes and the
     // camera distance, so a 4 m wall is framed like a 40 mm cube.
     const visible = doc.solids.filter((solid) => solid.visible)
-    const radius = settings.autoScaleAxes ? sceneRadius(boundingBoxOf(visible)) : 0
+    // The Draft, GSD and SketchUp curve tools put their result in the document
+    // extras rather than in the solid list, so the overlay is framed and drawn
+    // alongside the solids: a drawing with no solid in it still fills the view.
+    const wires = doc.extras?.wires ?? []
+    const annotations = doc.extras?.annotations ?? []
+    const radius = settings.autoScaleAxes
+      ? sceneRadius(mergeBounds(boundingBoxOf(visible), overlayBounds(wires, annotations)))
+      : 0
     const axisSpan = axisLength(radius)
     // The grid follows the zoom: the step is chosen for what the camera can
     // see, so the lines keep the same spacing on screen at every magnification.
@@ -89,6 +97,7 @@ export function Viewport({
     // dragging a solid across the scene must not change the magnification.
     const framing = visible
       .map((solid) => `${solid.id}:${solid.size.x},${solid.size.y},${solid.size.z},${solid.size.radius},${solid.scale.x},${solid.scale.y},${solid.scale.z}`)
+      .concat(overlayFramingKey(wires, annotations) || [])
       .join('|')
     if (framingKey.current !== framing || frameRadius.current === null) {
       framingKey.current = framing
@@ -310,6 +319,32 @@ export function Viewport({
       mesh.userData.id = solid.id
       scene.add(mesh)
       meshes.push(mesh)
+    }
+    // The wireframe overlay: Draft lines and arcs, GSD curves, SketchUp faces
+    // and section outlines, and the dimensions and notes that go with them.
+    // It draws over the solids without depth testing, the way a CAD overlay
+    // does, so a curve on a face is not swallowed by it.
+    const overlay = buildOverlay(wires, annotations, radius)
+    const overlayObjects: THREE.Object3D[] = []
+    const addOverlayLines = (positions: number[], color: string, opacity: number) => {
+      if (positions.length === 0) return
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+      const lines = new THREE.LineSegments(
+        geometry,
+        new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true, opacity })
+      )
+      lines.renderOrder = 4
+      scene.add(lines)
+      overlayObjects.push(lines)
+    }
+    addOverlayLines(overlay.wires, theme.colors.accent, 0.95)
+    addOverlayLines(overlay.annotations, theme.colors.text, 0.85)
+    for (const label of overlay.labels) {
+      const sprite = noteLabel(label.text, theme.colors.text, label.size)
+      sprite.position.set(label.at.x, label.at.y, label.at.z)
+      scene.add(sprite)
+      overlayObjects.push(sprite)
     }
     // Selection is shown three ways so it reads in any theme or shading mode:
     // the surface glows, its edges are outlined and a box brackets it.
@@ -585,6 +620,7 @@ export function Viewport({
       disposeObject(axes)
       disposeObject(cornerAxes)
       for (const highlight of highlights) disposeObject(highlight)
+      for (const object of overlayObjects) disposeObject(object)
       for (const object of lampObjects) disposeObject(object)
     }
   }, [doc, settings.grid, settings.theme, settings.showAxes, settings.autoScaleAxes, settings.snap, settings.light, settings.lights, settings.activeLight, settings.projection, settings.clip, settings.navigation, zoom, resetKey])
@@ -592,6 +628,15 @@ export function Viewport({
   const layerStyle = settings.backgroundImage
     ? { backgroundImage: `url(${settings.backgroundImage})`, opacity: settings.backgroundOpacity / 100 }
     : undefined
+
+  // The ruler and the scale marker read off the same radius the scene is
+  // framed for, overlay included, so they agree with what the camera shows.
+  const shownRadius = settings.autoScaleAxes
+    ? sceneRadius(mergeBounds(
+        boundingBoxOf(doc.solids.filter((solid) => solid.visible)),
+        overlayBounds(doc.extras?.wires ?? [], doc.extras?.annotations ?? [])
+      ))
+    : 0
 
   return (
     <div
@@ -615,14 +660,16 @@ export function Viewport({
           <button key={preset} type="button" title={preset} onClick={() => onPreset(preset)}>{preset}</button>
         ))}
       </div>
-      {settings.ruler ? <ScaleRuler zoom={zoom} radius={settings.autoScaleAxes ? sceneRadius(boundingBoxOf(doc.solids.filter((solid) => solid.visible))) : 0} /> : null}
+      {settings.ruler ? <ScaleRuler zoom={zoom} radius={shownRadius} /> : null}
+      {settings.scaleBar === false ? null : (
       <ScaleMarker
         zoom={zoom}
-        radius={settings.autoScaleAxes ? sceneRadius(boundingBoxOf(doc.solids.filter((solid) => solid.visible))) : 0}
+        radius={shownRadius}
         units={settings.units ?? 'mm'}
         at={settings.scaleMarker}
         onMove={onMoveScaleMarker}
       />
+      )}
       <div className="nav-hint">Wheel zoom · Drag rotate · Right drag pan · Drag object to move (Shift: up/down, Alt: 1 mm steps) · Drag ☀ to move the light</div>
     </div>
   )
@@ -667,7 +714,11 @@ function ScaleMarker({
   // A round distance that comes out somewhere near 140 px on screen.
   const distance = roundStep(140 / pxPerMm)
   const width = Math.max(24, distance * pxPerMm)
-  const home = { x: 18, y: 42 }
+  // The bar starts in the top left corner, out of the way of the status bar
+  // and the horizontal ruler along the bottom edge. `bottom` is what places
+  // it, so the top of the canvas is the far end of that axis. Dragging it
+  // puts it anywhere and that position is remembered.
+  const home = { x: 18, y: Math.max(4, height - 40) }
   // A pointer event without coordinates (a synthetic one, say) must not turn
   // the marker's position into NaN.
   const place = at && Number.isFinite(at.x) && Number.isFinite(at.y) ? at : home
@@ -792,6 +843,41 @@ function axisLabel(text: string, color: string, size: number) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }))
   sprite.scale.set(size, size, 1)
   sprite.renderOrder = 3
+  return sprite
+}
+
+/**
+ * A dimension value or a note, as a sprite. Unlike an axis letter this is a
+ * whole string, so the canvas is cut to the width the text measures and the
+ * sprite keeps that aspect: "120.00 mm" stays legible instead of squashing
+ * into a square.
+ */
+function noteLabel(text: string, color: string, size: number) {
+  const height = 64
+  const font = `600 ${Math.round(height * 0.62)}px sans-serif`
+  const canvas = document.createElement('canvas')
+  const measure = canvas.getContext('2d')
+  let width = height * 2
+  if (measure) {
+    measure.font = font
+    width = Math.max(height, Math.ceil(measure.measureText(text).width) + height * 0.5)
+  }
+  canvas.width = width
+  canvas.height = height
+  // Setting the canvas size clears it and drops the font, so the context is
+  // configured again after the resize.
+  const context = canvas.getContext('2d')
+  if (context) {
+    context.fillStyle = color
+    context.font = font
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(text, width / 2, height / 2)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }))
+  sprite.scale.set((size * width) / height, size, 1)
+  sprite.renderOrder = 6
   return sprite
 }
 

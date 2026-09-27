@@ -12,7 +12,7 @@ components, tags, scenes, section planes).
 npm install
 npm start           # Electron app against the Vite dev server
 npm run dev         # browser only
-npm test            # 493 tests
+npm test            # 722 tests
 
 npm run build:web   # static site in dist/
 npm run build:win   # NSIS installer
@@ -35,7 +35,7 @@ window forward, with whatever file was passed on the command line.
 | Modelling | 13 primitives, booleans (union/cut/common/XOR/fragments), pad, pocket, revolve, loft, pipe, helix, fillet, chamfer, shell, thickness, draft, patterns |
 | Kernel | B-rep topology with exact chamfer (half-space clipping) and constant-radius fillet (rolling ball / Steiner), NURBS curves and surfaces with rational circles and knot insertion |
 | Sketcher | 2D constraint solver (coincident, horizontal, vertical, distance, radius, parallel, perpendicular, equal, symmetric, tangent…), degrees of freedom, redundancy check |
-| Draft | Lines, arcs, B-splines, Bezier curves, offsets, trim/extend, join/split, upgrade/downgrade, five array types, dimensions, shape strings |
+| Draft | Lines, arcs, B-splines, Bezier curves, offsets, trim/extend, join/split, upgrade/downgrade, five array types, dimensions, shape strings — drawn in the viewport as a wireframe overlay over the solids |
 | Surfaces | GSD extrude, revolve, sweep, multi-section, fill, blend, offset, join, split, boundary extraction, healing report |
 | Mesh & points | Evaluate, decimate, refine, smooth, harmonize/flip normals, fill holes, sections, plane/sphere fitting, surface approximation |
 | Assembly | Product tree, constraint solver, exploded view, BOM with masses, inertia matrix, clash detection, DMU joints and simulation |
@@ -45,16 +45,25 @@ window forward, with whatever file was passed on the command line.
 | Drawings | TechDraw projections, section and detail views, dimensions, hatching, BOM tables, A3/A4/A5/Letter/Legal sheets, SVG and DXF output |
 | Scripting | Sandboxed Python interpreter with a FreeCAD-shaped API (`App`, `Part`, `Draft`, `math`), plus a compact macro form |
 | Extensions | Addon manager: catalogue, manifest validation, install/enable/uninstall, addon-contributed commands and themes |
-| View | Seven draw styles (as is, shaded, flat lines, wireframe, points, hidden line, no shading), perspective or orthographic camera, X/Y/Z section planes, four navigation styles (CAD, Blender, touchpad, Maya), six key-light kinds with colour and nine rigs |
+| View | Seven draw styles (as is, shaded, flat lines, wireframe, points, hidden line, no shading), a wireframe overlay for curves and annotations that frames itself even with no solid in the document, a draggable scale bar that can be switched off, perspective or orthographic camera, X/Y/Z section planes, four navigation styles (CAD, Blender, touchpad, Maya), six key-light kinds with colour and nine rigs |
 | Units | mm, cm, m, inch and foot schemas for the status bar, measurements and volumes |
 | Interchange | STEP (AP203/214), IGES, PLY, OFF, Collada, STL, OBJ, DXF, SVG, OpenSCAD, IFC4, point clouds and G-code, in and out where the format allows |
-| Interface | 22 menus, 30 workbenches, 225 commands, a tool panel grouped by what the commands do, 40 pastel themes (20 dark + 20 light) plus a custom theme that can start from any preset, resizable tool and property panels, Korean and English |
+| Interface | 16 menus that open on hover and close when the pointer leaves them, 47 workbenches, 344 registry commands (445 runnable tools counting the ones the window handles itself), a tool panel grouped by what the commands do, 40 pastel themes (20 dark + 20 light) plus a custom theme that can start from any preset, resizable tool and property panels, Korean and English |
+
+Curves and annotations are document data, not solids: the Draft, GSD and
+SketchUp drawing tools, the section outlines and the sheet-metal flat pattern
+all land in `doc.extras` and the viewport draws them as an overlay. Some other
+extras are still state and reports rather than something on screen — tags do
+not hide geometry yet, `Zoom extents` and `Walk` do not move the camera, a
+section plane is listed but not drawn, the X-ray and sketchy styles have no
+viewport equivalent, component instances are not placed in 3D, and a DMU
+mechanism is solved but not animated.
 
 ## Documentation
 
 - [USERSGUIDE.md](USERSGUIDE.md) — how to drive the application, workbench by workbench.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the code is organised and why.
-- [sample/README.md](sample/README.md) — the 27 sample files and what each one exercises.
+- [sample/README.md](sample/README.md) — the 44 sample files and what each one exercises.
 - `test-output/summary.txt` — the last test run, written by the reporter in `tests/summary-reporter.ts` (not committed).
 
 ## Project layout
@@ -65,7 +74,7 @@ src/core/     geometry, document model, commands - no DOM, fully unit tested
 src/ui/       React components: App shell, viewport, dialogs, toolbar controls
 scripts/      icon, sample and installer generators
 sample/       ready-made test files for every import path
-tests/        481 tests (unit, contract and jsdom GUI)
+tests/        722 tests (unit, contract and jsdom GUI)
 ```
 
 ## File formats

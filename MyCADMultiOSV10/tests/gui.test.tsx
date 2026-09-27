@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { App } from '../src/ui/App'
+import { App, MENU_CLOSE_DELAY } from '../src/ui/App'
 import { MENUS, TOOLBAR, TOOLBAR_CONTROLS, TOOLBAR_GROUPS, TOOLBAR_RIGHT } from '../src/core/menus'
 import { toolbarMinWidth } from '../src/core/buildInfo'
 import { serializeDocument } from '../src/core/serialize'
@@ -164,6 +164,95 @@ describe('gui', () => {
     expect(solid).toBeTruthy()
     fireEvent.contextMenu(viewport, { clientX: 40, clientY: 40 })
     expect(screen.getByTestId('context-menu').getAttribute('data-layout')).toBe('single-column')
+  })
+
+  /** Let the close timer run out, as real time rather than a fake clock. */
+  const afterCloseDelay = () => act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, MENU_CLOSE_DELAY + 120))
+  })
+
+  it('[GUI] an open menu closes when the pointer leaves it', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.click(screen.getByTestId('menu-file'))
+    expect(screen.getByTestId('menuitem-new')).toBeTruthy()
+
+    await user.unhover(screen.getByTestId('menubar'))
+    // The grace period is the point: it must not vanish the instant the
+    // pointer crosses the edge on its way to an item.
+    expect(screen.queryByTestId('menuitem-new')).toBeTruthy()
+    await waitFor(() => expect(screen.queryByTestId('menuitem-new')).toBeNull())
+  })
+
+  it('[GUI] the menu bar and its panel are one region, so moving between them keeps it open', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.click(screen.getByTestId('menu-file'))
+    const popup = screen.getByTestId('menuitem-new').closest('.menu-popup') as HTMLElement
+
+    // Down from the root button into the items: leaving the bar arms the
+    // close, entering the panel has to cancel it.
+    await user.unhover(screen.getByTestId('menubar'))
+    await user.hover(popup)
+    await afterCloseDelay()
+    expect(screen.queryByTestId('menuitem-new')).toBeTruthy()
+
+    // And back up to the bar again.
+    await user.unhover(popup)
+    await user.hover(screen.getByTestId('menubar'))
+    await afterCloseDelay()
+    expect(screen.queryByTestId('menuitem-new')).toBeTruthy()
+
+    await user.unhover(screen.getByTestId('menubar'))
+    await waitFor(() => expect(screen.queryByTestId('menuitem-new')).toBeNull())
+  })
+
+  it('[GUI] the right-click menu closes on leave', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    fireEvent.contextMenu(screen.getByTestId('viewport'), { clientX: 40, clientY: 40 })
+    const context = screen.getByTestId('context-menu')
+    // The right click came from fireEvent, so the pointer has to be put over
+    // the menu before leaving it means anything.
+    await user.hover(context)
+    await user.unhover(context)
+    await waitFor(() => expect(screen.queryByTestId('context-menu')).toBeNull())
+  })
+
+  it('[GUI] the pointer alone opens a menu and moves from one to the next', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    expect(screen.queryByTestId('menuitem-new')).toBeNull()
+
+    // No click: hovering the root is enough.
+    await user.hover(screen.getByTestId('menu-file'))
+    expect(screen.getByTestId('menuitem-new')).toBeTruthy()
+
+    // Along the bar, the panel follows the pointer.
+    await user.hover(screen.getByTestId('menu-edit'))
+    expect(screen.queryByTestId('menuitem-new')).toBeNull()
+    expect(screen.getByTestId('menuitem-undo')).toBeTruthy()
+
+    // A click on the root it is already showing keeps it open: toggling would
+    // close the panel the hover just opened.
+    await user.click(screen.getByTestId('menu-edit'))
+    await afterCloseDelay()
+    expect(screen.getByTestId('menuitem-undo')).toBeTruthy()
+  })
+
+  it('[GUI] a press outside closes an open menu, so a touch screen can leave one', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    await user.hover(screen.getByTestId('menu-file'))
+    expect(screen.getByTestId('menuitem-new')).toBeTruthy()
+    // pointerdown, not a hover: this is the path a tap takes.
+    fireEvent.pointerDown(screen.getByTestId('viewport'))
+    expect(screen.queryByTestId('menuitem-new')).toBeNull()
+
+    fireEvent.contextMenu(screen.getByTestId('viewport'), { clientX: 40, clientY: 40 })
+    expect(screen.getByTestId('context-menu')).toBeTruthy()
+    fireEvent.pointerDown(screen.getByTestId('statusbar'))
+    expect(screen.queryByTestId('context-menu')).toBeNull()
   })
 
   it('[GUI] asks before closing a dirty document and edits properties', async () => {

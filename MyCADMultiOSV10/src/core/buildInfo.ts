@@ -31,7 +31,7 @@ export const MIN_WINDOW_HEIGHT = 760
 
 export const POPUP_SIZE = {
   about: { width: 560, height: 400 },
-  settings: { width: 1040, height: 700 },
+  settings: { width: 820, height: 600 },
   error: { width: 720, height: 460 },
   progress: { width: 440, height: 168 },
   confirm: { width: 460, height: 188 },

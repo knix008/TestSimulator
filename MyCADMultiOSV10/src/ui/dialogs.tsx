@@ -1,12 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { AUTHOR, buildInfo, POPUP_SIZE } from '../core/buildInfo'
 import type { MessageKey } from '../core/i18n'
-import { THEMES, THEME_TOKENS, createCustomTheme, themesByMode, type ThemeMode } from '../core/themes'
+import { THEMES, THEME_TOKENS, createCustomTheme, type ThemeMode } from '../core/themes'
 import { ThemeSwatch } from './ToolbarControls'
 import { commandHelp, lightKindKey } from '../core/labels'
 import { menuIcon, translate } from '../core/i18n'
 import { pageSizeMm, pageToSvg, type PrintPage, type PrintScope, type PageSetup } from '../core/print'
-import { EXPORT_FORMATS, exportFileName, type ExportFormat } from '../core/exporters'
+import { EXPORT_FORMATS, exportFileName, exportFormatsByGroup, type ExportFormat } from '../core/exporters'
 import { LIGHT_KINDS, MAX_LIGHTS, defaultLight, newLight, type Settings, type ThemeId, type FontStyleName, type Lang, type LightKind } from '../core/settings'
 import { NAVIGATION_STYLES, type NavigationStyle } from '../core/viewnav'
 import { UNIT_SCHEMAS, type UnitSchema } from '../core/units'
@@ -431,7 +431,6 @@ export function SettingsDialog({
 }) {
   const tabs = ['general', 'theme', 'font', 'viewport', 'printTab', 'appearance', 'recent'] as const
   const [active, setActive] = useState<(typeof tabs)[number]>('general')
-  const [mode, setMode] = useState<ThemeMode | 'custom'>(settings.theme === 'custom' ? 'custom' : (THEMES.find((theme) => theme.id === settings.theme)?.mode ?? 'dark'))
   const printSetup = settings.print
   const patchPrint = (values: Partial<Settings['print']>) => onChange({ print: { ...printSetup, ...values } })
   const custom = settings.customTheme
@@ -486,72 +485,65 @@ export function SettingsDialog({
             <>
               <fieldset className="field-group">
                 <legend>{t('theme')}</legend>
-                <div className="row tabs" data-testid="theme-modes">
-                  {(['dark', 'light', 'custom'] as const).map((id) => (
-                    <button type="button" key={id} data-testid={`theme-mode-${id}`} className={mode === id ? 'on' : ''} title={id === 'custom' ? t('customTheme') : t(id)} onClick={() => setMode(id)}>
-                      {id === 'custom' ? t('customTheme') : `${t(id)} (${themesByMode(id as ThemeMode).length})`}
+                {/* One gallery, dark and light together with the custom theme
+                    as the last tile, the way the toolbar's theme menu already
+                    lists them. Splitting them behind mode buttons only made
+                    the same forty swatches take two clicks to reach. */}
+                <div className="theme-grid" data-testid="theme-grid">
+                  {THEMES.map((theme) => (
+                    <button
+                      type="button"
+                      key={theme.id}
+                      data-testid={`theme-${theme.id}`}
+                      className={settings.theme === theme.id ? 'theme-swatch on' : 'theme-swatch'}
+                      title={`${theme.name[settings.language]} · ${t(theme.mode)}`}
+                      onClick={() => onChange({ theme: theme.id })}
+                    >
+                      <ThemeSwatch theme={theme} size={14} />
+                      <span className="ellipsis">{theme.name[settings.language]}</span>
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    data-testid="theme-custom"
+                    className={settings.theme === 'custom' ? 'theme-swatch on' : 'theme-swatch'}
+                    title={t('customTheme')}
+                    onClick={() => onChange({ theme: 'custom' })}
+                  >
+                    <ThemeSwatch theme={custom} size={14} />
+                    <span className="ellipsis">{t('customTheme')}</span>
+                  </button>
                 </div>
-                {mode === 'custom' ? (
-                  <div className="row">
-                    <span>{t('theme')}</span>
+              </fieldset>
+              {settings.theme === 'custom' ? (
+                <fieldset className="field-group">
+                  <legend>{t('customTheme')}</legend>
+                  {/* Starting from an existing palette used to be a second
+                      grid of the same forty tiles; one list is enough. */}
+                  <label className="row"><span>{t('themePreset')}</span>
+                    <select
+                      aria-label={t('themePreset')}
+                      data-testid="theme-preset"
+                      value=""
+                      onChange={(event) => {
+                        const preset = THEMES.find((theme) => theme.id === event.target.value)
+                        if (!preset) return
+                        onChange({ customTheme: { ...custom, mode: preset.mode, colors: { ...preset.colors } } })
+                      }}
+                    >
+                      <option value="">{t('themePreset')}…</option>
+                      {THEMES.map((preset) => (
+                        <option key={preset.id} value={preset.id}>{`${t(preset.mode)} · ${preset.name[settings.language]}`}</option>
+                      ))}
+                    </select>
+                    <button type="button" data-testid="custom-reset" title={t('remove')} onClick={() => onChange({ customTheme: createCustomTheme(THEMES[0]) })}>{t('remove')}</button>
+                  </label>
+                  <label className="row"><span>{t('theme')}</span>
                     <select aria-label={t('customTheme')} data-testid="custom-mode" value={custom.mode} onChange={(event) => onChange({ customTheme: { ...custom, mode: event.target.value as ThemeMode } })}>
                       <option value="dark">{t('dark')}</option>
                       <option value="light">{t('light')}</option>
                     </select>
-                    <span className="row-item">
-                      <button type="button" data-testid="custom-apply" className="primary" title={t('apply')} onClick={() => onChange({ theme: 'custom' })}>{t('apply')}</button>
-                      <button type="button" data-testid="custom-reset" title={t('remove')} onClick={() => onChange({ customTheme: createCustomTheme(THEMES.find((theme) => theme.id === settings.theme) ?? THEMES[0]) })}>{t('remove')}</button>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="theme-grid" data-testid="theme-grid">
-                    {themesByMode(mode as ThemeMode).map((theme) => (
-                      <button
-                        type="button"
-                        key={theme.id}
-                        data-testid={`theme-${theme.id}`}
-                        className={settings.theme === theme.id ? 'theme-swatch on' : 'theme-swatch'}
-                        title={theme.name[settings.language]}
-                        onClick={() => onChange({ theme: theme.id })}
-                      >
-                        <ThemeSwatch theme={theme} size={18} />
-                        <span className="ellipsis">{theme.name[settings.language]}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </fieldset>
-              {mode === 'custom' ? (
-                <fieldset className="field-group">
-                  <legend>{t('themePreset')}</legend>
-                  <p className="muted preset-hint">{settings.language === 'ko'
-                    ? '프리셋을 고르면 그 색이 사용자 정의 테마로 복사됩니다. 아래에서 각 색을 바꿀 수 있습니다.'
-                    : 'Picking a preset copies its colours into the custom theme; each colour can then be edited below.'}</p>
-                  <div className="preset-grid" data-testid="theme-presets">
-                    {THEMES.map((preset) => (
-                      <button
-                        type="button"
-                        key={preset.id}
-                        className="theme-swatch"
-                        data-testid={`preset-${preset.id}`}
-                        title={`${preset.name[settings.language]} (${preset.mode === 'dark' ? 'Dark' : 'Light'})`}
-                        onClick={() => onChange({
-                          customTheme: { ...custom, mode: preset.mode, colors: { ...preset.colors } },
-                          theme: 'custom'
-                        })}
-                      >
-                        <ThemeSwatch theme={preset} size={14} />
-                        <span className="ellipsis">{preset.name[settings.language]}</span>
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-              ) : null}
-              {mode === 'custom' ? (
-                <fieldset className="field-group">
-                  <legend>{t('color')}</legend>
+                  </label>
                   <div className="color-grid" data-testid="custom-colors">
                     {THEME_TOKENS.map((token) => (
                       <label className="color-row" key={token.key}>
@@ -602,6 +594,9 @@ export function SettingsDialog({
                 </label>
                 <label className="row"><span>{t('ruler')}</span>
                   <input aria-label={t('ruler')} data-testid="ruler-toggle" type="checkbox" checked={settings.ruler} onChange={() => onChange({ ruler: !settings.ruler })} />
+                </label>
+                <label className="row"><span>{t('scaleBar')}</span>
+                  <input aria-label={t('scaleBar')} data-testid="scale-bar-toggle" type="checkbox" checked={settings.scaleBar !== false} onChange={() => onChange({ scaleBar: settings.scaleBar === false })} />
                 </label>
                 <label className="row"><span>{t('showAxes')}</span>
                   <input aria-label={t('showAxes')} data-testid="show-axes" type="checkbox" checked={settings.showAxes} onChange={() => onChange({ showAxes: !settings.showAxes })} />
@@ -1031,21 +1026,30 @@ export function ExportDialog({
   const format = EXPORT_FORMATS.find((item) => item.id === formatId) as ExportFormat
   return (
     <PopupFrame kind="export" title={t('export')} icon={menuIcon('export')} onClose={onClose}>
-      <fieldset className="field-group">
+      <fieldset className="field-group export-formats-group">
         <legend>{t('exportFormat')}</legend>
-        <div className="export-grid" data-testid="export-formats">
-          {EXPORT_FORMATS.map((item) => (
-            <label key={item.id} className={item.id === formatId ? 'export-option on' : 'export-option'}>
-              <input
-                type="radio"
-                name="export-format"
-                data-testid={`export-format-${item.id}`}
-                checked={item.id === formatId}
-                onChange={() => setFormatId(item.id)}
-              />
-              <span className="export-ext">.{item.ext}</span>
-              <span className="ellipsis">{item.label[language]}</span>
-            </label>
+        {/* By what the format is for, so the two `.dxf` entries and the two
+            `.svg` ones are told apart by the heading above them. */}
+        <div data-testid="export-formats">
+          {exportFormatsByGroup().map((section) => (
+            <div className="export-section" key={section.group.id} data-testid={`export-group-${section.group.id}`}>
+              <p className="menu-section">{section.group.label[language]}</p>
+              <div className="export-grid">
+                {section.formats.map((item) => (
+                  <label key={item.id} className={item.id === formatId ? 'export-option on' : 'export-option'}>
+                    <input
+                      type="radio"
+                      name="export-format"
+                      data-testid={`export-format-${item.id}`}
+                      checked={item.id === formatId}
+                      onChange={() => setFormatId(item.id)}
+                    />
+                    <span className="export-ext">.{item.ext}</span>
+                    <span className="ellipsis">{item.label[language]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </fieldset>
@@ -1063,8 +1067,12 @@ export function ExportDialog({
           />
           <span className="muted">{selectionCount} {t('selection')}</span>
         </label>
-        <p className="row muted" data-testid="export-scope">{format.scope[language]}</p>
-        <p className="row" data-testid="export-filename">{exportFileName(doc, format)}</p>
+        {/* Two short lines do not need a 34px row each; the space they were
+            taking belongs to the format list above. */}
+        <p className="export-summary">
+          <span className="muted" data-testid="export-scope">{format.scope[language]}</span>
+          <span data-testid="export-filename">{exportFileName(doc, format)}</span>
+        </p>
       </fieldset>
       <div className="row popup-actions">
         <button type="button" className="primary" data-testid="export-run" title={t('export')} onClick={() => onExport(formatId, selectedOnly)}>{t('export')}</button>

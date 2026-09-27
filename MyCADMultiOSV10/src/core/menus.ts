@@ -58,6 +58,7 @@ export const MENUS: MenuDef[] = [
     { id: 'iso', labelKey: 'iso', icon: menuIcon('iso') },
     { id: 'grid', labelKey: 'grid', icon: menuIcon('grid') },
     { id: 'ruler', labelKey: 'ruler', icon: menuIcon('ruler') },
+    { id: 'scaleBar', labelKey: 'scaleBar', icon: menuIcon('scaleBar') },
     { id: 'showAxes', labelKey: 'showAxes', icon: menuIcon('showAxes') },
     { id: 'shaded', labelKey: 'shaded', icon: menuIcon('shaded') },
     { id: 'wireframe', labelKey: 'wireframe', icon: menuIcon('wireframe') },
@@ -215,7 +216,7 @@ export const TOOLBAR_GROUPS: string[][] = [
   ['undo', 'redo'],
   ['select', 'box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'],
   ['delete', 'copy', 'paste'],
-  ['front', 'top', 'iso', 'fit', 'resetView', 'grid', 'ruler', 'showAxes']
+  ['front', 'top', 'iso', 'fit', 'resetView', 'grid', 'ruler', 'scaleBar', 'showAxes']
 ]
 
 /**
@@ -265,12 +266,16 @@ export function menuPopupLayout(options: {
   viewportHeight: number
   /** height of one row, including the gap */
   rowHeight?: number
-  /** title bar, padding and the margin kept to the bottom edge */
+  /**
+   * Everything in the panel's height that is not a row: its own padding and
+   * the clearance kept to the bottom edge of the window. The panel has no
+   * title bar, so this is smaller than it looks.
+   */
   chrome?: number
   columnWidth?: number
 }): PopupLayout {
   const rowHeight = options.rowHeight ?? 29
-  const chrome = options.chrome ?? 60
+  const chrome = options.chrome ?? 44
   const columnWidth = options.columnWidth ?? 196
   const count = Math.max(1, options.count)
 

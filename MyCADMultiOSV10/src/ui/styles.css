@@ -161,12 +161,21 @@ input[type="range"] { width: 120px; }
 .menu-popup[data-layout="multi-column"] { max-width: calc(100vw - 16px); }
 .menu-popup .menu-item { width: 100%; min-width: 0; }
 
+/* A menu item has no border of its own, so the shared `button:hover` rule
+   would show nothing: the pointer needs its own mark to say the row under it
+   is the one a click would take. Keyboard focus gets the same mark, so
+   tabbing through a menu reads like moving the pointer through it. */
+.menu-item { border-radius: 2px; cursor: pointer; }
+.menu-item:hover, .menu-item:focus-visible { background: var(--button); color: var(--accent); outline: none; }
+.menu-item:hover .menu-icon, .menu-item:focus-visible .menu-icon { color: var(--accent); }
+.menu-popup .recent-item:hover { background: var(--button); }
+
 /* theme gallery */
-.theme-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 6px 2px; max-height: 260px; overflow: auto; }
-.theme-swatch { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; padding: 6px; height: auto; font-size: 11px; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 3px; padding: 4px 2px; max-height: 300px; overflow: auto; }
+.theme-swatch { display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 0 6px; height: 24px; font-size: 11px; }
 .theme-swatch.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .theme-chips { display: flex; gap: 3px; }
-.theme-chips i { width: 15px; height: 15px; border-radius: 3px; border: 1px solid var(--line); }
+.theme-chips i { width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--line); }
 
 /* print dialog: settings column on the left, live sheet preview on the right */
 .print-layout { flex: 1 1 auto; display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 14px; min-height: 0; }
@@ -241,10 +250,17 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 /* grouped settings / export boxes */
 .field-group { margin: 0 0 10px; padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: 6px; }
 .field-group > legend { padding: 0 6px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; max-height: 230px; overflow: auto; }
+/* The format list takes whatever height the dialog has left over and scrolls
+   as a whole, so each section can be as tall as it needs and the headings
+   stay with their own options. */
+.export-formats-group { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.export-formats-group > [data-testid="export-formats"] { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.export-section + .export-section { margin-top: 2px; }
+.export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
 .export-option { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; font-size: 12px; }
 .export-option.on { border-color: var(--accent); background: var(--button); }
 .export-ext { min-width: 62px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.export-summary { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 6px 0 0; font-size: 12px; line-height: 1.5; }
 
 .part-help { height: auto; min-height: 32px; white-space: normal; line-height: 1.4; color: var(--muted); font-size: 12px; }
 
@@ -260,7 +276,6 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .settings-panel .row input[type="checkbox"] { justify-self: start; width: 16px; height: 16px; }
 .settings-panel .row input[type="text"], .settings-panel .row select, .settings-panel .row input[type="file"] { width: 100%; min-width: 0; height: 26px; }
 .settings-panel .row.tabs { display: flex; gap: 6px; }
-.settings-panel .theme-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 /* numeric field with steppers */
 .number-field { display: inline-flex; align-items: center; gap: 2px; }
@@ -285,7 +300,7 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .tool-about:hover .about-mark { color: var(--accent); }
 
 /* custom theme colour grid */
-.color-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
 .color-row { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; }
 .color-row input[type="color"] { width: 34px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: transparent; }
 
@@ -331,9 +346,6 @@ button.primary { border-color: var(--accent); color: var(--accent); }
 .app[data-theme-mode="light"] .muted { color: color-mix(in srgb, var(--muted) 75%, var(--text)); }
 
 /* Colour presets inside the custom theme editor. */
-.preset-hint { margin: 0 0 6px; font-size: 11px; line-height: 1.5; white-space: normal; }
-.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 3px; }
-.preset-grid .theme-swatch { display: flex; flex-direction: row; justify-content: flex-start; align-items: center; gap: 6px; height: 24px; padding: 0 6px; font-size: 11px; }
 
 /* The settings list is the one place inside a popup that scrolls, so it is the
    one place that shows a scroll bar; everything else has to fit. */

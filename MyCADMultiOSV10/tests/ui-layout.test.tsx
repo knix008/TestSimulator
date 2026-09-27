@@ -309,6 +309,32 @@ describe('application chrome', () => {
     await waitFor(() => expect(saved().scaleMarker).toBeNull())
   })
 
+  it('[GUI] the scale bar starts in the top left corner and the toolbar switches it off', async () => {
+    const user = userEvent.setup({ delay: null })
+    render(<App />)
+    const marker = await screen.findByTestId('scale-marker')
+    const canvasHeight = (marker.parentElement as HTMLElement).clientHeight || 600
+
+    // `bottom` places it, so its home is the far end of that axis: the top of
+    // the canvas, not the bottom where the horizontal ruler runs.
+    const bottom = Number.parseFloat(marker.style.bottom)
+    expect(bottom).toBeGreaterThan(canvasHeight / 2)
+    expect(Number.parseFloat(marker.style.left)).toBeLessThan(40)
+
+    const saved = () => JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')
+    expect(screen.getByTestId('tb-scaleBar').className).toContain('on')
+    await user.click(screen.getByTestId('tb-scaleBar'))
+    await waitFor(() => expect(screen.queryByTestId('scale-marker')).toBeNull())
+    expect(saved().scaleBar).toBe(false)
+    expect(screen.getByTestId('tb-scaleBar').className).not.toContain('on')
+
+    // The View menu drives the same switch.
+    await user.click(screen.getByTestId('menu-view'))
+    await user.click(screen.getByTestId('menuitem-scaleBar'))
+    await waitFor(() => expect(screen.getByTestId('scale-marker')).toBeTruthy())
+    expect(saved().scaleBar).toBe(true)
+  })
+
   it('[GUI] the toolbar resets the view and steps the text size', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
@@ -421,25 +447,33 @@ describe('application chrome', () => {
     expect(toolbar[toolbar.indexOf('print') - 1]).toBe('export')
   })
 
-  it('[GUI] the theme gallery lives in one settings tab', async () => {
+  it('[GUI] one gallery holds every theme, dark, light and custom together', async () => {
     const user = userEvent.setup({ delay: null })
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     expect(screen.queryByTestId('settings-tab-customTheme')).toBeNull()
     await user.click(screen.getByTestId('settings-tab-theme'))
-    expect(screen.getAllByTestId(/^theme-mode-/)).toHaveLength(3)
-    expect(screen.getAllByTestId(/^theme-(?!mode|grid)/)).toHaveLength(20)
-    await user.click(screen.getByTestId('theme-mode-custom'))
-    expect(screen.getByTestId('custom-colors')).toBeTruthy()
-    // The custom theme can start from any of the forty presets.
-    const presets = screen.getByTestId('theme-presets')
-    expect(presets.querySelectorAll('button')).toHaveLength(40)
-    await user.click(screen.getByTestId('preset-mint'))
-    expect((screen.getByTestId('custom-bg') as HTMLInputElement).value).toBe(THEMES.find((theme) => theme.id === 'mint')!.colors.bg)
-    expect(screen.queryByTestId('theme-grid')).toBeNull()
-    await user.click(screen.getByTestId('theme-mode-light'))
-    expect(screen.getAllByTestId(/^theme-(?!mode|grid)/)).toHaveLength(20)
+
+    // Forty palettes and the custom one, in a single list: no mode buttons to
+    // click through first.
+    expect(screen.queryAllByTestId(/^theme-mode-/)).toHaveLength(0)
+    const grid = screen.getByTestId('theme-grid')
+    expect(grid.querySelectorAll('button')).toHaveLength(41)
     expect(THEMES).toHaveLength(40)
+    expect(screen.getByTestId('theme-custom')).toBeTruthy()
+
+    // The colours only appear once the custom theme is the one in use.
+    expect(screen.queryByTestId('custom-colors')).toBeNull()
+    await user.click(screen.getByTestId('theme-custom'))
+    expect(screen.getByTestId('custom-colors')).toBeTruthy()
+    // The gallery stays put underneath, so another theme is still one click away.
+    expect(screen.getByTestId('theme-grid')).toBeTruthy()
+
+    // Starting from an existing palette is a dropdown now, not a second grid
+    // of the same forty tiles.
+    expect(screen.queryByTestId('theme-presets')).toBeNull()
+    await user.selectOptions(screen.getByTestId('theme-preset'), 'mint')
+    expect((screen.getByTestId('custom-bg') as HTMLInputElement).value).toBe(THEMES.find((theme) => theme.id === 'mint')!.colors.bg)
   })
 
   it('[GUI] switching language never changes the window minimum', async () => {

@@ -43,15 +43,24 @@ generators. React only renders state and dispatches actions.
   stack per document; `withActive(state, doc, recordHistory)` decides whether an
   action is undoable, which is why dragging an object records once per drag
   rather than once per mouse move.
-- **`commands.ts`** is the registry: 220 commands, each a pure
+- **`commands.ts`** is the registry: 344 commands, each a pure
   `(CommandContext) => CommandEffect`. The UI does not know what a command does;
   it only applies the effect. This is what makes the behaviour tests possible -
   `tests/freecad-behavior.test.ts` runs *every* command against a prepared
   document and asserts that something changed.
 - **`extras.ts`** carries the document state the original model did not have
-  (wires, groups, tags, scenes, spreadsheets, FEM analyses, mechanisms, sheet
-  metal parts, BIM elements). It is versioned through `serialize.ts` (`version:
-  2`) and cloned defensively on every snapshot.
+  (wires, annotations, groups, tags, scenes, spreadsheets, FEM analyses,
+  mechanisms, sheet metal parts, BIM elements). It is versioned through
+  `serialize.ts` (`version: 2`) and cloned defensively on every snapshot.
+
+  A command reaches the screen through one of two fields. `effect.solids`
+  becomes geometry the viewport already draws; `effect.extras` is document
+  state that only appears if something renders it. `wires` and `annotations`
+  are rendered (see **The wireframe overlay** below); `tags`, `camera`,
+  `sectionPlanes`, `shadows`, `styleId`, `instances` and `mechanism` are still
+  stored, reported and exported but not drawn, which is why those tools look
+  inert in the window even though their tests pass. Adding a feature whose
+  result is extras means adding the renderer for it too.
 
 ## Geometry layers
 
@@ -62,6 +71,7 @@ generators. React only renders state and dispatches actions.
 | NURBS | `nurbs.ts` | B-spline basis functions, rational curves and surfaces, knot insertion, exact circles, tessellation |
 | Sketch | `sketcher.ts` | 2D constraint system with a damped Gauss-Newton solver and DoF counting |
 | Analysis | `fea.ts`, `femwb.ts` | voxel → tetrahedra meshing, linear elasticity, conjugate gradient solver; closed-form beam/truss/thermal checks |
+| Overlay | `overlay.ts` | wires and annotations as flat vertex arrays and label placements, plus the bounds that frame them |
 
 `brep.ts` is worth reading first if you touch modelling. Two operations are
 exact rather than approximations:
@@ -95,7 +105,15 @@ outside the interpreter, so installing an addon cannot run arbitrary JavaScript.
 - `Viewport.tsx` builds the three.js scene from the document. The scene radius
   drives the axes, the grid, the camera distance and the near/far planes
   (`viewnav.ts`), so a 4 m wall frames like a 40 mm cube. Dragging moves the
-  three.js mesh live and dispatches `move-solid` once on release.
+  three.js mesh live and dispatches `move-solid` once on release. It carries
+  `@ts-nocheck`, so `tsc` says nothing about it: a change here is only proven
+  by running the application.
+- The menu bar is pointer-driven: `useCloseOnLeave` gives the bar and the panel
+  it opened one shared close timer, so moving between them keeps the menu open
+  and leaving the pair closes it after a short grace period. Hovering a root
+  opens it, which is why a click on a root opens rather than toggles — the
+  hover has already opened it — and why a press outside is what closes a menu
+  for anyone without a pointer.
 - `ToolbarControls.tsx` holds the split controls (theme palette, zoom stepper,
   text-size stepper, light rig); `dialogs.tsx` holds every popup, including the
   shared `NumberField`, which always reads `[−] value [+]`.
@@ -109,6 +127,31 @@ outside the interpreter, so installing an addon cannot run arbitrary JavaScript.
   dark palette on a light theme.
 - Every command, menu and toolbar id owns a unique icon. `tests/freecad-parity.test.ts`
   fails if two ids ever share one, or if an id falls back to the `•` placeholder.
+
+## The wireframe overlay
+
+The Draft, GSD and SketchUp drawing tools produce curves, not solids, so their
+result goes to `extras.wires` and `extras.annotations` rather than to the solid
+list. `overlay.ts` turns that data into what three.js needs, and `Viewport.tsx`
+adds it to the scene as two `LineSegments` and one sprite per label.
+
+- The module is pure: it imports no three.js and touches no DOM, because jsdom
+  returns `null` from `getContext` and the viewport's whole effect bails out
+  before it builds a scene. Everything worth asserting is therefore asserted on
+  numbers in `tests/overlay.test.ts`, and the scene itself is checked by driving
+  the real application.
+- A wire is drawn as one segment per span, plus the closing span when it is
+  closed; a two-point wire is a single line whichever way it is flagged.
+- A dimension is its span plus a witness tick at each end. The tick direction is
+  the span crossed with Y, which is degenerate for a vertical dimension, so that
+  case crosses with Z instead.
+- Tick and label sizes come from `overlayScale(radius)`, so annotations read at
+  the distance the camera frames the model from.
+- The overlay is drawn with `depthTest: false`, the way a CAD overlay is: a
+  curve lying on a face is not swallowed by it.
+- `overlayBounds` and `mergeBounds` widen the scene radius, and
+  `overlayFramingKey` joins the solid framing key. Without them a document
+  holding only a 200 mm circle would be framed as if it were empty.
 
 ## View state
 
@@ -159,12 +202,18 @@ table drives:
 
 ## Testing strategy
 
-481 tests in four flavours:
+722 tests in four flavours:
 
 1. **Unit** - geometry and maths checked against analytic values (Steiner's
    formula, `FL/AE`, bend allowance, partition of unity for NURBS bases).
 2. **Registry coverage** - every command in `COMMANDS` runs against a prepared
-   document; a command that produces no visible effect fails.
+   document and its effect must carry something: solids, extras, a report, a
+   download, or at least a status line. Read the bar for what it is. A command
+   that only sets a status passes, and so does one whose extras nothing draws,
+   so this catches a command that does nothing at all, not a command whose
+   result never reaches the screen. Rendering is pinned separately, on the pure
+   modules the viewport feeds from (`tests/overlay.test.ts`), and the window
+   itself is checked by running it.
 3. **Contract** - generated artefacts (samples, installer include, package.json)
    must match the code that consumes them.
 4. **GUI** - jsdom renders the real `App`: menus, dialogs, theme switching,
@@ -187,5 +236,8 @@ committed.
   (command ids, with one-line help texts used for tooltips and the parameter
   dialog). Code comments and identifiers are English.
 - Commands never mutate their input; they return an effect.
+- An effect that writes to `extras` needs something that draws it. Shipping
+  the command alone leaves a tool that passes its tests and does nothing in
+  the window.
 - New geometry goes into `src/core` with a test that pins it to an analytic or
   independently computed value, not to its own output.

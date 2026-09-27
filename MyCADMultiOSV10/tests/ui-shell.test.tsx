@@ -292,15 +292,15 @@ describe('application shell', () => {
     render(<App />)
     await user.click(screen.getByTestId('tb-settings'))
     await user.click(screen.getByTestId('settings-tab-theme'))
-    expect(screen.getAllByTestId(/^theme-(?!mode|grid)/)).toHaveLength(20)
+    // Dark and light are one gallery, so a light theme is one click away
+    // from a dark one rather than two.
+    expect(screen.getAllByTestId(/^theme-(?!grid|preset)/)).toHaveLength(41)
     await user.click(screen.getByTestId('theme-nord'))
     const app = screen.getByTestId('app')
     expect(app.getAttribute('data-theme')).toBe('nord')
     expect(app.style.getPropertyValue('--bg')).toBe(themeById('nord').colors.bg)
     expect(app.getAttribute('data-theme-mode')).toBe('dark')
 
-    await user.click(screen.getByTestId('theme-mode-light'))
-    expect(screen.getAllByTestId(/^theme-(?!mode|grid)/)).toHaveLength(20)
     await user.click(screen.getByTestId('theme-sepia'))
     expect(screen.getByTestId('app').getAttribute('data-theme-mode')).toBe('light')
   })
