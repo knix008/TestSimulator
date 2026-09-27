@@ -67,8 +67,8 @@ function normalizeFence(raw) {
   const fence = {
     id: String(raw.id || ''),
     title: String(raw.title || '새 박스'),
-    x: Number(raw.x) || 80,
-    y: Number(raw.y) || 80,
+    x: coord(raw.x, 80),
+    y: coord(raw.y, 80),
     w: Math.max(180, Number(raw.w) || 280),
     h: Math.max(160, Number(raw.h) || 320),
     // 예전 저장본은 색 하나만 갖고 있다. 가장 가까운 테마로 옮겨 준다.
@@ -100,6 +100,13 @@ function normalizeCustom(raw) {
   if (!bg) return null;
   const bar = themes.parseHex(raw.bar) ? String(raw.bar) : themes.darken(bg, 0.55);
   return { bg, bar };
+}
+
+// 화면 가장자리에 붙인 박스는 0, 왼쪽이나 위쪽 화면에 둔 박스는 음수다. 둘 다 자리다.
+function coord(value, fallback) {
+  if (value === null || value === '' || typeof value === 'boolean') return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function clamp(value, min, max) {

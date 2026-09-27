@@ -98,6 +98,32 @@ test('다시 켜면 박스가 지난번 자리에 그대로 선다', () => {
   assert.equal(state.fences[0].h, 260);
 });
 
+// 저장본을 읽어 박스를 여는 데까지. 화면 모서리(0)에 붙인 박스가 가장 잘 빠지는 길이다.
+test('화면 모서리에 붙여 둔 박스들도 다시 켜면 그 자리에 선다', () => {
+  const { normalizeFence } = require('../src/main/store');
+  const written = JSON.parse(JSON.stringify([
+    { id: 'p', title: '프로그램', x: 1, y: 160, w: 456, h: 427 },
+    { id: 'f', title: '폴더', x: 0, y: 0, w: 456, h: 160 },
+    { id: 'e', title: '기타', x: 2, y: 588, w: 456, h: 160 },
+  ]));
+  const state = baseState({ fences: written.map(normalizeFence) });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+
+  assert.deepEqual(
+    state.fences.map((box) => [box.title, box.x, box.y]),
+    [['프로그램', 1, 160], ['폴더', 0, 0], ['기타', 2, 588]],
+    '켜면서 박스 자리가 바뀌었다'
+  );
+  const wins = fenceWindows(electron);
+  assert.deepEqual(
+    wins.map((win) => [win.bounds.x, win.bounds.y]),
+    [[1, 160], [0, 0], [2, 588]],
+    '창이 저장된 자리에 뜨지 않았다'
+  );
+});
+
 test('숨겨 둔 채로 끝냈으면 다시 켜도 숨어 있다', () => {
   const state = baseState({ hidden: true, fences: [fence()] });
   const { host, electron } = loadHost(state);

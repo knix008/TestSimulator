@@ -114,6 +114,38 @@ test('저장은 통째로 바뀌고 임시 파일을 남기지 않는다', () =>
   assert.deepEqual(left, ['layout.json'], `임시 파일이 남았다: ${left.join(', ')}`);
 });
 
+// 화면 왼쪽이나 위쪽 가장자리에 붙인 박스는 자리가 0 이다. 0 도 자리다.
+test('화면 모서리에 붙여 둔 박스는 다시 켜도 그 모서리에 있다', () => {
+  const saved = store.defaults();
+  saved.fences = [
+    store.normalizeFence({ id: 'corner', title: '폴더', x: 0, y: 0, w: 456, h: 160 }),
+    store.normalizeFence({ id: 'left', title: '프로그램', x: 0, y: 160, w: 456, h: 427 }),
+    store.normalizeFence({ id: 'top', title: '기타', x: 500, y: 0, w: 456, h: 160 }),
+  ];
+  store.save(saved);
+
+  const back = store.load();
+  assert.deepEqual(
+    back.fences.map((box) => [box.id, box.x, box.y]),
+    [['corner', 0, 0], ['left', 0, 160], ['top', 500, 0]],
+    '모서리에 붙인 박스가 다른 자리로 옮겨졌다'
+  );
+});
+
+test('왼쪽이나 위쪽 화면에 둔 박스의 음수 자리도 그대로 읽는다', () => {
+  const box = store.normalizeFence({ id: 'a', x: -1920, y: -300 });
+  assert.deepEqual([box.x, box.y], [-1920, -300]);
+});
+
+test('자리가 적혀 있지 않거나 숫자가 아니면 기본 자리에 둔다', () => {
+  for (const [x, y] of [[undefined, undefined], [null, null], ['abc', {}], [NaN, Infinity], ['', '']]) {
+    const box = store.normalizeFence({ id: 'a', x, y });
+    assert.deepEqual([box.x, box.y], [80, 80], `${String(x)}, ${String(y)} 을 자리로 받았다`);
+  }
+  const text = store.normalizeFence({ id: 'a', x: '0', y: '12' });
+  assert.deepEqual([text.x, text.y], [0, 12], '글로 적힌 숫자를 읽지 못한다');
+});
+
 test('박스가 화면 밖 값으로 적혀 있어도 최소 크기는 지킨다', () => {
   const box = store.normalizeFence({ id: 'a', w: 10, h: 10, opacity: 9, corner: -5 });
   assert.ok(box.w >= 180 && box.h >= 160, '너무 작은 박스를 그대로 받았다');
