@@ -360,6 +360,60 @@ async function run(win) {
     return size;
   });
 
+  await check('an ordinary book turns by its arrows and by the keyboard', async () => {
+    // Back to the EPUB: a reflowable book, where turning a page may scroll
+    // within a chapter or move to the next one — both count as having moved.
+    win.webContents.send('app:openPath', smokeBook());
+    await until(win, "!!document.querySelector('.chapter')", { timeout: 20000 });
+    await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', ctrlKey: true, bubbles: true })); return true;");
+    await wait(600);
+
+    const where = `return (() => {
+      const pane = document.querySelector('.bookview');
+      const status = document.querySelector('.statusbar');
+      return {
+        top: Math.round(pane.scrollTop),
+        text: (document.querySelector('.chapter').textContent || '').slice(0, 40),
+        status: (status ? status.textContent : '').replace(/\s+/g, ' ').slice(0, 60),
+      };
+    })()`;
+
+    const start = await evaluate(win, where);
+
+    // The arrow drawn over the page.
+    const arrows = await evaluate(win, `return (() => {
+      const next = document.querySelector('.page-arrow.right');
+      const prev = document.querySelector('.page-arrow.left');
+      if (!next || !prev) return { error: 'no page arrows over the book' };
+      next.click();
+      return { ok: true };
+    })()`);
+    assert(!arrows.error, arrows.error);
+    await wait(700);
+    const afterArrow = await evaluate(win, where);
+    assert(afterArrow.top !== start.top || afterArrow.text !== start.text,
+      'the next-page arrow did not move the book');
+
+    // And the keys.
+    await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true })); return true;");
+    await wait(700);
+    const afterKey = await evaluate(win, where);
+    assert(afterKey.top !== afterArrow.top || afterKey.text !== afterArrow.text,
+      'PageDown did not move the book');
+
+    await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true })); return true;");
+    await wait(700);
+    const back = await evaluate(win, where);
+    assert(back.top !== afterKey.top || back.text !== afterKey.text,
+      'PageUp did not take the book back');
+
+    // Both arrows are reachable and say what they do.
+    const labels = await evaluate(win, `return [...document.querySelectorAll('.page-arrow')]
+      .map((b) => b.getAttribute('aria-label') || '')`);
+    assert(labels.length === 2 && labels.every(Boolean), `the arrows are labelled [${labels.join(', ')}]`);
+    return `${labels.join(' · ')} — arrow, PageDown and PageUp all move the book`;
+  });
+
   await check('two pages can be shown side by side', async () => {
     win.webContents.send('app:openPath', path.join(__dirname, '..', 'samples', 'sample.cbz'));
     // A picture is drawn with the same element as a comic page, so waiting for
@@ -382,6 +436,7 @@ async function run(win) {
       return true;
     `);
     await until(win, "[...document.querySelectorAll('img.comic-page')].filter((i) => i.complete && i.naturalWidth > 0).length === 2", { timeout: 10000 });
+    await until(win, "!document.querySelector('.bookview .turning')", { timeout: 5000 });
 
     const spread = await evaluate(win, `return (() => {
       const pages = [...document.querySelectorAll('img.comic-page')];
@@ -418,9 +473,12 @@ async function run(win) {
       return { error: 'the spread never turned' };
     })()`);
     assert(!turned.error, turned.error);
-    // page1 · page2 → page3 · page4
-    assert(turned.after[0] === turned.before[1 - 1 + 1] || turned.after[0] !== turned.before[0],
-      `it went from ${turned.before} to ${turned.after}`);
+    // A spread turns two pages at a time: page1 · page2 → page3 · page4.
+    const numbers = (names) => names.map((name) => Number((name.match(/[0-9]+/) || [0])[0]));
+    const before = numbers(turned.before);
+    const after = numbers(turned.after);
+    assert(after[0] === before[0] + 2 && after[1] === before[1] + 2,
+      `it went from ${turned.before.join(' · ')} to ${turned.after.join(' · ')}`);
     return `${turned.before.join(' · ')} → ${turned.after.join(' · ')}`;
   });
 
@@ -480,23 +538,47 @@ async function run(win) {
           for (const name of el.classList) if (name.startsWith('turn') || name === 'turning') marks.add(name);
         }
       };
+      // A class is not an animation: this records what the browser is actually
+      // playing, which is the thing the reader sees.
+      const running = [];
+      const watch = () => {
+        for (const el of pane.querySelectorAll('.chapter, .page-spread, .comic-page, .pdf-page')) {
+          for (const animation of (el.getAnimations ? el.getAnimations() : [])) {
+            running.push({
+              name: animation.animationName || '',
+              ms: Math.round(animation.effect?.getTiming?.().duration || 0),
+              state: animation.playState,
+            });
+          }
+        }
+      };
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
       const deadline = performance.now() + 3000;
       while (performance.now() < deadline && !marks.has('turn-flip')) {
+        watch();
         sweep();
         // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 8));
       }
+      watch();
       observer.disconnect();
-      return { marks: [...marks] };
+      return { marks: [...marks], running, reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches };
     })()`);
     assert(!seen.error, seen.error);
     assert(seen.marks.includes('turn-flip'), `the effect classes seen were [${seen.marks.join(', ')}]`);
     assert(seen.marks.includes('turning'), 'the pane was never marked as turning');
+    // The class is not the point — the animation is. A system set to "no
+    // animations" stopped the chosen effect dead, and the class alone could
+    // not tell: it was there, and nothing moved.
+    const played = (seen.running || []).filter((a) => /^(turn|leaf)-/.test(a.name || ''));
+    assert(played.length > 0,
+      `nothing was animated (the system asks for reduced motion: ${seen.reduced})`);
+    assert(played[0].ms >= 300, `the turn lasts ${played[0].ms}ms, too quick to see`);
 
     // And the effect goes away again, rather than leaving the page mid-turn.
     await until(win, "!document.querySelector('.bookview .turning')", { timeout: 5000 });
-    return `${seen.marks.join(' ')} — and cleared afterwards`;
+    const shown = played[0];
+    return `${shown.name} for ${shown.ms}ms${seen.reduced ? ', despite the system asking for less motion' : ''}`;
   });
 
   await check('neither panel is ever narrow enough to cut off its own tabs', async () => {

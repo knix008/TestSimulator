@@ -25,7 +25,9 @@ import { computePageScale, readingStyle, columnPageAt, columnPageCount } from '.
 // different font size — so a mark has to be anchored to the words themselves.
 
 const HIGHLIGHT_ATTR = 'data-highlight';
-const TURN_MS = 420;
+// Long enough to be seen — a turn that is over in a blink reads as a flicker
+// rather than as a page turning. Kept in step with --turn-ms in the CSS.
+const TURN_MS = 560;
 
 /** How long a selection has to hold still before the rest of the app hears. */
 export const SELECTION_SETTLE = 120;

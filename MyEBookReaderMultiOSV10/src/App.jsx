@@ -245,6 +245,10 @@ export default function App() {
   useEffect(() => {
     applyTheme(settings.theme);
     applyFontSettings(settings);
+    // A page-turn effect is something the reader asked for, so it runs even
+    // where the system has asked for less animation; "none" leaves the decision
+    // to the system, where it belongs.
+    document.documentElement.dataset.motion = settings.pageTurn === 'none' ? 'system' : 'full';
     if (settingsReady) persistSettings(settings);
   }, [settings, settingsReady]);
 

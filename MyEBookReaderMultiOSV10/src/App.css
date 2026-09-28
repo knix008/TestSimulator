@@ -998,29 +998,73 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 
 /* The page-turning effects. Both run once, on the element the reader is
    looking at, and are replaced by nothing at all when the effect is "none". */
-.turning.turn-slide.turn-forward { animation: turn-slide-forward 0.42s ease-out; }
-.turning.turn-slide.turn-back { animation: turn-slide-back 0.42s ease-out; }
-.turning.turn-flip.turn-forward { animation: turn-flip-forward 0.42s ease-in-out; transform-origin: left center; }
-.turning.turn-flip.turn-back { animation: turn-flip-back 0.42s ease-in-out; transform-origin: right center; }
+.turning.turn-slide.turn-forward { animation: turn-slide-forward var(--turn-ms, 0.55s) ease-out; }
+.turning.turn-slide.turn-back { animation: turn-slide-back var(--turn-ms, 0.55s) ease-out; }
+.turning.turn-flip.turn-forward { animation: turn-flip-forward var(--turn-ms, 0.55s) ease-in-out; transform-origin: left center; }
+.turning.turn-flip.turn-back { animation: turn-flip-back var(--turn-ms, 0.55s) ease-in-out; transform-origin: right center; }
 
 @keyframes turn-slide-forward {
-  from { transform: translateX(28%); opacity: 0.15; }
+  from { transform: translateX(45%); opacity: 0.1; }
+  60%  { transform: translateX(-2%); opacity: 1; }
   to   { transform: translateX(0); opacity: 1; }
 }
 @keyframes turn-slide-back {
-  from { transform: translateX(-28%); opacity: 0.15; }
+  from { transform: translateX(-45%); opacity: 0.1; }
+  60%  { transform: translateX(2%); opacity: 1; }
   to   { transform: translateX(0); opacity: 1; }
 }
 @keyframes turn-flip-forward {
-  from { transform: rotateY(-78deg); opacity: 0.25; box-shadow: -30px 0 60px var(--shadow); }
-  to   { transform: rotateY(0deg); opacity: 1; box-shadow: none; }
+  from { transform: rotateY(-88deg) scale(0.94); opacity: 0.2; box-shadow: -40px 0 70px var(--shadow); }
+  to   { transform: rotateY(0deg) scale(1); opacity: 1; box-shadow: none; }
 }
 @keyframes turn-flip-back {
-  from { transform: rotateY(78deg); opacity: 0.25; box-shadow: 30px 0 60px var(--shadow); }
-  to   { transform: rotateY(0deg); opacity: 1; box-shadow: none; }
+  from { transform: rotateY(88deg) scale(0.94); opacity: 0.2; box-shadow: 40px 0 70px var(--shadow); }
+  to   { transform: rotateY(0deg) scale(1); opacity: 1; box-shadow: none; }
 }
+
+/* A spread turns at the gutter: the leaf that is being turned pivots on the
+   binding in the middle, and the two new pages come up together. Turning the
+   whole spread about the window's edge — which is what it did — looks like the
+   book being swept aside rather than a page being turned. */
+.page-spread.turning.turn-flip { animation: none; }
+.page-spread.turning.turn-flip .comic-page,
+.page-spread.turning.turn-flip .pdf-page { backface-visibility: hidden; }
+.page-spread.turning.turn-flip.turn-forward .comic-page:not(.facing),
+.page-spread.turning.turn-flip.turn-forward .pdf-page:not(.facing) {
+  animation: leaf-from-left var(--turn-ms, 0.55s) ease-in-out;
+  transform-origin: right center;
+}
+.page-spread.turning.turn-flip.turn-forward .comic-page.facing,
+.page-spread.turning.turn-flip.turn-forward .pdf-page.facing {
+  animation: leaf-from-right var(--turn-ms, 0.55s) ease-in-out;
+  transform-origin: left center;
+}
+.page-spread.turning.turn-flip.turn-back .comic-page:not(.facing),
+.page-spread.turning.turn-flip.turn-back .pdf-page:not(.facing) {
+  animation: leaf-from-right var(--turn-ms, 0.55s) ease-in-out;
+  transform-origin: right center;
+}
+.page-spread.turning.turn-flip.turn-back .comic-page.facing,
+.page-spread.turning.turn-flip.turn-back .pdf-page.facing {
+  animation: leaf-from-left var(--turn-ms, 0.55s) ease-in-out;
+  transform-origin: left center;
+}
+@keyframes leaf-from-left {
+  from { transform: rotateY(-86deg); opacity: 0.15; }
+  to   { transform: rotateY(0deg); opacity: 1; }
+}
+@keyframes leaf-from-right {
+  from { transform: rotateY(86deg); opacity: 0.15; }
+  to   { transform: rotateY(0deg); opacity: 1; }
+}
+
+/* Windows and macOS can be told to stop animating things, and this honours
+   that — but the page-turn effect is not decoration that crept in: the reader
+   chose it in the settings. So the system preference decides for a reader who
+   has not chosen (`data-motion="system"`), and a chosen effect still runs. */
 @media (prefers-reduced-motion: reduce) {
-  .turning { animation: none !important; }
+  :root:not([data-motion='full']) .turning { animation: none !important; }
+  :root:not([data-motion='full']) .page-arrow { transition: none; }
 }
 .comic-page { max-width: 100%; box-shadow: 0 6px 22px var(--shadow); }
 .bookview.inverted .comic-page,
