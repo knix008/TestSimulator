@@ -987,6 +987,224 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   user-select: none;
 }
 
+
+/* ── The gallery ─────────────────────────────────────── */
+/* It covers the reading pane rather than replacing it, so the book underneath
+   keeps its place and comes straight back when the gallery is closed. */
+.gallery {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+.gallery-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.gallery-title { display: flex; align-items: baseline; gap: 8px; }
+.gallery-title h2 { margin: 0; font-size: 1.05em; }
+.gallery-count { color: var(--muted); font-size: 0.84em; }
+.gallery-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+  max-width: 360px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-dim);
+}
+.gallery-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.seg.gallery-views { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 9px; }
+.gallery-views button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86em;
+}
+.gallery-views button:hover { color: var(--text); }
+.gallery-views button.on { background: var(--accent); color: var(--accent-fg); }
+.gallery-sort, .gallery-clear, .gallery-close {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 0.86em;
+  cursor: pointer;
+}
+.gallery-clear:hover:not(:disabled), .gallery-close:hover { color: var(--danger); border-color: var(--danger); }
+.gallery-clear:disabled { opacity: 0.4; cursor: default; }
+.gallery-empty { margin: auto; padding: 40px; color: var(--muted); text-align: center; }
+
+/* Large icons */
+.gallery-grid {
+  list-style: none;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 14px;
+  align-content: start;
+}
+.gallery-grid > li { position: relative; }
+.gcard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  font: inherit;
+}
+.gcard:hover { border-color: var(--accent); background: var(--bg-3); }
+.gthumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 118px;
+  height: 160px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-3);
+  box-shadow: 0 6px 16px var(--shadow);
+}
+.gthumb.small { width: 34px; height: 46px; border: 0; padding: 0; cursor: pointer; box-shadow: none; }
+.gcover-img { width: 100%; height: 100%; object-fit: cover; }
+.gcover-blank {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  color: var(--accent);
+  background: linear-gradient(150deg, var(--bg-2), var(--bg-3));
+}
+.gcover-blank b { font-size: 1.3em; letter-spacing: 0.06em; color: var(--text-dim); }
+.gthumb.small .gcover-blank b { font-size: 0.72em; }
+.gthumb.small .gcover-blank svg { display: none; }
+.gdone {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #04120b;
+}
+.gname {
+  font-size: 0.88em;
+  line-height: 1.25;
+  max-height: 2.5em;
+  overflow: hidden;
+  word-break: break-word;
+}
+.gauthor { font-size: 0.78em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.gmeta { display: flex; align-items: center; gap: 6px; width: 100%; }
+.gformat { font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.gbar { flex: 1; height: 4px; border-radius: 3px; background: var(--bg); overflow: hidden; display: block; min-width: 40px; }
+.gbar i { display: block; height: 100%; background: var(--accent); }
+.gbar-text { font-size: 0.78em; color: var(--muted); margin-left: 6px; white-space: nowrap; }
+.gforget {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg-3);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.gallery-grid > li:hover .gforget, .gforget:focus-visible { opacity: 1; }
+.gforget:hover { color: var(--danger); }
+
+/* Details */
+.gallery-table-wrap { overflow: auto; padding: 0 4px 12px; }
+.gallery-table { width: 100%; border-collapse: collapse; font-size: 0.88em; }
+.gallery-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--bg-2);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.gallery-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.gallery-table tbody tr:hover { background: var(--bg-2); }
+.gallery-table tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.gallery-table .gcol-num { text-align: right; font-variant-numeric: tabular-nums; }
+.gallery-table .gcol-cover { width: 44px; }
+.gallery-table .gcol-title { max-width: 26em; }
+.gallery-table .gcol-path {
+  max-width: 22em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  direction: rtl;
+  text-align: left;
+}
+.gallery-table .gbar { display: inline-block; width: 70px; vertical-align: middle; }
+.glink {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+.glink:hover { color: var(--accent); text-decoration: underline; }
+.gallery-details .gforget { position: static; opacity: 1; background: transparent; }
+.welcome-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
 .welcome { text-align: center; color: var(--text-dim); padding: 30px; }
 .welcome h2 { margin: 12px 0 6px; color: var(--text); }
 .welcome p { margin: 0 auto 18px; max-width: 42em; }

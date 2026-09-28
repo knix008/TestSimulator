@@ -59,6 +59,9 @@ export const COMMANDS = [
   { id: 'rotateLeft', label: 'cmd.rotateLeft', icon: 'rotateLeft', menu: 'view', needs: 'fixed' },
   { id: 'rotateRight', label: 'cmd.rotateRight', icon: 'rotateRight', menu: 'view', needs: 'fixed' },
   { id: 'invertPages', label: 'cmd.invertPages', icon: 'invert', menu: 'view', toggle: true },
+  { id: 'gallery', label: 'cmd.gallery', icon: 'library', key: 'Ctrl+Shift+G', menu: 'view', toggle: true },
+  { id: 'galleryIcons', label: 'cmd.galleryIcons', icon: 'cover', menu: 'view', toggle: true },
+  { id: 'galleryDetails', label: 'cmd.galleryDetails', icon: 'contents', menu: 'view', toggle: true },
   { id: 'toggleLeft', label: 'cmd.toggleLeft', icon: 'panelLeft', key: 'F9', menu: 'view', toggle: true },
   { id: 'toggleRight', label: 'cmd.toggleRight', icon: 'panelRight', key: 'F10', menu: 'view', toggle: true },
   { id: 'toggleStatus', label: 'cmd.toggleStatus', icon: 'layout', menu: 'view', toggle: true },
@@ -71,6 +74,7 @@ export const COMMANDS = [
   { id: 'highlight', label: 'cmd.highlight', icon: 'highlight', key: 'Ctrl+H', menu: 'marks', needs: 'text' },
   { id: 'addNote', label: 'cmd.addNote', icon: 'note', menu: 'marks', needs: 'book' },
   { id: 'copySelection', label: 'cmd.copySelection', icon: 'copy', key: 'Ctrl+C', menu: 'marks', needs: 'text' },
+  { id: 'copyImage', label: 'cmd.copyImage', icon: 'image', key: 'Ctrl+Shift+C', menu: 'marks', needs: 'image' },
   { id: 'copySection', label: 'cmd.copySection', icon: 'copy', menu: 'marks', needs: 'book' },
   { id: 'selectAll', label: 'cmd.selectAll', icon: 'selectAll', key: 'Ctrl+A', menu: 'marks', needs: 'book' },
   { id: 'paste', label: 'cmd.paste', icon: 'paste', key: 'Ctrl+V', menu: 'marks' },
@@ -108,7 +112,7 @@ export function shortcutRows() {
  */
 export function menuRows(menu, state = {}) {
   const {
-    hasBook = false, hasSelection = false, reflowable = true,
+    hasBook = false, hasSelection = false, reflowable = true, hasImage = false,
     active = [], recentFiles = [], bookmarks = [], canUndo = false, canRedo = false,
   } = state;
 
@@ -118,6 +122,7 @@ export function menuRows(menu, state = {}) {
     switch (command.needs) {
       case 'book': return !hasBook;
       case 'text': return !hasSelection;
+      case 'image': return !hasImage;
       case 'reflow': return !hasBook || !reflowable;
       case 'fixed': return !hasBook || reflowable;
       default: return false;
@@ -252,6 +257,8 @@ export function activeCommands(settings, book) {
   if (settings.rightPanel !== 'none') on.push('toggleRight');
   if (settings.showStatusBar) on.push('toggleStatus');
   if (settings.showToolbarLabels) on.push('toolbarLabels');
+  if (settings.galleryView === 'details') on.push('galleryDetails');
+  else on.push('galleryIcons');
   void book;
   return on;
 }

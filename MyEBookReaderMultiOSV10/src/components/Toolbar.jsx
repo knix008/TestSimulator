@@ -5,7 +5,7 @@ import {
   IconNote, IconSearch, IconPrev, IconNext, IconTextSize, IconZoomIn, IconZoomOut,
   IconPanelLeft, IconPanelRight, IconTheme, IconSettings, IconInfo, IconFlag,
   IconFolder, IconContents, IconLayout, IconBookmark, IconScroll, IconPaged, IconDown,
-  IconActual, IconColumns,
+  IconActual, IconColumns, IconLibrary, IconImage,
 } from './Icons.jsx';
 import { nextTheme } from '../lib/themes.js';
 import { otherLang } from '../i18n.js';
@@ -118,7 +118,7 @@ function MenuButton({ icon: Icon, label, tip, menu, showLabel, onOpenMenu, disab
 
 export default function Toolbar({
   settings, book, section, sectionCount, scale, hasSelection, history, bookmarkCount,
-  onOpenMenu, onCommand, onGoToSection, onTheme, onLang,
+  galleryOpen, onOpenMenu, onCommand, onGoToSection, onTheme, onLang,
 }) {
   const { t, i18n } = useTranslation();
   const [sectionInput, setSectionInput] = useState(String(section + 1));
@@ -300,6 +300,20 @@ export default function Toolbar({
 
       {/* Panels, theme, language and the app dialogs — pinned to the right */}
       <div className="toolbar-right">
+        <ToolButton
+          icon={IconImage}
+          label={t('cmd.copyImage')}
+          tip={t('tip.copyImage')}
+          onClick={run('copyImage')}
+          disabled={!book}
+        />
+        <ToolButton
+          icon={IconLibrary}
+          label={t('cmd.gallery')}
+          tip={t('tip.gallery')}
+          onClick={run('gallery')}
+          active={!!galleryOpen}
+        />
         <ToolButton
           icon={IconPanelLeft}
           label={t('cmd.toggleLeft')}

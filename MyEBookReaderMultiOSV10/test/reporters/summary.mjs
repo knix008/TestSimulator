@@ -28,8 +28,8 @@ export const MARK = { pass: '✓', fail: '✗', skip: '○' };
 export const CATEGORIES = [
   { id: 'formats', label: '책 형식 (Formats)', files: ['epub', 'mobi', 'fb2', 'cbz', 'plaintext', 'book', 'pdfbook', 'image'] },
   { id: 'engine', label: '핵심 엔진 (Engine)', files: ['inflate', 'zip', 'html', 'markdown', 'search', 'library', 'view', 'print'] },
-  { id: 'state', label: '설정·상태 (Settings & state)', files: ['settings', 'themes', 'menus', 'tabs', 'folders', 'history', 'platform'] },
-  { id: 'gui', label: 'GUI 동작 (User interface)', files: ['app', 'components', 'bookview', 'dialogs', 'menuhost', 'dialoghost', 'panels', 'toolbar'] },
+  { id: 'state', label: '설정·상태 (Settings & state)', files: ['settings', 'themes', 'menus', 'tabs', 'folders', 'history', 'platform', 'gallery'] },
+  { id: 'gui', label: 'GUI 동작 (User interface)', files: ['app', 'components', 'bookview', 'dialogs', 'menuhost', 'dialoghost', 'panels', 'toolbar', 'gallery-view'] },
   { id: 'i18n', label: '언어 (Language)', files: ['i18n'] },
   { id: 'build', label: '빌드·패키징 (Build & packaging)', files: ['package', 'electron-contract', 'icon-assets', 'ico', 'installer', 'reporter'] },
 ];

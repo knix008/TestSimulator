@@ -314,6 +314,120 @@ async function run(win) {
     return 'a two-page spread';
   });
 
+  await check('neither panel is ever narrow enough to cut off its own tabs', async () => {
+    // Squeeze both panels as far as the app will let them go, then look.
+    const squeezed = await evaluate(win, `return (() => {
+      const report = [];
+      for (const side of ['left', 'right']) {
+        const panel = document.querySelector('.side-panel.' + side);
+        if (!panel) { report.push({ side, error: 'no panel' }); continue; }
+        const tabs = panel.querySelector('.panel-tabs');
+        const clipped = [...panel.querySelectorAll('.panel-tab-label')]
+          .filter((label) => label.scrollWidth > label.clientWidth + 1)
+          .map((label) => label.textContent);
+        report.push({
+          side,
+          width: Math.round(panel.getBoundingClientRect().width),
+          needs: tabs.scrollWidth,
+          minWidth: panel.style.minWidth,
+          clipped,
+        });
+      }
+      return report;
+    })()`);
+
+    for (const panel of squeezed) {
+      assert(!panel.error, `${panel.side}: ${panel.error}`);
+      assert(panel.width >= panel.needs, `the ${panel.side} panel is ${panel.width}px for ${panel.needs}px of tabs`);
+      assert(!panel.clipped.length, `the ${panel.side} panel (${panel.width}px, min ${panel.minWidth}, tabs ${panel.needs}px) cuts off ${panel.clipped.join(', ')}`);
+      assert(panel.minWidth, `the ${panel.side} panel has no minimum width`);
+    }
+    return squeezed.map((p) => `${p.side} ${p.width}px ≥ ${p.needs}px`).join(', ');
+  });
+
+  await check('the gallery lists the books that have been read', async () => {
+    await evaluate(win, `
+      const button = [...document.querySelectorAll('.toolbar button')]
+        .find((b) => (b.getAttribute('aria-label') || '') === '갤러리' || (b.getAttribute('aria-label') || '') === 'Gallery');
+      button.click();
+      return true;
+    `);
+    await wait(700);
+
+    // Which view it opens in is remembered between runs, so ask for the covers.
+    await evaluate(win, `
+      const gallery = document.querySelector('.gallery');
+      if (gallery) gallery.querySelector('.gallery-views button').click();
+      return true;
+    `);
+    await wait(300);
+
+    const icons = await evaluate(win, `return (() => {
+      const gallery = document.querySelector('.gallery');
+      if (!gallery) return { error: 'the gallery did not open' };
+      return {
+        view: gallery.className,
+        cards: gallery.querySelectorAll('.gcard').length,
+        covers: gallery.querySelectorAll('.gcover-img').length,
+        names: [...gallery.querySelectorAll('.gname')].map((n) => n.textContent).slice(0, 3),
+      };
+    })()`);
+    assert(!icons.error, icons.error);
+    assert(icons.view.includes('gallery-icons'), `the gallery opened as ${icons.view}`);
+    assert(icons.cards >= 5, `${icons.cards} book(s) on the shelf`);
+
+    if (process.env.EBK_SMOKE_SHOT) {
+      const shot = await win.capturePage();
+      require('fs').writeFileSync(process.env.EBK_SMOKE_SHOT.replace(/\.png$/i, '-gallery.png'), shot.toPNG());
+    }
+
+    // The same books, the other way round.
+    await evaluate(win, `
+      [...document.querySelectorAll('.gallery-views button')].at(-1).click();
+      return true;
+    `);
+    await wait(400);
+    const details = await evaluate(win, `return (() => {
+      const gallery = document.querySelector('.gallery');
+      return {
+        view: gallery.className,
+        rows: gallery.querySelectorAll('.gallery-table tbody tr').length,
+        columns: gallery.querySelectorAll('.gallery-table thead th').length,
+      };
+    })()`);
+    assert(details.view.includes('gallery-details'), `switching left it as ${details.view}`);
+    assert(details.rows === icons.cards, `${details.rows} rows for ${icons.cards} cards`);
+
+    if (process.env.EBK_SMOKE_SHOT) {
+      const shot = await win.capturePage();
+      require('fs').writeFileSync(process.env.EBK_SMOKE_SHOT.replace(/\.png$/i, '-gallery-details.png'), shot.toPNG());
+    }
+
+    await evaluate(win, "document.querySelector('.gallery-close').click(); return true;");
+    await wait(300);
+    const closed = await evaluate(win, "return !document.querySelector('.gallery');");
+    assert(closed, 'the gallery would not close');
+    return `${icons.cards} books, ${icons.covers} cover(s), ${details.columns} columns in detail`;
+  });
+
+  await check('a picture can be copied from the book', async () => {
+    const copied = await evaluate(win, `return (() => {
+      const button = [...document.querySelectorAll('.toolbar button')]
+        .find((b) => (b.getAttribute('aria-label') || '') === '그림 복사' || (b.getAttribute('aria-label') || '') === 'Copy picture');
+      if (!button) return { error: 'no copy-picture button' };
+      if (button.disabled) return { error: 'the copy-picture button is disabled with a book open' };
+      button.click();
+      return { ok: true };
+    })()`);
+    assert(!copied.error, copied.error);
+    await wait(600);
+    const { clipboard } = require('electron');
+    const image = clipboard.readImage();
+    assert(!image.isEmpty(), 'nothing reached the clipboard');
+    const size = image.getSize();
+    return `${size.width}×${size.height} on the clipboard`;
+  });
+
   if (process.env.EBK_SMOKE_SHOT) {
     await check('a screenshot of the window was saved', async () => {
       const image = await win.capturePage();

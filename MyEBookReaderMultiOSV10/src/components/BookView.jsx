@@ -125,6 +125,9 @@ const BookView = forwardRef(function BookView({
   const scrollRef = useRef(null);
   const contentRef = useRef(null);
   const imageRef = useRef(null);
+  // The picture the reader last pointed at, so "copy picture" copies that one
+  // rather than guessing. Cleared when it leaves the document.
+  const pickedImageRef = useRef(null);
   const [scale, setScale] = useState(1);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [columnPages, setColumnPages] = useState(1);
@@ -318,6 +321,17 @@ const BookView = forwardRef(function BookView({
     target.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [activeHit, kind, html]);
 
+  // Which element a picture would be copied from, in the order a reader means:
+  // what they pointed at, the page picture, then a painted PDF page.
+  const currentImageNode = useCallback(() => {
+    const picked = pickedImageRef.current;
+    if (picked && picked.isConnected) return picked;
+    pickedImageRef.current = null;
+    if (imageRef.current) return imageRef.current;
+    const root = scrollRef.current;
+    return root?.querySelector('canvas, .page-image img, img') || null;
+  }, []);
+
   useImperativeHandle(ref, () => ({
     /** The reading position inside the current section, 0..1. */
     getFracY() {
@@ -377,8 +391,47 @@ const BookView = forwardRef(function BookView({
     columnState() {
       return { pages: columnPages, page: columnPage };
     },
+
+    /**
+     * The picture on show, as a PNG data URL: the one that was right-clicked,
+     * else the page itself for a picture, a comic or a PDF. Returns null when
+     * there is nothing to copy, and never throws — a tainted canvas (an image
+     * the browser will not let us read back) falls back to the source when that
+     * is already a data URL, and to null otherwise.
+     */
+    pageImage() {
+      const node = currentImageNode();
+      if (!node) return null;
+      try {
+        if (node.tagName === 'CANVAS') {
+          return { dataUrl: node.toDataURL('image/png'), width: node.width, height: node.height };
+        }
+        const width = node.naturalWidth || node.width;
+        const height = node.naturalHeight || node.height;
+        if (!width || !height) return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        ctx.drawImage(node, 0, 0);
+        return { dataUrl: canvas.toDataURL('image/png'), width, height };
+      } catch {
+        const src = node.getAttribute?.('src') || '';
+        if (src.startsWith('data:')) {
+          return { dataUrl: src, width: node.naturalWidth || 0, height: node.naturalHeight || 0 };
+        }
+        return null;
+      }
+    },
+
+    /** Whether `pageImage()` has something to give — for enabling the command. */
+    hasImage() {
+      return !!currentImageNode();
+    },
+
     scale,
-  }), [paged, columnPage, columnPages, scale, onSelectionChange]);
+  }), [paged, columnPage, columnPages, scale, onSelectionChange, currentImageNode]);
 
   if (!book) {
     return <div className="bookview empty">{emptyState}</div>;
@@ -411,7 +464,11 @@ const BookView = forwardRef(function BookView({
       ref={scrollRef}
       onScroll={onScroll}
       onClick={onClick}
-      onContextMenu={onContextMenu}
+      onContextMenu={(e) => {
+        const image = e.target?.closest?.('img, canvas');
+        pickedImageRef.current = image || null;
+        onContextMenu?.(e);
+      }}
       data-testid="bookview"
       tabIndex={-1}
     >

@@ -3,10 +3,11 @@
 // Everything the user configures lives in one plain object that is written to
 // localStorage on every change and mirrored to userData/settings.json in the
 // desktop app, so the next launch restores the previous session exactly — the
-// theme, the language, the reading typography, the panels, the window opacity,
-// the folders that were open and where each book was left.
+// theme, the language, the reading typography, the panels, the gallery of books
+// that have been read, the folders that were open and where each book was left.
 import { loadPersistedState, writeLocalState, readLocalState } from './platform.js';
 import { READING_WIDTHS } from './view.js';
+import { GALLERY_VIEWS, GALLERY_SORTS, MAX_GALLERY } from './gallery.js';
 
 export const MAX_RECENT_FILES = 10;
 export const MAX_RECENT_DIRS = 10;
@@ -80,6 +81,11 @@ export const DEFAULT_SETTINGS = {
   printScope: 'all',
   autoSaveLibrary: false,    // write the .ebkr file on every change
 
+  // ── The gallery (every book that has been read) ──
+  gallery: [],               // see lib/gallery.js
+  galleryView: 'icons',      // large covers, or the detailed list
+  gallerySort: 'recent',
+
   // ── Session ──
   lastDir: '',
   recentFiles: [],           // [{ path, name, dir, size, format, section, openedAt }]
@@ -98,6 +104,8 @@ const ENUMS = {
   leftPanel: ['contents', 'library', 'bookmarks', 'search', 'none'],
   rightPanel: ['properties', 'reading', 'notes', 'none'],
   printScope: ['all', 'current', 'custom'],
+  galleryView: GALLERY_VIEWS,
+  gallerySort: GALLERY_SORTS,
 };
 
 /**
@@ -127,6 +135,9 @@ export function normalize(raw) {
     .filter((f) => f && (typeof f.path === 'string' || typeof f.name === 'string'))
     .slice(0, MAX_RECENT_FILES);
   out.recentDirs = out.recentDirs.filter((d) => typeof d === 'string').slice(0, MAX_RECENT_DIRS);
+  out.gallery = out.gallery
+    .filter((e) => e && (typeof e.path === 'string' || typeof e.name === 'string'))
+    .slice(0, MAX_GALLERY);
 
   out.fontSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(out.fontSize)));
   out.leftWidth = clampPanelWidth(out.leftWidth);

@@ -27,6 +27,7 @@ const ICONS = {
   error: IconAlert,
   progress: IconDownload,
   unsaved: IconSave,
+  confirm: IconAlert,
   print: IconPrint,
   prompt: IconUrl,
   note: IconNote,
@@ -48,6 +49,7 @@ export function dialogIcon(name) {
 }
 
 export function dialogTitle(name, t, payload) {
+  if (name === 'confirm') return payload?.title || t('common.confirm');
   if (name === 'progress' && payload?.progress?.kind) return t(`progress.${payload.progress.kind}`, payload.progress.kind);
   if (name === 'prompt') return payload?.prompt?.kind === 'password' ? t('password.title') : t('url.title');
   return t(`${name}.title`, name);
@@ -647,6 +649,29 @@ function UnsavedBody({ t, onResult }) {
   );
 }
 
+// ── Confirm (a plain yes or no) ───────────────────────────
+// The message is passed in already translated, because what is being confirmed
+// belongs to the caller, not to this dialog.
+function ConfirmBody({ t, payload, onResult }) {
+  return (
+    <>
+      <p className="unsaved-message">{payload.message || ''}</p>
+      <div className="dialog-foot">
+        <div className="spacer" />
+        <button type="button" className="btn" onClick={() => onResult({ action: 'cancel' })}>{t('common.cancel')}</button>
+        <button
+          type="button"
+          className={`btn ${payload.danger ? 'danger-ghost' : 'primary'}`}
+          onClick={() => onResult({ action: 'confirm' })}
+          data-autofocus
+        >
+          {payload.confirmLabel || t('common.ok')}
+        </button>
+      </div>
+    </>
+  );
+}
+
 // ── Prompt (URL / password) ───────────────────────────────
 function PromptBody({ t, payload, onResult }) {
   const prompt = payload.prompt || {};
@@ -926,6 +951,7 @@ const BODIES = {
   error: ErrorBody,
   progress: ProgressBody,
   unsaved: UnsavedBody,
+  confirm: ConfirmBody,
   prompt: PromptBody,
   note: NoteBody,
   properties: PropertiesBody,

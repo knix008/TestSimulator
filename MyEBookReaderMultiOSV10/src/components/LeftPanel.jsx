@@ -7,7 +7,8 @@ import {
 import { flattenToc } from '../lib/book.js';
 import { folderLabel } from '../lib/folders.js';
 import { formatBytes } from '../lib/platform.js';
-import { PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../lib/settings.js';
+import { PANEL_WIDTH_MAX } from '../lib/settings.js';
+import { usePanelMinWidth, clampToPanelMin } from './panelWidth.js';
 
 // The left panel: the tools you read *with* — the contents list, the folder of
 // books, the bookmarks you made and the search results. One tab at a time, and
@@ -20,7 +21,7 @@ const TABS = [
   { id: 'search', icon: IconSearch, label: 'panel.search' },
 ];
 
-function Resizer({ width, onResize, side = 'left' }) {
+function Resizer({ width, onResize, side = 'left', min }) {
   const drag = useRef(null);
 
   const onPointerDown = (e) => {
@@ -34,7 +35,8 @@ function Resizer({ width, onResize, side = 'left' }) {
     const d = drag.current;
     if (!d) return;
     const delta = side === 'left' ? e.clientX - d.x0 : d.x0 - e.clientX;
-    onResize(Math.min(PANEL_WIDTH_MAX, Math.max(PANEL_WIDTH_MIN, d.w0 + delta)));
+    // Never past the point where the panel's own tabs would be cut off.
+    onResize(clampToPanelMin(d.w0 + delta, min));
   };
 
   const stop = (e) => {
@@ -126,7 +128,10 @@ export default function LeftPanel({
   folderRoot, currentPath, desktop, onPickFolder, onOpenFile, loadFolder,
   recentFiles, onOpenRecent, onRemoveRecent, onClearRecent,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const tabsRef = useRef(null);
+  // The panel is never narrower than its own tab strip, in any language.
+  const minWidth = usePanelMinWidth(tabsRef, [i18n.language]);
   const [query, setQuery] = useState(search?.query || '');
   const [roots, setRoots] = useState([]);
   const [rootBusy, setRootBusy] = useState(false);
@@ -151,10 +156,15 @@ export default function LeftPanel({
   if (panel === 'none') return null;
 
   const rows = flattenToc(toc || []);
+  const shown = Math.max(width, minWidth);
 
   return (
-    <aside className="side-panel left" style={{ width }} aria-label={t('panel.left')}>
-      <div className="panel-tabs" role="tablist" aria-label={t('panel.left')}>
+    <aside
+      className="side-panel left"
+      style={{ width: shown, minWidth }}
+      aria-label={t('panel.left')}
+    >
+      <div className="panel-tabs" role="tablist" aria-label={t('panel.left')} ref={tabsRef}>
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -351,7 +361,7 @@ export default function LeftPanel({
         ) : null}
       </div>
 
-      <Resizer width={width} onResize={onResize} side="left" />
+      <Resizer width={shown} onResize={onResize} side="left" min={minWidth} />
     </aside>
   );
 }

@@ -12,10 +12,11 @@ import ContextMenu from './components/ContextMenu.jsx';
 import DialogModal from './components/DialogModal.jsx';
 import Tooltip from './components/Tooltip.jsx';
 import Toasts from './components/Toasts.jsx';
+import Gallery from './components/Gallery.jsx';
 
 import {
   api, isElectron, openFileDialog, pickBookPaths, pickImage, readPath, readTextPath,
-  downloadUrl, copyText, readClipboardText, saveText, writeTextTo, pickDirectory,
+  downloadUrl, copyText, copyImage, readClipboardText, saveText, writeTextTo, pickDirectory,
   listDirectory, baseName, dirName, pathExists, openExternal, appInfo, printHtml,
   win as platformWin,
 } from './lib/platform.js';
@@ -26,6 +27,9 @@ import {
   viewSettingsOf,
 } from './lib/settings.js';
 import { useHistory, newId } from './lib/history.js';
+import {
+  galleryEntry, addToGallery, updateGallery, removeFromGallery, galleryKey, makeThumbnail,
+} from './lib/gallery.js';
 import {
   EMPTY_READING, serializeLibrary, parseLibrary, libraryNameFor, addBookmark,
   addHighlight, addNote, addClip, removeById, marksForSection, readingIsEmpty,
@@ -64,6 +68,9 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [columns, setColumns] = useState({ pages: 1, page: 0 });
   const [scale, setScale] = useState(1);
+  // The gallery of books already read, shown over the reading pane so the book
+  // underneath keeps its place.
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   // ── Reading state (undo / redo) ────────────────────────
   const history = useHistory(EMPTY_READING);
@@ -291,8 +298,12 @@ export default function App() {
 
   // ── Opening ────────────────────────────────────────────
   const rememberOpened = useCallback((opened) => {
+    const dir = opened.filePath ? dirName(opened.filePath) : '';
     setSettings((s) => ({
       ...s,
+      // The gallery keeps every book that was read; the recent list keeps the
+      // last ten, for the File menu.
+      gallery: addToGallery(s.gallery, galleryEntry(opened, { dir })),
       recentFiles: addRecentFile(s.recentFiles, {
         path: opened.filePath || null,
         name: opened.fileName,
@@ -494,6 +505,7 @@ export default function App() {
     setSettings((s) => ({
       ...s,
       recentFiles: updateRecentFile(s.recentFiles, key, { section }),
+      gallery: updateGallery(s.gallery, key, { section, sections: book.sectionCount }),
       lastSession: { path: book.filePath, section },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -562,6 +574,19 @@ export default function App() {
       fail(err, 'copy');
     }
   }, [editReading, fail, section, t, toast]);
+
+  const copyCurrentImage = useCallback(async () => {
+    const picture = viewRef.current?.pageImage?.();
+    if (!picture?.dataUrl) { toast(t('status.noImage'), 'warn'); return; }
+    try {
+      await copyImage(picture.dataUrl);
+      const said = t('status.copiedImage', { w: picture.width, h: picture.height });
+      setStatusMessage(said);
+      toast(said, 'ok');
+    } catch (err) {
+      fail(err, 'copy');
+    }
+  }, [fail, t, toast]);
 
   const copyCurrentSection = useCallback(async () => {
     if (!book) return;
@@ -1024,6 +1049,15 @@ export default function App() {
       case 'toggleLeft': setSettings((s) => ({ ...s, leftPanel: nextPanel(s.leftPanel, 'contents') })); return;
       case 'toggleRight': setSettings((s) => ({ ...s, rightPanel: nextPanel(s.rightPanel, 'properties') })); return;
       case 'toggleStatus': setSettings((s) => ({ ...s, showStatusBar: !s.showStatusBar })); return;
+      case 'gallery': setGalleryOpen((open) => !open); return;
+      case 'galleryIcons':
+        setSettings((s) => ({ ...s, galleryView: 'icons' }));
+        setGalleryOpen(true);
+        return;
+      case 'galleryDetails':
+        setSettings((s) => ({ ...s, galleryView: 'details' }));
+        setGalleryOpen(true);
+        return;
       case 'toolbarLabels': setSettings((s) => ({ ...s, showToolbarLabels: !s.showToolbarLabels })); return;
       case 'background': pickBackground(); return;
       case 'clearBackground':
@@ -1034,6 +1068,7 @@ export default function App() {
       case 'highlight': highlightSelection(); return;
       case 'addNote': askNote(); return;
       case 'copySelection': copySelection(); return;
+      case 'copyImage': copyCurrentImage(); return;
       case 'copySection': copyCurrentSection(); return;
       case 'selectAll': viewRef.current?.selectAll(); return;
       case 'paste': pasteAsNote(); return;
@@ -1056,7 +1091,7 @@ export default function App() {
         return;
       default: return;
     }
-  }, [addBookmarkHere, askDialog, askNote, changeLang, closeTab, copyCurrentSection, copySelection,
+  }, [addBookmarkHere, askDialog, askNote, changeLang, closeTab, copyCurrentImage, copyCurrentSection, copySelection,
     exportBook, goToSection, highlightSelection, history, libraryPath, openDialog, openFromUrl,
     openPrintDialog, openViaDialog, pasteAsNote, pickBackground, saveLibrary, saveLibraryAs, scale,
     t, turnSection]);
@@ -1075,11 +1110,66 @@ export default function App() {
     openByPathRef.current(entry.path);
   }, [fail, t, toast]);
 
+  // ── The gallery ────────────────────────────────────────
+  const openFromGallery = useCallback(async (entry) => {
+    if (!entry?.path) { toast(t('recent.missing'), 'warn'); return; }
+    if (isElectron && !(await pathExists(entry.path))) {
+      fail(new Error(`${t('recent.missing')}:
+${entry.path}`), 'read', { file: entry.path });
+      setSettings((s) => ({ ...s, gallery: removeFromGallery(s.gallery, galleryKey(entry)) }));
+      return;
+    }
+    setGalleryOpen(false);
+    openByPathRef.current(entry.path);
+  }, [fail, t, toast]);
+
+  const clearGallery = useCallback(async () => {
+    const n = settingsRef.current.gallery.length;
+    if (!n) return;
+    const answer = await askDialog('confirm', {
+      title: t('gallery.clear'),
+      message: t('gallery.clearConfirm', { n }),
+      confirmLabel: t('gallery.clear'),
+      danger: true,
+    });
+    if (answer?.action !== 'confirm') return;
+    setSettings((s) => ({ ...s, gallery: [] }));
+    toast(t('gallery.clear'), 'ok');
+  }, [askDialog, t, toast]);
+
+  // A cover for the shelf: the book's own, else the page on show. Taken once
+  // per book — a shelved cover is never re-made — and small enough to store.
+  useEffect(() => {
+    if (!book) return undefined;
+    const key = book.filePath || book.fileName;
+    if (!key) return undefined;
+    const shelved = settingsRef.current.gallery.find((e) => galleryKey(e) === key);
+    if (shelved?.cover) return undefined;
+
+    let cancelled = false;
+    const timers = [];
+    const attempt = async () => {
+      if (cancelled) return;
+      const source = (typeof book.cover === 'function' ? book.cover() : '')
+        || viewRef.current?.pageImage?.()?.dataUrl
+        || '';
+      const thumb = await makeThumbnail(source);
+      if (cancelled || !thumb) return;
+      setSettings((s) => ({ ...s, gallery: updateGallery(s.gallery, key, { cover: thumb }) }));
+      cancelled = true; // one cover is enough
+    };
+    // Twice: a PDF page or a large picture is often still being painted when
+    // the first attempt comes round.
+    timers.push(setTimeout(attempt, 500), setTimeout(attempt, 1800));
+    return () => { cancelled = true; timers.forEach(clearTimeout); };
+  }, [book, content]);
+
   // ── Menus ──────────────────────────────────────────────
   const menuState = useCallback(() => ({
     hasBook: !!bookRef.current,
     hasSelection: !!selectionRef.current.trim(),
     reflowable: bookRef.current ? bookRef.current.reflowable : true,
+    hasImage: !!bookRef.current && !!viewRef.current?.hasImage?.(),
     active: activeCommands(settingsRef.current, bookRef.current),
     recentFiles: settingsRef.current.recentFiles,
     bookmarks: reading.bookmarks,
@@ -1272,6 +1362,8 @@ export default function App() {
       }
       if (mod && key === 'z' && !e.shiftKey) { e.preventDefault(); runCommandRef.current('undo'); return; }
       if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) { e.preventDefault(); runCommandRef.current('redo'); return; }
+      if (mod && e.shiftKey && key === 'c' && !inField) { e.preventDefault(); runCommandRef.current('copyImage'); return; }
+      if (mod && e.shiftKey && key === 'g' && !inField) { e.preventDefault(); runCommandRef.current('gallery'); return; }
       if (mod && key === 'c' && !inField) { e.preventDefault(); runCommandRef.current('copySelection'); return; }
       if (mod && key === 'v' && !inField) { e.preventDefault(); runCommandRef.current('paste'); return; }
       if (mod && key === 'a' && !inField) { e.preventDefault(); runCommandRef.current('selectAll'); return; }
@@ -1366,6 +1458,7 @@ export default function App() {
         hasSelection={!!selectionText.trim()}
         history={history}
         bookmarkCount={reading.bookmarks.length}
+        galleryOpen={galleryOpen}
         onOpenMenu={openMenu}
         onCommand={(id) => runCommandRef.current(id)}
         onGoToSection={goToSection}
@@ -1435,12 +1528,33 @@ export default function App() {
                 <img src="./icon.svg" alt="" width="120" height="120" />
                 <h2>{t('common.welcome')}</h2>
                 <p>{t('common.welcomeHint')}</p>
-                <button type="button" className="btn primary" onClick={() => runCommandRef.current('open')} title={t('tip.open')}>
-                  {t('cmd.open')}
-                </button>
+                <div className="welcome-actions">
+                  <button type="button" className="btn primary" onClick={() => runCommandRef.current('open')} title={t('tip.open')}>
+                    {t('cmd.open')}
+                  </button>
+                  {settings.gallery.length ? (
+                    <button type="button" className="btn" onClick={() => setGalleryOpen(true)} title={t('tip.gallery')}>
+                      {t('gallery.title')} · {settings.gallery.length}
+                    </button>
+                  ) : null}
+                </div>
               </div>
             )}
           />
+          {galleryOpen ? (
+            <Gallery
+              entries={settings.gallery}
+              view={settings.galleryView}
+              sort={settings.gallerySort}
+              language={settings.lang}
+              onOpen={openFromGallery}
+              onForget={(key) => setSettings((s) => ({ ...s, gallery: removeFromGallery(s.gallery, key) }))}
+              onClear={clearGallery}
+              onView={(view) => setSettings((s) => ({ ...s, galleryView: view }))}
+              onSort={(sort) => setSettings((s) => ({ ...s, gallerySort: sort }))}
+              onClose={() => setGalleryOpen(false)}
+            />
+          ) : null}
           {dragOver ? <div className="dropzone">{t('common.dropHere')}</div> : null}
         </main>
 

@@ -78,18 +78,19 @@
     <!-- One half of the standing book: drawn left of the gutter at x=495 and
          mirrored for the other side. -->
     <g id="half">
-      <!-- the cover, the outermost band -->
-      <path d="M178 278 C146 414 146 606 178 738 L150 752 C116 612 116 404 150 262 Z" fill="url(#cover)"/>
+      <!-- the cover, the outermost band: a straight edge, as a book held
+           open has — only the paper bends, and only towards the binding -->
+      <path d="M180 276 L180 738 L152 750 L152 264 Z" fill="url(#cover)"/>
       <!-- the block of leaves, just inside the cover -->
-      <path d="M196 288 C168 420 168 600 196 726 L176 736 C144 606 144 414 176 278 Z" fill="url(#pagesEdge)"/>
+      <path d="M198 286 L198 728 L178 736 L178 278 Z" fill="url(#pagesEdge)"/>
       <g stroke="#a7977a" stroke-opacity="0.5" stroke-width="4" fill="none">
-        <path d="M189 286 C160 416 160 604 189 730"/>
-        <path d="M182 282 C152 414 152 606 182 734"/>
+        <path d="M192 284 L192 731"/>
+        <path d="M185 281 L185 734"/>
       </g>
-      <!-- the page itself: up to the outer corner, down the near edge, back
-           along the bottom to the gutter -->
-      <path d="M495 336 C400 300 280 276 196 288 C168 420 168 600 196 726 C280 716 400 706 495 696 Z" fill="url(#pages)"/>
-      <path d="M495 336 C400 300 280 276 196 288 C168 420 168 600 196 726 C280 716 400 706 495 696 Z" fill="url(#pageGloss)"/>
+      <!-- the page itself: straight down its outer edge, curving only where
+           it runs into the binding -->
+      <path d="M495 336 C420 306 300 288 198 286 L198 728 C300 726 420 708 495 696 Z" fill="url(#pages)"/>
+      <path d="M495 336 C420 306 300 288 198 286 L198 728 C300 726 420 708 495 696 Z" fill="url(#pageGloss)"/>
       <!-- the page bending down into the gutter -->
       <path d="M495 336 C470 400 470 630 495 696 Z" fill="#2a1403" fill-opacity="0.17"/>
     </g>

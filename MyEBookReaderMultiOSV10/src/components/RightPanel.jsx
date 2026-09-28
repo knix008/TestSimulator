@@ -4,7 +4,8 @@ import {
   IconInfo, IconTextSize, IconNote, IconHighlight, IconTrash, IconCover, IconCopy,
 } from './Icons.jsx';
 import { READING_WIDTHS } from '../lib/view.js';
-import { PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../lib/settings.js';
+import { PANEL_WIDTH_MAX } from '../lib/settings.js';
+import { usePanelMinWidth, clampToPanelMin } from './panelWidth.js';
 import { formatBytes } from '../lib/platform.js';
 import { getSystemFonts } from '../lib/fonts.js';
 
@@ -18,7 +19,7 @@ const TABS = [
   { id: 'notes', icon: IconNote, label: 'panel.notes' },
 ];
 
-function Resizer({ width, onResize }) {
+function Resizer({ width, onResize, min }) {
   const drag = useRef(null);
   return (
     <div
@@ -34,7 +35,8 @@ function Resizer({ width, onResize }) {
       onPointerMove={(e) => {
         const d = drag.current;
         if (!d) return;
-        onResize(Math.min(PANEL_WIDTH_MAX, Math.max(PANEL_WIDTH_MIN, d.w0 + (d.x0 - e.clientX))));
+        // Never past the point where the panel's own tabs would be cut off.
+        onResize(clampToPanelMin(d.w0 + (d.x0 - e.clientX), min));
       }}
       onPointerUp={(e) => { drag.current = null; e.currentTarget.releasePointerCapture?.(e.pointerId); }}
       onPointerCancel={(e) => { drag.current = null; e.currentTarget.releasePointerCapture?.(e.pointerId); }}
@@ -56,7 +58,10 @@ export default function RightPanel({
   book, section, settings, onSettings, libraryPath, dirty,
   highlights, notes, onGoToMark, onRemoveMark, onCopyMark,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const tabsRef = useRef(null);
+  // The panel is never narrower than its own tab strip, in any language.
+  const minWidth = usePanelMinWidth(tabsRef, [i18n.language]);
   const [fonts, setFonts] = useState([]);
   const [cover, setCover] = useState('');
 
@@ -74,12 +79,17 @@ export default function RightPanel({
 
   const set = (patch) => onSettings({ ...settings, ...patch });
   const meta = book?.meta || {};
+  const shown = Math.max(width, minWidth);
 
   return (
-    <aside className="side-panel right" style={{ width }} aria-label={t('panel.right')}>
-      <Resizer width={width} onResize={onResize} />
+    <aside
+      className="side-panel right"
+      style={{ width: shown, minWidth }}
+      aria-label={t('panel.right')}
+    >
+      <Resizer width={shown} onResize={onResize} min={minWidth} />
 
-      <div className="panel-tabs" role="tablist" aria-label={t('panel.right')}>
+      <div className="panel-tabs" role="tablist" aria-label={t('panel.right')} ref={tabsRef}>
         {TABS.map((tab) => (
           <button
             key={tab.id}
