@@ -8,11 +8,22 @@ import { iconByName } from './Icons.jsx';
 // identically either way: one row per line, one column, every row carrying an
 // icon and a label, with the shortcut — and, for a recent file, its folder —
 // aligned on the right.
-export default function MenuList({ rows, label = 'menu', onChoose, translate }) {
+export default function MenuList({ rows, label = 'menu', onChoose, translate, columns = 1 }) {
   const text = (row) => (row.text != null ? row.text : translate(row.label));
 
+  // More than one column: the rows are dealt out down the first column and on
+  // to the next, so reading order is still top to bottom. The row count is what
+  // the grid needs to know; the columns then size themselves to their content.
+  const cols = Math.max(1, Math.min(4, Math.round(columns) || 1));
+  const perColumn = Math.ceil(rows.length / cols) || 1;
+
   return (
-    <ul className="menu-list" role="menu" aria-label={label}>
+    <ul
+      className={cols > 1 ? `menu-list cols-${cols}` : 'menu-list'}
+      style={cols > 1 ? { '--menu-rows': perColumn } : undefined}
+      role="menu"
+      aria-label={label}
+    >
       {rows.map((row, i) => {
         if (row.separator) return <li key={`sep${i}`} className="menu-sep" role="separator" />;
         if (row.section) {

@@ -77,6 +77,46 @@ describe('MenuHost — a menu in its own window', () => {
     });
   });
 
+  it('deals a menu too tall for the screen into columns', async () => {
+    // jsdom measures nothing, so the list is made to answer with a height that
+    // no screen could show, and then with a height that fits once it is split.
+    // jsdom's screen is 768px tall, so 1200px of rows needs exactly two columns.
+    const heights = { value: 1200 };
+    const measure = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function rect() {
+        const columns = Number((this.querySelector?.('.menu-list')?.className || '').match(/cols-(\d)/)?.[1] || 1);
+        return { width: 300 * columns, height: heights.value / columns, top: 0, left: 0, right: 0, bottom: 0 };
+      });
+    try {
+      render(<MenuHost />);
+      harness.listeners.menu[0]({ menu: 'theme', language: 'ko', theme: 'dark', state: {}, openId: 9 });
+
+      await waitFor(() => expect(document.querySelector('.menu-list').className).toContain('cols-'));
+      const list = document.querySelector('.menu-list');
+      // Forty themes over two columns: twenty rows and two headings, so the
+      // first column holds half of the rows.
+      expect(list.className).toContain('cols-2');
+      expect(document.querySelector('.menu-window').className).toContain('wide');
+
+      // Split, it reports a size the window can actually show.
+      await waitFor(() => expect(harness.api.menu.reportSize).toHaveBeenCalled());
+      const reported = harness.api.menu.reportSize.mock.calls.at(-1)[0];
+      expect(reported.height).toBeLessThan(1200);
+      expect(reported.width).toBeGreaterThan(300);
+    } finally {
+      measure.mockRestore();
+    }
+  });
+
+  it('keeps a short menu in one column', async () => {
+    render(<MenuHost />);
+    harness.listeners.menu[0]({ menu: 'app', language: 'ko', theme: 'dark', state: {}, openId: 10 });
+    await waitFor(() => expect(document.querySelector('.menu-list')).toBeTruthy());
+    expect(document.querySelector('.menu-list').className).toBe('menu-list');
+    expect(document.querySelector('.menu-window').className).toBe('menu-window');
+  });
+
   it('sends the chosen row back to the window that opened it', async () => {
     render(<MenuHost />);
     harness.listeners.menu[0]({ menu: 'app', language: 'ko', theme: 'dark', state: {}, openId: 3 });

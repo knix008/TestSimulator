@@ -208,6 +208,29 @@ async function run(win) {
     return 'F9 closes and reopens it';
   });
 
+  await check('the theme list fits on the screen, in columns if it must', async () => {
+    const { screen } = require('electron');
+    await evaluate(win, "document.querySelector('.toolbar-right .menu-wrap.split .menu-btn').click(); return true;");
+    await wait(1100);
+    const menu = child.getMenuWindow();
+    assert(menu && menu.isVisible(), 'the theme list did not open');
+    const bounds = menu.getBounds();
+    const area = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }).workArea;
+    assert(bounds.height <= area.height, `the list is ${bounds.height}px tall on a ${area.height}px screen`);
+    const shown = await menu.webContents.executeJavaScript(`(() => {
+      const list = document.querySelector('.menu-list');
+      return {
+        rows: document.querySelectorAll('.menu-item').length,
+        columns: (list.className.match(/cols-(\d)/) || [null, '1'])[1],
+        heads: [...document.querySelectorAll('.menu-head')].length,
+      };
+    })()`);
+    menu.hide();
+    assert(Number(shown.rows) === 40, `${shown.rows} themes instead of 40`);
+    assert(shown.heads === 2, `${shown.heads} family headings instead of two`);
+    return `${shown.rows} themes in ${shown.columns} column(s), ${bounds.height}px tall`;
+  });
+
   await check('the theme can be changed', async () => {
     const before = await evaluate(win, "return document.documentElement.getAttribute('data-theme');");
     await evaluate(win, "document.querySelector('.toolbar-right .menu-wrap.split .tbtn').click(); return true;");

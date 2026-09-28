@@ -13,13 +13,22 @@ export default function ContextMenu({ open, x, y, rows, label, onChoose, onClose
   const ref = useRef(null);
   const { t } = useTranslation();
   const [pos, setPos] = useState({ x, y });
+  const [columns, setColumns] = useState(1);
 
   // Measure after layout and pin the menu inside the window. A later effect
   // must not write the raw click point back — that is what put a menu under the
   // window edge.
+  useEffect(() => { if (!open) setColumns(1); }, [open]);
+
   useLayoutEffect(() => {
     if (!open) return;
     const el = ref.current;
+    // Too tall for the viewport: deal the rows into another column instead of
+    // running off the bottom.
+    if (el && el.offsetHeight > window.innerHeight - 24 && columns < 4) {
+      setColumns(columns + 1);
+      return;
+    }
     setPos(clampPopupPos({
       x,
       y,
@@ -28,7 +37,7 @@ export default function ContextMenu({ open, x, y, rows, label, onChoose, onClose
       viewW: window.innerWidth,
       viewH: window.innerHeight,
     }));
-  }, [open, x, y, rows]);
+  }, [open, x, y, rows, columns]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -55,7 +64,7 @@ export default function ContextMenu({ open, x, y, rows, label, onChoose, onClose
   return (
     <div
       ref={ref}
-      className="ctxmenu menu-window"
+      className={columns > 1 ? 'ctxmenu menu-window wide' : 'ctxmenu menu-window'}
       style={{ left: pos.x, top: pos.y }}
       onPointerDown={(e) => e.stopPropagation()}
       onMouseDown={(e) => {
@@ -68,6 +77,7 @@ export default function ContextMenu({ open, x, y, rows, label, onChoose, onClose
     >
       <MenuList
         rows={rows || []}
+        columns={columns}
         label={label || 'menu'}
         translate={(key, args) => t(key, args)}
         onChoose={(id) => { onChoose(id); onClose(); }}

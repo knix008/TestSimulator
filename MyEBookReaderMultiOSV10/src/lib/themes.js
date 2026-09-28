@@ -28,6 +28,27 @@ export const THEMES = [
   { id: 'ice', bars: ['#eef6f6', '#ffffff', '#2a9aaa'] },
   { id: 'contrast', bars: ['#000000', '#141414', '#ffd400'] },
   { id: 'contrast-light', bars: ['#ffffff', '#ffffff', '#0033cc'] },
+
+  /* dark */
+  { id: 'carbon', bars: ['#17181a', '#202226', '#7f8cff'] },
+  { id: 'obsidian', bars: ['#100e18', '#191527', '#b98cff'] },
+  { id: 'abyss', bars: ['#07161c', '#0d2129', '#34d0c0'] },
+  { id: 'espresso', bars: ['#17110e', '#201814', '#d99a5b'] },
+  { id: 'moss', bars: ['#14180f', '#1c2216', '#a8c15c'] },
+  { id: 'plum', bars: ['#1a0f16', '#24151f', '#e072b0'] },
+  { id: 'dusk', bars: ['#161a22', '#1f242e', '#f0a868'] },
+
+  /* light */
+  { id: 'cloud', bars: ['#f2f5f9', '#ffffff', '#3b6fd4'] },
+  { id: 'linen', bars: ['#f7f2e8', '#fffbf3', '#9a7b3f'] },
+  { id: 'mint', bars: ['#edf7f2', '#ffffff', '#17a06a'] },
+  { id: 'peach', bars: ['#fdf1ea', '#fffaf6', '#dd6b3f'] },
+  { id: 'sakura', bars: ['#fdf0f4', '#fffafc', '#d9558b'] },
+  { id: 'sage', bars: ['#f1f4ec', '#fcfdfa', '#61873c'] },
+  { id: 'pearl', bars: ['#f5f3f7', '#ffffff', '#6b5bd6'] },
+  { id: 'honey', bars: ['#fdf5e2', '#fffcf2', '#c08a12'] },
+  { id: 'porcelain', bars: ['#eef1f4', '#fbfcfd', '#2e8fa8'] },
+  { id: 'meadow', bars: ['#f0f7ea', '#fdfff9', '#4d9a34'] },
 ];
 
 export const THEME_IDS = THEMES.map((t) => t.id);
@@ -42,6 +63,7 @@ export function nextTheme(id) {
 export const DARK_THEME_IDS = new Set([
   'dark', 'night', 'midnight', 'nord', 'forest', 'ocean', 'mocha', 'rose',
   'grape', 'ember', 'crimson', 'slate', 'contrast',
+  'carbon', 'obsidian', 'abyss', 'espresso', 'moss', 'plum', 'dusk',
 ]);
 
 export function isDarkTheme(id) {
@@ -61,7 +83,7 @@ export function themeGroups(themes = THEMES) {
 }
 
 /** The background the reading page itself gets — paper themes keep their tint. */
-export const PAPER_THEME_IDS = new Set(['paper', 'sepia', 'sand', 'solarized']);
+export const PAPER_THEME_IDS = new Set(['paper', 'sepia', 'sand', 'solarized', 'linen', 'honey']);
 
 export function isPaperTheme(id) {
   return PAPER_THEME_IDS.has(id);

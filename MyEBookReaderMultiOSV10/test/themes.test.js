@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
-import { THEMES, THEME_IDS, nextTheme, isDarkTheme, isPaperTheme } from '../src/lib/themes.js';
+import {
+  THEMES, THEME_IDS, nextTheme, isDarkTheme, isPaperTheme, themeGroups,
+} from '../src/lib/themes.js';
 
 const css = fs.readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'App.css'),
@@ -12,6 +14,21 @@ const css = fs.readFileSync(
 describe('theme list', () => {
   it('offers a wide choice', () => {
     expect(THEMES.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('offers twenty dark themes and twenty light ones', () => {
+    const groups = themeGroups();
+    expect(groups.map((g) => g.kind)).toEqual(['dark', 'light']);
+    for (const group of groups) expect(group.themes, group.kind).toHaveLength(20);
+    expect(groups[0].themes.length + groups[1].themes.length).toBe(THEMES.length);
+  });
+
+  it('puts every theme in exactly one family', () => {
+    const groups = themeGroups();
+    const ids = groups.flatMap((g) => g.themes.map((t) => t.id));
+    expect(new Set(ids).size).toBe(THEMES.length);
+    for (const theme of groups[0].themes) expect(isDarkTheme(theme.id), theme.id).toBe(true);
+    for (const theme of groups[1].themes) expect(isDarkTheme(theme.id), theme.id).toBe(false);
   });
 
   it('has unique ids', () => {

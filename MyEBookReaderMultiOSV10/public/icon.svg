@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- MyEBookReader application icon.
      One rounded background plate, lit from the top left, with its shadow cast
-     down and to the right. Standing on it is a book seen slightly from the
-     left: spine, hard cover, page block and a bookmark ribbon, with EBook on
-     the cover so the icon says what the program is even at 16 px.
+     down and to the right. Standing UPRIGHT on it is an open book seen from
+     the front: two tall pages splayed towards the viewer, the block of leaves
+     and the cover showing along each outer edge, the spine behind the gutter
+     and a bookmark ribbon hanging out of the bottom, with EBook across the
+     pages.
+
+     The book is taller than it is wide, which is what makes it read as a book
+     standing up rather than one lying open on a table, and it keeps a wide
+     margin inside the plate so nothing is cut off at any size. The left half
+     is drawn once and mirrored about the gutter at x=495, so the book is
+     exactly symmetric; the light is laid over the whole icon at the end.
      The canvas outside the plate and its shadow stays transparent. -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- ── The background plate ──────────────────────────── -->
+    <!-- The background plate -->
     <linearGradient id="plate" x1="0.04" y1="0" x2="0.92" y2="1">
       <stop offset="0"    stop-color="#8ceaff"/>
       <stop offset="0.18" stop-color="#36bbe4"/>
@@ -29,41 +37,62 @@
       <stop offset="0"   stop-color="#020817" stop-opacity="0.72"/>
       <stop offset="1"   stop-color="#020817" stop-opacity="0.34"/>
     </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="150%" height="150%">
+    <filter id="soft" x="-25%" y="-25%" width="160%" height="160%">
       <feGaussianBlur stdDeviation="16"/>
     </filter>
 
-    <!-- ── The book ──────────────────────────────────────── -->
-    <linearGradient id="cover" x1="0.05" y1="0" x2="0.95" y2="1">
-      <stop offset="0"    stop-color="#ffb35c"/>
-      <stop offset="0.28" stop-color="#e2762a"/>
-      <stop offset="1"    stop-color="#8a3406"/>
-    </linearGradient>
-    <linearGradient id="spine" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0"   stop-color="#5e2104"/>
-      <stop offset="0.55" stop-color="#a24710"/>
-      <stop offset="1"   stop-color="#d0701f"/>
-    </linearGradient>
-    <linearGradient id="pages" x1="0" y1="0" x2="1" y2="0.2">
+    <!-- The open page, brightest where the light falls, shaded into the gutter -->
+    <linearGradient id="pages" x1="0" y1="0.1" x2="1" y2="0.9">
       <stop offset="0"    stop-color="#fffdf6"/>
-      <stop offset="0.45" stop-color="#ece2cf"/>
-      <stop offset="1"    stop-color="#b8a98c"/>
+      <stop offset="0.5"  stop-color="#f7f0dd"/>
+      <stop offset="1"    stop-color="#ddd0b3"/>
     </linearGradient>
-    <linearGradient id="pagesBottom" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#e8dcc4"/>
-      <stop offset="1" stop-color="#a2937a"/>
+    <!-- The stack of leaves, seen along the outer edge -->
+    <linearGradient id="pagesEdge" x1="0" y1="0" x2="1" y2="0.3">
+      <stop offset="0"    stop-color="#9d8d70"/>
+      <stop offset="0.45" stop-color="#e2d6ba"/>
+      <stop offset="1"    stop-color="#f6efdc"/>
     </linearGradient>
-    <linearGradient id="coverGloss" x1="0" y1="0" x2="0.3" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.55"/>
-      <stop offset="0.4"  stop-color="#ffffff" stop-opacity="0.08"/>
-      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
-      <stop offset="1"    stop-color="#000000" stop-opacity="0.2"/>
+    <linearGradient id="cover" x1="0" y1="0" x2="1" y2="0.4">
+      <stop offset="0"    stop-color="#8a3406"/>
+      <stop offset="0.4"  stop-color="#e2762a"/>
+      <stop offset="1"    stop-color="#ffb35c"/>
+    </linearGradient>
+    <linearGradient id="spine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#d0701f"/>
+      <stop offset="0.5"  stop-color="#a24710"/>
+      <stop offset="1"    stop-color="#5e2104"/>
+    </linearGradient>
+    <linearGradient id="pageGloss" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.72"/>
+      <stop offset="0.3"  stop-color="#ffffff" stop-opacity="0.14"/>
+      <stop offset="0.58" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#5b4a2c" stop-opacity="0.2"/>
     </linearGradient>
     <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0"    stop-color="#ffe9a3"/>
       <stop offset="0.45" stop-color="#f2c33c"/>
       <stop offset="1"    stop-color="#9a6a06"/>
     </linearGradient>
+
+    <!-- One half of the standing book: drawn left of the gutter at x=495 and
+         mirrored for the other side. -->
+    <g id="half">
+      <!-- the cover, the outermost band -->
+      <path d="M178 278 C146 414 146 606 178 738 L150 752 C116 612 116 404 150 262 Z" fill="url(#cover)"/>
+      <!-- the block of leaves, just inside the cover -->
+      <path d="M196 288 C168 420 168 600 196 726 L176 736 C144 606 144 414 176 278 Z" fill="url(#pagesEdge)"/>
+      <g stroke="#a7977a" stroke-opacity="0.5" stroke-width="4" fill="none">
+        <path d="M189 286 C160 416 160 604 189 730"/>
+        <path d="M182 282 C152 414 152 606 182 734"/>
+      </g>
+      <!-- the page itself: up to the outer corner, down the near edge, back
+           along the bottom to the gutter -->
+      <path d="M495 336 C400 300 280 276 196 288 C168 420 168 600 196 726 C280 716 400 706 495 696 Z" fill="url(#pages)"/>
+      <path d="M495 336 C400 300 280 276 196 288 C168 420 168 600 196 726 C280 716 400 706 495 696 Z" fill="url(#pageGloss)"/>
+      <!-- the page bending down into the gutter -->
+      <path d="M495 336 C470 400 470 630 495 696 Z" fill="#2a1403" fill-opacity="0.17"/>
+    </g>
   </defs>
 
   <!-- The plate's shadow: cast down and to the right -->
@@ -73,41 +102,25 @@
   <rect x="80" y="80" width="830" height="830" rx="150" fill="url(#plate)"/>
   <rect x="80" y="80" width="830" height="830" rx="150" fill="url(#plateBevel)"/>
 
-  <!-- ── The book, scaled to sit inside the plate with a margin all round,
-         so no part of it is clipped by the edge ─────────── -->
-  <g transform="translate(0 -22) translate(522 542) scale(0.78) translate(-522 -542)">
-    <!-- its own shadow on the plate, also down and to the right -->
-    <path d="M300 250 L800 310 L820 800 L320 852 Z" fill="#04112c" opacity="0.4" filter="url(#soft)" transform="translate(26 26)"/>
+  <!-- The book, a little smaller than the plate so it is never cut off -->
+  <g transform="translate(495 505) scale(0.94) translate(-495 -505)">
+    <!-- what it stands in: its shadow, down and to the right -->
+    <ellipse cx="520" cy="744" rx="312" ry="52" fill="#04112c" opacity="0.45" filter="url(#soft)"/>
 
-    <!-- page block: the edges that show past the cover -->
-    <path d="M330 232 L790 292 L790 806 L330 856 Z" fill="url(#pages)"/>
-    <path d="M330 856 L790 806 L812 830 L352 884 Z" fill="url(#pagesBottom)"/>
-    <g stroke="#b9ab8e" stroke-opacity="0.75" stroke-width="5" fill="none">
-      <path d="M344 250 L784 308"/>
-      <path d="M344 268 L784 326"/>
-      <path d="M340 828 L788 778"/>
-    </g>
+    <!-- the spine behind the gutter and the ribbon hanging out of the book:
+         drawn first, so only what shows past the pages is seen -->
+    <path d="M464 318 L526 318 L526 716 L495 732 L464 716 Z" fill="url(#spine)"/>
+    <path d="M472 560 L518 560 L518 806 L495 774 L472 806 Z" fill="url(#ribbon)"/>
 
-    <!-- hard cover, tilted with the book -->
-    <path d="M300 200 L768 262 L768 786 L300 840 Z" fill="url(#cover)"/>
-    <path d="M300 200 L768 262 L768 786 L300 840 Z" fill="url(#coverGloss)"/>
+    <!-- the two halves of the open book -->
+    <use href="#half"/>
+    <use href="#half" transform="translate(990 0) scale(-1 1)"/>
 
-    <!-- spine on the left, rounded into the cover -->
-    <path d="M232 244 L300 200 L300 840 L232 884 Z" fill="url(#spine)"/>
-    <path d="M232 244 L300 200 L300 232 L232 276 Z" fill="#ffffff" fill-opacity="0.22"/>
-
-    <!-- a rule on the cover, and the title -->
-    <path d="M352 372 L716 420" stroke="#ffe3bd" stroke-opacity="0.65" stroke-width="10" fill="none"/>
-    <path d="M352 700 L716 664" stroke="#ffe3bd" stroke-opacity="0.45" stroke-width="10" fill="none"/>
-    <g transform="matrix(1 0.128 0 1 0 0)">
-      <text x="534" y="474" text-anchor="middle"
-            font-family="Segoe UI, Arial, Helvetica, DejaVu Sans, sans-serif"
-            font-size="132" font-weight="700" letter-spacing="1"
-            fill="#fff6e8" stroke="#5e2104" stroke-width="9" paint-order="stroke">EBook</text>
-    </g>
-
-    <!-- bookmark ribbon coming out of the top -->
-    <path d="M628 236 L690 244 L690 430 L659 398 L628 422 Z" fill="url(#ribbon)"/>
+    <!-- the title, across the open pages -->
+    <text x="495" y="548" text-anchor="middle"
+          font-family="Segoe UI, Arial, Helvetica, DejaVu Sans, sans-serif"
+          font-size="118" font-weight="700" letter-spacing="1"
+          fill="#48280a" stroke="#fffaf0" stroke-width="10" paint-order="stroke">EBook</text>
   </g>
 
   <!-- Light from the top left, over the whole icon -->

@@ -362,6 +362,22 @@ describe('MenuList', () => {
     expect(document.querySelector('.menu-empty')).toBeTruthy();
   });
 
+  it('lays a long menu out in columns when it is asked to', () => {
+    const rows = Array.from({ length: 9 }, (_, i) => ({ id: `r${i}`, text: `row ${i}`, icon: 'open' }));
+    const { rerender } = render(
+      <MenuList rows={rows} translate={(k) => k} onChoose={() => {}} />,
+    );
+    // One column by default: no grid, no row count to lay out.
+    expect(document.querySelector('.menu-list').className).toBe('menu-list');
+
+    rerender(<MenuList rows={rows} columns={2} translate={(k) => k} onChoose={() => {}} />);
+    const list = document.querySelector('.menu-list');
+    expect(list.className).toContain('cols-2');
+    // Nine rows over two columns is five in the first one, filled downwards.
+    expect(list.style.getPropertyValue('--menu-rows')).toBe('5');
+    expect(document.querySelectorAll('.menu-item')).toHaveLength(9);
+  });
+
   it('shows a theme row as its three swatch colours', () => {
     render(<MenuList
       rows={[{ id: 'theme:nord', text: 'nord', icon: 'theme', bars: ['#1', '#2', '#3'], checked: true }]}

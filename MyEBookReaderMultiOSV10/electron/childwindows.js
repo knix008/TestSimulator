@@ -40,7 +40,7 @@ let openSequence = 0;
 // size — its content is laid out to fit (tabs, a scaled page preview) — while
 // the others take the height of their content once, when they open.
 const DIALOG_SPECS = {
-  settings: { width: 840, height: 700, fixed: true },
+  settings: { width: 1010, height: 720, fixed: true },
   about: { width: 580, height: 520 },
   error: { width: 660, height: 460 },
   unsaved: { width: 520, height: 240 },
