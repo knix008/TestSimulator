@@ -1107,6 +1107,9 @@ export default function App() {
       case 'textBigger': setSettings((s) => ({ ...s, fontScale: nextFontScale(s.fontScale, 1) })); return;
       case 'textSmaller': setSettings((s) => ({ ...s, fontScale: nextFontScale(s.fontScale, -1) })); return;
       case 'textReset': setSettings((s) => ({ ...s, fontScale: 1 })); return;
+      case 'turnNone': setSettings((s) => ({ ...s, pageTurn: 'none' })); return;
+      case 'turnSlide': setSettings((s) => ({ ...s, pageTurn: 'slide' })); return;
+      case 'turnFlip': setSettings((s) => ({ ...s, pageTurn: 'flip' })); return;
       case 'justify': setSettings((s) => ({ ...s, justify: !s.justify })); return;
       case 'zoomIn': setSettings((s) => ({ ...s, zoomMode: 'custom', zoom: nextZoom(s.zoomMode === 'custom' ? s.zoom : scale, 1) })); return;
       case 'zoomOut': setSettings((s) => ({ ...s, zoomMode: 'custom', zoom: nextZoom(s.zoomMode === 'custom' ? s.zoom : scale, -1) })); return;

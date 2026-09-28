@@ -124,6 +124,80 @@ async function run(win) {
     return `${rows} entries`;
   });
 
+  await check('an ordinary book turns by its arrows and by the keyboard', async () => {
+    // A reflowable book, where turning a page scrolls within the chapter until
+    // it runs out and then moves to the next one. Both count as having turned;
+    // what must not happen is nothing at all.
+    await until(win, "!!document.querySelector('.chapter')", { timeout: 20000 });
+    // Let the opening finish before touching anything: a book restores where it
+    // was left, and that arrives after the first chapter is on screen.
+    await until(win, `(() => {
+      const box = document.querySelector('.page-input');
+      const now = box ? box.value : '';
+      const same = window.__settled === now;
+      window.__settled = now;
+      return same ? now : null;
+    })()`, { timeout: 12000, step: 700 });
+
+    const where = `return (() => {
+      const pane = document.querySelector('.bookview');
+      const box = document.querySelector('.page-input');
+      return {
+        page: Number(box ? box.value : 0),
+        top: Math.round(pane.scrollTop),
+        room: pane.scrollHeight - pane.clientHeight,
+        mode: pane.className,
+      };
+    })()`;
+
+    // Pressed where it is, not by calling its click handler: a button that
+    // something else covers still answers .click() and is useless to a reader.
+    const press = (which) => evaluate(win, `return (() => {
+      const arrow = document.querySelector('.page-arrow.${which}');
+      if (!arrow) return { error: 'no page arrows over the book' };
+      const box = arrow.getBoundingClientRect();
+      const x = Math.round(box.left + box.width / 2);
+      const y = Math.round(box.top + box.height / 2);
+      const on = document.elementFromPoint(x, y);
+      if (!on || !arrow.contains(on)) {
+        return { error: 'the ${which} arrow is covered by ' + (on ? (on.className || on.tagName) : 'nothing') };
+      }
+      for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+        on.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 }));
+      }
+      return { ok: true };
+    })()`);
+
+    const key = (name) => evaluate(win, `window.dispatchEvent(new KeyboardEvent('keydown', { key: '${name}', bubbles: true })); return true;`);
+
+    const moved = (before, after) => after.page !== before.page || after.top !== before.top;
+    const steps = [];
+
+    for (const [how, act] of [['arrow', () => press('right')], ['PageDown', () => key('PageDown')]]) {
+      const before = await evaluate(win, where);
+      const done = await act();
+      assert(!done?.error, done.error);
+      await wait(900);
+      const after = await evaluate(win, where);
+      assert(moved(before, after) || before.page >= 3,
+        `${how} left the book on chapter ${before.page} at ${before.top}px, with ${before.room}px still to go`);
+      steps.push(`${how}: ${before.page}@${before.top} → ${after.page}@${after.top} [room ${before.room}, ${before.mode}]`);
+    }
+
+    // And back the other way.
+    const beforeBack = await evaluate(win, where);
+    await key('PageUp');
+    await wait(900);
+    const afterBack = await evaluate(win, where);
+    assert(moved(beforeBack, afterBack), 'PageUp did not take the book back');
+    steps.push(`PageUp: ${beforeBack.page}@${beforeBack.top} → ${afterBack.page}@${afterBack.top}`);
+
+    const labels = await evaluate(win, `return [...document.querySelectorAll('.page-arrow')]
+      .map((b) => b.getAttribute('aria-label') || '')`);
+    assert(labels.length === 2 && labels.every(Boolean), `the arrows are labelled [${labels.join(', ')}]`);
+    return steps.join(' · ');
+  });
+
   await check('the status bar reports the format and the position', async () => {
     const text = await evaluate(win, "return document.querySelector('.statusbar').textContent;");
     assert(text.includes('EPUB'), 'the format is missing');
@@ -358,60 +432,6 @@ async function run(win) {
       { timeout: 20000 },
     );
     return size;
-  });
-
-  await check('an ordinary book turns by its arrows and by the keyboard', async () => {
-    // Back to the EPUB: a reflowable book, where turning a page may scroll
-    // within a chapter or move to the next one — both count as having moved.
-    win.webContents.send('app:openPath', smokeBook());
-    await until(win, "!!document.querySelector('.chapter')", { timeout: 20000 });
-    await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', ctrlKey: true, bubbles: true })); return true;");
-    await wait(600);
-
-    const where = `return (() => {
-      const pane = document.querySelector('.bookview');
-      const status = document.querySelector('.statusbar');
-      return {
-        top: Math.round(pane.scrollTop),
-        text: (document.querySelector('.chapter').textContent || '').slice(0, 40),
-        status: (status ? status.textContent : '').replace(/\s+/g, ' ').slice(0, 60),
-      };
-    })()`;
-
-    const start = await evaluate(win, where);
-
-    // The arrow drawn over the page.
-    const arrows = await evaluate(win, `return (() => {
-      const next = document.querySelector('.page-arrow.right');
-      const prev = document.querySelector('.page-arrow.left');
-      if (!next || !prev) return { error: 'no page arrows over the book' };
-      next.click();
-      return { ok: true };
-    })()`);
-    assert(!arrows.error, arrows.error);
-    await wait(700);
-    const afterArrow = await evaluate(win, where);
-    assert(afterArrow.top !== start.top || afterArrow.text !== start.text,
-      'the next-page arrow did not move the book');
-
-    // And the keys.
-    await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true })); return true;");
-    await wait(700);
-    const afterKey = await evaluate(win, where);
-    assert(afterKey.top !== afterArrow.top || afterKey.text !== afterArrow.text,
-      'PageDown did not move the book');
-
-    await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true })); return true;");
-    await wait(700);
-    const back = await evaluate(win, where);
-    assert(back.top !== afterKey.top || back.text !== afterKey.text,
-      'PageUp did not take the book back');
-
-    // Both arrows are reachable and say what they do.
-    const labels = await evaluate(win, `return [...document.querySelectorAll('.page-arrow')]
-      .map((b) => b.getAttribute('aria-label') || '')`);
-    assert(labels.length === 2 && labels.every(Boolean), `the arrows are labelled [${labels.join(', ')}]`);
-    return `${labels.join(' · ')} — arrow, PageDown and PageUp all move the book`;
   });
 
   await check('two pages can be shown side by side', async () => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { DialogBody } from '../src/components/dialogs.jsx';
+import { DEFAULT_SETTINGS } from '../src/lib/settings.js';
 import MenuBar, { BAR_MENUS, MENU_KEYS } from '../src/components/MenuBar.jsx';
 import { paperSizeMm } from '../src/lib/print.js';
 import { translate } from '../src/i18n.js';
@@ -59,11 +60,35 @@ describe('the print preview follows the page setup', () => {
 
   it('shows the margins, and widens them as they are set', () => {
     const { sheet } = printDialog();
-    const margin = () => sheet().style.getPropertyValue('--print-margin-x');
-    const before = parseFloat(margin());
-    fireEvent.change(document.querySelector('.range'), { target: { value: '30' } });
-    expect(parseFloat(margin())).toBeGreaterThan(before);
-    expect(screen.getByTestId('print-setup').textContent).toContain('30mm');
+    const margin = () => parseFloat(sheet().style.getPropertyValue('--print-margin-x'));
+    const before = margin();
+    // The margin is set the way every other number is: less, the number, more.
+    fireEvent.click(screen.getByLabelText(`${t('print.margin')} +`));
+    expect(margin()).toBeGreaterThan(before);
+    expect(screen.getByTestId('print-setup').textContent).toContain('16mm');
+
+    // And the number itself puts it back to what it was.
+    fireEvent.click(screen.getByLabelText(`${t('print.margin')}: 16mm`));
+    expect(margin()).toBe(before);
+  });
+
+  it('sets every other number the same way', () => {
+    // One row per number, three controls: less, the value, more.
+    render(
+      <DialogBody
+        name="settings"
+        payload={{ language: 'ko', settings: DEFAULT_SETTINGS }}
+        onResult={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText(t('settings.tabs.reading')));
+    const steppers = [...document.querySelectorAll('.settings-panel.on .stepper')];
+    expect(steppers.length).toBeGreaterThanOrEqual(2);
+    for (const stepper of steppers) {
+      expect(stepper.querySelectorAll('button')).toHaveLength(3);
+      expect(stepper.querySelector('.stepper-value').textContent).toBeTruthy();
+    }
+    expect(document.querySelectorAll('.settings-panel.on input[type="range"]')).toHaveLength(0);
   });
 
   it('prints the chapter title on the sheet only when asked to', () => {

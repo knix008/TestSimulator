@@ -107,10 +107,23 @@ export const IconFitWidth = (p) => (
   <S {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m7 12 2.5-2.5M7 12l2.5 2.5M17 12l-2.5-2.5M17 12l-2.5 2.5M7 12h10" /></S>
 );
 export const IconFitPage = (p) => (
-  <S {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="m12 7-2.5 2.5M12 7l2.5 2.5M12 17l-2.5-2.5M12 17l2.5-2.5M12 7v10" /></S>
+  // A page filling its window: the frame, the page pressed out to its edges,
+  // and arrows into all four corners.
+  <S {...p}>
+    <rect x="2.5" y="4" width="19" height="16" rx="2" />
+    <rect x="6" y="7.5" width="12" height="9" rx="1" />
+    <path d="M4.5 6 6.8 8.3M19.5 6l-2.3 2.3M4.5 18l2.3-2.3M19.5 18l-2.3-2.3" />
+  </S>
 );
 export const IconFitHeight = (p) => (
   <S {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M12 7v10M9.5 9.5 12 7l2.5 2.5M9.5 14.5 12 17l2.5-2.5" /></S>
+);
+export const IconPageTurn = (p) => (
+  <S {...p}>
+    <path d="M5 4h8l4 4v12H5z" />
+    <path d="M13 4v4h4" />
+    <path d="M17 13c-3.6 0-6 2.2-6 5.2 2.8 0 6-1.6 6-5.2z" />
+  </S>
 );
 export const IconActual = (p) => (
   <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M8 15V9l-2 1.5M13 9h3v3h-3v3h3" /></S>
@@ -259,7 +272,7 @@ export const ICONS = {
   up: IconUp, down: IconDown, zoomIn: IconZoomIn, zoomOut: IconZoomOut,
   fitWidth: IconFitWidth, fitPage: IconFitPage, fitHeight: IconFitHeight, actual: IconActual,
   rotateLeft: IconRotateLeft, rotateRight: IconRotateRight,
-  scroll: IconScroll, paged: IconPaged, columns: IconColumns,
+  scroll: IconScroll, paged: IconPaged, columns: IconColumns, pageTurn: IconPageTurn,
   textSize: IconTextSize, lineHeight: IconLineHeight, invert: IconInvert,
   opacity: IconOpacity, image: IconImage, layout: IconLayout,
   panelLeft: IconPanelLeft, panelRight: IconPanelRight,

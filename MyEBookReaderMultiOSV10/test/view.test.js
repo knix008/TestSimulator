@@ -147,7 +147,9 @@ describe('readingStyle', () => {
     expect(style['--read-font']).toBe("'Nanum Myeongjo'");
     expect(style['--read-size']).toBe('34px');
     expect(style['--read-line']).toBe('1.9');
-    expect(style['--read-width']).toBe('640px');
+    // The page grows with the text: 640px of paper at twice the size is a
+    // page twice as wide, so a line still holds about as many words.
+    expect(style['--read-width']).toBe('1280px');
     expect(style['--read-align']).toBe('justify');
     expect(style['--read-indent']).toBe('1.4em');
     expect(style['--read-gap']).toBe('1.2em');
@@ -155,6 +157,13 @@ describe('readingStyle', () => {
     expect(style['--read-weight']).toBe('600');
     expect(style['--read-style']).toBe('italic');
     expect(style['--read-decoration']).toBe('underline');
+  });
+
+  it('keeps the page in proportion to the text', () => {
+    const small = readingStyle({ readingWidth: 700, fontScale: 0.8 });
+    const large = readingStyle({ readingWidth: 700, fontScale: 1.5 });
+    expect(small['--read-width']).toBe('560px');
+    expect(large['--read-width']).toBe('1050px');
   });
 
   it('fills the pane when the width is zero', () => {

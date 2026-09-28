@@ -6,6 +6,7 @@ import {
   IconPanelLeft, IconPanelRight, IconTheme, IconSettings, IconInfo, IconFlag,
   IconFolder, IconContents, IconLayout, IconBookmark, IconScroll, IconPaged, IconDown,
   IconActual, IconColumns, IconLibrary, IconImage, IconFitWidth, IconFitPage, IconFitHeight,
+  IconPageTurn,
 } from './Icons.jsx';
 import { nextTheme } from '../lib/themes.js';
 import { otherLang } from '../i18n.js';
@@ -115,6 +116,10 @@ function MenuButton({ icon: Icon, label, tip, menu, showLabel, onOpenMenu, disab
     </button>
   );
 }
+
+/** The effects in the order the button steps through them. */
+const NEXT_TURN = { none: 'slide', slide: 'flip', flip: 'none' };
+const TURN_LABEL = { none: 'None', slide: 'Slide', flip: 'Flip' };
 
 export default function Toolbar({
   settings, book, section, sectionCount, scale, hasSelection, history, bookmarkCount,
@@ -237,6 +242,14 @@ export default function Toolbar({
             <span className="page-total">/ {sectionCount || 0}</span>
           </span>
           <ToolButton icon={IconNext} label={t('cmd.nextSection')} tip={t('tip.next')} onClick={run('nextSection')} disabled={!book || section >= sectionCount - 1} />
+          {/* The page-turn effect, one press at a time: none → slide → leaf. */}
+          <ToolButton
+            icon={IconPageTurn}
+            label={t(`cmd.turn${TURN_LABEL[settings.pageTurn] || 'None'}`)}
+            tip={t('tip.pageTurn', { name: t(`reading.turn${TURN_LABEL[settings.pageTurn] || 'None'}`) })}
+            onClick={run(`turn${TURN_LABEL[NEXT_TURN[settings.pageTurn] || 'slide']}`)}
+            active={settings.pageTurn !== 'none'}
+          />
           <ToolButton
             icon={settings.pageMode === 'paged' ? IconPaged : IconScroll}
             label={settings.pageMode === 'paged' ? t('cmd.modePaged') : t('cmd.modeScroll')}

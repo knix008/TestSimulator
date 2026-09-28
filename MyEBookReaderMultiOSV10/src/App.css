@@ -1074,6 +1074,14 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 }
 .leaf-face.back { transform: rotateY(180deg); }
 .leaf-face img { max-width: 100%; max-height: 100%; box-shadow: 0 6px 22px var(--shadow); }
+/* A page whose picture cannot be copied — a PDF that has not painted yet — is
+   still a leaf: blank paper, which is what the back of a page looks like. */
+.leaf-paper {
+  width: 76%;
+  height: 92%;
+  background: var(--page-paper);
+  box-shadow: 0 6px 22px var(--shadow);
+}
 .turn-leaf.forward {
   right: 0;
   transform-origin: left center;
@@ -1124,6 +1132,26 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   :root:not([data-motion='full']) .turning { animation: none !important; }
   :root:not([data-motion='full']) .page-arrow { transition: none; }
 }
+/* Reading means selecting: the text says so with the pointer, selects on its
+   own terms rather than the whole line, and shows what is selected clearly. */
+.chapter {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.chapter ::selection, .chapter::selection,
+.textLayer ::selection, .textLayer::selection {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: inherit;
+}
+/* A picture is not text: pointing at one offers to pick it, not to select
+   words, and a picked picture says so. */
+.chapter img, .comic-page, .pdf-canvas { cursor: pointer; }
+.chapter img.picked, .comic-page.picked, .pdf-canvas.picked {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .comic-page { max-width: 100%; box-shadow: 0 6px 22px var(--shadow); }
 .bookview.inverted .comic-page,
 .bookview.inverted .pdf-canvas { filter: invert(1) hue-rotate(180deg); }
@@ -1642,6 +1670,15 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 .range { accent-color: var(--accent); width: 100%; }
 .check { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
 .stepper { display: inline-flex; align-items: center; gap: 6px; }
+.stepper-field { gap: 4px; }
+.btn.stepper-value {
+  min-width: 5em;
+  justify-content: center;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.btn.stepper-value:hover { color: var(--text); border-color: var(--accent); }
 .stepper-value { min-width: 4em; text-align: center; font-variant-numeric: tabular-nums; }
 .kv { width: 100%; border-collapse: collapse; font-size: 0.9em; }
 .kv th {

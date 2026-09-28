@@ -120,7 +120,14 @@ export function readingStyle(settings) {
     '--read-font': settings?.readerFont ? `'${settings.readerFont}'` : 'inherit',
     '--read-size': `${Math.round(17 * scale * 100) / 100}px`,
     '--read-line': String(settings?.lineHeight || 1.7),
-    '--read-width': settings?.readingWidth ? `${settings.readingWidth}px` : '100%',
+    // The page grows with the text. Enlarging only the letters inside a fixed
+    // column is what makes a book look as though it will not zoom: the lines
+    // get shorter and shorter while the paper stays the same size. Widening the
+    // column by the same amount keeps roughly the same number of words to a
+    // line, which is what an e-book reader is expected to do.
+    '--read-width': settings?.readingWidth
+      ? `${Math.round(settings.readingWidth * scale)}px`
+      : '100%',
     '--read-align': settings?.justify ? 'justify' : 'start',
     '--read-indent': settings?.paragraphIndent ? '1.4em' : '0',
     '--read-gap': `${Number(settings?.paragraphGap ?? 0.7)}em`,

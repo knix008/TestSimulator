@@ -68,6 +68,47 @@ function Check({ label, value, onChange, title }) {
   );
 }
 
+/**
+ * A number, set the way the toolbar sets the reading size: less, the number
+ * itself — which puts it back to what it was to begin with — and more, on one
+ * row. A slider cannot say what it is set to without a label, cannot be nudged
+ * by one step without a steady hand, and has no way back to the default.
+ */
+function Stepper({ label, value, onChange, min, max, step = 1, standard, format, title }) {
+  const clamp = (n) => Math.min(max, Math.max(min, Math.round(n * 1000) / 1000));
+  const show = format ? format(value) : String(value);
+  return (
+    <div className="field stepper-field">
+      <span className="field-label">{label}</span>
+      <div className="stepper" role="group" aria-label={label}>
+        <button
+          type="button"
+          className="btn stepper-btn"
+          disabled={value <= min}
+          onClick={() => onChange(clamp(value - step))}
+          title={`${label} −`}
+          aria-label={`${label} −`}
+        >−</button>
+        <button
+          type="button"
+          className="btn stepper-value"
+          onClick={() => onChange(clamp(standard))}
+          title={title || `${label}: ${show}`}
+          aria-label={`${label}: ${show}`}
+        >{show}</button>
+        <button
+          type="button"
+          className="btn stepper-btn"
+          disabled={value >= max}
+          onClick={() => onChange(clamp(value + step))}
+          title={`${label} +`}
+          aria-label={`${label} +`}
+        >+</button>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children, hint }) {
   return (
     <label className="field" title={label}>
@@ -238,28 +279,26 @@ function SettingsBody({ t, payload, onResult }) {
                   {fonts.map((font) => <option key={font} value={font}>{font}</option>)}
                 </select>
               </Field>
-              <Field label={`${t('reading.size')} — ${Math.round(settings.fontScale * 100)}%`}>
-                <input
-                  className="range"
-                  type="range"
-                  min="60"
-                  max="300"
-                  step="5"
-                  value={Math.round(settings.fontScale * 100)}
-                  onChange={(e) => set({ fontScale: Number(e.target.value) / 100 })}
-                />
-              </Field>
-              <Field label={`${t('reading.lineHeight')} — ${settings.lineHeight.toFixed(2)}`}>
-                <input
-                  className="range"
-                  type="range"
-                  min="110"
-                  max="260"
-                  step="5"
-                  value={Math.round(settings.lineHeight * 100)}
-                  onChange={(e) => set({ lineHeight: Number(e.target.value) / 100 })}
-                />
-              </Field>
+              <Stepper
+                label={t('reading.size')}
+                value={Math.round(settings.fontScale * 100)}
+                onChange={(n) => set({ fontScale: n / 100 })}
+                min={60}
+                max={300}
+                step={5}
+                standard={100}
+                format={(n) => `${n}%`}
+              />
+              <Stepper
+                label={t('reading.lineHeight')}
+                value={Math.round(settings.lineHeight * 100)}
+                onChange={(n) => set({ lineHeight: n / 100 })}
+                min={110}
+                max={260}
+                step={5}
+                standard={170}
+                format={(n) => (n / 100).toFixed(2)}
+              />
               <Field label={t('reading.width')}>
                 <select className="input" value={String(settings.readingWidth)} onChange={(e) => set({ readingWidth: Number(e.target.value) })}>
                   {READING_WIDTHS.map((w) => (
@@ -351,17 +390,16 @@ function SettingsBody({ t, payload, onResult }) {
                   <IconTrash size={15} />{t('settings.backgroundClear')}
                 </button>
               </div>
-              <Field label={`${t('settings.backgroundOpacity')} — ${settings.backgroundOpacity}%`}>
-                <input
-                  className="range"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={settings.backgroundOpacity}
-                  onChange={(e) => set({ backgroundOpacity: Number(e.target.value) })}
-                />
-              </Field>
+              <Stepper
+                label={t('settings.backgroundOpacity')}
+                value={settings.backgroundOpacity}
+                onChange={(n) => set({ backgroundOpacity: n })}
+                min={0}
+                max={100}
+                step={5}
+                standard={25}
+                format={(n) => `${n}%`}
+              />
               <Field label={t('settings.backgroundFit')}>
                 <div className="row seg-row seg-fill">
                   {['cover', 'contain', 'tile', 'center'].map((fit) => (
@@ -897,9 +935,16 @@ function PrintBody({ t, payload, onResult }) {
             </button>
           </div>
         </Field>
-        <Field label={`${t('print.margin')} — ${margin}mm`}>
-          <input className="range" type="range" min="0" max="40" step="1" value={margin} onChange={(e) => setMargin(Number(e.target.value))} />
-        </Field>
+        <Stepper
+          label={t('print.margin')}
+          value={margin}
+          onChange={setMargin}
+          min={0}
+          max={40}
+          step={2}
+          standard={14}
+          format={(n) => `${n}mm`}
+        />
         <Check label={t('print.titles')} value={titles} onChange={setTitles} />
         <p className="capture-note">{t('print.note')}</p>
       </div>

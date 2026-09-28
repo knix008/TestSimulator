@@ -46,6 +46,9 @@ export const COMMANDS = [
   { id: 'textBigger', label: 'cmd.textBigger', icon: 'textSize', key: 'Ctrl++', menu: 'reading', needs: 'reflow' },
   { id: 'textSmaller', label: 'cmd.textSmaller', icon: 'textSize', key: 'Ctrl+-', menu: 'reading', needs: 'reflow' },
   { id: 'textReset', label: 'cmd.textReset', icon: 'actual', key: 'Ctrl+0', menu: 'reading', needs: 'reflow' },
+  { id: 'turnNone', label: 'cmd.turnNone', icon: 'pageTurn', menu: 'reading', toggle: true },
+  { id: 'turnSlide', label: 'cmd.turnSlide', icon: 'pageTurn', menu: 'reading', toggle: true },
+  { id: 'turnFlip', label: 'cmd.turnFlip', icon: 'pageTurn', menu: 'reading', toggle: true },
   { id: 'justify', label: 'cmd.justify', icon: 'text', menu: 'reading', needs: 'reflow', toggle: true },
 
   // ── View ──
@@ -249,6 +252,9 @@ export function activeCommands(settings, book) {
   if (settings.pageMode === 'paged') on.push('modePaged');
   if (settings.twoColumns) on.push('twoColumns');
   if (settings.justify) on.push('justify');
+  if (settings.pageTurn === 'none') on.push('turnNone');
+  if (settings.pageTurn === 'slide') on.push('turnSlide');
+  if (settings.pageTurn === 'flip') on.push('turnFlip');
   if (settings.zoomMode === 'fit-width') on.push('fitWidth');
   if (settings.zoomMode === 'fit-page') on.push('fitPage');
   if (settings.zoomMode === 'fit-height') on.push('fitHeight');

@@ -133,6 +133,7 @@ const BookView = forwardRef(function BookView({
   // The picture the reader last pointed at, so "copy picture" copies that one
   // rather than guessing. Cleared when it leaves the document.
   const pickedImageRef = useRef(null);
+  const [pickedImage, setPickedImage] = useState('');
   const [scale, setScale] = useState(1);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [columnPages, setColumnPages] = useState(1);
@@ -214,8 +215,12 @@ const BookView = forwardRef(function BookView({
     setTurn({
       dir: forward ? 'forward' : 'back',
       id: `${place}-${now}`,
-      // The face of the leaf: the page that was there a moment ago.
+      // The face of the leaf: the page that was there a moment ago. A PDF page
+      // is painted on a canvas rather than loaded as a picture, so it is taken
+      // from the canvas — which at this moment still holds the page the reader
+      // was on, because the new one has not been painted yet.
       leaf: forward ? (shown.current.facing || shown.current.src) : shown.current.src,
+      paper: !shown.current.src,
     });
     const timer = setTimeout(() => setTurn(null), TURN_MS);
     return () => clearTimeout(timer);
@@ -353,6 +358,25 @@ const BookView = forwardRef(function BookView({
   }, [reflowable, onTextStep, onZoomStep]);
 
   // ── Links inside the text ───────────────────────────────
+  // Clicking a picture picks it: it is outlined, and "copy picture" then means
+  // that one. Clicking anywhere else lets it go, so the next copy is about
+  // whatever the reader is looking at.
+  const onPointerDown = useCallback((e) => {
+    if (e.button !== 0) return;
+    const image = e.target?.closest?.('img, canvas');
+    const root = scrollRef.current;
+    if (image && root?.contains(image)) {
+      for (const other of root.querySelectorAll('.picked')) other.classList.remove('picked');
+      image.classList.add('picked');
+      pickedImageRef.current = image;
+      setPickedImage(image.getAttribute?.('src') || 'canvas');
+    } else if (pickedImageRef.current) {
+      pickedImageRef.current.classList?.remove('picked');
+      pickedImageRef.current = null;
+      setPickedImage('');
+    }
+  }, []);
+
   const onClick = useCallback((e) => {
     const link = e.target.closest?.('[data-section], [data-external]');
     if (!link) return;
@@ -485,8 +509,13 @@ const BookView = forwardRef(function BookView({
       return !!currentImageNode();
     },
 
+    /** The picture the reader picked with the mouse, if any. */
+    pickedImage() {
+      return pickedImage;
+    },
+
     scale,
-  }), [paged, columnPage, columnPages, scale, onSelectionChange, currentImageNode]);
+  }), [paged, columnPage, columnPages, scale, onSelectionChange, currentImageNode, pickedImage]);
 
   if (!book) {
     return <div className="bookview empty">{emptyState}</div>;
@@ -496,8 +525,17 @@ const BookView = forwardRef(function BookView({
   // written, so while the turn is being set up this still holds what the reader
   // was looking at.
   useEffect(() => {
+    if (kind === 'pdf') {
+      // Canvases, snapped to pictures so the leaf has something to show.
+      const canvases = [...(scrollRef.current?.querySelectorAll('canvas.pdf-canvas') || [])];
+      const snap = (node) => {
+        try { return node ? node.toDataURL('image/png') : ''; } catch { return ''; }
+      };
+      shown.current = { src: snap(canvases[0]), facing: snap(canvases[1]) };
+      return;
+    }
     shown.current = { src: content?.src || '', facing: facing?.src || '' };
-  }, [content, facing]);
+  }, [content, facing, kind, scale]);
 
   // Restarting a CSS animation on an element that already carries its class
   // takes a reflow between removing it and putting it back.
@@ -524,20 +562,18 @@ const BookView = forwardRef(function BookView({
   // covers the page it is turning onto for the whole of the turn instead of
   // vanishing halfway, which is what it did when only the front was drawn.
   const leafBack = turn?.dir === 'forward' ? (content?.src || '') : (facing?.src || '');
-  const leaf = (turn && settings.pageTurn === 'flip' && kind !== 'html' && turn.leaf) ? (
+  const leaf = (turn && settings.pageTurn === 'flip' && kind !== 'html' && (turn.leaf || turn.paper)) ? (
     <div
       className={`turn-leaf ${turn.dir}${spread ? ' half' : ' whole'}`}
       key={turn.id}
       aria-hidden="true"
     >
       <div className="leaf-face front">
-        <img src={turn.leaf} alt="" style={imageStyle()} />
+        {turn.leaf ? <img src={turn.leaf} alt="" style={imageStyle()} /> : <span className="leaf-paper" />}
       </div>
-      {leafBack ? (
-        <div className="leaf-face back">
-          <img src={leafBack} alt="" style={imageStyle()} />
-        </div>
-      ) : null}
+      <div className="leaf-face back">
+        {leafBack ? <img src={leafBack} alt="" style={imageStyle()} /> : <span className="leaf-paper" />}
+      </div>
     </div>
   ) : null;
 
@@ -567,6 +603,7 @@ const BookView = forwardRef(function BookView({
       style={style}
       ref={scrollRef}
       onScroll={onScroll}
+      onPointerDown={onPointerDown}
       onClick={onClick}
       onContextMenu={(e) => {
         const image = e.target?.closest?.('img, canvas');
