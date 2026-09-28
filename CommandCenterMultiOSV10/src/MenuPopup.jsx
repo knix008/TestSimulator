@@ -60,6 +60,8 @@ export function MenuPopup() {
     <div className="ctx-menu popup" ref={ref} role="menu" onContextMenu={(e) => e.preventDefault()}>
       {menu.items.map((it, i) => (it.sep
         ? <div className="ctx-sep" key={`sep${i}`} />
+        : it.header
+        ? <div className="ctx-head" key={it.id || `head${i}`}>{it.label}</div>
         : (
           <button key={it.id} className={`ctx-item ${it.checked ? 'checked' : ''}`} role="menuitem" disabled={it.disabled}
             onClick={() => { if (!it.disabled) pick(it.id); }}>

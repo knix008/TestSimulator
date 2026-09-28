@@ -22,7 +22,9 @@ const POPUP_TIMEOUT_MS = 500;   // the popup window has this long to report itse
 // The items as the popup window needs them: plain data, no React (it draws them itself).
 const plainItems = (items) => items.map((it) => (it.sep
   ? { sep: true }
-  : { id: it.id, label: it.label, icon: it.icon, shortcut: it.shortcut, checked: !!it.checked, disabled: !!it.disabled, swatch: it.swatch, swatchBg: it.swatchBg, remove: it.remove, removeTitle: it.removeTitle }));
+  : it.header
+    ? { header: true, id: it.id, label: it.label }
+    : { id: it.id, label: it.label, icon: it.icon, shortcut: it.shortcut, checked: !!it.checked, disabled: !!it.disabled, swatch: it.swatch, swatchBg: it.swatchBg, remove: it.remove, removeTitle: it.removeTitle }));
 
 export function ContextMenu({ x, y, items, onPick, onClose, anchorEl }) {
   const ref = useRef(null);
@@ -155,6 +157,9 @@ export function ContextMenu({ x, y, items, onPick, onClose, anchorEl }) {
     <div className={`ctx-menu ${pos.multi ? 'multi' : ''}`} ref={ref} style={{ left: pos.left, top: pos.top, height: pos.height }} role="menu" onContextMenu={(e) => e.preventDefault()}>
       {items.map((it, i) => it.sep
         ? <div className="ctx-sep" key={`sep${i}`} />
+        : it.header
+        // a heading over a group of items (the theme list); it is a label, not something to pick
+        ? <div className="ctx-head" key={it.id || `head${i}`}>{it.label}</div>
         : (
           <button key={it.id} className={`ctx-item ${it.checked ? 'checked' : ''}`} role="menuitem" disabled={it.disabled}
             onClick={() => { if (!it.disabled) onPick(it.id); }}>

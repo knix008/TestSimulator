@@ -252,6 +252,9 @@ html.wco .menubar-title { display: block; }
 .ctx-item.checked .ctx-icon { color: var(--accent); }
 .ctx-check { color: var(--accent); flex: none; }
 .ctx-sep { height: 1px; flex: none; background: var(--border); margin: 4px 6px; }
+/* A heading over a group of menu items (the theme list is dark themes, then light ones). Not a menu item:
+   it is never hovered, picked or focused — it just names what follows. */
+.ctx-head { flex: none; padding: 6px 10px 3px; font-size: 11px; font-weight: 600; color: var(--fg-muted); user-select: none; cursor: default; }
 
 /* ── Dialogs ── */
 .dlg-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; z-index: 2000; }
@@ -381,6 +384,53 @@ input:disabled, select:disabled { opacity: 0.5; }
 .viewer-text.hex { padding-top: 6px; }
 .viewer-text { flex: 1; margin: 0; padding: 12px 14px; overflow: auto; font-family: var(--mono); font-size: 12px; line-height: 1.5; user-select: text; white-space: pre; tab-size: 4; }
 .viewer-text.wrap { white-space: pre-wrap; word-break: break-all; }
+.viewer-text code { font: inherit; }
+
+/* ── Syntax colours (src/lib/syntax.js) ──
+   One set for the dark themes, one for the light ones (html[data-mode] — src/themes.js). They are fixed
+   colours rather than theme tokens on purpose: a theme's accent is chosen to stand out on its own, and
+   six of them side by side in a listing would fight each other. These are the usual editor hues, picked
+   to keep their contrast on any of the app's backgrounds. */
+:root {
+  --sx-com: #6f7f96;   /* comment  */
+  --sx-kw: #c792ea;    /* keyword  */
+  --sx-str: #a5d6a7;   /* string   */
+  --sx-num: #f2a25c;   /* number   */
+  --sx-lit: #7fd1e8;   /* true / false / null */
+  --sx-typ: #ffd479;   /* type     */
+  --sx-fn: #82aaff;    /* call     */
+  --sx-var: #f07c93;   /* $variable */
+  --sx-pre: #8fbcbb;   /* preprocessor / annotation */
+  --sx-tag: #7fd1e8;   /* tag      */
+  --sx-att: #f2a25c;   /* attribute / key */
+  --sx-op: #9aa7b8;    /* operator */
+}
+html[data-mode="light"] {
+  --sx-com: #6a7d8c;
+  --sx-kw: #8b39c9;
+  --sx-str: #1e7a3c;
+  --sx-num: #ab5000;
+  --sx-lit: #0b6a94;
+  --sx-typ: #8a6100;
+  --sx-fn: #1a56c4;
+  --sx-var: #b3245c;
+  --sx-pre: #007070;
+  --sx-tag: #0b6a94;
+  --sx-att: #ab5000;
+  --sx-op: #5a6673;
+}
+.sx-com { color: var(--sx-com); font-style: italic; }
+.sx-kw { color: var(--sx-kw); font-weight: 600; }
+.sx-str { color: var(--sx-str); }
+.sx-num { color: var(--sx-num); }
+.sx-lit { color: var(--sx-lit); }
+.sx-typ { color: var(--sx-typ); }
+.sx-fn { color: var(--sx-fn); }
+.sx-var { color: var(--sx-var); }
+.sx-pre { color: var(--sx-pre); }
+.sx-tag { color: var(--sx-tag); }
+.sx-att { color: var(--sx-att); }
+.sx-op { color: var(--sx-op); }
 .viewer-image { flex: 1; overflow: auto; display: grid; place-items: center; padding: 12px; background: repeating-conic-gradient(color-mix(in srgb, var(--fg) 6%, transparent) 0 25%, transparent 0 50%) 0 0 / 20px 20px; }
 .viewer-image.fit img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .viewer-image:not(.fit) { display: block; }
@@ -416,7 +466,24 @@ input:disabled, select:disabled { opacity: 0.5; }
 .dlg.preview .dlg-body { display: flex; flex-direction: column; min-height: 0; height: calc(100vh - 140px); padding: 0; }
 .dlg.preview .dlg-footer { align-items: center; }
 .dlg.windowed.preview .dlg-body { height: auto; }
-.editor-text { flex: 1; width: 100%; min-height: 0; resize: none; border: 0; border-radius: 0; padding: 12px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.5; tab-size: 4; background: var(--bg); color: var(--fg); outline: none; }
+/* The editor: the textarea does the editing, a <pre> under it does the colours (see ToolDialogs.jsx).
+   Both must lay the text out identically — same font, size, line height, padding, tab size and wrapping —
+   or the colours would sit beside the letters instead of under them. The pre never scrolls by itself; the
+   textarea's scroll position is copied onto it. */
+.editor-stack { position: relative; flex: 1; width: 100%; min-height: 0; font-family: var(--mono); font-size: 12px; line-height: 1.5; tab-size: 4; background: var(--bg); }
+.editor-stack > .editor-hl,
+.editor-stack > .editor-text { position: absolute; inset: 0; margin: 0; padding: 12px 14px; font: inherit; line-height: inherit; tab-size: inherit; white-space: pre; overflow-wrap: normal; border: 0; }
+.editor-stack.wrap > .editor-hl, .editor-stack.wrap > .editor-text { white-space: pre-wrap; overflow-wrap: break-word; }
+/* `auto`, not `hidden`: with wrapping on, a scrollbar narrows the textarea's text by its width, and the
+   colour layer has to lose exactly the same width or the two would break lines in different places. Its
+   own scrollbar sits under the textarea's and is never touched (pointer-events); the scrolling is copied. */
+.editor-hl { display: none; overflow: auto; color: var(--fg); background: var(--bg); pointer-events: none; }
+.editor-hl code { font: inherit; }
+.editor-text { resize: none; border-radius: 0; background: var(--bg); color: var(--fg); outline: none; overflow: auto; }
+/* colours on: the letters move to the pre and the textarea keeps only its caret and selection */
+.editor-stack.coloured > .editor-hl { display: block; }
+.editor-stack.coloured > .editor-text { background: transparent; color: transparent; caret-color: var(--fg); }
+.editor-stack.coloured > .editor-text::selection { background: var(--bg-sel); color: transparent; }
 .dlg.mrn .dlg-body { display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 140px); }
 .dlg.mrn .dlg-footer { align-items: center; }
 .mrn-grid { display: grid; grid-template-columns: 1.2fr 1.3fr 0.7fr 1fr; gap: 10px; }

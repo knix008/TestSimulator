@@ -28,6 +28,7 @@ export const SETTINGS_DEFAULTS = {
   textApp: '',          // program for textOpen = custom
   textExts: 'txt md log ini cfg conf json yml yaml xml csv js jsx ts tsx css html htm py java c cpp h sh ps1 bat cmd',
   // viewer / editor
+  syntax: true,         // colour source code (keywords, strings, comments …) in the viewer and the editor
   viewerWrap: true,
   viewerFontSize: 12,
   editorFontSize: 12,

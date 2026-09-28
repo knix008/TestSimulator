@@ -253,6 +253,9 @@ export function SettingsDialog({ spec, done }) {
               {[10, 11, 12, 13, 14, 15, 16, 18, 20].map((n) => <option key={n} value={n}>{n} px</option>)}
             </select>
             <Check k="viewerWrap" label={t('set_viewer_wrap')} />
+            <Check k="syntax" label={t('set_syntax')} />
+            <span />
+            <span className="muted small">{t('set_syntax_hint')}</span>
             <Check k="imagePreview" label={t('set_image_preview')} />
             <span />
             <span className="muted small">{t('set_image_preview_hint')}</span>

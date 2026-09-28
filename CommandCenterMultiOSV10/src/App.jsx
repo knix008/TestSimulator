@@ -729,11 +729,16 @@ export default function App() {
   // F3: the built-in viewer (text / image / hex). 'edit' from the viewer's footer opens the editor.
   // Tools open as separate windows (settings › windows) when the host can; otherwise as in-app dialogs.
   const useWindows = () => session.separateWindows !== false && canOpenWindows;
+  // Settings and About are a place to go, not a question being asked: there is one of each, however often
+  // the button is pressed. As a separate window that is the host's business (SINGLETON in electron/main.js
+  // brings the open one to the front); as a dialog inside the app it is this — a second copy stacked on the
+  // first is never what was meant, and for the settings it would also hand back a stale set of values.
+  const openAlready = (type) => dialogs.stack.some((d) => d.type === type);
   const openTool = async (kind, args, opts) => {
     try { await openWindow(kind, args, opts); return true; }
     catch (err) { if (err.message !== 'POPUP_BLOCKED') await dialogs.error(err); return false; }
   };
-  const prefsOf = () => ({ viewerWrap: session.viewerWrap, viewerFontSize: session.viewerFontSize, editorFontSize: session.editorFontSize, editorTabSize: session.editorTabSize, editorWrap: session.editorWrap, printFontSize: session.printFontSize });
+  const prefsOf = () => ({ syntax: session.syntax, viewerWrap: session.viewerWrap, viewerFontSize: session.viewerFontSize, editorFontSize: session.editorFontSize, editorTabSize: session.editorTabSize, editorWrap: session.editorWrap, printFontSize: session.printFontSize });
   const viewFile = async (side, entry) => {
     const p = panel(side);
     const e = entry || (p && p.getCursorEntry());
@@ -967,6 +972,7 @@ export default function App() {
         break;
       }
       case 'about': {
+        if (openAlready('about')) break;
         const about = { ...(info || {}), host: hostName };
         if (useWindows() && await openTool('about', { info: about }, { title: t('about_title') })) break;
         await dialogs.about(about);
@@ -975,6 +981,7 @@ export default function App() {
       // 'settings' opens the general tab; 'settings:<tab>' (the dock's ⚙ uses settings:terminal) starts on that one.
       case 'settings':
       case 'settings:terminal': {
+        if (openAlready('settings')) break;
         const values = {};
         for (const k of SETTINGS_KEYS) values[k] = session[k] !== undefined ? session[k] : SETTINGS_DEFAULTS[k];
         values.language = getLanguage();

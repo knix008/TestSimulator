@@ -168,13 +168,24 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
     ['terminal', 'terminal', 'terminal', 'tip_dock', false, !!state.dockTerm],
   ].filter((it) => it !== undefined);
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
-  const themeItems = allThemes().map((th) => ({
-    id: `theme:${th.id}`,
-    label: lang === 'ko' ? th.label : th.labelEn,
-    checked: th.id === theme,
-    swatch: th.tokens['--accent'],
-    swatchBg: th.tokens['--bg'],
-  }));
+  // The themes come dark, light, dark, light … in their own order, which makes a list of thirty of them
+  // hard to read: the two kinds are put under a heading each, the way the settings tab shows them. A
+  // theme the user made joins the group its mode belongs to.
+  const themeItems = [['dark', t('set_themes_dark')], ['light', t('set_themes_light')]].flatMap(([mode, heading], i) => {
+    const group = allThemes().filter((th) => th.mode === mode);
+    if (!group.length) return [];
+    return [
+      ...(i ? [{ sep: true }] : []),
+      { id: `theme-head:${mode}`, label: heading, header: true },
+      ...group.map((th) => ({
+        id: `theme:${th.id}`,
+        label: lang === 'ko' ? th.label : th.labelEn,
+        checked: th.id === theme,
+        swatch: th.tokens['--accent'],
+        swatchBg: th.tokens['--bg'],
+      })),
+    ];
+  });
   // Undo / redo: icon-only buttons whose tooltip names the operation they would reverse / replay.
   const undoTip = state.canUndo ? `${t('tip_undo')}\n${state.undoWhat}` : t('tip_undo_none');
   const redoTip = state.canRedo ? `${t('tip_redo')}\n${state.redoWhat}` : t('tip_redo_none');

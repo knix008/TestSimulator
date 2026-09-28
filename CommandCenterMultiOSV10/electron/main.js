@@ -100,7 +100,14 @@ function loadApp(win, query) {
 function openToolWindow({ kind, title, width, height }) {
   if (SINGLETON.has(kind)) {
     const open = Array.from(toolWins).find((w) => w.ccKind === kind && !w.isDestroyed());
-    if (open) { if (open.isMinimized()) open.restore(); if (!QUIET.has(kind)) open.focus(); return open; }
+    if (open) {
+      if (open.isMinimized()) open.restore();
+      // `show()` before `focus()`: the window is usually not minimised but simply *behind* the app window,
+      // and focus alone does not always lift it out of the z-order — pressing the button would then look
+      // like nothing happened. `show()` raises it; `focus()` puts the keyboard in it.
+      if (!QUIET.has(kind)) { open.show(); open.focus(); }
+      return open;
+    }
   }
   const session = api.session.get();
   const fixed = FIXED_SIZE.has(kind);

@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DialogFrame } from './Dialogs';
 import { t } from '../lib/i18n';
+import { languageOf, highlightHtml, canHighlight, MAX_EDIT_CHARS } from '../lib/syntax';
 import { formatSize, baseName } from '../lib/format';
 import { Icon } from '../components/Icons';
 import { PrintDialog } from './PrintDialog';
@@ -46,6 +47,11 @@ export function ViewerDialog({ spec, done }) {
   const imageRef = useRef(null);
   const [imageInfo, setImageInfo] = useState('');
   const hexText = useMemo(() => (hex ? hexDump(bytesOf(data).subarray(0, 256 * 1024)) : ''), [hex, data]);
+  // Syntax colouring: only for a text file whose name says it is source code, and only while the hex dump
+  // is off. `syntax` (settings › file opening) turns it off altogether.
+  const lang = useMemo(() => (prefs.syntax === false || data.kind !== 'text' ? null : languageOf(path)), [prefs.syntax, data.kind, path]);
+  const code = !hex && canHighlight(data.text || '', lang);
+  const codeHtml = useMemo(() => (code ? highlightHtml(data.text, lang) : ''), [code, data.text, lang]);
   const lines = useMemo(() => (data.kind === 'text' ? (data.text.match(/\n/g) || []).length + 1 : 0), [data]);
   const [printDoc, setPrintDoc] = useState(null);   // the print dialog (preview + page setup) is open for this document
   const printing = !!printDoc;
@@ -112,7 +118,11 @@ export function ViewerDialog({ spec, done }) {
       {pdf && <iframe className="pdf-frame" title={baseName(path)} src={mediaUrl(path)} />}
       {plain && hex && <pre className="viewer-text hex-head" style={{ fontSize: prefs.viewerFontSize ? `${prefs.viewerFontSize}px` : undefined }}>{HEX_HEAD}</pre>}
       {plain && (
-        <pre className={`viewer-text ${wrap && !hex ? 'wrap' : ''} ${hex ? 'hex' : ''}`} style={{ fontSize: prefs.viewerFontSize ? `${prefs.viewerFontSize}px` : undefined }}>{hex ? hexText : data.text}</pre>
+        // Source code is coloured (src/lib/syntax.js); plain text, a hex dump and a file too big for it
+        // are the text node they always were. The markup is this app's own — see the note in syntax.js.
+        <pre className={`viewer-text ${wrap && !hex ? 'wrap' : ''} ${hex ? 'hex' : ''}`} style={{ fontSize: prefs.viewerFontSize ? `${prefs.viewerFontSize}px` : undefined }}>
+          {code ? <code dangerouslySetInnerHTML={{ __html: codeHtml }} /> : (hex ? hexText : data.text)}
+        </pre>
       )}
       {printDoc && <PrintDialog spec={{ doc: printDoc, setup: prefs.printSetup, onError: (err) => { if (spec.onPrintError) spec.onPrintError(err); } }} done={printDone} />}
     </DialogFrame>
@@ -148,6 +158,44 @@ export function EditorDialog({ spec, done }) {
     done();
   };
   useEffect(() => { const el = ref.current; if (el) { el.focus(); el.setSelectionRange(0, 0); } }, []);
+
+  // ── Colour while editing ──
+  // A textarea cannot hold colours, so the coloured text is a <pre> lying exactly under a textarea whose
+  // own text is transparent: what the caret, the selection and the IME do stays native, and what is read
+  // is the <pre>. It is painted straight into the DOM rather than through React — the token markup of a
+  // long file is thousands of nodes, and reconciling that on every keystroke is what makes such editors
+  // feel slow. The repaint is coalesced into the next frame, so holding a key costs one repaint a frame.
+  const hlRef = useRef(null);
+  const lang = useMemo(() => (prefs.syntax === false ? null : languageOf(spec.path)), [prefs.syntax, spec.path]);
+  const colour = canHighlight(text, lang, MAX_EDIT_CHARS);
+  const colourRef = useRef(colour); colourRef.current = colour;
+  const langRef = useRef(lang); langRef.current = lang;
+  const paint = useRef(() => {});
+  paint.current = () => {
+    const code = hlRef.current, ta = ref.current;
+    if (!code || !ta) return;
+    // The textarea is read, not the state: during an IME composition (Korean) the state has not caught up
+    // yet, and the half-written syllable must still be on screen.
+    // A textarea whose value ends in a newline shows an empty last line; a <pre> does not give one a line
+    // box unless something follows it. Without the extra newline the colour layer is a line shorter than
+    // the text, and the two drift apart at the bottom of the file.
+    const v = ta.value;
+    code.innerHTML = colourRef.current ? highlightHtml(v, langRef.current) + (v.endsWith('\n') ? '\n' : '') : '';
+    const pre = code.parentNode;
+    if (pre) { pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; }
+  };
+  const frame = useRef(0);
+  const schedule = () => { if (!frame.current) frame.current = requestAnimationFrame(() => { frame.current = 0; paint.current(); }); };
+  useEffect(() => { paint.current(); });   // after every render — a Tab insert, an undo, a new file
+  useEffect(() => {
+    const ta = ref.current;
+    if (!ta) return undefined;
+    const onScroll = () => { const code = hlRef.current, pre = code && code.parentNode; if (pre) { pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; } };
+    ta.addEventListener('input', schedule);   // fires mid-composition as well, unlike React's onChange
+    ta.addEventListener('scroll', onScroll);
+    return () => { cancelAnimationFrame(frame.current); frame.current = 0; ta.removeEventListener('input', schedule); ta.removeEventListener('scroll', onScroll); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const onKey = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); e.stopPropagation(); save(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); e.stopPropagation(); print(); }
@@ -170,8 +218,11 @@ export function EditorDialog({ spec, done }) {
         <button className="btn" onClick={print} disabled={printing} title={t('tip_print_edit')}><Icon name="print" /> {t('print')} (Ctrl+P)</button>
         <button className="btn" onClick={close}>{t('close')}</button>
       </>}>
-      <textarea ref={ref} className="editor-text" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} spellCheck={false} wrap={prefs.editorWrap ? 'soft' : 'off'}
-        style={{ fontSize: prefs.editorFontSize ? `${prefs.editorFontSize}px` : undefined, tabSize: prefs.editorTabSize || 4 }} />
+      <div className={`editor-stack ${colour ? 'coloured' : ''} ${prefs.editorWrap ? 'wrap' : ''}`}
+        style={{ fontSize: prefs.editorFontSize ? `${prefs.editorFontSize}px` : undefined, tabSize: prefs.editorTabSize || 4 }}>
+        <pre className="editor-hl" aria-hidden="true"><code ref={hlRef} /></pre>
+        <textarea ref={ref} className="editor-text" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} spellCheck={false} wrap={prefs.editorWrap ? 'soft' : 'off'} />
+      </div>
       {printDoc && <PrintDialog spec={{ doc: printDoc, setup: prefs.printSetup, onError: (err) => { if (spec.onPrintError) spec.onPrintError(err); } }} done={() => setPrintDoc(null)} />}
     </DialogFrame>
   );
