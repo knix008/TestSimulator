@@ -1,0 +1,182 @@
+{
+  "name": "myebookreader",
+  "version": "1.0.0",
+  "description": "Cross-platform (Web / Windows / macOS / Linux) e-book reader for EPUB, PDF, MOBI, FB2, CBZ, Markdown, HTML and plain text.",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prepare:assets": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prestart": "npm run free:port && npm run prepare:assets",
+    "start": "cross-env NODE_OPTIONS=--disable-warning=DEP0060 concurrently -k \"vite --port 5183\" \"wait-on tcp:5183 && cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs\"",
+    "predev": "npm run free:port && npm run prepare:assets",
+    "dev": "vite --port 5183",
+    "preweb": "npm run free:port && npm run prepare:assets",
+    "web": "vite --port 5183",
+    "electron": "cross-env ELECTRON_DEV=1 node scripts/start-electron.mjs",
+    "preview:electron": "node scripts/start-electron.mjs",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:build-info": "node scripts/generate-build-info.mjs",
+    "generate:samples": "node scripts/make-samples.mjs",
+    "copy:pdfjs": "node scripts/copy-pdfjs-assets.mjs",
+    "sync:svgs": "node scripts/sync-public-svgs.mjs",
+    "prebuild": "npm run prepare:assets",
+    "build": "vite build",
+    "prebuild:win": "npm run generate:icons && npm run prepare:assets",
+    "build:win": "vite build && electron-builder --win",
+    "postbuild:win": "node scripts/copy-installer.js",
+    "prebuild:mac": "npm run generate:icons && npm run prepare:assets",
+    "build:mac": "vite build && electron-builder --mac",
+    "postbuild:mac": "node scripts/copy-installer.js",
+    "prebuild:linux": "npm run generate:icons && npm run prepare:assets",
+    "build:linux": "vite build && electron-builder --linux",
+    "postbuild:linux": "node scripts/copy-installer.js",
+    "copy:installer": "node scripts/copy-installer.js",
+    "preview": "vite preview --port 4183",
+    "free:port": "node scripts/free-port.mjs 5183",
+    "pretest": "node scripts/generate-samples-if-missing.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "cross-env EBK_SMOKE=1 node scripts/smoke.mjs",
+    "shoot:dialog": "node scripts/shoot-dialog.mjs"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "i18next": "^23.11.5",
+    "jsdom": "^24.1.0",
+    "pdfjs-dist": "^4.8.69",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^14.1.2",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1",
+    "vitest": "^2.1.1",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.shkwon.myebookreader",
+    "productName": "MyEBookReader",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icons/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "src/build-info.json",
+        "to": "build-info.json"
+      },
+      {
+        "from": "build/icons/file.ico",
+        "to": "file.ico"
+      },
+      {
+        "from": "build/icons/file.png",
+        "to": "file.png"
+      }
+    ],
+    "asar": true,
+    "icon": "build/icons/icon.png",
+    "fileAssociations": [
+      {
+        "ext": "ebkr",
+        "name": "MyEBookReader Library",
+        "description": "MyEBookReader reading file (bookmarks, highlights, notes and reading position)",
+        "mimeType": "application/x-myebookreader-library",
+        "role": "Editor",
+        "icon": "build/icons/file.ico"
+      }
+    ],
+    "win": {
+      "icon": "build/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "menuCategory": true,
+      "shortcutName": "MyEBookReader",
+      "installerIcon": "build/icons/icon.ico",
+      "uninstallerIcon": "build/icons/icon.ico",
+      "installerHeaderIcon": "build/icons/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "multiLanguageInstaller": true,
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "language": "1042",
+      "include": "build/installer.nsh"
+    },
+    "mac": {
+      "icon": "build/icons/icon.icns",
+      "category": "public.app-category.book",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "build/icons/png",
+      "category": "Office;Viewer;Literature",
+      "desktop": {
+        "MimeType": "application/x-myebookreader-library;application/epub+zip;application/pdf;application/x-mobipocket-ebook;application/x-fictionbook+xml;application/vnd.comicbook+zip"
+      },
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@31.7.7": true,
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true
+  }
+}

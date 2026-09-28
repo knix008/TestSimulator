@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Icon of MyEBookReader's own document type (.ebkr reading file).
+     A thick 3D sheet — stacked offset copies give it depth — with a folded
+     corner, a blue band and the word eBook across it, so the file is told
+     apart from the application at a glance. Light from the top left. -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="page" x1="0.04" y1="0" x2="0.5" y2="1">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.48" stop-color="#eef2f6"/>
+      <stop offset="1"    stop-color="#b9c4d0"/>
+    </linearGradient>
+    <linearGradient id="pageFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9fadbb"/>
+      <stop offset="1" stop-color="#4a5665"/>
+    </linearGradient>
+    <linearGradient id="pageRight" x1="0" y1="0" x2="1" y2="0.15">
+      <stop offset="0" stop-color="#8b98a6"/>
+      <stop offset="1" stop-color="#2d3742"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eaf0f5"/>
+      <stop offset="1" stop-color="#93a1af"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"    stop-color="#8ce8f7"/>
+      <stop offset="0.4"  stop-color="#2a9ad6"/>
+      <stop offset="1"    stop-color="#123a78"/>
+    </linearGradient>
+    <linearGradient id="bandDepth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#17568f"/>
+      <stop offset="1" stop-color="#081c3a"/>
+    </linearGradient>
+    <linearGradient id="bandGloss" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.62"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.24"/>
+    </linearGradient>
+    <radialGradient id="fspec" cx="0.22" cy="0.14" r="0.74">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="0.3"  stop-color="#ffffff" stop-opacity="0.2"/>
+      <stop offset="0.7"  stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="fground" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#0d1622" stop-opacity="0.4"/>
+      <stop offset="0.6" stop-color="#0d1622" stop-opacity="0.12"/>
+      <stop offset="1"   stop-color="#0d1622" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fgloss" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="0.4"  stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="512" cy="878" rx="330" ry="66" fill="url(#fground)"/>
+
+  <!-- Sheets under the top one: depth without any outline -->
+  <g>
+    <path d="M232 188 h372 l188 188 v480 H232 Z" fill="#8492a1" opacity="0.35" transform="translate(26 26)"/>
+    <path d="M232 188 h372 l188 188 v480 H232 Z" fill="#9aa7b5" opacity="0.5" transform="translate(13 13)"/>
+  </g>
+
+  <!-- Front / right thickness of the top sheet -->
+  <path d="M232 820 h560 v46 H232 Z" fill="url(#pageFront)"/>
+  <path d="M792 376 v490 l34 -30 V406 Z" fill="url(#pageRight)"/>
+
+  <!-- The sheet itself, with its folded corner -->
+  <path d="M232 156 h372 l188 188 v476 H232 Z" fill="url(#page)"/>
+  <path d="M604 156 l188 188 H604 Z" fill="url(#fold)"/>
+  <path d="M232 156 h372 l188 188 v476 H232 Z" fill="url(#fgloss)"/>
+
+  <!-- Text lines above the band -->
+  <g stroke="#93a1af" stroke-opacity="0.6" stroke-width="20" stroke-linecap="round" fill="none">
+    <path d="M300 440 h250"/>
+    <path d="M300 500 h424"/>
+  </g>
+
+  <!-- The band, carrying the word -->
+  <path d="M276 610 h472 v56 l-26 26 H276 Z" fill="url(#bandDepth)"/>
+  <rect x="276" y="580" width="472" height="86" rx="10" fill="url(#band)"/>
+  <rect x="276" y="580" width="472" height="86" rx="10" fill="url(#bandGloss)"/>
+  <text x="512" y="648" text-anchor="middle"
+        font-family="Segoe UI, Arial, Helvetica, DejaVu Sans, sans-serif"
+        font-size="66" font-weight="700" letter-spacing="2" fill="#ffffff">eBook</text>
+
+  <!-- Two closed books below, so the file reads as a reading file -->
+  <g>
+    <path d="M300 736 h424 v34 l-22 22 H300 Z" fill="url(#bandDepth)" opacity="0.7"/>
+    <rect x="300" y="716" width="424" height="46" rx="8" fill="url(#band)" opacity="0.85"/>
+    <rect x="300" y="716" width="60" height="46" rx="8" fill="#ffffff" fill-opacity="0.28"/>
+  </g>
+
+  <!-- Light from the top left -->
+  <path d="M232 156 h372 l188 188 v476 H232 Z" fill="url(#fspec)" opacity="0.7"/>
+</svg>

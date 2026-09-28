@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MyEBookReader application icon.
+     One rounded background plate, lit from the top left, with its shadow cast
+     down and to the right. Standing on it is a book seen slightly from the
+     left: spine, hard cover, page block and a bookmark ribbon, with EBook on
+     the cover so the icon says what the program is even at 16 px.
+     The canvas outside the plate and its shadow stays transparent. -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- ── The background plate ──────────────────────────── -->
+    <linearGradient id="plate" x1="0.04" y1="0" x2="0.92" y2="1">
+      <stop offset="0"    stop-color="#8ceaff"/>
+      <stop offset="0.18" stop-color="#36bbe4"/>
+      <stop offset="0.58" stop-color="#1a63b8"/>
+      <stop offset="1"    stop-color="#101f56"/>
+    </linearGradient>
+    <linearGradient id="plateBevel" x1="0.02" y1="0" x2="0.24" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.1"  stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.6"  stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#00040f" stop-opacity="0.42"/>
+    </linearGradient>
+    <radialGradient id="plateSpec" cx="0.2" cy="0.15" r="0.7">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="0.28" stop-color="#ffffff" stop-opacity="0.2"/>
+      <stop offset="0.72" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="plateShadow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"   stop-color="#020817" stop-opacity="0.72"/>
+      <stop offset="1"   stop-color="#020817" stop-opacity="0.34"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+
+    <!-- ── The book ──────────────────────────────────────── -->
+    <linearGradient id="cover" x1="0.05" y1="0" x2="0.95" y2="1">
+      <stop offset="0"    stop-color="#ffb35c"/>
+      <stop offset="0.28" stop-color="#e2762a"/>
+      <stop offset="1"    stop-color="#8a3406"/>
+    </linearGradient>
+    <linearGradient id="spine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"   stop-color="#5e2104"/>
+      <stop offset="0.55" stop-color="#a24710"/>
+      <stop offset="1"   stop-color="#d0701f"/>
+    </linearGradient>
+    <linearGradient id="pages" x1="0" y1="0" x2="1" y2="0.2">
+      <stop offset="0"    stop-color="#fffdf6"/>
+      <stop offset="0.45" stop-color="#ece2cf"/>
+      <stop offset="1"    stop-color="#b8a98c"/>
+    </linearGradient>
+    <linearGradient id="pagesBottom" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8dcc4"/>
+      <stop offset="1" stop-color="#a2937a"/>
+    </linearGradient>
+    <linearGradient id="coverGloss" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.4"  stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"    stop-color="#ffe9a3"/>
+      <stop offset="0.45" stop-color="#f2c33c"/>
+      <stop offset="1"    stop-color="#9a6a06"/>
+    </linearGradient>
+  </defs>
+
+  <!-- The plate's shadow: cast down and to the right -->
+  <rect x="136" y="140" width="830" height="830" rx="150" fill="url(#plateShadow)" filter="url(#soft)"/>
+
+  <!-- The plate itself: one shape, lit from the top left -->
+  <rect x="80" y="80" width="830" height="830" rx="150" fill="url(#plate)"/>
+  <rect x="80" y="80" width="830" height="830" rx="150" fill="url(#plateBevel)"/>
+
+  <!-- ── The book, scaled to sit inside the plate with a margin all round,
+         so no part of it is clipped by the edge ─────────── -->
+  <g transform="translate(0 -22) translate(522 542) scale(0.78) translate(-522 -542)">
+    <!-- its own shadow on the plate, also down and to the right -->
+    <path d="M300 250 L800 310 L820 800 L320 852 Z" fill="#04112c" opacity="0.4" filter="url(#soft)" transform="translate(26 26)"/>
+
+    <!-- page block: the edges that show past the cover -->
+    <path d="M330 232 L790 292 L790 806 L330 856 Z" fill="url(#pages)"/>
+    <path d="M330 856 L790 806 L812 830 L352 884 Z" fill="url(#pagesBottom)"/>
+    <g stroke="#b9ab8e" stroke-opacity="0.75" stroke-width="5" fill="none">
+      <path d="M344 250 L784 308"/>
+      <path d="M344 268 L784 326"/>
+      <path d="M340 828 L788 778"/>
+    </g>
+
+    <!-- hard cover, tilted with the book -->
+    <path d="M300 200 L768 262 L768 786 L300 840 Z" fill="url(#cover)"/>
+    <path d="M300 200 L768 262 L768 786 L300 840 Z" fill="url(#coverGloss)"/>
+
+    <!-- spine on the left, rounded into the cover -->
+    <path d="M232 244 L300 200 L300 840 L232 884 Z" fill="url(#spine)"/>
+    <path d="M232 244 L300 200 L300 232 L232 276 Z" fill="#ffffff" fill-opacity="0.22"/>
+
+    <!-- a rule on the cover, and the title -->
+    <path d="M352 372 L716 420" stroke="#ffe3bd" stroke-opacity="0.65" stroke-width="10" fill="none"/>
+    <path d="M352 700 L716 664" stroke="#ffe3bd" stroke-opacity="0.45" stroke-width="10" fill="none"/>
+    <g transform="matrix(1 0.128 0 1 0 0)">
+      <text x="534" y="474" text-anchor="middle"
+            font-family="Segoe UI, Arial, Helvetica, DejaVu Sans, sans-serif"
+            font-size="132" font-weight="700" letter-spacing="1"
+            fill="#fff6e8" stroke="#5e2104" stroke-width="9" paint-order="stroke">EBook</text>
+    </g>
+
+    <!-- bookmark ribbon coming out of the top -->
+    <path d="M628 236 L690 244 L690 430 L659 398 L628 422 Z" fill="url(#ribbon)"/>
+  </g>
+
+  <!-- Light from the top left, over the whole icon -->
+  <rect x="80" y="80" width="830" height="830" rx="150" fill="url(#plateSpec)" opacity="0.7"/>
+</svg>
