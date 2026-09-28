@@ -1494,6 +1494,30 @@ body.resizing-row * {
   cursor: pointer;
 }
 .browse-size-val:hover { background: var(--btn-hover); }
+/* Thumbnail size slider — same look as the adjustment sliders. */
+.browse-size-slider {
+  width: 104px;
+  flex: 0 0 auto;
+  height: 4px;
+  margin: 0 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--slider-track);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.browse-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--slider-thumb);
+  cursor: pointer;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.browse-size-slider:hover::-webkit-slider-thumb { background: var(--accent-hover); }
 .browse-select {
   height: 26px;
   border: 1px solid var(--input-border);

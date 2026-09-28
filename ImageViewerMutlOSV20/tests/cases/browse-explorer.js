@@ -90,13 +90,31 @@ module.exports = {
 
     /* ── Browse toolbar: size stepper ── */
 
-    test('Toolbar has smaller / current / larger controls', () => {
+    test('Toolbar has smaller / slider / current / larger controls', () => {
       assertIncludes(browse, 'id="browse-size-dec"', 'decrease');
+      assertIncludes(browse, 'id="browse-size-slider"', 'slider');
       assertIncludes(browse, 'id="browse-size-val"', 'current size');
       assertIncludes(browse, 'id="browse-size-inc"', 'increase');
-      assert(!browse.includes('id="browse-size" type="range"'), 'the slider is replaced');
       assertIncludes(css, '.browse-zoom', 'stepper css');
       assertIncludes(css, '.browse-size-val', 'value css');
+      assertIncludes(css, '.browse-size-slider', 'slider css');
+      assertIncludes(css, '.browse-size-slider::-webkit-slider-thumb', 'slider thumb');
+    });
+
+    test('The slider sets any size between the two ends, and stays in step', () => {
+      // Bounds come from the ladder, so the slider can never leave its range.
+      assertIncludes(browse, 'min="${MIN_SIZE}" max="${MAX_SIZE}"', 'bounded by the ladder ends');
+      assertIncludes(browse, "slider.addEventListener('input', () => setSize(slider.value))", 'live while dragging');
+      assertIncludes(browse, "slider.addEventListener('dblclick', () => setSize(DEFAULT_SIZE))", 'double-click resets');
+      // A button, Ctrl+wheel or a reset has to move the slider too.
+      const sync = browse.slice(browse.indexOf('function _syncSizeChrome'), browse.indexOf('function _syncChrome'));
+      assertIncludes(sync, 'slider.value = String(_view.size)', 'slider follows the size');
+      // Dragging must not hammer localStorage, and must not re-render tiles.
+      assertIncludes(browse, 'function _queueSaveView', 'debounced save');
+      const set = browse.slice(browse.indexOf('function setSize'), browse.indexOf('function _syncSizeChrome'));
+      assertIncludes(set, '_applySizeVar();', 'resize is a CSS variable');
+      assertIncludes(set, '_queueSaveView();', 'save is debounced');
+      assert(!/_render\(\)/.test(set), 'no re-render per pixel');
     });
 
     test('Size steps through a ladder and clamps at both ends', () => {
@@ -234,7 +252,7 @@ module.exports = {
 
     const newKeys = [
       'tree.up',
-      'browse.sizeDec', 'browse.sizeInc', 'browse.sizeReset',
+      'browse.sizeDec', 'browse.sizeInc', 'browse.sizeReset', 'browse.sizeSlider',
       'browse.colName', 'browse.colType', 'browse.colSize',
       'browse.colDim', 'browse.colModified', 'browse.colCreated',
       'browse.fileType', 'browse.fileNoExt',

@@ -52,6 +52,13 @@ window.Browse = (() => {
     try { localStorage.setItem(VIEW_KEY, JSON.stringify(_view)); } catch { /* ignore */ }
   }
 
+  /** Dragging the size slider would otherwise write the view on every pixel. */
+  let _saveViewTimer = null;
+  function _queueSaveView() {
+    clearTimeout(_saveViewTimer);
+    _saveViewTimer = setTimeout(_saveView, 200);
+  }
+
   function _buildChrome() {
     _root.innerHTML = `
       <div class="browse-bar">
@@ -73,6 +80,9 @@ window.Browse = (() => {
         <span class="browse-sep"></span>
         <div class="browse-zoom">
           <button type="button" class="browse-btn" id="browse-size-dec"></button>
+          <input type="range" class="browse-size-slider" id="browse-size-slider"
+                 min="${MIN_SIZE}" max="${MAX_SIZE}" step="1" value="${_view.size}"
+                 aria-label="${_t('browse.sizeSlider', 'Thumbnail size')}">
           <button type="button" class="browse-size-val" id="browse-size-val"></button>
           <button type="button" class="browse-btn" id="browse-size-inc"></button>
         </div>
@@ -128,6 +138,18 @@ window.Browse = (() => {
     const val = _root.querySelector('#browse-size-val');
     val.title = _t('browse.sizeReset', 'Reset to default size');
     val.addEventListener('click', () => setSize(DEFAULT_SIZE));
+
+    // The slider is free of the ladder the -/+ buttons step through: any size in
+    // between is fine, and resizing only touches a CSS variable, so dragging is
+    // live without re-rendering a single tile.
+    const slider = _root.querySelector('#browse-size-slider');
+    slider.title = _t('browse.sizeSlider', 'Thumbnail size');
+    slider.addEventListener('input', () => setSize(slider.value));
+    slider.addEventListener('dblclick', () => setSize(DEFAULT_SIZE));
+    slider.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      _stepSize(e.deltaY < 0 ? 1 : -1);
+    }, { passive: false });
 
     _root.querySelector('#browse-head').addEventListener('click', (e) => {
       const col = e.target.closest?.('.browse-col[data-col]');
@@ -217,7 +239,7 @@ window.Browse = (() => {
     if (next === _view.size) return;
     _view.size = next;
     _applySizeVar();
-    _saveView();
+    _queueSaveView();
     _syncSizeChrome();
   }
 
@@ -229,6 +251,9 @@ window.Browse = (() => {
     const inc = _root.querySelector('#browse-size-inc');
     if (dec) dec.disabled = _view.size <= MIN_SIZE;
     if (inc) inc.disabled = _view.size >= MAX_SIZE;
+    const slider = _root.querySelector('#browse-size-slider');
+    // Also when a button, Ctrl+wheel or a reset moved the size, not just a drag.
+    if (slider && Number(slider.value) !== _view.size) slider.value = String(_view.size);
   }
 
   function _syncChrome() {

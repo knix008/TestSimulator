@@ -115,6 +115,7 @@
   "browse.sizeDec": "작게 보기",
   "browse.sizeInc": "크게 보기",
   "browse.sizeReset": "기본 크기로",
+  "browse.sizeSlider": "썸네일 크기 (드래그, 두 번 클릭하면 기본값)",
   "browse.colName": "이름",
   "browse.colType": "종류",
   "browse.colSize": "크기",

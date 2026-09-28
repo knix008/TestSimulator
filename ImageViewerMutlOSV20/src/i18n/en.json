@@ -115,6 +115,7 @@
   "browse.sizeDec": "Smaller",
   "browse.sizeInc": "Larger",
   "browse.sizeReset": "Reset to default size",
+  "browse.sizeSlider": "Thumbnail size (drag; double-click for the default)",
   "browse.colName": "Name",
   "browse.colType": "Type",
   "browse.colSize": "Size",
