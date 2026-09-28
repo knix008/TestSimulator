@@ -4,12 +4,40 @@
 module.exports = {
   name: 'Folder drives & viewer chrome',
   run({ test, each, src, h }) {
-    const { html, icons, fileTree, css, app } = src;
-    const { assertIncludes } = h;
+    const { html, icons, fileTree, css, app, main, fileDialog } = src;
+    const { assert, assertIncludes } = h;
 
     test('Drive buttons live in the folder-view title', () => {
       assertIncludes(html, 'id="tree-drive-bar"', 'drive bar');
       assertIncludes(fileTree, 'listDrives', 'listDrives call');
+    });
+
+    test('Viewer menubar swaps Effects for a DICOM menu', () => {
+      const defs = app.slice(app.indexOf('function _menubarDefs'), app.indexOf('function _ewMenubarDefs'));
+      assertIncludes(defs, "labelKey: 'menu.dicom'", 'DICOM menu');
+      assert(!/labelKey: 'menu\.effects'/.test(defs), 'no Effects menu in the viewer');
+      // The edit window keeps it — that is where adjustments live.
+      const ew = app.slice(app.indexOf('function _ewMenubarDefs'), app.indexOf('function _buildMenubar'));
+      assertIncludes(ew, "labelKey: 'menu.effects'", 'edit window keeps Effects');
+      assertIncludes(app, 'function _dicomMenuItems', 'menu builder');
+      assertIncludes(app, "label: t('menu.noDicom')", 'hint when the file is not DICOM');
+      // DICOM rows moved out of the View menu, so nothing is listed twice.
+      const view = app.slice(app.indexOf('function _viewMenuItems'), app.indexOf('function _themeMenuItems'));
+      assert(!/_dicomContextItems\(\)/.test(view), 'View menu no longer carries the DICOM block');
+      assertIncludes(main, "label: t('menu.dicom')", 'native menu too');
+      assert(!/label: t\('menu\.effects'\)/.test(main), 'native Effects menu gone');
+      assertIncludes(app, "if (action.startsWith('dicom-') && !(state.dicom", 'DICOM actions need a DICOM image');
+    });
+
+    test('Switching drives lands on the last folder opened there', () => {
+      assertIncludes(app, 'async function _recentDirOnDrive', 'main window helper');
+      assertIncludes(app, 'onDriveSelect: async (p) => { _openFolder(await _recentDirOnDrive(p)', 'drive bar uses it');
+      assertIncludes(fileDialog, 'async function _recentDirOnDrive', 'file dialog helper');
+      assertIncludes(fileDialog, '_goTo(await _recentDirOnDrive(d.path))', 'dialog drive list uses it');
+      assertIncludes(fileDialog, "localStorage.getItem('recentOpenedDirs')", 'shares the explorer history');
+      const fn = app.slice(app.indexOf('async function _recentDirOnDrive'), app.indexOf('async function _clearRecentFolderHistory'));
+      assertIncludes(fn, 'stats.isDirectory', 'skips folders that are gone');
+      assertIncludes(fn, 'return drivePath', 'falls back to the drive root');
     });
 
     test('Main and edit windows have a SE resize grip', () => {

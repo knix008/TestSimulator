@@ -13,6 +13,9 @@ let currentTheme = 'dark';
 let hasUnsavedChanges = false;
 let isForceClose = false;
 let lastOpenDir = null;
+let savedWindowState = null;          // { x, y, width, height, maximized } from image-viewer-ui.json
+const WINDOW_MIN_W = 1200;
+const WINDOW_MIN_H = 600;
 
 /**
  * Packaged builds must match build.appId (Start Menu shortcut).
@@ -117,13 +120,79 @@ function _getUiConfigPath() {
   return path.join(app.getPath('userData'), 'image-viewer-ui.json');
 }
 
-function _loadUiConfig() {
+function _readUiConfig() {
   try {
     const cfg = JSON.parse(fs.readFileSync(_getUiConfigPath(), 'utf8'));
-    if (cfg.lastOpenDir && fs.existsSync(cfg.lastOpenDir)) {
-      lastOpenDir = cfg.lastOpenDir;
-    }
-  } catch {}
+    return (cfg && typeof cfg === 'object') ? cfg : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Read / modify / write, so one setting never wipes another out of the file. */
+function _patchUiConfig(patch) {
+  try {
+    fs.writeFileSync(_getUiConfigPath(), JSON.stringify({ ..._readUiConfig(), ...patch }), 'utf8');
+  } catch { /* not worth bothering the user about */ }
+}
+
+function _loadUiConfig() {
+  const cfg = _readUiConfig();
+  if (cfg.lastOpenDir && fs.existsSync(cfg.lastOpenDir)) {
+    lastOpenDir = cfg.lastOpenDir;
+  }
+  const w = cfg.window;
+  if (w && Number.isFinite(w.width) && Number.isFinite(w.height)) {
+    savedWindowState = {
+      x: Number.isFinite(w.x) ? Math.round(w.x) : undefined,
+      y: Number.isFinite(w.y) ? Math.round(w.y) : undefined,
+      width: Math.round(w.width),
+      height: Math.round(w.height),
+      maximized: !!w.maximized,
+    };
+  }
+}
+
+/**
+ * Where the window was last time: size, position and whether it was maximised.
+ * Anything off-screen (a monitor that is gone, a stale position) is dropped, so
+ * the window can never come back somewhere the user cannot reach it.
+ */
+function _usableWindowState() {
+  const st = savedWindowState;
+  if (!st) return null;
+  const width = Math.max(WINDOW_MIN_W, st.width);
+  const height = Math.max(WINDOW_MIN_H, st.height);
+  if (!Number.isFinite(st.x) || !Number.isFinite(st.y)) return { width, height, maximized: st.maximized };
+  const visible = screen.getAllDisplays().some((d) => {
+    const a = d.workArea;
+    return st.x < a.x + a.width - 48 && st.x + width > a.x + 48
+      && st.y < a.y + a.height - 48 && st.y + height > a.y;
+  });
+  if (!visible) return { width, height, maximized: st.maximized };
+  return { x: st.x, y: st.y, width, height, maximized: st.maximized };
+}
+
+function _saveWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    // Normal bounds, not the maximised ones — restoring wants the smaller rect.
+    const b = mainWindow.getNormalBounds ? mainWindow.getNormalBounds() : mainWindow.getBounds();
+    savedWindowState = {
+      x: Math.round(b.x),
+      y: Math.round(b.y),
+      width: Math.round(b.width),
+      height: Math.round(b.height),
+      maximized: _isWindowMaximized(),
+    };
+    _patchUiConfig({ window: savedWindowState });
+  } catch { /* ignore */ }
+}
+
+let _windowStateTimer = null;
+function _queueSaveWindowState() {
+  clearTimeout(_windowStateTimer);
+  _windowStateTimer = setTimeout(_saveWindowState, 400);
 }
 
 function _saveLastOpenDir(dir) {
@@ -247,11 +316,13 @@ function createWindow() {
     return appIcon || iconPath;
   })();
 
+  const winState = _usableWindowState();
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1200,
-    minHeight: 600,
+    width: winState?.width || 1400,
+    height: winState?.height || 900,
+    ...(winState && winState.x !== undefined ? { x: winState.x, y: winState.y } : {}),
+    minWidth: WINDOW_MIN_W,
+    minHeight: WINDOW_MIN_H,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -286,6 +357,8 @@ function createWindow() {
   }
 
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+
+  if (winState?.maximized) mainWindow.maximize();
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
@@ -362,7 +435,14 @@ function createWindow() {
   mainWindow.on('resize', () => {
     clearTimeout(mainWindow._maxStateTimer);
     mainWindow._maxStateTimer = setTimeout(sendMaxState, 40);
+    _queueSaveWindowState();
   });
+
+  // Remember where the window is, so the next launch opens it the same way
+  mainWindow.on('move', _queueSaveWindowState);
+  mainWindow.on('maximize', _queueSaveWindowState);
+  mainWindow.on('unmaximize', _queueSaveWindowState);
+  mainWindow.on('close', () => { clearTimeout(_windowStateTimer); _saveWindowState(); });
 }
 
 function _isWindowMaximized() {
@@ -559,29 +639,53 @@ function buildMenu(translations) {
       ],
     },
     {
-      label: t('menu.effects'),
+      /* Effects live in the edit window; this slot is the DICOM viewer's own menu.
+         The renderer ignores every row unless a DICOM image is on screen. */
+      label: t('menu.dicom'),
       submenu: [
         {
-          label: t('menu.adjustments'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'show-effects'),
+          label: t('dicom.annotations'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-annotations'),
+        },
+        {
+          label: t('dicom.rulerAxes'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-rulers'),
+        },
+        {
+          label: t('dicom.scaleBar'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-scalebar'),
+        },
+        {
+          label: t('dicom.scaleReset'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-scale-reset'),
         },
         { type: 'separator' },
         {
-          label: t('menu.grayscale'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'effect-grayscale'),
+          label: t('dicom.invert'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-invert'),
         },
         {
-          label: t('menu.sepia'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'effect-sepia'),
+          label: t('dicom.resetWindow'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-reset-window'),
         },
         {
-          label: t('menu.invert'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'effect-invert'),
+          label: t('dicom.cine'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-cine'),
         },
         { type: 'separator' },
         {
-          label: t('menu.resetEffects'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'effect-reset'),
+          label: t('dicom.tools'),
+          submenu: [
+            { label: t('dicom.tool.off'),     click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-off') },
+            { label: t('dicom.tool.ruler'),   click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-ruler') },
+            { label: t('dicom.tool.angle'),   click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-angle') },
+            { label: t('dicom.tool.ellipse'), click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-ellipse') },
+            { label: t('dicom.tool.rect'),    click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-rect') },
+          ],
+        },
+        {
+          label: t('dicom.clearMeasurements'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-clear-meas'),
         },
       ],
     },

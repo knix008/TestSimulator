@@ -4,7 +4,7 @@
 module.exports = {
   name: 'Status, i18n, theme',
   run({ test, each, src, h }) {
-    const { html, app, css, ko, en, themes } = src;
+    const { html, app, css, ko, en, themes, main } = src;
     const { assert, assertIncludes, extractThemeIds, i18nPrefixes } = h;
 
     test('Main status bar has progress (no modal overlay for load)', () => {
@@ -136,6 +136,58 @@ module.exports = {
       assertIncludes(app, '--sw-bg', 'preview bg');
       assertIncludes(app, '--sw-bar', 'preview bar');
       assertIncludes(app, '--sw-accent', 'preview accent');
+    });
+
+    test('Panel layout and window geometry come back on the next launch', () => {
+      // Panel layout: remembered, and cleared by Reset all like any other setting.
+      assertIncludes(app, "const LAYOUT_KEY = 'panelLayoutV1'", 'layout key');
+      assertIncludes(app, 'function _loadLayout', 'restore');
+      assertIncludes(app, 'function _saveLayout', 'persist');
+      assertIncludes(app, '_initPanelLayout();', 'applied at startup');
+      const prefs = app.slice(app.indexOf('const PREF_KEYS = ['), app.indexOf('function _pref('));
+      for (const key of ['LAYOUT_KEY', 'BROWSE_KEY', "'browseViewV1'", "'rightSidebarWidth'", "'sidebarWidth'", "'sidebarTreeHeightV2'"]) {
+        assertIncludes(prefs, key, `${key} counts as a setting`);
+      }
+      // Window size / position / maximised state, stored next to lastOpenDir.
+      assertIncludes(main, 'function _saveWindowState', 'save');
+      assertIncludes(main, 'function _usableWindowState', 'validate before reuse');
+      assertIncludes(main, 'getNormalBounds', 'stores the unmaximised rect');
+      assertIncludes(main, 'screen.getAllDisplays()', 'never restores off-screen');
+      assertIncludes(main, "if (winState?.maximized) mainWindow.maximize()", 'maximised state restored');
+      assertIncludes(main, "mainWindow.on('move', _queueSaveWindowState)", 'move tracked');
+      assertIncludes(main, 'width: winState?.width || 1400', 'size applied at create');
+      assertIncludes(main, '_patchUiConfig(', 'merged into the ui config file');
+    });
+
+    test('Open File / Open Folder / Save As dialog is a fixed rectangle', () => {
+      const box = css.slice(css.indexOf('.dialog-box.file-dialog-box {'), css.indexOf('#file-dialog-overlay {'));
+      assertIncludes(box, 'width: 780px', 'fixed width');
+      assertIncludes(box, 'height: 580px', 'fixed height');
+      assertIncludes(box, 'min-width: 780px', 'cannot shrink');
+      assertIncludes(box, 'max-width: 780px', 'cannot grow');
+      // No viewport units anywhere in the box or its list, or the size would drift.
+      assert(!/v[wh]/.test(box), 'no vw / vh in the dialog box');
+      const split = css.slice(css.indexOf('.fd-split {'), css.indexOf('.fd-drives {'));
+      assert(!/v[wh]/.test(split), 'the list pane takes the slack instead of a vh height');
+      assertIncludes(split, 'min-height: 0', 'so the inner list is the one that scrolls');
+      // Overflow is allowed to scroll rather than squeeze the box.
+      const overlay = css.slice(css.indexOf('#file-dialog-overlay {'), css.indexOf('#file-dialog-overlay .file-dialog-box'));
+      assertIncludes(overlay, 'overflow: auto', 'vertical scroll allowed');
+      assertIncludes(overlay, 'align-items: flex-start', 'never clips the top edge');
+      assertIncludes(css, '#file-dialog-overlay .file-dialog-box { margin: auto; }', 'still centred');
+      assertIncludes(css, '.file-dialog-box .dialog-footer button', 'footer buttons keep one width');
+    });
+
+    test('Every theme name is translated, in menus and in settings', () => {
+      const ids = [...themes.matchAll(/\{ id: '([^']+)'/g)].map((m) => m[1]);
+      assert(ids.length >= 40, 'every theme listed');
+      const keys = [...themes.matchAll(/nameKey: '([^']+)'/g)].map((m) => m[1]);
+      assert(keys.length === ids.length, 'every theme carries a nameKey');
+      for (const key of keys) assert(ko[key] && en[key], `${key} in both locales`);
+      // Switching language re-renders the names that JS wrote, not just data-i18n nodes.
+      const refresh = app.slice(app.indexOf('async function _refreshLang'), app.indexOf('Dialogs'));
+      assertIncludes(refresh, '_fillSettingsThemeButtons();', 'settings theme tab rebuilt');
+      assertIncludes(refresh, '_buildMenubar();', 'menubar rebuilt');
     });
 
     test('Settings dialog is wide enough for 40 theme tiles, with no scrollbar', () => {

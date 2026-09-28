@@ -38,6 +38,62 @@ module.exports = {
       assert(steps.every((n, i) => i === 0 || n > steps[i - 1]), 'ladder must ascend');
     });
 
+    /* ── The bar itself: two fixed rows, grouped by kind ── */
+
+    test('DICOM bar is two rows: display on top, navigation + tools below', () => {
+      assertIncludes(html, 'id="dcm-row-display"', 'top row');
+      assertIncludes(html, 'id="dcm-row-tools"', 'bottom row');
+      const bar = html.slice(html.indexOf('id="dicom-controls"'), html.indexOf('id="dcm-overlay"'));
+      const rowDisplay = bar.indexOf('id="dcm-row-display"');
+      const rowTools = bar.indexOf('id="dcm-row-tools"');
+      assert(rowDisplay > -1 && rowTools > rowDisplay, 'display row comes first');
+      // Window / level / colour belong to the top row …
+      assert(bar.indexOf('id="dcm-window-wrap"') > rowDisplay
+        && bar.indexOf('id="dcm-window-wrap"') < rowTools, 'window group on the top row');
+      // … frame navigation and the measurement tools to the bottom one.
+      assert(bar.indexOf('id="dcm-frames-wrap"') > rowTools, 'frames on the bottom row');
+      assert(bar.indexOf('id="dcm-tools-wrap"') > rowTools, 'tools on the bottom row');
+      assertIncludes(css, '.dicom-controls .dicom-row[hidden]', 'an empty row collapses');
+      assertIncludes(app, "document.getElementById('dcm-row-display')?.toggleAttribute('hidden', !d.gray)",
+        'top row follows the window group');
+    });
+
+    test('Bar is one line while it fits and two rows when it does not', () => {
+      const rule = css.slice(css.indexOf('.dicom-controls {'), css.indexOf('.dicom-controls .dicom-row {'));
+      assertIncludes(rule, 'flex-direction: row', 'one line by default');
+      assertIncludes(rule, 'flex-wrap: nowrap', 'so overflow is measurable, not wrapped');
+      assertIncludes(rule, 'justify-content: flex-start', 'flush left');
+      assertIncludes(css, 'display: contents;', 'groups share the single line');
+      const stacked = css.slice(css.indexOf('.dicom-controls.is-stacked {'), css.indexOf('.dicom-controls .dicom-row[hidden]'));
+      assertIncludes(stacked, 'flex-direction: column', 'stacked rows');
+      assertIncludes(stacked, 'align-items: flex-start', 'first row flush left');
+      assertIncludes(stacked, 'justify-content: flex-start', 'items start at the left edge');
+      assert(!/\.dicom-controls \.dicom-window \{[^}]*margin-left: auto/.test(css), 'window group never pinned right');
+      // The switch is measured, not guessed from a media query on the window.
+      const fn = app.slice(app.indexOf('function _dicomBarLayout'), app.indexOf('function _dicomApply'));
+      assertIncludes(fn, "dicomBar.classList.remove('is-stacked')", 'measures the one-line layout');
+      assertIncludes(fn, 'dicomBar.scrollWidth > dicomBar.clientWidth', 'overflow test');
+      assertIncludes(fn, "dicomBar.classList.toggle('is-stacked', overflows)", 'applies the verdict');
+      assertIncludes(app, '_dicomBarLayout();', 'rechecked when the viewer resizes');
+      const ro = app.slice(app.indexOf('const _viewRo = new ResizeObserver'), app.indexOf('_viewRo.observe(viewerContainer)'));
+      assertIncludes(ro, '_dicomBarLayout()', 'the viewer resize observer rechecks it');
+    });
+
+    test('The numbers beside the colour map carry their own label', () => {
+      assertIncludes(html, 'id="dcm-range-wrap"', 'value range chunk');
+      assertIncludes(html, 'data-i18n="dicom.rangeLabel"', 'range label');
+      assertIncludes(html, 'id="dcm-voi-wrap"', 'VOI chunk');
+      assertIncludes(html, 'data-i18n="dicom.voiLabel"', 'VOI label');
+      assertIncludes(app, "document.getElementById('dcm-range-wrap')?.toggleAttribute('hidden', !d.range)",
+        'range label hides with the readout');
+      assertIncludes(app, "document.getElementById('dcm-voi-wrap')?.toggleAttribute('hidden', !voiFn)",
+        'VOI label only when it is not LINEAR');
+      assertIncludes(css, '.dicom-meta-label', 'label styling');
+      for (const key of ['dicom.rangeLabel', 'dicom.rangeHint', 'dicom.voiLabel', 'dicom.voiHint']) {
+        assert(ko[key] && en[key], `${key} in both locales`);
+      }
+    });
+
     /* ── Scale bar ── */
 
     test('Scale bar has its own button, separate from annotations', () => {
@@ -50,7 +106,9 @@ module.exports = {
     });
 
     test('Scale bar starts top-left, is draggable and is remembered', () => {
-      assertIncludes(app, 'const DCM_SCALE_HOME = { x: 0.03, y: 0.07 }', 'top-left default');
+      assertIncludes(app, 'const DCM_SCALE_PAD = 14;', 'fixed margin off the top-left corner');
+      assertIncludes(app, 'leftLimit + DCM_SCALE_PAD', 'default x');
+      assertIncludes(app, 'topLimit + DCM_SCALE_PAD', 'default y');
       assertIncludes(app, 'function _loadDicomScalePos', 'restore');
       assertIncludes(app, 'function _saveDicomScalePos', 'persist');
       assertIncludes(app, 'function _dicomResetScalePos', 'reset');

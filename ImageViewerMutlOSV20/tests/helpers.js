@@ -96,6 +96,7 @@ function loadSources() {
     browse: read('src/js/browse.js'),
     thumbs: read('src/js/thumbs.js'),
     contextMenu: read('src/js/contextMenu.js'),
+    fileDialog: read('src/js/fileDialog.js'),
     formatSupport: read('src/js/formatSupport.js'),
   };
 }

@@ -162,73 +162,87 @@
             </div>
           </div>
 
-          <!-- DICOM bar: frame navigation (multi-frame) + window centre / width -->
+          <!-- DICOM bar: two fixed rows, grouped by kind.
+               Top row    – how the image is displayed: window preset, C / W, invert, reset, colour map, value range.
+               Bottom row – what you look at and measure: frame / cine navigation, overlay toggles, measurement tools. -->
           <div id="dicom-controls" class="media-controls dicom-controls" style="display:none;" hidden>
-            <div class="dicom-frames" id="dcm-frames-wrap" hidden>
-              <button type="button" class="media-ctrl-btn" id="dcm-prev-frame" data-i18n-title="dicom.prevFrame" title="Previous frame">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
-              </button>
-              <input type="range" id="dcm-frame" class="media-ctrl-seek dicom-frame-seek" min="0" max="0" value="0" step="1" aria-label="Frame">
-              <button type="button" class="media-ctrl-btn" id="dcm-next-frame" data-i18n-title="dicom.nextFrame" title="Next frame">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
-              </button>
-              <span id="dcm-frame-label" class="media-ctrl-time dicom-frame-label">1 / 1</span>
-              <button type="button" class="media-ctrl-btn" id="dcm-play" data-i18n-title="dicom.cine" title="Play frames" aria-pressed="false">
-                <svg class="dcm-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>
-                <svg class="dcm-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>
-              </button>
-              <label class="dicom-wl dicom-fps" data-i18n-title="dicom.fps" title="Cine speed (frames per second)">
-                <input type="number" id="dcm-fps" min="1" max="120" step="1" aria-label="Frames per second"><span>fps</span>
-              </label>
-              <span class="dicom-sep" id="dcm-frames-sep"></span>
+            <!-- Row 1 — display (window / level / colour) -->
+            <div class="dicom-row" id="dcm-row-display" data-i18n-title="dicom.dragHint" hidden>
+              <div class="dicom-window" id="dcm-window-wrap" hidden>
+                <select id="dcm-preset" class="media-ctrl-subtitle-select dicom-preset" data-i18n-title="dicom.presetTitle" title="Window preset" aria-label="Window preset"></select>
+                <label class="dicom-wl" data-i18n-title="dicom.center" title="Window center">
+                  <span>C</span><input type="number" id="dcm-wc" step="1" aria-label="Window center">
+                </label>
+                <label class="dicom-wl" data-i18n-title="dicom.width" title="Window width">
+                  <span>W</span><input type="number" id="dcm-ww" step="1" min="1" aria-label="Window width">
+                </label>
+                <button type="button" class="media-ctrl-btn" id="dcm-invert" data-i18n-title="dicom.invert" title="Invert (I)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-reset" data-i18n-title="dicom.resetWindow" title="Reset window (W)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+                </button>
+                <select id="dcm-colormap" class="media-ctrl-subtitle-select dicom-colormap" data-i18n-title="dicom.colormapTitle" title="Colour map (M)" aria-label="Colour map"></select>
+                <span class="dicom-meta" id="dcm-range-wrap" data-i18n-title="dicom.rangeHint" hidden>
+                  <span class="dicom-meta-label" data-i18n="dicom.rangeLabel">Value range</span>
+                  <span id="dcm-range" class="dicom-range"></span>
+                </span>
+                <span class="dicom-meta" id="dcm-voi-wrap" data-i18n-title="dicom.voiHint" hidden>
+                  <span class="dicom-meta-label" data-i18n="dicom.voiLabel">VOI function</span>
+                  <span id="dcm-voi" class="dicom-range"></span>
+                </span>
+              </div>
             </div>
-            <div class="dicom-window" id="dcm-window-wrap" hidden>
-              <select id="dcm-preset" class="media-ctrl-subtitle-select dicom-preset" data-i18n-title="dicom.presetTitle" title="Window preset" aria-label="Window preset"></select>
-              <label class="dicom-wl" data-i18n-title="dicom.center" title="Window center">
-                <span>C</span><input type="number" id="dcm-wc" step="1" aria-label="Window center">
-              </label>
-              <label class="dicom-wl" data-i18n-title="dicom.width" title="Window width">
-                <span>W</span><input type="number" id="dcm-ww" step="1" min="1" aria-label="Window width">
-              </label>
-              <button type="button" class="media-ctrl-btn" id="dcm-invert" data-i18n-title="dicom.invert" title="Invert (I)" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/></svg>
-              </button>
-              <button type="button" class="media-ctrl-btn" id="dcm-reset" data-i18n-title="dicom.resetWindow" title="Reset window (W)">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
-              </button>
-              <select id="dcm-colormap" class="media-ctrl-subtitle-select dicom-colormap" data-i18n-title="dicom.colormapTitle" title="Colour map (M)" aria-label="Colour map"></select>
-              <span id="dcm-range" class="dicom-range" data-i18n-title="dicom.dragHint" title="Ctrl+drag: window"></span>
-            </div>
-            <div class="dicom-tools" id="dcm-tools-wrap">
-              <span class="dicom-sep" id="dcm-tools-sep"></span>
-              <button type="button" class="media-ctrl-btn" id="dcm-overlays" data-i18n-title="dicom.overlays" title="Overlay planes (V)" aria-pressed="false" hidden>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 8.5l10 5.5 10-5.5L12 3zm0 2.3 5.9 3.2L12 11.7 6.1 8.5 12 5.3zM4.2 12.6 2 13.8l10 5.5 10-5.5-2.2-1.2L12 17l-7.8-4.4z"/></svg>
-              </button>
-              <button type="button" class="media-ctrl-btn" id="dcm-annot" data-i18n-title="dicom.annotations" title="Annotations (O)" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 0h2v6h-6v-2h4v-4zM9 8h6v2h-2v6h-2v-6H9V8z"/></svg>
-              </button>
-              <button type="button" class="media-ctrl-btn" id="dcm-ruler-axes" data-i18n-title="dicom.rulerAxes" title="Rulers (G)" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h2v18H3V3zm18 0v2H3V3h18zM7 5h1v3H7V5zm3 0h1v5h-1V5zm3 0h1v3h-1V5zm3 0h1v5h-1V5zm3 0h1v3h-1V5zM5 7h3v1H5V7zm0 3h5v1H5v-1zm0 3h3v1H5v-1zm0 3h5v1H5v-1zm0 3h3v1H5v-1z"/></svg>
-              </button>
-              <button type="button" class="media-ctrl-btn" id="dcm-scale" data-i18n-title="dicom.scaleBar" title="Scale bar (B)" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v4H3v-4zm2 2h14v-1H5v1zm1-4h1v3H6V8zm4 0h1v3h-1V8zm4 0h1v3h-1V8zm4 0h1v3h-1V8zM3 17h18v2H3v-2z"/></svg>
-              </button>
-              <span class="dicom-sep"></span>
-              <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-ruler" data-tool="ruler" data-i18n-title="dicom.tool.ruler" title="Ruler (R)" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 6v12M20 6v12M7 12h10M10 9l-3 3 3 3M14 9l3 3-3 3"/></svg>
-              </button>
-              <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-angle" data-tool="angle" data-i18n-title="dicom.tool.angle" title="Angle (A)" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 20h16M4 20 18 6M12 20A8 8 0 0 0 9.66 14.34"/></svg>
-              </button>
-              <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-ellipse" data-tool="ellipse" data-i18n-title="dicom.tool.ellipse" title="Ellipse ROI (E)" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5 0-9 3.1-9 7s4 7 9 7 9-3.1 9-7-4-7-9-7zm0 2c3.9 0 7 2.2 7 5s-3.1 5-7 5-7-2.2-7-5 3.1-5 7-5z"/></svg>
-              </button>
-              <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-rect" data-tool="rect" data-i18n-title="dicom.tool.rect" title="Rectangle ROI (T)" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5z"/></svg>
-              </button>
-              <button type="button" class="media-ctrl-btn" id="dcm-meas-clear" data-i18n-title="dicom.clearMeasurements" title="Clear measurements">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg>
-              </button>
+            <!-- Row 2 — navigation + annotation / measurement -->
+            <div class="dicom-row" id="dcm-row-tools">
+              <div class="dicom-frames" id="dcm-frames-wrap" hidden>
+                <button type="button" class="media-ctrl-btn" id="dcm-prev-frame" data-i18n-title="dicom.prevFrame" title="Previous frame">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+                </button>
+                <input type="range" id="dcm-frame" class="media-ctrl-seek dicom-frame-seek" min="0" max="0" value="0" step="1" aria-label="Frame">
+                <button type="button" class="media-ctrl-btn" id="dcm-next-frame" data-i18n-title="dicom.nextFrame" title="Next frame">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
+                </button>
+                <span id="dcm-frame-label" class="media-ctrl-time dicom-frame-label">1 / 1</span>
+                <button type="button" class="media-ctrl-btn" id="dcm-play" data-i18n-title="dicom.cine" title="Play frames" aria-pressed="false">
+                  <svg class="dcm-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>
+                  <svg class="dcm-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>
+                </button>
+                <label class="dicom-wl dicom-fps" data-i18n-title="dicom.fps" title="Cine speed (frames per second)">
+                  <input type="number" id="dcm-fps" min="1" max="120" step="1" aria-label="Frames per second"><span>fps</span>
+                </label>
+                <span class="dicom-sep" id="dcm-frames-sep"></span>
+              </div>
+              <div class="dicom-tools" id="dcm-tools-wrap">
+                  <button type="button" class="media-ctrl-btn" id="dcm-overlays" data-i18n-title="dicom.overlays" title="Overlay planes (V)" aria-pressed="false" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 8.5l10 5.5 10-5.5L12 3zm0 2.3 5.9 3.2L12 11.7 6.1 8.5 12 5.3zM4.2 12.6 2 13.8l10 5.5 10-5.5-2.2-1.2L12 17l-7.8-4.4z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-annot" data-i18n-title="dicom.annotations" title="Annotations (O)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 0h2v6h-6v-2h4v-4zM9 8h6v2h-2v6h-2v-6H9V8z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-ruler-axes" data-i18n-title="dicom.rulerAxes" title="Rulers (G)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h2v18H3V3zm18 0v2H3V3h18zM7 5h1v3H7V5zm3 0h1v5h-1V5zm3 0h1v3h-1V5zm3 0h1v5h-1V5zm3 0h1v3h-1V5zM5 7h3v1H5V7zm0 3h5v1H5v-1zm0 3h3v1H5v-1zm0 3h5v1H5v-1zm0 3h3v1H5v-1z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-scale" data-i18n-title="dicom.scaleBar" title="Scale bar (B)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v4H3v-4zm2 2h14v-1H5v1zm1-4h1v3H6V8zm4 0h1v3h-1V8zm4 0h1v3h-1V8zm4 0h1v3h-1V8zM3 17h18v2H3v-2z"/></svg>
+                </button>
+                <span class="dicom-sep"></span>
+                <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-ruler" data-tool="ruler" data-i18n-title="dicom.tool.ruler" title="Ruler (R)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 6v12M20 6v12M7 12h10M10 9l-3 3 3 3M14 9l3 3-3 3"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-angle" data-tool="angle" data-i18n-title="dicom.tool.angle" title="Angle (A)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 20h16M4 20 18 6M12 20A8 8 0 0 0 9.66 14.34"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-ellipse" data-tool="ellipse" data-i18n-title="dicom.tool.ellipse" title="Ellipse ROI (E)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5 0-9 3.1-9 7s4 7 9 7 9-3.1 9-7-4-7-9-7zm0 2c3.9 0 7 2.2 7 5s-3.1 5-7 5-7-2.2-7-5 3.1-5 7-5z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-rect" data-tool="rect" data-i18n-title="dicom.tool.rect" title="Rectangle ROI (T)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-meas-clear" data-i18n-title="dicom.clearMeasurements" title="Clear measurements">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg>
+                </button>
+              </div>
             </div>
           </div>
 

@@ -134,8 +134,8 @@
   let _dicomAnnotOn = localStorage.getItem('dicomAnnotations') !== '0';   // corner annotations / markers / scale bar
   let _dicomRulerOn = localStorage.getItem('dicomRulerAxes') === '1';     // graduated rulers down both axes
   let _dicomScaleOn = localStorage.getItem('dicomScaleBar') !== '0';      // the movable scale bar
-  const DCM_SCALE_HOME = { x: 0.03, y: 0.07 };   // top-left, as a fraction of the viewer box
-  let _dicomScalePos = _loadDicomScalePos();     // where the user parked the scale bar
+  const DCM_SCALE_PAD = 14;   // default: top-left corner, this many px clear of the edges
+  let _dicomScalePos = _loadDicomScalePos();     // where the user parked it; null → the default corner
   let _dicomScaleBox = null;  // last drawn scale-bar rect, for hit testing
   let _dicomScaleDrag = null; // { dx, dy } while dragging it
   let _dicomTool = null;      // active measurement tool: null | 'ruler' | 'angle' | 'ellipse' | 'rect'
@@ -202,6 +202,10 @@
   const PREF_KEYS = [
     'theme', 'lang', 'bgRemoveAlgo', 'subtitlesEnabled', 'subtitleLanguage', MEDIA_VOL_KEY, MEDIA_MUTE_KEY,
     'dicomAnnotations', 'sidebarWidth', 'sidebarTreeHeightV2', 'editEffectsPanelWidth', 'editAdjustPanelWidth',
+    // Panel layout is a setting like any other: which panels are up, which side the
+    // file-info panel is docked to, every panel width, and the browse view.
+    LAYOUT_KEY, BROWSE_KEY, 'browseViewV1', 'rightSidebarWidth',
+    'dicomRulerAxes', 'dicomScaleBar', 'dicomScalePos',
     ...Object.keys(PREF_DEFAULTS),
   ];
   function _pref(key) {
@@ -248,7 +252,7 @@
         _openFirstInDir(p);
       }
     },
-    onDriveSelect: (p) => { _openFolder(p, { instant: true }); },
+    onDriveSelect: async (p) => { _openFolder(await _recentDirOnDrive(p), { instant: true }); },
     onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
     onImport: (info) => {
       if (!info) return;
@@ -710,15 +714,17 @@
   }
 
   /* ════════════════════════════════════════════
-     Menu bar (File · Edit · View · Effects · Help)
+     Menu bar (File · Edit · View · DICOM · Help)
      Each menu is a ContextMenu dropdown; every item carries an icon.
+     The viewer has no Effects menu: adjustments and filters belong to the edit
+     window, and the slot went to DICOM, which used to crowd the View menu.
   ════════════════════════════════════════════ */
   function _menubarDefs() {
     return [
     { id: 'file',    labelKey: 'menu.file',    icon: 'file',    items: () => _fileMenuItems() },
     { id: 'edit',    labelKey: 'menu.edit',    icon: 'edit',    items: () => _editMenuItems() },
     { id: 'view',    labelKey: 'menu.view',    icon: 'image',   items: () => _viewMenuItems() },
-    { id: 'effects', labelKey: 'menu.effects', icon: 'effects', items: () => _effectsMenuItems() },
+    { id: 'dicom',   labelKey: 'menu.dicom',   icon: 'fmtDcm',  items: () => _dicomMenuItems() },
     { id: 'help',    labelKey: 'menu.help',    icon: 'help',    items: () => _helpMenuItems() },
     ];
   }
@@ -956,7 +962,6 @@
       { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '← / Page Up', disabled: !canPrev, action: () => _prevImage() },
       { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→ / Page Down', disabled: !canNext, action: () => _nextImage() },
       { separator: true },
-      ..._dicomContextItems(),
       !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
       !_isWeb() && { separator: true },
       { icon: Icons.palette, label: t('menu.theme'), submenu: () => _themeMenuItems() },
@@ -1004,6 +1009,15 @@
       { separator: true },
       { icon: Icons.reset,        label: t('menu.resetEffects'), disabled: !hasImg, action: () => _resetEffects() },
     ];
+  }
+
+  /** DICOM menu: the same rows the image's context menu offers, or a hint when the
+   *  open file is not a DICOM image. */
+  function _dicomMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const items = _dicomContextItems();
+    if (items.length) return items;
+    return [{ icon: Icons.fmtDcm, label: t('menu.noDicom'), disabled: true }];
   }
 
   function _helpMenuItems() {
@@ -2036,10 +2050,11 @@
       dcmPlayBtn?.setAttribute('aria-pressed', _dicomCineTimer ? 'true' : 'false');
       if (dcmFps && document.activeElement !== dcmFps) dcmFps.value = String(Math.round(_dicomCineRate()));
       const sep = document.getElementById('dcm-frames-sep');
-      if (sep) sep.hidden = !d.gray;
+      if (sep) sep.hidden = false;   // frames and tools always share the bottom row
     }
-    // Window
+    // Window (the whole top row is display-only, so it goes with it)
     if (dcmWindowWrap) dcmWindowWrap.hidden = !d.gray;
+    document.getElementById('dcm-row-display')?.toggleAttribute('hidden', !d.gray);
     if (d.gray) {
       if (dcmPreset && (!dcmPreset.options.length || dcmPreset.dataset.for !== state.currentFile
           || (d.enhanced && dcmPreset.dataset.frame !== String(st.frame)))) {
@@ -2058,10 +2073,17 @@
         if (!dcmColormap.options.length || dcmColormap.dataset.lang !== state.lang) _dicomBuildColormapOptions();
         dcmColormap.value = st.colormap || 'gray';
       }
+      // Both readouts carry their own label, so the numbers are never bare.
       if (dcmRange) {
-        const fn = st.voiFunction && st.voiFunction !== 'LINEAR' ? ` · ${st.voiFunction}` : '';
-        dcmRange.textContent = d.range ? `${_dicomFmt(d.range.min)} … ${_dicomFmt(d.range.max)}${d.units ? ` ${d.units}` : ''}${fn}` : '';
+        dcmRange.textContent = d.range
+          ? `${_dicomFmt(d.range.min)} … ${_dicomFmt(d.range.max)}${d.units ? ` ${d.units}` : ''}`
+          : '';
       }
+      document.getElementById('dcm-range-wrap')?.toggleAttribute('hidden', !d.range);
+      const voiFn = st.voiFunction && st.voiFunction !== 'LINEAR' ? st.voiFunction : '';
+      const dcmVoi = document.getElementById('dcm-voi');
+      if (dcmVoi) dcmVoi.textContent = voiFn;
+      document.getElementById('dcm-voi-wrap')?.toggleAttribute('hidden', !voiFn);
     }
     // Tools: overlay planes, annotations, measurement tools
     if (dcmOverlaysBtn) {
@@ -2089,9 +2111,23 @@
       b.setAttribute('aria-pressed', toolsOk && b.dataset.tool === _dicomTool ? 'true' : 'false');
     });
     document.getElementById('dcm-meas-clear')?.toggleAttribute('disabled', !_dicomMeas.length);
-    const toolsSep = document.getElementById('dcm-tools-sep');
-    if (toolsSep) toolsSep.hidden = !(multi || d.gray);
+    _dicomBarLayout();
     _updateStatus({});
+  }
+
+  /**
+   * One line while every group fits, two rows when it does not. Measured, not
+   * guessed: the one-line layout lets the bar overflow (nothing shrinks), so
+   * `scrollWidth > clientWidth` is exactly the question "does it still fit?".
+   */
+  function _dicomBarLayout() {
+    if (!dicomBar || dicomBar.hidden) return;
+    const was = dicomBar.classList.contains('is-stacked');
+    dicomBar.classList.remove('is-stacked');
+    const overflows = dicomBar.scrollWidth > dicomBar.clientWidth + 1;
+    dicomBar.classList.toggle('is-stacked', overflows);
+    // A row more or less moves the bar's top edge, which the overlay draws around.
+    if (overflows !== was) _dicomOverlayRequest();
   }
 
   // Re-render (another frame / window). One at a time: a request made while one is
@@ -2549,15 +2585,18 @@
         return { x: Math.min(1, Math.max(0, v.x)), y: Math.min(1, Math.max(0, v.y)) };
       }
     } catch { /* fall back to the default corner */ }
-    return { ...DCM_SCALE_HOME };
+    return null;   // never dragged → the default top-left corner
   }
 
   function _saveDicomScalePos() {
-    try { localStorage.setItem('dicomScalePos', JSON.stringify(_dicomScalePos)); } catch { /* ignore */ }
+    try {
+      if (_dicomScalePos) localStorage.setItem('dicomScalePos', JSON.stringify(_dicomScalePos));
+      else localStorage.removeItem('dicomScalePos');
+    } catch { /* ignore */ }
   }
 
   function _dicomResetScalePos() {
-    _dicomScalePos = { ...DCM_SCALE_HOME };
+    _dicomScalePos = null;
     _saveDicomScalePos();
     _dicomOverlayRequest();
   }
@@ -2817,8 +2856,9 @@
     const leftLimit = _dicomRulerOn ? DCM_RULER_BAND + 4 : 6;
     if (len > W - leftLimit - 6) return;   // too wide to place anywhere sensible
 
-    let x = _dicomScalePos.x * W;
-    let y = _dicomScalePos.y * bottom;
+    // No stored spot → park it in the top-left corner, a little clear of the edges.
+    let x = _dicomScalePos ? _dicomScalePos.x * W : leftLimit + DCM_SCALE_PAD;
+    let y = _dicomScalePos ? _dicomScalePos.y * bottom : topLimit + DCM_SCALE_PAD;
     x = Math.max(leftLimit, Math.min(W - len - 6, x));
     y = Math.max(topLimit, Math.min(bottom - h - 6, y));
     _dicomScaleBox = { x: x - 8, y: y - 6, w: len + 16, h: h + 10 };
@@ -2994,9 +3034,10 @@
       e.preventDefault();
       e.stopPropagation();
       const r = viewerContainer.getBoundingClientRect();
+      const box = _dicomScaleBox;   // where it is actually drawn (box.x = x - 8, box.y = y - 6)
       _dicomScaleDrag = {
-        dx: (e.clientX - r.left) - _dicomScalePos.x * r.width,
-        dy: (e.clientY - r.top) - _dicomScalePos.y * r.height,
+        dx: (e.clientX - r.left) - (box.x + 8),
+        dy: (e.clientY - r.top) - (box.y + 6),
       };
       _dicomOverlayRequest();
     }, true);
@@ -4189,6 +4230,25 @@
     localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(next));
     localStorage.setItem('lastOpenedDir', dirPath);
     window.electronAPI.setLastOpenDir(dirPath);
+  }
+
+  /**
+   * Switching drives lands on the folder last opened on that drive, not its bare
+   * root — the most recent entry still on disk wins, the root is the fallback.
+   */
+  async function _recentDirOnDrive(drivePath) {
+    const root = _normDirKey(drivePath);
+    if (!root) return drivePath;
+    for (const dir of _getRecentDirs()) {
+      const key = _normDirKey(dir);
+      if (key === root) return drivePath;            // the root itself is the freshest
+      if (!key.startsWith(`${root}/`)) continue;     // another drive
+      try {
+        const stats = await window.electronAPI.getFileStats(dir);
+        if (stats && !stats.error && stats.isDirectory) return dir;
+      } catch { /* gone — try the next one */ }
+    }
+    return drivePath;
   }
 
   async function _clearRecentFolderHistory() {
@@ -6672,6 +6732,7 @@
 
   if (typeof ResizeObserver !== 'undefined') {
     const _viewRo = new ResizeObserver(() => {
+      _dicomBarLayout();
       if (_wantFit) {
         if (state.editMode) _ewFit();
         else _fitToWindow();
@@ -9105,7 +9166,22 @@
       'lang-en': async () => { state.lang = 'en'; localStorage.setItem('lang','en'); await _refreshLang(); },
       'show-about':    () => _showDialog('about-overlay'),
       'show-shortcuts':() => _showDialog('shortcuts-overlay'),
+      'dicom-annotations':  _dicomToggleAnnotations,
+      'dicom-rulers':       _dicomToggleRulerAxes,
+      'dicom-scalebar':     _dicomToggleScaleBar,
+      'dicom-scale-reset':  _dicomResetScalePos,
+      'dicom-invert':       _dicomToggleInvert,
+      'dicom-reset-window': _dicomResetWindow,
+      'dicom-cine':         _dicomToggleCine,
+      'dicom-clear-meas':   _dicomMeasClear,
+      'dicom-tool-off':     () => _dicomSetTool(null),
+      'dicom-tool-ruler':   () => _dicomSetTool('ruler'),
+      'dicom-tool-angle':   () => _dicomSetTool('angle'),
+      'dicom-tool-ellipse': () => _dicomSetTool('ellipse'),
+      'dicom-tool-rect':    () => _dicomSetTool('rect'),
     };
+    // Nothing DICOM does anything without a DICOM image on screen.
+    if (action.startsWith('dicom-') && !(state.dicom && _dicomHasBar())) return;
     if (action.startsWith('theme:')) { _applyTheme(action.slice(6)); return; }
     if (map[action]) await map[action]();
   }
@@ -9127,6 +9203,7 @@
     // Chrome built in JS (not via data-i18n) has to be rebuilt by hand
     window.Browse?.applyI18n?.();
     window.FileTree?.applyI18n?.();
+    _fillSettingsThemeButtons();   // theme names are translated too
     _syncBrowseChrome();
     _syncEditThemeLangBtns();
     _syncMenu();

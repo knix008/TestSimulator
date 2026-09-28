@@ -2909,14 +2909,37 @@ body.resizing-se { cursor: nwse-resize !important; }
 }
 
 /* ========== In-app file dialog ========== */
-.file-dialog-box {
-  min-width: 640px;
-  max-width: min(820px, calc(100vw - 32px));
-  width: 72vw;
-  max-height: min(80vh, 640px);
+/* Fixed size: the box never rides the viewport (no vw/vh), so opening a file,
+   a folder or Save As always shows the same rectangle. The list inside takes the
+   slack, and the overlay scrolls if the window is ever shorter than the box. */
+.dialog-box.file-dialog-box {
+  width: 780px;
+  min-width: 780px;
+  max-width: 780px;
+  height: 580px;
+  min-height: 580px;
+  max-height: none;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+/* flex-start + margin:auto keeps the box centred yet never clips its top edge
+   when it overflows a small window (plain `center` would). */
+#file-dialog-overlay {
+  overflow: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 16px;
+}
+#file-dialog-overlay .file-dialog-box { margin: auto; }
+.file-dialog-box .dialog-header,
+.file-dialog-box .dialog-footer { flex: 0 0 auto; }
+/* Same footprint whether the label reads Open, Save, 열기 or 저장. */
+.file-dialog-box .dialog-footer button {
+  min-width: 96px;
+  box-sizing: border-box;
+  justify-content: center;
 }
 .fd-nav {
   display: flex;
@@ -2924,6 +2947,7 @@ body.resizing-se { cursor: nwse-resize !important; }
   gap: 6px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 .fd-nav-btn {
   width: 30px;
@@ -2955,10 +2979,8 @@ body.resizing-se { cursor: nwse-resize !important; }
 }
 .fd-split {
   display: flex;
-  flex: 1;
-  min-height: 280px;
-  height: 42vh;
-  max-height: 420px;
+  flex: 1 1 auto;
+  min-height: 0;
   border-bottom: 1px solid var(--border);
 }
 .fd-drives {
@@ -3037,6 +3059,7 @@ body.resizing-se { cursor: nwse-resize !important; }
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
+  flex: 0 0 auto;
 }
 .fd-name-row label {
   font-size: 12px;
@@ -3062,6 +3085,7 @@ body.resizing-se { cursor: nwse-resize !important; }
   align-items: center;
   gap: 8px;
   padding: 0 12px 8px;
+  flex: 0 0 auto;
 }
 .fd-quality-row label {
   font-size: 12px;
@@ -3936,32 +3960,58 @@ body.frameless #ew-win-gutter { display: block; }
   100% { opacity: 0; transform: scale(0.94); }
 }
 
-/* DICOM bar (frames + window centre / width) */
+/* DICOM bar — one line while the groups fit, two rows when the viewer is too
+   narrow for them; always flush left. The row wrappers are `display: contents`
+   on the one-line layout, so the groups share a single line; `.is-stacked`
+   (set from JS once the bar measures as overflowing) turns them into real rows:
+   row 1 = display (window / level / colour), row 2 = navigation + measurement. */
 .dicom-controls {
-  flex-wrap: wrap;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  column-gap: 8px;
   row-gap: 6px;
+}
+.dicom-controls .dicom-row {
+  display: contents;
+}
+.dicom-controls.is-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.dicom-controls.is-stacked .dicom-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.dicom-controls .dicom-row[hidden] {
+  display: none;
 }
 .dicom-controls .dicom-frames,
 .dicom-controls .dicom-window {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
 }
 .dicom-controls .dicom-frames[hidden],
 .dicom-controls .dicom-window[hidden] {
   display: none;
 }
-.dicom-controls .dicom-frames {
-  flex: 1 1 260px;
-}
-.dicom-controls .dicom-window {
-  flex: 0 1 auto;
-  margin-left: auto;
+/* Nothing shrinks on the one-line layout — the bar has to overflow honestly,
+   because that overflow is what tells JS to switch to two rows. */
+.dicom-controls .dicom-frames,
+.dicom-controls .dicom-window,
+.dicom-controls .dicom-tools {
+  flex: 0 0 auto;
 }
 .dicom-frame-seek {
-  flex: 1 1 120px;
-  min-width: 80px;
+  flex: 0 0 150px;
+  width: 150px;
 }
 .dicom-frame-label {
   min-width: 64px;
@@ -3978,6 +4028,7 @@ body.frameless #ew-win-gutter { display: block; }
 #dcm-play.is-active .dcm-pause-icon { display: block; }
 .dicom-preset {
   max-width: 220px;
+  flex: 0 0 auto;
 }
 .dicom-wl {
   display: inline-flex;
@@ -4007,6 +4058,33 @@ body.frameless #ew-win-gutter { display: block; }
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+/* Labelled readouts next to the colour map: what the numbers actually mean. */
+.dicom-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.dicom-meta[hidden] {
+  display: none;
+}
+.dicom-meta-label {
+  font-size: 11px;
+  opacity: 0.55;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* Squeezed into two rows: the readouts are the first thing allowed to give way. */
+.dicom-controls.is-stacked .dicom-meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.dicom-controls.is-stacked .dicom-range {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .dicom-controls .media-ctrl-btn.is-active {
   background: rgba(108, 182, 255, 0.35);
 }
@@ -4028,6 +4106,7 @@ body.frameless #ew-win-gutter { display: block; }
 }
 .dicom-colormap {
   max-width: 150px;
+  flex: 0 0 auto;
 }
 .dicom-fps input {
   width: 52px;

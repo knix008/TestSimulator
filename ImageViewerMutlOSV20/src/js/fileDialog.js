@@ -138,6 +138,32 @@ window.FileDialog = (() => {
     return String(p || '').replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
   }
 
+  /**
+   * Folder last opened on `drivePath` (shared history with the main window's
+   * explorer), so clicking a drive shows where you left off, not a bare root.
+   */
+  async function _recentDirOnDrive(drivePath) {
+    const root = _norm(drivePath);
+    if (!root) return drivePath;
+    let list = [];
+    try {
+      const raw = JSON.parse(localStorage.getItem('recentOpenedDirs') || '[]');
+      if (Array.isArray(raw)) list = raw.filter(Boolean);
+    } catch { /* no history */ }
+    const last = localStorage.getItem('lastOpenedDir');
+    if (last && !list.length) list = [last];
+    for (const dir of list) {
+      const key = _norm(dir);
+      if (key === root) return drivePath;
+      if (!key.startsWith(`${root}/`)) continue;
+      try {
+        const stats = await window.electronAPI.getFileStats(dir);
+        if (stats && !stats.error && stats.isDirectory) return dir;
+      } catch { /* gone — try the next one */ }
+    }
+    return drivePath;
+  }
+
   function _isDriveRoot(p) {
     return /^[a-z]:\\?$/i.test(String(p || '').replace(/\//g, '\\'));
   }
@@ -331,7 +357,7 @@ window.FileDialog = (() => {
       }
       btn.innerHTML = `<span class="fd-drive-icon">${Icons.drive}</span><span class="fd-drive-label">${d.name || d.path}</span>`;
       btn.title = d.path;
-      btn.addEventListener('click', () => _goTo(d.path));
+      btn.addEventListener('click', async () => _goTo(await _recentDirOnDrive(d.path)));
       e.drives.appendChild(btn);
     }
   }
