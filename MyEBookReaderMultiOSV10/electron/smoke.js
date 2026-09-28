@@ -524,16 +524,23 @@ async function run(win) {
       const pane = document.querySelector('.bookview');
       if (!pane) return { error: 'no reading pane' };
       const marks = new Set();
+      let starts = 0;
+      let turning = false;
       const observer = new MutationObserver((records) => {
         for (const record of records) {
           const el = record.target;
           for (const name of el.classList) if (name.startsWith('turn') || name === 'turning') marks.add(name);
         }
+        const now = !!pane.querySelector('.turning');
+        if (now && !turning) starts += 1;
+        turning = now;
       });
       observer.observe(pane, { attributes: true, attributeFilter: ['class'], subtree: true });
       // Some effects are applied to a freshly keyed element rather than to the
       // one that was there, so what is on screen counts too.
+      let sawLeaf = false;
       const sweep = () => {
+        if (pane.querySelector('.turn-leaf img')) sawLeaf = true;
         for (const el of pane.querySelectorAll('[class*="turn"]')) {
           for (const name of el.classList) if (name.startsWith('turn') || name === 'turning') marks.add(name);
         }
@@ -542,19 +549,18 @@ async function run(win) {
       // playing, which is the thing the reader sees.
       const running = [];
       const watch = () => {
-        for (const el of pane.querySelectorAll('.chapter, .page-spread, .comic-page, .pdf-page')) {
+        for (const el of pane.querySelectorAll('.chapter, .page-spread, .comic-page, .pdf-page, .turn-leaf')) {
           for (const animation of (el.getAnimations ? el.getAnimations() : [])) {
-            running.push({
-              name: animation.animationName || '',
-              ms: Math.round(animation.effect?.getTiming?.().duration || 0),
-              state: animation.playState,
-            });
+            const name = animation.animationName || '';
+            if (name && !running.some((a) => a.name === name)) {
+              running.push({ name, ms: Math.round(animation.effect?.getTiming?.().duration || 0) });
+            }
           }
         }
       };
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
-      const deadline = performance.now() + 3000;
-      while (performance.now() < deadline && !marks.has('turn-flip')) {
+      const deadline = performance.now() + 1600;
+      while (performance.now() < deadline) {
         watch();
         sweep();
         // eslint-disable-next-line no-await-in-loop
@@ -562,18 +568,34 @@ async function run(win) {
       }
       watch();
       observer.disconnect();
-      return { marks: [...marks], running, reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches };
+      return { marks: [...marks], running, starts, leaf: sawLeaf, reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches };
     })()`);
     assert(!seen.error, seen.error);
     assert(seen.marks.includes('turn-flip'), `the effect classes seen were [${seen.marks.join(', ')}]`);
+    if (process.env.EBK_SMOKE_SHOT) {
+      // A picture of the turn in flight, which is the only way to judge it.
+      await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true })); return true;");
+      await wait(170);
+      const shot = await win.capturePage();
+      require('fs').writeFileSync(process.env.EBK_SMOKE_SHOT.replace(/\.png$/i, '-turning.png'), shot.toPNG());
+      await wait(700);
+    }
+
     assert(seen.marks.includes('turning'), 'the pane was never marked as turning');
     // The class is not the point — the animation is. A system set to "no
     // animations" stopped the chosen effect dead, and the class alone could
     // not tell: it was there, and nothing moved.
     const played = (seen.running || []).filter((a) => /^(turn|leaf)-/.test(a.name || ''));
+    assert(seen.leaf, 'no leaf was drawn for the turn');
     assert(played.length > 0,
       `nothing was animated (the system asks for reduced motion: ${seen.reduced})`);
     assert(played[0].ms >= 300, `the turn lasts ${played[0].ms}ms, too quick to see`);
+    // One leaf, once. Two pages turning at the same time — or the same turn
+    // running twice because the chapter and the column both changed — reads as
+    // a handful of pages going by.
+    const leaves = new Set(played.map((a) => a.name));
+    assert(leaves.size === 1, `${leaves.size} different animations ran: ${[...leaves].join(', ')}`);
+    assert(seen.starts <= 1, `the effect started ${seen.starts} times for one turn`);
 
     // And the effect goes away again, rather than leaving the page mid-turn.
     await until(win, "!document.querySelector('.bookview .turning')", { timeout: 5000 });

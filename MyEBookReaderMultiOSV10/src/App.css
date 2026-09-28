@@ -987,11 +987,33 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 /* One page, or two side by side — a spread, as in a printed book. */
 .page-spread {
   display: flex;
-  gap: 10px;
+  gap: 0;
   align-items: flex-start;
   justify-content: center;
   max-width: 100%;
   transform-style: preserve-3d;
+}
+/* Where the two pages meet is a binding, not a gap: the pages touch, and the
+   crease is drawn over the join. */
+.bookview.spread .page-spread { position: relative; }
+.bookview.spread .page-spread::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 18px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.22) 42%,
+    rgba(0, 0, 0, 0.3) 50%,
+    rgba(0, 0, 0, 0.22) 58%,
+    rgba(0, 0, 0, 0) 100%
+  );
 }
 .bookview.spread .page-spread > * { flex: 0 1 auto; min-width: 0; }
 .bookview.spread .comic-page { max-width: 50%; }
@@ -1000,63 +1022,99 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
    looking at, and are replaced by nothing at all when the effect is "none". */
 .turning.turn-slide.turn-forward { animation: turn-slide-forward var(--turn-ms, 0.55s) ease-out; }
 .turning.turn-slide.turn-back { animation: turn-slide-back var(--turn-ms, 0.55s) ease-out; }
-.turning.turn-flip.turn-forward { animation: turn-flip-forward var(--turn-ms, 0.55s) ease-in-out; transform-origin: left center; }
-.turning.turn-flip.turn-back { animation: turn-flip-back var(--turn-ms, 0.55s) ease-in-out; transform-origin: right center; }
+/* The page that is arriving does not move at all — it is uncovered by the leaf
+   that turns over it, which is drawn separately (.turn-leaf). A reflowable
+   chapter has no leaf to draw, so it fades up under the same timing. */
+.chapter.turning.turn-flip { animation: leaf-settle var(--turn-ms, 0.55s) ease-out; }
 
 @keyframes turn-slide-forward {
-  from { transform: translateX(45%); opacity: 0.1; }
-  60%  { transform: translateX(-2%); opacity: 1; }
+  from { transform: translateX(40%); opacity: 0.15; }
   to   { transform: translateX(0); opacity: 1; }
 }
 @keyframes turn-slide-back {
-  from { transform: translateX(-45%); opacity: 0.1; }
-  60%  { transform: translateX(2%); opacity: 1; }
+  from { transform: translateX(-40%); opacity: 0.15; }
   to   { transform: translateX(0); opacity: 1; }
 }
-@keyframes turn-flip-forward {
-  from { transform: rotateY(-88deg) scale(0.94); opacity: 0.2; box-shadow: -40px 0 70px var(--shadow); }
-  to   { transform: rotateY(0deg) scale(1); opacity: 1; box-shadow: none; }
+/* A leaf being turned, not a card being flipped over.
+ *
+ * The first attempt rotated the page about its own edge, which is what a card
+ * does when you turn it face down: the reader saw the page spin rather than a
+ * page being turned. What a turning leaf actually does to the page underneath
+ * is uncover it, edge first, from the binding outwards — so that is what this
+ * animates. The slight darkening is the shadow the leaf casts as it comes down.
+ */
+@keyframes leaf-settle {
+  from { opacity: 0.25; }
+  to   { opacity: 1; }
 }
-@keyframes turn-flip-back {
-  from { transform: rotateY(88deg) scale(0.94); opacity: 0.2; box-shadow: 40px 0 70px var(--shadow); }
-  to   { transform: rotateY(0deg) scale(1); opacity: 1; box-shadow: none; }
+
+/* ── The leaf ─────────────────────────────────────────────
+   A copy of the page that was showing, hinged on the binding and turned over.
+   Its back is hidden, so it disappears as it passes upright and what is left is
+   the page underneath — the page that was turned to. */
+.turn-leaf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.turn-leaf.whole { left: 0; right: 0; }
+.turn-leaf.half { width: 50%; }
+/* Two faces, back to back. Each is hidden when it is turned away, so the leaf
+   shows its front on the way over and the new page as it lands. */
+.leaf-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+}
+.leaf-face.back { transform: rotateY(180deg); }
+.leaf-face img { max-width: 100%; max-height: 100%; box-shadow: 0 6px 22px var(--shadow); }
+.turn-leaf.forward {
+  right: 0;
+  transform-origin: left center;
+  animation: leaf-over-forward var(--turn-ms, 0.55s) ease-in forwards;
+}
+.turn-leaf.back {
+  left: 0;
+  transform-origin: right center;
+  animation: leaf-over-back var(--turn-ms, 0.55s) ease-in forwards;
+}
+.turn-leaf.whole.forward { transform-origin: left center; }
+.turn-leaf.whole.back { transform-origin: right center; }
+@keyframes leaf-over-forward {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(-180deg); }
+}
+@keyframes leaf-over-back {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(180deg); }
+}
+/* The light on the paper as it goes over and comes down again. */
+.turn-leaf .leaf-face { animation: leaf-shade var(--turn-ms, 0.55s) ease-in-out; }
+@keyframes leaf-shade {
+  from { filter: brightness(1); }
+  50%  { filter: brightness(0.66); }
+  to   { filter: brightness(1); }
 }
 
 /* A spread turns at the gutter: the leaf that is being turned pivots on the
    binding in the middle, and the two new pages come up together. Turning the
    whole spread about the window's edge — which is what it did — looks like the
    book being swept aside rather than a page being turned. */
+.page-spread { position: relative; perspective: 2000px; }
 .page-spread.turning.turn-flip { animation: none; }
-.page-spread.turning.turn-flip .comic-page,
-.page-spread.turning.turn-flip .pdf-page { backface-visibility: hidden; }
-.page-spread.turning.turn-flip.turn-forward .comic-page:not(.facing),
-.page-spread.turning.turn-flip.turn-forward .pdf-page:not(.facing) {
-  animation: leaf-from-left var(--turn-ms, 0.55s) ease-in-out;
-  transform-origin: right center;
-}
-.page-spread.turning.turn-flip.turn-forward .comic-page.facing,
-.page-spread.turning.turn-flip.turn-forward .pdf-page.facing {
-  animation: leaf-from-right var(--turn-ms, 0.55s) ease-in-out;
-  transform-origin: left center;
-}
-.page-spread.turning.turn-flip.turn-back .comic-page:not(.facing),
-.page-spread.turning.turn-flip.turn-back .pdf-page:not(.facing) {
-  animation: leaf-from-right var(--turn-ms, 0.55s) ease-in-out;
-  transform-origin: right center;
-}
-.page-spread.turning.turn-flip.turn-back .comic-page.facing,
-.page-spread.turning.turn-flip.turn-back .pdf-page.facing {
-  animation: leaf-from-left var(--turn-ms, 0.55s) ease-in-out;
-  transform-origin: left center;
-}
-@keyframes leaf-from-left {
-  from { transform: rotateY(-86deg); opacity: 0.15; }
-  to   { transform: rotateY(0deg); opacity: 1; }
-}
-@keyframes leaf-from-right {
-  from { transform: rotateY(86deg); opacity: 0.15; }
-  to   { transform: rotateY(0deg); opacity: 1; }
-}
+/* Exactly one page moves, because exactly one leaf is being turned. Going
+   forward, the leaf that was the right-hand page comes down as the new
+   left-hand page, hinged on the binding; the page that ends up on the right is
+   simply uncovered by it and stays still. Going back, the mirror of that. */
+/* The pages themselves hold still while the leaf goes over them: going forward
+   it is the right-hand leaf that turns, going back the left-hand one, and the
+   middle of the book stays joined throughout. */
 
 /* Windows and macOS can be told to stop animating things, and this honours
    that — but the page-turn effect is not decoration that crept in: the reader

@@ -192,13 +192,31 @@ const BookView = forwardRef(function BookView({
   // restarted by hand, which is what the flicker was.
   const place = `${section}:${columnPage}`;
   const previousPlace = useRef(place);
+  const lastTurnAt = useRef(0);
+  // What is on screen now, so that when the page changes the leaf can still be
+  // drawn with the page that is being turned over. Updated after the turn
+  // effect below, which is what makes it the *previous* page at that moment.
+  const shown = useRef({ src: '', facing: '' });
   useEffect(() => {
     const [wasSection, wasColumn] = previousPlace.current.split(':').map(Number);
     const forward = section > wasSection || (section === wasSection && columnPage > wasColumn);
     const moved = previousPlace.current !== place;
     previousPlace.current = place;
     if (!moved || settings.pageTurn === 'none') return undefined;
-    setTurn({ dir: forward ? 'forward' : 'back', id: `${place}-${Date.now()}` });
+
+    // Moving to the next chapter changes the chapter and puts the column back
+    // to the first — two changes, one turn. Without this the effect ran twice
+    // in a row and looked like several pages going by.
+    const now = Date.now();
+    if (now - lastTurnAt.current < TURN_MS / 2) return undefined;
+    lastTurnAt.current = now;
+
+    setTurn({
+      dir: forward ? 'forward' : 'back',
+      id: `${place}-${now}`,
+      // The face of the leaf: the page that was there a moment ago.
+      leaf: forward ? (shown.current.facing || shown.current.src) : shown.current.src,
+    });
     const timer = setTimeout(() => setTurn(null), TURN_MS);
     return () => clearTimeout(timer);
   }, [place, section, columnPage, settings.pageTurn]);
@@ -474,6 +492,13 @@ const BookView = forwardRef(function BookView({
     return <div className="bookview empty">{emptyState}</div>;
   }
 
+  // Kept after the turn effect on purpose: effects run in the order they are
+  // written, so while the turn is being set up this still holds what the reader
+  // was looking at.
+  useEffect(() => {
+    shown.current = { src: content?.src || '', facing: facing?.src || '' };
+  }, [content, facing]);
+
   // Restarting a CSS animation on an element that already carries its class
   // takes a reflow between removing it and putting it back.
   useLayoutEffect(() => {
@@ -485,6 +510,36 @@ const BookView = forwardRef(function BookView({
     void el.offsetWidth;
     el.classList.add('turning');
   }, [turn?.id]);
+
+  // The turning leaf: the page that was showing, hinged on the binding and
+  // swept over to the other side. Its back is hidden, so halfway through the
+  // turn it is gone and the new page — which has been underneath all along —
+  // is simply there. This is the difference between a page turning and a page
+  // being wiped away.
+  //
+  // The leaf has two faces, as a leaf does: the page that was showing, and —
+  // on its back — the page that it brings with it. Turning forward, the right
+  // page comes over and lands as the new left page; turning back, the left
+  // page comes over and lands as the new right one. With both faces the leaf
+  // covers the page it is turning onto for the whole of the turn instead of
+  // vanishing halfway, which is what it did when only the front was drawn.
+  const leafBack = turn?.dir === 'forward' ? (content?.src || '') : (facing?.src || '');
+  const leaf = (turn && settings.pageTurn === 'flip' && kind !== 'html' && turn.leaf) ? (
+    <div
+      className={`turn-leaf ${turn.dir}${spread ? ' half' : ' whole'}`}
+      key={turn.id}
+      aria-hidden="true"
+    >
+      <div className="leaf-face front">
+        <img src={turn.leaf} alt="" style={imageStyle()} />
+      </div>
+      {leafBack ? (
+        <div className="leaf-face back">
+          <img src={leafBack} alt="" style={imageStyle()} />
+        </div>
+      ) : null}
+    </div>
+  ) : null;
 
   const style = {
     ...readingStyle(settings),
@@ -555,6 +610,7 @@ const BookView = forwardRef(function BookView({
                 style={imageStyle()}
               />
             ) : null}
+            {leaf}
           </div>
         </div>
       ) : null}
