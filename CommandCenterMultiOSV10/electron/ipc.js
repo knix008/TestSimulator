@@ -1,6 +1,6 @@
 // IPC bridge: exposes core/api.js to the renderer and pushes job updates and
 // directory-change notifications to it.
-const { ipcMain, BrowserWindow, screen, nativeImage } = require('electron');
+const { ipcMain, BrowserWindow, screen, nativeImage, nativeTheme } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { serializeError } = require('../core/api');
@@ -123,6 +123,38 @@ function registerIpc(api, getWindow, dialogs = {}, windows = {}) {
     // Keep it on screen after growing downwards.
     const b = w.getBounds();
     if (b.y + b.height > area.y + area.height) w.setPosition(b.x, Math.max(area.y, area.y + area.height - b.height));
+  });
+
+  // The toolbar's own width becomes the window's minimum width (src/lib/minwidth.js): the toolbar is
+  // icon-only, so a button that does not fit is a command the user can neither reach nor see. The page
+  // measures in CSS pixels — the window works in device-independent ones, which differ as soon as the
+  // page is zoomed. A window already narrower than the new minimum is widened to it on the spot.
+  ipcMain.on('win:minwidth', (event, { width }) => {
+    const w = BrowserWindow.fromWebContents(event.sender);
+    if (!w || w.isDestroyed()) return;
+    const want = Math.ceil((Number(width) || 0) * (w.webContents.getZoomFactor() || 1));
+    if (!Number.isFinite(want) || want < 320 || want > 8000) return;
+    const frame = w.getBounds().width - w.getContentBounds().width;   // the window's own left / right edges
+    const min = want + frame;
+    const [, minH] = w.getMinimumSize();
+    if (w.getMinimumSize()[0] !== min) w.setMinimumSize(min, minH);
+    if (!w.isMaximized() && !w.isFullScreen() && w.getBounds().width < min) w.setSize(min, w.getBounds().height);
+  });
+
+  // The window's title bar in the theme's colours (src/lib/titlebar.js): the page draws the bar itself,
+  // the system draws only the window controls over it — those are what the overlay colours paint. The
+  // theme's mode goes to nativeTheme as well, so the parts no app can paint (native scrollbars, the
+  // title bar on hosts without an overlay) are at least dark for a dark theme.
+  ipcMain.on('win:titlebar', (event, colors) => {
+    const w = BrowserWindow.fromWebContents(event.sender);
+    if (!w || w.isDestroyed() || !colors) return;
+    if (colors.mode === 'dark' || colors.mode === 'light') nativeTheme.themeSource = colors.mode;
+    // setTitleBarOverlay only exists where the window was given one (Windows); it throws otherwise.
+    if (!w.ccOverlay) return;
+    const hex = (v) => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim()) ? v.trim() : null);
+    const color = hex(colors.color), symbolColor = hex(colors.symbolColor);
+    if (!color || !symbolColor) return;
+    try { w.setTitleBarOverlay({ color, symbolColor }); } catch { /* no overlay on this platform */ }
   });
 
   // ── Printing (see main.js printHtml) ──

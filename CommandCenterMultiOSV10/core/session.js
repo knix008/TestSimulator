@@ -22,6 +22,8 @@ const DEFAULTS = {
   language: 'ko',
   theme: 'midnight',   // one of src/themes.js ids
   themeBg: '',         // the theme's window colour (for the native window before the UI paints)
+  titleBg: '',         // the theme's title-bar colours (the native window controls are drawn in them)
+  titleFg: '',
   showHidden: false,
   leftSort: { column: 'name', asc: true },
   rightSort: { column: 'name', asc: true },

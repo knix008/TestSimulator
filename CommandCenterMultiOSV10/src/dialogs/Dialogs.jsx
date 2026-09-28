@@ -15,8 +15,9 @@ import { describeError } from '../lib/errors';
 // ── Frame ─────────────────────────────────────────────────
 
 // `windowed`: the dialog is the whole page of a separate tool window — no
-// backdrop, no in-page title bar (the OS window has one; the title goes to
-// document.title), and it fills the window.
+// backdrop, no close button (the window's own controls close it), and it fills
+// the window. Its title goes to document.title, and to the caption row where
+// the page draws the window's title bar itself (src/lib/titlebar.js).
 export function DialogFrame({ title, children, footer, width = 440, onClose, className = '', icon, windowed = false }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -33,6 +34,13 @@ export function DialogFrame({ title, children, footer, width = 440, onClose, cla
   if (windowed) {
     return (
       <div className={`dlg windowed ${className}`} ref={ref} role="dialog" aria-label={title} onKeyDown={onKey}>
+        {/* This window's title bar, drawn in the page so it follows the theme (src/lib/titlebar.js).
+            The stylesheet shows it only where the page really owns the title bar — elsewhere the
+            window already has a native one above us, and the title would appear twice. */}
+        <div className="dlg-caption">
+          {icon && <Icon name={icon} />}
+          <span className="ellipsis">{title}</span>
+        </div>
         <div className="dlg-body">{children}</div>
         {footer && <div className="dlg-footer">{footer}</div>}
       </div>

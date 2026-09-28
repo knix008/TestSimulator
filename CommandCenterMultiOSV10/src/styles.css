@@ -52,11 +52,23 @@ button:disabled { cursor: default; opacity: 0.45; }
 .row { display: flex; gap: 8px; align-items: center; }
 .boot { height: 100%; display: grid; place-items: center; color: var(--fg-muted); }
 
-.app { height: 100%; display: flex; flex-direction: column; min-width: 1122px; }   /* the toolbar needs ~1110 px in either language; the desktop window minimum (1142 outer ≈ 1126 inner) stays above this, the browser scrolls instead of clipping */
+.app { height: 100%; display: flex; flex-direction: column; min-width: var(--chrome-min-w, 1149px); }
+/* The width is the toolbar's own, measured in the page and set on :root (src/lib/minwidth.js): every
+   icon-only button is a command of its own, so none of them may ever be cut off. The desktop window's
+   minimum width is set from the same number, so it can only ever be hit in a browser — and there the
+   page scrolls sideways (body overflow) instead of clipping the row. 1149 px is what it comes to in
+   either language today; the variable is what counts. */
 
 /* ── Menu bar ── */
 .menubar { display: flex; align-items: center; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 0 4px; height: 30px; }
 .menubar-spacer { flex: 1; }
+.menubar-title { color: var(--fg-muted); font-weight: 600; padding: 0 8px; min-width: 0; display: none; }
+/* html.wco: the page draws the window's title bar itself, so this row *is* the title bar (see
+   src/lib/titlebar.js). It carries the window title, it drags the window — but its buttons must not —
+   and it keeps the native window controls' own space free on whichever side the platform puts them. */
+html.wco .menubar { -webkit-app-region: drag; padding-left: calc(4px + var(--wco-left, 0px)); padding-right: calc(4px + var(--wco-right, 0px)); }
+html.wco .menubar .menu-title { -webkit-app-region: no-drag; }
+html.wco .menubar-title { display: block; }
 .menu-title { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0 10px; height: 28px; border-radius: 4px; color: var(--fg); }
 .menu-title .menu-icon { color: var(--fg-muted); }
 .menu-title:hover .menu-icon, .menu-title.open .menu-icon { color: inherit; }
@@ -153,7 +165,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .panel-status { padding: 5px 10px; border-top: 1px solid var(--border); color: var(--fg-muted); font-size: 12px; }
 .statusbar { position: relative; padding: 4px 26px 6px 12px; font-size: 12px; color: var(--fg-muted); border-top: 1px solid var(--border); background: var(--bg-elev); }
 /* resize grip in the bottom-right corner (desktop): three diagonal lines, drag to resize the window */
-.resize-grip { position: absolute; right: 2px; bottom: 2px; width: 16px; height: 16px; cursor: nwse-resize; color: var(--fg-muted); opacity: 0.7; }
+.resize-grip { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; color: var(--fg-muted); opacity: 0.7; }   /* the window's very corner: the marker's diagonal ends in it */
 .resize-grip:hover { opacity: 1; color: var(--accent); }
 
 /* ── Bottom dock: log + terminal tabs ── */
@@ -430,6 +442,11 @@ input:disabled, select:disabled { opacity: 0.5; }
 
 /* ── Separate tool windows (?win=…): the dialog fills the page ── */
 .tool-window { height: 100%; display: flex; flex-direction: column; position: relative; }
+/* A tool window's title bar, drawn in the page for the same reason (only then — otherwise the window
+   has a native one of its own and the title would appear twice). */
+.dlg-caption { display: none; }
+html.wco .dlg.windowed > .dlg-caption { display: flex; align-items: center; gap: 8px; flex: none; height: 30px; font-weight: 600; background: var(--bg-elev); border-bottom: 1px solid var(--border); -webkit-app-region: drag; padding-left: calc(12px + var(--wco-left, 0px)); padding-right: calc(12px + var(--wco-right, 0px)); }
+html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 .tool-window > .resize-grip { z-index: 5; }
 .dlg.windowed { width: 100%; height: 100%; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
 .dlg.windowed .dlg-body { flex: 1; min-height: 0; overflow: auto; }

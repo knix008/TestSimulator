@@ -12,7 +12,7 @@ import { MenuBar, Toolbar, FnBar } from './components/Chrome';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
-import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, allThemes } from './themes';
+import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, allThemes, themeWindowColors } from './themes';
 import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile } from './lib/settings';
 import { History } from './lib/history';
 import { ResizeGrip } from './components/ResizeGrip';
@@ -165,7 +165,8 @@ export default function App() {
       setCustomThemes(s.customThemes);
       const theme = applyTheme(themeIdOf(s));
       s.theme = theme.id;
-      if (s.themeBg !== theme.tokens['--bg']) call('session.save', { patch: { theme: theme.id, themeBg: theme.tokens['--bg'] } }).catch(() => {});
+      const wc = themeWindowColors(theme);
+      if (s.themeBg !== wc.themeBg || s.titleBg !== wc.titleBg) call('session.save', { patch: { theme: theme.id, ...wc } }).catch(() => {});
       setSession(s);
       if (s.activeSide === 'right') setActive('right');
       if (s.logOpen === false) s.dockVisible = false;   // nothing to show yet (search and terminals start empty)
@@ -822,7 +823,7 @@ export default function App() {
     applyFontSize(v.fontSize);
     const patch = {};
     for (const k of SETTINGS_KEYS) if (k in v) patch[k] = v[k];
-    patch.theme = theme.id; patch.themeBg = theme.tokens['--bg'];
+    patch.theme = theme.id; Object.assign(patch, themeWindowColors(theme));
     patch.termCwd = (v.termCwd || '').trim();
     saveSession(patch);
     if (!quiet) setStatus(t('settings_applied'));
@@ -869,7 +870,7 @@ export default function App() {
 
   const setTheme = (id) => {
     const theme = applyTheme(id);
-    saveSession({ theme: theme.id, themeBg: theme.tokens['--bg'] });
+    saveSession({ theme: theme.id, ...themeWindowColors(theme) });
   };
 
   const onAction = async (id, side = active) => {

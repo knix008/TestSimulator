@@ -2,6 +2,7 @@
 // applied as CSS custom properties on :root. `mk` derives the secondary
 // tokens (selection, active-panel glow, shadow) from the few that define a
 // look, so a theme is just its base colours.
+import { applyTitlebarTheme } from './lib/titlebar';
 
 function mk(id, label, labelEn, mode, c) {
   const dark = mode === 'dark';
@@ -228,5 +229,15 @@ export function applyTheme(id) {
   root.dataset.theme = theme.id;
   root.dataset.mode = theme.mode;
   root.style.colorScheme = theme.mode;
+  // The window's title bar is part of the theme too: the page paints the bar, the host paints the
+  // native window controls over it in these colours (src/lib/titlebar.js).
+  applyTitlebarTheme(theme);
   return theme;
+}
+
+// What the host paints outside the page and before it: the window's background while it is still
+// blank, and the title bar's colours. Kept in the session so a new window is already in the theme's
+// colours at the moment it appears, not one repaint later.
+export function themeWindowColors(theme) {
+  return { themeBg: theme.tokens['--bg'], titleBg: theme.tokens['--bg-elev'], titleFg: theme.tokens['--fg'] };
 }
