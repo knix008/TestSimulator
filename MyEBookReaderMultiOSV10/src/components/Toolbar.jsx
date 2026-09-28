@@ -5,7 +5,7 @@ import {
   IconNote, IconSearch, IconPrev, IconNext, IconTextSize, IconZoomIn, IconZoomOut,
   IconPanelLeft, IconPanelRight, IconTheme, IconSettings, IconInfo, IconFlag,
   IconFolder, IconContents, IconLayout, IconBookmark, IconScroll, IconPaged, IconDown,
-  IconActual, IconColumns, IconLibrary, IconImage,
+  IconActual, IconColumns, IconLibrary, IconImage, IconFitWidth, IconFitPage, IconFitHeight,
 } from './Icons.jsx';
 import { nextTheme } from '../lib/themes.js';
 import { otherLang } from '../i18n.js';
@@ -285,6 +285,41 @@ export default function Toolbar({
               <ToolButton icon={IconZoomIn} label={t('cmd.zoomIn')} tip={t('tip.zoomIn')} onClick={run('zoomIn')} disabled={!book} />
             </>
           )}
+          {/* How a fixed page meets the window: the whole of it, its width, its
+              height, or not at all. */}
+          <ToolButton
+            icon={IconFitPage}
+            label={t('cmd.fitPage')}
+            tip={t('tip.fitPage')}
+            onClick={run('fitPage')}
+            disabled={!book || reflowable}
+            active={settings.zoomMode === 'fit-page'}
+          />
+          <ToolButton
+            icon={IconFitWidth}
+            label={t('cmd.fitWidth')}
+            tip={t('tip.fitWidth')}
+            onClick={run('fitWidth')}
+            disabled={!book || reflowable}
+            active={settings.zoomMode === 'fit-width'}
+          />
+          <ToolButton
+            icon={IconFitHeight}
+            label={t('cmd.fitHeight')}
+            tip={t('tip.fitHeight')}
+            onClick={run('fitHeight')}
+            disabled={!book || reflowable}
+            active={settings.zoomMode === 'fit-height'}
+          />
+          <ToolButton
+            icon={IconActual}
+            label={t('cmd.actualSize')}
+            tip={t('tip.actualSize')}
+            onClick={run('actualSize')}
+            disabled={!book || reflowable}
+            active={settings.zoomMode === 'actual'}
+          />
+
           {/* One page, or two side by side — for PDFs, comics and pictures. */}
           <ToolButton
             icon={settings.spread === 'double' ? IconColumns : IconActual}

@@ -9,7 +9,7 @@ import { LANGUAGES, translate } from '../i18n.js';
 import { getSystemFonts } from '../lib/fonts.js';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, MAX_RECENT_FILES, stepFontSize } from '../lib/settings.js';
 import { READING_WIDTHS, errorReport, pagesForScope, clampPreviewIndex } from '../lib/view.js';
-import { PAPER_SIZES } from '../lib/print.js';
+import { PAPER_SIZES, paperSizeMm } from '../lib/print.js';
 import { shortcutRows } from '../lib/menus.js';
 import { formatBytes } from '../lib/platform.js';
 
@@ -828,13 +828,25 @@ function PrintBody({ t, payload, onResult }) {
   const invalid = scope === 'custom' && !!selection.error;
   const safeIndex = clampPreviewIndex(index, pages.length);
 
-  // The preview is rendered by the application, not here: this asks for the item
-  // it wants and the payload comes back with it.
+  // The contents of the page are rendered by the application, not here, and
+  // only the page number changes what comes back. Paper, orientation, margins
+  // and titles change the sheet the page is laid on, and that is drawn here —
+  // so they show at once instead of waiting on a round trip that would hand
+  // back the very same picture.
   useEffect(() => {
     if (invalid || !pages.length) return;
     onResult({ action: 'preview', page: pages[safeIndex], paper, landscape, marginMm: margin, showTitles: titles });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages[safeIndex], paper, landscape, margin, titles, invalid]);
+  }, [pages[safeIndex], invalid]);
+
+  // The sheet, to scale: the paper's own proportions, turned for landscape,
+  // with the margins as a share of it.
+  const [paperW, paperH] = paperSizeMm(paper, landscape);
+  const sheetStyle = {
+    aspectRatio: `${paperW} / ${paperH}`,
+    '--print-margin-x': `${Math.min(45, (margin / paperW) * 100)}%`,
+    '--print-margin-y': `${Math.min(45, (margin / paperH) * 100)}%`,
+  };
 
   const setup = { paper, landscape, marginMm: margin, showTitles: titles };
 
@@ -893,19 +905,31 @@ function PrintBody({ t, payload, onResult }) {
       </div>
 
       <aside className="print-preview" aria-label={t('print.preview')}>
-        <div className="print-preview-label">{t('print.preview')}</div>
+        <div className="print-preview-label">
+          {t('print.preview')}
+          <span className="print-preview-setup" data-testid="print-setup">
+            {`${paper} · ${landscape ? t('print.landscape') : t('print.portrait')} · ${margin}mm`}
+          </span>
+        </div>
         <div className={`print-preview-sheet${landscape ? ' landscape' : ''}`}>
-          {print.previewImage ? (
-            <img className="print-preview-image" src={print.previewImage} alt="" />
-          ) : print.previewHtml ? (
-            <div
-              className="print-preview-page"
-              // Preview of already-sanitized chapter HTML.
-              dangerouslySetInnerHTML={{ __html: print.previewHtml }}
-            />
-          ) : (
-            <p className="print-preview-empty">{t('print.previewEmpty')}</p>
-          )}
+          <div className="print-preview-paper" style={sheetStyle} data-paper={paper}>
+            <div className="print-preview-margins">
+              {titles && print.previewTitle ? (
+                <div className="print-preview-title">{print.previewTitle}</div>
+              ) : null}
+              {print.previewImage ? (
+                <img className="print-preview-image" src={print.previewImage} alt="" />
+              ) : print.previewHtml ? (
+                <div
+                  className="print-preview-page"
+                  // Preview of already-sanitized chapter HTML.
+                  dangerouslySetInnerHTML={{ __html: print.previewHtml }}
+                />
+              ) : (
+                <p className="print-preview-empty">{t('print.previewEmpty')}</p>
+              )}
+            </div>
+          </div>
         </div>
         <div className="print-preview-nav">
           <button

@@ -53,6 +53,7 @@ export const COMMANDS = [
   { id: 'zoomOut', label: 'cmd.zoomOut', icon: 'zoomOut', key: 'Ctrl+-', menu: 'view', needs: 'fixed' },
   { id: 'fitWidth', label: 'cmd.fitWidth', icon: 'fitWidth', menu: 'view', needs: 'fixed', toggle: true },
   { id: 'fitPage', label: 'cmd.fitPage', icon: 'fitPage', menu: 'view', needs: 'fixed', toggle: true },
+  { id: 'fitHeight', label: 'cmd.fitHeight', icon: 'fitHeight', menu: 'view', needs: 'fixed', toggle: true },
   { id: 'actualSize', label: 'cmd.actualSize', icon: 'actual', key: 'Ctrl+0', menu: 'view', needs: 'fixed', toggle: true },
   { id: 'spreadSingle', label: 'cmd.spreadSingle', icon: 'paged', menu: 'view', needs: 'fixed', toggle: true },
   { id: 'spreadDouble', label: 'cmd.spreadDouble', icon: 'columns', menu: 'view', needs: 'fixed', toggle: true },
@@ -64,6 +65,7 @@ export const COMMANDS = [
   { id: 'galleryDetails', label: 'cmd.galleryDetails', icon: 'contents', menu: 'view', toggle: true },
   { id: 'toggleLeft', label: 'cmd.toggleLeft', icon: 'panelLeft', key: 'F9', menu: 'view', toggle: true },
   { id: 'toggleRight', label: 'cmd.toggleRight', icon: 'panelRight', key: 'F10', menu: 'view', toggle: true },
+  { id: 'toggleMenuBar', label: 'cmd.toggleMenuBar', icon: 'layout', menu: 'view', toggle: true },
   { id: 'toggleStatus', label: 'cmd.toggleStatus', icon: 'layout', menu: 'view', toggle: true },
   { id: 'toolbarLabels', label: 'cmd.toolbarLabels', icon: 'text', menu: 'view', toggle: true },
   { id: 'background', label: 'cmd.background', icon: 'image', menu: 'view' },
@@ -249,12 +251,14 @@ export function activeCommands(settings, book) {
   if (settings.justify) on.push('justify');
   if (settings.zoomMode === 'fit-width') on.push('fitWidth');
   if (settings.zoomMode === 'fit-page') on.push('fitPage');
+  if (settings.zoomMode === 'fit-height') on.push('fitHeight');
   if (settings.zoomMode === 'actual') on.push('actualSize');
   if (settings.spread === 'double') on.push('spreadDouble');
   else on.push('spreadSingle');
   if (settings.invertPages) on.push('invertPages');
   if (settings.leftPanel !== 'none') on.push('toggleLeft');
   if (settings.rightPanel !== 'none') on.push('toggleRight');
+  if (settings.showMenuBar) on.push('toggleMenuBar');
   if (settings.showStatusBar) on.push('toggleStatus');
   if (settings.showToolbarLabels) on.push('toolbarLabels');
   if (settings.galleryView === 'details') on.push('galleryDetails');

@@ -104,7 +104,7 @@
   <rect x="80" y="80" width="830" height="830" rx="150" fill="url(#plateBevel)"/>
 
   <!-- The book, a little smaller than the plate so it is never cut off -->
-  <g transform="translate(495 505) scale(0.94) translate(-495 -505)">
+  <g transform="translate(495 500) scale(1.1) translate(-495 -505)">
     <!-- what it stands in: its shadow, down and to the right -->
     <ellipse cx="520" cy="744" rx="312" ry="52" fill="#04112c" opacity="0.45" filter="url(#soft)"/>
 

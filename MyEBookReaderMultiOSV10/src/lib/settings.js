@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS = {
   fontWeight: 'normal',      // normal | bold
   fontStyle: 'normal',       // normal | italic
   fontUnderline: false,
+  showMenuBar: true,
   showStatusBar: true,
   showToolbarLabels: false,
   backgroundImage: '',       // data URL shown behind the reading pane
@@ -62,7 +63,7 @@ export const DEFAULT_SETTINGS = {
   pageTurn: 'slide',         // none | slide | flip — the page-turning effect
 
   // ── Viewing (fixed-layout formats: PDF, comics) ──
-  zoomMode: 'fit-width',     // fit-width | fit-page | actual | custom
+  zoomMode: 'fit-page',      // fit-page | fit-width | fit-height | actual | custom
   zoom: 1,
   rotation: 0,
   spread: 'single',          // single | double — one page, or two side by side
@@ -99,7 +100,7 @@ const ENUMS = {
   backgroundFit: ['cover', 'contain', 'tile', 'center'],
   pageMode: ['scroll', 'paged'],
   pageTurn: ['none', 'slide', 'flip'],
-  zoomMode: ['fit-width', 'fit-page', 'actual', 'custom'],
+  zoomMode: ['fit-width', 'fit-height', 'fit-page', 'actual', 'custom'],
   spread: ['single', 'double'],
   leftPanel: ['contents', 'library', 'bookmarks', 'search', 'none'],
   rightPanel: ['properties', 'reading', 'notes', 'none'],

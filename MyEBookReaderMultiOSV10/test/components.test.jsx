@@ -104,7 +104,7 @@ describe('Toolbar', () => {
 
   it('puts a fixed-layout book back to actual size from the same readout', () => {
     const { props } = renderToolbar({ book: { ...book, reflowable: false }, scale: 1.75 });
-    const readout = screen.getByLabelText(i18n.t('cmd.actualSize'));
+    const readout = document.querySelector('.zoom-readout');
     expect(readout.textContent).toBe('175%');
     fireEvent.click(readout);
     expect(props.onCommand).toHaveBeenCalledWith('actualSize');

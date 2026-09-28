@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import Gallery from '../src/components/Gallery.jsx';
 import { panelMinWidth, clampToPanelMin } from '../src/components/panelWidth.js';
 import { PANEL_WIDTH_MAX, PANEL_WIDTH_MIN } from '../src/lib/settings.js';
@@ -98,19 +98,41 @@ describe('the gallery', () => {
     ]);
   });
 
-  it('searches the shelf as the reader types', () => {
-    show();
-    fireEvent.change(screen.getByLabelText(t('gallery.search')), { target: { value: 'herbert' } });
-    expect(document.querySelectorAll('.gcard')).toHaveLength(1);
-    expect(screen.getByText('Dune')).toBeTruthy();
+  // Typing is not searched on every keystroke: a shelf of a hundred thousand
+  // books is scanned once the typing stops.
+  const search = (text) => {
+    fireEvent.change(screen.getByLabelText(t('gallery.search')), { target: { value: text } });
+    act(() => { vi.advanceTimersByTime(200); });
+  };
+
+  it('searches the shelf once the typing stops', () => {
+    vi.useFakeTimers();
+    try {
+      show();
+      fireEvent.change(screen.getByLabelText(t('gallery.search')), { target: { value: 'herbert' } });
+      // Still the whole shelf: the scan has not run yet.
+      expect(document.querySelectorAll('.gcard')).toHaveLength(3);
+      act(() => { vi.advanceTimersByTime(200); });
+      expect(document.querySelectorAll('.gcard')).toHaveLength(1);
+      expect(screen.getByText('Dune')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('says when nothing matches, without emptying the shelf', () => {
-    show();
-    fireEvent.change(screen.getByLabelText(t('gallery.search')), { target: { value: 'zzz' } });
-    expect(document.querySelectorAll('.gcard')).toHaveLength(0);
-    expect(screen.getByText(t('gallery.noMatch', { query: 'zzz' }))).toBeTruthy();
-    expect(screen.getByText(t('gallery.count', { n: 3 }))).toBeTruthy();
+    vi.useFakeTimers();
+    try {
+      show();
+      search('zzz');
+      expect(document.querySelectorAll('.gcard')).toHaveLength(0);
+      expect(screen.getByText(t('gallery.noMatch', { query: 'zzz' }))).toBeTruthy();
+      // The shelf still says how many books are on it, and how many matched.
+      expect(document.querySelector('.gallery-count').textContent)
+        .toBe(`${t('gallery.count', { n: 3 })} · 0`);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('changes the order it shows them in', () => {

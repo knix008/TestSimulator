@@ -71,12 +71,15 @@ describe('shelving a book', () => {
   });
 
   it('holds only so many books', () => {
+    // The shipped limit is a hundred thousand; the rule is the same at five.
+    const cap = 5;
     let list = [];
-    for (let i = 0; i < MAX_GALLERY + 12; i++) {
-      list = addToGallery(list, galleryEntry(book({ filePath: `/books/${i}.epub`, fileName: `${i}.epub` })));
+    for (let i = 0; i < cap + 12; i++) {
+      list = addToGallery(list, galleryEntry(book({ filePath: `/books/${i}.epub`, fileName: `${i}.epub` })), cap);
     }
-    expect(list).toHaveLength(MAX_GALLERY);
-    expect(list[0].name).toBe(`${MAX_GALLERY + 11}.epub`);
+    expect(list).toHaveLength(cap);
+    expect(list[0].name).toBe(`${cap + 11}.epub`);
+    expect(MAX_GALLERY).toBeGreaterThanOrEqual(100000);
   });
 
   it('forgets one book and leaves the rest', () => {
@@ -192,7 +195,10 @@ describe('the settings the gallery needs', () => {
   });
 
   it('keeps at most a shelf full of books', () => {
-    const many = Array.from({ length: MAX_GALLERY + 20 }, (_, i) => ({ name: `${i}.epub` }));
-    expect(normalize({ gallery: many }).gallery).toHaveLength(MAX_GALLERY);
+    // settings.gallery is only what an older version left behind, on its way
+    // to the shelf's own store, so this is about not choking on it.
+    const many = Array.from({ length: 200 }, (_, i) => ({ name: `${i}.epub` }));
+    expect(normalize({ gallery: many }).gallery).toHaveLength(200);
+    expect(MAX_GALLERY).toBeGreaterThanOrEqual(100000);
   });
 });

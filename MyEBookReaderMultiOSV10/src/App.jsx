@@ -13,6 +13,13 @@ import DialogModal from './components/DialogModal.jsx';
 import Tooltip from './components/Tooltip.jsx';
 import Toasts from './components/Toasts.jsx';
 import Gallery from './components/Gallery.jsx';
+import MenuBar, { BAR_MENUS, MENU_KEYS } from './components/MenuBar.jsx';
+import { IconPrev, IconNext } from './components/Icons.jsx';
+
+/** letter → menu, for Alt+F and its neighbours. */
+const MENU_KEYS_BY_LETTER = Object.fromEntries(
+  BAR_MENUS.map((id) => [MENU_KEYS[id], id]),
+);
 
 import {
   api, isElectron, openFileDialog, pickBookPaths, pickImage, readPath, readTextPath,
@@ -30,6 +37,7 @@ import { useHistory, newId } from './lib/history.js';
 import {
   galleryEntry, addToGallery, updateGallery, removeFromGallery, galleryKey, makeThumbnail,
 } from './lib/gallery.js';
+import { galleryStore } from './lib/gallerystore.js';
 import {
   EMPTY_READING, serializeLibrary, parseLibrary, libraryNameFor, addBookmark,
   addHighlight, addNote, addClip, removeById, marksForSection, readingIsEmpty,
@@ -69,8 +77,25 @@ export default function App() {
   const [columns, setColumns] = useState({ pages: 1, page: 0 });
   const [scale, setScale] = useState(1);
   // The gallery of books already read, shown over the reading pane so the book
-  // underneath keeps its place.
+  // underneath keeps its place. The shelf itself is kept out of the settings —
+  // see lib/gallerystore.js — because thumbnails and a hundred thousand books
+  // have no business in a file that is read at startup and written on every
+  // change.
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [openMenuName, setOpenMenuName] = useState(null);
+  const [shelf, setShelf] = useState([]);
+  const shelfRef = useRef([]);
+  shelfRef.current = shelf;
+
+  // Writes the shelf both to the screen and to its store, which decides for
+  // itself how much of it to write and when.
+  const editShelf = useCallback((updater, changed) => {
+    setShelf((current) => {
+      const next = updater(current);
+      galleryStore().write(next, changed);
+      return next;
+    });
+  }, []);
 
   // ── Reading state (undo / redo) ────────────────────────
   const history = useHistory(EMPTY_READING);
@@ -296,14 +321,45 @@ export default function App() {
     history.reset(EMPTY_READING);
   }, [history]);
 
+  // The shelf is read once, after the window is up: it is never in the way of
+  // the first book appearing.
+  useEffect(() => {
+    let cancelled = false;
+    const store = galleryStore();
+    store.load().then(async (rows) => {
+      if (cancelled) return;
+      // Shelves written by the first version of this feature lived in the
+      // settings file, covers and all. Move them across once.
+      const old = settingsRef.current.gallery;
+      let shelved = rows;
+      if (!shelved.length && old?.length) {
+        const moved = [];
+        for (const entry of old) {
+          const cover = entry.cover;
+          const key = galleryKey(entry);
+          // eslint-disable-next-line no-await-in-loop
+          if (cover?.startsWith('data:')) await store.putCover(key, cover).catch(() => {});
+          moved.push({ ...entry, cover: cover ? true : '' });
+        }
+        shelved = moved;
+        store.write(shelved);
+        setSettings((s) => ({ ...s, gallery: [] }));
+      }
+      setShelf(shelved);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Opening ────────────────────────────────────────────
   const rememberOpened = useCallback((opened) => {
     const dir = opened.filePath ? dirName(opened.filePath) : '';
+    // The gallery keeps every book that was read; the recent list keeps the
+    // last ten, for the File menu.
+    const entry = galleryEntry(opened, { dir });
+    editShelf((rows) => addToGallery(rows, entry), { put: entry });
     setSettings((s) => ({
       ...s,
-      // The gallery keeps every book that was read; the recent list keeps the
-      // last ten, for the File menu.
-      gallery: addToGallery(s.gallery, galleryEntry(opened, { dir })),
       recentFiles: addRecentFile(s.recentFiles, {
         path: opened.filePath || null,
         name: opened.fileName,
@@ -315,7 +371,7 @@ export default function App() {
       recentDirs: opened.filePath ? addRecentDir(s.recentDirs, dirName(opened.filePath)) : s.recentDirs,
       lastDir: opened.filePath ? dirName(opened.filePath) : s.lastDir,
     }));
-  }, []);
+  }, [editShelf]);
 
   const openPayload = useCallback(async (payload, { restore } = {}) => {
     const { data, name, path: filePath, size } = payload;
@@ -505,9 +561,16 @@ export default function App() {
     setSettings((s) => ({
       ...s,
       recentFiles: updateRecentFile(s.recentFiles, key, { section }),
-      gallery: updateGallery(s.gallery, key, { section, sections: book.sectionCount }),
       lastSession: { path: book.filePath, section },
     }));
+    const shelved = shelfRef.current.find((e) => galleryKey(e) === key);
+    if (shelved) {
+      const patch = { section, sections: book.sectionCount };
+      editShelf(
+        (rows) => updateGallery(rows, key, patch),
+        { put: { ...shelved, ...patch }, position: true },
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section, book]);
 
@@ -854,17 +917,22 @@ export default function App() {
       marginMm: request.marginMm ?? 14,
       showTitles: request.showTitles !== false,
     };
+    const title = current.sections?.[page - 1]?.label || `${page}`;
     if (current.format === 'pdf' && current.pdf) {
       const [image] = await renderPdfPagesToImages({
         doc: current.pdf, pages: [page], rotation: settingsRef.current.rotation, scale: 1.2, quality: 0.8,
       });
-      return { previewImage: image, previewHtml: '' };
+      return { previewImage: image, previewHtml: '', previewTitle: title };
     }
     const loaded = current.loadSection(page - 1);
     if (loaded.kind === 'image') {
-      return { previewImage: await inlineImages(`<img src="${loaded.src}">`).then((html) => /src="([^"]+)"/.exec(html)?.[1] || ''), previewHtml: '' };
+      return {
+        previewImage: await inlineImages(`<img src="${loaded.src}">`).then((html) => /src="([^"]+)"/.exec(html)?.[1] || ''),
+        previewHtml: '',
+        previewTitle: title,
+      };
     }
-    return { previewImage: '', previewHtml: await inlineImages(loaded.html || '') };
+    return { previewImage: '', previewHtml: await inlineImages(loaded.html || ''), previewTitle: title };
   }, []);
 
   const openPrintDialog = useCallback(async () => {
@@ -1040,6 +1108,7 @@ export default function App() {
       case 'zoomOut': setSettings((s) => ({ ...s, zoomMode: 'custom', zoom: nextZoom(s.zoomMode === 'custom' ? s.zoom : scale, -1) })); return;
       case 'fitWidth': setSettings((s) => ({ ...s, zoomMode: 'fit-width' })); return;
       case 'fitPage': setSettings((s) => ({ ...s, zoomMode: 'fit-page' })); return;
+      case 'fitHeight': setSettings((s) => ({ ...s, zoomMode: 'fit-height' })); return;
       case 'actualSize': setSettings((s) => ({ ...s, zoomMode: 'actual', zoom: 1 })); return;
       case 'spreadSingle': setSettings((s) => ({ ...s, spread: 'single' })); return;
       case 'spreadDouble': setSettings((s) => ({ ...s, spread: 'double' })); return;
@@ -1048,6 +1117,7 @@ export default function App() {
       case 'invertPages': setSettings((s) => ({ ...s, invertPages: !s.invertPages })); return;
       case 'toggleLeft': setSettings((s) => ({ ...s, leftPanel: nextPanel(s.leftPanel, 'contents') })); return;
       case 'toggleRight': setSettings((s) => ({ ...s, rightPanel: nextPanel(s.rightPanel, 'properties') })); return;
+      case 'toggleMenuBar': setSettings((s) => ({ ...s, showMenuBar: !s.showMenuBar })); return;
       case 'toggleStatus': setSettings((s) => ({ ...s, showStatusBar: !s.showStatusBar })); return;
       case 'gallery': setGalleryOpen((open) => !open); return;
       case 'galleryIcons':
@@ -1116,15 +1186,15 @@ export default function App() {
     if (isElectron && !(await pathExists(entry.path))) {
       fail(new Error(`${t('recent.missing')}:
 ${entry.path}`), 'read', { file: entry.path });
-      setSettings((s) => ({ ...s, gallery: removeFromGallery(s.gallery, galleryKey(entry)) }));
+      editShelf((rows) => removeFromGallery(rows, galleryKey(entry)), { removed: galleryKey(entry) });
       return;
     }
     setGalleryOpen(false);
     openByPathRef.current(entry.path);
-  }, [fail, t, toast]);
+  }, [editShelf, fail, t, toast]);
 
   const clearGallery = useCallback(async () => {
-    const n = settingsRef.current.gallery.length;
+    const n = shelfRef.current.length;
     if (!n) return;
     const answer = await askDialog('confirm', {
       title: t('gallery.clear'),
@@ -1133,7 +1203,8 @@ ${entry.path}`), 'read', { file: entry.path });
       danger: true,
     });
     if (answer?.action !== 'confirm') return;
-    setSettings((s) => ({ ...s, gallery: [] }));
+    setShelf([]);
+    await galleryStore().clear().catch(() => {});
     toast(t('gallery.clear'), 'ok');
   }, [askDialog, t, toast]);
 
@@ -1143,8 +1214,8 @@ ${entry.path}`), 'read', { file: entry.path });
     if (!book) return undefined;
     const key = book.filePath || book.fileName;
     if (!key) return undefined;
-    const shelved = settingsRef.current.gallery.find((e) => galleryKey(e) === key);
-    if (shelved?.cover) return undefined;
+    const shelved = shelfRef.current.find((e) => galleryKey(e) === key);
+    if (!shelved || shelved.cover) return undefined;
 
     let cancelled = false;
     const timers = [];
@@ -1155,13 +1226,20 @@ ${entry.path}`), 'read', { file: entry.path });
         || '';
       const thumb = await makeThumbnail(source);
       if (cancelled || !thumb) return;
-      setSettings((s) => ({ ...s, gallery: updateGallery(s.gallery, key, { cover: thumb }) }));
+      // The picture goes to the cover store; the shelf only remembers that
+      // there is one.
+      await galleryStore().putCover(key, thumb).catch(() => {});
+      editShelf(
+        (rows) => updateGallery(rows, key, { cover: true }),
+        { put: { ...shelved, cover: true } },
+      );
       cancelled = true; // one cover is enough
     };
     // Twice: a PDF page or a large picture is often still being painted when
     // the first attempt comes round.
     timers.push(setTimeout(attempt, 500), setTimeout(attempt, 1800));
     return () => { cancelled = true; timers.forEach(clearTimeout); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, content]);
 
   // ── Menus ──────────────────────────────────────────────
@@ -1205,6 +1283,7 @@ ${entry.path}`), 'read', { file: entry.path });
   }, [goToSection, openRecent, reading.bookmarks]);
 
   const openMenu = useCallback(async (name, anchor) => {
+    setOpenMenuName(name);
     const state = menuState();
     if (isElectron) {
       const bounds = await api.win.getContentBounds().catch(() => null);
@@ -1225,8 +1304,24 @@ ${entry.path}`), 'read', { file: entry.path });
 
   useEffect(() => {
     if (!isElectron || !api.menu?.onChosen) return undefined;
-    return api.menu.onChosen((id) => handleChoice(id));
+    return api.menu.onChosen((id) => {
+      setOpenMenuName(null);
+      handleChoice(id);
+    });
   }, [handleChoice]);
+
+  // A menu can also be dismissed without choosing anything — clicking away,
+  // Escape — and the bar must stop looking open then too.
+  useEffect(() => {
+    if (!openMenuName) return undefined;
+    const clear = () => setOpenMenuName(null);
+    window.addEventListener('focus', clear);
+    window.addEventListener('pointerdown', clear);
+    return () => {
+      window.removeEventListener('focus', clear);
+      window.removeEventListener('pointerdown', clear);
+    };
+  }, [openMenuName]);
 
   const onViewContextMenu = useCallback((e) => {
     e.preventDefault();
@@ -1382,6 +1477,10 @@ ${entry.path}`), 'read', { file: entry.path });
         runCommandRef.current(bookRef.current?.reflowable === false ? 'actualSize' : 'textReset');
         return;
       }
+      if (e.altKey && !mod && MENU_KEYS_BY_LETTER[key]) {
+        const bar = document.querySelector(`.menubar-item[data-menu="${MENU_KEYS_BY_LETTER[key]}"]`);
+        if (bar) { e.preventDefault(); bar.click(); return; }
+      }
       if (e.key === 'F9') { e.preventDefault(); runCommandRef.current('toggleLeft'); return; }
       if (e.key === 'F10') { e.preventDefault(); runCommandRef.current('toggleRight'); return; }
       if (e.key === 'F3') { e.preventDefault(); stepSearch(e.shiftKey ? -1 : 1); return; }
@@ -1448,6 +1547,10 @@ ${entry.path}`), 'read', { file: entry.path });
       onDrop={onDrop}
     >
       <TitleBar title={titleText} />
+
+      {settings.showMenuBar ? (
+        <MenuBar onOpenMenu={openMenu} openMenu={openMenuName} />
+      ) : null}
 
       <Toolbar
         settings={settings}
@@ -1532,23 +1635,49 @@ ${entry.path}`), 'read', { file: entry.path });
                   <button type="button" className="btn primary" onClick={() => runCommandRef.current('open')} title={t('tip.open')}>
                     {t('cmd.open')}
                   </button>
-                  {settings.gallery.length ? (
+                  {shelf.length ? (
                     <button type="button" className="btn" onClick={() => setGalleryOpen(true)} title={t('tip.gallery')}>
-                      {t('gallery.title')} · {settings.gallery.length}
+                      {t('gallery.title')} · {shelf.length}
                     </button>
                   ) : null}
                 </div>
               </div>
             )}
           />
+          {/* Turning the page without reaching for the keyboard: two arrows
+              over the page itself, quiet until they are wanted. They sit
+              outside the scrolling pane, so they stay put as the page moves. */}
+          {book && !galleryOpen ? (
+            <div className="page-arrows">
+              <button
+                type="button"
+                className="page-arrow left"
+                onClick={() => turnPage(-1)}
+                title={`${t('cmd.prevPage')} (PageUp)`}
+                aria-label={t('cmd.prevPage')}
+              >
+                <IconPrev size={26} />
+              </button>
+              <button
+                type="button"
+                className="page-arrow right"
+                onClick={() => turnPage(1)}
+                title={`${t('cmd.nextPage')} (PageDown)`}
+                aria-label={t('cmd.nextPage')}
+              >
+                <IconNext size={26} />
+              </button>
+            </div>
+          ) : null}
+
           {galleryOpen ? (
             <Gallery
-              entries={settings.gallery}
+              entries={shelf}
               view={settings.galleryView}
               sort={settings.gallerySort}
               language={settings.lang}
               onOpen={openFromGallery}
-              onForget={(key) => setSettings((s) => ({ ...s, gallery: removeFromGallery(s.gallery, key) }))}
+              onForget={(key) => editShelf((rows) => removeFromGallery(rows, key), { removed: key })}
               onClear={clearGallery}
               onView={(view) => setSettings((s) => ({ ...s, galleryView: view }))}
               onSort={(sort) => setSettings((s) => ({ ...s, gallerySort: sort }))}

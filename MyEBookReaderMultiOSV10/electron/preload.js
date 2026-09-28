@@ -46,6 +46,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   showItem: (p) => ipcRenderer.invoke('shell:showItem', p),
 
+  gallery: {
+    load: () => ipcRenderer.invoke('gallery:load'),
+    save: (text) => ipcRenderer.invoke('gallery:save', text),
+    loadPositions: () => ipcRenderer.invoke('gallery:loadPositions'),
+    savePositions: (text) => ipcRenderer.invoke('gallery:savePositions', text),
+    putCover: (name, base64) => ipcRenderer.invoke('gallery:putCover', name, base64),
+    clear: () => ipcRenderer.invoke('gallery:clear'),
+  },
+
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (data) => ipcRenderer.invoke('settings:save', data),
 

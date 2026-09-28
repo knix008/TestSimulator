@@ -353,6 +353,35 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* ── Title bar ───────────────────────────────────────── */
+/* ── The menu bar ─────────────────────────────────────── */
+.menubar {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  flex: none;
+  padding: 0 6px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+}
+.menubar-item {
+  -webkit-app-region: no-drag;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.9em;
+  padding: 4px 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menubar-item:hover { background: var(--bg-3); color: var(--text); }
+.menubar-item.open {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+
 .titlebar {
   display: flex;
   align-items: stretch;
@@ -457,24 +486,32 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .menu-wrap.split .tbtn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .menu-wrap.split .tbtn:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: 2px; padding-right: 4px; }
 
+/* Where you are in the book: "3 / 20", centred in its box, with the number
+   itself still editable. The box keeps one width whatever the numbers are, so
+   the toolbar does not shuffle as the pages go by. */
 .page-box {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: center;
   gap: 4px;
+  min-width: 7.5em;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 2px 6px;
+  font-variant-numeric: tabular-nums;
 }
 .page-input {
-  width: 3.4em;
+  width: 3em;
   background: transparent;
   border: 0;
   text-align: right;
   color: var(--text);
   outline: none;
+  font-variant-numeric: tabular-nums;
 }
-.page-total { color: var(--muted); font-size: 0.86em; }
+.page-input:focus-visible { outline: 1px solid var(--accent); border-radius: 4px; }
+.page-total { color: var(--muted); font-size: 0.86em; white-space: nowrap; }
 /* The middle of the three size controls: it shows the size and puts it back to
    100% when pressed, so it is outlined to look like the button it is. */
 .zoom-readout {
@@ -504,6 +541,32 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: var(--page-bg);
 }
 .viewer.dragging { outline: 2px dashed var(--accent); outline-offset: -6px; }
+
+/* The two arrows over the page. The strip itself lets clicks through; only the
+   buttons catch them, so selecting text next to one still works. */
+.page-arrows { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.page-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 88px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.page-arrow.left { left: 0; border-left: 0; border-radius: 0 12px 12px 0; }
+.page-arrow.right { right: 0; border-right: 0; border-radius: 12px 0 0 12px; }
+.viewer:hover .page-arrow { opacity: 0.75; }
+.page-arrow:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+.page-arrow:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .page-arrow { transition: none; } }
 .dropzone {
   position: absolute;
   inset: 12px;
@@ -907,11 +970,15 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   font-size: 0.78em;
 }
 
+/* A page sits in the middle of the window, both ways. `safe` is what keeps a
+   page larger than the window reachable: centring alone would push its top and
+   left edges out of the scrollable area. */
 .comic-wrap, .pdf-wrap {
   position: relative;
   z-index: 1;
   display: grid;
-  place-items: start center;
+  place-items: safe center;
+  place-content: safe center;
   padding: 18px;
   min-height: 100%;
   perspective: 2200px;
@@ -1062,15 +1129,28 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   cursor: pointer;
 }
 .gallery-clear:hover:not(:disabled), .gallery-close:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Every window's close button turns red under the pointer — the popups' as
+   much as the main window's, because they are all a way of closing a window. */
+.dialog-x:hover, .dialog-x:focus-visible,
+.gallery-close:hover, .gallery-close:focus-visible,
+.doctab-close:hover, .doctab-close:focus-visible {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
 .gallery-clear:disabled { opacity: 0.4; cursor: default; }
 .gallery-empty { margin: auto; padding: 40px; color: var(--muted); text-align: center; }
 
 /* Large icons */
+/* The grid scrolls in its wrapper; the grid itself only ever holds the cards
+   that are on screen, with a blank block above and below standing in for the
+   rest of the shelf. */
+.gallery-grid-wrap { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
 .gallery-grid {
   list-style: none;
   margin: 0;
-  padding: 16px;
-  overflow: auto;
+  padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   gap: 14px;
@@ -1159,10 +1239,11 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   opacity: 0;
 }
 .gallery-grid > li:hover .gforget, .gforget:focus-visible { opacity: 1; }
+.gspacer td { padding: 0; border: 0; }
 .gforget:hover { color: var(--danger); }
 
 /* Details */
-.gallery-table-wrap { overflow: auto; padding: 0 4px 12px; }
+.gallery-table-wrap { flex: 1; min-height: 0; overflow: auto; padding: 0 4px 12px; }
 .gallery-table { width: 100%; border-collapse: collapse; font-size: 0.88em; }
 .gallery-table th {
   position: sticky;
@@ -1265,7 +1346,10 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   padding: 5px;
   overflow: hidden;
 }
-.menu-window.wide { max-width: min(1180px, 96vw); }
+/* No vw here: inside a popup window, vw is that window's own width — which is
+   what the menu is trying to work out. A menu wider than its window would be
+   clipped by the window it is measuring itself against. */
+.menu-window.wide { max-width: 1400px; }
 .ctxmenu { position: fixed; z-index: 90; }
 .menu-list { list-style: none; margin: 0; padding: 0; }
 /* A menu too long for the screen is dealt into columns: filled top to bottom,
@@ -1278,6 +1362,10 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   column-gap: 4px;
 }
 .menu-list[class*='cols-'] > li { break-inside: avoid; }
+/* A grouped menu: one block per family, each with its heading above its own
+   columns, so the families read as two lists rather than one long one. */
+.menu-groups { display: flex; flex-direction: column; gap: 2px; }
+.menu-group + .menu-group { margin-top: 6px; border-top: 1px solid var(--border); padding-top: 4px; }
 .menu-list[class*='cols-'] + .menu-list { margin-left: 4px; }
 .menu-row { display: flex; align-items: center; gap: 2px; }
 .menu-item {
@@ -1667,10 +1755,46 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   overflow: hidden;
   padding: 8px;
 }
-.print-preview-image { max-width: 100%; max-height: 100%; background: #fff; box-shadow: 0 4px 16px var(--shadow); }
+/* The sheet is the paper, to scale, with the margins marked on it, so a change
+   of page setup is seen at once rather than after a round trip. */
+.print-preview-paper {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  height: 100%;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 4px 16px var(--shadow);
+  overflow: hidden;
+}
+.print-preview-margins {
+  position: absolute;
+  inset: 0;
+  padding: var(--print-margin-y, 6%) var(--print-margin-x, 6%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.print-preview-margins::before {
+  content: '';
+  position: absolute;
+  inset: var(--print-margin-y, 6%) var(--print-margin-x, 6%);
+  border: 1px dashed rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+.print-preview-title {
+  font-size: 7px;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+  padding-bottom: 2px;
+  flex: none;
+}
+.print-preview-setup { margin-left: 8px; color: var(--muted); font-size: 0.84em; }
+.print-preview-image { max-width: 100%; max-height: 100%; object-fit: contain; margin: auto; }
 .print-preview-page {
-  width: 210px;
-  height: 297px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: #fff;
   color: #111;
@@ -1680,7 +1804,6 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   box-shadow: 0 4px 16px var(--shadow);
   transform: scale(1.6);
 }
-.print-preview-sheet.landscape .print-preview-page { width: 297px; height: 210px; transform: scale(1.1); }
 .print-preview-page img { max-width: 100%; }
 .print-preview-empty { color: var(--muted); font-size: 0.86em; }
 .print-preview-nav { display: flex; align-items: center; justify-content: center; gap: 10px; }

@@ -27,6 +27,9 @@ import { computePageScale, readingStyle, columnPageAt, columnPageCount } from '.
 const HIGHLIGHT_ATTR = 'data-highlight';
 const TURN_MS = 420;
 
+/** How long a selection has to hold still before the rest of the app hears. */
+export const SELECTION_SETTLE = 120;
+
 /** Wraps every occurrence of each mark's text so it can be painted. */
 export function paintMarks(html, marks) {
   let out = String(html || '');
@@ -179,6 +182,12 @@ const BookView = forwardRef(function BookView({
   }, [spread, book, kind, section]);
 
   // ── The page-turning effect ─────────────────────────────
+  //
+  // The effect used to be restarted by giving the page a new React key, which
+  // meant every turn destroyed the element and built a new one: the images were
+  // fetched again and the page blinked, twice — once when the turn began and
+  // once when it ended. Now the element stays where it is and the animation is
+  // restarted by hand, which is what the flicker was.
   const place = `${section}:${columnPage}`;
   const previousPlace = useRef(place);
   useEffect(() => {
@@ -255,10 +264,17 @@ const BookView = forwardRef(function BookView({
   }, [reflowable, scale, onScaleChange]);
 
   /** A picture follows the zoom mode the same way a PDF page does. */
+  // How a picture meets the window. The room it has is measured, not guessed:
+  // the pane knows its own size, and a spread has to share it between two pages.
   const imageStyle = () => {
+    const across = viewport.width ? Math.max(40, (viewport.width - 44) / (spread ? 2 : 1)) : 0;
+    const down = viewport.height ? Math.max(40, viewport.height - 40) : 0;
+    const maxW = across ? `${Math.floor(across)}px` : '100%';
+    const maxH = down ? `${Math.floor(down)}px` : 'none';
     switch (settings.zoomMode) {
       case 'fit-width': return { width: '100%', maxWidth: '100%' };
-      case 'fit-page': return { maxHeight: 'calc(100vh - 190px)', width: 'auto', maxWidth: '100%' };
+      case 'fit-height': return { height: maxH, width: 'auto', maxWidth: 'none' };
+      case 'fit-page': return { width: 'auto', maxWidth: maxW, maxHeight: maxH };
       case 'actual': return { width: 'auto', maxWidth: 'none' };
       default: return { width: `${Math.round(scale * 100)}%`, maxWidth: 'none' };
     }
@@ -273,13 +289,32 @@ const BookView = forwardRef(function BookView({
   };
 
   // ── Selection ───────────────────────────────────────────
+  //
+  // selectionchange fires for every pixel of a drag. Reporting each one put the
+  // whole application through a render — toolbar measurement included — while
+  // the reader was still dragging, which is what made selecting text feel like
+  // wading. The selection is now reported once the dragging settles.
   useEffect(() => {
+    let timer = 0;
+    const report = () => {
+      timer = 0;
+      onSelectionChange?.(window.getSelection?.()?.toString() || '');
+    };
     const onSelect = () => {
-      const text = window.getSelection?.()?.toString() || '';
-      onSelectionChange?.(text);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(report, SELECTION_SETTLE);
     };
     document.addEventListener('selectionchange', onSelect);
-    return () => document.removeEventListener('selectionchange', onSelect);
+    // Letting go always reports at once, so the menus are right the moment the
+    // reader reaches for them.
+    document.addEventListener('mouseup', report);
+    document.addEventListener('keyup', onSelect);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('selectionchange', onSelect);
+      document.removeEventListener('mouseup', report);
+      document.removeEventListener('keyup', onSelect);
+    };
   }, [onSelectionChange]);
 
   // ── Ctrl+wheel: text size for reflowable text, zoom for pages ──
@@ -437,6 +472,18 @@ const BookView = forwardRef(function BookView({
     return <div className="bookview empty">{emptyState}</div>;
   }
 
+  // Restarting a CSS animation on an element that already carries its class
+  // takes a reflow between removing it and putting it back.
+  useLayoutEffect(() => {
+    if (!turn) return;
+    const el = scrollRef.current?.querySelector('.chapter, .page-spread');
+    if (!el) return;
+    el.classList.remove('turning');
+    // Reading a layout property is what forces the restart.
+    void el.offsetWidth;
+    el.classList.add('turning');
+  }, [turn?.id]);
+
   const style = {
     ...readingStyle(settings),
     ...(settings.backgroundImage ? { '--bg-image': `url("${settings.backgroundImage}")` } : {}),
@@ -477,7 +524,6 @@ const BookView = forwardRef(function BookView({
       {kind === 'html' ? (
         <article
           className={`chapter${turnClass}`}
-          key={turn?.id || 'page'}
           ref={contentRef}
           data-testid="chapter"
           // The markup has already been through sanitizeChapter: scripts, event
@@ -489,7 +535,7 @@ const BookView = forwardRef(function BookView({
 
       {kind === 'image' ? (
         <div className="comic-wrap">
-          <div className={`page-spread${turnClass}`} key={turn?.id || 'page'}>
+          <div className={`page-spread${turnClass}`}>
             <img
               ref={imageRef}
               className="comic-page"
@@ -513,7 +559,7 @@ const BookView = forwardRef(function BookView({
 
       {kind === 'pdf' ? (
         <div className="pdf-wrap">
-          <div className={`page-spread${turnClass}`} key={turn?.id || 'page'}>
+          <div className={`page-spread${turnClass}`}>
             {pdfPages.map((page, i) => (
               <PdfPage
                 key={page}

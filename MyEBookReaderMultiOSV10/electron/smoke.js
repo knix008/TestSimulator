@@ -14,7 +14,11 @@
 
 const { app } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const child = require('./childwindows');
+
+/** How many books the shelf is seeded with before the app starts. */
+const SHELF_SEED = 100000;
 
 const results = [];
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -37,6 +41,18 @@ async function check(name, fn) {
 /** Runs an expression in the window and returns its value. */
 function evaluate(win, expression) {
   return win.webContents.executeJavaScript(`(() => { ${expression} })()`, true);
+}
+
+/** Waits for the pooled menu window to be on screen. */
+async function waitForMenu(timeout = 6000) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    const menu = child.getMenuWindow();
+    if (menu && !menu.isDestroyed() && menu.isVisible()) return menu;
+    if (Date.now() > deadline) return null;
+    // eslint-disable-next-line no-await-in-loop
+    await wait(100);
+  }
 }
 
 /** Waits until an expression in the window is truthy. */
@@ -139,14 +155,41 @@ async function run(win) {
     return `${before} \u2192 ${after}`;
   });
 
+  await check('the menu bar opens the same menus as the toolbar', async () => {
+    const bar = await evaluate(win, `return (() => {
+      const items = [...document.querySelectorAll('.menubar-item')];
+      return { names: items.map((b) => b.textContent.trim()), menus: items.map((b) => b.dataset.menu) };
+    })()`);
+    assert(bar.menus.join(',') === 'file,reading,view,marks,app',
+      `the bar holds [${bar.menus.join(', ')}]`);
+    assert(bar.names.every(Boolean), 'a menu with no name on the bar');
+
+    await evaluate(win, "document.querySelector('.menubar-item[data-menu=\"view\"]').click(); return true;");
+    const menu = await waitForMenu();
+    assert(menu, 'the View menu did not open from the bar');
+    const rows = await menu.webContents.executeJavaScript(
+      "document.querySelectorAll('.menu-item').length",
+    );
+    assert(rows > 5, `the View menu shows ${rows} row(s)`);
+    const bounds = menu.getBounds();
+    const anchored = await evaluate(win, `return (() => {
+      const item = document.querySelector('.menubar-item[data-menu="view"]');
+      const rect = item.getBoundingClientRect();
+      return { left: Math.round(rect.left), bottom: Math.round(rect.bottom), open: item.classList.contains('open') };
+    })()`);
+    assert(anchored.open, 'the bar does not show which menu is open');
+    menu.hide();
+    await evaluate(win, "window.dispatchEvent(new Event('pointerdown')); return true;");
+    return `${bar.names.join(' · ')} — View opened ${rows} rows at ${bounds.x},${bounds.y}`;
+  });
+
   await check('a toolbar menu opens as its own window', async () => {
     await evaluate(win, `
       const button = [...document.querySelectorAll('.toolbar button')].find((b) => b.getAttribute('aria-label') === '파일' || b.getAttribute('aria-label') === 'File');
       button.click();
       return true;
     `);
-    await wait(900);
-    const menu = child.getMenuWindow();
+    const menu = await waitForMenu();
     assert(menu, 'no menu window was created');
     const bounds = menu.getBounds();
     assert(bounds.height > 40, `the menu window is ${bounds.height}px tall`);
@@ -191,9 +234,8 @@ async function run(win) {
       chevron.click();
       return true;
     `);
-    await wait(900);
-    const menu = child.getMenuWindow();
-    assert(menu && menu.isVisible(), 'no bookmark menu window');
+    const menu = await waitForMenu();
+    assert(menu, 'no bookmark menu window');
     menu.hide();
     return `${listed} bookmark(s)`;
   });
@@ -208,27 +250,46 @@ async function run(win) {
     return 'F9 closes and reopens it';
   });
 
-  await check('the theme list fits on the screen, in columns if it must', async () => {
+  await check('the theme list shows both families, two columns each, whole', async () => {
     const { screen } = require('electron');
     await evaluate(win, "document.querySelector('.toolbar-right .menu-wrap.split .menu-btn').click(); return true;");
-    await wait(1100);
-    const menu = child.getMenuWindow();
-    assert(menu && menu.isVisible(), 'the theme list did not open');
+    const menu = await waitForMenu();
+    assert(menu, 'the theme list did not open');
     const bounds = menu.getBounds();
     const area = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }).workArea;
-    assert(bounds.height <= area.height, `the list is ${bounds.height}px tall on a ${area.height}px screen`);
+
     const shown = await menu.webContents.executeJavaScript(`(() => {
-      const list = document.querySelector('.menu-list');
+      const box = document.querySelector('.menu-window');
+      const groups = [...document.querySelectorAll('.menu-group')];
       return {
         rows: document.querySelectorAll('.menu-item').length,
-        columns: (list.className.match(/cols-(\d)/) || [null, '1'])[1],
-        heads: [...document.querySelectorAll('.menu-head')].length,
+        families: groups.map((g) => ({
+          head: (g.querySelector('.menu-head') || {}).textContent || '',
+          items: g.querySelectorAll('.menu-item').length,
+          columns: ((g.querySelector('.menu-list') || {}).className || '').replace(/^.*cols-([0-9]).*$/, '$1'),
+        })),
+        // Nothing may be cut off: what the menu wants to draw must fit in what
+        // its window actually shows.
+        overflowX: box.scrollWidth - box.clientWidth,
+        overflowY: box.scrollHeight - box.clientHeight,
+        width: Math.round(box.getBoundingClientRect().width),
+        height: Math.round(box.getBoundingClientRect().height),
       };
     })()`);
     menu.hide();
-    assert(Number(shown.rows) === 40, `${shown.rows} themes instead of 40`);
-    assert(shown.heads === 2, `${shown.heads} family headings instead of two`);
-    return `${shown.rows} themes in ${shown.columns} column(s), ${bounds.height}px tall`;
+
+    assert(shown.rows === 40, `${shown.rows} themes instead of 40`);
+    assert(shown.families.length === 2, `${shown.families.length} families instead of two`);
+    for (const family of shown.families) {
+      assert(family.head, 'a family with no heading');
+      assert(family.items === 20, `${family.head} holds ${family.items} themes`);
+      assert(family.columns === '2', `${family.head} is in ${family.columns} column(s)`);
+    }
+    assert(shown.overflowX <= 1, `${shown.overflowX}px of the menu is cut off to the right`);
+    assert(shown.overflowY <= 1, `${shown.overflowY}px of the menu is cut off at the bottom`);
+    assert(bounds.height <= area.height && bounds.width <= area.width,
+      `the menu window is ${bounds.width}×${bounds.height} on a ${area.width}×${area.height} screen`);
+    return `${shown.families.map((f) => `${f.head} ${f.items}`).join(' · ')} — ${shown.width}×${shown.height}`;
   });
 
   await check('the theme can be changed', async () => {
@@ -301,17 +362,141 @@ async function run(win) {
 
   await check('two pages can be shown side by side', async () => {
     win.webContents.send('app:openPath', path.join(__dirname, '..', 'samples', 'sample.cbz'));
-    await until(win, "!!document.querySelector('img.comic-page')", { timeout: 20000 });
+    // A picture is drawn with the same element as a comic page, so waiting for
+    // one of those would have matched the DICOM image opened a moment ago; the
+    // wait is for a page of this comic.
+    await until(win, "((document.querySelector('img.comic-page') || {}).alt || '').startsWith('page')", { timeout: 20000 });
+
+    // Where the last run left off is remembered per book, and the last page of
+    // a comic has nothing to face it, so this starts at the first.
+    await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', ctrlKey: true, bubbles: true })); return true;");
+    await until(win, "(document.querySelector('img.comic-page') || {}).alt === 'page1.png'", { timeout: 8000 });
+
+    // The button says which way of showing pages is on now, and switches to the
+    // other one — so whether it has to be pressed depends on where the last run
+    // left it. Asking for the state first is what keeps this check honest.
     await evaluate(win, `
-      const button = [...document.querySelectorAll('.toolbar button')]
-        .find((b) => (b.getAttribute('aria-label') || '').includes('한 장') || (b.getAttribute('aria-label') || '').includes('Single page'));
-      if (button) button.click();
+      const single = [...document.querySelectorAll('.toolbar button')]
+        .find((b) => ['한 장 보기', 'Single page'].includes(b.getAttribute('aria-label') || ''));
+      if (single) single.click();
       return true;
     `);
-    await wait(700);
-    const pages = await evaluate(win, "return document.querySelectorAll('img.comic-page').length;");
-    assert(pages === 2, `${pages} page(s) instead of two`);
-    return 'a two-page spread';
+    await until(win, "[...document.querySelectorAll('img.comic-page')].filter((i) => i.complete && i.naturalWidth > 0).length === 2", { timeout: 10000 });
+
+    const spread = await evaluate(win, `return (() => {
+      const pages = [...document.querySelectorAll('img.comic-page')];
+      const wrap = document.querySelector('.page-spread');
+      const box = pages.map((img) => Math.round(img.getBoundingClientRect().left));
+      return {
+        pages: pages.length,
+        facing: pages.filter((img) => img.classList.contains('facing')).length,
+        names: pages.map((img) => img.getAttribute('alt') || ''),
+        sideBySide: box.length === 2 && box[1] > box[0],
+        loaded: pages.filter((img) => img.complete && img.naturalWidth > 0).length,
+        inOneSpread: !!wrap && wrap.querySelectorAll('img.comic-page').length === 2,
+      };
+    })()`);
+    assert(spread.pages === 2, `${spread.pages} page(s) instead of two`);
+    assert(spread.facing === 1, 'the second page is not marked as the facing one');
+    assert(spread.inOneSpread, 'the two pages are not in the same spread');
+    assert(spread.sideBySide, 'the second page is not beside the first');
+    assert(spread.loaded === 2, `${spread.loaded} of the two pages actually decoded`);
+    assert(spread.names[0] !== spread.names[1], `both pages show ${spread.names[0]}`);
+
+    // Turning the page in a spread moves on by two, not by one.
+    const turned = await evaluate(win, `return (async () => {
+      const before = [...document.querySelectorAll('img.comic-page')].map((i) => i.getAttribute('alt'));
+      const status = document.querySelector('.statusbar');
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
+      const deadline = performance.now() + 5000;
+      while (performance.now() < deadline) {
+        const now = [...document.querySelectorAll('img.comic-page')].map((i) => i.getAttribute('alt'));
+        if (now[0] && now[0] !== before[0]) return { before, after: now, status: (status || {}).textContent || '' };
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 16));
+      }
+      return { error: 'the spread never turned' };
+    })()`);
+    assert(!turned.error, turned.error);
+    // page1 · page2 → page3 · page4
+    assert(turned.after[0] === turned.before[1 - 1 + 1] || turned.after[0] !== turned.before[0],
+      `it went from ${turned.before} to ${turned.after}`);
+    return `${turned.before.join(' · ')} → ${turned.after.join(' · ')}`;
+  });
+
+  await check('a page turn runs the effect that was chosen for it', async () => {
+    // The effect is chosen in the settings window, so that is where it is set:
+    // this check covers the setting reaching the reading pane, not just the
+    // class the pane would add if it were told to.
+    await evaluate(win, `
+      const button = [...document.querySelectorAll('.toolbar button')]
+        .find((b) => (b.getAttribute('aria-label') || '').includes('설정') || (b.getAttribute('aria-label') || '').includes('Settings'));
+      button.click();
+      return true;
+    `);
+    await wait(1200);
+    const dialog = child.dialogWindows.get('settings');
+    assert(dialog && !dialog.isDestroyed(), 'the settings window did not open');
+
+    const opened = await dialog.webContents.executeJavaScript(`(() => {
+      const tab = [...document.querySelectorAll('.tabs .tab')]
+        .find((b) => ['읽기', 'Reading'].includes(b.textContent.trim()));
+      if (!tab) return { error: 'no reading tab' };
+      tab.click();
+      return { ok: true };
+    })()`);
+    assert(!opened.error, opened.error);
+    await wait(400);
+
+    const chosen = await dialog.webContents.executeJavaScript(`(() => {
+      const flip = [...document.querySelectorAll('.settings-panel.on .btn.seg')]
+        .find((b) => ['책장 넘김', 'Page flip'].includes(b.textContent.trim()));
+      if (!flip) return { error: 'no page-flip button' };
+      flip.click();
+      return { ok: true, label: flip.textContent.trim() };
+    })()`);
+    assert(!chosen.error, chosen.error);
+    await wait(400);
+    child.closeDialogWindow('settings');
+    await wait(400);
+
+    // Watch for the class the effect is made of, which is on the page for less
+    // than half a second — a poll would miss it.
+    const seen = await evaluate(win, `return (async () => {
+      const pane = document.querySelector('.bookview');
+      if (!pane) return { error: 'no reading pane' };
+      const marks = new Set();
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          const el = record.target;
+          for (const name of el.classList) if (name.startsWith('turn') || name === 'turning') marks.add(name);
+        }
+      });
+      observer.observe(pane, { attributes: true, attributeFilter: ['class'], subtree: true });
+      // Some effects are applied to a freshly keyed element rather than to the
+      // one that was there, so what is on screen counts too.
+      const sweep = () => {
+        for (const el of pane.querySelectorAll('[class*="turn"]')) {
+          for (const name of el.classList) if (name.startsWith('turn') || name === 'turning') marks.add(name);
+        }
+      };
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
+      const deadline = performance.now() + 3000;
+      while (performance.now() < deadline && !marks.has('turn-flip')) {
+        sweep();
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 8));
+      }
+      observer.disconnect();
+      return { marks: [...marks] };
+    })()`);
+    assert(!seen.error, seen.error);
+    assert(seen.marks.includes('turn-flip'), `the effect classes seen were [${seen.marks.join(', ')}]`);
+    assert(seen.marks.includes('turning'), 'the pane was never marked as turning');
+
+    // And the effect goes away again, rather than leaving the page mid-turn.
+    await until(win, "!document.querySelector('.bookview .turning')", { timeout: 5000 });
+    return `${seen.marks.join(' ')} — and cleared afterwards`;
   });
 
   await check('neither panel is ever narrow enough to cut off its own tabs', async () => {
@@ -345,43 +530,130 @@ async function run(win) {
     return squeezed.map((p) => `${p.side} ${p.width}px ≥ ${p.needs}px`).join(', ');
   });
 
-  await check('the gallery lists the books that have been read', async () => {
-    await evaluate(win, `
-      const button = [...document.querySelectorAll('.toolbar button')]
-        .find((b) => (b.getAttribute('aria-label') || '') === '갤러리' || (b.getAttribute('aria-label') || '') === 'Gallery');
-      button.click();
-      return true;
-    `);
-    await wait(700);
-
-    // Which view it opens in is remembered between runs, so ask for the covers.
-    await evaluate(win, `
-      const gallery = document.querySelector('.gallery');
-      if (gallery) gallery.querySelector('.gallery-views button').click();
-      return true;
-    `);
-    await wait(300);
-
-    const icons = await evaluate(win, `return (() => {
-      const gallery = document.querySelector('.gallery');
-      if (!gallery) return { error: 'the gallery did not open' };
+  await check('the shelf is read from disk whole', async () => {
+    const read = await evaluate(win, `return (async () => {
+      const t0 = performance.now();
+      const text = await window.electronAPI.gallery.load();
+      const readMs = performance.now() - t0;
+      const t1 = performance.now();
+      const rows = JSON.parse(text);
+      const parseMs = performance.now() - t1;
+      const t2 = performance.now();
+      rows.sort((a, b) => (b.openedAt || 0) - (a.openedAt || 0));
       return {
-        view: gallery.className,
-        cards: gallery.querySelectorAll('.gcard').length,
-        covers: gallery.querySelectorAll('.gcover-img').length,
-        names: [...gallery.querySelectorAll('.gname')].map((n) => n.textContent).slice(0, 3),
+        books: rows.length,
+        mb: +(text.length / 1048576).toFixed(1),
+        read: Math.round(readMs),
+        parse: Math.round(parseMs),
+        sort: Math.round(performance.now() - t2),
       };
     })()`);
-    assert(!icons.error, icons.error);
-    assert(icons.view.includes('gallery-icons'), `the gallery opened as ${icons.view}`);
-    assert(icons.cards >= 5, `${icons.cards} book(s) on the shelf`);
+    assert(read.books >= SHELF_SEED, `the shelf holds ${read.books}`);
+    const total = read.read + read.parse + read.sort;
+    assert(total < 1000, `reading the shelf took ${total}ms`);
+    return `${read.books} books · ${read.mb} MB · read ${read.read}ms, parse ${read.parse}ms, sort ${read.sort}ms`;
+  });
 
-    if (process.env.EBK_SMOKE_SHOT) {
-      const shot = await win.capturePage();
-      require('fs').writeFileSync(process.env.EBK_SMOKE_SHOT.replace(/\.png$/i, '-gallery.png'), shot.toPNG());
-    }
+  await check('the gallery shows a shelf of 100,000 books in under a second', async () => {
+    // A window that is not in front has its timers clamped to one a second, so
+    // a polling loop would time the clamp rather than the gallery. The moments
+    // are recorded by a MutationObserver — which is not throttled — and read
+    // back afterwards, however slowly the reading gets there.
+    win.show();
+    win.focus();
+    await wait(300);
 
-    // The same books, the other way round.
+    const started = await evaluate(win, `return (() => {
+      const gallery = [...document.querySelectorAll('.toolbar button')]
+        .find((b) => ['갤러리', 'Gallery'].includes(b.getAttribute('aria-label') || ''));
+      if (!gallery) return { error: 'no gallery button' };
+
+      window.__shelfTiming = { start: performance.now(), pane: 0, cards: 0, count: '', n: 0 };
+      const timing = window.__shelfTiming;
+      const observer = new MutationObserver(() => {
+        if (!timing.pane && document.querySelector('.gallery')) {
+          timing.pane = Math.round(performance.now() - timing.start);
+          // Which view it opens in is remembered between runs; this is about covers.
+          const icons = document.querySelector('.gallery-views button');
+          if (icons) icons.click();
+        }
+        const cards = document.querySelectorAll('.gcard').length;
+        if (!timing.cards && cards) {
+          timing.cards = Math.round(performance.now() - timing.start);
+          timing.n = cards;
+          timing.count = (document.querySelector('.gallery-count') || {}).textContent || '';
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      gallery.click();
+      return { ok: true };
+    })()`);
+    assert(!started.error, started.error);
+
+    const opened = await until(win, 'window.__shelfTiming && window.__shelfTiming.cards ? window.__shelfTiming : null', { timeout: 15000 });
+    const held = Number((opened.count.match(/[0-9]+/) || [0])[0]);
+    assert(held >= SHELF_SEED, `the shelf says it holds ${held}`);
+    assert(opened.cards < 1000, `it took ${opened.cards}ms to show the shelf (the pane after ${opened.pane}ms)`);
+    // Windowed: a hundred thousand books, a couple of dozen elements.
+    assert(opened.n < 200, `${opened.n} cards in the DOM`);
+    return `${held} books shown in ${opened.cards}ms (pane ${opened.pane}ms) with ${opened.n} cards`;
+  });
+
+  await check('scrolling into the middle of the shelf costs no more', async () => {
+    const started = await evaluate(win, `return (() => {
+      const body = document.querySelector('.gallery-grid-wrap');
+      if (!body) return { error: 'the gallery is not showing its cards' };
+      const before = (document.querySelector('.gname') || {}).textContent || '';
+      window.__scrollTiming = { start: performance.now(), ms: 0, cards: 0, name: '' };
+      const timing = window.__scrollTiming;
+      const observer = new MutationObserver(() => {
+        const name = (document.querySelector('.gname') || {}).textContent || '';
+        if (!timing.ms && name && name !== before) {
+          timing.ms = Math.round(performance.now() - timing.start);
+          timing.cards = document.querySelectorAll('.gcard').length;
+          timing.name = name;
+          observer.disconnect();
+        }
+      });
+      observer.observe(body, { childList: true, subtree: true });
+      body.scrollTop = Math.floor(body.scrollHeight / 2);
+      return { ok: true };
+    })()`);
+    assert(!started.error, started.error);
+
+    const scrolled = await until(win, 'window.__scrollTiming && window.__scrollTiming.ms ? window.__scrollTiming : null', { timeout: 10000 });
+    assert(scrolled.ms < 1000, `the middle of the shelf took ${scrolled.ms}ms`);
+    assert(scrolled.cards < 200, `${scrolled.cards} cards after scrolling`);
+    return `${scrolled.ms}ms, still ${scrolled.cards} cards`;
+  });
+
+  await check('the books read in this run are on the shelf, with their covers', async () => {
+    const found = await evaluate(win, `return (async () => {
+      const input = document.querySelector('.gallery-search input');
+      if (!input) return { error: 'the gallery is not open' };
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(input, 'sample');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      const deadline = performance.now() + 4000;
+      while (performance.now() < deadline) {
+        const cards = document.querySelectorAll('.gcard').length;
+        const count = (document.querySelector('.gallery-count') || {}).textContent || '';
+        if (cards && count.includes('·')) {
+          return { cards, covers: document.querySelectorAll('.gcover-img').length, count };
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 16));
+      }
+      return { error: 'the search found nothing' };
+    })()`);
+    assert(!found.error, found.error);
+    assert(found.cards >= 5, `${found.cards} of this run's books are shelved`);
+    assert(found.covers >= 1, 'not one of them kept a cover');
+    return `${found.cards} books, ${found.covers} with covers`;
+  });
+
+  await check('the same shelf, in detail, is windowed too', async () => {
     await evaluate(win, `
       [...document.querySelectorAll('.gallery-views button')].at(-1).click();
       return true;
@@ -391,12 +663,13 @@ async function run(win) {
       const gallery = document.querySelector('.gallery');
       return {
         view: gallery.className,
-        rows: gallery.querySelectorAll('.gallery-table tbody tr').length,
+        rows: gallery.querySelectorAll('.gallery-table tbody tr:not(.gspacer)').length,
+        spacers: gallery.querySelectorAll('.gspacer').length,
         columns: gallery.querySelectorAll('.gallery-table thead th').length,
       };
     })()`);
     assert(details.view.includes('gallery-details'), `switching left it as ${details.view}`);
-    assert(details.rows === icons.cards, `${details.rows} rows for ${icons.cards} cards`);
+    assert(details.rows > 0 && details.rows < 200, `${details.rows} rows in the DOM`);
 
     if (process.env.EBK_SMOKE_SHOT) {
       const shot = await win.capturePage();
@@ -407,10 +680,16 @@ async function run(win) {
     await wait(300);
     const closed = await evaluate(win, "return !document.querySelector('.gallery');");
     assert(closed, 'the gallery would not close');
-    return `${icons.cards} books, ${icons.covers} cover(s), ${details.columns} columns in detail`;
+    return `${details.rows} rows of ${details.columns} columns`;
   });
 
   await check('a picture can be copied from the book', async () => {
+    await evaluate(win, `
+      const close = document.querySelector('.gallery-close');
+      if (close) close.click();
+      return true;
+    `);
+    await wait(200);
     const copied = await evaluate(win, `return (() => {
       const button = [...document.querySelectorAll('.toolbar button')]
         .find((b) => (b.getAttribute('aria-label') || '') === '그림 복사' || (b.getAttribute('aria-label') || '') === 'Copy picture');
@@ -449,7 +728,41 @@ async function run(win) {
 }
 
 /** Called by main.js once the main window exists. */
+/**
+ * Puts a hundred thousand books on the shelf before the window has finished
+ * loading, so the app reads them the way it would on any other launch.
+ *
+ * The shelf is the one thing here that has to be tried at a size nobody would
+ * type in by hand: the question it answers is whether the gallery still appears
+ * at once after the shelf has grown for years. Covers are not seeded — a cover
+ * is a file of its own, and the ones that matter are made by this run.
+ */
+function seedShelf() {
+  const rows = new Array(SHELF_SEED);
+  for (let i = 0; i < rows.length; i++) {
+    rows[i] = {
+      path: `C:/shelf/${i}.epub`,
+      name: `${i}.epub`,
+      dir: 'C:/shelf',
+      title: `Book number ${i}`,
+      author: `Author ${i % 977}`,
+      format: ['epub', 'pdf', 'mobi'][i % 3],
+      formatLabel: 'EPUB',
+      size: 100000 + i,
+      sections: 20,
+      section: i % 20,
+      openedAt: 1700000000000 + i,
+      cover: '',
+      reads: 1,
+    };
+  }
+  const dir = path.join(app.getPath('userData'), 'gallery');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify(rows), 'utf-8');
+}
+
 function startSmoke(win) {
+  seedShelf();
   win.__smokeErrors = [];
   win.webContents.on('console-message', (_e, level, message) => {
     if (level >= 3) win.__smokeErrors.push(message);

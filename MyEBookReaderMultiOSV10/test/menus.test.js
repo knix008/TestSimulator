@@ -165,7 +165,8 @@ describe('activeCommands', () => {
   it('reports the toggles that are on for the default settings', () => {
     const active = activeCommands(DEFAULT_SETTINGS, null);
     expect(active).toContain('modeScroll');
-    expect(active).toContain('fitWidth');
+    // A fixed page meets the window whole unless the reader says otherwise.
+    expect(active).toContain('fitPage');
     expect(active).toContain('toggleLeft');
     expect(active).toContain('toggleRight');
     expect(active).toContain('toggleStatus');

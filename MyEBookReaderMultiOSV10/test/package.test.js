@@ -69,6 +69,15 @@ describe('packaging', () => {
     expect(pkg.build.icon).toBe('build/icons/icon.png');
   });
 
+  it('puts the program where it can be started from, under its own icon', () => {
+    // The shortcuts point at the installed exe, which carries build/icons/icon.ico,
+    // so the desktop, the Start menu, the installer and the window all show the
+    // same book.
+    expect(pkg.build.nsis.createDesktopShortcut).toBe(true);
+    expect(pkg.build.nsis.createStartMenuShortcut).toBe(true);
+    expect(pkg.build.nsis.shortcutName).toBe('MyEBookReader');
+  });
+
   it('registers the .ebkr document type with an icon of its own', () => {
     const [association] = pkg.build.fileAssociations;
     expect(association.ext).toBe('ebkr');

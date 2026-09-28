@@ -11,7 +11,15 @@
 // thumbnail no larger than a playing card. Everything here is a pure function
 // over plain data except `makeThumbnail`, which needs a canvas.
 
-export const MAX_GALLERY = 60;
+/**
+ * How many books the shelf will hold.
+ *
+ * It was sixty while the shelf lived in the settings file with its covers
+ * inside it. Now that the index is a file of its own and the covers are files
+ * of theirs, the only real limit is what can be sorted in a moment — and a
+ * hundred thousand books sort in about eighty milliseconds.
+ */
+export const MAX_GALLERY = 100000;
 export const GALLERY_VIEWS = ['icons', 'details'];
 export const GALLERY_SORTS = ['recent', 'title', 'author', 'format', 'progress'];
 
@@ -55,7 +63,7 @@ function stripExtension(name) {
  * Shelves a book. An entry that is already there keeps what it learned before —
  * its cover, how far the reading got — and counts one more reading.
  */
-export function addToGallery(list, entry) {
+export function addToGallery(list, entry, cap = MAX_GALLERY) {
   const key = galleryKey(entry);
   if (!key) return list || [];
   const previous = (list || []).find((e) => galleryKey(e) === key);
@@ -70,7 +78,7 @@ export function addToGallery(list, entry) {
     reads: (previous?.reads || 0) + 1,
     openedAt: entry.openedAt || Date.now(),
   };
-  return [merged, ...rest].slice(0, MAX_GALLERY);
+  return [merged, ...rest].slice(0, cap);
 }
 
 /** Records a change to one shelved book — where the reading got to, its cover. */

@@ -53,11 +53,21 @@ export default function MenuHost() {
   useLayoutEffect(() => {
     const node = listRef.current;
     if (!node || !message) return undefined;
-    // What the screen can show, less room for the window frame and the taskbar.
-    const limit = Math.max(320, (window.screen?.availHeight || window.innerHeight || 900) - 80);
+    // How tall a menu may be before it is dealt into another column. It is not
+    // simply what the screen could show: a list that runs from the top of the
+    // screen to the bottom is a chore to read, so anything past about two
+    // thirds of a normal screen goes into columns instead.
+    const room = (window.screen?.availHeight || window.innerHeight || 900) - 80;
+    const limit = Math.max(320, Math.min(room, 620));
+    // And how wide the screen will let it get: another column is no use if the
+    // menu window would then be wider than the display and be cut off.
+    const across = (window.screen?.availWidth || window.innerWidth || 1200) - 60;
+    const grouped = message.menu === 'theme';
     const report = () => {
       const box = node.getBoundingClientRect();
-      if (box.height > limit && columns < 4) {
+      const perColumn = box.width / columns;
+      const fits = (columns + 1) * perColumn <= across;
+      if (!grouped && box.height > limit && columns < 4 && fits) {
         // Too tall to be seen whole: deal it into one more column and let the
         // next pass measure again.
         setColumns(columns + 1);
@@ -85,15 +95,22 @@ export default function MenuHost() {
 
   const lang = message.language || 'ko';
   const t = (key, args) => translate(lang, key, args);
-  const rows = message.menu === 'theme'
+  const isThemes = message.menu === 'theme';
+  const rows = isThemes
     ? themeRows(THEMES, message.theme)
     : menuRows(message.menu, message.state || {});
 
+  // Forty themes in one column is a menu the length of the screen. They are
+  // already in two families, so each family is given two columns and the whole
+  // list ends up about as tall as the File menu.
+  const shownColumns = isThemes ? 2 : columns;
+
   return (
-    <div className={columns > 1 ? 'menu-window wide' : 'menu-window'} ref={listRef}>
+    <div className={shownColumns > 1 ? 'menu-window wide' : 'menu-window'} ref={listRef}>
       <MenuList
         rows={rows}
-        columns={columns}
+        columns={shownColumns}
+        grouped={isThemes}
         label={t(`menu.${message.menu}`, message.menu)}
         translate={t}
         onChoose={(id) => electron()?.menu?.choose?.(id)}

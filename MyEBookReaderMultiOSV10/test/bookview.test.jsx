@@ -311,7 +311,11 @@ describe('BookView — one page or two', () => {
   });
 
   it('follows the zoom mode for a picture', () => {
-    const fit = renderView({ book: comic, content: page });
+    const fit = renderView({
+      book: comic,
+      content: page,
+      settings: { ...DEFAULT_SETTINGS, zoomMode: 'fit-width' },
+    });
     expect(document.querySelector('img.comic-page').style.width).toBe('100%');
     fit.unmount();
     renderView({
@@ -320,6 +324,15 @@ describe('BookView — one page or two', () => {
       settings: { ...DEFAULT_SETTINGS, zoomMode: 'actual' },
     });
     expect(document.querySelector('img.comic-page').style.width).toBe('auto');
+  });
+
+  it('fits a picture to the window by default, height and all', () => {
+    renderView({ book: comic, content: page });
+    const image = document.querySelector('img.comic-page');
+    // Fit-window is the default: the picture is held inside the pane rather
+    // than filling its width and running off the bottom.
+    expect(image.style.width).not.toBe('100%');
+    expect(image.style.maxWidth || image.style.maxHeight).toBeTruthy();
   });
 });
 

@@ -103,6 +103,7 @@ export function computePageScale({ pageSize, viewport, zoomMode, zoom, rotation 
   const h = rotated ? pageSize.width : pageSize.height;
   switch (zoomMode) {
     case 'fit-width': return Math.max(0.1, (viewport.width - padX) / w);
+    case 'fit-height': return Math.max(0.1, (viewport.height - padY) / h);
     case 'fit-page': return Math.max(0.1, Math.min((viewport.width - padX) / w, (viewport.height - padY) / h));
     case 'actual': return 1;
     default: return Number(zoom) || 1;

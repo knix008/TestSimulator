@@ -25,6 +25,11 @@ const child = require('./childwindows');
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
 // Set by `npm run smoke`: the app starts, drives its own controls and exits.
 const isSmoke = process.env.EBK_SMOKE === '1';
+
+// The smoke test writes settings, a gallery and cover files like any other run.
+// It must not write them into the reader's own folder: one of its checks shelves
+// a hundred thousand books, and nobody wants that in their real gallery.
+if (isSmoke) app.setPath('userData', path.join(app.getPath('temp'), 'myebookreader-smoke'));
 const DEV_URL = 'http://localhost:5183';
 const APP_ORIGIN = 'app://bundle';
 
@@ -53,6 +58,20 @@ function registerAppProtocol() {
   protocol.handle('app', async (request) => {
     const url = new URL(request.url);
     let rel = decodeURIComponent(url.pathname);
+
+    // app://covers/<name>.png — the gallery's thumbnails, one file each, so a
+    // shelf of a hundred thousand books costs the renderer only the covers it
+    // is actually showing. The browser does the loading, caching and evicting.
+    if (url.host === 'covers') {
+      const name = path.basename(rel);
+      if (!/^[a-z0-9]+\.png$/i.test(name)) return new Response('Forbidden', { status: 403 });
+      const file = path.join(coversDir(), name);
+      if (!fs.existsSync(file)) return new Response('Not found', { status: 404 });
+      return new Response(fs.readFileSync(file), {
+        headers: { 'content-type': 'image/png', 'cache-control': 'max-age=86400' },
+      });
+    }
+
     if (!rel || rel === '/') rel = '/index.html';
     // Resolve inside dist/ and refuse anything that escapes it.
     const target = path.normalize(path.join(DIST, rel));
@@ -555,6 +574,70 @@ ipcMain.handle('shell:showItem', (_e, p) => { shell.showItemInFolder(p); return 
 
 // ── Persisted settings / recents (userData/settings.json) ─
 function settingsFile() { return path.join(app.getPath('userData'), 'settings.json'); }
+
+// ── The gallery: an index file and a folder of thumbnails ─────────────
+function galleryDir() { return path.join(app.getPath('userData'), 'gallery'); }
+function coversDir() { return path.join(galleryDir(), 'covers'); }
+function galleryFile() { return path.join(galleryDir(), 'index.json'); }
+
+ipcMain.handle('gallery:load', () => {
+  // The text, not the parsed array: parsing once in the renderer is faster
+  // than parsing here and copying a hundred thousand objects across the bridge.
+  try { return fs.readFileSync(galleryFile(), 'utf-8'); } catch { return ''; }
+});
+
+ipcMain.handle('gallery:save', (_e, text) => {
+  try {
+    fs.mkdirSync(galleryDir(), { recursive: true });
+    // Written beside the real file and renamed over it, so an interrupted
+    // write leaves the previous shelf intact rather than half of a new one.
+    const temp = `${galleryFile()}.tmp`;
+    fs.writeFileSync(temp, String(text ?? '[]'), 'utf-8');
+    fs.renameSync(temp, galleryFile());
+    return true;
+  } catch { return false; }
+});
+
+function positionsFile() { return path.join(galleryDir(), 'positions.json'); }
+
+// Where the reading got to, for every shelved book. Tiny, and written far more
+// often than the index — which is exactly why it is not part of it.
+ipcMain.handle('gallery:loadPositions', () => {
+  try { return fs.readFileSync(positionsFile(), 'utf-8'); } catch { return ''; }
+});
+
+ipcMain.handle('gallery:savePositions', (_e, text) => {
+  try {
+    fs.mkdirSync(galleryDir(), { recursive: true });
+    // Merged, not replaced: the renderer sends only what changed.
+    let saved = {};
+    try { saved = JSON.parse(fs.readFileSync(positionsFile(), 'utf-8')) || {}; } catch { saved = {}; }
+    Object.assign(saved, JSON.parse(String(text || '{}')));
+    const temp = `${positionsFile()}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify(saved), 'utf-8');
+    fs.renameSync(temp, positionsFile());
+    return true;
+  } catch { return false; }
+});
+
+ipcMain.handle('gallery:putCover', (_e, name, base64) => {
+  try {
+    if (!/^[a-z0-9]+\.png$/i.test(String(name || ''))) return false;
+    fs.mkdirSync(coversDir(), { recursive: true });
+    fs.writeFileSync(path.join(coversDir(), name), Buffer.from(String(base64 || ''), 'base64'));
+    return true;
+  } catch { return false; }
+});
+
+ipcMain.handle('gallery:clear', () => {
+  try {
+    fs.rmSync(coversDir(), { recursive: true, force: true });
+    fs.rmSync(galleryFile(), { force: true });
+    fs.rmSync(positionsFile(), { force: true });
+    return true;
+  } catch { return false; }
+});
+
 ipcMain.handle('settings:load', () => {
   try { return JSON.parse(fs.readFileSync(settingsFile(), 'utf-8')); } catch { return null; }
 });
