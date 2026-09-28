@@ -1,0 +1,80 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ── Build output (all reproducible: npm install && npm run build:win) ──
+# web bundle — npm run build
+dist/
+# electron-builder output
+release/
+# generated from assets/*.svg — npm run generate:icons
+build/icons/
+# copied from pdfjs-dist — npm run copy:pdfjs
+public/pdfjs/
+# regenerated on demand — npm run generate:samples (pretest and smoke do it too)
+samples/
+# stamped with the build time and commit on every build — npm run generate:build-info
+# (tracking it meant every machine's build dirtied the file and `git pull` conflicted;
+# prepare:assets and postinstall regenerate it, so a clone always has one)
+src/build-info.json
+# NOTE: public/icon.svg and public/file-icon.svg are copies of assets/*.svg but
+# are committed on purpose — the UI loads them by URL, so a fresh clone has to
+# show the welcome screen and favicon before any build step has run.
+# `npm run sync:svgs` (part of prepare:assets) refreshes them from assets/.
+
+# ── Installers copied to the project root ───────────────
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.blockmap
+
+# ── Tests / local tooling ───────────────────────────────
+coverage/
+.vitest/
+*.lcov
+
+# ── Secrets / machine-local ─────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+
+# ── Accidental user output in the project root ──────────
+# (fixtures under test/ stay tracked)
+/*.pdf
+/*.pdfvw
+/*-annotated.pdf
+
+# Windows reserved device names. A stray `nul` (from `> nul` or similar)
+# cannot be opened by Git and makes `git add .` fail.
+/nul
+/NUL
+/con
+/CON
+/prn
+/PRN
+/aux
+/AUX
+/com[1-9]
+/COM[1-9]
+/lpt[1-9]
+/LPT[1-9]
+
+# Editor / patch leftovers
+*.orig
+*.rej
+*.bak
+*~
+
+# ── Local / editor / OS noise ───────────────────────────
+*.log
+npm-debug.log*
+.vite/
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
