@@ -102,6 +102,50 @@ test('session: echo (non-ASCII), cd updates cwd, markers are stripped, kill', as
   await rmrf(root);
 });
 
+// The three ways a terminal used to be lost, checked in every shell the "+ ▾" menu offers.
+test('every shell: a script command comes back to the prompt, `exit` ends the shell, anything else restarts it', async () => {
+  const terms = createTerminals();
+  const root = tmpdir('wrap');
+  const win = process.platform === 'win32';
+  // Both fixtures live in the directory the shells start in, so each one is called by its bare name.
+  if (win) fs.writeFileSync(path.join(root, 'hello.cmd'), `@echo off${CRLF}echo from-script${CRLF}exit /b 5${CRLF}`);
+  fs.writeFileSync(path.join(root, 'hello.sh'), '#!/bin/sh\necho from-script\nexit 5\n');
+  // A batch file is the case that used to hang, and it is one only cmd and PowerShell can run; the posix
+  // shells run the .sh (nothing there ends the sourced script early, but the prompt must come back all the same).
+  const lineFor = (id) => (id === 'cmd' ? '.\\hello.cmd' : id === 'powershell' || id === 'pwsh' ? '.\\hello.cmd' : 'sh hello.sh');
+  // A shell taken down by something that is not a plain `exit`: it is started again, and the terminal lives.
+  const sneakyExit = (id) => (id === 'cmd' ? 'if 1==1 exit' : id === 'powershell' || id === 'pwsh' ? '[Environment]::Exit(0)' : 'builtin exit');
+  for (const sh of terms.shells()) {
+    const line = lineFor(sh.id);
+    const s = terms.create({ cwd: root, shell: sh.id });
+    assert.equal(s.shell, sh.id);
+    await sleep(win ? 1200 : 300);
+    // A command that is itself a batch file (npm, npx, gradlew …) ends the script that called it where it
+    // stands, so in cmd the marker must live in a wrapper file — else the prompt never comes back.
+    assert.ok(terms.run({ id: s.id, line }));
+    const { r } = await waitFor(terms, s.id, (t, rr) => t.includes('from-script') && rr.idle, 15000);
+    assert.equal(r.idle, true, `${sh.id}: the prompt came back`);
+    assert.equal(r.rc, 5, `${sh.id}: the script's exit code reaches the prompt`);
+    // A shell that goes down without being asked to (a Cygwin program closing its stdin, say) is started
+    // again in the same directory, so the terminal survives. It is counted, not written into the
+    // transcript — the transcript is the shell's own output and the dock says it in the log instead.
+    assert.ok(terms.run({ id: s.id, line: sneakyExit(sh.id) }));
+    const { text: back } = await waitFor(terms, s.id, (_t, rr) => rr.idle && rr.restarts > 0, 15000);
+    assert.ok(!back.includes('process exited with code'), `${sh.id}: the terminal must not be given up`);
+    assert.equal((await terms.read({ id: s.id })).exited, false, `${sh.id}: the session lives on`);
+    assert.ok(terms.run({ id: s.id, line: 'echo still-here' }));
+    const { r: r2 } = await waitFor(terms, s.id, (t, rr) => t.includes('still-here') && rr.idle, 15000);
+    // By name, not by path: Git Bash reports %TEMP% as /tmp/… — its own idea of where it is.
+    assert.equal(path.basename(r2.cwd), path.basename(root), `${sh.id}: the new shell starts in the same directory`);
+    // `exit` is the one death that is meant: the shell ends and the dock closes the tab.
+    assert.ok(terms.run({ id: s.id, line: 'exit' }));
+    const { r: r3 } = await waitFor(terms, s.id, (_t, rr) => rr.exited, 15000);
+    assert.equal(r3.exited, true, `${sh.id}: exit ends the shell`);
+    terms.kill({ id: s.id });
+  }
+  await rmrf(root);
+});
+
 test('git: status for the prompt (repo / not a repo)', async () => {
   const terms = createTerminals();
   const root = tmpdir('git');

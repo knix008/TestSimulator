@@ -7,8 +7,27 @@
 //
 // Usage: node scripts/free-port.mjs [port]
 import { execSync } from 'node:child_process';
+import net from 'node:net';
 
 const port = Number(process.argv[2]) || 5185;
+
+// Is anything listening at all? Nearly every run answers "no" — nothing was left behind — and then there is
+// nothing to look up. Worth asking first because the lookup below reads *every* connection on the machine
+// (`netstat -ano`, `lsof`), which takes as long as that list is long. Both loopback families are tried:
+// Vite binds ::1, other servers 127.0.0.1.
+function inUse() {
+  return new Promise((resolve) => {
+    let left = 2, found = false;
+    for (const host of ['127.0.0.1', '::1']) {
+      const sock = net.connect({ host, port });
+      const done = (hit) => { if (hit) found = true; sock.destroy(); if (--left === 0) resolve(found); };
+      sock.setTimeout(700);
+      sock.on('connect', () => done(true));
+      sock.on('timeout', () => done(false));   // a filtered port: fall through to the lookup
+      sock.on('error', (err) => done(err.code !== 'ECONNREFUSED'));
+    }
+  });
+}
 
 function listenersWindows() {
   // Rows look like:  TCP    [::1]:5179   [::]:0   LISTENING   1234
@@ -52,7 +71,7 @@ function kill(pid) {
   }
 }
 
-const pids = process.platform === 'win32' ? listenersWindows() : listenersUnix();
+const pids = (await inUse()) ? (process.platform === 'win32' ? listenersWindows() : listenersUnix()) : [];
 
 if (!pids.length) {
   console.log(`[free-port] Port ${port} is free.`);

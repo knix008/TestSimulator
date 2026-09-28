@@ -207,7 +207,7 @@ Windows · macOS · Linux · 웹용 듀얼 패널 파일 관리자 **Command Cen
 | 항목 | 내용 |
 |---|---|
 | 로그 탭 | 모든 상태 메시지와 오류가 시각과 함께 누적(최근 2,000줄), 복사 · 지우기 |
-| 터미널 탭 | 여러 개 열기(Ctrl+Shift+`), Windows: PowerShell · Command Prompt · PowerShell 7 · Git Bash, macOS/Linux: 로그인 셸 · bash · zsh · sh. 활성 패널 폴더 또는 설정한 시작 디렉터리에서 시작 |
+| 터미널 탭 | 여러 개 열기(Ctrl+Shift+`), Windows: PowerShell · Command Prompt · PowerShell 7 · Git Bash, macOS/Linux: 로그인 셸 · bash · zsh · sh. 활성 패널 폴더 또는 설정한 시작 디렉터리에서 시작. **셸이 끝나면 탭도 닫힙니다**(`exit`; 종료 코드는 상태 표시줄·로그에). 부탁하지 않은 종료 — Cygwin 프로그램(`ls`·`cat`·`grep`)이 끝나며 셸의 입력까지 닫아 cmd·PowerShell 이 딸려 죽는 경우 — 는 **같은 폴더에서 셸을 다시 시작**하고, 터미널 화면은 그대로 둔 채 **로그 탭에만** 알립니다 |
 | 프롬프트 | **oh-my-posh 호환 프롬프트 테마**(설정 › 프롬프트). 기본은 `[📁 경로]▶[⎇ 브랜치 ↑↓ + ~ ? !]▶`(git 상태 색). 세그먼트: 경로(full/folder/agnoster/agnoster_short/letter/mixed …) · git(브랜치·ahead/behind·작업/스테이징 변경·stash) · 사용자@호스트 · 셸 · OS · 시각(Go 날짜 레이아웃) · 종료 코드 · 실행 시간 · 관리자 · 텍스트. 스타일: 파워라인(CSS 화살표, Nerd Font 불필요) · 일반 · 다이아몬드(둥근). 색: 16진수 · 이름 · `accent/foreground/background` · `auto`(git 상태색) · `p:팔레트` · `foreground_templates/background_templates`. 템플릿: Go text/template 부분집합(`{{ .Path }}`, `{{ if gt .Ahead 0 }}…{{ else }}…{{ end }}`, and/or/not/eq/ne/gt/lt, `| date "15:04"`, upper/lower/default). 블록 여러 줄, 프리셋 16종(기본 · Powerline · Agnoster · Paradox · 최소 · 단순 텍스트 · 버블 · Robby Russell · Pure · Star · 슬림 · Material · 클래식 · 레인보우), **oh-my-posh JSON 가져오기**(붙여넣기/파일; 지원하지 않는 세그먼트는 건너뜀) / JSON 내보내기, 실시간 미리보기, 즉시 적용 |
 | 입력 | Tab 자동 완성(명령 · 파일), ↑↓ 기록, Ctrl+L 지우기, Esc 취소, 여러 줄 붙여넣기, 실행 중 프로그램에 stdin 입력, ANSI 색 출력, 한글 IME |
 | 한계 | 줄 단위 콘솔(pty 아님) — 전체 화면 프로그램 · 비밀번호 가리기 · Ctrl+C 중단 불가 |

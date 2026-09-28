@@ -196,7 +196,14 @@ function hideMenuPopup(reason, seq, notifyOwner = true) {
   menuSeq++;
   const owner = menuOwner;
   menuOwner = null;
+  // A click *into* the menu gives the popup the OS focus (see menuPopupWindow). Hiding it then leaves the
+  // app without focus: the page still shows a caret in whatever took the DOM focus — a new terminal's
+  // prompt, say — but typing goes nowhere until the window is clicked. So the owner gets the focus back.
+  // Only after a pick: a blur means the user went to another window, and pulling the focus back from there
+  // would be the app stealing it.
+  const hadFocus = !!(menuWin && !menuWin.isDestroyed() && (menuWin.ccHadFocus || menuWin.isFocused()));
   if (menuWin && !menuWin.isDestroyed() && menuWin.isVisible()) menuWin.hide();
+  if (reason === 'pick' && hadFocus && owner && !owner.isDestroyed()) owner.focus();
   // `notifyOwner` false when a pick is on its way: the owner treats "closed" as the end of the menu, so
   // announcing it first would make it ignore the pick that follows.
   if (notifyOwner && owner && !owner.isDestroyed()) owner.webContents.send('menu:closed', { reason: reason || 'close' });
@@ -521,11 +528,21 @@ function buildMenu() {
   ]));
 }
 
-const gotLock = app.requestSingleInstanceLock();
+// One app at a time. A second launch of the *installed* app brings the open window to the front — that is
+// what double-clicking the icon again should do. A second launch in development means something else: `npm
+// start` is how the new code is run, so it must not be a silent no-op (which is what it was — the run ended
+// in a quarter of a second with nothing to show for it). The development launch asks the instance holding
+// the lock to step aside and exits with a code the launcher knows, and scripts/start-electron.mjs starts
+// again once the old one is gone. An installed app holding the lock ignores the request, and the launcher
+// says so rather than retrying for ever.
+const TAKE_OVER_EXIT = 3;
+const gotLock = app.requestSingleInstanceLock({ replace: isDev });
 if (!gotLock) {
-  app.quit();
+  if (isDev) app.exit(TAKE_OVER_EXIT);
+  else app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, _argv, _cwd, data) => {
+    if (isDev && data && data.replace) { app.quit(); return; }   // make room for the run that just started
     if (!mainWin) return;
     if (mainWin.isMinimized()) mainWin.restore();
     mainWin.focus();

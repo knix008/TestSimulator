@@ -514,8 +514,13 @@ html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 /* ── Prompt editor (settings › prompt) ── */
 .dlg.settings .settings-pane { min-height: 320px; display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .prompt-editor { display: flex; flex-direction: column; gap: 10px; }
-/* fixed height: 3 samples × up to 2 lines — a two-line preset must not push the presets below it */
-.pe-preview-out { flex: none; height: 92px; max-height: none; min-height: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12.5px; margin-top: 4px; overflow: hidden; }
+/* The preview holds three sample prompts. Its height is fixed rather than grown to fit, so that switching
+   presets never changes the height of the tab — the settings window measures its tabs once, when it opens,
+   and a pane that grew afterwards would be cut off at the bottom (.dlg.settings.windowed .settings-pane).
+   So the room is the room the tallest preset needs: a two-line prompt (Paradox, Pure, Star …) measures
+   125 px against the 90 px a one-line one takes. `auto` rather than `hidden` so that a hand-made prompt
+   with more blocks still can be seen whole, by scrolling. */
+.pe-preview-out { flex: none; height: 128px; max-height: none; min-height: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12.5px; margin-top: 4px; overflow: auto; }
 .pe-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pe-row > label { color: var(--fg-muted); }
 .pe-row textarea { flex: 1; min-width: 200px; }

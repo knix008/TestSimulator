@@ -29,11 +29,23 @@ const dev = env.ELECTRON_DEV === '1' && !process.argv.some((a) => a.startsWith('
 
 let child = null;
 let restarting = false;
+// `npm start` with a window already open replaces it: Electron exits with TAKE_OVER_EXIT after asking the
+// running instance to quit (electron/main.js), and the new one is started as soon as that one has let go of
+// the single-instance lock. An installed copy holding it does not step aside, hence the limit and the note.
+const TAKE_OVER_EXIT = 3;
+const TAKE_OVER_TRIES = 20;   // × 250 ms
+let takeOvers = 0;
 
 function launch() {
   child = spawn(electronPath, args, { stdio: 'inherit', env });
   child.on('close', (code) => {
     if (restarting) { restarting = false; launch(); return; }
+    if (code === TAKE_OVER_EXIT) {
+      if (takeOvers === 0) console.log('[start-electron] Command Center is already running — asking it to close and starting again…');
+      if (++takeOvers <= TAKE_OVER_TRIES) { setTimeout(launch, 250); return; }
+      console.error('[start-electron] The running Command Center did not close (an installed copy?). Close it and run again.');
+      process.exit(1);
+    }
     process.exit(code ?? 0);
   });
   child.on('error', (err) => {

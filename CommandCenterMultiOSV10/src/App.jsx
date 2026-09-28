@@ -267,7 +267,27 @@ export default function App() {
     if (dockTab === id) afterTabClosed(dockTabs().filter((x) => x !== id), next.length ? next[next.length - 1].id : null);
     if (gone) setStatus(t('term_closed', { name: gone.title }));
   };
-  const onTermExit = (id) => setTerms((ts) => ts.map((x) => (x.id === id ? { ...x, exited: true } : x)));
+  // The shell of a terminal had to be replaced (a Cygwin program closed its input on the way out — see
+  // core/terminal.js). The terminal kept its transcript and its folder, so nothing is written into it; the
+  // one thing the user may notice is that shell variables are gone, and that is what the log says.
+  const onTermRestart = (id, code) => {
+    const tm = terms.find((x) => x.id === id);
+    addLog('info', t('term_restarted', { name: tm ? tm.title : id, code: code == null ? '?' : code }));
+  };
+  // A terminal is its shell: when the shell ends — `exit`, or the last command took it down — the tab goes
+  // with it. The transcript goes too, so what happened is said in the status bar and the log.
+  const onTermExit = (id, code) => {
+    const gone = terms.find((x) => x.id === id);
+    call('term.kill', { id }).catch(() => {});
+    const next = terms.filter((x) => x.id !== id);
+    setTerms(next);
+    if (dockTab === id) afterTabClosed(dockTabs().filter((x) => x !== id), next.length ? next[next.length - 1].id : null);
+    if (gone) {
+      const msg = t('term_exited', { name: gone.title, code: code == null ? '?' : code });
+      setStatusText(msg);
+      addLog(code ? 'error' : 'info', msg);   // setStatus would always log it as info
+    }
+  };
   const copyLog = async () => {
     const text = log.map((e) => `${new Date(e.ts).toISOString()} ${e.level.toUpperCase().padEnd(5)} ${e.text}`).join('\n') + '\n';
     await writeClipboardText(text);
@@ -1170,7 +1190,7 @@ export default function App() {
         </div>
       </div>
       <BottomDock visible={!!session.dockVisible} tab={dockTab} onTab={setDockTab} log={log} onClearLog={() => setLog([])} onCopyLog={copyLog}
-        terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit}
+        terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit} onTermRestart={onTermRestart}
         onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart}
         prompt={session.prompt || SETTINGS_DEFAULTS.prompt} env={termEnv} themeId={session.theme}
         termColor={session.termColor !== false} termEol={session.termEol || SETTINGS_DEFAULTS.termEol} termCr={session.termCr || SETTINGS_DEFAULTS.termCr}
