@@ -51,6 +51,12 @@ contextBridge.exposeInMainWorld('commandCenter', {
   // Size this window to the content height it asks for (a fixed-size window such as the settings one
   // measures itself, so nothing in it ever scrolls or is cut off).
   fitWindow: (height) => ipcRenderer.send('win:fit', { height }),
+  // The width the toolbar measured for itself becomes this window's minimum width, so no size the
+  // user can drag the window to ever cuts a toolbar button off (ipc.js win:minwidth).
+  setMinContentWidth: (width) => ipcRenderer.send('win:minwidth', { width }),
+  // The theme's title-bar colours: the native window controls are drawn over the page in them
+  // (ipc.js win:titlebar).
+  setTitlebar: (colors) => ipcRenderer.send('win:titlebar', colors),
   // Menu popup: a menu is drawn in its own frameless window so it can extend
   // past the app window's edge. The owner window calls popupMenu and listens
   // for the pick; the popup page (?win=menu) uses the onMenuShow / menuSize

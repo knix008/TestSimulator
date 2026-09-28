@@ -43,8 +43,15 @@
 //     chunk that is valid multibyte UTF-8 is taken as UTF-8 (mixedDecoder).
 //   • cmd.exe in code page 65001 exits when it reads multibyte characters from
 //     a pipe (a long-standing bug), so it is left at the native code page and
-//     its marker lives inside the batch file (`%CD%` on the stdin line would
-//     expand before `call` runs).
+//     its marker lives inside a batch file (`%CD%` on the stdin line would
+//     expand before `call` runs) — in the *wrapper* file that calls the
+//     command's script, because a command that is itself a batch file (npm,
+//     npx, gradlew …) ends the script it was called from where it stands.
+//   • A Cygwin program closes the handles it inherited when it exits, the
+//     shell's stdin among them, and cmd / PowerShell then read end-of-input and
+//     quit — so `ls` from C:\cygwin64\bin would cost the terminal. A shell that
+//     dies without having been asked to is started again in the same directory
+//     (shellExited); only `exit` — and closing the tab — really ends one.
 //   • PowerShell 5.1 reads a BOM-less script as ANSI, so the .ps1 gets a BOM;
 //     the exit status is read inside the script (after the dot-source `$?`
 //     only says the sourcing worked).
@@ -59,6 +66,7 @@ const path = require('path');
 const MARK = '__CC_CWD__:';
 const PROMPT_MARK = '__CC_P__';   // cmd's PROMPT: printed before every read, stripped here
 const MAX_CHUNKS = 4000;
+const MAX_RESTARTS = 5;   // a shell that dies at its prompt is started again (see shellExited) — but not for ever
 
 // Tab completion (the shells run without a terminal, so the dock completes by
 // itself): the first word of a command is completed from these builtins plus
@@ -151,6 +159,9 @@ function mixedDecoder(enc) {
 // Programs see a pipe, not a terminal, so they print no colour on their own: the environment (create) asks
 // the ones that have a switch for it, and a posix shell gets these aliases (they expand inside the sourced
 // script too). `dir` (ls -C -b) would print non-ASCII names as octal escapes — it lists like ls instead.
+// A line that asks the shell to end, and with it the terminal (the dock closes the tab): the one death that
+// is not restarted (shellExited), and the one line PowerShell must read itself rather than source (rawLine).
+const EXIT_LINE = /^\s*(?:exit|logout)(\s+\d+)?\s*$/i;
 const POSIX_INIT = "shopt -s expand_aliases 2>/dev/null; if ls --color=always -d / >/dev/null 2>&1; then alias ls='ls --color=always'; alias dir='ls -C --color=always'; alias vdir='ls -l --color=always'; fi; alias grep='grep --color=always'; alias egrep='egrep --color=always'; alias fgrep='fgrep --color=always'; if diff --color=always /dev/null /dev/null >/dev/null 2>&1; then alias diff='diff --color=always'; fi; alias tree='tree -C'; alias ip='ip -c'";
 // Colour switches of common tools (for the ones that do not honour FORCE_COLOR / CLICOLOR_FORCE).
 const COLOR_ENV = { TERM: 'xterm-256color', COLORTERM: 'truecolor', FORCE_COLOR: '1', CLICOLOR_FORCE: '1', CLICOLOR: '1', GIT_CONFIG_PARAMETERS: "'color.ui=always'", GIT_PAGER: 'cat', PAGER: 'cat', npm_config_color: 'always', PY_COLORS: '1', CARGO_TERM_COLOR: 'always', CMAKE_COLOR_DIAGNOSTICS: 'ON', GCC_COLORS: 'error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01', DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: '1', GTEST_COLOR: '1', PYTEST_ADDOPTS: [process.env.PYTEST_ADDOPTS, '--color=yes'].filter(Boolean).join(' ') };
@@ -172,6 +183,8 @@ function shells() {
     const ps = (exe, enc) => ({
       cmd: exe, args: ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '-'],
       ext: '.ps1', scriptEnc: 'utf8', bom: enc !== 'utf8',
+      // `exit` has to reach PowerShell itself: inside the dot-sourced script it would only end the script.
+      rawLine: EXIT_LINE,
       source: (f) => `$__ccrc = 1; $global:LASTEXITCODE = 0; . "${f}";`,
       rcLine: '$__ccrc = if ($?) { 0 } else { 1 }; if ($__ccrc -and $LASTEXITCODE) { $__ccrc = $LASTEXITCODE }',
       cwdLine: `Write-Host "${MARK}$PWD;$__ccrc"`, eol: '\r\n', encoding: enc,
@@ -182,7 +195,12 @@ function shells() {
       // always emits before it). The batch file holds the marker too (%ERRORLEVEL% expands when that line runs,
       // after the command). `(call )` first: it resets ERRORLEVEL, which cmd otherwise keeps from an earlier
       // command (echo, cd … do not touch it).
-      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, markerInFile: true, preLine: '(call )', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%ERRORLEVEL%`, eol: '\r\n', encoding: cp },
+      // The exit status travels in %__CCRC%: the script sets it right after the command (rcLine), which is
+      // the command's own %ERRORLEVEL% — `call` flattens a "command not found" 9009 to 1. A command that is
+      // itself a batch file ends the script before that line, so the wrapper falls back to the code `call`
+      // gives it.
+      { id: 'cmd', label: 'Command Prompt', cmd: 'cmd.exe', args: ['/Q', '/K', 'rem'], env: { PROMPT: PROMPT_MARK }, promptMark: true, ext: '.cmd', scriptEnc: cp, preLine: '(call )', rcLine: 'set __CCRC=%ERRORLEVEL%', source: (f) => `call "${f}"`, cwdLine: `echo ${MARK}%CD%;%__CCRC%`, eol: '\r\n', encoding: cp,
+        wrapFile: (f, cwdLine, eol) => [`set "__CCRC="`, `call "${f}"`, 'if not defined __CCRC set __CCRC=%ERRORLEVEL%', cwdLine, `set "__CCRC="`, ''].join(eol) },
       { id: 'powershell', label: 'PowerShell', ...ps('powershell.exe', cp) },
     ];
     const pwsh = firstExisting(pf.map((p) => p && path.join(p, 'PowerShell', '7', 'pwsh.exe')));
@@ -290,7 +308,7 @@ function createTerminals() {
 
   // Readers waiting in read({ wait }) are woken on any change of the session.
   function wake(s) { const w = s.waiters; s.waiters = []; for (const f of w) f(); }
-  function cleanup(s) { try { fs.unlinkSync(s.scriptFile); } catch { /* gone */ } }
+  function cleanup(s) { for (const f of [s.scriptFile, s.wrapFile]) { if (f) { try { fs.unlinkSync(f); } catch { /* gone */ } } } }
 
   function push(s, text) {
     // Pull the cwd markers (and cmd's prompt marks) out of the stream;
@@ -314,7 +332,10 @@ function createTerminals() {
       if (semi >= 0 && /^-?\d+$/.test(d.slice(semi + 1))) { s.rc = Number(d.slice(semi + 1)); d = d.slice(0, semi); }
       // Git Bash prints /d/Home/…; git and fs want D:/Home/…
       if (process.platform === 'win32') d = d.replace(/^\/([a-zA-Z])(\/|$)/, (_x, l) => `${l.toUpperCase()}:/`);
-      s.cwd = d || s.cwd; s.idle = true; s.changed = true;
+      s.cwd = d || s.cwd; s.idle = true; s.changed = true; s.restarts = 0;   // a command ran through: the restart budget is for a shell that cannot stay up
+      // Where a new shell would be started (shellExited). Git Bash reports paths of its own — %TEMP% comes
+      // back as /tmp/… — which are not directories here, so the last one that is stays the fallback.
+      if (isDir(s.cwd)) s.realCwd = s.cwd;
       prefetchGit(s.cwd, s.lastCmd);   // the prompt's git status starts now, not when the dock asks for it
       out += stripPrompts(s.pending.slice(0, m.index));
       s.pending = s.pending.slice(m.index + m[0].length);
@@ -341,6 +362,60 @@ function createTerminals() {
     wake(s);
   }
 
+  // Starts (or restarts) the shell of a session: the process, the decoders and the init line.
+  function spawnShell(s) {
+    const def = s.def;
+    const env = { ...process.env, ...COLOR_ENV, LANG: utf8Lang(), ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])), ...(def.env || {}) };
+    const enc = def.encoding || 'utf8';
+    s.enc = enc;
+    // Stream state belongs to the process, not the session.
+    s.pending = ''; s.pendingCr = false; s.expectPrompt = !!def.promptMark; s.idle = true;
+    const proc = spawn(def.cmd, def.args, { cwd: isDir(s.cwd) ? s.cwd : (isDir(s.realCwd) ? s.realCwd : os.homedir()), stdio: 'pipe', windowsHide: true, env });
+    s.proc = proc;
+    const decOut = mixedDecoder(enc), decErr = mixedDecoder(enc);   // streaming: a multibyte character split across chunks survives
+    proc.stdout.on('data', (d) => push(s, decOut(d)));
+    proc.stderr.on('data', (d) => push(s, decErr(d)));
+    proc.stdin.on('error', () => { /* the exit handler reports it */ });
+    proc.on('error', (err) => { if (s.proc !== proc) return; push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); wake(s); });
+    proc.on('exit', (code) => shellExited(s, proc, code));
+    if (def.init) { try { proc.stdin.write(iconv.encode(`${def.init}${def.eol}`, enc)); } catch { /* exited already */ } }   // aliases (posix) — prints nothing
+  }
+
+  // A shell died. When it was asked to — `exit`, or the tab being closed — that is the end of the terminal
+  // and the dock closes the tab. Any other death was not asked for, and the commonest one is nobody's
+  // fault: a program the last command started can close the shell's stdin behind its back on the way out.
+  // Every Cygwin build of ls, cat, grep … does (it closes the handles it inherited), and cmd and PowerShell
+  // then read end-of-input and quit — typing `ls` would cost the terminal. So the session keeps its
+  // transcript and its directory and a new shell is started there; shell variables and functions are the
+  // one thing lost, hence the notice. The cap is for a shell that cannot stay up at all.
+  //
+  // Which it was is decided by the command, not by the state of the session: the exit of a shell that is
+  // already gone before the next command is written to it can be reported after that write.
+  function shellExited(s, proc, code) {
+    if (s.proc !== proc) return;   // the old process of a session that was restarted already
+    const asked = s.killed || (s.lastCmd !== undefined && EXIT_LINE.test(s.lastCmd));
+    if (!asked && s.restarts < MAX_RESTARTS) {
+      s.restarts++;   // the budget, reset by the next marker
+      s.restartSeq++;   // never reset: the dock logs each rise once
+      // A command written to the shell in the moment between its death and this event is not run again: a
+      // command that leaves no output behind (del, copy, a build …) cannot be told from one the shell had
+      // already begun, and running it twice is the worse mistake. The notice stands where it would have run.
+      s.lastCmd = undefined;
+      // Not a line in the transcript: the terminal shows what the shell printed, and a notice of ours in the
+      // middle of it reads like output of the command. `restarts` travels in the snapshot instead and the
+      // dock says it once in the log, in the user's language.
+      s.restartCode = code;
+      spawnShell(s);
+      wake(s);
+      return;
+    }
+    s.exited = true;
+    s.code = code;
+    push(s, `\n[process exited with code ${code}]\n`);
+    cleanup(s);
+    wake(s);
+  }
+
   const api = {
     shells: () => shells().map(({ id, label }) => ({ id, label })),
 
@@ -350,20 +425,11 @@ function createTerminals() {
       let dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
       try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch { dir = os.homedir(); }
       const id = nextId++;
-      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', pendingCr: false, expectPrompt: !!def.promptMark, idle: true, rc: 0, waiters: [], changed: false, exited: false, code: null, def, proc: null };
+      const s = { id, shell: def.id, label: def.label, cwd: dir, chunks: [], seq: 0, pending: '', pendingCr: false, expectPrompt: !!def.promptMark, idle: true, rc: 0, waiters: [], changed: false, exited: false, code: null, def, proc: null, restarts: 0, restartSeq: 0, killed: false, realCwd: dir };
       s.scriptFile = path.join(os.tmpdir(), `cc-term-${process.pid}-${id}${def.ext}`);
-      const env = { ...process.env, ...COLOR_ENV, LANG: utf8Lang(), ...Object.fromEntries(['LC_ALL', 'LC_CTYPE'].filter((k) => process.env[k] && !/utf-?8/i.test(process.env[k])).map((k) => [k, utf8Lang()])), ...(def.env || {}) };
-      const proc = spawn(def.cmd, def.args, { cwd: dir, stdio: 'pipe', windowsHide: true, env });
-      s.proc = proc;
-      const enc = def.encoding || 'utf8';
-      s.enc = enc;
-      const decOut = mixedDecoder(enc), decErr = mixedDecoder(enc);   // streaming: a multibyte character split across chunks survives
-      proc.stdout.on('data', (d) => push(s, decOut(d)));
-      proc.stderr.on('data', (d) => push(s, decErr(d)));
-      proc.stdin.on('error', () => { /* the exit handler reports it */ });
-      proc.on('error', (err) => { push(s, `\n[${err.message}]\n`); s.exited = true; cleanup(s); wake(s); });
-      proc.on('exit', (code) => { s.exited = true; s.code = code; push(s, `\n[process exited with code ${code}]\n`); cleanup(s); wake(s); });
-      if (def.init) { try { proc.stdin.write(iconv.encode(`${def.init}${def.eol}`, enc)); } catch { /* exited already */ } }   // aliases (posix) — prints nothing
+      // cmd only: the file that `call`s the command's script and prints the marker after it (see `wrapFile`).
+      if (def.wrapFile) s.wrapFile = path.join(os.tmpdir(), `cc-term-${process.pid}-${id}-run${def.ext}`);
+      spawnShell(s);
       sessions.set(id, s);
       return { id, shell: s.shell, label: s.label, cwd: s.cwd };
     },
@@ -384,17 +450,29 @@ function createTerminals() {
     run({ id, line, eol }) {
       const s = sessions.get(id);
       if (!s || s.exited) return false;
-      const { eol: shellEol, cwdLine, bom, markerInFile, source, rcLine, preLine, scriptEnc } = s.def;
+      const { eol: shellEol, cwdLine, bom, markerInFile, wrapFile, source, rcLine, preLine, scriptEnc, rawLine } = s.def;
       const send = (text) => s.proc.stdin.write(iconv.encode(text, s.enc || 'utf8'));
       if (!s.idle) { send(`${line}${eol === 'lf' ? '\n' : eol === 'crlf' ? '\r\n' : shellEol}`); return true; }
       s.idle = false;
       s.lastCmd = line;
       wake(s);   // readers see the busy phase, so the return to idle (the prompt, a fresh git status) is never missed
+      // A line the shell must read itself instead of sourcing: `exit` — the terminal closes with its shell,
+      // and inside a dot-sourced PowerShell script `exit` would only end that script.
+      if (rawLine && rawLine.test(line)) { send(`${line}${shellEol}`); return true; }
       // The command goes into the script file (with the exit-status / marker lines that belong there), the
       // stdin gets the one line that runs it — followed by the marker, unless the script prints it.
       const body = `${preLine ? `${preLine}${shellEol}` : ''}${line}${shellEol}${rcLine ? `${rcLine}${shellEol}` : ''}${markerInFile ? `${cwdLine}${shellEol}` : ''}`;
       const bytes = iconv.encode(body, scriptEnc || 'utf8');
       fs.writeFileSync(s.scriptFile, bom ? Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), bytes]) : bytes);
+      // cmd: the marker cannot live at the end of the command's own script — a command that is itself a
+      // batch file (npm, npx, yarn, gradlew …, or an `exit /b`) ends that script where it stands and the
+      // lines after it never run, so the prompt would never come back. A second file `call`s the first and
+      // prints the marker after it: control always returns there, and `cd` / `set` still reach the shell.
+      if (wrapFile) {
+        fs.writeFileSync(s.wrapFile, iconv.encode(wrapFile(s.scriptFile, cwdLine, shellEol), scriptEnc || 'utf8'));
+        send(`${source(s.wrapFile)}${shellEol}`);
+        return true;
+      }
       send(`${source(s.scriptFile)}${markerInFile ? '' : ` ${cwdLine}`}${shellEol}`);
       return true;
     },
@@ -405,7 +483,7 @@ function createTerminals() {
     async read({ id, since = 0, idle, wait = 0 }) {
       const s = sessions.get(id);
       if (!s) return null;
-      const snapshot = () => ({ id, chunks: since ? s.chunks.filter((c) => c.seq > since) : s.chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code, rc: s.rc });
+      const snapshot = () => ({ id, chunks: since ? s.chunks.filter((c) => c.seq > since) : s.chunks, seq: s.seq, cwd: s.cwd, idle: s.idle, exited: s.exited, code: s.code, rc: s.rc, restarts: s.restartSeq, restartCode: s.restartCode });
       const fresh = () => s.seq > since || (idle !== undefined && s.idle !== idle) || s.exited;
       if (!wait || fresh()) return snapshot();
       await new Promise((resolve) => { const t = setTimeout(resolve, Math.min(wait, 5000)); s.waiters.push(() => { clearTimeout(t); resolve(); }); });
@@ -415,6 +493,7 @@ function createTerminals() {
     kill({ id }) {
       const s = sessions.get(id);
       if (!s) return false;
+      s.killed = true;
       killTree(s.proc);
       cleanup(s);
       sessions.delete(id);
@@ -479,7 +558,7 @@ function createTerminals() {
     },
 
     shutdown() {
-      for (const s of sessions.values()) { killTree(s.proc); cleanup(s); wake(s); }
+      for (const s of sessions.values()) { s.killed = true; killTree(s.proc); cleanup(s); wake(s); }
       sessions.clear();
     },
   };

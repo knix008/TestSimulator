@@ -12,7 +12,7 @@ import { MenuBar, Toolbar, FnBar } from './components/Chrome';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
-import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, allThemes } from './themes';
+import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, allThemes, themeWindowColors } from './themes';
 import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile } from './lib/settings';
 import { History } from './lib/history';
 import { ResizeGrip } from './components/ResizeGrip';
@@ -165,7 +165,8 @@ export default function App() {
       setCustomThemes(s.customThemes);
       const theme = applyTheme(themeIdOf(s));
       s.theme = theme.id;
-      if (s.themeBg !== theme.tokens['--bg']) call('session.save', { patch: { theme: theme.id, themeBg: theme.tokens['--bg'] } }).catch(() => {});
+      const wc = themeWindowColors(theme);
+      if (s.themeBg !== wc.themeBg || s.titleBg !== wc.titleBg) call('session.save', { patch: { theme: theme.id, ...wc } }).catch(() => {});
       setSession(s);
       if (s.activeSide === 'right') setActive('right');
       if (s.logOpen === false) s.dockVisible = false;   // nothing to show yet (search and terminals start empty)
@@ -266,7 +267,27 @@ export default function App() {
     if (dockTab === id) afterTabClosed(dockTabs().filter((x) => x !== id), next.length ? next[next.length - 1].id : null);
     if (gone) setStatus(t('term_closed', { name: gone.title }));
   };
-  const onTermExit = (id) => setTerms((ts) => ts.map((x) => (x.id === id ? { ...x, exited: true } : x)));
+  // The shell of a terminal had to be replaced (a Cygwin program closed its input on the way out — see
+  // core/terminal.js). The terminal kept its transcript and its folder, so nothing is written into it; the
+  // one thing the user may notice is that shell variables are gone, and that is what the log says.
+  const onTermRestart = (id, code) => {
+    const tm = terms.find((x) => x.id === id);
+    addLog('info', t('term_restarted', { name: tm ? tm.title : id, code: code == null ? '?' : code }));
+  };
+  // A terminal is its shell: when the shell ends — `exit`, or the last command took it down — the tab goes
+  // with it. The transcript goes too, so what happened is said in the status bar and the log.
+  const onTermExit = (id, code) => {
+    const gone = terms.find((x) => x.id === id);
+    call('term.kill', { id }).catch(() => {});
+    const next = terms.filter((x) => x.id !== id);
+    setTerms(next);
+    if (dockTab === id) afterTabClosed(dockTabs().filter((x) => x !== id), next.length ? next[next.length - 1].id : null);
+    if (gone) {
+      const msg = t('term_exited', { name: gone.title, code: code == null ? '?' : code });
+      setStatusText(msg);
+      addLog(code ? 'error' : 'info', msg);   // setStatus would always log it as info
+    }
+  };
   const copyLog = async () => {
     const text = log.map((e) => `${new Date(e.ts).toISOString()} ${e.level.toUpperCase().padEnd(5)} ${e.text}`).join('\n') + '\n';
     await writeClipboardText(text);
@@ -822,7 +843,7 @@ export default function App() {
     applyFontSize(v.fontSize);
     const patch = {};
     for (const k of SETTINGS_KEYS) if (k in v) patch[k] = v[k];
-    patch.theme = theme.id; patch.themeBg = theme.tokens['--bg'];
+    patch.theme = theme.id; Object.assign(patch, themeWindowColors(theme));
     patch.termCwd = (v.termCwd || '').trim();
     saveSession(patch);
     if (!quiet) setStatus(t('settings_applied'));
@@ -869,7 +890,7 @@ export default function App() {
 
   const setTheme = (id) => {
     const theme = applyTheme(id);
-    saveSession({ theme: theme.id, themeBg: theme.tokens['--bg'] });
+    saveSession({ theme: theme.id, ...themeWindowColors(theme) });
   };
 
   const onAction = async (id, side = active) => {
@@ -1169,7 +1190,7 @@ export default function App() {
         </div>
       </div>
       <BottomDock visible={!!session.dockVisible} tab={dockTab} onTab={setDockTab} log={log} onClearLog={() => setLog([])} onCopyLog={copyLog}
-        terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit}
+        terms={terms} shells={shells} onNewTerm={(shell) => newTerminal(shell)} onCloseTerm={closeTerminal} onTermExit={onTermExit} onTermRestart={onTermRestart}
         onHide={() => showDock(false)} height={session.dockHeight || 220} onResizeStart={onDockResizeStart}
         prompt={session.prompt || SETTINGS_DEFAULTS.prompt} env={termEnv} themeId={session.theme}
         termColor={session.termColor !== false} termEol={session.termEol || SETTINGS_DEFAULTS.termEol} termCr={session.termCr || SETTINGS_DEFAULTS.termCr}

@@ -149,7 +149,7 @@ function columns(names, width) {
   return rows.join('\n');
 }
 
-function TerminalView({ term, active, onExit, prompt, env, themeId, termColor = true, termEol = 'auto', termCr = 'overwrite', scrollback = DEFAULT_LINES }) {
+function TerminalView({ term, active, onExit, onRestart, prompt, env, themeId, termColor = true, termEol = 'auto', termCr = 'overwrite', scrollback = DEFAULT_LINES }) {
   useLanguage();
   const [entries, setEntries] = useState(() => (Array.isArray(term.buffer) ? term.buffer : []));
   const [git, setGit] = useState(term.git === undefined ? null : term.git);
@@ -158,6 +158,7 @@ function TerminalView({ term, active, onExit, prompt, env, themeId, termColor = 
   const outRef = useRef(null);
   const inputRef = useRef(null);
   const seqRef = useRef(term.seq || 0);
+  const restartsRef = useRef(term.restarts || 0);   // shells this session has been through (see the read loop)
   const cwdRef = useRef(term.cwd);
   const gitRef = useRef(term.git);
   const [cwd, setCwd] = useState(term.cwd);
@@ -220,6 +221,14 @@ function TerminalView({ term, active, onExit, prompt, env, themeId, termColor = 
           if (stop) return;
           if (!r) { setExited(true); return; }
           if (r.chunks.length) { seqRef.current = r.seq; append(r.chunks.map((c) => c.text).join('')); }
+          // The backend had to start a new shell (the last command closed this one's input — see
+          // core/terminal.js). Nothing is written into the transcript for it: that is the shell's own
+          // output. It is said once in the log instead.
+          if (typeof r.restarts === 'number' && r.restarts !== restartsRef.current) {
+            const more = r.restarts > restartsRef.current;
+            restartsRef.current = r.restarts;
+            if (more) onRestart(term.id, r.restartCode);
+          }
           const idleNow = r.idle !== false;
           const cwdChanged = r.cwd !== cwdRef.current;
           if (cwdChanged) { cwdRef.current = r.cwd; setCwd(r.cwd); term.cwd = r.cwd; }
@@ -239,7 +248,7 @@ function TerminalView({ term, active, onExit, prompt, env, themeId, termColor = 
             const el = inputRef.current, ae = document.activeElement;
             if (el && (!ae || ae === document.body || (outRef.current && outRef.current.contains(ae)))) el.focus({ preventScroll: true });
           }
-          if (r.exited) { if (!exited) { setExited(true); term.exited = true; onExit(term.id); } return; }
+          if (r.exited) { if (!exited) { setExited(true); term.exited = true; onExit(term.id, r.code); } return; }   // the dock closes the tab: a terminal is its shell
         } catch { await new Promise((res) => setTimeout(res, 300)); }
       }
     };
@@ -252,7 +261,7 @@ function TerminalView({ term, active, onExit, prompt, env, themeId, termColor = 
 
   useEffect(() => { if (!gitReady) refreshGit(); }, [refreshGit]);   // eslint-disable-line react-hooks/exhaustive-deps
   // Keep the transcript and the git state on the tab object so they survive switching tabs.
-  useEffect(() => { term.buffer = entries; term.seq = seqRef.current; term.git = git; term.gitCwd = gitReady ? gitCwdRef.current : null; }, [entries, git, gitReady, term]);
+  useEffect(() => { term.buffer = entries; term.seq = seqRef.current; term.restarts = restartsRef.current; term.git = git; term.gitCwd = gitReady ? gitCwdRef.current : null; }, [entries, git, gitReady, term]);
   useEffect(() => { const el = outRef.current; if (el) el.scrollTop = el.scrollHeight; }, [entries, input, idle, gitReady]);
   useEffect(() => { if (active && inputRef.current) inputRef.current.focus(); }, [active]);
 
@@ -363,7 +372,7 @@ function TerminalView({ term, active, onExit, prompt, env, themeId, termColor = 
 // ── The dock ──
 // `search` ({ root } or null) is the quick-search tab: the SearchDialog docked here, searching under
 // the selected panel's folder; `visible` false keeps everything mounted (results, transcripts) but hidden.
-export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopyLog, terms, shells, onNewTerm, onCloseTerm, onTermExit, onHide, height, onResizeStart, prompt, env, themeId, termColor = true, termEol = 'auto', termCr = 'overwrite', termScrollback = DEFAULT_LINES, onTermSettings, logOpen = true, onCloseLog, search, onCloseSearch, onSearchRoot, searchHandlers = {} }) {
+export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopyLog, terms, shells, onNewTerm, onCloseTerm, onTermExit, onTermRestart, onHide, height, onResizeStart, prompt, env, themeId, termColor = true, termEol = 'auto', termCr = 'overwrite', termScrollback = DEFAULT_LINES, onTermSettings, logOpen = true, onCloseLog, search, onCloseSearch, onSearchRoot, searchHandlers = {} }) {
   useLanguage();
   const [menu, setMenu] = useState(null);
   const shellItems = shells.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
@@ -411,7 +420,7 @@ export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopy
         {terms.length === 0 && (tab === 'log' ? !logOpen : tab !== 'search') && (
           <div className="dock-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNewTerm()}>{t('term_new')}</button></div>
         )}
-        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tab === tm.id} onExit={onTermExit} prompt={prompt} env={env} themeId={themeId}
+        {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tab === tm.id} onExit={onTermExit} onRestart={onTermRestart} prompt={prompt} env={env} themeId={themeId}
           termColor={termColor} termEol={termEol} termCr={termCr} scrollback={termScrollback} />)}
       </div>
       {menu && <ContextMenu anchorEl={menu} x={0} y={0} items={shellItems} onClose={() => setMenu(null)} onPick={(id) => { setMenu(null); onNewTerm(id.slice(6)); }} />}

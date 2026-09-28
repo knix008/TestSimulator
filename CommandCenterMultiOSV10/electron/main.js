@@ -56,6 +56,35 @@ const QUIET = new Set(['preview']);
 const FIXED_SIZE = new Set(['settings', 'about']);
 // Bumped when a tool window's default size changes, so saved sizes from an older build are dropped once.
 const TOOL_BOUNDS_VERSION = 3;
+
+// ── The title bar belongs to the page ──
+// A native caption is painted by the system in the system's colours — the one part of the window a
+// theme cannot reach. So it is hidden and the page's own top row takes its place (the menu bar in the
+// main window, a caption strip in a tool window: see src/lib/titlebar.js). What stays native are the
+// window controls, drawn over that row as an overlay; the renderer sends their colours whenever the
+// theme changes (ipc.js win:titlebar).
+//   Windows — 'hidden' plus a coloured overlay.
+//   macOS   — 'hiddenInset'; the traffic lights keep their own look, so only their space is reserved.
+//   Linux   — left alone: a frameless window there would lose the controls altogether, and the window
+//             manager, not the app, owns the decoration.
+const PAGE_TITLEBAR = process.platform === 'win32' || process.platform === 'darwin';
+const CAPTION_H = 30;   // the height of that row (.menubar / .dlg-caption in src/styles.css)
+
+// The window options that hand the title bar to the page, in the theme's colours where the platform
+// allows them (Windows). `titleBarOverlay` must be set at creation for setTitleBarOverlay to work later.
+function titlebarOptions(session) {
+  if (!PAGE_TITLEBAR) return {};
+  const hex = (v) => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim()) ? v.trim() : null);
+  if (process.platform === 'darwin') return { titleBarStyle: 'hiddenInset', titleBarOverlay: true };
+  return {
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: hex(session.titleBg) || hex(session.themeBg) || '#1a2029',
+      symbolColor: hex(session.titleFg) || '#e4e9f0',
+      height: CAPTION_H,
+    },
+  };
+}
 // Title-bar icon per tool (assets/tool-icons/<kind>.png, see scripts/generate-tool-icons.mjs).
 function toolIcon(kind) {
   const p = path.join(__dirname, '..', 'assets', 'tool-icons', `${kind}.png`);
@@ -104,10 +133,12 @@ function openToolWindow({ kind, title, width, height }) {
     show: false,
     title: title || PRODUCT,
     icon: toolIcon(kind),
+    ...titlebarOptions(session),
     parent: QUIET.has(kind) && mainWin && !mainWin.isDestroyed() ? mainWin : undefined,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
   });
   win.ccKind = kind;
+  win.ccOverlay = process.platform === 'win32' && PAGE_TITLEBAR;   // setTitleBarOverlay works on this window
   toolWins.add(win);
   win.once('ready-to-show', () => (QUIET.has(kind) ? win.showInactive() : win.show()));
   // The page sets document.title; keep it (Electron would otherwise reset it on navigation).
@@ -165,7 +196,14 @@ function hideMenuPopup(reason, seq, notifyOwner = true) {
   menuSeq++;
   const owner = menuOwner;
   menuOwner = null;
+  // A click *into* the menu gives the popup the OS focus (see menuPopupWindow). Hiding it then leaves the
+  // app without focus: the page still shows a caret in whatever took the DOM focus — a new terminal's
+  // prompt, say — but typing goes nowhere until the window is clicked. So the owner gets the focus back.
+  // Only after a pick: a blur means the user went to another window, and pulling the focus back from there
+  // would be the app stealing it.
+  const hadFocus = !!(menuWin && !menuWin.isDestroyed() && (menuWin.ccHadFocus || menuWin.isFocused()));
   if (menuWin && !menuWin.isDestroyed() && menuWin.isVisible()) menuWin.hide();
+  if (reason === 'pick' && hadFocus && owner && !owner.isDestroyed()) owner.focus();
   // `notifyOwner` false when a pick is on its way: the owner treats "closed" as the end of the menu, so
   // announcing it first would make it ignore the pick that follows.
   if (notifyOwner && owner && !owner.isDestroyed()) owner.webContents.send('menu:closed', { reason: reason || 'close' });
@@ -339,15 +377,20 @@ function iconPath() {
 function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
-  const MIN_W = 1142, MIN_H = 713;   // outer size (1126×674 of content) — see .app min-width in styles.css
+  // The starting minimum is the width the icon toolbar needs, measured in the page: 1149 px in either
+  // language. Where the page draws the title bar itself the window has no frame left to add, and where
+  // it does not the renderer corrects the minimum as soon as it has measured the real row (ipc.js
+  // win:minwidth) — so this constant only has to be right before the first paint, and no size the
+  // window can be dragged to ever clips a toolbar button.
+  const MIN_W = 1149, MIN_H = 713;   // see .app min-width in styles.css
   const win = new BrowserWindow({
     // The window always opens at its minimum size; only the last position is restored.
     width: MIN_W,
     height: MIN_H,
     x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
     y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
-    // Wide enough for the full icon toolbar (measured ~1110 px) in either language, so
-    // switching the language never changes the window and no button is ever clipped.
+    // Wide enough for the full icon toolbar in either language, so switching the language never
+    // changes the window and no button is ever clipped.
     minWidth: MIN_W,
     minHeight: MIN_H,
     backgroundColor: session.themeBg || '#12161c',
@@ -355,6 +398,7 @@ function createWindow() {
     show: false,
     title: PRODUCT,
     icon: fs.existsSync(iconPath()) ? iconPath() : undefined,
+    ...titlebarOptions(session),
     webPreferences: {
       // --smoke-url=<http://…> loads the web version instead (no preload, so
       // the UI runs exactly as it does in a browser) — used by the smoke test.
@@ -366,6 +410,7 @@ function createWindow() {
     },
   });
   mainWin = win;
+  win.ccOverlay = process.platform === 'win32' && PAGE_TITLEBAR;   // setTitleBarOverlay works on this window
 
   win.once('ready-to-show', () => win.show());
 
@@ -483,11 +528,21 @@ function buildMenu() {
   ]));
 }
 
-const gotLock = app.requestSingleInstanceLock();
+// One app at a time. A second launch of the *installed* app brings the open window to the front — that is
+// what double-clicking the icon again should do. A second launch in development means something else: `npm
+// start` is how the new code is run, so it must not be a silent no-op (which is what it was — the run ended
+// in a quarter of a second with nothing to show for it). The development launch asks the instance holding
+// the lock to step aside and exits with a code the launcher knows, and scripts/start-electron.mjs starts
+// again once the old one is gone. An installed app holding the lock ignores the request, and the launcher
+// says so rather than retrying for ever.
+const TAKE_OVER_EXIT = 3;
+const gotLock = app.requestSingleInstanceLock({ replace: isDev });
 if (!gotLock) {
-  app.quit();
+  if (isDev) app.exit(TAKE_OVER_EXIT);
+  else app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, _argv, _cwd, data) => {
+    if (isDev && data && data.replace) { app.quit(); return; }   // make room for the run that just started
     if (!mainWin) return;
     if (mainWin.isMinimized()) mainWin.restore();
     mainWin.focus();

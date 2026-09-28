@@ -5,11 +5,12 @@
 // toolbar holds the theme picker (30 themes), the language toggle and the
 // About button. Toolbar buttons are icon-only; the tooltip (and aria-label)
 // carries the description.
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { allThemes, themeById, nextThemeId } from '../themes';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
+import { rowWidth, setChromeMinWidth } from '../lib/minwidth';
 
 // A long path in the recent-folders list keeps its start and its end ("C:\Home\…\src\components").
 function shortenPath(p, max = 64) {
@@ -112,6 +113,12 @@ export function MenuBar({ onAction, state }) {
           <Icon name={icon} size={14} className="menu-icon" />{t(label)}
         </button>
       ))}
+      {/* This row *is* the window's title bar where the host lets the page draw it (src/lib/titlebar.js),
+          so it carries the window title — the native caption that used to show it is gone. Hidden
+          otherwise, where the real title bar is still above us. */}
+      <span className="menubar-spacer" />
+      <span className="menubar-title ellipsis">{t('appName')}</span>
+      <span className="menubar-spacer" />
       {open && (
         <ContextMenu anchorEl={open.el} x={0} y={0} items={menus[open.id]} onClose={() => setOpen(null)}
           onPick={(id, keep) => { if (!keep) setOpen(null); onAction(id); }} />
@@ -171,8 +178,24 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
   // Undo / redo: icon-only buttons whose tooltip names the operation they would reverse / replay.
   const undoTip = state.canUndo ? `${t('tip_undo')}\n${state.undoWhat}` : t('tip_undo_none');
   const redoTip = state.canRedo ? `${t('tip_redo')}\n${state.redoWhat}` : t('tip_redo_none');
+
+  // No button may ever be cut off: the row measures itself and that width becomes the page's (and the
+  // window's) minimum — see src/lib/minwidth.js. Re-measured whenever the row can have changed size:
+  // the button count (the trash button is platform-dependent), the language (the flag is the only
+  // button whose width the language decides) and the moment the fonts land.
+  const rowRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = rowRef.current;
+    if (!el) return undefined;
+    const measure = () => setChromeMinWidth(rowWidth(el));
+    measure();
+    let live = true;
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (live) measure(); }).catch(() => { /* no font API */ });
+    return () => { live = false; };
+  }, [lang, items.length]);
+
   return (
-    <div className="toolbar">
+    <div className="toolbar" ref={rowRef}>
       <button className="tb-btn tb-icon-only" title={undoTip} aria-label={t('undo')} disabled={!state.canUndo} onClick={() => onAction('undo')}><Icon name="undo" /></button>
       <button className="tb-btn tb-icon-only" title={redoTip} aria-label={t('redo')} disabled={!state.canRedo} onClick={() => onAction('redo')}><Icon name="redo" /></button>
       <span className="tb-sep" />

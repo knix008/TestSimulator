@@ -243,6 +243,12 @@ export const menuPopup = (isElectron && electron.popupMenu && windowKind !== 'me
 // whatever size it was opened with.
 export const fitWindow = (isElectron && electron.fitWindow) ? ((height) => electron.fitWindow(height)) : null;
 
+// The width the toolbar needs (src/lib/minwidth.js) becomes the window's minimum width. In a browser
+// there is nothing to tell: the page's own min-width already makes it scroll instead of clipping.
+export function setMinContentWidth(width) {
+  if (isElectron && electron.setMinContentWidth) electron.setMinContentWidth(width);
+}
+
 const webChildren = new Set();
 const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about']);   // one popup per tool
 const QUIET_KINDS = new Set(['preview']);   // re-used without taking the focus (it follows clicks in the file list)
