@@ -115,8 +115,23 @@ window.ContextMenu = (() => {
     try { await window.electronAPI.popupMenuRefresh(_payload(list)); } catch (err) { console.error(err); }
   }
 
+  /**
+   * A list too tall for the screen (the 40-palette theme picker) flows into
+   * extra columns instead of being clipped. Multi-column needs a fixed height,
+   * so it is only applied once we know the natural height does not fit.
+   */
+  function _fitColumns(el) {
+    el.classList.remove('is-columns');
+    el.style.height = '';
+    const avail = window.innerHeight - 8;
+    if (el.scrollHeight <= avail) return;
+    el.style.height = `${avail}px`;
+    el.classList.add('is-columns');
+  }
+
   function _place(el, x, y) {
     el.style.display = 'block';
+    _fitColumns(el);
     const rect = el.getBoundingClientRect();
     let left = x, top = y;
     if (left + rect.width  > window.innerWidth)  left = window.innerWidth  - rect.width  - 4;

@@ -92,3 +92,11 @@ tests/results.json
 shots/
 scratch/
 *.orig.js
+
+# Electron profiles left behind by --user-data-dir when driving the app over CDP
+udata/
+.electron-user-data/
+
+# Editor / tooling local overrides
+.claude/settings.local.json
+*.code-workspace

@@ -93,6 +93,9 @@ function loadSources() {
     pkg: JSON.parse(read('package.json')),
     themes: read('src/js/themes.js'),
     fileTree: read('src/js/fileTree.js'),
+    browse: read('src/js/browse.js'),
+    thumbs: read('src/js/thumbs.js'),
+    contextMenu: read('src/js/contextMenu.js'),
     formatSupport: read('src/js/formatSupport.js'),
   };
 }

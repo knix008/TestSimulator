@@ -116,8 +116,8 @@ window.Icons = {
   // DICOM viewer
   layers: `<svg viewBox="0 0 24 24"><path d="M12 3 2 8.5l10 5.5 10-5.5L12 3zm0 2.3 5.9 3.2L12 11.7 6.1 8.5 12 5.3zM4.2 12.6 2 13.8l10 5.5 10-5.5-2.2-1.2L12 17l-7.8-4.4z"/></svg>`,
   annotations: `<svg viewBox="0 0 24 24"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 0h2v6h-6v-2h4v-4zM9 8h6v2h-2v6h-2v-6H9V8z"/></svg>`,
-  ruler: `<svg viewBox="0 0 24 24"><path d="M20.7 6.3 17.7 3.3a1 1 0 0 0-1.4 0L3.3 16.3a1 1 0 0 0 0 1.4l3 3a1 1 0 0 0 1.4 0l13-13a1 1 0 0 0 0-1.4zM7 18.6 5.4 17l1.8-1.8 1.1 1.1.7-.7-1.1-1.1 1.8-1.8 1.1 1.1.7-.7-1.1-1.1 1.8-1.8 1.1 1.1.7-.7-1.1-1.1 1.8-1.8 1.1 1.1.7-.7-1.1-1.1L17 5.4 18.6 7 7 18.6z"/></svg>`,
-  angle: `<svg viewBox="0 0 24 24"><path d="M4 20V4h2v11.2A9 9 0 0 1 12.8 18H20v2H4zm2-2h4.6A7 7 0 0 0 6 13.4V18z"/></svg>`,
+  ruler: `<svg viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 6v12M20 6v12M7 12h10M10 9l-3 3 3 3M14 9l3 3-3 3"/></svg>`,
+  angle: `<svg viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 20h16M4 20 18 6M12 20A8 8 0 0 0 9.66 14.34"/></svg>`,
   ellipse: `<svg viewBox="0 0 24 24"><path d="M12 5c-5 0-9 3.1-9 7s4 7 9 7 9-3.1 9-7-4-7-9-7zm0 2c3.9 0 7 2.2 7 5s-3.1 5-7 5-7-2.2-7-5 3.1-5 7-5z"/></svg>`,
   rectRoi: `<svg viewBox="0 0 24 24"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5z"/></svg>`,
 

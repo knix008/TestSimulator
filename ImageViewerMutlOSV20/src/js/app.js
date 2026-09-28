@@ -121,6 +121,8 @@
   const dcmColormap    = document.getElementById('dcm-colormap');
   const dcmOverlaysBtn = document.getElementById('dcm-overlays');
   const dcmAnnotBtn    = document.getElementById('dcm-annot');
+  const dcmRulerBtn    = document.getElementById('dcm-ruler-axes');
+  const dcmScaleBtn    = document.getElementById('dcm-scale');
   const dcmToolsWrap   = document.getElementById('dcm-tools-wrap');
   const dcmOverlay     = document.getElementById('dcm-overlay');
   const statusProbe    = document.getElementById('status-probe');
@@ -130,6 +132,12 @@
   let _dicomCineTimer = null;
   let _dicomCineFps = null;   // user override of the cine speed (null → the file's frame timing)
   let _dicomAnnotOn = localStorage.getItem('dicomAnnotations') !== '0';   // corner annotations / markers / scale bar
+  let _dicomRulerOn = localStorage.getItem('dicomRulerAxes') === '1';     // graduated rulers down both axes
+  let _dicomScaleOn = localStorage.getItem('dicomScaleBar') !== '0';      // the movable scale bar
+  const DCM_SCALE_HOME = { x: 0.03, y: 0.07 };   // top-left, as a fraction of the viewer box
+  let _dicomScalePos = _loadDicomScalePos();     // where the user parked the scale bar
+  let _dicomScaleBox = null;  // last drawn scale-bar rect, for hit testing
+  let _dicomScaleDrag = null; // { dx, dy } while dragging it
   let _dicomTool = null;      // active measurement tool: null | 'ruler' | 'angle' | 'ellipse' | 'rect'
   let _dicomMeas = [];        // measurements [{ type, frame, pts: [{ x, y }] }] in image pixels
   let _dicomDraft = null;     // the measurement being drawn
@@ -223,6 +231,9 @@
   /* ─── File Tree init ─── */
   FileTree.init(fileTreeScroll, {
     onSelect: (p) => _openFile(p),
+    // Double-click is the explicit "just show me this image" gesture: it always
+    // leaves the contact sheet behind, whatever the browse mode says.
+    onActivate: (p) => { Browse.hide(); _openFile(p, { center: true }); },
     onDirOpen: (p, info = {}) => {
       _rememberRecentDir(p);
       _watchDir(p);
@@ -590,13 +601,14 @@
       { id:'btn-zoom-out',    icon:'zoomOut',    tip:'toolbar.zoomOut',    action: () => _zoom(0.8),  disabled: true },
       { zoomDisplay: true },
       { id:'btn-zoom-in',     icon:'zoomIn',     tip:'toolbar.zoomIn',     action: () => _zoom(1.25), disabled: true },
-      { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
       { separator: true },
       // Panels: show / hide the explorer and the file info, and move the info panel left ⇄ right
       { id:'btn-browse',      icon:'viewGrid',   tip: _browseTip,          action: () => _toggleBrowseMode() },
       { id:'btn-panel-tree',  icon:'folderOpen', tip: _treePanelTip,       action: () => _toggleTreePanel() },
       { id:'btn-panel-info',  icon:'fileInfo',   tip: _infoPanelTip,       action: () => _toggleInfoPanel() },
       { id:'btn-panel-dock',  icon:'panelRight', tip: _infoDockTip,        action: () => _toggleInfoDock() },
+      { separator: true },
+      { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
       { spacer: true },
       // Theme: palette = jump to the next theme, ▾ = pick one from the list
       { id:'btn-theme',       icon:'palette',    tip: _themeButtonTip,     action: _nextTheme },
@@ -1694,6 +1706,9 @@
 
   async function _openFile(filePath, { center = false } = {}) {
     if (!filePath) return;
+    // Opening a file means "show me this one image" — the contact sheet, which
+    // sits on top of the viewer, has to step aside or nothing becomes visible.
+    if (window.Browse?.isVisible?.()) Browse.hide();
     // Prevent overlapping opens (Windows fs.watch often fires when we read the file)
     if (_openingFile && _openingFile === filePath) return;
     // Reading the file/dir on Windows trips fs.watch — keep the explorer still.
@@ -1929,6 +1944,8 @@
 
   function _dicomHasBar() {
     const d = state.dicom;
+    // The contact sheet covers the viewer: its DICOM bar and overlay would sit on top.
+    if (window.Browse?.isVisible?.()) return false;
     return !!(d && Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.editMode);
   }
 
@@ -2056,6 +2073,14 @@
     if (dcmAnnotBtn) {
       dcmAnnotBtn.classList.toggle('is-active', _dicomAnnotOn);
       dcmAnnotBtn.setAttribute('aria-pressed', _dicomAnnotOn ? 'true' : 'false');
+    }
+    if (dcmRulerBtn) {
+      dcmRulerBtn.classList.toggle('is-active', _dicomRulerOn);
+      dcmRulerBtn.setAttribute('aria-pressed', _dicomRulerOn ? 'true' : 'false');
+    }
+    if (dcmScaleBtn) {
+      dcmScaleBtn.classList.toggle('is-active', _dicomScaleOn);
+      dcmScaleBtn.setAttribute('aria-pressed', _dicomScaleOn ? 'true' : 'false');
     }
     const toolsOk = _dicomGeomValid();
     dcmToolsWrap?.querySelectorAll('.dcm-tool').forEach((b) => {
@@ -2270,6 +2295,8 @@
     });
     dcmOverlaysBtn?.addEventListener('click', _dicomToggleOverlays);
     dcmAnnotBtn?.addEventListener('click', _dicomToggleAnnotations);
+    dcmRulerBtn?.addEventListener('click', _dicomToggleRulerAxes);
+    dcmScaleBtn?.addEventListener('click', _dicomToggleScaleBar);
     dcmToolsWrap?.querySelectorAll('.dcm-tool').forEach((b) => {
       b.addEventListener('click', () => _dicomSetTool(_dicomTool === b.dataset.tool ? null : b.dataset.tool));
     });
@@ -2499,6 +2526,69 @@
     _dicomOverlayRequest();
   }
 
+  function _dicomToggleRulerAxes() {
+    _dicomRulerOn = !_dicomRulerOn;
+    localStorage.setItem('dicomRulerAxes', _dicomRulerOn ? '1' : '0');
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+  }
+
+  function _dicomToggleScaleBar() {
+    _dicomScaleOn = !_dicomScaleOn;
+    localStorage.setItem('dicomScaleBar', _dicomScaleOn ? '1' : '0');
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+  }
+
+  /* ── Scale bar: parked wherever the user dropped it, remembered across sessions ── */
+
+  function _loadDicomScalePos() {
+    try {
+      const v = JSON.parse(localStorage.getItem('dicomScalePos') || 'null');
+      if (v && Number.isFinite(v.x) && Number.isFinite(v.y)) {
+        return { x: Math.min(1, Math.max(0, v.x)), y: Math.min(1, Math.max(0, v.y)) };
+      }
+    } catch { /* fall back to the default corner */ }
+    return { ...DCM_SCALE_HOME };
+  }
+
+  function _saveDicomScalePos() {
+    try { localStorage.setItem('dicomScalePos', JSON.stringify(_dicomScalePos)); } catch { /* ignore */ }
+  }
+
+  function _dicomResetScalePos() {
+    _dicomScalePos = { ...DCM_SCALE_HOME };
+    _saveDicomScalePos();
+    _dicomOverlayRequest();
+  }
+
+  /** Physical units per screen pixel along each screen axis (null → plain pixels). */
+  function _dicomScreenUnits(map) {
+    const sp = _dicomSpacing();
+    const ux = map.dirToImage(1, 0);
+    const uy = map.dirToImage(0, 1);
+    if (sp && sp[0] > 0 && sp[1] > 0) {
+      return {
+        mm: true,
+        x: Math.hypot(ux.x * sp[1], ux.y * sp[0]) / map.scale,
+        y: Math.hypot(uy.x * sp[1], uy.y * sp[0]) / map.scale,
+      };
+    }
+    return { mm: false, x: Math.hypot(ux.x, ux.y) / map.scale, y: Math.hypot(uy.x, uy.y) / map.scale };
+  }
+
+  /** A round tick step whose on-screen size is at least `minPx`. */
+  function _dicomTickStep(perPx, minPx) {
+    const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+    return steps.find((s) => s / perPx >= minPx) || steps[steps.length - 1];
+  }
+
+  function _dicomUnitLabel(v, mm) {
+    if (!mm) return String(Math.round(v));
+    if (v >= 10) return `${+(v / 10).toFixed(v % 10 ? 1 : 0)} cm`;
+    return `${+v.toFixed(v < 1 ? 1 : 0)} mm`;
+  }
+
   function _dicomSetTool(tool) {
     if (tool && !_dicomGeomValid()) tool = null;
     _dicomTool = tool;
@@ -2525,7 +2615,8 @@
     if (!dcmOverlay) return;
     const d = state.dicom;
     const map = _dicomMapping();
-    const on = !!(d && map && _dicomHasBar() && (_dicomAnnotOn || _dicomMeas.length || _dicomDraft || _dicomTool));
+    const on = !!(d && map && _dicomHasBar()
+      && (_dicomAnnotOn || _dicomRulerOn || _dicomScaleOn || _dicomMeas.length || _dicomDraft || _dicomTool));
     dcmOverlay.classList.toggle('is-on', on);
     if (!on) return;
     const dpr = window.devicePixelRatio || 1;
@@ -2545,8 +2636,78 @@
       const br = dicomBar.getBoundingClientRect(), vr = viewerContainer.getBoundingClientRect();
       if (br.height) bottom = Math.min(bottom, br.top - vr.top - 8);
     }
+    if (_dicomRulerOn) _dicomDrawRulerAxes(ctx, map, W, H, bottom);
     if (_dicomAnnotOn) _dicomDrawAnnotations(ctx, d, map, W, H, bottom);
+    if (_dicomScaleOn) _dicomDrawScaleBar(ctx, map, W, bottom);
+    else _dicomScaleBox = null;
     _dicomDrawMeasurements(ctx, d, map, W, bottom);
+  }
+
+  /* Graduated rulers down the whole X and Y axes, zeroed on the image origin. */
+  const DCM_RULER_BAND = 22;
+
+  function _dicomDrawRulerAxes(ctx, map, W, H, bottom) {
+    const u = _dicomScreenUnits(map);
+    if (!(u.x > 0) || !(u.y > 0)) return;
+    const origin = map.toScreen(0, 0);
+    const band = DCM_RULER_BAND;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(0, 0, W, band);
+    ctx.fillRect(0, band, band, bottom - band);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, band + 0.5); ctx.lineTo(W, band + 0.5);
+    ctx.moveTo(band + 0.5, band); ctx.lineTo(band + 0.5, bottom);
+    ctx.stroke();
+
+    ctx.font = '10px system-ui, "Segoe UI", sans-serif';
+    ctx.strokeStyle = '#d7e9ff';
+    ctx.fillStyle = '#d7e9ff';
+    ctx.lineWidth = 1;
+
+    // X axis along the top edge
+    const stepX = _dicomTickStep(u.x, 64);
+    const pxX = stepX / u.x;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    for (let k = Math.ceil((0 - origin.x) / pxX) - 1; ; k++) {
+      const x = origin.x + k * pxX;
+      if (x > W + pxX) break;
+      for (let s = 0; s < 5; s++) {
+        const mx = x + (s * pxX) / 5;
+        if (mx < 0 || mx > W) continue;
+        const len = s === 0 ? 10 : 5;
+        ctx.beginPath(); ctx.moveTo(Math.round(mx) + 0.5, band - len); ctx.lineTo(Math.round(mx) + 0.5, band); ctx.stroke();
+      }
+      if (x >= 0 && x <= W - 4) ctx.fillText(_dicomUnitLabel(k * stepX, u.mm), x + 3, 2);
+    }
+
+    // Y axis down the left edge
+    const stepY = _dicomTickStep(u.y, 64);
+    const pxY = stepY / u.y;
+    for (let k = Math.ceil((band - origin.y) / pxY) - 1; ; k++) {
+      const y = origin.y + k * pxY;
+      if (y > bottom + pxY) break;
+      for (let s = 0; s < 5; s++) {
+        const my = y + (s * pxY) / 5;
+        if (my < band || my > bottom) continue;
+        const len = s === 0 ? 10 : 5;
+        ctx.beginPath(); ctx.moveTo(band - len, Math.round(my) + 0.5); ctx.lineTo(band, Math.round(my) + 0.5); ctx.stroke();
+      }
+      if (y >= band && y <= bottom - 4) {
+        ctx.save();
+        ctx.translate(2, y + 3);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(_dicomUnitLabel(k * stepY, u.mm), 0, 0);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
   }
 
   function _dcmText(ctx, text, x, y, align = 'left', color = '#fff') {
@@ -2584,13 +2745,16 @@
     let fi = null;
     try { fi = d.frameInfo ? d.frameInfo(st.frame) : null; } catch { fi = null; }
     const lh = 15, margin = 10;
+    // The ruler bands own the top and left edges; text there starts inside them
+    const inset = _dicomRulerOn ? DCM_RULER_BAND : 0;
+    const inLeft = margin + inset, inTop = margin + inset;
     // Top-left: patient
     const tl = [
       m.patientName,
       m.patientId,
       [m.patientSex, m.patientAge || m.patientBirthDate].filter(Boolean).join(' · '),
     ].filter(Boolean);
-    tl.forEach((s, i) => _dcmText(ctx, s, margin, margin + i * lh));
+    tl.forEach((s, i) => _dcmText(ctx, s, inLeft, inTop + i * lh));
     // Top-right: study / series / equipment
     const tr = [
       m.institution,
@@ -2600,7 +2764,7 @@
       m.seriesDescription,
       [m.seriesNumber ? `Se ${m.seriesNumber}` : '', m.instanceNumber ? `Im ${m.instanceNumber}` : ''].filter(Boolean).join(' · '),
     ].filter(Boolean);
-    tr.forEach((s, i) => _dcmText(ctx, s, W - margin, margin + i * lh, 'right'));
+    tr.forEach((s, i) => _dcmText(ctx, s, W - margin, inTop + i * lh, 'right'));
     // Bottom-left: image geometry
     const sp = _dicomSpacing();
     const bl = [
@@ -2610,7 +2774,7 @@
       sp ? `${_dicomFmtVal(sp[1])} × ${_dicomFmtVal(sp[0])} mm/px` : '',
       m.bitDepth || '',
     ].filter(Boolean);
-    bl.forEach((s, i) => _dcmText(ctx, s, margin, bottom - bl.length * lh + i * lh));
+    bl.forEach((s, i) => _dcmText(ctx, s, inLeft, bottom - bl.length * lh + i * lh));
     // Bottom-right: window / LUT / colour map / zoom
     const br = [];
     if (d.gray) {
@@ -2626,35 +2790,66 @@
       ctx.font = 'bold 15px system-ui, "Segoe UI", sans-serif';
       const mk = (dx, dy) => { const v = map.dirToImage(dx, dy); try { return d.dirLabel(v.x, v.y) || ''; } catch { return ''; } };
       const right = mk(1, 0), left = mk(-1, 0), down = mk(0, 1), up = mk(0, -1);
-      const cy = (bottom + margin) / 2;
+      const cy = (bottom + inTop) / 2;
       ctx.textBaseline = 'middle';
-      _dcmText(ctx, left, margin + 4, cy, 'left', '#9be7ff');
+      _dcmText(ctx, left, inLeft + 4, cy, 'left', '#9be7ff');
       _dcmText(ctx, right, W - margin - 4, cy, 'right', '#9be7ff');
       ctx.textBaseline = 'top';
-      _dcmText(ctx, up, W / 2, margin, 'center', '#9be7ff');
+      _dcmText(ctx, up, W / 2, inTop, 'center', '#9be7ff');
       _dcmText(ctx, down, W / 2, bottom - 16, 'center', '#9be7ff');
       ctx.font = '12px system-ui, "Segoe UI", sans-serif';
     }
-    // Scale bar: vertical along the right edge (row spacing), when the pixel spacing is known
-    if (sp && sp[0] > 0) {
-      const pxPerMm = map.scale / sp[0];
-      const choices = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
-      const mm = choices.find((c) => c * pxPerMm >= 60) || choices[choices.length - 1];
-      const len = mm * pxPerMm;
-      const avail = bottom - br.length * lh - 12 - ((bottom + margin) / 2 + 22);
-      if (len <= avail) {
-        const x = W - margin - 6, y0 = (bottom + margin) / 2 + 22;
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + len); ctx.moveTo(x - 6, y0); ctx.lineTo(x + 6, y0); ctx.moveTo(x - 6, y0 + len); ctx.lineTo(x + 6, y0 + len); ctx.stroke();
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = '#fff';
-        ctx.stroke();
-        ctx.textBaseline = 'middle';
-        _dcmText(ctx, mm >= 10 ? `${mm / 10} cm` : `${mm} mm`, x - 10, y0 + len / 2, 'right');
-        ctx.textBaseline = 'top';
-      }
+  }
+
+  /**
+   * Scale bar — horizontal, parked at the top-left until the user drags it
+   * somewhere else; `_dicomScaleBox` is what the drag hit-tests against.
+   */
+  function _dicomDrawScaleBar(ctx, map, W, bottom) {
+    _dicomScaleBox = null;
+    const u = _dicomScreenUnits(map);
+    if (!(u.x > 0)) return;
+    const step = _dicomTickStep(u.x, 80);
+    const len = step / u.x;
+    const label = _dicomUnitLabel(step, u.mm);
+    const h = 26;
+    const topLimit = _dicomRulerOn ? DCM_RULER_BAND + 4 : 6;
+    const leftLimit = _dicomRulerOn ? DCM_RULER_BAND + 4 : 6;
+    if (len > W - leftLimit - 6) return;   // too wide to place anywhere sensible
+
+    let x = _dicomScalePos.x * W;
+    let y = _dicomScalePos.y * bottom;
+    x = Math.max(leftLimit, Math.min(W - len - 6, x));
+    y = Math.max(topLimit, Math.min(bottom - h - 6, y));
+    _dicomScaleBox = { x: x - 8, y: y - 6, w: len + 16, h: h + 10 };
+
+    const yBar = y + h - 8;
+    ctx.save();
+    if (_dicomScaleDrag) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.10)';
+      ctx.fillRect(_dicomScaleBox.x, _dicomScaleBox.y, _dicomScaleBox.w, _dicomScaleBox.h);
     }
+    for (const [width, colour] of [[3.5, 'rgba(0, 0, 0, 0.8)'], [1.5, '#fff']]) {
+      ctx.lineWidth = width;
+      ctx.strokeStyle = colour;
+      ctx.beginPath();
+      ctx.moveTo(x, yBar); ctx.lineTo(x + len, yBar);
+      ctx.moveTo(x, yBar - 6); ctx.lineTo(x, yBar + 6);
+      ctx.moveTo(x + len, yBar - 6); ctx.lineTo(x + len, yBar + 6);
+      ctx.moveTo(x + len / 2, yBar - 4); ctx.lineTo(x + len / 2, yBar + 4);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.textBaseline = 'top';
+    _dcmText(ctx, label, x + len / 2, y - 2, 'center');
+  }
+
+  function _dicomScaleHitTest(clientX, clientY) {
+    const b = _dicomScaleBox;
+    if (!b || !_dicomScaleOn || !viewerContainer) return false;
+    const r = viewerContainer.getBoundingClientRect();
+    const x = clientX - r.left, y = clientY - r.top;
+    return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
   }
 
   function _dicomDrawMeasurements(ctx, d, map, W, H) {
@@ -2789,8 +2984,55 @@
     statusProbe.textContent = on ? `${I18n.t('dicom.probe')} ${text}` : '';
   }
 
+  /** Dragging the scale bar around the viewer; the spot is remembered on drop. */
+  function _initDicomScaleDrag() {
+    if (!viewerContainer) return;
+    viewerContainer.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || _dicomTool) return;
+      if (!state.dicom || !_dicomHasBar()) return;
+      if (!_dicomScaleHitTest(e.clientX, e.clientY)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const r = viewerContainer.getBoundingClientRect();
+      _dicomScaleDrag = {
+        dx: (e.clientX - r.left) - _dicomScalePos.x * r.width,
+        dy: (e.clientY - r.top) - _dicomScalePos.y * r.height,
+      };
+      _dicomOverlayRequest();
+    }, true);
+
+    window.addEventListener('mousemove', (e) => {
+      if (!_dicomScaleDrag) return;
+      const r = viewerContainer.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      _dicomScalePos = {
+        x: Math.min(1, Math.max(0, ((e.clientX - r.left) - _dicomScaleDrag.dx) / r.width)),
+        y: Math.min(1, Math.max(0, ((e.clientY - r.top) - _dicomScaleDrag.dy) / r.height)),
+      };
+      _dicomOverlayRequest();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!_dicomScaleDrag) return;
+      _dicomScaleDrag = null;
+      _saveDicomScalePos();
+      _dicomOverlayRequest();
+    });
+
+    // Hovering it says "you can move this"
+    viewerContainer.addEventListener('mousemove', (e) => {
+      if (_dicomScaleDrag) return;
+      const on = !_dicomTool && !!state.dicom && _dicomHasBar() && _dicomScaleHitTest(e.clientX, e.clientY);
+      viewerContainer.classList.toggle('dcm-scale-grab', on);
+    });
+    viewerContainer.addEventListener('mouseleave', () => {
+      viewerContainer.classList.remove('dcm-scale-grab');
+    });
+  }
+
   function _initDicomOverlay() {
     if (!dcmOverlay) return;
+    _initDicomScaleDrag();
     // Measurement tools draw on the overlay while a tool is active (left button only —
     // Ctrl+drag / middle button keep their windowing / pan meaning)
     dcmOverlay.addEventListener('mousedown', (e) => {
@@ -2978,6 +3220,8 @@
       if (e.key === 'm' || e.key === 'M') { _dicomCycleColormap(); return true; }
     }
     if (e.key === 'o' || e.key === 'O') { _dicomToggleAnnotations(); return true; }
+    if (e.key === 'g' || e.key === 'G') { _dicomToggleRulerAxes(); return true; }
+    if (e.key === 'b' || e.key === 'B') { _dicomToggleScaleBar(); return true; }
     if ((e.key === 'v' || e.key === 'V') && d.overlays && d.overlays.length) { _dicomToggleOverlays(); return true; }
     if (_dicomGeomValid()) {
       const tools = { r: 'ruler', a: 'angle', e: 'ellipse', t: 'rect' };
@@ -3035,6 +3279,9 @@
       }) });
     }
     items.push({ icon: Icons.annotations, label: t('dicom.annotations'), shortcut: 'O', checked: _dicomAnnotOn, action: _dicomToggleAnnotations });
+    items.push({ icon: Icons.ruler, label: t('dicom.rulerAxes'), shortcut: 'G', checked: _dicomRulerOn, action: _dicomToggleRulerAxes });
+    items.push({ icon: Icons.resize, label: t('dicom.scaleBar'), shortcut: 'B', checked: _dicomScaleOn, action: _dicomToggleScaleBar });
+    items.push({ icon: Icons.reset, label: t('dicom.scaleReset'), action: _dicomResetScalePos });
     if (d.overlays && d.overlays.length) {
       items.push({ icon: Icons.layers, label: t('dicom.overlays'), shortcut: 'V', checked: !!d.state.overlays, action: _dicomToggleOverlays });
     }
@@ -3212,7 +3459,8 @@
 
   function _updateMediaControlsVisibility() {
     if (!mediaControls) return;
-    const show = !state.editMode && (state.isVideo || state.isAnimated);
+    const show = !state.editMode && (state.isVideo || state.isAnimated)
+      && !window.Browse?.isVisible?.();   // the contact sheet covers the player
     mediaControls.hidden = !show;
     mediaControls.style.display = show ? 'flex' : 'none';
     mediaControls.classList.toggle('is-on', show);
@@ -7281,8 +7529,11 @@
 
     const stats = await window.electronAPI.getFileStats(filePath);
     const meta = await _ensureImageMeta(filePath, dicomMeta);
-    // Always overlay live player metrics for open A/V
-    if (meta) {
+    // Overlay live player metrics — but only for the file the player actually holds
+    // (the contact sheet previews other files through this same function).
+    const isOpenFile = !!state.currentFile &&
+      _normWatchPath(state.currentFile) === _normWatchPath(filePath);
+    if (meta && isOpenFile) {
       const basic = meta.basic || (meta.basic = {});
       if (state.isVideo && videoEl) {
         if (videoEl.videoWidth) basic.width = videoEl.videoWidth;
@@ -7293,7 +7544,8 @@
         if (Number.isFinite(audioEl.duration) && audioEl.duration > 0) basic.duration = audioEl.duration;
       }
     }
-    const sections = _collectInfoSections(filePath, stats, meta, state.dicomMeta);
+    const sections = _collectInfoSections(filePath, stats, meta,
+      isOpenFile ? state.dicomMeta : null);
     infoContent.innerHTML = _renderInfoSections(sections)
       || `<div class="info-no-file" data-i18n="info.noFile">${I18n.t('info.noFile')}</div>`;
     _reflowInfoPanel();
@@ -8872,6 +9124,10 @@
     if (dcmColormap) dcmColormap.dataset.lang = '';
     _dicomSyncBar();
     _dicomOverlayRequest();
+    // Chrome built in JS (not via data-i18n) has to be rebuilt by hand
+    window.Browse?.applyI18n?.();
+    window.FileTree?.applyI18n?.();
+    _syncBrowseChrome();
     _syncEditThemeLangBtns();
     _syncMenu();
     requestAnimationFrame(() => _syncWindowMinSize());
@@ -9054,7 +9310,42 @@
     _applyPanelLayout();
   }
 
-  function _browseTip() { return I18n.t(_browseMode ? 'toolbar.browseOff' : 'toolbar.browseOn'); }
+  /** True only while the contact sheet is the thing on screen. */
+  function _browseShowing() { return _browseMode && !!Browse.isVisible?.(); }
+
+  /**
+   * Selecting (not opening) a file in the contact sheet fills the File Info
+   * panel, so browsing a folder reads like an explorer. Debounced because
+   * clicking down a row of thumbnails would otherwise queue a read each time.
+   */
+  let _previewInfoTimer = null;
+  function _previewFileInfo(filePath) {
+    clearTimeout(_previewInfoTimer);
+    _previewInfoTimer = setTimeout(() => {
+      if (!_layout.info) return;             // panel closed — nothing to fill
+      const target = filePath || state.currentFile || null;
+      // Previewing another file would clobber the open file's cached metadata.
+      const other = target && state.currentFile &&
+        _normWatchPath(target) !== _normWatchPath(state.currentFile);
+      const saved = other
+        ? { metaForFile: state.metaForFile, imageMeta: state.imageMeta, dicomMeta: state.dicomMeta }
+        : null;
+      _updateInfoPanel(target)
+        .catch(() => { /* unreadable file */ })
+        .then(() => { if (saved) Object.assign(state, saved); });
+    }, 120);
+  }
+
+  function _browseTip() { return I18n.t(_browseShowing() ? 'toolbar.browseOff' : 'toolbar.browseOn'); }
+
+  /** The toolbar button tracks what is on screen, not just the stored mode. */
+  function _syncBrowseChrome() {
+    document.getElementById('btn-browse')?.classList.toggle('active', _browseShowing());
+    // Viewer chrome (DICOM bar / overlay, media transport) hides behind the sheet
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+    _updateMediaControlsVisibility();
+  }
 
   function _initBrowse() {
     const host = document.getElementById('browse-view');
@@ -9063,15 +9354,17 @@
       onOpenFile: (p) => { Browse.hide(); _openFile(p); },
       onOpenDir: (p) => { _rememberRecentDir(p); _watchDir(p); FileTree.revealPath?.(p); },
       onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
+      onSelect: (p) => _previewFileInfo(p),
+      onVisibility: () => _syncBrowseChrome(),
     });
     _applyBrowseMode({ initial: true });
   }
 
   function _applyBrowseMode({ initial = false } = {}) {
     FileTree.setFoldersOnly?.(_browseMode);
-    document.getElementById('btn-browse')?.classList.toggle('active', _browseMode);
     if (!_browseMode) {
       Browse.hide();
+      _syncBrowseChrome();
       return;
     }
     const dir = Browse.getDir() || FileTree.getRoot();
@@ -9081,10 +9374,19 @@
     } else {
       Browse.show();
     }
+    _syncBrowseChrome();
   }
 
   function _toggleBrowseMode(force) {
-    _browseMode = typeof force === 'boolean' ? force : !_browseMode;
+    if (typeof force === 'boolean') {
+      _browseMode = force;
+    } else if (_browseMode && !Browse.isVisible?.()) {
+      // Mode is on but an image is open — the button means "back to the sheet".
+      _applyBrowseMode();
+      return;
+    } else {
+      _browseMode = !_browseMode;
+    }
     try { localStorage.setItem(BROWSE_KEY, _browseMode ? '1' : '0'); } catch { /* ignore */ }
     _applyBrowseMode();
   }

@@ -61,11 +61,20 @@ module.exports = {
 
     const Themes = require(require('path').join(h.ROOT, 'src/js/themes.js'));
 
-    test('Theme registry has 10 dark and 10 light palettes', () => {
-      assert(Themes.ofKind('dark').length === 10, `dark ${Themes.ofKind('dark').length}`);
-      assert(Themes.ofKind('light').length === 10, `light ${Themes.ofKind('light').length}`);
-      assert(Themes.list.length === 20, `total ${Themes.list.length}`);
+    test('Theme registry has 20 dark and 20 light palettes', () => {
+      assert(Themes.ofKind('dark').length === 20, `dark ${Themes.ofKind('dark').length}`);
+      assert(Themes.ofKind('light').length === 20, `light ${Themes.ofKind('light').length}`);
+      assert(Themes.list.length === 40, `total ${Themes.list.length}`);
       assert(Themes.default === 'dark', 'default is dark');
+    });
+
+    test('Theme ids are unique', () => {
+      const ids = Themes.list.map((th) => th.id);
+      assert(new Set(ids).size === ids.length, 'duplicate theme id');
+    });
+
+    each(Themes.list, (th) => `Theme ${th.id} has a CSS palette`, (th) => {
+      assertIncludes(css, `[data-theme="${th.id}"]`, th.id);
     });
 
     each(Themes.list, (th) => `Theme ${th.id} has a 3-color swatch`, (th) => {
@@ -129,8 +138,11 @@ module.exports = {
       assertIncludes(app, '--sw-accent', 'preview accent');
     });
 
-    test('Settings dialog is 640×580 so theme buttons fit', () => {
-      assertIncludes(css, '.settings-dialog-box { width: 640px; min-width: 640px; max-width: 640px; height: 580px;', 'dialog size');
+    test('Settings dialog is wide enough for 40 theme tiles, with no scrollbar', () => {
+      assertIncludes(css, '.dialog-box.settings-dialog-box', 'sizing beats the generic .dialog-box rule');
+      assertIncludes(css, 'width: min(900px, calc(100vw - 48px))', 'dialog width');
+      assertIncludes(css, 'height: min(620px, calc(100vh - 48px))', 'dialog height');
+      assertIncludes(css, '.settings-body { flex: 1; overflow: hidden;', 'panels never scroll');
     });
 
     const themeCss = [
@@ -138,7 +150,7 @@ module.exports = {
       ['.settings-theme-btn.active', 'active state'],
       ['.settings-theme-preview', 'color preview'],
       ['.settings-theme-name', 'theme name'],
-      ['grid-template-columns: repeat(5, 1fr)', 'five columns'],
+      ['grid-template-columns: repeat(auto-fill, minmax(76px, 1fr))', 'tiles reflow to width'],
     ];
     each(themeCss, ([needle, label]) => `Theme tab CSS: ${label}`, ([needle]) => {
       assertIncludes(css, needle, needle);

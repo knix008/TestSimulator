@@ -696,11 +696,12 @@ ipcMain.handle('read-directory-detailed', async (event, dirPath) => {
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
     const rows = await Promise.all(entries.map(async (entry) => {
       const full = path.join(dirPath, entry.name);
-      const row = { name: entry.name, isDirectory: entry.isDirectory(), path: full, size: 0, mtimeMs: 0 };
+      const row = { name: entry.name, isDirectory: entry.isDirectory(), path: full, size: 0, mtimeMs: 0, birthtimeMs: 0 };
       try {
         const st = await fs.promises.stat(full);
         row.size = st.size;
         row.mtimeMs = st.mtimeMs;
+        row.birthtimeMs = st.birthtimeMs;
         row.isDirectory = st.isDirectory();
       } catch { /* unreadable entry: keep the dirent's own answer */ }
       return row;

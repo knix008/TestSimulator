@@ -56,7 +56,10 @@ window.Thumbs = (() => {
     });
   }
 
-  /** Source a decoder can read: a file URL for native formats, a data URL otherwise. */
+  /**
+   * Something drawImage can take: a URL for native formats, otherwise whatever the
+   * generic loader produced — a data URL, or a canvas (DICOM renders straight to one).
+   */
   async function _sourceFor(path) {
     if (FormatSupport.isNativeImage(path)) {
       try {
@@ -65,16 +68,16 @@ window.Thumbs = (() => {
       } catch { /* fall through to the generic loader */ }
     }
     const result = await FormatSupport.loadImageFile(path);
-    if (result && (result.type === 'image' || result.type === 'animated') && result.dataUrl) {
-      return result.dataUrl;
-    }
+    if (!result || (result.type !== 'image' && result.type !== 'animated')) return null;
+    if (result.dataUrl) return result.dataUrl;
+    if (result.canvas && result.canvas.width && result.canvas.height) return result.canvas;
     return null;
   }
 
   async function _generate(path) {
     const src = await _sourceFor(path);
     if (!src) return null;
-    const img = await _loadImage(src);
+    const img = typeof src === 'string' ? await _loadImage(src) : src;
     const w = img.naturalWidth || img.width;
     const h = img.naturalHeight || img.height;
     if (!w || !h) return null;
