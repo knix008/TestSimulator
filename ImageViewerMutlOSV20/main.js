@@ -639,53 +639,52 @@ function buildMenu(translations) {
       ],
     },
     {
-      /* Effects live in the edit window; this slot is the DICOM viewer's own menu.
-         The renderer ignores every row unless a DICOM image is on screen. */
-      label: t('menu.dicom'),
+      /* Effects live in the edit window; this slot is the Window menu — panel
+         layout and the window itself, the parts that apply to the whole app. */
+      label: t('menu.window'),
       submenu: [
         {
-          label: t('dicom.annotations'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-annotations'),
+          label: t('menu.treePanel'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-tree'),
         },
         {
-          label: t('dicom.rulerAxes'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-rulers'),
+          label: t('menu.infoPanel'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-info'),
         },
         {
-          label: t('dicom.scaleBar'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-scalebar'),
+          label: t('toolbar.infoDockLeft'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-dock-left'),
         },
         {
-          label: t('dicom.scaleReset'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-scale-reset'),
-        },
-        { type: 'separator' },
-        {
-          label: t('dicom.invert'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-invert'),
-        },
-        {
-          label: t('dicom.resetWindow'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-reset-window'),
-        },
-        {
-          label: t('dicom.cine'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-cine'),
+          label: t('toolbar.infoDockRight'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-dock-right'),
         },
         { type: 'separator' },
         {
-          label: t('dicom.tools'),
-          submenu: [
-            { label: t('dicom.tool.off'),     click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-off') },
-            { label: t('dicom.tool.ruler'),   click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-ruler') },
-            { label: t('dicom.tool.angle'),   click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-angle') },
-            { label: t('dicom.tool.ellipse'), click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-ellipse') },
-            { label: t('dicom.tool.rect'),    click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-tool-rect') },
-          ],
+          label: t('menu.browseMode'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'toggle-browse'),
         },
+        { type: 'separator' },
         {
-          label: t('dicom.clearMeasurements'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'dicom-clear-meas'),
+          label: t('menu.fullscreen'),
+          accelerator: process.platform === 'darwin' ? 'Ctrl+Cmd+F' : 'F11',
+          click: () => {
+            if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen());
+          },
+        },
+        { label: t('menu.minimize'), role: 'minimize' },
+        {
+          label: t('menu.maximize'),
+          click: () => {
+            if (!mainWindow) return;
+            if (_isWindowMaximized()) mainWindow.unmaximize();
+            else mainWindow.maximize();
+          },
+        },
+        { type: 'separator' },
+        {
+          label: t('menu.settings'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'show-settings'),
         },
       ],
     },

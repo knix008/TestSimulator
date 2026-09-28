@@ -12,21 +12,50 @@ module.exports = {
       assertIncludes(fileTree, 'listDrives', 'listDrives call');
     });
 
-    test('Viewer menubar swaps Effects for a DICOM menu', () => {
+    test('Viewer menubar swaps Effects for a Window menu', () => {
       const defs = app.slice(app.indexOf('function _menubarDefs'), app.indexOf('function _ewMenubarDefs'));
-      assertIncludes(defs, "labelKey: 'menu.dicom'", 'DICOM menu');
+      assertIncludes(defs, "labelKey: 'menu.window'", 'Window menu');
       assert(!/labelKey: 'menu\.effects'/.test(defs), 'no Effects menu in the viewer');
-      // The edit window keeps it — that is where adjustments live.
+      assert(!/labelKey: 'menu\.dicom'/.test(defs), 'no DICOM menu either');
+      // The edit window keeps Effects — that is where adjustments live.
       const ew = app.slice(app.indexOf('function _ewMenubarDefs'), app.indexOf('function _buildMenubar'));
       assertIncludes(ew, "labelKey: 'menu.effects'", 'edit window keeps Effects');
-      assertIncludes(app, 'function _dicomMenuItems', 'menu builder');
-      assertIncludes(app, "label: t('menu.noDicom')", 'hint when the file is not DICOM');
-      // DICOM rows moved out of the View menu, so nothing is listed twice.
+      // It holds what applies to the whole app: panels, the sheet, the window.
+      const fn = app.slice(app.indexOf('function _windowMenuItems'), app.indexOf('function _helpMenuItems'));
+      assertIncludes(fn, '_toggleTreePanel()', 'explorer panel');
+      assertIncludes(fn, '_toggleInfoPanel()', 'file info panel');
+      assertIncludes(fn, '_toggleInfoDock()', 'dock side');
+      assertIncludes(fn, '_toggleBrowseMode()', 'contact sheet');
+      assertIncludes(fn, 'toggleFullscreen', 'fullscreen');
+      assertIncludes(fn, 'windowMinimize', 'minimise');
+      assertIncludes(fn, 'windowMaximize', 'maximise');
+      // DICOM rows stay in the View menu, where they were.
       const view = app.slice(app.indexOf('function _viewMenuItems'), app.indexOf('function _themeMenuItems'));
-      assert(!/_dicomContextItems\(\)/.test(view), 'View menu no longer carries the DICOM block');
-      assertIncludes(main, "label: t('menu.dicom')", 'native menu too');
+      assertIncludes(view, '..._dicomContextItems(),', 'DICOM block back in View');
+      assertIncludes(main, "label: t('menu.window')", 'native menu too');
       assert(!/label: t\('menu\.effects'\)/.test(main), 'native Effects menu gone');
-      assertIncludes(app, "if (action.startsWith('dicom-') && !(state.dicom", 'DICOM actions need a DICOM image');
+      for (const action of ['panel-tree', 'panel-info', 'panel-dock-left', 'panel-dock-right', 'toggle-browse']) {
+        assertIncludes(app, `'${action}':`, `${action} handled in the renderer`);
+        assertIncludes(main, `'${action}'`, `${action} sent by the native menu`);
+      }
+    });
+
+    test('File Info dock button shows the side the panel is on', () => {
+      const fn = app.slice(app.indexOf('function _applyPanelLayout'), app.indexOf('function _toggleTreePanel'));
+      assertIncludes(fn, "Icons[_layout.dock === 'left' ? 'panelLeft' : 'panelRight']", 'icon matches the actual side');
+      assertIncludes(fn, 'dockBtn.innerHTML = dockIcon', 'toolbar button');
+      assertIncludes(fn, 'dockHdrBtn.innerHTML = dockIcon', 'panel header button');
+      // The tooltip still says what a click would do.
+      assertIncludes(app, "function _infoDockTip()  { return I18n.t(_layout.dock === 'left' ? 'toolbar.infoDockRight'", 'tooltip is the action');
+    });
+
+    test('Print is enabled only while an image is on screen', () => {
+      const fn = app.slice(app.indexOf('function _canPrint'), app.indexOf('function _printSource'));
+      assertIncludes(fn, 'if (_browseShowing()) return false;', 'not behind the contact sheet');
+      assertIncludes(fn, '!state.isVideo && !state.isAudio', 'not for audio / video');
+      assertIncludes(app, "set('btn-print', _canPrint());", 'toolbar button uses the same test');
+      assertIncludes(app, "_setChromeBtn(document.getElementById('btn-print'), _canPrint());", 'resynced with the sheet');
+      assertIncludes(app, 'disabled: !_canPrint()', 'File menu row too');
     });
 
     test('Switching drives lands on the last folder opened there', () => {

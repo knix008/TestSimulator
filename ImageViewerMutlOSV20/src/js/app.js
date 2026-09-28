@@ -610,7 +610,8 @@
       { id:'btn-browse',      icon:'viewGrid',   tip: _browseTip,          action: () => _toggleBrowseMode() },
       { id:'btn-panel-tree',  icon:'folderOpen', tip: _treePanelTip,       action: () => _toggleTreePanel() },
       { id:'btn-panel-info',  icon:'fileInfo',   tip: _infoPanelTip,       action: () => _toggleInfoPanel() },
-      { id:'btn-panel-dock',  icon:'panelRight', tip: _infoDockTip,        action: () => _toggleInfoDock() },
+      { id:'btn-panel-dock',  icon: _layout.dock === 'left' ? 'panelLeft' : 'panelRight',
+                              tip: _infoDockTip,        action: () => _toggleInfoDock() },
       { separator: true },
       { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
       { spacer: true },
@@ -714,18 +715,19 @@
   }
 
   /* ════════════════════════════════════════════
-     Menu bar (File · Edit · View · DICOM · Help)
+     Menu bar (File · Edit · View · Window · Help)
      Each menu is a ContextMenu dropdown; every item carries an icon.
      The viewer has no Effects menu: adjustments and filters belong to the edit
-     window, and the slot went to DICOM, which used to crowd the View menu.
+     window. That slot is Window, which gathers the panel layout and the window
+     itself — until now reachable only through the toolbar buttons.
   ════════════════════════════════════════════ */
   function _menubarDefs() {
     return [
-    { id: 'file',    labelKey: 'menu.file',    icon: 'file',    items: () => _fileMenuItems() },
-    { id: 'edit',    labelKey: 'menu.edit',    icon: 'edit',    items: () => _editMenuItems() },
-    { id: 'view',    labelKey: 'menu.view',    icon: 'image',   items: () => _viewMenuItems() },
-    { id: 'dicom',   labelKey: 'menu.dicom',   icon: 'fmtDcm',  items: () => _dicomMenuItems() },
-    { id: 'help',    labelKey: 'menu.help',    icon: 'help',    items: () => _helpMenuItems() },
+    { id: 'file',    labelKey: 'menu.file',    icon: 'file',      items: () => _fileMenuItems() },
+    { id: 'edit',    labelKey: 'menu.edit',    icon: 'edit',      items: () => _editMenuItems() },
+    { id: 'view',    labelKey: 'menu.view',    icon: 'image',     items: () => _viewMenuItems() },
+    { id: 'window',  labelKey: 'menu.window',  icon: 'panelLeft', items: () => _windowMenuItems() },
+    { id: 'help',    labelKey: 'menu.help',    icon: 'help',      items: () => _helpMenuItems() },
     ];
   }
 
@@ -962,8 +964,7 @@
       { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '← / Page Up', disabled: !canPrev, action: () => _prevImage() },
       { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→ / Page Down', disabled: !canNext, action: () => _nextImage() },
       { separator: true },
-      !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
-      !_isWeb() && { separator: true },
+      ..._dicomContextItems(),
       { icon: Icons.palette, label: t('menu.theme'), submenu: () => _themeMenuItems() },
       { separator: true },
       { icon: Icons.language, label: t('menu.language'), submenu: () => _langMenuItems() },
@@ -1011,13 +1012,28 @@
     ];
   }
 
-  /** DICOM menu: the same rows the image's context menu offers, or a hint when the
-   *  open file is not a DICOM image. */
-  function _dicomMenuItems() {
+  /**
+   * Window menu: the panel layout and the window itself — the one part of the app
+   * that applies whatever file is open, and had no keyboard-reachable home before.
+   */
+  function _windowMenuItems() {
     const t = I18n.t.bind(I18n);
-    const items = _dicomContextItems();
-    if (items.length) return items;
-    return [{ icon: Icons.fmtDcm, label: t('menu.noDicom'), disabled: true }];
+    const web = _isWeb();
+    return [
+      { icon: Icons.folderTree, label: t('menu.treePanel'), checked: _layout.tree, action: () => _toggleTreePanel() },
+      { icon: Icons.fileInfo,   label: t('menu.infoPanel'), checked: _layout.info, action: () => _toggleInfoPanel() },
+      { icon: Icons[_layout.dock === 'left' ? 'panelLeft' : 'panelRight'],
+        label: t(_layout.dock === 'left' ? 'toolbar.infoDockRight' : 'toolbar.infoDockLeft'),
+        action: () => _toggleInfoDock() },
+      { separator: true },
+      { icon: Icons.viewGrid, label: t('menu.browseMode'), checked: _browseMode, action: () => _toggleBrowseMode() },
+      { separator: true },
+      !web && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
+      !web && { icon: Icons.panelRight, label: t('menu.minimize'), action: () => window.electronAPI.windowMinimize?.() },
+      !web && { icon: Icons.fitWindow, label: t('menu.maximize'), action: () => window.electronAPI.windowMaximize?.() },
+      !web && { separator: true },
+      { icon: Icons.settings, label: t('menu.settings'), action: () => _openSettings() },
+    ].filter(Boolean);
   }
 
   function _helpMenuItems() {
@@ -1035,7 +1051,10 @@
   }
 
   /* ─── Print ─── */
+  /** Only ever true while an image is the thing on screen — the single source of
+   *  truth for the Print button, the File menu row and Ctrl+P. */
   function _canPrint() {
+    if (_browseShowing()) return false;   // the contact sheet covers the viewer
     return !state.isVideo && !state.isAudio && (Editor.isLoaded() || !!state.isAnimated);
   }
 
@@ -1605,7 +1624,7 @@
     set('btn-flip-v', isImage);
     set('btn-resize', isImage);
     set('btn-edit', isImage);
-    set('btn-print', isImage || !!state.isAnimated);
+    set('btn-print', _canPrint());
     if (!isImage) {
       set('btn-undo', false);
       set('btn-redo', false);
@@ -9166,22 +9185,12 @@
       'lang-en': async () => { state.lang = 'en'; localStorage.setItem('lang','en'); await _refreshLang(); },
       'show-about':    () => _showDialog('about-overlay'),
       'show-shortcuts':() => _showDialog('shortcuts-overlay'),
-      'dicom-annotations':  _dicomToggleAnnotations,
-      'dicom-rulers':       _dicomToggleRulerAxes,
-      'dicom-scalebar':     _dicomToggleScaleBar,
-      'dicom-scale-reset':  _dicomResetScalePos,
-      'dicom-invert':       _dicomToggleInvert,
-      'dicom-reset-window': _dicomResetWindow,
-      'dicom-cine':         _dicomToggleCine,
-      'dicom-clear-meas':   _dicomMeasClear,
-      'dicom-tool-off':     () => _dicomSetTool(null),
-      'dicom-tool-ruler':   () => _dicomSetTool('ruler'),
-      'dicom-tool-angle':   () => _dicomSetTool('angle'),
-      'dicom-tool-ellipse': () => _dicomSetTool('ellipse'),
-      'dicom-tool-rect':    () => _dicomSetTool('rect'),
+      'panel-tree':       () => _toggleTreePanel(),
+      'panel-info':       () => _toggleInfoPanel(),
+      'panel-dock-left':  () => _toggleInfoDock('left'),
+      'panel-dock-right': () => _toggleInfoDock('right'),
+      'toggle-browse':    () => _toggleBrowseMode(),
     };
-    // Nothing DICOM does anything without a DICOM image on screen.
-    if (action.startsWith('dicom-') && !(state.dicom && _dicomHasBar())) return;
     if (action.startsWith('theme:')) { _applyTheme(action.slice(6)); return; }
     if (map[action]) await map[action]();
   }
@@ -9354,16 +9363,19 @@
       info.style.minHeight = '';
     }
 
+    // The dock buttons show where the File Info panel *is*, not where a click would
+    // send it — the icon reads as the current layout, the tooltip says what it does.
+    const dockIcon = Icons[_layout.dock === 'left' ? 'panelLeft' : 'panelRight'] || '';
     const dockBtn = document.getElementById('btn-panel-dock');
     if (dockBtn) {
-      dockBtn.innerHTML = Icons[_layout.dock === 'left' ? 'panelRight' : 'panelLeft'] || '';
+      dockBtn.innerHTML = dockIcon;
       _setChromeBtn(dockBtn, _layout.info);
     }
     document.getElementById('btn-panel-tree')?.classList.toggle('active', _layout.tree);
     document.getElementById('btn-panel-info')?.classList.toggle('active', _layout.info);
 
     const dockHdrBtn = document.getElementById('info-dock-btn');
-    if (dockHdrBtn) dockHdrBtn.innerHTML = Icons[_layout.dock === 'left' ? 'panelRight' : 'panelLeft'] || '';
+    if (dockHdrBtn) dockHdrBtn.innerHTML = dockIcon;
   }
 
   function _toggleTreePanel(force) {
@@ -9418,6 +9430,8 @@
   /** The toolbar button tracks what is on screen, not just the stored mode. */
   function _syncBrowseChrome() {
     document.getElementById('btn-browse')?.classList.toggle('active', _browseShowing());
+    // Print follows what is actually on screen, sheet included
+    _setChromeBtn(document.getElementById('btn-print'), _canPrint());
     // Viewer chrome (DICOM bar / overlay, media transport) hides behind the sheet
     _dicomSyncBar();
     _dicomOverlayRequest();
