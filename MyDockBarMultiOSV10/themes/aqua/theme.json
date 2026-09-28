@@ -1,0 +1,38 @@
+{
+  "id": "aqua",
+  "name": "Aqua",
+  "author": "MyDockBar",
+  "description": "Clear water blue. (bar shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(114,163,182,0.42) 0%, rgba(20,101,133,0.34) 48%, rgba(12,61,80,0.42) 100%)",
+    "--plate-border": "1px solid rgba(149,186,200,0.5)",
+    "--plate-radius": "18px",
+    "--plate-shadow": "0 14px 40px rgba(5,25,33,0.5), inset 0 1px 0 rgba(232,240,243,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(172,218,236,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(4,20,27,0.55)",
+    "--indicator-color": "#5fcffc",
+    "--indicator-glow": "0 0 10px rgba(95,207,252,0.9)",
+    "--tooltip-bg": "rgba(14,27,31,0.96)",
+    "--tooltip-fg": "#e5f1f5",
+    "--tooltip-border": "1px solid rgba(95,207,252,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#5fcffc"
+  },
+  "ui": {
+    "--bg": "#151f23",
+    "--bg-raised": "#1f2d32",
+    "--bg-sunken": "#0f171a",
+    "--fg": "#e9eff1",
+    "--fg-dim": "#8da6b0",
+    "--line": "#30434b",
+    "--accent": "#5fcffc",
+    "--accent-fg": "#0d181c",
+    "--danger": "#ff7a72"
+  }
+}

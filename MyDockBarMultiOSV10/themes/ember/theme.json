@@ -1,0 +1,38 @@
+{
+  "id": "ember",
+  "name": "Ember",
+  "author": "MyDockBar",
+  "description": "Banked embers, orange-red. (bar shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, #ad765e 0%, #873512 42%, #4e1f0a 100%)",
+    "--plate-border": "1px solid rgba(219,194,184,0.45)",
+    "--plate-radius": "18px",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(249,245,243,0.55), inset 0 -2px 6px rgba(0,0,0,0.3)",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.28",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(237,191,171,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(27,11,4,0.55)",
+    "--indicator-color": "#fc8e5f",
+    "--indicator-glow": "0 0 10px rgba(252,142,95,0.9)",
+    "--tooltip-bg": "rgba(32,19,14,0.96)",
+    "--tooltip-fg": "#f5eae5",
+    "--tooltip-border": "1px solid rgba(252,142,95,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#fc8e5f"
+  },
+  "ui": {
+    "--bg": "#241915",
+    "--bg-raised": "#33251f",
+    "--bg-sunken": "#1a120f",
+    "--fg": "#f1ece9",
+    "--fg-dim": "#b0978d",
+    "--line": "#4b382f",
+    "--accent": "#fc8e5f",
+    "--accent-fg": "#1c110d",
+    "--danger": "#ff7a72"
+  }
+}

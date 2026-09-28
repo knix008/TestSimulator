@@ -260,7 +260,13 @@ ipcMain.handle('fs:scanMarkdown', (_e, { dir, recursive }) => {
 });
 
 ipcMain.handle('fs:readFile', (_e, filePath) => {
-  return fs.readFileSync(filePath, 'utf-8');
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return null;
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return null;
+    throw err;
+  }
 });
 
 // Resolve a local image referenced by a markdown file and return it as a

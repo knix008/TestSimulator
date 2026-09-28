@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>설정</title>
+  <link rel="stylesheet" href="settings.css" />
+  <link rel="stylesheet" href="prefs.css" />
+</head>
+<body>
+  <!-- 프로그램 전체 설정. 박스 하나의 설정은 settings.html 이 맡는다.
+       창 크기는 고정이고, 항목은 탭으로 나눠 스크롤 막대가 생기지 않게 한다. -->
+  <div id="panel">
+    <header id="head">
+      <img id="mark" alt="" />
+      <span id="heading"></span>
+      <button id="close" type="button">×</button>
+    </header>
+
+    <nav id="tabs">
+      <button class="tab" type="button" data-tab="general"></button>
+      <button class="tab" type="button" data-tab="look"></button>
+      <button class="tab" type="button" data-tab="rules"></button>
+      <button class="tab" type="button" data-tab="pages"></button>
+      <button class="tab" type="button" data-tab="files"></button>
+      <button class="tab" type="button" data-tab="about"></button>
+    </nav>
+
+    <div id="body">
+      <div class="pane" data-pane="general">
+        <section class="row">
+          <span class="tag" id="langTag"></span>
+          <div id="langs" class="chips"></div>
+        </section>
+
+        <section class="row">
+          <span class="tag" id="openTag"></span>
+          <div id="opens" class="chips"></div>
+        </section>
+
+        <!-- 담을 때 파일을 옮길지, 있는 자리에 두고 가리킬지. 고른 것이 무슨 뜻인지 아래에 적어 준다. -->
+        <section class="row">
+          <span class="tag" id="takeTag"></span>
+          <div id="takes" class="chips"></div>
+          <p class="hint" id="takeHint"></p>
+        </section>
+
+        <section class="row pair">
+          <span class="tag plain" id="startupTag"></span>
+          <button id="startup" class="switch" type="button" role="switch"><span></span></button>
+        </section>
+      </div>
+
+      <div class="pane" data-pane="look" hidden>
+        <section class="row">
+          <span class="tag" id="themeTag"></span>
+          <div id="themes" class="grid"></div>
+        </section>
+
+        <section class="row">
+          <span class="tag" id="cornerTag"></span>
+          <div class="stepper">
+            <button class="step" data-act="corner-" type="button">−</button>
+            <input id="corner" type="range" />
+            <button class="step" data-act="corner+" type="button">+</button>
+            <output id="cornerOut"></output>
+          </div>
+        </section>
+
+        <section class="row">
+          <span class="tag" id="opacityTag"></span>
+          <div class="stepper">
+            <button class="step" data-act="opacity-" type="button">−</button>
+            <input id="opacity" type="range" />
+            <button class="step" data-act="opacity+" type="button">+</button>
+            <output id="opacityOut"></output>
+          </div>
+        </section>
+
+        <section class="row pair">
+          <span class="tag plain" id="shadowTag"></span>
+          <button id="shadow" class="switch" type="button" role="switch"><span></span></button>
+        </section>
+      </div>
+
+      <!-- 자동 분류 규칙. 바탕화면에 새로 생긴 항목을 어느 박스로 보낼지 적어 둔다.
+           파일이 저절로 옮겨 가는 일이므로 위의 스위치를 켜 주기 전에는 하지 않는다. -->
+      <div class="pane" data-pane="rules" hidden>
+        <section class="row pair">
+          <span class="tag plain" id="autoSortTag"></span>
+          <button id="autoSort" class="switch" type="button" role="switch"><span></span></button>
+        </section>
+
+        <section class="row">
+          <span class="tag" id="rulesTag"></span>
+          <div id="rules" class="list"></div>
+        </section>
+
+        <section class="row">
+          <div class="chips">
+            <button id="addRule" class="chip" type="button"></button>
+            <button id="sortNow" class="chip" type="button"></button>
+          </div>
+        </section>
+      </div>
+
+      <!-- 바탕화면 페이지와 배치 스냅샷. 페이지는 박스 묶음을 갈아 쓰는 것이고,
+           스냅샷은 박스의 자리와 모습만 적어 둔 것이다. 담긴 파일은 건드리지 않는다. -->
+      <div class="pane" data-pane="pages" hidden>
+        <section class="row">
+          <span class="tag" id="pagesTag"></span>
+          <div id="pageList" class="list"></div>
+        </section>
+
+        <section class="row">
+          <div class="chips">
+            <button id="addPage" class="chip" type="button"></button>
+          </div>
+        </section>
+
+        <section class="row">
+          <span class="tag" id="snapsTag"></span>
+          <div id="snapList" class="list"></div>
+        </section>
+
+        <section class="row">
+          <div class="chips">
+            <button id="saveSnap" class="chip" type="button"></button>
+          </div>
+        </section>
+      </div>
+
+      <div class="pane" data-pane="files" hidden>
+        <section class="row">
+          <span class="tag" id="folderTag"></span>
+          <div class="chips">
+            <button id="boxRoot" class="chip" type="button"></button>
+            <button id="dataRoot" class="chip" type="button"></button>
+          </div>
+        </section>
+
+        <section class="row">
+          <span class="tag" id="whereTag"></span>
+          <code id="where" class="where"></code>
+        </section>
+
+        <section class="row">
+          <span class="tag" id="backTag"></span>
+          <div class="chips">
+            <button id="putBack" class="chip" type="button"></button>
+          </div>
+        </section>
+      </div>
+
+      <div class="pane about" data-pane="about" hidden>
+        <img id="aboutMark" alt="" />
+        <strong id="aboutName"></strong>
+        <dl id="aboutRows"></dl>
+      </div>
+    </div>
+
+    <footer id="foot">
+      <button id="ok" type="button" class="primary"></button>
+    </footer>
+  </div>
+  <script src="../shared/i18n.js"></script>
+  <script src="prefs.js"></script>
+</body>
+</html>

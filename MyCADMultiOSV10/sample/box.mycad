@@ -1,0 +1,62 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-box",
+    "name": "box",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Box",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 20,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 40,
+          "y": 40,
+          "z": 40,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#4cc2ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "Box",
+        "kind": "primitive",
+        "solidIds": [
+          "sol-1"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 1,
+        "radius": 0
+      }
+    ],
+    "parameters": [],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded"
+  }
+}

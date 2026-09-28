@@ -8,22 +8,30 @@ window.FileTree = (() => {
   let _lastClickedPath = null;      // for shift-range selection
   let _expandedDirs  = new Set();
   let _onSelect      = null;    // callback(filePath)
+  let _onActivate    = null;    // callback(filePath) — double-click on a file
   let _onDirOpen     = null;    // callback(dirPath)
+  let _onDriveSelect = null;    // callback(drivePath)
   let _onContextMenu = null;
   let _onImport      = null;    // callback({ destDir, mode, count, ... })
   let _dropHoverEl   = null;
   let _pathSep       = '/';
   let _ready         = false;
   let _centerOnce    = false;   // center explorer row only on first open
+  let _refreshing    = false;
+  let _foldersOnly   = false;   // browse mode: the tree shows folders, the grid shows files
+
+  const MAX_EXPANDED = 60;      // expanded branches kept alive across folder opens
 
   const IMAGE_EXTS = FormatSupport.IMAGE_EXTS;
   const VIDEO_EXTS = FormatSupport.VIDEO_EXTS;
   const AUDIO_EXTS = FormatSupport.AUDIO_EXTS;
 
-  function init(container, { onSelect, onDirOpen, onContextMenu, onImport }) {
+  function init(container, { onSelect, onActivate, onDirOpen, onDriveSelect, onContextMenu, onImport }) {
     _container = container;
     _onSelect  = onSelect;
+    _onActivate = onActivate || null;
     _onDirOpen = onDirOpen;
+    _onDriveSelect = onDriveSelect || null;
     _onContextMenu = onContextMenu || null;
     _onImport = onImport || null;
     window.electronAPI.getPathSep().then(sep => { _pathSep = sep; });
@@ -211,7 +219,7 @@ window.FileTree = (() => {
 
   function _norm(p) {
     if (!p) return '';
-    return p.replace(/[\\/]+$/, '').toLowerCase();
+    return String(p).replace(/\//g, '\\').replace(/[\\/]+$/, '').toLowerCase();
   }
 
   function _pathsEqual(a, b) {
@@ -222,24 +230,148 @@ window.FileTree = (() => {
     return _drives.some(d => _pathsEqual(d.path, p));
   }
 
+  function _driveForPath(p) {
+    if (!p) return null;
+    const n = _norm(p);
+    let best = null;
+    for (const d of _drives) {
+      const dn = _norm(d.path);
+      if (n === dn || n.startsWith(dn + '\\') || n.startsWith(dn + '/')) {
+        if (!best || dn.length > _norm(best.path).length) best = d;
+      }
+    }
+    return best;
+  }
+
+  function _renderDriveBar() {
+    const bar = document.getElementById('tree-drive-bar');
+    if (!bar) return;
+    const current = _driveForPath(_focusPath);
+    const frag = document.createDocumentFragment();
+    for (const d of _drives) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tree-drive-btn' + (_pathsEqual(current?.path, d.path) ? ' active' : '');
+      btn.textContent = d.name;
+      btn.title = d.path;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (_onDriveSelect) _onDriveSelect(d.path);
+        else if (_onDirOpen) _onDirOpen(d.path, { activate: true });
+      });
+      frag.appendChild(btn);
+    }
+    bar.replaceChildren(frag);
+  }
+
+  /** Parent of an absolute path, or null at a drive / filesystem root. */
+  function _parentOf(p) {
+    if (!p) return null;
+    const trimmed = String(p).replace(/[\\/]+$/, '');
+    if (!trimmed) return null;                     // "/" — already the root
+    if (/^[a-zA-Z]:$/.test(trimmed)) return null;  // "C:\" — already a drive root
+    const idx = Math.max(trimmed.lastIndexOf('\\'), trimmed.lastIndexOf('/'));
+    if (idx < 0) return null;
+    let parent = trimmed.slice(0, idx);
+    if (/^[a-zA-Z]:$/.test(parent)) parent += '\\';
+    if (!parent) parent = '/';
+    return parent;
+  }
+
+  /** Display name for a crumb — drives keep their listed label ("Data (D:)"). */
+  function _baseName(p) {
+    const drive = _drives.find((d) => _pathsEqual(d.path, p));
+    if (drive) return drive.name;
+    const trimmed = String(p || '').replace(/[\\/]+$/, '');
+    const idx = Math.max(trimmed.lastIndexOf('\\'), trimmed.lastIndexOf('/'));
+    const name = idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
+    return name || String(p || '');
+  }
+
+  /** Root → leaf list of { path, name } for the breadcrumb bar. */
+  function _pathCrumbs(dirPath) {
+    const out = [];
+    const seen = new Set();
+    let p = dirPath;
+    let guard = 0;
+    while (p && guard++ < 64) {
+      const n = _norm(p);
+      if (seen.has(n)) break;
+      seen.add(n);
+      out.push({ path: p, name: _baseName(p) });
+      p = _parentOf(p);
+    }
+    return out.reverse();
+  }
+
+  function _wireUpButton() {
+    const upBtn = document.getElementById('tree-up-btn');
+    if (!upBtn || upBtn.dataset.wired === '1') return upBtn;
+    upBtn.dataset.wired = '1';
+    upBtn.innerHTML = Icons.arrowUp || '';
+    upBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      goUp();
+    });
+    return upBtn;
+  }
+
   function _updatePathBar(dirPath) {
     const bar = document.getElementById('tree-path-bar');
     if (!bar) return;
+    const crumbBox = document.getElementById('tree-crumbs');
+    const upBtn = _wireUpButton();
     if (!dirPath) {
       bar.hidden = true;
-      bar.textContent = '';
       bar.removeAttribute('title');
+      if (crumbBox) crumbBox.replaceChildren();
+      if (upBtn) upBtn.disabled = true;
+      _renderDriveBar();
       return;
     }
     bar.hidden = false;
-    bar.textContent = dirPath;
     bar.title = dirPath;
+    if (upBtn) {
+      upBtn.disabled = !_parentOf(dirPath);
+      upBtn.title = I18n.t('tree.up') || 'Up';
+    }
+    if (crumbBox) {
+      const crumbs = _pathCrumbs(dirPath);
+      const frag = document.createDocumentFragment();
+      crumbs.forEach((crumb, i) => {
+        if (i) {
+          const sep = document.createElement('span');
+          sep.className = 'tree-crumb-sep';
+          sep.textContent = '\u203A';
+          frag.appendChild(sep);
+        }
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.tabIndex = -1;
+        btn.className = 'tree-crumb' + (i === crumbs.length - 1 ? ' current' : '');
+        btn.textContent = crumb.name;
+        btn.title = crumb.path;
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          navigateTo(crumb.path);
+        });
+        frag.appendChild(btn);
+      });
+      crumbBox.replaceChildren(frag);
+      // Keep the deepest crumb in view when the path is longer than the panel
+      crumbBox.scrollLeft = crumbBox.scrollWidth;
+    }
+    _renderDriveBar();
   }
 
   async function loadDrives() {
     const result = await window.electronAPI.listDrives();
     _drives = Array.isArray(result) ? result : [];
     _ready = true;
+    _renderDriveBar();
     await _renderRoot();
   }
 
@@ -249,17 +381,91 @@ window.FileTree = (() => {
     if (!dirPath) {
       _focusPath = null;
       _updatePathBar(null);
+      _renderDriveBar();
       await _renderRoot();
       return;
     }
 
     const ancestors = await window.electronAPI.pathAncestors(dirPath);
-    _expandedDirs = new Set(ancestors);
+    // Merge, never replace: branches the user opened on other paths stay open.
+    for (const a of ancestors) _expandedDirs.add(a);
     _focusPath = ancestors.length ? ancestors[ancestors.length - 1] : dirPath;
+    _pruneExpanded(ancestors);
     _updatePathBar(_focusPath);
+    _renderDriveBar();
     await _renderRoot();
     _highlightSelected();
     _flushCenterOrEnsureVisible();
+  }
+
+  /** Re-label the chrome this module builds in JS after a language switch. */
+  function applyI18n() {
+    _updatePathBar(_focusPath);
+  }
+
+  /** Bound how much of the tree stays expanded; the live chain is never dropped. */
+  function _pruneExpanded(keep = []) {
+    if (_expandedDirs.size <= MAX_EXPANDED) return;
+    const pinned = new Set(keep.map(_norm));
+    if (_focusPath) pinned.add(_norm(_focusPath));
+    for (const d of _drives) pinned.add(_norm(d.path));
+    for (const p of [..._expandedDirs]) {   // insertion order: oldest first
+      if (_expandedDirs.size <= MAX_EXPANDED) break;
+      if (pinned.has(_norm(p))) continue;
+      _expandedDirs.delete(p);
+    }
+  }
+
+  function _scrollTo(path, center) {
+    if (!path || !_container) return;
+    const run = () => {
+      const row = _findTreeItem(path);
+      if (!row) return;
+      const cRect = _container.getBoundingClientRect();
+      const eRect = row.getBoundingClientRect();
+      const max = Math.max(0, _container.scrollHeight - _container.clientHeight);
+      if (center) {
+        const top = _container.scrollTop + (eRect.top - cRect.top)
+          - (_container.clientHeight / 2) + (eRect.height / 2);
+        _container.scrollTop = Math.max(0, Math.min(max, top));
+        return;
+      }
+      if (eRect.top >= cRect.top && eRect.bottom <= cRect.bottom) return;
+      const delta = eRect.top < cRect.top ? (eRect.top - cRect.top) : (eRect.bottom - cRect.bottom);
+      _container.scrollTop = Math.max(0, Math.min(max, _container.scrollTop + delta));
+    };
+    requestAnimationFrame(() => requestAnimationFrame(run));
+  }
+
+  /** Point the explorer at `dirPath` (breadcrumb / Up / Backspace). */
+  async function navigateTo(dirPath, { notify = true } = {}) {
+    if (!dirPath) return false;
+    if (!_ready) await loadDrives();
+    let ancestors = [];
+    try {
+      ancestors = await window.electronAPI.pathAncestors(dirPath) || [];
+    } catch { ancestors = []; }
+    for (const a of ancestors) _expandedDirs.add(a);
+    _expandedDirs.add(dirPath);
+    _focusPath = ancestors.length ? ancestors[ancestors.length - 1] : dirPath;
+    _pruneExpanded([...ancestors, dirPath]);
+    _updatePathBar(_focusPath);
+    await _renderRoot();
+    _highlightSelected();
+    _scrollTo(_focusPath, true);
+    if (notify && _onDirOpen) _onDirOpen(_focusPath, { activate: false });
+    return true;
+  }
+
+  /** One level up from the folder the explorer is sitting in. */
+  async function goUp() {
+    const base = _focusPath
+      || (_selectedPath ? _parentOf(_selectedPath) : null)
+      || null;
+    const parent = _parentOf(base);
+    if (!parent) return false;
+    await navigateTo(parent);
+    return true;
   }
 
   /** @deprecated use revealPath — kept for callers that still pass openRoot */
@@ -269,28 +475,54 @@ window.FileTree = (() => {
 
   function getRoot()         { return _focusPath; }
   function getSelected()     { return _selectedPath; }
-  function setSelected(p, { center = false } = {}) {
+  function setSelected(p, { center = false, scroll = true } = {}) {
+    if (_pathsEqual(_selectedPath, p) && !center && !_selectedPaths.size) {
+      if (scroll) _scrollRowIfNeeded();
+      return;
+    }
+    const prev = _selectedPath;
     _selectedPath = p;
-    _highlightSelected();
+    const oldEl = prev ? _findTreeItem(prev) : null;
+    const newEl = p ? _findTreeItem(p) : null;
+    if (oldEl !== newEl) {
+      oldEl?.classList.remove('selected');
+      newEl?.classList.add('selected');
+    }
+    if (_selectedPaths.size) {
+      for (const extra of _selectedPaths) {
+        if (_pathsEqual(extra, p) || _pathsEqual(extra, prev)) continue;
+        _findTreeItem(extra)?.classList.remove('selected');
+      }
+      _selectedPaths.clear();
+    }
     if (center) {
       _centerOnce = true;
       _scrollOpenFileToCenter();
       return;
     }
     _centerOnce = false;
-    _scrollRow('nearest');
+    if (scroll) _scrollRowIfNeeded();
   }
 
   /* ── Rendering ── */
+  function isFoldersOnly() { return _foldersOnly; }
+
+  async function setFoldersOnly(value) {
+    const next = !!value;
+    if (next === _foldersOnly) return;
+    _foldersOnly = next;
+    await refresh({ force: true });
+  }
+
   async function _renderRoot() {
     if (!_container) return;
-    _container.innerHTML = '';
 
     if (!_drives.length) {
-      _container.innerHTML = `<div id="file-tree-empty">
-        <span data-i18n="tree.noDir"></span><br>
-        <span class="open-folder-link" data-i18n="tree.openFolder" id="ft-open-link"></span>
-      </div>`;
+      const empty = document.createElement('div');
+      empty.id = 'file-tree-empty';
+      empty.innerHTML = `<span data-i18n="tree.noDir"></span><br>
+        <span class="open-folder-link" data-i18n="tree.openFolder" id="ft-open-link"></span>`;
+      _container.replaceChildren(empty);
       I18n.applyToDOM();
       document.getElementById('ft-open-link')?.addEventListener('click', () => {
         window.FileDialog?.openFolder().then((r) => {
@@ -302,10 +534,9 @@ window.FileTree = (() => {
       return;
     }
 
+    // Build off-DOM so the explorer does not blank/flicker between paints.
     const rootEl = document.createElement('div');
     rootEl.className = 'tree-root';
-    _container.appendChild(rootEl);
-
     for (const drive of _drives) {
       await _renderEntry(rootEl, {
         name: drive.name,
@@ -314,27 +545,37 @@ window.FileTree = (() => {
         isDrive: true,
       }, 0);
     }
+    _container.replaceChildren(rootEl);
   }
 
   async function _renderDir(parent, dirPath, depth) {
-    // Clear any "Loading..." placeholder before painting entries
-    parent.innerHTML = '';
     let entries;
     try {
       entries = await window.electronAPI.readDirectory(dirPath);
     } catch (e) {
-      parent.innerHTML = `<div class="tree-item" style="padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px">${e.message || 'Error'}</div>`;
+      const err = document.createElement('div');
+      err.className = 'tree-item';
+      err.style.cssText = `padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px`;
+      err.textContent = e.message || 'Error';
+      parent.replaceChildren(err);
       return;
     }
     if (!entries || entries.error) {
       const msg = (entries && entries.error) ? entries.error : (I18n.t('tree.empty') || 'Empty');
-      parent.innerHTML = `<div class="tree-item" style="padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px">${msg}</div>`;
+      const empty = document.createElement('div');
+      empty.className = 'tree-item';
+      empty.style.cssText = `padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px`;
+      empty.textContent = msg;
+      parent.replaceChildren(empty);
       return;
     }
 
-    for (const entry of entries) {
-      await _renderEntry(parent, entry, depth);
+    const rows = _foldersOnly ? entries.filter((e) => e.isDirectory || e.isDrive) : entries;
+    const frag = document.createDocumentFragment();
+    for (const entry of rows) {
+      await _renderEntry(frag, entry, depth);
     }
+    parent.replaceChildren(frag);
   }
 
   async function _renderEntry(parent, entry, depth) {
@@ -413,6 +654,7 @@ window.FileTree = (() => {
 
     row.addEventListener('click', (e) => {
       e.stopPropagation();
+      _container?.focus({ preventScroll: true });
       if (!entry.isDirectory && !entry.isDrive && isSup && (e.ctrlKey || e.metaKey || e.shiftKey)) {
         _handleMultiClick(entry, e);
       } else {
@@ -421,10 +663,20 @@ window.FileTree = (() => {
       }
     });
 
+    row.addEventListener('dblclick', (e) => {
+      if (isDir || !isSup) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _selectedPaths.clear();
+      _selectedPath = entry.path;
+      _highlightSelected();
+      if (_onActivate) _onActivate(entry.path);
+    });
+
     row.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (_onContextMenu) _onContextMenu({ ...entry, isDirectory: isDir }, e.clientX, e.clientY);
+      if (_onContextMenu) _onContextMenu({ ...entry, isDirectory: isDir, isDrive }, e.clientX, e.clientY);
     });
 
     // Drag-out to OS (Explorer, Desktop, other apps) — Electron only
@@ -550,11 +802,9 @@ window.FileTree = (() => {
 
   function _highlightSelected() {
     if (!_container) return;
-    _container.querySelectorAll('.tree-item.selected').forEach(el => el.classList.remove('selected'));
     _container.querySelectorAll('.tree-item[data-path]').forEach(el => {
-      if (_pathsEqual(el.dataset.path, _selectedPath) || _selectedPaths.has(el.dataset.path)) {
-        el.classList.add('selected');
-      }
+      const on = _pathsEqual(el.dataset.path, _selectedPath) || _selectedPaths.has(el.dataset.path);
+      el.classList.toggle('selected', on);
     });
   }
 
@@ -566,15 +816,98 @@ window.FileTree = (() => {
     return null;
   }
 
+  function _isRowVisible(el) {
+    if (!el || !_container) return false;
+    const cRect = _container.getBoundingClientRect();
+    const eRect = el.getBoundingClientRect();
+    return eRect.top >= cRect.top && eRect.bottom <= cRect.bottom;
+  }
+
+  function _visibleRows() {
+    if (!_container) return [];
+    return [..._container.querySelectorAll('.tree-item[data-path]')];
+  }
+
+  function _rowIndex(path) {
+    if (!path) return -1;
+    return _visibleRows().findIndex((el) => _pathsEqual(el.dataset.path, path));
+  }
+
+  function _isSupportedPath(path) {
+    const name = String(path || '').split(/[/\\]/).pop() || '';
+    const ext = FormatSupport.getExtension(name);
+    return IMAGE_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext);
+  }
+
+  async function _moveBy(delta) {
+    const rows = _visibleRows();
+    if (!rows.length) return false;
+    let i = _rowIndex(_selectedPath);
+    if (i < 0) i = _rowIndex(_focusPath);
+    if (i < 0) i = delta > 0 ? -1 : rows.length;
+    const next = i + delta;
+    if (next < 0 || next >= rows.length) return true;
+    const row = rows[next];
+    const path = row.dataset.path;
+    if (!path) return true;
+    const isDir = row.dataset.isDir === '1';
+    _selectedPath = path;
+    _selectedPaths.clear();
+    _highlightSelected();
+    _scrollRowIfNeeded();
+    if (isDir) {
+      _focusPath = path;
+      _updatePathBar(path);
+      return true;
+    }
+    if (_isSupportedPath(path) && _onSelect) await _onSelect(path);
+    return true;
+  }
+
+  function handleKey(e) {
+    if (!_container || !_ready && !_visibleRows().length) return false;
+    if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'ArrowUp') {
+      e.preventDefault();
+      goUp();
+      return true;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      goUp();
+      return true;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _moveBy(1);
+      return true;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _moveBy(-1);
+      return true;
+    }
+    return false;
+  }
+
+  function _scrollRowIfNeeded() {
+    const el = _findTreeItem(_selectedPath);
+    if (!el || _isRowVisible(el)) return;
+    _scrollRow('nearest');
+  }
+
   function _scrollRow(mode) {
     const path = _selectedPath || _focusPath;
     if (!path || !_container) return;
+    const el = _findTreeItem(_selectedPath) || _findTreeItem(path);
+    if (!el) return;
+    if (mode !== 'center' && _isRowVisible(el)) return;
     const run = () => {
-      const el = _findTreeItem(_selectedPath) || _findTreeItem(path);
-      if (!el) return;
+      const row = _findTreeItem(_selectedPath) || _findTreeItem(path);
+      if (!row) return;
       const scroller = _container;
       const cRect = scroller.getBoundingClientRect();
-      const eRect = el.getBoundingClientRect();
+      const eRect = row.getBoundingClientRect();
       const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
       if (mode === 'center') {
         const top = scroller.scrollTop + (eRect.top - cRect.top) - (scroller.clientHeight / 2) + (eRect.height / 2);
@@ -620,6 +953,29 @@ window.FileTree = (() => {
     return list.findIndex((p) => _norm(p) === n);
   }
 
+  function _rewritePath(p, fromPath, toPath) {
+    if (!p || !fromPath || !toPath) return p;
+    const sep = /\\/.test(fromPath) ? '\\' : '/';
+    const norm = (s) => String(s).replace(/[/\\]+/g, sep).replace(/[\\/]+$/, '');
+    const np = norm(p);
+    const nf = norm(fromPath);
+    const nt = norm(toPath);
+    if (np.toLowerCase() === nf.toLowerCase()) return toPath;
+    const prefix = nf + sep;
+    if (np.toLowerCase().startsWith(prefix.toLowerCase())) return nt + np.slice(nf.length);
+    return p;
+  }
+
+  /** After a rename: keep expansion / selection pointed at the new path. */
+  function remapPath(fromPath, toPath) {
+    if (!fromPath || !toPath || _pathsEqual(fromPath, toPath)) return;
+    _expandedDirs = new Set([..._expandedDirs].map((p) => _rewritePath(p, fromPath, toPath)));
+    _selectedPath = _rewritePath(_selectedPath, fromPath, toPath);
+    _selectedPaths = new Set([..._selectedPaths].map((p) => _rewritePath(p, fromPath, toPath)));
+    _focusPath = _rewritePath(_focusPath, fromPath, toPath);
+    _lastClickedPath = _rewritePath(_lastClickedPath, fromPath, toPath);
+  }
+
   /** Drop a path from expansion/selection state (after delete). */
   function forgetPath(targetPath) {
     if (!targetPath) return;
@@ -644,26 +1000,75 @@ window.FileTree = (() => {
     }
   }
 
-  /** Re-read disk and redraw, keeping expanded folders / selection. */
-  async function refresh() {
+  function _visiblePathSignature() {
+    if (!_container) return '';
+    return Array.from(_container.querySelectorAll('.tree-item[data-path]'))
+      .map((el) => _norm(el.dataset.path))
+      .join('\n');
+  }
+
+  async function _walkExpandedPaths(dirPath, out) {
+    if (![..._expandedDirs].some((p) => _pathsEqual(p, dirPath))) return;
+    let entries;
+    try {
+      entries = await window.electronAPI.readDirectory(dirPath);
+    } catch {
+      return;
+    }
+    if (!entries || entries.error) return;
+    // Mirror _renderDir's filter, or the signature never matches what is drawn
+    // and a folders-only switch is mistaken for "nothing changed".
+    const rows = _foldersOnly ? entries.filter((e) => e.isDirectory || e.isDrive) : entries;
+    for (const entry of rows) {
+      out.push(_norm(entry.path));
+      if (entry.isDirectory || entry.isDrive) await _walkExpandedPaths(entry.path, out);
+    }
+  }
+
+  async function _expectedPathSignature() {
+    const paths = [];
+    for (const drive of _drives) {
+      paths.push(_norm(drive.path));
+      await _walkExpandedPaths(drive.path, paths);
+    }
+    return paths.join('\n');
+  }
+
+  /**
+   * Re-read disk. Without `{ force: true }` the explorer DOM is left as-is
+   * (selection-only updates go through setSelected).
+   */
+  async function refresh({ force = false } = {}) {
+    if (!force) return;
+    if (_refreshing) return;
     if (!_ready) {
       await loadDrives();
       return;
     }
-    // Re-probe drives in case volumes were added/removed
+    _refreshing = true;
     try {
-      const result = await window.electronAPI.listDrives();
-      if (Array.isArray(result) && result.length) _drives = result;
-    } catch {}
-    const prevScroll = _container ? _container.scrollTop : 0;
-    await _renderRoot();
-    _highlightSelected();
-    if (_focusPath) _updatePathBar(_focusPath);
-    _flushCenterOrEnsureVisible(prevScroll);
+      try {
+        const result = await window.electronAPI.listDrives();
+        if (Array.isArray(result) && result.length) _drives = result;
+      } catch {}
+      try {
+        const expected = await _expectedPathSignature();
+        if (expected && expected === _visiblePathSignature()) return;
+      } catch { /* fall through to a full rebuild */ }
+      const prevScroll = _container ? _container.scrollTop : 0;
+      await _renderRoot();
+      _highlightSelected();
+      if (_focusPath) _updatePathBar(_focusPath);
+      _renderDriveBar();
+      _flushCenterOrEnsureVisible(prevScroll);
+    } finally {
+      _refreshing = false;
+    }
   }
 
   return {
     init, loadDrives, revealPath, openRoot, getRoot, getSelected, setSelected,
-    getSelectedPaths, getImageFilesInDir, indexOfPath, refresh, forgetPath,
+    getSelectedPaths, getImageFilesInDir, indexOfPath, refresh, forgetPath, remapPath, handleKey,
+    setFoldersOnly, isFoldersOnly, goUp, navigateTo, parentOf: _parentOf, applyI18n,
   };
 })();

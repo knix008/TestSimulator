@@ -1,0 +1,110 @@
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  user-select: none;
+  cursor: default;
+}
+
+/* 창은 판보다 사방 18px 크다. 그 여백에 그림자가 떨어진다. */
+#panel {
+  position: absolute;
+  inset: 18px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e8eefc;
+  background:
+    linear-gradient(168deg,
+      rgba(255, 255, 255, 0.10) 0%,
+      rgba(255, 255, 255, 0.02) 34%,
+      rgba(0, 0, 0, 0.10) 70%,
+      rgba(0, 0, 0, 0.22) 100%),
+    #1e293b;
+  box-shadow:
+    0 24px 44px -16px rgba(0, 0, 0, 0.72),
+    0 8px 18px -8px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+}
+
+#row {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+
+#mark {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  margin-top: 1px;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.5));
+}
+
+#words { min-width: 0; }
+
+#title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+#detail {
+  margin: 0;
+  white-space: pre-line;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: rgba(226, 236, 255, 0.72);
+  word-break: keep-all;
+}
+
+#buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+button {
+  min-width: 78px;
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eefc;
+  cursor: pointer;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 3px 7px -3px rgba(0, 0, 0, 0.6);
+  transition: transform 110ms ease, filter 110ms ease;
+}
+
+button:hover { filter: brightness(1.18); }
+button:active { transform: translateY(1px); filter: brightness(0.94); }
+
+#confirm {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(180deg, #5b9cf8, #2563eb);
+}
+
+#panel.danger #confirm {
+  background: linear-gradient(180deg, #f2727b, #d32030);
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(147, 197, 253, 0.9);
+  outline-offset: 2px;
+}

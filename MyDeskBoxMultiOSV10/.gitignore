@@ -1,0 +1,22 @@
+# 의존성과 빌드 결과
+node_modules/
+dist/
+out/
+
+# 빌드 뒤 루트로 복사한 설치 파일
+/MyDeskBox-Setup-*.exe
+/MyDeskBox-*.dmg
+/MyDeskBox-*.deb
+
+# 로그와 임시 파일
+*.log
+npm-debug.log*
+*.tmp
+
+# 운영체제
+.DS_Store
+Thumbs.db
+
+# 로컬에서 띄울 때 쓰는 설정. 설치본 설정은 사용자 폴더에 있다.
+userData/
+.env

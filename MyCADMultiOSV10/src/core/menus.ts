@@ -1,0 +1,330 @@
+import { menuIcon } from './i18n'
+import { TOOL_CATEGORIES, toolCategory } from './toolgroups'
+
+export interface MenuEntry {
+  id: string
+  /** i18n message key, or a command id resolved through labels.ts. */
+  labelKey: string
+  icon: string
+}
+
+export interface MenuDef {
+  id: string
+  labelKey: string
+  items: MenuEntry[]
+  /**
+   * Item ids that start a new group: a separator is drawn in front of each of
+   * them. They are ids rather than entries, so everything that walks `items`
+   * still sees only real commands.
+   */
+  breaks?: string[]
+}
+
+function entry(id: string): MenuEntry {
+  return { id, labelKey: id, icon: menuIcon(id) }
+}
+
+export const MENUS: MenuDef[] = [
+  { id: 'file', labelKey: 'file', breaks: ['save', 'export', 'print', 'openUrl'], items: [
+    { id: 'new', labelKey: 'new', icon: menuIcon('new') },
+    { id: 'open', labelKey: 'open', icon: menuIcon('open') },
+    { id: 'save', labelKey: 'save', icon: menuIcon('save') },
+    { id: 'saveAs', labelKey: 'saveAs', icon: menuIcon('saveAs') },
+    entry('export'),
+    { id: 'importStl', labelKey: 'importStl', icon: menuIcon('importStl') },
+    { id: 'exportStl', labelKey: 'exportStl', icon: menuIcon('exportStl') },
+    { id: 'exportObj', labelKey: 'exportObj', icon: menuIcon('exportObj') },
+    { id: 'exportSvg', labelKey: 'exportSvg', icon: menuIcon('exportSvg') },
+    { id: 'exportDxf', labelKey: 'exportDxf', icon: menuIcon('exportDxf') },
+    { id: 'print', labelKey: 'print', icon: menuIcon('print') },
+    { id: 'openUrl', labelKey: 'openUrl', icon: menuIcon('openUrl') },
+    { id: 'download', labelKey: 'download', icon: menuIcon('download') }
+  ]},
+  { id: 'edit', labelKey: 'edit', breaks: ['copy', 'delete'], items: [
+    { id: 'undo', labelKey: 'undo', icon: menuIcon('undo') },
+    { id: 'redo', labelKey: 'redo', icon: menuIcon('redo') },
+    { id: 'copy', labelKey: 'copy', icon: menuIcon('copy') },
+    { id: 'paste', labelKey: 'paste', icon: menuIcon('paste') },
+    { id: 'duplicate', labelKey: 'duplicate', icon: menuIcon('duplicate') },
+    { id: 'delete', labelKey: 'delete', icon: menuIcon('delete') },
+    { id: 'selectAll', labelKey: 'selectAll', icon: menuIcon('selectAll') }
+  ]},
+  { id: 'view', labelKey: 'view', breaks: ['grid', 'showAxes', 'shaded', 'zoomIn', 'asIs', 'projection', 'toolPanel'], items: [
+    { id: 'front', labelKey: 'front', icon: menuIcon('front') },
+    { id: 'back', labelKey: 'back', icon: menuIcon('back') },
+    { id: 'left', labelKey: 'left', icon: menuIcon('left') },
+    { id: 'right', labelKey: 'right', icon: menuIcon('right') },
+    { id: 'top', labelKey: 'top', icon: menuIcon('top') },
+    { id: 'bottom', labelKey: 'bottom', icon: menuIcon('bottom') },
+    { id: 'iso', labelKey: 'iso', icon: menuIcon('iso') },
+    { id: 'grid', labelKey: 'grid', icon: menuIcon('grid') },
+    { id: 'ruler', labelKey: 'ruler', icon: menuIcon('ruler') },
+    { id: 'scaleBar', labelKey: 'scaleBar', icon: menuIcon('scaleBar') },
+    { id: 'showAxes', labelKey: 'showAxes', icon: menuIcon('showAxes') },
+    { id: 'shaded', labelKey: 'shaded', icon: menuIcon('shaded') },
+    { id: 'wireframe', labelKey: 'wireframe', icon: menuIcon('wireframe') },
+    { id: 'zoomIn', labelKey: 'zoomIn', icon: menuIcon('zoomIn') },
+    { id: 'zoomOut', labelKey: 'zoomOut', icon: menuIcon('zoomOut') },
+    { id: 'fit', labelKey: 'fit', icon: menuIcon('fit') },
+    entry('resetView'),
+    entry('asIs'),
+    entry('flatLines'),
+    entry('points'),
+    entry('hiddenLine'),
+    entry('noShading'),
+    entry('projection'),
+    entry('toolPanel'),
+    entry('propertyPanel')
+  ]},
+  { id: 'insert', labelKey: 'insert', items: [
+    { id: 'box', labelKey: 'box', icon: menuIcon('box') },
+    { id: 'sphere', labelKey: 'sphere', icon: menuIcon('sphere') },
+    { id: 'cylinder', labelKey: 'cylinder', icon: menuIcon('cylinder') },
+    { id: 'cone', labelKey: 'cone', icon: menuIcon('cone') },
+    { id: 'torus', labelKey: 'torus', icon: menuIcon('torus') },
+    { id: 'plane', labelKey: 'plane', icon: menuIcon('plane') },
+    entry('wedge'), entry('prism'), entry('ellipsoid'), entry('tubePrim'),
+    entry('spiralPrim'), entry('ringPrim'), entry('pyramid')
+  ]},
+  { id: 'part', labelKey: 'part', items: [
+    { id: 'sketchRect', labelKey: 'sketchRect', icon: menuIcon('sketchRect') },
+    { id: 'sketchCircle', labelKey: 'sketchCircle', icon: menuIcon('sketchCircle') },
+    { id: 'sketchPolygon', labelKey: 'sketchPolygon', icon: menuIcon('sketchPolygon') },
+    { id: 'pad', labelKey: 'pad', icon: menuIcon('pad') },
+    { id: 'pocket', labelKey: 'pocket', icon: menuIcon('pocket') },
+    { id: 'revolve', labelKey: 'revolve', icon: menuIcon('revolve') },
+    { id: 'loft', labelKey: 'loft', icon: menuIcon('loft') },
+    { id: 'pipe', labelKey: 'pipe', icon: menuIcon('pipe') },
+    { id: 'helix', labelKey: 'helix', icon: menuIcon('helix') },
+    { id: 'fillet', labelKey: 'fillet', icon: menuIcon('fillet') },
+    { id: 'chamfer', labelKey: 'chamfer', icon: menuIcon('chamfer') },
+    { id: 'union', labelKey: 'union', icon: menuIcon('union') },
+    { id: 'cut', labelKey: 'cut', icon: menuIcon('cut') },
+    { id: 'common', labelKey: 'common', icon: menuIcon('common') },
+    { id: 'mirror', labelKey: 'mirror', icon: menuIcon('mirror') },
+    { id: 'linearPattern', labelKey: 'linearPattern', icon: menuIcon('linearPattern') },
+    { id: 'polarPattern', labelKey: 'polarPattern', icon: menuIcon('polarPattern') },
+    { id: 'hole', labelKey: 'hole', icon: menuIcon('hole') },
+    { id: 'align', labelKey: 'align', icon: menuIcon('align') },
+    { id: 'section', labelKey: 'section', icon: menuIcon('section') },
+    { id: 'shaft', labelKey: 'shaft', icon: menuIcon('shaft') },
+    { id: 'groove', labelKey: 'groove', icon: menuIcon('groove') },
+    { id: 'draft', labelKey: 'draft', icon: menuIcon('draft') },
+    { id: 'shell', labelKey: 'shell', icon: menuIcon('shell') },
+    { id: 'rectPattern', labelKey: 'rectPattern', icon: menuIcon('rectPattern') },
+    { id: 'translate', labelKey: 'translate', icon: menuIcon('translate') },
+    { id: 'rotateBody', labelKey: 'rotateBody', icon: menuIcon('rotateBody') },
+    { id: 'scaleBody', labelKey: 'scaleBody', icon: menuIcon('scaleBody') },
+    { id: 'counterbore', labelKey: 'counterbore', icon: menuIcon('counterbore') },
+    { id: 'countersink', labelKey: 'countersink', icon: menuIcon('countersink') },
+    { id: 'refPlane', labelKey: 'refPlane', icon: menuIcon('refPlane') },
+    { id: 'parameter', labelKey: 'parameter', icon: menuIcon('parameter') },
+    { id: 'coincidence', labelKey: 'coincidence', icon: menuIcon('coincidence') },
+    { id: 'offsetMate', labelKey: 'offsetMate', icon: menuIcon('offsetMate') },
+    { id: 'inertia', labelKey: 'inertia', icon: menuIcon('inertia') },
+    { id: 'updatePart', labelKey: 'updatePart', icon: menuIcon('updatePart') },
+    entry('xor'), entry('booleanFragments'), entry('compound'), entry('thickness'),
+    entry('offset3d'), entry('crossSections'), entry('partArea'),
+    entry('meshEvaluate'), entry('meshDecimate'), entry('meshRefine'), entry('meshHarmonize'),
+    entry('meshFlip'), entry('meshScale'), entry('meshSmooth'), entry('meshFillHoles'),
+    entry('meshSectionCmd')
+  ]},
+  { id: 'sketchMenu', labelKey: 'sketchMenu', items: [
+    entry('sketchRect'), entry('sketchCircle'), entry('sketchPolygon'), entry('sketchRectConstrained'),
+    entry('sketchSolve2d'), entry('sketchConstraintCheck'), entry('sketchDof'),
+    entry('draftLine'), entry('draftWire'), entry('draftRect'), entry('draftPolygonWire'),
+    entry('draftCircleWire'), entry('draftEllipseWire'), entry('draftArcWire'),
+    entry('draftBSplineWire'), entry('draftBezierWire'), entry('draftFillet'), entry('draftOffset'),
+    entry('draftTrimex'), entry('draftJoin'), entry('draftSplit'), entry('draftUpgrade'),
+    entry('draftDowngrade'), entry('draftMove'), entry('draftRotate'), entry('draftScale'),
+    entry('draftMirror'), entry('draftStretch'), entry('orthoArray'), entry('polarArray'),
+    entry('circularArray'), entry('pathArray'), entry('pointArray'), entry('shapeStringCmd'),
+    entry('draftDimension'), entry('draftText'), entry('wireToFace')
+  ]},
+  { id: 'surfaceMenu', labelKey: 'surfaceMenu', items: [
+    entry('gsdExtrude'), entry('gsdRevolve'), entry('gsdSweep'), entry('gsdMultiSection'),
+    entry('gsdFill'), entry('gsdBlend'), entry('gsdOffsetSurf'), entry('gsdJoin'), entry('gsdSplit'),
+    entry('gsdBoundary'), entry('gsdHeal'), entry('gsdIso'), entry('gsdHelixCurve'),
+    entry('gsdSpline'), entry('gsdConic'), entry('ruled'), entry('surfaceFill')
+  ]},
+  { id: 'assemblyMenu', labelKey: 'assemblyMenu', items: [
+    entry('asmProduct'), entry('asmCoincident'), entry('asmOffset'), entry('asmAngle'),
+    entry('asmContact'), entry('asmSolve'), entry('asmExplode'), entry('asmBom'),
+    entry('asmInertia'), entry('asmMeasure'), entry('asmTree'),
+    entry('dmuRevolute'), entry('dmuPrismatic'), entry('dmuSimulate'), entry('dmuDof'),
+    entry('dmuClash'), entry('dmuEnvelope')
+  ]},
+  { id: 'annotateMenu', labelKey: 'annotateMenu', items: [
+    entry('techdrawPage'), entry('techdrawSection'), entry('techdrawDetail'), entry('techdrawDim'),
+    entry('techdrawHatch'), entry('techdrawBom'), entry('exportPageSvg'), entry('exportPageDxf')
+  ]},
+  { id: 'analyzeMenu', labelKey: 'analyzeMenu', items: [
+    entry('femMesh'), entry('femMaterial'), entry('femConstraintFixed'), entry('femConstraintForce'),
+    entry('femSolve'), entry('femBeamCmd'), entry('femTruss'), entry('femFrequency'), entry('femThermal'),
+    entry('materialAssign'), entry('massProps'), entry('materialLibrary'),
+    entry('measureDistanceCmd'), entry('measureAngleCmd'), entry('measureAreaCmd'),
+    entry('measureVolumeCmd'), entry('measureBoxCmd'), entry('expressionEval'), entry('runMacro'),
+    entry('kwFormula'), entry('kwRule'), entry('kwCheck'), entry('kwDesignTable'),
+    entry('kwApplyTable'), entry('kwTree')
+  ]},
+  { id: 'manufactureMenu', labelKey: 'manufactureMenu', items: [
+    entry('camProfile'), entry('camPocketOp'), entry('camDrill'), entry('camSurface'),
+    entry('camHelix'), entry('camEngrave'), entry('camAdaptive'), entry('camPost'), entry('camStats'),
+    entry('smWall'), entry('smFlange'), entry('smHem'), entry('smFolded'), entry('smUnfold'),
+    entry('smCheck'), entry('smExportDxf')
+  ]},
+  { id: 'bimMenu', labelKey: 'bimMenu', items: [
+    entry('bimWall'), entry('bimColumn'), entry('bimBeam'), entry('bimSlab'), entry('bimRoof'),
+    entry('bimWindow'), entry('bimDoor'), entry('bimStairs'), entry('bimSpace'), entry('bimRailing'),
+    entry('bimLevels'), entry('bimSchedule'), entry('bimExportIfc'), entry('bimFootprint')
+  ]},
+  { id: 'sketchupMenu', labelKey: 'sketchupMenu', items: [
+    entry('suRectangleTool'), entry('suCircleTool'), entry('suPolygonTool'), entry('suArcTool'),
+    entry('suFreehand'), entry('suPushPull'), entry('suFollowMe'), entry('suOffsetFace'),
+    entry('suIntersect'), entry('suSoften'), entry('suMakeGroup'), entry('suExplode'),
+    entry('suMakeComponent'), entry('suPlaceInstance'), entry('suTagAssign'), entry('suTagToggle'),
+    entry('suPaint'), entry('suStyle'), entry('suShadows'), entry('suScene'), entry('suApplyScene'),
+    entry('suSection'), entry('suSectionCut'), entry('suTape'), entry('suProtractor'),
+    entry('suFaceInfo'), entry('suText3d'), entry('suMoveCopies'), entry('suRotateCopies'),
+    entry('suSolidUnion'), entry('suSolidSubtract'), entry('suSolidTrim'), entry('suSolidSplit'),
+    entry('suSolidIntersect'), entry('suOuterShell'), entry('suTerrain'), entry('suContours'),
+    entry('suSmoove'), entry('suZoomExtents'), entry('suWalk'), entry('suOutliner')
+  ]},
+  { id: 'kernelMenu', labelKey: 'kernelMenu', items: [
+    entry('brepInfo'), entry('brepChamfer'), entry('brepFillet'), entry('brepEdgesCmd'),
+    entry('nurbsCurveCmd'), entry('nurbsCircleCmd'), entry('nurbsArcCmd'),
+    entry('nurbsSurfaceCmd'), entry('nurbsExtrudeCmd'),
+    entry('feaMeshCmd'), entry('feaSolveCmd'), entry('pythonRunCmd'),
+    entry('addonListCmd'), entry('addonInstallCmd'), entry('addonToggleCmd'),
+    entry('addonRunCmd'), entry('addonUninstallCmd')
+  ]},
+  { id: 'tools', labelKey: 'tools', breaks: ['settings'], items: [
+    { id: 'select', labelKey: 'select', icon: menuIcon('select') },
+    { id: 'measure', labelKey: 'measure', icon: menuIcon('measure') },
+    { id: 'settings', labelKey: 'settings', icon: menuIcon('settings') }
+  ]},
+  { id: 'help', labelKey: 'help', breaks: ['about'], items: [
+    { id: 'usage', labelKey: 'usage', icon: menuIcon('usage') },
+    entry('shortcuts'),
+    entry('license'),
+    entry('homepage'),
+    { id: 'about', labelKey: 'about', icon: menuIcon('about') }
+  ]}
+]
+
+export const TOOLBAR_GROUPS: string[][] = [
+  ['new', 'open', 'save', 'export', 'print'],
+  ['undo', 'redo'],
+  ['select', 'box', 'sphere', 'cylinder', 'cone', 'torus', 'plane'],
+  ['delete', 'copy', 'paste'],
+  ['front', 'top', 'iso', 'fit', 'resetView', 'grid', 'ruler', 'scaleBar', 'showAxes']
+]
+
+/**
+ * Controls with their own component, left aligned after the command groups:
+ * the two panel toggles, the text-size stepper, the zoom stepper and the light
+ * rig. Only the language, theme, settings and about buttons stay on the right.
+ */
+export const TOOLBAR_CONTROLS: string[] = [
+  'toolPanel', 'propertyPanel', 'font-dec', 'font-value', 'font-inc', 'zoom-out', 'zoom-value', 'zoom-in', 'light'
+]
+
+/** Pinned to the right edge of the toolbar. */
+export const TOOLBAR_RIGHT: string[] = ['language', 'theme', 'settings', 'about']
+
+export const TOOLBAR: readonly string[] = [...TOOLBAR_GROUPS.flat(), ...TOOLBAR_CONTROLS, ...TOOLBAR_RIGHT]
+
+export const CONTEXT_ITEMS: MenuEntry[] = [
+  { id: 'copy', labelKey: 'copy', icon: menuIcon('copy') },
+  { id: 'paste', labelKey: 'paste', icon: menuIcon('paste') },
+  { id: 'duplicate', labelKey: 'duplicate', icon: menuIcon('duplicate') },
+  { id: 'delete', labelKey: 'delete', icon: menuIcon('delete') },
+  { id: 'hide', labelKey: 'hide', icon: menuIcon('hide') },
+  { id: 'fit', labelKey: 'fit', icon: menuIcon('fit') }
+]
+
+export function menuIsSingleColumn(items: MenuEntry[]): boolean {
+  return items.every((item) => item.icon.length > 0 && item.labelKey.length > 0)
+}
+
+export interface PopupLayout {
+  columns: number
+  rows: number
+  width: number
+  left: number
+}
+
+/**
+ * How to lay a menu out so that it always fits on screen: fill a column to the
+ * height that is left under the menu bar, wrap into further columns, then even
+ * the columns out so the popup is no taller than it has to be.
+ */
+export function menuPopupLayout(options: {
+  count: number
+  anchorX: number
+  anchorY: number
+  viewportWidth: number
+  viewportHeight: number
+  /** height of one row, including the gap */
+  rowHeight?: number
+  /**
+   * Everything in the panel's height that is not a row: its own padding and
+   * the clearance kept to the bottom edge of the window. The panel has no
+   * title bar, so this is smaller than it looks.
+   */
+  chrome?: number
+  columnWidth?: number
+}): PopupLayout {
+  const rowHeight = options.rowHeight ?? 29
+  const chrome = options.chrome ?? 44
+  const columnWidth = options.columnWidth ?? 196
+  const count = Math.max(1, options.count)
+
+  const heightForRows = Math.max(rowHeight * 3, options.viewportHeight - options.anchorY - chrome)
+  const perColumn = Math.max(3, Math.floor(heightForRows / rowHeight))
+  const widest = Math.max(1, Math.floor((options.viewportWidth - 16) / columnWidth))
+  // Enough columns for the whole menu, but never wider than the window.
+  const columns = Math.max(1, Math.min(widest, Math.ceil(count / perColumn)))
+  // Even the columns out: 52 items in 3 columns is 18 rows, not 23.
+  const rows = Math.min(perColumn, Math.max(1, Math.ceil(count / columns)))
+
+  const width = Math.min(options.viewportWidth - 16, columns * columnWidth + 12)
+  const left = Math.max(4, Math.min(options.anchorX, options.viewportWidth - width - 8))
+  return { columns, rows, width, left }
+}
+
+/** A menu longer than this is shown in labelled sections. */
+export const MENU_SECTION_THRESHOLD = 24
+
+export interface MenuSection {
+  /** category id from TOOL_CATEGORIES, or undefined for an unlabelled group */
+  category?: string
+  items: MenuEntry[]
+}
+
+/**
+ * How a menu is laid out inside its popup. Short menus stay as they are, with
+ * a separator in front of each group. A long one - Part has more than fifty
+ * commands - is split into the same categories the tool panel uses, so the
+ * columns can be read by heading instead of scanned end to end.
+ */
+export function menuSections(menu: MenuDef): MenuSection[] {
+  if (menu.items.length <= MENU_SECTION_THRESHOLD) return [{ items: menu.items }]
+  const order = new Map(TOOL_CATEGORIES.map((category, index) => [category.id, index]))
+  const buckets = new Map<string, MenuEntry[]>()
+  for (const item of menu.items) {
+    const id = toolCategory(item.id)
+    buckets.set(id, [...(buckets.get(id) ?? []), item])
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => (order.get(a[0]) ?? 99) - (order.get(b[0]) ?? 99))
+    .map(([category, items]) => ({ category, items }))
+}
+
+/** Rows a menu needs: its items, its separators and its section headings. */
+export function menuRowCount(menu: MenuDef): number {
+  const sections = menuSections(menu)
+  const headings = sections.filter((section) => section.category).length
+  const breaks = (menu.breaks ?? []).filter((id) => menu.items.some((item) => item.id === id))
+  return menu.items.length + breaks.length + headings
+}

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Error</title>
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+      font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+      color: #1c1f26;
+      background: #f4f5f7;
+    }
+    p { margin: 0; color: #4b5563; }
+    textarea {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      box-sizing: border-box;
+      resize: none;
+      padding: 10px;
+      border: 1px solid #c5cad3;
+      border-radius: 8px;
+      font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace;
+      background: #fff;
+      color: #1c1f26;
+    }
+    .row { display: flex; justify-content: flex-end; gap: 8px; }
+    button {
+      min-width: 88px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid #c5cad3;
+      background: #fff;
+      cursor: pointer;
+    }
+    button.primary { background: #2f6fed; border-color: #2f6fed; color: #fff; }
+  </style>
+</head>
+<body>
+  <p id="hint"></p>
+  <textarea id="body" readonly></textarea>
+  <div class="row">
+    <button id="copy" class="primary" type="button"></button>
+    <button id="close" type="button"></button>
+  </div>
+  <script>
+    const hint = document.getElementById('hint');
+    const body = document.getElementById('body');
+    const copy = document.getElementById('copy');
+    const closeBtn = document.getElementById('close');
+    let copiedLabel = 'Copied';
+
+    window.errorApi.onShow((payload) => {
+      document.title = payload.title;
+      hint.textContent = payload.hint;
+      body.value = payload.text;
+      copy.textContent = payload.copy;
+      copiedLabel = payload.copied;
+      closeBtn.textContent = payload.close;
+      body.focus();
+      body.select();
+    });
+
+    copy.addEventListener('click', async () => {
+      const label = copy.textContent;
+      await window.errorApi.copy(body.value);
+      copy.textContent = copiedLabel;
+      setTimeout(() => { copy.textContent = label; }, 1600);
+    });
+
+    closeBtn.addEventListener('click', () => window.close());
+  </script>
+</body>
+</html>

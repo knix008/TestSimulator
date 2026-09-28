@@ -1,0 +1,5 @@
+# MyCAD macro sample
+box(40, 20, 10)
+move(20, 0, 0)
+pad(sketch, 12)
+fillet(2)

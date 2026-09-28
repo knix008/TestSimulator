@@ -1,0 +1,118 @@
+/* 프로그램 설정 창. settings.css 를 그대로 쓰고 탭에 필요한 것만 더한다.
+   창 크기가 고정이므로 어느 탭을 골라도 내용이 한 화면에 들어가야 한다.
+   스크롤 막대가 생기면 크기가 고정이라는 약속이 깨진 것이다. */
+
+#tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 14px 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 7px 4px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 140ms linear, border-color 140ms linear;
+}
+
+.tab:hover { color: rgba(255, 255, 255, 0.85); }
+
+.tab[aria-selected="true"] {
+  color: #ffffff;
+  border-bottom-color: #5b9cf8;
+}
+
+/* 탭마다 내용의 높이가 다르다. 가장 큰 것에 맞춰 두면 탭을 옮겨도 창이 흔들리지 않는다. */
+#body {
+  overflow: hidden;
+  min-height: 244px;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* display 를 정해 두면 hidden 이 먹지 않는다. 고른 탭만 보이게 다시 못 박는다. */
+.pane[hidden] { display: none; }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.26);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 140ms linear, border-color 140ms linear;
+}
+
+.chip:hover { background: rgba(255, 255, 255, 0.16); }
+.chip:active { transform: translateY(1px); }
+
+.chip[aria-checked="true"] {
+  border-color: #93c5fd;
+  background: #2563eb;
+}
+
+/* 보관함이 어디인지 그대로 보여 준다. 길면 앞을 접는다. */
+#where {
+  display: block;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+/* 프로그램 정보 탭. 이름과 판과 만든 이만 가운데에 둔다. */
+.pane.about {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.pane.about img {
+  width: 56px;
+  height: 56px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+}
+
+.pane.about strong {
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+
+.pane.about dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 12px;
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.pane.about dt { color: rgba(255, 255, 255, 0.62); }
+.pane.about dd { margin: 0; }

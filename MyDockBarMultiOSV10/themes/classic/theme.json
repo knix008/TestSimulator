@@ -1,0 +1,38 @@
+{
+  "id": "classic",
+  "name": "Classic",
+  "author": "MyDockBar",
+  "description": "The default RocketDock bar: dark translucent glass with a glossy top. (bar shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(143,151,159,0.42) 0%, rgba(69,82,95,0.34) 48%, rgba(41,49,57,0.42) 100%)",
+    "--plate-border": "1px solid rgba(171,177,183,0.5)",
+    "--plate-radius": "18px",
+    "--plate-shadow": "0 14px 40px rgba(17,21,24,0.5), inset 0 1px 0 rgba(236,238,239,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(197,204,211,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(14,16,19,0.55)",
+    "--indicator-color": "#8eadcc",
+    "--indicator-glow": "0 0 10px rgba(142,173,204,0.9)",
+    "--tooltip-bg": "rgba(21,23,25,0.96)",
+    "--tooltip-fg": "#e5edf5",
+    "--tooltip-border": "1px solid rgba(142,173,204,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#8eadcc"
+  },
+  "ui": {
+    "--bg": "#1a1c1e",
+    "--bg-raised": "#27292b",
+    "--bg-sunken": "#131416",
+    "--fg": "#e9edf1",
+    "--fg-dim": "#8d9eb0",
+    "--line": "#3a3d40",
+    "--accent": "#8eadcc",
+    "--accent-fg": "#131416",
+    "--danger": "#ff7a72"
+  }
+}

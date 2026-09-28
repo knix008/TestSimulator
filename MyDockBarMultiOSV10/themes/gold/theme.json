@@ -1,0 +1,38 @@
+{
+  "id": "gold",
+  "name": "Gold",
+  "author": "MyDockBar",
+  "description": "Bright polished gold. (pill shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(180,166,116,0.42) 0%, rgba(130,107,23,0.34) 48%, rgba(78,64,14,0.42) 100%)",
+    "--plate-border": "1px solid rgba(199,188,151,0.5)",
+    "--plate-radius": "999px",
+    "--plate-shadow": "0 14px 40px rgba(33,27,6,0.5), inset 0 1px 0 rgba(243,240,232,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(234,221,174,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(26,21,5,0.55)",
+    "--indicator-color": "#f8d862",
+    "--indicator-glow": "0 0 10px rgba(248,216,98,0.9)",
+    "--tooltip-bg": "rgba(31,28,15,0.96)",
+    "--tooltip-fg": "#f5f2e5",
+    "--tooltip-border": "1px solid rgba(248,216,98,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#f8d862"
+  },
+  "ui": {
+    "--bg": "#232015",
+    "--bg-raised": "#322e20",
+    "--bg-sunken": "#1a170f",
+    "--fg": "#f1efe9",
+    "--fg-dim": "#b0a88d",
+    "--line": "#4a4430",
+    "--accent": "#f8d862",
+    "--accent-fg": "#1c180d",
+    "--danger": "#ff7a72"
+  }
+}

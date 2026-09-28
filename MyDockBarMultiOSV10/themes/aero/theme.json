@@ -1,0 +1,38 @@
+{
+  "id": "aero",
+  "name": "Aero",
+  "author": "MyDockBar",
+  "description": "A thin frosted Aero strip against the screen edge. (tray shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(130,154,166,0.42) 0%, rgba(46,87,107,0.34) 48%, rgba(28,52,64,0.42) 100%)",
+    "--plate-border": "1px solid rgba(161,179,188,0.5)",
+    "--plate-radius": "16px 16px 0 0",
+    "--plate-shadow": "0 14px 40px rgba(12,22,27,0.5), inset 0 1px 0 rgba(234,238,240,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(187,210,221,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(9,17,21,0.55)",
+    "--indicator-color": "#7bbee0",
+    "--indicator-glow": "0 0 10px rgba(123,190,224,0.9)",
+    "--tooltip-bg": "rgba(18,24,28,0.96)",
+    "--tooltip-fg": "#e5f0f5",
+    "--tooltip-border": "1px solid rgba(123,190,224,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#7bbee0"
+  },
+  "ui": {
+    "--bg": "#181d20",
+    "--bg-raised": "#242b2e",
+    "--bg-sunken": "#111518",
+    "--fg": "#e9eef1",
+    "--fg-dim": "#8da4b0",
+    "--line": "#364045",
+    "--accent": "#7bbee0",
+    "--accent-fg": "#101618",
+    "--danger": "#ff7a72"
+  }
+}

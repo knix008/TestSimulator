@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src file: data:; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <title>MyDockBar Settings</title>
+  <link rel="stylesheet" href="css/settings.css" />
+  <link rel="stylesheet" href="css/effects.css" />
+</head>
+<body>
+  <!-- Tabs run from the whole application inwards: what MyDockBar is, then how
+       the dock looks, then where it sits and how it acts, then what is on it. -->
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="general" role="tab"><span data-i18n="tab.general">General</span></button>
+    <button class="tab" data-tab="themes" role="tab"><span data-i18n="tab.themes">Themes</span></button>
+    <button class="tab" data-tab="appearance" role="tab"><span data-i18n="tab.appearance">Appearance</span></button>
+    <button class="tab" data-tab="zoom" role="tab"><span data-i18n="tab.zoom">Zoom</span></button>
+    <button class="tab" data-tab="position" role="tab"><span data-i18n="tab.position">Position</span></button>
+    <button class="tab" data-tab="behaviour" role="tab"><span data-i18n="tab.behaviour">Behaviour</span></button>
+    <button class="tab" data-tab="items" role="tab"><span data-i18n="tab.items">Items</span></button>
+    <button class="tab" data-tab="apps" role="tab"><span data-i18n="tab.apps">Applications</span></button>
+  </nav>
+
+  <main>
+    <!-- ------------------------------- General ------------------------------- *
+         Everything about MyDockBar itself rather than about the dock.          -->
+    <section id="tab-general" class="panel active">
+      <div class="cols">
+        <div class="col">
+          <h2 data-i18n="h.language">Language</h2>
+          <label class="field">
+            <span data-i18n="f.language">Language</span>
+            <select id="locale">
+              <option value="auto" data-i18n="lang.auto">Same as system</option>
+              <option value="en" data-i18n="lang.en">English</option>
+              <option value="ko" data-i18n="lang.ko">한국어</option>
+            </select>
+          </label>
+
+          <h2 data-i18n="h.startup">Startup</h2>
+          <label class="check"><input type="checkbox" id="startWithOS" /> <span data-i18n="c.startWithOS">Start at login</span></label>
+
+          <h2 data-i18n="h.configuration">Configuration</h2>
+          <div class="stack">
+            <button id="cfg-export" class="ghost" data-i18n="b.export">Export settings…</button>
+            <button id="cfg-import" class="ghost" data-i18n="b.import">Import settings…</button>
+            <button id="cache-clear" class="ghost" data-i18n="b.clearCache">Clear icon cache</button>
+          </div>
+        </div>
+        <div class="col">
+          <h2 data-i18n="h.trash">Trash</h2>
+          <label class="field">
+            <span data-i18n="f.trashEmptyEffect">Emptying the Trash</span>
+            <select id="trashEmptyEffect">
+              <option value="smoke" data-i18n="o.smoke">Puff of smoke</option>
+              <option value="lift" data-i18n="o.lift">Contents fly out</option>
+              <option value="shake" data-i18n="o.shake">Shake it out</option>
+              <option value="crush" data-i18n="o.crush">Crush</option>
+              <option value="none" data-i18n="o.none">None</option>
+            </select>
+          </label>
+          <div class="row">
+            <div id="trash-preview" class="remove-preview"></div>
+            <button type="button" id="trash-preview-play" class="ghost"
+                    data-i18n="b.playEffect">Play it</button>
+          </div>
+          <p class="hint" data-i18n="m.trashEffectHint"></p>
+
+          <h2 data-i18n="h.about">About</h2>
+          <p class="about">
+            <strong>MyDockBar</strong> <span id="about-version"></span><br />
+            <span data-i18n="m.aboutBody"></span><br />
+            <span id="about-platform"></span>
+          </p>
+          <div class="stack">
+            <button id="quit-app" class="danger" data-i18n="b.quit">Quit MyDockBar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------- Themes -------------------------------- -->
+    <section id="tab-themes" class="panel">
+      <div class="theme-groups">
+        <h2><span data-i18n="h.dark">Dark</span> <span class="count" id="dark-count"></span></h2>
+        <div id="theme-grid-dark" class="theme-grid"></div>
+        <h2><span data-i18n="h.light">Light</span> <span class="count" id="light-count"></span></h2>
+        <div id="theme-grid-light" class="theme-grid"></div>
+      </div>
+      <footer class="panel-foot">
+        <button id="open-theme-folder" class="ghost" data-i18n="b.openThemeFolder">Open theme folder…</button>
+        <span class="hint" id="theme-count"></span>
+      </footer>
+    </section>
+
+    <!-- ----------------------------- Appearance ------------------------------ *
+         How big the dock is and what it is made of - nothing that moves.       -->
+    <section id="tab-appearance" class="panel">
+      <div class="cols">
+        <div class="col">
+          <h2 data-i18n="h.sizeSpacing">Size &amp; spacing</h2>
+          <label class="field">
+            <span data-i18n="f.iconSize">Icon size</span>
+            <input type="range" id="iconSize" min="24" max="128" step="2" /><em id="v-iconSize"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.spacing">Spacing</span>
+            <input type="range" id="spacing" min="0" max="40" step="1" /><em id="v-spacing"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.padding">Plate padding</span>
+            <input type="range" id="padding" min="0" max="40" step="1" /><em id="v-padding"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.plateThickness">Background height</span>
+            <input type="range" id="plateThickness" min="0" max="220" step="2" /><em id="v-plateThickness"></em>
+          </label>
+          <p class="hint" data-i18n="m.paddingHint"></p>
+        </div>
+        <div class="col">
+          <h2 data-i18n="h.transparency">Transparency</h2>
+          <label class="field">
+            <span data-i18n="f.opacity">Dock opacity</span>
+            <input type="range" id="opacity" min="0.2" max="1" step="0.05" /><em id="v-opacity"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.plateOpacity">Background</span>
+            <input type="range" id="plateOpacity" min="0" max="1" step="0.05" /><em id="v-plateOpacity"></em>
+          </label>
+
+          <h2 data-i18n="h.display">Display</h2>
+          <label class="check"><input type="checkbox" id="showLabels" /> <span data-i18n="c.showLabels">Show labels on hover</span></label>
+          <label class="check"><input type="checkbox" id="showReflection" /> <span data-i18n="c.showReflection">Show icon reflections</span></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- -------------------------------- Zoom --------------------------------- *
+         Everything the icons do when the pointer or a click reaches them.      -->
+    <section id="tab-zoom" class="panel">
+      <div class="cols">
+        <div class="col">
+          <h2 data-i18n="h.magnification">Magnification</h2>
+          <label class="field">
+            <span data-i18n="f.maxZoom">Maximum zoom</span>
+            <input type="range" id="maxZoom" min="1" max="3" step="0.05" /><em id="v-maxZoom"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.zoomRange">Zoom range</span>
+            <input type="range" id="zoomRange" min="0.5" max="6" step="0.1" /><em id="v-zoomRange"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.curve">Curve</span>
+            <select id="animation">
+              <option value="parabolic" data-i18n="o.parabolic">Parabolic (classic)</option>
+              <option value="cosine" data-i18n="o.cosine">Cosine (soft)</option>
+              <option value="linear" data-i18n="o.linear">Linear</option>
+              <option value="none" data-i18n="o.none">None</option>
+            </select>
+          </label>
+
+          <h2 data-i18n="h.launchEffect">Launch effect</h2>
+          <label class="field">
+            <span data-i18n="f.clickEffect">Click effect</span>
+            <select id="clickEffect">
+              <option value="bounce" data-i18n="o.bounce">Bounce</option>
+              <option value="pop" data-i18n="o.pop">Pop</option>
+              <option value="none" data-i18n="o.none">None</option>
+            </select>
+          </label>
+          <label class="field">
+            <span data-i18n="f.removeEffect">Removing an icon</span>
+            <select id="removeEffect">
+              <option value="poof" data-i18n="o.poof">Poof</option>
+              <option value="shrink" data-i18n="o.shrink">Shrink away</option>
+              <option value="shatter" data-i18n="o.shatter">Shatter</option>
+              <option value="suck" data-i18n="o.suck">Spin away</option>
+              <option value="drop" data-i18n="o.drop">Fall off</option>
+              <option value="fade" data-i18n="o.fade">Fade out</option>
+              <option value="none" data-i18n="o.none">None</option>
+            </select>
+          </label>
+          <label class="field">
+            <span data-i18n="f.clickEffectDirection">Direction</span>
+            <select id="clickEffectDirection">
+              <option value="auto" data-i18n="o.dirAuto">Away from the edge</option>
+              <option value="up" data-i18n="o.dirUp">Up</option>
+              <option value="down" data-i18n="o.dirDown">Down</option>
+              <option value="left" data-i18n="o.dirLeft">Left</option>
+              <option value="right" data-i18n="o.dirRight">Right</option>
+            </select>
+          </label>
+        </div>
+        <div class="col">
+          <h2 data-i18n="h.preview">Preview</h2>
+          <div id="zoom-preview" class="zoom-preview"></div>
+          <p class="hint" data-i18n="m.zoomHint"></p>
+          <p class="hint" data-i18n="m.effectHint"></p>
+          <div class="row">
+            <div id="remove-preview" class="remove-preview"></div>
+            <button type="button" id="remove-preview-play" class="ghost"
+                    data-i18n="b.playEffect">Play it</button>
+          </div>
+          <p class="hint" data-i18n="m.removeHint"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------- Position ------------------------------ *
+         Where the dock is on screen, including how far up the window stack.    -->
+    <section id="tab-position" class="panel">
+      <div class="cols">
+        <div class="col">
+          <h2 data-i18n="h.screenEdge">Screen edge</h2>
+          <label class="field">
+            <span data-i18n="f.position">Position</span>
+            <select id="position">
+              <option value="bottom" data-i18n="pos.bottom">Bottom</option>
+              <option value="top" data-i18n="pos.top">Top</option>
+              <option value="left" data-i18n="pos.left">Left</option>
+              <option value="right" data-i18n="pos.right">Right</option>
+              <option value="bottom-left" data-i18n="pos.bottom-left">Bottom left</option>
+              <option value="bottom-right" data-i18n="pos.bottom-right">Bottom right</option>
+              <option value="top-left" data-i18n="pos.top-left">Top left</option>
+              <option value="top-right" data-i18n="pos.top-right">Top right</option>
+            </select>
+          </label>
+          <label class="field">
+            <span id="align-label" data-i18n="f.alignSides">Left or right</span>
+            <select id="align">
+              <option value="start" data-i18n="pos.left">Left</option>
+              <option value="center" data-i18n="o.center">Center</option>
+              <option value="end" data-i18n="pos.right">Right</option>
+            </select>
+          </label>
+          <label class="field">
+            <span data-i18n="f.edgeOffset">Offset from edge</span>
+            <input type="range" id="edgeOffset" min="0" max="120" step="1" /><em id="v-edgeOffset"></em>
+          </label>
+
+          <h2 data-i18n="h.window">Window</h2>
+          <label class="field">
+            <span data-i18n="f.stackingLevel">Window priority</span>
+            <select id="stackingLevel">
+              <option value="screen-saver" data-i18n="o.levelTop">Above everything</option>
+              <option value="floating" data-i18n="o.levelFloating">Above normal windows</option>
+              <option value="normal" data-i18n="o.levelNormal">Normal</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="showOnAllWorkspaces" /> <span data-i18n="c.allWorkspaces">All workspaces</span></label>
+          <label class="check"><input type="checkbox" id="showInTaskbar" /> <span data-i18n="c.showInTaskbar">Show MyDockBar on the taskbar</span></label>
+          <p class="hint" data-i18n="m.taskbarHint"></p>
+        </div>
+        <div class="col">
+          <h2 data-i18n="h.monitor">Monitor</h2>
+          <label class="field">
+            <span data-i18n="f.display">Show the dock on</span>
+            <select id="display"></select>
+          </label>
+          <div id="monitor-map" class="monitor-map"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------ Behaviour ------------------------------ *
+         What the dock does on its own: hiding, tracking what is running, and
+         whether it will let its own contents be changed.                       -->
+    <section id="tab-behaviour" class="panel">
+      <div class="cols">
+        <div class="col">
+          <h2 data-i18n="h.autoHide">Auto-hide</h2>
+          <label class="check"><input type="checkbox" id="autoHide" /> <span data-i18n="c.autoHide">Auto-hide</span></label>
+          <label class="field">
+            <span data-i18n="f.autoShowDelay">Show delay</span>
+            <input type="range" id="autoShowDelay" min="0" max="1500" step="10" /><em id="v-autoShowDelay"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.autoHideDelay">Hide delay</span>
+            <input type="range" id="autoHideDelay" min="0" max="2000" step="50" /><em id="v-autoHideDelay"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.autoHidePeek">Visible sliver</span>
+            <input type="range" id="autoHidePeek" min="1" max="20" step="1" /><em id="v-autoHidePeek"></em>
+          </label>
+          <label class="field">
+            <span data-i18n="f.autoHideAnimation">Slide time</span>
+            <input type="range" id="autoHideAnimation" min="0" max="800" step="20" /><em id="v-autoHideAnimation"></em>
+          </label>
+          <p class="hint" data-i18n="m.autoHideHint"></p>
+        </div>
+        <div class="col">
+          <h2 data-i18n="h.running">Running applications</h2>
+          <label class="check"><input type="checkbox" id="showRunningIndicator" /> <span data-i18n="c.showRunning">Dot under running applications</span></label>
+          <label class="check"><input type="checkbox" id="showRunningApps" /> <span data-i18n="c.showRunningApps">Also show open applications</span></label>
+          <label class="check"><input type="checkbox" id="focusRunningWindow" /> <span data-i18n="c.focusRunning">Raise open windows</span></label>
+          <p class="hint" data-i18n="m.runningHint"></p>
+
+          <h2 data-i18n="h.items">Items</h2>
+          <label class="check"><input type="checkbox" id="lockItems" /> <span data-i18n="c.lockItems">Lock items</span></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------- Items --------------------------------- -->
+    <section id="tab-items" class="panel">
+      <div class="row toolbar">
+        <button id="add-app" class="primary" data-i18n="b.addApp">Add application…</button>
+        <button id="add-folder" class="ghost" data-i18n="b.addFolder">Add folder…</button>
+        <button id="add-separator" class="ghost" data-i18n="b.addSeparator">Add separator</button>
+        <button id="add-url" class="ghost" data-i18n="b.addUrl">Add URL…</button>
+      </div>
+      <ul id="item-list" class="rows"></ul>
+      <div id="item-editor" class="editor hidden"></div>
+      <div id="item-drop" class="drop-overlay"><span data-i18n="m.dragHint"></span></div>
+      <footer class="panel-foot">
+        <div class="pager" id="item-pager"></div>
+        <span class="hint" id="item-hint"></span>
+      </footer>
+    </section>
+
+    <!-- ----------------------------- Applications ---------------------------- -->
+    <section id="tab-apps" class="panel">
+      <div class="row toolbar">
+        <input type="search" id="app-filter" />
+        <button id="rescan" class="ghost" data-i18n="b.rescan">Rescan</button>
+      </div>
+      <ul id="app-list" class="rows"></ul>
+      <footer class="panel-foot">
+        <div class="pager" id="app-pager"></div>
+        <span class="hint" id="apps-status"></span>
+      </footer>
+    </section>
+  </main>
+
+  <footer class="actions">
+    <button id="cfg-reset" class="danger" data-i18n="b.reset">Reset to defaults</button>
+    <button id="cfg-ok" class="primary" data-i18n="b.ok">OK</button>
+  </footer>
+
+  <div id="icon-picker" class="modal hidden" role="dialog" aria-modal="true"></div>
+  <div id="toast" class="toast"></div>
+
+  <script src="../shared/i18n.js"></script>
+  <script src="../shared/placement.js"></script>
+  <script src="js/glyphs.js"></script>
+  <script src="js/settings.js"></script>
+</body>
+</html>

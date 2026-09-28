@@ -3,9 +3,10 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { appCacheDir, appConfigDir, join, tempDir } from '@tauri-apps/api/path'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
-import { exists, mkdir, readDir, readFile, readTextFile, remove, rename, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { exists, mkdir, readDir, readFile, readTextFile, remove, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import {
   ArrowLeftRight,
   AudioWaveform,
@@ -134,7 +135,8 @@ const sessionPlaylistFileName = 'session-playlist.json'
 // the app cache dir, keyed by URL hash, so a restart can replay them without
 // downloading again.
 const remoteCacheFolderName = 'remote-audio'
-const remoteCacheFormat = 'm4a'
+// Prefer mp3 for WebView2 playback reliability (AAC/m4a from yt-dlp can fail to decode).
+const remoteCacheFormat = 'mp3'
 const defaultMusicFolder = 'D:\\Home\\Music'
 const normalWindowSize = { width: 835, height: 496 }
 const miniWindowSize = { width: 340, height: 180 }
@@ -180,7 +182,7 @@ const getAudioMimeType = (fileName: string) => {
     case '.webm':
       return 'audio/webm'
     case '.opus':
-      return 'audio/opus'
+      return 'audio/ogg'
     case '.wma':
       return 'audio/x-ms-wma'
     case '.aiff':
@@ -190,6 +192,53 @@ const getAudioMimeType = (fileName: string) => {
       return 'application/octet-stream'
   }
 }
+
+/** Prefer container magic over file extension — yt-dlp sometimes leaves a mismatched ext. */
+const sniffAudioMimeType = (bytes: Uint8Array, fallback: string) => {
+  if (bytes.length >= 12) {
+    // EBML / WebM
+    if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+      return 'audio/webm'
+    }
+    // Ogg
+    if (bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+      return 'audio/ogg'
+    }
+    // FLAC
+    if (bytes[0] === 0x66 && bytes[1] === 0x4c && bytes[2] === 0x61 && bytes[3] === 0x43) {
+      return 'audio/flac'
+    }
+    // WAV (RIFF....WAVE)
+    if (
+      bytes[0] === 0x52 &&
+      bytes[1] === 0x49 &&
+      bytes[2] === 0x46 &&
+      bytes[3] === 0x46 &&
+      bytes[8] === 0x57 &&
+      bytes[9] === 0x41 &&
+      bytes[10] === 0x56 &&
+      bytes[11] === 0x45
+    ) {
+      return 'audio/wav'
+    }
+    // MP4 / M4A (....ftyp)
+    if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+      return 'audio/mp4'
+    }
+    // ID3 or MPEG frame sync
+    if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
+      return 'audio/mpeg'
+    }
+    if (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) {
+      return 'audio/mpeg'
+    }
+  }
+
+  return fallback === 'application/octet-stream' ? 'audio/mpeg' : fallback
+}
+
+const isPlayableMediaSrc = (src: string) =>
+  Boolean(src) && (src.startsWith('blob:') || src.startsWith('data:') || /^https?:\/\//i.test(src))
 
 const directAudioExtensionPattern = /\.(mp3|flac|wav|ogg|aac|m4a|opus|webm|wma|aiff|aif)(\?|#|$)/i
 
@@ -421,7 +470,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   const loadMusicFolderRef = useRef<(folderPath: string) => Promise<void>>(async () => {})
   const loadPlaylistFromPathRef = useRef<(playlistPath: string) => Promise<boolean>>(async () => false)
   const openPathsFromOsRef = useRef<(paths: string[]) => Promise<void>>(async () => {})
+  const handleDroppedPathsRef = useRef<(paths: string[]) => Promise<void>>(async () => {})
   const ensurePlayableTrackRef = useRef<(track: Track) => Promise<Track>>(async (track) => track)
+  const removeTrackFromPlaylistRef = useRef<(trackId: string) => void>(() => {})
   const restoreSessionPlaylistRef = useRef<(raw: string) => Promise<boolean>>(async () => false)
   const remoteCacheDirRef = useRef<string | null>(null)
   const sessionPlaylistPathRef = useRef<string | null>(null)
@@ -1091,7 +1142,13 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       }
 
       const cachePath = await getRemoteCachePath(url)
-      return (await exists(cachePath)) ? cachePath : null
+      if (await exists(cachePath)) {
+        return cachePath
+      }
+
+      // Older builds cached as m4a — still playable if present.
+      const legacyPath = await join(await getRemoteCacheDir(), `${remoteCacheStem(url)}.m4a`)
+      return (await exists(legacyPath)) ? legacyPath : null
     } catch (error) {
       console.warn('[remote] cache lookup failed', url, error)
       return null
@@ -1100,7 +1157,6 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   const createTrackFromPath = async (filePath: string, preferredTitle?: string) => {
     const fileName = fileNameFromPath(filePath)
-    const mimeType = getAudioMimeType(fileName)
     const fallbackTitle = fileName.replace(/\.[^/.]+$/, '') || fileName
     const track: Track = {
       id: `folder-${filePath}`,
@@ -1113,6 +1169,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     try {
       const buffer = await readFile(filePath)
+      const mimeType = sniffAudioMimeType(buffer, getAudioMimeType(fileName))
       const source = createBlobUrl(buffer, mimeType, objectUrlsRef.current)
       const playableTrack = { ...track, source }
 
@@ -1137,6 +1194,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       }
 
       const bytes = new Uint8Array(await response.arrayBuffer())
+      const mimeType = sniffAudioMimeType(bytes, getAudioMimeType(fileName))
       const source = createBlobUrl(bytes, mimeType, objectUrlsRef.current)
       const playableTrack = { ...track, source }
 
@@ -1148,10 +1206,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       }
     } catch (assetError) {
       console.error('[track] unable to load local file', filePath, assetError)
-      return {
-        ...track,
-        source: convertFileSrc(filePath),
-      }
+      throw new Error(`unable to load audio file: ${filePath}`)
     }
   }
 
@@ -1262,7 +1317,30 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const playCurrentAudio = async (trackOverride?: Track) => {
+  const isMissingPlayablePath = async (track: Track) => {
+    // Local/extracted rows that point at a deleted or moved file.
+    if (track.filePath) {
+      try {
+        return !(await exists(track.filePath))
+      } catch {
+        return true
+      }
+    }
+
+    // Local track with no path at all cannot be replayed from disk.
+    if (track.origin === 'local') {
+      return true
+    }
+
+    return false
+  }
+
+  const dropTrackMissingPath = (track: Track) => {
+    pushStatus(`${labels.removedMissingPath}: ${track.title}`, 'info')
+    removeTrackFromPlaylistRef.current(track.id)
+  }
+
+  const playCurrentAudio = async (trackOverride?: Track, allowRetry = true) => {
     const audio = audioRef.current
     const track = trackOverride ?? currentTrack ?? tracks.find((item) => item.id === currentTrackId)
 
@@ -1271,12 +1349,39 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     try {
-      if (audio.dataset.trackId !== track.id || !audio.src) {
+      if (audio.dataset.trackId !== track.id || !audio.src || audio.src !== track.source) {
         applyTrackSource(audio, track)
       }
 
-      if (!track.source) {
+      if (!track.source || !isPlayableMediaSrc(track.source)) {
         throw new Error('missing media source')
+      }
+
+      // Wait until the element has data after load() so play() is not aborted.
+      if (audio.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        await Promise.race([
+          new Promise<void>((resolve, reject) => {
+            const onReady = () => {
+              cleanup()
+              resolve()
+            }
+            const onError = () => {
+              cleanup()
+              reject(audio.error ?? new Error('media error'))
+            }
+            const cleanup = () => {
+              audio.removeEventListener('canplay', onReady)
+              audio.removeEventListener('error', onError)
+            }
+            audio.addEventListener('canplay', onReady, { once: true })
+            audio.addEventListener('error', onError, { once: true })
+          }),
+          new Promise<void>((resolve) => {
+            window.setTimeout(resolve, 4000)
+          }),
+        ]).catch(() => {
+          // Fall through and still attempt play().
+        })
       }
 
       const usingWebAudio = ensureAudioGraph()
@@ -1303,6 +1408,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       })
       clearStatus()
       setIsPlaying(true)
+      // Always clear the idle spectrum placeholder when playback actually starts
+      // (drag-drop / autoplay may not reliably hit the element onPlay path first).
+      showTransportOverlay('play')
 
       if (usingWebAudio) {
         drawSpectrum()
@@ -1316,6 +1424,49 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         src: audio.src.slice(0, 48),
         mediaError: audio.error?.code,
       })
+
+      // Recover once: rebuild blob from disk, or re-extract a remote link.
+      if (allowRetry) {
+        try {
+          let recovered: Track | null = null
+
+          if (track.filePath && (await exists(track.filePath))) {
+            const local = await createTrackFromPath(track.filePath, track.title)
+            recovered = {
+              ...track,
+              ...local,
+              id: track.id,
+              title: track.title || local.title,
+              origin: track.origin,
+              remoteUrl: track.remoteUrl,
+              mode: track.remoteUrl ? 'extracted' : track.mode,
+              filePath: track.filePath,
+            }
+          } else if (track.remoteUrl) {
+            pushStatus(labels.addRemoteBusy, 'busy')
+            const resolved = await resolveUrlAsPlayableTrack(track.remoteUrl, {
+              title: track.title,
+              // Force a fresh extract — cached path may be gone or unreadable.
+              savedPath: undefined,
+            })
+            recovered = { ...resolved, id: track.id, title: track.title || resolved.title }
+          }
+
+          if (recovered?.source) {
+            setTracks((previous) => previous.map((item) => (item.id === track.id ? recovered! : item)))
+            await playCurrentAudio(recovered, false)
+            return
+          }
+        } catch (retryError) {
+          console.error('[play] retry failed', retryError)
+        }
+      }
+
+      if (await isMissingPlayablePath(track)) {
+        dropTrackMissingPath(track)
+        return
+      }
+
       setIsPlaying(false)
       pushStatus(
         `${labels.playbackError}: ${error instanceof Error ? `${error.name} ${error.message}` : String(error)}`,
@@ -1323,6 +1474,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       )
       stopSpectrum()
     }
+  }
+
+  const clearTransportOverlay = () => {
+    if (transportOverlayTimerRef.current !== null) {
+      window.clearTimeout(transportOverlayTimerRef.current)
+      transportOverlayTimerRef.current = null
+    }
+
+    setTransportOverlay(null)
   }
 
   const showTransportOverlay = (kind: TransportOverlay) => {
@@ -1333,7 +1493,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     setTransportOverlay(kind)
 
-    if (kind === 'spectrum') {
+    // Idle placeholder ('spectrum') and pause stay until the next transport change.
+    // Play/stop flash briefly, then play clears and stop returns to the idle icon.
+    if (kind === 'spectrum' || kind === 'pause') {
       return
     }
 
@@ -1341,6 +1503,32 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       setTransportOverlay(kind === 'stop' ? 'spectrum' : null)
       transportOverlayTimerRef.current = null
     }, 3000)
+  }
+
+  const syncTransportOverlayFromPlayback = () => {
+    const audio = audioRef.current
+
+    if (!currentTrackId) {
+      showTransportOverlay('spectrum')
+      return
+    }
+
+    if (isPlaying) {
+      // Analyzer (or a brief play mark) is the display — never keep the idle icon.
+      if (showSpectrum) {
+        clearTransportOverlay()
+      } else {
+        showTransportOverlay('play')
+      }
+      return
+    }
+
+    if ((audio?.currentTime ?? 0) > 0 && !audio?.ended) {
+      showTransportOverlay('pause')
+      return
+    }
+
+    showTransportOverlay('stop')
   }
 
   useEffect(() => {
@@ -1393,14 +1581,28 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     shouldPlayOnTrackLoadRef.current = false
 
+    if (await isMissingPlayablePath(track) && !track.remoteUrl) {
+      dropTrackMissingPath(track)
+      return
+    }
+
     let playable = track
 
     try {
       playable = await ensurePlayableTrackRef.current(track)
     } catch (error) {
       console.error('[play] prepare failed', error)
+      if (await isMissingPlayablePath(track) || (track.filePath && !(await exists(track.filePath).catch(() => false)))) {
+        dropTrackMissingPath(track)
+        return
+      }
       const failed = `${labels.addRemoteError}: ${error instanceof Error ? error.message : String(error)}`
       pushStatus(failed, 'error')
+      return
+    }
+
+    if (await isMissingPlayablePath(playable) && !playable.remoteUrl) {
+      dropTrackMissingPath(playable)
       return
     }
 
@@ -1468,10 +1670,18 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     if (trackId === currentTrackId) {
       void (async () => {
         try {
+          if (await isMissingPlayablePath(track) && !track.remoteUrl) {
+            dropTrackMissingPath(track)
+            return
+          }
           const playable = await ensurePlayableTrackRef.current(track)
           await playCurrentAudio(playable)
         } catch (error) {
           console.error('[play] prepare failed', error)
+          if (await isMissingPlayablePath(track)) {
+            dropTrackMissingPath(track)
+            return
+          }
           const failed = `${labels.addRemoteError}: ${error instanceof Error ? error.message : String(error)}`
           pushStatus(failed, 'error')
         }
@@ -1483,14 +1693,19 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }
 
   const removeTrackFromPlaylist = (trackId: string) => {
-    const index = tracks.findIndex((track) => track.id === trackId)
+    const previous = tracksRef.current
+    const index = previous.findIndex((track) => track.id === trackId)
 
     if (index === -1) {
+      console.warn('[playlist] remove missed id', trackId)
       return
     }
 
-    const removed = tracks[index]
-    const remaining = tracks.filter((track) => track.id !== trackId)
+    const removed = previous[index]
+    const remaining = previous.filter((track) => track.id !== trackId)
+    // Keep the ref in sync immediately so a second delete in the same tick sees the new list.
+    tracksRef.current = remaining
+
     const wasCurrent = trackId === currentTrackId
     const wasPlaying = wasCurrent && isPlaying
     const nextTrack = wasCurrent && remaining.length ? remaining[Math.min(index, remaining.length - 1)] : null
@@ -1513,6 +1728,7 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     setTracks(remaining)
+    setTrackContextMenu(null)
     // Select the successor in the same batch so the player never renders an
     // empty "no track" state in between.
     setCurrentTrackId(nextTrack?.id ?? (wasCurrent ? '' : currentTrackId))
@@ -1537,33 +1753,32 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
   }
 
-  const addTracks = (nextTracks: Track[]) => {
+  removeTrackFromPlaylistRef.current = removeTrackFromPlaylist
+
+  const addTracks = (nextTracks: Track[], options?: { selectFirst?: boolean }) => {
     if (!nextTracks.length) {
-      return 0
+      return { addedCount: 0, firstAdded: null as Track | null }
     }
 
-    let addedCount = 0
+    const selectFirst = options?.selectFirst !== false
+    const previousTracks = tracksRef.current
+    const uniqueTracks = nextTracks.filter((track) => !trackAlreadyExists(track, previousTracks))
+    const firstAdded = uniqueTracks[0] ?? null
+    const addedCount = uniqueTracks.length
 
-    setTracks((previousTracks) => {
-      const uniqueTracks = nextTracks.filter((track) => !trackAlreadyExists(track, previousTracks))
-      addedCount = uniqueTracks.length
-
-      if (!uniqueTracks.length) {
-        return previousTracks
-      }
-
-      return [...uniqueTracks, ...previousTracks]
-    })
-
-    if (addedCount > 0) {
-      const firstNew = nextTracks.find((track) => !trackAlreadyExists(track, tracksRef.current))
-      if (firstNew) {
-        setCurrentTrackId(firstNew.id)
-      }
-      setIsPlaying(false)
+    if (!uniqueTracks.length) {
+      return { addedCount: 0, firstAdded: null }
     }
 
-    return addedCount
+    const next = [...uniqueTracks, ...previousTracks]
+    tracksRef.current = next
+    setTracks(next)
+
+    if (selectFirst && firstAdded) {
+      setCurrentTrackId(firstAdded.id)
+    }
+
+    return { addedCount, firstAdded }
   }
 
   const openAudioFiles = async () => {
@@ -1598,6 +1813,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     }
 
     if (!audioPaths.length) {
+      if (!playlistPaths.length) {
+        pushStatus(labels.dropFilesEmpty, 'info')
+      }
       return
     }
 
@@ -1611,25 +1829,91 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
     if (!pathsToLoad.length) {
       pushStatus(labels.tracksAlreadyLoaded, 'info')
+      const existing = tracksRef.current.find(
+        (track) =>
+          track.filePath && audioPaths.some((path) => normalizePathKey(path) === normalizePathKey(track.filePath!)),
+      )
+      if (existing) {
+        await loadAndPlayTrack(existing)
+      }
       return
     }
 
-    const newTracks = await mapWithConcurrency(pathsToLoad, loadConcurrency, (path) =>
-      createTrackFromPath(path, fileNameFromPath(path)),
-    )
-    const playable = newTracks.filter((track) => track.source)
-    const added = addTracks(playable)
+    const newTracks = (
+      await mapWithConcurrency(pathsToLoad, loadConcurrency, async (path) => {
+        try {
+          return await createTrackFromPath(path, fileNameFromPath(path))
+        } catch (error) {
+          console.warn('[open] failed to load dropped/opened file', path, error)
+          return null
+        }
+      })
+    ).filter((track): track is Track => Boolean(track?.source))
 
-    if (added < audioPaths.length) {
+    if (!newTracks.length) {
+      pushStatus(labels.dropFilesEmpty, 'info')
+      return
+    }
+
+    const { addedCount, firstAdded } = addTracks(newTracks, { selectFirst: false })
+
+    if (addedCount < audioPaths.length) {
       pushStatus(labels.tracksAlreadyLoaded, 'info')
     }
 
-    if (playable[0]) {
-      loadAndPlayTrack(playable[0])
+    const toPlay = firstAdded ?? newTracks[0]
+    if (toPlay) {
+      await loadAndPlayTrack(toPlay)
     }
   }
 
   openPathsFromOsRef.current = openPathsFromOs
+
+  const handleDroppedPaths = async (paths: string[]) => {
+    if (!paths.length) {
+      return
+    }
+
+    const filePaths: string[] = []
+    const folderPaths: string[] = []
+
+    for (const path of paths) {
+      const lower = path.toLowerCase()
+      if (lower.endsWith('.mplist') || audioExtensions.some((extension) => lower.endsWith(extension))) {
+        filePaths.push(path)
+        continue
+      }
+
+      try {
+        await readDir(path)
+        folderPaths.push(path)
+      } catch {
+        // Not a readable folder / unsupported file — skip.
+      }
+    }
+
+    if (filePaths.length) {
+      await openPathsFromOsRef.current(filePaths)
+    }
+
+    for (const folderPath of folderPaths) {
+      await loadMusicFolderRef.current(folderPath)
+    }
+
+    // Folder-only drops: play the first newly listed track.
+    if (!filePaths.length && folderPaths.length) {
+      const first = tracksRef.current[0]
+      if (first) {
+        await loadAndPlayTrack(first)
+      }
+    }
+
+    if (!filePaths.length && !folderPaths.length) {
+      pushStatus(labels.dropFilesEmpty, 'info')
+    }
+  }
+
+  handleDroppedPathsRef.current = handleDroppedPaths
 
   useEffect(() => {
     let cancelled = false
@@ -1657,6 +1941,34 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
       unlisten = dispose
     })
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    let unlisten: (() => void) | undefined
+
+    void getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (cancelled || event.payload.type !== 'drop') {
+          return
+        }
+
+        const paths = event.payload.paths ?? []
+        void handleDroppedPathsRef.current(paths)
+      })
+      .then((dispose) => {
+        if (cancelled) {
+          dispose()
+          return
+        }
+        unlisten = dispose
+      })
+      .catch((error) => console.warn('[drop] listen failed', error))
 
     return () => {
       cancelled = true
@@ -1731,9 +2043,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         })
       ).filter((track) => track.source)
 
-      const added = addTracks(folderTracks)
+      const { addedCount } = addTracks(folderTracks)
 
-      if (added < audioPaths.length) {
+      if (addedCount < audioPaths.length) {
         pushStatus(labels.tracksAlreadyLoaded, 'info')
       }
     } finally {
@@ -1935,17 +2247,57 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
   }
 
   const ensurePlayableTrack = async (track: Track): Promise<Track> => {
-    if (track.filePath || track.mode === 'stream' || track.mode === 'extracted') {
+    const publish = (next: Track) => {
+      setTracks((previous) => previous.map((item) => (item.id === track.id ? next : item)))
+      return next
+    }
+
+    // Local / extracted files must use a blob (or http) source — asset:// often fails in <audio>.
+    if (track.filePath) {
+      const hasPlayableSource = isPlayableMediaSrc(track.source) && !track.source.startsWith('asset:')
+      const fileStillThere = await exists(track.filePath)
+
+      if (fileStillThere && (!hasPlayableSource || !track.source.startsWith('blob:'))) {
+        try {
+          const local = await createTrackFromPath(track.filePath, track.title)
+          return publish({
+            ...track,
+            ...local,
+            id: track.id,
+            title: track.title || local.title,
+            origin: track.origin,
+            remoteUrl: track.remoteUrl,
+            mode: track.remoteUrl ? 'extracted' : track.mode,
+            filePath: track.filePath,
+          })
+        } catch (error) {
+          console.warn('[play] reload from filePath failed', track.filePath, error)
+        }
+      }
+
+      if (!fileStillThere && track.remoteUrl) {
+        pushStatus(labels.addRemoteBusy, 'busy')
+        const resolved = await resolveUrlAsPlayableTrack(track.remoteUrl, { title: track.title })
+        return publish({ ...resolved, id: track.id, title: track.title || resolved.title })
+      }
+
+      if (!fileStillThere) {
+        throw new Error(`missing file path: ${track.filePath}`)
+      }
+
+      if (hasPlayableSource) {
+        return track
+      }
+    }
+
+    if (track.mode === 'stream' && isPlayableMediaSrc(track.source)) {
       return track
     }
 
     if (track.origin === 'remote' && track.remoteUrl && (track.mode === 'pending' || looksLikeMediaPageUrl(track.remoteUrl))) {
       pushStatus(labels.addRemoteBusy, 'busy')
       const resolved = await resolveUrlAsPlayableTrack(track.remoteUrl, { title: track.title, savedPath: track.filePath })
-      const nextTrack = { ...resolved, id: track.id, title: track.title || resolved.title }
-
-      setTracks((previous) => previous.map((item) => (item.id === track.id ? nextTrack : item)))
-      return nextTrack
+      return publish({ ...resolved, id: track.id, title: track.title || resolved.title })
     }
 
     return track
@@ -2366,40 +2718,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
     // File tags must win over yt-dlp URL/filename guesses.
     metaTrack = await enrichFromLocalAudioFile(metaTrack)
 
-    const urlStem = track.remoteUrl
-      ? sanitizeFileStem(stripAudioExtension(remoteTitleFromUrl(track.remoteUrl)))
-      : ''
-    const currentStem = sanitizeFileStem(stripAudioExtension(fileNameFromPath(outputPath)))
-    const betterStem = suggestedSaveFileStem(metaTrack)
-    const savedAsLinkName = Boolean(urlStem) && currentStem === urlStem
-
-    // Keep a user-edited name unless the OS dialog still saved under the bare link stem.
-    if (convertFileNameTouchedRef.current && !savedAsLinkName) {
-      return { outputPath, metaTrack }
-    }
-
-    if (!betterStem || betterStem === currentStem) {
-      return { outputPath, metaTrack }
-    }
-
-    const extension = (fileNameFromPath(outputPath).match(/\.([^.]+)$/)?.[1] || convertFormat).toLowerCase()
-    const directory = outputPath.replace(/[\\/][^\\/]+$/, '')
-    const nextPath = directory ? await join(directory, `${betterStem}.${extension}`) : `${betterStem}.${extension}`
-
-    if (normalizePathKey(nextPath) === normalizePathKey(outputPath)) {
-      return { outputPath, metaTrack }
-    }
-
-    try {
-      if (await exists(nextPath)) {
-        await remove(nextPath)
-      }
-      await rename(outputPath, nextPath)
-      return { outputPath: nextPath, metaTrack: { ...metaTrack, filePath: nextPath } }
-    } catch (error) {
-      console.warn('[save] rename to metadata name failed', outputPath, nextPath, error)
-      return { outputPath, metaTrack }
-    }
+    // The OS save dialog path is authoritative. Do not rename afterward — that made
+    // the file the user just picked appear to vanish from the target folder.
+    return { outputPath, metaTrack: { ...metaTrack, filePath: outputPath } }
   }
 
   const persistCustomThemes = (customThemes: ThemeDefinition[], nextThemeId?: string) => {
@@ -2628,17 +2949,30 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
       return
     }
 
-    const close = () => setTrackContextMenu(null)
+    const close = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      // Keep the menu alive for clicks on its own items (delete/play/save).
+      if (target?.closest?.('.track-context-menu')) {
+        return
+      }
+      setTrackContextMenu(null)
+    }
+
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        close()
+        setTrackContextMenu(null)
       }
     }
 
-    window.addEventListener('click', close)
-    window.addEventListener('keydown', onKey)
+    // Attach on the next tick so the gesture that opened the menu cannot close it.
+    const timer = window.setTimeout(() => {
+      window.addEventListener('mousedown', close, true)
+      window.addEventListener('keydown', onKey)
+    }, 0)
+
     return () => {
-      window.removeEventListener('click', close)
+      window.clearTimeout(timer)
+      window.removeEventListener('mousedown', close, true)
       window.removeEventListener('keydown', onKey)
     }
   }, [trackContextMenu])
@@ -2790,10 +3124,16 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         suggestedSaveFileStem(prepared) ||
         stripAudioExtension(convertFileName),
     )
-    const defaultDirectory =
-      (prepared.filePath && !prepared.filePath.toLowerCase().includes('mms-extract-')
+    // Ensure cache-dir detection works even if this track was never played from cache this session.
+    await getRemoteCacheDir()
+    // Never default into the remote-audio cache — saves there look like "vanishing" later.
+    const sourceDir =
+      prepared.filePath &&
+      !prepared.filePath.toLowerCase().includes('mms-extract-') &&
+      !isRemoteCachePath(prepared.filePath)
         ? prepared.filePath.replace(/[\\/][^\\/]+$/, '')
-        : '') || lastMusicFolder || undefined
+        : ''
+    const defaultDirectory = sourceDir || lastMusicFolder || undefined
     const defaultPath = defaultDirectory ? await join(defaultDirectory, `${stem}.${convertFormat}`) : `${stem}.${convertFormat}`
 
     const outputPathPicked = await save({
@@ -2827,6 +3167,17 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
           const finalized = await resolveSavedOutputPath(outputPath, prepared, result)
           outputPath = finalized.outputPath
+
+          // Drop the temporary remote-audio cache copy once the user has a real save.
+          if (
+            prepared.filePath &&
+            isRemoteCachePath(prepared.filePath) &&
+            normalizePathKey(prepared.filePath) !== normalizePathKey(outputPath)
+          ) {
+            void remove(prepared.filePath).catch((error) =>
+              console.warn('[remote] cache cleanup after save failed', prepared.filePath, error),
+            )
+          }
 
           await adoptSavedLocalTrack(prepared.id, outputPath, {
             title: finalized.metaTrack.title || result.title || prepared.title,
@@ -2869,6 +3220,34 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         throw new Error(labels.convertNoSource)
       }
 
+      // ffmpeg overwrites/truncates when input and output are the same path.
+      if (inputPath && normalizePathKey(inputPath) === normalizePathKey(outputPath)) {
+        if (remoteSave) {
+          const finalized = await resolveSavedOutputPath(outputPath, prepared, {
+            title: prepared.title,
+            artist: prepared.artist,
+            album: prepared.album,
+            duration: prepared.durationSeconds,
+          })
+          outputPath = finalized.outputPath
+          await adoptSavedLocalTrack(prepared.id, outputPath, {
+            title: finalized.metaTrack.title || prepared.title,
+            artist: finalized.metaTrack.artist ?? prepared.artist,
+            album: finalized.metaTrack.album ?? prepared.album,
+            duration: finalized.metaTrack.durationSeconds ?? prepared.durationSeconds,
+          })
+          const converted = `${successLabel}: ${outputPath}`
+          pushStatus(converted, 'success')
+          setIsConverting(false)
+          setConvertMessage('')
+          setShowConvertDialog(false)
+          setConvertTargetTrackId(null)
+          showThemedAlert(dialogTitle, `${successLabel}\n${outputPath}`)
+          return
+        }
+        throw new Error(labels.convertNoSource)
+      }
+
       await invoke('convert_audio', {
         inputPath,
         inputBytes: null,
@@ -2885,6 +3264,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
           duration: prepared.durationSeconds,
         })
         outputPath = finalized.outputPath
+        if (
+          prepared.filePath &&
+          isRemoteCachePath(prepared.filePath) &&
+          normalizePathKey(prepared.filePath) !== normalizePathKey(outputPath)
+        ) {
+          void remove(prepared.filePath).catch((error) =>
+            console.warn('[remote] cache cleanup after save failed', prepared.filePath, error),
+          )
+        }
         await adoptSavedLocalTrack(prepared.id, outputPath, {
           title: finalized.metaTrack.title || prepared.title,
           artist: finalized.metaTrack.artist ?? prepared.artist,
@@ -3084,10 +3472,19 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
 
   // Rebind the spectrum loop to the canvas that just mounted for the new layout;
   // the previous animation frame kept drawing to the now-detached canvas.
+  // Also re-show play/pause/stop so the new layout mirrors the current track state.
+  const miniModeReadyRef = useRef(false)
   useEffect(() => {
     if (isPlaying && showSpectrum && sourceNodeRef.current) {
       drawSpectrum()
     }
+
+    if (!miniModeReadyRef.current) {
+      miniModeReadyRef.current = true
+      return
+    }
+
+    syncTransportOverlayFromPlayback()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miniMode])
 
@@ -3421,8 +3818,25 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
         onEnded={() => playRelativeTrack(1)}
         onError={(event) => {
           const mediaError = event.currentTarget.error
+          const trackId = event.currentTarget.dataset.trackId
           console.error('[audio] element error', mediaError?.code, mediaError?.message, event.currentTarget.src.slice(0, 60))
-          pushStatus(`${labels.playbackError} (media error ${mediaError?.code ?? '?'})`, 'error')
+
+          if (!trackId) {
+            return
+          }
+
+          const track = tracksRef.current.find((item) => item.id === trackId)
+          if (!track) {
+            return
+          }
+
+          void (async () => {
+            if (await isMissingPlayablePath(track)) {
+              dropTrackMissingPath(track)
+              return
+            }
+            pushStatus(`${labels.playbackError} (media error ${mediaError?.code ?? '?'})`, 'error')
+          })()
         }}
         onPause={() => setIsPlaying(false)}
         onPlay={handleAudioPlay}
@@ -3986,7 +4400,9 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
                   className="track-remove"
                   data-tooltip={labels.removeTrack}
                   aria-label={`${labels.removeTrack}: ${track.title}`}
+                  onPointerDown={(event) => event.stopPropagation()}
                   onClick={(event) => {
+                    event.preventDefault()
                     event.stopPropagation()
                     removeTrackFromPlaylist(track.id)
                   }}
@@ -4017,7 +4433,13 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
             <button
               type="button"
               role="menuitem"
-              onClick={() => {
+              onMouseDown={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
                 setTrackContextMenu(null)
                 void loadAndPlayTrack(menuTrack)
               }}
@@ -4029,7 +4451,15 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => openConvertDialogForTrack(menuTrack)}
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  openConvertDialogForTrack(menuTrack)
+                }}
               >
                 <Save size={13} />
                 <span>{labels.contextSaveDownload}</span>
@@ -4039,9 +4469,16 @@ function App({ initialSettings }: { initialSettings: AppSettings }) {
               type="button"
               role="menuitem"
               className="danger"
-              onClick={() => {
+              onMouseDown={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                const id = menuTrack.id
                 setTrackContextMenu(null)
-                removeTrackFromPlaylist(menuTrack.id)
+                removeTrackFromPlaylist(id)
               }}
             >
               <Trash2 size={13} />

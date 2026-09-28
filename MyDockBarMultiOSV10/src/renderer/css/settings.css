@@ -1,0 +1,637 @@
+/* ------------------------------------------------------------------ *
+ * The settings window is a fixed size and never scrolls: each tab is
+ * sized to fit its panel, and the two long lists (dock items, installed
+ * applications) page instead of scrolling.
+ * ------------------------------------------------------------------ */
+
+:root {
+  --bg: #1c1f26;
+  --bg-raised: #252a33;
+  --bg-sunken: #171a20;
+  --fg: #e7eaf0;
+  --fg-dim: #9aa4b4;
+  --line: #333a46;
+  --accent: #4b9bff;
+  --accent-fg: #ffffff;
+  --danger: #ff6b6b;
+  --radius: 10px;
+
+  /* The chrome around a panel. Every one of these comes straight off the
+   * height available to the tab that needs the most of it, so they are kept
+   * as small as they can be while the strip and the buttons stay comfortable.
+   * settings-window.js sizes the window from the same budget. */
+  --tabs-h: 40px;
+  --foot-h: 34px;
+  --actions-h: 46px;
+  --pad-x: 20px;
+  --pad-y: 14px;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f5f7;
+  --bg-raised: #ffffff;
+  --bg-sunken: #e9ecf1;
+  --fg: #1c2430;
+  --fg-dim: #5d6775;
+  --line: #d7dce4;
+  --accent: #2f7ae5;
+  --danger: #d23b3b;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f4f5f7;
+    --bg-raised: #ffffff;
+    --bg-sunken: #e9ecf1;
+    --fg: #1c2430;
+    --fg-dim: #5d6775;
+    --line: #d7dce4;
+    --accent: #2f7ae5;
+    --danger: #d23b3b;
+    color-scheme: light;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;            /* the window never scrolls */
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font: 13.5px/1.45 -apple-system, "Segoe UI", system-ui, "Noto Sans KR", sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+/* --------------------------------- tabs --------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 1px;
+  padding: 0 10px;
+  height: var(--tabs-h);
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-sunken);
+  flex: 0 0 auto;
+}
+
+.tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-dim);
+  font: inherit;
+  font-weight: 500;
+  padding: 7px 11px;
+  border-radius: 7px 7px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The tab's glyph, drawn from the same set the native menus use so the two
+ * never disagree about what an icon means. Dimmed until the tab is current. */
+.tab img {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  opacity: 0.55;
+  flex: 0 0 auto;
+}
+.tab:hover img { opacity: 0.85; }
+.tab.active img { opacity: 1; }
+
+.tab:hover { color: var(--fg); background: rgba(127, 127, 127, 0.12); }
+.tab.active { color: var(--fg); background: var(--bg); box-shadow: inset 0 -2px 0 var(--accent); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--pad-y) var(--pad-x);
+  overflow: hidden;
+}
+
+.panel { display: none; height: 100%; flex-direction: column; min-height: 0; }
+.panel.active { display: flex; }
+
+h2 {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin: 0 0 8px;
+  flex: 0 0 auto;
+}
+.col h2 + .field, .col h2 + .check { margin-top: 0; }
+.col h2:not(:first-child) { margin-top: 18px; }
+
+/* Two-column layout used by the short settings tabs. */
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.col { min-width: 0; }
+
+/* -------------------------------- fields -------------------------------- */
+
+/* Label on the left, control on the right - always a single line. */
+.field {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.field > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.field em { font-style: normal; color: var(--fg-dim); font-variant-numeric: tabular-nums; font-size: 11.5px; }
+
+/* Numeric control: step down, slider, step up, then the current value. */
+.num {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.num input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.num .step {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.num em {
+  flex: 0 0 auto;
+  min-width: 62px;
+  text-align: right;
+}
+
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+
+select, input[type="text"], input[type="search"] {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 9px;
+  min-width: 0;
+  width: 100%;
+}
+
+select:focus-visible, input:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.check input { accent-color: var(--accent); width: 15px; height: 15px; flex: 0 0 auto; }
+
+.hint { color: var(--fg-dim); font-size: 12px; margin: 10px 0 0; }
+.hint code { background: var(--bg-sunken); padding: 1px 5px; border-radius: 4px; }
+
+.stack { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+/* -------------------------------- buttons ------------------------------- */
+
+button {
+  font: inherit;
+  font-weight: 500;
+  padding: 7px 13px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+button.ghost { background: transparent; }
+button.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+button.icon-btn { padding: 4px 9px; font-size: 12px; }
+
+.row { display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; }
+.toolbar { flex: 0 0 auto; margin-bottom: 10px; }
+.toolbar input[type="search"] { flex: 1 1 auto; }
+
+/* --------------------------- panel footer / pager ------------------------ */
+
+.panel-foot {
+  flex: 0 0 auto;
+  height: var(--foot-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+.panel-foot .hint { margin: 0; }
+
+.pager { display: flex; align-items: center; gap: 8px; }
+.pager .page-label { color: var(--fg-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------- theme grid ----------------------------- */
+
+.theme-groups {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.theme-groups h2 { margin: 6px 0 4px; }
+.theme-groups h2:first-child { margin-top: 0; }
+.theme-groups .count { text-transform: none; letter-spacing: 0; opacity: 0.75; }
+
+/* Eight columns takes the 24 themes in each group to exactly three rows, and
+ * three rows of this height is what the panel has room for. Both numbers move
+ * together: a fourth row, or a taller one, is the Themes tab asking the whole
+ * window to grow again. */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-auto-rows: 58px;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+/* The theme's own accent colour. This is what separates one card from the
+ * next far faster than the miniature plate alone can. */
+.theme-accent {
+  flex: 0 0 auto;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--card-accent, var(--line));
+}
+
+.theme-card {
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--bg-raised);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 0;
+  overflow: hidden;
+}
+.theme-card:hover { border-color: var(--accent); }
+.theme-card.selected {
+  border-color: var(--card-accent, var(--accent));
+  box-shadow: 0 0 0 2px var(--card-accent, var(--accent));
+}
+.theme-card.selected .name { color: var(--card-accent, var(--fg)); }
+.theme-card .name {
+  font-weight: 600;
+  font-size: 10.5px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 0 auto;
+}
+
+/* A miniature dock, painted with the theme's own plate variables.
+ *
+ * The surface behind it is the window's own, not the theme's: a card that
+ * tinted its backdrop to match the bar it was showing hid the very thing the
+ * card is for - the shape of the bar. The theme's colour is on the stripe
+ * below, where it is read at a glance without painting over the silhouette. */
+.theme-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-sunken);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.22);
+}
+
+.theme-preview .mini-plate {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  padding: 4px 6px;
+  border-radius: 5px;
+}
+
+/* Each slot is the tile a "tile" or "slot" theme draws; the dot inside it is
+ * the icon. Themes without tiles leave the slot transparent. */
+.theme-preview i {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1px;
+  background: transparent;
+  border-radius: 2px;
+}
+.theme-preview b {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.88);
+}
+.theme-preview i:nth-child(2) b { width: 9px; height: 9px; }
+
+/* --------------------------------- rows --------------------------------- */
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.rows li {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  flex: 0 0 auto;
+  height: 42px;
+}
+
+.rows li.drag-over { border-color: var(--accent); border-style: dashed; }
+.rows li.separator-row { opacity: 0.75; font-style: italic; }
+.rows li.built-in { border-left: 3px solid var(--accent); }
+.rows li .grip { cursor: grab; color: var(--fg-dim); font-size: 14px; user-select: none; }
+
+.rows img { width: 26px; height: 26px; object-fit: contain; flex: 0 0 auto; }
+
+.rows .meta { flex: 1 1 auto; min-width: 0; }
+.rows .label { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rows .target {
+  font-size: 11.5px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.rows .empty { justify-content: center; color: var(--fg-dim); border-style: dashed; }
+
+/* ------------------------------- editor --------------------------------- */
+
+.editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  padding: 14px 16px;
+  overflow: hidden;
+}
+.editor.hidden { display: none; }
+.editor .field { grid-template-columns: 110px 1fr; }
+.editor h2 { margin-bottom: 10px; }
+
+/* --------------------------- misc panel content -------------------------- */
+
+/* Same surface and the same theme colour as everything else in the window:
+ * this used to be a fixed navy panel with fixed blue bars, which sat in a
+ * light window looking like a hole cut in it. */
+.zoom-preview {
+  height: 92px;
+  border-radius: 9px;
+  background: var(--bg-sunken);
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.22);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px;
+  overflow: hidden;
+}
+.zoom-preview i {
+  display: block;
+  width: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0)),
+              var(--accent);
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+.monitor-map {
+  margin-top: 12px;
+  height: 120px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg-sunken);
+  position: relative;
+  overflow: hidden;
+}
+.monitor-map .screen {
+  position: absolute;
+  border: 2px solid var(--fg-dim);
+  border-radius: 4px;
+  background: var(--bg-raised);
+  font-size: 10px;
+  color: var(--fg-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.monitor-map .screen.active { border-color: var(--accent); color: var(--accent); }
+.monitor-map .screen .bar {
+  position: absolute;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* ----------------------------- action bar ------------------------------- */
+
+.actions {
+  flex: 0 0 auto;
+  height: var(--actions-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 var(--pad-x);
+  border-top: 1px solid var(--line);
+  background: var(--bg-sunken);
+}
+.actions button { min-width: 104px; }
+
+/* ---------------------------- drop overlay ------------------------------ */
+
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  color: var(--accent);
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 10;
+}
+.panel { position: relative; }
+.panel.dropping .drop-overlay { display: flex; }
+
+/* ---------------------------- icon picker ------------------------------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+}
+.modal.hidden { display: none; }
+
+.modal .sheet {
+  width: 720px;
+  max-width: calc(100vw - 48px);
+  height: 480px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.modal .sheet header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  background: var(--bg-sunken);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.modal .sheet .body { flex: 1 1 auto; min-height: 0; padding: 12px 16px; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+.modal .sheet footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg-sunken);
+}
+
+/* Grid of candidate icons. This one scrolls: it is a modal, not a tab. */
+.icon-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  grid-auto-rows: 64px;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.icon-grid button {
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-raised);
+}
+.icon-grid button.selected {
+  border-color: var(--accent);
+  /* The theme's accent, not a fixed blue: every other selected thing in the
+   * window glows in the colour the chosen theme brought with it. */
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.icon-grid img { width: 40px; height: 40px; object-fit: contain; }
+
+.about { color: var(--fg-dim); margin: 0 0 14px; }
+.about strong { color: var(--fg); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translate(-50%, 16px);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 17px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+  z-index: 50;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+/* The drag-off sample. `.icon-inner` and the vanish classes come from
+ * css/effects.css, so what plays here is exactly what the dock will play. */
+.remove-preview {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex: none;
+}
+
+.remove-preview .icon-inner {
+  position: absolute;
+  inset: 8px;
+}
+
+.remove-preview .icon-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

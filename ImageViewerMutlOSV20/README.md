@@ -19,6 +19,7 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Undo / Redo (`Ctrl+Z` / `Ctrl+Y`) — pixels, effects, and transforms (up to 20 steps)
   - Edit window: **Cancel** discards the session; **Apply** commits — dirty/save prompt only after Apply with unsaved changes
   - Edit window has the same chrome as the main window: title bar (file name, window buttons), menu bar (File / Edit / View / Effects / Help) and toolbar with undo / redo
+  - Long effects show an in-window progress popup; Save / Cancel / Apply are **icon-only** on the toolbar; the preset panel is wide enough for every effect label; category bars keep their accent colors
 
 - **Background removal / 배경 제거**
   - Algorithmic: corner/border flood, color key, chroma, brightness, selection-guided
@@ -48,9 +49,23 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
 
 - **Explorer / 탐색기**
   - Drive-rooted directory tree (e.g. `C:`, `D:` on Windows)
-  - Full path display; last-opened folder remembered for open/save dialogs
-  - Previous / Next image in folder
+  - Drive buttons in the explorer title bar — click a drive to open it immediately
+  - **Path bar with an Up button and clickable breadcrumbs** — jump to any ancestor in one click; `Backspace` or `Alt+↑` goes up one level
+  - Opening a folder **keeps branches you opened on other paths expanded**, so several places stay reachable at once
+  - Last-opened folder remembered for open/save dialogs
+  - Previous / Next image in folder (`←` / `→`, `Page Up` / `Page Down`); explorer `↑` / `↓` moves the tree row and opens the image
+  - **Double-clicking an image** leaves the thumbnail contact sheet and shows just that image
+  - Flipping images only updates the selected row (no full tree redraw); the row scrolls into view if it is off-screen
+  - Right-click: copy / move / print / **rename** / **delete** (delete is shown in red). Rename is not offered for drive roots
   - Copy / move by drag-and-drop
+
+- **Thumbnail browser / 썸네일 보기**
+  - Contact sheet for one folder: subfolders first, then media; double-click to open
+  - Three modes — **Thumbnails / List / Details**; `↑` toolbar button or `Backspace` goes to the parent folder
+  - **Size stepper in the toolbar** (smaller · current size · larger); the number resets to the default when clicked, and `Ctrl`+wheel / `Ctrl` `+`/`-` work over the grid. The size also drives the row height in List and Details
+  - **Details** mode lists Name · Type · Size · Dimensions · Date modified · Date created under a **sortable column header**
+  - Selecting a file fills the **File Info** panel without opening the image
+  - The thumbnail toolbar button reflects what is on screen: it turns off when you open an image and brings the sheet back when pressed again
 
 - **File information / 파일 정보**
   - Images: name, size, dimensions, dates, color space, DPI; capture / GPS / full EXIF·IPTC·XMP
@@ -63,7 +78,9 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Window centre / width: file windows (per frame in enhanced files), **VOI LUT** tables, auto, CT presets (brain, lung, bone, …), numeric input, **Ctrl+drag** / middle-drag, invert (`I`), reset (`W`); Modality LUT, VOI LUT Function (LINEAR / LINEAR_EXACT / SIGMOID) and Presentation LUT Shape are honoured
   - **Pseudo-colour maps** (`M`): hot iron, PET, hot metal blue, PET 20-step, jet, rainbow, bone
   - **Overlay planes** (60xx, embedded high-bit overlays too) with a toggle (`V`) and configurable colour
-  - **Annotations** overlay (`O`): patient / study / series text, image geometry, window, orientation markers (R/L/A/P/H/F, follow rotation and flip) and a scale bar
+  - **Annotations** overlay (`O`): patient / study / series text, image geometry, window, orientation markers (R/L/A/P/H/F, follow rotation and flip)
+  - **Rulers** (`G`): graduated scales down the full X and Y axes, zeroed on the image origin, in mm when the file has a pixel spacing and in pixels otherwise
+  - **Scale bar** (`B`) on its own toggle — starts at the top-left and can be **dragged anywhere**; where you park it is remembered between sessions (reset from the context menu)
   - **Pixel probe** in the status bar: coordinates, stored value, rescaled value (HU …), RGB
   - **Measurements** on the image: ruler (`R`, mm via pixel spacing), angle (`A`), ellipse / rectangle ROI (`E` / `T`) with mean ± SD, min / max, area; delete one from its right-click menu or the Measure list, undo / redo with the toolbar buttons / `Ctrl+Z` / `Ctrl+Y`
   - **Export**: every frame as PNG, the tag listing as JSON / CSV / text, copy tags to the clipboard; the info panel lists nested sequences and has a tag filter box
@@ -79,10 +96,12 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - Fullscreen (`F11`)
 
 - **UI**
-  - 20 themes (10 dark, 10 light) — palette button steps to the next one, ▾ opens the full list
-  - Korean / English — language button shows the flag of the language you can switch **to**
-  - Settings dialog (gear button, fixed-size with tabs): theme, language, startup restore, recent-folder history, wheel zoom step, checkerboard, pixel smoothing, DICOM annotations / cine speed / overlay colour, background-removal algorithm, subtitles, volume — plus **Reset all settings**
-  - Context and menu-bar menus open in a **detached popup window** (desktop) so they are never clipped by the app window; the viewer context menu keeps everyday actions top-level and groups the rest (Transform / Zoom / More tools, DICOM Frames / Window / Colour map / Measure / Export)
+  - 40 themes (20 dark, 20 light) — palette button steps to the next one, ▾ opens the full list; a list too tall for the screen flows into extra columns instead of being clipped
+  - Settings **Theme** tab shows every palette as a **color-preview button** (dark 20 + light 20); the current theme is highlighted
+  - Korean / English — language button shows the flag of the language you can switch **to**; the thumbnail-browser toolbar and the explorer path bar are relabelled with it
+  - Settings dialog (gear button, tabs, no scroll — sized so all 40 theme tiles fit): **General** (language, startup restore, recent folders, default viewer), **Theme**, **Viewer & editing**, **DICOM**, **Media** — plus **Reset all settings**
+  - Opening a file shows live progress on the **status bar** (not a modal popup); the last result stays until the next status change (`Loading Done.` when finished)
+  - Context and menu-bar menus open in a **detached popup window** (desktop) so they are never clipped by the app window; the viewer context menu keeps everyday actions top-level (including Delete, in red) and groups the rest (Transform / Zoom / More tools, DICOM Frames / Window / Colour map / Measure / Export)
   - Toolbar, custom app icon (`src/assets`)
 
 - **Installer / 설치**
@@ -145,6 +164,7 @@ The Windows Setup wizard includes a **file associations** page (checked by defau
 | Script | Description |
 |--------|-------------|
 | `npm start` | Electron desktop app (`scripts/start-dev.js`) |
+| `npm test` | Feature tests (`tests/cases/`) — summary table, then every case with a 3-decimal execution time |
 | `npm run web` | Web server (Express → `src/`) |
 | `npm run patch:icon` | Re-apply Windows dev icon to Electron |
 | `npm run build:win` / `mac` / `linux` | Package with electron-builder (`build:win:setup` = NSIS only) |
@@ -158,7 +178,7 @@ The Windows Setup wizard includes a **file associations** page (checked by defau
 | Open file / folder | Native dialogs | Browser picker / Directory Picker |
 | Explorer drives | Real drives (`C:`, …) | Virtual **Local Files** root |
 | Save As | Write to disk | Save picker or download |
-| Show in Explorer / Delete | Yes | Not available |
+| Show in Explorer / Rename / Delete | Yes | Not available |
 | Drag file out to OS | Yes | Not available |
 | Last folder restore | Yes | Folder must be re-opened each session |
 | File metadata (EXIF / A/V) | Yes (`exifr` / `read-media-meta` in main) | File stats only |
@@ -188,7 +208,13 @@ Uncomment the script tags in `src/index.html` after downloading.
 | Fit to Window | `Ctrl+0` |
 | Actual Size | `Ctrl+1` |
 | Rotate Left / Right | `Ctrl+[` / `Ctrl+]` |
-| Previous / Next | `←` / `→` |
+| Previous / Next | `←` / `→` or `Page Up` / `Page Down` |
+| Explorer row up / down (opens the image) | `↑` / `↓` |
+| Explorer: go to the parent folder | `Backspace` or `Alt+↑` |
+| Thumbnail browser: parent folder | `Backspace` |
+| Thumbnail size smaller / larger | `Ctrl+-` / `Ctrl++` or `Ctrl`+wheel over the grid |
+| DICOM: rulers on both axes / scale bar | `G` / `B` |
+| Delete current file | `Delete` |
 | Undo / Redo | `Ctrl+Z` / `Ctrl+Y` |
 | Edit window | `Ctrl+E` |
 | Play / Pause (video, audio, GIF) | `Space` |
@@ -224,7 +250,11 @@ ImageViewerMutlOSV20/
 │   ├── js/
 │   │   ├── app.js          # Orchestrator, chrome, info, media transport
 │   │   ├── editor.js       # Canvas, effects, miniature DOF, border caption
-│   │   ├── fileTree.js     # Drive-rooted explorer
+│   │   ├── themes.js       # Theme registry (40 palettes + swatches)
+│   │   ├── fileTree.js     # Drive-rooted explorer (Up / breadcrumbs, folders-only mode)
+│   │   ├── browse.js       # Thumbnail contact sheet (grid / list / details)
+│   │   ├── thumbs.js       # Background thumbnail cache
+│   │   ├── fileDialog.js   # In-app open / save dialogs
 │   │   ├── formatSupport.js
 │   │   ├── dicomDecoder.js # DICOM session decoder (LUTs, overlays, enhanced multi-frame, probe / stats)
 │   │   ├── fileRegistry.js # Virtual FS (web)
@@ -237,16 +267,27 @@ ImageViewerMutlOSV20/
 │   ├── i18n/en.json, ko.json
 │   └── vendor/             # Optional UTIF.js, heic2any
 ├── samples/                # Sample images / A/V (see samples/README.md)
+├── tests/                  # Feature tests (`npm test` → results.html / results.json)
 ├── README.md
 ├── UsersGuide.md
 ├── Architecture.md
 └── dist/                   # Build output (gitignored)
 ```
 
+## Tests / 테스트
+
+```bash
+npm test              # 요약 + 각 케이스 내용 · 결과 · 실행 시간(소수점 3자리)
+npm test -- --summary # 스위트 요약만
+```
+
+결과는 `tests/results.html` / `tests/results.json`에 기록됩니다. 스위트는 `tests/cases/`에 기능별로 나뉩니다.
+
 ## Documentation / 문서
 
 - [UsersGuide.md](UsersGuide.md) — End-user guide (KO/EN)
 - [Architecture.md](Architecture.md) — Technical architecture
+- [samples/README.md](samples/README.md) — Sample media files
 
 ## License
 

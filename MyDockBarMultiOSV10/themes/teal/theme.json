@@ -1,0 +1,38 @@
+{
+  "id": "teal",
+  "name": "Teal",
+  "author": "MyDockBar",
+  "description": "Luminous teal on deep water. (slab shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(13,60,64,0.92), rgba(5,24,25,0.95))",
+    "--plate-border": "1px solid rgba(102,236,245,0.65)",
+    "--plate-radius": "0px",
+    "--plate-shadow": "0 0 26px rgba(102,236,245,0.42), 0 14px 34px rgba(0,0,0,0.6), inset 0 1px 0 rgba(175,229,233,0.4)",
+    "--plate-backdrop": "blur(14px) saturate(170%)",
+    "--reflection-opacity": "0.4",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "3px",
+    "--sep-color": "rgba(175,229,233,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(5,24,25,0.55)",
+    "--indicator-color": "#66ecf5",
+    "--indicator-glow": "0 0 10px rgba(102,236,245,0.9)",
+    "--tooltip-bg": "rgba(15,30,31,0.96)",
+    "--tooltip-fg": "#e5f4f5",
+    "--tooltip-border": "1px solid rgba(102,236,245,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#66ecf5"
+  },
+  "ui": {
+    "--bg": "#162223",
+    "--bg-raised": "#203031",
+    "--bg-sunken": "#0f191a",
+    "--fg": "#e9f1f1",
+    "--fg-dim": "#8dadb0",
+    "--line": "#314849",
+    "--accent": "#66ecf5",
+    "--accent-fg": "#0e1a1b",
+    "--danger": "#ff7a72"
+  }
+}

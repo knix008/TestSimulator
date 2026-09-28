@@ -1,0 +1,43 @@
+{
+  "id": "graphite-light",
+  "name": "Graphite Light",
+  "author": "MyDockBar",
+  "description": "Neutral graphite. Stays out of the way, on a light surface. (tile shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(228,226,230,0.94), rgba(165,164,167,0.96))",
+    "--plate-border": "1px solid rgba(241,240,242,0.3)",
+    "--plate-radius": "14px",
+    "--plate-shadow": "0 10px 26px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(8px)",
+    "--reflection-opacity": "0.22",
+    "--plate-clip": "none",
+    "--icon-radius": "6px",
+    "--sep-width": "2px",
+    "--item-bg": "rgba(234,233,236,0.28)",
+    "--item-border": "1px solid rgba(245,245,246,0.35)",
+    "--item-radius": "10px",
+    "--item-shadow": "inset 0 1px 0 rgba(255,255,255,0.25)",
+    "--item-inset": "-4px",
+    "--sep-color": "rgba(100,96,108,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(45,44,45,0.32)",
+    "--indicator-color": "#686175",
+    "--indicator-glow": "0 0 10px rgba(104,97,117,0.9)",
+    "--tooltip-bg": "rgba(249,248,252,0.96)",
+    "--tooltip-fg": "#22143d",
+    "--tooltip-border": "1px solid rgba(104,97,117,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#686175"
+  },
+  "ui": {
+    "--bg": "#f5f5f5",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#e8e8e9",
+    "--fg": "#221b32",
+    "--fg-dim": "#655a7c",
+    "--line": "#d1d0d2",
+    "--accent": "#686175",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

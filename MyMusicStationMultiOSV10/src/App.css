@@ -1441,9 +1441,12 @@ select {
 }
 
 .track-remove {
+  position: relative;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 26px;
   width: 26px;
   height: 26px;
   border: 0;

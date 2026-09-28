@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>박스 설정</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <div id="panel">
+    <header id="head">
+      <img id="mark" alt="" />
+      <span id="heading"></span>
+      <button id="close" type="button">×</button>
+    </header>
+
+    <div id="body">
+      <section class="row">
+        <span class="tag" id="nameTag"></span>
+        <input id="name" type="text" spellcheck="false" />
+      </section>
+
+      <section class="row">
+        <span class="tag" id="themeTag"></span>
+        <div id="themes" class="grid"></div>
+      </section>
+
+      <section class="row">
+        <span class="tag" id="customTag"></span>
+        <div class="pickers">
+          <label class="picker"><input id="bg" type="color" /><span id="bgTag"></span></label>
+          <label class="picker"><input id="bar" type="color" /><span id="barTag"></span></label>
+        </div>
+      </section>
+
+      <!-- 글자 색은 박스마다 따로 정할 수 있다. '테마대로' 를 누르면 다시 테마가 고른 색으로 돌아간다. -->
+      <section class="row">
+        <span class="tag" id="textTag"></span>
+        <div class="pickers">
+          <label class="picker"><input id="labelColor" type="color" /><span id="labelTag"></span></label>
+          <label class="picker"><input id="titleColor" type="color" /><span id="titleTag"></span></label>
+          <button id="autoText" class="chip" type="button"></button>
+        </div>
+      </section>
+
+      <section class="row">
+        <span class="tag" id="iconTag"></span>
+        <div class="stepper">
+          <button class="step" data-act="icon-" type="button">−</button>
+          <input id="iconSize" type="range" />
+          <button class="step" data-act="icon+" type="button">+</button>
+          <output id="iconOut"></output>
+        </div>
+      </section>
+
+      <section class="row">
+        <span class="tag" id="fontTag"></span>
+        <div class="stepper">
+          <button class="step" data-act="font-" type="button">−</button>
+          <input id="fontSize" type="range" />
+          <button class="step" data-act="font+" type="button">+</button>
+          <output id="fontOut"></output>
+        </div>
+      </section>
+
+      <!-- 폴더 포털이면 비추는 폴더를 보여 준다. 보통 박스에서는 이 줄이 없다. -->
+      <section class="row" id="portalRow" hidden>
+        <span class="tag" id="portalTag"></span>
+        <code id="portalWhere" class="where"></code>
+      </section>
+
+      <!-- 페이지가 둘 이상일 때만 고를 것이 있다. -->
+      <section class="row" id="pageRow" hidden>
+        <span class="tag" id="pageTag"></span>
+        <div id="pages" class="chips"></div>
+      </section>
+
+      <section class="row">
+        <span class="tag" id="cornerTag"></span>
+        <div class="stepper">
+          <button class="step" data-act="corner-" type="button">−</button>
+          <input id="corner" type="range" />
+          <button class="step" data-act="corner+" type="button">+</button>
+          <output id="cornerOut"></output>
+        </div>
+      </section>
+
+      <section class="row">
+        <span class="tag" id="opacityTag"></span>
+        <div class="stepper">
+          <button class="step" data-act="opacity-" type="button">−</button>
+          <input id="opacity" type="range" />
+          <button class="step" data-act="opacity+" type="button">+</button>
+          <output id="opacityOut"></output>
+        </div>
+      </section>
+
+      <section class="row pair">
+        <span class="tag plain" id="collapseTag"></span>
+        <button id="collapse" class="switch" type="button" role="switch"><span></span></button>
+      </section>
+
+      <section class="row pair">
+        <span class="tag plain" id="shadowTag"></span>
+        <button id="shadow" class="switch" type="button" role="switch"><span></span></button>
+      </section>
+    </div>
+
+    <footer id="foot">
+      <button id="reset" type="button"></button>
+      <button id="ok" type="button" class="primary"></button>
+    </footer>
+  </div>
+  <script src="../shared/i18n.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

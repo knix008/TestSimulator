@@ -1,0 +1,788 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-patterns",
+    "name": "patterns",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Plate",
+        "kind": "box",
+        "position": {
+          "x": 45,
+          "y": 4,
+          "z": 30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 240,
+          "y": 8,
+          "z": 200,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#9aa7b4",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t00",
+        "name": "Tooth",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 12,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t01",
+        "name": "Tooth-2",
+        "kind": "box",
+        "position": {
+          "x": 30,
+          "y": 12,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t02",
+        "name": "Tooth-3",
+        "kind": "box",
+        "position": {
+          "x": 60,
+          "y": 12,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t03",
+        "name": "Tooth-4",
+        "kind": "box",
+        "position": {
+          "x": 90,
+          "y": 12,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t10",
+        "name": "Tooth-5",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 12,
+          "z": 30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t11",
+        "name": "Tooth-6",
+        "kind": "box",
+        "position": {
+          "x": 30,
+          "y": 12,
+          "z": 30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t12",
+        "name": "Tooth-7",
+        "kind": "box",
+        "position": {
+          "x": 60,
+          "y": 12,
+          "z": 30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t13",
+        "name": "Tooth-8",
+        "kind": "box",
+        "position": {
+          "x": 90,
+          "y": 12,
+          "z": 30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t20",
+        "name": "Tooth-9",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 12,
+          "z": 60
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t21",
+        "name": "Tooth-10",
+        "kind": "box",
+        "position": {
+          "x": 30,
+          "y": 12,
+          "z": 60
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t22",
+        "name": "Tooth-11",
+        "kind": "box",
+        "position": {
+          "x": 60,
+          "y": 12,
+          "z": 60
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-t23",
+        "name": "Tooth-12",
+        "kind": "box",
+        "position": {
+          "x": 90,
+          "y": 12,
+          "z": 60
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 12,
+          "y": 24,
+          "z": 12,
+          "radius": 6,
+          "tube": 2
+        },
+        "color": "#8fb8ff",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-p0",
+        "name": "Pin",
+        "kind": "cylinder",
+        "position": {
+          "x": 105,
+          "y": 10,
+          "z": 30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 20,
+          "z": 10,
+          "radius": 5,
+          "tube": 2
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-p1",
+        "name": "Pin-2",
+        "kind": "cylinder",
+        "position": {
+          "x": 87.42640687119285,
+          "y": 10,
+          "z": 72.42640687119285
+        },
+        "rotation": {
+          "x": 0,
+          "y": 45,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 20,
+          "z": 10,
+          "radius": 5,
+          "tube": 2
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-p2",
+        "name": "Pin-3",
+        "kind": "cylinder",
+        "position": {
+          "x": 45.00000000000001,
+          "y": 10,
+          "z": 90
+        },
+        "rotation": {
+          "x": 0,
+          "y": 90,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 20,
+          "z": 10,
+          "radius": 5,
+          "tube": 2
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-p3",
+        "name": "Pin-4",
+        "kind": "cylinder",
+        "position": {
+          "x": 2.573593128807154,
+          "y": 10,
+          "z": 72.42640687119285
+        },
+        "rotation": {
+          "x": 0,
+          "y": 135,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 20,
+          "z": 10,
+          "radius": 5,
+          "tube": 2
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-p4",
+        "name": "Pin-5",
+        "kind": "cylinder",
+        "position": {
+          "x": -15,
+          "y": 10,
+          "z": 30.000000000000007
+        },
+        "rotation": {
+          "x": 0,
+          "y": 180,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 20,
+          "z": 10,
+          "radius": 5,
+          "tube": 2
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-p5",
+        "name": "Pin-6",
+        "kind": "cylinder",
+        "position": {
+          "x": 2.57359312880714,
+          "y": 10,
+          "z": -12.426406871192846
+        },
+        "rotation": {
+          "x": 0,
+          "y": 225,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 20,
+          "z": 10,
+          "radius": 5,
+          "tube": 2
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-p6",
+        "name": "Pin-7",
+        "kind": "cylinder",
+        "position": {
+          "x": 44.999999999999986,
+          "y": 10,
+          "z": -30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 270,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 20,
+          "z": 10,
+          "radius": 5,
+          "tube": 2
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-p7",
+        "name": "Pin-8",
+        "kind": "cylinder",
+        "position": {
+          "x": 87.42640687119284,
+          "y": 10,
+          "z": -12.42640687119286
+        },
+        "rotation": {
+          "x": 0,
+          "y": 315,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 10,
+          "y": 20,
+          "z": 10,
+          "radius": 5,
+          "tube": 2
+        },
+        "color": "#f5d76e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "Plate",
+        "kind": "primitive",
+        "solidIds": [
+          "sol-1"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 1,
+        "radius": 0
+      },
+      {
+        "id": "feat-2",
+        "name": "linearArray",
+        "kind": "pattern",
+        "solidIds": [
+          "sol-t01",
+          "sol-t02",
+          "sol-t03"
+        ],
+        "length": 30,
+        "angle": 0,
+        "count": 4,
+        "radius": 0
+      },
+      {
+        "id": "feat-3",
+        "name": "rectArray",
+        "kind": "rectPattern",
+        "solidIds": [
+          "sol-t10",
+          "sol-t11",
+          "sol-t12",
+          "sol-t13",
+          "sol-t20",
+          "sol-t21",
+          "sol-t22",
+          "sol-t23"
+        ],
+        "length": 30,
+        "angle": 0,
+        "count": 8,
+        "radius": 0
+      },
+      {
+        "id": "feat-4",
+        "name": "polarArray",
+        "kind": "pattern",
+        "solidIds": [
+          "sol-p0",
+          "sol-p1",
+          "sol-p2",
+          "sol-p3",
+          "sol-p4",
+          "sol-p5",
+          "sol-p6",
+          "sol-p7"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 8,
+        "radius": 60
+      },
+      {
+        "id": "feat-5",
+        "name": "mirror",
+        "kind": "mirror",
+        "solidIds": [
+          "sol-t02",
+          "sol-t03"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 2,
+        "radius": 0
+      }
+    ],
+    "parameters": [
+      {
+        "name": "Pitch",
+        "value": 30,
+        "formula": ""
+      },
+      {
+        "name": "Rows",
+        "value": 3,
+        "formula": ""
+      },
+      {
+        "name": "Columns",
+        "value": 4,
+        "formula": ""
+      },
+      {
+        "name": "PinCount",
+        "value": 8,
+        "formula": "Rows + Columns + 1"
+      }
+    ],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded"
+  }
+}

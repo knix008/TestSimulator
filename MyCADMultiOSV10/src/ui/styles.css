@@ -1,0 +1,458 @@
+:root {
+  color-scheme: dark;
+  --bg: #1b232c;
+  --panel: #232c36;
+  --line: #3a4754;
+  --text: #e7eef5;
+  --muted: #9aabba;
+  --accent: #3ec1ff;
+  --button: #2c3844;
+  --danger: #d36b6b;
+  font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+}
+:root[data-theme="light"], .app[data-theme="light"] { --bg: #f4f7fb; --panel: #ffffff; --line: #d5deE8; --text: #1c2833; --muted: #5d6d7e; --accent: #1478b8; --button: #e8eef5; }
+.app[data-theme="blueprint"] { --bg: #0e2a43; --panel: #123352; --line: #2f6f9f; --text: #e7f4ff; --accent: #7fd0ff; --button: #18466c; }
+.app[data-theme="graphite"] { --bg: #2a2a2a; --panel: #333; --line: #555; --text: #f2f2f2; --accent: #d0a85c; --button: #3f3f3f; }
+.app[data-theme="contrast"] { --bg: #000; --panel: #000; --line: #fff; --text: #fff; --accent: #ff0; --button: #111; }
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+button { background: var(--button); border: 1px solid var(--line); border-radius: 4px; }
+button:hover { border-color: var(--accent); }
+.app { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--bg); overflow: hidden;
+  /* The theme's variables are set on this element, so the text colour has to
+     be taken here too: body resolves them against the default dark palette. */
+  color: var(--text); }
+.workbench { margin-left: auto; display: flex; gap: 2px; }
+.workbench button { height: 22px; padding: 0 6px; font-size: 11px; border-radius: 2px; background: transparent; }
+.workbench button.on { color: var(--accent); border-color: var(--accent); }
+.menubar, .toolbar, .statusbar, .tabstrip { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; overflow: visible; }
+.menubar, .toolbar { min-height: 32px; padding: 2px 6px; border-bottom: 1px solid var(--line); background: var(--panel-alt); }
+.menubar { overflow: visible; }
+.menu-root { background: transparent; border: 0; height: 24px; padding: 0 8px; }
+.menu-root:hover { background: var(--button); }
+/* sticky creates a stacking context, so the toolbar needs a z-index or its
+   drop-downs are painted under the workspace below it. */
+.toolbar { position: sticky; top: 0; z-index: 60; gap: 2px; }
+.toolbar .tool { width: 30px; height: 28px; padding: 0; justify-content: center; border-radius: 2px; }
+.toolbar .menu-icon { width: auto; font-size: 18px; line-height: 1; }
+.toolbar-sep { width: 1px; align-self: stretch; margin: 4px 3px; background: var(--line); flex: 0 0 1px; }
+.tool, .menu-root, .tree { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; flex: 0 0 auto; white-space: nowrap; }
+.workspace { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 320px 6px minmax(0, 1fr) 6px 280px; min-width: 0; }
+/* The gutter is reserved, so showing or hiding the bar never shifts the rows,
+   and the panel never scrolls sideways. */
+.panel { background: var(--panel-alt); border-right: 1px solid var(--line); padding: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.panel::-webkit-scrollbar { width: 10px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+.panel::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: content-box; }
+.panel.right { border-right: 0; border-left: 1px solid var(--line); }
+.panel-title { margin: 0; padding: 6px 8px; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); background: var(--bg); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.tool-groups { padding: 2px 0 6px; }
+/* Each workbench shows its commands grouped by what they do. */
+.tool-group + .tool-group { margin-top: 2px; }
+.tool-group-title { display: flex; align-items: center; gap: 4px; margin: 0; padding: 4px 6px 2px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tool-group-title .menu-icon { flex: 0 0 auto; font-size: 11px; }
+.tool-group-title .tool-group-count { margin-left: auto; font-weight: 400; opacity: .8; }
+.tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px 2px; }
+.panel .tool-grid .tool { width: 100%; min-width: 0; height: 24px; justify-content: flex-start; gap: 3px; margin: 0; padding: 0 2px; border-radius: 2px; background: var(--button); letter-spacing: -0.01em; }
+.panel .tool-grid .tool .menu-icon { width: 13px; text-align: center; flex: 0 0 13px; }
+.spec-tree { padding: 4px 0 8px; }
+.tree-node { display: flex; align-items: center; gap: 4px; width: 100%; height: 22px; margin: 0; padding-right: 8px; font-size: 12px; color: var(--text); background: transparent; border: 0; border-radius: 2px; text-align: left; }
+.tree-node:not(:disabled):hover { background: var(--button); }
+.tree-node:disabled { opacity: .75; cursor: default; }
+.tree-node.on, .tree.on { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); font-weight: 600; box-shadow: inset 2px 0 0 var(--accent); }
+.pick-mark { margin-left: auto; padding-left: 4px; color: var(--accent); font-size: 11px; }
+.tree-node .twist { width: 12px; color: var(--muted); }
+.center { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+.viewport { position: relative; flex: 1 1 auto; min-height: 0; background: radial-gradient(circle at 50% 40%, var(--viewport-a), var(--viewport-b) 72%); }
+.viewcube { position: absolute; z-index: 2; top: 10px; right: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.viewcube button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; font-size: 14px; line-height: 1; border-radius: 2px; background: color-mix(in srgb, var(--panel) 86%, transparent); color: var(--text); }
+.nav-hint { position: absolute; z-index: 2; left: 118px; bottom: 28px; font-size: 11px; color: var(--muted); pointer-events: none; }
+.scale-ruler { position: absolute; z-index: 2; pointer-events: none; color: var(--muted); font-size: 10px; }
+.scale-ruler.horizontal { left: 36px; right: 8px; bottom: 0; height: 22px; border-top: 1px solid var(--line); }
+.scale-ruler.vertical { top: 8px; bottom: 22px; left: 0; width: 28px; border-right: 1px solid var(--line); }
+.scale-tick { position: absolute; background: var(--muted); }
+.scale-ruler.horizontal .scale-tick { bottom: 0; width: 1px; }
+.scale-ruler.vertical .scale-tick { right: 0; height: 1px; }
+.scale-tick.major { background: var(--text); }
+.scale-ruler.horizontal .scale-tick.major { height: 10px; }
+.scale-ruler.horizontal .scale-tick.minor { height: 5px; }
+.scale-ruler.vertical .scale-tick.major { width: 10px; }
+.scale-ruler.vertical .scale-tick.minor { width: 5px; }
+.scale-label { position: absolute; color: var(--text); white-space: nowrap; }
+.scale-ruler.horizontal .scale-label { top: 0; transform: translateX(-50%); }
+.scale-ruler.vertical .scale-label { left: 1px; transform: translateY(-50%); }
+.viewport-bg { position: absolute; inset: 0; background-size: cover; background-position: center; pointer-events: none; }
+.viewport canvas { position: relative; z-index: 1; width: 100%; height: 100%; display: block; }
+.tabstrip { border-bottom: 1px solid var(--line); padding: 4px; background: var(--panel); }
+.tabs-row { display: flex; gap: 4px; overflow: hidden; scrollbar-width: none; flex: 1; }
+.tabs-row::-webkit-scrollbar { display: none; }
+.tab { display: inline-flex; align-items: center; gap: 8px; max-width: 180px; }
+.statusbar { flex: 0 0 26px; height: 26px; padding: 0; border-top: 1px solid var(--line); background: var(--panel-alt); gap: 0; font-size: 12px; color: var(--text); z-index: 5; }
+/* No dividers between the readings: the spacing separates them, and a rule
+   after every one turned the bar into a row of boxes. */
+.statusbar span { display: inline-flex; align-items: center; height: 100%; padding: 0 10px; }
+/* The resize marker in the bottom right corner. `.statusbar span` also
+   matches it and is more specific than a bare `.size-grip`, which is what
+   stretched it down the whole right edge; this selector wins instead. The
+   three diagonal dashes are drawn in currentColor so they follow the theme. */
+.statusbar .size-grip {
+  position: fixed; right: 0; bottom: 0; z-index: 6;
+  width: 16px; height: 16px; padding: 0; border: 0;
+  color: var(--muted); cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 0 62%, currentColor 62% 78%, transparent 78%) 2px 10px / 5px 5px no-repeat,
+    linear-gradient(135deg, transparent 0 62%, currentColor 62% 78%, transparent 78%) 6px 6px / 5px 5px no-repeat,
+    linear-gradient(135deg, transparent 0 62%, currentColor 62% 78%, transparent 78%) 10px 2px / 5px 5px no-repeat;
+}
+.statusbar .size-grip:hover { color: var(--accent); }
+.menu-popup { color: var(--text); position: fixed; z-index: 80; display: flex; flex-direction: column; flex-wrap: nowrap; min-width: 220px; padding: 4px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.35); overflow: visible; }
+.menu-item { color: var(--text); display: flex; flex-direction: row; align-items: center; gap: 8px; width: 100%; height: 28px; text-align: left; white-space: nowrap; background: transparent; border: 0; }
+.menu-icon { width: 1.2em; text-align: center; flex: 0 0 auto; }
+.popup-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
+.popup { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; resize: none; display: flex; flex-direction: column; box-shadow: 0 16px 40px rgba(0,0,0,.4);
+  /* The size is fixed; these only stop a small window from cropping it. */
+  max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); }
+.popup, .popup * { scrollbar-width: none; }
+.popup *::-webkit-scrollbar { width: 0; height: 0; }
+.popup-body, .row { overflow: hidden; }
+.popup-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 36px; padding: 0 8px 0 10px; border-bottom: 1px solid var(--line); background: var(--panel-alt); color: var(--text); flex: 0 0 36px; }
+.popup-heading { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.popup-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-popup-title { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.popup-body { flex: 1; min-height: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.row { display: flex; align-items: center; gap: 8px; height: 32px; white-space: nowrap; }
+.row-item { display: inline-flex; align-items: center; gap: 4px; }
+.popup-actions { justify-content: flex-end; margin-top: auto; }
+.preview-page { height: 180px; border: 1px solid var(--line); margin: 6px 0; padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; background: #fff; color: #17202a; }
+.progress-track { height: 8px; background: #0e141a; border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); }
+.ghost { width: 28px; }
+.tree { width: 100%; justify-content: flex-start; margin-bottom: 4px; background: transparent; }
+.tree.on, .tool.on, .tab.on, button.on { border-color: var(--accent); color: var(--accent); }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+input[type="range"] { width: 120px; }
+.panel .tree { width: calc(100% - 8px); margin: 1px 4px; border-radius: 2px; background: transparent; }
+.panel.right .row { display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: center; gap: 6px; margin-left: 12px; margin-right: 10px; }
+/* Nothing in the property panel may reach past its edge, however narrow it is. */
+.panel.right .row > input, .panel.right .row > select { width: 100%; min-width: 0; }
+@media print {
+  .menubar, .toolbar, .panel, .statusbar, .tabstrip, .popup-backdrop { display: none !important; }
+  .viewport { min-height: 0; }
+}
+
+.report-lines { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.report-line {
+  margin: 0;
+  padding: 1px 0;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.86em;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* No row in a dialog may be squeezed away by the ones above it: a flex column
+   shrinks `height` to nothing, and `.popup-body` does not scroll. Only the
+   shrink is pinned for a group box, so one that asks to grow still can. */
+.popup-body > .row { flex: 0 0 auto; }
+.popup-body > .field-group { flex-shrink: 0; }
+
+
+/* toolbar: language, settings and about pinned to the right edge */
+.toolbar-spacer { flex: 1 1 auto; min-width: 8px; }
+.tool-flag { width: 34px; }
+.tool-flag svg { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+.menu-root .menu-label { white-space: nowrap; }
+.menu-root .menu-icon { opacity: 1; }
+
+/* menu popups always show every item: they wrap into columns instead of clipping */
+.menu-popup .menu-items { display: grid; gap: 1px; align-content: start; }
+.menu-popup[data-layout="multi-column"] { max-width: calc(100vw - 16px); }
+.menu-popup .menu-item { width: 100%; min-width: 0; }
+
+/* A menu item has no border of its own, so the shared `button:hover` rule
+   would show nothing: the pointer needs its own mark to say the row under it
+   is the one a click would take. Keyboard focus gets the same mark, so
+   tabbing through a menu reads like moving the pointer through it. */
+.menu-item { border-radius: 2px; cursor: pointer; }
+.menu-item:hover, .menu-item:focus-visible { background: var(--button); color: var(--accent); outline: none; }
+.menu-item:hover .menu-icon, .menu-item:focus-visible .menu-icon { color: var(--accent); }
+.menu-popup .recent-item:hover { background: var(--button); }
+
+/* theme gallery */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 4px; padding: 2px 2px 6px; }
+.theme-block + .theme-block { margin-top: 2px; }
+.theme-swatch { display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 0 6px; height: 30px; font-size: 12px; white-space: nowrap; }
+.theme-swatch.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.theme-chips { display: flex; gap: 3px; }
+.theme-chips i { width: 15px; height: 15px; border-radius: 3px; border: 1px solid var(--line); }
+
+/* print dialog: settings column on the left, live sheet preview on the right */
+.print-layout { flex: 1 1 auto; display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 14px; min-height: 0; }
+.print-options { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: auto; padding-right: 6px; }
+.print-options .row { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 8px; height: 30px; white-space: nowrap; }
+.print-options .row.wide { display: block; height: auto; }
+.print-options .row > span:first-child, .field-label { color: var(--muted); font-size: 12px; }
+.print-options .row input[type="checkbox"] { justify-self: start; width: 16px; height: 16px; }
+.print-options .row input[type="text"], .print-options .row input[type="number"], .print-options .row select { width: 100%; min-width: 0; height: 24px; }
+.print-options .tabs { display: flex; gap: 4px; margin-bottom: 4px; }
+.print-options .tabs button { flex: 1 1 0; height: 26px; padding: 0 6px; font-size: 12px; }
+.choice-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.doc-list { display: flex; flex-direction: column; gap: 4px; max-height: 92px; overflow: auto; margin: 4px 0; }
+.check-line { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; }
+
+.print-preview-pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+.preview-stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.preview-page { height: 100%; max-width: 100%; background: #ffffff; box-shadow: 0 8px 22px rgba(0, 0, 0, .45); }
+.preview-page svg { display: block; width: 100%; height: 100%; }
+.preview-nav { display: flex; align-items: center; gap: 8px; height: 26px; font-size: 12px; }
+.preview-nav button { width: 26px; height: 24px; padding: 0; }
+.preview-nav .ellipsis { flex: 1 1 auto; text-align: right; }
+.muted { color: var(--muted); }
+button.primary { border-color: var(--accent); color: var(--accent); }
+
+/* the printable sheets live off-screen until the browser prints them */
+.print-area { display: none; }
+@media print {
+  .app { display: none !important; }
+  .print-area { display: block; position: absolute; inset: 0; background: #ffffff; }
+  .print-sheet { page-break-after: always; break-after: page; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .print-sheet:last-child { page-break-after: auto; break-after: auto; }
+  .print-sheet svg { width: 100%; height: 100%; }
+}
+
+
+/* theme split button: click cycles, the caret opens the gallery */
+.theme-picker { position: relative; display: inline-flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.theme-cycle { width: 26px; }
+.theme-caret { width: 15px; font-size: 13px; color: var(--text); }
+.swatch { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; border: 1px solid; border-radius: 3px; overflow: hidden; }
+.swatch i { display: block; width: 100%; height: 100%; }
+.theme-menu .theme-swatch { gap: 6px; }
+.theme-menu { position: absolute; z-index: 90; top: calc(100% + 4px); right: 0; width: max-content; max-width: min(560px, calc(100vw - 24px)); max-height: min(70vh, 520px); overflow: auto; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
+.theme-menu-group + .theme-menu-group { margin-top: 6px; }
+.theme-menu-title { margin: 0 0 4px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.theme-menu-grid { display: grid; grid-template-columns: repeat(4, 124px); gap: 3px; }
+.theme-menu .theme-swatch { flex-direction: row; align-items: center; gap: 6px; padding: 3px 6px; height: 26px; font-size: 11px; }
+.theme-menu .theme-chips i { width: 10px; height: 10px; }
+
+
+/* zoom stepper and light rig in the toolbar */
+.zoom-control { display: inline-flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.zoom-control .tool { width: 26px; }
+.zoom-control .zoom-value { width: 52px; font-variant-numeric: tabular-nums; font-size: 12px; }
+.light-picker { position: relative; display: inline-flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.light-caret { width: 16px; font-size: 13px; color: var(--text); }
+.light-menu { position: absolute; z-index: 90; top: calc(100% + 4px); right: 0; width: 324px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
+.light-menu .row { display: grid; grid-template-columns: 62px 1fr 46px; align-items: center; gap: 8px; height: 28px; font-size: 12px; }
+.light-menu .row span { color: var(--muted); }
+.light-menu .row b { text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+.light-menu .light-presets { display: flex; grid-template-columns: none; gap: 4px; height: auto; margin-top: 6px; }
+.light-menu .light-presets { flex-wrap: wrap; }
+.light-menu .light-presets button { flex: 1 1 66px; height: 24px; padding: 0 4px; font-size: 11px; }
+.light-menu .light-kinds { grid-template-columns: 62px minmax(0, 1fr); height: auto; padding: 3px 0; }
+.light-menu .chip-row { display: flex; flex-wrap: wrap; gap: 3px; }
+.light-menu .chip-row button { width: 30px; height: 22px; padding: 0; font-size: 12px; }
+.light-menu .chip-row button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.light-menu .chip-row .swatch-chip { width: 24px; border: 1px solid var(--line); }
+
+
+/* grouped settings / export boxes */
+.field-group { margin: 0 0 8px; padding: 6px 10px 8px; border: 1px solid var(--line); border-radius: 6px; }
+.field-group > legend { padding: 0 6px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+/* The format list takes whatever height the dialog has left over and scrolls
+   as a whole, so each section can be as tall as it needs and the headings
+   stay with their own options. */
+.export-formats-group { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.export-formats-group > [data-testid="export-formats"] { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.export-section + .export-section { margin-top: 2px; }
+.export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.export-option { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; font-size: 12px; }
+.export-option.on { border-color: var(--accent); background: var(--button); }
+.export-ext { min-width: 62px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.export-summary { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 6px 0 0; font-size: 12px; line-height: 1.5; }
+
+.part-help { height: auto; min-height: 32px; white-space: normal; line-height: 1.4; color: var(--muted); font-size: 12px; }
+
+
+/* settings: tab rail on the left, grouped boxes on the right */
+.settings-layout { flex: 1 1 auto; display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; min-height: 0; }
+.settings-tabs { display: flex; flex-direction: column; gap: 2px; padding-right: 8px; border-right: 1px solid var(--line); overflow: auto; }
+.settings-tabs button { display: flex; align-items: center; gap: 6px; justify-content: flex-start; height: 30px; padding: 0 8px; background: transparent; border-color: transparent; text-align: left; }
+.settings-tabs button.on { background: var(--button); border-color: var(--accent); color: var(--accent); }
+.settings-panel { min-height: 0; overflow-x: hidden; overflow-y: auto; padding-right: 10px; }
+.settings-panel .row { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; align-items: center; gap: 8px; height: 30px; }
+.settings-panel .row > span:first-child { color: var(--muted); font-size: 12px; }
+.settings-panel .row input[type="checkbox"] { justify-self: start; width: 16px; height: 16px; }
+.settings-panel .row input[type="text"], .settings-panel .row select, .settings-panel .row input[type="file"] { width: 100%; min-width: 0; height: 26px; }
+.settings-panel .row.tabs { display: flex; gap: 6px; }
+
+/* numeric field with steppers */
+.number-field { display: inline-flex; align-items: center; gap: 2px; }
+/* The unit follows the plus button, at the same size as the rest of the row. */
+.number-suffix { min-width: 24px; padding-left: 4px; color: var(--text); white-space: nowrap; }
+.number-field button { width: 24px; height: 24px; padding: 0; line-height: 1; cursor: pointer; transition: background .12s, border-color .12s, color .12s; }
+/* Only the button under the pointer inverts, so it is obvious which one a
+   click will hit. (The rows around a stepper are plain divs, not labels: a
+   label hands its hover and its clicks to the first control inside it, which
+   used to light up the minus button whenever the row was pointed at.) */
+.number-field button:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+/* A stepper a checkbox has switched off still shows its value, greyed. */
+.number-field.off { opacity: .5; }
+.number-field.off button:hover { background: var(--button); border-color: var(--line); color: inherit; }
+.number-field button:active { background: color-mix(in srgb, var(--accent) 72%, var(--text)); border-color: var(--accent); color: var(--bg); }
+.number-field button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.number-field input { width: 84px; height: 24px; text-align: right; font-variant-numeric: tabular-nums; }
+.panel .number-field input { width: 62px; }
+.panel .number-field .number-suffix { display: none; }
+.panel .number-field button { width: 20px; height: 22px; }
+.panel.right .field-group { margin: 6px 10px 10px; padding: 6px 8px 8px; }
+.panel.right .field-group legend { padding: 0 4px; color: var(--muted); font-size: 11px; }
+.panel.right .field-group .row { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 6px; margin: 3px 0 3px 4px; }
+.about-mark { display: block; color: var(--text); }
+.tool-about:hover .about-mark { color: var(--accent); }
+
+/* custom theme colour grid */
+.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 4px; }
+.color-row { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; }
+.color-row input[type="color"] { width: 34px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: transparent; }
+
+.recent-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow: auto; }
+.recent-row { grid-template-columns: minmax(0, 1fr) auto; height: 28px; }
+.recent-row button { width: 26px; height: 22px; padding: 0; }
+
+.popup-body > .field-group:last-of-type { margin-bottom: 4px; }
+.popup .popup-actions { flex: 0 0 auto; padding-top: 4px; }
+
+
+/* about dialog: the app mark and the description share the first line */
+.about-head { display: flex; align-items: center; gap: 14px; padding: 4px 0 10px; }
+.about-icon { border-radius: 12px; flex: 0 0 auto; }
+.about-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.about-title strong { font-size: 20px; letter-spacing: .01em; }
+.about-grid { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.about-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; height: 28px; }
+.about-row dt { color: var(--muted); font-size: 12px; }
+.about-row dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.about-note { margin: 10px 0 0; font-size: 12px; line-height: 1.5; white-space: normal; }
+.tool-about img { display: block; border-radius: 3px; }
+
+
+/* draggable divider between the tool panel and the canvas */
+.splitter { position: relative; cursor: col-resize; background: var(--line); opacity: .5; touch-action: none; }
+.splitter::after { content: ''; position: absolute; inset: 0 -3px; }
+.splitter:hover, .splitter:active { opacity: 1; background: var(--accent); }
+
+/* Light themes: dark-theme defaults (soft greys, heavy shadows) wash out on a
+   white panel, so text, icons and separators are pushed a step darker. */
+.app[data-theme-mode="light"] .statusbar,
+.app[data-theme-mode="light"] .panel-title,
+.app[data-theme-mode="light"] .tree-node,
+.app[data-theme-mode="light"] .nav-hint { color: var(--text); }
+.app[data-theme-mode="light"] .menu-icon { opacity: 1; filter: saturate(1.15) contrast(1.2); }
+.app[data-theme-mode="light"] .tool, .app[data-theme-mode="light"] .menu-root { color: var(--text); }
+.app[data-theme-mode="light"] .tool.on { background: color-mix(in srgb, var(--accent) 18%, var(--button)); }
+.app[data-theme-mode="light"] .theme-menu,
+.app[data-theme-mode="light"] .light-menu,
+.app[data-theme-mode="light"] .menu-popup { box-shadow: 0 10px 26px rgba(20, 30, 45, .22); }
+.app[data-theme-mode="light"] .splitter { opacity: .8; }
+.app[data-theme-mode="light"] .muted { color: color-mix(in srgb, var(--muted) 75%, var(--text)); }
+
+/* Colour presets inside the custom theme editor. */
+
+/* The settings list is the one place inside a popup that scrolls, so it is the
+   one place that shows a scroll bar; everything else has to fit. */
+.popup .settings-panel, .popup .settings-tabs { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.popup .settings-panel::-webkit-scrollbar, .popup .settings-tabs::-webkit-scrollbar { width: 9px; height: 9px; }
+.popup .settings-panel::-webkit-scrollbar-thumb, .popup .settings-tabs::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
+.popup .settings-panel::-webkit-scrollbar-thumb:hover, .popup .settings-tabs::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* A tab with many small groups lays them out side by side so it fits the
+   fixed settings window without scrolling. */
+.settings-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; align-items: start; }
+.settings-columns .row { grid-template-columns: 110px minmax(0, 1fr) auto; }
+/* Axis, on/off, offset and the flip button all on one line. */
+.settings-panel .row.clip-row { grid-template-columns: 26px 20px minmax(0, 1fr) 30px; }
+.settings-panel .row.clip-row > button { width: 28px; padding: 0; }
+
+/* A popup that has its own OS window fills it: no backdrop, no floating card. */
+.popup-window { height: 100%; background: var(--panel); }
+.popup-window .popup-backdrop { position: static; inset: auto; z-index: auto; height: 100%; background: none; display: block; }
+.popup-window .popup { width: 100% !important; height: 100% !important; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+
+/* Native controls follow the theme, not the dark default of :root. */
+.app[data-theme-mode="light"] { color-scheme: light; }
+.app[data-theme-mode="dark"] { color-scheme: dark; }
+
+/* Shown by ErrorBoundary when a render fails: the report, ready to copy. */
+.crash { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; background: #12161c; color: #e7eef5; font-family: 'Segoe UI', system-ui, sans-serif; }
+.crash-card { display: flex; flex-direction: column; gap: 12px; width: min(860px, 100%); max-height: 100%; padding: 20px 22px; background: #1b222c; border: 1px solid #3a4754; border-radius: 10px; }
+.crash-card h1 { margin: 0; font-size: 20px; }
+.crash-lead { margin: 0; font-size: 13px; line-height: 1.6; color: #b9c6d4; white-space: normal; }
+.crash-report { flex: 1 1 auto; min-height: 120px; margin: 0; padding: 12px; overflow: auto; background: #0e1319; border: 1px solid #2a3542; border-radius: 6px; font-family: Consolas, 'Courier New', monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.crash-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.crash-actions button { height: 30px; padding: 0 14px; background: #2c3844; color: #e7eef5; border: 1px solid #3a4754; border-radius: 4px; }
+.crash-actions button:hover { border-color: #3ec1ff; }
+
+/* With the -/+ buttons there, the browser's own spinner is noise. */
+.number-field input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+.number-field input[type="number"]::-webkit-outer-spin-button,
+.number-field input[type="number"]::-webkit-inner-spin-button { appearance: none; -webkit-appearance: none; margin: 0; }
+.error-headline { font-weight: 600; white-space: normal; line-height: 1.5; }
+.popup .error-detail { flex: 1 1 auto; min-height: 0; margin: 6px 0 0; padding: 10px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-family: Consolas, 'Courier New', monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; scrollbar-width: thin; }
+.popup .error-detail::-webkit-scrollbar { width: 9px; }
+.popup .error-detail::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
+
+/* Recent files sit in the File menu: open one, drop one, or clear the list. */
+.menu-section { margin: 6px 4px 2px; padding: 0 4px; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.menu-popup .recent-item { display: flex; align-items: center; gap: 2px; padding: 0; background: transparent; }
+.recent-open { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 6px; background: transparent; border: 0; text-align: left; color: var(--text); }
+.recent-open:hover, .recent-remove:hover { background: var(--button); }
+.recent-remove { flex: 0 0 auto; width: 24px; height: 24px; padding: 0; background: transparent; border: 0; color: var(--muted); }
+.recent-remove:hover { color: var(--danger); }
+
+/* The panel headings carry their own close button. */
+.panel-title { display: flex; align-items: center; gap: 6px; }
+/* The heading of a panel block is the switch that folds it, so it fills the
+   row and leaves the close button on the end. */
+/* A note in a panel is prose, not a row: `.row` is one nowrap line of fixed
+   height, which cut this one off at the panel edge. */
+.panel-hint { margin: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
+.panel-fold { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; height: 16px; padding: 0; background: transparent; border: 0; border-radius: 2px; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; cursor: pointer; }
+.panel-fold:hover { color: var(--accent); }
+.fold-mark { flex: 0 0 auto; width: 10px; font-size: 9px; line-height: 1; }
+.panel-close { flex: 0 0 auto; width: 20px; height: 18px; margin-left: auto; padding: 0; background: transparent; border: 0; color: var(--muted); font-size: 11px; line-height: 1; }
+.panel-close:hover { color: var(--danger); background: var(--button); }
+
+/* Group separator inside a menu: a hair line across its own column. */
+.menu-separator { height: 1px; margin: 4px 8px; background: var(--line); opacity: .9; }
+/* The bulb sits on the text colour and turns accent while the light is on. */
+.light-mark svg { display: block; }
+.toolbar .tool.on .light-mark svg { color: var(--accent); }
+.light-menu .light-reset-row { grid-template-columns: 62px minmax(0, 1fr); height: 26px; }
+.light-menu .light-reset { display: inline-flex; align-items: center; gap: 6px; justify-self: start; height: 22px; padding: 0 8px; font-size: 11px; }
+.light-menu .light-list-row { grid-template-columns: 62px minmax(0, 1fr); }
+.light-chip { position: relative; display: inline-flex; }
+.light-menu .light-chip .swatch-chip { width: 22px; height: 22px; font-size: 11px; color: var(--text); }
+.light-menu .light-drop {
+  position: absolute; top: -6px; right: -6px; width: 14px; height: 14px; padding: 0;
+  border-radius: 7px; font-size: 9px; line-height: 1; background: var(--panel-alt); border: 1px solid var(--line);
+}
+.light-menu .light-add { width: 22px; height: 22px; padding: 0; font-size: 13px; }
+.light-row { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.light-row button { min-width: 26px; height: 24px; padding: 0 6px; }
+/* The scale marker floats over the canvas and can be dragged around it. */
+.scale-marker {
+  position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 2px 4px; border-radius: 3px; cursor: grab; user-select: none;
+  color: var(--text); font-size: 10px; background: color-mix(in srgb, var(--panel) 70%, transparent);
+}
+.scale-marker.dragging { cursor: grabbing; }
+.scale-marker-bar {
+  width: 100%; height: 7px; border: 1px solid currentColor; border-top: 0;
+  background: linear-gradient(90deg, currentColor 1px, transparent 1px) 0 0 / 50% 100% no-repeat;
+  opacity: 0.85;
+}
+.scale-marker-host { position: absolute; left: 0; bottom: 0; width: 0; height: 0; }

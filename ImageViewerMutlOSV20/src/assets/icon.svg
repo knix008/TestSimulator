@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
   <!--
     Image Viewer app icon — 3D glass tile with a top-left light reflection,
-    a tilted photo card and a glossy camera lens. Rebuild PNG / ICO with
-    `npm run create-icons` (scripts/create-icons.js).
+    a tilted photo card, a glossy camera lens and an editor pencil.
+    Rebuild PNG / ICO with `npm run create-icons` (scripts/create-icons.js).
   -->
   <defs>
     <!-- ── Tile (background plate) ── -->
@@ -123,6 +123,40 @@
     <filter id="lensShadow" x="-40%" y="-40%" width="180%" height="180%">
       <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#04102e" flood-opacity="0.5"/>
     </filter>
+    <filter id="pencilShadow" x="-40%" y="-50%" width="180%" height="200%">
+      <feDropShadow dx="2" dy="6" stdDeviation="4" flood-color="#04102e" flood-opacity="0.5"/>
+    </filter>
+
+    <!-- ── Pencil ── -->
+    <linearGradient id="pencilBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#fff3a8"/>
+      <stop offset="0.28" stop-color="#ffd24a"/>
+      <stop offset="0.62" stop-color="#e8a214"/>
+      <stop offset="1"    stop-color="#9a6408"/>
+    </linearGradient>
+    <linearGradient id="pencilWood" x1="0" y1="0" x2="1" y2="0.4">
+      <stop offset="0"   stop-color="#f8e0b4"/>
+      <stop offset="0.5" stop-color="#e0a86a"/>
+      <stop offset="1"   stop-color="#a86a32"/>
+    </linearGradient>
+    <linearGradient id="pencilLead" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5a5a5a"/>
+      <stop offset="1" stop-color="#141414"/>
+    </linearGradient>
+    <linearGradient id="pencilFerrule" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#fff8e8"/>
+      <stop offset="0.4"  stop-color="#d4ccb4"/>
+      <stop offset="1"    stop-color="#7a7260"/>
+    </linearGradient>
+    <linearGradient id="pencilEraser" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffc4d0"/>
+      <stop offset="0.4"  stop-color="#ef5a78"/>
+      <stop offset="1"    stop-color="#9a2040"/>
+    </linearGradient>
+    <linearGradient id="pencilRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#3a2200" stop-opacity="0.45"/>
+    </linearGradient>
     <filter id="blur8" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="8"/>
     </filter>
@@ -207,4 +241,28 @@
   <ellipse cx="166" cy="160" rx="10" ry="6" fill="#ffffff" opacity="0.85" transform="rotate(-35 166 160)"/>
   <ellipse cx="186" cy="185" rx="5" ry="2.6" fill="#bfe8ff" opacity="0.55" transform="rotate(-35 186 185)"/>
   <circle cx="171.5" cy="167.5" r="2.2" fill="#ffffff" opacity="0.9"/>
+
+  <!-- ═══ Editor pencil (eraser bottom-left, tip on the photo) ═══ -->
+  <g transform="translate(46, 204) rotate(-40)" filter="url(#pencilShadow)">
+    <!-- eraser -->
+    <rect x="-2" y="-15" width="22" height="30" rx="7" ry="8" fill="url(#pencilEraser)"/>
+    <ellipse cx="8" cy="-9" rx="8" ry="4.5" fill="#ffffff" opacity="0.38"/>
+    <!-- ferrule -->
+    <rect x="18" y="-16.5" width="20" height="33" rx="2" fill="url(#pencilFerrule)"/>
+    <rect x="21" y="-16.5" width="1.8" height="33" fill="#ffffff" opacity="0.5"/>
+    <rect x="32" y="-16.5" width="1.6" height="33" fill="#ffffff" opacity="0.32"/>
+    <rect x="18" y="-16.5" width="20" height="33" rx="2" fill="none" stroke="#6a6250" stroke-opacity="0.35" stroke-width="0.8"/>
+    <!-- yellow body -->
+    <rect x="36" y="-17" width="78" height="34" rx="2.5" fill="url(#pencilBody)"/>
+    <rect x="36" y="-17" width="78" height="11" rx="2.5" fill="#fff8c8" opacity="0.42"/>
+    <rect x="36" y="8" width="78" height="9" fill="#000000" opacity="0.14"/>
+    <rect x="36.5" y="-16.5" width="77" height="33" rx="2" fill="none" stroke="url(#pencilRim)" stroke-width="1.2"/>
+    <!-- sharpened wood -->
+    <path d="M114 -17 L136 -5.5 L136 5.5 L114 17 Z" fill="url(#pencilWood)"/>
+    <path d="M114 -17 L136 -5.5 L114 -3 Z" fill="#ffffff" opacity="0.28"/>
+    <path d="M114 17 L136 5.5 L114 4 Z" fill="#000000" opacity="0.12"/>
+    <!-- graphite tip -->
+    <path d="M136 -5.5 L150 0 L136 5.5 Z" fill="url(#pencilLead)"/>
+    <path d="M136 -5.5 L150 0 L136 -1 Z" fill="#ffffff" opacity="0.18"/>
+  </g>
 </svg>

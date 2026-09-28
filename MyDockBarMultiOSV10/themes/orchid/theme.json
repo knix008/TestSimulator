@@ -1,0 +1,38 @@
+{
+  "id": "orchid",
+  "name": "Orchid",
+  "author": "MyDockBar",
+  "description": "Soft orchid purple. (shelf shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(167,121,175,0.42) 0%, rgba(109,32,121,0.34) 48%, rgba(65,19,73,0.42) 100%)",
+    "--plate-border": "1px solid rgba(189,155,195,0.5)",
+    "--plate-radius": "8px",
+    "--plate-shadow": "0 14px 40px rgba(27,8,30,0.5), inset 0 1px 0 rgba(240,233,242,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "polygon(2% 0, 98% 0, 100% 100%, 0 100%)",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(222,179,229,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(22,6,24,0.55)",
+    "--indicator-color": "#dd6cef",
+    "--indicator-glow": "0 0 10px rgba(221,108,239,0.9)",
+    "--tooltip-bg": "rgba(28,16,30,0.96)",
+    "--tooltip-fg": "#f3e5f5",
+    "--tooltip-border": "1px solid rgba(221,108,239,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#dd6cef"
+  },
+  "ui": {
+    "--bg": "#201622",
+    "--bg-raised": "#2e2130",
+    "--bg-sunken": "#181019",
+    "--fg": "#f0e9f1",
+    "--fg-dim": "#ab8db0",
+    "--line": "#453348",
+    "--accent": "#dd6cef",
+    "--accent-fg": "#190e1a",
+    "--danger": "#ff7a72"
+  }
+}

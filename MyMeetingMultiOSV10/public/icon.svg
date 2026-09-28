@@ -1,64 +1,121 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <!-- MyMeeting: a minutes sheet with a checklist, fronted by three participants.
-       Indigo tile background. -->
+  <!-- MyMeeting: a raised minutes sheet on a 3D indigo tile, with a 3D pencil and three participants. -->
   <defs>
-    <!-- Main 3D body gradient (top-left light -> bottom-right dark) -->
     <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"    stop-color="#8aa4ff"/>
-      <stop offset="0.45" stop-color="#5468e6"/>
-      <stop offset="1"    stop-color="#232a63"/>
+      <stop offset="0"    stop-color="#9aafff"/>
+      <stop offset="0.42" stop-color="#5468e6"/>
+      <stop offset="1"    stop-color="#2a3270"/>
     </linearGradient>
-
-    <!-- Bevel edge highlight -->
+    <!-- Visible side of the tile (bottom / right extrusion) -->
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a458c"/>
+      <stop offset="1" stop-color="#12163a"/>
+    </linearGradient>
     <linearGradient id="bevel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.9"/>
-      <stop offset="0.12" stop-color="#ffffff" stop-opacity="0.15"/>
-      <stop offset="1"    stop-color="#000000" stop-opacity="0.35"/>
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.16" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.72" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#000000" stop-opacity="0.40"/>
     </linearGradient>
-
-    <!-- Top-left specular reflection -->
-    <radialGradient id="spec" cx="0.30" cy="0.26" r="0.7">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.80"/>
-      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.25"/>
-      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
+    <radialGradient id="spec" cx="0.28" cy="0.22" r="0.72">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="0.32" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.70" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
-
-    <!-- Glossy sweep across upper half -->
     <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.55"/>
-      <stop offset="0.48" stop-color="#ffffff" stop-opacity="0.10"/>
-      <stop offset="0.5"  stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.58"/>
+      <stop offset="0.46" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="0.52" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
-
-    <!-- Minutes sheet shading -->
-    <linearGradient id="sheet" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="sheet" x1="0" y1="0" x2="0.2" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#e7ebff"/>
+      <stop offset="1" stop-color="#e4e9ff"/>
+    </linearGradient>
+    <!-- Paper edge, the thickness under the sheet -->
+    <linearGradient id="paperEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d5dcf8"/>
+      <stop offset="1" stop-color="#9aa6d6"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#0c1028" stop-opacity="0.55"/>
     </linearGradient>
 
-    <filter id="dropshadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#161c47" flood-opacity="0.45"/>
+    <clipPath id="tileClip">
+      <rect x="118" y="96" width="760" height="760" rx="176" ry="176"/>
+    </clipPath>
+
+    <filter id="tileShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="28" stdDeviation="26" flood-color="#0c1028" flood-opacity="0.48"/>
     </filter>
-    <filter id="cardshadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#161c47" flood-opacity="0.35"/>
+    <filter id="sheetShadow" x="-40%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="22" stdDeviation="16" flood-color="#12183f" flood-opacity="0.42"/>
     </filter>
+    <filter id="peopleShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#12183f" flood-opacity="0.35"/>
+    </filter>
+    <filter id="pencilShadow" x="-30%" y="-40%" width="170%" height="190%">
+      <feDropShadow dx="0" dy="16" stdDeviation="10" flood-color="#12183f" flood-opacity="0.40"/>
+    </filter>
+    <linearGradient id="pencilBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6c4"/>
+      <stop offset="0.42" stop-color="#ffd23a"/>
+      <stop offset="1" stop-color="#e09410"/>
+    </linearGradient>
+    <linearGradient id="pencilSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c98412"/>
+      <stop offset="1" stop-color="#7a4a08"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6d7ae"/>
+      <stop offset="1" stop-color="#c4894a"/>
+    </linearGradient>
+    <linearGradient id="woodSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b07a3c"/>
+      <stop offset="1" stop-color="#7a4e22"/>
+    </linearGradient>
+    <linearGradient id="ferrule" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7f9fc"/>
+      <stop offset="0.45" stop-color="#c5ccd6"/>
+      <stop offset="1" stop-color="#7d8694"/>
+    </linearGradient>
+    <linearGradient id="ferruleSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8b93a0"/>
+      <stop offset="1" stop-color="#4e5560"/>
+    </linearGradient>
+    <linearGradient id="eraser" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc4cc"/>
+      <stop offset="1" stop-color="#e25a72"/>
+    </linearGradient>
+    <linearGradient id="eraserSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d45a70"/>
+      <stop offset="1" stop-color="#9a3048"/>
+    </linearGradient>
   </defs>
 
-  <!-- Drop shadow + 3D tile body -->
-  <g filter="url(#dropshadow)">
-    <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#body)"/>
+  <!-- ── 3D tile: side extrusion, then the lit front face ── -->
+  <g filter="url(#tileShadow)">
+    <rect x="150" y="132" width="760" height="760" rx="176" ry="176" fill="url(#side)"/>
+    <rect x="118" y="96" width="760" height="760" rx="176" ry="176" fill="url(#body)"/>
   </g>
-  <!-- Bevel edge -->
-  <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#bevel)" opacity="0.55"/>
+  <rect x="118" y="96" width="760" height="760" rx="176" ry="176" fill="none" stroke="url(#rim)" stroke-width="14"/>
+  <g clip-path="url(#tileClip)">
+    <rect x="118" y="96" width="760" height="760" fill="url(#bevel)" opacity="0.7"/>
+    <path d="M 118 292 A 176 176 0 0 1 294 96 L 730 96 A 176 176 0 0 1 878 292 L 878 430 Q 498 520 118 430 Z"
+          fill="url(#gloss)"/>
+    <rect x="118" y="96" width="760" height="760" fill="url(#spec)"/>
+  </g>
 
-  <!-- ── Minutes sheet (the document being written) ── -->
-  <g filter="url(#cardshadow)">
+  <!-- ── Minutes sheet, slightly smaller and lifted off the tile ── -->
+  <g transform="translate(512 428) scale(0.84) translate(-512 -447)" filter="url(#sheetShadow)">
+    <!-- thickness of the page -->
+    <rect x="318" y="232" width="424" height="470" rx="30" fill="url(#paperEdge)"/>
     <rect x="300" y="212" width="424" height="470" rx="30" fill="url(#sheet)"/>
-    <!-- Title bar of the sheet -->
+    <rect x="300" y="212" width="424" height="470" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="6"/>
     <rect x="344" y="258" width="220" height="26" rx="13" fill="#232a63"/>
     <rect x="344" y="300" width="336" height="13" rx="6.5" fill="#b0b9e8"/>
-    <!-- Checklist rows: check mark + line -->
     <g>
       <circle cx="360" cy="366" r="17" fill="#5468e6"/>
       <path d="M351 366 l7 7 l11 -13" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -73,31 +130,45 @@
     </g>
   </g>
 
-  <!-- ── Three participants (a meeting) sitting along the lower edge ── -->
-  <g filter="url(#cardshadow)">
-    <!-- left person -->
-    <g transform="translate(352 700)">
+  <!-- ── 3D pencil lying on the sheet: side extrusion, then the lit face ── -->
+  <g transform="translate(392 372) rotate(38)" filter="url(#pencilShadow)">
+    <g transform="translate(12 16)" fill="url(#pencilSide)">
+      <polygon points="8,32 48,16 48,48" fill="url(#woodSide)"/>
+      <polygon points="36,18 108,4 108,60 36,46" fill="url(#woodSide)"/>
+      <rect x="96" y="4" width="214" height="56" rx="8" fill="url(#pencilSide)"/>
+      <rect x="300" y="6" width="52" height="52" fill="url(#ferruleSide)"/>
+      <rect x="344" y="8" width="52" height="48" rx="14" fill="url(#eraserSide)"/>
+    </g>
+    <polygon points="0,32 42,14 42,50" fill="#2a2e38"/>
+    <polygon points="18,22 40,16 40,48 18,42" fill="#1a1c22"/>
+    <polygon points="28,20 104,2 104,62 28,44" fill="url(#wood)"/>
+    <path d="M40 18 L92 6 L92 26 L40 32 Z" fill="#fff" opacity="0.28"/>
+    <rect x="92" y="2" width="214" height="56" rx="8" fill="url(#pencilBody)"/>
+    <rect x="108" y="8" width="182" height="14" rx="7" fill="#fff" opacity="0.55"/>
+    <rect x="296" y="4" width="54" height="52" fill="url(#ferrule)"/>
+    <rect x="304" y="4" width="8" height="52" fill="#5c6572"/>
+    <rect x="332" y="4" width="8" height="52" fill="#5c6572"/>
+    <rect x="306" y="8" width="34" height="12" rx="6" fill="#fff" opacity="0.7"/>
+    <rect x="342" y="6" width="54" height="48" rx="14" fill="url(#eraser)"/>
+    <rect x="354" y="12" width="30" height="12" rx="6" fill="#fff" opacity="0.45"/>
+  </g>
+
+  <!-- ── Three participants, sitting on the tile ── -->
+  <g filter="url(#peopleShadow)">
+    <g transform="translate(352 708)">
       <circle cx="0" cy="0" r="46" fill="#e7ebff"/>
       <circle cx="0" cy="-14" r="20" fill="#5468e6"/>
       <path d="M-30 26 a30 26 0 0 1 60 0 z" fill="#5468e6"/>
     </g>
-    <!-- center person (front, larger) -->
-    <g transform="translate(512 724)">
+    <g transform="translate(512 732)">
       <circle cx="0" cy="0" r="56" fill="#ffffff"/>
       <circle cx="0" cy="-16" r="24" fill="#232a63"/>
       <path d="M-36 32 a36 30 0 0 1 72 0 z" fill="#232a63"/>
     </g>
-    <!-- right person -->
-    <g transform="translate(672 700)">
+    <g transform="translate(672 708)">
       <circle cx="0" cy="0" r="46" fill="#e7ebff"/>
       <circle cx="0" cy="-14" r="20" fill="#5468e6"/>
       <path d="M-30 26 a30 26 0 0 1 60 0 z" fill="#5468e6"/>
     </g>
   </g>
-
-  <!-- Glossy top sweep -->
-  <path d="M 132 300 A 180 180 0 0 1 312 120 L 712 120 A 180 180 0 0 1 892 300 L 892 470 Q 512 560 132 470 Z"
-        fill="url(#gloss)"/>
-  <!-- Top-left specular reflection -->
-  <rect x="132" y="120" width="760" height="760" rx="180" ry="180" fill="url(#spec)"/>
 </svg>

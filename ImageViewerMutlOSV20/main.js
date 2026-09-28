@@ -419,6 +419,11 @@ function buildMenu(translations) {
           accelerator: 'CmdOrCtrl+C',
           click: () => mainWindow && mainWindow.webContents.send('menu-action', 'copy-clipboard'),
         },
+        {
+          label: t('menu.print'),
+          accelerator: 'CmdOrCtrl+P',
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'print'),
+        },
         { type: 'separator' },
         {
           label: t('menu.settings'),
@@ -680,6 +685,31 @@ ipcMain.handle('read-directory', async (event, dirPath) => {
         if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
         return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       });
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+// Like read-directory, plus size / mtime — the browse view sorts and shows them.
+ipcMain.handle('read-directory-detailed', async (event, dirPath) => {
+  try {
+    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+    const rows = await Promise.all(entries.map(async (entry) => {
+      const full = path.join(dirPath, entry.name);
+      const row = { name: entry.name, isDirectory: entry.isDirectory(), path: full, size: 0, mtimeMs: 0, birthtimeMs: 0 };
+      try {
+        const st = await fs.promises.stat(full);
+        row.size = st.size;
+        row.mtimeMs = st.mtimeMs;
+        row.birthtimeMs = st.birthtimeMs;
+        row.isDirectory = st.isDirectory();
+      } catch { /* unreadable entry: keep the dirent's own answer */ }
+      return row;
+    }));
+    return rows.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
   } catch (err) {
     return { error: err.message };
   }
@@ -1319,7 +1349,9 @@ ipcMain.handle('read-file-bytes', async (event, filePath) => {
 
 ipcMain.handle('read-file-base64', async (event, filePath) => {
   try {
+    _sendOpenProgress(event, 12, 'reading');
     const data = await fs.promises.readFile(filePath);
+    _sendOpenProgress(event, 72, 'decoding');
     const ext = path.extname(filePath).toLowerCase().slice(1);
     const mimeMap = {
       jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
@@ -1331,6 +1363,7 @@ ipcMain.handle('read-file-base64', async (event, filePath) => {
       srt: 'text/plain', smi: 'text/plain',
     };
     const mime = mimeMap[ext] || 'application/octet-stream';
+    _sendOpenProgress(event, 90, 'displaying');
     return `data:${mime};base64,${data.toString('base64')}`;
   } catch (err) {
     return { error: err.message };
@@ -1792,19 +1825,37 @@ ipcMain.handle('decode-dicom', async (event, filePath) => {
  * chosen printer (silent) — no second system dialog. */
 const PRINT_PAGE_SIZES = new Set(['A3', 'A4', 'A5', 'Legal', 'Letter', 'Tabloid']);
 
-function _printPageHtml(dataUrl, title, { marginMm = 10, imgWmm, imgHmm, color } = {}) {
+function _printPageHtml(dataUrl, title, {
+  marginMm = 10, imgWmm, imgHmm, color, header, footer, headerMm = 0, footerMm = 0,
+} = {}) {
   const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const imgCss = (imgWmm > 0 && imgHmm > 0)
     ? `width: ${imgWmm}mm; height: ${imgHmm}mm;`
-    : 'max-width: 100%; max-height: 100vh; object-fit: contain;';
+    : 'max-width: 100%; max-height: 100%; object-fit: contain;';
   const filter = color === 'gray' ? 'filter: grayscale(1);' : '';
+  const band = (cls, mm, slots) => {
+    if (!(mm > 0) || !slots) return '';
+    return `<div class="band ${cls}" style="height:${mm}mm">`
+      + `<span class="l">${esc(slots.left)}</span>`
+      + `<span class="c">${esc(slots.center)}</span>`
+      + `<span class="r">${esc(slots.right)}</span></div>`;
+  };
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
   @page { margin: ${marginMm}mm; }
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
-  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  body { display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+  .band { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center;
+          font: 10pt/1.2 "Segoe UI", system-ui, sans-serif; color: #111; }
+  .band span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .band .l { text-align: left; } .band .c { text-align: center; } .band .r { text-align: right; }
+  .pic { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   img { ${imgCss} ${filter} }
-</style></head><body><img src="${dataUrl}" alt=""></body></html>`;
+</style></head><body>
+${band('hdr', headerMm, header)}
+<div class="pic"><img src="${dataUrl}" alt=""></div>
+${band('ftr', footerMm, footer)}
+</body></html>`;
 }
 
 ipcMain.handle('get-printers', async () => {
@@ -1825,7 +1876,7 @@ ipcMain.handle('get-printers', async () => {
 });
 
 ipcMain.handle('print-image', async (event, opts = {}) => {
-  const { dataUrl, title, deviceName, copies, landscape, pageSize, marginMm, imgWmm, imgHmm, color } = opts;
+  const { dataUrl, title, deviceName, copies, landscape, pageSize, marginMm, imgWmm, imgHmm, color, header, footer, headerMm, footerMm } = opts;
   if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return { error: 'Nothing to print' };
   let win = null;
   try {
@@ -1835,7 +1886,9 @@ ipcMain.handle('print-image', async (event, opts = {}) => {
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
     const mm = Number.isFinite(marginMm) ? Math.max(0, marginMm) : 10;
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(_printPageHtml(dataUrl, title, { marginMm: mm, imgWmm, imgHmm, color })));
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(_printPageHtml(dataUrl, title, {
+      marginMm: mm, imgWmm, imgHmm, color, header, footer, headerMm, footerMm,
+    })));
     await win.webContents.executeJavaScript(
       'new Promise((r) => { const i = document.querySelector("img"); if (!i || i.complete) r(); else { i.onload = () => r(); i.onerror = () => r(); } })'
     );
@@ -1953,6 +2006,157 @@ ipcMain.handle('get-app-info', () => {
     isPackaged: !!app.isPackaged,
   };
 });
+
+/* ── Default image-viewer file associations (per-user, Windows) ── */
+const IMAGE_ASSOC = [
+  { ext: 'jpg',  progId: 'ImageViewer.jpeg', desc: 'JPEG Image' },
+  { ext: 'jpeg', progId: 'ImageViewer.jpeg', desc: 'JPEG Image' },
+  { ext: 'png',  progId: 'ImageViewer.png',  desc: 'PNG Image' },
+  { ext: 'gif',  progId: 'ImageViewer.gif',  desc: 'GIF Image' },
+  { ext: 'bmp',  progId: 'ImageViewer.bmp',  desc: 'BMP Image' },
+  { ext: 'webp', progId: 'ImageViewer.webp', desc: 'WebP Image' },
+  { ext: 'avif', progId: 'ImageViewer.avif', desc: 'AVIF Image' },
+  { ext: 'svg',  progId: 'ImageViewer.svg',  desc: 'SVG Image' },
+  { ext: 'ico',  progId: 'ImageViewer.ico',  desc: 'Windows Icon' },
+  { ext: 'tif',  progId: 'ImageViewer.tiff', desc: 'TIFF Image' },
+  { ext: 'tiff', progId: 'ImageViewer.tiff', desc: 'TIFF Image' },
+  { ext: 'heic', progId: 'ImageViewer.heic', desc: 'HEIC Image' },
+  { ext: 'heif', progId: 'ImageViewer.heic', desc: 'HEIC Image' },
+  { ext: 'hif',  progId: 'ImageViewer.heic', desc: 'HEIC Image' },
+  { ext: 'dcm',  progId: 'ImageViewer.dcm',  desc: 'DICOM Image' },
+  { ext: 'dicom',progId: 'ImageViewer.dcm',  desc: 'DICOM Image' },
+];
+
+function _regExec(args) {
+  const { execFile } = require('child_process');
+  return new Promise((resolve) => {
+    execFile('reg.exe', args, { windowsHide: true, timeout: 8000 }, (err, stdout) => {
+      resolve({ ok: !err, stdout: String(stdout || '') });
+    });
+  });
+}
+
+function _parseRegSz(stdout) {
+  const m = String(stdout || '').match(/REG_SZ\s+(.+)\s*$/m);
+  return m ? m[1].trim() : '';
+}
+
+function _isOurProgId(progId) {
+  return /^ImageViewer\./i.test(String(progId || ''));
+}
+
+function _assocLaunch() {
+  const exe = process.execPath;
+  const iconFile = fs.existsSync(path.join(__dirname, 'src', 'assets', 'icon.ico'))
+    ? path.join(__dirname, 'src', 'assets', 'icon.ico')
+    : exe;
+  const cmd = app.isPackaged
+    ? `"${exe}" "%1"`
+    : `"${exe}" "${path.join(__dirname, 'main.js')}" "%1"`;
+  return { exe, icon: `${iconFile},0`, cmd };
+}
+
+async function _queryProgId(ext) {
+  const userChoice = await _regExec([
+    'query',
+    `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.${ext}\\UserChoice`,
+    '/v', 'ProgId',
+  ]);
+  const chosen = _parseRegSz(userChoice.stdout);
+  if (chosen) return chosen;
+  const hkcu = await _regExec(['query', `HKCU\\Software\\Classes\\.${ext}`, '/ve']);
+  const a = _parseRegSz(hkcu.stdout);
+  if (a) return a;
+  const hkcr = await _regExec(['query', `HKCR\\.${ext}`, '/ve']);
+  return _parseRegSz(hkcr.stdout);
+}
+
+async function _getFileAssocStatus() {
+  if (process.platform !== 'win32') {
+    return {
+      platform: process.platform,
+      supported: false,
+      items: IMAGE_ASSOC.map((a) => ({ ext: a.ext, isDefault: false })),
+    };
+  }
+  const items = [];
+  for (const a of IMAGE_ASSOC) {
+    const progId = await _queryProgId(a.ext);
+    items.push({ ext: a.ext, progId, isDefault: _isOurProgId(progId) });
+  }
+  return {
+    platform: 'win32',
+    supported: true,
+    items,
+    defaultCount: items.filter((i) => i.isDefault).length,
+    total: items.length,
+  };
+}
+
+async function _regAdd(key, valueName, data) {
+  const args = ['add', key, '/f', '/t', 'REG_SZ'];
+  if (valueName == null || valueName === '') args.push('/ve');
+  else args.push('/v', String(valueName));
+  args.push('/d', String(data));
+  return _regExec(args);
+}
+
+async function _setDefaultImageViewer() {
+  if (process.platform !== 'win32') {
+    return { ok: false, unsupported: true, platform: process.platform };
+  }
+  const { icon, cmd } = _assocLaunch();
+  const capRoot = 'HKCU\\Software\\com.shkwon.imageviewer\\Capabilities';
+  await _regAdd(`${capRoot}`, 'ApplicationName', 'Image Viewer');
+  await _regAdd(`${capRoot}`, 'ApplicationDescription', 'Image Viewer');
+  await _regAdd(`${capRoot}`, 'ApplicationIcon', icon);
+  await _regAdd('HKCU\\Software\\RegisteredApplications', 'Image Viewer', 'Software\\com.shkwon.imageviewer\\Capabilities');
+
+  const written = new Set();
+  for (const a of IMAGE_ASSOC) {
+    const progKey = `HKCU\\Software\\Classes\\${a.progId}`;
+    if (!written.has(a.progId)) {
+      written.add(a.progId);
+      await _regAdd(progKey, '', a.desc);
+      await _regAdd(`${progKey}\\DefaultIcon`, '', icon);
+      await _regAdd(`${progKey}\\shell\\open\\command`, '', cmd);
+    }
+    await _regAdd(`HKCU\\Software\\Classes\\.${a.ext}`, '', a.progId);
+    await _regAdd(`HKCU\\Software\\Classes\\.${a.ext}\\OpenWithProgids`, a.progId, '');
+    await _regAdd(`${capRoot}\\FileAssociations`, `.${a.ext}`, a.progId);
+  }
+
+  try {
+    const { execFile } = require('child_process');
+    execFile('ie4uinit.exe', ['-show'], { windowsHide: true }, () => {});
+  } catch {}
+  const status = await _getFileAssocStatus();
+  return { ok: true, status };
+}
+
+async function _openDefaultAppsSettings() {
+  if (process.platform === 'win32') {
+    try {
+      await shell.openExternal('ms-settings:defaultapps');
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+  if (process.platform === 'darwin') {
+    try {
+      await shell.openExternal('x-apple.systempreferences:com.apple.settings.Storage');
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+  return { ok: false, unsupported: true, platform: process.platform };
+}
+
+ipcMain.handle('get-file-assoc-status', () => _getFileAssocStatus());
+ipcMain.handle('set-default-image-viewer', () => _setDefaultImageViewer());
+ipcMain.handle('open-default-apps-settings', () => _openDefaultAppsSettings());
 ipcMain.handle('open-folder-dialog', async () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('menu-action', 'open-folder');
@@ -2083,6 +2287,16 @@ ipcMain.handle('window-get-bounds', () => {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
   const b = mainWindow.getBounds();
   return { x: b.x, y: b.y, width: b.width, height: b.height, maximized: _isWindowMaximized() };
+});
+ipcMain.handle('window-set-size', (_event, width, height) => {
+  if (!mainWindow || mainWindow.isDestroyed() || _isWindowMaximized()) return null;
+  const [minW, minH] = mainWindow.getMinimumSize();
+  const w = Math.max(minW, Math.round(Number(width) || 0));
+  const h = Math.max(minH, Math.round(Number(height) || 0));
+  const b = mainWindow.getBounds();
+  if (b.width === w && b.height === h) return b;
+  mainWindow.setBounds({ x: b.x, y: b.y, width: w, height: h });
+  return mainWindow.getBounds();
 });
 ipcMain.handle('window-apply-size', (_event, opts = {}) => {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
@@ -2219,6 +2433,26 @@ ipcMain.handle('set-unsaved-changes', (event, value) => {
 ipcMain.handle('close-window', () => {
   isForceClose = true;
   mainWindow && mainWindow.close();
+});
+
+ipcMain.handle('rename-path', async (event, { src, newName } = {}) => {
+  try {
+    if (!src || newName == null) return { error: 'Missing path or name' };
+    const name = String(newName).trim();
+    if (!name || name === '.' || name === '..' || /[\\/:*?"<>|]/.test(name)) {
+      return { error: 'Invalid name' };
+    }
+    const dest = path.join(path.dirname(src), name);
+    if (path.resolve(src) === path.resolve(dest)) return { success: true, path: src };
+    try {
+      await fs.promises.access(dest);
+      return { error: 'exists' };
+    } catch { /* dest is free */ }
+    await fs.promises.rename(src, dest);
+    return { success: true, path: dest };
+  } catch (err) {
+    return { error: err.message };
+  }
 });
 
 ipcMain.handle('delete-file', async (event, filePath) => {

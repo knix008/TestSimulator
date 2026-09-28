@@ -1,0 +1,26 @@
+{
+  "id": "hex-nuts",
+  "name": {
+    "ko": "육각 너트",
+    "en": "Hex nuts"
+  },
+  "version": "1.0.0",
+  "author": "MyCAD sample",
+  "description": {
+    "ko": "샘플 애드온: 육각 너트를 만듭니다.",
+    "en": "Sample addon: makes a hex nut."
+  },
+  "kind": "macro",
+  "requires": "1.0.0",
+  "commands": [
+    {
+      "id": "sampleHexNut",
+      "label": {
+        "ko": "M10 너트",
+        "en": "M10 nut"
+      },
+      "icon": "⬡",
+      "macro": "import Part\nbody = Part.makePrism(6, 9, 8)\nbore = Part.makeCylinder(5, 12)\nnut = body - bore\nprint(\"nut volume\", round(nut.Volume, 1))\nPart.show(nut)"
+    }
+  ]
+}

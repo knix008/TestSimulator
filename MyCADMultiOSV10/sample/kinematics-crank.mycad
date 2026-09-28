@@ -1,0 +1,171 @@
+{
+  "format": "mycad",
+  "version": 2,
+  "document": {
+    "id": "doc-kinematics-crank",
+    "name": "kinematics-crank",
+    "solids": [
+      {
+        "id": "sol-1",
+        "name": "Frame",
+        "kind": "box",
+        "position": {
+          "x": 0,
+          "y": 5,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 120,
+          "y": 10,
+          "z": 40,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#8d949b",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-2",
+        "name": "Crank",
+        "kind": "box",
+        "position": {
+          "x": 30,
+          "y": 20,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 60,
+          "y": 8,
+          "z": 12,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#f0a35e",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "sol-3",
+        "name": "Slider",
+        "kind": "box",
+        "position": {
+          "x": 90,
+          "y": 20,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "size": {
+          "x": 20,
+          "y": 20,
+          "z": 20,
+          "radius": 20,
+          "tube": 6
+        },
+        "color": "#7dcea0",
+        "metalness": 0.15,
+        "roughness": 0.45,
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "sketches": [],
+    "features": [
+      {
+        "id": "feat-1",
+        "name": "Mechanism",
+        "kind": "assembly",
+        "solidIds": [
+          "sol-1",
+          "sol-2",
+          "sol-3"
+        ],
+        "length": 0,
+        "angle": 0,
+        "count": 3,
+        "radius": 0
+      }
+    ],
+    "parameters": [],
+    "mates": [],
+    "section": false,
+    "preset": "iso",
+    "shade": "shaded",
+    "extras": {
+      "mechanism": {
+        "name": "Crank slider",
+        "fixed": [
+          "sol-1"
+        ],
+        "commands": [
+          "joint-1"
+        ],
+        "joints": [
+          {
+            "id": "joint-1",
+            "kind": "revolute",
+            "a": "sol-1",
+            "b": "sol-2",
+            "axis": "y",
+            "origin": {
+              "x": 0,
+              "y": 20,
+              "z": 0
+            },
+            "min": 0,
+            "max": 360,
+            "ratio": 1
+          },
+          {
+            "id": "joint-2",
+            "kind": "prismatic",
+            "a": "sol-1",
+            "b": "sol-3",
+            "axis": "x",
+            "origin": {
+              "x": 0,
+              "y": 20,
+              "z": 0
+            },
+            "min": 0,
+            "max": 60,
+            "ratio": 1
+          }
+        ]
+      }
+    }
+  }
+}

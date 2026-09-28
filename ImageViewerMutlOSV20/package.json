@@ -1,12 +1,13 @@
 {
   "name": "image-viewer-multios",
   "version": "1.0.2",
-  "buildNumber": "20260918",
+  "buildNumber": "20260927",
   "description": "Multi-platform image viewer and editor with dark/light themes and Korean/English support",
   "author": "SHKWON",
   "main": "main.js",
   "scripts": {
     "start": "node scripts/start-dev.js",
+    "test": "node tests/run-feature-tests.js",
     "web": "node server.js",
     "postinstall": "node scripts/patch-electron-icon.js",
     "patch:icon": "node scripts/patch-electron-icon.js --force",

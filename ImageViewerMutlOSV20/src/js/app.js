@@ -37,8 +37,23 @@
   // Declared before the first await: rAF callbacks below may run before later lets initialise
   let _appliedMinWidth = 0;
   let _ewFitW = 0, _ewFitH = 0;
-  let _savedMainBounds = null;
   let _settingsReady = false;   // _syncSettingsDialog() is a no-op until _initSettingsDialog() ran
+
+  // Read by the init calls further down (_initPrintDialog, _syncWindowMinSize,
+  // _initEditEffectsResize), which run before the bodies below are evaluated.
+  const APP_MIN_HEIGHT = 600;
+  const _print = { dataUrl: null, imgW: 0, imgH: 0, printers: [], printersCache: null, printersCacheAt: 0, busy: false };
+  let _editEffectsMinW = 200;
+
+  // Panel layout (explorer / file info). _buildToolbar() reads it while the module
+  // is still initialising, so it has to be declared before the init calls below.
+  const LAYOUT_KEY = 'panelLayoutV1';
+  const _layout = { tree: true, info: true, dock: 'left' };
+
+  // Browse mode (ACDSee-style): the explorer lists folders only and the
+  // selected folder is shown as a thumbnail contact sheet.
+  const BROWSE_KEY = 'browseModeV1';
+  let _browseMode = localStorage.getItem(BROWSE_KEY) === '1';
 
   function _isEditableImage() {
     return (Editor.isLoaded() || state.isAnimated) && !state.isVideo && !state.isAudio;
@@ -106,6 +121,8 @@
   const dcmColormap    = document.getElementById('dcm-colormap');
   const dcmOverlaysBtn = document.getElementById('dcm-overlays');
   const dcmAnnotBtn    = document.getElementById('dcm-annot');
+  const dcmRulerBtn    = document.getElementById('dcm-ruler-axes');
+  const dcmScaleBtn    = document.getElementById('dcm-scale');
   const dcmToolsWrap   = document.getElementById('dcm-tools-wrap');
   const dcmOverlay     = document.getElementById('dcm-overlay');
   const statusProbe    = document.getElementById('status-probe');
@@ -115,6 +132,12 @@
   let _dicomCineTimer = null;
   let _dicomCineFps = null;   // user override of the cine speed (null → the file's frame timing)
   let _dicomAnnotOn = localStorage.getItem('dicomAnnotations') !== '0';   // corner annotations / markers / scale bar
+  let _dicomRulerOn = localStorage.getItem('dicomRulerAxes') === '1';     // graduated rulers down both axes
+  let _dicomScaleOn = localStorage.getItem('dicomScaleBar') !== '0';      // the movable scale bar
+  const DCM_SCALE_HOME = { x: 0.03, y: 0.07 };   // top-left, as a fraction of the viewer box
+  let _dicomScalePos = _loadDicomScalePos();     // where the user parked the scale bar
+  let _dicomScaleBox = null;  // last drawn scale-bar rect, for hit testing
+  let _dicomScaleDrag = null; // { dx, dy } while dragging it
   let _dicomTool = null;      // active measurement tool: null | 'ruler' | 'angle' | 'ellipse' | 'rect'
   let _dicomMeas = [];        // measurements [{ type, frame, pts: [{ x, y }] }] in image pixels
   let _dicomDraft = null;     // the measurement being drawn
@@ -147,6 +170,7 @@
   const statusZoom       = document.getElementById('status-zoom');
 
   let _openingFile = null;       // path currently being opened (re-entrancy guard)
+  let _openGen = 0;              // drop stale results when arrow-keying through files
   let _ignoreWatchUntil = 0;     // ignore fs.watch noise right after open/watch
   let _watchedDir  = null;
   let _watchedFile = null;
@@ -207,13 +231,24 @@
   /* ─── File Tree init ─── */
   FileTree.init(fileTreeScroll, {
     onSelect: (p) => _openFile(p),
+    // Double-click is the explicit "just show me this image" gesture: it always
+    // leaves the contact sheet behind, whatever the browse mode says.
+    onActivate: (p) => { Browse.hide(); _openFile(p, { center: true }); },
     onDirOpen: (p, info = {}) => {
       _rememberRecentDir(p);
       _watchDir(p);
+      // Opening a folder always warms the thumbnail cache in the background
+      Thumbs.prefetchDir(p);
+      if (_browseMode) {
+        Browse.show(p);
+        Browse.open(p);
+        return;
+      }
       if (info.activate !== false) {
         _openFirstInDir(p);
       }
     },
+    onDriveSelect: (p) => { _openFolder(p, { instant: true }); },
     onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
     onImport: (info) => {
       if (!info) return;
@@ -237,12 +272,22 @@
   });
 
   let _refreshTimer = null;
+  function _normWatchPath(p) {
+    return String(p || '').replace(/\//g, '\\').replace(/[\\/]+$/, '').toLowerCase();
+  }
+  function _cancelTreeRefresh() {
+    if (_refreshTimer) {
+      clearTimeout(_refreshTimer);
+      _refreshTimer = null;
+    }
+  }
   function _scheduleTreeRefresh() {
     clearTimeout(_refreshTimer);
     _refreshTimer = setTimeout(async () => {
+      if (_openingFile || Date.now() < _ignoreWatchUntil) return;
+      // Keep prev/next in sync only. Do not rebuild the explorer DOM.
+      _ignoreWatchUntil = Date.now() + 2500;
       try {
-        await FileTree.refresh();
-        // Keep prev/next list in sync with disk after external changes / DnD
         if (state.currentFile) {
           const dir = await window.electronAPI.pathDirname(state.currentFile);
           state.fileList = await FileTree.getImageFilesInDir(dir);
@@ -252,9 +297,9 @@
           _updateNavButtons();
         }
       } catch (e) {
-        console.warn('tree refresh failed:', e);
+        console.warn('file list sync failed:', e);
       }
-    }, 150);
+      }, 400);
   }
 
   /* ─── Tooltip: toolbar buttons ─── */
@@ -277,6 +322,8 @@
   /* ─── Sidebar / Info resize ─── */
   _initSidebarResize();
   _initVerticalResize();
+  _initPanelLayout();
+  _initBrowse();
   _initEditEffectsResize();
   _initEditAdjustResize();
 
@@ -285,6 +332,7 @@
 
   /* ─── Keyboard shortcuts ─── */
   _initKeyboard();
+  _initViewerNavButtons();
   _initMediaCues();
   _initDicomBar();
   _initDicomOverlay();
@@ -298,10 +346,18 @@
     e.stopPropagation();
     _showContextMenu(e.clientX, e.clientY);
   }, true);
+  // Right-click on empty space in the tree: paste into the folder in view
   fileTreeScroll.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    // future: file-tree context menu
+    if (e.target?.closest?.('.tree-item')) return;   // rows post their own menu
+    _showTreeBlankContextMenu(e.clientX, e.clientY);
   });
+
+  // Ctrl+C / Ctrl+X / Ctrl+V act on files while the tree is the active pane,
+  // and on the image otherwise.
+  fileTreeScroll.addEventListener('mousedown', () => { state.activePane = 'tree'; }, true);
+  fileTreeScroll.addEventListener('focusin', () => { state.activePane = 'tree'; });
+  viewerContainer.addEventListener('mousedown', () => { state.activePane = 'viewer'; }, true);
 
   /* ─── Drag-and-drop ─── */
   function _dropPath(file) {
@@ -349,7 +405,7 @@
           await FileTree.loadDrives();
           await FileTree.revealPath('/');
           await _openFile(p, { center: true });
-          await FileTree.refresh();
+          await FileTree.refresh({ force: true });
           FileTree.setSelected(p, { center: true });
           return;
         }
@@ -359,7 +415,7 @@
         await FileTree.loadDrives();
         await FileTree.revealPath('/');
         await _openFile(p, { center: true });
-        await FileTree.refresh();
+        await FileTree.refresh({ force: true });
         FileTree.setSelected(p, { center: true });
       }
       return;
@@ -372,7 +428,7 @@
       const stats = await window.electronAPI.getFileStats(p);
       if (stats && !stats.error && stats.isDirectory) {
         await _openFolder(p);
-        await FileTree.refresh();
+        await FileTree.refresh({ force: true });
         return;
       }
     }
@@ -386,7 +442,7 @@
         const dir = await window.electronAPI.pathDirname(p);
         await _openFile(p, { center: true });
         await FileTree.revealPath(dir);
-        await FileTree.refresh();
+        await FileTree.refresh({ force: true });
         FileTree.setSelected(p, { center: true });
         return;
       }
@@ -398,7 +454,7 @@
       const dir = await window.electronAPI.pathDirname(p);
       await _openFile(p, { center: true });
       await FileTree.revealPath(dir);
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       FileTree.setSelected(p, { center: true });
     }
   });
@@ -409,23 +465,23 @@
       const dir = await window.electronAPI.pathDirname(p);
       await _openFile(p, { center: true });
       await FileTree.revealPath(dir);
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       FileTree.setSelected(p, { center: true });
     } catch (_) {
       await _openFile(p, { center: true });
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       FileTree.setSelected(p, { center: true });
     }
   });
   window.electronAPI.onOpenFolder(async (p) => {
     await _openFolder(p);
-    await FileTree.refresh();
+    await FileTree.refresh({ force: true });
   });
   window.addEventListener('app-open-folder', async (e) => {
     const p = e.detail;
     if (!p) return;
     await _openFolder(p);
-    await FileTree.refresh();
+    await FileTree.refresh({ force: true });
   });
   window.addEventListener('app-open-file', async (e) => {
     const p = e.detail;
@@ -437,32 +493,31 @@
 
   /* ─── File / directory watching ─── */
   async function _watchDir(dirPath) {
-    if (_watchedDir === dirPath) return;
+    if (!dirPath) return;
+    if (_normWatchPath(_watchedDir) === _normWatchPath(dirPath)) return;
     if (_watchedDir) await window.electronAPI.unwatchDirectory(_watchedDir);
     _watchedDir = dirPath;
     await window.electronAPI.watchDirectory(dirPath);
   }
 
   async function _watchCurrentFile(filePath) {
-    if (_watchedFile === filePath) return;
+    if (_normWatchPath(_watchedFile) === _normWatchPath(filePath)) return;
     if (_watchedFile) await window.electronAPI.unwatchFile(_watchedFile);
     _watchedFile = filePath;
     if (filePath) await window.electronAPI.watchFile(filePath);
   }
 
-  window.electronAPI.onDirectoryChanged((dirPath) => {
-    if (Date.now() < _ignoreWatchUntil) return;
-    // Any watched folder change → refresh explorer (path compare used to be too strict)
+  window.electronAPI.onDirectoryChanged(() => {
+    if (_openingFile || Date.now() < _ignoreWatchUntil) return;
     _scheduleTreeRefresh();
   });
 
   window.electronAPI.onFileChanged(async (filePath) => {
-    if (Date.now() < _ignoreWatchUntil) return;
-    if (_openingFile) return;
-    if (state.currentFile === filePath && !state.isDirty) {
+    if (_openingFile || Date.now() < _ignoreWatchUntil) return;
+    // Content change only — do not rebuild the folder tree.
+    if (state.currentFile && _normWatchPath(state.currentFile) === _normWatchPath(filePath) && !state.isDirty) {
       await _openFile(filePath);
     }
-    _scheduleTreeRefresh();
   });
 
   /* ─── Initial viewer state ─── */
@@ -483,7 +538,7 @@
       try {
         const dir = await window.electronAPI.pathDirname(launchFile);
         await FileTree.revealPath(dir);
-        await FileTree.refresh();
+        await FileTree.refresh({ force: true });
         FileTree.setSelected(launchFile, { center: true });
       } catch (_) { /* folder may be gone */ }
       _openFile(launchFile, { center: true }).catch(() => {});
@@ -523,6 +578,10 @@
   function _buildToolbar() {
     // File / folder / save / export / print live in the menu bar's File menu (see _buildMenubar)
     const buttons = [
+      { id:'btn-open-file',   icon:'openFile',   tip:'toolbar.openFile',   action: () => _pickOpenFile() },
+      { id:'btn-open-folder', icon:'openFolder', tip:'toolbar.openFolder', action: () => _pickOpenFolder() },
+      { id:'btn-print',       icon:'print',      tip:'toolbar.print',      action: _openPrintPreview, disabled: true },
+      { separator: true },
       { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { _undoEdit(); }, disabled: true },
       { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { _redoEdit(); }, disabled: true },
       { separator: true },
@@ -538,21 +597,25 @@
       { id:'btn-prev',        icon:'prev',       tip:'toolbar.prev',       action: _prevImage, disabled: true },
       { id:'btn-next',        icon:'next',       tip:'toolbar.next',       action: _nextImage, disabled: true },
       { separator: true },
-      { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
-      { id:'btn-print',       icon:'print',      tip:'toolbar.print',      action: _openPrintPreview, disabled: true },
-      { separator: true },
       // Zoom: [−] [100%] [+] — the percentage box sits between the two buttons
       { id:'btn-zoom-out',    icon:'zoomOut',    tip:'toolbar.zoomOut',    action: () => _zoom(0.8),  disabled: true },
       { zoomDisplay: true },
       { id:'btn-zoom-in',     icon:'zoomIn',     tip:'toolbar.zoomIn',     action: () => _zoom(1.25), disabled: true },
-      { spacer: true },
-      { id:'btn-info',        icon:'info',       tip:'menu.about',         action: () => _showDialog('about-overlay') },
       { separator: true },
+      // Panels: show / hide the explorer and the file info, and move the info panel left ⇄ right
+      { id:'btn-browse',      icon:'viewGrid',   tip: _browseTip,          action: () => _toggleBrowseMode() },
+      { id:'btn-panel-tree',  icon:'folderOpen', tip: _treePanelTip,       action: () => _toggleTreePanel() },
+      { id:'btn-panel-info',  icon:'fileInfo',   tip: _infoPanelTip,       action: () => _toggleInfoPanel() },
+      { id:'btn-panel-dock',  icon:'panelRight', tip: _infoDockTip,        action: () => _toggleInfoDock() },
+      { separator: true },
+      { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
+      { spacer: true },
       // Theme: palette = jump to the next theme, ▾ = pick one from the list
       { id:'btn-theme',       icon:'palette',    tip: _themeButtonTip,     action: _nextTheme },
       { id:'btn-theme-menu',  icon:'caretDown',  tip:'toolbar.themeMenu',  action: null, caretBtn: true, openMenu: (btn) => _openThemeMenu(btn) },
       { id:'btn-lang',        icon:null,         tip:'toolbar.lang',       action: _toggleLang, langBtn: true },
       { id:'btn-settings',    icon:'settings',   tip:'toolbar.settings',   action: _openSettings },
+      { id:'btn-info',        icon:'info',       tip:'menu.about',         action: () => _showDialog('about-overlay') },
     ];
 
     // Keep the zoom input before clearing
@@ -890,8 +953,8 @@
       { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', disabled: !hasVisual, action: () => _fitToWindow() },
       { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', disabled: !hasImg,    action: () => _actualSize() },
       { separator: true },
-      { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '←', disabled: !canPrev, action: () => _prevImage() },
-      { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→', disabled: !canNext, action: () => _nextImage() },
+      { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '← / Page Up', disabled: !canPrev, action: () => _prevImage() },
+      { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→ / Page Down', disabled: !canNext, action: () => _nextImage() },
       { separator: true },
       ..._dicomContextItems(),
       !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
@@ -962,32 +1025,55 @@
     return !state.isVideo && !state.isAudio && (Editor.isLoaded() || !!state.isAnimated);
   }
 
-  function _printableDataUrl() {
-    if (Editor.isLoaded()) return Editor.exportAsDataUrl('image/png');
+  /** Canvas / image already on screen — no PNG encode. Used for instant preview. */
+  function _printSource() {
+    if (Editor.isLoaded() && displayCanvas && displayCanvas.width) return displayCanvas;
+    if (displayCanvas && displayCanvas.width) return displayCanvas;
     if (state.isAnimated) {
-      // Paused → the frozen frame; playing → snapshot the <img> (the freeze canvas is blank until first pause)
-      if (animFreeze && animFreeze.style.display !== 'none' && animFreeze.width) {
-        try { return animFreeze.toDataURL('image/png'); } catch { /* fall through */ }
-      }
-      if (animImg && animImg.naturalWidth) {
-        try {
-          const c = document.createElement('canvas');
-          c.width = animImg.naturalWidth; c.height = animImg.naturalHeight;
-          c.getContext('2d').drawImage(animImg, 0, 0);
-          return c.toDataURL('image/png');
-        } catch { /* fall through */ }
-      }
-      return state.animatedDataUrl || null;
+      if (animFreeze && animFreeze.style.display !== 'none' && animFreeze.width) return animFreeze;
+      if (animImg && animImg.naturalWidth) return animImg;
     }
     return null;
+  }
+
+  function _printableDataUrl() {
+    const src = _printSource();
+    if (src && src.toDataURL) {
+      try { return src.toDataURL('image/png'); } catch { /* fall through */ }
+    }
+    if (src && src.naturalWidth) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = src.naturalWidth;
+        c.height = src.naturalHeight;
+        c.getContext('2d').drawImage(src, 0, 0);
+        return c.toDataURL('image/png');
+      } catch { /* fall through */ }
+    }
+    return state.animatedDataUrl || null;
+  }
+
+  function _blitPrintPreview(src) {
+    const dest = document.getElementById('print-preview-img');
+    if (!dest || !src) return;
+    const sw = src.naturalWidth || src.width || 0;
+    const sh = src.naturalHeight || src.height || 0;
+    if (!sw || !sh) return;
+    const max = 1600;
+    const s = Math.min(1, max / sw, max / sh);
+    dest.width = Math.max(1, Math.round(sw * s));
+    dest.height = Math.max(1, Math.round(sh * s));
+    const ctx = dest.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'medium';
+    ctx.drawImage(src, 0, 0, dest.width, dest.height);
   }
 
   /* Print preview: paper / orientation / margins / scale are chosen here, the page is
    * drawn to scale, and "Print" sends the picture straight to the selected printer
    * (the system default is pre-selected). */
   const PRINT_PAPERS = { A4: [210, 297], Letter: [215.9, 279.4], Legal: [215.9, 355.6], A3: [297, 420], A5: [148, 210], Tabloid: [279.4, 431.8] };
-  const PRINT_PREFS_KEY = 'printPrefs';
-  const _print = { dataUrl: null, imgW: 0, imgH: 0, printers: [], busy: false };
+  const PRINT_PREFS_KEY = 'printPrefs';   // _print itself is declared at the top of the module
 
   function _loadPrintPrefs() {
     try { return JSON.parse(localStorage.getItem(PRINT_PREFS_KEY) || '{}') || {}; } catch { return {}; }
@@ -996,6 +1082,11 @@
   function _readPrintForm() {
     const q = (id) => document.getElementById(id);
     const radio = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
+    const headerKind = ['filename', 'date', 'both', 'custom'].includes(q('print-header-kind')?.value)
+      ? q('print-header-kind').value : 'filename';
+    const headerAlign = radio('print-header-align') || 'center';
+    const pageNoPos = q('print-pageno-pos')?.value || 'footer-center';
+    const pageNoFmt = q('print-pageno-fmt')?.value || 'nOfN';
     return {
       printer:  q('print-printer')?.value || '',
       paper:    PRINT_PAPERS[q('print-paper-size')?.value] ? q('print-paper-size').value : 'A4',
@@ -1005,6 +1096,13 @@
       scalePct: Math.min(400, Math.max(5, parseFloat(q('print-scale-pct')?.value) || 100)),
       copies:   Math.min(99, Math.max(1, parseInt(q('print-copies')?.value, 10) || 1)),
       color:    q('print-color')?.value === 'gray' ? 'gray' : 'color',
+      headerOn:    !!q('print-header-on')?.checked,
+      headerKind,
+      headerAlign: ['left', 'center', 'right'].includes(headerAlign) ? headerAlign : 'center',
+      headerText:  q('print-header-text')?.value || '',
+      pageNoOn:    !!q('print-pageno-on')?.checked,
+      pageNoPos:   /^(header|footer)-(left|center|right)$/.test(pageNoPos) ? pageNoPos : 'footer-center',
+      pageNoFmt:   ['n', 'nOfN', 'pageN', 'dash'].includes(pageNoFmt) ? pageNoFmt : 'nOfN',
     };
   }
 
@@ -1019,6 +1117,66 @@
     if (q('print-scale-pct')) q('print-scale-pct').value = String(f.scalePct);
     if (q('print-copies')) q('print-copies').value = String(f.copies);
     if (q('print-color')) q('print-color').value = f.color;
+    if (q('print-header-on')) q('print-header-on').checked = f.headerOn !== false;
+    if (q('print-header-kind') && f.headerKind) q('print-header-kind').value = f.headerKind;
+    const halign = document.querySelector(`input[name="print-header-align"][value="${f.headerAlign || 'center'}"]`);
+    if (halign) halign.checked = true;
+    if (q('print-header-text') && f.headerText != null) q('print-header-text').value = f.headerText;
+    if (q('print-pageno-on')) q('print-pageno-on').checked = f.pageNoOn !== false;
+    if (q('print-pageno-pos') && f.pageNoPos) q('print-pageno-pos').value = f.pageNoPos;
+    if (q('print-pageno-fmt') && f.pageNoFmt) q('print-pageno-fmt').value = f.pageNoFmt;
+  }
+
+  const PRINT_BAND_MM = 7;
+
+  function _printFileName() {
+    return state.currentFile ? state.currentFile.split(/[/\\]/).pop() : (I18n.t('app.title') || 'Image');
+  }
+
+  function _printHeadingText(f) {
+    if (!f.headerOn) return '';
+    const name = _printFileName();
+    const date = new Date().toLocaleDateString(state.lang === 'ko' ? 'ko-KR' : undefined);
+    if (f.headerKind === 'date') return date;
+    if (f.headerKind === 'both') return `${name}  ·  ${date}`;
+    if (f.headerKind === 'custom') return String(f.headerText || '').trim();
+    return name;
+  }
+
+  function _printPageNumberText(f, page = 1, total = 1) {
+    if (!f.pageNoOn) return '';
+    const t = I18n.t.bind(I18n);
+    if (f.pageNoFmt === 'n') return String(page);
+    if (f.pageNoFmt === 'pageN') return (t('print.pageN') || 'Page {n}').replace('{n}', String(page));
+    if (f.pageNoFmt === 'dash') return `- ${page} -`;
+    return (t('print.nOfN') || '{n} / {total}').replace('{n}', String(page)).replace('{total}', String(total));
+  }
+
+  function _putPrintSlot(band, align, text) {
+    if (!text) return;
+    if (band[align]) band[align] = `${band[align]}  ·  ${text}`;
+    else band[align] = text;
+  }
+
+  /** Header / footer slot text for the current form (page 1 of 1 for a single image). */
+  function _printChrome(f) {
+    const header = { left: '', center: '', right: '' };
+    const footer = { left: '', center: '', right: '' };
+    const heading = _printHeadingText(f);
+    if (heading) _putPrintSlot(header, f.headerAlign || 'center', heading);
+    const pageNo = _printPageNumberText(f);
+    if (pageNo) {
+      const [band, align] = String(f.pageNoPos || 'footer-center').split('-');
+      _putPrintSlot(band === 'header' ? header : footer, align || 'center', pageNo);
+    }
+    const headerOn = !!(header.left || header.center || header.right);
+    const footerOn = !!(footer.left || footer.center || footer.right);
+    return {
+      header,
+      footer,
+      headerMm: headerOn ? PRINT_BAND_MM : 0,
+      footerMm: footerOn ? PRINT_BAND_MM : 0,
+    };
   }
 
   /** Page geometry (mm) for the current form: paper, orientation and the image box. */
@@ -1028,8 +1186,9 @@
     const landscape = f.orient === 'landscape' || (f.orient === 'auto' && imgLandscape);
     const pw = landscape ? ph0 : pw0;
     const ph = landscape ? pw0 : ph0;
+    const chrome = _printChrome(f);
     const cw = Math.max(1, pw - 2 * f.marginMm);
-    const ch = Math.max(1, ph - 2 * f.marginMm);
+    const ch = Math.max(1, ph - 2 * f.marginMm - chrome.headerMm - chrome.footerMm);
     let iw = 0, ih = 0;
     if (_print.imgW && _print.imgH) {
       const fit = Math.min(cw / _print.imgW, ch / _print.imgH);
@@ -1039,7 +1198,7 @@
       iw = _print.imgW * k;
       ih = _print.imgH * k;
     }
-    return { pw, ph, cw, ch, iw, ih, landscape };
+    return { pw, ph, cw, ch, iw, ih, landscape, ...chrome };
   }
 
   function _renderPrintPreview() {
@@ -1051,18 +1210,46 @@
     const img = document.getElementById('print-preview-img');
     if (!stage || !paper || !content || !img) return;
 
-    const sw = stage.clientWidth - 32, sh = stage.clientHeight - 32;
+    const sw = Math.max(40, (stage.clientWidth || stage.offsetWidth || 520) - 32);
+    const sh = Math.max(40, (stage.clientHeight || stage.offsetHeight || 460) - 32);
     const k = Math.max(0.01, Math.min(sw / L.pw, sh / L.ph));      // mm → preview px
     paper.style.width = `${L.pw * k}px`;
     paper.style.height = `${L.ph * k}px`;
     paper.classList.toggle('gray', f.color === 'gray');
-    content.style.left = content.style.top = `${f.marginMm * k}px`;
+    content.style.left = `${f.marginMm * k}px`;
+    content.style.top = `${(f.marginMm + L.headerMm) * k}px`;
     content.style.width = `${L.cw * k}px`;
     content.style.height = `${L.ch * k}px`;
     img.style.width = `${L.iw * k}px`;
     img.style.height = `${L.ih * k}px`;
 
+    const fontPx = Math.max(7, 3.2 * k);
+    const fillBand = (id, slots, mm, top) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const on = mm > 0;
+      el.hidden = !on;
+      if (!on) return;
+      el.style.left = el.style.right = `${f.marginMm * k}px`;
+      if (top) el.style.top = `${f.marginMm * k}px`;
+      else el.style.bottom = `${f.marginMm * k}px`;
+      el.style.height = `${mm * k}px`;
+      el.style.fontSize = `${fontPx}px`;
+      const set = (side, text) => {
+        const s = document.getElementById(`${id}-${side === 'center' ? 'c' : side[0]}`);
+        if (s) s.textContent = text || '';
+      };
+      set('left', slots.left);
+      set('center', slots.center);
+      set('right', slots.right);
+    };
+    fillBand('print-header', L.header, L.headerMm, true);
+    fillBand('print-footer', L.footer, L.footerMm, false);
+
     document.getElementById('print-scale-custom-wrap')?.toggleAttribute('hidden', f.scale !== 'custom');
+    document.getElementById('print-header-custom-wrap')?.toggleAttribute('hidden', !f.headerOn || f.headerKind !== 'custom');
+    document.getElementById('print-header-opts')?.toggleAttribute('hidden', !f.headerOn);
+    document.getElementById('print-pageno-opts')?.toggleAttribute('hidden', !f.pageNoOn);
     const info = document.getElementById('print-page-info');
     if (info) {
       const t = I18n.t.bind(I18n);
@@ -1075,13 +1262,12 @@
     try { localStorage.setItem(PRINT_PREFS_KEY, JSON.stringify({ ...f, printer: undefined })); } catch {}
   }
 
-  async function _fillPrinterList() {
+  function _applyPrinters(printers) {
     const sel = document.getElementById('print-printer');
     if (!sel) return;
     const t = I18n.t.bind(I18n);
+    const prev = sel.value;
     sel.innerHTML = '';
-    let printers = [];
-    try { printers = (await window.electronAPI.getPrinters?.()) || []; } catch { printers = []; }
     _print.printers = printers;
     if (!printers.length) {
       const opt = document.createElement('option');
@@ -1090,7 +1276,6 @@
       sel.appendChild(opt);
       return;
     }
-    // System default printer first and pre-selected
     printers = [...printers].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
     for (const pr of printers) {
       const opt = document.createElement('option');
@@ -1099,7 +1284,20 @@
       if (pr.isDefault) opt.selected = true;
       sel.appendChild(opt);
     }
-    if (!printers.some((pr) => pr.isDefault)) sel.selectedIndex = 0;
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+    else if (!printers.some((pr) => pr.isDefault)) sel.selectedIndex = 0;
+  }
+
+  async function _fillPrinterList() {
+    if (_print.printersCache && (Date.now() - _print.printersCacheAt < 60000)) {
+      _applyPrinters(_print.printersCache);
+      return;
+    }
+    let printers = [];
+    try { printers = (await window.electronAPI.getPrinters?.()) || []; } catch { printers = []; }
+    _print.printersCache = printers;
+    _print.printersCacheAt = Date.now();
+    _applyPrinters(printers);
   }
 
   function _initPrintDialog() {
@@ -1107,42 +1305,53 @@
     if (!overlay) return;
     overlay.querySelectorAll('select, input').forEach((el) => {
       el.addEventListener('change', _renderPrintPreview);
-      if (el.type === 'number') el.addEventListener('input', _renderPrintPreview);
+      if (el.type === 'number' || el.type === 'text') el.addEventListener('input', _renderPrintPreview);
     });
     document.getElementById('print-go')?.addEventListener('click', () => _printImage());
     window.addEventListener('resize', () => { if (overlay.classList.contains('visible')) _renderPrintPreview(); });
+    _fillPrinterList();
   }
 
   async function _openPrintPreview() {
     if (!_canPrint()) return;
-    const dataUrl = _printableDataUrl();
-    if (!dataUrl) return;
-    const img = document.getElementById('print-preview-img');
-    if (!img) return;
-    _print.dataUrl = dataUrl;
-    await new Promise((resolve) => {
-      img.onload = () => { _print.imgW = img.naturalWidth; _print.imgH = img.naturalHeight; resolve(); };
-      img.onerror = () => { _print.imgW = _print.imgH = 0; resolve(); };
-      img.src = dataUrl;
+    const src = _printSource();
+    if (!src) return;
+    _print.dataUrl = null;
+    _print.imgW = src.naturalWidth || src.width || 0;
+    _print.imgH = src.naturalHeight || src.height || 0;
+    _writePrintForm({
+      paper: 'A4', orient: 'auto', marginMm: 10, scale: 'fit', scalePct: 100, copies: 1, color: 'color',
+      headerOn: true, headerKind: 'filename', headerAlign: 'center', headerText: '',
+      pageNoOn: true, pageNoPos: 'footer-center', pageNoFmt: 'nOfN',
+      ..._loadPrintPrefs(),
     });
-    _writePrintForm({ paper: 'A4', orient: 'auto', marginMm: 10, scale: 'fit', scalePct: 100, copies: 1, color: 'color', ..._loadPrintPrefs() });
     _showDialog('print-overlay');
+    _blitPrintPreview(src);
+    const stage = document.getElementById('print-preview-stage');
+    if (stage) void stage.offsetHeight;
     _renderPrintPreview();
-    await _fillPrinterList();
+    requestAnimationFrame(_renderPrintPreview);
+    _fillPrinterList();
   }
 
   /** "Print" in the preview: send to the selected printer without another dialog. */
   async function _printImage() {
-    if (_print.busy || !_print.dataUrl) return;
+    if (_print.busy) return;
     const f = _readPrintForm();
     const L = _printLayout(f);
-    const title = state.currentFile ? state.currentFile.split(/[/\\]/).pop() : (I18n.t('app.title') || 'Image');
+    const title = _printFileName();
     const goBtn = document.getElementById('print-go');
     _print.busy = true;
     if (goBtn) { goBtn.disabled = true; goBtn.querySelector('span').textContent = I18n.t('print.printing'); }
     try {
+      const dataUrl = _print.dataUrl || _printableDataUrl();
+      if (!dataUrl) {
+        _showError(I18n.t('error.print') || 'Could not print the image.', '');
+        return;
+      }
+      _print.dataUrl = dataUrl;
       const res = await window.electronAPI.printImage({
-        dataUrl: _print.dataUrl,
+        dataUrl,
         title,
         deviceName: f.printer || undefined,
         copies: f.copies,
@@ -1152,6 +1361,10 @@
         imgWmm: Math.round(L.iw * 100) / 100,
         imgHmm: Math.round(L.ih * 100) / 100,
         color: f.color,
+        header: L.header,
+        footer: L.footer,
+        headerMm: L.headerMm,
+        footerMm: L.footerMm,
       });
       if (res && res.error && res.error !== 'cancelled') {
         _showError(I18n.t('error.print') || 'Could not print the image.', res.error);
@@ -1191,7 +1404,7 @@
         w += parseFloat(getComputedStyle(child).minWidth) || 8;
       } else if (child.id === 'edit-window-title') {
         w += parseFloat(getComputedStyle(child).maxWidth) || 168;
-      } else if (child.classList.contains('ew-toolbar') || child.classList.contains('ew-group')) {
+      } else if (child.classList.contains('ew-toolbar') || child.classList.contains('ew-group') || child.classList.contains('ew-actions')) {
         // Do not use the clipped box — sum the real button widths
         w += _measureFlexContentWidth(child);
       } else {
@@ -1215,34 +1428,45 @@
 
     const temp = !win.classList.contains('visible');
     if (temp) win.classList.add('measuring');
+    const tolWrap = document.getElementById('ew-tolerance-wrap');
+    const tolWas = tolWrap ? tolWrap.style.display : '';
+    if (tolWrap) tolWrap.style.display = 'flex';
     const width = _measureFlexContentWidth(bar, 'ew-spacer');
+    if (tolWrap) tolWrap.style.display = tolWas;
     if (temp) win.classList.remove('measuring');
     return width;
   }
 
-
   function _mainMinWidth() {
-    return Math.max(_measureFlexContentWidth(toolbar, 'toolbar-spacer'), 1100) + 12;
+    return Math.max(_measureFlexContentWidth(toolbar, 'toolbar-spacer') + 12, 1200);
   }
 
   function _editMinWidth() {
-    return Math.max(_measureEditTitlebarWidth(), 1100) + 12;
+    return Math.max(_measureEditTitlebarWidth() + 12, 1200);
+  }
+
+  function _appMinWidth() {
+    return Math.max(_mainMinWidth(), _editMinWidth());
   }
 
   function _syncWindowMinSize(opts = {}) {
     const force = !!opts.force;
-    const width = state.editMode ? _editMinWidth() : _mainMinWidth();
-    if (!force && _appliedMinWidth && Math.abs(width - _appliedMinWidth) < 8) return;
+    const width = _appMinWidth();
+    if (!force && _appliedMinWidth && Math.abs(width - _appliedMinWidth) < 8) return width;
     _appliedMinWidth = width;
-    if (window.electronAPI.windowSetMinSize) {
-      window.electronAPI.windowSetMinSize(width, 600);
-    }
+    window.electronAPI.windowSetMinSize?.(width, APP_MIN_HEIGHT);
+    return width;
+  }
+
+  function _syncEditChromeMinSize() {
+    _syncWindowMinSize({ force: true });
   }
 
   function _initWindowChrome() {
     const isWeb = window.electronAPI.platform === 'web';
     document.body.classList.toggle('frameless', !isWeb);
     document.body.classList.toggle('is-web', isWeb);
+    _initResizeGrips();
     if (isWeb) return;
 
     const minBtn = document.getElementById('win-min');
@@ -1262,6 +1486,50 @@
     window.electronAPI.onMaximizeChange?.((maximized) => _setMaximizedUi(!!maximized));
     window.electronAPI.windowIsMaximized?.().then((m) => _setMaximizedUi(!!m));
     requestAnimationFrame(() => _syncWindowMinSize());
+  }
+
+  function _initResizeGrips() {
+    const grips = [...document.querySelectorAll('.win-resize-grip')];
+    const tip = () => I18n.t('window.resize') || 'Resize';
+    grips.forEach((el) => {
+      el.title = tip();
+      Tooltip.attach?.(el, tip);
+    });
+    if (!window.electronAPI.windowGetBounds || !window.electronAPI.windowSetSize) return;
+    if (window.electronAPI.platform === 'web') return;
+
+    let drag = null;
+    let raf = 0;
+    const apply = () => {
+      raf = 0;
+      if (!drag) return;
+      window.electronAPI.windowSetSize(drag.w, drag.h);
+    };
+    const onMove = (e) => {
+      if (!drag) return;
+      drag.w = drag.startW + (e.screenX - drag.x);
+      drag.h = drag.startH + (e.screenY - drag.y);
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    const onUp = () => {
+      if (!drag) return;
+      drag = null;
+      document.body.classList.remove('resizing-se');
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    grips.forEach((el) => {
+      el.addEventListener('pointerdown', async (e) => {
+        if (e.button !== 0 || document.body.classList.contains('maximized')) return;
+        e.preventDefault();
+        const b = await window.electronAPI.windowGetBounds();
+        if (!b || b.maximized) return;
+        drag = { x: e.screenX, y: e.screenY, startW: b.width, startH: b.height, w: b.width, h: b.height };
+        document.body.classList.add('resizing-se');
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    });
   }
 
   function _setMaximizedUi(maximized) {
@@ -1304,10 +1572,7 @@
 
     const set = (id, on) => _setChromeBtn(document.getElementById(id), on);
 
-    const hasMedia = k !== 'none';
     const isImage = k === 'image';
-    const canPrev = hasMedia && state.fileIndex > 0;
-    const canNext = hasMedia && state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1;
 
     // Navigation / view (available for images; limited for A/V)
     set('btn-zoom-in', isImage || k === 'video' || state.isAnimated);
@@ -1316,8 +1581,7 @@
     set('btn-actual', isImage || state.isAnimated);
     const zd = document.getElementById('zoom-display');
     if (zd) zd.disabled = !(isImage || k === 'video' || state.isAnimated);
-    set('btn-prev', canPrev);
-    set('btn-next', canNext);
+    _updateNavButtons();
 
     // Image editing only
     set('btn-save', isImage);
@@ -1402,6 +1666,7 @@
           title: I18n.t(titleKey) || I18n.t('progress.title') || 'Progress',
           message: msg || I18n.t(messageKey) || '',
           percent: percent != null ? percent : 8,
+          modal: !!document.getElementById('edit-window')?.classList.contains('visible'),
         });
         dlg.startCreep(90);
       } else {
@@ -1412,19 +1677,11 @@
     try {
       if (predicted && dlg) {
         showNow(8, I18n.t(messageKey));
-        await dlg.yieldFrame();
-        showNow(18);
-        await dlg.yieldFrame();
       } else if (dlg && delayMs > 0) {
         timer = setTimeout(() => showNow(8, I18n.t(messageKey)), delayMs);
       }
       const result = await Promise.resolve(work(dlg));
       if (timer) { clearTimeout(timer); timer = null; }
-      if (shown) {
-        dlg.stopCreep();
-        dlg.set(100, I18n.t('progress.done') || 'Done');
-        await dlg.yieldFrame(60);
-      }
       return result;
     } finally {
       if (timer) clearTimeout(timer);
@@ -1441,16 +1698,22 @@
     return key || '';
   }
 
-  function _isSlowOpen(filePath) {
-    return !!(filePath && (
-      FormatSupport.isHeic(filePath) || FormatSupport.isTiff(filePath) || FormatSupport.isDcm(filePath)
-    ));
+  function _fileAlreadyInList(filePath) {
+    if (!filePath || !state.fileList?.length) return false;
+    if (FileTree.indexOfPath) return FileTree.indexOfPath(state.fileList, filePath) >= 0;
+    return state.fileList.indexOf(filePath) >= 0;
   }
 
   async function _openFile(filePath, { center = false } = {}) {
     if (!filePath) return;
+    // Opening a file means "show me this one image" — the contact sheet, which
+    // sits on top of the viewer, has to step aside or nothing becomes visible.
+    if (window.Browse?.isVisible?.()) Browse.hide();
     // Prevent overlapping opens (Windows fs.watch often fires when we read the file)
     if (_openingFile && _openingFile === filePath) return;
+    // Reading the file/dir on Windows trips fs.watch — keep the explorer still.
+    _cancelTreeRefresh();
+    _ignoreWatchUntil = Date.now() + 4000;
     if (state.editMode) {
       const same = state.currentFile &&
         String(state.currentFile).replace(/\\/g, '/').toLowerCase() ===
@@ -1460,18 +1723,23 @@
       if (!closed) return;
     }
     _openingFile = filePath;
+    const openGen = ++_openGen;
     const fileName = filePath.split(/[/\\]/).pop();
     let progressShown = false;
+    let openSettled = false;
+    const openTitle = I18n.t('progress.openTitle') || I18n.t('progress.title') || 'Opening file';
     const showOpenProgress = (percent, messageKey) => {
+      if (openSettled) return;
       const dlg = _pd();
       if (!dlg) return;
       if (!progressShown) {
         progressShown = true;
         _showLoading(false);
         dlg.show({
-          title: I18n.t('progress.openTitle') || I18n.t('progress.title') || 'Opening file',
+          title: openTitle,
           message: _openProgressLabel(messageKey || 'opening', fileName),
           percent: percent != null ? percent : 6,
+          modal: !!state.editMode,
         });
         dlg.startCreep(88);
         return;
@@ -1479,15 +1747,12 @@
       dlg.set(percent != null ? percent : 0, _openProgressLabel(messageKey || 'opening', fileName));
       if (percent >= 90) dlg.stopCreep();
     };
-    const progressTimer = setTimeout(
-      () => showOpenProgress(8, 'opening'),
-      _isSlowOpen(filePath) ? 50 : 400
-    );
     const unsubProgress = window.electronAPI.onOpenProgress
       ? window.electronAPI.onOpenProgress(({ percent, message }) => {
           showOpenProgress(percent, message);
         })
       : null;
+    showOpenProgress(6, 'opening');
 
     try {
       const result = await _withTimeout(
@@ -1495,6 +1760,8 @@
         25000,
         I18n.t('error.openFile') || 'Opening this file took too long'
       );
+
+      if (openGen !== _openGen) return;
 
       if (result.type === 'error') {
         _showPlaceholder(true);
@@ -1550,24 +1817,20 @@
 
       _updateToolbarForMedia(mediaKind);
       _showLoading(false);
-      if (progressShown) {
-        const dlg = _pd();
-        dlg?.stopCreep();
-        dlg?.set(100, I18n.t('progress.done') || 'Done');
-        await dlg?.yieldFrame(90);
-      }
 
       FileTree.setSelected(filePath, { center });
       const dir = await window.electronAPI.pathDirname(filePath);
       _rememberRecentDir(dir);
       _watchDir(dir);
-      state.fileList  = await FileTree.getImageFilesInDir(dir);
+      if (!_fileAlreadyInList(filePath)) {
+        state.fileList = await FileTree.getImageFilesInDir(dir);
+      }
       state.fileIndex = FileTree.indexOfPath
         ? FileTree.indexOfPath(state.fileList, filePath)
         : state.fileList.indexOf(filePath);
       _updateNavButtons();
 
-      _ignoreWatchUntil = Date.now() + 800;
+      _ignoreWatchUntil = Date.now() + 4000;
       _watchCurrentFile(filePath);
       _clearDirty();
       try {
@@ -1584,10 +1847,11 @@
         e
       );
     } finally {
-      clearTimeout(progressTimer);
+      openSettled = true;
       if (typeof unsubProgress === 'function') unsubProgress();
-      _pd()?.hide();
+      if (progressShown) _pd()?.hide();
       if (_openingFile === filePath) _openingFile = null;
+      _ignoreWatchUntil = Math.max(_ignoreWatchUntil, Date.now() + 2500);
       _showLoading(false);
     }
   }
@@ -1598,6 +1862,7 @@
     const list = state.fileList || [];
     [list[idx + 1], list[idx - 1]].forEach((p) => {
       if (p && (FormatSupport.isHeic(p) || FormatSupport.isTiff(p))) {
+        _ignoreWatchUntil = Date.now() + 4000;
         window.electronAPI.convertToPng(p).catch(() => {});
       }
     });
@@ -1679,6 +1944,8 @@
 
   function _dicomHasBar() {
     const d = state.dicom;
+    // The contact sheet covers the viewer: its DICOM bar and overlay would sit on top.
+    if (window.Browse?.isVisible?.()) return false;
     return !!(d && Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.editMode);
   }
 
@@ -1806,6 +2073,14 @@
     if (dcmAnnotBtn) {
       dcmAnnotBtn.classList.toggle('is-active', _dicomAnnotOn);
       dcmAnnotBtn.setAttribute('aria-pressed', _dicomAnnotOn ? 'true' : 'false');
+    }
+    if (dcmRulerBtn) {
+      dcmRulerBtn.classList.toggle('is-active', _dicomRulerOn);
+      dcmRulerBtn.setAttribute('aria-pressed', _dicomRulerOn ? 'true' : 'false');
+    }
+    if (dcmScaleBtn) {
+      dcmScaleBtn.classList.toggle('is-active', _dicomScaleOn);
+      dcmScaleBtn.setAttribute('aria-pressed', _dicomScaleOn ? 'true' : 'false');
     }
     const toolsOk = _dicomGeomValid();
     dcmToolsWrap?.querySelectorAll('.dcm-tool').forEach((b) => {
@@ -2020,6 +2295,8 @@
     });
     dcmOverlaysBtn?.addEventListener('click', _dicomToggleOverlays);
     dcmAnnotBtn?.addEventListener('click', _dicomToggleAnnotations);
+    dcmRulerBtn?.addEventListener('click', _dicomToggleRulerAxes);
+    dcmScaleBtn?.addEventListener('click', _dicomToggleScaleBar);
     dcmToolsWrap?.querySelectorAll('.dcm-tool').forEach((b) => {
       b.addEventListener('click', () => _dicomSetTool(_dicomTool === b.dataset.tool ? null : b.dataset.tool));
     });
@@ -2249,6 +2526,69 @@
     _dicomOverlayRequest();
   }
 
+  function _dicomToggleRulerAxes() {
+    _dicomRulerOn = !_dicomRulerOn;
+    localStorage.setItem('dicomRulerAxes', _dicomRulerOn ? '1' : '0');
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+  }
+
+  function _dicomToggleScaleBar() {
+    _dicomScaleOn = !_dicomScaleOn;
+    localStorage.setItem('dicomScaleBar', _dicomScaleOn ? '1' : '0');
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+  }
+
+  /* ── Scale bar: parked wherever the user dropped it, remembered across sessions ── */
+
+  function _loadDicomScalePos() {
+    try {
+      const v = JSON.parse(localStorage.getItem('dicomScalePos') || 'null');
+      if (v && Number.isFinite(v.x) && Number.isFinite(v.y)) {
+        return { x: Math.min(1, Math.max(0, v.x)), y: Math.min(1, Math.max(0, v.y)) };
+      }
+    } catch { /* fall back to the default corner */ }
+    return { ...DCM_SCALE_HOME };
+  }
+
+  function _saveDicomScalePos() {
+    try { localStorage.setItem('dicomScalePos', JSON.stringify(_dicomScalePos)); } catch { /* ignore */ }
+  }
+
+  function _dicomResetScalePos() {
+    _dicomScalePos = { ...DCM_SCALE_HOME };
+    _saveDicomScalePos();
+    _dicomOverlayRequest();
+  }
+
+  /** Physical units per screen pixel along each screen axis (null → plain pixels). */
+  function _dicomScreenUnits(map) {
+    const sp = _dicomSpacing();
+    const ux = map.dirToImage(1, 0);
+    const uy = map.dirToImage(0, 1);
+    if (sp && sp[0] > 0 && sp[1] > 0) {
+      return {
+        mm: true,
+        x: Math.hypot(ux.x * sp[1], ux.y * sp[0]) / map.scale,
+        y: Math.hypot(uy.x * sp[1], uy.y * sp[0]) / map.scale,
+      };
+    }
+    return { mm: false, x: Math.hypot(ux.x, ux.y) / map.scale, y: Math.hypot(uy.x, uy.y) / map.scale };
+  }
+
+  /** A round tick step whose on-screen size is at least `minPx`. */
+  function _dicomTickStep(perPx, minPx) {
+    const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+    return steps.find((s) => s / perPx >= minPx) || steps[steps.length - 1];
+  }
+
+  function _dicomUnitLabel(v, mm) {
+    if (!mm) return String(Math.round(v));
+    if (v >= 10) return `${+(v / 10).toFixed(v % 10 ? 1 : 0)} cm`;
+    return `${+v.toFixed(v < 1 ? 1 : 0)} mm`;
+  }
+
   function _dicomSetTool(tool) {
     if (tool && !_dicomGeomValid()) tool = null;
     _dicomTool = tool;
@@ -2275,7 +2615,8 @@
     if (!dcmOverlay) return;
     const d = state.dicom;
     const map = _dicomMapping();
-    const on = !!(d && map && _dicomHasBar() && (_dicomAnnotOn || _dicomMeas.length || _dicomDraft || _dicomTool));
+    const on = !!(d && map && _dicomHasBar()
+      && (_dicomAnnotOn || _dicomRulerOn || _dicomScaleOn || _dicomMeas.length || _dicomDraft || _dicomTool));
     dcmOverlay.classList.toggle('is-on', on);
     if (!on) return;
     const dpr = window.devicePixelRatio || 1;
@@ -2295,8 +2636,78 @@
       const br = dicomBar.getBoundingClientRect(), vr = viewerContainer.getBoundingClientRect();
       if (br.height) bottom = Math.min(bottom, br.top - vr.top - 8);
     }
+    if (_dicomRulerOn) _dicomDrawRulerAxes(ctx, map, W, H, bottom);
     if (_dicomAnnotOn) _dicomDrawAnnotations(ctx, d, map, W, H, bottom);
+    if (_dicomScaleOn) _dicomDrawScaleBar(ctx, map, W, bottom);
+    else _dicomScaleBox = null;
     _dicomDrawMeasurements(ctx, d, map, W, bottom);
+  }
+
+  /* Graduated rulers down the whole X and Y axes, zeroed on the image origin. */
+  const DCM_RULER_BAND = 22;
+
+  function _dicomDrawRulerAxes(ctx, map, W, H, bottom) {
+    const u = _dicomScreenUnits(map);
+    if (!(u.x > 0) || !(u.y > 0)) return;
+    const origin = map.toScreen(0, 0);
+    const band = DCM_RULER_BAND;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(0, 0, W, band);
+    ctx.fillRect(0, band, band, bottom - band);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, band + 0.5); ctx.lineTo(W, band + 0.5);
+    ctx.moveTo(band + 0.5, band); ctx.lineTo(band + 0.5, bottom);
+    ctx.stroke();
+
+    ctx.font = '10px system-ui, "Segoe UI", sans-serif';
+    ctx.strokeStyle = '#d7e9ff';
+    ctx.fillStyle = '#d7e9ff';
+    ctx.lineWidth = 1;
+
+    // X axis along the top edge
+    const stepX = _dicomTickStep(u.x, 64);
+    const pxX = stepX / u.x;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    for (let k = Math.ceil((0 - origin.x) / pxX) - 1; ; k++) {
+      const x = origin.x + k * pxX;
+      if (x > W + pxX) break;
+      for (let s = 0; s < 5; s++) {
+        const mx = x + (s * pxX) / 5;
+        if (mx < 0 || mx > W) continue;
+        const len = s === 0 ? 10 : 5;
+        ctx.beginPath(); ctx.moveTo(Math.round(mx) + 0.5, band - len); ctx.lineTo(Math.round(mx) + 0.5, band); ctx.stroke();
+      }
+      if (x >= 0 && x <= W - 4) ctx.fillText(_dicomUnitLabel(k * stepX, u.mm), x + 3, 2);
+    }
+
+    // Y axis down the left edge
+    const stepY = _dicomTickStep(u.y, 64);
+    const pxY = stepY / u.y;
+    for (let k = Math.ceil((band - origin.y) / pxY) - 1; ; k++) {
+      const y = origin.y + k * pxY;
+      if (y > bottom + pxY) break;
+      for (let s = 0; s < 5; s++) {
+        const my = y + (s * pxY) / 5;
+        if (my < band || my > bottom) continue;
+        const len = s === 0 ? 10 : 5;
+        ctx.beginPath(); ctx.moveTo(band - len, Math.round(my) + 0.5); ctx.lineTo(band, Math.round(my) + 0.5); ctx.stroke();
+      }
+      if (y >= band && y <= bottom - 4) {
+        ctx.save();
+        ctx.translate(2, y + 3);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(_dicomUnitLabel(k * stepY, u.mm), 0, 0);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
   }
 
   function _dcmText(ctx, text, x, y, align = 'left', color = '#fff') {
@@ -2334,13 +2745,16 @@
     let fi = null;
     try { fi = d.frameInfo ? d.frameInfo(st.frame) : null; } catch { fi = null; }
     const lh = 15, margin = 10;
+    // The ruler bands own the top and left edges; text there starts inside them
+    const inset = _dicomRulerOn ? DCM_RULER_BAND : 0;
+    const inLeft = margin + inset, inTop = margin + inset;
     // Top-left: patient
     const tl = [
       m.patientName,
       m.patientId,
       [m.patientSex, m.patientAge || m.patientBirthDate].filter(Boolean).join(' · '),
     ].filter(Boolean);
-    tl.forEach((s, i) => _dcmText(ctx, s, margin, margin + i * lh));
+    tl.forEach((s, i) => _dcmText(ctx, s, inLeft, inTop + i * lh));
     // Top-right: study / series / equipment
     const tr = [
       m.institution,
@@ -2350,7 +2764,7 @@
       m.seriesDescription,
       [m.seriesNumber ? `Se ${m.seriesNumber}` : '', m.instanceNumber ? `Im ${m.instanceNumber}` : ''].filter(Boolean).join(' · '),
     ].filter(Boolean);
-    tr.forEach((s, i) => _dcmText(ctx, s, W - margin, margin + i * lh, 'right'));
+    tr.forEach((s, i) => _dcmText(ctx, s, W - margin, inTop + i * lh, 'right'));
     // Bottom-left: image geometry
     const sp = _dicomSpacing();
     const bl = [
@@ -2360,7 +2774,7 @@
       sp ? `${_dicomFmtVal(sp[1])} × ${_dicomFmtVal(sp[0])} mm/px` : '',
       m.bitDepth || '',
     ].filter(Boolean);
-    bl.forEach((s, i) => _dcmText(ctx, s, margin, bottom - bl.length * lh + i * lh));
+    bl.forEach((s, i) => _dcmText(ctx, s, inLeft, bottom - bl.length * lh + i * lh));
     // Bottom-right: window / LUT / colour map / zoom
     const br = [];
     if (d.gray) {
@@ -2376,35 +2790,66 @@
       ctx.font = 'bold 15px system-ui, "Segoe UI", sans-serif';
       const mk = (dx, dy) => { const v = map.dirToImage(dx, dy); try { return d.dirLabel(v.x, v.y) || ''; } catch { return ''; } };
       const right = mk(1, 0), left = mk(-1, 0), down = mk(0, 1), up = mk(0, -1);
-      const cy = (bottom + margin) / 2;
+      const cy = (bottom + inTop) / 2;
       ctx.textBaseline = 'middle';
-      _dcmText(ctx, left, margin + 4, cy, 'left', '#9be7ff');
+      _dcmText(ctx, left, inLeft + 4, cy, 'left', '#9be7ff');
       _dcmText(ctx, right, W - margin - 4, cy, 'right', '#9be7ff');
       ctx.textBaseline = 'top';
-      _dcmText(ctx, up, W / 2, margin, 'center', '#9be7ff');
+      _dcmText(ctx, up, W / 2, inTop, 'center', '#9be7ff');
       _dcmText(ctx, down, W / 2, bottom - 16, 'center', '#9be7ff');
       ctx.font = '12px system-ui, "Segoe UI", sans-serif';
     }
-    // Scale bar: vertical along the right edge (row spacing), when the pixel spacing is known
-    if (sp && sp[0] > 0) {
-      const pxPerMm = map.scale / sp[0];
-      const choices = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
-      const mm = choices.find((c) => c * pxPerMm >= 60) || choices[choices.length - 1];
-      const len = mm * pxPerMm;
-      const avail = bottom - br.length * lh - 12 - ((bottom + margin) / 2 + 22);
-      if (len <= avail) {
-        const x = W - margin - 6, y0 = (bottom + margin) / 2 + 22;
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + len); ctx.moveTo(x - 6, y0); ctx.lineTo(x + 6, y0); ctx.moveTo(x - 6, y0 + len); ctx.lineTo(x + 6, y0 + len); ctx.stroke();
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = '#fff';
-        ctx.stroke();
-        ctx.textBaseline = 'middle';
-        _dcmText(ctx, mm >= 10 ? `${mm / 10} cm` : `${mm} mm`, x - 10, y0 + len / 2, 'right');
-        ctx.textBaseline = 'top';
-      }
+  }
+
+  /**
+   * Scale bar — horizontal, parked at the top-left until the user drags it
+   * somewhere else; `_dicomScaleBox` is what the drag hit-tests against.
+   */
+  function _dicomDrawScaleBar(ctx, map, W, bottom) {
+    _dicomScaleBox = null;
+    const u = _dicomScreenUnits(map);
+    if (!(u.x > 0)) return;
+    const step = _dicomTickStep(u.x, 80);
+    const len = step / u.x;
+    const label = _dicomUnitLabel(step, u.mm);
+    const h = 26;
+    const topLimit = _dicomRulerOn ? DCM_RULER_BAND + 4 : 6;
+    const leftLimit = _dicomRulerOn ? DCM_RULER_BAND + 4 : 6;
+    if (len > W - leftLimit - 6) return;   // too wide to place anywhere sensible
+
+    let x = _dicomScalePos.x * W;
+    let y = _dicomScalePos.y * bottom;
+    x = Math.max(leftLimit, Math.min(W - len - 6, x));
+    y = Math.max(topLimit, Math.min(bottom - h - 6, y));
+    _dicomScaleBox = { x: x - 8, y: y - 6, w: len + 16, h: h + 10 };
+
+    const yBar = y + h - 8;
+    ctx.save();
+    if (_dicomScaleDrag) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.10)';
+      ctx.fillRect(_dicomScaleBox.x, _dicomScaleBox.y, _dicomScaleBox.w, _dicomScaleBox.h);
     }
+    for (const [width, colour] of [[3.5, 'rgba(0, 0, 0, 0.8)'], [1.5, '#fff']]) {
+      ctx.lineWidth = width;
+      ctx.strokeStyle = colour;
+      ctx.beginPath();
+      ctx.moveTo(x, yBar); ctx.lineTo(x + len, yBar);
+      ctx.moveTo(x, yBar - 6); ctx.lineTo(x, yBar + 6);
+      ctx.moveTo(x + len, yBar - 6); ctx.lineTo(x + len, yBar + 6);
+      ctx.moveTo(x + len / 2, yBar - 4); ctx.lineTo(x + len / 2, yBar + 4);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.textBaseline = 'top';
+    _dcmText(ctx, label, x + len / 2, y - 2, 'center');
+  }
+
+  function _dicomScaleHitTest(clientX, clientY) {
+    const b = _dicomScaleBox;
+    if (!b || !_dicomScaleOn || !viewerContainer) return false;
+    const r = viewerContainer.getBoundingClientRect();
+    const x = clientX - r.left, y = clientY - r.top;
+    return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
   }
 
   function _dicomDrawMeasurements(ctx, d, map, W, H) {
@@ -2539,8 +2984,55 @@
     statusProbe.textContent = on ? `${I18n.t('dicom.probe')} ${text}` : '';
   }
 
+  /** Dragging the scale bar around the viewer; the spot is remembered on drop. */
+  function _initDicomScaleDrag() {
+    if (!viewerContainer) return;
+    viewerContainer.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || _dicomTool) return;
+      if (!state.dicom || !_dicomHasBar()) return;
+      if (!_dicomScaleHitTest(e.clientX, e.clientY)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const r = viewerContainer.getBoundingClientRect();
+      _dicomScaleDrag = {
+        dx: (e.clientX - r.left) - _dicomScalePos.x * r.width,
+        dy: (e.clientY - r.top) - _dicomScalePos.y * r.height,
+      };
+      _dicomOverlayRequest();
+    }, true);
+
+    window.addEventListener('mousemove', (e) => {
+      if (!_dicomScaleDrag) return;
+      const r = viewerContainer.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      _dicomScalePos = {
+        x: Math.min(1, Math.max(0, ((e.clientX - r.left) - _dicomScaleDrag.dx) / r.width)),
+        y: Math.min(1, Math.max(0, ((e.clientY - r.top) - _dicomScaleDrag.dy) / r.height)),
+      };
+      _dicomOverlayRequest();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!_dicomScaleDrag) return;
+      _dicomScaleDrag = null;
+      _saveDicomScalePos();
+      _dicomOverlayRequest();
+    });
+
+    // Hovering it says "you can move this"
+    viewerContainer.addEventListener('mousemove', (e) => {
+      if (_dicomScaleDrag) return;
+      const on = !_dicomTool && !!state.dicom && _dicomHasBar() && _dicomScaleHitTest(e.clientX, e.clientY);
+      viewerContainer.classList.toggle('dcm-scale-grab', on);
+    });
+    viewerContainer.addEventListener('mouseleave', () => {
+      viewerContainer.classList.remove('dcm-scale-grab');
+    });
+  }
+
   function _initDicomOverlay() {
     if (!dcmOverlay) return;
+    _initDicomScaleDrag();
     // Measurement tools draw on the overlay while a tool is active (left button only —
     // Ctrl+drag / middle button keep their windowing / pan meaning)
     dcmOverlay.addEventListener('mousedown', (e) => {
@@ -2638,7 +3130,7 @@
       await _showError(I18n.t('dialog.save.error') || 'Could not save the file.', failure);
       return;
     }
-    try { await FileTree.refresh(); } catch { /* ignore */ }
+    try { await FileTree.refresh({ force: true }); } catch { /* ignore */ }
     _updateStatus({ msg: `${written} ${I18n.t('dicom.framesExported')}` });
     await window.electronAPI.showMessageBox({
       type: 'info',
@@ -2688,7 +3180,7 @@
     const mime = format === 'json' ? 'application/json' : format === 'csv' ? 'text/csv' : 'text/plain';
     const wr = await window.electronAPI.writeFile({ filePath: dlg.filePath, dataUrl: _dicomTextDataUrl(_dicomTagsText(format), mime) });
     if (wr && wr.success) {
-      try { await FileTree.refresh(); } catch { /* ignore */ }
+      try { await FileTree.refresh({ force: true }); } catch { /* ignore */ }
       _updateStatus({ msg: t('dicom.tagsExported') });
     } else {
       await _showError(t('dialog.save.error') || 'Could not save the file.', (wr && wr.error) || '');
@@ -2710,12 +3202,14 @@
     if (!d || !_dicomHasBar() || state.editMode) return false;
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return false;
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'PageUp' || e.key === 'PageDown') && d.frames > 1) {
+      _dicomFrame(e.key === 'PageUp' ? d.state.frame - 1 : d.state.frame + 1);
+      return true;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return false;
     // Measurement tool in progress: Esc leaves it (before the viewer's own Esc handling)
     if (e.key === 'Escape' && (_dicomTool || _dicomDraft)) { _dicomSetTool(null); return true; }
     if (d.frames > 1) {
-      if (e.key === 'PageUp')   { _dicomFrame(d.state.frame - 1); return true; }
-      if (e.key === 'PageDown') { _dicomFrame(d.state.frame + 1); return true; }
       if (e.key === 'Home')     { _dicomFrame(0); return true; }
       if (e.key === 'End')      { _dicomFrame(d.frames - 1); return true; }
       if (e.key === ' ' || e.code === 'Space') { _dicomToggleCine(); return true; }
@@ -2726,6 +3220,8 @@
       if (e.key === 'm' || e.key === 'M') { _dicomCycleColormap(); return true; }
     }
     if (e.key === 'o' || e.key === 'O') { _dicomToggleAnnotations(); return true; }
+    if (e.key === 'g' || e.key === 'G') { _dicomToggleRulerAxes(); return true; }
+    if (e.key === 'b' || e.key === 'B') { _dicomToggleScaleBar(); return true; }
     if ((e.key === 'v' || e.key === 'V') && d.overlays && d.overlays.length) { _dicomToggleOverlays(); return true; }
     if (_dicomGeomValid()) {
       const tools = { r: 'ruler', a: 'angle', e: 'ellipse', t: 'rect' };
@@ -2748,8 +3244,8 @@
     const items = [];
     if (d.frames > 1) {
       items.push({ icon: Icons.mediaPlay, label: t('dicom.frames'), submenu: () => [
-        { icon: Icons.prev, label: t('dicom.prevFrame'), shortcut: 'PgUp', disabled: d.state.frame <= 0, action: () => _dicomFrame(d.state.frame - 1) },
-        { icon: Icons.next, label: t('dicom.nextFrame'), shortcut: 'PgDn', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.state.frame + 1) },
+        { icon: Icons.prev, label: t('dicom.prevFrame'), shortcut: 'Ctrl+PgUp', disabled: d.state.frame <= 0, action: () => _dicomFrame(d.state.frame - 1) },
+        { icon: Icons.next, label: t('dicom.nextFrame'), shortcut: 'Ctrl+PgDn', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.state.frame + 1) },
         { label: t('dicom.firstFrame'), shortcut: 'Home', disabled: d.state.frame <= 0, action: () => _dicomFrame(0) },
         { label: t('dicom.lastFrame'), shortcut: 'End', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.frames - 1) },
         { separator: true },
@@ -2783,6 +3279,9 @@
       }) });
     }
     items.push({ icon: Icons.annotations, label: t('dicom.annotations'), shortcut: 'O', checked: _dicomAnnotOn, action: _dicomToggleAnnotations });
+    items.push({ icon: Icons.ruler, label: t('dicom.rulerAxes'), shortcut: 'G', checked: _dicomRulerOn, action: _dicomToggleRulerAxes });
+    items.push({ icon: Icons.resize, label: t('dicom.scaleBar'), shortcut: 'B', checked: _dicomScaleOn, action: _dicomToggleScaleBar });
+    items.push({ icon: Icons.reset, label: t('dicom.scaleReset'), action: _dicomResetScalePos });
     if (d.overlays && d.overlays.length) {
       items.push({ icon: Icons.layers, label: t('dicom.overlays'), shortcut: 'V', checked: !!d.state.overlays, action: _dicomToggleOverlays });
     }
@@ -2960,7 +3459,8 @@
 
   function _updateMediaControlsVisibility() {
     if (!mediaControls) return;
-    const show = !state.editMode && (state.isVideo || state.isAnimated);
+    const show = !state.editMode && (state.isVideo || state.isAnimated)
+      && !window.Browse?.isVisible?.();   // the contact sheet covers the player
     mediaControls.hidden = !show;
     mediaControls.style.display = show ? 'flex' : 'none';
     mediaControls.classList.toggle('is-on', show);
@@ -3736,7 +4236,7 @@
       const dir = await window.electronAPI.pathDirname(p);
       await _openFile(p, { center: true });
       await FileTree.revealPath(dir);
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       FileTree.setSelected(p, { center: true });
     } catch (_) {
       await _openFile(p, { center: true });
@@ -3748,22 +4248,34 @@
     const r = await window.FileDialog.openFolder();
     if (!r || r.canceled || !r.filePath) return;
     await _openFolder(r.filePath);
-    await FileTree.refresh();
+    await FileTree.refresh({ force: true });
   }
 
-  async function _openFolder(dirPath, { openFirst = true } = {}) {
-    await _runOpWithProgress(async () => {
+  async function _openFolder(dirPath, { openFirst = true, instant = false } = {}) {
+    const work = async () => {
       _rememberRecentDir(dirPath);
       if (window.electronAPI.platform === 'web') {
         await FileTree.loadDrives();
       }
       await FileTree.revealPath(dirPath);
       _watchDir(dirPath);
-    }, {
-      titleKey: 'progress.openTitle',
-      messageKey: 'progress.openingFolder',
-      delayMs: 280,
-    });
+    };
+    if (instant) {
+      await work();
+    } else {
+      await _runOpWithProgress(work, {
+        titleKey: 'progress.openTitle',
+        messageKey: 'progress.openingFolder',
+        delayMs: 280,
+      });
+    }
+    // Every folder open warms the thumbnail cache; in browse mode it also fills the grid
+    Thumbs.prefetchDir(dirPath);
+    if (_browseMode) {
+      Browse.show(dirPath);
+      await Browse.open(dirPath);
+      return;
+    }
     if (!openFirst) return;
     const opened = await _openFirstInDir(dirPath);
     if (!opened) {
@@ -3795,6 +4307,10 @@
   }
 
   function _setZoom(z) {
+    if (state.editMode) {
+      _ewZoomTo(Math.min(Math.max(z, 0.02), 32));
+      return;
+    }
     _wantFit = false;
     state.zoom = Math.min(Math.max(z, 0.02), 32);
     _applyTransform();
@@ -3881,9 +4397,11 @@
   }
 
   function _updateZoomDisplay() {
-    const pct = Math.round(state.zoom * 100);
+    const pct = `${Math.round(state.zoom * 100)}%`;
     const zd = document.getElementById('zoom-display');
-    if (zd) zd.value = `${pct}%`;
+    const ezd = document.getElementById('ew-zoom-display');
+    if (zd) zd.value = pct;
+    if (ezd) ezd.value = pct;
   }
 
   function _initViewerInteraction() {
@@ -4021,6 +4539,7 @@
       title: I18n.t('progress.title') || 'Progress',
       message: `${I18n.t('progress.bgRemove') || 'Removing background…'} (${algoLabel})`,
       percent: 5,
+      modal: !!state.editMode,
     });
     try {
       await ProgressDialog.yieldFrame();
@@ -4030,8 +4549,6 @@
       if (state.editMode) _ewFit();
       ProgressDialog.set(85, I18n.t('progress.applying') || 'Applying result…');
       await ProgressDialog.yieldFrame();
-      ProgressDialog.set(100, I18n.t('progress.done') || 'Done');
-      await ProgressDialog.yieldFrame(80);
       _updateUndoRedoBtns();
       _ewUpdateSelBtns();
       _updateStatus({ dims: true });
@@ -4061,6 +4578,7 @@
       title: I18n.t('progress.title') || 'Progress',
       message: `${I18n.t('bgAlgo.rembgRunning') || 'Removing background (AI)…'} (${algoLabel})`,
       percent: 0,
+      modal: !!state.editMode,
     });
     ProgressDialog.startCreep(88);
     await ProgressDialog.yieldFrame();
@@ -4102,8 +4620,6 @@
       Editor.cropAfterBackgroundRemove(cropBounds);
       Editor.saveHistory();
       if (state.editMode) _ewFit();
-      ProgressDialog.set(100, I18n.t('progress.done') || 'Done');
-      await ProgressDialog.yieldFrame(120);
       _updateUndoRedoBtns();
       _ewUpdateSelBtns();
       _updateStatus({ dims: true });
@@ -4444,17 +4960,17 @@
     _hideDialog('resize-overlay');
 
     if (saved) {
-      try { await FileTree.refresh(); } catch (_) { /* ignore */ }
+      try { await FileTree.refresh({ force: true }); } catch (_) { /* ignore */ }
       _updateStatus({ msg: I18n.t('status.saved') || 'Saved' });
-      if (window.electronAPI?.showMessageBox) {
-        await window.electronAPI.showMessageBox({
-          type: 'info',
-          title: I18n.t('dialog.save.title') || 'Saved',
-          message: I18n.t('dialog.save.success') || 'File saved successfully.',
-          detail: savePath,
-          buttons: ['OK'],
-        });
-      }
+      await _saveRelatedPrompt({
+        title: I18n.t('dialog.save.title') || 'Saved',
+        message: I18n.t('dialog.save.success') || 'File saved successfully.',
+        detail: savePath,
+        buttons: [I18n.t('error.ok') || 'OK'],
+        defaultId: 0,
+        cancelId: 0,
+        icon: 'save',
+      });
     }
   }
 
@@ -4559,20 +5075,98 @@
   }
 
   function _updateNavButtons() {
-    _setChromeBtn(document.getElementById('btn-prev'), state.fileIndex > 0);
-    _setChromeBtn(document.getElementById('btn-next'),
-      state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1);
+    const canPrev = state.fileIndex > 0;
+    const canNext = state.fileIndex >= 0 && state.fileIndex < state.fileList.length - 1;
+    const show = !!state.currentFile;
+    _setChromeBtn(document.getElementById('btn-prev'), canPrev);
+    _setChromeBtn(document.getElementById('btn-next'), canNext);
+    document.querySelectorAll('.viewer-nav-prev').forEach((el) => {
+      el.hidden = !show;
+      _setChromeBtn(el, canPrev);
+    });
+    document.querySelectorAll('.viewer-nav-next').forEach((el) => {
+      el.hidden = !show;
+      _setChromeBtn(el, canNext);
+    });
+  }
+
+  function _initViewerNavButtons() {
+    document.querySelectorAll('.viewer-nav-prev').forEach((el) => {
+      el.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); });
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (el.classList.contains('is-disabled')) return;
+        _prevImage();
+      });
+    });
+    document.querySelectorAll('.viewer-nav-next').forEach((el) => {
+      el.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); });
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (el.classList.contains('is-disabled')) return;
+        _nextImage();
+      });
+    });
   }
 
   /* ════════════════════════════════════════════
-     Effects Panel
+     Effects Panel   (_editEffectsMinW is declared at the top of the module)
   ════════════════════════════════════════════ */
+
+  function _withEditWindowMeasured(fn) {
+    const win = document.getElementById('edit-window');
+    if (!win) return fn();
+    const temp = !win.classList.contains('visible') && !win.classList.contains('measuring');
+    if (temp) win.classList.add('measuring');
+    try { return fn(); }
+    finally { if (temp) win.classList.remove('measuring'); }
+  }
+
+  function _presetPanelMinWidth() {
+    const root = document.getElementById('edit-effects-content');
+    if (!root) return 260;
+    return _withEditWindowMeasured(() => {
+      let maxBtn = 0;
+      root.querySelectorAll('.preset-btn').forEach((btn) => {
+        const label = btn.querySelector('.preset-label');
+        const icon = btn.querySelector('.preset-icon');
+        const cs = getComputedStyle(btn);
+        const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        const gap = parseFloat(cs.columnGap || cs.gap) || 0;
+        const iconW = icon ? Math.max(icon.getBoundingClientRect().width, 16) : 0;
+        const labW = label ? Math.max(label.scrollWidth, 0) : 0;
+        maxBtn = Math.max(maxBtn, pad + iconW + gap + labW);
+      });
+      if (!maxBtn) return 260;
+      const contentCs = getComputedStyle(root);
+      const contentPad = (parseFloat(contentCs.paddingLeft) || 0) + (parseFloat(contentCs.paddingRight) || 0);
+      const presets = root.querySelector('.effect-presets');
+      const pcs = presets ? getComputedStyle(presets) : null;
+      const catPad = pcs ? (parseFloat(pcs.paddingLeft) || 0) + (parseFloat(pcs.paddingRight) || 0) : 12;
+      const gridGap = pcs ? (parseFloat(pcs.columnGap || pcs.gap) || 6) : 6;
+      return Math.ceil(contentPad + catPad + gridGap + 2 * maxBtn + 16);
+    });
+  }
+
+  function _applyPresetPanelMinWidth() {
+    const panel = document.getElementById('edit-effects-panel');
+    if (!panel) return;
+    _editEffectsMinW = Math.max(240, _presetPanelMinWidth());
+    panel.style.minWidth = `${_editEffectsMinW}px`;
+    const saved = parseInt(localStorage.getItem('editEffectsPanelWidth') || '', 10);
+    const next = saved >= _editEffectsMinW ? saved : _editEffectsMinW;
+    panel.style.width = `${next}px`;
+  }
+
   function _buildEffectsPanel() {
     _buildEffectsPanelIn('effects-content', 'eff');
     if (document.getElementById('edit-effects-content')) {
       _buildEffectsPanelIn('edit-effects-content', 'ew-eff', 'presets');
       _buildEffectsPanelIn('edit-adjust-content', 'ew-eff', 'adjust');
       _ewEffectsBuilt = true;
+      requestAnimationFrame(() => _applyPresetPanelMinWidth());
     }
   }
 
@@ -4582,6 +5176,30 @@
 
   function _clearPresetActive(idPrefix) {
     _presetRoot(idPrefix)?.querySelectorAll('.preset-btn').forEach((b) => b.classList.remove('active'));
+  }
+
+  async function _applyEffectPreset(id, btn, idPrefix) {
+    _clearPresetActive(idPrefix);
+    if (btn) btn.classList.add('active');
+    const name = I18n.t(`effects.${id}`) || id;
+    const msg = (I18n.t('progress.effectNamed') || 'Applying {name}…').replace('{name}', name);
+    ProgressDialog.show({
+      title: I18n.t('progress.effectTitle') || 'Applying effect',
+      message: msg,
+      percent: 8,
+      modal: true,
+    });
+    ProgressDialog.startCreep(88);
+    await ProgressDialog.yieldFrame();
+    await ProgressDialog.yieldFrame();
+    try {
+      await Editor.applyPreset(id);
+      _syncSlidersFromEffects(idPrefix);
+      ProgressDialog.set(96);
+      await ProgressDialog.yieldFrame();
+    } finally {
+      ProgressDialog.hide(I18n.t('progress.effectDone') || 'Effect applied.');
+    }
   }
 
   function _buildEffectsPanelIn(containerId, idPrefix, mode = 'all') {
@@ -4784,20 +5402,37 @@
       { key: 'catCreative',  ids: ['neon', 'chrome', 'hdr', 'infrared', 'nightvision', 'thermal', 'dream', 'orton', 'cyanotype', 'watercolor', 'anime', 'comic', 'xray', 'emboss', 'edge', 'duotone', 'blueprint', 'miniature'] },
     ];
 
-    const _makePresetBtn = (id) => {
+    const FX_CAT_ICON = {
+      catFilmColor: '<svg viewBox="0 0 24 24"><path d="M18 3H6c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM8 19H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V9h2v2zm0-4H6V5h2v2zm10 12h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V9h2v2zm0-4h-2V5h2v2z"/></svg>',
+      catSlide:     '<svg viewBox="0 0 24 24"><path d="M1 5h4v14H1V5zm18 0h4v14h-4V5zM7 3h10c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm1 3v12l9-6-9-6z"/></svg>',
+      catBW:        '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/></svg>',
+      catInstant:   '<svg viewBox="0 0 24 24"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2zm1 3v8h10V6H7zm2 10h3v2H9v-2z"/></svg>',
+      catCinema:    '<svg viewBox="0 0 24 24"><path d="M18 4 20 8h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>',
+      catProcess:   '<svg viewBox="0 0 24 24"><path d="M6 2v2h1v3.17A7.002 7.002 0 0 0 5 14c0 3.87 3.13 7 7 7s7-3.13 7-7a7 7 0 0 0-2-4.83V4h1V2H6zm4 2h4v2.1A6.97 6.97 0 0 0 12 6c-.7 0-1.37.1-2 .28V4z"/></svg>',
+      catWarm:      '<svg viewBox="0 0 24 24"><path d="M6.76 4.84 5 3.07 3.58 4.5 5.35 6.26l1.41-1.42zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/></svg>',
+      catCool:      '<svg viewBox="0 0 24 24"><path d="M12 2 10.5 6H8l2.5 2.2L9.2 12 12 9.8 14.8 12l-1.3-3.8L16 6h-2.5L12 2zm-7 9 1.8 1.2L6 15l3.8-1.3L12 17l2.2-3.3L18 15l-.8-2.8L19 11h-5l-2 3-2-3H5z"/></svg>',
+      catBasic:     '<svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>',
+      catCreative:  '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01A1.49 1.49 0 0 1 14.22 16H16a5 5 0 0 0 5-5c0-4.42-4.03-8-9-8zM6.5 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>',
+      catMisc:      '<svg viewBox="0 0 24 24"><path d="M12 2 9.2 8.6 2 9.2l5.5 4.8L5.8 21 12 17.3 18.2 21l-1.7-7L22 9.2l-7.2-.6z"/></svg>',
+    };
+
+    const _makePresetBtn = (id, catKey) => {
       const label = _labelOf[id] || `effects.${id}`;
       const btn = document.createElement('button');
       btn.className = 'preset-btn';
-      btn.setAttribute('data-i18n', label);
-      btn.textContent = I18n.t(label);
       btn.dataset.preset = id;
+      btn.title = I18n.t(label);
+      const icon = document.createElement('span');
+      icon.className = 'preset-icon';
+      icon.innerHTML = FX_CAT_ICON[catKey] || FX_CAT_ICON.catMisc;
+      const lab = document.createElement('span');
+      lab.className = 'preset-label';
+      lab.setAttribute('data-i18n', label);
+      lab.textContent = I18n.t(label);
+      btn.appendChild(icon);
+      btn.appendChild(lab);
       if (activePreset === id) btn.classList.add('active');
-      btn.addEventListener('click', () => {
-        _clearPresetActive(idPrefix);
-        btn.classList.add('active');
-        Editor.applyPreset(id);
-        _syncSlidersFromEffects(idPrefix);
-      });
+      btn.addEventListener('click', () => { _applyEffectPreset(id, btn, idPrefix); });
       return btn;
     };
 
@@ -4805,6 +5440,7 @@
       if (!ids.length) return;
       const section = document.createElement('div');
       section.className = 'fx-cat';
+      section.dataset.cat = catKey;
       if (persist && localStorage.getItem(`fxCat:${catKey}`) === '1') section.classList.add('collapsed');
 
       const header = document.createElement('button');
@@ -4827,7 +5463,7 @@
 
       const body = document.createElement('div');
       body.className = 'fx-cat-body effect-presets';
-      ids.forEach((id) => body.appendChild(_makePresetBtn(id)));
+      ids.forEach((id) => body.appendChild(_makePresetBtn(id, catKey)));
 
       section.appendChild(header);
       section.appendChild(body);
@@ -5555,11 +6191,6 @@
       if (!ok) return;
     }
 
-    if (window.electronAPI.windowGetBounds) {
-      try { _savedMainBounds = await window.electronAPI.windowGetBounds(); }
-      catch { _savedMainBounds = null; }
-    }
-
     // Build the effects panel inside the edit window (first time)
     _buildEditEffectsPanel();
 
@@ -5572,6 +6203,7 @@
     _updateMediaControlsVisibility();
     _dicomSyncBar();
     _ewSyncTitle();
+    _updateStatus({ zoom: true, dims: true });
 
     Editor.clearSelection();
     _setTool('pointer');
@@ -5586,26 +6218,126 @@
     _initEditWindowOnce();
 
     requestAnimationFrame(() => {
-      requestAnimationFrame(async () => {
-        const minW = _editMinWidth();
-        _appliedMinWidth = minW;
-        try {
-          const height = Math.max(600, _savedMainBounds?.height || 600);
-          if (window.electronAPI.windowApplySize) {
-            await window.electronAPI.windowApplySize({
-              width: minW,
-              height,
-              minWidth: minW,
-              minHeight: 600,
-            });
-          } else {
-            window.electronAPI.windowSetMinSize?.(minW, 600);
-          }
-        } catch (e) {
-          console.warn('edit window size:', e);
-        }
-        _ewFit();
+      _syncWindowMinSize({ force: true });
+      _ewFit();
+    });
+  }
+
+  function _editWindowOpen() {
+    return !!document.getElementById('edit-window')?.classList.contains('visible');
+  }
+
+  let _confirmFinish = null;
+
+  function _appConfirm({
+    title = '',
+    message = '',
+    detail = '',
+    buttons = ['OK'],
+    defaultId = 0,
+    cancelId = buttons.length - 1,
+    icon = 'save',
+  } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('confirm-overlay');
+      const titleEl = document.getElementById('confirm-title');
+      const iconEl = document.getElementById('confirm-title-icon');
+      const msgEl = document.getElementById('confirm-message');
+      const detailEl = document.getElementById('confirm-detail');
+      const footer = document.getElementById('confirm-footer');
+      const closeBtn = document.getElementById('confirm-close');
+      if (!overlay || !footer) {
+        resolve({ response: cancelId, canceled: true });
+        return;
+      }
+
+      if (titleEl) titleEl.textContent = title;
+      if (iconEl) {
+        iconEl.dataset.icon = icon;
+        iconEl.innerHTML = (window.Icons && Icons[icon]) || iconEl.innerHTML || '';
+      }
+      if (msgEl) msgEl.textContent = message;
+      if (detailEl) {
+        const text = String(detail || '').trim();
+        detailEl.hidden = !text;
+        detailEl.textContent = text;
+      }
+
+      footer.replaceChildren();
+      let settled = false;
+      const finish = (response, canceled) => {
+        if (settled) return;
+        settled = true;
+        _confirmFinish = null;
+        overlay.style.display = 'none';
+        overlay.classList.remove('visible');
+        resolve({ response, canceled: !!canceled });
+      };
+      _confirmFinish = () => finish(cancelId, true);
+
+      buttons.forEach((label, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = label;
+        if (i === defaultId) btn.classList.add('primary');
+        btn.addEventListener('click', () => finish(i, i === cancelId));
+        footer.appendChild(btn);
       });
+      closeBtn?.addEventListener('click', _confirmFinish, { once: true });
+
+      overlay.style.display = 'flex';
+      overlay.classList.add('visible');
+      footer.querySelector('.primary')?.focus();
+    });
+  }
+
+  async function _saveRelatedPrompt(opts) {
+    if (_editWindowOpen() || !window.electronAPI?.showMessageBox) {
+      return _appConfirm(opts);
+    }
+    return window.electronAPI.showMessageBox(opts);
+  }
+
+  let _unsavedFinish = null;
+
+  function _fillDataIcons(root) {
+    (root || document).querySelectorAll('[data-icon]').forEach((el) => {
+      const name = el.dataset.icon;
+      if (name && window.Icons && Icons[name] && !el.querySelector('svg')) {
+        el.innerHTML = Icons[name];
+      }
+    });
+  }
+
+  function _unsavedPrompt() {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('unsaved-overlay');
+      if (!overlay) {
+        resolve({ response: 2, canceled: true });
+        return;
+      }
+      _fillDataIcons(overlay);
+      let settled = false;
+      const finish = (response, canceled) => {
+        if (settled) return;
+        settled = true;
+        _unsavedFinish = null;
+        overlay.style.display = 'none';
+        overlay.classList.remove('visible');
+        resolve({ response, canceled: !!canceled });
+      };
+      _unsavedFinish = () => finish(2, true);
+      const bind = (id, response, canceled) => {
+        const el = document.getElementById(id);
+        if (el) el.onclick = () => finish(response, canceled);
+      };
+      bind('unsaved-save', 0, false);
+      bind('unsaved-dont', 1, false);
+      bind('unsaved-cancel', 2, true);
+      bind('unsaved-close', 2, true);
+      overlay.style.display = 'flex';
+      overlay.classList.add('visible');
+      document.getElementById('unsaved-save')?.focus();
     });
   }
 
@@ -5628,19 +6360,7 @@
     if (_editClosePrompting) return false;
     _editClosePrompting = true;
     try {
-      const t = I18n.t.bind(I18n);
-      const result = await window.electronAPI.showMessageBox({
-        type: 'question',
-        title: t('dialog.unsaved.title') || 'Unsaved Changes',
-        message: t('dialog.unsaved.message') || 'You have unsaved changes.\nDo you want to save before closing?',
-        buttons: [
-          t('dialog.unsaved.save') || 'Save',
-          t('dialog.unsaved.dontSave') || "Don't Save",
-          t('dialog.unsaved.cancel') || 'Cancel',
-        ],
-        defaultId: 0,
-        cancelId: 2,
-      });
+      const result = await _unsavedPrompt();
       if (result.response === 2 || result.canceled) return false;
       if (result.response === 0) {
         const saved = await _saveAs(false, { useChangedName: true });
@@ -5709,21 +6429,8 @@
     _updateUndoRedoBtns();
     _dicomSyncBar();
 
-    const saved = _savedMainBounds;
-    _savedMainBounds = null;
     requestAnimationFrame(() => {
-      const minW = _mainMinWidth();
-      _appliedMinWidth = minW;
-      if (saved && !saved.maximized && window.electronAPI.windowApplySize) {
-        window.electronAPI.windowApplySize({
-          width: saved.width,
-          height: saved.height,
-          minWidth: minW,
-          minHeight: 600,
-        });
-      } else {
-        window.electronAPI.windowSetMinSize?.(minW, 600);
-      }
+      _syncWindowMinSize({ force: true });
       if (_isEditableImage()) _fitToWindow();
     });
   }
@@ -5750,6 +6457,7 @@
     ['ew-flip-h',    'flipH',       'toolbar.flipH',        () => { _flip('h'); }],
     ['ew-flip-v',    'flipV',       'toolbar.flipV',        () => { _flip('v'); }],
     ['ew-resize',    'resize',      'toolbar.resize',       () => { _openResizeDialog(); }],
+    ['ew-print',     'print',       'toolbar.print',        () => { _openPrintPreview(); }],
     ['ew-undo',      'undo',        'editWindow.undo',      () => { _undoEdit(); }],
     ['ew-redo',      'redo',        'editWindow.redo',      () => { _redoEdit(); }],
     ['ew-zoom-in',   'zoomIn',      'toolbar.zoomIn',       () => _ewZoomBy(1.25)],
@@ -5773,6 +6481,10 @@
     _ewActionIconMap.forEach(([id, icon]) => {
       const btn = document.getElementById(id);
       if (btn) btn.innerHTML = Icons[icon] || '';
+    });
+    document.querySelectorAll('#ew-save .ew-action-icon, #ew-cancel .ew-action-icon, #ew-apply .ew-action-icon').forEach((el) => {
+      const name = el.dataset.icon;
+      if (name && Icons[name]) el.innerHTML = Icons[name];
     });
   }
 
@@ -5804,6 +6516,16 @@
     });
 
     _syncEditThemeLangBtns();
+    const ewZoom = document.getElementById('ew-zoom-display');
+    ewZoom?.addEventListener('change', () => {
+      const val = parseFloat(ewZoom.value);
+      if (!isNaN(val) && val > 0) _ewZoomTo(val / 100);
+      else _updateZoomDisplay();
+    });
+    ewZoom?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') ewZoom.blur();
+    });
+
     document.getElementById('ew-theme')?.addEventListener('click', () => { _nextTheme(); });
     document.getElementById('ew-lang')?.addEventListener('click', () => { _toggleLang(); });
     document.getElementById('ew-settings')?.addEventListener('click', () => { _openSettings(); });
@@ -5889,6 +6611,7 @@
 
     const tolWrap = document.getElementById('ew-tolerance-wrap');
     if (tolWrap) tolWrap.style.display = tool === 'magic-wand' ? 'flex' : 'none';
+    requestAnimationFrame(() => { _syncEditChromeMinSize(); });
 
     editCanvasArea.classList.remove('drag-mode','select-mode');
     if (tool === 'pointer') {
@@ -6012,18 +6735,21 @@
       { icon: Icons.flipH,       label: t('menu.flipHorizontal'), action: () => { _flip('h'); } },
       { icon: Icons.flipV,       label: t('menu.flipVertical'),   action: () => { _flip('v'); } },
       { icon: Icons.resize,      label: t('context.resize'),      action: () => { _openResizeDialog(); } },
+      { icon: Icons.print,       label: t('menu.print'),          shortcut: 'Ctrl+P', action: () => { _openPrintPreview(); } },
       { separator: true },
       { icon: Icons.undo, label: t('editWindow.undo'), disabled: !Editor.canUndo(), action: () => { _undoEdit(); } },
       { icon: Icons.redo,  label: t('editWindow.redo'), disabled: !Editor.canRedo(), action: () => { _redoEdit(); } },
       { separator: true },
       { icon: Icons.effects, label: t('effects.reset'), action: () => { Editor.resetEffects(); _syncSlidersFromEffects('ew-eff'); document.getElementById('edit-effects-content')?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); } },
-    ]);
+      ..._imageFileOsMenuItems(),
+    ].filter(Boolean));
   }
 
   function _buildEditEffectsPanel() {
     _buildEffectsPanelIn('edit-effects-content', 'ew-eff', 'presets');
     _buildEffectsPanelIn('edit-adjust-content', 'ew-eff', 'adjust');
     _ewEffectsBuilt = true;
+    requestAnimationFrame(() => _applyPresetPanelMinWidth());
   }
 
   /* Effects panel buttons */
@@ -6138,7 +6864,9 @@
     const ext = savePath.split('.').pop().toLowerCase();
     const fmtMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp' };
     const format  = fmtMap[ext] || 'image/png';
-    const quality = (format === 'image/jpeg' || format === 'image/webp') ? 0.92 : undefined;
+    const quality = (format === 'image/jpeg' || format === 'image/webp')
+      ? (Number.isFinite(dlgResult.quality) ? dlgResult.quality : 0.92)
+      : undefined;
 
     const writeResult = await _runOpWithProgress(async (dlg) => {
       const dataUrl = quality !== undefined
@@ -6149,22 +6877,28 @@
       const wr = await window.electronAPI.writeFile({ filePath: savePath, dataUrl });
       if (wr && wr.success) {
         dlg?.set(90);
-        try { await FileTree.refresh(); } catch (_) { /* ignore */ }
+        try { await FileTree.refresh({ force: true }); } catch (_) { /* ignore */ }
       }
       return wr;
-    }, { messageKey: 'progress.saving', kind: 'encode' });
+    }, {
+      messageKey: 'progress.saving',
+      kind: 'encode',
+      force: _editWindowOpen(),
+    });
 
     if (!writeResult || writeResult.error === 'export') return false;
     if (writeResult && writeResult.success) {
       _clearDirty();
       const msg = I18n.t('status.saved') || `Saved: ${savePath.split(/[/\\]/).pop()}`;
       _updateStatus({ msg });
-      await window.electronAPI.showMessageBox({
-        type: 'info',
+      await _saveRelatedPrompt({
         title: I18n.t('dialog.save.title') || 'Saved',
         message: I18n.t('dialog.save.success') || 'File saved successfully.',
         detail: savePath,
-        buttons: ['OK'],
+        buttons: [I18n.t('error.ok') || 'OK'],
+        defaultId: 0,
+        cancelId: 0,
+        icon: 'save',
       });
       if (andClose) window.electronAPI.closeWindow();
       return true;
@@ -6795,8 +7529,11 @@
 
     const stats = await window.electronAPI.getFileStats(filePath);
     const meta = await _ensureImageMeta(filePath, dicomMeta);
-    // Always overlay live player metrics for open A/V
-    if (meta) {
+    // Overlay live player metrics — but only for the file the player actually holds
+    // (the contact sheet previews other files through this same function).
+    const isOpenFile = !!state.currentFile &&
+      _normWatchPath(state.currentFile) === _normWatchPath(filePath);
+    if (meta && isOpenFile) {
       const basic = meta.basic || (meta.basic = {});
       if (state.isVideo && videoEl) {
         if (videoEl.videoWidth) basic.width = videoEl.videoWidth;
@@ -6807,7 +7544,8 @@
         if (Number.isFinite(audioEl.duration) && audioEl.duration > 0) basic.duration = audioEl.duration;
       }
     }
-    const sections = _collectInfoSections(filePath, stats, meta, state.dicomMeta);
+    const sections = _collectInfoSections(filePath, stats, meta,
+      isOpenFile ? state.dicomMeta : null);
     infoContent.innerHTML = _renderInfoSections(sections)
       || `<div class="info-no-file" data-i18n="info.noFile">${I18n.t('info.noFile')}</div>`;
     _reflowInfoPanel();
@@ -6815,10 +7553,7 @@
 
   function _reflowInfoPanel() {
     if (!infoContent) return;
-    const panel = document.getElementById('info-panel');
     requestAnimationFrame(() => {
-      if (panel) void panel.offsetHeight;
-      void infoContent.offsetWidth;
       const y = infoContent.scrollTop;
       infoContent.scrollTop = y + 1;
       infoContent.scrollTop = y;
@@ -6855,14 +7590,23 @@
   ════════════════════════════════════════════ */
   function _updateStatus({ filePath, zoom, dims, msg, dicomMeta } = {}) {
     const pct = Math.round(state.zoom * 100);
-    if (statusZoom) statusZoom.textContent = `${I18n.t('status.zoom')}: ${pct}%`;
+    const zoomText = `${I18n.t('status.zoom')}: ${pct}%`;
+    if (statusZoom) statusZoom.textContent = zoomText;
+    const ewZoom = document.getElementById('ew-status-zoom');
+    if (ewZoom) ewZoom.textContent = zoomText;
 
+    let dimText = null;
     if (Editor.isLoaded()) {
       const d = Editor.getDimensions();
-      if (statusDims) statusDims.textContent = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
+      dimText = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
     } else if (state.isAnimated || state.isVideo) {
       const d = _getViewerDims();
-      if (statusDims && d.w && d.h) statusDims.textContent = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
+      if (d.w && d.h) dimText = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
+    }
+    if (dimText) {
+      if (statusDims) statusDims.textContent = dimText;
+      const ewDims = document.getElementById('ew-status-dims');
+      if (ewDims) ewDims.textContent = dimText;
     }
 
     if (statusIdx && state.fileList.length > 0) {
@@ -6870,7 +7614,7 @@
         `${I18n.t('status.index')} ${state.fileIndex + 1} ${I18n.t('status.of')} ${state.fileList.length}`;
     }
 
-    if (state.currentFile && statusFmt) {
+    if (state.currentFile) {
       let fmt = FormatSupport.getExtension(state.currentFile).toUpperCase();
       const d = state.dicom;
       if (d) {
@@ -6881,10 +7625,16 @@
         else if (d.gray && Number.isFinite(d.state.wc)) bits.push(`C ${_dicomFmt(d.state.wc)} / W ${_dicomFmt(d.state.ww)}`);
         if (bits.length) fmt += ` · ${bits.join(' · ')}`;
       }
-      statusFmt.textContent = fmt;
+      if (statusFmt) statusFmt.textContent = fmt;
+      const ewFmt = document.getElementById('ew-status-format');
+      if (ewFmt) ewFmt.textContent = fmt;
     }
 
-    if (msg && statusMsg) statusMsg.textContent = msg;
+    if (msg) {
+      if (statusMsg) statusMsg.textContent = msg;
+      const ewMsg = document.getElementById('ew-status-msg');
+      if (ewMsg) ewMsg.textContent = msg;
+    }
   }
 
   /* ════════════════════════════════════════════
@@ -7025,14 +7775,37 @@
     return new Promise(resolve => { _errorResolve = resolve; });
   }
 
-  /** Modal progress dialog with bar + percent (used by bg-remove algorithms). */
+  /** Status-bar progress; optional modal for long edit-window work. */
   const ProgressDialog = (() => {
     let _percent = 0;
     let _creepTimer = null;
     let _creepCap = 90;
     let _visible = false;
+    let _active = false;
+    let _message = '';
+    let _modal = false;
+    let _doneTimer = null; // leftover timer from a previous finish, if any
 
-    function _els() {
+    function _elsList() {
+      return [
+        {
+          wrap: document.getElementById('status-progress'),
+          message: document.getElementById('status-progress-msg'),
+          fill: document.getElementById('status-progress-fill'),
+          bar: document.getElementById('status-progress-bar'),
+          pct: document.getElementById('status-progress-pct'),
+        },
+        {
+          wrap: document.getElementById('ew-status-progress'),
+          message: document.getElementById('ew-status-progress-msg'),
+          fill: document.getElementById('ew-status-progress-fill'),
+          bar: document.getElementById('ew-status-progress-bar'),
+          pct: document.getElementById('ew-status-progress-pct'),
+        },
+      ].filter((e) => e.wrap);
+    }
+
+    function _modalEls() {
       return {
         overlay: document.getElementById('progress-overlay'),
         title: document.getElementById('progress-title'),
@@ -7043,46 +7816,108 @@
       };
     }
 
-    function _paint(message) {
-      const e = _els();
-      const shown = Math.round(_percent);
-      if (e.fill) e.fill.style.width = `${shown}%`;
-      if (e.pct) e.pct.textContent = `${shown}%`;
-      if (e.bar) e.bar.setAttribute('aria-valuenow', String(shown));
-      if (message != null && e.message) e.message.textContent = message;
+    function _setModalVisible(on, title) {
+      const m = _modalEls();
+      if (!m.overlay) return;
+      if (on) {
+        if (m.title && title) m.title.textContent = title;
+        m.overlay.style.display = 'flex';
+        m.overlay.classList.add('visible');
+      } else {
+        m.overlay.style.display = 'none';
+        m.overlay.classList.remove('visible');
+      }
     }
 
-    function show({ title, message, percent } = {}) {
-      const e = _els();
-      if (!e.overlay) return;
+    function _paint(message) {
+      const shown = Math.round(_percent);
+      if (message != null) _message = message;
+      for (const e of _elsList()) {
+        if (e.fill) e.fill.style.width = `${shown}%`;
+        if (e.pct) e.pct.textContent = `${shown}%`;
+        if (e.bar) e.bar.setAttribute('aria-valuenow', String(shown));
+        if (e.message) e.message.textContent = _message;
+      }
+      if (!_modal) return;
+      const m = _modalEls();
+      if (m.fill) m.fill.style.width = `${shown}%`;
+      if (m.pct) m.pct.textContent = `${shown}%`;
+      if (m.bar) m.bar.setAttribute('aria-valuenow', String(shown));
+      if (m.message) m.message.textContent = _message;
+    }
+
+    function _setDoneUi(on) {
+      for (const e of _elsList()) e.wrap.classList.toggle('is-done', !!on);
+    }
+
+    function _cancelDoneTimer() {
+      if (_doneTimer) {
+        clearTimeout(_doneTimer);
+        _doneTimer = null;
+      }
+    }
+
+    function _snapFill(widthPct) {
+      const fills = _elsList().map((e) => e.fill).filter(Boolean);
+      if (_modal) {
+        const m = _modalEls();
+        if (m.fill) fills.push(m.fill);
+      }
+      for (const fill of fills) {
+        fill.style.transition = 'none';
+        fill.style.width = `${widthPct}%`;
+        void fill.offsetWidth;
+        fill.style.transition = '';
+      }
+    }
+
+    function enableModal(title) {
+      if (_modal) return;
+      _modal = true;
+      _setModalVisible(true, title || '');
+      _paint();
+    }
+
+    function show({ title, message, percent, modal } = {}) {
+      _cancelDoneTimer();
       stopCreep();
       _percent = 0;
+      _active = true;
       _visible = true;
-      if (e.title) e.title.textContent = title || I18n.t('progress.title') || 'Progress';
-      if (e.message) e.message.textContent = message || '';
-      set(percent != null ? percent : 0, message, true);
-      e.overlay.style.display = 'flex';
-      e.overlay.classList.add('visible');
+      _modal = !!modal;
+      for (const e of _elsList()) {
+        e.wrap.hidden = false;
+        e.wrap.classList.remove('is-done');
+      }
+      _setModalVisible(_modal, title || '');
+      _snapFill(0);
+      set(percent != null ? percent : 0, message || title || '', true);
     }
 
     /** @param {boolean} [force] allow decreasing (reset) */
     function set(percent, message, force) {
+      if (!_active) return;
+      _visible = true;
+      for (const e of _elsList()) e.wrap.hidden = false;
       const raw = Math.max(0, Math.min(100, Number(percent) || 0));
       _percent = force ? raw : Math.max(_percent, raw);
       _paint(message);
     }
 
-    function hide() {
+    function hide(resultMessage) {
       stopCreep();
+      const list = _elsList();
+      const wasShown = _active || _modal || list.some((e) => !e.wrap.hidden);
+      _active = false;
       _visible = false;
-      const e = _els();
-      if (!e.overlay) return;
-      e.overlay.classList.remove('visible');
-      e.overlay.style.display = 'none';
-      _percent = 0;
-      _paint();
-      if (e.fill) e.fill.style.width = '0%';
-      if (e.pct) e.pct.textContent = '0%';
+      if (!wasShown) return;
+      const done = resultMessage != null ? resultMessage : (I18n.t('progress.done') || 'Loading Done.');
+      _percent = 100;
+      _paint(done);
+      _setDoneUi(true);
+      for (const e of list) e.wrap.hidden = false;
+      if (_modal) _setModalVisible(false);
+      _modal = false;
     }
 
     /** Slowly advance toward `cap` while inference runs (no true ORT %). */
@@ -7090,10 +7925,10 @@
       stopCreep();
       _creepCap = cap;
       _creepTimer = setInterval(() => {
-        if (_percent >= _creepCap) return;
-        const step = _percent < 50 ? 1.2 : _percent < 75 ? 0.6 : 0.25;
+        if (!_active || _percent >= _creepCap) return;
+        const step = _percent < 50 ? 2.4 : _percent < 75 ? 1.2 : 0.5;
         set(Math.min(_creepCap, _percent + step));
-      }, 400);
+      }, 200);
     }
 
     function stopCreep() {
@@ -7112,7 +7947,7 @@
       });
     }
 
-    return { show, set, hide, startCreep, stopCreep, yieldFrame, isVisible: () => _visible };
+    return { show, set, hide, startCreep, stopCreep, yieldFrame, enableModal, isVisible: () => _visible };
   })();
   window._ProgressDialog = ProgressDialog;
 
@@ -7129,19 +7964,26 @@
       title: mode === 'move' ? t('dialog.moveToFolder') : t('dialog.copyToFolder'),
     });
     if (!picked || picked.canceled || !picked.filePath) return;
-    const destDir = picked.filePath;
+    await _transferPathsInto(paths, picked.filePath, mode);
+  }
+
+  /** Copy or move the given paths into destDir, refresh the tree and report the outcome. */
+  async function _transferPathsInto(paths, destDir, mode) {
+    const t = I18n.t.bind(I18n);
+    if (!paths?.length || !destDir) return false;
+    const isMove = mode === 'move' || mode === 'cut';
 
     const result = await _runOpWithProgress(async (dlg) => {
       const transfer = await window.electronAPI.transferIntoDir({
         sources: paths,
         destDir,
-        mode: mode === 'move' ? 'move' : 'copy',
+        mode: isMove ? 'move' : 'copy',
       });
       dlg?.set(88, I18n.t('progress.applying') || 'Applying result…');
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
       return transfer;
     }, {
-      messageKey: mode === 'move' ? 'progress.moving' : 'progress.copyingFiles',
+      messageKey: isMove ? 'progress.moving' : 'progress.copyingFiles',
       delayMs: 200,
       force: paths.length >= 5,
     });
@@ -7150,11 +7992,11 @@
       _updateStatus({
         msg: (t('status.dropError') || 'Error: {msg}').replace('{msg}', result.error),
       });
-      return;
+      return false;
     }
 
     const done = (result.results || []).filter((r) => r.dest && !r.skipped);
-    if (mode === 'move') {
+    if (isMove) {
       for (const r of done) {
         FileTree.forgetPath(r.src);
         const cur = state.currentFile;
@@ -7168,10 +8010,72 @@
       }
     }
 
-    const key = mode === 'move' ? 'status.moved' : 'status.copied';
+    const key = isMove ? 'status.moved' : 'status.copied';
     let msg = (t(key) || '{n}').replace('{n}', String(done.length));
     if (result.errors?.length) msg += ` (${result.errors.length} failed)`;
     _updateStatus({ msg });
+    return true;
+  }
+
+  /* ─── File clipboard: Explorer-style copy / cut / paste inside the tree ─── */
+  let _fileClipboard = { paths: [], mode: 'copy' };
+
+  function _clipboardHasFiles() {
+    return _fileClipboard.paths.length > 0;
+  }
+
+  function _clipboardSetFiles(paths, mode) {
+    const list = (paths || []).filter(Boolean);
+    if (!list.length) return;
+    _fileClipboard = { paths: list, mode: mode === 'cut' ? 'cut' : 'copy' };
+    const key = mode === 'cut' ? 'tree.clipCut' : 'tree.clipCopied';
+    _updateStatus({ msg: (I18n.t(key) || '{n}').replace('{n}', String(list.length)) });
+  }
+
+  /** Folder a paste lands in: the entry itself when it is a folder, else its parent. */
+  async function _pasteTargetDir(entry) {
+    if (!entry || !entry.path) return FileTree.getRoot();
+    if (entry.isDirectory) return entry.path;
+    try { return await window.electronAPI.pathDirname(entry.path); } catch { return FileTree.getRoot(); }
+  }
+
+  async function _pasteFilesInto(destDir) {
+    if (!destDir || !_clipboardHasFiles()) return;
+    const { paths, mode } = _fileClipboard;
+    const ok = await _transferPathsInto(paths, destDir, mode);
+    if (ok && mode === 'cut') _fileClipboard = { paths: [], mode: 'copy' };
+  }
+
+  /** Clipboard items for the tree menus (Explorer order: copy · cut · paste). */
+  function _treeClipboardItems(paths, entry) {
+    const t = I18n.t.bind(I18n);
+    if (window.electronAPI.platform === 'web') return [];
+    const n = paths.length;
+    const count = n > 1 ? ` (${n})` : '';
+    return [
+      { separator: true },
+      { icon: Icons.copy, label: t('context.copy') + count, shortcut: 'Ctrl+C',
+        disabled: !n, action: () => _clipboardSetFiles(paths, 'copy') },
+      { icon: Icons.cut, label: t('context.cut') + count, shortcut: 'Ctrl+X',
+        disabled: !n, action: () => _clipboardSetFiles(paths, 'cut') },
+      { icon: Icons.paste, label: t('context.paste'), shortcut: 'Ctrl+V',
+        disabled: !_clipboardHasFiles(),
+        action: async () => _pasteFilesInto(await _pasteTargetDir(entry)) },
+    ];
+  }
+
+  /** Menu for empty space in the tree — paste into the folder currently in view. */
+  function _showTreeBlankContextMenu(x, y) {
+    const t = I18n.t.bind(I18n);
+    const root = FileTree.getRoot();
+    const isWeb = window.electronAPI.platform === 'web';
+    ContextMenu.show(x, y, [
+      { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
+      !isWeb && { separator: true },
+      !isWeb && { icon: Icons.paste, label: t('context.paste'), shortcut: 'Ctrl+V',
+        disabled: !_clipboardHasFiles() || !root,
+        action: () => _pasteFilesInto(root) },
+    ].filter(Boolean));
   }
 
   function _showTreeContextMenu(entry, x, y) {
@@ -7189,6 +8093,7 @@
       return p === entry.path || (entry.path && p.toLowerCase() === entry.path.toLowerCase());
     });
     const exportPaths = isMulti ? multiPaths : [entry.path];
+    const printables = (isMulti ? multiPaths : [entry.path]).filter((p) => FormatSupport.isImage?.(p));
 
     if (isMulti && isFile) {
       // Multi-selection context menu
@@ -7202,8 +8107,12 @@
           action: () => _exportSelectionToFolder(multiPaths, 'copy') },
         !isWeb && { icon: Icons.cut, label: `${t('context.moveToFolder')} (${multiPaths.length})`,
           action: () => _exportSelectionToFolder(multiPaths, 'move') },
+        ..._treeClipboardItems(multiPaths, entry),
+        printables.length && { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P',
+          action: () => _printPath(printables[0]) },
         !isWeb && { separator: true },
         !isWeb && { icon: Icons.delete, label: `${t('context.deleteFile')} (${multiPaths.length})`,
+          danger: true,
           action: async () => {
             const result = await window.electronAPI.showMessageBox({
               type: 'warning',
@@ -7219,7 +8128,7 @@
               FileTree.forgetPath(p);
               if (state.currentFile === p) { state.currentFile = null; _showPlaceholder(true); _clearDirty(); }
             }
-            await FileTree.refresh();
+            await FileTree.refresh({ force: true });
             if (state.currentFile) {
               const dir = await window.electronAPI.pathDirname(state.currentFile);
               state.fileList = await FileTree.getImageFilesInDir(dir);
@@ -7240,17 +8149,157 @@
       isDir  &&          { icon: Icons.openFolder, label: t('context.openFolder'),    action: () => _openFolder(entry.path) },
       { separator: true },
       isFile && isSup && { icon: Icons.save,       label: t('context.saveAs'),        action: async () => { await _openFile(entry.path); _saveAs(); } },
+      isFile && FormatSupport.isImage?.(entry.path) && { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P',
+        action: () => _printPath(entry.path) },
       isFile &&          { icon: Icons.copy,       label: t('tree.copyPath'), action: () => navigator.clipboard.writeText(entry.path).catch(() => {}) },
       !isWeb && { icon: Icons.copy, label: t('context.copyToFolder'),
         action: () => _exportSelectionToFolder(exportPaths, 'copy') },
       !isWeb && { icon: Icons.cut, label: t('context.moveToFolder'),
         action: () => _exportSelectionToFolder(exportPaths, 'move') },
+      ..._treeClipboardItems(exportPaths, entry),
       !isWeb && { separator: true },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), action: () => window.electronAPI.showItemInFolder(entry.path) },
       !isWeb && { separator: true },
+      !isWeb && !entry.isDrive && { icon: Icons.edit, label: t('context.rename'),
+        action: () => _renameEntry(entry.path, isDir) },
       !isWeb && { icon: Icons.delete, label: isDir ? (t('context.deleteFolder') || t('context.deleteFile')) : t('context.deleteFile'),
-        action: () => _deleteFile(entry.path) },
+        danger: true, action: () => _deleteFile(entry.path) },
     ].filter(Boolean));
+  }
+
+  async function _printPath(filePath) {
+    if (!filePath) return;
+    const same = state.currentFile &&
+      String(state.currentFile).replace(/\\/g, '/').toLowerCase() ===
+      String(filePath).replace(/\\/g, '/').toLowerCase();
+    if (!same) await _openFile(filePath);
+    _openPrintPreview();
+  }
+
+  function _rewriteChildPath(p, fromPath, toPath) {
+    if (!p || !fromPath || !toPath) return p;
+    const sep = /\\/.test(fromPath) ? '\\' : '/';
+    const norm = (s) => String(s).replace(/[/\\]+/g, sep).replace(/[\\/]+$/, '');
+    const np = norm(p);
+    const nf = norm(fromPath);
+    const nt = norm(toPath);
+    if (np.toLowerCase() === nf.toLowerCase()) return toPath;
+    if (np.toLowerCase().startsWith((nf + sep).toLowerCase())) return nt + np.slice(nf.length);
+    return p;
+  }
+
+  let _renameFinish = null;
+
+  function _promptRename(currentName, isDir) {
+    const t = I18n.t.bind(I18n);
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('rename-overlay');
+      const input = document.getElementById('rename-input');
+      const errEl = document.getElementById('rename-error');
+      const label = document.getElementById('rename-label');
+      const title = document.getElementById('rename-title');
+      const iconEl = document.getElementById('rename-title-icon');
+      const okBtn = document.getElementById('rename-ok');
+      const cancelBtn = document.getElementById('rename-cancel');
+      const closeBtn = document.getElementById('rename-close');
+      if (!overlay || !input) {
+        resolve(null);
+        return;
+      }
+      if (title) title.textContent = t('context.rename');
+      if (label) label.textContent = t(isDir ? 'dialog.rename.folder' : 'dialog.rename.file');
+      if (iconEl) {
+        iconEl.dataset.icon = 'edit';
+        iconEl.innerHTML = (window.Icons && Icons.edit) || '';
+      }
+      if (errEl) { errEl.hidden = true; errEl.textContent = ''; }
+      input.value = currentName || '';
+      let settled = false;
+      const onKey = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); submit(); }
+        if (e.key === 'Escape') { e.preventDefault(); finish(null); }
+      };
+      const cleanup = () => {
+        okBtn?.removeEventListener('click', submit);
+        cancelBtn?.removeEventListener('click', onCancel);
+        closeBtn?.removeEventListener('click', onCancel);
+        input.removeEventListener('keydown', onKey);
+      };
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        _renameFinish = null;
+        overlay.style.display = 'none';
+        overlay.classList.remove('visible');
+        resolve(value);
+      };
+      const onCancel = () => finish(null);
+      const submit = () => {
+        const name = String(input.value || '').trim();
+        if (!name || name === '.' || name === '..' || /[\\/:*?"<>|]/.test(name)) {
+          if (errEl) {
+            errEl.hidden = false;
+            errEl.textContent = t('dialog.rename.invalid');
+          }
+          input.focus();
+          input.select();
+          return;
+        }
+        finish(name);
+      };
+      _renameFinish = onCancel;
+      okBtn?.addEventListener('click', submit);
+      cancelBtn?.addEventListener('click', onCancel);
+      closeBtn?.addEventListener('click', onCancel);
+      input.addEventListener('keydown', onKey);
+      overlay.style.display = 'flex';
+      overlay.classList.add('visible');
+      requestAnimationFrame(() => { input.focus(); input.select(); });
+    });
+  }
+
+  async function _renameEntry(filePath, isDir) {
+    if (!filePath || window.electronAPI.platform === 'web') return;
+    const t = I18n.t.bind(I18n);
+    const currentName = filePath.split(/[/\\]/).pop();
+    const nextName = await _promptRename(currentName, isDir);
+    if (!nextName || nextName === currentName) return;
+    const res = await window.electronAPI.renamePath(filePath, nextName);
+    if (!res || res.error) {
+      const msg = res?.error === 'exists' ? t('dialog.rename.exists')
+        : res?.error === 'Invalid name' ? t('dialog.rename.invalid')
+        : (t('dialog.rename.error') + (res?.error ? `\n${res.error}` : ''));
+      _showError(msg, null, t('context.rename'));
+      return;
+    }
+    const dest = res.path || filePath;
+    FileTree.remapPath?.(filePath, dest);
+    if (state.currentFile) state.currentFile = _rewriteChildPath(state.currentFile, filePath, dest);
+    if (Array.isArray(state.fileList)) {
+      state.fileList = state.fileList.map((p) => _rewriteChildPath(p, filePath, dest));
+      state.fileIndex = state.currentFile ? state.fileList.indexOf(state.currentFile) : -1;
+    }
+    const recents = _getRecentDirs().map((p) => _rewriteChildPath(p, filePath, dest));
+    try { localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(recents)); } catch {}
+    const last = localStorage.getItem('lastOpenedDir');
+    if (last) {
+      const nextLast = _rewriteChildPath(last, filePath, dest);
+      localStorage.setItem('lastOpenedDir', nextLast);
+      window.electronAPI.setLastOpenDir?.(nextLast);
+    }
+    if (_watchedDir) {
+      const nextWatch = _rewriteChildPath(_watchedDir, filePath, dest);
+      if (nextWatch !== _watchedDir) await _watchDir(nextWatch);
+    }
+    if (_watchedFile) {
+      const nextFile = _rewriteChildPath(_watchedFile, filePath, dest);
+      if (nextFile !== _watchedFile) await _watchCurrentFile(nextFile);
+    }
+    await FileTree.refresh({ force: true });
+    FileTree.setSelected?.(state.currentFile || dest);
+    _updateStatus();
+    if (state.currentFile) _updateInfoPanel(state.currentFile);
   }
 
   async function _deleteFile(filePath) {
@@ -7270,6 +8319,8 @@
       cancelId: 1,
     });
     if (result.response !== 0) return;
+
+    if (state.editMode) _closeEditWindow(false);
 
     try {
       await _runOpWithProgress(async () => {
@@ -7312,7 +8363,7 @@
         _updateNavButtons();
       }
 
-      await FileTree.refresh();
+      await FileTree.refresh({ force: true });
 
       try {
         const parent = await window.electronAPI.pathDirname(filePath);
@@ -7331,7 +8382,6 @@
     const hasImg = _isEditableImage();
     const hasSel = hasImg && Editor.hasSelection();
     const t = I18n.t.bind(I18n);
-    const isWeb = window.electronAPI.platform === 'web';
     const isAv = state.isVideo || state.isAudio;
     const isVideo = !!state.isVideo;
     const isAnim = !!state.isAnimated && !state.editMode;
@@ -7350,10 +8400,12 @@
       ..._dicomContextItems(),
       { icon: Icons.openFile,   label: t('context.openFile'),   action: () => _pickOpenFile() },
       { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
+      ..._imageFileOsMenuItems(),
       { separator: true },
       // Everyday actions stay top-level; transforms, zoom and the rest are grouped in flyouts
       hasImg && { icon: Icons.edit, label: t('toolbar.edit'), shortcut: 'Ctrl+E', action: _openEditWindow },
       hasImg && { icon: Icons.save,   label: t('context.saveAs'), action: _saveAs },
+      { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P', disabled: !_canPrint(), action: () => _openPrintPreview() },
       hasImg && { icon: Icons.copy,   label: t('context.copy'),   shortcut: 'Ctrl+C', action: _copyToClipboard },
       hasImg && { icon: Icons.rotateRight, label: t('context.transform'), submenu: () => [
         { icon: Icons.rotateLeft,  label: t('context.rotateLeft'),  shortcut: 'Ctrl+[', action: () => _rotate(-90) },
@@ -7376,12 +8428,21 @@
         { icon: Icons.reset,    label: t('context.resetAll'), action: _resetAll },
       ] },
       !isAv && { separator: true },
-      { icon: Icons.prev,    label: t('context.prev'), shortcut: '←', disabled: state.fileIndex <= 0,                         action: _prevImage },
-      { icon: Icons.next,    label: t('context.next'), shortcut: '→', disabled: state.fileIndex >= state.fileList.length - 1, action: _nextImage },
-      !isWeb && { separator: true },
-      !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !state.currentFile,
-        action: () => state.currentFile && _showInExplorer() },
+      { icon: Icons.prev,    label: t('context.prev'), shortcut: '← / Page Up', disabled: state.fileIndex <= 0,                         action: _prevImage },
+      { icon: Icons.next,    label: t('context.next'), shortcut: '→ / Page Down', disabled: state.fileIndex >= state.fileList.length - 1, action: _nextImage },
     ].filter(Boolean));
+  }
+
+  function _imageFileOsMenuItems() {
+    if (window.electronAPI.platform === 'web') return [];
+    const t = I18n.t.bind(I18n);
+    const hasFile = !!state.currentFile;
+    return [
+      { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !hasFile,
+        action: () => hasFile && _showInExplorer() },
+      { icon: Icons.delete, label: t('context.deleteFile'), danger: true, disabled: !hasFile, shortcut: 'Del',
+        action: () => hasFile && _deleteFile(state.currentFile) },
+    ];
   }
 
   async function _showInExplorer() {
@@ -7501,10 +8562,6 @@
 
   /* ─── Settings dialog (theme · language · bg-removal algorithm · subtitles) ─── */
   function _initSettingsDialog() {
-    const themeSel = document.getElementById('settings-theme');
-    if (themeSel) {
-      themeSel.addEventListener('change', () => _applyTheme(themeSel.value));
-    }
     document.querySelectorAll('#settings-overlay .settings-lang-btn').forEach((btn) => {
       const flag = btn.querySelector('.settings-lang-flag');
       if (flag) flag.innerHTML = btn.dataset.lang === 'ko' ? Icons.flagKo : Icons.flagUs;
@@ -7552,6 +8609,12 @@
     document.getElementById('settings-clear-recent')?.addEventListener('click', async () => {
       await _clearRecentFolderHistory();
       _syncSettingsDialog();
+    });
+    document.getElementById('settings-set-default')?.addEventListener('click', () => _setAsDefaultImageViewer());
+    document.getElementById('settings-open-default-apps')?.addEventListener('click', async () => {
+      if (window.electronAPI.openDefaultAppsSettings) {
+        await window.electronAPI.openDefaultAppsSettings();
+      }
     });
     // Viewer
     const zoomStep = document.getElementById('settings-zoom-step');
@@ -7618,28 +8681,62 @@
     window.location.reload();
   }
 
+  /** Build / refresh the Theme tab color buttons (one per registered theme). */
+  function _fillSettingsThemeButtons() {
+    const t = I18n.t.bind(I18n);
+    for (const kind of ['dark', 'light']) {
+      const host = document.getElementById(`settings-theme-${kind}`);
+      if (!host) continue;
+      host.setAttribute('role', 'radiogroup');
+      host.setAttribute('aria-label', t(kind === 'dark' ? 'menu.darkThemes' : 'menu.lightThemes'));
+      if (!host.childElementCount) {
+        for (const th of Themes.ofKind(kind)) {
+          const [bg, bar, accent] = th.swatch;
+          const name = Themes.label(th.id, t);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'settings-theme-btn';
+          btn.dataset.theme = th.id;
+          btn.title = name;
+          btn.setAttribute('role', 'radio');
+          btn.setAttribute('aria-checked', th.id === state.theme ? 'true' : 'false');
+          const preview = document.createElement('span');
+          preview.className = 'settings-theme-preview';
+          preview.style.setProperty('--sw-bg', bg);
+          preview.style.setProperty('--sw-bar', bar);
+          preview.style.setProperty('--sw-accent', accent);
+          const label = document.createElement('span');
+          label.className = 'settings-theme-name';
+          label.textContent = name;
+          btn.append(preview, label);
+          btn.addEventListener('click', () => _applyTheme(th.id));
+          host.appendChild(btn);
+        }
+      } else {
+        host.querySelectorAll('.settings-theme-btn').forEach((btn) => {
+          const name = Themes.label(btn.dataset.theme, t);
+          btn.title = name;
+          const label = btn.querySelector('.settings-theme-name');
+          if (label) label.textContent = name;
+        });
+      }
+    }
+    _syncSettingsThemeButtons();
+  }
+
+  function _syncSettingsThemeButtons() {
+    document.querySelectorAll('#settings-overlay .settings-theme-btn').forEach((btn) => {
+      const on = btn.dataset.theme === state.theme;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+
   /** Refill the settings controls from the current state (called on open, theme/lang change). */
   function _syncSettingsDialog() {
     if (!_settingsReady) return;
     const t = I18n.t.bind(I18n);
-    const themeSel = document.getElementById('settings-theme');
-    if (themeSel) {
-      themeSel.innerHTML = '';
-      for (const kind of ['dark', 'light']) {
-        const group = document.createElement('optgroup');
-        group.label = t(kind === 'dark' ? 'menu.darkThemes' : 'menu.lightThemes');
-        for (const th of Themes.ofKind(kind)) {
-          const opt = document.createElement('option');
-          opt.value = th.id;
-          opt.textContent = Themes.label(th.id, t);
-          if (th.id === state.theme) opt.selected = true;
-          group.appendChild(opt);
-        }
-        themeSel.appendChild(group);
-      }
-    }
-    const swatch = document.getElementById('settings-theme-swatch');
-    if (swatch) swatch.innerHTML = Themes.swatchSvg(state.theme);
+    _fillSettingsThemeButtons();
 
     document.querySelectorAll('#settings-overlay .settings-lang-btn').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.lang === state.lang);
@@ -7681,6 +8778,7 @@
       recentCount.textContent = (t('settings.recentCount') || '{n}').replace('{n}', String(n));
     }
     document.getElementById('settings-clear-recent')?.toggleAttribute('disabled', !_getRecentDirs().length);
+    _refreshAssocStatus();
     // Viewer
     const zoomStep = document.getElementById('settings-zoom-step');
     if (zoomStep) zoomStep.value = String(parseInt(_pref('zoomStep'), 10) || 10);
@@ -7702,6 +8800,111 @@
     _showDialog('settings-overlay');
   }
 
+  function _assocChipLabels() {
+    return ['JPG', 'PNG', 'GIF', 'BMP', 'WEBP', 'AVIF', 'SVG', 'ICO', 'TIFF', 'HEIC', 'DICOM'];
+  }
+
+  function _assocChipExts(label) {
+    const map = {
+      JPG: ['jpg', 'jpeg'],
+      PNG: ['png'],
+      GIF: ['gif'],
+      BMP: ['bmp'],
+      WEBP: ['webp'],
+      AVIF: ['avif'],
+      SVG: ['svg'],
+      ICO: ['ico'],
+      TIFF: ['tif', 'tiff'],
+      HEIC: ['heic', 'heif', 'hif'],
+      DICOM: ['dcm', 'dicom'],
+    };
+    return map[label] || [];
+  }
+
+  function _paintAssocStatus(status, extraMsg) {
+    const t = I18n.t.bind(I18n);
+    const chips = document.getElementById('settings-assoc-exts');
+    const statusEl = document.getElementById('settings-assoc-status');
+    const setBtn = document.getElementById('settings-set-default');
+    const openBtn = document.getElementById('settings-open-default-apps');
+    const items = status && Array.isArray(status.items) ? status.items : [];
+    const isDefault = (ext) => items.some((it) => it.ext === ext && it.isDefault);
+    if (chips) {
+      chips.innerHTML = _assocChipLabels().map((label) => {
+        const on = _assocChipExts(label).some(isDefault);
+        return `<span class="settings-ext-chip${on ? ' is-default' : ''}">${label}</span>`;
+      }).join('');
+    }
+    const supported = !!(status && status.supported);
+    const isWeb = window.electronAPI.platform === 'web';
+    if (setBtn) setBtn.disabled = isWeb || !supported;
+    if (openBtn) openBtn.hidden = isWeb || window.electronAPI.platform !== 'win32';
+    if (!statusEl) return;
+    if (extraMsg) {
+      statusEl.textContent = extraMsg;
+      return;
+    }
+    if (isWeb) {
+      statusEl.textContent = t('settings.assocWeb');
+      return;
+    }
+    if (!supported) {
+      statusEl.textContent = t('settings.assocUnsupported');
+      return;
+    }
+    const n = items.filter((it) => it.isDefault).length;
+    const total = items.length || 0;
+    if (n >= total && total > 0) statusEl.textContent = t('settings.assocAll');
+    else if (n > 0) statusEl.textContent = (t('settings.assocSome') || '{n} / {total}').replace('{n}', String(n)).replace('{total}', String(total));
+    else statusEl.textContent = t('settings.assocNone');
+  }
+
+  async function _refreshAssocStatus() {
+    if (!window.electronAPI.getFileAssocStatus) {
+      _paintAssocStatus({ supported: false, items: [] });
+      return;
+    }
+    try {
+      const status = await window.electronAPI.getFileAssocStatus();
+      _paintAssocStatus(status);
+    } catch {
+      _paintAssocStatus({ supported: false, items: [] });
+    }
+  }
+
+  async function _setAsDefaultImageViewer() {
+    const t = I18n.t.bind(I18n);
+    const setBtn = document.getElementById('settings-set-default');
+    if (setBtn) setBtn.disabled = true;
+    try {
+      if (!window.electronAPI.setDefaultImageViewer) {
+        _paintAssocStatus({ supported: false, items: [] }, t('settings.assocUnsupported'));
+        return;
+      }
+      const result = await window.electronAPI.setDefaultImageViewer();
+      const status = result && result.status ? result.status : await window.electronAPI.getFileAssocStatus?.();
+      if (!result || result.unsupported) {
+        _paintAssocStatus(status || { supported: false, items: [] }, t('settings.assocUnsupported'));
+        return;
+      }
+      if (!result.ok) {
+        _paintAssocStatus(status || { supported: true, items: [] }, t('settings.assocError'));
+        return;
+      }
+      const n = status?.items?.filter((it) => it.isDefault).length || 0;
+      const total = status?.items?.length || 0;
+      const all = total > 0 && n >= total;
+      _paintAssocStatus(status, all ? t('settings.assocDone') : t('settings.assocRegistered'));
+      if (!all && window.electronAPI.openDefaultAppsSettings) {
+        await window.electronAPI.openDefaultAppsSettings();
+      }
+    } catch {
+      _paintAssocStatus({ supported: true, items: [] }, t('settings.assocError'));
+    } finally {
+      if (setBtn) setBtn.disabled = false;
+    }
+  }
+
   function _syncMenu() {
     window.electronAPI.updateMenu({
       lang: state.lang,
@@ -7713,6 +8916,29 @@
   /* ════════════════════════════════════════════
      Keyboard
   ════════════════════════════════════════════ */
+  function _treeIsActivePane() { return state.activePane === 'tree'; }
+
+  /** Tree paths a Ctrl+C / Ctrl+X should act on (empty → the shortcut means the image). */
+  function _treeSelectionForShortcut() {
+    if (window.electronAPI.platform === 'web' || !_treeIsActivePane()) return [];
+    return FileTree.getSelectedPaths();
+  }
+
+  async function _pasteShortcut() {
+    if (!_clipboardHasFiles()) return;
+    const sel = FileTree.getSelectedPaths();
+    let dest = FileTree.getRoot();
+    if (_treeIsActivePane() && sel.length === 1) {
+      try {
+        const stats = await window.electronAPI.getFileStats(sel[0]);
+        dest = (stats && !stats.error && stats.isDirectory)
+          ? sel[0]
+          : await window.electronAPI.pathDirname(sel[0]);
+      } catch { /* keep the tree root */ }
+    }
+    await _pasteFilesInto(dest);
+  }
+
   function _initKeyboard() {
     document.addEventListener('keydown', (e) => {
       if (_isFileDialogOpen()) return;
@@ -7734,7 +8960,14 @@
         return;
       }
       if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); _saveAs(); return; }
-      if (ctrl && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); _openPrintPreview(); return; }
+      if (ctrl && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); _pasteShortcut(); return; }
+      if (ctrl && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        // In the tree, Ctrl+P pastes (user request); everywhere else it still prints.
+        if (_treeIsActivePane() && _clipboardHasFiles()) _pasteShortcut();
+        else _openPrintPreview();
+        return;
+      }
       if (ctrl && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); if (state.currentFile) _showFileInfoDialog(); return; }
       if (ctrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
@@ -7751,8 +8984,20 @@
         _redoEdit();
         return;
       }
-      if (ctrl && e.key === 'x') { e.preventDefault(); if (_isEditableImage()) _cutToClipboard(); return; }
-      if (ctrl && e.key === 'c') { e.preventDefault(); if (_isEditableImage()) _copyToClipboard(); return; }
+      if (ctrl && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        if (_treeSelectionForShortcut().length) _clipboardSetFiles(_treeSelectionForShortcut(), 'cut');
+        else if (_isEditableImage()) _cutToClipboard();
+        return;
+      }
+      if (ctrl && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        if (_treeSelectionForShortcut().length) _clipboardSetFiles(_treeSelectionForShortcut(), 'copy');
+        else if (_isEditableImage()) _copyToClipboard();
+        return;
+      }
+
+      if (e.key === 'Escape' && !ctrl && _browseBack()) { e.preventDefault(); return; }
 
       // DICOM: PgUp / PgDn / Home / End = frames, Space = cine, I = invert, W = reset window
       if (_dicomKeydown(e)) { e.preventDefault(); return; }
@@ -7760,8 +9005,14 @@
       // Arrow keys inside a text / number field or a select (Settings, DICOM bar …) edit that field
       const tagName = (e.target && e.target.tagName) || '';
       const typing = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || e.target?.isContentEditable;
-      if (e.key === 'ArrowLeft'  && !typing) { e.preventDefault(); _prevImage(); return; }
-      if (e.key === 'ArrowRight' && !typing) { e.preventDefault(); _nextImage(); return; }
+      if (!typing && !state.editMode && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && FileTree.handleKey?.(e)) return;
+      if (!typing && !state.editMode && e.key === 'Delete' && state.currentFile && window.electronAPI.platform !== 'web') {
+        e.preventDefault();
+        _deleteFile(state.currentFile);
+        return;
+      }
+      if ((e.key === 'ArrowLeft' || e.key === 'PageUp') && !typing) { e.preventDefault(); _prevImage(); return; }
+      if ((e.key === 'ArrowRight' || e.key === 'PageDown') && !typing) { e.preventDefault(); _nextImage(); return; }
       if (e.key === ' ' || e.code === 'Space') {
         const tag = (e.target && e.target.tagName) || '';
         if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
@@ -7772,8 +9023,18 @@
         }
       }
       if (e.key === 'Escape') {
+        if (_unsavedFinish) {
+          e.preventDefault();
+          _unsavedFinish();
+          return;
+        }
+        if (_confirmFinish) {
+          e.preventDefault();
+          _confirmFinish();
+          return;
+        }
         const openDlg = [...document.querySelectorAll('.dialog-overlay')].find((el) => {
-          if (el.id === 'progress-overlay' || el.id === 'file-dialog-overlay') return false;
+          if (el.id === 'progress-overlay' || el.id === 'file-dialog-overlay' || el.id === 'confirm-overlay' || el.id === 'unsaved-overlay') return false;
           return el.classList.contains('visible') || el.style.display === 'flex';
         });
         if (openDlg) {
@@ -7838,6 +9099,7 @@
       'theme-dark':    () => _applyTheme('dark'),
       'theme-light':   () => _applyTheme('light'),
       'theme-next':    _nextTheme,
+      'print':         _openPrintPreview,
       'show-settings': _openSettings,
       'lang-ko': async () => { state.lang = 'ko'; localStorage.setItem('lang','ko'); await _refreshLang(); },
       'lang-en': async () => { state.lang = 'en'; localStorage.setItem('lang','en'); await _refreshLang(); },
@@ -7862,6 +9124,10 @@
     if (dcmColormap) dcmColormap.dataset.lang = '';
     _dicomSyncBar();
     _dicomOverlayRequest();
+    // Chrome built in JS (not via data-i18n) has to be rebuilt by hand
+    window.Browse?.applyI18n?.();
+    window.FileTree?.applyI18n?.();
+    _syncBrowseChrome();
     _syncEditThemeLangBtns();
     _syncMenu();
     requestAnimationFrame(() => _syncWindowMinSize());
@@ -7937,8 +9203,18 @@
     btn.addEventListener('pointerup', close);
   });
 
+  document.getElementById('confirm-overlay')?.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'confirm-overlay') _confirmFinish?.();
+  });
+  document.getElementById('rename-overlay')?.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'rename-overlay') _renameFinish?.();
+  });
+  document.getElementById('unsaved-overlay')?.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'unsaved-overlay') _unsavedFinish?.();
+  });
+
   document.querySelectorAll('.dialog-overlay').forEach(overlay => {
-    if (overlay.id === 'progress-overlay' || overlay.id === 'file-dialog-overlay') return;
+    if (overlay.id === 'progress-overlay' || overlay.id === 'file-dialog-overlay' || overlay.id === 'confirm-overlay' || overlay.id === 'unsaved-overlay' || overlay.id === 'rename-overlay') return;
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) _hideDialogEl(overlay);
     });
@@ -7948,13 +9224,239 @@
   });
 
   /* ════════════════════════════════════════════
+     Panel layout — explorer / file info: shown, hidden, docked left or right
+  ════════════════════════════════════════════ */
+  function _loadLayout() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}');
+      if (typeof saved.tree === 'boolean') _layout.tree = saved.tree;
+      if (typeof saved.info === 'boolean') _layout.info = saved.info;
+      if (saved.dock === 'left' || saved.dock === 'right') _layout.dock = saved.dock;
+    } catch { /* defaults */ }
+  }
+
+  function _saveLayout() {
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(_layout)); } catch { /* ignore */ }
+  }
+
+  function _treePanelTip() { return I18n.t(_layout.tree ? 'toolbar.hideTree' : 'toolbar.showTree'); }
+  function _infoPanelTip() { return I18n.t(_layout.info ? 'toolbar.hideInfo' : 'toolbar.showInfo'); }
+  function _infoDockTip()  { return I18n.t(_layout.dock === 'left' ? 'toolbar.infoDockRight' : 'toolbar.infoDockLeft'); }
+
+  function _applyPanelLayout() {
+    const tree  = document.getElementById('file-tree-panel');
+    const info  = document.getElementById('info-panel');
+    const vres  = document.getElementById('sidebar-v-resize');
+    const right = document.getElementById('right-sidebar');
+    if (!tree || !info || !sidebar || !right) return;
+
+    const infoLeft  = _layout.info && _layout.dock === 'left';
+    const infoRight = _layout.info && _layout.dock === 'right';
+
+    // Re-parent the panel so it always sits inside the dock it belongs to
+    const wantParent = infoRight ? right : sidebar;
+    if (info.parentElement !== wantParent) {
+      if (infoRight) right.appendChild(info);
+      else sidebar.insertBefore(info, document.getElementById('sidebar-resize-handle'));
+    }
+
+    tree.hidden = !_layout.tree;
+    info.hidden = !_layout.info;
+    right.hidden = !infoRight;
+    if (vres) vres.hidden = !(_layout.tree && infoLeft);
+
+    // The left sidebar disappears once neither of its panels is in it
+    sidebar.hidden = !(_layout.tree || infoLeft);
+
+    // A lone panel should fill its dock instead of keeping the split height
+    if (!(_layout.tree && infoLeft)) {
+      tree.style.flex = '';
+      tree.style.height = '';
+      info.style.flex = '';
+      info.style.height = '';
+      info.style.minHeight = '';
+    }
+
+    const dockBtn = document.getElementById('btn-panel-dock');
+    if (dockBtn) {
+      dockBtn.innerHTML = Icons[_layout.dock === 'left' ? 'panelRight' : 'panelLeft'] || '';
+      _setChromeBtn(dockBtn, _layout.info);
+    }
+    document.getElementById('btn-panel-tree')?.classList.toggle('active', _layout.tree);
+    document.getElementById('btn-panel-info')?.classList.toggle('active', _layout.info);
+
+    const dockHdrBtn = document.getElementById('info-dock-btn');
+    if (dockHdrBtn) dockHdrBtn.innerHTML = Icons[_layout.dock === 'left' ? 'panelRight' : 'panelLeft'] || '';
+  }
+
+  function _toggleTreePanel(force) {
+    _layout.tree = typeof force === 'boolean' ? force : !_layout.tree;
+    _saveLayout();
+    _applyPanelLayout();
+  }
+
+  function _toggleInfoPanel(force) {
+    _layout.info = typeof force === 'boolean' ? force : !_layout.info;
+    _saveLayout();
+    _applyPanelLayout();
+  }
+
+  function _toggleInfoDock(side) {
+    _layout.dock = (side === 'left' || side === 'right')
+      ? side
+      : (_layout.dock === 'left' ? 'right' : 'left');
+    if (!_layout.info) _layout.info = true;   // moving it implies showing it
+    _saveLayout();
+    _applyPanelLayout();
+  }
+
+  /** True only while the contact sheet is the thing on screen. */
+  function _browseShowing() { return _browseMode && !!Browse.isVisible?.(); }
+
+  /**
+   * Selecting (not opening) a file in the contact sheet fills the File Info
+   * panel, so browsing a folder reads like an explorer. Debounced because
+   * clicking down a row of thumbnails would otherwise queue a read each time.
+   */
+  let _previewInfoTimer = null;
+  function _previewFileInfo(filePath) {
+    clearTimeout(_previewInfoTimer);
+    _previewInfoTimer = setTimeout(() => {
+      if (!_layout.info) return;             // panel closed — nothing to fill
+      const target = filePath || state.currentFile || null;
+      // Previewing another file would clobber the open file's cached metadata.
+      const other = target && state.currentFile &&
+        _normWatchPath(target) !== _normWatchPath(state.currentFile);
+      const saved = other
+        ? { metaForFile: state.metaForFile, imageMeta: state.imageMeta, dicomMeta: state.dicomMeta }
+        : null;
+      _updateInfoPanel(target)
+        .catch(() => { /* unreadable file */ })
+        .then(() => { if (saved) Object.assign(state, saved); });
+    }, 120);
+  }
+
+  function _browseTip() { return I18n.t(_browseShowing() ? 'toolbar.browseOff' : 'toolbar.browseOn'); }
+
+  /** The toolbar button tracks what is on screen, not just the stored mode. */
+  function _syncBrowseChrome() {
+    document.getElementById('btn-browse')?.classList.toggle('active', _browseShowing());
+    // Viewer chrome (DICOM bar / overlay, media transport) hides behind the sheet
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+    _updateMediaControlsVisibility();
+  }
+
+  function _initBrowse() {
+    const host = document.getElementById('browse-view');
+    if (!host) return;
+    Browse.init(host, {
+      onOpenFile: (p) => { Browse.hide(); _openFile(p); },
+      onOpenDir: (p) => { _rememberRecentDir(p); _watchDir(p); FileTree.revealPath?.(p); },
+      onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
+      onSelect: (p) => _previewFileInfo(p),
+      onVisibility: () => _syncBrowseChrome(),
+    });
+    _applyBrowseMode({ initial: true });
+  }
+
+  function _applyBrowseMode({ initial = false } = {}) {
+    FileTree.setFoldersOnly?.(_browseMode);
+    if (!_browseMode) {
+      Browse.hide();
+      _syncBrowseChrome();
+      return;
+    }
+    const dir = Browse.getDir() || FileTree.getRoot();
+    if (dir) {
+      Browse.show(dir);
+      if (!initial || !Browse.getDir()) Browse.open(dir);
+    } else {
+      Browse.show();
+    }
+    _syncBrowseChrome();
+  }
+
+  function _toggleBrowseMode(force) {
+    if (typeof force === 'boolean') {
+      _browseMode = force;
+    } else if (_browseMode && !Browse.isVisible?.()) {
+      // Mode is on but an image is open — the button means "back to the sheet".
+      _applyBrowseMode();
+      return;
+    } else {
+      _browseMode = !_browseMode;
+    }
+    try { localStorage.setItem(BROWSE_KEY, _browseMode ? '1' : '0'); } catch { /* ignore */ }
+    _applyBrowseMode();
+  }
+
+  /** In browse mode, Esc goes from the opened image back to the contact sheet. */
+  function _browseBack() {
+    if (!_browseMode || Browse.isVisible()) return false;
+    Browse.show(Browse.getDir() || FileTree.getRoot());
+    return true;
+  }
+
+  function _initPanelLayout() {
+    _loadLayout();
+    const closeBtn = document.getElementById('info-close-btn');
+    if (closeBtn) {
+      closeBtn.innerHTML = Icons.close || '';
+      Tooltip.attach(closeBtn, () => I18n.t('toolbar.hideInfo'));
+      closeBtn.addEventListener('click', () => _toggleInfoPanel(false));
+    }
+    const dockBtn = document.getElementById('info-dock-btn');
+    if (dockBtn) {
+      Tooltip.attach(dockBtn, _infoDockTip);
+      dockBtn.addEventListener('click', () => _toggleInfoDock());
+    }
+    _applyPanelLayout();
+    _initRightSidebarResize();
+  }
+
+  function _initRightSidebarResize() {
+    const handle = document.getElementById('right-sidebar-resize-handle');
+    const right = document.getElementById('right-sidebar');
+    if (!handle || !right) return;
+
+    const MIN_W = 280;
+    const MAX_W = 560;
+    const saved = parseInt(localStorage.getItem('rightSidebarWidth') || '', 10);
+    if (saved >= MIN_W && saved <= MAX_W) right.style.width = `${saved}px`;
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startW = right.getBoundingClientRect().width;
+      handle.classList.add('resizing');
+      document.body.classList.add('resizing-col');
+
+      const onMove = (ev) => {
+        const w = Math.min(Math.max(startW - (ev.clientX - startX), MIN_W), MAX_W);
+        right.style.width = `${Math.round(w)}px`;
+      };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.body.classList.remove('resizing-col');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        localStorage.setItem('rightSidebarWidth', String(Math.round(right.getBoundingClientRect().width)));
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  }
+
+  /* ════════════════════════════════════════════
      Sidebar Resize
   ════════════════════════════════════════════ */
   function _initSidebarResize() {
     const handle = document.getElementById('sidebar-resize-handle');
     if (!handle || !sidebar) return;
 
-    const MIN_W = 140;
+    const MIN_W = 280;
     const MAX_W = 500;
 
     // Restore previous width
@@ -7994,8 +9496,8 @@
     if (!handle || !tree || !info || !sidebar) return;
 
     const HANDLE_H = 5;
-    const MIN_TREE = 80;
-    const MIN_INFO = 100;
+    const MIN_TREE = 160;
+    const MIN_INFO = 160;
 
     function _applySplit(treeH) {
       const total = sidebar.getBoundingClientRect().height;
@@ -8059,13 +9561,7 @@
     const handle = document.getElementById('edit-effects-resize');
     if (!panel || !handle) return;
 
-    const MIN_W = 200;
-    const MAX_W = 480;
-
-    const saved = parseInt(localStorage.getItem('editEffectsPanelWidth') || '', 10);
-    if (saved >= MIN_W && saved <= MAX_W) {
-      panel.style.width = `${saved}px`;
-    }
+    const MAX_W = 560;
 
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -8076,7 +9572,7 @@
       document.body.classList.add('resizing-col');
 
       const onMove = (ev) => {
-        const w = Math.min(Math.max(startW + (ev.clientX - startX), MIN_W), MAX_W);
+        const w = Math.min(Math.max(startW + (ev.clientX - startX), _editEffectsMinW), MAX_W);
         panel.style.width = `${Math.round(w)}px`;
       };
       const onUp = () => {

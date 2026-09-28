@@ -13,90 +13,8 @@
   --danger: #e06666;
   --shadow: rgba(0, 0, 0, 0.45);
 }
-:root[data-theme='light'] {
-  --bg: #f3f1ee;
-  --bg-2: #ffffff;
-  --bg-3: #eceae6;
-  --panel: #ffffff;
-  --border: #dcd8d2;
-  --text: #26221e;
-  --text-dim: #5f584f;
-  --muted: #8c847a;
-  --accent: #1f8f79;
-  --accent-2: #17715f;
-  --accent-fg: #ffffff;
-  --danger: #c0392b;
-  --shadow: rgba(0, 0, 0, 0.15);
-}
-:root[data-theme='white'] {
-  --bg: #ffffff;
-  --bg-2: #ffffff;
-  --bg-3: #f4f4f5;
-  --panel: #ffffff;
-  --border: #e2e2e6;
-  --text: #17171a;
-  --text-dim: #55555c;
-  --muted: #8b8b92;
-  --accent: #1f8f79;
-  --accent-2: #17715f;
-  --accent-fg: #ffffff;
-  --danger: #c0392b;
-  --shadow: rgba(0, 0, 0, 0.12);
-}
-:root[data-theme='midnight'] {
-  --bg: #0d1117; --bg-2: #161b22; --bg-3: #21262d; --panel: #161b22;
-  --border: #30363d; --text: #e6edf3; --text-dim: #9aa5b1; --muted: #6e7681;
-  --accent: #4493f8; --accent-2: #2f6fd0; --accent-fg: #ffffff; --danger: #f85149;
-  --shadow: rgba(0, 0, 0, 0.55);
-}
-:root[data-theme='nord'] {
-  --bg: #2e3440; --bg-2: #3b4252; --bg-3: #434c5e; --panel: #3b4252;
-  --border: #4c566a; --text: #eceff4; --text-dim: #d8dee9; --muted: #9aa4b8;
-  --accent: #88c0d0; --accent-2: #5e9aad; --accent-fg: #1b2330; --danger: #bf616a;
-  --shadow: rgba(0, 0, 0, 0.45);
-}
-:root[data-theme='forest'] {
-  --bg: #12180f; --bg-2: #1b2416; --bg-3: #253020; --panel: #1b2416;
-  --border: #33422a; --text: #e7f0e0; --text-dim: #a7bd99; --muted: #79906a;
-  --accent: #8fce5a; --accent-2: #6fae3d; --accent-fg: #14200a; --danger: #e0685f;
-  --shadow: rgba(0, 0, 0, 0.5);
-}
-:root[data-theme='rose'] {
-  --bg: #1b1220; --bg-2: #251829; --bg-3: #322038; --panel: #251829;
-  --border: #43304a; --text: #f3e6f2; --text-dim: #c6a9c8; --muted: #937591;
-  --accent: #e0559b; --accent-2: #bd3f7f; --accent-fg: #ffffff; --danger: #ef6a5c;
-  --shadow: rgba(0, 0, 0, 0.5);
-}
-:root[data-theme='solarized'] {
-  --bg: #fdf6e3; --bg-2: #fbf1d8; --bg-3: #eee8d5; --panel: #fbf1d8;
-  --border: #ddd6c1; --text: #073642; --text-dim: #586e75; --muted: #93a1a1;
-  --accent: #268bd2; --accent-2: #1c6fa8; --accent-fg: #ffffff; --danger: #dc322f;
-  --shadow: rgba(0, 0, 0, 0.18);
-}
-:root[data-theme='contrast'] {
-  --bg: #000000; --bg-2: #0a0a0a; --bg-3: #1a1a1a; --panel: #0a0a0a;
-  --border: #5a5a5a; --text: #ffffff; --text-dim: #d0d0d0; --muted: #a0a0a0;
-  --accent: #ffd400; --accent-2: #e0bb00; --accent-fg: #000000; --danger: #ff5555;
-  --shadow: rgba(0, 0, 0, 0.7);
-}
-:root[data-theme='ocean'] {
-  --bg: #0b1e2a; --bg-2: #122b3a; --bg-3: #1a3849; --panel: #122b3a;
-  --border: #264a5e; --text: #e2f1f7; --text-dim: #a7c4d1; --muted: #6f8b98;
-  --accent: #3fc1c9; --accent-2: #2a9aa2; --accent-fg: #04252a; --danger: #e0685f;
-  --shadow: rgba(0, 0, 0, 0.5);
-}
-:root[data-theme='mocha'] {
-  --bg: #1c1512; --bg-2: #261c17; --bg-3: #32251d; --panel: #261c17;
-  --border: #43342a; --text: #f0e6dd; --text-dim: #c3ab99; --muted: #8f7767;
-  --accent: #d9a066; --accent-2: #bd8449; --accent-fg: #2a1c0e; --danger: #e0685f;
-  --shadow: rgba(0, 0, 0, 0.55);
-}
-:root[data-theme='sky'] {
-  --bg: #eef4fb; --bg-2: #ffffff; --bg-3: #e2ecf7; --panel: #ffffff;
-  --border: #cfdcec; --text: #132030; --text-dim: #4c5e73; --muted: #8496aa;
-  --accent: #2f7fe0; --accent-2: #2264b6; --accent-fg: #ffffff; --danger: #c0392b;
-  --shadow: rgba(0, 0, 0, 0.14);
-}
+/* Named themes (20 dark + 20 light) are injected from src/lib/themes.js.
+   :root above is the dark fallback before that stylesheet is attached. */
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -209,6 +127,34 @@ body {
 }
 .export-name input:focus { outline: none; border-color: var(--accent); }
 
+/* Theme cycle + picker on the main toolbar. */
+.tb-theme {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 8px; border-radius: 7px;
+  border: 1px solid var(--border); background: var(--bg-3); color: var(--text);
+  font-size: 13px; cursor: pointer; max-width: 176px;
+}
+.tb-theme:hover { border-color: var(--accent); }
+.tb-theme.on { border-color: var(--accent); }
+.tb-theme-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 112px; }
+.theme-swatch-mini {
+  width: 28px; height: 14px; border-radius: 4px; overflow: hidden;
+  display: inline-flex; flex: none; border: 1px solid var(--border);
+}
+.theme-swatch-mini i { flex: 1; display: block; }
+.theme-menu {
+  position: fixed; z-index: 80;
+  left: auto; right: auto; top: auto;
+  width: max-content; min-width: 0;
+  max-height: none; overflow: visible;
+}
+.theme-menu-cols {
+  display: grid; grid-template-columns: max-content max-content; gap: 2px 8px; align-items: start;
+}
+.theme-menu .dropdown-item { padding: 3px 8px; white-space: nowrap; }
+.dropdown-item.on { background: var(--bg-3); color: var(--accent); }
+.dropdown-item .tick { margin-left: auto; color: var(--accent); display: inline-flex; }
+
 /* ── Fast tooltip ────────────────────────────────────────── */
 .tooltip {
   position: fixed; z-index: 500; pointer-events: none;
@@ -228,9 +174,9 @@ body {
 .iconbtn:disabled { opacity: 0.3; cursor: not-allowed; }
 .iconbtn.sm { width: 24px; height: 24px; }
 .iconbtn.danger:hover { color: var(--danger); }
-/* Language toggle: globe icon + small target-language code badge. */
-.lang-btn { width: auto; gap: 3px; padding: 0 7px; }
-.lang-code { font-size: 10px; font-weight: 700; letter-spacing: 0.3px; }
+/* Language toggle shows the flag of the language it will switch to. */
+.lang-btn { width: 40px; padding: 0; }
+.lang-flag { display: block; }
 
 /* ── Options bar ─────────────────────────────────────────── */
 .options {
@@ -626,10 +572,78 @@ body {
 .tree-row.kind-item .tree-marker { opacity: 0.55; }
 
 /* ── Print dialog ─────────────────────────────────────────── */
-.print-modal { width: 520px; }
-/* The option list can outgrow a short window — keep the head/foot fixed and
-   scroll the middle. */
-.print-body { text-align: left; padding: 16px 18px; max-height: min(70vh, 640px); overflow-y: auto; }
+.print-modal {
+  width: min(1080px, 96vw);
+  max-width: 96vw;
+  height: min(860px, 92vh);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+.print-modal .modal-head,
+.print-modal .modal-foot { flex: none; }
+/* Preview on the left, options on the right. The middle scrolls; head/foot stay. */
+.print-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 42%) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.print-preview {
+  display: flex; flex-direction: column; min-height: 0; gap: 8px;
+  padding: 12px 14px; background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+.print-preview-stage {
+  flex: 1 1 auto; min-height: 220px; position: relative;
+  display: grid; place-items: center; overflow: hidden;
+  border-radius: 8px;
+  background-color: #6d6964;
+  background-image:
+    linear-gradient(45deg, rgba(0,0,0,.08) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(0,0,0,.08) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(0,0,0,.08) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(0,0,0,.08) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+.print-preview-msg {
+  color: #f4f1ec; font-size: 13px; text-align: center; padding: 12px;
+}
+.print-sheet {
+  position: relative; background: #fff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.print-sheet-grid {
+  width: 100%; height: 100%;
+  display: grid; gap: 4px; padding: 4px; box-sizing: border-box;
+  background: #fff;
+}
+.print-sheet-cell {
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  background: #fff; border: 1px solid transparent; cursor: pointer;
+}
+.print-sheet-cell.on { border-color: #2fb59a; }
+.print-sheet-cell.skip { opacity: 0.38; }
+.print-preview-frame {
+  border: 0; background: #fff; display: block; pointer-events: none;
+  position: absolute; left: 50%; top: 50%;
+}
+.print-preview-raw {
+  width: 100%; height: 100%; border: 0; background: #fff; border-radius: 8px;
+}
+.print-preview-nav {
+  display: flex; align-items: center; justify-content: center; gap: 8px; flex: none;
+}
+.print-preview-nav .pg { font-size: 12.5px; color: var(--text-dim); min-width: 72px; text-align: center; }
+.print-preview-meta { font-size: 11.5px; color: var(--muted); text-align: center; flex: none; }
+.print-skip { text-align: center; font-size: 12px; color: var(--danger); flex: none; }
+.chev-rot { display: inline-flex; }
+.chev-rot.left { transform: rotate(90deg); }
+.chev-rot.right { transform: rotate(-90deg); }
+.print-body { text-align: left; padding: 16px 18px; max-height: none; min-height: 0; overflow-y: auto; }
 .print-sec { margin-bottom: 16px; }
 .print-sec:last-child { margin-bottom: 0; }
 .print-lab {
@@ -668,34 +682,58 @@ body {
 .print-check.disabled { opacity: 0.45; cursor: not-allowed; }
 .print-count { flex: 1 1 auto; text-align: left; align-self: center; }
 
+@media (max-width: 800px) {
+  .print-layout { grid-template-columns: 1fr; overflow: auto; }
+  .print-preview { border-right: none; border-bottom: 1px solid var(--border); min-height: 320px; }
+  .print-preview-stage { min-height: 240px; }
+}
 @media (max-width: 560px) {
   .print-grid { grid-template-columns: auto minmax(0, 1fr); }
 }
 /* ── Settings page (separate window) ─────────────────────── */
-.settings-page { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); }
+.settings-page { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); overflow: hidden; }
 .settings-page-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-2);
   -webkit-app-region: drag; -webkit-user-select: none; user-select: none;
+  flex: none;
 }
 .settings-page-head .iconbtn { -webkit-app-region: no-drag; }
 .settings-page-head h2 { margin: 0; font-size: 16px; }
-.settings-page-body { flex: 1; overflow: auto; padding: 18px 20px; }
+.settings-page-body {
+  flex: 1; min-height: 0; overflow: auto;
+  padding: 12px 16px 14px;
+}
+.settings-page-body:has(.settings-form) {
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
 .settings-page-foot {
   flex: none; display: flex; justify-content: flex-end; gap: 8px;
   padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg-2);
 }
 
-/* ── Settings form (two columns so it fits without scrolling) ─ */
-.settings-form { columns: 2; column-gap: 28px; }
-.form-section {
-  margin: 0 0 16px; break-inside: avoid; -webkit-column-break-inside: avoid;
-  border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+.settings-form {
+  flex: 1; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 12px;
 }
-.form-section:last-child { margin-bottom: 0; }
-.form-section h3 { margin: 0 0 10px; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
-.field { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; flex-wrap: nowrap; }
-.field:last-child { margin-bottom: 0; }
+.settings-tabs {
+  flex: none; display: flex; gap: 6px;
+}
+.settings-tabs button {
+  border: 1px solid var(--border); background: var(--bg-2); color: var(--text-dim);
+  border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.settings-tabs button:hover { border-color: var(--accent); color: var(--text); }
+.settings-tabs button.on {
+  background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600;
+}
+.settings-panel {
+  flex: 1; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+}
+.field { display: flex; align-items: center; gap: 12px; margin-bottom: 0; flex-wrap: nowrap; flex: none; }
 .field > label { flex: 0 0 132px; font-size: 13px; color: var(--text-dim); white-space: nowrap; }
 /* All settings text stays on a single line (never wraps). */
 .settings-form .field-check, .settings-form label, .settings-form .suffix { white-space: nowrap; }
@@ -740,17 +778,38 @@ body {
 
 /* Theme swatches — equal-width columns (minmax(0,1fr) so content never widens
    a column) filling the full control width. */
-.theme-grid { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.field.field-top { align-items: stretch; flex: 1; min-height: 0; }
+.field.field-top > label { padding-top: 4px; }
+.field.field-top > .control { align-items: stretch; min-height: 0; height: 100%; }
+.theme-groups {
+  flex: 1 1 auto; min-width: 0; min-height: 0; height: 100%; overflow: hidden;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.theme-groups > div {
+  flex: 1; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.theme-group-name {
+  flex: none;
+  font-size: 11px; font-weight: 700; letter-spacing: .4px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+}
+.theme-groups .theme-grid { width: 100%; }
+.theme-grid {
+  flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 6px;
+}
 .theme-swatch {
-  min-width: 0;
-  display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px;
+  min-width: 0; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 6px;
   border: 2px solid var(--border); border-radius: 10px; background: var(--bg-2); cursor: pointer;
 }
-.theme-swatch .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-swatch .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
 .theme-swatch.on { border-color: var(--accent); }
-.theme-swatch .bars { display: flex; gap: 4px; height: 26px; border-radius: 6px; overflow: hidden; }
+.theme-swatch .bars { display: flex; gap: 3px; flex: 1 1 auto; min-height: 12px; border-radius: 5px; overflow: hidden; }
 .theme-swatch .bars span { flex: 1; }
-.theme-swatch .name { font-size: 11.5px; color: var(--text-dim); text-align: center; }
+.theme-swatch .name { font-size: 11px; color: var(--text-dim); text-align: center; }
 
 /* ── Context menu ────────────────────────────────────────── */
 .ctxmenu {

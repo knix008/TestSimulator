@@ -1,0 +1,38 @@
+{
+  "id": "emerald",
+  "name": "Emerald",
+  "author": "MyDockBar",
+  "description": "Rich jewel-green. (tray shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, #67a583 0%, #1f7a49 42%, #12472a 100%)",
+    "--plate-border": "1px solid rgba(188,215,200,0.45)",
+    "--plate-radius": "16px 16px 0 0",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(244,248,246,0.55), inset 0 -2px 6px rgba(0,0,0,0.3)",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.28",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(178,230,202,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(6,24,15,0.55)",
+    "--indicator-color": "#6af0a9",
+    "--indicator-glow": "0 0 10px rgba(106,240,169,0.9)",
+    "--tooltip-bg": "rgba(16,30,22,0.96)",
+    "--tooltip-fg": "#e5f5ed",
+    "--tooltip-border": "1px solid rgba(106,240,169,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#6af0a9"
+  },
+  "ui": {
+    "--bg": "#16221c",
+    "--bg-raised": "#213128",
+    "--bg-sunken": "#101914",
+    "--fg": "#e9f1ed",
+    "--fg-dim": "#8db09d",
+    "--line": "#32483c",
+    "--accent": "#6af0a9",
+    "--accent-fg": "#0e1b14",
+    "--danger": "#ff7a72"
+  }
+}

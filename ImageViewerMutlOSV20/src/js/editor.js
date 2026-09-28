@@ -1063,10 +1063,25 @@ window.Editor = (() => {
     return window._ProgressDialog || null;
   }
 
+  function _editWindowOpen() {
+    return !!document.getElementById('edit-window')?.classList.contains('visible');
+  }
+
+  async function _yieldPaint() {
+    const dlg = _progressDialog();
+    if (dlg && typeof dlg.yieldFrame === 'function') {
+      await dlg.yieldFrame();
+      await dlg.yieldFrame();
+      return;
+    }
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
+
   async function _runSyncWithProgress(work, { messageKey = 'progress.applying', kind = 'render' } = {}) {
     const dlg = _progressDialog();
     const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
-    const show = !nested && !!(dlg && shouldShowOpProgress(kind));
+    const inEdit = _editWindowOpen();
+    const show = !nested && !!(dlg && (inEdit || shouldShowOpProgress(kind)));
     const gen = show ? ++_effectRenderGen : _effectRenderGen;
 
     if (show) {
@@ -1075,24 +1090,14 @@ window.Editor = (() => {
         title: _tProgress('progress.title', 'Progress'),
         message: _tProgress(messageKey, 'Working…'),
         percent: 6,
+        modal: inEdit,
       });
       dlg.startCreep(90);
+      await _yieldPaint();
     }
 
     try {
-      if (show) {
-        await dlg.yieldFrame();
-        if (gen !== _effectRenderGen) return undefined;
-        dlg.set(18, _tProgress(messageKey, 'Working…'));
-        await dlg.yieldFrame();
-        if (gen !== _effectRenderGen) return undefined;
-      }
       const result = work();
-      if (show && gen === _effectRenderGen && _effectProgressOwner === gen) {
-        dlg.stopCreep();
-        dlg.set(100, _tProgress('progress.done', 'Done'));
-        await dlg.yieldFrame(60);
-      }
       return result;
     } finally {
       if (show && _effectProgressOwner === gen) {
@@ -1106,43 +1111,37 @@ window.Editor = (() => {
     const gen = ++_effectRenderGen;
     const dlg = _progressDialog();
     const nested = !!(dlg && typeof dlg.isVisible === 'function' && dlg.isVisible());
-    const show = !!(wantProgress && dlg && _isHeavyEffectRender() && !nested);
+    const inEdit = _editWindowOpen();
+    const show = !!(wantProgress && dlg && !nested && (inEdit || _isHeavyEffectRender()));
 
     if (show) {
       _effectProgressOwner = gen;
       dlg.show({
         title: _tProgress('progress.effectTitle', _tProgress('progress.title', 'Progress')),
         message: _tProgress('progress.effectApplying', 'Applying effects…'),
-        percent: 4,
+        percent: 8,
+        modal: inEdit,
       });
       dlg.startCreep(90);
+      await _yieldPaint();
     }
 
     try {
-      if (show) {
-        await dlg.yieldFrame();
-        if (gen !== _effectRenderGen) return false;
-        dlg.set(18, _tProgress('progress.effectApplying', 'Applying effects…'));
-        await dlg.yieldFrame();
-        if (gen !== _effectRenderGen) return false;
-      }
-
       if (gen !== _effectRenderGen) return false;
+      if (show) dlg.set(22);
       _render();
-
-      if (show && gen === _effectRenderGen && _effectProgressOwner === gen) {
-        dlg.stopCreep();
-        dlg.set(100, _tProgress('progress.done', 'Done'));
-        await dlg.yieldFrame(70);
-      }
+      if (show) dlg.set(96);
+      if (show) await _yieldPaint();
       return gen === _effectRenderGen;
     } finally {
       if (show && _effectProgressOwner === gen) {
-        dlg.hide();
+        dlg.hide(_tProgress('progress.effectDone', 'Effect applied.'));
         if (_effectProgressOwner === gen) _effectProgressOwner = 0;
       }
     }
   }
+
+  let _effectRenderTail = Promise.resolve();
 
   function _requestEffectRender(wantProgress, saveHist) {
     const prev = _effectRenderQueued;
@@ -1153,10 +1152,10 @@ window.Editor = (() => {
     if (_effectRenderBusy) {
       // Abort in-flight pass after its next yield; latest effects win.
       _effectRenderGen++;
-      return;
+      return _effectRenderTail;
     }
     _effectRenderBusy = true;
-    (async () => {
+    _effectRenderTail = (async () => {
       try {
         while (_effectRenderQueued) {
           const job = _effectRenderQueued;
@@ -1169,10 +1168,11 @@ window.Editor = (() => {
         if (_effectRenderQueued) {
           const again = _effectRenderQueued;
           _effectRenderQueued = null;
-          _requestEffectRender(again.wantProgress, again.saveHist);
+          await _requestEffectRender(again.wantProgress, again.saveHist);
         }
       }
     })();
+    return _effectRenderTail;
   }
 
   function _buildFilterString() {
@@ -1567,8 +1567,8 @@ window.Editor = (() => {
     Object.assign(effects, border);
     const preset = PRESETS[name];
     if (preset) Object.assign(effects, preset);
-    if (JSON.stringify(effects) === before) return;
-    _requestEffectRender(true, true);
+    if (JSON.stringify(effects) === before) return Promise.resolve();
+    return _requestEffectRender(true, true);
   }
 
   /* ═══════════════════════════════════════════

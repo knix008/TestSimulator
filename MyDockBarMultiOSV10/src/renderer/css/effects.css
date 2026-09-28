@@ -1,0 +1,282 @@
+/* Dock effects: what an icon does on its way off the dock, and what the Trash
+ * does as it is emptied.
+ *
+ * Shared by the dock and by the settings window, so the little samples in the
+ * settings previews are the same animations the dock will actually play rather
+ * than an impression of them. Every effect is driven by one class on the item -
+ * `vanishing` plus `vanish-<name>`, or `trash-emptying` plus `trash-<name>` -
+ * and the durations here are mirrored by REMOVE_EFFECTS and TRASH_EFFECTS in
+ * dock.js, which decide how long to wait before the entry is taken out of the
+ * list for real, or before the Trash goes back to sitting still.
+ */
+
+.vanishing {
+  pointer-events: none;
+  z-index: 5;
+}
+
+.vanishing .indicator,
+.vanishing .tile { opacity: 0; }
+
+/* -- Poof: the icon disappears inside a puff of smoke. ------------------- */
+
+@keyframes dock-vanish-poof {
+  0%   { transform: scale(1);   opacity: 1; }
+  45%  { transform: scale(0.6); opacity: 0.45; }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
+.vanish-poof .icon-inner {
+  animation: dock-vanish-poof 300ms ease-in forwards;
+}
+
+/* The clouds themselves, one `i` each, thrown outwards by the --px/--py the
+ * renderer sets on them. Percentages are of the cloud, not of the icon, which
+ * keeps the puff in proportion at every icon size. */
+.puff {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.puff i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: 42%;
+  margin: -21% 0 0 -21%;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle at 34% 32%,
+    rgba(255, 255, 255, 0.96), rgba(226, 232, 240, 0.8) 52%, rgba(148, 163, 184, 0) 72%);
+  animation: dock-puff 520ms cubic-bezier(0.18, 0.7, 0.4, 1) forwards;
+}
+
+@keyframes dock-puff {
+  0%   { opacity: 0;    transform: translate(0, 0) scale(0.35); }
+  22%  { opacity: 0.95; }
+  100% { opacity: 0;    transform: translate(var(--px, 0), var(--py, 0)) scale(1.6); }
+}
+
+/* -- Shrink: swells, then falls away to nothing. ------------------------- */
+
+@keyframes dock-vanish-shrink {
+  0%   { transform: scale(1) translateY(0); opacity: 1; }
+  35%  { transform: scale(1.18) translateY(-12%); opacity: 0.9; }
+  100% { transform: scale(0.1) translateY(30%); opacity: 0; }
+}
+
+.vanish-shrink .icon-inner {
+  animation: dock-vanish-shrink 380ms cubic-bezier(0.4, 0, 0.7, 0.4) forwards;
+}
+
+/* -- Fade: simply gone. -------------------------------------------------- */
+
+@keyframes dock-vanish-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.vanish-fade .icon-inner {
+  animation: dock-vanish-fade 260ms ease-out forwards;
+}
+
+/* -- Drop: tips over the edge and falls out of the dock. ----------------- */
+
+@keyframes dock-vanish-drop {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  25%  { transform: translateY(-14%) rotate(-8deg); opacity: 1; }
+  100% { transform: translateY(190%) rotate(34deg); opacity: 0; }
+}
+
+.vanish-drop .icon-inner {
+  animation: dock-vanish-drop 460ms cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
+}
+
+/* -- Suck: spins away into a point. -------------------------------------- */
+
+@keyframes dock-vanish-suck {
+  0%   { transform: scale(1) rotate(0deg); opacity: 1; }
+  70%  { transform: scale(0.35) rotate(300deg); opacity: 0.7; }
+  100% { transform: scale(0) rotate(430deg); opacity: 0; }
+}
+
+.vanish-suck .icon-inner {
+  animation: dock-vanish-suck 440ms cubic-bezier(0.5, 0, 0.75, 0.2) forwards;
+}
+
+/* -- Shatter: breaks apart and scatters. --------------------------------- */
+
+@keyframes dock-vanish-shatter {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.05); opacity: 0; }
+}
+
+.vanish-shatter .icon-inner {
+  animation: dock-vanish-shatter 320ms ease-out forwards;
+}
+
+.shards {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Each shard carries a slice of the icon as its own background, so what flies
+ * apart is the picture rather than a generic spray of squares. */
+.shards i {
+  position: absolute;
+  background-repeat: no-repeat;
+  opacity: 0;
+  animation: dock-shard 460ms cubic-bezier(0.3, 0.5, 0.4, 1) forwards;
+}
+
+@keyframes dock-shard {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px, 0), var(--py, 0)) rotate(var(--spin, 90deg)) scale(0.4); }
+}
+
+/* ======================================================================== *
+ * Emptying the Trash
+ *
+ * Same idea as the farewells above, one class on the item - `trash-emptying`
+ * plus `trash-<name>` - and TRASH_EFFECTS in dock.js mirrors the durations so
+ * the classes come off exactly as the animation ends. The Trash icon stays
+ * where it is throughout: nothing is leaving the dock, the bin is only being
+ * tipped out, so every effect ends with the icon back as it started.
+ * ======================================================================== */
+
+.trash-emptying {
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* -- Smoke: the bin ducks and a puff rises out of it. -------------------- */
+
+@keyframes dock-trash-smoke {
+  0%   { transform: scale(1); }
+  22%  { transform: scale(0.9) translateY(4%); }
+  55%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.trash-smoke .icon-inner {
+  animation: dock-trash-smoke 560ms cubic-bezier(0.3, 0.6, 0.35, 1);
+}
+
+/* The clouds, one `i` each, drifting up and out along the --px/--py the
+ * renderer sets on them. Sized in percentages of the icon, so the puff stays
+ * in proportion at every icon size. */
+.smoke {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.smoke i {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 38%;
+  height: 38%;
+  margin: -19% 0 0 -19%;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle at 34% 32%,
+    rgba(255, 255, 255, 0.94), rgba(214, 222, 233, 0.78) 54%, rgba(148, 163, 184, 0) 74%);
+  animation: dock-trash-cloud 560ms cubic-bezier(0.2, 0.7, 0.35, 1) forwards;
+}
+
+@keyframes dock-trash-cloud {
+  0%   { opacity: 0;   transform: translate(0, 0) scale(0.3); }
+  25%  { opacity: 0.9; }
+  100% { opacity: 0;   transform: translate(var(--px, 0), var(--py, -110%)) scale(1.55); }
+}
+
+/* -- Lift: the rubbish flies up out of the bin and away. ----------------- */
+
+@keyframes dock-trash-lift {
+  0%   { transform: scale(1); }
+  18%  { transform: scale(1.05) translateY(-4%); }
+  46%  { transform: scale(0.94) translateY(3%); }
+  100% { transform: scale(1); }
+}
+
+.trash-lift .icon-inner {
+  animation: dock-trash-lift 620ms cubic-bezier(0.34, 0.6, 0.3, 1);
+}
+
+/* Scraps of paper rather than smoke: squarish, tumbling as they go. */
+.scraps {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scraps i {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 20%;
+  height: 20%;
+  margin: -10% 0 0 -10%;
+  border-radius: 12%;
+  opacity: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(203, 213, 225, 0.85));
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+  animation: dock-trash-scrap 620ms cubic-bezier(0.22, 0.75, 0.3, 1) forwards;
+}
+
+@keyframes dock-trash-scrap {
+  0%   { opacity: 0;   transform: translate(0, 0) rotate(0deg) scale(0.5); }
+  18%  { opacity: 1; }
+  100% { opacity: 0;
+         transform: translate(var(--px, 0), var(--py, -160%)) rotate(var(--spin, 180deg)) scale(0.85); }
+}
+
+/* -- Shake: the bin shakes itself out. ----------------------------------- */
+
+@keyframes dock-trash-shake {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  15%      { transform: rotate(-11deg) translateX(-7%); }
+  35%      { transform: rotate(9deg) translateX(6%); }
+  55%      { transform: rotate(-7deg) translateX(-4%); }
+  75%      { transform: rotate(4deg) translateX(2%); }
+}
+
+.trash-shake .icon-inner {
+  animation: dock-trash-shake 420ms ease-in-out;
+  transform-origin: 50% 85%;
+}
+
+/* -- Crush: squashed flat, then springs back. ---------------------------- */
+
+@keyframes dock-trash-crush {
+  0%   { transform: scale(1, 1); }
+  35%  { transform: scale(1.16, 0.7); }
+  65%  { transform: scale(0.94, 1.08); }
+  100% { transform: scale(1, 1); }
+}
+
+.trash-crush .icon-inner {
+  animation: dock-trash-crush 380ms cubic-bezier(0.3, 0.8, 0.4, 1);
+  transform-origin: 50% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vanish-poof .icon-inner,
+  .vanish-shrink .icon-inner,
+  .vanish-fade .icon-inner,
+  .vanish-drop .icon-inner,
+  .vanish-suck .icon-inner,
+  .vanish-shatter .icon-inner { animation-duration: 1ms; }
+  .trash-smoke .icon-inner,
+  .trash-lift .icon-inner,
+  .trash-shake .icon-inner,
+  .trash-crush .icon-inner { animation-duration: 1ms; }
+  .puff i,
+  .shards i,
+  .smoke i,
+  .scraps i { animation: none; opacity: 0; }
+}

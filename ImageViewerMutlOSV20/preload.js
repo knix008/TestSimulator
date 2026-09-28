@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // File system
   readDirectory: (dirPath) => ipcRenderer.invoke('read-directory', dirPath),
+  readDirectoryDetailed: (dirPath) => ipcRenderer.invoke('read-directory-detailed', dirPath),
   listDrives: () => ipcRenderer.invoke('list-drives'),
   pathAncestors: (targetPath) => ipcRenderer.invoke('path-ancestors', targetPath),
   getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
@@ -74,6 +75,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowSetMinSize: (width, height) => ipcRenderer.invoke('window-set-min-size', width, height),
   windowGetBounds: () => ipcRenderer.invoke('window-get-bounds'),
   windowApplySize: (opts) => ipcRenderer.invoke('window-apply-size', opts),
+  windowSetSize: (width, height) => ipcRenderer.invoke('window-set-size', width, height),
   windowClose: () => ipcRenderer.invoke('window-close'),
   windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   toggleFullscreen: () => ipcRenderer.invoke('window-toggle-fullscreen'),
@@ -87,11 +89,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOpenFile: (cb) => ipcRenderer.on('open-file', (_, p) => cb(p)),
   getLaunchFile: () => ipcRenderer.invoke('get-launch-file'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+  getFileAssocStatus: () => ipcRenderer.invoke('get-file-assoc-status'),
+  setDefaultImageViewer: () => ipcRenderer.invoke('set-default-image-viewer'),
+  openDefaultAppsSettings: () => ipcRenderer.invoke('open-default-apps-settings'),
   onOpenFolder: (cb) => ipcRenderer.on('open-folder', (_, p) => cb(p)),
   onMenuAction: (cb) => ipcRenderer.on('menu-action', (_, action) => cb(action)),
 
   showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+  renamePath: (src, newName) => ipcRenderer.invoke('rename-path', { src, newName }),
   transferIntoDir: (opts) => ipcRenderer.invoke('transfer-into-dir', opts),
   pickDirectory: (opts) => ipcRenderer.invoke('pick-directory', opts),
   startDrag: (filePathOrPaths) => ipcRenderer.send('start-drag', filePathOrPaths),

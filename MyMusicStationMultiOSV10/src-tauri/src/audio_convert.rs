@@ -161,6 +161,28 @@ pub fn convert_audio(
         return Err("변환할 오디오 입력(경로 또는 데이터)이 없습니다.".to_string());
     };
 
+    // ffmpeg truncates/destroys the file when -i and output are the same path.
+    let same_path = {
+        let left = input
+            .to_string_lossy()
+            .replace('/', "\\")
+            .to_ascii_lowercase();
+        let right = output
+            .to_string_lossy()
+            .replace('/', "\\")
+            .to_ascii_lowercase();
+        let left = left.strip_prefix(r"\\?\").unwrap_or(left.as_str());
+        let right = right.strip_prefix(r"\\?\").unwrap_or(right.as_str());
+        left == right
+            || matches!(
+                (fs::canonicalize(&input), fs::canonicalize(&output)),
+                (Ok(a), Ok(b)) if a == b
+            )
+    };
+    if same_path {
+        return Ok(());
+    }
+
     let codec = codec_args(&format, &quality)?;
 
     let mut command = Command::new(&ffmpeg);

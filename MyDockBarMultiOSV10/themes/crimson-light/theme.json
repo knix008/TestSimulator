@@ -1,0 +1,38 @@
+{
+  "id": "crimson-light",
+  "name": "Crimson Light",
+  "author": "MyDockBar",
+  "description": "Deep crimson velvet, on a light surface. (floating shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "transparent",
+    "--plate-border": "none",
+    "--plate-radius": "0px",
+    "--plate-shadow": "none",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.22",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(143,61,72,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(45,36,38,0.32)",
+    "--indicator-color": "#a92d3e",
+    "--indicator-glow": "0 0 10px rgba(169,45,62,0.9)",
+    "--tooltip-bg": "rgba(252,248,249,0.96)",
+    "--tooltip-fg": "#3d141a",
+    "--tooltip-border": "1px solid rgba(169,45,62,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#a92d3e"
+  },
+  "ui": {
+    "--bg": "#f6f3f4",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#ece5e6",
+    "--fg": "#321b1e",
+    "--fg-dim": "#7c5a5f",
+    "--line": "#d7cbcd",
+    "--accent": "#a92d3e",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

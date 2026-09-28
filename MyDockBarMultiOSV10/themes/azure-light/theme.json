@@ -1,0 +1,38 @@
+{
+  "id": "azure-light",
+  "name": "Azure Light",
+  "author": "MyDockBar",
+  "description": "Open-sky blue, on a light surface. (pill shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, #d5e1f1 0%, #c1d3eb 42%, #707a88 100%)",
+    "--plate-border": "1px solid rgba(236,242,249,0.45)",
+    "--plate-radius": "999px",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(252,253,254,0.55), inset 0 -2px 6px rgba(0,0,0,0.3)",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.28",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "2px",
+    "--sep-color": "rgba(51,95,153,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(39,42,47,0.32)",
+    "--indicator-color": "#1e61b8",
+    "--indicator-glow": "0 0 10px rgba(30,97,184,0.9)",
+    "--tooltip-bg": "rgba(248,250,252,0.96)",
+    "--tooltip-fg": "#14263d",
+    "--tooltip-border": "1px solid rgba(30,97,184,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#1e61b8"
+  },
+  "ui": {
+    "--bg": "#f3f5f6",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#e4e7ec",
+    "--fg": "#1b2532",
+    "--fg-dim": "#5a697c",
+    "--line": "#cad0d8",
+    "--accent": "#1e61b8",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

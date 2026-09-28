@@ -1,0 +1,43 @@
+{
+  "id": "amber-light",
+  "name": "Amber Light",
+  "author": "MyDockBar",
+  "description": "Warm amber and brass, on a light surface. (slot shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, #f2e5d4 0%, #ecd9c0 42%, #897e6f 100%)",
+    "--plate-border": "1px solid rgba(249,244,236,0.45)",
+    "--plate-radius": "12px",
+    "--plate-shadow": "0 12px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(254,253,252,0.55), inset 0 -2px 6px rgba(0,0,0,0.3)",
+    "--plate-backdrop": "none",
+    "--reflection-opacity": "0.28",
+    "--plate-clip": "none",
+    "--icon-radius": "4px",
+    "--sep-width": "2px",
+    "--item-bg": "rgba(106,98,86,0.34)",
+    "--item-border": "1px solid rgba(71,65,58,0.4)",
+    "--item-radius": "8px",
+    "--item-shadow": "inset 0 2px 5px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.14)",
+    "--item-inset": "-5px",
+    "--sep-color": "rgba(155,109,49,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(47,43,38,0.32)",
+    "--indicator-color": "#ba761c",
+    "--indicator-glow": "0 0 10px rgba(186,118,28,0.9)",
+    "--tooltip-bg": "rgba(252,250,248,0.96)",
+    "--tooltip-fg": "#3d2c14",
+    "--tooltip-border": "1px solid rgba(186,118,28,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#ba761c"
+  },
+  "ui": {
+    "--bg": "#f6f5f3",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#ece9e4",
+    "--fg": "#32281b",
+    "--fg-dim": "#7c6d5a",
+    "--line": "#d9d2ca",
+    "--accent": "#ba761c",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

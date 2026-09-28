@@ -1,0 +1,38 @@
+{
+  "id": "indigo",
+  "name": "Indigo",
+  "author": "MyDockBar",
+  "description": "Deep evening indigo. (slab shape)",
+  "dark": true,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(69,65,145,0.94), rgba(25,21,92,0.96))",
+    "--plate-border": "1px solid rgba(156,153,196,0.3)",
+    "--plate-radius": "0px",
+    "--plate-shadow": "0 10px 26px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(8px)",
+    "--reflection-opacity": "0.22",
+    "--plate-clip": "none",
+    "--icon-radius": "0px",
+    "--sep-width": "3px",
+    "--sep-color": "rgba(180,177,231,0.5)",
+    "--icon-shadow": "0 6px 13px rgba(7,6,25,0.55)",
+    "--indicator-color": "#7069f2",
+    "--indicator-glow": "0 0 10px rgba(112,105,242,0.9)",
+    "--tooltip-bg": "rgba(17,16,30,0.96)",
+    "--tooltip-fg": "#e6e5f5",
+    "--tooltip-border": "1px solid rgba(112,105,242,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#7069f2"
+  },
+  "ui": {
+    "--bg": "#171622",
+    "--bg-raised": "#222131",
+    "--bg-sunken": "#101019",
+    "--fg": "#eae9f1",
+    "--fg-dim": "#8e8db0",
+    "--line": "#333249",
+    "--accent": "#7069f2",
+    "--accent-fg": "#0f0e1b",
+    "--danger": "#ff7a72"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "rose-light",
+  "name": "Rose Light",
+  "author": "MyDockBar",
+  "description": "Blush rose with a pearly sheen, on a light surface. (tile shape)",
+  "dark": false,
+  "variables": {
+    "--plate-bg": "linear-gradient(180deg, rgba(242,219,226,0.42) 0%, rgba(234,195,206,0.34) 48%, rgba(140,117,124,0.42) 100%)",
+    "--plate-border": "1px solid rgba(246,228,233,0.5)",
+    "--plate-radius": "14px",
+    "--plate-shadow": "0 14px 40px rgba(59,49,52,0.5), inset 0 1px 0 rgba(253,249,250,0.65), inset 0 -1px 0 rgba(255,255,255,0.12)",
+    "--plate-backdrop": "blur(22px) saturate(180%)",
+    "--reflection-opacity": "0.36",
+    "--plate-clip": "none",
+    "--icon-radius": "6px",
+    "--sep-width": "2px",
+    "--item-bg": "rgba(241,216,223,0.28)",
+    "--item-border": "1px solid rgba(249,237,240,0.35)",
+    "--item-radius": "10px",
+    "--item-shadow": "inset 0 1px 0 rgba(255,255,255,0.25)",
+    "--item-inset": "-4px",
+    "--sep-color": "rgba(149,55,83,0.55)",
+    "--icon-shadow": "0 6px 13px rgba(47,39,41,0.32)",
+    "--indicator-color": "#b2244f",
+    "--indicator-glow": "0 0 10px rgba(178,36,79,0.9)",
+    "--tooltip-bg": "rgba(252,248,249,0.96)",
+    "--tooltip-fg": "#3d1421",
+    "--tooltip-border": "1px solid rgba(178,36,79,0.4)",
+    "--tooltip-shadow": "0 8px 20px rgba(0,0,0,0.45)",
+    "--drop-accent": "#b2244f"
+  },
+  "ui": {
+    "--bg": "#f6f3f4",
+    "--bg-raised": "#ffffff",
+    "--bg-sunken": "#ece4e6",
+    "--fg": "#321b22",
+    "--fg-dim": "#7c5a64",
+    "--line": "#d8cace",
+    "--accent": "#b2244f",
+    "--accent-fg": "#ffffff",
+    "--danger": "#c8352f"
+  }
+}

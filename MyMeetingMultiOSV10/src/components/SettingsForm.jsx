@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getSystemFonts, fontsWith } from '../lib/fonts';
-import { THEMES } from '../lib/themes';
+import { themesByMode } from '../lib/themes';
 
 const ALIGNS = ['left', 'center', 'right'];
 const POS_ROWS = ['top', 'bottom'];
+const TABS = [
+  { id: 'general', label: 'settings.general' },
+  { id: 'font', label: 'settings.exportType' },
+  { id: 'pages', label: 'settings.pages' },
+  { id: 'header', label: 'settings.headerFooter' },
+];
 
 // The settings form body (no window chrome). Shared by the separate settings
 // window (SettingsPage).
 export default function SettingsForm({ settings, onChange, theme, onTheme, lang, onLang }) {
   const { t } = useTranslation();
   const [fonts, setFonts] = useState(null);
+  const [tab, setTab] = useState('general');
 
   useEffect(() => {
     let alive = true;
@@ -50,9 +57,23 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
 
   return (
     <div className="settings-form">
-      {/* ── General ── */}
-      <div className="form-section">
-        <h3>{t('settings.general')}</h3>
+      <div className="settings-tabs" role="tablist">
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            className={tab === item.id ? 'on' : ''}
+            onClick={() => setTab(item.id)}
+          >
+            {t(item.label)}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'general' && (
+      <div className="settings-panel" role="tabpanel">
         <div className="field">
           <label>{t('settings.language')}</label>
           <div className="control">
@@ -62,29 +83,36 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
             </div>
           </div>
         </div>
-        <div className="field">
+        <div className="field field-top">
           <label>{t('settings.theme')}</label>
           <div className="control">
-            <div className="theme-grid">
-              {THEMES.map((th) => (
-                <button
-                  key={th.id}
-                  className={`theme-swatch${theme === th.id ? ' on' : ''}`}
-                  onClick={() => onTheme(th.id)}
-                  title={t(`theme.${th.id}`)}
-                >
-                  <span className="bars">{th.bars.map((c, i) => <span key={i} style={{ background: c }} />)}</span>
-                  <span className="name">{t(`theme.${th.id}`)}</span>
-                </button>
+            <div className="theme-groups">
+              {['dark', 'light'].map((mode) => (
+                <div key={mode}>
+                  <div className="theme-group-name">{t(mode === 'dark' ? 'theme.groupDark' : 'theme.groupLight')}</div>
+                  <div className="theme-grid">
+                    {themesByMode(mode).map((th) => (
+                      <button
+                        key={th.id}
+                        className={`theme-swatch${theme === th.id ? ' on' : ''}`}
+                        onClick={() => onTheme(th.id)}
+                        title={t(`theme.${th.id}`)}
+                      >
+                        <span className="bars">{th.bars.map((c, i) => <span key={i} style={{ background: c }} />)}</span>
+                        <span className="name">{t(`theme.${th.id}`)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         </div>
       </div>
+      )}
 
-      {/* ── Export typography ── */}
-      <div className="form-section">
-        <h3>{t('settings.exportType')}</h3>
+      {tab === 'font' && (
+      <div className="settings-panel" role="tabpanel">
         <div className="field">
           <label>{t('settings.font')}</label>
           <div className="control">
@@ -121,10 +149,10 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
           </div>
         </div>
       </div>
+      )}
 
-      {/* ── Pages (cover / index) ── */}
-      <div className="form-section">
-        <h3>{t('settings.pages')}</h3>
+      {tab === 'pages' && (
+      <div className="settings-panel" role="tabpanel">
         <div className="field">
           <label>{t('settings.coverPage')}</label>
           <div className="control">
@@ -182,10 +210,10 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
           </div>
         </div>
       </div>
+      )}
 
-      {/* ── Header / Footer / Page number ── */}
-      <div className="form-section">
-        <h3>{t('settings.headerFooter')}</h3>
+      {tab === 'header' && (
+      <div className="settings-panel" role="tabpanel">
         <div className="field">
           <label>{t('settings.header')}</label>
           <div className="control">
@@ -241,6 +269,7 @@ export default function SettingsForm({ settings, onChange, theme, onTheme, lang,
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

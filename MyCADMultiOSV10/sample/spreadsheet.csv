@@ -1,0 +1,9 @@
+Width,80
+Depth,50
+Area,=B1*B2
+Total,=sum(B1:B3)
+Thickness,6
+Volume,=B3*B5
+Density,0.00000785
+Mass,=B6*B7
+Cost,=B8*4200
