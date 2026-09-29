@@ -810,7 +810,11 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     openingRef.current.set(key, job);
     return job;
   };
-  const openPathNow = async (p, { encoding = null, activateIt = true, force = false } = {}) => {
+  // `quiet`: report nothing to the user — no error dialog, just null. The
+  // session restore opens with it: before boot the dialog host is not mounted
+  // (see the `!booted` branch), so an awaited dialog would never be answered
+  // and the app would sit on "세션 복원" forever.
+  const openPathNow = async (p, { encoding = null, activateIt = true, force = false, quiet = false } = {}) => {
     let existing = docsRef.current.find((d) => samePath(d.path, p));
     if (existing && !encoding) { if (activateIt) activate(existing.id); return existing; }
     const name = baseName(p);
@@ -820,13 +824,13 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       try {
         if (!force && !encoding && isBinaryImageName(name)) {
           report({ message: t('prog_hex') });
-          return await openHex(p, { activateIt });
+          return await openHex(p, { activateIt, quiet });
         }
         if (!force && !encoding) {
           report({ message: t('prog_sniff') });
           let s = null;
           try { s = await call('file.sniff', { path: p }); } catch { s = null; }
-          if (s && s.binary) { report({ message: t('prog_hex') }); return await openHex(p, { activateIt }); }
+          if (s && s.binary) { report({ message: t('prog_hex') }); return await openHex(p, { activateIt, quiet }); }
           if (s && s.size > MAX_TEXT) { err = { code: 'ETOOBIG', name }; return null; }
         }
         report({ message: t('prog_read') });
@@ -853,18 +857,17 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
         if (e.code === 'ETOOBIG') {
           let s = null;
           try { s = await call('file.sniff', { path: p }); } catch { s = null; }
-          if (s && s.binary && !force) return openHex(p, { activateIt });
-        } else if (e.code === 'EBINARY' && !force) return openHex(p, { activateIt });
+          if (s && s.binary && !force) return openHex(p, { activateIt, quiet });
+        } else if (e.code === 'EBINARY' && !force) return openHex(p, { activateIt, quiet });
         return null;
       }
     });
     if (doc) return doc;
     if (err) {
-      if (err.code === 'ETOOBIG') await showError(t('too_big_title'), t('too_big_msg', { name }), err);
-      else {
-        if (err.code === 'ENOENT') call('recent.remove', { path: p }).then(setRecent).catch(() => {});
-        await showError(t('error_title'), t('open_failed', { name }), err);
-      }
+      if (err.code === 'ENOENT') call('recent.remove', { path: p }).then(setRecent).catch(() => {});
+      if (quiet) setMessage(t('open_failed', { name }));
+      else if (err.code === 'ETOOBIG') await showError(t('too_big_title'), t('too_big_msg', { name }), err);
+      else await showError(t('error_title'), t('open_failed', { name }), err);
     }
     return null;
   };
@@ -883,7 +886,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     if (!read) { read = hexReader(doc.path); hexRef.current.set(doc.id, read); }
     return read;
   };
-  const openHex = async (p, { activateIt = true } = {}) => {
+  const openHex = async (p, { activateIt = true, quiet = false } = {}) => {
     try {
       const r = await call('file.readRange', { path: p, offset: 0, length: 0 });   // the resolved path, size and mtime
       const existing = docsRef.current.find((d) => samePath(d.path, r.path));
@@ -900,7 +903,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       setMessage(t(image ? 'img_opened' : 'hex_opened', { name: r.name }));
       return doc;
     } catch (e) {
-      await showError(t('error_title'), t('open_failed', { name: baseName(p) }), e);
+      if (quiet) setMessage(t('open_failed', { name: baseName(p) }));
+      else await showError(t('error_title'), t('open_failed', { name: baseName(p) }), e);
       return null;
     }
   };
@@ -1143,7 +1147,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
               // (picture fill). Do not file.read with the tab's encoding — that
               // skips the binary sniff and pastes the bytes into the editor.
               if (restoreAsPicture(tab)) {
-                const hex = await openPath(tab.path, { activateIt: false });
+                const hex = await openPath(tab.path, { activateIt: false, quiet: true });
                 if (hex) {
                   if (tab.imageHex) patchDoc(hex.id, { imageHex: true });
                   restored++;
@@ -1154,7 +1158,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
               let readErr = null;
               try { r = await call('file.read', { path: tab.path, encoding: tab.encoding || null, defaultEol: s.defaultEol }); } catch (e) { readErr = e; }
               if (!r && readErr && (readErr.code === 'EBINARY' || readErr.code === 'ETOOBIG') && !tab.draft) {
-                const hex = await openPath(tab.path, { activateIt: false });
+                const hex = await openPath(tab.path, { activateIt: false, quiet: true });
                 if (hex) { restored++; continue; }
               }
               if (r) {
@@ -1988,7 +1992,18 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
   const termEnv = useMemo(() => ({ home: info ? info.home : '', user: info ? info.user : '', host: info ? info.hostname : '', platform: info ? info.platform : '' }), [info]);
   const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isBinaryImage ? false : (isMarkdown ? !!settings.mdOutline : !!settings.minimap), canStructure: !isBinaryImage };
 
-  if (!booted) return <><div className="boot">{t('ready')}…</div><ProgressHost /></>;
+  // Before boot the app is a single line of text — but the two dialogs that
+  // `ask()` can raise while the session is being restored (a file handed over
+  // on the command line, an open that failed) must be mounted here too: an
+  // awaited dialog with nothing to answer it leaves the progress popup up for good.
+  if (!booted) return (
+    <>
+      <div className="boot">{t('ready')}…</div>
+      {dialog && dialog.type === 'confirm' && <ConfirmDialog title={dialog.title} message={dialog.message} buttons={dialog.buttons} icon={dialog.icon} kind={dialog.kind} detail={dialog.detail} onResult={closeDialog} />}
+      {dialog && dialog.type === 'error' && <ErrorDialog title={dialog.title} message={dialog.message} error={dialog.error} onClose={() => closeDialog('ok')} />}
+      <ProgressHost />
+    </>
+  );
 
   return (
     <div className="app">
