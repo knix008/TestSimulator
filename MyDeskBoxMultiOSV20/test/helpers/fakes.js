@@ -473,8 +473,10 @@ function loadHost(state) {
   const iconsPath = path.join(root, 'icons.js');
   delete require.cache[trayPath];
   delete require.cache[iconsPath];
-  // autostart 는 읽을 때 electron 을 붙잡는다. 검사마다 새로 읽어야 이번 가짜를 쓴다.
+  // autostart 와 props 는 읽을 때 electron 을 붙잡는다. 검사마다 새로 읽어야
+  // 이번 가짜를 쓴다. 묵혀 두면 지난 검사의 창 목록에 속성 창이 쌓인다.
   delete require.cache[path.join(root, 'autostart.js')];
+  delete require.cache[path.join(root, 'props.js')];
 
   try {
     const { createHost } = require(fencesPath);
@@ -532,7 +534,7 @@ async function loadMain(state) {
   require.cache['\u0000desktop'] = { id: '\u0000desktop', filename: '\u0000desktop', loaded: true, exports: desktop.module };
   require.cache['\u0000ask'] = { id: '\u0000ask', filename: '\u0000ask', loaded: true, exports: askStub };
   require.cache['\u0000store'] = { id: '\u0000store', filename: '\u0000store', loaded: true, exports: storeStub };
-  for (const file of ['main.js', 'fences.js', 'tray.js', 'icons.js', 'ipc.js', 'autostart.js']) {
+  for (const file of ['main.js', 'fences.js', 'tray.js', 'icons.js', 'ipc.js', 'autostart.js', 'props.js']) {
     delete require.cache[path.join(root, file)];
   }
 

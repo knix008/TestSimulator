@@ -2479,6 +2479,214 @@ function createHost(state) {
     await pushAll();
   }
 
+  // ── 속성 ──────────────────────────────────────────────────
+  //
+  // 아이콘의 '속성'. 탐색기의 속성 대화상자를 부르지 않는다. 셸 대화상자는
+  // 늘 위에 있는 박스 뒤로 숨고, 세 운영체제에서 모양이 저마다 다르다.
+  // 무엇을 적을지는 여기서 다 정해 줄로 만들어 넘긴다(props.js 는 그리기만 한다).
+
+  // 폴더를 따라 내려가 크기를 잴 때의 한도. 아주 큰 폴더에서 창이 늦게 뜨지
+  // 않게 한다. 한도에 닿으면 잰 값에 '이상'을 붙여 정직하게 적는다.
+  const WALK_ENTRIES = 40000;
+  const WALK_MS = 1200;
+
+  function locale() {
+    return state.settings.lang === 'en' ? 'en-US' : 'ko-KR';
+  }
+
+  function sizeText(bytes, capped) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let n = bytes;
+    let unit = 0;
+    while (n >= 1024 && unit < units.length - 1) {
+      n /= 1024;
+      unit += 1;
+    }
+    const exact = say('props.bytes', { n: bytes.toLocaleString(locale()) });
+    // 1024 바이트가 안 되면 바이트 수만으로 충분하다. 두 번 적지 않는다.
+    const text = unit === 0 ? exact : `${n.toFixed(n < 10 ? 1 : 0)} ${units[unit]} (${exact})`;
+    return capped ? say('props.atLeast', { size: text }) : text;
+  }
+
+  function whenText(value) {
+    if (!value) return '';
+    try {
+      return new Date(value).toLocaleString(locale());
+    } catch (_err) {
+      return '';
+    }
+  }
+
+  // 폴더 하나를 따라 내려가 크기와 개수를 잰다. 심볼릭 링크는 따라가지 않는다.
+  // 같은 곳을 두 번 세거나 링크 고리를 끝없이 도는 일을 막는다.
+  function walk(root, budget) {
+    const out = { bytes: 0, files: 0, dirs: 0 };
+    const stack = [root];
+    while (stack.length) {
+      const dir = stack.pop();
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch (_err) {
+        continue;   // 열 수 없는 폴더는 건너뛴다
+      }
+      for (const entry of entries) {
+        // 한도는 항목 하나마다 본다. 폴더 경계에서만 보면 파일이 십만 개 든
+        // 폴더 하나를 끝까지 세고 만다.
+        if (budget.entries <= 0 || Date.now() > budget.until) {
+          budget.capped = true;
+          return out;
+        }
+        budget.entries -= 1;
+        if (entry.isSymbolicLink()) {
+          out.files += 1;
+          continue;
+        }
+        if (entry.isDirectory()) {
+          out.dirs += 1;
+          stack.push(path.join(dir, entry.name));
+          continue;
+        }
+        out.files += 1;
+        try {
+          out.bytes += fs.statSync(path.join(dir, entry.name)).size;
+        } catch (_err) {
+          /* 잴 수 없는 파일은 0 으로 둔다 */
+        }
+      }
+    }
+    return out;
+  }
+
+  // 파일 하나든 폴더 하나든 크기와 안의 개수를 같은 모양으로 돌려준다.
+  function measure(filePath, budget) {
+    let stat = null;
+    try {
+      stat = fs.statSync(filePath);
+    } catch (_err) {
+      return null;
+    }
+    if (!stat.isDirectory()) return { stat, bytes: stat.size, files: 1, dirs: 0, folder: false };
+    const inside = walk(filePath, budget);
+    return { stat, bytes: inside.bytes, files: inside.files, dirs: inside.dirs, folder: true };
+  }
+
+  function kindText(filePath, folder) {
+    if (desktop.isShellItem && desktop.isShellItem(filePath)) return say('props.system');
+    if (deliver.isShortcut(filePath)) return say('props.shortcut');
+    if (folder) return say('props.folder');
+    const ext = path.extname(filePath);
+    return ext ? say('props.extFile', { ext: ext.slice(1).toUpperCase() }) : say('props.plainFile');
+  }
+
+  // 여럿을 고른 채 그중 하나를 누르면 그 묶음 전체를 잰다. 탐색기와 같다.
+  function groupRows(id, group, budget) {
+    const fence = fenceById(id);
+    let bytes = 0;
+    let files = 0;
+    let dirs = 0;
+    for (const one of group) {
+      if (desktop.isShellItem && desktop.isShellItem(one)) continue;
+      const found = measure(one, budget);
+      if (!found) continue;
+      bytes += found.bytes;
+      // 고른 것 자체도 하나로 센다. 폴더는 그 안의 것까지 더한다.
+      if (found.folder) {
+        dirs += 1 + found.dirs;
+        files += found.files;
+      } else {
+        files += 1;
+      }
+    }
+    const kinds = new Set(group.map((one) => kindText(one, isDirectory(one))));
+    return {
+      title: say('props.many', { n: group.length }),
+      kind: kinds.size === 1 ? [...kinds][0] : say('props.manyKinds'),
+      rows: [
+        { label: say('props.box'), value: fence ? (fence.title || say('box.untitled')) : '' },
+        { label: say('props.where'), value: path.dirname(group[0]), wide: true },
+        { label: say('props.size'), value: sizeText(bytes, budget.capped) },
+        { label: say('props.count'), value: say('props.inside', { files, dirs }) },
+      ],
+    };
+  }
+
+  function itemRows(id, filePath, budget) {
+    const fence = fenceById(id);
+    const boxName = fence ? (fence.title || say('box.untitled')) : '';
+    const shellItem = !!(desktop.isShellItem && desktop.isShellItem(filePath));
+    const name = path.basename(filePath);
+    const label = labelFor({ path: filePath, name }) || name;
+    const rows = [];
+
+    // 셸 항목(휴지통 따위)에는 잴 파일이 없다. 아는 것만 적는다.
+    if (shellItem) {
+      rows.push({ label: say('props.box'), value: boxName });
+      rows.push({ label: say('props.where'), value: filePath, wide: true });
+      if (deliver.isRecycle(filePath) && typeof desktop.recycleCount === 'function') {
+        const left = desktop.recycleCount();
+        if (left >= 0) rows.push({ label: say('props.count'), value: say('props.many', { n: left }) });
+      }
+      return { title: label, kind: say('props.system'), rows };
+    }
+
+    const found = measure(filePath, budget);
+    const kind = kindText(filePath, !!(found && found.folder));
+    if (label !== name) rows.push({ label: say('props.file'), value: name, wide: true });
+    rows.push({ label: say('props.box'), value: boxName });
+    rows.push({ label: say('props.where'), value: path.dirname(filePath), wide: true });
+
+    const link = shortcutLink(filePath);
+    if (link) rows.push({ label: say('props.target'), value: link.target, wide: true });
+
+    if (!found) {
+      // 박스에 담긴 뒤 바깥에서 지워진 항목. 다음 훑기에서 아이콘이 사라진다.
+      return { title: label, kind: `${kind} · ${say('props.gone')}`, rows };
+    }
+
+    rows.push({ label: say('props.size'), value: sizeText(found.bytes, budget.capped) });
+    if (found.folder) rows.push({ label: say('props.count'), value: say('props.inside', { files: found.files, dirs: found.dirs }) });
+
+    const made = whenText(found.stat.birthtimeMs || found.stat.birthtime);
+    if (made) rows.push({ label: say('props.made'), value: made });
+    rows.push({ label: say('props.changed'), value: whenText(found.stat.mtimeMs || found.stat.mtime) });
+    rows.push({ label: say('props.used'), value: whenText(found.stat.atimeMs || found.stat.atime) });
+
+    const attrs = [];
+    // 윈도우의 읽기 전용 특성은 노드가 쓰기 비트로 옮겨 준다.
+    if (!(found.stat.mode & 0o200)) attrs.push(say('props.readonly'));
+    try {
+      if (fs.lstatSync(filePath).isSymbolicLink()) attrs.push(say('props.link'));
+    } catch (_err) {
+      /* 링크인지 알 수 없으면 적지 않는다 */
+    }
+    rows.push({ label: say('props.attrs'), value: attrs.length ? attrs.join(' · ') : say('props.none') });
+
+    return { title: label, kind, rows };
+  }
+
+  // limits 는 폴더를 얼마나 따라 내려갈지다. 메뉴는 넘기지 않고 위의 한도를 쓴다.
+  // 검사에서 한도에 닿는 경우를 좁은 한도로 흉내 낼 수 있게 열어 둔다.
+  async function showProps(id, filePath, paths, limits) {
+    if (!filePath || !fenceById(id)) return null;
+    const group = Array.isArray(paths) && paths.length > 1 && paths.includes(filePath) ? paths : [filePath];
+    const budget = {
+      entries: (limits && limits.entries) || WALK_ENTRIES,
+      until: Date.now() + ((limits && limits.ms) || WALK_MS),
+      capped: false,
+    };
+    const shown = group.length > 1 ? groupRows(id, group, budget) : itemRows(id, filePath, budget);
+    return props.show({
+      // 같은 항목의 창을 두 번 열지 않는다. 묶음은 고른 것이 달라지면 다른 창이다.
+      key: group.length > 1 ? `${id}:${[...group].sort().join('|')}` : filePath,
+      title: shown.title,
+      kind: shown.kind,
+      rows: shown.rows,
+      close: say('props.close'),
+      icon: await iconOf(filePath),
+    });
+  }
+
   function showMenu(id, filePath, paths) {
     const fence = fenceById(id);
     const win = wins.get(id);
@@ -2542,6 +2750,13 @@ function createHost(state) {
           icon: icons.menu('remove'),
           enabled: deletable,
           click: () => trashItems(id, group),
+        },
+        {
+          // 아이콘의 속성. 아래로는 박스 자체를 다루는 항목이 이어지므로
+          // 항목에 딸린 것끼리 한데 모아 둔다.
+          label: say('menu.props'),
+          icon: icons.menu('info'),
+          click: () => showProps(id, filePath, group),
         },
         { type: 'separator' }
       );
@@ -2817,6 +3032,7 @@ function createHost(state) {
     removeFence,
     openItem,
     showMenu,
+    showProps,
     setHidden,
     toggleHidden,
     onChange: (listener) => listeners.add(listener),

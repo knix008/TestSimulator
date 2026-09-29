@@ -44,6 +44,7 @@ npm start
 | `src/main/autostart.js` | 로그인할 때 스스로 켜지기. Windows·macOS 는 로그인 항목, Linux 는 `.desktop` 파일 |
 | `src/main/themes.js` | 테마 30개, 모서리, 직접 고른 색 |
 | `src/main/ask.js`, `ipc.js` | 확인 창과 렌더러 IPC |
+| `src/main/props.js` | 항목 속성 창. 무엇을 적을지는 `fences.js` 가 줄로 만들어 넘긴다 |
 | `src/main/desktop/index.js` | `win32` / `darwin` / 그 외를 고른다 |
 | `src/main/desktop/files.js` | 바탕화면 폴더와 그 안의 목록, 이름 비교, 셸 경로 |
 | `src/main/desktop/windows.js` | 탐색기 리스트뷰 FFI (koffi). 아이콘 밀어내기, 격자 재기, 셸 아이콘 감추기 |
@@ -59,6 +60,7 @@ npm start
 | `src/renderer/prefs.*` | 프로그램 설정 창. 탭 넷, 크기 고정 |
 | `src/renderer/settings.*` | 박스 하나의 설정 창 |
 | `src/renderer/ask.*` | 묻고 알리는 창 |
+| `src/renderer/props.*` | 항목 속성 창. 메인이 준 줄을 그리기만 한다 |
 | `src/renderer/ghost.*` | 끄는 동안 손을 따라다니는 아이콘 |
 | `src/renderer/draw.*` | 새 박스를 그리는 전체 화면 |
 | `src/preload/preload.js` | 렌더러에 여는 API |
