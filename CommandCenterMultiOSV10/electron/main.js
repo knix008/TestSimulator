@@ -91,6 +91,17 @@ function toolIcon(kind) {
   return fs.existsSync(p) ? p : (fs.existsSync(iconPath()) ? iconPath() : undefined);
 }
 
+// Windows are created hidden and shown on 'ready-to-show' (the first paint), so they never flash empty.
+// On Windows a hidden window is sometimes never painted at all — no frame is produced until it is shown —
+// and 'ready-to-show' then never comes: the app runs but no window appears. So a window whose page has
+// loaded is shown anyway after a moment; the first paint follows (and 'ready-to-show' with it).
+const REVEAL_FALLBACK_MS = 500;
+function revealWhenReady(win, show) {
+  const reveal = () => { if (!win.isDestroyed() && !win.isVisible()) show(); };
+  win.once('ready-to-show', reveal);
+  win.webContents.once('did-finish-load', () => setTimeout(reveal, REVEAL_FALLBACK_MS));
+}
+
 function loadApp(win, query) {
   if (argValue('smoke-url')) { const u = new URL(argValue('smoke-url')); for (const [k, v] of Object.entries(query || {})) u.searchParams.set(k, v); win.loadURL(u.toString()); }
   else if (isDev) { const u = new URL(DEV_URL); for (const [k, v] of Object.entries(query || {})) u.searchParams.set(k, v); win.loadURL(u.toString()); }
@@ -147,7 +158,7 @@ function openToolWindow({ kind, title, width, height }) {
   win.ccKind = kind;
   win.ccOverlay = process.platform === 'win32' && PAGE_TITLEBAR;   // setTitleBarOverlay works on this window
   toolWins.add(win);
-  win.once('ready-to-show', () => (QUIET.has(kind) ? win.showInactive() : win.show()));
+  revealWhenReady(win, () => (QUIET.has(kind) ? win.showInactive() : win.show()));
   // The page sets document.title; keep it (Electron would otherwise reset it on navigation).
   win.on('page-title-updated', (e) => e.preventDefault());
   win.webContents.on('page-title-updated', (_e, t) => { if (!win.isDestroyed()) win.setTitle(t); });
@@ -419,7 +430,7 @@ function createWindow() {
   mainWin = win;
   win.ccOverlay = process.platform === 'win32' && PAGE_TITLEBAR;   // setTitleBarOverlay works on this window
 
-  win.once('ready-to-show', () => win.show());
+  revealWhenReady(win, () => win.show());
 
   // Links and "open in browser" requests go to the system browser.
   win.webContents.setWindowOpenHandler(({ url }) => {
