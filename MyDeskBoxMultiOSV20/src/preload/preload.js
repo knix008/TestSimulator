@@ -40,6 +40,9 @@ contextBridge.exposeInMainWorld('desk', {
   onGhost: (handler) => on('ghost:icon', handler),
   answer: (id, ok) => ipcRenderer.send('ask:answer', { id, ok }),
   askSize: (id, height) => ipcRenderer.send('ask:size', { id, height }),
+  // 항목 속성 창
+  propsSize: (key, height) => ipcRenderer.send('props:size', { key, height }),
+  propsClose: (key) => ipcRenderer.send('props:close', key),
   settings: (id) => ipcRenderer.send('box:open', id),
   boxReady: (id) => ipcRenderer.send('box:ready', id),
   onBoxSettings: (handler) => on('box:state', handler),

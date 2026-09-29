@@ -12,6 +12,7 @@ const autostart = require('./autostart');
 
 const icons = require('./icons');
 const ask = require('./ask');
+const props = require('./props');
 const themes = require('./themes');
 const i18n = require('../shared/i18n');
 const deliver = require('../shared/deliver');
