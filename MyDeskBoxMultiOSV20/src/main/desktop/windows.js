@@ -106,6 +106,8 @@ const SHGetImageList = shell32.func('int32 __stdcall SHGetImageList(int32 which,
 const ImageList_GetIcon = comctl32.func('void * __stdcall ImageList_GetIcon(void *list, int32 index, uint32 flags)');
 const GetIconInfo = user32.func('int __stdcall GetIconInfo(void *icon, _Out_ ICONINFO *info)');
 const DestroyIcon = user32.func('int __stdcall DestroyIcon(void *icon)');
+// 휴지통은 비었을 때와 찼을 때 파일이 다르다. 그림 목록의 한 칸은 그 둘을 오가지 않는다.
+const PrivateExtractIconsW = user32.func('uint32 __stdcall PrivateExtractIconsW(str16 file, int index, int cx, int cy, _Out_ void **icon, void *id, uint32 count, uint32 flags)');
 const GetDC = user32.func('void * __stdcall GetDC(void *hwnd)');
 const ReleaseDC = user32.func('int __stdcall ReleaseDC(void *hwnd, void *hdc)');
 const GetObjectW = gdi32.func('int __stdcall GetObjectW(void *handle, int size, _Out_ BITMAP *out)');
@@ -1527,10 +1529,90 @@ function iconFromIndex(index) {
   }
 }
 
+// 레지스트리에 적힌 "imageres.dll,-55" 같은 줄을 파일과 그림 번호로 가른다.
+function parseIconSpec(text) {
+  let raw = String(text || '').trim();
+  raw = raw.replace(/%([^%]+)%/g, (_, name) => process.env[name] || `%${name}%`);
+  let file = raw;
+  let index = 0;
+  if (raw.startsWith('"')) {
+    const end = raw.indexOf('"', 1);
+    if (end > 1) {
+      file = raw.slice(1, end);
+      const comma = raw.indexOf(',', end + 1);
+      if (comma >= 0) index = Number(raw.slice(comma + 1).trim()) || 0;
+    }
+  } else {
+    const comma = raw.lastIndexOf(',');
+    if (comma > 0) {
+      file = raw.slice(0, comma).trim();
+      const parsed = Number(raw.slice(comma + 1).trim());
+      if (Number.isFinite(parsed)) index = parsed;
+    }
+  }
+  return file ? { file, index } : null;
+}
+
+// 사용자가 바꿔 둔 휴지통 그림을 먼저 본다. 없으면 윈도우 기본 그림을 쓴다.
+function recycleIconSpec(full) {
+  const clsid = SHELL_CLSID['shell:RecycleBinFolder'];
+  const keys = [
+    `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\${clsid}\\DefaultIcon`,
+    `HKCR\\CLSID\\${clsid}\\DefaultIcon`,
+  ];
+  for (const key of keys) {
+    try {
+      const out = reg(['query', key, '/v', full ? 'full' : 'empty']);
+      const line = out.split(/\r?\n/).find((row) => /REG_(?:EXPAND_)?SZ/i.test(row));
+      const data = line && line.replace(/^.*REG_(?:EXPAND_)?SZ\s+/i, '').trim();
+      const spec = data && parseIconSpec(data);
+      if (spec) return spec;
+    } catch (_err) {
+      /* 이 키가 없으면 다음 키, 그것도 없으면 기본 그림이다. */
+    }
+  }
+  const root = process.env.SystemRoot || 'C:\\Windows';
+  return {
+    file: path.join(root, 'System32', 'imageres.dll'),
+    index: full ? -54 : -55,
+  };
+}
+
+function iconFromFile(file, index, size) {
+  try {
+    const icon = [null];
+    const got = PrivateExtractIconsW(file, index, size, size, icon, null, 1, 0);
+    if (!got || !icon[0]) return null;
+    try {
+      return bitmapOf(icon[0]);
+    } finally {
+      DestroyIcon(icon[0]);
+    }
+  } catch (_err) {
+    return null;
+  }
+}
+
+// 휴지통 그림. filled 를 넘기면 그 상태를, 아니면 지금 휴지통이 찼는지를 따른다.
+// 셸 그림 목록은 빈 그림과 찬 그림을 이 프로세스에서 바꿔 주지 않는다.
+function recycleBinIcon(filled) {
+  const full = typeof filled === 'boolean' ? filled : recycleCount() > 0;
+  const spec = recycleIconSpec(full);
+  for (const size of [256, 48, 32]) {
+    const shot = iconFromFile(spec.file, spec.index, size);
+    if (shot && shot.width) return shot;
+  }
+  return null;
+}
+
 function fileIcon(filePath) {
   try {
     prepareCom();
     const wanted = String(filePath);
+    if (wanted.toLowerCase() === 'shell:recyclebinfolder') {
+      const shot = recycleBinIcon();
+      if (shot) return shot;
+    }
     if (wanted.startsWith('shell:')) {
       const found = shellInfo(wanted);
       return found ? iconFromIndex(found.iconIndex) : null;
@@ -1749,6 +1831,7 @@ module.exports = {
   nativeIcons: true,
   claimSingleInstance,
   fileIcon,
+  recycleBinIcon,
   shellItems,
   init,
   prepare,

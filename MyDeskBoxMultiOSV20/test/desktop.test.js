@@ -99,6 +99,15 @@ test('아이콘은 밀어내기만 하고 담는 일은 폴더가 맡는다', ()
   assert.match(source, /function hidePath\(target\)/, '보관함 폴더를 감추는 길이 없다');
 });
 
+test('휴지통 그림은 비었을 때와 찼을 때가 다르다', { skip: process.platform !== 'win32' }, () => {
+  const desktop = require('../src/main/desktop/windows');
+  const empty = desktop.recycleBinIcon(false);
+  const full = desktop.recycleBinIcon(true);
+  assert.ok(empty && empty.width >= 32, '빈 휴지통 그림이 없다');
+  assert.ok(full && full.width >= 32, '찬 휴지통 그림이 없다');
+  assert.equal(Buffer.compare(Buffer.from(empty.data), Buffer.from(full.data)) !== 0, true, '빈 그림과 찬 그림이 같다');
+});
+
 test('예전 판이 치워 둔 파일은 되돌릴 수 있다', { skip: process.platform !== 'win32' }, () => {
   const desktop = require('../src/main/desktop/windows');
   assert.equal(typeof desktop.stashFile, 'undefined', '파일을 치우는 길이 아직 열려 있다');
