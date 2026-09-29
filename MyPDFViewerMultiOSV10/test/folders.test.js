@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  classifyEntry, folderLabel, isHiddenName, isPdfName, sortFolderEntries, toFolderEntries,
+  classifyEntry, driveRootOf, folderLabel, isHiddenName, isPdfName, isSameDrive, sortFolderEntries, toFolderEntries,
 } from '../src/lib/folders.js';
-import { readLevel } from '../electron/folder-list.js';
+import { readLevel, listSystemDrives } from '../electron/folder-list.js';
 
 describe('isPdfName / isHiddenName', () => {
   it('accepts only a last extension of exactly pdf', () => {
@@ -29,6 +29,24 @@ describe('folderLabel', () => {
     expect(folderLabel('C:\\Docs\\Reports\\')).toBe('Reports');
     expect(folderLabel('/home/me/pdfs')).toBe('pdfs');
     expect(folderLabel('')).toBe('');
+  });
+});
+
+describe('driveRootOf / isSameDrive', () => {
+  it('maps a Windows path to its drive root', () => {
+    expect(driveRootOf('C:\\Docs\\a.pdf')).toBe('C:\\');
+    expect(driveRootOf('d:/work')).toBe('D:\\');
+    expect(driveRootOf('E:')).toBe('E:\\');
+    expect(isSameDrive('C:\\', 'C:/Docs/Reports')).toBe(true);
+    expect(isSameDrive('D:\\', 'C:\\Docs')).toBe(false);
+  });
+
+  it('maps POSIX and macOS volume paths', () => {
+    expect(driveRootOf('/home/me')).toBe('/');
+    expect(driveRootOf('/Volumes/SSD/docs')).toBe('/Volumes/SSD');
+    expect(isSameDrive('/', '/home/me')).toBe(true);
+    expect(isSameDrive('/Volumes/SSD', '/Volumes/SSD/docs')).toBe(true);
+    expect(driveRootOf('')).toBe('');
   });
 });
 
@@ -120,5 +138,29 @@ describe('readLevel', () => {
       readdirSync: (p) => listing[p] || [],
     };
     expect(readLevel(fs, pathMod, root).map((e) => e.name)).toEqual(['ok.PDF']);
+  });
+});
+
+describe('listSystemDrives', () => {
+  it('lists ready Windows letters from C: onward', () => {
+    const present = new Set(['C:\\', 'D:\\', 'A:\\']);
+    const fs = { existsSync: (p) => present.has(p) };
+    expect(listSystemDrives(fs, {}, 'win32')).toEqual([
+      { path: 'C:\\', name: 'C:' },
+      { path: 'D:\\', name: 'D:' },
+    ]);
+  });
+
+  it('lists / and macOS volumes', () => {
+    const pathMod = { join: (...parts) => parts.join('/') };
+    const fs = {
+      readdirSync: (p) => (p === '/Volumes' ? ['Macintosh HD', '.hidden', 'USB'] : []),
+      statSync: (p) => ({ isDirectory: () => p === '/Volumes/Macintosh HD' || p === '/Volumes/USB' }),
+    };
+    expect(listSystemDrives(fs, pathMod, 'darwin')).toEqual([
+      { path: '/', name: '/' },
+      { path: '/Volumes/Macintosh HD', name: 'Macintosh HD' },
+      { path: '/Volumes/USB', name: 'USB' },
+    ]);
   });
 });

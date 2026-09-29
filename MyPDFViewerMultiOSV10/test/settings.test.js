@@ -3,7 +3,8 @@ import {
   DEFAULT_SETTINGS, MAX_RECENT_FILES, MAX_RECENT_DIRS,
   FONT_SIZE_MIN, FONT_SIZE_MAX, stepFontSize,
   SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_DEFAULT, clampSidebarWidth,
-  normalize, addRecentFile, removeRecentFile, addRecentDir,
+  INFO_PANEL_WIDTH_MIN, INFO_PANEL_WIDTH_DEFAULT, clampInfoPanelWidth,
+  normalize, addRecentFile, removeRecentFile, addRecentDir, openDefaultDir,
   applyFontSettings, applyTheme, persistSettings, loadSettingsSync,
 } from '../src/lib/settings.js';
 
@@ -13,9 +14,23 @@ describe('defaults', () => {
     expect(DEFAULT_SETTINGS.lang).toBe('ko');
     expect(DEFAULT_SETTINGS.zoomMode).toBe('fit-width');
     expect(DEFAULT_SETTINGS.pageLayout).toBe('continuous');
+    expect(DEFAULT_SETTINGS.pageEffect).toBe('flip');
+    expect(normalize({ pageLayout: 'spread' }).pageLayout).toBe('spread');
+    expect(normalize({ pageLayout: 'spread', zoomMode: 'actual' }).zoomMode).toBe('fit-page');
+    expect(normalize({ pageLayout: 'single', zoomMode: 'fit-height' }).zoomMode).toBe('fit-height');
+    expect(normalize({ pageLayout: 'single', zoomMode: 'custom' }).zoomMode).toBe('custom');
+    expect(normalize({ zoomMode: 'stretch' }).zoomMode).toBe('fit-width');
+    expect(normalize({ pageLayout: 'facing' }).pageLayout).toBe('continuous');
+    expect(normalize({ pageEffect: 'slide' }).pageEffect).toBe('slide');
+    expect(normalize({ pageEffect: 'curl' }).pageEffect).toBe('none');
     expect(DEFAULT_SETTINGS.tool).toBe('text');
     expect(DEFAULT_SETTINGS.sidebar).toBe('thumbnails');
     expect(DEFAULT_SETTINGS.sidebarWidth).toBe(SIDEBAR_WIDTH_DEFAULT);
+    expect(DEFAULT_SETTINGS.rightPanel).toBe(false);
+    expect(DEFAULT_SETTINGS.rightPanelWidth).toBe(INFO_PANEL_WIDTH_DEFAULT);
+    expect(DEFAULT_SETTINGS.sidebarWidth).toBe(DEFAULT_SETTINGS.rightPanelWidth);
+    expect(INFO_PANEL_WIDTH_MIN).toBe(Math.round(SIDEBAR_WIDTH_MIN * 1.5));
+    expect(normalize({ rightPanel: true, rightPanelWidth: 80 }).rightPanelWidth).toBe(INFO_PANEL_WIDTH_MIN);
     expect(DEFAULT_SETTINGS.showStatusBar).toBe(true);
     expect(DEFAULT_SETTINGS.captureFormat).toBe('png');
     expect(DEFAULT_SETTINGS.captureQuality).toBe(0.92);
@@ -28,6 +43,9 @@ describe('defaults', () => {
     expect(DEFAULT_SETTINGS.recentFiles).toEqual([]);
     expect(DEFAULT_SETTINGS.recentDirs).toEqual([]);
     expect(DEFAULT_SETTINGS.folderRoot).toBe('');
+    expect(DEFAULT_SETTINGS.lastDir).toBe('');
+    expect(DEFAULT_SETTINGS.defaultOpenDir).toBe('');
+    expect(DEFAULT_SETTINGS.customThemes).toEqual([]);
   });
 
   it('caps recent lists at 10', () => {
@@ -75,6 +93,28 @@ describe('normalize', () => {
     expect(normalize({ recentDirs: ['C:/a'] }).recentDirs).toEqual(['C:/a']);
   });
 
+  it('normalizes custom themes and drops a missing custom selection', () => {
+    const saved = normalize({
+      theme: 'custom-lake',
+      customThemes: [{
+        id: 'custom-lake',
+        name: '  Lake  ',
+        kind: 'light',
+        colors: { bg: 'f4f2f0', panel: '#ffffff', text: '#241f1d', accent: '#c33a32' },
+      }],
+    });
+    expect(saved.theme).toBe('custom-lake');
+    expect(saved.customThemes).toHaveLength(1);
+    expect(saved.customThemes[0]).toMatchObject({
+      id: 'custom-lake',
+      name: 'Lake',
+      kind: 'light',
+      colors: { bg: '#f4f2f0', panel: '#ffffff', text: '#241f1d', accent: '#c33a32' },
+    });
+    expect(normalize({ theme: 'custom-gone', customThemes: [] }).theme).toBe('dark');
+    expect(normalize({ customThemes: 'nope' }).customThemes).toEqual([]);
+  });
+
   it('clamps fontSize to 10–24', () => {
     expect(normalize({ fontSize: 3 }).fontSize).toBe(FONT_SIZE_MIN);
     expect(normalize({ fontSize: 10 }).fontSize).toBe(10);
@@ -97,6 +137,26 @@ describe('normalize', () => {
     expect(clampSidebarWidth('nope')).toBe(SIDEBAR_WIDTH_DEFAULT);
     expect(normalize({ sidebarWidth: 40 }).sidebarWidth).toBe(SIDEBAR_WIDTH_MIN);
     expect(normalize({ sidebarWidth: 400 }).sidebarWidth).toBe(400);
+  });
+
+  it('clamps the document info panel width with a 1.5× sidebar minimum', () => {
+    expect(INFO_PANEL_WIDTH_MIN).toBe(270);
+    expect(SIDEBAR_WIDTH_DEFAULT).toBe(INFO_PANEL_WIDTH_DEFAULT);
+    expect(SIDEBAR_WIDTH_DEFAULT).toBe(INFO_PANEL_WIDTH_MIN);
+    expect(clampInfoPanelWidth(300)).toBe(300);
+    expect(clampInfoPanelWidth(10)).toBe(INFO_PANEL_WIDTH_MIN);
+    expect(clampInfoPanelWidth(9999)).toBe(SIDEBAR_WIDTH_MAX);
+    expect(clampInfoPanelWidth('nope')).toBe(INFO_PANEL_WIDTH_DEFAULT);
+    expect(normalize({ rightPanelWidth: 40 }).rightPanelWidth).toBe(INFO_PANEL_WIDTH_MIN);
+    expect(normalize({ rightPanelWidth: 400 }).rightPanelWidth).toBe(400);
+  });
+
+  it('keeps a default Open folder and falls back to the last used folder', () => {
+    expect(normalize({ defaultOpenDir: '  D:/Docs  ' }).defaultOpenDir).toBe('D:/Docs');
+    expect(normalize({ defaultOpenDir: 12 }).defaultOpenDir).toBe('');
+    expect(openDefaultDir({ defaultOpenDir: 'D:/Pdf', lastDir: 'C:/tmp' })).toBe('D:/Pdf');
+    expect(openDefaultDir({ defaultOpenDir: '', lastDir: 'C:/tmp' })).toBe('C:/tmp');
+    expect(openDefaultDir({})).toBe('');
   });
 
   it('clamps captureQuality to 0.1–1', () => {
@@ -236,6 +296,22 @@ describe('applyFontSettings / applyTheme', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('nord');
     applyTheme('sky');
     expect(document.documentElement.getAttribute('data-theme')).toBe('sky');
+  });
+
+  it('applies a custom theme as CSS variables and clears them afterwards', () => {
+    const custom = {
+      id: 'custom-test',
+      name: 'Lake',
+      kind: 'dark',
+      colors: { bg: '#102030', panel: '#1a3040', text: '#e8f0f8', accent: '#3aa0d8' },
+    };
+    applyTheme(custom.id, [custom]);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('custom');
+    expect(document.documentElement.style.getPropertyValue('--bg')).toBe('#102030');
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#3aa0d8');
+    applyTheme('nord', [custom]);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('nord');
+    expect(document.documentElement.style.getPropertyValue('--bg')).toBe('');
   });
 });
 

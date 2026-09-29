@@ -26,7 +26,7 @@ describe('App.jsx document tabs', () => {
 
   it('lets the open dialog and file drops add several documents at once', () => {
     expect(appSrc).toMatch(/openFileDialog\(\{ multi: true \}\)/);
-    expect(appSrc).toMatch(/openPdfDialog\(\{ defaultDir: settings\.lastDir, multi: true \}\)/);
+    expect(appSrc).toMatch(/openPdfDialog\(\{ defaultDir: openDefaultDir\(settings\), multi: true \}\)/);
     expect(appSrc).toMatch(/const dropped = \[\.\.\.\(e\.dataTransfer\?\.files/);
     expect(mainSrc).toMatch(/if \(multi\) props\.push\('multiSelections'\)/);
     expect(platformSrc).toMatch(/multiple: !!multi/);

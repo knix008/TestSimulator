@@ -119,7 +119,7 @@ describe('renderPreviewPage', () => {
       render,
     };
     const doc = { getPage: vi.fn(async () => page) };
-    const canvas = { getContext: () => ({}), style: {} };
+    const canvas = { getContext: () => ({ fillRect() {}, fillStyle: '' }), style: {} };
     const res = await renderPreviewPage({
       doc, pageNumber: 2, canvas, rotation: 0, maxWidth: 240, maxHeight: 300,
     });

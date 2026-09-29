@@ -107,6 +107,18 @@ export async function listDirectory(dirPath) {
   try { return toFolderEntries(await api.readDir(dirPath)); } catch { return []; }
 }
 
+export async function listDrives() {
+  if (!isElectron) return [];
+  try {
+    const list = await api.listDrives();
+    return Array.isArray(list)
+      ? list.filter((d) => d && typeof d.path === 'string' && typeof d.name === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Saving ────────────────────────────────────────────────
 export async function saveBinary({ defaultName, defaultDir, bytes, filters, onProgress }) {
   if (isElectron) {

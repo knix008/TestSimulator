@@ -4,6 +4,10 @@
 // localStorage on every change and mirrored to userData/settings.json in the
 // desktop app, so a restart restores the previous session exactly.
 import { loadPersistedState, writeLocalState, readLocalState } from './platform.js';
+import { normalizePageLayout, normalizePageEffect, normalizeZoomMode } from './view.js';
+import {
+  applyCustomThemeVars, clearCustomThemeVars, isCustomThemeId, normalizeCustomThemes,
+} from './themes.js';
 
 export const MAX_RECENT_FILES = 10;
 export const MAX_RECENT_DIRS = 10;
@@ -11,12 +15,20 @@ export const FONT_SIZE_MIN = 10;
 export const FONT_SIZE_MAX = 24;
 export const SIDEBAR_WIDTH_MIN = 180;
 export const SIDEBAR_WIDTH_MAX = 560;
-export const SIDEBAR_WIDTH_DEFAULT = 220;
+export const INFO_PANEL_WIDTH_MIN = Math.round(SIDEBAR_WIDTH_MIN * 1.5);
+export const SIDEBAR_WIDTH_DEFAULT = INFO_PANEL_WIDTH_MIN;
+export const INFO_PANEL_WIDTH_DEFAULT = SIDEBAR_WIDTH_DEFAULT;
 
 export function clampSidebarWidth(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return SIDEBAR_WIDTH_DEFAULT;
   return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, Math.round(v)));
+}
+
+export function clampInfoPanelWidth(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return INFO_PANEL_WIDTH_DEFAULT;
+  return Math.min(SIDEBAR_WIDTH_MAX, Math.max(INFO_PANEL_WIDTH_MIN, Math.round(v)));
 }
 
 export function stepFontSize(size, dir, step = 1) {
@@ -29,6 +41,7 @@ export function stepFontSize(size, dir, step = 1) {
 export const DEFAULT_SETTINGS = {
   // Appearance
   theme: 'dark',
+  customThemes: [],          // [{ id, name, kind, colors: { bg, panel, text, accent } }]
   lang: 'ko',
   fontFamily: '',            // '' = the app's built-in UI font stack
   fontSize: 14,              // px, UI text
@@ -37,12 +50,15 @@ export const DEFAULT_SETTINGS = {
   fontUnderline: false,
 
   // Viewer
-  zoomMode: 'fit-width',     // fit-width | fit-page | actual | custom
+  zoomMode: 'fit-width',     // fit-page | fit-width | fit-height | actual | custom
   zoom: 1,                   // used when zoomMode === 'custom'
-  pageLayout: 'continuous',  // single | continuous — continuous scrolling by default
+  pageLayout: 'continuous',  // single | continuous | spread
+  pageEffect: 'flip',        // none | fade | slide | flip
   rotation: 0,
-  sidebar: 'thumbnails',     // folders | thumbnails | outline | images | search | none
+  sidebar: 'thumbnails',     // folders | thumbnails | outline | images | search | history | none
   sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
+  rightPanel: false,         // document-info pane on the right
+  rightPanelWidth: INFO_PANEL_WIDTH_DEFAULT,
   folderRoot: '',            // last folder shown in the left tree view
   tool: 'text',              // text | image | region
   showStatusBar: true,
@@ -62,6 +78,7 @@ export const DEFAULT_SETTINGS = {
 
   // Session
   lastDir: '',
+  defaultOpenDir: '',        // Open dialog starts here when set
   recentFiles: [],           // [{ path, name, dir, size, page, openedAt }]
   recentDirs: [],            // [path]
   lastSession: null,         // { path, page, zoomMode, zoom, rotation }
@@ -85,15 +102,34 @@ export function normalize(raw) {
   out.recentDirs = out.recentDirs.filter((d) => typeof d === 'string').slice(0, MAX_RECENT_DIRS);
   out.fontSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, out.fontSize));
   out.sidebarWidth = clampSidebarWidth(out.sidebarWidth);
+  out.rightPanelWidth = clampInfoPanelWidth(out.rightPanelWidth);
   out.captureQuality = Math.min(1, Math.max(0.1, out.captureQuality));
   if (!['text', 'image', 'region'].includes(out.tool)) out.tool = 'text';
+  out.pageLayout = normalizePageLayout(out.pageLayout);
+  out.pageEffect = normalizePageEffect(out.pageEffect);
+  out.zoomMode = normalizeZoomMode(out.zoomMode);
+  if (out.pageLayout === 'spread') out.zoomMode = 'fit-page';
   out.minImageSize = Math.min(512, Math.max(1, out.minImageSize));
   // Older files only stored captureAction. "copy" meant auto-copy the region.
   if (raw && typeof raw === 'object' && raw.autoCopyRegion == null && raw.captureAction === 'copy') {
     out.autoCopyRegion = true;
   }
   out.captureAction = out.autoCopyRegion ? 'copy' : 'ask';
+  out.customThemes = normalizeCustomThemes(out.customThemes);
+  if (isCustomThemeId(out.theme) && !out.customThemes.some((t) => t.id === out.theme)) {
+    out.theme = 'dark';
+  }
+  if (typeof out.defaultOpenDir !== 'string') out.defaultOpenDir = '';
+  else out.defaultOpenDir = out.defaultOpenDir.trim();
   return out;
+}
+
+// Folder the Open dialog should start in: the user's default, else last used.
+export function openDefaultDir(settings) {
+  const s = settings && typeof settings === 'object' ? settings : {};
+  const preferred = typeof s.defaultOpenDir === 'string' ? s.defaultOpenDir.trim() : '';
+  if (preferred) return preferred;
+  return typeof s.lastDir === 'string' ? s.lastDir.trim() : '';
 }
 
 export async function loadSettings() {
@@ -138,6 +174,14 @@ export function applyFontSettings(s) {
   root.style.setProperty('--ui-decoration', s.fontUnderline ? 'underline' : 'none');
 }
 
-export function applyTheme(id) {
-  document.documentElement.setAttribute('data-theme', id);
+export function applyTheme(id, customThemes) {
+  const root = document.documentElement;
+  const custom = normalizeCustomThemes(customThemes).find((t) => t.id === id);
+  if (custom) {
+    root.setAttribute('data-theme', 'custom');
+    applyCustomThemeVars(root, custom);
+    return;
+  }
+  clearCustomThemeVars(root);
+  root.setAttribute('data-theme', id || 'dark');
 }

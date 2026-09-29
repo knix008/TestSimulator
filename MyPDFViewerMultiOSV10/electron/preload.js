@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exists: (p) => ipcRenderer.invoke('fs:exists', p),
   stat: (p) => ipcRenderer.invoke('fs:stat', p),
   readDir: (p) => ipcRenderer.invoke('fs:readDir', p),
+  listDrives: () => ipcRenderer.invoke('fs:drives'),
   readBinary: (payload) => ipcRenderer.invoke('fs:readBinary', payload),
   readText: (p) => ipcRenderer.invoke('fs:readText', p),
   writeText: (payload) => ipcRenderer.invoke('fs:writeText', payload),
@@ -70,6 +71,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     getContentBounds: () => ipcRenderer.invoke('win:getContentBounds'),
     openThemePopup: (payload) => ipcRenderer.invoke('win:openThemePopup', payload),
+    closeThemePopup: () => ipcRenderer.invoke('win:closeThemePopup'),
     setPopupSize: (payload) => ipcRenderer.invoke('win:setPopupSize', payload),
     pickTheme: (id) => ipcRenderer.invoke('win:pickTheme', id),
     onThemePicked: (cb) => {

@@ -23,7 +23,7 @@ describe('preload ↔ main IPC contract', () => {
   it('covers the file / dialog / clipboard / print / window surface', () => {
     const required = [
       'app:getInfo', 'app:takePendingOpen',
-      'fs:home', 'fs:exists', 'fs:stat', 'fs:readDir', 'fs:readBinary', 'fs:readText', 'fs:writeText', 'fs:writeBinary',
+      'fs:home', 'fs:exists', 'fs:stat', 'fs:readDir', 'fs:drives', 'fs:readBinary', 'fs:readText', 'fs:writeText', 'fs:writeBinary',
       'dialog:openPdf', 'dialog:pickDirectory', 'dialog:saveText', 'dialog:saveBinary', 'dialog:pickSavePath',
       'net:download', 'print:pages',
       'clipboard:writeText', 'clipboard:writeImage',
@@ -31,7 +31,7 @@ describe('preload ↔ main IPC contract', () => {
       'settings:load', 'settings:save',
       'win:minimize', 'win:toggleMaximize', 'win:close', 'win:forceClose', 'win:isMaximized',
       'win:setTitle', 'win:getSize', 'win:setSize', 'win:setMinWidth',
-      'win:getContentBounds', 'win:openThemePopup', 'win:setPopupSize', 'win:pickTheme',
+      'win:getContentBounds', 'win:openThemePopup', 'win:closeThemePopup', 'win:setPopupSize', 'win:pickTheme',
     ];
     for (const ch of required) expect(handles.has(ch), ch).toBe(true);
   });

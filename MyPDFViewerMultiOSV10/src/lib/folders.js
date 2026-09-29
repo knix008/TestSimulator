@@ -14,6 +14,25 @@ export function isHiddenName(name) {
   return String(name || '').startsWith('.');
 }
 
+export function driveRootOf(filePath) {
+  const raw = String(filePath || '').trim();
+  if (!raw) return '';
+  const win = raw.replace(/\//g, '\\');
+  const m = win.match(/^([A-Za-z]:)(?:\\|$)/);
+  if (m) return `${m[1].toUpperCase()}\\`;
+  const posix = raw.replace(/\\/g, '/');
+  const vol = posix.match(/^\/Volumes\/[^/]+/);
+  if (vol) return vol[0];
+  if (posix.startsWith('/')) return '/';
+  return '';
+}
+
+export function isSameDrive(drivePath, folderRoot) {
+  const a = driveRootOf(drivePath).replace(/\\/g, '/').toLowerCase();
+  const b = driveRootOf(folderRoot).replace(/\\/g, '/').toLowerCase();
+  return !!a && a === b;
+}
+
 export function folderLabel(filePath) {
   const s = String(filePath || '').replace(/[\\/]+$/, '');
   const parts = s.split(/[\\/]/).filter(Boolean);

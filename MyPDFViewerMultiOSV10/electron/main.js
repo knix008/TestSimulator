@@ -15,7 +15,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { pathToFileURL } = require('url');
-const { readLevel } = require('./folder-list');
+const { readLevel, listSystemDrives } = require('./folder-list');
 
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
 const DEV_URL = 'http://localhost:5179';
@@ -249,6 +249,7 @@ ipcMain.handle('fs:stat', (_e, p) => {
 });
 
 ipcMain.handle('fs:readDir', (_e, dirPath) => readLevel(fs, path, dirPath));
+ipcMain.handle('fs:drives', () => listSystemDrives(fs, path, process.platform));
 
 // Reads a file in chunks, reporting progress so the renderer can show a
 // progress dialog for large PDFs. Returns the bytes as a Uint8Array.
@@ -614,6 +615,29 @@ function closeThemePopup() {
   themePopup = null;
 }
 
+function pointInBounds(p, b, pad = 12) {
+  if (!p || !b) return false;
+  const w = Number(b.width) || 0;
+  const h = Number(b.height) || 0;
+  return p.x >= b.x - pad && p.x <= b.x + w + pad
+    && p.y >= b.y - pad && p.y <= b.y + h + pad;
+}
+
+function watchThemePopupPointer(popup, button) {
+  const id = setInterval(() => {
+    if (!popup || popup.isDestroyed() || themePopup !== popup) {
+      clearInterval(id);
+      return;
+    }
+    if (!popup.isVisible()) return;
+    const p = screen.getCursorScreenPoint();
+    if (pointInBounds(p, popup.getBounds()) || pointInBounds(p, button)) return;
+    closeThemePopup();
+    clearInterval(id);
+  }, 80);
+  popup.once('closed', () => clearInterval(id));
+}
+
 ipcMain.handle('win:getContentBounds', (e) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (!w || w.isDestroyed()) return null;
@@ -629,6 +653,12 @@ ipcMain.handle('win:openThemePopup', (e, payload = {}) => {
     x: Number(payload.x) || 0,
     y: Number(payload.y) || 0,
     aboveY: Number(payload.aboveY) || Number(payload.y) || 0,
+  };
+  const button = {
+    x: Number(payload.button?.x) || 0,
+    y: Number(payload.button?.y) || 0,
+    width: Number(payload.button?.width) || 0,
+    height: Number(payload.button?.height) || 0,
   };
   const popup = new BrowserWindow({
     parent: parent && !parent.isDestroyed() ? parent : undefined,
@@ -662,6 +692,7 @@ ipcMain.handle('win:openThemePopup', (e, payload = {}) => {
     if (popup.isDestroyed()) return;
     placeThemePopup(popup, popup.__themeAnchor);
     popup.show();
+    watchThemePopupPointer(popup, button);
   });
   popup.on('blur', () => closeThemePopup());
   popup.on('closed', () => { if (themePopup === popup) themePopup = null; });
@@ -676,6 +707,11 @@ ipcMain.handle('win:setPopupSize', (e, { width, height } = {}) => {
   if (!Number.isFinite(nw) || !Number.isFinite(nh)) return false;
   w.setContentSize(nw, nh);
   if (w.__themeAnchor) placeThemePopup(w, w.__themeAnchor);
+  return true;
+});
+
+ipcMain.handle('win:closeThemePopup', () => {
+  closeThemePopup();
   return true;
 });
 

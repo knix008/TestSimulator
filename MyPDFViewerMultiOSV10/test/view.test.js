@@ -3,9 +3,18 @@ import {
   ZOOM_STEPS, TOOLS, HIGHLIGHT_COLOR, MIN_CAPTURE, PAGE_PAD_X, PAGE_PAD_Y,
   nextZoom, clampPage, normalizeRotation, cycleTool,
   stripRemoteError, failMessage, windowTitle, bookmarkLabel, isHttpUrl,
-  computeScale, pagePlaceholderSize, mergeRectsIntoLines,
+  computeScale, centerOverflowX, centerOverflowY, shouldCenterSheet, pagePlaceholderSize, mergeRectsIntoLines,
   hitTestRegion, normalizeDragRect, isMeaningfulCapture, regionToFrac, regionMarkStyle,
-  visibleRegionBox, nextSidebar,
+  visibleRegionBox, nextSidebar, PAGE_LAYOUTS, SPREAD_GAP,
+  normalizePageLayout, isPagedLayout, usesDocumentScroll, sheetCountForScroll,
+  sheetIndexForScroll, sheetSlotHeight, pageFromDocumentScroll, documentScrollTopForPage,
+  documentScrollTail, spreadStart, pagesForLayout, stepPage, sameSheet, spreadLonePage, paintsEagerly,
+  pinDocumentScrollTop, centerDocumentSheetTop, documentSheetScrollTop, shiftDocumentScrollTop, wheelPageStep, FIT_ZOOM_MODES, normalizeZoomMode, zoomModeLabelKey,
+  PAGE_EFFECTS, PAGE_TURN_MS, TURN_SETTLE_MS, normalizePageEffect, nextPageEffect, pageTurnDir,
+  pageTurnLeafDir,
+  prefersReducedMotion, shouldPlayPageTurn, snapshotPageCanvases, captureOutgoingSheet,
+  outgoingSheetPages, sheetIsPainted, planPageTurn, turnSpacerPage, sheetOverlapsViewport, overlayBoxForSheet, applyOverlayBox, isTurnBusy, leafFrontShot, leafBackPage, leafBackShot, leafStayShot, leafStayBlank, leafStaySide, turnLeafSize,
+  sheetShotBox,
   clampPopupPos, pickCopyText, paintedSelectionToRects,
   bookmarkRecord, bookmarkAnchorY, bookmarkPaintRects, locFromTop, hasPageLoc, clamp01,
 } from '../src/lib/view.js';
@@ -80,6 +89,278 @@ describe('pages / rotation / tools', () => {
     expect(nextSidebar('none')).toBe('thumbnails');
     expect(nextSidebar('thumbnails')).toBe('none');
     expect(nextSidebar('search')).toBe('none');
+  });
+});
+
+describe('page layouts', () => {
+  it('keeps single, continuous and two-page spread', () => {
+    expect(PAGE_LAYOUTS).toEqual(['single', 'continuous', 'spread']);
+    expect(normalizePageLayout('spread')).toBe('spread');
+    expect(normalizePageLayout('facing')).toBe('continuous');
+    expect(isPagedLayout('single')).toBe(true);
+    expect(isPagedLayout('spread')).toBe(true);
+    expect(isPagedLayout('continuous')).toBe(false);
+    expect(paintsEagerly('single')).toBe(true);
+    expect(paintsEagerly('spread')).toBe(true);
+    expect(paintsEagerly('continuous')).toBe(false);
+    expect(FIT_ZOOM_MODES).toEqual(['fit-page', 'fit-width', 'fit-height', 'actual']);
+    expect(normalizeZoomMode('fit-height')).toBe('fit-height');
+    expect(normalizeZoomMode('stretch')).toBe('fit-width');
+    expect(zoomModeLabelKey('fit-page')).toBe('fitPage');
+    expect(zoomModeLabelKey('fit-height')).toBe('fitHeight');
+  });
+
+  it('pairs pages as 1–2, 3–4 and mounts only that pair in spread', () => {
+    expect(spreadStart(1, 5)).toBe(1);
+    expect(spreadStart(2, 5)).toBe(1);
+    expect(spreadStart(4, 5)).toBe(3);
+    expect(spreadStart(5, 5)).toBe(5);
+    expect(pagesForLayout('single', 3, 5)).toEqual([3]);
+    expect(pagesForLayout('spread', 2, 5)).toEqual([1, 2]);
+    expect(pagesForLayout('spread', 5, 5)).toEqual([5]);
+    expect(spreadLonePage('spread', [5])).toBe(true);
+    expect(spreadLonePage('spread', [5, 6])).toBe(false);
+    expect(spreadLonePage('single', [5])).toBe(false);
+    expect(pagesForLayout('continuous', 3, 4)).toEqual([1, 2, 3, 4]);
+    expect(pagesForLayout('single', 1, 0)).toEqual([]);
+  });
+
+  it('steps one page, or a whole spread, and stops at the ends', () => {
+    expect(stepPage('single', 2, 1, 5)).toBe(3);
+    expect(stepPage('continuous', 2, -1, 5)).toBe(1);
+    expect(stepPage('spread', 1, 1, 5)).toBe(3);
+    expect(stepPage('spread', 2, 1, 5)).toBe(3);
+    expect(stepPage('spread', 4, -1, 5)).toBe(1);
+    expect(stepPage('spread', 1, -1, 5)).toBe(1);
+    expect(stepPage('spread', 2, -1, 5)).toBe(2);
+    expect(stepPage('spread', 5, 1, 5)).toBe(5);
+    expect(stepPage('spread', 5, 1, 6)).toBe(5);
+    expect(stepPage('spread', 6, 1, 6)).toBe(6);
+    expect(sameSheet('spread', 1, 2, 6)).toBe(true);
+    expect(sameSheet('spread', 1, 3, 6)).toBe(false);
+    expect(sameSheet('spread', 5, 6, 6)).toBe(true);
+    expect(sameSheet('single', 2, 2, 6)).toBe(true);
+    expect(sameSheet('single', 2, 3, 6)).toBe(false);
+    expect(stepPage('single', 1, -1, 5)).toBe(1);
+  });
+
+  it('gives single and two-page view a scrollbar over the whole document', () => {
+    expect(usesDocumentScroll('single')).toBe(true);
+    expect(usesDocumentScroll('spread')).toBe(true);
+    expect(usesDocumentScroll('continuous')).toBe(false);
+    expect(sheetCountForScroll('single', 5)).toBe(5);
+    expect(sheetCountForScroll('spread', 5)).toBe(3);
+    expect(sheetIndexForScroll('single', 3, 5)).toBe(2);
+    expect(sheetIndexForScroll('spread', 4, 5)).toBe(1);
+    expect(sheetSlotHeight({ pageHeight: 800, gap: 18 })).toBe(818);
+    expect(sheetSlotHeight({ pageHeight: 400, viewportHeight: 900, fillViewport: true })).toBe(900);
+    const metrics = { slot: 800, sheets: 5, layout: 'single', numPages: 5 };
+    expect(pageFromDocumentScroll(0, metrics)).toBe(1);
+    expect(pageFromDocumentScroll(800, metrics)).toBe(2);
+    expect(pageFromDocumentScroll(3999, metrics)).toBe(5);
+    expect(documentScrollTopForPage(3, metrics)).toBe(1600);
+    expect(documentScrollTail(3, metrics)).toBe(1600);
+    expect(documentScrollTail(5, metrics)).toBe(0);
+    // Overlay next/prev pins scrollTop from page + slot only — a missing
+    // canvas wrapper must not delay that pin until after the turn cover lifts.
+    expect(pageFromDocumentScroll(documentScrollTopForPage(4, metrics), metrics)).toBe(4);
+    expect(documentScrollTopForPage(1, metrics)).toBe(0);
+    const spread = { slot: 900, sheets: 4, layout: 'spread', numPages: 8 };
+    expect(pinDocumentScrollTop(1, spread)).toBe(0);
+    expect(pinDocumentScrollTop(3, spread)).toBe(900);
+    expect(pinDocumentScrollTop(3, { ...spread, slot: 400 })).toBe(400);
+    expect(pageFromDocumentScroll(pinDocumentScrollTop(5, spread), spread)).toBe(5);
+    const zoomed = { slot: 1200, sheets: 3, layout: 'single', numPages: 3 };
+    expect(centerDocumentSheetTop(1, zoomed, 800)).toBe(200);
+    expect(centerDocumentSheetTop(2, zoomed, 800)).toBe(1400);
+    expect(centerDocumentSheetTop(1, { slot: 800, sheets: 1, layout: 'single', numPages: 1 }, 800)).toBe(0);
+    expect(documentSheetScrollTop(1, zoomed, 800)).toBe(0);
+    expect(documentSheetScrollTop(1, zoomed, 800, 'top')).toBe(0);
+    expect(documentSheetScrollTop(1, zoomed, 800, 'bottom')).toBe(400);
+    expect(documentSheetScrollTop(1, { slot: 800, sheets: 1, layout: 'single', numPages: 1 }, 800)).toBe(0);
+    expect(shiftDocumentScrollTop(1, 2, 9, { slot: 800, layout: 'single', numPages: 5 })).toBe(809);
+    expect(shiftDocumentScrollTop(2, 1, 809, { slot: 800, layout: 'single', numPages: 5 })).toBe(9);
+    expect(wheelPageStep(80, { scrollTop: 0, scrollHeight: 800, clientHeight: 800 })).toBe(1);
+    expect(wheelPageStep(-80, { scrollTop: 0, scrollHeight: 800, clientHeight: 800 })).toBe(-1);
+    expect(wheelPageStep(80, { scrollTop: 100, scrollHeight: 1400, clientHeight: 800 })).toBe(0);
+    expect(wheelPageStep(80, { scrollTop: 599, scrollHeight: 1400, clientHeight: 800 })).toBe(1);
+    expect(wheelPageStep(-80, { scrollTop: 40, scrollHeight: 1400, clientHeight: 800 })).toBe(0);
+    expect(wheelPageStep(-80, { scrollTop: 0, scrollHeight: 1400, clientHeight: 800 })).toBe(-1);
+    expect(wheelPageStep(0, { scrollTop: 0, scrollHeight: 800, clientHeight: 800 })).toBe(0);
+    // A fitted sheet in a long document still turns — do not treat the
+    // remaining pages' spacers as overflow of this page.
+    expect(wheelPageStep(80, {
+      scrollTop: 1600, clientHeight: 800, slot: 800, pageTop: 1600,
+    })).toBe(1);
+    expect(wheelPageStep(80, {
+      scrollTop: 1700, clientHeight: 800, slot: 1200, pageTop: 1600,
+    })).toBe(0);
+    expect(wheelPageStep(80, {
+      scrollTop: 1999, clientHeight: 800, slot: 1200, pageTop: 1600,
+    })).toBe(1);
+    expect(wheelPageStep(-80, {
+      scrollTop: 1600, clientHeight: 800, slot: 1200, pageTop: 1600,
+    })).toBe(-1);
+  });
+});
+
+describe('page-turn effects', () => {
+  it('cycles none → fade → slide → flip → none', () => {
+    expect(PAGE_EFFECTS).toEqual(['none', 'fade', 'slide', 'flip']);
+    expect(PAGE_TURN_MS).toBe(640);
+    expect(TURN_SETTLE_MS).toBe(120);
+    expect(isTurnBusy({ id: '1' }, 0, 1000)).toBe(true);
+    expect(isTurnBusy(null, 1100, 1000)).toBe(true);
+    expect(isTurnBusy(null, 900, 1000)).toBe(false);
+    expect(normalizePageEffect('flip')).toBe('flip');
+    expect(normalizePageEffect('curl')).toBe('none');
+    expect(nextPageEffect('none')).toBe('fade');
+    expect(nextPageEffect('flip')).toBe('none');
+    expect(pageTurnDir(2, 4)).toBe('next');
+    expect(pageTurnDir(4, 2)).toBe('prev');
+    expect(pageTurnLeafDir('next')).toBe('forward');
+    expect(pageTurnLeafDir('prev')).toBe('back');
+  });
+
+  it('plays only in single-page and two-page view, not while scrolling continuously', () => {
+    expect(shouldPlayPageTurn({ effect: 'flip', layout: 'single', fromPage: 1, toPage: 2 })).toBe(true);
+    expect(shouldPlayPageTurn({ effect: 'slide', layout: 'spread', fromPage: 1, toPage: 3 })).toBe(true);
+    expect(shouldPlayPageTurn({ effect: 'flip', layout: 'continuous', fromPage: 1, toPage: 2 })).toBe(false);
+    expect(shouldPlayPageTurn({ effect: 'none', layout: 'single', fromPage: 1, toPage: 2 })).toBe(false);
+    expect(shouldPlayPageTurn({ effect: 'flip', layout: 'single', fromPage: 2, toPage: 2 })).toBe(false);
+    expect(shouldPlayPageTurn({
+      effect: 'flip', layout: 'single', fromPage: 1, toPage: 2, reducedMotion: true,
+    })).toBe(false);
+  });
+
+  it('snapshots one page, or a facing pair, as the outgoing sheet', () => {
+    expect(outgoingSheetPages('single', 3, 10)).toEqual([3]);
+    expect(outgoingSheetPages('continuous', 3, 10)).toEqual([3]);
+    expect(outgoingSheetPages('spread', 3, 10)).toEqual([3, 4]);
+    expect(outgoingSheetPages('spread', 2, 10)).toEqual([1, 2]);
+  });
+
+  it('picks the turning leaf and the page it lands as', () => {
+    const left = { num: 1, src: 'a' };
+    const right = { num: 2, src: 'b' };
+    expect(leafFrontShot([left, right], 'next')).toEqual(right);
+    expect(leafFrontShot([left, right], 'prev')).toEqual(left);
+    expect(leafFrontShot([left], 'next')).toEqual(left);
+    expect(leafStayShot([left, right], 'next')).toEqual(left);
+    expect(leafStayShot([left, right], 'prev')).toEqual(right);
+    expect(leafStayShot([left], 'next')).toBe(null);
+    expect(leafStayBlank('spread', [left], 'prev')).toBe(true);
+    expect(leafStayBlank('spread', [left, right], 'prev')).toBe(false);
+    expect(leafStayBlank('single', [left], 'prev')).toBe(false);
+    expect(leafStaySide('next')).toBe('left');
+    expect(leafStaySide('prev')).toBe('right');
+    expect(leafBackPage('spread', 'next', 3, 10)).toBe(3);
+    expect(leafBackPage('spread', 'prev', 1, 10)).toBe(2);
+    expect(leafBackPage('single', 'next', 2, 10)).toBe(0);
+    expect(leafBackPage('single', 'prev', 1, 10)).toBe(0);
+    expect(leafBackShot(new Map(), 'single', 'next', 2, 10)).toBe(null);
+    expect(turnLeafSize('spread', 2)).toBe('half');
+    expect(turnLeafSize('spread', 1)).toBe('half');
+    expect(turnLeafSize('single', 1)).toBe('whole');
+    expect(sheetShotBox([{ width: 200, height: 300 }, { width: 180, height: 290 }])).toEqual({
+      width: 380, height: 300,
+    });
+    expect(sheetShotBox([])).toBe(null);
+  });
+
+  it('knows when every page on a sheet has a painted canvas', () => {
+    const canvas = { width: 40, height: 50 };
+    const map = new Map([[1, { canvas, painted: true }], [2, { canvas, painted: true }]]);
+    expect(sheetIsPainted(map, [1, 2])).toBe(true);
+    expect(sheetIsPainted(map, [1, 3])).toBe(false);
+    expect(sheetIsPainted(map, [])).toBe(false);
+    expect(sheetIsPainted(new Map([[1, { canvas, painted: false }]]), [1])).toBe(false);
+  });
+
+  it('covers the incoming sheet until it is painted', () => {
+    expect(planPageTurn({
+      effect: 'flip', layout: 'single', fromPage: 1, toPage: 2,
+      hasShots: true, incomingPainted: false,
+    })).toMatchObject({ effect: 'flip', dir: 'next', ready: false });
+    expect(planPageTurn({
+      effect: 'none', layout: 'single', fromPage: 1, toPage: 2,
+      hasShots: true, incomingPainted: false,
+    })).toMatchObject({ effect: 'none', ready: false });
+    expect(planPageTurn({
+      effect: 'none', layout: 'single', fromPage: 1, toPage: 2,
+      hasShots: true, incomingPainted: true,
+    })).toBe(null);
+    expect(planPageTurn({
+      effect: 'flip', layout: 'single', fromPage: 1, toPage: 2,
+      fromScroll: true, hasShots: true,
+    })).toBe(null);
+    expect(planPageTurn({
+      effect: 'flip', layout: 'continuous', fromPage: 1, toPage: 2,
+      hasShots: true, incomingPainted: false,
+    })).toBe(null);
+    expect(turnSpacerPage({ fromPage: 3 }, 5)).toBe(3);
+    expect(turnSpacerPage(null, 5)).toBe(5);
+    expect(turnSpacerPage({}, 5)).toBe(5);
+    expect(turnSpacerPage(null, 5, 2)).toBe(2);
+    expect(turnSpacerPage({ fromPage: 3 }, 5, 2)).toBe(2);
+  });
+
+  it('pins a turn overlay to the live sheet box', () => {
+    const box = (top, left, bottom, right) => ({
+      getBoundingClientRect: () => ({ top, left, bottom, right, width: right - left, height: bottom - top }),
+    });
+    expect(overlayBoxForSheet(box(10, 20, 810, 620), box(50, 80, 700, 500))).toEqual({
+      top: 40, left: 60, width: 420, height: 650,
+    });
+    expect(overlayBoxForSheet(null, box(0, 0, 10, 10))).toBe(null);
+    const style = {};
+    applyOverlayBox({ style }, { top: 12, left: 8, width: 200, height: 300 });
+    expect(style.top).toBe('12px');
+    expect(style.left).toBe('8px');
+    expect(style.width).toBe('200px');
+    expect(style.height).toBe('300px');
+    expect(style.padding).toBe('0px');
+    applyOverlayBox({ style }, null);
+    expect(style.top).toBe('');
+  });
+
+  it('knows whether the sheet is still in the pane', () => {
+    const box = (top, left, bottom, right) => ({
+      getBoundingClientRect: () => ({ top, left, bottom, right }),
+    });
+    expect(sheetOverlapsViewport(box(0, 0, 800, 600), box(40, 80, 700, 500))).toBe(true);
+    expect(sheetOverlapsViewport(box(0, 0, 800, 600), box(900, 80, 1600, 500))).toBe(false);
+    expect(sheetOverlapsViewport(null, box(0, 0, 10, 10))).toBe(false);
+  });
+
+  it('reads reduced-motion from matchMedia', () => {
+    expect(prefersReducedMotion(() => ({ matches: true }))).toBe(true);
+    expect(prefersReducedMotion(() => ({ matches: false }))).toBe(false);
+    expect(prefersReducedMotion(() => { throw new Error('no'); })).toBe(false);
+  });
+
+  it('snapshots every page canvas or gives up', () => {
+    const canvas = {
+      width: 40, height: 50,
+      toDataURL: () => 'data:image/jpeg;base64,xx',
+    };
+    const map = new Map([
+      [1, { canvas, wrapper: { offsetWidth: 20, offsetHeight: 25 } }],
+      [2, { canvas, wrapper: { offsetWidth: 20, offsetHeight: 25 } }],
+    ]);
+    expect(snapshotPageCanvases(map, [1, 2])).toEqual([
+      { num: 1, src: 'data:image/jpeg;base64,xx', width: 20, height: 25 },
+      { num: 2, src: 'data:image/jpeg;base64,xx', width: 20, height: 25 },
+    ]);
+    expect(snapshotPageCanvases(map, [1, 3])).toEqual([]);
+    expect(snapshotPageCanvases(new Map([[1, { canvas: { width: 0, height: 0 } }]]), [1])).toEqual([]);
+    expect(captureOutgoingSheet(map, 'single', 1, 2)).toEqual([
+      { num: 1, src: 'data:image/jpeg;base64,xx', width: 20, height: 25 },
+    ]);
+    expect(captureOutgoingSheet(map, 'spread', 1, 2)).toEqual([
+      { num: 1, src: 'data:image/jpeg;base64,xx', width: 20, height: 25 },
+      { num: 2, src: 'data:image/jpeg;base64,xx', width: 20, height: 25 },
+    ]);
   });
 });
 
@@ -159,6 +440,35 @@ describe('errors / titles / urls', () => {
 });
 
 describe('computeScale / placeholder', () => {
+  it('centres a wide sheet in the visible viewport', () => {
+    const wide = { scrollWidth: 1200, clientWidth: 800, scrollLeft: 0 };
+    expect(centerOverflowX(wide)).toBe(200);
+    expect(wide.scrollLeft).toBe(200);
+    const fits = { scrollWidth: 800, clientWidth: 800, scrollLeft: 40 };
+    expect(centerOverflowX(fits)).toBe(0);
+    expect(fits.scrollLeft).toBe(0);
+    expect(centerOverflowX(null)).toBe(0);
+  });
+
+  it('centres actual-size single page on both axes', () => {
+    expect(shouldCenterSheet({ zoomMode: 'actual', layout: 'single' })).toBe(true);
+    expect(shouldCenterSheet({ zoomMode: 'actual', layout: 'continuous' })).toBe(false);
+    expect(shouldCenterSheet({ zoomMode: 'fit-width', layout: 'single' })).toBe(true);
+    expect(shouldCenterSheet({ zoomMode: 'fit-page', layout: 'single' })).toBe(true);
+    expect(shouldCenterSheet({ zoomMode: 'custom', layout: 'single' })).toBe(true);
+    const tall = { scrollHeight: 1400, clientHeight: 800, scrollTop: 0 };
+    expect(centerOverflowY(tall)).toBe(300);
+    expect(tall.scrollTop).toBe(300);
+    expect(centerOverflowY(null)).toBe(0);
+  });
+
+  it('keeps two-page view on the middle of the pane at every zoom', () => {
+    expect(shouldCenterSheet({ zoomMode: 'actual', layout: 'spread' })).toBe(true);
+    expect(shouldCenterSheet({ zoomMode: 'fit-width', layout: 'spread' })).toBe(true);
+    expect(shouldCenterSheet({ zoomMode: 'fit-page', layout: 'spread' })).toBe(true);
+    expect(shouldCenterSheet({ zoomMode: 'custom', layout: 'spread' })).toBe(true);
+  });
+
   const base = { width: 600, height: 800 };
   const viewport = { width: 656, height: 848 };
 
@@ -168,11 +478,40 @@ describe('computeScale / placeholder', () => {
     expect(computeScale({ baseSize: null, viewport, zoomMode: 'custom', zoom: 1.5, rotation: 0 })).toBe(1.5);
   });
 
-  it('fits width / page / actual / custom', () => {
+  it('fits two pages side by side in spread layout', () => {
+    const row = 600 * 2 + SPREAD_GAP;
+    const fitPage = Math.min((656 - PAGE_PAD_X) / row, (848 - PAGE_PAD_Y) / 800);
+    expect(computeScale({
+      baseSize: base, viewport, zoomMode: 'fit-width', zoom: 9, rotation: 0, layout: 'spread',
+    })).toBeCloseTo(fitPage);
+    expect(computeScale({
+      baseSize: base, viewport, zoomMode: 'fit-page', zoom: 9, rotation: 0, layout: 'spread',
+    })).toBeCloseTo(fitPage);
+    expect(computeScale({
+      baseSize: base, viewport, zoomMode: 'actual', zoom: 9, rotation: 0, layout: 'spread',
+    })).toBeCloseTo(fitPage);
+    expect(computeScale({
+      baseSize: base, viewport, zoomMode: 'custom', zoom: 4, rotation: 0, layout: 'spread',
+    })).toBeCloseTo(fitPage);
+  });
+
+  it('fits a single page to the pane until the user zooms', () => {
+    const fitPage = Math.min((656 - PAGE_PAD_X) / 600, (848 - PAGE_PAD_Y) / 800);
+    expect(computeScale({
+      baseSize: base, viewport, zoomMode: 'fit-page', zoom: 9, rotation: 0, layout: 'single',
+    })).toBeCloseTo(fitPage);
+    expect(computeScale({
+      baseSize: base, viewport, zoomMode: 'custom', zoom: 2, rotation: 0, layout: 'single',
+    })).toBe(2);
+  });
+
+  it('fits width / page / height / actual / custom', () => {
     expect(computeScale({ baseSize: base, viewport, zoomMode: 'fit-width', zoom: 9, rotation: 0 }))
       .toBeCloseTo((656 - PAGE_PAD_X) / 600);
     expect(computeScale({ baseSize: base, viewport, zoomMode: 'fit-page', zoom: 9, rotation: 0 }))
       .toBeCloseTo(Math.min((656 - PAGE_PAD_X) / 600, (848 - PAGE_PAD_Y) / 800));
+    expect(computeScale({ baseSize: base, viewport, zoomMode: 'fit-height', zoom: 9, rotation: 0 }))
+      .toBeCloseTo((848 - PAGE_PAD_Y) / 800);
     expect(computeScale({ baseSize: base, viewport, zoomMode: 'actual', zoom: 9, rotation: 0 })).toBe(1);
     expect(computeScale({ baseSize: base, viewport, zoomMode: 'custom', zoom: 2.5, rotation: 0 })).toBe(2.5);
   });

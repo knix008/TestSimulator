@@ -1,6 +1,8 @@
 import React, {
   forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+import { IconPrev, IconNext } from './Icons.jsx';
 import { renderPage, renderTextLayer, cropCanvas, getPageImageRegions, getPageLinks, getPageComments } from '../lib/pdf.js';
 import { commentCardPos, workspaceNoteToComment, workspaceAttachmentToComment } from '../lib/comments.js';
 import { matchOutlineTitle, lineTextNearPoint } from '../lib/nav.js';
@@ -8,6 +10,13 @@ import {
   computeScale, mergeRectsIntoLines, pagePlaceholderSize,
   hitTestRegion, normalizeDragRect, isMeaningfulCapture, regionToFrac, visibleRegionBox,
   pickCopyText, paintedSelectionToRects, locFromTop, hasPageLoc, bookmarkPaintRects,
+  isPagedLayout, pagesForLayout, outgoingSheetPages, sheetIsPainted, planPageTurn, turnSpacerPage, sheetOverlapsViewport,
+  overlayBoxForSheet, applyOverlayBox, sameSheet, isTurnBusy, TURN_SETTLE_MS, spreadLonePage,
+  stepPage, PAGE_TURN_MS, captureOutgoingSheet, centerOverflowX, centerOverflowY,
+  shouldCenterSheet, usesDocumentScroll, sheetCountForScroll, sheetSlotHeight,
+  pageFromDocumentScroll, documentScrollTopForPage, documentScrollTail, SPREAD_GAP,
+  paintsEagerly, pinDocumentScrollTop, centerDocumentSheetTop, documentSheetScrollTop, shiftDocumentScrollTop, wheelPageStep, leafFrontShot, leafBackShot, leafStayShot, leafStayBlank, leafStaySide, turnLeafSize,
+  pageTurnLeafDir, sheetShotBox,
 } from '../lib/view.js';
 import { collectLayerSearchHits, scrollOffsetForHit } from '../lib/search.js';
 import {
@@ -27,9 +36,8 @@ const NO_ANNOTATIONS = [];   // one shared instance, so the memo below holds
 const NO_BOOKMARKS = [];
 const NO_SELECTION = {};     // ditto, for the painted-selection lookup
 
-// Turning pages with the wheel in the single-page layout.
-const REST_MS = 200;     // a scrollable page must sit at its edge this long first
-const TURN_GAP_MS = 400; // …and one flick of the wheel never skips two pages
+// Turning pages with the wheel in single-page and two-page view.
+const TURN_GAP_MS = 400; // one flick of the wheel never skips two pages
 
 // The text tool selects in reading order: from a start column, through whole
 // lines, to an end column. The highlight is one solid block per line.
@@ -41,6 +49,7 @@ const PdfView = forwardRef(function PdfView({
   zoom,
   rotation,
   layout,
+  pageEffect = 'none',
   invert,
   annotations,
   tool,                 // 'text' | 'image' | 'region'
@@ -63,8 +72,39 @@ const PdfView = forwardRef(function PdfView({
   activeBookmarkId = null,
   activeCommentId = null,
 }, ref) {
+  const { t } = useTranslation();
   const scrollRef = useRef(null);
   const pageRefs = useRef(new Map());   // page number → { wrapper, canvas, textLayer }
+  const sheetShots = useRef([]);        // last painted sheet, used as the outgoing turn
+  const paintedPages = useRef(new Set());
+  const sheetNav = useRef({ layout, pageNumber, doc });
+  sheetNav.current = { layout, pageNumber, doc };
+  const pageTurnRef = useRef(null);
+  const ignoreScrollTurn = useRef(false);
+  const scrollPin = useRef({ page: 1, top: 0 });
+  const spacerHold = useRef(0);
+  const stageRef = useRef(null);
+  const overlayRef = useRef(null);
+  const overlayBoxHold = useRef(null);
+  const turnBusyUntil = useRef(0);
+
+  const captureSheetOverlayBox = () => {
+    const { layout: lay, pageNumber: pg, doc: d } = sheetNav.current;
+    const nums = d ? pagesForLayout(lay, pg, d.numPages) : [];
+    const wraps = nums.map((n) => pageRefs.current.get(n)?.wrapper).filter(Boolean);
+    const spreadEl = lay === 'spread' ? wraps[0]?.closest?.('.page-spread') : null;
+    const box = overlayBoxForSheet(stageRef.current, spreadEl || wraps);
+    if (box) overlayBoxHold.current = { id: 'pending', box };
+  };
+
+  const turnIsBusy = () => isTurnBusy(pageTurnRef.current, turnBusyUntil.current);
+
+  const holdOutgoingSheet = (page) => {
+    const n = Number(page);
+    if (Number.isFinite(n) && n > 0) spacerHold.current = n;
+  };
+  const lastGeometry = useRef({ scale: 1, rotation: 0, primed: false });
+  const anchor = useRef({ page: 1, ratio: 0 });
   const [baseSize, setBaseSize] = useState(null); // intrinsic size of page 1 at scale 1
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   // Painted selection, keyed by page: { [page]: [{ left, top, width, height }] }.
@@ -81,7 +121,7 @@ const PdfView = forwardRef(function PdfView({
     setRegionMark(null);
   }, [doc]);
 
-  // ── Container measurement (drives fit-width / fit-page) ──
+  // ── Container measurement (drives fit-width / fit-page / fit-height) ──
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return undefined;
@@ -90,7 +130,7 @@ const PdfView = forwardRef(function PdfView({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [doc]);
 
   // ── Intrinsic page size (assume a uniform document, corrected per page) ──
   useEffect(() => {
@@ -110,11 +150,47 @@ const PdfView = forwardRef(function PdfView({
 
   // ── Effective scale ─────────────────────────────────────
   const scale = useMemo(
-    () => computeScale({ baseSize, viewport, zoomMode, zoom, rotation }),
-    [baseSize, viewport, zoomMode, zoom, rotation],
+    () => computeScale({ baseSize, viewport, zoomMode, zoom, rotation, layout }),
+    [baseSize, viewport, zoomMode, zoom, rotation, layout],
   );
 
   useEffect(() => { onScaleChange?.(scale); }, [scale, onScaleChange]);
+
+  const centerSheet = shouldCenterSheet({ zoomMode, layout });
+  const docScroll = usesDocumentScroll(layout);
+  const pageBox = useMemo(
+    () => pagePlaceholderSize({ baseSize, scale, rotation }),
+    [baseSize, scale, rotation],
+  );
+  const scrollMetrics = useMemo(() => {
+    const sheets = sheetCountForScroll(layout, doc?.numPages || 0);
+    const slot = sheetSlotHeight({
+      pageHeight: pageBox.height,
+      viewportHeight: viewport.height,
+      fillViewport: centerSheet,
+      gap: SPREAD_GAP,
+    });
+    return { slot, sheets, layout, numPages: doc?.numPages || 0 };
+  }, [layout, doc, pageBox.height, viewport.height, centerSheet]);
+  const scrollMetricsRef = useRef(scrollMetrics);
+  scrollMetricsRef.current = scrollMetrics;
+
+  // After a resize / zoom the sheet can sit off the visible middle.
+  // Only re-centre then: a later paint must not yank a page the user is
+  // scrolling through back to the middle.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !viewport.width) return;
+    // The pair (or the leftover last page) stays in the middle of the pane,
+    // including when it is wider than the window — the binding is the centre.
+    centerOverflowX(el);
+    if (layout === 'single' && !pageTurnRef.current && !spacerHold.current) {
+      const top = centerDocumentSheetTop(pageNumber, scrollMetricsRef.current, el.clientHeight);
+      if (Math.abs((el.scrollTop || 0) - top) > 0.5) el.scrollTop = top;
+    } else if (centerSheet && !docScroll) {
+      centerOverflowY(el);
+    }
+  }, [viewport.width, viewport.height, scale, layout, rotation, doc, zoomMode, centerSheet, docScroll]);
 
   // Grouped once per change: filtering inside the page list would hand every
   // page a brand-new array on every render and defeat the memo below.
@@ -144,24 +220,55 @@ const PdfView = forwardRef(function PdfView({
     const fromTop = locFromTop(loc, entry?.pdfHeight);
     if (fromTop == null || !entry?.wrapper || !root) return false;
     const pageH = entry.wrapper.offsetHeight || 1;
-    if (layout === 'single') {
+    if (usesDocumentScroll(layout)) {
+      const base = documentScrollTopForPage(pageNumber, scrollMetricsRef.current);
+      root.scrollTo({ top: Math.max(0, base + fromTop * pageH), behavior });
+    } else if (isPagedLayout(layout)) {
       root.scrollTo({ top: Math.max(0, fromTop * pageH - 24), behavior });
     } else {
       const delta = entry.wrapper.getBoundingClientRect().top - root.getBoundingClientRect().top;
       root.scrollTo({ top: Math.max(0, root.scrollTop + delta - 12 + fromTop * pageH), behavior });
     }
     return true;
-  }, [layout]);
+  }, [layout, pageNumber]);
+
+  const markIncomingReady = useCallback(() => {
+    const turn = pageTurnRef.current;
+    if (!turn || turn.ready) return;
+    const { layout: lay, pageNumber: pg, doc: d } = sheetNav.current;
+    if (!d) return;
+    if (sheetIsPainted(pageRefs.current, outgoingSheetPages(lay, pg, d.numPages))) {
+      setPageTurn((cur) => {
+        if (!cur || cur.ready) return cur;
+        // Spread only: the back of the gutter leaf. A one-page leaf must keep
+        // the outgoing snapshot on the front; the new page stays underneath.
+        const back = cur.effect === 'flip' && lay === 'spread'
+          ? leafBackShot(pageRefs.current, lay, cur.dir, pg, d.numPages)
+          : cur.back;
+        return { ...cur, ready: true, back: back || cur.back || null };
+      });
+    }
+  }, []);
 
   const registerPage = useCallback((num, entry) => {
     if (entry) pageRefs.current.set(num, entry);
     else pageRefs.current.delete(num);
+    if (entry?.painted) paintedPages.current.add(num);
+    else paintedPages.current.delete(num);
     const pending = pendingLoc.current;
     if (pending && pending.page === num && entry?.wrapper && (pending.loc?.fracY != null || entry?.pdfHeight > 0)) {
       pendingLoc.current = null;
       applyPageLoc(entry, pending.loc, scrollRef.current, 'auto');
     }
-  }, [applyPageLoc]);
+    if (entry?.painted) {
+      if (!pageTurnRef.current) {
+        const { layout: lay, pageNumber: pg, doc: d } = sheetNav.current;
+        const shots = d ? captureOutgoingSheet(pageRefs.current, lay, pg, d.numPages) : [];
+        if (shots.length) sheetShots.current = shots;
+      }
+      markIncomingReady();
+    }
+  }, [applyPageLoc, markIncomingReady]);
 
   const lastSearchScroll = useRef('');
   const onSearchHit = useCallback((page, hit, stamp) => {
@@ -188,9 +295,98 @@ const PdfView = forwardRef(function PdfView({
   // ── Which pages are mounted ─────────────────────────────
   const pages = useMemo(() => {
     if (!doc) return [];
-    if (layout === 'single') return [pageNumber];
-    return Array.from({ length: doc.numPages }, (_, i) => i + 1);
+    return pagesForLayout(layout, pageNumber, doc.numPages);
   }, [doc, layout, pageNumber]);
+
+  // Paged layouts can keep the previous sheet as a snapshot while the new
+  // page(s) come in — fade, slide, or a book-style flip.
+  const [pageTurn, setPageTurn] = useState(null);
+  pageTurnRef.current = pageTurn;
+  // React-state form of "props changed": the cover is in the first committed
+  // paint. A ref updated during render can lose the matching setState.
+  const [nav, setNav] = useState({ doc, page: pageNumber });
+  if (doc !== nav.doc) {
+    setNav({ doc, page: pageNumber });
+    sheetShots.current = [];
+    ignoreScrollTurn.current = false;
+    spacerHold.current = 0;
+    lastGeometry.current = { scale, rotation, primed: false };
+    anchor.current = { page: pageNumber || 1, ratio: 0 };
+    if (pageTurn) setPageTurn(null);
+  } else if (pageNumber !== nav.page) {
+    holdOutgoingSheet(nav.page);
+    const fromScroll = ignoreScrollTurn.current;
+    ignoreScrollTurn.current = false;
+    const shots = sheetShots.current;
+    const planned = planPageTurn({
+      effect: pageEffect,
+      layout,
+      fromPage: nav.page,
+      toPage: pageNumber,
+      fromScroll,
+      hasShots: shots.length > 0,
+      incomingPainted: !!(doc && sheetIsPainted(
+        pageRefs.current,
+        outgoingSheetPages(layout, pageNumber, doc.numPages),
+      )),
+    });
+    setNav({ doc, page: pageNumber });
+    setPageTurn(planned ? {
+      ...planned,
+      id: `${nav.page}-${pageNumber}`,
+      fromPage: nav.page,
+      shots,
+      front: leafFrontShot(shots, planned.dir),
+      stay: leafStayShot(shots, planned.dir),
+      stayBlank: leafStayBlank(layout, shots, planned.dir),
+      back: planned.effect === 'flip' && layout === 'spread'
+        ? leafBackShot(pageRefs.current, layout, planned.dir, pageNumber, doc.numPages)
+        : null,
+    } : null);
+  }
+
+  // Snapshot the canvases in this frame — they still hold the page being
+  // left. pdf.js paints the new page later; waiting for that made the leaf
+  // show the incoming sheet, which is the page that should stay underneath.
+  useLayoutEffect(() => {
+    if (!pageTurn || pageTurn.held || pageTurn.effect === 'none') return undefined;
+    const live = doc ? captureOutgoingSheet(pageRefs.current, layout, pageNumber, doc.numPages) : [];
+    setPageTurn((cur) => {
+      if (!cur || cur.held || cur.id !== pageTurn.id) return cur;
+      // Prefer the snapshot taken before the page number changed. The live
+      // canvas is only a fallback: in this layout pass it still holds the
+      // outgoing page, but a later paint of the incoming one must not replace
+      // the leaf.
+      const shots = cur.shots?.length ? cur.shots : live;
+      const front = cur.front || leafFrontShot(shots, cur.dir);
+      const stay = cur.stay || leafStayShot(shots, cur.dir);
+      const stayBlank = cur.stayBlank || leafStayBlank(layout, shots, cur.dir);
+      return { ...cur, held: true, shots, front, stay, stayBlank };
+    });
+    return undefined;
+  }, [doc, layout, pageNumber, pageTurn]);
+
+  const turnClock = pageTurn ? pageTurn.id : null;
+
+  useEffect(() => {
+    if (!turnClock) return undefined;
+    // Always lift the overlay. A flip without a front, or a fade that never
+    // saw the incoming sheet paint, used to leave the pane on --page-bg.
+    const ms = pageTurn?.effect === 'none' ? 0 : PAGE_TURN_MS;
+    const id = window.setTimeout(() => setPageTurn(null), ms);
+    return () => window.clearTimeout(id);
+  }, [turnClock, pageTurn?.effect]);
+
+  // After a turn the live sheet is the page that just arrived. Keep that as
+  // the next outgoing snapshot so a later turn does not reuse the page before.
+  useEffect(() => {
+    if (pageTurn) return undefined;
+    const { layout: lay, pageNumber: pg, doc: d } = sheetNav.current;
+    if (!d) return undefined;
+    const shots = captureOutgoingSheet(pageRefs.current, lay, pg, d.numPages);
+    if (shots.length) sheetShots.current = shots;
+    return undefined;
+  }, [pageTurn]);
 
   // In continuous layout the current page follows the scroll position.
   const suppressScrollSync = useRef(false);
@@ -200,7 +396,6 @@ const PdfView = forwardRef(function PdfView({
   // somewhere else entirely. The page currently at the top of the viewport and
   // how far into it we are get recorded on every scroll, and restored once the
   // new layout is in place.
-  const anchor = useRef({ page: 1, ratio: 0 });
 
   const captureAnchor = useCallback(() => {
     const root = scrollRef.current;
@@ -223,22 +418,64 @@ const PdfView = forwardRef(function PdfView({
 
   const restoreAnchor = useCallback(() => {
     const root = scrollRef.current;
-    const entry = pageRefs.current.get(anchor.current.page);
-    if (!root || !entry?.wrapper) return;
-    const rootRect = root.getBoundingClientRect();
-    const r = entry.wrapper.getBoundingClientRect();
+    if (!root) return;
+    const { layout: lay, pageNumber: pg } = sheetNav.current;
+    const metrics = scrollMetricsRef.current;
+    const page = anchor.current.page || pg;
     suppressScrollSync.current = true;
-    root.scrollTop += (r.top - rootRect.top) + anchor.current.ratio * r.height;
+    if (usesDocumentScroll(lay)) {
+      root.scrollTo({
+        top: pinDocumentScrollTop(page, metrics, anchor.current.ratio),
+        behavior: 'auto',
+      });
+    } else {
+      const entry = pageRefs.current.get(page);
+      if (!entry?.wrapper) {
+        suppressScrollSync.current = false;
+        return;
+      }
+      const rootRect = root.getBoundingClientRect();
+      const r = entry.wrapper.getBoundingClientRect();
+      root.scrollTop += (r.top - rootRect.top) + anchor.current.ratio * r.height;
+    }
     setTimeout(() => { suppressScrollSync.current = false; }, 250);
   }, []);
 
   // Re-anchor after every zoom / rotation, once the new sizes are laid out.
-  const lastGeometry = useRef({ scale, rotation });
+  // The first scale (viewport / page size becoming known after open) must pin
+  // the current sheet — restoreAnchor would use a dummy { page: 1, ratio: 0 }
+  // and jump the facing pair into empty spacer.
   useLayoutEffect(() => {
     if (lastGeometry.current.scale === scale && lastGeometry.current.rotation === rotation) return;
-    lastGeometry.current = { scale, rotation };
+    const primed = lastGeometry.current.primed;
+    lastGeometry.current = { scale, rotation, primed: true };
+    if (layout === 'single') {
+      const root = scrollRef.current;
+      if (root && !pageTurnRef.current && !spacerHold.current) {
+        suppressScrollSync.current = true;
+        centerOverflowX(root);
+        const top = centerDocumentSheetTop(pageNumber, scrollMetricsRef.current, root.clientHeight);
+        if (Math.abs((root.scrollTop || 0) - top) > 0.5) root.scrollTop = top;
+        setTimeout(() => { suppressScrollSync.current = false; }, 250);
+      }
+      return;
+    }
+    if (!primed) {
+      const root = scrollRef.current;
+      if (root && usesDocumentScroll(layout)) {
+        suppressScrollSync.current = true;
+        root.scrollTo({
+          top: documentScrollTopForPage(pageNumber, scrollMetricsRef.current),
+          behavior: 'auto',
+        });
+        setTimeout(() => { suppressScrollSync.current = false; }, 250);
+      }
+      return;
+    }
     restoreAnchor();
-  }, [scale, rotation, restoreAnchor]);
+    // Recentre only when the scale actually changes, never when the page turns.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scale, rotation, restoreAnchor, layout]);
 
 
   useEffect(() => {
@@ -254,7 +491,10 @@ const PdfView = forwardRef(function PdfView({
       for (const [num, r] of ratios) {
         if (r > bestRatio) { bestRatio = r; best = num; }
       }
-      if (best && bestRatio > 0) onPageChange?.(best);
+      if (best && bestRatio > 0 && best !== sheetNav.current.pageNumber) {
+        ignoreScrollTurn.current = true;
+        onPageChange?.(best);
+      }
     }, { root, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] });
 
     // The anchor has to follow the scroll position, not just page changes.
@@ -270,78 +510,141 @@ const PdfView = forwardRef(function PdfView({
     };
   }, [doc, layout, pages.length, onPageChange, captureAnchor]);
 
-  // In the single-page layout only one page is mounted, so the wheel would stop
-  // dead at the bottom of it. Rolling on past either edge turns to the
-  // neighbouring page and lands on the edge you came from, so the document
-  // still reads straight through — the same as scrolling the continuous layout.
+  useEffect(() => {
+    if (!doc || !usesDocumentScroll(layout)) return undefined;
+    const root = scrollRef.current;
+    if (!root) return undefined;
+    const onScroll = () => {
+      if (!suppressScrollSync.current) captureAnchor();
+      // Cover / spacer updates must not be read as the user scrolling to another
+      // sheet — that would change pageNumber again after the overlay buttons.
+      if (suppressScrollSync.current || pageTurnRef.current) return;
+      const next = pageFromDocumentScroll(root.scrollTop, scrollMetricsRef.current);
+      if (next !== sheetNav.current.pageNumber) {
+        ignoreScrollTurn.current = true;
+        onPageChange?.(next);
+      }
+    };
+    root.addEventListener('scroll', onScroll, { passive: true });
+    return () => root.removeEventListener('scroll', onScroll);
+  }, [doc, layout, onPageChange, captureAnchor]);
+
+  // In single-page and two-page view a sheet that still fits the pane is
+  // turned with the wheel. A zoomed (or tall) page scrolls until that edge,
+  // then the neighbouring page comes in.
   const landEdge = useRef(null);    // where scrollToPage should put the next page
-  const turn = useRef({ edge: null, since: 0, last: 0 });
+  const turn = useRef({ last: 0 });
 
   const wheelTurnPage = useCallback((e) => {
-    const el = scrollRef.current;
-    if (!el || layout !== 'single' || !doc) return;
-    const down = e.deltaY > 0;
-    const edge = down
-      ? (el.scrollTop + el.clientHeight >= el.scrollHeight - 1 ? 'bottom' : null)
-      : (el.scrollTop <= 1 ? 'top' : null);
-
-    const state = turn.current;
-    if (!edge) { state.edge = null; return; }
-
-    const now = Date.now();
-    if (state.edge !== edge) { state.edge = edge; state.since = now; }
-
-    // A page that fits entirely has no edge to arrive at, so it turns at once;
-    // one you were scrolling through waits, or overshooting the end of a page
-    // would carry you into the next one.
-    const scrollable = el.scrollHeight > el.clientHeight + 1;
-    if (scrollable && now - state.since < REST_MS) return;
-    if (now - state.last < TURN_GAP_MS) return;
-
-    const next = down ? pageNumber + 1 : pageNumber - 1;
-    if (next < 1 || next > doc.numPages) return;
-
+    if (!isPagedLayout(layout) || !doc) return false;
+    if (turnIsBusy()) {
+      e.preventDefault();
+      return true;
+    }
+    const root = scrollRef.current;
+    const step = wheelPageStep(e.deltaY, {
+      scrollTop: root?.scrollTop,
+      scrollHeight: root?.scrollHeight,
+      clientHeight: root?.clientHeight,
+      slot: scrollMetricsRef.current.slot,
+      pageTop: documentScrollTopForPage(pageNumber, scrollMetricsRef.current),
+    });
+    if (!step) return false;
     e.preventDefault();
-    state.last = now;
-    state.edge = null;
-    landEdge.current = down ? 'top' : 'bottom';
+    const now = Date.now();
+    if (now - turn.current.last < TURN_GAP_MS) return true;
+
+    const next = stepPage(layout, pageNumber, step, doc.numPages);
+    if (next === pageNumber) return true;
+
+    turn.current.last = now;
+    const view = root?.clientHeight || 0;
+    const slot = scrollMetricsRef.current.slot || 0;
+    landEdge.current = slot > view + 1 ? (step > 0 ? 'top' : 'bottom') : null;
+    scrollPin.current = { page: pageNumber, top: root?.scrollTop || 0 };
+    holdOutgoingSheet(pageNumber);
+    captureSheetOverlayBox();
+    const shots = captureOutgoingSheet(pageRefs.current, layout, pageNumber, doc.numPages);
+    if (shots.length) sheetShots.current = shots;
+    ignoreScrollTurn.current = false;
     onPageChange?.(next);
+    return true;
   }, [doc, layout, pageNumber, onPageChange]);
 
-  // Ctrl + wheel zooms, as it does in every other document viewer. The listener
-  // has to be a non-passive native one: React's synthetic wheel handler is
-  // passive, so preventDefault() there would not stop the browser's own zoom.
+  // Ctrl + wheel zooms. Two-page view stays fitted to the pane; a single
+  // page zooms around the centre of the window. The listener has to be a
+  // non-passive native one: React's synthetic wheel handler is passive, so
+  // preventDefault() there would not stop the browser's own zoom.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return undefined;
     const onWheel = (e) => {
-      if (!e.ctrlKey && !e.metaKey) { if (e.deltaY !== 0) wheelTurnPage(e); return; }
+      if (!e.ctrlKey && !e.metaKey) { wheelTurnPage(e); return; }
       e.preventDefault();
-      if (e.deltaY === 0) return;
+      if (layout === 'spread' || e.deltaY === 0) return;
       captureAnchor();
       onZoomStep?.(e.deltaY < 0 ? 1 : -1);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [captureAnchor, onZoomStep, wheelTurnPage]);
+  }, [captureAnchor, layout, onZoomStep, wheelTurnPage]);
 
   // Scroll a page into view when the page number changes from outside.
   //
   // This scrolls the page container itself rather than calling scrollIntoView:
   // scrollIntoView also scrolls every scrollable ancestor, which pushes the
   // toolbar and title bar off the top of the window.
+  const scrollSyncHold = useRef(0);
+  const holdScrollSync = useCallback((behavior) => {
+    if (scrollSyncHold.current) window.clearTimeout(scrollSyncHold.current);
+    const hold = pageTurnRef.current
+      ? PAGE_TURN_MS + 80
+      : (behavior === 'smooth' ? 700 : 250);
+    scrollSyncHold.current = window.setTimeout(() => {
+      suppressScrollSync.current = false;
+      scrollSyncHold.current = 0;
+    }, hold);
+  }, []);
+
   const scrollToPage = useCallback((num, behavior = 'auto', loc = null) => {
-    const entry = pageRefs.current.get(num);
     const root = scrollRef.current;
-    if (!entry?.wrapper || !root) {
+    if (!root) {
       if (hasPageLoc(loc)) pendingLoc.current = { page: num, loc };
       return;
     }
-    if (layout === 'single') {
+    const entry = pageRefs.current.get(num);
+    if (isPagedLayout(layout)) {
       // Turning back with the wheel should show the foot of the previous page,
       // not its head — otherwise scrolling up jumps over a screenful of text.
       const edge = landEdge.current;
       landEdge.current = null;
+      // Spacer heights already match `num` in this commit. Pin scrollTop even
+      // before the new PageView has registered a wrapper, otherwise the cover
+      // lifts onto a sheet that then jumps into place.
+      if (usesDocumentScroll(layout) && !hasPageLoc(loc)) {
+        pendingLoc.current = null;
+        suppressScrollSync.current = true;
+        const metrics = scrollMetricsRef.current;
+        const pin = scrollPin.current;
+        const top = edge
+          ? documentSheetScrollTop(num, metrics, root.clientHeight, edge)
+          : (pin.page !== num
+            ? shiftDocumentScrollTop(pin.page, num, pin.top, metrics)
+            : documentSheetScrollTop(num, metrics, root.clientHeight));
+        root.scrollTo({ top, behavior: 'auto' });
+        holdScrollSync(behavior);
+        return;
+      }
+      if (!entry?.wrapper) {
+        if (hasPageLoc(loc)) pendingLoc.current = { page: num, loc };
+        return;
+      }
+      if (shouldCenterSheet({ zoomMode, layout }) && !hasPageLoc(loc) && !usesDocumentScroll(layout)) {
+        pendingLoc.current = null;
+        centerOverflowX(root);
+        centerOverflowY(root);
+        return;
+      }
       if (edge) {
         pendingLoc.current = null;
         root.scrollTo({ top: edge === 'bottom' ? root.scrollHeight : 0, behavior: 'auto' });
@@ -356,6 +659,10 @@ const PdfView = forwardRef(function PdfView({
       root.scrollTo({ top: 0, behavior });
       return;
     }
+    if (!entry?.wrapper) {
+      if (hasPageLoc(loc)) pendingLoc.current = { page: num, loc };
+      return;
+    }
     // Ignore the scroll-driven page updates this programmatic scroll causes.
     suppressScrollSync.current = true;
     if (applyPageLoc(entry, loc, root, behavior)) {
@@ -366,8 +673,8 @@ const PdfView = forwardRef(function PdfView({
       const delta = entry.wrapper.getBoundingClientRect().top - root.getBoundingClientRect().top;
       root.scrollTo({ top: Math.max(0, root.scrollTop + delta - 12), behavior });
     }
-    setTimeout(() => { suppressScrollSync.current = false; }, behavior === 'smooth' ? 700 : 250);
-  }, [applyPageLoc, layout]);
+    holdScrollSync(behavior);
+  }, [applyPageLoc, holdScrollSync, layout, zoomMode]);
 
   // ── Keeping a drag from grabbing text elsewhere on the page ──
   // A PDF text layer is a scatter of absolutely positioned spans with wide
@@ -633,6 +940,23 @@ const PdfView = forwardRef(function PdfView({
   useImperativeHandle(ref, () => ({
     scrollToPage,
 
+    // Call before changing pageNumber so the outgoing canvas is still mounted.
+    preparePageTurn(nextPage, loc) {
+      if (turnIsBusy()) return false;
+      const { layout: lay, pageNumber: pg, doc: d } = sheetNav.current;
+      scrollPin.current = { page: pg, top: scrollRef.current?.scrollTop || 0 };
+      holdOutgoingSheet(pg);
+      captureSheetOverlayBox();
+      if (d) {
+        const shots = captureOutgoingSheet(pageRefs.current, lay, pg, d.numPages);
+        if (shots.length) sheetShots.current = shots;
+      }
+      if (hasPageLoc(loc)) pendingLoc.current = { page: nextPage, loc };
+      ignoreScrollTurn.current = false;
+      suppressScrollSync.current = true;
+      return true;
+    },
+
     // Selects every text node of one page (Ctrl+A / "Select page").
     selectPageText(num) {
       const entry = pageRefs.current.get(num);
@@ -728,12 +1052,73 @@ const PdfView = forwardRef(function PdfView({
     },
   }), [scrollToPage, refreshSelection, onSelectionChange, parkAllEndBlocks, parkEndBlock]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!doc) return;
+    // Spacers stay on the outgoing sheet while a turn covers it. Pinning
+    // scrollTop to the incoming page here is what popped the page up.
+    if (pageTurn) return;
+    if (spacerHold.current && spacerHold.current !== pageNumber) return;
     scrollToPage(pageNumber);
+    spacerHold.current = 0;
     // Only react to an externally driven page change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNumber, layout, doc]);
+  }, [pageNumber, layout, doc, pageTurn]);
+
+  // If a turn, a cancelled paint, or a spacer/slot change left the sheet
+  // outside the pane, the viewer is just --page-bg. Pull it back.
+  useLayoutEffect(() => {
+    if (!doc || !docScroll) return;
+    const root = scrollRef.current;
+    if (!root) return;
+    if (pageTurn || spacerHold.current) {
+      const pin = scrollPin.current.top;
+      if (Number.isFinite(pin) && Math.abs((root.scrollTop || 0) - pin) > 0.5) {
+        root.scrollTop = pin;
+      }
+      return;
+    }
+    const wrap = pages.map((n) => pageRefs.current.get(n)?.wrapper).find(Boolean);
+    if (!wrap || sheetOverlapsViewport(root, wrap)) return;
+    suppressScrollSync.current = true;
+    root.scrollTo({
+      top: documentSheetScrollTop(pageNumber, scrollMetricsRef.current, root.clientHeight),
+      behavior: 'auto',
+    });
+    holdScrollSync('auto');
+  }, [doc, docScroll, layout, pageNumber, pageTurn, pages, scrollMetrics, holdScrollSync]);
+
+  useLayoutEffect(() => {
+    const overlay = overlayRef.current;
+    if (!pageTurn) {
+      applyOverlayBox(overlay, null);
+      overlayBoxHold.current = null;
+      turnBusyUntil.current = Date.now() + TURN_SETTLE_MS;
+      return;
+    }
+    // Use the box captured while the outgoing sheet was still in place.
+    // Measuring after the incoming pages mount is what drew the turn low.
+    if (overlayBoxHold.current?.box) {
+      overlayBoxHold.current.id = pageTurn.id;
+      applyOverlayBox(overlay, overlayBoxHold.current.box);
+    }
+  }, [pageTurn]);
+
+  // When fit-width / page size lands, spacer heights change. Keep the current
+  // sheet in the viewport instead of leaving scrollTop in empty tail space.
+  // Single-page owns its offset (scroll, then the next page at the edge) so
+  // this must not snap it back to the middle of the slot.
+  useLayoutEffect(() => {
+    if (!doc || !docScroll || layout === 'single') return;
+    if (pageTurn || spacerHold.current) return;
+    const root = scrollRef.current;
+    if (!root) return;
+    suppressScrollSync.current = true;
+    root.scrollTo({
+      top: pinDocumentScrollTop(pageNumber, scrollMetrics),
+      behavior: 'auto',
+    });
+    holdScrollSync('auto');
+  }, [doc, docScroll, layout, pageNumber, pageTurn, scrollMetrics, holdScrollSync]);
 
   const applySpatialSelect = useCallback(({ page, text, lines, layerBox }) => {
     spatialRef.current = lines.length ? { page, text, lines, layerBox } : null;
@@ -756,81 +1141,222 @@ const PdfView = forwardRef(function PdfView({
     return <div className="pageview empty" ref={scrollRef}>{emptyState}</div>;
   }
 
+  if (!pageTurn && nav.page === pageNumber) spacerHold.current = 0;
+  const spacerPage = turnSpacerPage(pageTurn, pageNumber, spacerHold.current);
+  const flipLeaf = pageTurn?.effect === 'flip' && !!pageTurn.front;
+  const flipBox = flipLeaf ? sheetShotBox(pageTurn.shots) : null;
+  const leafSize = flipLeaf ? turnLeafSize(layout, pageTurn.shots.length) : 'whole';
+  const sheetCover = pageTurn && pageTurn.effect !== 'flip';
+  const prevPage = stepPage(layout, pageNumber, -1, doc.numPages);
+  const nextPage = stepPage(layout, pageNumber, 1, doc.numPages);
+  const turnTo = (next) => {
+    if (next === pageNumber || turnIsBusy()) return;
+    if (sameSheet(layout, pageNumber, next, doc.numPages)) return;
+    scrollPin.current = { page: pageNumber, top: scrollRef.current?.scrollTop || 0 };
+    holdOutgoingSheet(pageNumber);
+    captureSheetOverlayBox();
+    const shots = captureOutgoingSheet(pageRefs.current, layout, pageNumber, doc.numPages);
+    if (shots.length) sheetShots.current = shots;
+    if (onGoToPage) onGoToPage(next);
+    else onPageChange?.(next);
+  };
+
   return (
     <div
-      className={`pageview tool-${tool}${invert ? ' invert' : ''}`}
-      ref={scrollRef}
-      onContextMenu={(e) => onContextMenu?.(e, {
-        selectionText: pickCopyText(lastText.current, window.getSelection()?.toString()),
-      })}
-      onMouseDown={(e) => {
-        const layer = e.target.closest?.('.textLayer');
-        if (!layer) return;
-        // A new drag knows nothing about the last one. Left behind, the old
-        // range makes the very first move guess the wrong end as the moving
-        // one, which parks the guard block inside the range — one frame of a
-        // full-page highlight.
-        prevRange.current = null;
-        dragging.current = true;
-        // The class, and nothing else — the guard block must not be *moved*
-        // here. This runs before the browser resolves the caret for this very
-        // press, and that resolution maps the box it already hit-tested back to
-        // a DOM position: move the block now and the caret lands wherever the
-        // block went. Parking it, in particular, sends the caret to the end of
-        // the layer, and the first twitch of the drag then selects everything
-        // from the press down to the foot of the page. Restyling is safe: the
-        // hit test that picked the target has already happened.
-        layer.classList.add('selecting');
-      }}
-      onMouseUp={(e) => {
-        // A finished text drag offers its actions straight away. The menu is
-        // opened from the release position, and only for a drag that actually
-        // selected something — a plain click still just moves the caret.
-        if (tool !== 'text' || e.button !== 0 || autoCopyText) return;
-        if (!e.target.closest?.('.textLayer')) return;
-        const { clientX, clientY } = e;
-        // One tick, so the selection the menu asks about is the final one.
-        setTimeout(() => {
-          const live = window.getSelection()?.toString() || '';
-          const text = pickCopyText(live, lastText.current);
-          if (!text.trim()) return;
-          onContextMenu?.({
-            preventDefault() {}, stopPropagation() {}, clientX, clientY,
-          }, { selectionText: text });
-        }, 0);
-      }}
+      ref={stageRef}
+      className={`page-stage${pageTurn ? ' turning' : ''}${flipLeaf ? ' flip-turn' : ''}${centerSheet ? ' center-sheet' : ''}`}
+      data-motion={pageEffect === 'none' ? 'system' : 'full'}
+      style={{ '--turn-ms': `${PAGE_TURN_MS}ms` }}
     >
-      <div className="pagestack">
-        {pages.map((num) => (
-          <PageView
-            key={num}
-            doc={doc}
-            num={num}
-            scale={scale}
-            rotation={rotation}
-            baseSize={baseSize}
-            annotations={annotationsByPage.get(num) || NO_ANNOTATIONS}
-            selection={selection[num] || null}
-            tool={tool}
-            onRegionCapture={onRegionCapture}
-            regionMark={regionMark?.page === num ? regionMark : null}
-            onRegionMark={setRegionMark}
-            onImagePick={onImagePick}
-            selectedImage={selectedImage && selectedImage.page === num ? selectedImage : null}
-            onContextMenuAt={onContextMenu}
-            onError={onError}
-            register={registerPage}
-            outline={outline}
-            onFollowLink={onFollowLink}
-            onGoToPage={onGoToPage}
-            searchQuery={searchQuery}
-            searchActive={searchActive}
-            onSearchHit={onSearchHit}
-            bookmarks={bookmarksByPage.get(num) || NO_BOOKMARKS}
-            activeBookmarkId={activeBookmarkId}
-            activeCommentId={activeCommentId}
-          />
-        ))}
+      {isPagedLayout(layout) ? (
+        <>
+          <button
+            type="button"
+            className="page-nav prev"
+            onClick={() => turnTo(prevPage)}
+            disabled={!!pageTurn || prevPage === pageNumber}
+            title={t('toolbar.prevPage')}
+            aria-label={t('toolbar.prevPage')}
+          >
+            <IconPrev size={22} />
+          </button>
+          <button
+            type="button"
+            className="page-nav next"
+            onClick={() => turnTo(nextPage)}
+            disabled={!!pageTurn || nextPage === pageNumber}
+            title={t('toolbar.nextPage')}
+            aria-label={t('toolbar.nextPage')}
+          >
+            <IconNext size={22} />
+          </button>
+        </>
+      ) : null}
+      {flipLeaf && flipBox ? (
+        <div className="flip-overlay" ref={overlayRef} aria-hidden="true">
+          <div
+            className={`flip-spread${layout === 'spread' || pageTurn.shots.length > 1 ? ' two-up' : ''}`}
+            style={{ width: '100%', height: '100%' }}
+          >
+            <div
+              key={pageTurn.id}
+              className={`turn-leaf ${pageTurnLeafDir(pageTurn.dir)} ${leafSize}`}
+            >
+              <div className="leaf-face front">
+                <img src={pageTurn.front.src} alt="" draggable={false} />
+              </div>
+              {leafSize === 'half' ? (
+                <div className="leaf-face back">
+                  {pageTurn.back ? (
+                    <img src={pageTurn.back.src} alt="" draggable={false} />
+                  ) : <span className="leaf-paper" />}
+                </div>
+              ) : null}
+            </div>
+            {leafSize === 'half' && (pageTurn.stay || pageTurn.stayBlank) ? (
+              <div className={`turn-stay ${leafStaySide(pageTurn.dir)}${pageTurn.stay ? '' : ' blank'}`}>
+                {pageTurn.stay ? (
+                  <img src={pageTurn.stay.src} alt="" draggable={false} />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {sheetCover ? (
+        <div
+          ref={overlayRef}
+          className={`turn-cover turn-${pageTurn.effect} turn-${pageTurn.dir}${pageTurn.ready ? ' ready' : ''}${layout === 'spread' ? ' spread' : ''}`}
+          aria-hidden="true"
+        >
+          {pageTurn.shots.map((shot) => (
+            <div
+              key={`out-${shot.num}`}
+              className="page turn-shot"
+              style={{ width: shot.width, height: shot.height }}
+            >
+              <img src={shot.src} alt="" draggable={false} />
+            </div>
+          ))}
+          {layout === 'spread' && pageTurn.shots.length === 1 ? (
+            <div
+              className="turn-shot blank"
+              aria-hidden="true"
+              style={{ width: pageTurn.shots[0].width, height: pageTurn.shots[0].height }}
+            />
+          ) : null}
+        </div>
+      ) : null}
+      <div
+        className={`pageview tool-${tool}${invert ? ' invert' : ''}${layout === 'spread' ? ' spread' : ''}${centerSheet ? ' center-sheet' : ''}`}
+        ref={scrollRef}
+        onContextMenu={(e) => onContextMenu?.(e, {
+          selectionText: pickCopyText(lastText.current, window.getSelection()?.toString()),
+        })}
+        onMouseDown={(e) => {
+          const layer = e.target.closest?.('.textLayer');
+          if (!layer) return;
+          // A new drag knows nothing about the last one. Left behind, the old
+          // range makes the very first move guess the wrong end as the moving
+          // one, which parks the guard block inside the range — one frame of a
+          // full-page highlight.
+          prevRange.current = null;
+          dragging.current = true;
+          // The class, and nothing else — the guard block must not be *moved*
+          // here. This runs before the browser resolves the caret for this very
+          // press, and that resolution maps the box it already hit-tested back to
+          // a DOM position: move the block now and the caret lands wherever the
+          // block went. Parking it, in particular, sends the caret to the end of
+          // the layer, and the first twitch of the drag then selects everything
+          // from the press down to the foot of the page. Restyling is safe: the
+          // hit test that picked the target has already happened.
+          layer.classList.add('selecting');
+        }}
+        onMouseUp={(e) => {
+          // A finished text drag offers its actions straight away. The menu is
+          // opened from the release position, and only for a drag that actually
+          // selected something — a plain click still just moves the caret.
+          if (tool !== 'text' || e.button !== 0 || autoCopyText) return;
+          if (!e.target.closest?.('.textLayer')) return;
+          const { clientX, clientY } = e;
+          // One tick, so the selection the menu asks about is the final one.
+          setTimeout(() => {
+            const live = window.getSelection()?.toString() || '';
+            const text = pickCopyText(live, lastText.current);
+            if (!text.trim()) return;
+            onContextMenu?.({
+              preventDefault() {}, stopPropagation() {}, clientX, clientY,
+            }, { selectionText: text });
+          }, 0);
+        }}
+      >
+        <div className={`pagestack${layout === 'spread' ? ' spread' : ''}${docScroll ? ' doc-scroll' : ''}`}>
+          {docScroll && scrollMetrics.sheets > 1 ? (
+            <div
+              className="doc-spacer"
+              aria-hidden="true"
+              style={{ height: documentScrollTopForPage(spacerPage, scrollMetrics) }}
+            />
+          ) : null}
+          <div
+            className={`turn-sheet incoming${docScroll ? ' doc-slot' : ' idle'}`}
+            style={docScroll ? { minHeight: scrollMetrics.slot } : undefined}
+          >
+            <div
+              className={`page-spread${layout === 'spread' ? ' two-up' : ''}${spreadLonePage(layout, pages) ? ' lonely' : ''}${layout === 'continuous' ? ' stacked' : ''}`}
+              style={spreadLonePage(layout, pages) ? {
+                '--lonely-page-w': `${pageBox.width}px`,
+                '--lonely-page-h': `${pageBox.height}px`,
+              } : undefined}
+            >
+            {pages.map((num, i) => (
+              <PageView
+                key={`slot-${i}`}
+                doc={doc}
+                num={num}
+                scale={scale}
+                rotation={rotation}
+                baseSize={baseSize}
+                annotations={annotationsByPage.get(num) || NO_ANNOTATIONS}
+                selection={selection[num] || null}
+                tool={tool}
+                onRegionCapture={onRegionCapture}
+                regionMark={regionMark?.page === num ? regionMark : null}
+                onRegionMark={setRegionMark}
+                onImagePick={onImagePick}
+                selectedImage={selectedImage && selectedImage.page === num ? selectedImage : null}
+                onContextMenuAt={onContextMenu}
+                onError={onError}
+                register={registerPage}
+                outline={outline}
+                onFollowLink={onFollowLink}
+                onGoToPage={onGoToPage}
+                searchQuery={searchQuery}
+                searchActive={searchActive}
+                onSearchHit={onSearchHit}
+                bookmarks={bookmarksByPage.get(num) || NO_BOOKMARKS}
+                activeBookmarkId={activeBookmarkId}
+                activeCommentId={activeCommentId}
+                eagerPaint={paintsEagerly(layout)}
+              />
+            ))}
+            {spreadLonePage(layout, pages) ? (
+              <div
+                className="page page-blank"
+                aria-hidden="true"
+                style={{ width: pageBox.width, height: pageBox.height }}
+              />
+            ) : null}
+            </div>
+          </div>
+          {docScroll && scrollMetrics.sheets > 1 ? (
+            <div
+              className="doc-spacer"
+              aria-hidden="true"
+              style={{ height: documentScrollTail(spacerPage, scrollMetrics) }}
+            />
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -845,12 +1371,12 @@ const PageView = React.memo(function PageView({
   tool, onRegionCapture, onImagePick, selectedImage, onRegionMark, regionMark,
   onContextMenuAt, onError, register,
   outline, onFollowLink, onGoToPage, searchQuery, searchActive, onSearchHit,
-  bookmarks, activeBookmarkId, activeCommentId,
+  bookmarks, activeBookmarkId, activeCommentId, eagerPaint = false,
 }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const textRef = useRef(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(eagerPaint);
   const [rendered, setRendered] = useState(false);
   const [size, setSize] = useState(null);
   const [drag, setDrag] = useState(null);        // rectangle being dragged
@@ -873,22 +1399,43 @@ const PageView = React.memo(function PageView({
   // the spans and made the caret miss the glyph the user clicked.
   const placeholder = cssSize || pagePlaceholderSize({ size, baseSize, scale, rotation });
 
-  useEffect(() => {
-    register(num, { wrapper: wrapRef.current, canvas: canvasRef.current, textLayer: textRef.current });
+  const lastPaintScale = useRef(scale);
+  if (lastPaintScale.current !== scale) {
+    lastPaintScale.current = scale;
+    if (cssSize) setCssSize(null);
+  }
+  const paintedNum = useRef(num);
+  if (paintedNum.current !== num) {
+    paintedNum.current = num;
+    if (rendered) setRendered(false);
+  }
+
+  useLayoutEffect(() => {
+    register(num, {
+      wrapper: wrapRef.current,
+      canvas: canvasRef.current,
+      textLayer: textRef.current,
+      painted: false,
+    });
     return () => register(num, null);
   }, [num, register]);
 
-  // Render only while near the viewport.
+  // Render only while near the viewport. A facing pair can sit so wide that
+  // only the gutter intersects, so paged layouts skip this and always paint.
   useEffect(() => {
+    if (eagerPaint) {
+      setVisible(true);
+      return undefined;
+    }
     const el = wrapRef.current;
     if (!el) return undefined;
     const io = new IntersectionObserver(
       (entries) => setVisible(entries.some((e) => e.isIntersecting)),
-      { root: el.closest('.pageview'), rootMargin: `${NEAR} 0px` }
+      { root: el.closest('.pageview'), rootMargin: `${NEAR} ${NEAR}` }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [eagerPaint]);
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -908,6 +1455,7 @@ const PageView = React.memo(function PageView({
         const res = await renderPage({ page, canvas, scale, rotation });
         task = res.task;
         await task.promise;
+        task = null;
         if (cancelled) return;
         const cssW = Math.max(1, Math.floor(res.viewport.width));
         const cssH = Math.max(1, Math.floor(res.viewport.height));
@@ -929,6 +1477,7 @@ const PageView = React.memo(function PageView({
           canvas: canvasRef.current,
           textLayer: textRef.current,
           pdfHeight: pdfHeightRef.current,
+          painted: true,
         });
 
         try {
@@ -1138,7 +1687,11 @@ const PageView = React.memo(function PageView({
       onPointerLeave={() => { setHover(null); }}
       onContextMenu={onContextMenu}
     >
-      <canvas className="page-canvas" ref={canvasRef} />
+      <canvas
+        className="page-canvas"
+        ref={canvasRef}
+        style={rendered ? undefined : { visibility: 'hidden' }}
+      />
 
       {/* One block per selected line, under the text layer. */}
       {painted ? (

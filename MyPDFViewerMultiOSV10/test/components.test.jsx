@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '../src/i18n.js';
 import { setLanguage } from '../src/i18n.js';
 import TitleBar from '../src/components/TitleBar.jsx';
@@ -9,10 +9,11 @@ import Toolbar from '../src/components/Toolbar.jsx';
 import { PromptDialog, ErrorDialog, UnsavedDialog } from '../src/components/Dialogs.jsx';
 import {
   IconOpen, IconPrint, IconSelectText, IconImage, IconMarquee, IconFlag, FlagKo, FlagEn,
+  IconPageSingle, IconPageContinuous, IconPageSpread,
 } from '../src/components/Icons.jsx';
 import { THEMES, nextTheme } from '../src/lib/themes.js';
 import ThemePopup from '../src/components/ThemePopup.jsx';
-import { DEFAULT_SETTINGS } from '../src/lib/settings.js';
+import { DEFAULT_SETTINGS, persistSettings } from '../src/lib/settings.js';
 import buildInfo from '../src/build-info.json';
 
 describe('TitleBar', () => {
@@ -296,6 +297,20 @@ describe('Icons', () => {
     expect(container.innerHTML).toContain('#C8102E');
     expect(container.innerHTML).not.toContain('#3C3B6E');
   });
+
+  it('gives single-page, continuous and two-page their own drawings', () => {
+    const { container } = render(
+      <>
+        <IconPageSingle />
+        <IconPageContinuous />
+        <IconPageSpread />
+      </>,
+    );
+    const svgs = [...container.querySelectorAll('svg')];
+    expect(svgs).toHaveLength(3);
+    const marks = svgs.map((s) => s.innerHTML);
+    expect(new Set(marks).size).toBe(3);
+  });
 });
 
 describe('Toolbar theme split button', () => {
@@ -366,6 +381,17 @@ describe('Toolbar theme split button', () => {
     expect(screen.getByRole('option', { name: /nord/i })).toBeTruthy();
     fireEvent.click(screen.getByRole('option', { name: /nord/i }));
     expect(onTheme).toHaveBeenCalledWith('nord');
+  });
+
+  it('closes the picker when the pointer moves away', async () => {
+    await setLanguage('en');
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name: 'Choose a colour theme from the list' }));
+    expect(screen.getByRole('option', { name: /nord/i })).toBeTruthy();
+    fireEvent.pointerMove(document.body);
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: /nord/i })).toBeNull();
+    });
   });
 });
 
@@ -531,17 +557,323 @@ describe('Toolbar panel buttons', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Comments' }));
     fireEvent.click(screen.getByRole('button', { name: 'Bookmarks' }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Find' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Find' }));
     expect(onComments).toHaveBeenCalledTimes(1);
     expect(onBookmarks).toHaveBeenCalledTimes(1);
     expect(onSearch).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole('button', { name: 'Find' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Document info' })).toBeTruthy();
+  });
+
+  it('lets the toolbar pick single page, continuous or two-page view', async () => {
+    await setLanguage('en');
+    const onLayout = vi.fn();
+    const noop = () => {};
+    render(
+      <Toolbar
+        settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'continuous' }}
+        doc={{ numPages: 4 }}
+        pageNumber={1}
+        numPages={4}
+        scale={1}
+        hasSelection={false}
+        dirty={false}
+        history={{ canUndo: false, canRedo: false, undo: noop, redo: noop }}
+        tool="text"
+        onTool={noop}
+        panel="none"
+        onOpen={noop}
+        onOpenUrl={noop}
+        onOpenRecent={noop}
+        onRemoveRecent={noop}
+        onClearRecent={noop}
+        onSave={noop}
+        onSaveAs={noop}
+        onCopyText={noop}
+        onSelectPage={noop}
+        onExtractImages={noop}
+        onExportText={noop}
+        onHighlight={noop}
+        onComment={noop}
+        onComments={noop}
+        onBookmarks={noop}
+        onBookmark={noop}
+        onGoToPage={noop}
+        onZoom={noop}
+        onZoomMode={noop}
+        onRotate={noop}
+        onLayout={onLayout}
+        onSearch={noop}
+        onTogglePanel={noop}
+        onTheme={noop}
+        onLang={noop}
+        onSettings={noop}
+        onAbout={noop}
+        onPrint={noop}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Single page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continuous' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Two pages' }));
+    expect(onLayout).toHaveBeenNthCalledWith(1, 'single');
+    expect(onLayout).toHaveBeenNthCalledWith(2, 'continuous');
+    expect(onLayout).toHaveBeenNthCalledWith(3, 'spread');
+    expect(screen.getAllByRole('button', { name: 'Single page' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Continuous' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Two pages' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Reading' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '읽기' })).toBeNull();
+  });
+
+  it('lets the toolbar pick and cycle a page-turn effect', async () => {
+    await setLanguage('en');
+    const onPageEffect = vi.fn();
+    const noop = () => {};
+    render(
+      <Toolbar
+        settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'single', pageEffect: 'flip' }}
+        doc={{ numPages: 4 }}
+        pageNumber={1}
+        numPages={4}
+        scale={1}
+        hasSelection={false}
+        dirty={false}
+        history={{ canUndo: false, canRedo: false, undo: noop, redo: noop }}
+        tool="text"
+        onTool={noop}
+        panel="none"
+        onOpen={noop}
+        onOpenUrl={noop}
+        onOpenRecent={noop}
+        onRemoveRecent={noop}
+        onClearRecent={noop}
+        onSave={noop}
+        onSaveAs={noop}
+        onCopyText={noop}
+        onSelectPage={noop}
+        onExtractImages={noop}
+        onExportText={noop}
+        onHighlight={noop}
+        onComment={noop}
+        onComments={noop}
+        onBookmarks={noop}
+        onBookmark={noop}
+        onGoToPage={noop}
+        onZoom={noop}
+        onZoomMode={noop}
+        onRotate={noop}
+        onLayout={noop}
+        onPageEffect={onPageEffect}
+        onSearch={noop}
+        onTogglePanel={noop}
+        onTheme={noop}
+        onLang={noop}
+        onSettings={noop}
+        onAbout={noop}
+        onPrint={noop}
+      />,
+    );
+    const flip = screen.getByRole('button', { name: 'Flip' });
+    expect(flip.classList.contains('active')).toBe(true);
+    expect(flip.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(flip);
+    expect(onPageEffect).toHaveBeenCalledWith('none');
+    fireEvent.click(screen.getByRole('button', { name: 'Choose a page-turn effect' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Slide' }));
+    expect(onPageEffect).toHaveBeenCalledWith('slide');
+    expect(screen.getByRole('group', { name: 'Page turn' })).toBeTruthy();
+  });
+
+  it('does not colour the page-turn button when the effect is off', async () => {
+    await setLanguage('en');
+    const noop = () => {};
+    render(
+      <Toolbar
+        settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'spread', pageEffect: 'none' }}
+        doc={{ numPages: 4 }}
+        pageNumber={1}
+        numPages={4}
+        scale={1}
+        hasSelection={false}
+        dirty={false}
+        history={{ canUndo: false, canRedo: false, undo: noop, redo: noop }}
+        tool="text"
+        onTool={noop}
+        panel="none"
+        onOpen={noop}
+        onOpenUrl={noop}
+        onOpenRecent={noop}
+        onRemoveRecent={noop}
+        onClearRecent={noop}
+        onSave={noop}
+        onSaveAs={noop}
+        onCopyText={noop}
+        onSelectPage={noop}
+        onExtractImages={noop}
+        onExportText={noop}
+        onHighlight={noop}
+        onComment={noop}
+        onComments={noop}
+        onBookmarks={noop}
+        onBookmark={noop}
+        onGoToPage={noop}
+        onZoom={noop}
+        onZoomMode={noop}
+        onRotate={noop}
+        onLayout={noop}
+        onPageEffect={noop}
+        onSearch={noop}
+        onTogglePanel={noop}
+        onTheme={noop}
+        onLang={noop}
+        onSettings={noop}
+        onAbout={noop}
+        onPrint={noop}
+      />,
+    );
+    const none = screen.getAllByRole('button', { name: 'None' })[0];
+    expect(none.classList.contains('active')).toBe(false);
+    expect(none.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('hides the page-turn control while scrolling continuously', async () => {
+    await setLanguage('en');
+    const noop = () => {};
+    const props = {
+      doc: { numPages: 4 },
+      pageNumber: 1,
+      numPages: 4,
+      scale: 1,
+      hasSelection: false,
+      dirty: false,
+      history: { canUndo: false, canRedo: false, undo: noop, redo: noop },
+      tool: 'text',
+      onTool: noop,
+      panel: 'none',
+      onOpen: noop,
+      onOpenUrl: noop,
+      onOpenRecent: noop,
+      onRemoveRecent: noop,
+      onClearRecent: noop,
+      onSave: noop,
+      onSaveAs: noop,
+      onCopyText: noop,
+      onSelectPage: noop,
+      onExtractImages: noop,
+      onExportText: noop,
+      onHighlight: noop,
+      onComment: noop,
+      onComments: noop,
+      onBookmarks: noop,
+      onBookmark: noop,
+      onGoToPage: noop,
+      onZoom: noop,
+      onZoomMode: noop,
+      onRotate: noop,
+      onLayout: noop,
+      onPageEffect: noop,
+      onSearch: noop,
+      onTogglePanel: noop,
+      onTheme: noop,
+      onLang: noop,
+      onSettings: noop,
+      onAbout: noop,
+      onPrint: noop,
+    };
+    const { rerender } = render(
+      <Toolbar {...props} settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'continuous', pageEffect: 'flip' }} />,
+    );
+    expect(screen.queryByRole('group', { name: 'Page turn' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Previous Page' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next Page' })).toBeNull();
+    rerender(
+      <Toolbar {...props} settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'single', pageEffect: 'flip' }} />,
+    );
+    expect(screen.getByRole('group', { name: 'Page turn' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Previous Page' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next Page' })).toBeTruthy();
+    rerender(
+      <Toolbar {...props} settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'spread', pageEffect: 'flip' }} />,
+    );
+    expect(screen.getByRole('group', { name: 'Page turn' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Previous Page' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next Page' })).toBeTruthy();
+  });
+
+  it('locks window-fit zoom in single-page view and offers fit modes while scrolling', async () => {
+    await setLanguage('ko');
+    const noop = () => {};
+    const props = {
+      doc: { numPages: 4 },
+      pageNumber: 1,
+      numPages: 4,
+      scale: 1,
+      hasSelection: false,
+      dirty: false,
+      history: { canUndo: false, canRedo: false, undo: noop, redo: noop },
+      tool: 'text',
+      onTool: noop,
+      panel: 'none',
+      onOpen: noop,
+      onOpenUrl: noop,
+      onOpenRecent: noop,
+      onRemoveRecent: noop,
+      onClearRecent: noop,
+      onSave: noop,
+      onSaveAs: noop,
+      onCopyText: noop,
+      onSelectPage: noop,
+      onExtractImages: noop,
+      onExportText: noop,
+      onHighlight: noop,
+      onComment: noop,
+      onComments: noop,
+      onBookmarks: noop,
+      onBookmark: noop,
+      onGoToPage: noop,
+      onZoom: noop,
+      onZoomMode: noop,
+      onRotate: noop,
+      onLayout: noop,
+      onPageEffect: noop,
+      onSearch: noop,
+      onTogglePanel: noop,
+      onTheme: noop,
+      onLang: noop,
+      onSettings: noop,
+      onAbout: noop,
+      onPrint: noop,
+    };
+    const { rerender } = render(
+      <Toolbar {...props} settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'continuous' }} />,
+    );
+    const zoom = screen.getByLabelText('확대 비율');
+    expect(zoom.disabled).toBe(false);
+    expect(screen.getByRole('option', { name: '창크기 맞춤' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '너비 맞춤' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '높이 맞춤' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '원래 크기' })).toBeTruthy();
+    rerender(
+      <Toolbar {...props} settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'single', zoomMode: 'fit-page' }} />,
+    );
+    expect(screen.getByLabelText('확대 비율').disabled).toBe(false);
+    rerender(
+      <Toolbar {...props} settings={{ ...DEFAULT_SETTINGS, theme: 'dark', pageLayout: 'spread', zoomMode: 'fit-page' }} />,
+    );
+    expect(screen.getByLabelText('확대 비율').disabled).toBe(true);
   });
 });
 
 describe('ThemePopup', () => {
+  beforeEach(() => {
+    persistSettings({ ...DEFAULT_SETTINGS });
+  });
+
   afterEach(() => {
     delete window.electronAPI;
     document.documentElement.removeAttribute('data-theme');
+    document.documentElement.style.cssText = '';
     document.documentElement.classList.remove('theme-popup');
     document.body.classList.remove('theme-popup');
   });
@@ -551,9 +883,30 @@ describe('ThemePopup', () => {
     window.electronAPI = { isElectron: true, win: { pickTheme, setPopupSize: vi.fn() } };
     const { container } = render(<ThemePopup current="nord" />);
     expect(screen.getAllByRole('option')).toHaveLength(THEMES.length);
-    expect(container.querySelector('.dd-list.themes')).toBeTruthy();
+    expect(container.querySelector('.theme-cols')).toBeTruthy();
+    expect(container.querySelectorAll('.theme-col')).toHaveLength(2);
     fireEvent.click(screen.getByRole('option', { name: /ember/i }));
     expect(pickTheme).toHaveBeenCalledWith('ember');
+  });
+
+  it('lists saved custom themes under Custom', () => {
+    persistSettings({
+      ...DEFAULT_SETTINGS,
+      customThemes: [{
+        id: 'custom-lake',
+        name: 'Lake',
+        kind: 'dark',
+        colors: { bg: '#102030', panel: '#1a3040', text: '#e8f0f8', accent: '#3aa0d8' },
+      }],
+    });
+    const pickTheme = vi.fn();
+    window.electronAPI = { isElectron: true, win: { pickTheme, setPopupSize: vi.fn() } };
+    const { container } = render(<ThemePopup current="custom-lake" />);
+    expect(screen.getAllByRole('option')).toHaveLength(THEMES.length + 1);
+    expect(container.querySelectorAll('.theme-col')).toHaveLength(3);
+    expect(screen.getByRole('option', { name: 'Lake' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('option', { name: 'Lake' }));
+    expect(pickTheme).toHaveBeenCalledWith('custom-lake');
   });
 });
 

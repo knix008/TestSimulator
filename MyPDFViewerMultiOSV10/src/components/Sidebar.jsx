@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import {
   IconGrid, IconOutline, IconImage, IconSearch, IconBookmark, IconClip,
   IconComment, IconCopy, IconDownload, IconTrash, IconChevron, IconFolder, IconFolderOpen,
-  IconExpandAll, IconCollapseAll, IconExtract,
+  IconExpandAll, IconCollapseAll, IconExtract, IconHistory, IconUndo, IconRedo,
 } from './Icons.jsx';
 import { isSameSearchHit } from '../lib/search.js';
 import { commentPreview } from '../lib/comments.js';
 import { outlineActiveId } from '../lib/nav.js';
 import FolderTree from './FolderTree.jsx';
+import { isSameDrive } from '../lib/folders.js';
+import { historyList } from '../lib/history.js';
 
 function HeadAction({ title, onClick, disabled, children }) {
   return (
@@ -29,11 +31,12 @@ const PANELS = [
   { id: 'folders', icon: IconFolder, key: 'side.folders' },
   { id: 'thumbnails', icon: IconGrid, key: 'side.thumbnails' },
   { id: 'outline', icon: IconOutline, key: 'side.outline' },
+  { id: 'comments', icon: IconComment, key: 'side.comments' },
+  { id: 'bookmarks', icon: IconBookmark, key: 'side.bookmarks' },
   { id: 'search', icon: IconSearch, key: 'side.search' },
   { id: 'images', icon: IconImage, key: 'side.images' },
-  { id: 'bookmarks', icon: IconBookmark, key: 'side.bookmarks' },
-  { id: 'comments', icon: IconComment, key: 'side.comments' },
   { id: 'clips', icon: IconClip, key: 'side.clips' },
+  { id: 'history', icon: IconHistory, key: 'side.history' },
 ];
 
 // The left panel. One rail of tabs plus the active panel; each tab has a
@@ -45,7 +48,9 @@ export default function Sidebar({
   search, onGoToSearchHit, bookmarks, activeBookmarkId, onGoToBookmark,
   comments = [], commentsBusy = false, activeCommentId, onGoToComment, onAddComment, onAttachFile, onSaveAttachment, onRemoveComment, clips,
   onCopyImage, onSaveImage, onRemoveBookmark, onCopyClip, onSaveClip, onRemoveClip,
-  folderRoot = '', currentFilePath = '', desktop = false, onPickFolder, onOpenFolderFile, loadFolder,
+  history = null,
+  folderRoot = '', currentFilePath = '', desktop = false, onPickFolder, onSelectDrive, onOpenFolderFile, loadFolder,
+  drives = [],
 }) {
   const { t } = useTranslation();
   const drag = useRef(null);
@@ -108,7 +113,25 @@ export default function Sidebar({
       {panel !== 'none' ? (
         <div className="side-panel">
           <div className="side-head">
-            <span className="side-head-title">{t(`side.${panel}`)}</span>
+            {panel === 'folders' && desktop && drives.length ? (
+              <span className="side-head-title side-drives">
+                {drives.map((d) => (
+                  <button
+                    key={d.path}
+                    type="button"
+                    className={`drive-chip${isSameDrive(d.path, folderRoot) ? ' on' : ''}`}
+                    title={d.path}
+                    aria-label={t('side.drive', { name: d.name })}
+                    aria-pressed={isSameDrive(d.path, folderRoot)}
+                    onClick={() => onSelectDrive?.(d.path)}
+                  >
+                    {d.name}
+                  </button>
+                ))}
+              </span>
+            ) : (
+              <span className="side-head-title">{t(`side.${panel}`)}</span>
+            )}
             <span className="side-head-actions">
               {panel === 'folders' ? (
                 <HeadAction title={t('side.pickFolder')} onClick={() => onPickFolder?.()} disabled={!desktop}>
@@ -141,6 +164,16 @@ export default function Sidebar({
                   </HeadAction>
                   <HeadAction title={t('side.addAttachment')} onClick={() => onAttachFile?.()} disabled={!doc}>
                     <IconClip size={16} />
+                  </HeadAction>
+                </>
+              ) : null}
+              {panel === 'history' ? (
+                <>
+                  <HeadAction title={t('toolbar.undo')} onClick={() => history?.undo()} disabled={!history?.canUndo}>
+                    <IconUndo size={16} />
+                  </HeadAction>
+                  <HeadAction title={t('toolbar.redo')} onClick={() => history?.redo()} disabled={!history?.canRedo}>
+                    <IconRedo size={16} />
                   </HeadAction>
                 </>
               ) : null}
@@ -275,6 +308,34 @@ export default function Sidebar({
                             <button className="icon-btn" onClick={() => onRemoveClip(c.id)} title={t('common.delete')}><IconTrash size={15} /></button>
                           </span>
                         </div>
+                      </li>
+                    ))}
+                  </ul>
+                )
+            )}
+
+            {panel === 'history' && (
+              !(history?.pastEntries?.length)
+                ? <p className="empty">{t('side.noHistory')}</p>
+                : (
+                  <ul className="hist-list">
+                    <li>
+                      <button className="side-item active" type="button" title={t('side.historyNow')}>
+                        <IconHistory size={14} />
+                        <span className="ol-title">{t('side.historyNow')}</span>
+                      </button>
+                    </li>
+                    {historyList(history.pastEntries).map((item) => (
+                      <li key={`past-${item.index}`}>
+                        <button
+                          className="side-item"
+                          type="button"
+                          title={item.label}
+                          onClick={() => history.jumpToPast?.(item.index)}
+                        >
+                          <IconUndo size={14} />
+                          <span className="ol-title">{item.label}</span>
+                        </button>
                       </li>
                     ))}
                   </ul>

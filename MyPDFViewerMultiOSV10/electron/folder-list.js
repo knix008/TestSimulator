@@ -26,6 +26,36 @@ function isFileStat(st) {
   return !!(st && (typeof st.isFile === 'function' ? st.isFile() : st.isFile));
 }
 
+// Ready volumes for the folder-panel title. Windows A: and B: are skipped
+// because empty floppy/card readers stall existsSync for several seconds.
+function listSystemDrives(fs, pathMod, platform) {
+  if (platform === 'win32') {
+    const out = [];
+    for (let code = 67; code <= 90; code++) {
+      const letter = String.fromCharCode(code);
+      const root = `${letter}:\\`;
+      try {
+        if (fs.existsSync(root)) out.push({ path: root, name: `${letter}:` });
+      } catch { /* skip */ }
+    }
+    return out;
+  }
+  const out = [{ path: '/', name: '/' }];
+  if (platform === 'darwin') {
+    try {
+      for (const raw of fs.readdirSync('/Volumes') || []) {
+        const name = String(raw || '').trim();
+        if (!name || name.startsWith('.')) continue;
+        const full = pathMod.join('/Volumes', name);
+        try {
+          if (isDirStat(fs.statSync(full))) out.push({ path: full, name });
+        } catch { /* skip */ }
+      }
+    } catch { /* skip */ }
+  }
+  return out;
+}
+
 function readLevel(fs, pathMod, dirPath) {
   try {
     if (!dirPath || typeof dirPath !== 'string') return [];
@@ -58,4 +88,4 @@ function readLevel(fs, pathMod, dirPath) {
   }
 }
 
-module.exports = { isPdfName, readLevel, sortEntries };
+module.exports = { isPdfName, readLevel, sortEntries, listSystemDrives };

@@ -1,19 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal.jsx';
-import { IconSettings, IconTrash, IconFolder, IconCheck, IconFlag } from './Icons.jsx';
+import { IconSettings, IconTrash, IconFolder, IconFlag } from './Icons.jsx';
 import { LANGUAGES } from '../i18n.js';
-import { THEMES } from '../lib/themes.js';
+import { CustomThemeEditor, ThemeChipGroups } from './ThemePicker.jsx';
 import { getSystemFonts } from '../lib/fonts.js';
-import { DEFAULT_SETTINGS, FONT_SIZE_MAX, FONT_SIZE_MIN, MAX_RECENT_FILES, stepFontSize } from '../lib/settings.js';
+import { DEFAULT_SETTINGS, FONT_SIZE_MAX, FONT_SIZE_MIN, stepFontSize } from '../lib/settings.js';
 import { IMAGE_FORMATS } from '../lib/image.js';
 import { isElectron, appInfo } from '../lib/platform.js';
+import { FIT_ZOOM_MODES, zoomModeLabelKey } from '../lib/view.js';
 
 const TABS = ['appearance', 'viewer', 'copy', 'files'];
 
 // Every application setting lives here. Changes apply immediately (and are
 // persisted by App), so there is no OK/Apply dance.
-export default function SettingsDialog({ open, settings, onChange, onClose, onClearRecent, onRemoveRecent, onClearDirs, onReset }) {
+export default function SettingsDialog({ open, settings, onChange, onClose, onPickOpenDir, onClearDirs, onReset }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState('appearance');
   const [fonts, setFonts] = useState([]);
@@ -77,22 +78,7 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onCl
           <div className="settings-split">
             <section className="sgroup">
               <h4>{t('settings.theme')}</h4>
-              <div className="theme-grid">
-                {THEMES.map((th) => (
-                  <button
-                    key={th.id}
-                    className={`theme-chip${settings.theme === th.id ? ' active' : ''}`}
-                    onClick={() => set({ theme: th.id })}
-                    title={th.id}
-                  >
-                    <span className="theme-swatch">
-                      {th.bars.map((c, i) => <i key={i} style={{ background: c }} />)}
-                    </span>
-                    <span className="theme-name">{th.id}</span>
-                    {settings.theme === th.id ? <IconCheck size={13} /> : null}
-                  </button>
-                ))}
-              </div>
+              <ThemeChipGroups current={settings.theme} onPick={(id) => set({ theme: id })} />
             </section>
 
             <div className="settings-side">
@@ -178,6 +164,12 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onCl
 
                 <div className="font-preview" style={previewStyle}>{t('settings.previewText')}</div>
               </section>
+
+              <CustomThemeEditor
+                themes={settings.customThemes}
+                current={settings.theme}
+                onCommit={(patch) => set(patch)}
+              />
             </div>
           </div>
         </div>
@@ -188,14 +180,30 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onCl
               <section className="sgroup">
                 <h4>{t('settings.zoomMode')}</h4>
                 <div className="row seg-row seg-fill">
-                  {['fit-width', 'fit-page', 'actual'].map((m) => (
+                  {FIT_ZOOM_MODES.slice(0, 2).map((m) => (
                     <button
                       key={m}
+                      type="button"
                       className={`btn seg${settings.zoomMode === m ? ' active' : ''}`}
                       onClick={() => set({ zoomMode: m })}
-                      title={t(`toolbar.${m === 'fit-width' ? 'fitWidth' : m === 'fit-page' ? 'fitPage' : 'actual'}`)}
+                      title={t(`toolbar.${zoomModeLabelKey(m)}`)}
+                      disabled={settings.pageLayout === 'spread'}
                     >
-                      {t(`toolbar.${m === 'fit-width' ? 'fitWidth' : m === 'fit-page' ? 'fitPage' : 'actual'}`)}
+                      {t(`toolbar.${zoomModeLabelKey(m)}`)}
+                    </button>
+                  ))}
+                </div>
+                <div className="row seg-row seg-fill">
+                  {FIT_ZOOM_MODES.slice(2).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`btn seg${settings.zoomMode === m ? ' active' : ''}`}
+                      onClick={() => set({ zoomMode: m })}
+                      title={t(`toolbar.${zoomModeLabelKey(m)}`)}
+                      disabled={settings.pageLayout === 'spread'}
+                    >
+                      {t(`toolbar.${zoomModeLabelKey(m)}`)}
                     </button>
                   ))}
                 </div>
@@ -206,7 +214,7 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onCl
                 <div className="row seg-row seg-fill">
                   <button
                     className={`btn seg${settings.pageLayout === 'single' ? ' active' : ''}`}
-                    onClick={() => set({ pageLayout: 'single' })}
+                    onClick={() => set({ pageLayout: 'single', zoomMode: 'fit-page' })}
                     title={t('settings.single')}
                   >{t('settings.single')}</button>
                   <button
@@ -214,6 +222,25 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onCl
                     onClick={() => set({ pageLayout: 'continuous' })}
                     title={t('settings.continuous')}
                   >{t('settings.continuous')}</button>
+                  <button
+                    className={`btn seg${settings.pageLayout === 'spread' ? ' active' : ''}`}
+                    onClick={() => set({ pageLayout: 'spread', zoomMode: 'fit-page' })}
+                    title={t('settings.twoPage')}
+                  >{t('settings.twoPage')}</button>
+                </div>
+              </section>
+
+              <section className="sgroup">
+                <h4>{t('settings.pageEffect')}</h4>
+                <div className="row seg-row seg-fill">
+                  {['none', 'fade', 'slide', 'flip'].map((id) => (
+                    <button
+                      key={id}
+                      className={`btn seg${settings.pageEffect === id ? ' active' : ''}`}
+                      onClick={() => set({ pageEffect: id })}
+                      title={t(`settings.effect${id[0].toUpperCase()}${id.slice(1)}`)}
+                    >{t(`settings.effect${id[0].toUpperCase()}${id.slice(1)}`)}</button>
+                  ))}
                 </div>
               </section>
             </div>
@@ -299,51 +326,51 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onCl
         </div>
 
         <div className={`settings-panel${tab === 'files' ? ' on' : ''}`} aria-hidden={tab !== 'files'} {...(tab !== 'files' ? { inert: '' } : {})}>
-            <div className="settings-files">
-              <section className="sgroup">
-                <h4>{t('recent.title')} ({settings.recentFiles.length}/{MAX_RECENT_FILES})</h4>
-                {settings.recentFiles.length === 0 ? (
-                  <p className="empty">{t('recent.empty')}</p>
-                ) : (
-                  <ul className="recent-list">
-                    {settings.recentFiles.map((f) => (
-                      <li key={f.path || f.name}>
-                        <span className="recent-name" title={f.path || f.name}>{f.name}</span>
-                        <span className="recent-dir" title={f.dir || ''}>{f.dir || ''}</span>
-                        <button
-                          className="icon-btn"
-                          onClick={() => onRemoveRecent(f.path || f.name)}
-                          title={t('recent.remove')}
-                        ><IconTrash size={15} /></button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="row">
-                  <button className="btn" onClick={onClearRecent} disabled={!settings.recentFiles.length} title={t('settings.clearRecent')}>
-                    <IconTrash size={15} />{t('settings.clearRecent')}
-                  </button>
-                </div>
-              </section>
+            <section className="sgroup">
+              <h4>{t('settings.defaultOpenDir')}</h4>
+              <p className="hint dir-hint">{t('settings.defaultOpenDirHint')}</p>
+              <p className="mono-path" title={settings.defaultOpenDir || ''}>
+                {settings.defaultOpenDir || t('settings.defaultOpenDirEmpty')}
+              </p>
+              <div className="row">
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    const picked = await onPickOpenDir?.(settings.defaultOpenDir || settings.lastDir);
+                    if (picked) set({ defaultOpenDir: picked });
+                  }}
+                  title={t('settings.pickOpenDir')}
+                >
+                  <IconFolder size={15} />{t('settings.pickOpenDir')}
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => set({ defaultOpenDir: '' })}
+                  disabled={!settings.defaultOpenDir}
+                  title={t('settings.clearOpenDir')}
+                >
+                  <IconTrash size={15} />{t('settings.clearOpenDir')}
+                </button>
+              </div>
+            </section>
 
-              <section className="sgroup">
-                <h4>{t('recent.dirs')}</h4>
-                {settings.recentDirs.length === 0 ? (
-                  <p className="empty">{t('recent.empty')}</p>
-                ) : (
-                  <ul className="recent-list">
-                    {settings.recentDirs.map((d) => (
-                      <li key={d}><IconFolder size={15} /><span className="recent-name" title={d}>{d}</span></li>
-                    ))}
-                  </ul>
-                )}
-                <div className="row">
-                  <button className="btn" onClick={onClearDirs} disabled={!settings.recentDirs.length} title={t('settings.clearDirs')}>
-                    <IconTrash size={15} />{t('settings.clearDirs')}
-                  </button>
-                </div>
-              </section>
-            </div>
+            <section className="sgroup">
+              <h4>{t('recent.dirs')}</h4>
+              {settings.recentDirs.length === 0 ? (
+                <p className="empty">{t('recent.empty')}</p>
+              ) : (
+                <ul className="recent-list">
+                  {settings.recentDirs.map((d) => (
+                    <li key={d}><IconFolder size={15} /><span className="recent-name" title={d}>{d}</span></li>
+                  ))}
+                </ul>
+              )}
+              <div className="row">
+                <button className="btn" onClick={onClearDirs} disabled={!settings.recentDirs.length} title={t('settings.clearDirs')}>
+                  <IconTrash size={15} />{t('settings.clearDirs')}
+                </button>
+              </div>
+            </section>
 
             {storagePath ? (
               <section className="sgroup">

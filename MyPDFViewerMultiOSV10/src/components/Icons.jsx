@@ -57,6 +57,9 @@ export const IconText = (p) => (
 export const IconUndo = (p) => (
   <S {...p}><path d="M4 9h11a5 5 0 0 1 0 10h-6" /><path d="m8 5-4 4 4 4" /></S>
 );
+export const IconHistory = (p) => (
+  <S {...p}><circle cx="12" cy="13" r="7" /><path d="M12 10v3.5L14.5 15M9 5h6M12 5V3" /></S>
+);
 export const IconRedo = (p) => (
   <S {...p}><path d="M20 9H9a5 5 0 0 0 0 10h6" /><path d="m16 5 4 4-4 4" /></S>
 );
@@ -86,6 +89,9 @@ export const IconSearch = (p) => (
 );
 export const IconSidebar = (p) => (
   <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></S>
+);
+export const IconRightPanel = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></S>
 );
 export const IconHighlight = (p) => (
   <S {...p}><path d="m14 4 6 6-7.5 7.5H7l-1.5-3z" /><path d="M4 21h16" /></S>
@@ -201,8 +207,32 @@ export const IconOutline = (p) => (
 export const IconGrid = (p) => (
   <S {...p}><rect x="3" y="3" width="7" height="8" rx="1" /><rect x="14" y="3" width="7" height="8" rx="1" /><rect x="3" y="13" width="7" height="8" rx="1" /><rect x="14" y="13" width="7" height="8" rx="1" /></S>
 );
-export const IconLayout = (p) => (
-  <S {...p}><rect x="4" y="3" width="16" height="8" rx="1.5" /><rect x="4" y="13" width="16" height="8" rx="1.5" /></S>
+// One sheet with lines: a single page, not a blank frame.
+export const IconPageSingle = (p) => (
+  <S {...p}><rect x="6.5" y="3.5" width="11" height="17" rx="1.5" /><path d="M9.5 8.5h5M9.5 12h5M9.5 15.5h3.5" /></S>
+);
+// A sheet you scroll through: lines plus a scrollbar, not the reading-menu bars.
+export const IconPageContinuous = (p) => (
+  <S {...p}><rect x="5" y="3" width="12" height="18" rx="1.5" /><path d="M8 7.5h6M8 11h6M8 14.5h4" /><path d="M19 5v14M19 5l-1.2 1.6M19 5l1.2 1.6M19 19l-1.2-1.6M19 19l1.2-1.6" /></S>
+);
+export const IconPageSpread = (p) => (
+  <S {...p}>
+    <rect x="2.5" y="4.5" width="8.5" height="15" rx="1.5" />
+    <rect x="13" y="4.5" width="8.5" height="15" rx="1.5" />
+    <path d="M12 3.5v17" />
+  </S>
+);
+export const IconEffectNone = (p) => (
+  <S {...p}><rect x="6" y="3" width="12" height="18" rx="1.5" /><path d="M4 6l16 12" /></S>
+);
+export const IconEffectFade = (p) => (
+  <S {...p}><rect x="4" y="5" width="10" height="14" rx="1.2" /><rect x="10" y="5" width="10" height="14" rx="1.2" /></S>
+);
+export const IconEffectSlide = (p) => (
+  <S {...p}><rect x="3" y="5" width="10" height="14" rx="1.2" /><path d="M15 12h6M18 9l3 3-3 3" /></S>
+);
+export const IconEffectFlip = (p) => (
+  <S {...p}><path d="M6 4h8v16H6z" /><path d="M14 4c4 2.2 5.6 5.2 5.6 8s-1.6 5.8-5.6 8" /></S>
 );
 // Tree disclosure arrow: points right when closed, down when open (rotated by
 // the `open` class so the change animates).

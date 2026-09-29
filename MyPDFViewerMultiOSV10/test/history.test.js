@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useHistory, EMPTY_WORKSPACE, newId, HISTORY_LIMIT } from '../src/lib/history.js';
+import { useHistory, EMPTY_WORKSPACE, newId, HISTORY_LIMIT, historyList, jumpPastStacks } from '../src/lib/history.js';
 
 function ws(extra = {}) {
   return { ...EMPTY_WORKSPACE, ...extra };
@@ -188,5 +188,36 @@ describe('useHistory', () => {
     expect(result.current.state.annotations).toHaveLength(1);
     act(() => result.current.undo());
     expect(result.current.state).toEqual(EMPTY_WORKSPACE);
+  });
+});
+
+describe('historyList / jumpPastStacks', () => {
+  it('lists past labels newest first', () => {
+    expect(historyList([
+      { state: { rotation: 0 }, label: 'Highlight' },
+      { state: { rotation: 90 }, label: 'Bookmark' },
+    ])).toEqual([
+      { index: 1, label: 'Bookmark' },
+      { index: 0, label: 'Highlight' },
+    ]);
+    expect(historyList(null)).toEqual([]);
+  });
+
+  it('jumps back to a past snapshot and rebuilds redo', () => {
+    const a = ws({ rotation: 0 });
+    const b = ws({ rotation: 90 });
+    const c = ws({ rotation: 180 });
+    const next = jumpPastStacks(
+      [{ state: a, label: 'Highlight' }, { state: b, label: 'Bookmark' }],
+      [],
+      c,
+      0,
+    );
+    expect(next.state).toEqual(a);
+    expect(next.past).toEqual([]);
+    expect(next.future).toEqual([
+      { state: b, label: 'Highlight' },
+      { state: c, label: 'Bookmark' },
+    ]);
   });
 });

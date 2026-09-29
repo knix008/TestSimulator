@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from '../src/lib/settings.js';
 
 beforeAll(() => {
   if (typeof HTMLCanvasElement !== 'undefined') {
-    HTMLCanvasElement.prototype.getContext = () => ({});
+    HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {}, fillStyle: '' });
   }
 });
 

@@ -46,6 +46,10 @@ export async function renderPage({ page, canvas, scale, rotation = 0, dpr = wind
   canvas.height = Math.max(1, Math.floor(viewport.height * dpr));
   canvas.style.width = `${Math.floor(viewport.width)}px`;
   canvas.style.height = `${Math.floor(viewport.height)}px`;
+  if (typeof ctx.fillRect === 'function') {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   const task = page.render({
     canvasContext: ctx,

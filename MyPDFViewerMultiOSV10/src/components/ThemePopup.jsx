@@ -1,14 +1,16 @@
-import React, { useLayoutEffect } from 'react';
-import { THEMES } from '../lib/themes.js';
-import { applyTheme } from '../lib/settings.js';
+import React, { useEffect, useLayoutEffect, useMemo } from 'react';
+import { ThemeMenu } from './ThemePicker.jsx';
+import { applyTheme, loadSettingsSync } from '../lib/settings.js';
 
 const electron = () => (typeof window !== 'undefined' ? window.electronAPI : undefined);
 
-// Standalone theme list in a child window so the 20 swatches can sit
+// Standalone theme list in a child window so the Dark / Light columns can sit
 // outside the main frame with no inner scrollbar.
 export default function ThemePopup({ current }) {
+  const customThemes = useMemo(() => loadSettingsSync().customThemes, []);
+
   useLayoutEffect(() => {
-    applyTheme(current);
+    applyTheme(current, customThemes);
     document.documentElement.classList.add('theme-popup');
     document.body.classList.add('theme-popup');
     const el = document.querySelector('.theme-popup-menu');
@@ -23,28 +25,22 @@ export default function ThemePopup({ current }) {
     fit();
     const id = requestAnimationFrame(fit);
     return () => cancelAnimationFrame(id);
-  }, [current]);
+  }, [current, customThemes]);
+
+  useEffect(() => {
+    const onLeave = () => electron()?.win?.closeThemePopup?.();
+    document.documentElement.addEventListener('mouseleave', onLeave);
+    return () => document.documentElement.removeEventListener('mouseleave', onLeave);
+  }, []);
 
   return (
     <div className="theme-popup-menu dropdown">
-      <ul className="dd-list themes" role="listbox" aria-label="theme">
-        {THEMES.map((th) => (
-          <li key={th.id}>
-            <button
-              className={`dd-item${current === th.id ? ' active' : ''}`}
-              onClick={() => electron()?.win?.pickTheme?.(th.id)}
-              title={th.id}
-              role="option"
-              aria-selected={current === th.id}
-            >
-              <span className="theme-swatch small">
-                {th.bars.map((c, i) => <i key={i} style={{ background: c }} />)}
-              </span>
-              <span className="dd-name wide">{th.id}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <ThemeMenu
+        current={current}
+        customThemes={customThemes}
+        onPick={(id) => electron()?.win?.pickTheme?.(id)}
+        labelledBy="theme"
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import TitleBar from './components/TitleBar.jsx';
 import TabBar from './components/TabBar.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
+import InfoPanel from './components/InfoPanel.jsx';
 import PdfView from './components/PdfView.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import ContextMenu from './components/ContextMenu.jsx';
@@ -27,13 +28,13 @@ import {
 } from './lib/pdf.js';
 import {
   isElectron, api, openFileDialog, readPath, downloadUrl, copyText, copyImage,
-  saveText, writeTextTo, saveBinary, pickAnyFile, pickDirectory, listDirectory,
+  saveText, writeTextTo, saveBinary, pickAnyFile, pickDirectory, listDirectory, listDrives,
   baseName, dirName, pathExists, saveEncoded, openExternal,
 } from './lib/platform.js';
 import { namedActionPage } from './lib/nav.js';
 import {
   loadSettings, persistSettings, DEFAULT_SETTINGS, addRecentFile, removeRecentFile,
-  clampSidebarWidth,
+  clampSidebarWidth, clampInfoPanelWidth, openDefaultDir,
   addRecentDir, applyFontSettings, applyTheme,
 } from './lib/settings.js';
 import { useHistory, EMPTY_WORKSPACE, newId } from './lib/history.js';
@@ -46,7 +47,7 @@ import i18n, { setLanguage } from './i18n.js';
 import {
   HIGHLIGHT_COLOR, cycleTool, nextZoom, clampPage, normalizeRotation,
   failMessage, windowTitle, bookmarkLabel, nextSidebar, pickCopyText,
-  bookmarkRecord, bookmarkAnchorY,
+  bookmarkRecord, bookmarkAnchorY, normalizePageLayout, stepPage, isPagedLayout, sameSheet,
 } from './lib/view.js';
 import { pageOccurrence } from './lib/search.js';
 import { commentAnchorY, mergeCommentList } from './lib/comments.js';
@@ -62,6 +63,7 @@ export default function App() {
   // ── Persistent settings ────────────────────────────────
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsReady, setSettingsReady] = useState(false);
+  const [drives, setDrives] = useState([]);
 
   // ── Document ───────────────────────────────────────────
   const [file, setFile] = useState(null);          // { name, path, dir, size, data }
@@ -190,12 +192,25 @@ export default function App() {
     return () => { alive = false; };
   }, []);
 
+  useEffect(() => {
+    if (!isElectron || !settingsReady) return undefined;
+    let alive = true;
+    listDrives().then((list) => {
+      if (!alive) return;
+      setDrives(list);
+      if (list[0]?.path) {
+        setSettings((s) => (s.folderRoot ? s : { ...s, folderRoot: list[0].path }));
+      }
+    }).catch(() => { if (alive) setDrives([]); });
+    return () => { alive = false; };
+  }, [settingsReady]);
+
   // A picture stays selected only while the image tool is active.
   useEffect(() => { if (tool !== 'image') setSelectedImage(null); }, [tool]);
 
   // Apply theme + font settings whenever they change, and persist everything.
   useEffect(() => {
-    applyTheme(settings.theme);
+    applyTheme(settings.theme, settings.customThemes);
     applyFontSettings(settings);
     if (settingsReady) persistSettings(settings);
   }, [settings, settingsReady]);
@@ -553,14 +568,14 @@ export default function App() {
       }
       // Ask for the path first — showing anything of our own beforehand only
       // delays the system dialog — then report progress while reading.
-      const picked = await api.openPdfDialog({ defaultDir: settings.lastDir, multi: true });
+      const picked = await api.openPdfDialog({ defaultDir: openDefaultDir(settings), multi: true });
       if (!picked) return;
       const paths = Array.isArray(picked) ? picked : [picked];
       for (const filePath of paths) await openByPathRef.current(filePath);
     } catch (err) {
       fail(err, 'open');
     }
-  }, [fail, openBytes, settings.lastDir]);
+  }, [fail, openBytes, settings.defaultOpenDir, settings.lastDir]);
 
   const openByPath = useCallback(async (filePath) => {
     if (!filePath) return;
@@ -1208,9 +1223,20 @@ export default function App() {
   const goToPage = useCallback((n, loc) => {
     if (!doc) return;
     const clamped = clampPage(n, doc.numPages);
+    if (clamped === pageNumber) {
+      viewRef.current?.scrollToPage(clamped, 'smooth', loc || null);
+      return;
+    }
+    if (sameSheet(settings.pageLayout, pageNumber, clamped, doc.numPages)) {
+      if (loc) viewRef.current?.scrollToPage(clamped, 'smooth', loc);
+      return;
+    }
+    // Snapshot the current sheet before React unmounts it, then let PdfView
+    // scroll under a viewport-fixed cover. A smooth scroll here would hide
+    // the turn and look like the effect was off.
+    if (viewRef.current?.preparePageTurn(clamped, loc || null) === false) return;
     setPageNumber(clamped);
-    viewRef.current?.scrollToPage(clamped, 'smooth', loc || null);
-  }, [doc]);
+  }, [doc, pageNumber, settings.pageLayout]);
 
   const goToBookmark = useCallback((b) => {
     if (!b) return;
@@ -1275,6 +1301,7 @@ export default function App() {
 
   const changeZoom = useCallback((dir) => {
     setSettings((s) => {
+      if (s.pageLayout === 'spread') return { ...s, zoomMode: 'fit-page' };
       const current = s.zoomMode === 'custom' ? s.zoom : scale;
       return { ...s, zoomMode: 'custom', zoom: nextZoom(current, dir) };
     });
@@ -1362,11 +1389,20 @@ export default function App() {
       }
       if (mod && (e.key === '+' || e.key === '=')) { e.preventDefault(); changeZoom(1); return; }
       if (mod && e.key === '-') { e.preventDefault(); changeZoom(-1); return; }
-      if (mod && e.key === '0') { e.preventDefault(); setSettings((s) => ({ ...s, zoomMode: 'actual' })); return; }
+      if (mod && e.key === '0') {
+        e.preventDefault();
+        setSettings((s) => ({ ...s, zoomMode: isPagedLayout(s.pageLayout) ? 'fit-page' : 'actual' }));
+        return;
+      }
+      if (e.key === 'F8') { e.preventDefault(); setSettings((s) => ({ ...s, rightPanel: !s.rightPanel })); return; }
       if (e.key === 'F9') { e.preventDefault(); setSettings((s) => ({ ...s, sidebar: nextSidebar(s.sidebar) })); return; }
       if (inField) return;
-      if (e.key === 'PageDown' || (e.key === 'ArrowRight' && !mod)) { goToPage(pageNumber + 1); }
-      else if (e.key === 'PageUp' || (e.key === 'ArrowLeft' && !mod)) { goToPage(pageNumber - 1); }
+      if (e.key === 'PageDown' || (e.key === 'ArrowRight' && !mod)) {
+        goToPage(stepPage(settings.pageLayout, pageNumber, 1, doc?.numPages || 1));
+      }
+      else if (e.key === 'PageUp' || (e.key === 'ArrowLeft' && !mod)) {
+        goToPage(stepPage(settings.pageLayout, pageNumber, -1, doc?.numPages || 1));
+      }
       else if (e.key === 'Home' && mod) { goToPage(1); }
       else if (e.key === 'End' && mod) { goToPage(doc?.numPages || 1); }
       else if (e.key === 'Escape') {
@@ -1377,7 +1413,7 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [changeZoom, closeTab, copySelection, doc, goToPage, history, openViaDialog, pageNumber,
-    savePdf, selectedImage, setTool, switchToTab, tool]);
+    savePdf, selectedImage, setTool, settings.pageLayout, switchToTab, tool]);
 
   // ── Drag & drop ────────────────────────────────────────
   const [dragOver, setDragOver] = useState(false);
@@ -1445,8 +1481,8 @@ export default function App() {
       { icon: IconBookmark, label: t('menu.addBookmark'), onClick: () => addBookmark(snapText, highlightShot), disabled: !doc },
       { icon: IconClip, label: t('menu.attachFile'), onClick: () => attachFile(), disabled: !doc },
       { separator: true },
-      { icon: IconPrev, label: t('menu.prev'), onClick: () => goToPage(pageNumber - 1), disabled: !doc || pageNumber <= 1 },
-      { icon: IconNext, label: t('menu.next'), onClick: () => goToPage(pageNumber + 1), disabled: !doc || pageNumber >= (doc?.numPages || 1) },
+      { icon: IconPrev, label: t('menu.prev'), onClick: () => goToPage(stepPage(settings.pageLayout, pageNumber, -1, doc?.numPages || 1)), disabled: !doc || stepPage(settings.pageLayout, pageNumber, -1, doc?.numPages || 1) === pageNumber },
+      { icon: IconNext, label: t('menu.next'), onClick: () => goToPage(stepPage(settings.pageLayout, pageNumber, 1, doc?.numPages || 1)), disabled: !doc || stepPage(settings.pageLayout, pageNumber, 1, doc?.numPages || 1) === pageNumber },
       { icon: IconZoomIn, label: t('menu.zoomIn'), onClick: () => changeZoom(1), disabled: !doc },
       { icon: IconZoomOut, label: t('menu.zoomOut'), onClick: () => changeZoom(-1), disabled: !doc },
       { icon: IconFitWidth, label: t('menu.fitWidth'), onClick: () => setSettings((s) => ({ ...s, zoomMode: 'fit-width' })), disabled: !doc },
@@ -1454,7 +1490,7 @@ export default function App() {
     ];
     setMenu({ open: true, x: e.clientX, y: e.clientY, items });
   }, [addBookmark, addComment, applyHighlight, attachFile, changeZoom, copyPageText, copySelection, copySelectedImage, doc, extractImages,
-    goToPage, keepSelectedImage, pageNumber, rotate, saveSelectedImage, selectedImage, selectionText, setTool, t]);
+    goToPage, keepSelectedImage, pageNumber, rotate, saveSelectedImage, selectedImage, selectionText, setTool, settings.pageLayout, t]);
 
   // ── Derived ────────────────────────────────────────────
   const titleText = useMemo(
@@ -1516,9 +1552,21 @@ export default function App() {
         onBookmark={addBookmark}
         onGoToPage={goToPage}
         onZoom={changeZoom}
-        onZoomMode={(mode) => setSettings((s) => ({ ...s, zoomMode: mode, zoom: mode === 'custom' ? scale : s.zoom }))}
+        onZoomMode={(mode) => setSettings((s) => (
+          s.pageLayout === 'spread'
+            ? { ...s, zoomMode: 'fit-page' }
+            : { ...s, zoomMode: mode, zoom: mode === 'custom' ? scale : s.zoom }
+        ))}
         onRotate={rotate}
-        onLayout={() => setSettings((s) => ({ ...s, pageLayout: s.pageLayout === 'single' ? 'continuous' : 'single' }))}
+        onLayout={(mode) => setSettings((s) => {
+          const layout = normalizePageLayout(mode) === mode ? mode : s.pageLayout;
+          return {
+            ...s,
+            pageLayout: layout,
+            zoomMode: isPagedLayout(layout) ? 'fit-page' : s.zoomMode,
+          };
+        })}
+        onPageEffect={(id) => setSettings((s) => ({ ...s, pageEffect: id }))}
         onSearch={() => {
           setSettings((s) => ({
             ...s,
@@ -1527,6 +1575,7 @@ export default function App() {
           setTimeout(() => document.querySelector('[data-search-input]')?.focus(), 60);
         }}
         onTogglePanel={() => setSettings((s) => ({ ...s, sidebar: s.sidebar === 'none' ? 'thumbnails' : 'none' }))}
+        onToggleInfo={() => setSettings((s) => ({ ...s, rightPanel: !s.rightPanel }))}
         onTheme={(id) => setSettings((s) => ({ ...s, theme: id }))}
         onLang={changeLang}
         onSettings={() => setShowSettings(true)}
@@ -1599,7 +1648,9 @@ export default function App() {
             (w) => ({ ...w, clips: w.clips.filter((c) => c.id !== id) }),
             t('common.delete')
           )}
+          history={history}
           folderRoot={settings.folderRoot}
+          drives={drives}
           currentFilePath={file?.path || ''}
           desktop={isElectron}
           onPickFolder={async () => {
@@ -1610,6 +1661,16 @@ export default function App() {
               folderRoot: picked,
               lastDir: picked,
               recentDirs: addRecentDir(s.recentDirs, picked),
+              sidebar: 'folders',
+            }));
+          }}
+          onSelectDrive={(drivePath) => {
+            if (!drivePath) return;
+            setSettings((s) => ({
+              ...s,
+              folderRoot: drivePath,
+              lastDir: drivePath,
+              recentDirs: addRecentDir(s.recentDirs, drivePath),
               sidebar: 'folders',
             }));
           }}
@@ -1634,6 +1695,7 @@ export default function App() {
             zoom={settings.zoom}
             rotation={settings.rotation}
             layout={settings.pageLayout}
+            pageEffect={settings.pageEffect}
             invert={settings.invertPages}
             annotations={[...workspace.annotations, ...(workspace.attachments || [])]}
             tool={tool}
@@ -1667,6 +1729,24 @@ export default function App() {
           />
           {dragOver ? <div className="dropzone">{t('common.dropHere')}</div> : null}
         </main>
+        <InfoPanel
+          open={settings.rightPanel}
+          width={settings.rightPanelWidth}
+          onResize={(w) => setSettings((s) => ({ ...s, rightPanelWidth: clampInfoPanelWidth(w) }))}
+          onClose={() => setSettings((s) => ({ ...s, rightPanel: false }))}
+          file={file}
+          numPages={doc?.numPages || 0}
+          pageNumber={pageNumber}
+          scale={scale}
+          zoomMode={settings.zoomMode}
+          layout={settings.pageLayout}
+          rotation={settings.rotation}
+          info={docInfo}
+          bookmarkCount={workspace.bookmarks?.length || 0}
+          commentCount={commentItems.length}
+          attachmentCount={(workspace.attachments || []).length}
+          outlineCount={Array.isArray(outline) ? outline.length : 0}
+        />
       </div>
 
       {settings.showStatusBar ? (
@@ -1696,8 +1776,7 @@ export default function App() {
         settings={settings}
         onChange={applySettings}
         onClose={() => setShowSettings(false)}
-        onClearRecent={() => setSettings((s) => ({ ...s, recentFiles: [] }))}
-        onRemoveRecent={(key) => setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, key) }))}
+        onPickOpenDir={(start) => pickDirectory(start)}
         onClearDirs={() => setSettings((s) => ({ ...s, recentDirs: [] }))}
         onReset={() => {
           const kept = { recentFiles: settings.recentFiles, recentDirs: settings.recentDirs, lastDir: settings.lastDir };

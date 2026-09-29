@@ -9,6 +9,31 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 export const HISTORY_LIMIT = 100;
 const LIMIT = HISTORY_LIMIT;
 
+export function historyList(past) {
+  return (Array.isArray(past) ? past : []).map((entry, index) => ({
+    index,
+    label: String(entry?.label || ''),
+  })).reverse();
+}
+
+export function jumpPastStacks(past, future, current, index) {
+  const stack = Array.isArray(past) ? past.slice() : [];
+  const redo = Array.isArray(future) ? future.slice() : [];
+  if (!(index >= 0 && index < stack.length)) {
+    return { past: stack, future: redo, state: current };
+  }
+  const rest = stack.slice(index);
+  const undone = rest.map((entry, i) => ({
+    state: i + 1 < rest.length ? rest[i + 1].state : current,
+    label: entry.label,
+  }));
+  return {
+    past: stack.slice(0, index),
+    future: [...undone, ...redo].slice(-HISTORY_LIMIT),
+    state: rest[0].state,
+  };
+}
+
 export const EMPTY_WORKSPACE = {
   annotations: [],   // { id, page, kind: 'highlight'|'note', rect, color, text }
   clips: [],         // { id, kind: 'text'|'image', page, content, width, height, at }
@@ -70,6 +95,16 @@ export function useHistory(initial = EMPTY_WORKSPACE) {
     rerender();
   }, [rerender]);
 
+  const jumpToPast = useCallback((index) => {
+    setState((current) => {
+      const next = jumpPastStacks(past.current, future.current, current, index);
+      past.current = next.past;
+      future.current = next.future;
+      return next.state;
+    });
+    rerender();
+  }, [rerender]);
+
   const redo = useCallback(() => {
     if (!future.current.length) return null;
     const entry = future.current[future.current.length - 1];
@@ -88,6 +123,7 @@ export function useHistory(initial = EMPTY_WORKSPACE) {
     reset,
     undo,
     redo,
+    jumpToPast,
     exportSnapshot,
     restoreSnapshot,
     canUndo: past.current.length > 0,
@@ -95,7 +131,9 @@ export function useHistory(initial = EMPTY_WORKSPACE) {
     undoLabel: past.current.length ? past.current[past.current.length - 1].label : '',
     redoLabel: future.current.length ? future.current[future.current.length - 1].label : '',
     depth: past.current.length,
-  }), [state, commit, reset, undo, redo, exportSnapshot, restoreSnapshot]);
+    pastEntries: past.current.slice(),
+    futureEntries: future.current.slice(),
+  }), [state, commit, reset, undo, redo, jumpToPast, exportSnapshot, restoreSnapshot]);
 }
 
 export function newId() {

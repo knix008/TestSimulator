@@ -33,6 +33,21 @@ function renderSide(props = {}) {
 }
 
 describe('Sidebar comments tool', () => {
+  it('keeps a comments button on the left rail among the other tools', async () => {
+    await setLanguage('en');
+    const onPanel = vi.fn();
+    const { getByLabelText } = renderSide({ panel: 'none', onPanel });
+    expect(getByLabelText('Comments')).toBeTruthy();
+    expect(getByLabelText('Folders')).toBeTruthy();
+    expect(getByLabelText('Bookmarks')).toBeTruthy();
+    expect(getByLabelText('Outline')).toBeTruthy();
+    fireEvent.click(getByLabelText('Comments'));
+    expect(onPanel).toHaveBeenCalledWith('comments');
+    expect(getByLabelText('History')).toBeTruthy();
+    fireEvent.click(getByLabelText('History'));
+    expect(onPanel).toHaveBeenCalledWith('history');
+  });
+
   it('shows a comments rail button and lists notes in that panel', async () => {
     await setLanguage('en');
     const onGoToComment = vi.fn();
@@ -47,6 +62,30 @@ describe('Sidebar comments tool', () => {
     expect(onGoToComment).toHaveBeenCalledWith(expect.objectContaining({ id: 'n1', page: 2 }));
     expect(getByTitle('Add comment')).toBeTruthy();
     expect(getByTitle('Attach file')).toBeTruthy();
+  });
+
+  it('lists workspace history and jumps to a past snapshot', async () => {
+    await setLanguage('en');
+    const jumpToPast = vi.fn();
+    const { getByLabelText, getByText, getByTitle } = renderSide({
+      panel: 'history',
+      history: {
+        pastEntries: [
+          { state: {}, label: 'Highlight' },
+          { state: {}, label: 'Bookmark' },
+        ],
+        canUndo: true,
+        canRedo: false,
+        jumpToPast,
+        undo: vi.fn(),
+        redo: vi.fn(),
+      },
+    });
+    expect(getByLabelText('History')).toBeTruthy();
+    expect(getByText('Current')).toBeTruthy();
+    expect(getByTitle('Bookmark')).toBeTruthy();
+    fireEvent.click(getByTitle('Bookmark'));
+    expect(jumpToPast).toHaveBeenCalledWith(1);
   });
 
   it('lists attached PDF comments and jumps to that passage', async () => {
@@ -131,6 +170,28 @@ describe('Sidebar folder tree', () => {
     expect(getByText(/Choose a folder/)).toBeTruthy();
     fireEvent.click(getByTitle('Open folder'));
     expect(onPickFolder).toHaveBeenCalled();
+  });
+
+  it('puts system drives on the folders title and opens the one that is clicked', async () => {
+    await setLanguage('en');
+    const onSelectDrive = vi.fn();
+    const { getByLabelText, getByTitle, queryByText } = renderSide({
+      panel: 'folders',
+      desktop: true,
+      folderRoot: 'C:\\Docs',
+      drives: [
+        { path: 'C:\\', name: 'C:' },
+        { path: 'D:\\', name: 'D:' },
+      ],
+      onSelectDrive,
+    });
+    expect(getByLabelText('Drive C:')).toBeTruthy();
+    expect(getByLabelText('Drive D:')).toBeTruthy();
+    expect(getByTitle('C:\\').classList.contains('on')).toBe(true);
+    expect(getByTitle('D:\\').classList.contains('on')).toBe(false);
+    expect(queryByText('Folders')).toBeNull();
+    fireEvent.click(getByLabelText('Drive D:'));
+    expect(onSelectDrive).toHaveBeenCalledWith('D:\\');
   });
 });
 

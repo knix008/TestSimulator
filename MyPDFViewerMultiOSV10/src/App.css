@@ -143,6 +143,126 @@
   --accent: #e04560; --accent-2: #b83048; --accent-fg: #ffffff; --danger: #ef6a5c;
   --warn: #e0a750; --ok: #6fce9e; --page-bg: #10080c; --shadow: rgba(0, 0, 0, 0.55);
 }
+:root[data-theme='charcoal'] {
+  --bg: #1a1a1c; --bg-2: #242428; --bg-3: #2e2e34; --panel: #242428;
+  --border: #3e3e46; --text: #ececef; --text-dim: #a8a8b0; --muted: #7a7a84;
+  --accent: #8a8a92; --accent-2: #6c6c74; --accent-fg: #141416; --danger: #e0685f;
+  --warn: #d4b05a; --ok: #6fce9e; --page-bg: #101012; --shadow: rgba(0, 0, 0, 0.5);
+}
+:root[data-theme='onyx'] {
+  --bg: #0a0c10; --bg-2: #141820; --bg-3: #1c2430; --panel: #141820;
+  --border: #2a3444; --text: #e8eef6; --text-dim: #9aacbe; --muted: #6e8090;
+  --accent: #6aa0e0; --accent-2: #4a80c0; --accent-fg: #061018; --danger: #f85149;
+  --warn: #d29922; --ok: #3fb950; --page-bg: #06080c; --shadow: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme='dusk'] {
+  --bg: #1a1624; --bg-2: #241e32; --bg-3: #302840; --panel: #241e32;
+  --border: #44385a; --text: #f2eaf8; --text-dim: #c4b4d8; --muted: #8e7ea8;
+  --accent: #c080e0; --accent-2: #9a5cbe; --accent-fg: #1a1024; --danger: #ef6a5c;
+  --warn: #e0a750; --ok: #6fce9e; --page-bg: #120e1a; --shadow: rgba(0, 0, 0, 0.5);
+}
+:root[data-theme='pine'] {
+  --bg: #0e1812; --bg-2: #16241c; --bg-3: #1e3026; --panel: #16241c;
+  --border: #2a4434; --text: #e4f4ea; --text-dim: #9cc4ac; --muted: #6e907c;
+  --accent: #4cae78; --accent-2: #348c5c; --accent-fg: #062012; --danger: #e0685f;
+  --warn: #d7b25a; --ok: #4cae78; --page-bg: #08120c; --shadow: rgba(0, 0, 0, 0.5);
+}
+:root[data-theme='rust'] {
+  --bg: #1c100c; --bg-2: #281812; --bg-3: #362018; --panel: #281812;
+  --border: #4a3024; --text: #f6e8dc; --text-dim: #c8a490; --muted: #8e6e5a;
+  --accent: #e07840; --accent-2: #c05828; --accent-fg: #2a1008; --danger: #e0685f;
+  --warn: #e0a750; --ok: #7dce7a; --page-bg: #120a08; --shadow: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme='ink'] {
+  --bg: #0c1420; --bg-2: #142030; --bg-3: #1c2c40; --panel: #142030;
+  --border: #2a3c54; --text: #e6eef8; --text-dim: #a0b4cc; --muted: #7088a0;
+  --accent: #3d8ae0; --accent-2: #2868b8; --accent-fg: #ffffff; --danger: #f85149;
+  --warn: #d29922; --ok: #3fb950; --page-bg: #081018; --shadow: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme='wine'] {
+  --bg: #1c0c12; --bg-2: #281418; --bg-3: #361c24; --panel: #281418;
+  --border: #4a2834; --text: #f6e6ec; --text-dim: #c8a0ac; --muted: #907078;
+  --accent: #c04060; --accent-2: #9a2848; --accent-fg: #ffffff; --danger: #ef6a5c;
+  --warn: #e0a750; --ok: #6fce9e; --page-bg: #12080c; --shadow: rgba(0, 0, 0, 0.55);
+}
+:root[data-theme='storm'] {
+  --bg: #121820; --bg-2: #1a2430; --bg-3: #243040; --panel: #1a2430;
+  --border: #344458; --text: #e8eef4; --text-dim: #a8b8c8; --muted: #788898;
+  --accent: #6a90b8; --accent-2: #4c7098; --accent-fg: #0c141c; --danger: #e0685f;
+  --warn: #d4b05a; --ok: #6fce9e; --page-bg: #0c1218; --shadow: rgba(0, 0, 0, 0.5);
+}
+:root[data-theme='paper'] {
+  --bg: #f7f4ee; --bg-2: #fffdf8; --bg-3: #efe9de; --panel: #fffdf8;
+  --border: #ddd4c4; --text: #2a241c; --text-dim: #6a5e50; --muted: #9a8c7a;
+  --accent: #5a4a38; --accent-2: #3e3226; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #e8e0d2; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='linen'] {
+  --bg: #f3efe6; --bg-2: #faf7f0; --bg-3: #e8e2d4; --panel: #faf7f0;
+  --border: #d4ccb8; --text: #24281a; --text-dim: #5a6248; --muted: #8a9070;
+  --accent: #6b7a4e; --accent-2: #505c38; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #ddd6c4; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='mist'] {
+  --bg: #eef2f5; --bg-2: #ffffff; --bg-3: #e2e8ee; --panel: #ffffff;
+  --border: #c8d2dc; --text: #1c2830; --text-dim: #4a5c6a; --muted: #7a8c98;
+  --accent: #5a7088; --accent-2: #405468; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #d4dce4; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='peach'] {
+  --bg: #fdf0e8; --bg-2: #fff8f3; --bg-3: #f4e2d6; --panel: #fff8f3;
+  --border: #e8c8b8; --text: #301810; --text-dim: #7a4a38; --muted: #a87864;
+  --accent: #d06040; --accent-2: #a84828; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #edd8c8; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='mint'] {
+  --bg: #eef6f0; --bg-2: #f7fcf8; --bg-3: #dceee4; --panel: #f7fcf8;
+  --border: #b8d8c4; --text: #14241c; --text-dim: #3c6854; --muted: #6a9480;
+  --accent: #2f8f6a; --accent-2: #206c50; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #d0e4d8; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='lemon'] {
+  --bg: #faf6dc; --bg-2: #fffce8; --bg-3: #f0e8c0; --panel: #fffce8;
+  --border: #e0d490; --text: #2a2410; --text-dim: #6a5c28; --muted: #9a8c48;
+  --accent: #c09010; --accent-2: #96700c; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #ece4b8; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='cloud'] {
+  --bg: #f0f3f8; --bg-2: #ffffff; --bg-3: #e2e8f2; --panel: #ffffff;
+  --border: #c4cedc; --text: #182030; --text-dim: #46546c; --muted: #7a889c;
+  --accent: #4a6aa0; --accent-2: #345080; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #d6dce8; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='pearl'] {
+  --bg: #f6f3f6; --bg-2: #ffffff; --bg-3: #ece6ee; --panel: #ffffff;
+  --border: #d8d0dc; --text: #241c28; --text-dim: #5c5064; --muted: #8c8094;
+  --accent: #8870a0; --accent-2: #685480; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #e4dce8; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='blossom'] {
+  --bg: #fbf0f3; --bg-2: #fff8fa; --bg-3: #f4e0e6; --panel: #fff8fa;
+  --border: #e8c4d0; --text: #301018; --text-dim: #7a4050; --muted: #a87080;
+  --accent: #d05078; --accent-2: #a8385c; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #edd4dc; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='cream'] {
+  --bg: #faf6ea; --bg-2: #fffdf4; --bg-3: #f0e8d0; --panel: #fffdf4;
+  --border: #e0d4b0; --text: #2a2214; --text-dim: #6a5a38; --muted: #9a8860;
+  --accent: #b07830; --accent-2: #8a5c20; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #ece2c8; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='frost'] {
+  --bg: #eef6fa; --bg-2: #f7fcfe; --bg-3: #dceef4; --panel: #f7fcfe;
+  --border: #b8d4e0; --text: #102430; --text-dim: #3c6474; --muted: #6a8c9c;
+  --accent: #2a88b0; --accent-2: #1c6888; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #d0e4ec; --shadow: rgba(0, 0, 0, 0.14);
+}
+:root[data-theme='dawn'] {
+  --bg: #f8eee8; --bg-2: #fff6f0; --bg-3: #f0e0d6; --panel: #fff6f0;
+  --border: #e0c4b8; --text: #2c1410; --text-dim: #744840; --muted: #a0786c;
+  --accent: #c05040; --accent-2: #983828; --accent-fg: #ffffff; --danger: #c0392b;
+  --warn: #b57814; --ok: #2f8f5b; --page-bg: #ead8d0; --shadow: rgba(0, 0, 0, 0.14);
+}
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -256,8 +376,7 @@ body {
 .tool-picker {
   gap: 0; padding: 2px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg);
 }
-.tool-picker .tool-btn { height: 26px; padding: 0 9px; border-radius: 7px; font-size: 12px; }
-.tool-picker .tool-btn .tbtn-label { white-space: nowrap; }
+.tool-picker .tool-btn { height: 26px; padding: 0 7px; border-radius: 7px; }
 .toolbar-sep { width: 1px; height: 22px; background: var(--border); margin: 0 6px; flex: none; }
 
 .tbtn {
@@ -318,7 +437,7 @@ body {
   height: 28px; border-radius: 6px; border: 1px solid var(--border);
   background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; padding: 0 7px;
 }
-.zoom-select { min-width: 104px; }
+.zoom-select { min-width: 128px; }
 
 /* ── Toolbar dropdown menus ────────────────────────────── */
 .lang-flag { display: block; flex: none; border-radius: 3px; overflow: hidden; }
@@ -359,13 +478,29 @@ body {
 .dd-name.wide { flex: 1; max-width: none; }
 .dd-key { flex: none; font-size: 11px; color: var(--muted); }
 .dd-list.themes { max-height: none; overflow: visible; }
-.dd-list.themes .dd-item { padding: 5px 8px; }
+.dd-list.themes .dd-item { padding: 4px 8px; }
+.theme-cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px;
+  overflow: visible; min-width: 0;
+}
+.theme-col { min-width: 0; }
+.theme-col.custom { grid-column: 1 / -1; }
+.theme-col.custom .dd-list.themes {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0 4px;
+}
+.theme-col-title, .theme-group-title {
+  margin: 0; padding: 4px 8px 3px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+}
+.theme-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; min-width: 0; }
+.theme-group { min-width: 0; }
+.theme-grid.kind { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 html.theme-popup, html.theme-popup body, html.theme-popup #root {
   height: auto; min-height: 0; overflow: hidden; background: var(--panel);
 }
 .theme-popup-menu.dropdown {
-  position: static; width: 210px; box-shadow: none;
+  position: static; width: 400px; box-shadow: none;
 }
 .dd-item:disabled { opacity: 0.4; cursor: default; }
 .dd-item:disabled:hover { background: transparent; }
@@ -374,11 +509,46 @@ html.theme-popup, html.theme-popup body, html.theme-popup #root {
 /* ── Work area ─────────────────────────────────────────── */
 .workarea { display: flex; flex: 1; min-height: 0; }
 
+.info-panel {
+  position: relative; display: flex; flex: none;
+  width: var(--info-width, 270px); min-width: 0; min-height: 0;
+  background: var(--bg-2); border-left: 1px solid var(--border);
+}
+.info-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.info-splitter {
+  position: absolute; top: 0; left: -3px; bottom: 0; width: 7px;
+  cursor: col-resize; z-index: 8; touch-action: none;
+}
+.info-splitter::before {
+  content: ''; position: absolute; top: 0; bottom: 0; right: 3px; width: 1px;
+  background: var(--border);
+}
+.info-splitter:hover::before,
+.info-splitter:focus-visible::before,
+body.resizing-sidebar .info-splitter::before {
+  width: 3px; right: 2px; background: var(--accent);
+}
+.info-body { padding: 10px 12px 16px; }
+.info-section { margin: 0 0 14px; }
+.info-section:last-child { margin-bottom: 0; }
+.info-section h4 {
+  margin: 0 0 7px; font-size: 11.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+}
+.info-section dl { margin: 0; display: grid; gap: 6px; }
+.info-row { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 8px; align-items: start; }
+.info-row dt { margin: 0; color: var(--muted); font-size: 11.5px; padding-top: 1px; }
+.info-row dd {
+  margin: 0; color: var(--text); font-size: 12.5px; line-height: 1.4;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+
 /* ── Sidebar ───────────────────────────────────────────── */
-:root { --side-rail: 48px; --side-width: 220px; }
+:root { --side-rail: 48px; --side-width: 270px; }
 .sidebar {
   position: relative; display: flex; flex: none; background: var(--bg-2);
   width: calc(var(--side-rail) + var(--side-width));
+  min-height: 0; overflow: hidden;
 }
 .sidebar.collapsed { width: var(--side-rail); }
 .side-splitter {
@@ -398,6 +568,8 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .side-rail {
   width: var(--side-rail); flex: none; display: flex; flex-direction: column; align-items: center;
   gap: 4px; padding: 8px 0; border-right: 1px solid var(--border);
+  min-height: 0; overflow-x: hidden; overflow-y: auto;
+  scrollbar-width: thin;
 }
 .rail-btn {
   width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer;
@@ -416,6 +588,17 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   color: var(--text); border-bottom: 1px solid var(--border); flex: none;
 }
 .side-head-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-head-title.side-drives {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  overflow: visible; white-space: normal; text-transform: none; letter-spacing: 0;
+}
+.drive-chip {
+  flex: none; margin: 0; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); font: inherit; font-size: 12px; font-weight: 700;
+  letter-spacing: 0; text-transform: none; cursor: pointer;
+}
+.drive-chip.on { background: color-mix(in srgb, var(--accent) 22%, var(--bg)); border-color: var(--accent); color: var(--text); }
+.drive-chip:hover { border-color: var(--accent); color: var(--accent); }
 .side-head-actions { display: flex; align-items: center; gap: 2px; flex: none; margin-left: auto; }
 .side-head-action { flex: none; color: var(--text); }
 .side-head-action:hover:not(:disabled) { color: var(--accent); }
@@ -433,7 +616,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .thumb-list li.active button { border-color: var(--accent); color: var(--accent); }
 .thumb-list canvas { width: 100%; height: auto; background: #fff; border-radius: 3px; display: block; }
 
-.bm-list, .hit-list, .comment-list { list-style: none; margin: 0; padding: 0; }
+.bm-list, .hit-list, .comment-list, .hist-list { list-style: none; margin: 0; padding: 0; }
 
 /* ── Outline tree ──────────────────────────────────────── */
 /* Connector lines are drawn by the list items: a vertical stem down the left
@@ -485,7 +668,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   padding: 5px 8px 5px 2px; border: none; border-radius: 7px; background: transparent;
   color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer;
 }
-.bm-list li, .hit-list li, .comment-list li { display: flex; align-items: center; gap: 2px; }
+.bm-list li, .hit-list li, .comment-list li, .hist-list li { display: flex; align-items: center; gap: 2px; }
 .comment-list li { align-items: flex-start; }
 .comment-row { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
 .side-item {
@@ -522,10 +705,33 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   position: relative; flex: 1; min-width: 0; min-height: 0;
   display: flex; flex-direction: column; overflow: hidden;
 }
+.page-stage {
+  position: relative; flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.page-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 8; width: 40px; height: 72px; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  color: var(--text); cursor: pointer;
+  box-shadow: 0 6px 18px var(--shadow);
+}
+.page-nav.prev { left: 12px; }
+.page-nav.next { right: 12px; }
+.page-stage.turning .page-nav { pointer-events: none; }
+.page-nav:disabled { opacity: 0.28; cursor: default; }
+.page-nav:not(:disabled):hover {
+  background: var(--panel);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .pageview {
   flex: 1; min-width: 0; min-height: 0;
   overflow: auto; background: var(--page-bg); position: relative;
   scrollbar-width: auto;
+  scrollbar-gutter: stable both-edges;
   scrollbar-color: var(--muted) color-mix(in srgb, var(--page-bg) 65%, var(--bg-3));
 }
 .pageview.empty { display: grid; place-items: center; overflow: hidden; }
@@ -533,6 +739,271 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   display: flex; flex-direction: column; align-items: center; gap: 18px;
   padding: 24px 28px; box-sizing: border-box;
   width: max-content; min-width: 100%;
+  margin-inline: auto;
+}
+.pageview.center-sheet .pagestack:not(.doc-scroll) {
+  min-height: 100%;
+  justify-content: center;
+}
+.page-stage.center-sheet .turn-cover {
+  align-items: center;
+  justify-content: center;
+}
+.pagestack.doc-scroll,
+.pagestack.doc-scroll.spread {
+  flex-direction: column;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  gap: 0;
+  overflow-anchor: none;
+}
+.pagestack .doc-slot {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: inherit;
+  box-sizing: border-box;
+  flex: none;
+  width: max-content;
+  min-width: 100%;
+}
+.pageview.center-sheet .doc-slot {
+  align-items: center;
+}
+.doc-spacer {
+  flex: none;
+  width: 1px;
+  pointer-events: none;
+  overflow-anchor: none;
+}
+.pagestack.spread:not(.doc-scroll) {
+  flex-direction: row; flex-wrap: nowrap; justify-content: center; align-items: flex-start;
+}
+.pagestack .turn-sheet {
+  display: flex; flex-direction: inherit; flex-wrap: inherit;
+  align-items: inherit; justify-content: inherit; gap: inherit;
+}
+.pagestack .turn-sheet.idle { display: contents; }
+/* Document-scroll keeps the stack in a column (spacers above/below). The
+   pair still has to sit in a row — inherit from the stack would stack them. */
+.pagestack .turn-sheet.doc-slot {
+  position: relative;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
+  width: max-content;
+  min-width: 100%;
+}
+.pagestack.spread,
+.pagestack.spread .turn-sheet.doc-slot { gap: 0; }
+.page-spread {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  width: max-content;
+  perspective: 2000px;
+  transform-style: preserve-3d;
+}
+/* Continuous view must not sit in the facing-pair row. `contents` lets each
+   page take part in the pagestack column so the document scrolls vertically. */
+.page-spread.stacked { display: contents; }
+.page-spread > .page { position: relative; z-index: 1; }
+.page-spread.two-up.lonely {
+  justify-content: flex-start;
+}
+.page-spread.two-up.lonely .page-blank {
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: none;
+  background: transparent;
+}
+.page-spread.two-up::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 18px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.22) 42%,
+    rgba(0, 0, 0, 0.3) 50%,
+    rgba(0, 0, 0, 0.22) 58%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+.page-spread.turning { animation: none; }
+.page.turn-shot img { display: block; width: 100%; height: 100%; }
+/* The last sheet sits on top of the incoming pages. Only the paper moves —
+   the viewer chrome stays still, so the turn reads as a page, not a flash. */
+.turn-cover {
+  position: absolute; inset: 0; z-index: 6; pointer-events: none;
+  display: flex; align-items: flex-start; justify-content: center; gap: 18px;
+  padding: 24px 28px; box-sizing: border-box;
+  background: transparent; overflow: visible;
+  perspective: 1800px; transform-style: preserve-3d;
+}
+.turn-cover .turn-shot {
+  transform-style: preserve-3d; backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+.turn-cover:not(.ready) .turn-shot { animation: none !important; opacity: 1; transform: none; }
+.turn-cover.turn-fade.ready .turn-shot {
+  animation: turn-fade-out var(--turn-ms, 640ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.turn-cover.turn-slide.turn-next.ready .turn-shot {
+  animation: turn-slide-out-next var(--turn-ms, 640ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.turn-cover.turn-slide.turn-prev.ready .turn-shot {
+  animation: turn-slide-out-prev var(--turn-ms, 640ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Incoming motion is on the current sheet only. Transforming the whole
+   pagestack would also move the document-scroll spacers, so after the cover
+   lifted the page would settle into a second, different place. */
+.turn-sheet.incoming.turn-in { will-change: transform, opacity; }
+.turn-sheet.incoming.turn-in.turn-fade {
+  animation: turn-fade-in var(--turn-ms, 640ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.turn-sheet.incoming.turn-in.turn-slide.turn-next {
+  animation: turn-slide-in-next var(--turn-ms, 640ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.turn-sheet.incoming.turn-in.turn-slide.turn-prev {
+  animation: turn-slide-in-prev var(--turn-ms, 640ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.turn-sheet.incoming.turn-in.turn-flip.turn-next,
+.turn-sheet.incoming.turn-in.turn-flip.turn-prev {
+  animation: none;
+}
+/* A leaf hinged on the binding, as in MyEBookReader: the page being turned
+   has two faces, so it covers the page it lands on for the whole sweep. */
+.turn-leaf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.turn-leaf.whole { left: 0; right: 0; backface-visibility: hidden; }
+.turn-leaf.half { width: 50%; }
+.turn-stay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 4;
+  background: #fff;
+  overflow: hidden;
+}
+.turn-stay.blank {
+  background: var(--page-bg);
+  box-shadow: none;
+}
+.turn-stay.left { left: 0; }
+.turn-stay.right { right: 0; }
+.turn-cover .turn-shot.blank {
+  visibility: visible;
+  box-shadow: none;
+  background: var(--page-bg);
+}
+.turn-stay img { display: block; width: 100%; height: 100%; }
+/* One page turns as a whole sheet to the left (next) or right (prev).
+   The leaf is the outgoing page; past upright it is gone and the new
+   page — which never moved — is what remains. Two pages still fold at
+   the gutter. */
+.leaf-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  box-shadow: 0 6px 22px var(--shadow);
+  backface-visibility: hidden;
+}
+.leaf-face.back { transform: rotateY(180deg); }
+.leaf-face img { display: block; max-width: 100%; max-height: 100%; width: 100%; height: 100%; }
+/* Blank paper until the incoming PDF has painted — never the dark pane,
+   which made the second half of a turn look like a black page. */
+.leaf-paper {
+  width: 76%;
+  height: 92%;
+  background: #fff;
+  box-shadow: 0 6px 22px var(--shadow);
+}
+.turn-leaf.forward {
+  right: 0;
+  transform-origin: left center;
+  animation: leaf-over-forward var(--turn-ms, 640ms) ease-in forwards;
+}
+.turn-leaf.back {
+  left: 0;
+  transform-origin: right center;
+  animation: leaf-over-back var(--turn-ms, 640ms) ease-in forwards;
+}
+.turn-leaf.whole.forward { transform-origin: left center; }
+.turn-leaf.whole.back { transform-origin: right center; }
+.turn-leaf .leaf-face { animation: leaf-shade var(--turn-ms, 640ms) ease-in-out; }
+@keyframes turn-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes turn-fade-in { from { opacity: 0.72; } to { opacity: 1; } }
+@keyframes turn-slide-out-next { from { transform: none; } to { transform: translateX(-108%); } }
+@keyframes turn-slide-out-prev { from { transform: none; } to { transform: translateX(108%); } }
+@keyframes turn-slide-in-next { from { transform: translateX(18%); } to { transform: none; } }
+@keyframes turn-slide-in-prev { from { transform: translateX(-18%); } to { transform: none; } }
+@keyframes leaf-over-forward {
+  from { transform: perspective(2000px) rotateY(0deg); }
+  to { transform: perspective(2000px) rotateY(-180deg); }
+}
+@keyframes leaf-over-back {
+  from { transform: perspective(2000px) rotateY(0deg); }
+  to { transform: perspective(2000px) rotateY(180deg); }
+}
+@keyframes leaf-shade {
+  from { filter: brightness(1); }
+  50% { filter: brightness(0.66); }
+  to { filter: brightness(1); }
+}
+
+.page-stage.turning { overflow: clip; }
+/* The turning leaf sits in .flip-overlay, a sibling of the scrolling
+   pageview, so overflow:auto on the pages does not flatten rotateY into a
+   black line. The overlay itself must stay overflow:visible. */
+.flip-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 28px;
+  box-sizing: border-box;
+  overflow: visible;
+  transform-style: preserve-3d;
+}
+.page-stage.center-sheet .flip-overlay { align-items: center; }
+.flip-spread {
+  position: relative;
+  flex: none;
+  transform-style: preserve-3d;
+}
+.page-stage.turning.flip-turn { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-stage:not([data-motion='full']) .turn-cover .turn-shot,
+  .page-stage:not([data-motion='full']) .turn-sheet.incoming.turn-in,
+  .page-stage:not([data-motion='full']) .turn-leaf { animation: none !important; }
 }
 .pageview::-webkit-scrollbar { width: 12px; height: 12px; }
 .pageview::-webkit-scrollbar-track {
@@ -550,7 +1021,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   position: relative; flex: none; background: #fff;
   box-shadow: 0 6px 22px var(--shadow); border-radius: 2px; overflow: hidden;
 }
-.page-canvas { display: block; position: absolute; left: 0; top: 0; }
+.page-canvas { display: block; position: absolute; left: 0; top: 0; z-index: 0; background: #fff; }
 .page-skeleton {
   position: absolute; inset: 0; display: grid; place-items: center;
   background: repeating-linear-gradient(45deg, #f4f4f4, #f4f4f4 12px, #ededed 12px, #ededed 24px);
@@ -573,25 +1044,27 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   pointer-events: auto; -webkit-user-select: text; user-select: text;
 }
 
-/* Every picture on the page, outlined while the region tool is active. */
+/* Pictures are framed while the image tool is active. Hover / pick use a
+   dashed border and a transparent fill — the same language as a region. */
 .img-regions { position: absolute; inset: 0; pointer-events: none; }
 .img-region {
-  position: absolute; border: 1.5px dashed color-mix(in srgb, var(--accent) 70%, transparent);
-  border-radius: 3px; background: color-mix(in srgb, var(--accent) 7%, transparent);
+  position: absolute; box-sizing: border-box;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 2px; background: transparent;
 }
+.img-region.hot,
 .img-region.picked {
-  border-style: solid; border-width: 2px; border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
-}
-.img-region.hot {
-  border-style: solid; border-width: 2px; border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+  border: 2px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: none; mix-blend-mode: normal;
 }
 
-/* One solid block per selected line, under the text so glyphs stay clickable. */
-.sel-layer { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+/* One invert block per selected line, above the canvas so the page ink flips
+   while the drag is still moving — not only after the pointer leaves. */
+.sel-layer {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  mix-blend-mode: difference;
+}
 .search-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
 .search-block {
   position: absolute; border-radius: 1px;
@@ -642,31 +1115,18 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   box-shadow: inset 0 0 0 1px rgba(56, 122, 223, 0.45);
 }
 .sel-block {
-  position: absolute; background: rgba(56, 122, 223, 0.34); border-radius: 1px;
-}
-.sel-block.region {
-  background: rgba(56, 122, 223, 0.26);
-  border: 1.5px solid rgba(56, 122, 223, 0.8);
-  border-radius: 1px;
+  position: absolute; background: #fff; border: none;
+  border-radius: 0; box-shadow: none; filter: none;
 }
 
 .annots { position: absolute; inset: 0; pointer-events: none; }
 .annot { position: absolute; border-radius: 2px; mix-blend-mode: multiply; }
-.marquee {
-  position: absolute; box-sizing: border-box; pointer-events: none; z-index: 8;
-  border: 2px dashed var(--accent); border-radius: 2px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.28);
-}
+.marquee,
 .marquee.picked {
-  border-style: solid; border-width: 3px;
-  background: color-mix(in srgb, var(--accent) 24%, transparent);
-}
-.text-marquee {
-  position: absolute; pointer-events: none; z-index: 4;
-  border: 1.5px solid rgba(56, 122, 223, 0.85);
-  background: rgba(56, 122, 223, 0.22);
-  border-radius: 1px;
+  position: absolute; box-sizing: border-box; pointer-events: none; z-index: 8;
+  border: 2px dashed var(--accent); border-radius: 1px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: none; mix-blend-mode: normal;
 }
 
 .dropzone {
@@ -684,17 +1144,20 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
    These rules mirror pdfjs-dist 4.x's own stylesheet: the spans carry their
    size and transform inline, so the stylesheet only positions the layer. */
 .textLayer {
-  position: absolute; left: 0; top: 0; overflow: clip; opacity: 1; line-height: 1;
+  position: absolute; left: 0; top: 0; overflow: clip; line-height: 1;
   text-align: initial; -webkit-text-size-adjust: none; text-size-adjust: none;
-  forced-color-adjust: none; transform-origin: 0 0; caret-color: CanvasText; z-index: 1;
+  forced-color-adjust: none; transform-origin: 0 0; caret-color: transparent; z-index: 1;
+  /* Hide the layer's own ink. Chromium still draws selected transparent glyphs
+     as a dark outline that sits beside the canvas text and reads as a shadow.
+     Opacity 0 keeps hit-testing and getClientRects; the painted .sel-block
+     is a sibling so the highlight stays visible. */
+  opacity: 0;
   /* width/height are set in JS to the canvas CSS size — do not stretch with inset:0 */
 }
 .textLayer :is(span, br) {
-  color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%;
-  /* A little extra hit padding so a click on the glyph, not only its tight
-     pdf.js box, starts a selection. Negative margin keeps the ink aligned. */
-  padding: 0.12em 0.08em;
-  margin: -0.12em -0.08em;
+  color: transparent; -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0; text-shadow: none;
+  position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%;
 }
 .textLayer > :not(.markedContent),
 .textLayer .markedContent span:not(.markedContent) { z-index: 1; }
@@ -710,11 +1173,18 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   -webkit-user-select: none; -moz-user-select: none; user-select: none;
 }
 .textLayer.selecting .endOfContent { top: 0; }
-/* Hide native span-by-span ::selection; per-line blocks in .sel-layer are used. */
+/* Hide native span-by-span ::selection; per-line blocks in .sel-layer are used.
+   Chromium still paints selected transparent glyphs as a dark outline/shadow
+   unless colour and text-shadow are cleared as well. */
 .textLayer ::selection,
-.textLayer ::-moz-selection { background: transparent !important; }
-.textLayer br::selection,
-.textLayer br::-moz-selection { background: transparent !important; }
+.textLayer ::-moz-selection,
+.textLayer :is(span, br)::selection,
+.textLayer :is(span, br)::-moz-selection {
+  background: transparent !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
 
 /* ── Status bar ────────────────────────────────────────── */
 .statusbar {
@@ -825,6 +1295,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .field-label .hint { color: var(--muted); font-style: normal; }
 /* A one-line explanation under a checkbox, indented to line up with its label. */
 p.hint { margin: 0 0 0 23px; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+p.hint.dir-hint { margin-left: 0; margin-bottom: 8px; }
 .field-error { margin: 8px 0 0; color: var(--danger); font-size: 12px; }
 .input { width: 100%; height: 32px; min-width: 0; }
 .range { width: 100%; accent-color: var(--accent); }
@@ -887,6 +1358,23 @@ p.hint { margin: 0 0 0 23px; color: var(--muted); font-size: 11.5px; line-height
 }
 .theme-chip:hover { border-color: var(--accent); }
 .theme-chip.active { border-color: var(--accent); color: var(--accent); }
+.theme-chip.custom { padding: 0 4px 0 0; }
+.theme-chip-pick {
+  display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;
+  padding: 5px 7px; border: 0; background: transparent; color: inherit;
+  font: inherit; font-size: 12.5px; cursor: pointer; text-align: left;
+}
+.theme-grid.custom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.theme-custom-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.theme-custom-head h4 { margin: 0; }
+.theme-editor { display: grid; gap: 8px; margin-top: 8px; }
+.theme-colors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.theme-color { display: grid; gap: 3px; font-size: 11px; color: var(--muted); }
+.theme-color input[type='color'] {
+  width: 100%; height: 28px; padding: 0; border: 1px solid var(--border);
+  border-radius: 6px; background: transparent; cursor: pointer;
+}
+.theme-editor-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .theme-name { flex: 1; text-align: left; text-transform: capitalize; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-swatch { display: inline-flex; border-radius: 5px; overflow: hidden; border: 1px solid var(--border); flex: none; }
 .theme-swatch i { width: 12px; height: 16px; display: block; }
@@ -895,8 +1383,6 @@ p.hint { margin: 0 0 0 23px; color: var(--muted); font-size: 11.5px; line-height
   margin-top: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px;
   background: var(--bg); line-height: 1.45; overflow: hidden; white-space: normal; word-break: keep-all;
 }
-.settings-files { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
-.settings-files .sgroup { margin-bottom: 0; }
 .recent-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .recent-list li {
   display: flex; align-items: center; gap: 6px; padding: 4px 7px; min-width: 0;
