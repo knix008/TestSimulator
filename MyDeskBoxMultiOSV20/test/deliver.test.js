@@ -623,6 +623,42 @@ test('칸의 가장자리에 놓으면 받아 주지 않고 사이에 끼운다'
   assert.equal(state.fences[1].items.length, 2, '박스에 담기지도 않았다');
 });
 
+test('휴지통에 이미 버린 것이 있으면 창에 놓은 바탕화면 파일도 박스에 담는다', async () => {
+  const place = desk();
+  const state = baseState({
+    fences: [fence({ ...BOX, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron, desktop, asks } = loadHost(state);
+  desktop.module.recycleCount = () => 2;
+  host.openAll();
+
+  await host.dropFiles('a', [place.note], 0, 'shell:RecycleBinFolder');
+
+  assert.equal(asks.calls.length, 0, '휴지통에 있던 것을 바꿀지 물었다');
+  assert.deepEqual(electron.shell.trashed, [], '휴지통에 있던 것을 바꾸려 했다');
+  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), true, '새 항목을 박스에 담지 않았다');
+  assert.equal(state.fences[0].items.some((item) => item.path === 'shell:RecycleBinFolder'), true);
+});
+
+test('휴지통에 이미 버린 것이 있으면 바탕화면에서 끌어 온 항목은 박스에 담는다', async () => {
+  const place = desk();
+  const state = baseState({
+    fences: [fence({ ...BOX, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron, desktop, asks } = loadHost(state);
+  desktop.module.recycleCount = () => 3;
+  host.openAll();
+
+  const spot = onPicture(0);
+  await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, spot);
+
+  assert.equal(asks.calls.length, 0, '휴지통에 있던 것을 바꿀지 물었다');
+  assert.deepEqual(electron.shell.trashed, [], '휴지통에 있던 것을 바꾸려 했다');
+  assert.equal(state.fences[0].items.some((item) => item.path === 'shell:RecycleBinFolder'), true, '휴지통이 박스에서 빠졌다');
+  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), true, '새 항목을 박스에 담지 않았다');
+  assert.equal(fs.existsSync(place.note), false, '바탕화면 파일이 박스 폴더로 옮겨 가지 않았다');
+});
+
 test('바탕화면에서 끌어 온 것도 박스 안 휴지통이 받는다', async () => {
   const place = desk();
   const state = baseState({

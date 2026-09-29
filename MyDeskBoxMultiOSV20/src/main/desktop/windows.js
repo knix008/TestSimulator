@@ -7,12 +7,14 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawn } = require('child_process');
 const koffi = require('koffi');
-const { sameName, isOnDesktop, listDesktopFiles, desktopDirectories } = require('./files');
+const { sameName, isOnDesktop, listDesktopFiles, desktopDirectories, matchDesktopEntry } = require('./files');
 const deskgrid = require('../../shared/deskgrid');
 const {
   pickIcon,
   iconAt,
   isDesktopTarget,
+  isForeignTarget,
+  isSurfaceWindow,
   shellPathFor,
   movedEnough,
   shouldOfferFence,
@@ -49,10 +51,30 @@ const SetWindowPos = user32.func('int __stdcall SetWindowPos(void *hwnd, void *a
 const DeskRect = koffi.struct('DeskRect', { left: 'int32', top: 'int32', right: 'int32', bottom: 'int32' });
 const GetClientRect = user32.func('int __stdcall GetClientRect(void *hwnd, _Out_ DeskRect *rect)');
 const GetParent = user32.func('void * __stdcall GetParent(void *hwnd)');
+const GetAncestor = user32.func('void * __stdcall GetAncestor(void *hwnd, uint32 flags)');
+// GA_ROOT. 자식 창에서 맨 위 창으로 올라간다.
+const GA_ROOT = 2;
 const ShowWindow = user32.func('int __stdcall ShowWindow(void *hwnd, int cmd)');
 const IsWindowVisible = user32.func('int __stdcall IsWindowVisible(void *hwnd)');
 const WindowFromPoint = user32.func('void * __stdcall WindowFromPoint(DeskPoint pt)');
 const GetWindow = user32.func('void * __stdcall GetWindow(void *h, uint32 cmd)');
+const GetWindowRect = user32.func('int __stdcall GetWindowRect(void *hwnd, _Out_ DeskRect *rect)');
+const GetDesktopWindow = user32.func('void * __stdcall GetDesktopWindow()');
+// 맨 위 창부터 아래로 내려가며 커서 아래의 진짜 창을 찾는다.
+const GW_CHILD = 5;
+const GW_HWNDNEXT = 2;
+// 마우스를 통과시키는 창. 끄는 그림이나 겹쳐 둔 장식이 이 속성을 가진다.
+const GWL_EXSTYLE = -20;
+const WS_EX_TRANSPARENT = 0x20;
+// 보이지 않는데 IsWindowVisible 이 참인 창. 위젯처럼 덮어 둔 빈 창이 여기 해당한다.
+const DWMWA_CLOAKED = 14;
+let DwmGetWindowAttribute = null;
+try {
+  const dwmapi = koffi.load('dwmapi.dll');
+  DwmGetWindowAttribute = dwmapi.func('int32 __stdcall DwmGetWindowAttribute(void *hwnd, uint32 attr, _Out_ uint32 *value, uint32 size)');
+} catch (_err) {
+  DwmGetWindowAttribute = null;
+}
 
 // 탐색기가 쓰는 것과 같은 그림을 얻기 위한 선언
 const SHFILEINFOW = koffi.struct('SHFILEINFOW', {
@@ -700,7 +722,7 @@ function itemForIcon(icon) {
   if (!icon || !icon.name) return null;
   const shell = shellPathFor(icon.name, shellNameTable(), sameName);
   if (shell) return shell;
-  const file = listDesktopFiles().find((entry) => sameName(icon.name, entry.name));
+  const file = matchDesktopEntry(icon.name, listDesktopFiles());
   return file ? { name: file.name, path: file.path } : null;
 }
 
@@ -717,6 +739,170 @@ function desktopAt(pos) {
     hwnd = null;
   }
   return isDesktopTarget(className(hwnd), className(GetForegroundWindow()));
+}
+
+function hwndNumber(value) {
+  if (typeof value === 'bigint') return Number(value);
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (Buffer.isBuffer(value) && value.length >= 4) {
+    return value.length >= 8 ? Number(value.readBigUInt64LE(0)) : value.readUInt32LE(0);
+  }
+  return 0;
+}
+
+// 커서 좌표는 DIP 다. 창을 집는 호출은 물리 픽셀을 받는다.
+function toPhysical(point) {
+  try {
+    const { screen } = require('electron');
+    if (screen && typeof screen.dipToScreenPoint === 'function') {
+      const next = screen.dipToScreenPoint({ x: point.x, y: point.y });
+      if (next && Number.isFinite(next.x) && Number.isFinite(next.y)) {
+        return { x: Math.round(next.x), y: Math.round(next.y) };
+      }
+    }
+  } catch (_err) {
+    /* 배율을 모르면 DIP 를 그대로 쓴다. */
+  }
+  return { x: Math.round(point.x), y: Math.round(point.y) };
+}
+
+// 자식 창(그리기 창)이 잡혀도 우리 박스인지 알 수 있게 부모까지 올라간다.
+function topWindow(hwnd, mine) {
+  let cur = hwnd;
+  let top = hwnd;
+  const seen = new Set();
+  for (let i = 0; i < 10 && cur; i += 1) {
+    const key = hwndNumber(cur);
+    if (!key || seen.has(key)) break;
+    seen.add(key);
+    top = cur;
+    if (mine.has(key)) return { ours: true, top: cur };
+    let next = null;
+    try {
+      next = GetParent(cur);
+    } catch (_err) {
+      next = null;
+    }
+    if (!next || hwndNumber(next) === key) {
+      try {
+        next = GetAncestor(hwnd, GA_ROOT);
+      } catch (_err) {
+        next = null;
+      }
+      if (!next || hwndNumber(next) === key) break;
+    }
+    cur = next;
+  }
+  return { ours: mine.has(hwndNumber(top)), top };
+}
+
+function windowPid(hwnd) {
+  try {
+    const pid = [0];
+    if (!GetWindowThreadProcessId(hwnd, pid)) return 0;
+    return pid[0] || 0;
+  } catch (_err) {
+    return 0;
+  }
+}
+
+function rectHas(hwnd, point) {
+  const rect = {};
+  try {
+    if (!GetWindowRect(hwnd, rect)) return false;
+  } catch (_err) {
+    return false;
+  }
+  return point.x >= rect.left && point.x < rect.right && point.y >= rect.top && point.y < rect.bottom;
+}
+
+function exStyle(hwnd) {
+  try {
+    return Number(GetWindowLongPtrW(hwnd, GWL_EXSTYLE)) >>> 0;
+  } catch (_err) {
+    return 0;
+  }
+}
+
+function isCloaked(hwnd) {
+  if (!DwmGetWindowAttribute) return false;
+  const value = [0];
+  try {
+    if (DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, value, 4) !== 0) return false;
+    return value[0] !== 0;
+  } catch (_err) {
+    return false;
+  }
+}
+
+// 끄는 그림 창은 항상 커서 위에 있다. 그것을 창으로 보면 바탕화면이 다른 프로그램이 된다.
+// 우리 창, 마우스를 통과시키는 창, 숨겨 둔 창은 건너뛰고 그 아래의 맨 위 창을 집는다.
+function visibleTopAt(physical, mine) {
+  let cur = null;
+  try {
+    cur = GetWindow(GetDesktopWindow(), GW_CHILD);
+  } catch (_err) {
+    return null;
+  }
+  for (let i = 0; i < 80 && cur; i += 1) {
+    const key = hwndNumber(cur);
+    const ours = (!!key && mine.has(key)) || windowPid(cur) === process.pid;
+    let visible = false;
+    try {
+      visible = !!IsWindowVisible(cur);
+    } catch (_err) {
+      visible = false;
+    }
+    const surface = isSurfaceWindow({
+      ours,
+      visible,
+      cloaked: isCloaked(cur),
+      transparent: (exStyle(cur) & WS_EX_TRANSPARENT) !== 0,
+    });
+    if (surface && rectHas(cur, physical)) return cur;
+    try {
+      cur = GetWindow(cur, GW_HWNDNEXT);
+    } catch (_err) {
+      break;
+    }
+  }
+  return null;
+}
+
+// 커서 아래의 맨 위 창. 우리 창과 끄는 그림은 건너뛴다.
+function surfaceAt(point, ownHwnds) {
+  if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
+  const physical = toPhysical(point);
+  const mine = new Set((ownHwnds || []).map((id) => Number(id)).filter((id) => id));
+  let hwnd = visibleTopAt(physical, mine);
+  if (!hwnd) {
+    try {
+      hwnd = WindowFromPoint({ x: physical.x, y: physical.y });
+    } catch (_err) {
+      hwnd = null;
+    }
+  }
+  if (!hwnd) return null;
+  const hit = topWindow(hwnd, mine);
+  const pid = windowPid(hit.top) || windowPid(hwnd);
+  return {
+    className: className(hit.top),
+    ours: hit.ours || (!!pid && pid === process.pid),
+  };
+}
+
+// 커서 아래가 다른 프로그램이면 참. 우리 창과 바탕화면, 작업 표시줄은 아니다.
+function foreignAt(point, ownHwnds) {
+  const hit = surfaceAt(point, ownHwnds);
+  if (!hit) return false;
+  return isForeignTarget(hit.className, hit.ours);
+}
+
+// 커서 아래가 바탕화면인가. 박스에서 끌어 바탕화면에 놓을 때 쓴다.
+function onDesktop(point, ownHwnds) {
+  const hit = surfaceAt(point, ownHwnds);
+  if (!hit || hit.ours) return false;
+  return isDesktopTarget(hit.className, '');
 }
 
 function toDipPoint(pos) {
@@ -965,6 +1151,22 @@ function noteHome(name) {
   }));
 }
 
+// 끌어다 놓은 자리에 아이콘을 둔다. point 는 커서(DIP)다.
+// 그림이 손 아래에 그대로 있게 왼쪽 위를 조금 당겨 놓는다.
+function putAt(name, point) {
+  if (!name || !point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
+  const physical = toPhysical({ x: point.x - 16, y: point.y - 8 });
+  const x = Math.max(0, physical.x);
+  const y = Math.max(0, physical.y);
+  return guard(() => withList((session) => {
+    if (!session) return false;
+    const icon = readAll(session).find((entry) => sameName(entry.name, name));
+    if (!icon) return false;
+    homes.set(keyOf(icon.name), { x, y });
+    return applyMoves(session, [{ index: icon.index, x, y }]);
+  }));
+}
+
 // 바탕화면으로 돌려준 아이콘을 적어 둔 자리에 놓는다.
 // 자리를 모르면 탐색기가 정한 자리에 그대로 둔다.
 function putHome(names) {
@@ -1009,7 +1211,7 @@ function className(hwnd) {
 // 바탕화면 빈 곳에서 왼쪽 단추로 사각형을 끌면 그 자리를 알려 준다.
 // 사각형이 아니어도 바탕화면에서 손을 떼면 onSettle 을 부른다.
 // 담긴 아이콘은 목록에 없으므로 끄는 동안 그려질 일이 없다. 그래서 그리기를 멈추지 않는다.
-function watchDrag(onRect, onSettle, onDrop) {
+function watchDrag(onRect, onSettle, onDrop, onHover) {
   let start = null;
   let held = null;
   let wasDown = false;
@@ -1019,6 +1221,14 @@ function watchDrag(onRect, onSettle, onDrop) {
     if (typeof onSettle !== 'function') return;
     clearTimeout(settleTimer);
     settleTimer = setTimeout(onSettle, 150);
+  };
+  const preview = (item, pos) => {
+    if (typeof onHover !== 'function') return;
+    try {
+      onHover(item, pos ? toDipPoint(pos) : null);
+    } catch (_err) {
+      /* 보여 주지 못해도 놓는 일은 그대로다. */
+    }
   };
   const timer = setInterval(() => {
     let down = false;
@@ -1034,16 +1244,20 @@ function watchDrag(onRect, onSettle, onDrop) {
       const onDesktop = desktopAt(pos);
       const icon = onDesktop ? iconUnder(pos) : null;
       // 휴지통처럼 파일이 아닌 항목도 여기서 잡아 둔다. 손을 떼는 곳이 박스면 그 박스로 넣는다.
-      held = icon ? { name: icon.name, x: pos.x, y: pos.y } : null;
+      held = icon ? { name: icon.name, x: pos.x, y: pos.y, item: itemForIcon(icon) } : null;
       // 빈 곳에서 시작한 끌기만 새 박스 후보이다. 아이콘 위는 그 아이콘을 옮기는 것이다.
       start = onDesktop && !icon ? { x: pos.x, y: pos.y } : null;
+    } else if (down && held && held.item) {
+      // 박스 위로 끌고 오는 동안 넣을 자리를 보여 준다.
+      preview(held.item, pos);
     } else if (!down && wasDown) {
+      preview(null, null);
       // 떼는 순간 탐색기가 화면 밖 아이콘을 끌어낸다. 곧바로, 그리고 잠깐 더 쫓아가 되치운다.
       const dragged = held;
       held = null;
       if (dragged && movedEnough(dragged, pos) && typeof onDrop === 'function') {
         try {
-          const item = itemForIcon(dragged);
+          const item = dragged.item || itemForIcon(dragged);
           // 놓는 일은 비동기다. 거절된 약속을 받아 두지 않으면 앱이 죽는다.
           if (item) Promise.resolve(onDrop(item, toDipPoint(pos))).catch(() => {});
         } catch (_err) {
@@ -1501,8 +1715,11 @@ module.exports = {
   noteHome,
   refreshFolder,
   putHome,
+  putAt,
+  onDesktop,
   unstashFile,
   mouseDown,
+  foreignAt,
   watchDrag,
   watchDoubleClick,
   emptyRecycle,

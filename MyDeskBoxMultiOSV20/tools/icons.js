@@ -377,6 +377,33 @@ const icons = {
   'lang-ko': flagKR,
   'lang-en': flagUK,
 
+  // 두 장을 겹쳐 복사처럼 보이게 한다.
+  copy(canvas) {
+    const back = d.roundRect(0.40, 0.42, 0.22, 0.26, 0.05);
+    const front = d.roundRect(0.58, 0.60, 0.22, 0.26, 0.05);
+    canvas.fill(d.outline(back, 0.042), BLUE_G);
+    canvas.fill(front, WASH);
+    canvas.fill(d.outline(front, 0.042), BLUE_G);
+  },
+
+  // 가위. 잘라내기는 복사와 그림이 달라야 메뉴에서 바로 구분된다.
+  cut(canvas) {
+    canvas.fill(d.outline(d.circle(0.30, 0.28, 0.12), 0.04), BLUE_G);
+    canvas.fill(d.outline(d.circle(0.30, 0.72, 0.12), 0.04), BLUE_G);
+    canvas.fill(d.capsule(0.40, 0.36, 0.84, 0.78, 0.035), BLUE_G);
+    canvas.fill(d.capsule(0.40, 0.64, 0.84, 0.22, 0.035), BLUE_G);
+  },
+
+  // 클립보드. 붙여넣기는 판 위에 클립이 달린 모양이다.
+  paste(canvas) {
+    const board = d.roundRect(0.50, 0.58, 0.26, 0.30, 0.06);
+    canvas.fill(board, WASH);
+    canvas.fill(d.outline(board, 0.042), BLUE_G);
+    canvas.fill(d.roundRect(0.50, 0.30, 0.12, 0.07, 0.03), BLUE_G);
+    canvas.fill(d.capsule(0.34, 0.70, 0.66, 0.70, 0.028), BLUE_G);
+    canvas.fill(d.capsule(0.34, 0.58, 0.58, 0.58, 0.028), BLUE_G);
+  },
+
   remove(canvas) {
     const can = d.convex([[0.30, 0.36], [0.70, 0.36], [0.64, 0.84], [0.36, 0.84]], 0.03);
     canvas.fill(can, WASH_RED);

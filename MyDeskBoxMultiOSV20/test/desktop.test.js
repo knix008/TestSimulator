@@ -49,6 +49,22 @@ test('바로가기 이름은 확장자를 떼고 견준다', () => {
   assert.equal(files.sameName('', 'MyClock.lnk'), false);
 });
 
+test('확장자를 감춘 바탕화면 이름도 그 파일이다', () => {
+  const notes = { name: '노트.txt', path: 'D:/Desktop/노트.txt' };
+  const link = { name: '시계.lnk', path: 'D:/Desktop/시계.lnk' };
+  const photo = { name: '사진.png', path: 'D:/Desktop/사진.png' };
+  const entries = [notes, link, photo];
+  assert.equal(files.matchDesktopEntry('노트', entries), notes);
+  assert.equal(files.matchDesktopEntry('노트.txt', entries), notes);
+  assert.equal(files.matchDesktopEntry('시계', entries), link);
+  assert.equal(files.matchDesktopEntry('사진', entries), photo);
+  assert.equal(files.matchDesktopEntry('없는것', entries), null);
+  assert.equal(files.matchDesktopEntry('', entries), null);
+  // 같은 글의 파일이 둘이면 어느 것인지 집지 않는다.
+  const twin = [notes, { name: '노트.md', path: 'D:/Desktop/노트.md' }];
+  assert.equal(files.matchDesktopEntry('노트', twin), null);
+});
+
 // 계측으로 잡은 것이다. LVM_SETWORKAREAS 를 한 번 보내면 바탕화면 아이콘의 그림이
 // 모두 사라지고 이름만 남는다. 탐색기를 다시 띄우기 전에는 돌아오지 않는다.
 // 앱을 켤 때마다 normalizeList 가 이것을 보내고 있었다.

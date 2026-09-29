@@ -373,7 +373,11 @@ ${detail}`);
     stopDrag = desktop.watchDrag(
       (rect) => host.offerFence(rect),
       () => host.refreshIcons(),
-      (item, dip) => host.acceptDesktopDrop(item, dip)
+      (item, dip) => host.acceptDesktopDrop(item, dip),
+      (item, dip) => {
+        if (!item || !dip) host.clearHover();
+        else host.hoverIncoming(item.path, dip.x, dip.y);
+      }
     );
     stopWatch = desktop.watchDesktop(() => host.refreshIcons());
     // 앞선 실행이 갑자기 끝나 보관함에 남은 파일이 있으면 먼저 제자리로 돌려놓는다.

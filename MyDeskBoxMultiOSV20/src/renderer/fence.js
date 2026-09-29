@@ -22,6 +22,10 @@ let hover = null;
 let drag = null;
 // 이름을 바꾸고 있는 아이콘. { path, el, input }
 let editing = null;
+// 글쇠로 복사·잘라내기 할 항목. 누른 아이콘이 그 대상이다.
+let picked = null;
+// 잘라 둔 항목. 붙여넣기 전까지 흐리게 보여 준다.
+let cutPath = null;
 // 한 번 눌러 열지, 두 번 눌러 열지. 설정에서 고른다.
 let openWith = 'double';
 // 창은 그림자를 켜면 박스보다 사방으로 이만큼 크다.
@@ -79,11 +83,14 @@ function ensureIcon(item) {
     el.type = 'button';
     el.className = 'icon';
     el.dataset.path = item.path;
-    el.innerHTML = '<img alt=""><i class="mark"></i><span></span>';
+    el.innerHTML = '<img alt="" draggable="false"><i class="mark"></i><span></span>';
     el.addEventListener('pointerdown', onIconDown);
+    el.addEventListener('dragstart', onIconDragStart);
+    el.addEventListener('click', onIconClick);
     el.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      pick(item.path);
       desk.menu(id, item.path);
     });
     body.appendChild(el);
@@ -92,6 +99,10 @@ function ensureIcon(item) {
   el.classList.toggle('folder', !!item.folder);
   el.classList.toggle('recycle', !!item.recycle);
   el.classList.toggle('hot', receiver() === item.path);
+  el.classList.toggle('picked', item.path === picked);
+  el.classList.toggle('cut', item.path === cutPath);
+  // 파일과 바로가기만 다른 프로그램으로 넘긴다. 휴지통은 놓을 파일이 없다.
+  el.draggable = canHandOff(item);
   el.querySelector('span').textContent = item.label || item.name;
   const img = el.querySelector('img');
   if (item.icon) img.src = item.icon;
@@ -185,22 +196,98 @@ function receiverAt(clientX, clientY, exceptPath) {
   return null;
 }
 
+// 이 창 밖으로 나갔는가. 포인터를 잡아 두면 창 밖 좌표도 들어온다.
+function leftWindow(ev) {
+  return ev.clientX < 0 || ev.clientY < 0
+    || ev.clientX >= window.innerWidth || ev.clientY >= window.innerHeight;
+}
+
+// 휴지통 같은 셸 항목은 넘길 파일이 없다.
+function canHandOff(item) {
+  if (!item || item.recycle) return false;
+  return !String(item.path || '').startsWith('shell:');
+}
+
+// 다른 실행 중인 프로그램으로 넘기는 길.
+// 이 시작점(dragstart)에서 넘겨야 그 프로그램이 파일을 받는다.
+// 마우스를 움직이는 도중에 넘기면 운영체제가 끌기를 바로 끝내 버린다.
+function onIconDragStart(event) {
+  const el = event.currentTarget;
+  const item = itemByPath(el.dataset.path);
+  if (!canHandOff(item) || (editing && editing.el === el)) {
+    event.preventDefault();
+    return;
+  }
+  event.preventDefault();
+  el.dataset.handed = '1';
+  desk.dragOut(item.path);
+}
+
+// 끌어 낸 뒤에 남는 클릭으로는 열지 않는다.
+function onIconClick(event) {
+  const el = event.currentTarget;
+  if (el.dataset.handed) {
+    delete el.dataset.handed;
+    event.preventDefault();
+    return;
+  }
+  const item = itemByPath(el.dataset.path);
+  if (!canHandOff(item)) return;
+  if (openWith === 'single' || taps.tap(item.path)) desk.open(item.path);
+}
+
+function pick(filePath) {
+  picked = filePath || null;
+  for (const node of body.querySelectorAll('.icon')) {
+    node.classList.toggle('picked', node.dataset.path === picked);
+  }
+}
+
 function onIconDown(event) {
   if (event.button !== 0 || !fence) return;
+  pick(event.currentTarget.dataset.path);
   // 이름을 바꾸는 중인 아이콘은 끌지 않는다. 글자를 고르는 손짓이다.
   if (editing && editing.el === event.currentTarget) return;
-  event.preventDefault();
-  event.stopPropagation();
   const el = event.currentTarget;
   const filePath = el.dataset.path;
   const item = itemByPath(filePath);
+  if (canHandOff(item)) {
+    // preventDefault 를 하면 dragstart 가 나지 않아, 다른 프로그램이 파일을 받지 못한다.
+    event.stopPropagation();
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
   const startX = event.screenX;
   const startY = event.screenY;
   let moved = false;
   el.setPointerCapture(event.pointerId);
+  const stop = () => {
+    el.removeEventListener('pointermove', move);
+    el.removeEventListener('pointerup', up);
+  };
   const move = (ev) => {
     if (Math.abs(ev.screenX - startX) + Math.abs(ev.screenY - startY) < 4) return;
     moved = true;
+    // 파일과 바로가기는 다른 프로그램 위에서 그 프로그램이 받을 수 있게 넘긴다.
+    // 박스와 바탕화면 위에서는 지금처럼 우리가 옮긴다. 휴지통은 넘기지 않는다.
+    if (canHandOff(item) && leftWindow(ev) && desk.overForeign(ev.screenX, ev.screenY)) {
+      stop();
+      try {
+        el.releasePointerCapture(ev.pointerId);
+      } catch (_err) {
+        /* 이미 풀려 있을 수 있다. */
+      }
+      drag = null;
+      desk.hover(null);
+      layout();
+      if (desk.dragOut(filePath)) {
+        taps.forget();
+        return;
+      }
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+    }
     drag = {
       path: filePath,
       label: item ? item.label : '',
@@ -217,8 +304,7 @@ function onIconDown(event) {
     layout();
   };
   const up = (ev) => {
-    el.removeEventListener('pointermove', move);
-    el.removeEventListener('pointerup', up);
+    stop();
     if (!moved) {
       if (openWith === 'single' || taps.tap(filePath)) desk.open(filePath);
       return;
@@ -296,6 +382,36 @@ panel.addEventListener('contextmenu', (event) => {
   desk.menu(id, null);
 });
 
+// 아이콘이 아닌 곳을 누르면 고른 표시를 거둔다.
+panel.addEventListener('pointerdown', (event) => {
+  const icon = event.target.closest && event.target.closest('.icon');
+  if (!icon) pick(null);
+});
+
+// 고른 항목을 복사하거나 잘라 두고, 클립보드에 있는 것을 이 박스에 붙인다.
+// 이름을 적는 중에는 그 글자를 복사해야 하므로 입력칸의 글쇠는 건드리지 않는다.
+document.addEventListener('keydown', (event) => {
+  const tag = event.target && event.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+  const key = String(event.key || '').toLowerCase();
+  if (key === 'c' && picked) {
+    event.preventDefault();
+    cutPath = null;
+    desk.copyItem(id, picked);
+    layout();
+  } else if (key === 'x' && picked) {
+    event.preventDefault();
+    cutPath = picked;
+    desk.cutItem(id, picked);
+    layout();
+  } else if (key === 'v') {
+    event.preventDefault();
+    cutPath = null;
+    desk.paste(id);
+  }
+});
+
 for (const handle of document.querySelectorAll('.edge')) {
   handle.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 || !fence || fence.collapsed) return;
@@ -362,11 +478,13 @@ body.addEventListener('scroll', () => {
   layout();
 });
 
-// 탐색기에서 끌어다 놓는 길. 박스 안의 아이콘을 끄는 길과 다르다.
-body.addEventListener('dragover', (event) => {
+// 탐색기나 바탕화면에서 끌어다 놓는 길. 박스 안의 아이콘을 끄는 길과 다르다.
+// 제목 줄 위에 놓아도 들어가야 하므로 창 전체가 받는다.
+document.addEventListener('dragover', (event) => {
   event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
   if (!fence || drag) return;
-  // 탐색기에서 끌고 오는 동안에도 어느 항목 위인지 보여 준다.
+  // 끌고 오는 동안에도 어느 항목 위인지 보여 준다.
   // 놓고 나서야 알게 되면 휴지통이나 폴더를 겨누기가 어렵다.
   hover = {
     filePath: '__external__',
@@ -377,14 +495,16 @@ body.addEventListener('dragover', (event) => {
   layout();
 });
 
-body.addEventListener('dragleave', () => {
+document.addEventListener('dragleave', (event) => {
+  // 창 안의 다른 칸으로 옮겨 간 것은 떠난 것이 아니다.
+  if (event.relatedTarget) return;
   if (hover && hover.filePath === '__external__') {
     hover = null;
     layout();
   }
 });
 
-body.addEventListener('drop', (event) => {
+document.addEventListener('drop', (event) => {
   event.preventDefault();
   const grid = window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, false);
   const index = window.DeskArrange.insertIndex(localX(event.clientX), scrolled(localY(event.clientY)), grid, items.length);
@@ -479,6 +599,8 @@ desk.onState((payload) => {
   items = payload.items || [];
   // 이름을 바꾸던 항목이 목록에서 빠졌으면(이름이 바뀌었거나 없어졌다) 입력칸을 거둔다.
   if (editing && !items.some((item) => item.path === editing.path)) stopItemRename();
+  if (picked && !items.some((item) => item.path === picked)) picked = null;
+  if (cutPath && !items.some((item) => item.path === cutPath)) cutPath = null;
   openWith = payload.openWith === 'single' ? 'single' : 'double';
   edge = payload.shadow ? window.DeskArrange.SHADOW : 0;
   panel.classList.toggle('shadow', !!payload.shadow);

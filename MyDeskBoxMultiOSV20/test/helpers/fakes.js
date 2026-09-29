@@ -86,6 +86,8 @@ class FakeWindow extends EventEmitter {
     this.alwaysOnTop = value;
   }
 
+  setIgnoreMouseEvents() {}
+
   setVisibleOnAllWorkspaces() {}
 
   close() {
@@ -142,6 +144,10 @@ function makeElectron(userData) {
     constructor(options) {
       super(options);
       windows.push(this);
+    }
+
+    static getAllWindows() {
+      return windows.filter((win) => !win.isDestroyed());
     }
   }
 
@@ -295,7 +301,7 @@ function makeDesktop() {
   const calls = {
     gather: [], release: [], moved: [], placed: [], blocks: [], drags: [],
     emptied: 0, binOwners: [], shutdown: 0, shell: [], hidden: [], revealed: [],
-    nudged: [], homed: [], refreshed: [], concealedDirs: [],
+    nudged: [], homed: [], refreshed: [], concealedDirs: [], placedAt: [],
   };
   // 검사에서 바탕화면으로 볼 폴더. 기본은 없다.
   let deskDirs = [];
@@ -376,6 +382,11 @@ function makeDesktop() {
         calls.homed.push((names || []).slice());
         return true;
       },
+      // 끌어다 놓은 자리에 아이콘을 둔다.
+      putAt(name, point) {
+        calls.placedAt.push({ name, point });
+        return true;
+      },
       hideFile(filePath) {
         if (concealed.has(filePath)) return false;
         concealed.add(filePath);
@@ -420,6 +431,8 @@ function makeDesktop() {
 // fences.js 를 가짜 모듈과 함께 새로 읽어 온다.
 function loadHost(state) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-test-'));
+  // 복사·붙여넣기 검사는 메모리만 쓴다. 쓰는 사람의 클립보드를 바꾸면 안 된다.
+  require(path.join(__dirname, '..', '..', 'src', 'main', 'clipfiles')).useMemory();
   const electron = makeElectron(userData);
   const desktop = makeDesktop();
   const root = path.join(__dirname, '..', '..', 'src', 'main');
@@ -490,6 +503,7 @@ function loadHost(state) {
 // main.js 를 가짜 모듈과 함께 띄운다. 시작과 종료 절차를 그대로 밟아 볼 수 있다.
 async function loadMain(state) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-main-'));
+  require(path.join(__dirname, '..', '..', 'src', 'main', 'clipfiles')).useMemory();
   const electron = makeElectron(userData);
   const desktop = makeDesktop();
   const root = path.join(__dirname, '..', '..', 'src', 'main');

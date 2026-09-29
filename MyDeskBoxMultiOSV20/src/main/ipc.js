@@ -28,6 +28,17 @@ function install(host) {
     else host.hover(payload.filePath, payload.screenX, payload.screenY, payload.icon);
   });
 
+  // 창이 끄는 도중에 묻는다. 답이 와야 그 손짓을 운영체제에 넘길지 정하므로 바로 돌려준다.
+  ipcMain.on('fence:over-foreign', (event, payload) => {
+    const point = payload || {};
+    event.returnValue = !!host.overForeign(point.screenX, point.screenY);
+  });
+
+  // 다른 프로그램으로 파일을 넘긴다. 마우스를 누른 동안 끝나야 하므로 여기서 기다린다.
+  ipcMain.on('fence:drag-out', (event, filePath) => {
+    event.returnValue = !!host.dragOut(event.sender, filePath);
+  });
+
   ipcMain.handle('fence:collapse', (_event, payload) => {
     host.setCollapsed(payload.id, payload.collapsed);
   });
@@ -39,6 +50,12 @@ function install(host) {
     payload.screenX,
     payload.screenY
   ));
+
+  ipcMain.handle('fence:copy', (_event, payload) => host.copyItem(payload.id, payload.filePath));
+
+  ipcMain.handle('fence:cut', (_event, payload) => host.cutItem(payload.id, payload.filePath));
+
+  ipcMain.handle('fence:paste', (_event, id) => host.pasteFiles(id));
 
   ipcMain.handle('fence:drop', (_event, payload) => host.dropFiles(
     payload.id,

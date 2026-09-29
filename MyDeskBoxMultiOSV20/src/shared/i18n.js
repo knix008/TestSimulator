@@ -46,6 +46,9 @@
       'tray.quit': '종료',
 
       'menu.open': '열기',
+      'menu.copy': '복사',
+      'menu.cut': '잘라내기',
+      'menu.paste': '붙여넣기',
       'menu.emptyBin': '휴지통 비우기',
       'menu.eject': '바탕화면으로 꺼내기',
       'menu.delete': '삭제',
@@ -78,6 +81,10 @@
       'dialog.freshDetail': "같은 이름이 '{title}' 박스에 이미 있습니다. 대체하면 새로 만든 것이 박스로 들어가고, 박스에 있던 것은 휴지통으로 갑니다.",
       'dialog.freshGo': '대체',
       'dialog.freshKeep': '새로 만들기',
+      'dialog.link': "'{name}' 바로가기를 꺼냅니다.",
+      'dialog.linkDetail': '가리키는 항목이 박스에 있습니다. 바로가기만 바꿀까요, 아니면 그 항목을 새로 만들어 꺼낼까요?',
+      'dialog.linkOnly': '바로가기만 대체',
+      'dialog.linkNew': '새로 만들기',
 
       'box.folder': '폴더',
       'box.shortcut': '바로가기',
@@ -143,6 +150,9 @@
       'tray.quit': 'Quit',
 
       'menu.open': 'Open',
+      'menu.copy': 'Copy',
+      'menu.cut': 'Cut',
+      'menu.paste': 'Paste',
       'menu.emptyBin': 'Empty Recycle Bin',
       'menu.eject': 'Move to Desktop',
       'menu.delete': 'Delete',
@@ -175,6 +185,10 @@
       'dialog.freshDetail': "'{title}' already holds an item with that name. Replacing moves the new one into the box and sends the one in the box to the trash.",
       'dialog.freshGo': 'Replace',
       'dialog.freshKeep': 'Keep the new one',
+      'dialog.link': "Taking the shortcut '{name}' out.",
+      'dialog.linkDetail': 'It points at something still in a box. Replace only the shortcut, or make a new copy of that item outside?',
+      'dialog.linkOnly': 'Shortcut only',
+      'dialog.linkNew': 'Make a new one',
 
       'box.folder': 'Folders',
       'box.shortcut': 'Shortcuts',

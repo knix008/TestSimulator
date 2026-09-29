@@ -437,6 +437,60 @@ test('박스 밖에 놓으면 바탕화면으로 돌아간다', async () => {
   assert.equal(fs.existsSync(path.join(home, 'outside-a.txt')), true, '바탕화면으로 돌아가지 않았다');
 });
 
+test('바탕화면에 끌어다 놓으면 그 자리에 꺼낸다', async () => {
+  const one = realItem('deskdrop-a.txt');
+  const link = realItem('deskdrop-b.lnk');
+  const home = path.dirname(one.path);
+  const state = baseState({ fences: [fence({ items: [one, link] })] });
+  const { host, electron, desktop } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+
+  await host.transfer('a', state.fences[0].items[0].path, 1200, 360);
+  await host.transfer('a', state.fences[0].items[0].path, 1400, 240);
+
+  assert.deepEqual(state.fences[0].items, [], '바탕화면에 놓았는데 박스에 남았다');
+  assert.equal(fs.existsSync(path.join(home, 'deskdrop-a.txt')), true, '파일이 바탕화면으로 가지 않았다');
+  assert.equal(fs.existsSync(path.join(home, 'deskdrop-b.lnk')), true, '바로가기가 바탕화면으로 가지 않았다');
+  assert.deepEqual(desktop.calls.placedAt.map((entry) => entry.point), [
+    { x: 1200, y: 360 },
+    { x: 1400, y: 240 },
+  ]);
+});
+
+test('휴지통을 바탕화면에 끌어다 놓으면 박스에서 나온다', async () => {
+  const state = baseState({
+    fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
+  });
+  const { host, electron, desktop } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+
+  await host.transfer('a', 'shell:RecycleBinFolder', 1400, 220);
+
+  assert.deepEqual(state.fences[0].items, [], '휴지통이 박스에 남았다');
+  assert.deepEqual(desktop.calls.placedAt.at(-1), { name: '휴지통', point: { x: 1400, y: 220 } });
+});
+
+test('바탕화면에서 끌어 오는 동안 넣을 자리를 보여 주고 따라다니는 창은 띄우지 않는다', () => {
+  const one = realItem('incoming-a.txt');
+  const state = baseState({ fences: [fence({ id: 'a', items: [] }), fence({ id: 'b', x: 700 })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  const where = fenceWindows(electron)[1].getBounds();
+
+  host.hoverIncoming(one.path, where.x + 40, where.y + 80);
+  const ghost = electron.windows.find((win) => win.loaded && /ghost\.html$/.test(win.loaded.file));
+  assert.equal(ghost.isVisible(), false, '바탕화면 끌기에 우리 그림을 겹쳤다');
+  const hover = fenceWindows(electron)[1].messages('fence:hover').at(-1);
+  assert.equal(hover.filePath, one.path, '놓을 박스가 끌기를 모른다');
+
+  host.hoverIncoming(null, 0, 0);
+  assert.equal(fenceWindows(electron)[1].messages('fence:hover').at(-1), null, '손을 뗐는데 빈자리가 남았다');
+});
+
 test('바탕화면에서 박스로 끌어다 놓으면 담긴다', async () => {
   const one = realItem('indrop-a.txt');
   const state = baseState({ fences: [fence({ title: '받는 박스' })] });
@@ -483,6 +537,184 @@ test('끄는 동안 어느 박스 위인지 알려 준다', () => {
   for (const win of [first, second]) {
     assert.equal(win.messages('fence:hover').at(-1), null, '손을 뗐는데 빈자리가 남았다');
   }
+});
+
+// 파일과 바로가기는 다른 프로그램이 받을 수 있게 넘긴다.
+// 휴지통은 파일이 아니라서 넘길 것이 없다.
+test('파일과 바로가기는 다른 프로그램으로 끌어 낼 수 있다', () => {
+  const file = realItem('hand-a.txt');
+  const link = realItem('hand-b.lnk');
+  const state = baseState({ fences: [fence({ items: [file, link] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const dragged = [];
+  const contents = fenceWindows(electron)[0].webContents;
+  contents.startDrag = (item) => dragged.push(item);
+
+  for (const item of state.fences[0].items) {
+    assert.equal(host.dragOut(contents, item.path), true, `${item.name} 을 넘기지 못했다`);
+  }
+  assert.deepEqual(dragged.map((item) => item.file), state.fences[0].items.map((item) => path.resolve(item.path)));
+  assert.equal(dragged.every((item) => item.icon), true, '끌기 그림이 없다');
+  assert.equal(state.fences[0].items.length, 2, '복사만 된 파일이 박스에서 빠졌다');
+});
+
+test('휴지통은 다른 프로그램으로 끌어 낼 수 없다', () => {
+  const state = baseState({ fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  const dragged = [];
+  const contents = fenceWindows(electron)[0].webContents;
+  contents.startDrag = (item) => dragged.push(item);
+
+  assert.equal(host.dragOut(contents, 'shell:RecycleBinFolder'), false);
+  assert.equal(dragged.length, 0, '휴지통을 다른 프로그램에 넘겼다');
+  assert.equal(state.fences[0].items[0].path, 'shell:RecycleBinFolder');
+});
+
+test('바탕화면에 놓으면 박스에 있던 파일을 지운다', () => {
+  const one = realItem('out-desk.txt');
+  const home = path.dirname(one.path);
+  const state = baseState({ fences: [fence({ items: [one] })] });
+  const { host, electron, desktop } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  desktop.module.onDesktop = () => true;
+  const contents = fenceWindows(electron)[0].webContents;
+  contents.startDrag = () => {};
+
+  assert.equal(host.dragOut(contents, held), true);
+  assert.deepEqual(state.fences[0].items, [], '바탕화면에 놓았는데 박스에 남았다');
+  assert.equal(fs.existsSync(held), false, '박스 폴더에 파일이 남았다');
+  assert.equal(fs.existsSync(path.join(home, 'out-desk.txt')), true, '파일이 바탕화면으로 돌아가지 않았다');
+});
+
+test('바탕화면이 파일을 복사해 가져가면 박스에 남은 것은 지운다', () => {
+  const one = realItem('out-copy.txt');
+  const home = path.dirname(one.path);
+  const deskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-desk-'));
+  const state = baseState({ fences: [fence({ items: [one] })] });
+  const { host, electron, desktop } = loadHost(state);
+  desktop.useDesktop(deskDir);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  desktop.module.onDesktop = () => true;
+  const contents = fenceWindows(electron)[0].webContents;
+  contents.startDrag = (item) => fs.copyFileSync(item.file, path.join(deskDir, path.basename(item.file)));
+
+  assert.equal(host.dragOut(contents, held), true);
+  assert.deepEqual(state.fences[0].items, [], '복사된 파일이 박스에 남았다');
+  assert.equal(fs.existsSync(held), false, '박스 폴더에 파일이 남았다');
+  assert.equal(fs.existsSync(path.join(deskDir, 'out-copy.txt')), true, '바탕화면의 복사가 사라졌다');
+  assert.equal(fs.existsSync(path.join(home, 'out-copy.txt')), false, '같은 파일이 두 벌이 되었다');
+});
+
+test('바로가기만 대체하면 가리키던 항목은 박스에 남는다', async () => {
+  const file = realItem('aim-stay.txt');
+  const link = realItem('aim-stay.lnk');
+  const home = path.dirname(file.path);
+  const state = baseState({ fences: [fence({ items: [file, link] })] });
+  const { host, electron, asks } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const heldLink = state.fences[0].items.find((item) => item.name === 'aim-stay.lnk');
+  const heldFile = state.fences[0].items.find((item) => item.name === 'aim-stay.txt');
+  electron.shell.links.set(heldLink.path, { target: file.path });
+  electron.setDialogAnswer(0);
+
+  await host.eject('a', heldLink.path);
+
+  assert.equal(asks.calls.at(-1).confirm, '바로가기만 대체');
+  assert.equal(asks.calls.at(-1).cancel, '새로 만들기');
+  assert.equal(state.fences[0].items.length, 1, '바로가기만 바꾸는데 항목까지 나갔다');
+  assert.equal(state.fences[0].items[0].path, heldFile.path);
+  assert.equal(fs.existsSync(path.join(home, 'aim-stay.lnk')), true, '바로가기가 나가지 않았다');
+  assert.equal(fs.existsSync(heldFile.path), true, '항목이 박스에서 사라졌다');
+});
+
+test('새로 만들기를 고르면 바로가기가 가리키던 항목도 박스에서 나간다', async () => {
+  const file = realItem('aim.txt');
+  const link = realItem('aim.lnk');
+  const home = path.dirname(file.path);
+  const state = baseState({ fences: [fence({ items: [file, link] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const heldLink = state.fences[0].items.find((item) => item.name === 'aim.lnk');
+  electron.shell.links.set(heldLink.path, { target: file.path });
+  electron.setDialogAnswer(1);
+
+  await host.eject('a', heldLink.path);
+
+  assert.equal(state.fences[0].items.length, 0, '바로가기가 가리키던 항목이 박스에 남았다');
+  assert.equal(fs.existsSync(path.join(home, 'aim.lnk')), true, '바로가기가 나가지 않았다');
+  assert.equal(fs.existsSync(path.join(home, 'aim.txt')), true, '가리키던 항목이 나가지 않았다');
+});
+
+test('바로가기만 생기면 그 항목을 박스 밖으로 옮긴다', async () => {
+  const one = realItem('linked-item.txt');
+  const home = path.dirname(one.path);
+  const deskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-link-'));
+  const state = baseState({ fences: [fence({ items: [one] })] });
+  const { host, electron, desktop } = loadHost(state);
+  desktop.useDesktop(deskDir);
+  desktop.module.onDesktop = () => false;
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  const contents = fenceWindows(electron)[0].webContents;
+  contents.startDrag = (item) => {
+    const lnk = path.join(deskDir, 'linked-item.txt.lnk');
+    fs.writeFileSync(lnk, '');
+    electron.shell.links.set(lnk, { target: item.file });
+  };
+  electron.setDialogAnswer(1);
+
+  assert.equal(await host.dragOut(contents, held), true);
+  assert.equal(state.fences[0].items.length, 0, '바로가기만 나가고 항목은 박스에 남았다');
+  assert.equal(fs.existsSync(held), false, '박스 폴더에 항목이 남았다');
+  assert.equal(fs.existsSync(path.join(home, 'linked-item.txt')), true, '항목이 박스 밖으로 나가지 않았다');
+  assert.equal(fs.existsSync(path.join(deskDir, 'linked-item.txt.lnk')), false, '바로가기만 바탕화면에 남았다');
+});
+
+test('다른 프로그램이 파일을 가져가면 박스에서도 빠진다', () => {
+  const one = realItem('taken-a.txt');
+  const state = baseState({ fences: [fence({ items: [one] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  const contents = fenceWindows(electron)[0].webContents;
+  contents.startDrag = (item) => fs.rmSync(item.file);
+
+  assert.equal(host.dragOut(contents, held), true);
+  assert.equal(fs.existsSync(held), false);
+  assert.deepEqual(state.fences[0].items, [], '가져간 파일이 박스에 남았다');
+});
+
+test('다른 프로그램 위인지는 바탕화면 쪽에 묻는다', () => {
+  const { host, desktop } = openOne();
+  assert.equal(host.overForeign(3, 4), false, '모르는 자리를 다른 프로그램으로 본다');
+  let seen = null;
+  desktop.module.foreignAt = (point, handles) => {
+    seen = { point, handles };
+    return point.x === 9;
+  };
+  assert.equal(host.overForeign(9, 8), true);
+  assert.deepEqual(seen.point, { x: 9, y: 8 });
+  assert.ok(seen.handles.length > 0, '우리 창 번호를 넘기지 않았다');
+  assert.equal(host.overForeign(1, 2), false);
 });
 
 // 박스는 사용자가 놓은 자리에 머물러야 한다. 저 혼자 걸어 다니면 안 된다.
@@ -811,4 +1043,106 @@ test('박스에 같은 이름이 있으면 담을 때 대체할지 묻는다', a
   // 비운 자리의 이름을 그대로 쓴다. 번호를 붙여 몰래 늘리지 않는다.
   assert.equal(state.fences[0].items[0].name, '보고서.txt');
   assert.equal(fs.readFileSync(state.fences[0].items[0].path, 'utf8'), '나중', '담은 것이 새 파일이 아니다');
+});
+
+// 끌어 놓기는 옮긴다. 복사해서 붙이면 바탕화면의 원본은 남고 박스에 사본이 생긴다.
+test('바탕화면에서 복사해 박스에 붙이면 원본은 남는다', async () => {
+  const desk = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-copy-'));
+  const source = path.join(desk, '노트.txt');
+  fs.writeFileSync(source, '남김');
+  const state = baseState({ fences: [fence({ title: '받는 박스' })] });
+  const { host, desktop } = loadHost(state);
+  desktop.useDesktop(desk);
+  host.openAll();
+  const clipfiles = require('../src/main/clipfiles');
+  clipfiles.write([source], clipfiles.COPY);
+
+  assert.equal(await host.pasteFiles('a'), true);
+  assert.equal(fs.existsSync(source), true, '복사인데 바탕화면 파일을 치웠다');
+  assert.equal(fs.readFileSync(source, 'utf8'), '남김');
+  assert.equal(state.fences[0].items.length, 1, '박스에 사본이 없다');
+  assert.equal(fs.readFileSync(state.fences[0].items[0].path, 'utf8'), '남김');
+  assert.equal(path.dirname(state.fences[0].items[0].path) === path.dirname(source), false, '사본이 바탕화면에 생겼다');
+  assert.equal(clipfiles.read().paths.length, 1, '복사는 한 번 붙여도 클립보드에 남는다');
+});
+
+// 잘라 붙이기는 옮긴다. 바탕화면에서는 빠지고 클립보드도 비운다.
+test('바탕화면에서 잘라 박스에 붙이면 원본이 박스 폴더로 간다', async () => {
+  const desk = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-cut-'));
+  const source = path.join(desk, '옮길.txt');
+  fs.writeFileSync(source, '이동');
+  const state = baseState({ fences: [fence()] });
+  const { host } = loadHost(state);
+  host.openAll();
+  const clipfiles = require('../src/main/clipfiles');
+  clipfiles.write([source], clipfiles.MOVE);
+
+  assert.equal(await host.pasteFiles('a'), true);
+  assert.equal(fs.existsSync(source), false, '잘라 붙였는데 바탕화면에 남았다');
+  assert.equal(state.fences[0].items.length, 1);
+  assert.equal(fs.readFileSync(state.fences[0].items[0].path, 'utf8'), '이동');
+  assert.equal(clipfiles.read().paths.length, 0, '잘라 붙인 뒤에도 클립보드에 남았다');
+});
+
+test('박스에서 복사하면 파일은 남고 바탕화면 붙여넣기가 받을 목록이 된다', () => {
+  const state = baseState({ fences: [fence({ items: [realItem('copy-me.txt')] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  const clipfiles = require('../src/main/clipfiles');
+
+  assert.equal(host.copyItem('a', held), true);
+  const clip = clipfiles.read();
+  assert.equal(clip.cut, false, '복사를 잘라내기로 적었다');
+  assert.deepEqual(clip.paths, [held]);
+  assert.equal(fs.existsSync(held), true, '복사하면서 박스 파일을 치웠다');
+  assert.equal(state.fences[0].items.length, 1);
+});
+
+test('박스에서 잘라 바탕화면에 붙이면 박스에서 빠진다', () => {
+  const desk = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-out-'));
+  const state = baseState({ fences: [fence({ items: [realItem('cut-me.txt')] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  const clipfiles = require('../src/main/clipfiles');
+
+  assert.equal(host.cutItem('a', held), true);
+  const clip = clipfiles.read();
+  assert.equal(clip.cut, true, '잘라내기를 복사로 적었다');
+  assert.deepEqual(clip.paths, [held]);
+  // 바탕화면 붙여넣기는 탐색기가 파일을 옮긴다. 그때 박스 폴더가 비면 박스에서도 뺀다.
+  fs.renameSync(held, path.join(desk, 'cut-me.txt'));
+  host.refreshIcons();
+  assert.equal(state.fences[0].items.length, 0, '바탕화면으로 옮겼는데 박스에 남았다');
+  assert.equal(fs.existsSync(path.join(desk, 'cut-me.txt')), true);
+});
+
+test('휴지통은 복사하거나 자를 수 없고 빈 클립보드는 붙이지 않는다', async () => {
+  const state = baseState({
+    fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }, realItem('plain.txt')] })],
+  });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.refreshIcons();
+  host.showMenu('a', 'shell:RecycleBinFolder');
+  const labels = electron.menus.at(-1).filter((item) => item.label).map((item) => item.label);
+  assert.ok(labels.includes('복사'));
+  assert.ok(labels.includes('잘라내기'));
+  assert.ok(labels.includes('붙여넣기'));
+  const copy = electron.menus.at(-1).find((item) => item.label === '복사');
+  const cut = electron.menus.at(-1).find((item) => item.label === '잘라내기');
+  assert.equal(copy.enabled, false, '휴지통을 복사할 수 있다');
+  assert.equal(cut.enabled, false, '휴지통을 자를 수 있다');
+  assert.equal(host.copyItem('a', 'shell:RecycleBinFolder'), false);
+  assert.equal(await host.pasteFiles('a'), false, '빈 클립보드를 붙였다');
+
+  host.showMenu('a', null);
+  const paste = electron.menus.at(-1).find((item) => item.label === '붙여넣기');
+  assert.equal(paste.enabled, false, '붙일 것이 없는데 붙여넣기가 켜져 있다');
 });

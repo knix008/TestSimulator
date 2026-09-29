@@ -14,6 +14,27 @@ test('앞 창이 다른 프로그램이어도 커서 아래가 바탕화면이�
   assert.equal(pick.isDesktopTarget('CabinetWClass', 'Chrome_WidgetWin_1'), false);
 });
 
+test('다른 프로그램 창만 끌어 낼 대상으로 본다', () => {
+  assert.equal(pick.isForeignTarget('Notepad', false), true);
+  assert.equal(pick.isForeignTarget('Chrome_WidgetWin_1', false), true);
+  assert.equal(pick.isForeignTarget('CabinetWClass', false), true);
+  assert.equal(pick.isForeignTarget('Chrome_WidgetWin_1', true), false, '우리 창을 다른 프로그램으로 본다');
+  assert.equal(pick.isForeignTarget('Progman', false), false, '바탕화면을 다른 프로그램으로 본다');
+  assert.equal(pick.isForeignTarget('SysListView32', false), false);
+  assert.equal(pick.isForeignTarget('WorkerW', false), false);
+  assert.equal(pick.isForeignTarget('SHELLDLL_DefView', false), false);
+  assert.equal(pick.isForeignTarget('Shell_TrayWnd', false), false, '작업 표시줄을 다른 프로그램으로 본다');
+  assert.equal(pick.isForeignTarget('Shell_SecondaryTrayWnd', false), false);
+  assert.equal(pick.isForeignTarget('', false), false);
+  assert.equal(pick.isForeignTarget(null, false), false);
+  assert.equal(pick.isSurfaceWindow({ ours: false, visible: true }), true);
+  assert.equal(pick.isSurfaceWindow({ ours: true, visible: true }), false, '우리 창을 커서 아래로 본다');
+  assert.equal(pick.isSurfaceWindow({ ours: false, visible: false }), false);
+  assert.equal(pick.isSurfaceWindow({ ours: false, visible: true, cloaked: true }), false, '숨겨 둔 창을 다른 프로그램으로 본다');
+  assert.equal(pick.isSurfaceWindow({ ours: false, visible: true, transparent: true }), false, '마우스를 통과시키는 창을 다른 프로그램으로 본다');
+  assert.equal(pick.isSurfaceWindow(null), false);
+});
+
 test('바탕화면 창 종류면 앞 창이 달라도 바탕화면으로 본다', () => {
   assert.equal(pick.isDesktopTarget('SHELLDLL_DefView', 'Notepad'), true);
   assert.equal(pick.isDesktopTarget('WorkerW', ''), true);

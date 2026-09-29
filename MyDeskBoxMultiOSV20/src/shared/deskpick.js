@@ -3,6 +3,8 @@
 // 바탕화면 아이콘을 집는 판단. 창과 운영체제 호출 없이 검사할 수 있게 떼어 둔다.
 
 const DESKTOP_CLASS = new Set(['SysListView32', 'SHELLDLL_DefView', 'Progman', 'WorkerW']);
+// 작업 표시줄 위에 놓으면 프로그램이 파일을 받지 않는다. 바탕화면으로 꺼내는 손짓으로 둔다.
+const TASKBAR_CLASS = new Set(['Shell_TrayWnd', 'Shell_SecondaryTrayWnd']);
 
 // 커서 아래가 바탕화면 창일 때만 바탕화면으로 본다.
 // 앞 창만 보고 판단하면, 박스 창 위에서 누른 것도 바탕화면 끌기로 잘못 잡아
@@ -11,6 +13,26 @@ const DESKTOP_CLASS = new Set(['SysListView32', 'SHELLDLL_DefView', 'Progman', '
 function isDesktopTarget(underClass, foregroundClass) {
   if (underClass) return DESKTOP_CLASS.has(underClass);
   return DESKTOP_CLASS.has(foregroundClass);
+}
+
+// 커서 아래의 맨 위 창으로 칠 수 있는가.
+// 우리 창, 안 보이는 창, 마우스를 통과시키는 창, 숨겨 둔 창은 건너뛴다.
+// 그것들을 다른 프로그램으로 보면, 바탕화면으로 꺼내는 손짓이 복사만 되고 박스에 남는다.
+function isSurfaceWindow(flags) {
+  if (!flags || flags.ours || !flags.visible) return false;
+  if (flags.cloaked || flags.transparent) return false;
+  return true;
+}
+
+// 커서 아래가 다른 프로그램인가.
+// 우리 창, 바탕화면, 작업 표시줄은 아니다. 거기서는 박스 안에서 옮기는 손짓을 유지한다.
+// 창 종류를 읽지 못하면 다른 프로그램으로 보지 않는다. 잘못 넘기면 바탕화면으로 꺼내야 할 것이 빠진다.
+function isForeignTarget(underClass, ours) {
+  if (ours) return false;
+  if (!underClass) return false;
+  if (DESKTOP_CLASS.has(underClass)) return false;
+  if (TASKBAR_CLASS.has(underClass)) return false;
+  return true;
 }
 
 // 바탕화면을 두 번 누른 것을 센다. 시간과 자리만 보는 순수한 셈이다.
@@ -120,6 +142,8 @@ function shellPathFor(name, shellItems, sameName) {
 
 const api = {
   isDesktopTarget,
+  isForeignTarget,
+  isSurfaceWindow,
   createDeskTaps,
   pickIcon,
   iconAt,

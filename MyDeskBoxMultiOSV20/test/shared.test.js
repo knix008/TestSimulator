@@ -74,7 +74,11 @@ test('창 안에서 쓰는 이름이 전역을 더럽히지 않는다', () => {
 // 아래로 흘려보낼 까닭이 없다. 흘려보내면 박스 안의 아이콘을 고를 수 없다.
 test('박스 창이 아이콘까지 그린다', () => {
   const main = fs.readFileSync(path.join(ROOT, 'src', 'main', 'fences.js'), 'utf8');
-  assert.equal(/setIgnoreMouseEvents/.test(main), false, '마우스를 아래로 흘려보내고 있다');
+  // 박스 창은 마우스를 아래로 흘려보내지 않는다. 따라다니는 그림만 흘려보낸다.
+  // 그 그림이 마우스를 받으면 커서 아래의 다른 프로그램을 가린다.
+  const fencePart = main.slice(0, main.indexOf('function ensureGhost'));
+  assert.equal(/setIgnoreMouseEvents/.test(fencePart), false, '박스 창이 마우스를 아래로 흘려보내고 있다');
+  assert.match(main, /ghost\.setIgnoreMouseEvents\(true\)/, '따라다니는 그림이 다른 창을 가린다');
   assert.equal(/behindIcons/.test(main), false, '아이콘 층 뒤에 판을 넣고 있다');
   assert.equal(/openPanel|placePanel/.test(main), false, '판 창이 남아 있다');
   // 그림을 함께 보내야 창이 아이콘을 그릴 수 있다.
@@ -115,4 +119,41 @@ test('항목 이름 바꾸기 길이 창까지 이어진다', () => {
 
   const css = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.css'), 'utf8');
   assert.match(css, /\.icon input\.edit/, '이름을 적을 자리의 모양이 없다');
+});
+
+// 다른 프로그램으로 끌어 내기는 창 → 메인으로 이어진다.
+// 휴지통은 그 길에 올라타지 않는다.
+test('다른 프로그램으로 끌어 내는 길이 창까지 이어진다', () => {
+  const preload = fs.readFileSync(path.join(ROOT, 'src', 'preload', 'preload.js'), 'utf8');
+  assert.match(preload, /overForeign:/, '창이 다른 프로그램 위인지 물을 길이 없다');
+  assert.match(preload, /dragOut:/, '창이 끌어 내기를 보낼 길이 없다');
+
+  const ipc = fs.readFileSync(path.join(ROOT, 'src', 'main', 'ipc.js'), 'utf8');
+  assert.match(ipc, /fence:over-foreign/, '메인이 커서 아래를 받지 않는다');
+  assert.match(ipc, /fence:drag-out/, '메인이 끌어 내기를 받지 않는다');
+  assert.match(ipc, /host\.dragOut\(/, '받은 끌어 내기를 아무도 다루지 않는다');
+
+  const code = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.js'), 'utf8');
+  assert.match(code, /function canHandOff[\s\S]*?item\.recycle/, '휴지통을 가리지 않는다');
+  assert.match(code, /addEventListener\('dragstart', onIconDragStart\)/, '끌어 내기 시작점이 없다');
+  assert.match(code, /function onIconDragStart[\s\S]*?desk\.dragOut\(/, '시작점에서 다른 프로그램으로 넘기지 않는다');
+  assert.match(code, /el\.draggable = canHandOff\(item\)/, '넘길 수 있는 항목만 끌 수 있어야 한다');
+});
+
+// 복사와 잘라 붙이기는 창의 글쇠에서 메인으로 이어진다.
+test('복사와 잘라 붙이기 길이 창까지 이어진다', () => {
+  const preload = fs.readFileSync(path.join(ROOT, 'src', 'preload', 'preload.js'), 'utf8');
+  assert.match(preload, /copyItem:/, '창이 복사를 보낼 길이 없다');
+  assert.match(preload, /cutItem:/, '창이 잘라내기를 보낼 길이 없다');
+  assert.match(preload, /paste:/, '창이 붙여넣기를 보낼 길이 없다');
+
+  const ipc = fs.readFileSync(path.join(ROOT, 'src', 'main', 'ipc.js'), 'utf8');
+  assert.match(ipc, /fence:copy/, '메인이 복사를 받지 않는다');
+  assert.match(ipc, /fence:cut/, '메인이 잘라내기를 받지 않는다');
+  assert.match(ipc, /fence:paste/, '메인이 붙여넣기를 받지 않는다');
+
+  const code = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.js'), 'utf8');
+  assert.match(code, /desk\.copyItem\(/, '글쇠로 복사하지 않는다');
+  assert.match(code, /desk\.cutItem\(/, '글쇠로 자르지 않는다');
+  assert.match(code, /desk\.paste\(/, '글쇠로 붙이지 않는다');
 });

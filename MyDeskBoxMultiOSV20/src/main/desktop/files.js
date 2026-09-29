@@ -139,6 +139,24 @@ function sameName(iconText, fileName) {
   return a === b || a === labelOf(b).toLowerCase();
 }
 
+// 바탕화면 아이콘에 적힌 글과 같은 파일. 탐색기는 확장자를 감추기도 한다.
+// '노트' 는 노트.txt 다. 같은 글에 파일이 둘이면 어느 것인지 모르므로 집지 않는다.
+function matchDesktopEntry(iconText, entries) {
+  const text = String(iconText || '').trim().toLowerCase();
+  if (!text) return null;
+  const list = entries || [];
+  const exact = list.find((entry) => entry && String(entry.name).toLowerCase() === text);
+  if (exact) return exact;
+  const hits = list.filter((entry) => {
+    if (!entry || !entry.name) return false;
+    const name = String(entry.name).toLowerCase();
+    if (sameName(text, name)) return true;
+    const dot = name.lastIndexOf('.');
+    return dot > 0 && name.slice(0, dot) === text;
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+
 function watchDesktop(onChange) {
   const watchers = [];
   let timer = null;
@@ -167,5 +185,6 @@ module.exports = {
   listDesktopFiles,
   labelOf,
   sameName,
+  matchDesktopEntry,
   watchDesktop,
 };
