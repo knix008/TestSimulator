@@ -144,6 +144,15 @@ test('다른 프로그램으로 끌어 내는 길이 창까지 이어진다', ()
   assert.match(code, /desk\.transfer\(/, '박스 사이에 놓는 자리를 보내지 않는다');
 });
 
+// 손을 뗄 때와 클릭에서 둘 다 세면, 두 번 눌러 열기로 두어도 한 번에 열린다.
+test('아이콘을 여는 횟수는 한 곳에서만 센다', () => {
+  const code = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.js'), 'utf8');
+  const click = code.slice(code.indexOf('function onIconClick'), code.indexOf('function pick'));
+  assert.equal(click.includes('taps.tap'), false, '클릭에서도 세면 한 번 누른 것이 두 번이 된다');
+  assert.match(code, /openWith === 'single' \|\| taps\.tap\(filePath\)/, '손을 뗄 때 열지 않는다');
+  assert.match(code, /pick\(null\);\s*desk\.open\(filePath\)/, '연 뒤에도 고른 테두리가 남는다');
+});
+
 // 복사와 잘라 붙이기는 창의 글쇠에서 메인으로 이어진다.
 test('복사와 잘라 붙이기 길이 창까지 이어진다', () => {
   const preload = fs.readFileSync(path.join(ROOT, 'src', 'preload', 'preload.js'), 'utf8');
@@ -158,6 +167,11 @@ test('복사와 잘라 붙이기 길이 창까지 이어진다', () => {
 
   const code = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.js'), 'utf8');
   assert.match(code, /desk\.copyItem\(/, '글쇠로 복사하지 않는다');
+  assert.match(code, /event\.key === 'Delete'/, 'Delete 로 지우지 않는다');
+  assert.match(code, /desk\.removeItems\(/, '고른 항목을 지우라고 보내지 않는다');
+  assert.match(code, /mode === 'toggle'/, 'Ctrl 로 여러 개를 고르지 않는다');
+  assert.match(code, /picked\.length > 1/, '하나만 골라도 테두리를 남긴다');
+  assert.match(preload, /removeItems:/, '창이 삭제를 보낼 길이 없다');
   assert.match(code, /desk\.cutItem\(/, '글쇠로 자르지 않는다');
   assert.match(code, /desk\.paste\(/, '글쇠로 붙이지 않는다');
 });

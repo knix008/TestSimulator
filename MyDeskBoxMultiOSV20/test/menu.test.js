@@ -189,7 +189,7 @@ test('박스 항목을 지우면 파일이 휴지통으로 간다', async () => 
   fs.writeFileSync(file, '');
 
   const state = baseState({ fences: [fence({ items: [{ name: '지울 것.txt', path: file }] })] });
-  const { host, electron } = loadHost(state);
+  const { host, electron, asks } = loadHost(state);
   host.openAll();
   for (const win of electron.windows) win.ready();
   host.refreshIcons();
@@ -199,10 +199,37 @@ test('박스 항목을 지우면 파일이 휴지통으로 간다', async () => 
   const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '삭제');
   assert.ok(item, '지우기가 메뉴에 없다');
   assert.ok(item.icon, '지우기에 그림이 없다');
+  electron.setDialogAnswer(0);
   await item.click();
 
+  assert.equal(asks.calls.length, 1, '지우기 전에 묻지 않았다');
+  assert.match(asks.calls[0].title, /삭제할까요/);
+  assert.equal(asks.calls[0].confirm, '삭제');
   assert.deepEqual(electron.shell.trashed, [at], '파일을 휴지통으로 보내지 않았다');
   assert.deepEqual(state.fences[0].items, [], '박스에 그대로 남아 있다');
+});
+
+test('삭제를 취소하면 파일은 박스에 남는다', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const room = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-trash-no-'));
+  const file = path.join(room, '남길 것.txt');
+  fs.writeFileSync(file, '그대로');
+
+  const state = baseState({ fences: [fence({ items: [{ name: '남길 것.txt', path: file }] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  host.refreshIcons();
+  const at = state.fences[0].items[0].path;
+
+  electron.setDialogAnswer(1);
+  await host.trashItems('a', [at]);
+
+  assert.deepEqual(electron.shell.trashed, [], '취소했는데 휴지통으로 보냈다');
+  assert.equal(fs.existsSync(at), true, '취소했는데 파일이 사라졌다');
+  assert.equal(state.fences[0].items.length, 1);
 });
 
 test('휴지통 같은 셸 항목은 지우기를 누를 수 없다', () => {

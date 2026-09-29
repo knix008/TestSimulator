@@ -1307,7 +1307,8 @@ function createHost(state) {
     const bounds = boundsOf(fence.id);
     if (!bounds) return fence.items.length;
     const grid = arrange.gridOf(bounds.width, bounds.height, fence.collapsed);
-    const without = fence.items.filter((item) => item.path !== filePath);
+    const skip = new Set(Array.isArray(filePath) ? filePath : [filePath].filter(Boolean));
+    const without = fence.items.filter((item) => !skip.has(item.path));
     // 박스 안이 스크롤돼 있으면 커서 아래 칸은 그만큼 내려가 있다.
     const localY = screenY - bounds.y + (scrollTops.get(fence.id) || 0);
     return arrange.insertIndex(screenX - bounds.x, localY, grid, without.length);
@@ -1619,16 +1620,27 @@ function createHost(state) {
     return item;
   }
 
+  // 하나여도 되고 여러 개여도 된다. 휴지통 같은 셸 항목은 빠진다.
+  function clipPaths(id, filePath) {
+    const list = Array.isArray(filePath) ? filePath : [filePath];
+    const paths = [];
+    for (const one of list) {
+      const item = clipTarget(id, one);
+      if (item) paths.push(item.path);
+    }
+    return paths;
+  }
+
   function copyItem(id, filePath) {
-    const item = clipTarget(id, filePath);
-    if (!item) return false;
-    return clipfiles.write([item.path], clipfiles.COPY);
+    const paths = clipPaths(id, filePath);
+    if (!paths.length) return false;
+    return clipfiles.write(paths, clipfiles.COPY);
   }
 
   function cutItem(id, filePath) {
-    const item = clipTarget(id, filePath);
-    if (!item) return false;
-    return clipfiles.write([item.path], clipfiles.MOVE);
+    const paths = clipPaths(id, filePath);
+    if (!paths.length) return false;
+    return clipfiles.write(paths, clipfiles.MOVE);
   }
 
   // 박스에 적어 둔 항목이면 집(담기 전 폴더)을 함께 가져온다.
@@ -1762,31 +1774,64 @@ function createHost(state) {
     refreshFolders(dir);
   }
 
-  // 박스 안에서 바로 지운다. 파일은 휴지통으로 간다.
-  // 박스에서만 빼는 것이 아니라 파일 자체가 없어져야 한다.
-  async function trashItem(id, filePath) {
-    const fence = fenceById(id);
-    if (!fence) return;
-    const item = fence.items.find((entry) => entry.path === filePath);
-    if (!item) return;
-    // 휴지통 같은 셸 항목은 지울 파일이 없다. 박스에서만 뺀다.
-    if (desktop.isShellItem && desktop.isShellItem(item.path)) {
-      fence.items = fence.items.filter((entry) => entry.path !== filePath);
-      persist();
-      await push(id);
-      return;
-    }
+  // 지우기 전에 묻는다. 휴지통으로 보내는 길은 확인 창을 띄우지 않으므로 여기서 묻는다.
+  async function askDelete(list) {
+    if (typeof ask.confirm !== 'function' || !list.length) return false;
+    const title = list.length === 1
+      ? say('dialog.trash', { name: list[0].name || path.basename(list[0].path) })
+      : say('dialog.trashMany', { n: list.length });
+    asking = true;
     try {
-      await throwAway(item.path);
+      return await ask.confirm({
+        title,
+        detail: say('dialog.trashDetail'),
+        confirm: say('dialog.delete'),
+        cancel: say('dialog.cancel'),
+        icon: icons.menu('remove'),
+        danger: true,
+      });
     } catch (_err) {
-      // 지우지 못했으면 박스에 그대로 둔다. 말없이 사라지는 것보다 낫다.
-      return;
+      return false;
+    } finally {
+      asking = false;
     }
-    fence.items = fence.items.filter((entry) => entry.path !== filePath);
+  }
+
+  // 박스 안에서 바로 지운다. 파일은 휴지통으로 간다.
+  // 하나여도 되고 여러 개여도 된다. 지우기 전에 한 번 묻는다.
+  // 휴지통 같은 셸 항목은 지울 파일이 없으므로 빼 둔다.
+  async function trashItems(id, filePaths) {
+    const fence = fenceById(id);
+    if (!fence) return false;
+    const list = [];
+    for (const filePath of filePaths || []) {
+      const item = fence.items.find((entry) => entry.path === filePath);
+      if (!item) continue;
+      if (desktop.isShellItem && desktop.isShellItem(item.path)) continue;
+      list.push(item);
+    }
+    if (!list.length) return false;
+    if (!(await askDelete(list))) return false;
+    let changed = false;
+    for (const item of list) {
+      try {
+        await throwAway(item.path);
+      } catch (_err) {
+        // 지우지 못한 것은 박스에 그대로 둔다.
+        continue;
+      }
+      fence.items = fence.items.filter((entry) => entry.path !== item.path);
+      changed = true;
+    }
+    if (!changed) return false;
     persist();
     await push(id);
-    // 휴지통이 찼으니 그 그림도 새로 그린다.
     watchBin();
+    return true;
+  }
+
+  async function trashItem(id, filePath) {
+    return trashItems(id, [filePath]);
   }
 
   // 박스에서 꺼내면 파일이 담기 전 폴더(보통 바탕화면)로 돌아간다.
@@ -1845,33 +1890,69 @@ function createHost(state) {
   //  - 같은 박스 안  : 차례만 바꾼다
   //  - 다른 박스 위  : 그 박스의 폴더로 옮긴다
   //  - 바탕화면      : 박스에서 빼 놓은 자리에 둔다
-  async function transfer(fromId, filePath, screenX, screenY) {
+  // 함께 옮길 경로. 고른 묶음이 있으면 그 묶음이고, 없으면 끌어 온 하나다.
+  function movingPaths(fromId, filePath, paths) {
+    const wanted = (Array.isArray(paths) && paths.length ? paths : [filePath]).filter(Boolean);
+    const fence = fenceById(fromId);
+    if (!fence) return wanted;
+    const have = new Set(fence.items.map((item) => item.path));
+    const found = wanted.filter((one) => have.has(one));
+    return found.length ? found : [filePath].filter(Boolean);
+  }
+
+  async function transfer(fromId, filePath, screenX, screenY, paths) {
     hideGhost();
+    const moving = movingPaths(fromId, filePath, paths);
     // 받을 항목은 손을 뗀 자리에서 다시 잰다. 창이 알려 준 값을 그대로 믿으면
     // 제 창 안에서 끈 경우에만 맞고, 다른 박스로 건너간 경우에는 늘 비어 있다.
     const landed = hit(screenX, screenY);
     const intoPath = landed ? receiverAt(landed, screenX, screenY, filePath) : null;
-    if (intoPath && intoPath !== filePath) {
-      const done = await sendInto(filePath, intoPath);
-      if (done === 'moved') {
-        takeOut(filePath);
+    if (intoPath && !moving.some((one) => samePath(one, intoPath))) {
+      let changed = false;
+      let handled = false;
+      for (const one of moving) {
+        const done = await sendInto(one, intoPath);
+        if (done === 'moved') {
+          takeOut(one);
+          changed = true;
+        }
+        if (done) handled = true;
+      }
+      if (changed) {
         persist();
         await pushAll();
         refreshIcons();
       }
       clearHover();
-      if (done) return;
+      if (handled) return;
     }
     const target = hit(screenX, screenY);
     clearHover();
     if (!target) {
       const at = releaseOnDesktop(screenX, screenY) ? { x: screenX, y: screenY } : null;
-      await eject(fromId, filePath, at);
+      for (const one of moving) await eject(fromId, one, at);
       return;
     }
-    const index = indexAt(target, screenX, screenY, filePath);
-    if (target.id === fromId) await reorder(fromId, filePath, index);
-    else await dropFiles(target.id, [filePath], index);
+    const index = indexAt(target, screenX, screenY, moving);
+    if (target.id === fromId) await reorderMany(fromId, moving, index);
+    else await dropFiles(target.id, moving, index);
+  }
+
+  // 고른 여러 개를 그 자리로 한데 옮긴다.
+  async function reorderMany(id, paths, index) {
+    const fence = fenceById(id);
+    if (!fence) return;
+    const held = [];
+    for (const filePath of paths) {
+      const at = fence.items.findIndex((item) => item.path === filePath);
+      if (at < 0) continue;
+      held.push(fence.items.splice(at, 1)[0]);
+    }
+    if (!held.length) return;
+    const at = Math.max(0, Math.min(index == null ? fence.items.length : index, fence.items.length));
+    fence.items.splice(at, 0, ...held);
+    persist();
+    await push(id);
   }
 
   // 담는다는 것은 그 파일을 이 박스의 폴더로 옮긴다는 뜻이다.
@@ -2397,12 +2478,15 @@ function createHost(state) {
     await pushAll();
   }
 
-  function showMenu(id, filePath) {
+  function showMenu(id, filePath, paths) {
     const fence = fenceById(id);
     const win = wins.get(id);
     if (!fence || !win || win.isDestroyed()) return;
     const template = [];
-    const clipable = !!clipTarget(id, filePath);
+    // 여러 개를 고른 채 그중 하나를 누르면 그 묶음이 복사·잘라내기·삭제의 대상이다.
+    const group = Array.isArray(paths) && paths.includes(filePath) ? paths : (filePath ? [filePath] : []);
+    const clipable = group.some((one) => clipTarget(id, one));
+    const deletable = group.some((one) => !(desktop.isShellItem && desktop.isShellItem(one)));
     if (filePath) {
       template.push(
         { label: say('menu.open'), icon: icons.menu('open'), click: () => openItem(filePath) },
@@ -2423,14 +2507,14 @@ function createHost(state) {
           icon: icons.menu('copy'),
           accelerator: 'CommandOrControl+C',
           enabled: clipable,
-          click: () => copyItem(id, filePath),
+          click: () => copyItem(id, group),
         },
         {
           label: say('menu.cut'),
           icon: icons.menu('cut'),
           accelerator: 'CommandOrControl+X',
           enabled: clipable,
-          click: () => cutItem(id, filePath),
+          click: () => cutItem(id, group),
         },
         {
           label: say('menu.paste'),
@@ -2455,8 +2539,8 @@ function createHost(state) {
         {
           label: say('menu.delete'),
           icon: icons.menu('remove'),
-          enabled: !(desktop.isShellItem && desktop.isShellItem(filePath)),
-          click: () => trashItem(id, filePath),
+          enabled: deletable,
+          click: () => trashItems(id, group),
         },
         { type: 'separator' }
       );
@@ -2754,6 +2838,7 @@ function createHost(state) {
     settleAll,
     recoverHeld,
     trashItem,
+    trashItems,
     copyItem,
     cutItem,
     pasteFiles,

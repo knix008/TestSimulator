@@ -58,12 +58,15 @@ function install(host) {
     payload.id,
     payload.filePath,
     payload.screenX,
-    payload.screenY
+    payload.screenY,
+    payload.paths
   ));
 
   ipcMain.handle('fence:copy', (_event, payload) => host.copyItem(payload.id, payload.filePath));
 
   ipcMain.handle('fence:cut', (_event, payload) => host.cutItem(payload.id, payload.filePath));
+
+  ipcMain.handle('fence:delete', (_event, payload) => host.trashItems(payload.id, payload.paths));
 
   ipcMain.handle('fence:paste', (_event, id) => host.pasteFiles(id));
 
@@ -97,7 +100,7 @@ function install(host) {
 
   ipcMain.handle('fence:open', (_event, filePath) => host.openItem(filePath));
 
-  ipcMain.handle('fence:menu', (_event, payload) => host.showMenu(payload.id, payload.filePath));
+  ipcMain.handle('fence:menu', (_event, payload) => host.showMenu(payload.id, payload.filePath, payload.paths));
 
   ipcMain.handle('fence:rename', (_event, payload) => host.rename(payload.id, payload.title));
 

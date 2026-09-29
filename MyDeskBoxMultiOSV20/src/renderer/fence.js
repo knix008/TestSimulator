@@ -22,10 +22,10 @@ let hover = null;
 let drag = null;
 // 이름을 바꾸고 있는 아이콘. { path, el, input }
 let editing = null;
-// 글쇠로 복사·잘라내기 할 항목. 누른 아이콘이 그 대상이다.
-let picked = null;
+// 글쇠로 복사·잘라내기·삭제할 항목. Ctrl 로 여러 개를 고른다.
+let picked = [];
 // 잘라 둔 항목. 붙여넣기 전까지 흐리게 보여 준다.
-let cutPath = null;
+let cutPaths = [];
 // 한 번 눌러 열지, 두 번 눌러 열지. 설정에서 고른다.
 let openWith = 'double';
 // 창은 그림자를 켜면 박스보다 사방으로 이만큼 크다.
@@ -90,8 +90,8 @@ function ensureIcon(item) {
     el.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      pick(item.path);
-      desk.menu(id, item.path);
+      if (!picked.includes(item.path)) pick(item.path, 'replace');
+      desk.menu(id, item.path, selection());
     });
     body.appendChild(el);
   }
@@ -99,8 +99,8 @@ function ensureIcon(item) {
   el.classList.toggle('folder', !!item.folder);
   el.classList.toggle('recycle', !!item.recycle);
   el.classList.toggle('hot', receiver() === item.path);
-  el.classList.toggle('picked', item.path === picked);
-  el.classList.toggle('cut', item.path === cutPath);
+  el.classList.toggle('picked', picked.length > 1 && picked.includes(item.path));
+  el.classList.toggle('cut', cutPaths.includes(item.path));
   // 운영체제 끌기로 넘기면 투명한 박스 창이 파일을 받지 못한다.
   // 박스 사이는 우리가 옮기고, 다른 프로그램 위에서만 운영체제에 맡긴다.
   el.draggable = false;
@@ -139,12 +139,14 @@ function layout() {
   const grid = window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, fence.collapsed);
   const active = (hover && hover.filePath) || (drag && drag.path) || null;
   const mine = items.some((item) => item.path === active);
+  const group = new Set(drag && Array.isArray(drag.paths) ? drag.paths : []);
+  if (drag && drag.path) group.add(drag.path);
   // 받을 항목 위에 있는 동안에는 끼워 넣을 자리를 벌리지 않는다.
   // 두 가지를 함께 보여 주면 무엇이 일어날지 알 수 없다.
   const showGap = !!(hover && active) && !receiver();
   let shown = items.slice();
   if ((showGap && mine) || (!showGap && drag && mine)) {
-    shown = shown.filter((item) => item.path !== active);
+    shown = shown.filter((item) => !group.has(item.path));
   }
   const points = showGap
     ? window.DeskArrange.gapPoints(shown.length, window.DeskArrange.insertIndex(hover.localX, scrolled(hover.localY), grid, shown.length), grid)
@@ -225,28 +227,38 @@ function onIconDragStart(event) {
 }
 
 // 끌어 낸 뒤에 남는 클릭으로는 열지 않는다.
+// 열기는 손을 뗄 때 한 번만 센다. 여기서도 세면 한 번 누른 것이 두 번이 되어 바로 열린다.
 function onIconClick(event) {
   const el = event.currentTarget;
-  if (el.dataset.handed) {
-    delete el.dataset.handed;
-    event.preventDefault();
-    return;
-  }
-  const item = itemByPath(el.dataset.path);
-  if (!canHandOff(item)) return;
-  if (openWith === 'single' || taps.tap(item.path)) desk.open(item.path);
+  if (!el.dataset.handed) return;
+  delete el.dataset.handed;
+  event.preventDefault();
 }
 
-function pick(filePath) {
-  picked = filePath || null;
-  for (const node of body.querySelectorAll('.icon')) {
-    node.classList.toggle('picked', node.dataset.path === picked);
+// 고른 목록을 바꾼다. replace 는 그 하나만, toggle 은 Ctrl 로 넣거나 뺀다.
+// 이미 고른 묶음 안의 것을 그냥 누르면 묶음을 유지한다. 끌어 옮길 때 함께 가야 한다.
+// 테두리는 여러 개를 골랐을 때만 그린다. 하나만 누르면 누르는 효과로 충분하다.
+function pick(filePath, mode) {
+  if (!filePath) picked = [];
+  else if (mode === 'toggle') {
+    picked = picked.includes(filePath)
+      ? picked.filter((path) => path !== filePath)
+      : picked.concat(filePath);
+  } else if (mode === 'replace' || !picked.includes(filePath)) {
+    picked = [filePath];
   }
+  const show = picked.length > 1;
+  for (const node of body.querySelectorAll('.icon')) {
+    node.classList.toggle('picked', show && picked.includes(node.dataset.path));
+  }
+}
+
+function selection() {
+  return picked.filter((path) => items.some((item) => item.path === path));
 }
 
 function onIconDown(event) {
   if (event.button !== 0 || !fence) return;
-  pick(event.currentTarget.dataset.path);
   // 이름을 바꾸는 중인 아이콘은 끌지 않는다. 글자를 고르는 손짓이다.
   if (editing && editing.el === event.currentTarget) return;
   const el = event.currentTarget;
@@ -257,6 +269,8 @@ function onIconDown(event) {
   // 손을 떼는 자리로 우리가 옮기고, 다른 프로그램 위로 나갔을 때만 넘긴다.
   event.preventDefault();
   event.stopPropagation();
+  const adding = event.ctrlKey || event.metaKey;
+  if (!adding) pick(filePath);
   const startX = event.screenX;
   const startY = event.screenY;
   let moved = false;
@@ -287,8 +301,10 @@ function onIconDown(event) {
       taps.forget();
       return;
     }
+    const moving = picked.includes(filePath) ? selection() : [filePath];
     drag = {
       path: filePath,
+      paths: moving,
       label: item ? item.label : '',
       icon: item ? item.icon : '',
       localX: localX(ev.clientX),
@@ -305,11 +321,22 @@ function onIconDown(event) {
   const up = (ev) => {
     stop();
     if (!moved) {
-      if (openWith === 'single' || taps.tap(filePath)) desk.open(filePath);
+      if (adding) {
+        pick(filePath, 'toggle');
+        taps.forget();
+        return;
+      }
+      // 그냥 누른 것은 테두리를 남기지 않는다. 누르는 동안의 효과만 있고, 떼면 원래대로다.
+      pick(filePath, 'replace');
+      if (openWith === 'single' || taps.tap(filePath)) {
+        pick(null);
+        desk.open(filePath);
+      }
       return;
     }
     // 끌어 옮긴 뒤에는 두 번 누른 것으로 세지 않는다.
     taps.forget();
+    const moving = drag && drag.paths && drag.paths.length ? drag.paths.slice() : [filePath];
     drag = null;
     // 끌어 낸 뒤에 따라오는 클릭으로는 열지 않는다.
     el.dataset.handed = '1';
@@ -317,6 +344,7 @@ function onIconDown(event) {
     desk.transfer({
       id,
       filePath,
+      paths: moving,
       screenX: ev.screenX,
       screenY: ev.screenY,
     });
@@ -394,21 +422,29 @@ panel.addEventListener('pointerdown', (event) => {
 document.addEventListener('keydown', (event) => {
   const tag = event.target && event.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const paths = selection();
+  // Delete 는 고른 것을 지운다. 지우기 전에 메인에서 한 번 묻는다.
+  if (event.key === 'Delete' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+    if (!paths.length) return;
+    event.preventDefault();
+    desk.removeItems(id, paths);
+    return;
+  }
   if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
   const key = String(event.key || '').toLowerCase();
-  if (key === 'c' && picked) {
+  if (key === 'c' && paths.length) {
     event.preventDefault();
-    cutPath = null;
-    desk.copyItem(id, picked);
+    cutPaths = [];
+    desk.copyItem(id, paths);
     layout();
-  } else if (key === 'x' && picked) {
+  } else if (key === 'x' && paths.length) {
     event.preventDefault();
-    cutPath = picked;
-    desk.cutItem(id, picked);
+    cutPaths = paths.slice();
+    desk.cutItem(id, paths);
     layout();
   } else if (key === 'v') {
     event.preventDefault();
-    cutPath = null;
+    cutPaths = [];
     desk.paste(id);
   }
 });
@@ -600,8 +636,8 @@ desk.onState((payload) => {
   items = payload.items || [];
   // 이름을 바꾸던 항목이 목록에서 빠졌으면(이름이 바뀌었거나 없어졌다) 입력칸을 거둔다.
   if (editing && !items.some((item) => item.path === editing.path)) stopItemRename();
-  if (picked && !items.some((item) => item.path === picked)) picked = null;
-  if (cutPath && !items.some((item) => item.path === cutPath)) cutPath = null;
+  picked = picked.filter((path) => items.some((item) => item.path === path));
+  cutPaths = cutPaths.filter((path) => items.some((item) => item.path === path));
   openWith = payload.openWith === 'single' ? 'single' : 'double';
   edge = payload.shadow ? window.DeskArrange.SHADOW : 0;
   panel.classList.toggle('shadow', !!payload.shadow);

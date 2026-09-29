@@ -1122,6 +1122,52 @@ test('박스에서 잘라 바탕화면에 붙이면 박스에서 빠진다', () 
   assert.equal(fs.existsSync(path.join(desk, 'cut-me.txt')), true);
 });
 
+test('고른 여러 개를 한 번에 복사하고 다른 박스로 옮긴다', async () => {
+  const state = baseState({
+    fences: [
+      fence({ id: 'a', title: '첫 박스', items: [realItem('묶음-가.txt'), realItem('묶음-나.txt')] }),
+      fence({ id: 'b', title: '둘째 박스', x: 700 }),
+    ],
+  });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const paths = state.fences[0].items.map((item) => item.path);
+  const clipfiles = require('../src/main/clipfiles');
+
+  assert.equal(host.copyItem('a', paths), true);
+  assert.deepEqual(clipfiles.read().paths, paths, '고른 것을 모두 복사하지 않았다');
+  assert.equal(state.fences[0].items.length, 2, '복사하면서 원본이 빠졌다');
+
+  assert.equal(host.cutItem('a', paths), true);
+  assert.equal(clipfiles.read().cut, true);
+  assert.deepEqual(clipfiles.read().paths, paths);
+
+  const target = fenceWindows(electron)[1].getBounds();
+  await host.transfer('a', paths[0], target.x + 30, target.y + 60, paths);
+  assert.equal(state.fences[0].items.length, 0, '옮긴 것이 첫 박스에 남았다');
+  assert.equal(state.fences[1].items.length, 2, '둘째 박스로 함께 가지 않았다');
+});
+
+test('고른 여러 개를 지우면 한 번 묻고 모두 휴지통으로 간다', async () => {
+  const state = baseState({
+    fences: [fence({ items: [realItem('지움-가.txt'), realItem('지움-나.txt')] })],
+  });
+  const { host, electron, asks } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const paths = state.fences[0].items.map((item) => item.path);
+
+  electron.setDialogAnswer(0);
+  assert.equal(await host.trashItems('a', paths), true);
+  assert.equal(asks.calls.length, 1, '항목마다 따로 물었다');
+  assert.match(asks.calls[0].title, /2개/);
+  assert.deepEqual(electron.shell.trashed, paths);
+  assert.equal(state.fences[0].items.length, 0);
+});
+
 test('휴지통은 복사하거나 자를 수 없고 빈 클립보드는 붙이지 않는다', async () => {
   const state = baseState({
     fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }, realItem('plain.txt')] })],
