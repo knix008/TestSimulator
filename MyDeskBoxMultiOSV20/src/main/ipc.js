@@ -39,6 +39,16 @@ function install(host) {
     event.returnValue = !!host.dragOut(event.sender, filePath);
   });
 
+  // 마우스를 움직이는 메시지 안에서 바로 넘기면 운영체제가 끌기를 곧 끝낸다.
+  // 그 메시지가 끝난 다음에 넘긴다. 단추는 아직 눌려 있다.
+  ipcMain.on('fence:drag-out-later', (event, filePath) => {
+    const contents = event.sender;
+    setImmediate(() => {
+      if (!contents || contents.isDestroyed()) return;
+      host.dragOut(contents, filePath);
+    });
+  });
+
   ipcMain.handle('fence:collapse', (_event, payload) => {
     host.setCollapsed(payload.id, payload.collapsed);
   });

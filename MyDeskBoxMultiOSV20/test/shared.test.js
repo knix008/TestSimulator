@@ -127,17 +127,21 @@ test('다른 프로그램으로 끌어 내는 길이 창까지 이어진다', ()
   const preload = fs.readFileSync(path.join(ROOT, 'src', 'preload', 'preload.js'), 'utf8');
   assert.match(preload, /overForeign:/, '창이 다른 프로그램 위인지 물을 길이 없다');
   assert.match(preload, /dragOut:/, '창이 끌어 내기를 보낼 길이 없다');
+  assert.match(preload, /dragOutLater:/, '마우스 메시지가 끝난 뒤에 넘길 길이 없다');
 
   const ipc = fs.readFileSync(path.join(ROOT, 'src', 'main', 'ipc.js'), 'utf8');
   assert.match(ipc, /fence:over-foreign/, '메인이 커서 아래를 받지 않는다');
   assert.match(ipc, /fence:drag-out/, '메인이 끌어 내기를 받지 않는다');
+  assert.match(ipc, /fence:drag-out-later[\s\S]*?setImmediate/, '마우스 메시지 안에서 바로 넘긴다');
   assert.match(ipc, /host\.dragOut\(/, '받은 끌어 내기를 아무도 다루지 않는다');
 
   const code = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'fence.js'), 'utf8');
   assert.match(code, /function canHandOff[\s\S]*?item\.recycle/, '휴지통을 가리지 않는다');
   assert.match(code, /addEventListener\('dragstart', onIconDragStart\)/, '끌어 내기 시작점이 없다');
   assert.match(code, /function onIconDragStart[\s\S]*?desk\.dragOut\(/, '시작점에서 다른 프로그램으로 넘기지 않는다');
-  assert.match(code, /el\.draggable = canHandOff\(item\)/, '넘길 수 있는 항목만 끌 수 있어야 한다');
+  assert.match(code, /el\.draggable = false/, '운영체제 끌기가 박스 사이 놓기를 가져간다');
+  assert.match(code, /desk\.dragOutLater\(/, '다른 프로그램 위에서 끌어 내기를 넘기지 않는다');
+  assert.match(code, /desk\.transfer\(/, '박스 사이에 놓는 자리를 보내지 않는다');
 });
 
 // 복사와 잘라 붙이기는 창의 글쇠에서 메인으로 이어진다.

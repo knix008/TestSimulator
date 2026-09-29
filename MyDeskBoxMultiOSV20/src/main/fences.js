@@ -565,8 +565,40 @@ function createHost(state) {
     // 바로가기만 대체할지, 항목을 새로 만들어 꺼낼지 묻는다.
     const fresh = freshLinks(filePath, deskDir, before);
     if (fresh.length) return chooseLinkOrItem(filePath, fresh, deskDir, before);
+    // 다른 박스의 휴지통 위에 놓으면 버린다. 끌어 내기는 운영체제가 이어받으므로
+    // 손을 뗀 자리를 여기서 다시 본다. 보지 않으면 휴지통이 그 파일을 받지 못한다.
+    const landed = landOnBox(filePath);
+    if (landed) return landed;
     if (droppedOnDesktop()) releaseToDesktop(filePath, deskDir, before);
     return true;
+  }
+
+  // 손을 뗀 곳이 박스 안이다. 휴지통이면 버리고, 다른 박스의 빈 자리면 그 박스로 옮긴다.
+  // 휴지통에 같은 이름이 이미 있어도 버린다. 윈도우는 그것을 다른 항목으로 따로 둔다.
+  function landOnBox(filePath) {
+    const at = cursorDip();
+    if (!at) return null;
+    const landed = hit(at.x, at.y);
+    if (!landed) return null;
+    const into = receiverAt(landed, at.x, at.y, filePath);
+    const owner = ownerOf(filePath);
+    if (into && into !== filePath) {
+      return sendInto(filePath, into).then((done) => {
+        if (done === 'moved') {
+          takeOut(filePath);
+          persist();
+          return pushAll().then(() => {
+            refreshIcons();
+            return true;
+          });
+        }
+        if (done) return true;
+        if (!owner || owner.id === landed.id) return true;
+        return dropFiles(landed.id, [filePath]).then(() => true);
+      });
+    }
+    if (owner && owner.id === landed.id) return true;
+    return dropFiles(landed.id, [filePath]).then(() => true);
   }
 
   // 바로가기만 바꿀지, 항목을 새로 만들지를 묻는다.
@@ -1312,19 +1344,16 @@ function createHost(state) {
     if (target.items.some((entry) => entry.path === item.path)) return;
     // 바탕화면에서 끌어 온 것도 박스 안 항목 위에 놓을 수 있어야 한다.
     // 휴지통이면 버리고, 폴더면 그 안으로, 프로그램이면 그것에게 넘긴다.
-    let into = receiverAt(target, dip.x, dip.y, item.path);
-    // 휴지통에 이미 버린 것이 있으면, 바탕화면에서 끌어 온 항목으로 그것을 바꾸지 않는다.
-    // 끌어 온 것은 박스에 새로 담고, 휴지통 안은 그대로 둔다.
-    if (into && deliver.isRecycle(into) && recycleHolds()) into = null;
+    const into = receiverAt(target, dip.x, dip.y, item.path);
     const index = indexAt(target, dip.x, dip.y, item.path);
     await dropFiles(target.id, [item], index, into);
   }
 
-  // 휴지통에 버린 것이 하나라도 있는가. 개수를 모르면 비어 있는 것으로 본다.
-  function recycleHolds() {
-    if (typeof desktop.recycleCount !== 'function') return false;
+  // 휴지통에 이 이름의 항목이 이미 있는가. 모르면 없는 것으로 본다.
+  function recycleHasName(name) {
+    if (typeof desktop.recycleHasName !== 'function') return false;
     try {
-      return desktop.recycleCount() > 0;
+      return !!desktop.recycleHasName(name);
     } catch (_err) {
       return false;
     }
@@ -1438,7 +1467,8 @@ function createHost(state) {
     if (!filePath || !intoPath || filePath === intoPath) return '';
     try {
       if (deliver.isRecycle(intoPath)) {
-        await shell.trashItem(filePath);
+        // 같은 이름이 휴지통에 이미 있어도 버린다. 있던 것을 바꾸지 않고 따로 넣는다.
+        await throwAway(filePath);
         return 'moved';
       }
       if (isDirectory(intoPath)) {
@@ -1465,6 +1495,18 @@ function createHost(state) {
     }
   }
 
+  // 휴지통으로 보낸다. 같은 이름이 이미 있어도 묻지 않고, 각각 다른 항목으로 남긴다.
+  async function throwAway(filePath) {
+    if (typeof desktop.discardFile === 'function') {
+      try {
+        if (await desktop.discardFile(filePath)) return;
+      } catch (_err) {
+        /* 따로 버리지 못하면 아래의 보통 길로 보낸다. */
+      }
+    }
+    await shell.trashItem(filePath);
+  }
+
   function takeOut(filePath) {
     for (const fence of state.fences) {
       fence.items = fence.items.filter((item) => item.path !== filePath);
@@ -1474,22 +1516,6 @@ function createHost(state) {
   async function dropFiles(id, filePaths, index, intoPath) {
     // 실제로 받아 간 원래 자리. 잘라 붙이기가 클립보드를 비울지 이것으로 정한다.
     const accepted = [];
-    // 휴지통에 이미 버린 것이 있으면, 바탕화면에서 온 파일로 그것을 바꾸지 않는다.
-    // 그 파일은 아래에서 박스에 새로 담는다. 박스 안에 있던 것을 휴지통 위에 놓은 것만 버린다.
-    if (intoPath && deliver.isRecycle(intoPath) && recycleHolds()) {
-      const dumping = [];
-      const staying = [];
-      for (const entry of filePaths || []) {
-        const item = toItem(entry);
-        if (item && hold.inside(item.path)) dumping.push(entry);
-        else staying.push(entry);
-      }
-      if (dumping.length && staying.length) await dropFiles(id, dumping, index, intoPath);
-      if (staying.length) {
-        filePaths = staying;
-        intoPath = null;
-      }
-    }
     if (intoPath) {
       let changed = false;
       let handled = false;
@@ -1526,7 +1552,8 @@ function createHost(state) {
         continue;
       }
       // 박스에 같은 이름이 이미 있으면 대체할지 먼저 묻는다.
-      if (!(await clearClash(fence, item.path))) continue;
+      // 휴지통에 같은 이름이 있는 경우는 묻지 않는다. 휴지통 안은 그대로 두고 박스에 담는다.
+      if (!recycleHasName(path.basename(item.path)) && !(await clearClash(fence, item.path))) continue;
       const moved = bringIn(fence, item);
       if (moved) {
         incoming.push({ ...moved, from: item.path });
@@ -1674,7 +1701,7 @@ function createHost(state) {
     const yes = await askReplace(fence, path.basename(String(filePath)));
     if (!yes) return false;
     try {
-      await shell.trashItem(older);
+      await throwAway(older);
     } catch (_err) {
       // 지우지 못했으면 담지 않는다. 번호를 붙여 몰래 늘리지 않는다.
       return false;
@@ -1716,7 +1743,7 @@ function createHost(state) {
       const yes = await askReplace(fence, base);
       if (!yes) return;
       try {
-        await shell.trashItem(dest);
+        await throwAway(dest);
       } catch (_err) {
         return;
       }
@@ -1750,7 +1777,7 @@ function createHost(state) {
       return;
     }
     try {
-      await shell.trashItem(item.path);
+      await throwAway(item.path);
     } catch (_err) {
       // 지우지 못했으면 박스에 그대로 둔다. 말없이 사라지는 것보다 낫다.
       return;
@@ -2155,7 +2182,7 @@ function createHost(state) {
       return false;
     }
     try {
-      await shell.trashItem(older.path);
+      await throwAway(older.path);
     } catch (_err) {
       // 지우지 못했으면 아무것도 하지 않는다. 새로 만든 것은 바탕화면에 그대로 있다.
       return false;

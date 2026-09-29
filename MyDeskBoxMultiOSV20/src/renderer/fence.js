@@ -101,8 +101,9 @@ function ensureIcon(item) {
   el.classList.toggle('hot', receiver() === item.path);
   el.classList.toggle('picked', item.path === picked);
   el.classList.toggle('cut', item.path === cutPath);
-  // 파일과 바로가기만 다른 프로그램으로 넘긴다. 휴지통은 놓을 파일이 없다.
-  el.draggable = canHandOff(item);
+  // 운영체제 끌기로 넘기면 투명한 박스 창이 파일을 받지 못한다.
+  // 박스 사이는 우리가 옮기고, 다른 프로그램 위에서만 운영체제에 맡긴다.
+  el.draggable = false;
   el.querySelector('span').textContent = item.label || item.name;
   const img = el.querySelector('img');
   if (item.icon) img.src = item.icon;
@@ -249,13 +250,11 @@ function onIconDown(event) {
   // 이름을 바꾸는 중인 아이콘은 끌지 않는다. 글자를 고르는 손짓이다.
   if (editing && editing.el === event.currentTarget) return;
   const el = event.currentTarget;
+  delete el.dataset.handed;
   const filePath = el.dataset.path;
   const item = itemByPath(filePath);
-  if (canHandOff(item)) {
-    // preventDefault 를 하면 dragstart 가 나지 않아, 다른 프로그램이 파일을 받지 못한다.
-    event.stopPropagation();
-    return;
-  }
+  // 누르는 즉시 운영체제 끌기가 시작되면, 다른 박스 위에 놓아도 그 박스가 받지 못한다.
+  // 손을 떼는 자리로 우리가 옮기고, 다른 프로그램 위로 나갔을 때만 넘긴다.
   event.preventDefault();
   event.stopPropagation();
   const startX = event.screenX;
@@ -271,6 +270,8 @@ function onIconDown(event) {
     moved = true;
     // 파일과 바로가기는 다른 프로그램 위에서 그 프로그램이 받을 수 있게 넘긴다.
     // 박스와 바탕화면 위에서는 지금처럼 우리가 옮긴다. 휴지통은 넘기지 않는다.
+    // 마우스를 움직이는 메시지 안에서 바로 넘기면 운영체제가 끌기를 곧 끝내 버린다.
+    // 그래서 그 메시지가 끝난 뒤에 넘긴다.
     if (canHandOff(item) && leftWindow(ev) && desk.overForeign(ev.screenX, ev.screenY)) {
       stop();
       try {
@@ -281,12 +282,10 @@ function onIconDown(event) {
       drag = null;
       desk.hover(null);
       layout();
-      if (desk.dragOut(filePath)) {
-        taps.forget();
-        return;
-      }
-      el.addEventListener('pointermove', move);
-      el.addEventListener('pointerup', up);
+      el.dataset.handed = '1';
+      desk.dragOutLater(filePath);
+      taps.forget();
+      return;
     }
     drag = {
       path: filePath,
@@ -312,6 +311,8 @@ function onIconDown(event) {
     // 끌어 옮긴 뒤에는 두 번 누른 것으로 세지 않는다.
     taps.forget();
     drag = null;
+    // 끌어 낸 뒤에 따라오는 클릭으로는 열지 않는다.
+    el.dataset.handed = '1';
     // 받을 항목은 메인이 손을 뗀 자리에서 다시 잰다. 여기서는 어디서 뗐는지만 알린다.
     desk.transfer({
       id,

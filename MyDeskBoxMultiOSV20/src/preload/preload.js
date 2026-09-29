@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('desk', {
   hover: (payload) => ipcRenderer.send('fence:hover', payload),
   overForeign: (screenX, screenY) => ipcRenderer.sendSync('fence:over-foreign', { screenX, screenY }),
   dragOut: (filePath) => ipcRenderer.sendSync('fence:drag-out', filePath),
+  // 마우스 메시지가 끝난 뒤에 넘긴다. 그 안에서 넘기면 운영체제가 끌기를 곧 끝낸다.
+  dragOutLater: (filePath) => ipcRenderer.send('fence:drag-out-later', filePath),
   scrolled: (id, top) => ipcRenderer.send('fence:scroll', { id, top }),
   collapse: (id, collapsed) => ipcRenderer.invoke('fence:collapse', { id, collapsed }),
   transfer: (payload) => ipcRenderer.invoke('fence:transfer', payload),

@@ -177,7 +177,8 @@ html, body {
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  -webkit-user-drag: element;
+  /* 운영체제가 끌기를 가져가면 다른 박스 위에 놓아도 그 박스가 받지 못한다. */
+  -webkit-user-drag: none;
   transform-style: preserve-3d;
   transition:
     left 170ms cubic-bezier(0.2, 0.8, 0.2, 1),

@@ -573,6 +573,62 @@ test('다른 박스의 폴더 위에 놓아도 그 폴더로 들어간다', asyn
   assert.deepEqual(state.fences[1].items.map((item) => item.name), ['Work'], '폴더 옆에 나란히 담겼다');
 });
 
+test('다른 박스에서 휴지통 위로 끌어 내면 버린다', async () => {
+  const place = desk();
+  const state = baseState({
+    fences: [
+      fence({ id: 'a', ...BOX, items: [{ name: '노트.txt', path: place.note }] }),
+      fence({ id: 'b', ...FAR, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] }),
+    ],
+  });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  electron.module.screen.getCursorScreenPoint = () => onPicture(0, FAR);
+  const contents = fenceWindows(electron)[0].webContents;
+  contents.startDrag = () => {};
+
+  assert.equal(await host.dragOut(contents, held), true);
+  assert.deepEqual(electron.shell.trashed, [held], '다른 박스의 휴지통이 받지 않았다');
+  assert.equal(state.fences[0].items.length, 0, '버린 항목이 원래 박스에 남았다');
+  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['휴지통'], '휴지통 옆에 담겼다');
+});
+
+test('휴지통에 같은 이름이 있어도 다른 박스에서 휴지통으로 보낸다', async () => {
+  const place = desk();
+  const state = baseState({
+    fences: [
+      fence({ id: 'a', ...BOX, items: [{ name: '노트.txt', path: place.note }] }),
+      fence({ id: 'b', ...FAR, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] }),
+    ],
+  });
+  const { host, electron, desktop, asks } = loadHost(state);
+  desktop.module.recycleHasName = (name) => name === '노트.txt';
+  const kept = [];
+  desktop.module.discardFile = async (filePath) => {
+    kept.push(filePath);
+    fs.rmSync(filePath, { force: true });
+    return true;
+  };
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  electron.module.screen.getCursorScreenPoint = () => onPicture(0, FAR);
+  const contents = fenceWindows(electron)[0].webContents;
+  contents.startDrag = () => {};
+
+  assert.equal(await host.dragOut(contents, held), true);
+  assert.equal(asks.calls.length, 0, '휴지통에 있던 같은 이름을 바꿀지 물었다');
+  assert.deepEqual(kept, [held], '같은 이름을 다른 항목으로 버리지 않았다');
+  assert.deepEqual(electron.shell.trashed, [], '있던 항목을 바꾸는 길로 보냈다');
+  assert.equal(state.fences[0].items.length, 0, '버린 항목이 원래 박스에 남았다');
+  assert.equal(state.fences[1].items.some((item) => item.name === '노트.txt'), false, '휴지통 대신 박스에 담았다');
+  assert.equal(state.fences[1].items.some((item) => item.path === 'shell:RecycleBinFolder'), true, '휴지통이 빠졌다');
+});
+
 test('다른 박스의 휴지통 위에 놓으면 버린다', async () => {
   const place = desk();
   const { host, electron, state } = twoBoxes(
@@ -623,40 +679,51 @@ test('칸의 가장자리에 놓으면 받아 주지 않고 사이에 끼운다'
   assert.equal(state.fences[1].items.length, 2, '박스에 담기지도 않았다');
 });
 
-test('휴지통에 이미 버린 것이 있으면 창에 놓은 바탕화면 파일도 박스에 담는다', async () => {
+test('휴지통에 같은 이름이 있어도 창에 놓은 파일은 휴지통으로 보낸다', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ ...BOX, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
   });
   const { host, electron, desktop, asks } = loadHost(state);
-  desktop.module.recycleCount = () => 2;
+  desktop.module.recycleHasName = (name) => name === '노트.txt';
+  const kept = [];
+  desktop.module.discardFile = async (filePath) => {
+    kept.push(filePath);
+    return true;
+  };
   host.openAll();
 
   await host.dropFiles('a', [place.note], 0, 'shell:RecycleBinFolder');
 
-  assert.equal(asks.calls.length, 0, '휴지통에 있던 것을 바꿀지 물었다');
-  assert.deepEqual(electron.shell.trashed, [], '휴지통에 있던 것을 바꾸려 했다');
-  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), true, '새 항목을 박스에 담지 않았다');
+  assert.equal(asks.calls.length, 0, '휴지통에 있던 같은 이름을 바꿀지 물었다');
+  assert.deepEqual(kept, [place.note], '같은 이름을 다른 항목으로 버리지 않았다');
+  assert.deepEqual(electron.shell.trashed, [], '있던 항목을 바꾸는 길로 보냈다');
+  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), false, '휴지통 대신 박스에 담았다');
   assert.equal(state.fences[0].items.some((item) => item.path === 'shell:RecycleBinFolder'), true);
 });
 
-test('휴지통에 이미 버린 것이 있으면 바탕화면에서 끌어 온 항목은 박스에 담는다', async () => {
+test('휴지통에 같은 이름이 있어도 바탕화면에서 끌어 온 항목은 휴지통으로 보낸다', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ ...BOX, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
   });
   const { host, electron, desktop, asks } = loadHost(state);
-  desktop.module.recycleCount = () => 3;
+  desktop.module.recycleHasName = (name) => name === '노트.txt';
+  const kept = [];
+  desktop.module.discardFile = async (filePath) => {
+    kept.push(filePath);
+    return true;
+  };
   host.openAll();
 
   const spot = onPicture(0);
   await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, spot);
 
-  assert.equal(asks.calls.length, 0, '휴지통에 있던 것을 바꿀지 물었다');
-  assert.deepEqual(electron.shell.trashed, [], '휴지통에 있던 것을 바꾸려 했다');
+  assert.equal(asks.calls.length, 0, '휴지통에 있던 같은 이름을 바꿀지 물었다');
+  assert.deepEqual(kept, [place.note], '같은 이름을 다른 항목으로 버리지 않았다');
+  assert.deepEqual(electron.shell.trashed, [], '있던 항목을 바꾸는 길로 보냈다');
   assert.equal(state.fences[0].items.some((item) => item.path === 'shell:RecycleBinFolder'), true, '휴지통이 박스에서 빠졌다');
-  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), true, '새 항목을 박스에 담지 않았다');
-  assert.equal(fs.existsSync(place.note), false, '바탕화면 파일이 박스 폴더로 옮겨 가지 않았다');
+  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), false, '휴지통 대신 박스에 담았다');
 });
 
 test('바탕화면에서 끌어 온 것도 박스 안 휴지통이 받는다', async () => {

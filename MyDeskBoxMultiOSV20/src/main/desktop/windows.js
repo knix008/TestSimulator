@@ -118,6 +118,19 @@ const SHEmptyRecycleBinW = shell32.func('int32 __stdcall SHEmptyRecycleBinW(uint
 // 휴지통에 무엇이 들었는지 묻는다. 크기와 개수를 준다.
 const SHQUERYRBINFO = koffi.struct('SHQUERYRBINFO', { cbSize: 'uint32', i64Size: 'int64', i64NumItems: 'int64' });
 const SHQueryRecycleBinW = shell32.func('int32 __stdcall SHQueryRecycleBinW(str16 root, _Inout_ SHQUERYRBINFO *info);');
+// 같은 이름이 휴지통에 있어도 묻지 않고 다른 항목으로 넣기 위한 지우기.
+const SHFILEOPSTRUCTW = koffi.struct('SHFILEOPSTRUCTW', {
+  hwnd: 'void *',
+  wFunc: 'uint32',
+  pFrom: 'void *',
+  pTo: 'void *',
+  fFlags: 'uint16',
+  fAnyOperationsAborted: 'int32',
+  hNameMappings: 'void *',
+  lpszProgressTitle: 'void *',
+});
+const SHFileOperationW = shell32.func('int32 __stdcall SHFileOperationW(_Inout_ SHFILEOPSTRUCTW *op)');
+const FO_DELETE = 3;
 const SHParseDisplayName = shell32.func('int32 __stdcall SHParseDisplayName(str16 name, void *bind, _Out_ void **pidl, uint32 wantIn, _Out_ uint32 *gotOut)');
 const SHGetFileInfoPidl = shell32.func('uintptr __stdcall SHGetFileInfoW(void *pidl, uint32 attrs, _Out_ SHFILEINFOW *info, uint32 size, uint32 flags)');
 
@@ -1558,6 +1571,41 @@ function claimSingleInstance() {
   }
 }
 
+const recycleName = require('./recycle-name');
+
+// 휴지통으로 보낸다. 같은 이름이 이미 있어도 바꾸지 않고 따로 남긴다.
+function discardFile(filePath) {
+  if (process.platform !== 'win32' || !filePath) return false;
+  try {
+    if (!fs.existsSync(filePath)) return false;
+    const body = Buffer.from(String(filePath), 'utf16le');
+    const wide = Buffer.alloc(body.length + 4);
+    body.copy(wide);
+    const code = SHFileOperationW({
+      hwnd: null,
+      wFunc: FO_DELETE,
+      pFrom: wide,
+      pTo: null,
+      fFlags: recycleName.recycleDeleteFlags(),
+      fAnyOperationsAborted: 0,
+      hNameMappings: null,
+      lpszProgressTitle: null,
+    });
+    return code === 0 && !fs.existsSync(filePath);
+  } catch (_err) {
+    return false;
+  }
+}
+
+// 휴지통에 이 이름의 항목이 이미 있는가.
+function recycleHasName(name) {
+  try {
+    return recycleName.hasName(name);
+  } catch (_err) {
+    return false;
+  }
+}
+
 // 휴지통에 든 항목 수. 0 이면 비울 것이 없다. 물어보지 못했으면 -1 이다.
 function recycleCount() {
   try {
@@ -1724,6 +1772,8 @@ module.exports = {
   watchDoubleClick,
   emptyRecycle,
   recycleCount,
+  recycleHasName,
+  discardFile,
   shutdown,
   debugList,
 };
