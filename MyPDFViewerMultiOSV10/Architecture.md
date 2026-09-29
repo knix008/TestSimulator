@@ -281,7 +281,14 @@ PDF 저장을 권합니다 (`win:forceClose` 로만 실제로 닫힙니다).
 | `npm run web` | 브라우저용 개발 서버 |
 | `npm run build` | 웹 배포용 정적 파일 → `dist/` |
 | `npm run build:win` / `:mac` / `:linux` | 설치 파일 → `release/` (그리고 프로젝트 최상위로 복사) |
+| `npm run clean` / `clean:all` | 빌드 생성물 삭제 → `dist/` · `release/` · `build/icons/` · `public/pdfjs/` · `src/build-info.json` · 최상위 설치 파일 · Vite/Vitest 캐시. `clean:all` 은 `node_modules/` 까지 (`--dry-run` 으로 미리 확인) |
 
+* 모든 진입점(`prebuild:*`, `prepare:assets`, `pretest`, `preelectron`)은
+  [scripts/ensure-deps.mjs](scripts/ensure-deps.mjs) 를 먼저 실행합니다. `package.json` 에 적힌 패키지가
+  하나라도 없으면 `npm install` 을 돌리므로, 막 clone 한 저장소에서도 `npm run build:win` 하나로 끝납니다.
+  Node 기본 모듈만 쓰며(그 시점에 `node_modules/` 가 없을 수 있으므로), 이미 갖춰져 있으면 아무 것도 하지 않습니다.
+* [scripts/clean.mjs](scripts/clean.mjs) 는 생성물만 지웁니다. `public/icon.svg` · `public/file-icon.svg` 는
+  `assets/` 의 복사본이지만 일부러 커밋되어 있어(빌드 전에도 환영 화면이 보여야 합니다) 지우지 않습니다.
 * 아이콘은 `assets/icon.svg`(프로그램)와 `assets/file-icon.svg`(문서)에서
   `scripts/generate-icons.mjs` 가 ico/icns/png 전체를 생성합니다. 설치 파일도 같은 아이콘을 씁니다.
 * 화면 코드는 Vite가 번들하므로 **`node_modules` 는 패키지에 넣지 않습니다**

@@ -56,6 +56,8 @@ PDF를 읽고, 그 안의 **텍스트와 이미지를 손쉽게 복사**할 수 
 
 ```bash
 npm install          # 의존성 설치 (pdf.js 런타임 파일과 빌드 정보도 함께 준비됩니다)
+                     #   생략해도 됩니다 — 아래 명령들은 node_modules/ 가 없거나
+                     #   빠진 패키지가 있으면 npm install 을 자동으로 먼저 실행합니다
 
 npm start            # 데스크톱(Electron) 개발 실행 — 항상 최신 소스가 반영됩니다
                      # (이전 개발 서버가 포트를 잡고 있으면 자동으로 정리하고 시작합니다)
@@ -75,6 +77,22 @@ npm run build        # 웹 배포용 정적 파일 → dist/
 
 빌드가 끝나면 설치 파일이 프로젝트 최상위로 복사됩니다.
 Windows 설치 프로그램은 설치 경로 선택, 바탕화면 · 시작 메뉴 바로 가기 선택(한국어/영어)을 제공합니다.
+
+빌드에 필요한 패키지가 설치되어 있지 않으면 `npm install` 을 먼저 실행한 뒤 이어서 빌드합니다.
+
+## 빌드 결과 지우기
+
+```bash
+npm run clean        # 빌드로 생긴 것을 모두 삭제
+                     #   dist/ · release/ · build/icons/ · public/pdfjs/ ·
+                     #   src/build-info.json · 최상위로 복사된 설치 파일 · 캐시
+npm run clean:all    # 위의 모든 것 + node_modules/ (완전 초기화)
+npm run clean:dry    # clean:all 기준으로 목록만 표시 (지우지 않음)
+                     #   npm run clean -- --dry-run 은 clean 기준
+```
+
+지워지는 것은 모두 `.gitignore` 된 생성물이며, `npm run build:win` 을 다시 실행하면
+그대로 다시 만들어집니다. 소스나 `assets/*.svg` 처럼 git 이 추적하는 파일은 건드리지 않습니다.
 
 ---
 
