@@ -21,7 +21,13 @@ const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 
 const root = path.join(__dirname, '..');
-const child = spawn(electron, [root, ...process.argv.slice(2)], { stdio: 'inherit', env });
+// Electron 은 UTF-8 로 쓰는데 한국어 Windows 터미널은 CP949 로 읽어 글이 깨진다.
+// 받아서 글로 풀어 다시 쓰면 Node 가 터미널에 맞게 내보낸다.
+const child = spawn(electron, [root, ...process.argv.slice(2)], { stdio: ['inherit', 'pipe', 'pipe'], env });
+child.stdout.setEncoding('utf8');
+child.stderr.setEncoding('utf8');
+child.stdout.on('data', (text) => process.stdout.write(text));
+child.stderr.on('data', (text) => process.stderr.write(text));
 
 child.on('error', (err) => {
   console.error('앱을 띄우지 못했습니다.', err.message);
