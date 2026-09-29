@@ -48,11 +48,11 @@ export function SettingsDialog({ spec, done }) {
   // colour grids stacked on the colour editor — and the terminal's two groups of settings — were the
   // tallest things in it by far.
   const SUBS = {
-    theme: [['dark', t('set_themes_dark')], ['light', t('set_themes_light')], ['custom', t('set_custom_themes')]],
+    theme: [['builtin', t('set_themes_builtin')], ['custom', t('set_custom_themes')]],
     terminal: [['shell', t('set_term_tab_shell')], ['output', t('set_term_output')]],
     prompt: [['presets', t('pe_tab_presets')], ['quick', t('pe_customize')], ['advanced', t('pe_advanced')]],
   };
-  const [sub, setSub] = useState({ theme: 'dark', terminal: 'shell', prompt: 'presets' });
+  const [sub, setSub] = useState({ theme: 'builtin', terminal: 'shell', prompt: 'presets' });
   const paneOf = (id) => (SUBS[id] ? `${id}:${sub[id]}` : id);
   // Every page that has to fit, as '<tab>' or '<tab>:<sub>' — the order they are measured in.
   const panes = tabs.flatMap(([id]) => (SUBS[id] ? SUBS[id].map(([s]) => `${id}:${s}`) : [id]));
@@ -213,12 +213,13 @@ export function SettingsDialog({ spec, done }) {
             <span className="muted small">{t('set_separate_windows_hint')}</span>
           </div>
         )}
-        {/* The dark themes and the light ones have a sub-tab each — mixing them made the grid hard to
-            read, and stacking them made the window twice as tall as it had to be. A custom theme joins
-            the group its mode says it belongs to; the colour editor is the third sub-tab. */}
+        {/* Every built-in theme on one page, the dark ones and the light ones under a heading each:
+            sorting them apart is what makes the grid readable — a sub-tab each was more than it needed.
+            A custom theme joins the group its mode says it belongs to; the colour editor is its own
+            sub-tab, which is where the height the window saves comes from. */}
         {shownTab === 'theme' && (<>
           <SubTabs of="theme" />
-          {[['dark', t('set_themes_dark')], ['light', t('set_themes_light')]].filter(([mode]) => mode === shownSub).map(([mode, heading]) => {
+          {shownSub === 'builtin' && [['dark', t('set_themes_dark')], ['light', t('set_themes_light')]].map(([mode, heading]) => {
             const group = [...THEMES, ...customList].filter((th) => th.mode === mode);
             if (!group.length) return null;
             return (
