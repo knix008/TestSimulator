@@ -43,7 +43,7 @@ let api = null;
 // Tool windows (viewer, editor, multi-rename, search, settings): independent
 // top-level windows that close together with the main window.
 const toolWins = new Set();
-const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [1040, 960], about: [560, 400] };   // fits the tallest tab (theme / prompt: ~760 px of content + 130 chrome) with no scrollbar and no waste; clamped to the screen below
+const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [880, 760], about: [560, 400] };   // the height is only a start — the settings window measures its pages and fits itself (SettingsDialog); clamped to the screen below
 // Every tool window exists at most once: a second request focuses the open one
 // (and hands it the new arguments — see ipc.js). The settings window has a fixed size.
 const SINGLETON = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about']);

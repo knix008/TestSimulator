@@ -77,14 +77,16 @@ function SegmentFields({ seg, onChange }) {
 }
 
 // custom: the user's saved prompts [{ id, label, config }]; onCustomChange(list, cfgToApply?) stores them.
-export function PromptEditor({ value, onChange, custom = [], onCustomChange }) {
+// `page` is which of the editor's sections is shown — the settings window's sub-tabs pick it
+// (SettingsDialog SUBS.prompt). The preview stays above all of them: it is what every one of them changes.
+export function PromptEditor({ value, onChange, custom = [], onCustomChange, page = 'presets' }) {
   useLanguage();
   const lang = getLanguage();
   const cfg = useMemo(() => normalizePrompt(value), [value]);
   // Built-in presets and the user's own, looked up alike (a custom one carries its label in both languages).
   const presets = useMemo(() => ({ ...PRESETS, ...Object.fromEntries((custom || []).filter((c) => c && c.id && c.config).map((c) => [c.id, { label: c.label, labelEn: c.label, config: { ...normalizePrompt(c.config), preset: c.id }, custom: true }])) }), [custom]);
   const customCur = cfg.preset && presets[cfg.preset] && presets[cfg.preset].custom ? (custom || []).find((c) => c.id === cfg.preset) : null;
-  const advanced = true;   // the detail editor always fills the rest of the window
+  const advanced = page === 'advanced';   // on its own sub-tab the detail editor fills the rest of the window
   const [sel, setSel] = useState({ b: 0, s: 0 });
   const [note, setNote] = useState('');
   const update = (fn) => { const c = clonePrompt(cfg); fn(c); onChange(normalizePrompt(c)); };
@@ -149,7 +151,9 @@ export function PromptEditor({ value, onChange, custom = [], onCustomChange }) {
         ))}
       </pre>
 
-      {/* 2. presets */}
+      {/* 2. presets — on a sub-tab of their own, as are the simple options and the advanced editor
+          below them. Stacked, the four sections made the settings window nearly a screen tall. */}
+      {page === 'presets' && (<>
       <div className="pe-section-title">{t('pe_presets')} <span className="muted small">{cfg.preset && presets[cfg.preset] ? t(modified ? 'pe_current_modified' : 'pe_current', { name: presetLabel(cfg.preset) }) : t('pe_custom')}</span></div>
       <div className="pe-presets">
         {Object.entries(presets).map(([id, p]) => (
@@ -172,8 +176,10 @@ export function PromptEditor({ value, onChange, custom = [], onCustomChange }) {
           {!customCur && <span className="muted small ellipsis">{t('pe_custom_hint')}</span>}
         </div>
       )}
+      </>)}
 
       {/* 3. simple options */}
+      {page === 'quick' && (<>
       <div className="pe-section-title">{t('pe_customize')}</div>
       <div className="pe-quick">
         <span className="muted small">{t('pe_show')}</span>
@@ -199,7 +205,8 @@ export function PromptEditor({ value, onChange, custom = [], onCustomChange }) {
         ))}
         <button type="button" className="btn small" disabled={GIT_STATE_NAMES.every((k) => cfg.git_colors[k] === GIT_STATE_COLORS[k])} onClick={() => update((c) => { c.git_colors = { ...GIT_STATE_COLORS }; })}>{t('pe_gs_reset')}</button>
       </div>
-      <div className="pe-section-title">{t('pe_advanced')}</div>
+      </>)}
+      {advanced && <div className="pe-section-title">{t('pe_advanced')}</div>}
 
       {/* 4. advanced: master–detail + import/export */}
       {advanced && (

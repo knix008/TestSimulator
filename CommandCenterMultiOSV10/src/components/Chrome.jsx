@@ -11,6 +11,7 @@ import { allThemes, themeById, nextThemeId } from '../themes';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
 import { rowWidth, setChromeMinWidth } from '../lib/minwidth';
+import BUILD from '../build-info.json';
 
 // A long path in the recent-folders list keeps its start and its end ("C:\Home\…\src\components").
 function shortenPath(p, max = 64) {
@@ -106,6 +107,14 @@ export function MenuBar({ onAction, state }) {
 
   return (
     <div className="menubar">
+      {/* This row *is* the window's title bar where the host lets the page draw it (src/lib/titlebar.js).
+          The native caption that used to carry the program's icon, name and version is gone, so they open
+          the row instead — at its left, ahead of the menu titles, which is where a title bar keeps them. */}
+      <span className="menubar-brand" title={`${BUILD.productName} ${BUILD.version}`}>
+        <img className="menubar-logo" src="./icon.svg" alt="" width={16} height={16} draggable={false} />
+        <span className="menubar-app ellipsis">{BUILD.productName}</span>
+        <span className="menubar-ver">{BUILD.version}</span>
+      </span>
       {titles.map(([id, label, icon]) => (
         <button key={id} className={`menu-title ${open && open.id === id ? 'open' : ''}`}
           onMouseDown={(e) => { e.preventDefault(); setOpen(open && open.id === id ? null : { id, el: e.currentTarget }); }}
@@ -113,11 +122,6 @@ export function MenuBar({ onAction, state }) {
           <Icon name={icon} size={14} className="menu-icon" />{t(label)}
         </button>
       ))}
-      {/* This row *is* the window's title bar where the host lets the page draw it (src/lib/titlebar.js),
-          so it carries the window title — the native caption that used to show it is gone. Hidden
-          otherwise, where the real title bar is still above us. */}
-      <span className="menubar-spacer" />
-      <span className="menubar-title ellipsis">{t('appName')}</span>
       <span className="menubar-spacer" />
       {open && (
         <ContextMenu anchorEl={open.el} x={0} y={0} items={menus[open.id]} onClose={() => setOpen(null)}

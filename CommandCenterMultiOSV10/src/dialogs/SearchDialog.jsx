@@ -146,6 +146,15 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
       {docked && (
         <div className="search-root"><Icon name="folder" size={13} /><span className="ellipsis" title={root}>{root}</span>{onRoot && <button type="button" className="btn small" onClick={onRoot} title={t('search_root_tip')}>{t('search_root_active')}</button>}</div>
       )}
+      {/* This window's title bar, drawn in the page so it follows the theme (src/lib/titlebar.js).
+          Without it the window had none at all: the native caption is hidden, and the window controls
+          drawn in its place came down on the first row of the form. */}
+      {windowed && !docked && (
+        <div className="dlg-caption">
+          <Icon name="search" />
+          <span className="ellipsis" title={root}>{t('search_title', { root })}</span>
+        </div>
+      )}
       {!windowed && !docked && (
         <div className="dlg-title" onMouseDown={onTitleDown} style={{ cursor: 'move' }}>
           <Icon name="search" />
