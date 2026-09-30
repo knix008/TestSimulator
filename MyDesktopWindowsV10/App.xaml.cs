@@ -89,46 +89,41 @@ public partial class App : Application
     {
         var menu = new ContextMenu();
 
-        var newFence = new MenuItem { Header = Strings.T("New fence") };
-        newFence.Click += (_, _) => _manager?.CreateFenceAtCursor();
+        // The switches here carry their state as their icon rather than as WPF's own tick, which is
+        // drawn in the very same column: with a tick there they would be the only entries in
+        // Palisades without an icon. MenuArt.SetState repoints them each time the menu opens.
+        var newFence = MenuArt.Command(Strings.T("New fence"), MenuArt.NewFence, () => _manager?.CreateFenceAtCursor());
+        var newPortal = MenuArt.Command(Strings.T("New folder portal…"), MenuArt.NewPortal, CreatePortal);
+        var hideAll = MenuArt.Check(Strings.T("Hide all fences"), false, () => _manager?.ToggleQuickHide());
 
-        var newPortal = new MenuItem { Header = Strings.T("New folder portal…") };
-        newPortal.Click += (_, _) => CreatePortal();
+        var locked = MenuArt.Check(Strings.T("Lock fences"), false, MenuArt.Locked, MenuArt.Unlocked,
+            () => Toggle(settings => settings.FencesLocked = !settings.FencesLocked));
 
-        var hideAll = new MenuItem { Header = Strings.T("Hide all fences"), IsCheckable = true };
-        hideAll.Click += (_, _) => _manager?.ToggleQuickHide();
+        var bareDesktop = MenuArt.Check(Strings.T("Palisades draws the desktop"), false,
+            () => Toggle(settings => settings.DrawDesktop = !settings.DrawDesktop));
 
-        var locked = new MenuItem { Header = Strings.T("Lock fences"), IsCheckable = true };
-        locked.Click += (_, _) => Toggle(settings => settings.FencesLocked = !settings.FencesLocked);
+        var login = MenuArt.Check(Strings.T("Start with Windows"), false,
+            () => Toggle(settings => settings.LaunchAtLogin = !settings.LaunchAtLogin));
 
-        var bareDesktop = new MenuItem { Header = Strings.T("Palisades draws the desktop"), IsCheckable = true };
-        bareDesktop.Click += (_, _) => Toggle(settings => settings.DrawDesktop = !settings.DrawDesktop);
+        var lasso = MenuArt.Check(Strings.T("Right-drag desktop makes a fence"), false,
+            () => Toggle(settings => settings.CreateFenceWithRightDrag = !settings.CreateFenceWithRightDrag));
 
-        var login = new MenuItem { Header = Strings.T("Start with Windows"), IsCheckable = true };
-        login.Click += (_, _) => Toggle(settings => settings.LaunchAtLogin = !settings.LaunchAtLogin);
+        var quickHide = MenuArt.Check(Strings.T("Double-click desktop hides fences"), false,
+            () => Toggle(settings => settings.QuickHideOnDesktopDoubleClick = !settings.QuickHideOnDesktopDoubleClick));
 
-        var lasso = new MenuItem { Header = Strings.T("Right-drag desktop makes a fence"), IsCheckable = true };
-        lasso.Click += (_, _) => Toggle(settings => settings.CreateFenceWithRightDrag = !settings.CreateFenceWithRightDrag);
-
-        var quickHide = new MenuItem { Header = Strings.T("Double-click desktop hides fences"), IsCheckable = true };
-        quickHide.Click += (_, _) => Toggle(settings => settings.QuickHideOnDesktopDoubleClick = !settings.QuickHideOnDesktopDoubleClick);
-
-        var language = new MenuItem { Header = Strings.T("Language") };
-        var follow = new MenuItem { Header = Strings.T("Follow Windows"), IsCheckable = true };
-        follow.Click += (_, _) => Toggle(settings => settings.Language = UiLanguage.System);
-        var english = new MenuItem { Header = Strings.T("English"), IsCheckable = true };
-        english.Click += (_, _) => Toggle(settings => settings.Language = UiLanguage.English);
-        var korean = new MenuItem { Header = Strings.T("Korean"), IsCheckable = true };
-        korean.Click += (_, _) => Toggle(settings => settings.Language = UiLanguage.Korean);
+        var language = MenuArt.Submenu(Strings.T("Language"), MenuArt.Language);
+        var follow = MenuArt.Check(Strings.T("Follow Windows"), false,
+            () => Toggle(settings => settings.Language = UiLanguage.System));
+        var english = MenuArt.Check(Strings.T("English"), false,
+            () => Toggle(settings => settings.Language = UiLanguage.English));
+        var korean = MenuArt.Check(Strings.T("Korean"), false,
+            () => Toggle(settings => settings.Language = UiLanguage.Korean));
         language.Items.Add(follow);
         language.Items.Add(english);
         language.Items.Add(korean);
 
-        var settingsItem = new MenuItem { Header = Strings.T("Settings…") };
-        settingsItem.Click += (_, _) => ShowSettings();
-
-        var exit = new MenuItem { Header = Strings.T("Exit Palisades") };
-        exit.Click += (_, _) => QuitPalisades();
+        var settingsItem = MenuArt.Command(Strings.T("Settings…"), MenuArt.Settings, ShowSettings);
+        var exit = MenuArt.Command(Strings.T("Exit Palisades"), MenuArt.Exit, QuitPalisades);
 
         menu.Items.Add(newFence);
         menu.Items.Add(newPortal);
@@ -170,16 +165,16 @@ public partial class App : Application
             settingsItem.Header = Strings.T("Settings…");
             exit.Header = Strings.T("Exit Palisades");
 
-            follow.IsChecked = settings.Language == UiLanguage.System;
-            english.IsChecked = settings.Language == UiLanguage.English;
-            korean.IsChecked = settings.Language == UiLanguage.Korean;
+            MenuArt.SetState(follow, settings.Language == UiLanguage.System);
+            MenuArt.SetState(english, settings.Language == UiLanguage.English);
+            MenuArt.SetState(korean, settings.Language == UiLanguage.Korean);
 
-            hideAll.IsChecked = settings.AllHidden;
-            locked.IsChecked = settings.FencesLocked;
-            bareDesktop.IsChecked = settings.DrawDesktop;
-            login.IsChecked = settings.LaunchAtLogin;
-            lasso.IsChecked = settings.CreateFenceWithRightDrag;
-            quickHide.IsChecked = settings.QuickHideOnDesktopDoubleClick;
+            MenuArt.SetState(hideAll, settings.AllHidden);
+            MenuArt.SetState(locked, settings.FencesLocked, MenuArt.Locked, MenuArt.Unlocked);
+            MenuArt.SetState(bareDesktop, settings.DrawDesktop);
+            MenuArt.SetState(login, settings.LaunchAtLogin);
+            MenuArt.SetState(lasso, settings.CreateFenceWithRightDrag);
+            MenuArt.SetState(quickHide, settings.QuickHideOnDesktopDoubleClick);
         };
 
         return menu;

@@ -793,11 +793,13 @@ public partial class FenceWindow : Window
         var settings = _manager.Settings;
         var menu = NewMenu();
 
-        menu.Items.Add(Command(Strings.T("Rename fence"), BeginRename, !settings.FencesLocked));
-        menu.Items.Add(Command(Strings.T(_fence.RolledUp ? "Roll down" : "Roll up"), ToggleRoll));
+        menu.Items.Add(Command(Strings.T("Rename fence"), MenuArt.Rename, BeginRename, !settings.FencesLocked));
+        menu.Items.Add(_fence.RolledUp
+            ? Command(Strings.T("Roll down"), MenuArt.RollDown, ToggleRoll)
+            : Command(Strings.T("Roll up"), MenuArt.RollUp, ToggleRoll));
         menu.Items.Add(new Separator());
 
-        var sort = new MenuItem { Header = Strings.T("Sort items by") };
+        var sort = MenuArt.Submenu(Strings.T("Sort items by"), MenuArt.Sort);
         foreach (var (label, value) in new[]
                  {
                      ("Manual order", FenceSort.Manual),
@@ -819,7 +821,7 @@ public partial class FenceWindow : Window
 
         menu.Items.Add(sort);
 
-        var size = new MenuItem { Header = Strings.T("Icon size") };
+        var size = MenuArt.Submenu(Strings.T("Icon size"), MenuArt.IconSize);
         foreach (var (label, value) in new[] { ("Small", 32d), ("Medium", 48d), ("Large", 64d), ("Huge", 80d) })
         {
             var choice = value;
@@ -829,7 +831,7 @@ public partial class FenceWindow : Window
         menu.Items.Add(size);
         menu.Items.Add(Toggle(Strings.T("Show labels"), _fence.ShowLabels, () => _fence.ShowLabels = !_fence.ShowLabels));
 
-        var background = new MenuItem { Header = Strings.T("Fence colour") };
+        var background = MenuArt.Submenu(Strings.T("Fence colour"), MenuArt.Colour);
         foreach (var (label, value) in BackgroundPalette)
         {
             var choice = value;
@@ -838,7 +840,7 @@ public partial class FenceWindow : Window
 
         menu.Items.Add(background);
 
-        var accent = new MenuItem { Header = Strings.T("Accent") };
+        var accent = MenuArt.Submenu(Strings.T("Accent"), MenuArt.Accent);
         foreach (var (label, value) in AccentPalette)
         {
             var choice = value;
@@ -847,7 +849,7 @@ public partial class FenceWindow : Window
 
         menu.Items.Add(accent);
 
-        var transparency = new MenuItem { Header = Strings.T("Transparency") };
+        var transparency = MenuArt.Submenu(Strings.T("Transparency"), MenuArt.Transparency);
         foreach (var (label, value) in new[] { ("Solid", 0.95), ("Light", 0.80), ("Medium", 0.62), ("Heavy", 0.45), ("Ghost", 0.28) })
         {
             var choice = value;
@@ -861,28 +863,30 @@ public partial class FenceWindow : Window
 
         if (_fence.IsPortal)
         {
-            menu.Items.Add(Command(Strings.T("Open folder in Explorer"), () => OpenFolder(_fence.PortalPath)));
-            menu.Items.Add(Command(Strings.T("Point at another folder…"), PickPortalFolder));
-            menu.Items.Add(Toggle(Strings.T("Show hidden items"), _fence.PortalShowHidden, () => _fence.PortalShowHidden = !_fence.PortalShowHidden));
-            menu.Items.Add(Command(Strings.T("Stop mirroring folder"), () => _fence.Kind = FenceKind.Manual));
+            menu.Items.Add(Command(Strings.T("Open folder in Explorer"), MenuArt.OpenExternal, () => OpenFolder(_fence.PortalPath)));
+            menu.Items.Add(Command(Strings.T("Point at another folder…"), MenuArt.PointAtFolder, PickPortalFolder));
+            menu.Items.Add(MenuArt.Check(Strings.T("Show hidden items"), _fence.PortalShowHidden,
+                () => _fence.PortalShowHidden = !_fence.PortalShowHidden));
+            menu.Items.Add(Command(Strings.T("Stop mirroring folder"), MenuArt.StopMirroring, () => _fence.Kind = FenceKind.Manual));
         }
         else
         {
-            menu.Items.Add(Command(Strings.T("Turn into a folder portal…"), PickPortalFolder));
+            menu.Items.Add(Command(Strings.T("Turn into a folder portal…"), MenuArt.MakePortal, PickPortalFolder));
         }
 
         menu.Items.Add(new Separator());
-        menu.Items.Add(Command(Strings.T("New fence here"), () => _manager.CreateFenceAtCursor()));
-        menu.Items.Add(Command(Strings.T("Duplicate this fence"), DuplicateFence));
-        menu.Items.Add(Command(Strings.T("Delete this fence…"), DeleteFence));
+        menu.Items.Add(Command(Strings.T("New fence here"), MenuArt.NewFence, () => _manager.CreateFenceAtCursor()));
+        menu.Items.Add(Command(Strings.T("Duplicate this fence"), MenuArt.Copy, DuplicateFence));
+        menu.Items.Add(Command(Strings.T("Delete this fence…"), MenuArt.Delete, DeleteFence));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Toggle(Strings.T("Lock all fences"), settings.FencesLocked, () => settings.FencesLocked = !settings.FencesLocked));
+        menu.Items.Add(MenuArt.Check(Strings.T("Lock all fences"), settings.FencesLocked,
+            MenuArt.Locked, MenuArt.Unlocked, () => settings.FencesLocked = !settings.FencesLocked));
         menu.Items.Add(Toggle(Strings.T("Palisades draws the desktop"), settings.DrawDesktop,
             () => settings.DrawDesktop = !settings.DrawDesktop));
-        menu.Items.Add(Command(Strings.T("Hide all fences"), _manager.ToggleQuickHide));
-        menu.Items.Add(Command(Strings.T("Palisades settings…"), App.OpenSettings));
+        menu.Items.Add(Command(Strings.T("Hide all fences"), MenuArt.Hide, _manager.ToggleQuickHide));
+        menu.Items.Add(Command(Strings.T("Palisades settings…"), MenuArt.Settings, App.OpenSettings));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Command(Strings.T("Exit Palisades"), App.Quit));
+        menu.Items.Add(Command(Strings.T("Exit Palisades"), MenuArt.Exit, App.Quit));
 
         Activate();
         menu.IsOpen = true;
@@ -891,18 +895,19 @@ public partial class FenceWindow : Window
     private void ShowItemMenu(FenceItem item)
     {
         var menu = NewMenu();
-        menu.Items.Add(Command(Strings.T("Open"), () => Launch(item)));
+        menu.Items.Add(Command(Strings.T("Open"), MenuArt.Open, () => Launch(item)));
 
-        if (item.IsRecycleBin)
+        // Nothing to empty means nothing to offer: the entry only appears when the bin holds something.
+        if (item.IsRecycleBin && !RecycleBinWatcher.IsEmpty())
         {
-            menu.Items.Add(Command(Strings.T("Empty Recycle Bin"), () => EmptyRecycleBin(item)));
+            menu.Items.Add(Command(Strings.T("Empty Recycle Bin"), MenuArt.EmptyBin, () => EmptyRecycleBin(item)));
         }
 
         // A shell place is not a file: it has no folder to reveal and no path worth copying.
         if (!item.IsShellPlace)
         {
-            menu.Items.Add(Command(Strings.T("Open file location"), () => Reveal(item.Path)));
-            menu.Items.Add(Command(Strings.T("Copy path"), () =>
+            menu.Items.Add(Command(Strings.T("Open file location"), MenuArt.FolderOpen, () => Reveal(item.Path)));
+            menu.Items.Add(Command(Strings.T("Copy path"), MenuArt.Copy, () =>
             {
                 try
                 {
@@ -917,18 +922,18 @@ public partial class FenceWindow : Window
         var others = _manager.Fences.Where(fence => !ReferenceEquals(fence, _fence) && !fence.IsPortal).ToList();
         if (others.Count > 0)
         {
-            var move = new MenuItem { Header = Strings.T("Move to fence") };
+            var move = MenuArt.Submenu(Strings.T("Move to fence"), MenuArt.MoveToFence);
             foreach (var target in others)
             {
                 var destination = target;
-                move.Items.Add(Command(destination.Name, () => MoveItems(destination)));
+                move.Items.Add(Command(destination.Name, MenuArt.Fence, () => MoveItems(destination)));
             }
 
             menu.Items.Add(move);
         }
 
         menu.Items.Add(new Separator());
-        menu.Items.Add(Command(Strings.T("Refresh icon"), () =>
+        menu.Items.Add(Command(Strings.T("Refresh icon"), MenuArt.Refresh, () =>
         {
             foreach (var selected in ItemsView.SelectedItems.OfType<FenceItem>())
             {
@@ -938,13 +943,22 @@ public partial class FenceWindow : Window
 
         if (!_fence.IsPortal)
         {
-            menu.Items.Add(Command(Strings.T("Remove from fence"), () =>
+            menu.Items.Add(Command(Strings.T("Remove from fence"), MenuArt.Remove, () =>
             {
                 foreach (var selected in ItemsView.SelectedItems.OfType<FenceItem>().ToArray())
                 {
                     _fence.Items.Remove(selected);
                 }
             }));
+        }
+
+        // Taking a file out of a fence and deleting it are different things, so Delete sits apart
+        // from "Remove from fence" rather than beside it. A shell place such as the Recycle Bin is
+        // not a file and cannot be deleted.
+        if (!item.IsShellPlace)
+        {
+            menu.Items.Add(new Separator());
+            menu.Items.Add(Command(Strings.T("Delete"), MenuArt.Delete, RecycleSelection));
         }
 
         Activate();
@@ -969,44 +983,14 @@ public partial class FenceWindow : Window
         StaysOpen = false
     };
 
-    private static MenuItem Command(string header, Action action, bool enabled = true)
-    {
-        var item = new MenuItem { Header = header, IsEnabled = enabled };
-        item.Click += (_, _) => action();
-        return item;
-    }
+    private static MenuItem Command(string header, string glyph, Action action, bool enabled = true)
+        => MenuArt.Command(header, glyph, action, enabled);
 
     private static MenuItem Toggle(string header, bool isChecked, Action action)
-    {
-        var item = new MenuItem { Header = header, IsCheckable = true, IsChecked = isChecked };
-        item.Click += (_, _) => action();
-        return item;
-    }
+        => MenuArt.Check(header, isChecked, action);
 
     private static MenuItem Swatch(string header, string colour, Action action)
-    {
-        var item = new MenuItem { Header = header };
-        try
-        {
-            if (ColorConverter.ConvertFromString(colour) is Color parsed)
-            {
-                item.Icon = new System.Windows.Shapes.Rectangle
-                {
-                    Width = 12,
-                    Height = 12,
-                    RadiusX = 3,
-                    RadiusY = 3,
-                    Fill = new SolidColorBrush(parsed)
-                };
-            }
-        }
-        catch (FormatException)
-        {
-        }
-
-        item.Click += (_, _) => action();
-        return item;
-    }
+        => MenuArt.Swatch(header, colour, action);
 
     private void MoveItems(FenceData destination)
     {

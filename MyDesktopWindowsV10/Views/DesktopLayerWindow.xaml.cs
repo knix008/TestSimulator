@@ -202,11 +202,12 @@ public partial class DesktopLayerWindow : Window
         }
 
         var menu = new ContextMenu { PlacementTarget = this, Placement = PlacementMode.MousePoint, StaysOpen = false };
-        menu.Items.Add(Command(Strings.T("Open"), () => Launch(item)));
+        menu.Items.Add(Command(Strings.T("Open"), MenuArt.Open, () => Launch(item)));
 
-        if (item.IsRecycleBin)
+        // Nothing to empty means nothing to offer: the entry only appears when the bin holds something.
+        if (item.IsRecycleBin && !RecycleBinWatcher.IsEmpty())
         {
-            menu.Items.Add(Command(Strings.T("Empty Recycle Bin"), () =>
+            menu.Items.Add(Command(Strings.T("Empty Recycle Bin"), MenuArt.EmptyBin, () =>
             {
                 var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 if (ShellFileOperations.EmptyRecycleBin(handle))
@@ -219,8 +220,8 @@ public partial class DesktopLayerWindow : Window
 
         if (!item.IsShellPlace)
         {
-            menu.Items.Add(Command(Strings.T("Open file location"), () => Reveal(item.Path)));
-            menu.Items.Add(Command(Strings.T("Copy path"), () =>
+            menu.Items.Add(Command(Strings.T("Open file location"), MenuArt.FolderOpen, () => Reveal(item.Path)));
+            menu.Items.Add(Command(Strings.T("Copy path"), MenuArt.Copy, () =>
             {
                 try
                 {
@@ -235,11 +236,11 @@ public partial class DesktopLayerWindow : Window
         var fences = _manager.Fences.Where(fence => !fence.IsPortal).ToList();
         if (fences.Count > 0)
         {
-            var into = new MenuItem { Header = Strings.T("Put into fence") };
+            var into = MenuArt.Submenu(Strings.T("Put into fence"), MenuArt.MoveToFence);
             foreach (var fence in fences)
             {
                 var destination = fence;
-                into.Items.Add(Command(destination.Name, () => MoveInto(destination)));
+                into.Items.Add(Command(destination.Name, MenuArt.Fence, () => MoveInto(destination)));
             }
 
             menu.Items.Add(into);
@@ -248,12 +249,12 @@ public partial class DesktopLayerWindow : Window
         if (!item.IsShellPlace)
         {
             menu.Items.Add(new Separator());
-            menu.Items.Add(Command(Strings.T("Delete"), RecycleSelection));
+            menu.Items.Add(Command(Strings.T("Delete"), MenuArt.Delete, RecycleSelection));
         }
 
         menu.Items.Add(new Separator());
-        menu.Items.Add(Command(Strings.T("New fence here"), () => _manager.CreateFenceAtCursor()));
-        menu.Items.Add(Command(Strings.T("Palisades settings…"), App.OpenSettings));
+        menu.Items.Add(Command(Strings.T("New fence here"), MenuArt.NewFence, () => _manager.CreateFenceAtCursor()));
+        menu.Items.Add(Command(Strings.T("Palisades settings…"), MenuArt.Settings, App.OpenSettings));
 
         Activate();
         menu.IsOpen = true;
@@ -467,12 +468,8 @@ public partial class DesktopLayerWindow : Window
         }
     }
 
-    private static MenuItem Command(string header, Action action)
-    {
-        var item = new MenuItem { Header = header };
-        item.Click += (_, _) => action();
-        return item;
-    }
+    private static MenuItem Command(string header, string glyph, Action action)
+        => MenuArt.Command(header, glyph, action);
 
     private static FenceItem? ItemAt(DependencyObject? source)
         => ContainerAt(source)?.DataContext as FenceItem;

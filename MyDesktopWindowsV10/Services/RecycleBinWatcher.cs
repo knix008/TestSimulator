@@ -54,6 +54,13 @@ public sealed class RecycleBinWatcher : IDisposable
 
     public void Dispose() => _timer.Stop();
 
+    /// <summary>
+    /// True when the bin holds nothing, so there is nothing to offer emptying. A bin the shell will
+    /// not answer for counts as not empty: an entry that turns out to have no work to do is better
+    /// than one that goes missing when it should not.
+    /// </summary>
+    public static bool IsEmpty() => Count() == 0;
+
     private static long Count()
     {
         var info = new SHQUERYRBINFO { cbSize = Marshal.SizeOf<SHQUERYRBINFO>() };
