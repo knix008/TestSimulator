@@ -427,13 +427,19 @@ public sealed class FenceManager : IDisposable
     private string NextName()
     {
         var index = Fences.Count + 1;
-        while (Fences.Any(fence => fence.Name == $"Fence {index}"))
+        while (Fences.Any(fence => fence.Name == Numbered(index)))
         {
             index++;
         }
 
-        return $"Fence {index}";
+        return Numbered(index);
     }
+
+    /// <summary>
+    /// The name a brand new fence is given. It goes into the saved workspace as plain text, so it
+    /// keeps whatever language was in use when the fence was made, exactly as a folder name would.
+    /// </summary>
+    private static string Numbered(int index) => string.Format(Strings.T("Fence {0}"), index);
 
     private static Point CursorPosition()
     {

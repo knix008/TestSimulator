@@ -39,26 +39,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     private void Localize()
     {
         Title = Strings.T("Palisades");
-        Translate(this);
-    }
-
-    private static void Translate(DependencyObject node)
-    {
-        switch (node)
-        {
-            case TextBlock text when text.Inlines.Count == 0:
-                text.Text = Strings.T(text.Text);
-                break;
-            case ContentControl { Content: string content } control:
-                control.Content = Strings.T(content);
-                break;
-        }
-
-        var children = System.Windows.Media.VisualTreeHelper.GetChildrenCount(node);
-        for (var index = 0; index < children; index++)
-        {
-            Translate(System.Windows.Media.VisualTreeHelper.GetChild(node, index));
-        }
+        Localizer.Apply(this);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -126,8 +107,8 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         }
 
         var answer = MessageBox.Show(this,
-            $"Delete the fence '{_selectedFence.Name}'? The files it points at are left alone.",
-            "Delete fence", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            string.Format(Strings.T("Delete the fence '{0}'? The files it points at are left alone."), _selectedFence.Name),
+            Strings.T("Delete fence"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
         if (answer == MessageBoxResult.Yes)
         {
@@ -174,7 +155,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
 
         var dialog = new OpenFolderDialog
         {
-            Title = "Choose the folder this fence should mirror",
+            Title = Strings.T("Choose the folder this fence should mirror"),
             InitialDirectory = Directory.Exists(_selectedFence.PortalPath) ? _selectedFence.PortalPath! : ""
         };
 
@@ -210,8 +191,8 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
 
         var dialog = new OpenFileDialog
         {
-            Title = "Add items to this fence",
-            Filter = "Shortcuts and links (*.lnk;*.url)|*.lnk;*.url|All files (*.*)|*.*",
+            Title = Strings.T("Add items to this fence"),
+            Filter = $"{Strings.T("Shortcuts and links")} (*.lnk;*.url)|*.lnk;*.url|{Strings.T("All files")} (*.*)|*.*",
             Multiselect = true
         };
 
@@ -228,7 +209,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var dialog = new OpenFolderDialog { Title = "Add a folder to this fence", Multiselect = true };
+        var dialog = new OpenFolderDialog { Title = Strings.T("Add a folder to this fence"), Multiselect = true };
         if (dialog.ShowDialog(this) == true)
         {
             AddPaths(dialog.FolderNames);

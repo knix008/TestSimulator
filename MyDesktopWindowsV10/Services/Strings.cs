@@ -115,10 +115,33 @@ public static class Strings
         ["Periwinkle"] = "페리윙클",
         ["Rose"] = "장미",
 
+        // generated names. These are saved into the workspace as plain text, so a fence keeps the
+        // name it was born with even after the language changes, exactly as a folder would.
+        ["Fence {0}"] = "펜스 {0}",
+        ["{0} copy"] = "{0} 복사본",
+
         // dialogs and window text
         ["Item missing"] = "항목을 찾을 수 없음",
+        ["Palisades cannot find"] = "다음을 찾을 수 없습니다",
         ["Could not open"] = "열 수 없음",
         ["Delete fence"] = "펜스 삭제",
+        ["Delete the fence '{0}'? Its items go back to the desktop; no file is moved or deleted."] =
+            "펜스 '{0}'을(를) 삭제할까요? 항목은 바탕화면으로 돌아가며, 파일은 옮기거나 지우지 않습니다.",
+        ["Remove the portal '{0}'? The folder itself is left alone."] =
+            "포털 '{0}'을(를) 없앨까요? 폴더 자체는 건드리지 않습니다.",
+        ["Delete the fence '{0}'? The files it points at are left alone."] =
+            "펜스 '{0}'을(를) 삭제할까요? 가리키던 파일은 그대로 둡니다.",
+        ["Choose the folder this fence should mirror"] = "이 펜스가 비출 폴더 선택",
+        ["Add items to this fence"] = "이 펜스에 항목 추가",
+        ["Add a folder to this fence"] = "이 펜스에 폴더 추가",
+        ["Shortcuts and links"] = "바로 가기와 링크",
+        ["All files"] = "모든 파일",
+
+        // fence window
+        ["PORTAL"] = "포털",
+        ["Drop shortcuts here"] = "여기에 바로 가기를 놓으세요",
+        ["Roll up or down"] = "말아 올리기 / 펼치기",
+        ["Fence menu"] = "펜스 메뉴",
         ["FENCE SETTINGS"] = "펜스 설정",
         ["YOUR FENCES"] = "내 펜스",
         ["DESKTOP FENCES"] = "데스크톱 펜스",
@@ -151,6 +174,12 @@ public static class Strings
         ["Changes apply immediately and save themselves"] = "변경 사항은 즉시 적용되고 자동 저장됩니다",
         ["A portal fence mirrors a folder, so its contents follow whatever is in that folder."] =
             "포털 펜스는 폴더를 비추므로, 그 폴더의 내용이 그대로 따라옵니다.",
+        ["The shell's icon layer is switched off and Palisades draws the Recycle Bin and anything not in a fence. "
+         + "That is what keeps an item in a fence from also appearing on the wallpaper, while its file stays in the "
+         + "Desktop folder where Explorer shows it. Switching this off hands the desktop back to Windows."] =
+            "셸의 아이콘 레이어를 끄고, 휴지통과 펜스에 들어 있지 않은 항목을 Palisades가 직접 그립니다. "
+            + "그래서 펜스에 넣은 항목이 배경화면에 겹쳐 보이지 않으면서도, 파일 자체는 탐색기가 보여 주는 "
+            + "바탕 화면 폴더에 그대로 남습니다. 이 설정을 끄면 바탕화면을 다시 Windows에 넘깁니다.",
         ["LANGUAGE"] = "언어"
     };
 }

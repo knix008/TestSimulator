@@ -60,7 +60,13 @@ public partial class DesktopLayerWindow : Window
         // Lowest of everything Palisades owns, so fences float above the icons.
         DesktopAnchor.Attach(this, lowest: true);
         DesktopWindows.DrawnDesktop = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+
+        Localizer.Apply(this);
+        Strings.Changed += Localize;
+        Closed += (_, _) => Strings.Changed -= Localize;
     }
+
+    private void Localize() => Localizer.Apply(this);
 
     /// <summary>
     /// While something is being dragged, the empty area has to catch the drop instead of letting it
@@ -443,7 +449,7 @@ public partial class DesktopLayerWindow : Window
 
             if (!item.Exists)
             {
-                MessageBox.Show(this, $"Palisades cannot find\n{item.Path}", "Item missing",
+                MessageBox.Show(this, $"{Strings.T("Palisades cannot find")}\n{item.Path}", Strings.T("Item missing"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -453,7 +459,7 @@ public partial class DesktopLayerWindow : Window
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             Diagnostics.Write($"desktop launch failed: {exception.Message}");
-            MessageBox.Show(this, exception.Message, "Could not open", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, exception.Message, Strings.T("Could not open"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

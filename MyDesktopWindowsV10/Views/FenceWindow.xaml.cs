@@ -112,7 +112,13 @@ public partial class FenceWindow : Window
         DisplayScale.CaptureFrom(this);
         DesktopAnchor.Attach(this);
         ApplyRollState();
+
+        Localizer.Apply(this);
+        Strings.Changed += Localize;
+        Closed += (_, _) => Strings.Changed -= Localize;
     }
+
+    private void Localize() => Localizer.Apply(this);
 
     protected override void OnClosing(CancelEventArgs e)
     {
@@ -770,7 +776,7 @@ public partial class FenceWindow : Window
 
         if (!item.Exists)
         {
-            MessageBox.Show(this, $"Palisades cannot find\n{item.Path}", "Item missing",
+            MessageBox.Show(this, $"{Strings.T("Palisades cannot find")}\n{item.Path}", Strings.T("Item missing"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -782,7 +788,7 @@ public partial class FenceWindow : Window
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             Diagnostics.Write($"launch failed: {exception.Message}");
-            MessageBox.Show(this, exception.Message, "Could not open", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, exception.Message, Strings.T("Could not open"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -809,7 +815,7 @@ public partial class FenceWindow : Window
                  })
         {
             var choice = value;
-            sort.Items.Add(Toggle(label, _fence.Sort == choice, () =>
+            sort.Items.Add(Toggle(Strings.T(label), _fence.Sort == choice, () =>
             {
                 _fence.Sort = choice;
                 if (!_fence.IsPortal)
@@ -825,7 +831,7 @@ public partial class FenceWindow : Window
         foreach (var (label, value) in new[] { ("Small", 32d), ("Medium", 48d), ("Large", 64d), ("Huge", 80d) })
         {
             var choice = value;
-            size.Items.Add(Toggle(label, Math.Abs(_fence.IconSize - choice) < 0.5, () => _fence.IconSize = choice));
+            size.Items.Add(Toggle(Strings.T(label), Math.Abs(_fence.IconSize - choice) < 0.5, () => _fence.IconSize = choice));
         }
 
         menu.Items.Add(size);
@@ -835,7 +841,7 @@ public partial class FenceWindow : Window
         foreach (var (label, value) in BackgroundPalette)
         {
             var choice = value;
-            background.Items.Add(Swatch(label, choice, () => _fence.Background = WithAlpha(choice, AlphaOf(_fence.Background))));
+            background.Items.Add(Swatch(Strings.T(label), choice, () => _fence.Background = WithAlpha(choice, AlphaOf(_fence.Background))));
         }
 
         menu.Items.Add(background);
@@ -844,7 +850,7 @@ public partial class FenceWindow : Window
         foreach (var (label, value) in AccentPalette)
         {
             var choice = value;
-            accent.Items.Add(Swatch(label, choice, () => _fence.Accent = choice));
+            accent.Items.Add(Swatch(Strings.T(label), choice, () => _fence.Accent = choice));
         }
 
         menu.Items.Add(accent);
@@ -854,7 +860,7 @@ public partial class FenceWindow : Window
         {
             var choice = value;
             var alpha = (byte)Math.Round(choice * 255);
-            transparency.Items.Add(Toggle(label, AlphaOf(_fence.Background) == alpha,
+            transparency.Items.Add(Toggle(Strings.T(label), AlphaOf(_fence.Background) == alpha,
                 () => _fence.Background = WithAlpha(_fence.Background, alpha)));
         }
 
@@ -1014,17 +1020,19 @@ public partial class FenceWindow : Window
         var copy = _fence.Clone();
         copy.Left += 28;
         copy.Top += 28;
-        copy.Name = $"{_fence.Name} copy";
+        copy.Name = string.Format(Strings.T("{0} copy"), _fence.Name);
         _manager.Fences.Add(copy);
     }
 
     private void DeleteFence()
     {
-        var question = _fence.IsPortal
-            ? $"Remove the portal '{_fence.Name}'? The folder itself is left alone."
-            : $"Delete the fence '{_fence.Name}'? Its items go back to the desktop; no file is moved or deleted.";
+        var question = string.Format(
+            Strings.T(_fence.IsPortal
+                ? "Remove the portal '{0}'? The folder itself is left alone."
+                : "Delete the fence '{0}'? Its items go back to the desktop; no file is moved or deleted."),
+            _fence.Name);
 
-        if (MessageBox.Show(this, question, "Delete fence", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        if (MessageBox.Show(this, question, Strings.T("Delete fence"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
         {
             return;
         }
@@ -1036,7 +1044,7 @@ public partial class FenceWindow : Window
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Choose the folder this fence should mirror",
+            Title = Strings.T("Choose the folder this fence should mirror"),
             InitialDirectory = Directory.Exists(_fence.PortalPath) ? _fence.PortalPath : null
         };
 
