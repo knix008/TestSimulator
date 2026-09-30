@@ -5,7 +5,8 @@
   The payload is a self-contained publish, so the installed copy carries its own .NET and runs on a
   machine that has never had a runtime installed. PublishDir is passed in by build-installer.ps1.
 -->
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <Package Name="MyDesktop"
            Manufacturer="MyDesktop"
@@ -38,16 +39,58 @@
                     Icon="AppIcon" />
           <RemoveFolder Id="RemoveAppMenuFolder" On="uninstall" />
           <!-- A component needs a key path, and the shortcut's own folder is not one. -->
-          <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="Installed"
+          <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="StartMenuShortcut"
                          Type="integer" Value="1" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
 
-    <Feature Id="Main" Title="MyDesktop" Level="1">
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="7C4E2F1A-9D3B-4E88-AB52-6F0C1D7E4B93">
+        <Shortcut Id="AppDesktopShortcut"
+                  Name="MyDesktop"
+                  Description="Tidy the Windows desktop into fences"
+                  Target="[INSTALLFOLDER]MyDesktop.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="DesktopShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <!--
+      Three features, so the shortcuts can be chosen rather than imposed. The program itself is not
+      optional: its feature is hidden from the tree, leaving the two shortcuts as the only choices.
+
+      The desktop shortcut starts off, because MyDesktop's whole point is a desktop with less on it.
+    -->
+    <Feature Id="Main" Title="MyDesktop" Description="The program itself." Level="1"
+             AllowAbsent="no" Display="hidden">
       <ComponentGroupRef Id="AppFiles" />
-      <ComponentRef Id="StartMenuShortcut" />
+
+      <Feature Id="StartMenu" Title="Start Menu shortcut"
+               Description="Add MyDesktop to the Start Menu." Level="1">
+        <ComponentRef Id="StartMenuShortcut" />
+      </Feature>
+
+      <Feature Id="Desktop" Title="Desktop shortcut"
+               Description="Put a MyDesktop shortcut on the desktop." Level="1000">
+        <ComponentRef Id="DesktopShortcut" />
+      </Feature>
     </Feature>
+
+    <!--
+      The feature tree page is where the two shortcuts are switched on and off. A silent install
+      picks them with the standard property, no custom names needed:
+          msiexec /i MyDesktop.msi /qn ADDLOCAL=Main,StartMenu,Desktop
+      Setting ADDLOCAL from here instead would run in the UI sequence too and overwrite whatever the
+      user had just chosen on that page.
+    -->
+    <UI>
+      <ui:WixUI Id="WixUI_FeatureTree" />
+    </UI>
+
+    <WixVariable Id="WixUILicenseRtf" Value="$(LicenseFile)" />
   </Package>
 
   <Fragment>

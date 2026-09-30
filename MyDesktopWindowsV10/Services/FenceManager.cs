@@ -157,6 +157,13 @@ public sealed class FenceManager : IDisposable
 
     public void Save() => _store.ScheduleSave(Workspace);
 
+    /// <summary>Writes the layout straight away, for changes that must not be lost to a sudden exit.</summary>
+    public void SaveNow()
+    {
+        _store.ScheduleSave(Workspace);
+        _store.Flush();
+    }
+
     public FenceWindow? WindowFor(FenceData fence) => _windows.GetValueOrDefault(fence.Id);
 
     public FenceData? FenceById(string id) => Fences.FirstOrDefault(fence => fence.Id == id);
@@ -380,6 +387,19 @@ public sealed class FenceManager : IDisposable
     {
         // What a fence holds is exactly what the drawn desktop must leave out.
         RefreshDesktopLayer();
+
+        // Saves are held back by 600ms so that dragging does not write the file on every mouse move,
+        // and that is right for the things dragging changes. It is wrong for an item leaving a
+        // fence: the file it stood for has just gone to the Recycle Bin, and if the application ends
+        // inside that window — a forced stop, a sign-out, a crash — the next run reads a layout that
+        // still lists it and the item comes back from the dead. Losing a position is a shrug; losing
+        // a deletion is a bug report.
+        if (e.Action is NotifyCollectionChangedAction.Remove or NotifyCollectionChangedAction.Reset)
+        {
+            SaveNow();
+            return;
+        }
+
         Save();
     }
 

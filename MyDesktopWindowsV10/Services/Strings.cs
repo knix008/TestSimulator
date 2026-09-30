@@ -168,6 +168,9 @@ public static class Strings
         ["Double-click empty desktop hides and restores every fence"] = "빈 바탕화면을 더블클릭하면 모든 펜스가 숨겨지고 다시 나타납니다",
         ["Snap fences to a grid while dragging"] = "끌 때 격자에 맞추기",
         ["Snap fences to screen edges and to each other"] = "화면 가장자리와 다른 펜스에 붙이기",
+        ["Show the system tray icon"] = "시스템 트레이 아이콘 표시",
+        ["Without the tray icon, right-click any fence and choose MyDesktop settings to get back here."] =
+            "트레이 아이콘을 끄면, 펜스를 우클릭해 MyDesktop 설정을 고르면 여기로 돌아올 수 있습니다.",
         ["ACCENT"] = "강조색",
         ["FENCE COLOUR"] = "펜스 색",
         ["MYDESKTOP FENCES"] = "MYDESKTOP 펜스",

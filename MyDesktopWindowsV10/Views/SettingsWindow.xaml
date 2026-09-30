@@ -247,6 +247,12 @@
                                       IsChecked="{Binding Settings.DrawDesktop, Mode=TwoWay}" />
                             <TextBlock Text="The shell's icon layer is switched off and MyDesktop draws the Recycle Bin and anything not in a fence. That is what keeps an item in a fence from also appearing on the wallpaper, while its file stays in the Desktop folder where Explorer shows it. Switching this off hands the desktop back to Windows."
                                        FontSize="11" Foreground="#87928B" TextWrapping="Wrap" Margin="24,5,0,0" />
+                            <CheckBox Content="Start with Windows" FontSize="12" Margin="0,14,0,0"
+                                      IsChecked="{Binding Settings.LaunchAtLogin, Mode=TwoWay}" />
+                            <CheckBox Content="Show the system tray icon" FontSize="12" Margin="0,8,0,0"
+                                      IsChecked="{Binding Settings.ShowTrayIcon, Mode=TwoWay}" />
+                            <TextBlock Text="Without the tray icon, right-click any fence and choose MyDesktop settings to get back here."
+                                       FontSize="11" Foreground="#87928B" TextWrapping="Wrap" Margin="24,5,0,0" />
                             <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                 <TextBlock Text="LANGUAGE" Style="{StaticResource SectionCaption}" VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <ComboBox x:Name="LanguageChoice" ItemsSource="{Binding LanguageOptions}"

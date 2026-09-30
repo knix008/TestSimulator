@@ -52,6 +52,7 @@ public sealed class AppSettings : ObservableObject
     private int _gridSize = 10;
     private bool _snapToEdges = true;
     private bool _launchAtLogin;
+    private bool _showTrayIcon = true;
     private bool _fencesLocked;
     private bool _allHidden;
     private bool _hideDesktopIcons;
@@ -97,10 +98,22 @@ public sealed class AppSettings : ObservableObject
         set => Set(ref _snapToEdges, value);
     }
 
+    /// <summary>MyDesktop starts itself when the user signs in.</summary>
     public bool LaunchAtLogin
     {
         get => _launchAtLogin;
         set => Set(ref _launchAtLogin, value);
+    }
+
+    /// <summary>
+    /// Whether the notification area icon is shown. Switching it off leaves the fences and their
+    /// right-click menus as the only way back into the settings, which is why that menu carries a
+    /// settings entry of its own.
+    /// </summary>
+    public bool ShowTrayIcon
+    {
+        get => _showTrayIcon;
+        set => Set(ref _showTrayIcon, value);
     }
 
     /// <summary>Locked fences cannot be moved, resized or edited by accident.</summary>

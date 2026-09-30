@@ -262,8 +262,7 @@ public partial class DesktopLayerWindow : Window
         menu.Items.Add(Command(Strings.T("New fence here"), MenuArt.NewFence, () => _manager.CreateFenceAtCursor()));
         menu.Items.Add(Command(Strings.T("MyDesktop settings…"), MenuArt.Settings, App.OpenSettings));
 
-        Activate();
-        menu.IsOpen = true;
+        MenuArt.Show(menu);
         e.Handled = true;
     }
 

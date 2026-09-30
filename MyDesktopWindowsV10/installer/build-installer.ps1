@@ -23,6 +23,7 @@ $projectFile = Join-Path $project 'MyDesktop.csproj'
 $iconFile = Join-Path $project 'Assets\mydesktop.ico'
 $publishDir = Join-Path $project "installer\stage\$Runtime"
 $wxs = Join-Path $PSScriptRoot 'MyDesktop.wxs'
+$licenseFile = Join-Path $PSScriptRoot 'License.rtf'
 $msiName = "MyDesktop-$Version-$Runtime.msi"
 $msiPath = Join-Path $PSScriptRoot $msiName
 
@@ -55,11 +56,16 @@ $megabytes = [Math]::Round((($payload | Measure-Object Length -Sum).Sum / 1MB), 
 Write-Host ("  " + $payload.Count + " files, $megabytes MB")
 
 Write-Host 'building installer'
+# The feature tree page that lets the shortcuts be chosen lives in the UI extension.
+$null = & wix extension add --global WixToolset.UI.wixext 2>&1
+
 $build = & wix build $wxs `
     -arch x64 `
+    -ext WixToolset.UI.wixext `
     -d "Version=$Version" `
     -d "PublishDir=$publishDir" `
     -d "IconFile=$iconFile" `
+    -d "LicenseFile=$licenseFile" `
     -o $msiPath 2>&1
 
 if ($LASTEXITCODE -ne 0) {

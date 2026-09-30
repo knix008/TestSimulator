@@ -91,7 +91,6 @@ public sealed class WorkspaceStore
         }
 
         var workspace = _pending;
-        _pending = null;
 
         try
         {
@@ -99,12 +98,19 @@ public sealed class WorkspaceStore
             var temporaryFile = DataFile + ".tmp";
             File.WriteAllText(temporaryFile, JsonSerializer.Serialize(workspace, Options));
             File.Move(temporaryFile, DataFile, true);
+
+            // Cleared only once the file on disk really says so. Clearing it first and then failing
+            // would drop the change silently, and the next thing to look at the layout would be the
+            // next run of the application, reading a file that never heard about it.
+            _pending = null;
         }
-        catch (IOException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-        }
-        catch (UnauthorizedAccessException)
-        {
+            // Something else is holding the file — a backup agent, a scanner. The work stays pending
+            // so the next save, and the one at shutdown, both try again.
+            Diagnostics.Write($"save failed, will retry: {exception.Message}");
+            _debounce.Stop();
+            _debounce.Start();
         }
     }
 

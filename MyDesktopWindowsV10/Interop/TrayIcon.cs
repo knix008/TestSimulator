@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
@@ -15,9 +15,12 @@ internal sealed class TrayIcon : IDisposable
     private IntPtr _icon;
     private bool _added;
 
+    private readonly string _tooltip;
+
     public TrayIcon(string tooltip, ContextMenu menu)
     {
         Menu = menu;
+        _tooltip = tooltip;
 
         _source = new HwndSource(new HwndSourceParameters("MyDesktopTrayHost")
         {
@@ -29,16 +32,41 @@ internal sealed class TrayIcon : IDisposable
         _source.AddHook(WndProc);
 
         _icon = LoadAppIcon();
-
-        var data = CreateData();
-        data.uFlags = NativeMethods.NIF_ICON | NativeMethods.NIF_MESSAGE | NativeMethods.NIF_TIP;
-        data.uCallbackMessage = NativeMethods.WM_TRAYCALLBACK;
-        data.hIcon = _icon;
-        data.szTip = tooltip;
-        _added = NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data);
+        Visible = true;
     }
 
     public ContextMenu Menu { get; }
+
+    /// <summary>
+    /// Adds or removes the notification area icon. The host window stays either way, because it is
+    /// what carries the icon's callback messages and rebuilding it would cost more than it saves.
+    /// </summary>
+    public bool Visible
+    {
+        get => _added;
+        set
+        {
+            if (_added == value)
+            {
+                return;
+            }
+
+            var data = CreateData();
+            if (value)
+            {
+                data.uFlags = NativeMethods.NIF_ICON | NativeMethods.NIF_MESSAGE | NativeMethods.NIF_TIP;
+                data.uCallbackMessage = NativeMethods.WM_TRAYCALLBACK;
+                data.hIcon = _icon;
+                data.szTip = _tooltip;
+                _added = NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data);
+            }
+            else
+            {
+                NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_DELETE, ref data);
+                _added = false;
+            }
+        }
+    }
 
     public event Action? DoubleClicked;
 
@@ -130,6 +158,6 @@ internal sealed class TrayIcon : IDisposable
         Menu.HorizontalOffset = anchor.X;
         Menu.VerticalOffset = anchor.Y;
         Menu.StaysOpen = false;
-        Menu.IsOpen = true;
+        MyDesktop.Views.MenuArt.Show(Menu);
     }
 }

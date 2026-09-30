@@ -51,6 +51,14 @@ public partial class App : Application
 
         _tray = new TrayIcon("MyDesktop — desktop fences", BuildTrayMenu());
         _tray.DoubleClicked += ShowSettings;
+        _tray.Visible = _manager.Settings.ShowTrayIcon;
+        _manager.Settings.PropertyChanged += (_, changed) =>
+        {
+            if (changed.PropertyName == nameof(AppSettings.ShowTrayIcon) && _manager is not null)
+            {
+                _tray.Visible = _manager.Settings.ShowTrayIcon;
+            }
+        };
 
         // Never leave the user staring at a desktop with no icons because something went wrong.
         AppDomain.CurrentDomain.ProcessExit += (_, _) => DesktopIcons.Restore();

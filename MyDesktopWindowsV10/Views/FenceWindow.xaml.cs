@@ -894,8 +894,7 @@ public partial class FenceWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(Command(Strings.T("Exit MyDesktop"), MenuArt.Exit, App.Quit));
 
-        Activate();
-        menu.IsOpen = true;
+        MenuArt.Show(menu);
     }
 
     private void ShowItemMenu(FenceItem item)
@@ -967,8 +966,7 @@ public partial class FenceWindow : Window
             menu.Items.Add(Command(Strings.T("Delete"), MenuArt.Delete, RecycleSelection));
         }
 
-        Activate();
-        menu.IsOpen = true;
+        MenuArt.Show(menu);
     }
 
     /// <summary>The shell asks for confirmation itself, and the icon changes once the bin is empty.</summary>
