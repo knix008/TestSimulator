@@ -5,10 +5,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
-using Palisades.Models;
-using Palisades.Services;
+using MyDesktop.Models;
+using MyDesktop.Services;
 
-namespace Palisades.Views;
+namespace MyDesktop.Views;
 
 /// <summary>
 /// The configuration window reached from the tray icon: one place to tweak every fence.
@@ -38,7 +38,7 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     /// </summary>
     private void Localize()
     {
-        Title = Strings.T("Palisades");
+        Title = Strings.T("MyDesktop");
         Localizer.Apply(this);
 
         // The drop-downs name their choices through a converter, and nothing tells those bindings

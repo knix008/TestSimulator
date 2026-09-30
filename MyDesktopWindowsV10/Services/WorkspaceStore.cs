@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows.Threading;
-using Palisades.Models;
+using MyDesktop.Models;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// Reads and writes the fence layout. Saves are coalesced so dragging a fence does not hammer the disk.
@@ -11,9 +11,18 @@ namespace Palisades.Services;
 public sealed class WorkspaceStore
 {
     private static readonly string Folder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Palisades");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MyDesktop");
 
     private static readonly string DataFile = Path.Combine(Folder, "fences.json");
+
+    /// <summary>
+    /// Where the fences lived while the application was called Palisades. Reading it once on the
+    /// first run under the new name is what keeps a rename from looking like a wipe; the file is
+    /// left where it is, so going back to an older build finds its layout intact.
+    /// </summary>
+    private static readonly string RenamedFile = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Palisades", "fences.json");
+
     private static readonly string LegacyFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Palisade", "workspace.json");
 
@@ -42,6 +51,15 @@ public sealed class WorkspaceStore
     public WorkspaceData Load()
     {
         var workspace = ReadFile(DataFile);
+        if (workspace is null)
+        {
+            workspace = ReadFile(RenamedFile);
+            if (workspace is not null)
+            {
+                Diagnostics.Write($"carried the fences over from {RenamedFile}");
+            }
+        }
+
         if (workspace is null)
         {
             workspace = ImportLegacy() ?? new WorkspaceData();

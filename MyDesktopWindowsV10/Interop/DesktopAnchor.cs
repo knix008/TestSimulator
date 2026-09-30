@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
 
-namespace Palisades.Interop;
+namespace MyDesktop.Interop;
 
 /// <summary>
 /// Locates the shell windows that make up the desktop.
@@ -73,7 +73,7 @@ internal static class DesktopWindows
         }
     }
 
-    /// <summary>The window Palisades draws the desktop into, when it is drawing one.</summary>
+    /// <summary>The window MyDesktop draws the desktop into, when it is drawing one.</summary>
     public static IntPtr DrawnDesktop { get; set; }
 
     /// <summary>True when the window under a point belongs to the desktop rather than an app.</summary>

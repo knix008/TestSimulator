@@ -1,4 +1,4 @@
-# Palisades — Stardock Fences 방식 데스크톱 펜스
+# MyDesktop — Stardock Fences 방식 데스크톱 펜스
 
 바탕화면 위에 반투명 컨테이너("펜스")를 올려 아이콘을 묶어두는 WPF(.NET 10) 앱입니다.
 [Xstoudi/Palisades](https://github.com/Xstoudi/Palisades)를 참고했고, 그쪽이 다루지 않는
@@ -11,6 +11,7 @@ Fences 고유 동작(바탕화면 z-order 고정, 롤업, 우클릭 드래그 �
 .\build.ps1 -Release            # Release 빌드
 .\build.ps1 -Release -Clean     # 중간 산출물 지우고 빌드
 .\build.ps1 -Release -Publish   # .\publish 에 단일 exe (약 275KB, 프레임워크 의존)
+.\build.ps1 -Installer          # .msi 설치 파일 (자체 포함, 프로젝트 루트로 복사)
 
 .\run.ps1                       # 빌드한 뒤 실행 (이미 떠 있으면 재시작)
 .\run.ps1 -NoBuild              # 빌드 없이 실행
@@ -22,12 +23,17 @@ Fences 고유 동작(바탕화면 z-order 고정, 롤업, 우클릭 드래그 �
 실행 정책 때문에 `.ps1` 이 막히면 `build.cmd` / `run.cmd` 를 대신 쓰거나 더블클릭하면 됩니다
 (같은 인자를 그대로 받습니다). 공용 함수는 `common.ps1` 에 있습니다.
 
+설치 파일을 만들려면 WiX 도구가 필요합니다: `dotnet tool install --global wix`
+
+- 코드를 고치려면 [ARCHITECTURE.md](ARCHITECTURE.md)
+- 쓰는 방법은 [UsersGuide.md](UsersGuide.md)
+
 두 스크립트 모두 **떠 있는 인스턴스를 먼저 강제 종료**합니다. 단일 인스턴스 앱이라 두 번째 실행이
 조용히 죽고, 실행 중이면 exe 가 잠겨 빌드도 실패하기 때문입니다. 강제 종료는 앱의 정리 코드를
 건너뛰므로, 스크립트가 **바탕화면 아이콘이 숨겨진 상태면 직접 되돌려 놓습니다.**
 
 창이 없는 트레이 앱입니다. 트레이 아이콘 우클릭으로 전체 메뉴, 더블클릭으로 설정 창이 열립니다.
-설정은 `%LOCALAPPDATA%\Palisades\fences.json`에 자동 저장됩니다.
+설정은 `%LOCALAPPDATA%\MyDesktop\fences.json`에 자동 저장됩니다.
 
 ## 구현된 Fences 동작
 
@@ -44,7 +50,7 @@ Fences 고유 동작(바탕화면 z-order 고정, 롤업, 우클릭 드래그 �
 | 정렬 | 수동 / 이름 / 종류 / 수정한 날짜 (이름 정렬은 탐색기와 같은 `StrCmpLogicalW`) |
 | 외형 | 펜스 색·강조색·투명도·아이콘 크기(24~96)·레이블 표시 |
 | 잠금 | 모든 펜스의 이동·크기 조절·이름 변경 잠금 |
-| **바탕화면을 직접 그림** | 셸 아이콘 층을 끄고 Palisades가 휴지통·펜스 밖 항목을 그림. 그래서 펜스에 든 항목은 바탕화면에 안 보이고, 파일은 Desktop 폴더에 그대로 남아 탐색기에서는 보임. 종료 시 셸 아이콘 복원 |
+| **바탕화면을 직접 그림** | 셸 아이콘 층을 끄고 MyDesktop이 휴지통·펜스 밖 항목을 그림. 그래서 펜스에 든 항목은 바탕화면에 안 보이고, 파일은 Desktop 폴더에 그대로 남아 탐색기에서는 보임. 종료 시 셸 아이콘 복원 |
 | 시작 프로그램 등록 | HKCU Run 키 |
 
 ## 구조
@@ -71,7 +77,7 @@ Services/
   StartupRegistration.cs 시작 프로그램 등록
 Views/
   FenceWindow.xaml       펜스 본체
-  DesktopLayerWindow.xaml  Palisades가 그리는 바탕화면 (펜스 아래, 배경화면 위)
+  DesktopLayerWindow.xaml  MyDesktop이 그리는 바탕화면 (펜스 아래, 배경화면 위)
   LassoWindow.xaml       우클릭 드래그 고무줄
   SettingsWindow.xaml    설정/관리 창
 ```
@@ -89,7 +95,7 @@ Views/
 **펜스에 든 항목은 바탕화면에 안 보이지만, 탐색기에서는 그대로 보여야 한다** — 이것이 핵심
 요구사항이고, 파일을 옮기지 않고 달성합니다.
 
-정품 Fences는 셸의 아이콘 그리기를 가로챕니다. Palisades도 같은 길을 택했습니다:
+정품 Fences는 셸의 아이콘 그리기를 가로챕니다. MyDesktop도 같은 길을 택했습니다:
 
 1. 셸의 바탕화면 아이콘 층을 끕니다(탐색기 "보기 ▸ 바탕 화면 아이콘 표시"와 동일한 토글이라
    아이콘 배치가 보존되고 되돌릴 수 있습니다).
@@ -103,12 +109,15 @@ Views/
 
 ## 그 밖의 파일 취급 규칙
 
-- 펜스는 파일을 삭제하지 않습니다. Delete 키와 "Remove from fence"는 목록에서만 뺍니다.
+- **"펜스에서 빼기"는 목록에서만 뺍니다.** 파일은 건드리지 않습니다.
+- **"삭제"와 `Delete` 키는 파일을 휴지통으로 보냅니다.** `FOF_ALLOWUNDO` 를 준
+  `SHFileOperation` 이라 탐색기에서 지운 것과 똑같이 되돌릴 수 있습니다. 위의 "빼기"와는
+  다른 동작이라 메뉴에서도 구분선을 사이에 두고 떨어뜨려 놓았습니다.
 - 펜스 사이 드래그는 파일을 건드리지 않고 참조만 옮깁니다.
 - 펜스 항목을 바탕화면으로 끌어내면 펜스에서 빠지고 바탕화면 층에 나타납니다.
 - 포털 펜스에 탐색기에서 파일을 끌어다 놓으면 같은 볼륨이면 이동, 다른 볼륨이면 복사합니다
   (탐색기와 같은 규칙).
-- **Palisades는 파일을 옮기지 않습니다.** 펜스에 넣는 것은 그 항목을 바탕화면 층에서 빼고
+- **MyDesktop은 파일을 옮기지 않습니다.** 펜스에 넣는 것은 그 항목을 바탕화면 층에서 빼고
   펜스에 그린다는 뜻일 뿐, `%USERPROFILE%\Desktop`의 파일은 그대로입니다. 한때 파일을 펜스
   폴더로 옮기는 설정이 있었으나, 요구사항과 어긋나고 실제로 파일을 잃을 뻔해 코드에서 제거했습니다.
 - 프로세스가 강제 종료되면 셸 아이콘이 꺼진 채 남을 수 있습니다. `run.ps1 -Stop` 이 이를
@@ -116,7 +125,7 @@ Views/
 
 ## 문제가 생기면
 
-제스처와 실행 경로는 `%LOCALAPPDATA%\Palisades\diagnostics.log` 에 흔적을 남깁니다
+제스처와 실행 경로는 `%LOCALAPPDATA%\MyDesktop\diagnostics.log` 에 흔적을 남깁니다
 (훅 설치 여부, 우클릭 드래그 좌표, 더블클릭과 실행 결과). 마우스 훅은 조용히 실패하는 유일한
 부분이라 일부러 기록을 남깁니다.
 
@@ -135,8 +144,10 @@ Views/
 ### 지나온 함정
 
 - `HWND_BOTTOM`만으로는 배경화면 뒤로 숨음 → 바탕화면 창을 한 칸 더 내림
-- 훅에서 `WM_MOUSEMOVE`를 삼키면 **커서가 얼어붙어** 사각형을 그릴 수 없음 → 통과시키고
-  `WM_RBUTTONUP`만 삼킴
+- 훅에서 `WM_MOUSEMOVE`를 삼키면 **커서가 얼어붙어** 사각형을 그릴 수 없음 → 통과시킴
+- 오른쪽 버튼 down 은 통과시키고 up 만 삼켰더니, 탐색기가 **마우스 캡처를 놓지 않아** 시스템
+  전체가 멈춘 것처럼 보임 → down/up 을 **대칭으로** 삼키고, 드래그가 아니었으면 `SendInput`
+  으로 클릭을 되돌려 줌 (자세한 내용은 [ARCHITECTURE.md](ARCHITECTURE.md) §5.2)
 - `ListBoxItem`이 마우스 다운을 `Handled`로 표시 → `ListBox.MouseDoubleClick` 대신 Preview에서 처리
 - 바탕화면 판정에 `SysListView32` 같은 클래스명만 보면 파일 대화상자와 다른 앱의 데스크톱
   위젯까지 걸림 → 창 클래스와 최상위 클래스를 **둘 다** 확인

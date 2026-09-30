@@ -1,4 +1,4 @@
-namespace Palisades.Interop;
+namespace MyDesktop.Interop;
 
 /// <summary>
 /// Shows or hides the shell's own desktop icons, exactly as Explorer's
@@ -10,7 +10,7 @@ internal static class DesktopIcons
     private const uint WM_COMMAND = 0x0111;
     private const int ToggleDesktopIcons = 0x7402;
 
-    private static bool? _stateBeforePalisades;
+    private static bool? _stateBeforeMyDesktop;
 
     public static bool? AreVisible()
     {
@@ -34,7 +34,7 @@ internal static class DesktopIcons
             return;
         }
 
-        _stateBeforePalisades ??= visible;
+        _stateBeforeMyDesktop ??= visible;
 
         if (visible == !hidden)
         {
@@ -44,10 +44,10 @@ internal static class DesktopIcons
         Toggle();
     }
 
-    /// <summary>Puts the icons back the way they were before Palisades started.</summary>
+    /// <summary>Puts the icons back the way they were before MyDesktop started.</summary>
     public static void Restore()
     {
-        if (_stateBeforePalisades is not { } original)
+        if (_stateBeforeMyDesktop is not { } original)
         {
             return;
         }
@@ -57,7 +57,7 @@ internal static class DesktopIcons
             Toggle();
         }
 
-        _stateBeforePalisades = null;
+        _stateBeforeMyDesktop = null;
     }
 
     private static void Toggle()
@@ -65,7 +65,7 @@ internal static class DesktopIcons
         var view = FindDefView();
         if (view != IntPtr.Zero)
         {
-            // Explorer owns this window, so a plain SendMessage would hang Palisades for as long as
+            // Explorer owns this window, so a plain SendMessage would hang MyDesktop for as long as
             // the shell is busy. The timeout keeps a slow shell from taking the app down with it.
             NativeMethods.SendMessageTimeout(view, WM_COMMAND, new IntPtr(ToggleDesktopIcons), IntPtr.Zero,
                 NativeMethods.SMTO_ABORTIFHUNG, 3000, out _);

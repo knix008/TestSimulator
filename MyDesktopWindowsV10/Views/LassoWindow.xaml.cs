@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
-using Palisades.Interop;
+using MyDesktop.Interop;
 
-namespace Palisades.Views;
+namespace MyDesktop.Views;
 
 /// <summary>
 /// The rubber band drawn while the right mouse button is dragged across empty desktop.

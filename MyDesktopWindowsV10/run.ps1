@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Builds Palisades if needed and puts its fences on the desktop.
+    Builds MyDesktop if needed and puts its fences on the desktop.
 
 .EXAMPLE
     .\run.ps1                # build Debug, restart the app
@@ -21,15 +21,15 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 $configuration = if ($Release) { 'Release' } else { 'Debug' }
-$workspace = Join-Path $env:LOCALAPPDATA 'Palisades\fences.json'
+$workspace = Join-Path $env:LOCALAPPDATA 'MyDesktop\fences.json'
 
 if ($Stop) {
-    if (-not (Stop-Palisades)) { Write-Host 'Palisades was not running' }
+    if (-not (Stop-MyDesktop)) { Write-Host 'MyDesktop was not running' }
     return
 }
 
-# Palisades only allows one instance, so a second launch would exit without a word.
-$null = Stop-Palisades
+# MyDesktop only allows one instance, so a second launch would exit without a word.
+$null = Stop-MyDesktop
 
 if ($Reset -and (Test-Path $workspace)) {
     $backup = "$workspace.bak"
@@ -38,11 +38,11 @@ if ($Reset -and (Test-Path $workspace)) {
 }
 
 if (-not $NoBuild) {
-    Invoke-PalisadesBuild -Configuration $configuration
+    Invoke-MyDesktopBuild -Configuration $configuration
     Write-Host ''
 }
 
-$exe = Get-PalisadesExe -Configuration $configuration
+$exe = Get-MyDesktopExe -Configuration $configuration
 if (-not $exe) {
     throw "No $configuration build found. Run .\build.ps1 first, or drop -NoBuild."
 }
@@ -51,13 +51,13 @@ Write-Host "starting $exe"
 Start-Process $exe
 Start-Sleep -Seconds 3
 
-$proc = Get-Process Palisades -ErrorAction SilentlyContinue
+$proc = Get-Process MyDesktop -ErrorAction SilentlyContinue
 if (-not $proc) {
-    throw 'Palisades exited right after starting. Run it from a console to see why.'
+    throw 'MyDesktop exited right after starting. Run it from a console to see why.'
 }
 
 Add-ShellIconType
-$fences = [PalisadesShell]::CountVisibleWindows($proc.Id, 'Palisades fence')
+$fences = [MyDesktopShell]::CountVisibleWindows($proc.Id, 'MyDesktop fence')
 
 Write-Host ''
 Write-Host ("running as pid $($proc.Id) with $fences fence(s) on the desktop")

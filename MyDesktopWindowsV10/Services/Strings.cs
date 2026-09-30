@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
-using Palisades.Models;
+using MyDesktop.Models;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// The English text is the key, so a phrase without a translation simply stays English and nothing
@@ -46,13 +46,13 @@ public static class Strings
         ["Hide all fences"] = "모든 펜스 숨기기",
         ["Lock fences"] = "펜스 잠그기",
         ["Lock all fences"] = "모든 펜스 잠그기",
-        ["Palisades draws the desktop"] = "Palisades가 바탕화면을 그림",
+        ["MyDesktop draws the desktop"] = "MyDesktop이 바탕화면을 그림",
         ["Start with Windows"] = "Windows 시작 시 실행",
         ["Right-drag desktop makes a fence"] = "바탕화면 우클릭 드래그로 펜스 만들기",
         ["Double-click desktop hides fences"] = "바탕화면 더블클릭으로 펜스 숨기기",
         ["Settings…"] = "설정…",
-        ["Palisades settings…"] = "Palisades 설정…",
-        ["Exit Palisades"] = "Palisades 끝내기",
+        ["MyDesktop settings…"] = "MyDesktop 설정…",
+        ["Exit MyDesktop"] = "MyDesktop 끝내기",
         ["Language"] = "언어",
         ["Follow Windows"] = "Windows 설정 따르기",
         ["English"] = "English",
@@ -122,7 +122,7 @@ public static class Strings
 
         // dialogs and window text
         ["Item missing"] = "항목을 찾을 수 없음",
-        ["Palisades cannot find"] = "다음을 찾을 수 없습니다",
+        ["MyDesktop cannot find"] = "다음을 찾을 수 없습니다",
         ["Could not open"] = "열 수 없음",
         ["Delete fence"] = "펜스 삭제",
         ["Delete the fence '{0}'? Its items go back to the desktop; no file is moved or deleted."] =
@@ -170,14 +170,14 @@ public static class Strings
         ["Snap fences to screen edges and to each other"] = "화면 가장자리와 다른 펜스에 붙이기",
         ["ACCENT"] = "강조색",
         ["FENCE COLOUR"] = "펜스 색",
-        ["PALISADES DESKTOP FENCES"] = "PALISADES 데스크톱 펜스",
+        ["MYDESKTOP FENCES"] = "MYDESKTOP 펜스",
         ["Changes apply immediately and save themselves"] = "변경 사항은 즉시 적용되고 자동 저장됩니다",
         ["A portal fence mirrors a folder, so its contents follow whatever is in that folder."] =
             "포털 펜스는 폴더를 비추므로, 그 폴더의 내용이 그대로 따라옵니다.",
-        ["The shell's icon layer is switched off and Palisades draws the Recycle Bin and anything not in a fence. "
+        ["The shell's icon layer is switched off and MyDesktop draws the Recycle Bin and anything not in a fence. "
          + "That is what keeps an item in a fence from also appearing on the wallpaper, while its file stays in the "
          + "Desktop folder where Explorer shows it. Switching this off hands the desktop back to Windows."] =
-            "셸의 아이콘 레이어를 끄고, 휴지통과 펜스에 들어 있지 않은 항목을 Palisades가 직접 그립니다. "
+            "셸의 아이콘 레이어를 끄고, 휴지통과 펜스에 들어 있지 않은 항목을 MyDesktop이 직접 그립니다. "
             + "그래서 펜스에 넣은 항목이 배경화면에 겹쳐 보이지 않으면서도, 파일 자체는 탐색기가 보여 주는 "
             + "바탕 화면 폴더에 그대로 남습니다. 이 설정을 끄면 바탕화면을 다시 Windows에 넘깁니다.",
         ["LANGUAGE"] = "언어"

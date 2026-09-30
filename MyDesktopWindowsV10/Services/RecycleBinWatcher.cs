@@ -1,11 +1,11 @@
 using System.Runtime.InteropServices;
 using System.Windows.Threading;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// Explorer swaps the Recycle Bin icon the moment the bin fills or empties, no matter who did the
-/// deleting. Palisades draws its own copy of that icon, so it has to notice the same thing. The
+/// deleting. MyDesktop draws its own copy of that icon, so it has to notice the same thing. The
 /// shell offers no event worth the interop here, but asking how much is in the bin is cheap: the
 /// answer comes from the bin's own index, not from walking the files.
 /// </summary>
@@ -30,7 +30,7 @@ public sealed class RecycleBinWatcher : IDisposable
     }
 
     /// <summary>
-    /// Looks now instead of waiting for the next tick, for when Palisades itself is what changed the
+    /// Looks now instead of waiting for the next tick, for when MyDesktop itself is what changed the
     /// bin and the icon should follow immediately.
     /// </summary>
     public void Check()

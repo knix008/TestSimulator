@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
 
-namespace Palisades.Interop;
+namespace MyDesktop.Interop;
 
 /// <summary>
 /// Converts between the physical pixels the mouse hook reports and the device independent units WPF

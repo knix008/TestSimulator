@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 
-namespace Palisades.Interop;
+namespace MyDesktop.Interop;
 
 /// <summary>
 /// Watches the mouse for the two gestures Fences puts on the bare desktop: right-drag a rectangle
@@ -10,7 +10,7 @@ namespace Palisades.Interop;
 internal sealed class DesktopMouseHook : IDisposable
 {
     /// <summary>
-    /// Rides along on the clicks Palisades replays, so the hook can recognise its own injection and
+    /// Rides along on the clicks MyDesktop replays, so the hook can recognise its own injection and
     /// wave it through instead of arming a second gesture on it.
     /// </summary>
     private static readonly IntPtr ReplayTag = new(0x50414C49);
@@ -40,7 +40,7 @@ internal sealed class DesktopMouseHook : IDisposable
     public bool QuickHideEnabled { get; set; } = true;
 
     /// <summary>
-    /// Answers whether a screen point sits on one of the icons Palisades draws. Clicking an icon is
+    /// Answers whether a screen point sits on one of the icons MyDesktop draws. Clicking an icon is
     /// not a desktop gesture, so neither the rubber band nor the quick hide should fire there.
     /// </summary>
     public Func<Point, bool>? IsOverDrawnIcon { get; set; }
@@ -231,7 +231,7 @@ internal sealed class DesktopMouseHook : IDisposable
     }
 
     /// <summary>
-    /// Sends the desktop the right-click Palisades held back, tagged so the hook knows it again.
+    /// Sends the desktop the right-click MyDesktop held back, tagged so the hook knows it again.
     /// Absolute coordinates are normalised across the whole virtual desktop, so the menu opens on
     /// the monitor that was clicked rather than the primary one.
     /// </summary>

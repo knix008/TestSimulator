@@ -1,11 +1,12 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 
-namespace Palisades.Views;
+namespace MyDesktop.Views;
 
 /// <summary>
-/// One place for the way Palisades builds menu entries, so every menu carries an icon rather than a
+/// One place for the way MyDesktop builds menu entries, so every menu carries an icon rather than a
 /// bare line of text. The glyphs come from the shell's own icon font, which means they match the
 /// weight of the icons Windows draws in its menus and follow the menu's foreground into dark mode
 /// on their own.
@@ -69,11 +70,59 @@ internal static class MenuArt
 
     /// <summary>A parent entry. It opens a submenu instead of doing anything, but still shows why.</summary>
     public static MenuItem Submenu(string header, string glyph)
-        => new() { Header = header, Icon = Icon(glyph) };
+    {
+        var item = new MenuItem { Header = header, Icon = Icon(glyph) };
+
+        // A submenu is a window of its own, opened beside the menu rather than inside it, so it
+        // needs lifting for the same reason the menu does.
+        item.SubmenuOpened += (sender, _) => Lift(sender as Visual);
+        return item;
+    }
+
+    /// <summary>
+    /// Opens a menu and lifts it clear of the fences.
+    ///
+    /// A menu is a window, owned by the window it was opened from, and Windows keeps an owned window
+    /// directly above its owner. Fences live pinned to the very bottom of the z-order, so a menu
+    /// opened from one sits at the bottom too — above its own fence, but underneath every other
+    /// fence on screen. Activating the fence first does not help: the anchor's
+    /// WM_WINDOWPOSCHANGING hook puts it straight back on the bottom. Marking the menu's own window
+    /// topmost is what takes it out of that pile, and it lasts only as long as the menu is open.
+    /// </summary>
+    public static void Show(ContextMenu menu)
+    {
+        menu.Opened += OnOpened;
+        menu.IsOpen = true;
+    }
+
+    private static void OnOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu)
+        {
+            return;
+        }
+
+        menu.Opened -= OnOpened;
+        Lift(menu);
+    }
+
+    private static void Lift(Visual? visual)
+    {
+        if (visual is null || PresentationSource.FromVisual(visual) is not HwndSource source)
+        {
+            return;
+        }
+
+        // Never steal the focus: taking it would close the menu that is being lifted.
+        Interop.NativeMethods.SetWindowPos(
+            source.Handle, Interop.NativeMethods.HWND_TOPMOST, 0, 0, 0, 0,
+            Interop.NativeMethods.SWP_NOMOVE | Interop.NativeMethods.SWP_NOSIZE
+            | Interop.NativeMethods.SWP_NOACTIVATE);
+    }
 
     /// <summary>
     /// A switch. WPF's own IsCheckable draws its tick in the icon column, which would leave these
-    /// entries as the only ones in Palisades without an icon, so the state is drawn as the icon.
+    /// entries as the only ones in MyDesktop without an icon, so the state is drawn as the icon.
     /// </summary>
     public static MenuItem Check(string header, bool isChecked, Action action)
         => Check(header, isChecked, CheckedBox, UncheckedBox, action);

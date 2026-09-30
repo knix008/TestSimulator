@@ -1,14 +1,14 @@
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// A few lines about what the desktop gestures are doing. Low volume on purpose: the mouse hook is
-/// the one part of Palisades that fails silently, so it needs to leave a trace.
+/// the one part of MyDesktop that fails silently, so it needs to leave a trace.
 /// </summary>
 public static class Diagnostics
 {
     private static readonly string LogFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Palisades", "diagnostics.log");
+        "MyDesktop", "diagnostics.log");
 
     private static readonly Lock Gate = new();
 

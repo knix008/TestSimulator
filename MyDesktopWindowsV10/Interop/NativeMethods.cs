@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Palisades.Interop;
+namespace MyDesktop.Interop;
 
 internal static class NativeMethods
 {
@@ -13,6 +13,7 @@ internal static class NativeMethods
     public const int WM_DISPLAYCHANGE = 0x007E;
 
     public static readonly IntPtr HWND_BOTTOM = new(1);
+    public static readonly IntPtr HWND_TOPMOST = new(-1);
 
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;

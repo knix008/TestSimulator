@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// Deleting goes through the shell, so it lands in the Recycle Bin and can be undone, exactly as it

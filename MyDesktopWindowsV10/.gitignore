@@ -1,3 +1,8 @@
 bin/
 obj/
 publish/
+
+# The self-contained publish the installer is built from: ~130 MB of runtime, rebuilt every time.
+installer/stage/
+installer/*.msi
+installer/*.wixpdb

@@ -1,12 +1,12 @@
 using Microsoft.Win32;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>Adds or removes the per-user Run entry so fences come back after a reboot.</summary>
 public static class StartupRegistration
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "Palisades";
+    private const string ValueName = "MyDesktop";
 
     public static bool IsRegistered()
     {

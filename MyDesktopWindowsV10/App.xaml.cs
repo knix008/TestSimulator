@@ -1,12 +1,12 @@
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
-using Palisades.Interop;
-using Palisades.Models;
-using Palisades.Services;
-using Palisades.Views;
+using MyDesktop.Interop;
+using MyDesktop.Models;
+using MyDesktop.Services;
+using MyDesktop.Views;
 
-namespace Palisades;
+namespace MyDesktop;
 
 public partial class App : Application
 {
@@ -20,12 +20,12 @@ public partial class App : Application
 
     public static void OpenSettings() => _instance?.ShowSettings();
 
-    public static void Quit() => _instance?.QuitPalisades();
+    public static void Quit() => _instance?.QuitMyDesktop();
 
     /// <summary>
     /// Fence windows refuse to close on their own, so tear them down before asking WPF to shut down.
     /// </summary>
-    private void QuitPalisades()
+    private void QuitMyDesktop()
     {
         _settings?.Close();
         _manager?.Dispose();
@@ -38,7 +38,7 @@ public partial class App : Application
         base.OnStartup(e);
         _instance = this;
 
-        _singleInstance = new Mutex(true, @"Local\Palisades.SingleInstance", out var firstInstance);
+        _singleInstance = new Mutex(true, @"Local\MyDesktop.SingleInstance", out var firstInstance);
         if (!firstInstance)
         {
             Shutdown();
@@ -49,7 +49,7 @@ public partial class App : Application
         _manager = new FenceManager(_store);
         _manager.Start();
 
-        _tray = new TrayIcon("Palisades — desktop fences", BuildTrayMenu());
+        _tray = new TrayIcon("MyDesktop — desktop fences", BuildTrayMenu());
         _tray.DoubleClicked += ShowSettings;
 
         // Never leave the user staring at a desktop with no icons because something went wrong.
@@ -91,7 +91,7 @@ public partial class App : Application
 
         // The switches here carry their state as their icon rather than as WPF's own tick, which is
         // drawn in the very same column: with a tick there they would be the only entries in
-        // Palisades without an icon. MenuArt.SetState repoints them each time the menu opens.
+        // MyDesktop without an icon. MenuArt.SetState repoints them each time the menu opens.
         var newFence = MenuArt.Command(Strings.T("New fence"), MenuArt.NewFence, () => _manager?.CreateFenceAtCursor());
         var newPortal = MenuArt.Command(Strings.T("New folder portal…"), MenuArt.NewPortal, CreatePortal);
         var hideAll = MenuArt.Check(Strings.T("Hide all fences"), false, () => _manager?.ToggleQuickHide());
@@ -99,7 +99,7 @@ public partial class App : Application
         var locked = MenuArt.Check(Strings.T("Lock fences"), false, MenuArt.Locked, MenuArt.Unlocked,
             () => Toggle(settings => settings.FencesLocked = !settings.FencesLocked));
 
-        var bareDesktop = MenuArt.Check(Strings.T("Palisades draws the desktop"), false,
+        var bareDesktop = MenuArt.Check(Strings.T("MyDesktop draws the desktop"), false,
             () => Toggle(settings => settings.DrawDesktop = !settings.DrawDesktop));
 
         var login = MenuArt.Check(Strings.T("Start with Windows"), false,
@@ -123,7 +123,7 @@ public partial class App : Application
         language.Items.Add(korean);
 
         var settingsItem = MenuArt.Command(Strings.T("Settings…"), MenuArt.Settings, ShowSettings);
-        var exit = MenuArt.Command(Strings.T("Exit Palisades"), MenuArt.Exit, QuitPalisades);
+        var exit = MenuArt.Command(Strings.T("Exit MyDesktop"), MenuArt.Exit, QuitMyDesktop);
 
         menu.Items.Add(newFence);
         menu.Items.Add(newPortal);
@@ -154,7 +154,7 @@ public partial class App : Application
             newPortal.Header = Strings.T("New folder portal…");
             hideAll.Header = Strings.T("Hide all fences");
             locked.Header = Strings.T("Lock fences");
-            bareDesktop.Header = Strings.T("Palisades draws the desktop");
+            bareDesktop.Header = Strings.T("MyDesktop draws the desktop");
             login.Header = Strings.T("Start with Windows");
             lasso.Header = Strings.T("Right-drag desktop makes a fence");
             quickHide.Header = Strings.T("Double-click desktop hides fences");
@@ -163,7 +163,7 @@ public partial class App : Application
             english.Header = Strings.T("English");
             korean.Header = Strings.T("Korean");
             settingsItem.Header = Strings.T("Settings…");
-            exit.Header = Strings.T("Exit Palisades");
+            exit.Header = Strings.T("Exit MyDesktop");
 
             MenuArt.SetState(follow, settings.Language == UiLanguage.System);
             MenuArt.SetState(english, settings.Language == UiLanguage.English);

@@ -4,14 +4,14 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using Palisades.Interop;
-using Palisades.Models;
-using Palisades.Services;
+using MyDesktop.Interop;
+using MyDesktop.Models;
+using MyDesktop.Services;
 
-namespace Palisades.Views;
+namespace MyDesktop.Views;
 
 /// <summary>
-/// The desktop Palisades draws for itself while the shell's icon layer is switched off. It sits
+/// The desktop MyDesktop draws for itself while the shell's icon layer is switched off. It sits
 /// below every fence, and its empty area is fully transparent so clicks, right-drags and
 /// double-clicks land on the real desktop underneath.
 /// </summary>
@@ -57,7 +57,7 @@ public partial class DesktopLayerWindow : Window
         base.OnSourceInitialized(e);
         DisplayScale.CaptureFrom(this);
 
-        // Lowest of everything Palisades owns, so fences float above the icons.
+        // Lowest of everything MyDesktop owns, so fences float above the icons.
         DesktopAnchor.Attach(this, lowest: true);
         DesktopWindows.DrawnDesktop = new System.Windows.Interop.WindowInteropHelper(this).Handle;
 
@@ -79,7 +79,7 @@ public partial class DesktopLayerWindow : Window
         Root.Background = capturing ? new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)) : null;
     }
 
-    /// <summary>Screen pixels in, true when an icon Palisades drew is there.</summary>
+    /// <summary>Screen pixels in, true when an icon MyDesktop drew is there.</summary>
     public bool IsOverItem(Point screenPoint)
     {
         try
@@ -260,7 +260,7 @@ public partial class DesktopLayerWindow : Window
 
         menu.Items.Add(new Separator());
         menu.Items.Add(Command(Strings.T("New fence here"), MenuArt.NewFence, () => _manager.CreateFenceAtCursor()));
-        menu.Items.Add(Command(Strings.T("Palisades settings…"), MenuArt.Settings, App.OpenSettings));
+        menu.Items.Add(Command(Strings.T("MyDesktop settings…"), MenuArt.Settings, App.OpenSettings));
 
         Activate();
         menu.IsOpen = true;
@@ -320,7 +320,7 @@ public partial class DesktopLayerWindow : Window
 
         if (e.Data.GetData(FenceWindow.TransferFormat) is not string payload)
         {
-            // Palisades is covering the wallpaper, so a file dropped "on the desktop" lands here.
+            // MyDesktop is covering the wallpaper, so a file dropped "on the desktop" lands here.
             if (e.Data.GetData(DataFormats.FileDrop) is string[] dropped)
             {
                 CopyToDesktop(dropped);
@@ -449,7 +449,7 @@ public partial class DesktopLayerWindow : Window
 
             if (!item.Exists)
             {
-                MessageBox.Show(this, $"{Strings.T("Palisades cannot find")}\n{item.Path}", Strings.T("Item missing"),
+                MessageBox.Show(this, $"{Strings.T("MyDesktop cannot find")}\n{item.Path}", Strings.T("Item missing"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }

@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
 
-namespace Palisades.Interop;
+namespace MyDesktop.Interop;
 
 /// <summary>
 /// A notification area icon backed by Shell_NotifyIcon, so the app stays pure WPF.
@@ -19,7 +19,7 @@ internal sealed class TrayIcon : IDisposable
     {
         Menu = menu;
 
-        _source = new HwndSource(new HwndSourceParameters("PalisadesTrayHost")
+        _source = new HwndSource(new HwndSourceParameters("MyDesktopTrayHost")
         {
             Width = 0,
             Height = 0,

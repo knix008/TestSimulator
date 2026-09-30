@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
-using Palisades.Interop;
-using Palisades.Models;
+using MyDesktop.Interop;
+using MyDesktop.Models;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 public static class FenceSorting
 {

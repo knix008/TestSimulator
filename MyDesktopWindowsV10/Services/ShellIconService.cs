@@ -3,9 +3,9 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Palisades.Interop;
+using MyDesktop.Interop;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// Pulls the real shell icon for a path, including shortcut overlays, at 48 pixels.

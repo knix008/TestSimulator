@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using Palisades.Models;
+using MyDesktop.Models;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// Dropping something onto an icon should do what that icon is for, the way it does on the desktop:

@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 
-namespace Palisades.Models;
+namespace MyDesktop.Models;
 
 public enum FenceKind
 {
@@ -117,7 +117,7 @@ public sealed class AppSettings : ObservableObject
     }
 
     /// <summary>
-    /// Hides the shell's own desktop icons so only the fences show. Restored when Palisades exits.
+    /// Hides the shell's own desktop icons so only the fences show. Restored when MyDesktop exits.
     /// </summary>
     public bool HideDesktopIcons
     {
@@ -126,7 +126,7 @@ public sealed class AppSettings : ObservableObject
     }
 
     /// <summary>
-    /// Palisades switches the shell's icon layer off and draws the desktop itself. That is what lets
+    /// MyDesktop switches the shell's icon layer off and draws the desktop itself. That is what lets
     /// an item inside a fence stop appearing on the wallpaper while its file stays in the Desktop
     /// folder for Explorer. Turning it off gives the desktop back to the shell.
     /// </summary>

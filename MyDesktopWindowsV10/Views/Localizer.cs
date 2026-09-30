@@ -2,9 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
-using Palisades.Services;
+using MyDesktop.Services;
 
-namespace Palisades.Views;
+namespace MyDesktop.Views;
 
 /// <summary>
 /// Swaps the English text baked into the XAML for whatever the table says, so the markup stays

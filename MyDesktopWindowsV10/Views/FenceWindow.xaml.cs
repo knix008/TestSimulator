@@ -7,12 +7,12 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Microsoft.Win32;
-using Palisades.Interop;
+using MyDesktop.Interop;
 using Path = System.IO.Path;
-using Palisades.Models;
-using Palisades.Services;
+using MyDesktop.Models;
+using MyDesktop.Services;
 
-namespace Palisades.Views;
+namespace MyDesktop.Views;
 
 /// <summary>
 /// One fence: a translucent container that lives on the wallpaper, holds desktop items, and can be
@@ -21,7 +21,7 @@ namespace Palisades.Views;
 public partial class FenceWindow : Window
 {
     /// <summary>Clipboard format for dragging items from one fence to another.</summary>
-    public const string TransferFormat = "Palisades.FenceItems";
+    public const string TransferFormat = "MyDesktop.FenceItems";
 
     /// <summary>Stands in for a fence id when the drag started on the drawn desktop.</summary>
     public const string DesktopSourceId = "::desktop";
@@ -124,7 +124,7 @@ public partial class FenceWindow : Window
     {
         if (!_closing)
         {
-            // Nothing but Palisades itself may close a fence.
+            // Nothing but MyDesktop itself may close a fence.
             e.Cancel = true;
             return;
         }
@@ -776,7 +776,7 @@ public partial class FenceWindow : Window
 
         if (!item.Exists)
         {
-            MessageBox.Show(this, $"{Strings.T("Palisades cannot find")}\n{item.Path}", Strings.T("Item missing"),
+            MessageBox.Show(this, $"{Strings.T("MyDesktop cannot find")}\n{item.Path}", Strings.T("Item missing"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -887,12 +887,12 @@ public partial class FenceWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuArt.Check(Strings.T("Lock all fences"), settings.FencesLocked,
             MenuArt.Locked, MenuArt.Unlocked, () => settings.FencesLocked = !settings.FencesLocked));
-        menu.Items.Add(Toggle(Strings.T("Palisades draws the desktop"), settings.DrawDesktop,
+        menu.Items.Add(Toggle(Strings.T("MyDesktop draws the desktop"), settings.DrawDesktop,
             () => settings.DrawDesktop = !settings.DrawDesktop));
         menu.Items.Add(Command(Strings.T("Hide all fences"), MenuArt.Hide, _manager.ToggleQuickHide));
-        menu.Items.Add(Command(Strings.T("Palisades settings…"), MenuArt.Settings, App.OpenSettings));
+        menu.Items.Add(Command(Strings.T("MyDesktop settings…"), MenuArt.Settings, App.OpenSettings));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Command(Strings.T("Exit Palisades"), MenuArt.Exit, App.Quit));
+        menu.Items.Add(Command(Strings.T("Exit MyDesktop"), MenuArt.Exit, App.Quit));
 
         Activate();
         menu.IsOpen = true;

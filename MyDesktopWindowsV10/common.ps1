@@ -1,10 +1,10 @@
 # Shared helpers for build.ps1 and run.ps1.
 # ASCII only on purpose: Windows PowerShell 5.1 garbles BOM-less UTF-8 scripts that hold non-ASCII text.
 
-$script:ProjectFile = Join-Path $PSScriptRoot 'Palisades.csproj'
+$script:ProjectFile = Join-Path $PSScriptRoot 'MyDesktop.csproj'
 
 function Add-ShellIconType {
-    if ('PalisadesShell' -as [type]) { return }
+    if ('MyDesktopShell' -as [type]) { return }
 
     Add-Type -TypeDefinition @'
 using System;
@@ -12,7 +12,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-public class PalisadesShell {
+public class MyDesktopShell {
   public delegate bool EnumProc(IntPtr h, IntPtr l);
   [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern IntPtr FindWindowExW(IntPtr p, IntPtr c, string cls, string win);
@@ -64,13 +64,13 @@ public class PalisadesShell {
 '@
 }
 
-function Get-PalisadesExe {
+function Get-MyDesktopExe {
     param([string] $Configuration = 'Debug')
 
     $folder = Join-Path $PSScriptRoot "bin\$Configuration"
     if (-not (Test-Path $folder)) { return $null }
 
-    $exe = Get-ChildItem $folder -Recurse -Filter 'Palisades.exe' -ErrorAction SilentlyContinue |
+    $exe = Get-ChildItem $folder -Recurse -Filter 'MyDesktop.exe' -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
     if ($exe) { return $exe.FullName }
@@ -79,24 +79,24 @@ function Get-PalisadesExe {
 
 function Restore-DesktopIcons {
     Add-ShellIconType
-    if ([PalisadesShell]::IconsVisible()) { return }
+    if ([MyDesktopShell]::IconsVisible()) { return }
 
     Write-Host '  desktop icons were hidden, switching them back on'
-    [PalisadesShell]::ToggleIcons()
+    [MyDesktopShell]::ToggleIcons()
     Start-Sleep -Milliseconds 1200
 
-    if ([PalisadesShell]::IconsVisible()) {
+    if ([MyDesktopShell]::IconsVisible()) {
         Write-Host '  desktop icons restored'
     } else {
         Write-Warning 'Desktop icons are still hidden. Right-click the desktop > View > Show desktop icons.'
     }
 }
 
-function Stop-Palisades {
-    $running = Get-Process Palisades -ErrorAction SilentlyContinue
+function Stop-MyDesktop {
+    $running = Get-Process MyDesktop -ErrorAction SilentlyContinue
     if (-not $running) { return $false }
 
-    Write-Host ('stopping Palisades (pid ' + (($running | ForEach-Object { $_.Id }) -join ', ') + ')')
+    Write-Host ('stopping MyDesktop (pid ' + (($running | ForEach-Object { $_.Id }) -join ', ') + ')')
     $running | Stop-Process -Force
     $running | Wait-Process -Timeout 10 -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 500
@@ -106,7 +106,7 @@ function Stop-Palisades {
     return $true
 }
 
-function Invoke-PalisadesBuild {
+function Invoke-MyDesktopBuild {
     param(
         [string] $Configuration = 'Debug',
         [switch] $Clean

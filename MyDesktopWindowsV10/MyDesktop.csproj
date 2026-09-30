@@ -6,10 +6,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyName>Palisades</AssemblyName>
-    <RootNamespace>Palisades</RootNamespace>
+    <AssemblyName>MyDesktop</AssemblyName>
+    <RootNamespace>MyDesktop</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <ApplicationIcon>Assets\palisades.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\mydesktop.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Assets\palisades.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\mydesktop.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

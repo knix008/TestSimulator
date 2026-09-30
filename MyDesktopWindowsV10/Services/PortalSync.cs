@@ -1,7 +1,7 @@
 using System.Windows.Threading;
-using Palisades.Models;
+using MyDesktop.Models;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// Mirrors a folder into a fence, the way a Fences portal shows live folder contents.

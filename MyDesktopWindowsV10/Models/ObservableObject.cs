@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace Palisades.Models;
+namespace MyDesktop.Models;
 
 public abstract class ObservableObject : INotifyPropertyChanged
 {

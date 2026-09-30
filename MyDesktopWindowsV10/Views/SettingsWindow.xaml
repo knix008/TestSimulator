@@ -1,7 +1,7 @@
-<Window x:Class="Palisades.Views.SettingsWindow"
+﻿<Window x:Class="MyDesktop.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Palisades" Height="780" Width="1180" MinHeight="640" MinWidth="960"
+        Title="MyDesktop" Height="780" Width="1180" MinHeight="640" MinWidth="960"
         Background="#F3F4EF" FontFamily="Segoe UI" Foreground="#1D2924"
         WindowStartupLocation="CenterScreen">
     <Grid>
@@ -25,7 +25,7 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="PALISADES" FontSize="15" FontWeight="Bold" Foreground="#F4F5ED" />
+                        <TextBlock Text="MYDESKTOP" FontSize="15" FontWeight="Bold" Foreground="#F4F5ED" />
                         <TextBlock Text="DESKTOP FENCES" FontSize="9" FontWeight="SemiBold" Foreground="#95AAA0" />
                     </StackPanel>
                 </StackPanel>
@@ -243,9 +243,9 @@
                                       IsChecked="{Binding Settings.SnapToGrid, Mode=TwoWay}" />
                             <CheckBox Content="Snap fences to screen edges and to each other" FontSize="12" Margin="0,8,0,0"
                                       IsChecked="{Binding Settings.SnapToEdges, Mode=TwoWay}" />
-                            <CheckBox Content="Palisades draws the desktop" FontSize="12" Margin="0,8,0,0"
+                            <CheckBox Content="MyDesktop draws the desktop" FontSize="12" Margin="0,8,0,0"
                                       IsChecked="{Binding Settings.DrawDesktop, Mode=TwoWay}" />
-                            <TextBlock Text="The shell's icon layer is switched off and Palisades draws the Recycle Bin and anything not in a fence. That is what keeps an item in a fence from also appearing on the wallpaper, while its file stays in the Desktop folder where Explorer shows it. Switching this off hands the desktop back to Windows."
+                            <TextBlock Text="The shell's icon layer is switched off and MyDesktop draws the Recycle Bin and anything not in a fence. That is what keeps an item in a fence from also appearing on the wallpaper, while its file stays in the Desktop folder where Explorer shows it. Switching this off hands the desktop back to Windows."
                                        FontSize="11" Foreground="#87928B" TextWrapping="Wrap" Margin="24,5,0,0" />
                             <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                 <TextBlock Text="LANGUAGE" Style="{StaticResource SectionCaption}" VerticalAlignment="Center" Margin="0,0,10,0" />
@@ -273,7 +273,7 @@
 
             <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#E7E9E3" BorderThickness="0,1,0,0">
                 <DockPanel Margin="34,0" VerticalAlignment="Center">
-                    <TextBlock Text="PALISADES DESKTOP FENCES" Style="{StaticResource SectionCaption}" />
+                    <TextBlock Text="MYDESKTOP FENCES" Style="{StaticResource SectionCaption}" />
                     <TextBlock DockPanel.Dock="Right" Text="Changes apply immediately and save themselves"
                                FontSize="10" Foreground="#87928B" />
                 </DockPanel>

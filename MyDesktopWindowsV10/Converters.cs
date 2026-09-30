@@ -2,10 +2,10 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
-using Palisades.Models;
-using Palisades.Services;
+using MyDesktop.Models;
+using MyDesktop.Services;
 
-namespace Palisades;
+namespace MyDesktop;
 
 /// <summary>
 /// Names the choices in the settings drop-downs. Bound straight to an enum, WPF would call

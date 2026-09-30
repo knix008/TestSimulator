@@ -4,7 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
-namespace Palisades.Interop;
+namespace MyDesktop.Interop;
 
 /// <summary>
 /// The picture of what is being dragged, following the cursor.
@@ -12,7 +12,7 @@ namespace Palisades.Interop;
 /// The shell has a helper for this, and it is what Explorer uses, but it only works when the drop
 /// target asks the shell to paint it and when the data object hands the image back: WPF's drop
 /// targets never ask, and WPF's DataObject answers the shell's request with DV_E_FORMATETC. So
-/// Palisades carries its own ghost — a click-through topmost window holding a snapshot of the item.
+/// MyDesktop carries its own ghost — a click-through topmost window holding a snapshot of the item.
 /// </summary>
 internal sealed class DragGhost : IDisposable
 {

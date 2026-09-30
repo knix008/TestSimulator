@@ -3,11 +3,11 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Threading;
-using Palisades.Interop;
-using Palisades.Models;
-using Palisades.Views;
+using MyDesktop.Interop;
+using MyDesktop.Models;
+using MyDesktop.Views;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// Owns the fences: their windows, their folder portals, and the desktop gestures that create them.
@@ -78,7 +78,7 @@ public sealed class FenceManager : IDisposable
     }
 
     /// <summary>
-    /// When Palisades draws the desktop, the shell's icon layer goes away and our own layer takes
+    /// When MyDesktop draws the desktop, the shell's icon layer goes away and our own layer takes
     /// over. Items that live in a fence are simply left out of it.
     /// </summary>
     public void ApplyDesktopDrawing()
@@ -132,7 +132,7 @@ public sealed class FenceManager : IDisposable
     /// <summary>Called while a fence is being moved or resized, so the icons under it step aside.</summary>
     public void PushDesktopIcons() => _desktop?.ArrangeSoon();
 
-    /// <summary>Palisades just deleted or restored something, so look at the bin without waiting.</summary>
+    /// <summary>MyDesktop just deleted or restored something, so look at the bin without waiting.</summary>
     public void CheckRecycleBin() => _bin.Check();
 
     /// <summary>Full and empty are different icons, and every copy of the bin has to show the same one.</summary>
@@ -149,7 +149,7 @@ public sealed class FenceManager : IDisposable
 
     /// <summary>
     /// Makes the drawn desktop catch drops for the duration of a drag, so an item pulled out of a
-    /// fence lands on Palisades rather than on Explorer's copy of the same file.
+    /// fence lands on MyDesktop rather than on Explorer's copy of the same file.
     /// </summary>
     public void SetDesktopDragCapture(bool capturing) => _desktopWindow?.SetDragCapture(capturing);
 

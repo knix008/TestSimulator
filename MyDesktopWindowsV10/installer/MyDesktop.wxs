@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The MyDesktop installer.
+
+  The payload is a self-contained publish, so the installed copy carries its own .NET and runs on a
+  machine that has never had a runtime installed. PublishDir is passed in by build-installer.ps1.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package Name="MyDesktop"
+           Manufacturer="MyDesktop"
+           Version="$(Version)"
+           UpgradeCode="0A2606EB-8659-4911-BEC6-DCE7C57F5796"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <!-- Installing over an older build replaces it instead of leaving two entries behind. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of MyDesktop is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="$(IconFile)" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MyDesktop" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuFolder" Name="MyDesktop">
+        <Component Id="StartMenuShortcut" Guid="2B1A7988-01C9-4452-BCA1-3E1B471289C2">
+          <Shortcut Id="AppShortcut"
+                    Name="MyDesktop"
+                    Description="Tidy the Windows desktop into fences"
+                    Target="[INSTALLFOLDER]MyDesktop.exe"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="AppIcon" />
+          <RemoveFolder Id="RemoveAppMenuFolder" On="uninstall" />
+          <!-- A component needs a key path, and the shortcut's own folder is not one. -->
+          <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="Installed"
+                         Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="MyDesktop" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <!--
+      Everything the publish produced, harvested as it stands. Listing the files by hand would mean
+      editing this file every time the runtime's file set changes.
+    -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(PublishDir)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>

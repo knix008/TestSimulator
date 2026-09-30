@@ -2,13 +2,13 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
-using Palisades.Models;
+using MyDesktop.Models;
 
-namespace Palisades.Services;
+namespace MyDesktop.Services;
 
 /// <summary>
 /// Everything the desktop should show that is not inside a fence: the shell places the user has
-/// switched on (Recycle Bin and friends) and the loose contents of the Desktop folder. Palisades
+/// switched on (Recycle Bin and friends) and the loose contents of the Desktop folder. MyDesktop
 /// draws these itself while the shell's own icon layer is switched off, so a file that lives in a
 /// fence stops being drawn on the wallpaper while staying exactly where Explorer expects it.
 /// </summary>
