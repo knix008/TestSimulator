@@ -2,8 +2,34 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using Palisades.Models;
+using Palisades.Services;
 
 namespace Palisades;
+
+/// <summary>
+/// Names the choices in the settings drop-downs. Bound straight to an enum, WPF would call
+/// ToString() and put the member name on screen, which leaves "Kind" and "Modified" in English
+/// however the language is set.
+/// </summary>
+public sealed class EnumLabelConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => Strings.T(value switch
+        {
+            FenceSort.Manual => "Manual order",
+            FenceSort.Name => "Name",
+            FenceSort.Kind => "Type",
+            FenceSort.Modified => "Date modified",
+            UiLanguage.System => "Follow Windows",
+            UiLanguage.English => "English",
+            UiLanguage.Korean => "Korean",
+            _ => value?.ToString() ?? ""
+        });
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
 
 /// <summary>Turns the stored "#AARRGGBB" strings into brushes.</summary>
 public sealed class HexToBrushConverter : IValueConverter

@@ -50,6 +50,10 @@ public sealed class FenceManager : IDisposable
 
     public void Start()
     {
+        // Before the first window exists: a fence translates itself as it is shown, and settling the
+        // language afterwards would leave the ones opened here in whatever language came first.
+        Strings.Language = Settings.Language;
+
         foreach (var fence in Fences.ToArray())
         {
             OpenWindow(fence);
@@ -60,7 +64,6 @@ public sealed class FenceManager : IDisposable
         _hook.LassoCompleted += OnLassoCompleted;
         _hook.DesktopDoubleClicked += ToggleQuickHide;
         Diagnostics.StartSession();
-        Strings.Language = Settings.Language;
         ApplyGestureSettings();
         _hook.Install();
 

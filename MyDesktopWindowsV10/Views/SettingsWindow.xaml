@@ -171,8 +171,15 @@
                             <StackPanel Orientation="Horizontal" Margin="0,11,0,0">
                                 <CheckBox Content="Show hidden items" FontSize="12" IsChecked="{Binding SelectedFence.PortalShowHidden, Mode=TwoWay}" />
                                 <TextBlock Text="SORT" Style="{StaticResource SectionCaption}" Margin="26,0,9,0" VerticalAlignment="Center" />
-                                <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedFence.Sort, Mode=TwoWay}"
-                                          Width="150" FontSize="12" />
+                                <ComboBox x:Name="SortChoice" ItemsSource="{Binding SortOptions}"
+                                          SelectedItem="{Binding SelectedFence.Sort, Mode=TwoWay}"
+                                          Width="150" FontSize="12">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -242,8 +249,15 @@
                                        FontSize="11" Foreground="#87928B" TextWrapping="Wrap" Margin="24,5,0,0" />
                             <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                 <TextBlock Text="LANGUAGE" Style="{StaticResource SectionCaption}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <ComboBox ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding Settings.Language, Mode=TwoWay}"
-                                          Width="170" FontSize="12" />
+                                <ComboBox x:Name="LanguageChoice" ItemsSource="{Binding LanguageOptions}"
+                                          SelectedItem="{Binding Settings.Language, Mode=TwoWay}"
+                                          Width="170" FontSize="12">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                                 <TextBlock Text="GRID" Style="{StaticResource SectionCaption}" VerticalAlignment="Center" Margin="0,0,10,0" />

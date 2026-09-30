@@ -7,6 +7,7 @@
         <local:HexToBrushConverter x:Key="Hex" />
         <local:EmptyToVisibilityConverter x:Key="Empty" />
         <local:BooleanToVisibilityConverter x:Key="Bool" />
+        <local:EnumLabelConverter x:Key="EnumLabel" />
 
         <!-- Fence chrome -->
         <Style x:Key="FenceGlyphButton" TargetType="Button">

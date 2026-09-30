@@ -40,6 +40,11 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
     {
         Title = Strings.T("Palisades");
         Localizer.Apply(this);
+
+        // The drop-downs name their choices through a converter, and nothing tells those bindings
+        // that the language moved underneath them, so the lists are rebuilt by hand.
+        SortChoice.Items.Refresh();
+        LanguageChoice.Items.Refresh();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
