@@ -73,13 +73,15 @@ describe('coverage of the user interface', () => {
 
   it('has a tooltip for every toolbar control', () => {
     for (const key of [
-      'tip.open', 'tip.save', 'tip.print', 'tip.prev', 'tip.next', 'tip.bookmark',
+      'tip.open', 'tip.openFolder', 'tip.save', 'tip.print', 'tip.prev', 'tip.next', 'tip.bookmark',
       'tip.highlight', 'tip.note', 'tip.find', 'tip.undo', 'tip.redo', 'tip.leftPanel',
       'tip.rightPanel', 'tip.theme', 'tip.lang', 'tip.settings', 'tip.about',
       'tip.fileMenu', 'tip.readingMenu', 'tip.viewMenu', 'tip.marksMenu', 'tip.appMenu',
-      'tip.textBigger', 'tip.textSmaller', 'tip.textReset', 'tip.zoomIn', 'tip.zoomOut',
+      'tip.textBigger', 'tip.textSmaller', 'tip.textReset', 'tip.readerFont', 'tip.zoomIn', 'tip.zoomOut',
       'tip.zoomReset', 'tip.spread', 'tip.bookmarkList', 'tip.pageMode',
       'tip.section', 'tip.minimize', 'tip.maximize', 'tip.closeWin', 'tip.closeTab',
+      'tip.viewSingle', 'tip.viewDouble', 'tip.viewContinuous', 'tip.fitSingle',
+      'tip.columns1', 'tip.columns2', 'tip.columnsFixed', 'tip.columnsFacing', 'tip.columnsFlow',
     ]) {
       expect(ko.has(key), key).toBe(true);
     }

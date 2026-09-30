@@ -26,6 +26,12 @@ describe('normalize', () => {
     expect(normalize({ pageTurn: 'explode' }).pageTurn).toBe('slide');
   });
 
+  it('reads an older two-column flag as two columns', () => {
+    expect(normalize({ twoColumns: true }).columns).toBe(2);
+    expect(normalize({ columns: 3 })).toMatchObject({ columns: 2, twoColumns: true });
+    expect(normalize({ columns: 1, twoColumns: true }).columns).toBe(1);
+  });
+
   it('keeps a page layout and a turning effect it does know', () => {
     expect(normalize({ spread: 'double' }).spread).toBe('double');
     expect(normalize({ pageTurn: 'flip' }).pageTurn).toBe('flip');

@@ -20,6 +20,7 @@ const fs = require('fs');
 const os = require('os');
 const { pathToFileURL } = require('url');
 const { readLevel, OPENABLE_EXTENSIONS } = require('./folder-list');
+const { listDrives } = require('./drives');
 const child = require('./childwindows');
 
 const isDev = !app.isPackaged && process.env.ELECTRON_DEV === '1';
@@ -143,6 +144,10 @@ function createWindow() {
   });
 
   if (isSmoke) require('./smoke').startSmoke(win);
+
+  // `npm run try:books` — opens real books, not the samples this repository
+  // writes for itself, and reports what a reader would see of each one.
+  if (process.env.EBK_TRY) require('./trybooks').startTryBooks(win);
 
   // `npm run shoot:dialog` — opens one dialog and photographs its own window,
   // which is the only way to see a popup's layout without sitting in front of
@@ -317,11 +322,20 @@ ipcMain.handle('fs:exists', (_e, p) => {
 ipcMain.handle('fs:stat', (_e, p) => {
   try {
     const st = fs.statSync(p);
-    return { size: st.size, mtime: st.mtimeMs, dir: path.dirname(p), name: path.basename(p) };
+    return {
+      size: st.size,
+      mtime: st.mtimeMs,
+      dir: path.dirname(p),
+      name: path.basename(p),
+      isDir: st.isDirectory(),
+    };
   } catch { return null; }
 });
 
 ipcMain.handle('fs:readDir', (_e, dirPath) => readLevel(fs, path, dirPath));
+
+// Where a folder tree can be started from: the machine's drives and home.
+ipcMain.handle('fs:drives', () => listDrives({ fs, os, path }));
 
 // Reads a file in chunks, reporting progress so the renderer can show a
 // progress dialog for a large book. Returns the bytes as a Uint8Array.

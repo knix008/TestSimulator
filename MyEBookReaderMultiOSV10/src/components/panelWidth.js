@@ -28,8 +28,17 @@ export function clampToPanelMin(width, min) {
 }
 
 /**
- * Measures a row of equal-width controls and reports the width below which one
- * of them would be cut off.
+ * Measures a strip of controls and reports the width below which one of them
+ * would be cut off.
+ *
+ * `stacked` says the strip runs down the panel rather than across it, which
+ * changes the answer completely: stacked, each control has the whole width, so
+ * the panel needs only as much as the widest one.
+ *
+ * `beside` is for a strip that stands *next to* the rest of the panel rather
+ * than above it — a rail of tools down the left edge with the tool it opens on
+ * its right. The strip's own width is then only half the question; the other
+ * half is how little the thing beside it may be squeezed into.
  *
  * The tabs are `flex: 1` items, which means they share the row equally however
  * long their labels are: the row needs as much as the *widest* tab, times the
@@ -40,7 +49,7 @@ export function clampToPanelMin(width, min) {
  * allowed to size to its content, the row is read, and everything is put back
  * before the browser paints.
  */
-export function usePanelMinWidth(headRef, deps = []) {
+export function usePanelMinWidth(headRef, deps = [], { stacked = false, beside = 0 } = {}) {
   const [min, setMin] = useState(PANEL_WIDTH_MIN);
   const frame = useRef(0);
 
@@ -70,10 +79,14 @@ export function usePanelMinWidth(headRef, deps = []) {
     head.style.width = wasWidth;
     items.forEach((item, n) => { item.style.flex = wasFlex[n]; });
 
-    // Equal shares: every tab gets as much as the widest one needs.
-    const natural = Math.max(widest * items.length, total) + padding + gap;
-    setMin(panelMinWidth(Math.ceil(natural) + 2));
-  }, [headRef]);
+    // Side by side the tabs share the row equally, so it needs as much as the
+    // widest one times how many there are. Stacked one above another they each
+    // have the whole width to themselves, so it needs only the widest.
+    const natural = stacked
+      ? widest + padding
+      : Math.max(widest * items.length, total) + padding + gap;
+    setMin(panelMinWidth(Math.ceil(natural) + 2 + (Number(beside) || 0)));
+  }, [headRef, stacked, beside]);
 
   useLayoutEffect(() => {
     measure();

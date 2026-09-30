@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconBook, IconFolder, IconCheck, IconAlert, IconClip, IconContents, IconBookmark } from './Icons.jsx';
+import { IconBook, IconFolder, IconCheck, IconAlert, IconClip, IconContents, IconBookmark, IconImage } from './Icons.jsx';
 import { api, isElectron, formatBytes } from '../lib/platform.js';
 
 // The corner grip. A frameless window has no chrome of its own to grab, so the
@@ -74,7 +74,8 @@ function ResizeGrip({ title }) {
 // Bottom status bar: what is open, where you are in it, and what the app is
 // doing right now. Each cell has a tooltip explaining the value it shows.
 export default function StatusBar({
-  book, section, progress, scale, columns, selectionChars, dirty, history, message, busy, bookmarks,
+  book, section, progress, scale, columns, selectionChars, pickedImage, dirty, history, message, busy, bookmarks,
+  pageCount, pageNow, pagesEstimated,
 }) {
   const { t } = useTranslation();
 
@@ -103,19 +104,43 @@ export default function StatusBar({
 
       {book ? (
         <>
-          <span className="st-cell st-fixed" title={`${t('status.section')} ${section + 1} ${t('status.of')} ${book.sectionCount}`}>
-            <IconContents size={14} />
-            {t('status.section')} {section + 1} / {book.sectionCount}
-          </span>
-          <span className="st-sep" />
-          {columns?.pages > 1 ? (
+          {/* A book whose pages are its own — a PDF, a comic, a picture — has
+              only pages, and its "section" *is* the page. Reflowable text has
+              chapters of its own and pages that had to be worked out, so both
+              are shown and the worked-out one says that it is an estimate. */}
+          {book.reflowable ? (
             <>
-              <span className="st-cell st-fixed" title={t('common.page')}>
-                {t('common.page')} {columns.page + 1} / {columns.pages}
+              <span className="st-cell st-fixed" title={`${t('status.section')} ${section + 1} ${t('status.of')} ${book.sectionCount}`}>
+                <IconContents size={14} />
+                {t('status.section')} {section + 1} / {book.sectionCount}
               </span>
               <span className="st-sep" />
             </>
-          ) : null}
+          ) : (
+            <>
+              {/* Pages of a PDF, a comic or a picture are the book's own pages.
+                  An ebook's pages change with the window, so they are not numbered. */}
+              <span
+                className="st-cell st-fixed"
+                title={pageCount
+                  ? `${t('common.page')} ${pageNow} ${t('status.of')} ${pageCount}${pagesEstimated ? ` — ${t('status.pagesEstimated')}` : ''}`
+                  : t('status.pagesCounting')}
+                data-testid="page-readout"
+              >
+                {t('common.page')}{' '}
+                {pageCount ? `${pageNow} / ${pageCount}${pagesEstimated ? '≈' : ''}` : '…'}
+              </span>
+              <span className="st-sep" />
+              {columns?.pages > 1 ? (
+                <>
+                  <span className="st-cell st-fixed" title={t('status.inChapter')}>
+                    {columns.page + 1} / {columns.pages}
+                  </span>
+                  <span className="st-sep" />
+                </>
+              ) : null}
+            </>
+          )}
           <span className="st-cell st-fixed" title={t('status.progress')}>
             {t('status.progress')} {Math.round((progress || 0) * 100)}%
           </span>
@@ -141,6 +166,28 @@ export default function StatusBar({
             {selectionChars > 0 ? t('status.chars', { n: selectionChars }) : t('status.noSelection')}
           </span>
           <span className="st-sep" />
+          {/* A picked picture. It is the only cell that appears and disappears
+              with what the reader is doing, which is exactly what makes it
+              noticeable: a picture is selected, and here is which one. */}
+          {pickedImage ? (
+            <>
+              <span
+                className="st-cell st-fixed st-picked"
+                title={t('status.pickedImageOf', {
+                  name: pickedImage.name || t('status.pickedImage'),
+                  w: pickedImage.width || 0,
+                  h: pickedImage.height || 0,
+                })}
+                data-testid="picked-image"
+              >
+                <IconImage size={14} />
+                {pickedImage.width && pickedImage.height
+                  ? t('status.pickedImageSize', { w: pickedImage.width, h: pickedImage.height })
+                  : t('status.pickedImage')}
+              </span>
+              <span className="st-sep" />
+            </>
+          ) : null}
           <span className="st-cell st-fixed" title={t('status.history', { n: history.depth })}>
             {t('status.history', { n: history.depth })}
           </span>

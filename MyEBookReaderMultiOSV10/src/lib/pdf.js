@@ -69,17 +69,41 @@ export async function renderPage({ page, canvas, scale, rotation = 0, dpr = (typ
  * so the container must carry that variable — without it every span falls back
  * to the inherited size and the selection no longer lines up with the glyphs.
  */
-export async function renderTextLayer({ page, container, viewport }) {
+export async function renderTextLayer({ page, container, viewport, isCancelled }) {
+  // Straight into the layer the reader selects from, which is where pdf.js
+  // expects to lay text out: it measures the container it is given, and one
+  // that is not in the document — or one that is a second, hidden copy beside
+  // the real one — is not something it will reliably fill.
+  //
+  // That leaves a window in which the layer is empty, between clearing it and
+  // filling it. The caller closes that window by trying again when the layer
+  // comes out with no words in it: a render that is overtaken is the only way
+  // that happens, and an empty layer left behind is a page whose text cannot be
+  // selected at all.
   container.replaceChildren();
   container.style.setProperty('--scale-factor', String(viewport.scale));
   container.style.setProperty('--total-scale-factor', String(viewport.scale));
+
   const textContent = await page.getTextContent();
+  if (isCancelled?.()) return null;
   const layer = new TextLayer({ textContentSource: textContent, container, viewport });
   await layer.render();
+  if (isCancelled?.()) return null;
+
+  // The guard block that keeps a drag from reaching for text elsewhere on the
+  // page; the reading pane arms and parks it. pdf.js's own viewer appends it in
+  // TextLayerBuilder, and the bare TextLayer class used here renders the spans
+  // and nothing else.
   const end = document.createElement('div');
   end.className = 'endOfContent';
   container.append(end);
   return layer;
+}
+
+/** Whether a page has words on it that a reader could select. */
+export function hasSelectableText(container) {
+  if (!container) return false;
+  return [...container.querySelectorAll('span')].some((s) => (s.textContent || '').trim());
 }
 
 /** Plain text of a page, with pdf.js's own line breaks preserved. */

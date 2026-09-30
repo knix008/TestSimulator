@@ -33,9 +33,20 @@ function renderLeft(over = {}) {
     toc,
     onGoTo: vi.fn(),
     bookmarks: [],
+    onAddBookmark: vi.fn(),
     onGoToBookmark: vi.fn(),
     onRemoveBookmark: vi.fn(),
     onClearBookmarks: vi.fn(),
+    notes: [],
+    highlights: [],
+    showHighlights: true,
+    hasSelection: false,
+    onAddNote: vi.fn(),
+    onHighlight: vi.fn(),
+    onShowHighlights: vi.fn(),
+    onGoToMark: vi.fn(),
+    onRemoveMark: vi.fn(),
+    onCopyMark: vi.fn(),
     search: { query: '', results: [], busy: false, activeIndex: -1 },
     onSearch: vi.fn(),
     onGoToHit: vi.fn(),
@@ -49,6 +60,10 @@ function renderLeft(over = {}) {
     onOpenRecent: vi.fn(),
     onRemoveRecent: vi.fn(),
     onClearRecent: vi.fn(),
+    gallery: [],
+    onOpenGallery: vi.fn(),
+    onForgetGallery: vi.fn(),
+    onClearGallery: vi.fn(),
     ...over,
   };
   return { ...render(<LeftPanel {...props} />), props };
@@ -64,7 +79,9 @@ describe('LeftPanel', () => {
     renderLeft();
     const tabs = [...document.querySelectorAll('.panel-tab')];
     expect(tabs.map((t) => t.getAttribute('title'))).toEqual([
-      i18n.t('panel.contents'), i18n.t('panel.library'), i18n.t('panel.bookmarks'), i18n.t('panel.search'),
+      i18n.t('panel.contents'), i18n.t('panel.library'), i18n.t('panel.history'), i18n.t('panel.gallery'),
+      i18n.t('panel.bookmarks'),
+      i18n.t('panel.notes'), i18n.t('panel.highlights'), i18n.t('panel.search'),
     ]);
     expect(document.querySelector('.panel-tab.active').title).toBe(i18n.t('panel.contents'));
   });
@@ -102,6 +119,46 @@ describe('LeftPanel', () => {
     expect(props.onRemoveBookmark).toHaveBeenCalledWith('b1');
     fireEvent.click(screen.getByTitle(i18n.t('panel.removeAll')));
     expect(props.onClearBookmarks).toHaveBeenCalled();
+  });
+
+  it('adds a bookmark from the bookmarks tool', () => {
+    const { props } = renderLeft({ panel: 'bookmarks' });
+    fireEvent.click(screen.getByLabelText(i18n.t('cmd.addBookmark')));
+    expect(props.onAddBookmark).toHaveBeenCalled();
+  });
+
+  it('lists notes, and adds one from the notes tool', () => {
+    const notes = [{ id: 'n1', section: 2, note: '메모 내용', text: '' }];
+    const { props } = renderLeft({ panel: 'notes', notes });
+    fireEvent.click(screen.getByText('메모 내용'));
+    expect(props.onGoToMark).toHaveBeenCalledWith(notes[0]);
+    fireEvent.click(screen.getByLabelText(i18n.t('cmd.addNote')));
+    expect(props.onAddNote).toHaveBeenCalled();
+    fireEvent.click(screen.getByTitle(i18n.t('panel.remove')));
+    expect(props.onRemoveMark).toHaveBeenCalledWith('n1', 'note');
+  });
+
+  it('says so when there are no notes yet', () => {
+    renderLeft({ panel: 'notes' });
+    expect(screen.getByText(i18n.t('panel.noNotes'))).toBeTruthy();
+  });
+
+  it('lists highlights, paints them only while they are shown, and marks a selection', () => {
+    const highlights = [{ id: 'h1', section: 0, text: '칠한 글' }];
+    const shown = renderLeft({ panel: 'highlights', highlights, showHighlights: true, hasSelection: true });
+    expect(screen.getByTestId('show-highlights').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByText('칠한 글'));
+    expect(shown.props.onGoToMark).toHaveBeenCalledWith(highlights[0]);
+    fireEvent.click(screen.getByTestId('apply-highlight'));
+    expect(shown.props.onHighlight).toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('show-highlights'));
+    expect(shown.props.onShowHighlights).toHaveBeenCalledWith(false);
+    shown.unmount();
+
+    renderLeft({ panel: 'highlights', showHighlights: false, hasSelection: false });
+    expect(screen.getByTestId('show-highlights').getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByTestId('apply-highlight')).toBeDisabled();
+    expect(screen.getByText(i18n.t('panel.noHighlights'))).toBeTruthy();
   });
 
   it('says so when there are no bookmarks yet', () => {
@@ -163,15 +220,40 @@ describe('LeftPanel', () => {
     await waitFor(() => expect(screen.getByText('deep.epub')).toBeTruthy());
   });
 
+  it('keeps the recent files out of the folder view', () => {
+    renderLeft({
+      panel: 'library',
+      recentFiles: [{ path: '/a/b.epub', name: 'b.epub', dir: '/a', format: 'epub' }],
+    });
+    expect(screen.queryByText('b.epub')).toBeNull();
+    expect(screen.queryByText(i18n.t('recent.title'))).toBeNull();
+  });
+
   it('lists the recent files, and can forget one or all of them', () => {
     const recentFiles = [{ path: '/a/b.epub', name: 'b.epub', dir: '/a', format: 'epub' }];
-    const { props } = renderLeft({ panel: 'library', recentFiles });
+    const { props } = renderLeft({ panel: 'history', recentFiles });
     fireEvent.click(screen.getByText('b.epub'));
     expect(props.onOpenRecent).toHaveBeenCalledWith(recentFiles[0]);
     fireEvent.click(screen.getByTitle(i18n.t('recent.remove')));
     expect(props.onRemoveRecent).toHaveBeenCalledWith('/a/b.epub');
     fireEvent.click(screen.getByTitle(i18n.t('recent.clear')));
     expect(props.onClearRecent).toHaveBeenCalled();
+  });
+
+  it('lists the gallery one book to a line, with a small cover', () => {
+    const gallery = [
+      { path: '/a/dune.epub', name: 'dune.epub', title: 'Dune', format: 'epub', cover: 'data:image/png;base64,AA', openedAt: 2 },
+      { path: '/a/emma.epub', name: 'emma.epub', title: 'Emma', format: 'epub', cover: '', openedAt: 1 },
+    ];
+    const { props } = renderLeft({ panel: 'gallery', gallery });
+    const rows = [...document.querySelectorAll('.shelf-row')];
+    expect(rows).toHaveLength(2);
+    expect(rows[0].querySelector('img.gcover-img').getAttribute('src')).toBe('data:image/png;base64,AA');
+    expect(rows[1].querySelector('.gcover-blank')).toBeTruthy();
+    fireEvent.click(screen.getByText('Dune'));
+    expect(props.onOpenGallery).toHaveBeenCalledWith(gallery[0]);
+    fireEvent.click(screen.getByLabelText(`${i18n.t('gallery.forget')}: Emma`));
+    expect(props.onForgetGallery).toHaveBeenCalledWith('/a/emma.epub');
   });
 
   it('can be dragged wider', () => {
@@ -240,11 +322,17 @@ describe('RightPanel', () => {
 
   it('changes the reading layout from its controls', () => {
     const { props } = renderRight({ panel: 'reading' });
-    fireEvent.change(document.querySelectorAll('input[type="range"]')[0], { target: { value: '150' } });
-    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ fontScale: 1.5 }));
+    // The text size is typed, or stepped with the buttons either side of it.
+    const size = screen.getByLabelText(i18n.t('reading.size'));
+    fireEvent.focus(size);
+    fireEvent.change(size, { target: { value: '26' } });
+    fireEvent.blur(size);
+    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ fontScale: 26 / 17 }));
 
-    fireEvent.click(screen.getByTitle(i18n.t('reading.paged')));
-    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ pageMode: 'paged' }));
+    fireEvent.click(screen.getByTitle(i18n.t('cmd.viewSingle')));
+    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({
+      viewLayout: 'single', pageMode: 'paged', spread: 'single',
+    }));
 
     fireEvent.click(screen.getByTitle(i18n.t('reading.bold')));
     expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ readerBold: true }));
@@ -261,30 +349,128 @@ describe('RightPanel', () => {
     expect(preview.style.fontSize).toBe('34px');
   });
 
-  it('lists the highlights and notes, and acts on them', () => {
-    const highlights = [{ id: 'h1', section: 0, text: '칠한 글' }];
-    const notes = [{ id: 'n1', section: 2, note: '메모 내용', text: '' }];
-    const { props } = renderRight({ panel: 'notes', highlights, notes });
-    fireEvent.click(screen.getByText('칠한 글'));
-    expect(props.onGoToMark).toHaveBeenCalledWith(highlights[0]);
-    fireEvent.click(screen.getByText('메모 내용'));
-    expect(props.onGoToMark).toHaveBeenCalledWith(notes[0]);
-    fireEvent.click(document.querySelectorAll('.icon-btn')[0]);
-    expect(props.onCopyMark).toHaveBeenCalled();
-    fireEvent.click(document.querySelectorAll('.icon-btn')[1]);
-    expect(props.onRemoveMark).toHaveBeenCalledWith('h1', 'highlight');
-  });
-
-  it('says so when nothing has been marked', () => {
-    renderRight({ panel: 'notes' });
-    expect(screen.getByText(i18n.t('panel.noNotes'))).toBeTruthy();
-  });
-
   it('can be dragged wider from its left edge', () => {
     const { props } = renderRight();
     const grip = document.querySelector('.panel-resizer.right');
     fireEvent.pointerDown(grip, { button: 0, clientX: 800 });
     fireEvent.pointerMove(grip, { clientX: 760 });
     expect(props.onResize).toHaveBeenCalledWith(300);
+  });
+});
+
+describe('RightPanel — a width that stays put', () => {
+  it('is the same width with a book, without one, and with a different one', () => {
+    const widths = [];
+    const read = () => document.querySelector('.side-panel.right').style.width;
+
+    const view = renderRight({ panel: 'properties' });
+    widths.push(read());
+    view.unmount();
+
+    renderRight({ panel: 'properties', book: null });
+    widths.push(read());
+    // Nothing about a book may reach the panel's width.
+    expect(new Set(widths).size).toBe(1);
+  });
+
+  it('holds the room for a scrollbar open, so what is in it never shifts sideways', () => {
+    renderRight({ panel: 'properties' });
+    const body = document.querySelector('.panel-body');
+    expect(body).toBeTruthy();
+    // The rule is in the stylesheet rather than inline, so what is asserted is
+    // that the panel body is the element the rule is written for.
+    expect(body.className).toContain('panel-body');
+  });
+});
+
+describe('RightPanel — numbers that can be typed', () => {
+  const numbers = () => [
+    i18n.t('reading.size'), i18n.t('reading.lineHeight'),
+    i18n.t('reading.gap'), i18n.t('reading.letter'),
+  ];
+
+  it('gives every number a box and a step either side of it', () => {
+    renderRight({ panel: 'reading' });
+    for (const label of numbers()) {
+      const box = screen.getByLabelText(label);
+      expect(box.tagName).toBe('INPUT');
+      expect(screen.getByLabelText(`${label} ${i18n.t('common.less')}`)).toBeTruthy();
+      expect(screen.getByLabelText(`${label} ${i18n.t('common.more')}`)).toBeTruthy();
+    }
+    // No sliders left: a slider cannot be told an exact value or read back.
+    expect(document.querySelectorAll('.panel-body input[type="range"]')).toHaveLength(0);
+  });
+
+  it('steps up and down by the step, and stops at the ends', () => {
+    const { props } = renderRight({ panel: 'reading', settings: { ...DEFAULT_SETTINGS, fontScale: 1 } });
+    fireEvent.click(screen.getByLabelText(`${i18n.t('reading.size')} ${i18n.t('common.more')}`));
+    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ fontScale: 18 / 17 }));
+
+    const top = renderRight({ panel: 'reading', settings: { ...DEFAULT_SETTINGS, fontScale: 3 } });
+    expect(screen.getAllByLabelText(`${i18n.t('reading.size')} ${i18n.t('common.more')}`).at(-1)).toBeDisabled();
+    top.unmount();
+  });
+
+  it('takes a typed number when the box is left, and keeps it inside the range', () => {
+    const { props } = renderRight({ panel: 'reading' });
+    const box = screen.getByLabelText(i18n.t('reading.lineHeight'));
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: '2.2' } });
+    fireEvent.blur(box);
+    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ lineHeight: 2.2 }));
+
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: '99' } });
+    fireEvent.blur(box);
+    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ lineHeight: 2.6 }));
+  });
+
+  it('lets a half-typed number be typed without being clamped mid-word', () => {
+    const { props } = renderRight({ panel: 'reading' });
+    const box = screen.getByLabelText(i18n.t('reading.size'));
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: '1' } });
+    // "1" on the way to "26" must not become the minimum.
+    expect(props.onSettings).not.toHaveBeenCalled();
+    fireEvent.change(box, { target: { value: '26' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ fontScale: 26 / 17 }));
+  });
+});
+
+describe('LeftPanel — a rail of tools with the chosen one beside it', () => {
+  it('stacks its tabs rather than sharing a row between them', () => {
+    renderLeft();
+    const strip = document.querySelector('.side-panel.left .panel-tabs');
+    expect(strip.className).toContain('stacked');
+    // A rail is icons, named by tooltip — no words to clip however narrow it is.
+    const tabs = [...strip.querySelectorAll('.panel-tab')];
+    expect(tabs).toHaveLength(8);
+    for (const tab of tabs) {
+      expect(tab.querySelector('.panel-tab-label')).toBeNull();
+      expect(tab.getAttribute('title')).toBeTruthy();
+      expect(tab.getAttribute('aria-label')).toBe(tab.getAttribute('title'));
+    }
+  });
+
+  it('puts the rail and the tool it opens side by side in the one panel', () => {
+    renderLeft();
+    const panel = document.querySelector('.side-panel.left');
+    const kids = [...panel.children].filter((el) => !el.className.includes('panel-resizer'));
+    // Rail first, then the contents of the selected tool: one panel, two columns.
+    expect(kids.map((el) => el.className.split(' ')[0])).toEqual(['panel-tabs', 'panel-body']);
+    expect(kids[1].getAttribute('role')).toBe('tabpanel');
+  });
+
+  it('still switches tool when one is clicked', () => {
+    const { props } = renderLeft();
+    fireEvent.click(screen.getByTitle(i18n.t('panel.search')));
+    expect(props.onPanel).toHaveBeenCalledWith('search');
+  });
+
+  it('leaves the right panel tabs across the top', () => {
+    renderRight();
+    const strip = document.querySelector('.side-panel.right .panel-tabs');
+    expect(strip.className).not.toContain('stacked');
   });
 });

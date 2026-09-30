@@ -43,7 +43,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke": "cross-env EBK_SMOKE=1 node scripts/smoke.mjs",
-    "shoot:dialog": "node scripts/shoot-dialog.mjs"
+    "shoot:dialog": "node scripts/shoot-dialog.mjs",
+    "try:books": "node scripts/try-books.mjs"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

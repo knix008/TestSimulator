@@ -6,8 +6,8 @@ import { iconByName } from './Icons.jsx';
 // The same component draws the menu inside its own popup window (MenuHost) and
 // in the in-page fallback the web build uses, so a menu looks and behaves
 // identically either way: one row per line, one column, every row carrying an
-// icon and a label, with the shortcut — and, for a recent file, its folder —
-// aligned on the right.
+// icon and a label, with the shortcut aligned on the right. A recent file shows
+// its name whole and keeps the folder it came from on the tooltip.
 export default function MenuList({
   rows, label = 'menu', onChoose, translate, columns = 1, grouped = false,
 }) {
@@ -79,8 +79,12 @@ export default function MenuList({
               type="button"
               className={`menu-item${row.checked ? ' checked' : ''}`}
               role="menuitem"
+              // The command this row runs, so a row can be found by what it
+              // does rather than by the words it is labelled with in whichever
+              // language happens to be on.
+              data-id={row.id}
               disabled={!!row.disabled}
-              title={row.detail ? `${text(row)} — ${row.detail}` : text(row)}
+              title={row.tip || (row.detail ? `${text(row)} — ${row.detail}` : text(row))}
               onClick={() => onChoose(row.id)}
             >
               <span className="menu-icon">

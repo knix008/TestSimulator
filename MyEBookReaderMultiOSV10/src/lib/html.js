@@ -19,10 +19,18 @@ const BLOCKED_TAGS = new Set([
 // ruby (Japanese), MathML-lite and images.
 const ALLOWED_ATTRS = new Set([
   'href', 'src', 'alt', 'title', 'id', 'colspan', 'rowspan', 'start', 'type',
-  'width', 'height', 'align', 'dir', 'lang', 'datetime', 'cite', 'value',
+  'dir', 'lang', 'datetime', 'cite', 'value',
 ]);
 
 const VOID_TAGS = new Set(['br', 'hr', 'img', 'wbr', 'col', 'source', 'track']);
+
+// Presentational wrappers. A MOBI chapter arrives inside <mbp:pagebreak> and
+// <font>, so the paragraphs are not the blocks of the page and never pick up
+// the inset an EPUB paragraph gets. The text is kept; the wrapper is not.
+const UNWRAP_TAGS = new Set([
+  'font', 'center', 'big', 'tt', 'strike',
+  'mbp:pagebreak', 'guide', 'reference',
+]);
 
 // The only class names that survive: the ones the app's own format converters
 // emit (see fb2.js), which App.css styles.
@@ -69,14 +77,27 @@ export function sanitizeChapter(markup, { mime = 'text/html', resolveSrc, linkTa
   const headings = [];
   let headingSeq = 0;
 
-  const walk = (node) => {
-    // A live NodeList shifts under a walk that removes nodes.
-    for (const child of [...node.childNodes]) {
-      if (child.nodeType === 8) { child.remove(); continue; }     // comment
-      if (child.nodeType !== 1) continue;                          // text stays
+  const visit = (child) => {
       const tag = child.tagName.toLowerCase();
 
-      if (BLOCKED_TAGS.has(tag)) { child.remove(); continue; }
+      if (BLOCKED_TAGS.has(tag)) { child.remove(); return; }
+
+      // The words stay where they are. Only the wrapper goes, so a paragraph
+      // of a MOBI chapter is a paragraph, the same as one of an EPUB chapter.
+      if (UNWRAP_TAGS.has(tag)) {
+        const moved = [...child.childNodes];
+        const parent = child.parentNode;
+        for (const node of moved) parent.insertBefore(node, child);
+        child.remove();
+        for (const node of moved) {
+          if (node.nodeType === 1) visit(node);
+        }
+        return;
+      }
+
+      // Read before the attribute pass: a MOBI picture is
+      // <img recindex="00001"> with no src, and recindex is not kept.
+      const mobiRecindex = (tag === 'img' || tag === 'image') ? (child.getAttribute('recindex') || '') : '';
 
       // SVG images inside EPUB covers: keep the <image>, drop the wrapper.
       if (tag === 'svg') {
@@ -91,7 +112,7 @@ export function sanitizeChapter(markup, { mime = 'text/html', resolveSrc, linkTa
         } else {
           child.remove();
         }
-        continue;
+        return;
       }
 
       for (const attr of [...child.attributes]) {
@@ -106,11 +127,11 @@ export function sanitizeChapter(markup, { mime = 'text/html', resolveSrc, linkTa
       }
 
       if (tag === 'img' || tag === 'image') {
-        const raw = child.getAttribute('src') || child.getAttribute('xlink:href');
+        const raw = child.getAttribute('src') || child.getAttribute('xlink:href') || mobiRecindex;
         const url = raw && resolveSrc ? resolveSrc(raw) : raw;
         if (!url || !isSafeUrl(url)) {
           child.remove();
-          continue;
+          return;
         }
         child.setAttribute('src', url);
         child.removeAttribute('width');
@@ -144,6 +165,14 @@ export function sanitizeChapter(markup, { mime = 'text/html', resolveSrc, linkTa
       }
 
       walk(child);
+  };
+
+  const walk = (node) => {
+    // A live NodeList shifts under a walk that removes nodes.
+    for (const child of [...node.childNodes]) {
+      if (child.nodeType === 8) { child.remove(); continue; }     // comment
+      if (child.nodeType !== 1) continue;                          // text stays
+      visit(child);
     }
   };
 
@@ -158,20 +187,53 @@ export function sanitizeChapter(markup, { mime = 'text/html', resolveSrc, linkTa
   };
 }
 
-/** Plain text of a chapter, used by search and by "copy chapter". */
-export function htmlToText(markup) {
-  try {
-    const doc = parseDocument(markup, 'text/html');
-    const body = doc.body || doc.documentElement;
-    for (const el of body.querySelectorAll('script, style')) el.remove();
-    // Block elements should not run their text together.
-    for (const el of body.querySelectorAll('p, div, br, li, h1, h2, h3, h4, h5, h6, tr')) {
-      el.insertAdjacentText?.('afterend', '\n');
-    }
-    return (body.textContent || '').replace(/[ \t ]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-  } catch {
-    return String(markup || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+/** The text of one parsed document, with block elements kept apart. */
+function textOf(doc) {
+  const body = doc.body || doc.documentElement;
+  if (!body) return '';
+  for (const el of body.querySelectorAll('script, style')) el.remove();
+  // Block elements should not run their text together.
+  for (const el of body.querySelectorAll('p, div, br, li, h1, h2, h3, h4, h5, h6, tr')) {
+    el.insertAdjacentText?.('afterend', '\n');
   }
+  return (body.textContent || '').replace(/[ \t ]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Plain text of a chapter, used by search, by "copy chapter", by exporting and
+ * by counting the pages of a book.
+ *
+ * The markup may be a fragment the sanitiser produced or a whole document
+ * straight out of a book, and the two have to be parsed differently. A full
+ * XHTML document read as HTML can come out with an **empty body**: the HTML
+ * parser is lenient about the head of a file that was never written for it, and
+ * one element left open in there swallows the rest of the file. A real EPUB did
+ * exactly that — no search hits anywhere in it, nothing in an export of it, and
+ * nothing to count its pages with — while its chapters showed on screen
+ * perfectly well, because the reading path parses them as XML.
+ *
+ * So the markup decides which parser to try first, and if one comes back with
+ * nothing while the document plainly has text in it, the other one is tried.
+ */
+export function htmlToText(markup) {
+  const source = String(markup ?? '');
+  if (!source.trim()) return '';
+  const looksXml = /^\s*<\?xml/i.test(source) || /<html[^>]*\sxmlns\s*=/i.test(source);
+  const mimes = looksXml
+    ? ['application/xhtml+xml', 'text/html']
+    : ['text/html', 'application/xhtml+xml'];
+
+  for (const mime of mimes) {
+    try {
+      const doc = parseDocument(source, mime);
+      const text = textOf(doc);
+      if (text) return text;
+      // Nothing in the body, but something in the document: this parser has put
+      // the text somewhere a reader would never look. Let the other one try.
+      if (!(doc.documentElement?.textContent || '').trim()) return '';
+    } catch { /* try the other way, and then the tags-stripped fallback */ }
+  }
+  return source.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export function escapeHtml(text) {

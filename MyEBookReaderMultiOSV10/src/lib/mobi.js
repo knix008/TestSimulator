@@ -1,4 +1,4 @@
-// MOBI / PRC / AZW reader (Palm database container).
+// MOBI / PRC / AZW / AZW3 reader (Palm database container).
 //
 // Layout: a Palm database holds numbered records. Record 0 carries the PalmDOC
 // header (how the text is compressed and how long it is) followed by the MOBI
@@ -7,14 +7,27 @@
 // follow hold the book text — one compressed chunk each — and after those come
 // the images, stored as plain JPEG/PNG/GIF.
 //
-// Compression 1 (none) and 2 (PalmDOC LZ77) are read here. Compression 17480
-// (HUFF/CDIC) is reported as unsupported rather than guessed at, so a book
-// never opens as garbage.
+// All three ways of compressing the text are read: none, PalmDOC LZ77, and
+// HUFF/CDIC — a Huffman code over a phrase dictionary, which lives in
+// huffcdic.js.
+//
+// A file in this family can hold *two* books. Amazon's .azw3, and some .azw,
+// carry an old MOBI 6 one and a newer KF8 one side by side, each with its own
+// record 0 and its own tables; EXTH 121 says where the second begins. KF8 is a
+// different format rather than a newer dialect of the same one — see kf8.js —
+// and is preferred wherever it is found, because the MOBI 6 half of the same
+// book is a flattened copy of it.
 import { sanitizeChapter, htmlToText } from './html.js';
+import { openHuffCdic } from './huffcdic.js';
+import { openKf8 } from './kf8.js';
 
 const PALMDOC_NONE = 1;
 const PALMDOC_LZ77 = 2;
 const PALMDOC_HUFF = 17480;
+/** EXTH field 121: the record where the KF8 half of a combined file starts. */
+const EXTH_KF8_BOUNDARY = 121;
+/** What an index field reads when the part has no such table. */
+const NO_INDEX = 0xffffffff;
 
 function ascii(data, at, len) {
   return new TextDecoder('latin1').decode(data.subarray(at, at + len));
@@ -128,63 +141,106 @@ function imageMime(bytes) {
 }
 
 /**
- * Opens MOBI / PRC / AZW / AZW3 bytes.
- * @returns a book object with the same shape the EPUB reader produces.
+ * The header of one MOBI part.
+ *
+ * A file in this family can hold two books: an old MOBI 6 one and a newer KF8
+ * one, each with its own record 0 and its own everything. So the header is read
+ * per *part* rather than per file, and every record number in it is counted from
+ * that part's own start.
+ *
+ * Every offset below is from the start of record 0, the PalmDOC header included
+ * — which is why the MOBI magic is at 16 and not at 0.
  */
-export function openMobi(data) {
-  const records = readPalmRecords(data);
-  const head = records[0].bytes;
-  if (head.length < 16) throw new Error('The MOBI header record is too short.');
-  const headView = new DataView(head.buffer, head.byteOffset, head.byteLength);
+export function readPartHeader(head) {
+  if (!head || head.length < 16) throw new Error('The MOBI header record is too short.');
+  const v = new DataView(head.buffer, head.byteOffset, head.byteLength);
+  const u32 = (at) => (head.length >= at + 4 ? v.getUint32(at) : 0);
 
-  const compression = headView.getUint16(0);
-  const textLength = headView.getUint32(4);
-  const textRecordCount = headView.getUint16(8);
-  const encryption = headView.getUint16(12);
+  const out = {
+    compression: v.getUint16(0),
+    textLength: u32(4),
+    textRecords: v.getUint16(8),
+    encryption: v.getUint16(12),
+    hasMobi: head.length > 20 && ascii(head, 16, 4) === 'MOBI',
+    headerLength: 0,
+    version: 0,
+    encoding: 65001,
+    firstResource: 0,
+    huffIndex: 0,
+    huffCount: 0,
+    extraFlags: 0,
+    fullName: '',
+    exth: new Map(),
+    fdstIndex: NO_INDEX,
+    skeletonIndex: NO_INDEX,
+    fragmentIndex: NO_INDEX,
+  };
+  if (!out.hasMobi) return out;
 
-  if (encryption !== 0) {
-    throw new Error('This book is DRM-protected (encryption type ' + encryption + '), so its text cannot be read.');
+  out.headerLength = u32(20);
+  out.version = u32(36);
+  out.encoding = u32(28) || 65001;
+  out.firstResource = u32(108);
+  out.huffIndex = u32(112);
+  out.huffCount = u32(116);
+  // "Extra record data flags" sits at offset 242 and only exists in headers at
+  // least 228 bytes long.
+  if (out.headerLength >= 228 && head.length >= 244) out.extraFlags = v.getUint16(242);
+  if (u32(128) & 0x40) out.exth = parseExth(head, 16 + out.headerLength);
+  // The KF8 tables. A MOBI 6 header is too short to carry them, and the fields
+  // read 0xffffffff when the part has none.
+  if (out.headerLength >= 248) {
+    out.fdstIndex = u32(192);
+    out.fragmentIndex = u32(248);
+    out.skeletonIndex = u32(252);
   }
+  const nameAt = u32(84);
+  const nameLength = u32(88);
+  if (nameAt && nameAt + nameLength <= head.length) {
+    out.fullName = decodeText(head.subarray(nameAt, nameAt + nameLength), out.encoding).trim();
+  }
+  return out;
+}
+
+/** An EXTH field read as a 32-bit number, or NaN when it is not there. */
+function exthNumber(exth, type) {
+  const bytes = exth.get(type);
+  if (!bytes || bytes.length < 4) return NaN;
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0);
+}
+
+/**
+ * The text of one part, decompressed and with the trailing data stripped.
+ *
+ * Three ways of compressing: none, PalmDOC LZ77, and HUFF/CDIC — the last of
+ * which needs tables of its own out of the part's own records.
+ */
+function readPartText(records, start, header) {
+  const { compression, textLength, textRecords, extraFlags } = header;
+  if (header.encryption !== 0) {
+    throw new Error(`This book is DRM-protected (encryption type ${header.encryption}), so its text cannot be read.`);
+  }
+
+  let huff = null;
   if (compression === PALMDOC_HUFF) {
-    throw new Error('This MOBI uses HUFF/CDIC compression, which this reader does not decode. Convert the book to EPUB and open that instead.');
-  }
-  if (compression !== PALMDOC_NONE && compression !== PALMDOC_LZ77) {
+    const tables = [];
+    for (let i = 0; i < header.huffCount; i += 1) {
+      const record = records[start + header.huffIndex + i];
+      if (record) tables.push(record.bytes);
+    }
+    huff = openHuffCdic(tables);
+  } else if (compression !== PALMDOC_NONE && compression !== PALMDOC_LZ77) {
     throw new Error(`Unknown MOBI compression type ${compression}.`);
   }
 
-  let encoding = 65001;
-  let firstImage = 0;
-  let extraFlags = 0;
-  let fullName = '';
-  let exth = new Map();
-
-  const hasMobiHeader = head.length > 20 && ascii(head, 16, 4) === 'MOBI';
-  if (hasMobiHeader) {
-    const headerLength = headView.getUint32(20);
-    encoding = headView.getUint32(28);
-    firstImage = head.length >= 112 ? headView.getUint32(108) : 0;
-    const exthFlags = head.length >= 132 ? headView.getUint32(128) : 0;
-    // "Extra record data flags" sits at offset 242 of record 0 and only exists
-    // in headers at least 228 bytes long. Every offset in the MOBI header is
-    // counted from the start of record 0, PalmDOC header included.
-    if (headerLength >= 228 && head.length >= 244) extraFlags = headView.getUint16(242);
-    if (exthFlags & 0x40) exth = parseExth(head, 16 + headerLength);
-    if (head.length >= 92) {
-      const nameOffset = headView.getUint32(84);
-      const nameLength = headView.getUint32(88);
-      if (nameOffset + nameLength <= head.length) {
-        fullName = decodeText(head.subarray(nameOffset, nameOffset + nameLength), encoding).trim();
-      }
-    }
-  }
-
-  // ── Text ────────────────────────────────────────────────
   const chunks = [];
   let have = 0;
-  for (let i = 1; i <= textRecordCount && i < records.length; i++) {
-    let bytes = records[i].bytes;
+  for (let i = 1; i <= textRecords && start + i < records.length; i += 1) {
+    let bytes = records[start + i].bytes;
     if (extraFlags) bytes = bytes.subarray(0, trailingSize(bytes, extraFlags));
-    const piece = compression === PALMDOC_LZ77 ? palmDocDecompress(bytes) : bytes;
+    let piece = bytes;
+    if (compression === PALMDOC_LZ77) piece = palmDocDecompress(bytes);
+    else if (huff) piece = huff.decompress(bytes);
     chunks.push(piece);
     have += piece.length;
     if (textLength && have >= textLength) break;
@@ -192,33 +248,92 @@ export function openMobi(data) {
   const merged = new Uint8Array(have);
   let at = 0;
   for (const chunk of chunks) { merged.set(chunk, at); at += chunk.length; }
-  const markup = decodeText(textLength ? merged.subarray(0, Math.min(textLength, merged.length)) : merged, encoding);
+  return textLength ? merged.subarray(0, Math.min(textLength, merged.length)) : merged;
+}
+
+/** The catalogue metadata of a part, from its EXTH block. */
+function readMeta(header) {
+  const text = (type) => {
+    const bytes = header.exth.get(type);
+    return bytes ? decodeText(bytes, header.encoding).trim() : '';
+  };
+  return {
+    title: text(503) || header.fullName || '',
+    author: text(100),
+    publisher: text(101),
+    description: text(103),
+    identifier: text(104),
+    subject: text(105),
+    date: text(106),
+    language: text(524),
+    rights: text(109),
+  };
+}
+
+/**
+ * Opens MOBI / PRC / AZW / AZW3 bytes.
+ *
+ * A file may hold a MOBI 6 book, a KF8 book, or both. KF8 is the better of the
+ * two — real XHTML parts, proper styling, the pictures where the markup says
+ * they are — so it is preferred wherever it is found, and the old half is the
+ * fall-back if its tables turn out to be unreadable.
+ *
+ * @returns a book object with the same shape the EPUB reader produces.
+ */
+export function openMobi(data) {
+  const records = readPalmRecords(data);
+  const first = readPartHeader(records[0].bytes);
+  if (first.encryption !== 0) {
+    throw new Error(`This book is DRM-protected (encryption type ${first.encryption}), so its text cannot be read.`);
+  }
+
+  // EXTH 121 is where the KF8 half of a combined file begins. A file that is
+  // KF8 and nothing else says so with its file version instead.
+  const boundary = exthNumber(first.exth, EXTH_KF8_BOUNDARY);
+  const hasSecondPart = Number.isFinite(boundary) && boundary > 0 && boundary < records.length;
+  const kf8At = hasSecondPart ? boundary : (first.version >= 8 ? 0 : -1);
+
+  if (kf8At >= 0) {
+    try {
+      return openKf8Part(records, kf8At);
+    } catch (err) {
+      // A KF8 half that cannot be read is not the end of it when there is an
+      // older half in the same file to fall back on.
+      if (!hasSecondPart) throw err;
+    }
+  }
+  return openMobi6Part(records, 0, first);
+}
+
+/** The KF8 half: its own header, its own text, its own tables. */
+function openKf8Part(records, start) {
+  const header = readPartHeader(records[start].bytes);
+  return openKf8({
+    sectionAt: (i) => records[start + i]?.bytes || null,
+    // Bytes, not text: every offset in a KF8 file counts bytes of UTF-8, and the
+    // parts are cut apart with those offsets before anything is decoded.
+    raw: readPartText(records, start, header),
+    decode: (bytes) => decodeText(bytes, header.encoding),
+    header,
+    meta: readMeta(header),
+    recordCount: records.length - start,
+  });
+}
+
+/** The MOBI 6 half: one stream of HTML, cut up at its page breaks. */
+function openMobi6Part(records, start, header) {
+  const markup = decodeText(readPartText(records, start, header), header.encoding);
+  const meta = readMeta(header);
 
   // ── Images, addressed by recindex ───────────────────────
   const images = new Map();     // recindex (1-based) → { bytes, mime }
+  const firstImage = header.firstResource;
   if (firstImage > 0) {
-    for (let i = firstImage; i < records.length; i++) {
+    for (let i = start + firstImage; i < records.length; i += 1) {
       const mime = imageMime(records[i].bytes);
-      if (mime) images.set(i - firstImage + 1, { bytes: records[i].bytes, mime });
+      if (mime) images.set(i - (start + firstImage) + 1, { bytes: records[i].bytes, mime });
     }
   }
-
-  const exthText = (type) => {
-    const bytes = exth.get(type);
-    return bytes ? decodeText(bytes, encoding).trim() : '';
-  };
-
-  const meta = {
-    title: exthText(503) || fullName || '',
-    author: exthText(100),
-    publisher: exthText(101),
-    description: exthText(103),
-    identifier: exthText(104),
-    subject: exthText(105),
-    date: exthText(106),
-    language: exthText(524),
-    rights: exthText(109),
-  };
 
   // ── Chapters ────────────────────────────────────────────
   // MOBI is one long HTML stream. Page breaks mark the chapter boundaries;

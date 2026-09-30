@@ -24,6 +24,7 @@ const MENU_KEYS_BY_LETTER = Object.fromEntries(
 import {
   api, isElectron, openFileDialog, pickBookPaths, pickImage, readPath, readTextPath,
   downloadUrl, copyText, copyImage, readClipboardText, saveText, writeTextTo, pickDirectory,
+  droppedPath, isDirectory, droppedFileUrls,
   listDirectory, baseName, dirName, pathExists, openExternal, appInfo, printHtml,
   win as platformWin,
 } from './lib/platform.js';
@@ -36,6 +37,7 @@ import {
 import { useHistory, newId } from './lib/history.js';
 import {
   galleryEntry, addToGallery, updateGallery, removeFromGallery, galleryKey, makeThumbnail,
+  writtenShelfChange,
 } from './lib/gallery.js';
 import { galleryStore } from './lib/gallerystore.js';
 import {
@@ -48,17 +50,24 @@ import { menuRows, themeRows, parseChoice, activeCommands } from './lib/menus.js
 import { THEMES, nextTheme } from './lib/themes.js';
 import {
   APP_NAME, failMessage, windowTitle, nextFontScale, nextZoom, clampSection,
-  bookProgress, pickText, nextPanel,
+  bookProgress, pickText, nextPanel, FIT_TO_WINDOW, pageModeOf,
+  viewLayoutOf, viewLayoutSettings, columnChoice, textColumnsOf, bookPageEdge,
 } from './lib/view.js';
 import {
   buildPrintHtml, buildImagePrintHtml, renderPdfPagesToImages, inlineImages,
 } from './lib/print.js';
 import { htmlToText } from './lib/html.js';
+import { measureBook, pageAt } from './lib/pages.js';
 import { documentKey, tabLabel, findTabByFile, neighborTabId, nextTabId, anyTabDirty } from './lib/tabs.js';
 import i18n, { setLanguage } from './i18n.js';
 import buildInfo from './build-info.json';
 
 const SHOW_PROGRESS_AFTER = 180;
+
+// How long the settings wait before they are written to disk. Long enough that
+// scrolling through a book is one write rather than one per page, short enough
+// that nothing is lost if the window is closed straight afterwards.
+const SETTINGS_WRITE_DELAY = 400;
 
 export default function App() {
   const { t } = useTranslation();
@@ -74,7 +83,7 @@ export default function App() {
   const [section, setSection] = useState(0);
   const [content, setContent] = useState(null);
   const [progress, setProgress] = useState(0);
-  const [columns, setColumns] = useState({ pages: 1, page: 0 });
+  const [columns, setColumns] = useState({ pages: 1, page: 0, atStart: true, atEnd: false });
   const [scale, setScale] = useState(1);
   // The gallery of books already read, shown over the reading pane so the book
   // underneath keeps its place. The shelf itself is kept out of the settings —
@@ -92,7 +101,7 @@ export default function App() {
   const editShelf = useCallback((updater, changed) => {
     setShelf((current) => {
       const next = updater(current);
-      galleryStore().write(next, changed);
+      galleryStore().write(next, writtenShelfChange(next, changed));
       return next;
     });
   }, []);
@@ -117,6 +126,10 @@ export default function App() {
   // ── Interaction ────────────────────────────────────────
   const [selectionText, setSelectionText] = useState('');
   const selectionRef = useRef('');
+  // The picture the reader clicked, if any. It is held here — rather than only
+  // as an outline in the reading pane — so the status bar can say plainly that a
+  // picture is selected and how big it is.
+  const [pickedImage, setPickedImage] = useState(null);
   const [search, setSearch] = useState({ query: '', results: [], busy: false, activeIndex: -1 });
   const [activeHit, setActiveHit] = useState(null);
   const [menu, setMenu] = useState({ open: false, x: 0, y: 0, rows: [], name: '' });
@@ -127,6 +140,9 @@ export default function App() {
   const [printing, setPrinting] = useState(false);
 
   const viewRef = useRef(null);
+  // Where the reader last right-clicked in the reading pane. The menu is gone by
+  // the time a command from it runs, so the point has to be kept.
+  const contextPoint = useRef(null);
   const searchAbort = useRef(null);
   const bookRef = useRef(null);
   const sectionRef = useRef(0);
@@ -249,7 +265,21 @@ export default function App() {
     // where the system has asked for less animation; "none" leaves the decision
     // to the system, where it belongs.
     document.documentElement.dataset.motion = settings.pageTurn === 'none' ? 'system' : 'full';
-    if (settingsReady) persistSettings(settings);
+    if (!settingsReady) return undefined;
+    // Written a moment late, on purpose. The settings hold the reading position
+    // too, and scrolling through a long book moves it several times a second —
+    // each one of which used to be a whole settings file written to disk.
+    const timer = setTimeout(() => persistSettings(settings), SETTINGS_WRITE_DELAY);
+    // Closing the window must not be how a setting is lost: whatever is still
+    // waiting is written out at once.
+    const flush = () => persistSettings(settings);
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', flush);
+    };
   }, [settings, settingsReady]);
 
   // ── Sessions (one per tab) ─────────────────────────────
@@ -322,6 +352,7 @@ export default function App() {
     setDirty(false);
     setSearch({ query: '', results: [], busy: false, activeIndex: -1 });
     setSelectionText('');
+    setPickedImage(null);
     history.reset(EMPTY_READING);
   }, [history]);
 
@@ -422,7 +453,12 @@ export default function App() {
       history.reset(restore?.reading || EMPTY_READING);
       setLibraryPath(restore?.libraryPath || null);
       setDirty(false);
-      if (restore?.view) setSettings((s) => ({ ...s, ...restore.view }));
+      // A book that has just been opened is shown whole, in the window as it is
+      // now. The zoom and the rotation left over from the last file said nothing
+      // about this one — a page at 300%, or on its side, is not what opening a
+      // file should look like. A reading file that records how it was being
+      // viewed is the one thing that may say otherwise.
+      setSettings((s) => ({ ...s, ...FIT_TO_WINDOW, ...(restore?.view || {}) }));
 
       const tabId = newId();
       const meta = {
@@ -503,6 +539,24 @@ export default function App() {
     }
   }, [fail, openLibraryFile, openPayload]);
 
+  /**
+   * Shows a folder of books in the library panel.
+   *
+   * Both ways in end up here — the Open folder command, and a folder dropped on
+   * the window — so that a folder opens the same way however it arrives.
+   */
+  const openFolderAt = useCallback((dir) => {
+    if (!dir) return;
+    setSettings((s) => ({
+      ...s,
+      folderRoot: dir,
+      lastDir: dir,
+      recentDirs: addRecentDir(s.recentDirs, dir),
+      leftPanel: 'library',
+    }));
+    setStatusMessage(t('status.folderOpened', { name: dir }));
+  }, [t]);
+
   const openFromUrl = useCallback(async (url) => {
     try {
       const payload = await withProgress('downloading', url, (onProgress) => downloadUrl(url, { onProgress }));
@@ -519,6 +573,28 @@ export default function App() {
     api.takePendingOpen().then((p) => { if (p) openByPathRef.current(p); }).catch(() => {});
     return api.onOpenPath((p) => openByPathRef.current(p));
   }, [settingsReady]);
+
+  // ── How many pages, and which one ──────────────────────
+  //
+  // A PDF's pages are its own and are counted at once. Reflowable text has to be
+  // measured — see lib/pages.js for why it is measured in characters rather than
+  // in what the window happens to show — and that means reading every section,
+  // so it is done in the background and the count appears when it is ready.
+  const [pageMap, setPageMap] = useState(null);
+  useEffect(() => {
+    if (!book) { setPageMap(null); return undefined; }
+    const signal = { cancelled: false };
+    setPageMap(null);
+    measureBook(book, { signal })
+      .then((map) => { if (map && !signal.cancelled) setPageMap(map); })
+      .catch(() => {});
+    return () => { signal.cancelled = true; };
+  }, [book]);
+
+  const pageNow = useMemo(
+    () => (pageMap ? pageAt(pageMap, { section, fracY: progress }) : 0),
+    [pageMap, section, progress],
+  );
 
   // ── The section on screen ──────────────────────────────
   useEffect(() => {
@@ -548,6 +624,10 @@ export default function App() {
     const step = (!current.reflowable && settingsRef.current.spread === 'double') ? 2 : 1;
     const next = sectionRef.current + (dir < 0 ? -step : step);
     if (next < 0 || next >= current.sectionCount) return;
+    // Turning back opens the chapter before this one at its end, which is where
+    // the reader would have been reading it. Opening it at its start meant the
+    // next press went back another chapter and its whole text was skipped.
+    if (dir < 0) viewRef.current?.arriveAtEnd?.();
     goToSection(next);
   }, [goToSection]);
 
@@ -584,16 +664,26 @@ export default function App() {
     setDirty(true);
   }, [history]);
 
-  const addBookmarkHere = useCallback(() => {
+  /**
+   * Adds a bookmark to the section being read.
+   *
+   * `at` is a point on the screen — where the reader right-clicked — and turns
+   * this into a bookmark on that spot, drawn there and returned to there.
+   * Without one it bookmarks wherever the reader has got to, which is what
+   * Ctrl+B has always meant.
+   */
+  const addBookmarkHere = useCallback((at) => {
     if (!book) return;
     const label = bookmarkLabel(
       pickText(selectionRef.current, content?.title),
       `${t('panel.section')} ${section + 1}`,
     );
+    const place = at ? viewRef.current?.placeAt?.(at.x, at.y) : null;
     editReading((state) => addBookmark(state, {
       section,
       label,
-      fracY: viewRef.current?.getFracY?.() ?? 0,
+      fracY: place ? place.fracY : (viewRef.current?.getFracY?.() ?? 0),
+      spot: place ? place.spot : null,
       text: selectionRef.current ? String(selectionRef.current).slice(0, 200) : '',
     }), t('cmd.addBookmark'));
     setSettings((s) => ({ ...s, leftPanel: 'bookmarks' }));
@@ -601,12 +691,22 @@ export default function App() {
     toast(`${t('status.bookmarkAdded')} — ${label}`, 'ok');
   }, [book, content, editReading, section, t, toast]);
 
+  /** Back to a bookmark: its section, and the place in it that was marked. */
+  const goToBookmark = useCallback((mark) => {
+    if (!mark) return;
+    goToSection(mark.section);
+    const frac = Number(mark.fracY);
+    if (!Number.isFinite(frac) || frac <= 0) return;
+    // The section has to be laid out before there is anywhere to scroll to.
+    setTimeout(() => viewRef.current?.scrollToFrac?.(frac), 90);
+  }, [goToSection]);
+
   const highlightSelection = useCallback(() => {
     const text = selectionRef.current;
     if (!text.trim()) { toast(t('error.noSelection'), 'warn'); return; }
     editReading((state) => addHighlight(state, { section, text: text.trim().slice(0, 600) }), t('cmd.highlight'));
     viewRef.current?.clearSelection();
-    setSettings((s) => ({ ...s, rightPanel: 'notes' }));
+    setSettings((s) => ({ ...s, leftPanel: 'highlights' }));
     setStatusMessage(t('status.highlighted'));
     toast(t('status.highlighted'), 'ok');
   }, [editReading, section, t, toast]);
@@ -624,7 +724,7 @@ export default function App() {
       text: (draft?.selection || '').trim().slice(0, 300),
       note: answer.value,
     }), t('cmd.addNote'));
-    setSettings((s) => ({ ...s, rightPanel: 'notes' }));
+    setSettings((s) => ({ ...s, leftPanel: 'notes' }));
     setStatusMessage(t('status.noteAdded'));
     toast(t('status.noteAdded'), 'ok');
   }, [askDialog, editReading, section, t, toast]);
@@ -795,6 +895,9 @@ export default function App() {
     for (const snapshot of sessionsRef.current.values()) {
       try { snapshot?.book?.destroy?.(); } catch { /* already gone */ }
     }
+    // The settings are written a moment after they change, so whatever is still
+    // waiting goes to disk before the window is taken away.
+    persistSettings(settingsRef.current);
     if (isElectron) {
       api.dialog.closeAll().catch(() => {});
       api.win.forceClose();
@@ -1065,16 +1168,8 @@ export default function App() {
         });
         return;
       case 'openFolder':
-        pickDirectory(settingsRef.current.folderRoot || settingsRef.current.lastDir).then((picked) => {
-          if (!picked) return;
-          setSettings((s) => ({
-            ...s,
-            folderRoot: picked,
-            lastDir: picked,
-            recentDirs: addRecentDir(s.recentDirs, picked),
-            leftPanel: 'library',
-          }));
-        });
+        pickDirectory(settingsRef.current.folderRoot || settingsRef.current.lastDir)
+          .then(openFolderAt);
         return;
       case 'closeBook': if (activeTabIdRef.current) closeTab(activeTabIdRef.current); return;
       case 'saveLibrary': saveLibrary(); return;
@@ -1101,9 +1196,33 @@ export default function App() {
       case 'nextSection': turnSection(1); return;
       case 'firstSection': goToSection(0); return;
       case 'lastSection': goToSection((current?.sectionCount || 1) - 1); return;
-      case 'modeScroll': setSettings((s) => ({ ...s, pageMode: 'scroll' })); return;
-      case 'modePaged': setSettings((s) => ({ ...s, pageMode: 'paged' })); return;
-      case 'twoColumns': setSettings((s) => ({ ...s, twoColumns: !s.twoColumns })); return;
+      // One layout for every format. Each command clears the other two.
+      case 'viewSingle':
+      case 'modePaged':
+      case 'spreadSingle':
+        setSettings((s) => ({ ...s, ...viewLayoutSettings('single') })); return;
+      case 'viewDouble':
+      case 'spreadDouble':
+        setSettings((s) => ({ ...s, ...viewLayoutSettings('double') })); return;
+      case 'viewContinuous':
+      case 'modeScroll':
+        setSettings((s) => ({ ...s, ...viewLayoutSettings('continuous') })); return;
+      case 'columns1':
+      case 'columns2':
+      case 'twoColumns':
+        // 다단 belongs to one page. Two facing pages and a continuous run do
+        // not take it; the buttons are disabled there, and so is a command
+        // that arrives another way.
+        if (viewLayoutOf(settingsRef.current, bookRef.current) !== 'single') return;
+        setSettings((s) => ({
+          ...s,
+          ...columnChoice(
+            s,
+            bookRef.current,
+            id === 'twoColumns' ? (textColumnsOf(s) === 1 ? 2 : 1) : Number(id.slice(7)),
+          ),
+        }));
+        return;
       case 'textBigger': setSettings((s) => ({ ...s, fontScale: nextFontScale(s.fontScale, 1) })); return;
       case 'textSmaller': setSettings((s) => ({ ...s, fontScale: nextFontScale(s.fontScale, -1) })); return;
       case 'textReset': setSettings((s) => ({ ...s, fontScale: 1 })); return;
@@ -1111,14 +1230,34 @@ export default function App() {
       case 'turnSlide': setSettings((s) => ({ ...s, pageTurn: 'slide' })); return;
       case 'turnFlip': setSettings((s) => ({ ...s, pageTurn: 'flip' })); return;
       case 'justify': setSettings((s) => ({ ...s, justify: !s.justify })); return;
-      case 'zoomIn': setSettings((s) => ({ ...s, zoomMode: 'custom', zoom: nextZoom(s.zoomMode === 'custom' ? s.zoom : scale, 1) })); return;
-      case 'zoomOut': setSettings((s) => ({ ...s, zoomMode: 'custom', zoom: nextZoom(s.zoomMode === 'custom' ? s.zoom : scale, -1) })); return;
-      case 'fitWidth': setSettings((s) => ({ ...s, zoomMode: 'fit-width' })); return;
-      case 'fitPage': setSettings((s) => ({ ...s, zoomMode: 'fit-page' })); return;
-      case 'fitHeight': setSettings((s) => ({ ...s, zoomMode: 'fit-height' })); return;
-      case 'actualSize': setSettings((s) => ({ ...s, zoomMode: 'actual', zoom: 1 })); return;
-      case 'spreadSingle': setSettings((s) => ({ ...s, spread: 'single' })); return;
-      case 'spreadDouble': setSettings((s) => ({ ...s, spread: 'double' })); return;
+      case 'zoomIn':
+      case 'zoomOut':
+      case 'actualSize':
+        // An ebook is the window. Its size is the type size, not a document zoom.
+        if (bookRef.current?.reflowable !== false) return;
+        if (id === 'actualSize') { setSettings((s) => ({ ...s, zoomMode: 'actual', zoom: 1 })); return; }
+        setSettings((s) => ({ ...s, zoomMode: 'custom', zoom: nextZoom(s.zoomMode === 'custom' ? s.zoom : scale, id === 'zoomIn' ? 1 : -1) }));
+        return;
+      case 'fitWidth':
+      case 'fitHeight':
+      case 'fitPage': {
+        // An ebook is always the window. These fits are for a PDF or a picture.
+        if (bookRef.current?.reflowable !== false) return;
+        const mode = id === 'fitWidth' ? 'fit-width' : id === 'fitHeight' ? 'fit-height' : 'fit-page';
+        setSettings((s) => {
+          const layout = viewLayoutOf(s, bookRef.current);
+          // A single page always fills the window. The other layouts remember
+          // the fit, and a continuous chapter gives up its narrow column.
+          if (layout === 'single') return { ...s, zoomMode: 'fit-page' };
+          const reflow = bookRef.current?.reflowable !== false;
+          return {
+            ...s,
+            zoomMode: mode,
+            ...(reflow && layout === 'continuous' ? { readingWidth: 0 } : {}),
+          };
+        });
+        return;
+      }
       case 'rotateLeft': setSettings((s) => ({ ...s, rotation: (s.rotation + 270) % 360 })); return;
       case 'rotateRight': setSettings((s) => ({ ...s, rotation: (s.rotation + 90) % 360 })); return;
       case 'invertPages': setSettings((s) => ({ ...s, invertPages: !s.invertPages })); return;
@@ -1126,7 +1265,10 @@ export default function App() {
       case 'toggleRight': setSettings((s) => ({ ...s, rightPanel: nextPanel(s.rightPanel, 'properties') })); return;
       case 'toggleMenuBar': setSettings((s) => ({ ...s, showMenuBar: !s.showMenuBar })); return;
       case 'toggleStatus': setSettings((s) => ({ ...s, showStatusBar: !s.showStatusBar })); return;
-      case 'gallery': setGalleryOpen((open) => !open); return;
+      case 'gallery':
+        setGalleryOpen(false);
+        setSettings((s) => ({ ...s, leftPanel: s.leftPanel === 'gallery' ? 'contents' : 'gallery' }));
+        return;
       case 'galleryIcons':
         setSettings((s) => ({ ...s, galleryView: 'icons' }));
         setGalleryOpen(true);
@@ -1142,12 +1284,17 @@ export default function App() {
         setStatusMessage(t('status.backgroundCleared'));
         return;
       case 'addBookmark': addBookmarkHere(); return;
+      case 'bookmarkHere': addBookmarkHere(contextPoint.current); return;
       case 'highlight': highlightSelection(); return;
       case 'addNote': askNote(); return;
       case 'copySelection': copySelection(); return;
       case 'copyImage': copyCurrentImage(); return;
       case 'copySection': copyCurrentSection(); return;
-      case 'selectAll': viewRef.current?.selectAll(); return;
+      case 'selectAll':
+        // A comic or a picture has no text in it. Saying so is better than a
+        // command that looks as though it did nothing.
+        if (!viewRef.current?.selectAll()) toast(t('status.noText'), 'warn');
+        return;
       case 'paste': pasteAsNote(); return;
       case 'find':
         setSettings((s) => ({ ...s, leftPanel: s.leftPanel === 'search' ? 'contents' : 'search' }));
@@ -1169,7 +1316,7 @@ export default function App() {
       default: return;
     }
   }, [addBookmarkHere, askDialog, askNote, changeLang, closeTab, copyCurrentImage, copyCurrentSection, copySelection,
-    exportBook, goToSection, highlightSelection, history, libraryPath, openDialog, openFromUrl,
+    exportBook, goToSection, highlightSelection, history, libraryPath, openDialog, openFolderAt, openFromUrl,
     openPrintDialog, openViaDialog, pasteAsNote, pickBackground, saveLibrary, saveLibraryAs, scale,
     t, turnSection]);
 
@@ -1254,6 +1401,10 @@ ${entry.path}`), 'read', { file: entry.path });
     hasBook: !!bookRef.current,
     hasSelection: !!selectionRef.current.trim(),
     reflowable: bookRef.current ? bookRef.current.reflowable : true,
+    // Whether the book is coming one screen at a time, which is what a page-turn
+    // effect needs — see the `onePage` commands.
+    onePage: pageModeOf(settingsRef.current, bookRef.current) === 'paged',
+    layout: viewLayoutOf(settingsRef.current, bookRef.current),
     hasImage: !!bookRef.current && !!viewRef.current?.hasImage?.(),
     active: activeCommands(settingsRef.current, bookRef.current),
     recentFiles: settingsRef.current.recentFiles,
@@ -1332,6 +1483,7 @@ ${entry.path}`), 'read', { file: entry.path });
 
   const onViewContextMenu = useCallback((e) => {
     e.preventDefault();
+    contextPoint.current = { x: e.clientX, y: e.clientY };
     openMenu('context', { x: e.clientX, y: e.clientY, width: 0, height: 0 });
   }, [openMenu]);
 
@@ -1504,24 +1656,71 @@ ${entry.path}`), 'read', { file: entry.path });
   }, [closeTab, stepSearch, switchToTab, turnPage]);
 
   // ── Drag & drop ────────────────────────────────────────
+  //
+  // Anything a file manager, a browser or another application can hand over: one
+  // book or several, a reading file, or a folder of books.
   const [dragOver, setDragOver] = useState(false);
+  // `dragleave` fires for every element the pointer crosses on its way in, not
+  // only when it leaves the window, so the highlight has to be counted in and out
+  // rather than switched — otherwise it flickers all the way across the window.
+  const dragDepth = useRef(0);
+
+  const onDragEnter = useCallback((e) => {
+    if (!e.dataTransfer?.types?.length) return;
+    dragDepth.current += 1;
+    setDragOver(true);
+  }, []);
+
+  const onDragLeave = useCallback(() => {
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (!dragDepth.current) setDragOver(false);
+  }, []);
+
   const onDrop = useCallback(async (e) => {
     e.preventDefault();
+    dragDepth.current = 0;
     setDragOver(false);
     const dropped = [...(e.dataTransfer?.files || [])];
-    if (!dropped.length) return;
+    // Some applications hand over a location rather than a file — a file:// URL
+    // in `text/uri-list`. Dropping from those used to do nothing at all.
+    const urls = dropped.length ? [] : droppedFileUrls(e.dataTransfer);
+    if (!dropped.length && !urls.length) {
+      toast(t('error.nothingDropped'), 'warn');
+      return;
+    }
+    let name = '';
     try {
       for (const file of dropped) {
-        if (isElectron && file.path) { await openByPathRef.current(file.path); continue; }
+        name = file.name;
+        const where = droppedPath(file);
+        if (where) {
+          // A folder of books is a folder, not a book: it goes to the panel that
+          // lists them. Reading it as a file would only report a mystery error.
+          // eslint-disable-next-line no-await-in-loop
+          if (await isDirectory(where)) { openFolderAt(where); continue; }
+          // eslint-disable-next-line no-await-in-loop
+          await openByPathRef.current(where);
+          continue;
+        }
+        // eslint-disable-next-line no-await-in-loop
         const buffer = await file.arrayBuffer();
         const payload = { data: new Uint8Array(buffer), name: file.name, path: null, size: file.size };
+        // eslint-disable-next-line no-await-in-loop
         if (isLibraryName(file.name)) await openLibraryFile(new TextDecoder().decode(payload.data), null);
+        // eslint-disable-next-line no-await-in-loop
         else await openPayload(payload);
       }
+      for (const where of urls) {
+        name = where;
+        // eslint-disable-next-line no-await-in-loop
+        if (await isDirectory(where)) { openFolderAt(where); continue; }
+        // eslint-disable-next-line no-await-in-loop
+        await openByPathRef.current(where);
+      }
     } catch (err) {
-      fail(err, 'open', { file: dropped[0]?.name });
+      fail(err, 'open', { file: name || dropped[0]?.name });
     }
-  }, [fail, openLibraryFile, openPayload]);
+  }, [fail, openFolderAt, openLibraryFile, openPayload, t, toast]);
 
   // ── Window title ───────────────────────────────────────
   useEffect(() => {
@@ -1546,11 +1745,37 @@ ${entry.path}`), 'read', { file: entry.path });
     setSelectionText(text || '');
   }, []);
 
+  /** A picture was picked in the reading pane, or let go of. */
+  const onPickImage = useCallback((picture) => {
+    setPickedImage(picture || null);
+    if (!picture) {
+      setStatusMessage('');
+      return;
+    }
+    setStatusMessage(picture.width && picture.height
+      ? t('status.pickedImageSize', { w: picture.width, h: picture.height })
+      : t('status.pickedImage'));
+  }, [t]);
+
+  /**
+   * The reader scrolled onto another page of a continuous run. Only the page
+   * changes: the scrolling is the reader's, and must not be taken away from them
+   * by jumping to the top of anything.
+   */
+  const onGoToPage = useCallback((index) => {
+    const current = bookRef.current;
+    if (!current) return;
+    setSection(clampSection(index, current.sectionCount));
+  }, []);
+
   return (
     <div
       className="app"
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
+      // Both of these have to say "yes, I will take it": without them the window
+      // navigates to the file the way a browser would, and the reader is gone.
+      onDragOver={(e) => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
       <TitleBar title={titleText} />
@@ -1565,15 +1790,15 @@ ${entry.path}`), 'read', { file: entry.path });
         section={section}
         sectionCount={book?.sectionCount || 0}
         scale={scale}
-        hasSelection={!!selectionText.trim()}
+        hasImage={!!book && (!book.reflowable || !!pickedImage)}
         history={history}
-        bookmarkCount={reading.bookmarks.length}
         galleryOpen={galleryOpen}
         onOpenMenu={openMenu}
         onCommand={(id) => runCommandRef.current(id)}
         onGoToSection={goToSection}
         onTheme={(id) => setSettings((s) => ({ ...s, theme: id || nextTheme(s.theme) }))}
         onLang={changeLang}
+        onReaderFont={(readerFont) => setSettings((s) => ({ ...s, readerFont }))}
       />
 
       <div className="workarea">
@@ -1587,15 +1812,29 @@ ${entry.path}`), 'read', { file: entry.path });
           toc={book?.toc || []}
           onGoTo={goToSection}
           bookmarks={reading.bookmarks}
-          onGoToBookmark={(mark) => {
-            goToSection(mark.section);
-            setTimeout(() => viewRef.current?.scrollToFrac(mark.fracY || 0), 120);
-          }}
+          onAddBookmark={() => runCommandRef.current('addBookmark')}
+          onGoToBookmark={goToBookmark}
           onRemoveBookmark={(id) => editReading(
             (state) => ({ ...state, bookmarks: removeById(state.bookmarks, id) }),
             t('common.delete'),
           )}
           onClearBookmarks={() => editReading((state) => ({ ...state, bookmarks: [] }), t('panel.removeAll'))}
+          notes={reading.notes}
+          highlights={reading.highlights}
+          showHighlights={settings.showHighlights}
+          hasSelection={!!selectionText.trim()}
+          onAddNote={() => runCommandRef.current('addNote')}
+          onHighlight={() => runCommandRef.current('highlight')}
+          onShowHighlights={(on) => setSettings((s) => ({ ...s, showHighlights: on }))}
+          onGoToMark={goToBookmark}
+          onRemoveMark={(id, kind) => editReading((state) => ({
+            ...state,
+            highlights: kind === 'highlight' ? removeById(state.highlights, id) : state.highlights,
+            notes: kind === 'note' ? removeById(state.notes, id) : state.notes,
+          }), t('common.delete'))}
+          onCopyMark={(mark) => copyText(mark.note || mark.text)
+            .then(() => toast(t('status.copied'), 'ok'))
+            .catch((err) => fail(err, 'copy'))}
           search={search}
           onSearch={runSearch}
           onGoToHit={goToHit}
@@ -1603,12 +1842,17 @@ ${entry.path}`), 'read', { file: entry.path });
           currentPath={book?.filePath || ''}
           desktop={isElectron}
           onPickFolder={() => runCommandRef.current('openFolder')}
+          onOpenFolder={openFolderAt}
           onOpenFile={(p) => openByPathRef.current(p)}
           loadFolder={listDirectory}
           recentFiles={settings.recentFiles}
           onOpenRecent={openRecent}
           onRemoveRecent={(key) => setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, key) }))}
           onClearRecent={() => setSettings((s) => ({ ...s, recentFiles: [] }))}
+          gallery={shelf}
+          onOpenGallery={openFromGallery}
+          onForgetGallery={(key) => editShelf((rows) => removeFromGallery(rows, key), { removed: key })}
+          onClearGallery={clearGallery}
         />
 
         <main className={`viewer${dragOver ? ' dragging' : ''}`}>
@@ -1630,6 +1874,9 @@ ${entry.path}`), 'read', { file: entry.path });
             onProgress={setProgress}
             onPageInfo={setColumns}
             onScaleChange={setScale}
+            onPickImage={onPickImage}
+            onGoToPage={onGoToPage}
+            onTurnPage={turnPage}
             onZoomStep={(dir) => runCommandRef.current(dir > 0 ? 'zoomIn' : 'zoomOut')}
             onTextStep={(dir) => runCommandRef.current(dir > 0 ? 'textBigger' : 'textSmaller')}
             onError={fail}
@@ -1643,7 +1890,7 @@ ${entry.path}`), 'read', { file: entry.path });
                     {t('cmd.open')}
                   </button>
                   {shelf.length ? (
-                    <button type="button" className="btn" onClick={() => setGalleryOpen(true)} title={t('tip.gallery')}>
+                    <button type="button" className="btn" onClick={() => setSettings((s) => ({ ...s, leftPanel: 'gallery' }))} title={t('tip.gallery')}>
                       {t('gallery.title')} · {shelf.length}
                     </button>
                   ) : null}
@@ -1656,24 +1903,37 @@ ${entry.path}`), 'read', { file: entry.path });
               outside the scrolling pane, so they stay put as the page moves. */}
           {book && !galleryOpen ? (
             <div className="page-arrows">
-              <button
-                type="button"
-                className="page-arrow left"
-                onClick={() => turnPage(-1)}
-                title={`${t('cmd.prevPage')} (PageUp)`}
-                aria-label={t('cmd.prevPage')}
-              >
-                <IconPrev size={26} />
-              </button>
-              <button
-                type="button"
-                className="page-arrow right"
-                onClick={() => turnPage(1)}
-                title={`${t('cmd.nextPage')} (PageDown)`}
-                aria-label={t('cmd.nextPage')}
-              >
-                <IconNext size={26} />
-              </button>
+              {(() => {
+                const edge = bookPageEdge(section, book.sectionCount, {
+                  atStart: columns.atStart,
+                  atEnd: columns.atEnd,
+                  fixed: book.reflowable === false,
+                });
+                return (
+                  <>
+                    <button
+                      type="button"
+                      className="page-arrow left"
+                      onClick={() => turnPage(-1)}
+                      disabled={edge.atBookStart}
+                      title={`${t('cmd.prevPage')} (PageUp)`}
+                      aria-label={t('cmd.prevPage')}
+                    >
+                      <IconPrev size={26} />
+                    </button>
+                    <button
+                      type="button"
+                      className="page-arrow right"
+                      onClick={() => turnPage(1)}
+                      disabled={edge.atBookEnd}
+                      title={`${t('cmd.nextPage')} (PageDown)`}
+                      aria-label={t('cmd.nextPage')}
+                    >
+                      <IconNext size={26} />
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           ) : null}
 
@@ -1705,17 +1965,6 @@ ${entry.path}`), 'read', { file: entry.path });
           onSettings={setSettings}
           libraryPath={libraryPath}
           dirty={dirty}
-          highlights={reading.highlights}
-          notes={reading.notes}
-          onGoToMark={(mark) => goToSection(mark.section)}
-          onRemoveMark={(id, kind) => editReading((state) => ({
-            ...state,
-            highlights: kind === 'highlight' ? removeById(state.highlights, id) : state.highlights,
-            notes: kind === 'note' ? removeById(state.notes, id) : state.notes,
-          }), t('common.delete'))}
-          onCopyMark={(mark) => copyText(mark.note || mark.text)
-            .then(() => toast(t('status.copied'), 'ok'))
-            .catch((err) => fail(err, 'copy'))}
         />
       </div>
 
@@ -1727,6 +1976,10 @@ ${entry.path}`), 'read', { file: entry.path });
           scale={scale}
           columns={columns}
           selectionChars={selectionText.length}
+          pickedImage={pickedImage}
+          pageCount={pageMap?.pages || 0}
+          pageNow={pageNow}
+          pagesEstimated={!!pageMap?.estimated}
           dirty={dirty}
           history={history}
           message={statusMessage}

@@ -1,14 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconSettings, IconInfo, IconAlert, IconDownload, IconSave, IconPrint, IconUrl,
-  IconNote, IconKeyboard, IconCheck, IconCopy, IconTrash, IconFolder, IconImage,
+  IconNote, IconKeyboard, IconCheck, IconCopy, IconTrash, IconImage, IconUndo,
   IconClose, IconFlag, IconPrev, IconNext, IconBook,
 } from './Icons.jsx';
 import { THEMES, themeGroups } from '../lib/themes.js';
 import { LANGUAGES, translate } from '../i18n.js';
 import { getSystemFonts } from '../lib/fonts.js';
-import { FONT_SIZE_MAX, FONT_SIZE_MIN, MAX_RECENT_FILES, stepFontSize } from '../lib/settings.js';
-import { READING_WIDTHS, errorReport, pagesForScope, clampPreviewIndex } from '../lib/view.js';
+import { FONT_SIZE_MAX, FONT_SIZE_MIN, stepFontSize } from '../lib/settings.js';
+import {
+  READING_WIDTHS, errorReport, pagesForScope, clampPreviewIndex,
+  viewLayoutOf, viewLayoutSettings, textColumnsOf, columnChoice,
+  fontPixels, fontScaleOf, FONT_SCALE_MIN, FONT_SCALE_MAX, READ_FONT_PX,
+} from '../lib/view.js';
 import { PAPER_SIZES, paperSizeMm } from '../lib/print.js';
 import { shortcutRows } from '../lib/menus.js';
 import { formatBytes } from '../lib/platform.js';
@@ -74,11 +78,11 @@ function Check({ label, value, onChange, title }) {
  * row. A slider cannot say what it is set to without a label, cannot be nudged
  * by one step without a steady hand, and has no way back to the default.
  */
-function Stepper({ label, value, onChange, min, max, step = 1, standard, format, title }) {
+function Stepper({ label, value, onChange, min, max, step = 1, standard, format, title, inline = false }) {
   const clamp = (n) => Math.min(max, Math.max(min, Math.round(n * 1000) / 1000));
   const show = format ? format(value) : String(value);
   return (
-    <div className="field stepper-field">
+    <div className={`field stepper-field${inline ? ' inline' : ''}`}>
       <span className="field-label">{label}</span>
       <div className="stepper" role="group" aria-label={label}>
         <button
@@ -119,7 +123,7 @@ function Field({ label, children, hint }) {
 }
 
 // ── Settings ──────────────────────────────────────────────
-const SETTINGS_TABS = ['appearance', 'reading', 'view', 'files', 'window'];
+const SETTINGS_TABS = ['appearance', 'reading', 'view', 'window'];
 
 function SettingsBody({ t, payload, onResult }) {
   const [tab, setTab] = useState('appearance');
@@ -217,7 +221,7 @@ function SettingsBody({ t, payload, onResult }) {
                   </select>
                 </Field>
 
-                <div className="field">
+                <div className="field inline">
                   <span className="field-label">{t('settings.fontSize')}</span>
                   <div className="stepper" role="group" aria-label={t('settings.fontSize')}>
                     <button
@@ -280,14 +284,15 @@ function SettingsBody({ t, payload, onResult }) {
                 </select>
               </Field>
               <Stepper
+                inline
                 label={t('reading.size')}
-                value={Math.round(settings.fontScale * 100)}
-                onChange={(n) => set({ fontScale: n / 100 })}
-                min={60}
-                max={300}
-                step={5}
-                standard={100}
-                format={(n) => `${n}%`}
+                value={fontPixels(settings.fontScale)}
+                onChange={(n) => set({ fontScale: fontScaleOf(n) })}
+                min={fontPixels(FONT_SCALE_MIN)}
+                max={fontPixels(FONT_SCALE_MAX)}
+                step={1}
+                standard={READ_FONT_PX}
+                format={(n) => `${n}px`}
               />
               <Stepper
                 label={t('reading.lineHeight')}
@@ -310,38 +315,47 @@ function SettingsBody({ t, payload, onResult }) {
 
             <section className="sgroup">
               <h4>{t('reading.mode')}</h4>
-              <div className="row seg-row seg-fill">
-                <button
-                  type="button"
-                  className={`btn seg${settings.pageMode === 'scroll' ? ' active' : ''}`}
-                  onClick={() => set({ pageMode: 'scroll' })}
-                  title={t('reading.scroll')}
-                >{t('reading.scroll')}</button>
-                <button
-                  type="button"
-                  className={`btn seg${settings.pageMode === 'paged' ? ' active' : ''}`}
-                  onClick={() => set({ pageMode: 'paged' })}
-                  title={t('reading.paged')}
-                >{t('reading.paged')}</button>
-              </div>
-              <Check label={t('reading.columns')} value={settings.twoColumns} onChange={(v) => set({ twoColumns: v })} />
-              <Field label={t('reading.spread')}>
+              {/* One choice for every format. The three cannot be combined. */}
+              <Field label={t('reading.layout')}>
                 <div className="row seg-row seg-fill">
-                  <button
-                    type="button"
-                    className={`btn seg${settings.spread === 'single' ? ' active' : ''}`}
-                    onClick={() => set({ spread: 'single' })}
-                    title={t('cmd.spreadSingle')}
-                  >{t('reading.single')}</button>
-                  <button
-                    type="button"
-                    className={`btn seg${settings.spread === 'double' ? ' active' : ''}`}
-                    onClick={() => set({ spread: 'double' })}
-                    title={t('cmd.spreadDouble')}
-                  >{t('reading.double')}</button>
+                  {['single', 'double', 'continuous'].map((layout) => (
+                    <button
+                      key={layout}
+                      type="button"
+                      className={`btn seg${viewLayoutOf(settings) === layout ? ' active' : ''}`}
+                      aria-pressed={viewLayoutOf(settings) === layout}
+                      onClick={() => set(viewLayoutSettings(layout))}
+                      title={t(`cmd.view${layout[0].toUpperCase()}${layout.slice(1)}`)}
+                    >{t(`cmd.view${layout[0].toUpperCase()}${layout.slice(1)}`)}</button>
+                  ))}
                 </div>
               </Field>
-              <Field label={t('reading.turn')}>
+              {/* Columns of text on one page. Two facing pages are not a 다단 split. */}
+              <Field label={t('reading.columns')}>
+                <div className="row seg-row seg-fill">
+                  {[1, 2].map((count) => {
+                    const layout = viewLayoutOf(settings);
+                    const onePage = layout === 'single';
+                    return (
+                      <button
+                        key={count}
+                        type="button"
+                        className={`btn seg${onePage && textColumnsOf(settings) === count ? ' active' : ''}`}
+                        aria-pressed={onePage && textColumnsOf(settings) === count}
+                        disabled={!onePage}
+                        onClick={() => set(columnChoice(settings, null, count))}
+                        title={layout === 'double' ? t('tip.columnsFacing') : onePage ? t(`cmd.columns${count}`) : t('tip.columnsFlow')}
+                      >{t(`cmd.columns${count}`)}</button>
+                    );
+                  })}
+                </div>
+              </Field>
+              {/* A turn effect needs a page that goes away. A continuous run
+                  scrolls, so there is nothing to turn. */}
+              <Field label={t('reading.turn')} hint={viewLayoutOf(settings) === 'continuous'
+                ? t('reading.turnNeedsPages')
+                : ''}
+              >
                 <div className="row seg-row seg-fill">
                   {['none', 'slide', 'flip'].map((effect) => (
                     <button
@@ -349,6 +363,7 @@ function SettingsBody({ t, payload, onResult }) {
                       type="button"
                       className={`btn seg${settings.pageTurn === effect ? ' active' : ''}`}
                       onClick={() => set({ pageTurn: effect })}
+                      disabled={viewLayoutOf(settings) === 'continuous'}
                       title={t(`reading.turn${effect[0].toUpperCase()}${effect.slice(1)}`)}
                     >
                       {t(`reading.turn${effect[0].toUpperCase()}${effect.slice(1)}`)}
@@ -422,63 +437,6 @@ function SettingsBody({ t, payload, onResult }) {
           </div>
         </div>
 
-        <div className={`settings-panel${tab === 'files' ? ' on' : ''}`} aria-hidden={tab !== 'files'}>
-          <div className="settings-files">
-            <section className="sgroup">
-              <h4>{t('recent.title')} ({settings.recentFiles.length}/{MAX_RECENT_FILES})</h4>
-              {!settings.recentFiles.length ? <p className="empty">{t('recent.empty')}</p> : (
-                <ul className="recent-list">
-                  {settings.recentFiles.map((file) => (
-                    <li key={file.path || file.name}>
-                      <span className="recent-name" title={file.path || file.name}>{file.name}</span>
-                      <span className="recent-dir" title={file.dir || ''}>{file.dir || ''}</span>
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        onClick={() => onResult({ action: 'removeRecent', key: file.path || file.name })}
-                        title={t('recent.remove')}
-                      ><IconTrash size={15} /></button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="row">
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => onResult({ action: 'clearRecent' })}
-                  disabled={!settings.recentFiles.length}
-                  title={t('settings.clearRecent')}
-                >
-                  <IconTrash size={15} />{t('settings.clearRecent')}
-                </button>
-              </div>
-            </section>
-
-            <section className="sgroup">
-              <h4>{t('recent.dirs')}</h4>
-              {!settings.recentDirs.length ? <p className="empty">{t('recent.empty')}</p> : (
-                <ul className="recent-list">
-                  {settings.recentDirs.map((dir) => (
-                    <li key={dir}><IconFolder size={15} /><span className="recent-name" title={dir}>{dir}</span></li>
-                  ))}
-                </ul>
-              )}
-              <div className="row">
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => onResult({ action: 'clearDirs' })}
-                  disabled={!settings.recentDirs.length}
-                  title={t('settings.clearDirs')}
-                >
-                  <IconTrash size={15} />{t('settings.clearDirs')}
-                </button>
-              </div>
-            </section>
-          </div>
-        </div>
-
         <div className={`settings-panel${tab === 'window' ? ' on' : ''}`} aria-hidden={tab !== 'window'}>
           <section className="sgroup">
             <h4>{t('settings.tabs.window')}</h4>
@@ -507,17 +465,33 @@ function SettingsBody({ t, payload, onResult }) {
               >
                 <IconKeyboard size={15} />{t('cmd.shortcuts')}
               </button>
-              <button
-                type="button"
-                className="btn danger-ghost"
-                onClick={() => onResult({ action: 'reset' })}
-                title={t('settings.resetAll')}
-              >
-                {t('settings.resetAll')}
-              </button>
             </div>
           </section>
         </div>
+      </div>
+
+      {/* The window's own buttons, not any one tab's: putting everything back
+          the way it came applies to the whole of the settings, and there has to
+          be a plain way to say "done" besides closing the window. */}
+      <div className="dialog-foot">
+        <button
+          type="button"
+          className="btn danger-ghost"
+          onClick={() => onResult({ action: 'reset' })}
+          title={t('settings.resetAllTip')}
+        >
+          <IconUndo size={15} />{t('settings.resetAll')}
+        </button>
+        <span className="spacer" />
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => onResult({ action: 'close' })}
+          title={t('common.ok')}
+          data-autofocus
+        >
+          {t('common.ok')}
+        </button>
       </div>
     </>
   );

@@ -14,24 +14,27 @@ export const FALLBACK_FONTS = [
 
 let cache = null;
 
-// Returns a sorted, de-duplicated list of installed font family names.
-// `interactive` should be true when called from a user gesture (required by
-// the API on the web); Electron grants it without a gesture.
+/**
+ * A sorted, de-duplicated list of installed font family names.
+ *
+ * A full list from the system is remembered. A shorter stand-in is not, so a
+ * later call — one made while the reader is choosing a font — can still ask
+ * the system again and receive every installed family.
+ */
 export async function getSystemFonts() {
   if (cache) return cache;
   try {
     if (typeof window !== 'undefined' && typeof window.queryLocalFonts === 'function') {
       const fonts = await window.queryLocalFonts();
       const families = new Set();
-      for (const f of fonts) families.add(f.family);
+      for (const font of fonts) if (font.family) families.add(font.family);
       if (families.size) {
         cache = [...families].sort((a, b) => a.localeCompare(b));
         return cache;
       }
     }
   } catch {
-    /* permission denied / unsupported — fall through */
+    /* permission denied or unsupported — the stand-in list is used this once */
   }
-  cache = [...FALLBACK_FONTS].sort((a, b) => a.localeCompare(b));
-  return cache;
+  return [...FALLBACK_FONTS].sort((a, b) => a.localeCompare(b));
 }

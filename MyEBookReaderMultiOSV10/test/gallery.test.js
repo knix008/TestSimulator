@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   MAX_GALLERY, GALLERY_VIEWS, GALLERY_SORTS, galleryKey, galleryEntry, addToGallery,
   updateGallery, removeFromGallery, galleryProgress, sortGallery, searchGallery,
-  coverInitials, makeThumbnail, THUMB_TIMEOUT,
+  coverInitials, makeThumbnail, THUMB_TIMEOUT, writtenShelfChange,
 } from '../src/lib/gallery.js';
 import { DEFAULT_SETTINGS, normalize } from '../src/lib/settings.js';
 
@@ -64,6 +64,16 @@ describe('shelving a book', () => {
     expect(list[0].cover).toBe('data:image/png;base64,AA');
     expect(list[0].section).toBe(7);
     expect(list[0].reads).toBe(2);
+  });
+
+  it('writes the shelved book, cover and all, rather than the one just opened', () => {
+    let list = addToGallery([], galleryEntry(book()));
+    list = updateGallery(list, '/books/dune.epub', { cover: true });
+    const opened = galleryEntry(book());
+    list = addToGallery(list, opened);
+    const change = writtenShelfChange(list, { put: opened });
+    expect(change.put.cover).toBe(true);
+    expect(change.put.reads).toBe(2);
   });
 
   it('refuses a book it cannot name', () => {

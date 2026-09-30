@@ -58,8 +58,12 @@ export const DEFAULT_SETTINGS = {
   readerBold: false,
   readerItalic: false,
   readerUnderline: false,
-  pageMode: 'scroll',        // scroll | paged
-  twoColumns: false,
+  pageMode: 'scroll',        // scroll | paged — kept in step with viewLayout
+  columns: 1,                // 1 | 2 — text columns on one page of a reflowable book
+  twoColumns: false,         // kept in step with columns > 1, for older files
+  // single | double | continuous. Empty means "not chosen yet", and the older
+  // pageMode / pageFlow / spread settings still say how the book opens.
+  viewLayout: '',
   pageTurn: 'slide',         // none | slide | flip — the page-turning effect
 
   // ── Viewing (fixed-layout formats: PDF, comics) ──
@@ -67,11 +71,19 @@ export const DEFAULT_SETTINGS = {
   zoom: 1,
   rotation: 0,
   spread: 'single',          // single | double — one page, or two side by side
+  // How the pages of a PDF or a comic come: one at a time, or a run to scroll
+  // through. It is a setting of its own rather than `pageMode` because a reader
+  // wants different things of text and of pages — text reads best as one
+  // unbroken column, while a comic is a page at a time until it is asked not to
+  // be — and one value could not be the right default for both.
+  pageFlow: 'paged',         // paged | scroll — fixed-layout pages
   invertPages: false,
 
   // ── Panels ──
-  leftPanel: 'contents',     // contents | library | bookmarks | search | none
-  rightPanel: 'properties',  // properties | reading | notes | none
+  leftPanel: 'contents',     // contents | library | history | gallery | bookmarks | notes | highlights | search | none
+  rightPanel: 'properties',  // properties | reading | none
+  // Highlights stay on the page until the reader hides them from the tools.
+  showHighlights: true,
   leftWidth: PANEL_WIDTH_DEFAULT,
   rightWidth: PANEL_WIDTH_DEFAULT,
   folderRoot: '',
@@ -99,11 +111,13 @@ const ENUMS = {
   fontStyle: ['normal', 'italic'],
   backgroundFit: ['cover', 'contain', 'tile', 'center'],
   pageMode: ['scroll', 'paged'],
+  pageFlow: ['paged', 'scroll'],
+  viewLayout: ['', 'single', 'double', 'continuous'],
   pageTurn: ['none', 'slide', 'flip'],
   zoomMode: ['fit-width', 'fit-height', 'fit-page', 'actual', 'custom'],
   spread: ['single', 'double'],
-  leftPanel: ['contents', 'library', 'bookmarks', 'search', 'none'],
-  rightPanel: ['properties', 'reading', 'notes', 'none'],
+  leftPanel: ['contents', 'library', 'history', 'gallery', 'bookmarks', 'notes', 'highlights', 'search', 'none'],
+  rightPanel: ['properties', 'reading', 'none'],
   printScope: ['all', 'current', 'custom'],
   galleryView: GALLERY_VIEWS,
   gallerySort: GALLERY_SORTS,
@@ -149,6 +163,16 @@ export function normalize(raw) {
   out.paragraphGap = Math.min(2.5, Math.max(0, Number(out.paragraphGap)));
   out.letterSpacing = Math.min(4, Math.max(-1, Number(out.letterSpacing)));
   out.zoom = Math.min(8, Math.max(0.1, Number(out.zoom) || 1));
+  // A count wins. A file from before the count existed said "two columns" with
+  // a flag, and that opens as two.
+  {
+    const asked = Number(raw.columns);
+    const counted = raw.columns !== undefined && raw.columns !== null && Number.isFinite(asked);
+    if (counted) out.columns = asked >= 2 ? 2 : 1;
+    else if (out.twoColumns) out.columns = 2;
+    else out.columns = 1;
+    out.twoColumns = out.columns > 1;
+  }
   out.rotation = ((Math.round(out.rotation / 90) * 90) % 360 + 360) % 360;
   if (!READING_WIDTHS.includes(out.readingWidth)) {
     out.readingWidth = Math.min(1400, Math.max(0, Math.round(out.readingWidth)));
@@ -222,6 +246,9 @@ export function viewSettingsOf(settings) {
     lineHeight: settings.lineHeight,
     readingWidth: settings.readingWidth,
     pageMode: settings.pageMode,
+    pageFlow: settings.pageFlow,
+    viewLayout: settings.viewLayout,
+    columns: settings.columns,
     twoColumns: settings.twoColumns,
     pageTurn: settings.pageTurn,
     zoomMode: settings.zoomMode,

@@ -13,7 +13,7 @@ export const LIBRARY_VERSION = 1;
 export const LIBRARY_MAGIC = 'MyEBookReader';
 
 export const EMPTY_READING = {
-  bookmarks: [],     // { id, section, anchor, label, fracY, at }
+  bookmarks: [],     // { id, section, anchor, label, fracY, spot, at }
   highlights: [],    // { id, section, text, color, at, note }
   notes: [],         // { id, section, text, at }
   clips: [],         // { id, kind: 'text', section, content, at }
