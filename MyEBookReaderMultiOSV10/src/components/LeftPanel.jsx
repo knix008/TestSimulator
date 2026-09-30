@@ -1,25 +1,43 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  IconContents, IconLibrary, IconBookmark, IconSearch, IconFolder, IconFolderOpen,
-  IconBook, IconChevron, IconTrash, IconRecent, IconClose,
+  IconContents, IconLibrary, IconBookmark, IconBookmarkAdd, IconSearch, IconFolder, IconFolderOpen,
+  IconBook, IconChevron, IconTrash, IconRecent, IconClose, IconDrive, IconHome,
+  IconNote, IconHighlight, IconCopy,
 } from './Icons.jsx';
 import { flattenToc } from '../lib/book.js';
 import { folderLabel } from '../lib/folders.js';
-import { formatBytes } from '../lib/platform.js';
+import { galleryKey, sortGallery } from '../lib/gallery.js';
+import { formatBytes, listDrives } from '../lib/platform.js';
 import { PANEL_WIDTH_MAX } from '../lib/settings.js';
+import { Cover } from './Gallery.jsx';
 import { usePanelMinWidth, clampToPanelMin } from './panelWidth.js';
 
 // The left panel: the tools you read *with* — the contents list, the folder of
-// books, the bookmarks you made and the search results. One tab at a time, and
-// the whole panel can be dragged wider or closed from the toolbar.
+// books, the files opened lately, the gallery of those books, the bookmarks,
+// notes and highlights you made, and the search results.
+// One tab at a time, and the whole panel can be dragged wider or closed from
+// the toolbar. Those tools are not also buttons on the toolbar.
+// The folder and the recent files are different tools: one is a place on disk,
+// the other is the books that have been opened.
 
 const TABS = [
   { id: 'contents', icon: IconContents, label: 'panel.contents' },
-  { id: 'library', icon: IconLibrary, label: 'panel.library' },
+  { id: 'library', icon: IconFolder, label: 'panel.library' },
+  { id: 'history', icon: IconRecent, label: 'panel.history' },
+  { id: 'gallery', icon: IconLibrary, label: 'panel.gallery' },
   { id: 'bookmarks', icon: IconBookmark, label: 'panel.bookmarks' },
+  { id: 'notes', icon: IconNote, label: 'panel.notes' },
+  { id: 'highlights', icon: IconHighlight, label: 'panel.highlights' },
   { id: 'search', icon: IconSearch, label: 'panel.search' },
 ];
+
+const TAB_LABEL = Object.fromEntries(TABS.map((tab) => [tab.id, tab.label]));
+
+// How little of the panel the contents beside the rail may be squeezed into.
+// The rail itself is measured; this is what has to be left over for the tool it
+// selects, so dragging the divider in can never close the contents to a sliver.
+const BODY_MIN = 150;
 
 function Resizer({ width, onResize, side = 'left', min }) {
   const drag = useRef(null);
@@ -120,23 +138,64 @@ function FolderNode({ entry, depth, currentPath, onOpenFile, loadFolder }) {
   );
 }
 
+function MarkList({ marks, empty, icon: Icon, labelOf, onGo, onCopy, onRemove, kind }) {
+  const { t } = useTranslation();
+  if (!marks?.length) return <p className="panel-note">{empty}</p>;
+  return (
+    <ul className="mark-list">
+      {marks.map((mark) => {
+        const label = labelOf(mark);
+        return (
+          <li key={mark.id}>
+            <button type="button" className="mark-row" onClick={() => onGo(mark)} title={label}>
+              <Icon size={14} />
+              <span className="mark-label">{label}</span>
+              <span className="mark-where">{(mark.section ?? 0) + 1}</span>
+            </button>
+            <button type="button" className="icon-btn" onClick={() => onCopy(mark)} title={t('cmd.copySelection')} aria-label={t('cmd.copySelection')}>
+              <IconCopy size={14} />
+            </button>
+            <button type="button" className="icon-btn" onClick={() => onRemove(mark.id, kind)} title={t('panel.remove')} aria-label={t('panel.remove')}>
+              <IconTrash size={14} />
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export default function LeftPanel({
   panel, width, onPanel, onResize,
   book, section, toc, onGoTo,
-  bookmarks, onGoToBookmark, onRemoveBookmark, onClearBookmarks,
+  bookmarks, onAddBookmark, onGoToBookmark, onRemoveBookmark, onClearBookmarks,
+  notes, highlights, showHighlights, hasSelection,
+  onAddNote, onHighlight, onShowHighlights, onGoToMark, onRemoveMark, onCopyMark,
   search, onSearch, onGoToHit,
-  folderRoot, currentPath, desktop, onPickFolder, onOpenFile, loadFolder,
+  folderRoot, currentPath, desktop, onPickFolder, onOpenFolder, onOpenFile, loadFolder,
   recentFiles, onOpenRecent, onRemoveRecent, onClearRecent,
+  gallery, onOpenGallery, onForgetGallery, onClearGallery,
 }) {
   const { t, i18n } = useTranslation();
   const tabsRef = useRef(null);
-  // The panel is never narrower than its own tab strip, in any language.
-  const minWidth = usePanelMinWidth(tabsRef, [i18n.language]);
+  // The rail stands beside the tool it opens, so the panel needs room for both.
+  const minWidth = usePanelMinWidth(tabsRef, [i18n.language], { stacked: true, beside: BODY_MIN });
   const [query, setQuery] = useState(search?.query || '');
   const [roots, setRoots] = useState([]);
   const [rootBusy, setRootBusy] = useState(false);
+  const [drives, setDrives] = useState([]);
 
   useEffect(() => { setQuery(search?.query || ''); }, [search?.query]);
+
+  // The drives are asked for once, when the shelf is first opened: a machine
+  // does not grow a disk while the panel is on screen, and asking on every
+  // render would spin a CD drive up each time.
+  useEffect(() => {
+    if (panel !== 'library' || !desktop || drives.length) return;
+    let alive = true;
+    listDrives().then((found) => { if (alive) setDrives(found); }).catch(() => {});
+    return () => { alive = false; };
+  }, [panel, desktop, drives.length]);
 
   useEffect(() => {
     if (panel !== 'library' || !folderRoot || !desktop) return;
@@ -156,6 +215,10 @@ export default function LeftPanel({
   if (panel === 'none') return null;
 
   const rows = flattenToc(toc || []);
+  // The reader's own folder is offered as a place to start, but it is not one
+  // of the machine's drives and is not listed as one.
+  const homeDrive = drives.find((drive) => drive.kind === 'home') || null;
+  const diskDrives = drives.filter((drive) => drive.kind !== 'home');
   const shown = Math.max(width, minWidth);
 
   return (
@@ -164,7 +227,7 @@ export default function LeftPanel({
       style={{ width: shown, minWidth }}
       aria-label={t('panel.left')}
     >
-      <div className="panel-tabs" role="tablist" aria-label={t('panel.left')} ref={tabsRef}>
+      <div className="panel-tabs stacked" role="tablist" aria-label={t('panel.left')} ref={tabsRef}>
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -176,13 +239,12 @@ export default function LeftPanel({
             title={t(tab.label)}
             aria-label={t(tab.label)}
           >
-            <tab.icon size={16} />
-            <span className="panel-tab-label">{t(tab.label)}</span>
+            <tab.icon size={18} />
           </button>
         ))}
       </div>
 
-      <div className="panel-body">
+      <div className="panel-body" role="tabpanel" aria-label={t(TAB_LABEL[panel] || 'panel.left')}>
         {panel === 'contents' ? (
           !book ? <p className="panel-note">{t('panel.empty')}</p> : (
             <>
@@ -199,7 +261,10 @@ export default function LeftPanel({
                       title={row.label}
                     >
                       <span className="toc-label">{row.label}</span>
-                      {row.section != null ? <span className="toc-num">{row.section + 1}</span> : null}
+                      {/* A PDF's contents point at pages. An ebook's contents
+                          point at headings, and the number of a page that
+                          changes with the window is not part of that structure. */}
+                      {!book.reflowable && row.section != null ? <span className="toc-num">{row.section + 1}</span> : null}
                     </button>
                   </li>
                 ))}
@@ -210,11 +275,47 @@ export default function LeftPanel({
 
         {panel === 'library' ? (
           <>
+            {/* Two ways to say where to start: pick any folder, or go straight
+                to the reader's own. The reader's folder is not a drive, so it
+                sits here rather than among them. */}
             <div className="panel-actions">
               <button type="button" className="btn small" onClick={onPickFolder} disabled={!desktop} title={t('panel.pickFolder')}>
                 <IconFolderOpen size={15} />{t('panel.pickFolder')}
               </button>
+              {homeDrive ? (
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => onOpenFolder?.(homeDrive.path)}
+                  title={homeDrive.path}
+                >
+                  <IconHome size={15} />{t('panel.home')}
+                </button>
+              ) : null}
             </div>
+
+            {/* The drives of the machine, so the shelf can be browsed from the
+                top rather than only from a folder the reader already knows the
+                way to. */}
+            {diskDrives.length ? (
+              <>
+                <p className="panel-head">{t('panel.drives')}</p>
+                <div className="drive-row">
+                  {diskDrives.map((drive) => (
+                    <button
+                      key={drive.path}
+                      type="button"
+                      className={`drive-btn${folderRoot === drive.path ? ' active' : ''}`}
+                      onClick={() => onOpenFolder?.(drive.path)}
+                      title={drive.path}
+                    >
+                      <IconDrive size={14} />
+                      <span className="drive-name">{drive.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
             {!desktop ? <p className="panel-note">{t('panel.folderWeb')}</p> : null}
             {desktop && !folderRoot ? <p className="panel-note">{t('panel.noFolder')}</p> : null}
             {folderRoot ? (
@@ -235,7 +336,11 @@ export default function LeftPanel({
                 </ul>
               </>
             ) : null}
+          </>
+        ) : null}
 
+        {panel === 'history' ? (
+          <>
             <p className="panel-head">
               {t('recent.title')}
               {recentFiles?.length ? (
@@ -248,6 +353,11 @@ export default function LeftPanel({
               <ul className="recent-list">
                 {recentFiles.map((file) => (
                   <li key={file.path || file.name}>
+                    {/* The name in full, and the path where it came from on
+                        hover: a folder shown beside the name takes half the row
+                        from it, and half a name does not say which book it is,
+                        whereas the folder is what the reader wants only when
+                        two books share a name. */}
                     <button
                       type="button"
                       className="recent-row"
@@ -256,7 +366,6 @@ export default function LeftPanel({
                     >
                       <IconRecent size={14} />
                       <span className="recent-name">{file.name}</span>
-                      <span className="recent-dir">{file.dir || ''}</span>
                     </button>
                     <button
                       type="button"
@@ -274,9 +383,60 @@ export default function LeftPanel({
           </>
         ) : null}
 
+        {panel === 'gallery' ? (
+          <>
+            <p className="panel-head">
+              {t('gallery.title')}
+              {gallery?.length ? (
+                <button type="button" className="linkish" onClick={onClearGallery} title={t('gallery.clear')}>
+                  <IconTrash size={13} />{t('gallery.clear')}
+                </button>
+              ) : null}
+            </p>
+            {!gallery?.length ? <p className="panel-note">{t('gallery.empty')}</p> : (
+              <ul className="shelf-list">
+                {sortGallery(gallery, 'recent').map((entry) => (
+                  <li key={galleryKey(entry)}>
+                    <button
+                      type="button"
+                      className="shelf-row"
+                      onClick={() => onOpenGallery?.(entry)}
+                      title={`${entry.title || entry.name}${entry.path ? `\n${entry.path}` : ''}`}
+                    >
+                      <span className="gthumb small">
+                        <Cover entry={entry} />
+                      </span>
+                      <span className="shelf-name">{entry.title || entry.name}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => onForgetGallery?.(galleryKey(entry))}
+                      title={t('gallery.forget')}
+                      aria-label={`${t('gallery.forget')}: ${entry.title || entry.name}`}
+                    >
+                      <IconClose size={13} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : null}
+
         {panel === 'bookmarks' ? (
           <>
             <div className="panel-actions">
+              <button
+                type="button"
+                className="btn small"
+                onClick={onAddBookmark}
+                disabled={!book}
+                title={t('tip.bookmark')}
+                aria-label={t('cmd.addBookmark')}
+              >
+                <IconBookmarkAdd size={15} />{t('cmd.addBookmark')}
+              </button>
               <button
                 type="button"
                 className="btn small"
@@ -314,6 +474,73 @@ export default function LeftPanel({
                 ))}
               </ul>
             )}
+          </>
+        ) : null}
+
+        {panel === 'notes' ? (
+          <>
+            <div className="panel-actions">
+              <button
+                type="button"
+                className="btn small"
+                onClick={onAddNote}
+                disabled={!book}
+                title={t('tip.note')}
+                aria-label={t('cmd.addNote')}
+              >
+                <IconNote size={15} />{t('cmd.addNote')}
+              </button>
+            </div>
+            <MarkList
+              marks={notes}
+              empty={t('panel.noNotes')}
+              icon={IconNote}
+              kind="note"
+              labelOf={(mark) => mark.note || mark.text}
+              onGo={onGoToMark}
+              onCopy={onCopyMark}
+              onRemove={onRemoveMark}
+            />
+          </>
+        ) : null}
+
+        {panel === 'highlights' ? (
+          <>
+            <div className="panel-actions">
+              <button
+                type="button"
+                className="btn small"
+                aria-pressed={showHighlights !== false}
+                disabled={!book}
+                onClick={() => onShowHighlights?.(showHighlights === false)}
+                title={t('panel.showHighlights')}
+                aria-label={t('panel.showHighlights')}
+                data-testid="show-highlights"
+              >
+                <IconHighlight size={15} />{t('panel.showHighlights')}
+              </button>
+              <button
+                type="button"
+                className="btn small"
+                onClick={onHighlight}
+                disabled={!book || !hasSelection}
+                title={t('tip.highlight')}
+                aria-label={t('cmd.highlight')}
+                data-testid="apply-highlight"
+              >
+                <IconHighlight size={15} />{t('cmd.highlight')}
+              </button>
+            </div>
+            <MarkList
+              marks={highlights}
+              empty={t('panel.noHighlights')}
+              icon={IconHighlight}
+              kind="highlight"
+              labelOf={(mark) => mark.text}
+              onGo={onGoToMark}
+              onCopy={onCopyMark}
+              onRemove={onRemoveMark}
+            />
           </>
         ) : null}
 

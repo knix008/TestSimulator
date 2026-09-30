@@ -136,7 +136,9 @@ function wrap(source, { name, path, size }) {
 
   return {
     format: source.format,
-    formatLabel: format.label,
+    // A reader that knows more about the file than its extension does can say
+    // so — a KF8 book is not the same thing as the MOBI its extension implies.
+    formatLabel: source.formatLabel || format.label,
     reflowable: format.reflowable !== false,
     fileName: name || '',
     filePath: path || '',

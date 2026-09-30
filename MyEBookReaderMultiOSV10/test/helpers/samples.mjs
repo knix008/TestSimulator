@@ -30,4 +30,7 @@ export const SAMPLE_NAMES = [
   'sample.epub', 'sample.cbz', 'sample.fb2', 'sample.txt',
   'sample.md', 'sample.html', 'sample.mobi', 'sample.pdf',
   'sample.png', 'sample.tif', 'sample.dcm',
+  // The MOBI family's other shapes: a KF8 book, a file carrying both a KF8 and
+  // a MOBI 6 book, and one whose text is HUFF/CDIC compressed.
+  'sample.azw3', 'sample-dual.azw3', 'sample-huff.mobi',
 ];

@@ -360,7 +360,14 @@ function palmDocCompress(input) {
   return Buffer.from(out);
 }
 
-function buildMobi() {
+/**
+ * The text records of a MOBI 6 book, and everything its record 0 needs to
+ * describe them.
+ *
+ * Split out from `buildMobi` so that the same half can be put in front of a KF8
+ * book, which is how a file that carries both is made.
+ */
+function buildMobiRecords() {
   const html = `<html><head><guide></guide></head><body>${
     CHAPTERS.map((chapter, i) => `${i ? '<mbp:pagebreak/>' : ''}<h1>${chapter.title}</h1>${
       chapter.body.filter((line) => !line.startsWith('<')).map((line) => `<p>${line}</p>`).join('')
@@ -369,16 +376,30 @@ function buildMobi() {
 
   const text = Buffer.from(html, 'utf8');
   const RECORD = 4096;
-  const records = [];
+  const textRecords = [];
   for (let at = 0; at < text.length; at += RECORD) {
-    records.push(palmDocCompress(text.subarray(at, Math.min(at + RECORD, text.length))));
+    textRecords.push(palmDocCompress(text.subarray(at, Math.min(at + RECORD, text.length))));
   }
+  return { text, textRecords, recordSize: RECORD };
+}
 
+/**
+ * Record 0 of a MOBI 6 book.
+ *
+ * `boundary`, when given, is written as EXTH 121 — the record where a KF8 book
+ * in the same file begins.
+ */
+function buildMobiRecord0({ text, textRecords, recordSize, boundary }) {
   const title = Buffer.from('MyEBookReader MOBI 샘플', 'utf8');
   const author = Buffer.from('SHKWON', 'utf8');
 
-  // EXTH: author (100) and publisher (101).
+  // EXTH: author (100), publisher (101), and where the KF8 half starts (121).
   const exthEntries = [[100, author], [101, Buffer.from('TestSimulator', 'utf8')]];
+  if (boundary != null) {
+    const value = Buffer.alloc(4);
+    value.writeUInt32BE(boundary, 0);
+    exthEntries.push([121, value]);
+  }
   const exthBody = Buffer.concat(exthEntries.map(([type, value]) => {
     const head = Buffer.alloc(8);
     head.writeUInt32BE(type, 0);
@@ -397,8 +418,8 @@ function buildMobi() {
   const record0 = Buffer.alloc(16 + MOBI_HEADER_LENGTH);
   record0.writeUInt16BE(2, 0);                  // compression: PalmDOC
   record0.writeUInt32BE(text.length, 4);        // uncompressed text length
-  record0.writeUInt16BE(records.length, 8);     // text record count
-  record0.writeUInt16BE(RECORD, 10);            // record size
+  record0.writeUInt16BE(textRecords.length, 8); // text record count
+  record0.writeUInt16BE(recordSize, 10);        // record size
   record0.writeUInt16BE(0, 12);                 // no encryption
   record0.write('MOBI', 16, 'ascii');
   record0.writeUInt32BE(MOBI_HEADER_LENGTH, 20);
@@ -412,48 +433,54 @@ function buildMobi() {
   record0.writeUInt32BE(0xffffffff, 108);       // first image record: none
   record0.writeUInt32BE(0x40, 128);             // EXTH present
 
-  const head0 = Buffer.concat([record0, exth, title, Buffer.alloc(2)]);
-  const allRecords = [head0, ...records];
+  return Buffer.concat([record0, exth, title, Buffer.alloc(2)]);
+}
 
-  const name = Buffer.alloc(32);
-  name.write('MyEBookReaderSample', 0, 'latin1');
-  const header = Buffer.alloc(78);
-  name.copy(header, 0);
-  header.writeUInt16BE(0, 32);                  // attributes
-  header.writeUInt16BE(1, 34);                  // version
-  header.write('BOOKMOBI', 60, 'ascii');
-  header.writeUInt16BE(allRecords.length, 76);
-
-  const tableSize = allRecords.length * 8;
-  // The record table is followed by two padding bytes before the first record.
-  let offset = header.length + tableSize + 2;
-  const table = Buffer.alloc(tableSize);
-  allRecords.forEach((record, i) => {
-    table.writeUInt32BE(offset, i * 8);
-    table.writeUInt32BE(i, i * 8 + 4);          // attributes + unique id
-    offset += record.length;
-  });
-
-  return Buffer.concat([header, table, Buffer.alloc(2), ...allRecords]);
+function buildMobi() {
+  const built = buildMobiRecords();
+  return buildPalmDb([buildMobiRecord0(built), ...built.textRecords]);
 }
 
 // ── A minimal, valid PDF ──────────────────────────────────
+//
+// Four pages, not one: turning a page, reading a run of them, printing a range
+// and the page-turn effect all need a document with pages to move between, and a
+// one- or two-page sample cannot tell a reader who turns twice from one who
+// turns once.
+const PDF_PAGES = 4;
+
 function buildPdf() {
-  const lines = [
-    'BT /F1 22 Tf 60 740 Td (MyEBookReader PDF sample) Tj ET',
-    'BT /F1 13 Tf 60 700 Td (Fixed-layout formats are drawn page by page.) Tj ET',
-    'BT /F1 13 Tf 60 676 Td (Zoom, rotation and printing all work on pages.) Tj ET',
-  ];
-  const content = `${lines.join('\n')}\n`;
+  const pageText = (n) => {
+    const lines = n === 1
+      ? [
+        'BT /F1 22 Tf 60 740 Td (MyEBookReader PDF sample) Tj ET',
+        'BT /F1 13 Tf 60 700 Td (Fixed-layout formats are drawn page by page.) Tj ET',
+        'BT /F1 13 Tf 60 676 Td (Zoom, rotation and printing all work on pages.) Tj ET',
+      ]
+      : [
+        `BT /F1 22 Tf 60 740 Td (Page ${n} of the PDF sample) Tj ET`,
+        `BT /F1 13 Tf 60 700 Td (Every page carries text, so selecting words can be tried on any of them.) Tj ET`,
+      ];
+    return `${lines.join('\n')}\n`;
+  };
+
+  // 1 catalogue · 2 page tree · 3 font, then a page and its contents in pairs.
+  const pageObj = (n) => 4 + (n - 1) * 2;
+  const kids = [];
+  for (let n = 1; n <= PDF_PAGES; n += 1) kids.push(`${pageObj(n)} 0 R`);
+
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
-    `<< /Length ${content.length} >>\nstream\n${content}endstream`,
+    `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${PDF_PAGES} >>`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R >>',
-    `<< /Length 74 >>\nstream\nBT /F1 16 Tf 60 740 Td (Page two of the PDF sample.) Tj ET\nendstream`,
   ];
+  for (let n = 1; n <= PDF_PAGES; n += 1) {
+    const content = pageText(n);
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${pageObj(n) + 1} 0 R >>`,
+      `<< /Length ${content.length} >>\nstream\n${content}endstream`,
+    );
+  }
 
   let pdf = '%PDF-1.4\n';
   const offsets = [];
@@ -590,8 +617,467 @@ function buildDicom() {
   ]);
 }
 
+// ── A Palm database, given its records ────────────────────
+function buildPalmDb(records, { name = 'MyEBookReaderSample', type = 'BOOKMOBI' } = {}) {
+  const head = Buffer.alloc(78);
+  Buffer.from(name, 'latin1').copy(head, 0, 0, Math.min(31, name.length));
+  head.writeUInt16BE(0, 32);                    // attributes
+  head.writeUInt16BE(1, 34);                    // version
+  head.write(type, 60, 'ascii');
+  head.writeUInt16BE(records.length, 76);
+
+  const tableSize = records.length * 8;
+  // Two padding bytes sit between the record table and the first record.
+  let at = head.length + tableSize + 2;
+  const table = Buffer.alloc(tableSize);
+  records.forEach((record, i) => {
+    table.writeUInt32BE(at, i * 8);
+    table.writeUInt32BE(i, i * 8 + 4);
+    at += record.length;
+  });
+  return Buffer.concat([head, table, Buffer.alloc(2), ...records]);
+}
+
+// ── The pieces an INDX table is made of ───────────────────
+//
+// See src/lib/indx.js for what these mean. Writing them here rather than
+// checking in a binary is the only way to test the reader against something
+// whose every field is known.
+
+/** A big-endian variable-width integer, the high bit marking the last byte. */
+function varint(value) {
+  const bytes = [];
+  let left = value >>> 0;
+  do {
+    bytes.unshift(left & 0x7f);
+    left >>>= 7;
+  } while (left);
+  bytes[bytes.length - 1] |= 0x80;
+  return Buffer.from(bytes);
+}
+
+const INDX_HEADER = 192;
+
+/** The header record of an index: how many entry records and CNCX records follow. */
+function indxHeader({ entryRecords, cncxRecords, tagx, entries }) {
+  const head = Buffer.alloc(INDX_HEADER);
+  head.write('INDX', 0, 'ascii');
+  head.writeUInt32BE(INDX_HEADER, 0x04);
+  head.writeUInt32BE(0, 0x08);                  // type
+  head.writeUInt32BE(1, 0x0c);                  // generation
+  head.writeUInt32BE(INDX_HEADER, 0x10);        // IDXT start (none of its own)
+  head.writeUInt32BE(entryRecords, 0x14);       // index records following
+  head.writeUInt32BE(65001, 0x18);              // encoding
+  head.writeUInt32BE(0xffffffff, 0x1c);         // language
+  head.writeUInt32BE(entries, 0x20);            // entries in all of them
+  head.writeUInt32BE(cncxRecords, 0x30);        // CNCX records following
+  return Buffer.concat([head, tagx]);
+}
+
+/** The TAGX block: what an entry's fields are. */
+function tagxBlock(controlBytes, tags) {
+  const body = Buffer.alloc(tags.length * 4);
+  tags.forEach(([tag, values, mask, end], i) => {
+    body[i * 4] = tag;
+    body[i * 4 + 1] = values;
+    body[i * 4 + 2] = mask;
+    body[i * 4 + 3] = end;
+  });
+  const head = Buffer.alloc(12);
+  head.write('TAGX', 0, 'ascii');
+  head.writeUInt32BE(12 + body.length, 4);
+  head.writeUInt32BE(controlBytes, 8);
+  return Buffer.concat([head, body]);
+}
+
+/** One record of index entries, with the IDXT offset list at its end. */
+function indxEntries(entries) {
+  const head = Buffer.alloc(INDX_HEADER);
+  head.write('INDX', 0, 'ascii');
+  head.writeUInt32BE(INDX_HEADER, 0x04);
+  head.writeUInt32BE(entries.length, 0x14);
+
+  const blobs = [];
+  const offsets = [];
+  let at = INDX_HEADER;
+  for (const { name, control, values } of entries) {
+    const label = Buffer.from(name, 'latin1');
+    const blob = Buffer.concat([
+      Buffer.from([label.length]),
+      label,
+      Buffer.from([control]),
+      ...values.map(varint),
+    ]);
+    offsets.push(at);
+    at += blob.length;
+    blobs.push(blob);
+  }
+
+  head.writeUInt32BE(at, 0x10);                 // where the IDXT list starts
+  const idxt = Buffer.alloc(4 + entries.length * 2);
+  idxt.write('IDXT', 0, 'ascii');
+  offsets.forEach((offset, i) => idxt.writeUInt16BE(offset, 4 + i * 2));
+  return Buffer.concat([head, ...blobs, idxt]);
+}
+
+/** A CNCX record: length-prefixed strings the entries point into. */
+function cncxRecord(strings) {
+  return Buffer.concat(strings.map((text) => {
+    const bytes = Buffer.from(text, 'utf8');
+    return Buffer.concat([varint(bytes.length), bytes]);
+  }));
+}
+
+// ── A KF8 book ────────────────────────────────────────────
+//
+// One stream holding every part's frame followed by that part's pieces, plus the
+// two tables that say how to thread them back together. Written the way the
+// format writes them — the frames and the pieces interleaved, the insert
+// positions measured in the part as it grows — so that a reader that gets any of
+// it wrong produces visibly wrong text rather than nearly-right text.
+function buildKf8Records({ compressed = false } = {}) {
+  const parts = CHAPTERS.map((chapter, i) => {
+    const frame = [
+      '<html><head><title>',
+      chapter.title,
+      '</title></head><body>',
+    ].join('');
+    const pieces = [
+      `<h1 aid="A${i}0">${chapter.title}</h1>`,
+      ...chapter.body
+        .filter((line) => !line.startsWith('<'))
+        .map((line, n) => `<p aid="A${i}${n + 1}">${line}</p>`),
+    ];
+    // A link from the first chapter into the last, the way KF8 writes one.
+    if (i === 0) pieces.push(`<p><a href="kindle:pos:fid:0002:off:0000000000">${chapter.title}</a></p>`);
+    if (i === 1) pieces.push('<p><img src="kindle:embed:0001?mime=image/png" alt="그림"/></p>');
+    return { frame, tail: '</body></html>', pieces };
+  });
+
+  // Flow 0: for each part, its frame then its pieces.
+  const flow0 = [];
+  const skeletons = [];
+  const fragments = [];
+  let at = 0;
+  parts.forEach((part, index) => {
+    const skeleton = Buffer.from(part.frame + part.tail, 'utf8');
+    const start = at;
+    flow0.push(skeleton);
+    at += skeleton.length;
+
+    // Each piece goes in just after <body>, after the pieces already threaded
+    // in — which is how the positions are counted: in the part as it grows.
+    let inside = Buffer.byteLength(part.frame, 'utf8');
+    part.pieces.forEach((piece, n) => {
+      const bytes = Buffer.from(piece, 'utf8');
+      flow0.push(bytes);
+      fragments.push({
+        insertAt: start + inside,
+        file: index,
+        sequence: fragments.length,
+        start: at,
+        length: bytes.length,
+        aid: `<span id="aid-A${index}${n}"/>`,
+      });
+      inside += bytes.length;
+      at += bytes.length;
+    });
+
+    skeletons.push({
+      name: `SKEL${String(index).padStart(10, '0')}`,
+      fragments: part.pieces.length,
+      start,
+      length: skeleton.length,
+    });
+  });
+
+  const flow0Bytes = Buffer.concat(flow0);
+  // Flow 1: the stylesheet, which the reader skips — its being there is the
+  // point, because flow 0 has to be found by the FDST table rather than assumed
+  // to be the whole stream.
+  const flow1Bytes = Buffer.from('body { margin: 1em; font-family: serif; }\n', 'utf8');
+  const raw = Buffer.concat([flow0Bytes, flow1Bytes]);
+
+  // ── The records ──
+  const RECORD = 4096;
+  const textRecords = [];
+  for (let p = 0; p < raw.length; p += RECORD) {
+    const chunk = raw.subarray(p, Math.min(p + RECORD, raw.length));
+    textRecords.push(compressed ? palmDocCompress(chunk) : Buffer.from(chunk));
+  }
+
+  const fdst = Buffer.alloc(12 + 2 * 8);
+  fdst.write('FDST', 0, 'ascii');
+  fdst.writeUInt32BE(12, 0x04);
+  fdst.writeUInt32BE(2, 0x08);
+  fdst.writeUInt32BE(0, 12);
+  fdst.writeUInt32BE(flow0Bytes.length, 16);
+  fdst.writeUInt32BE(flow0Bytes.length, 20);
+  fdst.writeUInt32BE(raw.length, 24);
+
+  // Skeleton table: one value for the chunk count (tag 1) and two for where the
+  // frame lives (tag 6).
+  const skelTagx = tagxBlock(1, [[1, 1, 0x03, 0], [6, 2, 0x0c, 0], [0, 0, 0, 1]]);
+  const skelEntries = indxEntries(skeletons.map((s) => ({
+    name: s.name,
+    control: 0x05,
+    values: [s.fragments, s.start, s.length],
+  })));
+  const skelHead = indxHeader({
+    entryRecords: 1, cncxRecords: 0, tagx: skelTagx, entries: skeletons.length,
+  });
+
+  // Fragment table: the CNCX offset of its id (2), which part it belongs to (3),
+  // its sequence (4) and where the piece lives (6).
+  const fragTagx = tagxBlock(1, [
+    [2, 1, 0x01, 0], [3, 1, 0x02, 0], [4, 1, 0x04, 0], [6, 2, 0x08, 0], [0, 0, 0, 1],
+  ]);
+  const aids = [];
+  let cncxAt = 0;
+  const fragEntries = indxEntries(fragments.map((f) => {
+    const offset = cncxAt;
+    const bytes = Buffer.from(f.aid, 'utf8');
+    cncxAt += varint(bytes.length).length + bytes.length;
+    aids.push(f.aid);
+    return {
+      name: String(f.insertAt),
+      control: 0x0f,
+      values: [offset, f.file, f.sequence, f.start, f.length],
+    };
+  }));
+  const fragHead = indxHeader({
+    entryRecords: 1, cncxRecords: 1, tagx: fragTagx, entries: fragments.length,
+  });
+  const fragCncx = cncxRecord(aids);
+
+  // A 1×1 PNG, which `kindle:embed:0001` points at.
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
+    'base64',
+  );
+
+  const after = 1 + textRecords.length;
+  const layout = {
+    fdst: after,
+    skel: after + 1,
+    frag: after + 3,
+    resource: after + 6,
+  };
+  const tail = [fdst, skelHead, skelEntries, fragHead, fragEntries, fragCncx, png];
+
+  return {
+    raw,
+    textRecords,
+    tail,
+    layout,
+    parts: parts.length,
+    fragments: fragments.length,
+    compression: compressed ? 2 : 1,
+  };
+}
+
+/** Record 0 of a KF8 part: PalmDOC header, MOBI 8 header, EXTH. */
+function buildKf8Record0({ raw, textRecords, layout, compression, boundary }) {
+  const title = Buffer.from('MyEBookReader AZW3 샘플', 'utf8');
+  const exthEntries = [
+    [100, Buffer.from('SHKWON', 'utf8')],
+    [101, Buffer.from('TestSimulator', 'utf8')],
+    [503, title],
+  ];
+  if (boundary != null) {
+    const value = Buffer.alloc(4);
+    value.writeUInt32BE(boundary, 0);
+    exthEntries.push([121, value]);
+  }
+  const exthBody = Buffer.concat(exthEntries.map(([type, value]) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(type, 0);
+    head.writeUInt32BE(8 + value.length, 4);
+    return Buffer.concat([head, value]);
+  }));
+  const exth = Buffer.alloc(12);
+  exth.write('EXTH', 0, 'ascii');
+  exth.writeUInt32BE(12 + exthBody.length, 4);
+  exth.writeUInt32BE(exthEntries.length, 8);
+
+  // 264 bytes: long enough to carry the KF8 tables, which a MOBI 6 header is
+  // not. That length is itself how a reader tells the two apart.
+  const MOBI_HEADER = 264;
+  const head = Buffer.alloc(16 + MOBI_HEADER);
+  head.writeUInt16BE(compression, 0);
+  head.writeUInt32BE(raw.length, 4);
+  head.writeUInt16BE(textRecords.length, 8);
+  head.writeUInt16BE(4096, 10);
+  head.writeUInt16BE(0, 12);                    // no DRM
+  head.write('MOBI', 16, 'ascii');
+  head.writeUInt32BE(MOBI_HEADER, 20);
+  head.writeUInt32BE(2, 24);                    // mobi type: book
+  head.writeUInt32BE(65001, 28);                // UTF-8
+  head.writeUInt32BE(8, 32);                    // unique id
+  head.writeUInt32BE(8, 36);                    // file version: KF8
+  head.writeUInt32BE(layout.resource, 108);     // first resource record
+  head.writeUInt32BE(0, 112);                   // no HUFF record
+  head.writeUInt32BE(0, 116);
+  head.writeUInt32BE(0x40, 128);                // EXTH present
+  head.writeUInt32BE(layout.fdst, 192);         // FDST record
+  head.writeUInt32BE(2, 196);                   // flows
+  head.writeUInt32BE(0, 240);                   // no extra record data
+  head.writeUInt32BE(layout.frag, 248);         // fragment index
+  head.writeUInt32BE(layout.skel, 252);         // skeleton index
+  head.writeUInt32BE(16 + MOBI_HEADER + exth.length + exthBody.length, 84);
+  head.writeUInt32BE(title.length, 88);
+  head.writeUInt32BE(9, 92);                    // locale: ko
+
+  return Buffer.concat([head, exth, exthBody, title, Buffer.alloc(2)]);
+}
+
+/** A KF8-only .azw3 — what Calibre writes, and newer Kindle files. */
+function buildAzw3() {
+  const built = buildKf8Records({ compressed: true });
+  const record0 = buildKf8Record0(built);
+  return buildPalmDb([record0, ...built.textRecords, ...built.tail]);
+}
+
+// ── A MOBI compressed the other way: HUFF/CDIC ────────────
+//
+// Dictionaries and a good many AZW files use compression 17480 — a Huffman code
+// over a phrase dictionary — and a reader that cannot decode it can only refuse
+// the book. Writing a real one here is what lets that decoder be tested.
+//
+// The tables below are the simplest ones the format allows that are still
+// genuinely a Huffman code: 256 symbols, every code eight bits long and whole
+// ("terminal"), and a dictionary of 256 one-byte phrases. Canonical Huffman then
+// puts the largest code of length 8 at 255, and the decoder works out a phrase
+// index of `255 - byte` — so phrase i is the byte `255 - i`, and the encoded
+// stream comes out byte-for-byte the same as the plain text. That is the point:
+// the bytes on disk are known, so a decoder that mishandles the bit window, the
+// code lengths or the dictionary produces something visibly different.
+function buildHuffTables() {
+  const HEADER = 24;
+  const dict1 = Buffer.alloc(256 * 4);
+  for (let b = 0; b < 256; b += 1) {
+    // codelen 8, terminal, and the largest code of that length — which is 255.
+    dict1.writeUInt32BE((255 << 8) | 0x80 | 8, b * 4);
+  }
+  // mincode/maxcode per code length. Never consulted: every code above is whole
+  // on its leading byte.
+  const dict2 = Buffer.alloc(64 * 4);
+
+  const huffHead = Buffer.alloc(HEADER);
+  huffHead.write('HUFF', 0, 'ascii');
+  huffHead.writeUInt32BE(HEADER, 4);
+  huffHead.writeUInt32BE(HEADER, 8);                    // where dict1 starts
+  huffHead.writeUInt32BE(HEADER + dict1.length, 12);    // where dict2 starts
+  const huff = Buffer.concat([huffHead, dict1, dict2]);
+
+  // The phrases. Phrase i is the single byte 255 - i, and each carries the flag
+  // that says it is already plain rather than compressed in its turn.
+  const count = 256;
+  const offsets = Buffer.alloc(count * 2);
+  const entries = [];
+  let at = offsets.length;
+  for (let i = 0; i < count; i += 1) {
+    offsets.writeUInt16BE(at, i * 2);
+    const entry = Buffer.alloc(3);
+    entry.writeUInt16BE(0x8000 | 1, 0);                 // one byte, already plain
+    entry[2] = 255 - i;
+    entries.push(entry);
+    at += entry.length;
+  }
+  const cdicHead = Buffer.alloc(16);
+  cdicHead.write('CDIC', 0, 'ascii');
+  cdicHead.writeUInt32BE(16, 4);
+  cdicHead.writeUInt32BE(count, 8);
+  cdicHead.writeUInt32BE(8, 12);                        // 1 << 8 phrases a record
+  const cdic = Buffer.concat([cdicHead, offsets, ...entries]);
+
+  return { huff, cdic };
+}
+
+/** A MOBI 6 book whose text is HUFF/CDIC compressed. */
+function buildHuffMobi() {
+  const html = `<html><head><guide></guide></head><body>${
+    CHAPTERS.map((chapter, i) => `${i ? '<mbp:pagebreak/>' : ''}<h1>${chapter.title}</h1>${
+      chapter.body.filter((line) => !line.startsWith('<')).map((line) => `<p>${line}</p>`).join('')
+    }`).join('')
+  }</body></html>`;
+
+  const text = Buffer.from(html, 'utf8');
+  const RECORD = 4096;
+  const textRecords = [];
+  for (let at = 0; at < text.length; at += RECORD) {
+    // With the tables above, the coded bytes are the plain bytes.
+    textRecords.push(Buffer.from(text.subarray(at, Math.min(at + RECORD, text.length))));
+  }
+
+  const { huff, cdic } = buildHuffTables();
+  const huffAt = 1 + textRecords.length;
+
+  const title = Buffer.from('MyEBookReader HUFF 샘플', 'utf8');
+  const exthEntries = [
+    [100, Buffer.from('SHKWON', 'utf8')],
+    [503, title],
+  ];
+  const exthBody = Buffer.concat(exthEntries.map(([type, value]) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(type, 0);
+    head.writeUInt32BE(8 + value.length, 4);
+    return Buffer.concat([head, value]);
+  }));
+  const exth = Buffer.alloc(12);
+  exth.write('EXTH', 0, 'ascii');
+  exth.writeUInt32BE(12 + exthBody.length, 4);
+  exth.writeUInt32BE(exthEntries.length, 8);
+
+  const MOBI_HEADER = 232;
+  const head = Buffer.alloc(16 + MOBI_HEADER);
+  head.writeUInt16BE(17480, 0);                 // HUFF/CDIC
+  head.writeUInt32BE(text.length, 4);
+  head.writeUInt16BE(textRecords.length, 8);
+  head.writeUInt16BE(4096, 10);
+  head.writeUInt16BE(0, 12);                    // no DRM
+  head.write('MOBI', 16, 'ascii');
+  head.writeUInt32BE(MOBI_HEADER, 20);
+  head.writeUInt32BE(2, 24);                    // mobi type: book
+  head.writeUInt32BE(65001, 28);                // UTF-8
+  head.writeUInt32BE(6, 32);
+  head.writeUInt32BE(6, 36);                    // file version: MOBI 6
+  head.writeUInt32BE(0, 108);                   // no images
+  head.writeUInt32BE(huffAt, 112);              // the HUFF record
+  head.writeUInt32BE(2, 116);                   // it and one CDIC
+  head.writeUInt32BE(0x40, 128);                // EXTH present
+  head.writeUInt32BE(16 + MOBI_HEADER + exth.length + exthBody.length, 84);
+  head.writeUInt32BE(title.length, 88);
+  head.writeUInt32BE(9, 92);                    // locale: ko
+
+  const record0 = Buffer.concat([head, exth, exthBody, title, Buffer.alloc(2)]);
+  return buildPalmDb([record0, ...textRecords, huff, cdic]);
+}
+
+/**
+ * A file carrying both books at once — an old MOBI 6 one and a KF8 one — which
+ * is the shape of most .azw3 files Amazon sells. EXTH 121 in the first record 0
+ * says where the second book starts.
+ */
+function buildDualAzw3() {
+  const mobi6 = buildMobiRecords();
+  const kf8 = buildKf8Records({ compressed: true });
+
+  // The KF8 half's own record numbers are counted from its own record 0, so its
+  // record 0 can be built before knowing where in the file it will sit.
+  const kf8Record0 = buildKf8Record0(kf8);
+  const kf8Records = [kf8Record0, ...kf8.textRecords, ...kf8.tail];
+
+  const boundary = 1 + mobi6.textRecords.length;
+  const mobi6Record0 = buildMobiRecord0({ ...mobi6, boundary });
+  return buildPalmDb([mobi6Record0, ...mobi6.textRecords, ...kf8Records]);
+}
+
 const FILES = [
   ['sample.epub', buildEpub],
+  ['sample.azw3', buildAzw3],
+  ['sample-dual.azw3', buildDualAzw3],
+  ['sample-huff.mobi', buildHuffMobi],
   ['sample.png', buildPng],
   ['sample.tif', buildTiff],
   ['sample.dcm', buildDicom],

@@ -42,19 +42,22 @@ describe('Settings dialog', () => {
   it('shows every settings tab', () => {
     renderBody('settings');
     const tabs = [...document.querySelectorAll('.tabs .tab')].map((tab) => tab.textContent);
-    expect(tabs).toEqual(['appearance', 'reading', 'view', 'files', 'window'].map((id) => t(`settings.tabs.${id}`)));
+    expect(tabs).toEqual(['appearance', 'reading', 'view', 'window'].map((id) => t(`settings.tabs.${id}`)));
   });
 
   it('keeps every tab in the layout so the window never resizes', () => {
     renderBody('settings');
-    expect(document.querySelectorAll('.settings-panel')).toHaveLength(5);
+    expect(document.querySelectorAll('.settings-panel')).toHaveLength(4);
     expect(document.querySelectorAll('.settings-panel.on')).toHaveLength(1);
   });
 
   it('switches tab without closing', () => {
     renderBody('settings');
     fireEvent.click(screen.getByText(t('settings.tabs.reading')));
-    expect(document.querySelector('.settings-panel.on').textContent).toContain(t('reading.font'));
+    const panel = document.querySelector('.settings-panel.on');
+    expect(panel.textContent).toContain(t('reading.font'));
+    const size = [...panel.querySelectorAll('.field.inline .field-label')].map((el) => el.textContent);
+    expect(size).toContain(t('reading.size'));
   });
 
   it('offers every theme, and reports the chosen one', () => {
@@ -93,7 +96,9 @@ describe('Settings dialog', () => {
 
   it('changes the UI font size with the stepper', () => {
     const { onResult } = renderBody('settings');
-    fireEvent.click(screen.getByTitle(t('settings.fontLarger')));
+    const larger = screen.getByTitle(t('settings.fontLarger'));
+    expect(larger.closest('.field').classList.contains('inline')).toBe(true);
+    fireEvent.click(larger);
     expect(onResult).toHaveBeenCalledWith({ action: 'settings', settings: expect.objectContaining({ fontSize: 15 }) });
   });
 
@@ -106,8 +111,10 @@ describe('Settings dialog', () => {
   it('changes the reading layout', () => {
     const { onResult } = renderBody('settings');
     fireEvent.click(screen.getByText(t('settings.tabs.reading')));
-    fireEvent.click(screen.getByTitle(t('reading.paged')));
-    expect(onResult).toHaveBeenCalledWith({ action: 'settings', settings: expect.objectContaining({ pageMode: 'paged' }) });
+    fireEvent.click(screen.getByTitle(t('cmd.viewSingle')));
+    expect(onResult).toHaveBeenCalledWith({ action: 'settings', settings: expect.objectContaining({
+      viewLayout: 'single', pageMode: 'paged', pageFlow: 'paged', spread: 'single',
+    }) });
   });
 
   it('asks for a background image and can clear it', () => {
@@ -120,43 +127,57 @@ describe('Settings dialog', () => {
     expect(document.querySelector('.bg-preview')).toBeTruthy();
   });
 
-  it('lists the recent files and removes them', () => {
-    const settings = {
-      ...DEFAULT_SETTINGS,
-      recentFiles: [{ path: '/a/b.epub', name: 'b.epub', dir: '/a' }],
-      recentDirs: ['/a'],
-    };
-    const { onResult } = renderBody('settings', { settings });
-    fireEvent.click(screen.getByText(t('settings.tabs.files')));
-    expect(screen.getByText('b.epub')).toBeTruthy();
-    fireEvent.click(screen.getByTitle(t('recent.remove')));
-    expect(onResult).toHaveBeenCalledWith({ action: 'removeRecent', key: '/a/b.epub' });
-    fireEvent.click(screen.getByTitle(t('settings.clearRecent')));
-    expect(onResult).toHaveBeenCalledWith({ action: 'clearRecent' });
-    fireEvent.click(screen.getByTitle(t('settings.clearDirs')));
-    expect(onResult).toHaveBeenCalledWith({ action: 'clearDirs' });
-  });
-
   it('shows where the settings are stored', () => {
     renderBody('settings', { storagePath: 'C:\\Users\\me\\AppData' });
-    fireEvent.click(document.querySelectorAll('.tabs .tab')[4]);
+    fireEvent.click(document.querySelectorAll('.tabs .tab')[3]);
     expect(screen.getByText('C:\\Users\\me\\AppData')).toBeTruthy();
   });
 
-  it('resets everything on request', () => {
+  it('resets everything on request, from the window own buttons', () => {
     const { onResult } = renderBody('settings');
-    fireEvent.click(document.querySelectorAll('.tabs .tab')[4]);
-    fireEvent.click(screen.getByTitle(t('settings.resetAll')));
+    // The reset is not inside any one tab: it applies to the whole of the
+    // settings, so it sits along the foot of the window with "done".
+    fireEvent.click(screen.getByTitle(t('settings.resetAllTip')));
     expect(onResult).toHaveBeenCalledWith({ action: 'reset' });
   });
 
-  it('chooses the page layout and the page-turning effect', () => {
+  it('closes when the reader says it is done', () => {
     const { onResult } = renderBody('settings');
+    fireEvent.click(screen.getByTitle(t('common.ok')));
+    expect(onResult).toHaveBeenCalledWith({ action: 'close' });
+  });
+
+  it('offers both buttons whichever tab is showing', () => {
+    renderBody('settings');
+    for (const tab of [...document.querySelectorAll('.tabs .tab')]) {
+      fireEvent.click(tab);
+      expect(screen.getByTitle(t('settings.resetAllTip'))).toBeTruthy();
+      expect(screen.getByTitle(t('common.ok'))).toBeTruthy();
+    }
+  });
+
+  it('chooses the page layout and the page-turning effect', () => {
+    const { onResult, rerender } = renderBody('settings');
     fireEvent.click(document.querySelectorAll('.tabs .tab')[1]);
-    fireEvent.click(screen.getByTitle(t('cmd.spreadDouble')));
-    expect(onResult).toHaveBeenCalledWith({ action: 'settings', settings: expect.objectContaining({ spread: 'double' }) });
+    fireEvent.click(screen.getByTitle(t('cmd.viewDouble')));
+    const laid = onResult.mock.calls.at(-1)[0];
+    expect(laid).toEqual({ action: 'settings', settings: expect.objectContaining({
+      viewLayout: 'double', spread: 'double', pageFlow: 'paged',
+    }) });
+    // A continuous run has no page to turn. Choosing two pages is what makes
+    // the effect available, which the window learns when the settings come back.
+    rerender(
+      <DialogBody
+        name="settings"
+        payload={{ language: 'ko', theme: 'dark', settings: laid.settings }}
+        onResult={onResult}
+      />,
+    );
+    fireEvent.click(document.querySelectorAll('.tabs .tab')[1]);
     fireEvent.click(screen.getByTitle(t('reading.turnFlip')));
-    expect(onResult).toHaveBeenCalledWith({ action: 'settings', settings: expect.objectContaining({ pageTurn: 'flip' }) });
+    expect(onResult).toHaveBeenLastCalledWith({ action: 'settings', settings: expect.objectContaining({
+      pageTurn: 'flip', viewLayout: 'double',
+    }) });
   });
 });
 

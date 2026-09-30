@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  IconOpen, IconSave, IconPrint, IconUndo, IconRedo, IconBookmarkAdd, IconHighlight,
-  IconNote, IconSearch, IconPrev, IconNext, IconTextSize, IconZoomIn, IconZoomOut,
+  IconOpen, IconFolderOpen, IconSave, IconPrint, IconUndo, IconRedo,
+  IconPrev, IconNext, IconZoomIn, IconZoomOut,
   IconPanelLeft, IconPanelRight, IconTheme, IconSettings, IconInfo, IconFlag,
-  IconFolder, IconContents, IconLayout, IconBookmark, IconScroll, IconPaged, IconDown,
-  IconActual, IconColumns, IconLibrary, IconImage, IconFitWidth, IconFitPage, IconFitHeight,
-  IconPageTurn,
+  IconScroll, IconDown,
+  IconLibrary, IconImage, IconFitWidth, IconFitPage, IconFitHeight,
+  IconPageTurn, IconOnePage, IconTwoPages, IconColumns, IconTextSize,
 } from './Icons.jsx';
 import { nextTheme } from '../lib/themes.js';
+import { viewLayoutOf, effectiveZoomMode, textColumnsOf, fontPixels } from '../lib/view.js';
 import { otherLang } from '../i18n.js';
 import { api, isElectron } from '../lib/platform.js';
+import { getSystemFonts } from '../lib/fonts.js';
 
 // The window must never be narrow enough to hide a toolbar button. How much the
 // row needs depends on the language, the UI font and whether button labels are
@@ -59,7 +61,7 @@ function useToolbarMinWidth(barRef, scrollRef, deps) {
 
 // Every toolbar control carries a `title`, which the global Tooltip component
 // turns into a fast custom tooltip.
-export function ToolButton({ icon: Icon, label, tip, onClick, disabled, active, showLabel }) {
+export function ToolButton({ icon: Icon, label, tip, onClick, disabled, active, pressed, showLabel, testId }) {
   return (
     <button
       type="button"
@@ -68,6 +70,10 @@ export function ToolButton({ icon: Icon, label, tip, onClick, disabled, active, 
       disabled={disabled}
       title={tip || label}
       aria-label={label}
+      aria-pressed={typeof pressed === 'boolean' ? pressed : undefined}
+      // A handle for the GUI tests on the buttons whose label changes with the
+      // state and the language, which there is no stable way to look up.
+      data-testid={testId}
     >
       <Icon size={18} />
       {showLabel ? <span className="tbtn-label">{label}</span> : null}
@@ -84,7 +90,7 @@ export function ToolButton({ icon: Icon, label, tip, onClick, disabled, active, 
  * a single column. On the web, where there is no second window to open, the
  * caller falls back to the in-page context menu at the same anchor.
  */
-function MenuButton({ icon: Icon, label, tip, menu, showLabel, onOpenMenu, disabled, chevron = true }) {
+function MenuButton({ icon: Icon, label, tip, menu, showLabel, onOpenMenu, disabled, testId, chevron = true }) {
   const btnRef = useRef(null);
 
   const open = () => {
@@ -109,6 +115,7 @@ function MenuButton({ icon: Icon, label, tip, menu, showLabel, onOpenMenu, disab
       title={tip || label}
       aria-label={label}
       aria-haspopup="menu"
+      data-testid={testId}
     >
       <Icon size={18} />
       {showLabel ? <span className="tbtn-label">{label}</span> : null}
@@ -117,20 +124,23 @@ function MenuButton({ icon: Icon, label, tip, menu, showLabel, onOpenMenu, disab
   );
 }
 
-/** The effects in the order the button steps through them. */
-const NEXT_TURN = { none: 'slide', slide: 'flip', flip: 'none' };
+/** What each effect is called, for the button that opens the list of them. */
 const TURN_LABEL = { none: 'None', slide: 'Slide', flip: 'Flip' };
 
 export default function Toolbar({
-  settings, book, section, sectionCount, scale, hasSelection, history, bookmarkCount,
-  galleryOpen, onOpenMenu, onCommand, onGoToSection, onTheme, onLang,
+  settings, book, section, sectionCount, scale, hasImage, history,
+  galleryOpen, onOpenMenu, onCommand, onGoToSection, onTheme, onLang, onReaderFont,
 }) {
   const { t, i18n } = useTranslation();
   const [sectionInput, setSectionInput] = useState(String(section + 1));
+  const [fonts, setFonts] = useState([]);
   const showLabel = settings.showToolbarLabels;
   const barRef = useRef(null);
   const scrollRef = useRef(null);
   const reflowable = book ? book.reflowable : true;
+  // One layout for every format. A continuous run has nothing to turn.
+  const layout = viewLayoutOf(settings, book);
+  const fit = effectiveZoomMode(settings, layout);
 
   useToolbarMinWidth(barRef, scrollRef, [
     showLabel, i18n.language, settings.fontFamily, settings.fontSize,
@@ -138,6 +148,16 @@ export default function Toolbar({
   ]);
 
   useEffect(() => { setSectionInput(String(section + 1)); }, [section]);
+
+  // Installed faces for an EPUB or MOBI. A list the system has already given
+  // is kept; opening the control asks again, which is when the computer can
+  // hand over every font it has.
+  const loadFonts = useCallback(() => {
+    getSystemFonts().then((list) => {
+      setFonts((prev) => (list.length >= prev.length ? list : prev));
+    }).catch(() => {});
+  }, []);
+  useEffect(() => { loadFonts(); }, [loadFonts]);
 
   const commitSection = () => {
     const n = parseInt(sectionInput, 10);
@@ -149,14 +169,23 @@ export default function Toolbar({
 
   return (
     <div className="toolbar" ref={barRef}>
-      {/* One row, always. Commands are grouped by kind behind a menu button —
-          File, Reading, View, Marks — and only the everyday ones sit out here. */}
+      {/* One row, always, and it holds *actions* only. Bookmarks, notes,
+          highlights and search live in the left tools, so they are not repeated
+          here. The page-turn effect is a setting picked from a list. */}
       <div className="toolbar-scroll" ref={scrollRef}>
 
         {/* File */}
         <div className="toolbar-group">
-          <MenuButton icon={IconFolder} label={t('menu.file')} tip={t('tip.fileMenu')} menu="file" showLabel={showLabel} onOpenMenu={onOpenMenu} />
           <ToolButton icon={IconOpen} label={t('cmd.open')} tip={t('tip.open')} onClick={run('open')} showLabel={showLabel} />
+          <ToolButton
+            icon={IconFolderOpen}
+            label={t('cmd.openFolder')}
+            tip={t('tip.openFolder')}
+            onClick={run('openFolder')}
+            disabled={!isElectron}
+            showLabel={showLabel}
+            testId="open-folder"
+          />
           <ToolButton icon={IconSave} label={t('cmd.saveLibrary')} tip={t('tip.save')} onClick={run('saveLibrary')} disabled={!book} showLabel={showLabel} />
           <ToolButton icon={IconPrint} label={t('cmd.print')} tip={t('tip.print')} onClick={run('print')} disabled={!book} showLabel={showLabel} />
         </div>
@@ -185,52 +214,16 @@ export default function Toolbar({
 
         <div className="toolbar-sep" />
 
-        {/* Marks */}
+        {/* Navigation. There is no Reading menu button here: everything in that
+            menu is already a button on this row — where to go, how big the
+            letters are, one page or one long column — and having both meant two
+            ways to the same thing an inch apart. The menu bar still has it. */}
         <div className="toolbar-group">
-          <MenuButton icon={IconContents} label={t('menu.marks')} tip={t('tip.marksMenu')} menu="marks" showLabel={showLabel} onOpenMenu={onOpenMenu} />
-          {/* Split: the button adds a bookmark, the chevron lists the ones
-              already made — in its own window, like every other menu. */}
-          <span className="menu-wrap split">
-            <ToolButton
-              icon={IconBookmarkAdd}
-              label={t('cmd.addBookmark')}
-              tip={t('tip.bookmark')}
-              onClick={run('addBookmark')}
-              disabled={!book}
-              showLabel={showLabel}
-            />
-            <MenuButton
-              icon={IconBookmark}
-              label={t('menu.bookmarks')}
-              tip={t('tip.bookmarkList', { n: bookmarkCount || 0 })}
-              menu="bookmarks"
-              onOpenMenu={onOpenMenu}
-              disabled={!book || !bookmarkCount}
-              chevron={false}
-            />
-          </span>
-          <ToolButton icon={IconHighlight} label={t('cmd.highlight')} tip={t('tip.highlight')} onClick={run('highlight')} disabled={!hasSelection} showLabel={showLabel} />
-          <ToolButton icon={IconNote} label={t('cmd.addNote')} tip={t('tip.note')} onClick={run('addNote')} disabled={!book} showLabel={showLabel} />
-          <ToolButton
-            icon={IconSearch}
-            label={t('cmd.find')}
-            tip={t('tip.find')}
-            onClick={run('find')}
-            disabled={!book}
-            active={settings.leftPanel === 'search'}
-            showLabel={showLabel}
-          />
-        </div>
-
-        <div className="toolbar-sep" />
-
-        {/* Navigation */}
-        <div className="toolbar-group">
-          <MenuButton icon={IconLayout} label={t('menu.reading')} tip={t('tip.readingMenu')} menu="reading" showLabel={showLabel} onOpenMenu={onOpenMenu} />
-          <ToolButton icon={IconPrev} label={t('cmd.prevSection')} tip={t('tip.prev')} onClick={run('prevSection')} disabled={!book || section <= 0} />
+          <ToolButton icon={IconPrev} label={t('cmd.prevSection')} tip={t('tip.prev')} onClick={run('prevSection')} disabled={!book || section <= 0} testId="prev-section" />
           <span className="page-box">
             <input
               className="page-input"
+              style={{ width: `${Math.max(1, String(sectionInput).length)}ch` }}
               value={sectionInput}
               onChange={(e) => setSectionInput(e.target.value.replace(/[^\d]/g, ''))}
               onBlur={commitSection}
@@ -241,107 +234,213 @@ export default function Toolbar({
             />
             <span className="page-total">/ {sectionCount || 0}</span>
           </span>
-          <ToolButton icon={IconNext} label={t('cmd.nextSection')} tip={t('tip.next')} onClick={run('nextSection')} disabled={!book || section >= sectionCount - 1} />
-          {/* The page-turn effect, one press at a time: none → slide → leaf. */}
+          <ToolButton icon={IconNext} label={t('cmd.nextSection')} tip={t('tip.next')} onClick={run('nextSection')} disabled={!book || section >= sectionCount - 1} testId="next-section" />
+          {/* One page, two pages, or a continuous run. Exactly one is on:
+              pressing one clears the other two, for every format. */}
           <ToolButton
+            icon={IconOnePage}
+            label={t('cmd.viewSingle')}
+            tip={t('tip.viewSingle')}
+            onClick={run('viewSingle')}
+            disabled={!book}
+            active={!!book && layout === 'single'}
+            pressed={!!book && layout === 'single'}
+            showLabel={showLabel}
+            testId="view-single"
+          />
+          <ToolButton
+            icon={IconTwoPages}
+            label={t('cmd.viewDouble')}
+            tip={t('tip.viewDouble')}
+            onClick={run('viewDouble')}
+            disabled={!book}
+            active={!!book && layout === 'double'}
+            pressed={!!book && layout === 'double'}
+            showLabel={showLabel}
+            testId="view-double"
+          />
+          <ToolButton
+            icon={IconScroll}
+            label={t('cmd.viewContinuous')}
+            tip={t('tip.viewContinuous')}
+            onClick={run('viewContinuous')}
+            disabled={!book}
+            active={!!book && layout === 'continuous'}
+            pressed={!!book && layout === 'continuous'}
+            showLabel={showLabel}
+            testId="view-continuous"
+          />
+          {/* The page-turn effect sits with the view it belongs to: one page
+              or two. A continuous run has nothing to turn, so the button is
+              off there. It is a list to pick from, not a cycle to press through. */}
+          <MenuButton
             icon={IconPageTurn}
             label={t(`cmd.turn${TURN_LABEL[settings.pageTurn] || 'None'}`)}
             tip={t('tip.pageTurn', { name: t(`reading.turn${TURN_LABEL[settings.pageTurn] || 'None'}`) })}
-            onClick={run(`turn${TURN_LABEL[NEXT_TURN[settings.pageTurn] || 'slide']}`)}
-            active={settings.pageTurn !== 'none'}
+            menu="turn"
+            onOpenMenu={onOpenMenu}
+            disabled={!book || layout === 'continuous'}
+            testId="page-turn"
           />
-          <ToolButton
-            icon={settings.pageMode === 'paged' ? IconPaged : IconScroll}
-            label={settings.pageMode === 'paged' ? t('cmd.modePaged') : t('cmd.modeScroll')}
-            tip={t('tip.pageMode')}
-            onClick={run(settings.pageMode === 'paged' ? 'modeScroll' : 'modePaged')}
-            disabled={!book || !reflowable}
-          />
+          {/* One column or two, on a single page. A PDF page does not reflow.
+              The digit is drawn beside the icon so the two buttons can be told
+              apart. */}
+          {[1, 2].map((count) => {
+            const shown = layout === 'single' ? textColumnsOf(settings) : 1;
+            const on = !!book && reflowable && layout === 'single' && shown === count;
+            const columnsOff = !reflowable || layout !== 'single';
+            const columnsTip = !reflowable
+              ? t('tip.columnsFixed')
+              : layout === 'double'
+                ? t('tip.columnsFacing')
+                : layout !== 'single'
+                  ? t('tip.columnsFlow')
+                  : t(`tip.columns${count}`);
+            return (
+              <button
+                key={count}
+                type="button"
+                className={`tbtn col-btn${on ? ' active' : ''}`}
+                onClick={run(`columns${count}`)}
+                disabled={!book || columnsOff}
+                title={columnsTip}
+                aria-label={t(`cmd.columns${count}`)}
+                aria-pressed={on}
+                data-testid={`columns-${count}`}
+              >
+                <IconColumns size={16} />
+                <span className="col-count">{count}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="toolbar-sep" />
 
-        {/* Size: text scale for reflowable books, zoom for PDFs and comics */}
+        {/* Size. A picture zooms. An ebook is already the window, so its zoom
+            stays off and the type size beside it is what changes. */}
         <div className="toolbar-group">
-          <MenuButton icon={IconTextSize} label={t('menu.view')} tip={t('tip.viewMenu')} menu="view" showLabel={showLabel} onOpenMenu={onOpenMenu} />
-          {/* Three controls, always: smaller — the current size, which puts it
-              back to 100% — larger. Text for a reflowable book, zoom for a
-              fixed-layout one. */}
+          <ToolButton
+            icon={IconZoomOut}
+            label={t('cmd.zoomOut')}
+            tip={reflowable ? t('tip.zoomEbook') : t('tip.zoomOut')}
+            onClick={run('zoomOut')}
+            disabled={!book || reflowable}
+            testId="zoom-out"
+          />
+          <button
+            type="button"
+            className="tbtn zoom-readout"
+            onClick={run('actualSize')}
+            disabled={!book || reflowable}
+            title={reflowable ? t('tip.zoomEbook') : t('tip.zoomReset')}
+            aria-label={t('cmd.actualSize')}
+            data-testid="zoom-readout"
+          >
+            {Math.round((scale || 1) * 100)}%
+          </button>
+          <ToolButton
+            icon={IconZoomIn}
+            label={t('cmd.zoomIn')}
+            tip={reflowable ? t('tip.zoomEbook') : t('tip.zoomIn')}
+            onClick={run('zoomIn')}
+            disabled={!book || reflowable}
+            testId="zoom-in"
+          />
           {reflowable ? (
             <>
-              <ToolButton icon={IconZoomOut} label={t('cmd.textSmaller')} tip={t('tip.textSmaller')} onClick={run('textSmaller')} disabled={!book} />
+              <select
+                className="font-pick"
+                value={settings.readerFont || ''}
+                disabled={!book}
+                title={t('tip.readerFont')}
+                aria-label={t('reading.font')}
+                data-testid="reader-font"
+                style={settings.readerFont ? { fontFamily: `'${String(settings.readerFont).replace(/'/g, "\\'")}'` } : undefined}
+                onPointerDown={loadFonts}
+                onChange={(e) => onReaderFont?.(e.target.value)}
+              >
+                <option value="">{t('reading.defaultFont')}</option>
+                {(settings.readerFont && !fonts.includes(settings.readerFont) ? [settings.readerFont, ...fonts] : fonts).map((font) => (
+                  <option key={font} value={font} style={{ fontFamily: `'${String(font).replace(/'/g, "\\'")}'` }}>{font}</option>
+                ))}
+              </select>
               <button
                 type="button"
-                className="tbtn zoom-readout"
+                className="tbtn font-step"
+                onClick={run('textSmaller')}
+                disabled={!book}
+                title={t('tip.textSmaller')}
+                aria-label={t('cmd.textSmaller')}
+                data-testid="font-smaller"
+              >
+                <IconTextSize size={16} />
+                <span className="col-count">−</span>
+              </button>
+              <button
+                type="button"
+                className="tbtn zoom-readout font-readout"
                 onClick={run('textReset')}
                 disabled={!book}
                 title={t('tip.textReset')}
                 aria-label={t('cmd.textReset')}
+                data-testid="font-readout"
               >
-                {Math.round((settings.fontScale || 1) * 100)}%
+                {fontPixels(settings.fontScale)}px
               </button>
-              <ToolButton icon={IconZoomIn} label={t('cmd.textBigger')} tip={t('tip.textBigger')} onClick={run('textBigger')} disabled={!book} />
-            </>
-          ) : (
-            <>
-              <ToolButton icon={IconZoomOut} label={t('cmd.zoomOut')} tip={t('tip.zoomOut')} onClick={run('zoomOut')} disabled={!book} />
               <button
                 type="button"
-                className="tbtn zoom-readout"
-                onClick={run('actualSize')}
+                className="tbtn font-step"
+                onClick={run('textBigger')}
                 disabled={!book}
-                title={t('tip.zoomReset')}
-                aria-label={t('cmd.actualSize')}
+                title={t('tip.textBigger')}
+                aria-label={t('cmd.textBigger')}
+                data-testid="font-bigger"
               >
-                {Math.round((scale || 1) * 100)}%
+                <IconTextSize size={16} />
+                <span className="col-count">+</span>
               </button>
-              <ToolButton icon={IconZoomIn} label={t('cmd.zoomIn')} tip={t('tip.zoomIn')} onClick={run('zoomIn')} disabled={!book} />
             </>
-          )}
-          {/* How a fixed page meets the window: the whole of it, its width, its
-              height, or not at all. */}
-          <ToolButton
-            icon={IconFitPage}
-            label={t('cmd.fitPage')}
-            tip={t('tip.fitPage')}
-            onClick={run('fitPage')}
-            disabled={!book || reflowable}
-            active={settings.zoomMode === 'fit-page'}
-          />
-          <ToolButton
-            icon={IconFitWidth}
-            label={t('cmd.fitWidth')}
-            tip={t('tip.fitWidth')}
-            onClick={run('fitWidth')}
-            disabled={!book || reflowable}
-            active={settings.zoomMode === 'fit-width'}
-          />
-          <ToolButton
-            icon={IconFitHeight}
-            label={t('cmd.fitHeight')}
-            tip={t('tip.fitHeight')}
-            onClick={run('fitHeight')}
-            disabled={!book || reflowable}
-            active={settings.zoomMode === 'fit-height'}
-          />
-          <ToolButton
-            icon={IconActual}
-            label={t('cmd.actualSize')}
-            tip={t('tip.actualSize')}
-            onClick={run('actualSize')}
-            disabled={!book || reflowable}
-            active={settings.zoomMode === 'actual'}
-          />
-
-          {/* One page, or two side by side — for PDFs, comics and pictures. */}
-          <ToolButton
-            icon={settings.spread === 'double' ? IconColumns : IconActual}
-            label={settings.spread === 'double' ? t('cmd.spreadDouble') : t('cmd.spreadSingle')}
-            tip={t('tip.spread')}
-            onClick={run(settings.spread === 'double' ? 'spreadSingle' : 'spreadDouble')}
-            disabled={!book || reflowable}
-            active={settings.spread === 'double'}
-          />
+          ) : null}
+          {/* How a fixed page meets the window. An ebook is always fitted to
+              the window, with a margin, so these are not choices for it. */}
+          {book && !reflowable ? (
+            <>
+              <ToolButton
+                icon={IconFitPage}
+                label={t('cmd.fitPage')}
+                tip={layout === 'single' ? t('tip.fitSingle') : t('tip.fitPage')}
+                onClick={run('fitPage')}
+                disabled={!book}
+                active={!!book && fit === 'fit-page'}
+                pressed={!!book && fit === 'fit-page'}
+                testId="fit-page"
+              />
+              <ToolButton
+                icon={IconFitWidth}
+                label={t('cmd.fitWidth')}
+                tip={layout === 'single' ? t('tip.fitSingle') : t('tip.fitWidth')}
+                onClick={run('fitWidth')}
+                disabled={!book || layout === 'single'}
+                active={!!book && fit === 'fit-width'}
+                pressed={!!book && fit === 'fit-width'}
+                testId="fit-width"
+              />
+              <ToolButton
+                icon={IconFitHeight}
+                label={t('cmd.fitHeight')}
+                tip={layout === 'single' ? t('tip.fitSingle') : t('tip.fitHeight')}
+                onClick={run('fitHeight')}
+                disabled={!book || layout === 'single'}
+                active={!!book && fit === 'fit-height'}
+                pressed={!!book && fit === 'fit-height'}
+                testId="fit-height"
+              />
+            </>
+          ) : null}
+          {/* There is no "original size" button here: the readout in the
+              middle of the three size controls already is one — it shows the
+              scale and puts it back to 100% when pressed. */}
         </div>
 
       </div>
@@ -353,14 +452,14 @@ export default function Toolbar({
           label={t('cmd.copyImage')}
           tip={t('tip.copyImage')}
           onClick={run('copyImage')}
-          disabled={!book}
+          disabled={!book || !hasImage}
         />
         <ToolButton
           icon={IconLibrary}
           label={t('cmd.gallery')}
           tip={t('tip.gallery')}
           onClick={run('gallery')}
-          active={!!galleryOpen}
+          active={!!galleryOpen || settings.leftPanel === 'gallery'}
         />
         <ToolButton
           icon={IconPanelLeft}

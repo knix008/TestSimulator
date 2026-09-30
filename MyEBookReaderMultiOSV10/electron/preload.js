@@ -1,6 +1,6 @@
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 // The only bridge between the renderer and Node. Everything is an explicit,
 // narrow call — the renderer never sees `require`, `fs` or `ipcRenderer`.
@@ -16,6 +16,13 @@ const subscribe = (channel, cb) => {
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
 
+  // Where a file that was dropped on the window lives. `File.path` used to say,
+  // but it is gone from Electron 32 onwards and this is what replaced it — asked
+  // here, in the preload, because the renderer has no `webUtils` of its own.
+  pathForFile: (file) => {
+    try { return webUtils.getPathForFile(file) || ''; } catch { return ''; }
+  },
+
   getInfo: () => ipcRenderer.invoke('app:getInfo'),
   takePendingOpen: () => ipcRenderer.invoke('app:takePendingOpen'),
   onOpenPath: (cb) => subscribe('app:openPath', cb),
@@ -24,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exists: (p) => ipcRenderer.invoke('fs:exists', p),
   stat: (p) => ipcRenderer.invoke('fs:stat', p),
   readDir: (p) => ipcRenderer.invoke('fs:readDir', p),
+  drives: () => ipcRenderer.invoke('fs:drives'),
   readBinary: (payload) => ipcRenderer.invoke('fs:readBinary', payload),
   readText: (p) => ipcRenderer.invoke('fs:readText', p),
   writeText: (payload) => ipcRenderer.invoke('fs:writeText', payload),

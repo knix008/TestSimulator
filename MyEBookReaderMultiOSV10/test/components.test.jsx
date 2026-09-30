@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import Toolbar from '../src/components/Toolbar.jsx';
 import StatusBar from '../src/components/StatusBar.jsx';
 import TabBar from '../src/components/TabBar.jsx';
@@ -47,6 +47,7 @@ function renderToolbar(over = {}) {
     onGoToSection: vi.fn(),
     onTheme: vi.fn(),
     onLang: vi.fn(),
+    onReaderFont: vi.fn(),
     ...over,
   };
   return { ...render(<Toolbar {...props} />), props };
@@ -76,12 +77,37 @@ describe('Toolbar', () => {
     expect(props.onCommand).toHaveBeenCalledWith('open');
   });
 
+  it('puts Open folder beside Open book', () => {
+    renderToolbar();
+    const folder = screen.getByTestId('open-folder');
+    expect(folder.getAttribute('aria-label')).toBe(i18n.t('cmd.openFolder'));
+    expect(folder.getAttribute('title')).toBe(i18n.t('tip.openFolder'));
+    const open = screen.getByLabelText(i18n.t('cmd.open'));
+    expect(open.compareDocumentPosition(folder) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('asks for a menu, with where the button is, when a menu button is pressed', () => {
-    const { props } = renderToolbar();
-    fireEvent.click(screen.getByLabelText(i18n.t('menu.file')));
-    expect(props.onOpenMenu).toHaveBeenCalledWith('file', expect.objectContaining({
+    // A page-turn effect needs a page that goes away, so the book has to be
+    // coming one screen at a time for the list to be offered at all.
+    const { props } = renderToolbar({ settings: { ...DEFAULT_SETTINGS, pageMode: 'paged' } });
+    fireEvent.click(screen.getByTestId('page-turn'));
+    expect(props.onOpenMenu).toHaveBeenCalledWith('turn', expect.objectContaining({
       x: expect.any(Number), y: expect.any(Number),
     }));
+  });
+
+  it('holds no menu that the menu bar already holds', () => {
+    renderToolbar();
+    // The row is actions. The five menus live on the bar above it, and having
+    // them in both places put two ways to every command an inch apart.
+    for (const menu of ['file', 'reading', 'view', 'marks', 'app']) {
+      expect(document.querySelector(`.toolbar [data-menu="${menu}"]`), menu).toBeNull();
+      expect(screen.queryByLabelText(i18n.t(`menu.${menu}`)), menu).toBeNull();
+    }
+    // What is left are the two that are not menu-bar menus: the reader's own
+    // bookmarks, and the page-turn effect picked from a list.
+    expect(screen.getByTestId('page-turn')).toBeTruthy();
+    expect(document.querySelector('.menu-wrap.split .menu-btn')).toBeTruthy();
   });
 
   it('disables the book commands when nothing is open', () => {
@@ -97,7 +123,7 @@ describe('Toolbar', () => {
     fireEvent.click(screen.getByLabelText(i18n.t('cmd.textBigger')));
     expect(props.onCommand).toHaveBeenCalledWith('textBigger');
     const readout = screen.getByLabelText(i18n.t('cmd.textReset'));
-    expect(readout.textContent).toBe('120%');
+    expect(readout.textContent).toBe('20px');
     fireEvent.click(readout);
     expect(props.onCommand).toHaveBeenCalledWith('textReset');
   });
@@ -110,36 +136,119 @@ describe('Toolbar', () => {
     expect(props.onCommand).toHaveBeenCalledWith('actualSize');
   });
 
-  it('switches between one page and a two-page spread', () => {
+  it('offers one page, two pages and a continuous run, and only one is on', () => {
     const fixed = { ...book, reflowable: false };
     const single = renderToolbar({ book: fixed });
-    fireEvent.click(screen.getByLabelText(i18n.t('cmd.spreadSingle')));
-    expect(single.props.onCommand).toHaveBeenCalledWith('spreadDouble');
+    const one = screen.getByTestId('view-single');
+    const two = screen.getByTestId('view-double');
+    const run = screen.getByTestId('view-continuous');
+    expect(one.getAttribute('aria-pressed')).toBe('true');
+    expect(two.getAttribute('aria-pressed')).toBe('false');
+    expect(run.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(two);
+    expect(single.props.onCommand).toHaveBeenCalledWith('viewDouble');
     single.unmount();
 
-    const double = renderToolbar({ book: fixed, settings: { ...DEFAULT_SETTINGS, spread: 'double' } });
-    const button = screen.getByLabelText(i18n.t('cmd.spreadDouble'));
-    expect(button.className).toContain('active');
-    fireEvent.click(button);
-    expect(double.props.onCommand).toHaveBeenCalledWith('spreadSingle');
+    const doubled = renderToolbar({
+      book: fixed,
+      settings: { ...DEFAULT_SETTINGS, viewLayout: 'double', spread: 'double', pageFlow: 'paged' },
+    });
+    expect(screen.getByTestId('view-double').className).toContain('active');
+    expect(screen.getByTestId('view-single').className).not.toContain('active');
+    expect(screen.getByTestId('view-continuous').className).not.toContain('active');
+    fireEvent.click(screen.getByTestId('view-continuous'));
+    expect(doubled.props.onCommand).toHaveBeenCalledWith('viewContinuous');
   });
 
-  it('leaves the spread control alone for a reflowable book', () => {
+  it('puts the page-turn control to the right of the view buttons', () => {
     renderToolbar();
-    expect(screen.getByLabelText(i18n.t('cmd.spreadSingle'))).toBeDisabled();
+    const order = [...document.querySelectorAll('[data-testid]')].map((el) => el.getAttribute('data-testid'));
+    const view = order.indexOf('view-continuous');
+    const turn = order.indexOf('page-turn');
+    const columns = order.indexOf('columns-1');
+    expect(view).toBeGreaterThan(order.indexOf('view-single'));
+    expect(turn).toBe(view + 1);
+    expect(columns).toBeGreaterThan(turn);
   });
 
-  it('adds a bookmark, and lists the ones already made', () => {
-    const { props } = renderToolbar({ bookmarkCount: 3 });
-    fireEvent.click(screen.getByLabelText(i18n.t('cmd.addBookmark')));
-    expect(props.onCommand).toHaveBeenCalledWith('addBookmark');
-    fireEvent.click(screen.getByLabelText(i18n.t('menu.bookmarks')));
-    expect(props.onOpenMenu).toHaveBeenCalledWith('bookmarks', expect.any(Object));
+  it('offers the same three views for a reflowable book', () => {
+    renderToolbar();
+    expect(screen.getByTestId('view-single')).not.toBeDisabled();
+    expect(screen.getByTestId('view-double')).not.toBeDisabled();
+    expect(screen.getByTestId('view-continuous')).not.toBeDisabled();
+    expect(screen.getByTestId('view-continuous').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('cannot open a bookmark list that is empty', () => {
-    renderToolbar({ bookmarkCount: 0 });
-    expect(screen.getByLabelText(i18n.t('menu.bookmarks'))).toBeDisabled();
+  it('offers one or two columns for text, and not for a PDF', () => {
+    const text = renderToolbar({ settings: { ...DEFAULT_SETTINGS, viewLayout: 'single', columns: 1 } });
+    expect(screen.getByTestId('columns-1').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('columns-2')).not.toBeDisabled();
+    expect(screen.queryByTestId('columns-3')).toBeNull();
+    fireEvent.click(screen.getByTestId('columns-2'));
+    expect(text.props.onCommand).toHaveBeenCalledWith('columns2');
+    text.unmount();
+
+    renderToolbar({
+      book: { ...book, reflowable: false },
+      settings: { ...DEFAULT_SETTINGS, viewLayout: 'single', columns: 2 },
+    });
+    expect(screen.getByTestId('columns-1')).toBeDisabled();
+    expect(screen.getByTestId('columns-2')).toBeDisabled();
+  });
+
+  it('does not offer columns while the book is read continuously', () => {
+    renderToolbar({ settings: { ...DEFAULT_SETTINGS, viewLayout: 'continuous', columns: 2, twoColumns: true } });
+    expect(screen.getByTestId('columns-1')).toBeDisabled();
+    expect(screen.getByTestId('columns-2')).toBeDisabled();
+    expect(screen.getByTestId('columns-1').getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByTestId('columns-2').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('does not offer columns while two pages are showing', () => {
+    renderToolbar({ settings: { ...DEFAULT_SETTINGS, viewLayout: 'double', columns: 2, twoColumns: true } });
+    expect(screen.getByTestId('columns-1')).toBeDisabled();
+    expect(screen.getByTestId('columns-2')).toBeDisabled();
+    expect(screen.getByTestId('columns-1').getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByTestId('columns-2').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('does not offer a page-turn effect while the book is read continuously', () => {
+    renderToolbar({ settings: { ...DEFAULT_SETTINGS, viewLayout: 'continuous' } });
+    expect(screen.getByTestId('page-turn')).toBeDisabled();
+  });
+
+  it('fits an ebook to the window itself, and turns pages only one or two at a time', () => {
+    renderToolbar({ settings: { ...DEFAULT_SETTINGS, viewLayout: 'single' } });
+    expect(screen.queryByTestId('fit-page')).toBeNull();
+    expect(screen.queryByTestId('fit-width')).toBeNull();
+    expect(screen.queryByTestId('fit-height')).toBeNull();
+    expect(screen.getByTestId('page-turn')).not.toBeDisabled();
+    expect(screen.getByTestId('view-single')).not.toBeDisabled();
+    expect(screen.getByTestId('view-double')).not.toBeDisabled();
+  });
+
+  it('turns pages of an ebook shown two at a time', () => {
+    renderToolbar({ settings: { ...DEFAULT_SETTINGS, viewLayout: 'double' } });
+    expect(screen.getByTestId('page-turn')).not.toBeDisabled();
+    expect(screen.queryByTestId('fit-page')).toBeNull();
+  });
+
+  it('keeps width and height fit off a single page, which always fills the window', () => {
+    const fixed = { ...book, reflowable: false };
+    renderToolbar({ book: fixed, settings: { ...DEFAULT_SETTINGS, viewLayout: 'single' } });
+    expect(screen.getByTestId('fit-page')).not.toBeDisabled();
+    expect(screen.getByTestId('fit-width')).toBeDisabled();
+    expect(screen.getByTestId('fit-height')).toBeDisabled();
+  });
+
+  it('leaves bookmarks, notes, highlights and search to the left tools', () => {
+    renderToolbar({ bookmarkCount: 3, hasSelection: true });
+    const bar = within(document.querySelector('.toolbar'));
+    expect(bar.queryByLabelText(i18n.t('cmd.addBookmark'))).toBeNull();
+    expect(bar.queryByLabelText(i18n.t('menu.bookmarks'))).toBeNull();
+    expect(bar.queryByLabelText(i18n.t('cmd.highlight'))).toBeNull();
+    expect(bar.queryByLabelText(i18n.t('cmd.addNote'))).toBeNull();
+    expect(bar.queryByLabelText(i18n.t('cmd.find'))).toBeNull();
   });
 
   it('jumps to the chapter typed into the box', () => {
@@ -159,12 +268,33 @@ describe('Toolbar', () => {
     expect(input).toHaveValue('1');
   });
 
-  it('shows the text size for a reflowable book and the zoom for a fixed one', () => {
+  it('offers every installed font for an EPUB or MOBI, and none for a PDF', async () => {
+    const text = renderToolbar();
+    const pick = screen.getByTestId('reader-font');
+    expect(pick).not.toBeDisabled();
+    expect(pick.getAttribute('title')).toBe(i18n.t('tip.readerFont'));
+    await waitFor(() => expect(within(pick).getByRole('option', { name: 'Georgia' })).toBeTruthy());
+    fireEvent.change(pick, { target: { value: 'Georgia' } });
+    expect(text.props.onReaderFont).toHaveBeenCalledWith('Georgia');
+    text.unmount();
+
+    renderToolbar({ book: { ...book, reflowable: false, format: 'pdf' } });
+    expect(screen.queryByTestId('reader-font')).toBeNull();
+  });
+
+  it('shows the text size for a reflowable book and leaves document zoom off', () => {
     const reflow = renderToolbar({ settings: { ...DEFAULT_SETTINGS, fontScale: 1.5 } });
-    expect(document.querySelector('.zoom-readout').textContent).toBe('150%');
+    expect(screen.getByTestId('font-readout').textContent).toBe('26px');
+    expect(screen.getByTestId('font-smaller')).not.toBeDisabled();
+    expect(screen.getByTestId('font-bigger')).not.toBeDisabled();
+    expect(screen.getByTestId('zoom-out')).toBeDisabled();
+    expect(screen.getByTestId('zoom-in')).toBeDisabled();
+    expect(screen.getByTestId('zoom-readout')).toBeDisabled();
     reflow.unmount();
     renderToolbar({ book: { ...book, reflowable: false }, scale: 2 });
-    expect(document.querySelector('.zoom-readout').textContent).toBe('200%');
+    expect(screen.getByTestId('zoom-readout').textContent).toBe('200%');
+    expect(screen.getByTestId('zoom-in')).not.toBeDisabled();
+    expect(screen.queryByTestId('font-readout')).toBeNull();
   });
 
   it('marks the panels that are open', () => {
@@ -258,9 +388,21 @@ describe('StatusBar', () => {
     expect(screen.getByText(i18n.t('status.noBook'))).toBeTruthy();
   });
 
-  it('shows the page within a chapter when the text is paginated', () => {
-    render(<StatusBar {...statusProps} columns={{ pages: 4, page: 2 }} />);
-    expect(screen.getByText(/3 \/ 4/)).toBeTruthy();
+  it('does not number the pages of a reflowable book', () => {
+    render(<StatusBar {...statusProps} pageCount={12} pageNow={3} columns={{ pages: 4, page: 2 }} />);
+    expect(screen.queryByTestId('page-readout')).toBeNull();
+    expect(screen.queryByText(/3 \/ 4/)).toBeNull();
+    expect(screen.getByText(/2 \/ 3/)).toBeTruthy();
+  });
+
+  it('numbers the pages of a fixed-layout book', () => {
+    render(<StatusBar
+      {...statusProps}
+      book={{ ...book, reflowable: false, formatLabel: 'PDF' }}
+      pageCount={10}
+      pageNow={3}
+    />);
+    expect(screen.getByTestId('page-readout').textContent).toContain('3 / 10');
   });
 
   it('gives every cell a tooltip', () => {

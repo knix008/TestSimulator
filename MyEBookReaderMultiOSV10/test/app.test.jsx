@@ -47,6 +47,8 @@ const t = (key, args) => i18n.t(key, args);
 
 /** A toolbar control, by its label — the panels use some of the same words. */
 const toolbar = (label) => within(document.querySelector('.toolbar')).getByLabelText(label);
+/** A control in the left tools, by its label. */
+const leftTool = (label) => within(document.querySelector('.side-panel.left')).getByLabelText(label);
 /** The dialog showing right now. */
 const dialog = () => within(document.querySelector('.modal'));
 
@@ -166,12 +168,37 @@ describe('moving through a book', () => {
     fireEvent.keyDown(window, { key: 'PageDown' });
     await waitFor(() => expect(screen.getByTestId('chapter').textContent).toContain('둘째 장'));
   });
+
+  it('stops at the first page and the last page of an ebook', async () => {
+    await openSample();
+    const prev = () => document.querySelector('.page-arrow.left');
+    const next = () => document.querySelector('.page-arrow.right');
+    expect(prev()).toBeDisabled();
+    const input = () => document.querySelector('.page-input').value;
+    expect(input()).toBe('1');
+    fireEvent.keyDown(window, { key: 'PageUp' });
+    expect(input()).toBe('1');
+
+    for (let i = 0; i < 40 && !next().disabled; i += 1) {
+      fireEvent.click(next());
+    }
+    await waitFor(() => expect(next()).toBeDisabled());
+    const atEnd = input();
+    const left = document.querySelector('[data-testid=bookview]').scrollLeft;
+    fireEvent.click(next());
+    fireEvent.keyDown(window, { key: 'PageDown' });
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(input()).toBe(atEnd);
+    expect(document.querySelector('[data-testid=bookview]').scrollLeft).toBe(left);
+    expect(prev()).not.toBeDisabled();
+  });
 });
 
 describe('marking up a book', () => {
   it('adds a bookmark and lists it', async () => {
     await openSample();
-    fireEvent.click(toolbar(t('cmd.addBookmark')));
+    fireEvent.click(leftTool(t('panel.bookmarks')));
+    fireEvent.click(leftTool(t('cmd.addBookmark')));
     await waitFor(() => expect(document.querySelector('.mark-list')).toBeTruthy());
     expect(document.querySelector('.statusbar').textContent).toContain(t('status.modified'));
   });
@@ -188,7 +215,8 @@ describe('marking up a book', () => {
 
   it('removes a bookmark from the panel', async () => {
     await openSample();
-    fireEvent.click(toolbar(t('cmd.addBookmark')));
+    fireEvent.click(leftTool(t('panel.bookmarks')));
+    fireEvent.click(leftTool(t('cmd.addBookmark')));
     await waitFor(() => expect(document.querySelectorAll('.mark-list li')).toHaveLength(1));
     fireEvent.click(screen.getByTitle(t('panel.remove')));
     await waitFor(() => expect(screen.getByText(t('panel.noBookmarks'))).toBeTruthy());
@@ -196,7 +224,8 @@ describe('marking up a book', () => {
 
   it('writes the marks to a reading file with Ctrl+S', async () => {
     await openSample();
-    fireEvent.click(toolbar(t('cmd.addBookmark')));
+    fireEvent.click(leftTool(t('panel.bookmarks')));
+    fireEvent.click(leftTool(t('cmd.addBookmark')));
     await waitFor(() => expect(document.querySelector('.mark-list')).toBeTruthy());
     fireEvent.keyDown(window, { key: 's', ctrlKey: true });
     await waitFor(() => expect(saved.length).toBe(1));
@@ -209,7 +238,8 @@ describe('marking up a book', () => {
 
   it('says the work is saved again afterwards', async () => {
     await openSample();
-    fireEvent.click(toolbar(t('cmd.addBookmark')));
+    fireEvent.click(leftTool(t('panel.bookmarks')));
+    fireEvent.click(leftTool(t('cmd.addBookmark')));
     await waitFor(() => expect(document.querySelector('.statusbar').textContent).toContain(t('status.modified')));
     fireEvent.keyDown(window, { key: 's', ctrlKey: true });
     await waitFor(() => expect(document.querySelector('.statusbar').textContent).toContain(t('status.clean')));
@@ -228,7 +258,7 @@ describe('marking up a book', () => {
 describe('searching', () => {
   it('finds a word and lists the hits', async () => {
     await openSample();
-    fireEvent.click(toolbar(t('cmd.find')));
+    fireEvent.click(leftTool(t('panel.search')));
     const input = await waitFor(() => document.querySelector('[data-search-input]'));
     fireEvent.change(input, { target: { value: '형광펜' } });
     fireEvent.submit(document.querySelector('.panel-search'));
@@ -238,7 +268,7 @@ describe('searching', () => {
 
   it('jumps to the chapter a hit is in and marks it', async () => {
     await openSample();
-    fireEvent.click(toolbar(t('cmd.find')));
+    fireEvent.click(leftTool(t('panel.search')));
     const input = await waitFor(() => document.querySelector('[data-search-input]'));
     fireEvent.change(input, { target: { value: '형광펜' } });
     fireEvent.submit(document.querySelector('.panel-search'));
@@ -266,8 +296,8 @@ describe('the panels and the view', () => {
   it('changes the reading layout from the right panel', async () => {
     await openSample();
     fireEvent.click(screen.getByTitle(t('panel.reading')));
-    await waitFor(() => expect(screen.getByTitle(t('reading.paged'))).toBeTruthy());
-    fireEvent.click(screen.getByTitle(t('reading.paged')));
+    await waitFor(() => expect(screen.getByTitle(t('cmd.viewSingle'))).toBeTruthy());
+    fireEvent.click(screen.getByTitle(t('cmd.viewSingle')));
     await waitFor(() => expect(screen.getByTestId('bookview').className).toContain('paged'));
   });
 
@@ -276,13 +306,13 @@ describe('the panels and the view', () => {
     const before = screen.getByTestId('bookview').style.getPropertyValue('--read-size');
     fireEvent.click(toolbar(t('cmd.textBigger')));
     await waitFor(() => expect(screen.getByTestId('bookview').style.getPropertyValue('--read-size')).not.toBe(before));
-    expect(document.querySelector('.zoom-readout').textContent).toBe('110%');
+    expect(document.querySelector('[data-testid=font-readout]').textContent).toBe('19px');
   });
 
   it('zooms with Ctrl+wheel over the text', async () => {
     await openSample();
     fireEvent.wheel(screen.getByTestId('bookview'), { deltaY: -100, ctrlKey: true });
-    await waitFor(() => expect(document.querySelector('.zoom-readout').textContent).toBe('110%'));
+    await waitFor(() => expect(document.querySelector('[data-testid=font-readout]').textContent).toBe('19px'));
   });
 });
 
@@ -304,9 +334,9 @@ describe('appearance', () => {
   it('puts the text back to its default size from the readout', async () => {
     await openSample();
     fireEvent.click(toolbar(t('cmd.textBigger')));
-    await waitFor(() => expect(document.querySelector('.zoom-readout').textContent).toBe('110%'));
+    await waitFor(() => expect(document.querySelector('[data-testid=font-readout]').textContent).toBe('19px'));
     fireEvent.click(toolbar(t('cmd.textReset')));
-    await waitFor(() => expect(document.querySelector('.zoom-readout').textContent).toBe('100%'));
+    await waitFor(() => expect(document.querySelector('[data-testid=font-readout]').textContent).toBe('17px'));
   });
 });
 
@@ -393,5 +423,206 @@ describe('several books at once', () => {
     fireEvent.click(document.querySelector('.doctab-close'));
     await waitFor(() => expect(document.querySelectorAll('.doctab')).toHaveLength(0));
     expect(screen.getByText(t('common.welcomeHint'))).toBeTruthy();
+  });
+});
+
+describe('opening a file shows it in the window as it is', () => {
+  /** Opens a fixed-layout file — a comic or a picture — through the toolbar. */
+  async function openPages(name = 'sample.cbz') {
+    const platform = await import('../src/lib/platform.js');
+    const bytes = sampleBytes(name);
+    platform.openFileDialog.mockResolvedValueOnce({
+      data: bytes, name, path: `/books/${name}`, size: bytes.length,
+    });
+    fireEvent.click(toolbar(t('cmd.open')));
+    await waitFor(
+      () => expect(document.querySelector(`.doctab`)).toBeTruthy(),
+      { timeout: 5000 },
+    );
+    await waitFor(() => expect(document.querySelector('img.comic-page')).toBeTruthy(), { timeout: 5000 });
+  }
+
+  it('fits the page to the window, whatever the last file was left at', async () => {
+    await openApp();
+    await openPages('sample.cbz');
+    // The reader zooms this one right in.
+    fireEvent.click(toolbar(t('cmd.fitWidth')));
+    fireEvent.click(toolbar(t('cmd.zoomIn')));
+    await waitFor(() => expect(toolbar(t('cmd.fitPage')).className).not.toContain('active'));
+
+    // The next file opens fitted to the window rather than at the zoom the
+    // previous one happened to be left at.
+    await openPages('sample.png');
+    await waitFor(() => expect(toolbar(t('cmd.fitPage')).className).toContain('active'));
+  });
+
+  it('offers one page at a time and a continuous run for a PDF as well as for text', async () => {
+    await openApp();
+    await openPages();
+    // The control is live for a fixed-layout book, which is what "이어보기가
+    // 동작하지 않는다" was about: it used to be greyed out unless the book was
+    // reflowable text.
+    const run = screen.getByTestId('view-continuous');
+    expect(run.disabled).toBe(false);
+    fireEvent.click(run);
+    await waitFor(() => expect(document.querySelector('.bookview.flowing')).toBeTruthy());
+    expect(document.querySelectorAll('.page-slot').length).toBeGreaterThan(1);
+    expect(screen.getByTestId('view-single').getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByTestId('view-double').getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(screen.getByTestId('view-single'));
+    await waitFor(() => expect(document.querySelector('.bookview.flowing')).toBeNull());
+    expect(screen.getByTestId('view-single').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('says in the status bar that a picture is selected, and which one', async () => {
+    await openApp();
+    await openPages();
+    const image = document.querySelector('img.comic-page');
+    fireEvent.pointerDown(image, { button: 0 });
+    await waitFor(() => expect(screen.getByTestId('picked-image')).toBeTruthy());
+    expect(image.classList.contains('picked')).toBe(true);
+    fireEvent.pointerDown(screen.getByTestId('bookview'), { button: 0 });
+    await waitFor(() => expect(document.querySelector('[data-testid="picked-image"]')).toBeNull());
+  });
+
+  it('says there is no text to select in a comic instead of doing nothing', async () => {
+    await openApp();
+    await openPages();
+    fireEvent.keyDown(window, { key: 'a', ctrlKey: true });
+    await waitFor(() => expect(document.querySelector('.toasts').textContent).toContain(t('status.noText')));
+  });
+});
+
+describe('drag and drop from outside the window', () => {
+  /** A dropped file, with the bytes a real one would hand over. */
+  function dropped(name, sample = name) {
+    const bytes = sampleBytes(sample);
+    const file = new File([bytes], name);
+    file.arrayBuffer = async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    return file;
+  }
+
+  const app = () => document.querySelector('.app');
+
+  it('opens several books dropped together, each in its own tab', async () => {
+    await openApp();
+    fireEvent.drop(app(), {
+      dataTransfer: { files: [dropped('one.md', 'sample.md'), dropped('two.fb2', 'sample.fb2')] },
+    });
+    await waitFor(() => expect(document.querySelectorAll('.doctab')).toHaveLength(2), { timeout: 8000 });
+    const tabs = [...document.querySelectorAll('.doctab')].map((d) => d.textContent).join(' ');
+    expect(tabs).toContain('one.md');
+    expect(tabs).toContain('two.fb2');
+  });
+
+  it('says so when what was dropped holds nothing to open', async () => {
+    await openApp();
+    fireEvent.drop(app(), { dataTransfer: { files: [], getData: () => '' } });
+    await waitFor(() => expect(document.querySelector('.toasts').textContent)
+      .toContain(t('error.nothingDropped')));
+  });
+
+  it('keeps the highlight while the pointer crosses the window', async () => {
+    await openApp();
+    const target = app();
+    // dragleave fires for every element crossed on the way in, not only when the
+    // pointer leaves the window — so the highlight has to survive them.
+    fireEvent.dragEnter(target, { dataTransfer: { types: ['Files'] } });
+    await waitFor(() => expect(screen.getByText(t('common.dropHere'))).toBeTruthy());
+    fireEvent.dragEnter(document.querySelector('.bookview') || target, { dataTransfer: { types: ['Files'] } });
+    fireEvent.dragLeave(document.querySelector('.bookview') || target);
+    expect(screen.getByText(t('common.dropHere'))).toBeTruthy();
+  });
+
+  it('takes the highlight away when the drag leaves the window', async () => {
+    await openApp();
+    const target = app();
+    fireEvent.dragEnter(target, { dataTransfer: { types: ['Files'] } });
+    await waitFor(() => expect(screen.getByText(t('common.dropHere'))).toBeTruthy());
+    fireEvent.dragLeave(target);
+    await waitFor(() => expect(screen.queryByText(t('common.dropHere'))).toBeNull());
+  });
+
+  it('takes the highlight away once the book is dropped', async () => {
+    await openApp();
+    const target = app();
+    fireEvent.dragEnter(target, { dataTransfer: { types: ['Files'] } });
+    await waitFor(() => expect(screen.getByText(t('common.dropHere'))).toBeTruthy());
+    fireEvent.drop(target, { dataTransfer: { files: [dropped('drop.md', 'sample.md')] } });
+    await waitFor(() => expect(screen.queryByText(t('common.dropHere'))).toBeNull());
+  });
+
+  it('opens a reading file dropped on the window', async () => {
+    await openApp();
+    // A .ebkr names the book it belongs to and carries the marks; dropping one
+    // has to go through the reading-file path, not the book path.
+    const library = JSON.stringify({
+      app: 'MyEBookReader',
+      version: 1,
+      book: { name: 'sample.md', path: '', size: 0 },
+      reading: { bookmarks: [], highlights: [], notes: [], clips: [] },
+    });
+    const file = new File([library], 'notes.ebkr');
+    file.arrayBuffer = async () => new TextEncoder().encode(library).buffer;
+    file.text = async () => library;
+    fireEvent.drop(app(), { dataTransfer: { files: [file] } });
+    // The book it names is not beside it here, so the reader is told rather than
+    // left wondering — what matters is that it was read as a reading file.
+    await waitFor(() => expect(document.querySelector('.toasts, .modal')).toBeTruthy(), { timeout: 8000 });
+  });
+});
+
+describe('bookmarking a spot with the right button', () => {
+  /** jsdom lays nothing out, so the pane and the chapter are told their boxes. */
+  function boxed(node, box) {
+    node.getBoundingClientRect = () => ({
+      left: box.left, top: box.top, width: box.width, height: box.height,
+      right: box.left + box.width, bottom: box.top + box.height, x: box.left, y: box.top,
+    });
+    Object.defineProperty(node, 'clientWidth', { value: box.width, configurable: true });
+    Object.defineProperty(node, 'clientHeight', { value: box.height, configurable: true });
+  }
+
+  it('offers the command only on the right button, and pins the spot it was used at', async () => {
+    await openSample();
+    const pane = screen.getByTestId('bookview');
+    boxed(pane, { left: 0, top: 0, width: 800, height: 600 });
+    boxed(screen.getByTestId('chapter'), { left: 100, top: 40, width: 400, height: 800 });
+
+    fireEvent.contextMenu(pane, { clientX: 300, clientY: 240 });
+    const menu = await waitFor(() => {
+      const el = document.querySelector('.context-menu, .menu-list');
+      expect(el).toBeTruthy();
+      return el;
+    });
+    // The command belongs to the right button: it needs a spot, and only a right
+    // click has one.
+    const row = within(menu).getByText(t('cmd.bookmarkHere'));
+    fireEvent.click(row);
+
+    const pin = await waitFor(() => screen.getByTestId('bookmark-pin'));
+    // Half way across the chapter and a quarter of the way down it.
+    expect(pin.style.left).toBe('300px');
+    expect(pin.style.top).toBe('240px');
+  });
+
+  it('keeps bookmarking where the reader is when Ctrl+B is used', async () => {
+    await openSample();
+    fireEvent.keyDown(window, { key: 'b', ctrlKey: true });
+    await waitFor(() => expect(document.querySelector('.statusbar').textContent)
+      .toContain(t('status.bookmarkAdded')));
+    // Nowhere in particular was pointed at, so nothing is pinned to the page.
+    expect(document.querySelector('[data-testid=bookmark-pin]')).toBeNull();
+  });
+});
+
+describe('page numbers of a reflowable book', () => {
+  it('does not show a page number for an ebook', async () => {
+    await openSample();
+    await waitFor(() => expect(document.querySelector('.statusbar')?.textContent).toContain('EPUB'));
+    expect(screen.queryByTestId('page-readout')).toBeNull();
+    expect(document.querySelector('.column-readout')).toBeNull();
+    expect(document.querySelector('.toc-num')).toBeNull();
+    expect(document.querySelector('.statusbar').textContent).toContain('1 /');
   });
 });

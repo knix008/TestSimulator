@@ -118,6 +118,73 @@ export async function statPath(p) {
   try { return await api.stat(p); } catch { return null; }
 }
 
+/**
+ * Where a dropped file lives on disk, or '' when there is no telling.
+ *
+ * A dropped `File` used to carry its own `path`; Electron 32 removed it in favour
+ * of `webUtils.getPathForFile`, which only the preload can call. Both are tried,
+ * newest first, so this works on either.
+ */
+export function droppedPath(file) {
+  if (!isElectron || !file) return '';
+  try {
+    const viaPreload = api.pathForFile?.(file);
+    if (viaPreload) return viaPreload;
+  } catch { /* fall through to the old way */ }
+  return file.path || '';
+}
+
+/** Whether a path is a folder. False when there is no way to ask. */
+export async function isDirectory(p) {
+  const st = await statPath(p);
+  return !!st?.isDir;
+}
+
+/**
+ * The path a `file://` URL names.
+ *
+ * Not every application hands over a file when you drop one on a window: many
+ * hand over its location as a URL instead, which is why dropping from them used
+ * to do nothing at all. The spelling differs by platform — `file:///C:/a%20b.epub`
+ * is a Windows path with a drive letter and an escaped space, and a UNC share
+ * arrives as the URL's host — so this is the one place that untangles it.
+ */
+export function fileUrlToPath(url) {
+  const raw = String(url || '').trim();
+  const match = /^file:\/\/([^/]*)(\/.*)$/i.exec(raw);
+  if (!match) return '';
+  const host = match[1];
+  let out;
+  try { out = decodeURIComponent(match[2]); } catch { return ''; }
+  if (host && host.toLowerCase() !== 'localhost') {
+    return `\\\\${host}${out.split('/').join('\\')}`;
+  }
+  // A leading slash before a drive letter belongs to the URL, not to the path.
+  if (/^\/[A-Za-z]:/.test(out)) return out.slice(1).split('/').join('\\');
+  return out;
+}
+
+/** The files a drop names by location rather than handing over. */
+export function droppedFileUrls(dataTransfer) {
+  if (!dataTransfer) return [];
+  const read = (type) => {
+    try { return dataTransfer.getData(type) || ''; } catch { return ''; }
+  };
+  const text = read('text/uri-list') || read('text/plain') || '';
+  const seen = new Set();
+  const out = [];
+  for (const line of text.split(/[\r\n]+/)) {
+    const trimmed = line.trim();
+    // A uri-list may carry comments, which begin with a hash.
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const where = fileUrlToPath(trimmed);
+    if (!where || seen.has(where)) continue;
+    seen.add(where);
+    out.push(where);
+  }
+  return out;
+}
+
 export async function pickDirectory(defaultDir) {
   if (!isElectron) return null;
   return api.pickDirectory({ defaultDir });
@@ -126,6 +193,21 @@ export async function pickDirectory(defaultDir) {
 export async function listDirectory(dirPath) {
   if (!isElectron || !dirPath) return [];
   try { return toFolderEntries(await api.readDir(dirPath)); } catch { return []; }
+}
+
+/**
+ * The drives and the home folder, for starting a folder tree somewhere.
+ *
+ * Only the desktop app can answer this — a browser has no drives to offer, and
+ * says so with an empty list rather than an error, so the panel simply shows
+ * nothing where the drives would be.
+ */
+export async function listDrives() {
+  if (!isElectron || typeof api.drives !== 'function') return [];
+  try {
+    const rows = await api.drives();
+    return (Array.isArray(rows) ? rows : []).filter((row) => row && row.path);
+  } catch { return []; }
 }
 
 export async function homeDir() {

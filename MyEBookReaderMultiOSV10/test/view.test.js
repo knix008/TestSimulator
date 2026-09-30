@@ -4,6 +4,9 @@ import {
   stripRemoteError, failMessage, errorReport, windowTitle,
   clampPopupPos, computePageScale, readingStyle, nextPanel, columnPageCount, columnPageAt,
   bookProgress, pickText, parseRange, pagesForScope, clampPreviewIndex, READING_WIDTHS,
+  FIT_TO_WINDOW, pageModeKey, pageModeOf, bookPageEdge,
+  viewLayoutOf, viewLayoutSettings, effectiveZoomMode,
+  textColumnsOf, columnSettings, columnChoice, screenColumnsOf,
 } from '../src/lib/view.js';
 
 describe('zoom and text size', () => {
@@ -193,6 +196,16 @@ describe('panels and pagination', () => {
     expect(bookProgress({ section: 2, sectionCount: 4, fracY: 0 })).toBe(0.5);
     expect(bookProgress({ section: 3, sectionCount: 4, fracY: 1 })).toBe(1);
   });
+
+  it('stops an ebook at its first page and its last', () => {
+    expect(bookPageEdge(0, 12, { atStart: true, atEnd: false })).toEqual({ atBookStart: true, atBookEnd: false });
+    expect(bookPageEdge(0, 12, { atStart: false, atEnd: false })).toEqual({ atBookStart: false, atBookEnd: false });
+    expect(bookPageEdge(11, 12, { atStart: false, atEnd: true })).toEqual({ atBookStart: false, atBookEnd: true });
+    expect(bookPageEdge(11, 12, { atStart: false, atEnd: false })).toEqual({ atBookStart: false, atBookEnd: false });
+    expect(bookPageEdge(4, 12, { atStart: true, atEnd: true })).toEqual({ atBookStart: false, atBookEnd: false });
+    expect(bookPageEdge(0, 8, { fixed: true })).toEqual({ atBookStart: true, atBookEnd: false });
+    expect(bookPageEdge(7, 8, { fixed: true })).toEqual({ atBookStart: false, atBookEnd: true });
+  });
 });
 
 describe('pickText', () => {
@@ -232,5 +245,143 @@ describe('print ranges', () => {
 
   it('clamps the current page to the book', () => {
     expect(pagesForScope({ scope: 'current', current: 99, count: 3 }).pages).toEqual([3]);
+  });
+});
+
+describe('how a file is shown when it is opened', () => {
+  it('fits the whole page in the window, upright and unzoomed', () => {
+    expect(FIT_TO_WINDOW).toEqual({ zoomMode: 'fit-page', zoom: 1, rotation: 0 });
+  });
+
+  it('cannot be changed by accident', () => {
+    expect(Object.isFrozen(FIT_TO_WINDOW)).toBe(true);
+  });
+
+  it('overrides whatever the last file was left at', () => {
+    const left = { zoomMode: 'custom', zoom: 3, rotation: 90, spread: 'double', theme: 'night' };
+    const shown = { ...left, ...FIT_TO_WINDOW };
+    expect(shown.zoomMode).toBe('fit-page');
+    expect(shown.zoom).toBe(1);
+    expect(shown.rotation).toBe(0);
+    // What the reader chose about the reading itself is theirs, and stays.
+    expect(shown.spread).toBe('double');
+    expect(shown.theme).toBe('night');
+  });
+});
+
+describe('one page at a time, or a run to scroll', () => {
+  const settings = { pageMode: 'scroll', pageFlow: 'paged' };
+
+  it('asks a reflowable book its own setting', () => {
+    expect(pageModeKey({ reflowable: true })).toBe('pageMode');
+    expect(pageModeOf(settings, { reflowable: true })).toBe('scroll');
+  });
+
+  it('asks a fixed-layout book the other one', () => {
+    expect(pageModeKey({ reflowable: false })).toBe('pageFlow');
+    expect(pageModeOf(settings, { reflowable: false })).toBe('paged');
+  });
+
+  it('treats no book as text, which is what the toolbar shows before one is open', () => {
+    expect(pageModeKey(null)).toBe('pageMode');
+    expect(pageModeOf(settings, null)).toBe('scroll');
+  });
+
+  it('never answers with anything but the two modes', () => {
+    // A fixed book with no usable flow is one page in the window, not a run.
+    expect(pageModeOf({ pageFlow: 'nonsense' }, { reflowable: false })).toBe('paged');
+    expect(pageModeOf({}, { reflowable: false })).toBe('paged');
+  });
+});
+
+describe('one view at a time, for every format', () => {
+  it('keeps a stored layout, whichever format is open', () => {
+    const settings = { viewLayout: 'double', pageMode: 'scroll', pageFlow: 'scroll' };
+    expect(viewLayoutOf(settings, { reflowable: true })).toBe('double');
+    expect(viewLayoutOf(settings, { reflowable: false })).toBe('double');
+  });
+
+  it('writes one layout and clears the other two', () => {
+    expect(viewLayoutSettings('single')).toMatchObject({
+      viewLayout: 'single', pageMode: 'paged', pageFlow: 'paged', spread: 'single', zoomMode: 'fit-page',
+    });
+    expect(viewLayoutSettings('single').twoColumns).toBeUndefined();
+    expect(viewLayoutSettings('double')).toMatchObject({
+      viewLayout: 'double', spread: 'double', pageFlow: 'paged',
+    });
+    expect(viewLayoutSettings('double').columns).toBeUndefined();
+    expect(viewLayoutSettings('continuous')).toMatchObject({
+      viewLayout: 'continuous', pageMode: 'scroll', pageFlow: 'scroll', spread: 'single',
+    });
+  });
+
+  it('keeps the text columns when the view changes, and the view when the columns change', () => {
+    expect(columnSettings(2)).toEqual({ columns: 2, twoColumns: true });
+    expect(columnSettings(1)).toEqual({ columns: 1, twoColumns: false });
+    expect(columnChoice({ viewLayout: 'single', pageMode: 'paged' }, { reflowable: true }, 2)).toMatchObject({
+      viewLayout: 'single', columns: 2, twoColumns: true,
+    });
+    // 다단 is only one page. A continuous run and two facing pages stay as they are.
+    expect(columnChoice({ viewLayout: 'continuous' }, { reflowable: true }, 2)).toEqual({});
+    expect(columnChoice({ viewLayout: 'double', columns: 1 }, { reflowable: true }, 2)).toEqual({});
+    expect(textColumnsOf({ twoColumns: true })).toBe(2);
+    expect(textColumnsOf({ columns: 3 })).toBe(2);
+    expect(screenColumnsOf({ columns: 2 }, 'single')).toBe(2);
+    expect(screenColumnsOf({ columns: 2 }, 'double')).toBe(2);
+    expect(screenColumnsOf({ columns: 1 }, 'double')).toBe(2);
+    expect(screenColumnsOf({ columns: 2 }, 'continuous')).toBe(1);
+  });
+
+  it('fits a single page to the window, and keeps a zoom', () => {
+    expect(effectiveZoomMode({ zoomMode: 'fit-width' }, 'single')).toBe('fit-page');
+    expect(effectiveZoomMode({ zoomMode: 'custom' }, 'single')).toBe('custom');
+    expect(effectiveZoomMode({ zoomMode: 'fit-width' }, 'double')).toBe('fit-width');
+    expect(effectiveZoomMode({ zoomMode: 'fit-height' }, 'continuous')).toBe('fit-height');
+  });
+});
+
+describe('reading a chapter a page at a time', () => {
+  it('counts the last part-page as a page of its own', () => {
+    // A chapter 2.4 screens wide takes three pages to read to the end. Rounding
+    // to the nearest said two, and the last two fifths could not be reached.
+    expect(columnPageCount(2400, 1000)).toBe(3);
+    expect(columnPageCount(2600, 1000)).toBe(3);
+    expect(columnPageCount(1001, 1000)).toBe(1);
+    expect(columnPageCount(3000, 1000)).toBe(3);
+    expect(columnPageCount(1, 1000)).toBe(1);
+  });
+
+  it('counts a chapter that fits on one screen as one page', () => {
+    expect(columnPageCount(1000, 1000)).toBe(1);
+    expect(columnPageCount(400, 1000)).toBe(1);
+    expect(columnPageCount(0, 1000)).toBe(1);
+  });
+
+  it('counts one facing page when two are on the screen', () => {
+    // A sheet of 1000 shows two pages of 500. 2400px of text stops 1400 along,
+    // which is four pages to turn, not two spreads.
+    expect(columnPageCount(2400, 1000, 500)).toBe(4);
+    expect(columnPageAt(0, 1000, 2400, 500)).toBe(0);
+    expect(columnPageAt(500, 1000, 2400, 500)).toBe(1);
+    expect(columnPageAt(1400, 1000, 2400, 500)).toBe(3);
+  });
+
+  it('calls the far end of a chapter its last page', () => {
+    // 2.4 screens: the pane can only scroll to 1400, which is not a whole
+    // number of pages — but it is the last page, and has to be reported as one
+    // or "next page" could never leave the chapter.
+    expect(columnPageAt(1400, 1000, 2400)).toBe(2);
+    expect(columnPageAt(1000, 1000, 2400)).toBe(1);
+    expect(columnPageAt(0, 1000, 2400)).toBe(0);
+  });
+
+  it('never reports a page the chapter does not have', () => {
+    expect(columnPageAt(99999, 1000, 2400)).toBe(2);
+    expect(columnPageAt(500, 1000, 1000)).toBe(0);
+  });
+
+  it('still answers without being told where the end is', () => {
+    expect(columnPageAt(2000, 1000)).toBe(2);
+    expect(columnPageAt(0, 0)).toBe(0);
   });
 });

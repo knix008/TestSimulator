@@ -123,7 +123,7 @@ function coverOf(entry, store) {
   return store.coverSrc(entry);
 }
 
-function Cover({ entry }) {
+export function Cover({ entry }) {
   const store = galleryStore();
   const [src, setSrc] = useState(() => coverOf(entry, store));
 
@@ -131,8 +131,14 @@ function Cover({ entry }) {
     let cancelled = false;
     const direct = coverOf(entry, store);
     setSrc(direct);
-    if (direct || !entry.cover) return undefined;
-    store.loadCover(entry).then((value) => { if (!cancelled) setSrc(value || ''); }).catch(() => {});
+    if (direct) return undefined;
+    const key = entry?.path || entry?.name;
+    if (!key) return undefined;
+    // The picture may already have been made even when the shelf row does not
+    // say so. Asking for it is what puts the small cover on the row.
+    store.loadCover({ ...entry, cover: true })
+      .then((value) => { if (!cancelled) setSrc(value || ''); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [entry, store]);
 
@@ -144,7 +150,7 @@ function Cover({ entry }) {
         alt={entry.title || entry.name}
         loading="lazy"
         draggable={false}
-        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        onError={() => setSrc('')}
       />
     );
   }

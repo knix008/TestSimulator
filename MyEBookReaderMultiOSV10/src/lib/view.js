@@ -10,8 +10,169 @@ export const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5
 
 export const FONT_SCALE_MIN = 0.6;
 export const FONT_SCALE_MAX = 3;
+/** The body size at scale 1. Every readout shows this many pixels, not a percent. */
+export const READ_FONT_PX = 17;
+
+/** The reading size in whole pixels. Scale 1 is {@link READ_FONT_PX}. */
+export function fontPixels(scale) {
+  const n = Number(scale);
+  const factor = Number.isFinite(n) && n > 0 ? n : 1;
+  return Math.round(READ_FONT_PX * factor);
+}
+
+/** The scale a pixel size writes. The ends stay inside the allowed range. */
+export function fontScaleOf(pixels) {
+  const n = Number(pixels);
+  const scale = (Number.isFinite(n) ? n : READ_FONT_PX) / READ_FONT_PX;
+  return Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, scale));
+}
 
 export const READING_WIDTHS = [520, 640, 760, 900, 1100, 0]; // 0 = fill the pane
+
+/**
+ * How a file that has just been opened is shown: the whole page, upright, in the
+ * window as it is now.
+ *
+ * Zoom and rotation belong to a file, not to the reader — a page left at 300% or
+ * turned on its side for the last file says nothing about this one, and opening a
+ * book to a corner of its first page is not what a reader means by "open".
+ */
+export const FIT_TO_WINDOW = Object.freeze({ zoomMode: 'fit-page', zoom: 1, rotation: 0 });
+
+/**
+ * Which setting says how a book comes: one screen at a time, or a run to scroll
+ * through. Kept so older call sites can still ask. The answer itself now comes
+ * from `viewLayoutOf`: one layout for every format.
+ */
+export function pageModeKey(book) {
+  return book && book.reflowable === false ? 'pageFlow' : 'pageMode';
+}
+
+export const VIEW_LAYOUTS = ['single', 'double', 'continuous'];
+
+/**
+ * How any book is shown. Exactly one of these, for every format:
+ *   single     — one page, fitted to the whole window
+ *   double     — two facing pages
+ *   continuous — a run to scroll through; no page-turn effect
+ *
+ * A stored `viewLayout` wins. Without one, the older per-format settings still
+ * say what they used to, so a saved reading file opens the way it was left.
+ */
+export function viewLayoutOf(settings, book) {
+  const stored = settings?.viewLayout;
+  if (VIEW_LAYOUTS.includes(stored)) return stored;
+  const reflow = !book || book.reflowable !== false;
+  if (reflow) {
+    if (settings?.pageMode === 'paged') return settings?.twoColumns ? 'double' : 'single';
+    return 'continuous';
+  }
+  if (settings?.pageFlow === 'scroll') return 'continuous';
+  if (settings?.spread === 'double') return 'double';
+  return 'single';
+}
+
+/**
+ * The settings one layout writes.
+ *
+ * Every other layout's flags are cleared in the same write, which is what
+ * keeps a two-page spread and a continuous run from being on together.
+ * Single page also fits the whole page into the window.
+ */
+export function viewLayoutSettings(layout) {
+  if (layout === 'double') {
+    return {
+      viewLayout: 'double',
+      pageMode: 'paged',
+      pageFlow: 'paged',
+      spread: 'double',
+    };
+  }
+  if (layout === 'continuous') {
+    return {
+      viewLayout: 'continuous',
+      pageMode: 'scroll',
+      pageFlow: 'scroll',
+      spread: 'single',
+    };
+  }
+  return {
+    viewLayout: 'single',
+    pageMode: 'paged',
+    pageFlow: 'paged',
+    spread: 'single',
+    zoomMode: 'fit-page',
+  };
+}
+
+/** How many columns of text one page holds. 다단 is two columns, and no more. */
+export const TEXT_COLUMNS = [1, 2];
+
+/**
+ * The column count to draw.
+ *
+ * `columns` is the setting. An older file only has `twoColumns`, which meant
+ * two columns of text, and that still counts as two when no count was stored.
+ */
+export function textColumnsOf(settings) {
+  const n = Number(settings?.columns);
+  if (n >= 2 || settings?.twoColumns) return 2;
+  return 1;
+}
+
+/** What choosing a column count writes. Two is the most a page holds. */
+export function columnSettings(count) {
+  const columns = Number(count) >= 2 ? 2 : 1;
+  return { columns, twoColumns: columns > 1 };
+}
+
+/**
+ * How many pages of text the screen shows side by side.
+ *
+ * One page is one column, or two when that page is set to 다단. Two-page view
+ * shows two facing pages, and each of those is a single column — the 다단
+ * split is not applied on top. A continuous run stays one column.
+ */
+export function screenColumnsOf(settings, layout) {
+  if (layout === 'double') return 2;
+  if (layout === 'single' && textColumnsOf(settings) === 2) return 2;
+  return 1;
+}
+
+/**
+ * A column choice that cannot be reread as a change of view.
+ *
+ * An empty `viewLayout` still treats the old two-column flag as two pages.
+ * Writing the layout that is already on screen keeps a two-column chapter
+ * in whichever view the reader picked.
+ */
+export function columnChoice(settings, book, count) {
+  const layout = viewLayoutOf(settings, book);
+  // 다단 is one page split into columns. Two facing pages are two sheets, and
+  // a continuous run is one scrolling column. Choosing columns in either of
+  // those does nothing, and it must not leave that view to become 다단.
+  if (layout !== 'single') return {};
+  const columns = columnSettings(count);
+  return { ...columns, viewLayout: 'single' };
+}
+
+/**
+ * The fit actually used.
+ *
+ * Single page always shows the whole page in the window, unless the reader has
+ * zoomed in or out — that zoom is kept, and "fit window" puts it back.
+ */
+export function effectiveZoomMode(settings, layout) {
+  const mode = settings?.zoomMode || 'fit-page';
+  const shown = layout || viewLayoutOf(settings);
+  if (shown === 'single' && mode !== 'custom' && mode !== 'actual') return 'fit-page';
+  return mode;
+}
+
+/** 'scroll' (continuous) or 'paged' (one screen at a time), for the book in hand. */
+export function pageModeOf(settings, book) {
+  return viewLayoutOf(settings, book) === 'continuous' ? 'scroll' : 'paged';
+}
 
 /** Next discrete zoom step. `dir` > 0 zooms in, otherwise out. */
 export function nextZoom(current, dir) {
@@ -118,7 +279,7 @@ export function readingStyle(settings) {
   const scale = Number(settings?.fontScale) || 1;
   return {
     '--read-font': settings?.readerFont ? `'${settings.readerFont}'` : 'inherit',
-    '--read-size': `${Math.round(17 * scale * 100) / 100}px`,
+    '--read-size': `${fontPixels(scale)}px`,
     '--read-line': String(settings?.lineHeight || 1.7),
     // The page grows with the text. Enlarging only the letters inside a fixed
     // column is what makes a book look as though it will not zoom: the lines
@@ -143,18 +304,51 @@ export function nextPanel(panel, fallback = 'contents') {
   return panel === 'none' ? fallback : 'none';
 }
 
-/** Page count of a reflowable section once it is laid out in columns. */
-export function columnPageCount(scrollWidth, clientWidth) {
-  const w = Number(clientWidth) || 0;
-  if (w <= 0) return 1;
-  return Math.max(1, Math.round((Number(scrollWidth) || 0) / w));
+/**
+ * Page count of a reflowable section once it is laid out in columns.
+ *
+ * Rounded up, not to the nearest: the columns of a chapter come to whatever
+ * width they come to, and a chapter 2.4 screens wide needs three pages to be
+ * read to its end. Rounding to the nearest reported two, and the last two fifths
+ * of every such chapter could not be reached at all — the reader pressed "next"
+ * and went to the following chapter with part of this one unread.
+ *
+ * `step`, when it is narrower than the screen, is one facing page of a
+ * two-page view. The screen still shows two pages; each turn moves one of them.
+ */
+export function columnPageCount(scrollWidth, clientWidth, step) {
+  const view = Number(clientWidth) || 0;
+  if (view <= 0) return 1;
+  const total = Number(scrollWidth) || 0;
+  const w = Number(step) > 0 ? Number(step) : view;
+  // One page per screen: the count the reader already has.
+  if (w >= view - 0.5) return Math.max(1, Math.ceil((total - 1) / view));
+  const limit = Math.max(0, total - view);
+  const whole = Math.floor(limit / w);
+  const remainder = limit - whole * w;
+  return Math.max(1, whole + 1 + (remainder > 1 ? 1 : 0));
 }
 
-/** Which column page a scroll offset is showing. */
-export function columnPageAt(scrollLeft, clientWidth) {
-  const w = Number(clientWidth) || 0;
+/**
+ * Which column page a scroll offset is showing.
+ *
+ * `scrollWidth` is optional, and worth giving: the last page of a chapter starts
+ * less than a page from the end, because there is nothing to scroll past, so
+ * without knowing where the end is this can only ever report the page before it.
+ */
+export function columnPageAt(scrollLeft, clientWidth, scrollWidth = 0, step) {
+  const view = Number(clientWidth) || 0;
+  const w = Number(step) > 0 ? Number(step) : view;
   if (w <= 0) return 0;
-  return Math.max(0, Math.round((Number(scrollLeft) || 0) / w));
+  const left = Math.max(0, Number(scrollLeft) || 0);
+  const total = Number(scrollWidth) || 0;
+  const at = Math.round(left / w);
+  if (total <= 0 || view <= 0) return Math.max(0, at);
+  const pages = columnPageCount(total, view, w);
+  // Scrolled as far as it goes: that is the last page, whatever the arithmetic
+  // makes of an offset that stops short of a whole page.
+  if (total > view && left >= total - view - 1) return pages - 1;
+  return Math.max(0, Math.min(pages - 1, at));
 }
 
 /** Reading progress over the whole book, 0..1. */
@@ -162,6 +356,21 @@ export function bookProgress({ section, sectionCount, fracY = 0 }) {
   const count = Math.max(1, Number(sectionCount) || 1);
   const index = clampSection(section, count);
   return clamp01((index + clamp01(fracY)) / count);
+}
+
+/**
+ * Whether the page before this one, or the page after it, would leave the book.
+ *
+ * A fixed page is the section itself. A reflowable chapter has pages of its
+ * own, so the book ends only when the last of those is on screen.
+ */
+export function bookPageEdge(section, sectionCount, { atStart = true, atEnd = false, fixed = false } = {}) {
+  const last = Math.max(0, (Number(sectionCount) || 1) - 1);
+  const index = Math.max(0, Number(section) || 0);
+  return {
+    atBookStart: index <= 0 && (fixed || atStart !== false),
+    atBookEnd: index >= last && (fixed || atEnd === true),
+  };
 }
 
 /** First non-empty string among candidates — used for copy / bookmark text. */

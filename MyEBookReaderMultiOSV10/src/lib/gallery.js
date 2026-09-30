@@ -90,6 +90,19 @@ export function removeFromGallery(list, key) {
   return (list || []).filter((e) => galleryKey(e) !== key);
 }
 
+/**
+ * The row that should be written for one change.
+ *
+ * The shelf merges a newly opened book with the one it already has, so the
+ * cover it learned is kept. Writing the book as it arrived — which has no
+ * cover yet — would forget that, and the thumbnail would stop being shown.
+ */
+export function writtenShelfChange(next, changed) {
+  if (!changed?.put) return changed;
+  const saved = (next || []).find((row) => galleryKey(row) === galleryKey(changed.put));
+  return saved ? { ...changed, put: saved } : changed;
+}
+
 /** How far through the book the reading got, 0..1. */
 export function galleryProgress(entry) {
   const sections = Number(entry?.sections) || 0;

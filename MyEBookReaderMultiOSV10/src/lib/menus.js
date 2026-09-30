@@ -9,6 +9,7 @@
 // way rather than with an in-page dropdown.
 
 import { themeGroups } from './themes.js';
+import { effectiveZoomMode, textColumnsOf, viewLayoutOf } from './view.js';
 
 export const RECENT_PREFIX = 'recent:';
 export const RECENT_FORGET_PREFIX = 'recent-forget:';
@@ -24,9 +25,9 @@ export const BOOKMARK_PREFIX = 'bookmark:';
  */
 export const COMMANDS = [
   // ── File ──
+  { id: 'openFolder', label: 'cmd.openFolder', icon: 'folderOpen', menu: 'file' },
   { id: 'open', label: 'cmd.open', icon: 'open', key: 'Ctrl+O', menu: 'file' },
   { id: 'openUrl', label: 'cmd.openUrl', icon: 'url', menu: 'file' },
-  { id: 'openFolder', label: 'cmd.openFolder', icon: 'folderOpen', menu: 'file' },
   { id: 'closeBook', label: 'cmd.closeBook', icon: 'close', key: 'Ctrl+W', menu: 'file', needs: 'book' },
   { id: 'saveLibrary', label: 'cmd.saveLibrary', icon: 'save', key: 'Ctrl+S', menu: 'file', needs: 'book' },
   { id: 'saveLibraryAs', label: 'cmd.saveLibraryAs', icon: 'saveAs', menu: 'file', needs: 'book' },
@@ -40,26 +41,40 @@ export const COMMANDS = [
   { id: 'nextSection', label: 'cmd.nextSection', icon: 'next', key: 'PageDown', menu: 'reading', needs: 'book' },
   { id: 'firstSection', label: 'cmd.firstSection', icon: 'first', key: 'Ctrl+Home', menu: 'reading', needs: 'book' },
   { id: 'lastSection', label: 'cmd.lastSection', icon: 'last', key: 'Ctrl+End', menu: 'reading', needs: 'book' },
-  { id: 'modeScroll', label: 'cmd.modeScroll', icon: 'scroll', menu: 'reading', needs: 'reflow', toggle: true },
-  { id: 'modePaged', label: 'cmd.modePaged', icon: 'paged', menu: 'reading', needs: 'reflow', toggle: true },
-  { id: 'twoColumns', label: 'cmd.twoColumns', icon: 'columns', menu: 'reading', needs: 'reflow', toggle: true },
+  // Still dispatched by older controls. The three view buttons are the way a
+  // reader chooses now, and only one of them can be on.
+  { id: 'modeScroll', label: 'cmd.modeScroll', icon: 'scroll' },
+  { id: 'modePaged', label: 'cmd.modePaged', icon: 'paged' },
+  { id: 'twoColumns', label: 'cmd.twoColumns', icon: 'columns' },
   { id: 'textBigger', label: 'cmd.textBigger', icon: 'textSize', key: 'Ctrl++', menu: 'reading', needs: 'reflow' },
   { id: 'textSmaller', label: 'cmd.textSmaller', icon: 'textSize', key: 'Ctrl+-', menu: 'reading', needs: 'reflow' },
   { id: 'textReset', label: 'cmd.textReset', icon: 'actual', key: 'Ctrl+0', menu: 'reading', needs: 'reflow' },
-  { id: 'turnNone', label: 'cmd.turnNone', icon: 'pageTurn', menu: 'reading', toggle: true },
-  { id: 'turnSlide', label: 'cmd.turnSlide', icon: 'pageTurn', menu: 'reading', toggle: true },
-  { id: 'turnFlip', label: 'cmd.turnFlip', icon: 'pageTurn', menu: 'reading', toggle: true },
+  // A turn effect needs a page that goes away. Read as one continuous thing
+  // there is none, so these are offered only when the book comes a screen at a
+  // time — one page, or two facing pages.
+  { id: 'turnNone', label: 'cmd.turnNone', icon: 'pageTurn', menu: 'reading', needs: 'onePage', toggle: true },
+  { id: 'turnSlide', label: 'cmd.turnSlide', icon: 'pageTurn', menu: 'reading', needs: 'onePage', toggle: true },
+  { id: 'turnFlip', label: 'cmd.turnFlip', icon: 'pageTurn', menu: 'reading', needs: 'onePage', toggle: true },
   { id: 'justify', label: 'cmd.justify', icon: 'text', menu: 'reading', needs: 'reflow', toggle: true },
+  // Text columns belong to one page. Two facing pages are not a 다단 split, and
+  // a PDF page does not reflow, so these stay off in both of those.
+  { id: 'columns1', label: 'cmd.columns1', icon: 'columns', menu: 'reading', needs: 'reflow', toggle: true },
+  { id: 'columns2', label: 'cmd.columns2', icon: 'columns', menu: 'reading', needs: 'reflow', toggle: true },
 
   // ── View ──
+  { id: 'viewSingle', label: 'cmd.viewSingle', icon: 'onePage', menu: 'view', needs: 'book', toggle: true },
+  { id: 'viewDouble', label: 'cmd.viewDouble', icon: 'twoPages', menu: 'view', needs: 'book', toggle: true },
+  { id: 'viewContinuous', label: 'cmd.viewContinuous', icon: 'scroll', menu: 'view', needs: 'book', toggle: true },
   { id: 'zoomIn', label: 'cmd.zoomIn', icon: 'zoomIn', key: 'Ctrl++', menu: 'view', needs: 'fixed' },
   { id: 'zoomOut', label: 'cmd.zoomOut', icon: 'zoomOut', key: 'Ctrl+-', menu: 'view', needs: 'fixed' },
+  // A PDF or a picture can be fitted by width, height or the whole window.
+  // An ebook is always the window, so these are not offered for one.
   { id: 'fitWidth', label: 'cmd.fitWidth', icon: 'fitWidth', menu: 'view', needs: 'fixed', toggle: true },
   { id: 'fitPage', label: 'cmd.fitPage', icon: 'fitPage', menu: 'view', needs: 'fixed', toggle: true },
   { id: 'fitHeight', label: 'cmd.fitHeight', icon: 'fitHeight', menu: 'view', needs: 'fixed', toggle: true },
   { id: 'actualSize', label: 'cmd.actualSize', icon: 'actual', key: 'Ctrl+0', menu: 'view', needs: 'fixed', toggle: true },
-  { id: 'spreadSingle', label: 'cmd.spreadSingle', icon: 'paged', menu: 'view', needs: 'fixed', toggle: true },
-  { id: 'spreadDouble', label: 'cmd.spreadDouble', icon: 'columns', menu: 'view', needs: 'fixed', toggle: true },
+  { id: 'spreadSingle', label: 'cmd.spreadSingle', icon: 'onePage' },
+  { id: 'spreadDouble', label: 'cmd.spreadDouble', icon: 'twoPages' },
   { id: 'rotateLeft', label: 'cmd.rotateLeft', icon: 'rotateLeft', menu: 'view', needs: 'fixed' },
   { id: 'rotateRight', label: 'cmd.rotateRight', icon: 'rotateRight', menu: 'view', needs: 'fixed' },
   { id: 'invertPages', label: 'cmd.invertPages', icon: 'invert', menu: 'view', toggle: true },
@@ -76,6 +91,12 @@ export const COMMANDS = [
 
   // ── Marks ──
   { id: 'addBookmark', label: 'cmd.addBookmark', icon: 'bookmarkAdd', key: 'Ctrl+B', menu: 'marks', needs: 'book' },
+
+  // ── Only where a place on the page is being pointed at ──
+  // A bookmark at *this* spot needs a spot, which only a right click has. It
+  // would be a command with no argument anywhere else, so it is offered nowhere
+  // else — the Marks menu keeps the one that bookmarks where the reader is.
+  { id: 'bookmarkHere', label: 'cmd.bookmarkHere', icon: 'bookmarkAdd', menu: 'context', needs: 'book' },
   { id: 'highlight', label: 'cmd.highlight', icon: 'highlight', key: 'Ctrl+H', menu: 'marks', needs: 'text' },
   { id: 'addNote', label: 'cmd.addNote', icon: 'note', menu: 'marks', needs: 'book' },
   { id: 'copySelection', label: 'cmd.copySelection', icon: 'copy', key: 'Ctrl+C', menu: 'marks', needs: 'text' },
@@ -94,7 +115,10 @@ export const COMMANDS = [
   { id: 'about', label: 'cmd.about', icon: 'info', menu: 'app' },
 ];
 
-export const MENU_IDS = ['file', 'reading', 'view', 'marks', 'app', 'context', 'theme', 'recent', 'bookmarks'];
+export const MENU_IDS = ['file', 'reading', 'view', 'marks', 'app', 'context', 'theme', 'recent', 'bookmarks', 'turn'];
+
+/** The page-turn effects, which are a list to choose from rather than a cycle. */
+export const TURN_COMMANDS = ['turnNone', 'turnSlide', 'turnFlip'];
 
 export function commandById(id) {
   return COMMANDS.find((c) => c.id === id) || null;
@@ -118,6 +142,7 @@ export function shortcutRows() {
 export function menuRows(menu, state = {}) {
   const {
     hasBook = false, hasSelection = false, reflowable = true, hasImage = false,
+    onePage = false, layout = 'continuous',
     active = [], recentFiles = [], bookmarks = [], canUndo = false, canRedo = false,
   } = state;
 
@@ -125,11 +150,24 @@ export function menuRows(menu, state = {}) {
     if (command.id === 'undo') return !canUndo;
     if (command.id === 'redo') return !canRedo;
     switch (command.needs) {
-      case 'book': return !hasBook;
+      case 'book':
+        if (!hasBook) return true;
+        return false;
       case 'text': return !hasSelection;
       case 'image': return !hasImage;
-      case 'reflow': return !hasBook || !reflowable;
-      case 'fixed': return !hasBook || reflowable;
+      case 'reflow':
+        if (!hasBook || !reflowable) return true;
+        // 다단 is one page split into columns. Two facing pages and a continuous
+        // run do not take it.
+        if ((command.id === 'columns1' || command.id === 'columns2' || command.id === 'twoColumns') && layout !== 'single') return true;
+        return false;
+      case 'fixed':
+        if (!hasBook || reflowable) return true;
+        // One page of a picture always fills the window. Width and height are
+        // the other layouts' fit.
+        if ((command.id === 'fitWidth' || command.id === 'fitHeight') && layout === 'single') return true;
+        return false;
+      case 'onePage': return !hasBook || !onePage;
       default: return false;
     }
   };
@@ -137,7 +175,15 @@ export function menuRows(menu, state = {}) {
   if (menu === 'recent') return recentRows(recentFiles);
   if (menu === 'bookmarks') return bookmarkRows(bookmarks);
 
-  const rows = commandsInMenu(menu === 'context' ? 'marks' : menu).map((command) => ({
+  // The right-click menu is the Marks menu, with the commands that only make
+  // sense when something on the page is being pointed at in front of it. The
+  // turn menu is the three effects on their own, so that one can be picked
+  // rather than cycled round to.
+  let source;
+  if (menu === 'context') source = [...commandsInMenu('context'), ...commandsInMenu('marks')];
+  else if (menu === 'turn') source = TURN_COMMANDS.map(commandById).filter(Boolean);
+  else source = commandsInMenu(menu);
+  const rows = source.map((command) => ({
     id: command.id,
     label: command.label,
     icon: command.icon,
@@ -200,7 +246,11 @@ export function recentRows(recentFiles) {
   return (recentFiles || []).map((file) => ({
     id: `${RECENT_PREFIX}${file.path || file.name}`,
     text: file.name || file.path,
-    detail: file.dir || '',
+    // The folder is the tooltip, not a second column. A column beside the name
+    // takes its room, and a name that has been cut in half no longer says which
+    // book it is — whereas the folder is only wanted when two books share a
+    // name, which is exactly when the reader hovers to ask.
+    tip: file.path || file.name,
     icon: 'recent',
     forget: `${RECENT_FORGET_PREFIX}${file.path || file.name}`,
   }));
@@ -248,19 +298,24 @@ export function parseChoice(id) {
 /** Which toggle commands are currently on, from the settings. */
 export function activeCommands(settings, book) {
   const on = [];
-  if (settings.pageMode === 'scroll') on.push('modeScroll');
-  if (settings.pageMode === 'paged') on.push('modePaged');
-  if (settings.twoColumns) on.push('twoColumns');
+  // Exactly one layout. The older flags are written together with it, so a
+  // two-page spread and a continuous run cannot both be ticked.
+  const layout = viewLayoutOf(settings, book);
+  if (layout === 'single') on.push('viewSingle');
+  if (layout === 'double') on.push('viewDouble');
+  if (layout === 'continuous') on.push('viewContinuous');
+  // 다단 is a choice about one page. Two facing pages and a continuous run
+  // are not in a column mode, so neither count is the one that is on.
+  if (layout === 'single') on.push(textColumnsOf(settings) === 2 ? 'columns2' : 'columns1');
   if (settings.justify) on.push('justify');
   if (settings.pageTurn === 'none') on.push('turnNone');
   if (settings.pageTurn === 'slide') on.push('turnSlide');
   if (settings.pageTurn === 'flip') on.push('turnFlip');
-  if (settings.zoomMode === 'fit-width') on.push('fitWidth');
-  if (settings.zoomMode === 'fit-page') on.push('fitPage');
-  if (settings.zoomMode === 'fit-height') on.push('fitHeight');
-  if (settings.zoomMode === 'actual') on.push('actualSize');
-  if (settings.spread === 'double') on.push('spreadDouble');
-  else on.push('spreadSingle');
+  const zoomMode = effectiveZoomMode(settings, layout);
+  if (zoomMode === 'fit-width') on.push('fitWidth');
+  if (zoomMode === 'fit-page') on.push('fitPage');
+  if (zoomMode === 'fit-height') on.push('fitHeight');
+  if (zoomMode === 'actual') on.push('actualSize');
   if (settings.invertPages) on.push('invertPages');
   if (settings.leftPanel !== 'none') on.push('toggleLeft');
   if (settings.rightPanel !== 'none') on.push('toggleRight');
@@ -269,6 +324,5 @@ export function activeCommands(settings, book) {
   if (settings.showToolbarLabels) on.push('toolbarLabels');
   if (settings.galleryView === 'details') on.push('galleryDetails');
   else on.push('galleryIcons');
-  void book;
   return on;
 }

@@ -36,6 +36,16 @@ export const IconFolderOpen = (p) => (
     <path d="M4 7.5h5l2 2" />
   </S>
 );
+export const IconDrive = (p) => (
+  <S {...p}>
+    <rect x="3" y="5" width="18" height="6" rx="1.6" />
+    <rect x="3" y="13" width="18" height="6" rx="1.6" />
+    <path d="M7 8h.01M7 16h.01" />
+  </S>
+);
+export const IconHome = (p) => (
+  <S {...p}><path d="M4 11.5 12 4l8 7.5" /><path d="M6 10.5V20h12v-9.5" /></S>
+);
 export const IconUrl = (p) => (
   <S {...p}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></S>
 );
@@ -130,14 +140,40 @@ export const IconActual = (p) => (
 );
 export const IconRotateLeft = (p) => (<S {...p}><path d="M4 9a8 8 0 1 1 1.5 7" /><path d="M4 4v5h5" /></S>);
 export const IconRotateRight = (p) => (<S {...p}><path d="M20 9A8 8 0 1 0 18.5 16" /><path d="M20 4v5h-5" /></S>);
+// These two are a toggle, so they have to be told apart at a glance rather than
+// read. One is pages going on past the window with the arrow that says they
+// keep coming; the other is a single sheet with a turned corner — the page you
+// turn. Two sheets with a small arrow between them, which is what they were,
+// differ by one stroke and told the reader nothing.
 export const IconScroll = (p) => (
-  <S {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 7h6M9 11h6M9 15h6M12 19.5v.5" /></S>
+  <S {...p}>
+    <rect x="3.5" y="2.5" width="12" height="8" rx="1.2" />
+    <rect x="3.5" y="13.5" width="12" height="8" rx="1.2" />
+    <path d="M20 7.5v9M17.8 14.3 20 16.5l2.2-2.2" />
+  </S>
 );
 export const IconPaged = (p) => (
-  <S {...p}><rect x="3" y="4" width="8" height="16" rx="1.5" /><rect x="13" y="4" width="8" height="16" rx="1.5" /></S>
+  <S {...p}>
+    <path d="M5 3h8.5L19 8.5V21H5z" />
+    <path d="M13.5 3v5.5H19" />
+  </S>
 );
+// Two columns of text in one sheet — not two sheets, which is a spread.
 export const IconColumns = (p) => (
-  <S {...p}><rect x="3" y="4" width="8" height="16" rx="1.5" /><rect x="13" y="4" width="8" height="16" rx="1.5" /></S>
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="1.5" /><path d="M12 6v12" /></S>
+);
+// A page on its own, and two pages facing each other across a binding. These
+// two are a pair and have to be told apart at a glance: they are the toolbar's
+// only way of saying which of the two the reader is looking at.
+export const IconOnePage = (p) => (
+  <S {...p}><rect x="6.5" y="3.5" width="11" height="17" rx="1.5" /><path d="M9.5 8.5h5M9.5 12h5" /></S>
+);
+export const IconTwoPages = (p) => (
+  <S {...p}>
+    <rect x="2.5" y="4.5" width="8.5" height="15" rx="1.5" />
+    <rect x="13" y="4.5" width="8.5" height="15" rx="1.5" />
+    <path d="M12 3.5v17" />
+  </S>
 );
 export const IconTextSize = (p) => (
   <S {...p}><path d="M3 18 8 6l5 12M4.6 14h6.8" /><path d="M14 18l3.5-8 3.5 8M15 15.5h5" /></S>
@@ -263,6 +299,7 @@ export function IconFlag({ lang = 'ko', ...p }) {
  */
 export const ICONS = {
   open: IconOpen, folder: IconFolder, folderOpen: IconFolderOpen, url: IconUrl,
+  drive: IconDrive, home: IconHome,
   recent: IconRecent, save: IconSave, saveAs: IconSaveAs, export: IconExport,
   print: IconPrint, trash: IconTrash, download: IconDownload,
   book: IconBook, library: IconLibrary, contents: IconContents,
@@ -273,6 +310,7 @@ export const ICONS = {
   fitWidth: IconFitWidth, fitPage: IconFitPage, fitHeight: IconFitHeight, actual: IconActual,
   rotateLeft: IconRotateLeft, rotateRight: IconRotateRight,
   scroll: IconScroll, paged: IconPaged, columns: IconColumns, pageTurn: IconPageTurn,
+  onePage: IconOnePage, twoPages: IconTwoPages,
   textSize: IconTextSize, lineHeight: IconLineHeight, invert: IconInvert,
   opacity: IconOpacity, image: IconImage, layout: IconLayout,
   panelLeft: IconPanelLeft, panelRight: IconPanelRight,

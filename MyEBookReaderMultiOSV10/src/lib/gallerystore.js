@@ -203,7 +203,16 @@ function indexedDbStore() {
       const handle = await db();
       const tx = handle.transaction(ENTRIES, 'readonly');
       const rows = await asPromise(tx.objectStore(ENTRIES).getAll());
-      return rows.map(({ key, ...entry }) => entry);
+      const coverTx = handle.transaction(COVERS, 'readonly');
+      const coverKeys = await asPromise(coverTx.objectStore(COVERS).getAllKeys());
+      const have = new Set(coverKeys);
+      return rows.map(({ key, ...entry }) => ({
+        ...entry,
+        // A thumbnail can outlive the flag that says it is there: opening the
+        // book again used to write the book without its cover. The picture is
+        // still in the store, so the shelf should say so.
+        cover: entry.cover || (have.has(key) ? true : ''),
+      }));
     },
 
     // A change is one record, not the whole shelf — the point of a database.

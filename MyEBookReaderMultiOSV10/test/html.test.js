@@ -90,6 +90,25 @@ describe('sanitizeChapter', () => {
     expect(out.headings).toEqual([]);
   });
 
+  it('keeps a MOBI picture that is named by recindex rather than src', () => {
+    const out = sanitizeChapter('<p><img recindex="00001" width="320" height="225"></p>', {
+      resolveSrc: (href) => (href === '00001' ? 'blob:first-page' : ''),
+    });
+    expect(out.html).toContain('src="blob:first-page"');
+    expect(out.html).not.toContain('recindex');
+    expect(out.html).not.toContain('width=');
+  });
+
+  it('unwraps a MOBI chapter so its paragraphs are the page, as in an EPUB', () => {
+    const out = sanitizeChapter(
+      '<mbp:pagebreak><p align="justify" width="0pt" height="6pt"><font><font>본문</font></font></p>'
+      + '<guide><reference type="toc" title="Table of Contents"></reference></guide>',
+    );
+    expect(out.html).not.toMatch(/mbp:pagebreak|<font|align=|width=|height=|<guide|<reference/i);
+    expect(out.html).toContain('<p>본문</p>');
+    expect(out.text).toContain('본문');
+  });
+
   it('keeps tables, lists and ruby markup', () => {
     const out = sanitizeChapter('<table><tr><td>a</td></tr></table><ul><li>b</li></ul><ruby>漢<rt>かん</rt></ruby>');
     expect(out.html).toContain('<td>a</td>');
@@ -132,5 +151,61 @@ describe('escapeHtml / parseDocument', () => {
   it('parses XML', () => {
     const doc = parseDocument('<root><child>v</child></root>', 'application/xml');
     expect(doc.documentElement.tagName).toBe('root');
+  });
+});
+
+describe('the plain text of a whole document', () => {
+  // A real EPUB chapter, in the shape that broke: an XHTML document whose head
+  // carries a self-closed <script/>. That is valid XML and meaningless in HTML —
+  // a script element is never self-closing there, so an HTML parser swallows the
+  // rest of the file as script content and the body comes out empty. The chapter
+  // showed on screen (the reading path parses it as XML) while search found
+  // nothing in it, an export of it was blank and it counted as no pages at all.
+  const xhtmlChapter = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en">
+<head>
+  <title>3</title>
+  <link href="../Styles/epub.css" rel="stylesheet" type="text/css"/>
+  <script xmlns="http://www.w3.org/1999/xhtml" type="text/javascript" src="../../js/book.js"/>
+  <style type="text/css">.bookSpan { color: red; }</style>
+</head>
+<body id="ch3">
+  <h1>Chapter three</h1>
+  <p>The text a reader would expect to be able to search for.</p>
+</body>
+</html>`;
+
+  it('reads the body of an XHTML document the HTML parser would swallow', () => {
+    const text = htmlToText(xhtmlChapter);
+    expect(text).toContain('Chapter three');
+    expect(text).toContain('search for');
+  });
+
+  it('leaves the head out of it', () => {
+    const text = htmlToText(xhtmlChapter);
+    expect(text).not.toContain('bookSpan');
+    expect(text).not.toContain('book.js');
+  });
+
+  it('still reads an ordinary HTML document', () => {
+    const text = htmlToText('<html><head><title>T</title></head><body><p>one</p><p>two</p></body></html>');
+    expect(text).toContain('one');
+    expect(text).toContain('two');
+    expect(text).not.toContain('<p>');
+  });
+
+  it('still reads a bare fragment', () => {
+    expect(htmlToText('<p>첫째</p><p>둘째</p>')).toBe('첫째\n둘째');
+  });
+
+  it('has nothing to say about nothing', () => {
+    expect(htmlToText('')).toBe('');
+    expect(htmlToText(null)).toBe('');
+    expect(htmlToText('   ')).toBe('');
+  });
+
+  it('falls back to stripping the tags when nothing will parse it', () => {
+    // Markup with no elements at all still has words in it.
+    expect(htmlToText('plain words')).toBe('plain words');
   });
 });

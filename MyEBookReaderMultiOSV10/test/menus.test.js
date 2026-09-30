@@ -33,7 +33,16 @@ describe('command catalogue', () => {
   });
 
   it('files every command under a real menu', () => {
-    for (const command of COMMANDS) expect(MENU_IDS).toContain(command.menu);
+    // The older layout commands stay so a saved shortcut still runs. The three
+    // view buttons are the menu, and only one of them can be on.
+    const kept = new Set(['modeScroll', 'modePaged', 'twoColumns', 'spreadSingle', 'spreadDouble']);
+    for (const command of COMMANDS) {
+      if (kept.has(command.id)) {
+        expect(command.menu).toBeUndefined();
+        continue;
+      }
+      expect(MENU_IDS, command.id).toContain(command.menu);
+    }
   });
 
   it('looks a command up by id', () => {
@@ -42,7 +51,9 @@ describe('command catalogue', () => {
   });
 
   it('lists the commands of one menu', () => {
-    expect(commandsInMenu('file').map((c) => c.id)).toContain('open');
+    const file = commandsInMenu('file').map((c) => c.id);
+    expect(file[0]).toBe('openFolder');
+    expect(file).toContain('open');
     expect(commandsInMenu('file').every((c) => c.menu === 'file')).toBe(true);
   });
 
@@ -75,11 +86,29 @@ describe('menuRows', () => {
     expect(menuRows('marks', state({ hasSelection: true })).find((r) => r.id === 'highlight').disabled).toBe(false);
   });
 
-  it('disables reflow commands for a fixed-layout book and vice versa', () => {
+  it('disables document zoom for an ebook, and keeps the type size', () => {
     const fixed = menuRows('reading', state({ reflowable: false }));
     expect(fixed.find((r) => r.id === 'textBigger').disabled).toBe(true);
-    const reflow = menuRows('view', state({ reflowable: true }));
+    expect(fixed.find((r) => r.id === 'columns2').disabled).toBe(true);
+    const facing = menuRows('reading', state({ reflowable: true, layout: 'double' }));
+    expect(facing.find((r) => r.id === 'columns1').disabled).toBe(true);
+    expect(facing.find((r) => r.id === 'columns2').disabled).toBe(true);
+    const one = menuRows('reading', state({ reflowable: true, layout: 'single' }));
+    expect(one.find((r) => r.id === 'columns2').disabled).toBe(false);
+    const run = menuRows('reading', state({ reflowable: true, layout: 'continuous' }));
+    expect(run.find((r) => r.id === 'columns1').disabled).toBe(true);
+    expect(run.find((r) => r.id === 'columns2').disabled).toBe(true);
+    const reflow = menuRows('view', state({ reflowable: true, layout: 'double' }));
     expect(reflow.find((r) => r.id === 'zoomIn').disabled).toBe(true);
+    expect(reflow.find((r) => r.id === 'zoomOut').disabled).toBe(true);
+    expect(reflow.find((r) => r.id === 'actualSize').disabled).toBe(true);
+    // An ebook is always the window. Fit by width, height or page is a picture's choice.
+    expect(reflow.find((r) => r.id === 'fitWidth').disabled).toBe(true);
+    expect(reflow.find((r) => r.id === 'fitPage').disabled).toBe(true);
+    const single = menuRows('view', state({ reflowable: false, layout: 'single' }));
+    expect(single.find((r) => r.id === 'zoomIn').disabled).toBe(false);
+    expect(single.find((r) => r.id === 'fitWidth').disabled).toBe(true);
+    expect(single.find((r) => r.id === 'fitPage').disabled).toBe(false);
   });
 
   it('follows the undo stack', () => {
@@ -88,9 +117,10 @@ describe('menuRows', () => {
   });
 
   it('ticks the toggles that are on', () => {
-    const rows = menuRows('reading', state({ active: ['modePaged'] }));
-    expect(rows.find((r) => r.id === 'modePaged').checked).toBe(true);
-    expect(rows.find((r) => r.id === 'modeScroll').checked).toBe(false);
+    const rows = menuRows('view', state({ active: ['viewSingle'] }));
+    expect(rows.find((r) => r.id === 'viewSingle').checked).toBe(true);
+    expect(rows.find((r) => r.id === 'viewDouble').checked).toBe(false);
+    expect(rows.find((r) => r.id === 'viewContinuous').checked).toBe(false);
   });
 
   it('puts the recent files at the end of the File menu', () => {
@@ -98,7 +128,9 @@ describe('menuRows', () => {
     expect(rows.some((r) => r.section === 'recent.title')).toBe(true);
     const recent = rows.find((r) => r.id?.startsWith(RECENT_PREFIX));
     expect(recent.text).toBe('b.epub');
-    expect(recent.detail).toBe('/a');
+    // The name whole, and the path it came from on hover rather than beside it.
+    expect(recent.detail).toBeUndefined();
+    expect(recent.tip).toBe('/a/b.epub');
     expect(recent.forget).toBe(`${RECENT_FORGET_PREFIX}/a/b.epub`);
   });
 
@@ -119,7 +151,7 @@ describe('menuRows', () => {
 describe('dynamic rows', () => {
   it('builds rows for the recent files', () => {
     const rows = recentRows([{ path: 'p', name: 'n', dir: 'd' }]);
-    expect(rows[0]).toMatchObject({ id: `${RECENT_PREFIX}p`, text: 'n', detail: 'd', icon: 'recent' });
+    expect(rows[0]).toMatchObject({ id: `${RECENT_PREFIX}p`, text: 'n', tip: 'p', icon: 'recent' });
   });
 
   it('builds rows for the bookmarks', () => {
@@ -164,19 +196,54 @@ describe('parseChoice', () => {
 describe('activeCommands', () => {
   it('reports the toggles that are on for the default settings', () => {
     const active = activeCommands(DEFAULT_SETTINGS, null);
-    expect(active).toContain('modeScroll');
+    expect(active).toContain('viewContinuous');
     // A fixed page meets the window whole unless the reader says otherwise.
     expect(active).toContain('fitPage');
     expect(active).toContain('toggleLeft');
     expect(active).toContain('toggleRight');
     expect(active).toContain('toggleStatus');
-    expect(active).not.toContain('modePaged');
+    expect(active).not.toContain('viewSingle');
   });
 
   it('follows a changed setting', () => {
     const active = activeCommands({ ...DEFAULT_SETTINGS, pageMode: 'paged', twoColumns: true, leftPanel: 'none' }, null);
-    expect(active).toContain('modePaged');
-    expect(active).toContain('twoColumns');
+    expect(active).toContain('viewDouble');
+    expect(active).not.toContain('viewSingle');
+    expect(active).not.toContain('viewContinuous');
     expect(active).not.toContain('toggleLeft');
+  });
+
+  it('marks a column count only while one page is showing', () => {
+    const one = activeCommands({ ...DEFAULT_SETTINGS, viewLayout: 'single', columns: 2 }, { reflowable: true });
+    expect(one).toContain('columns2');
+    expect(one).not.toContain('columns1');
+    const facing = activeCommands({ ...DEFAULT_SETTINGS, viewLayout: 'double', columns: 2 }, { reflowable: true });
+    expect(facing).not.toContain('columns1');
+    expect(facing).not.toContain('columns2');
+    const run = activeCommands({ ...DEFAULT_SETTINGS, viewLayout: 'continuous', columns: 2 }, { reflowable: true });
+    expect(run).not.toContain('columns1');
+    expect(run).not.toContain('columns2');
+  });
+});
+
+describe('the page-turn effect as a list', () => {
+  it('offers the three effects on their own', () => {
+    const rows = menuRows('turn', { hasBook: true, onePage: true, active: ['turnSlide'] });
+    expect(rows.map((r) => r.id)).toEqual(['turnNone', 'turnSlide', 'turnFlip']);
+  });
+
+  it('marks the one that is on, so the list says which it is', () => {
+    const rows = menuRows('turn', { hasBook: true, onePage: true, active: ['turnFlip'] });
+    expect(rows.find((r) => r.id === 'turnFlip').checked).toBe(true);
+    expect(rows.find((r) => r.id === 'turnNone').checked).toBe(false);
+  });
+
+  it('greys them all where there is no page to turn', () => {
+    const rows = menuRows('turn', { hasBook: true, onePage: false, active: [] });
+    expect(rows.every((r) => r.disabled)).toBe(true);
+  });
+
+  it('is one of the menus the app knows about', () => {
+    expect(MENU_IDS).toContain('turn');
   });
 });
