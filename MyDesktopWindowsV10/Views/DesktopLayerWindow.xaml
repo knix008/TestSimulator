@@ -1,0 +1,78 @@
+﻿<Window x:Class="Palisades.Views.DesktopLayerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Palisades desktop"
+        WindowStyle="None" AllowsTransparency="True" Background="{x:Null}"
+        ShowInTaskbar="False" ResizeMode="NoResize" WindowStartupLocation="Manual"
+        ShowActivated="False" AllowDrop="True"
+        SnapsToDevicePixels="True" UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+
+    <Window.Resources>
+        <!-- Cells need a trace of alpha: a fully transparent pixel lets the click fall through to
+             the wallpaper, which is exactly what the empty area should do and an icon should not. -->
+        <Style x:Key="DesktopCell" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Width" Value="78" />
+            <Setter Property="Height" Value="94" />
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="CellBorder" Background="#01000000" CornerRadius="6" Margin="2">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CellBorder" Property="Background" Value="#33FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="CellBorder" Property="Background" Value="#59FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- Background stays null so clicks fall through to the real desktop; during a drag it is given
+         a trace of alpha so the drop lands here instead of Explorer. -->
+    <Grid x:Name="Root" Background="{x:Null}" AllowDrop="True"
+          DragOver="Items_DragOver" Drop="Items_Drop">
+        <ListBox x:Name="ItemsView" Background="{x:Null}" BorderThickness="0" Padding="0"
+                 SelectionMode="Extended" ItemContainerStyle="{StaticResource DesktopCell}" AllowDrop="True"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                 PreviewMouseLeftButtonDown="Items_PreviewMouseLeftButtonDown"
+                 PreviewMouseMove="Items_PreviewMouseMove"
+                 PreviewMouseRightButtonUp="Items_PreviewMouseRightButtonUp"
+                 KeyDown="Items_KeyDown">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <!-- Free placement: every icon keeps the spot it was put in, like the shell's own
+                         desktop, so one dropped out of a fence stays where it was dropped. -->
+                    <Canvas />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Margin="1,5,1,0" ToolTip="{Binding Path}">
+                        <Image Source="{Binding Icon}" Width="44" Height="44"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="{Binding Name}" FontSize="11" TextAlignment="Center" Margin="0,4,0,0"
+                                   TextWrapping="Wrap" MaxHeight="30" TextTrimming="CharacterEllipsis"
+                                   Foreground="#FFFFFF">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.9" />
+                            </TextBlock.Effect>
+                        </TextBlock>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</Window>

@@ -1,0 +1,15 @@
+<Window x:Class="Palisades.Views.LassoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Palisades lasso"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False" ResizeMode="NoResize" WindowStartupLocation="Manual"
+        ShowActivated="False" Topmost="True" IsHitTestVisible="False" Visibility="Hidden">
+    <Canvas x:Name="Surface">
+        <Border x:Name="Marquee" Width="0" Height="0" CornerRadius="10" Background="#33D9F078"
+                BorderBrush="#D9F078" BorderThickness="2">
+            <TextBlock x:Name="SizeLabel" Margin="10,7" FontSize="11" FontWeight="SemiBold" Foreground="#F2FFD0"
+                       VerticalAlignment="Top" HorizontalAlignment="Left" />
+        </Border>
+    </Canvas>
+</Window>
