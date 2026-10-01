@@ -435,7 +435,7 @@ export function cases(ctx: Ctx): TestCase[] {
     }
   });
 
-  add("Git", "A running diff tool is updated in place", async () => {
+  add("Git", "An explicit external diff opens the viewer", async () => {
     const log = path.join(ctx.home, "stay-diff.log");
     const script = path.join(ctx.home, "stay-diff.mjs");
     fs.writeFileSync(script, [
@@ -449,25 +449,81 @@ export function cases(ctx: Ctx): TestCase[] {
       externalDiffToolArguments: `"${script}" "${log}" "{left}" "{right}"`,
     });
     const before = new Set(fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith("mygit-diff-")));
-    let pid = "";
+    const rights = () => fs.readdirSync(os.tmpdir())
+      .filter((name) => name.startsWith("mygit-diff-") && !before.has(name))
+      .map((name) => {
+        const file = fs.readdirSync(path.join(os.tmpdir(), name)).find((entry) => entry.startsWith("right"));
+        return file ? fs.readFileSync(path.join(os.tmpdir(), name, file), "utf8") : "";
+      })
+      .sort();
+    let pids: string[] = [];
     try {
       await ctx.app.externalDiff(ctx.sha, "note.txt", false);
       assert(!fs.existsSync(log), "refresh started a tool");
       await ctx.app.externalDiff(ctx.sha, "note.txt", true);
       await ctx.app.externalDiff(ctx.sha, "README.md", true);
-      const lines = fs.readFileSync(log, "utf8").trim().split(/\r?\n/).filter(Boolean);
-      assert(lines.length === 1, lines.join(","));
-      pid = lines[0];
-      const created = fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith("mygit-diff-") && !before.has(name));
-      assert(created.length === 1, created.join(","));
-      const right = fs.readdirSync(path.join(os.tmpdir(), created[0])).find((name) => name.startsWith("right"));
-      assert(right, "right file");
-      assert(fs.readFileSync(path.join(os.tmpdir(), created[0], right), "utf8") === "hello\n", "updated file");
+      pids = fs.readFileSync(log, "utf8").trim().split(/\r?\n/).filter(Boolean);
+      assert(pids.length === 2, pids.join(","));
+      assert(rights().join("|") === "hello\n|one\n", rights().join("|"));
+      await ctx.app.externalDiff(ctx.sha, "note.txt", false);
+      const again = fs.readFileSync(log, "utf8").trim().split(/\r?\n/).filter(Boolean);
+      assert(again.length === 2, again.join(","));
+      assert(rights().join("|") === "one\n|one\n", rights().join("|"));
     } finally {
-      if (pid) {
+      for (const pid of pids) {
         try { process.kill(Number(pid)); } catch { /* already gone */ }
       }
       ctx.app.settings.update({ externalDiffToolPath: "", externalDiffToolArguments: "\"{left}\" \"{right}\"" });
+    }
+  });
+
+  add("Git", "A conflict opens the configured merge tool", async () => {
+    const repo = path.join(ctx.home, "merge-repo");
+    const log = path.join(ctx.home, "merge-tool.log");
+    const script = path.join(ctx.home, "merge-tool.mjs");
+    fs.mkdirSync(repo);
+    await git(repo, ["init", "-b", "main"]);
+    await identity(repo);
+    fs.writeFileSync(path.join(repo, "note.txt"), "base\n");
+    await git(repo, ["add", "note.txt"]);
+    await git(repo, ["commit", "-m", "Base"]);
+    await git(repo, ["checkout", "-b", "side"]);
+    fs.writeFileSync(path.join(repo, "note.txt"), "theirs\n");
+    await git(repo, ["add", "note.txt"]);
+    await git(repo, ["commit", "-m", "Theirs"]);
+    await git(repo, ["checkout", "main"]);
+    fs.writeFileSync(path.join(repo, "note.txt"), "ours\n");
+    await git(repo, ["add", "note.txt"]);
+    await git(repo, ["commit", "-m", "Ours"]);
+    const conflict = await runGit(repo, ["merge", "side"]);
+    assert(conflict.code !== 0, conflict.stderr || conflict.stdout);
+    fs.writeFileSync(script, [
+      "import fs from 'node:fs';",
+      "const [log, base, local, remote, merged] = process.argv.slice(2);",
+      "const read = (file) => fs.readFileSync(file, 'utf8');",
+      "fs.writeFileSync(log, [read(base), read(local), read(remote), merged].join('---'));",
+      "fs.writeFileSync(merged, 'resolved\\n');",
+      "",
+    ].join("\n"));
+    const previous = ctx.app.info()?.path ?? ctx.repo;
+    try {
+      await expectCode(() => ctx.app.externalMerge("note.txt"), "NO_MERGE_TOOL");
+      ctx.app.settings.update({
+        externalMergeToolPath: process.execPath,
+        externalMergeToolArguments: `"${script}" "${log}" "{base}" "{local}" "{remote}" "{merged}"`,
+      });
+      await ctx.app.open(repo);
+      await ctx.app.externalMerge("note.txt");
+      const written = fs.readFileSync(log, "utf8");
+      assert(written.startsWith("base\n---ours\n---theirs\n---"), written);
+      assert(written.includes(path.join(repo, "note.txt")), written);
+      assert(readText(path.join(repo, "note.txt")) === "resolved\n", "merged file");
+    } finally {
+      ctx.app.settings.update({
+        externalMergeToolPath: "",
+        externalMergeToolArguments: "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"",
+      });
+      await ctx.app.open(previous);
     }
   });
 
@@ -829,6 +885,8 @@ export function cases(ctx: Ctx): TestCase[] {
       theme: "dark-ink",
       externalDiffToolPath: "C:\\Tools\\diff.exe",
       externalDiffToolArguments: "--wait",
+      externalMergeToolPath: "C:\\Tools\\merge.exe",
+      externalMergeToolArguments: "--merge",
       terminalShell: "",
     });
     store.rememberRepository(ctx.repo, { mode: "local", path: ctx.repo });
@@ -839,6 +897,8 @@ export function cases(ctx: Ctx): TestCase[] {
     assert(saved.get().theme === "light-classic", saved.get().theme);
     assert(saved.get().externalDiffToolPath === "", "tool");
     assert(saved.get().externalDiffToolArguments.includes("{left}"), "args");
+    assert(saved.get().externalMergeToolPath === "", "merge tool");
+    assert(saved.get().externalMergeToolArguments.includes("{merged}"), "merge args");
     assert(saved.get().terminalShell === "", "shell");
     assert(saved.get().recentRepositoryPaths.some((item) => item === ctx.repo), "recent kept");
     assert(saved.get().lastSession?.path === ctx.repo, "session kept");
@@ -849,9 +909,15 @@ export function cases(ctx: Ctx): TestCase[] {
     const dir = path.join(ctx.home, "settings-tools");
     const store = new SettingsStore(dir);
     assert(store.get().commitCategories.length === DEFAULT_COMMIT_CATEGORIES.length, "defaults");
-    store.update({ externalDiffToolPath: "C:\\Tools\\diff.exe", externalDiffToolArguments: "\"{left}\" \"{right}\"" });
+    store.update({
+      externalDiffToolPath: "C:\\Tools\\diff.exe",
+      externalDiffToolArguments: "\"{left}\" \"{right}\"",
+      externalMergeToolPath: "C:\\Tools\\merge.exe",
+      externalMergeToolArguments: "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"",
+    });
     const saved = new SettingsStore(dir).get();
     assert(saved.externalDiffToolPath.endsWith("diff.exe") && saved.externalDiffToolArguments.includes("{left}"), saved.externalDiffToolPath);
+    assert(saved.externalMergeToolPath.endsWith("merge.exe") && saved.externalMergeToolArguments.includes("{merged}"), saved.externalMergeToolPath);
   });
 
   add("Shells", "Installed shells expose a command and arguments", async () => {
@@ -876,10 +942,12 @@ export function cases(ctx: Ctx): TestCase[] {
     });
     const meld = found.find((tool) => tool.label === "Meld");
     assert(meld?.args.includes("{left}") && meld.args.includes("{right}"), JSON.stringify(found));
+    assert(meld?.mergeArgs.includes("{base}") && meld.mergeArgs.includes("{merged}"), meld?.mergeArgs ?? "");
     const installed = installedDiffTools();
     for (const tool of installed) {
       assert(fs.existsSync(tool.id), tool.id);
       assert(tool.label.length > 0 && tool.args.includes("{left}") && tool.args.includes("{right}"), tool.label);
+      assert(tool.mergeArgs.includes("{local}") && tool.mergeArgs.includes("{merged}"), tool.label);
     }
   });
 
@@ -950,11 +1018,18 @@ export function cases(ctx: Ctx): TestCase[] {
     try {
       const saved = await api(server.base, "/api/settings", {
         method: "PUT",
-        body: { externalDiffToolPath: path.join(ctx.home, "missing-diff.exe"), externalDiffToolArguments: "\"{left}\" \"{right}\"" },
+        body: {
+          externalDiffToolPath: path.join(ctx.home, "missing-diff.exe"),
+          externalDiffToolArguments: "\"{left}\" \"{right}\"",
+          externalMergeToolPath: path.join(ctx.home, "missing-merge.exe"),
+          externalMergeToolArguments: "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"",
+        },
       });
       assert(String(saved.externalDiffToolPath).includes("missing-diff.exe"), saved.externalDiffToolPath);
+      assert(String(saved.externalMergeToolPath).includes("missing-merge.exe"), saved.externalMergeToolPath);
       const view = await api(server.base, "/api/settings");
       assert(String(view.externalDiffToolArguments).includes("{left}") && String(view.externalDiffToolArguments).includes("{right}"), view.externalDiffToolArguments);
+      assert(String(view.externalMergeToolArguments).includes("{base}") && String(view.externalMergeToolArguments).includes("{merged}"), view.externalMergeToolArguments);
     } finally {
       await server.close();
     }

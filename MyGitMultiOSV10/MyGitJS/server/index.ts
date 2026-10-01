@@ -204,6 +204,11 @@ export function startServer(options: ServerOptions): Promise<{ port: number; clo
     res.json({ ok: true });
   }));
 
+  app.post("/api/external-merge", wrap(async (req, res) => {
+    await git.externalMerge(String(req.body.file ?? ""));
+    res.json({ ok: true });
+  }));
+
   app.post("/api/export-commit", wrap(async (req, res) => {
     const count = await git.exportCommit(String(req.body.sha ?? ""), String(req.body.destination ?? ""));
     res.json({ count });
@@ -254,6 +259,8 @@ export function startServer(options: ServerOptions): Promise<{ port: number; clo
       commitCategories: Array.isArray(body.commitCategories) ? body.commitCategories.map(String) : current.commitCategories,
       externalDiffToolPath: body.externalDiffToolPath !== undefined ? String(body.externalDiffToolPath) : current.externalDiffToolPath,
       externalDiffToolArguments: body.externalDiffToolArguments !== undefined ? String(body.externalDiffToolArguments) : current.externalDiffToolArguments,
+      externalMergeToolPath: body.externalMergeToolPath !== undefined ? String(body.externalMergeToolPath) : current.externalMergeToolPath,
+      externalMergeToolArguments: body.externalMergeToolArguments !== undefined ? String(body.externalMergeToolArguments) : current.externalMergeToolArguments,
       terminalShell,
     });
     const next = resolveShell(installedShells(), git.settings.get().terminalShell)?.id ?? "";

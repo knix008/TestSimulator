@@ -17,6 +17,8 @@ export type Settings = {
   commitCategories: string[];
   externalDiffToolPath: string;
   externalDiffToolArguments: string;
+  externalMergeToolPath: string;
+  externalMergeToolArguments: string;
   gitUsername: string;
   hasCredentials: boolean;
   reuseCredentials: boolean;
@@ -155,6 +157,7 @@ export const api = {
   gitignore: (path: string, remove: boolean) => request("/api/gitignore", json({ path, remove })),
   openPath: (path: string) => request("/api/open-path", json({ path })),
   externalDiff: (sha: string, file: string, launch = true) => request("/api/external-diff", json({ sha, file, launch })),
+  externalMerge: (file: string) => request("/api/external-merge", json({ file })),
   exportCommit: (sha: string, destination: string) => request<{ count: number }>("/api/export-commit", json({ sha, destination })),
   summary: () => request<Summary>("/api/summary"),
   saveSettings: (patch: Partial<Settings> & { commitCategories?: string[] }) =>
@@ -166,5 +169,5 @@ export const api = {
   deleteRecentRepo: (path: string) => request<Settings>("/api/recent-repos/delete", json({ path })),
   clearRecentRepos: () => request<Settings>("/api/recent-repos/clear", { method: "POST" }),
   shells: () => request<{ shells: { id: string; label: string; command: string }[]; selected: string }>("/api/shells"),
-  diffTools: () => request<{ tools: { id: string; label: string; args: string }[] }>("/api/diff-tools"),
+  diffTools: () => request<{ tools: { id: string; label: string; args: string; mergeArgs: string }[] }>("/api/diff-tools"),
 };

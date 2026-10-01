@@ -24,7 +24,7 @@ type DialogState =
   | { type: "auth"; username: string; password: string; remember: boolean; resolve: (value: Creds | null) => void }
   | { type: "commit"; category: string; subject: string; body: string }
   | { type: "categories"; text: string }
-  | { type: "prefs"; language: Lang; theme: string; tool: string; args: string; shell: string }
+  | { type: "prefs"; language: Lang; theme: string; tool: string; args: string; mergeTool: string; mergeArgs: string; shell: string }
   | { type: "confirm"; title: string; message: string; resolve: (value: boolean) => void }
   | { type: "prompt"; title: string; label: string; value: string; resolve: (value: string | null) => void }
   | { type: "text"; title: string; text: string; save?: boolean }
@@ -506,6 +506,8 @@ export function App() {
       theme: settings?.theme ?? "light-classic",
       tool: settings?.externalDiffToolPath ?? "",
       args: settings?.externalDiffToolArguments || "\"{left}\" \"{right}\"",
+      mergeTool: settings?.externalMergeToolPath ?? "",
+      mergeArgs: settings?.externalMergeToolArguments || "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"",
       shell: settings?.terminalShell ?? "",
     });
   }
@@ -634,7 +636,14 @@ export function App() {
                     key={entry.path}
                     className={selectedPath === entry.path ? "file-row selected" : "file-row"}
                     onClick={() => void toggleDir(entry)}
-                    onDoubleClick={() => { if (!entry.directory) void api.openPath(entry.path).catch(fail); }}
+                    onDoubleClick={() => {
+                      if (entry.directory) return;
+                      if (!fsRoot && isConflict(entry)) {
+                        void api.externalMerge(entry.path).catch(fail);
+                        return;
+                      }
+                      void api.openPath(entry.path).catch(fail);
+                    }}
                     onContextMenu={(event) => showContext(event, fsRoot ? browseMenu(entry) : fileMenu(entry))}
                     title={tooltip(entry, t)}
                   >
@@ -653,7 +662,7 @@ export function App() {
           </section>
           <div className="splitter h" onMouseDown={(event) => dragSize(event, "files")} />
           <section className="panel">
-            <div className="section"><i /><span>Repository</span></div>
+            <div className="section"><i /><span>{t("repository")}</span></div>
             <div className="scroll">
               {!repo && <div className="empty">{t("noRepo")}</div>}
               <BranchList title={t("localBranches")} items={tree.local.map((item) => ({ id: item.name, label: item.name, current: item.current, sha: item.sha }))} onContext={(event, item) => showContext(event, [
@@ -813,7 +822,7 @@ export function App() {
         </span>
       </footer>
       {context && (
-        <div className="context" style={{ left: context.x, top: context.y }} onClick={(event) => event.stopPropagation()} onMouseLeave={() => setContext(null)} onContextMenu={(event) => event.preventDefault()}>
+        <div className="context" style={{ left: context.x, top: context.y }} onClick={(event) => event.stopPropagation()} onContextMenu={(event) => event.preventDefault()}>
           {context.items.map((item) => (
             <button key={item.label} type="button" className={item.disabled ? "is-disabled" : undefined} aria-disabled={item.disabled || undefined} onClick={() => { if (item.disabled) return; setContext(null); item.action(); }}>
               <MenuGlyph name={item.icon} />
@@ -850,6 +859,7 @@ export function App() {
 
   function fileMenu(entry: FileEntry): MenuItem[] {
     return [
+      ...(isConflict(entry) ? [{ icon: "browse" as const, label: t("openMerge"), disabled: !writable, action: () => { void api.externalMerge(entry.path).catch(fail); } }] : []),
       { icon: "history", label: t("showLog"), action: () => { setPathFilter(entry.path); filterRef.current = entry.path; void reload(entry.path); } },
       { icon: "copy", label: t("copyPath"), action: () => void navigator.clipboard.writeText(entry.path) },
       { icon: "list", label: t("showAll"), action: () => { setPathFilter(""); filterRef.current = ""; void reload(""); } },
@@ -986,6 +996,10 @@ function sameToolPath(left: string, right: string): boolean {
   return /[\\]/.test(left) || /[\\]/.test(right) ? left.toLowerCase() === right.toLowerCase() : left === right;
 }
 
+function isConflict(entry: FileEntry): boolean {
+  return entry.staged === "Conflicted" || entry.workTree === "Conflicted";
+}
+
 function diffToolOptions(tools: { id: string; label: string; args: string }[], current: string, args: string) {
   if (!current || tools.some((item) => sameToolPath(item.id, current))) return tools;
   const name = current.split(/[/\\]/).pop() || current;
@@ -996,21 +1010,30 @@ function selectedDiffTool(tools: { id: string; label: string; args: string }[], 
   return tools.find((item) => sameToolPath(item.id, current))?.id ?? current;
 }
 
-async function browseDiffTool(
-  dialog: { tool: string; args: string },
-  tools: { id: string; label: string; args: string }[],
+async function browseExternalTool(
+  kind: "diff" | "merge",
+  dialog: DialogState,
+  tools: { id: string; label: string; args: string; mergeArgs: string }[],
   setDialog: Dispatch<SetStateAction<DialogState | null>>,
   onPrefs: (patch: Partial<Settings>) => void,
   t: (key: string) => string,
 ) {
+  if (dialog.type !== "prefs") return;
+  const current = kind === "diff" ? dialog.tool : dialog.mergeTool;
   const picked = window.mygit?.pickFile
     ? await window.mygit.pickFile()
-    : window.prompt(t("diffTool"), dialog.tool);
+    : window.prompt(t(kind === "diff" ? "diffTool" : "mergeTool"), current);
   if (!picked) return;
   const known = tools.find((item) => sameToolPath(item.id, picked));
-  const args = known?.args || (dialog.args.includes("{left}") ? dialog.args : "\"{left}\" \"{right}\"");
-  setDialog((current) => current?.type === "prefs" ? { ...current, tool: picked, args } : current);
-  onPrefs({ externalDiffToolPath: picked, externalDiffToolArguments: args });
+  if (kind === "diff") {
+    const args = known?.args || (dialog.args.includes("{left}") ? dialog.args : "\"{left}\" \"{right}\"");
+    setDialog((next) => next?.type === "prefs" ? { ...next, tool: picked, args } : next);
+    onPrefs({ externalDiffToolPath: picked, externalDiffToolArguments: args });
+    return;
+  }
+  const mergeArgs = known?.mergeArgs || (dialog.mergeArgs.includes("{merged}") ? dialog.mergeArgs : "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"");
+  setDialog((next) => next?.type === "prefs" ? { ...next, mergeTool: picked, mergeArgs } : next);
+  onPrefs({ externalMergeToolPath: picked, externalMergeToolArguments: mergeArgs });
 }
 
 function ThemeMenu(props: {
@@ -1196,7 +1219,7 @@ function DialogHost(props: {
   const [copied, setCopied] = useState(false);
   const [shells, setShells] = useState<{ id: string; label: string; command: string }[]>([]);
   const [preferredShell, setPreferredShell] = useState("");
-  const [diffTools, setDiffTools] = useState<{ id: string; label: string; args: string }[]>([]);
+  const [diffTools, setDiffTools] = useState<{ id: string; label: string; args: string; mergeArgs: string }[]>([]);
   const [prefsTab, setPrefsTab] = useState<"general" | "theme" | "tools">("general");
   useEffect(() => setCopied(false), [dialog]);
   useEffect(() => {
@@ -1284,7 +1307,7 @@ function DialogHost(props: {
                   <Icon name="snapshot" />{t("prefsTools")}
                 </button>
               </div>
-              <div className="prefs-page">
+              <div className={prefsTab === "tools" ? "prefs-page tools" : "prefs-page"}>
                 {prefsTab === "general" && (
                   <>
                     <label>{t("language")}
@@ -1322,23 +1345,58 @@ function DialogHost(props: {
                 )}
                 {prefsTab === "tools" && dialog.type === "prefs" && (
                   <>
-                    <label>{t("diffTool")}
-                      <span className="tool-pick">
-                        <select value={selectedDiffTool(diffTools, dialog.tool)} onChange={(event) => {
-                          const tool = event.target.value;
-                          const known = diffTools.find((item) => sameToolPath(item.id, tool));
-                          const args = known?.args || dialog.args;
-                          setDialog({ ...dialog, tool, args });
-                          props.onPrefs({ externalDiffToolPath: tool, externalDiffToolArguments: args });
-                        }}>
-                          <option value="">{t("empty")}</option>
-                          {diffToolOptions(diffTools, dialog.tool, dialog.args).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                        </select>
-                        <button type="button" onClick={() => void browseDiffTool(dialog, diffTools, setDialog, props.onPrefs, t)}>{t("diffBrowse")}</button>
-                      </span>
-                    </label>
-                    <Field label={t("path")} value={dialog.tool} onChange={(tool) => { setDialog({ ...dialog, tool }); props.onPrefs({ externalDiffToolPath: tool }); }} />
-                    <Field label={t("diffArgs")} value={dialog.args} onChange={(args) => { setDialog({ ...dialog, args }); props.onPrefs({ externalDiffToolArguments: args }); }} />
+                    <div className="tool-block">
+                      <div className="tool-line">
+                        <span>{t("diffTool")}</span>
+                        <span className="tool-pick">
+                          <select value={selectedDiffTool(diffTools, dialog.tool)} onChange={(event) => {
+                            const tool = event.target.value;
+                            const known = diffTools.find((item) => sameToolPath(item.id, tool));
+                            const args = known?.args || dialog.args;
+                            setDialog({ ...dialog, tool, args });
+                            props.onPrefs({ externalDiffToolPath: tool, externalDiffToolArguments: args });
+                          }}>
+                            <option value="">{t("empty")}</option>
+                            {diffToolOptions(diffTools, dialog.tool, dialog.args).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                          </select>
+                          <button type="button" onClick={() => void browseExternalTool("diff", dialog, diffTools, setDialog, props.onPrefs, t)}>{t("diffBrowse")}</button>
+                        </span>
+                      </div>
+                      <div className="tool-line">
+                        <span>{t("path")}</span>
+                        <input value={dialog.tool} onChange={(event) => { const tool = event.target.value; setDialog({ ...dialog, tool }); props.onPrefs({ externalDiffToolPath: tool }); }} />
+                      </div>
+                      <div className="tool-line">
+                        <span title={t("diffArgs")}>{t("toolArgs")}</span>
+                        <input value={dialog.args} title={t("diffArgs")} onChange={(event) => { const args = event.target.value; setDialog({ ...dialog, args }); props.onPrefs({ externalDiffToolArguments: args }); }} />
+                      </div>
+                    </div>
+                    <div className="tool-block">
+                      <div className="tool-line">
+                        <span>{t("mergeTool")}</span>
+                        <span className="tool-pick">
+                          <select value={selectedDiffTool(diffTools, dialog.mergeTool)} onChange={(event) => {
+                            const mergeTool = event.target.value;
+                            const known = diffTools.find((item) => sameToolPath(item.id, mergeTool));
+                            const mergeArgs = known?.mergeArgs || dialog.mergeArgs;
+                            setDialog({ ...dialog, mergeTool, mergeArgs });
+                            props.onPrefs({ externalMergeToolPath: mergeTool, externalMergeToolArguments: mergeArgs });
+                          }}>
+                            <option value="">{t("empty")}</option>
+                            {diffToolOptions(diffTools, dialog.mergeTool, dialog.mergeArgs).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                          </select>
+                          <button type="button" onClick={() => void browseExternalTool("merge", dialog, diffTools, setDialog, props.onPrefs, t)}>{t("diffBrowse")}</button>
+                        </span>
+                      </div>
+                      <div className="tool-line">
+                        <span>{t("path")}</span>
+                        <input value={dialog.mergeTool} onChange={(event) => { const mergeTool = event.target.value; setDialog({ ...dialog, mergeTool }); props.onPrefs({ externalMergeToolPath: mergeTool }); }} />
+                      </div>
+                      <div className="tool-line">
+                        <span title={t("mergeArgs")}>{t("toolArgs")}</span>
+                        <input value={dialog.mergeArgs} title={t("mergeArgs")} onChange={(event) => { const mergeArgs = event.target.value; setDialog({ ...dialog, mergeArgs }); props.onPrefs({ externalMergeToolArguments: mergeArgs }); }} />
+                      </div>
+                    </div>
                   </>
                 )}
               </div>
@@ -1396,6 +1454,8 @@ function DialogHost(props: {
                 theme: saved.theme,
                 tool: saved.externalDiffToolPath,
                 args: saved.externalDiffToolArguments || "\"{left}\" \"{right}\"",
+                mergeTool: saved.externalMergeToolPath,
+                mergeArgs: saved.externalMergeToolArguments || "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"",
                 shell: saved.terminalShell || preferredShell,
               } : current);
             })}>

@@ -21,6 +21,8 @@ export type AppSettings = {
   commitCategories: string[];
   externalDiffToolPath: string;
   externalDiffToolArguments: string;
+  externalMergeToolPath: string;
+  externalMergeToolArguments: string;
   gitUsername: string;
   gitTokenProtected: string;
   reuseCredentials: boolean;
@@ -75,6 +77,8 @@ function defaults(): AppSettings {
     commitCategories: [...DEFAULT_COMMIT_CATEGORIES],
     externalDiffToolPath: "",
     externalDiffToolArguments: "\"{left}\" \"{right}\"",
+    externalMergeToolPath: "",
+    externalMergeToolArguments: "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"",
     gitUsername: "",
     gitTokenProtected: "",
     reuseCredentials: false,
@@ -110,6 +114,8 @@ export class SettingsStore {
       commitCategories: this.data.commitCategories,
       externalDiffToolPath: this.data.externalDiffToolPath,
       externalDiffToolArguments: this.data.externalDiffToolArguments,
+      externalMergeToolPath: this.data.externalMergeToolPath,
+      externalMergeToolArguments: this.data.externalMergeToolArguments,
       gitUsername: this.data.gitUsername,
       hasCredentials: Boolean(token),
       reuseCredentials: this.data.reuseCredentials,
@@ -137,6 +143,8 @@ export class SettingsStore {
       terminalShell: fresh.terminalShell,
       externalDiffToolPath: fresh.externalDiffToolPath,
       externalDiffToolArguments: fresh.externalDiffToolArguments,
+      externalMergeToolPath: fresh.externalMergeToolPath,
+      externalMergeToolArguments: fresh.externalMergeToolArguments,
     };
     this.save();
     return this.data;

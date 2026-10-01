@@ -151,7 +151,7 @@ function ColumnHeading(props: { label: string; onResize: (event: ReactMouseEvent
   return (
     <span className="commit-col">
       {props.label}
-      <i className="col-grip" role="separator" aria-orientation="vertical" aria-label={props.label} onMouseDown={props.onResize} />
+      <button type="button" className="col-grip" aria-label={props.label} onMouseDown={props.onResize} />
     </span>
   );
 }

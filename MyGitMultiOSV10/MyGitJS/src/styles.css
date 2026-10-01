@@ -412,6 +412,10 @@ button { cursor: pointer; }
   right: 0;
   width: 8px;
   height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: col-resize;
   z-index: 2;
 }
@@ -678,6 +682,17 @@ button { cursor: pointer; }
   min-height: 0;
   overflow: hidden;
 }
+.prefs-page.tools { padding: 10px 14px; gap: 0; }
+.tool-block { display: flex; flex-direction: column; gap: 6px; }
+.tool-block + .tool-block { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.tool-line {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.tool-line > span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prefs-page.tools input, .prefs-page.tools select { padding: 4px 8px; width: 100%; min-width: 0; }
 .dialog.prefs .theme-picker { gap: 10px; }
 .dialog.prefs .theme-picker .group { padding: 0 2px 0; }
 .dialog.prefs .theme-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
@@ -759,7 +774,7 @@ button { cursor: pointer; }
 .file-row .stem {
   content: "";
   position: absolute;
-  background: var(--muted);
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
 }
 .tree-guides i.bar::before,
 .tree-guides i.joint.up::before,

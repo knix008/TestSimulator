@@ -48,7 +48,7 @@ export type CommitInfo = {
 type Creds = { username?: string; password?: string };
 
 type DiffToolProcess = {
-  child: ChildProcess | null;
+  child: ChildProcess;
   pid: number;
   dir: string;
   left: string;
@@ -71,7 +71,7 @@ export class GitApp {
   private currentChild: ChildProcess | null = null;
   private diffTool: DiffToolProcess | null = null;
   private diffQueue: Promise<void> = Promise.resolve();
-  private diffMissUntil = 0;
+  private mergeQueue: Promise<void> = Promise.resolve();
   private bare = false;
   private branch: string | null = null;
   private head: string | null = null;
@@ -466,22 +466,22 @@ export class GitApp {
     return job;
   }
 
+  externalMerge(file: string): Promise<void> {
+    const job = this.mergeQueue.then(() => this.openExternalMerge(file));
+    this.mergeQueue = job.then(() => undefined, () => undefined);
+    return job;
+  }
+
   private async openExternalDiff(sha: string, file: string, launch: boolean): Promise<void> {
-    let running = this.liveDiffTool();
-    const configured = this.settings.get().externalDiffToolPath.trim();
-    const tool = configured ? unwrapCommand(configured) : "";
-    const toolReady = Boolean(tool && fs.existsSync(tool));
-    if (!running && toolReady && (launch || Date.now() >= this.diffMissUntil)) {
-      running = this.adoptRunningDiffTool(tool);
-      if (!running && !launch) this.diffMissUntil = Date.now() + 5000;
-    }
-    if (running) {
-      await this.writeDiffFiles(sha, file, running.left, running.right);
+    const running = this.liveDiffTool();
+    if (!launch) {
+      if (running) await this.writeDiffFiles(sha, file, running.left, running.right);
       return;
     }
-    if (!launch) return;
+    const configured = this.settings.get().externalDiffToolPath.trim();
+    const tool = configured ? unwrapCommand(configured) : "";
     if (!configured) throw new ApiError("External diff tool is not configured.", "NO_DIFF_TOOL");
-    if (!toolReady) {
+    if (!tool || !fs.existsSync(tool)) {
       throw new ApiError("Diff tool was not found.", "NO_DIFF_TOOL", 400, `Path: ${tool}`);
     }
     const rel = normalizeRel(file);
@@ -492,36 +492,59 @@ export class GitApp {
     await this.writeDiffFiles(sha, file, left, right);
     const template = this.settings.get().externalDiffToolArguments || "\"{left}\" \"{right}\"";
     const rendered = template.replaceAll("{left}", left).replaceAll("{right}", right);
-    const child = await launchDiffTool(tool, splitArgs(rendered), left, right);
-    this.diffMissUntil = 0;
+    const child = await launchExternalTool(tool, splitArgs(rendered), [`Left: ${left}`, `Right: ${right}`], "DIFF_TOOL", false);
     this.keepDiffTool(child, dir, left, right);
+  }
+
+  private async openExternalMerge(file: string): Promise<void> {
+    this.requireWritable();
+    const root = this.requireRepo();
+    const configured = this.settings.get().externalMergeToolPath.trim();
+    const tool = configured ? unwrapCommand(configured) : "";
+    if (!configured) throw new ApiError("Merge tool is not configured.", "NO_MERGE_TOOL");
+    if (!tool || !fs.existsSync(tool)) {
+      throw new ApiError("Merge tool was not found.", "NO_MERGE_TOOL", 400, `Path: ${tool}`);
+    }
+    const rel = normalizeRel(file);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mygit-merge-"));
+    const ext = path.extname(rel);
+    const base = path.join(dir, `base${ext}`);
+    const local = path.join(dir, `local${ext}`);
+    const remote = path.join(dir, `remote${ext}`);
+    const merged = safeJoin(root, rel);
+    try {
+      await writeBlob(root, `:1:${rel}`, base);
+      await writeBlob(root, `:2:${rel}`, local);
+      await writeBlob(root, `:3:${rel}`, remote);
+      const template = this.settings.get().externalMergeToolArguments || "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"";
+      const rendered = template
+        .replaceAll("{base}", base)
+        .replaceAll("{local}", local)
+        .replaceAll("{remote}", remote)
+        .replaceAll("{merged}", merged);
+      await launchExternalTool(tool, splitArgs(rendered), [
+        `Base: ${base}`,
+        `Local: ${local}`,
+        `Remote: ${remote}`,
+        `Merged: ${merged}`,
+      ], "MERGE_TOOL", true);
+      this.bump();
+    } finally {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } catch {
+        /* the tool may still be releasing the stage files */
+      }
+    }
   }
 
   private liveDiffTool(): DiffToolProcess | null {
     const session = this.diffTool;
     if (!session) return null;
-    const ended = session.child
-      ? session.child.exitCode !== null || session.child.signalCode !== null
-      : !processAlive(session.pid);
-    if (ended) {
+    if (session.child.exitCode !== null || session.child.signalCode !== null) {
       this.diffTool = null;
       return null;
     }
-    return session;
-  }
-
-  private adoptRunningDiffTool(tool: string): DiffToolProcess | null {
-    const found = findRunningDiffTool(tool);
-    if (!found) return null;
-    const session: DiffToolProcess = {
-      child: null,
-      pid: found.pid,
-      dir: path.dirname(found.left),
-      left: found.left,
-      right: found.right,
-    };
-    this.diffTool = session;
-    this.diffMissUntil = 0;
     return session;
   }
 
@@ -529,8 +552,7 @@ export class GitApp {
     const session: DiffToolProcess = { child, pid: child.pid ?? 0, dir, left, right };
     this.diffTool = session;
     const forget = () => {
-      if (this.diffTool !== session) return;
-      this.diffTool = null;
+      if (this.diffTool === session) this.diffTool = null;
       try {
         fs.rmSync(dir, { recursive: true, force: true });
       } catch {
@@ -993,70 +1015,10 @@ function quotedArg(arg: string): string {
   return /[\s"]/.test(arg) ? `"${arg.replaceAll("\"", "\\\"")}"` : arg;
 }
 
-function processAlive(pid: number): boolean {
-  if (!pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-    return code === "EPERM";
-  }
-}
-
-function findRunningDiffTool(tool: string): { pid: number; left: string; right: string } | null {
-  if (process.platform === "win32") return findRunningDiffToolWindows(tool);
-  return findRunningDiffToolUnix(tool);
-}
-
-function findRunningDiffToolWindows(tool: string): { pid: number; left: string; right: string } | null {
-  const name = path.win32.basename(tool).replaceAll("'", "''");
-  const script = [
-    `$name = '${name}';`,
-    "Get-CimInstance Win32_Process -Filter \"Name = '$name'\" |",
-    "Where-Object { $_.ExecutablePath -and ($_.ExecutablePath -ieq $env:MYGIT_DIFF_EXE) -and ($_.CommandLine -like '*mygit-diff-*') } |",
-    "Sort-Object CreationDate -Descending |",
-    "Select-Object -First 1 ProcessId, CommandLine |",
-    "ConvertTo-Json -Compress",
-  ].join(" ");
-  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
-    encoding: "utf8",
-    windowsHide: true,
-    timeout: 8000,
-    env: { ...process.env, MYGIT_DIFF_EXE: tool },
-  });
-  if (result.status !== 0 || !result.stdout.trim()) return null;
-  try {
-    const parsed = JSON.parse(result.stdout) as { ProcessId?: number; CommandLine?: string };
-    return diffPathsFromCommand(Number(parsed.ProcessId), String(parsed.CommandLine ?? ""));
-  } catch {
-    return null;
-  }
-}
-
-function findRunningDiffToolUnix(tool: string): { pid: number; left: string; right: string } | null {
-  const result = spawnSync("ps", ["-ax", "-o", "pid=,command="], { encoding: "utf8", timeout: 8000 });
-  if (result.status !== 0 || !result.stdout) return null;
-  let found: { pid: number; left: string; right: string } | null = null;
-  for (const line of result.stdout.split(/\n/)) {
-    const match = /^(\d+)\s+(.*)$/.exec(line.trim());
-    if (!match || !match[2].includes(tool) || !match[2].includes("mygit-diff-")) continue;
-    const paths = diffPathsFromCommand(Number(match[1]), match[2]);
-    if (paths && (!found || paths.pid > found.pid)) found = paths;
-  }
-  return found;
-}
-
-function diffPathsFromCommand(pid: number, commandLine: string): { pid: number; left: string; right: string } | null {
-  if (!pid || !commandLine.includes("mygit-diff-")) return null;
-  const files = splitArgs(commandLine).filter((arg) => arg.includes("mygit-diff-") && fs.existsSync(arg));
-  if (files.length < 2) return null;
-  return { pid, left: files[0], right: files[1] };
-}
-
-function launchDiffTool(command: string, args: string[], left: string, right: string): Promise<ChildProcess> {
+function launchExternalTool(command: string, args: string[], details: string[], errorCode: string, waitForExit: boolean): Promise<ChildProcess> {
   const commandLine = [quotedArg(command), ...args.map(quotedArg)].join(" ");
-  const context = [`Command: ${commandLine}`, `Left: ${left}`, `Right: ${right}`];
+  const context = [`Command: ${commandLine}`, ...details];
+  const label = errorCode === "MERGE_TOOL" ? "Merge tool" : "Diff tool";
   return new Promise((resolve, reject) => {
     let child: ChildProcess;
     try {
@@ -1068,7 +1030,7 @@ function launchDiffTool(command: string, args: string[], left: string, right: st
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      reject(new ApiError(message, "DIFF_TOOL", 500, [...context, message].join("\n")));
+      reject(new ApiError(message, errorCode, 500, [...context, message].join("\n")));
       return;
     }
     const chunks: Buffer[] = [];
@@ -1084,7 +1046,7 @@ function launchDiffTool(command: string, args: string[], left: string, right: st
     const fail = (message: string, extra?: string) => {
       if (settled) return;
       settled = true;
-      reject(new ApiError(message, "DIFF_TOOL", 500, detail(extra)));
+      reject(new ApiError(message, errorCode, 500, detail(extra)));
     };
     const succeed = () => {
       if (settled) return;
@@ -1096,14 +1058,14 @@ function launchDiffTool(command: string, args: string[], left: string, right: st
     };
     child.once("error", (error) => fail(error.message));
     child.once("spawn", () => {
-      setTimeout(succeed, 700);
+      if (!waitForExit) setTimeout(succeed, 700);
     });
     child.once("exit", (code, signal) => {
       if (code === 0 || code === null) {
         succeed();
         return;
       }
-      fail(`Diff tool exited with code ${code}${signal ? ` (${signal})` : ""}.`);
+      fail(`${label} exited with code ${code}${signal ? ` (${signal})` : ""}.`);
     });
   });
 }
