@@ -33,10 +33,35 @@ public partial class App : Application
         Shutdown();
     }
 
+    /// <summary>
+    /// Variables that must not reach the programs MyDesktop opens.
+    ///
+    /// A child process is handed its parent's environment, so whatever MyDesktop was started from is
+    /// passed on to everything launched from a fence or from the drawn desktop. Explorer is started
+    /// by the session and carries none of this, and an icon on the desktop has to behave the same
+    /// whichever way MyDesktop itself was started.
+    ///
+    /// ELECTRON_RUN_AS_NODE is the one that bites. It tells an Electron binary to be a plain Node
+    /// interpreter rather than an application, and editors set it in the terminals they open — so
+    /// starting MyDesktop from one of those terminals, which is how it is started while being worked
+    /// on, left every Electron application launched from a fence exiting at once with no window and
+    /// no error. It looked as though those shortcuts were simply dead.
+    /// </summary>
+    private static readonly string[] NotOurs = ["ELECTRON_RUN_AS_NODE"];
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         _instance = this;
+
+        foreach (var name in NotOurs)
+        {
+            if (Environment.GetEnvironmentVariable(name) is not null)
+            {
+                Diagnostics.Write($"dropping {name} from the environment so launched programs do not inherit it");
+                Environment.SetEnvironmentVariable(name, null);
+            }
+        }
 
         _singleInstance = new Mutex(true, @"Local\MyDesktop.SingleInstance", out var firstInstance);
         if (!firstInstance)

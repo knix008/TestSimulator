@@ -176,46 +176,13 @@ internal static class DesktopAnchor
 
     private static void Sink(IntPtr hwnd)
     {
-        var below = Below(hwnd);
-        NativeMethods.SetWindowPos(hwnd, below, 0, 0, 0, 0, KeepFlags);
+        NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_BOTTOM, 0, 0, 0, 0, KeepFlags);
 
-        // Only whatever ends up at the very bottom pushes the shell's desktop further down. Doing it
-        // for a fence that sits above the drawn desktop would lift the shell's window past it.
         var desktop = DesktopWindows.Desktop;
-        if (below == NativeMethods.HWND_BOTTOM && desktop != IntPtr.Zero && desktop != hwnd)
+        if (desktop != IntPtr.Zero && desktop != hwnd)
         {
             NativeMethods.SetWindowPos(desktop, hwnd, 0, 0, 0, 0, KeepFlags);
         }
-    }
-
-    /// <summary>
-    /// Where an anchored window belongs in the order: the drawn desktop at the very bottom, and
-    /// everything else directly above it.
-    ///
-    /// Sending a fence to HWND_BOTTOM is what it used to do, and that put the fence underneath the
-    /// drawn desktop, which covers the whole screen and takes the mouse everywhere. The fence stayed
-    /// visible, because the layer over it is all but transparent, so the only sign of it was that
-    /// clicks went to the wrong place: Windows raises a window when it is clicked, the raise was
-    /// turned into a sink here, and between the press and the release the fence had moved under the
-    /// desktop layer. The release — and with it the menu, the selection and the drag — went to the
-    /// desktop instead of to the fence that was clicked.
-    /// </summary>
-    private static IntPtr Below(IntPtr hwnd)
-    {
-        if (Lowest.Contains(hwnd))
-        {
-            return NativeMethods.HWND_BOTTOM;
-        }
-
-        for (var index = Lowest.Count - 1; index >= 0; index--)
-        {
-            if (NativeMethods.IsWindowVisible(Lowest[index]))
-            {
-                return Lowest[index];
-            }
-        }
-
-        return NativeMethods.HWND_BOTTOM;
     }
 
     private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -223,16 +190,44 @@ internal static class DesktopAnchor
         if (msg == NativeMethods.WM_WINDOWPOSCHANGING)
         {
             var position = System.Runtime.InteropServices.Marshal.PtrToStructure<NativeMethods.WINDOWPOS>(lParam);
-            var wanted = Below(hwnd);
-            if (position.hwndInsertAfter != wanted)
+
+            // A move that leaves the order alone needs nothing from us, and saying so is what keeps
+            // dragging a fence from re-ordering windows on every mouse move.
+            if ((position.flags & NativeMethods.SWP_NOZORDER) == 0
+                && position.hwndInsertAfter != NativeMethods.HWND_BOTTOM)
             {
-                position.hwndInsertAfter = wanted;
-                position.flags &= ~NativeMethods.SWP_NOZORDER;
+                position.hwndInsertAfter = NativeMethods.HWND_BOTTOM;
                 System.Runtime.InteropServices.Marshal.StructureToPtr(position, lParam, false);
             }
         }
+        else if (msg == NativeMethods.WM_WINDOWPOSCHANGED && !Lowest.Contains(hwnd)
+                 && (System.Runtime.InteropServices.Marshal.PtrToStructure<NativeMethods.WINDOWPOS>(lParam).flags
+                     & NativeMethods.SWP_NOZORDER) == 0)
+        {
+            // A fence has just been sent to the very bottom, and the bottom is where the drawn
+            // desktop has to be: it covers the whole screen and answers the mouse everywhere, so a
+            // fence underneath it keeps being visible — the layer is all but transparent — while
+            // every click on it goes to the desktop instead. That is what sent the second click of a
+            // double-click to the desktop gesture, which hid every fence rather than opening the
+            // item, and what turned a right-drag inside a fence into a lasso on the desktop.
+            //
+            // There is no "put this window above that one": hwndInsertAfter names the window to go
+            // *behind*. So the order is restored the other way round — by dropping the desktop back
+            // under whatever was just sunk, which is done here rather than above because the window
+            // has to have moved first.
+            SinkLowest();
+        }
 
         return IntPtr.Zero;
+    }
+
+    /// <summary>Puts the drawn desktop, and the shell's desktop under it, back at the bottom.</summary>
+    private static void SinkLowest()
+    {
+        foreach (var hwnd in Lowest.ToArray())
+        {
+            Sink(hwnd);
+        }
     }
 
     private static void StartWatchdog()

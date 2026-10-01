@@ -975,46 +975,48 @@ public partial class FenceWindow : Window
 
         extras.Add(new ShellContextMenu.Entry(RefreshIconCommand, Strings.T("Refresh icon")));
 
+        // The same menu the desktop gives an icon, whole: an item in a fence is a desktop item that
+        // happens to be kept here, so nothing the desktop would offer for it goes missing.
         NativeMethods.GetCursorPos(out var cursor);
-        ItemMenu.Show(this, chosen.Select(entry => entry.Path).ToArray(), new Point(cursor.X, cursor.Y), extras,
-            picked =>
-            {
-                switch (picked)
-                {
-                    case RemoveFromFenceCommand:
-                        foreach (var selected in chosen)
-                        {
-                            _fence.Items.Remove(selected);
-                        }
+        var picked = ShellContextMenu.ShowForItems(
+            this, chosen.Select(entry => entry.Path).ToArray(), new Point(cursor.X, cursor.Y), extras);
 
-                        break;
-
-                    case RefreshIconCommand:
-                        foreach (var selected in chosen)
-                        {
-                            selected.RefreshIcon();
-                        }
-
-                        break;
-
-                    default:
-                        if (picked >= MoveToFenceCommand && picked - MoveToFenceCommand < others.Count)
-                        {
-                            MoveItems(others[picked - MoveToFenceCommand]);
-                        }
-
-                        break;
-                }
-            },
-            () =>
-            {
+        switch (picked)
+        {
+            case 0:
                 // The shell ran the command. It may have renamed, moved or binned the file.
                 _manager.CheckRecycleBin();
                 if (_fence.IsPortal)
                 {
                     _manager.RefreshPortal(_fence);
                 }
-            });
+
+                break;
+
+            case RemoveFromFenceCommand:
+                foreach (var selected in chosen)
+                {
+                    _fence.Items.Remove(selected);
+                }
+
+                break;
+
+            case RefreshIconCommand:
+                foreach (var selected in chosen)
+                {
+                    selected.RefreshIcon();
+                }
+
+                break;
+
+            default:
+                if (picked >= MoveToFenceCommand && picked - MoveToFenceCommand < others.Count)
+                {
+                    MoveItems(others[picked - MoveToFenceCommand]);
+                }
+
+                break;
+        }
     }
 
     /// <summary>The shell asks for confirmation itself, and the icon changes once the bin is empty.</summary>

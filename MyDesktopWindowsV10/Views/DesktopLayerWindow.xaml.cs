@@ -419,35 +419,37 @@ public partial class DesktopLayerWindow : Window
         extras.Add(new ShellContextMenu.Entry(NewFenceCommand, Strings.T("New fence here")));
         extras.Add(new ShellContextMenu.Entry(SettingsCommand, Strings.T("MyDesktop settings…")));
 
+        // The desktop's own menu, whole. An icon still on the wallpaper is one Explorer would have
+        // drawn, so a right-click on it gives everything the desktop gives — including the entries
+        // other programs have installed — rather than a shorter menu of MyDesktop's own.
         NativeMethods.GetCursorPos(out var cursor);
-        ItemMenu.Show(this, chosen.Select(entry => entry.Path).ToArray(), new Point(cursor.X, cursor.Y), extras,
-            picked =>
-            {
-                switch (picked)
-                {
-                    case NewFenceCommand:
-                        _manager.CreateFenceAtCursor();
-                        break;
+        var picked = ShellContextMenu.ShowForItems(
+            this, chosen.Select(entry => entry.Path).ToArray(), new Point(cursor.X, cursor.Y), extras);
 
-                    case SettingsCommand:
-                        App.OpenSettings();
-                        break;
-
-                    default:
-                        if (picked >= PutIntoFenceCommand && picked - PutIntoFenceCommand < fences.Count)
-                        {
-                            MoveInto(fences[picked - PutIntoFenceCommand]);
-                        }
-
-                        break;
-                }
-            },
-            () =>
-            {
+        switch (picked)
+        {
+            case 0:
                 // The shell ran the command itself; whatever it did, the layer may need a new look.
                 _manager.CheckRecycleBin();
                 _layer.RefreshSoon();
-            });
+                break;
+
+            case NewFenceCommand:
+                _manager.CreateFenceAtCursor();
+                break;
+
+            case SettingsCommand:
+                App.OpenSettings();
+                break;
+
+            default:
+                if (picked >= PutIntoFenceCommand && picked - PutIntoFenceCommand < fences.Count)
+                {
+                    MoveInto(fences[picked - PutIntoFenceCommand]);
+                }
+
+                break;
+        }
     }
 
     private const int NewFenceCommand = ShellContextMenu.FirstOwnCommand + 1;

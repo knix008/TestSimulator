@@ -10,6 +10,7 @@ internal static class NativeMethods
     public const int WS_EX_APPWINDOW = 0x00040000;
 
     public const int WM_WINDOWPOSCHANGING = 0x0046;
+    public const int WM_WINDOWPOSCHANGED = 0x0047;
     public const int WM_DISPLAYCHANGE = 0x007E;
 
     public static readonly IntPtr HWND_BOTTOM = new(1);
