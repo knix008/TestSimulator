@@ -70,7 +70,7 @@ Interop/
   DesktopIcons.cs        셸 아이콘 표시 토글 (탐색기 메뉴와 동일한 WM_COMMAND 0x7402)
   DisplayScale.cs        물리 픽셀 ↔ DIP 변환
   TrayIcon.cs            Shell_NotifyIcon 기반 트레이 (WinForms 의존 없음, TaskbarCreated 재등록)
-  ShellContextMenu.cs    셸 메뉴 — 전체 메뉴 띄우기 + 열어 둔 채 읽는 Live
+  ShellContextMenu.cs    셸이 항목·바탕화면에 내주는 메뉴를 그대로 띄움
 Models/WorkspaceData.cs  저장 모델 (설정 / 펜스 / 항목)
 Services/
   FenceManager.cs        펜스·창·포털 수명 주기, 데스크톱 제스처 연결
@@ -82,8 +82,7 @@ Services/
   FenceSorting.cs        정렬 규칙
   StartupRegistration.cs 시작 프로그램 등록 (사용자별 Run 키, 설치 시 선택을 첫 실행에 반영)
 Views/
-  ItemMenu.cs            항목 우클릭 메뉴 (Windows 11 모양, 명령은 셸에서 읽어 셸로 실행)
-  MenuStyles.xaml        그 메뉴의 외형 (라이트/다크는 Windows 앱 테마를 따름)
+  MenuStyles.xaml        MyDesktop이 직접 만드는 메뉴(트레이·펜스)의 외형, Windows 앱 테마를 따름
   FenceWindow.xaml       펜스 본체
   DesktopLayerWindow.xaml  MyDesktop이 그리는 바탕화면 (펜스 아래, 배경화면 위)
   LassoWindow.xaml       우클릭 드래그 고무줄
@@ -152,14 +151,16 @@ Views/
 ### 지나온 함정
 
 - `HWND_BOTTOM`만으로는 배경화면 뒤로 숨음 → 바탕화면 창을 한 칸 더 내림
-- 펜스까지 `HWND_BOTTOM`으로 보내면 전체 화면을 덮는 바탕화면 레이어 **아래**로 들어감. 레이어가
-  거의 투명해 보이기는 그대로이고, 클릭한 펜스가 누름과 뗌 사이에 밑으로 내려가 **메뉴·선택·
-  드래그가 바탕화면으로 샘** → 펜스는 레이어 **바로 위**로 되돌리고, 그래도 레이어가 받은 클릭은
-  해당 펜스에 넘김
+- 펜스가 전체 화면을 덮는 바탕화면 레이어 **아래**로 깔리면, 레이어가 거의 투명해 보이기는 그대로인
+  채 입력만 샘 — 더블클릭이 바탕화면 제스처로 잡혀 펜스가 숨고, 우클릭은 바탕화면 메뉴가 뜸.
+  `hwndInsertAfter` 는 "그 창 **뒤로**"라 레이어를 지정하면 더 나빠짐 → `WM_WINDOWPOSCHANGED` 에서
+  **레이어를 다시 맨 아래로** 내리고, 그래도 레이어가 받은 우클릭은 해당 펜스에 넘김
 - 칸 점유를 `Rect.IntersectsWith`로 물으면 **변만 닿아도 겹침**이라 모든 아이콘이 이웃과 충돌로
   판정됨 → 옆자리에 떨어뜨린 아이콘이 원래 자리로 되돌아감. 자리 계산은 칸 좌표로
 - `SHBindToParent`의 자식 PIDL은 전체 PIDL **내부 포인터** → 전체를 먼저 해제하면 셸 메뉴를 만드는
   `GetUIObjectOf`에서 액세스 위반. `ILClone` 후 해제
+- 편집기 터미널에서 띄우면 `ELECTRON_RUN_AS_NODE=1` 을 물려받고, 그것을 **펜스에서 실행한 앱이 또
+  물려받아** Electron 앱이 창 없이 즉시 종료됨(오류도 로그도 없음) → `App.OnStartup` 에서 지움
 - 훅에서 `WM_MOUSEMOVE`를 삼키면 **커서가 얼어붙어** 사각형을 그릴 수 없음 → 통과시킴
 - 오른쪽 버튼 down 은 통과시키고 up 만 삼켰더니, 탐색기가 **마우스 캡처를 놓지 않아** 시스템
   전체가 멈춘 것처럼 보임 → down/up 을 **대칭으로** 삼키고, 드래그가 아니었으면 `SendInput`

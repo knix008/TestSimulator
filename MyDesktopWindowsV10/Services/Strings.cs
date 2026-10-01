@@ -52,7 +52,6 @@ public static class Strings
         ["Double-click desktop hides fences"] = "바탕화면 더블클릭으로 펜스 숨기기",
         ["Settings…"] = "설정…",
         ["MyDesktop settings…"] = "MyDesktop 설정…",
-        ["Show more options"] = "더 많은 옵션 표시",
         ["Exit MyDesktop"] = "MyDesktop 끝내기",
         ["Language"] = "언어",
         ["Follow Windows"] = "Windows 설정 따르기",
