@@ -1,0 +1,48 @@
+const BACKGROUNDS = {
+  "light-classic": "#f3f4f6",
+  "light-paper": "#f6f1e7",
+  "light-snow": "#f4f7fb",
+  "light-mint": "#f3faf6",
+  "light-sand": "#f7f3ea",
+  "light-rose": "#fdf2f4",
+  "light-lavender": "#f6f4fb",
+  "light-sky": "#f0f9ff",
+  "light-lemon": "#fbf8ef",
+  "light-ocean": "#eef3f7",
+  "light-forest": "#f2f6f1",
+  "light-cherry": "#fff5f5",
+  "light-graphite": "#f2f2f2",
+  "light-pearl": "#f7f5f2",
+  "light-aqua": "#f0fdfa",
+  "light-blossom": "#fff7fb",
+  "light-amber": "#fff8ef",
+  "light-indigo": "#f4f6fb",
+  "light-sage": "#f4f6f2",
+  "light-porcelain": "#f8fafc",
+  "dark-midnight": "#0f1419",
+  "dark-ink": "#121212",
+  "dark-navy": "#0b1220",
+  "dark-grove": "#0e1612",
+  "dark-wine": "#1a1014",
+  "dark-slate": "#0f172a",
+  "dark-ember": "#1a120b",
+  "dark-violet": "#140f1f",
+  "dark-graphite": "#18181b",
+  "dark-trench": "#071316",
+  "dark-coffee": "#1c1410",
+  "dark-aurora": "#0b1218",
+  "dark-carbon": "#0c0c0c",
+  "dark-plum": "#160f18",
+  "dark-storm": "#12161c",
+  "dark-copper": "#18120e",
+  "dark-arctic": "#2e3440",
+  "dark-orchid": "#1b1520",
+  "dark-olive": "#14160f",
+  "dark-ice": "#0d141c",
+};
+
+function themeBackground(id) {
+  return BACKGROUNDS[id] || BACKGROUNDS["light-classic"];
+}
+
+module.exports = { themeBackground, BACKGROUNDS };

@@ -1,0 +1,69 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+build-check/
+publish/
+**/publish/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.DotSettings.user
+
+# Build artifacts
+*.cache
+*.log
+*.tmp
+*.bak
+*.pdb
+*.ilk
+*.aps
+*.nupkg
+*.snupkg
+*.msi
+UpgradeLog.htm
+UpgradeLog*.htm
+
+# Final installers and web packages copied to the project root
+/MyGitJS-Setup-*
+/MyGitJS-Web-*
+
+# Icons generated from Assets/MyGit.ico
+MyGitJS/build/icon.ico
+MyGitJS/build/icon.png
+MyGitJS/build/icon.icns
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+MyGitJS/test-results/
+
+# Node / MyGitJS build output
+node_modules/
+MyGitJS/dist/
+MyGitJS/dist-server/
+MyGitJS/release/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+
+# Local / AI tooling (not part of the product)
+.claude/
+.cursor/
+user-settings.json
+
+# Local export / report samples (not part of the product)
+sample-reports/
+**/exports/

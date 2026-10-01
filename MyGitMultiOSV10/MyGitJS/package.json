@@ -1,0 +1,121 @@
+{
+  "name": "mygit-js",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cross-platform Git client (Web, Windows, macOS, Linux) sharing one JavaScript UI.",
+  "author": "MyGit",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k -n api,web,app \"npm:dev:api\" \"npm:dev:web\" \"npm:dev:electron\"",
+    "dev:api": "tsx server/cli.ts",
+    "dev:web": "vite",
+    "dev:electron": "wait-on http://127.0.0.1:5173 http://127.0.0.1:4730 && electron .",
+    "dev:web-only": "concurrently -k -n api,web \"npm:dev:api\" \"npm:dev:web\"",
+    "build": "vite build && node scripts/build-server.mjs",
+    "build:server": "node scripts/build-server.mjs",
+    "build:win": "node scripts/prepare-icons.mjs && vite build && node scripts/build-server.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --x64 && node scripts/copy-installer.mjs",
+    "build:linux": "node scripts/prepare-icons.mjs && vite build && node scripts/build-server.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux AppImage deb --x64 && node scripts/copy-installer.mjs",
+    "build:mac": "node scripts/prepare-icons.mjs && vite build && node scripts/build-server.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --x64 && node scripts/copy-installer.mjs",
+    "build:web": "vite build && node scripts/build-server.mjs && node scripts/package-web.mjs && node scripts/copy-installer.mjs",
+    "start:web": "vite build && node scripts/build-server.mjs && node dist-server/cli.js",
+    "start:desktop": "vite build && node scripts/build-server.mjs && cross-env MYGIT_MODE=prod electron .",
+    "dist": "node scripts/prepare-icons.mjs && vite build && node scripts/build-server.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder && node scripts/copy-installer.mjs",
+    "test": "tsx test/run.ts",
+    "clean": "node scripts/clean.mjs"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "express": "^4.21.2",
+    "node-pty": "^1.1.0",
+    "pdf-lib": "^1.17.1",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/ws": "^8.18.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.25.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.mygit.multi",
+    "productName": "MyGit",
+    "directories": {
+      "output": "release"
+    },
+    "npmRebuild": false,
+    "afterPack": "./scripts/edit-windows-exe.cjs",
+    "artifactName": "MyGitJS-Setup-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "dist/**/*",
+      "dist-server/**/*",
+      "electron/**/*",
+      "package.json",
+      "!node_modules/**",
+      "node_modules/node-pty/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../Assets/MyGit.ico",
+        "to": "MyGit.ico"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "MyGit.png"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "signtoolOptions": {
+        "sign": "./scripts/skip-windows-sign.cjs"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "MyGit",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "displayLanguageSelector": true,
+      "include": "build/installer.nsh"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "icon": "build/icon.png"
+    }
+  }
+}

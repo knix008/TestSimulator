@@ -1,0 +1,21 @@
+{
+  "name": "mygit",
+  "private": true,
+  "description": "Root commands for MyGitJS.",
+  "scripts": {
+    "postinstall": "node scripts/run-npm.mjs install --prefix MyGitJS",
+    "dev": "node scripts/run-npm.mjs run dev --prefix MyGitJS",
+    "dev:web": "node scripts/run-npm.mjs run dev:web-only --prefix MyGitJS",
+    "build": "node scripts/run-npm.mjs run build --prefix MyGitJS",
+    "build:win": "node scripts/run-npm.mjs run build:win --prefix MyGitJS",
+    "build:linux": "node scripts/run-npm.mjs run build:linux --prefix MyGitJS",
+    "build:mac": "node scripts/run-npm.mjs run build:mac --prefix MyGitJS",
+    "build:web": "node scripts/run-npm.mjs run build:web --prefix MyGitJS",
+    "start": "node scripts/run-npm.mjs run start:desktop --prefix MyGitJS",
+    "start:web": "node scripts/run-npm.mjs run start:web --prefix MyGitJS",
+    "start:desktop": "node scripts/run-npm.mjs run start:desktop --prefix MyGitJS",
+    "test": "node scripts/run-npm.mjs test --prefix MyGitJS",
+    "dist": "node scripts/run-npm.mjs run dist --prefix MyGitJS",
+    "clean": "node scripts/run-npm.mjs run clean --prefix MyGitJS"
+  }
+}
