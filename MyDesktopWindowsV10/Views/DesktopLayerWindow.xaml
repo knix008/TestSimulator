@@ -22,9 +22,16 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="CellBorder" Background="#01000000" CornerRadius="6" Margin="2">
+                        <!-- The hit surface covers the whole cell, and the rounded highlight is
+                             drawn inside it. A margin on the surface itself left a dead ring around
+                             every icon: a click a couple of pixels off centre fell through to the
+                             wallpaper, so a right-click on an icon opened the desktop's background
+                             menu instead of the item's own, and a press there started a rubber band
+                             rather than picking the icon up. -->
+                        <Grid Background="#01000000">
+                            <Border x:Name="CellBorder" CornerRadius="6" Margin="2" />
                             <ContentPresenter />
-                        </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="CellBorder" Property="Background" Value="#33FFFFFF" />
@@ -44,7 +51,7 @@
          left to rubber-band a selection or to right-click, so this window does both itself. The
          desktop gestures still work: the mouse hook counts this window as desktop surface. -->
     <Grid x:Name="Root" Background="#01000000" AllowDrop="True"
-          DragOver="Items_DragOver" Drop="Items_Drop"
+          DragOver="Items_DragOver" DragLeave="Items_DragLeave" Drop="Items_Drop"
           MouseLeftButtonDown="Root_MouseLeftButtonDown"
           MouseMove="Root_MouseMove"
           MouseLeftButtonUp="Root_MouseLeftButtonUp"
@@ -54,6 +61,7 @@
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
                  PreviewMouseLeftButtonDown="Items_PreviewMouseLeftButtonDown"
+                 PreviewMouseLeftButtonUp="Items_PreviewMouseLeftButtonUp"
                  PreviewMouseMove="Items_PreviewMouseMove"
                  PreviewMouseRightButtonUp="Items_PreviewMouseRightButtonUp"
                  KeyDown="Items_KeyDown">

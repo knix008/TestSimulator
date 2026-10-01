@@ -7,12 +7,14 @@
     .\build.ps1 -Release            # Release build
     .\build.ps1 -Release -Clean     # wipe intermediates first
     .\build.ps1 -Release -Publish   # single self-contained exe in .\publish
-    .\build.ps1 -Installer          # rebuild the .msi even if it is already current
+    .\build.ps1 -Installer          # only the .msi, skipping the ordinary compile
     .\build.ps1 -NoInstaller        # compile only, leave the .msi alone
 
 .NOTES
-    Every build leaves a current .msi in the project root. Packaging republishes 130 MB of runtime,
-    so it is skipped while the installer already sitting there is newer than every source file.
+    Every build leaves a current .msi in the project root, built from the code as it stands right
+    now. Packaging republishes 130 MB of runtime, which is why -NoInstaller and run.ps1 exist for
+    fast edit-and-run rounds; what the installer must never be is out of date, because an installer
+    that lags behind the source is indistinguishable from a bug that will not die.
 #>
 [CmdletBinding()]
 param(
@@ -63,7 +65,7 @@ if ($Publish) {
 
 if (-not $NoInstaller) {
     Write-Host ''
-    & $installerScript -IfStale
+    & $installerScript
 }
 
 $exe = Get-MyDesktopExe -Configuration $configuration

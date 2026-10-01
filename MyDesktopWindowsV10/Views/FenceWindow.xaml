@@ -76,6 +76,7 @@
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"
                              PreviewMouseLeftButtonDown="Items_PreviewMouseLeftButtonDown"
+                             PreviewMouseLeftButtonUp="Items_PreviewMouseLeftButtonUp"
                              PreviewMouseMove="Items_PreviewMouseMove"
                              PreviewMouseRightButtonUp="Items_PreviewMouseRightButtonUp"
 
@@ -111,6 +112,13 @@
                     <Border x:Name="DropHint" BorderBrush="{Binding Accent, Converter={StaticResource Hex}}"
                             BorderThickness="2" CornerRadius="8" Margin="2" IsHitTestVisible="False"
                             Visibility="Collapsed" />
+
+                    <!-- The selection rectangle, the same one the drawn desktop uses. It sits above
+                         the icons and never takes the mouse itself. -->
+                    <Canvas IsHitTestVisible="False">
+                        <Rectangle x:Name="Band" Visibility="Collapsed"
+                                   Fill="#332F9E8E" Stroke="#CC49C3B0" StrokeThickness="1" />
+                    </Canvas>
                 </Grid>
             </Grid>
         </Border>

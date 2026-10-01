@@ -19,6 +19,11 @@ namespace MyDesktop.Views;
 /// </summary>
 public partial class DesktopLayerWindow : Window
 {
+    /// <summary>The cell an icon is drawn in; the same size the layer lays its lattice out on.</summary>
+    private const double CellWidth = 78;
+
+    private const double CellHeight = 94;
+
     private readonly DesktopLayer _layer;
     private readonly FenceManager _manager;
 
@@ -71,7 +76,21 @@ public partial class DesktopLayerWindow : Window
     private void Localize() => Localizer.Apply(this);
 
     /// <summary>Screen pixels in, true when an icon MyDesktop drew is there.</summary>
-    public bool IsOverItem(Point screenPoint)
+    public bool IsOverItem(Point screenPoint) => ItemUnder(screenPoint) is not null;
+
+    /// <summary>Drops the desktop's selection, because a fence has taken it over.</summary>
+    public void ClearSelection() => ItemsView.SelectedItems.Clear();
+
+    /// <summary>
+    /// The icon at a point in screen pixels, or null.
+    ///
+    /// The visual hit test answers first, because it knows which icon is drawn on top. Whatever it
+    /// misses is answered from the cells themselves, so that every pixel of an icon's cell counts as
+    /// that icon — and so the mouse hook and the menu can never disagree about whether a click
+    /// belongs to an icon or to the wallpaper. They used to: a click a couple of pixels off centre
+    /// was read as bare desktop, which opened the desktop's background menu on top of an icon.
+    /// </summary>
+    private FenceItem? ItemUnder(Point screenPoint)
     {
         try
         {
@@ -79,15 +98,34 @@ public partial class DesktopLayerWindow : Window
             var local = ItemsView.PointFromScreen(screenPoint);
             if (local.X < 0 || local.Y < 0 || local.X > ItemsView.ActualWidth || local.Y > ItemsView.ActualHeight)
             {
-                return false;
+                return null;
             }
 
-            return ItemAt(ItemsView.InputHitTest(local) as DependencyObject) is not null;
+            return ItemAt(ItemsView.InputHitTest(local) as DependencyObject) ?? CellAt(local);
         }
         catch (InvalidOperationException)
         {
-            return false;
+            return null;
         }
+    }
+
+    /// <summary>
+    /// The item whose cell holds a point, in the icon layer's own coordinates. Where cells overlap
+    /// the one added last wins, which is the one drawn on top.
+    /// </summary>
+    private FenceItem? CellAt(Point local)
+    {
+        FenceItem? found = null;
+
+        foreach (var item in _layer.Items)
+        {
+            if (new Rect(item.X, item.Y, CellWidth, CellHeight).Contains(local))
+            {
+                found = item;
+            }
+        }
+
+        return found;
     }
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -122,7 +160,8 @@ public partial class DesktopLayerWindow : Window
     /// </summary>
     private void Root_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (ItemAt(e.OriginalSource as DependencyObject) is not null)
+        NativeMethods.GetCursorPos(out var cursor);
+        if (ItemUnder(new Point(cursor.X, cursor.Y)) is not null)
         {
             return;
         }
@@ -132,6 +171,9 @@ public partial class DesktopLayerWindow : Window
         {
             return;
         }
+
+        // The band is about to make a selection here, so no fence may keep showing one.
+        _manager.ClaimSelection(this);
 
         if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) == 0)
         {
@@ -171,19 +213,43 @@ public partial class DesktopLayerWindow : Window
     /// </summary>
     private void Root_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (ItemAt(e.OriginalSource as DependencyObject) is not null)
-        {
-            return;
-        }
+        e.Handled = true;
+        ShowMenuForPointer();
+    }
 
-        if (HandedToFence(e))
-        {
-            e.Handled = true;
-            return;
-        }
-
+    /// <summary>
+    /// The menu for whatever the pointer is on: the fence in front, the icon under it, or the bare
+    /// desktop. Both the icons and the empty area come through here, so an icon always gets the
+    /// menu the shell would give it and never the wallpaper's.
+    /// </summary>
+    private void ShowMenuForPointer()
+    {
         NativeMethods.GetCursorPos(out var cursor);
-        var picked = ShellContextMenu.ShowForDesktopBackground(this, new Point(cursor.X, cursor.Y),
+        var pointer = new Point(cursor.X, cursor.Y);
+        var under = ItemUnder(pointer);
+        Diagnostics.Write($"desktop right-click at {pointer.X:0},{pointer.Y:0} item={under?.Name ?? "<none>"}");
+
+        // A fence is drawn above the icons, so a click inside one belongs to it even when an icon
+        // happens to lie underneath.
+        if (FenceUnderCursor() is { } fence)
+        {
+            fence.ShowMenuAt(pointer);
+            return;
+        }
+
+        if (under is { } item)
+        {
+            _manager.ClaimSelection(this);
+            if (!ItemsView.SelectedItems.Contains(item))
+            {
+                ItemsView.SelectedItem = item;
+            }
+
+            ShowItemMenu(item);
+            return;
+        }
+
+        var picked = ShellContextMenu.ShowForDesktopBackground(this, pointer,
         [
             new ShellContextMenu.Entry(NewFenceCommand, Strings.T("New fence here")),
             new ShellContextMenu.Entry(SettingsCommand, Strings.T("MyDesktop settings…"))
@@ -201,8 +267,6 @@ public partial class DesktopLayerWindow : Window
                 _layer.RefreshSoon();
                 break;
         }
-
-        e.Handled = true;
     }
 
     /// <summary>
@@ -216,18 +280,6 @@ public partial class DesktopLayerWindow : Window
     {
         NativeMethods.GetCursorPos(out var cursor);
         return _manager.FenceAt(new Point(cursor.X, cursor.Y));
-    }
-
-    private bool HandedToFence(MouseButtonEventArgs e)
-    {
-        if (FenceUnderCursor() is not { } fence)
-        {
-            return false;
-        }
-
-        NativeMethods.GetCursorPos(out var cursor);
-        fence.ShowMenuAt(new Point(cursor.X, cursor.Y));
-        return true;
     }
 
     private void EndBand()
@@ -256,7 +308,7 @@ public partial class DesktopLayerWindow : Window
     {
         foreach (var item in _layer.Items)
         {
-            var cell = new Rect(item.X, item.Y, 78, 94);
+            var cell = new Rect(item.X, item.Y, CellWidth, CellHeight);
             var inside = area.IntersectsWith(cell);
             var selected = ItemsView.SelectedItems.Contains(item);
 
@@ -277,10 +329,36 @@ public partial class DesktopLayerWindow : Window
         Math.Abs(first.X - second.X),
         Math.Abs(first.Y - second.Y));
 
+    /// <summary>
+    /// The item a plain press landed on while it was already part of a selection.
+    ///
+    /// WPF reduces a selection to the clicked item on the press; the shell waits for the release.
+    /// The difference is everything when several icons are picked up at once: by the time the drag
+    /// began, WPF had already thrown the rest of the selection away, so only the one under the
+    /// cursor ever moved. So the press is held back, and the selection collapses on the release
+    /// instead — unless a drag started, in which case the whole selection travels.
+    /// </summary>
+    private FenceItem? _collapseOnRelease;
+
     private void Items_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _dragStart = e.GetPosition(this);
         _dragCandidate = ItemAt(e.OriginalSource as DependencyObject);
+
+        // The desktop is about to hold the selection, so no fence may keep showing one.
+        _manager.ClaimSelection(this);
+
+        _collapseOnRelease = null;
+        if (e.ClickCount == 1
+            && _dragCandidate is { } pressed
+            && ItemsView.SelectedItems.Count > 1
+            && ItemsView.SelectedItems.Contains(pressed)
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) == 0)
+        {
+            _collapseOnRelease = pressed;
+            ItemsView.Focus();
+            e.Handled = true;
+        }
 
         // Where the cursor sits inside the icon, so the ghost hangs off the pointer the way it was grabbed.
         var container = ContainerAt(e.OriginalSource as DependencyObject);
@@ -347,6 +425,11 @@ public partial class DesktopLayerWindow : Window
         var grabbed = ItemsView.ItemContainerGenerator.ContainerFromItem(_dragCandidate) as FrameworkElement;
         var ghost = grabbed is null ? null : DragGhost.Show(grabbed, _grabOffset);
 
+        // This press turned out to be a drag, so the selection it was holding travels with it.
+        _collapseOnRelease = null;
+
+        Diagnostics.Write($"desktop drag start, {carried.Length} item(s)");
+
         _dragging = true;
         try
         {
@@ -362,27 +445,22 @@ public partial class DesktopLayerWindow : Window
         _layer.RefreshSoon();
     }
 
+    /// <summary>A press on a selection that did not become a drag is an ordinary click after all.</summary>
+    private void Items_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_collapseOnRelease is not { } item)
+        {
+            return;
+        }
+
+        _collapseOnRelease = null;
+        ItemsView.SelectedItem = item;
+    }
+
     private void Items_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (HandedToFence(e))
-        {
-            e.Handled = true;
-            return;
-        }
-
-        var item = ItemAt(e.OriginalSource as DependencyObject);
-        if (item is null)
-        {
-            return;
-        }
-
-        if (!ItemsView.SelectedItems.Contains(item))
-        {
-            ItemsView.SelectedItem = item;
-        }
-
-        ShowItemMenu(item);
         e.Handled = true;
+        ShowMenuForPointer();
     }
 
     /// <summary>
@@ -494,13 +572,21 @@ public partial class DesktopLayerWindow : Window
         _layer.Refresh();
     }
 
+    /// <summary>The Desktop folder, which is where anything dropped on the wallpaper belongs.</summary>
+    private static string DesktopFolder => Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+
     private void Items_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(FenceWindow.TransferFormat) ? DragDropEffects.Move
-            : e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy
-            : DragDropEffects.None;
+        // Our own icons moving about are MyDesktop's business; everything arriving from another
+        // program is the shell's, and the shell is also the one that knows what it can accept.
+        e.Effects = e.Data.GetDataPresent(FenceWindow.TransferFormat)
+            ? DragDropEffects.Move
+            : ShellDropTarget.Over(DesktopFolder, e);
+
         e.Handled = true;
     }
+
+    private void Items_DragLeave(object sender, DragEventArgs e) => ShellDropTarget.Leave();
 
     /// <summary>Dropping a fence item back here simply takes it out of the fence.</summary>
     private void Items_Drop(object sender, DragEventArgs e)
@@ -509,12 +595,12 @@ public partial class DesktopLayerWindow : Window
 
         if (e.Data.GetData(FenceWindow.TransferFormat) is not string payload)
         {
-            // MyDesktop is covering the wallpaper, so a file dropped "on the desktop" lands here.
-            if (e.Data.GetData(DataFormats.FileDrop) is string[] dropped)
-            {
-                CopyToDesktop(dropped);
-            }
-
+            // MyDesktop is covering the wallpaper, so a drop meant for the desktop lands here. The
+            // Desktop folder takes it, which is what would have happened without MyDesktop at all —
+            // including the formats no application agrees on, such as a picture out of a browser or
+            // an attachment out of a mail client.
+            ShellDropTarget.Drop(DesktopFolder, e);
+            _layer.RefreshSoon();
             return;
         }
 
@@ -579,34 +665,6 @@ public partial class DesktopLayerWindow : Window
         // on the desktop, so it is visible the whole way through.
         Diagnostics.Write($"desktop drop: {taken} item(s) left fence '{source.Name}' at {drop.X:0},{drop.Y:0}");
         _layer.Refresh();
-    }
-
-    /// <summary>Copies rather than moves, so a mis-drop never costs the user the original.</summary>
-    private void CopyToDesktop(IEnumerable<string> paths)
-    {
-        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-
-        foreach (var path in paths)
-        {
-            try
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var destination = Path.Combine(desktop, Path.GetFileName(path));
-                if (!File.Exists(destination))
-                {
-                    File.Copy(path, destination);
-                }
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-            }
-        }
-
-        _layer.RefreshSoon();
     }
 
     private void MoveInto(FenceData destination)

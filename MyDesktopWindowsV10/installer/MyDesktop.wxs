@@ -15,8 +15,26 @@
            Scope="perMachine"
            Compressed="yes">
 
-    <!-- Installing over an older build replaces it instead of leaving two entries behind. -->
-    <MajorUpgrade DowngradeErrorMessage="A newer version of MyDesktop is already installed." />
+    <!--
+      Installing replaces whatever is already there, down to the files.
+
+      AllowSameVersionUpgrades is not a nicety. Windows Installer compares only the first three
+      fields of ProductVersion, and it refuses to overwrite a file whose version matches the one on
+      disk. While every build carried 1.0.0 and 1.0.0.0, installing a new build over an old one did
+      nothing at all: setup ran, reported success, and left yesterday's binaries in place — so a
+      fixed bug was still there afterwards, and the only hint was the file date in Program Files.
+      build-installer.ps1 now stamps a fresh version on every build, and this attribute covers the
+      remaining case of two builds made on the same day.
+
+      Schedule says when the old product goes: afterInstallInitialize is before a single new file is
+      written, so this is a removal followed by an installation and never the two interleaved. What
+      is on disk afterwards came from this .msi and nothing else — which is the only way an installed
+      copy can be trusted to be the build it says it is. It also keeps the whole thing in one
+      transaction: a failure puts the previous version back.
+    -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer version of MyDesktop is already installed." />
 
     <MediaTemplate EmbedCab="yes" />
 
@@ -40,6 +58,51 @@
         <Component Id="StartWithWindows" Guid="4E8D6C31-7A52-4F0D-9B36-1C5E0A24D7F8">
           <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="LaunchAtLogin"
                          Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+
+        <!--
+          Everything in the program folder goes before the new files are laid down, and again when
+          MyDesktop is removed.
+
+          The upgrade above already takes away every file a previous MSI installed, so this is about
+          what no MSI owns: a file left behind by a crashed install, or one copied in by hand while
+          chasing a bug. Those survive an upgrade and can be loaded instead of the real thing.
+          RemoveFiles runs before InstallFiles, so the folder is emptied and then filled.
+
+          The scope is this one folder, never the tree below it — the Assets folder's contents belong
+          to components and leave with them.
+        -->
+        <Component Id="CleanInstallFolder" Guid="9F3C58A1-6D24-4B7E-8E51-2A0B7C6D4E15">
+          <RemoveFile Id="PurgeInstallFolder" Name="*" On="both" />
+          <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+          <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="InstallFolder"
+                         Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+
+          <!--
+            "The copy installed here understands the quit switch."
+
+            Setup asks a running MyDesktop to stand down by running the installed exe with that
+            switch, and waits for it to finish. A build from before the switch existed does not
+            recognise it, ignores it, and starts the whole application instead — so setup would sit
+            waiting for a program that runs until the user quits it. The next install reads this
+            value first and only then uses the switch.
+          -->
+          <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="QuitSwitch"
+                         Type="integer" Value="1" />
+        </Component>
+
+        <!--
+          The answer to "start with an empty layout?" from the feature page, recorded rather than
+          acted on here: a per-machine install runs as SYSTEM and the layout belongs to each user.
+          MyDesktop reads this on its next start under each account, sets that account's layout
+          aside and remembers that it has done so (WorkspaceStore.ResetIfSetupAskedFor).
+
+          The value is the version that asked, so installing a later build with the box ticked again
+          asks again, while an ordinary launch does not.
+        -->
+        <Component Id="ResetWorkspaceFlag" Guid="C17B4E90-5A8D-4C23-9F67-3B8E1D05A742">
+          <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="ResetWorkspace"
+                         Type="string" Value="$(Version)" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
@@ -90,6 +153,7 @@
     <Feature Id="Main" Title="MyDesktop" Description="The program itself." Level="1"
              AllowAbsent="no" Display="expand" ConfigurableDirectory="INSTALLFOLDER">
       <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="CleanInstallFolder" />
 
       <Feature Id="StartMenu" Title="Start Menu shortcut"
                Description="Add MyDesktop to the Start Menu." Level="1">
@@ -110,6 +174,21 @@
                Description="Start MyDesktop when you sign in, so the fences are there with the desktop. MyDesktop's settings can change this later."
                Level="1">
         <ComponentRef Id="StartWithWindows" />
+      </Feature>
+
+      <!--
+        Off by default, and it has to stay that way: the fences are where the user's desktop now
+        lives, and nobody expects an update to take them away. It is offered because reinstalling is
+        also how someone starts over after making a mess, and because the alternative — setup
+        quietly deciding for them — is worse in both directions.
+
+        Nothing is deleted. MyDesktop renames the layout to fences.json.before-reset.bak, so a tick
+        made by mistake costs one file rename to undo.
+      -->
+      <Feature Id="ResetData" Title="Start with an empty layout"
+               Description="Set this PC's saved fences and settings aside and start as if MyDesktop had never run. Leave this off to keep the fences you have. Nothing is deleted: the old layout is kept as fences.json.before-reset.bak."
+               Level="1000">
+        <ComponentRef Id="ResetWorkspaceFlag" />
       </Feature>
     </Feature>
 
@@ -138,6 +217,39 @@
 
     <CustomAction Id="StartMyDesktop" Property="StartMyDesktopTarget" ExeCommand=""
                   Execute="immediate" Impersonate="yes" Return="asyncNoWait" />
+
+    <!--
+      Before a single file is touched, the copy that is already running is asked to stand down.
+
+      Two things go wrong without this. MyDesktop.exe is locked by the copy running from the same
+      folder, so Windows Installer cannot replace it and offers a reboot instead — after which the
+      user has been running yesterday's build all day. And a copy that is simply killed never
+      switches the shell's desktop icons back on, so the desktop is left empty.
+
+      MyDesktop answers the quit switch below through its own shutdown: icons back, layout flushed,
+      process gone. (The switch cannot be named in this comment: XML has no way to write two dashes
+      inside one.)
+      Impersonated, because the signal lives in the user's session rather than the SYSTEM one setup
+      otherwise runs in, and "ignore" because a machine with nothing running must still install.
+    -->
+    <!--
+      Only a copy that was installed with the switch is asked to quit with it. A build from before
+      it existed treats the switch as noise and starts up instead, and setup — which waits for the
+      command to finish — would wait for as long as the user left it running.
+    -->
+    <Property Id="MYDESKTOPQUITSWITCH">
+      <RegistrySearch Id="QuitSwitchSearch" Root="HKLM" Key="Software\MyDesktop"
+                      Name="QuitSwitch" Type="raw" />
+    </Property>
+
+    <CustomAction Id="QuitRunningMyDesktop" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]MyDesktop.exe&quot; --quit"
+                  Execute="immediate" Impersonate="yes" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="QuitRunningMyDesktop" Before="InstallValidate"
+              Condition="MYDESKTOPQUITSWITCH" />
+    </InstallExecuteSequence>
 
     <UI>
       <ui:WixUI Id="WixUI_FeatureTree" />

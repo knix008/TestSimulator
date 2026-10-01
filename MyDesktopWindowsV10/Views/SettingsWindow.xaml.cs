@@ -32,6 +32,30 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
 
     public IEnumerable<UiLanguage> LanguageOptions => Enum.GetValues<UiLanguage>();
 
+    /// <summary>One swatch: the colour to paint the button with, and the value to store.</summary>
+    public sealed record Swatch(string Label, string Value)
+    {
+        public System.Windows.Media.Brush Brush
+        {
+            get
+            {
+                try
+                {
+                    return new System.Windows.Media.SolidColorBrush(
+                        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(Value));
+                }
+                catch (FormatException)
+                {
+                    return System.Windows.Media.Brushes.Transparent;
+                }
+            }
+        }
+    }
+
+    public IEnumerable<Swatch> AccentPalette => Palette.Accents.Select(colour => new Swatch(colour.Label, colour.Value));
+
+    public IEnumerable<Swatch> BackgroundPalette => Palette.Backgrounds.Select(colour => new Swatch(colour.Label, colour.Value));
+
     /// <summary>
     /// Walks the window and swaps any text the table knows about, so the XAML stays plain English
     /// and there is nothing to keep in sync.
@@ -148,6 +172,33 @@ public partial class SettingsWindow : Window, INotifyPropertyChanged
         if (_selectedFence is not null && sender is Button { Tag: string colour })
         {
             _selectedFence.Background = WithAlpha(colour, AlphaOf(_selectedFence.Background));
+        }
+    }
+
+    /// <summary>
+    /// The twenty presets are a shortcut, not a limit. These two open the Windows colour picker, so
+    /// a fence can be any colour the user mixes — the transparency stays where it was, because it is
+    /// a separate setting and the picker knows nothing about it.
+    /// </summary>
+    private void AccentCustom_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedFence is not null && Interop.ColorPicker.Pick(this, _selectedFence.Accent) is { } picked)
+        {
+            _selectedFence.Accent = picked;
+        }
+    }
+
+    private void BackgroundCustom_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedFence is null)
+        {
+            return;
+        }
+
+        var alpha = AlphaOf(_selectedFence.Background);
+        if (Interop.ColorPicker.Pick(this, WithAlpha(_selectedFence.Background, 255)) is { } picked)
+        {
+            _selectedFence.Background = WithAlpha(picked, alpha);
         }
     }
 

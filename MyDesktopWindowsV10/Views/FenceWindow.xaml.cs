@@ -29,26 +29,9 @@ public partial class FenceWindow : Window
     private const double RolledHeight = 32;
     private const double MinimumBodyHeight = 90;
 
-    private static readonly (string Label, string Value)[] BackgroundPalette =
-    [
-        ("Forest", "#132B24"),
-        ("Slate", "#1B232B"),
-        ("Ink", "#131313"),
-        ("Plum", "#251426"),
-        ("Sand", "#2A2318"),
-        ("Deep sea", "#0F2A2B")
-    ];
+    private static (string Label, string Value)[] BackgroundPalette => Palette.Backgrounds;
 
-    private static readonly (string Label, string Value)[] AccentPalette =
-    [
-        ("Sage", "#A8CE6A"),
-        ("Lime", "#D9F078"),
-        ("Coral", "#E78F67"),
-        ("Sea glass", "#69A9A0"),
-        ("Marigold", "#D9B75E"),
-        ("Periwinkle", "#8C9BD0"),
-        ("Rose", "#D87983")
-    ];
+    private static (string Label, string Value)[] AccentPalette => Palette.Accents;
 
     private readonly FenceData _fence;
     private readonly FenceManager _manager;
@@ -63,6 +46,16 @@ public partial class FenceWindow : Window
     private Point _itemDragStart;
     private FenceItem? _itemDragCandidate;
     private FrameworkElement? _itemDragVisual;
+
+    /// <summary>
+    /// The item a plain press landed on while it was already part of a selection. The selection
+    /// collapses to it when the button comes back up, and not before, so that a drag started from
+    /// such a press carries everything that was selected — the way the desktop behaves.
+    /// </summary>
+    private FenceItem? _collapseOnRelease;
+
+    private bool _banding;
+    private Point _bandOrigin;
     private Point _itemGrabOffset;
 
     public FenceWindow(FenceData fence, FenceManager manager)
@@ -83,6 +76,9 @@ public partial class FenceWindow : Window
     }
 
     public FenceData Fence => _fence;
+
+    /// <summary>Drops this fence's selection, because another window has taken it over.</summary>
+    public void ClearSelection() => ItemsView.SelectedItems.Clear();
 
     public void CloseFence()
     {
@@ -114,12 +110,15 @@ public partial class FenceWindow : Window
             // The window has no source yet; the fence menu is still the right answer.
         }
 
+        Diagnostics.Write($"fence '{_fence.Name}' was handed a right-click at {screenPoint.X:0},{screenPoint.Y:0} item={item?.Name ?? "<none>"}");
+
         if (item is null)
         {
             ShowFenceMenu();
             return;
         }
 
+        _manager.ClaimSelection(this);
         if (!ItemsView.SelectedItems.Contains(item))
         {
             ItemsView.SelectedItem = item;
@@ -398,6 +397,33 @@ public partial class FenceWindow : Window
         _itemDragStart = e.GetPosition(this);
         _itemDragCandidate = ItemAt(e.OriginalSource as DependencyObject);
 
+        // This fence is about to hold the selection, so nowhere else may keep showing one.
+        _manager.ClaimSelection(this);
+
+        // WPF collapses a selection to the clicked item on the press, where the shell waits for the
+        // release. Left alone, that threw the rest of the selection away before the drag could pick
+        // it up, so dragging several items moved exactly one. The press is held back and the
+        // collapse happens on the release instead — see _collapseOnRelease.
+        _collapseOnRelease = null;
+        if (e.ClickCount == 1
+            && _itemDragCandidate is { } pressed
+            && ItemsView.SelectedItems.Count > 1
+            && ItemsView.SelectedItems.Contains(pressed)
+            && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) == 0)
+        {
+            _collapseOnRelease = pressed;
+            ItemsView.Focus();
+            e.Handled = true;
+        }
+
+        // A press on the bare part of a fence starts a rubber band, exactly as it does on the
+        // desktop. Without it the only way to take several items at once was Ctrl-clicking them one
+        // by one, which is not how anybody selects a row of icons.
+        if (_itemDragCandidate is null && e.ClickCount == 1)
+        {
+            BeginBand(e.GetPosition(ItemsView));
+        }
+
         // Where the cursor sits inside the icon, so the ghost hangs off the pointer the way it was grabbed.
         _itemDragVisual = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject);
         _itemGrabOffset = _itemDragVisual is null ? default : e.GetPosition(_itemDragVisual);
@@ -417,6 +443,20 @@ public partial class FenceWindow : Window
 
     private void Items_PreviewMouseMove(object sender, MouseEventArgs e)
     {
+        if (_banding)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                EndBand();
+                return;
+            }
+
+            var corner = e.GetPosition(ItemsView);
+            DrawBand(corner);
+            SelectWithin(Between(_bandOrigin, corner));
+            return;
+        }
+
         if (_dragging || _itemDragCandidate is null || e.LeftButton != MouseButtonState.Pressed)
         {
             return;
@@ -449,6 +489,10 @@ public partial class FenceWindow : Window
         var carried = _itemDragVisual
             ?? ItemsView.ItemContainerGenerator.ContainerFromItem(_itemDragCandidate) as FrameworkElement;
         var ghost = carried is null ? null : DragGhost.Show(carried, _itemGrabOffset);
+
+        // This press turned out to be a drag, so the selection it was holding travels with it.
+        _collapseOnRelease = null;
+
         Diagnostics.Write($"drag start in fence '{_fence.Name}', {paths.Count} item(s), ghost={ghost is not null}");
 
         _dragging = true;
@@ -484,6 +528,104 @@ public partial class FenceWindow : Window
         }
     }
 
+    /// <summary>A press on a selection that did not become a drag is an ordinary click after all.</summary>
+    private void Items_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndBand();
+
+        if (_collapseOnRelease is not { } item)
+        {
+            return;
+        }
+
+        _collapseOnRelease = null;
+        ItemsView.SelectedItem = item;
+    }
+
+    // ---------------------------------------------------------------- rubber band
+
+    private void BeginBand(Point origin)
+    {
+        if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) == 0)
+        {
+            ItemsView.SelectedItems.Clear();
+        }
+
+        _banding = true;
+        _bandOrigin = origin;
+        DrawBand(origin);
+        Band.Visibility = Visibility.Visible;
+        ItemsView.CaptureMouse();
+    }
+
+    private void EndBand()
+    {
+        if (!_banding)
+        {
+            return;
+        }
+
+        _banding = false;
+        Band.Visibility = Visibility.Collapsed;
+        ItemsView.ReleaseMouseCapture();
+    }
+
+    private void DrawBand(Point corner)
+    {
+        var area = Between(_bandOrigin, corner);
+        Canvas.SetLeft(Band, area.X);
+        Canvas.SetTop(Band, area.Y);
+        Band.Width = area.Width;
+        Band.Height = area.Height;
+    }
+
+    /// <summary>
+    /// Everything the band touches, the way a shell selection rectangle behaves. The cells come from
+    /// the containers rather than from a lattice, because a fence lays its items out in a wrap panel
+    /// whose cell size follows the icon size setting.
+    /// </summary>
+    private void SelectWithin(Rect area)
+    {
+        foreach (var item in _fence.Items)
+        {
+            if (ItemsView.ItemContainerGenerator.ContainerFromItem(item) is not FrameworkElement container
+                || !container.IsVisible)
+            {
+                continue;
+            }
+
+            Rect cell;
+            try
+            {
+                var corner = container.TransformToAncestor(ItemsView).Transform(new Point(0, 0));
+                cell = new Rect(corner, new Size(container.ActualWidth, container.ActualHeight));
+            }
+            catch (InvalidOperationException)
+            {
+                // The container is not in the tree yet; it cannot be under the band either.
+                continue;
+            }
+
+            var inside = area.IntersectsWith(cell);
+            var selected = ItemsView.SelectedItems.Contains(item);
+
+            if (inside && !selected)
+            {
+                ItemsView.SelectedItems.Add(item);
+            }
+            else if (!inside && selected && (Keyboard.Modifiers & ModifierKeys.Control) == 0)
+            {
+                ItemsView.SelectedItems.Remove(item);
+            }
+        }
+    }
+
+    private static Rect Between(Point first, Point second) => new(
+        Math.Min(first.X, second.X),
+        Math.Min(first.Y, second.Y),
+        Math.Abs(first.X - second.X),
+        Math.Abs(first.Y - second.Y));
+
     private void Items_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
         var item = ItemAt(e.OriginalSource as DependencyObject);
@@ -493,6 +635,7 @@ public partial class FenceWindow : Window
         }
         else
         {
+            _manager.ClaimSelection(this);
             if (!ItemsView.SelectedItems.Contains(item))
             {
                 ItemsView.SelectedItem = item;
@@ -522,7 +665,7 @@ public partial class FenceWindow : Window
 
     private void Items_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = EffectFor(e.Data);
+        e.Effects = EffectFor(e);
         DropHint.Visibility = e.Effects == DragDropEffects.None ? Visibility.Collapsed : Visibility.Visible;
         e.Handled = true;
     }
@@ -537,7 +680,7 @@ public partial class FenceWindow : Window
         DropHint.Visibility = Visibility.Collapsed;
         e.Handled = true;
 
-        if (EffectFor(e.Data) == DragDropEffects.None)
+        if (EffectFor(e) == DragDropEffects.None)
         {
             return;
         }
@@ -580,6 +723,73 @@ public partial class FenceWindow : Window
             {
                 AddPaths(paths, index);
             }
+
+            return;
+        }
+
+        TakeShellDrop(e, index);
+    }
+
+    /// <summary>
+    /// A drop in a format only the shell can unpack — a picture dragged out of a browser, an
+    /// attachment, a file inside an archive, a link. The folder behind this fence takes it, and
+    /// whatever appears there goes into the fence.
+    ///
+    /// The folder is watched for a moment rather than read once, because the shell is often still
+    /// working when it returns: a virtual file is produced on demand and a copy has a progress
+    /// window of its own.
+    /// </summary>
+    private void TakeShellDrop(DragEventArgs e, int index)
+    {
+        var folder = DropFolder;
+        var before = Listing(folder);
+
+        if (ShellDropTarget.Drop(folder, e) == DragDropEffects.None)
+        {
+            return;
+        }
+
+        if (_fence.IsPortal)
+        {
+            // The portal's own watcher picks the new file up.
+            return;
+        }
+
+        var rounds = 0;
+        var watch = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(400)
+        };
+
+        watch.Tick += (_, _) =>
+        {
+            var arrived = Listing(folder).Except(before, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (arrived.Length > 0)
+            {
+                Diagnostics.Write($"shell drop produced {arrived.Length} file(s) for fence '{_fence.Name}'");
+                AddPaths(arrived, index);
+                index += arrived.Length;
+                before = Listing(folder);
+            }
+
+            if (++rounds >= 10)
+            {
+                watch.Stop();
+            }
+        };
+
+        watch.Start();
+    }
+
+    private static HashSet<string> Listing(string folder)
+    {
+        try
+        {
+            return new HashSet<string>(Directory.EnumerateFileSystemEntries(folder), StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return [];
         }
     }
 
@@ -613,16 +823,33 @@ public partial class FenceWindow : Window
         }
     }
 
-    private DragDropEffects EffectFor(IDataObject data)
+    private DragDropEffects EffectFor(DragEventArgs e)
     {
-        if (data.GetDataPresent(TransferFormat))
+        if (e.Data.GetDataPresent(TransferFormat))
         {
             // Fence to fence moves shuffle references, so a portal cannot be a target.
             return _fence.IsPortal ? DragDropEffects.None : DragDropEffects.Move;
         }
 
-        return data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            return DragDropEffects.Copy;
+        }
+
+        // Everything else is a format MyDesktop has no business knowing: a picture out of a
+        // browser, an attachment out of a mail client, a file out of an archive, a link. The folder
+        // behind this fence can take all of them, so it is asked whether it will.
+        return ShellDropTarget.Over(DropFolder, e);
     }
+
+    /// <summary>
+    /// Where a file that arrives from another program actually goes. A portal mirrors a folder, so
+    /// it goes there. An ordinary fence holds references to things on the desktop, so the file lands
+    /// on the desktop and the fence then points at it.
+    /// </summary>
+    private string DropFolder => _fence.IsPortal && Directory.Exists(_fence.PortalPath)
+        ? _fence.PortalPath
+        : Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
 
     private void AcceptTransfer(string payload, int index)
     {
@@ -879,6 +1106,8 @@ public partial class FenceWindow : Window
             background.Items.Add(Swatch(Strings.T(label), choice, () => _fence.Background = WithAlpha(choice, AlphaOf(_fence.Background))));
         }
 
+        background.Items.Add(new Separator());
+        background.Items.Add(Swatch(Strings.T("Custom colour…"), WithoutAlpha(_fence.Background), PickBackground));
         menu.Items.Add(background);
 
         var accent = MenuArt.Submenu(Strings.T("Accent"), MenuArt.Accent);
@@ -888,6 +1117,8 @@ public partial class FenceWindow : Window
             accent.Items.Add(Swatch(Strings.T(label), choice, () => _fence.Accent = choice));
         }
 
+        accent.Items.Add(new Separator());
+        accent.Items.Add(Swatch(Strings.T("Custom colour…"), _fence.Accent, PickAccent));
         menu.Items.Add(accent);
 
         var transparency = MenuArt.Submenu(Strings.T("Transparency"), MenuArt.Transparency);
@@ -1264,6 +1495,43 @@ public partial class FenceWindow : Window
     {
         NativeMethods.GetCursorPos(out var point);
         return DisplayScale.FromDevice(new Point(point.X, point.Y));
+    }
+
+    /// <summary>The colour without its transparency, which is what a colour picker deals in.</summary>
+    private static string WithoutAlpha(string colour)
+    {
+        try
+        {
+            if (ColorConverter.ConvertFromString(colour) is Color parsed)
+            {
+                return $"#{parsed.R:X2}{parsed.G:X2}{parsed.B:X2}";
+            }
+        }
+        catch (FormatException)
+        {
+        }
+
+        return colour;
+    }
+
+    /// <summary>
+    /// Any colour at all, through the picker Windows already has. The fence's transparency is kept:
+    /// it is a separate setting and the dialog knows nothing about it.
+    /// </summary>
+    private void PickBackground()
+    {
+        if (ColorPicker.Pick(this, WithoutAlpha(_fence.Background)) is { } picked)
+        {
+            _fence.Background = WithAlpha(picked, AlphaOf(_fence.Background));
+        }
+    }
+
+    private void PickAccent()
+    {
+        if (ColorPicker.Pick(this, _fence.Accent) is { } picked)
+        {
+            _fence.Accent = picked;
+        }
     }
 
     private static byte AlphaOf(string colour)

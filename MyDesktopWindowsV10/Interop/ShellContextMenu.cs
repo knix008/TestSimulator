@@ -184,7 +184,13 @@ internal static class ShellContextMenu
 
         try
         {
-            if (contextMenu.QueryContextMenu(hmenu, 0, FirstShellCommand, LastShellCommand, flags) < 0)
+            var queried = contextMenu.QueryContextMenu(hmenu, 0, FirstShellCommand, LastShellCommand, flags);
+
+            // The one number worth keeping: a menu that comes back short is the shell refusing, not
+            // MyDesktop forgetting to ask.
+            Services.Diagnostics.Write($"shell menu: hr=0x{queried:X8} entries={GetMenuItemCount(hmenu)}");
+
+            if (queried < 0)
             {
                 return 0;
             }
@@ -448,6 +454,9 @@ internal static class ShellContextMenu
 
     [DllImport("user32.dll")]
     private static extern bool DestroyMenu(IntPtr menu);
+
+    [DllImport("user32.dll")]
+    private static extern int GetMenuItemCount(IntPtr menu);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern bool AppendMenu(IntPtr menu, uint flags, IntPtr id,

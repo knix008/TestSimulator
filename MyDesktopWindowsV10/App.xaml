@@ -51,9 +51,13 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListBoxItem">
-                            <Border x:Name="CellBorder" Background="Transparent" CornerRadius="7" Margin="1" SnapsToDevicePixels="True">
+                            <!-- Transparent, but every pixel of the cell answers the mouse: the
+                                 margin that used to sit on this surface left a ring where a click
+                                 counted as the fence's background rather than the item's. -->
+                            <Grid Background="Transparent" SnapsToDevicePixels="True">
+                                <Border x:Name="CellBorder" CornerRadius="7" Margin="1" SnapsToDevicePixels="True" />
                                 <ContentPresenter />
-                            </Border>
+                            </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="CellBorder" Property="Background" Value="#26FFFFFF" />

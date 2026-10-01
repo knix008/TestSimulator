@@ -22,6 +22,84 @@ public partial class App : Application
 
     public static void Quit() => _instance?.QuitMyDesktop();
 
+    private const string SingleInstanceName = @"Local\MyDesktop.SingleInstance";
+
+    /// <summary>
+    /// How setup asks a running MyDesktop to stand down: `MyDesktop.exe --quit`.
+    ///
+    /// It cannot simply be killed. MyDesktop switches the shell's desktop icons off while it draws
+    /// the desktop itself, and switching them back on is something only its own shutdown does — a
+    /// terminated process leaves the user looking at an empty desktop. Nor can setup be left to deal
+    /// with it: Windows Installer finds MyDesktop.exe locked by the copy running from the same
+    /// folder, and the way out it offers is a reboot, after which the old binaries are still the
+    /// ones that ran all day.
+    ///
+    /// An event rather than a window message, because MyDesktop has no main window to send one to,
+    /// and Local so it reaches the copy in this user's session — which is where it runs.
+    /// </summary>
+    private const string QuitSignalName = @"Local\MyDesktop.Quit";
+
+    private EventWaitHandle? _quitSignal;
+    private RegisteredWaitHandle? _quitWatch;
+
+    private void ListenForQuitRequests()
+    {
+        try
+        {
+            _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, QuitSignalName);
+            _quitWatch = ThreadPool.RegisterWaitForSingleObject(
+                _quitSignal,
+                (_, _) => Dispatcher.BeginInvoke(() =>
+                {
+                    Diagnostics.Write("asked to quit (setup or another copy); shutting down");
+                    QuitMyDesktop();
+                }),
+                null,
+                Timeout.Infinite,
+                executeOnlyOnce: true);
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+        {
+            // Without the signal setup falls back to the Windows "files in use" prompt, which is
+            // worse but not fatal.
+            Diagnostics.Write($"could not listen for quit requests: {exception.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Sets the signal and waits for the other copy to let go of the single-instance mutex, so that
+    /// setup's next step finds the files unlocked and the desktop icons already back.
+    /// </summary>
+    private void AskTheRunningCopyToQuit()
+    {
+        try
+        {
+            if (!EventWaitHandle.TryOpenExisting(QuitSignalName, out var signal))
+            {
+                return;
+            }
+
+            using (signal)
+            {
+                signal.Set();
+            }
+
+            try
+            {
+                // Returns as soon as the other process releases it, which it does by exiting.
+                _singleInstance?.WaitOne(TimeSpan.FromSeconds(15));
+            }
+            catch (AbandonedMutexException)
+            {
+                // Exactly what we were waiting for: the owner went away.
+            }
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException
+                                              or WaitHandleCannotBeOpenedException)
+        {
+        }
+    }
+
     /// <summary>
     /// Fence windows refuse to close on their own, so tear them down before asking WPF to shut down.
     /// </summary>
@@ -63,12 +141,28 @@ public partial class App : Application
             }
         }
 
-        _singleInstance = new Mutex(true, @"Local\MyDesktop.SingleInstance", out var firstInstance);
+        var quitting = e.Args.Any(argument => string.Equals(argument, "--quit", StringComparison.OrdinalIgnoreCase));
+
+        _singleInstance = new Mutex(true, SingleInstanceName, out var firstInstance);
         if (!firstInstance)
         {
+            if (quitting)
+            {
+                AskTheRunningCopyToQuit();
+            }
+
             Shutdown();
             return;
         }
+
+        if (quitting)
+        {
+            // Nothing was running, which is all setup wanted to know.
+            Shutdown();
+            return;
+        }
+
+        ListenForQuitRequests();
 
         _store = new WorkspaceStore();
         _manager = new FenceManager(_store);

@@ -166,6 +166,31 @@ public sealed class FenceManager : IDisposable
         return null;
     }
 
+    /// <summary>
+    /// Hands the selection to one window and clears it everywhere else.
+    ///
+    /// Every fence and the drawn desktop own a separate list, and a list only knows about its own
+    /// selection. Without this, picking an item in one fence left whatever was picked in another
+    /// still highlighted, so the screen showed two selections at once and it was no longer clear
+    /// which one a menu or a Delete would act on. The shell has one selection at a time; so has
+    /// MyDesktop.
+    /// </summary>
+    public void ClaimSelection(object owner)
+    {
+        foreach (var window in _windows.Values)
+        {
+            if (!ReferenceEquals(window, owner))
+            {
+                window.ClearSelection();
+            }
+        }
+
+        if (!ReferenceEquals(_desktopWindow, owner))
+        {
+            _desktopWindow?.ClearSelection();
+        }
+    }
+
     /// <summary>Called while a fence is being moved or resized, so the icons under it step aside.</summary>
     public void PushDesktopIcons() => _desktop?.ArrangeSoon();
 

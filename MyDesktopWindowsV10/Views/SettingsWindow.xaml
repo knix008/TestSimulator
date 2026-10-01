@@ -112,23 +112,49 @@
                                  VerticalContentAlignment="Center" />
                     </DockPanel>
 
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,18,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="ACCENT" Style="{StaticResource SectionCaption}" VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#A8CE6A" Tag="#A8CE6A" Click="Accent_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#D9F078" Tag="#D9F078" Click="Accent_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#E78F67" Tag="#E78F67" Click="Accent_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#69A9A0" Tag="#69A9A0" Click="Accent_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#D9B75E" Tag="#D9B75E" Click="Accent_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#8C9BD0" Tag="#8C9BD0" Click="Accent_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#D87983" Tag="#D87983" Click="Accent_Click" />
+                    <!-- Twenty of each, from Services/Palette.cs so that this screen and the
+                         fence's own menu can never drift apart, and a Custom button that opens the
+                         Windows colour picker for anything the twenty do not cover. -->
+                    <StackPanel Grid.Row="1" Margin="0,18,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ACCENT" Style="{StaticResource SectionCaption}" VerticalAlignment="Center"
+                                       Width="104" />
+                            <ItemsControl ItemsSource="{Binding AccentPalette}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource PaletteButton}" Background="{Binding Brush}"
+                                                Tag="{Binding Value}" ToolTip="{Binding Label}" Click="Accent_Click" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="Custom…" FontSize="11" Margin="8,0,0,0" Padding="10,4" VerticalAlignment="Center"
+                                    Click="AccentCustom_Click" />
+                        </StackPanel>
 
-                        <TextBlock Text="FENCE COLOUR" Style="{StaticResource SectionCaption}" VerticalAlignment="Center" Margin="26,0,12,0" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#132B24" Tag="#132B24" Click="Background_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#1B232B" Tag="#1B232B" Click="Background_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#131313" Tag="#131313" Click="Background_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#251426" Tag="#251426" Click="Background_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#2A2318" Tag="#2A2318" Click="Background_Click" />
-                        <Button Style="{StaticResource PaletteButton}" Background="#0F2A2B" Tag="#0F2A2B" Click="Background_Click" />
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock Text="FENCE COLOUR" Style="{StaticResource SectionCaption}" VerticalAlignment="Center"
+                                       Width="104" />
+                            <ItemsControl ItemsSource="{Binding BackgroundPalette}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource PaletteButton}" Background="{Binding Brush}"
+                                                Tag="{Binding Value}" ToolTip="{Binding Label}" Click="Background_Click" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="Custom…" FontSize="11" Margin="8,0,0,0" Padding="10,4" VerticalAlignment="Center"
+                                    Click="BackgroundCustom_Click" />
+                        </StackPanel>
                     </StackPanel>
 
                     <Grid Grid.Row="2" Margin="0,22,0,0">
