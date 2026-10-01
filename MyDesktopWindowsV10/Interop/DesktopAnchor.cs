@@ -176,13 +176,46 @@ internal static class DesktopAnchor
 
     private static void Sink(IntPtr hwnd)
     {
-        NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_BOTTOM, 0, 0, 0, 0, KeepFlags);
+        var below = Below(hwnd);
+        NativeMethods.SetWindowPos(hwnd, below, 0, 0, 0, 0, KeepFlags);
 
+        // Only whatever ends up at the very bottom pushes the shell's desktop further down. Doing it
+        // for a fence that sits above the drawn desktop would lift the shell's window past it.
         var desktop = DesktopWindows.Desktop;
-        if (desktop != IntPtr.Zero && desktop != hwnd)
+        if (below == NativeMethods.HWND_BOTTOM && desktop != IntPtr.Zero && desktop != hwnd)
         {
             NativeMethods.SetWindowPos(desktop, hwnd, 0, 0, 0, 0, KeepFlags);
         }
+    }
+
+    /// <summary>
+    /// Where an anchored window belongs in the order: the drawn desktop at the very bottom, and
+    /// everything else directly above it.
+    ///
+    /// Sending a fence to HWND_BOTTOM is what it used to do, and that put the fence underneath the
+    /// drawn desktop, which covers the whole screen and takes the mouse everywhere. The fence stayed
+    /// visible, because the layer over it is all but transparent, so the only sign of it was that
+    /// clicks went to the wrong place: Windows raises a window when it is clicked, the raise was
+    /// turned into a sink here, and between the press and the release the fence had moved under the
+    /// desktop layer. The release — and with it the menu, the selection and the drag — went to the
+    /// desktop instead of to the fence that was clicked.
+    /// </summary>
+    private static IntPtr Below(IntPtr hwnd)
+    {
+        if (Lowest.Contains(hwnd))
+        {
+            return NativeMethods.HWND_BOTTOM;
+        }
+
+        for (var index = Lowest.Count - 1; index >= 0; index--)
+        {
+            if (NativeMethods.IsWindowVisible(Lowest[index]))
+            {
+                return Lowest[index];
+            }
+        }
+
+        return NativeMethods.HWND_BOTTOM;
     }
 
     private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -190,9 +223,10 @@ internal static class DesktopAnchor
         if (msg == NativeMethods.WM_WINDOWPOSCHANGING)
         {
             var position = System.Runtime.InteropServices.Marshal.PtrToStructure<NativeMethods.WINDOWPOS>(lParam);
-            if (position.hwndInsertAfter != NativeMethods.HWND_BOTTOM)
+            var wanted = Below(hwnd);
+            if (position.hwndInsertAfter != wanted)
             {
-                position.hwndInsertAfter = NativeMethods.HWND_BOTTOM;
+                position.hwndInsertAfter = wanted;
                 position.flags &= ~NativeMethods.SWP_NOZORDER;
                 System.Runtime.InteropServices.Marshal.StructureToPtr(position, lParam, false);
             }

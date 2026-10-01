@@ -13,7 +13,11 @@
 [CmdletBinding()]
 param(
     [string] $Version = '1.0.0',
-    [string] $Runtime = 'win-x64'
+    [string] $Runtime = 'win-x64',
+
+    # Build only when the installer in the project root is older than something it is made from.
+    # Packaging republishes 130 MB of runtime, which is too slow to sit in every compile.
+    [switch] $IfStale
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,17 +30,33 @@ $wxs = Join-Path $PSScriptRoot 'MyDesktop.wxs'
 $licenseFile = Join-Path $PSScriptRoot 'License.rtf'
 $msiName = "MyDesktop-$Version-$Runtime.msi"
 $msiPath = Join-Path $PSScriptRoot $msiName
+$destination = Join-Path $project $msiName
+
+function Get-NewestInput {
+    $inputs = Get-ChildItem $project -Recurse -File -Include *.cs, *.xaml, *.csproj, *.wxs, *.rtf, *.ico |
+        Where-Object { $_.FullName -notmatch '\\(obj|bin|publish|stage)\\' }
+    if (-not $inputs) { return [DateTime]::MaxValue }
+    return ($inputs | Measure-Object LastWriteTime -Maximum).Maximum
+}
+
+if ($IfStale) {
+    $existing = Get-Item $destination -ErrorAction SilentlyContinue
+    if ($existing -and $existing.LastWriteTime -ge (Get-NewestInput)) {
+        Write-Host "installer is up to date: $destination"
+        return
+    }
+}
 
 if (-not (Get-Command wix -ErrorAction SilentlyContinue)) {
     throw 'The WiX tool is not on PATH. Install it with:  dotnet tool install --global wix'
 }
 
 # The app locks its own exe while it runs, and a stale stage folder would be harvested into the msi.
-foreach ($process in @(Get-Process MyDesktop -ErrorAction SilentlyContinue)) {
-    Write-Host ('stopping MyDesktop (pid ' + $process.Id + ')')
-    $process.Kill()
-    $null = $process.WaitForExit(10000)
-}
+# Stop-MyDesktop is used rather than a bare Kill because a forced stop skips the app's own cleanup,
+# and that cleanup is what switches the desktop icons back on. Killing it here without restoring
+# them leaves the user looking at an empty desktop with no idea which program did it.
+. (Join-Path $project 'common.ps1')
+$null = Stop-MyDesktop
 
 if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
 
@@ -76,7 +96,6 @@ if ($LASTEXITCODE -ne 0) {
 foreach ($line in $build) { if ("$line".Trim()) { Write-Host "  $line" } }
 
 # The finished installer belongs where it can be found without digging through build folders.
-$destination = Join-Path $project $msiName
 Copy-Item $msiPath $destination -Force
 
 $size = [Math]::Round(((Get-Item $destination).Length / 1MB), 1)

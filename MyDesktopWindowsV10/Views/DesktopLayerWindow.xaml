@@ -39,10 +39,16 @@
         </Style>
     </Window.Resources>
 
-    <!-- Background stays null so clicks fall through to the real desktop; during a drag it is given
-         a trace of alpha so the drop lands here instead of Explorer. -->
-    <Grid x:Name="Root" Background="{x:Null}" AllowDrop="True"
-          DragOver="Items_DragOver" Drop="Items_Drop">
+    <!-- A single unit of alpha: invisible, but enough to make the empty area answer the mouse.
+         It has to answer, because while MyDesktop draws the desktop there is no Explorer icon view
+         left to rubber-band a selection or to right-click, so this window does both itself. The
+         desktop gestures still work: the mouse hook counts this window as desktop surface. -->
+    <Grid x:Name="Root" Background="#01000000" AllowDrop="True"
+          DragOver="Items_DragOver" Drop="Items_Drop"
+          MouseLeftButtonDown="Root_MouseLeftButtonDown"
+          MouseMove="Root_MouseMove"
+          MouseLeftButtonUp="Root_MouseLeftButtonUp"
+          MouseRightButtonUp="Root_MouseRightButtonUp">
         <ListBox x:Name="ItemsView" Background="{x:Null}" BorderThickness="0" Padding="0"
                  SelectionMode="Extended" ItemContainerStyle="{StaticResource DesktopCell}" AllowDrop="True"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -74,5 +80,11 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+
+        <!-- The selection rectangle. It sits above the icons and never takes the mouse itself. -->
+        <Canvas IsHitTestVisible="False">
+            <Rectangle x:Name="Band" Visibility="Collapsed"
+                       Fill="#332F9E8E" Stroke="#CC49C3B0" StrokeThickness="1" />
+        </Canvas>
     </Grid>
 </Window>

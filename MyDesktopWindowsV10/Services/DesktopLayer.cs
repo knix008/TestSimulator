@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -31,6 +31,24 @@ public sealed class DesktopLayer : IDisposable
 
     private const double CellWidth = 78;
     private const double CellHeight = 94;
+
+    /// <summary>
+    /// One cell of the lattice the icons sit on.
+    ///
+    /// Whether a cell is taken is counted in cells rather than by comparing rectangles, and that is
+    /// the whole point of this type. The lattice step is exactly the cell size, so an icon's cell
+    /// shares an edge with each of its neighbours, and Rect.IntersectsWith counts a shared edge as
+    /// an overlap. Asking rectangles whether a cell was free therefore made every icon collide with
+    /// everything beside it: an icon dropped next to another one was taken to have landed on an
+    /// occupied cell and sent off to look for a free one, which on a tidy desktop was usually the
+    /// cell it had just been dragged out of. It looked as though the drop had been refused.
+    /// </summary>
+    private readonly record struct Cell(int Column, int Row);
+
+    /// <summary>Where the first cell starts. Everything else is a multiple of the cell from here.</summary>
+    private const double GridOriginX = 8;
+
+    private const double GridOriginY = 6;
 
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _debounce;
@@ -154,58 +172,154 @@ public sealed class DesktopLayer : IDisposable
     public void Arrange()
     {
         var area = SystemParameters.WorkArea;
-        var taken = new List<Rect>();
 
+        var fences = new List<Rect>();
         foreach (var bounds in _fenceBounds())
         {
-            taken.Add(new Rect(bounds.X - area.Left, bounds.Y - area.Top, bounds.Width, bounds.Height));
+            fences.Add(new Rect(bounds.X - area.Left, bounds.Y - area.Top, bounds.Width, bounds.Height));
         }
 
-        foreach (var item in Items)
+        // Fences and icons are different kinds of obstacle. A fence lying over a spot pushes the
+        // icon aside for as long as it is there; another icon means the two simply cannot share the
+        // cell. Treating both the same is what used to send a hand-placed icon back to the top-left
+        // corner the moment anything else refreshed the layer.
+        var claimed = new HashSet<Cell>();
+
+        // Icons the user has placed are laid out first, so a never-placed one fills in around them
+        // instead of taking a cell that belongs to somebody.
+        foreach (var item in Items.OrderByDescending(entry => _spots.ContainsKey(entry.Path)))
         {
-            Point home;
-            if (_spots.TryGetValue(item.Path, out var spot)
-                && spot.X >= 0 && spot.Y >= 0
-                && spot.X <= area.Width - 20 && spot.Y <= area.Height - 20)
+            var remembered = _spots.TryGetValue(item.Path, out var spot) && spot is not null && OnScreen(spot, area)
+                ? CellOf(new Point(spot.X, spot.Y), area)
+                : (Cell?)null;
+
+            var home = remembered ?? NearestFree(new Cell(0, 0), fences, claimed, area);
+            if (remembered is null)
             {
-                home = new Point(spot.X, spot.Y);
-            }
-            else
-            {
-                home = FirstFree(taken, area.Width, area.Height);
-                _spots[item.Path] = new DesktopSpot { X = home.X, Y = home.Y };
+                var fresh = PointOf(home);
+                _spots[item.Path] = new DesktopSpot { X = fresh.X, Y = fresh.Y };
             }
 
-            var cell = new Rect(home.X, home.Y, CellWidth, CellHeight);
-            if (taken.Any(occupied => occupied.IntersectsWith(cell)))
+            // Only a fence, or a cell already spoken for, moves an icon off its spot — and then only
+            // for as long as that is true. The spot itself is kept, so it comes home afterwards.
+            if (claimed.Contains(home) || Covered(home, fences))
             {
-                home = FirstFree(taken, area.Width, area.Height);
-                cell = new Rect(home.X, home.Y, CellWidth, CellHeight);
+                home = NearestFree(home, fences, claimed, area);
             }
 
-            item.X = home.X;
-            item.Y = home.Y;
-            taken.Add(cell);
+            var position = PointOf(home);
+            item.X = position.X;
+            item.Y = position.Y;
+            claimed.Add(home);
         }
     }
 
-    /// <summary>Remembers where the user put an icon.</summary>
+    /// <summary>
+    /// Remembers where the user put an icon. The drop is snapped to the same lattice the automatic
+    /// placement uses, so hand-placed icons line up with the rest instead of sitting a few pixels
+    /// off; and if that cell is taken, the nearest free one to the drop wins rather than the first
+    /// free cell on the screen.
+    /// </summary>
     public void SetSpot(string path, Point point)
     {
         var area = SystemParameters.WorkArea;
-        var x = Math.Clamp(Math.Round(point.X), 0, Math.Max(0, area.Width - CellWidth));
-        var y = Math.Clamp(Math.Round(point.Y), 0, Math.Max(0, area.Height - CellHeight));
+        var wanted = CellOf(point, area);
 
-        _spots[path] = new DesktopSpot { X = x, Y = y };
+        var claimed = new HashSet<Cell>();
+        foreach (var other in Items)
+        {
+            if (!string.Equals(other.Path, path, StringComparison.OrdinalIgnoreCase))
+            {
+                claimed.Add(CellOf(new Point(other.X, other.Y), area));
+            }
+        }
+
+        if (claimed.Contains(wanted))
+        {
+            wanted = NearestFree(wanted, [], claimed, area);
+        }
+
+        var landing = PointOf(wanted);
+        _spots[path] = new DesktopSpot { X = landing.X, Y = landing.Y };
 
         var item = Items.FirstOrDefault(entry => string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase));
         if (item is not null)
         {
-            item.X = x;
-            item.Y = y;
+            item.X = landing.X;
+            item.Y = landing.Y;
         }
 
         _save();
+    }
+
+    private static bool OnScreen(DesktopSpot spot, Rect area)
+        => spot.X >= 0 && spot.Y >= 0 && spot.X <= area.Width - 20 && spot.Y <= area.Height - 20;
+
+    /// <summary>The cell a free-hand point falls in: the nearest one, kept inside the work area.</summary>
+    private static Cell CellOf(Point point, Rect area) => new(
+        Math.Clamp((int)Math.Round((point.X - GridOriginX) / CellWidth), 0, Columns(area) - 1),
+        Math.Clamp((int)Math.Round((point.Y - GridOriginY) / CellHeight), 0, Rows(area) - 1));
+
+    /// <summary>Where a cell's icon is drawn.</summary>
+    private static Point PointOf(Cell cell)
+        => new(GridOriginX + (cell.Column * CellWidth), GridOriginY + (cell.Row * CellHeight));
+
+    private static int Columns(Rect area) => Math.Max(1, (int)((area.Width - GridOriginX) / CellWidth));
+
+    private static int Rows(Rect area) => Math.Max(1, (int)((area.Height - GridOriginY) / CellHeight));
+
+    /// <summary>
+    /// Whether a fence really lies over a cell. The test is a strict overlap, so a fence edge that
+    /// happens to land exactly on a cell boundary is beside that cell rather than on top of it.
+    /// </summary>
+    private static bool Covered(Cell cell, List<Rect> fences)
+    {
+        var bounds = new Rect(PointOf(cell), new Size(CellWidth, CellHeight));
+        foreach (var fence in fences)
+        {
+            if (fence.Left < bounds.Right && fence.Right > bounds.Left
+                && fence.Top < bounds.Bottom && fence.Bottom > bounds.Top)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The free cell closest to where the icon wanted to be. Searching outwards from the spot rather
+    /// than from the top-left is what keeps a displaced icon beside its neighbours.
+    /// </summary>
+    private static Cell NearestFree(Cell from, List<Rect> fences, HashSet<Cell> claimed, Rect area)
+    {
+        var columns = Columns(area);
+        var rows = Rows(area);
+
+        var best = new Cell(0, 0);
+        var bestDistance = double.MaxValue;
+
+        for (var column = 0; column < columns; column++)
+        {
+            for (var row = 0; row < rows; row++)
+            {
+                var candidate = new Cell(column, row);
+                if (claimed.Contains(candidate) || Covered(candidate, fences))
+                {
+                    continue;
+                }
+
+                // Columns first, the way the shell fills its desktop, so ties break downwards.
+                var distance = Math.Pow(column - from.Column, 2) + Math.Pow((row - from.Row) * 0.98, 2);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+        }
+
+        return best;
     }
 
     public void ForgetSpot(string path)
@@ -214,35 +328,6 @@ public sealed class DesktopLayer : IDisposable
         {
             _save();
         }
-    }
-
-    private static Point FirstFree(List<Rect> taken, double width, double height)
-    {
-        for (var column = 0; column < 60; column++)
-        {
-            var x = 8 + (column * CellWidth);
-            if (x + CellWidth > width)
-            {
-                break;
-            }
-
-            for (var row = 0; ; row++)
-            {
-                var y = 6 + (row * CellHeight);
-                if (y + CellHeight > height)
-                {
-                    break;
-                }
-
-                var cell = new Rect(x, y, CellWidth, CellHeight);
-                if (!taken.Any(area => area.IntersectsWith(cell)))
-                {
-                    return new Point(x, y);
-                }
-            }
-        }
-
-        return new Point(8, 6);
     }
 
     public void Dispose()

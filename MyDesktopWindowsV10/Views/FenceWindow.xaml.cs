@@ -91,6 +91,43 @@ public partial class FenceWindow : Window
         Close();
     }
 
+    /// <summary>
+    /// Shows the menu for whatever sits at a point in screen pixels: the item there, or the fence
+    /// itself. It is how a right-click the drawn desktop was given, but that landed on this fence,
+    /// still opens the menu the user was asking for.
+    /// </summary>
+    public void ShowMenuAt(Point screenPoint)
+    {
+        FenceItem? item = null;
+
+        try
+        {
+            // PointFromScreen works in physical pixels, which is what a screen point is here.
+            var local = ItemsView.PointFromScreen(screenPoint);
+            if (local.X >= 0 && local.Y >= 0 && local.X <= ItemsView.ActualWidth && local.Y <= ItemsView.ActualHeight)
+            {
+                item = ItemAt(ItemsView.InputHitTest(local) as DependencyObject);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // The window has no source yet; the fence menu is still the right answer.
+        }
+
+        if (item is null)
+        {
+            ShowFenceMenu();
+            return;
+        }
+
+        if (!ItemsView.SelectedItems.Contains(item))
+        {
+            ItemsView.SelectedItem = item;
+        }
+
+        ShowItemMenu(item);
+    }
+
     public void BeginRename()
     {
         if (_manager.Settings.FencesLocked)
@@ -415,7 +452,6 @@ public partial class FenceWindow : Window
         Diagnostics.Write($"drag start in fence '{_fence.Name}', {paths.Count} item(s), ghost={ghost is not null}");
 
         _dragging = true;
-        _manager.SetDesktopDragCapture(true);
         try
         {
             DragDrop.DoDragDrop(ItemsView, data, DragDropEffects.Move | DragDropEffects.Copy);
@@ -423,7 +459,6 @@ public partial class FenceWindow : Window
         finally
         {
             ghost?.Dispose();
-            _manager.SetDesktopDragCapture(false);
             _dragging = false;
             _itemDragCandidate = null;
             _itemDragVisual = null;
@@ -897,76 +932,89 @@ public partial class FenceWindow : Window
         MenuArt.Show(menu);
     }
 
+    private const int MoveToFenceCommand = ShellContextMenu.FirstOwnCommand + 100;
+    private const int RemoveFromFenceCommand = ShellContextMenu.FirstOwnCommand + 1;
+    private const int RefreshIconCommand = ShellContextMenu.FirstOwnCommand + 2;
+
+    /// <summary>
+    /// The shell's own menu for the item, with the entries that are about the fence underneath it.
+    ///
+    /// A fence holds real files, so everything the user expects of a file belongs here: Open with,
+    /// Cut, Copy, Send to, Properties, and whatever handlers are installed, such as an archiver.
+    /// None of that can be written out by hand, because it is code that belongs to somebody else.
+    /// What MyDesktop adds is only what the shell cannot know about: which fence an item is in.
+    /// </summary>
     private void ShowItemMenu(FenceItem item)
     {
-        var menu = NewMenu();
-        menu.Items.Add(Command(Strings.T("Open"), MenuArt.Open, () => Launch(item)));
-
-        // Nothing to empty means nothing to offer: the entry only appears when the bin holds something.
-        if (item.IsRecycleBin && !RecycleBinWatcher.IsEmpty())
+        var chosen = ItemsView.SelectedItems.OfType<FenceItem>().ToList();
+        if (!chosen.Contains(item))
         {
-            menu.Items.Add(Command(Strings.T("Empty Recycle Bin"), MenuArt.EmptyBin, () => EmptyRecycleBin(item)));
+            chosen = [item];
         }
 
-        // A shell place is not a file: it has no folder to reveal and no path worth copying.
-        if (!item.IsShellPlace)
-        {
-            menu.Items.Add(Command(Strings.T("Open file location"), MenuArt.FolderOpen, () => Reveal(item.Path)));
-            menu.Items.Add(Command(Strings.T("Copy path"), MenuArt.Copy, () =>
-            {
-                try
-                {
-                    Clipboard.SetText(item.Path);
-                }
-                catch (System.Runtime.InteropServices.COMException)
-                {
-                }
-            }));
-        }
+        var extras = new List<ShellContextMenu.Entry>();
 
         var others = _manager.Fences.Where(fence => !ReferenceEquals(fence, _fence) && !fence.IsPortal).ToList();
         if (others.Count > 0)
         {
-            var move = MenuArt.Submenu(Strings.T("Move to fence"), MenuArt.MoveToFence);
-            foreach (var target in others)
+            var targets = new List<ShellContextMenu.Entry>();
+            for (var index = 0; index < others.Count; index++)
             {
-                var destination = target;
-                move.Items.Add(Command(destination.Name, MenuArt.Fence, () => MoveItems(destination)));
+                targets.Add(new ShellContextMenu.Entry(MoveToFenceCommand + index, others[index].Name));
             }
 
-            menu.Items.Add(move);
+            extras.Add(new ShellContextMenu.Entry(0, Strings.T("Move to fence"), targets));
         }
 
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Command(Strings.T("Refresh icon"), MenuArt.Refresh, () =>
-        {
-            foreach (var selected in ItemsView.SelectedItems.OfType<FenceItem>())
-            {
-                selected.RefreshIcon();
-            }
-        }));
-
+        // Taking a file out of a fence is not deleting it, and the shell's own Delete is right
+        // above, so the wording has to keep the two apart.
         if (!_fence.IsPortal)
         {
-            menu.Items.Add(Command(Strings.T("Remove from fence"), MenuArt.Remove, () =>
+            extras.Add(new ShellContextMenu.Entry(RemoveFromFenceCommand, Strings.T("Remove from fence")));
+        }
+
+        extras.Add(new ShellContextMenu.Entry(RefreshIconCommand, Strings.T("Refresh icon")));
+
+        NativeMethods.GetCursorPos(out var cursor);
+        ItemMenu.Show(this, chosen.Select(entry => entry.Path).ToArray(), new Point(cursor.X, cursor.Y), extras,
+            picked =>
             {
-                foreach (var selected in ItemsView.SelectedItems.OfType<FenceItem>().ToArray())
+                switch (picked)
                 {
-                    _fence.Items.Remove(selected);
+                    case RemoveFromFenceCommand:
+                        foreach (var selected in chosen)
+                        {
+                            _fence.Items.Remove(selected);
+                        }
+
+                        break;
+
+                    case RefreshIconCommand:
+                        foreach (var selected in chosen)
+                        {
+                            selected.RefreshIcon();
+                        }
+
+                        break;
+
+                    default:
+                        if (picked >= MoveToFenceCommand && picked - MoveToFenceCommand < others.Count)
+                        {
+                            MoveItems(others[picked - MoveToFenceCommand]);
+                        }
+
+                        break;
                 }
-            }));
-        }
-
-        // Taking a file out of a fence and deleting it are different things, so Delete sits apart
-        // from "Remove from fence" rather than beside it. A shell place such as the Recycle Bin is
-        // not a file and cannot be deleted.
-        if (!item.IsShellPlace)
-        {
-            menu.Items.Add(new Separator());
-            menu.Items.Add(Command(Strings.T("Delete"), MenuArt.Delete, RecycleSelection));
-        }
-
-        MenuArt.Show(menu);
+            },
+            () =>
+            {
+                // The shell ran the command. It may have renamed, moved or binned the file.
+                _manager.CheckRecycleBin();
+                if (_fence.IsPortal)
+                {
+                    _manager.RefreshPortal(_fence);
+                }
+            });
     }
 
     /// <summary>The shell asks for confirmation itself, and the icon changes once the bin is empty.</summary>

@@ -12,8 +12,10 @@ namespace MyDesktop.Views;
 
 /// <summary>
 /// The desktop MyDesktop draws for itself while the shell's icon layer is switched off. It sits
-/// below every fence, and its empty area is fully transparent so clicks, right-drags and
-/// double-clicks land on the real desktop underneath.
+/// below every fence and takes the mouse across its whole area, because with Explorer's icon view
+/// gone there is nothing else left to answer a rubber-band selection or a right-click. The desktop
+/// gestures still reach the mouse hook, which counts this window as desktop surface, and the menus
+/// come from the shell itself rather than being written out again here.
 /// </summary>
 public partial class DesktopLayerWindow : Window
 {
@@ -68,17 +70,6 @@ public partial class DesktopLayerWindow : Window
 
     private void Localize() => Localizer.Apply(this);
 
-    /// <summary>
-    /// While something is being dragged, the empty area has to catch the drop instead of letting it
-    /// fall through to Explorer — otherwise the shell tries to copy a desktop file onto itself and
-    /// asks about the name clash. A single unit of alpha is enough to make it a drop target and is
-    /// invisible; the rest of the time the background is null so clicks reach the real desktop.
-    /// </summary>
-    public void SetDragCapture(bool capturing)
-    {
-        Root.Background = capturing ? new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)) : null;
-    }
-
     /// <summary>Screen pixels in, true when an icon MyDesktop drew is there.</summary>
     public bool IsOverItem(Point screenPoint)
     {
@@ -119,6 +110,173 @@ public partial class DesktopLayerWindow : Window
         Height = area.Height;
     }
 
+    // ---------------------------------------------------------------- empty desktop
+
+    private bool _banding;
+    private Point _bandOrigin;
+
+    /// <summary>
+    /// A left press on bare desktop starts a rubber band, exactly as it does on the shell's own
+    /// desktop. Without this there is no way to select several icons at once, because the view that
+    /// used to do it was switched off to make room for this one.
+    /// </summary>
+    private void Root_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemAt(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        // A press that belongs to a fence must not start a rubber band across the desktop under it.
+        if (FenceUnderCursor() is not null)
+        {
+            return;
+        }
+
+        if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) == 0)
+        {
+            ItemsView.SelectedItems.Clear();
+        }
+
+        _banding = true;
+        _bandOrigin = e.GetPosition(Root);
+        DrawBand(_bandOrigin);
+        Band.Visibility = Visibility.Visible;
+        Root.CaptureMouse();
+    }
+
+    private void Root_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_banding)
+        {
+            return;
+        }
+
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            EndBand();
+            return;
+        }
+
+        var corner = e.GetPosition(Root);
+        DrawBand(corner);
+        SelectWithin(Rect(_bandOrigin, corner));
+    }
+
+    private void Root_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => EndBand();
+
+    /// <summary>
+    /// The menu the wallpaper would show: Paste, New, the display and personalisation entries, and
+    /// anything else registered on the desktop background.
+    /// </summary>
+    private void Root_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemAt(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        if (HandedToFence(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        NativeMethods.GetCursorPos(out var cursor);
+        var picked = ShellContextMenu.ShowForDesktopBackground(this, new Point(cursor.X, cursor.Y),
+        [
+            new ShellContextMenu.Entry(NewFenceCommand, Strings.T("New fence here")),
+            new ShellContextMenu.Entry(SettingsCommand, Strings.T("MyDesktop settings…"))
+        ]);
+
+        switch (picked)
+        {
+            case NewFenceCommand:
+                _manager.CreateFenceAtCursor();
+                break;
+            case SettingsCommand:
+                App.OpenSettings();
+                break;
+            default:
+                _layer.RefreshSoon();
+                break;
+        }
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// The fence the pointer is really over, or null. The drawn desktop lies under every fence and
+    /// answers the mouse across the whole screen, so a click meant for a fence can still arrive
+    /// here: pressing a fence raises it, that moves it in the z-order, and Windows works out where
+    /// the release belongs all over again. Rather than guess, the desktop hands such a click to the
+    /// fence that was clicked.
+    /// </summary>
+    private FenceWindow? FenceUnderCursor()
+    {
+        NativeMethods.GetCursorPos(out var cursor);
+        return _manager.FenceAt(new Point(cursor.X, cursor.Y));
+    }
+
+    private bool HandedToFence(MouseButtonEventArgs e)
+    {
+        if (FenceUnderCursor() is not { } fence)
+        {
+            return false;
+        }
+
+        NativeMethods.GetCursorPos(out var cursor);
+        fence.ShowMenuAt(new Point(cursor.X, cursor.Y));
+        return true;
+    }
+
+    private void EndBand()
+    {
+        if (!_banding)
+        {
+            return;
+        }
+
+        _banding = false;
+        Band.Visibility = Visibility.Collapsed;
+        Root.ReleaseMouseCapture();
+    }
+
+    private void DrawBand(Point corner)
+    {
+        var area = Rect(_bandOrigin, corner);
+        Canvas.SetLeft(Band, area.X);
+        Canvas.SetTop(Band, area.Y);
+        Band.Width = area.Width;
+        Band.Height = area.Height;
+    }
+
+    /// <summary>Everything the band touches, the way a shell selection rectangle behaves.</summary>
+    private void SelectWithin(Rect area)
+    {
+        foreach (var item in _layer.Items)
+        {
+            var cell = new Rect(item.X, item.Y, 78, 94);
+            var inside = area.IntersectsWith(cell);
+            var selected = ItemsView.SelectedItems.Contains(item);
+
+            if (inside && !selected)
+            {
+                ItemsView.SelectedItems.Add(item);
+            }
+            else if (!inside && selected && (Keyboard.Modifiers & ModifierKeys.Control) == 0)
+            {
+                ItemsView.SelectedItems.Remove(item);
+            }
+        }
+    }
+
+    private static Rect Rect(Point first, Point second) => new(
+        Math.Min(first.X, second.X),
+        Math.Min(first.Y, second.Y),
+        Math.Abs(first.X - second.X),
+        Math.Abs(first.Y - second.Y));
+
     private void Items_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _dragStart = e.GetPosition(this);
@@ -156,10 +314,22 @@ public partial class DesktopLayerWindow : Window
             paths = [_dragCandidate];
         }
 
+        // The grabbed icon leads the list. The drop works out where everything lands from the icon
+        // that was under the cursor, because that is the one the grab offset was measured against.
+        paths = [_dragCandidate, .. paths.Where(item => item != _dragCandidate)];
+
         var carried = paths.Select(item => item.Path).ToArray();
         if (carried.Length == 0)
         {
             return;
+        }
+
+        // Where each icon started, so a selection dropped somewhere else keeps its shape instead of
+        // piling every icon onto the one spot under the cursor.
+        _dragOrigins.Clear();
+        foreach (var item in paths)
+        {
+            _dragOrigins[item.Path] = new Point(item.X, item.Y);
         }
 
         var data = new DataObject();
@@ -178,7 +348,6 @@ public partial class DesktopLayerWindow : Window
         var ghost = grabbed is null ? null : DragGhost.Show(grabbed, _grabOffset);
 
         _dragging = true;
-        SetDragCapture(true);
         try
         {
             DragDrop.DoDragDrop(ItemsView, data, DragDropEffects.Move | DragDropEffects.Copy);
@@ -186,7 +355,6 @@ public partial class DesktopLayerWindow : Window
         finally
         {
             ghost?.Dispose();
-            SetDragCapture(false);
             _dragging = false;
             _dragCandidate = null;
         }
@@ -196,6 +364,12 @@ public partial class DesktopLayerWindow : Window
 
     private void Items_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (HandedToFence(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         var item = ItemAt(e.OriginalSource as DependencyObject);
         if (item is null)
         {
@@ -207,64 +381,78 @@ public partial class DesktopLayerWindow : Window
             ItemsView.SelectedItem = item;
         }
 
-        var menu = new ContextMenu { PlacementTarget = this, Placement = PlacementMode.MousePoint, StaysOpen = false };
-        menu.Items.Add(Command(Strings.T("Open"), MenuArt.Open, () => Launch(item)));
+        ShowItemMenu(item);
+        e.Handled = true;
+    }
 
-        // Nothing to empty means nothing to offer: the entry only appears when the bin holds something.
-        if (item.IsRecycleBin && !RecycleBinWatcher.IsEmpty())
+    /// <summary>
+    /// The shell's own menu, with MyDesktop's few extras underneath it.
+    ///
+    /// While MyDesktop draws the desktop there is no Explorer icon view to right-click, so a menu
+    /// written here would be the only one the user ever sees — and it could never carry Cut, Copy,
+    /// Send to, Properties or any of the handlers the user has installed, such as an archiver.
+    /// Asking the shell for the menu it would have shown brings all of it back, including the
+    /// entries MyDesktop used to reimplement badly.
+    /// </summary>
+    private void ShowItemMenu(FenceItem item)
+    {
+        var chosen = ItemsView.SelectedItems.OfType<FenceItem>().ToList();
+        if (!chosen.Contains(item))
         {
-            menu.Items.Add(Command(Strings.T("Empty Recycle Bin"), MenuArt.EmptyBin, () =>
-            {
-                var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                if (ShellFileOperations.EmptyRecycleBin(handle))
-                {
-                    item.RefreshIcon();
-                    _manager.CheckRecycleBin();
-                }
-            }));
+            chosen = [item];
         }
 
-        if (!item.IsShellPlace)
-        {
-            menu.Items.Add(Command(Strings.T("Open file location"), MenuArt.FolderOpen, () => Reveal(item.Path)));
-            menu.Items.Add(Command(Strings.T("Copy path"), MenuArt.Copy, () =>
-            {
-                try
-                {
-                    Clipboard.SetText(item.Path);
-                }
-                catch (System.Runtime.InteropServices.COMException)
-                {
-                }
-            }));
-        }
+        var extras = new List<ShellContextMenu.Entry>();
 
         var fences = _manager.Fences.Where(fence => !fence.IsPortal).ToList();
         if (fences.Count > 0)
         {
-            var into = MenuArt.Submenu(Strings.T("Put into fence"), MenuArt.MoveToFence);
-            foreach (var fence in fences)
+            var targets = new List<ShellContextMenu.Entry>();
+            for (var index = 0; index < fences.Count; index++)
             {
-                var destination = fence;
-                into.Items.Add(Command(destination.Name, MenuArt.Fence, () => MoveInto(destination)));
+                targets.Add(new ShellContextMenu.Entry(PutIntoFenceCommand + index, fences[index].Name));
             }
 
-            menu.Items.Add(into);
+            extras.Add(new ShellContextMenu.Entry(0, Strings.T("Put into fence"), targets));
         }
 
-        if (!item.IsShellPlace)
-        {
-            menu.Items.Add(new Separator());
-            menu.Items.Add(Command(Strings.T("Delete"), MenuArt.Delete, RecycleSelection));
-        }
+        extras.Add(new ShellContextMenu.Entry(NewFenceCommand, Strings.T("New fence here")));
+        extras.Add(new ShellContextMenu.Entry(SettingsCommand, Strings.T("MyDesktop settings…")));
 
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Command(Strings.T("New fence here"), MenuArt.NewFence, () => _manager.CreateFenceAtCursor()));
-        menu.Items.Add(Command(Strings.T("MyDesktop settings…"), MenuArt.Settings, App.OpenSettings));
+        NativeMethods.GetCursorPos(out var cursor);
+        ItemMenu.Show(this, chosen.Select(entry => entry.Path).ToArray(), new Point(cursor.X, cursor.Y), extras,
+            picked =>
+            {
+                switch (picked)
+                {
+                    case NewFenceCommand:
+                        _manager.CreateFenceAtCursor();
+                        break;
 
-        MenuArt.Show(menu);
-        e.Handled = true;
+                    case SettingsCommand:
+                        App.OpenSettings();
+                        break;
+
+                    default:
+                        if (picked >= PutIntoFenceCommand && picked - PutIntoFenceCommand < fences.Count)
+                        {
+                            MoveInto(fences[picked - PutIntoFenceCommand]);
+                        }
+
+                        break;
+                }
+            },
+            () =>
+            {
+                // The shell ran the command itself; whatever it did, the layer may need a new look.
+                _manager.CheckRecycleBin();
+                _layer.RefreshSoon();
+            });
     }
+
+    private const int NewFenceCommand = ShellContextMenu.FirstOwnCommand + 1;
+    private const int SettingsCommand = ShellContextMenu.FirstOwnCommand + 2;
+    private const int PutIntoFenceCommand = ShellContextMenu.FirstOwnCommand + 100;
 
     private void Items_KeyDown(object sender, KeyEventArgs e)
     {

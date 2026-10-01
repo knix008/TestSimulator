@@ -25,7 +25,23 @@
     <Property Id="ARPNOREPAIR" Value="1" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="MyDesktop" />
+      <Directory Id="INSTALLFOLDER" Name="MyDesktop">
+        <!--
+          The startup choice, recorded for the machine rather than acted on here.
+
+          A Run entry written by this installer would be the wrong one: a per-machine install runs as
+          SYSTEM, so it can only write the machine-wide Run key, and nothing short of an elevated
+          program can take an entry out of that key again. MyDesktop's own switch for starting with
+          Windows is in its settings window and its tray menu, where it has to work for a user who
+          is not an administrator. So setup leaves this default behind instead, and the first run
+          under each account turns it into that account's own per-user Run entry, which the switch
+          can then add and remove freely. Uninstalling takes the default away with the component.
+        -->
+        <Component Id="StartWithWindows" Guid="4E8D6C31-7A52-4F0D-9B36-1C5E0A24D7F8">
+          <RegistryValue Root="HKLM" Key="Software\MyDesktop" Name="LaunchAtLogin"
+                         Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
     </StandardDirectory>
 
     <StandardDirectory Id="ProgramMenuFolder">
@@ -59,13 +75,20 @@
     </StandardDirectory>
 
     <!--
-      Three features, so the shortcuts can be chosen rather than imposed. The program itself is not
-      optional: its feature is hidden from the tree, leaving the two shortcuts as the only choices.
+      Three features, so the shortcuts can be chosen rather than imposed.
+
+      The root stays visible and expanded even though it cannot be deselected. The selection tree is
+      a hierarchy: hiding the root takes its children off the tree with it, leaving an empty box, no
+      selected feature and therefore no install location to show. AllowAbsent is what makes the
+      program itself non-optional, not hiding it.
+
+      ConfigurableDirectory is what puts a folder behind the Browse button. Without it the location
+      is blank and there is nothing to change.
 
       The desktop shortcut starts off, because MyDesktop's whole point is a desktop with less on it.
     -->
     <Feature Id="Main" Title="MyDesktop" Description="The program itself." Level="1"
-             AllowAbsent="no" Display="hidden">
+             AllowAbsent="no" Display="expand" ConfigurableDirectory="INSTALLFOLDER">
       <ComponentGroupRef Id="AppFiles" />
 
       <Feature Id="StartMenu" Title="Start Menu shortcut"
@@ -77,17 +100,53 @@
                Description="Put a MyDesktop shortcut on the desktop." Level="1000">
         <ComponentRef Id="DesktopShortcut" />
       </Feature>
+
+      <!--
+        On by default: fences are where the user's desktop items now live, so a sign-in without
+        MyDesktop running is a sign-in with no icons where they were left. It can be switched off
+        here, and afterwards from Start with Windows in MyDesktop's own settings.
+      -->
+      <Feature Id="Startup" Title="Start with Windows"
+               Description="Start MyDesktop when you sign in, so the fences are there with the desktop. MyDesktop's settings can change this later."
+               Level="1">
+        <ComponentRef Id="StartWithWindows" />
+      </Feature>
     </Feature>
 
     <!--
-      The feature tree page is where the two shortcuts are switched on and off. A silent install
-      picks them with the standard property, no custom names needed:
-          msiexec /i MyDesktop.msi /qn ADDLOCAL=Main,StartMenu,Desktop
+      The feature tree page is where the shortcuts and the startup choice are switched on and off. A
+      silent install picks them with the standard property, no custom names needed:
+          msiexec /i MyDesktop.msi /qn ADDLOCAL=Main,StartMenu,Desktop,Startup
+      A silent install shows no exit page, so nothing starts MyDesktop and nothing has turned the
+      startup default into a Run entry yet. That happens the first time MyDesktop is opened, and a
+      deployment that wants it sooner can open it once from the same script.
       Setting ADDLOCAL from here instead would run in the UI sequence too and overwrite whatever the
       user had just chosen on that page.
     -->
+    <!--
+      Setup ends by starting MyDesktop, so the tray icon and the fences are there rather than
+      waiting for a sign-out. This is also what turns the startup default above into this user's own
+      Run entry, which is why the box stays ticked by default.
+
+      The launch is a plain type 50 custom action: the path comes from a property, set on the way out
+      of the exit page so it is whatever the user browsed to rather than the default folder, and the
+      command line is empty because MyDesktop takes no arguments. asyncNoWait is what lets setup
+      close instead of sitting and waiting for a program that runs until the user quits it.
+    -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Start MyDesktop now" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+
+    <CustomAction Id="StartMyDesktop" Property="StartMyDesktopTarget" ExeCommand=""
+                  Execute="immediate" Impersonate="yes" Return="asyncNoWait" />
+
     <UI>
       <ui:WixUI Id="WixUI_FeatureTree" />
+
+      <Publish Dialog="ExitDialog" Control="Finish" Property="StartMyDesktopTarget"
+               Value="[INSTALLFOLDER]MyDesktop.exe" Order="1"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="StartMyDesktop" Order="2"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
     </UI>
 
     <WixVariable Id="WixUILicenseRtf" Value="$(LicenseFile)" />

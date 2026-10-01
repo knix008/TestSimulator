@@ -70,7 +70,20 @@ public sealed class FenceManager : IDisposable
         _bin.Changed += RefreshRecycleBin;
         _bin.Start();
 
-        Settings.LaunchAtLogin = StartupRegistration.IsRegistered();
+        // The Run entry decides for an install that has already run under this account: the user may
+        // have switched it off in Task Manager since, and that has to win over what was saved here.
+        // A first run has nothing of its own to go on, so it follows the choice made during setup.
+        if (_store.LoadedSavedWorkspace)
+        {
+            Settings.LaunchAtLogin = StartupRegistration.IsRegistered();
+            StartupRegistration.RepairPath();
+        }
+        else
+        {
+            Settings.LaunchAtLogin = StartupRegistration.InstallerDefault() ?? StartupRegistration.IsRegistered();
+            StartupRegistration.Apply(Settings.LaunchAtLogin);
+        }
+
         ApplyHiddenState();
 
         ApplyDesktopDrawing();
@@ -129,6 +142,30 @@ public sealed class FenceManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// The fence under a point in screen pixels, if a fence is there at all.
+    ///
+    /// The drawn desktop lies under every fence and covers the whole screen, and a click meant for a
+    /// fence can still be handed to it: the press raises the fence, raising it moves it in the
+    /// z-order, and the release that follows is worked out afresh. This is how the desktop tells
+    /// that a click it has been given belongs to a fence, so it can pass it on.
+    /// </summary>
+    public FenceWindow? FenceAt(Point screenPoint)
+    {
+        var point = DisplayScale.FromDevice(screenPoint);
+
+        foreach (var fence in Fences)
+        {
+            if (_windows.GetValueOrDefault(fence.Id) is { IsVisible: true } window
+                && new Rect(window.Left, window.Top, window.Width, window.Height).Contains(point))
+            {
+                return window;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Called while a fence is being moved or resized, so the icons under it step aside.</summary>
     public void PushDesktopIcons() => _desktop?.ArrangeSoon();
 
@@ -146,12 +183,6 @@ public sealed class FenceManager : IDisposable
             }
         }
     }
-
-    /// <summary>
-    /// Makes the drawn desktop catch drops for the duration of a drag, so an item pulled out of a
-    /// fence lands on MyDesktop rather than on Explorer's copy of the same file.
-    /// </summary>
-    public void SetDesktopDragCapture(bool capturing) => _desktopWindow?.SetDragCapture(capturing);
 
     public void RefreshDesktop() => _desktop?.Refresh();
 

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -56,6 +56,19 @@ internal static class MenuArt
     public const string Pointer = "";
     public const string Mouse = "";
 
+    // The item menu. Windows 11 puts these on its own menu for a file, and the glyphs here are
+    // the ones it draws beside them.
+    public const string Cut = "";
+    public const string Share = "";
+    public const string Shield = "";
+    public const string OpenWith = "";
+    public const string Pin = "";
+    public const string Unpin = "";
+    public const string Compress = "";
+    public const string CopyPath = "";
+    public const string Properties = "";
+    public const string MoreOptions = "";
+
     /// <summary>The state of a switch, drawn in the same column as every other icon.</summary>
     public const string CheckedBox = "";
 
@@ -91,9 +104,91 @@ internal static class MenuArt
     /// </summary>
     public static void Show(ContextMenu menu)
     {
+        Dress(menu);
         menu.Opened += OnOpened;
         menu.IsOpen = true;
     }
+
+    /// <summary>
+    /// Gives a menu the one look MyDesktop has: the shape Windows 11 draws its own menus in, in
+    /// whichever of the light and dark sets the Windows app theme asks for.
+    ///
+    /// It happens here rather than at each menu, because there are several of them — the tray menu,
+    /// the fence menu, the item menu, the desktop menu — and a menu that was built without the
+    /// styles stood out at once: WPF's untouched menu is a smaller, lighter, square-cornered thing
+    /// beside the rounded dark one next to it. Every menu MyDesktop opens goes through Show, so
+    /// dressing it here is what keeps them the same.
+    /// </summary>
+    public static void Dress(ContextMenu menu)
+    {
+        ApplyTheme();
+
+        menu.Style = Resource<Style>("ShellMenu") ?? menu.Style;
+        Dress((ItemsControl)menu);
+    }
+
+    private static void Dress(ItemsControl parent)
+    {
+        var itemStyle = Resource<Style>("ShellMenuItem");
+        var separatorStyle = Resource<Style>("ShellMenuSeparator");
+
+        foreach (var entry in parent.Items)
+        {
+            switch (entry)
+            {
+                // A local Style is somebody saying what they want; only an undressed entry is dressed.
+                case MenuItem item:
+                    item.Style ??= itemStyle;
+                    Dress(item);
+                    break;
+
+                case Separator separator:
+                    separator.Style ??= separatorStyle;
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Points the menu colours at the light or the dark set. Windows 11's own menus follow the app
+    /// theme rather than an application's own colours, and these are meant to pass for one of them.
+    /// </summary>
+    private static void ApplyTheme()
+    {
+        var light = UsesLightTheme();
+        var resources = Application.Current?.Resources;
+        if (resources is null)
+        {
+            return;
+        }
+
+        resources["MenuSurface"] = Brush(light, 0xF9, 0xF9, 0xF9, 0x2C, 0x2C, 0x2C);
+        resources["MenuEdge"] = Brush(light, 0xE5, 0xE5, 0xE5, 0x45, 0x45, 0x45);
+        resources["MenuText"] = Brush(light, 0x1A, 0x1A, 0x1A, 0xFF, 0xFF, 0xFF);
+        resources["MenuTextDim"] = Brush(light, 0x5D, 0x5D, 0x5D, 0x9A, 0x9A, 0x9A);
+        resources["MenuHover"] = Brush(light, 0xEA, 0xEA, 0xEA, 0x3D, 0x3D, 0x3D);
+        resources["MenuLine"] = Brush(light, 0xE0, 0xE0, 0xE0, 0x3D, 0x3D, 0x3D);
+    }
+
+    private static SolidColorBrush Brush(bool light, byte lr, byte lg, byte lb, byte dr, byte dg, byte db)
+        => new(light ? Color.FromRgb(lr, lg, lb) : Color.FromRgb(dr, dg, db));
+
+    private static bool UsesLightTheme()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            return key?.GetValue("AppsUseLightTheme") is not int value || value != 0;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    private static T? Resource<T>(string key) where T : class
+        => Application.Current?.TryFindResource(key) as T;
 
     private static void OnOpened(object sender, RoutedEventArgs e)
     {
@@ -178,7 +273,7 @@ internal static class MenuArt
     {
         Text = glyph,
         FontFamily = IconFont,
-        FontSize = 15,
+        FontSize = 14,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center
     };

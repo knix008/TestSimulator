@@ -7,22 +7,30 @@
     .\build.ps1 -Release            # Release build
     .\build.ps1 -Release -Clean     # wipe intermediates first
     .\build.ps1 -Release -Publish   # single self-contained exe in .\publish
-    .\build.ps1 -Installer          # .msi installer, copied to the project root
+    .\build.ps1 -Installer          # rebuild the .msi even if it is already current
+    .\build.ps1 -NoInstaller        # compile only, leave the .msi alone
+
+.NOTES
+    Every build leaves a current .msi in the project root. Packaging republishes 130 MB of runtime,
+    so it is skipped while the installer already sitting there is newer than every source file.
 #>
 [CmdletBinding()]
 param(
     [switch] $Release,
     [switch] $Clean,
     [switch] $Publish,
-    [switch] $Installer
+    [switch] $Installer,
+    [switch] $NoInstaller
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
 
+$installerScript = Join-Path $PSScriptRoot 'installer\build-installer.ps1'
+
 if ($Installer) {
     # The installer script does its own publish, because what it ships is a self-contained build.
-    & (Join-Path $PSScriptRoot 'installer\build-installer.ps1')
+    & $installerScript
     return
 }
 
@@ -51,6 +59,11 @@ if ($Publish) {
     Write-Host ('  ' + (Join-Path $target 'MyDesktop.exe'))
     Write-Host 'publish ok'
     return
+}
+
+if (-not $NoInstaller) {
+    Write-Host ''
+    & $installerScript -IfStale
 }
 
 $exe = Get-MyDesktopExe -Configuration $configuration

@@ -48,6 +48,13 @@ public sealed class WorkspaceStore
         };
     }
 
+    /// <summary>
+    /// Whether <see cref="Load"/> found a layout belonging to this user. A fresh install has none,
+    /// which is what tells the first run that the choices made during setup are still the only ones
+    /// anybody has made.
+    /// </summary>
+    public bool LoadedSavedWorkspace { get; private set; }
+
     public WorkspaceData Load()
     {
         var workspace = ReadFile(DataFile);
@@ -63,6 +70,10 @@ public sealed class WorkspaceStore
         if (workspace is null)
         {
             workspace = ImportLegacy() ?? new WorkspaceData();
+        }
+        else
+        {
+            LoadedSavedWorkspace = true;
         }
 
         foreach (var fence in workspace.Fences)

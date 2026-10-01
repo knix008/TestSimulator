@@ -2,6 +2,7 @@
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
+using System.Windows.Threading;
 
 namespace MyDesktop.Interop;
 
@@ -10,10 +11,21 @@ namespace MyDesktop.Interop;
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
+    /// <summary>
+    /// How long to keep offering the icon to a shell that is not taking it yet. Starting with
+    /// Windows means starting before Explorer on a cold boot, and a slow one can take a while.
+    /// </summary>
+    private static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(2);
+    private const int RetryLimit = 30;
+
     private readonly HwndSource _source;
     private readonly uint _id = 1;
+    private readonly int _taskbarCreated;
     private IntPtr _icon;
     private bool _added;
+    private bool _wanted;
+    private DispatcherTimer? _retry;
+    private int _attempts;
 
     private readonly string _tooltip;
 
@@ -21,6 +33,11 @@ internal sealed class TrayIcon : IDisposable
     {
         Menu = menu;
         _tooltip = tooltip;
+
+        // Explorer broadcasts this to every top-level window once its notification area exists,
+        // both at sign-in and after it has been restarted. It is the only notice that the icon
+        // added before a restart is gone and has to be added again.
+        _taskbarCreated = NativeMethods.RegisterWindowMessage("TaskbarCreated");
 
         _source = new HwndSource(new HwndSourceParameters("MyDesktopTrayHost")
         {
@@ -43,27 +60,22 @@ internal sealed class TrayIcon : IDisposable
     /// </summary>
     public bool Visible
     {
-        get => _added;
+        get => _wanted;
         set
         {
-            if (_added == value)
+            if (_wanted == value)
             {
                 return;
             }
 
-            var data = CreateData();
+            _wanted = value;
             if (value)
             {
-                data.uFlags = NativeMethods.NIF_ICON | NativeMethods.NIF_MESSAGE | NativeMethods.NIF_TIP;
-                data.uCallbackMessage = NativeMethods.WM_TRAYCALLBACK;
-                data.hIcon = _icon;
-                data.szTip = _tooltip;
-                _added = NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data);
+                Add();
             }
             else
             {
-                NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_DELETE, ref data);
-                _added = false;
+                Remove();
             }
         }
     }
@@ -72,12 +84,8 @@ internal sealed class TrayIcon : IDisposable
 
     public void Dispose()
     {
-        if (_added)
-        {
-            var data = CreateData();
-            NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_DELETE, ref data);
-            _added = false;
-        }
+        _wanted = false;
+        Remove();
 
         if (_icon != IntPtr.Zero)
         {
@@ -86,6 +94,73 @@ internal sealed class TrayIcon : IDisposable
         }
 
         _source.Dispose();
+    }
+
+    /// <summary>
+    /// Hands the icon to the shell, and keeps offering it for a while if the shell will not take
+    /// it. Shell_NotifyIcon fails outright while the notification area does not exist, which is
+    /// exactly what MyDesktop meets when the Run key starts it ahead of Explorer at sign-in.
+    /// </summary>
+    private void Add()
+    {
+        var data = CreateData();
+        data.uFlags = NativeMethods.NIF_ICON | NativeMethods.NIF_MESSAGE | NativeMethods.NIF_TIP;
+        data.uCallbackMessage = NativeMethods.WM_TRAYCALLBACK;
+        data.hIcon = _icon;
+        data.szTip = _tooltip;
+
+        _added = NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data);
+        if (_added)
+        {
+            StopRetrying();
+            return;
+        }
+
+        MyDesktop.Services.Diagnostics.Write(
+            $"the shell would not take the tray icon (attempt {_attempts + 1}), trying again in {RetryInterval.TotalSeconds:0}s");
+        StartRetrying();
+    }
+
+    private void Remove()
+    {
+        StopRetrying();
+
+        if (_added)
+        {
+            var data = CreateData();
+            NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_DELETE, ref data);
+            _added = false;
+        }
+    }
+
+    private void StartRetrying()
+    {
+        if (_retry is not null)
+        {
+            return;
+        }
+
+        _retry = new DispatcherTimer(DispatcherPriority.Background) { Interval = RetryInterval };
+        _retry.Tick += (_, _) =>
+        {
+            // Giving up matters: a timer ticking for the life of the process to call an API that
+            // has failed thirty times is not going to be the thing that fixes the notification area.
+            if (!_wanted || ++_attempts > RetryLimit)
+            {
+                StopRetrying();
+                return;
+            }
+
+            Add();
+        };
+        _retry.Start();
+    }
+
+    private void StopRetrying()
+    {
+        _retry?.Stop();
+        _retry = null;
+        _attempts = 0;
     }
 
     private NativeMethods.NOTIFYICONDATA CreateData() => new()
@@ -120,6 +195,19 @@ internal sealed class TrayIcon : IDisposable
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (msg == _taskbarCreated && _taskbarCreated != 0)
+        {
+            // Whatever we added before is gone with the old Explorer, so this starts from nothing
+            // rather than from what we last believed the notification area was showing.
+            _added = false;
+            if (_wanted)
+            {
+                Add();
+            }
+
+            return IntPtr.Zero;
+        }
+
         if (msg != NativeMethods.WM_TRAYCALLBACK)
         {
             return IntPtr.Zero;
