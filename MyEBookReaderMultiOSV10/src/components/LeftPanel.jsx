@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   IconContents, IconLibrary, IconBookmark, IconBookmarkAdd, IconSearch, IconFolder, IconFolderOpen,
@@ -11,7 +11,7 @@ import { galleryKey, sortGallery } from '../lib/gallery.js';
 import { formatBytes, listDrives } from '../lib/platform.js';
 import { PANEL_WIDTH_MAX } from '../lib/settings.js';
 import { Cover } from './Gallery.jsx';
-import { usePanelMinWidth, clampToPanelMin } from './panelWidth.js';
+import { usePanelMinWidth, usePanelBodyMin, clampToPanelMin } from './panelWidth.js';
 
 // The left panel: the tools you read *with* — the contents list, the folder of
 // books, the files opened lately, the gallery of those books, the bookmarks,
@@ -21,11 +21,14 @@ import { usePanelMinWidth, clampToPanelMin } from './panelWidth.js';
 // The folder and the recent files are different tools: one is a place on disk,
 // the other is the books that have been opened.
 
+// The order of the rail, top to bottom. The folder comes first — it is where
+// a reading session starts, with nothing open yet — and the book's own
+// structure under it, because there is nothing to show there until a book has
+// been picked from the folder above.
 const TABS = [
-  { id: 'contents', icon: IconContents, label: 'panel.contents' },
   { id: 'library', icon: IconFolder, label: 'panel.library' },
+  { id: 'contents', icon: IconContents, label: 'panel.contents' },
   { id: 'history', icon: IconRecent, label: 'panel.history' },
-  { id: 'gallery', icon: IconLibrary, label: 'panel.gallery' },
   { id: 'bookmarks', icon: IconBookmark, label: 'panel.bookmarks' },
   { id: 'notes', icon: IconNote, label: 'panel.notes' },
   { id: 'highlights', icon: IconHighlight, label: 'panel.highlights' },
@@ -33,6 +36,25 @@ const TABS = [
 ];
 
 const TAB_LABEL = Object.fromEntries(TABS.map((tab) => [tab.id, tab.label]));
+
+/**
+ * Every row of buttons the tools put along the top of the panel.
+ *
+ * The panel is made wide enough for the widest of them, whichever tool is
+ * open — so choosing a tool never changes the width. Measuring only the tool
+ * on screen is what made the panel grow when the folder browser was opened
+ * (three buttons) and stay grown afterwards, so the divider moved by itself.
+ *
+ * Kept beside the markup it mirrors: a button added to a row belongs here too,
+ * and the test 'measures every row of buttons the tools show' says so.
+ */
+export const ACTION_ROWS = [
+  ['panel.pickFolder', 'panel.home'],
+  ['recent.clear'],
+  ['cmd.addBookmark', 'panel.removeAll'],
+  ['cmd.addNote', 'panel.removeAll'],
+  ['panel.showHighlights', 'cmd.highlight', 'panel.removeAll'],
+];
 
 // How little of the panel the contents beside the rail may be squeezed into.
 // The rail itself is measured; this is what has to be left over for the tool it
@@ -178,12 +200,27 @@ export default function LeftPanel({
 }) {
   const { t, i18n } = useTranslation();
   const tabsRef = useRef(null);
+  const bodyRef = useRef(null);
+  const measureRef = useRef(null);
   // The rail stands beside the tool it opens, so the panel needs room for both.
-  const minWidth = usePanelMinWidth(tabsRef, [i18n.language], { stacked: true, beside: BODY_MIN });
+  // What the tool beside the rail needs, measured from its own buttons
+  // rather than assumed — see usePanelBodyMin.
+  // Measured from the hidden strip, not from the tool on screen, so the
+  // width does not change as the reader moves between the tools.
+  const bodyMin = usePanelBodyMin(measureRef, [i18n.language], BODY_MIN);
+  const minWidth = usePanelMinWidth(tabsRef, [i18n.language, bodyMin], { stacked: true, beside: bodyMin });
   const [query, setQuery] = useState(search?.query || '');
   const [roots, setRoots] = useState([]);
   const [rootBusy, setRootBusy] = useState(false);
   const [drives, setDrives] = useState([]);
+
+  // The shelf entry for a recent book, so the history can show its cover.
+  const shelved = useMemo(() => {
+    const map = new Map();
+    for (const entry of gallery || []) map.set(galleryKey(entry), entry);
+    return map;
+  }, [gallery]);
+  const coverFor = (file) => shelved.get(file?.path || file?.name || '') || null;
 
   useEffect(() => { setQuery(search?.query || ''); }, [search?.query]);
 
@@ -235,6 +272,7 @@ export default function LeftPanel({
             role="tab"
             aria-selected={panel === tab.id}
             className={`panel-tab${panel === tab.id ? ' active' : ''}`}
+            data-panel={tab.id}
             onClick={() => onPanel(tab.id)}
             title={t(tab.label)}
             aria-label={t(tab.label)}
@@ -244,7 +282,22 @@ export default function LeftPanel({
         ))}
       </div>
 
-      <div className="panel-body" role="tabpanel" aria-label={t(TAB_LABEL[panel] || 'panel.left')}>
+      {/* Not shown, and not reachable: a copy of every tool's row of buttons,
+          so the panel can be as wide as the widest of them without the tool
+          that owns it having to be open. */}
+      <div className="panel-measure" aria-hidden="true" ref={measureRef}>
+        {ACTION_ROWS.map((row) => (
+          <div className="panel-actions" key={row.join('|')}>
+            {row.map((label) => (
+              <span className="btn small" key={label}>
+                <IconFolderOpen size={15} />{t(label)}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="panel-body" role="tabpanel" ref={bodyRef} aria-label={t(TAB_LABEL[panel] || 'panel.left')}>
         {panel === 'contents' ? (
           !book ? <p className="panel-note">{t('panel.empty')}</p> : (
             <>
@@ -341,14 +394,17 @@ export default function LeftPanel({
 
         {panel === 'history' ? (
           <>
-            <p className="panel-head">
-              {t('recent.title')}
-              {recentFiles?.length ? (
-                <button type="button" className="linkish" onClick={onClearRecent} title={t('recent.clear')}>
-                  <IconTrash size={13} />{t('recent.clear')}
-                </button>
-              ) : null}
-            </p>
+            <div className="panel-actions">
+              <button
+                type="button"
+                className="btn small"
+                onClick={onClearRecent}
+                disabled={!recentFiles?.length}
+                title={t('recent.clear')}
+              >
+                <IconTrash size={15} />{t('recent.clear')}
+              </button>
+            </div>
             {!recentFiles?.length ? <p className="panel-note">{t('recent.empty')}</p> : (
               <ul className="recent-list">
                 {recentFiles.map((file) => (
@@ -364,7 +420,14 @@ export default function LeftPanel({
                       onClick={() => onOpenRecent(file)}
                       title={`${file.path || file.name}${file.format ? ` · ${String(file.format).toUpperCase()}` : ''}`}
                     >
-                      <IconRecent size={14} />
+                      {/* The cover, where the shelf has one for this book.
+                          A list of file names is hard to read past; the
+                          picture is how a reader recognises a book. */}
+                      {coverFor(file) ? (
+                        <span className="gthumb small">
+                          <Cover entry={coverFor(file)} />
+                        </span>
+                      ) : <IconRecent size={14} />}
                       <span className="recent-name">{file.name}</span>
                     </button>
                     <button
@@ -385,14 +448,17 @@ export default function LeftPanel({
 
         {panel === 'gallery' ? (
           <>
-            <p className="panel-head">
-              {t('gallery.title')}
-              {gallery?.length ? (
-                <button type="button" className="linkish" onClick={onClearGallery} title={t('gallery.clear')}>
-                  <IconTrash size={13} />{t('gallery.clear')}
-                </button>
-              ) : null}
-            </p>
+            <div className="panel-actions">
+              <button
+                type="button"
+                className="btn small"
+                onClick={onClearGallery}
+                disabled={!gallery?.length}
+                title={t('recent.clear')}
+              >
+                <IconTrash size={15} />{t('recent.clear')}
+              </button>
+            </div>
             {!gallery?.length ? <p className="panel-note">{t('gallery.empty')}</p> : (
               <ul className="shelf-list">
                 {sortGallery(gallery, 'recent').map((entry) => (

@@ -13,7 +13,10 @@ import {
   viewLayoutOf, viewLayoutSettings, textColumnsOf, columnChoice,
   fontPixels, fontScaleOf, FONT_SCALE_MIN, FONT_SCALE_MAX, READ_FONT_PX,
 } from '../lib/view.js';
-import { PAPER_SIZES, paperSizeMm } from '../lib/print.js';
+import {
+  PAPER_SIZES, paperSizeMm, MARGIN_SIDES, MARGIN_MIN, MARGIN_MAX, MARGIN_DEFAULT,
+  marginsOf, marginsAreEven,
+} from '../lib/print.js';
 import { shortcutRows } from '../lib/menus.js';
 import { formatBytes } from '../lib/platform.js';
 
@@ -123,7 +126,11 @@ function Field({ label, children, hint }) {
 }
 
 // ── Settings ──────────────────────────────────────────────
-const SETTINGS_TABS = ['appearance', 'reading', 'view', 'window'];
+// Three tabs, not four. 'window' held the status bar and the toolbar labels
+// — both of which the View tab already offered, so the same two tick boxes
+// appeared twice and could disagree about which tab you had last used.
+// What was only there, the storage path and the shortcut list, moved across.
+const SETTINGS_TABS = ['appearance', 'reading', 'view'];
 
 function SettingsBody({ t, payload, onResult }) {
   const [tab, setTab] = useState('appearance');
@@ -387,6 +394,45 @@ function SettingsBody({ t, payload, onResult }) {
               <Check label={t('settings.toolbarLabels')} value={settings.showToolbarLabels} onChange={(v) => set({ showToolbarLabels: v })} />
               <Check label={t('settings.invertPages')} value={settings.invertPages} onChange={(v) => set({ invertPages: v })} />
               <Check label={t('settings.confirmOnExit')} value={settings.confirmOnExit} onChange={(v) => set({ confirmOnExit: v })} />
+
+              <h4>{t('settings.pageMargin')}</h4>
+              <Stepper
+                label={t('settings.pageMarginX')}
+                value={settings.pageMarginX}
+                onChange={(n) => set({ pageMarginX: n })}
+                min={0}
+                max={80}
+                step={2}
+                standard={18}
+                format={(n) => `${n}px`}
+              />
+              <Stepper
+                label={t('settings.pageMarginY')}
+                value={settings.pageMarginY}
+                onChange={(n) => set({ pageMarginY: n })}
+                min={0}
+                max={80}
+                step={2}
+                standard={28}
+                format={(n) => `${n}px`}
+              />
+
+              {payload.storagePath ? (
+                <>
+                  <h4>{t('settings.storage')}</h4>
+                  <p className="mono-path" title={payload.storagePath}>{payload.storagePath}</p>
+                </>
+              ) : null}
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => onResult({ action: 'shortcuts' })}
+                  title={t('cmd.shortcuts')}
+                >
+                  <IconKeyboard size={15} />{t('cmd.shortcuts')}
+                </button>
+              </div>
             </section>
 
             <section className="sgroup">
@@ -437,37 +483,6 @@ function SettingsBody({ t, payload, onResult }) {
           </div>
         </div>
 
-        <div className={`settings-panel${tab === 'window' ? ' on' : ''}`} aria-hidden={tab !== 'window'}>
-          <section className="sgroup">
-            <h4>{t('settings.tabs.window')}</h4>
-            <Check
-              label={t('settings.showStatusBar')}
-              value={settings.showStatusBar}
-              onChange={(v) => set({ showStatusBar: v })}
-            />
-            <Check
-              label={t('settings.toolbarLabels')}
-              value={settings.showToolbarLabels}
-              onChange={(v) => set({ showToolbarLabels: v })}
-            />
-            {payload.storagePath ? (
-              <>
-                <h4>{t('settings.storage')}</h4>
-                <p className="mono-path" title={payload.storagePath}>{payload.storagePath}</p>
-              </>
-            ) : null}
-            <div className="row">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => onResult({ action: 'shortcuts' })}
-                title={t('cmd.shortcuts')}
-              >
-                <IconKeyboard size={15} />{t('cmd.shortcuts')}
-              </button>
-            </div>
-          </section>
-        </div>
       </div>
 
       {/* The window's own buttons, not any one tab's: putting everything back
@@ -828,7 +843,15 @@ function PrintBody({ t, payload, onResult }) {
   const [custom, setCustom] = useState(String(current));
   const [paper, setPaper] = useState(print.paper || 'A4');
   const [landscape, setLandscape] = useState(!!print.landscape);
-  const [margin, setMargin] = useState(print.marginMm ?? 14);
+  // One margin per side. A reader binding a printout wants a wider left edge
+  // than right, and a narrower head than foot — one number for all four could
+  // not say that. `even` keeps them locked together, which is what most
+  // printing wants and what the dialog opens on.
+  const [margins, setMargins] = useState(() => marginsOf(print));
+  const [even, setEven] = useState(() => marginsAreEven(marginsOf(print)));
+  const setSide = (side, mm) => setMargins((m) => (even
+    ? { top: mm, right: mm, bottom: mm, left: mm }
+    : { ...m, [side]: mm }));
   const [titles, setTitles] = useState(print.showTitles !== false);
   const [index, setIndex] = useState(0);
 
@@ -847,20 +870,25 @@ function PrintBody({ t, payload, onResult }) {
   // back the very same picture.
   useEffect(() => {
     if (invalid || !pages.length) return;
-    onResult({ action: 'preview', page: pages[safeIndex], paper, landscape, marginMm: margin, showTitles: titles });
+    onResult({ action: 'preview', page: pages[safeIndex], paper, landscape, margins, showTitles: titles });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pages[safeIndex], invalid]);
 
   // The sheet, to scale: the paper's own proportions, turned for landscape,
   // with the margins as a share of it.
   const [paperW, paperH] = paperSizeMm(paper, landscape);
+  // Each side as its own share of the paper, so the preview shows a wider
+  // binding edge as a wider binding edge rather than averaging the four.
+  const share = (mm, of) => `${Math.min(45, (mm / of) * 100)}%`;
   const sheetStyle = {
     aspectRatio: `${paperW} / ${paperH}`,
-    '--print-margin-x': `${Math.min(45, (margin / paperW) * 100)}%`,
-    '--print-margin-y': `${Math.min(45, (margin / paperH) * 100)}%`,
+    '--print-margin-top': share(margins.top, paperH),
+    '--print-margin-right': share(margins.right, paperW),
+    '--print-margin-bottom': share(margins.bottom, paperH),
+    '--print-margin-left': share(margins.left, paperW),
   };
 
-  const setup = { paper, landscape, marginMm: margin, showTitles: titles };
+  const setup = { paper, landscape, margins, showTitles: titles };
 
   return (
     <div className="print-layout">
@@ -909,16 +937,43 @@ function PrintBody({ t, payload, onResult }) {
             </button>
           </div>
         </Field>
-        <Stepper
-          label={t('print.margin')}
-          value={margin}
-          onChange={setMargin}
-          min={0}
-          max={40}
-          step={2}
-          standard={14}
-          format={(n) => `${n}mm`}
+        <Check
+          label={t('print.marginEven')}
+          value={even}
+          onChange={(on) => {
+            setEven(on);
+            if (on) setMargins((m) => ({ top: m.top, right: m.top, bottom: m.top, left: m.top }));
+          }}
         />
+        {even ? (
+          <Stepper
+            label={t('print.margin')}
+            value={margins.top}
+            onChange={(mm) => setSide('top', mm)}
+            min={MARGIN_MIN}
+            max={MARGIN_MAX}
+            step={1}
+            standard={MARGIN_DEFAULT}
+            format={(n) => `${n}mm`}
+          />
+        ) : (
+          <div className="print-margins" data-testid="print-margins">
+            {MARGIN_SIDES.map((side) => (
+              <Stepper
+                key={side}
+                inline
+                label={t(`print.margin_${side}`)}
+                value={margins[side]}
+                onChange={(mm) => setSide(side, mm)}
+                min={MARGIN_MIN}
+                max={MARGIN_MAX}
+                step={1}
+                standard={MARGIN_DEFAULT}
+                format={(n) => `${n}mm`}
+              />
+            ))}
+          </div>
+)}
         <Check label={t('print.titles')} value={titles} onChange={setTitles} />
         <p className="capture-note">{t('print.note')}</p>
       </div>
@@ -927,7 +982,8 @@ function PrintBody({ t, payload, onResult }) {
         <div className="print-preview-label">
           {t('print.preview')}
           <span className="print-preview-setup" data-testid="print-setup">
-            {`${paper} · ${landscape ? t('print.landscape') : t('print.portrait')} · ${margin}mm`}
+            {`${paper} · ${landscape ? t('print.landscape') : t('print.portrait')} · `
+              + (even ? `${margins.top}mm` : MARGIN_SIDES.map((side) => `${margins[side]}`).join('/') + 'mm')}
           </span>
         </div>
         <div className={`print-preview-sheet${landscape ? ' landscape' : ''}`}>

@@ -8,8 +8,8 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8')
 const nsh = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf-8');
 
 describe('package identity', () => {
-  it('is MyEBookReader, by SHKWON', () => {
-    expect(pkg.build.productName).toBe('MyEBookReader');
+  it('is MyEbooks, by SHKWON', () => {
+    expect(pkg.build.productName).toBe('MyEbooks');
     expect(pkg.author.name).toBe('SHKWON');
     expect(pkg.author.email).toBe('knix008@naver.com');
     expect(pkg.build.copyright).toContain('knix008@naver.com');
@@ -75,7 +75,7 @@ describe('packaging', () => {
     // same book.
     expect(pkg.build.nsis.createDesktopShortcut).toBe(true);
     expect(pkg.build.nsis.createStartMenuShortcut).toBe(true);
-    expect(pkg.build.nsis.shortcutName).toBe('MyEBookReader');
+    expect(pkg.build.nsis.shortcutName).toBe('MyEbooks');
   });
 
   it('registers the .ebkr document type with an icon of its own', () => {
@@ -137,10 +137,37 @@ describe('the NSIS installer script', () => {
     expect(nsh).toContain('Software\\Classes\\${LIB_EXT}');
   });
 
-  it('adds the reader to the "Open with" list of the book formats', () => {
-    for (const ext of ['.epub', '.pdf', '.mobi', '.azw3', '.fb2', '.cbz']) {
-      expect(nsh, ext).toContain(`RegisterOpenWith "${ext}"`);
+  it('lists every format the reader opens, books and pictures alike', () => {
+    // The installer walks one list per kind, so a format that is readable but
+    // missing from them is offered in neither "Open with" nor Default apps.
+    const books = nsh.slice(nsh.indexOf('!macro EbkEachBookFormat'), nsh.indexOf('!macro EbkEachPictureFormat'));
+    for (const ext of ['.epub', '.pdf', '.mobi', '.prc', '.azw', '.azw3', '.fb2', '.cbz', '.cbr',
+      '.md', '.markdown', '.mdown', '.html', '.htm', '.xhtml', '.txt', '.text', '.log']) {
+      expect(books, ext).toContain(`"${ext}"`);
     }
+    const pictures = nsh.slice(nsh.indexOf('!macro EbkEachPictureFormat'));
+    for (const ext of ['.jpg', '.jpeg', '.jpe', '.png', '.gif', '.webp', '.bmp', '.avif',
+      '.svg', '.tif', '.tiff', '.heic', '.heif', '.ico', '.dcm', '.dicom']) {
+      expect(pictures, ext).toContain(`"${ext}"`);
+    }
+  });
+
+  it('puts every one of them in "Open with" and in Windows Default apps', () => {
+    expect(nsh).toContain('!insertmacro EbkEachBookFormat EbkOpenWithBook');
+    expect(nsh).toContain('!insertmacro EbkEachPictureFormat EbkOpenWithPicture');
+    expect(nsh).toContain('!insertmacro EbkEachBookFormat EbkCapabilityBook');
+    expect(nsh).toContain('!insertmacro EbkEachPictureFormat EbkCapabilityPicture');
+    expect(nsh).toContain('Software\\RegisteredApplications');
+  });
+
+  it('makes nothing the default unless the user asks on the install page', () => {
+    // Off to begin with, and each list is claimed only inside the test for the
+    // box that claims it.
+    expect(nsh).toContain('StrCpy $DoSetDefaultBooks "0"');
+    expect(nsh).toContain('StrCpy $DoSetDefaultPictures "0"');
+    const claim = nsh.slice(nsh.indexOf('${If} $DoSetDefaultBooks == "1"'));
+    expect(claim).toContain('!insertmacro EbkEachBookFormat EbkMakeDefaultBook');
+    expect(claim).toContain('!insertmacro EbkEachPictureFormat EbkMakeDefaultPicture');
   });
 
   it('offers the shortcuts as a choice rather than making them silently', () => {
@@ -153,6 +180,72 @@ describe('the NSIS installer script', () => {
     expect(nsh).toContain('customUnInstall');
     expect(nsh).toContain('DeleteRegKey HKCU "Software\\Classes\\${LIB_PROGID}"');
     expect(nsh).toContain('DeleteRegValue HKCU "Software\\RegisteredApplications" "${PRODUCT_NAME}"');
+    // Every extension it claimed is handed back, not only the handful that
+    // used to be spelled out here.
+    expect(nsh).toContain('!insertmacro EbkEachBookFormat EbkUnregisterBook');
+    expect(nsh).toContain('!insertmacro EbkEachPictureFormat EbkUnregisterPicture');
+  });
+});
+
+describe('module splitting', () => {
+  // The build warns when a module that is imported with `import()` is also
+  // reached by plain `import` from the main bundle: it cannot then be split
+  // into a chunk of its own, so the lazy import buys nothing. It matters here
+  // because lib/pdf.js pulls the whole of pdfjs-dist in behind it — well over
+  // a megabyte — and the reading pane goes to some lengths to load that only
+  // when a PDF is actually opened. One ordinary import of it from a panel in
+  // the main bundle undid all of that, silently apart from the warning.
+  const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf-8');
+
+  /** Every module the entry reaches by plain `import`, following them along. */
+  const staticallyReached = (entry) => {
+    const seen = new Set();
+    const queue = [entry];
+    while (queue.length) {
+      const file = queue.shift();
+      if (seen.has(file) || !fs.existsSync(path.join(root, file))) continue;
+      seen.add(file);
+      const dir = path.posix.dirname(file);
+      for (const m of read(file).matchAll(/^\s*import\s[^;]*?from\s+['"]([^'"]+)['"]/gm)) {
+        if (!m[1].startsWith('.')) continue;
+        queue.push(path.posix.normalize(path.posix.join(dir, m[1])));
+      }
+    }
+    return seen;
+  };
+
+  /** Everything asked for with `import()`, anywhere under src/. */
+  const lazilyImported = () => {
+    const out = new Set();
+    const walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const here = path.join(dir, entry.name);
+        if (entry.isDirectory()) { walk(here); continue; }
+        if (!/\.(js|jsx|mjs)$/.test(entry.name)) continue;
+        const rel = path.relative(root, here).split(path.sep).join('/');
+        const from = path.posix.dirname(rel);
+        for (const m of read(rel).matchAll(/\bimport\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+          if (!m[1].startsWith('.')) continue;
+          out.add(path.posix.normalize(path.posix.join(from, m[1])));
+        }
+      }
+    };
+    walk(path.join(root, 'src'));
+    return out;
+  };
+
+  it('keeps every lazily imported module out of the main bundle', () => {
+    const eager = staticallyReached('src/main.jsx');
+    // A module that is only ever reached through another lazy one — pdfbook.js
+    // reaching pdf.js, say — is fine: they share a chunk that is still loaded
+    // on demand. What must not happen is the entry pulling one in eagerly.
+    const stuck = [...lazilyImported()].filter((target) => eager.has(target));
+    expect(stuck, `loaded eagerly after all: ${stuck.join(', ')}`).toEqual([]);
+  });
+
+  it('still lazily imports the PDF engine, which is the heaviest of them', () => {
+    expect([...lazilyImported()]).toContain('src/lib/pdf.js');
+    expect(staticallyReached('src/main.jsx').has('src/lib/pdf.js')).toBe(false);
   });
 });
 

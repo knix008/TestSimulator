@@ -113,3 +113,84 @@ export function usePanelMinWidth(headRef, deps = [], { stacked = false, beside =
 
   return min;
 }
+
+/**
+ * How little room the tool beside the rail may be squeezed into.
+ *
+ * This used to be a constant, and a constant cannot answer it any better here
+ * than it could for the rail: the tools carry rows of buttons — 폴더 열기,
+ * 형광펜 표시, 목록 지우기 — whose labels are one length in Korean, another in
+ * English, and longer again at a larger UI size. A row with less room than its
+ * buttons need does not clip; it wraps, and the label comes out on two lines.
+ * So the widest row of buttons on screen is measured, the same way the rail is,
+ * and that is the floor.
+ *
+ * Only the tool that is open can be measured, so the widest seen so far is
+ * kept: moving between tools raises the floor and never lowers it, which stops
+ * the divider jumping about as the reader looks through them. It starts again
+ * when `deps` change — a new language is a new set of labels.
+ */
+export function usePanelBodyMin(bodyRef, deps = [], floor = 150) {
+  const [min, setMin] = useState(floor);
+  const widest = useRef(floor);
+  const frame = useRef(0);
+
+  const measure = useCallback(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const rows = [...body.querySelectorAll('.panel-actions')];
+    if (!rows.length) return;
+    const bodyStyle = getComputedStyle(body);
+    const padding = (parseFloat(bodyStyle.paddingLeft) || 0) + (parseFloat(bodyStyle.paddingRight) || 0);
+
+    let needed = 0;
+    for (const row of rows) {
+      const kids = [...row.children];
+      if (!kids.length) continue;
+      const rowStyle = getComputedStyle(row);
+      const gap = (parseFloat(rowStyle.columnGap) || 0) * (kids.length - 1);
+      const rowPad = (parseFloat(rowStyle.paddingLeft) || 0) + (parseFloat(rowStyle.paddingRight) || 0);
+
+      // Undo the squeeze for the length of one frame: let the row and its
+      // buttons size to their own content, read them, and put it all back
+      // before the browser paints.
+      const wasWidth = row.style.width;
+      const wasWrap = row.style.flexWrap;
+      const wasFlex = kids.map((kid) => kid.style.flex);
+      const wasWhite = kids.map((kid) => kid.style.whiteSpace);
+      row.style.width = 'max-content';
+      row.style.flexWrap = 'nowrap';
+      for (const kid of kids) { kid.style.flex = '0 0 auto'; kid.style.whiteSpace = 'nowrap'; }
+
+      let total = 0;
+      for (const kid of kids) total += kid.getBoundingClientRect().width;
+
+      row.style.width = wasWidth;
+      row.style.flexWrap = wasWrap;
+      kids.forEach((kid, n) => { kid.style.flex = wasFlex[n]; kid.style.whiteSpace = wasWhite[n]; });
+
+      needed = Math.max(needed, total + gap + rowPad);
+    }
+    if (needed <= 0) return;
+    const want = Math.ceil(needed + padding) + 2;
+    if (want <= widest.current) return;
+    widest.current = want;
+    setMin(want);
+  }, [bodyRef]);
+
+  useLayoutEffect(() => {
+    widest.current = floor;
+    setMin(floor);
+    measure();
+    // Fonts arrive after the first paint and change every label's width.
+    frame.current = requestAnimationFrame(measure);
+    const settle = setTimeout(measure, 120);
+    return () => {
+      cancelAnimationFrame(frame.current);
+      clearTimeout(settle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measure, floor, ...deps]);
+
+  return min;
+}

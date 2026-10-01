@@ -216,3 +216,165 @@ export function looksLikePdf(data) {
   const head = new TextDecoder('latin1').decode(data.subarray(0, 1024));
   return head.includes('%PDF-');
 }
+
+// ── The pictures a page paints ─────────────────────────────
+//
+// A PDF page is one canvas, so there is no element to click for a picture inside it.
+// Replaying the operator list while tracking the current transformation matrix
+// gives every image's rectangle without rendering anything, which is what lets
+// a picture be pointed at, framed and copied on its own. Ported from MyPDFViewer,
+// where this reads right.
+function getImageObject(page, name) {
+  return new Promise((resolve) => {
+    const store = name.startsWith('g_') ? page.commonObjs : page.objs;
+    try {
+      if (store.has(name)) { resolve(store.get(name)); return; }
+    } catch { /* fall through to the callback form */ }
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    try { store.get(name, done); } catch { done(null); }
+    // Never hang the whole extraction on one unresolvable object.
+    setTimeout(() => done(null), 8000);
+  });
+}
+
+// Converts a pdf.js image object into a PNG data URL.
+function imageObjectToDataURL(img) {
+  if (!img) return null;
+  const width = img.width;
+  const height = img.height;
+  if (!width || !height) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  // Newer pdf.js hands back an ImageBitmap / VideoFrame for most images.
+  if (img.bitmap) {
+    ctx.drawImage(img.bitmap, 0, 0, width, height);
+    return canvas.toDataURL('image/png');
+  }
+  if (!img.data) return null;
+
+  const out = ctx.createImageData(width, height);
+  const dst = out.data;
+  const src = img.data;
+
+  // kind: 1 = 1bpp grayscale, 2 = 24bpp RGB, 3 = 32bpp RGBA
+  if (img.kind === 1) {
+    const rowBytes = (width + 7) >> 3;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const bit = (src[y * rowBytes + (x >> 3)] >> (7 - (x & 7))) & 1;
+        const v = bit ? 255 : 0;
+        const i = (y * width + x) * 4;
+        dst[i] = dst[i + 1] = dst[i + 2] = v;
+        dst[i + 3] = 255;
+      }
+    }
+  } else if (img.kind === 2 || src.length === width * height * 3) {
+    for (let p = 0, i = 0; p < width * height; p++) {
+      dst[i++] = src[p * 3];
+      dst[i++] = src[p * 3 + 1];
+      dst[i++] = src[p * 3 + 2];
+      dst[i++] = 255;
+    }
+  } else if (src.length >= width * height * 4) {
+    dst.set(src.subarray(0, width * height * 4));
+  } else {
+    return null;
+  }
+  ctx.putImageData(out, 0, 0);
+  return canvas.toDataURL('image/png');
+}
+
+// Matrix helper: `combine(a, b)` applies b first, then a (pdf.js Util.transform).
+function combine(a, b) {
+  return [
+    a[0] * b[0] + a[2] * b[1],
+    a[1] * b[0] + a[3] * b[1],
+    a[0] * b[2] + a[2] * b[3],
+    a[1] * b[2] + a[3] * b[3],
+    a[0] * b[4] + a[2] * b[5] + a[4],
+    a[1] * b[4] + a[3] * b[5] + a[5],
+  ];
+}
+
+// Where each image sits on the rendered page, in viewport (CSS pixel)
+// coordinates — this is what makes "click the picture to select it" possible.
+//
+// pdf.js paints an image by transforming the unit square, so replaying the
+// operator list while tracking the current transformation matrix gives every
+// image's rectangle without rendering anything.
+export async function getPageImageRegions(page, viewport, { minSize = 24 } = {}) {
+  let ops;
+  try { ops = await page.getOperatorList(); } catch { return []; }
+
+  const paintOps = new Set([OPS.paintImageXObject, OPS.paintJpegXObject, OPS.paintInlineImageXObject]);
+  const regions = [];
+  const stack = [];
+  let ctm = [1, 0, 0, 1, 0, 0];
+
+  for (let i = 0; i < ops.fnArray.length; i++) {
+    const fn = ops.fnArray[i];
+    if (fn === OPS.save) { stack.push(ctm.slice()); continue; }
+    if (fn === OPS.restore) { ctm = stack.pop() || [1, 0, 0, 1, 0, 0]; continue; }
+    if (fn === OPS.transform) { ctm = combine(ctm, ops.argsArray[i]); continue; }
+    if (!paintOps.has(fn)) continue;
+
+    const m = combine(viewport.transform, ctm);
+    const corners = [[0, 0], [1, 0], [0, 1], [1, 1]]
+      .map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]);
+    const xs = corners.map((p) => p[0]);
+    const ys = corners.map((p) => p[1]);
+    const rect = {
+      x: Math.min(...xs),
+      y: Math.min(...ys),
+      width: Math.max(...xs) - Math.min(...xs),
+      height: Math.max(...ys) - Math.min(...ys),
+    };
+    if (rect.width < minSize || rect.height < minSize) continue;
+
+    // One page can paint the same image object more than once, so the object
+    // name identifies the *bitmap* while the id identifies this occurrence.
+    const arg = ops.argsArray[i][0];
+    const named = typeof arg === 'string';
+    regions.push({
+      id: named ? `${arg}#${i}` : `inline-${i}`,
+      name: named ? arg : null,
+      inline: !named,
+      rect,
+    });
+  }
+
+  // Later paints sit on top, so search them first when hit-testing a click.
+  return regions.reverse();
+}
+
+// One embedded image, as a PNG data URL, by the name used in the operator list.
+export async function getImageDataUrl(page, id) {
+  const obj = await getImageObject(page, id);
+  if (!obj) return null;
+  try { return imageObjectToDataURL(obj); } catch { return null; }
+}
+
+// Crops a rectangle (in canvas CSS pixels) out of a rendered page canvas and
+// returns it as a PNG data URL — the "copy this region as an image" tool.
+export function cropCanvas(canvas, rect) {
+  const scaleX = canvas.width / parseFloat(canvas.style.width || canvas.width);
+  const scaleY = canvas.height / parseFloat(canvas.style.height || canvas.height);
+  const sx = Math.max(0, Math.round(rect.x * scaleX));
+  const sy = Math.max(0, Math.round(rect.y * scaleY));
+  const sw = Math.max(1, Math.min(Math.round(rect.width * scaleX), canvas.width - sx));
+  const sh = Math.max(1, Math.min(Math.round(rect.height * scaleY), canvas.height - sy));
+
+  const out = document.createElement('canvas');
+  out.width = sw;
+  out.height = sh;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, sw, sh);
+  ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  return { dataUrl: out.toDataURL('image/png'), width: sw, height: sh };
+}

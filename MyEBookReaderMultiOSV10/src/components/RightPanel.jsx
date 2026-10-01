@@ -5,11 +5,10 @@ import {
 } from './Icons.jsx';
 import { READING_WIDTHS, viewLayoutOf, viewLayoutSettings, textColumnsOf, columnChoice, readingStyle, fontPixels, fontScaleOf, FONT_SCALE_MIN, FONT_SCALE_MAX } from '../lib/view.js';
 import { PANEL_WIDTH_MAX } from '../lib/settings.js';
-import { usePanelMinWidth, clampToPanelMin } from './panelWidth.js';
+import { usePanelMinWidth, usePanelBodyMin, clampToPanelMin } from './panelWidth.js';
 import { formatBytes } from '../lib/platform.js';
 import { getSystemFonts } from '../lib/fonts.js';
 import { coverPageOf } from '../lib/coverpage.js';
-import { renderPage } from '../lib/pdf.js';
 
 // The right panel: the properties of what you are reading, and the knobs that
 // change how it looks. Everything here is one row per item, so the panel reads
@@ -69,6 +68,14 @@ function Cover({ book, show, settings }) {
     let cancelled = false;
     (async () => {
       try {
+        // Imported here rather than at the top of the file. pdf.js pulls in
+        // the whole of pdfjs-dist, and a static import of it from this panel
+        // — which is in the main bundle — dragged that into the main chunk,
+        // undoing the lazy loading the reading pane goes to such lengths for.
+        // It is also what the build warned about: one module both statically
+        // and dynamically imported cannot be split out.
+        const { renderPage } = await import('../lib/pdf.js');
+        if (cancelled) return;
         const pdfPage = await book.pdf.getPage(page.page || 1);
         if (cancelled) return;
         const full = pdfPage.getViewport({ scale: 1 });
@@ -250,8 +257,10 @@ export default function RightPanel({
 }) {
   const { t, i18n } = useTranslation();
   const tabsRef = useRef(null);
+  const bodyRef = useRef(null);
   // The panel is never narrower than its own tab strip, in any language.
-  const minWidth = usePanelMinWidth(tabsRef, [i18n.language]);
+  const bodyMin = usePanelBodyMin(bodyRef, [i18n.language, panel]);
+  const minWidth = Math.max(usePanelMinWidth(tabsRef, [i18n.language]), bodyMin);
   const [fonts, setFonts] = useState([]);
 
   useEffect(() => {
@@ -291,7 +300,7 @@ export default function RightPanel({
         ))}
       </div>
 
-      <div className="panel-body">
+      <div className="panel-body" ref={bodyRef}>
         {panel === 'properties' ? (
           !book ? <p className="panel-note">{t('panel.empty')}</p> : (
             <>

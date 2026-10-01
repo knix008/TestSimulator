@@ -464,8 +464,21 @@ function buildPdf() {
     return `${lines.join('\n')}\n`;
   };
 
-  // 1 catalogue · 2 page tree · 3 font, then a page and its contents in pairs.
-  const pageObj = (n) => 4 + (n - 1) * 2;
+  // A picture, so that pointing at one and copying it can be tried on a PDF at
+  // all — without this the sample had no images in it whatever, and nothing a
+  // reader could select inside a page. Written as hex rather than raw bytes
+  // because the file is assembled as a latin1 string.
+  const IMG_W = 4;
+  const IMG_H = 4;
+  const swatches = ['d94f4f', 'd9a14f', '4fd98b', '4f8bd9'];
+  const imageHex = Array.from({ length: IMG_H }, (_, y) => Array.from(
+    { length: IMG_W },
+    (__, x) => swatches[(x + y) % swatches.length],
+  ).join('')).join('');
+
+  // 1 catalogue · 2 page tree · 3 font · 4 the picture, then a page and its
+  // contents in pairs.
+  const pageObj = (n) => 5 + (n - 1) * 2;
   const kids = [];
   for (let n = 1; n <= PDF_PAGES; n += 1) kids.push(`${pageObj(n)} 0 R`);
 
@@ -473,11 +486,15 @@ function buildPdf() {
     '<< /Type /Catalog /Pages 2 0 R >>',
     `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${PDF_PAGES} >>`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Type /XObject /Subtype /Image /Width ${IMG_W} /Height ${IMG_H} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length ${imageHex.length + 1} >>\nstream\n${imageHex}>\nendstream`,
   ];
   for (let n = 1; n <= PDF_PAGES; n += 1) {
-    const content = pageText(n);
+    // Drawn large enough to point at, and in a different place on each page so
+    // that one page can be told from the next.
+    const picture = `q 220 0 0 160 ${60 + (n - 1) * 20} ${430 - (n - 1) * 30} cm /Im0 Do Q\n`;
+    const content = `${pageText(n)}${picture}`;
     objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${pageObj(n) + 1} 0 R >>`,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> /XObject << /Im0 4 0 R >> >> /Contents ${pageObj(n) + 1} 0 R >>`,
       `<< /Length ${content.length} >>\nstream\n${content}endstream`,
     );
   }

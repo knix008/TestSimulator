@@ -125,7 +125,10 @@ describe('opening a book', () => {
 
   it('remembers the book in the recent list', async () => {
     await openSample();
-    fireEvent.click(screen.getByTitle(t('panel.library')));
+    // The recent books are the History tool, not the folder browser that
+    // 'library' opens — pressing the wrong one is why this read as a missing
+    // recent list rather than a test looking in the wrong place.
+    fireEvent.click(screen.getByTitle(t('panel.history')));
     await waitFor(() => expect(document.querySelector('.recent-list')).toBeTruthy());
     expect(document.querySelector('.recent-list').textContent).toContain('sample.epub');
   });
@@ -617,11 +620,20 @@ describe('bookmarking a spot with the right button', () => {
 });
 
 describe('page numbers of a reflowable book', () => {
-  it('does not show a page number for an ebook', async () => {
+  it('works the pages out and marks them as worked out', async () => {
     await openSample();
     await waitFor(() => expect(document.querySelector('.statusbar')?.textContent).toContain('EPUB'));
-    expect(screen.queryByTestId('page-readout')).toBeNull();
-    expect(document.querySelector('.column-readout')).toBeNull();
+    // An ebook has no pages of its own — they change with the window and the
+    // type size — so the count is an estimate and says so. It is still shown:
+    // it is the only number that says how far through the book the reader is.
+    const readout = await waitFor(() => {
+      const cell = screen.getByTestId('page-readout');
+      expect(cell.textContent).toMatch(/[0-9]+\s*\/\s*[0-9]+/);
+      return cell;
+    });
+    expect(readout.textContent).toContain('≈');
+    expect(readout.getAttribute('title')).toContain(t('status.pagesEstimated'));
+    // The chapter is numbered too, and the contents list is not.
     expect(document.querySelector('.toc-num')).toBeNull();
     expect(document.querySelector('.statusbar').textContent).toContain('1 /');
   });

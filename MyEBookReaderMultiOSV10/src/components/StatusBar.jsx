@@ -115,6 +115,35 @@ export default function StatusBar({
                 {t('status.section')} {section + 1} / {book.sectionCount}
               </span>
               <span className="st-sep" />
+              {/* And how far through the book that is. An ebook has no pages of
+                  its own, so this one is worked out and says so with the ≈ —
+                  but it is the only number that compares one chapter with the
+                  whole, which is what a reader means by "how far in am I". */}
+              <span
+                className="st-cell st-fixed"
+                title={pageCount
+                  ? `${t('common.page')} ${pageNow} ${t('status.of')} ${pageCount}${pagesEstimated ? ` — ${t('status.pagesEstimated')}` : ''}`
+                  : t('status.pagesCounting')}
+                data-testid="page-readout"
+              >
+                {t('common.page')}{' '}
+                {pageCount ? `${pageNow} / ${pageCount}${pagesEstimated ? '≈' : ''}` : '…'}
+              </span>
+              <span className="st-sep" />
+              {/* Where in the chapter, when the chapter runs to more than one
+                  page. This belongs here and not with the fixed-layout cells
+                  below: a chapter of text is what paginates into columns, and
+                  a PDF's "columns" are always the one page — so down there it
+                  could never appear at all, and a reader turning the pages of
+                  a chapter was told only which chapter they were in. */}
+              {columns?.pages > 1 ? (
+                <>
+                  <span className="st-cell st-fixed" title={t('status.inChapter')} data-testid="chapter-pages">
+                    {columns.page + 1} / {columns.pages}
+                  </span>
+                  <span className="st-sep" />
+                </>
+              ) : null}
             </>
           ) : (
             <>
@@ -131,14 +160,6 @@ export default function StatusBar({
                 {pageCount ? `${pageNow} / ${pageCount}${pagesEstimated ? '≈' : ''}` : '…'}
               </span>
               <span className="st-sep" />
-              {columns?.pages > 1 ? (
-                <>
-                  <span className="st-cell st-fixed" title={t('status.inChapter')}>
-                    {columns.page + 1} / {columns.pages}
-                  </span>
-                  <span className="st-sep" />
-                </>
-              ) : null}
             </>
           )}
           <span className="st-cell st-fixed" title={t('status.progress')}>
@@ -181,9 +202,12 @@ export default function StatusBar({
                 data-testid="picked-image"
               >
                 <IconImage size={14} />
+                {/* The size, and nothing more. Saying "a picture is selected"
+                    only repeated what the frame round the picture and this
+                    cell appearing at all already say. */}
                 {pickedImage.width && pickedImage.height
-                  ? t('status.pickedImageSize', { w: pickedImage.width, h: pickedImage.height })
-                  : t('status.pickedImage')}
+                  ? `${pickedImage.width}×${pickedImage.height}`
+                  : ''}
               </span>
               <span className="st-sep" />
             </>

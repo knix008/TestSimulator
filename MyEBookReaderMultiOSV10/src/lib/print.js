@@ -31,6 +31,50 @@ export function paperSizeMm(id, landscape) {
   return landscape ? [h, w] : [w, h];
 }
 
+/** How wide a margin may be set, in mm. */
+export const MARGIN_MIN = 0;
+export const MARGIN_MAX = 40;
+export const MARGIN_DEFAULT = 14;
+/** The four sides, in the order CSS writes them. */
+export const MARGIN_SIDES = ['top', 'right', 'bottom', 'left'];
+
+/**
+ * The four margins, from whatever the caller gave.
+ *
+ * Printing used to take one number for all four sides, and a reader who wanted
+ * room for a binding on the left, or a narrower head than foot, could not ask
+ * for it. `margins` is the detailed form; `marginMm` is still understood and
+ * means the same on every side, so a reading file or a caller written against
+ * the old shape keeps working.
+ */
+export function marginsOf({ margins, marginMm } = {}) {
+  const fallback = clampMargin(marginMm, MARGIN_DEFAULT);
+  const out = {};
+  for (const side of MARGIN_SIDES) {
+    out[side] = clampMargin(margins?.[side], fallback);
+  }
+  return out;
+}
+
+/** One margin, kept inside the range a printer can be asked for. */
+export function clampMargin(value, fallback = MARGIN_DEFAULT) {
+  const mm = Number(value);
+  if (!Number.isFinite(mm)) return fallback;
+  return Math.min(MARGIN_MAX, Math.max(MARGIN_MIN, Math.round(mm * 10) / 10));
+}
+
+/** Whether every side is the same, which is what the "all sides" tick shows. */
+export function marginsAreEven(margins) {
+  const m = marginsOf({ margins });
+  return MARGIN_SIDES.every((side) => m[side] === m.top);
+}
+
+/** The four margins as a CSS `margin` value: top right bottom left. */
+export function marginCss(margins) {
+  const m = marginsOf({ margins });
+  return MARGIN_SIDES.map((side) => `${m[side]}mm`).join(' ');
+}
+
 export const PRINT_CSS = `
   html, body { margin: 0; background: #fff; color: #111; }
   body { font-family: var(--print-font, "Georgia", "Malgun Gothic", serif); }
@@ -55,16 +99,17 @@ export const PRINT_CSS = `
  * @param {object} options
  *   - `chapters`   [{ label, html }] already-sanitized chapter HTML
  *   - `title`      document title, used for the print job's name
- *   - `paper`      paper id, `landscape`, `marginMm`
+ *   - `paper`      paper id, `landscape`, and either `margins`
+ *                  ({ top, right, bottom, left } in mm) or `marginMm`
  *   - `fontFamily`, `fontSize` (px), `lineHeight`
  *   - `showTitles` print each chapter's name above it
  */
 export function buildPrintHtml({
-  chapters = [], title = '', paper = 'A4', landscape = false, marginMm = 14,
+  chapters = [], title = '', paper = 'A4', landscape = false, marginMm, margins,
   fontFamily = '', fontSize = 12, lineHeight = 1.6, showTitles = true,
 } = {}) {
   const [w, h] = paperSizeMm(paper, landscape);
-  const margin = Math.max(0, Math.min(40, Number(marginMm) || 0));
+  const margin = marginCss(marginsOf({ margins, marginMm }));
   const body = chapters.map((chapter) => {
     const heading = showTitles && chapter.label
       ? `<p class="chapter-title">${escapeHtml(chapter.label)}</p>`
@@ -75,7 +120,7 @@ export function buildPrintHtml({
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(title || 'Print')}</title>
 <style>
-  @page { size: ${w}mm ${h}mm; margin: ${margin}mm; }
+  @page { size: ${w}mm ${h}mm; margin: ${margin}; }
   :root { --print-font: ${fontFamily ? `'${fontFamily}', ` : ''}"Georgia", "Malgun Gothic", serif; }
   body { font-size: ${Number(fontSize) || 12}pt; line-height: ${Number(lineHeight) || 1.6}; }
 ${PRINT_CSS}
@@ -84,16 +129,17 @@ ${PRINT_CSS}
 }
 
 /** The same, for a book made of page images (PDF pages, comic pages). */
-export function buildImagePrintHtml({ images = [], title = '', paper = 'A4', landscape = false, marginMm = 8 } = {}) {
+export function buildImagePrintHtml({ images = [], title = '', paper = 'A4', landscape = false, marginMm, margins } = {}) {
   const [w, h] = paperSizeMm(paper, landscape);
-  const margin = Math.max(0, Math.min(40, Number(marginMm) || 0));
+  const sides = marginsOf({ margins, marginMm: marginMm ?? 8 });
+  const margin = marginCss(sides);
   const sheets = images.map((src) => `<div class="sheet"><img src="${src}" alt=""></div>`).join('\n');
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(title || 'Print')}</title>
 <style>
-  @page { size: ${w}mm ${h}mm; margin: ${margin}mm; }
+  @page { size: ${w}mm ${h}mm; margin: ${margin}; }
   html, body { margin: 0; background: #fff; }
-  .sheet { page-break-after: always; break-after: page; display: flex; align-items: center; justify-content: center; height: calc(${h}mm - ${margin * 2}mm); }
+  .sheet { page-break-after: always; break-after: page; display: flex; align-items: center; justify-content: center; height: calc(${h}mm - ${sides.top + sides.bottom}mm); }
   .sheet:last-child { page-break-after: auto; break-after: auto; }
   .sheet img { max-width: 100%; max-height: 100%; }
 </style></head>

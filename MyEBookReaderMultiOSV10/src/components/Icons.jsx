@@ -178,6 +178,27 @@ export const IconTwoPages = (p) => (
 export const IconTextSize = (p) => (
   <S {...p}><path d="M3 18 8 6l5 12M4.6 14h6.8" /><path d="M14 18l3.5-8 3.5 8M15 15.5h5" /></S>
 );
+// Smaller and bigger text: one letter each, drawn at the size it stands for,
+// both sitting on the same baseline so the pair reads small → large. The old
+// pair showed the same two-letter "Aa" with a − or a + beside it, which made
+// the two buttons tell themselves apart by a sign three pixels wide.
+// What a drag over the page does: pick words, pick a picture, or draw a
+// rectangle round part of it.
+export const IconSelectText = (p) => (
+  <S {...p}><path d="M9 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2M15 5h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2M12 5v14" /></S>
+);
+export const IconSelectImage = (p) => (
+  <S {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m5 16 4-4 3 3 3-3 4 4" /><circle cx="9" cy="9.5" r="1.2" /></S>
+);
+export const IconSelectRegion = (p) => (
+  <S {...p} strokeDasharray="3 2"><rect x="3.5" y="4.5" width="17" height="15" rx="2" /></S>
+);
+export const IconTextSmaller = (p) => (
+  <S {...p}><path d="M8 19 12 10l4 9M9.5 15.6h5" /></S>
+);
+export const IconTextBigger = (p) => (
+  <S {...p}><path d="M4.5 19 12 4l7.5 15M7 14h10" /></S>
+);
 export const IconLineHeight = (p) => (
   <S {...p}><path d="M4 5h16M4 12h16M4 19h16" /><path d="M2 7 4 5 6 7M2 17l2 2 2-2" /></S>
 );
@@ -311,7 +332,9 @@ export const ICONS = {
   rotateLeft: IconRotateLeft, rotateRight: IconRotateRight,
   scroll: IconScroll, paged: IconPaged, columns: IconColumns, pageTurn: IconPageTurn,
   onePage: IconOnePage, twoPages: IconTwoPages,
-  textSize: IconTextSize, lineHeight: IconLineHeight, invert: IconInvert,
+  textSize: IconTextSize, textSmaller: IconTextSmaller, textBigger: IconTextBigger,
+  selectText: IconSelectText, selectImage: IconSelectImage, selectRegion: IconSelectRegion,
+  lineHeight: IconLineHeight, invert: IconInvert,
   opacity: IconOpacity, image: IconImage, layout: IconLayout,
   panelLeft: IconPanelLeft, panelRight: IconPanelRight,
   copy: IconCopy, paste: IconPaste, selectAll: IconSelectAll,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import LeftPanel from '../src/components/LeftPanel.jsx';
+import LeftPanel, { ACTION_ROWS } from '../src/components/LeftPanel.jsx';
 import RightPanel from '../src/components/RightPanel.jsx';
 import { DEFAULT_SETTINGS } from '../src/lib/settings.js';
 import i18n from '../src/i18n.js';
@@ -79,7 +79,7 @@ describe('LeftPanel', () => {
     renderLeft();
     const tabs = [...document.querySelectorAll('.panel-tab')];
     expect(tabs.map((t) => t.getAttribute('title'))).toEqual([
-      i18n.t('panel.contents'), i18n.t('panel.library'), i18n.t('panel.history'), i18n.t('panel.gallery'),
+      i18n.t('panel.library'), i18n.t('panel.contents'), i18n.t('panel.history'),
       i18n.t('panel.bookmarks'),
       i18n.t('panel.notes'), i18n.t('panel.highlights'), i18n.t('panel.search'),
     ]);
@@ -236,6 +236,7 @@ describe('LeftPanel', () => {
     expect(props.onOpenRecent).toHaveBeenCalledWith(recentFiles[0]);
     fireEvent.click(screen.getByTitle(i18n.t('recent.remove')));
     expect(props.onRemoveRecent).toHaveBeenCalledWith('/a/b.epub');
+    expect(screen.queryByText(i18n.t('recent.title'))).toBeNull();
     fireEvent.click(screen.getByTitle(i18n.t('recent.clear')));
     expect(props.onClearRecent).toHaveBeenCalled();
   });
@@ -250,6 +251,9 @@ describe('LeftPanel', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0].querySelector('img.gcover-img').getAttribute('src')).toBe('data:image/png;base64,AA');
     expect(rows[1].querySelector('.gcover-blank')).toBeTruthy();
+    expect(screen.queryByText(i18n.t('gallery.title'))).toBeNull();
+    fireEvent.click(screen.getByTitle(i18n.t('recent.clear')));
+    expect(props.onClearGallery).toHaveBeenCalled();
     fireEvent.click(screen.getByText('Dune'));
     expect(props.onOpenGallery).toHaveBeenCalledWith(gallery[0]);
     fireEvent.click(screen.getByLabelText(`${i18n.t('gallery.forget')}: Emma`));
@@ -445,7 +449,7 @@ describe('LeftPanel — a rail of tools with the chosen one beside it', () => {
     expect(strip.className).toContain('stacked');
     // A rail is icons, named by tooltip — no words to clip however narrow it is.
     const tabs = [...strip.querySelectorAll('.panel-tab')];
-    expect(tabs).toHaveLength(8);
+    expect(tabs).toHaveLength(7);
     for (const tab of tabs) {
       expect(tab.querySelector('.panel-tab-label')).toBeNull();
       expect(tab.getAttribute('title')).toBeTruthy();
@@ -456,12 +460,31 @@ describe('LeftPanel — a rail of tools with the chosen one beside it', () => {
   it('puts the rail and the tool it opens side by side in the one panel', () => {
     renderLeft();
     const panel = document.querySelector('.side-panel.left');
-    const kids = [...panel.children].filter((el) => !el.className.includes('panel-resizer'));
+    const kids = [...panel.children]
+      .filter((el) => !el.className.includes('panel-resizer'))
+      // The measuring strip is laid out but hidden and out of the flow.
+      .filter((el) => !el.className.includes('panel-measure'));
     // Rail first, then the contents of the selected tool: one panel, two columns.
     expect(kids.map((el) => el.className.split(' ')[0])).toEqual(['panel-tabs', 'panel-body']);
     expect(kids[1].getAttribute('role')).toBe('tabpanel');
   });
 
+  it('measures every row of buttons the tools show', () => {
+    // The panel is as wide as the widest row whichever tool is open, which
+    // only holds while this list mirrors the buttons the tools actually have.
+    const labels = new Set(ACTION_ROWS.flat());
+    for (const key of ['panel.pickFolder', 'recent.clear', 'cmd.addBookmark',
+      'cmd.addNote', 'cmd.highlight', 'panel.showHighlights', 'panel.removeAll']) {
+      expect(labels, key).toContain(key);
+    }
+    renderLeft();
+    const strip = document.querySelector('.panel-measure');
+    expect(strip).toBeTruthy();
+    expect(strip.getAttribute('aria-hidden')).toBe('true');
+    expect(strip.querySelectorAll('.panel-actions')).toHaveLength(ACTION_ROWS.length);
+    // Nothing in it can be reached: they are spans, not buttons.
+    expect(strip.querySelectorAll('button')).toHaveLength(0);
+  });
   it('still switches tool when one is clicked', () => {
     const { props } = renderLeft();
     fireEvent.click(screen.getByTitle(i18n.t('panel.search')));

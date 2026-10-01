@@ -3,7 +3,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { DialogBody } from '../src/components/dialogs.jsx';
 import { DEFAULT_SETTINGS } from '../src/lib/settings.js';
-import MenuBar, { BAR_MENUS, MENU_KEYS } from '../src/components/MenuBar.jsx';
+import MenuBar, { BAR_MENUS, MENU_KEYS, MENU_ICONS, BAR_COMMAND } from '../src/components/MenuBar.jsx';
+import { ICONS } from '../src/components/Icons.jsx';
 import { paperSizeMm } from '../src/lib/print.js';
 import { translate } from '../src/i18n.js';
 
@@ -60,16 +61,26 @@ describe('the print preview follows the page setup', () => {
 
   it('shows the margins, and widens them as they are set', () => {
     const { sheet } = printDialog();
-    const margin = () => parseFloat(sheet().style.getPropertyValue('--print-margin-x'));
-    const before = margin();
+    const margin = (side) => parseFloat(sheet().style.getPropertyValue(`--print-margin-${side}`));
+    const before = margin('left');
     // The margin is set the way every other number is: less, the number, more.
     fireEvent.click(screen.getByLabelText(`${t('print.margin')} +`));
-    expect(margin()).toBeGreaterThan(before);
-    expect(screen.getByTestId('print-setup').textContent).toContain('16mm');
+    expect(margin('left')).toBeGreaterThan(before);
+    expect(screen.getByTestId('print-setup').textContent).toContain('15mm');
 
     // And the number itself puts it back to what it was.
-    fireEvent.click(screen.getByLabelText(`${t('print.margin')}: 16mm`));
-    expect(margin()).toBe(before);
+    fireEvent.click(screen.getByLabelText(`${t('print.margin')}: 15mm`));
+    expect(margin('left')).toBe(before);
+  });
+
+  it('draws each side of the sheet at its own width', () => {
+    const { sheet } = printDialog();
+    const margin = (side) => parseFloat(sheet().style.getPropertyValue(`--print-margin-${side}`));
+    fireEvent.click(screen.getByLabelText(t('print.marginEven')));
+    fireEvent.click(screen.getByLabelText(`${t('print.margin_left')} +`));
+    // A wider binding edge shows as a wider binding edge, not as an average.
+    expect(margin('left')).toBeGreaterThan(margin('right'));
+    expect(margin('top')).toBe(margin('bottom'));
   });
 
   it('sets every other number the same way', () => {
@@ -118,8 +129,13 @@ describe('the menu bar', () => {
     const onOpenMenu = vi.fn();
     render(<MenuBar onOpenMenu={onOpenMenu} />);
     const items = [...document.querySelectorAll('.menubar-item')];
-    expect(items.map((b) => b.dataset.menu)).toEqual(BAR_MENUS);
-    expect(items.map((b) => b.textContent)).toEqual(BAR_MENUS.map((id) => t(`menu.${id}`)));
+    // The five menus carry data-menu. Settings is on the bar too but is not
+    // a menu — it opens a window — so it carries data-command instead, and
+    // anything counting the menus must not count it.
+    expect(items.map((b) => b.dataset.menu).filter(Boolean)).toEqual(BAR_MENUS);
+    expect(items.at(-1).dataset.command).toBe(BAR_COMMAND.id);
+    expect(items.slice(0, BAR_MENUS.length).map((b) => b.textContent.trim()))
+      .toEqual(BAR_MENUS.map((id) => t(`menu.${id}`)));
     expect(document.querySelector('[role="menubar"]')).toBeTruthy();
   });
 
@@ -156,5 +172,39 @@ describe('the menu bar', () => {
   it('gives each menu a letter to open it by', () => {
     expect(Object.keys(MENU_KEYS).sort()).toEqual([...BAR_MENUS].sort());
     expect(new Set(Object.values(MENU_KEYS)).size).toBe(BAR_MENUS.length);
+  });
+
+  it('opens the settings window from the bar, without a menu in between', () => {
+    const onCommand = vi.fn();
+    const onOpenMenu = vi.fn();
+    render(<MenuBar onOpenMenu={onOpenMenu} onCommand={onCommand} />);
+    fireEvent.click(screen.getByText(t('cmd.settings')));
+    expect(onCommand).toHaveBeenCalledWith('settings');
+    expect(onOpenMenu).not.toHaveBeenCalled();
+  });
+
+  it('marks the program menu with information, not with a gear', () => {
+    // The gear is Settings, which is its own item now.
+    expect(MENU_ICONS.app).toBe('info');
+    expect(Object.values(MENU_ICONS)).not.toContain('settings');
+    expect(BAR_COMMAND.icon).toBe('settings');
+  });
+  it('draws a picture beside every name', () => {
+    render(<MenuBar onOpenMenu={vi.fn()} />);
+    for (const id of BAR_MENUS) {
+      const item = document.querySelector(`.menubar-item[data-menu="${id}"]`);
+      // The icon, then the name — a bar of bare words is what this replaced.
+      expect(item.querySelector('svg'), id).toBeTruthy();
+      expect(item.querySelector('.menubar-label')?.textContent, id).toBe(t(`menu.${id}`));
+      expect(item.firstElementChild.tagName.toLowerCase(), id).toBe('svg');
+    }
+  });
+
+  it('names an icon for each menu, and no two the same', () => {
+    expect(Object.keys(MENU_ICONS).sort()).toEqual([...BAR_MENUS].sort());
+    expect(new Set(Object.values(MENU_ICONS)).size).toBe(BAR_MENUS.length);
+    for (const name of Object.values(MENU_ICONS)) {
+      expect(ICONS[name], name).toBeTruthy();
+    }
   });
 });

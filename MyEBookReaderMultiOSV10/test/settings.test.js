@@ -3,7 +3,7 @@ import {
   DEFAULT_SETTINGS, normalize, loadSettingsSync, persistSettings, clampPanelWidth,
   stepFontSize, addRecentFile, removeRecentFile, updateRecentFile, addRecentDir,
   removeRecentDir, applyFontSettings, applyTheme, viewSettingsOf, recentKey,
-  MAX_RECENT_FILES, MAX_RECENT_DIRS, PANEL_WIDTH_MIN, PANEL_WIDTH_MAX,
+  MAX_RECENT_FILES, MAX_RECENT_DIRS, PANEL_WIDTH_MIN, PANEL_WIDTH_MAX, PANEL_WIDTH_DEFAULT,
 } from '../src/lib/settings.js';
 
 describe('normalize', () => {
@@ -155,7 +155,7 @@ describe('helpers', () => {
   it('clamps a panel width', () => {
     expect(clampPanelWidth(10)).toBe(PANEL_WIDTH_MIN);
     expect(clampPanelWidth(9999)).toBe(PANEL_WIDTH_MAX);
-    expect(clampPanelWidth('x')).toBe(250);
+    expect(clampPanelWidth('x')).toBe(PANEL_WIDTH_DEFAULT);
   });
 
   it('steps the UI font size within its range', () => {

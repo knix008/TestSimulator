@@ -6,6 +6,7 @@ import {
 } from '../src/lib/menus.js';
 import { THEMES, isDarkTheme } from '../src/lib/themes.js';
 import { DEFAULT_SETTINGS } from '../src/lib/settings.js';
+import { translate } from '../src/i18n.js';
 
 const state = (over = {}) => ({
   hasBook: true,
@@ -138,13 +139,75 @@ describe('menuRows', () => {
     expect(menuRows('file', state()).some((r) => r.empty === 'recent.empty')).toBe(true);
   });
 
-  it('builds a context menu of marks, reading and view commands', () => {
+  it('builds a context menu of what is done to the thing under the pointer', () => {
     const rows = menuRows('context', state({ hasSelection: true }));
     const ids = rows.filter((r) => r.id).map((r) => r.id);
+    expect(ids).toContain('highlight');
+    expect(ids).toContain('addNote');
     expect(ids).toContain('copySelection');
-    expect(ids).toContain('nextSection');
-    expect(ids).toContain('toggleLeft');
+    expect(ids).toContain('bookmarkHere');
     expect(rows.filter((r) => r.separator).length).toBeGreaterThan(0);
+  });
+
+  it('offers copy and the highlighter on a selection, and works them', () => {
+    const rows = menuRows('context', state({ hasSelection: true }));
+    const row = (id) => rows.find((r) => r.id === id);
+    expect(row('copySelection').disabled).toBe(false);
+    expect(row('highlight').disabled).toBe(false);
+  });
+
+  it('greys those two out when nothing is selected, rather than hiding them', () => {
+    const rows = menuRows('context', state({ hasSelection: false }));
+    const row = (id) => rows.find((r) => r.id === id);
+    // Still there, so the reader can see what a selection would offer.
+    expect(row('copySelection').disabled).toBe(true);
+    expect(row('highlight').disabled).toBe(true);
+  });
+
+  it('offers copying the picture that was clicked, and only then', () => {
+    expect(menuRows('context', state({ hasImage: true }))
+      .find((r) => r.id === 'copyImage').disabled).toBe(false);
+    expect(menuRows('context', state({ hasImage: false }))
+      .find((r) => r.id === 'copyImage').disabled).toBe(true);
+  });
+  it('offers exactly the copy that the selection mode allows', () => {
+    const row = (rows, id) => rows.find((r) => r.id === id);
+
+    // Words selected: copy the text. There is no region and no picture, so
+    // neither of the other two is live.
+    const text = menuRows('context', state({ hasSelection: true }));
+    expect(row(text, 'copySelection').disabled).toBe(false);
+    expect(row(text, 'copyImage').disabled).toBe(true);
+    expect(row(text, 'copyRegion').disabled).toBe(true);
+
+    // A picture picked: copy the picture, and only that.
+    const picture = menuRows('context', state({ hasImage: true }));
+    expect(row(picture, 'copyImage').disabled).toBe(false);
+    expect(row(picture, 'copySelection').disabled).toBe(true);
+    expect(row(picture, 'copyRegion').disabled).toBe(true);
+
+    // A rectangle drawn: copy the region, and only that.
+    const region = menuRows('context', state({ hasRegion: true }));
+    expect(row(region, 'copyRegion').disabled).toBe(false);
+    expect(row(region, 'copySelection').disabled).toBe(true);
+    expect(row(region, 'copyImage').disabled).toBe(true);
+  });
+
+  it('tells the three copies apart by name', () => {
+    // They sit next to each other in the menu, so two of them reading the
+    // same is the same as having only one.
+    const names = ['cmd.copySelection', 'cmd.copyImage', 'cmd.copyRegion']
+      .map((key) => translate('ko', key));
+    expect(new Set(names).size).toBe(3);
+  });
+  it('never repeats a button the toolbar already has', () => {
+    const ids = menuRows('context', state({ hasSelection: true }))
+      .filter((r) => r.id).map((r) => r.id);
+    // The whole row of buttons used to appear again an inch below itself.
+    for (const id of ['nextSection', 'prevSection', 'toggleLeft', 'toggleRight',
+      'textBigger', 'textSmaller', 'settings', 'about', 'language', 'undo', 'redo']) {
+      expect(ids).not.toContain(id);
+    }
   });
 });
 

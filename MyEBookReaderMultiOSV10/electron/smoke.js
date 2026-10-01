@@ -30,6 +30,10 @@ function record(name, ok, detail = '') {
 }
 
 async function check(name, fn) {
+  // EBK_SMOKE_ONLY narrows the run to the checks whose name contains it, which
+  // is how one check is worked on without sitting through the other fifty.
+  const only = process.env.EBK_SMOKE_ONLY;
+  if (only && !name.includes(only)) return;
   try {
     const detail = await fn();
     record(name, true, typeof detail === 'string' ? detail : '');
@@ -112,20 +116,23 @@ async function setPageMode(win, want) {
  * of 0 presses the readout instead, which puts the size back to 100 %.
  */
 async function setTextScale(win, presses) {
+  // By name, not by position. This used to take `.zoom-readout` and press the
+  // button after it — but two controls carry that class, the document zoom and
+  // the text size, and querySelector returns the first. The button after the
+  // document zoom's readout is Zoom in, which is disabled for a reflowable
+  // book, so every check that needed bigger letters failed saying the text-size
+  // control was not there. It was there; this was pressing the wrong thing.
   const done = await evaluate(win, `return (() => {
-    const buttons = [...document.querySelectorAll('.toolbar button')];
-    const readout = document.querySelector('.zoom-readout');
-    const at = buttons.indexOf(readout);
-    if (at < 0) return { error: 'no text-size readout on the toolbar' };
-    // smaller · the readout, which resets · bigger
-    const target = ${presses > 0} ? buttons[at + 1] : readout;
-    if (!target || target.disabled) return { error: 'the text-size control is not there' };
+    const id = ${presses > 0} ? 'font-bigger' : 'font-readout';
+    const target = document.querySelector('[data-testid=' + id + ']');
+    if (!target) return { error: 'the text-size control is not on the toolbar' };
+    if (target.disabled) return { error: 'the text-size control is greyed out' };
     for (let i = 0; i < ${Math.max(1, Math.abs(presses))}; i += 1) target.click();
     return { ok: true };
   })()`);
   if (done.error) throw new Error(done.error);
   await wait(700);
-  return evaluate(win, "return document.querySelector('.zoom-readout').textContent.trim();");
+  return evaluate(win, "return document.querySelector('[data-testid=font-readout]')?.textContent.trim() || '';");
 }
 
 /**
@@ -138,7 +145,10 @@ async function setTextScale(win, presses) {
 async function setTwoColumns(win, want) {
   const on = await evaluate(win, "return document.querySelector('.bookview')?.getAttribute('data-layout') === 'double';");
   if (on === want) return want;
-  const chose = await evaluate(win, `(() => {
+  // `return`, because evaluate() wraps what it is given in a function body: an
+  // expression on its own is evaluated and thrown away, so this read `.error`
+  // off undefined and every check that sets the layout died on that.
+  const chose = await evaluate(win, `return (() => {
     const b = document.querySelector('[data-testid=${want ? 'view-double' : 'view-single'}]');
     if (!b || b.disabled) return { error: 'the page-view button is not there' };
     b.click();
@@ -212,16 +222,57 @@ async function growTextUntilItOverflows(win, { across = false } = {}) {
       if (!pane) return null;
       return {
         over: ${across ? 'pane.scrollWidth - pane.clientWidth' : 'pane.scrollHeight - pane.clientHeight'},
-        at: (document.querySelector('.zoom-readout') || {}).textContent || '',
+        // The *text* size, not the document zoom: two controls share the
+        // zoom-readout class and the first of them is the page's zoom.
+        at: (document.querySelector('[data-testid=font-readout]') || {}).textContent || '',
+        w: pane.scrollWidth,
+        h: pane.scrollHeight,
+        cw: pane.clientWidth,
+        ch: pane.clientHeight,
       };
     })()`);
     if (room && room.over > 40) return room.at.trim();
-    if (press === 16) break;
+    if (press === 16) {
+      throw new Error(`the chapter still fits at ${room?.at.trim()}: `
+        + `${room?.w}×${room?.h} in ${room?.cw}×${room?.ch}`);
+    }
     // eslint-disable-next-line no-await-in-loop
     await setTextScale(win, 1);
   }
-  const at = await evaluate(win, "return (document.querySelector('.zoom-readout') || {}).textContent || '';");
-  throw new Error(`the chapter still fits the window at ${at.trim()}`);
+  throw new Error('the chapter never overflowed');
+}
+
+/**
+ * Runs a command from one of the menu-bar menus, by the id of its row.
+ *
+ * Some commands have no button of their own — the full-window gallery is
+ * opened by `galleryIcons`, where the toolbar's Gallery button now opens the
+ * gallery *tool* in the left panel instead. The menu is the way to reach them,
+ * and it is a window of its own, so the row is clicked over there.
+ */
+async function runMenuCommand(win, menu, command) {
+  const opened = await evaluate(win, `
+    const b = document.querySelector('.menubar-item[data-menu="${menu}"]');
+    if (!b) return false;
+    b.click();
+    return true;
+  `);
+  if (!opened) throw new Error(`the ${menu} menu is not on the bar`);
+  const sheet = await waitForMenu();
+  if (!sheet) throw new Error(`the ${menu} menu did not open`);
+  const chose = await sheet.webContents.executeJavaScript(`(() => {
+    const row = document.querySelector('.menu-item[data-id="${command}"]');
+    if (!row) {
+      const seen = [...document.querySelectorAll('.menu-item')].map((r) => r.dataset.id || '?');
+      return { error: 'no ' + ${JSON.stringify(command)} + ' row; the menu holds [' + seen.join(', ') + ']' };
+    }
+    if (row.disabled) return { error: ${JSON.stringify(command)} + ' is greyed out' };
+    row.click();
+    return { ok: true };
+  })()`, true);
+  if (chose.error) throw new Error(chose.error);
+  await wait(250);
+  return true;
 }
 
 function assert(condition, message) {
@@ -277,9 +328,11 @@ async function run(win) {
   await check('the contents list shows the chapters', async () => {
     // Which panel is showing is remembered between runs, and other checks open
     // the library one — so this asks for the contents, which is its first tab.
+    // By name, not by position: the order of the rail is a design decision
+    // and it has already changed once under this check.
     await evaluate(win, `
-      const tabs = document.querySelectorAll('.side-panel.left .panel-tab');
-      if (tabs[0] && !tabs[0].classList.contains('active')) tabs[0].click();
+      const tab = document.querySelector('.side-panel.left .panel-tab[data-panel=contents]');
+      if (tab && !tab.classList.contains('active')) tab.click();
       return true;
     `);
     await wait(300);
@@ -400,7 +453,7 @@ async function run(win) {
 
   await check('the menu bar opens the same menus as the toolbar', async () => {
     const bar = await evaluate(win, `return (() => {
-      const items = [...document.querySelectorAll('.menubar-item')];
+      const items = [...document.querySelectorAll('.menubar-item[data-menu]')];
       return { names: items.map((b) => b.textContent.trim()), menus: items.map((b) => b.dataset.menu) };
     })()`);
     assert(bar.menus.join(',') === 'file,reading,view,marks,app',
@@ -446,7 +499,7 @@ async function run(win) {
 
   await check('the toolbar holds no menu that the menu bar already holds', async () => {
     const seen = await evaluate(win, `return (() => {
-      const bar = [...document.querySelectorAll('.menubar-item')].map((b) => b.dataset.menu);
+      const bar = [...document.querySelectorAll('.menubar-item[data-menu]')].map((b) => b.dataset.menu);
       const drops = [...document.querySelectorAll('.toolbar button[aria-haspopup=menu]')]
         .map((b) => (b.getAttribute('aria-label') || '').trim());
       return { bar, drops };
@@ -551,26 +604,21 @@ async function run(win) {
     return `${minWidth}px`;
   });
 
-  await check('the bookmark list opens as its own window', async () => {
-    await evaluate(win, `
-      const add = [...document.querySelectorAll('.toolbar button')]
-        .find((b) => (b.getAttribute('title') || '').includes('Ctrl+B'));
-      add.click();
-      return true;
-    `);
+  await check('a bookmark is kept, and the Marks menu opens as its own window', async () => {
+    // Ctrl+B, because there is no bookmark button on the toolbar: bookmarks
+    // are one of the left-hand tools. This used to hunt the toolbar for a
+    // button whose tooltip said Ctrl+B, find nothing, and call .click() on
+    // undefined — which is where one of the renderer's uncaught errors came
+    // from, and why the check never got as far as what it was testing.
+    await evaluate(win, "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', ctrlKey: true, bubbles: true })); return true;");
     await wait(500);
     const listed = await evaluate(win, "return document.querySelectorAll('.mark-list li').length;");
     assert(listed > 0, 'the bookmark was not listed in the panel');
-    await evaluate(win, `
-      const chevron = [...document.querySelectorAll('.menu-wrap.split .menu-btn')]
-        .find((b) => !b.disabled);
-      chevron.click();
-      return true;
-    `);
-    const menu = await waitForMenu();
-    assert(menu, 'no bookmark menu window');
-    menu.hide();
-    return `${listed} bookmark(s)`;
+    await runMenuCommand(win, 'marks', 'addBookmark');
+    await wait(400);
+    const after = await evaluate(win, "return document.querySelectorAll('.mark-list li').length;");
+    assert(after >= listed, `the list went from ${listed} to ${after}`);
+    return `${after} bookmark(s)`;
   });
 
   await check('the panels can be hidden and shown', async () => {
@@ -1137,7 +1185,84 @@ async function run(win) {
     return `${picked.spans} words on the page, "${picked.text}" selected`;
   });
 
-  await check('clicking a page says that the picture is selected', async () => {
+  await check('a picture inside a PDF page can be pointed at, framed and copied', async () => {
+    // A PDF page is one canvas, so there is no element to click: the pictures
+    // are found by replaying the page's own drawing operators, and the click is
+    // tested against those rectangles. Before that, "copy picture" on a PDF
+    // copied the whole rendered page.
+    await until(win, "!!document.querySelector('canvas.pdf-canvas')", { timeout: 20000 });
+    await wait(1200);
+
+    const found = await evaluate(win, `return (async () => {
+      const canvas = document.querySelector('canvas.pdf-canvas');
+      if (!canvas) return { error: 'no PDF page on screen' };
+      const box = canvas.getBoundingClientRect();
+      // Sweep the page until the outline of a picture appears under the pointer.
+      for (let fy = 0.1; fy < 0.95; fy += 0.06) {
+        for (let fx = 0.1; fx < 0.95; fx += 0.06) {
+          const x = Math.round(box.left + box.width * fx);
+          const y = Math.round(box.top + box.height * fy);
+          const at = document.elementFromPoint(x, y);
+          if (!at) continue;
+          at.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: x, clientY: y }));
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 16));
+          if (document.querySelector('.pdf-figure')) return { x, y };
+        }
+      }
+      return { error: 'no picture was found anywhere on the page' };
+    })()`);
+    assert(!found.error, found.error);
+
+    const picked = await evaluate(win, `return (() => {
+      const at = document.elementFromPoint(${found.x}, ${found.y});
+      const o = { bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: ${found.x}, clientY: ${found.y} };
+      at.dispatchEvent(new PointerEvent('pointerdown', o));
+      at.dispatchEvent(new MouseEvent('mouseup', o));
+      return true;
+    })()`);
+    assert(picked, 'the picture could not be pressed');
+    await wait(400);
+
+    const state = await evaluate(win, `return (() => {
+      const frame = document.querySelector('.pdf-figure.picked');
+      const canvas = document.querySelector('canvas.pdf-canvas');
+      const cell = document.querySelector('[data-testid=picked-image]');
+      return {
+        framed: !!frame,
+        // The frame is the picture, not the page.
+        smaller: frame && canvas
+          ? frame.getBoundingClientRect().width < canvas.getBoundingClientRect().width * 0.9
+          : false,
+        said: cell ? cell.textContent.trim() : '',
+      };
+    })()`);
+    assert(state.framed, 'the picture was not framed when it was clicked');
+    assert(state.smaller, 'the frame is the whole page rather than the picture in it');
+    assert(/[0-9]+\s*×\s*[0-9]+/.test(state.said), `the status bar says "${state.said}"`);
+
+    // And the menu offers to copy it, which it cannot when nothing is picked.
+    await evaluate(win, `return (() => {
+      const pane = document.querySelector('.bookview');
+      const o = { bubbles: true, cancelable: true, button: 2, buttons: 2, clientX: ${found.x}, clientY: ${found.y} };
+      (document.elementFromPoint(${found.x}, ${found.y}) || pane).dispatchEvent(new MouseEvent('contextmenu', o));
+      return true;
+    })()`);
+    const menu = await waitForMenu();
+    assert(menu, 'the right-click menu did not open');
+    const rows = await menu.webContents.executeJavaScript(`(() => {
+      const row = document.querySelector('.menu-item[data-id="copyImage"]');
+      return { there: !!row, off: !!row?.disabled };
+    })()`, true);
+    menu.hide();
+    assert(rows.there, 'there is no "copy picture" row in the menu');
+    const live = await evaluate(win, "return { framed: document.querySelectorAll('.pdf-figure.picked').length, cell: document.querySelector('[data-testid=picked-image]')?.textContent?.trim() || 'none' };");
+    assert(!rows.off,
+      `"copy picture" is greyed out although a picture is picked (${JSON.stringify(live)})`);
+    return `${state.said}, framed and copyable`;
+  });
+
+  await check('clicking a page frames the picture, and says no more than its size', async () => {
     const shown = await evaluate(win, `return (() => {
       const pane = document.querySelector('.bookview');
       const canvas = pane.querySelector('canvas.pdf-canvas');
@@ -1155,17 +1280,29 @@ async function run(win) {
     const marked = await until(win, `(() => {
       const picked = document.querySelector('.bookview .picked');
       const cell = document.querySelector('[data-testid=picked-image]');
-      if (!picked || !cell) return null;
-      const style = getComputedStyle(picked);
+      const mark = document.querySelector('[data-testid=picked-mark]');
+      if (!picked || !cell || !mark) return null;
+      // The frame is the mark's border, drawn once. The picture itself used to
+      // carry an outline as well, which showed as a second rectangle around
+      // the first, so the element is checked for *not* having one.
+      const style = getComputedStyle(mark);
       return {
         what: picked.tagName.toLowerCase(),
-        outline: style.outlineWidth,
+        outline: style.borderTopWidth,
+        onElement: getComputedStyle(picked).outlineWidth,
         said: cell.textContent.trim(),
+        caption: (mark.textContent || '').trim(),
       };
     })()`, { timeout: 6000 });
     assert(marked.what === 'canvas', `what was picked is a <${marked.what}>`);
-    assert(parseFloat(marked.outline) >= 2, `the outline is ${marked.outline}`);
-    assert(/[0-9]+\s*×\s*[0-9]+/.test(marked.said), `the status bar says "${marked.said}"`);
+    assert(parseFloat(marked.outline) >= 2, `the frame is ${marked.outline}`);
+    // One frame, not two.
+    assert(!(parseFloat(marked.onElement) > 0),
+      `the picture carries a second frame of its own (${marked.onElement})`);
+    // The size, and no announcement with it: the frame round the picture is
+    // what says it is picked, and the right-click menu is what copies it.
+    assert(/^[0-9]+\s*×\s*[0-9]+$/.test(marked.said), `the status bar says "${marked.said}"`);
+    assert(!marked.caption, `the page carries a caption reading "${marked.caption}"`);
 
     // Clicking away lets it go again.
     await evaluate(win, `
@@ -1298,7 +1435,11 @@ async function run(win) {
 
     const paged = await evaluate(win, `return (async () => {
       const pane = document.querySelector('.bookview');
-      const readout = () => (document.querySelector('.column-readout') || {}).textContent || '';
+      // Where in the chapter the reader is, which the status bar shows as
+      // 'page / pages' while a chapter runs to more than one page. It used
+      // to be a pill floating over the page (.column-readout); that is gone,
+      // and looking for it is why this read every chapter as a single page.
+      const readout = () => (document.querySelector('[data-testid=chapter-pages]') || {}).textContent || '';
       const pagesOf = (text) => {
         const m = text.match(/([0-9]+)\\s*\\/\\s*([0-9]+)/);
         return m ? { page: Number(m[1]), pages: Number(m[2]) } : null;
@@ -1339,7 +1480,8 @@ async function run(win) {
       };
     })()`);
     assert(paged.pages > 1,
-      `the chapter still fits one page at ${size}, so there is no last page to reach`);
+      `the chapter still fits one page at ${size}, so there is no last page to reach`
+      + ` (columns ${paged.reach.width}px wide in a page of ${paged.reach.shown}px)`);
     // The whole point: the page the counter calls the last has to be reachable,
     // and reaching it has to actually show the end of the text. Counting the
     // pages by rounding to the nearest said there were fewer than there are, and
@@ -1443,8 +1585,8 @@ async function run(win) {
     // so the panel goes back to the contents, which is its first tab — the checks
     // earlier in this file look for the chapter list there.
     await evaluate(win, `
-      const tabs = document.querySelectorAll('.side-panel.left .panel-tab');
-      if (tabs[0]) tabs[0].click();
+      const toc = document.querySelector('.side-panel.left .panel-tab[data-panel=contents]');
+      if (toc) toc.click();
       return true;
     `);
     await wait(300);
@@ -1690,8 +1832,8 @@ async function run(win) {
       const tab = [...document.querySelectorAll('.doctab')].find((d) => /epub/i.test(d.textContent));
       if (!tab) return { error: 'the EPUB is not open' };
       tab.click();
-      const tabs = document.querySelectorAll('.side-panel.left .panel-tab');
-      if (tabs[0]) tabs[0].click();
+      const toc = document.querySelector('.side-panel.left .panel-tab[data-panel=contents]');
+      if (toc) toc.click();
       return { ok: true };
     })()`);
     assert(!ready.error, ready.error);
@@ -1739,7 +1881,7 @@ async function run(win) {
         after: (chapter.textContent || '').slice(0, 24),
         worst: seen.reduce((w, s) => Math.max(w, Math.abs(s.off)), 0),
         settled: seen[seen.length - 1],
-        columns: (document.querySelector('.column-readout') || {}).textContent || '',
+        columns: (document.querySelector('[data-testid=chapter-pages]') || {}).textContent || '',
       };
     })()`);
     assert(!jumped.error, jumped.error);
@@ -1961,8 +2103,8 @@ async function run(win) {
   await check('jumping about a book from its contents never breaks the page', async () => {
     await until(win, "!!document.querySelector('[data-testid=chapter]')", { timeout: 20000 });
     await evaluate(win, `
-      const tabs = document.querySelectorAll('.side-panel.left .panel-tab');
-      if (tabs[0]) tabs[0].click();
+      const toc = document.querySelector('.side-panel.left .panel-tab[data-panel=contents]');
+      if (toc) toc.click();
       return true;
     `);
     await wait(300);
@@ -2099,10 +2241,6 @@ async function run(win) {
     await wait(300);
 
     const started = await evaluate(win, `return (() => {
-      const gallery = [...document.querySelectorAll('.toolbar button')]
-        .find((b) => ['갤러리', 'Gallery'].includes(b.getAttribute('aria-label') || ''));
-      if (!gallery) return { error: 'no gallery button' };
-
       window.__shelfTiming = { start: performance.now(), pane: 0, cards: 0, count: '', n: 0 };
       const timing = window.__shelfTiming;
       const observer = new MutationObserver(() => {
@@ -2121,10 +2259,11 @@ async function run(win) {
         }
       });
       observer.observe(document.body, { childList: true, subtree: true });
-      gallery.click();
       return { ok: true };
     })()`);
     assert(!started.error, started.error);
+    // The full-window gallery, which is the one with the cards in it.
+    await runMenuCommand(win, 'view', 'galleryIcons');
 
     const opened = await until(win, 'window.__shelfTiming && window.__shelfTiming.cards ? window.__shelfTiming : null', { timeout: 15000 });
     const held = Number((opened.count.match(/[0-9]+/) || [0])[0]);
@@ -2189,10 +2328,13 @@ async function run(win) {
   });
 
   await check('the same shelf, in detail, is windowed too', async () => {
-    await evaluate(win, `
-      [...document.querySelectorAll('.gallery-views button')].at(-1).click();
-      return true;
-    `);
+    const switched = await evaluate(win, `return (() => {
+      const views = [...document.querySelectorAll('.gallery-views button')];
+      if (!views.length) return { error: 'the gallery is not open' };
+      views.at(-1).click();
+      return { ok: true };
+    })()`);
+    assert(!switched.error, switched.error);
     await wait(400);
     const details = await evaluate(win, `return (() => {
       const gallery = document.querySelector('.gallery');

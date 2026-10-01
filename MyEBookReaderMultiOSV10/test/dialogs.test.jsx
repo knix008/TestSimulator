@@ -42,12 +42,12 @@ describe('Settings dialog', () => {
   it('shows every settings tab', () => {
     renderBody('settings');
     const tabs = [...document.querySelectorAll('.tabs .tab')].map((tab) => tab.textContent);
-    expect(tabs).toEqual(['appearance', 'reading', 'view', 'window'].map((id) => t(`settings.tabs.${id}`)));
+    expect(tabs).toEqual(['appearance', 'reading', 'view'].map((id) => t(`settings.tabs.${id}`)));
   });
 
   it('keeps every tab in the layout so the window never resizes', () => {
     renderBody('settings');
-    expect(document.querySelectorAll('.settings-panel')).toHaveLength(4);
+    expect(document.querySelectorAll('.settings-panel')).toHaveLength(3);
     expect(document.querySelectorAll('.settings-panel.on')).toHaveLength(1);
   });
 
@@ -88,6 +88,24 @@ describe('Settings dialog', () => {
     expect(seen).toBe(THEMES.length);
   });
 
+  it('never offers the same setting on two tabs', () => {
+    renderBody('settings');
+    // The status bar and the toolbar labels were on both View and Window,
+    // which meant two tick boxes for one setting that could disagree.
+    for (const label of [t('settings.showStatusBar'), t('settings.toolbarLabels')]) {
+      expect(screen.getAllByLabelText(label), label).toHaveLength(1);
+    }
+  });
+
+  it('sets the margin around a page of text', () => {
+    const { onResult } = renderBody('settings');
+    fireEvent.click(document.querySelectorAll('.tabs .tab')[2]);
+    fireEvent.click(screen.getByLabelText(`${t('settings.pageMarginX')} +`));
+    expect(onResult).toHaveBeenCalledWith({
+      action: 'settings',
+      settings: expect.objectContaining({ pageMarginX: 20 }),
+    });
+  });
   it('offers both languages', () => {
     const { onResult } = renderBody('settings');
     fireEvent.click(screen.getByTitle('English'));
@@ -129,7 +147,7 @@ describe('Settings dialog', () => {
 
   it('shows where the settings are stored', () => {
     renderBody('settings', { storagePath: 'C:\\Users\\me\\AppData' });
-    fireEvent.click(document.querySelectorAll('.tabs .tab')[3]);
+    fireEvent.click(document.querySelectorAll('.tabs .tab')[2]);
     expect(screen.getByText('C:\\Users\\me\\AppData')).toBeTruthy();
   });
 
@@ -397,7 +415,32 @@ describe('Print dialog', () => {
     fireEvent.change(screen.getByDisplayValue('A4'), { target: { value: 'A5' } });
     fireEvent.click(screen.getByText(t('print.landscape')));
     fireEvent.click(screen.getByText(t('print.print')));
-    expect(onResult.mock.calls.at(-1)[0]).toMatchObject({ paper: 'A5', landscape: true, marginMm: 14 });
+    expect(onResult.mock.calls.at(-1)[0]).toMatchObject({
+      paper: 'A5',
+      landscape: true,
+      margins: { top: 14, right: 14, bottom: 14, left: 14 },
+    });
+  });
+
+  it('keeps the four margins together while they are locked', () => {
+    const { onResult } = renderBody('print', { print });
+    // One stepper while they are locked, and moving it moves all four.
+    expect(screen.queryByTestId('print-margins')).toBeNull();
+    fireEvent.click(screen.getByLabelText(`${t('print.margin')} +`));
+    fireEvent.click(screen.getByText(t('print.print')));
+    expect(onResult.mock.calls.at(-1)[0].margins).toEqual({ top: 15, right: 15, bottom: 15, left: 15 });
+  });
+
+  it('sets a margin per side once they are unlocked', () => {
+    const { onResult } = renderBody('print', { print });
+    fireEvent.click(screen.getByLabelText(t('print.marginEven')));
+    expect(screen.getByTestId('print-margins')).toBeTruthy();
+    // A wider binding edge, which one number for all four could never say.
+    fireEvent.click(screen.getByLabelText(`${t('print.margin_left')} +`));
+    fireEvent.click(screen.getByLabelText(`${t('print.margin_left')} +`));
+    fireEvent.click(screen.getByLabelText(`${t('print.margin_top')} −`));
+    fireEvent.click(screen.getByText(t('print.print')));
+    expect(onResult.mock.calls.at(-1)[0].margins).toEqual({ top: 13, right: 14, bottom: 14, left: 16 });
   });
 
   it('asks the application to render a preview of the page shown', () => {

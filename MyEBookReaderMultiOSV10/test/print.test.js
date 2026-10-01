@@ -28,7 +28,33 @@ describe('buildPrintHtml', () => {
 
   it('puts the paper size and the margin in an @page rule', () => {
     const html = buildPrintHtml({ chapters, paper: 'A5', marginMm: 20 });
-    expect(html).toContain('@page { size: 148mm 210mm; margin: 20mm; }');
+    // One number still means the same on all four sides.
+    expect(html).toContain('@page { size: 148mm 210mm; margin: 20mm 20mm 20mm 20mm; }');
+  });
+
+  it('takes a margin for each side, in CSS order', () => {
+    const html = buildPrintHtml({
+      chapters,
+      paper: 'A5',
+      margins: { top: 10, right: 12, bottom: 18, left: 25 },
+    });
+    expect(html).toContain('margin: 10mm 12mm 18mm 25mm;');
+  });
+
+  it('fills in the sides that were left out from the single margin', () => {
+    const html = buildPrintHtml({ chapters, marginMm: 9, margins: { left: 30 } });
+    expect(html).toContain('margin: 9mm 9mm 9mm 30mm;');
+  });
+
+  it('keeps a page of images clear of its own top and bottom margins', () => {
+    const html = buildImagePrintHtml({
+      images: ['data:,x'],
+      paper: 'A5',
+      margins: { top: 10, bottom: 20, left: 5, right: 5 },
+    });
+    expect(html).toContain('margin: 10mm 5mm 20mm 5mm;');
+    // 210mm of paper less the 30mm the two margins take.
+    expect(html).toContain('height: calc(210mm - 30mm)');
   });
 
   it('honours landscape', () => {

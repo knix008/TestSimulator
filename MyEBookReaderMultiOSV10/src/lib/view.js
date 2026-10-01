@@ -40,6 +40,40 @@ export const READING_WIDTHS = [520, 640, 760, 900, 1100, 0]; // 0 = fill the pan
 export const FIT_TO_WINDOW = Object.freeze({ zoomMode: 'fit-page', zoom: 1, rotation: 0 });
 
 /**
+ * One page of a reflowable book, in CSS pixels.
+ *
+ * The window scales this page. It does not stretch it: a wider window used to
+ * make the page wider and a taller one make it taller, so the same chapter
+ * became a different shape in every window.
+ */
+export const EBOOK_PAGE_WIDTH = 520;
+export const EBOOK_PAGE_HEIGHT = 780;
+
+/** The sheet a layout draws: one page, or two facing pages of that same page. */
+export function ebookSheet(layout) {
+  const across = layout === 'double' ? 2 : 1;
+  return {
+    pageWidth: EBOOK_PAGE_WIDTH,
+    pageHeight: EBOOK_PAGE_HEIGHT,
+    width: EBOOK_PAGE_WIDTH * across,
+    height: EBOOK_PAGE_HEIGHT,
+  };
+}
+
+/**
+ * How far to enlarge a sheet so it fits a window.
+ *
+ * The smaller of the two axes wins, so a window that is not the shape of the
+ * page leaves a margin instead of pulling the page out of shape.
+ */
+export function ebookFitScale(sheet, room) {
+  const w = Number(room?.width) || 0;
+  const h = Number(room?.height) || 0;
+  if (w <= 0 || h <= 0 || !sheet?.width || !sheet?.height) return 1;
+  return Math.min(w / sheet.width, h / sheet.height);
+}
+
+/**
  * Which setting says how a book comes: one screen at a time, or a run to scroll
  * through. Kept so older call sites can still ask. The answer itself now comes
  * from `viewLayoutOf`: one layout for every format.
@@ -296,6 +330,9 @@ export function readingStyle(settings) {
     '--read-weight': settings?.readerBold ? '600' : 'normal',
     '--read-style': settings?.readerItalic ? 'italic' : 'normal',
     '--read-decoration': settings?.readerUnderline ? 'underline' : 'none',
+    // The margin around the page itself, which the reader sets.
+    '--read-pad-x': `${Number(settings?.pageMarginX ?? 18)}px`,
+    '--read-pad-y': `${Number(settings?.pageMarginY ?? 28)}px`,
   };
 }
 

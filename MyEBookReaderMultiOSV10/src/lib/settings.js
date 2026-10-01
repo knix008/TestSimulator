@@ -13,9 +13,12 @@ export const MAX_RECENT_FILES = 10;
 export const MAX_RECENT_DIRS = 10;
 export const FONT_SIZE_MIN = 10;
 export const FONT_SIZE_MAX = 24;
-export const PANEL_WIDTH_MIN = 180;
+export const PANEL_WIDTH_MIN = 215;
 export const PANEL_WIDTH_MAX = 560;
-export const PANEL_WIDTH_DEFAULT = 250;
+// Wide enough that a tool's own buttons sit on one line to begin with. The
+// floor is worked out from the labels themselves (see usePanelBodyMin); this
+// is only where a panel starts before anyone drags it.
+export const PANEL_WIDTH_DEFAULT = 290;
 
 export function clampPanelWidth(n) {
   const value = Number(n);
@@ -80,9 +83,17 @@ export const DEFAULT_SETTINGS = {
   invertPages: false,
 
   // ── Panels ──
-  leftPanel: 'contents',     // contents | library | history | gallery | bookmarks | notes | highlights | search | none
+  leftPanel: 'contents',     // contents | library | history | bookmarks | notes | highlights | search | none
   rightPanel: 'properties',  // properties | reading | none
   // Highlights stay on the page until the reader hides them from the tools.
+  // The margin around a page of reflowed text, in pixels. Side and top are
+  // separate: a reader wants room for a thumb at the edges without pushing
+  // the first line halfway down the page.
+  pageMarginX: 18,
+  pageMarginY: 28,
+  // What a drag over the page does: select words, pick out a picture, or
+  // draw a rectangle round part of the page to copy.
+  selectMode: 'text',       // text | picture | region
   showHighlights: true,
   leftWidth: PANEL_WIDTH_DEFAULT,
   rightWidth: PANEL_WIDTH_DEFAULT,
@@ -116,7 +127,8 @@ const ENUMS = {
   pageTurn: ['none', 'slide', 'flip'],
   zoomMode: ['fit-width', 'fit-height', 'fit-page', 'actual', 'custom'],
   spread: ['single', 'double'],
-  leftPanel: ['contents', 'library', 'history', 'gallery', 'bookmarks', 'notes', 'highlights', 'search', 'none'],
+  selectMode: ['text', 'picture', 'region'],
+  leftPanel: ['contents', 'library', 'history', 'bookmarks', 'notes', 'highlights', 'search', 'none'],
   rightPanel: ['properties', 'reading', 'none'],
   printScope: ['all', 'current', 'custom'],
   galleryView: GALLERY_VIEWS,
