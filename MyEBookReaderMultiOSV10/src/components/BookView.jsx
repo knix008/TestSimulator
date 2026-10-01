@@ -7,6 +7,7 @@ import { highlightCss } from '../lib/library.js';
 import {
   computePageScale, readingStyle, columnPageAt, columnPageCount, normalizeRotation,
   viewLayoutOf, effectiveZoomMode, textColumnsOf, screenColumnsOf,
+  ebookSheet, ebookFitScale,
 } from '../lib/view.js';
 
 // The reading pane.
@@ -32,6 +33,10 @@ const HIGHLIGHT_ATTR = 'data-highlight';
 // rather than as a page turning. The same length as MyPDFViewer's leaf, and
 // kept in step with --turn-ms in the CSS.
 const TURN_MS = 640;
+// How long after the animation *should* have finished the turn is torn down
+// anyway. Only a browser that never reports the end of an animation — or one
+// that never started it — ever gets this far.
+const TURN_GRACE = 400;
 
 /** How long a selection has to hold still before the rest of the app hears. */
 export const SELECTION_SETTLE = 120;
@@ -102,27 +107,123 @@ export function paintMarks(html, marks) {
   return out;
 }
 
+// The handful of named entities that actually turn up in a book, plus the
+// numeric forms. Anything else is left as it stands, which only costs that one
+// character its chance to match.
+const NAMED = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  hellip: '…', mdash: '—', ndash: '–', shy: '­',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”',
+  laquo: '«', raquo: '»', middot: '·', bull: '•',
+};
+
+function decodeEntity(body) {
+  if (!body) return null;
+  if (body[0] === '#') {
+    const code = body[1] === 'x' || body[1] === 'X'
+      ? parseInt(body.slice(2), 16)
+      : parseInt(body.slice(1), 10);
+    if (!Number.isFinite(code) || code <= 0) return null;
+    try { return String.fromCodePoint(code); } catch { return null; }
+  }
+  return Object.prototype.hasOwnProperty.call(NAMED, body) ? NAMED[body] : null;
+}
+
+/**
+ * The markup flattened the way the browser reads it, with every character
+ * mapped back to where it came from.
+ *
+ * A highlight is a plain string taken from the reader's selection: it has no
+ * tags in it, its entities are already characters, and the line breaks and
+ * indentation of the source have become single spaces. Looking for that string
+ * in the markup verbatim therefore missed most real highlights — any passage
+ * that ran through an `<em>`, over a source line break or past an `&amp;`.
+ * Flattening first and mapping back is what makes those match.
+ */
+export function flattenHtml(html) {
+  const source = String(html);
+  const chars = [];
+  const from = [];
+  const to = [];
+  let i = 0;
+  while (i < source.length) {
+    const ch = source[i];
+    if (ch === '<') {
+      const close = source.indexOf('>', i);
+      i = close === -1 ? source.length : close + 1;
+      continue;
+    }
+    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f') {
+      let j = i;
+      while (j < source.length && /\s/.test(source[j])) j += 1;
+      // A run of whitespace is one space — and none at all at the very start,
+      // where the browser shows nothing either.
+      if (chars.length) { chars.push(' '); from.push(i); to.push(j); }
+      i = j;
+      continue;
+    }
+    if (ch === '&') {
+      const semi = source.indexOf(';', i);
+      if (semi !== -1 && semi - i <= 12) {
+        const decoded = decodeEntity(source.slice(i + 1, semi));
+        if (decoded !== null) {
+          for (const piece of decoded) { chars.push(piece); from.push(i); to.push(semi + 1); }
+          i = semi + 1;
+          continue;
+        }
+      }
+    }
+    chars.push(ch);
+    from.push(i);
+    to.push(i + 1);
+    i += 1;
+  }
+  return { text: chars.join(''), from, to };
+}
+
 // Wraps the first occurrence outside of any tag. Only the first: a highlight is
 // one passage, and painting every repetition of a common phrase would be wrong.
 function wrapFirst(html, needle, mark) {
   const source = String(html);
-  const lower = source.toLowerCase();
-  const target = needle.toLowerCase();
-  let at = -1;
-  let from = 0;
-  for (;;) {
-    const found = lower.indexOf(target, from);
-    if (found === -1) break;
-    // Refuse a hit that sits inside a tag.
-    const openAt = source.lastIndexOf('<', found);
-    const closeAt = source.lastIndexOf('>', found);
-    if (openAt <= closeAt) { at = found; break; }
-    from = found + 1;
-  }
+  const flat = flattenHtml(source);
+  const target = needle.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (target.length < 2) return source;
+  const at = flat.text.toLowerCase().indexOf(target);
   if (at < 0) return source;
+  return wrapRange(source, flat.from[at], flat.to[at + target.length - 1], mark);
+}
+
+/**
+ * Paints one stretch of the markup.
+ *
+ * The stretch may run through tags — a highlight that starts in the middle of a
+ * sentence and ends inside an `<em>` is ordinary. One span around the whole of
+ * it would cross the `<em>` and tear the markup, so each run of text inside the
+ * stretch gets its own span and the tags between them are left where they are.
+ */
+function wrapRange(html, start, end, mark) {
   const tag = mark.kind === 'note' ? 'note' : 'highlight';
   const open = `<span class="mark mark-${tag}" ${HIGHLIGHT_ATTR}="${mark.id}" style="background:${highlightCss(mark.color)}">`;
-  return source.slice(0, at) + open + source.slice(at, at + needle.length) + '</span>' + source.slice(at + needle.length);
+  let stop = end;
+  let out = '';
+  let runStart = start;
+  let i = start;
+  const flush = (upto) => {
+    if (upto > runStart) out += open + html.slice(runStart, upto) + '</span>';
+  };
+  while (i < stop) {
+    if (html[i] !== '<') { i += 1; continue; }
+    flush(i);
+    const close = html.indexOf('>', i);
+    const next = close === -1 ? html.length : close + 1;
+    out += html.slice(i, next);
+    i = next;
+    // A tag is never cut in half, even if the stretch ended inside one.
+    if (i > stop) stop = i;
+    runStart = i;
+  }
+  flush(stop);
+  return html.slice(0, start) + out + html.slice(stop);
 }
 
 /**
@@ -130,7 +231,7 @@ function wrapFirst(html, needle, mark) {
  * selectable. Each page renders itself, which is what lets a two-page spread be
  * two of these side by side.
  */
-export function PdfPage({ doc, page, zoomMode, zoom, rotation, room, onScale, onSize, onPainted, onError }) {
+export function PdfPage({ doc, page, zoomMode, zoom, rotation, room, onScale, onSize, onPainted, onError, onRegions }) {
   const canvasRef = useRef(null);
   const textLayerRef = useRef(null);
   // The viewport the canvas was last painted with, so a text layer can be built
@@ -195,6 +296,16 @@ export function PdfPage({ doc, page, zoomMode, zoom, rotation, room, onScale, on
         }
         onScale?.(wanted);
         onSize?.({ width: painted.width, height: painted.height });
+        // Where the pictures on this page are, in the coordinates it was
+        // just painted in. A PDF page is one canvas, so without this there
+        // is nothing on the page for a reader to point at.
+        if (onRegions) {
+          try {
+            const { getPageImageRegions } = await import('../lib/pdf.js');
+            const found = await getPageImageRegions(pdfPage, painted.viewport);
+            if (!cancelled) onRegions(found);
+          } catch { if (!cancelled) onRegions([]); }
+        }
         if (textLayerRef.current) {
           const { hasSelectableText } = await import('../lib/pdf.js');
           // Up to three goes at it. A page really can have no words on it — a
@@ -287,6 +398,11 @@ export function PdfPage({ doc, page, zoomMode, zoom, rotation, room, onScale, on
     <div className="pdf-page" data-page={page}>
       <canvas ref={canvasRef} className="pdf-canvas" />
       <div ref={textLayerRef} className="textLayer" />
+      {/* One box per picture the page paints, over the canvas and under
+          the words. They take no pointer events of their own — the pane
+          hit-tests the click against the same rectangles — so pointing at
+          a picture never costs the reader a text selection. */}
+      <div className="pdf-figures" aria-hidden="true" />
     </div>
   );
 }
@@ -379,10 +495,37 @@ const BookView = forwardRef(function BookView({
   const pickedImageRef = useRef(null);
   const [pickedImage, setPickedImage] = useState(null);
   const [pickedBox, setPickedBox] = useState(null);
+  // Where the pictures of the PDF page on screen are, in the coordinates it
+  // was painted in. A PDF page is one canvas: without these there is nothing
+  // for the reader to point at, so a picture could be neither framed nor
+  // copied on its own — "copy picture" took the whole page.
+  const [figures, setFigures] = useState([]);
+  // The crop, fetched with the PDF engine rather than imported beside it:
+  // a plain import of anything in lib/pdf.js pulls the whole of pdfjs-dist
+  // into the main bundle, which is what the reading pane loads lazily.
+  const cropRef = useRef(null);
+  const [hoverFigure, setHoverFigure] = useState(null);
+  const [pickedFigure, setPickedFigure] = useState(null);
+  // The rectangle the reader is dragging, and the one they settled on, both in
+  // the pane's own coordinates. Only a page that is already a picture can have
+  // a piece cut out of it, so this is for PDFs, comics and picture files.
+  const [region, setRegion] = useState(null);
+  const regionFrom = useRef(null);
   const [scale, setScale] = useState(1);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  // How far the fixed ebook page is enlarged to fit the window. The page
+  // itself stays one size; only this factor follows the window.
+  const [fitScale, setFitScale] = useState(1);
   const [columnPages, setColumnPages] = useState(1);
   const [columnPage, setColumnPage] = useState(0);
+  // The column a turn is heading for. A click can arrive before React has
+  // committed the last one, and reading the state then turned every click into
+  // the same page — the spread jumped, and the leaf came down on a page that
+  // had already changed.
+  const pendingColumn = useRef(null);
+  // Set while a turn is the thing moving the pane, so the scroll that follows
+  // is not taken for the reader dragging the scrollbar.
+  const ownColumnScroll = useRef(false);
   const [turn, setTurn] = useState(null);
   // A still copy of the chapter the reader was on, kept on screen for the
   // length of the turn. See `hold` below.
@@ -438,7 +581,24 @@ const BookView = forwardRef(function BookView({
     // again, so "for nothing" became a loop. Each of those renders cancelled the
     // PDF page's render, and a page whose text layer was cancelled part way
     // through had no selectable text at all until something else disturbed it.
+    const stage = el.closest('.reflow-stage');
+    const padOf = (node) => (side) => {
+      const value = parseFloat(getComputedStyle(node).getPropertyValue(side));
+      return Number.isFinite(value) ? value : 0;
+    };
     const measure = () => {
+      // A reflowable page has its own size. The window only decides how far
+      // that page is enlarged. The pane's own width is the page, and it does
+      // not change when the window does, so the chapter is not poured again.
+      if (stage && reflowable && paged) {
+        const pad = padOf(stage);
+        const room = {
+          width: Math.max(0, stage.clientWidth - pad('padding-left') - pad('padding-right')),
+          height: Math.max(0, stage.clientHeight - pad('padding-top') - pad('padding-bottom')),
+        };
+        const next = ebookFitScale(ebookSheet(layout), room);
+        setFitScale((was) => (Math.abs(was - next) < 0.002 ? was : next));
+      }
       // The sheet is the page. The pane's own padding is the margin around it,
       // and a column measured from the whole pane would run under that margin.
       const width = sheetWidth(el);
@@ -456,7 +616,8 @@ const BookView = forwardRef(function BookView({
     observer?.observe(el);
     // The margin lives on the frame around the sheet. Watching that frame is
     // what keeps the page fitted when the window is what changed size.
-    if (el.parentElement?.classList.contains('reflow-stage')) observer?.observe(el.parentElement);
+    if (stage) observer?.observe(stage);
+    else if (el.parentElement?.classList.contains('reflow-stage')) observer?.observe(el.parentElement);
     window.addEventListener('resize', measure);
     return () => {
       observer?.disconnect();
@@ -571,6 +732,23 @@ const BookView = forwardRef(function BookView({
    * before the last one, which is why every turn after the first showed the wrong
    * page or none at all.
    */
+  /** The turn is over: the copy that was turning comes off the book. */
+  const endTurn = useCallback(() => {
+    clearTimeout(turnTimer.current);
+    setTurn(null);
+    setHold(null);
+  }, []);
+
+  // What actually ends a turn. The sheet and the leaf carry the animation, so
+  // when theirs finishes the page has arrived — however long the browser took
+  // to get round to starting it.
+  const onTurnEnd = useCallback((e) => {
+    // The paper's shading animates too, on a face inside the sheet. Only the
+    // sheet's own animation finishing means the turn is done.
+    if (e.target !== e.currentTarget) return;
+    endTurn();
+  }, [endTurn]);
+
   const facesNow = useCallback(() => {
     // The page's own rectangle, which is what the turning leaf is cut to. A
     // leaf the size of the whole pane is not a page: it is the reading area
@@ -611,8 +789,16 @@ const BookView = forwardRef(function BookView({
     if (!onePage) return undefined;
     // A column that moved because the reader dragged the scrollbar is still
     // scrolling. A leaf is for a turn: the next-page key, the arrows, the wheel.
+    // `chapter` marks a turn that already ran out of columns. It is waiting for
+    // the next chapter, and must not be read as a turn of the column still
+    // on screen — a scrollbar moving afterwards would flip a page that nobody
+    // turned.
+    // Several clicks can land in one commit. The intent is the last of them, so
+    // its column is the one just left, which may be further along than the
+    // column React had last committed. It is still one turn of one page.
     const columnTurn = kind === 'html' && section === wasSection
-      && intent?.section === wasSection && intent?.fromColumn === wasColumn;
+      && intent && !intent.chapter
+      && intent.section === wasSection;
     if (kind === 'html' && section === wasSection && !columnTurn) return undefined;
 
     const now = Date.now();
@@ -645,35 +831,53 @@ const BookView = forwardRef(function BookView({
       paper: !faces.src,
     });
 
-    // The same arrangement as a PDF page. The live chapter is already the page
-    // being landed on — it was scrolled there before this ran, the way a PDF
-    // page is replaced under its cover. The copy is the page being left, and
-    // it is what turns away. It is a copy rather than the live chapter, which
-    // is as wide as all its columns together: moving that threw the columns
-    // out of the window.
+    // A chapter of text turns the same way a PDF page does, slid or flipped
+    // alike: the live chapter is already the page being landed on, and a copy
+    // of the page being left is what moves away over it. It has to be a copy
+    // rather than the live chapter, which is as wide as all its columns
+    // together: moving that threw the columns out of the window.
     if (kind === 'html' && shownChapter.current.html && (section !== wasSection || columnTurn)) {
       const el = scrollRef.current;
+      const chapterChange = section !== wasSection;
+      const fromHere = intent?.section === wasSection;
+      const sheet = sheetWidth(el);
+      // Two facing pages always turn one of them, including the turn that
+      // opens the next chapter. Treating that turn as the whole sheet is what
+      // made a chapter boundary flip both pages at once.
+      const half = layout === 'double';
+      // Where the chapter being left was. A turn that ran out of columns saved
+      // it before the new chapter replaced the pane; the pane's own scroll by
+      // then belongs to the chapter that has arrived.
+      const carried = (columnTurn || (chapterChange && fromHere)) ? intent : null;
       setHold({
         id: `${place}-${now}`,
         dir: forward ? 'forward' : 'back',
+        // The page being left, and only that. A chapter of text turns exactly
+        // as a PDF page does: the leaf is the page that is going away, and
+        // what it uncovers is the page that has already arrived underneath.
+        // Holding the *incoming* page and turning it down over a copy of the
+        // old one — which is what this did — reads as a page appearing from
+        // nowhere rather than as the page in front of the reader being turned.
         html: shownChapter.current.html,
         width: shownChapter.current.width,
         // A column turn has already jumped, so the pane is on the new column.
         // The place that was saved is the column being left. A new chapter is
         // still showing the old scroll: the effect that follows puts it back
         // to its first column.
-        left: columnTurn ? intent.left : (el ? el.scrollLeft : 0),
-        top: columnTurn ? intent.top : (el ? el.scrollTop : 0),
-        // Where the leaf comes down. A PDF spread prints that page on the back
-        // of the leaf; a column of text is the same page of the same chapter.
-        land: el ? el.scrollLeft : 0,
-        // Two facing pages: one leaf turns, as a PDF spread does. A new chapter
-        // still leaves as a whole sheet, because it is not the next column.
-        half: columnTurn && layout === 'double',
-        sheet: sheetWidth(el),
+        left: carried ? carried.left : (el ? el.scrollLeft : 0),
+        top: carried ? carried.top : (el ? el.scrollTop : 0),
+        half,
+        sheet,
       });
     }
 
+    // A backstop, and only that: the turn ends when its animation does — see
+    // `endTurn`. A stopwatch started here cannot be what ends it, because it
+    // begins running before the turning copy is even in the document, and the
+    // animation does not begin until the browser has laid that copy out. A
+    // whole chapter of markup takes long enough over that to eat a third of
+    // the turn, which is the effect that was over before it had played.
+    //
     // The timer is held in a ref, not returned as this effect's cleanup.
     //
     // As a cleanup it was cancelled every time the effect ran again — and it
@@ -682,9 +886,9 @@ const BookView = forwardRef(function BookView({
     // early exit above and set no new timer, so nothing ever cleared the turn
     // and the page that was turning away stayed lying across the book.
     clearTimeout(turnTimer.current);
-    turnTimer.current = setTimeout(() => { setTurn(null); setHold(null); }, TURN_MS);
+    turnTimer.current = setTimeout(endTurn, TURN_MS + TURN_GRACE);
     return undefined;
-  }, [place, section, columnPage, settings.pageTurn, onePage, facesNow, kind, layout, content]);
+  }, [place, section, columnPage, settings.pageTurn, onePage, facesNow, kind, layout, content, endTurn]);
 
   // Nothing is left running when the pane goes away.
   useEffect(() => () => clearTimeout(turnTimer.current), []);
@@ -711,6 +915,7 @@ const BookView = forwardRef(function BookView({
     el.scrollTop = 0;
     el.scrollLeft = 0;
     pendingTop.current = null;
+    pendingColumn.current = null;
     setColumnPage(0);
     // A page is a whole thing: arriving at a page's top *is* arriving at that
     // page, so only a chapter of text has an end to be entered at.
@@ -734,10 +939,12 @@ const BookView = forwardRef(function BookView({
       // there is nothing to scroll past — so it is where the pane can reach, not
       // page × width.
       if (landing.current === 'end') el.scrollLeft = columnLeft(el, page, step);
+      pendingColumn.current = page;
       setColumnPage(page);
       onPageInfo?.({ pages, page, atStart: page <= 0, atEnd: page >= pages - 1 });
     } else {
       setColumnPages(1);
+      pendingColumn.current = null;
       setColumnPage(0);
       const atStart = el.scrollTop <= 4 && el.scrollLeft <= 4;
       const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 4
@@ -850,6 +1057,7 @@ const BookView = forwardRef(function BookView({
       const span = sheetWidth(el);
       const step = pageStep(el, layout);
       const page = columnPageAt(el.scrollLeft, span, el.scrollWidth, step);
+      if (!ownColumnScroll.current) pendingColumn.current = page;
       setColumnPage(page);
       onPageInfo?.({ pages: columnPages, page, atStart: page <= 0, atEnd: page >= columnPages - 1 });
       onProgress?.(columnPages > 1 ? page / Math.max(1, columnPages - 1) : 0);
@@ -1191,6 +1399,49 @@ const BookView = forwardRef(function BookView({
   }, []);
 
   /**
+   * The picture of a PDF page under a pointer, if any.
+   *
+   * A PDF page is a single canvas, so there is no element to hit: the click
+   * is tested against the rectangles the page's own drawing operators give
+   * (see getPageImageRegions). The rectangles are in the coordinates the
+   * canvas was painted in, which is also the box it is laid out at, so the
+   * pointer only has to be taken into that box.
+   */
+  /** One figure's rectangle, in the pane's own coordinates. */
+  const figureStyle = useCallback((f) => {
+    const pane = scrollRef.current;
+    const canvas = pane?.querySelector('canvas.pdf-canvas');
+    if (!pane || !canvas) return { display: 'none' };
+    const box = canvas.getBoundingClientRect();
+    const room = pane.getBoundingClientRect();
+    const shown = parseFloat(canvas.style.width) || box.width;
+    const k = shown ? box.width / shown : 1;
+    return {
+      left: `${Math.round(box.left - room.left + pane.scrollLeft + f.rect.x * k)}px`,
+      top: `${Math.round(box.top - room.top + pane.scrollTop + f.rect.y * k)}px`,
+      width: `${Math.round(f.rect.width * k)}px`,
+      height: `${Math.round(f.rect.height * k)}px`,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scale, settings.rotation, settings.zoom, viewport.width, viewport.height]);
+
+  const figureAt = useCallback((clientX, clientY) => {
+    if (!figures.length) return null;
+    const canvas = scrollRef.current?.querySelector('canvas.pdf-canvas');
+    if (!canvas) return null;
+    const box = canvas.getBoundingClientRect();
+    if (!box.width || !box.height) return null;
+    // The canvas is drawn at its CSS size; the regions were measured at the
+    // viewport's size. One ratio takes a screen point into that space.
+    const shown = parseFloat(canvas.style.width) || box.width;
+    const k = shown ? box.width / shown : 1;
+    const x = (clientX - box.left) / k;
+    const y = (clientY - box.top) / k;
+    return figures.find((f) => x >= f.rect.x && x <= f.rect.x + f.rect.width
+      && y >= f.rect.y && y <= f.rect.y + f.rect.height) || null;
+  }, [figures]);
+
+  /**
    * Where the picked picture sits, in the pane's own coordinates.
    *
    * A picture is a replaced element and cannot carry a label of its own, and its
@@ -1205,11 +1456,18 @@ const BookView = forwardRef(function BookView({
     const box = node.getBoundingClientRect();
     const room = pane.getBoundingClientRect();
     if (!box.width || !box.height) return null;
+    // getBoundingClientRect answers in screen pixels, and a reflowable page
+    // is drawn scaled — it has a size of its own and the window only decides
+    // how far it is enlarged. The overlay that frames the picture lives
+    // inside that same scaled box, so its numbers are the pane's own
+    // unscaled pixels. Mixing the two is what put the frame in the wrong
+    // place, at the wrong size, on every EPUB and MOBI.
+    const k = pane.offsetWidth ? (room.width / pane.offsetWidth) || 1 : 1;
     return {
-      left: box.left - room.left + pane.scrollLeft,
-      top: box.top - room.top + pane.scrollTop,
-      width: box.width,
-      height: box.height,
+      left: (box.left - room.left) / k + pane.scrollLeft,
+      top: (box.top - room.top) / k + pane.scrollTop,
+      width: box.width / k,
+      height: box.height / k,
     };
   }, []);
 
@@ -1282,12 +1540,78 @@ const BookView = forwardRef(function BookView({
   }, [placed, spotHost, boxOf, html, viewport.width, viewport.height, scale, columnPage,
     settings.fontScale, settings.readingWidth, settings.zoomMode, settings.rotation]);
 
-  // The picture stays picked while the window is resized or the page rezoomed,
-  // so the label has to be told where it has moved to.
+  /**
+   * Keeps the frame on the picture it belongs to.
+   *
+   * The box used to be recomputed from a written-out list of settings, and
+   * the frame drifted off the picture whenever something moved it that the
+   * list did not happen to mention: the zoom of a fixed page, the text size
+   * or page margin of a reflowable one, the scale a reflowable page is
+   * fitted to the window by. Watching the picture, the chapter it sits in
+   * and the pane around it answers all of those, including the ones nobody
+   * has added yet.
+   */
   useEffect(() => {
-    if (!pickedImageRef.current) return;
-    setPickedBox(boxOf(pickedImageRef.current));
-  }, [boxOf, viewport.width, viewport.height, scale, settings.rotation, settings.zoomMode]);
+    const node = pickedImageRef.current;
+    if (!node) return undefined;
+    const update = () => setPickedBox(boxOf(node));
+    update();
+    if (typeof ResizeObserver !== 'function') return undefined;
+    const watcher = new ResizeObserver(update);
+    watcher.observe(node);
+    if (scrollRef.current) watcher.observe(scrollRef.current);
+    if (contentRef.current) watcher.observe(contentRef.current);
+    return () => watcher.disconnect();
+    // The settings are kept as well: a picture can be moved by a reflow
+    // that changes nothing's size — a wider margin on the page above it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxOf, pickedImage, viewport.width, viewport.height, scale, fitScale, columnPage,
+    settings.rotation, settings.zoomMode, settings.zoom, settings.fontScale,
+    settings.readingWidth, settings.pageMarginX, settings.pageMarginY, html]);
+
+  useEffect(() => {
+    if (kind !== 'pdf' || cropRef.current) return;
+    import('../lib/pdf.js').then((m) => { cropRef.current = m.cropCanvas; }).catch(() => {});
+  }, [kind]);
+
+  // A new page has its own pictures, so what was picked on the last one is
+  // gone. A *repaint* of the same page is not that: zooming or turning the
+  // page on its side measures the rectangles again, and the picture the
+  // reader chose has to stay chosen — it is matched again by its id.
+  useEffect(() => { setPickedFigure(null); setHoverFigure(null); }, [section]);
+  useEffect(() => {
+    setHoverFigure(null);
+    setPickedFigure((was) => (was ? figures.find((f) => f.id === was.id) || null : null));
+  }, [figures]);
+
+  const selectMode = settings.selectMode || 'text';
+
+  /** An <img> as a canvas, so a rectangle can be cut out of it. */
+  const toCanvas = useCallback((node) => {
+    const width = node.getBoundingClientRect().width;
+    const height = node.getBoundingClientRect().height;
+    if (!width || !height) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width);
+    canvas.height = Math.round(height);
+    canvas.style.width = `${Math.round(width)}px`;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(node, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }, []);
+
+  /** A point in the pane's own coordinates, scroll and page scale included. */
+  const paneAt = useCallback((clientX, clientY) => {
+    const pane = scrollRef.current;
+    if (!pane) return null;
+    const room = pane.getBoundingClientRect();
+    const k = pane.offsetWidth ? (room.width / pane.offsetWidth) || 1 : 1;
+    return {
+      x: (clientX - room.left) / k + pane.scrollLeft,
+      y: (clientY - room.top) / k + pane.scrollTop,
+    };
+  }, []);
 
   const onPointerDown = useCallback((e) => {
     if (e.button !== 0) return;
@@ -1297,12 +1621,66 @@ const BookView = forwardRef(function BookView({
       dragging.current = true;
       prevRange.current = null;
     }
+    if (selectMode === 'region') {
+      const at = paneAt(e.clientX, e.clientY);
+      if (at) {
+        regionFrom.current = at;
+        setRegion({ left: at.x, top: at.y, width: 0, height: 0 });
+        e.preventDefault();
+      }
+      return;
+    }
     pick(imageUnder(e.target));
-  }, [imageUnder, pick]);
+    if (kind === 'pdf') setPickedFigure(figureAt(e.clientX, e.clientY));
+  }, [imageUnder, pick, kind, figureAt, selectMode, paneAt]);
+
+  // Hovering a picture of a PDF page outlines it, so the reader can see
+  // there is something there to take before they press.
+  const onPointerMove = useCallback((e) => {
+    if (regionFrom.current) {
+      const at = paneAt(e.clientX, e.clientY);
+      if (!at) return;
+      const from = regionFrom.current;
+      setRegion({
+        left: Math.min(from.x, at.x),
+        top: Math.min(from.y, at.y),
+        width: Math.abs(at.x - from.x),
+        height: Math.abs(at.y - from.y),
+      });
+      return;
+    }
+    if (kind !== 'pdf' || selectMode === 'region') return;
+    if (dragging.current) return;
+    const over = figureAt(e.clientX, e.clientY);
+    setHoverFigure((was) => (was?.id === over?.id ? was : over));
+  }, [kind, figureAt, selectMode, paneAt]);
+
+  // A rectangle smaller than a few pixels is a click, not a selection.
+  const onPointerUp = useCallback(() => {
+    if (!regionFrom.current) return;
+    regionFrom.current = null;
+    setRegion((r) => (r && r.width > 6 && r.height > 6 ? r : null));
+  }, []);
+
+  // Leaving the mode, or turning the page, puts the rectangle away.
+  useEffect(() => { setRegion(null); regionFrom.current = null; }, [selectMode, section]);
 
   // Telling the rest of the app which picture is picked is what puts it in the
   // status bar: an outline on its own is easy to miss on a busy page.
-  useEffect(() => { onPickImage?.(pickedImage); }, [pickedImage, onPickImage]);
+  // What is picked, for the rest of the app: a picture in the text, or a
+  // picture inside a PDF page. Both are 'a picture is selected' as far as
+  // the status bar and the copy command are concerned.
+  useEffect(() => {
+    if (kind === 'pdf') {
+      onPickImage?.(pickedFigure
+        ? { kind: 'figure', name: pickedFigure.name || '',
+          width: Math.round(pickedFigure.rect.width),
+          height: Math.round(pickedFigure.rect.height) }
+        : null);
+      return;
+    }
+    onPickImage?.(pickedImage);
+  }, [kind, pickedImage, pickedFigure, onPickImage]);
 
   const onClick = useCallback((e) => {
     const link = e.target.closest?.('[data-section], [data-external]');
@@ -1327,16 +1705,21 @@ const BookView = forwardRef(function BookView({
     target.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [activeHit, kind, html]);
 
-  // Which element a picture would be copied from, in the order a reader means:
-  // what they pointed at, the page picture, then a painted PDF page.
+  // Which element a picture would be copied from: the one the reader pointed
+  // at, or a page that is itself a picture. Never anything else.
   const currentImageNode = useCallback(() => {
     const picked = pickedImageRef.current;
     if (picked && picked.isConnected) return picked;
     pickedImageRef.current = null;
-    if (imageRef.current) return imageRef.current;
-    const root = scrollRef.current;
-    return root?.querySelector('canvas, .page-image img, img') || null;
-  }, []);
+    // A page that *is* a picture — a comic page, a picture file — is the
+    // picture, so it needs no picking.
+    if (kind === 'image' && imageRef.current) return imageRef.current;
+    // And nothing else. There used to be a fallback to the first canvas or
+    // <img> in the pane, which meant "copy picture" with nothing picked
+    // copied the whole rendered PDF page, or whichever picture happened to
+    // come first in the chapter — never the one the reader meant.
+    return null;
+  }, [kind]);
 
   /** The reading position inside the current section, 0..1. */
   const fracY = useCallback(() => {
@@ -1362,6 +1745,7 @@ const BookView = forwardRef(function BookView({
         const step = pageStep(el, layout);
         const page = Math.round(frac * Math.max(0, columnPages - 1));
         el.scrollTo({ left: columnLeft(el, page, step) });
+        pendingColumn.current = page;
         setColumnPage(page);
         return;
       }
@@ -1394,7 +1778,8 @@ const BookView = forwardRef(function BookView({
             const pages = columnPageCount(pane.scrollWidth, span, step);
             const page = Math.max(0, Math.min(pages - 1, Math.floor(x / step)));
             pane.scrollTo({ left: columnLeft(pane, page, step), behavior: 'auto' });
-          setColumnPage(page);
+            pendingColumn.current = page;
+            setColumnPage(page);
           return;
         }
       }
@@ -1410,8 +1795,30 @@ const BookView = forwardRef(function BookView({
       if (!el) return false;
       if (paged) {
         const step = pageStep(el, layout);
-        const next = columnPage + (dir < 0 ? -1 : 1);
-        if (next < 0 || next >= columnPages) return false;
+        const span = sheetWidth(el);
+        // The stored count is whatever the last layout pass saw. A chapter
+        // that has since grown — a picture finishing, a font arriving — is
+        // still wider than that, and trusting the stored count left the rest
+        // of the chapter unread: the turn went to the next chapter and both
+        // pages of the spread flipped at once.
+        const measured = span > 0 ? columnPageCount(el.scrollWidth, span, step) : columnPages;
+        // Where the last click was heading, when this one arrives before that
+        // has been committed. Two quick clicks are two pages, each one column
+        // of a two-page spread.
+        const here = pendingColumn.current == null ? columnPage : pendingColumn.current;
+        const next = here + (dir < 0 ? -1 : 1);
+        if (next < 0 || next >= measured) {
+          if (settings.pageTurn !== 'none') {
+            pageTurnIntent.current = {
+              section,
+              fromColumn: here,
+              left: el.scrollLeft,
+              top: el.scrollTop,
+              chapter: true,
+            };
+          }
+          return false;
+        }
         // As a PDF page does: the page underneath is replaced at once, and a
         // copy of the page being left covers it and turns away. A glide would
         // move both at once, and the reader would see the journey twice.
@@ -1419,13 +1826,17 @@ const BookView = forwardRef(function BookView({
         if (animate) {
           pageTurnIntent.current = {
             section,
-            fromColumn: columnPage,
+            fromColumn: here,
             left: el.scrollLeft,
             top: el.scrollTop,
           };
         }
+        pendingColumn.current = next;
+        ownColumnScroll.current = true;
         el.scrollTo({ left: columnLeft(el, next, step), behavior: animate ? 'auto' : 'smooth' });
+        ownColumnScroll.current = false;
         setColumnPage(next);
+        if (measured !== columnPages) setColumnPages(measured);
         return true;
       }
       const step = Math.max(80, el.clientHeight - 60);
@@ -1550,6 +1961,18 @@ const BookView = forwardRef(function BookView({
      * is already a data URL, and to null otherwise.
      */
     pageImage() {
+      // A picture inside a PDF page: cropped out of the painted canvas at
+      // the rectangle the page's own drawing operators gave for it. The
+      // whole page is one canvas, so there is nothing else to copy from.
+      if (kind === 'pdf' && pickedFigure) {
+        const canvas = scrollRef.current?.querySelector('canvas.pdf-canvas');
+        if (canvas) {
+          try {
+            const out = cropRef.current?.(canvas, pickedFigure.rect);
+            if (out?.dataUrl) return out;
+          } catch { /* fall through to whatever else is pickable */ }
+        }
+      }
       const node = currentImageNode();
       if (!node) return null;
       try {
@@ -1575,9 +1998,49 @@ const BookView = forwardRef(function BookView({
       }
     },
 
+    /** The rectangle the reader drew, as a picture. */
+    regionImage() {
+      // A rectangle the reader drew: cut straight out of whatever the page
+      // is drawn on. Only a page that is already a picture has pixels to
+      // cut, which is why the mode is offered for those alone.
+      if (region && region.width > 6 && region.height > 6) {
+        const pane = scrollRef.current;
+        const node = pane?.querySelector('canvas.pdf-canvas, img.comic-page, .page-image img, img');
+        if (node && cropRef.current) {
+          try {
+            const spot = boxOf(node);
+            const canvas = node.tagName === 'CANVAS' ? node : toCanvas(node);
+            if (spot && canvas) {
+              const out = cropRef.current(canvas, {
+                x: region.left - spot.left,
+                y: region.top - spot.top,
+                width: region.width,
+                height: region.height,
+              });
+              if (out?.dataUrl) return out;
+            }
+          } catch { /* fall through to whatever else is pickable */ }
+        }
+      }
+      return null;
+    },
+
+    /** Whether a rectangle has been drawn and settled on. */
+    hasRegion() {
+      return !!(region && region.width > 6 && region.height > 6);
+    },
+
     /** Whether `pageImage()` has something to give — for enabling the command. */
     hasImage() {
-      return !!currentImageNode();
+      // A drawn rectangle is not a picture: it has its own command, so
+      // that "copy picture" and "copy the region" are never both offered
+      // for the same thing.
+      return !!(kind === 'pdf' && pickedFigure) || !!currentImageNode();
+    },
+
+    /** The picture of a PDF page the reader clicked, if any. */
+    pickedFigure() {
+      return pickedFigure;
     },
 
     /** The picture the reader picked with the mouse, if any. */
@@ -1587,7 +2050,8 @@ const BookView = forwardRef(function BookView({
 
     scale,
   }), [paged, flow, kind, section, rowOf, columnPage, columnPages, scale, fracY, spotHost,
-    onSelectionChange, currentImageNode, pickedImage, settings.pageTurn, layout]);
+    onSelectionChange, currentImageNode, pickedImage, pickedFigure, region, boxOf,
+    settings.pageTurn, layout]);
 
   // The back of a spread's leaf, once the PDF page it lands on has been painted.
   // Until then the leaf shows blank paper rather than the page before last —
@@ -1663,7 +2127,18 @@ const BookView = forwardRef(function BookView({
       void el.offsetWidth;
       el.style.animation = '';
     }
-  }, [turn?.id, hold?.id]);
+    // A window told not to animate has no animation to report the end of, so
+    // waiting for one would leave the copy lying across the book until the
+    // backstop timer caught it. Nothing is moving, so there is nothing to wait
+    // for either: it comes off now.
+    const mover = root.querySelector('.turn-sheet, .turn-leaf');
+    // `null` where the browser cannot say — jsdom has no Web Animations, and
+    // there the backstop timer is what ends the turn.
+    const running = typeof mover?.getAnimations === 'function'
+      ? mover.getAnimations().length > 0
+      : null;
+    if (running === false) endTurn();
+  }, [turn?.id, hold?.id, endTurn]);
 
   if (!book) {
     return <div className="bookview empty">{emptyState}</div>;
@@ -1714,6 +2189,7 @@ const BookView = forwardRef(function BookView({
         <div
           key={turn.id}
           className={`turn-leaf turn-${settings.pageTurn} ${turn.dir} ${foldsAtGutter ? 'half' : 'whole'}`}
+          onAnimationEnd={onTurnEnd}
         >
           <div className="leaf-face front">
             {leafShots.length
@@ -1737,9 +2213,10 @@ const BookView = forwardRef(function BookView({
     </div>
   ) : null;
 
+  const sheet = reflowable && paged ? ebookSheet(layout) : null;
   const style = {
-    // A continuous chapter keeps the column width the reader chose. Fitting it
-    // to the window — or reading one page, or two — uses the pane instead.
+    // A continuous chapter keeps the column width the reader chose. A page
+    // has its own size — see `sheet` — and the window only scales it.
     ...readingStyle(layout === 'continuous' && settings.readingWidth
       ? settings
       : { ...settings, readingWidth: 0 }),
@@ -1750,15 +2227,23 @@ const BookView = forwardRef(function BookView({
     '--col-count': String(textColumns),
     '--col-visible': String(screenColumns),
     '--col-gap': `${screenColumns > 1 ? 40 : 0}px`,
-    // One column's share of the pane, as a length. A percentage in
+    // One column's share of the page, as a length. A percentage in
     // column-width is dropped, and a column that is even a pixel off the
-    // pane makes the next page start in the middle of a line.
-    '--col-slot': viewport.width
-      ? `${viewport.width / Math.max(1, screenColumns)}px`
-      : '0px',
+    // page makes the next page start in the middle of a line.
+    '--col-slot': sheet
+      ? `${sheet.width / Math.max(1, screenColumns)}px`
+      : (viewport.width
+        ? `${viewport.width / Math.max(1, screenColumns)}px`
+        : '0px'),
+    ...(sheet ? {
+      width: `${sheet.width}px`,
+      height: `${sheet.height}px`,
+      transform: `scale(${fitScale})`,
+    } : {}),
   };
 
   const classes = [
+    `select-${selectMode}`,
     'bookview',
     reflowable ? 'reflow' : 'fixed',
     paged ? 'paged' : 'scrolling',
@@ -1805,6 +2290,7 @@ const BookView = forwardRef(function BookView({
             onScale={primary && i === 0 ? setScale : undefined}
             onSize={primary && i === 0 ? setSlotSize : undefined}
             onPainted={primary ? (shot) => onPagePainted(index, shot) : undefined}
+            onRegions={primary && i === 0 ? setFigures : undefined}
             onError={onError}
           />
         )) : pages.map((index, i) => {
@@ -1833,6 +2319,10 @@ const BookView = forwardRef(function BookView({
       ref={scrollRef}
       onScroll={onScroll}
       onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onPointerLeave={() => setHoverFigure(null)}
       onClick={onClick}
       onContextMenu={(e) => {
         // Right-clicking a picture picks it too, and says so, so that "copy
@@ -1862,22 +2352,32 @@ const BookView = forwardRef(function BookView({
         />
       ) : null}
 
-      {/* The page being left, drawn over the page that has arrived — the same
-          arrangement as a PDF page. The live chapter underneath is already the
-          new one and never moves. This copy is what turns away. It is a copy
-          rather than the live chapter, which is as wide as all its columns
-          together: moving that threw the columns out of the window. Nothing in
-          it can be clicked, selected or reached by the keyboard. */}
+      {/* A chapter of text turns exactly as a PDF page does. The copy is a
+          sheet of paper cut to the page (.leaf-face, the same one a PDF page
+          is drawn on), it holds the page being *left*, and it is what moves —
+          slid off, or turned over on the binding. The page that has arrived
+          never moves: it is already underneath, and the leaf uncovers it.
+          It is a copy rather than the live chapter, which is as wide as all
+          its columns together. Nothing in the copy can be clicked, selected
+          or reached by the keyboard. */}
       {kind === 'html' && hold ? (() => {
-        const flipHalf = hold.half && settings.pageTurn === 'flip';
+        // Two facing pages turn one of them over, and it is the page the
+        // reader is looking at: forward the right-hand page of the spread
+        // being left, back its left-hand page. Slid rather than turned, the
+        // spread goes as one, so the leaf starts at the spread's own edge.
+        const flipHalf = settings.pageTurn === 'flip' && hold.half;
         const pageW = hold.sheet / 2;
-        // Forward, the right-hand page lifts. Back, the left-hand page does.
-        // The other page of the spread stays, and the back of the leaf is the
-        // page it comes down on — the same three parts a PDF spread uses.
-        const frontShift = hold.left + (flipHalf && hold.dir === 'forward' ? pageW : 0);
-        const stayShift = hold.left + (hold.dir === 'back' ? pageW : 0);
-        const backShift = hold.land + (hold.dir === 'back' ? pageW : 0);
-        const heldChapter = (shift) => (
+        const leafShift = flipHalf && hold.dir === 'forward'
+          ? hold.left + pageW
+          : hold.left;
+        // The other page of the spread — the one that is not turning. Only
+        // half the book is covered while a leaf goes over, so without this the
+        // live spread shows through beside it and that page changes the
+        // instant the turn begins: the reader sees the new page first and the
+        // turn afterwards. A copy of it is held where it was until the leaf
+        // has come down, which is what a picture's spread already does.
+        const stayShift = hold.dir === 'forward' ? hold.left : hold.left + pageW;
+        const heldChapter = (shift, markup) => (
           <article
             className="chapter leaving"
             style={{
@@ -1885,7 +2385,7 @@ const BookView = forwardRef(function BookView({
               width: hold.width ? `${hold.width}px` : undefined,
               transform: `translate(${-shift}px, ${-hold.top}px)`,
             }}
-            dangerouslySetInnerHTML={{ __html: hold.html }}
+            dangerouslySetInnerHTML={{ __html: markup }}
           />
         );
         return (
@@ -1903,19 +2403,26 @@ const BookView = forwardRef(function BookView({
                 did. */}
             {flipHalf ? (
               <div className={`turn-stay ${hold.dir === 'forward' ? 'left' : 'right'}`}>
-                {heldChapter(stayShift)}
+                {heldChapter(stayShift, hold.html)}
               </div>
             ) : null}
             <div
               key={hold.id}
               className={`turn-sheet turn-${settings.pageTurn} turn-${hold.dir}${hold.half ? ' turn-half' : ''}`}
+              onAnimationEnd={onTurnEnd}
             >
+              <div className="leaf-face front">{heldChapter(leafShift, hold.html)}</div>
+              {/* The back of the leaf, so that a page of a spread goes the
+                  whole way over instead of vanishing as it stands upright.
+                  Turned 180° on the gutter the leaf lies on the page beside
+                  it, and the page it comes down showing is the one it carried
+                  across: the right-hand page the reader was on is now the
+                  left-hand page, which is what the live spread underneath has
+                  put there. Same page, same offset — so when the leaf is taken
+                  away nothing moves. */}
               {flipHalf ? (
-                <>
-                  <div className="leaf-face front">{heldChapter(frontShift)}</div>
-                  <div className="leaf-face back">{heldChapter(backShift)}</div>
-                </>
-              ) : heldChapter(hold.left)}
+                <div className="leaf-face back">{heldChapter(leafShift, hold.html)}</div>
+              ) : null}
             </div>
           </div>
         );
@@ -1968,10 +2475,43 @@ const BookView = forwardRef(function BookView({
         </div>
       ) : null}
 
-      {/* What is selected, said on the page itself. An outline alone is easy to
-          miss on a busy page, and a reader who has just clicked a picture needs
-          to see that the click did something — here, not only in the status bar
-          at the foot of the window. */}
+      {/* The picture that was clicked, outlined where it is. The frame is the
+          whole of it: a caption saying a picture is selected only repeated what
+          the frame already shows, over the top of the page. What to do with it
+          is in the right-click menu, where the reader is already pointing. */}
+      {/* The pictures of a PDF page: the one under the pointer, and the one
+          that was clicked. Drawn here rather than in the page component
+          because they are a layer of the pane, like the frame round a
+          picture in a chapter. */}
+      {kind === 'pdf' && (hoverFigure || pickedFigure) ? (
+        <div className="pdf-figures" aria-hidden="true" data-testid="pdf-figures">
+          {[hoverFigure, pickedFigure].filter(Boolean)
+            .filter((f, i, all) => all.findIndex((o) => o.id === f.id) === i)
+            .map((f) => (
+              <span
+                key={f.id}
+                className={`pdf-figure${pickedFigure?.id === f.id ? ' picked' : ''}`}
+                style={figureStyle(f)}
+              />
+            ))}
+        </div>
+      ) : null}
+
+      {/* The rectangle being dragged, or the one that was settled on. */}
+      {region ? (
+        <div
+          className="region-mark"
+          aria-hidden="true"
+          data-testid="region-mark"
+          style={{
+            left: `${Math.round(region.left)}px`,
+            top: `${Math.round(region.top)}px`,
+            width: `${Math.round(region.width)}px`,
+            height: `${Math.round(region.height)}px`,
+          }}
+        />
+      ) : null}
+
       {pickedImage && pickedBox ? (
         <div
           className="picked-mark"
@@ -1981,15 +2521,8 @@ const BookView = forwardRef(function BookView({
             width: `${Math.round(pickedBox.width)}px`,
             height: `${Math.round(pickedBox.height)}px`,
           }}
-          aria-live="polite"
           data-testid="picked-mark"
-        >
-          <span className="picked-mark-label">
-            {pickedImage.width && pickedImage.height
-              ? t('status.pickedImageSize', { w: pickedImage.width, h: pickedImage.height })
-              : t('status.pickedImage')}
-          </span>
-        </div>
+        />
       ) : null}
 
       {kind === 'html' && !content?.html ? (
@@ -1999,7 +2532,23 @@ const BookView = forwardRef(function BookView({
     </div>
   );
 
-  if (reflowable && paged) return <div className="reflow-stage">{pane}</div>;
+  if (reflowable && paged && sheet) {
+    return (
+      <div className="reflow-stage">
+        {/* The window the scaled page occupies. The page inside keeps its own
+            size and is enlarged from its top-left corner to fill this box. */}
+        <div
+          className="reflow-fit"
+          style={{
+            width: `${sheet.width * fitScale}px`,
+            height: `${sheet.height * fitScale}px`,
+          }}
+        >
+          {pane}
+        </div>
+      </div>
+    );
+  }
   return pane;
 });
 

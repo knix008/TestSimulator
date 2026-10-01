@@ -47,7 +47,15 @@ export default function DialogHost() {
       let height = Math.ceil(node.scrollHeight);
       if (content) {
         const top = content.getBoundingClientRect().top - node.getBoundingClientRect().top;
+        // Measured at its own height, not the one the window is giving it.
+        // The content is stretched to fill the shell, so its scrollHeight is
+        // whatever the window already is: the report could say 'taller' but
+        // never 'shorter', and a dialog that opened too tall stayed too tall
+        // with the empty space sitting under its buttons.
+        const was = content.style.height;
+        content.style.height = 'max-content';
         height = Math.ceil(top + content.scrollHeight);
+        content.style.height = was;
       }
       electron()?.dialog?.reportSize?.({ width: 0, height });
     };

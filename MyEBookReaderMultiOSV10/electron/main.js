@@ -31,6 +31,30 @@ const isSmoke = process.env.EBK_SMOKE === '1';
 // It must not write them into the reader's own folder: one of its checks shelves
 // a hundred thousand books, and nobody wants that in their real gallery.
 if (isSmoke) app.setPath('userData', path.join(app.getPath('temp'), 'myebookreader-smoke'));
+
+/**
+ * Carries the reader's own data over from the name the program used to have.
+ *
+ * Electron puts userData under the product name, so renaming the program to
+ * MyEbooks moved it from …/MyEBookReader to …/MyEbooks — and a reader who
+ * upgraded would have found their settings, recent books, reading positions
+ * and gallery apparently wiped, with the old folder still sitting there. This
+ * moves it across once, and only when there is nothing at the new name yet, so
+ * it can never overwrite data the new version has already written.
+ */
+function carryOverOldUserData() {
+  if (isSmoke) return;
+  try {
+    const now = app.getPath('userData');
+    const was = path.join(path.dirname(now), 'MyEBookReader');
+    if (was === now || fs.existsSync(now) || !fs.existsSync(was)) return;
+    fs.renameSync(was, now);
+  } catch {
+    // A folder that cannot be moved is left where it is: starting fresh is a
+    // poor outcome, but refusing to start at all is a worse one.
+  }
+}
+carryOverOldUserData();
 const DEV_URL = 'http://localhost:5183';
 const APP_ORIGIN = 'app://bundle';
 

@@ -68,7 +68,7 @@
   },
   "build": {
     "appId": "com.shkwon.myebookreader",
-    "productName": "MyEBookReader",
+    "productName": "MyEbooks",
     "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
     "directories": {
       "output": "release",
@@ -100,8 +100,8 @@
     "fileAssociations": [
       {
         "ext": "ebkr",
-        "name": "MyEBookReader Library",
-        "description": "MyEBookReader reading file (bookmarks, highlights, notes and reading position)",
+        "name": "MyEbooks Library",
+        "description": "MyEbooks reading file (bookmarks, highlights, notes and reading position)",
         "mimeType": "application/x-myebookreader-library",
         "role": "Editor",
         "icon": "build/icons/file.ico"
@@ -126,7 +126,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "menuCategory": true,
-      "shortcutName": "MyEBookReader",
+      "shortcutName": "MyEbooks",
       "installerIcon": "build/icons/icon.ico",
       "uninstallerIcon": "build/icons/icon.ico",
       "installerHeaderIcon": "build/icons/icon.ico",

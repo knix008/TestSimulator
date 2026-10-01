@@ -46,8 +46,8 @@ export const COMMANDS = [
   { id: 'modeScroll', label: 'cmd.modeScroll', icon: 'scroll' },
   { id: 'modePaged', label: 'cmd.modePaged', icon: 'paged' },
   { id: 'twoColumns', label: 'cmd.twoColumns', icon: 'columns' },
-  { id: 'textBigger', label: 'cmd.textBigger', icon: 'textSize', key: 'Ctrl++', menu: 'reading', needs: 'reflow' },
-  { id: 'textSmaller', label: 'cmd.textSmaller', icon: 'textSize', key: 'Ctrl+-', menu: 'reading', needs: 'reflow' },
+  { id: 'textBigger', label: 'cmd.textBigger', icon: 'textBigger', key: 'Ctrl++', menu: 'reading', needs: 'reflow' },
+  { id: 'textSmaller', label: 'cmd.textSmaller', icon: 'textSmaller', key: 'Ctrl+-', menu: 'reading', needs: 'reflow' },
   { id: 'textReset', label: 'cmd.textReset', icon: 'actual', key: 'Ctrl+0', menu: 'reading', needs: 'reflow' },
   // A turn effect needs a page that goes away. Read as one continuous thing
   // there is none, so these are offered only when the book comes a screen at a
@@ -97,10 +97,15 @@ export const COMMANDS = [
   // would be a command with no argument anywhere else, so it is offered nowhere
   // else — the Marks menu keeps the one that bookmarks where the reader is.
   { id: 'bookmarkHere', label: 'cmd.bookmarkHere', icon: 'bookmarkAdd', menu: 'context', needs: 'book' },
+  // What a drag over the page does. Exactly one of the three is on.
+  { id: 'selectText', label: 'cmd.selectText', icon: 'selectText', menu: 'marks', toggle: true },
+  { id: 'selectImage', label: 'cmd.selectImage', icon: 'selectImage', menu: 'marks', needs: 'book', toggle: true },
+  { id: 'selectRegion', label: 'cmd.selectRegion', icon: 'selectRegion', needs: 'fixed', menu: 'marks', toggle: true },
   { id: 'highlight', label: 'cmd.highlight', icon: 'highlight', key: 'Ctrl+H', menu: 'marks', needs: 'text' },
   { id: 'addNote', label: 'cmd.addNote', icon: 'note', menu: 'marks', needs: 'book' },
   { id: 'copySelection', label: 'cmd.copySelection', icon: 'copy', key: 'Ctrl+C', menu: 'marks', needs: 'text' },
   { id: 'copyImage', label: 'cmd.copyImage', icon: 'image', key: 'Ctrl+Shift+C', menu: 'marks', needs: 'image' },
+  { id: 'copyRegion', label: 'cmd.copyRegion', icon: 'selectRegion', menu: 'marks', needs: 'region' },
   { id: 'copySection', label: 'cmd.copySection', icon: 'copy', menu: 'marks', needs: 'book' },
   { id: 'selectAll', label: 'cmd.selectAll', icon: 'selectAll', key: 'Ctrl+A', menu: 'marks', needs: 'book' },
   { id: 'paste', label: 'cmd.paste', icon: 'paste', key: 'Ctrl+V', menu: 'marks' },
@@ -119,6 +124,32 @@ export const MENU_IDS = ['file', 'reading', 'view', 'marks', 'app', 'context', '
 
 /** The page-turn effects, which are a list to choose from rather than a cycle. */
 export const TURN_COMMANDS = ['turnNone', 'turnSlide', 'turnFlip'];
+
+/**
+ * The right-click menu, as an explicit list.
+ *
+ * It used to be the whole Marks menu with the Reading, View and App menus
+ * piled on after it, which meant most of the toolbar appeared again in a menu
+ * opened an inch below the buttons themselves — and the few commands that live
+ * nowhere else were buried in the middle of it. So this is the short list of
+ * things done *to what is under the pointer*, and nothing that is already a
+ * button on the row above.
+ *
+ * `highlight` and `copyImage` are the two commands here that are also on the
+ * toolbar, and deliberately: painting a selection and copying the picture
+ * under the pointer are exactly what a reader right-clicks to do.
+ *
+ * `-` is a separator.
+ */
+export const CONTEXT_COMMANDS = [
+  'highlight', 'addNote',
+  '-',
+  'copySelection', 'copyImage', 'copyRegion', 'copySection', 'selectAll', 'paste',
+  '-',
+  'bookmarkHere', 'addBookmark',
+  '-',
+  'find',
+];
 
 export function commandById(id) {
   return COMMANDS.find((c) => c.id === id) || null;
@@ -141,7 +172,7 @@ export function shortcutRows() {
  */
 export function menuRows(menu, state = {}) {
   const {
-    hasBook = false, hasSelection = false, reflowable = true, hasImage = false,
+    hasBook = false, hasSelection = false, reflowable = true, hasImage = false, hasRegion = false,
     onePage = false, layout = 'continuous',
     active = [], recentFiles = [], bookmarks = [], canUndo = false, canRedo = false,
   } = state;
@@ -155,6 +186,7 @@ export function menuRows(menu, state = {}) {
         return false;
       case 'text': return !hasSelection;
       case 'image': return !hasImage;
+      case 'region': return !hasRegion;
       case 'reflow':
         if (!hasBook || !reflowable) return true;
         // 다단 is one page split into columns. Two facing pages and a continuous
@@ -175,22 +207,29 @@ export function menuRows(menu, state = {}) {
   if (menu === 'recent') return recentRows(recentFiles);
   if (menu === 'bookmarks') return bookmarkRows(bookmarks);
 
-  // The right-click menu is the Marks menu, with the commands that only make
-  // sense when something on the page is being pointed at in front of it. The
-  // turn menu is the three effects on their own, so that one can be picked
-  // rather than cycled round to.
-  let source;
-  if (menu === 'context') source = [...commandsInMenu('context'), ...commandsInMenu('marks')];
-  else if (menu === 'turn') source = TURN_COMMANDS.map(commandById).filter(Boolean);
-  else source = commandsInMenu(menu);
-  const rows = source.map((command) => ({
+  const rowFor = (command) => ({
     id: command.id,
     label: command.label,
     icon: command.icon,
     key: command.key || '',
     disabled: disabled(command),
     checked: active.includes(command.id),
-  }));
+  });
+
+  // The right-click menu is its own short list — see CONTEXT_COMMANDS.
+  if (menu === 'context') {
+    return CONTEXT_COMMANDS
+      .map((id) => (id === '-' ? { separator: true } : commandById(id)))
+      .filter(Boolean)
+      .map((entry) => (entry.separator ? entry : rowFor(entry)));
+  }
+
+  // The turn menu is the three effects on their own, so that one can be picked
+  // rather than cycled round to.
+  const source = menu === 'turn'
+    ? TURN_COMMANDS.map(commandById).filter(Boolean)
+    : commandsInMenu(menu);
+  const rows = source.map(rowFor);
 
   if (menu === 'file') {
     return [
@@ -198,43 +237,6 @@ export function menuRows(menu, state = {}) {
       ...(recentFiles.length
         ? [{ separator: true }, { section: 'recent.title' }, ...recentRows(recentFiles)]
         : [{ separator: true }, { section: 'recent.title' }, { empty: 'recent.empty' }]),
-    ];
-  }
-
-  if (menu === 'context') {
-    const view = commandsInMenu('view')
-      .filter((c) => ['toggleLeft', 'toggleRight', 'invertPages'].includes(c.id))
-      .map((command) => ({
-        id: command.id,
-        label: command.label,
-        icon: command.icon,
-        key: command.key || '',
-        disabled: disabled(command),
-        checked: active.includes(command.id),
-      }));
-    const reading = commandsInMenu('reading')
-      .filter((c) => ['prevSection', 'nextSection', 'textBigger', 'textSmaller'].includes(c.id))
-      .map((command) => ({
-        id: command.id,
-        label: command.label,
-        icon: command.icon,
-        key: command.key || '',
-        disabled: disabled(command),
-        checked: active.includes(command.id),
-      }));
-    const app = commandsInMenu('app').map((command) => ({
-      id: command.id,
-      label: command.label,
-      icon: command.icon,
-      key: command.key || '',
-      disabled: disabled(command),
-      checked: active.includes(command.id),
-    }));
-    return [
-      ...rows,
-      { separator: true }, ...reading,
-      { separator: true }, ...view,
-      { separator: true }, ...app,
     ];
   }
 
@@ -316,6 +318,10 @@ export function activeCommands(settings, book) {
   if (zoomMode === 'fit-page') on.push('fitPage');
   if (zoomMode === 'fit-height') on.push('fitHeight');
   if (zoomMode === 'actual') on.push('actualSize');
+  const mode = settings.selectMode || 'text';
+  if (mode === 'text') on.push('selectText');
+  if (mode === 'picture') on.push('selectImage');
+  if (mode === 'region') on.push('selectRegion');
   if (settings.invertPages) on.push('invertPages');
   if (settings.leftPanel !== 'none') on.push('toggleLeft');
   if (settings.rightPanel !== 'none') on.push('toggleRight');

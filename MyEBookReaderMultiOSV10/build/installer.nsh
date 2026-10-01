@@ -5,11 +5,13 @@
 ;  • registers the .ebkr document type with its own icon (electron-builder
 ;    writes the association itself; here we make sure the icon, the friendly
 ;    name and the shell verbs are exactly what we want)
-;  • adds MyEBookReader to the "Open with" list for the book formats it reads,
-;    and — only if the user ticks the box — makes it the default for EPUB
+;  • adds MyEBookReader to the "Open with" list, and to the Windows
+;    "Default apps" list, for every format it reads — books, documents and
+;    pictures alike — and, only if the user ticks a box on that page, makes it
+;    the default for the book formats, the picture formats, or both
 ;  • asks before deleting the data an earlier installation left behind
 ;
-; On making MyEBookReader the default for a book format:
+; On making MyEBookReader the default for a format:
 ;   Since Windows 8 the actual default lives in a hash-protected UserChoice key
 ;   that no installer may write; Windows resets any forged value. What an
 ;   installer *can* do is what this script does:
@@ -28,22 +30,127 @@
 
 !define LIB_EXT ".ebkr"
 !define LIB_PROGID "MyEBookReader.Library"
-!define EPUB_PROGID "MyEBookReader.EPUB"
+; The ProgID every readable format points at. The name still says EPUB because
+; that is what earlier versions wrote, and changing it would orphan the
+; registrations they left behind; it stands for "a file MyEBookReader reads".
+!define BOOK_PROGID "MyEBookReader.EPUB"
+!define PIC_PROGID "MyEBookReader.Picture"
+
+; ── Every format the reader opens, in one place ────────────────────────────
+;
+; Four things are done with these lists — the "Open with" entries, the
+; Default Programs capabilities, the opt-in defaults and the uninstall
+; cleanup — and each used to spell its own subset out by hand, which is how
+; PDF ended up offered in "Open with" but missing from Default Programs, and
+; how everything past CBZ was offered nowhere at all. One list each now, walked
+; by whichever action is wanted. Keep them in step with BOOK_EXTENSIONS in
+; src/lib/book.js and OPENABLE_EXTENSIONS in electron/folder-list.js.
+!macro EbkEachBookFormat ACTION
+  !insertmacro ${ACTION} ".epub"
+  !insertmacro ${ACTION} ".pdf"
+  !insertmacro ${ACTION} ".mobi"
+  !insertmacro ${ACTION} ".prc"
+  !insertmacro ${ACTION} ".azw"
+  !insertmacro ${ACTION} ".azw3"
+  !insertmacro ${ACTION} ".fb2"
+  !insertmacro ${ACTION} ".cbz"
+  !insertmacro ${ACTION} ".cbr"
+  !insertmacro ${ACTION} ".md"
+  !insertmacro ${ACTION} ".markdown"
+  !insertmacro ${ACTION} ".mdown"
+  !insertmacro ${ACTION} ".html"
+  !insertmacro ${ACTION} ".htm"
+  !insertmacro ${ACTION} ".xhtml"
+  !insertmacro ${ACTION} ".txt"
+  !insertmacro ${ACTION} ".text"
+  !insertmacro ${ACTION} ".log"
+!macroend
+
+!macro EbkEachPictureFormat ACTION
+  !insertmacro ${ACTION} ".jpg"
+  !insertmacro ${ACTION} ".jpeg"
+  !insertmacro ${ACTION} ".jpe"
+  !insertmacro ${ACTION} ".png"
+  !insertmacro ${ACTION} ".gif"
+  !insertmacro ${ACTION} ".webp"
+  !insertmacro ${ACTION} ".bmp"
+  !insertmacro ${ACTION} ".avif"
+  !insertmacro ${ACTION} ".svg"
+  !insertmacro ${ACTION} ".tif"
+  !insertmacro ${ACTION} ".tiff"
+  !insertmacro ${ACTION} ".heic"
+  !insertmacro ${ACTION} ".heif"
+  !insertmacro ${ACTION} ".ico"
+  !insertmacro ${ACTION} ".dcm"
+  !insertmacro ${ACTION} ".dicom"
+!macroend
+
+; ── What is done to one extension ──────────────────────────────────────────
+; Each of these is handed to EbkEachBookFormat / EbkEachPictureFormat above.
+
+; Offered in "Open with", and listed as a type this application supports.
+!macro EbkOpenWithBook EXT
+  WriteRegStr HKCU "Software\Classes\${EXT}\OpenWithProgids" "${BOOK_PROGID}" ""
+  WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" "${EXT}" ""
+!macroend
+!macro EbkOpenWithPicture EXT
+  WriteRegStr HKCU "Software\Classes\${EXT}\OpenWithProgids" "${PIC_PROGID}" ""
+  WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" "${EXT}" ""
+!macroend
+
+; Declared under Default Programs, which is what puts the format in the
+; Windows "Default apps" page so the reader can choose it there later.
+!macro EbkCapabilityBook EXT
+  WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" "${EXT}" "${BOOK_PROGID}"
+!macroend
+!macro EbkCapabilityPicture EXT
+  WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" "${EXT}" "${PIC_PROGID}"
+!macroend
+
+; Pointed at us by default. Takes effect on a machine where nothing has been
+; chosen for that extension yet — see the note at the top about UserChoice.
+!macro EbkMakeDefaultBook EXT
+  WriteRegStr HKCU "Software\Classes\${EXT}" "" "${BOOK_PROGID}"
+!macroend
+!macro EbkMakeDefaultPicture EXT
+  WriteRegStr HKCU "Software\Classes\${EXT}" "" "${PIC_PROGID}"
+!macroend
+
+; Handed back on uninstall: the "Open with" entry goes, and the extension is
+; only released if it is still pointing at a ProgID that is about to vanish.
+!macro EbkUnregisterBook EXT
+  DeleteRegValue HKCU "Software\Classes\${EXT}\OpenWithProgids" "${BOOK_PROGID}"
+  ReadRegStr $0 HKCU "Software\Classes\${EXT}" ""
+  ${If} $0 == "${BOOK_PROGID}"
+    DeleteRegValue HKCU "Software\Classes\${EXT}" ""
+  ${EndIf}
+!macroend
+!macro EbkUnregisterPicture EXT
+  DeleteRegValue HKCU "Software\Classes\${EXT}\OpenWithProgids" "${PIC_PROGID}"
+  ReadRegStr $0 HKCU "Software\Classes\${EXT}" ""
+  ${If} $0 == "${PIC_PROGID}"
+    DeleteRegValue HKCU "Software\Classes\${EXT}" ""
+  ${EndIf}
+!macroend
 
 !ifndef BUILD_UNINSTALLER
 Var DesktopShortcutCheckbox
 Var StartMenuShortcutCheckbox
-Var DefaultEpubCheckbox
+Var DefaultBooksCheckbox
+Var DefaultPicturesCheckbox
 Var DoCreateDesktopShortcut
 Var DoCreateStartMenuShortcut
-Var DoSetDefaultEpub
+Var DoSetDefaultBooks
+Var DoSetDefaultPictures
 
 !macro customInit
   StrCpy $DoCreateDesktopShortcut "1"
   StrCpy $DoCreateStartMenuShortcut "1"
-  ; Taking over the EPUB default is opt-in: an installer should not silently
-  ; replace whichever reader the user already chose.
-  StrCpy $DoSetDefaultEpub "0"
+  ; Taking a format over is opt-in, and off to begin with: an installer should
+  ; not silently replace whichever reader — or browser, or picture viewer —
+  ; the user already chose.
+  StrCpy $DoSetDefaultBooks "0"
+  StrCpy $DoSetDefaultPictures "0"
 !macroend
 
 !macro customPageAfterChangeDir
@@ -65,9 +172,11 @@ Function ShortcutsPageCreate
     Pop $DesktopShortcutCheckbox
     ${NSD_CreateCheckbox} 0 52u 100% 12u "시작 메뉴에 바로가기 만들기"
     Pop $StartMenuShortcutCheckbox
-    ${NSD_CreateCheckbox} 0 70u 100% 12u "EPUB 파일의 기본 프로그램으로 설정"
-    Pop $DefaultEpubCheckbox
-    ${NSD_CreateLabel} 0 88u 100% 44u ".ebkr (MyEBookReader 독서 파일) 형식이 시스템에 등록되고, EPUB·PDF·MOBI·FB2·CBZ 파일의 [연결 프로그램] 목록에 추가됩니다.$\r$\n기본 프로그램으로 설정을 선택하면, 이미 다른 프로그램이 기본으로 지정되어 있는 경우 Windows [기본 앱] 설정 창이 열립니다. 마지막 확인은 Windows 정책상 사용자가 직접 해야 합니다."
+    ${NSD_CreateCheckbox} 0 70u 100% 12u "책·문서 형식의 기본 프로그램으로 설정 (EPUB·PDF·MOBI·AZW·FB2·CBZ·CBR·Markdown·HTML·텍스트)"
+    Pop $DefaultBooksCheckbox
+    ${NSD_CreateCheckbox} 0 88u 100% 12u "그림 형식의 기본 프로그램으로 설정 (JPG·PNG·GIF·WEBP·BMP·AVIF·SVG·TIFF·HEIC·ICO·DICOM)"
+    Pop $DefaultPicturesCheckbox
+    ${NSD_CreateLabel} 0 106u 100% 52u "읽을 수 있는 모든 형식이 [연결 프로그램] 목록과 Windows [기본 앱] 목록에 등록됩니다. 위 두 항목을 선택하지 않아도 나중에 [기본 앱]에서 직접 고를 수 있습니다.$\r$\n기본 프로그램으로 설정을 선택했는데 이미 다른 프로그램이 기본으로 지정되어 있으면 Windows [기본 앱] 설정 창이 열립니다. 마지막 확인은 Windows 정책상 사용자가 직접 해야 합니다."
     Pop $0
   ${Else}
     ${NSD_CreateLabel} 0 0u 100% 24u "Choose the shortcuts and file associations to create after installation."
@@ -76,9 +185,11 @@ Function ShortcutsPageCreate
     Pop $DesktopShortcutCheckbox
     ${NSD_CreateCheckbox} 0 52u 100% 12u "Create Start Menu shortcut"
     Pop $StartMenuShortcutCheckbox
-    ${NSD_CreateCheckbox} 0 70u 100% 12u "Set as the default application for EPUB files"
-    Pop $DefaultEpubCheckbox
-    ${NSD_CreateLabel} 0 88u 100% 44u "The .ebkr reading-file type will be registered, and MyEBookReader will be added to the 'Open with' list for EPUB, PDF, MOBI, FB2 and CBZ files.$\r$\nIf you set it as the default and another application is already the default, Windows Settings will open on the 'Default apps' page — Windows requires you to confirm that last step yourself."
+    ${NSD_CreateCheckbox} 0 70u 100% 12u "Make it the default for books and documents (EPUB, PDF, MOBI, AZW, FB2, CBZ, CBR, Markdown, HTML, text)"
+    Pop $DefaultBooksCheckbox
+    ${NSD_CreateCheckbox} 0 88u 100% 12u "Make it the default for pictures (JPG, PNG, GIF, WEBP, BMP, AVIF, SVG, TIFF, HEIC, ICO, DICOM)"
+    Pop $DefaultPicturesCheckbox
+    ${NSD_CreateLabel} 0 106u 100% 52u "Every format MyEBookReader reads is added to the 'Open with' list and to the Windows 'Default apps' list. You can pick it there later whether or not you tick these boxes.$\r$\nIf you do tick one and another application is already the default, Windows Settings will open on the 'Default apps' page — Windows requires you to confirm that last step yourself."
     Pop $0
   ${EndIf}
 
@@ -103,19 +214,20 @@ Function ShortcutsPageLeave
     StrCpy $DoCreateStartMenuShortcut "0"
   ${EndIf}
 
-  ${NSD_GetState} $DefaultEpubCheckbox $0
+  ${NSD_GetState} $DefaultBooksCheckbox $0
   ${If} $0 == 1
-    StrCpy $DoSetDefaultEpub "1"
+    StrCpy $DoSetDefaultBooks "1"
   ${Else}
-    StrCpy $DoSetDefaultEpub "0"
+    StrCpy $DoSetDefaultBooks "0"
+  ${EndIf}
+
+  ${NSD_GetState} $DefaultPicturesCheckbox $0
+  ${If} $0 == 1
+    StrCpy $DoSetDefaultPictures "1"
+  ${Else}
+    StrCpy $DoSetDefaultPictures "0"
   ${EndIf}
 FunctionEnd
-
-; Adds one extension to the "Open with" list, pointing at our ProgID.
-!macro RegisterOpenWith EXT
-  WriteRegStr HKCU "Software\Classes\${EXT}\OpenWithProgids" "${EPUB_PROGID}" ""
-  WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" "${EXT}" ""
-!macroend
 
 !macro customInstall
   ; ── Data left behind by an earlier installation ─────────
@@ -135,6 +247,9 @@ FunctionEnd
   ${If} ${FileExists} "$LOCALAPPDATA\${PRODUCT_NAME}\*.*"
     StrCpy $0 "1"
   ${EndIf}
+  ${If} ${FileExists} "$APPDATA\MyEBookReader\*.*"
+    StrCpy $0 "1"
+  ${EndIf}
 
   ${If} $0 == "1"
     ${If} $LANGUAGE == 1042
@@ -147,6 +262,10 @@ FunctionEnd
     EbkWipeData:
       RMDir /r "$APPDATA\${PRODUCT_NAME}"
       RMDir /r "$LOCALAPPDATA\${PRODUCT_NAME}"
+      ; And under the name the program used to have, which is where an
+      ; installation from before the rename left its data.
+      RMDir /r "$APPDATA\MyEBookReader"
+      RMDir /r "$LOCALAPPDATA\MyEBookReader"
     EbkKeepData:
   ${EndIf}
 
@@ -163,35 +282,40 @@ FunctionEnd
   ${EndIf}
 
   ; ── The app's own document type (.ebkr), with its own icon ──
-  WriteRegStr HKCU "Software\Classes\${LIB_PROGID}" "" "MyEBookReader Reading File"
-  WriteRegStr HKCU "Software\Classes\${LIB_PROGID}" "FriendlyTypeName" "MyEBookReader Reading File"
+  WriteRegStr HKCU "Software\Classes\${LIB_PROGID}" "" "${PRODUCT_NAME} Reading File"
+  WriteRegStr HKCU "Software\Classes\${LIB_PROGID}" "FriendlyTypeName" "${PRODUCT_NAME} Reading File"
   ; file.ico is shipped verbatim as an extraResource so the shell can read it
   ; (icons inside app.asar are not addressable by Explorer).
   WriteRegStr HKCU "Software\Classes\${LIB_PROGID}\DefaultIcon" "" "$INSTDIR\resources\file.ico,0"
-  WriteRegStr HKCU "Software\Classes\${LIB_PROGID}\shell\open" "" "Open with MyEBookReader"
+  WriteRegStr HKCU "Software\Classes\${LIB_PROGID}\shell\open" "" "Open with ${PRODUCT_NAME}"
   WriteRegStr HKCU "Software\Classes\${LIB_PROGID}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
   WriteRegStr HKCU "Software\Classes\${LIB_EXT}" "" "${LIB_PROGID}"
   WriteRegStr HKCU "Software\Classes\${LIB_EXT}" "Content Type" "application/x-myebookreader-library"
   WriteRegStr HKCU "Software\Classes\${LIB_EXT}\OpenWithProgids" "${LIB_PROGID}" ""
 
-  ; ── Book formats: always offered in "Open with" ──
-  WriteRegStr HKCU "Software\Classes\${EPUB_PROGID}" "" "E-book"
-  WriteRegStr HKCU "Software\Classes\${EPUB_PROGID}" "FriendlyTypeName" "E-book"
-  WriteRegStr HKCU "Software\Classes\${EPUB_PROGID}" "FriendlyAppName" "${PRODUCT_NAME}"
-  WriteRegStr HKCU "Software\Classes\${EPUB_PROGID}\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
-  WriteRegStr HKCU "Software\Classes\${EPUB_PROGID}\shell\open" "" "Open with ${PRODUCT_NAME}"
-  WriteRegStr HKCU "Software\Classes\${EPUB_PROGID}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+  ; ── Everything the reader opens: always offered in "Open with" ──
+  ; Two document types rather than one, so that Explorer and the Default apps
+  ; page can call a book a book and a picture a picture.
+  WriteRegStr HKCU "Software\Classes\${BOOK_PROGID}" "" "E-book or document"
+  WriteRegStr HKCU "Software\Classes\${BOOK_PROGID}" "FriendlyTypeName" "E-book or document"
+  WriteRegStr HKCU "Software\Classes\${BOOK_PROGID}" "FriendlyAppName" "${PRODUCT_NAME}"
+  WriteRegStr HKCU "Software\Classes\${BOOK_PROGID}\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
+  WriteRegStr HKCU "Software\Classes\${BOOK_PROGID}\shell\open" "" "Open with ${PRODUCT_NAME}"
+  WriteRegStr HKCU "Software\Classes\${BOOK_PROGID}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+
+  WriteRegStr HKCU "Software\Classes\${PIC_PROGID}" "" "Picture"
+  WriteRegStr HKCU "Software\Classes\${PIC_PROGID}" "FriendlyTypeName" "Picture"
+  WriteRegStr HKCU "Software\Classes\${PIC_PROGID}" "FriendlyAppName" "${PRODUCT_NAME}"
+  WriteRegStr HKCU "Software\Classes\${PIC_PROGID}\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
+  WriteRegStr HKCU "Software\Classes\${PIC_PROGID}\shell\open" "" "Open with ${PRODUCT_NAME}"
+  WriteRegStr HKCU "Software\Classes\${PIC_PROGID}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
 
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "${PRODUCT_NAME}"
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
   WriteRegStr HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}\SupportedTypes" "${LIB_EXT}" ""
 
-  !insertmacro RegisterOpenWith ".epub"
-  !insertmacro RegisterOpenWith ".pdf"
-  !insertmacro RegisterOpenWith ".mobi"
-  !insertmacro RegisterOpenWith ".azw3"
-  !insertmacro RegisterOpenWith ".fb2"
-  !insertmacro RegisterOpenWith ".cbz"
+  !insertmacro EbkEachBookFormat EbkOpenWithBook
+  !insertmacro EbkEachPictureFormat EbkOpenWithPicture
 
   ; ── Default Programs: what puts MyEBookReader in Settings → "Default apps" ──
   ; Without these keys the app cannot be picked as the default at all, so they
@@ -199,29 +323,48 @@ FunctionEnd
   WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities" "ApplicationName" "${PRODUCT_NAME}"
   WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities" "ApplicationDescription" "${APP_DESCRIPTION}"
   WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities" "ApplicationIcon" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
-  WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" ".epub" "${EPUB_PROGID}"
-  WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" ".mobi" "${EPUB_PROGID}"
-  WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" ".fb2" "${EPUB_PROGID}"
-  WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" ".cbz" "${EPUB_PROGID}"
+  !insertmacro EbkEachBookFormat EbkCapabilityBook
+  !insertmacro EbkEachPictureFormat EbkCapabilityPicture
   WriteRegStr HKCU "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" "${LIB_EXT}" "${LIB_PROGID}"
   WriteRegStr HKCU "Software\RegisteredApplications" "${PRODUCT_NAME}" "Software\${PRODUCT_NAME}\Capabilities"
 
-  ${If} $DoSetDefaultEpub == "1"
-    ; Takes effect immediately on a machine that has never had an EPUB default
-    ; chosen; where a UserChoice exists Windows keeps honouring that instead.
-    WriteRegStr HKCU "Software\Classes\.epub" "" "${EPUB_PROGID}"
+  ; Takes effect immediately on a machine that has never had a default chosen
+  ; for that extension; where a UserChoice exists Windows keeps honouring that
+  ; instead, which is what the Settings page below is for.
+  ${If} $DoSetDefaultBooks == "1"
+    !insertmacro EbkEachBookFormat EbkMakeDefaultBook
     WriteRegStr HKCU "Software\Classes\.epub" "Content Type" "application/epub+zip"
+    WriteRegStr HKCU "Software\Classes\.pdf" "Content Type" "application/pdf"
+  ${EndIf}
+  ${If} $DoSetDefaultPictures == "1"
+    !insertmacro EbkEachPictureFormat EbkMakeDefaultPicture
   ${EndIf}
 
   System::Call 'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
 
-  ${If} $DoSetDefaultEpub == "1"
+  ${If} $DoSetDefaultBooks == "1"
+  ${OrIf} $DoSetDefaultPictures == "1"
     ; The hash-protected UserChoice key can only be changed by the user, so
     ; hand them the Settings page for this app (Windows 10 1803+). Last, so the
-    ; window does not appear on top of the remaining install steps.
-    ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.epub\UserChoice" "ProgId"
-    ${If} $0 != ""
-    ${AndIf} $0 != "${EPUB_PROGID}"
+    ; window does not appear on top of the remaining install steps. EPUB stands
+    ; for the book formats and JPG for the pictures: if either is already spoken
+    ; for by something else, the page is worth opening.
+    StrCpy $1 "0"
+    ${If} $DoSetDefaultBooks == "1"
+      ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.epub\UserChoice" "ProgId"
+      ${If} $0 != ""
+      ${AndIf} $0 != "${BOOK_PROGID}"
+        StrCpy $1 "1"
+      ${EndIf}
+    ${EndIf}
+    ${If} $DoSetDefaultPictures == "1"
+      ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.jpg\UserChoice" "ProgId"
+      ${If} $0 != ""
+      ${AndIf} $0 != "${PIC_PROGID}"
+        StrCpy $1 "1"
+      ${EndIf}
+    ${EndIf}
+    ${If} $1 == "1"
       ExecShell "open" "ms-settings:defaultapps?registeredAppName=${PRODUCT_NAME}"
     ${EndIf}
   ${EndIf}
@@ -233,22 +376,16 @@ FunctionEnd
   Delete "$DESKTOP\${SHORTCUT_NAME}.lnk"
   Delete "$SMPROGRAMS\${SHORTCUT_NAME}.lnk"
 
-  ; If we are still the default for .epub, hand the extension back to the shell
-  ; rather than leaving it pointing at a ProgID that is about to disappear.
-  ReadRegStr $0 HKCU "Software\Classes\.epub" ""
-  ${If} $0 == "${EPUB_PROGID}"
-    DeleteRegValue HKCU "Software\Classes\.epub" ""
-  ${EndIf}
+  ; Every extension is handed back to the shell: the "Open with" entry goes,
+  ; and an extension still pointing at one of our ProgIDs is released rather
+  ; than left aimed at a document type that is about to disappear.
+  !insertmacro EbkEachBookFormat EbkUnregisterBook
+  !insertmacro EbkEachPictureFormat EbkUnregisterPicture
 
   DeleteRegKey HKCU "Software\Classes\${LIB_PROGID}"
-  DeleteRegKey HKCU "Software\Classes\${EPUB_PROGID}"
+  DeleteRegKey HKCU "Software\Classes\${BOOK_PROGID}"
+  DeleteRegKey HKCU "Software\Classes\${PIC_PROGID}"
   DeleteRegValue HKCU "Software\Classes\${LIB_EXT}\OpenWithProgids" "${LIB_PROGID}"
-  DeleteRegValue HKCU "Software\Classes\.epub\OpenWithProgids" "${EPUB_PROGID}"
-  DeleteRegValue HKCU "Software\Classes\.pdf\OpenWithProgids" "${EPUB_PROGID}"
-  DeleteRegValue HKCU "Software\Classes\.mobi\OpenWithProgids" "${EPUB_PROGID}"
-  DeleteRegValue HKCU "Software\Classes\.azw3\OpenWithProgids" "${EPUB_PROGID}"
-  DeleteRegValue HKCU "Software\Classes\.fb2\OpenWithProgids" "${EPUB_PROGID}"
-  DeleteRegValue HKCU "Software\Classes\.cbz\OpenWithProgids" "${EPUB_PROGID}"
   DeleteRegKey HKCU "Software\Classes\${LIB_EXT}"
   DeleteRegKey HKCU "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}"
 

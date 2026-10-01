@@ -97,4 +97,28 @@ describe('App.css', () => {
   it('paginates with CSS columns in paged mode', () => {
     expect(css).toMatch(/\.bookview\.reflow\.paged[\s\S]*column-width/);
   });
+
+  it('takes the page margin from the reader in every reading mode', () => {
+    // The side margin used to be a fixed 30px on the base rule, so setting it
+    // moved nothing in a book read as one continuous run.
+    expect(css).toMatch(/\.bookview \.chapter \{[^}]*--read-pad-x/);
+    expect(css).toMatch(/\.bookview \.chapter \{[^}]*--read-pad-y/);
+    // And a page at a time, where the inset sits on the blocks in the column.
+    expect(css).toMatch(/\.bookview\.reflow\.paged > \.chapter > \*[\s\S]{0,200}--read-pad-x/);
+  });
+  it('frames a picked picture from an overlay, never from the picture', () => {
+    // The picture itself used to carry an outline as well as the overlay that
+    // frames it, two pixels apart, so a picked picture sat inside two dashed
+    // rectangles. The frame is always a layer of the pane — which is also the
+    // only thing that can frame part of a PDF page, where the whole page is
+    // one canvas and there is no element to outline.
+    const framing = (css.match(/^[^\n{]*\.picked[^\n{]*\{[^}]*\}/gm) || [])
+      .filter((block) => /(^|[;{\s])(outline|border)\s*:/.test(block));
+    expect(framing.length).toBeGreaterThan(0);
+    for (const block of framing) {
+      const selector = block.slice(0, block.indexOf('{'));
+      expect(selector, selector).toMatch(/\.picked-mark|\.pdf-figure/);
+      expect(selector, selector).not.toMatch(/img\.picked|canvas\.picked|\.comic-page\.picked/);
+    }
+  });
 });

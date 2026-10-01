@@ -6,7 +6,9 @@ import {
   IconPanelLeft, IconPanelRight, IconTheme, IconSettings, IconInfo, IconFlag,
   IconScroll, IconDown,
   IconLibrary, IconImage, IconFitWidth, IconFitPage, IconFitHeight,
-  IconPageTurn, IconOnePage, IconTwoPages, IconColumns, IconTextSize,
+  IconPageTurn, IconOnePage, IconTwoPages, IconColumns,
+  IconHighlight, IconNote, IconTextSmaller, IconTextBigger,
+  IconSelectText, IconSelectImage, IconSelectRegion,
 } from './Icons.jsx';
 import { nextTheme } from '../lib/themes.js';
 import { viewLayoutOf, effectiveZoomMode, textColumnsOf, fontPixels } from '../lib/view.js';
@@ -33,15 +35,25 @@ function useToolbarMinWidth(barRef, scrollRef, deps) {
     // even while the row is scrolled — the sum is what the row really wants.
     // Margins have to be added by hand: a border box does not include them, and
     // the separators carry 6px on each side, which is most of a button.
+    // scrollWidth as well as the box: a group that is being squeezed reports a
+    // box narrower than its contents, and measuring the squeezed box is how the
+    // minimum came out too small in the first place.
+    const natural = (el) => Math.max(el.getBoundingClientRect().width, el.scrollWidth || 0);
     const content = kids.reduce((width, el) => {
       const cs = getComputedStyle(el);
-      return width + el.getBoundingClientRect().width
+      return width + natural(el)
         + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
     }, 0) + gap * (kids.length - 1);
     // Everything else on the row: the toolbar's own padding and the app group
-    // pinned to the right.
-    const chrome = bar.getBoundingClientRect().width - scroll.getBoundingClientRect().width;
-    const needed = Math.ceil(chrome + content) + 2;
+    // pinned to the right. That group was taken as whatever was left over after
+    // the scrolling part — but at the minimum width it is squeezed too, so it
+    // measured smaller than it is and the last buttons of the scrolling part
+    // (the text-size pair) were cut off at the window's own smallest size.
+    const barStyle = getComputedStyle(bar);
+    const padding = (parseFloat(barStyle.paddingLeft) || 0) + (parseFloat(barStyle.paddingRight) || 0);
+    const right = bar.querySelector('.toolbar-right');
+    const chrome = padding + (right ? natural(right) : 0);
+    const needed = Math.ceil(chrome + content) + 4;
     if (!Number.isFinite(needed) || needed <= 0) return;
     if (Math.abs(needed - last.current) < 2) return;
     last.current = needed;
@@ -128,7 +140,7 @@ function MenuButton({ icon: Icon, label, tip, menu, showLabel, onOpenMenu, disab
 const TURN_LABEL = { none: 'None', slide: 'Slide', flip: 'Flip' };
 
 export default function Toolbar({
-  settings, book, section, sectionCount, scale, hasImage, history,
+  settings, book, section, sectionCount, scale, hasImage, hasSelection, history,
   galleryOpen, onOpenMenu, onCommand, onGoToSection, onTheme, onLang, onReaderFont,
 }) {
   const { t, i18n } = useTranslation();
@@ -169,9 +181,12 @@ export default function Toolbar({
 
   return (
     <div className="toolbar" ref={barRef}>
-      {/* One row, always, and it holds *actions* only. Bookmarks, notes,
-          highlights and search live in the left tools, so they are not repeated
-          here. The page-turn effect is a setting picked from a list. */}
+      {/* One row, always, and it holds *actions* only. Bookmarks and search
+          live in the left tools, so they are not repeated here. The highlighter
+          and the note are: they act on the selection the reader has just made,
+          and hunting for them in a panel while holding a selection is what made
+          them feel absent. The page-turn effect is a setting picked from a
+          list. */}
       <div className="toolbar-scroll" ref={scrollRef}>
 
         {/* File */}
@@ -209,6 +224,60 @@ export default function Toolbar({
             onClick={history.redo}
             disabled={!history.canRedo}
             showLabel={showLabel}
+          />
+        </div>
+
+        <div className="toolbar-sep" />
+
+        {/* What a drag over the page does. Exactly one of the three is on, so
+            the reader can see at a glance whether they are about to pick words,
+            a picture, or a rectangle. A region can only be cut out of a page
+            that is a picture to begin with — a PDF, a comic — so it is off for
+            a book of reflowed text. */}
+        <div className="toolbar-group">
+          {[
+            { id: 'text', command: 'selectText', icon: IconSelectText, off: false },
+            { id: 'picture', command: 'selectImage', icon: IconSelectImage, off: !book },
+            { id: 'region', command: 'selectRegion', icon: IconSelectRegion, off: !book || reflowable },
+          ].map((mode) => (
+            <ToolButton
+              key={mode.id}
+              icon={mode.icon}
+              label={t(`cmd.${mode.command}`)}
+              tip={t(`tip.${mode.command}`)}
+              onClick={run(mode.command)}
+              disabled={mode.off}
+              active={(settings.selectMode || 'text') === mode.id}
+              pressed={(settings.selectMode || 'text') === mode.id}
+              showLabel={showLabel}
+              testId={`select-${mode.id}`}
+            />
+          ))}
+        </div>
+
+        <div className="toolbar-sep" />
+
+        {/* The highlighter, and the note beside it. Both need something to
+            act on: the pen paints a selection, so with nothing selected it is
+            off and says so. */}
+        <div className="toolbar-group">
+          <ToolButton
+            icon={IconHighlight}
+            label={t('cmd.highlight')}
+            tip={hasSelection ? t('tip.highlight') : t('tip.highlightNone')}
+            onClick={run('highlight')}
+            disabled={!book || !hasSelection}
+            showLabel={showLabel}
+            testId="highlight"
+          />
+          <ToolButton
+            icon={IconNote}
+            label={t('cmd.addNote')}
+            tip={t('tip.note')}
+            onClick={run('addNote')}
+            disabled={!book}
+            showLabel={showLabel}
+            testId="add-note"
           />
         </div>
 
@@ -365,6 +434,9 @@ export default function Toolbar({
                   <option key={font} value={font} style={{ fontFamily: `'${String(font).replace(/'/g, "\\'")}'` }}>{font}</option>
                 ))}
               </select>
+              {/* A small letter and a large one, each with its sign: the size
+                  of the letter says which way, and the − and + say it again
+                  for anyone who reads the row rather than looks at it. */}
               <button
                 type="button"
                 className="tbtn font-step"
@@ -374,7 +446,7 @@ export default function Toolbar({
                 aria-label={t('cmd.textSmaller')}
                 data-testid="font-smaller"
               >
-                <IconTextSize size={16} />
+                <IconTextSmaller size={18} />
                 <span className="col-count">−</span>
               </button>
               <button
@@ -397,7 +469,7 @@ export default function Toolbar({
                 aria-label={t('cmd.textBigger')}
                 data-testid="font-bigger"
               >
-                <IconTextSize size={16} />
+                <IconTextBigger size={18} />
                 <span className="col-count">+</span>
               </button>
             </>

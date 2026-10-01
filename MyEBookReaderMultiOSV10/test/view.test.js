@@ -7,7 +7,31 @@ import {
   FIT_TO_WINDOW, pageModeKey, pageModeOf, bookPageEdge,
   viewLayoutOf, viewLayoutSettings, effectiveZoomMode,
   textColumnsOf, columnSettings, columnChoice, screenColumnsOf,
+  ebookSheet, ebookFitScale, EBOOK_PAGE_WIDTH, EBOOK_PAGE_HEIGHT,
 } from '../src/lib/view.js';
+
+describe('an ebook page fitted to the window', () => {
+  it('gives one page a fixed size, and two pages that same page twice', () => {
+    expect(ebookSheet('single')).toEqual({
+      pageWidth: EBOOK_PAGE_WIDTH,
+      pageHeight: EBOOK_PAGE_HEIGHT,
+      width: EBOOK_PAGE_WIDTH,
+      height: EBOOK_PAGE_HEIGHT,
+    });
+    expect(ebookSheet('double').width).toBe(EBOOK_PAGE_WIDTH * 2);
+    expect(ebookSheet('double').height).toBe(EBOOK_PAGE_HEIGHT);
+  });
+
+  it('enlarges the page to the window without stretching it', () => {
+    const page = ebookSheet('single');
+    // A wide window is limited by the page's height, so the page stays tall.
+    expect(ebookFitScale(page, { width: 2000, height: 780 })).toBe(1);
+    // A tall window is limited by the page's width.
+    expect(ebookFitScale(page, { width: 520, height: 2000 })).toBe(1);
+    expect(ebookFitScale(page, { width: 1040, height: 1560 })).toBe(2);
+    expect(ebookFitScale(ebookSheet('double'), { width: 1040, height: 1560 })).toBe(1);
+  });
+});
 
 describe('zoom and text size', () => {
   it('steps up and down through the zoom stops', () => {
@@ -383,5 +407,19 @@ describe('reading a chapter a page at a time', () => {
   it('still answers without being told where the end is', () => {
     expect(columnPageAt(2000, 1000)).toBe(2);
     expect(columnPageAt(0, 0)).toBe(0);
+  });
+});
+
+describe('the page margin', () => {
+  it('hands the reader’s two margins to the stylesheet', () => {
+    const style = readingStyle({ pageMarginX: 40, pageMarginY: 10 });
+    expect(style['--read-pad-x']).toBe('40px');
+    expect(style['--read-pad-y']).toBe('10px');
+  });
+
+  it('falls back to the standard margin when nothing is set', () => {
+    const style = readingStyle({});
+    expect(style['--read-pad-x']).toBe('18px');
+    expect(style['--read-pad-y']).toBe('28px');
   });
 });

@@ -1,5 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { iconByName } from './Icons.jsx';
 
 // The menu bar: File, Reading, View, Marks, Application.
 //
@@ -18,7 +19,32 @@ export const BAR_MENUS = ['file', 'reading', 'view', 'marks', 'app'];
 /** The key that opens each menu, from the English names people expect. */
 export const MENU_KEYS = { file: 'f', reading: 'r', view: 'v', marks: 'm', app: 'a' };
 
-export default function MenuBar({ onOpenMenu, openMenu = null }) {
+/**
+ * The picture beside each menu's name.
+ *
+ * The same icon the menu's own rows are drawn with, so the bar and what opens
+ * from it look like one thing: the book for reading, the panels for the view,
+ * the pen for what the reader marks up.
+ */
+export const MENU_ICONS = {
+  // 'app' is About, shortcuts and the language — what the program *is*, so
+  // it carries the information mark. The gear belongs to Settings, which is
+  // its own item on the bar now rather than a row inside this menu.
+  file: 'open', reading: 'book', view: 'layout', marks: 'highlight', app: 'info',
+};
+
+/**
+ * The one item on the bar that is not a menu.
+ *
+ * Settings used to be a row inside the Program menu: two clicks, and the gear
+ * on the bar stood for a menu that mostly was not about settings. It opens the
+ * window straight away now.
+ */
+// It carries `data-command` rather than `data-menu`: it opens a window, not
+// a menu, and anything counting the menus on the bar must not count it.
+export const BAR_COMMAND = { id: 'settings', icon: 'settings', label: 'cmd.settings' };
+
+export default function MenuBar({ onOpenMenu, onCommand, openMenu = null }) {
   const { t } = useTranslation();
   const refs = useRef({});
 
@@ -52,9 +78,21 @@ export default function MenuBar({ onOpenMenu, openMenu = null }) {
           onMouseEnter={() => { if (openMenu && openMenu !== id) open(id); }}
           title={t(`tip.${id}Menu`, t(`menu.${id}`))}
         >
-          {t(`menu.${id}`)}
+          {React.createElement(iconByName(MENU_ICONS[id]), { size: 15 })}
+          <span className="menubar-label">{t(`menu.${id}`)}</span>
         </button>
       ))}
+      <button
+        type="button"
+        role="menuitem"
+        className="menubar-item"
+        data-command={BAR_COMMAND.id}
+        onClick={() => onCommand?.(BAR_COMMAND.id)}
+        title={t('tip.settings', t(BAR_COMMAND.label))}
+      >
+        {React.createElement(iconByName(BAR_COMMAND.icon), { size: 15 })}
+        <span className="menubar-label">{t(BAR_COMMAND.label)}</span>
+      </button>
     </div>
   );
 }

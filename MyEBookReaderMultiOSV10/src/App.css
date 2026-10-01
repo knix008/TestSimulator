@@ -364,7 +364,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
 }
+/* Name and picture together: the same icon the menu's own rows carry, so the
+   bar and what drops out of it read as one thing. */
 .menubar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   -webkit-app-region: no-drag;
   border: 0;
   background: transparent;
@@ -376,6 +381,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   cursor: pointer;
   white-space: nowrap;
 }
+.menubar-label { line-height: 1; }
 .menubar-item:hover { background: var(--bg-3); color: var(--text); }
 .menubar-item.open {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
@@ -707,12 +713,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 6px;
+  /* Wide enough to catch with a pointer. Six pixels asked the reader to hit
+     a hairline; the grab area is bigger than the line it draws. */
+  width: 11px;
   cursor: col-resize;
   z-index: 3;
 }
-.panel-resizer.left { right: -3px; }
-.panel-resizer.right { left: -3px; }
+.panel-resizer.left { right: -5px; }
+.panel-resizer.right { left: -5px; }
 .panel-resizer:hover { background: color-mix(in srgb, var(--accent) 45%, transparent); }
 
 .panel-tabs {
@@ -816,6 +824,22 @@ button, input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: 0.4px;
 }
 .panel-actions { display: flex; gap: 5px; padding: 4px; }
+/* The strip the panel's smallest width is measured from. Laid out so the
+   measurement is real, but taken out of the flow and hidden so nothing of
+   it reaches the reader. */
+.panel-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+/* A button says what it does on one line. Wrapped onto two it is twice as
+   tall as the row beside it and reads as two controls. The panel is kept
+   wide enough for them — see usePanelBodyMin. */
+.panel-actions .btn { white-space: nowrap; }
 .panel-search { display: flex; gap: 4px; padding: 4px; }
 .panel-search .input { flex: 1; min-width: 0; }
 
@@ -1075,7 +1099,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   z-index: 1;
   max-width: var(--read-width);
   margin: 0 auto;
-  padding: 34px 30px 64px;
+  /* The reader's own page margin, in every reading mode. The sides used to
+     be a fixed 30px here, so setting a side margin did nothing at all to a
+     book read as one continuous run — only the paged rule below took any
+     notice of it. The foot keeps a little more than the head. */
+  padding: var(--read-pad-y, 28px) var(--read-pad-x, 18px) calc(var(--read-pad-y, 28px) + 30px);
   background: var(--page-paper);
   color: var(--page-ink);
   font-family: var(--read-font);
@@ -1122,18 +1150,23 @@ button, input, select, textarea { font: inherit; color: inherit; }
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  /* The sheet sits in the middle of the window, the way a PDF page does.
-     This padding is the margin around it; the pane inside is the paper, and
-     it always fills what is left so a resized window redraws the page. */
+  /* A page has one size. This padding is the margin around the scaled page,
+     and whatever of the window the page does not cover stays the desk. */
   padding: 32px 44px;
   background: var(--page-bg);
 }
-.reflow-stage > .bookview {
-  flex: 1 1 auto;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
+.reflow-fit {
+  flex: none;
+  position: relative;
+  overflow: hidden;
+}
+.reflow-fit > .bookview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  flex: none;
+  max-width: none;
+  transform-origin: top left;
   box-shadow: 0 10px 28px var(--shadow);
 }
 .bookview.reflow.paged {
@@ -1141,23 +1174,30 @@ button, input, select, textarea { font: inherit; color: inherit; }
   overflow-y: hidden;
   background: var(--page-paper);
   color: var(--page-ink);
+  /* A bar along the bottom is part of the page's height, so the text column
+     came out shorter than the page. The page turns without that bar. */
+  scrollbar-width: none;
 }
-/* Two facing pages. The text is still two columns of one flow — a gap between
-   the columns would shift the next spread into the middle of a page — and the
-   desk colour painted down the middle is what makes them two sheets. */
-.bookview.reflow.paged.view-double,
-.bookview.reflow.paged.view-double .turn-sheet:not(.turn-half) {
-  background: linear-gradient(90deg,
-    var(--page-paper) 0,
-    var(--page-paper) calc(50% - 14px),
-    var(--page-bg) calc(50% - 14px),
-    var(--page-bg) calc(50% + 14px),
-    var(--page-paper) calc(50% + 14px),
-    var(--page-paper) 100%);
-}
-.bookview.reflow .turn-sheet {
+.bookview.reflow.paged::-webkit-scrollbar { height: 0; width: 0; }
+/* Two facing pages are still two columns of one flow, with no gap between the
+   columns: a gap would shift the next spread into the middle of a page. The
+   paper is one colour straight across. A desk-coloured band down the middle
+   showed through the right page's inner margin, so the turn carried a stripe
+   that belonged to neither page and held the two pages apart. */
+.bookview.reflow .turn-sheet,
+.bookview.reflow.paged.view-double > .chapter,
+.bookview.reflow.paged.view-double .turn-page .chapter {
   background: var(--page-paper);
   color: var(--page-ink);
+}
+/* The turning half of a spread is the same paper as a single page. It catches
+   the light as it goes over, the way a PDF page's leaf does — but it keeps no
+   drop shadow: a shadow on a half leaf darkens the edge that meets the gutter,
+   so the right page's inner margin read as a different colour from the page
+   beside it. A whole page has no such edge and keeps its shadow. */
+.bookview.reflow .turn-sheet.turn-half.turn-flip .leaf-face {
+  background: var(--page-paper);
+  box-shadow: none;
 }
 .bookview.reflow.paged > .chapter,
 .bookview.reflow.paged .turn-page .chapter {
@@ -1171,7 +1211,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   min-height: 0;
   max-width: none;
   margin: 0;
-  padding: 28px 0 40px;
+  /* The reader's own page margin. The foot gets a little more than the
+     head, as a printed page does. */
+  padding: var(--read-pad-y, 28px) 0 calc(var(--read-pad-y, 28px) + 12px);
   background: transparent;
   box-shadow: none;
   column-gap: 0;
@@ -1182,8 +1224,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .bookview.reflow.paged > .chapter > *,
 .bookview.reflow.paged .turn-page .chapter > * {
   box-sizing: border-box;
-  padding-left: 1.15rem;
-  padding-right: 1.15rem;
+  padding-left: var(--read-pad-x, 18px);
+  padding-right: var(--read-pad-x, 18px);
   max-width: var(--col-slot);
 }
 /* A continuous chapter is one sheet. Extra columns sit beside each other and
@@ -1262,20 +1304,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .mark-note { box-shadow: inset 0 -2px 0 var(--warn); }
 mark.find-hit { background: color-mix(in srgb, var(--accent) 45%, transparent); color: inherit; }
 mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
-
-.column-readout {
-  position: sticky;
-  left: 0;
-  bottom: 6px;
-  z-index: 2;
-  width: fit-content;
-  margin-left: 12px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-2) 85%, transparent);
-  color: var(--text-dim);
-  font-size: 0.78em;
-}
 
 /* A page sits in the middle of the window, both ways. `safe` is what keeps a
    page larger than the window reachable: centring alone would push its top and
@@ -1365,11 +1393,11 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 .bookview.spread .page-spread > * { flex: 0 0 auto; min-width: 0; }
 
 /* ── The page-turning effects ──────────────────────────
-   The page that has arrived never moves: it is uncovered, not brought in.
-   What moves is a copy of the page being left, and it turns away. A picture
-   does that with a leaf cut to the page. A chapter of text does the same with
-   a copy of the chapter, pinned over the column that has already been
-   scrolled to — the way a PDF page is replaced under its cover. */
+   One mechanism for every format. The page that has arrived never moves: it is
+   uncovered, not brought in. What moves is a copy of the page being left, on a
+   sheet of paper cut to the page (.leaf-face), and it slides off or turns over
+   on the binding. A picture's copy is a snapshot; a chapter's is the markup
+   again, pinned over the column that has already been scrolled to. */
 .turn-page {
   position: absolute;
   inset: 0;
@@ -1524,13 +1552,18 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   from { transform: translateX(0); }
   to   { transform: translateX(108%); }
 }
+/* Exactly one page, not a little more. The spread being left travels the width
+   of one of its two pages, which lands the page that was on the right in the
+   left-hand slot — where the page that has arrived underneath already is. The
+   old 54% overshot, so the page slid past the slot it was meant to land in and
+   the last frames of the turn were a jolt. */
 @keyframes page-away-forward-half {
   from { transform: translateX(0); }
-  to   { transform: translateX(-54%); }
+  to   { transform: translateX(-50%); }
 }
 @keyframes page-away-back-half {
   from { transform: translateX(0); }
-  to   { transform: translateX(54%); }
+  to   { transform: translateX(50%); }
 }
 /* Turned over on the binding, about the upright axis — a leaf of paper, not a
    card being flipped end over end and not a page rising from the foot. Half way
@@ -1558,12 +1591,17 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   50%  { filter: brightness(0.66); }
   to   { filter: brightness(1); }
 }
-/* A chapter turns on the same hinge as a picture: forward about the left edge,
-   back about the right, from flat to turned over. */
+/* A chapter flips exactly as a picture does: the page being left is the leaf,
+   it starts lying flat because it is the page that is there, and it goes over
+   on the binding until it is facing away — which is when the page underneath,
+   the one that has already arrived, is uncovered. It used to be the other way
+   round, the page being *landed* on turning down over a held copy of the old
+   one, and that read as a page arriving from nowhere. */
 .turn-sheet.turn-flip {
   animation-duration: var(--turn-ms, 0.64s);
   animation-timing-function: ease-in;
   animation-fill-mode: forwards;
+  transform-style: preserve-3d;
 }
 .turn-sheet.turn-flip.turn-forward {
   transform-origin: left center;
@@ -1573,10 +1611,24 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   transform-origin: right center;
   animation-name: leaf-over-back;
 }
-/* Two facing pages, and one leaf of them moves — the same geometry as a PDF
-   spread. Forward, the right-hand page lifts and comes down on the left, hinged
-   on the gutter. Back, the left-hand page does. The back of the leaf is the
-   page it lands on, so the sheet stays visible and each face hides its own. */
+/* The light on the paper as it goes over, the same as a picture's leaf. */
+.turn-sheet.turn-flip .leaf-face { animation: leaf-shade var(--turn-ms, 0.64s) ease-in-out; }
+/* Two facing pages: the sheet is *one* of them, and it is the page the reader
+   is looking at — pressing forward turns the right-hand page over to the left,
+   pressing back turns the left-hand page over to the right. Both go over on
+   the gutter, so the sheet is pinned to the side its page is on and hinged on
+   the edge that meets the middle of the book. `inset: 0` pins all four edges,
+   so the edge it is not hinged on has to be let go of.
+   It starts lying flat, because it is the page that is there, and goes the
+   whole way over: a leaf of a spread has a back, so it does not vanish when it
+   reaches upright — it carries on and comes down flat on the page beside it.
+   Which is why the sheet itself must stay visible from behind and each face
+   hide its own back, exactly as a picture's half leaf does (.turn-leaf.half).
+   Inheriting the whole sheet's `backface-visibility: hidden` is what made the
+   turn stop halfway, with the leaf disappearing as it stood upright.
+   It used to be the other way round as well: the page being *landed* on turned
+   down over the spread being left, which read as a page arriving from nowhere
+   rather than as the page in front of the reader being turned. */
 .turn-sheet.turn-half.turn-flip {
   width: 50%;
   z-index: 5;
@@ -1628,15 +1680,14 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   color: inherit;
 }
 /* A picture is not text: pointing at one offers to pick it, not to select
-   words, and a picked picture says so — loudly enough to be seen on a busy
-   page. An outline alone was easy to miss against a dark scan, so the picked
-   picture also carries a ring of the accent colour around it and the rest of
-   the page is dimmed a little behind it. */
+   words. What a picked picture looks like is drawn once, by .picked-mark
+   below — the `picked` class is how the pane remembers which picture that is,
+   and carries no frame of its own. It used to carry an outline as well, two
+   pixels outside the mark, so a picked picture appeared inside two dashed
+   rectangles. The mark is the one kept because it is the only one that fits
+   every kind of page: this rule could never match a PDF, whose page is a
+   canvas rather than an <img>. */
 .chapter img, .comic-page { cursor: pointer; }
-.chapter img.picked, .comic-page.picked {
-  outline: 2px dashed var(--accent);
-  outline-offset: 2px;
-}
 /* A bookmark the reader placed by pointing at a spot. The pin is drawn in the
    pane's content coordinates, so it stays on its words as the pane scrolls, and
    it takes no pointer events — a marker must never get in the way of reading or
@@ -1675,11 +1726,52 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   opacity: 0.92;
 }
 
-/* The frame drawn round the picked picture, and the label that names it. It is
-   a layer of the reading pane rather than anything belonging to the picture: a
-   picture is a replaced element and can carry no label of its own, and its
-   parent is not always its own shape — a picture in a chapter sits centred in a
-   paragraph far wider than itself. */
+/* The dotted frame drawn round the picked picture — the whole of what being
+   picked looks like. It is a layer of the reading pane rather than anything
+   belonging to the picture: a picture is a replaced element and can carry no
+   frame of its own, and its parent is not always its own shape — a picture in
+   a chapter sits centred in a paragraph far wider than itself. */
+/* The pictures a PDF page paints. A page is one canvas, so these are the
+   only thing a reader can point at inside it: the one under the pointer is
+   outlined faintly, the one that was clicked like any other picked
+   picture. */
+/* Picking a picture or dragging a rectangle is not reading: the words stop
+   taking the pointer so a drag cannot start a text selection by accident,
+   and the pointer says which of the two is about to happen. */
+.bookview.select-picture .chapter,
+.bookview.select-picture .textLayer,
+.bookview.select-region .chapter,
+.bookview.select-region .textLayer {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.bookview.select-picture .textLayer { pointer-events: none; }
+.bookview.select-region { cursor: crosshair; }
+.bookview.select-region .textLayer { pointer-events: none; }
+.bookview.select-region .chapter { cursor: crosshair; }
+/* The rectangle itself: drawn in the pane's own coordinates so it stays
+   on the page as the pane is scrolled. */
+.region-mark {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  border: 2px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-sizing: border-box;
+}
+
+.pdf-figures { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.pdf-figure {
+  position: absolute;
+  /* Thick enough to be seen over a picture of any colour. A hairline
+     disappeared into a busy scan. */
+  border: 2px dashed color-mix(in srgb, var(--accent) 75%, transparent);
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+.pdf-figure.picked { border: 3px dashed var(--accent); }
+.pdf-page .pdf-figures { z-index: 0; }
+
 .picked-mark {
   position: absolute;
   z-index: 4;
@@ -1687,36 +1779,6 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   border-radius: 3px;
   border: 2px dashed var(--accent);
   box-sizing: border-box;
-}
-.picked-mark-label {
-  position: absolute;
-  left: 0;
-  top: 0;
-  transform: translateY(-100%);
-  max-width: 100%;
-  padding: 2px 8px;
-  border-radius: 4px 4px 0 0;
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-size: 0.74rem;
-  line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* A picture at the very top of the pane has no room above it for the label, so
-   it sits just inside the picture instead of off the top of the window. */
-.picked-mark[style*="top: 0px"] .picked-mark-label,
-.picked-mark[style*="top: 1px"] .picked-mark-label { transform: none; border-radius: 4px 0 4px 0; }
-@media (prefers-reduced-motion: reduce) {
-  .picked-mark { animation: none; }
-}
-
-@keyframes picked-in {
-  from { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 0%, transparent), 0 6px 22px var(--shadow); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .chapter img.picked, .comic-page.picked { animation: none; }
 }
 
 .comic-page { max-width: 100%; box-shadow: 0 6px 22px var(--shadow); }
@@ -1767,9 +1829,16 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   -webkit-user-select: text;
   /* A little hit padding, so a press on the glyph — and not only on the tight
      box pdf.js gives it — starts a selection. The negative margin keeps the
-     invisible text exactly over the ink it stands for. */
-  padding: 0.12em 0.08em;
-  margin: -0.12em -0.08em;
+     invisible text exactly over the ink it stands for.
+
+     In pixels, not em. pdf.js gives every run a font-size equal to the
+     height of its glyphs, so an em of padding is one height for body text
+     and three for a heading: the band drawn over a selection changed with
+     the size of the type, and the inflated boxes of large runs overlapped
+     their neighbours, which is how a drag caught a line it was nowhere
+     near. A constant reach is the same for every size. */
+  padding: 2px 1px;
+  margin: -2px -1px;
 }
 .textLayer > :not(.markedContent),
 .textLayer .markedContent span:not(.markedContent) { z-index: 1; }
@@ -2265,7 +2334,22 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 .btn.seg { border-radius: 7px; padding: 5px 10px; }
 .btn.seg.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .btn.danger-ghost { color: var(--danger); }
-.btn.stepper-btn { padding: 3px 10px; }
+/* The three controls of a stepper are one row — − · the value · + — and they
+   have to be the same height, with each glyph centred in its own box.
+   Two rules were fighting over them: one gave the signs a 22x22 grid cell,
+   the other `padding: 3px 10px`, and .btn's own `inline-flex` beat the grid's
+   centring. So the sign sat against the left of a box ten pixels wider than
+   it, in a button shorter than the readout beside it. One rule now, and the
+   row stretches them all to the tallest. */
+.btn.stepper-btn {
+  width: 2.1em;
+  min-width: 2.1em;
+  height: auto;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .seg-row { display: inline-flex; gap: 4px; align-items: center; }
 .seg-fill .btn { flex: 1; justify-content: center; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -2287,17 +2371,21 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 .input:focus { border-color: var(--accent); }
 .range { accent-color: var(--accent); width: 100%; }
 .check { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
-.stepper { display: inline-flex; align-items: center; gap: 6px; }
+/* One height for the whole row, so the signs match the value whether the
+   value is a button (the print and reading steppers) or a plain span (the
+   UI font size). `stretch` then makes every control fill it. */
+.stepper { display: inline-flex; align-items: stretch; gap: 6px; min-height: 2em; }
+span.stepper-value { display: inline-flex; align-items: center; justify-content: center; }
 .stepper-field { gap: 4px; }
 .btn.stepper-value {
-  min-width: 5em;
+  min-width: 3.6em;
   justify-content: center;
   text-align: center;
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
 }
 .btn.stepper-value:hover { color: var(--text); border-color: var(--accent); }
-.stepper-value { min-width: 4em; text-align: center; font-variant-numeric: tabular-nums; }
+.stepper-value { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; }
 .kv { width: 100%; border-collapse: collapse; font-size: 0.9em; }
 .kv th {
   text-align: left;
@@ -2355,6 +2443,16 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 }
 .dialog-settings .field.inline > .field-label { flex: none; white-space: nowrap; }
 .dialog-settings .field.inline > .stepper { width: auto; flex: none; margin-left: auto; }
+/* A row of settings is a label and its control, not a label at one edge of
+   the window and its control at the other. The panel is as wide as the
+   window needs for the theme grid, and without a cap every stepper and
+   segmented row was stretched the whole way across it, leaving a hand's
+   width of nothing in the middle of each line. */
+.dialog-settings .field.inline,
+.dialog-settings .stepper-field,
+.dialog-settings .seg-row { max-width: 300px; }
+.dialog-settings .field > .input,
+.dialog-settings .field > select.input { max-width: 300px; }
 .dialog-settings .field-label { font-size: 0.78em; }
 .dialog-settings .btn { padding: 4px 9px; }
 .dialog-settings .settings-panel { padding: 2px; }
@@ -2547,10 +2645,20 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   box-shadow: 0 4px 16px var(--shadow);
   overflow: hidden;
 }
+/* The four margins, two to a row, so the dialog does not grow a column of
+   four steppers down its side. */
+.print-margins {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+}
+.print-margins .stepper-field { margin: 0; }
+
 .print-preview-margins {
   position: absolute;
   inset: 0;
-  padding: var(--print-margin-y, 6%) var(--print-margin-x, 6%);
+  padding: var(--print-margin-top, 6%) var(--print-margin-right, 6%)
+    var(--print-margin-bottom, 6%) var(--print-margin-left, 6%);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2559,7 +2667,8 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 .print-preview-margins::before {
   content: '';
   position: absolute;
-  inset: var(--print-margin-y, 6%) var(--print-margin-x, 6%);
+  inset: var(--print-margin-top, 6%) var(--print-margin-right, 6%)
+    var(--print-margin-bottom, 6%) var(--print-margin-left, 6%);
   border: 1px dashed rgba(0, 0, 0, 0.22);
   pointer-events: none;
 }

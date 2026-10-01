@@ -128,6 +128,20 @@ describe('Toolbar', () => {
     expect(props.onCommand).toHaveBeenCalledWith('textReset');
   });
 
+  it('tells smaller from bigger by the size of the letter, not by a sign', () => {
+    renderToolbar();
+    const smaller = screen.getByTestId('font-smaller');
+    const bigger = screen.getByTestId('font-bigger');
+    // The sign is there to be read, and the letter to be seen: the two
+    // buttons must not draw the same picture as each other.
+    expect(smaller.textContent).toBe('−');
+    expect(bigger.textContent).toBe('+');
+    const path = (el) => el.querySelector('svg path').getAttribute('d');
+    expect(path(smaller)).not.toBe(path(bigger));
+    // And the bigger one really is the taller letter: its apex sits higher.
+    const apex = (el) => Math.min(...[...path(el).matchAll(/[-\d.]+\s+([-\d.]+)/g)].map((m) => Number(m[1])));
+    expect(apex(bigger)).toBeLessThan(apex(smaller));
+  });
   it('puts a fixed-layout book back to actual size from the same readout', () => {
     const { props } = renderToolbar({ book: { ...book, reflowable: false }, scale: 1.75 });
     const readout = document.querySelector('.zoom-readout');
@@ -241,14 +255,25 @@ describe('Toolbar', () => {
     expect(screen.getByTestId('fit-height')).toBeDisabled();
   });
 
-  it('leaves bookmarks, notes, highlights and search to the left tools', () => {
+  it('leaves bookmarks and search to the left tools', () => {
     renderToolbar({ bookmarkCount: 3, hasSelection: true });
     const bar = within(document.querySelector('.toolbar'));
     expect(bar.queryByLabelText(i18n.t('cmd.addBookmark'))).toBeNull();
     expect(bar.queryByLabelText(i18n.t('menu.bookmarks'))).toBeNull();
-    expect(bar.queryByLabelText(i18n.t('cmd.highlight'))).toBeNull();
-    expect(bar.queryByLabelText(i18n.t('cmd.addNote'))).toBeNull();
     expect(bar.queryByLabelText(i18n.t('cmd.find'))).toBeNull();
+  });
+
+  it('has the highlighter on the row, off until something is selected', () => {
+    renderToolbar({ hasSelection: false });
+    const bar = within(document.querySelector('.toolbar'));
+    expect(bar.getByLabelText(i18n.t('cmd.highlight')).disabled).toBe(true);
+  });
+
+  it('paints the selection when the highlighter is pressed', () => {
+    const { props } = renderToolbar({ hasSelection: true });
+    const bar = within(document.querySelector('.toolbar'));
+    fireEvent.click(bar.getByLabelText(i18n.t('cmd.highlight')));
+    expect(props.onCommand).toHaveBeenCalledWith('highlight');
   });
 
   it('jumps to the chapter typed into the box', () => {
@@ -388,11 +413,22 @@ describe('StatusBar', () => {
     expect(screen.getByText(i18n.t('status.noBook'))).toBeTruthy();
   });
 
-  it('does not number the pages of a reflowable book', () => {
+  it('says where the reader is in the chapter and in the book', () => {
     render(<StatusBar {...statusProps} pageCount={12} pageNow={3} columns={{ pages: 4, page: 2 }} />);
-    expect(screen.queryByTestId('page-readout')).toBeNull();
-    expect(screen.queryByText(/3 \/ 4/)).toBeNull();
+    // Both numbers, as the cells above say they should be: the chapter, where
+    // in the chapter, and how far through the book. The last is worked out
+    // rather than the book's own, and the ≈ says so. Both the in-chapter count
+    // and the book-wide one used to be rendered only for fixed-layout books —
+    // whose chapter is a single page and whose pages are its own — so for an
+    // ebook, the one format that needs them, neither ever appeared.
+    expect(screen.getByTestId('page-readout').textContent).toMatch(/3\s*\/\s*12/);
+    expect(screen.getByTestId('chapter-pages').textContent).toMatch(/3\s*\/\s*4/);
     expect(screen.getByText(/2 \/ 3/)).toBeTruthy();
+  });
+
+  it('leaves the in-chapter count off while the chapter is one page', () => {
+    render(<StatusBar {...statusProps} columns={{ pages: 1, page: 0 }} />);
+    expect(screen.queryByTestId('chapter-pages')).toBeNull();
   });
 
   it('numbers the pages of a fixed-layout book', () => {

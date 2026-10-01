@@ -706,7 +706,12 @@ export default function App() {
     if (!text.trim()) { toast(t('error.noSelection'), 'warn'); return; }
     editReading((state) => addHighlight(state, { section, text: text.trim().slice(0, 600) }), t('cmd.highlight'));
     viewRef.current?.clearSelection();
-    setSettings((s) => ({ ...s, leftPanel: 'highlights' }));
+    // And show them. Painting a highlight while highlights are switched off
+    // did everything it was asked — the passage went into the list, the toast
+    // said so — and left the page looking exactly as it had, which reads as
+    // the highlighter being broken. Asking to highlight something is asking to
+    // see it.
+    setSettings((s) => ({ ...s, leftPanel: 'highlights', showHighlights: true }));
     setStatusMessage(t('status.highlighted'));
     toast(t('status.highlighted'), 'ok');
   }, [editReading, section, t, toast]);
@@ -741,6 +746,19 @@ export default function App() {
       fail(err, 'copy');
     }
   }, [editReading, fail, section, t, toast]);
+
+  const copyRegionImage = useCallback(async () => {
+    const picture = viewRef.current?.regionImage?.();
+    if (!picture?.dataUrl) { toast(t('status.noImage'), 'warn'); return; }
+    try {
+      await copyImage(picture.dataUrl);
+      const said = t('status.copiedImage', { w: picture.width, h: picture.height });
+      setStatusMessage(said);
+      toast(said, 'ok');
+    } catch (err) {
+      fail(err, 'copy');
+    }
+  }, [fail, t, toast]);
 
   const copyCurrentImage = useCallback(async () => {
     const picture = viewRef.current?.pageImage?.();
@@ -1266,8 +1284,10 @@ export default function App() {
       case 'toggleMenuBar': setSettings((s) => ({ ...s, showMenuBar: !s.showMenuBar })); return;
       case 'toggleStatus': setSettings((s) => ({ ...s, showStatusBar: !s.showStatusBar })); return;
       case 'gallery':
-        setGalleryOpen(false);
-        setSettings((s) => ({ ...s, leftPanel: s.leftPanel === 'gallery' ? 'contents' : 'gallery' }));
+        // Over the page, where the books are big enough to be recognised by
+        // their covers. It used to open a list in the left panel instead,
+        // which is the one place a shelf of covers does not fit.
+        setGalleryOpen((on) => !on);
         return;
       case 'galleryIcons':
         setSettings((s) => ({ ...s, galleryView: 'icons' }));
@@ -1285,6 +1305,10 @@ export default function App() {
         return;
       case 'addBookmark': addBookmarkHere(); return;
       case 'bookmarkHere': addBookmarkHere(contextPoint.current); return;
+      case 'copyRegion': copyRegionImage(); return;
+      case 'selectText': setSettings((s) => ({ ...s, selectMode: 'text' })); return;
+      case 'selectImage': setSettings((s) => ({ ...s, selectMode: 'picture' })); return;
+      case 'selectRegion': setSettings((s) => ({ ...s, selectMode: 'region' })); return;
       case 'highlight': highlightSelection(); return;
       case 'addNote': askNote(); return;
       case 'copySelection': copySelection(); return;
@@ -1406,6 +1430,9 @@ ${entry.path}`), 'read', { file: entry.path });
     onePage: pageModeOf(settingsRef.current, bookRef.current) === 'paged',
     layout: viewLayoutOf(settingsRef.current, bookRef.current),
     hasImage: !!bookRef.current && !!viewRef.current?.hasImage?.(),
+    // A drawn rectangle. Copying one and copying a picture are different
+    // commands, so exactly one of them is ever live.
+    hasRegion: !!bookRef.current && !!viewRef.current?.hasRegion?.(),
     active: activeCommands(settingsRef.current, bookRef.current),
     recentFiles: settingsRef.current.recentFiles,
     bookmarks: reading.bookmarks,
@@ -1502,8 +1529,16 @@ ${entry.path}`), 'read', { file: entry.path });
     switch (result.action) {
       case 'settings': {
         const next = result.settings;
-        if (next.lang !== settingsRef.current.lang) setLanguage(next.lang);
+        const spoke = next.lang !== settingsRef.current.lang;
+        if (spoke) setLanguage(next.lang);
         setSettings(next);
+        // And hand the new values back to the window the reader is looking
+        // at. The settings dialog is a window of its own and draws from the
+        // payload it was opened with, so without this the control that was
+        // just used does not come back ticked — picking English left the
+        // English button unselected and every label still in Korean, which
+        // reads as the choice not having worked at all.
+        openDialog('settings', { language: next.lang, theme: next.theme, settings: next });
         return;
       }
       case 'reset': {
@@ -1745,17 +1780,17 @@ ${entry.path}`), 'read', { file: entry.path });
     setSelectionText(text || '');
   }, []);
 
-  /** A picture was picked in the reading pane, or let go of. */
+  /**
+   * A picture was picked in the reading pane, or let go of.
+   *
+   * Nothing is announced. The dotted frame round the picture is what says it
+   * is picked, and the right-click menu is where the reader does something
+   * with it — a line of prose at the foot of the window said the same thing a
+   * third time, in the place the reader was least likely to be looking.
+   */
   const onPickImage = useCallback((picture) => {
     setPickedImage(picture || null);
-    if (!picture) {
-      setStatusMessage('');
-      return;
-    }
-    setStatusMessage(picture.width && picture.height
-      ? t('status.pickedImageSize', { w: picture.width, h: picture.height })
-      : t('status.pickedImage'));
-  }, [t]);
+  }, []);
 
   /**
    * The reader scrolled onto another page of a continuous run. Only the page
@@ -1781,7 +1816,11 @@ ${entry.path}`), 'read', { file: entry.path });
       <TitleBar title={titleText} />
 
       {settings.showMenuBar ? (
-        <MenuBar onOpenMenu={openMenu} openMenu={openMenuName} />
+        <MenuBar
+          onOpenMenu={openMenu}
+          onCommand={(id) => runCommandRef.current(id)}
+          openMenu={openMenuName}
+        />
       ) : null}
 
       <Toolbar
@@ -1790,7 +1829,8 @@ ${entry.path}`), 'read', { file: entry.path });
         section={section}
         sectionCount={book?.sectionCount || 0}
         scale={scale}
-        hasImage={!!book && (!book.reflowable || !!pickedImage)}
+        hasImage={!!book && (!!pickedImage || (!book.reflowable && book.format !== 'pdf'))}
+        hasSelection={!!selectionText.trim()}
         history={history}
         galleryOpen={galleryOpen}
         onOpenMenu={openMenu}
