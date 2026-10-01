@@ -39,7 +39,9 @@ export type IconName =
   | "terminal"
   | "lock"
   | "alert"
-  | "print";
+  | "print"
+  | "prev"
+  | "next";
 
 export function Icon({ name }: { name: IconName }) {
   return (
@@ -47,6 +49,35 @@ export function Icon({ name }: { name: IconName }) {
       {draw(name)}
     </svg>
   );
+}
+
+export function FileTypeIcon({ path }: { path: string }) {
+  const kind = fileKind(path);
+  return (
+    <svg className={`icon file-type file-type-${kind}`} viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.5 2.2h6.1L13 5.7V13.8H3.5z" />
+      <path d="M9.4 2.4V5.8H13" />
+      {kind === "code" && <path d="M6.3 8.1 5 9.5l1.3 1.4M9.7 8.1 11 9.5 9.7 10.9" />}
+      {kind === "image" && <><circle className="dab" cx="6.5" cy="8.1" r=".8" style={{ fill: "currentColor" }} /><path d="M5 12.2 7 10l1.2 1.1 1.4-1.7 1.6 2.8" /></>}
+      {kind === "data" && <path d="M6.2 8.3c.7-.8 2.9-.8 3.6 0-.7.8-2.9.8-3.6 0zM6.2 10.6c.7.8 2.9.8 3.6 0" />}
+      {kind === "text" && <path d="M6 8.2h4.2M6 10.3h2.8" />}
+      {kind === "web" && <path d="M5.6 9.6 8 7.6l2.4 2M8 7.8v4" />}
+      {kind === "config" && <path d="M6.1 8.2h3.8M6.1 10.4h2.4M8 7.4v.1M9.2 9.6v.1" />}
+    </svg>
+  );
+}
+
+function fileKind(path: string): "code" | "web" | "data" | "text" | "image" | "config" | "file" {
+  const name = path.split(/[/\\]/).pop() ?? "";
+  const dot = name.lastIndexOf(".");
+  const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "bmp"].includes(ext)) return "image";
+  if (["ts", "tsx", "js", "jsx", "mjs", "cjs", "cs", "py", "java", "go", "rs", "c", "cpp", "h", "hpp", "kt", "swift", "vb"].includes(ext)) return "code";
+  if (["html", "htm", "css", "scss", "less"].includes(ext)) return "web";
+  if (["json", "xml", "yml", "yaml", "csv", "toml"].includes(ext)) return "data";
+  if (["md", "txt", "log", "rst"].includes(ext)) return "text";
+  if (name.startsWith(".") || ["ini", "cfg", "conf", "env", "gitignore"].includes(ext)) return "config";
+  return "file";
 }
 
 export function MenuGlyph({ name }: { name: IconName }) {
@@ -148,6 +179,10 @@ function draw(name: IconName) {
       return <><circle cx="8" cy="8" r="5.2" /><path d="M8 4.8v3.6M8 10.8v.2" /></>;
     case "print":
       return <path d="M4.5 6V3h7v3M3 6.5h10v5H3zM5 11.5h6V13H5z" />;
+    case "prev":
+      return <path d="M4.2 9.6 8 5.4l3.8 4.2" />;
+    case "next":
+      return <path d="M4.2 6.4 8 10.6l3.8-4.2" />;
     default:
       return null;
   }

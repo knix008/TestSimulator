@@ -8,9 +8,12 @@ export const EMPTY_STATUS: PathStatus = { staged: null, workTree: null, unpushed
 
 const IGNORED = "Ignored";
 
+const UNMERGED = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
+
 export function statusFromPorcelain(xy: string): PathStatus {
   if (xy === "??") return { staged: null, workTree: "Untracked", unpushed: false };
   if (xy === "!!") return { staged: null, workTree: IGNORED, unpushed: false };
+  if (UNMERGED.has(xy)) return { staged: "Conflicted", workTree: "Conflicted", unpushed: false };
   const index = xy[0] === " " ? null : label(xy[0]);
   const work = xy[1] === " " ? null : label(xy[1]);
   return { staged: index, workTree: work, unpushed: false };

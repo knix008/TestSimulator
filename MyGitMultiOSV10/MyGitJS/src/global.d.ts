@@ -8,6 +8,7 @@ declare global {
       pickDirectory: () => Promise<string | null>;
       pickSaveDirectory: () => Promise<string | null>;
       pickFile: () => Promise<string | null>;
+      openTool?: (url: string, kind: "diff" | "merge") => Promise<void>;
       platform: string;
       window?: {
         minimize: () => Promise<void>;

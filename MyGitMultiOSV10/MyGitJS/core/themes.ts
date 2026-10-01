@@ -1,3 +1,5 @@
+import { publishAppearance } from "./appearance";
+
 export type ThemeMode = "light" | "dark";
 
 export type Theme = {
@@ -173,4 +175,5 @@ export function applyTheme(id: string | undefined | null): void {
   root.dataset.theme = item.id;
   root.dataset.mode = item.mode;
   root.dispatchEvent(new Event("mygit-theme"));
+  publishAppearance({ theme: item.id });
 }

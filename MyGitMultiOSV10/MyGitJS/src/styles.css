@@ -451,10 +451,11 @@ button { cursor: pointer; }
   line-height: 1.45;
   flex: 1;
 }
-.diff div { padding: 0 10px; min-height: 1.45em; }
-.diff .add { background: var(--add-bg); color: var(--add-ink); }
-.diff .del { background: var(--del-bg); color: var(--del-ink); }
-.diff .hunk { background: var(--hunk-bg); color: var(--hunk-ink); }
+.diff div { display: flex; align-items: center; padding: 0 10px; min-height: 24px; border-bottom: 1px solid var(--row-line); }
+.diff div:nth-child(even) { background: var(--alt-row); }
+.diff div.add { background: var(--add-bg); color: var(--add-ink); }
+.diff div.del { background: var(--del-bg); color: var(--del-ink); }
+.diff div.hunk { background: var(--hunk-bg); color: var(--hunk-ink); }
 .diff.wrap div { white-space: pre-wrap; }
 .search {
   margin-left: 8px;
@@ -641,6 +642,113 @@ button { cursor: pointer; }
 .dialog footer { border-bottom: 0; border-top: 1px solid var(--line); justify-content: flex-end; gap: 8px; }
 .dialog.prefs footer .restore { margin-right: auto; }
 .dialog.wide { width: min(760px, calc(100vw - 32px)); }
+.dialog.tool-view {
+  width: min(1100px, calc(100vw - 32px));
+  height: min(760px, calc(100vh - 48px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+}
+.dialog.tool-view .body { overflow: hidden; flex: 1; min-height: 0; padding: 0; }
+.tool-window { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); }
+.tool-titlebar {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 0 0 10px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+  -webkit-app-region: drag;
+}
+.tool-titlebar .file-title, .tool-titlebar .window-controls { -webkit-app-region: no-drag; }
+.file-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 650; }
+.file-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-window > .statusbar { margin-top: auto; }
+.tool-error { margin: 16px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.tool-error textarea { min-height: 180px; resize: vertical; padding: 8px; border: 1px solid var(--line); background: var(--input); color: var(--ink); }
+.side-diff, .merge-tool { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tool-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.tool-bar button:first-of-type { margin-left: auto; }
+.file-type-code { color: var(--accent); }
+.file-type-web { color: #2563eb; }
+.file-type-data { color: #059669; }
+.file-type-text { color: var(--muted); }
+.file-type-image { color: #d97706; }
+.file-type-config { color: #7c3aed; }
+.file-type-file { color: var(--muted); }
+.tool-bar button, .merge-picks button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--button); color: var(--ink); border-radius: 4px; padding: 4px 8px; }
+.tool-bar button .menu-glyph, .merge-picks button .menu-glyph { color: inherit; }
+.tool-bar .primary, .tool-bar button[aria-pressed="true"], .merge-picks button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.side-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.side-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel);
+}
+.side-pane + .side-pane { border-left: 1px solid var(--line); }
+.side-pane-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+}
+.side-version { font-family: ui-monospace, Consolas, monospace; color: var(--ink); }
+.side-pane-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.side-pane-scroll { overflow: auto; flex: 1; min-height: 0; min-width: 0; }
+.change-rail { position: relative; width: 12px; flex: 0 0 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.change-mark { position: absolute; left: 2px; right: 2px; min-height: 3px; border: 0; padding: 0; border-radius: 1px; }
+.change-mark.added { background: var(--add-ink); }
+.change-mark.removed { background: var(--del-ink); }
+.change-mark.modified { background: var(--hunk-ink); }
+.side-line {
+  display: grid;
+  grid-template-columns: 48px max-content;
+  align-items: center;
+  min-width: 100%;
+  min-height: 24px;
+  border-bottom: 1px solid var(--row-line);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.side-line:nth-child(even) { background: var(--alt-row); }
+.side-line .no { color: var(--muted); text-align: right; padding: 0 6px; user-select: none; }
+.side-line .text { white-space: pre; padding: 0 8px; }
+.side-panes.wrap .side-line { grid-template-columns: 48px minmax(0, 1fr); }
+.side-panes.wrap .side-line .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.side-line.added { background: var(--add-bg); color: var(--add-ink); }
+.side-line.removed { background: var(--del-bg); color: var(--del-ink); }
+.side-line.modified { background: var(--hunk-bg); color: var(--hunk-ink); }
+.side-line mark { background: color-mix(in srgb, var(--accent) 35%, transparent); color: inherit; }
+.merge-scroll { overflow: auto; flex: 1; min-height: 0; padding: 8px 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.code-lines { font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.45; }
+.code-lines > div { display: flex; align-items: center; min-height: 24px; white-space: pre-wrap; padding: 0 8px; border-bottom: 1px solid var(--row-line); }
+.code-lines > div:nth-child(even) { background: var(--alt-row); }
+.merge-pane.active .code-lines > div { background: var(--accent-soft); }
+.merge-conflict { border: 1px solid var(--line); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.merge-conflict.resolved { border-color: var(--accent); }
+.merge-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.merge-pane { min-width: 0; }
+.merge-pane > div { color: var(--muted); margin-bottom: 4px; }
+.merge-pane.active pre { background: var(--accent-soft); }
+.merge-picks { display: flex; gap: 6px; flex-wrap: wrap; }
 .dialog.prefs {
   width: 680px;
   min-width: 680px;
