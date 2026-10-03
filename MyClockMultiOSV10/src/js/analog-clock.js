@@ -335,11 +335,22 @@ const FACE_DRAWERS = {
   Steampunk: drawSteampunkFace
 };
 
-/** 12시 아래 오전/오후, 6시 위 날짜 뱃지. */
-function drawAmPmAndDate(g, date, color) {
+/** 문자판 안에 들어가도록 글자를 줄인다 (도시 이름이 길 때). */
+function fitLabel(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let cut = text;
+  while (cut.length > 1 && ctx.measureText(`${cut}…`).width > maxWidth) {
+    cut = cut.slice(0, -1);
+  }
+  return `${cut}…`;
+}
+
+/** 12시 아래 오전/오후(+도시), 6시 위 날짜 뱃지. */
+function drawAmPmAndDate(g, date, color, label) {
   const { ctx } = g;
   const ampm = date.getHours() < 12 ? '오전' : '오후';
-  const ampmFont = g.numFont(0.095);
+  // 멀리서도 읽히도록 문자판 숫자(0.145)에 가깝게 키운다.
+  const ampmFont = g.numFont(0.135);
 
   ctx.save();
   ctx.font = `600 ${ampmFont}px 'Segoe UI', 'Noto Sans KR', sans-serif`;
@@ -349,8 +360,20 @@ function drawAmPmAndDate(g, date, color) {
   ctx.fillText(ampm, g.cx, g.cy - g.r * 0.5);
   ctx.restore();
 
+  // 도시 이름 — 오전/오후 바로 아래, 문자판 안쪽에 둔다.
+  if (label) {
+    const cityFont = g.numFont(0.125);
+    ctx.save();
+    ctx.font = `700 ${cityFont}px 'Segoe UI', 'Noto Sans KR', sans-serif`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(fitLabel(ctx, String(label), g.r * 1.1), g.cx, g.cy - g.r * 0.32);
+    ctx.restore();
+  }
+
   const dateStr = String(date.getDate()).padStart(2, '0');
-  const dateFont = g.numFont(0.105);
+  const dateFont = g.numFont(0.15);
   ctx.save();
   ctx.font = `700 ${dateFont}px 'Segoe UI', 'Noto Sans KR', sans-serif`;
   const metrics = ctx.measureText(dateStr);
@@ -380,8 +403,9 @@ function drawAmPmAndDate(g, date, color) {
  * @param {Date} date 표시할 시각
  * @param {string} style AnalogStyle id
  * @param {object} colors analogColorsFrom() 결과
+ * @param {string} [label] 문자판 안에 적을 도시 이름 (추가 시계)
  */
-function drawAnalogClock(canvas, date, style, colors) {
+function drawAnalogClock(canvas, date, style, colors, label) {
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth;
   const cssH = canvas.clientHeight;
@@ -422,7 +446,7 @@ function drawAnalogClock(canvas, date, style, colors) {
   ctx.stroke();
 
   (FACE_DRAWERS[style] || FACE_DRAWERS.Classic)(g, c);
-  drawAmPmAndDate(g, date, c.number);
+  drawAmPmAndDate(g, date, c.number, label);
 
   const secA = (date.getSeconds() * 6 * Math.PI) / 180;
   const minA = ((date.getMinutes() + date.getSeconds() / 60) * 6 * Math.PI) / 180;

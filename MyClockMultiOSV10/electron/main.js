@@ -8,11 +8,17 @@
  *   panelWin  — SidePanelWindow       : 시계 좌/우에 붙는 400px 설정 패널
  *   alarmWin  — AlarmNotificationWindow: 알람·타이머 팝업
  *   fullWin   — ScreensaverWindow      : 전체 화면 시계 (Windows .scr 대체)
+ *   extraClockWins — 추가 시계들        : 시간대·테마·모양을 저마다 따로 갖는 시계 창
+ *   toolWins       — 분리한 탭 창들      : 알람·타이머·스톱워치·캘린더·세계 시간
+ *
+ * 설정만 시계마다 따로 간다. 알람·타이머·스톱워치·일정은 메인 시계 창이 하나로
+ * 들고 있고, 패널이든 분리한 창이든 같은 상태를 보고 같은 명령을 보낸다.
  */
 
 const {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Tray,
   Menu,
@@ -30,8 +36,13 @@ const APP_NAME = 'MyClock';
 const APP_ID = 'com.shkwon.myclock';
 const STARTUP_ARG = '--autostart';
 
+// 설정 창 — 갈래 탭으로 나눠 스크롤 없이 한 화면에 담기는 크기.
+// 내용이 더 필요하면 패널이 재서 알려 준다 (panel:fit).
 const PANEL_WIDTH = 400;
-const PANEL_HEIGHT = 560;
+const PANEL_HEIGHT = 600;
+// 분리한 기능 창 (알람·타이머·캘린더…) — 목록이 길어 세로로 긴 편이 낫다.
+const TOOL_WIDTH = 420;
+const TOOL_HEIGHT = 620;
 const DIGITAL_MIN_WIDTH = 140;
 const DIGITAL_MIN_HEIGHT = 50;
 const DIGITAL_AMPM_ROW = 28;
@@ -65,12 +76,34 @@ const startInTray = process.argv.some((arg) => arg.toLowerCase() === STARTUP_ARG
 /** @type {Electron.BrowserWindow | null} */ let alarmWin = null;
 /** @type {Electron.BrowserWindow | null} */ let fullWin = null;
 /** @type {Electron.BrowserWindow | null} */ let menuWin = null;
+/** @type {Electron.BrowserWindow | null} */ let aboutWin = null;
 /** @type {Electron.Tray | null} */ let tray = null;
 
 let isQuitting = false;
 let panelOpensRight = true;
+/** @type {string | null} */ let panelPendingTab = null;
+/** 설정 패널이 재서 알려 준 크기 — 내용이 잘리지 않을 만큼. */
+/** @type {{ width: number, height: number } | null} */ let panelFit = null;
+
+/** 추가 시계 — 시계 id → 창, 창 id → 시계 id */
+/** @type {Map<string, Electron.BrowserWindow>} */ const extraClockWins = new Map();
+/** @type {Map<number, string>} */ const clockIdByWindow = new Map();
+/** @type {Map<string, NodeJS.Timeout>} */ const extraClockSaveTimers = new Map();
+
+/** 추가 시계의 설정 창 — 시계 id → 창 (시계마다 자기 설정 창을 갖는다) */
+/** @type {Map<string, Electron.BrowserWindow>} */ const clockSettingsWins = new Map();
+
+/** 분리한 탭 창 — 탭 이름 → 창 */
+/** @type {Map<string, Electron.BrowserWindow>} */ const toolWins = new Map();
+/** @type {Map<string, NodeJS.Timeout>} */ const toolSaveTimers = new Map();
+
+/** 컨텍스트 메뉴를 연 창 — 고른 항목을 그 창에 돌려준다. */
+/** @type {Electron.WebContents | null} */ let menuOpener = null;
 /** @type {NodeJS.Timeout | null} */ let gestureTimer = null;
 /** @type {NodeJS.Timeout | null} */ let gestureGuard = null;
+/** 끌기 중 커서가 멈췄는지 보는 값 — 멈춰 있으면 끌기가 끝난 것으로 본다. */
+/** @type {{x: number, y: number} | null} */ let gestureLastPoint = null;
+let gestureLastMoveAt = 0;
 
 // 사용자가 트레이로 숨긴 경우에만 true. 노트북 덮개·절전으로 창이 사라진 것과 구분한다.
 let hiddenByUser = startInTray;
@@ -396,17 +429,360 @@ function onClockGeometryChanged() {
   clockWin.webContents.send('clock:bounds', clockWin.getBounds());
 }
 
+// ── 추가 시계 창 ────────────────────────────────────────────────────────
+//
+// 시간대·테마·모양을 저마다 따로 갖는 시계들. 설정만 시계별로 나뉘고
+// 알람·타이머·스톱워치·캘린더는 앱 전체가 하나로 함께 쓴다.
+
+function extraClocks() {
+  return store.loadSettings().extraClocks;
+}
+
+function extraClockConfig(id) {
+  return extraClocks().find((clock) => clock.id === id) || null;
+}
+
+/** 열려 있는 추가 시계 목록이 바뀌었음을 패널·분리 창에 알린다. */
+function broadcastClocks() {
+  const list = extraClocks();
+  for (const win of [panelWin, ...toolWins.values(), ...clockSettingsWins.values()]) {
+    if (win && !win.isDestroyed()) win.webContents.send('clocks:changed', list);
+  }
+}
+
+function saveExtraClocks(list) {
+  store.saveSettings({ extraClocks: list });
+  broadcastClocks();
+  // 트레이의 "시계 닫기" 목록도 따라가게 한다.
+  refreshTrayMenu();
+}
+
+function extraClockBounds(config) {
+  const width = Math.round(config.windowWidth);
+  const height = Math.round(config.windowHeight);
+  if (config.windowLeft != null && config.windowTop != null) {
+    return clampToWorkArea({ x: Math.round(config.windowLeft), y: Math.round(config.windowTop), width, height });
+  }
+  // 처음 열 때는 이미 열려 있는 창들과 겹치지 않도록 계단처럼 어긋나게 둔다.
+  const area = screen.getPrimaryDisplay().workArea;
+  const step = 36 * (extraClockWins.size + 1);
+  return clampToWorkArea({
+    x: Math.round(area.x + area.width - width - 40 - step),
+    y: Math.round(area.y + 40 + step),
+    width,
+    height
+  });
+}
+
+function openExtraClock(config) {
+  const existing = extraClockWins.get(config.id);
+  if (existing && !existing.isDestroyed()) {
+    existing.show();
+    existing.focus();
+    return existing;
+  }
+
+  const win = new BrowserWindow({
+    ...extraClockBounds(config),
+    minWidth: DIGITAL_MIN_WIDTH,
+    minHeight: DIGITAL_MIN_HEIGHT,
+    frame: false,
+    transparent: true,
+    resizable: true,
+    skipTaskbar: true,
+    title: `${APP_NAME} — ${config.city || config.zone}`,
+    show: false,
+    hasShadow: false,
+    backgroundColor: '#00000000',
+    alwaysOnTop: store.loadSettings().alwaysOnTop,
+    icon: appIconPath(),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false
+    }
+  });
+
+  extraClockWins.set(config.id, win);
+  clockIdByWindow.set(win.id, config.id);
+
+  win.loadFile(path.join(__dirname, '..', 'src', 'zoneclock.html'), { query: { id: config.id } });
+  win.once('ready-to-show', () => win.show());
+  win.on('show', () => win.setSkipTaskbar(true));
+
+  const remember = () => {
+    if (win.isDestroyed() || win.isMinimized() || !win.isVisible()) return;
+    scheduleExtraClockSave(config.id, win.getBounds());
+  };
+  win.on('move', remember);
+  win.on('resize', remember);
+
+  win.on('closed', () => {
+    extraClockWins.delete(config.id);
+    clockIdByWindow.delete(win.id);
+  });
+
+  return win;
+}
+
+/** 창을 끌어 옮기는 동안 설정 파일을 매번 쓰지 않도록 몰아서 저장한다. */
+function scheduleExtraClockSave(id, bounds) {
+  const pending = extraClockSaveTimers.get(id);
+  if (pending) clearTimeout(pending);
+  extraClockSaveTimers.set(
+    id,
+    setTimeout(() => {
+      extraClockSaveTimers.delete(id);
+      const list = extraClocks().map((clock) =>
+        clock.id === id
+          ? {
+              ...clock,
+              windowLeft: bounds.x,
+              windowTop: bounds.y,
+              windowWidth: bounds.width,
+              windowHeight: bounds.height
+            }
+          : clock
+      );
+      store.saveSettings({ extraClocks: list });
+    }, 400)
+  );
+}
+
+/** 세계 시간 목록에서 고른 도시로 시계를 하나 더 만든다. */
+function addExtraClock(city) {
+  if (!city || typeof city.zone !== 'string' || !city.zone) return null;
+  const settings = store.loadSettings();
+  const config = store.normalizeExtraClock({
+    city: city.city || city.zone,
+    region: city.region || city.country || '',
+    zone: city.zone,
+    // 새 시계는 메인 시계의 모양을 그대로 물려받고, 그 뒤로는 따로 간다.
+    theme: settings.theme,
+    customThemeColor: settings.customThemeColor,
+    customThemeLight: settings.customThemeLight,
+    isDigital: settings.isDigital,
+    digitalStyle: settings.digitalStyle,
+    analogStyle: settings.analogStyle,
+    use24h: settings.use24h,
+    brightness: settings.brightness,
+    digitColor: settings.digitColor,
+    amPmColor: settings.amPmColor
+  });
+  if (!config) return null;
+
+  saveExtraClocks([...settings.extraClocks, config]);
+  openExtraClock(config);
+  return config;
+}
+
+function updateExtraClock(id, patch) {
+  const list = extraClocks();
+  const index = list.findIndex((clock) => clock.id === id);
+  if (index < 0) return null;
+
+  const next = store.normalizeExtraClock({ ...list[index], ...(patch || {}), id });
+  if (!next) return null;
+  const updated = list.slice();
+  updated[index] = next;
+  saveExtraClocks(updated);
+
+  const win = extraClockWins.get(id);
+  if (win && !win.isDestroyed()) {
+    win.setTitle(`${APP_NAME} — ${next.city || next.zone}`);
+    win.webContents.send('clock:config', next);
+  }
+  return next;
+}
+
+/** 시계를 닫는다. 목록에서도 지우므로 다음 실행에 다시 뜨지 않는다. */
+function removeExtraClock(id) {
+  closeClockSettings(id);
+  const win = extraClockWins.get(id);
+  if (win && !win.isDestroyed()) win.close();
+  const pending = extraClockSaveTimers.get(id);
+  if (pending) {
+    clearTimeout(pending);
+    extraClockSaveTimers.delete(id);
+  }
+  saveExtraClocks(extraClocks().filter((clock) => clock.id !== id));
+}
+
+/**
+ * 추가 시계 하나의 설정 창. 그 시계 옆에 뜨고, 시계를 닫으면 함께 닫힌다.
+ * 시계마다 자기 설정 창을 가지므로 창 안에서 시계를 고를 일이 없다.
+ */
+function openClockSettings(id) {
+  const config = extraClockConfig(id);
+  if (!config) return null;
+
+  const existing = clockSettingsWins.get(id);
+  if (existing && !existing.isDestroyed()) {
+    existing.show();
+    existing.focus();
+    return existing;
+  }
+
+  const clockWindow = extraClockWins.get(id);
+  const anchor = clockWindow && !clockWindow.isDestroyed() ? clockWindow.getBounds() : null;
+  const area = screen.getPrimaryDisplay().workArea;
+  const width = PANEL_WIDTH;
+  const height = Math.min(PANEL_HEIGHT, area.height);
+  const bounds = clampToWorkArea({
+    x: Math.round(anchor ? anchor.x + anchor.width + 8 : area.x + area.width - width - 60),
+    y: Math.round(anchor ? anchor.y : area.y + 60),
+    width,
+    height
+  });
+
+  const win = new BrowserWindow({
+    ...bounds,
+    minWidth: 420,
+    minHeight: 360,
+    frame: false,
+    skipTaskbar: true,
+    title: `${APP_NAME} — ${config.city || config.zone} 설정`,
+    show: false,
+    backgroundColor: '#1E1E2E',
+    alwaysOnTop: store.loadSettings().alwaysOnTop,
+    icon: appIconPath(),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  clockSettingsWins.set(id, win);
+  win.loadFile(path.join(__dirname, '..', 'src', 'panel.html'), {
+    query: { only: 'settings', tool: '1', clock: id }
+  });
+  win.once('ready-to-show', () => win.show());
+  win.on('show', () => win.setSkipTaskbar(true));
+  win.on('closed', () => clockSettingsWins.delete(id));
+  return win;
+}
+
+function closeClockSettings(id) {
+  const win = clockSettingsWins.get(id);
+  if (win && !win.isDestroyed()) win.close();
+  clockSettingsWins.delete(id);
+}
+
+function openSavedExtraClocks() {
+  for (const config of extraClocks()) openExtraClock(config);
+}
+
+// ── 분리한 탭 창 ────────────────────────────────────────────────────────
+//
+// 알람·타이머·스톱워치·캘린더·세계 시간은 앱이 하나로 들고 있는 기능이다.
+// 설정 패널 안에서 탭으로 보거나, 여기서처럼 독립한 창으로 떼어 볼 수 있다.
+// 창 내용은 패널과 같은 panel.html 이며 only=<탭> 으로 그 탭만 띄운다.
+
+const TOOL_TITLES = {
+  world: '세계 시간',
+  alarm: '알람',
+  timer: '타이머',
+  stopwatch: '스톱워치',
+  calendar: '캘린더',
+  settings: '설정'
+};
+
+function toolBounds(tab) {
+  const saved = store.loadSettings().toolWindows[tab];
+  const isSettings = tab === 'settings';
+  const width = Math.round(saved?.width || (isSettings ? PANEL_WIDTH : TOOL_WIDTH));
+  const height = Math.round(saved?.height || (isSettings ? PANEL_HEIGHT : TOOL_HEIGHT));
+  if (saved && saved.x != null && saved.y != null) {
+    return clampToWorkArea({ x: Math.round(saved.x), y: Math.round(saved.y), width, height });
+  }
+  const area = screen.getPrimaryDisplay().workArea;
+  const step = 28 * (toolWins.size + 1);
+  return clampToWorkArea({
+    x: Math.round(area.x + area.width / 2 - width / 2 + step),
+    y: Math.round(area.y + 60 + step),
+    width,
+    height
+  });
+}
+
+function openToolWindow(tab) {
+  if (!TOOL_TITLES[tab]) return null;
+  const existing = toolWins.get(tab);
+  if (existing && !existing.isDestroyed()) {
+    existing.show();
+    existing.focus();
+    return existing;
+  }
+
+  const win = new BrowserWindow({
+    ...toolBounds(tab),
+    minWidth: 280,
+    minHeight: 200,
+    frame: false,
+    resizable: true,
+    skipTaskbar: true,
+    title: `${APP_NAME} — ${TOOL_TITLES[tab]}`,
+    show: false,
+    backgroundColor: '#1E1E2E',
+    alwaysOnTop: store.loadSettings().alwaysOnTop,
+    icon: appIconPath(),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false
+    }
+  });
+
+  toolWins.set(tab, win);
+  win.loadFile(path.join(__dirname, '..', 'src', 'panel.html'), { query: { only: tab, tool: '1' } });
+  win.once('ready-to-show', () => win.show());
+  win.on('show', () => win.setSkipTaskbar(true));
+
+  const remember = () => {
+    if (win.isDestroyed() || win.isMinimized() || !win.isVisible()) return;
+    scheduleToolSave(tab, win.getBounds());
+  };
+  win.on('move', remember);
+  win.on('resize', remember);
+  win.on('closed', () => toolWins.delete(tab));
+
+  return win;
+}
+
+function scheduleToolSave(tab, bounds) {
+  const pending = toolSaveTimers.get(tab);
+  if (pending) clearTimeout(pending);
+  toolSaveTimers.set(
+    tab,
+    setTimeout(() => {
+      toolSaveTimers.delete(tab);
+      const toolWindows = { ...store.loadSettings().toolWindows, [tab]: bounds };
+      store.saveSettings({ toolWindows });
+    }, 400)
+  );
+}
+
 // ── 설정 패널 창 ────────────────────────────────────────────────────────
 
 function panelBoundsFor(openRight) {
   const clock = clockWin.getBounds();
   const display = screen.getDisplayMatching(clock) || screen.getPrimaryDisplay();
   const area = display.workArea;
-  const height = Math.min(PANEL_HEIGHT, area.height);
+  const width = Math.min(Math.max(PANEL_WIDTH, panelFit?.width || 0), area.width);
+  const height = Math.min(Math.max(PANEL_HEIGHT, panelFit?.height || 0), area.height);
   let y = clock.y;
   if (y + height > area.y + area.height) y = Math.max(area.y, area.y + area.height - height);
-  const x = openRight ? clock.x + clock.width : clock.x - PANEL_WIDTH;
-  return { x: Math.round(x), y: Math.round(y), width: PANEL_WIDTH, height: Math.round(height) };
+  const x = openRight ? clock.x + clock.width : clock.x - width;
+  // 화면 밖으로 나가면 내용이 잘린다 — 작업 영역 안으로 당겨 둔다.
+  return clampToWorkArea({
+    x: Math.round(x),
+    y: Math.round(y),
+    width: Math.round(width),
+    height: Math.round(height)
+  });
 }
 
 /** 오른쪽 여백이 없으면 왼쪽으로 — WPF DetermineOpenRightAt 과 같은 규칙. */
@@ -414,8 +790,9 @@ function determineOpenRight(preferRight) {
   const clock = clockWin.getBounds();
   const display = screen.getDisplayMatching(clock) || screen.getPrimaryDisplay();
   const area = display.workArea;
-  const canRight = clock.x + clock.width + PANEL_WIDTH <= area.x + area.width;
-  const canLeft = clock.x - PANEL_WIDTH >= area.x;
+  const width = Math.max(PANEL_WIDTH, panelFit?.width || 0);
+  const canRight = clock.x + clock.width + width <= area.x + area.width;
+  const canLeft = clock.x - width >= area.x;
   return preferRight ? canRight || !canLeft : !canLeft;
 }
 
@@ -432,6 +809,9 @@ function openPanel(tab) {
     if (tab) panelWin.webContents.send('panel:tab', tab);
     return;
   }
+  // 패널이 첫 상태를 받아오는 사이에 'panel:tab' 을 보내면 아직 듣는 쪽이 없어
+  // 흘릴 수 있다. 열어 달라고 한 탭을 적어 두고 패널이 직접 물어 가게 한다.
+  panelPendingTab = tab || null;
   panelOpensRight = determineOpenRight(panelOpensRight);
 
   panelWin = new BrowserWindow({
@@ -452,7 +832,8 @@ function openPanel(tab) {
     }
   });
 
-  panelWin.loadFile(path.join(__dirname, '..', 'src', 'panel.html'));
+  // 설정 패널은 설정만 맡는다. 알람·타이머·스톱워치·캘린더·세계 시간은 저마다 창이다.
+  panelWin.loadFile(path.join(__dirname, '..', 'src', 'panel.html'), { query: { only: 'settings' } });
 
   panelWin.once('ready-to-show', () => {
     panelWin.showInactive();
@@ -482,6 +863,75 @@ function togglePanel(tab) {
   } else {
     openPanel(tab);
   }
+}
+
+// ── 프로그램 정보 창 ────────────────────────────────────────────────────
+
+function readIconSvg() {
+  try {
+    return fs.readFileSync(assetPath('asset', 'icon.svg'), 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+/** 정보 창에 띄울 버전·빌드 정보. */
+function appInfo() {
+  let buildDate = null;
+  try {
+    // 설치본은 exe, 개발 실행은 package.json 의 시각을 빌드 시각으로 본다.
+    const target = app.isPackaged ? app.getPath('exe') : assetPath('package.json');
+    buildDate = fs.statSync(target).mtime.toISOString();
+  } catch {
+    buildDate = null;
+  }
+
+  return {
+    name: APP_NAME,
+    version: app.getVersion(),
+    author: 'SHKWON',
+    email: 'knix008@naver.com',
+    license: 'MIT',
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    platform: `${process.platform} ${process.arch}`,
+    packaged: app.isPackaged,
+    buildDate,
+    iconSvg: readIconSvg()
+  };
+}
+
+function openAboutWindow() {
+  if (aboutWin && !aboutWin.isDestroyed()) {
+    aboutWin.show();
+    aboutWin.focus();
+    return;
+  }
+
+  aboutWin = new BrowserWindow({
+    width: 380,
+    height: 560,
+    frame: false,
+    resizable: false,
+    skipTaskbar: true,
+    title: `${APP_NAME} 정보`,
+    show: false,
+    backgroundColor: '#1E1E2E',
+    alwaysOnTop: store.loadSettings().alwaysOnTop,
+    icon: appIconPath(),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  aboutWin.loadFile(path.join(__dirname, '..', 'src', 'about.html'));
+  aboutWin.once('ready-to-show', () => aboutWin.show());
+  aboutWin.on('closed', () => {
+    aboutWin = null;
+  });
 }
 
 // ── 알람 팝업 ───────────────────────────────────────────────────────────
@@ -571,7 +1021,8 @@ function openMenuWindow(payload) {
   menuWin.on('blur', () => closeMenuWindow());
   menuWin.on('closed', () => {
     menuWin = null;
-    clockWin?.webContents.send('menu:closed');
+    const target = menuOpener && !menuOpener.isDestroyed() ? menuOpener : clockWin?.webContents;
+    target?.send('menu:closed');
   });
 
   menuWin.__anchor = cursor;
@@ -610,7 +1061,10 @@ function openFullscreenClock() {
     frame: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    backgroundColor: '#000000',
+    // 시계 창과 같이 배경은 비워 둔다 — 바탕화면이 그대로 비친다.
+    transparent: true,
+    hasShadow: false,
+    backgroundColor: '#00000000',
     icon: appIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -627,18 +1081,119 @@ function openFullscreenClock() {
 
 // ── 시스템 트레이 ───────────────────────────────────────────────────────
 
+/**
+ * 트레이 메뉴 — 열 때마다 새로 만든다.
+ * 도시 목록과 열려 있는 시계가 바뀌어도 메뉴가 늘 지금 상태를 보여 주도록.
+ */
+function buildTrayMenu() {
+  const settings = store.loadSettings();
+  const cities = settings.worldCities || store.DEFAULT_WORLD_CITIES;
+  const open = settings.extraClocks;
+
+  const addSubmenu = cities.slice(0, 15).map((city) => ({
+    label: city.region ? `${city.city} · ${city.region}` : city.city,
+    click: () => addExtraClock(city)
+  }));
+  addSubmenu.push({ type: 'separator' });
+  addSubmenu.push({ label: '다른 도시 찾기...', click: () => openToolWindow('world') });
+
+  const template = [
+    { label: '열기', click: () => restoreFromTray() },
+    // 설정 탭을 지정해 연다 — 지정하지 않으면 패널이 열려 있을 때 그냥 닫힌다.
+    { label: '설정...', click: () => { restoreFromTray(); togglePanel('settings'); } },
+    { type: 'separator' },
+    { label: '시계 추가', submenu: addSubmenu }
+  ];
+
+  // 앱 전체에 걸리는 설정은 여기(트레이)에서 다룬다 — 설정 창은 시계 모양만 맡는다.
+  const systemItems = [
+    {
+      label: '항상 위에 표시',
+      type: 'checkbox',
+      checked: settings.alwaysOnTop,
+      click: (item) => setAlwaysOnTop(item.checked)
+    },
+    {
+      label: '시작 시 자동 실행',
+      type: 'checkbox',
+      checked: isStartupEnabled(),
+      click: (item) => {
+        const enabled = setStartup(item.checked);
+        store.saveSettings({ startWithSystem: enabled });
+        refreshTrayMenu();
+      }
+    },
+    { label: '기본값으로 초기화...', click: () => confirmReset() }
+  ];
+
+  if (open.length) {
+    template.push({
+      label: '시계 닫기',
+      submenu: open.map((clock) => ({
+        label: clock.city || clock.zone,
+        click: () => removeExtraClock(clock.id)
+      }))
+    });
+  }
+
+  template.push(
+    { type: 'separator' },
+    { label: '시스템 설정', submenu: systemItems },
+    { type: 'separator' },
+    { label: '세계 시간', click: () => openToolWindow('world') },
+    { label: '알람', click: () => openToolWindow('alarm') },
+    { label: '타이머', click: () => openToolWindow('timer') },
+    { label: '스톱워치', click: () => openToolWindow('stopwatch') },
+    { label: '캘린더', click: () => openToolWindow('calendar') },
+    { type: 'separator' },
+    { label: '프로그램 정보...', click: () => openAboutWindow() },
+    { label: '종료', click: () => quitApp() }
+  );
+
+  return Menu.buildFromTemplate(template);
+}
+
+/** 항상 위에 표시 — 모든 창에 같이 걸고 설정에도 적어 둔다. */
+function setAlwaysOnTop(onTop) {
+  store.saveSettings({ alwaysOnTop: onTop === true });
+  clockWin?.setAlwaysOnTop(onTop === true);
+  panelWin?.setAlwaysOnTop(onTop === true);
+  for (const win of [...extraClockWins.values(), ...toolWins.values(), ...clockSettingsWins.values()]) {
+    if (win && !win.isDestroyed()) win.setAlwaysOnTop(onTop === true);
+  }
+  // 열려 있는 설정 창들이 같은 값을 보도록 시계 창에 알린다.
+  clockWin?.webContents.send('from-panel', { type: 'settings:patch', patch: { alwaysOnTop: onTop === true } });
+  refreshTrayMenu();
+}
+
+/** 되돌릴 수 없는 일이라 한 번 묻는다. */
+async function confirmReset() {
+  const { response } = await dialog.showMessageBox({
+    type: 'warning',
+    buttons: ['초기화', '취소'],
+    defaultId: 1,
+    cancelId: 1,
+    title: `${APP_NAME} 기본값으로 초기화`,
+    message: '모든 설정을 처음 상태로 되돌릴까요?',
+    detail: '테마·모양·알람·타이머·세계 도시 목록이 처음 상태가 됩니다.\n추가한 시계 창은 그대로 둡니다. 되돌릴 수 없습니다.'
+  });
+  if (response !== 0) return;
+  clockWin?.webContents.send('from-panel', { type: 'settings:reset' });
+  refreshTrayMenu();
+}
+
+function refreshTrayMenu() {
+  if (tray && !tray.isDestroyed()) tray.setContextMenu(buildTrayMenu());
+}
+
 function createTray() {
   const iconPath = appIconPath();
   tray = new Tray(iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty());
   tray.setToolTip(APP_NAME);
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: '열기', click: () => restoreFromTray() },
-      { label: '설정...', click: () => { restoreFromTray(); togglePanel(); } },
-      { type: 'separator' },
-      { label: '종료', click: () => quitApp() }
-    ])
-  );
+  refreshTrayMenu();
+
+  // 오른쪽 클릭 때 다시 만들어 도시·시계 목록을 최신으로 둔다.
+  tray.on('right-click', () => tray.popUpContextMenu(buildTrayMenu()));
   tray.on('double-click', () => restoreFromTray());
   tray.on('click', () => {
     if (process.platform !== 'win32') restoreFromTray();
@@ -655,6 +1210,10 @@ function hideToTray() {
   lastHideAt = Date.now();
   closePanel();
   closeMenuWindow();
+  // 추가 시계와 분리한 창도 함께 숨긴다 (목록에는 남는다).
+  for (const win of [...extraClockWins.values(), ...toolWins.values(), ...clockSettingsWins.values()]) {
+    if (win && !win.isDestroyed() && win.isVisible()) win.hide();
+  }
   if (!clockWin || clockWin.isDestroyed()) return;
   // 최소화된 채로 hide 하면 다음 show 때 최소화 상태로 나오므로 먼저 되돌린다.
   if (clockWin.isMinimized()) clockWin.restore();
@@ -668,6 +1227,9 @@ function hideToTray() {
 }
 
 function restoreFromTray() {
+  for (const win of extraClockWins.values()) {
+    if (win && !win.isDestroyed() && !win.isVisible()) win.show();
+  }
   if (!clockWin || clockWin.isDestroyed()) return;
   hiddenByUser = false;
   recoverClockOnScreen({ forceShow: true, remount: true });
@@ -840,33 +1402,76 @@ function stopGesture() {
     clearTimeout(gestureGuard);
     gestureGuard = null;
   }
+  gestureLastPoint = null;
 }
 
 /**
  * 렌더러가 제스처 종료를 알리지 못하는 경우(포커스 상실 등)에도
  * 창이 커서에 붙어 다니지 않도록, 마우스 버튼이 떼어지면 스스로 멈춘다.
  */
+/**
+ * 제스처 안전장치.
+ *
+ * 창을 끄는 동안에는 창이 커서를 따라간다. 렌더러가 pointerup 을 놓치면 (창이
+ * 포커스를 잃거나 포인터 캡처가 풀리는 경우) 창이 커서에 붙은 채로 남아,
+ * 손대지 않았는데도 창이 저 혼자 움직이는 것처럼 보인다.
+ *
+ * 그래서 메인 프로세스에서도 두 가지로 끊는다.
+ *   · 커서가 한동안 멈춰 있으면 — 끌기가 끝난 것으로 본다.
+ *   · 아주 오래 이어지면 — 무조건 끊는다.
+ */
+const GESTURE_IDLE_MS = 1200;
+const GESTURE_MAX_MS = 15000;
+
 function armGestureGuard() {
   gestureGuard = setTimeout(() => {
     gestureGuard = null;
     stopGesture();
-  }, 30000);
+  }, GESTURE_MAX_MS);
 }
 
-function startDrag() {
-  if (!clockWin || clockWin.isDestroyed()) return;
+/** 커서가 움직이지 않은 채 GESTURE_IDLE_MS 가 지나면 끌기를 끝낸 것으로 본다. */
+function watchGestureIdle(point) {
+  if (!gestureTimer) return false;
+  const now = Date.now();
+  if (!gestureLastPoint || point.x !== gestureLastPoint.x || point.y !== gestureLastPoint.y) {
+    gestureLastPoint = point;
+    gestureLastMoveAt = now;
+    return false;
+  }
+  if (now - gestureLastMoveAt < GESTURE_IDLE_MS) return false;
   stopGesture();
+  return true;
+}
+
+function beginGesture(win) {
+  stopGesture();
+  gestureLastPoint = null;
+  gestureLastMoveAt = Date.now();
+  armGestureGuard();
+  // 창이 포커스를 잃으면 끌기도 끝난 것이다.
+  if (win && !win.isDestroyed()) win.once('blur', stopGesture);
+}
+
+/** 명령을 보낸 창 — 시계가 여러 개이므로 보낸 쪽을 움직인다. */
+function senderWindow(event) {
+  return BrowserWindow.fromWebContents(event.sender) || clockWin;
+}
+
+function startDrag(win) {
+  if (!win || win.isDestroyed()) return;
   const start = screen.getCursorScreenPoint();
-  const bounds = clockWin.getBounds();
+  const bounds = win.getBounds();
   const dx = start.x - bounds.x;
   const dy = start.y - bounds.y;
 
-  armGestureGuard();
+  beginGesture(win);
   gestureTimer = setInterval(() => {
-    if (!clockWin || clockWin.isDestroyed()) return stopGesture();
+    if (!win || win.isDestroyed()) return stopGesture();
     const p = screen.getCursorScreenPoint();
-    const current = clockWin.getBounds();
-    clockWin.setBounds({
+    if (watchGestureIdle(p)) return;
+    const current = win.getBounds();
+    win.setBounds({
       x: p.x - dx,
       y: p.y - dy,
       width: current.width,
@@ -875,21 +1480,21 @@ function startDrag() {
   }, 12);
 }
 
-function startResize() {
-  if (!clockWin || clockWin.isDestroyed()) return;
-  stopGesture();
-  const bounds = clockWin.getBounds();
+function startResize(win) {
+  if (!win || win.isDestroyed()) return;
+  const bounds = win.getBounds();
   const start = screen.getCursorScreenPoint();
   const gripDx = bounds.x + bounds.width - start.x;
   const gripDy = bounds.y + bounds.height - start.y;
-  const [minW, minH] = clockWin.getMinimumSize();
+  const [minW, minH] = win.getMinimumSize();
 
-  armGestureGuard();
+  beginGesture(win);
   gestureTimer = setInterval(() => {
-    if (!clockWin || clockWin.isDestroyed()) return stopGesture();
+    if (!win || win.isDestroyed()) return stopGesture();
     const p = screen.getCursorScreenPoint();
-    const current = clockWin.getBounds();
-    clockWin.setBounds({
+    if (watchGestureIdle(p)) return;
+    const current = win.getBounds();
+    win.setBounds({
       x: current.x,
       y: current.y,
       width: Math.max(minW, Math.round(p.x + gripDx - current.x)),
@@ -904,7 +1509,11 @@ function registerIpc() {
   ipcMain.handle('settings:load', () => store.loadSettings());
   ipcMain.handle('settings:save', (_e, patch) => store.saveSettings(patch));
   ipcMain.handle('settings:reset', () => {
+    const current = store.loadSettings();
     const fresh = store.defaults();
+    // 추가한 시계와 창 자리는 "설정 기본값"이 아니다 — 지우지 않는다.
+    fresh.extraClocks = current.extraClocks;
+    fresh.toolWindows = current.toolWindows;
     return store.saveSettings(fresh);
   });
   ipcMain.handle('settings:default-cities', () => store.DEFAULT_WORLD_CITIES);
@@ -917,39 +1526,56 @@ function registerIpc() {
 
   ipcMain.handle('clock:get-bounds', () => (clockWin && !clockWin.isDestroyed() ? clockWin.getBounds() : null));
 
-  ipcMain.on('window:drag-start', startDrag);
-  ipcMain.on('window:resize-start', startResize);
+  ipcMain.on('window:drag-start', (e) => startDrag(senderWindow(e)));
+  ipcMain.on('window:resize-start', (e) => startResize(senderWindow(e)));
   ipcMain.on('window:gesture-end', stopGesture);
 
   ipcMain.on('window:minimize', () => hideToTray());
   ipcMain.on('window:hide-to-tray', () => hideToTray());
-  ipcMain.on('window:toggle-maximize', () => {
-    if (!clockWin || clockWin.isDestroyed()) return;
-    if (clockWin.isMaximized()) clockWin.unmaximize();
-    else clockWin.maximize();
+  ipcMain.on('window:close-self', (e) => {
+    const win = senderWindow(e);
+    // 추가 시계는 닫으면 목록에서도 지운다 (다음 실행에 되살아나지 않도록).
+    const clockId = win ? clockIdByWindow.get(win.id) : null;
+    if (clockId) removeExtraClock(clockId);
+    else if (win && win !== clockWin && !win.isDestroyed()) win.close();
   });
-  ipcMain.handle('window:is-maximized', () => !!clockWin && !clockWin.isDestroyed() && clockWin.isMaximized());
+  ipcMain.on('window:toggle-maximize', (e) => {
+    const win = senderWindow(e);
+    if (!win || win.isDestroyed()) return;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  });
+  ipcMain.handle('window:is-maximized', (e) => {
+    const win = senderWindow(e);
+    return !!win && !win.isDestroyed() && win.isMaximized();
+  });
 
   ipcMain.on('window:set-always-on-top', (_e, onTop) => {
+    // 메인 시계의 설정이므로 딸린 창들도 함께 따른다.
     clockWin?.setAlwaysOnTop(onTop === true);
     panelWin?.setAlwaysOnTop(onTop === true);
-  });
-
-  ipcMain.on('window:set-min-size', (_e, size) => {
-    if (!clockWin || clockWin.isDestroyed() || !size) return;
-    const width = Math.max(80, Math.round(Number(size.width) || DIGITAL_MIN_WIDTH));
-    const height = Math.max(40, Math.round(Number(size.height) || DIGITAL_MIN_HEIGHT));
-    clockWin.setMinimumSize(width, height);
-    const b = clockWin.getBounds();
-    if (b.width < width || b.height < height) {
-      clockWin.setBounds({ ...b, width: Math.max(b.width, width), height: Math.max(b.height, height) });
+    for (const win of [...extraClockWins.values(), ...toolWins.values(), ...clockSettingsWins.values()]) {
+      if (win && !win.isDestroyed()) win.setAlwaysOnTop(onTop === true);
     }
   });
 
-  ipcMain.on('window:set-size', (_e, size) => {
-    if (!clockWin || clockWin.isDestroyed() || !size) return;
-    const b = clockWin.getBounds();
-    const [minW, minH] = clockWin.getMinimumSize();
+  ipcMain.on('window:set-min-size', (e, size) => {
+    const win = senderWindow(e);
+    if (!win || win.isDestroyed() || !size) return;
+    const width = Math.max(80, Math.round(Number(size.width) || DIGITAL_MIN_WIDTH));
+    const height = Math.max(40, Math.round(Number(size.height) || DIGITAL_MIN_HEIGHT));
+    win.setMinimumSize(width, height);
+    const b = win.getBounds();
+    if (b.width < width || b.height < height) {
+      win.setBounds({ ...b, width: Math.max(b.width, width), height: Math.max(b.height, height) });
+    }
+  });
+
+  ipcMain.on('window:set-size', (e, size) => {
+    const win = senderWindow(e);
+    if (!win || win.isDestroyed() || !size) return;
+    const b = win.getBounds();
+    const [minW, minH] = win.getMinimumSize();
     const wanted = { width: Number(size.width) || b.width, height: Number(size.height) || b.height };
     if (wanted.width < minW || wanted.height < minH) {
       wanted.width = Math.max(wanted.width, minW);
@@ -961,23 +1587,47 @@ function registerIpc() {
       width: Math.round(wanted.width),
       height: Math.round(wanted.height)
     });
-    clockWin.setBounds(next);
+    win.setBounds(next);
   });
 
   ipcMain.on('panel:toggle', (_e, tab) => togglePanel(tab));
   ipcMain.on('panel:close', () => closePanel());
   ipcMain.handle('panel:is-open', () => !!panelWin && !panelWin.isDestroyed());
+  /** 설정 패널이 잰 크기 — 내용이 잘리지 않도록 그만큼 넓혀 준다. */
+  ipcMain.on('panel:fit', (_e, size) => {
+    if (!size) return;
+    const width = Math.round(Number(size.width) || 0);
+    const height = Math.round(Number(size.height) || 0);
+    if (!width || !height) return;
+    if (panelFit && panelFit.width === width && panelFit.height === height) return;
+    panelFit = { width, height };
+    positionPanel();
+  });
+  // 한 번만 읽어 간다 — 다시 물으면 null (패널이 새로 뜬 것이 아니므로).
+  ipcMain.handle('panel:pending-tab', () => {
+    const tab = panelPendingTab;
+    panelPendingTab = null;
+    return tab;
+  });
 
-  ipcMain.on('menu:open', (_e, payload) => openMenuWindow(payload || { items: [] }));
+  ipcMain.on('menu:open', (e, payload) => {
+    // 고른 항목은 메뉴를 연 창에 돌려준다 — 시계가 여러 개이기 때문이다.
+    menuOpener = e.sender;
+    openMenuWindow(payload || { items: [] });
+  });
   ipcMain.on('menu:ready', (_e, size) => placeMenuWindow(size));
   ipcMain.on('menu:choose', (_e, id) => {
     closeMenuWindow();
-    clockWin?.webContents.send('menu:action', id);
+    const target = menuOpener && !menuOpener.isDestroyed() ? menuOpener : clockWin?.webContents;
+    target?.send('menu:action', id);
   });
   ipcMain.on('menu:close', () => closeMenuWindow());
 
   ipcMain.on('alarm:show', (_e, payload) => showAlarmPopup(payload));
   ipcMain.on('alarm:dismiss', () => alarmWin?.close());
+
+  ipcMain.handle('app:info', () => appInfo());
+  ipcMain.on('about:open', () => openAboutWindow());
 
   ipcMain.on('fullscreen:open', () => openFullscreenClock());
   ipcMain.on('fullscreen:close', () => fullWin?.close());
@@ -1001,10 +1651,40 @@ function registerIpc() {
   });
 
   // 시계 렌더러 ↔ 패널 렌더러 중계
+  // ── 추가 시계 ──
+  ipcMain.handle('clocks:list', () => extraClocks());
+  ipcMain.handle('clocks:add', (_e, city) => addExtraClock(city));
+  ipcMain.on('clocks:close', (_e, id) => removeExtraClock(String(id)));
+  ipcMain.on('clocks:update', (_e, payload) => {
+    if (!payload || typeof payload.id !== 'string') return;
+    updateExtraClock(payload.id, payload.patch || {});
+  });
+  /** 시계 창이 "나는 어느 시계인가"를 물어본다. */
+  ipcMain.handle('clock:self', (e) => {
+    const win = senderWindow(e);
+    const id = win ? clockIdByWindow.get(win.id) : null;
+    return id ? extraClockConfig(id) : null;
+  });
+  /** 시계 창의 ⚙ — 그 시계만의 설정 창을 연다. */
+  ipcMain.on('clocks:open-settings', (e) => {
+    const win = senderWindow(e);
+    const id = win ? clockIdByWindow.get(win.id) : null;
+    if (id) openClockSettings(id);
+    else togglePanel('settings');
+  });
+
+  // ── 분리한 탭 창 ──
+  ipcMain.on('tools:open', (_e, tab) => openToolWindow(String(tab)));
+  ipcMain.handle('tools:opened', () => [...toolWins.keys()]);
+
   ipcMain.on('relay:to-clock', (_e, message) => clockWin?.webContents.send('from-panel', message));
   ipcMain.on('relay:to-panel', (_e, message) => {
     panelWin?.webContents.send('from-clock', message);
     fullWin?.webContents.send('from-clock', message);
+    // 분리한 탭 창과 시계별 설정 창도 같은 상태를 본다 — 알람·타이머는 앱이 하나로 들고 있다.
+    for (const win of [...toolWins.values(), ...clockSettingsWins.values()]) {
+      if (win && !win.isDestroyed()) win.webContents.send('from-clock', message);
+    }
   });
 }
 
@@ -1026,6 +1706,7 @@ app.whenReady().then(() => {
 
   registerIpc();
   createClockWindow();
+  openSavedExtraClocks();
   createTray();
   registerDisplayRecovery();
 

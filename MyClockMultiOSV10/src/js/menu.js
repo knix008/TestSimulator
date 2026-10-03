@@ -11,6 +11,7 @@ const api = window.myclock;
 const menuEl = document.getElementById('menu');
 
 api.menu.onItems((payload) => {
+  setCustomTheme(payload.customThemeColor, payload.customThemeLight);
   applyTheme(payload.theme);
   menuEl.innerHTML = '';
 

@@ -10,6 +10,10 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
+    "test": "node --test --test-reporter=./scripts/test-reporter.js test/*.test.js",
+    "test:tap": "node --test test/*.test.js",
+    "clean": "node scripts/clean.js",
+    "clean:all": "node scripts/clean.js --all",
     "icons": "node scripts/generate-icons.js",
     "prepack": "npm run icons",
     "pack": "electron-builder --dir",
@@ -45,6 +49,7 @@
       "src/**/*",
       "asset/icon.png",
       "asset/icon.ico",
+      "asset/icon.svg",
       "asset/icon-256.png",
       "package.json"
     ],

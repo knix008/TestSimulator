@@ -17,6 +17,7 @@ let settings = null;
 
 function applySettings(next) {
   settings = next;
+  setCustomTheme(settings.customThemeColor, settings.customThemeLight);
   applyTheme(settings.theme);
   document.documentElement.style.setProperty('--digital-text-color', settings.digitColor);
   document.documentElement.style.setProperty('--digital-ampm-color', settings.amPmColor);

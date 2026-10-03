@@ -29,11 +29,12 @@ body {
   background: rgba(0, 0, 0, 0.004);
 }
 
+/* 디지털 시계 뒤에만 깔리는 호버 배경. 바탕화면이 비칠 만큼 옅게 둔다. */
 .chrome-background {
   position: absolute;
   inset: 0;
   background: var(--window-background, #1e1e2e);
-  opacity: 0.82;
+  opacity: 0.38;
   pointer-events: none;
 }
 
@@ -47,26 +48,63 @@ body {
   pointer-events: none;
 }
 
+/* 숫자 바로 위 한 줄 — "도시  오전/오후  날짜" */
+.digital-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  min-height: 20px;
+  padding: 2px 6px 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  /* 배경이 없는 투명 창에서도 읽히도록 */
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.85),
+    0 0 6px rgba(0, 0, 0, 0.55);
+}
+
+.header-city {
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--digital-ampm-color, var(--accent, #89b4fa));
+}
+
+.header-ampm {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--digital-ampm-color, var(--accent, #89b4fa));
+}
+
+.header-date {
+  font-size: 13px;
+  color: var(--subtle-foreground, #a6adc8);
+}
+
+.header-city:empty,
+.header-ampm:empty,
+.header-date:empty {
+  display: none;
+}
+
+/* 머리글 아래 남은 공간 전부가 숫자 자리 */
+.digital-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .canvas-digital {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
   min-height: 0;
-}
-
-.ampm-text {
-  flex: 0 0 auto;
-  text-align: center;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.1;
-  margin-bottom: 2px;
-  color: var(--digital-ampm-color, var(--accent, #89b4fa));
-}
-
-.ampm-text:empty {
-  display: none;
 }
 
 .digital-canvas {
@@ -92,17 +130,6 @@ body {
   transform-origin: center center;
 }
 
-.text-ampm {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 2px;
-  color: var(--digital-ampm-color, var(--accent, #89b4fa));
-}
-
-.text-ampm:empty {
-  display: none;
-}
-
 .text-time {
   font-size: 60px;
   font-weight: 700;
@@ -123,7 +150,6 @@ body {
 
 /* ── 호버 오버레이 ──────────────────────────────────────────────────── */
 
-.header-date,
 .clock-status {
   position: absolute;
   left: 0;
@@ -132,14 +158,6 @@ body {
   color: var(--subtle-foreground, #a6adc8);
   pointer-events: none;
   white-space: nowrap;
-}
-
-.header-date {
-  top: 2px;
-  font-size: 14px;
-}
-
-.clock-status {
   bottom: 2px;
   font-size: 14px;
   font-family: Consolas, 'DejaVu Sans Mono', monospace;
@@ -151,6 +169,24 @@ body {
   border: 1px solid var(--subtle-foreground, #a6adc8);
   opacity: 0.4;
   pointer-events: none;
+}
+
+/* 아날로그는 호버 배경이 없다. 창 테두리와 글자가 바탕화면 위에 바로 놓이므로
+   테두리는 더 옅게, 글자·버튼에는 그림자를 넣어 어떤 배경에서도 읽히게 한다. */
+.analog-mode .resize-outline {
+  opacity: 0.22;
+}
+
+.analog-mode .clock-status,
+.analog-mode .chrome-btn,
+.analog-mode .resize-grip {
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.9),
+    0 0 6px rgba(0, 0, 0, 0.7);
+}
+
+.analog-mode .resize-grip svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
 }
 
 .resize-grip {

@@ -14,11 +14,20 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--window-background, #000);
+  /* 배경은 투명하다 — 바탕화면 위에 시계만 떠 있다.
+     완전 투명한 픽셀은 마우스 이벤트를 받지 못하므로 아주 옅게만 칠한다. */
+  background: rgba(0, 0, 0, 0.004);
   color: var(--foreground, #cdd6f4);
   font-family: 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   cursor: none;
   user-select: none;
+}
+
+/* 어떤 바탕화면 위에서도 읽히도록 글자에 그림자를 넣는다. */
+.full-stage {
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.9),
+    0 0 18px rgba(0, 0, 0, 0.6);
 }
 
 .full-stage {
