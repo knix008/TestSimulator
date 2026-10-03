@@ -199,6 +199,19 @@ export function startServer(options: ServerOptions): Promise<{ port: number; clo
     res.json({ ok: true });
   }));
 
+  app.post("/api/diff-sides", wrap(async (req, res) => {
+    res.json(await git.diffSides(String(req.body.sha ?? ""), String(req.body.file ?? "")));
+  }));
+
+  app.post("/api/merge-sources", wrap(async (req, res) => {
+    res.json(await git.conflictSources(String(req.body.file ?? "")));
+  }));
+
+  app.post("/api/merge-save", wrap(async (req, res) => {
+    await git.saveMerge(String(req.body.file ?? ""), String(req.body.content ?? ""));
+    res.json({ ok: true });
+  }));
+
   app.post("/api/external-diff", wrap(async (req, res) => {
     await git.externalDiff(String(req.body.sha ?? ""), String(req.body.file ?? ""), req.body.launch !== false);
     res.json({ ok: true });

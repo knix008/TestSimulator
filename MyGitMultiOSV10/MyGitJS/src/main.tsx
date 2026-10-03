@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { applyTheme } from "../core/themes";
 import { api } from "./api";
 import { App } from "./App";
+import { ToolWindow } from "./ToolWindow";
+import { readToolRequest } from "./toolLaunch";
 import "./styles.css";
 
 async function start() {
@@ -14,7 +16,7 @@ async function start() {
   }
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      <App />
+      {readToolRequest() ? <ToolWindow /> : <App />}
     </StrictMode>,
   );
   requestAnimationFrame(() => {

@@ -8,6 +8,8 @@ import { pathToFileURL } from "node:url";
 import { ApiError, redact } from "../core/errors.js";
 import { listDirectory, systemDrives } from "../core/fsBrowse.js";
 import { collectDiffTools, installedDiffTools } from "../core/diffTools.js";
+import { documentFromLines } from "../core/lineDiff.js";
+import { buildResult, conflictCount, mergeTexts } from "../core/threeWayMerge.js";
 import { GitApp } from "../core/gitApp.js";
 import { releaseStaleIndexLock, clearStaleIndexLock, runGit } from "../core/gitProcess.js";
 import { renderCsv, renderDocx, renderMarkdown, renderXlsx, type Report } from "../core/report.js";
@@ -21,6 +23,7 @@ import { startServer } from "../server/index.js";
 import { buildFlat, buildGraph } from "../src/graph.js";
 import { Icon, MenuGlyph, type IconName } from "../src/icons.js";
 import { translate, TRANSLATION_KEYS } from "../src/i18n.js";
+import { parseToolHash, toolHash } from "../src/toolLaunch.js";
 import { WebSocket } from "ws";
 
 export type TestCase = { group: string; name: string; fn: () => Promise<void> };
@@ -37,7 +40,7 @@ const ICONS: IconName[] = [
   "folder", "branch", "history", "help", "open", "clone", "browse", "prefs", "clock", "refresh",
   "plus", "undo", "discard", "commit", "fetch", "pull", "push", "stash", "stashPop", "status",
   "list", "export", "snapshot", "copy", "hash", "filePlus", "folderPlus", "trash", "eyeOff", "eye",
-  "stop", "theme", "language", "drive", "panelLeft", "panelRight", "panelBottom", "terminal", "lock", "alert", "print",
+  "stop", "theme", "language", "drive", "panelLeft", "panelRight", "panelBottom", "terminal", "lock", "alert", "print", "prev", "next",
 ];
 
 const UI_KEYS = [
@@ -108,7 +111,7 @@ export function cases(ctx: Ctx): TestCase[] {
   });
 
   add("Status", "Porcelain codes become U D R T ! ± X P badges", async () => {
-    const samples: [string, string][] = [["??", "U"], ["!!", "X"], [" D", "D"], ["R ", "R"], ["T ", "T"], ["UU", "!"], ["M ", "±"], [" M", "±"]];
+    const samples: [string, string][] = [["??", "U"], ["!!", "X"], [" D", "D"], ["R ", "R"], ["T ", "T"], ["UU", "!"], ["AA", "!"], ["DD", "!"], ["M ", "±"], [" M", "±"]];
     for (const [code, badge] of samples) {
       assert(badgeOf(statusFromPorcelain(code)) === badge, `${code} => ${badgeOf(statusFromPorcelain(code))}`);
     }
@@ -933,6 +936,36 @@ export function cases(ctx: Ctx): TestCase[] {
     const chosen = resolveShell(shells, path.join(ctx.home, "missing-shell.exe"));
     assert(chosen !== null && shells.some((shell) => shell.id === chosen.id), "default");
     if (process.platform === "win32") assert(sameShell("C:\\Windows\\System32\\cmd.exe", "c:\\windows\\system32\\cmd.exe"), "case");
+  });
+
+  add("Diff", "The built-in diff aligns an inserted line", async () => {
+    const document = documentFromLines(["a", "b"], ["a", "c", "b"]);
+    assert(document.added === 1 && document.removed === 0 && document.modified === 0, JSON.stringify(document));
+    assert(document.rows.some((row) => row.kind === "added" && row.right === "c" && row.left === null), "inserted row");
+    const sides = await ctx.app.diffSides(ctx.sha, "README.md");
+    assert(sides.right.startsWith("hello"), sides.right);
+    assert(sides.rightVersion === ctx.sha.slice(0, 7), sides.rightVersion);
+    assert(sides.leftVersion.length === 0 || sides.leftVersion.length === 7, sides.leftVersion);
+  });
+
+  add("Diff", "The built-in merge keeps one-sided edits and a real conflict", async () => {
+    const clean = mergeTexts("a\nb\nc\n", "a\nB\nc\n", "a\nb\nc\n");
+    assert(conflictCount(clean) === 0, `conflicts ${conflictCount(clean)}`);
+    assert(buildResult(clean, []) === "a\nB\nc\n", buildResult(clean, []));
+    const conflict = mergeTexts("a\n", "mine\n", "theirs\n");
+    assert(conflictCount(conflict) === 1, "expected one conflict");
+    assert(buildResult(conflict, ["unresolved"]).includes("<<<<<<< LOCAL"), "markers");
+    assert(buildResult(conflict, ["local"]) === "mine\n", buildResult(conflict, ["local"]));
+    assert(buildResult(conflict, ["remote"]) === "theirs\n", buildResult(conflict, ["remote"]));
+  });
+
+  add("Diff", "A tool window address names the diff or the merge", async () => {
+    const diff = parseToolHash("#tool?kind=diff&sha=abc&file=a%20b.txt");
+    assert(diff?.kind === "diff" && diff.sha === "abc" && diff.file === "a b.txt", JSON.stringify(diff));
+    const merge = parseToolHash(toolHash({ kind: "merge", file: "dir/b.txt" }));
+    assert(merge?.kind === "merge" && merge.file === "dir/b.txt", JSON.stringify(merge));
+    assert(parseToolHash("#tool?kind=diff") === null, "missing file");
+    assert(parseToolHash("") === null, "empty");
   });
 
   add("Diff", "Installed diff tools can be selected and keep left and right arguments", async () => {

@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("mygit", {
   pickDirectory: () => ipcRenderer.invoke("pick-directory"),
   pickSaveDirectory: () => ipcRenderer.invoke("pick-save-directory"),
   pickFile: () => ipcRenderer.invoke("pick-file"),
+  openTool: (url, kind) => ipcRenderer.invoke("open-tool", url, kind),
   platform: process.platform,
   window: {
     minimize: () => ipcRenderer.invoke("window-minimize"),

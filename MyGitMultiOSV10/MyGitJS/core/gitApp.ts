@@ -563,6 +563,48 @@ export class GitApp {
     if (child.exitCode !== null || child.signalCode !== null) forget();
   }
 
+  async diffSides(sha: string, file: string): Promise<{ path: string; left: string; right: string; leftVersion: string; rightVersion: string }> {
+    const root = this.requireRepo();
+    const rel = normalizeRel(file);
+    const detail = await this.commitDetail(sha);
+    const parent = detail.parents[0];
+    return {
+      path: rel,
+      left: await readBlobText(root, parent ? `${parent}:${rel}` : null),
+      right: await readBlobText(root, `${sha}:${rel}`),
+      leftVersion: parent ? parent.slice(0, 7) : "",
+      rightVersion: detail.sha.slice(0, 7),
+    };
+  }
+
+  async conflictSources(file: string): Promise<{ path: string; base: string; local: string; remote: string; current: string }> {
+    this.requireWritable();
+    const root = this.requireRepo();
+    const rel = normalizeRel(file);
+    let current = "";
+    try {
+      current = fs.readFileSync(safeJoin(root, rel), "utf8");
+    } catch {
+      current = "";
+    }
+    return {
+      path: rel,
+      base: await readBlobText(root, `:1:${rel}`),
+      local: await readBlobText(root, `:2:${rel}`),
+      remote: await readBlobText(root, `:3:${rel}`),
+      current,
+    };
+  }
+
+  async saveMerge(file: string, content: string): Promise<void> {
+    this.requireWritable();
+    const root = this.requireRepo();
+    const rel = normalizeRel(file);
+    fs.writeFileSync(safeJoin(root, rel), content);
+    await this.gitOrThrow(root, ["add", "--", rel]);
+    this.bump();
+  }
+
   private async writeDiffFiles(sha: string, file: string, left: string, right: string): Promise<void> {
     const root = this.requireRepo();
     const rel = normalizeRel(file);
@@ -1075,6 +1117,17 @@ function splitArgs(input: string): string[] {
   const pattern = /"([^"]*)"|'([^']*)'|(\S+)/g;
   for (const match of input.matchAll(pattern)) args.push(match[1] ?? match[2] ?? match[3] ?? "");
   return args;
+}
+
+async function readBlobText(repo: string, spec: string | null): Promise<string> {
+  if (!spec) return "";
+  const exists = spawnSync("git", ["-C", repo, "cat-file", "-e", spec], { windowsHide: true });
+  if (exists.status !== 0) return "";
+  const result = spawnSync("git", ["-C", repo, "cat-file", "blob", spec], { windowsHide: true, maxBuffer: 20 * 1024 * 1024 });
+  if (result.status !== 0) return "";
+  const buffer = result.stdout ?? Buffer.alloc(0);
+  if (buffer.includes(0)) throw new ApiError("This file is binary.", "BINARY");
+  return buffer.toString("utf8");
 }
 
 function writeBlob(repo: string, spec: string | null, destination: string): Promise<void> {

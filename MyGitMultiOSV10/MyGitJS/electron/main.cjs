@@ -82,6 +82,67 @@ function savedWindowBackground() {
   }
 }
 
+const toolWindows = new Map();
+
+function appUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" && (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost");
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.handle("open-tool", async (_event, url, kind) => {
+  if (!appUrl(url)) return;
+  const key = kind === "merge" ? "merge" : "diff";
+  const current = toolWindows.get(key);
+  if (current && !current.isDestroyed()) {
+    await current.loadURL(url);
+    if (current.isMinimized()) current.restore();
+    current.show();
+    current.focus();
+    return;
+  }
+  const win = new BrowserWindow({
+    width: 1100,
+    height: 760,
+    minWidth: 680,
+    minHeight: 480,
+    title: key === "merge" ? "Diff & Merge" : "Diff",
+    icon: resolveIcon(),
+    backgroundColor: savedWindowBackground(),
+    show: false,
+    frame: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      spellcheck: false,
+    },
+  });
+  toolWindows.set(key, win);
+  win.setMenuBarVisibility(false);
+  const sendMaximized = () => win.webContents.send("window-maximized", win.isMaximized());
+  win.on("maximize", sendMaximized);
+  win.on("unmaximize", sendMaximized);
+  const reveal = setTimeout(() => {
+    if (!win.isDestroyed() && !win.isVisible()) win.show();
+  }, 4000);
+  win.on("closed", () => {
+    clearTimeout(reveal);
+    if (toolWindows.get(key) === win) toolWindows.delete(key);
+  });
+  await win.loadURL(url);
+});
+
+function closeToolWindows() {
+  for (const tool of [...toolWindows.values()]) {
+    if (!tool.isDestroyed()) tool.close();
+  }
+}
+
 async function createWindow(url) {
   const win = new BrowserWindow({
     width: 1640,
@@ -108,6 +169,7 @@ async function createWindow(url) {
   const reveal = setTimeout(() => {
     if (!win.isDestroyed() && !win.isVisible()) win.show();
   }, 4000);
+  win.on("close", closeToolWindows);
   win.once("closed", () => clearTimeout(reveal));
   await win.loadURL(url);
 }

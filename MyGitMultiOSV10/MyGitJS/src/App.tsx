@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { ApiError, api, type CommitDetail, type CommitInfo, type FileEntry, type ReleaseInfo, type RepoInfo, type Settings, type TreeResponse, type WorkState } from "./api";
 import { CommitHistory } from "./CommitHistory";
 import { DiffView } from "./DiffView";
+import { openToolWindow } from "./toolLaunch";
 import { translate, type Lang } from "./i18n";
 import { ThemePicker } from "./ThemePicker";
+import { publishAppearance } from "../core/appearance";
 import { applyTheme, nextThemeId, THEMES, themeById } from "../core/themes";
 import { Flag, Icon, MenuGlyph, type IconName } from "./icons";
 import { TerminalPane } from "./TerminalPane";
@@ -216,13 +218,26 @@ export function App() {
   const showInAppDiff = useCallback((sha: string, file: string) => {
     setDiffFile(file);
     api.diff(sha, file).then((result) => setDiffText(result.text)).catch(fail);
-    void api.externalDiff(sha, file, false).catch(fail);
   }, [fail]);
+
+  const openBuiltinDiff = useCallback((sha: string, file: string) => {
+    setDiffFile(file);
+    api.diff(sha, file).then((result) => setDiffText(result.text)).catch(fail);
+    if (!openToolWindow({ kind: "diff", sha, file })) fail(new Error(t("toolWindowBlocked")));
+  }, [fail, t]);
+
+  const openBuiltinMerge = useCallback((file: string) => {
+    if (!openToolWindow({ kind: "merge", file })) fail(new Error(t("toolWindowBlocked")));
+  }, [fail, t]);
 
   const openExternalDiff = useCallback((sha: string, file: string) => {
     setDiffFile(file);
     api.diff(sha, file).then((result) => setDiffText(result.text)).catch(fail);
     void api.externalDiff(sha, file, true).catch(fail);
+  }, [fail]);
+
+  const openExternalMerge = useCallback((file: string) => {
+    void api.externalMerge(file).catch(fail);
   }, [fail]);
 
   useEffect(() => {
@@ -454,6 +469,7 @@ export function App() {
 
   function applyPrefs(patch: Partial<Settings>) {
     const ticket = ++prefsGen.current;
+    if (patch.language === "ko" || patch.language === "en") publishAppearance({ language: patch.language });
     setSettings((current) => current ? { ...current, ...patch } : current);
     prefsChain.current = prefsChain.current.catch(() => undefined).then(async () => {
       const saved = await api.saveSettings(patch);
@@ -470,6 +486,7 @@ export function App() {
       if (ticket !== prefsGen.current) return null;
       applyTheme(saved.theme);
       setSettings(saved);
+      publishAppearance({ language: saved.language });
       return saved;
     }).catch((error) => {
       if (ticket === prefsGen.current) fail(error);
@@ -639,7 +656,7 @@ export function App() {
                     onDoubleClick={() => {
                       if (entry.directory) return;
                       if (!fsRoot && isConflict(entry)) {
-                        void api.externalMerge(entry.path).catch(fail);
+                        openBuiltinMerge(entry.path);
                         return;
                       }
                       void api.openPath(entry.path).catch(fail);
@@ -741,9 +758,10 @@ export function App() {
                     if (selectedSha) showInAppDiff(selectedSha, file.path);
                   }}
                   onDoubleClick={() => {
-                    if (selectedSha) openExternalDiff(selectedSha, file.path);
+                    if (selectedSha) openBuiltinDiff(selectedSha, file.path);
                   }}
                   onContextMenu={(event) => showContext(event, [
+                    { icon: "browse", label: t("builtinDiff"), disabled: !selectedSha, action: () => { if (selectedSha) openBuiltinDiff(selectedSha, file.path); } },
                     { icon: "browse", label: t("openExternal"), disabled: !selectedSha, action: () => { if (selectedSha) openExternalDiff(selectedSha, file.path); } },
                     { icon: "copy", label: t("copyPath"), action: () => void navigator.clipboard.writeText(file.path) },
                   ])}
@@ -859,7 +877,10 @@ export function App() {
 
   function fileMenu(entry: FileEntry): MenuItem[] {
     return [
-      ...(isConflict(entry) ? [{ icon: "browse" as const, label: t("openMerge"), disabled: !writable, action: () => { void api.externalMerge(entry.path).catch(fail); } }] : []),
+      ...(isConflict(entry) ? [
+        { icon: "browse" as const, label: t("builtinMerge"), disabled: !writable, action: () => openBuiltinMerge(entry.path) },
+        { icon: "browse" as const, label: t("openMerge"), disabled: !writable, action: () => openExternalMerge(entry.path) },
+      ] : []),
       { icon: "history", label: t("showLog"), action: () => { setPathFilter(entry.path); filterRef.current = entry.path; void reload(entry.path); } },
       { icon: "copy", label: t("copyPath"), action: () => void navigator.clipboard.writeText(entry.path) },
       { icon: "list", label: t("showAll"), action: () => { setPathFilter(""); filterRef.current = ""; void reload(""); } },
@@ -1373,7 +1394,7 @@ function DialogHost(props: {
                     </div>
                     <div className="tool-block">
                       <div className="tool-line">
-                        <span>{t("mergeTool")}</span>
+                        <span title={t("mergeTool")}>{t("mergeTool")}</span>
                         <span className="tool-pick">
                           <select value={selectedDiffTool(diffTools, dialog.mergeTool)} onChange={(event) => {
                             const mergeTool = event.target.value;
