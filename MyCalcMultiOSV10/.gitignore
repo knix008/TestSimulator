@@ -6,6 +6,9 @@ dist/
 release/
 out/
 
+# The installer copy that build:win leaves in the project root
+*-setup.exe
+
 # electron-builder files written next to package.json
 builder-debug.yml
 builder-effective-config.yaml
