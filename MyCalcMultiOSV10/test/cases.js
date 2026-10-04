@@ -347,6 +347,35 @@ suite("Screen and modes", () => {
     assert(doc.getElementById("expr").value === "9+", doc.getElementById("expr").value);
   });
 
+  test("The history keeps ten entries and can be pruned", () => {
+    const doc = appWindow.document;
+    appWindow.setMode("basic");
+    appCall(() => {
+      state.history = [];
+      renderHistory();
+    });
+    for (let step = 1; step <= 12; step++) {
+      doc.getElementById("expr").value = `${step}+1`;
+      appWindow.equals();
+    }
+    assert(appCall(() => state.history.length) === 10, String(appCall(() => state.history.length)));
+    const chips = () => [...doc.querySelectorAll("#history .history-chip")];
+    assert(chips().length === 10, `${chips().length} chips`);
+    assert(chips()[0].querySelector(".history-recall").textContent.startsWith("12+1"), chips()[0].textContent);
+    chips()[0].querySelector(".history-drop").click();
+    assert(chips().length === 9, `${chips().length} chips after a delete`);
+    assert(!chips()[0].querySelector(".history-recall").textContent.startsWith("12+1"), "The entry stayed");
+    chips()[0].querySelector(".history-recall").click();
+    assert(doc.getElementById("expr").value === "11+1", doc.getElementById("expr").value);
+    doc.querySelector("#history .history-clear").click();
+    assert(chips().length === 0, "The history did not clear");
+    assert(!doc.querySelector("#history .history-clear"), "The clear button stayed");
+    appCall(() => {
+      state.history = [];
+      renderHistory();
+    });
+  });
+
   test("Info and settings open one at a time", () => {
     const doc = appWindow.document;
     const info = doc.getElementById("infoSheet");
@@ -559,7 +588,7 @@ suite("Graph", () => {
     });
   });
 
-  test("The wheel changes 2D range and 3D zoom", () => {
+  test("The wheel changes the 2D and the 3D range", () => {
     appWindow.setMode("graph");
     flush(appWindow);
     appCall(() => {
@@ -572,11 +601,14 @@ suite("Graph", () => {
       board.setDimension("3d");
       board.resetView();
       const span = board.view.xMax - board.view.xMin;
-      const zoom = board.camera.zoom;
-      board.onWheel({ preventDefault() {}, deltaY: -120, clientX: rect.left + 40, clientY: rect.top + 40 });
+      const height = board.view.zMax - board.view.zMin;
+      board.onWheel({ preventDefault() {}, deltaY: 120, clientX: rect.left + 40, clientY: rect.top + 40 });
       const next = board.view.xMax - board.view.xMin;
-      if (next !== span) throw new Error("3D range changed");
-      if (!(board.camera.zoom > zoom)) throw new Error("3D pose did not zoom");
+      if (!(next > span)) throw new Error("Zooming out left the axes as they were");
+      if (!(board.view.zMax - board.view.zMin > height)) throw new Error("The height axis stayed short");
+      board.onWheel({ preventDefault() {}, deltaY: -120, clientX: rect.left + 40, clientY: rect.top + 40 });
+      if (Math.abs(board.view.xMax - board.view.xMin - span) / span > 0.01) throw new Error("Zooming back in missed the start");
+      board.draw();
       const scene = board.scene;
       const key = board.meshKey;
       board.camera.yaw += 0.4;
@@ -588,7 +620,8 @@ suite("Graph", () => {
       if (edge && board.localGridPoint) {
         const first = board.localGridPoint(0, 0, edge.n, 0);
         const last = board.localGridPoint(edge.n - 1, edge.n - 1, edge.n, 0);
-        if (Math.abs(first.x + 1) > 1e-9 || Math.abs(last.x - 1) > 1e-9) throw new Error("Surface no longer fills the view");
+        if (!(first.x <= -1 + 1e-9) || !(last.x >= 1 - 1e-9)) throw new Error("The surface no longer covers the view");
+        if (!(first.x < -1.1)) throw new Error("The surface stops at the view edge");
       }
     });
   });
@@ -620,7 +653,9 @@ suite("Graph", () => {
     doc.getElementById("dim2d").click();
     assert([...doc.querySelectorAll("#presets button")].some((button) => button.textContent === "sin(x)"), "2D");
     doc.getElementById("dim3d").click();
-    assert([...doc.querySelectorAll("#presets button")].some((button) => button.textContent === "sin(x)*cos(y)"), "3D");
+    const spatial = [...doc.querySelectorAll("#presets button")].map((button) => button.textContent);
+    assert(spatial.includes("sin(x)*cos(y)"), spatial.join(","));
+    assert(spatial.includes("x^2+y^2"), spatial.join(","));
     doc.getElementById("dim2d").click();
   });
 
@@ -690,68 +725,45 @@ suite("Graph", () => {
     });
   });
 
-  test("The range controls stay on one line in the graph window", async () => {
+  test("The graph window keeps only the grid height control", async () => {
     const loaded = await loadApp("pop=graph&desktop=1");
     try {
     const doc = loaded.win.document;
+    loaded.frame.style.width = "1200px";
     flush(loaded.win);
     doc.getElementById("dim2d").click();
     callWin(loaded.win, () => board.resetView());
     const square = callWin(loaded.win, () => {
-      const across = board.canvas.width / (board.view.xMax - board.view.xMin);
-      const down = board.canvas.height / (board.view.yMax - board.view.yMin);
-      return { across, down, view: [board.view.xMin, board.view.xMax, board.view.yMin, board.view.yMax] };
+      board.draw();
+      const across = board.canvas.width / (board.drawn.xMax - board.drawn.xMin);
+      const down = board.canvas.height / (board.drawn.yMax - board.drawn.yMin);
+      return { across, down, view: [board.drawn.xMin, board.drawn.xMax, board.drawn.yMin, board.drawn.yMax] };
     });
     assert(Math.abs(square.across - square.down) / square.across < 0.01, `2D units differ ${square.across} vs ${square.down}`);
     assert(square.view[0] <= -10 && square.view[1] >= 10 && square.view[2] <= -10 && square.view[3] >= 10, `2D default range ${square.view.join(",")}`);
-    const row = doc.querySelector(".view-row");
-    const label = row.querySelector("label");
-    const rowStyle = getComputedStyle(row);
-    const labelStyle = getComputedStyle(label);
-    assert(rowStyle.flexWrap === "nowrap", rowStyle.flexWrap);
-    assert(labelStyle.flexDirection === "row", labelStyle.flexDirection);
-    assert(doc.getElementById("zMinField").hidden, "Z range is shown in 2D");
-    for (const input of row.querySelectorAll("input")) {
-      if (input.closest("label").hidden) continue;
-      const wrap = input.closest(".num-step");
-      const down = wrap.querySelector(".step-down").getBoundingClientRect();
-      const up = wrap.querySelector(".step-up").getBoundingClientRect();
-      const box = input.getBoundingClientRect();
-      assert(down.width > 0 && down.right <= box.left + 1, `${input.id} decrease`);
-      assert(up.width > 0 && up.left >= box.right - 1, `${input.id} increase`);
-      assert(getComputedStyle(input).textAlign === "center", `${input.id} centered`);
+    for (const id of ["xMin", "xMax", "yMin", "yMax", "zMin", "zMax"]) {
+      assert(!doc.getElementById(id), `${id} is still on the window`);
     }
-    const xMax = doc.getElementById("xMax");
-    const before = Number(xMax.value);
-    xMax.closest(".num-step").querySelector(".step-up").click();
-    assert(Number(xMax.value) === before + 1, xMax.value);
-    assert(callWin(loaded.win, () => board.view.xMax) === before + 1, "View did not increase by 1");
-    const yMin = doc.getElementById("yMin");
-    const yBefore = Number(yMin.value);
-    yMin.closest(".num-step").querySelector(".step-down").click();
-    assert(Number(yMin.value) === yBefore - 1, yMin.value);
+    assert(doc.getElementById("axisBar").hidden, "The axis bar shows in 2D");
     doc.getElementById("dim3d").click();
     flush(loaded.win);
-    doc.getElementById("resetView").click();
-    const resetRange = callWin(loaded.win, () => [board.view.xMin, board.view.xMax, board.view.yMin, board.view.yMax].join(","));
-    assert(resetRange === "-10,10,-10,10", `3D default range ${resetRange}`);
-    const zRange = callWin(loaded.win, () => [board.view.zMin, board.view.zMax]);
-    assert(zRange[1] > 0 && Math.abs(zRange[0] + zRange[1]) < 1e-9, `3D height ${zRange.join(",")}`);
-    assert(!doc.getElementById("zMinField").hidden && !doc.getElementById("zMaxField").hidden, "Z range is hidden in 3D");
-    const zMax = doc.getElementById("zMax");
-    const zBefore = Number(zMax.value);
-    zMax.closest(".num-step").querySelector(".step-up").click();
-    assert(callWin(loaded.win, () => board.view.zMax) === zBefore + 1, "Z range did not increase by 1");
-    const centers = [...row.children].filter((child) => !child.hidden).map((child) => {
-      const box = child.getBoundingClientRect();
-      return box.top + box.height / 2;
-    });
-    assert(Math.max(...centers) - Math.min(...centers) <= 4, centers.join(","));
-    const colorBox = doc.getElementById("axisColorX").getBoundingClientRect();
-    const rangeBox = doc.getElementById("xMin").getBoundingClientRect();
-    assert(row.parentElement.id === "axisBar", "Range row left the axis bar");
-    assert(doc.getElementById("axisColorX").closest(".graph-tool-row"), "Axis colors left the toolbar row");
-    assert(rangeBox.top >= colorBox.bottom - 1, "Axis colors are not above the range row");
+    assert(!doc.getElementById("axisBar").hidden, "The axis bar is missing in 3D");
+    assert(!doc.getElementById("gridZField").hidden, "The grid height is missing in 3D");
+    const input = doc.getElementById("gridZ");
+    const wrap = input.closest(".num-step");
+    const down = wrap.querySelector(".step-down").getBoundingClientRect();
+    const up = wrap.querySelector(".step-up").getBoundingClientRect();
+    const box = input.getBoundingClientRect();
+    assert(down.width > 0 && down.right <= box.left + 1, "The decrease key is out of place");
+    assert(up.width > 0 && up.left >= box.right - 1, "The increase key is out of place");
+    assert(getComputedStyle(input).textAlign === "center", "The grid height is not centred");
+    const level = callWin(loaded.win, () => board.floorLevel());
+    up.width && wrap.querySelector(".step-up").click();
+    assert(callWin(loaded.win, () => board.floorLevel()) !== level, "The grid did not move along z");
+    const row = doc.querySelector(".view-row");
+    assert(row.parentElement.id === "axisBar", "The range row left the axis bar");
+    assert(getComputedStyle(row).flexWrap === "nowrap", getComputedStyle(row).flexWrap);
+    assert(doc.getElementById("axisColorX").closest(".graph-tool-row"), "Axis colours left the toolbar row");
     doc.getElementById("dim2d").click();
     } finally {
       loaded.frame.remove();
@@ -1299,10 +1311,12 @@ suite("Product features", () => {
       board.canvas.height = 600;
       board.draw();
       if (!board.lightHit) throw new Error("The light marker is missing");
-      const lit = board.scene.surfaces[0].colors[0];
+      const painted = board.scene.surfaces[0].colors.findIndex((colour) => !!colour);
+      if (painted < 0) throw new Error("Nothing was shaded");
+      const lit = board.scene.surfaces[0].colors[painted];
       board.light.azimuth += 1.3;
       board.draw();
-      if (board.scene.surfaces[0].colors[0] === lit) throw new Error("The shading ignored the light");
+      if (board.scene.surfaces[0].colors[painted] === lit) throw new Error("The shading ignored the light");
       if (!board.lightAt(board.lightHit.sx, board.lightHit.sy)) throw new Error("The light cannot be grabbed");
       const aimed = board.lightFromScreen(board.lightHit.sx + 24, board.lightHit.sy - 10);
       if (!aimed) throw new Error("The light did not follow the pointer");
@@ -1313,10 +1327,10 @@ suite("Product features", () => {
       board.draw();
       if (board.light.on) throw new Error("The light stayed on");
       if (board.lightHit) throw new Error("The marker is still drawn");
-      const flat = board.scene.surfaces[0].colors[0];
+      const flat = board.scene.surfaces[0].colors[painted];
       board.toggleLight();
       board.draw();
-      if (board.scene.surfaces[0].colors[0] === flat) throw new Error("Switching the light back changed nothing");
+      if (board.scene.surfaces[0].colors[painted] === flat) throw new Error("Switching the light back changed nothing");
       while (board.functions.length) board.removeFunction(board.functions[0].id);
       board.setDimension("2d");
     });
@@ -1340,6 +1354,122 @@ suite("Product features", () => {
       if (moving !== still) throw new Error(`${moving} vs ${still}`);
       if (board.scene.surfaces[0] !== mesh) throw new Error("Rotating rebuilt the surface");
       while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.setDimension("2d");
+    });
+  });
+
+  test("The legend swatch changes the graph colour", () => {
+    appWindow.setMode("graph");
+    flush(appWindow);
+    const doc = appWindow.document;
+    appCall(() => {
+      board.setDimension("2d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.addFunction("sin(x)");
+      board.canvas.width = 800;
+      board.canvas.height = 500;
+      board.draw();
+    });
+    const hit = appCall(() => {
+      const spot = board.legendHits[0];
+      return spot ? { x: spot.chip.x, y: spot.chip.y, w: spot.chip.w, h: spot.chip.h, id: spot.id } : null;
+    });
+    assert(hit, "The legend has no colour swatch");
+    const canvas = doc.getElementById("plot");
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.left + ((hit.x + hit.w / 2) / canvas.width) * rect.width;
+    const cy = rect.top + ((hit.y + hit.h / 2) / canvas.height) * rect.height;
+    canvas.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: cx, clientY: cy, detail: 1 }));
+    const picker = doc.getElementById("legendColor");
+    assert(!picker.hidden, "The colour picker stayed hidden");
+    assert(Number(picker.dataset.fn) === hit.id, "The picker is bound to another function");
+    picker.value = "#22d3ee";
+    picker.dispatchEvent(new Event("input", { bubbles: true }));
+    assert(appCall(() => board.functions[0].color) === "#22d3ee", "The colour did not change");
+    picker.dispatchEvent(new Event("blur"));
+    assert(picker.hidden, "The picker stayed open");
+    appCall(() => {
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+    });
+  });
+
+  test("The floor grid also shows through the surface", () => {
+    appWindow.setMode("graph");
+    flush(appWindow);
+    const counts = appCall(() => {
+      board.setDimension("3d");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.draw();
+      const lines = board.floorLines();
+      const major = lines.filter((line) => (line.width || 1) >= 1.2).length;
+      const passes = [];
+      const original = board.drawFloor.bind(board);
+      board.drawFloor = (ctx, dpr, ghost) => {
+        passes.push(!!ghost);
+        return original(ctx, dpr, ghost);
+      };
+      board.draw();
+      board.drawFloor = original;
+      board.setDimension("2d");
+      return { major, passes };
+    });
+    assert(counts.major >= 10, `${counts.major} cell lines`);
+    assert(counts.passes.filter((ghost) => ghost).length === 1, `ghost passes ${counts.passes.join(",")}`);
+    assert(counts.passes.filter((ghost) => !ghost).length === 1, `solid passes ${counts.passes.join(",")}`);
+  });
+
+  test("Ctrl with the wheel scales the picture only", () => {
+    appWindow.setMode("graph");
+    flush(appWindow);
+    appCall(() => {
+      board.setDimension("3d");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.camera.zoom = 1.35;
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      board.draw();
+      const before = { focal: board.proj.focal, span: board.view.xMax - board.view.xMin, cells: board.floorLattice().xs.length };
+      board.onWheel({ preventDefault() {}, ctrlKey: true, deltaY: -120, clientX: 0, clientY: 0 });
+      board.draw();
+      const after = { focal: board.proj.focal, span: board.view.xMax - board.view.xMin, cells: board.floorLattice().xs.length };
+      if (!(after.focal > before.focal * 1.1)) throw new Error(`focal ${before.focal} -> ${after.focal}`);
+      if (Math.abs(after.span - before.span) > 1e-9) throw new Error("The axis numbers moved");
+      if (after.cells !== before.cells) throw new Error("The grid changed its count");
+      board.camera.zoom = 1.35;
+      board.resetView();
+      board.setDimension("2d");
+    });
+  });
+
+  test("A surface is cut at the height limit, not capped", () => {
+    appWindow.setMode("graph");
+    flush(appWindow);
+    appCall(() => {
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.addFunction("x^2+y^2");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      board.draw();
+      const surface = board.scene.surfaces[0];
+      if (!surface.edges.length) throw new Error("Nothing was cut at the limit");
+      const ceiling = board.zToLocal(10);
+      let highest = -Infinity;
+      for (const edge of surface.edges) {
+        for (let vertex = 0; vertex < edge.count; vertex++) {
+          highest = Math.max(highest, edge.shape[vertex * 3 + 2]);
+        }
+      }
+      if (Math.abs(highest - ceiling) > 1e-9) throw new Error(`The rim sits at ${highest}, not ${ceiling}`);
+      const whole = (surface.n - 1) * (surface.n - 1);
+      const painted = surface.colors.filter(Boolean).length;
+      if (!(painted < whole * 0.5)) throw new Error("The area past the limit was filled in");
+      if (!(painted > 50)) throw new Error(`Only ${painted} cells were drawn`);
+      const faces = board.projectScene();
+      if (!(faces.length > painted)) throw new Error("The rim pieces are not drawn");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
       board.setDimension("2d");
     });
   });
@@ -1385,12 +1515,15 @@ suite("Product features", () => {
       board.resetView();
       board.setView({ xMin: -10, xMax: 10, yMin: -2, yMax: 2, zMin: 0, zMax: 8 });
       const n = 49;
-      const i = Math.round(((5 - board.view.xMin) / (board.view.xMax - board.view.xMin)) * (n - 1));
+      const ground = board.meshDomain();
+      const i = Math.round(((5 - ground.x0) / (ground.x1 - ground.x0)) * (n - 1));
       const onFive = board.localGridPoint(i, 0, n, 5);
-      if (Math.abs(onFive.x - board.worldToFloorX(5)) > 1e-9) throw new Error("surface x");
+      const sampled = ground.x0 + (i / (n - 1)) * (ground.x1 - ground.x0);
+      if (Math.abs(onFive.x - board.worldToFloorX(sampled)) > 1e-9) throw new Error("surface x");
+      if (Math.abs(sampled - 5) > (ground.x1 - ground.x0) / (n - 1)) throw new Error("the sample is far from x = 5");
       if (Math.abs(onFive.z - board.zToLocal(5)) > 1e-9) throw new Error("surface z");
       const yEnd = board.localGridPoint(0, n - 1, n, 0).y;
-      if (!(Math.abs(yEnd) < 0.5)) throw new Error(String(yEnd));
+      if (!(Math.abs(yEnd) < 1.5)) throw new Error(String(yEnd));
       const origin = board.axisAnchor();
       if (Math.abs(origin.y) > 1e-9) throw new Error("y origin");
       if (Math.abs(origin.z - board.zToLocal(0)) > 1e-9) throw new Error("floor z");
@@ -1398,7 +1531,9 @@ suite("Product features", () => {
       board.setView({ xMin: 0, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
       const shifted = board.axisAnchor();
       if (Math.abs(shifted.x - board.worldToFloorX(0)) > 1e-9) throw new Error("x origin");
-      if (Math.abs(board.localGridPoint(0, 24, n, 0).x - shifted.x) > 1e-9) throw new Error("x=0 surface");
+      const middle = board.meshDomain();
+      const atZero = Math.round(((0 - middle.x0) / (middle.x1 - middle.x0)) * (n - 1));
+      if (Math.abs(board.localGridPoint(atZero, 24, n, 0).x - shifted.x) > 0.02) throw new Error("x=0 surface");
       board.resetView();
       board.setDimension("2d");
     });
@@ -1459,7 +1594,7 @@ suite("Product features", () => {
       appWindow.setMode("graph");
       flush(appWindow);
       assert(region("#plot") === "no-drag", "Canvas");
-      assert(region("#fnList") === "drag", region("#fnList"));
+      assert(region("#presets") === "drag", region("#presets"));
       assert(region("#addFn") === "no-drag", "Add");
     } finally {
       root.classList.remove("desktop");
@@ -1514,18 +1649,18 @@ suite("Product features", () => {
       for (const id of ["zoomIn", "zoomOut", "resetView", "gridToggle", "legendToggle"]) {
         assert(getComputedStyle(doc.getElementById(id)).display !== "none", `${id} stays with the plot`);
       }
-      assert(getComputedStyle(doc.getElementById("axisBar")).display !== "none", "Axis controls stay with the plot");
       assert(getComputedStyle(doc.getElementById("dim2d")).display === "none", "2D and 3D stay in the main window");
       assert(getComputedStyle(doc.getElementById("graphExpr")).display === "none", "Expression input stays in the main window");
       assert(getComputedStyle(doc.getElementById("addFn")).display === "none", "Function entry stays in the main window");
-      assert(getComputedStyle(doc.getElementById("fnList")).display === "none", "Function list stays on the main window");
+      assert(getComputedStyle(doc.getElementById("fnList")).display !== "none", "The function list stays with the plot");
       assert(getComputedStyle(doc.querySelector(".canvas-wrap")).display !== "none", "Plot is visible");
       doc.getElementById("dim3d").click();
+      assert(getComputedStyle(doc.getElementById("axisBar")).display !== "none", "Axis controls stay with the plot");
       assert(getComputedStyle(doc.getElementById("axisToggle")).display !== "none", "Axis values are available in 3D");
       assert(getComputedStyle(doc.getElementById("axesToggle")).display !== "none", "Axis visibility is available in 3D");
       const graphClose = doc.getElementById("graphClose");
       assert(!graphClose.hidden, "Close button");
-      assert(graphClose.textContent === "x", graphClose.textContent);
+      assert(graphClose.textContent === "×", graphClose.textContent);
       const closeStyle = getComputedStyle(graphClose);
       const minStyle = getComputedStyle(doc.getElementById("graphMin"));
       assert(closeStyle.borderTopWidth === "0px" && minStyle.borderTopWidth === "0px", "Window buttons have a border");
@@ -1540,7 +1675,7 @@ suite("Product features", () => {
       const appStyle = getComputedStyle(doc.querySelector(".app"));
       const plotStyle = getComputedStyle(doc.querySelector(".canvas-wrap"));
       const screenStyle = getComputedStyle(doc.getElementById("screenGraph"));
-      assert(parseFloat(appStyle.borderTopLeftRadius) >= 20, appStyle.borderTopLeftRadius);
+      assert(parseFloat(appStyle.borderTopLeftRadius) >= 12, appStyle.borderTopLeftRadius);
       assert(appStyle.backgroundImage.includes("linear-gradient"), appStyle.backgroundImage);
       assert(appStyle.boxShadow !== "none", appStyle.boxShadow);
       assert(plotStyle.backgroundColor === "rgba(0, 0, 0, 0)", plotStyle.backgroundColor);
@@ -1563,10 +1698,10 @@ suite("Product features", () => {
       assert(getComputedStyle(doc.getElementById("keys")).display === "none", "Calculator keys");
       appWindow.setMode("graph");
       flush(appWindow);
-      for (const id of ["graphExpr", "addFn", "fnList", "dim2d", "dim3d"]) {
+      for (const id of ["graphExpr", "addFn", "dim2d", "dim3d"]) {
         assert(getComputedStyle(appWindow.document.getElementById(id)).display !== "none", `${id} stays on the main window`);
       }
-      for (const id of ["axisBar", "gridToggle", "legendToggle", "axesToggle", "axisToggle", "lightToggle"]) {
+      for (const id of ["axisBar", "fnList", "gridToggle", "legendToggle", "axesToggle", "axisToggle", "lightToggle"]) {
         assert(getComputedStyle(appWindow.document.getElementById(id)).display === "none", `${id} stays with the plot`);
       }
       assert(appWindow.document.querySelector(".app").getBoundingClientRect().width <= 560, "Main graph window is not compact");
@@ -1785,6 +1920,197 @@ suite("Product features", () => {
     appWindow.setMode("basic");
   });
 
+  test("The graph window opens and closes its panels", async () => {
+    localStorage.removeItem("mycalc-panel-left");
+    localStorage.removeItem("mycalc-panel-right");
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      loaded.frame.style.width = "1200px";
+      flush(loaded.win);
+      const doc = loaded.win.document;
+      const list = doc.getElementById("fnList");
+      const side = doc.getElementById("graphSide");
+      const left = doc.getElementById("panelLeft");
+      const right = doc.getElementById("panelRight");
+      assert(!left.hidden && !right.hidden, "The panel buttons are missing");
+      assert(!list.hidden, "The expression panel starts closed");
+      assert(side.hidden, "The settings panel starts open");
+      right.click();
+      flush(loaded.win);
+      assert(!side.hidden, "The settings panel did not open");
+      assert(right.getAttribute("aria-pressed") === "true", "The button does not show its state");
+      const columns = getComputedStyle(doc.querySelector(".graph-body")).gridTemplateColumns.split(" ");
+      assert(columns.length === 4, columns.join(" "));
+      left.click();
+      flush(loaded.win);
+      assert(list.hidden, "The expression panel did not close");
+      assert(doc.getElementById("graphSplit").hidden, "The splitter stayed behind");
+      const turn = doc.getElementById("sideLightTurn");
+      turn.value = "90";
+      turn.dispatchEvent(new Event("input", { bubbles: true }));
+      const azimuth = callWin(loaded.win, () => board.light.azimuth);
+      assert(Math.abs(azimuth - Math.PI / 2) < 1e-9, String(azimuth));
+      const far = doc.getElementById("sideLightFar");
+      far.value = "500";
+      far.dispatchEvent(new Event("input", { bubbles: true }));
+      assert(Math.abs(callWin(loaded.win, () => board.lightReach()) - 5) < 1e-9, "The distance did not follow");
+      const lit = doc.getElementById("sideLightOn");
+      lit.checked = false;
+      lit.dispatchEvent(new Event("change", { bubbles: true }));
+      assert(callWin(loaded.win, () => board.light.on) === false, "The light stayed on");
+      left.click();
+      right.click();
+      flush(loaded.win);
+      assert(!list.hidden && side.hidden, "The panels did not go back");
+    } finally {
+      loaded.frame.remove();
+      localStorage.removeItem("mycalc-panel-left");
+      localStorage.removeItem("mycalc-panel-right");
+    }
+  });
+
+  test("The expression panel can be resized", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const doc = loaded.win.document;
+      loaded.frame.style.width = "1200px";
+      flush(loaded.win);
+      const split = doc.getElementById("graphSplit");
+      assert(split && getComputedStyle(split).display !== "none", "The panel has no splitter");
+      assert(getComputedStyle(split).cursor === "col-resize", getComputedStyle(split).cursor);
+      const list = doc.getElementById("fnList");
+      const before = Math.round(list.getBoundingClientRect().width);
+      const edge = split.getBoundingClientRect().left + 5;
+      const fire = (type, x) => split.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 7, clientX: x, clientY: 200 }));
+      fire("pointerdown", edge);
+      fire("pointermove", edge + 90);
+      fire("pointerup", edge + 90);
+      flush(loaded.win);
+      const after = Math.round(list.getBoundingClientRect().width);
+      assert(after > before + 40, `panel ${before} -> ${after}`);
+      assert(doc.querySelector(".canvas-wrap").getBoundingClientRect().width > 300, "The plot lost its room");
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The smallest graph window still shows every range control", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      loaded.frame.style.width = "1120px";
+      loaded.frame.style.height = "540px";
+      flush(loaded.win);
+      const doc = loaded.win.document;
+      doc.getElementById("dim3d").click();
+      flush(loaded.win);
+      const app = doc.querySelector(".app").getBoundingClientRect();
+      const row = doc.querySelector(".view-row");
+      const rowBox = row.getBoundingClientRect();
+      const bar = doc.getElementById("axisBar").getBoundingClientRect();
+      const apply = doc.getElementById("applyView").getBoundingClientRect();
+      const gridZ = doc.getElementById("gridZField").getBoundingClientRect();
+      const tools = doc.querySelector(".graph-tool-row");
+      assert(Math.round(rowBox.left) <= Math.round(bar.left) + 1, "The range row is not left aligned");
+      assert(row.scrollWidth <= Math.ceil(rowBox.width) + 1, `${row.scrollWidth} needed, ${Math.round(rowBox.width)} given`);
+      assert(apply.right <= app.right - 6, `Apply sits at ${Math.round(apply.right)} of ${Math.round(app.right)}`);
+      assert(gridZ.right <= app.right - 6, "The grid z field is clipped");
+      assert(tools.scrollWidth <= Math.ceil(tools.getBoundingClientRect().width) + 1, "The toolbar is clipped");
+      assert(doc.querySelector(".canvas-wrap").getBoundingClientRect().height > 100, "The plot has no room left");
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("A hidden plot leaves the range alone", async () => {
+    const loaded = await loadApp("desktop=1");
+    try {
+      const outcome = callWin(loaded.win, () => {
+        setMode("graph");
+        board.setDimension("2d");
+        board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10 });
+        const first = [board.view.xMin, board.view.xMax, board.view.yMin, board.view.yMax].join(",");
+        for (let round = 0; round < 5; round++) board.draw();
+        return { auto: board.autoSquare, first, now: [board.view.xMin, board.view.xMax, board.view.yMin, board.view.yMax].join(",") };
+      });
+      assert(outcome.auto === false, "The hidden board still squares the range");
+      assert(outcome.first === outcome.now, `${outcome.first} -> ${outcome.now}`);
+      const shown = await loadApp("pop=graph&desktop=1");
+      try {
+        assert(callWin(shown.win, () => board.autoSquare) === true, "The graph window does not square its units");
+      } finally {
+        shown.frame.remove();
+      }
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("A window shares a change once", async () => {
+    const loaded = await loadApp("");
+    try {
+      const heard = [];
+      const channel = new BroadcastChannel("mycalc-graph");
+      channel.onmessage = (event) => {
+        if (event.data && event.data.type === "state") heard.push(event.data);
+      };
+      callWin(loaded.win, () => {
+        setMode("graph");
+        board.setDimension("2d");
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+        addGraph("x+1");
+      });
+      await wait(120);
+      const spoken = heard.length;
+      callWin(loaded.win, () => {
+        publishGraph();
+        publishGraph();
+        board.draw();
+      });
+      await wait(120);
+      assert(heard.length === spoken, `${heard.length - spoken} repeats`);
+      callWin(loaded.win, () => addGraph("x+2"));
+      await wait(120);
+      assert(heard.length === spoken + 1, "A real change went unshared");
+      channel.close();
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("Deleting a 3D graph sticks in both windows", async () => {
+    const main = await loadApp("");
+    const pop = await loadApp("pop=graph&desktop=1");
+    try {
+      // Let the greeting between the windows settle before changing anything.
+      await wait(200);
+      callWin(main.win, () => {
+        setMode("graph");
+        board.setDimension("3d");
+        while (board.fns3d.length) board.removeFunction(board.fns3d[0].id);
+        addGraph("x*y/10");
+        addGraph("x+y");
+      });
+      await wait(250);
+      const seen = callWin(pop.win, () => board.functions.map((fn) => fn.expr));
+      assert(seen.length === 2, seen.join(",") || "nothing arrived");
+      const row = pop.win.document.querySelectorAll("#fnList li")[0];
+      assert(row, "The panel has no rows");
+      row.querySelectorAll(".icon-btn")[1].click();
+      await wait(300);
+      const left = callWin(pop.win, () => board.functions.map((fn) => fn.expr));
+      const mirrored = callWin(main.win, () => board.fns3d.map((fn) => fn.expr));
+      assert(left.length === 1, left.join(",") || "empty");
+      assert(mirrored.join(",") === left.join(","), `${mirrored.join(",")} vs ${left.join(",")}`);
+      callWin(main.win, () => {
+        while (board.fns3d.length) board.removeFunction(board.fns3d[0].id);
+      });
+      await wait(150);
+    } finally {
+      pop.frame.remove();
+      main.frame.remove();
+    }
+  });
+
   test("Every window wears the calculator chrome", async () => {
     const settings = await loadApp("pop=settings");
     const info = await loadApp("pop=info");
@@ -1792,13 +2118,13 @@ suite("Product features", () => {
     try {
       for (const [name, loaded] of [["settings", settings], ["info", info], ["print", print]]) {
         const style = getComputedStyle(loaded.win.document.querySelector(".app"));
-        assert(parseFloat(style.borderTopLeftRadius) >= 20, `${name} corners ${style.borderTopLeftRadius}`);
+        assert(parseFloat(style.borderTopLeftRadius) >= 12, `${name} corners ${style.borderTopLeftRadius}`);
         assert(style.boxShadow !== "none", `${name} shadow`);
       }
       const settingsDoc = settings.win.document;
       assert(!settingsDoc.getElementById("settingsMin").hidden, "Settings minimise");
       assert(!settingsDoc.getElementById("settingsMax").hidden, "Settings maximise");
-      const foot = settingsDoc.querySelector(".sheet-foot");
+      const foot = settingsDoc.querySelector("#settingsSheet .sheet-foot");
       assert(foot && foot.children.length === 2, "The settings footer is missing");
       const reset = settingsDoc.getElementById("resetSettings").getBoundingClientRect();
       const apply = settingsDoc.getElementById("applyCustom").getBoundingClientRect();
@@ -1806,6 +2132,9 @@ suite("Product features", () => {
       const custom = settingsDoc.querySelector(".custom-theme").getBoundingClientRect();
       assert(reset.top >= custom.bottom - 1, "The footer is not below the colours");
       assert(!info.win.document.getElementById("closeInfo").hidden, "The info window has no close button");
+      const infoOk = info.win.document.getElementById("infoOk");
+      assert(infoOk && getComputedStyle(infoOk).display !== "none", "The info window has no confirm button");
+      assert(infoOk.getBoundingClientRect().bottom <= info.win.document.querySelector(".app").getBoundingClientRect().bottom, "The confirm button is off the window");
       const printDoc = print.win.document;
       assert(!printDoc.getElementById("printClose").hidden, "The print window has no close button");
       const chrome = printDoc.getElementById("printChrome").getBoundingClientRect();

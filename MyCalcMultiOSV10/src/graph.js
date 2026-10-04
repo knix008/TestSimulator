@@ -55,6 +55,7 @@ function fillWindowBackdrop(ctx, width, height) {
 }
 
 const FLOOR_CELLS = 5;
+const FLOOR_REACH = 3;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -105,12 +106,14 @@ class GraphBoard {
       z: { color: "#7dd3fc", visible: true },
     };
     this.camera = { yaw: -0.75, pitch: -1.05, zoom: 1.35 };
-    this.light = { on: true, azimuth: -0.95, elevation: 0.9 };
+    this.light = { on: true, azimuth: -0.95, elevation: 0.9, reach: 1.3 };
     this.floorZ = null;
     this.lightHit = null;
     this.hover = null;
     this.drag = null;
     this.nextId = 1;
+    this.autoSquare = true;
+    this.drawn = this.view;
     this.exportTransparent = false;
     this.paintBackdrop = false;
     this.onChange = null;
@@ -296,8 +299,8 @@ class GraphBoard {
     this.zoomAt(cx, cy, factor);
   }
 
-  zoom3d(factor, fast) {
-    const next = clamp(this.camera.zoom / factor, 0.4, 6);
+  zoomCamera(factor, fast) {
+    const next = clamp(this.camera.zoom / factor, 0.12, 24);
     if (Math.abs(next - this.camera.zoom) < 1e-6) return;
     this.camera.zoom = next;
     if (fast) {
@@ -312,7 +315,38 @@ class GraphBoard {
       this.fastPaint = false;
       this.draw();
     }
+    this.onChange?.();
+  }
+
+  zoom3d(factor, fast) {
+    const pairs = [["xMin", "xMax"], ["yMin", "yMax"], ["zMin", "zMax"]];
+    const next = {};
+    for (const [low, high] of pairs) {
+      const middle = (this.view[low] + this.view[high]) / 2;
+      const half = ((this.view[high] - this.view[low]) / 2) * factor;
+      if (!Number.isFinite(half) || half < 1e-6 || half > 1e9) return;
+      next[low] = middle - half;
+      next[high] = middle + half;
+    }
+    Object.assign(this.view, next);
+    // The camera keeps filling the window; only the span of the axes changes.
+    this.zAuto = false;
+    this.meshKey = "";
+    this.scene = null;
+    if (fast) {
+      this.fastPaint = true;
+      this.scheduleDraw();
+      clearTimeout(this.fullPaintTimer);
+      this.fullPaintTimer = setTimeout(() => {
+        this.fastPaint = false;
+        if (this.drag?.mode !== "rotate") this.draw();
+      }, 140);
+    } else {
+      this.fastPaint = false;
+      this.draw();
+    }
     this.onView?.();
+    this.onChange?.();
   }
 
   lightVector() {
@@ -325,7 +359,7 @@ class GraphBoard {
   }
 
   lightReach() {
-    return 1.45;
+    return clamp(this.light.reach || 1.3, 0.3, 6);
   }
 
   lightPoint() {
@@ -356,6 +390,7 @@ class GraphBoard {
     const b = 2 * (u * dx - dy + v * dz);
     const c = dx * dx + dy * dy + dz * dz - reach * reach;
     const disc = b * b - 4 * a * c;
+    // Past the sphere the light simply moves further out, so the drag never stops.
     const depth = disc > 0 ? (-b - Math.sqrt(disc)) / (2 * a) : -b / (2 * a);
     if (!(depth > 0.2)) return null;
     const cam = { x: u * depth, y: eyeY - depth, z: v * depth };
@@ -367,6 +402,7 @@ class GraphBoard {
     return {
       azimuth: Math.atan2(vy, vx),
       elevation: Math.asin(clamp(vz / length, -1, 1)),
+      reach: clamp(length, 0.3, 6),
     };
   }
 
@@ -402,7 +438,8 @@ class GraphBoard {
     if (!light) return;
     if (typeof light.on === "boolean") this.light.on = light.on;
     if (Number.isFinite(light.azimuth)) this.light.azimuth = light.azimuth;
-    if (Number.isFinite(light.elevation)) this.light.elevation = clamp(light.elevation, -1.35, 1.45);
+    if (Number.isFinite(light.elevation)) this.light.elevation = clamp(light.elevation, -1.55, 1.55);
+    if (Number.isFinite(light.reach)) this.light.reach = clamp(light.reach, 0.3, 6);
     this.draw();
   }
 
@@ -444,22 +481,22 @@ class GraphBoard {
   }
 
   pxToX(px) {
-    const { xMin, xMax } = this.view;
+    const { xMin, xMax } = this.drawn;
     return xMin + (px / this.canvas.width) * (xMax - xMin);
   }
 
   pxToY(py) {
-    const { yMin, yMax } = this.view;
+    const { yMin, yMax } = this.drawn;
     return yMax - (py / this.canvas.height) * (yMax - yMin);
   }
 
   xToPx(x) {
-    const { xMin, xMax } = this.view;
+    const { xMin, xMax } = this.drawn;
     return ((x - xMin) / (xMax - xMin)) * this.canvas.width;
   }
 
   yToPx(y) {
-    const { yMin, yMax } = this.view;
+    const { yMin, yMax } = this.drawn;
     return ((yMax - y) / (yMax - yMin)) * this.canvas.height;
   }
 
@@ -502,7 +539,7 @@ class GraphBoard {
       this.canvas.classList.add("dragging");
       return;
     }
-    this.drag = { mode: "pan", px: p.px, py: p.py, view: { ...this.view } };
+    this.drag = { mode: "pan", px: p.px, py: p.py, view: { ...this.view }, frame: { ...this.drawn } };
   }
 
   onPointerMove(ev) {
@@ -530,7 +567,8 @@ class GraphBoard {
       const aimed = this.lightFromScreen(p.px, p.py);
       if (!aimed) return;
       this.light.azimuth = aimed.azimuth;
-      this.light.elevation = clamp(aimed.elevation, -1.45, 1.45);
+      this.light.elevation = clamp(aimed.elevation, -1.55, 1.55);
+      this.light.reach = aimed.reach;
       const azimuthDeg = Math.round((this.light.azimuth * 180) / Math.PI);
       const elevationDeg = Math.round((this.light.elevation * 180) / Math.PI);
       this.hoverLabel = uiText(`광원 ${azimuthDeg}° / ${elevationDeg}°`, `Light ${azimuthDeg}° / ${elevationDeg}°`);
@@ -549,8 +587,9 @@ class GraphBoard {
       return;
     }
     if (this.drag?.mode === "pan") {
-      const dx = ((p.px - this.drag.px) / this.canvas.width) * (this.drag.view.xMax - this.drag.view.xMin);
-      const dy = ((p.py - this.drag.py) / this.canvas.height) * (this.drag.view.yMax - this.drag.view.yMin);
+      const seen = this.drag.frame || this.drag.view;
+      const dx = ((p.px - this.drag.px) / this.canvas.width) * (seen.xMax - seen.xMin);
+      const dy = ((p.py - this.drag.py) / this.canvas.height) * (seen.yMax - seen.yMin);
       Object.assign(this.view, {
         xMin: this.drag.view.xMin - dx,
         xMax: this.drag.view.xMax - dx,
@@ -589,7 +628,8 @@ class GraphBoard {
     ev.preventDefault();
     const factor = ev.deltaY > 0 ? 1.2 : 0.8333;
     if (this.dimension === "3d") {
-      this.zoom3d(factor, true);
+      if (ev.ctrlKey) this.zoomCamera(factor, true);
+      else this.zoom3d(factor, true);
       return;
     }
     const p = this.eventPoint(ev);
@@ -622,40 +662,38 @@ class GraphBoard {
     });
   }
 
-  squareView() {
-    if (this.dimension !== "2d") return false;
+  // What the canvas actually shows: the range, widened so one unit is the
+  // same length on both axes. The range itself is left alone, so two windows
+  // with different canvases never argue about it.
+  syncFrame() {
+    const view = this.view;
     const width = this.canvas.width;
     const height = this.canvas.height;
-    const view = this.view;
     const spanX = view.xMax - view.xMin;
     const spanY = view.yMax - view.yMin;
-    if (!(width > 0) || !(height > 0) || !(spanX > 0) || !(spanY > 0)) return false;
-    const scaleX = width / spanX;
-    const scaleY = height / spanY;
-    const scale = Math.min(scaleX, scaleY);
-    let widened = false;
-    if (scaleX > scale * 1.000001) {
-      const middle = (view.xMin + view.xMax) / 2;
-      const half = width / scale / 2;
-      view.xMin = middle - half;
-      view.xMax = middle + half;
-      widened = true;
+    if (this.dimension !== "2d" || !this.autoSquare || !(width > 0) || !(height > 0) || !(spanX > 0) || !(spanY > 0)) {
+      this.drawn = view;
+      return;
     }
-    if (scaleY > scale * 1.000001) {
-      const middle = (view.yMin + view.yMax) / 2;
-      const half = height / scale / 2;
-      view.yMin = middle - half;
-      view.yMax = middle + half;
-      widened = true;
-    }
-    return widened;
+    const scale = Math.min(width / spanX, height / spanY);
+    const middleX = (view.xMin + view.xMax) / 2;
+    const middleY = (view.yMin + view.yMax) / 2;
+    const halfX = width / scale / 2;
+    const halfY = height / scale / 2;
+    this.drawn = {
+      ...view,
+      xMin: middleX - halfX,
+      xMax: middleX + halfX,
+      yMin: middleY - halfY,
+      yMax: middleY + halfY,
+    };
   }
 
   draw() {
     const ctx = this.ctx;
     const { width, height } = this.canvas;
     if (!width || !height) return;
-    if (this.squareView()) this.onView?.();
+    this.syncFrame();
     const dpr = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, width, height);
     if (this.paintBackdrop && !this.exportTransparent) fillWindowBackdrop(ctx, width, height);
@@ -676,6 +714,20 @@ class GraphBoard {
 
   legendAt(px, py) {
     return this.legendHits.find((hit) => px >= hit.x && px <= hit.x + hit.w && py >= hit.y && py <= hit.y + hit.h) || null;
+  }
+
+  legendChipAt(px, py) {
+    return this.legendHits.find((hit) => {
+      const chip = hit.chip;
+      if (!chip) return false;
+      const reach = 4 * (window.devicePixelRatio || 1);
+      return (
+        px >= chip.x - reach &&
+        px <= chip.x + chip.w + reach &&
+        py >= chip.y - reach &&
+        py <= chip.y + chip.h + reach
+      );
+    }) || null;
   }
 
   legendContains(px, py) {
@@ -733,7 +785,14 @@ class GraphBoard {
     items.forEach((fn, index) => {
       const rowTop = y + pad + index * rowH;
       const rowY = rowTop + rowH / 2;
-      this.legendHits.push({ id: fn.id, x, y: rowTop, w: boxW, h: rowH });
+      this.legendHits.push({
+        id: fn.id,
+        x,
+        y: rowTop,
+        w: boxW,
+        h: rowH,
+        chip: { x: x + pad, y: rowY - swatch / 2, w: swatch, h: swatch },
+      });
       if (fn.id === this.selectedId) {
         ctx.save();
         ctx.beginPath();
@@ -762,7 +821,7 @@ class GraphBoard {
   }
 
   drawGrid(ctx, dpr) {
-    const { xMin, xMax, yMin, yMax } = this.view;
+    const { xMin, xMax, yMin, yMax } = this.drawn;
     const step = this.gridStep2d();
     const width = this.canvas.width;
     const height = this.canvas.height;
@@ -829,7 +888,7 @@ class GraphBoard {
   }
 
   drawAxisValues2d(ctx, dpr) {
-    const { xMin, xMax, yMin, yMax } = this.view;
+    const { xMin, xMax, yMin, yMax } = this.drawn;
     const width = this.canvas.width;
     const height = this.canvas.height;
     const step = this.gridStep2d();
@@ -908,7 +967,7 @@ class GraphBoard {
   }
 
   drawFunction(ctx, fn, dpr) {
-    const jump = (this.view.yMax - this.view.yMin) * 1.5;
+    const jump = (this.drawn.yMax - this.drawn.yMin) * 1.5;
     const segments = [];
     let current = [];
     let prevY = NaN;
@@ -951,7 +1010,8 @@ class GraphBoard {
     this.hoverLabel = `x = ${formatTick(x)}   y = ${formatTick(y)}`;
   }
 
-  fitFocal(w, h) {
+  // The widest thing on screen is the cylinder around the box, and the light with it.
+  sceneBounds() {
     const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
     const rx = Math.abs(this.worldToFloorX(xMax) - this.worldToFloorX(xMin)) / 2;
     const ry = Math.abs(this.worldToFloorY(yMax) - this.worldToFloorY(yMin)) / 2;
@@ -959,22 +1019,42 @@ class GraphBoard {
     let half = Math.max(Math.abs(this.zToLocal(zMin)), Math.abs(this.zToLocal(zMax)), 0.2);
     if (this.light.on) {
       const beam = this.lightPoint();
-      radius = Math.max(radius, Math.hypot(beam.x, beam.y));
-      half = Math.max(half, Math.abs(beam.z));
+      const held = 1.6;
+      radius = Math.max(radius, Math.min(Math.hypot(beam.x, beam.y), held));
+      half = Math.max(half, Math.min(Math.abs(beam.z), held));
     }
-    const pitchSin = Math.abs(Math.sin(this.camera.pitch));
-    const pitchCos = Math.abs(Math.cos(this.camera.pitch));
-    const across = 2 * radius;
-    const down = 2 * (radius * pitchSin + half * pitchCos);
-    const fit = Math.min((w * 0.98) / across, (h * 0.98) / down);
-    // 3.2 is the eye distance; the rest leaves room for the perspective spread.
-    return fit * 3.2 * 0.9;
+    return { radius, half };
+  }
+
+  // How far that cylinder reaches from the middle of the screen, at focal 1.
+  fitFocal(w, h) {
+    const { radius, half } = this.sceneBounds();
+    const pitchCos = Math.cos(this.camera.pitch);
+    const pitchSin = Math.sin(this.camera.pitch);
+    let across = 1e-6;
+    let down = 1e-6;
+    const rim = 32;
+    for (let step = 0; step < rim; step++) {
+      const angle = (step / rim) * Math.PI * 2;
+      const x = radius * Math.cos(angle);
+      const y = radius * Math.sin(angle);
+      for (const z of [-half, 0, half]) {
+        const toward = y * pitchCos - z * pitchSin;
+        const up = y * pitchSin + z * pitchCos;
+        const away = 3.2 - toward;
+        if (!(away > 0.3)) continue;
+        across = Math.max(across, Math.abs(x / away));
+        down = Math.max(down, Math.abs(up / away));
+      }
+    }
+    return Math.min((w * 0.98) / (2 * across), (h * 0.98) / (2 * down));
   }
 
   beginProjection() {
     const { yaw, pitch, zoom } = this.camera;
     const w = this.canvas.width;
     const h = this.canvas.height;
+    const focal = this.fitFocal(w, h) * (zoom / 1.35);
     this.proj = {
       yaw,
       pitch,
@@ -985,7 +1065,8 @@ class GraphBoard {
       sy: Math.sin(yaw),
       cp: Math.cos(pitch),
       sp: Math.sin(pitch),
-      focal: this.fitFocal(w, h) * (zoom / 1.35),
+      focal,
+      // The middle of the box holds the middle of the canvas while the camera turns.
       ox: w / 2,
       oy: h / 2,
     };
@@ -1016,20 +1097,27 @@ class GraphBoard {
     };
   }
 
-  buildMeshes() {
+  // The drawn ground: the range plus the cells that carry on past it.
+  meshDomain() {
     const { xMin, xMax, yMin, yMax } = this.view;
+    const pad = this.floorStep() * FLOOR_REACH;
+    return { x0: xMin - pad, x1: xMax + pad, y0: yMin - pad, y1: yMax + pad };
+  }
+
+  buildMeshes() {
+    const { x0, x1, y0, y1 } = this.meshDomain();
     const visible = this.functions.filter((fn) => fn.visible);
     const zPart = this.zAuto ? "auto" : `${this.view.zMin}|${this.view.zMax}`;
-    const key = [xMin, xMax, yMin, yMax, zPart, visible.map((fn) => `${fn.id}:${fn.expr}`).join(",")].join("|");
+    const key = [x0, x1, y0, y1, zPart, visible.map((fn) => `${fn.id}:${fn.expr}`).join(",")].join("|");
     if (key === this.meshKey && this.meshes) return;
     this.meshKey = key;
-    const n = 73;
+    const n = 109;
     const grids = visible.map(() => new Float64Array(n * n));
     const magnitudes = [];
     for (let j = 0; j < n; j++) {
-      const y = yMin + (j / (n - 1)) * (yMax - yMin);
+      const y = y0 + (j / (n - 1)) * (y1 - y0);
       for (let i = 0; i < n; i++) {
-        const x = xMin + (i / (n - 1)) * (xMax - xMin);
+        const x = x0 + (i / (n - 1)) * (x1 - x0);
         visible.forEach((fn, index) => {
           const z = this.evalScope(fn.ast, { x, y });
           grids[index][j * n + i] = z;
@@ -1061,7 +1149,7 @@ class GraphBoard {
     const theme = themeVar("--muted", "#78716c");
     const colors = (this.meshes || []).map((mesh) => mesh.color).join(",");
     const beam = this.light.on
-      ? `${this.light.azimuth.toFixed(3)},${this.light.elevation.toFixed(3)}`
+      ? `${this.light.azimuth.toFixed(3)},${this.light.elevation.toFixed(3)},${this.lightReach().toFixed(3)}`
       : "off";
     const key = `${this.meshKey}|${theme}|${colors}|${beam}`;
     if (this.scene && this.scene.key === key) return;
@@ -1075,6 +1163,7 @@ class GraphBoard {
     const base = hexToRgb(color);
     const low = [23, 37, 58];
     const high = [255, 244, 230];
+    const { x0, x1, y0, y1 } = this.meshDomain();
     const points = new Float64Array(n * n * 3);
     for (let j = 0; j < n; j++) {
       for (let i = 0; i < n; i++) {
@@ -1087,76 +1176,156 @@ class GraphBoard {
       }
     }
     const corner = (index) => ({ x: points[index * 3], y: points[index * 3 + 1], z: points[index * 3 + 2] });
+    const zFloor = this.view.zMin;
+    const zCeiling = this.view.zMax;
     const colours = new Array((n - 1) * (n - 1)).fill(null);
+    const edges = [];
+    const shadeOf = (locals, samples) => {
+      const height = clamp(this.zUnit((samples[0] + samples[1] + samples[2] + samples[3]) / 4), -1, 1);
+      const t = (height + 1) / 2;
+      const rgb = t < 0.5 ? mixRgb(low, base, t * 2) : mixRgb(base, high, (t - 0.5) * 2);
+      return this.localShade(locals, rgb);
+    };
     for (let j = 0; j < n - 1; j++) {
       for (let i = 0; i < n - 1; i++) {
         const first = j * n + i;
         const samples = [z[first], z[first + 1], z[first + n + 1], z[first + n]];
         if (samples.some((value) => !Number.isFinite(value))) continue;
         const locals = [corner(first), corner(first + 1), corner(first + n + 1), corner(first + n)];
-        const height = clamp(this.zUnit((samples[0] + samples[1] + samples[2] + samples[3]) / 4), -1, 1);
-        const t = (height + 1) / 2;
-        const rgb = t < 0.5 ? mixRgb(low, base, t * 2) : mixRgb(base, high, (t - 0.5) * 2);
-        colours[j * (n - 1) + i] = this.localShade(locals, rgb);
+        const over = samples.filter((value) => value > zCeiling).length;
+        const under = samples.filter((value) => value < zFloor).length;
+        if (over === 4 || under === 4) continue;
+        if (!over && !under) {
+          colours[j * (n - 1) + i] = shadeOf(locals, samples);
+          continue;
+        }
+        // The cell meets the height limit: cut it there rather than fold it flat.
+        const world = [
+          { x: x0 + (i / (n - 1)) * (x1 - x0), y: y0 + (j / (n - 1)) * (y1 - y0), z: samples[0] },
+          { x: x0 + ((i + 1) / (n - 1)) * (x1 - x0), y: y0 + (j / (n - 1)) * (y1 - y0), z: samples[1] },
+          { x: x0 + ((i + 1) / (n - 1)) * (x1 - x0), y: y0 + ((j + 1) / (n - 1)) * (y1 - y0), z: samples[2] },
+          { x: x0 + (i / (n - 1)) * (x1 - x0), y: y0 + ((j + 1) / (n - 1)) * (y1 - y0), z: samples[3] },
+        ];
+        const piece = this.clipToHeight(this.clipToHeight(world, zCeiling, false), zFloor, true);
+        if (piece.length < 3) continue;
+        const shape = new Float64Array(piece.length * 3);
+        piece.forEach((point, at) => {
+          shape[at * 3] = this.worldToFloorX(point.x);
+          shape[at * 3 + 1] = this.worldToFloorY(point.y);
+          shape[at * 3 + 2] = this.zToLocal(point.z);
+        });
+        edges.push({ shape, count: piece.length, color: shadeOf(locals, samples) });
       }
     }
     const count = n * n;
+    let rim = 0;
+    for (const edge of edges) {
+      edge.at = rim;
+      rim += edge.count;
+    }
     surfaces.push({
       n,
       points,
       colors: colours,
+      edges,
       sx: new Float32Array(count),
       sy: new Float32Array(count),
       depth: new Float32Array(count),
+      rimSx: new Float32Array(rim),
+      rimSy: new Float32Array(rim),
+      rimDepth: new Float32Array(edges.length),
     });
+  }
+
+  // Sutherland and Hodgman against one height plane, in world units.
+  clipToHeight(shape, limit, keepAbove) {
+    const inside = (point) => (keepAbove ? point.z >= limit - 1e-9 : point.z <= limit + 1e-9);
+    const out = [];
+    for (let index = 0; index < shape.length; index++) {
+      const current = shape[index];
+      const previous = shape[(index + shape.length - 1) % shape.length];
+      const here = inside(current);
+      const there = inside(previous);
+      if (here !== there) {
+        const gap = current.z - previous.z;
+        const t = gap === 0 ? 0 : (limit - previous.z) / gap;
+        out.push({
+          x: previous.x + (current.x - previous.x) * t,
+          y: previous.y + (current.y - previous.y) * t,
+          z: limit,
+        });
+      }
+      if (here) out.push(current);
+    }
+    return out;
   }
 
   projectSurfaces() {
     const proj = this.beginProjection();
     const batch = [];
+    const place = (x, y, z) => {
+      const flatX = x * proj.cy - y * proj.sy;
+      const flatY = x * proj.sy + y * proj.cy;
+      const toward = flatY * proj.cp - z * proj.sp;
+      const up = flatY * proj.sp + z * proj.cp;
+      const away = 3.2 - toward;
+      if (!(away > 0.2)) return null;
+      const scale = proj.focal / away;
+      return { sx: proj.ox + flatX * scale, sy: proj.oy - up * scale, away };
+    };
     for (const surface of this.scene?.surfaces || []) {
       const { n, points, sx, sy, depth } = surface;
       const count = n * n;
       for (let index = 0; index < count; index++) {
-        const x = points[index * 3];
-        const y = points[index * 3 + 1];
-        const z = points[index * 3 + 2];
-        const flatX = x * proj.cy - y * proj.sy;
-        const flatY = x * proj.sy + y * proj.cy;
-        const toward = flatY * proj.cp - z * proj.sp;
-        const up = flatY * proj.sp + z * proj.cp;
-        const away = 3.2 - toward;
-        if (!(away > 0.2)) {
+        const spot = place(points[index * 3], points[index * 3 + 1], points[index * 3 + 2]);
+        if (!spot) {
           depth[index] = 0;
           continue;
         }
-        const scale = proj.focal / away;
-        sx[index] = proj.ox + flatX * scale;
-        sy[index] = proj.oy - up * scale;
-        depth[index] = away;
+        sx[index] = spot.sx;
+        sy[index] = spot.sy;
+        depth[index] = spot.away;
       }
+      let at = 0;
+      surface.edges.forEach((edge, piece) => {
+        let sum = 0;
+        let good = true;
+        for (let vertex = 0; vertex < edge.count; vertex++) {
+          const spot = place(edge.shape[vertex * 3], edge.shape[vertex * 3 + 1], edge.shape[vertex * 3 + 2]);
+          if (!spot) {
+            good = false;
+            break;
+          }
+          surface.rimSx[at + vertex] = spot.sx;
+          surface.rimSy[at + vertex] = spot.sy;
+          sum += spot.away;
+        }
+        surface.rimDepth[piece] = good ? sum / edge.count : 0;
+        at += edge.count;
+      });
       batch.push(surface);
     }
     return batch;
   }
 
-  // Cells ordered back to front, as indexes into the projected batch.
+  // Faces ordered back to front: whole cells and the clipped rim pieces.
   sortedCells(batch) {
     let total = 0;
-    for (const surface of batch) total += (surface.n - 1) * (surface.n - 1);
+    for (const surface of batch) total += (surface.n - 1) * (surface.n - 1) + surface.edges.length;
     if (!this.cellBuffers || this.cellBuffers.size < total) {
       this.cellBuffers = {
         size: total,
         owner: new Uint32Array(total),
         cells: new Uint32Array(total),
+        kind: new Uint8Array(total),
         far: new Float32Array(total),
         order: new Uint32Array(total),
       };
     }
-    const { owner, cells, far } = this.cellBuffers;
+    const { owner, cells, kind, far } = this.cellBuffers;
     let count = 0;
     for (let piece = 0; piece < batch.length; piece++) {
-      const { n, depth, colors } = batch[piece];
+      const { n, depth, colors, edges, rimDepth } = batch[piece];
       for (let j = 0; j < n - 1; j++) {
         for (let i = 0; i < n - 1; i++) {
           const cell = j * (n - 1) + i;
@@ -1169,24 +1338,43 @@ class GraphBoard {
           if (!(a > 0) || !(b > 0) || !(c > 0) || !(d > 0)) continue;
           owner[count] = piece;
           cells[count] = cell;
+          kind[count] = 0;
           far[count] = (a + b + c + d) / 4;
           count += 1;
         }
+      }
+      for (let edge = 0; edge < edges.length; edge++) {
+        const away = rimDepth[edge];
+        if (!(away > 0)) continue;
+        owner[count] = piece;
+        cells[count] = edge;
+        kind[count] = 1;
+        far[count] = away;
+        count += 1;
       }
     }
     const order = this.cellBuffers.order.subarray(0, count);
     for (let index = 0; index < count; index++) order[index] = index;
     order.sort((one, two) => far[two] - far[one]);
-    return { order, owner, cells, count };
+    return { order, owner, cells, kind, count };
   }
 
   projectScene() {
     const batch = this.projectSurfaces();
-    const { order, owner, cells, count } = this.sortedCells(batch);
+    const { order, owner, cells, kind, count } = this.sortedCells(batch);
     const faces = [];
     for (let index = 0; index < count; index++) {
       const slot = order[index];
       const surface = batch[owner[slot]];
+      if (kind[slot] === 1) {
+        const edge = surface.edges[cells[slot]];
+        const p = [];
+        for (let vertex = 0; vertex < edge.count; vertex++) {
+          p.push({ sx: surface.rimSx[edge.at + vertex], sy: surface.rimSy[edge.at + vertex] });
+        }
+        faces.push({ p, depth: surface.rimDepth[cells[slot]], color: edge.color });
+        continue;
+      }
       const n = surface.n;
       const cell = cells[slot];
       const row = Math.floor(cell / (n - 1));
@@ -1216,6 +1404,17 @@ class GraphBoard {
     return this.shadeColor(rgb, 0.3 + 0.7 * facing);
   }
 
+  // How far the axes run, in local units: exactly as far as the drawn ground.
+  axisReach() {
+    const { x0, x1, y0, y1 } = this.meshDomain();
+    return Math.max(
+      Math.abs(this.worldToFloorX(x0)),
+      Math.abs(this.worldToFloorX(x1)),
+      Math.abs(this.worldToFloorY(y0)),
+      Math.abs(this.worldToFloorY(y1))
+    );
+  }
+
   floorLevel() {
     const { zMin, zMax } = this.view;
     const level = clamp(Number.isFinite(this.floorZ) ? this.floorZ : 0, zMin, zMax);
@@ -1233,7 +1432,11 @@ class GraphBoard {
     const { xMin, xMax, yMin, yMax } = this.view;
     const z = this.floorLevel();
     const step = this.floorStep();
-    const { xs, ys } = this.floorLattice();
+    const reach = step * FLOOR_REACH;
+    const xFrom = xMin - reach;
+    const xTo = xMax + reach;
+    const yFrom = yMin - reach;
+    const yTo = yMax + reach;
     const lines = [];
     const push = (x0, y0, x1, y1, width, fade) => {
       lines.push({
@@ -1245,10 +1448,9 @@ class GraphBoard {
         fade,
       });
     };
-    // How wide one cell lands on screen decides how finely the floor is ruled.
-    const origin = this.projectLocal({ x: this.worldToFloorX(0), y: this.worldToFloorY(0), z });
-    const along = this.projectLocal({ x: this.worldToFloorX(step), y: this.worldToFloorY(0), z });
-    const cell = origin && along ? Math.hypot(origin.sx - along.sx, origin.sy - along.sy) : 0;
+    // How wide one cell is on screen, measured the same way from every angle.
+    const proj = this.proj || this.beginProjection();
+    const cell = (step / this.floorScale()) * (proj.focal / 3.2);
     const dpr = window.devicePixelRatio || 1;
     let split = 1;
     if (cell > 300 * dpr) split = 25;
@@ -1258,19 +1460,26 @@ class GraphBoard {
       const labelled = (value) => Math.abs(value / step - Math.round(value / step)) < 1e-6;
       for (const x of this.multiples(xMin, xMax, fine)) {
         if (labelled(x)) continue;
-        push(x, yMin, x, yMax, 1, 0.16);
+        push(x, yMin, x, yMax, 1, 0.14);
       }
       for (const y of this.multiples(yMin, yMax, fine)) {
         if (labelled(y)) continue;
-        push(xMin, y, xMax, y, 1, 0.16);
+        push(xMin, y, xMax, y, 1, 0.14);
       }
     }
-    for (const x of xs) push(x, yMin, x, yMax, 1.2, 0.5);
-    for (const y of ys) push(xMin, y, xMax, y, 1.2, 0.5);
-    push(xMin, yMin, xMax, yMin, 1.8, 0.75);
-    push(xMin, yMax, xMax, yMax, 1.8, 0.75);
-    push(xMin, yMin, xMin, yMax, 1.8, 0.75);
-    push(xMax, yMin, xMax, yMax, 1.8, 0.75);
+    // Lines fade with the distance from the plotted square, so the floor has no edge.
+    const falloff = (value, low, high) => {
+      // The plotted square is the five by five; the rest only hints at space.
+      if (value > low - 1e-6 && value < high + 1e-6) return 0.58;
+      const away = value < low ? low - value : value - high;
+      return Math.max(0.05, 0.17 - (away / (step * FLOOR_REACH)) * 0.12);
+    };
+    for (const x of this.multiples(xFrom, xTo, step)) {
+      push(x, yFrom, x, yTo, 1.2, falloff(x, xMin, xMax));
+    }
+    for (const y of this.multiples(yFrom, yTo, step)) {
+      push(xFrom, y, xTo, y, 1.2, falloff(y, yMin, yMax));
+    }
     return lines;
   }
 
@@ -1284,6 +1493,7 @@ class GraphBoard {
     if (this.showGrid && eyeAboveFloor) this.drawFloor(ctx, dpr);
     this.paintSurfaces(ctx, dpr);
     if (this.showGrid && !eyeAboveFloor) this.drawFloor(ctx, dpr);
+    if (this.showGrid) this.drawFloor(ctx, dpr, true);
     this.draw3dAxes(ctx, dpr);
     this.drawLight(ctx, dpr);
     ctx.restore();
@@ -1292,28 +1502,34 @@ class GraphBoard {
   paintSurfaces(ctx, dpr) {
     const batch = this.projectSurfaces();
     if (!batch.length) return;
-    const { order, owner, cells, count } = this.sortedCells(batch);
-    const seam = Math.max(1, 0.9 * dpr);
+    const { order, owner, cells, kind, count } = this.sortedCells(batch);
     ctx.save();
-    ctx.lineWidth = seam;
+    ctx.lineWidth = Math.max(1, 0.9 * dpr);
     for (let index = 0; index < count; index++) {
       const slot = order[index];
       const surface = batch[owner[slot]];
-      const n = surface.n;
-      const cell = cells[slot];
-      const row = Math.floor(cell / (n - 1));
-      const first = row * n + (cell - row * (n - 1));
-      const second = first + 1;
-      const third = first + n + 1;
-      const fourth = first + n;
-      const { sx, sy } = surface;
+      let paint;
       ctx.beginPath();
-      ctx.moveTo(sx[first], sy[first]);
-      ctx.lineTo(sx[second], sy[second]);
-      ctx.lineTo(sx[third], sy[third]);
-      ctx.lineTo(sx[fourth], sy[fourth]);
+      if (kind[slot] === 1) {
+        const edge = surface.edges[cells[slot]];
+        paint = edge.color;
+        ctx.moveTo(surface.rimSx[edge.at], surface.rimSy[edge.at]);
+        for (let vertex = 1; vertex < edge.count; vertex++) {
+          ctx.lineTo(surface.rimSx[edge.at + vertex], surface.rimSy[edge.at + vertex]);
+        }
+      } else {
+        const n = surface.n;
+        const cell = cells[slot];
+        const row = Math.floor(cell / (n - 1));
+        const first = row * n + (cell - row * (n - 1));
+        const { sx, sy } = surface;
+        paint = surface.colors[cell];
+        ctx.moveTo(sx[first], sy[first]);
+        ctx.lineTo(sx[first + 1], sy[first + 1]);
+        ctx.lineTo(sx[first + n + 1], sy[first + n + 1]);
+        ctx.lineTo(sx[first + n], sy[first + n]);
+      }
       ctx.closePath();
-      const paint = surface.colors[cell];
       ctx.fillStyle = paint;
       ctx.strokeStyle = paint;
       ctx.fill();
@@ -1323,17 +1539,18 @@ class GraphBoard {
     ctx.restore();
   }
 
-  drawFloor(ctx, dpr) {
+  drawFloor(ctx, dpr, ghost) {
     const lines = this.floorLines();
     if (!lines.length) return;
     ctx.save();
-    ctx.strokeStyle = themeVar("--muted", "#78716c");
+    ctx.strokeStyle = ghost ? themeVar("--ink", "#fafaf9") : themeVar("--muted", "#78716c");
     for (const line of lines) {
+      if (ghost && (line.width || 1) < 1.2) continue;
       const a = this.projectLocal(line.p[0]);
       const b = this.projectLocal(line.p[1]);
       if (!a || !b) continue;
-      ctx.globalAlpha = line.fade;
-      ctx.lineWidth = Math.max(1, (line.width || 1) * dpr);
+      ctx.globalAlpha = ghost ? Math.min(0.3, line.fade * 0.5) : line.fade;
+      ctx.lineWidth = Math.max(1, (ghost ? 1 : line.width || 1) * dpr);
       ctx.beginPath();
       ctx.moveTo(a.sx, a.sy);
       ctx.lineTo(b.sx, b.sy);
@@ -1390,9 +1607,9 @@ class GraphBoard {
   }
 
   localGridPoint(i, j, n, rawZ) {
-    const { xMin, xMax, yMin, yMax } = this.view;
-    const x = xMin + (i / (n - 1)) * (xMax - xMin);
-    const y = yMin + (j / (n - 1)) * (yMax - yMin);
+    const { x0, x1, y0, y1 } = this.meshDomain();
+    const x = x0 + (i / (n - 1)) * (x1 - x0);
+    const y = y0 + (j / (n - 1)) * (y1 - y0);
     return {
       x: this.worldToFloorX(x),
       y: this.worldToFloorY(y),
@@ -1471,7 +1688,7 @@ class GraphBoard {
   }
 
   gridStep2d() {
-    const { xMin, xMax, yMin, yMax } = this.view;
+    const { xMin, xMax, yMin, yMax } = this.drawn;
     return niceStep(Math.max(xMax - xMin, yMax - yMin), 8);
   }
 
@@ -1518,24 +1735,29 @@ class GraphBoard {
     const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
     const origin = this.axisAnchor();
     const pad = 0.12;
+    // The lines carry on past the data; only the letter stops at the edge.
+    const reach = this.axisReach();
     const axes = [
       {
-        from: { x: this.worldToFloorX(xMin) - pad, y: origin.y, z: origin.z },
-        to: { x: this.worldToFloorX(xMax) + pad, y: origin.y, z: origin.z },
+        from: { x: origin.x - reach, y: origin.y, z: origin.z },
+        to: { x: origin.x + reach, y: origin.y, z: origin.z },
+        at: { x: this.worldToFloorX(xMax) + pad, y: origin.y, z: origin.z },
         color: this.axes.x.color,
         label: "x",
         visible: this.axes.x.visible,
       },
       {
-        from: { x: origin.x, y: this.worldToFloorY(yMin) - pad, z: origin.z },
-        to: { x: origin.x, y: this.worldToFloorY(yMax) + pad, z: origin.z },
+        from: { x: origin.x, y: origin.y - reach, z: origin.z },
+        to: { x: origin.x, y: origin.y + reach, z: origin.z },
+        at: { x: origin.x, y: this.worldToFloorY(yMax) + pad, z: origin.z },
         color: this.axes.y.color,
         label: "y",
         visible: this.axes.y.visible,
       },
       {
-        from: { x: origin.x, y: origin.y, z: this.zToLocal(zMin) - pad },
-        to: { x: origin.x, y: origin.y, z: this.zToLocal(zMax) + pad },
+        from: { x: origin.x, y: origin.y, z: origin.z - reach },
+        to: { x: origin.x, y: origin.y, z: origin.z + reach },
+        at: { x: origin.x, y: origin.y, z: this.zToLocal(zMax) + pad },
         color: this.axes.z.color,
         label: "z",
         visible: this.axes.z.visible,
@@ -1557,7 +1779,8 @@ class GraphBoard {
       ctx.lineTo(b.sx, b.sy);
       ctx.stroke();
       ctx.fillStyle = axis.color;
-      ctx.fillText(axis.label, b.sx + 10 * dpr, b.sy);
+      const mark = this.projectLocal(axis.at) || b;
+      ctx.fillText(axis.label, mark.sx + 10 * dpr, mark.sy);
     }
     if (this.showAxisValues) this.drawAxisValues(ctx, dpr);
     ctx.restore();
@@ -1565,10 +1788,13 @@ class GraphBoard {
 
   drawAxisValues(ctx, dpr) {
     const placed = [];
+    const width = this.canvas.width;
+    const height = this.canvas.height;
     const label = (text, point, dx, dy, color) => {
       if (!point) return;
       const x = point.sx + dx;
       const y = point.sy + dy;
+      if (x < 4 || x > width - 4 || y < 4 || y > height - 4) return;
       if (placed.some((item) => Math.hypot(item.x - x, item.y - y) < 18 * dpr)) return;
       placed.push({ x, y });
       ctx.fillStyle = color;
@@ -1577,9 +1803,12 @@ class GraphBoard {
     ctx.lineWidth = Math.max(1, dpr);
     ctx.font = `600 ${11 * dpr}px Consolas, "Malgun Gothic", sans-serif`;
     const origin = this.axisAnchor();
-    const { xs, ys } = this.floorLattice();
+    const step = this.floorStep();
+    const span = this.axisReach() * this.floorScale();
+    const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
+    const ticks = (middle) => this.multiples(middle - span, middle + span, step);
     if (this.axes.x.visible) {
-      for (const value of xs) {
+      for (const value of ticks((xMin + xMax) / 2)) {
         const local = { x: this.worldToFloorX(value), y: origin.y, z: origin.z };
         const point = this.projectLocal(local);
         const tick = this.projectLocal({ x: local.x, y: origin.y, z: origin.z + 0.05 });
@@ -1594,7 +1823,7 @@ class GraphBoard {
       }
     }
     if (this.axes.y.visible) {
-      for (const value of ys) {
+      for (const value of ticks((yMin + yMax) / 2)) {
         const local = { x: origin.x, y: this.worldToFloorY(value), z: origin.z };
         const point = this.projectLocal(local);
         const tick = this.projectLocal({ x: origin.x, y: local.y, z: origin.z + 0.05 });
@@ -1609,10 +1838,9 @@ class GraphBoard {
       }
     }
     if (!this.axes.z.visible) return;
-    const { zMin, zMax } = this.view;
-    for (let cut = 0; cut <= FLOOR_CELLS; cut++) {
-      const value = zMin + ((zMax - zMin) * cut) / FLOOR_CELLS;
-      const local = { x: origin.x, y: origin.y, z: this.zToLocal(value) };
+    const middleZ = (zMin + zMax) / 2;
+    for (const value of ticks(middleZ)) {
+      const local = { x: origin.x, y: origin.y, z: (value - middleZ) / this.floorScale() };
       const point = this.projectLocal(local);
       const tick = this.projectLocal({ x: origin.x + 0.05, y: origin.y, z: local.z });
       if (point && tick) {

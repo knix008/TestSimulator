@@ -34,9 +34,9 @@ npm test
 | 명령 | 산출물 |
 | --- | --- |
 | `npm run build:web` | `dist/web` 정적 사이트 |
-| `npm run build:windows` | `release/MyCalc-10.0.0-windows-x64-setup.exe` |
-| `npm run build:windows:arm64` | Windows ARM64 설치 파일 |
-| `npm run build:windows:ia32` | Windows 32비트 설치 파일 |
+| `npm run build:win` | `release/MyCalc-10.0.0-windows-x64-setup.exe` |
+| `npm run build:win:arm64` | Windows ARM64 설치 파일 |
+| `npm run build:win:ia32` | Windows 32비트 설치 파일 |
 | `npm run build:linux` | `release/MyCalc-10.0.0-linux-x64.tar.gz`, `.zip` |
 | `npm run build:linux:arm64` | Linux ARM64 아카이브 |
 | `npm run build:macos` | `release/MyCalc-10.0.0-macos-x64.zip` (`MyCalc.app`) |

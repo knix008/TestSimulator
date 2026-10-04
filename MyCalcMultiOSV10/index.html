@@ -118,7 +118,7 @@
         </div>
         <button type="button" id="graphMin" class="tool-icon win-btn" hidden data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
         <button type="button" id="graphMax" class="tool-icon win-btn" hidden data-i18n-aria="maximize" data-i18n-title="maximize" aria-label="최대화" data-tooltip="최대화"><span class="icon icon-max" aria-hidden="true"></span><span class="icon icon-restore" aria-hidden="true"></span></button>
-        <button type="button" id="graphClose" class="win-close tool-icon" hidden data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">x</button>
+        <button type="button" id="graphClose" class="win-close tool-icon" hidden data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
         <div class="graph-tool-row">
         <div class="dim-switch" role="group" data-i18n-aria="dim" aria-label="그래프 차원">
           <button type="button" id="dim2d" aria-pressed="true" aria-label="2D" data-tooltip="2D">2D</button>
@@ -133,6 +133,8 @@
         <button type="button" id="legendToggle" class="tool-icon" aria-pressed="true" data-i18n-aria="legend" data-i18n-title="legend" aria-label="범례 On/Off" data-tooltip="범례 On/Off"><span class="icon icon-legend" aria-hidden="true"></span></button>
         <button type="button" id="axisToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="axisValues" data-i18n-title="axisValues" aria-label="축 값" data-tooltip="축 값"><span class="icon icon-axis-values" aria-hidden="true"></span></button>
         <button type="button" id="axesToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="axes" data-i18n-title="axes" aria-label="좌표축" data-tooltip="좌표축"><span class="icon icon-axis" aria-hidden="true"></span></button>
+        <button type="button" id="panelLeft" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="panelLeft" data-i18n-title="panelLeft" aria-label="식 패널" data-tooltip="식 패널"><span class="icon icon-panel-left" aria-hidden="true"></span></button>
+        <button type="button" id="panelRight" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="panelRight" data-i18n-title="panelRight" aria-label="설정 패널" data-tooltip="설정 패널"><span class="icon icon-panel-right" aria-hidden="true"></span></button>
         <button type="button" id="lightToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="light" data-i18n-title="light" aria-label="광원" data-tooltip="광원"><span class="icon icon-light" aria-hidden="true"></span></button>
         <div class="axis-field" data-axis="x">
           <input type="color" id="axisColorX" value="#fb923c" data-i18n-aria="axisX" data-i18n-title="axisX" aria-label="X 축" data-tooltip="X 축" />
@@ -181,12 +183,6 @@
       </form>
       <div class="axis-bar" id="axisBar">
         <div class="view-row">
-          <label data-axis="x"><span data-i18n="xMin">x 최소</span> <span class="num-step"><button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button><input id="xMin" type="number" step="1" inputmode="decimal" /><button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button></span></label>
-          <label data-axis="x"><span data-i18n="xMax">x 최대</span> <span class="num-step"><button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button><input id="xMax" type="number" step="1" inputmode="decimal" /><button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button></span></label>
-          <label data-axis="y"><span data-i18n="yMin">y 최소</span> <span class="num-step"><button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button><input id="yMin" type="number" step="1" inputmode="decimal" /><button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button></span></label>
-          <label data-axis="y"><span data-i18n="yMax">y 최대</span> <span class="num-step"><button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button><input id="yMax" type="number" step="1" inputmode="decimal" /><button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button></span></label>
-          <label id="zMinField" data-axis="z" hidden><span data-i18n="zMin">z 최소</span> <span class="num-step"><button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button><input id="zMin" type="number" step="1" inputmode="decimal" /><button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button></span></label>
-          <label id="zMaxField" data-axis="z" hidden><span data-i18n="zMax">z 최대</span> <span class="num-step"><button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button><input id="zMax" type="number" step="1" inputmode="decimal" /><button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button></span></label>
           <label id="gridZField" data-axis="z" hidden><span data-i18n="gridZ">격자 z</span> <span class="num-step"><button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button><input id="gridZ" type="number" step="1" inputmode="decimal" /><button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button></span></label>
           <button type="button" class="tool-icon" id="applyView" data-i18n-aria="applyView" data-i18n-title="applyView" aria-label="범위 적용" data-tooltip="범위 적용"><span class="icon icon-apply" aria-hidden="true"></span></button>
         </div>
@@ -194,11 +190,26 @@
       <div class="presets" id="presets"></div>
       <div class="graph-body">
         <ul class="fn-list" id="fnList"></ul>
+        <div class="graph-split" id="graphSplit" role="separator" aria-orientation="vertical" data-i18n-aria="panelSize" data-i18n-title="panelSize" aria-label="패널 크기" data-tooltip="패널 크기"></div>
         <div class="canvas-wrap">
           <canvas id="plot" width="800" height="420" data-i18n-aria="canvas" aria-label="함수 그래프"></canvas>
           <input id="legendEditor" class="legend-editor" hidden maxlength="80" autocomplete="off" spellcheck="false" />
+          <input id="legendColor" class="legend-color" type="color" hidden data-i18n-aria="graphColor" aria-label="그래프 색" />
           <div id="readout" class="readout">드래그로 이동, 휠로 확대</div>
         </div>
+        <aside class="graph-side" id="graphSide" hidden>
+          <section class="side-group">
+            <h3 data-i18n="light">광원</h3>
+            <label class="side-check"><input type="checkbox" id="sideLightOn" checked /><span data-i18n="lightOn">광원 켜기</span></label>
+            <label class="side-slide"><span data-i18n="lightTurn">방위</span><input type="range" id="sideLightTurn" min="-180" max="180" step="1" value="-54" /><output id="sideLightTurnOut">-54°</output></label>
+            <label class="side-slide"><span data-i18n="lightRise">고도</span><input type="range" id="sideLightRise" min="-88" max="88" step="1" value="52" /><output id="sideLightRiseOut">52°</output></label>
+            <label class="side-slide"><span data-i18n="lightFar">거리</span><input type="range" id="sideLightFar" min="30" max="600" step="5" value="130" /><output id="sideLightFarOut">1.30</output></label>
+          </section>
+          <section class="side-group">
+            <h3 data-i18n="gridZ">격자 z</h3>
+            <label class="side-slide"><span data-i18n="gridZ">격자 z</span><input type="range" id="sideGridZ" min="-100" max="100" step="1" value="0" /><output id="sideGridZOut">0</output></label>
+          </section>
+        </aside>
       </div>
     </section>
 
@@ -244,6 +255,9 @@
               <dd class="info-author">SHKWON(knix008@naver.com)</dd>
             </div>
           </dl>
+        </div>
+        <div class="sheet-foot">
+          <button type="button" id="infoOk" data-i18n="confirm" data-i18n-title="confirm" data-tooltip="확인">확인</button>
         </div>
       </div>
     </section>

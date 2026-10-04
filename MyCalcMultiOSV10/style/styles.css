@@ -68,7 +68,7 @@ button, input { font: inherit; color: inherit; }
     linear-gradient(328deg, rgba(0, 0, 0, 0.16), transparent 42%),
     var(--card);
   border: 1px solid var(--line);
-  border-radius: 28px;
+  border-radius: 16px;
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.28),
     inset -1px -2px 0 rgba(0, 0, 0, 0.18),
@@ -117,6 +117,9 @@ button, input { font: inherit; color: inherit; }
 }
 
 .win-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 18px;
   line-height: 1;
 }
@@ -154,6 +157,8 @@ button, input { font: inherit; color: inherit; }
 .icon-zoom-out { -webkit-mask-image: url("../assets/icons/zoom-out.svg"); mask-image: url("../assets/icons/zoom-out.svg"); }
 .icon-reset { -webkit-mask-image: url("../assets/icons/reset.svg"); mask-image: url("../assets/icons/reset.svg"); }
 .icon-grid { -webkit-mask-image: url("../assets/icons/grid.svg"); mask-image: url("../assets/icons/grid.svg"); }
+.icon-panel-left { -webkit-mask-image: url("../assets/icons/panel-left.svg"); mask-image: url("../assets/icons/panel-left.svg"); }
+.icon-panel-right { -webkit-mask-image: url("../assets/icons/panel-right.svg"); mask-image: url("../assets/icons/panel-right.svg"); }
 .icon-rates { -webkit-mask-image: url("../assets/icons/rates.svg"); mask-image: url("../assets/icons/rates.svg"); }
 .icon-light { -webkit-mask-image: url("../assets/icons/light.svg"); mask-image: url("../assets/icons/light.svg"); }
 .icon-legend { -webkit-mask-image: url("../assets/icons/legend.svg"); mask-image: url("../assets/icons/legend.svg"); }
@@ -384,6 +389,18 @@ button, input { font: inherit; color: inherit; }
   flex: 0 0 28px;
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.history::-webkit-scrollbar { display: none; }
+
+.history-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  background: var(--chip);
+  border-radius: 999px;
+  overflow: hidden;
 }
 
 .history button {
@@ -396,6 +413,33 @@ button, input { font: inherit; color: inherit; }
   white-space: nowrap;
   font-size: 12px;
 }
+
+.history-chip button { background: transparent; }
+.history-chip .history-recall:hover { color: var(--ink); }
+
+.history-chip .history-drop {
+  padding: 4px 8px 4px 2px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.history-chip .history-drop:hover { color: var(--danger); }
+
+.history-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  padding: 0;
+  color: var(--ink);
+  background: var(--util);
+}
+
+.history-clear .icon { width: 13px; height: 13px; }
+
+.history-clear:hover { background: var(--key-hover); }
 
 .keys {
   margin-top: 10px;
@@ -737,8 +781,8 @@ button, input { font: inherit; color: inherit; }
   overflow: hidden;
 }
 .axis-bar .view-row {
-  margin-left: auto;
-  flex: 0 0 auto;
+  margin-right: auto;
+  flex: 0 1 auto;
   overflow: visible;
 }
 .axis-field {
@@ -807,6 +851,8 @@ button, input { font: inherit; color: inherit; }
 }
 
 .graph-input { text-align: left; background: var(--chip); border-radius: 12px; padding: 8px 12px; }
+
+.graph-split { display: none; }
 
 .fn-list {
   list-style: none;
@@ -877,7 +923,13 @@ button, input { font: inherit; color: inherit; }
   cursor: pointer;
 }
 
-html:not(.graph-pop) #screenGraph .graph-body { display: block; }
+html:not(.graph-pop) #screenGraph .graph-body {
+  display: block;
+  flex: 0 0 auto;
+  height: 0;
+  overflow: visible;
+}
+
 html:not(.graph-pop) #screenGraph .canvas-wrap {
   position: fixed;
   top: 0;
@@ -899,8 +951,21 @@ html:not(.graph-pop) #screenGraph .axis-field,
 html:not(.graph-pop) #screenGraph #graphSettings,
 html:not(.graph-pop) #screenGraph #exportGraph,
 html:not(.graph-pop) #screenGraph #printGraph,
+html:not(.graph-pop) #screenGraph #fnList,
 html:not(.graph-pop) #screenGraph .axis-bar {
   display: none;
+}
+
+.legend-color {
+  position: absolute;
+  z-index: 5;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
 }
 
 .legend-editor {
@@ -1147,6 +1212,14 @@ canvas.is-3d.dragging { cursor: grabbing; }
   border-radius: 999px;
   cursor: pointer;
 }
+
+#applyView {
+  border-color: transparent;
+  background: var(--eq);
+  color: var(--eq-ink);
+}
+
+#applyView:hover { background: var(--eq-hover); }
 
 .fn-list .icon-btn .icon,
 .view-row .tool-icon .icon { width: 15px; height: 15px; }
@@ -1525,7 +1598,7 @@ html.desktop:not(.graph-pop) body {
 html.desktop:not(.graph-pop) .app {
   width: 100%;
   height: 100%;
-  border-radius: 28px;
+  border-radius: 16px;
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.28),
     inset -1px -2px 0 rgba(0, 0, 0, 0.18);
@@ -1592,13 +1665,107 @@ html.graph-pop #screenGraph #dim3d,
 html.graph-pop #screenGraph #graphExpr,
 html.graph-pop #screenGraph #addFn,
 html.graph-pop #screenGraph #graphSettings,
-html.graph-pop #screenGraph .presets,
-html.graph-pop #screenGraph #fnList {
+html.graph-pop #screenGraph .presets {
   display: none;
 }
 
-html.graph-pop #screenGraph .graph-body { display: block; }
+html.graph-pop #screenGraph .graph-body {
+  grid-template-columns: var(--panel, 210px) 10px minmax(0, 1fr);
+}
+
+.graph-side { display: none; }
+
+html.graph-pop #screenGraph .graph-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--chip);
+}
+
+.side-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.side-group h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.side-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.side-slide {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 46px;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.side-slide input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.side-slide output {
+  text-align: right;
+  font-family: Consolas, "Malgun Gothic", monospace;
+  color: var(--ink);
+}
+
+html.graph-pop #screenGraph .graph-split {
+  display: block;
+  align-self: stretch;
+  width: 10px;
+  border-radius: 999px;
+  cursor: col-resize;
+  background: linear-gradient(to right, transparent 3px, var(--line) 3px, var(--line) 7px, transparent 7px);
+  -webkit-app-region: no-drag;
+}
+
+html.graph-pop #screenGraph .graph-split:hover {
+  background: linear-gradient(to right, transparent 2px, var(--accent) 2px, var(--accent) 8px, transparent 8px);
+}
+
+html.graph-pop #screenGraph #fnList { padding-right: 2px; }
+
+html.graph-pop .canvas-wrap {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 html.graph-pop #graphTitle { margin-right: auto; }
+
+@media (max-width: 1099px) {
+  html.graph-pop .graph-tool-row,
+  html.graph-pop .axis-bar,
+  html.graph-pop .view-row {
+    flex-wrap: wrap;
+  }
+
+  html.graph-pop .graph-tool-row,
+  html.graph-pop .axis-bar {
+    row-gap: 6px;
+    overflow: visible;
+  }
+}
+
 
 html.graph-pop .num-step {
   border-radius: 999px;
@@ -1652,7 +1819,7 @@ html.desktop.graph-pop body {
 }
 
 html.desktop.graph-pop .app {
-  border-radius: 28px;
+  border-radius: 16px;
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.28),
     inset -1px -2px 0 rgba(0, 0, 0, 0.18);
@@ -1693,7 +1860,7 @@ html.info-pop .app {
   height: 100%;
   padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 28px;
+  border-radius: 16px;
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.28),
     inset -1px -2px 0 rgba(0, 0, 0, 0.18),
@@ -1803,9 +1970,15 @@ html.settings-pop #settingsSheet .sheet-head button {
 }
 
 html.info-pop #infoSheet {
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  padding: 20px 24px;
+  padding: 14px 18px 12px;
+}
+
+html.info-pop #infoSheet .dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 html.info-pop .info-body {
@@ -1815,7 +1988,7 @@ html.info-pop .info-body {
   border-radius: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 html.info-pop .info-brand {
@@ -1827,25 +2000,25 @@ html.info-pop .info-brand {
 }
 
 html.info-pop .info-icon {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
 }
 
-html.info-pop .info-body .info-name { font-size: 22px; }
+html.info-pop .info-body .info-name { font-size: 19px; }
 
 html.info-pop .info-body .info-lead {
   margin: 0;
   text-align: left;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
-html.info-pop .info-list { gap: 6px; }
+html.info-pop .info-list { gap: 4px; }
 
 html.info-pop .info-list > div {
   grid-template-columns: 96px minmax(0, 1fr);
   gap: 12px;
-  padding: 6px 12px;
+  padding: 4px 10px;
   background: var(--screen);
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -1867,7 +2040,7 @@ html.print-pop .app {
   height: 100%;
   padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 28px;
+  border-radius: 16px;
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.28),
     inset -1px -2px 0 rgba(0, 0, 0, 0.18),

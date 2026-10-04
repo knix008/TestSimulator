@@ -16,7 +16,7 @@ const MODE_CONTENT_SIZE = {
   scientific: { width: 560, height: 594 },
   programmer: { width: 480, height: 700 },
   currency: { width: 380, height: 594 },
-  graph: { width: 520, height: 650 },
+  graph: { width: 520, height: 594 },
 };
 
 function lockContentSize(win, width, height) {
@@ -115,9 +115,9 @@ function createWindow() {
   });
   const childSpec = {
     graph: {
-      width: 1040,
-      height: 680,
-      minWidth: 900,
+      width: 1140,
+      height: 700,
+      minWidth: 820,
       minHeight: 520,
       title: "MyCalc 10.0 Graph",
       backgroundColor: "#100e0c",
@@ -132,9 +132,9 @@ function createWindow() {
     },
     info: {
       width: 560,
-      height: 452,
+      height: 392,
       minWidth: 500,
-      minHeight: 452,
+      minHeight: 392,
       title: "프로그램 정보 — MyCalc 10.0",
       backgroundColor: "#1c1917",
     },

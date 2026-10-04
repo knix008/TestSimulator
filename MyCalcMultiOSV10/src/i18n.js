@@ -92,6 +92,14 @@ const STRINGS = {
     legendItem: "범례에 표시",
     popGraph: "별도 창",
     axisValues: "축 값",
+    graphColor: "그래프 색",
+    panelSize: "패널 크기",
+    panelLeft: "식 패널",
+    panelRight: "설정 패널",
+    lightOn: "광원 켜기",
+    lightTurn: "방위",
+    lightRise: "고도",
+    lightFar: "거리",
     light: "광원",
     gridZ: "격자 z",
     applyView: "범위 적용",
@@ -199,6 +207,9 @@ const STRINGS = {
     infoBuildDesc: "버전 10.0.0",
     infoAuthor: "제작자",
     close: "닫기",
+    historyRemove: "이 기록 지우기",
+    historyClear: "기록 모두 지우기",
+    confirm: "확인",
     settingsTitle: "설정",
     resetDefaults: "기본 설정",
     darkThemes: "다크 테마",
@@ -253,6 +264,14 @@ const STRINGS = {
     legendItem: "Show in legend",
     popGraph: "Separate window",
     axisValues: "Axis values",
+    graphColor: "Graph colour",
+    panelSize: "Panel size",
+    panelLeft: "Expression panel",
+    panelRight: "Settings panel",
+    lightOn: "Light on",
+    lightTurn: "Turn",
+    lightRise: "Height",
+    lightFar: "Distance",
     light: "Light",
     gridZ: "Grid z",
     applyView: "Apply range",
@@ -360,6 +379,9 @@ const STRINGS = {
     infoBuildDesc: "Version 10.0.0",
     infoAuthor: "Author",
     close: "Close",
+    historyRemove: "Remove this entry",
+    historyClear: "Clear history",
+    confirm: "OK",
     settingsTitle: "Settings",
     resetDefaults: "Defaults",
     darkThemes: "Dark themes",
@@ -425,6 +447,7 @@ function applyLanguage(lang) {
     langBtn.dataset.tooltip = label;
   }
   if (typeof renderKeys === "function") renderKeys();
+  if (typeof renderHistory === "function") renderHistory();
   if (typeof renderThemeGroups === "function") renderThemeGroups();
   if (typeof renderCustomFields === "function" && typeof customPicks === "function") renderCustomFields(customPicks());
   if (typeof syncGraphChrome === "function") syncGraphChrome();

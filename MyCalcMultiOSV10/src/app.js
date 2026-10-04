@@ -17,6 +17,8 @@ const graphExprEl = document.getElementById("graphExpr");
 const fnListEl = document.getElementById("fnList");
 const readoutEl = document.getElementById("readout");
 
+const HISTORY_KEPT = 10;
+
 const state = {
   mode: "basic",
   notation: "norm",
@@ -37,6 +39,7 @@ let rateAsked = false;
 const board = new GraphBoard(document.getElementById("plot"), engine);
 board.onChange = () => {
   renderFunctions();
+  if (typeof syncSidePanel === "function") syncSidePanel();
   if (!applyingGraph) publishGraph();
 };
 board.onView = syncViewFields;
@@ -48,6 +51,7 @@ board.onDraw = () => {
 
 const pageKind = new URLSearchParams(location.search).get("pop");
 const graphPopup = pageKind === "graph";
+board.autoSquare = graphPopup || !document.documentElement.classList.contains("desktop");
 const graphWindowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 let graphChannel = null;
 let uiChannel = null;
@@ -70,7 +74,7 @@ board.hoverLabel = "";
 
 const PRESETS = {
   "2d": ["sin(x)", "cos(x)", "tan(x)", "x^2", "1/x", "ln(x)", "e^(-x^2)"],
-  "3d": ["sin(x)*cos(y)", "sin(sqrt(x^2+y^2))", "x^2-y^2", "e^(-(x^2+y^2))", "cos(x)+sin(y)"],
+  "3d": ["sin(x)*cos(y)", "x^2+y^2", "x^2-y^2", "sin(sqrt(x^2+y^2))", "e^(-(x^2+y^2))", "cos(x)+sin(y)"],
 };
 
 function basicKeys() {
@@ -544,7 +548,7 @@ function equals() {
     prepared = closeParens(expr);
     const value = engine.evaluate(prepared);
     state.history.unshift({ expr: prepared, value });
-    state.history = state.history.slice(0, 20);
+    state.history = state.history.slice(0, HISTORY_KEPT);
     exprEl.value = prepared;
     showResult(value);
     state.replaceOnNext = true;
@@ -556,17 +560,40 @@ function equals() {
 
 function renderHistory() {
   historyEl.replaceChildren();
-  for (const item of state.history) {
-    const button = el("button", "", `${item.expr} = ${formatNumber(item.value, state.notation)}`);
-    button.type = "button";
-    button.addEventListener("click", () => {
+  if (state.history.length) {
+    // The sweep sits at the head so it stays in reach however long the strip grows.
+    const clear = el("button", "history-clear");
+    clear.type = "button";
+    clear.append(el("span", "icon icon-trash"));
+    clear.setAttribute("aria-label", t("historyClear"));
+    clear.dataset.tooltip = t("historyClear");
+    clear.addEventListener("click", () => {
+      state.history = [];
+      renderHistory();
+    });
+    historyEl.append(clear);
+  }
+  state.history.forEach((item, index) => {
+    const chip = el("span", "history-chip");
+    const recall = el("button", "history-recall", `${item.expr} = ${formatNumber(item.value, state.notation)}`);
+    recall.type = "button";
+    recall.addEventListener("click", () => {
       exprEl.value = item.expr;
       state.replaceOnNext = false;
       preview();
       exprEl.focus();
     });
-    historyEl.append(button);
-  }
+    const drop = el("button", "history-drop", "\u00d7");
+    drop.type = "button";
+    drop.setAttribute("aria-label", t("historyRemove"));
+    drop.dataset.tooltip = t("historyRemove");
+    drop.addEventListener("click", () => {
+      state.history.splice(index, 1);
+      renderHistory();
+    });
+    chip.append(recall, drop);
+    historyEl.append(chip);
+  });
 }
 
 function currentValue() {
@@ -739,6 +766,32 @@ function placeLegendEditor(hit) {
   editor.style.top = `${Math.max(8, top)}px`;
 }
 
+function placeOverCanvas(el, spot) {
+  const canvas = board.canvas;
+  const rect = canvas.getBoundingClientRect();
+  const wrap = canvas.parentElement.getBoundingClientRect();
+  const left = rect.left - wrap.left + (spot.x / canvas.width) * rect.width;
+  const top = rect.top - wrap.top + (spot.y / canvas.height) * rect.height;
+  el.style.right = "auto";
+  el.style.left = `${Math.max(8, left)}px`;
+  el.style.top = `${Math.max(8, top)}px`;
+}
+
+function openLegendColor(hit, trusted) {
+  const fn = board.functions.find((item) => item.id === hit.id);
+  if (!fn) return;
+  const picker = document.getElementById("legendColor");
+  board.selectedId = fn.id;
+  picker.dataset.fn = String(fn.id);
+  picker.value = fn.color;
+  picker.hidden = false;
+  placeOverCanvas(picker, hit.chip);
+  renderFunctions();
+  board.draw();
+  // A real click opens the system picker; a scripted one only shows the swatch.
+  if (trusted) picker.click();
+}
+
 function openLegendEditor(id, hit) {
   const fn = board.functions.find((item) => item.id === id);
   if (!fn) return;
@@ -813,41 +866,20 @@ function setRangeInput(id, value) {
 }
 
 function syncViewFields() {
-  const { xMin, xMax, yMin, yMax } = board.view;
-  setRangeInput("xMin", xMin);
-  setRangeInput("xMax", xMax);
-  setRangeInput("yMin", yMin);
-  setRangeInput("yMax", yMax);
-  const zOn = board.dimension === "3d";
-  document.getElementById("zMinField").hidden = !zOn;
-  document.getElementById("zMaxField").hidden = !zOn;
-  document.getElementById("gridZField").hidden = !zOn;
-  if (zOn && board.view.zMax > board.view.zMin) {
-    setRangeInput("zMin", board.view.zMin);
-    setRangeInput("zMax", board.view.zMax);
-    setRangeInput("gridZ", Number.isFinite(board.floorZ) ? board.floorZ : 0);
-  }
+  // Panning and zooming set the range; only the grid height is typed in, in 3D.
+  const spatial = board.dimension === "3d";
+  document.getElementById("axisBar").hidden = !spatial;
+  document.getElementById("gridZField").hidden = !spatial;
+  if (spatial) setRangeInput("gridZ", Number.isFinite(board.floorZ) ? board.floorZ : 0);
   if (board.dimension === "2d" && board.hover && !board.drag) {
     readoutEl.textContent = board.hoverLabel || readoutEl.textContent;
   }
 }
 
-function commitView(includeZ) {
-  const next = {
-    xMin: Number(document.getElementById("xMin").value),
-    xMax: Number(document.getElementById("xMax").value),
-    yMin: Number(document.getElementById("yMin").value),
-    yMax: Number(document.getElementById("yMax").value),
-  };
-  if (includeZ) {
-    next.zMin = Number(document.getElementById("zMin").value);
-    next.zMax = Number(document.getElementById("zMax").value);
-  }
-  board.setView(next);
-  if (includeZ) {
-    const level = Number(document.getElementById("gridZ").value);
-    if (Number.isFinite(level)) board.setFloorZ(level);
-  }
+function commitView() {
+  const level = Number(document.getElementById("gridZ").value);
+  if (!Number.isFinite(level)) throw new Error(uiText("\uac12\uc774 \uc62c\ubc14\ub974\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4", "That value is not valid"));
+  board.setFloorZ(level);
 }
 
 function graphHelp() {
@@ -1020,7 +1052,7 @@ function bind() {
   document.getElementById("resetView").addEventListener("click", () => board.resetView());
   document.getElementById("applyView").addEventListener("click", () => {
     try {
-      commitView(board.dimension === "3d");
+      commitView();
       readoutEl.textContent = t("viewApplied");
       closeInputNotice();
     } catch (err) {
@@ -1050,6 +1082,25 @@ function bind() {
     const point = board.eventPoint(ev);
     const hit = board.legendAt(point.px, point.py);
     if (hit) openLegendEditor(hit.id, hit);
+  });
+  document.getElementById("plot").addEventListener("click", (ev) => {
+    if (ev.detail > 1) return;
+    const point = board.eventPoint(ev);
+    const chip = board.legendChipAt(point.px, point.py);
+    if (chip) openLegendColor(chip, ev.isTrusted);
+  });
+  const legendColor = document.getElementById("legendColor");
+  legendColor.addEventListener("input", () => {
+    const id = Number(legendColor.dataset.fn);
+    if (!Number.isFinite(id)) return;
+    board.setFunctionColor(id, legendColor.value);
+    renderFunctions();
+  });
+  legendColor.addEventListener("change", () => {
+    legendColor.hidden = true;
+  });
+  legendColor.addEventListener("blur", () => {
+    legendColor.hidden = true;
   });
   const legendEditor = document.getElementById("legendEditor");
   let legendCancel = false;
@@ -1345,6 +1396,139 @@ function openCurrency() {
   }
 }
 
+// The expression panel can be widened with the bar beside it.
+function bindGraphPanel() {
+  const split = document.getElementById("graphSplit");
+  if (!split) return;
+  const least = 150;
+  const most = () => Math.max(least, Math.round(window.innerWidth * 0.6));
+  const setPanel = (width) => {
+    const value = Math.round(Math.min(most(), Math.max(least, width)));
+    document.documentElement.style.setProperty("--panel", `${value}px`);
+    try {
+      localStorage.setItem("mycalc-graph-panel", String(value));
+    } catch {
+      /* The width simply starts over next time. */
+    }
+    board.resize();
+  };
+  let saved = 0;
+  try {
+    saved = Number(localStorage.getItem("mycalc-graph-panel"));
+  } catch {
+    saved = 0;
+  }
+  if (Number.isFinite(saved) && saved >= least) setPanel(saved);
+  split.addEventListener("pointerdown", (ev) => {
+    ev.preventDefault();
+    try {
+      split.setPointerCapture(ev.pointerId);
+    } catch {
+      /* Synthetic pointers cannot be captured. */
+    }
+    const startX = ev.clientX;
+    const startWidth = document.getElementById("fnList").getBoundingClientRect().width;
+    const move = (event) => {
+      if (event.pointerId !== ev.pointerId) return;
+      setPanel(startWidth + (event.clientX - startX));
+    };
+    const up = (event) => {
+      if (event.pointerId !== ev.pointerId) return;
+      split.removeEventListener("pointermove", move);
+      split.removeEventListener("pointerup", up);
+    };
+    split.addEventListener("pointermove", move);
+    split.addEventListener("pointerup", up);
+  });
+}
+
+// The graph window carries a list on the left and settings on the right.
+function layoutGraphPanels() {
+  const body = document.querySelector("#screenGraph .graph-body");
+  if (!body || !graphPopup) return;
+  const list = document.getElementById("fnList");
+  const split = document.getElementById("graphSplit");
+  const side = document.getElementById("graphSide");
+  const left = !list.hidden;
+  const right = !side.hidden;
+  const columns = [];
+  if (left) columns.push("var(--panel, 210px)", "10px");
+  columns.push("minmax(0, 1fr)");
+  if (right) columns.push("240px");
+  body.style.gridTemplateColumns = columns.join(" ");
+  split.hidden = !left;
+  document.getElementById("panelLeft").setAttribute("aria-pressed", String(left));
+  document.getElementById("panelRight").setAttribute("aria-pressed", String(right));
+  syncSidePanel();
+  requestAnimationFrame(() => board.resize());
+}
+
+function toggleGraphPanel(which) {
+  const panel = document.getElementById(which === "left" ? "fnList" : "graphSide");
+  panel.hidden = !panel.hidden;
+  try {
+    localStorage.setItem(`mycalc-panel-${which}`, panel.hidden ? "off" : "on");
+  } catch {
+    /* The choice simply starts over next time. */
+  }
+  layoutGraphPanels();
+}
+
+function floorSlice() {
+  const { zMin, zMax } = board.view;
+  const middle = (zMin + zMax) / 2;
+  const half = (zMax - zMin) / 2 || 1;
+  return { middle, half };
+}
+
+function syncSidePanel() {
+  const side = document.getElementById("graphSide");
+  if (!side || side.hidden) return;
+  const degrees = (value) => Math.round((value * 180) / Math.PI);
+  const set = (id, value, label) => {
+    const input = document.getElementById(id);
+    if (document.activeElement !== input) input.value = String(value);
+    document.getElementById(`${id}Out`).textContent = label;
+  };
+  document.getElementById("sideLightOn").checked = board.light.on;
+  set("sideLightTurn", degrees(board.light.azimuth), `${degrees(board.light.azimuth)}\u00b0`);
+  set("sideLightRise", degrees(board.light.elevation), `${degrees(board.light.elevation)}\u00b0`);
+  const far = Math.round(board.lightReach() * 100);
+  set("sideLightFar", far, (far / 100).toFixed(2));
+  const { middle, half } = floorSlice();
+  const level = Number.isFinite(board.floorZ) ? board.floorZ : 0;
+  const share = Math.round(((level - middle) / half) * 100);
+  set("sideGridZ", share, formatTickInput(level));
+}
+
+function bindSidePanel() {
+  const side = document.getElementById("graphSide");
+  if (!side) return;
+  const turn = document.getElementById("sideLightTurn");
+  const rise = document.getElementById("sideLightRise");
+  const far = document.getElementById("sideLightFar");
+  const lit = document.getElementById("sideLightOn");
+  const gridZ = document.getElementById("sideGridZ");
+  const apply = () => {
+    board.setLight({
+      on: lit.checked,
+      azimuth: (Number(turn.value) * Math.PI) / 180,
+      elevation: (Number(rise.value) * Math.PI) / 180,
+      reach: Number(far.value) / 100,
+    });
+    syncGraphChrome();
+    syncSidePanel();
+    publishGraph();
+  };
+  for (const input of [turn, rise, far]) input.addEventListener("input", apply);
+  lit.addEventListener("change", apply);
+  gridZ.addEventListener("input", () => {
+    const { middle, half } = floorSlice();
+    board.setFloorZ(middle + (Number(gridZ.value) / 100) * half);
+    syncSidePanel();
+  });
+}
+
 function bindCurrency() {
   currencyStore();
   const amount = document.getElementById("rateAmount");
@@ -1475,9 +1659,14 @@ function schedulePublish() {
   }, 120);
 }
 
+let lastGraphText = "";
+
 function publishGraph() {
   if (!graphChannel || applyingGraph || !graphReady || (pageKind && !graphPopup)) return;
   const state = snapshotGraph();
+  const text = JSON.stringify(state);
+  if (text === lastGraphText) return;
+  lastGraphText = text;
   graphRevision = Math.max(Date.now(), graphRevision + 1);
   rememberedGraph = state;
   graphChannel.postMessage({ type: "state", id: graphWindowId, revision: graphRevision, state });
@@ -1487,6 +1676,8 @@ function applyGraphState(state) {
   if (!state || !state.views) return;
   graphReady = true;
   applyingGraph = true;
+  // What we were just told is not news worth repeating.
+  lastGraphText = JSON.stringify(state);
   try {
     board.showGrid = !!state.showGrid;
     board.showAxisValues = state.showAxisValues !== false;
@@ -1516,6 +1707,7 @@ function applyGraphState(state) {
     syncGraphChrome();
     renderFunctions();
     syncViewFields();
+    syncSidePanel();
   } finally {
     applyingGraph = false;
   }
@@ -1791,7 +1983,7 @@ function stepView(input, direction) {
   const previous = input.value;
   stepNumber(input, direction);
   try {
-    commitView(input.id === "zMin" || input.id === "zMax" || input.id === "gridZ");
+    commitView();
     closeInputNotice();
   } catch (err) {
     input.value = previous;
@@ -1917,7 +2109,7 @@ function openChildWindow(kind) {
   const url = new URL("index.html", location.href);
   url.searchParams.set("pop", kind);
   url.hash = kind;
-  const size = kind === "graph" ? "width=1040,height=680" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=560" : "width=560,height=420";
+  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=560" : "width=560,height=420";
   const resizable = kind === "settings" || kind === "info" ? "resizable=no" : "resizable=yes";
   const child = window.open(url.href, `mycalc-${kind}`, `popup=yes,${size},${resizable}`);
   if (child) child.focus();
@@ -1968,6 +2160,8 @@ if (graphChannel) {
     const message = event.data;
     if (!message || message.id === graphWindowId) return;
     if (message.type === "hello" && !graphPopup && !pageKind) {
+      // A window that just opened needs the whole picture, new or not.
+      lastGraphText = "";
       publishGraph();
       if (pendingGraphExpr) graphChannel.postMessage({ type: "expr", id: graphWindowId, text: pendingGraphExpr });
     } else if (message.type === "expr" && !graphPopup) {
@@ -2004,6 +2198,10 @@ document.getElementById("langBtn").addEventListener("click", () => {
 });
 document.getElementById("closeSettings").addEventListener("click", () => {
   if (pageKind === "settings") window.close();
+  else closeSheets();
+});
+document.getElementById("infoOk").addEventListener("click", () => {
+  if (pageKind === "info") window.close();
   else closeSheets();
 });
 document.getElementById("resetSettings").addEventListener("click", resetSettings);
@@ -2216,14 +2414,14 @@ if (graphPopup) {
         let height = startH;
         let left = startLeft;
         let top = startTop;
-        if (edges.includes("e")) width = Math.max(900, startW + dx);
-        if (edges.includes("s")) height = Math.max(480, startH + dy);
+        if (edges.includes("e")) width = Math.max(820, startW + dx);
+        if (edges.includes("s")) height = Math.max(520, startH + dy);
         if (edges.includes("w")) {
-          width = Math.max(900, startW - dx);
+          width = Math.max(820, startW - dx);
           left = startLeft + (startW - width);
         }
         if (edges.includes("n")) {
-          height = Math.max(480, startH - dy);
+          height = Math.max(520, startH - dy);
           top = startTop + (startH - height);
         }
         const bounds = {
@@ -2247,6 +2445,27 @@ if (graphPopup) {
       el.addEventListener("pointerup", up);
     });
   };
+  bindGraphPanel();
+  bindSidePanel();
+  const panelLeftBtn = document.getElementById("panelLeft");
+  const panelRightBtn = document.getElementById("panelRight");
+  panelLeftBtn.hidden = false;
+  panelRightBtn.hidden = false;
+  const remembered = (which, fallback) => {
+    try {
+      const saved = localStorage.getItem(`mycalc-panel-${which}`);
+      if (saved === "on") return false;
+      if (saved === "off") return true;
+    } catch {
+      /* Fall through to the default. */
+    }
+    return fallback;
+  };
+  document.getElementById("fnList").hidden = remembered("left", false);
+  document.getElementById("graphSide").hidden = remembered("right", true);
+  panelLeftBtn.addEventListener("click", () => toggleGraphPanel("left"));
+  panelRightBtn.addEventListener("click", () => toggleGraphPanel("right"));
+  layoutGraphPanels();
   bindGraphResize(graphResize, "se");
   bindGraphResize(document.getElementById("graphEdgeN"), "n");
   bindGraphResize(document.getElementById("graphEdgeS"), "s");
