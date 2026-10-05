@@ -54,22 +54,34 @@
   function flag(code) {
     if (code === "uk") {
       return '<svg class="flag" data-flag="uk" viewBox="0 0 60 30" width="18" height="12" aria-hidden="true" focusable="false">' +
+        '<clipPath id="ukQuarters"><path d="M30 15h30v15zM30 15v15H0zM30 15H0V0zM30 15V0h30z"/></clipPath>' +
         '<rect width="60" height="30" fill="#012169"/>' +
-        '<path d="M0 0 L60 30 M60 0 L0 30" stroke="#fff" stroke-width="8"/>' +
-        '<path d="M0 0 L60 30 M60 0 L0 30" stroke="#C8102E" stroke-width="4"/>' +
-        '<path d="M30 0 V30 M0 15 H60" stroke="#fff" stroke-width="14"/>' +
-        '<path d="M30 0 V30 M0 15 H60" stroke="#C8102E" stroke-width="8"/>' +
+        '<path d="M0 0 60 30M60 0 0 30" stroke="#fff" stroke-width="6"/>' +
+        '<path d="M0 0 60 30M60 0 0 30" clip-path="url(#ukQuarters)" stroke="#C8102E" stroke-width="4"/>' +
+        '<path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>' +
+        '<path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>' +
         "</svg>";
     }
+    const bar = (x, width) => '<rect x="' + x + '" y="-1" width="' + width + '" height="2" rx="0.3"/>';
+    const solid = bar(-7, 14);
+    const split = bar(-7, 5.6) + bar(1.4, 5.6);
+    const trigram = (x, y, angle, rows) => (
+      '<g transform="translate(' + x + " " + y + ") rotate(" + angle + ')">' +
+      '<g transform="translate(0 -3.4)">' + rows[0] + "</g>" +
+      rows[1] +
+      '<g transform="translate(0 3.4)">' + rows[2] + "</g></g>"
+    );
     return '<svg class="flag" data-flag="kr" viewBox="0 0 72 48" width="18" height="12" aria-hidden="true" focusable="false">' +
       '<rect width="72" height="48" fill="#fff"/>' +
-      '<path d="M36 14a10 10 0 0 1 0 20 5 5 0 0 1 0-10 5 5 0 0 0 0-10z" fill="#cd2e3a"/>' +
-      '<path d="M36 14a10 10 0 0 0 0 20 5 5 0 0 0 0-10 5 5 0 0 1 0-10z" fill="#0047a0"/>' +
+      '<g transform="rotate(-123.7 36 24)">' +
+      '<path d="M36 12a12 12 0 0 1 0 24 6 6 0 0 1 0-12 6 6 0 0 0 0-12z" fill="#cd2e3a"/>' +
+      '<path d="M36 12a12 12 0 0 0 0 24 6 6 0 0 1 0-12 6 6 0 0 0 0-12z" fill="#0047a0"/>' +
+      "</g>" +
       '<g fill="#111">' +
-      '<rect x="10" y="8" width="3" height="10"/><rect x="16" y="8" width="3" height="10"/><rect x="22" y="8" width="3" height="10"/>' +
-      '<rect x="47" y="8" width="3" height="10"/><rect x="53" y="8" width="3" height="10"/><rect x="59" y="8" width="3" height="10"/>' +
-      '<rect x="10" y="30" width="3" height="10"/><rect x="16" y="30" width="3" height="10"/><rect x="22" y="30" width="3" height="10"/>' +
-      '<rect x="47" y="30" width="3" height="10"/><rect x="53" y="30" width="3" height="10"/><rect x="59" y="30" width="3" height="10"/>' +
+      trigram(14, 10, -57.7, [solid, solid, solid]) +
+      trigram(58, 10, 57.7, [split, solid, split]) +
+      trigram(14, 38, -122.3, [solid, split, solid]) +
+      trigram(58, 38, 122.3, [split, split, split]) +
       "</g></svg>";
   }
 

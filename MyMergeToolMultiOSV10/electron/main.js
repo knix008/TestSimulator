@@ -16,7 +16,7 @@ let menuChild = null;
 let popupChild = null;
 let force = false;
 const children = new Set();
-const KEEP_POPUP = new Set(["print-prev", "print-next", "print-sync"]);
+const KEEP_POPUP = new Set(["print-prev", "print-next", "print-sync", "settings-sync"]);
 
 function track(child) {
   children.add(child);

@@ -38,6 +38,7 @@
   let launchMode = "standalone";
   let printState = Object.assign({}, settings.print, { pageIndex: 0 });
   let bgObjectUrl = "";
+  let settingsTab = "general";
 
   const $ = (id) => document.getElementById(id);
   const t = (key) => I18n.translate(settings.language, key);
@@ -391,6 +392,7 @@
       ] },
       { id: "help", label: t("menu.help"), icon: "help", items: [
         menuItem("guide", "help", t("help.guide")),
+        menuItem("about", "about", t("help.about")),
       ] },
     ];
   }
@@ -935,31 +937,37 @@
     return head(t("popup.settings")) +
       '<div class="popup-body">' +
       '<div class="tabs">' +
-      '<button type="button" data-tab="general" class="on">' + esc(t("settings.general")) + "</button>" +
-      '<button type="button" data-tab="font">' + esc(t("settings.font")) + "</button>" +
-      '<button type="button" data-tab="appearance">' + esc(t("settings.appearance")) + "</button>" +
-      '<button type="button" data-tab="workspace">' + esc(t("settings.workspace")) + "</button></div>" +
-      '<div data-panel="general">' +
+      [["general", "settings.general"], ["font", "settings.font"], ["appearance", "settings.appearance"], ["workspace", "settings.workspace"]].map((pair) => (
+        '<button type="button" data-tab="' + pair[0] + '"' + (settingsTab === pair[0] ? ' class="on"' : "") + ">" + esc(t(pair[1])) + "</button>"
+      )).join("") + "</div>" +
+      '<div data-panel="general"' + (settingsTab === "general" ? "" : " hidden") + ">" +
+      '<label class="line"><span>' + esc(t("settings.language")) + '</span><select data-field="language">' + optionTag("ko", t("lang.ko"), settings.language) + optionTag("en", t("lang.en"), settings.language) + "</select></label>" +
+      '<label class="line"><span>' + esc(t("settings.theme")) + '</span><select data-field="theme">' +
+      Themes.THEMES.concat([Themes.byId("custom", settings.custom)]).map((item) => optionTag(item.id, Themes.nameOf(item, settings.language), settings.theme)).join("") + "</select></label>" +
       '<label class="line"><input data-field="restoreSession" type="checkbox"' + (settings.restoreSession ? " checked" : "") + "> " + esc(t("settings.restore")) + "</label>" +
-      '<div class="line"><span>' + esc(t("settings.theme")) + '</span><b class="grow">' + esc(Themes.nameOf(Themes.byId(settings.theme, settings.custom), settings.language)) + "</b></div>" +
-      '<div class="line"><span>' + esc(t("settings.language")) + '</span><b class="grow">' + esc(settings.language === "en" ? t("lang.en") : t("lang.ko")) + "</b></div>" +
       "</div>" +
-      '<div data-panel="font" hidden>' +
+      '<div data-panel="font"' + (settingsTab === "font" ? "" : " hidden") + ">" +
       '<label class="line"><span>' + esc(t("settings.family")) + '</span><select data-field="fontFamily">' + fontCatalog.map((name) => optionTag(name, name, settings.fontFamily)).join("") + "</select></label>" +
       '<label class="line"><span>' + esc(t("settings.size")) + "</span>" + number("fontSize", settings.fontSize, 8, 96) + "</label>" +
       '<label class="line"><span>' + esc(t("settings.style")) + '</span><select data-field="fontStyle">' + optionTag("normal", t("font.normal"), settings.fontStyle) + optionTag("italic", t("font.italic"), settings.fontStyle) + optionTag("bold", t("font.bold"), settings.fontStyle) + optionTag("bold-italic", t("font.boldItalic"), settings.fontStyle) + "</select></label>" +
       "</div>" +
-      '<div data-panel="appearance" hidden>' +
+      '<div data-panel="appearance"' + (settingsTab === "appearance" ? "" : " hidden") + ">" +
       '<div class="line"><span class="grow">' + esc(settings.backgroundName || t("settings.bgChoose")) + '</span><button type="button" class="action" data-popup-action="bg-choose">' + esc(t("action.browse")) + "</button></div>" +
       '<div class="line"><span class="grow">' + esc(t("settings.bgClear")) + '</span><button type="button" class="action" data-popup-action="bg-clear">' + esc(t("action.delete")) + "</button></div>" +
       '<label class="line"><span>' + esc(t("settings.bgOpacity")) + "</span>" + number("backgroundOpacity", settings.backgroundOpacity, 0, 100) + "</label>" +
       "</div>" +
-      '<div data-panel="workspace" hidden>' +
+      '<div data-panel="workspace"' + (settingsTab === "workspace" ? "" : " hidden") + ">" +
       '<label class="line"><input data-field="showLeft" type="checkbox"' + (settings.showLeft ? " checked" : "") + "> " + esc(t("settings.showLeft")) + "</label>" +
       '<label class="line"><input data-field="showRight" type="checkbox"' + (settings.showRight ? " checked" : "") + "> " + esc(t("settings.showRight")) + "</label>" +
+      '<div class="line"><span>' + esc(t("settings.recentDirs")) + "</span>" +
+      '<select data-field="recentDir" title="' + esc(t("settings.recentDirs")) + '">' +
+      ((settings.recentDirs || []).length
+        ? (settings.recentDirs || []).map((dir) => optionTag(dir, dir, settings.lastOpenDir)).join("")
+        : '<option value="">' + esc(t("settings.dirsEmpty")) + "</option>") + "</select>" +
+      '<button type="button" class="action" data-popup-action="remove-dir"' + ((settings.recentDirs || []).length ? "" : " disabled") + ">" + esc(t("action.delete")) + "</button>" +
+      '<button type="button" class="action" data-popup-action="clear-dirs"' + ((settings.recentDirs || []).length ? "" : " disabled") + ">" + esc(t("action.deleteAll")) + "</button></div>" +
       '<label class="line"><span>' + esc(t("settings.lastOpen")) + '</span><input data-field="lastOpenDir" type="text" readonly value="' + esc(settings.lastOpenDir) + '"></label>' +
       '<label class="line"><span>' + esc(t("settings.lastSave")) + '</span><input data-field="lastSaveDir" type="text" readonly value="' + esc(settings.lastSaveDir) + '"></label>' +
-      '<div class="line"><span class="grow">' + esc(t("settings.clearDirs")) + '</span><button type="button" class="action" data-popup-action="clear-dirs">' + esc(t("action.delete")) + "</button></div>" +
       "</div></div>" + foot(btn("apply-settings", t("action.apply"), true) + btn("cancel", t("action.cancel")));
   }
 
@@ -1622,7 +1630,8 @@ async function inspectGit(dir) {
     if (window.desktop && window.desktop.forceClose) window.desktop.forceClose(code || 0);
   }
 
-  function applySettingsForm(fields) {
+  function applySettingsForm(fields, live) {
+    const languageChanged = Boolean(fields.language) && fields.language !== settings.language;
     if (fields.language) setLanguage(fields.language);
     if (fields.theme) setTheme(fields.theme);
     setFont(fields.fontFamily || settings.fontFamily, fields.fontSize, fields.fontStyle || settings.fontStyle);
@@ -1636,7 +1645,25 @@ async function inspectGit(dir) {
     if ("showRight" in fields) settings.showRight = Boolean(fields.showRight);
     saveSettings();
     renderAll();
-    closePopup();
+    if (!live) {
+      closePopup();
+      return;
+    }
+    if (languageChanged) refreshSettingsPopup();
+  }
+
+  function refreshSettingsPopup(tab) {
+    settingsTab = tab || settingsTab;
+    if (window.desktop && window.desktop.refreshPopup && !TEST) {
+      window.desktop.refreshPopup(popupDocument("settings"));
+      return;
+    }
+    if (popupEl && popupEl.dataset.kind === "settings") {
+      popupEl.innerHTML = popupHTML("settings");
+      bindPopup(popupEl, "settings");
+      const button = popupEl.querySelector('[data-tab="' + settingsTab + '"]');
+      if (button) button.click();
+    }
   }
 
 function popupAction(action, source, fieldOverride) {
@@ -1650,6 +1677,7 @@ function popupAction(action, source, fieldOverride) {
       return lastError;
     }
     if (action === "apply-settings") { applySettingsForm(fields); return; }
+    if (action === "settings-sync") { applySettingsForm(fields, true); return; }
     if (action === "pick-theme") {
       setTheme((fields && fields.theme) || (source && source.dataset && source.dataset.theme));
       closePopup();
@@ -1679,13 +1707,18 @@ function popupAction(action, source, fieldOverride) {
       finishSave(current(), path).then(() => closePopup());
       return;
     }
-    if (action === "clear-dirs") {
-      settings.lastOpenDir = "";
-      settings.lastSaveDir = "";
+    if (action === "clear-dirs" || action === "remove-dir") {
+      if (action === "clear-dirs") {
+        Store.clearRecentDirs(settings);
+        settings.lastOpenDir = "";
+        settings.lastSaveDir = "";
+      } else {
+        const dir = fields.recentDir || settings.lastOpenDir;
+        Store.removeRecentDir(settings, dir);
+        if (settings.lastOpenDir === dir) settings.lastOpenDir = (settings.recentDirs || [])[0] || "";
+      }
       saveSettings();
-      openPopup("settings");
-      const tab = popupEl && popupEl.querySelector('[data-tab="workspace"]');
-      if (tab) tab.click();
+      refreshSettingsPopup("workspace");
       return;
     }
     if (action === "bg-choose") { $("bgOpen").click(); return; }
@@ -1908,6 +1941,7 @@ function popupAction(action, source, fieldOverride) {
       if (event.target.id === "popupLayer") { closePopup(); return; }
       const tab = event.target.closest("[data-tab]");
       if (tab && popupEl && popupEl.contains(tab)) {
+        if (popupEl.dataset.kind === "settings") settingsTab = tab.dataset.tab;
         popupEl.querySelectorAll("[data-tab]").forEach((node) => node.classList.toggle("on", node === tab));
         popupEl.querySelectorAll("[data-panel]").forEach((panel) => { panel.hidden = panel.dataset.panel !== tab.dataset.tab; });
         return;
@@ -1917,7 +1951,12 @@ function popupAction(action, source, fieldOverride) {
       if (btn) popupAction(btn.dataset.popupAction, btn);
     });
     $("popupLayer").addEventListener("change", (event) => {
-      if (!popupEl || popupEl.dataset.kind !== "print") return;
+      if (!popupEl) return;
+      if (popupEl.dataset.kind === "settings") {
+        applySettingsForm(readFields(popupEl), true);
+        return;
+      }
+      if (popupEl.dataset.kind !== "print") return;
       syncPrintFields(readFields(popupEl));
       printState.pageIndex = 0;
       refreshPrintPreview();

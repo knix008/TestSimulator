@@ -320,10 +320,10 @@ const docImages = build(sampleDoc);
 fs.mkdirSync(outDir, { recursive: true });
 fs.mkdirSync(path.join(outDir, "icons"), { recursive: true });
 fs.writeFileSync(path.join(outDir, "icon.png"), appImages.find((image) => image.size === 256).png);
-fs.writeFileSync(path.join(outDir, "icon.ico"), ico(appImages.filter((image) => image.size <= 256 && image.size !== 24)));
+fs.writeFileSync(path.join(outDir, "icon.ico"), ico(appImages.filter((image) => image.size <= 256)));
 fs.writeFileSync(path.join(outDir, "icon.icns"), icns(appImages.filter((image) => image.size !== 24 && image.size !== 48)));
 fs.writeFileSync(path.join(outDir, "document.png"), docImages.find((image) => image.size === 256).png);
-fs.writeFileSync(path.join(outDir, "document.ico"), ico(docImages.filter((image) => image.size <= 256 && image.size !== 24)));
+fs.writeFileSync(path.join(outDir, "document.ico"), ico(docImages.filter((image) => image.size <= 256)));
 fs.writeFileSync(path.join(outDir, "document.icns"), icns(docImages.filter((image) => image.size !== 24 && image.size !== 48)));
 appImages.forEach((image) => {
   fs.writeFileSync(path.join(outDir, "icons", image.size + "x" + image.size + ".png"), image.png);

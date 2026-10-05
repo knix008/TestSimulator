@@ -152,22 +152,58 @@
         assert(loaded.lastOpenDir === "D:/repo/src");
         assert(loaded.lastSaveDir === "D:/out");
       }),
-      test("the settings popup applies a font and leaves theme and language to the menu bar", (api, doc) => {
+      test("the settings popup applies a font, a language, and a theme", (api, doc) => {
         api.setFontCatalog(["Arial", "Consolas", "Times New Roman"]);
-        api.setTheme("dark-midnight");
         const popup = api.openPopup("settings");
-        assert(popup.querySelector('[data-field="language"]') == null);
-        assert(popup.querySelector('[data-field="theme"]') == null);
+        popup.querySelector('[data-field="language"]').value = "en";
+        popup.querySelector('[data-field="theme"]').value = "dark-midnight";
         popup.querySelector('[data-field="fontFamily"]').value = "Times New Roman";
         popup.querySelector('[data-field="fontSize"]').value = "18";
         popup.querySelector('[data-field="fontStyle"]').value = "bold-italic";
         popup.querySelector('[data-popup-action="apply-settings"]').click();
+        assert(api.getLanguage() === "en");
         assert(api.getTheme() === "dark-midnight");
         const area = doc.getElementById("resultText");
         const style = doc.defaultView.getComputedStyle(area);
         assert(style.fontStyle === "italic", style.fontStyle);
         assert(Number(style.fontWeight) >= 700, style.fontWeight);
         assert(style.fontSize === "18px", style.fontSize);
+      }),
+      test("changing a settings field applies right away", (api, doc) => {
+        api.setTheme("light-classic");
+        const popup = api.openPopup("settings");
+        const theme = popup.querySelector('[data-field="theme"]');
+        theme.value = "dark-navy";
+        theme.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
+        assert(api.getTheme() === "dark-navy", api.getTheme());
+        assert(api.getPopup() != null, "the window stays open");
+        const size = api.getPopup().querySelector('[data-field="fontSize"]');
+        size.value = "20";
+        size.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
+        assert(api.getSettings().fontSize === 20, String(api.getSettings().fontSize));
+        api.closePopup();
+        api.setTheme("light-classic");
+      }),
+      test("opened folders keep ten entries that can be deleted one by one or all at once", (api, doc) => {
+        for (let i = 0; i < 12; i += 1) api.rememberDirectory("open", "D:/work/dir" + i + "/file.txt");
+        const dirs = api.getSettings().recentDirs;
+        assert(dirs.length === 10, String(dirs.length));
+        assert(dirs[0] === "D:/work/dir11", dirs[0]);
+        assert(dirs.indexOf("D:/work/dir0") < 0, "the oldest folder is dropped");
+        assert(api.loadSettings().recentDirs.length === 10, "saved with the settings");
+        const popup = api.openPopup("settings");
+        popup.querySelector('[data-tab="workspace"]').click();
+        const list = popup.querySelector('[data-field="recentDir"]');
+        assert(list.options.length === 10, String(list.options.length));
+        list.value = "D:/work/dir11";
+        popup.querySelector('[data-popup-action="remove-dir"]').click();
+        assert(api.getSettings().recentDirs.length === 9);
+        assert(api.getSettings().recentDirs.indexOf("D:/work/dir11") < 0);
+        assert(api.getPopup().querySelector('[data-panel="workspace"]').hidden === false, "stays on the tab");
+        api.getPopup().querySelector('[data-popup-action="clear-dirs"]').click();
+        assert(api.getSettings().recentDirs.length === 0);
+        assert(api.loadSettings().recentDirs.length === 0);
+        api.closePopup();
       }),
     ]),
     suite("Language", [
@@ -392,6 +428,24 @@
           assert(icon, kind + " icon");
           assert(icon.innerHTML.length > 0, kind + " icon body");
           assert(bar.querySelector(".popup-title").textContent.length > 0, kind + " title");
+          const view = el.ownerDocument.defaultView;
+          const fits = (where) => {
+            el.querySelectorAll("*").forEach((node) => {
+              if (node.hidden || node.offsetParent === null) return;
+              const box = view.getComputedStyle(node);
+              if (box.overflow !== "hidden" && box.overflowY !== "hidden") return;
+              const name = kind + " " + where + " " + (node.className || node.tagName);
+              assert(node.scrollHeight <= node.clientHeight + 2, name + " is cut off");
+              assert(node.scrollWidth <= node.clientWidth + 2, name + " is cut off sideways");
+            });
+            assert(el.scrollHeight <= el.clientHeight + 2, kind + " " + where + " v");
+            assert(el.scrollWidth <= el.clientWidth + 2, kind + " " + where + " h");
+          };
+          fits("start");
+          el.querySelectorAll("[data-tab]").forEach((tab) => {
+            tab.click();
+            fits(tab.dataset.tab);
+          });
           el.querySelectorAll(".line").forEach((line) => {
             assert(line.offsetHeight <= 34, kind + " line " + line.textContent);
           });
@@ -694,6 +748,21 @@
       }),
     ]),
     suite("Icons", [
+      test("the Windows icon carries every shortcut size", async () => {
+        async function entries(url) {
+          const buffer = await (await fetch(url + "?t=" + Date.now())).arrayBuffer();
+          const view = new DataView(buffer);
+          const count = view.getUint16(4, true);
+          const sizes = [];
+          for (let index = 0; index < count; index += 1) sizes.push(new Uint8Array(buffer)[6 + index * 16] || 256);
+          return sizes;
+        }
+        const want = [16, 24, 32, 48, 64, 128, 256];
+        for (const file of ["/assets/icon.ico", "/assets/document.ico", "/build/icon.ico"]) {
+          const sizes = await entries(file);
+          want.forEach((size) => assert(sizes.indexOf(size) >= 0, file + " is missing " + size));
+        }
+      }),
       test("app and document icons have a transparent edge and a bright top-left", async () => {
         async function sample(url) {
           const image = new Image();

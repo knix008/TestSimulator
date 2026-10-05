@@ -47,8 +47,12 @@ popupHost.onHtml((html) => {
   });
   root.addEventListener("change", (event) => {
     const popup = root.querySelector(".popup");
-    if (!popup || popup.dataset.kind !== "print") return;
-    if (!event.target.closest("[data-field]")) return;
+    if (!popup || !event.target.closest("[data-field]")) return;
+    if (popup.dataset.kind === "settings") {
+      popupHost.action("settings-sync", collect(root));
+      return;
+    }
+    if (popup.dataset.kind !== "print") return;
     popupHost.action("print-sync", collect(root));
   });
 });

@@ -12,7 +12,7 @@
       language: "ko",
       theme: "light-classic",
       fontFamily: "Consolas",
-      fontSize: 14,
+      fontSize: 12,
       fontStyle: "normal",
       opacity: 100,
       zoom: 100,
@@ -22,6 +22,7 @@
       showLeft: true,
       showRight: true,
       restoreSession: true,
+      recentDirs: [],
       lastOpenDir: "",
       lastSaveDir: "",
       recent: [],
@@ -39,6 +40,7 @@
       const data = JSON.parse(raw);
       const next = Object.assign(base, data);
       next.recent = Array.isArray(data.recent) ? data.recent.slice(0, MAX_RECENT) : [];
+      next.recentDirs = Array.isArray(data.recentDirs) ? data.recentDirs.slice(0, MAX_RECENT) : [];
       next.print = Object.assign(base.print, data.print || {});
       next.layout = Object.assign(base.layout, data.layout || {});
       next.opacity = clamp(next.opacity, 0, 100);
@@ -52,7 +54,10 @@
   }
 
   function save(storage, state) {
-    const copy = Object.assign({}, state, { recent: (state.recent || []).slice(0, MAX_RECENT) });
+    const copy = Object.assign({}, state, {
+      recent: (state.recent || []).slice(0, MAX_RECENT),
+      recentDirs: (state.recentDirs || []).slice(0, MAX_RECENT),
+    });
     storage.setItem(KEY, JSON.stringify(copy));
     return copy;
   }
@@ -93,11 +98,31 @@
     return state.recent;
   }
 
+  function addRecentDir(state, dir) {
+    const clean = String(dir || "").replace(/\\/g, "/").replace(/\/+$/, "");
+    if (!clean) return state.recentDirs || [];
+    const list = (state.recentDirs || []).filter((row) => row !== clean);
+    list.unshift(clean);
+    state.recentDirs = list.slice(0, MAX_RECENT);
+    return state.recentDirs;
+  }
+
+  function removeRecentDir(state, dir) {
+    state.recentDirs = (state.recentDirs || []).filter((row) => row !== dir);
+    return state.recentDirs;
+  }
+
+  function clearRecentDirs(state) {
+    state.recentDirs = [];
+    return state.recentDirs;
+  }
+
   function rememberDirectory(state, kind, filePath) {
     const dir = directoryOf(filePath);
     if (!dir) return state;
     if (kind === "save") state.lastSaveDir = dir;
     else state.lastOpenDir = dir;
+    addRecentDir(state, dir);
     return state;
   }
 
@@ -111,6 +136,9 @@
     addRecent: addRecent,
     removeRecent: removeRecent,
     clearRecent: clearRecent,
+    addRecentDir: addRecentDir,
+    removeRecentDir: removeRecentDir,
+    clearRecentDirs: clearRecentDirs,
     directoryOf: directoryOf,
     rememberDirectory: rememberDirectory,
   };

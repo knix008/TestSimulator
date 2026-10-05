@@ -52,7 +52,7 @@
   --workspace-image: none;
   --workspace-image-opacity: 0.35;
   --editor-font: Consolas, monospace;
-  --editor-size: 14px;
+  --editor-size: 12px;
   --editor-weight: 400;
   --editor-style: normal;
   --zoom: 1;
@@ -182,7 +182,7 @@ button { cursor: pointer; }
   align-self: center;
 }
 
-.menu-root svg, .tool-btn svg, .menu-item svg, .panel-btn svg, .conflict-item svg {
+.menu-root svg:not(.flag), .tool-btn svg:not(.flag), .menu-item svg:not(.flag), .panel-btn svg, .conflict-item svg {
   stroke: currentColor;
   fill: none;
   stroke-width: 1.6;
@@ -191,8 +191,7 @@ button { cursor: pointer; }
   overflow: visible;
 }
 
-svg.flag { display: block; width: 18px; height: 12px; box-shadow: 0 0 0 1px var(--line); }
-.tool-btn svg.flag, .tool-btn svg.flag * { stroke: none; }
+svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow: 0 0 0 1px var(--line); }
 .tool-btn.tool-caret { width: 20px; flex-basis: 20px; }
 .toolbar-end {
   margin-left: auto;
@@ -208,7 +207,6 @@ svg.flag { display: block; width: 18px; height: 12px; box-shadow: 0 0 0 1px var(
   padding: 0 8px;
   gap: 6px;
 }
-.menu-root svg.flag { stroke: none; }
 .lang-label { font-size: 12px; line-height: 1; white-space: nowrap; }
 
 .menu-root:hover, .menu-item:hover:not(:disabled) { background: var(--hover); }
@@ -315,6 +313,11 @@ svg.flag { display: block; width: 18px; height: 12px; box-shadow: 0 0 0 1px var(
 }
 
 .panel-tools, .conflict-list, .props { overflow: auto; }
+
+.props { padding: 4px 0; display: flex; flex-direction: column; gap: 2px; }
+.props .line { padding: 0 8px; gap: 8px; }
+.props .line > span:first-child { flex: 0 0 auto; min-width: 84px; color: var(--muted); }
+.props .line > b.grow { text-align: right; font-weight: 650; }
 
 .panel-btn, .conflict-item {
   width: 100%;
@@ -749,7 +752,7 @@ svg.flag { display: block; width: 18px; height: 12px; box-shadow: 0 0 0 1px var(
 
 .popup-body [data-panel] { display: flex; flex-direction: column; gap: 4px; }
 .popup-body [data-panel][hidden] { display: none !important; }
-.popup .line > span:first-child:not(.grow):not(.spacer) { flex: 0 0 136px; }
+.popup .line > span:first-child:not(.grow):not(.spacer) { flex: 0 0 auto; min-width: 136px; }
 .popup .line > span.mid { flex: 0 0 auto; margin-left: 8px; text-align: right; }
 .popup .line > b.grow { text-align: right; }
 
