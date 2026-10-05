@@ -19,7 +19,7 @@
       save: { width: 520, height: 168 },
       git: { width: 640, height: 200 },
       assign: { width: 480, height: 232 },
-      theme: { width: 440, height: 736 },
+      theme: { width: 440, height: 448 },
       guide: { width: 720, height: 368 },
     },
     MENU_ROW: 32,

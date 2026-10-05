@@ -11,14 +11,11 @@
   <div id="shell">
     <div id="bgLayer"></div>
     <div id="app">
-      <header class="titlebar">
-        <img id="appIcon" src="assets/icon.png" width="18" height="18" alt="">
-        <h1 id="appTitle">MyMerge 10.0</h1>
-      </header>
       <nav id="menubar" class="menubar"></nav>
       <div id="toolbar" class="toolbar" role="toolbar"></div>
       <div class="body">
         <aside id="leftPanel" class="panel left"></aside>
+        <div class="splitter v" id="splitLeft" role="separator" aria-orientation="vertical" tabindex="-1"></div>
         <div class="center">
           <div class="tabbar">
             <button id="tabPrev" class="tabnav" type="button">&lt;</button>
@@ -26,15 +23,25 @@
             <button id="tabNext" class="tabnav" type="button">&gt;</button>
           </div>
           <div class="sources">
-            <section class="pane base" id="paneBase"><div class="pane-head"></div><pre></pre></section>
-            <section class="pane local" id="paneLocal"><div class="pane-head"></div><pre></pre></section>
-            <section class="pane remote" id="paneRemote"><div class="pane-head"></div><pre></pre></section>
+            <section class="pane base" id="paneBase"><div class="pane-head"></div><div class="code-view"><div class="code-lines"></div></div></section>
+            <div class="splitter v" id="splitPaneA" role="separator" aria-orientation="vertical" tabindex="-1"></div>
+            <section class="pane local" id="paneLocal"><div class="pane-head"></div><div class="code-view"><div class="code-lines"></div></div></section>
+            <div class="splitter v" id="splitPaneB" role="separator" aria-orientation="vertical" tabindex="-1"></div>
+            <section class="pane remote" id="paneRemote"><div class="pane-head"></div><div class="code-view"><div class="code-lines"></div></div></section>
           </div>
+          <div class="splitter h" id="splitResult" role="separator" aria-orientation="horizontal" tabindex="-1"></div>
           <section class="result-wrap">
             <div class="pane-head" id="resultHead"></div>
-            <textarea id="resultText" spellcheck="false"></textarea>
+            <div class="result-body">
+              <div class="result-gutter" id="resultGutter" aria-hidden="true"></div>
+              <div class="result-canvas">
+                <div class="result-stripes" id="resultStripes" aria-hidden="true"></div>
+                <textarea id="resultText" spellcheck="false"></textarea>
+              </div>
+            </div>
           </section>
         </div>
+        <div class="splitter v" id="splitRight" role="separator" aria-orientation="vertical" tabindex="-1"></div>
         <aside id="rightPanel" class="panel right"></aside>
       </div>
       <footer id="statusbar" class="statusbar"></footer>

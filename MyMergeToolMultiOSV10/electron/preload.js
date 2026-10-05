@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("desktop", {
+  windowCommand: (name) => ipcRenderer.invoke("window-command", name),
   resizeWindow: (width, height) => ipcRenderer.invoke("resize-window", { width: width, height: height }),
   pickFiles: (dir) => ipcRenderer.invoke("pick-files", dir),
   pickDirectory: (dir) => ipcRenderer.invoke("pick-directory", dir),

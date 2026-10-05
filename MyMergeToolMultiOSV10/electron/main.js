@@ -39,7 +39,8 @@ function createWindow() {
     width: 1280,
     height: 800,
     autoHideMenuBar: true,
-    backgroundColor: "#14181f",
+    frame: false,
+    backgroundColor: "#f3f4f6",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -145,6 +146,18 @@ function listFonts() {
 
 app.setName(build.name);
 app.setAppUserModelId(metrics.APP_ID);
+
+ipcMain.handle("window-command", (event, name) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return false;
+  if (name === "minimize") win.minimize();
+  else if (name === "close") win.close();
+  else if (name === "maximize") {
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  }
+  return win.isMaximized();
+});
 
 ipcMain.handle("resize-window", (event, payload) => {
   const win = BrowserWindow.fromWebContents(event.sender);

@@ -121,9 +121,99 @@
     root.style.setProperty("--editor-weight", String(settings.fontStyle).indexOf("bold") >= 0 ? "700" : "400");
     root.style.setProperty("--editor-style", String(settings.fontStyle).indexOf("italic") >= 0 ? "italic" : "normal");
     root.style.setProperty("--zoom", String(settings.zoom / 100));
+    root.style.setProperty("--code-line", Math.max(14, Math.round(settings.fontSize * (settings.zoom / 100) * 1.6)) + "px");
     root.style.setProperty("--workspace-image-opacity", String((settings.backgroundOpacity || 0) / 100));
+    applyLayout();
     document.title = BUILD.title;
-    $("appTitle").textContent = BUILD.title;
+    const title = $("appTitle");
+    if (title) title.textContent = BUILD.title;
+  }
+
+  function layout() {
+    if (!settings.layout) settings.layout = { left: 240, right: 260, result: 0, srcA: 0, srcB: 0 };
+    return settings.layout;
+  }
+
+  function applyLayout() {
+    const root = document.documentElement;
+    const box = layout();
+    root.style.setProperty("--left", Math.max(160, box.left || 240) + "px");
+    root.style.setProperty("--right", Math.max(160, box.right || 260) + "px");
+    root.style.setProperty("--result", box.result > 0 ? box.result + "px" : "38%");
+    root.style.setProperty("--src-a", box.srcA > 0 ? box.srcA + "px" : "1fr");
+    root.style.setProperty("--src-b", box.srcB > 0 ? box.srcB + "px" : "1fr");
+  }
+
+  function bindSplitters() {
+    const root = document.documentElement;
+    const panes = ["paneBase", "paneLocal", "paneRemote"].map((id) => $(id));
+    const bars = {
+      splitLeft: (event) => {
+        const left = document.querySelector(".body").getBoundingClientRect().left;
+        const value = clamp(event.clientX - left, 160, 520);
+        layout().left = value;
+        root.style.setProperty("--left", value + "px");
+      },
+      splitRight: (event) => {
+        const right = document.querySelector(".body").getBoundingClientRect().right;
+        const value = clamp(right - event.clientX, 160, 520);
+        layout().right = value;
+        root.style.setProperty("--right", value + "px");
+      },
+      splitPaneA: (event) => {
+        const box = document.querySelector(".sources").getBoundingClientRect();
+        const value = clamp(event.clientX - box.left, 120, box.width - 260);
+        layout().srcA = value;
+        root.style.setProperty("--src-a", value + "px");
+      },
+      splitPaneB: (event) => {
+        const box = document.querySelector(".sources").getBoundingClientRect();
+        const start = box.left + (layout().srcA || panes[0].offsetWidth) + 4;
+        const value = clamp(event.clientX - start, 120, box.width - (layout().srcA || panes[0].offsetWidth) - 140);
+        layout().srcB = value;
+        root.style.setProperty("--src-b", value + "px");
+      },
+      splitResult: (event) => {
+        const box = document.querySelector(".center").getBoundingClientRect();
+        const value = clamp(box.bottom - event.clientY, 120, box.height - 200);
+        layout().result = value;
+        root.style.setProperty("--result", value + "px");
+      },
+    };
+    Object.keys(bars).forEach((id) => {
+      const bar = $(id);
+      if (!bar) return;
+      bar.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        if (id === "splitPaneA" || id === "splitPaneB") {
+          if (!layout().srcA) { layout().srcA = panes[0].offsetWidth; root.style.setProperty("--src-a", layout().srcA + "px"); }
+          if (!layout().srcB) { layout().srcB = panes[1].offsetWidth; root.style.setProperty("--src-b", layout().srcB + "px"); }
+        }
+        bar.classList.add("dragging");
+        try { bar.setPointerCapture(event.pointerId); } catch (error) { /* synthetic pointer */ }
+        const move = (motion) => bars[id](motion);
+        const stop = () => {
+          bar.classList.remove("dragging");
+          bar.removeEventListener("pointermove", move);
+          bar.removeEventListener("pointerup", stop);
+          bar.removeEventListener("pointercancel", stop);
+          saveSettings();
+          syncResultScroll();
+        };
+        bar.addEventListener("pointermove", move);
+        bar.addEventListener("pointerup", stop);
+        bar.addEventListener("pointercancel", stop);
+      });
+      bar.addEventListener("dblclick", () => {
+        const box = layout();
+        if (id === "splitLeft") box.left = 240;
+        else if (id === "splitRight") box.right = 260;
+        else if (id === "splitResult") box.result = 0;
+        else { box.srcA = 0; box.srcB = 0; }
+        applyLayout();
+        saveSettings();
+      });
+    });
   }
 
   function docFromTexts(source) {
@@ -227,14 +317,10 @@
       '<i class="sep"></i>',
       button("git", "git", t("file.openRepo")),
       button("print", "print", t("file.print")),
-      button("themeCycle", "theme", t("view.theme")),
-      button("themeMenu", "caret", t("view.themeList")).replace('class="tool-btn"', 'class="tool-btn tool-caret"'),
       '<i class="sep"></i>',
-      languageButton(),
-      button("settings", "settings", t("file.settings")),
-      button("about", "about", t("help.about")),
       button("toggleLeft", "panelLeft", t("view.left")),
       button("toggleRight", "panelRight", t("view.right")),
+      '<span class="toolbar-end">' + toolbarActions().map(toolActionButton).join("") + "</span>",
     ].join("");
     updateHistoryButtons();
   }
@@ -297,24 +383,13 @@
         menuItem("zoomReset", "check", t("view.zoomReset")),
         menuItem("toggleLeft", "panelLeft", t("view.left")),
         menuItem("toggleRight", "panelRight", t("view.right")),
-        menuItem("language", "language", t("view.language")),
-        menuItem("settings", "font", t("tools.font")),
       ] },
-      { id: "tools", label: t("menu.tools"), icon: "settings", items: [
+      { id: "tools", label: t("menu.tools"), icon: "wrench", items: [
         menuItem("git", "git", t("tools.git")),
         menuItem("download", "download", t("tools.download")),
         menuItem("link", "link", t("tools.link")),
       ] },
       { id: "help", label: t("menu.help"), icon: "help", items: [
-        menuItem("guide", "help", t("help.guide")),
-      ] },
-      { id: "settings", label: t("menu.settings"), icon: "settings", align: "right", items: [
-        menuItem("settings", "settings", t("file.settings")),
-        menuItem("themeCycle", "theme", t("view.theme")),
-        menuItem("themeMenu", "caret", t("view.themeList")),
-      ] },
-      { id: "about", label: t("menu.about"), icon: "about", align: "right", items: [
-        menuItem("about", "about", t("help.about")),
         menuItem("guide", "help", t("help.guide")),
       ] },
     ];
@@ -325,11 +400,40 @@
       Icons.icon(menu.icon) + "<span>" + esc(menu.label) + "</span></button>";
   }
 
+  function toolbarActions() {
+    return [
+      { action: "themeCycle", icon: "theme", tip: t("view.theme") },
+      { action: "themeMenu", icon: "caret", tip: t("view.themeList"), caret: true },
+      { action: "language", icon: "language", tip: t("view.language") },
+      { action: "settings", icon: "settings", tip: t("file.settings") },
+      { action: "about", icon: "about", tip: t("help.about") },
+    ];
+  }
+
+  function toolActionButton(item) {
+    if (item.action === "language") return languageButton();
+    return button(item.action, item.icon, item.tip).replace('class="tool-btn"', 'class="tool-btn' + (item.caret ? " tool-caret" : "") + '"');
+  }
+
+  function windowControls() {
+    const button = (name, label, path) => (
+      '<button type="button" class="win-btn' + (name === "close" ? " close" : "") + '" data-window="' + name + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
+      '<svg viewBox="0 0 10 10" aria-hidden="true">' + path + "</svg></button>"
+    );
+    return '<div class="window-controls">' +
+      button("minimize", t("window.minimize"), '<path d="M0 5h10"/>') +
+      button("maximize", t("window.maximize"), '<rect x="0.5" y="0.5" width="9" height="9"/>') +
+      button("close", t("window.close"), '<path d="M0 0l10 10M10 0 0 10"/>') +
+      "</div>";
+  }
+
   function renderMenubar() {
-    const menus = menuDefinitions();
-    const left = menus.filter((menu) => menu.align !== "right");
-    const right = menus.filter((menu) => menu.align === "right");
-    $("menubar").innerHTML = left.map(menuRootButton).join("") + '<span class="menu-spacer"></span>' + right.map(menuRootButton).join("");
+    const menus = menuDefinitions().filter((menu) => menu.align !== "right");
+    $("menubar").innerHTML =
+      '<span class="app-title"><img src="assets/icon.png" width="16" height="16" alt=""><strong id="appTitle">' + esc(BUILD.title) + "</strong></span>" +
+      menus.map(menuRootButton).join("") +
+      '<span class="menu-spacer"></span>' +
+      windowControls();
   }
 
   function renderTabs() {
@@ -344,16 +448,112 @@
     $("tabNext").title = t("tab.next");
   }
 
+  function paneRows(doc) {
+    const sides = ["base", "local", "remote"];
+    const plain = {
+      base: Merge.splitLines(doc.baseText).lines,
+      local: Merge.splitLines(doc.localText).lines,
+      remote: Merge.splitLines(doc.remoteText).lines,
+    };
+    const marked = { base: [], local: [], remote: [] };
+    try {
+      Merge.merge3(doc.baseText, doc.localText, doc.remoteText, doc.labels).hunks.forEach((hunk) => {
+        const kind = hunk.type === "equal" ? "" : hunk.type;
+        sides.forEach((side) => {
+          (hunk[side] || hunk.lines || []).forEach((text) => marked[side].push({ text: text, kind: kind }));
+        });
+      });
+    } catch (error) {
+      sides.forEach((side) => { marked[side] = []; });
+    }
+    const rows = {};
+    sides.forEach((side) => {
+      const list = marked[side];
+      const fits = list.length === plain[side].length && list.every((row, index) => row.text === plain[side][index]);
+      rows[side] = fits ? list : plain[side].map((text) => ({ text: text, kind: "" }));
+    });
+    return rows;
+  }
+
+  function codeHTML(rows) {
+    return rows.map((row, index) => (
+      '<div class="code-line' + (row.kind ? " " + row.kind : "") + '">' +
+      '<span class="no">' + (index + 1) + "</span>" +
+      '<span class="text">' + esc(row.text) + "</span></div>"
+    )).join("");
+  }
+
+  function resultRows(doc) {
+    const lines = Merge.splitLines(doc ? doc.resultText : "").lines;
+    const rows = [];
+    let mode = "";
+    let index = -1;
+    lines.forEach((text) => {
+      if (text.startsWith("<<<<<<<")) {
+        index += 1;
+        mode = "local";
+        rows.push({ kind: "marker", index: index });
+        return;
+      }
+      if (mode && text.startsWith("|||||||")) {
+        mode = "base";
+        rows.push({ kind: "marker", index: index });
+        return;
+      }
+      if (mode && (text === "=======" || text.startsWith("======= "))) {
+        mode = "remote";
+        rows.push({ kind: "marker", index: index });
+        return;
+      }
+      if (mode && text.startsWith(">>>>>>>")) {
+        rows.push({ kind: "marker", index: index });
+        mode = "";
+        return;
+      }
+      rows.push({ kind: mode, index: mode ? index : -1 });
+    });
+    return rows;
+  }
+
+  function renderResultDecor() {
+    const rows = resultRows(current());
+    const stripes = $("resultStripes");
+    const gutter = $("resultGutter");
+    if (!stripes || !gutter) return;
+    stripes.innerHTML = rows.map((row) => {
+      const names = [row.kind, row.index >= 0 && row.index === conflictIndex ? "active" : ""].filter(Boolean).join(" ");
+      return '<div class="' + names + '"></div>';
+    }).join("");
+    gutter.innerHTML = rows.map((row, index) => "<div>" + (index + 1) + "</div>").join("");
+    syncResultScroll();
+  }
+
+  function syncResultScroll() {
+    const area = $("resultText");
+    const stripes = $("resultStripes");
+    const gutter = $("resultGutter");
+    if (!area || !stripes || !gutter) return;
+    stripes.style.transform = "translateY(" + -area.scrollTop + "px)";
+    gutter.scrollTop = area.scrollTop;
+  }
+
   function renderSources() {
     const doc = current();
-    const map = { paneBase: ["base", doc.baseText], paneLocal: ["local", doc.localText], paneRemote: ["remote", doc.remoteText] };
-    Object.entries(map).forEach(([id, pair]) => {
+    const rows = paneRows(doc);
+    const map = { paneBase: "base", paneLocal: "local", paneRemote: "remote" };
+    Object.entries(map).forEach(([id, side]) => {
       const pane = $(id);
-      pane.querySelector(".pane-head").textContent = t("pane." + pair[0]);
-      pane.querySelector("pre").textContent = pair[1];
+      pane.querySelector(".pane-head").innerHTML =
+        '<span class="tag">' + esc(t("pane." + side)) + "</span>" +
+        '<span class="count">' + rows[side].length + "</span>";
+      pane.querySelector(".code-lines").innerHTML = codeHTML(rows[side]);
     });
-    $("resultHead").textContent = t("pane.result");
+    const conflicts = conflictsOf(doc);
+    $("resultHead").innerHTML =
+      '<span class="tag">' + esc(t("pane.result")) + "</span>" +
+      '<span class="count">' + esc(t("status.conflicts")) + " " + conflicts.length + "</span>";
     $("resultText").value = doc.resultText;
+    renderResultDecor();
   }
 
   function renderLeft() {
@@ -361,7 +561,7 @@
     const conflicts = conflictsOf(doc);
     const items = conflicts.map((conflict, index) => (
       '<button type="button" class="conflict-item' + (index === conflictIndex ? " active" : "") + '" data-action="conflict:' + index + '" title="' + esc(t("status.conflicts") + " " + (index + 1)) + '">' +
-      Icons.icon("conflict") + "<span>" + esc(t("status.conflicts") + " " + (index + 1)) + "</span></button>"
+      Icons.icon("conflict") + "<span>" + esc(t("status.conflicts") + " " + (index + 1)) + '</span><i class="dot"></i></button>'
     )).join("") || '<div class="line">' + esc(t("git.none")) + "</div>";
     const tools = [
       ["open", "open", "file.open"],
@@ -376,6 +576,7 @@
       '<button type="button" class="panel-btn" data-action="' + row[0] + '" title="' + esc(t(row[2])) + '">' + Icons.icon(row[1]) + "<span>" + esc(t(row[2])) + "</span></button>"
     )).join("");
     $("leftPanel").classList.toggle("hidden", !settings.showLeft);
+    $("splitLeft").classList.toggle("hidden", !settings.showLeft);
     $("leftPanel").innerHTML = '<h2>' + esc(t("left.tools")) + "</h2><div class=\"panel-tools\">" + tools + "</div><h2>" + esc(t("left.conflicts")) + "</h2><div class=\"conflict-list\">" + items + "</div>";
   }
 
@@ -388,6 +589,7 @@
     const conflicts = conflictsOf(doc);
     const input = (field, label, value) => '<input data-prop="' + field + '" type="text" value="' + esc(value || "") + '" title="' + esc(label) + '">';
     $("rightPanel").classList.toggle("hidden", !settings.showRight);
+    $("splitRight").classList.toggle("hidden", !settings.showRight);
     $("rightPanel").innerHTML = [
       "<h2>" + esc(t("right.props")) + "</h2>",
       '<div class="props">',
@@ -447,6 +649,49 @@
   function closeMenu() {
     if (menuEl) menuEl.remove();
     menuEl = null;
+  }
+
+  function themeMenuHTML() {
+    const column = (mode) => Themes.THEMES.filter((item) => item.mode === mode).map((item) => (
+      '<button type="button" class="menu-item theme-choice' + (item.id === settings.theme ? " on" : "") + '" data-action="theme:' + esc(item.id) + '" title="' + esc(Themes.nameOf(item, settings.language)) + '">' +
+      '<i class="swatch" style="background:' + esc(item.vars["--bg"]) + ";border-color:" + esc(item.vars["--accent"]) + '"></i>' +
+      '<span class="label">' + esc(Themes.nameOf(item, settings.language)) + "</span></button>"
+    )).join("");
+    const col = (mode, label) => '<div class="theme-col"><div class="theme-col-head">' + esc(label) + "</div>" + column(mode) + "</div>";
+    return '<div class="theme-cols">' + col("dark", t("theme.dark")) + col("light", t("theme.light")) + "</div>" +
+      '<button type="button" class="menu-item theme-custom' + (settings.theme === "custom" ? " on" : "") + '" data-action="themeCustom">' +
+      '<span class="ico">' + Icons.icon("image") + "</span>" +
+      '<span class="label">' + esc(t("theme.custom")) + "</span></button>";
+  }
+
+  function openThemeMenu(x, y) {
+    const width = 360;
+    const height = 24 + 20 * 24 + 34 + 10;
+    const left = Math.max(0, x - width);
+    if (window.desktop && window.desktop.openMenu && !TEST) {
+      window.desktop.openMenu({
+        id: "theme",
+        x: left,
+        y: y,
+        width: width,
+        height: height,
+        html: themeStyle() + '<div class="menu theme-menu">' + themeMenuHTML() + "</div>",
+        background: Themes.byId(settings.theme, settings.custom).vars["--menu"],
+      });
+      return null;
+    }
+    closeMenu();
+    const el = document.createElement("div");
+    el.className = "menu theme-menu";
+    el.dataset.menu = "theme";
+    el.style.left = left + "px";
+    el.style.top = y + "px";
+    el.style.width = width + "px";
+    el.style.height = height + "px";
+    el.innerHTML = themeMenuHTML();
+    $("menuLayer").appendChild(el);
+    menuEl = el;
+    return el;
   }
 
   function openMenu(id, x, y, align) {
@@ -521,15 +766,29 @@
   function themeStyle() {
     const theme = Themes.byId(settings.theme, settings.custom);
     const css = Object.entries(theme.vars).map((pair) => pair[0] + ":" + pair[1]).join(";");
-    return "<style>:root{" + css + "}</style>";
+    return "<style>:root{color-scheme:" + theme.mode + ";" + css + "}</style>";
   }
 
   function optionTag(value, label, current) {
     return '<option value="' + esc(value) + '"' + (String(value) === String(current) ? " selected" : "") + ">" + esc(label) + "</option>";
   }
 
-  function themeChoices() {
-    return Themes.THEMES.concat([Themes.byId("custom", settings.custom)]);
+  function popupIcon(kind) {
+    const icons = {
+      settings: "settings",
+      about: "about",
+      theme: "theme",
+      print: "print",
+      git: "git",
+      guide: "help",
+      error: "conflict",
+      progress: "download",
+      recent: "folder",
+      save: "save",
+      unsaved: "save",
+      assign: "both",
+    };
+    return icons[kind] || "settings";
   }
 
   function popupTitle(kind) {
@@ -551,13 +810,19 @@
 
   function popupHTML(kind) {
     const head = (title) => (
-      '<header class="popup-titlebar"><strong><img src="assets/icon.png" width="20" height="20" alt="">' +
+      '<header class="popup-titlebar"><strong><span class="popup-ico">' + Icons.icon(popupIcon(kind)) + "</span>" +
       '<span class="popup-title">' + esc(title) + "</span></strong>" +
       '<button type="button" class="dialog-x" data-popup-action="cancel" title="' + esc(t("action.close")) + '" aria-label="' + esc(t("action.close")) + '">' +
       '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button></header>'
     );
     const foot = (buttons) => '<footer><span class="spacer"></span>' + buttons + "</footer>";
     const btn = (action, label, primary) => '<button type="button" class="action' + (primary ? " primary" : "") + '" data-popup-action="' + action + '">' + esc(label) + "</button>";
+    const number = (field, value, min, max) => (
+      '<span class="spin">' +
+      '<button type="button" class="spin-btn" data-spin="' + field + ':-1" tabindex="-1" aria-label="-">&#8722;</button>' +
+      '<input data-field="' + field + '" type="number" min="' + min + '" max="' + max + '" value="' + esc(value) + '">' +
+      '<button type="button" class="spin-btn" data-spin="' + field + ':1" tabindex="-1" aria-label="+">+</button></span>'
+    );
     if (kind === "about") {
       return head(t("popup.about")) +
         '<div class="popup-body">' +
@@ -630,32 +895,19 @@
       return head(t("popup.print")) +
         '<div class="popup-body">' +
         '<label class="line"><span>' + esc(t("print.scope")) + '</span><select data-field="scope">' + optionTag("all", t("print.all"), printState.scope) + optionTag("current", t("print.current"), printState.scope) + optionTag("custom", t("print.custom"), printState.scope) + "</select></label>" +
-        '<label class="line"><span>' + esc(t("print.from")) + '</span><input data-field="from" type="number" min="1" value="' + printState.from + '"><span>' + esc(t("print.to")) + '</span><input data-field="to" type="number" min="1" value="' + printState.to + '"></label>' +
+        '<label class="line"><span>' + esc(t("print.from")) + "</span>" + number("from", printState.from, 1, 9999) + '<span class="mid">' + esc(t("print.to")) + "</span>" + number("to", printState.to, 1, 9999) + "</label>" +
         '<label class="line"><span>' + esc(t("print.paper")) + '</span><select data-field="paper">' + optionTag("A4", "A4", printState.paper) + optionTag("Letter", "Letter", printState.paper) + "</select></label>" +
         '<label class="line"><span>' + esc(t("print.orientation")) + '</span><select data-field="orientation">' + optionTag("portrait", t("print.portrait"), printState.orientation) + optionTag("landscape", t("print.landscape"), printState.orientation) + "</select></label>" +
-        '<label class="line"><span>' + esc(t("print.margin")) + '</span><input data-field="margin" type="number" min="0" max="40" value="' + printState.margin + '"></label>' +
+        '<label class="line"><span>' + esc(t("print.margin")) + "</span>" + number("margin", printState.margin, 0, 40) + "</label>" +
         '<div class="line"><button type="button" class="action" data-popup-action="print-prev">&lt;</button><span id="printPage">' + esc(t("print.page")) + " " + (printState.pageIndex + 1) + "/" + pages.length + '</span><button type="button" class="action" data-popup-action="print-next">&gt;</button></div>' +
         '<div class="preview" id="printPreview"><pre>' + esc((page.lines || []).join("\n")) + "</pre></div>" +
         "</div>" + foot(btn("do-print", t("action.print"), true) + btn("close", t("action.close")));
     }
     if (kind === "theme") {
       const colors = Object.assign(Themes.defaultCustom(), settings.custom || {});
-      const mode = Themes.byId(settings.theme, settings.custom).mode;
-      const tab = settings.theme === "custom" ? "custom" : mode;
-      const choice = (item) => (
-        '<button type="button" class="line theme-choice' + (item.id === settings.theme ? " on" : "") + '" data-popup-action="pick-theme" data-theme="' + esc(item.id) + '">' +
-        '<i class="swatch" style="background:' + esc(item.vars["--bg"]) + '"></i><span>' + esc(Themes.nameOf(item, settings.language)) + "</span></button>"
-      );
       const colorLine = (key) => '<label class="line"><span>' + esc(t("theme." + key)) + '</span><input data-field="' + key + '" type="color" value="' + esc(colors[key]) + '"></label>';
       return head(t("popup.theme")) +
-        '<div class="popup-body">' +
-        '<div class="tabs">' +
-        '<button type="button" data-tab="dark" class="' + (tab === "dark" ? "on" : "") + '">' + esc(t("theme.dark")) + "</button>" +
-        '<button type="button" data-tab="light" class="' + (tab === "light" ? "on" : "") + '">' + esc(t("theme.light")) + "</button>" +
-        '<button type="button" data-tab="custom" class="' + (tab === "custom" ? "on" : "") + '">' + esc(t("theme.custom")) + "</button></div>" +
-        '<div data-panel="dark"' + (tab === "dark" ? "" : " hidden") + ">" + Themes.THEMES.filter((item) => item.mode === "dark").map(choice).join("") + "</div>" +
-        '<div data-panel="light"' + (tab === "light" ? "" : " hidden") + ">" + Themes.THEMES.filter((item) => item.mode === "light").map(choice).join("") + "</div>" +
-        '<div data-panel="custom"' + (tab === "custom" ? "" : " hidden") + ">" +
+        '<div class="popup-body"><div data-panel="custom">' +
         '<label class="line"><span>' + esc(t("theme.mode")) + '</span><select data-field="mode">' + optionTag("dark", t("theme.dark"), colors.mode) + optionTag("light", t("theme.light"), colors.mode) + "</select></label>" +
         ["bg", "panel", "text", "muted", "accent", "border", "toolbar", "status", "menu"].map(colorLine).join("") +
         '<div class="line"><span class="grow"></span><button type="button" class="action primary" data-popup-action="apply-custom">' + esc(t("action.apply")) + "</button></div>" +
@@ -680,7 +932,6 @@
         '<div class="popup-body"><div class="tabs">' + tabs + "</div>" + panels + "</div>" +
         foot(btn("close", t("action.close")));
     }
-    const themeOptions = themeChoices().map((theme) => optionTag(theme.id, Themes.nameOf(theme, settings.language), settings.theme)).join("");
     return head(t("popup.settings")) +
       '<div class="popup-body">' +
       '<div class="tabs">' +
@@ -689,19 +940,19 @@
       '<button type="button" data-tab="appearance">' + esc(t("settings.appearance")) + "</button>" +
       '<button type="button" data-tab="workspace">' + esc(t("settings.workspace")) + "</button></div>" +
       '<div data-panel="general">' +
-      '<label class="line"><span>' + esc(t("settings.language")) + '</span><select data-field="language">' + optionTag("ko", t("lang.ko"), settings.language) + optionTag("en", t("lang.en"), settings.language) + "</select></label>" +
       '<label class="line"><input data-field="restoreSession" type="checkbox"' + (settings.restoreSession ? " checked" : "") + "> " + esc(t("settings.restore")) + "</label>" +
+      '<div class="line"><span>' + esc(t("settings.theme")) + '</span><b class="grow">' + esc(Themes.nameOf(Themes.byId(settings.theme, settings.custom), settings.language)) + "</b></div>" +
+      '<div class="line"><span>' + esc(t("settings.language")) + '</span><b class="grow">' + esc(settings.language === "en" ? t("lang.en") : t("lang.ko")) + "</b></div>" +
       "</div>" +
       '<div data-panel="font" hidden>' +
       '<label class="line"><span>' + esc(t("settings.family")) + '</span><select data-field="fontFamily">' + fontCatalog.map((name) => optionTag(name, name, settings.fontFamily)).join("") + "</select></label>" +
-      '<label class="line"><span>' + esc(t("settings.size")) + '</span><input data-field="fontSize" type="number" min="8" max="96" value="' + settings.fontSize + '"></label>' +
+      '<label class="line"><span>' + esc(t("settings.size")) + "</span>" + number("fontSize", settings.fontSize, 8, 96) + "</label>" +
       '<label class="line"><span>' + esc(t("settings.style")) + '</span><select data-field="fontStyle">' + optionTag("normal", t("font.normal"), settings.fontStyle) + optionTag("italic", t("font.italic"), settings.fontStyle) + optionTag("bold", t("font.bold"), settings.fontStyle) + optionTag("bold-italic", t("font.boldItalic"), settings.fontStyle) + "</select></label>" +
       "</div>" +
       '<div data-panel="appearance" hidden>' +
-      '<label class="line"><span>' + esc(t("settings.theme")) + '</span><select data-field="theme">' + themeOptions + "</select></label>" +
       '<div class="line"><span class="grow">' + esc(settings.backgroundName || t("settings.bgChoose")) + '</span><button type="button" class="action" data-popup-action="bg-choose">' + esc(t("action.browse")) + "</button></div>" +
       '<div class="line"><span class="grow">' + esc(t("settings.bgClear")) + '</span><button type="button" class="action" data-popup-action="bg-clear">' + esc(t("action.delete")) + "</button></div>" +
-      '<label class="line"><span>' + esc(t("settings.bgOpacity")) + '</span><input data-field="backgroundOpacity" type="number" min="0" max="100" value="' + settings.backgroundOpacity + '"></label>' +
+      '<label class="line"><span>' + esc(t("settings.bgOpacity")) + "</span>" + number("backgroundOpacity", settings.backgroundOpacity, 0, 100) + "</label>" +
       "</div>" +
       '<div data-panel="workspace" hidden>' +
       '<label class="line"><input data-field="showLeft" type="checkbox"' + (settings.showLeft ? " checked" : "") + "> " + esc(t("settings.showLeft")) + "</label>" +
@@ -758,6 +1009,20 @@
     popupEl = el;
     bindPopup(el, kind);
     return el;
+  }
+
+  function stepSpin(root, target) {
+    const spin = target.closest ? target.closest("[data-spin]") : null;
+    if (!spin || !root.contains(spin)) return false;
+    const parts = String(spin.dataset.spin).split(":");
+    const input = root.querySelector('[data-field="' + parts[0] + '"]');
+    if (!input) return true;
+    const step = Number(parts[1]) || 1;
+    const low = input.min === "" ? -Infinity : Number(input.min);
+    const high = input.max === "" ? Infinity : Number(input.max);
+    input.value = String(Math.min(high, Math.max(low, (Number(input.value) || 0) + step)));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
   }
 
   function bindPopup(el, kind) {
@@ -938,6 +1203,37 @@
     try { await idbDelete("background"); } catch (error) { /* already empty */ }
   }
 
+  function bindPaneScroll() {
+    const views = ["paneBase", "paneLocal", "paneRemote"].map((id) => $(id).querySelector(".code-view"));
+    let syncing = false;
+    views.forEach((view) => {
+      view.addEventListener("scroll", () => {
+        if (syncing) return;
+        syncing = true;
+        views.forEach((other) => {
+          if (other === view) return;
+          other.scrollTop = view.scrollTop;
+          other.scrollLeft = view.scrollLeft;
+        });
+        syncing = false;
+      });
+    });
+  }
+
+  function showConflictRow() {
+    const area = $("resultText");
+    const rows = resultRows(current());
+    const first = rows.findIndex((row) => row.index === conflictIndex);
+    if (first < 0) return;
+    const height = area.clientHeight;
+    const step = Math.max(1, Math.round(area.scrollHeight / Math.max(1, rows.length)));
+    const top = first * step;
+    if (top < area.scrollTop || top > area.scrollTop + height - step) {
+      area.scrollTop = Math.max(0, top - Math.round(height / 3));
+    }
+    syncResultScroll();
+  }
+
   function focusConflict(index) {
     const conflicts = conflictsOf(current());
     if (!conflicts.length) return;
@@ -947,6 +1243,8 @@
     area.focus();
     area.selectionStart = conflict.start;
     area.selectionEnd = conflict.end;
+    renderResultDecor();
+    showConflictRow();
     renderLeft();
     renderStatus();
   }
@@ -1050,7 +1348,11 @@
     about: () => openPopup("about"),
     language: () => setLanguage(settings.language === "en" ? "ko" : "en"),
     themeCycle: () => setTheme(Themes.next(settings.theme)),
-    themeMenu: () => openPopup("theme", anchorUnder("[data-action='themeMenu']", metrics.POPUPS.theme.width)),
+    themeMenu: () => {
+      const place = anchorUnder("[data-action='themeMenu']", 0);
+      return openThemeMenu(place.x, place.y);
+    },
+    themeCustom: () => openPopup("theme", anchorUnder("[data-action='themeMenu']", metrics.POPUPS.theme.width)),
     toggleLeft: () => { settings.showLeft = !settings.showLeft; saveSettings(); renderLeft(); },
     toggleRight: () => { settings.showRight = !settings.showRight; saveSettings(); renderRight(); },
     git: () => openGit(),
@@ -1066,6 +1368,7 @@
     try {
       if (action.startsWith("recent:")) return openRecent(action.slice(7));
       if (action.startsWith("conflict:")) return focusConflict(Number(action.slice(9)));
+      if (action.startsWith("theme:")) { closeMenu(); return setTheme(action.slice(6)); }
       const fn = actions[action];
       if (!fn) throw new Error("Unknown action: " + action);
       closeMenu();
@@ -1581,6 +1884,12 @@ function popupAction(action, source, fieldOverride) {
       if (btn) runAction(btn.dataset.action);
     });
     $("menubar").addEventListener("click", (event) => {
+      const control = event.target.closest("[data-window]");
+      if (control) {
+        closeMenu();
+        if (window.desktop && window.desktop.windowCommand) window.desktop.windowCommand(control.dataset.window);
+        return;
+      }
       const btn = event.target.closest("[data-menu]");
       if (!btn) return;
       const rect = btn.getBoundingClientRect();
@@ -1603,6 +1912,7 @@ function popupAction(action, source, fieldOverride) {
         popupEl.querySelectorAll("[data-panel]").forEach((panel) => { panel.hidden = panel.dataset.panel !== tab.dataset.tab; });
         return;
       }
+      if (popupEl && stepSpin(popupEl, event.target)) return;
       const btn = event.target.closest("[data-popup-action]");
       if (btn) popupAction(btn.dataset.popupAction, btn);
     });
@@ -1627,10 +1937,14 @@ function popupAction(action, source, fieldOverride) {
     area.addEventListener("input", () => {
       current().resultText = area.value;
       current().dirty = true;
+      renderResultDecor();
       renderLeft();
       renderStatus();
     });
+    area.addEventListener("scroll", syncResultScroll);
+    bindSplitters();
     area.addEventListener("blur", () => { typing = false; });
+    bindPaneScroll();
     area.addEventListener("keyup", () => renderStatus());
     area.addEventListener("click", () => renderStatus());
     area.addEventListener("contextmenu", (event) => {
@@ -1670,7 +1984,7 @@ function popupAction(action, source, fieldOverride) {
       }
     });
     document.addEventListener("mousedown", (event) => {
-      if (menuEl && !menuEl.contains(event.target) && !event.target.closest("[data-menu]")) closeMenu();
+      if (menuEl && !menuEl.contains(event.target) && !event.target.closest("[data-menu]") && !event.target.closest("#toolbar [data-action]")) closeMenu();
     });
     $("fileOpen").addEventListener("change", () => { onPickedFiles($("fileOpen").files).catch(showError); });
     $("bgOpen").addEventListener("change", () => {
@@ -1693,7 +2007,7 @@ function popupAction(action, source, fieldOverride) {
       window.desktop.onHostAction((payload) => {
         const name = payload && payload.name;
         if (!name) return;
-        if (actions[name] || name.startsWith("recent:") || name.startsWith("conflict:")) runAction(name);
+        if (actions[name] || name.startsWith("recent:") || name.startsWith("conflict:") || name.startsWith("theme:")) runAction(name);
         else popupAction(name, null, payload.detail || {});
       });
     }

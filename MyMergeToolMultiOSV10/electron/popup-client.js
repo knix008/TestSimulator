@@ -19,6 +19,19 @@ popupHost.onHtml((html) => {
   if (bound) return;
   bound = true;
   root.addEventListener("click", (event) => {
+    const spin = event.target.closest("[data-spin]");
+    if (spin) {
+      const parts = String(spin.dataset.spin).split(":");
+      const input = root.querySelector('[data-field="' + parts[0] + '"]');
+      if (input) {
+        const step = Number(parts[1]) || 1;
+        const low = input.min === "" ? -Infinity : Number(input.min);
+        const high = input.max === "" ? Infinity : Number(input.max);
+        input.value = String(Math.min(high, Math.max(low, (Number(input.value) || 0) + step)));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      return;
+    }
     const tab = event.target.closest("[data-tab]");
     if (tab && root.contains(tab)) {
       root.querySelectorAll("[data-tab]").forEach((node) => node.classList.toggle("on", node === tab));

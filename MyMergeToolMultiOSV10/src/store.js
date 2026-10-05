@@ -10,7 +10,7 @@
   function defaults() {
     return {
       language: "ko",
-      theme: "dark-ink",
+      theme: "light-classic",
       fontFamily: "Consolas",
       fontSize: 14,
       fontStyle: "normal",
@@ -26,6 +26,7 @@
       lastSaveDir: "",
       recent: [],
       custom: null,
+      layout: { left: 240, right: 260, result: 0, srcA: 0, srcB: 0 },
       print: { scope: "current", paper: "A4", orientation: "portrait", margin: 12, from: 1, to: 1 },
     };
   }
@@ -39,6 +40,7 @@
       const next = Object.assign(base, data);
       next.recent = Array.isArray(data.recent) ? data.recent.slice(0, MAX_RECENT) : [];
       next.print = Object.assign(base.print, data.print || {});
+      next.layout = Object.assign(base.layout, data.layout || {});
       next.opacity = clamp(next.opacity, 0, 100);
       next.zoom = clamp(next.zoom, 50, 200);
       next.fontSize = clamp(next.fontSize, 8, 96);

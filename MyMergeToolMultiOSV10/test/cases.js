@@ -152,17 +152,17 @@
         assert(loaded.lastOpenDir === "D:/repo/src");
         assert(loaded.lastSaveDir === "D:/out");
       }),
-      test("the settings popup applies a font and a theme", (api, doc) => {
+      test("the settings popup applies a font and leaves theme and language to the menu bar", (api, doc) => {
         api.setFontCatalog(["Arial", "Consolas", "Times New Roman"]);
+        api.setTheme("dark-midnight");
         const popup = api.openPopup("settings");
-        popup.querySelector('[data-field="language"]').value = "en";
-        popup.querySelector('[data-field="theme"]').value = "dark-ocean";
+        assert(popup.querySelector('[data-field="language"]') == null);
+        assert(popup.querySelector('[data-field="theme"]') == null);
         popup.querySelector('[data-field="fontFamily"]').value = "Times New Roman";
         popup.querySelector('[data-field="fontSize"]').value = "18";
         popup.querySelector('[data-field="fontStyle"]').value = "bold-italic";
         popup.querySelector('[data-popup-action="apply-settings"]').click();
-        assert(api.getLanguage() === "en");
-        assert(api.getTheme() === "dark-ocean");
+        assert(api.getTheme() === "dark-midnight");
         const area = doc.getElementById("resultText");
         const style = doc.defaultView.getComputedStyle(area);
         assert(style.fontStyle === "italic", style.fontStyle);
@@ -190,11 +190,11 @@
       }),
       test("the language button shows the other flag and sits between theme and settings", (api, doc) => {
         const order = [...doc.querySelectorAll("#toolbar [data-action]")].map((button) => button.dataset.action);
-        const theme = order.indexOf("themeCycle");
+        const theme = order.indexOf("themeMenu");
         const language = order.indexOf("language");
         const settings = order.indexOf("settings");
         assert(theme >= 0 && theme < language && language < settings, order.join(","));
-        assert(order.indexOf("themeMenu") === theme + 1);
+        assert(order.indexOf("about") === settings + 1, order.join(","));
         const flag = doc.querySelector("#toolbar [data-action='language']");
         assert(flag.classList.contains("lang-btn"));
         assert(flag.dataset.flag === "uk");
@@ -219,29 +219,39 @@
           assert(doc.documentElement.dataset.theme === id, id);
           assert(doc.documentElement.style.getPropertyValue("--bg"));
           const area = doc.getElementById("resultText");
-          const paint = win.getComputedStyle(area);
+          const ink = win.getComputedStyle(area).color;
+          const sheet = win.getComputedStyle(doc.querySelector(".result-wrap")).backgroundColor;
           const lum = (css) => {
             const parts = String(css).match(/[\d.]+/g) || [];
             return 0.2126 * Number(parts[0] || 0) + 0.7152 * Number(parts[1] || 0) + 0.0722 * Number(parts[2] || 0);
           };
-          assert(Math.abs(lum(paint.color) - lum(paint.backgroundColor)) > 40, id + " " + paint.color + " / " + paint.backgroundColor);
+          assert(Math.abs(lum(ink) - lum(sheet)) > 40, id + " " + ink + " / " + sheet);
         });
       }),
-      test("the theme button cycles and the dropdown is one column", (api, doc) => {
+      test("the theme button opens a dropdown of both columns", (api, doc) => {
         const before = api.getTheme();
-        doc.querySelector("#toolbar [data-action='themeCycle']").click();
-        assert(api.getTheme() !== before);
-        const popup = api.openPopup("theme");
-        const dark = [...popup.querySelectorAll('[data-panel="dark"] .theme-choice')];
-        const light = [...popup.querySelectorAll('[data-panel="light"] .theme-choice')];
-        assert(dark.length === 20 && light.length === 20);
-        const left = dark[0].getBoundingClientRect().left;
-        dark.forEach((row, index) => {
-          assert(Math.abs(row.getBoundingClientRect().left - left) <= 1, "dark column " + index);
-          if (index > 0) assert(row.getBoundingClientRect().top > dark[index - 1].getBoundingClientRect().top);
+        doc.querySelector("#toolbar [data-action='themeMenu']").click();
+        const menu = api.getMenu();
+        assert(menu && menu.dataset.menu === "theme");
+        assert(menu.parentElement.id === "menuLayer");
+        assert(doc.defaultView.getComputedStyle(menu).position === "fixed");
+        const columns = [...menu.querySelectorAll(".theme-col")];
+        assert(columns.length === 2, String(columns.length));
+        columns.forEach((column) => {
+          const rows = [...column.querySelectorAll(".theme-choice")];
+          assert(rows.length === 20, String(rows.length));
+          const left = rows[0].getBoundingClientRect().left;
+          rows.forEach((row, index) => {
+            assert(Math.abs(row.getBoundingClientRect().left - left) <= 1, "theme column " + index);
+            if (index > 0) assert(row.getBoundingClientRect().top > rows[index - 1].getBoundingClientRect().top);
+          });
         });
-        popup.querySelector('[data-tab="custom"]').click();
-        assert(popup.querySelector('[data-panel="custom"]').hidden === false);
+        const pick = menu.querySelector(".theme-choice:not(.on)");
+        pick.click();
+        assert(api.getTheme() !== before);
+        assert(api.getTheme() === pick.dataset.action.slice(6));
+        const popup = api.openPopup("theme");
+        assert(popup.querySelector('[data-panel="custom"]') != null);
         popup.querySelector('[data-field="bg"]').value = "#123456";
         popup.querySelector('[data-popup-action="apply-custom"]').click();
         assert(api.getTheme() === "custom");
@@ -252,6 +262,7 @@
       test("every toolbar button has a tooltip and stays inside the bar", (api, doc) => {
         const shell = doc.getElementById("shell");
         shell.style.width = api.metrics.MIN_WIDTH + "px";
+        const help = doc.querySelector("#menubar [data-menu='help']");
         const bar = doc.getElementById("toolbar");
         const buttons = [...bar.querySelectorAll("button")];
         assert(buttons.length >= 20, String(buttons.length));
@@ -316,18 +327,32 @@
         const menuBox = opened.getBoundingClientRect();
         assert(Math.abs(menuBox.left - fileBox.left) <= 2, menuBox.left + " vs " + fileBox.left);
         assert(Math.abs(menuBox.top - fileBox.bottom) <= 2, menuBox.top + " vs " + fileBox.bottom);
-        const help = doc.querySelector("#menubar [data-menu='help']");
-        const settings = doc.querySelector("#menubar [data-menu='settings']");
-        const about = doc.querySelector("#menubar [data-menu='about']");
-        assert(settings.getBoundingClientRect().left > help.getBoundingClientRect().right);
-        assert(about.getBoundingClientRect().left > settings.getBoundingClientRect().left);
-        about.click();
-        const aboutMenu = api.getMenu();
-        const aboutBox = about.getBoundingClientRect();
-        const aboutMenuBox = aboutMenu.getBoundingClientRect();
-        assert(Math.abs(aboutMenuBox.right - aboutBox.right) <= 2, aboutMenuBox.right + " vs " + aboutBox.right);
-        assert(Math.abs(aboutMenuBox.top - aboutBox.bottom) <= 2);
         api.closeMenu();
+        const help = doc.querySelector("#menubar [data-menu='help']");
+        const bar = doc.getElementById("toolbar");
+        const panels = doc.querySelector("#toolbar [data-action='toggleRight']");
+        const right = ["themeCycle", "themeMenu", "language", "settings", "about"].map((name) => doc.querySelector("#toolbar [data-action='" + name + "']"));
+        right.forEach((button, index) => {
+          assert(button, "toolbar button " + index);
+          assert(button.getBoundingClientRect().left > panels.getBoundingClientRect().right, "right of panels " + index);
+          if (index > 0) assert(button.getBoundingClientRect().left > right[index - 1].getBoundingClientRect().left);
+        });
+        assert(Math.abs(right[4].getBoundingClientRect().right - bar.getBoundingClientRect().right) <= 10, "flush right");
+        ["settings", "about", "language", "themeMenu", "themeCycle"].forEach((name) => {
+          assert(doc.querySelector("#menubar [data-action='" + name + "']") == null, "menubar " + name);
+        });
+        ["minimize", "maximize", "close"].forEach((name) => {
+          const control = doc.querySelector("#menubar [data-window='" + name + "']");
+          assert(control && control.title.length > 0, "window control " + name);
+          assert(control.getBoundingClientRect().left > help.getBoundingClientRect().right, "control right of help");
+        });
+        assert(doc.querySelector(".titlebar") == null, "no separate title bar");
+        right[4].click();
+        assert(api.getPopup().dataset.kind === "about");
+        api.closePopup();
+        right[3].click();
+        assert(api.getPopup().dataset.kind === "settings");
+        api.closePopup();
       }),
       test("every enabled menu command can run", async (api) => {
         const actions = [];
@@ -363,8 +388,9 @@
           assert(style.position === "fixed", kind);
           const bar = el.querySelector("header.popup-titlebar");
           assert(bar, kind + " title bar");
-          const icon = bar.querySelector("img");
-          assert(icon && icon.getAttribute("src").indexOf("icon.png") >= 0, kind + " icon");
+          const icon = bar.querySelector(".popup-ico svg");
+          assert(icon, kind + " icon");
+          assert(icon.innerHTML.length > 0, kind + " icon body");
           assert(bar.querySelector(".popup-title").textContent.length > 0, kind + " title");
           el.querySelectorAll(".line").forEach((line) => {
             assert(line.offsetHeight <= 34, kind + " line " + line.textContent);

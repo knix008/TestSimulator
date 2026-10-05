@@ -8,7 +8,7 @@ style/styles.css     테마 변수와 고정 크기 팝업
 src/merge.js         3-way 머지와 충돌 표시
 src/app.js           도구 모음, 메뉴, 패널, 팝업
 src/i18n.js          한국어와 영어
-src/themes.js        테마 16개
+src/themes.js        테마 40개와 사용자 정의
 electron/main.js     창, 불투명도, Git, 설치 후 파일 연결
 build/installer.nsh  재설치와 저장 데이터 질문
 test/                브라우저 테스트
@@ -24,7 +24,7 @@ test/                브라우저 테스트
 
 ## 화면
 
-창 제목은 MyMerge 10.0입니다. 도구 모음은 한 줄이고, 최소 폭은 `src/metrics.js`의 1200픽셀입니다. Electron 창의 `minWidth`도 같은 값입니다.
+창 제목은 MyMerge 10.0입니다. 도구 모음은 한 줄이고 테마, 언어, 설정, 프로그램 정보는 메뉴 막대 오른쪽에 있으며, 최소 폭은 `src/metrics.js`의 1200픽셀입니다. Electron 창의 `minWidth`도 같은 값입니다.
 
 메뉴는 한 열입니다. 각 항목은 아이콘과 레이블을 함께 가집니다. 브라우저에서는 본문 밖의 고정 레이어에 그리고, Electron에서는 부모에 붙인 별도 창으로 엽니다. 그래서 본 창보다 길어져도 잘리지 않습니다.
 

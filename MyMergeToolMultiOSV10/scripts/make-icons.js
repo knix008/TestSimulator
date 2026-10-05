@@ -97,34 +97,80 @@ function distSeg(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
 }
 
-function mergeMark(nx, ny) {
-  const strokes = [
-    [0.30, 0.34, 0.50, 0.50],
-    [0.30, 0.66, 0.50, 0.50],
-    [0.50, 0.50, 0.72, 0.50],
-  ];
-  let near = strokes.some((seg) => distSeg(nx, ny, seg[0], seg[1], seg[2], seg[3]) < 0.035);
-  const head = distSeg(nx, ny, 0.64, 0.40, 0.76, 0.50) < 0.032 || distSeg(nx, ny, 0.64, 0.60, 0.76, 0.50) < 0.032;
-  return near || head;
+const PLATE_STOPS = [
+  [0.00, [100, 104, 244, 255]],
+  [0.35, [70, 122, 244, 255]],
+  [0.60, [50, 112, 226, 255]],
+  [1.00, [30, 68, 180, 255]],
+];
+const LINE_WHITE = [255, 255, 255, 255];
+const NODE_FILL = [254, 243, 199, 255];
+const NODE_RING = [251, 191, 36, 255];
+
+const GLYPH_NODES = [
+  { x: 0.29, y: 0.25, tone: "white" },
+  { x: 0.71, y: 0.25, tone: "amber" },
+  { x: 0.50, y: 0.77, tone: "amber" },
+];
+
+const GLYPH_EDGES = [
+  { ax: 0.29, ay: 0.25, bx: 0.50, by: 0.55, tone: "white" },
+  { ax: 0.71, ay: 0.25, bx: 0.50, by: 0.55, tone: "amber" },
+  { ax: 0.50, ay: 0.55, bx: 0.50, by: 0.77, tone: "amber" },
+];
+
+function mergeGlyph(nx, ny, box) {
+  const gx = (nx - box.left) / box.size;
+  const gy = (ny - box.top) / box.size;
+  if (gx < -0.1 || gy < -0.1 || gx > 1.1 || gy > 1.1) return null;
+  for (let i = 0; i < GLYPH_NODES.length; i += 1) {
+    const dot = GLYPH_NODES[i];
+    const dist = Math.hypot(gx - dot.x, gy - dot.y);
+    if (dist > box.node) continue;
+    if (dot.tone === "white") return LINE_WHITE;
+    return dist > box.node - box.ring ? NODE_RING : NODE_FILL;
+  }
+  for (let i = 0; i < GLYPH_EDGES.length; i += 1) {
+    const line = GLYPH_EDGES[i];
+    if (distSeg(gx, gy, line.ax, line.ay, line.bx, line.by) > box.edge) continue;
+    return line.tone === "white" ? LINE_WHITE : NODE_RING;
+  }
+  return null;
 }
 
-function shadePlate(nx, ny, left, top, width, height, radius, topColor, bottomColor) {
-  let color = mix(topColor, bottomColor, ny * 0.75 + nx * 0.2);
-  color = mix(color, [255, 255, 255, 255], gloss(nx, ny, left + width * 0.18, top + height * 0.12, width * 0.72) * 0.9);
-  color = mix(color, [10, 24, 48, 255], Math.max(0, (nx - left) / width * 0.25 + (ny - top) / height * 0.55 - 0.35));
-  const rim = edgeLight(nx, ny, left, top, width, height, radius, 0.05);
-  if (rim > 0) color = mix(color, [255, 255, 255, 255], rim * 0.8);
-  else color = mix(color, [4, 16, 36, 255], -rim * 0.55);
+function ramp(stops, t) {
+  const amount = Math.min(1, Math.max(0, t));
+  for (let i = 1; i < stops.length; i += 1) {
+    if (amount > stops[i][0] && i < stops.length - 1) continue;
+    const from = stops[i - 1];
+    const to = stops[i];
+    const span = to[0] - from[0] || 1;
+    return mix(from[1], to[1], (amount - from[0]) / span);
+  }
+  return stops[stops.length - 1][1];
+}
+
+function shadePlate(nx, ny, left, top, width, height, radius, stops) {
+  const u = (nx - left) / width;
+  const v = (ny - top) / height;
+  let color = ramp(stops, (u + v) / 2);
+  const inset = Math.min(1, Math.max(0, -roundSdf(nx, ny, left, top, width, height, radius) / 0.05));
+  const band = Math.min(1, Math.max(0, (0.38 - v) / 0.26));
+  color = mix(color, [255, 255, 255, 255], band * inset * 0.40);
+  const rim = edgeLight(nx, ny, left, top, width, height, radius, 0.015);
+  if (rim > 0) color = mix(color, [255, 255, 255, 255], rim * 0.14);
   return color;
 }
+
+const APP_PLATE = { left: 0.055, top: 0.055, width: 0.89, height: 0.89, radius: 0.198 };
+const APP_GLYPH = { left: 0, top: 0, size: 1, edge: 0.030, node: 0.066, ring: 0.013 };
 
 function sampleApp(nx, ny) {
-  if (nx < 0.06 || ny < 0.06 || nx > 0.94 || ny > 0.94) return [0, 0, 0, 0];
-  const plate = { left: 0.1, top: 0.1, width: 0.8, height: 0.8, radius: 0.18 };
+  if (nx < 0.05 || ny < 0.05 || nx > 0.95 || ny > 0.95) return [0, 0, 0, 0];
+  const plate = APP_PLATE;
   if (!inRound(nx, ny, plate.left, plate.top, plate.width, plate.height, plate.radius)) return [0, 0, 0, 0];
-  let color = shadePlate(nx, ny, plate.left, plate.top, plate.width, plate.height, plate.radius, [150, 220, 255, 255], [16, 78, 168, 255]);
-  if (mergeMark(nx, ny)) color = mix(color, [255, 250, 236, 255], 0.96);
-  return color;
+  const color = shadePlate(nx, ny, plate.left, plate.top, plate.width, plate.height, plate.radius, PLATE_STOPS);
+  return mergeGlyph(nx, ny, APP_GLYPH) || color;
 }
 
 const MERGE_GLYPHS = {
@@ -162,35 +208,24 @@ function mergeWord(nx, ny) {
   return false;
 }
 
-function docArrow(nx, ny, box, thick) {
-  const lx = (nx - box.left) / box.width;
-  const ly = (ny - box.top) / box.height;
-  const strokes = [
-    [0.06, 0.18, 0.46, 0.50],
-    [0.06, 0.82, 0.46, 0.50],
-    [0.46, 0.50, 0.92, 0.50],
-  ];
-  if (strokes.some((seg) => distSeg(lx, ly, seg[0], seg[1], seg[2], seg[3]) < thick)) return true;
-  return distSeg(lx, ly, 0.70, 0.26, 0.98, 0.50) < thick || distSeg(lx, ly, 0.70, 0.74, 0.98, 0.50) < thick;
-}
-
 function sampleDoc(nx, ny, size) {
-  if (nx < 0.06 || ny < 0.06 || nx > 0.94 || ny > 0.94) return [0, 0, 0, 0];
+  if (nx < 0.05 || ny < 0.05 || nx > 0.95 || ny > 0.95) return [0, 0, 0, 0];
   const page = { left: 0.14, top: 0.06, width: 0.72, height: 0.88, radius: 0.07 };
   if (!inRound(nx, ny, page.left, page.top, page.width, page.height, page.radius)) return [0, 0, 0, 0];
-  let color = shadePlate(nx, ny, page.left, page.top, page.width, page.height, page.radius, [188, 226, 255, 255], [16, 84, 176, 255]);
+  let color = shadePlate(nx, ny, page.left, page.top, page.width, page.height, page.radius, PLATE_STOPS);
   const fold = 0.18;
   const fx = page.left + page.width - fold;
   const u = (nx - fx) / fold;
   const v = (ny - page.top) / fold;
   if (u >= 0 && v >= 0 && u <= 1 && v <= 1 && u + v <= 1) {
-    color = mix([244, 250, 255, 255], [126, 180, 224, 255], u + v);
+    color = mix([244, 247, 255, 255], [138, 158, 232, 255], u + v);
   }
   const small = size && size < 64;
   const box = small
-    ? { left: 0.22, top: 0.24, width: 0.56, height: 0.50 }
-    : { left: 0.28, top: 0.20, width: 0.44, height: 0.34 };
-  if (docArrow(nx, ny, box, small ? 0.15 : 0.085)) color = [255, 252, 244, 255];
+    ? { left: 0.19, top: 0.19, size: 0.62, edge: 0.040, node: 0.088, ring: 0.020 }
+    : { left: 0.24, top: 0.14, size: 0.52, edge: 0.034, node: 0.074, ring: 0.016 };
+  const glyph = mergeGlyph(nx, ny, box);
+  if (glyph) return glyph;
   if (!small && mergeWord(nx, ny)) color = [255, 252, 244, 255];
   return color;
 }

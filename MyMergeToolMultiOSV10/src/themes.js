@@ -3,6 +3,8 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   if (typeof root !== "undefined") root.MyMergeThemes = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  const DEFAULT_ID = "light-classic";
+
   function clampByte(value) {
     return Math.max(0, Math.min(255, Math.round(value)));
   }
@@ -21,121 +23,177 @@
     return rgb(parts[0] + delta, parts[1] + delta, parts[2] + delta);
   }
 
-  function theme(id, nameKo, nameEn, mode, bg, panel, text, muted, accent, border, toolbar, status, menu) {
-    const dark = mode === "dark";
+  function blend(from, to, amount) {
+    const a = parseHex(from);
+    const b = parseHex(to);
+    const t = Math.min(1, Math.max(0, amount));
+    return rgb(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+  }
+
+  function onAccent(hex) {
+    const parts = parseHex(hex);
+    return (parts[0] * 299 + parts[1] * 587 + parts[2] * 114) / 1000 > 170 ? "#1a1a1a" : "#ffffff";
+  }
+
+  function build(mode, id, nameKo, nameEn, bg, panel, ink, muted, line, accent, soft, header, alt, danger) {
+    const light = mode === "light";
+    const chrome = light ? header : bg;
     return {
       id: id,
       nameKo: nameKo,
       nameEn: nameEn,
       mode: mode,
+      swatch: [bg, panel, accent],
       vars: {
         "--bg": bg,
         "--panel": panel,
-        "--text": text,
+        "--ink": ink,
         "--muted": muted,
+        "--line": line,
         "--accent": accent,
-        "--border": border,
-        "--toolbar": toolbar,
-        "--status": status,
-        "--menu": menu,
-        "--conflict": dark ? "#6a3038" : "#f3c7c7",
-        "--resolved": dark ? "#1d4a38" : "#cfeedd",
-        "--local": dark ? "#1d3d5c" : "#d5e6f7",
-        "--remote": dark ? "#3d3158" : "#e4daf6",
-        "--base": dark ? "#3c3a30" : "#efe6cc",
-        "--danger": "#d64545",
-        "--ok": "#2f9e6b",
-        "--line": dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+        "--accent-soft": soft,
+        "--header": header,
+        "--danger": danger,
+        "--chrome": chrome,
+        "--hover": soft,
+        "--button": panel,
+        "--button-border": line,
+        "--pop": panel,
+        "--selected": soft,
+        "--row-line": line,
+        "--alt-row": alt,
+        "--code-alt": light ? blend(panel, ink, 0.05) : blend(panel, ink, 0.07),
+        "--head-ink": ink,
+        "--ref-bg": soft,
+        "--ref-ink": accent,
+        "--add-bg": light ? "#e7f7ee" : "#14352c",
+        "--add-ink": light ? "#067647" : "#6ee7b7",
+        "--del-bg": light ? "#fdecec" : "#3f1d24",
+        "--del-ink": light ? "#b42318" : "#fca5a5",
+        "--hunk-bg": soft,
+        "--hunk-ink": accent,
+        "--input": panel,
+        "--banner-bg": light ? "#fff7ed" : "#3b2a14",
+        "--banner-ink": light ? "#9a3412" : "#fdba74",
+        "--overlay": light ? "rgba(16, 24, 40, 0.35)" : "rgba(0, 0, 0, 0.55)",
+        "--on-accent": onAccent(accent),
+        "--shadow": light ? "0 8px 24px rgba(16, 24, 40, 0.12)" : "0 8px 24px rgba(0, 0, 0, 0.45)",
+        "--conflict": light ? "#fdecec" : "#3f1d24",
+        "--conflict-ink": light ? "#b42318" : "#fca5a5",
+        "--resolved": light ? "#e7f7ee" : "#14352c",
+        "--resolved-ink": light ? "#067647" : "#6ee7b7",
+        "--local": light ? "#e8efff" : "#172c48",
+        "--local-ink": light ? "#1d4ed8" : "#93c5fd",
+        "--remote": light ? "#f3e8ff" : "#2c2142",
+        "--remote-ink": light ? "#7c3aed" : "#d8b4fe",
+        "--base": light ? "#fef3c7" : "#3a2c12",
+        "--base-ink": light ? "#92400e" : "#fcd34d",
+        "--ok": light ? "#067647" : "#6ee7b7",
+        "--text": ink,
+        "--border": line,
+        "--toolbar": chrome,
+        "--status": chrome,
+        "--menu": panel,
       },
     };
   }
 
-  function fromPair(row, mode) {
-    const bg = row[3];
-    const accent = row[4];
-    const dark = mode === "dark";
-    const panel = shift(bg, dark ? 16 : 10);
-    const toolbar = shift(bg, dark ? -10 : -12);
-    const status = shift(bg, dark ? -16 : -18);
-    const border = shift(bg, dark ? 38 : -30);
-    const menu = dark ? shift(bg, 24) : "#ffffff";
-    const text = dark ? "#e8eef6" : "#1c2430";
-    const muted = dark ? "#9aabbe" : "#5c6b7c";
-    return theme(row[0], row[1], row[2], mode, bg, panel, text, muted, accent, border, toolbar, status, menu);
+  function theme(mode, suffix, nameKo, nameEn, bg, panel, ink, muted, line, accent, soft, header, alt, danger) {
+    return build(mode, mode + "-" + suffix, nameKo, nameEn, bg, panel, ink, muted, line, accent, soft, header, alt, danger);
   }
 
-  const DARK_ROWS = [
-    ["dark-ink", "잉크", "Ink", "#14181f", "#4aa3ff"],
-    ["dark-midnight", "자정", "Midnight", "#0e1424", "#7aa2ff"],
-    ["dark-ocean", "심해", "Ocean", "#0f1c22", "#3ec6d6"],
-    ["dark-pine", "소나무", "Pine", "#121a16", "#3dbe86"],
-    ["dark-plum", "자두", "Plum", "#1a1420", "#d56bd2"],
-    ["dark-ember", "잔불", "Ember", "#1c1412", "#ff8a4a"],
-    ["dark-slate", "슬레이트", "Slate", "#1b1f24", "#8ab4d6"],
-    ["dark-graphite", "흑연", "Graphite", "#161616", "#d0d0d0"],
-    ["dark-cobalt", "코발트", "Cobalt", "#10182e", "#5b8cff"],
-    ["dark-wine", "와인", "Wine", "#241018", "#e06a8a"],
-    ["dark-forest", "숲", "Forest", "#101c14", "#7dce6a"],
-    ["dark-dusk", "황혼", "Dusk", "#241820", "#f0a060"],
-    ["dark-copper", "구리", "Copper", "#241810", "#e0924a"],
-    ["dark-abyss", "심연", "Abyss", "#0c1018", "#6ec8ff"],
-    ["dark-iris", "아이리스", "Iris", "#161228", "#a78bfa"],
-    ["dark-moss", "이끼", "Moss", "#141c12", "#9cbf6a"],
-    ["dark-rust", "녹", "Rust", "#221410", "#e07050"],
-    ["dark-night", "밤", "Night", "#0e1016", "#9aa4ff"],
-    ["dark-teal", "청록", "Teal", "#0e1c1c", "#2ec4b6"],
-    ["dark-charcoal", "숯", "Charcoal", "#1a1a1a", "#f0c14a"],
-  ];
+  const THEMES = [
+    theme("light", "classic", "클래식", "Classic", "#f3f4f6", "#ffffff", "#1f2328", "#667085", "#d8dbe2", "#2563eb", "#e8efff", "#eef2f6", "#fcfcfd", "#dc2626"),
+    theme("light", "paper", "종이", "Paper", "#f6f1e7", "#fffaf3", "#3f3428", "#8a7564", "#e4d8c8", "#9a3412", "#f8ebe3", "#f3eadf", "#fffdf8", "#b45309"),
+    theme("light", "snow", "눈", "Snow", "#f4f7fb", "#ffffff", "#1e293b", "#64748b", "#dbe3ee", "#0284c7", "#e0f2fe", "#eef4fa", "#f8fbff", "#e11d48"),
+    theme("light", "mint", "민트", "Mint", "#f3faf6", "#ffffff", "#14352b", "#5f7d72", "#d5e7de", "#059669", "#e7f7ee", "#eef8f3", "#f7fdf9", "#dc2626"),
+    theme("light", "sand", "모래", "Sand", "#f7f3ea", "#fffdf8", "#3d3426", "#8d7b64", "#e6dccb", "#b45309", "#fef3c7", "#f4efe4", "#fffaf2", "#c2410c"),
+    theme("light", "rose", "장미", "Rose", "#fdf2f4", "#ffffff", "#3f1d2a", "#9d6b7b", "#f3d5dc", "#e11d48", "#ffe4e6", "#fbecef", "#fff7f8", "#be123c"),
+    theme("light", "lavender", "라벤더", "Lavender", "#f6f4fb", "#ffffff", "#2e1065", "#7c6a9a", "#e4dff0", "#7c3aed", "#f3e8ff", "#f3f0fa", "#fbfaff", "#db2777"),
+    theme("light", "sky", "하늘", "Sky", "#f0f9ff", "#ffffff", "#0c4a6e", "#5b7c90", "#d5e8f2", "#0284c7", "#e0f2fe", "#e8f4fb", "#f7fcff", "#e11d48"),
+    theme("light", "lemon", "레몬", "Lemon", "#fbf8ef", "#fffef8", "#3f3a1e", "#8a8158", "#ebe4c4", "#ca8a04", "#fef9c3", "#f7f3e2", "#fffdf5", "#dc2626"),
+    theme("light", "ocean", "바다", "Ocean", "#eef3f7", "#f8fbfc", "#163042", "#5d7384", "#d3dee6", "#0f766e", "#ccfbf1", "#e7eef3", "#f4f8fa", "#dc2626"),
+    theme("light", "forest", "숲", "Forest", "#f2f6f1", "#fbfdfb", "#1c3324", "#5e7564", "#d4e0d6", "#15803d", "#dcfce7", "#eaf2ea", "#f7fbf7", "#b91c1c"),
+    theme("light", "cherry", "체리", "Cherry", "#fff5f5", "#ffffff", "#451a1a", "#9a6a6a", "#f3d6d6", "#dc2626", "#fee2e2", "#fbeeee", "#fffafa", "#9f1239"),
+    theme("light", "graphite", "흑연", "Graphite", "#f2f2f2", "#fafafa", "#1a1a1a", "#6b6b6b", "#d9d9d9", "#404040", "#ececec", "#eaeaea", "#f7f7f7", "#dc2626"),
+    theme("light", "pearl", "진주", "Pearl", "#f7f5f2", "#fffcf9", "#2c2825", "#7d746c", "#e5dfd8", "#57534e", "#f5f0eb", "#f1ece7", "#fbf9f7", "#c2410c"),
+    theme("light", "aqua", "아쿠아", "Aqua", "#f0fdfa", "#ffffff", "#134e4a", "#5f8a86", "#d1efeb", "#0d9488", "#ccfbf1", "#e6f7f5", "#f7fffe", "#e11d48"),
+    theme("light", "blossom", "꽃", "Blossom", "#fff7fb", "#ffffff", "#4a1942", "#946888", "#f3d7ea", "#db2777", "#fce7f3", "#fbeff6", "#fff9fc", "#be123c"),
+    theme("light", "amber", "호박", "Amber", "#fff8ef", "#ffffff", "#431407", "#9a6b45", "#f3e0c8", "#d97706", "#ffedd5", "#fbf1e4", "#fffbf5", "#dc2626"),
+    theme("light", "indigo", "남색", "Indigo", "#f4f6fb", "#ffffff", "#1e1b4b", "#6d6a8d", "#dfe3f1", "#4338ca", "#e0e7ff", "#eceff8", "#f8f9fd", "#e11d48"),
+    theme("light", "sage", "세이지", "Sage", "#f4f6f2", "#fbfcf8", "#2a3324", "#6d7864", "#dde3d6", "#4d7c0f", "#ecfccb", "#eef2ea", "#f8faf5", "#b91c1c"),
+    theme("light", "porcelain", "자기", "Porcelain", "#f8fafc", "#ffffff", "#0f172a", "#64748b", "#e2e8f0", "#0369a1", "#e0f2fe", "#f1f5f9", "#f8fafc", "#e11d48"),
 
-  const LIGHT_ROWS = [
-    ["light-paper", "종이", "Paper", "#f7f4ee", "#1d6fbf"],
-    ["light-snow", "눈", "Snow", "#f4f7fb", "#186fbf"],
-    ["light-sand", "모래", "Sand", "#f8f1e4", "#b86a1a"],
-    ["light-mist", "안개", "Mist", "#eef3f4", "#0f7f8a"],
-    ["light-sage", "세이지", "Sage", "#f2f6f1", "#2f8a4e"],
-    ["light-rose", "장미", "Rose", "#fbf4f6", "#c2456a"],
-    ["light-sky", "하늘", "Sky", "#f3f7ff", "#2a6fdb"],
-    ["light-cream", "크림", "Cream", "#fff8ec", "#c4872a"],
-    ["light-linen", "리넨", "Linen", "#f6f1ea", "#8a5a3b"],
-    ["light-ice", "얼음", "Ice", "#eef6fb", "#1a7ca8"],
-    ["light-pearl", "진주", "Pearl", "#f5f3f6", "#6b5b95"],
-    ["light-blush", "홍조", "Blush", "#fff1f3", "#d4526e"],
-    ["light-mint", "민트", "Mint", "#eefaf4", "#1f9d6a"],
-    ["light-cloud", "구름", "Cloud", "#f2f5f8", "#4a6785"],
-    ["light-wheat", "밀", "Wheat", "#fbf6e8", "#a67c2d"],
-    ["light-lilac", "라일락", "Lilac", "#f6f2fb", "#7b5ea7"],
-    ["light-foam", "거품", "Foam", "#f3fbfb", "#1a8f93"],
-    ["light-stone", "돌", "Stone", "#f3f2ef", "#5e6a62"],
-    ["light-apricot", "살구", "Apricot", "#fff4ea", "#d46a2e"],
-    ["light-porcelain", "도자기", "Porcelain", "#f7f8fa", "#3d6ea8"],
+    theme("dark", "midnight", "자정", "Midnight", "#0f1419", "#161b22", "#e6edf3", "#8b949e", "#30363d", "#58a6ff", "#1c2d41", "#1c2128", "#1a2028", "#f85149"),
+    theme("dark", "ink", "잉크", "Ink", "#121212", "#1c1c1c", "#f2f2f2", "#a3a3a3", "#2e2e2e", "#d4d4d4", "#2a2a2a", "#181818", "#202020", "#f87171"),
+    theme("dark", "navy", "네이비", "Navy", "#0b1220", "#111a2e", "#e2e8f0", "#94a3b8", "#243049", "#60a5fa", "#1e293b", "#0f172a", "#152036", "#fb7185"),
+    theme("dark", "grove", "밤숲", "Grove", "#0e1612", "#15201a", "#e7f5ec", "#8eaa98", "#2a3b32", "#34d399", "#16352b", "#121c17", "#18241e", "#f87171"),
+    theme("dark", "wine", "와인", "Wine", "#1a1014", "#24161c", "#f8e8ee", "#c4a3b0", "#3d2832", "#fb7185", "#3f1d2e", "#201318", "#2a1a22", "#fda4af"),
+    theme("dark", "slate", "슬레이트", "Slate", "#0f172a", "#1e293b", "#e2e8f0", "#94a3b8", "#334155", "#38bdf8", "#1e3a4c", "#172033", "#243044", "#f87171"),
+    theme("dark", "ember", "잔불", "Ember", "#1a120b", "#24180f", "#f8efe6", "#c4b3a3", "#3d2e22", "#fb923c", "#3b2414", "#20160f", "#2a1d14", "#f87171"),
+    theme("dark", "violet", "보라", "Violet", "#140f1f", "#1c152b", "#f3e8ff", "#c4b5d6", "#342848", "#c084fc", "#2a2040", "#191326", "#221a33", "#fb7185"),
+    theme("dark", "graphite", "흑연", "Graphite", "#18181b", "#232326", "#f4f4f5", "#a1a1aa", "#3f3f46", "#a1a1aa", "#2a2a2e", "#1f1f23", "#27272a", "#f87171"),
+    theme("dark", "trench", "심해", "Trench", "#071316", "#0e1c20", "#e6f4f6", "#8fb4b8", "#1e3338", "#2dd4bf", "#12343a", "#0b171a", "#122226", "#fb7185"),
+    theme("dark", "coffee", "커피", "Coffee", "#1c1410", "#271c16", "#f6efe8", "#cbb8a8", "#3e3028", "#e2b07a", "#3a2a20", "#211812", "#2c211b", "#f87171"),
+    theme("dark", "aurora", "오로라", "Aurora", "#0b1218", "#121a22", "#e8f7ff", "#9bb4c4", "#243240", "#67e8f9", "#12323a", "#101820", "#162028", "#fb7185"),
+    theme("dark", "carbon", "카본", "Carbon", "#0c0c0c", "#141414", "#ededed", "#9a9a9a", "#2a2a2a", "#f5f5f5", "#262626", "#101010", "#1a1a1a", "#f87171"),
+    theme("dark", "plum", "자두", "Plum", "#160f18", "#211621", "#f8eef8", "#c7aec7", "#3a2a3a", "#e879f9", "#3b2040", "#1c121e", "#271a28", "#fb7185"),
+    theme("dark", "storm", "폭풍", "Storm", "#12161c", "#1a212b", "#e8eef6", "#9aabbd", "#2c3644", "#93c5fd", "#1e2a3a", "#161c24", "#1f2732", "#f87171"),
+    theme("dark", "copper", "구리", "Copper", "#18120e", "#221812", "#f8efe8", "#cbb5a6", "#3c2e26", "#f0a06a", "#3d291c", "#1e1612", "#2a1e18", "#f87171"),
+    theme("dark", "arctic", "북극", "Arctic", "#2e3440", "#3b4252", "#eceff4", "#d8dee9", "#4c566a", "#88c0d0", "#3b4a5a", "#343b49", "#434c5e", "#bf616a"),
+    theme("dark", "orchid", "난초", "Orchid", "#1b1520", "#261c2c", "#f6e9f8", "#cbb6d0", "#3d3144", "#f0abfc", "#3a2744", "#211828", "#2d2234", "#fb7185"),
+    theme("dark", "olive", "올리브", "Olive", "#14160f", "#1c1f14", "#f1f5e6", "#b7c2a4", "#323828", "#bef264", "#2a3318", "#181b12", "#222618", "#f87171"),
+    theme("dark", "ice", "얼음", "Ice", "#0d141c", "#141c27", "#e8f1fb", "#9eb0c4", "#2a3848", "#7dd3fc", "#163044", "#111923", "#1a2432", "#fb7185"),
   ];
-
-  const THEMES = DARK_ROWS.map((row) => fromPair(row, "dark")).concat(LIGHT_ROWS.map((row) => fromPair(row, "light")));
 
   function defaultCustom() {
     return {
-      mode: "dark",
-      bg: "#14181f",
-      panel: "#1d242e",
-      text: "#e7eef8",
-      muted: "#9aabbe",
-      accent: "#4aa3ff",
-      border: "#334155",
-      toolbar: "#10151c",
-      status: "#0d1117",
-      menu: "#243041",
+      mode: "light",
+      bg: "#f3f4f6",
+      panel: "#ffffff",
+      text: "#1f2328",
+      muted: "#667085",
+      accent: "#2563eb",
+      border: "#d8dbe2",
+      toolbar: "#eef2f6",
+      status: "#eef2f6",
+      menu: "#ffffff",
     };
   }
 
   function fromCustom(custom) {
     const colors = Object.assign(defaultCustom(), custom || {});
-    const mode = colors.mode === "light" ? "light" : "dark";
-    return theme("custom", "사용자 정의", "Custom", mode, colors.bg, colors.panel, colors.text, colors.muted, colors.accent, colors.border, colors.toolbar, colors.status, colors.menu);
+    const mode = colors.mode === "dark" ? "dark" : "light";
+    const light = mode === "light";
+    const soft = blend(colors.panel, colors.accent, light ? 0.14 : 0.24);
+    const alt = light ? shift(colors.panel, -4) : shift(colors.panel, 5);
+    const item = build(
+      mode,
+      "custom",
+      "사용자 정의",
+      "Custom",
+      colors.bg,
+      colors.panel,
+      colors.text,
+      colors.muted,
+      colors.border,
+      colors.accent,
+      soft,
+      colors.toolbar,
+      alt,
+      light ? "#dc2626" : "#f87171",
+    );
+    item.vars["--chrome"] = colors.toolbar;
+    item.vars["--toolbar"] = colors.toolbar;
+    item.vars["--status"] = colors.status;
+    item.vars["--menu"] = colors.menu;
+    item.vars["--pop"] = colors.menu;
+    return item;
   }
 
   function byId(id, custom) {
     if (id === "custom") return fromCustom(custom);
-    return THEMES.find((item) => item.id === id) || THEMES[0];
+    return THEMES.find((item) => item.id === id) || THEMES.find((item) => item.id === DEFAULT_ID) || THEMES[0];
   }
 
   function ids() {
@@ -154,10 +212,12 @@
 
   return {
     THEMES: THEMES,
+    DEFAULT_ID: DEFAULT_ID,
     byId: byId,
     nameOf: nameOf,
     ids: ids,
     next: next,
+    blend: blend,
     defaultCustom: defaultCustom,
     fromCustom: fromCustom,
   };
