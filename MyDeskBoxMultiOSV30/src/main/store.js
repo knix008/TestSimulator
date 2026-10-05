@@ -31,6 +31,8 @@ function defaults() {
       opacity: themes.DEFAULT_OPACITY,
       corner: themes.DEFAULT_CORNER,
       shadow: false,
+      // 박스 뒤로 바탕화면을 흐려 비춘다. Palisades 의 흐림과 같다.
+      blur: true,
       // 박스 안의 아이콘을 한 번 눌러 열지, 두 번 눌러 열지.
       openWith: 'double',
       // 박스에 담을 때 파일을 어떻게 할지.
@@ -78,6 +80,7 @@ function load() {
       data.settings.openWith = data.settings.openWith === 'single' ? 'single' : 'double';
       data.settings.takeWith = data.settings.takeWith === 'move' ? 'move' : 'keep';
       data.settings.openAtLogin = !!data.settings.openAtLogin;
+      data.settings.blur = !!data.settings.blur;
       data.settings.autoSort = !!data.settings.autoSort;
       data.settings.rules = rules.normalizeRules(data.settings.rules);
       data.settings.root = typeof data.settings.root === 'string' ? data.settings.root : '';
@@ -130,7 +133,7 @@ function normalizeFence(raw) {
     h: Math.max(160, Number(raw.h) || 320),
     // 예전 저장본은 색 하나만 갖고 있다. 가장 가까운 테마로 옮겨 준다.
     theme: themes.themeOf(raw.theme || themes.themeForColor(raw.color)).id,
-    opacity: clamp(Number(raw.opacity) || themes.DEFAULT_OPACITY, 0.15, 0.9),
+    opacity: clamp(Number(raw.opacity) || themes.DEFAULT_OPACITY, themes.MIN_OPACITY, themes.MAX_OPACITY),
     corner: themes.cornerRadius(raw.corner),
     custom: normalizeCustom(raw.custom),
     // 이 박스만의 글자 색과 그림 크기. 적지 않은 값은 테마가 정한 대로 쓴다.

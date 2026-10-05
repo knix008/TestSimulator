@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyMerge 10.0</title>
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="style/styles.css">
+</head>
+<body>
+  <div id="shell">
+    <div id="bgLayer"></div>
+    <div id="app">
+      <header class="titlebar">
+        <img id="appIcon" src="assets/icon.png" width="18" height="18" alt="">
+        <h1 id="appTitle">MyMerge 10.0</h1>
+      </header>
+      <nav id="menubar" class="menubar"></nav>
+      <div id="toolbar" class="toolbar" role="toolbar"></div>
+      <div class="body">
+        <aside id="leftPanel" class="panel left"></aside>
+        <div class="center">
+          <div class="tabbar">
+            <button id="tabPrev" class="tabnav" type="button">&lt;</button>
+            <div id="tabstrip" class="tabstrip"></div>
+            <button id="tabNext" class="tabnav" type="button">&gt;</button>
+          </div>
+          <div class="sources">
+            <section class="pane base" id="paneBase"><div class="pane-head"></div><pre></pre></section>
+            <section class="pane local" id="paneLocal"><div class="pane-head"></div><pre></pre></section>
+            <section class="pane remote" id="paneRemote"><div class="pane-head"></div><pre></pre></section>
+          </div>
+          <section class="result-wrap">
+            <div class="pane-head" id="resultHead"></div>
+            <textarea id="resultText" spellcheck="false"></textarea>
+          </section>
+        </div>
+        <aside id="rightPanel" class="panel right"></aside>
+      </div>
+      <footer id="statusbar" class="statusbar"></footer>
+      <div id="resizeGrip" title="창 크기 변경" role="separator">
+        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <path d="M10 2 L2 10 M10 6 L6 10 M10 9.5 L9.5 10" />
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div id="menuLayer"></div>
+  <div id="popupLayer"></div>
+  <input id="fileOpen" type="file" multiple hidden>
+  <input id="bgOpen" type="file" accept="image/*" hidden>
+  <iframe id="printFrame" title="print"></iframe>
+  <script src="src/build-info.js"></script>
+  <script src="src/metrics.js"></script>
+  <script src="src/merge.js"></script>
+  <script src="src/session.js"></script>
+  <script src="src/fonts.js"></script>
+  <script src="src/gitplan.js"></script>
+  <script src="src/print.js"></script>
+  <script src="src/themes.js"></script>
+  <script src="src/i18n.js"></script>
+  <script src="src/icons.js"></script>
+  <script src="src/store.js"></script>
+  <script src="src/sample.js"></script>
+  <script src="src/app.js"></script>
+</body>
+</html>

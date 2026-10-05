@@ -1,6 +1,6 @@
 'use strict';
 
-const { ipcMain } = require('electron');
+const { ipcMain, BrowserWindow } = require('electron');
 
 function install(host) {
   ipcMain.on('fence:ready', (_event, id) => {
@@ -9,6 +9,14 @@ function install(host) {
 
   ipcMain.on('fence:bounds', (_event, rect) => {
     host.applyBounds(rect.id, rect, false);
+  });
+
+  // 칸에 앉힌 바탕화면 아이콘이 클릭을 받게, 빈 판은 마우스를 통과시킨다.
+  // 제목 줄은 창이 받는다. 박스를 끌 수 있어야 하기 때문이다.
+  ipcMain.on('fence:pass', (event, ignore) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return;
+    win.setIgnoreMouseEvents(!!ignore, { forward: true });
   });
 
   ipcMain.on('fence:bounds-save', (_event, rect) => {
@@ -70,6 +78,9 @@ function install(host) {
   ipcMain.on('prefs:close', () => host.closePrefs());
 
   ipcMain.on('box:size', (_event, payload) => host.fitSettings(payload.id, payload.height));
+
+  // 고른 항목을 박스에서 뺀다. 파일은 지우지 않고, 담기 전 자리로 돌려보낸다.
+  ipcMain.handle('fence:eject', (_event, payload) => host.eject(payload.id, payload.filePath));
 
   ipcMain.handle('fence:open', (_event, filePath) => host.openItem(filePath));
 

@@ -235,6 +235,8 @@ function createHost(state) {
         shortcut: deliver.isShortcut(item.path),
         folder: isDirectory(item.path),
         recycle: deliver.isRecycle(item.path),
+        // 끌어다 놓은 것을 받아 줄 수 있는가. 창은 이것으로 밝혀 보여 준다.
+        receives: canReceive(item),
       });
     }
     return {
@@ -259,6 +261,16 @@ function createHost(state) {
 
   async function pushAll() {
     for (const fence of state.fences) await push(fence.id);
+  }
+
+  // 고른 표시를 거둔다. 박스 창은 제 안쪽만 볼 수 있어, 바탕화면이나 다른 박스를
+  // 누른 것을 알지 못한다. 그 누름을 아는 쪽(바탕화면 감시, 누른 박스)이 알려 준다.
+  // exceptId 는 방금 고르기를 시작한 박스다. 그 박스의 표시는 그대로 둔다.
+  function clearPicks(exceptId) {
+    for (const [id, win] of wins) {
+      if (id === exceptId) continue;
+      if (win && !win.isDestroyed()) win.webContents.send('fence:unpick');
+    }
   }
 
   function webPrefs() {
@@ -399,6 +411,25 @@ function createHost(state) {
   // 이 판단은 메인이 한다. 창이 제 안에서만 하면 제 창 밖은 알 수 없어,
   // 다른 박스의 폴더나 바탕화면에서 끌어 온 것은 아무리 겨눠도 받아 주지 못했다.
   // 박스 안 아이콘의 자리는 메인도 그대로 셀 수 있다(indexAt 과 같은 셈이다).
+  // 이 항목이 끌어다 놓은 것을 받아 줄 수 있는가.
+  //
+  // 받는 것은 옮겨 넣을 수 있는 곳뿐이다. 폴더, 폴더를 가리키는 바로가기, 휴지통이다.
+  // 그 밖의 항목은 받지 않으므로 그 그림 위에 놓아도 '사이에 끼우기' 가 된다.
+  // 받지 못하는 항목까지 받는다고 보이면, 밝아진 아이콘에 놓았는데 아무 일도
+  // 일어나지 않는 것처럼 보인다.
+  // 무엇을 받는지 정하는 표는 deliver.receiveKind 하나뿐이다.
+  // 여기서는 그 표가 보고 판단할 것(폴더인지, 바로가기가 폴더를 가리키는지)만 알아 준다.
+  function canReceive(item) {
+    if (!item || !item.path) return false;
+    const link = deliver.isShortcut(item.path) ? shortcutLink(item.path) : null;
+    const aimed = link && link.target && isDirectory(link.target) ? link.target : '';
+    return !!deliver.receiveKind({
+      path: item.path,
+      directory: isDirectory(item.path),
+      shortcutDir: aimed,
+    });
+  }
+
   function receiverAt(fence, screenX, screenY, exceptPath) {
     if (!fence || fence.collapsed) return null;
     const bounds = boundsOf(fence.id);
@@ -409,7 +440,8 @@ function createHost(state) {
     const shown = fence.items.filter((item) => item.path !== exceptPath);
     for (let n = 0; n < shown.length; n += 1) {
       const point = arrange.slotPoint(n, grid);
-      if (deliver.onPicture(localX - point.x, localY - point.y)) return shown[n].path;
+      if (!deliver.onPicture(localX - point.x, localY - point.y)) continue;
+      return canReceive(shown[n]) ? shown[n].path : null;
     }
     return null;
   }
@@ -534,7 +566,6 @@ function createHost(state) {
     if (!canDragOut(filePath)) return false;
     hideGhost();
     clearHover();
-    const followed = shortcutLink(filePath);
     const deskDir = desktopFolder();
     const before = namesIn(deskDir);
     try {
@@ -552,20 +583,18 @@ function createHost(state) {
       still = false;
     }
     if (!still) {
+      // 나간 것은 그 파일 하나다. 바로가기도 파일이므로, 그것이 가리키는 다른 파일은
+      // 건드리지 않는다. 끌어다 놓기는 끌어 온 그 파일만 옮긴다.
       takeOut(filePath);
       persist();
       Promise.resolve(pushAll()).catch(() => {});
       refreshIcons();
-      // 바로가기만 나가면 그것이 가리키던 항목은 박스에 남는다. 같이 꺼낸다.
-      if (followed && followed.target) {
-        return pullTargets(followed.target, cursorDip(), new Set(), path.basename(filePath)).then(() => true);
-      }
       return true;
     }
     // 탐색기는 파일을 옮기지 않고 바로가기만 만들어 두기도 한다.
-    // 바로가기만 대체할지, 항목을 새로 만들어 꺼낼지 묻는다.
+    // 그것은 옮긴 것이 아니므로, 그 바로가기를 치우고 파일 자체를 꺼낸다.
     const fresh = freshLinks(filePath, deskDir, before);
-    if (fresh.length) return chooseLinkOrItem(filePath, fresh, deskDir, before);
+    if (fresh.length) return dropLinksAndRelease(filePath, fresh, deskDir, before);
     // 다른 박스의 휴지통 위에 놓으면 버린다. 끌어 내기는 운영체제가 이어받으므로
     // 손을 뗀 자리를 여기서 다시 본다. 보지 않으면 휴지통이 그 파일을 받지 못한다.
     const landed = landOnBox(filePath);
@@ -602,31 +631,13 @@ function createHost(state) {
     return dropFiles(landed.id, [filePath]).then(() => true);
   }
 
-  // 바로가기만 바꿀지, 항목을 새로 만들지를 묻는다.
-  // 참이면 바로가기만. 아니오이면 항목을 새로 만든다.
-  async function askLink(name) {
-    if (typeof ask.confirm !== 'function') return false;
-    asking = true;
-    try {
-      return await ask.confirm({
-        title: say('dialog.link', { name: name || say('box.shortcut') }),
-        detail: say('dialog.linkDetail'),
-        confirm: say('dialog.linkOnly'),
-        cancel: say('dialog.linkNew'),
-        icon: icons.menu('remove'),
-      });
-    } catch (_err) {
-      return false;
-    } finally {
-      asking = false;
-    }
-  }
-
-  // 바로가기만 생겼을 때. 대체하면 그 바로가기를 두고 항목은 박스에 남긴다.
-  // 새로 만들면 바로가기를 치우고 항목을 박스 밖으로 꺼낸다.
-  async function chooseLinkOrItem(filePath, fresh, deskDir, before) {
-    const only = await askLink(path.basename(filePath));
-    if (only) return true;
+  // 탐색기가 파일을 옮기지 않고 바로가기만 만들어 두었다.
+  //
+  // 그 바로가기를 치우고 파일 자체를 바탕화면으로 꺼낸다. 묻지 않는다.
+  // 끌어다 놓기는 옮기는 일이므로, 바탕화면으로 끌어 냈으면 파일이 거기에 있어야 한다.
+  // 앞서는 '바로가기만 대체' 와 '새로 만들기' 를 물었다. 사람은 파일을 옮기려고 끌었을
+  // 뿐인데, 무엇을 고르라는 것인지 알기 어려운 물음이었다.
+  async function dropLinksAndRelease(filePath, fresh, deskDir, before) {
     for (const full of fresh) {
       try {
         fs.rmSync(full, { force: true });
@@ -731,49 +742,6 @@ function createHost(state) {
     } catch (_err) {
       return false;
     }
-  }
-
-  // 바로가기가 가리키는 곳에 있던 항목. 지금 경로와, 담기 전 자리 둘 다 본다.
-  function belongsTo(item, target) {
-    if (!item || !target) return false;
-    if (desktop.isShellItem && desktop.isShellItem(item.path)) return false;
-    if (samePath(item.path, target)) return true;
-    const original = item.home ? path.join(item.home, path.basename(item.path)) : '';
-    if (original && samePath(original, target)) return true;
-    if (isDeskDir(target)) return false;
-    if (original && nestedIn(target, original)) return true;
-    if (nestedIn(target, item.path)) return true;
-    return false;
-  }
-
-  function isDeskDir(dir) {
-    const found = [];
-    try {
-      if (typeof desktop.desktopDirectories === 'function') found.push(...desktop.desktopDirectories());
-    } catch (_err) {
-      /* 바탕화면 폴더를 모르면 아래 하나만 본다. */
-    }
-    const one = desktopFolder();
-    if (one) found.push(one);
-    return found.filter(Boolean).some((entry) => samePath(entry, dir));
-  }
-
-  // 바로가기만 나가면 그것이 가리키던 항목은 박스에 남는다.
-  // 바로가기만 대체할지, 그 항목을 새로 만들어 꺼낼지 물은 뒤에 고른 대로 한다.
-  async function pullTargets(target, at, seen, name) {
-    const walking = seen || new Set();
-    const rows = [];
-    for (const fence of state.fences) {
-      for (const item of fence.items) {
-        const key = path.resolve(item.path).toLowerCase();
-        if (walking.has(key) || !belongsTo(item, target)) continue;
-        rows.push({ id: fence.id, path: item.path });
-      }
-    }
-    if (!rows.length) return;
-    const only = await askLink(name);
-    if (only) return;
-    for (const row of rows) await eject(row.id, row.path, at, walking);
   }
 
   // 탐색기가 박스 파일을 가리키는 바로가기를 바탕화면에 만든 것은 지운다.
@@ -1339,26 +1307,25 @@ function createHost(state) {
     return { name: path.basename(filePath), path: filePath };
   }
 
-  async function acceptDesktopDrop(item, dip) {
-    if (!item || !item.path || !dip) return;
+  // 바탕화면에서 끌어다 놓았다. 여러 개를 골라 끌었으면 그 모두가 함께 온다.
+  // 하나만 온 예전 모양(항목 하나)도 그대로 받는다.
+  async function acceptDesktopDrop(entries, dip) {
+    if (!dip) return;
+    const list = (Array.isArray(entries) ? entries : [entries]).filter((one) => one && one.path);
+    if (!list.length) return;
     const target = hit(dip.x, dip.y);
     if (!target) return;
-    if (target.items.some((entry) => entry.path === item.path)) return;
+    // 그 박스가 이미 들고 있는 것은 옮길 것이 없다.
+    const held = new Set(target.items.map((entry) => entry.path));
+    const coming = list.filter((one) => !held.has(one.path));
+    if (!coming.length) return;
+    const paths = coming.map((one) => one.path);
     // 바탕화면에서 끌어 온 것도 박스 안 항목 위에 놓을 수 있어야 한다.
     // 휴지통이면 버리고, 폴더면 그 안으로, 프로그램이면 그것에게 넘긴다.
-    const into = receiverAt(target, dip.x, dip.y, item.path);
-    const index = indexAt(target, dip.x, dip.y, item.path);
-    await dropFiles(target.id, [item], index, into);
-  }
-
-  // 휴지통에 이 이름의 항목이 이미 있는가. 모르면 없는 것으로 본다.
-  function recycleHasName(name) {
-    if (typeof desktop.recycleHasName !== 'function') return false;
-    try {
-      return !!desktop.recycleHasName(name);
-    } catch (_err) {
-      return false;
-    }
+    // 여러 개를 놓아도 겨눈 자리는 하나다. 커서 아래의 그림으로 고른다.
+    const into = receiverAt(target, dip.x, dip.y, paths[0]);
+    const index = indexAt(target, dip.x, dip.y, paths);
+    await dropFiles(target.id, coming, index, into);
   }
 
   function isDirectory(filePath) {
@@ -1378,44 +1345,6 @@ function createHost(state) {
     } catch (_err) {
       return null;
     }
-  }
-
-  function launch(plan) {
-    if (!plan) return;
-    if (typeof shell.launch === 'function') {
-      try {
-        shell.launch(plan);
-      } catch (_err) {
-        // 넘기지 못해도 여기서 끝나면 안 된다. 바깥으로 새면 앱이 죽는다.
-      }
-      return;
-    }
-    const { spawn } = require('child_process');
-    // 시작 위치가 없거나 끝이 빗금이면 띄우기 자체가 실패한다.
-    // 실패는 나중에 'error' 로 오고, 받아 주는 곳이 없으면 앱이 죽는다.
-    let cwd;
-    if (plan.cwd) {
-      cwd = String(plan.cwd).replace(/[\\/]+$/, '');
-      try {
-        if (!cwd || !fs.statSync(cwd).isDirectory()) cwd = undefined;
-      } catch (_err) {
-        cwd = undefined;
-      }
-    }
-    let child;
-    try {
-      child = spawn(plan.command, plan.args, {
-        detached: true,
-        stdio: 'ignore',
-        cwd,
-        // 셸을 거쳐 넘길 때 검은 창이 번쩍이지 않게 한다.
-        windowsHide: true,
-      });
-    } catch (_err) {
-      return;
-    }
-    child.on('error', () => {});
-    child.unref();
   }
 
   // 폴더를 그 폴더 안(또는 그 자신)으로 옮기면 운영체제가 거절한다.
@@ -1459,12 +1388,12 @@ function createHost(state) {
     }
   }
 
-  // 아래 항목이 무엇이냐에 따라 갈린다.
+  // 아래 항목이 무엇이냐에 따라 갈린다. 어느 쪽이든 옮기는 일이다.
   //  - 폴더, 폴더를 가리키는 바로가기 : 그 안으로 옮긴다
   //  - 휴지통 : 버린다
-  //  - 그 밖의 항목 : 그것을 실행하면서 놓은 파일을 입력으로 넘긴다
+  //  - 그 밖의 항목 : 받지 않는다. 부른 쪽이 그 박스로 옮겨 담는다
   //
-  // moved 면 박스에서 빠진다. handed 면 프로그램에만 넘기고 박스에는 남긴다.
+  // moved 면 옮겼으므로 박스에서 빠진다. 빈 값이면 아무것도 하지 않았다.
   async function sendInto(filePath, intoPath) {
     if (!filePath || !intoPath || filePath === intoPath) return '';
     try {
@@ -1480,21 +1409,30 @@ function createHost(state) {
       if (link && isDirectory(link.target)) {
         return (await moveInto(filePath, link.target)) ? 'moved' : '';
       }
-      // 실행 파일 바로가기만 그 프로그램에 인자와 시작 위치를 그대로 넘긴다.
-      // 그 밖의 대상은 셸이 짝지어 둔 프로그램으로 연다. 폴더나 문서를
-      // 실행 파일처럼 띄우면 실패가 앱을 죽인다.
-      const runnable = link && deliver.isRunnable(link.target);
-      const plan = (runnable ? deliver.handPlan(link, filePath) : null)
-        || deliver.openPlan((link && link.target) || intoPath, filePath, process.platform);
-      if (plan) {
-        launch(plan);
-        return 'handed';
-      }
+      // 폴더도 휴지통도 아니면 받아 줄 것이 없다. 부른 쪽이 그 박스로 옮겨 담는다.
+      // 끌어다 놓기는 옮기는 일이므로, 어떤 항목 위에 놓아도 프로그램을 띄우지 않는다.
       return '';
     } catch (_err) {
       // 휴지통이 거절하거나 옮기기가 실패해도 앱은 계속 떠 있어야 한다.
       return 'failed';
     }
+  }
+
+  // 담지 못한 파일을 알린다. 다른 프로그램이 그 파일을 쓰고 있다는 뜻이다.
+  //
+  // 말없이 넘어가면 어떤 파일은 들어가고 어떤 파일은 안 들어가는 것으로 보인다.
+  // 열어 둔 문서(.pptx, .docx 등)가 이 길로 온다. 파일 종류와는 상관이 없다.
+  function tellBusy(paths) {
+    if (typeof ask.notice !== 'function' || !paths.length) return;
+    const title = paths.length === 1
+      ? say('dialog.busy', { name: path.basename(paths[0]) })
+      : say('dialog.busyMany', { n: paths.length });
+    Promise.resolve(ask.notice({
+      title,
+      detail: say('dialog.busyDetail'),
+      confirm: say('settings.ok'),
+      icon: icons.menu('remove'),
+    })).catch(() => {});
   }
 
   // 휴지통으로 보낸다. 같은 이름이 이미 있어도 묻지 않고, 각각 다른 항목으로 남긴다.
@@ -1543,6 +1481,8 @@ function createHost(state) {
     const fence = fenceById(id);
     if (!fence) return;
     const incoming = [];
+    // 다른 프로그램이 붙잡고 있어 옮기지 못한 것. 다 해 본 뒤에 한 번만 알린다.
+    const busy = [];
     for (const entry of filePaths) {
       const item = toItem(entry);
       if (!item) continue;
@@ -1553,15 +1493,24 @@ function createHost(state) {
         accepted.push(item.path);
         continue;
       }
-      // 박스에 같은 이름이 이미 있으면 대체할지 먼저 묻는다.
-      // 휴지통에 같은 이름이 있는 경우는 묻지 않는다. 휴지통 안은 그대로 두고 박스에 담는다.
-      if (!recycleHasName(path.basename(item.path)) && !(await clearClash(fence, item.path))) continue;
-      const moved = bringIn(fence, item);
-      if (moved) {
-        incoming.push({ ...moved, from: item.path });
+      // 옮기는 일은 대체가 아니다. 그래서 묻지 않는다.
+      //
+      // 한 항목은 바탕화면과 박스 가운데 한 곳에만 있다. 끌어다 놓기는 그 하나를
+      // 이쪽에서 저쪽으로 옮기는 것이므로, 대체할 짝이 애초에 없다.
+      // 그런데도 물으면, 하나뿐인 것을 두고 무엇을 버릴지 묻는 것이 된다.
+      // 이름이 같은 다른 파일이 박스 폴더에 있으면 hold.spareName 이 뒤에 번호를 붙인다.
+      // 어느 것도 버리지 않는다. 대체는 '새로 만들 때' 만 묻는다(offerReplace).
+      const got = bringIn(fence, item);
+      if (got.item) {
+        incoming.push({ ...got.item, from: item.path });
         accepted.push(item.path);
+      } else if (got.stuck) {
+        // 옮기지 못했다. 담은 것처럼 보이면서 파일은 그 자리에 남는 일은 없어야 한다.
+        // 왜 안 들어갔는지 모르면 파일 종류에 따라 되고 안 되는 것처럼 보인다.
+        busy.push(item.path);
       }
     }
+    if (busy.length) tellBusy(busy);
     if (!incoming.length) return accepted;
     // 담기면서 자리가 바뀌므로 옮기기 전 자리로도 견준다.
     // 그러지 않으면 앞 박스에 없는 파일을 가리키는 항목이 남는다.
@@ -1705,9 +1654,11 @@ function createHost(state) {
     });
   }
 
-  // 바탕화면과 박스에 이름이 같은 항목이 따로 있을 수 있다. 담으면 자리가 부딪힌다.
-  // 대체하겠다면 박스에 있던 것을 휴지통으로 보내 자리를 비운다.
-  // 그대로 두겠다면 담지 않는다. 파일은 있던 자리에 남는다.
+  // 복사해서 새로 만들 때 쓴다. 옮기는 길(dropFiles)은 여기 오지 않는다.
+  //
+  // 붙여넣기의 복사는 항목을 하나 더 만드는 일이다. 박스에 같은 이름이 이미 있으면
+  // 대체할지 묻는다. 대체하겠다면 박스에 있던 것을 휴지통으로 보내 자리를 비우고,
+  // 그대로 두겠다면 만들지 않는다. 원본은 있던 자리에 그대로 남는다.
   async function clearClash(fence, filePath) {
     const older = hold.clash(fence, filePath);
     if (!older) return true;
@@ -1838,24 +1789,21 @@ function createHost(state) {
   // 박스에서 꺼내면 파일이 담기 전 폴더(보통 바탕화면)로 돌아간다.
   // at 이 있으면 그 자리(끌어다 놓은 곳)에 아이콘을 둔다. 없으면 담기 전 자리다.
   // 파일은 목록에서 빼기 전에 먼저 옮긴다. 폴더에 남아 있으면 다시 담겨 버린다.
-  async function eject(id, filePath, at, seen) {
+  // 꺼내는 것은 그 파일 하나다. 바로가기도 파일이므로, 그것이 가리키는 다른 파일은
+  // 그 자리에 그대로 둔다. 바로가기는 박스 폴더 안의 파일을 계속 가리키며 잘 열린다.
+  async function eject(id, filePath, at) {
     const fence = fenceById(id);
     if (!fence) return;
     const item = fence.items.find((entry) => entry.path === filePath);
     if (!item) return;
-    const walking = seen || new Set();
-    const key = path.resolve(filePath).toLowerCase();
-    if (walking.has(key)) return;
-    walking.add(key);
-    // 옮기기 전에 읽는다. 나가고 나면 가리키던 곳을 알 수 없다.
-    const followed = shortcutLink(filePath);
+    // 돌려보내지 못했으면 박스에 그대로 둔다. 목록에서만 빼면 파일은 박스 폴더에
+    // 남아 있는데 아무 데서도 보이지 않는다.
+    if (!letGo(item, at)) return;
     fence.items = fence.items.filter((entry) => entry.path !== filePath);
-    letGo(item, at);
     persist();
     await push(id);
     // 돌려놓은 자리가 다른 박스 밑이면 그 박스가 다시 밀어낸다.
     refreshIcons();
-    if (followed && followed.target) await pullTargets(followed.target, at, walking, item.name);
   }
 
   // 보관함을 두는 사용자 전용 폴더. 설정 파일과 같은 자리다.
@@ -1959,11 +1907,25 @@ function createHost(state) {
   // 담는다는 것은 그 파일을 이 박스의 폴더로 옮긴다는 뜻이다.
   // 옮기고 나면 바탕화면 폴더에서 빠지므로 탐색기가 그 아이콘을 더 그리지 않는다.
   // 담기 전에 있던 폴더는 함께 적어 둔다. 꺼내거나 끝낼 때 그 자리로 돌려준다.
-  function bringIn(fence, item) {
+  // 옮기지 못했을 때(stuck) 어떻게 할지는 부르는 쪽이 정한다.
+  //
+  //  - 새로 담는 길(dropFiles) : 담지 않는다(keepStuck 없음).
+  //    담은 것처럼 목록에 넣으면 파일은 바탕화면에 그대로 있으면서 박스에도 보인다.
+  //    한 항목이 두 곳에 있는 것처럼 되고, 옮겼는데도 남아 있는 것처럼 보인다.
+  //  - 이미 들고 있던 것을 폴더와 맞추는 길(settleBox) : 그대로 들고 있는다(keepStuck).
+  //    보관함을 쓸 수 없는 잠깐 동안 목록에서 빼 버리면 사람이 놓아 둔 차례를 잃는다.
+  // 담은 결과를 { item, stuck } 으로 돌려준다.
+  //  item  : 담긴 항목. 없으면 담지 않았다.
+  //  stuck : 다른 프로그램이 붙잡고 있어 옮기지 못했다. 부른 쪽이 사람에게 알린다.
+  function bringIn(fence, item, keepStuck) {
     const moved = hold.take(fence, item);
-    if (!moved) return null;
+    if (!moved) return { item: null, stuck: false };
+    if (moved.stuck) {
+      if (!keepStuck) return { item: null, stuck: true };
+      return { item: { name: item.name, path: item.path, home: item.home }, stuck: true };
+    }
     if (moved.path !== item.path) refreshFolders(path.dirname(item.path), path.dirname(moved.path));
-    return moved;
+    return { item: moved, stuck: false };
   }
 
   // 꺼낸다. 파일을 담기 전 폴더로 돌려보낸다.
@@ -1973,6 +1935,16 @@ function createHost(state) {
     if (desktop.isShellItem && desktop.isShellItem(item.path)) {
       if (at && putIconAt(item.name, at)) return true;
       return putIconHome(item.name);
+    }
+    // 담는 동안 감춰 두었던 파일이면 속성을 먼저 되돌린다.
+    // 숨긴 채로 내보내면 파일은 바탕화면에 있는데 아이콘이 없다.
+    // 꺼낸 것은 반드시 눈에 보여야 한다.
+    if (typeof desktop.revealFile === 'function') {
+      try {
+        desktop.revealFile(item.path);
+      } catch (_err) {
+        /* 속성을 못 되돌려도 파일은 내보낸다. */
+      }
     }
     const back = hold.give(item);
     if (!back || back === item.path) return false;
@@ -2029,10 +2001,10 @@ function createHost(state) {
         continue;
       }
       // 아직 폴더 밖에 있는 것은 옮겨 담는다. 예전 판에서 올라온 박스가 이 길로 들어온다.
-      const moved = bringIn(fence, item);
-      if (moved) {
-        kept.push(moved);
-        inFolder.delete(path.basename(moved.path));
+      const got = bringIn(fence, item, true);
+      if (got.item) {
+        kept.push(got.item);
+        if (!got.stuck) inFolder.delete(path.basename(got.item.path));
       }
     }
     // 탐색기에서 폴더에 바로 넣은 파일.
@@ -2230,6 +2202,9 @@ function createHost(state) {
     if (!found) return false;
     try {
       if (!fs.existsSync(filePath)) return false;
+      // 박스가 들고 있다고 적혀 있어도 그 파일이 없으면 부딪힐 것이 없다.
+      // 새로 생긴 것 하나뿐이므로 대체할 것도 없다. 묻지 않는다.
+      if (!fs.existsSync(found.item.path)) return false;
     } catch (_err) {
       return false;
     }
@@ -2287,9 +2262,14 @@ function createHost(state) {
   function refreshIcons() {
     if (closing) return;
     watchBin();
+    // 박스를 폴더와 먼저 맞춘다. 그런 다음에 바탕화면에 새로 생긴 것을 본다.
+    //
+    // 차례가 거꾸로면, 박스 폴더에서 바탕화면으로 옮겨 온 파일을 두고 대체할지 묻는다.
+    // 그 파일은 박스에서 이미 빠져 나온 그 파일 하나뿐인데, 맞추기 전의 묵은 목록에는
+    // 아직 박스가 들고 있는 것으로 적혀 있어 부딪히는 것처럼 보인다.
+    const changed = settleAll();
     watchFresh();
     drainFresh();
-    const changed = settleAll();
     // 휴지통 같은 셸 항목은 옮길 파일이 없다. 박스에 담으면 바탕화면 쪽 아이콘을
     // 레지스트리로 감추고, 박스 창이 대신 그린다. 끝낼 때 restoreShellIcons 가 되살린다.
     // 박스를 숨긴 동안에는 감출 까닭이 없으므로 모두 되살린다.
@@ -3016,6 +2996,7 @@ function createHost(state) {
     changeBox,
     resetBox,
     setScroll,
+    clearPicks,
     hover,
     hoverIncoming,
     clearHover,

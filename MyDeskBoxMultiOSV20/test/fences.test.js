@@ -282,6 +282,45 @@ test('박스에서 꺼내면 파일이 담기 전 폴더로 돌아간다', async
   assert.deepEqual(desktop.calls.homed.at(-1), ['out-a.lnk'], '아이콘을 제자리에 놓지 않았다');
 });
 
+// 다른 프로그램이 파일을 붙잡고 있으면 옮길 수 없다. 열어 둔 문서(.pptx 등)가 그렇다.
+// 말없이 넘어가면 어떤 파일은 들어가고 어떤 파일은 안 들어가는 것처럼 보인다.
+// 파일 종류와는 상관이 없으므로, 왜 안 들어갔는지 알려 주어야 한다.
+test('옮기지 못한 파일은 담지 않고 왜 안 되는지 알려 준다', async () => {
+  const one = realItem('busy-a.txt');
+  // 보관함을 만들 수 없게 해 옮기기가 막힌 모습을 만든다.
+  const blocked = path.join(SANDBOX, 'busy-root');
+  fs.writeFileSync(blocked, '폴더가 아니다');
+  const state = baseState({ settings: { root: blocked }, fences: [fence({ title: '일감' })] });
+  const { host, asks } = loadHost(state);
+  host.openAll();
+
+  await host.dropFiles('a', [one.path], 0);
+  await new Promise((done) => setTimeout(done, 30));
+
+  assert.deepEqual(state.fences[0].items, [], '옮기지 못했는데 담은 것으로 적었다');
+  assert.equal(fs.existsSync(one.path), true, '옮기지 못했는데 파일이 없어졌다');
+  assert.equal(asks.calls.length, 1, '왜 안 들어갔는지 알려 주지 않았다');
+  assert.ok(asks.calls[0].title.includes('busy-a.txt'), `어느 파일인지 알려 주지 않는다: ${asks.calls[0].title}`);
+  assert.ok(asks.calls[0].detail.includes('다른 프로그램'), '까닭을 알려 주지 않는다');
+});
+
+test('꺼낸 것은 반드시 보인다. 감춰 둔 속성을 되돌린다', async () => {
+  // 담는 동안 감춰 두었던 파일을 숨긴 채로 내보내면, 파일은 바탕화면에 있는데
+  // 아이콘이 없다. 사람 눈에는 꺼내기가 실패한 것으로 보인다.
+  const one = realItem('reveal-a.lnk');
+  const state = baseState({ fences: [fence({ title: '일감', items: [one] })] });
+  const { host, desktop } = loadHost(state);
+  host.openAll();
+  host.refreshIcons();
+  const held = state.fences[0].items[0].path;
+  desktop.module.hideFile(held);
+
+  await host.eject('a', held);
+
+  assert.ok(desktop.calls.revealed.includes(held), '감춘 속성을 되돌리지 않고 내보냈다');
+  assert.deepEqual(state.fences[0].items, [], '박스에서 빠지지 않았다');
+});
+
 // 박스를 지우면 안에 든 것이 하나도 빠짐없이 돌아와야 한다.
 test('박스를 지우면 담긴 파일이 모두 돌아오고 폴더도 치운다', async () => {
   const items = ['del-a.txt', 'del-b.txt'].map(realItem);
@@ -506,6 +545,26 @@ test('바탕화면에서 박스로 끌어다 놓으면 담긴다', async () => {
   assert.equal(path.dirname(state.fences[0].items[0].path), path.join(state.settings.root, state.fences[0].folder));
 });
 
+test('바탕화면에서 여러 개를 골라 끌면 그 모두가 담긴다', async () => {
+  // 탐색기는 고른 모두를 옮긴다. 커서 아래의 하나만 담으면 나머지는 바탕화면에 남아,
+  // 옮겼는데도 그대로 있는 것처럼 보인다.
+  const many = [realItem('indrop-many-1.txt'), realItem('indrop-many-2.txt'), realItem('indrop-many-3.txt')];
+  const state = baseState({ fences: [fence({ title: '받는 박스' })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of fenceWindows(electron)) win.ready();
+
+  const bounds = fenceWindows(electron)[0].getBounds();
+  await host.acceptDesktopDrop(many, { x: bounds.x + 20, y: bounds.y + 50 });
+
+  assert.equal(state.fences[0].items.length, 3, '고른 것이 모두 담기지 않았다');
+  for (const one of many) {
+    assert.equal(fs.existsSync(one.path), false, `${one.name} 이 바탕화면에 그대로 남았다`);
+  }
+  const names = state.fences[0].items.map((item) => item.name).sort();
+  assert.deepEqual(names, ['indrop-many-1.txt', 'indrop-many-2.txt', 'indrop-many-3.txt']);
+});
+
 // 끄는 동안 아이콘이 눈에서 사라지면 안 된다.
 // 커서 아래의 박스는 놓을 자리를 비우고, 박스 밖에서는 따라다니는 창이 그린다.
 test('끄는 동안 어느 박스 위인지 알려 준다', () => {
@@ -616,7 +675,11 @@ test('바탕화면이 파일을 복사해 가져가면 박스에 남은 것은 �
   assert.equal(fs.existsSync(path.join(home, 'out-copy.txt')), false, '같은 파일이 두 벌이 되었다');
 });
 
-test('바로가기만 대체하면 가리키던 항목은 박스에 남는다', async () => {
+test('바로가기를 꺼내면 그 바로가기만 나가고 가리키던 항목은 그대로 있다', async () => {
+  // 모든 것은 파일이다. 바로가기도 파일이므로, 꺼내는 것은 그 파일 하나다.
+  // 그것이 가리키는 다른 파일은 박스에 그대로 있고, 바로가기는 그 파일을 계속 가리킨다.
+  // 앞서는 여기서 '바로가기만 대체' 와 '새로 만들기' 를 물었다. 사람은 파일 하나를
+  // 꺼내려고 끌었을 뿐인데 무엇을 고르라는 것인지 알기 어려웠다.
   const file = realItem('aim-stay.txt');
   const link = realItem('aim-stay.lnk');
   const home = path.dirname(file.path);
@@ -627,37 +690,15 @@ test('바로가기만 대체하면 가리키던 항목은 박스에 남는다', 
   host.refreshIcons();
   const heldLink = state.fences[0].items.find((item) => item.name === 'aim-stay.lnk');
   const heldFile = state.fences[0].items.find((item) => item.name === 'aim-stay.txt');
-  electron.shell.links.set(heldLink.path, { target: file.path });
-  electron.setDialogAnswer(0);
+  electron.shell.links.set(heldLink.path, { target: heldFile.path });
 
   await host.eject('a', heldLink.path);
 
-  assert.equal(asks.calls.at(-1).confirm, '바로가기만 대체');
-  assert.equal(asks.calls.at(-1).cancel, '새로 만들기');
-  assert.equal(state.fences[0].items.length, 1, '바로가기만 바꾸는데 항목까지 나갔다');
+  assert.deepEqual(asks.calls, [], '옮기는데 무엇을 물었다');
+  assert.equal(state.fences[0].items.length, 1, '가리키던 항목까지 나갔다');
   assert.equal(state.fences[0].items[0].path, heldFile.path);
   assert.equal(fs.existsSync(path.join(home, 'aim-stay.lnk')), true, '바로가기가 나가지 않았다');
-  assert.equal(fs.existsSync(heldFile.path), true, '항목이 박스에서 사라졌다');
-});
-
-test('새로 만들기를 고르면 바로가기가 가리키던 항목도 박스에서 나간다', async () => {
-  const file = realItem('aim.txt');
-  const link = realItem('aim.lnk');
-  const home = path.dirname(file.path);
-  const state = baseState({ fences: [fence({ items: [file, link] })] });
-  const { host, electron } = loadHost(state);
-  host.openAll();
-  for (const win of fenceWindows(electron)) win.ready();
-  host.refreshIcons();
-  const heldLink = state.fences[0].items.find((item) => item.name === 'aim.lnk');
-  electron.shell.links.set(heldLink.path, { target: file.path });
-  electron.setDialogAnswer(1);
-
-  await host.eject('a', heldLink.path);
-
-  assert.equal(state.fences[0].items.length, 0, '바로가기가 가리키던 항목이 박스에 남았다');
-  assert.equal(fs.existsSync(path.join(home, 'aim.lnk')), true, '바로가기가 나가지 않았다');
-  assert.equal(fs.existsSync(path.join(home, 'aim.txt')), true, '가리키던 항목이 나가지 않았다');
+  assert.equal(fs.existsSync(heldFile.path), true, '가리키던 항목이 박스에서 사라졌다');
 });
 
 test('바로가기만 생기면 그 항목을 박스 밖으로 옮긴다', async () => {
@@ -665,7 +706,7 @@ test('바로가기만 생기면 그 항목을 박스 밖으로 옮긴다', async
   const home = path.dirname(one.path);
   const deskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-link-'));
   const state = baseState({ fences: [fence({ items: [one] })] });
-  const { host, electron, desktop } = loadHost(state);
+  const { host, electron, desktop, asks } = loadHost(state);
   desktop.useDesktop(deskDir);
   desktop.module.onDesktop = () => false;
   host.openAll();
@@ -678,9 +719,8 @@ test('바로가기만 생기면 그 항목을 박스 밖으로 옮긴다', async
     fs.writeFileSync(lnk, '');
     electron.shell.links.set(lnk, { target: item.file });
   };
-  electron.setDialogAnswer(1);
-
   assert.equal(await host.dragOut(contents, held), true);
+  assert.deepEqual(asks.calls, [], '옮기는데 무엇을 물었다');
   assert.equal(state.fences[0].items.length, 0, '바로가기만 나가고 항목은 박스에 남았다');
   assert.equal(fs.existsSync(held), false, '박스 폴더에 항목이 남았다');
   assert.equal(fs.existsSync(path.join(home, 'linked-item.txt')), true, '항목이 박스 밖으로 나가지 않았다');
@@ -1012,7 +1052,10 @@ test('바꾸려는 이름이 박스에 이미 있으면 대체할지 묻는다',
 
 // 바탕화면에도 박스에도 이름이 같은 항목이 따로 있을 수 있다.
 // 담으면 자리가 부딪히므로 몰래 번호를 붙이지 않고 먼저 묻는다.
-test('박스에 같은 이름이 있으면 담을 때 대체할지 묻는다', async () => {
+test('옮겨 담을 때는 대체할지 묻지 않고, 이름이 부딪히면 번호를 붙인다', async () => {
+  // 옮기기는 대체가 아니다. 한 항목은 바탕화면과 박스 가운데 한 곳에만 있으므로,
+  // 끌어다 놓기로 대체할 짝이 생기지 않는다. 이름이 같은 다른 파일이 박스 폴더에
+  // 있으면 뒤에 번호를 붙여 둘 다 남긴다. 어느 것도 버리지 않는다.
   const state = baseState({ fences: [fence({ title: '일감' })] });
   const { host, electron, asks } = loadHost(state);
   host.openAll();
@@ -1031,18 +1074,14 @@ test('박스에 같은 이름이 있으면 담을 때 대체할지 묻는다', a
   fs.writeFileSync(second, '나중');
 
   await host.dropFiles('a', [second], 0);
-  assert.equal(asks.calls.length, 1, '대체할지 묻지 않았다');
-  assert.equal(fs.existsSync(second), true, '담지 않겠다고 했는데 파일을 옮겼다');
-  assert.equal(state.fences[0].items.length, 1, '묻고 거절했는데 하나 더 담았다');
-
-  electron.setDialogAnswer(0); // 대체를 고른다
-  await host.dropFiles('a', [second], 0);
-  assert.equal(electron.shell.trashed.length, 1, '박스에 있던 것을 휴지통으로 보내지 않았다');
-  assert.equal(fs.existsSync(second), false, '새로 담을 파일이 옮겨 가지 않았다');
-  assert.equal(state.fences[0].items.length, 1, '대체했는데 둘이 되었다');
-  // 비운 자리의 이름을 그대로 쓴다. 번호를 붙여 몰래 늘리지 않는다.
-  assert.equal(state.fences[0].items[0].name, '보고서.txt');
-  assert.equal(fs.readFileSync(state.fences[0].items[0].path, 'utf8'), '나중', '담은 것이 새 파일이 아니다');
+  assert.equal(asks.calls.length, 0, '옮기는데 대체할지 물었다');
+  assert.deepEqual(electron.shell.trashed, [], '옮기는데 있던 것을 버렸다');
+  assert.equal(fs.existsSync(second), false, '옮겨 오지 않았다');
+  assert.equal(state.fences[0].items.length, 2, '둘 다 담기지 않았다');
+  const names = state.fences[0].items.map((item) => item.name).sort();
+  assert.deepEqual(names, ['보고서 (2).txt', '보고서.txt'], `번호를 붙이지 않았다: ${names}`);
+  const texts = state.fences[0].items.map((item) => fs.readFileSync(item.path, 'utf8')).sort();
+  assert.deepEqual(texts, ['나중', '먼저'], '어느 하나가 덮여 없어졌다');
 });
 
 // 끌어 놓기는 옮긴다. 복사해서 붙이면 바탕화면의 원본은 남고 박스에 사본이 생긴다.

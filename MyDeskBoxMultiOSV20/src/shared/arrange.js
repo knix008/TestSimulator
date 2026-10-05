@@ -106,6 +106,37 @@
     return gapSlots(count, insertAt, grid.cols).map((slot) => slotPoint(slot, grid));
   }
 
+  // 칸 안에서 아이콘이 실제로 보이는 자리.
+  //
+  // 칸은 86×88 이고 그 안에서 그림은 위 8부터 44픽셀, 글자는 그 아래 두 줄까지다.
+  // 칸 전체로 재면 칸끼리 맞닿아, 아이콘 사이의 빈틈을 스치기만 해도 양쪽이 골라진다.
+  // 그래서 보이는 만큼만 남기고 둘레를 조금 줄인다.
+  const ITEM_X = 8;
+  const ITEM_W = CELL_W - ITEM_X * 2;
+  const ITEM_Y = 6;
+  const ITEM_H = CELL_H - ITEM_Y * 2;
+
+  // 빈 자리를 끌어 그린 테두리에 닿는 아이콘. 차례(칸 번호)로 돌려준다.
+  // rect 는 누른 자리와 지금 자리이며, 어느 쪽이 위든 왼쪽이든 상관없다.
+  // 좌표는 reflowPoints 와 같은 기준(박스 왼쪽 위, 제목 줄을 넣은 값)이다.
+  function bandPicks(rect, count, grid) {
+    if (!rect || !count || count < 0) return [];
+    const left = Math.min(rect.x1, rect.x2);
+    const right = Math.max(rect.x1, rect.x2);
+    const top = Math.min(rect.y1, rect.y2);
+    const bottom = Math.max(rect.y1, rect.y2);
+    const found = [];
+    for (let n = 0; n < count; n += 1) {
+      const point = slotPoint(n, grid);
+      const x = point.x + ITEM_X;
+      const y = point.y + ITEM_Y;
+      if (right < x || left > x + ITEM_W) continue;
+      if (bottom < y || top > y + ITEM_H) continue;
+      found.push(n);
+    }
+    return found;
+  }
+
   // 목표까지 한 걸음. 멀리 있으면 조금씩, 가까우면 바로 붙는다.
   function ease(cur, goal) {
     const d = goal - cur;
@@ -131,6 +162,7 @@
     gapSlots,
     reflowPoints,
     gapPoints,
+    bandPicks,
     ease,
   };
 

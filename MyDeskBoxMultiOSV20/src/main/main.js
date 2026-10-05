@@ -22,9 +22,74 @@ if (process.platform === 'win32') {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 }
 
+// 어느 길로 갈지 고른다.
+//
+//  --restore-desktop : 창을 띄우지 않고 바탕화면만 되돌리고 끝낸다.
+//                      설치 프로그램과 제거 프로그램이 부른다. 하나만 켜기 빗장을
+//                      지나지 않는다. 지우는 길에 그 빗장에 걸려서는 안 된다.
+//  그 밖             : 박스를 띄운다. 같은 설정 폴더로 또 켠 것이면 조용히 물러난다.
+if (process.argv.includes('--restore-desktop')) {
+  restoreAndExit();
+} else if (!app.requestSingleInstanceLock()) {
+  aloneAndExit();
+} else {
+  app.setAppUserModelId('com.suhokwon.mydeskbox');
+  if (process.platform === 'darwin') {
+    app.whenReady().then(() => {
+      if (app.dock) app.dock.hide();
+    });
+  }
+  start();
+}
+
+// 바탕화면을 켜기 전 모습으로 돌려놓고 끝낸다.
+// 담아 둔 파일은 적어 둔 자리로, 감춘 휴지통은 다시 보이게, 비켜 둔 아이콘은 제자리로.
+// 되돌리지 못한 파일이 있으면 2로 끝낸다. 설치 프로그램이 그것을 보고 손으로 옮긴다.
+function restoreAndExit() {
+  let report = null;
+  try {
+    const store = require('./store');
+    const desktop = require('./desktop');
+    const hold = require('./hold');
+    const { restoreDesktop } = require('./restore');
+    const state = store.load();
+    report = restoreDesktop({
+      hold,
+      desktop,
+      userDir: app.getPath('userData'),
+      desktopDir: deskFolder(desktop),
+      root: state.settings.root,
+    });
+  } catch (err) {
+    console.error(`바탕화면을 되돌리지 못했습니다: ${(err && err.message) || err}`);
+    app.exit(1);
+    return;
+  }
+  const back = report.back.length + report.strays.length;
+  console.log(`돌려보낸 파일 ${back}개, 되돌리지 못한 파일 ${report.left.length}개`);
+  app.exit(report.left.length ? 2 : 0);
+}
+
+// 바탕화면 폴더. 바탕화면 모듈이 알면 그것을 쓰고, 모르면 Electron 에게 묻는다.
+function deskFolder(desktop) {
+  try {
+    if (typeof desktop.desktopDirectories === 'function') {
+      const found = desktop.desktopDirectories();
+      if (found && found.length) return found[0];
+    }
+  } catch (_err) {
+    /* 아래에서 Electron 에게 묻는다. */
+  }
+  try {
+    return app.getPath('desktop');
+  } catch (_err) {
+    return '';
+  }
+}
+
 // 같은 설정 폴더로 또 켠 경우. 먼저 켠 쪽이 박스를 그리므로 이 쪽은 조용히 물러난다.
 // 다만 왜 아무 일도 없어 보이는지는 알려 준다.
-if (!app.requestSingleInstanceLock()) {
+function aloneAndExit() {
   const i18n = require('../shared/i18n');
   // 앱이 준비되기 전이라 시스템 언어를 못 읽는다. 저장해 둔 설정을 쓴다.
   let lang = i18n.DEFAULT_LANG;
@@ -36,14 +101,6 @@ if (!app.requestSingleInstanceLock()) {
   console.error(i18n.t(lang, 'alone.title'));
   console.error(i18n.t(lang, 'alone.running'));
   app.exit(0);
-} else {
-  app.setAppUserModelId('com.suhokwon.mydeskbox');
-  if (process.platform === 'darwin') {
-    app.whenReady().then(() => {
-      if (app.dock) app.dock.hide();
-    });
-  }
-  start();
 }
 
 function workArea() {
@@ -377,7 +434,9 @@ ${detail}`);
       (item, dip) => {
         if (!item || !dip) host.clearHover();
         else host.hoverIncoming(item.path, dip.x, dip.y);
-      }
+      },
+      // 바탕화면을 누르면 박스 안에서 골라 둔 표시를 거둔다.
+      () => host.clearPicks()
     );
     stopWatch = desktop.watchDesktop(() => host.refreshIcons());
     // 앞선 실행이 갑자기 끝나 보관함에 남은 파일이 있으면 먼저 제자리로 돌려놓는다.

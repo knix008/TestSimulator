@@ -2,9 +2,9 @@
 
 // 담기 방식.
 //
-// 기본은 **그대로 두기** 다. 담아도 파일은 있는 자리에 남고, 박스는 그것을 가리켜
-// 보여 주기만 한다. 참고한 Palisades 가 그렇게 움직인다 — 컨테이너는 저장소가 아니라
-// 보기(view)이고, 바탕화면 아이콘은 건드리지 않는다.
+// 기본은 **그대로 두기** 다. 담아도 파일은 있는 자리에 남고, 바탕화면 아이콘은 박스 칸으로 옮겨 간다.
+// 파일을 다른 폴더로 옮기지는 않고, 숨김 속성도 붙이지 않는다. 탐색기는 그 파일을 그대로 보여 준다.
+// 박스를 옮기면 그 칸의 아이콘이 함께 간다. 박스에서 바탕화면으로 빼면 아이콘이 다시 보인다.
 //
 // 그래서 여기서 보는 것은 거의 모두 '파일이 움직이지 않았는지' 다. 담을 때, 꺼낼 때,
 // 박스를 지울 때, 프로그램을 끝낼 때 — 어느 길로도 사람의 파일이 옮겨 가면 안 된다.
@@ -63,6 +63,26 @@ test('담아도 파일은 바탕화면에 그대로 있다', async () => {
   assert.equal(item.home, undefined, '담기 전 폴더를 적어 두었다');
 });
 
+test('보관함에 있던 항목은 바탕화면으로 돌아와 탐색기에 보인다', () => {
+  const place = room({ folder: '박스' });
+  const dir = path.join(place.state.settings.root, '박스');
+  fs.mkdirSync(dir, { recursive: true });
+  const stored = path.join(dir, '메모.txt');
+  fs.writeFileSync(stored, '내용');
+  place.state.fences[0].items.push({ name: '메모.txt', path: stored, home: place.desk });
+
+  place.host.refreshIcons();
+
+  const back = path.join(place.desk, '메모.txt');
+  assert.equal(fs.existsSync(stored), false, '보관함에 그대로 남았다');
+  assert.equal(fs.existsSync(back), true, '탐색기가 보는 바탕화면에 없다');
+  assert.equal(fs.readFileSync(back, 'utf8'), '내용');
+  const item = place.state.fences[0].items[0];
+  assert.equal(item.path, back, '박스가 바탕화면 자리를 가리키지 않는다');
+  assert.equal(item.keep, true, '가리킴 표시가 없다');
+  assert.ok(place.desktop.module.desktopEntries().some((one) => one.path === back), '탐색기 목록에 없다');
+});
+
 test('같은 항목이 바탕화면과 박스에 함께 보인다', async () => {
   const place = room();
   const at = onDesk(place.desk, '사진.png');
@@ -77,13 +97,33 @@ test('같은 항목이 바탕화면과 박스에 함께 보인다', async () => 
   assert.deepEqual(place.desktop.module.desktopEntries().map((one) => one.path), [at]);
 });
 
-test('가리키는 것만으로는 아이콘을 감추지 않는다', async () => {
+test('가리키는 항목은 박스 칸으로 옮기고 파일은 그 자리에 둔다', async () => {
   const place = room();
-  // 휴지통 같은 셸 항목을 담아도 바탕화면 쪽을 감추지 않는다.
+  const at = onDesk(place.desk, '가릴것.txt');
+  await place.host.dropFiles('a', [at]);
+  place.host.refreshIcons();
+
+  assert.equal(fs.existsSync(at), true, '칸으로 옮기면서 파일을 옮겼다');
+  const seated = place.desktop.calls.seated.at(-1);
+  assert.ok(seated.some((spot) => spot.name === '가릴것.txt'), '바탕화면 아이콘을 박스 칸으로 옮기지 않았다');
+  assert.equal(place.desktop.concealed.has(at), false, '파일을 숨김으로 만들었다');
+
+  await place.host.eject('a', at);
+  place.host.refreshIcons();
+  const back = place.desktop.calls.seated.at(-1);
+  assert.equal(back.some((spot) => spot.name === '가릴것.txt'), false, '박스에서 뺐는데 칸에 남아 있다');
+  assert.ok(place.desktop.calls.homed.some((names) => names.includes('가릴것.txt')), '바탕화면으로 돌려주지 않았다');
+  assert.equal(fs.existsSync(at), true, '꺼내면서 파일을 옮겼다');
+});
+
+test('가리키는 셸 항목은 박스 칸으로 옮긴다', async () => {
+  const place = room();
   await place.host.dropFiles('a', [{ name: '휴지통', path: 'shell:RecycleBinFolder' }]);
   place.host.refreshIcons();
 
-  assert.deepEqual(place.desktop.calls.shell.at(-1), [], '그대로 두기인데 셸 아이콘을 감췄다');
+  assert.deepEqual(place.desktop.calls.shell.at(-1), [], '휴지통을 숨김으로 감췄다');
+  const seated = place.desktop.calls.seated.at(-1);
+  assert.ok(seated.some((spot) => spot.name === '휴지통'), '휴지통을 박스 칸으로 옮기지 않았다');
 });
 
 test('박스가 덮은 자리의 바탕화면 아이콘은 그대로 밀어낸다', async () => {

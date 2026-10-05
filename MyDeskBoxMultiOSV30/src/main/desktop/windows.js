@@ -1,7 +1,8 @@
 'use strict';
 
 // 탐색기 바탕화면 아이콘(SysListView32)의 자리를 읽고 옮긴다.
-// 박스에 넣은 아이콘은 화면 밖으로 치워 창 안의 아이콘과 겹치지 않게 한다.
+// 박스에 넣은 아이콘은 그 박스 칸으로 옮겨, 박스를 끌면 함께 움직인다.
+// 파일 속성은 바꾸지 않는다. 탐색기는 그 파일을 보통 파일로 보여 준다.
 
 const fs = require('fs');
 const path = require('path');
@@ -25,6 +26,7 @@ const shell32 = koffi.load('shell32.dll');
 const gdi32 = koffi.load('gdi32.dll');
 const comctl32 = koffi.load('comctl32.dll');
 const ole32 = koffi.load('ole32.dll');
+const dwmapi = koffi.load('dwmapi.dll');
 
 const FindWindowW = user32.func('void * __stdcall FindWindowW(str16 className, str16 windowName)');
 const FindWindowExW = user32.func('void * __stdcall FindWindowExW(void *parent, void *after, str16 className, str16 windowName)');
@@ -36,8 +38,8 @@ const GetAsyncKeyState = user32.func('int16 __stdcall GetAsyncKeyState(int key)'
 const GetForegroundWindow = user32.func('void * __stdcall GetForegroundWindow()');
 const GetWindowLongPtrW = user32.func('int64 __stdcall GetWindowLongPtrW(void *hwnd, int index)');
 const InvalidateRect = user32.func('int __stdcall InvalidateRect(void *hwnd, void *rect, int erase)');
+const ValidateRect = user32.func('int __stdcall ValidateRect(void *hwnd, void *rect)');
 
-const PostMessageW = user32.func('int __stdcall PostMessageW(void *hwnd, uint32 msg, uint64 wParam, uint64 lParam)');
 const UpdateWindow = user32.func('int __stdcall UpdateWindow(void *hwnd)');
 const SetWindowLongPtrW = user32.func('int64 __stdcall SetWindowLongPtrW(void *hwnd, int index, int64 value)');
 const DeskPoint = koffi.struct('DeskPoint', { x: 'int32', y: 'int32' });
@@ -89,6 +91,8 @@ const ReleaseDC = user32.func('int __stdcall ReleaseDC(void *hwnd, void *hdc)');
 const GetObjectW = gdi32.func('int __stdcall GetObjectW(void *handle, int size, _Out_ BITMAP *out)');
 const GetDIBits = gdi32.func('int __stdcall GetDIBits(void *hdc, void *bitmap, uint32 start, uint32 lines, _Out_ uint8_t *bits, uint8_t *info, uint32 usage)');
 const DeleteObject = gdi32.func('int __stdcall DeleteObject(void *handle)');
+const CreateRoundRectRgn = gdi32.func('void * __stdcall CreateRoundRectRgn(int left, int top, int right, int bottom, int rw, int rh)');
+const SetWindowRgn = user32.func('int __stdcall SetWindowRgn(void *hwnd, void *rgn, int redraw)');
 const CoInitializeEx = ole32.func('int32 __stdcall CoInitializeEx(void *reserved, uint32 flags)');
 const CoTaskMemFree = ole32.func('void __stdcall CoTaskMemFree(void *p)');
 // 휴지통처럼 파일이 아닌 항목은 이름이 아니라 셸 항목 식별자(PIDL)로 다룬다.
@@ -125,9 +129,52 @@ function trace(line) {
 
 const SW_HIDE = 0;
 const SW_SHOWNA = 8;
+const SWP_NOSIZE = 0x0001;
 const SWP_NOMOVE = 0x0002;
 const SWP_NOZORDER = 0x0004;
 const SWP_NOACTIVATE = 0x0010;
+// 창을 Z 순서의 맨 위에 둔다. 바탕화면보다 위에 올릴 때 쓴다.
+const HWND_TOP = 0;
+// 바로 위에 있는 창. 바탕화면 창의 바로 위를 찾을 때 쓴다.
+const GW_HWNDPREV = 3;
+// 사각 전체를 흐리는 값은 쓰지 않는다. 쓰면 둥근 모퉁이 밖이 흐린 채로 남는다.
+const ACCENT_DISABLED = 0;
+const WCA_ACCENT_POLICY = 19;
+const DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+const DWMWCP_DONOTROUND = 1;
+const DWMWA_BORDER_COLOR = 34;
+const DWMWA_COLOR_NONE = 0xfffffffe;
+const DWMWA_SYSTEMBACKDROP_TYPE = 38;
+const DWMSBT_NONE = 1;
+// 흐림 영역 밖은 투명이다. 사각 재질과 달리 모퉁이를 칠하지 않는다.
+const DWM_BB_ENABLE = 0x1;
+const DWM_BB_BLURREGION = 0x2;
+const AccentPolicy = koffi.struct('AccentPolicy', {
+  AccentState: 'int32',
+  AccentFlags: 'int32',
+  GradientColor: 'uint32',
+  AnimationId: 'int32',
+});
+const WindowCompositionAttribData = koffi.struct('WindowCompositionAttribData', {
+  Attribute: 'int32',
+  Data: 'AccentPolicy *',
+  SizeOfData: 'uint32',
+});
+const MARGINS = koffi.struct('MARGINS', {
+  cxLeftWidth: 'int32',
+  cxRightWidth: 'int32',
+  cyTopHeight: 'int32',
+  cyBottomHeight: 'int32',
+});
+const DWM_BLURBEHIND = koffi.struct('DWM_BLURBEHIND', {
+  dwFlags: 'uint32',
+  fEnable: 'int32',
+  hRgnBlur: 'void *',
+  fTransitionOnMaximized: 'int32',
+});
+const DwmExtendFrameIntoClientArea = dwmapi.func('int32 __stdcall DwmExtendFrameIntoClientArea(void *hwnd, MARGINS *margins)');
+const DwmSetWindowAttribute = dwmapi.func('int32 __stdcall DwmSetWindowAttribute(void *hwnd, uint32 attribute, uint8_t *value, uint32 size)');
+const DwmEnableBlurBehindWindow = dwmapi.func('int32 __stdcall DwmEnableBlurBehindWindow(void *hwnd, DWM_BLURBEHIND *behind)');
 const WM_SETREDRAW = 0x000B;
 const WM_COMMAND = 0x0111;
 // 바탕화면 보기의 '새로 고침'. 목록만 다시 읽고 아이콘 그림 곳간은 건드리지 않는다.
@@ -229,6 +276,9 @@ function init(dir) {
   } catch (_err) {
     homes = new Map();
   }
+  // 예전 판이 숨김 속성을 붙여 둔 파일은 바로 보통 파일로 되돌린다.
+  // 탐색기와 바탕화면이 그 파일을 숨김 파일로 그리면 안 된다.
+  guard(() => revealStored());
   // 예전 판이 꺼 둔 자동 정렬이 남아 있으면 아이콘을 옮겨도 자리가 고정된다.
   guard(() => restoreArrange());
 }
@@ -355,6 +405,31 @@ function classOf(hwnd) {
   return Buffer.from(buf.subarray(0, n * 2)).toString('ucs2');
 }
 
+// 바탕화면 아이콘이 붙어 있는 맨 위 창. Progman 이거나, 벽지를 갈라 둔 WorkerW 다.
+function desktopHost() {
+  prepare();
+  const progman = FindWindowW('Progman', 'Program Manager') || FindWindowW('Progman', null);
+  if (progman && listIn(progman)) return progman;
+  let previous = null;
+  for (;;) {
+    const worker = FindWindowExW(null, previous, 'WorkerW', null);
+    if (!worker) return progman || null;
+    previous = worker;
+    if (listIn(worker)) return worker;
+  }
+}
+
+function nativeHwnd(win) {
+  try {
+    if (!win || win.isDestroyed() || typeof win.getNativeWindowHandle !== 'function') return null;
+    const buf = win.getNativeWindowHandle();
+    if (!buf || buf.length < 4) return null;
+    return buf.length >= 8 ? buf.readBigUInt64LE(0) : BigInt(buf.readUInt32LE(0));
+  } catch (_err) {
+    return null;
+  }
+}
+
 function listIn(parent) {
   if (!parent) return null;
   const defView = FindWindowExW(parent, null, 'SHELLDLL_DefView', null);
@@ -430,13 +505,19 @@ function writePos(session, index, x, y) {
 }
 
 // 박스를 끄는 동안 쓰는 빠른 길.
-// SendMessage 는 탐색기가 그 메시지를 처리할 때까지 우리를 멈춰 세운다(아이콘 하나에 1.5ms 남짓).
-// LVM_SETITEMPOSITION 은 좌표를 lParam 에 담으므로 건너편 메모리가 필요 없고,
-// 그래서 PostMessage 로 던져 두고 갈 수 있다. 좌표는 16비트라 화면 안에서만 쓴다.
-function postPos(list, index, x, y) {
-  if (x < 0 || y < 0 || x > 32767 || y > 32767) return false;
-  const lParam = BigInt(((y & 0xffff) << 16) | (x & 0xffff)) & 0xffffffffn;
-  return !!PostMessageW(list, LVM_SETITEMPOSITION, BigInt(index), lParam);
+// LVM_SETITEMPOSITION 은 좌표를 lParam 에 담으므로 건너편 메모리가 필요 없다.
+// 좌표는 16비트라 화면 안에서만 쓴다.
+function packPos(x, y) {
+  if (x < 0 || y < 0 || x > 32767 || y > 32767) return null;
+  return BigInt(((y & 0xffff) << 16) | (x & 0xffff)) & 0xffffffffn;
+}
+
+// 자리를 확정한 뒤에 창을 옮긴다. 메시지를 던져 두면 쌓여서 새로 들어온 아이콘이 천천히 따라온다.
+function sendPos(list, index, x, y) {
+  const lParam = packPos(x, y);
+  if (lParam == null) return false;
+  SendMessageW(list, LVM_SETITEMPOSITION, BigInt(index), lParam);
+  return true;
 }
 
 function decodeUtf16(buf) {
@@ -520,8 +601,11 @@ function applyMoves(session, moves, keepArrange, live) {
   if (!moves.length) return false;
   // 자리를 한 번 옮기려고 자동 정렬을 끄면, 그 뒤로는 아이콘을 끌어도 자리가 고정된다.
   if (!keepArrange) manualArrange(session.list);
+  // 끄는 동안에는 자리를 확정하고 끝낸다. 던져 두면 아이콘이 창보다 늦게 그려진다.
+  let synced = !!live;
   for (const move of moves) {
-    if (live && postPos(session.list, move.index, move.x, move.y)) continue;
+    if (live && sendPos(session.list, move.index, move.x, move.y)) continue;
+    synced = false;
     writePos(session, move.index, move.x, move.y);
   }
   // 옮긴 자리는 읽어 둔 목록에도 반영한다. 끄는 동안 같은 것을 되풀이해 옮기지 않는다.
@@ -536,8 +620,9 @@ function applyMoves(session, moves, keepArrange, live) {
   }
   // 자리를 바꾼 뒤에는 바탕화면을 다시 그리게 한다. 그러지 않으면 옛 그림이 남는다.
   // UpdateWindow 는 탐색기가 다 그릴 때까지 우리를 멈춰 세운다(계측 8.4ms).
-  // 박스를 끄는 동안에는 알리기만 하고 그리는 때는 탐색기에 맡긴다.
-  if (!listFrozen) {
+  // 박스를 끄는 동안에는 항목 자리 메시지가 그 칸만 고친다. 바탕 전체를 지우면
+  // 그 그림이 늦어져, 새로 들어온 아이콘이 창 뒤를 따라온다.
+  if (!listFrozen && !synced) {
     InvalidateRect(session.list, null, 1);
     if (!live) UpdateWindow(session.list);
   }
@@ -660,6 +745,273 @@ function revealStored() {
     }
   }
   if (changed) persistHomes();
+}
+
+// 박스 칸에 앉혀 둔 바탕화면 아이콘. 키는 아이콘 이름, 값은 마지막으로 앉힌 자리.
+// 박스 안에 있는 것이 맞으므로 밀어내기(nudge)는 이것을 건드리지 않는다.
+const seated = new Map();
+
+function toPhysicalPoint(point) {
+  if (!point) return null;
+  try {
+    const { screen } = require('electron');
+    const phys = screen.dipToScreenPoint({ x: point.x, y: point.y });
+    return { x: Math.round(phys.x), y: Math.round(phys.y) };
+  } catch (_err) {
+    return { x: Math.round(point.x), y: Math.round(point.y) };
+  }
+}
+
+// 박스에 담긴 바탕화면 아이콘을 그 박스의 칸으로 옮긴다.
+//
+// 파일은 옮기지 않고 속성도 바꾸지 않는다. 탐색기는 보통 파일로 보여 준다.
+// 박스를 끌면 칸의 화면 좌표가 바뀌고, 아이콘을 그 좌표로 다시 놓아 함께 움직인다.
+// 박스에서 빠지고도 아직 그 칸에 있으면 담기 전 자리로 돌려 바탕화면에 다시 보인다.
+// 사람이 칸 밖으로 끌어 둔 것은 그 자리에 둔다. 정렬을 되돌리지 않는다.
+// places 의 x, y 는 DIP 다. 바탕화면 아이콘 좌표는 실제 픽셀이라 여기서 바꾼다.
+function seatKept(places, live) {
+  const list = places || [];
+  return guard(() => withList((session) => {
+    if (!session) return false;
+    const listed = readMaybeCached(session, !!live);
+    const moves = [];
+    const next = new Map();
+    for (const place of list) {
+      if (!place || !place.name) continue;
+      const icon = listed.find((entry) => sameName(entry.name, place.name));
+      if (!icon) continue;
+      const key = keyOf(icon.name);
+      const point = toPhysicalPoint(place);
+      if (!point) continue;
+      if (!homes.has(key) && !isParked(icon)) homes.set(key, { x: icon.x, y: icon.y });
+      next.set(key, { x: point.x, y: point.y, index: icon.index, name: icon.name });
+      if (Math.abs(icon.x - point.x) > 2 || Math.abs(icon.y - point.y) > 2) {
+        moves.push({ index: icon.index, x: point.x, y: point.y });
+      }
+    }
+    for (const [key, at] of seated) {
+      if (next.has(key)) continue;
+      const icon = listed.find((entry) => keyOf(entry.name) === key);
+      if (!icon) continue;
+      const stillThere = Math.abs(icon.x - at.x) < 40 && Math.abs(icon.y - at.y) < 40;
+      if (!stillThere) continue;
+      const home = homes.get(key);
+      if (!home || (home.x === icon.x && home.y === icon.y)) continue;
+      moves.push({ index: icon.index, x: home.x, y: home.y });
+    }
+    seated.clear();
+    for (const [key, point] of next) seated.set(key, point);
+    if (!moves.length) return false;
+    trace(`박스 칸으로 아이콘 ${moves.length}개를 옮긴다`);
+    return applyMoves(session, moves, false, !!live);
+  }));
+}
+
+// 이 번 끌기에서 번호 없는 아이콘을 이미 찾아 보았는가. 매 프레임 읽으면 박스가 느려진다.
+let followLatched = false;
+// 자리를 옮기는 동안 바탕화면 그림을 멈춰 둔 목록. 창이 덮기 전에 그리면 밖에 비친다.
+let followList = null;
+// 창이 새 자리를 덮은 뒤에 옮길 아이콘. 그 전에 그리면 박스 밖에 잠깐 보인다.
+let pendingMoves = [];
+// 창을 옮기기 전에 자리만 바꿔 둔 아이콘. 그림은 창이 덮은 뒤에 친다.
+let carried = [];
+
+function invalidateAt(list, x, y, w, h) {
+  const rect = Buffer.alloc(16);
+  rect.writeInt32LE(x | 0, 0);
+  rect.writeInt32LE(y | 0, 4);
+  rect.writeInt32LE((x + w) | 0, 8);
+  rect.writeInt32LE((y + h) | 0, 12);
+  InvalidateRect(list, rect, 1);
+}
+
+function validateAt(list, x, y, w, h) {
+  const rect = Buffer.alloc(16);
+  rect.writeInt32LE(x | 0, 0);
+  rect.writeInt32LE(y | 0, 4);
+  rect.writeInt32LE((x + w) | 0, 8);
+  rect.writeInt32LE((y + h) | 0, 12);
+  ValidateRect(list, rect);
+}
+
+// 아이콘 글자는 칸보다 넓다. 칸만 지우면 글자 잔상이 박스 밖에 남는다.
+function cellBox(x, y, spacing) {
+  const cx = spacing && spacing.cx ? spacing.cx : 128;
+  const cy = spacing && spacing.cy ? spacing.cy : 112;
+  const side = Math.round(cx * 0.5) + 8;
+  return { x: x - side, y: y - 8, w: cx + side * 2, h: cy + 24 };
+}
+
+// 번호가 없는 아이콘만 목록에서 찾는다. 자리는 옮기지 않는다.
+// 창을 옮긴 뒤에 찾으면, 그 동안 아이콘이 박스 뒤를 따라온다.
+function noteSeats(places) {
+  if (followLatched) return;
+  const want = places || [];
+  if (!want.length) return;
+  let missing = seated.size === 0;
+  if (!missing) {
+    for (const place of want) {
+      let found = false;
+      for (const entry of seated.values()) {
+        if (entry.index != null && sameName(entry.name, place.name)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        missing = true;
+        break;
+      }
+    }
+  }
+  if (!missing) return;
+  followLatched = true;
+  guard(() => withList((session) => {
+    if (!session) return false;
+    const listed = readMaybeCached(session, true);
+    for (const place of want) {
+      const icon = listed.find((entry) => sameName(entry.name, place.name));
+      if (!icon) continue;
+      const key = keyOf(icon.name);
+      const have = seated.get(key);
+      if (have && have.index != null) continue;
+      seated.set(key, { x: icon.x, y: icon.y, index: icon.index, name: icon.name });
+    }
+    return true;
+  }));
+}
+
+function rememberMove(move) {
+  if (listCache) {
+    const found = listCache.items.find((icon) => icon.index === move.index);
+    if (found) {
+      found.x = move.x;
+      found.y = move.y;
+    }
+  }
+  move.slot.x = move.x;
+  move.slot.y = move.y;
+}
+
+// 창을 옮기기 전에 부른다. 아이콘 자리만 새 칸으로 바꾸고, 옛 그림만 지운다.
+// 새 칸을 지금 그리면 창이 아직 옛 자리에 있어 아이콘이 박스 밖에 보인다.
+// 옛 그림을 남겨 두고 창만 옮기면, 그 그림이 박스 밖에 남는다.
+function armFollow() {
+  const list = followList;
+  const moves = pendingMoves;
+  pendingMoves = [];
+  if (!list || !moves.length) return false;
+  const spacing = itemSpacing(list) || { cx: 128, cy: 112 };
+  const hold = !listFrozen;
+  if (hold) SendMessageTimeoutW(list, WM_SETREDRAW, 0, 0, 0, 8, null);
+  const spots = [];
+  try {
+    for (const move of moves) {
+      const fromX = move.slot ? move.slot.x : move.x;
+      const fromY = move.slot ? move.slot.y : move.y;
+      if (!sendPos(list, move.index, move.x, move.y)) continue;
+      spots.push({ fromX, fromY, x: move.x, y: move.y });
+      rememberMove(move);
+    }
+  } finally {
+    if (hold) SendMessageW(list, WM_SETREDRAW, 1n, 0n);
+  }
+  carried = spots;
+  if (!hold || !spots.length) return spots.length > 0;
+  // 다시 그리기를 켜면 목록 전체가 더러워진다. 먼저 걷어 내고 옛 자리만 지운다.
+  ValidateRect(list, null);
+  for (const spot of spots) {
+    const oldBox = cellBox(spot.fromX, spot.fromY, spacing);
+    invalidateAt(list, oldBox.x, oldBox.y, oldBox.w, oldBox.h);
+  }
+  // 새 자리와 겹치는 칸은 아직 그리지 않는다. 창 밖에서 아이콘이 나타난다.
+  for (const spot of spots) {
+    const nextBox = cellBox(spot.x, spot.y, spacing);
+    validateAt(list, nextBox.x, nextBox.y, nextBox.w, nextBox.h);
+  }
+  UpdateWindow(list);
+  return true;
+}
+
+// 창이 새 자리를 덮은 뒤에 부른다. 여기서 새 칸을 그린다.
+// 아직 자리를 못 바꾼 것이 있으면 지금 바꾼다. 하나씩 그리면 뒤의 아이콘이 늦게 따라온다.
+function paintFollow() {
+  const list = followList;
+  const moves = pendingMoves;
+  pendingMoves = [];
+  const spots = carried;
+  carried = [];
+  if (!list) return false;
+  const hold = !listFrozen;
+  if (moves.length) {
+    if (hold) SendMessageTimeoutW(list, WM_SETREDRAW, 0, 0, 0, 8, null);
+    try {
+      for (const move of moves) {
+        const fromX = move.slot ? move.slot.x : move.x;
+        const fromY = move.slot ? move.slot.y : move.y;
+        if (!sendPos(list, move.index, move.x, move.y)) continue;
+        spots.push({ fromX, fromY, x: move.x, y: move.y });
+        rememberMove(move);
+      }
+    } finally {
+      // 타임아웃으로 켜면 그리기가 꺼진 채 남을 수 있다. 켜는 쪽은 답이 올 때까지 기다린다.
+      if (hold) SendMessageW(list, WM_SETREDRAW, 1n, 0n);
+    }
+  }
+  if (!hold || !spots.length) return spots.length > 0;
+  const spacing = itemSpacing(list) || { cx: 128, cy: 112 };
+  for (const spot of spots) {
+    const oldBox = cellBox(spot.fromX, spot.fromY, spacing);
+    invalidateAt(list, oldBox.x, oldBox.y, oldBox.w, oldBox.h);
+    if (spot.x !== spot.fromX || spot.y !== spot.fromY) {
+      const nextBox = cellBox(spot.x, spot.y, spacing);
+      invalidateAt(list, nextBox.x, nextBox.y, nextBox.w, nextBox.h);
+    }
+  }
+  UpdateWindow(list);
+  return true;
+}
+
+// 손을 떼면 다음 끌기에서 번호 없는 아이콘을 다시 찾는다.
+// 여기서 그리면 창보다 먼저 아이콘이 움직인다. 그리기는 창을 옮긴 뒤에 한다.
+function followReset() {
+  followLatched = false;
+  pendingMoves = [];
+  carried = [];
+  followList = null;
+}
+
+// 박스를 끄는 동안 칸에 앉힌 아이콘만 새 좌표로 적는다. 그리지는 않는다.
+// 목록을 다시 읽거나 다른 아이콘을 밀지 않는다. 그 일이 박스 이동을 느리게 만든다.
+// 번호는 직전에 앉힐 때 적어 둔 것을 쓴다. 번호가 없으면 끌기 처음에 한 번만 찾는다.
+// 여기서 옮기거나 그리면, 창이 아직 옛 자리에 있어 아이콘이 밖에 보이거나 늦게 따라온다.
+function followSeats(places) {
+  const want = places || [];
+  if (!want.length) return false;
+  const list = findListView();
+  if (!list) return false;
+  noteSeats(want);
+  if (!seated.size) return false;
+  const moves = [];
+  for (const place of want) {
+    let slot = null;
+    for (const entry of seated.values()) {
+      if (sameName(entry.name, place.name)) {
+        slot = entry;
+        break;
+      }
+    }
+    if (!slot || slot.index == null) continue;
+    const point = toPhysicalPoint(place);
+    if (!point) continue;
+    if (Math.abs(slot.x - point.x) <= 1 && Math.abs(slot.y - point.y) <= 1) continue;
+    moves.push({ slot, index: slot.index, x: point.x, y: point.y });
+  }
+  if (!moves.length) return false;
+  // 지금은 좌표만 적는다. 창보다 먼저 그리면 아이콘이 밖에 보이고, 창만 먼저 가면 늦게 따라온다.
+  followList = list;
+  pendingMoves = moves;
+  return true;
 }
 
 function syncShellIcons(items) {
@@ -828,11 +1180,13 @@ function nudge(blocks, live) {
     if (!session) return false;
     const listed = readMaybeCached(session, live);
     if (!listed.length) return false;
-    // 화면 밖에 있는 아이콘은 박스에 가린 것처럼 다루어 화면 안으로 들인다.
+    // 박스 칸에 앉힌 아이콘은 그 자리에 있는 것이 맞다. 밖으로 밀면 박스를 따라가지 못한다.
     const origin = walls[0];
-    const visible = listed.map((icon) => (
-      isParked(icon) ? { ...icon, x: origin.x + 1, y: origin.y + 1 } : icon
-    ));
+    const visible = listed
+      .filter((icon) => !seated.has(keyOf(icon.name)))
+      .map((icon) => (
+        isParked(icon) ? { ...icon, x: origin.x + 1, y: origin.y + 1 } : icon
+      ));
     // 박스를 맞춘 격자와 같은 것으로 민다. 서로 다른 격자를 쓰면 줄이 어긋난다.
     const grid = latticeOf(session.list, visible);
     const moves = deskgrid.relocate(visible, walls, desktopArea(), grid);
@@ -986,11 +1340,205 @@ function putHome(names) {
   }));
 }
 
+// 박스를 바탕화면 바로 위에, 다른 프로그램 창보다는 아래에 둔다.
+//
+// Palisades 는 HWND_BOTTOM 으로 항상 맨 뒤에 붙인다. 그 자리는 바탕화면보다
+// 뒤라 박스가 사라진다. 그래서 바탕화면 창의 바로 위를 찾아 그 아래에 끼운다.
+// 끼워 넣을 창이 없으면 맨 위로 올려 바탕화면보다는 앞에 있게 한다.
 function place(win) {
   if (!win || win.isDestroyed()) return;
-  // 작업 창을 항상 가리지 않게 포커스를 빼앗지 않는다.
-  // HWND_BOTTOM 은 바탕화면 뒤로 들어가 박스가 사라지므로 쓰지 않는다.
   win.setAlwaysOnTop(false);
+  const hwnd = nativeHwnd(win);
+  if (!hwnd) return;
+  try {
+    const shell = desktopHost();
+    const above = shell ? GetWindow(shell, GW_HWNDPREV) : null;
+    const behind = above && String(above) !== String(hwnd) ? above : HWND_TOP;
+    SetWindowPos(hwnd, behind, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+  } catch (_err) {
+    /* 바탕화면 층을 못 찾으면 보통 창으로 둔다. */
+  }
+}
+
+// 둥근 모서리 밖은 창에 넣지 않는다. 흐림을 켜도 그 칸은 바탕이 그대로 비친다.
+// radius 와 inset 은 DIP 다. 창 크기는 실제 픽셀이라 여기서 맞춘다.
+const blurWanted = new WeakMap();
+const shapeOf = new WeakMap();
+const regionKey = new WeakMap();
+const watched = new WeakSet();
+const clipQueued = new WeakSet();
+let setComposition = null;
+
+// 재질을 켠 직후 창 영역이 풀리는 경우가 있다. 지금 크기로 한 번 더 자른다.
+function scheduleClip(win) {
+  if (clipQueued.has(win)) return;
+  clipQueued.add(win);
+  setImmediate(() => {
+    clipQueued.delete(win);
+    if (!win || win.isDestroyed()) return;
+    const shape = shapeOf.get(win);
+    if (!shape) return;
+    regionKey.delete(win);
+    applyRegion(win, shape.radiusDip, shape.insetDip, 'again');
+  });
+}
+
+function watchShape(win) {
+  if (watched.has(win)) return;
+  watched.add(win);
+  const again = () => {
+    if (!win || win.isDestroyed()) return;
+    const shape = shapeOf.get(win);
+    if (!shape) return;
+    regionKey.delete(win);
+    applyRegion(win, shape.radiusDip, shape.insetDip);
+  };
+  try {
+    win.on('show', again);
+    win.on('resize', again);
+  } catch (_err) {
+    /* 창이 이미 닫혔다. */
+  }
+}
+
+function writeAttr(hwnd, attribute, value) {
+  const data = Buffer.alloc(4);
+  data.writeUInt32LE(value >>> 0);
+  DwmSetWindowAttribute(hwnd, attribute, data, 4);
+}
+
+// 사각 전체를 흐리는 효과는 끈다. 켜 두면 모퉁이 밖이 흐리게 남는다.
+function disableAccent(hwnd) {
+  try {
+    if (!setComposition) {
+      setComposition = user32.func('int __stdcall SetWindowCompositionAttribute(void *hwnd, WindowCompositionAttribData *data)');
+    }
+    setComposition(hwnd, {
+      Attribute: WCA_ACCENT_POLICY,
+      Data: {
+        AccentState: ACCENT_DISABLED,
+        AccentFlags: 0,
+        GradientColor: 0,
+        AnimationId: 0,
+      },
+      SizeOfData: koffi.sizeof(AccentPolicy),
+    });
+  } catch (_err) {
+    /* 사각 흐림을 끄지 못해도 모서리 자르기는 한다. */
+  }
+}
+
+// 사각으로 깔리는 재질은 끈다. 아크릴과 프레임 확장은 모퉁이까지 칠한다.
+function applyMaterial(win, hwnd) {
+  try {
+    if (typeof win.setBackgroundMaterial === 'function') win.setBackgroundMaterial('none');
+  } catch (_err) {
+    /* 재질을 끄지 못해도 아래 호출로 사각 흐림은 거둔다. */
+  }
+  try {
+    DwmExtendFrameIntoClientArea(hwnd, {
+      cxLeftWidth: 0,
+      cxRightWidth: 0,
+      cyTopHeight: 0,
+      cyBottomHeight: 0,
+    });
+    writeAttr(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_NONE);
+    writeAttr(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND);
+    writeAttr(hwnd, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE);
+  } catch (_err) {
+    /* 흐림을 못 꺼도 모서리 자르기는 한다. */
+  }
+  disableAccent(hwnd);
+}
+
+// 흐림은 둥근 영역 안에만 둔다. 그 밖은 바탕이 그대로 비친다.
+function setBlurShape(hwnd, rgn, on) {
+  try {
+    DwmEnableBlurBehindWindow(hwnd, {
+      dwFlags: on && rgn ? (DWM_BB_ENABLE | DWM_BB_BLURREGION) : DWM_BB_ENABLE,
+      fEnable: on ? 1 : 0,
+      hRgnBlur: on && rgn ? rgn : null,
+      fTransitionOnMaximized: 0,
+    });
+  } catch (_err) {
+    /* 영역 흐림을 못 켜도 창 모양은 자른다. */
+  }
+}
+
+function makeRound(inset, across, down, radius) {
+  return CreateRoundRectRgn(inset, inset, inset + across + 1, inset + down + 1, radius * 2, radius * 2);
+}
+
+function applyRegion(win, radiusDip, insetDip, later) {
+  if (!win || win.isDestroyed()) return false;
+  const hwnd = nativeHwnd(win);
+  if (!hwnd) return false;
+  const box = { left: 0, top: 0, right: 0, bottom: 0 };
+  if (!GetClientRect(hwnd, box)) return false;
+  const width = box.right - box.left;
+  const height = box.bottom - box.top;
+  if (width < 2 || height < 2) return false;
+  let scale = 1;
+  try {
+    const dip = win.getBounds();
+    if (dip && dip.width > 0) scale = width / dip.width;
+  } catch (_err) {
+    scale = 1;
+  }
+  const blurOn = blurWanted.get(win) === true;
+  const key = `${Math.round(Number(radiusDip) || 0)}|${Math.round(Number(insetDip) || 0)}|${width}|${height}|${blurOn ? 1 : 0}`;
+  if (!later && regionKey.get(win) === key) return true;
+  const inset = Math.max(0, Math.round((Number(insetDip) || 0) * scale));
+  const across = width - inset * 2;
+  const down = height - inset * 2;
+  if (across < 2 || down < 2) return false;
+  let radius = Math.round((Number(radiusDip) || 0) * scale);
+  radius = Math.max(0, Math.min(radius, Math.floor(Math.min(across, down) / 2)));
+  if (radius < 1) {
+    setBlurShape(hwnd, null, false);
+    SetWindowRgn(hwnd, null, 1);
+    regionKey.set(win, key);
+    return true;
+  }
+  // 오른쪽과 아래는 포함되지 않아 한 픽셀이 사각으로 남는다. 한 칸 더 잡아 맞춘다.
+  // 흐림용 영역은 우리가 지우고, 창 모양용 영역은 SetWindowRgn 이 가져간다.
+  const blurRgn = blurOn ? makeRound(inset, across, down, radius) : null;
+  const rgn = makeRound(inset, across, down, radius);
+  if (!rgn) {
+    if (blurRgn) DeleteObject(blurRgn);
+    return false;
+  }
+  if (!SetWindowRgn(hwnd, rgn, 1)) {
+    DeleteObject(rgn);
+    if (blurRgn) DeleteObject(blurRgn);
+    return false;
+  }
+  setBlurShape(hwnd, blurRgn, blurOn);
+  if (blurRgn) DeleteObject(blurRgn);
+  regionKey.set(win, key);
+  if (later !== 'again') scheduleClip(win);
+  return true;
+}
+
+function roundWindow(win, radiusDip, insetDip) {
+  if (!win || win.isDestroyed()) return false;
+  shapeOf.set(win, { radiusDip, insetDip });
+  watchShape(win);
+  return applyRegion(win, radiusDip, insetDip);
+}
+
+// 반투명 박스 뒤로 바탕화면을 흐려 비춘다. 끄면 흐림을 거둔다.
+// 모퉁이 밖은 흐리지 않는다. 사각 흐림은 켜지 않는다.
+function blurBehind(win, on) {
+  if (!win || win.isDestroyed()) return;
+  const want = !!on;
+  if (blurWanted.get(win) === want) return;
+  blurWanted.set(win, want);
+  const hwnd = nativeHwnd(win);
+  if (hwnd) applyMaterial(win, hwnd);
+  regionKey.delete(win);
+  const shape = shapeOf.get(win);
+  if (shape) applyRegion(win, shape.radiusDip, shape.insetDip);
 }
 
 function cursorOnIcon() {
@@ -1403,6 +1951,13 @@ function homeAll() {
     let spot = 0;
     for (const icon of listed) {
       const key = keyOf(icon.name);
+      // 박스 칸에 앉혀 둔 것은 담기 전 자리로 돌려 바탕화면에 다시 보이게 한다.
+      if (seated.has(key)) {
+        const home = homes.get(key) || defaultSpot(spot);
+        spot += 1;
+        if (icon.x !== home.x || icon.y !== home.y) moves.push({ index: icon.index, x: home.x, y: home.y });
+        continue;
+      }
       // 화면 밖에 치워 둔 것은 적어 둔 자리로, 없으면 화면 안 빈 자리로 들인다.
       if (isParked(icon)) {
         const home = homes.get(key) || defaultSpot(spot);
@@ -1419,6 +1974,7 @@ function homeAll() {
       moves.push({ index: icon.index, x: home.x, y: home.y });
     }
     nudged.clear();
+    seated.clear();
     return applyMoves(session, moves);
   }));
 }
@@ -1490,8 +2046,15 @@ module.exports = {
   init,
   prepare,
   place,
+  blurBehind,
+  roundWindow,
   release,
   syncShellIcons,
+  seatKept,
+  followSeats,
+  armFollow,
+  paintFollow,
+  followReset,
   gridInfo,
   hidePath,
   displayName,

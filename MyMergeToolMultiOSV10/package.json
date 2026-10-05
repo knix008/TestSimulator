@@ -1,0 +1,103 @@
+{
+  "name": "mymerge",
+  "version": "10.0.0",
+  "private": true,
+  "description": "MyMerge 10.0 git merge tool",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "icons": "node scripts/make-icons.js",
+    "start": "electron .",
+    "test": "node scripts/test.js",
+    "build:web": "node scripts/build-web.js",
+    "build:win": "electron-builder --win --x64 && node scripts/copy-setup.js",
+    "build:linux": "electron-builder --linux --x64",
+    "build:macos": "node scripts/build-macos.js",
+    "build": "npm run icons && npm run build:web && npm run build:win && npm run build:linux && npm run build:macos"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.shkwon.mymerge",
+    "productName": "MyMerge",
+    "executableName": "MyMerge",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "popup.html",
+      "menu.html",
+      "style/**/*",
+      "src/**/*",
+      "electron/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "assets/document.ico", "to": "document.ico" },
+      { "from": "assets/icon.ico", "to": "icon.ico" },
+      { "from": "assets/icon.png", "to": "icon.png" }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "mmerge",
+        "name": "MyMerge.Session",
+        "description": "MyMerge Session",
+        "mimeType": "application/vnd.mymerge.session",
+        "icon": "assets/document.ico",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyMerge 10.0",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "installerLanguages": ["ko_KR", "en_US"],
+      "language": "1042",
+      "include": "build/installer.nsh",
+      "license": "build/license.txt",
+      "artifactName": "MyMerge-${version}-windows-${arch}-setup.${ext}"
+    },
+    "linux": {
+      "icon": "assets/icons",
+      "target": ["deb", "AppImage", "tar.gz"],
+      "category": "Development",
+      "synopsis": "Git three-way merge tool",
+      "maintainer": "SHKWON <knix008@naver.com>",
+      "mimeTypes": ["application/vnd.mymerge.session"],
+      "artifactName": "MyMerge-${version}-linux-${arch}.${ext}"
+    },
+    "deb": {
+      "beforeInstall": "build/linux-before-install.sh"
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "identity": null,
+      "category": "public.app-category.developer-tools",
+      "target": ["dmg", "pkg", "zip"],
+      "artifactName": "MyMerge-${version}-macos-${arch}.${ext}"
+    },
+    "pkg": {
+      "scripts": "build/pkg-scripts"
+    }
+  }
+}

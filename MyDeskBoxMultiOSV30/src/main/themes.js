@@ -70,6 +70,9 @@ function cornerName(value) {
 const DEFAULT_THEME = 'ocean';
 const OPACITIES = [0.24, 0.38, 0.52, 0.66, 0.80];
 const DEFAULT_OPACITY = 0.52;
+// 거의 비칠 때까지 낮출 수 있다. 완전히 0이면 판이 있는지 알 수 없다.
+const MIN_OPACITY = 0.02;
+const MAX_OPACITY = 0.9;
 
 const byId = new Map(THEMES.map((theme) => [theme.id, theme]));
 
@@ -203,6 +206,8 @@ module.exports = {
   themeLabel,
   DEFAULT_THEME,
   DEFAULT_OPACITY,
+  MIN_OPACITY,
+  MAX_OPACITY,
   OPACITIES,
   themeOf,
   themeForColor,

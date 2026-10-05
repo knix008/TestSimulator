@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('desk', {
   onResize: (handler) => on('fence:resize', handler),
   onRename: (handler) => on('fence:rename', handler),
   onRenameItem: (handler) => on('fence:rename-item', handler),
+  // 다른 박스나 바탕화면을 눌렀다. 이 박스의 고른 표시를 거둔다.
+  onUnpick: (handler) => on('fence:unpick', handler),
+  // 이 박스에서 고르기를 시작했다. 다른 박스의 고른 표시를 거두게 한다.
+  picked: (id) => ipcRenderer.send('fence:picked', id),
   move: (rect) => ipcRenderer.send('fence:bounds', rect),
   saveBounds: (rect) => ipcRenderer.send('fence:bounds-save', rect),
   hover: (payload) => ipcRenderer.send('fence:hover', payload),

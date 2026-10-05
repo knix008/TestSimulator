@@ -77,10 +77,33 @@ test('아이콘은 밀어내기만 하고 담는 일은 폴더가 맡는다', ()
   // 박스를 격자에 맞추려면 칸 크기를 알아야 한다.
   assert.match(source, /function gridInfo\(\)/, '바탕화면 격자를 재는 길이 없다');
 
-  // 사용자의 파일에는 숨김 속성을 붙이지 않는다. 보관함 폴더 하나만 감춘다.
+  // 파일은 옮기지 않고 숨기지도 않는다. 바탕화면 아이콘만 박스 칸으로 옮긴다.
   assert.equal(/function stashFile/.test(source), false, '파일을 바탕화면 밖으로 옮기는 길이 남아 있다');
-  assert.equal(/function hideFile\(/.test(source), false, '파일에 숨김 속성을 붙이는 길이 남아 있다');
+  assert.equal(/function hideFile\(/.test(source), false, '파일을 무조건 숨기는 길이 남아 있다');
+  assert.equal(/function coverKept\(/.test(source), false, '숨김 속성으로 가리는 길이 남아 있다');
+  const seat = source.slice(source.indexOf('function seatKept'), source.indexOf('function syncShellIcons'));
+  assert.match(seat, /function seatKept\(/, '박스 칸으로 아이콘을 옮기는 길이 없다');
+  assert.doesNotMatch(seat, /FILE_ATTRIBUTE_HIDDEN/, '칸으로 옮기면서 숨김 속성을 붙인다');
+  const follow = source.slice(source.indexOf('function followSeats'), source.indexOf('function syncShellIcons'));
+  assert.doesNotMatch(follow, /sendPos\(/, '창을 덮기 전에 아이콘을 옮기면 밖에 비친다');
+  assert.doesNotMatch(follow, /PostMessage/, '아이콘 자리를 던져 두면 늦게 따라온다');
+  assert.doesNotMatch(follow, /InvalidateRect\(list, null/, '바탕 전체를 지우면 아이콘 그림이 늦어진다');
+  assert.doesNotMatch(follow, /UpdateWindow/, '창을 덮기 전에 아이콘을 그리면 밖에 비친다');
+  const paint = source.slice(source.indexOf('function paintFollow'), source.indexOf('function followReset'));
+  assert.match(paint, /sendPos\(/, '창이 덮은 뒤에 아이콘 자리를 확정하지 않는다');
+  const arm = source.slice(source.indexOf('function armFollow'), source.indexOf('function paintFollow'));
+  assert.match(arm, /sendPos\(/, '창을 옮기기 전에 아이콘 자리를 바꿔 두지 않는다');
+  assert.match(arm, /ValidateRect\(list, null\)/, '새 자리를 창보다 먼저 그리면 밖에 비친다');
+  const fences = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'fences.js'), 'utf8');
+  const bounds = fences.slice(fences.indexOf('function applyBounds'), fences.indexOf('function followSoon'));
+  const armAt = bounds.indexOf('armFollow');
+  const moveAt = bounds.indexOf('setBounds');
+  const paintAt = bounds.indexOf('paintFollow');
+  assert.ok(armAt >= 0 && armAt < moveAt && moveAt < paintAt, '옛 그림을 창보다 늦게 지우면 밖에 비친다');
   assert.match(source, /function hidePath\(target\)/, '보관함 폴더를 감추는 길이 없다');
+  assert.match(source, /function roundWindow\([\s\S]*?applyRegion/, '모서리 밖을 창에서 빼지 않는다');
+  assert.match(source, /function applyRegion\([\s\S]*?SetWindowRgn/, '모서리 밖을 창에서 빼지 않는다');
+  assert.equal(source.includes('ACCENT_ENABLE_BLURBEHIND'), false, '흐림이 창 사각형 전체를 칠하면 모퉁이가 남는다');
 });
 
 test('예전 판이 치워 둔 파일은 되돌릴 수 있다', { skip: process.platform !== 'win32' }, () => {

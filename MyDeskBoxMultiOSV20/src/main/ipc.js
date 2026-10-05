@@ -20,6 +20,11 @@ function install(host) {
     host.setScroll(payload.id, payload.top);
   });
 
+  // 어느 박스에서 고르기를 시작했다. 다른 박스의 고른 표시는 거둔다.
+  ipcMain.on('fence:picked', (_event, id) => {
+    host.clearPicks(id);
+  });
+
   // 아이콘을 끄는 동안 어디쯤인지 알려 온다.
   // 커서 아래의 박스는 놓을 자리를 비워 두고, 박스 밖에서는 따라다니는 그림이 그린다.
   // 이 길이 없으면 박스 밖으로 나간 아이콘이 눈에서 사라진다.

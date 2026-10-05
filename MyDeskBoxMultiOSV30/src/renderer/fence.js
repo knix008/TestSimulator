@@ -22,6 +22,9 @@ let lang = window.DeskI18n.DEFAULT_LANG;
 let items = [];
 let hover = null;
 let drag = null;
+// 한 번 눌러 고른 아이콘. 같은 아이콘을 다시 누르면 고르기를 푼다.
+// Delete 는 그 항목을 박스에서 뺀다. 파일 자체는 지우지 않는다.
+let selected = null;
 // 이름을 바꾸고 있는 아이콘. { path, el, input }
 let editing = null;
 // 한 번 눌러 열지, 두 번 눌러 열지. 설정에서 고른다.
@@ -47,24 +50,36 @@ function paintChrome() {
   panel.style.setProperty('--icon', `${grid.icon}px`);
   panel.style.setProperty('--label', `${grid.font}px`);
   // 모서리를 각지게도, 둥글게도 할 수 있다.
-  panel.style.borderRadius = `${corner ? corner.radius : 20}px`;
-  const alpha = fence.opacity || 0.52;
+  const radiusPx = corner ? corner.radius : 20;
+  panel.style.borderRadius = `${radiusPx}px`;
+  // 모퉁이 밖은 판이 칠하지 않는다. 둥글기만으로는 그 칸이 사각으로 남는 경우가 있다.
+  panel.style.clipPath = radiusPx > 0 ? `inset(0 round ${radiusPx}px)` : 'none';
+  // 제목 줄은 사각형이라, 위 모퉁이를 같이 둥글게 해야 그 칸이 사각으로 남지 않는다.
+  title.style.borderTopLeftRadius = `${radiusPx}px`;
+  title.style.borderTopRightRadius = `${radiusPx}px`;
+  panel.classList.toggle('native', items.some((item) => item.native));
+  const alpha = fence.opacity == null ? 0.52 : fence.opacity;
+  // 빛 덧칠은 기본 투명도에서 지금과 같게, 투명도를 낮추면 같이 옅어진다.
+  // 고정된 덧칠이 있으면 설정을 내려도 판이 그대로 진해 보인다.
+  const shine = alpha / 0.52;
+  panel.style.setProperty('--shine', String(shine));
+  const wash = (amount) => Math.max(0, Math.min(1, amount * shine)).toFixed(3);
   // 색 위에 빛과 그늘을 겹쳐 두께가 있는 판처럼 보이게 한다.
   panel.style.background = [
     'linear-gradient(168deg,',
-    'rgba(255,255,255,0.22) 0%,',
-    'rgba(255,255,255,0.05) 30%,',
-    'rgba(0,0,0,0.06) 62%,',
-    'rgba(0,0,0,0.20) 100%),',
+    `rgba(255,255,255,${wash(0.22)}) 0%,`,
+    `rgba(255,255,255,${wash(0.05)}) 30%,`,
+    `rgba(0,0,0,${wash(0.06)}) 62%,`,
+    `rgba(0,0,0,${wash(0.2)}) 100%),`,
     rgba(skin.bg, alpha),
   ].join(' ');
-  // 제목 줄은 바탕보다 진하고 위쪽이 밝아 튀어나와 보인다.
+  // 제목 줄은 바탕보다 조금 진하다. 진하기는 판과 같은 비율로 따라간다.
   title.style.background = [
     'linear-gradient(180deg,',
-    'rgba(255,255,255,0.26) 0%,',
-    'rgba(255,255,255,0.05) 48%,',
-    'rgba(0,0,0,0.16) 100%),',
-    rgba(skin.bar, Math.min(0.96, alpha + 0.34)),
+    `rgba(255,255,255,${wash(0.26)}) 0%,`,
+    `rgba(255,255,255,${wash(0.05)}) 48%,`,
+    `rgba(0,0,0,${wash(0.16)}) 100%),`,
+    rgba(skin.bar, Math.min(0.96, alpha * 1.65)),
   ].join(' ');
   // 글씨 색은 박스마다 따로 정할 수 있다. 정하지 않았으면 테마가 고른 색이 온다.
   const labelColor = (look && look.text) || skin.text;
@@ -106,6 +121,8 @@ function ensureIcon(item) {
   el.classList.toggle('folder', !!item.folder);
   el.classList.toggle('recycle', !!item.recycle);
   el.classList.toggle('hot', receiver() === item.path);
+  el.classList.toggle('picked', selected === item.path);
+  el.classList.toggle('native', !!item.native);
   el.querySelector('span').textContent = item.label || item.name;
   const img = el.querySelector('img');
   if (item.icon) img.src = item.icon;
@@ -170,12 +187,16 @@ function layout() {
   });
   if (drag && mine) {
     const el = ensureIcon(itemByPath(drag.path) || { path: drag.path, label: drag.label, icon: drag.icon });
+    // 손끝이 판 밖이면 그 아이콘을 판 안에 그리지 않는다. 밖에 그리는 그림은 따로 따라온다.
+    const left = drag.localX - Math.round(grid.cellW / 2);
+    const top = scrolled(drag.localY) - grid.titleH - Math.round(grid.cellH * 0.32);
+    const outside = left < 0 || top < 0 || left + grid.cellW > panel.clientWidth || top + grid.cellH > panel.clientHeight;
     el.classList.add('dragging');
-    el.classList.toggle('away', !showGap);
-    if (showGap) {
+    el.classList.toggle('away', outside || !showGap);
+    if (showGap && !outside) {
       // 끄는 아이콘은 손끝 아래 가운데에 온다. 칸 크기가 박스마다 다르므로 칸에서 셈한다.
-      el.style.left = `${drag.localX - Math.round(grid.cellW / 2)}px`;
-      el.style.top = `${scrolled(drag.localY) - grid.titleH - Math.round(grid.cellH * 0.32)}px`;
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
     }
   }
 }
@@ -235,6 +256,8 @@ function onIconDown(event) {
     el.removeEventListener('pointermove', move);
     el.removeEventListener('pointerup', up);
     if (!moved) {
+      selected = selected === filePath ? null : filePath;
+      layout();
       if (openWith === 'single' || taps.tap(filePath)) desk.open(filePath);
       return;
     }
@@ -253,11 +276,29 @@ function onIconDown(event) {
   el.addEventListener('pointerup', up);
 }
 
+// 제목 줄이나 가장자리를 끄는 동안에는 클릭을 바탕화면으로 넘기지 않는다.
+let chromeHold = false;
+
+function passMouse(event) {
+  if (!window.desk.pass) return;
+  if (chromeHold) {
+    window.desk.pass(false);
+    return;
+  }
+  const chrome = event.target.closest('#title, #gear, .edge, input, button.icon');
+  window.desk.pass(!chrome);
+}
+
+window.addEventListener('mousemove', passMouse);
+
 title.addEventListener('pointerdown', (event) => {
   if (event.button !== 0 || event.target === renameEl || !fence) return;
+  chromeHold = true;
+  if (window.desk.pass) window.desk.pass(false);
   const start = { x: event.screenX, y: event.screenY, fx: fence.x, fy: fence.y };
   let moved = false;
   title.setPointerCapture(event.pointerId);
+  panel.classList.add('moving');
   // 마우스는 화면보다 자주 움직인다. 그릴 때마다 한 번만 옮겨야 창이 손을 따라온다.
   let frame = 0;
   let want = null;
@@ -276,6 +317,8 @@ title.addEventListener('pointerdown', (event) => {
     if (!frame) frame = requestAnimationFrame(send);
   };
   const up = (ev) => {
+    chromeHold = false;
+    panel.classList.remove('moving');
     title.removeEventListener('pointermove', move);
     title.removeEventListener('pointerup', up);
     if (frame) cancelAnimationFrame(frame);
@@ -316,6 +359,8 @@ for (const handle of document.querySelectorAll('.edge')) {
     if (event.button !== 0 || !fence || fence.collapsed) return;
     event.preventDefault();
     event.stopPropagation();
+    chromeHold = true;
+    if (window.desk.pass) window.desk.pass(false);
     const mode = handle.dataset.edge;
     const start = {
       x: event.screenX,
@@ -327,6 +372,7 @@ for (const handle of document.querySelectorAll('.edge')) {
     };
     const edgeEl = event.currentTarget;
     edgeEl.setPointerCapture(event.pointerId);
+    panel.classList.add('moving');
     let frame = 0;
     const send = () => {
       frame = 0;
@@ -361,6 +407,8 @@ for (const handle of document.querySelectorAll('.edge')) {
       if (!frame) frame = requestAnimationFrame(send);
     };
     const up = () => {
+      chromeHold = false;
+      panel.classList.remove('moving');
       edgeEl.removeEventListener('pointermove', move);
       edgeEl.removeEventListener('pointerup', up);
       if (frame) cancelAnimationFrame(frame);
@@ -371,6 +419,13 @@ for (const handle of document.querySelectorAll('.edge')) {
     edgeEl.addEventListener('pointerup', up);
   });
 }
+
+body.addEventListener('pointerdown', (event) => {
+  if (event.target !== body) return;
+  if (!selected) return;
+  selected = null;
+  layout();
+});
 
 body.addEventListener('scroll', () => {
   desk.scrolled(id, body.scrollTop);
@@ -495,6 +550,7 @@ desk.onState((payload) => {
   items = payload.items || [];
   // 이름을 바꾸던 항목이 목록에서 빠졌으면(이름이 바뀌었거나 없어졌다) 입력칸을 거둔다.
   if (editing && !items.some((item) => item.path === editing.path)) stopItemRename();
+  if (selected && !items.some((item) => item.path === selected)) selected = null;
   openWith = payload.openWith === 'single' ? 'single' : 'double';
   edge = payload.shadow ? window.DeskArrange.SHADOW : 0;
   panel.classList.toggle('shadow', !!payload.shadow);
@@ -511,5 +567,16 @@ desk.onResize(() => layout());
 desk.onRename(() => startRename());
 desk.onRenameItem((filePath) => startItemRename(filePath));
 desk.ready(id);
+
+window.addEventListener('keydown', (event) => {
+  if (!selected || editing || !renameEl.hidden) return;
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+  if (event.target && event.target.tagName === 'INPUT') return;
+  event.preventDefault();
+  const filePath = selected;
+  selected = null;
+  layout();
+  desk.eject(id, filePath);
+});
 
 window.addEventListener('resize', () => layout());

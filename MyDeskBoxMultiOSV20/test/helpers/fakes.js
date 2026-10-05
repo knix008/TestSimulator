@@ -444,6 +444,10 @@ function loadHost(state) {
   // hold 에 약속을 달아 두면 그것이 풀릴 때까지 답하지 않는다. 창이 떠 있는 동안을 흉내 낸다.
   const asks = { reply: false, calls: [], before: null, hold: null };
   const askStub = {
+    // 알림창. 고를 것이 없고 알리기만 한다. 부른 것은 confirm 과 같은 자리에 적어 둔다.
+    notice(options) {
+      return askStub.confirm({ ...options, lone: true });
+    },
     confirm(options) {
       asks.calls.push(options);
       if (typeof asks.before === 'function') asks.before(options);

@@ -301,6 +301,7 @@ desk.onPrefs((payload) => {
   el('openTag').textContent = say('tray.openWith');
   el('takeTag').textContent = say('tray.takeWith');
   el('shadowTag').textContent = say('settings.shadow');
+  el('blurTag').textContent = say('settings.blur');
   el('themeTag').textContent = say('tray.newTheme');
   el('cornerTag').textContent = say('tray.newCorner');
   el('opacityTag').textContent = say('tray.newOpacity');
@@ -351,6 +352,7 @@ desk.onPrefs((payload) => {
   el('sortNow').disabled = !payload.rules.length;
   el('startup').setAttribute('aria-checked', String(!!settings.openAtLogin));
   el('shadow').setAttribute('aria-checked', String(!!settings.shadow));
+  el('blur').setAttribute('aria-checked', String(settings.blur !== false));
 
   if (!holding) {
     cornerEl.min = String(payload.corner.min);
@@ -387,6 +389,7 @@ for (const button of document.querySelectorAll('.step')) {
 
 el('startup').addEventListener('click', () => send({ openAtLogin: !settings.openAtLogin }));
 el('shadow').addEventListener('click', () => send({ shadow: !settings.shadow }));
+el('blur').addEventListener('click', () => send({ blur: settings.blur === false }));
 el('autoSort').addEventListener('click', () => send({ autoSort: !settings.autoSort }));
 el('addRule').addEventListener('click', () => edit({ act: 'rule-add', rule: {} }));
 el('sortNow').addEventListener('click', () => edit({ act: 'sort-now' }));

@@ -12,6 +12,7 @@ const nameEl = document.getElementById('name');
 const renameEl = document.getElementById('rename');
 const body = document.getElementById('body');
 const floor = document.getElementById('floor');
+const band = document.getElementById('band');
 
 let fence = null;
 let theme = null;
@@ -22,8 +23,12 @@ let hover = null;
 let drag = null;
 // 이름을 바꾸고 있는 아이콘. { path, el, input }
 let editing = null;
-// 글쇠로 복사·잘라내기·삭제할 항목. Ctrl 로 여러 개를 고른다.
+// 글쇠로 복사·잘라내기·삭제할 항목. Ctrl 로 여러 개를 고르거나, 빈 자리를 끌어 묶어 고른다.
 let picked = [];
+// 빈 자리를 끌고 있는 중. { x1, y1, base } 이며 좌표는 칸 계산과 같은 기준이다.
+let banding = null;
+// 하나만 골랐어도 테두리를 남기는가. 끌어 고른 것은 손을 떼도 남아 있어야 한다.
+let marked = false;
 // 잘라 둔 항목. 붙여넣기 전까지 흐리게 보여 준다.
 let cutPaths = [];
 // 한 번 눌러 열지, 두 번 눌러 열지. 설정에서 고른다.
@@ -99,7 +104,7 @@ function ensureIcon(item) {
   el.classList.toggle('folder', !!item.folder);
   el.classList.toggle('recycle', !!item.recycle);
   el.classList.toggle('hot', receiver() === item.path);
-  el.classList.toggle('picked', picked.length > 1 && picked.includes(item.path));
+  el.classList.toggle('picked', showsPicked() && picked.includes(item.path));
   el.classList.toggle('cut', cutPaths.includes(item.path));
   // 운영체제 끌기로 넘기면 투명한 박스 창이 파일을 받지 못한다.
   // 박스 사이는 우리가 옮기고, 다른 프로그램 위에서만 운영체제에 맡긴다.
@@ -158,7 +163,8 @@ function layout() {
   const keep = new Set(shown.map((item) => item.path));
   if (drag && mine) keep.add(drag.path);
   for (const node of [...body.children]) {
-    if (node !== floor && !keep.has(node.dataset.path)) node.remove();
+    if (node === floor || node === band) continue;
+    if (!keep.has(node.dataset.path)) node.remove();
   }
   // 칸 좌표는 창 기준이고 아이콘은 제목 줄 아래 #body 안에 놓이므로 제목 높이를 뺀다.
   shown.forEach((item, index) => {
@@ -194,7 +200,11 @@ function receiverAt(clientX, clientY, exceptPath) {
     const left = Number.parseFloat(node.style.left);
     const top = Number.parseFloat(node.style.top) + grid.titleH;
     if (!window.DeskDeliver.onPicture(x - left, y - top)) continue;
-    return node.dataset.path;
+    // 받아 줄 수 있는 항목만 받는다(메인이 정해 준 receives).
+    // 그 밖의 항목 위는 '사이에 끼우기' 자리다. 끌어다 놓기는 옮기는 일이므로
+    // 프로그램이나 문서에 넘겨 실행하는 일은 없다.
+    const item = itemByPath(node.dataset.path);
+    return item && item.receives ? node.dataset.path : null;
   }
   return null;
 }
@@ -247,10 +257,33 @@ function pick(filePath, mode) {
   } else if (mode === 'replace' || !picked.includes(filePath)) {
     picked = [filePath];
   }
-  const show = picked.length > 1;
+  // 누르는 손짓으로 고른 것은 하나일 때 테두리를 남기지 않는다.
+  marked = false;
+  paintPicked();
+  // 이 박스에서 골랐으면 다른 박스의 표시는 거둔다. 한 번에 한 박스에서만 고른다.
+  if (picked.length) desk.picked(id);
+}
+
+// 하나만 골랐을 때에도 테두리를 그리는가.
+// 여러 개를 골랐으면 늘 그린다. 하나만 눌러 고른 것은 누르는 효과로 충분하지만,
+// 끌어 묶어 고른 것은 손을 뗀 뒤에도 무엇이 골라졌는지 보여야 한다.
+function showsPicked() {
+  return marked || picked.length > 1;
+}
+
+function paintPicked() {
+  const show = showsPicked();
   for (const node of body.querySelectorAll('.icon')) {
     node.classList.toggle('picked', show && picked.includes(node.dataset.path));
   }
+}
+
+// 고른 표시만 거둔다. 다른 박스에 알리지 않는다.
+// pick(null) 로 거두면 알림이 오간 끝에 서로를 거두게 되어 돌고 돈다.
+function pickedOff() {
+  picked = [];
+  marked = false;
+  paintPicked();
 }
 
 function selection() {
@@ -411,10 +444,112 @@ panel.addEventListener('contextmenu', (event) => {
   desk.menu(id, null);
 });
 
-// 아이콘이 아닌 곳을 누르면 고른 표시를 거둔다.
+// ── 빈 자리를 끌어 여러 개 고르기 ─────────────────────────────────────────
+//
+// 아이콘이 없는 자리에서 누른 채로 끌면 테두리가 생기고, 그 안에 든 아이콘이 골라진다.
+// Ctrl 을 누른 채로 끌면 이미 골라 둔 것에 더한다.
+// 고른 뒤에는 그대로 끌어 옮기거나, Ctrl+C·Ctrl+X·Delete 로 한꺼번에 다룰 수 있다.
+
+function bandGrid() {
+  return window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, false);
+}
+
+// 테두리를 그리고 그 안에 든 아이콘을 고른다.
+// 좌표는 스크롤한 내용 기준이라, 끌면서 목록이 밀려도 누른 자리는 그 자리에 남는다.
+function paintBand(x2, y2) {
+  if (!banding) return;
+  const grid = bandGrid();
+  const rect = { x1: banding.x1, y1: banding.y1, x2, y2 };
+  band.hidden = false;
+  band.style.left = `${Math.min(rect.x1, rect.x2)}px`;
+  band.style.top = `${Math.min(rect.y1, rect.y2) - grid.titleH}px`;
+  band.style.width = `${Math.abs(rect.x2 - rect.x1)}px`;
+  band.style.height = `${Math.abs(rect.y2 - rect.y1)}px`;
+  const inside = window.DeskArrange.bandPicks(rect, items.length, grid)
+    .map((at) => (items[at] ? items[at].path : ''))
+    .filter(Boolean);
+  picked = banding.base.concat(inside.filter((one) => !banding.base.includes(one)));
+  marked = true;
+  paintPicked();
+  if (picked.length) desk.picked(id);
+}
+
+// 창 가장자리까지 끌면 목록을 밀어 준다. 보이는 곳 밖에 있는 것도 고를 수 있어야 한다.
+const BAND_EDGE = 20;
+let bandFrame = 0;
+let bandAt = null;
+
+function bandStep() {
+  bandFrame = 0;
+  if (!banding || !bandAt) return;
+  const viewY = bandAt.y - bandGrid().titleH;
+  let by = 0;
+  if (viewY < BAND_EDGE) by = -Math.min(24, BAND_EDGE - viewY + 3);
+  else if (viewY > body.clientHeight - BAND_EDGE) by = Math.min(24, viewY - (body.clientHeight - BAND_EDGE) + 3);
+  if (by) body.scrollTop += by;
+  paintBand(bandAt.x, scrolled(bandAt.y));
+  bandFrame = requestAnimationFrame(bandStep);
+}
+
+function stopBand() {
+  banding = null;
+  bandAt = null;
+  if (bandFrame) cancelAnimationFrame(bandFrame);
+  bandFrame = 0;
+  band.hidden = true;
+  if (!picked.length) marked = false;
+}
+
+body.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0 || !fence || fence.collapsed) return;
+  // 아이콘 위에서 누른 것은 그 아이콘이 맡는다(onIconDown). 빈 자리에서만 묶어 고른다.
+  if (event.target !== body && event.target !== floor) return;
+  // 오른쪽 끝의 스크롤 막대를 누른 것은 막대가 맡는다. clientWidth 는 막대를 뺀 넓이다.
+  if (event.offsetX >= body.clientWidth) return;
+  const adding = event.ctrlKey || event.metaKey;
+  banding = {
+    x1: localX(event.clientX),
+    y1: scrolled(localY(event.clientY)),
+    base: adding ? selection() : [],
+  };
+  if (!adding) {
+    picked = [];
+    marked = false;
+    paintPicked();
+  }
+  bandAt = { x: localX(event.clientX), y: localY(event.clientY) };
+  const startX = event.clientX;
+  const startY = event.clientY;
+  let moved = false;
+  body.setPointerCapture(event.pointerId);
+  const stop = () => {
+    body.removeEventListener('pointermove', move);
+    body.removeEventListener('pointerup', up);
+    body.removeEventListener('pointercancel', up);
+  };
+  const move = (ev) => {
+    bandAt = { x: localX(ev.clientX), y: localY(ev.clientY) };
+    // 누르고 조금 흔들린 것은 끌기로 보지 않는다. 그냥 누른 것은 고른 표시만 거둔다.
+    if (!moved && Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 4) return;
+    moved = true;
+    paintBand(bandAt.x, scrolled(bandAt.y));
+    if (!bandFrame) bandFrame = requestAnimationFrame(bandStep);
+  };
+  const up = () => {
+    stop();
+    stopBand();
+  };
+  body.addEventListener('pointermove', move);
+  body.addEventListener('pointerup', up);
+  body.addEventListener('pointercancel', up);
+});
+
+// 아이콘이 아닌 곳을 누르면 고른 표시를 거둔다. 끌어 고르는 중에는 그 손짓이 맡는다.
+// 이 박스를 눌렀으면 다른 박스의 표시도 거둔다. 고르기는 한 박스에서만 남는다.
 panel.addEventListener('pointerdown', (event) => {
   const icon = event.target.closest && event.target.closest('.icon');
-  if (!icon) pick(null);
+  if (!icon && !banding) pickedOff();
+  desk.picked(id);
 });
 
 // 고른 항목을 복사하거나 잘라 두고, 클립보드에 있는 것을 이 박스에 붙인다.
@@ -637,6 +772,7 @@ desk.onState((payload) => {
   // 이름을 바꾸던 항목이 목록에서 빠졌으면(이름이 바뀌었거나 없어졌다) 입력칸을 거둔다.
   if (editing && !items.some((item) => item.path === editing.path)) stopItemRename();
   picked = picked.filter((path) => items.some((item) => item.path === path));
+  if (!picked.length) marked = false;
   cutPaths = cutPaths.filter((path) => items.some((item) => item.path === path));
   openWith = payload.openWith === 'single' ? 'single' : 'double';
   edge = payload.shadow ? window.DeskArrange.SHADOW : 0;
@@ -648,6 +784,13 @@ desk.onState((payload) => {
 desk.onHover((payload) => {
   hover = payload;
   layout();
+});
+
+// 바탕화면이나 다른 박스를 눌렀다. 이 박스의 고른 표시를 거둔다.
+// 창은 제 안쪽만 볼 수 있으므로 이 알림이 없으면 표시가 남아 있는다.
+desk.onUnpick(() => {
+  stopBand();
+  if (picked.length) pickedOff();
 });
 
 desk.onResize(() => layout());

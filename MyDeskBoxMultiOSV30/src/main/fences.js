@@ -119,6 +119,44 @@ function createHost(state) {
     return !!(item && item.keep);
   }
 
+  // 바탕화면에 아이콘이 있는 항목. 파일을 옮긴 것은 바탕화면에서 빠져 여기 해당하지 않는다.
+  function isDesktopIcon(item) {
+    if (!item || !item.path) return false;
+    if (desktop.isShellItem && desktop.isShellItem(item.path)) return true;
+    return pointsAt(item) && typeof desktop.isOnDesktop === 'function' && desktop.isOnDesktop(item.path);
+  }
+
+  // 탐색기가 그 아이콘에 붙이는 이름. 칸을 찾을 때 이 이름으로 견준다.
+  function seatName(item) {
+    if (!item) return '';
+    if (desktop.isShellItem && desktop.isShellItem(item.path)) return item.name || '';
+    // 이름은 한 번만 묻는다. 박스를 끄는 동안 매번 물으면 창이 손을 따라가지 못한다.
+    return labelFor(item);
+  }
+
+  // 지금 보이는 박스들의 칸. 좌표는 화면 DIP 이고, 바탕화면 모듈이 픽셀로 바꾼다.
+  function seatPlaces() {
+    if (state.hidden) return [];
+    const places = [];
+    for (const fence of visibleFences()) {
+      if (fence.collapsed) continue;
+      const grid = arrange.gridOf(fence.w, arrange.panelHeight(fence), false, fence.look);
+      const scroll = scrollTops.get(fence.id) || 0;
+      fence.items.forEach((item, index) => {
+        if (!isDesktopIcon(item)) return;
+        const name = seatName(item);
+        if (!name) return;
+        const slot = arrange.slotPoint(index, grid);
+        places.push({
+          name,
+          x: fence.x + slot.x,
+          y: fence.y + slot.y - scroll,
+        });
+      });
+    }
+    return places;
+  }
+
   // ── 바탕화면 페이지 ───────────────────────────────────────────────────────
   //
   // 박스 묶음을 여러 벌 두고 갈아 쓴다. 한 페이지에 속한 박스만 창을 띄우고,
@@ -314,6 +352,8 @@ function createHost(state) {
         shortcut: deliver.isShortcut(item.path),
         folder: isDirectory(item.path),
         recycle: deliver.isRecycle(item.path),
+        // 바탕화면에서 들어온 아이콘은 박스 창이 판보다 앞에 그린다.
+        native: isDesktopIcon(item),
       });
     }
     return {
@@ -353,10 +393,36 @@ function createHost(state) {
     };
   }
 
+  // 박스를 바탕화면 층에 두고, 켜 두었으면 뒤를 흐린다.
+  // 포커스를 받아도 다른 프로그램 위로 올라오지 않게 다시 내린다.
+  function fenceOf(win) {
+    for (const [id, one] of wins) {
+      if (one === win) return fenceById(id);
+    }
+    return null;
+  }
+
+  // 모서리 밖은 창에서 뺀다. 흐림이 사각 모서리를 채우지 않게 한다.
+  function shapeWindow(win, fence) {
+    if (!win || !fence || typeof desktop.roundWindow !== 'function') return;
+    const pad = state.settings.shadow ? arrange.SHADOW : 0;
+    desktop.roundWindow(win, themes.cornerRadius(fence.corner), pad);
+  }
+
+  function settleWindow(win) {
+    if (!win || win.isDestroyed()) return;
+    desktop.place(win);
+    const fence = fenceOf(win);
+    // 흐림보다 먼저 모퉁이를 잘라 둔다. 흐림이 사각을 다시 채우면 한 번 더 자른다.
+    shapeWindow(win, fence);
+    if (typeof desktop.blurBehind === 'function') desktop.blurBehind(win, !!state.settings.blur);
+    shapeWindow(win, fence);
+  }
+
   function showFence(win) {
     if (!win || win.isDestroyed()) return;
     win.showInactive();
-    desktop.place(win);
+    settleWindow(win);
   }
 
   function openFence(fence) {
@@ -400,7 +466,8 @@ function createHost(state) {
       showFence(win);
     };
     win.once('ready-to-show', show);
-    win.on('show', () => desktop.place(win));
+    win.on('show', () => settleWindow(win));
+    win.on('focus', () => settleWindow(win));
     win.on('closed', () => {
       if (wins.get(fence.id) === win) wins.delete(fence.id);
     });
@@ -499,6 +566,10 @@ function createHost(state) {
 
   function hover(filePath, screenX, screenY, icon) {
     const target = hit(screenX, screenY);
+    // 그림부터 손을 따라가게 한다. 다른 박스에 알린 뒤에 옮기면 아이콘이 늦게 따라온다.
+    const owner = ownerOf(filePath);
+    if (target && owner && target.id === owner.id) hideGhost();
+    else showGhost(icon, screenX, screenY);
     for (const fence of state.fences) {
       const win = wins.get(fence.id);
       if (!win || win.isDestroyed()) continue;
@@ -516,11 +587,6 @@ function createHost(state) {
         win.webContents.send('fence:hover', null);
       }
     }
-    // 원래 있던 박스 위에서는 그 박스가 직접 그리므로 따라다니는 그림을 숨긴다.
-    // 밖이나 다른 박스 위에서는 그 그림이 계속 보여야 한다.
-    const owner = ownerOf(filePath);
-    if (target && owner && target.id === owner.id) hideGhost();
-    else showGhost(icon, screenX, screenY);
   }
 
   function clearHover() {
@@ -577,7 +643,7 @@ function createHost(state) {
   // 박스 하나의 설정 창(openSettings)과는 다른 창이다.
   // 탭이 여섯 개이고, 규칙 줄에는 고를 것이 셋씩 들어간다. 그만큼 넓고 높다.
   const PREFS_W = 452;
-  const PREFS_H = 556;
+  const PREFS_H = 592;
   let prefsWin = null;
 
   function openPrefs() {
@@ -641,7 +707,7 @@ function createHost(state) {
         id: theme.id, label: theme.label, bg: theme.bg, bar: theme.bar,
       })),
       corner: { min: themes.MIN_CORNER, max: themes.MAX_CORNER },
-      opacity: { min: 0.15, max: 0.9 },
+      opacity: { min: themes.MIN_OPACITY, max: themes.MAX_OPACITY },
       gear: dataUrl(icons.menu('settings'), 18),
       boxRoot: hold.rootDir(),
       // 바탕화면 페이지
@@ -688,6 +754,7 @@ function createHost(state) {
     if (typeof patch.openWith === 'string') setOpenWith(patch.openWith);
     if (typeof patch.takeWith === 'string') setTakeWith(patch.takeWith);
     if (typeof patch.shadow === 'boolean') setShadow(patch.shadow);
+    if (typeof patch.blur === 'boolean') setBlur(patch.blur);
     if (typeof patch.theme === 'string') setDefaultTheme(patch.theme);
     if (patch.corner !== undefined) setDefaultCorner(patch.corner);
     if (typeof patch.opacity === 'number') setDefaultOpacity(patch.opacity);
@@ -773,8 +840,9 @@ function createHost(state) {
       shown: themes.resolveLook(fence),
       iconSize: { value: arrange.iconSize(fence.look), min: arrange.MIN_ICON, max: arrange.MAX_ICON },
       fontSize: { value: arrange.fontSize(fence.look), min: arrange.MIN_FONT, max: arrange.MAX_FONT },
-      opacity: { value: fence.opacity, min: 0.15, max: 0.9 },
+      opacity: { value: fence.opacity, min: themes.MIN_OPACITY, max: themes.MAX_OPACITY },
       shadow: !!state.settings.shadow,
+      blur: state.settings.blur !== false,
       // 포털이면 가리키는 폴더를 보여 준다.
       portal: fence.portal || '',
       // 이 박스를 다른 페이지로 옮길 수 있다.
@@ -789,6 +857,7 @@ function createHost(state) {
     if (typeof patch.title === 'string') rename(id, patch.title);
     if (typeof patch.collapsed === 'boolean') setCollapsed(id, patch.collapsed);
     if (typeof patch.shadow === 'boolean') setShadow(patch.shadow);
+    if (typeof patch.blur === 'boolean') setBlur(patch.blur);
     if (patch.theme || patch.custom || patch.look || patch.corner !== undefined || typeof patch.opacity === 'number') {
       restyle(id, patch);
     }
@@ -847,8 +916,8 @@ function createHost(state) {
       page: state.page,
       ...(extra || {}),
     });
-    // 새 박스도 바탕화면 아이콘과 같은 줄에 서고, 다른 박스를 덮지 않는다.
-    snapToGrid(fence);
+    // 새 박스는 그린 자리에 둔다. 바탕화면 아이콘 줄에 끌어 맞추지 않는다.
+    // 다른 박스를 덮을 때만 비킨다.
     keepApart(fence);
     clampToScreen(fence);
     state.fences.push(fence);
@@ -861,12 +930,8 @@ function createHost(state) {
     return fence;
   }
 
-  // 박스를 바탕화면 아이콘 격자에 맞춘다.
-  //
-  // 박스도 바탕화면 아이콘과 같은 줄에 서야 한다. 모서리를 칸 경계에 대면
-  // 박스가 칸을 반만 덮는 일이 없어지고, 옆으로 밀려난 아이콘과 나란히 놓인다.
-  // 격자를 잴 수 없으면(아이콘이 거의 없는 바탕화면) 그린 그대로 둔다.
   // 이 박스가 놓인 화면의 작업 영역.
+  // 박스 자리는 바탕화면 아이콘 격자에 맞추지 않는다. 놓은 곳이 그 자리다.
   function areaFor(fence) {
     try {
       const found = screen.getDisplayNearestPoint({ x: Math.round(fence.x), y: Math.round(fence.y) }).workArea;
@@ -874,25 +939,6 @@ function createHost(state) {
     } catch (_err) {
       return null;
     }
-  }
-
-  function snapToGrid(fence, what) {
-    if (typeof desktop.gridInfo !== 'function') return false;
-    const grid = desktop.gridInfo();
-    if (!grid || !grid.dx || !grid.dy) return false;
-    const snapped = deskgrid.snapRect(
-      { x: fence.x, y: fence.y, width: fence.w, height: arrange.panelHeight(fence) },
-      grid,
-      { width: arrange.CELL_W + arrange.PAD * 2, height: arrange.TITLE_H + arrange.CELL_H },
-      areaFor(fence),
-      what || { place: true, size: true }
-    );
-    fence.x = Math.round(snapped.x);
-    fence.y = Math.round(snapped.y);
-    fence.w = Math.round(snapped.width);
-    // 접은 박스는 제목 줄이 전부다. 높이는 접기가 정한다.
-    if (!fence.collapsed) fence.h = Math.round(snapped.height);
-    return true;
   }
 
   // 크기만 바꾸다 옆 박스에 닿았다. 자리를 옮기는 대신 닿은 데서 멈춘다.
@@ -952,11 +998,6 @@ function createHost(state) {
     fence.x = Math.round(moved.x);
     fence.y = Math.round(moved.y);
     return true;
-  }
-
-  function overlapsOthers(fence) {
-    const rect = { x: fence.x, y: fence.y, width: fence.w, height: arrange.panelHeight(fence) };
-    return otherRects(fence).some((other) => deskgrid.overlaps(rect, other));
   }
 
   // 박스끼리는 겹치지 않는다. 겹쳤으면 가장 적게 움직이는 쪽으로 비킨다.
@@ -1027,19 +1068,22 @@ function createHost(state) {
         place: fence.x !== last.x || fence.y !== last.y,
         size: fence.w !== last.w || fence.h !== last.h,
       };
-      // 줄을 맞추다 남의 자리를 덮으면 맞추지 않은 자리가 낫다.
-      const before = { x: fence.x, y: fence.y, w: fence.w, h: fence.h };
-      snapToGrid(fence, what);
-      if (overlapsOthers(fence)) {
-        fence.x = before.x;
-        fence.y = before.y;
-        fence.w = before.w;
-        fence.h = before.h;
-      }
+      // 바탕화면 정렬에는 맞추지 않는다. 다른 박스와 겹칠 때만 비킨다.
       keepApart(fence, what);
     }
     clampToScreen(fence);
-    win.setBounds(arrange.windowRect(fence, state.settings.shadow));
+    // 손을 떼면 맞춤이 끝난 자리에서 다시 잡는다. 직전 그림은 창보다 먼저 치지 않는다.
+    if (save && typeof desktop.followReset === 'function') desktop.followReset();
+    // 번호는 창을 옮기기 전에 찾는다. 옛 그림도 창을 옮기기 전에 지운다.
+    // 창만 먼저 가면 옛 자리의 아이콘이 박스 밖에 보이고, 새 자리를 먼저 그리면 앞에서 비친다.
+    followSoon();
+    if (typeof desktop.armFollow === 'function') desktop.armFollow();
+    try {
+      win.setBounds(arrange.windowRect(fence, state.settings.shadow));
+    } finally {
+      if (typeof desktop.paintFollow === 'function') desktop.paintFollow();
+    }
+    shapeWindow(win, fence);
     if (save) {
       settled.set(id, { x: fence.x, y: fence.y, w: fence.w, h: fence.h });
       persist();
@@ -1049,30 +1093,13 @@ function createHost(state) {
     }
     // 자리만 옮긴 것이면 안의 칸은 그대로다. 옮기는 동안 다시 그리지 않아야 따라온다.
     if (fence.w !== wasW || fence.h !== wasH) win.webContents.send('fence:resize');
-    // 끄는 동안에도 새로 가린 바탕화면 아이콘을 밀어낸다.
-    nudgeSoon();
   }
 
-  // 박스를 끄는 동안에도 그 자리의 바탕화면 아이콘이 옆으로 비킨다.
-  // 한 칸마다 부르면 무거우니 사이를 둔다.
-  const NUDGE_GAP = 40;
-  let nudgedAt = 0;
-  let nudgeTimer = null;
-
-  function nudgeSoon() {
-    if (state.hidden || closing || typeof desktop.nudge !== 'function') return;
-    const left = NUDGE_GAP - (Date.now() - nudgedAt);
-    if (left > 0) {
-      if (nudgeTimer) return;
-      nudgeTimer = setTimeout(() => {
-        nudgeTimer = null;
-        nudgeSoon();
-      }, left);
-      return;
-    }
-    nudgedAt = Date.now();
-    // 끄는 중에는 가벼운 길로 간다. 목록을 다시 읽지 않고 자리만 던져 둔다.
-    desktop.nudge(blockRects(), true);
+  function followSoon() {
+    if (state.hidden || closing) return;
+    const places = seatPlaces();
+    if (typeof desktop.followSeats === 'function') desktop.followSeats(places);
+    else if (typeof desktop.seatKept === 'function') desktop.seatKept(places, true);
   }
 
   function setCollapsed(id, collapsed) {
@@ -1086,6 +1113,7 @@ function createHost(state) {
 
   function setScroll(id, top) {
     scrollTops.set(id, Math.max(0, Number(top) || 0));
+    if (typeof desktop.seatKept === 'function') desktop.seatKept(seatPlaces(), true);
   }
 
   function indexAt(fence, screenX, screenY, filePath) {
@@ -1125,7 +1153,12 @@ function createHost(state) {
   async function acceptDesktopDrop(item, dip) {
     if (!item || !item.path || !dip) return;
     const target = hit(dip.x, dip.y);
-    if (!target) return;
+    if (!target) {
+      // 박스 밖으로 끌어 바탕화면에 놓으면 그 박스에서 빠지고, 그 자리에 그대로 보인다.
+      const owner = ownerOf(item.path);
+      if (owner) await eject(owner.id, item.path);
+      return;
+    }
     if (target.items.some((entry) => entry.path === item.path)) return;
     // 바탕화면에서 끌어 온 것도 박스 안 항목 위에 놓을 수 있어야 한다.
     // 휴지통이면 버리고, 폴더면 그 안으로, 프로그램이면 그것에게 넘긴다.
@@ -1171,6 +1204,7 @@ function createHost(state) {
   }
 
   async function moveInto(filePath, dir) {
+    if (!filePath || String(filePath).startsWith('shell:')) return false;
     const dest = path.join(dir, path.basename(filePath));
     if (path.resolve(dest) === path.resolve(filePath)) return false;
     if (fs.existsSync(dest)) return false;
@@ -1522,8 +1556,8 @@ function createHost(state) {
   function letGo(item, from) {
     if (!item) return false;
     if (desktop.isShellItem && desktop.isShellItem(item.path)) return putIconHome(item.name);
-    // 가리키고만 있던 것은 이미 제자리에 있다. 꺼낸다는 것은 목록에서 빼는 일뿐이다.
-    if (pointsAt(item)) return false;
+    // 가리키고만 있던 파일은 이미 그 폴더에 있다. 아이콘만 담기 전 자리로 돌려 다시 보이게 한다.
+    if (pointsAt(item)) return putIconHome(item.name);
     const going = isPortal(from) ? { ...item, home: desktopFolder() } : item;
     const back = hold.give(going);
     if (!back || back === item.path) return false;
@@ -1591,10 +1625,19 @@ function createHost(state) {
       }
       const name = path.basename(item.path);
       if (dir && path.resolve(path.dirname(item.path)) === path.resolve(dir)) {
-        if (inFolder.has(name)) {
-          kept.push(item);
-          inFolder.delete(name);
+        if (!inFolder.has(name)) continue;
+        inFolder.delete(name);
+        // 그대로 두기이면 보관함에 둔 파일은 바탕화면으로 되돌린다.
+        // 보관함에 있으면 탐색기 바탕화면에서 그 항목이 보이지 않는다.
+        if (keeping()) {
+          const back = hold.give({ ...item, home: item.home || desktopFolder() });
+          if (back && path.resolve(back) !== path.resolve(item.path)) {
+            refreshFolders(dir, path.dirname(back));
+            kept.push({ name: path.basename(back), path: back, keep: true });
+            continue;
+          }
         }
+        kept.push(item);
         continue;
       }
       // 가리키고만 있는 항목은 폴더 밖에 있는 것이 정상이다. 있는 자리에 둔다.
@@ -1878,33 +1921,22 @@ function createHost(state) {
     return true;
   }
 
-  // 박스에 담긴 것은 진짜 바탕화면 아이콘이다. 그 아이콘을 박스 안 격자로 모으고,
+  // 박스에 담긴 바탕화면 아이콘은 그 박스의 칸으로 옮긴다. 파일은 그 폴더에 둔다.
+  // 박스를 끌면 칸이 움직이고 아이콘이 그 칸을 따라간다.
   // 담기지 않은 아이콘이 박스 자리에 남아 있으면 밖으로 밀어낸다.
-  // 파일은 옮기지도, 감추지도 않는다. 바탕화면 폴더의 내용은 그대로다.
-  // 박스는 바탕화면 아이콘과 같은 격자 위에 선다. 먼저 자리를 잡는 쪽은 박스다.
-  // 박스가 깔고 앉은 칸의 아이콘은 밖의 빈 칸으로 비켜 준다. 박스 밑에 깔린 채로
-  // 두면 그 아이콘은 고를 수도, 열 수도 없다.
-  //
-  // 담긴 파일은 박스 폴더에 있어 바탕화면 아이콘이 없다. 그래서 여기서 할 일은
-  // 담기지 않은 아이콘을 박스 밖으로 밀어내는 것 하나뿐이다.
+  // 박스 자리는 그대로 두고, 그 밑에 깔린 바탕화면 아이콘만 비킨다.
+  // 박스가 깔고 앉은 칸의, 박스에 없는 아이콘은 밖의 빈 칸으로 비켜 준다.
+  // 박스 칸에 앉힌 아이콘은 밀어내지 않는다. 그 아이콘이 박스 내용이다.
   function refreshIcons() {
     if (closing) return;
     watchBin();
     watchFresh();
     drainFresh();
     const changed = settleAll();
-    // 휴지통 같은 셸 항목은 옮길 파일이 없다. 박스에 담으면 바탕화면 쪽 아이콘을
-    // 레지스트리로 감추고, 박스 창이 대신 그린다. 끝낼 때 restoreShellIcons 가 되살린다.
-    // 박스를 숨긴 동안에는 감출 까닭이 없으므로 모두 되살린다.
-    // 지금 보이는 페이지의 박스가 들고 있는 것만 감춘다. 다른 페이지로 넘긴 휴지통은
-    // 그 박스가 화면에 없으므로 바탕화면 쪽 아이콘을 되살려 주어야 한다.
-    //
-    // 그대로 두기에서는 아무것도 감추지 않는다. 그 방식의 약속이 '있는 자리에 그대로' 이므로
-    // 휴지통만 감추면 약속이 어긋난다.
-    if (typeof desktop.syncShellIcons === 'function') {
-      const hide = state.hidden || keeping() ? [] : visibleFences().flatMap((fence) => fence.items);
-      desktop.syncShellIcons(hide);
-    }
+    // 휴지통도 숨기지 않는다. 다른 바탕화면 아이콘과 같이 박스 칸으로 옮긴다.
+    // 예전에 레지스트리로 감춰 둔 것이 있으면 여기서 되살린 뒤 칸에 앉힌다.
+    if (typeof desktop.syncShellIcons === 'function') desktop.syncShellIcons([]);
+    if (typeof desktop.seatKept === 'function') desktop.seatKept(seatPlaces(), false);
     if (changed) pushAll();
     if (state.hidden) {
       // 박스를 숨기면 밀어낸 아이콘도 제자리로 돌려준다.
@@ -1914,7 +1946,6 @@ function createHost(state) {
     if (typeof desktop.nudge !== 'function') return;
     // 바탕화면에서 무언가를 끌고 있는 동안에는 건드리지 않는다. 손을 떼면 이 길로 다시 온다.
     if (desktop.mouseDown && desktop.mouseDown()) return;
-    nudgedAt = Date.now();
     desktop.nudge(blockRects());
   }
 
@@ -1950,9 +1981,12 @@ function createHost(state) {
       fence.custom = { bg: made.bg, bar: made.bar };
       fence.theme = 'custom';
     }
-    if (patch.corner !== undefined) fence.corner = themes.cornerRadius(patch.corner);
+    if (patch.corner !== undefined) {
+      fence.corner = themes.cornerRadius(patch.corner);
+      shapeWindow(wins.get(id), fence);
+    }
     if (typeof patch.opacity === 'number') {
-      fence.opacity = Math.max(0.15, Math.min(0.9, patch.opacity));
+      fence.opacity = Math.max(themes.MIN_OPACITY, Math.min(themes.MAX_OPACITY, patch.opacity));
     }
     // 이 박스만의 글자 색과 그림·글씨 크기. 온 것만 고치고 나머지는 그대로 둔다.
     // 빈 글자나 0 을 보내면 그 값은 다시 테마가 정한 대로 돌아간다.
@@ -2014,9 +2048,12 @@ function createHost(state) {
         names.push(item.name);
         continue;
       }
-      // 가리키고만 있던 것은 옮긴 적이 없다. 돌려줄 것도 없다.
+      // 가리키고만 있던 것은 옮긴 적이 없다. 파일은 그대로 두고 아이콘만 제자리로 돌린다.
       // 여기서 hold.give 를 부르면 바탕화면이 아닌 폴더에서 가리킨 파일이 바탕화면으로 끌려온다.
-      if (pointsAt(item)) continue;
+      if (pointsAt(item)) {
+        names.push(item.name);
+        continue;
+      }
       const back = hold.give(item);
       if (back && back !== item.path) {
         refreshFolders(path.dirname(item.path), path.dirname(back));
@@ -2237,6 +2274,7 @@ function createHost(state) {
       ...specialItems(id),
       { label: say('menu.newBox'), icon: icons.menu('draw'), click: () => beginDraw() },
       { label: say('menu.newPortal'), icon: icons.menu('portal'), click: () => createPortal() },
+      { label: say('tray.about'), icon: icons.menu('info'), click: () => showAbout() },
       { label: say('menu.remove'), icon: icons.menu('remove'), click: () => removeFence(id) }
     );
     Menu.buildFromTemplate(template).popup({ window: win });
@@ -2395,13 +2433,41 @@ function createHost(state) {
       const win = wins.get(fence.id);
       if (!win || win.isDestroyed()) continue;
       win.setBounds(arrange.windowRect(fence, state.settings.shadow));
+      shapeWindow(win, fence);
     }
     pushAll();
     announce();
   }
 
+  // 박스 뒤로 바탕화면을 흐려 비출지. 모든 박스에 함께 걸린다.
+  function setBlur(on) {
+    state.settings.blur = !!on;
+    persist();
+    for (const fence of state.fences) {
+      const win = wins.get(fence.id);
+      if (!win || win.isDestroyed()) continue;
+      if (typeof desktop.blurBehind === 'function') desktop.blurBehind(win, state.settings.blur);
+      shapeWindow(win, fence);
+    }
+    announce();
+  }
+
+  function showAbout() {
+    const lines = [
+      `${say('about.version')} ${appVersion()}`,
+      `${say('about.made')} ${AUTHOR.name}`,
+      `${say('about.mail')} ${AUTHOR.email}`,
+    ];
+    ask.notice({
+      title: appName(),
+      detail: lines.join('\n'),
+      confirm: say('settings.ok'),
+      icon: icons.app(),
+    });
+  }
+
   function setDefaultOpacity(opacity) {
-    state.settings.opacity = Math.max(0.15, Math.min(0.9, Number(opacity) || themes.DEFAULT_OPACITY));
+    state.settings.opacity = Math.max(themes.MIN_OPACITY, Math.min(themes.MAX_OPACITY, Number(opacity) || themes.DEFAULT_OPACITY));
     persist();
     announce();
   }
@@ -2684,7 +2750,10 @@ function createHost(state) {
       fence.look = themes.normalizeLook(fence.look);
       clampToScreen(fence);
       const win = wins.get(fence.id);
-      if (win && !win.isDestroyed()) win.setBounds(arrange.windowRect(fence, state.settings.shadow));
+      if (win && !win.isDestroyed()) {
+        win.setBounds(arrange.windowRect(fence, state.settings.shadow));
+        shapeWindow(win, fence);
+      }
     }
     persist();
     applyPage();
@@ -2832,6 +2901,7 @@ function createHost(state) {
     setDefaultCorner,
     setDefaultOpacity,
     setShadow,
+    setBlur,
     setOpenWith,
     putBack,
     returnAll,

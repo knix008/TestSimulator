@@ -3,6 +3,15 @@
 // macOS 에서는 Finder 아이콘 좌표를 바꾸는 공개 API 가 없다.
 // 박스는 바탕화면 위의 진짜 창이고, 안의 아이콘은 Desktop 폴더의 파일이다.
 
+function blurBehind(win, on) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    win.setVibrancy(on ? 'under-window' : null);
+  } catch (_err) {
+    /* 흐림을 지원하지 않는 곳이다. */
+  }
+}
+
 function place(win) {
   if (!win || win.isDestroyed()) return;
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -52,6 +61,7 @@ function shutdown() {}
 module.exports = {
   nativeIcons: false,
   place,
+  blurBehind,
   gather,
   release,
   moveIcon,

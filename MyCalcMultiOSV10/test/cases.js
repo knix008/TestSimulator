@@ -3900,3 +3900,90 @@ suite("Fitting the window to the values", () => {
     assert(state.reset === false, "reset left the window out of shape");
   });
 });
+
+suite("Windows installer", () => {
+  const fetchText = async (path) => {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(`${path} came back ${res.status}`);
+    return res.text();
+  };
+
+  // What the script says it does is in the comments; what it does is in the
+  // rest. Only the rest is read here, or a note about a flag would pass for
+  // the flag itself.
+  const fetchCode = async (path) => {
+    const text = await fetchText(path);
+    return text
+      .split("\n")
+      .map((line) => line.replace(/^\s*;.*$/, ""))
+      .join("\n");
+  };
+
+  test("The build points at the installer script", async () => {
+    const pkg = JSON.parse(await fetchText("../package.json"));
+    const nsis = pkg.build.nsis;
+    assert(nsis.include === "build/installer.nsh", `include is ${nsis.include}`);
+    assert(nsis.oneClick === false, "a one click installer never gets to ask anything");
+    // The questions are written in Korean and English; the installer has to be
+    // able to speak both or one of them is never read.
+    assert(nsis.multiLanguageInstaller === true, "the installer carries one language only");
+    assert((nsis.installerLanguages || []).includes("ko_KR"), "Korean is not among the installer languages");
+    assert((nsis.installerLanguages || []).includes("en_US"), "English is not among the installer languages");
+  });
+
+  test("The installer takes the old program out before laying the new one down", async () => {
+    const script = await fetchCode("../build/installer.nsh");
+    const trouble = [];
+    if (!/!macro customInit/.test(script)) trouble.push("there is no customInit");
+    if (!/Call RemoveOldApp/.test(script)) trouble.push("the old program is never removed");
+    // '--updated' tells the old uninstaller it is being written over, and it
+    // then leaves shortcuts and registry values behind. This is a clean sweep.
+    if (/--updated/.test(script)) trouble.push("the old uninstaller is told it is only an update");
+    if (!/ExecWait '"\$R0" \/S _\?=\$OldDir'/.test(script)) trouble.push("the old uninstaller is not run and waited for");
+    // Whatever the uninstaller leaves has to go too.
+    if (!/RMDir \/r "\$OldDir"/.test(script)) trouble.push("leftovers in the old folder are not swept");
+    assert(!trouble.length, trouble.join(" | "));
+  });
+
+  test("The installer asks before it erases anyone's settings", async () => {
+    const script = await fetchCode("../build/installer.nsh");
+    const trouble = [];
+    const ask = script.match(/MessageBox MB_YESNO[^\n]*/);
+    if (!ask) trouble.push("nothing is ever asked");
+    else {
+      // The safe answer is the one the Enter key gives, and the one a silent
+      // install takes: keep what the reader already has.
+      if (!/MB_DEFBUTTON2/.test(ask[0])) trouble.push("the dangerous answer is the default button");
+      if (!/\/SD IDNO/.test(ask[0])) trouble.push("a silent install would erase the settings without asking");
+    }
+    if (!/\$\{IfNot\} \$\{Silent\}/.test(script)) trouble.push("the question is asked even with nobody there to answer");
+    // Nothing is erased unless the answer was yes.
+    const wipes = [...script.matchAll(/Call WipeOldData/g)];
+    if (!wipes.length) trouble.push("the settings are never erased, whatever the answer");
+    for (const at of wipes) {
+      const before = script.slice(Math.max(0, at.index - 200), at.index);
+      if (!/\$WipeData == 1/.test(before)) trouble.push("the settings are erased without checking the answer");
+    }
+    // And the question comes before anything is taken away.
+    const asked = script.indexOf("MessageBox MB_YESNO");
+    const removed = script.indexOf("Call RemoveOldApp");
+    if (asked < 0 || removed < 0 || asked > removed) trouble.push("the program is removed before the question is put");
+    assert(!trouble.length, trouble.join(" | "));
+  });
+
+  test("The settings are erased only once the new files are down", async () => {
+    const script = await fetchCode("../build/installer.nsh");
+    const trouble = [];
+    // A profile that was open a moment ago still holds its files, so erasing it
+    // in customInit leaves half a folder behind. customInstall runs after
+    // electron-builder has made sure the app is closed.
+    const inInstall = script.indexOf("!macro customInstall");
+    const wipe = script.indexOf("Call WipeOldData", inInstall);
+    if (inInstall < 0) trouble.push("there is no customInstall");
+    if (wipe < 0) trouble.push("the settings are not erased at the end");
+    // And it keeps trying, because the files are not let go all at once.
+    if (!/Sleep 400/.test(script)) trouble.push("erasing never waits and retries");
+    if (!/wipeRound/.test(script)) trouble.push("erasing is tried once only");
+    assert(!trouble.length, trouble.join(" | "));
+  });
+});

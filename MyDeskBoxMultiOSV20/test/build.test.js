@@ -175,3 +175,53 @@ test('다시 깔 때는 지금 있는 바로 가기를 그대로 따라간다', 
     '지워 둔 시작 메뉴 바로 가기가 되살아난다'
   );
 });
+
+// 프로그램을 지우면 바탕화면은 켜기 전 모습이어야 한다.
+// 담아 둔 파일이 설정 폴더에 남거나, 감춘 휴지통이 감춰진 채로 남으면 안 된다.
+test('지울 때 바탕화면을 되돌린다', () => {
+  assert.match(nsh, /!macro customUnInit/, '파일을 지우기 전에 되돌리는 자리가 없다');
+  assert.ok(
+    nsh.includes('--restore-desktop'),
+    '프로그램에게 되돌리라고 부르지 않는다'
+  );
+  // 실행 파일을 부르는 자리는 지우기 전(customUnInit)이어야 한다.
+  const init = nsh.indexOf('!macro customUnInit');
+  const call = nsh.indexOf('--restore-desktop', init);
+  const end = nsh.indexOf('!macroend', init);
+  assert.ok(call > init && call < end, '지운 뒤에 실행 파일을 부르려 한다');
+});
+
+test('프로그램이 되돌리지 못해도 파일과 휴지통은 손으로 되돌린다', () => {
+  assert.match(nsh, /Function un\.RestoreBoxFiles/, '제거 프로그램 쪽 손 복구가 없다');
+  assert.match(nsh, /Function un\.EmptyToDesktop/, '바탕화면으로 옮기는 차례가 없다');
+  assert.match(nsh, /Function un\.ShowShellIcons/, '감춘 휴지통을 되살리지 않는다');
+  // 휴지통 CLSID 는 windows.js 의 SHELL_CLSID 와 같아야 한다.
+  const windows = fs.readFileSync(path.join(ROOT, 'src', 'main', 'desktop', 'windows.js'), 'utf8');
+  for (const clsid of nsh.match(/\{[0-9A-Fa-f-]{36}\}/g) || []) {
+    assert.ok(windows.includes(clsid), `windows.js 에 없는 아이콘을 되살리려 한다: ${clsid}`);
+  }
+  assert.ok(nsh.includes('{645FF040-5081-101B-9F08-00AA002F954E}'), '휴지통을 되살리지 않는다');
+});
+
+test('앱이 멈춘 뒤에 한 번 더 되돌린다', () => {
+  // customUnInit 은 앱이 아직 돌고 있을 수 있다. 그 판이 감춘 것을 다시 감출 수 있으므로
+  // 앱이 확실히 멈춘 뒤(customUnInstall)에 한 번 더 지나야 한다.
+  const at = nsh.indexOf('!macro customUnInstall');
+  assert.ok(at > 0);
+  const end = nsh.indexOf('!macroend', at);
+  const body = nsh.slice(at, end);
+  assert.ok(body.includes('Call un.RestoreBoxFiles'), '마지막에 파일을 되돌리지 않는다');
+  assert.ok(body.includes('Call un.ShowShellIcons'), '마지막에 휴지통을 되살리지 않는다');
+});
+
+test('다시 깔 때는 되돌릴지 물어본 뒤에 되돌린다', () => {
+  const at = nsh.indexOf('!macro customInstall');
+  assert.ok(at > 0);
+  const end = nsh.indexOf('!macroend', at);
+  const body = nsh.slice(at, end);
+  assert.ok(body.includes('MessageBox MB_YESNO'), '묻지 않고 되돌린다');
+  assert.ok(body.includes('--restore-desktop'), '되돌리는 길을 부르지 않는다');
+  assert.ok(body.includes('$HasOldApp == 1'), '깔려 있지 않은데도 묻는다');
+  assert.ok(body.includes('${IfNot} ${Silent}'), '조용히 설치하는데도 묻는다');
+  assert.match(body, /boxes[\\]restore\.json/, '담아 둔 것이 있는지 보지 않는다');
+});

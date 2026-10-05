@@ -53,7 +53,14 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "MyCalc 10.0",
-      "artifactName": "MyCalc-${version}-windows-${arch}-setup.${ext}"
+      "artifactName": "MyCalc-${version}-windows-${arch}-setup.${ext}",
+      "include": "build/installer.nsh",
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "language": "1042"
     },
     "linux": {
       "icon": "assets/icon.png",
