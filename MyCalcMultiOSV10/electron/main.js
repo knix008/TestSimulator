@@ -16,8 +16,23 @@ const MODE_CONTENT_SIZE = {
   scientific: { width: 560, height: 594 },
   programmer: { width: 480, height: 700 },
   currency: { width: 380, height: 594 },
+  unit: { width: 400, height: 594 },
   graph: { width: 520, height: 594 },
 };
+
+// A frameless, transparent window on Windows comes up without a resize border,
+// and every setBounds then raises its minimum size to whatever it was just
+// given. The grip could only grow such a window, never shrink it, so each
+// resizable window remembers the floor it was opened with and that floor is
+// put back around every move.
+const windowFloor = new WeakMap();
+
+function allowResize(win, minWidth, minHeight) {
+  windowFloor.set(win, [minWidth, minHeight]);
+  win.setMaximumSize(0, 0);
+  win.setMinimumSize(minWidth, minHeight);
+  win.setResizable(true);
+}
 
 function lockContentSize(win, width, height) {
   win.setResizable(true);
@@ -64,7 +79,7 @@ function createWindow() {
     if (!win.isDestroyed()) win.setFullScreen(false);
   });
 
-  const childWindows = { graph: null, settings: null, info: null };
+  const childWindows = { graph: null, settings: null, info: null, help: null };
   let printWindow = null;
   const openPrint = (owner) => {
     if (printWindow && !printWindow.isDestroyed()) {
@@ -117,7 +132,8 @@ function createWindow() {
     graph: {
       width: 1140,
       height: 700,
-      minWidth: 820,
+      // Narrower than this and the toolbar would fold onto a second line.
+      minWidth: 790,
       minHeight: 520,
       title: "MyCalc 10.0 Graph",
       backgroundColor: "#100e0c",
@@ -132,10 +148,18 @@ function createWindow() {
     },
     info: {
       width: 560,
-      height: 392,
+      height: 436,
       minWidth: 500,
-      minHeight: 392,
+      minHeight: 436,
       title: "프로그램 정보 — MyCalc 10.0",
+      backgroundColor: "#1c1917",
+    },
+    help: {
+      width: 720,
+      height: 640,
+      minWidth: 560,
+      minHeight: 420,
+      title: "그래프 도움말 — MyCalc 10.0",
       backgroundColor: "#1c1917",
     },
   };
@@ -179,6 +203,7 @@ function createWindow() {
       });
     }
     child.setMenuBarVisibility(false);
+    if (!fixed) allowResize(child, spec.minWidth || 320, spec.minHeight || 240);
     if (fixed) {
       lockContentSize(child, spec.width, spec.height);
       child.on("maximize", () => {
@@ -203,7 +228,7 @@ function createWindow() {
     child.webContents.setWindowOpenHandler(({ url }) => {
       const next = kindFromUrl(url);
       if (next === "print") openPrint(child);
-      else if (next === "settings" || next === "info") openChild(next);
+      else if (next === "settings" || next === "info" || next === "help") openChild(next);
       return { action: "deny" };
     });
     child.loadFile(path.join(__dirname, "..", "index.html"), {
@@ -211,7 +236,7 @@ function createWindow() {
     });
   };
   const kindFromUrl = (url) => {
-    const kinds = ["graph", "settings", "info", "print"];
+    const kinds = ["graph", "settings", "info", "help", "print"];
     try {
       const parsed = new URL(url);
       const query = parsed.searchParams.get("pop");
@@ -261,13 +286,15 @@ ipcMain.handle("mycalc-window", (event, action) => {
 ipcMain.handle("mycalc-window-bounds", (event, bounds) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || win.isDestroyed() || win === mainWindow || win.isMaximized() || !bounds) return;
-  const [minW, minH] = win.getMinimumSize();
+  const [minW, minH] = windowFloor.get(win) || win.getMinimumSize();
   const x = Math.round(Number(bounds.x));
   const y = Math.round(Number(bounds.y));
   const width = Math.max(minW, Math.round(Number(bounds.width)));
   const height = Math.max(minH, Math.round(Number(bounds.height)));
   if (![x, y, width, height].every(Number.isFinite)) return;
+  win.setMinimumSize(minW, minH);
   win.setBounds({ x, y, width, height });
+  win.setMinimumSize(minW, minH);
 });
 
 ipcMain.handle("mycalc-save-file", async (event, payload) => {

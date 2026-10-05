@@ -33,7 +33,17 @@ const FUNCTIONS = {
   npr: { args: 2 },
   min: { args: 2 },
   max: { args: 2 },
+  // Σ: the first argument names the counter, so it is read as a name rather
+  // than worked out, and the last argument waits until the counter has a value.
+  sum: { args: 4, counts: true },
 };
+
+// A runaway loop would hang the window, so the counter is kept to a length a
+// person could have meant.
+const SUM_STEPS = 100000;
+
+// Names that already stand for something cannot also count a sum.
+const RESERVED_NAMES = new Set(["ans", "pi", "e"]);
 
 function CalcError(message, at, near) {
   const err = new Error(message);
@@ -79,6 +89,13 @@ function tokenize(input) {
 
     if (c === "π") {
       tokens.push({ type: "ident", value: "pi", at: i, end: i + 1 });
+      i++;
+      continue;
+    }
+
+    // The sign is the name: Σ(k, 1, 10, k^2) reads as sum(k, 1, 10, k^2).
+    if (c === "Σ" || c === "∑" || c === "σ") {
+      tokens.push({ type: "ident", value: "sum", at: i, end: i + 1 });
       i++;
       continue;
     }
@@ -243,6 +260,32 @@ class Parser {
     return node;
   }
 
+  // Σ(k, 1, 10, k^2): the counter is a name to bind, not a value to read, and
+  // the body is kept unevaluated until the counter stands for something.
+  parseCounted(name, token) {
+    const counter = this.peek();
+    if (!counter || counter.type !== "ident") {
+      this.fail(uiText("합의 변수를 적어 주세요", "Name the counter of the sum"), token, name);
+    }
+    this.eat();
+    if (RESERVED_NAMES.has(counter.value)) {
+      this.fail(uiText("합의 변수로 쓸 수 없는 이름입니다", "That name cannot count a sum"), counter, counter.value);
+    }
+    const parts = [];
+    while (parts.length < 3) {
+      if (!this.peek() || this.peek().type !== "comma") {
+        this.fail(uiText("인수 개수가 맞지 않습니다", "Wrong number of arguments"), token, name);
+      }
+      this.eat();
+      parts.push(this.parseAdd());
+    }
+    if (!this.peek() || this.peek().type !== "rparen") {
+      this.fail(uiText("괄호가 맞지 않습니다", "Parentheses do not match"), token, name);
+    }
+    this.eat();
+    return { type: "sum", counter: counter.value, from: parts[0], to: parts[1], body: parts[2], at: token.at };
+  }
+
   parsePrimary() {
     const t = this.peek();
     if (!t) this.fail(uiText("표현식 오류", "Expression error"));
@@ -265,6 +308,7 @@ class Parser {
       if (this.peek() && this.peek().type === "lparen") {
         if (!FUNCTIONS[name]) this.fail(uiText("알 수 없는 함수", "Unknown function"), t, name);
         this.eat();
+        if (FUNCTIONS[name].counts) return this.parseCounted(name, t);
         const args = [];
         if (!this.peek() || this.peek().type !== "rparen") {
           args.push(this.parseAdd());
@@ -380,6 +424,8 @@ class CalcEngine {
       }
       case "binary":
         return this.evalBinary(ast, scope);
+      case "sum":
+        return this.evalSum(ast, scope);
       case "call":
         return this.evalCall(ast, scope);
       default:
@@ -397,6 +443,29 @@ class CalcEngine {
       return v;
     }
     throw CalcError(uiText("정의되지 않은 변수", "Undefined variable"), at, name);
+  }
+
+  evalSum(ast, scope) {
+    const from = this.evalAst(ast.from, scope);
+    const to = this.evalAst(ast.to, scope);
+    const whole = (value) => Number.isFinite(value) && Math.abs(value - Math.round(value)) < 1e-9;
+    if (!whole(from) || !whole(to)) {
+      throw CalcError(uiText("합의 범위는 정수여야 합니다", "A sum counts in whole numbers"), ast.at, "sum");
+    }
+    const first = Math.round(from);
+    const last = Math.round(to);
+    // Counting down is an empty sum, the same answer every book gives.
+    if (last < first) return 0;
+    if (last - first + 1 > SUM_STEPS) {
+      throw CalcError(uiText("합의 범위가 너무 넓습니다", "The sum counts too far"), ast.at, "sum");
+    }
+    const inner = { ...(scope || {}) };
+    let total = 0;
+    for (let count = first; count <= last; count++) {
+      inner[ast.counter] = count;
+      total += this.evalAst(ast.body, inner);
+    }
+    return total;
   }
 
   evalBinary(ast, scope) {

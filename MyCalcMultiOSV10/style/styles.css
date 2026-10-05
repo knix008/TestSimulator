@@ -160,6 +160,7 @@ button, input { font: inherit; color: inherit; }
 .icon-panel-left { -webkit-mask-image: url("../assets/icons/panel-left.svg"); mask-image: url("../assets/icons/panel-left.svg"); }
 .icon-panel-right { -webkit-mask-image: url("../assets/icons/panel-right.svg"); mask-image: url("../assets/icons/panel-right.svg"); }
 .icon-rates { -webkit-mask-image: url("../assets/icons/rates.svg"); mask-image: url("../assets/icons/rates.svg"); }
+.icon-units { -webkit-mask-image: url("../assets/icons/units.svg"); mask-image: url("../assets/icons/units.svg"); }
 .icon-light { -webkit-mask-image: url("../assets/icons/light.svg"); mask-image: url("../assets/icons/light.svg"); }
 .icon-legend { -webkit-mask-image: url("../assets/icons/legend.svg"); mask-image: url("../assets/icons/legend.svg"); }
 .icon-window { -webkit-mask-image: url("../assets/icons/window.svg"); mask-image: url("../assets/icons/window.svg"); }
@@ -175,6 +176,7 @@ button, input { font: inherit; color: inherit; }
 .icon-max { -webkit-mask-image: url("../assets/icons/max.svg"); mask-image: url("../assets/icons/max.svg"); }
 .icon-restore { -webkit-mask-image: url("../assets/icons/restore.svg"); mask-image: url("../assets/icons/restore.svg"); }
 .icon-copy { -webkit-mask-image: url("../assets/icons/copy.svg"); mask-image: url("../assets/icons/copy.svg"); }
+.icon-help { -webkit-mask-image: url("../assets/icons/help.svg"); mask-image: url("../assets/icons/help.svg"); }
 
 .tooltip {
   position: fixed;
@@ -602,6 +604,35 @@ button, input { font: inherit; color: inherit; }
   min-height: 16px;
 }
 
+.app[data-mode="unit"] {
+  width: 400px;
+  height: 594px;
+}
+
+.app[data-mode="unit"] .rate-row {
+  grid-template-columns: 152px minmax(0, 1fr);
+}
+
+.unit-group {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.unit-group select {
+  min-width: 0;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--chip);
+  color: var(--ink);
+  padding: 0 6px;
+  font-size: 13px;
+}
+
 .app[data-mode="programmer"] {
   width: 480px;
   height: 700px;
@@ -772,19 +803,6 @@ button, input { font: inherit; color: inherit; }
   font-size: 12px;
 }
 
-.axis-bar {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  align-items: center;
-  min-width: 0;
-  overflow: hidden;
-}
-.axis-bar .view-row {
-  margin-right: auto;
-  flex: 0 1 auto;
-  overflow: visible;
-}
 .axis-field {
   display: flex;
   align-items: center;
@@ -802,9 +820,10 @@ button, input { font: inherit; color: inherit; }
   background: transparent;
   cursor: pointer;
 }
-.axis-field .tool-icon {
-  width: 28px;
-  height: 28px;
+/* The letter on the button is the label: lit when the axis is drawn. */
+.axis-toggle {
+  width: 30px;
+  height: 30px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -814,13 +833,14 @@ button, input { font: inherit; color: inherit; }
   color: var(--ink);
   border-radius: 999px;
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
 }
-.axis-field .tool-icon[aria-pressed="true"] {
+.axis-toggle[aria-pressed="true"] {
   background: var(--op);
   border-color: transparent;
   color: var(--op-ink);
 }
-.axis-field .tool-icon .icon { width: 15px; height: 15px; }
 
 .graph-tools .tool-icon {
   display: inline-flex;
@@ -832,22 +852,89 @@ button, input { font: inherit; color: inherit; }
 
 .graph-tools .tool-icon .icon { width: 16px; height: 16px; }
 
-.graph-tool-row .axis-field {
+/* The axis colours and switches ride on their own line under the toolbar. */
+.graph-axis-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.graph-axis-row .axis-field {
   gap: 3px;
   font-size: 11px;
   color: var(--muted);
 }
 
-.graph-tool-row .axis-field[data-axis="x"] {
-  margin-left: 6px;
-  padding-left: 10px;
-  border-left: 1px solid var(--line);
-}
-
-.graph-tool-row .axis-field input[type="color"],
-.graph-tool-row .axis-field .tool-icon {
+.graph-axis-row .axis-field input[type="color"] {
   width: 30px;
   height: 30px;
+}
+
+/* A rule between the groups on the axis line: colours, then ranges, then the lamp. */
+.axis-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 22px;
+  background: var(--line);
+}
+
+.axis-span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.axis-span-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.axis-span[data-axis="x"] .axis-span-tag { color: var(--axis-x); }
+.axis-span[data-axis="y"] .axis-span-tag { color: var(--axis-y); }
+.axis-span[data-axis="z"] .axis-span-tag { color: var(--axis-z); }
+
+.axis-span-dash { color: var(--muted); }
+
+.axis-span-icon {
+  width: 16px;
+  height: 16px;
+  background-color: var(--warn, #f59e0b);
+}
+
+.axis-num {
+  width: 58px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--chip);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  text-align: right;
+}
+
+.axis-num:focus-visible {
+  outline: 2px solid var(--op);
+  outline-offset: 1px;
+}
+
+/* The spinners steal width the number needs on a toolbar this tight. */
+.axis-num::-webkit-outer-spin-button,
+.axis-num::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.axis-num { appearance: textfield; -moz-appearance: textfield; }
+
+.axis-num.is-wrong {
+  border-color: var(--danger);
 }
 
 .graph-input { text-align: left; background: var(--chip); border-radius: 12px; padding: 8px 12px; }
@@ -923,37 +1010,21 @@ button, input { font: inherit; color: inherit; }
   cursor: pointer;
 }
 
-html:not(.graph-pop) #screenGraph .graph-body {
-  display: block;
-  flex: 0 0 auto;
-  height: 0;
-  overflow: visible;
-}
-
-html:not(.graph-pop) #screenGraph .canvas-wrap {
+/* Outside the graph window the plot keeps the drawing alive off screen, so a
+   graph window that opens later gets the picture back. Nothing of it shows. */
+html:not(.graph-pop) #screenGraph {
   position: fixed;
   top: 0;
   left: -10000px;
-  width: 800px;
-  height: 420px;
+  width: 840px;
+  height: 560px;
   visibility: hidden;
   pointer-events: none;
 }
-html:not(.graph-pop) #screenGraph #zoomIn,
-html:not(.graph-pop) #screenGraph #zoomOut,
-html:not(.graph-pop) #screenGraph #resetView,
-html:not(.graph-pop) #screenGraph #gridToggle,
-html:not(.graph-pop) #screenGraph #legendToggle,
-html:not(.graph-pop) #screenGraph #axisToggle,
-html:not(.graph-pop) #screenGraph #axesToggle,
-html:not(.graph-pop) #screenGraph #lightToggle,
-html:not(.graph-pop) #screenGraph .axis-field,
-html:not(.graph-pop) #screenGraph #graphSettings,
-html:not(.graph-pop) #screenGraph #exportGraph,
-html:not(.graph-pop) #screenGraph #printGraph,
-html:not(.graph-pop) #screenGraph #fnList,
-html:not(.graph-pop) #screenGraph .axis-bar {
-  display: none;
+
+html:not(.graph-pop) #screenGraph .canvas-wrap {
+  width: 800px;
+  height: 420px;
 }
 
 .legend-color {
@@ -994,7 +1065,6 @@ canvas {
 canvas.is-3d.dragging { cursor: grabbing; }
 
 .readout { display: none; }
-
 
 .graph-resize {
   position: absolute;
@@ -1055,61 +1125,6 @@ canvas.is-3d.dragging { cursor: grabbing; }
   gap: 10px;
   flex: 1 1 auto;
   min-height: 0;
-}
-
-.view-row {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  align-items: center;
-  overflow: hidden;
-}
-
-.view-row label {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: row;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.view-row .num-step {
-  width: 96px;
-  min-height: 32px;
-  background: var(--chip);
-}
-
-.view-row .num-step button { flex-basis: 22px; font-size: 18px; }
-
-.view-row .num-step input {
-  width: auto;
-  border: 0;
-  background: transparent;
-  padding: 4px 0;
-  font-family: Consolas, "Malgun Gothic", monospace;
-  font-size: 15px;
-}
-
-.view-row label[data-axis="x"] { --axis-ink: var(--axis-x); }
-.view-row label[data-axis="y"] { --axis-ink: var(--axis-y); }
-.view-row label[data-axis="z"] { --axis-ink: var(--axis-z); }
-
-.view-row label[data-axis] {
-  color: color-mix(in srgb, var(--axis-ink) 72%, var(--ink));
-  font-weight: 700;
-}
-
-.view-row label[data-axis] .num-step {
-  border-color: color-mix(in srgb, var(--axis-ink) 55%, var(--line));
-  background: color-mix(in srgb, var(--axis-ink) 14%, var(--chip));
-}
-
-.view-row label[data-axis] .num-step input {
-  color: color-mix(in srgb, var(--axis-ink) 62%, var(--ink));
-  caret-color: var(--axis-ink);
 }
 
 .notice {
@@ -1195,7 +1210,6 @@ canvas.is-3d.dragging { cursor: grabbing; }
   font-weight: 700;
 }
 
-.view-row .tool-icon,
 .fn-list .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1205,24 +1219,7 @@ canvas.is-3d.dragging { cursor: grabbing; }
   padding: 0;
 }
 
-.view-row .tool-icon {
-  border: 1px solid var(--line);
-  background: var(--chip);
-  color: var(--ink);
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-#applyView {
-  border-color: transparent;
-  background: var(--eq);
-  color: var(--eq-ink);
-}
-
-#applyView:hover { background: var(--eq-hover); }
-
-.fn-list .icon-btn .icon,
-.view-row .tool-icon .icon { width: 15px; height: 15px; }
+.fn-list .icon-btn .icon { width: 15px; height: 15px; }
 
 .presets { display: flex; flex-wrap: wrap; gap: 6px; overflow: hidden; }
 .presets button, .icon-btn {
@@ -1263,12 +1260,15 @@ canvas.is-3d.dragging { cursor: grabbing; }
   min-width: 0;
 }
 
-.pop-title img {
+.pop-title img,
+.pop-title .icon {
   width: 22px;
   height: 22px;
   flex: 0 0 auto;
   display: block;
 }
+
+.graph-title .icon { width: 20px; height: 20px; }
 
 .sheet-head {
   display: flex;
@@ -1310,7 +1310,7 @@ canvas.is-3d.dragging { cursor: grabbing; }
 #settingsMax.is-restore .icon-max { display: none; }
 #settingsMax.is-restore .icon-restore { display: block; }
 
-html.print-pop .print-preview { margin-top: 36px; }
+html.print-pop .print-head { padding-right: 116px; }
 
 .pop-chrome {
   position: absolute;
@@ -1356,6 +1356,7 @@ html.print-pop #printSheet input,
 html.print-pop #printSheet select,
 html.print-pop #printSheet textarea,
 html.print-pop #printSheet .print-setup,
+html.print-pop #printSheet .print-stage,
 html.print-pop #printSheet .print-preview { -webkit-app-region: no-drag; }
 
 .sheet-foot {
@@ -1395,7 +1396,7 @@ html.print-pop #printSheet .print-preview { -webkit-app-region: no-drag; }
   color: #fff;
 }
 
-.sheet-head h2, .theme-group h3, .custom-theme h3 {
+.sheet-head h2, .theme-group h3, .custom-theme h3, .pad-order h3 {
   margin: 0;
   font-size: 16px;
 }
@@ -1426,29 +1427,33 @@ html.print-pop #printSheet .print-preview { -webkit-app-region: no-drag; }
 
 #infoSheet .dialog { width: min(100%, 500px); }
 
-#settingsSheet .theme-columns,
-#settingsSheet .theme-group,
-#settingsSheet .theme-grid,
-#settingsSheet .custom-theme {
+#settingsSheet .custom-theme,
+#settingsSheet .pad-order {
   flex: 0 0 auto;
 }
 
+#settingsSheet .theme-columns,
+#settingsSheet .theme-group,
 #settingsSheet .theme-grid {
-  grid-template-rows: repeat(4, auto);
+  flex: 0 1 auto;
+  min-height: 0;
 }
 
 #settingsSheet .theme-chip {
-  padding: 5px 4px 4px;
+  padding: 3px 4px;
   gap: 2px;
 }
 
-#settingsSheet .theme-name { font-size: 11px; }
+#settingsSheet .theme-dots i { width: 9px; height: 9px; }
+
+#settingsSheet .theme-name { font-size: 11px; line-height: 1.15; }
 
 .theme-columns {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: 14px;
   overflow: hidden;
 }
@@ -1550,6 +1555,72 @@ html.print-pop #printSheet .print-preview { -webkit-app-region: no-drag; }
   border-radius: 8px;
 }
 
+.pad-order {
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--screen);
+  border-radius: 16px;
+  padding: 10px;
+}
+
+.pad-choices {
+  margin-top: 8px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pad-chip {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  padding: 5px 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pad-chip:hover { background: var(--key-hover); }
+
+.pad-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.pad-view {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 10px);
+  grid-auto-rows: 8px;
+  gap: 2px;
+}
+
+.pad-view i {
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  background: var(--key);
+  font-size: 7px;
+  font-style: normal;
+  line-height: 1;
+}
+
+.pad-view .pad-blank { background: transparent; }
+.pad-view .pad-zero { background: var(--op); color: var(--op-ink); }
+
+.pad-name {
+  min-width: 0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .info-body {
   overflow: hidden;
   color: var(--ink);
@@ -1583,9 +1654,81 @@ html.print-pop #printSheet .print-preview { -webkit-app-region: no-drag; }
 .info-list dt { margin: 0; font-size: 13px; font-weight: 700; }
 .info-list dd { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 
+/* The help is a document: it scrolls, and only its chrome is a window. */
+.help-dialog { display: flex; flex-direction: column; min-height: 0; }
+.help-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  color: var(--ink);
+  background: var(--screen);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.help-name { margin: 0; font-size: 18px; font-weight: 750; color: var(--ink); }
+.help-lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; font-weight: 400; }
+.help-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 8px;
+  flex: 0 0 auto;
+}
+/* The question mark is the sign of this window, drawn in the accent colour
+   rather than the app's own mark, which belongs to the About window. */
+.help-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  background-color: var(--accent);
+}
+.help-intro { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.help-doc {
+  margin-top: 4px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 4px;
+}
+.help-part { display: flex; flex-direction: column; gap: 6px; }
+.help-part h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--accent, var(--op));
+}
+.help-note { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.help-rows {
+  margin: 2px 0 0;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.44fr) minmax(0, 1fr);
+  gap: 5px 12px;
+  align-items: baseline;
+}
+.help-rows dt {
+  margin: 0;
+  font-family: Consolas, "Malgun Gothic", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.help-rows dd { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+html.help-pop #helpSheet .dialog { -webkit-app-region: drag; }
+html.help-pop #helpSheet button,
+html.help-pop #helpSheet .help-doc { -webkit-app-region: no-drag; }
+
+@media (max-width: 520px) {
+  .help-rows { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .help-rows dd { margin-bottom: 4px; }
+}
+
 @media (max-width: 300px) {
   .sci-layout, .graph-body { grid-template-columns: 1fr; }
   .custom-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .pad-choices { grid-template-columns: minmax(0, 1fr); }
   .modes { overflow: hidden; }
 }
 
@@ -1659,14 +1802,19 @@ html.graph-pop #screenGraph {
   padding: 0;
 }
 
-html.graph-pop #screenGraph .dim-switch,
-html.graph-pop #screenGraph #dim2d,
-html.graph-pop #screenGraph #dim3d,
-html.graph-pop #screenGraph #graphExpr,
-html.graph-pop #screenGraph #addFn,
-html.graph-pop #screenGraph #graphSettings,
-html.graph-pop #screenGraph .presets {
+html.graph-pop #screenGraph #graphSettings {
   display: none;
+}
+
+/* The toolbar now holds 2D/3D, the expression box and add, so it wraps
+   instead of cutting a control off when the window is narrow. */
+html.graph-pop .graph-tool-row {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+html.graph-pop .graph-tool-row .graph-input {
+  flex: 1 1 180px;
 }
 
 html.graph-pop #screenGraph .graph-body {
@@ -1752,21 +1900,6 @@ html.graph-pop .canvas-wrap {
 
 html.graph-pop #graphTitle { margin-right: auto; }
 
-@media (max-width: 1099px) {
-  html.graph-pop .graph-tool-row,
-  html.graph-pop .axis-bar,
-  html.graph-pop .view-row {
-    flex-wrap: wrap;
-  }
-
-  html.graph-pop .graph-tool-row,
-  html.graph-pop .axis-bar {
-    row-gap: 6px;
-    overflow: visible;
-  }
-}
-
-
 html.graph-pop .num-step {
   border-radius: 999px;
 }
@@ -1842,6 +1975,8 @@ html.graph-pop #graphPopBtn {
 
 html.settings-pop,
 html.settings-pop body,
+html.help-pop,
+html.help-pop body,
 html.info-pop,
 html.info-pop body {
   height: 100%;
@@ -1850,11 +1985,13 @@ html.info-pop body {
 }
 
 html.settings-pop body,
+html.help-pop body,
 html.info-pop body {
   display: block;
 }
 
 html.settings-pop .app,
+html.help-pop .app,
 html.info-pop .app {
   width: 100%;
   height: 100%;
@@ -1875,14 +2012,22 @@ html.settings-pop .top,
 html.settings-pop .stage,
 html.settings-pop #keys,
 html.settings-pop #infoSheet,
+html.settings-pop #helpSheet,
+html.help-pop .top,
+html.help-pop .stage,
+html.help-pop #keys,
+html.help-pop #infoSheet,
+html.help-pop #settingsSheet,
 html.info-pop .top,
 html.info-pop .stage,
 html.info-pop #keys,
+html.info-pop #helpSheet,
 html.info-pop #settingsSheet {
   display: none !important;
 }
 
 html.settings-pop #settingsSheet,
+html.help-pop #helpSheet,
 html.info-pop #infoSheet {
   display: flex !important;
   position: static;
@@ -1894,6 +2039,7 @@ html.info-pop #infoSheet {
 }
 
 html.settings-pop #settingsSheet .dialog,
+html.help-pop #helpSheet .dialog,
 html.info-pop #infoSheet .dialog {
   width: 100%;
   max-height: none;
@@ -2064,13 +2210,36 @@ html.print-pop #printSheet {
   position: relative;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px 16px;
   flex: 1 1 auto;
   height: 100%;
   min-height: 0;
   padding: 16px;
   box-sizing: border-box;
   background: transparent;
+}
+
+.print-head {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.print-head h2 { margin: 0; font-size: 18px; }
+
+.print-stage {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.print-group {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
 }
 
 .print-setup {
@@ -2195,10 +2364,17 @@ html.print-pop #printSheet {
   font-size: 12px;
 }
 
-.print-actions { display: flex; gap: 8px; margin-top: 4px; }
+.print-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.print-actions .print-error { flex: 1 1 auto; min-width: 0; }
 
 .print-actions button {
-  flex: 1;
+  flex: 0 0 132px;
   min-height: 34px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -2224,6 +2400,7 @@ html.print-pop #printSheet {
 }
 
 .print-preview {
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -2305,3 +2482,6 @@ html.print-pop #printSheet {
 @media (prefers-reduced-motion: reduce) {
   .app { transition: none; }
 }
+
+html.help-pop #helpSheet .dialog { height: 100%; }
+html.help-pop #helpSheet .help-body { flex: 1 1 auto; min-height: 0; }

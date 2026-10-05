@@ -53,13 +53,14 @@ const THEME_EN = {
 
 const STRINGS = {
   ko: {
-    tagline: "기본, 공학용, 프로그래머, 그래프",
+    tagline: "기본, 공학용, 프로그래머, 그래프, 단위",
     settings: "설정",
     info: "정보",
     "mode.basic": "기본",
     "mode.scientific": "공학용",
     "mode.programmer": "프로그래머",
     "mode.currency": "환율",
+    "mode.unit": "단위",
     "mode.graph": "그래프",
     rateRefresh: "환율 새로 고침",
     rateSwap: "통화 바꾸기",
@@ -70,10 +71,17 @@ const STRINGS = {
     rateSaved: "저장된 환율",
     rateLoading: "환율을 가져오는 중",
     rateOffline: "오프라인 — 마지막 환율로 계산",
+    unitGroup: "종류",
+    unitFrom: "바꿀 단위",
+    unitTo: "바뀐 단위",
+    unitAmount: "값",
+    unitSwap: "단위 바꾸기",
 
     modes: "계산기 모드",
     expr: "계산식",
     copyExpr: "식 복사",
+    copyKey: "복사",
+    copyResult: "결과 복사",
     history: "계산 기록",
     bits: "비트 너비",
     progExpr: "식",
@@ -101,8 +109,6 @@ const STRINGS = {
     lightRise: "고도",
     lightFar: "거리",
     light: "광원",
-    gridZ: "격자 z",
-    applyView: "범위 적용",
     xMin: "x 최소",
     xMax: "x 최대",
     yMin: "y 최소",
@@ -120,6 +126,17 @@ const STRINGS = {
     axisX: "X 축",
     axisY: "Y 축",
     axisZ: "Z 축",
+    graphHelp: "그래프 도움말",
+    graphHelpLead: "식을 적는 방법을 중심으로 그래프 창의 사용법을 모았습니다.",
+    axisMinX: "X 최소",
+    axisMaxX: "X 최대",
+    axisMinY: "Y 최소",
+    axisMaxY: "Y 최대",
+    axisMinZ: "Z 최소",
+    axisMaxZ: "Z 최대",
+    lightAtX: "광원 X",
+    lightAtY: "광원 Y",
+    lightAtZ: "광원 Z",
     resize: "창 크기 변경",
     print: "인쇄",
     exportImage: "내보내기",
@@ -180,7 +197,6 @@ const STRINGS = {
     printPreview: "미리보기",
     printWait: "그래프를 불러오는 중",
     printFailed: "인쇄하지 못했습니다.",
-    viewApplied: "범위를 적용했습니다",
     inputError: "입력 오류",
     inputFixGeneric: "입력한 값을 확인한 뒤 다시 시도하세요.",
     programError: "프로그램 오류",
@@ -194,13 +210,15 @@ const STRINGS = {
     memAdd: "메모리에 더하기",
     memSub: "메모리에서 빼기",
     infoTitle: "프로그램 정보",
-    infoLead: "기본, 공학용, 프로그래머 계산기입니다. 그래프는 별도의 창에서 엽니다.",
+    infoLead: "기본, 공학용, 프로그래머, 환율, 단위 계산기입니다. 그래프는 별도의 창에서 엽니다.",
     infoBasic: "기본",
     infoBasicDesc: "식을 입력한 뒤 Enter 또는 = 로 계산합니다.",
     infoSci: "공학용",
     infoSciDesc: "DEG/RAD, NORM/SCI/ENG, 메모리와 역함수를 지원합니다.",
     infoProg: "프로그래머",
     infoProgDesc: "8·16·32·64비트와 HEX, DEC, OCT, BIN을 변환합니다.",
+    infoUnit: "단위",
+    infoUnitDesc: "길이, 무게, 온도를 비롯한 열두 가지를 변환합니다.",
     infoGraph: "그래프",
     infoGraphDesc: "별도 창에서 열립니다. 2D는 드래그로 이동하고, 3D는 마우스로 회전합니다.",
     infoBuild: "빌드 정보",
@@ -215,6 +233,9 @@ const STRINGS = {
     darkThemes: "다크 테마",
     lightThemes: "라이트 테마",
     customTheme: "사용자 정의 테마",
+    keypadOrder: "숫자 배치",
+    keypad789: "7 8 9 먼저",
+    keypad123: "1 2 3 먼저",
     apply: "적용",
     "field.bg": "배경",
     "field.card": "카드",
@@ -225,13 +246,14 @@ const STRINGS = {
     "field.eq": "결과 키",
   },
   en: {
-    tagline: "Basic, Scientific, Programmer, Graph",
+    tagline: "Basic, Scientific, Programmer, Graph, Units",
     settings: "Settings",
     info: "Info",
     "mode.basic": "Basic",
     "mode.scientific": "Scientific",
     "mode.programmer": "Programmer",
     "mode.currency": "Currency",
+    "mode.unit": "Units",
     "mode.graph": "Graph",
     rateRefresh: "Refresh rates",
     rateSwap: "Swap currencies",
@@ -242,10 +264,17 @@ const STRINGS = {
     rateSaved: "Saved rates",
     rateLoading: "Fetching rates",
     rateOffline: "Offline — using the last rates",
+    unitGroup: "Category",
+    unitFrom: "From",
+    unitTo: "To",
+    unitAmount: "Value",
+    unitSwap: "Swap units",
 
     modes: "Calculator mode",
     expr: "Expression",
     copyExpr: "Copy expression",
+    copyKey: "Copy",
+    copyResult: "Copy the result",
     history: "History",
     bits: "Bit width",
     progExpr: "Expression",
@@ -273,8 +302,6 @@ const STRINGS = {
     lightRise: "Height",
     lightFar: "Distance",
     light: "Light",
-    gridZ: "Grid z",
-    applyView: "Apply range",
     xMin: "x min",
     xMax: "x max",
     yMin: "y min",
@@ -292,6 +319,17 @@ const STRINGS = {
     axisX: "X axis",
     axisY: "Y axis",
     axisZ: "Z axis",
+    graphHelp: "Graph help",
+    graphHelpLead: "How to write a formula, and the rest of the graph window around it.",
+    axisMinX: "X minimum",
+    axisMaxX: "X maximum",
+    axisMinY: "Y minimum",
+    axisMaxY: "Y maximum",
+    axisMinZ: "Z minimum",
+    axisMaxZ: "Z maximum",
+    lightAtX: "Light X",
+    lightAtY: "Light Y",
+    lightAtZ: "Light Z",
     resize: "Resize window",
     print: "Print",
     exportImage: "Export",
@@ -352,7 +390,6 @@ const STRINGS = {
     printPreview: "Preview",
     printWait: "Loading the graph",
     printFailed: "Printing failed.",
-    viewApplied: "Range applied",
     inputError: "Input error",
     inputFixGeneric: "Check the value you entered, then try again.",
     programError: "Program error",
@@ -366,13 +403,15 @@ const STRINGS = {
     memAdd: "Add to memory",
     memSub: "Subtract from memory",
     infoTitle: "About",
-    infoLead: "A calculator with basic, scientific, and programmer modes. The graph opens in its own window.",
+    infoLead: "A calculator with basic, scientific, programmer, currency, and unit modes. The graph opens in its own window.",
     infoBasic: "Basic",
     infoBasicDesc: "Enter an expression, then press Enter or =.",
     infoSci: "Scientific",
     infoSciDesc: "Supports DEG/RAD, NORM/SCI/ENG, memory, and inverse functions.",
     infoProg: "Programmer",
     infoProgDesc: "Converts 8, 16, 32, and 64 bits across HEX, DEC, OCT, and BIN.",
+    infoUnit: "Units",
+    infoUnitDesc: "Converts twelve kinds, among them length, mass, and temperature.",
     infoGraph: "Graph",
     infoGraphDesc: "Opens in a separate window. 2D pans by dragging, and 3D rotates with the mouse.",
     infoBuild: "Build",
@@ -387,6 +426,9 @@ const STRINGS = {
     darkThemes: "Dark themes",
     lightThemes: "Light themes",
     customTheme: "Custom theme",
+    keypadOrder: "Digit layout",
+    keypad789: "7 8 9 first",
+    keypad123: "1 2 3 first",
     apply: "Apply",
     "field.bg": "Background",
     "field.card": "Card",
@@ -398,6 +440,185 @@ const STRINGS = {
   },
 };
 
+// The graph help, laid out as a document rather than as loose keys so the two
+// languages stay side by side and a section can be read against its twin.
+// A row is [what you type, what it means]; a note is a line on its own.
+const GRAPH_HELP = {
+  ko: [
+    {
+      title: "식을 적는 자리",
+      notes: [
+        "창 위쪽 입력칸에 식을 적고 Enter 를 누르거나 + 를 누르면 그려집니다.",
+        "2D 는 x 의 식을, 3D 는 x 와 y 의 식을 받습니다. 앞의 y = 와 z = 는 적지 않습니다.",
+        "여러 개를 적으면 겹쳐서 그려집니다. 왼쪽 목록에서 색을 바꾸거나 잠시 숨기거나 지울 수 있습니다.",
+        "입력칸 아래 보기 중 하나를 눌러도 그대로 들어갑니다.",
+      ],
+      rows: [
+        ["sin(x)", "2D 의 식입니다"],
+        ["x^2 - 3x + 1", "곱하기 기호는 생략해도 됩니다"],
+        ["sin(x)*cos(y)", "3D 의 식입니다"],
+      ],
+    },
+    {
+      title: "쓸 수 있는 기호",
+      rows: [
+        ["+ - * /", "더하기, 빼기, 곱하기, 나누기. × ÷ − 도 그대로 받습니다"],
+        ["^ 또는 **", "거듭제곱입니다. 2^10 은 1024 입니다"],
+        ["( )", "묶음입니다. 2(x+1) 처럼 앞의 곱하기는 생략해도 됩니다"],
+        ["!", "계승입니다. 5! 은 120 입니다"],
+        ["%", "백분율입니다. 50% 는 0.5 입니다"],
+        ["√", "제곱근입니다. sqrt(x) 와 같습니다"],
+        ["pi 또는 π", "원주율입니다"],
+        ["e", "자연로그의 밑입니다"],
+        ["ans", "계산기에서 마지막에 나온 값입니다"],
+      ],
+      notes: ["대문자와 소문자를 가리지 않습니다. SIN(X) 도 sin(x) 로 읽습니다."],
+    },
+    {
+      title: "함수",
+      rows: [
+        ["sin cos tan", "삼각함수입니다. 그래프에서는 라디안으로 셉니다"],
+        ["asin acos atan", "역삼각함수입니다"],
+        ["sinh cosh tanh", "쌍곡선함수입니다. asinh acosh atanh 도 있습니다"],
+        ["log ln log2 log10", "로그입니다. log 는 상용로그입니다"],
+        ["sqrt cbrt abs exp", "제곱근, 세제곱근, 절댓값, 지수입니다"],
+        ["floor ceil round", "내림, 올림, 반올림입니다"],
+        ["fact(n)", "계승입니다. n! 과 같습니다"],
+        ["mod(a, b)", "나머지입니다"],
+        ["ncr(n, r)  npr(n, r)", "조합과 순열입니다"],
+        ["min(a, b)  max(a, b)", "둘 중 작은 값, 큰 값입니다"],
+      ],
+    },
+    {
+      title: "합 Σ",
+      notes: [
+        "Σ(세는 변수, 시작, 끝, 더할 식) 순서로 적습니다.",
+        "Σ 글자를 그대로 넣어도 되고, 적기 어려우면 sum 이라고 적어도 똑같이 읽습니다.",
+        "시작과 끝은 정수여야 합니다. 끝이 시작보다 작으면 합은 0 입니다.",
+        "세는 변수는 괄호 안에서만 쓰입니다. 바깥의 x 나 y 와 섞이지 않습니다.",
+      ],
+      rows: [
+        ["Σ(k, 1, 10, k)", "1 부터 10 까지 더해 55 입니다"],
+        ["sum(k, 1, 10, k)", "위와 같은 식입니다"],
+        ["Σ(k, 1, 5, k^2)", "제곱을 더해 55 입니다"],
+        ["Σ(k, 1, 5, sin(k*x)/k)", "x 의 식이 됩니다. 그대로 그려집니다"],
+        ["Σ(n, 0, 8, x^n/fact(n))", "지수함수에 가까워지는 모습을 봅니다"],
+        ["Σ(i, 1, 3, Σ(j, 1, 3, i*j))", "안에 또 넣어도 됩니다"],
+      ],
+    },
+    {
+      title: "축의 범위와 광원",
+      notes: [
+        "색 단추 오른쪽의 칸이 각 축의 최소와 최대입니다. 그려지는 범위가 곧 이 범위입니다.",
+        "3D 상자는 숫자가 아무리 커도 정육면체로 그려집니다. z 를 넓히면 눈금 간격이 넓어질 뿐 그림이 솟지 않습니다.",
+        "맨 오른쪽 세 칸은 광원의 자리입니다. 축의 숫자와 같은 단위로 적습니다.",
+        "값이 잘못되면 칸이 붉어지고 그리던 범위로 되돌아갑니다.",
+        "툴바의 초기화 단추는 범위와 보는 각도와 광원을 한 번에 처음으로 돌립니다.",
+      ],
+    },
+    {
+      title: "보는 각도",
+      rows: [
+        ["2D 끌기", "그림을 옮깁니다"],
+        ["2D 휠", "가리킨 자리를 중심으로 늘리고 줄입니다"],
+        ["3D 끌기", "돌려 봅니다"],
+        ["3D 휠", "축의 범위를 함께 넓히거나 좁힙니다"],
+        ["3D Ctrl + 휠", "범위는 그대로 두고 그림만 크게 보입니다"],
+        ["해를 끌기", "광원을 옮깁니다"],
+        ["범례를 끌기", "이름표의 자리를 옮깁니다"],
+      ],
+    },
+  ],
+  en: [
+    {
+      title: "Where the formula goes",
+      notes: [
+        "Type a formula in the box at the top and press Enter, or press +, and it is drawn.",
+        "2D takes a formula in x, 3D one in x and y. The leading y = and z = are not typed.",
+        "Several formulas draw on top of each other. The list on the left recolours, hides and removes them.",
+        "The examples under the box put the same text in for you.",
+      ],
+      rows: [
+        ["sin(x)", "a 2D formula"],
+        ["x^2 - 3x + 1", "the times sign may be left out"],
+        ["sin(x)*cos(y)", "a 3D formula"],
+      ],
+    },
+    {
+      title: "Signs you can type",
+      rows: [
+        ["+ - * /", "plus, minus, times, divide. × ÷ − are taken as they are"],
+        ["^ or **", "a power. 2^10 is 1024"],
+        ["( )", "grouping. In 2(x+1) the times sign may be left out"],
+        ["!", "factorial. 5! is 120"],
+        ["%", "per cent. 50% is 0.5"],
+        ["√", "square root, the same as sqrt(x)"],
+        ["pi or π", "the circle constant"],
+        ["e", "the base of the natural logarithm"],
+        ["ans", "the last answer from the calculator"],
+      ],
+      notes: ["Capitals do not matter: SIN(X) reads as sin(x)."],
+    },
+    {
+      title: "Functions",
+      rows: [
+        ["sin cos tan", "trigonometry, counted in radians on the graph"],
+        ["asin acos atan", "the inverses"],
+        ["sinh cosh tanh", "hyperbolics; asinh acosh atanh are there too"],
+        ["log ln log2 log10", "logarithms. log is base ten"],
+        ["sqrt cbrt abs exp", "square root, cube root, size, exponential"],
+        ["floor ceil round", "down, up, to the nearest"],
+        ["fact(n)", "factorial, the same as n!"],
+        ["mod(a, b)", "the remainder"],
+        ["ncr(n, r)  npr(n, r)", "combinations and permutations"],
+        ["min(a, b)  max(a, b)", "the smaller and the larger"],
+      ],
+    },
+    {
+      title: "Sums with Σ",
+      notes: [
+        "Write Σ(counter, first, last, what to add), in that order.",
+        "Type the Σ itself, or write sum if the sign is hard to reach; both read the same.",
+        "The first and last must be whole numbers. If the last is smaller, the sum is 0.",
+        "The counter lives inside the brackets only. It never mixes with the x or y outside.",
+      ],
+      rows: [
+        ["Σ(k, 1, 10, k)", "1 through 10, which is 55"],
+        ["sum(k, 1, 10, k)", "the same formula"],
+        ["Σ(k, 1, 5, k^2)", "the squares, which is 55"],
+        ["Σ(k, 1, 5, sin(k*x)/k)", "a formula in x, drawn as it stands"],
+        ["Σ(n, 0, 8, x^n/fact(n))", "watch it close in on the exponential"],
+        ["Σ(i, 1, 3, Σ(j, 1, 3, i*j))", "one sum may sit inside another"],
+      ],
+    },
+    {
+      title: "The range of the axes, and the lamp",
+      notes: [
+        "The boxes right of the colour buttons are the smallest and largest of each axis. What is drawn is exactly that range.",
+        "The 3D box is a cube however large the numbers are. Widening z spreads the height ticks instead of raising a spike.",
+        "The last three boxes are where the lamp hangs, written in the same numbers as the axes.",
+        "A value that cannot be used turns the box red and goes back to the range being drawn.",
+        "The reset button on the toolbar puts the ranges, the angle and the lamp back at once.",
+      ],
+    },
+    {
+      title: "Looking around",
+      rows: [
+        ["2D drag", "moves the picture"],
+        ["2D wheel", "zooms about the spot under the pointer"],
+        ["3D drag", "turns the picture"],
+        ["3D wheel", "widens or narrows the range of the axes with it"],
+        ["3D Ctrl + wheel", "leaves the range alone and only magnifies"],
+        ["drag the sun", "moves the lamp"],
+        ["drag the legend", "moves the name plate"],
+      ],
+    },
+  ],
+};
+
+function graphHelpDoc() {
+  return GRAPH_HELP[uiLang] || GRAPH_HELP.ko;
+}
 function t(key) {
   const pack = STRINGS[uiLang] || STRINGS.ko;
   if (pack[key] != null) return pack[key];
@@ -450,7 +671,13 @@ function applyLanguage(lang) {
   if (typeof renderHistory === "function") renderHistory();
   if (typeof renderThemeGroups === "function") renderThemeGroups();
   if (typeof renderCustomFields === "function" && typeof customPicks === "function") renderCustomFields(customPicks());
+  if (typeof renderPadChoices === "function") renderPadChoices();
+  if (typeof renderCurrencyOptions === "function") renderCurrencyOptions();
+  if (typeof renderCurrency === "function") renderCurrency();
+  if (typeof renderUnitOptions === "function") renderUnitOptions();
+  if (typeof renderUnit === "function") renderUnit();
   if (typeof syncGraphChrome === "function") syncGraphChrome();
+  if (typeof renderHelp === "function") renderHelp();
   if (typeof renderFunctions === "function") renderFunctions();
   if (typeof syncWindowTitle === "function") syncWindowTitle();
   if (typeof layoutPrintPreview === "function") layoutPrintPreview();

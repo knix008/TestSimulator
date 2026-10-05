@@ -8,6 +8,7 @@ const screenCalc = document.getElementById("screenCalc");
 const screenProg = document.getElementById("screenProg");
 const screenGraph = document.getElementById("screenGraph");
 const screenRates = document.getElementById("screenRates");
+const screenUnit = document.getElementById("screenUnit");
 const angleBtn = document.getElementById("angleBtn");
 const notationBtn = document.getElementById("notationBtn");
 const memFlag = document.getElementById("memFlag");
@@ -18,6 +19,29 @@ const fnListEl = document.getElementById("fnList");
 const readoutEl = document.getElementById("readout");
 
 const HISTORY_KEPT = 10;
+
+// The graph window never goes narrower than its toolbar on one line.
+const GRAPH_MIN_WIDTH = 790;
+const GRAPH_MIN_HEIGHT = 520;
+
+// Digit rows run 7-8-9 first or 1-2-3 first. Zero keeps the middle column
+// below them either way, so only the three rows above it change places.
+const KEYPAD_KEY = "mycalc-keypad";
+const KEYPAD_ORDERS = ["789", "123"];
+
+function readStoredKeypad() {
+  try {
+    const saved = localStorage.getItem(KEYPAD_KEY);
+    return KEYPAD_ORDERS.includes(saved) ? saved : KEYPAD_ORDERS[0];
+  } catch {
+    return KEYPAD_ORDERS[0];
+  }
+}
+
+function digitRows() {
+  const rows = [["7", "8", "9"], ["4", "5", "6"], ["1", "2", "3"]];
+  return state.keypad === "123" ? rows.slice().reverse() : rows;
+}
 
 const state = {
   mode: "basic",
@@ -30,6 +54,8 @@ const state = {
   bits: 32,
   lastGood: 0,
   currency: { amount: "1", from: "USD", to: "KRW" },
+  keypad: readStoredKeypad(),
+  unit: readStoredUnit() || { group: "length", from: "cm", to: "in", amount: "1" },
 };
 
 let rateTable = readStoredRates() || RATE_FALLBACK;
@@ -78,38 +104,28 @@ const PRESETS = {
 };
 
 function basicKeys() {
-  return [
+  const ops = ["×", "−", "+"];
+  const rows = [
     [
       { label: "AC", type: "clear", className: "util" },
       { label: "⌫", type: "back", className: "util" },
       { label: "%", type: "insert", value: "%", className: "util", title: t("percent") },
       { label: "÷", type: "op", value: "÷", className: "op" },
     ],
-    [
-      { label: "1", type: "insert", value: "1" },
-      { label: "2", type: "insert", value: "2" },
-      { label: "3", type: "insert", value: "3" },
-      { label: "×", type: "op", value: "×", className: "op" },
-    ],
-    [
-      { label: "4", type: "insert", value: "4" },
-      { label: "5", type: "insert", value: "5" },
-      { label: "6", type: "insert", value: "6" },
-      { label: "−", type: "op", value: "−", className: "op" },
-    ],
-    [
-      { label: "7", type: "insert", value: "7" },
-      { label: "8", type: "insert", value: "8" },
-      { label: "9", type: "insert", value: "9" },
-      { label: "+", type: "op", value: "+", className: "op" },
-    ],
-    [
-      { label: "±", type: "sign", className: "util" },
-      { label: "0", type: "insert", value: "0" },
-      { label: ".", type: "dot" },
-      { label: "=", type: "equals", className: "eq" },
-    ],
   ];
+  digitRows().forEach((trio, index) => {
+    rows.push([
+      ...trio.map((digit) => ({ label: digit, type: "insert", value: digit })),
+      { label: ops[index], type: "op", value: ops[index], className: "op" },
+    ]);
+  });
+  rows.push([
+    { label: "±", type: "sign", className: "util" },
+    { label: "0", type: "insert", value: "0" },
+    { label: ".", type: "dot" },
+    { label: "=", type: "equals", className: "eq" },
+  ]);
+  return rows;
 }
 
 function sciKeys() {
@@ -166,7 +182,9 @@ function programmerKeys() {
   const op = (label, value) => ({ label, type: "pins", value, className: "op" });
   const bit = (label, value) => ({ label, type: "pins", value, className: "fn" });
   const util = (label, type, value) => ({ label, type, value, className: "util" });
-  return [
+  const hex = [["A", "B"], ["C", "D"], ["E", "F"]];
+  const ops = [["÷", "/"], ["×", "*"], ["−", "-"]];
+  const rows = [
     [
       util("AC", "pclear"),
       util("⌫", "pback"),
@@ -175,39 +193,73 @@ function programmerKeys() {
       bit("≪", "<<"),
       bit("≫", ">>"),
     ],
-    [digit("A"), digit("B"), digit("1"), digit("2"), digit("3"), op("÷", "/")],
-    [digit("C"), digit("D"), digit("4"), digit("5"), digit("6"), op("×", "*")],
-    [digit("E"), digit("F"), digit("7"), digit("8"), digit("9"), op("−", "-")],
-    [
-      bit("NOT", "~"),
-      bit("AND", "&"),
-      bit("OR", "|"),
-      bit("XOR", "^"),
-      op("%", "%"),
-      op("+", "+"),
-    ],
-    [
-      util("±", "psign"),
-      digit("0", 3),
-      { label: "=", type: "pequals", className: "eq", span: 2 },
-    ],
   ];
+  digitRows().forEach((trio, index) => {
+    rows.push([
+      ...hex[index].map((label) => digit(label)),
+      ...trio.map((label) => digit(label)),
+      op(ops[index][0], ops[index][1]),
+    ]);
+  });
+  rows.push([
+    bit("NOT", "~"),
+    bit("AND", "&"),
+    bit("OR", "|"),
+    bit("XOR", "^"),
+    op("%", "%"),
+    op("+", "+"),
+  ]);
+  // The sign key takes the two hex columns so 0 lands under the 2, 5, 8 column.
+  rows.push([
+    { label: "±", type: "psign", className: "util", span: 2 },
+    digit("0", 3),
+    { label: "=", type: "pequals", className: "eq" },
+  ]);
+  return rows;
 }
 
 function currencyKeys() {
   const digit = (label, span) => ({ label, type: "cdigit", value: label, span });
-  return [
+  const sides = [
+    { label: "00", type: "cdigit", value: "00" },
+    { label: "000", type: "cdigit", value: "000" },
+    { label: ".", type: "cdot" },
+  ];
+  const rows = [
     [
       { label: "AC", type: "cclear", className: "util" },
       { label: "\u232b", type: "cback", className: "util" },
-      { label: "\u21c5", type: "cswap", className: "fn", title: t("rateSwap") },
-      { label: "\u27f3", type: "crefresh", className: "fn", title: t("rateRefresh") },
+      { label: "\u27f3", type: "crefresh", className: "util", title: t("rateRefresh") },
+      { label: "\u21c5", type: "cswap", className: "op", title: t("rateSwap") },
     ],
-    [digit("7"), digit("8"), digit("9"), { label: "00", type: "cdigit", value: "00" }],
-    [digit("4"), digit("5"), digit("6"), { label: "000", type: "cdigit", value: "000" }],
-    [digit("1"), digit("2"), digit("3"), { label: ".", type: "cdot" }],
-    [digit("0", 4)],
   ];
+  digitRows().forEach((trio, index) => {
+    rows.push([...trio.map((label) => digit(label)), sides[index]]);
+  });
+  rows.push([digit("0", 3), { label: t("copyKey"), type: "ccopy", className: "eq", title: t("copyResult") }]);
+  return rows;
+}
+
+function unitKeys() {
+  const digit = (label, span) => ({ label, type: "udigit", value: label, span });
+  const sides = [
+    { label: "00", type: "udigit", value: "00" },
+    { label: "000", type: "udigit", value: "000" },
+    { label: ".", type: "udot" },
+  ];
+  const rows = [
+    [
+      { label: "AC", type: "uclear", className: "util" },
+      { label: "\u232b", type: "uback", className: "util" },
+      { label: "\u00b1", type: "usign", className: "util" },
+      { label: "\u21c5", type: "uswap", className: "op", title: t("unitSwap") },
+    ],
+  ];
+  digitRows().forEach((trio, index) => {
+    rows.push([...trio.map((label) => digit(label)), sides[index]]);
+  });
+  rows.push([digit("0", 3), { label: t("copyKey"), type: "ucopy", className: "eq", title: t("copyResult") }]);
+  return rows;
 }
 
 function el(tag, className, text) {
@@ -230,6 +282,10 @@ function renderKeys() {
   }
   if (state.mode === "currency") {
     keysEl.append(renderGrid(currencyKeys(), 4));
+    return;
+  }
+  if (state.mode === "unit") {
+    keysEl.append(renderGrid(unitKeys(), 4));
     return;
   }
   if (state.mode === "scientific") {
@@ -294,6 +350,21 @@ function onKey(key, second) {
   else if (type === "cback") setCurrencyAmount(state.currency.amount.slice(0, -1) || "0");
   else if (type === "cswap") swapCurrency();
   else if (type === "crefresh") refreshRates(true);
+  else if (type === "udigit") typeUnit(value);
+  else if (type === "udot") typeUnit(".");
+  else if (type === "uclear") setUnitAmount("0");
+  else if (type === "uback") setUnitAmount(state.unit.amount.slice(0, -1) || "0");
+  else if (type === "usign") toggleUnitSign();
+  else if (type === "uswap") swapUnit();
+  else if (type === "ucopy") copyToClipboard(document.getElementById("unitResult").textContent);
+  else if (type === "ccopy") copyToClipboard(document.getElementById("rateResult").textContent);
+}
+
+// The converter screens have no history, so the result goes out by hand.
+function copyToClipboard(text) {
+  const value = String(text || "").trim();
+  if (!value) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(value).catch(() => {});
 }
 
 function insertText(text, cursorBack = 0) {
@@ -608,6 +679,12 @@ function setMemory(next) {
 }
 
 function setMode(mode) {
+  // The graph keeps its own window. Asking for it from the calculator opens
+  // that window and leaves the screen on the mode it was already showing.
+  if (mode === "graph" && !graphPopup) {
+    openGraphWindow();
+    return;
+  }
   state.mode = mode;
   state.second = false;
   appEl.dataset.mode = mode;
@@ -615,12 +692,16 @@ function setMode(mode) {
   for (const tab of document.querySelectorAll(".modes button")) {
     tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
   }
-  screenCalc.hidden = mode === "programmer" || mode === "graph" || mode === "currency";
+  screenCalc.hidden = mode === "programmer" || mode === "graph" || mode === "currency" || mode === "unit";
   screenProg.hidden = mode !== "programmer";
-  screenGraph.hidden = mode !== "graph";
+  // The off-screen plot keeps drawing in the calculator window so a graph
+  // window opened later starts with the picture already in hand.
+  screenGraph.hidden = graphPopup && mode !== "graph";
   screenRates.hidden = mode !== "currency";
+  screenUnit.hidden = mode !== "unit";
   renderKeys();
   if (mode === "currency") openCurrency();
+  if (mode === "unit") openUnit();
   if (mode === "graph") {
     requestAnimationFrame(() => requestAnimationFrame(() => board.resize()));
   }
@@ -629,7 +710,7 @@ function setMode(mode) {
 
 function fitModeWindow(mode) {
   if (pageKind || !window.mycalcDesktop) return;
-  const sized = ["basic", "scientific", "programmer", "currency", "graph"];
+  const sized = ["basic", "scientific", "programmer", "currency", "unit"];
   if (!sized.includes(mode)) return;
   window.mycalcDesktop.setContentSize(mode);
 }
@@ -857,29 +938,110 @@ function renderFunctions() {
   }
 }
 
-function setRangeInput(id, value) {
-  const input = document.getElementById(id);
-  if (!input || document.activeElement === input) return;
-  input.step = "1";
-  input.value = formatTickInput(value);
-  syncStepButtons(input);
-}
-
 function syncViewFields() {
-  // Panning and zooming set the range; only the grid height is typed in, in 3D.
-  const spatial = board.dimension === "3d";
-  document.getElementById("axisBar").hidden = !spatial;
-  document.getElementById("gridZField").hidden = !spatial;
-  if (spatial) setRangeInput("gridZ", Number.isFinite(board.floorZ) ? board.floorZ : 0);
+  // Panning and zooming set the whole range; nothing here is typed in.
   if (board.dimension === "2d" && board.hover && !board.drag) {
     readoutEl.textContent = board.hoverLabel || readoutEl.textContent;
   }
+  syncAxisSpans();
 }
 
-function commitView() {
-  const level = Number(document.getElementById("gridZ").value);
-  if (!Number.isFinite(level)) throw new Error(uiText("\uac12\uc774 \uc62c\ubc14\ub974\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4", "That value is not valid"));
-  board.setFloorZ(level);
+// A number the reader can edit: short enough to fit, exact enough to type back.
+function spanText(value) {
+  if (!Number.isFinite(value)) return "";
+  return String(Number(value.toPrecision(10)));
+}
+
+function syncAxisSpans() {
+  const is3d = board.dimension === "3d";
+  for (const axis of ["x", "y", "z"]) {
+    const upper = axis.toUpperCase();
+    const group = document.querySelector(`.axis-span[data-axis="${axis}"]`);
+    if (group) group.hidden = axis === "z" && !is3d;
+    for (const end of ["Min", "Max"]) {
+      const input = document.getElementById(`axis${end}${upper}`);
+      // Whoever is typing keeps their text until they are done with it.
+      if (!input || document.activeElement === input) continue;
+      input.value = spanText(board.view[`${axis}${end}`]);
+      input.classList.remove("is-wrong");
+    }
+  }
+  const sep = document.getElementById("lightSep");
+  const lamp = document.getElementById("lightSpan");
+  if (sep) sep.hidden = !is3d;
+  if (lamp) lamp.hidden = !is3d;
+  if (!is3d) return;
+  const place = board.lightPlace();
+  for (const [id, value] of [["lightAtX", place.x], ["lightAtY", place.y], ["lightAtZ", place.z]]) {
+    const input = document.getElementById(id);
+    if (!input || document.activeElement === input) continue;
+    input.value = spanText(Math.round(value * 100) / 100);
+  }
+}
+
+function readNumberField(input) {
+  const text = String(input.value).trim();
+  if (!text) return null;
+  const value = Number(text);
+  return Number.isFinite(value) ? value : null;
+}
+
+function bindAxisSpans() {
+  for (const axis of ["x", "y", "z"]) {
+    const upper = axis.toUpperCase();
+    const low = document.getElementById(`axisMin${upper}`);
+    const high = document.getElementById(`axisMax${upper}`);
+    if (!low || !high) continue;
+    const apply = () => {
+      const from = readNumberField(low);
+      const to = readNumberField(high);
+      let ok = from !== null && to !== null && to > from;
+      if (ok) {
+        try {
+          board.setView({ [`${axis}Min`]: from, [`${axis}Max`]: to });
+        } catch {
+          ok = false;
+        }
+      }
+      low.classList.toggle("is-wrong", !ok);
+      high.classList.toggle("is-wrong", !ok);
+      if (!ok) return;
+      syncGraphChrome();
+      publishGraph();
+    };
+    for (const input of [low, high]) {
+      input.addEventListener("change", apply);
+      // A range that was never accepted goes back to the one being drawn.
+      input.addEventListener("blur", () => {
+        if (!input.classList.contains("is-wrong")) return;
+        input.value = spanText(board.view[`${axis}${input === low ? "Min" : "Max"}`]);
+        low.classList.remove("is-wrong");
+        high.classList.remove("is-wrong");
+      });
+    }
+  }
+  const lamp = ["lightAtX", "lightAtY", "lightAtZ"].map((id) => document.getElementById(id));
+  if (lamp.some((input) => !input)) return;
+  const place = () => {
+    const [x, y, z] = lamp.map(readNumberField);
+    const wrong = lamp.some((input) => readNumberField(input) === null);
+    for (const input of lamp) input.classList.toggle("is-wrong", wrong);
+    if (wrong) return;
+    board.setLightPlace({ x, y, z });
+    // The lamp is kept as a turn and a rise, so what it took may not be what
+    // was typed; the fields are written back from where it actually hangs.
+    syncAxisSpans();
+    syncGraphChrome();
+    publishGraph();
+  };
+  for (const input of lamp) {
+    input.addEventListener("change", place);
+    input.addEventListener("blur", () => {
+      if (!input.classList.contains("is-wrong")) return;
+      syncAxisSpans();
+      for (const field of lamp) field.classList.remove("is-wrong");
+    });
+  }
 }
 
 function graphHelp() {
@@ -922,14 +1084,13 @@ function syncAxisFields() {
     document.documentElement.style.setProperty(`--axis-${axis}`, state.color);
     if (!show) continue;
     show.setAttribute("aria-pressed", String(state.visible));
-    const icon = show.querySelector(".icon");
-    if (icon) icon.className = state.visible ? "icon icon-eye" : "icon icon-eye-off";
   }
   const axesToggle = document.getElementById("axesToggle");
   if (axesToggle) {
     const on = board.axes.x.visible || board.axes.y.visible || board.axes.z.visible;
     axesToggle.setAttribute("aria-pressed", String(on));
   }
+  syncAxisSpans();
 }
 
 function renderPresets() {
@@ -941,11 +1102,6 @@ function renderPresets() {
     button.addEventListener("click", () => addGraph(expr));
     presets.append(button);
   }
-}
-
-function formatTickInput(value) {
-  if (!Number.isFinite(value)) return "";
-  return String(parseFloat(value.toPrecision(8)));
 }
 
 function addGraph(expr) {
@@ -963,14 +1119,7 @@ function addGraph(expr) {
 
 function bind() {
   document.querySelectorAll(".modes button").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (button.dataset.mode === "graph" && !graphPopup) {
-        setMode("graph");
-        openGraphWindow();
-        return;
-      }
-      setMode(button.dataset.mode);
-    });
+    button.addEventListener("click", () => setMode(button.dataset.mode));
   });
   angleBtn.addEventListener("click", () => setAngle(engine.angleMode === "deg" ? "rad" : "deg"));
   notationBtn.addEventListener("click", () => {
@@ -1050,20 +1199,6 @@ function bind() {
   document.getElementById("zoomIn").addEventListener("click", () => board.zoom(0.75));
   document.getElementById("zoomOut").addEventListener("click", () => board.zoom(1.3333));
   document.getElementById("resetView").addEventListener("click", () => board.resetView());
-  document.getElementById("applyView").addEventListener("click", () => {
-    try {
-      commitView();
-      readoutEl.textContent = t("viewApplied");
-      closeInputNotice();
-    } catch (err) {
-      reportInput(err.message || uiText("오류", "Error"));
-    }
-  });
-  for (const wrap of document.querySelectorAll(".view-row .num-step")) {
-    const input = wrap.querySelector("input");
-    wrap.querySelector(".step-down").addEventListener("click", () => stepView(input, -1));
-    wrap.querySelector(".step-up").addEventListener("click", () => stepView(input, 1));
-  }
   document.getElementById("dim2d").addEventListener("click", () => board.setDimension("2d"));
   document.getElementById("dim3d").addEventListener("click", () => board.setDimension("3d"));
   document.getElementById("gridToggle").addEventListener("click", () => {
@@ -1143,6 +1278,8 @@ function bind() {
       syncAxisFields();
     });
   }
+  bindAxisSpans();
+  document.getElementById("helpGraph").addEventListener("click", () => openChildWindow("help"));
   renderPresets();
   document.getElementById("plot").addEventListener("pointermove", () => {
     if (board.hoverLabel) readoutEl.textContent = board.hoverLabel;
@@ -1160,11 +1297,28 @@ function bind() {
       else if (/^[0-9a-fA-F+\-*/%()&|^~<>]$/.test(ev.key)) insertProg(ev.key.toUpperCase());
       return;
     }
+    if (state.mode === "currency" || state.mode === "unit") {
+      typeConverterKey(ev.key);
+      return;
+    }
     if (ev.key === "Enter") equals();
     else if (ev.key === "Escape") clearCalc();
     else if (ev.key === "Backspace") backspace(exprEl);
     else if (/^[0-9.+\-*/%^()!]$/.test(ev.key)) insertText(ev.key);
   });
+}
+
+// The converter screens have no expression, so the keyboard edits the amount.
+function typeConverterKey(key) {
+  const unitMode = state.mode === "unit";
+  const amount = unitMode ? state.unit.amount : state.currency.amount;
+  const setAmount = unitMode ? setUnitAmount : setCurrencyAmount;
+  if (key === "Escape") setAmount("0");
+  else if (key === "Backspace") setAmount(amount.slice(0, -1) || "0");
+  else if (/^[0-9.]$/.test(key)) {
+    if (unitMode) typeUnit(key);
+    else typeCurrency(key);
+  } else if (key === "-" && unitMode) toggleUnitSign();
 }
 
 const infoSheet = document.getElementById("infoSheet");
@@ -1198,6 +1352,54 @@ function publishUi(message) {
   if (uiChannel) uiChannel.postMessage(message);
 }
 
+// Both keypad choices show a small preview, so the 0 position is plain to see.
+function renderPadChoices() {
+  const host = document.getElementById("padChoices");
+  if (!host) return;
+  host.replaceChildren();
+  for (const order of KEYPAD_ORDERS) {
+    const button = el("button", "pad-chip");
+    button.type = "button";
+    button.dataset.order = order;
+    button.setAttribute("aria-pressed", String(order === state.keypad));
+    const label = t(order === "123" ? "keypad123" : "keypad789");
+    button.setAttribute("aria-label", label);
+    button.dataset.tooltip = label;
+    const view = el("div", "pad-view");
+    const rows = order === "123"
+      ? [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"]]
+      : [["7", "8", "9"], ["4", "5", "6"], ["1", "2", "3"]];
+    for (const trio of rows) {
+      for (const digit of trio) view.append(el("i", "", digit));
+    }
+    view.append(el("i", "pad-blank"), el("i", "pad-zero", "0"), el("i", "pad-blank"));
+    button.append(view, el("span", "pad-name", order === "123" ? "1 2 3" : "7 8 9"));
+    button.addEventListener("click", () => setKeypad(order));
+    host.append(button);
+  }
+}
+
+function setKeypad(order) {
+  if (!KEYPAD_ORDERS.includes(order)) return;
+  state.keypad = order;
+  try {
+    localStorage.setItem(KEYPAD_KEY, order);
+  } catch {
+    /* The arrangement then lasts only as long as this window. */
+  }
+  renderKeys();
+  renderPadChoices();
+  publishUi({ type: "keypad", order });
+}
+
+function applyStoredKeypad() {
+  const order = readStoredKeypad();
+  if (order === state.keypad) return;
+  state.keypad = order;
+  renderKeys();
+  renderPadChoices();
+}
+
 function applyStoredTheme() {
   const stored = loadTheme();
   activeThemeId = stored?.id || "dark-1";
@@ -1223,6 +1425,7 @@ function resetSettings() {
   renderCustomFields();
   renderThemeGroups();
   publishUi({ type: "theme" });
+  setKeypad(KEYPAD_ORDERS[0]);
 }
 
 function selectPreset(theme) {
@@ -1396,6 +1599,136 @@ function openCurrency() {
   }
 }
 
+// ---- units ----
+
+function rememberUnit() {
+  storeUnitPick(state.unit);
+}
+
+function renderUnitOptions() {
+  const groupSelect = document.getElementById("unitGroup");
+  if (!groupSelect) return;
+  groupSelect.replaceChildren();
+  for (const group of UNIT_GROUPS) {
+    const option = document.createElement("option");
+    option.value = group.id;
+    option.textContent = unitGroupLabel(group, uiLang);
+    groupSelect.append(option);
+  }
+  groupSelect.value = state.unit.group;
+  const group = unitGroupById(state.unit.group);
+  for (const [id, picked] of [["unitFrom", state.unit.from], ["unitTo", state.unit.to]]) {
+    const select = document.getElementById(id);
+    select.replaceChildren();
+    for (const unit of group.units) {
+      const option = document.createElement("option");
+      option.value = unit.id;
+      option.textContent = `${unit.symbol} \u00b7 ${unitLabel(unit, uiLang)}`;
+      select.append(option);
+    }
+    select.value = picked;
+  }
+}
+
+function unitAmount() {
+  const value = Number(state.unit.amount);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function renderUnit() {
+  const amountEl = document.getElementById("unitAmount");
+  if (!amountEl) return;
+  const { group, from, to } = state.unit;
+  if (document.activeElement !== amountEl) amountEl.value = state.unit.amount;
+  const converted = convertUnit(unitAmount(), group, from, to);
+  document.getElementById("unitResult").textContent = formatUnit(converted);
+  const pack = unitGroupById(group);
+  const fromUnit = unitById(pack, from);
+  const toUnit = unitById(pack, to);
+  const note = document.getElementById("unitNote");
+  if (!fromUnit || !toUnit || !Number.isFinite(converted)) {
+    note.textContent = "";
+    return;
+  }
+  // Temperature carries an offset, so a one-unit rate would read as wrong.
+  if (pack.id === "temperature") {
+    note.textContent = `${formatUnit(unitAmount())} ${fromUnit.symbol} = ${formatUnit(converted)} ${toUnit.symbol}`;
+  } else {
+    note.textContent = `1 ${fromUnit.symbol} = ${formatUnit(convertUnit(1, group, from, to))} ${toUnit.symbol}`;
+  }
+}
+
+function setUnitAmount(text) {
+  state.unit.amount = text;
+  rememberUnit();
+  renderUnit();
+}
+
+function typeUnit(text) {
+  const sign = state.unit.amount.startsWith("-") ? "-" : "";
+  const body = sign ? state.unit.amount.slice(1) : state.unit.amount;
+  const current = body === "0" && text !== "." ? "" : body;
+  if (text === "." && current.includes(".")) return;
+  const next = (current + text).slice(0, 18);
+  setUnitAmount(sign + (next || "0"));
+}
+
+function toggleUnitSign() {
+  const amount = state.unit.amount;
+  setUnitAmount(amount.startsWith("-") ? amount.slice(1) : `-${amount}`);
+}
+
+function swapUnit() {
+  const { from, to } = state.unit;
+  state.unit.from = to;
+  state.unit.to = from;
+  rememberUnit();
+  renderUnitOptions();
+  renderUnit();
+}
+
+function setUnitGroup(id) {
+  const group = unitGroupById(id);
+  if (!group) return;
+  const [from, to] = unitDefaultPair(group.id);
+  state.unit.group = group.id;
+  state.unit.from = from;
+  state.unit.to = to;
+  rememberUnit();
+  renderUnitOptions();
+  renderUnit();
+}
+
+function openUnit() {
+  renderUnitOptions();
+  renderUnit();
+}
+
+function bindUnit() {
+  const amount = document.getElementById("unitAmount");
+  amount.addEventListener("input", () => {
+    const cleaned = amount.value
+      .replace(/[^0-9.-]/g, "")
+      .replace(/(?!^)-/g, "")
+      .replace(/(\..*)\./g, "$1");
+    if (cleaned !== amount.value) amount.value = cleaned;
+    state.unit.amount = cleaned || "0";
+    rememberUnit();
+    renderUnit();
+  });
+  document.getElementById("unitGroup").addEventListener("change", (ev) => setUnitGroup(ev.target.value));
+  for (const [id, key] of [["unitFrom", "from"], ["unitTo", "to"]]) {
+    document.getElementById(id).addEventListener("change", (ev) => {
+      state.unit[key] = ev.target.value;
+      rememberUnit();
+      renderUnit();
+    });
+  }
+  document.getElementById("unitSwap").addEventListener("click", swapUnit);
+  renderUnitOptions();
+  renderUnit();
+}
+
 // The expression panel can be widened with the bar beside it.
 function bindGraphPanel() {
   const split = document.getElementById("graphSplit");
@@ -1474,13 +1807,6 @@ function toggleGraphPanel(which) {
   layoutGraphPanels();
 }
 
-function floorSlice() {
-  const { zMin, zMax } = board.view;
-  const middle = (zMin + zMax) / 2;
-  const half = (zMax - zMin) / 2 || 1;
-  return { middle, half };
-}
-
 function syncSidePanel() {
   const side = document.getElementById("graphSide");
   if (!side || side.hidden) return;
@@ -1495,10 +1821,6 @@ function syncSidePanel() {
   set("sideLightRise", degrees(board.light.elevation), `${degrees(board.light.elevation)}\u00b0`);
   const far = Math.round(board.lightReach() * 100);
   set("sideLightFar", far, (far / 100).toFixed(2));
-  const { middle, half } = floorSlice();
-  const level = Number.isFinite(board.floorZ) ? board.floorZ : 0;
-  const share = Math.round(((level - middle) / half) * 100);
-  set("sideGridZ", share, formatTickInput(level));
 }
 
 function bindSidePanel() {
@@ -1508,7 +1830,6 @@ function bindSidePanel() {
   const rise = document.getElementById("sideLightRise");
   const far = document.getElementById("sideLightFar");
   const lit = document.getElementById("sideLightOn");
-  const gridZ = document.getElementById("sideGridZ");
   const apply = () => {
     board.setLight({
       on: lit.checked,
@@ -1522,11 +1843,6 @@ function bindSidePanel() {
   };
   for (const input of [turn, rise, far]) input.addEventListener("input", apply);
   lit.addEventListener("change", apply);
-  gridZ.addEventListener("input", () => {
-    const { middle, half } = floorSlice();
-    board.setFloorZ(middle + (Number(gridZ.value) / 100) * half);
-    syncSidePanel();
-  });
 }
 
 function bindCurrency() {
@@ -1565,6 +1881,27 @@ function openSheet(sheet) {
 function closeSheets() {
   infoSheet.hidden = true;
   settingsSheet.hidden = true;
+}
+
+// The help is written once in i18n and laid out here, so a section reads the
+// same in both languages and nothing has to be kept in step by hand.
+function renderHelp() {
+  const doc = document.getElementById("helpDoc");
+  if (!doc || typeof graphHelpDoc !== "function") return;
+  doc.replaceChildren();
+  for (const section of graphHelpDoc()) {
+    const block = el("section", "help-part");
+    block.append(el("h3", "", section.title));
+    for (const note of section.notes || []) block.append(el("p", "help-note", note));
+    if (section.rows && section.rows.length) {
+      const list = el("dl", "help-rows");
+      for (const [typed, means] of section.rows) {
+        list.append(el("dt", "", typed), el("dd", "", means));
+      }
+      block.append(list);
+    }
+    doc.append(block);
+  }
 }
 
 function packFunctions(list) {
@@ -1979,19 +2316,6 @@ async function printGraphPage() {
   window.print();
 }
 
-function stepView(input, direction) {
-  const previous = input.value;
-  stepNumber(input, direction);
-  try {
-    commitView();
-    closeInputNotice();
-  } catch (err) {
-    input.value = previous;
-    syncStepButtons(input);
-    reportInput(err.message || uiText("오류", "Error"));
-  }
-}
-
 function stepNumber(input, direction) {
   const step = Number(input.step) || 1;
   const min = input.min === "" ? -Infinity : Number(input.min);
@@ -2098,7 +2422,7 @@ function bindPrintWindow() {
   document.getElementById("printNow").addEventListener("click", () => {
     printGraphPage();
   });
-  document.getElementById("printClose").addEventListener("click", () => window.close());
+  document.getElementById("printCancel").addEventListener("click", () => window.close());
   window.addEventListener("resize", layoutPrintPreview);
   loadPrinters();
   requestAnimationFrame(() => layoutPrintPreview());
@@ -2109,7 +2433,7 @@ function openChildWindow(kind) {
   const url = new URL("index.html", location.href);
   url.searchParams.set("pop", kind);
   url.hash = kind;
-  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=560" : "width=560,height=420";
+  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=560" : kind === "help" ? "width=720,height=640" : "width=560,height=420";
   const resizable = kind === "settings" || kind === "info" ? "resizable=no" : "resizable=yes";
   const child = window.open(url.href, `mycalc-${kind}`, `popup=yes,${size},${resizable}`);
   if (child) child.focus();
@@ -2134,14 +2458,14 @@ function copyMainExpr() {
     return;
   }
   pendingGraphExpr = text;
-  if (graphPopup && graphChannel) graphChannel.postMessage({ type: "expr", id: graphWindowId, text });
-  else useCopiedExpr(text);
+  if (graphChannel) graphChannel.postMessage({ type: "expr", id: graphWindowId, text });
+  if (graphPopup) useCopiedExpr(text);
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(() => {});
 }
 
 function useCopiedExpr(text) {
   const next = String(text || "").trim();
-  if (graphPopup || !next) return;
+  if (!next) return;
   graphExprEl.value = next;
   graphExprEl.focus();
   graphExprEl.setSelectionRange(next.length, next.length);
@@ -2164,7 +2488,7 @@ if (graphChannel) {
       lastGraphText = "";
       publishGraph();
       if (pendingGraphExpr) graphChannel.postMessage({ type: "expr", id: graphWindowId, text: pendingGraphExpr });
-    } else if (message.type === "expr" && !graphPopup) {
+    } else if (message.type === "expr" && graphPopup) {
       useCopiedExpr(message.text);
     } else if (message.type === "state" && pageKind !== "print") {
       if (!Number.isSafeInteger(message.revision) || message.revision <= graphRevision) return;
@@ -2181,6 +2505,7 @@ if (graphChannel) {
 bind();
 bindExport();
 bindCurrency();
+bindUnit();
 bindTooltips();
 renderKeys();
 renderFunctions();
@@ -2190,6 +2515,7 @@ const storedTheme = loadTheme();
 activeThemeId = storedTheme?.id || "dark-1";
 renderCustomFields(storedTheme?.picks);
 renderThemeGroups();
+renderPadChoices();
 document.getElementById("infoBtn").addEventListener("click", openInfoWindow);
 document.getElementById("settingsBtn").addEventListener("click", openSettingsWindow);
 document.getElementById("langBtn").addEventListener("click", () => {
@@ -2240,6 +2566,7 @@ document.addEventListener("keydown", (ev) => {
 }, true);
 window.addEventListener("storage", (ev) => {
   if (ev.key === "mycalc-theme") applyStoredTheme();
+  if (ev.key === KEYPAD_KEY) applyStoredKeypad();
   if (ev.key === "mycalc-lang" && (ev.newValue === "ko" || ev.newValue === "en") && ev.newValue !== uiLang) applyLanguage(ev.newValue);
 });
 if (uiChannel) {
@@ -2247,6 +2574,7 @@ if (uiChannel) {
     const message = event.data;
     if (!message) return;
     if (message.type === "theme") applyStoredTheme();
+    if (message.type === "keypad") applyStoredKeypad();
     if (message.type === "lang" && (message.lang === "ko" || message.lang === "en") && message.lang !== uiLang) applyLanguage(message.lang);
   };
 }
@@ -2277,6 +2605,12 @@ if (document.documentElement.classList.contains("desktop") && !pageKind && winCl
 }
 if (pageKind === "settings" || pageKind === "info") {
   (pageKind === "settings" ? settingsSheet : infoSheet).hidden = false;
+  applyLanguage(uiLang);
+}
+
+if (pageKind === "help") {
+  document.getElementById("helpSheet").hidden = false;
+  renderHelp();
   applyLanguage(uiLang);
 }
 
@@ -2317,6 +2651,11 @@ function setMaximized(button, maximized) {
 if (pageKind === "info") {
   document.getElementById("infoChrome").hidden = false;
   bindWindowButtons(null, null, "closeInfo");
+}
+
+if (pageKind === "help") {
+  document.getElementById("helpChrome").hidden = false;
+  bindWindowButtons(null, null, "closeHelp");
 }
 
 if (pageKind === "print") {
@@ -2414,14 +2753,14 @@ if (graphPopup) {
         let height = startH;
         let left = startLeft;
         let top = startTop;
-        if (edges.includes("e")) width = Math.max(820, startW + dx);
-        if (edges.includes("s")) height = Math.max(520, startH + dy);
+        if (edges.includes("e")) width = Math.max(GRAPH_MIN_WIDTH, startW + dx);
+        if (edges.includes("s")) height = Math.max(GRAPH_MIN_HEIGHT, startH + dy);
         if (edges.includes("w")) {
-          width = Math.max(820, startW - dx);
+          width = Math.max(GRAPH_MIN_WIDTH, startW - dx);
           left = startLeft + (startW - width);
         }
         if (edges.includes("n")) {
-          height = Math.max(520, startH - dy);
+          height = Math.max(GRAPH_MIN_HEIGHT, startH - dy);
           top = startTop + (startH - height);
         }
         const bounds = {

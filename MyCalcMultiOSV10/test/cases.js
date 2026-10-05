@@ -323,9 +323,14 @@ suite("Screen and modes", () => {
     assert(size() === "480x700", size());
     const programmer = keyShape();
     assert(programmer.wide && programmer.inside, "Programmer keys");
-    win.setMode("graph");
+    win.setMode("currency");
     flush(win);
-    assert(size() === "360x560", size());
+    assert(size() === "380x594", size());
+    win.setMode("unit");
+    flush(win);
+    assert(size() === "400x594", size());
+    const unit = keyShape();
+    assert(unit.wide && unit.inside, "Unit keys");
     win.setMode("basic");
   });
 
@@ -450,7 +455,7 @@ suite("Scientific and memory", () => {
 
 suite("Graph", () => {
   test("2D sin(x) is sampled in radians", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("2d");
@@ -464,7 +469,7 @@ suite("Graph", () => {
   });
 
   test("2D axes show numbers and the curve stays connected", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("2d");
@@ -497,14 +502,19 @@ suite("Graph", () => {
     assert(tab, "Graph tab");
     assert(typeof appWindow.openGraphWindow === "function", "openGraphWindow");
     assert(!doc.getElementById("graphPopBtn"), "Graph stays out of the calculator");
+    appWindow.setMode("basic");
+    flush(appWindow);
     appWindow.setMode("graph");
     flush(appWindow);
+    assert(appCall(() => state.mode) === "basic", "The calculator switched to a graph screen");
+    assert(tab.getAttribute("aria-selected") === "false", "The graph tab took the selection");
+    assert(doc.querySelector('.modes button[data-mode="basic"]').getAttribute("aria-selected") === "true", "The calculator tab lost the selection");
+    assert(!doc.getElementById("screenCalc").hidden, "The calculator screen closed");
     assert(doc.getElementById("dim2d").textContent === "2D" && doc.getElementById("dim3d").textContent === "3D", "2D/3D");
-    appWindow.setMode("basic");
   });
 
   test("2D drag pans the view", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("2d");
@@ -520,7 +530,7 @@ suite("Graph", () => {
   });
 
   test("A 3D surface mesh is built", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -539,7 +549,7 @@ suite("Graph", () => {
 
   test("3D grid and axis values can be switched", () => {
     const doc = appWindow.document;
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     doc.getElementById("dim3d").click();
     const grid = doc.getElementById("gridToggle");
@@ -573,7 +583,7 @@ suite("Graph", () => {
   });
 
   test("3D drag rotates the camera", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -589,7 +599,7 @@ suite("Graph", () => {
   });
 
   test("The wheel changes the 2D and the 3D range", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("2d");
@@ -620,8 +630,9 @@ suite("Graph", () => {
       if (edge && board.localGridPoint) {
         const first = board.localGridPoint(0, 0, edge.n, 0);
         const last = board.localGridPoint(edge.n - 1, edge.n - 1, edge.n, 0);
+        // The surface covers the range the axes measure, and stops there.
         if (!(first.x <= -1 + 1e-9) || !(last.x >= 1 - 1e-9)) throw new Error("The surface no longer covers the view");
-        if (!(first.x < -1.1)) throw new Error("The surface stops at the view edge");
+        if (first.x < -1 - 1e-6 || last.x > 1 + 1e-6) throw new Error("The surface runs past the view edge");
       }
     });
   });
@@ -648,7 +659,7 @@ suite("Graph", () => {
 
   test("2D and 3D presets switch", () => {
     const doc = appWindow.document;
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     doc.getElementById("dim2d").click();
     assert([...doc.querySelectorAll("#presets button")].some((button) => button.textContent === "sin(x)"), "2D");
@@ -661,7 +672,7 @@ suite("Graph", () => {
 
   test("Each graph can set its legend label and visibility", () => {
     const doc = appWindow.document;
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     doc.getElementById("dim2d").click();
     appCall(() => {
@@ -725,7 +736,7 @@ suite("Graph", () => {
     });
   });
 
-  test("The graph window keeps only the grid height control", async () => {
+  test("The graph window keeps the plot controls and an axis row of its own", async () => {
     const loaded = await loadApp("pop=graph&desktop=1");
     try {
     const doc = loaded.win.document;
@@ -744,26 +755,29 @@ suite("Graph", () => {
     for (const id of ["xMin", "xMax", "yMin", "yMax", "zMin", "zMax"]) {
       assert(!doc.getElementById(id), `${id} is still on the window`);
     }
-    assert(doc.getElementById("axisBar").hidden, "The axis bar shows in 2D");
+    for (const id of ["axisBar", "gridZField", "gridZ", "applyView", "sideGridZ"]) {
+      assert(!doc.getElementById(id), `${id} is still on the window`);
+    }
     doc.getElementById("dim3d").click();
     flush(loaded.win);
-    assert(!doc.getElementById("axisBar").hidden, "The axis bar is missing in 3D");
-    assert(!doc.getElementById("gridZField").hidden, "The grid height is missing in 3D");
-    const input = doc.getElementById("gridZ");
-    const wrap = input.closest(".num-step");
-    const down = wrap.querySelector(".step-down").getBoundingClientRect();
-    const up = wrap.querySelector(".step-up").getBoundingClientRect();
-    const box = input.getBoundingClientRect();
-    assert(down.width > 0 && down.right <= box.left + 1, "The decrease key is out of place");
-    assert(up.width > 0 && up.left >= box.right - 1, "The increase key is out of place");
-    assert(getComputedStyle(input).textAlign === "center", "The grid height is not centred");
-    const level = callWin(loaded.win, () => board.floorLevel());
-    up.width && wrap.querySelector(".step-up").click();
-    assert(callWin(loaded.win, () => board.floorLevel()) !== level, "The grid did not move along z");
-    const row = doc.querySelector(".view-row");
-    assert(row.parentElement.id === "axisBar", "The range row left the axis bar");
-    assert(getComputedStyle(row).flexWrap === "nowrap", getComputedStyle(row).flexWrap);
-    assert(doc.getElementById("axisColorX").closest(".graph-tool-row"), "Axis colours left the toolbar row");
+    const axisRow = doc.getElementById("axisRow");
+    assert(doc.getElementById("axisColorX").closest(".graph-axis-row") === axisRow, "Axis colours are not on their own row");
+    assert(!axisRow.querySelector(".graph-tool-row"), "The axis row sits inside the toolbar row");
+    const tools = doc.querySelector(".graph-tool-row").getBoundingClientRect();
+    assert(axisRow.getBoundingClientRect().top >= tools.bottom - 1, "The axis row did not move below the toolbar");
+    for (const axis of ["X", "Y", "Z"]) {
+      const toggle = doc.getElementById(`axisShow${axis}`);
+      assert(toggle.textContent.trim() === axis, `${axis} toggle shows ${toggle.textContent}`);
+      assert(!toggle.querySelector(".icon"), `${axis} toggle still carries an icon`);
+      assert(toggle.getAttribute("aria-pressed") === "true", `${axis} starts off`);
+    }
+    assert(!doc.querySelector('.axis-field[data-axis="x"] span'), "The axis letter is written twice");
+    doc.getElementById("axisShowX").click();
+    assert(doc.getElementById("axisShowX").getAttribute("aria-pressed") === "false", "The X button did not switch off");
+    assert(callWin(loaded.win, () => board.axes.x.visible) === false, "The X axis stayed on");
+    doc.getElementById("axisShowX").click();
+    const floor = callWin(loaded.win, () => board.floorLevel() - board.zToLocal(0));
+    assert(Math.abs(floor) < 1e-9, `The floor sits ${floor} away from z = 0`);
     doc.getElementById("dim2d").click();
     } finally {
       loaded.frame.remove();
@@ -771,7 +785,7 @@ suite("Graph", () => {
   });
 
   test("The plot uses the window background", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     const wrap = appWindow.document.querySelector(".canvas-wrap");
     const canvas = appWindow.document.getElementById("plot");
@@ -785,7 +799,7 @@ suite("Graph", () => {
   });
 
   test("The legend can be dragged", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -831,7 +845,7 @@ suite("Graph", () => {
   });
 
   test("Moving the 3D surface keeps every face", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -855,7 +869,7 @@ suite("Graph", () => {
   });
 
   test("The plot shows a hand pointer", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     const canvas = appWindow.document.getElementById("plot");
     const cursor = () => appWindow.getComputedStyle(canvas).cursor;
@@ -1144,9 +1158,9 @@ suite("Product features", () => {
       assert(button.textContent.trim() === "", `${id} text`);
     }
     assert(doc.querySelector(".info-icon").getAttribute("src").includes("icon.png"), "Info icon");
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
-    for (const id of ["addFn", "zoomIn", "zoomOut", "resetView", "gridToggle", "legendToggle", "applyView", "exportGraph", "printGraph"]) {
+    for (const id of ["addFn", "zoomIn", "zoomOut", "resetView", "gridToggle", "legendToggle", "exportGraph", "printGraph"]) {
       const button = doc.getElementById(id);
       assert(button.querySelector(".icon"), id);
       assert(button.dataset.tooltip, `${id} tooltip`);
@@ -1162,7 +1176,7 @@ suite("Product features", () => {
 
   test("A typed expression can be hidden and deleted", () => {
     const doc = appWindow.document;
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     doc.getElementById("dim2d").click();
     appCall(() => {
@@ -1188,7 +1202,7 @@ suite("Product features", () => {
 
   test("An invalid expression is reported and not added", () => {
     const doc = appWindow.document;
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     doc.getElementById("dim2d").click();
     appCall(() => {
       while (board.functions.length) board.removeFunction(board.functions[0].id);
@@ -1203,7 +1217,7 @@ suite("Product features", () => {
 
   test("Axis color, axis visibility, and graph color can be chosen", () => {
     const doc = appWindow.document;
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     doc.getElementById("dim2d").click();
     assert(doc.querySelector('.axis-field[data-axis="z"]').hidden, "Z axis is shown in 2D");
@@ -1251,7 +1265,7 @@ suite("Product features", () => {
 
   test("Zoom and reset change the graph view", () => {
     const doc = appWindow.document;
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     doc.getElementById("dim2d").click();
     doc.getElementById("resetView").click();
     const before = appCall(() => board.view.xMax - board.view.xMin);
@@ -1267,7 +1281,7 @@ suite("Product features", () => {
   });
 
   test("Height is drawn on the same scale as width and depth", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -1283,7 +1297,7 @@ suite("Product features", () => {
   });
 
   test("One unit is the same length on both 2D axes", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("2d");
@@ -1301,7 +1315,7 @@ suite("Product features", () => {
   });
 
   test("The light shines, moves and switches off", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -1337,7 +1351,7 @@ suite("Product features", () => {
   });
 
   test("Rotating keeps every face of the 3D surface", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -1359,7 +1373,7 @@ suite("Product features", () => {
   });
 
   test("The legend swatch changes the graph colour", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     const doc = appWindow.document;
     appCall(() => {
@@ -1394,7 +1408,7 @@ suite("Product features", () => {
   });
 
   test("The floor grid also shows through the surface", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     const counts = appCall(() => {
       board.setDimension("3d");
@@ -1418,8 +1432,40 @@ suite("Product features", () => {
     assert(counts.passes.filter((ghost) => !ghost).length === 1, `solid passes ${counts.passes.join(",")}`);
   });
 
+  test("The floor grid is one shade and stops at the range", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const shades = appCall(() => {
+      board.setDimension("3d");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.draw();
+      // With the range square and centred, the drawn square is -1..1 across.
+      const outside = (point) => Math.abs(point.x) > 1 + 1e-6 || Math.abs(point.y) > 1 + 1e-6;
+      const cellInk = new Set();
+      const fineInk = new Set();
+      const beyond = [];
+      let cells = 0;
+      for (const line of board.floorLines()) {
+        const [a, b] = line.p;
+        if (outside(a) || outside(b)) beyond.push(`${a.x.toFixed(2)},${a.y.toFixed(2)}`);
+        if ((line.width || 1) >= 1.2) {
+          cells += 1;
+          cellInk.add(Number(line.fade.toFixed(6)));
+        } else fineInk.add(Number(line.fade.toFixed(6)));
+      }
+      return { cells, cellInk: [...cellInk], fineInk: [...fineInk], beyond: beyond.slice(0, 4) };
+    });
+    appCall(() => board.setDimension("2d"));
+    assert(shades.cells >= 10, `${shades.cells} cell lines`);
+    assert(shades.beyond.length === 0, `grid runs past the range at ${shades.beyond.join(" ")}`);
+    assert(shades.cellInk.length === 1, `the cell lines are drawn in ${shades.cellInk.length} shades`);
+    for (const ink of shades.fineInk) {
+      assert(ink < shades.cellInk[0], `a finer line (${ink}) is no lighter than a cell line (${shades.cellInk[0]})`);
+    }
+  });
+
   test("Ctrl with the wheel scales the picture only", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -1442,7 +1488,7 @@ suite("Product features", () => {
   });
 
   test("A surface is cut at the height limit, not capped", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -1475,7 +1521,7 @@ suite("Product features", () => {
   });
 
   test("The grid is spaced from zero", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       const onStep = (values, step) => values.every((value) => Math.abs(value / step - Math.round(value / step)) < 1e-6);
@@ -1496,9 +1542,6 @@ suite("Product features", () => {
         throw new Error("The floor is not five cells wide");
       }
       if (Math.abs(board.floorLevel() - board.zToLocal(0)) > 1e-9) throw new Error("The floor left z = 0");
-      board.setFloorZ(1.5);
-      if (Math.abs(board.floorLevel() - board.zToLocal(1.5)) > 1e-9) throw new Error("The floor did not move along z");
-      board.setFloorZ(null);
       const zStep = niceStep(board.view.zMax - board.view.zMin, 5);
       const zs = board.multiples(board.view.zMin, board.view.zMax, zStep);
       if (!zs.includes(0) || !onStep(zs, zStep)) throw new Error("Z ticks are not spaced from 0");
@@ -1508,7 +1551,7 @@ suite("Product features", () => {
   });
 
   test("3D coordinates share one mapping", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
       board.setDimension("3d");
@@ -1540,7 +1583,7 @@ suite("Product features", () => {
   });
 
   test("The 3D floor grid stays square when the camera zooms", () => {
-    appWindow.setMode("graph");
+    appCall(() => board.resize());
     flush(appWindow);
     const spacing = appCall(() => {
       board.setDimension("3d");
@@ -1591,7 +1634,7 @@ suite("Product features", () => {
       assert(region("#result") === "drag", region("#result"));
       assert(region("#keys button") === "no-drag", "Key");
       assert(region("#expr") === "no-drag", "Expression");
-      appWindow.setMode("graph");
+      appCall(() => board.resize());
       flush(appWindow);
       assert(region("#plot") === "no-drag", "Canvas");
       assert(region("#presets") === "drag", region("#presets"));
@@ -1628,8 +1671,8 @@ suite("Product features", () => {
     const loaded = await loadApp("pop=graph&desktop=1");
     try {
       doc.getElementById("copyExpr").click();
-      await wait(120);
-      const value = doc.getElementById("graphExpr").value;
+      await wait(140);
+      const value = loaded.win.document.getElementById("graphExpr").value;
       assert(value === "sin(x)+1", value || "empty");
     } finally {
       loaded.frame.remove();
@@ -1637,7 +1680,7 @@ suite("Product features", () => {
     }
   });
 
-  test("Graph expressions stay in the main window and view controls stay with the plot", async () => {
+  test("Every graph control lives in the graph window", async () => {
     const loaded = await loadApp("pop=graph&desktop=1");
     try {
       const doc = loaded.win.document;
@@ -1649,13 +1692,21 @@ suite("Product features", () => {
       for (const id of ["zoomIn", "zoomOut", "resetView", "gridToggle", "legendToggle"]) {
         assert(getComputedStyle(doc.getElementById(id)).display !== "none", `${id} stays with the plot`);
       }
-      assert(getComputedStyle(doc.getElementById("dim2d")).display === "none", "2D and 3D stay in the main window");
-      assert(getComputedStyle(doc.getElementById("graphExpr")).display === "none", "Expression input stays in the main window");
-      assert(getComputedStyle(doc.getElementById("addFn")).display === "none", "Function entry stays in the main window");
+      for (const id of ["dim2d", "dim3d", "graphExpr", "addFn"]) {
+        const node = doc.getElementById(id);
+        assert(getComputedStyle(node).display !== "none", `${id} is missing from the graph window`);
+        assert(node.getBoundingClientRect().width > 0, `${id} has no room in the toolbar`);
+      }
+      const toolRow = doc.querySelector(".graph-tool-row").getBoundingClientRect();
+      for (const id of ["dim2d", "graphExpr", "addFn", "zoomIn", "resetView"]) {
+        const box = doc.getElementById(id).getBoundingClientRect();
+        assert(box.left >= toolRow.left - 1 && box.right <= toolRow.right + 1, `${id} is cut off the toolbar`);
+      }
+      assert(getComputedStyle(doc.querySelector(".presets")).display !== "none", "The preset chips are missing");
       assert(getComputedStyle(doc.getElementById("fnList")).display !== "none", "The function list stays with the plot");
       assert(getComputedStyle(doc.querySelector(".canvas-wrap")).display !== "none", "Plot is visible");
       doc.getElementById("dim3d").click();
-      assert(getComputedStyle(doc.getElementById("axisBar")).display !== "none", "Axis controls stay with the plot");
+      assert(getComputedStyle(doc.querySelector(".axis-field[data-axis=\"z\"]")).display !== "none", "Axis controls stay with the plot");
       assert(getComputedStyle(doc.getElementById("axisToggle")).display !== "none", "Axis values are available in 3D");
       assert(getComputedStyle(doc.getElementById("axesToggle")).display !== "none", "Axis visibility is available in 3D");
       const graphClose = doc.getElementById("graphClose");
@@ -1696,15 +1747,17 @@ suite("Product features", () => {
         assert(getComputedStyle(edge).cursor === cursor, `${id} ${getComputedStyle(edge).cursor}`);
       }
       assert(getComputedStyle(doc.getElementById("keys")).display === "none", "Calculator keys");
-      appWindow.setMode("graph");
+      appWindow.setMode("basic");
       flush(appWindow);
-      for (const id of ["graphExpr", "addFn", "dim2d", "dim3d"]) {
-        assert(getComputedStyle(appWindow.document.getElementById(id)).display !== "none", `${id} stays on the main window`);
+      const mainDoc = appWindow.document;
+      const screen = mainDoc.getElementById("screenGraph");
+      assert(getComputedStyle(screen).visibility === "hidden", "The calculator window shows a graph screen");
+      assert(screen.getBoundingClientRect().right <= 0, "The graph screen sits inside the calculator window");
+      for (const id of ["graphExpr", "addFn", "dim2d", "dim3d", "fnList", "gridToggle"]) {
+        assert(mainDoc.getElementById(id).getBoundingClientRect().right <= 0, `${id} shows on the calculator window`);
       }
-      for (const id of ["axisBar", "fnList", "gridToggle", "legendToggle", "axesToggle", "axisToggle", "lightToggle"]) {
-        assert(getComputedStyle(appWindow.document.getElementById(id)).display === "none", `${id} stays with the plot`);
-      }
-      assert(appWindow.document.querySelector(".app").getBoundingClientRect().width <= 560, "Main graph window is not compact");
+      assert(!mainDoc.getElementById("screenCalc").hidden, "The calculator screen is hidden");
+      assert(getComputedStyle(mainDoc.getElementById("keys")).display !== "none", "The calculator keys are hidden");
       appCall(() => {
         board.setDimension("2d");
         while (board.fns2d.length) board.removeFunction(board.fns2d[0].id);
@@ -1820,7 +1873,22 @@ suite("Product features", () => {
       loaded.win.applyLanguage("ko");
       const doc = loaded.win.document;
       assert(doc.title === "인쇄 — MyCalc 10.0", doc.title);
-      assert(doc.querySelector("#printSetup h2").textContent === "페이지 설정", doc.querySelector("#printSetup h2").textContent);
+      const head = doc.querySelector(".print-head");
+      assert(head.querySelector("h2").textContent === "인쇄", head.querySelector("h2").textContent);
+      assert(head.querySelector(".icon-print"), "The print window has no print icon");
+      assert(doc.querySelector("#printSetup .print-group").textContent === "페이지 설정", "The page setup group lost its name");
+      const stage = doc.querySelector(".print-stage");
+      const actions = doc.querySelector(".print-actions");
+      assert(stage.contains(actions), "The print actions are not under the preview");
+      assert(actions.getBoundingClientRect().top >= doc.getElementById("printPreview").getBoundingClientRect().bottom - 1, "The actions sit over the preview");
+      assert(doc.getElementById("printCancel"), "The close button is missing");
+      assert(doc.querySelectorAll("#printClose").length === 1, "Two elements answer to printClose");
+      const setup = doc.getElementById("printSetup");
+      const headTop = head.getBoundingClientRect().top;
+      setup.scrollTop = setup.scrollHeight;
+      flush(loaded.win);
+      assert(Math.abs(head.getBoundingClientRect().top - headTop) < 1, "The window name scrolls away with the settings");
+      setup.scrollTop = 0;
       assert(doc.getElementById("printMarginLeft") && doc.getElementById("printMarginRight") && doc.getElementById("printMarginBottom"), "Page margins");
       for (const input of doc.querySelectorAll("#printSetup input[type='number']")) {
         const wrap = input.closest(".num-step");
@@ -2004,17 +2072,14 @@ suite("Product features", () => {
       doc.getElementById("dim3d").click();
       flush(loaded.win);
       const app = doc.querySelector(".app").getBoundingClientRect();
-      const row = doc.querySelector(".view-row");
-      const rowBox = row.getBoundingClientRect();
-      const bar = doc.getElementById("axisBar").getBoundingClientRect();
-      const apply = doc.getElementById("applyView").getBoundingClientRect();
-      const gridZ = doc.getElementById("gridZField").getBoundingClientRect();
       const tools = doc.querySelector(".graph-tool-row");
-      assert(Math.round(rowBox.left) <= Math.round(bar.left) + 1, "The range row is not left aligned");
-      assert(row.scrollWidth <= Math.ceil(rowBox.width) + 1, `${row.scrollWidth} needed, ${Math.round(rowBox.width)} given`);
-      assert(apply.right <= app.right - 6, `Apply sits at ${Math.round(apply.right)} of ${Math.round(app.right)}`);
-      assert(gridZ.right <= app.right - 6, "The grid z field is clipped");
-      assert(tools.scrollWidth <= Math.ceil(tools.getBoundingClientRect().width) + 1, "The toolbar is clipped");
+      const toolBox = tools.getBoundingClientRect();
+      for (const id of ["dim2d", "graphExpr", "addFn", "zoomIn", "resetView", "axisColorX", "printGraph"]) {
+        const box = doc.getElementById(id).getBoundingClientRect();
+        assert(box.width > 0, `${id} has no room`);
+        assert(box.right <= app.right - 6, `${id} is clipped at ${Math.round(box.right)} of ${Math.round(app.right)}`);
+      }
+      assert(tools.scrollWidth <= Math.ceil(toolBox.width) + 1, "The toolbar is clipped");
       assert(doc.querySelector(".canvas-wrap").getBoundingClientRect().height > 100, "The plot has no room left");
     } finally {
       loaded.frame.remove();
@@ -2180,6 +2245,1551 @@ suite("Product features", () => {
     } finally {
       settings.frame.remove();
       info.frame.remove();
+    }
+  });
+});
+
+suite("Function coverage", () => {
+  test("Every one-argument function returns its known value", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "rad";
+      const table = [
+        ["sin(0)", 0], ["cos(0)", 1], ["tan(0)", 0],
+        ["asin(1)", Math.PI / 2], ["acos(1)", 0], ["atan(1)", Math.PI / 4],
+        ["sinh(0)", 0], ["cosh(0)", 1], ["tanh(0)", 0],
+        ["asinh(0)", 0], ["acosh(1)", 0], ["atanh(0)", 0],
+        ["log(1000)", 3], ["ln(1)", 0], ["log2(8)", 3], ["log10(100)", 2],
+        ["sqrt(16)", 4], ["cbrt(27)", 3], ["abs(-3)", 3], ["exp(0)", 1],
+        ["fact(5)", 120], ["floor(2.7)", 2], ["ceil(2.1)", 3], ["round(2.5)", 3],
+      ];
+      for (const [expr, want] of table) {
+        const got = engine.evaluate(expr);
+        if (!Number.isFinite(got) || Math.abs(got - want) > 1e-9) throw new Error(`${expr} = ${got}, not ${want}`);
+      }
+    });
+  });
+
+  test("Every two-argument function returns its known value", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      const table = [
+        // mod follows the sign of the divisor, as a floored remainder does.
+        ["mod(7,3)", 1], ["mod(-7,3)", 2], ["mod(7,-3)", -2],
+        ["ncr(6,2)", 15], ["ncr(6,0)", 1], ["npr(6,2)", 30],
+        ["min(2,5)", 2], ["max(2,5)", 5],
+      ];
+      for (const [expr, want] of table) {
+        const got = engine.evaluate(expr);
+        if (!Number.isFinite(got) || Math.abs(got - want) > 1e-9) throw new Error(`${expr} = ${got}, not ${want}`);
+      }
+    });
+  });
+
+  test("Every name in the function table can be called", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "rad";
+      const safe = { asin: "0.5", acos: "0.5", atanh: "0.5", acosh: "2", log: "10", ln: "2", log2: "8", log10: "10", sqrt: "4", fact: "4" };
+      const missed = [];
+      for (const [name, shape] of Object.entries(FUNCTIONS)) {
+        // A counted function names its counter first, so it is written out.
+        const args = shape.counts ? "k, 1, 4, k" : shape.args === 2 ? "5,2" : safe[name] || "0.5";
+        let value;
+        try {
+          value = engine.evaluate(`${name}(${args})`);
+        } catch (error) {
+          missed.push(`${name}: ${error.message}`);
+          continue;
+        }
+        if (!Number.isFinite(value)) missed.push(`${name} gave ${value}`);
+      }
+      if (missed.length) throw new Error(missed.join(" | "));
+    });
+  });
+
+  test("Inverse trigonometry follows DEG and RAD", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "deg";
+      const degrees = [["asin(1)", 90], ["acos(0)", 90], ["atan(1)", 45], ["cos(60)", 0.5], ["tan(45)", 1]];
+      for (const [expr, want] of degrees) {
+        const got = engine.evaluate(expr);
+        if (Math.abs(got - want) > 1e-9) throw new Error(`deg ${expr} = ${got}`);
+      }
+      engine.angleMode = "rad";
+      const radians = [["asin(1)", Math.PI / 2], ["atan(1)", Math.PI / 4]];
+      for (const [expr, want] of radians) {
+        const got = engine.evaluate(expr);
+        if (Math.abs(got - want) > 1e-9) throw new Error(`rad ${expr} = ${got}`);
+      }
+    });
+  });
+
+  test("Hyperbolic functions ignore the angle unit", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "deg";
+      const inDegrees = engine.evaluate("sinh(1)");
+      engine.angleMode = "rad";
+      const inRadians = engine.evaluate("sinh(1)");
+      if (Math.abs(inDegrees - inRadians) > 1e-12) throw new Error(`${inDegrees} vs ${inRadians}`);
+      if (Math.abs(inRadians - Math.sinh(1)) > 1e-12) throw new Error(String(inRadians));
+    });
+  });
+
+  test("Arguments out of range are reported, not guessed", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "rad";
+      const bad = ["asin(2)", "acos(2)", "acosh(0)", "atanh(1)", "ln(0)", "ln(-1)", "log(0)", "sqrt(-1)", "fact(-1)", "fact(1.5)", "mod(1,0)", "ncr(2,5)", "npr(2,5)", "1/0"];
+      const quiet = [];
+      for (const expr of bad) {
+        try {
+          const value = engine.evaluate(expr);
+          quiet.push(`${expr} = ${value}`);
+        } catch {
+          /* An error is what this test wants. */
+        }
+      }
+      if (quiet.length) throw new Error(quiet.join(" | "));
+    });
+  });
+
+  test("Constants, Ans and implicit multiplication work together", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      if (Math.abs(engine.evaluate("π") - Math.PI) > 1e-12) throw new Error("pi");
+      if (Math.abs(engine.evaluate("e") - Math.E) > 1e-12) throw new Error("e");
+      engine.evaluate("6");
+      if (engine.evaluate("2Ans") !== 12) throw new Error("Ans");
+      if (Math.abs(engine.evaluate("2π") - 2 * Math.PI) > 1e-12) throw new Error("2pi");
+      if (engine.evaluate("(1+2)(3+4)") !== 21) throw new Error("groups");
+    });
+  });
+
+  test("Every scientific key types the function it shows", () => {
+    const doc = appWindow.document;
+    appWindow.setMode("scientific");
+    const keys = appCall(() => sciKeys().flat().map((key) => ({ label: key.label, value: key.value === undefined ? "" : String(key.value), type: key.type })));
+    const missed = [];
+    for (const key of keys) {
+      if (key.type === "second") continue;
+      appWindow.clearCalc();
+      const button = [...doc.querySelectorAll("#keys .key")].find((item) => item.textContent === key.label);
+      if (!button) {
+        missed.push(`${key.label} is missing`);
+        continue;
+      }
+      button.click();
+      const typed = doc.getElementById("expr").value;
+      const wanted = key.type === "fn" ? key.value : key.value.replace(/\(\s*\)?$/, "(");
+      if (!typed.includes(wanted)) missed.push(`${key.label} typed ${typed}`);
+    }
+    appWindow.clearCalc();
+    appWindow.setMode("basic");
+    if (missed.length) throw new Error(missed.join(" | "));
+  });
+
+  test("2nd swaps every key that has a second face", () => {
+    const doc = appWindow.document;
+    appWindow.setMode("scientific");
+    const pairs = appCall(() => sciKeys().flat().filter((key) => key.altLabel).map((key) => [key.label, key.altLabel]));
+    const second = () => [...doc.querySelectorAll("#keys .key")].find((button) => button.textContent === "2nd");
+    second().click();
+    const shown = [...doc.querySelectorAll("#keys .key")].map((button) => button.textContent);
+    const missed = pairs.filter(([, alt]) => !shown.includes(alt)).map(([label, alt]) => `${label} -> ${alt}`);
+    second().click();
+    const back = [...doc.querySelectorAll("#keys .key")].map((button) => button.textContent);
+    const stuck = pairs.filter(([label]) => !back.includes(label)).map(([label]) => label);
+    appWindow.setMode("basic");
+    assert(pairs.length >= 6, `${pairs.length} second faces`);
+    assert(!missed.length, missed.join(" | "));
+    assert(!stuck.length, stuck.join(" | "));
+  });
+
+  test("Every basic key does the job its label promises", () => {
+    const doc = appWindow.document;
+    appWindow.setMode("basic");
+    appWindow.clearCalc();
+    const press = (label) => {
+      const button = [...doc.querySelectorAll("#keys .key")].find((item) => item.textContent === label);
+      assert(button, `${label} key`);
+      button.click();
+    };
+    const expr = doc.getElementById("expr");
+    for (const digit of ["7", "8", "9", "4", "5", "6", "1", "2", "3", "0"]) press(digit);
+    assert(expr.value === "7894561230", expr.value);
+    press("⌫");
+    assert(expr.value === "789456123", expr.value);
+    press("AC");
+    assert(expr.value === "" && doc.getElementById("result").textContent === "0", expr.value);
+    press("8");
+    press(".");
+    press(".");
+    press("5");
+    assert(expr.value === "8.5", expr.value);
+    press("±");
+    assert(expr.value === "(-8.5)", expr.value);
+    assert(doc.getElementById("result").textContent === "-8.5", doc.getElementById("result").textContent);
+    press("AC");
+    for (const [label, want] of [["÷", "/"], ["×", "*"], ["−", "-"], ["+", "+"]]) {
+      appWindow.clearCalc();
+      press("8");
+      press(label);
+      press("2");
+      press("=");
+      const result = doc.getElementById("result").textContent;
+      const expected = appCall((text) => String(new CalcEngine().evaluate(text)), `8${want}2`);
+      assert(result.replace(/,/g, "") === expected, `8 ${label} 2 = ${result}, not ${expected}`);
+    }
+    appWindow.clearCalc();
+    press("5");
+    press("0");
+    press("%");
+    assert(doc.getElementById("result").textContent === "0.5", doc.getElementById("result").textContent);
+    appWindow.clearCalc();
+  });
+
+  test("Memory keys add, subtract, recall and clear", () => {
+    const doc = appWindow.document;
+    appWindow.setMode("basic");
+    doc.getElementById("memClear").click();
+    assert(doc.getElementById("memFlag").hidden, "M stayed on after MC");
+    doc.getElementById("expr").value = "7";
+    appWindow.equals();
+    doc.getElementById("memAdd").click();
+    doc.getElementById("expr").value = "3";
+    appWindow.equals();
+    doc.getElementById("memAdd").click();
+    assert(appCall(() => state.memory) === 10, String(appCall(() => state.memory)));
+    doc.getElementById("expr").value = "4";
+    appWindow.equals();
+    doc.getElementById("memSub").click();
+    assert(appCall(() => state.memory) === 6, String(appCall(() => state.memory)));
+    appWindow.clearCalc();
+    doc.getElementById("memRecall").click();
+    assert(doc.getElementById("expr").value === "6", doc.getElementById("expr").value);
+    doc.getElementById("memClear").click();
+    assert(appCall(() => state.memory) === 0 && doc.getElementById("memFlag").hidden, "MC");
+    appWindow.clearCalc();
+  });
+});
+
+suite("Keypad layout", () => {
+  const padLabels = (win) => [...win.document.querySelectorAll("#keys .key")].map((key) => key.textContent);
+  const digitTriples = (labels) => {
+    const rows = [];
+    for (const trio of [["7", "8", "9"], ["4", "5", "6"], ["1", "2", "3"]]) {
+      rows.push([labels.indexOf(trio[0]), trio.join("")]);
+    }
+    return rows.sort((a, b) => a[0] - b[0]).map((row) => row[1]);
+  };
+
+  test("The digit rows start at 7 by default", () => {
+    const saved = localStorage.getItem("mycalc-keypad");
+    try {
+      appWindow.setKeypad("789");
+      appWindow.setMode("basic");
+      assert(appCall(() => state.keypad) === "789", "Stored order");
+      assert(digitTriples(padLabels(appWindow)).join("|") === "789|456|123", padLabels(appWindow).join(" "));
+    } finally {
+      if (saved == null) localStorage.removeItem("mycalc-keypad");
+      else localStorage.setItem("mycalc-keypad", saved);
+      appWindow.setKeypad("789");
+    }
+  });
+
+  test("The 1-2-3 arrangement flips the three digit rows", () => {
+    try {
+      appWindow.setMode("basic");
+      appWindow.setKeypad("123");
+      assert(digitTriples(padLabels(appWindow)).join("|") === "123|456|789", padLabels(appWindow).join(" "));
+      appWindow.setKeypad("789");
+      assert(digitTriples(padLabels(appWindow)).join("|") === "789|456|123", padLabels(appWindow).join(" "));
+    } finally {
+      appWindow.setKeypad("789");
+    }
+  });
+
+  test("Zero sits in the middle digit column in every keypad", () => {
+    const doc = appWindow.document;
+    doc.documentElement.classList.remove("desktop");
+    const centres = () => {
+      const keys = [...doc.querySelectorAll("#keys .key")];
+      const zero = keys.find((key) => key.textContent === "0");
+      const middle = keys.find((key) => key.textContent === "5");
+      assert(zero && middle, "0 and 5 keys");
+      const a = zero.getBoundingClientRect();
+      const b = middle.getBoundingClientRect();
+      return Math.abs((a.left + a.right) / 2 - (b.left + b.right) / 2);
+    };
+    try {
+      for (const order of ["789", "123"]) {
+        appWindow.setKeypad(order);
+        for (const mode of ["basic", "scientific", "programmer", "currency", "unit"]) {
+          appWindow.setMode(mode);
+          flush(appWindow);
+          const gap = centres();
+          assert(gap < 1.5, `${mode} (${order}) is off by ${gap.toFixed(1)}px`);
+        }
+      }
+    } finally {
+      appWindow.setKeypad("789");
+      appWindow.setMode("basic");
+    }
+  });
+
+  test("Flipping the programmer pad leaves hex, bit and operator keys alone", () => {
+    const doc = appWindow.document;
+    try {
+      appWindow.setMode("programmer");
+      for (const order of ["789", "123"]) {
+        appWindow.setKeypad(order);
+        flush(appWindow);
+        const keys = [...doc.querySelectorAll("#keys .key")];
+        const hex = keys.filter((key) => /^[A-F]$/.test(key.textContent)).map((key) => key.textContent);
+        assert(hex.join("") === "ABCDEF", `${order}: ${hex.join("")}`);
+        const ops = ["÷", "×", "−", "+"].map((label) => keys.find((key) => key.textContent === label));
+        assert(ops.every(Boolean), `${order}: an operator key is missing`);
+        const lefts = new Set(ops.map((key) => Math.round(key.getBoundingClientRect().left)));
+        assert(lefts.size === 1, `${order}: operators sit in ${lefts.size} columns`);
+        for (const label of ["NOT", "AND", "OR", "XOR", "≪", "≫"]) {
+          assert(keys.some((key) => key.textContent === label), `${order}: ${label} is missing`);
+        }
+      }
+    } finally {
+      appWindow.setKeypad("789");
+      appWindow.setMode("basic");
+    }
+  });
+
+  test("A new window opens with the stored arrangement", async () => {
+    const saved = localStorage.getItem("mycalc-keypad");
+    localStorage.setItem("mycalc-keypad", "123");
+    const loaded = await loadApp("");
+    try {
+      const labels = padLabels(loaded.win);
+      assert(callWin(loaded.win, () => state.keypad) === "123", "The stored order was ignored");
+      assert(digitTriples(labels).join("|") === "123|456|789", labels.join(" "));
+    } finally {
+      loaded.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-keypad");
+      else localStorage.setItem("mycalc-keypad", saved);
+      appWindow.setKeypad("789");
+    }
+  });
+
+  test("The settings sheet switches the arrangement", () => {
+    const doc = appWindow.document;
+    try {
+      appWindow.setMode("basic");
+      appWindow.setKeypad("789");
+      appWindow.openSheet(doc.getElementById("settingsSheet"));
+      const chips = () => [...doc.querySelectorAll("#padChoices .pad-chip")];
+      assert(chips().length === 2, `${chips().length} choices`);
+      assert(chips().find((chip) => chip.dataset.order === "789").getAttribute("aria-pressed") === "true", "789 is not marked");
+      const preview = chips()[0].querySelectorAll(".pad-view i");
+      assert(preview.length === 12, `${preview.length} preview cells`);
+      assert(preview[9].classList.contains("pad-blank") && preview[10].textContent === "0" && preview[11].classList.contains("pad-blank"), "The preview does not centre 0");
+      chips().find((chip) => chip.dataset.order === "123").click();
+      assert(appCall(() => state.keypad) === "123", "The click did not take");
+      assert(chips().find((chip) => chip.dataset.order === "123").getAttribute("aria-pressed") === "true", "123 is not marked");
+      assert(digitTriples(padLabels(appWindow)).join("|") === "123|456|789", "The keypad did not follow");
+      chips().find((chip) => chip.dataset.order === "789").click();
+      assert(digitTriples(padLabels(appWindow)).join("|") === "789|456|123", "The keypad did not come back");
+    } finally {
+      appWindow.closeSheets();
+      appWindow.setKeypad("789");
+    }
+  });
+
+  test("Default settings put the arrangement back", () => {
+    const savedTheme = localStorage.getItem("mycalc-theme");
+    const savedPad = localStorage.getItem("mycalc-keypad");
+    try {
+      appWindow.setKeypad("123");
+      assert(appCall(() => state.keypad) === "123", "Setup");
+      appWindow.document.getElementById("resetSettings").click();
+      assert(appCall(() => state.keypad) === "789", appCall(() => state.keypad));
+      assert(localStorage.getItem("mycalc-keypad") === "789", String(localStorage.getItem("mycalc-keypad")));
+    } finally {
+      if (savedTheme == null) localStorage.removeItem("mycalc-theme");
+      else localStorage.setItem("mycalc-theme", savedTheme);
+      if (savedPad == null) localStorage.removeItem("mycalc-keypad");
+      else localStorage.setItem("mycalc-keypad", savedPad);
+      appWindow.loadTheme();
+      appWindow.setKeypad("789");
+    }
+  });
+
+  test("Keys still type their digit after the arrangement changes", () => {
+    const doc = appWindow.document;
+    try {
+      appWindow.setMode("basic");
+      appWindow.setKeypad("123");
+      appWindow.clearCalc();
+      for (const digit of ["7", "0", "9"]) {
+        [...doc.querySelectorAll("#keys .key")].find((key) => key.textContent === digit).click();
+      }
+      assert(doc.getElementById("expr").value === "709", doc.getElementById("expr").value);
+    } finally {
+      appWindow.clearCalc();
+      appWindow.setKeypad("789");
+    }
+  });
+});
+
+suite("Units", () => {
+  test("Every unit converts to itself and back through the base", () => {
+    appCall(() => {
+      const trouble = [];
+      for (const group of UNIT_GROUPS) {
+        for (const unit of group.units) {
+          const same = convertUnit(7, group.id, unit.id, unit.id);
+          if (Math.abs(same - 7) > 1e-9) trouble.push(`${group.id}/${unit.id} self ${same}`);
+          const out = convertUnit(1, group.id, group.base, unit.id);
+          const back = convertUnit(out, group.id, unit.id, group.base);
+          if (!Number.isFinite(out) || !Number.isFinite(back) || Math.abs(back - 1) > 1e-9) {
+            trouble.push(`${group.id}/${unit.id} round trip ${back}`);
+          }
+        }
+      }
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+
+  test("Known conversions land on their published value", () => {
+    appCall(() => {
+      const table = [
+        ["length", "in", "mm", 25.4],
+        ["length", "mi", "m", 1609.344],
+        ["length", "nmi", "km", 1.852],
+        ["area", "ha", "m2", 10000],
+        ["area", "pyeong", "m2", 400 / 121],
+        ["volume", "gal", "L", 3.785411784],
+        ["volume", "m3", "L", 1000],
+        ["mass", "kg", "lb", 1 / 0.45359237],
+        ["mass", "geun", "g", 600],
+        ["speed", "kn", "kmh", 1.852],
+        ["speed", "kmh", "mps", 1 / 3.6],
+        ["time", "yr", "d", 31556952 / 86400],
+        ["data", "MiB", "B", 1048576],
+        ["data", "bit", "B", 0.125],
+        ["pressure", "atm", "Pa", 101325],
+        ["energy", "kWh", "J", 3.6e6],
+        ["energy", "kcal", "cal", 1000],
+        ["power", "hp", "W", 745.69987158227],
+        ["angle", "rev", "deg", 360],
+        ["angle", "rad", "deg", 180 / Math.PI],
+      ];
+      const wrong = [];
+      for (const [group, from, to, want] of table) {
+        const got = convertUnit(1, group, from, to);
+        if (!Number.isFinite(got) || Math.abs(got - want) > Math.abs(want) * 1e-9 + 1e-12) {
+          wrong.push(`1 ${from} -> ${to} = ${got}, not ${want}`);
+        }
+      }
+      if (wrong.length) throw new Error(wrong.join(" | "));
+    });
+  });
+
+  test("Temperature crosses its four scales", () => {
+    appCall(() => {
+      const table = [
+        [0, "C", "F", 32],
+        [100, "C", "F", 212],
+        [-40, "C", "F", -40],
+        [0, "C", "K", 273.15],
+        [0, "K", "C", -273.15],
+        [491.67, "R", "F", 32],
+        [0, "C", "R", 491.67],
+        [98.6, "F", "C", 37],
+      ];
+      const wrong = [];
+      for (const [amount, from, to, want] of table) {
+        const got = convertUnit(amount, "temperature", from, to);
+        if (!Number.isFinite(got) || Math.abs(got - want) > 1e-9) wrong.push(`${amount} ${from} -> ${to} = ${got}, not ${want}`);
+      }
+      if (wrong.length) throw new Error(wrong.join(" | "));
+    });
+  });
+
+  test("Unknown groups, units and amounts give no number", () => {
+    appCall(() => {
+      const bad = [
+        convertUnit(1, "nothing", "m", "cm"),
+        convertUnit(1, "length", "m", "kg"),
+        convertUnit(1, "length", "kg", "m"),
+        convertUnit(Number.NaN, "length", "m", "cm"),
+        convertUnit(Number.POSITIVE_INFINITY, "length", "m", "cm"),
+      ];
+      const leaked = bad.filter((value) => Number.isFinite(value));
+      if (leaked.length) throw new Error(leaked.join(","));
+      if (unitGroupById("nothing") !== null) throw new Error("Unknown group");
+      if (unitById(unitGroupById("length"), "kg") !== null) throw new Error("Unknown unit");
+      if (validUnitPick({ group: "length", from: "m", to: "kg" }) !== null) throw new Error("A bad pick was accepted");
+      const pick = validUnitPick({ group: "length", from: "m", to: "cm" });
+      if (!pick || pick.amount !== "1") throw new Error("A good pick was refused");
+    });
+  });
+
+  test("Unit values are formatted for reading", () => {
+    appCall(() => {
+      const table = [
+        [0, "0"],
+        [25.4, "25.4"],
+        [1234.5, "1,234.5"],
+        [1 / 3, "0.33333333"],
+        [Number.NaN, String.fromCharCode(8212)],
+        [Number.POSITIVE_INFINITY, String.fromCharCode(8212)],
+      ];
+      for (const [value, want] of table) {
+        const got = formatUnit(value);
+        if (got !== want) throw new Error(`${value} -> ${got}, not ${want}`);
+      }
+      if (!/e[+]?13/.test(formatUnit(1e13))) throw new Error(formatUnit(1e13));
+      if (!/e-9/.test(formatUnit(1e-9))) throw new Error(formatUnit(1e-9));
+    });
+  });
+
+  test("Every group carries a base, a default pair and names in both languages", () => {
+    appCall(() => {
+      const trouble = [];
+      if (UNIT_GROUPS.length < 10) trouble.push(`${UNIT_GROUPS.length} groups`);
+      const groupIds = new Set();
+      for (const group of UNIT_GROUPS) {
+        if (groupIds.has(group.id)) trouble.push(`${group.id} is listed twice`);
+        groupIds.add(group.id);
+        if (!Array.isArray(group.name) || !group.name[0] || !group.name[1]) trouble.push(`${group.id} name`);
+        if (unitGroupLabel(group, "ko") !== group.name[0] || unitGroupLabel(group, "en") !== group.name[1]) trouble.push(`${group.id} label`);
+        if (group.units.length < 4) trouble.push(`${group.id} has ${group.units.length} units`);
+        const base = unitById(group, group.base);
+        if (!base) trouble.push(`${group.id} has no base unit`);
+        else if (Math.abs(unitToBase(base, 1) - 1) > 1e-12) trouble.push(`${group.id} base is not 1`);
+        const ids = new Set();
+        for (const unit of group.units) {
+          if (ids.has(unit.id)) trouble.push(`${group.id}/${unit.id} is listed twice`);
+          ids.add(unit.id);
+          if (!unit.symbol) trouble.push(`${group.id}/${unit.id} symbol`);
+          if (!unit.name || !unit.name[0] || !unit.name[1]) trouble.push(`${group.id}/${unit.id} name`);
+          if (unitLabel(unit, "en") !== unit.name[1]) trouble.push(`${group.id}/${unit.id} label`);
+          const affine = typeof unit.toBase === "function";
+          if (!affine && !(unit.factor > 0)) trouble.push(`${group.id}/${unit.id} factor`);
+        }
+        const [from, to] = unitDefaultPair(group.id);
+        if (!unitById(group, from) || !unitById(group, to) || from === to) trouble.push(`${group.id} default pair ${from}/${to}`);
+      }
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+
+  test("The unit screen converts what the keypad types", async () => {
+    const saved = localStorage.getItem("mycalc-unit");
+    localStorage.removeItem("mycalc-unit");
+    const loaded = await loadApp("");
+    try {
+      const doc = loaded.win.document;
+      callWin(loaded.win, () => {
+        setMode("unit");
+        setUnitGroup("length");
+        state.unit.from = "m";
+        state.unit.to = "cm";
+        setUnitAmount("0");
+        renderUnitOptions();
+        renderUnit();
+      });
+      await wait(60);
+      assert(!doc.getElementById("screenUnit").hidden, "The unit screen is hidden");
+      assert(doc.getElementById("screenCalc").hidden, "The calculator screen stayed open");
+      const keys = () => [...doc.querySelectorAll("#keys .key")];
+      const press = (label) => {
+        const key = keys().find((button) => button.textContent === label);
+        assert(key, `${label} key`);
+        key.click();
+      };
+      const grid = doc.querySelector("#keys .keygrid");
+      const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length;
+      assert(columns === 4, `${columns} columns`);
+      press("1");
+      press("2");
+      press(".");
+      press(".");
+      press("5");
+      assert(callWin(loaded.win, () => state.unit.amount) === "12.5", callWin(loaded.win, () => state.unit.amount));
+      assert(doc.getElementById("unitResult").textContent === "1,250", doc.getElementById("unitResult").textContent);
+      assert(doc.getElementById("unitNote").textContent === "1 m = 100 cm", doc.getElementById("unitNote").textContent);
+      press("±");
+      assert(callWin(loaded.win, () => state.unit.amount) === "-12.5", "The sign key did nothing");
+      assert(doc.getElementById("unitResult").textContent === "-1,250", doc.getElementById("unitResult").textContent);
+      press("±");
+      press("⌫");
+      assert(callWin(loaded.win, () => state.unit.amount) === "12.", callWin(loaded.win, () => state.unit.amount));
+      press("AC");
+      assert(callWin(loaded.win, () => state.unit.amount) === "0", "AC did not clear the value");
+      press("9");
+      press("00");
+      assert(callWin(loaded.win, () => state.unit.amount) === "900", callWin(loaded.win, () => state.unit.amount));
+      press("000");
+      assert(callWin(loaded.win, () => state.unit.amount) === "900000", callWin(loaded.win, () => state.unit.amount));
+    } finally {
+      loaded.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-unit");
+      else localStorage.setItem("mycalc-unit", saved);
+    }
+  });
+
+  test("Swapping and changing the category keep the screen in step", async () => {
+    const saved = localStorage.getItem("mycalc-unit");
+    localStorage.removeItem("mycalc-unit");
+    const loaded = await loadApp("");
+    try {
+      const doc = loaded.win.document;
+      callWin(loaded.win, () => {
+        setMode("unit");
+        setUnitGroup("length");
+        state.unit.from = "km";
+        state.unit.to = "m";
+        setUnitAmount("2");
+        renderUnitOptions();
+        renderUnit();
+      });
+      await wait(60);
+      assert(doc.getElementById("unitResult").textContent === "2,000", doc.getElementById("unitResult").textContent);
+      doc.getElementById("unitSwap").click();
+      assert(doc.getElementById("unitFrom").value === "m" && doc.getElementById("unitTo").value === "km", "The selects did not swap");
+      assert(doc.getElementById("unitResult").textContent === "0.002", doc.getElementById("unitResult").textContent);
+      const pick = doc.getElementById("unitGroup");
+      pick.value = "temperature";
+      pick.dispatchEvent(new loaded.win.Event("change"));
+      const pair = callWin(loaded.win, () => [state.unit.group, state.unit.from, state.unit.to].join(","));
+      assert(pair === "temperature,C,F", pair);
+      assert([...doc.getElementById("unitFrom").options].length === 4, "The unit list did not follow the category");
+      callWin(loaded.win, () => setUnitAmount("100"));
+      assert(doc.getElementById("unitResult").textContent === "212", doc.getElementById("unitResult").textContent);
+      assert(doc.getElementById("unitNote").textContent === "100 °C = 212 °F", doc.getElementById("unitNote").textContent);
+      const typed = doc.getElementById("unitAmount");
+      typed.value = "37";
+      typed.dispatchEvent(new loaded.win.Event("input"));
+      assert(doc.getElementById("unitResult").textContent === "98.6", doc.getElementById("unitResult").textContent);
+    } finally {
+      loaded.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-unit");
+      else localStorage.setItem("mycalc-unit", saved);
+    }
+  });
+
+  test("The unit choice is remembered for next time", async () => {
+    const saved = localStorage.getItem("mycalc-unit");
+    localStorage.setItem("mycalc-unit", JSON.stringify({ group: "mass", from: "kg", to: "lb", amount: "3" }));
+    const loaded = await loadApp("");
+    try {
+      const doc = loaded.win.document;
+      callWin(loaded.win, () => setMode("unit"));
+      await wait(60);
+      const pick = callWin(loaded.win, () => [state.unit.group, state.unit.from, state.unit.to, state.unit.amount].join(","));
+      assert(pick === "mass,kg,lb,3", pick);
+      assert(doc.getElementById("unitGroup").value === "mass", doc.getElementById("unitGroup").value);
+      assert(doc.getElementById("unitAmount").value === "3", doc.getElementById("unitAmount").value);
+      callWin(loaded.win, () => setUnitGroup("data"));
+      const stored = JSON.parse(localStorage.getItem("mycalc-unit"));
+      assert(stored.group === "data" && stored.from === "MB" && stored.to === "MiB", JSON.stringify(stored));
+    } finally {
+      loaded.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-unit");
+      else localStorage.setItem("mycalc-unit", saved);
+    }
+  });
+
+  test("The keyboard types into the amount on the converter screens", async () => {
+    const savedUnit = localStorage.getItem("mycalc-unit");
+    localStorage.removeItem("mycalc-unit");
+    const loaded = await loadApp("");
+    try {
+      const press = (key) => callWin(loaded.win, new Function(`
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(key)}, bubbles: true }));
+        return state.mode === "unit" ? state.unit.amount : state.currency.amount;
+      `));
+      callWin(loaded.win, () => {
+        setMode("unit");
+        setUnitGroup("length");
+        setUnitAmount("0");
+      });
+      await wait(60);
+      press("4");
+      press("2");
+      assert(callWin(loaded.win, () => state.unit.amount) === "42", callWin(loaded.win, () => state.unit.amount));
+      press("-");
+      assert(callWin(loaded.win, () => state.unit.amount) === "-42", callWin(loaded.win, () => state.unit.amount));
+      press("Backspace");
+      assert(callWin(loaded.win, () => state.unit.amount) === "-4", callWin(loaded.win, () => state.unit.amount));
+      press("Escape");
+      assert(callWin(loaded.win, () => state.unit.amount) === "0", callWin(loaded.win, () => state.unit.amount));
+      assert(callWin(loaded.win, () => document.getElementById("expr").value) === "", "The keys leaked into the calculator");
+      callWin(loaded.win, () => {
+        setMode("currency");
+        setCurrencyAmount("0");
+      });
+      press("7");
+      assert(callWin(loaded.win, () => state.currency.amount) === "7", callWin(loaded.win, () => state.currency.amount));
+    } finally {
+      loaded.frame.remove();
+      if (savedUnit == null) localStorage.removeItem("mycalc-unit");
+      else localStorage.setItem("mycalc-unit", savedUnit);
+    }
+  });
+
+  test("The unit screen speaks Korean and English", () => {
+    const doc = appWindow.document;
+    const savedLang = localStorage.getItem("mycalc-lang");
+    try {
+      appWindow.setMode("unit");
+      appWindow.applyLanguage("ko");
+      const koGroup = [...doc.getElementById("unitGroup").options].find((option) => option.value === "length");
+      assert(koGroup.textContent === "길이", koGroup.textContent);
+      assert(doc.querySelector('.modes button[data-mode="unit"] span:last-child').textContent === "단위", "Korean tab");
+      appWindow.applyLanguage("en");
+      const enGroup = [...doc.getElementById("unitGroup").options].find((option) => option.value === "length");
+      assert(enGroup.textContent === "Length", enGroup.textContent);
+      assert(doc.querySelector('.modes button[data-mode="unit"] span:last-child').textContent === "Units", "English tab");
+      const first = doc.getElementById("unitFrom").options[0];
+      assert(first.textContent.includes("·"), first.textContent);
+      assert(doc.getElementById("unitGroup").value === appCall(() => state.unit.group), "The category reset when the language changed");
+    } finally {
+      appWindow.applyLanguage("ko");
+      if (savedLang == null) localStorage.removeItem("mycalc-lang");
+      else localStorage.setItem("mycalc-lang", savedLang);
+      appWindow.setMode("basic");
+    }
+  });
+
+  test("Unit mode has its own window size", () => {
+    const doc = appWindow.document;
+    doc.documentElement.classList.remove("desktop");
+    const app = doc.querySelector(".app");
+    try {
+      appWindow.setMode("unit");
+      flush(appWindow);
+      const rect = app.getBoundingClientRect();
+      assert(`${Math.round(rect.width)}x${Math.round(rect.height)}` === "400x594", `${rect.width}x${rect.height}`);
+      const last = [...doc.querySelectorAll("#keys .key")].pop().getBoundingClientRect();
+      assert(last.bottom <= rect.bottom + 1 && last.right <= rect.right + 1, "The keypad spills out of the card");
+      assert(app.scrollHeight - app.clientHeight === 0, `${app.scrollHeight - app.clientHeight}px of overflow`);
+      const tabs = [...doc.querySelectorAll(".modes button")];
+      assert(tabs.length === 6, `${tabs.length} tabs`);
+      assert(tabs.find((tab) => tab.dataset.mode === "unit").getAttribute("aria-selected") === "true", "The unit tab is not selected");
+    } finally {
+      appWindow.setMode("basic");
+    }
+  });
+});
+
+suite("Programmer coverage", () => {
+  test("Every integer operator gives its known value", () => {
+    appCall(() => {
+      const table = [
+        ["7+5", 12n], ["7-5", 2n], ["7*5", 35n], ["7/2", 3n], ["7%5", 2n],
+        ["12&10", 8n], ["12|3", 15n], ["12^10", 6n], ["1<<8", 256n], ["256>>4", 16n],
+        ["(2+3)*4", 20n], ["2+3*4", 14n],
+      ];
+      const wrong = [];
+      for (const [expr, want] of table) {
+        const got = evaluateInt(expr, 10, 32);
+        if (got !== want) wrong.push(`${expr} = ${got}, not ${want}`);
+      }
+      if (formatInt(evaluateInt("~0", 10, 32), 10, 32) !== "-1") wrong.push("~0");
+      if (wrong.length) throw new Error(wrong.join(" | "));
+    });
+  });
+
+  test("Every bit width keeps its own range", () => {
+    appCall(() => {
+      const table = [
+        ["80", 16, 8, "-128"],
+        ["7F", 16, 8, "127"],
+        ["8000", 16, 16, "-32768"],
+        ["FFFF", 16, 16, "-1"],
+        ["80000000", 16, 32, "-2147483648"],
+        ["FFFFFFFF", 16, 32, "-1"],
+        ["8000000000000000", 16, 64, "-9223372036854775808"],
+        ["FFFFFFFFFFFFFFFF", 16, 64, "-1"],
+      ];
+      const wrong = [];
+      for (const [expr, base, bits, want] of table) {
+        const got = formatInt(evaluateInt(expr, base, bits), 10, bits);
+        if (got !== want) wrong.push(`${expr}/${bits} = ${got}, not ${want}`);
+      }
+      for (const bits of [8, 16, 32, 64]) {
+        const wrapped = evaluateInt("1<<" + bits, 10, bits);
+        if (wrapped !== 0n) wrong.push(`1<<${bits} = ${wrapped}`);
+      }
+      if (wrong.length) throw new Error(wrong.join(" | "));
+    });
+  });
+
+  test("One value reads the same in all four bases", () => {
+    appCall(() => {
+      const value = evaluateInt("AB", 16, 16);
+      const shown = [16, 10, 8, 2].map((base) => formatInt(value, base, 16).replace(/\s/g, ""));
+      const want = ["AB", "171", "253", "10101011"];
+      if (shown.join("|") !== want.join("|")) throw new Error(shown.join("|"));
+    });
+  });
+
+  test("Every programmer bit key does the job its label promises", () => {
+    const doc = appWindow.document;
+    appWindow.setMode("programmer");
+    appWindow.setBase(16);
+    appWindow.setBits(8);
+    const press = (label) => {
+      const button = [...doc.querySelectorAll("#keys .key")].find((item) => item.textContent === label);
+      assert(button, `${label} key`);
+      assert(!button.disabled, `${label} key is disabled`);
+      button.click();
+    };
+    const expr = doc.getElementById("progExpr");
+    const run = (labels) => {
+      press("AC");
+      for (const label of labels) press(label);
+      press("=");
+      return expr.value;
+    };
+    assert(run(["F", "F"]) === "FF", expr.value);
+    assert(doc.getElementById("val10").textContent === "-1", doc.getElementById("val10").textContent);
+    assert(doc.getElementById("val2").textContent === "1111 1111", doc.getElementById("val2").textContent);
+    assert(run(["NOT", "0"]) === "FF", `NOT: ${expr.value}`);
+    assert(run(["F", "0", "AND", "3", "C"]) === "30", `AND: ${expr.value}`);
+    assert(run(["F", "0", "OR", "0", "F"]) === "FF", `OR: ${expr.value}`);
+    assert(run(["F", "0", "XOR", "F", "F"]) === "F", `XOR: ${expr.value}`);
+    assert(run(["1", "≪", "4"]) === "10", `shift left: ${expr.value}`);
+    assert(run(["7", "0", "≫", "4"]) === "7", `shift right: ${expr.value}`);
+    // The right shift keeps the sign, so F0 in 8 bits is -16 and stays negative.
+    assert(run(["F", "0", "≫", "4"]) === "FF", `signed shift right: ${expr.value}`);
+    assert(run(["(", "1", "+", "2", ")", "×", "3"]) === "9", `brackets: ${expr.value}`);
+    press("AC");
+    press("A");
+    press("=");
+    press("±");
+    assert(expr.value === "F6", `sign: ${expr.value}`);
+    press("⌫");
+    assert(expr.value === "F", `backspace: ${expr.value}`);
+    press("AC");
+    assert(expr.value === "", `AC: ${expr.value}`);
+    appWindow.setBase(10);
+    appWindow.setBits(32);
+    assert(run(["7", "+", "5"]) === "12", `plus: ${expr.value}`);
+    assert(run(["7", "−", "5"]) === "2", `minus: ${expr.value}`);
+    assert(run(["7", "×", "5"]) === "35", `times: ${expr.value}`);
+    assert(run(["7", "÷", "2"]) === "3", `divide: ${expr.value}`);
+    assert(run(["7", "%", "5"]) === "2", `percent: ${expr.value}`);
+    press("AC");
+    appWindow.setMode("basic");
+  });
+
+  test("Changing the base rewrites the value in that base", () => {
+    const doc = appWindow.document;
+    appWindow.setMode("programmer");
+    appWindow.setBits(16);
+    appWindow.setBase(16);
+    doc.getElementById("progExpr").value = "FF";
+    appWindow.updateProg();
+    appWindow.setBase(10);
+    assert(doc.getElementById("progExpr").value === "255", doc.getElementById("progExpr").value);
+    appWindow.setBase(8);
+    assert(doc.getElementById("progExpr").value === "377", doc.getElementById("progExpr").value);
+    appWindow.setBase(2);
+    assert(doc.getElementById("progExpr").value === "11111111", doc.getElementById("progExpr").value);
+    appWindow.setBase(16);
+    assert(doc.getElementById("progExpr").value === "FF", doc.getElementById("progExpr").value);
+    const pressable = [...doc.querySelectorAll("#keys .key")].filter((key) => /^[0-9A-F]$/.test(key.textContent));
+    assert(pressable.every((key) => !key.disabled), "A digit key is locked in hexadecimal");
+    appWindow.setBase(2);
+    const locked = [...doc.querySelectorAll("#keys .key")].filter((key) => /^[2-9A-F]$/.test(key.textContent));
+    assert(locked.length && locked.every((key) => key.disabled), "A digit key is open in binary");
+    appWindow.setBase(10);
+    appWindow.setBits(32);
+    doc.getElementById("progExpr").value = "";
+    appWindow.updateProg();
+    appWindow.setMode("basic");
+  });
+});
+
+suite("Graph colours and axes", () => {
+  test("No curve takes an axis colour", () => {
+    appCall(() => {
+      const distance = (a, b) => {
+        const one = hexToRgb(a);
+        const two = hexToRgb(b);
+        return Math.hypot(one[0] - two[0], one[1] - two[1], one[2] - two[2]);
+      };
+      const axes = Object.values(AXIS_COLORS);
+      const clashes = [];
+      for (const colour of PALETTE) {
+        for (const axis of axes) {
+          const gap = distance(colour, axis);
+          if (gap < 60) clashes.push(`${colour} is ${Math.round(gap)} from ${axis}`);
+        }
+      }
+      if (PALETTE.length !== 8) clashes.push(`${PALETTE.length} colours`);
+      if (new Set(PALETTE).size !== PALETTE.length) clashes.push("A colour is listed twice");
+      if (clashes.length) throw new Error(clashes.join(" | "));
+    });
+  });
+
+  test("The first graphs drawn keep clear of the axes", () => {
+    appCall(() => {
+      board.setDimension("2d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      const picked = [];
+      for (const expr of ["x", "x+1", "x+2"]) picked.push(board.addFunction(expr).color);
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      const axes = Object.values(AXIS_COLORS);
+      const taken = picked.filter((colour) => axes.includes(colour));
+      if (taken.length) throw new Error(taken.join(","));
+    });
+  });
+
+  test("A 3D surface keeps the one colour it was given", () => {
+    appCall(() => {
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      const fn = board.addFunction("x^2+y^2");
+      board.setLight({ on: true });
+      board.resize();
+      board.draw();
+      const base = hexToRgb(fn.color);
+      const shades = [];
+      for (const surface of board.scene.surfaces) {
+        for (const colour of surface.colors) if (colour) shades.push(colour);
+        for (const edge of surface.edges) shades.push(edge.color);
+      }
+      if (shades.length < 50) throw new Error(`${shades.length} shaded cells`);
+      // Every cell is the base colour at some brightness: the ratios hold.
+      const off = [];
+      for (const shade of shades) {
+        const parts = shade.match(/\d+/g).map(Number);
+        const scale = parts[0] / (base[0] || 1);
+        if (!(scale > 0.4 && scale <= 1.01)) {
+          off.push(`${shade} is ${scale.toFixed(2)} of the base`);
+          continue;
+        }
+        for (const channel of [1, 2]) {
+          if (Math.abs(parts[channel] - base[channel] * scale) > 2.5) off.push(`${shade} drifts from ${fn.color}`);
+        }
+      }
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.setDimension("2d");
+      if (off.length) throw new Error(off.slice(0, 3).join(" | "));
+    });
+  });
+
+  test("The cut at the height limit is shaded like the surface around it", () => {
+    appCall(() => {
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.addFunction("x^2+y^2");
+      board.setView({ xMin: -3, xMax: 3, yMin: -3, yMax: 3, zMin: -1, zMax: 5 });
+      board.setLight({ on: true });
+      board.resize();
+      board.draw();
+      const surface = board.scene.surfaces[0];
+      if (!surface.edges.length) throw new Error("Nothing was cut at the limit");
+      const brightness = (colour) => {
+        const parts = colour.match(/\d+/g).map(Number);
+        return (parts[0] + parts[1] + parts[2]) / 3;
+      };
+      const rim = surface.edges.map((edge) => brightness(edge.color));
+      const body = surface.colors.filter(Boolean).map(brightness);
+      const mean = (list) => list.reduce((sum, value) => sum + value, 0) / list.length;
+      const gap = Math.abs(mean(rim) - mean(body));
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.setDimension("2d");
+      board.resetView();
+      // A flat lid on the cut cells used to leave a row of bright teeth.
+      if (gap > 18) throw new Error(`The cut is ${gap.toFixed(1)} brighter than the surface`);
+    });
+  });
+
+  test("Each 3D axis spans the range that is drawn", () => {
+    appCall(() => {
+      board.setDimension("3d");
+      board.setView({ xMin: -4, xMax: 4, yMin: -4, yMax: 4, zMin: -2, zMax: 6 });
+      const trouble = [];
+      if (Math.abs(board.zToLocal(board.view.zMax) - board.zToLocalFree(board.view.zMax)) > 1e-9) {
+        trouble.push("The height limit is clamped away");
+      }
+      // The height has its own scale: the ground is eight across and the box
+      // is eight tall, so reading one off the other would be a coincidence.
+      if (Math.abs(board.heightScale() - 4) > 1e-9) trouble.push(`The height scale is ${board.heightScale()}`);
+      if (Math.abs(board.zToLocalFree(12) - (12 - 2) / board.heightScale()) > 1e-9) trouble.push("The free mapping is wrong");
+      if (board.zToLocal(12) !== board.zToLocal(6)) trouble.push("The drawn mapping does not stop at the limit");
+      board.setView({ zMin: -2, zMax: 38 });
+      if (Math.abs(board.zToLocal(38) - 1) > 1e-9) trouble.push("A taller range does not fill the box");
+      if (Math.abs(board.heightScale() - 20) > 1e-9) trouble.push("The height scale ignored the taller range");
+      board.setDimension("2d");
+      board.resetView();
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+
+  test("The axis letters are X, Y and Z and stay out of the numbers", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const doc = loaded.win.document;
+      loaded.frame.style.width = "1100px";
+      loaded.frame.style.height = "700px";
+      flush(loaded.win);
+      const spots = callWin(loaded.win, () => {
+        board.setDimension("3d");
+        board.resize();
+        board.showAxisValues = true;
+        const drawn = [];
+        const ctx = board.canvas.getContext("2d");
+        const text = ctx.fillText.bind(ctx);
+        ctx.fillText = (value, x, y) => {
+          drawn.push({ value: String(value), x, y });
+          return text(value, x, y);
+        };
+        board.draw();
+        ctx.fillText = text;
+        return drawn;
+      });
+      const letters = spots.filter((spot) => ["X", "Y", "Z"].includes(spot.value));
+      assert(letters.length === 3, `${letters.length} letters: ${spots.map((s) => s.value).join(",")}`);
+      const numbers = spots.filter((spot) => !["X", "Y", "Z"].includes(spot.value));
+      assert(numbers.length > 3, `${numbers.length} tick numbers`);
+      for (const letter of letters) {
+        const near = numbers.filter((spot) => Math.hypot(spot.x - letter.x, spot.y - letter.y) < 18);
+        assert(!near.length, `${letter.value} shares its spot with ${near.map((s) => s.value).join(",")}`);
+      }
+      assert(!spots.some((spot) => ["x", "y", "z"].includes(spot.value)), "A lower case axis letter is still drawn");
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+});
+
+suite("Converter keypads", () => {
+  const padLook = (win) => [...win.document.querySelectorAll("#keys .key")].map((key) => ({
+    label: key.textContent,
+    className: key.className.replace("key ", "").trim(),
+    span: key.style.gridColumn ? Number(key.style.gridColumn.replace("span ", "")) : 1,
+  }));
+
+  test("Both converter pads wear the calculator colours and fill every cell", async () => {
+    const loaded = await loadApp("");
+    try {
+      loaded.win.fetch = () => Promise.reject(new Error("offline"));
+      for (const mode of ["currency", "unit"]) {
+        callWin(loaded.win, new Function(`setMode(${JSON.stringify(mode)}); return 1;`));
+        await wait(60);
+        const keys = padLook(loaded.win);
+        const cells = keys.reduce((sum, key) => sum + key.span, 0);
+        assert(cells % 4 === 0, `${mode}: ${cells} cells in 4 columns`);
+        assert(cells === 20, `${mode}: ${cells} cells, so a slot is empty`);
+        const swap = keys.find((key) => key.label === "⇅");
+        assert(swap && swap.className === "op", `${mode}: the swap key is ${swap ? swap.className : "missing"}`);
+        const copy = keys.find((key) => key.className === "eq");
+        assert(copy, `${mode}: no key carries the accent colour`);
+        assert(copy.label.length > 0, `${mode}: the accent key has no label`);
+        const utils = keys.filter((key) => key.className === "util").map((key) => key.label);
+        assert(utils.includes("AC") && utils.includes("⌫"), `${mode}: ${utils.join(",")}`);
+      }
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The copy key hands over the converted value", async () => {
+    const loaded = await loadApp("");
+    try {
+      loaded.win.fetch = () => Promise.reject(new Error("offline"));
+      const taken = [];
+      callWin(loaded.win, () => {
+        window.__copied = [];
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: { writeText: (text) => { window.__copied.push(text); return Promise.resolve(); } },
+        });
+        setMode("unit");
+        setUnitGroup("length");
+        state.unit.from = "m";
+        state.unit.to = "cm";
+        setUnitAmount("3");
+        renderUnitOptions();
+        renderUnit();
+        return 1;
+      });
+      await wait(60);
+      const doc = loaded.win.document;
+      const copy = [...doc.querySelectorAll("#keys .key")].find((key) => key.className.includes("eq"));
+      assert(copy, "The copy key is missing");
+      copy.click();
+      await wait(40);
+      taken.push(...callWin(loaded.win, () => window.__copied.slice()));
+      assert(taken[0] === "300", taken.join(",") || "nothing was copied");
+      callWin(loaded.win, () => {
+        setMode("currency");
+        state.currency.amount = "1";
+        renderCurrency();
+        return 1;
+      });
+      await wait(60);
+      const rateCopy = [...doc.querySelectorAll("#keys .key")].find((key) => key.className.includes("eq"));
+      rateCopy.click();
+      await wait(40);
+      const all = callWin(loaded.win, () => window.__copied.slice());
+      assert(all.length === 2 && all[1] === doc.getElementById("rateResult").textContent, all.join(" | "));
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+});
+
+suite("Graph window size", () => {
+  test("At its smallest the toolbar still fits on one line", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const least = callWin(loaded.win, () => [GRAPH_MIN_WIDTH, GRAPH_MIN_HEIGHT]);
+      assert(least[0] >= 700 && least[1] >= 400, least.join("x"));
+      loaded.frame.style.width = `${least[0]}px`;
+      loaded.frame.style.height = `${least[1]}px`;
+      flush(loaded.win);
+      const doc = loaded.win.document;
+      for (const dimension of ["dim2d", "dim3d"]) {
+        doc.getElementById(dimension).click();
+        flush(loaded.win);
+        const row = doc.querySelector(".graph-tool-row");
+        const shown = [...row.children].filter((node) => node.getBoundingClientRect().width > 0);
+        // One line means the row is no taller than its tallest control.
+        const tallest = Math.max(...shown.map((node) => node.getBoundingClientRect().height));
+        const rowHeight = row.getBoundingClientRect().height;
+        assert(rowHeight <= tallest + 1, `${dimension}: the toolbar is ${Math.round(rowHeight)} tall for a ${Math.round(tallest)} control, so it folded`);
+        const box = row.getBoundingClientRect();
+        for (const node of shown) {
+          const child = node.getBoundingClientRect();
+          assert(child.left >= box.left - 1 && child.right <= box.right + 1, `${dimension}: ${node.id || node.className} is cut off`);
+        }
+        assert(doc.querySelector(".canvas-wrap").getBoundingClientRect().height > 80, `${dimension}: the plot has no room`);
+      }
+      doc.getElementById("dim2d").click();
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+});
+
+suite("Sums with sigma", () => {
+
+  test("A sum adds up what it counts", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "rad";
+      const wrong = [];
+      const same = (expr, want) => {
+        const got = engine.evaluate(expr, {});
+        if (Math.abs(got - want) > 1e-9) wrong.push(`${expr} gave ${got}, not ${want}`);
+      };
+      same("sum(k, 1, 10, k)", 55);
+      same("sum(k, 1, 5, k^2)", 55);
+      same("sum(n, 0, 4, 2^n)", 31);
+      same("sum(k, 1, 3, k) + 1", 7);
+      same("2*sum(k, 1, 3, k)", 12);
+      same("sum(k, 1, 4, 1)", 4);
+      // Counting down is the empty sum.
+      same("sum(k, 3, 1, k)", 0);
+      same("sum(i, 1, 3, sum(j, 1, 3, i*j))", 36);
+      if (wrong.length) throw new Error(wrong.join(" | "));
+    });
+  });
+
+  test("The sigma sign is the same as writing sum", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "rad";
+      const wrong = [];
+      for (const sign of ["\u03a3", "\u2211", "\u03c3"]) {
+        const got = engine.evaluate(`${sign}(k, 1, 10, k)`, {});
+        if (Math.abs(got - 55) > 1e-9) wrong.push(`${sign} gave ${got}`);
+      }
+      if (wrong.length) throw new Error(wrong.join(" | "));
+    });
+  });
+
+  test("A sum carries the variables around it, and lends out none of its own", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "rad";
+      const trouble = [];
+      const scope = { x: 2 };
+      if (Math.abs(engine.evaluate("sum(k, 1, 3, k*x)", scope) - 12) > 1e-9) trouble.push("the outer x did not reach the body");
+      if (Object.prototype.hasOwnProperty.call(scope, "k")) trouble.push("the counter was left in the scope outside");
+      // The counter belongs to its own brackets and nowhere else.
+      let leaked = false;
+      try {
+        engine.evaluate("sum(k, 1, 3, k) + k", scope);
+        leaked = true;
+      } catch {
+        /* Reading the counter outside is the error we want. */
+      }
+      if (leaked) trouble.push("the counter could be read outside the sum");
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+
+  test("A sum that cannot be counted is refused", () => {
+    appCall(() => {
+      const engine = new CalcEngine();
+      engine.angleMode = "rad";
+      const took = [];
+      for (const expr of [
+        "sum(k, 1.5, 3, k)",
+        "sum(k, 1, 1e9, k)",
+        "sum(1, 1, 3, 1)",
+        "sum(pi, 1, 3, pi)",
+        "sum(k, 1, 3)",
+        "sum(k, 1, 3, k, k)",
+      ]) {
+        try {
+          engine.evaluate(expr, {});
+          took.push(expr);
+        } catch (error) {
+          if (!error.message) took.push(`${expr} failed without a reason`);
+        }
+      }
+      if (took.length) throw new Error(`taken anyway: ${took.join(", ")}`);
+    });
+  });
+
+  test("A sum can be drawn in 2D and in 3D", () => {
+    appCall(() => {
+      const trouble = [];
+      board.setDimension("2d");
+      board.resetView();
+      board.addFunction("\u03a3(k, 1, 4, sin(k*x)/k)");
+      const flat = board.functions[board.functions.length - 1];
+      for (const x of [-3, -0.5, 0, 1.25, 4]) {
+        const value = board.evalScope(flat.ast, { x });
+        if (!Number.isFinite(value)) trouble.push(`2D gave ${value} at x = ${x}`);
+      }
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.setDimension("3d");
+      board.addFunction("sum(k, 1, 3, sin(k*x)*cos(k*y)/k)");
+      const solid = board.functions[board.functions.length - 1];
+      for (const [x, y] of [[-2, 1], [0, 0], [3, -4]]) {
+        const value = board.evalScope(solid.ast, { x, y });
+        if (!Number.isFinite(value)) trouble.push(`3D gave ${value} at ${x}, ${y}`);
+      }
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.setDimension("2d");
+      board.resetView();
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+});
+
+suite("The 3D box", () => {
+  test("The box stays a cube however tall the range is", () => {
+    appCall(() => {
+      board.setDimension("3d");
+      const trouble = [];
+      for (const [zMin, zMax] of [[-10, 10], [-20, 200], [0, 1], [-5000, -4000]]) {
+        board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin, zMax });
+        const top = board.zToLocal(zMax);
+        const foot = board.zToLocal(zMin);
+        if (Math.abs(top - 1) > 1e-9 || Math.abs(foot + 1) > 1e-9) {
+          trouble.push(`z ${zMin}..${zMax} draws ${foot.toFixed(3)}..${top.toFixed(3)}`);
+        }
+        // The ground is the same two units across, so the box is a cube.
+        const wide = board.worldToFloorX(board.view.xMax) - board.worldToFloorX(board.view.xMin);
+        if (Math.abs(wide - 2) > 1e-9) trouble.push(`the ground is ${wide.toFixed(3)} across`);
+        if (Math.abs(board.heightStep() * 5 - (zMax - zMin)) > 1e-9) trouble.push("the height step does not divide the range");
+      }
+      board.setDimension("2d");
+      board.resetView();
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+
+  test("The height ticks are counted off the height, not the ground", () => {
+    const drawn = appCall(() => {
+      board.setDimension("3d");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -100, zMax: 100 });
+      const ctx = board.canvas.getContext("2d");
+      const text = ctx.fillText.bind(ctx);
+      const labels = [];
+      ctx.fillText = (value, x, y) => {
+        labels.push(String(value));
+        return text(value, x, y);
+      };
+      board.draw();
+      ctx.fillText = text;
+      board.setDimension("2d");
+      board.resetView();
+      return labels;
+    });
+    const numbers = drawn.map(Number).filter((value) => Number.isFinite(value));
+    const tall = numbers.filter((value) => Math.abs(value) > 20);
+    // With z at a hundred and the ground at ten, the height has its own step.
+    assert(tall.length >= 2, `height ticks: ${drawn.join(",")}`);
+    assert(drawn.length < 40, `${drawn.length} tick labels is a crowd`);
+  });
+
+  test("An axis runs further than the face of the box", () => {
+    appCall(() => {
+      board.setDimension("3d");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      const reach = board.axisSpan();
+      const trouble = [];
+      // The box is two units across; an axis has to leave it to read as an axis.
+      if (!(reach.x > 1.05)) trouble.push(`x stops at ${reach.x}`);
+      if (!(reach.y > 1.05)) trouble.push(`y stops at ${reach.y}`);
+      if (!(reach.z > 1.05)) trouble.push(`z stops at ${reach.z}`);
+      // And it must not run away from the drawing either.
+      if (reach.x > 1.6 || reach.y > 1.6 || reach.z > 1.6) trouble.push("an axis runs away from the box");
+      board.setView({ xMin: -50, xMax: 50, yMin: -50, yMax: 50, zMin: -50, zMax: 50 });
+      const wider = board.axisSpan();
+      // The reach is measured in the units of the box, so a wider range does
+      // not make the axis shoot off the canvas.
+      if (Math.abs(wider.x - reach.x) > 1e-9) trouble.push("the reach changed with the numbers on the axis");
+      board.setDimension("2d");
+      board.resetView();
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+});
+
+suite("Axis ranges and the lamp", () => {
+  test("Typing a range draws that range", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const doc = loaded.win.document;
+      doc.getElementById("dim3d").click();
+      flush(loaded.win);
+      const typed = callWin(loaded.win, () => {
+        const put = (id, value) => {
+          const input = document.getElementById(id);
+          input.focus();
+          input.value = String(value);
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+          input.blur();
+        };
+        put("axisMinX", -3);
+        put("axisMaxX", 7);
+        put("axisMinZ", -40);
+        put("axisMaxZ", 60);
+        const ground = board.meshDomain();
+        return {
+          view: { ...board.view },
+          ground,
+          fields: ["axisMinX", "axisMaxX", "axisMinZ", "axisMaxZ"].map((id) => document.getElementById(id).value),
+        };
+      });
+      assert(typed.view.xMin === -3 && typed.view.xMax === 7, `x is ${typed.view.xMin}..${typed.view.xMax}`);
+      assert(typed.view.zMin === -40 && typed.view.zMax === 60, `z is ${typed.view.zMin}..${typed.view.zMax}`);
+      // What is drawn is what was asked for, with nothing beyond it.
+      assert(typed.ground.x0 === -3 && typed.ground.x1 === 7, `the ground is ${typed.ground.x0}..${typed.ground.x1}`);
+      assert(typed.fields.join(",") === "-3,7,-40,60", `the boxes read ${typed.fields.join(",")}`);
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("A range that cannot be drawn is refused and put back", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const doc = loaded.win.document;
+      doc.getElementById("dim3d").click();
+      flush(loaded.win);
+      const after = callWin(loaded.win, () => {
+        const input = document.getElementById("axisMaxX");
+        const before = { ...board.view };
+        input.focus();
+        input.value = "-50";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        const marked = input.classList.contains("is-wrong");
+        input.blur();
+        const blank = document.getElementById("axisMinY");
+        blank.focus();
+        blank.value = "";
+        blank.dispatchEvent(new Event("change", { bubbles: true }));
+        blank.blur();
+        return { before, view: { ...board.view }, marked, box: input.value, yBox: blank.value };
+      });
+      assert(after.marked, "the box was never marked wrong");
+      assert(after.view.xMax === after.before.xMax, `the range moved to ${after.view.xMax}`);
+      assert(after.box === String(after.before.xMax), `the box kept ${after.box}`);
+      assert(after.yBox === String(after.before.yMin), `the empty box kept ${after.yBox}`);
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The height and the lamp belong to 3D only", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const doc = loaded.win.document;
+      // A window can open onto the state another one left behind, so the
+      // dimension under test is the one asked for here, not the one restored.
+      doc.getElementById("dim2d").click();
+      flush(loaded.win);
+      const hiddenIn2d = {
+        z: doc.querySelector('.axis-span[data-axis="z"]').hidden,
+        lamp: doc.getElementById("lightSpan").hidden,
+        rule: doc.getElementById("lightSep").hidden,
+      };
+      doc.getElementById("dim3d").click();
+      flush(loaded.win);
+      const shownIn3d = {
+        z: doc.querySelector('.axis-span[data-axis="z"]').hidden,
+        lamp: doc.getElementById("lightSpan").hidden,
+        rule: doc.getElementById("lightSep").hidden,
+      };
+      assert(hiddenIn2d.z && hiddenIn2d.lamp && hiddenIn2d.rule, "the height or the lamp showed in 2D");
+      assert(!shownIn3d.z && !shownIn3d.lamp && !shownIn3d.rule, "the height or the lamp stayed away in 3D");
+      // The groups are kept apart by a rule, and the lamp sits last.
+      const row = doc.getElementById("axisRow");
+      const order = [...row.children].map((node) => node.className.split(" ")[0]);
+      assert(order.filter((name) => name === "axis-sep").length === 2, `rules: ${order.join(",")}`);
+      assert(order[order.length - 1] === "axis-span", `the row ends with ${order[order.length - 1]}`);
+      assert(row.lastElementChild.id === "lightSpan", "the lamp is not the last group");
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The lamp can be placed by its x, y and z", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const doc = loaded.win.document;
+      doc.getElementById("dim3d").click();
+      flush(loaded.win);
+      const moved = callWin(loaded.win, () => {
+        board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+        const put = (id, value) => {
+          const input = document.getElementById(id);
+          input.focus();
+          input.value = String(value);
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+          input.blur();
+        };
+        put("lightAtX", 6);
+        put("lightAtY", -4);
+        put("lightAtZ", 8);
+        return {
+          place: board.lightPlace(),
+          boxes: ["lightAtX", "lightAtY", "lightAtZ"].map((id) => Number(document.getElementById(id).value)),
+          light: { ...board.light },
+        };
+      });
+      // The lamp is kept as a turn and a rise, so the place comes back in the
+      // same direction even if the distance was pulled into its limits.
+      const asked = { x: 6, y: -4, z: 8 };
+      const size = Math.hypot(moved.place.x, moved.place.y, moved.place.z) || 1;
+      const want = Math.hypot(asked.x, asked.y, asked.z) || 1;
+      const dot = (moved.place.x * asked.x + moved.place.y * asked.y + moved.place.z * asked.z) / (size * want);
+      assert(dot > 0.999, `the lamp points elsewhere (${dot.toFixed(4)})`);
+      assert(moved.boxes.every((value) => Number.isFinite(value)), `the boxes read ${moved.boxes.join(",")}`);
+      assert(Number.isFinite(moved.light.azimuth) && Number.isFinite(moved.light.elevation), "the lamp lost its direction");
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("Reset puts the range, the angle and the lamp back", () => {
+    appCall(() => {
+      board.setDimension("3d");
+      board.setView({ xMin: -3, xMax: 9, yMin: -2, yMax: 4, zMin: -40, zMax: 90 });
+      board.camera.yaw += 1.1;
+      board.setLightPlace({ x: -9, y: 9, z: 2 });
+      board.setFloorZ(3);
+      board.resetView();
+      const trouble = [];
+      const view = board.view;
+      if (view.xMin !== -10 || view.xMax !== 10 || view.zMin !== -10 || view.zMax !== 10) trouble.push("the range stayed where it was");
+      if (Math.abs(board.camera.yaw + 0.75) > 1e-9) trouble.push("the angle stayed where it was");
+      if (Math.abs(board.light.azimuth + 0.95) > 1e-9 || Math.abs(board.light.elevation - 0.9) > 1e-9) {
+        trouble.push("the lamp stayed where it was");
+      }
+      if (board.floorZ !== null) trouble.push("the floor stayed where it was");
+      board.setDimension("2d");
+      board.resetView();
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+});
+
+suite("Graph help", () => {
+  test("The help window lists every part, in both languages", async () => {
+    const loaded = await loadApp("pop=help");
+    try {
+      const doc = loaded.win.document;
+      flush(loaded.win);
+      assert(!doc.getElementById("helpSheet").hidden, "the help did not open");
+      const read = () => callWin(loaded.win, () => {
+        const doc2 = document.getElementById("helpDoc");
+        return {
+          titles: [...doc2.querySelectorAll("h3")].map((node) => node.textContent),
+          typed: [...doc2.querySelectorAll(".help-rows dt")].map((node) => node.textContent),
+          notes: [...doc2.querySelectorAll(".help-note")].map((node) => node.textContent),
+        };
+      });
+      const ko = read();
+      assert(ko.titles.length >= 5, `${ko.titles.length} parts in Korean`);
+      assert(ko.typed.length >= 25, `${ko.typed.length} rows in Korean`);
+      callWin(loaded.win, () => applyLanguage("en"));
+      flush(loaded.win);
+      const en = read();
+      assert(en.titles.length === ko.titles.length, `${en.titles.length} parts in English against ${ko.titles.length}`);
+      assert(en.typed.length === ko.typed.length, `${en.typed.length} rows in English against ${ko.typed.length}`);
+      assert(!en.titles.some((title, at) => title === ko.titles[at]), "a part was never translated");
+      callWin(loaded.win, () => applyLanguage("ko"));
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The help says how to write a sum and the signs around it", async () => {
+    const loaded = await loadApp("pop=help");
+    try {
+      flush(loaded.win);
+      const text = callWin(loaded.win, () => document.getElementById("helpDoc").textContent);
+      const missing = [];
+      for (const needle of ["\u03a3(", "sum(", "^", "pi", "sin", "fact(", "ans"]) {
+        if (!text.includes(needle)) missing.push(needle);
+      }
+      assert(!missing.length, `the help never mentions ${missing.join(", ")}`);
+      // Every sum in the help has to be a sum the engine would take.
+      const written = [...text.matchAll(/[\u03a3]\([^)]*\)[^\s]*/g)].map((hit) => hit[0]);
+      assert(written.length >= 3, `${written.length} worked examples of a sum`);
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The graph window has a button that opens the help", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const doc = loaded.win.document;
+      flush(loaded.win);
+      const button = doc.getElementById("helpGraph");
+      assert(button, "there is no help button");
+      assert(!button.hidden, "the help button is hidden");
+      const opened = callWin(loaded.win, () => {
+        let asked = "";
+        const real = window.open;
+        window.open = (url) => {
+          asked = String(url);
+          return null;
+        };
+        document.getElementById("helpGraph").click();
+        window.open = real;
+        return asked;
+      });
+      assert(opened.includes("pop=help"), `the button asked for ${opened || "nothing"}`);
+    } finally {
+      loaded.frame.remove();
     }
   });
 });
