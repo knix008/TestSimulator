@@ -346,6 +346,35 @@
           api.closeMenu();
         });
       }),
+      test("menus end right under the last row", (api, doc) => {
+        const slack = (el) => {
+          const rows = [...el.querySelectorAll(".menu-item")];
+          const last = rows[rows.length - 1].getBoundingClientRect();
+          return el.getBoundingClientRect().bottom - last.bottom;
+        };
+        api.menuDefinitions().forEach((menu) => {
+          const el = api.openMenu(menu.id, 8, 60);
+          assert(slack(el) <= 6, menu.id + " leaves " + Math.round(slack(el)) + "px under the last row");
+          api.closeMenu();
+        });
+        doc.querySelector("#toolbar [data-action='themeMenu']").click();
+        const themeMenu = api.getMenu();
+        assert(slack(themeMenu) <= 6, "the theme list leaves " + Math.round(slack(themeMenu)) + "px under the last row");
+        api.closeMenu();
+      }),
+      test("every menu row runs an action that exists, and none of them twice", (api) => {
+        const seen = new Map();
+        api.menuDefinitions().forEach((menu) => {
+          menu.items.forEach((item) => {
+            assert(item.label && item.label.length > 0, menu.id + " row without a label");
+            if (item.disabled || item.action.indexOf("recent") === 0) return;
+            assert(api.hasAction(item.action), menu.id + " > " + item.action + " is not an action");
+            const before = seen.get(item.action);
+            assert(!before || before === item.label, item.action + " is called both " + before + " and " + item.label);
+            seen.set(item.action, item.label);
+          });
+        });
+      }),
       test("a menu can be taller than the window content", (api, doc) => {
         for (let i = 0; i < 10; i += 1) api.addRecent({ id: "m" + i, name: "recent-" + i + ".txt", path: "C:/r/" + i + ".txt" });
         const el = api.openMenu("file", 4, 20);
@@ -845,7 +874,13 @@
     ]),
     suite("Panels", [
       test("the left panel is tools and the right panel edits properties", (api, doc) => {
-        assert(doc.getElementById("leftPanel").textContent.indexOf("도구") >= 0);
+        const left = doc.getElementById("leftPanel");
+        assert(left.textContent.indexOf("충돌") >= 0);
+        assert(left.querySelector(".panel-btn") == null, "the toolbar already has those tools");
+        const toolbar = [...doc.querySelectorAll("#toolbar [data-action]")].map((button) => button.dataset.action);
+        [...left.querySelectorAll("[data-action]")].forEach((button) => {
+          assert(toolbar.indexOf(button.dataset.action) < 0, "duplicated " + button.dataset.action);
+        });
         const input = doc.querySelector('#rightPanel [data-prop="name"]');
         input.value = "renamed.js";
         input.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));

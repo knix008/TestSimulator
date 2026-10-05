@@ -345,8 +345,9 @@
   }
 
   function menuDefinitions() {
-    const recent = (settings.recent || []).map((row) => menuItem("recent:" + row.id, "file", row.name));
-    if (!recent.length) recent.push(menuItem("recent-none", "file", t("file.none"), "", true));
+    const recent = [menuItem("recent-label", "folder", t("file.recent"), "", true)]
+      .concat((settings.recent || []).map((row) => menuItem("recent:" + row.id, "file", row.name)));
+    if (recent.length === 1) recent.push(menuItem("recent-none", "file", t("file.none"), "", true));
     return [
       { id: "file", label: t("menu.file"), icon: "file", items: [
         menuItem("new", "new", t("file.new"), "Ctrl+N"),
@@ -386,7 +387,6 @@
         menuItem("toggleRight", "panelRight", t("view.right")),
       ] },
       { id: "tools", label: t("menu.tools"), icon: "wrench", items: [
-        menuItem("git", "git", t("tools.git")),
         menuItem("download", "download", t("tools.download")),
         menuItem("link", "link", t("tools.link")),
       ] },
@@ -565,21 +565,9 @@
       '<button type="button" class="conflict-item' + (index === conflictIndex ? " active" : "") + '" data-action="conflict:' + index + '" title="' + esc(t("status.conflicts") + " " + (index + 1)) + '">' +
       Icons.icon("conflict") + "<span>" + esc(t("status.conflicts") + " " + (index + 1)) + '</span><i class="dot"></i></button>'
     )).join("") || '<div class="line">' + esc(t("git.none")) + "</div>";
-    const tools = [
-      ["open", "open", "file.open"],
-      ["git", "git", "file.openRepo"],
-      ["takeLocal", "local", "merge.takeLocal"],
-      ["takeRemote", "remote", "merge.takeRemote"],
-      ["takeBase", "base", "merge.takeBase"],
-      ["takeBoth", "both", "merge.takeBoth"],
-      ["prevConflict", "prev", "merge.prev"],
-      ["nextConflict", "next", "merge.next"],
-    ].map((row) => (
-      '<button type="button" class="panel-btn" data-action="' + row[0] + '" title="' + esc(t(row[2])) + '">' + Icons.icon(row[1]) + "<span>" + esc(t(row[2])) + "</span></button>"
-    )).join("");
     $("leftPanel").classList.toggle("hidden", !settings.showLeft);
     $("splitLeft").classList.toggle("hidden", !settings.showLeft);
-    $("leftPanel").innerHTML = '<h2>' + esc(t("left.tools")) + "</h2><div class=\"panel-tools\">" + tools + "</div><h2>" + esc(t("left.conflicts")) + "</h2><div class=\"conflict-list\">" + items + "</div>";
+    $("leftPanel").innerHTML = "<h2>" + esc(t("left.conflicts")) + '</h2><div class="conflict-list">' + items + "</div>";
   }
 
   function propLine(field, label, value, control) {
@@ -668,7 +656,8 @@
 
   function openThemeMenu(x, y) {
     const width = 360;
-    const height = 24 + 20 * 24 + 34 + 10;
+    const rows = Math.max(1, Math.ceil(Themes.THEMES.length / 2));
+    const height = 24 + rows * 24 + 35 + 10;
     const left = Math.max(0, x - width);
     if (window.desktop && window.desktop.openMenu && !TEST) {
       window.desktop.openMenu({
@@ -2158,6 +2147,7 @@ function popupAction(action, source, fieldOverride) {
     rememberDirectory: (kind, filePath) => { Store.rememberDirectory(settings, kind, filePath); saveSettings(); return kind === "save" ? settings.lastSaveDir : settings.lastOpenDir; },
     run: runAction,
     menuDefinitions: menuDefinitions,
+    hasAction: (name) => Boolean(actions[name]),
     openMenu: (id, x, y) => openMenu(id, x == null ? 12 : x, y == null ? 70 : y),
     closeMenu: closeMenu,
     getMenu: () => menuEl,

@@ -22,7 +22,7 @@
       theme: { width: 420, height: 420 },
       guide: { width: 720, height: 376 },
     },
-    MENU_ROW: 32,
+    MENU_ROW: 28,
     MENU_PAD: 8,
     PROGRESS_BYTES: 65536,
   };

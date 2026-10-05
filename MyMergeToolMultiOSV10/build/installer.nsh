@@ -31,20 +31,33 @@ Var DoDeleteData
     StrCpy $HasPrevInstall "1"
   ${EndIf}
 
-  ${If} ${FileExists} "$APPDATA\MyMerge\settings.json"
+  ${If} ${FileExists} "$APPDATA\MyMerge\Local Storage\*.*"
+  ${OrIf} ${FileExists} "$APPDATA\MyMerge\IndexedDB\*.*"
+  ${OrIf} ${FileExists} "$APPDATA\MyMerge\Preferences"
     StrCpy $HasSavedData "1"
     StrCpy $HasPrevInstall "1"
   ${EndIf}
 
   ; Remove the installed program completely before copying the new files.
   ExecWait "taskkill /F /IM ${APP_EXECUTABLE_FILENAME}"
+  ReadRegStr $1 HKCU "${UNINSTALL_REGISTRY_KEY}" "QuietUninstallString"
+  ${If} $1 == ""
+    ReadRegStr $1 HKLM "${UNINSTALL_REGISTRY_KEY}" "QuietUninstallString"
+  ${EndIf}
+  ${If} $1 != ""
+    ; the data question is asked on the custom page, so the old uninstaller must not touch it
+    ExecWait '$1'
+  ${EndIf}
   ${If} $PrevInstallDir != ""
   ${AndIf} $PrevInstallDir != $PROGRAMFILES
   ${AndIf} $PrevInstallDir != $PROGRAMFILES64
     RMDir /r "$PrevInstallDir"
   ${EndIf}
+  DeleteRegKey HKCU "${UNINSTALL_REGISTRY_KEY}"
+  DeleteRegKey HKLM "${UNINSTALL_REGISTRY_KEY}"
   Delete "$DESKTOP\MyMerge 10.0.lnk"
   Delete "$SMPROGRAMS\MyMerge 10.0.lnk"
+  RMDir /r "$SMPROGRAMS\MyMerge"
 !macroend
 
 !macro customPageAfterChangeDir
