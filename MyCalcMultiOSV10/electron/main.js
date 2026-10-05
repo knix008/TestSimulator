@@ -15,8 +15,8 @@ const MODE_CONTENT_SIZE = {
   basic: { width: 360, height: 594 },
   scientific: { width: 560, height: 594 },
   programmer: { width: 480, height: 700 },
-  currency: { width: 380, height: 594 },
-  unit: { width: 400, height: 594 },
+  currency: { width: 360, height: 594 },
+  unit: { width: 360, height: 594 },
   graph: { width: 520, height: 594 },
 };
 

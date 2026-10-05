@@ -325,10 +325,10 @@ suite("Screen and modes", () => {
     assert(programmer.wide && programmer.inside, "Programmer keys");
     win.setMode("currency");
     flush(win);
-    assert(size() === "380x594", size());
+    assert(size() === "360x594", size());
     win.setMode("unit");
     flush(win);
-    assert(size() === "400x594", size());
+    assert(size() === "360x594", size());
     const unit = keyShape();
     assert(unit.wide && unit.inside, "Unit keys");
     win.setMode("basic");
@@ -2972,7 +2972,7 @@ suite("Units", () => {
       appWindow.setMode("unit");
       flush(appWindow);
       const rect = app.getBoundingClientRect();
-      assert(`${Math.round(rect.width)}x${Math.round(rect.height)}` === "400x594", `${rect.width}x${rect.height}`);
+      assert(`${Math.round(rect.width)}x${Math.round(rect.height)}` === "360x594", `${rect.width}x${rect.height}`);
       const last = [...doc.querySelectorAll("#keys .key")].pop().getBoundingClientRect();
       assert(last.bottom <= rect.bottom + 1 && last.right <= rect.right + 1, "The keypad spills out of the card");
       assert(app.scrollHeight - app.clientHeight === 0, `${app.scrollHeight - app.clientHeight}px of overflow`);

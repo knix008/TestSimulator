@@ -241,23 +241,23 @@ button, input { font: inherit; color: inherit; }
 }
 
 .modes button {
-  flex: 1;
+  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 1px;
   border: 0;
   background: transparent;
   color: var(--muted);
   border-radius: 10px;
   min-height: 30px;
   min-width: 0;
-  padding: 0 2px;
+  padding: 0;
   font-size: 11px;
   cursor: pointer;
 }
 
-.modes button .icon { width: 13px; height: 13px; }
+.modes button .icon { width: 12px; height: 12px; flex: 0 0 auto; }
 .modes button span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -497,17 +497,14 @@ button, input { font: inherit; color: inherit; }
 }
 
 .app[data-mode="basic"],
-.app[data-mode="scientific"] {
+.app[data-mode="scientific"],
+.app[data-mode="currency"],
+.app[data-mode="unit"] {
   height: 594px;
 }
 
 .app[data-mode="scientific"] {
   width: 560px;
-}
-
-.app[data-mode="currency"] {
-  width: 380px;
-  height: 594px;
 }
 
 .rate-head {
@@ -547,7 +544,7 @@ button, input { font: inherit; color: inherit; }
 
 .rate-row {
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(108px, 1fr);
   align-items: center;
   gap: 8px;
   padding: 10px;
@@ -562,8 +559,8 @@ button, input { font: inherit; color: inherit; }
   border-radius: 10px;
   background: var(--chip);
   color: var(--ink);
-  padding: 0 6px;
-  font-size: 13px;
+  padding: 0 4px;
+  font-size: 12px;
 }
 
 .rate-input,
@@ -574,7 +571,7 @@ button, input { font: inherit; color: inherit; }
   color: var(--ink);
   text-align: right;
   font-family: Consolas, "Malgun Gothic", monospace;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -604,13 +601,8 @@ button, input { font: inherit; color: inherit; }
   min-height: 16px;
 }
 
-.app[data-mode="unit"] {
-  width: 400px;
-  height: 594px;
-}
-
 .app[data-mode="unit"] .rate-row {
-  grid-template-columns: 152px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .unit-group {
