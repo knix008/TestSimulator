@@ -728,6 +728,29 @@
         assert(mac.indexOf("MyMerge.app") >= 0);
         assert(mac.indexOf("삭제하시겠습니까") >= 0);
       }),
+      test("every build option is one electron-builder still accepts", async () => {
+        const pkg = JSON.parse(await text("/package.json"));
+        const schema = JSON.parse(await text("/node_modules/app-builder-lib/scheme.json"));
+        const known = (node) => {
+          if (!node) return null;
+          if (node.properties) return Object.keys(node.properties);
+          const ref = node.$ref || (node.anyOf || []).map((item) => item.$ref).find(Boolean);
+          if (!ref) return null;
+          return known(schema.definitions[ref.split("/").pop()]);
+        };
+        const check = (config, node, where) => {
+          const names = known(node);
+          assert(names, where + " is missing from the schema");
+          Object.keys(config).forEach((key) => {
+            assert(names.indexOf(key) >= 0, where + "." + key + " is not an electron-builder option");
+          });
+        };
+        check(pkg.build, schema, "build");
+        ["win", "mac", "linux", "nsis", "deb", "pkg"].forEach((section) => {
+          if (!pkg.build[section]) return;
+          check(pkg.build[section], schema.properties[section], "build." + section);
+        });
+      }),
       test("the package uses one icon and both installer languages", async () => {
         const pkg = JSON.parse(await text("/package.json"));
         assert(pkg.version === "10.0.0");

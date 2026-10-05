@@ -1,3 +1,8 @@
+popupHost.onTheme((css) => {
+  const style = document.getElementById("themeVars");
+  if (style) style.textContent = css;
+});
+
 function collect(root) {
   const detail = {};
   root.querySelectorAll("[data-field]").forEach((el) => {

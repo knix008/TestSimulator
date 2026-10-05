@@ -1,3 +1,8 @@
+popupHost.onTheme((css) => {
+  const style = document.getElementById("themeVars");
+  if (style) style.textContent = css;
+});
+
 popupHost.onHtml((html) => {
   const root = document.getElementById("root");
   root.innerHTML = html;

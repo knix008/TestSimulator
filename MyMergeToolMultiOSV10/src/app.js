@@ -765,10 +765,14 @@
     return el;
   }
 
-  function themeStyle() {
+  function themeCss() {
     const theme = Themes.byId(settings.theme, settings.custom);
     const css = Object.entries(theme.vars).map((pair) => pair[0] + ":" + pair[1]).join(";");
-    return "<style>:root{color-scheme:" + theme.mode + ";" + css + "}</style>";
+    return ":root{color-scheme:" + theme.mode + ";" + css + "}";
+  }
+
+  function themeStyle() {
+    return '<style id="themeVars">' + themeCss() + "</style>";
   }
 
   function optionTag(value, label, current) {
@@ -1152,6 +1156,11 @@
     saveSettings();
     applyVisual();
     renderStatus();
+    paintChildWindows();
+  }
+
+  function paintChildWindows() {
+    if (window.desktop && window.desktop.applyTheme && !TEST) window.desktop.applyTheme(themeCss());
   }
 
   function setCustom(colors) {

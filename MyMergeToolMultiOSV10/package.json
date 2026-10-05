@@ -87,7 +87,7 @@
       "artifactName": "MyMerge-${version}-linux-${arch}.${ext}"
     },
     "deb": {
-      "beforeInstall": "build/linux-before-install.sh"
+      "fpm": ["--before-install", "build/linux-before-install.sh"]
     },
     "mac": {
       "icon": "assets/icon.icns",

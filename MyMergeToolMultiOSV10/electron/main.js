@@ -224,6 +224,12 @@ ipcMain.handle("open-popup", (event, payload) => {
   const point = screenPoint(parent, payload, !payload.anchor);
   popupChild = childWindow(Object.assign({}, payload, point), "popup.html", parent);
 });
+ipcMain.handle("apply-theme", (_event, css) => {
+  Array.from(children).forEach((child) => {
+    if (!child.isDestroyed()) child.webContents.send("popup-theme", css);
+  });
+});
+
 ipcMain.handle("refresh-popup", (_event, html) => {
   if (popupChild && !popupChild.isDestroyed()) popupChild.webContents.send("popup-html", html);
 });

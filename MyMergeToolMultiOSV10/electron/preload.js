@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("desktop", {
   openMenu: (payload) => ipcRenderer.invoke("open-menu", payload),
   openPopup: (payload) => ipcRenderer.invoke("open-popup", payload),
   refreshPopup: (html) => ipcRenderer.invoke("refresh-popup", html),
+  applyTheme: (css) => ipcRenderer.invoke("apply-theme", css),
   readFile: (file) => ipcRenderer.invoke("read-file", file),
   forceClose: (code) => ipcRenderer.invoke("force-close", code),
   onCloseRequest: (callback) => ipcRenderer.on("request-close", () => callback()),
