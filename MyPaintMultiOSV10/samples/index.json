@@ -1,0 +1,136 @@
+{
+ "pictures": [
+  {
+   "file": "CT_small.dcm",
+   "kind": "dicom"
+  },
+  {
+   "file": "JPEG2000.dcm",
+   "kind": "dicom"
+  },
+  {
+   "file": "SC_rgb_small_odd.dcm",
+   "kind": "dicom"
+  },
+  {
+   "file": "adobe.dng",
+   "kind": "raw"
+  },
+  {
+   "file": "canon-eos-r5.cr2",
+   "kind": "raw"
+  },
+  {
+   "file": "colour-capture.dcm",
+   "kind": "dicom"
+  },
+  {
+   "file": "conformance.heic",
+   "kind": "heif"
+  },
+  {
+   "file": "ct-eight-frames.dcm",
+   "kind": "dicom"
+  },
+  {
+   "file": "ct-one-frame.dcm",
+   "kind": "dicom"
+  },
+  {
+   "file": "example.heif",
+   "kind": "heif"
+  },
+  {
+   "file": "fujifilm-xt5.raf",
+   "kind": "raw"
+  },
+  {
+   "file": "hasselblad.3fr",
+   "kind": "raw"
+  },
+  {
+   "file": "leica.rwl",
+   "kind": "raw"
+  },
+  {
+   "file": "nikon-z9.nef",
+   "kind": "raw"
+  },
+  {
+   "file": "olympus-om1.orf",
+   "kind": "raw"
+  },
+  {
+   "file": "pages.tif",
+   "kind": "tiff"
+  },
+  {
+   "file": "panasonic-s5.rw2",
+   "kind": "raw"
+  },
+  {
+   "file": "pentax-k3.pef",
+   "kind": "raw"
+  },
+  {
+   "file": "phaseone.iiq",
+   "kind": "raw"
+  },
+  {
+   "file": "photo.heic",
+   "kind": "heif"
+  },
+  {
+   "file": "samsung-nx1.srw",
+   "kind": "raw"
+  },
+  {
+   "file": "scene-16bit.tif",
+   "kind": "tiff"
+  },
+  {
+   "file": "scene.bmp",
+   "kind": "native"
+  },
+  {
+   "file": "scene.gif",
+   "kind": "native"
+  },
+  {
+   "file": "scene.ico",
+   "kind": "native"
+  },
+  {
+   "file": "scene.j2k",
+   "kind": "j2k"
+  },
+  {
+   "file": "scene.jp2",
+   "kind": "j2k"
+  },
+  {
+   "file": "scene.jpg",
+   "kind": "native"
+  },
+  {
+   "file": "scene.png",
+   "kind": "native"
+  },
+  {
+   "file": "scene.tif",
+   "kind": "tiff"
+  },
+  {
+   "file": "scene.webp",
+   "kind": "native"
+  },
+  {
+   "file": "sigma.x3f",
+   "kind": "raw"
+  },
+  {
+   "file": "sony-a7iv.arw",
+   "kind": "raw"
+  }
+ ]
+}

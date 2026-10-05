@@ -1,0 +1,28 @@
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("desktop", {
+  windowCommand: (name) => ipcRenderer.invoke("window-command", name),
+  resizeWindow: (width, height) => ipcRenderer.invoke("resize-window", { width: width, height: height }),
+  pickFiles: (dir, filters) => ipcRenderer.invoke("pick-files", { dir: dir, filters: filters }),
+  pickSave: (filePath) => ipcRenderer.invoke("pick-save", { path: filePath }),
+  pickDirectory: (dir) => ipcRenderer.invoke("pick-directory", dir),
+  writeFile: (file, text) => ipcRenderer.invoke("write-file", { file: file, text: text }),
+  writeBinary: (file, base64) => ipcRenderer.invoke("write-binary", { file: file, base64: base64 }),
+  downloadUrl: (url) => ipcRenderer.invoke("download-url", url),
+  cancelDownload: () => ipcRenderer.invoke("cancel-download"),
+  readFile: (file) => ipcRenderer.invoke("read-file", file),
+  readBinary: (file) => ipcRenderer.invoke("read-binary", file),
+  listFonts: () => ipcRenderer.invoke("list-fonts"),
+  openExternal: (url) => ipcRenderer.invoke("open-external", url),
+  print: (options) => ipcRenderer.invoke("print", options),
+  openMenu: (payload) => ipcRenderer.invoke("open-menu", payload),
+  openPopup: (payload) => ipcRenderer.invoke("open-popup", payload),
+  closePopup: () => ipcRenderer.invoke("close-popup"),
+  refreshPopup: (html) => ipcRenderer.invoke("refresh-popup", html),
+  applyTheme: (css) => ipcRenderer.invoke("apply-theme", css),
+  forceClose: (code) => ipcRenderer.invoke("force-close", code),
+  onCloseRequest: (callback) => ipcRenderer.on("request-close", () => callback()),
+  onHostAction: (callback) => ipcRenderer.on("popup-action", (_event, payload) => callback(payload)),
+  onLaunch: (callback) => ipcRenderer.on("launch", (_event, payload) => callback(payload)),
+  onDownloadProgress: (callback) => ipcRenderer.on("download-progress", (_event, payload) => callback(payload)),
+});
