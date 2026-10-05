@@ -6,14 +6,24 @@ const api = window.myclock;
 const player = new AlarmSoundPlayer();
 
 const headerEl = document.getElementById('alarmHeader');
+const iconEl = document.getElementById('alarmIcon');
 const timeEl = document.getElementById('alarmTime');
 const labelEl = document.getElementById('alarmLabel');
 const confirmEl = document.getElementById('alarmConfirm');
 
-api.settings.load().then((settings) => applyTheme(settings.theme));
+api.settings.load().then((settings) => {
+  setCustomTheme(settings.customThemeColor, settings.customThemeLight);
+  applyTheme(settings.theme);
+});
 
 api.alarm.onShow((payload) => {
   headerEl.textContent = payload.header || '알람';
+  // 제목 줄의 그림 — 알람·타이머·일정을 한눈에 구분한다.
+  iconEl.textContent = /타이머/.test(headerEl.textContent)
+    ? '⏳'
+    : /일정/.test(headerEl.textContent)
+      ? '🗓'
+      : '⏰';
   timeEl.textContent = payload.time || '';
   labelEl.textContent = payload.label || '';
   player.play(payload.soundId, payload.volume, true);

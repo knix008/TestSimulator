@@ -33,6 +33,7 @@ const api = {
     setAlwaysOnTop: (onTop) => ipcRenderer.send('window:set-always-on-top', onTop),
     setMinSize: (size) => ipcRenderer.send('window:set-min-size', size),
     setSize: (size) => ipcRenderer.send('window:set-size', size),
+    closeSelf: () => ipcRenderer.send('window:close-self'),
     onBounds: (fn) => ipcRenderer.on('clock:bounds', (_e, bounds) => fn(bounds))
   },
 
@@ -40,9 +41,34 @@ const api = {
     toggle: (tab) => ipcRenderer.send('panel:toggle', tab),
     close: () => ipcRenderer.send('panel:close'),
     isOpen: () => ipcRenderer.invoke('panel:is-open'),
+    pendingTab: () => ipcRenderer.invoke('panel:pending-tab'),
+    /** 설정 패널이 "이 크기면 다 보인다"고 알려 준다. */
+    fit: (size) => ipcRenderer.send('panel:fit', size),
     onOpened: (fn) => ipcRenderer.on('panel:opened', (_e, open) => fn(open)),
     onSide: (fn) => ipcRenderer.on('panel:side', (_e, right) => fn(right)),
     onTab: (fn) => ipcRenderer.on('panel:tab', (_e, tab) => fn(tab))
+  },
+
+  /** 추가 시계 — 시간대·테마·모양을 저마다 따로 갖는 시계 창들. */
+  clocks: {
+    list: () => ipcRenderer.invoke('clocks:list'),
+    add: (city) => ipcRenderer.invoke('clocks:add', city),
+    close: (id) => ipcRenderer.send('clocks:close', id),
+    update: (id, patch) => ipcRenderer.send('clocks:update', { id, patch }),
+    openSettings: () => ipcRenderer.send('clocks:open-settings'),
+    onChanged: (fn) => ipcRenderer.on('clocks:changed', (_e, list) => fn(list))
+  },
+
+  /** 시계 창이 자기 설정을 읽고 받아보는 창구. */
+  clock: {
+    self: () => ipcRenderer.invoke('clock:self'),
+    onConfig: (fn) => ipcRenderer.on('clock:config', (_e, config) => fn(config))
+  },
+
+  /** 알람·타이머·스톱워치·캘린더·세계 시간을 별도 창으로 분리한다. */
+  tools: {
+    open: (tab) => ipcRenderer.send('tools:open', tab),
+    opened: () => ipcRenderer.invoke('tools:opened')
   },
 
   menu: {
@@ -81,6 +107,9 @@ const api = {
 
   app: {
     quit: () => ipcRenderer.send('app:quit'),
+    /** 프로그램 정보 창 — 버전·빌드·제작자 */
+    info: () => ipcRenderer.invoke('app:info'),
+    about: () => ipcRenderer.send('about:open'),
     onBeforeQuit: (fn) => ipcRenderer.on('app:before-quit', () => fn()),
     openExternal: (url) => ipcRenderer.send('shell:open-external', url),
     platform: process.platform

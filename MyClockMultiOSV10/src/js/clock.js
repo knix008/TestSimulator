@@ -14,11 +14,11 @@ const el = {
   chromeBackground: document.getElementById('chromeBackground'),
   digitalPanel: document.getElementById('digitalPanel'),
   canvasDigital: document.getElementById('canvasDigital'),
+  cityName: document.getElementById('cityName'),
   amPmText: document.getElementById('amPmText'),
   digitalCanvas: document.getElementById('digitalCanvas'),
   textClockBox: document.getElementById('textClockBox'),
   textClockInner: document.getElementById('textClockInner'),
-  textAmPm: document.getElementById('textAmPm'),
   textTime: document.getElementById('textTime'),
   analogCanvas: document.getElementById('analogCanvas'),
   headerDate: document.getElementById('headerDate'),
@@ -33,6 +33,8 @@ const el = {
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const CHROME_HIDE_DELAY = 400;
+/** "시계 추가" 메뉴에 올릴 도시 수 — 그보다 많으면 세계 시간 창에서 고른다. */
+const MENU_CITY_LIMIT = 12;
 
 const DIGITAL_MIN_WIDTH = 140;
 const DIGITAL_MIN_HEIGHT = 50;
@@ -52,7 +54,7 @@ const stopwatch = new Stopwatch();
 let chromeVisible = false;
 let chromeHideHandle = 0;
 let panelOpen = false;
-let panelTab = 'world';
+let panelTab = 'settings';
 let menuOpen = false;
 let brightnessSaveHandle = 0;
 let statusResetHandle = 0;
@@ -95,6 +97,21 @@ function formatDateHeader(date) {
   return `${date.getFullYear()}년 ${pad2(date.getMonth() + 1)}월 ${pad2(date.getDate())}일  ${WEEKDAYS[date.getDay()]}`;
 }
 
+/**
+ * 시계가 가리킬 시각. 도시(시간대)를 정해 두면 그 지역의 벽시계 시각이고,
+ * 비워 두면 이 컴퓨터의 시각이다.
+ */
+function clockNow() {
+  const now = new Date();
+  return settings.zone ? zonedDate(now, settings.zone) : now;
+}
+
+/** 창 머리글에 적을 도시 이름 (도시를 정해 두고 보이기로 했을 때만). */
+function cityLabel() {
+  if (!settings.zone || settings.showCity === false) return '';
+  return settings.city || settings.zone;
+}
+
 function hour12(date) {
   const h = date.getHours() % 12;
   return h === 0 ? 12 : h;
@@ -124,11 +141,18 @@ function themeDisplayColors(name) {
   };
 }
 
+function applyCityLabel() {
+  el.cityName.textContent = cityLabel();
+}
+
 function applyThemeSettings() {
+  // 사용자 정의 테마는 설정에 든 색으로 그때그때 만든다 — 적용 전에 등록해야 한다.
+  setCustomTheme(settings.customThemeColor, settings.customThemeLight);
   applyTheme(settings.theme);
   document.documentElement.style.setProperty('--digital-text-color', settings.digitColor);
   document.documentElement.style.setProperty('--digital-ampm-color', settings.amPmColor);
   el.digitalPanel.style.opacity = String(Math.max(0, Math.min(100, settings.brightness)) / 100);
+  applyCityLabel();
   applyDigitalStyle();
 }
 
@@ -153,6 +177,9 @@ function applyDigitalStyle() {
 function applyClockMode() {
   show(el.digitalPanel, settings.isDigital);
   show(el.analogCanvas, !settings.isDigital);
+  // 아날로그에서는 호버 배경을 깔지 않으므로, 글자에 그림자를 넣어 읽히게 한다.
+  el.root.classList.toggle('analog-mode', !settings.isDigital);
+  show(el.chromeBackground, chromeVisible && settings.isDigital);
   updateModeToggle();
   applyClockModeMinSize();
 }
@@ -193,23 +220,18 @@ function fitTextClock() {
   inner.style.transform = `scale(${Math.max(0.05, scale)})`;
 }
 
-function setAmPm(node, text) {
-  node.textContent = text;
-}
-
 function drawCanvasDigital(text) {
   if (settings.digitalStyle === 'DotMatrix') drawDotMatrix(el.digitalCanvas, text, settings.digitColor);
   else drawSevenSegment(el.digitalCanvas, text, settings.digitColor);
 }
 
 function updateDigital(now) {
-  const ampm = settings.use24h ? '' : now.getHours() < 12 ? '오전' : '오후';
+  // 오전/오후와 날짜는 숫자 바로 위 한 줄에 함께 둔다.
+  el.amPmText.textContent = settings.use24h ? '' : now.getHours() < 12 ? '오전' : '오후';
 
   if (usesCanvasDigital(settings.digitalStyle)) {
-    setAmPm(el.amPmText, ampm);
     drawCanvasDigital(formatClockTime(now, settings.use24h, true));
   } else {
-    setAmPm(el.textAmPm, ampm);
     const showSeconds = settings.digitalStyle !== 'Minimal';
     el.textTime.textContent =
       settings.digitalStyle === 'Korean'
@@ -224,12 +246,11 @@ function updateDigital(now) {
 }
 
 function updateAnalog(now) {
-  drawAnalogClock(el.analogCanvas, now, settings.analogStyle, analogColorsFrom());
-  const status = settings.use24h
-    ? formatClockTime(now, true, true)
-    : `${now.getHours() < 12 ? '오전' : '오후'} ${formatClockTime(now, false, true)}`;
-  el.clockStatus.textContent = status;
-  show(el.clockStatus, chromeVisible);
+  // 오전/오후·날짜·도시는 문자판 안에 그려지므로 바깥에 또 적지 않는다.
+  drawAnalogClock(el.analogCanvas, now, settings.analogStyle, analogColorsFrom(), cityLabel());
+  if (statusResetHandle) return;
+  el.clockStatus.textContent = '';
+  show(el.clockStatus, false);
 }
 
 function updateTimerDisplay(timer, now) {
@@ -237,11 +258,10 @@ function updateTimerDisplay(timer, now) {
   const header = timer.isPaused ? '일시정지' : '타이머';
 
   if (settings.isDigital) {
+    el.amPmText.textContent = header;
     if (usesCanvasDigital(settings.digitalStyle)) {
-      setAmPm(el.amPmText, header);
       drawCanvasDigital(text);
     } else {
-      setAmPm(el.textAmPm, header);
       el.textTime.textContent =
         settings.digitalStyle === 'Korean' ? formatKoreanCountdown(timer.remainingMs, true) : text;
       fitTextClock();
@@ -372,7 +392,7 @@ function activeTimer() {
 }
 
 function tick() {
-  const now = new Date();
+  const now = clockNow();
   el.headerDate.textContent = formatDateHeader(now);
 
   let completed = false;
@@ -447,10 +467,20 @@ const panelCommands = {
     }
 
     const patch = { ...msg.patch };
+    const themeChanged = Object.prototype.hasOwnProperty.call(patch, 'theme');
+    const customChanged = 'customThemeColor' in patch || 'customThemeLight' in patch;
+    const nextTheme = themeChanged ? patch.theme : settings.theme;
+
+    // 사용자 정의 색이 함께 왔으면 테마 색을 읽기 전에 등록표를 갈아 끼운다.
+    if (customChanged) {
+      const merged = { ...settings, ...patch };
+      setCustomTheme(merged.customThemeColor, merged.customThemeLight);
+    }
+
     // 테마를 고르면 디지털 표시 색도 그 테마의 색으로 맞춘다.
     // 이후 사용자가 색을 직접 고르면 다음 테마 변경 전까지 그 색이 유지된다.
-    if (Object.prototype.hasOwnProperty.call(patch, 'theme')) {
-      const themed = themeDisplayColors(patch.theme);
+    if (themeChanged || (customChanged && nextTheme === CUSTOM_THEME)) {
+      const themed = themeDisplayColors(nextTheme);
       if (!('digitColor' in patch)) patch.digitColor = themed.digitColor;
       if (!('amPmColor' in patch)) patch.amPmColor = themed.amPmColor;
     }
@@ -549,7 +579,9 @@ function setChromeVisible(visible) {
   if (chromeVisible === visible) return;
   chromeVisible = visible;
 
-  show(el.chromeBackground, visible);
+  // 아날로그는 문자판이 이미 둥글게 칠해져 있다. 창 배경까지 깔면
+  // 동그란 시계 뒤에 사각형이 나타나 보이므로 깔지 않는다.
+  show(el.chromeBackground, visible && settings.isDigital);
   show(el.chromeToolbar, visible);
   show(el.headerDate, visible);
   show(el.clockStatus, visible && !!el.clockStatus.textContent);
@@ -580,13 +612,26 @@ async function openContextMenu() {
 
   api.menu.open({
     theme: settings.theme,
+    customThemeColor: settings.customThemeColor,
+    customThemeLight: settings.customThemeLight,
     items: [
-      { id: 'settings', icon: '⚙', label: panelOpen ? '설정 닫기' : '설정...' },
       {
-        id: 'calendar',
-        icon: '🗓',
-        label: panelOpen && panelTab === 'calendar' ? '캘린더 닫기' : '캘린더'
+        id: 'settings',
+        icon: '⚙',
+        label: panelOpen && panelTab === 'settings' ? '설정 닫기' : '설정...'
       },
+      { separator: true },
+      // 알람·타이머·스톱워치·캘린더·세계 시간은 저마다 창 하나로 뜬다.
+      // (설정 패널은 설정만 맡는다)
+      { id: 'world', icon: '🌍', label: '세계 시간' },
+      { id: 'alarm', icon: '⏰', label: '알람' },
+      { id: 'timer', icon: '⏳', label: '타이머' },
+      { id: 'stopwatch', icon: '⏱', label: '스톱워치' },
+      { id: 'calendar', icon: '🗓', label: '캘린더' },
+      { separator: true },
+      // 시계는 여러 개를 둘 수 있다 — 고르면 도시 목록이 이어서 뜬다.
+      { id: 'newclock', icon: '＋', label: '시계 추가...' },
+      { separator: true },
       {
         id: 'mode',
         icon: settings.isDigital ? '◷' : '▦',
@@ -597,9 +642,19 @@ async function openContextMenu() {
       { id: 'maximize', icon: '▢', label: maximized ? '창 크기 복원' : '최대화' },
       { id: 'tray', icon: '▾', label: '트레이로 숨기기' },
       { separator: true },
+      { id: 'about', icon: 'ℹ', label: '프로그램 정보...' },
       { id: 'quit', icon: '✕', label: '종료' }
     ]
   });
+}
+
+/**
+ * 패널을 그 탭으로 연다. 이미 그 탭을 보고 있으면 닫는다 —
+ * 메뉴 항목이 "…" / "닫기" 로 번갈아 보이는 것과 같은 동작.
+ */
+function openPanelTab(tab) {
+  if (panelOpen && panelTab === tab) api.panel.close();
+  else api.panel.toggle(tab);
 }
 
 function closeContextMenu() {
@@ -608,16 +663,53 @@ function closeContextMenu() {
   api.menu.close();
 }
 
+/**
+ * "시계 추가..." — 세계 시간 목록의 도시를 그대로 메뉴로 보여 준다.
+ * 메뉴 창은 한 겹이므로, 첫 메뉴를 닫고 도시 메뉴를 커서 자리에 다시 띄운다.
+ */
+function openAddClockMenu() {
+  const cities = settings.worldCities || [];
+  const items = cities.slice(0, MENU_CITY_LIMIT).map((city, index) => ({
+    id: `addclock:${index}`,
+    icon: '🕘',
+    label: city.region ? `${city.city} · ${city.region}` : city.city
+  }));
+
+  if (items.length) items.push({ separator: true });
+  items.push({ id: 'world', icon: '🌍', label: '다른 도시 찾기...' });
+
+  menuOpen = true;
+  setChromeVisible(true);
+  api.menu.open({
+    theme: settings.theme,
+    customThemeColor: settings.customThemeColor,
+    customThemeLight: settings.customThemeLight,
+    items
+  });
+}
+
+/** 도시 메뉴에서 고른 도시로 시계를 하나 더 연다. */
+function addClockFromMenu(id) {
+  const index = Number(id.slice('addclock:'.length));
+  const city = (settings.worldCities || [])[index];
+  if (city) api.clocks.add(city);
+}
+
 const menuActions = {
-  settings: () => api.panel.toggle(),
-  calendar: () => {
-    if (panelOpen && panelTab === 'calendar') api.panel.close();
-    else api.panel.toggle('calendar');
-  },
+  // 설정 패널은 설정만 맡는다 — 열려 있으면 닫는다.
+  settings: () => openPanelTab('settings'),
+  newclock: () => openAddClockMenu(),
+  // 나머지 기능은 저마다 독립한 창이다 (앱 전체가 함께 쓰는 하나의 상태).
+  world: () => api.tools.open('world'),
+  alarm: () => api.tools.open('alarm'),
+  timer: () => api.tools.open('timer'),
+  stopwatch: () => api.tools.open('stopwatch'),
+  calendar: () => api.tools.open('calendar'),
   mode: () => toggleClockMode(),
   fullscreen: () => api.fullscreen.open(),
   maximize: () => api.window.toggleMaximize(),
   tray: () => api.window.hideToTray(),
+  about: () => api.app.about(),
   quit: () => api.app.quit()
 };
 
@@ -654,7 +746,7 @@ async function setClockMode(isDigital) {
 }
 
 function redrawNow() {
-  const now = new Date();
+  const now = clockNow();
   const active = activeTimer();
   if (active) updateTimerDisplay(active, now);
   else if (settings.isDigital) updateDigital(now);
@@ -748,6 +840,10 @@ function wireEvents() {
 
   api.menu.onAction((id) => {
     menuOpen = false;
+    if (typeof id === 'string' && id.startsWith('addclock:')) {
+      addClockFromMenu(id);
+      return;
+    }
     const action = menuActions[id];
     if (action) action();
   });
@@ -764,7 +860,7 @@ function wireEvents() {
 
   el.settingsBtn.addEventListener('click', (event) => {
     event.stopPropagation();
-    api.panel.toggle();
+    openPanelTab('settings');
   });
 
   document.addEventListener('keydown', (event) => {
@@ -785,7 +881,8 @@ function wireEvents() {
   api.panel.onOpened((open) => {
     panelOpen = open;
     if (open) broadcastState();
-    else panelTab = 'world';
+    // 닫히면 다음에 열릴 탭(설정)으로 되돌려 둔다 — 메뉴 이름이 이 값을 본다.
+    else panelTab = 'settings';
   });
 
   api.bus.onFromPanel(handlePanelMessage);

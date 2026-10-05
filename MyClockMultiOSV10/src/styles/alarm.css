@@ -31,6 +31,11 @@ body {
   -webkit-app-region: drag;
 }
 
+.alarm-icon {
+  margin-right: 7px;
+  font-size: 15px;
+}
+
 .alarm-header {
   font-size: 13px;
   font-weight: 600;

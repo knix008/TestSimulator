@@ -7,7 +7,14 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawn } = require('child_process');
 const koffi = require('koffi');
-const { sameName, isOnDesktop, listDesktopFiles, desktopDirectories, matchDesktopEntry } = require('./files');
+const {
+  sameName,
+  isOnDesktop,
+  listDesktopFiles,
+  desktopDirectories,
+  matchDesktopEntry,
+  matchDesktopEntries,
+} = require('./files');
 const deskgrid = require('../../shared/deskgrid');
 const {
   pickIcon,
@@ -181,6 +188,9 @@ const LVM_SETITEMPOSITION32 = 0x1031;
 const LVM_SETITEMPOSITION = 0x100f;
 const LVM_GETITEMTEXTW = 0x1073;
 const LVM_GETWORKAREAS = 0x1046;
+// 골라 둔 항목만 하나씩 물어본다(LVM_FIRST + 12). 아이콘이 많아도 고른 수만큼만 묻는다.
+const LVM_GETNEXTITEM = 0x100c;
+const LVNI_SELECTED = 0x0002;
 const PROCESS_RIGHTS = 0x0008 | 0x0010 | 0x0020 | 0x0400;
 const GWL_STYLE = -16;
 const SHGFI_SYSICONINDEX = 0x4000;
@@ -447,6 +457,22 @@ function readText(session, index) {
   return decodeUtf16(buf);
 }
 
+// 골라 둔 항목의 번호. 고른 것만 이어서 물어보므로 아이콘이 많아도 싸다.
+// 바탕화면에서 여러 개를 골라 끌면 그 모두가 함께 움직인다.
+function readPicked(session) {
+  const out = [];
+  let at = -1;
+  // 아이콘 수보다 많이 돌 일은 없다. 그래도 한 바퀴를 못 벗어나는 일은 막는다.
+  for (let guard = 0; guard < 1000; guard += 1) {
+    const from = at < 0 ? 0xffffffffffffffffn : BigInt(at);
+    const next = Number(SendMessageW(session.list, LVM_GETNEXTITEM, from, BigInt(LVNI_SELECTED)));
+    if (!Number.isFinite(next) || next < 0 || next <= at) break;
+    out.push(next);
+    at = next;
+  }
+  return out;
+}
+
 function readPos(session, index) {
   const pointAt = session.remote + 768n;
   const blank = Buffer.alloc(8);
@@ -494,6 +520,16 @@ const PARK_X = 20000;
 function isParked(icon) {
   // 예전 판에서 음수 자리에 치워 둔 것도 알아본다.
   return icon.x >= PARK_X - 1000 || icon.x < -1000 || icon.y < -1000;
+}
+
+// 적어 둔 자리가 쓸 만한가. 치워 두었던 자리(화면 밖)는 쓰지 않는다.
+//
+// 그 자리에 놓으면 아이콘이 화면 밖으로 나가 보이지 않는다. 박스에서 바탕화면으로
+// 꺼낸 것이 보이지 않는 일이 이 길로 생겼다. 꺼낸 것은 반드시 눈에 보여야 한다.
+function sanePoint(point) {
+  if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
+  if (isParked(point)) return null;
+  return point;
 }
 
 function keyOf(name) {
@@ -733,12 +769,84 @@ function shellNameTable() {
   return rows;
 }
 
+// 아이콘에 적힌 글로 파일을 찾는다.
+//
+// 확장자를 감춰 두면 '보고서.docx' 와 '보고서.pdf' 가 둘 다 '보고서' 로 보인다.
+// 그러면 글만으로는 어느 것인지 알 수 없다. 앞서는 그런 이름을 그냥 버렸다.
+// 그래서 같은 이름의 파일이 여럿인 사람에게는 그 아이콘만 끌어다 놓기가
+// 아무 일도 하지 않는 것처럼 보였다. 파일 종류에 따라 되고 안 되는 것처럼 보인다.
+//
+// 그림 칸(LVIF_IMAGE)으로 가려 보려 했으나, 바탕화면 목록이 쓰는 그림 목록은
+// 탐색기가 따로 들고 있는 것이어서 시스템 그림 번호(SHGFI_SYSICONINDEX)와 다르다.
+// 같은 파일을 두고 9 와 52 가 나왔다. 그 길로는 가릴 수 없다.
+//
+// 그래서 같은 글로 보이는 아이콘들과 그 후보 파일들을 차례로 짝지운다(sameLabelRank).
+// 목록의 차례는 탐색기가 이름으로 늘어놓은 차례이므로 대개 들어맞는다.
+// 수가 맞지 않으면 짝지우지 않는다. 엉뚱한 파일을 옮기는 것보다 낫다.
+function itemFromTables(icon, shells, files, listed) {
+  if (!icon || !icon.name) return null;
+  const shell = shellPathFor(icon.name, shells, sameName);
+  if (shell) return shell;
+  const hits = matchDesktopEntries(icon.name, files);
+  if (!hits.length) return null;
+  const found = hits.length === 1 ? hits[0] : sameLabelRank(hits, icon, listed);
+  return found ? { name: found.name, path: found.path } : null;
+}
+
+// 같은 글로 보이는 아이콘이 여럿이다. 몇 번째 아이콘인지로 후보를 고른다.
+function sameLabelRank(hits, icon, listed) {
+  if (!Array.isArray(listed) || !listed.length) return null;
+  const text = String(icon.name).trim().toLowerCase();
+  const sameText = listed
+    .filter((one) => one && String(one.name).trim().toLowerCase() === text)
+    .sort((a, b) => a.index - b.index);
+  // 아이콘 수와 파일 수가 맞을 때에만 짝지운다.
+  if (sameText.length !== hits.length) return null;
+  const rank = sameText.findIndex((one) => one.index === icon.index);
+  if (rank < 0) return null;
+  const sorted = hits.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true }));
+  return sorted[rank] || null;
+}
+
 function itemForIcon(icon) {
   if (!icon || !icon.name) return null;
-  const shell = shellPathFor(icon.name, shellNameTable(), sameName);
-  if (shell) return shell;
-  const file = matchDesktopEntry(icon.name, listDesktopFiles());
-  return file ? { name: file.name, path: file.path } : null;
+  const listed = withList((session) => (session ? readAll(session) : [])) || [];
+  return itemFromTables(icon, shellNameTable(), listDesktopFiles(), listed);
+}
+
+// 커서 아래의 아이콘과, 그것과 함께 골라 둔 아이콘들.
+//
+// 바탕화면에서 여러 개를 골라 끌면 탐색기는 고른 모두를 옮긴다. 우리도 그래야 한다.
+// 커서 아래의 하나만 담으면 나머지는 바탕화면에 그대로 남아, 옮겼는데도
+// 남아 있는 것처럼 보인다.
+//
+// 커서 아래의 것이 고른 묶음에 들어 있을 때에만 묶음으로 본다. 고르지 않은 아이콘을
+// 새로 누른 순간에는 탐색기가 아직 앞의 묶음을 들고 있을 수 있어, 그것을 묶음으로 보면
+// 누르지도 않은 아이콘까지 함께 옮긴다.
+function dragGroup(pos) {
+  return withList((session) => {
+    if (!session) return null;
+    const listed = readAll(session);
+    const icon = iconAt(listed, pos);
+    if (!icon) return null;
+    const shells = shellNameTable();
+    const files = listDesktopFiles();
+    const item = itemFromTables(icon, shells, files, listed);
+    const picked = readPicked(session);
+    const group = picked.includes(icon.index)
+      ? listed.filter((one) => picked.includes(one.index))
+      : [icon];
+    const items = [];
+    const seen = new Set();
+    // 커서 아래의 것을 맨 앞에 둔다. 놓는 자리는 그것으로 잰다.
+    for (const one of item ? [icon, ...group] : group) {
+      const found = one === icon ? item : itemFromTables(one, shells, files, listed);
+      if (!found || seen.has(found.path)) continue;
+      seen.add(found.path);
+      items.push(found);
+    }
+    return { icon, item, items };
+  });
 }
 
 function iconUnder(pos) {
@@ -1192,7 +1300,8 @@ function putHome(names) {
     const moves = [];
     for (const icon of readAll(session)) {
       if (!want.some((name) => sameName(icon.name, name))) continue;
-      const home = homes.get(keyOf(icon.name));
+      // 적어 둔 자리가 화면 밖이면 옮기지 않는다. 탐색기가 놓아 준 자리가 낫다.
+      const home = sanePoint(homes.get(keyOf(icon.name)));
       if (!home) continue;
       if (home.x === icon.x && home.y === icon.y) continue;
       moves.push({ index: icon.index, x: home.x, y: home.y });
@@ -1226,7 +1335,7 @@ function className(hwnd) {
 // 바탕화면 빈 곳에서 왼쪽 단추로 사각형을 끌면 그 자리를 알려 준다.
 // 사각형이 아니어도 바탕화면에서 손을 떼면 onSettle 을 부른다.
 // 담긴 아이콘은 목록에 없으므로 끄는 동안 그려질 일이 없다. 그래서 그리기를 멈추지 않는다.
-function watchDrag(onRect, onSettle, onDrop, onHover) {
+function watchDrag(onRect, onSettle, onDrop, onHover, onPress) {
   let start = null;
   let held = null;
   let wasDown = false;
@@ -1257,9 +1366,22 @@ function watchDrag(onRect, onSettle, onDrop, onHover) {
 
     if (down && !wasDown) {
       const onDesktop = desktopAt(pos);
-      const icon = onDesktop ? iconUnder(pos) : null;
+      // 바탕화면을 눌렀다. 박스 안에서 골라 둔 표시는 거둔다.
+      // 박스 창은 제 안쪽만 볼 수 있어 이 누름을 알지 못한다.
+      if (onDesktop && typeof onPress === 'function') {
+        try {
+          onPress();
+        } catch (_err) {
+          /* 표시를 못 거둬도 끌기는 그대로 간다. */
+        }
+      }
+      const found = onDesktop ? dragGroup(pos) : null;
+      const icon = found ? found.icon : null;
       // 휴지통처럼 파일이 아닌 항목도 여기서 잡아 둔다. 손을 떼는 곳이 박스면 그 박스로 넣는다.
-      held = icon ? { name: icon.name, x: pos.x, y: pos.y, item: itemForIcon(icon) } : null;
+      // 여러 개를 골라 끌었으면 그 모두를 잡아 둔다(items).
+      held = icon
+        ? { name: icon.name, x: pos.x, y: pos.y, item: found.item, items: found.items }
+        : null;
       // 빈 곳에서 시작한 끌기만 새 박스 후보이다. 아이콘 위는 그 아이콘을 옮기는 것이다.
       start = onDesktop && !icon ? { x: pos.x, y: pos.y } : null;
     } else if (down && held && held.item) {
@@ -1272,9 +1394,12 @@ function watchDrag(onRect, onSettle, onDrop, onHover) {
       held = null;
       if (dragged && movedEnough(dragged, pos) && typeof onDrop === 'function') {
         try {
-          const item = dragged.item || itemForIcon(dragged);
+          // 고른 묶음이 있으면 그 모두를 넘긴다. 없으면 커서 아래의 하나다.
+          const items = (dragged.items && dragged.items.length)
+            ? dragged.items
+            : [dragged.item || itemForIcon(dragged)].filter(Boolean);
           // 놓는 일은 비동기다. 거절된 약속을 받아 두지 않으면 앱이 죽는다.
-          if (item) Promise.resolve(onDrop(item, toDipPoint(pos))).catch(() => {});
+          if (items.length) Promise.resolve(onDrop(items, toDipPoint(pos))).catch(() => {});
         } catch (_err) {
           /* 이름을 못 읽으면 이번 끌기는 버린다. */
         }
@@ -1750,7 +1875,7 @@ function homeAll() {
       const key = keyOf(icon.name);
       // 화면 밖에 치워 둔 것은 적어 둔 자리로, 없으면 화면 안 빈 자리로 들인다.
       if (isParked(icon)) {
-        const home = homes.get(key) || defaultSpot(spot);
+        const home = sanePoint(homes.get(key)) || defaultSpot(spot);
         spot += 1;
         moves.push({ index: icon.index, x: home.x, y: home.y });
         continue;
@@ -1758,7 +1883,7 @@ function homeAll() {
       // 박스가 가려서 우리가 옆으로 밀어낸 것도 제자리로 돌려놓는다.
       // 그러지 않으면 앱을 끝내도 바탕화면이 켜기 전 모습으로 돌아가지 않는다.
       if (!nudged.has(key)) continue;
-      const home = homes.get(key);
+      const home = sanePoint(homes.get(key));
       if (!home) continue;
       if (icon.x === home.x && icon.y === home.y) continue;
       moves.push({ index: icon.index, x: home.x, y: home.y });
@@ -1770,6 +1895,9 @@ function homeAll() {
 
 function shutdown() {
   if (listFrozen) listRedraw(true);
+  // 감춰 둔 파일 속성을 먼저 되돌린다. 숨긴 채로 두면 파일이 있어도 아이콘이 없다.
+  // 끝내는 길이 갑자기 끊겨도 이 한 줄만 지나면 파일은 다시 보인다.
+  guard(() => revealStored());
   // 박스가 들고 있던 것뿐 아니라, 화면 밖에 남은 아이콘을 모두 되돌린다.
   guard(() => homeAll());
   restoreShellIcons();

@@ -1,0 +1,11 @@
+#!/bin/sh
+if [ -d "/Applications/MyPaint.app" ]; then
+  rm -rf "/Applications/MyPaint.app"
+fi
+DATA="$HOME/Library/Application Support/MyPaint"
+if [ -d "$DATA" ]; then
+  BUTTON=$(/usr/bin/osascript -e 'button returned of (display dialog "저장된 데이터가 있습니다. 삭제하시겠습니까?" & return & "Saved data was found. Do you want to delete it?" buttons {"Keep", "Delete"} default button "Keep")')
+  if [ "$BUTTON" = "Delete" ]; then
+    rm -rf "$DATA"
+  fi
+fi

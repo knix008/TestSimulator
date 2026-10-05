@@ -3,6 +3,8 @@
 // 리눅스 데스크톱은 환경마다 아이콘 창이 다르다.
 // 박스는 작업 표시줄에 올라가지 않는 투명 창으로 두고, 파일은 XDG 바탕화면 폴더에서 읽는다.
 
+function blurBehind() {}
+
 function place(win) {
   if (!win || win.isDestroyed()) return;
   win.setVisibleOnAllWorkspaces(true);
@@ -48,6 +50,7 @@ function shutdown() {}
 module.exports = {
   nativeIcons: false,
   place,
+  blurBehind,
   gather,
   release,
   moveIcon,

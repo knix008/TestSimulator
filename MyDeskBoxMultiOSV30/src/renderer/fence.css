@@ -22,6 +22,7 @@ html, body {
   inset: 0;
   box-sizing: border-box;
   border-radius: 20px;
+  clip-path: inset(0 round 20px);
   overflow: hidden;
   isolation: isolate;
   border: 1px solid rgba(255, 255, 255, 0.28);
@@ -54,6 +55,7 @@ html, body {
   inset: 0;
   pointer-events: none;
   z-index: 3;
+  opacity: var(--shine, 1);
   background:
     radial-gradient(120% 60% at 22% -10%, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 60%),
     linear-gradient(200deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 34%);
@@ -63,6 +65,9 @@ html, body {
   position: relative;
   z-index: 2;
   height: 36px;
+  overflow: hidden;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
   display: flex;
   align-items: center;
   padding: 0 14px;
@@ -140,6 +145,7 @@ html, body {
 
 #body {
   position: absolute;
+  z-index: 4;
   inset: 36px 0 0 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -208,6 +214,14 @@ html, body {
     transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
     background-color 150ms linear,
     box-shadow 150ms linear;
+}
+
+/* 바탕화면에서 막 들어온 아이콘은 칸으로 미끄러지지 않는다.
+   자리를 170ms 에 걸쳐 옮기면 박스를 끌 때 뒤에서 따라오는 것처럼 보인다.
+   박스를 옮기거나 크기를 바꾸는 동안에도 같다. */
+.icon.native,
+#panel.moving .icon {
+  transition: none;
 }
 
 .icon .mark {
@@ -322,6 +336,17 @@ html, body {
 
 #panel.light .icon:hover {
   background: rgba(15, 23, 42, 0.12);
+}
+
+/* 한 번 눌러 고른 아이콘. 손을 떼도 남아, Delete 로 박스에서 뺄 수 있다. */
+.icon.picked {
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.62);
+}
+
+#panel.light .icon.picked {
+  background: rgba(15, 23, 42, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.35);
 }
 
 .icon.over {

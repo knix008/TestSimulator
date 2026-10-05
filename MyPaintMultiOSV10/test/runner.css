@@ -1,0 +1,15 @@
+body { font-family: "Segoe UI", sans-serif; margin: 16px; background: #10141a; color: #e8eef6; }
+header { display: flex; gap: 12px; align-items: center; }
+h1 { font-size: 18px; margin: 0; }
+button { height: 28px; }
+.counts { display: flex; gap: 16px; }
+.suite { border-top: 1px solid #2a3544; margin-top: 12px; }
+.suite h3 { margin: 8px 0; }
+.case { display: flex; gap: 12px; font-size: 13px; padding: 2px 0; }
+.case.pass .status { color: #3dbe86; }
+.case.fail .status { color: #ff6b6b; }
+.case .name { flex: 1; }
+.case .error { color: #ffb4b4; }
+table { border-collapse: collapse; margin-top: 8px; }
+td, th { border-bottom: 1px solid #2a3544; padding: 4px 10px; text-align: left; }
+iframe { width: 1280px; height: 820px; border: 1px solid #2a3544; margin-top: 16px; background: #000; }

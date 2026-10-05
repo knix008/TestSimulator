@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyCalc 10.0</title>
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="stylesheet" href="style/styles.css" />
+  <script>
+    const bootParams = new URLSearchParams(location.search);
+    if (bootParams.get("desktop") === "1") document.documentElement.classList.add("desktop");
+    const bootPop = bootParams.get("pop");
+  if (bootPop === "graph" || bootPop === "settings" || bootPop === "info" || bootPop === "help" || bootPop === "print") {
+    document.documentElement.classList.add(bootPop + "-pop");
+  }
+    let bootLang = "ko";
+    try {
+      const savedLang = localStorage.getItem("mycalc-lang");
+      if (savedLang === "en" || savedLang === "ko") bootLang = savedLang;
+    } catch { /* The title stays Korean when storage is unavailable. */ }
+    if (bootPop === "settings") document.title = (bootLang === "en" ? "Settings" : "설정") + " — MyCalc 10.0";
+    if (bootPop === "info") document.title = (bootLang === "en" ? "About" : "프로그램 정보") + " — MyCalc 10.0";
+    if (bootPop === "graph") document.title = "MyCalc 10.0 Graph";
+    if (bootPop === "help") document.title = (bootLang === "en" ? "Graph help" : "그래프 도움말") + " — MyCalc 10.0";
+    if (bootPop === "print") document.title = (bootLang === "en" ? "Print" : "인쇄") + " — MyCalc 10.0";
+  </script>
+</head>
+<body>
+  <main class="app" id="app" data-mode="basic">
+    <header class="top">
+      <div class="top-row">
+        <div class="brand">
+          <img class="logo" src="assets/icon.png" alt="" width="42" height="42" draggable="false" />
+          <div>
+            <h1>MyCalc <span class="version">10.0</span></h1>
+            <p data-i18n="tagline">기본, 공학용, 프로그래머, 그래프, 단위</p>
+          </div>
+        </div>
+        <div class="brand-actions">
+          <button type="button" id="langBtn" class="lang-btn" aria-label="English" data-tooltip="English">
+            <img id="langFlag" class="flag" alt="" src="assets/icons/flag-uk.svg" width="22" height="15" draggable="false" />
+          </button>
+          <button type="button" id="settingsBtn" data-i18n-aria="settings" data-i18n-title="settings" aria-label="설정" data-tooltip="설정"><span class="icon icon-settings" aria-hidden="true"></span></button>
+          <button type="button" id="infoBtn" data-i18n-aria="info" data-i18n-title="info" aria-label="정보" data-tooltip="정보"><span class="icon icon-info" aria-hidden="true"></span></button>
+          <button type="button" id="winClose" class="win-close" hidden data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
+        </div>
+      </div>
+      <nav class="modes" role="tablist" data-i18n-aria="modes" aria-label="계산기 모드">
+        <button type="button" role="tab" data-mode="basic" aria-selected="true"><span class="icon icon-basic" aria-hidden="true"></span><span data-i18n="mode.basic">기본</span></button>
+        <button type="button" role="tab" data-mode="scientific" aria-selected="false"><span class="icon icon-scientific" aria-hidden="true"></span><span data-i18n="mode.scientific">공학용</span></button>
+        <button type="button" role="tab" data-mode="programmer" aria-selected="false"><span class="icon icon-programmer" aria-hidden="true"></span><span data-i18n="mode.programmer">프로그래머</span></button>
+        <button type="button" role="tab" data-mode="graph" aria-selected="false"><span class="icon icon-graph" aria-hidden="true"></span><span data-i18n="mode.graph">그래프</span></button>
+        <button type="button" role="tab" data-mode="currency" aria-selected="false"><span class="icon icon-rates" aria-hidden="true"></span><span data-i18n="mode.currency">환율</span></button>
+        <button type="button" role="tab" data-mode="unit" aria-selected="false" data-i18n-title="mode.unit" data-tooltip="단위"><span class="icon icon-units" aria-hidden="true"></span><span data-i18n="mode.unit">단위</span></button>
+      </nav>
+    </header>
+
+    <div class="stage">
+    <section class="screen" id="screenCalc">
+      <div class="status">
+        <button type="button" id="angleBtn" aria-pressed="false">DEG</button>
+        <button type="button" id="notationBtn">NORM</button>
+        <button type="button" id="memClear" data-i18n-title="memClear" data-tooltip="메모리 지우기">MC</button>
+        <button type="button" id="memRecall" data-i18n-title="memRecall" data-tooltip="메모리 불러오기">MR</button>
+        <button type="button" id="memAdd" data-i18n-title="memAdd" data-tooltip="메모리에 더하기">M+</button>
+        <button type="button" id="memSub" data-i18n-title="memSub" data-tooltip="메모리에서 빼기">M−</button>
+        <span class="mem-flag" id="memFlag" hidden>M</span>
+      </div>
+      <div class="expr-row">
+        <input id="expr" class="expr" data-i18n-aria="expr" aria-label="계산식" autocomplete="off" spellcheck="false" />
+        <button type="button" id="copyExpr" class="expr-copy" data-i18n-aria="copyExpr" data-i18n-title="copyExpr" aria-label="식 복사" data-tooltip="식 복사"><span class="icon icon-copy" aria-hidden="true"></span></button>
+      </div>
+      <div id="result" class="result" aria-live="polite">0</div>
+      <div id="history" class="history" data-i18n-aria="history" aria-label="계산 기록"></div>
+    </section>
+
+    <section class="screen" id="screenProg" hidden>
+      <div class="bit-row" id="bitRow" role="group" data-i18n-aria="bits" aria-label="비트 너비">
+        <button type="button" data-bits="64">64-bit</button>
+        <button type="button" data-bits="32" aria-pressed="true">32-bit</button>
+        <button type="button" data-bits="16">16-bit</button>
+        <button type="button" data-bits="8">8-bit</button>
+      </div>
+      <div class="bases" id="bases">
+        <button type="button" data-base="16"><span>HEX</span><strong id="val16">0</strong></button>
+        <button type="button" data-base="10" aria-pressed="true"><span>DEC</span><strong id="val10">0</strong></button>
+        <button type="button" data-base="8"><span>OCT</span><strong id="val8">0</strong></button>
+        <button type="button" data-base="2" class="bin"><span>BIN</span><strong id="val2">0</strong></button>
+      </div>
+      <label class="prog-field">
+        <span data-i18n="progExpr">식</span>
+        <input id="progExpr" class="prog-input" data-i18n-aria="progInput" aria-label="정수식" autocomplete="off" spellcheck="false" placeholder="0" />
+        <button type="button" id="copyProg" class="expr-copy" data-i18n-aria="copyExpr" data-i18n-title="copyExpr" aria-label="식 복사" data-tooltip="식 복사"><span class="icon icon-copy" aria-hidden="true"></span></button>
+      </label>
+      <div id="progError" class="prog-error"></div>
+    </section>
+
+    <section class="screen" id="screenRates" hidden>
+      <div class="rate-head">
+        <span class="rate-state" id="rateState"></span>
+        <button type="button" id="rateRefresh" class="tool-icon" data-i18n-aria="rateRefresh" data-i18n-title="rateRefresh" aria-label="환율 새로 고침" data-tooltip="환율 새로 고침"><span class="icon icon-reset" aria-hidden="true"></span></button>
+      </div>
+      <div class="rate-row">
+        <select id="rateFrom" data-i18n-aria="rateFrom" aria-label="보낼 통화"></select>
+        <input id="rateAmount" class="rate-input" inputmode="decimal" autocomplete="off" spellcheck="false" value="1" data-i18n-aria="rateAmount" aria-label="금액" />
+      </div>
+      <button type="button" id="rateSwap" class="rate-swap" data-i18n-aria="rateSwap" data-i18n-title="rateSwap" aria-label="통화 바꾸기" data-tooltip="통화 바꾸기">⇅</button>
+      <div class="rate-row">
+        <select id="rateTo" data-i18n-aria="rateTo" aria-label="받을 통화"></select>
+        <output id="rateResult" class="rate-result">0</output>
+      </div>
+      <div class="rate-note" id="rateNote"></div>
+    </section>
+
+    <section class="screen" id="screenUnit" hidden>
+      <label class="unit-group">
+        <span data-i18n="unitGroup">종류</span>
+        <select id="unitGroup" data-i18n-aria="unitGroup" aria-label="종류"></select>
+      </label>
+      <div class="rate-row">
+        <select id="unitFrom" data-i18n-aria="unitFrom" aria-label="바꿀 단위"></select>
+        <input id="unitAmount" class="rate-input" inputmode="decimal" autocomplete="off" spellcheck="false" value="1" data-i18n-aria="unitAmount" aria-label="값" />
+      </div>
+      <button type="button" id="unitSwap" class="rate-swap" data-i18n-aria="unitSwap" data-i18n-title="unitSwap" aria-label="단위 바꾸기" data-tooltip="단위 바꾸기">⇅</button>
+      <div class="rate-row">
+        <select id="unitTo" data-i18n-aria="unitTo" aria-label="바뀐 단위"></select>
+        <output id="unitResult" class="rate-result">0</output>
+      </div>
+      <div class="rate-note" id="unitNote"></div>
+    </section>
+
+    <section class="screen graph-screen" id="screenGraph" hidden>
+      <div class="graph-tools">
+        <div class="graph-title" id="graphTitle">
+          <span class="icon icon-graph" aria-hidden="true"></span>
+          <strong>MyCalc 10.0 Graph</strong>
+        </div>
+        <button type="button" id="graphMin" class="tool-icon win-btn" hidden data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
+        <button type="button" id="graphMax" class="tool-icon win-btn" hidden data-i18n-aria="maximize" data-i18n-title="maximize" aria-label="최대화" data-tooltip="최대화"><span class="icon icon-max" aria-hidden="true"></span><span class="icon icon-restore" aria-hidden="true"></span></button>
+        <button type="button" id="graphClose" class="win-close tool-icon" hidden data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
+        <div class="graph-tool-row">
+        <div class="dim-switch" role="group" data-i18n-aria="dim" aria-label="그래프 차원">
+          <button type="button" id="dim2d" aria-pressed="true" aria-label="2D" data-tooltip="2D">2D</button>
+          <button type="button" id="dim3d" aria-pressed="false" aria-label="3D" data-tooltip="3D">3D</button>
+        </div>
+        <input id="graphExpr" class="graph-input" data-i18n-aria="graphExpr" aria-label="그래프 식" placeholder="sin(x)" autocomplete="off" spellcheck="false" />
+        <button type="button" id="addFn" class="tool-icon" data-i18n-aria="add" data-i18n-title="add" aria-label="추가" data-tooltip="추가"><span class="icon icon-add" aria-hidden="true"></span></button>
+        <button type="button" id="zoomIn" class="tool-icon" data-i18n-aria="zoomIn" data-i18n-title="zoomIn" aria-label="확대" data-tooltip="확대"><span class="icon icon-zoom-in" aria-hidden="true"></span></button>
+        <button type="button" id="zoomOut" class="tool-icon" data-i18n-aria="zoomOut" data-i18n-title="zoomOut" aria-label="축소" data-tooltip="축소"><span class="icon icon-zoom-out" aria-hidden="true"></span></button>
+        <button type="button" id="resetView" class="tool-icon" data-i18n-aria="reset" data-i18n-title="reset" aria-label="초기화" data-tooltip="초기화"><span class="icon icon-reset" aria-hidden="true"></span></button>
+        <button type="button" id="gridToggle" class="tool-icon" aria-pressed="true" data-i18n-aria="grid" data-i18n-title="grid" aria-label="격자" data-tooltip="격자"><span class="icon icon-grid" aria-hidden="true"></span></button>
+        <button type="button" id="legendToggle" class="tool-icon" aria-pressed="true" data-i18n-aria="legend" data-i18n-title="legend" aria-label="범례 On/Off" data-tooltip="범례 On/Off"><span class="icon icon-legend" aria-hidden="true"></span></button>
+        <button type="button" id="axisToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="axisValues" data-i18n-title="axisValues" aria-label="축 값" data-tooltip="축 값"><span class="icon icon-axis-values" aria-hidden="true"></span></button>
+        <button type="button" id="axesToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="axes" data-i18n-title="axes" aria-label="좌표축" data-tooltip="좌표축"><span class="icon icon-axis" aria-hidden="true"></span></button>
+        <button type="button" id="panelLeft" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="panelLeft" data-i18n-title="panelLeft" aria-label="식 패널" data-tooltip="식 패널"><span class="icon icon-panel-left" aria-hidden="true"></span></button>
+        <button type="button" id="panelRight" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="panelRight" data-i18n-title="panelRight" aria-label="설정 패널" data-tooltip="설정 패널"><span class="icon icon-panel-right" aria-hidden="true"></span></button>
+        <button type="button" id="lightToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="light" data-i18n-title="light" aria-label="광원" data-tooltip="광원"><span class="icon icon-light" aria-hidden="true"></span></button>
+        <button type="button" id="graphSettings" class="tool-icon" hidden data-i18n-aria="settings" data-i18n-title="settings" aria-label="설정" data-tooltip="설정"><span class="icon icon-settings" aria-hidden="true"></span></button>
+        <button type="button" id="exportGraph" class="tool-icon" hidden data-i18n-aria="exportImage" data-i18n-title="exportImage" aria-label="내보내기" data-tooltip="내보내기"><span class="icon icon-export" aria-hidden="true"></span></button>
+        <button type="button" id="printGraph" class="tool-icon" hidden data-i18n-aria="print" data-i18n-title="print" aria-label="인쇄" data-tooltip="인쇄"><span class="icon icon-print" aria-hidden="true"></span></button>
+        <button type="button" id="helpGraph" class="tool-icon" data-i18n-aria="graphHelp" data-i18n-title="graphHelp" aria-label="도움말" data-tooltip="도움말"><span class="icon icon-help" aria-hidden="true"></span></button>
+        </div>
+        <div class="graph-axis-row" id="axisRow">
+        <div class="axis-field" data-axis="x">
+          <input type="color" id="axisColorX" value="#fb923c" data-i18n-aria="axisX" data-i18n-title="axisX" aria-label="X 축" data-tooltip="X 축" />
+          <button type="button" id="axisShowX" class="axis-toggle" aria-pressed="true" data-i18n-aria="axisX" data-i18n-title="axisX" aria-label="X 축" data-tooltip="X 축">X</button>
+        </div>
+        <div class="axis-field" data-axis="y">
+          <input type="color" id="axisColorY" value="#4ade80" data-i18n-aria="axisY" data-i18n-title="axisY" aria-label="Y 축" data-tooltip="Y 축" />
+          <button type="button" id="axisShowY" class="axis-toggle" aria-pressed="true" data-i18n-aria="axisY" data-i18n-title="axisY" aria-label="Y 축" data-tooltip="Y 축">Y</button>
+        </div>
+        <div class="axis-field" data-axis="z" hidden>
+          <input type="color" id="axisColorZ" value="#7dd3fc" data-i18n-aria="axisZ" data-i18n-title="axisZ" aria-label="Z 축" data-tooltip="Z 축" />
+          <button type="button" id="axisShowZ" class="axis-toggle" aria-pressed="true" data-i18n-aria="axisZ" data-i18n-title="axisZ" aria-label="Z 축" data-tooltip="Z 축">Z</button>
+        </div>
+        <span class="axis-sep" aria-hidden="true"></span>
+        <div class="axis-span" data-axis="x">
+          <span class="axis-span-tag">X</span>
+          <input type="number" id="axisMinX" class="axis-num" step="any" data-i18n-aria="axisMinX" data-i18n-title="axisMinX" aria-label="X 최소" data-tooltip="X 최소" />
+          <span class="axis-span-dash" aria-hidden="true">~</span>
+          <input type="number" id="axisMaxX" class="axis-num" step="any" data-i18n-aria="axisMaxX" data-i18n-title="axisMaxX" aria-label="X 최대" data-tooltip="X 최대" />
+        </div>
+        <div class="axis-span" data-axis="y">
+          <span class="axis-span-tag">Y</span>
+          <input type="number" id="axisMinY" class="axis-num" step="any" data-i18n-aria="axisMinY" data-i18n-title="axisMinY" aria-label="Y 최소" data-tooltip="Y 최소" />
+          <span class="axis-span-dash" aria-hidden="true">~</span>
+          <input type="number" id="axisMaxY" class="axis-num" step="any" data-i18n-aria="axisMaxY" data-i18n-title="axisMaxY" aria-label="Y 최대" data-tooltip="Y 최대" />
+        </div>
+        <div class="axis-span" data-axis="z" hidden>
+          <span class="axis-span-tag">Z</span>
+          <input type="number" id="axisMinZ" class="axis-num" step="any" data-i18n-aria="axisMinZ" data-i18n-title="axisMinZ" aria-label="Z 최소" data-tooltip="Z 최소" />
+          <span class="axis-span-dash" aria-hidden="true">~</span>
+          <input type="number" id="axisMaxZ" class="axis-num" step="any" data-i18n-aria="axisMaxZ" data-i18n-title="axisMaxZ" aria-label="Z 최대" data-tooltip="Z 최대" />
+        </div>
+        <span class="axis-sep" id="lightSep" aria-hidden="true" hidden></span>
+        <div class="axis-span light-span" id="lightSpan" hidden>
+          <span class="icon icon-light axis-span-icon" aria-hidden="true"></span>
+          <input type="number" id="lightAtX" class="axis-num" step="any" data-i18n-aria="lightAtX" data-i18n-title="lightAtX" aria-label="광원 X" data-tooltip="광원 X" />
+          <input type="number" id="lightAtY" class="axis-num" step="any" data-i18n-aria="lightAtY" data-i18n-title="lightAtY" aria-label="광원 Y" data-tooltip="광원 Y" />
+          <input type="number" id="lightAtZ" class="axis-num" step="any" data-i18n-aria="lightAtZ" data-i18n-title="lightAtZ" aria-label="광원 Z" data-tooltip="광원 Z" />
+        </div>
+        </div>
+      </div>
+      <form id="exportSheet" class="export-sheet" hidden>
+        <div class="pop-title">
+          <img src="assets/icon.png" alt="" width="22" height="22" draggable="false" />
+          <strong data-i18n="exportImage">내보내기</strong>
+        </div>
+        <label>
+          <span data-i18n="exportFormat">형식</span>
+          <select id="exportFormat">
+            <option value="png">PNG</option>
+            <option value="gif">GIF</option>
+            <option value="jpg">JPG</option>
+            <option value="tiff">TIFF</option>
+            <option value="webp">WEBP</option>
+          </select>
+        </label>
+        <label class="export-check" id="exportAlphaField">
+          <input id="exportTransparent" type="checkbox" />
+          <span data-i18n="transparentBg">투명 배경</span>
+        </label>
+        <div class="export-actions">
+          <button type="button" id="exportSave" data-i18n="exportSave">저장</button>
+          <button type="button" id="exportCancel" data-i18n="close">닫기</button>
+        </div>
+        <p class="export-error" id="exportError"></p>
+      </form>
+      <div class="presets" id="presets"></div>
+      <div class="graph-body">
+        <ul class="fn-list" id="fnList"></ul>
+        <div class="graph-split" id="graphSplit" role="separator" aria-orientation="vertical" data-i18n-aria="panelSize" data-i18n-title="panelSize" aria-label="패널 크기" data-tooltip="패널 크기"></div>
+        <div class="canvas-wrap">
+          <canvas id="plot" width="800" height="420" data-i18n-aria="canvas" aria-label="함수 그래프"></canvas>
+          <input id="legendEditor" class="legend-editor" hidden maxlength="80" autocomplete="off" spellcheck="false" />
+          <input id="legendColor" class="legend-color" type="color" hidden data-i18n-aria="graphColor" aria-label="그래프 색" />
+          <div id="readout" class="readout">드래그로 이동, 휠로 확대</div>
+        </div>
+        <aside class="graph-side" id="graphSide" hidden>
+          <section class="side-group">
+            <h3 data-i18n="light">광원</h3>
+            <label class="side-check"><input type="checkbox" id="sideLightOn" checked /><span data-i18n="lightOn">광원 켜기</span></label>
+            <label class="side-slide"><span data-i18n="lightTurn">방위</span><input type="range" id="sideLightTurn" min="-180" max="180" step="1" value="-54" /><output id="sideLightTurnOut">-54°</output></label>
+            <label class="side-slide"><span data-i18n="lightRise">고도</span><input type="range" id="sideLightRise" min="-88" max="88" step="1" value="52" /><output id="sideLightRiseOut">52°</output></label>
+            <label class="side-slide"><span data-i18n="lightFar">거리</span><input type="range" id="sideLightFar" min="30" max="600" step="5" value="130" /><output id="sideLightFarOut">1.30</output></label>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="keys" class="keys"></section>
+    </div>
+
+    <section class="sheet" id="helpSheet" hidden aria-labelledby="helpTitle">
+      <div class="dialog help-dialog">
+        <div class="pop-chrome" id="helpChrome" hidden>
+          <button type="button" id="closeHelp" class="settings-close" data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
+        </div>
+        <div class="help-body">
+          <div class="help-brand">
+            <span class="icon icon-help help-icon" aria-hidden="true"></span>
+            <div class="help-intro">
+              <p class="help-name" id="helpTitle" data-i18n="graphHelp">그래프 도움말</p>
+              <p class="help-lead" data-i18n="graphHelpLead">식을 적는 방법을 중심으로 그래프 창의 사용법을 모았습니다.</p>
+            </div>
+          </div>
+          <div class="help-doc" id="helpDoc"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sheet" id="infoSheet" hidden aria-labelledby="infoTitle">
+      <div class="dialog">
+        <div class="pop-chrome" id="infoChrome" hidden>
+          <button type="button" id="closeInfo" class="settings-close" data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
+        </div>
+        <div class="info-body">
+          <div class="info-brand">
+            <img class="info-icon" src="assets/icon.png" alt="" width="52" height="52" draggable="false" />
+            <div class="info-intro">
+              <p class="info-name" id="infoTitle">MyCalc 10.0</p>
+              <p class="info-lead" data-i18n="infoLead">기본, 공학용, 프로그래머, 환율, 단위 계산기입니다. 그래프는 별도의 창에서 엽니다.</p>
+            </div>
+          </div>
+          <dl class="info-list">
+            <div>
+              <dt data-i18n="infoBasic">기본</dt>
+              <dd data-i18n="infoBasicDesc">식을 입력한 뒤 Enter 또는 = 로 계산합니다.</dd>
+            </div>
+            <div>
+              <dt data-i18n="infoSci">공학용</dt>
+              <dd data-i18n="infoSciDesc">DEG/RAD, NORM/SCI/ENG, 메모리와 역함수를 지원합니다.</dd>
+            </div>
+            <div>
+              <dt data-i18n="infoProg">프로그래머</dt>
+              <dd data-i18n="infoProgDesc">8·16·32·64비트와 HEX, DEC, OCT, BIN을 변환합니다.</dd>
+            </div>
+            <div>
+              <dt data-i18n="infoGraph">그래프</dt>
+              <dd data-i18n="infoGraphDesc">별도 창에서 열립니다. 2D는 드래그로 이동하고, 3D는 마우스로 회전합니다.</dd>
+            </div>
+            <div>
+              <dt data-i18n="infoUnit">단위</dt>
+              <dd data-i18n="infoUnitDesc">길이, 무게, 온도를 비롯한 열두 가지를 변환합니다.</dd>
+            </div>
+            <div>
+              <dt data-i18n="infoBuild">빌드 정보</dt>
+              <dd data-i18n="infoBuildDesc">버전 10.0.0</dd>
+            </div>
+            <div>
+              <dt data-i18n="infoAuthor">제작자</dt>
+              <dd class="info-author">SHKWON(knix008@naver.com)</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="sheet-foot">
+          <button type="button" id="infoOk" data-i18n="confirm" data-i18n-title="confirm" data-tooltip="확인">확인</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sheet" id="settingsSheet" hidden aria-labelledby="settingsTitle">
+      <div class="dialog">
+        <div class="sheet-head">
+          <div class="pop-title">
+            <span class="icon icon-settings" aria-hidden="true"></span>
+            <h2 id="settingsTitle" data-i18n="settingsTitle">설정</h2>
+          </div>
+          <div class="sheet-actions">
+            <button type="button" id="settingsMin" class="win-btn" hidden data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
+            <button type="button" id="settingsMax" class="win-btn" hidden data-i18n-aria="maximize" data-i18n-title="maximize" aria-label="최대화" data-tooltip="최대화"><span class="icon icon-max" aria-hidden="true"></span><span class="icon icon-restore" aria-hidden="true"></span></button>
+            <button type="button" id="closeSettings" class="settings-close" data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
+          </div>
+        </div>
+        <div class="theme-columns">
+          <section class="theme-group">
+            <h3 data-i18n="darkThemes">다크 테마</h3>
+            <div class="theme-grid" id="darkThemes"></div>
+          </section>
+          <section class="theme-group">
+            <h3 data-i18n="lightThemes">라이트 테마</h3>
+            <div class="theme-grid" id="lightThemes"></div>
+          </section>
+        </div>
+        <section class="custom-theme">
+          <h3 data-i18n="customTheme">사용자 정의 테마</h3>
+          <div class="custom-fields" id="customFields"></div>
+        </section>
+        <section class="pad-order">
+          <h3 data-i18n="keypadOrder">숫자 배치</h3>
+          <div class="pad-choices" id="padChoices" role="group" data-i18n-aria="keypadOrder" aria-label="숫자 배치"></div>
+        </section>
+        <div class="sheet-foot">
+          <button type="button" id="resetSettings" data-i18n="resetDefaults" data-i18n-title="resetDefaults" data-tooltip="기본 설정">기본 설정</button>
+          <button type="button" id="applyCustom" data-i18n="apply" data-i18n-title="apply" data-tooltip="적용">적용</button>
+        </div>
+      </div>
+    </section>
+    <section class="print-desk" id="printSheet">
+      <div class="pop-chrome" id="printChrome" hidden>
+        <button type="button" id="printMin" class="win-btn" data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
+        <button type="button" id="printMax" class="win-btn" data-i18n-aria="maximize" data-i18n-title="maximize" aria-label="최대화" data-tooltip="최대화"><span class="icon icon-max" aria-hidden="true"></span><span class="icon icon-restore" aria-hidden="true"></span></button>
+        <button type="button" id="printClose" class="settings-close" data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
+      </div>
+      <div class="print-head">
+        <div class="pop-title">
+          <span class="icon icon-print" aria-hidden="true"></span>
+          <h2 data-i18n="printTitle">인쇄</h2>
+        </div>
+      </div>
+      <form class="print-setup" id="printSetup">
+        <h3 class="print-group" data-i18n="pageSetup">페이지 설정</h3>
+        <label id="printPrinterField" hidden>
+          <span data-i18n="printer">프린터</span>
+          <select id="printPrinter"></select>
+        </label>
+        <label>
+          <span data-i18n="paper">용지</span>
+          <select id="printPaper">
+            <option value="A4">A4</option>
+            <option value="A3">A3</option>
+            <option value="A5">A5</option>
+            <option value="Letter">Letter</option>
+            <option value="Legal">Legal</option>
+            <option value="B5">B5</option>
+          </select>
+        </label>
+        <label>
+          <span data-i18n="orientation">방향</span>
+          <select id="printOrient">
+            <option value="portrait" data-i18n="portrait">세로</option>
+            <option value="landscape" data-i18n="landscape">가로</option>
+          </select>
+        </label>
+        <fieldset class="print-margins">
+          <legend data-i18n="margin">여백 (mm)</legend>
+          <label>
+            <span data-i18n="marginTop">위</span>
+            <span class="num-step">
+              <button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button>
+              <input id="printMargin" type="number" min="0" max="40" step="1" value="12" inputmode="numeric" />
+              <button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button>
+            </span>
+          </label>
+          <label>
+            <span data-i18n="marginBottom">아래</span>
+            <span class="num-step">
+              <button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button>
+              <input id="printMarginBottom" type="number" min="0" max="40" step="1" value="12" inputmode="numeric" />
+              <button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button>
+            </span>
+          </label>
+          <label>
+            <span data-i18n="marginLeft">왼쪽</span>
+            <span class="num-step">
+              <button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button>
+              <input id="printMarginLeft" type="number" min="0" max="40" step="1" value="12" inputmode="numeric" />
+              <button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button>
+            </span>
+          </label>
+          <label>
+            <span data-i18n="marginRight">오른쪽</span>
+            <span class="num-step">
+              <button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button>
+              <input id="printMarginRight" type="number" min="0" max="40" step="1" value="12" inputmode="numeric" />
+              <button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button>
+            </span>
+          </label>
+        </fieldset>
+        <label>
+          <span data-i18n="pageHeading">페이지 헤딩</span>
+          <input id="printHeadingText" type="text" maxlength="80" data-i18n-placeholder="headingHint" placeholder="그래프 제목" />
+        </label>
+        <label>
+          <span data-i18n="headingAlign">헤딩 정렬</span>
+          <select id="printHeadingAlign">
+            <option value="left" data-i18n="alignLeft">왼쪽</option>
+            <option value="center" data-i18n="alignCenter" selected>가운데</option>
+            <option value="right" data-i18n="alignRight">오른쪽</option>
+          </select>
+        </label>
+        <label>
+          <span data-i18n="headingFont">헤딩 글꼴</span>
+          <select id="printHeadingFont">
+            <option value="malgun" data-i18n="fontMalgun" selected>맑은 고딕</option>
+            <option value="gulim" data-i18n="fontGulim">굴림</option>
+            <option value="dotum" data-i18n="fontDotum">돋움</option>
+            <option value="batang" data-i18n="fontBatang">바탕</option>
+            <option value="gungsuh" data-i18n="fontGungsuh">궁서</option>
+            <option value="segoe" data-i18n="fontSegoe">Segoe UI</option>
+            <option value="arial" data-i18n="fontArial">Arial</option>
+            <option value="times" data-i18n="fontTimes">Times New Roman</option>
+            <option value="georgia" data-i18n="fontGeorgia">Georgia</option>
+            <option value="consolas" data-i18n="fontConsolas">Consolas</option>
+          </select>
+        </label>
+        <label>
+          <span data-i18n="headingSize">헤딩 크기 (pt)</span>
+          <span class="num-step">
+            <button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button>
+            <input id="printHeadingSize" type="number" min="6" max="72" step="1" value="13" inputmode="numeric" />
+            <button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button>
+          </span>
+        </label>
+        <label>
+          <span data-i18n="footer">바닥글</span>
+          <input id="printFooterText" type="text" maxlength="80" data-i18n-placeholder="footerHint" placeholder="바닥글" />
+        </label>
+        <label class="print-check">
+          <input id="printBorder" type="checkbox" />
+          <span data-i18n="marginBorder">여백 테두리</span>
+        </label>
+        <label>
+          <span data-i18n="borderStyle">테두리</span>
+          <select id="printBorderStyle">
+            <option value="solid" data-i18n="borderSolid">실선</option>
+            <option value="dashed" data-i18n="borderDashed">파선</option>
+            <option value="double" data-i18n="borderDouble">겹선</option>
+          </select>
+        </label>
+        <label>
+          <span data-i18n="scale">배율</span>
+          <select id="printScale">
+            <option value="50">50%</option>
+            <option value="75">75%</option>
+            <option value="100" selected>100%</option>
+            <option value="125">125%</option>
+            <option value="150">150%</option>
+            <option value="200">200%</option>
+          </select>
+        </label>
+        <label>
+          <span data-i18n="colorMode">색</span>
+          <select id="printColor">
+            <option value="color" data-i18n="colorOn">컬러</option>
+            <option value="gray" data-i18n="grayscale">흑백</option>
+          </select>
+        </label>
+        <label class="print-check">
+          <input id="printPageNumber" type="checkbox" />
+          <span data-i18n="pageNumber">페이지 번호</span>
+        </label>
+        <label class="print-check">
+          <input id="printDate" type="checkbox" />
+          <span data-i18n="printDate">날짜</span>
+        </label>
+        <label>
+          <span data-i18n="copies">매수</span>
+          <span class="num-step">
+            <button type="button" class="step-down" data-i18n-aria="decrease" data-i18n-title="decrease" aria-label="감소" data-tooltip="감소">−</button>
+            <input id="printCopies" type="number" min="1" max="99" step="1" value="1" inputmode="numeric" />
+            <button type="button" class="step-up" data-i18n-aria="increase" data-i18n-title="increase" aria-label="증가" data-tooltip="증가">+</button>
+          </span>
+        </label>
+      </form>
+      <div class="print-stage">
+        <div class="print-preview" id="printPreview" data-i18n-aria="printPreview" aria-label="미리보기">
+          <p id="printWait" data-i18n="printWait">그래프를 불러오는 중</p>
+          <div class="print-page" id="printPage">
+            <div class="print-frame" id="printFrame">
+              <div class="print-heading" id="printHeading" hidden></div>
+              <div class="print-graph">
+                <img id="printImage" alt="" />
+              </div>
+              <div class="print-footer" id="printFooter" hidden></div>
+            </div>
+          </div>
+        </div>
+        <div class="print-actions">
+          <p class="print-error" id="printError"></p>
+          <button type="button" id="printNow" data-i18n="print" disabled>인쇄</button>
+          <button type="button" id="printCancel" data-i18n="close">닫기</button>
+        </div>
+      </div>
+    </section>
+    <style id="printPageStyle"></style>
+    <div id="graphEdgeN" class="graph-edge graph-edge-n" hidden></div>
+    <div id="graphEdgeS" class="graph-edge graph-edge-s" hidden></div>
+    <div id="graphEdgeW" class="graph-edge graph-edge-w" hidden></div>
+    <div id="graphEdgeE" class="graph-edge graph-edge-e" hidden></div>
+    <button type="button" id="graphResize" class="graph-resize" hidden data-i18n-aria="resize" data-i18n-title="resize" aria-label="창 크기 변경" data-tooltip="창 크기 변경"></button>
+  </main>
+  <div id="notice" class="notice" hidden>
+    <div class="notice-card" role="alertdialog" aria-modal="true" aria-labelledby="noticeTitle">
+      <div class="pop-title">
+        <img src="assets/icon.png" alt="" width="22" height="22" draggable="false" />
+        <h2 id="noticeTitle"></h2>
+      </div>
+      <p id="noticeDetail"></p>
+      <pre id="noticeSpot" hidden></pre>
+      <p id="noticeFix"></p>
+      <label id="noticeCopyField" hidden>
+        <span data-i18n="noticeCopyLabel">오류 내용</span>
+        <textarea id="noticeText" readonly></textarea>
+      </label>
+      <div class="notice-actions">
+        <button type="button" id="noticeCopy" hidden data-i18n="noticeCopy">복사</button>
+        <button type="button" id="noticeClose" data-i18n="close">닫기</button>
+      </div>
+    </div>
+  </div>
+  <script src="src/i18n.js"></script>
+  <script src="src/engine.js"></script>
+  <script src="src/graph.js"></script>
+  <script src="src/image-export.js"></script>
+  <script src="src/themes.js"></script>
+  <script src="src/rates.js"></script>
+  <script src="src/units.js"></script>
+  <script src="src/app.js"></script>
+</body>
+</html>

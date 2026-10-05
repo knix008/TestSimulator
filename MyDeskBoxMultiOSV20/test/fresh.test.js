@@ -317,3 +317,37 @@ test('Windows 에서는 대소문자가 달라도 같은 이름으로 본다', {
   await waitFor(() => room.asks.calls.length > 0, '대소문자가 다르다고 그냥 넘어갔다');
   await settle();
 });
+
+test('박스 폴더에서 바탕화면으로 옮겨 온 파일을 두고 대체할지 묻지 않는다', async () => {
+  const room = await withHeld('메모.txt', '하나뿐인 것');
+  const back = path.join(room.desk, '메모.txt');
+
+  // 탐색기로 박스 폴더의 파일을 바탕화면에 끌어다 놓았다. 새로 만든 것이 아니라 옮겨 온 것이고,
+  // 세상에 그 파일 하나뿐이다. 박스 목록에는 아직 들고 있는 것으로 적혀 있다.
+  fs.renameSync(room.held, back);
+  room.host.refreshIcons();
+  await settle();
+
+  assert.deepEqual(room.asks.calls, [], '하나뿐인 것을 두고 대체할지 물었다');
+  assert.deepEqual(room.state.fences[0].items, [], '없는 파일을 아직 들고 있다');
+  assert.equal(fs.existsSync(back), true, '옮겨 온 파일이 없어졌다');
+
+  // 그것을 다시 박스에 담을 때에도 부딪히는 것이 없다.
+  await room.host.dropFiles('a', [back], 0);
+  await settle();
+  assert.deepEqual(room.asks.calls, [], '다시 담을 때 대체할지 물었다');
+  assert.equal(room.state.fences[0].items.length, 1, '다시 담기지 않았다');
+  assert.equal(fs.readFileSync(room.state.fences[0].items[0].path, 'utf8'), '하나뿐인 것');
+});
+
+test('박스가 들고 있다고 적힌 파일이 없어졌으면 새로 만든 것을 두고 묻지 않는다', async () => {
+  const room = await withHeld('메모.txt', '묵은 것');
+
+  // 박스 폴더의 파일을 탐색기로 지웠다. 박스 목록만 남아 있다.
+  fs.rmSync(room.held);
+  fs.writeFileSync(path.join(room.desk, '메모.txt'), '새로 만든 것');
+  room.host.refreshIcons();
+  await settle();
+
+  assert.deepEqual(room.asks.calls, [], '버릴 것도 없이 대체할지 물었다');
+});

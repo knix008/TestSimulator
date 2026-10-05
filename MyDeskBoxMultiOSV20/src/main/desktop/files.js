@@ -139,21 +139,30 @@ function sameName(iconText, fileName) {
   return a === b || a === labelOf(b).toLowerCase();
 }
 
-// 바탕화면 아이콘에 적힌 글과 같은 파일. 탐색기는 확장자를 감추기도 한다.
-// '노트' 는 노트.txt 다. 같은 글에 파일이 둘이면 어느 것인지 모르므로 집지 않는다.
-function matchDesktopEntry(iconText, entries) {
+// 바탕화면 아이콘에 적힌 글과 같을 수 있는 파일 모두. 탐색기는 확장자를 감추기도 한다.
+// '노트' 는 노트.txt 다. 이름이 그대로 맞는 것이 있으면 그것 하나만 준다.
+//
+// 확장자를 감춰 두면 '보고서.docx' 와 '보고서.pdf' 가 둘 다 '보고서' 로 보인다.
+// 그래서 후보가 여럿일 수 있다. 어느 것인지 가리는 일은 그림 칸을 읽을 수 있는
+// 쪽(windows.js)에 맡긴다. 여기서는 판단할 수 있는 것만 판단한다.
+function matchDesktopEntries(iconText, entries) {
   const text = String(iconText || '').trim().toLowerCase();
-  if (!text) return null;
+  if (!text) return [];
   const list = entries || [];
   const exact = list.find((entry) => entry && String(entry.name).toLowerCase() === text);
-  if (exact) return exact;
-  const hits = list.filter((entry) => {
+  if (exact) return [exact];
+  return list.filter((entry) => {
     if (!entry || !entry.name) return false;
     const name = String(entry.name).toLowerCase();
     if (sameName(text, name)) return true;
     const dot = name.lastIndexOf('.');
     return dot > 0 && name.slice(0, dot) === text;
   });
+}
+
+// 위와 같되 하나로 좁혀지지 않으면 집지 않는다.
+function matchDesktopEntry(iconText, entries) {
+  const hits = matchDesktopEntries(iconText, entries);
   return hits.length === 1 ? hits[0] : null;
 }
 
@@ -186,5 +195,6 @@ module.exports = {
   labelOf,
   sameName,
   matchDesktopEntry,
+  matchDesktopEntries,
   watchDesktop,
 };

@@ -143,6 +143,13 @@ function install(host) {
         checked: !!settings.shadow,
         click: (item) => host.setShadow(item.checked),
       },
+      {
+        label: say('tray.blur'),
+        icon: icons.menu('draw'),
+        type: 'checkbox',
+        checked: settings.blur !== false,
+        click: (item) => host.setBlur(item.checked),
+      },
       // 담을 때 파일을 옮길지, 있는 자리에 두고 가리킬지. 파일이 움직이는 일이라 눈에 띄게 둔다.
       {
         label: say('tray.takeWith'),

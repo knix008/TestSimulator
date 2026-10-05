@@ -299,7 +299,7 @@ function makeDesktop() {
   const calls = {
     gather: [], release: [], moved: [], placed: [], blocks: [], drags: [],
     emptied: 0, binOwners: [], shutdown: 0, shell: [], hidden: [], revealed: [],
-    nudged: [], homed: [], refreshed: [], concealedDirs: [],
+    nudged: [], homed: [], refreshed: [], concealedDirs: [], seated: [],
   };
   // 검사에서 바탕화면으로 볼 폴더. 기본은 없다.
   let deskDirs = [];
@@ -356,6 +356,24 @@ function makeDesktop() {
       },
       syncShellIcons(items) {
         calls.shell.push((items || []).filter((item) => String(item.path).startsWith('shell:')).map((item) => item.path));
+      },
+      // 바탕화면 아이콘을 박스 칸으로 옮긴다. 파일 속성은 바꾸지 않는다.
+      seatKept(places) {
+        calls.seated.push((places || []).map((place) => ({ name: place.name, x: place.x, y: place.y })));
+      },
+      // 박스에 가리켜 둔 파일의 바탕화면 아이콘만 감춘다. 파일 자체는 그 자리에 둔다.
+      coverKept(paths) {
+        const want = new Set(paths || []);
+        for (const filePath of [...concealed]) {
+          if (want.has(filePath)) continue;
+          concealed.delete(filePath);
+          calls.revealed.push(filePath);
+        }
+        for (const filePath of want) {
+          if (concealed.has(filePath)) continue;
+          concealed.add(filePath);
+          calls.hidden.push(filePath);
+        }
       },
       // 박스가 깔고 앉은 바탕화면 아이콘을 밖으로 밀어낸다.
       nudge(blocks) {

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyPaint 10.0</title>
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="style/styles.css">
+</head>
+<body>
+  <div id="shell">
+    <div id="bgLayer"></div>
+    <div id="app">
+      <nav id="menubar" class="menubar"></nav>
+      <div id="toolbar" class="toolbar" role="toolbar"></div>
+      <div class="body">
+        <aside id="leftPanel" class="panel left"></aside>
+        <div class="splitter v" id="splitLeft" role="separator" aria-orientation="vertical" tabindex="-1"></div>
+        <div class="center">
+          <div class="tabbar">
+            <button id="tabPrev" class="tabnav" type="button">&lt;</button>
+            <div id="tabstrip" class="tabstrip"></div>
+            <button id="tabNext" class="tabnav" type="button">&gt;</button>
+          </div>
+          <div class="stage" id="stage">
+            <div class="canvas-frame" id="canvasFrame">
+              <canvas id="board" width="900" height="560"></canvas>
+              <div class="canvas-overlay" id="canvasOverlay" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+        <div class="splitter v" id="splitRight" role="separator" aria-orientation="vertical" tabindex="-1"></div>
+        <aside id="rightPanel" class="panel right"></aside>
+      </div>
+      <footer id="statusbar" class="statusbar"></footer>
+      <div id="resizeGrip" title="창 크기 변경" role="separator">
+        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <path d="M10 2 L2 10 M10 6 L6 10 M10 9.5 L9.5 10" />
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div id="menuLayer"></div>
+  <div id="popupLayer"></div>
+  <input id="fileOpen" type="file" accept=".mpaint,application/json" multiple hidden>
+  <input id="imageOpen" type="file" accept="image/*,.tif,.tiff,.heic,.heif,.hif,.jp2,.j2k,.dcm,.dicom,.cr2,.cr3,.nef,.arw,.dng,.orf,.raf,.rw2,.pef,.srw,.3fr,.iiq,.x3f,.mrw,.kdc,.dcr,.erf,.mef,.mos,.rwl,.sr2,.nrw,.gpr" multiple hidden>
+  <input id="bgOpen" type="file" accept="image/*" hidden>
+  <iframe id="printFrame" title="print"></iframe>
+  <script src="src/build-info.js"></script>
+  <script src="src/metrics.js"></script>
+  <script src="src/paint.js"></script>
+  <script src="src/dicom.js"></script>
+  <script src="src/encoders.js"></script>
+  <script src="src/formats.js"></script>
+  <script src="src/fonts.js"></script>
+  <script src="src/print.js"></script>
+  <script src="src/themes.js"></script>
+  <script src="src/i18n.js"></script>
+  <script src="src/icons.js"></script>
+  <script src="src/store.js"></script>
+  <script src="src/sample.js"></script>
+  <script src="src/app.js"></script>
+</body>
+</html>

@@ -11,6 +11,8 @@
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
 !include "WinMessages.nsh"
+; --updated 를 스스로 읽는다. 조용한 업데이트 제거에서는 바탕화면을 건드리지 않는다.
+!include "FileFunc.nsh"
 
 !ifndef BST_CHECKED
   !define BST_CHECKED 1
@@ -241,6 +243,28 @@ FunctionEnd
     RMDir /r "$APPDATA\${PRODUCT_FILENAME}"
   ${EndIf}
 
+  ; 이미 깔려 있는 위에 다시 깔았다. 앞선 판이 박스에 담아 둔 파일이 남아 있으면
+  ; 바탕화면으로 되돌릴지 물어본다. 되돌리는 일은 새로 깐 프로그램이 한다.
+  ; 그 길이 감춘 휴지통과 비켜 둔 아이콘 자리까지 함께 되돌린다.
+  ; 조용히 설치하는 길에서는 묻지 않고 그대로 둔다.
+  ${IfNot} ${Silent}
+  ${AndIf} $HasOldApp == 1
+  ${AndIf} ${FileExists} "$APPDATA\${PRODUCT_FILENAME}\boxes\restore.json"
+    ${If} $LANGUAGE == 1042
+      StrCpy $R0 "박스에 담아 둔 파일이 남아 있습니다.$\n$\n바탕화면을 원래대로 돌려놓을까요?$\n담아 둔 파일은 담기 전 자리로 돌아가고, 감춘 휴지통도 다시 보입니다.$\n'아니오' 를 고르면 박스에 그대로 두고 프로그램만 다시 깝니다."
+    ${Else}
+      StrCpy $R0 "Files are still kept inside your boxes.$\n$\nRestore the desktop to how it was?$\nThe files go back where they came from, and the hidden Recycle Bin comes back.$\nChoose No to keep them in the boxes and only reinstall the program."
+    ${EndIf}
+    MessageBox MB_YESNO|MB_ICONQUESTION "$R0" IDNO skipRestore
+      DetailPrint "바탕화면을 되돌립니다"
+      ExecWait '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --restore-desktop' $R1
+      ; 프로그램이 되돌리지 못한 것은 손으로 옮긴다. 보관함에 남겨 두면 보이지 않는다.
+      ${If} $R1 != 0
+        Call RestoreBoxFiles
+      ${EndIf}
+    skipRestore:
+  ${EndIf}
+
   ${If} $MakeDesktop == ${BST_CHECKED}
     CreateShortCut "$DESKTOP\${PRODUCT_FILENAME}.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0
   ${Else}
@@ -255,6 +279,38 @@ FunctionEnd
 !macroend
 
 !endif ; BUILD_UNINSTALLER
+
+; 프로그램을 지운다. 지우고 나면 바탕화면이 켜기 전 모습이어야 한다.
+;
+; 파일을 지우기 전에 되돌려야 하므로 여기(un.onInit)에서 한다. customUnInstall 은
+; 실행 파일이 이미 지워진 뒤에 돌아서, 프로그램에게 되돌리라고 부를 수 없다.
+;
+; 다시 깔 때에도 예전 제거 프로그램이 조용히 한 번 돌아간다(--updated).
+; 그때는 아무것도 되돌리지 않는다. 박스에 담아 둔 파일은 그 자리에 그대로 있어야 하고,
+; 되돌릴지 묻는 일은 새로 까는 설치 프로그램이 맡는다.
+!macro customUnInit
+  ${GetParameters} $R9
+  ClearErrors
+  ${GetOptions} $R9 "--updated" $R8
+  ${If} ${Errors}
+    ; 프로그램에게 되돌리라고 부른다. 아이콘 자리는 프로그램만 되돌릴 수 있다
+    ; (icon-homes.json 에 적어 둔 자리로 탐색기 목록을 옮긴다).
+    ; 아직 돌고 있으면 그 판이 감춘 것을 다시 감출 수 있다. 그래서 마지막 판단은
+    ; 앱이 확실히 멈춘 뒤에 도는 customUnInstall 이 한다.
+    ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+      DetailPrint "바탕화면을 되돌립니다"
+      ExecWait '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --restore-desktop' $R6
+    ${Else}
+      StrCpy $R6 1
+    ${EndIf}
+    ; 프로그램이 없거나 되돌리지 못한 것이 있으면 손으로 옮긴다.
+    ${If} $R6 != 0
+      Call un.RestoreBoxFiles
+    ${EndIf}
+    ; 감춘 셸 아이콘은 프로그램이 되살린다. 그 길이 막혔을 때를 위해 여기서도 되살린다.
+    Call un.ShowShellIcons
+  ${EndIf}
+!macroend
 
 ; 직접 만든 바로 가기는 지울 때도 직접 치운다.
 ;
@@ -272,6 +328,10 @@ FunctionEnd
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCT_FILENAME}"
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "com.suhokwon.mydeskbox"
     Call un.RestoreHeld
+    ; 여기가 마지막 판단이다. 앱은 이미 멈췄으므로 다시 감추거나 다시 담을 수 없다.
+    ; 프로그램이 앞서 되돌렸으면 옮길 것도, 지울 값도 없어 아무 일도 하지 않는다.
+    Call un.RestoreBoxFiles
+    Call un.ShowShellIcons
   ${EndIf}
 !macroend
 
@@ -279,6 +339,84 @@ FunctionEnd
 ; 설치 프로그램을 만들 때도 읽히면 NSIS 가 '쓰지 않는 제거 코드' 로 보고 경고를 낸다.
 ; electron-builder 는 경고를 오류로 다루므로 반드시 걸러 내야 한다.
 !ifdef BUILD_UNINSTALLER
+
+; 프로그램이 되돌리지 못했을 때 쓰는 손 복구.
+;
+; 보관함(설정 폴더 아래 boxes)의 박스 폴더마다 든 파일을 바탕화면으로 옮긴다.
+; 어디서 왔는지는 보지 않는다. 눈에 보이는 자리에 두는 것이 보관함에 남기는 것보다 낫다.
+Function un.RestoreBoxFiles
+  StrCpy $R0 "$APPDATA\${PRODUCT_FILENAME}\boxes"
+  IfFileExists "$R0\*.*" 0 unBoxesDone
+  FindFirst $R1 $R2 "$R0\*.*"
+  unBoxLoop:
+    StrCmp $R2 "" unBoxClose
+    StrCmp $R2 "." unBoxNext
+    StrCmp $R2 ".." unBoxNext
+    IfFileExists "$R0\$R2\*.*" 0 unBoxNext
+      Push "$R0\$R2"
+      Call un.EmptyToDesktop
+    unBoxNext:
+      FindNext $R1 $R2
+      Goto unBoxLoop
+  unBoxClose:
+    FindClose $R1
+  unBoxesDone:
+FunctionEnd
+
+; 폴더 하나에 든 것을 모두 바탕화면으로 옮긴다. 폴더 경로를 넣는다.
+; 같은 이름이 이미 있으면 앞에 번호를 붙여 둘 다 남긴다. 덮어쓰지 않는다.
+Function un.EmptyToDesktop
+  Exch $R3
+  Push $R4
+  Push $R5
+  Push $R6
+  Push $R7
+  FindFirst $R4 $R5 "$R3\*.*"
+  unMoveLoop:
+    StrCmp $R5 "" unMoveClose
+    StrCmp $R5 "." unMoveNext
+    StrCmp $R5 ".." unMoveNext
+    StrCpy $R7 0
+    StrCpy $R6 "$DESKTOP\$R5"
+    unSpareLoop:
+      IfFileExists "$R6" 0 unMoveGo
+      IntOp $R7 $R7 + 1
+      StrCpy $R6 "$DESKTOP\($R7) $R5"
+      Goto unSpareLoop
+    unMoveGo:
+      ClearErrors
+      Rename "$R3\$R5" "$R6"
+      ${IfNot} ${Errors}
+        SetFileAttributes "$R6" NORMAL
+      ${EndIf}
+    unMoveNext:
+      FindNext $R4 $R5
+      Goto unMoveLoop
+  unMoveClose:
+    FindClose $R4
+  Pop $R7
+  Pop $R6
+  Pop $R5
+  Pop $R4
+  Pop $R3
+FunctionEnd
+
+; 감춰 둔 셸 아이콘(휴지통, 내 PC 등)을 다시 보이게 한다.
+;
+; 박스에 담은 셸 아이콘은 레지스트리로 감춘다(HideDesktopIcons 아래 NewStartPanel).
+; 프로그램이 끝날 때 되살리지만, 작업 관리자로 끝났거나 지우는 길에 멈췄으면 값이 남는다.
+; 그러면 프로그램을 지운 뒤에도 휴지통이 보이지 않는다. 그 값을 지워 기본값(보이기)으로 둔다.
+; 아이콘 목록은 src/main/desktop/windows.js 의 SHELL_CLSID 와 같아야 한다.
+Function un.ShowShellIcons
+  StrCpy $R0 "Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
+  DeleteRegValue HKCU "$R0" "{645FF040-5081-101B-9F08-00AA002F954E}"
+  DeleteRegValue HKCU "$R0" "{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
+  DeleteRegValue HKCU "$R0" "{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}"
+  DeleteRegValue HKCU "$R0" "{59031A47-3F72-44A7-89C5-5595FE6B30EE}"
+  DeleteRegValue HKCU "$R0" "{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}"
+  ; 탐색기에게 바탕화면을 다시 그리라고 알린다.
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
+FunctionEnd
 
 ; 박스에 넣어 둔 파일은 설정 폴더에 있다. 지우기 전에 바탕화면으로 되돌린다.
 ; 예전 판이 파일을 held 폴더로 옮겨 두었을 때를 위한 것이다.

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyCalc 10.0 tests</title>
+  <link rel="stylesheet" href="runner.css" />
+</head>
+<body>
+  <div class="sticky">
+  <header class="top">
+    <div class="title-block">
+      <p class="eyebrow">MyCalc 10.0</p>
+      <h1>Test results</h1>
+    </div>
+    <div class="clock" id="clock" aria-live="polite">00:00.0</div>
+    <button type="button" id="rerun" disabled>Run again</button>
+  </header>
+
+  <section class="summary-panel" aria-label="Summary">
+    <h2 class="section-label">Summary</h2>
+    <div class="summary">
+      <article class="card total">
+        <span>Total</span>
+        <strong id="countTotal">0</strong>
+      </article>
+      <article class="card pass">
+        <span>Passed</span>
+        <strong id="countPass">0</strong>
+      </article>
+      <article class="card fail">
+        <span>Failed</span>
+        <strong id="countFail">0</strong>
+      </article>
+      <article class="card time">
+        <span>Duration</span>
+        <strong id="countTime">0 ms</strong>
+      </article>
+      <article class="card suites">
+        <span>Suites</span>
+        <strong id="countSuites">0</strong>
+      </article>
+    </div>
+    <div class="suite-summary" id="suiteSummary" aria-label="Results by suite"></div>
+    <div class="progress-panel">
+      <div class="progress-meta">
+        <p id="progressLabel">Preparing</p>
+        <p id="progressCount">0 / 0</p>
+      </div>
+      <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressBar">
+        <div class="fill" id="progressFill"></div>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <section class="details-panel" aria-label="Details">
+    <div class="details-head">
+      <h2 class="section-label">Details</h2>
+      <p class="details-note">Cases are grouped by suite. Each case is one line: number, status, name, and duration.</p>
+    </div>
+    <div class="detail-columns" aria-hidden="true">
+      <span>#</span>
+      <span>Status</span>
+      <span>Case</span>
+      <span>Duration</span>
+    </div>
+    <main id="report" class="report"></main>
+  </section>
+  <iframe id="appFrame" src="../index.html" title="MyCalc under test"></iframe>
+
+  <script src="runner.js"></script>
+  <script src="cases.js"></script>
+</body>
+</html>

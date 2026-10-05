@@ -1,0 +1,145 @@
+{
+  "name": "mypaint",
+  "version": "10.0.0",
+  "private": true,
+  "description": "MyPaint 10.0 drawing tool",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "icons": "node scripts/make-icons.js",
+    "start": "electron .",
+    "test": "node scripts/vendor.js && node scripts/make-fixtures.js && node scripts/test.js",
+    "build:web": "node scripts/build-web.js",
+    "build:win": "electron-builder --win --x64 && node scripts/copy-setup.js",
+    "build:linux": "electron-builder --linux --x64",
+    "build:macos": "node scripts/build-macos.js",
+    "build": "npm run icons && npm run vendor && npm run build:web && npm run build:win && npm run build:linux && npm run build:macos",
+    "vendor": "node scripts/vendor.js",
+    "fixtures": "node scripts/make-fixtures.js",
+    "samples": "node scripts/fetch-heic.js && node scripts/make-samples.js",
+    "samples:heic": "node scripts/fetch-heic.js"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.shkwon.mypaint",
+    "productName": "MyPaint",
+    "executableName": "MyPaint",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "popup.html",
+      "menu.html",
+      "style/**/*",
+      "src/**/*",
+      "electron/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/document.ico",
+        "to": "document.ico"
+      },
+      {
+        "from": "assets/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "assets/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "mpaint",
+        "name": "MyPaint.Drawing",
+        "description": "MyPaint Drawing",
+        "mimeType": "application/vnd.mypaint.drawing",
+        "icon": "assets/document.ico",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyPaint 10.0",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "language": "1042",
+      "include": "build/installer.nsh",
+      "license": "build/license.txt",
+      "artifactName": "MyPaint-${version}-windows-${arch}-setup.${ext}"
+    },
+    "linux": {
+      "icon": "assets/icons",
+      "target": [
+        "deb",
+        "AppImage",
+        "tar.gz"
+      ],
+      "category": "Graphics",
+      "synopsis": "Drawing and image editing tool",
+      "maintainer": "SHKWON <knix008@naver.com>",
+      "mimeTypes": [
+        "application/vnd.mypaint.drawing"
+      ],
+      "artifactName": "MyPaint-${version}-linux-${arch}.${ext}"
+    },
+    "deb": {
+      "fpm": [
+        "--before-install",
+        "build/linux-before-install.sh"
+      ]
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "identity": null,
+      "category": "public.app-category.graphics-design",
+      "target": [
+        "dmg",
+        "pkg",
+        "zip"
+      ],
+      "artifactName": "MyPaint-${version}-macos-${arch}.${ext}"
+    },
+    "pkg": {
+      "scripts": "build/pkg-scripts"
+    }
+  },
+  "dependencies": {
+    "@cornerstonejs/codec-charls": "^1.2.7",
+    "@cornerstonejs/codec-libjpeg-turbo-12bit": "^0.4.7",
+    "@cornerstonejs/codec-libjpeg-turbo-8bit": "^1.2.8",
+    "@cornerstonejs/codec-openjpeg": "^1.3.6",
+    "dicom-parser": "^1.8.21",
+    "jpeg-lossless-decoder-js": "^2.1.2",
+    "libheif-js": "^1.23.5",
+    "pako": "^2.2.0",
+    "utif": "^3.1.0"
+  }
+}

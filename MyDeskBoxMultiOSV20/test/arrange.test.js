@@ -89,3 +89,46 @@ test('접은 박스는 제목 줄만 남는다', () => {
   assert.equal(arrange.windowRect(fence).height, arrange.TITLE_H + 4);
   assert.equal(arrange.windowRect(fence, true).height, arrange.TITLE_H + 4 + arrange.SHADOW * 2);
 });
+
+test('끌어 그린 테두리는 닿은 아이콘만 고른다', () => {
+  // 세 칸이 한 줄에 들어가는 넓이. 칸 하나는 86 이고 왼쪽 여백은 12 다.
+  const grid = arrange.gridOf(400, 400, false);
+  assert.ok(grid.cols >= 3);
+  const points = arrange.reflowPoints(3, grid);
+  // 첫 칸 하나만 감싸는 테두리.
+  const one = {
+    x1: points[0].x + 2,
+    y1: points[0].y + 2,
+    x2: points[0].x + grid.cellW - 2,
+    y2: points[0].y + grid.cellH - 2,
+  };
+  assert.deepEqual(arrange.bandPicks(one, 3, grid), [0]);
+  // 첫 칸과 둘째 칸에 걸친 테두리.
+  const two = { x1: points[0].x + 40, y1: points[0].y + 4, x2: points[1].x + 40, y2: points[1].y + 40 };
+  assert.deepEqual(arrange.bandPicks(two, 3, grid), [0, 1]);
+  // 거꾸로(오른쪽 아래에서 왼쪽 위로) 끌어도 같다.
+  const back = { x1: two.x2, y1: two.y2, x2: two.x1, y2: two.y1 };
+  assert.deepEqual(arrange.bandPicks(back, 3, grid), [0, 1]);
+});
+
+test('칸 사이의 빈틈만 스치면 아무것도 고르지 않는다', () => {
+  const grid = arrange.gridOf(400, 400, false);
+  const points = arrange.reflowPoints(2, grid);
+  // 첫 칸의 오른쪽 끝과 둘째 칸의 왼쪽 끝 사이. 아이콘이 보이지 않는 자리다.
+  const gap = {
+    x1: points[1].x - 4,
+    y1: points[0].y + 40,
+    x2: points[1].x + 4,
+    y2: points[0].y + 44,
+  };
+  assert.deepEqual(arrange.bandPicks(gap, 2, grid), []);
+  // 줄과 줄 사이의 위아래 빈틈도 마찬가지다.
+  const between = { x1: points[0].x + 40, y1: points[0].y - 5, x2: points[0].x + 44, y2: points[0].y + 2 };
+  assert.deepEqual(arrange.bandPicks(between, 2, grid), []);
+});
+
+test('아이콘이 없으면 테두리는 아무것도 고르지 않는다', () => {
+  const grid = arrange.gridOf(400, 400, false);
+  assert.deepEqual(arrange.bandPicks({ x1: 0, y1: 0, x2: 400, y2: 400 }, 0, grid), []);
+  assert.deepEqual(arrange.bandPicks(null, 3, grid), []);
+});

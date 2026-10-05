@@ -65,6 +65,22 @@ test('확장자를 감춘 바탕화면 이름도 그 파일이다', () => {
   assert.equal(files.matchDesktopEntry('노트', twin), null);
 });
 
+// 확장자를 감춰 두면 '보고서.docx' 와 '보고서.pdf' 가 둘 다 '보고서' 로 보인다.
+// 그런 이름을 그냥 버리면 그 아이콘만 끌어다 놓기가 되지 않아, 파일 종류에 따라
+// 되고 안 되는 것처럼 보인다. 그래서 후보를 모두 주고, 몇 번째 아이콘인지로 가린다.
+test('같은 글로 보이는 파일이 여럿이면 후보를 모두 준다', () => {
+  const docx = { name: '보고서.docx', path: 'D:/Desktop/보고서.docx' };
+  const pdf = { name: '보고서.pdf', path: 'D:/Desktop/보고서.pdf' };
+  const notes = { name: '노트.txt', path: 'D:/Desktop/노트.txt' };
+  const entries = [docx, pdf, notes];
+  assert.deepEqual(files.matchDesktopEntries('보고서', entries), [docx, pdf]);
+  assert.deepEqual(files.matchDesktopEntries('노트', entries), [notes]);
+  // 이름이 그대로 맞으면 그것 하나만 준다. 확장자를 보여 주는 설정에서 오는 길이다.
+  assert.deepEqual(files.matchDesktopEntries('보고서.pdf', entries), [pdf]);
+  assert.deepEqual(files.matchDesktopEntries('없는것', entries), []);
+  assert.deepEqual(files.matchDesktopEntries('', entries), []);
+});
+
 // 계측으로 잡은 것이다. LVM_SETWORKAREAS 를 한 번 보내면 바탕화면 아이콘의 그림이
 // 모두 사라지고 이름만 남는다. 탐색기를 다시 띄우기 전에는 돌아오지 않는다.
 // 앱을 켤 때마다 normalizeList 가 이것을 보내고 있었다.

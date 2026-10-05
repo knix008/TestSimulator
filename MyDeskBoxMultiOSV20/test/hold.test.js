@@ -321,3 +321,27 @@ test('바꿀 수 없는 이름이면 파일을 건드리지 않는다', () => {
   assert.equal(hold.relabel(null, '뭐든.txt'), null);
   assert.equal(fs.existsSync(moved.path), true, '이름을 바꾸지도 못하고 파일을 잃었다');
 });
+
+test('옮기지 못했으면 stuck 을 붙여 알린다', () => {
+  // 보관함을 둘 자리에 같은 이름의 파일이 있어 폴더를 만들 수 없다.
+  // 그러면 옮길 곳이 없으므로 파일은 있던 자리에 그대로 남는다.
+  // 담는 쪽(fences.js bringIn)은 이 표를 보고 담지 않는다. 담은 것처럼 목록에 넣으면
+  // 파일은 바탕화면에 있으면서 박스에도 보이게 된다.
+  const desk = room('desk');
+  const user = room('user');
+  const root = path.join(room('hold'), 'boxes');
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, '일감'), '폴더가 아니다');
+  hold.configure({ root, desktopDir: desk, userDir: user });
+  const one = fileIn(desk, '메모.txt', '하나뿐');
+  const got = hold.take(box({ folder: '일감' }), one);
+  assert.equal(got.stuck, true, '옮기지 못한 것을 알리지 않았다');
+  assert.equal(got.path, one.path, '옮기지 못했는데 다른 자리를 알려 준다');
+  assert.equal(fs.existsSync(one.path), true, '옮기지 못했는데 파일이 없어졌다');
+});
+
+test('옮긴 것에는 stuck 이 붙지 않는다', () => {
+  const { desk } = fresh();
+  const got = hold.take(box(), fileIn(desk, '메모.txt', '하나뿐'));
+  assert.equal(got.stuck, undefined, '옮겼는데 못 옮긴 것으로 알린다');
+});

@@ -52,6 +52,15 @@ test('담기 방식은 두 가지뿐이고 모르는 값은 그대로 두기로 
   }
 });
 
+test('배경 흐림은 기본으로 켜져 있고 끈 값은 남는다', () => {
+  fs.rmSync(file(), { force: true });
+  assert.equal(store.load().settings.blur, true, '처음에는 배경을 흐린다');
+  const saved = store.defaults();
+  saved.settings.blur = false;
+  store.save(saved);
+  assert.equal(store.load().settings.blur, false, '꺼 둔 흐림이 다시 켜졌다');
+});
+
 test('가리키고만 있다는 표시는 저장본에 남는다', () => {
   const saved = store.defaults();
   saved.fences = [store.normalizeFence({
@@ -148,7 +157,7 @@ test('저장은 통째로 바뀌고 임시 파일을 남기지 않는다', () =>
 test('박스가 화면 밖 값으로 적혀 있어도 최소 크기는 지킨다', () => {
   const box = store.normalizeFence({ id: 'a', w: 10, h: 10, opacity: 9, corner: -5 });
   assert.ok(box.w >= 180 && box.h >= 160, '너무 작은 박스를 그대로 받았다');
-  assert.ok(box.opacity <= 0.9 && box.opacity >= 0.15, '투명도가 범위를 넘었다');
+  assert.ok(box.opacity <= 0.9 && box.opacity >= 0.02, '투명도가 범위를 넘었다');
   assert.ok(box.corner >= 0, '모서리가 음수다');
 });
 

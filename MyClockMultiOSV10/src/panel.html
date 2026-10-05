@@ -11,12 +11,13 @@
   </head>
   <body class="panel-body">
     <nav class="tab-strip" id="tabStrip">
-      <button class="tab" data-tab="world" type="button">세계 시간</button>
-      <button class="tab" data-tab="alarm" type="button">알람</button>
-      <button class="tab" data-tab="timer" type="button">타이머</button>
-      <button class="tab" data-tab="stopwatch" type="button">스톱워치</button>
-      <button class="tab" data-tab="calendar" type="button">캘린더</button>
-      <button class="tab" data-tab="settings" type="button">설정</button>
+      <button class="tab" data-tab="world" type="button"><span class="tab-icon">🌍</span><span class="tab-label">세계 시간</span></button>
+      <button class="tab" data-tab="alarm" type="button"><span class="tab-icon">⏰</span><span class="tab-label">알람</span></button>
+      <button class="tab" data-tab="timer" type="button"><span class="tab-icon">⏳</span><span class="tab-label">타이머</span></button>
+      <button class="tab" data-tab="stopwatch" type="button"><span class="tab-icon">⏱</span><span class="tab-label">스톱워치</span></button>
+      <button class="tab" data-tab="calendar" type="button"><span class="tab-icon">🗓</span><span class="tab-label">캘린더</span></button>
+      <button class="tab" data-tab="settings" type="button"><span class="tab-icon">⚙</span><span class="tab-label">설정</span></button>
+      <button id="panelDetachBtn" class="tab-close" type="button" title="이 탭을 별도 창으로 분리">⧉</button>
       <button id="panelCloseBtn" class="tab-close" type="button" title="패널 닫기 (Esc)">✕</button>
     </nav>
 
@@ -37,12 +38,20 @@
           </div>
           <button id="cityAddBtn" class="btn btn-accent" type="button">추가</button>
         </div>
+        <div class="hint">
+          각 줄의 <b>시계</b> 단추를 누르면 그 도시의 시계 창이 하나 더 열립니다.
+          시계마다 테마·모양을 따로 정할 수 있습니다.
+        </div>
+        <label class="check-row">
+          <input id="worldUse24h" type="checkbox" />
+          <span>이 목록을 24시간으로 표기</span>
+        </label>
         <ul id="worldList" class="world-list"></ul>
       </section>
 
       <!-- ── 알람 ──────────────────────────────────────────────────── -->
       <section class="tab-page" data-page="alarm">
-        <div class="section-title">알람</div>
+        <div class="section-title"><span class="section-icon">⏰</span>알람</div>
         <ul id="alarmList" class="alarm-list"></ul>
         <button id="alarmAddBtn" class="btn btn-accent block" type="button">알람 추가</button>
 
@@ -69,7 +78,7 @@
 
       <!-- ── 타이머 ────────────────────────────────────────────────── -->
       <section class="tab-page" data-page="timer">
-        <div class="section-title">타이머</div>
+        <div class="section-title"><span class="section-icon">⏳</span>타이머</div>
         <ul id="timerList" class="timer-list"></ul>
         <button id="timerAddBtn" class="btn btn-accent block" type="button">타이머 추가</button>
       </section>
@@ -165,89 +174,153 @@
       </section>
 
       <!-- ── 설정 ──────────────────────────────────────────────────── -->
+      <!-- 창 하나에 다 넣으면 길어져 스크롤이 생기므로, 갈래별 탭으로 나눈다. -->
       <section class="tab-page" data-page="settings">
-        <div class="section-title">알람 / 타이머 종료음</div>
-        <select id="soundSelect" class="select-input block"></select>
-        <div class="slider-row">
-          <span class="slider-label">볼륨</span>
-          <input id="volumeSlider" class="slider" type="range" min="0" max="100" />
-          <span id="volumeValue" class="slider-value"></span>
-        </div>
-        <button id="soundPreviewBtn" class="btn block" type="button">미리듣기</button>
+        <nav class="sub-tabs" id="settingsTabs">
+          <button class="sub-tab" data-sub="look" type="button"><span class="sub-icon">🎨</span>테마</button>
+          <button class="sub-tab" data-sub="color" type="button"><span class="sub-icon">🖌</span>색</button>
+          <button class="sub-tab" data-sub="clock" type="button"><span class="sub-icon">🕘</span>시계</button>
+          <button class="sub-tab" data-sub="style" type="button"><span class="sub-icon">✒</span>스타일</button>
+          <button class="sub-tab" data-sub="sound" type="button"><span class="sub-icon">🔔</span>소리</button>
+        </nav>
 
-        <div class="section-title">시계 모드</div>
-        <div class="segmented" id="modeGroup">
-          <button class="seg-btn" data-value="digital" type="button">디지털</button>
-          <button class="seg-btn" data-value="analog" type="button">아날로그</button>
-        </div>
+        <!-- 모양 — 테마와 색 -->
+        <div class="sub-page" data-sub-page="look">
+          <div class="section-title"><span class="section-icon">🎨</span>테마</div>
+          <div class="segmented" id="themeBaseGroup">
+            <button class="seg-btn" data-value="dark" type="button">어두운 바탕</button>
+            <button class="seg-btn" data-value="light" type="button">밝은 바탕</button>
+          </div>
+          <div id="themeGrid" class="theme-grid"></div>
+          <div class="hint">
+            모든 테마 색은 어두운 판과 밝은 판을 함께 가집니다. 위에서 바탕을 고르면
+            같은 색의 반대쪽 판으로 바뀝니다.
+          </div>
 
-        <div class="section-title">디지털 표시 밝기</div>
-        <div class="slider-row">
-          <input id="brightnessSlider" class="slider" type="range" min="10" max="100" />
-          <span id="brightnessValue" class="slider-value"></span>
-        </div>
-        <div class="hint">디지털 시계 위에서 마우스 휠을 굴려도 조절됩니다.</div>
-
-        <div class="section-title">시간 형식</div>
-        <div class="segmented" id="formatGroup">
-          <button class="seg-btn" data-value="12" type="button">12시간</button>
-          <button class="seg-btn" data-value="24" type="button">24시간</button>
         </div>
 
-        <div class="section-title">오전/오후 색상</div>
-        <div class="color-row">
-          <input id="amPmColor" class="color-input" type="color" />
-          <span id="amPmColorValue" class="color-value"></span>
+        <!-- 색 — 사용자 정의 테마 색과 표시 색 -->
+        <div class="sub-page" data-sub-page="color">
+          <div class="section-title"><span class="section-icon">🖌</span>사용자 정의 테마 색</div>
+          <div class="color-card">
+            <label class="color-line" for="customThemeColor">
+              <input id="customThemeColor" class="color-input" type="color" />
+              <span class="color-name">
+                사용자 색 테마
+                <small>고른 색으로 테마 한 벌을 만들어 바로 적용합니다</small>
+              </span>
+              <span id="customThemeColorValue" class="color-value"></span>
+            </label>
+          </div>
+          <div class="hint">
+            테마 목록 맨 끝의 "사용자 색" 칸이 이 색으로 바뀝니다.
+            바탕 밝기는 <b>테마</b> 갈래의 어두운/밝은 바탕 선택을 따릅니다.
+          </div>
+
+          <div class="section-title"><span class="section-icon">🎯</span>표시 색</div>
+          <div class="color-card">
+            <label class="color-line" for="digitColor">
+              <input id="digitColor" class="color-input" type="color" />
+              <span class="color-name">
+                디지털 숫자
+                <small>테마를 바꾸면 그 테마 색으로 되돌아갑니다</small>
+              </span>
+              <span id="digitColorValue" class="color-value"></span>
+            </label>
+
+            <label class="color-line" for="amPmColor">
+              <input id="amPmColor" class="color-input" type="color" />
+              <span class="color-name">
+                오전/오후 · 도시
+                <small>숫자 위 머리글 줄의 색</small>
+              </span>
+              <span id="amPmColorValue" class="color-value"></span>
+            </label>
+          </div>
         </div>
 
-        <div class="section-title">테마</div>
-        <div id="themeGrid" class="theme-grid"></div>
+        <!-- 시계 — 어느 시계를 어떻게 보일지 -->
+        <div class="sub-page" data-sub-page="clock">
+          <div class="hint" id="clockScopeHint"></div>
 
-        <div class="section-title">디지털 숫자 색상</div>
-        <div class="color-row">
-          <input id="digitColor" class="color-input" type="color" />
-          <span id="digitColorValue" class="color-value"></span>
+          <div class="section-title"><span class="section-icon">🌍</span>도시 (시간대)</div>
+          <select id="clockZone" class="select-input block"></select>
+          <label class="check-row">
+            <input id="clockShowCity" type="checkbox" />
+            <span>창에 도시 이름 표시</span>
+          </label>
+
+          <div class="section-title"><span class="section-icon">◷</span>시계 모드</div>
+          <div class="segmented" id="modeGroup">
+            <button class="seg-btn" data-value="digital" type="button">디지털</button>
+            <button class="seg-btn" data-value="analog" type="button">아날로그</button>
+          </div>
+
+          <div class="section-title"><span class="section-icon">⏱</span>시간 형식</div>
+          <div class="segmented" id="formatGroup">
+            <button class="seg-btn" data-value="12" type="button">12시간</button>
+            <button class="seg-btn" data-value="24" type="button">24시간</button>
+          </div>
+          <div class="hint" id="formatHint" hidden>
+            아날로그 시계는 문자판 안에 오전/오후를 그리므로 시간 형식을 쓰지 않습니다.
+          </div>
+
+          <div class="section-title"><span class="section-icon">☀</span>디지털 표시 밝기</div>
+          <div class="slider-row">
+            <input id="brightnessSlider" class="slider" type="range" min="10" max="100" />
+            <span id="brightnessValue" class="slider-value"></span>
+          </div>
+          <div class="hint">디지털 시계 위에서 마우스 휠을 굴려도 조절됩니다.</div>
+
+          <button id="clockCloseBtn" class="btn btn-danger block" data-scope="clock" type="button" hidden>
+            이 시계 닫기
+          </button>
         </div>
-        <div class="hint">
-          테마를 고르면 그 테마의 색으로 바뀝니다. 직접 고른 색은 다음 테마 변경 전까지
-          유지되며, 같은 테마를 다시 누르면 테마 색으로 되돌아갑니다.
+
+        <!-- 스타일 — 문자판과 숫자 모양 -->
+        <div class="sub-page" data-sub-page="style">
+          <div class="section-title"><span class="section-icon">🔢</span>디지털 스타일</div>
+          <select id="digitalStyleSelect" class="select-input block"></select>
+          <div class="hint">7세그먼트·도트는 켜진 부분만 그려 투명 창에서도 숫자만 보입니다.</div>
+
+          <div class="section-title"><span class="section-icon">🕰</span>아날로그 스타일</div>
+          <select id="analogStyleSelect" class="select-input block"></select>
+          <div class="hint">아날로그에서는 오전/오후·날짜·도시를 문자판 안에 그립니다.</div>
+
+          <div class="section-title"><span class="section-icon">⛶</span>전체 화면 시계</div>
+          <div class="hint">
+            지금 설정 그대로 화면 전체에 띄웁니다 (배경은 투명합니다).
+            아무 키나 누르거나 클릭하면 닫힙니다.
+          </div>
+          <button id="fullscreenBtn" class="btn block" type="button">전체 화면으로 보기</button>
         </div>
 
-        <div class="section-title">디지털 스타일</div>
-        <select id="digitalStyleSelect" class="select-input block"></select>
-
-        <div class="section-title">아날로그 스타일</div>
-        <select id="analogStyleSelect" class="select-input block"></select>
-
-        <div class="section-title">세계 시간 형식</div>
-        <label class="check-row">
-          <input id="worldUse24h" type="checkbox" />
-          <span>세계 시간 24시간 표기</span>
-        </label>
-
-        <div class="section-title">전체 화면 시계</div>
-        <div class="hint">
-          디지털·아날로그 시계를 전체 화면으로 띄웁니다. 아무 키나 누르거나 클릭하면 닫힙니다.
+        <!-- 소리 — 알람·타이머 종료음 (앱 전체 공용) -->
+        <div class="sub-page" data-sub-page="sound">
+          <div data-scope="main">
+            <div class="section-title"><span class="section-icon">🔔</span>알람 / 타이머 종료음</div>
+            <select id="soundSelect" class="select-input block"></select>
+            <div class="slider-row">
+              <span class="slider-label">볼륨</span>
+              <input id="volumeSlider" class="slider" type="range" min="0" max="100" />
+              <span id="volumeValue" class="slider-value"></span>
+            </div>
+            <button id="soundPreviewBtn" class="btn block" type="button">미리듣기</button>
+            <div class="hint">
+              알람음은 모든 시계가 함께 씁니다.<br />
+              항상 위에 표시 · 시작 시 자동 실행 · 세계 시간 24시간 표기 · 기본값으로 초기화는
+              <b>트레이 아이콘</b>을 우클릭해 바꿉니다.
+            </div>
+          </div>
         </div>
-        <button id="fullscreenBtn" class="btn block" type="button">전체 화면으로 보기</button>
 
-        <div class="section-title">시스템</div>
-        <label class="check-row">
-          <input id="alwaysOnTop" type="checkbox" />
-          <span>항상 위에 표시</span>
-        </label>
-        <label class="check-row">
-          <input id="startWithSystem" type="checkbox" />
-          <span>시작 시 자동 실행</span>
-        </label>
-
-        <button id="resetBtn" class="btn btn-danger block" type="button">기본값으로 초기화</button>
       </section>
     </main>
 
     <script src="js/data/themes.js"></script>
     <script src="js/data/styles.js"></script>
     <script src="js/data/cities.js"></script>
+    <script src="js/zone-time.js"></script>
     <script src="js/timers.js"></script>
     <script src="js/analog-clock.js"></script>
     <script src="js/tones.js"></script>

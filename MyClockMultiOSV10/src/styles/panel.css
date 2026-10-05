@@ -41,6 +41,35 @@ body.panel-left {
   background: var(--tab-background, #181825);
 }
 
+/* 별도 창으로 분리한 탭 — 탭 줄 대신 제목만 남기고 그 탭 내용만 보여 준다.
+   창 전체를 끌어 옮길 수 있도록 제목 줄을 드래그 영역으로 둔다. */
+.tool-window .tab-strip .tab {
+  display: none;
+}
+
+.tool-window .tab-strip .tab.active {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 auto;
+  text-align: left;
+  padding-left: 10px;
+  font-weight: 600;
+  border-bottom-color: transparent;
+  -webkit-app-region: drag;
+  cursor: default;
+}
+
+/* 제목 줄의 아이콘 — 어느 창인지 한눈에 보이도록 */
+.tab-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tool-window .tab-close {
+  -webkit-app-region: no-drag;
+}
+
 .tab {
   flex: 1 1 0;
   padding: 8px 4px;
@@ -71,6 +100,12 @@ body.panel-left {
   overflow-x: hidden;
 }
 
+/* 설정 창은 갈래 탭으로 나누어 한 화면에 담는다 — 스크롤 막대를 두지 않는다.
+   (알람·캘린더처럼 목록이 길어지는 창은 그대로 스크롤한다) */
+.settings-window .tab-content {
+  overflow: hidden;
+}
+
 .tab-page {
   display: none;
   padding: 8px 10px 12px;
@@ -83,10 +118,121 @@ body.panel-left {
 /* ── 공용 위젯 ──────────────────────────────────────────────────────── */
 
 .section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 14px 0 6px;
   font-size: 12px;
   font-weight: 600;
   color: var(--subtle-foreground, #a6adc8);
+}
+
+/* 항목마다 작은 그림 하나 — 무엇에 대한 설정인지 한눈에 보이도록 */
+.section-icon {
+  width: 16px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--accent, #89b4fa);
+}
+
+/* ── 설정 창의 갈래 탭 ─────────────────────────────────────────────── */
+
+.sub-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 2px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border, #45475a);
+}
+
+.sub-tab {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--subtle-foreground, #a6adc8);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sub-tab:hover {
+  background: var(--button-background, #45475a);
+  color: var(--foreground, #cdd6f4);
+}
+
+.sub-tab.active {
+  background: var(--button-background, #45475a);
+  border-color: var(--accent, #89b4fa);
+  color: var(--foreground, #cdd6f4);
+}
+
+.sub-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* 한 번에 한 갈래만 보여 준다 — 그래야 스크롤이 생기지 않는다. */
+.sub-page {
+  display: none;
+}
+
+.sub-page.active {
+  display: block;
+}
+
+.sub-page > .section-title:first-child {
+  margin-top: 2px;
+}
+
+/* 색 고르개 — 한 줄에 하나씩, 무엇을 고르는 색인지 함께 적는다. */
+.color-card {
+  border: 1px solid var(--border, #45475a);
+  border-radius: 7px;
+  background: var(--panel-background, #313244);
+  overflow: hidden;
+}
+
+.color-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.color-line + .color-line {
+  border-top: 1px solid var(--border, #45475a);
+}
+
+.color-line:hover {
+  background: var(--button-background, #45475a);
+}
+
+.color-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.color-name small {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--subtle-foreground, #a6adc8);
+}
+
+.color-line .color-value {
+  flex: 0 0 auto;
+  font-size: 12px;
 }
 
 .tab-page > .section-title:first-child {
@@ -244,6 +390,15 @@ body.panel-left {
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
+}
+
+/* 쓰이지 않는 설정 — 눌리지 않고 흐리게 보인다. */
+.segmented.disabled {
+  opacity: 0.45;
+}
+
+.seg-btn:disabled {
+  cursor: default;
 }
 
 .seg-btn.active {
@@ -773,8 +928,20 @@ body.panel-left {
 
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 5px;
+  /* 칸 너비는 가장 긴 테마 이름에 맞춰 JS 가 --theme-tile 로 넣어 준다.
+     그래야 이름이 잘리지 않고, 창 폭에 따라 줄 수만 바뀐다. */
+  grid-template-columns: repeat(auto-fill, minmax(var(--theme-tile, 104px), 1fr));
+  gap: 4px;
+  /* 아래 설명·색 고르개와 붙지 않도록 숨을 띄운다. */
+  margin: 8px 0 14px;
+}
+
+.theme-grid + .hint {
+  margin-bottom: 14px;
+}
+
+.color-grid .section-title {
+  margin-top: 4px;
 }
 
 /* 버튼 배경·글자색은 JS 가 각 테마 색으로 직접 채운다 (인라인 스타일). */
@@ -782,12 +949,12 @@ body.panel-left {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 7px 4px;
+  gap: 4px;
+  padding: 6px 3px;
   border: 1px solid var(--border, #45475a);
   border-radius: 5px;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
   cursor: pointer;
 }
 
@@ -798,7 +965,7 @@ body.panel-left {
 /* 선택 표시는 배경 대신 테두리로 — 배경은 테마 색을 보여줘야 한다 */
 .theme-btn.active {
   border-width: 2px;
-  padding: 6px 3px;
+  padding: 5px 2px;
   font-weight: 600;
 }
 
@@ -808,15 +975,15 @@ body.panel-left {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 13px;
-  height: 13px;
+  width: 11px;
+  height: 11px;
   border: 1px solid;
   border-radius: 50%;
 }
 
 .theme-swatch-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
 }
 

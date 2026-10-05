@@ -1,5 +1,11 @@
 'use strict';
-/** One-off: convert MyClockWinV10/Themes/*.xaml into src/js/data/themes.js CSS variables. */
+/**
+ * One-off: convert MyClockWinV10/Themes/*.xaml into src/js/data/themes.js CSS variables.
+ *
+ * 주의: themes.js 에는 이 변환본 뒤로 손으로 더한 부분(buildTheme 팔레트 테마,
+ * CustomTheme, 색 섞기 helper)이 있다. 이 스크립트를 다시 돌리면 그 부분이 지워진다.
+ * 다시 돌릴 일이 있으면 기존 파일의 "색 섞기" 주석 아래쪽을 따로 떼어 두고 붙여야 한다.
+ */
 const fs = require('fs');
 const path = require('path');
 

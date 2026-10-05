@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>MyMerge tests</title>
+  <link rel="stylesheet" href="runner.css">
+</head>
+<body>
+  <header>
+    <h1>MyMerge 10.0 tests</h1>
+    <button id="rerun" type="button" disabled>Run</button>
+    <span id="progressLabel">Starting</span>
+    <span id="clock">0.0s</span>
+  </header>
+  <section id="summary"></section>
+  <p class="counts">
+    <span>Total <b id="countTotal">0</b></span>
+    <span>Passed <b id="countPass">0</b></span>
+    <span>Failed <b id="countFail">0</b></span>
+    <span>Time <b id="countTime">0 ms</b></span>
+  </p>
+  <div id="report"></div>
+  <iframe id="appFrame" src="/index.html?test=1" title="MyMerge"></iframe>
+  <script src="cases.js"></script>
+  <script src="runner.js"></script>
+</body>
+</html>

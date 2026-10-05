@@ -217,8 +217,8 @@ test('바탕화면을 다루는 앱은 한 번에 하나만 뜬다', () => {
 });
 
 // 휴지통은 파일이 아니라 셸 항목이다. 폴더로 옮길 것이 없으므로 목록에만 담고,
-// 바탕화면 쪽 아이콘은 감춘다. 박스 창이 대신 그리므로 두 곳에 겹쳐 보이면 안 된다.
-test('휴지통을 담으면 바탕화면에서는 감춘다', () => {
+// 바탕화면 아이콘은 박스 칸으로 옮긴다. 숨김으로 지우지는 않는다.
+test('휴지통을 담으면 박스 칸으로 옮긴다', () => {
   const state = baseState({
     fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
   });
@@ -226,7 +226,9 @@ test('휴지통을 담으면 바탕화면에서는 감춘다', () => {
   host.openAll();
   host.refreshIcons();
 
-  assert.deepEqual(desktop.calls.shell.at(-1), ['shell:RecycleBinFolder'], '휴지통을 감추지 않았다');
+  assert.deepEqual(desktop.calls.shell.at(-1), [], '휴지통을 숨김으로 감췄다');
+  const seated = desktop.calls.seated.at(-1);
+  assert.ok(seated.some((spot) => spot.name === '휴지통'), '휴지통을 박스 칸으로 옮기지 않았다');
   assert.deepEqual(state.fences[0].items.map((item) => item.path), ['shell:RecycleBinFolder']);
 });
 
@@ -362,16 +364,15 @@ test('박스를 숨기면 밀어낸 아이콘을 제자리로 돌려준다', () 
   assert.deepEqual(desktop.calls.release.at(-1), [], '숨길 때 아이콘을 돌려주지 않았다');
 });
 
-// 박스는 칸 경계 가까이에서만 붙는다. 칸의 배수로 묶어 두지는 않는다.
-test('칸 경계 가까이에 그린 박스는 딱 맞게 붙는다', () => {
+// 박스 자리는 바탕화면 아이콘 격자와 무관하다. 칸 경계 옆이어도 그린 대로 둔다.
+test('칸 경계 가까이에 그려도 그 자리에 둔다', () => {
   const state = baseState();
   const { host, desktop } = loadHost(state);
   desktop.useGrid({ x0: 20, y0: 30, dx: 80, dy: 100 });
 
   const made = host.finishDraw({ x: 105, y: 135, w: 316, h: 292 });
 
-  assert.deepEqual([made.x, made.y], [100, 130], '칸 경계에 붙지 않았다');
-  assert.deepEqual([made.w, made.h], [320, 300], '칸에 붙지 않았다');
+  assert.deepEqual([made.x, made.y, made.w, made.h], [105, 135, 316, 292], '바탕화면 격자에 붙었다');
 });
 
 test('칸 사이에 그린 박스는 그린 대로 둔다', () => {

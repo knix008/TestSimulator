@@ -1,0 +1,87 @@
+{
+  "name": "mycalc",
+  "version": "10.0.0",
+  "private": true,
+  "description": "MyCalc 10.0",
+  "homepage": "https://localhost/mycalc",
+  "desktopName": "mycalc.desktop",
+  "main": "electron/main.js",
+  "author": "MyCalc",
+  "scripts": {
+    "start": "electron .",
+    "test": "node scripts/test.js",
+    "build": "npm run build:web && npm run build:win && npm run build:linux && npm run build:macos",
+    "build:web": "node scripts/build-web.js",
+    "build:win": "electron-builder --win --x64 && node scripts/copy-setup.js",
+    "build:win:arm64": "electron-builder --win --arm64 && node scripts/copy-setup.js",
+    "build:win:ia32": "electron-builder --win --ia32 && node scripts/copy-setup.js",
+    "build:linux": "electron-builder --linux --x64",
+    "build:linux:arm64": "electron-builder --linux --arm64",
+    "build:macos": "node scripts/build-macos.js",
+    "build:macos:arm64": "node scripts/build-macos.js --arm64"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "local.mycalc.desktop",
+    "productName": "MyCalc",
+    "executableName": "MyCalc",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "index.html",
+      "style/**/*",
+      "src/**/*",
+      "electron/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "artifactName": "MyCalc-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyCalc 10.0",
+      "artifactName": "MyCalc-${version}-windows-${arch}-setup.${ext}",
+      "include": "build/installer.nsh",
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "language": "1042"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "target": [
+        "tar.gz",
+        "zip"
+      ],
+      "category": "Utility",
+      "synopsis": "계산기",
+      "maintainer": "MyCalc <mycalc@localhost>",
+      "syncDesktopName": true,
+      "artifactName": "MyCalc-${version}-linux-${arch}.${ext}"
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "identity": null,
+      "target": [
+        "zip"
+      ],
+      "category": "public.app-category.utilities",
+      "artifactName": "MyCalc-${version}-macos-${arch}.${ext}"
+    }
+  }
+}

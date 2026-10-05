@@ -31,6 +31,13 @@ const DEFAULT_SETTINGS = {
   use24h: false,
   worldUse24h: false,
   theme: 'DarkTheme',
+  // 메인 시계의 도시 — 비워 두면 이 컴퓨터의 시각을 쓴다.
+  zone: null,
+  city: '',
+  showCity: true,
+  // 사용자 정의 테마(CustomTheme)를 만들 색과 바탕 밝기.
+  customThemeColor: '#89B4FA',
+  customThemeLight: false,
   brightness: 50,
   digitColor: '#58A6FF',
   amPmColor: '#89B4FA',
@@ -55,6 +62,11 @@ const DEFAULT_SETTINGS = {
   analogWindowTop: null,
   alarms: [],
   worldCities: null,
+  // 추가 시계 — 시간대·테마·모양을 저마다 따로 갖는 시계 창들.
+  // 알람·타이머·스톱워치·캘린더는 앱 전체가 함께 쓰므로 여기에 들어가지 않는다.
+  extraClocks: [],
+  // 별도 창으로 분리한 탭들의 위치·크기 (tab 이름 → bounds)
+  toolWindows: {},
   timers: [{ label: '', hours: 0, minutes: 5, seconds: 0 }],
   alarmSoundId: 'Marimba',
   alarmVolume: 50,
@@ -153,6 +165,55 @@ function normalizeCity(raw) {
   };
 }
 
+/**
+ * 추가 시계 하나.
+ *
+ * 시계마다 따로 갖는 것: 시간대(도시), 테마, 디지털/아날로그, 스타일, 시간 형식,
+ * 밝기, 색, 창 위치·크기. 알람·타이머·스톱워치·일정은 앱이 하나로 들고 있으므로
+ * 여기에는 없다.
+ */
+function normalizeExtraClock(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  if (typeof src.zone !== 'string' || !src.zone) return null;
+  return {
+    id: typeof src.id === 'string' && src.id ? src.id : `clock-${Math.random().toString(36).slice(2, 10)}`,
+    city: typeof src.city === 'string' ? src.city : '',
+    region: typeof src.region === 'string' ? src.region : '',
+    zone: src.zone,
+    showCity: src.showCity !== false,
+    theme: typeof src.theme === 'string' && src.theme ? src.theme : DEFAULT_SETTINGS.theme,
+    customThemeColor: hex(src.customThemeColor, DEFAULT_SETTINGS.customThemeColor),
+    customThemeLight: src.customThemeLight === true,
+    isDigital: src.isDigital !== false,
+    digitalStyle: typeof src.digitalStyle === 'string' ? src.digitalStyle : DEFAULT_SETTINGS.digitalStyle,
+    analogStyle: typeof src.analogStyle === 'string' ? src.analogStyle : DEFAULT_SETTINGS.analogStyle,
+    use24h: src.use24h === true,
+    brightness: clamp(num(src.brightness, DEFAULT_SETTINGS.brightness), 10, 100),
+    digitColor: hex(src.digitColor, DEFAULT_SETTINGS.digitColor),
+    amPmColor: hex(src.amPmColor, DEFAULT_SETTINGS.amPmColor),
+    windowWidth: clamp(num(src.windowWidth, 260), 140, 4000),
+    windowHeight: clamp(num(src.windowHeight, 180), 50, 4000),
+    windowLeft: nullableNum(src.windowLeft),
+    windowTop: nullableNum(src.windowTop)
+  };
+}
+
+/** 분리한 탭 창의 위치·크기. 탭 이름 → {x, y, width, height} */
+function normalizeToolWindows(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const out = {};
+  for (const [tab, value] of Object.entries(src)) {
+    if (!value || typeof value !== 'object') continue;
+    out[tab] = {
+      x: nullableNum(value.x),
+      y: nullableNum(value.y),
+      width: clamp(num(value.width, 420), 280, 4000),
+      height: clamp(num(value.height, 560), 200, 4000)
+    };
+  }
+  return out;
+}
+
 function normalizeSettings(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const cities = Array.isArray(src.worldCities)
@@ -163,6 +224,12 @@ function normalizeSettings(raw) {
     use24h: src.use24h === true,
     worldUse24h: src.worldUse24h === true,
     theme: typeof src.theme === 'string' && src.theme ? src.theme : DEFAULT_SETTINGS.theme,
+    // 메인 시계도 도시를 고를 수 있다 — 비워 두면 이 컴퓨터의 시각.
+    zone: typeof src.zone === 'string' && src.zone ? src.zone : null,
+    city: typeof src.city === 'string' ? src.city : '',
+    showCity: src.showCity !== false,
+    customThemeColor: hex(src.customThemeColor, DEFAULT_SETTINGS.customThemeColor),
+    customThemeLight: src.customThemeLight === true,
     brightness: clamp(num(src.brightness, DEFAULT_SETTINGS.brightness), 0, 100),
     digitColor: hex(src.digitColor, DEFAULT_SETTINGS.digitColor),
     amPmColor: hex(src.amPmColor, DEFAULT_SETTINGS.amPmColor),
@@ -186,6 +253,10 @@ function normalizeSettings(raw) {
     analogWindowTop: nullableNum(src.analogWindowTop),
     alarms: Array.isArray(src.alarms) ? src.alarms.map(normalizeAlarm) : [],
     worldCities: cities && cities.length ? cities : null,
+    extraClocks: Array.isArray(src.extraClocks)
+      ? src.extraClocks.map(normalizeExtraClock).filter(Boolean)
+      : [],
+    toolWindows: normalizeToolWindows(src.toolWindows),
     timers: Array.isArray(src.timers) && src.timers.length
       ? src.timers.map(normalizeTimer)
       : DEFAULT_SETTINGS.timers.map(normalizeTimer),
@@ -378,6 +449,7 @@ module.exports = {
   DEFAULT_SETTINGS,
   DEFAULT_WORLD_CITIES,
   defaults,
+  normalizeExtraClock,
   loadSettings,
   saveSettings,
   loadEvents,

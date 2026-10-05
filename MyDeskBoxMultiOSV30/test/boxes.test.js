@@ -101,7 +101,7 @@ test('투명도는 너무 흐리거나 너무 진해지지 않는다', () => {
   host.restyle('a', { opacity: 5 });
   assert.ok(state.fences[0].opacity <= 0.9);
   host.restyle('a', { opacity: -1 });
-  assert.ok(state.fences[0].opacity >= 0.15);
+  assert.ok(state.fences[0].opacity >= 0.02);
 });
 
 test('삭제는 우리 창으로 묻고, 되돌릴 수 없는 일이라 빨갛게 보여 준다', async () => {

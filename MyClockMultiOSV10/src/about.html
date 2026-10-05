@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <title>MyClock 정보</title>
+    <link rel="stylesheet" href="styles/about.css" />
+  </head>
+  <body class="about-body">
+    <header class="about-head">
+      <span class="about-title"><span class="tab-icon">ℹ</span>프로그램 정보</span>
+      <button id="aboutCloseBtn" class="about-close" type="button" title="닫기 (Esc)">✕</button>
+    </header>
+
+    <main class="about-main">
+      <!-- 앱 아이콘 — 메인 프로세스가 asset/icon.svg 를 읽어 넣어 준다 -->
+      <div id="aboutIcon" class="about-icon"></div>
+
+      <div id="aboutName" class="about-name"></div>
+      <div id="aboutVersion" class="about-version"></div>
+      <div id="aboutTagline" class="about-tagline">
+        Windows · Linux · macOS 공통 데스크톱 시계
+      </div>
+
+      <div class="about-section">빌드 정보</div>
+      <dl id="aboutBuild" class="about-table"></dl>
+
+      <div class="about-section">제작</div>
+      <dl class="about-table">
+        <dt>제작자</dt>
+        <dd id="aboutAuthor"></dd>
+        <dt>메일</dt>
+        <dd><a id="aboutEmail" href="#" class="about-link"></a></dd>
+        <dt>라이선스</dt>
+        <dd id="aboutLicense"></dd>
+      </dl>
+
+      <div id="aboutCopyright" class="about-copyright"></div>
+    </main>
+
+    <script src="js/data/themes.js"></script>
+    <script src="js/about.js"></script>
+  </body>
+</html>
