@@ -509,7 +509,8 @@ const GRAPH_HELP = {
     {
       title: "축의 범위와 광원",
       notes: [
-        "색 단추 오른쪽의 칸이 각 축의 최소와 최대입니다. 그려지는 범위가 곧 이 범위입니다.",
+        "색 단추 오른쪽의 칸이 각 축의 최소와 최대입니다. 2D 는 두 축의 한 눈금 길이를 맞추느라 적어 준 범위보다 넓게 보일 수 있고, 좁아지지는 않습니다.",
+        "식을 더했을 때 그 값이 창 밖에 거의 다 나가 있으면, 값에 맞게 범위를 다시 잡아 보이도록 합니다. 이미 잘 보이는 그림은 건드리지 않습니다.",
         "3D 상자는 숫자가 아무리 커도 정육면체로 그려집니다. z 를 넓히면 눈금 간격이 넓어질 뿐 그림이 솟지 않습니다.",
         "맨 오른쪽 세 칸은 광원의 자리입니다. 축의 숫자와 같은 단위로 적습니다.",
         "값이 잘못되면 칸이 붉어지고 그리던 범위로 되돌아갑니다.",
@@ -594,7 +595,8 @@ const GRAPH_HELP = {
     {
       title: "The range of the axes, and the lamp",
       notes: [
-        "The boxes right of the colour buttons are the smallest and largest of each axis. What is drawn is exactly that range.",
+        "The boxes right of the colour buttons are the smallest and largest of each axis. In 2D the window may show more than was asked for, to keep one unit the same length on both axes, but never less.",
+        "When a formula is added and almost none of it falls inside the window, the range is taken from its values so that it can be seen. A picture that already reads well is left alone.",
         "The 3D box is a cube however large the numbers are. Widening z spreads the height ticks instead of raising a spike.",
         "The last three boxes are where the lamp hangs, written in the same numbers as the axes.",
         "A value that cannot be used turns the box red and goes back to the range being drawn.",

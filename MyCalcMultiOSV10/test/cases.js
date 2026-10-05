@@ -3793,3 +3793,110 @@ suite("Graph help", () => {
     }
   });
 });
+
+suite("Fitting the window to the values", () => {
+  const draws = (expr) => appCall((text) => {
+    board.setDimension("2d");
+    board.resetView();
+    while (board.functions.length) board.removeFunction(board.functions[0].id);
+    const before = { ...board.view };
+    board.addFunction(text);
+    const fn = board.functions[board.functions.length - 1];
+    const span = board.view.xMax - board.view.xMin;
+    let inside = 0;
+    let total = 0;
+    for (let step = 0; step <= 200; step++) {
+      const x = board.view.xMin + (span * step) / 200;
+      const y = board.evalScope(fn.ast, { x });
+      if (!Number.isFinite(y)) continue;
+      total += 1;
+      if (y >= board.view.yMin && y <= board.view.yMax) inside += 1;
+    }
+    const after = { ...board.view };
+    const stretched = board.stretched;
+    while (board.functions.length) board.removeFunction(board.functions[0].id);
+    board.resetView();
+    return { before, after, inside, total, stretched };
+  }, expr);
+
+  test("A curve drawn clear off the window brings the window to it", () => {
+    // Every value of this one is at least 9.6, climbing to eleven thousand
+    // million, so the ten by ten window it lands in shows next to nothing.
+    const fit = draws("sum(k, 1, 10, x^k+1)");
+    assert(fit.after.yMax !== fit.before.yMax, "the window never moved");
+    assert(fit.inside / fit.total > 0.9, `only ${fit.inside} of ${fit.total} points are in view`);
+    assert(fit.after.xMin === fit.before.xMin && fit.after.xMax === fit.before.xMax, "the range of x was changed as well");
+    assert(fit.stretched === true, "the window was left to be squared back out of shape");
+  });
+
+  test("A curve that already reads well is left where it is", () => {
+    for (const expr of ["sin(x)", "x^2", "1/x", "tan(x)", "x^3/50"]) {
+      const fit = draws(expr);
+      assert(fit.after.yMin === fit.before.yMin && fit.after.yMax === fit.before.yMax, `${expr} moved the window to ${fit.after.yMin}..${fit.after.yMax}`);
+      assert(fit.stretched === false, `${expr} gave up the square units for nothing`);
+    }
+  });
+
+  test("A flat line far above the window is framed around itself", () => {
+    const fit = draws("sum(k, 1, 10, k)");
+    assert(fit.inside === fit.total, `${fit.inside} of ${fit.total} points are in view`);
+    // Framed around the value, not stretched from zero up to it.
+    assert(fit.after.yMin > 0, `the window starts at ${fit.after.yMin}`);
+    assert(fit.after.yMax - fit.after.yMin < 55, `the window is ${fit.after.yMax - fit.after.yMin} tall for a flat line`);
+  });
+
+  test("A pole does not drag the window out to its spike", () => {
+    const bounds = appCall(() => {
+      // One value runs away; the rest sit between nought and ten.
+      const ordinary = [];
+      for (let step = 0; step <= 400; step++) ordinary.push((step % 11) - 1);
+      const spiked = [...ordinary, 1e15, -1e15, 4e14];
+      return { plain: board.fitBounds(ordinary), spiked: board.fitBounds(spiked) };
+    });
+    assert(bounds.spiked, "nothing came back for the spiked values");
+    assert(bounds.spiked.high < 100, `the window reaches ${bounds.spiked.high}`);
+    assert(bounds.spiked.low > -100, `the window reaches ${bounds.spiked.low}`);
+    assert(bounds.plain.low <= -1 && bounds.plain.high >= 9, `the plain values gave ${bounds.plain.low}..${bounds.plain.high}`);
+  });
+
+  test("A 3D surface above the ceiling raises the ceiling", () => {
+    const fit = appCall(() => {
+      board.setDimension("3d");
+      board.resetView();
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      const before = { zMin: board.view.zMin, zMax: board.view.zMax };
+      board.addFunction("x^2+y^2");
+      const after = { zMin: board.view.zMin, zMax: board.view.zMax };
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.setDimension("2d");
+      board.resetView();
+      return { before, after };
+    });
+    // The bowl climbs to two hundred over a ten by ten floor.
+    assert(fit.after.zMax >= 200, `the ceiling stopped at ${fit.after.zMax}`);
+    assert(fit.after.zMax > fit.before.zMax, "the ceiling never moved");
+  });
+
+  test("A range set by hand, or reset, takes the square units back", () => {
+    const state = appCall(() => {
+      board.setDimension("2d");
+      board.resetView();
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.addFunction("sum(k, 1, 10, x^k+1)");
+      const fitted = board.stretched;
+      board.setView({ yMin: -5, yMax: 5 });
+      const typed = board.stretched;
+      board.addFunction("sum(k, 1, 10, x^k+1)");
+      const refitted = board.stretched;
+      board.resetView();
+      const reset = board.stretched;
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      return { fitted, typed, refitted, reset };
+    });
+    assert(state.fitted === true, "the window was never framed around the values");
+    assert(state.typed === false, "a range set by hand did not take the square units back");
+    assert(state.refitted === true, "the window was not framed again for the new curve");
+    assert(state.reset === false, "reset left the window out of shape");
+  });
+});

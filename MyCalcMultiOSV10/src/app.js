@@ -946,10 +946,14 @@ function syncViewFields() {
   syncAxisSpans();
 }
 
-// A number the reader can edit: short enough to fit, exact enough to type back.
+// A number the reader can edit: short enough to fit the box, and written so
+// that typing it back gives the same number.
 function spanText(value) {
   if (!Number.isFinite(value)) return "";
-  return String(Number(value.toPrecision(10)));
+  if (value === 0) return "0";
+  const size = Math.abs(value);
+  if (size >= 1e5 || size < 1e-3) return value.toExponential(3).replace("e+", "e");
+  return String(Number(value.toPrecision(8)));
 }
 
 function syncAxisSpans() {
@@ -1968,6 +1972,7 @@ function snapshotGraph() {
     light: { ...board.light },
     floorZ: Number.isFinite(board.floorZ) ? board.floorZ : null,
     zAuto: board.zAuto !== false,
+    stretched: board.stretched === true,
     axes: {
       x: { ...board.axes.x },
       y: { ...board.axes.y },
@@ -2039,6 +2044,7 @@ function applyGraphState(state) {
     if (state.light) Object.assign(board.light, state.light);
     board.floorZ = Number.isFinite(state.floorZ) ? state.floorZ : null;
     board.zAuto = state.zAuto !== false;
+    board.stretched = state.stretched === true;
     board.meshKey = "";
     board.draw();
     syncGraphChrome();

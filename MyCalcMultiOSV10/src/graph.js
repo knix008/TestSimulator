@@ -60,6 +60,14 @@ function fillWindowBackdrop(ctx, width, height) {
 }
 
 const FLOOR_CELLS = 5;
+// A new curve is left where the reader put the window, unless the window has
+// almost nothing of it in view. Below this share of the curve the picture is
+// empty enough to be worth re-framing around the values.
+const FIT_SHOWN = 0.15;
+const FIT_SAMPLES = 401;
+// The outermost values are dropped before framing, so one pole cannot press
+// the whole curve into a hairline across the middle of the window.
+const FIT_TRIM = 0.01;
 // How far an axis carries on past the face of the box, as a share of its own
 // half-length. The diagonal of the box reaches about 1.41, so this keeps the
 // ends of the axes clear of the drawing without racing away from it.
@@ -115,6 +123,9 @@ class GraphBoard {
     };
     this.camera = { yaw: -0.75, pitch: -1.05, zoom: 1.35 };
     this.light = { on: true, azimuth: -0.95, elevation: 0.9, reach: 1.3 };
+    // Set when a window was framed around the values rather than measured in
+    // equal units. It is cleared the moment the reader sets a range by hand.
+    this.stretched = false;
     this.floorZ = null;
     this.lightHit = null;
     this.hover = null;
@@ -178,9 +189,92 @@ class GraphBoard {
       legendText: "",
     };
     this.functions.push(fn);
+    this.fitIfHidden();
     this.draw();
     this.onChange?.();
     return fn;
+  }
+
+  // The values a curve takes right across the window, for deciding what the
+  // window ought to be. 3D is read off the mesh, which is already worked out.
+  sampleValues() {
+    const values = [];
+    if (this.dimension === "3d") {
+      this.buildMeshes();
+      for (const mesh of this.meshes || []) {
+        for (const value of mesh.z) if (Number.isFinite(value)) values.push(value);
+      }
+      return values;
+    }
+    // The range on the axes, not the slice the canvas widened it to: the
+    // window is framed around the stretch of curve the reader asked for.
+    const { xMin, xMax } = this.view;
+    for (const fn of this.functions) {
+      if (!fn.visible) continue;
+      for (let step = 0; step < FIT_SAMPLES; step++) {
+        const x = xMin + ((xMax - xMin) * step) / (FIT_SAMPLES - 1);
+        const value = this.evalScope(fn.ast, { x });
+        if (Number.isFinite(value)) values.push(value);
+      }
+    }
+    return values;
+  }
+
+  // A window around the middle of the values, with the extremes left out and
+  // a margin added, so a curve meets the window rather than its edges.
+  fitBounds(values) {
+    if (values.length < 2) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const edge = Math.floor(sorted.length * FIT_TRIM);
+    let low = sorted[edge];
+    let high = sorted[sorted.length - 1 - edge];
+    // The trim is there to throw away a pole, not the top of an honest climb,
+    // so an end that sits near the rest of the curve is taken back.
+    const span = high - low;
+    if (span > 0) {
+      if (sorted[0] > low - span * 2) low = sorted[0];
+      if (sorted[sorted.length - 1] < high + span * 2) high = sorted[sorted.length - 1];
+    }
+    if (!(high > low)) {
+      // One value from end to end: give it room to be a line, not an edge.
+      const middle = Number.isFinite(low) ? low : 0;
+      const room = Math.max(Math.abs(middle) * 0.2, 1);
+      low = middle - room;
+      high = middle + room;
+    }
+    const margin = (high - low) * 0.08;
+    low -= margin;
+    high += margin;
+    if (!Number.isFinite(low) || !Number.isFinite(high) || !(high > low)) return null;
+    return { low, high };
+  }
+
+  // Re-frame only when the window has almost nothing of the drawing in it.
+  // A curve that is already readable is left exactly where the reader put it.
+  fitIfHidden() {
+    const values = this.sampleValues();
+    if (values.length < 2) return false;
+    const low = this.dimension === "3d" ? this.view.zMin : this.view.yMin;
+    const high = this.dimension === "3d" ? this.view.zMax : this.view.yMax;
+    const inside = values.filter((value) => value >= low && value <= high).length;
+    if (inside / values.length >= FIT_SHOWN) return false;
+    const bounds = this.fitBounds(values);
+    if (!bounds) return false;
+    if (this.dimension === "3d") {
+      this.view.zMin = bounds.low;
+      this.view.zMax = bounds.high;
+      this.zAuto = false;
+    } else {
+      this.view.yMin = bounds.low;
+      this.view.yMax = bounds.high;
+      // Equal units across both axes would widen x until the curve became a
+      // hairline again, which is the very thing this is undoing.
+      this.stretched = true;
+    }
+    this.meshKey = "";
+    this.scene = null;
+    this.onView?.();
+    return true;
   }
 
   removeFunction(id) {
@@ -228,6 +322,9 @@ class GraphBoard {
       if (!(next.zMax > next.zMin)) throw new Error(uiText("범위가 올바르지 않습니다", "The range is not valid"));
       this.zAuto = false;
     }
+    // A range set by hand goes back to units of the same length on both axes,
+    // which may show more than was asked for but never less.
+    this.stretched = false;
     Object.assign(this.view, next);
     this.meshKey = "";
     this.draw();
@@ -236,6 +333,7 @@ class GraphBoard {
 
   resetView() {
     this.zAuto = false;
+    this.stretched = false;
     if (this.dimension === "3d") {
       Object.assign(this.view, { xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
       this.camera = { yaw: -0.75, pitch: -1.05, zoom: 1.35 };
@@ -722,7 +820,7 @@ class GraphBoard {
     const height = this.canvas.height;
     const spanX = view.xMax - view.xMin;
     const spanY = view.yMax - view.yMin;
-    if (this.dimension !== "2d" || !this.autoSquare || !(width > 0) || !(height > 0) || !(spanX > 0) || !(spanY > 0)) {
+    if (this.stretched || this.dimension !== "2d" || !this.autoSquare || !(width > 0) || !(height > 0) || !(spanX > 0) || !(spanY > 0)) {
       this.drawn = view;
       return;
     }
