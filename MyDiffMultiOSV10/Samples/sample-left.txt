@@ -1,0 +1,59 @@
+# MyDiff Sample - Left File
+# Configuration for Project Alpha
+# Generated: 2026-07-04
+
+[application]
+name = MyDiffWinV10
+version = 1.0.0
+author = SHKWON
+license = MIT
+
+[database]
+host = localhost
+port = 5432
+name = app_db
+pool_size = 10
+ssl_mode = prefer
+
+[logging]
+level = info
+format = json
+rotate = daily
+max_files = 14
+
+[features]
+dark_mode = true
+auto_save = true
+line_numbers = true
+word_wrap = false
+binary_diff = true
+
+[paths]
+data = ./data
+logs = ./logs
+temp = ./tmp
+
+# Shared documentation block - identical in both files
+# The diff engine uses LCS to align unchanged lines as anchors.
+# Added, removed, and modified lines are classified between anchors.
+
+[notes]
+status = active
+reviewer = team-a
+last_review = 2026-06-15
+
+[cache]
+enabled = true
+ttl_seconds = 3600
+backend = redis
+prefix = mydiff:
+
+[ui]
+theme = slate
+font = Consolas
+font_size = 10.0
+language = ko
+
+[experimental]
+new_overview_bar = false
+hex_dump = false

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-us"
+                 xmlns="http://wixtoolset.org/schemas/v4/wxl"
+                 Codepage="1252">
+  <String Id="UserDataDlg_Title" Value="User Settings" Overridable="yes" />
+  <String Id="UserDataDlgTitle" Value="{\WixUI_Font_Title}Saved application data" Overridable="yes" />
+  <String Id="UserDataDlgBannerBitmap" Value="WixUIBannerBmp" Overridable="yes" />
+  <String Id="UserDataDlgUpgradeDescription"
+          Value="The existing MyDiff Win V10 installation will be completely removed before the new version is installed. If saved user settings are found, you can choose whether to delete them."
+          Overridable="yes" />
+  <String Id="UserDataDlgRemoveDescription"
+          Value="MyDiff Win V10 will be removed from this computer."
+          Overridable="yes" />
+  <String Id="UserDataDlgInstallDescription"
+          Value="Saved user settings (settings.json) were found. Choose whether to remove them before installation continues."
+          Overridable="yes" />
+  <String Id="UserDataDlgFolderDescription"
+          Value="Settings are stored in %AppData%\MyDiffWinV10\settings.json (window size, font, language, and last compared files/directories)."
+          Overridable="yes" />
+  <String Id="UserDataDlgCheckBox"
+          Value="Remove saved user settings from this computer"
+          Overridable="yes" />
+</WixLocalization>
