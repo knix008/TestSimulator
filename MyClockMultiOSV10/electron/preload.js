@@ -89,7 +89,8 @@ const api = {
 
   fullscreen: {
     open: () => ipcRenderer.send('fullscreen:open'),
-    close: () => ipcRenderer.send('fullscreen:close')
+    close: () => ipcRenderer.send('fullscreen:close'),
+    fit: (box) => ipcRenderer.send('fullscreen:fit', box)
   },
 
   tray: {

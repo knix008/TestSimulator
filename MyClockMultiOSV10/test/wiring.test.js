@@ -349,10 +349,23 @@ test('전체 화면 시계도 배경이 투명하다', () => {
   assert.match(main, /setAlwaysOnTop\(true, 'screen-saver'\)/);
   assert.match(main, /function fullscreenDisplayBounds/);
 
-  // 클릭이나 마우스 움직임으로 닫히면 전체 화면이 유지되지 않는다.
+  // 마우스로는 닫지 않는다. ESC 와 설정 메뉴로만 원래 시계로 돌아온다.
   const page = readSource('src/js/fullscreen.js');
   assert.ok(!page.includes('mousemove'), '마우스 움직임으로 전체 화면이 닫힌다');
-  assert.ok(!page.includes('fullscreen.close'), '입력으로 전체 화면이 닫힌다');
+  assert.match(page, /event\.key !== 'Escape'/);
+  assert.match(page, /api\.fullscreen\.close\(\)/);
+  assert.match(page, /api\.fullscreen\.fit\(/);
+
+  assert.match(main, /function detachOwnedOverlays/);
+  assert.match(main, /function hideClocksForFullscreen/);
+  assert.match(main, /function showClocksAfterFullscreen/);
+  assert.match(main, /function fullscreenClockBounds/);
+  assert.match(main, /globalShortcut\.register\('Escape'/);
+  assert.match(main, /setIgnoreMouseEvents\(true,\s*\{\s*forward:\s*true\s*\}\)/);
+  assert.match(main, /ipcMain\.on\('fullscreen:fit'/);
+  assert.match(readSource('electron/preload.js'), /fit: \(box\) => ipcRenderer\.send\('fullscreen:fit', box\)/);
+  assert.match(readSource('src/fullscreen.html'), /class="full-clock"/);
+  assert.ok(!/background:\s*rgba\(0,\s*0,\s*0/.test(css), '전체 화면 바탕이 마우스를 받는 색으로 칠해져 있다');
 });
 
 test('트레이 메뉴 항목마다 아이콘이 있고, 설정에서 원래 크기로 돌아간다', () => {

@@ -1,6 +1,6 @@
 'use strict';
 
-/** 전체 화면 시계 — 현재 설정을 그대로 쓰고, 설정에서 원래 크기로 돌아갈 때까지 유지한다. */
+/** 전체 화면 시계 — 시계 상자만 창으로 남긴다. ESC 로 원래 시계에 돌아온다. */
 
 const api = window.myclock;
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -71,10 +71,59 @@ function tick() {
   }
 }
 
+let fitted = false;
+
+function freezeElement(el, rect) {
+  const cs = getComputedStyle(el);
+  el.style.flex = '0 0 auto';
+  el.style.width = `${rect.width}px`;
+  el.style.height = `${rect.height}px`;
+  el.style.fontSize = cs.fontSize;
+  el.style.lineHeight = cs.lineHeight;
+  if (cs.gap && cs.gap !== 'normal') el.style.gap = cs.gap;
+}
+
+/** 시계가 실제로 차지하는 상자만 창으로 남긴다. 그 밖은 마우스가 바탕으로 간다. */
+function fitToClock() {
+  if (fitted) return;
+  const clock = document.querySelector('.full-clock');
+  if (!clock) return;
+  const nodes = [clock, ...clock.querySelectorAll('*')];
+  const rects = nodes.map((el) => el.getBoundingClientRect());
+  const rect = rects[0];
+  if (rect.width < 8 || rect.height < 8) return;
+  fitted = true;
+  nodes.forEach((el, index) => {
+    if (rects[index].width < 1 || rects[index].height < 1) return;
+    freezeElement(el, rects[index]);
+  });
+  const pad = 28;
+  api.fullscreen.fit({
+    x: Math.round(rect.left - pad),
+    y: Math.round(rect.top - pad),
+    width: Math.ceil(rect.width + pad * 2),
+    height: Math.ceil(rect.height + pad * 2)
+  });
+}
+
+function scheduleFit() {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(fitToClock);
+  });
+}
+
+window.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  event.preventDefault();
+  api.fullscreen.close();
+});
+
 api.settings.load().then((loaded) => {
   applySettings(loaded);
   tick();
   window.setInterval(tick, 200);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleFit);
+  else scheduleFit();
 });
 
 api.bus.onFromClock((message) => {

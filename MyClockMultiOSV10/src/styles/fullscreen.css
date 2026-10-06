@@ -1,4 +1,4 @@
-/* 전체 화면 시계 — Windows 전용 .scr 화면 보호기를 대신하는 크로스플랫폼 모드. */
+/* 전체 화면 시계 — 시계가 그려진 상자만 창으로 남고, 밖은 바탕이 마우스를 받는다. */
 
 * {
   box-sizing: border-box;
@@ -14,9 +14,7 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  /* 배경은 투명하다 — 바탕화면 위에 시계만 떠 있다.
-     완전 투명한 픽셀은 마우스 이벤트를 받지 못하므로 아주 옅게만 칠한다. */
-  background: rgba(0, 0, 0, 0.004);
+  background: transparent;
   color: var(--foreground, #cdd6f4);
   font-family: 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   cursor: default;
@@ -32,16 +30,23 @@ body {
 
 .full-stage {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2vh;
+  width: 100%;
   height: 100%;
-  padding: 6vh 6vw;
+}
+
+.full-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: 92vw;
+  gap: 1.6vh;
 }
 
 .full-date {
-  font-size: clamp(16px, 2.4vw, 40px);
+  font-size: clamp(16px, 2.2vw, 36px);
   color: var(--subtle-foreground, #a6adc8);
 }
 
@@ -49,13 +54,12 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  height: 60%;
-  min-height: 0;
+  width: max-content;
+  max-width: 92vw;
 }
 
 .full-ampm {
-  font-size: clamp(18px, 2.6vw, 44px);
+  font-size: clamp(18px, 2.4vw, 40px);
   font-weight: 700;
   color: var(--digital-ampm-color, var(--accent, #89b4fa));
 }
@@ -65,33 +69,27 @@ body {
 }
 
 .full-canvas {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 0;
+  width: min(88vw, 1400px);
+  height: min(32vh, 280px);
 }
 
 .full-text {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  font-size: clamp(48px, 12vw, 260px);
+  font-size: clamp(64px, 10vw, 220px);
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.05;
   white-space: nowrap;
   color: var(--digital-text-color, var(--digital-text, #89b4fa));
 }
 
 .full-analog {
-  width: min(70vh, 70vw);
-  height: min(70vh, 70vw);
+  width: min(64vh, 64vw);
+  height: min(64vh, 64vw);
 }
 
 .full-hint {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 3vh;
+  max-width: min(88vw, 640px);
   text-align: center;
   font-size: 14px;
-  opacity: 0.35;
+  line-height: 1.4;
+  opacity: 0.45;
 }

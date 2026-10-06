@@ -25,7 +25,8 @@ const {
   nativeImage,
   screen,
   shell,
-  powerMonitor
+  powerMonitor,
+  globalShortcut
 } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -76,6 +77,8 @@ const startInTray = process.argv.some((arg) => arg.toLowerCase() === STARTUP_ARG
 /** @type {Electron.BrowserWindow | null} */ let panelWin = null;
 /** @type {Electron.BrowserWindow | null} */ let alarmWin = null;
 /** @type {Electron.BrowserWindow | null} */ let fullWin = null;
+/** 전체 화면으로 들어가며 숨긴 시계 — 돌아올 때 이 창만 다시 보인다. */
+const clocksHiddenForFullscreen = new Set();
 /** @type {Electron.BrowserWindow | null} */ let menuWin = null;
 /** @type {Electron.BrowserWindow | null} */ let aboutWin = null;
 /** @type {Electron.Tray | null} */ let tray = null;
@@ -478,6 +481,13 @@ function extraClockBounds(config) {
 function openExtraClock(config) {
   const existing = extraClockWins.get(config.id);
   if (existing && !existing.isDestroyed()) {
+    if (isFullscreenClockOpen()) {
+      if (existing.isVisible()) {
+        clocksHiddenForFullscreen.add(existing.id);
+        existing.hide();
+      }
+      return existing;
+    }
     existing.show();
     existing.focus();
     return existing;
@@ -509,7 +519,13 @@ function openExtraClock(config) {
   clockIdByWindow.set(win.id, config.id);
 
   win.loadFile(path.join(__dirname, '..', 'src', 'zoneclock.html'), { query: { id: config.id } });
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    if (isFullscreenClockOpen()) {
+      clocksHiddenForFullscreen.add(win.id);
+      return;
+    }
+    win.show();
+  });
   win.on('show', () => win.setSkipTaskbar(true));
 
   const remember = () => {
@@ -1058,9 +1074,14 @@ function placeMenuWindow(size) {
 
 // ── 전체 화면 시계 (화면 보호기 대체) ──────────────────────────────────
 
+function isFullscreenClockOpen() {
+  return !!(fullWin && !fullWin.isDestroyed());
+}
+
 /**
  * 커서가 있는 화면의 작업 영역.
- * 작업 표시줄은 남겨 두어, 전체 화면인 동안에도 트레이 메뉴를 열 수 있게 한다.
+ * 시계를 재기 전에는 이 크기로 두고, 잰 뒤에는 시계 상자만 남긴다.
+ * 작업 표시줄은 창 밖에 두어 트레이를 누를 수 있게 한다.
  */
 function fullscreenDisplayBounds(anchor) {
   const point = anchor || screen.getCursorScreenPoint();
@@ -1074,18 +1095,34 @@ function fullscreenDisplayBounds(anchor) {
   };
 }
 
+/** 시계가 그려진 상자. 아직 재기 전이면 작업 영역 전체다. */
+function fullscreenClockBounds(anchor) {
+  const area = fullscreenDisplayBounds(anchor);
+  const fitted = fullWin && fullWin.__fitted;
+  if (!fitted) return area;
+  const width = Math.min(fitted.width, area.width);
+  const height = Math.min(fitted.height, area.height);
+  return {
+    x: Math.round(area.x + (area.width - width) / 2),
+    y: Math.round(area.y + (area.height - height) / 2),
+    width,
+    height
+  };
+}
+
 let pinningFullscreen = false;
 let fullscreenLeavePins = 0;
 
 /**
  * 전체 화면 시계를 그 화면 위에 고정한다.
- * 투명 창은 fullscreen 모드가 바로 풀리므로, 화면 크기와 화면 보호기 층으로 덮는다.
+ * 투명 창은 fullscreen 모드가 바로 풀리므로, 화면 보호기 층에 둔다.
+ * 크기는 시계가 보이는 상자만 쓴다 — 그 밖은 다른 창이 마우스를 받는다.
  */
 function pinFullscreen(forceBounds) {
   if (!fullWin || fullWin.isDestroyed() || pinningFullscreen) return;
   pinningFullscreen = true;
   try {
-    if (forceBounds) fullWin.setBounds(fullscreenDisplayBounds(fullWin.__anchor));
+    if (forceBounds) fullWin.setBounds(fullscreenClockBounds(fullWin.__anchor));
     // 탁상시계를 '항상 위'로 올려도 전체 화면 시계가 그 위에 남는다.
     fullWin.setAlwaysOnTop(true, 'screen-saver');
     fullWin.moveTop();
@@ -1094,6 +1131,74 @@ function pinFullscreen(forceBounds) {
   }
   // 설정·기능 창은 전체 화면 위에도 그대로 둔다.
   raiseFullscreenOverlays();
+}
+
+/**
+ * 설정 창은 시계 창에 매여 있다.
+ * 시계를 숨기기 전에 풀어 두지 않으면 Windows 가 설정 창까지 같이 숨긴다.
+ */
+function detachOwnedOverlays() {
+  for (const win of overlayWins()) {
+    if (!win || win.isDestroyed() || !win.isVisible()) continue;
+    const parent = typeof win.getParentWindow === 'function' ? win.getParentWindow() : null;
+    if (!parent || parent.isDestroyed()) continue;
+    win.__savedParent = parent;
+    win.setParentWindow(null);
+  }
+}
+
+/** 전체 화면을 연 동안 보이던 탁상시계를 치운다. */
+function hideClocksForFullscreen() {
+  for (const win of [clockWin, ...extraClockWins.values()]) {
+    if (!win || win.isDestroyed() || !win.isVisible()) continue;
+    clocksHiddenForFullscreen.add(win.id);
+    win.hide();
+  }
+}
+
+/** 전체 화면을 닫으면 숨겼던 시계만 원래 자리에 다시 둔다. */
+function showClocksAfterFullscreen() {
+  const ids = new Set(clocksHiddenForFullscreen);
+  clocksHiddenForFullscreen.clear();
+  if (hiddenByUser) return;
+  for (const win of [clockWin, ...extraClockWins.values()]) {
+    if (!win || win.isDestroyed() || !ids.has(win.id)) continue;
+    win.show();
+  }
+  if (clockWin && !clockWin.isDestroyed() && ids.has(clockWin.id) && clockWin.isVisible()) {
+    clockWin.focus();
+  }
+}
+
+function bindFullscreenEscape() {
+  if (globalShortcut.isRegistered('Escape')) return;
+  globalShortcut.register('Escape', () => closeFullscreenClock());
+}
+
+function unbindFullscreenEscape() {
+  if (globalShortcut.isRegistered('Escape')) globalShortcut.unregister('Escape');
+}
+
+/**
+ * 렌더러가 잰 시계 상자로 창을 줄인다.
+ * 줄이기 전에는 작업 영역만 한 투명 창이라, 마우스는 통과시킨다.
+ */
+function applyFullscreenFit(box) {
+  if (!fullWin || fullWin.isDestroyed() || !box) return;
+  const width = Math.max(40, Math.round(Number(box.width) || 0));
+  const height = Math.max(40, Math.round(Number(box.height) || 0));
+  if (!width || !height) return;
+  const origin = fullWin.getBounds();
+  fullWin.__fitted = { width, height };
+  fullWin.setBounds({
+    x: Math.round(origin.x + (Number(box.x) || 0)),
+    y: Math.round(origin.y + (Number(box.y) || 0)),
+    width,
+    height
+  });
+  fullWin.setIgnoreMouseEvents(false);
+  if (!fullWin.isVisible()) fullWin.show();
+  fullWin.focus();
 }
 
 /** 전체 화면 위에 올려도 되는 창 — 시계 창은 넣지 않는다. */
@@ -1134,15 +1239,22 @@ function watchAboveFullscreen(win) {
 
 function closeFullscreenClock() {
   if (fullWin && !fullWin.isDestroyed()) fullWin.close();
+  else unbindFullscreenEscape();
 }
 
 function openFullscreenClock() {
   if (fullWin && !fullWin.isDestroyed()) {
+    detachOwnedOverlays();
+    hideClocksForFullscreen();
+    bindFullscreenEscape();
     fullWin.focus();
     pinFullscreen(true);
     return;
   }
 
+  detachOwnedOverlays();
+  hideClocksForFullscreen();
+  bindFullscreenEscape();
   const anchor = screen.getCursorScreenPoint();
   fullscreenLeavePins = 0;
   fullWin = new BrowserWindow({
@@ -1182,16 +1294,20 @@ function openFullscreenClock() {
   fullWin.once('ready-to-show', () => {
     if (!fullWin || fullWin.isDestroyed()) return;
     pinFullscreen(true);
+    // 시계 상자를 재기 전에는 화면만 한 창이다. 그 사이 클릭은 바탕으로 통과시킨다.
+    fullWin.setIgnoreMouseEvents(true, { forward: true });
+    hideClocksForFullscreen();
     fullWin.show();
-    fullWin.focus();
     raiseFullscreenOverlays();
     refreshTrayMenu();
-    // 창을 보인 직후 OS 가 크기를 되돌리는 경우가 있어 한 번 더 덮는다.
+    // 창을 보인 직후 OS 가 크기를 되돌리는 경우가 있어 한 번 더 맞춘다.
     setTimeout(() => pinFullscreen(true), 200);
   });
   fullWin.loadFile(path.join(__dirname, '..', 'src', 'fullscreen.html'));
   fullWin.on('closed', () => {
     fullWin = null;
+    unbindFullscreenEscape();
+    showClocksAfterFullscreen();
     restoreOverlayParents();
     refreshTrayMenu();
   });
@@ -1369,17 +1485,17 @@ function hideToTray() {
 }
 
 function restoreFromTray() {
+  // 전체 화면 시계가 떠 있으면 그 모드를 유지한다. 숨긴 탁상시계를 꺼내지 않는다.
+  if (isFullscreenClockOpen()) {
+    pinFullscreen(true);
+    return;
+  }
   for (const win of extraClockWins.values()) {
     if (win && !win.isDestroyed() && !win.isVisible()) win.show();
   }
   if (!clockWin || clockWin.isDestroyed()) return;
   hiddenByUser = false;
   recoverClockOnScreen({ forceShow: true, remount: true });
-  // 전체 화면 시계가 떠 있으면 그 모드를 유지한다. 시계 창을 앞으로 꺼내지 않는다.
-  if (fullWin && !fullWin.isDestroyed()) {
-    pinFullscreen(true);
-    return;
-  }
   if (clockWin && !clockWin.isDestroyed()) clockWin.focus();
 }
 
@@ -1433,6 +1549,12 @@ function recoverClockOnScreen(opts = {}) {
   if (!clockWin || clockWin.isDestroyed() || !hasUsableDisplays()) return;
 
   ensureClockOnScreen();
+
+  if (isFullscreenClockOpen()) {
+    hideClocksForFullscreen();
+    pinFullscreen(true);
+    return;
+  }
 
   if (hiddenByUser && !opts.forceShow) {
     pinFullscreen(true);
@@ -1784,6 +1906,10 @@ function registerIpc() {
 
   ipcMain.on('fullscreen:open', () => openFullscreenClock());
   ipcMain.on('fullscreen:close', () => closeFullscreenClock());
+  ipcMain.on('fullscreen:fit', (e, box) => {
+    if (!fullWin || fullWin.isDestroyed() || e.sender !== fullWin.webContents) return;
+    applyFullscreenFit(box);
+  });
 
   ipcMain.on('tray:icon', (_e, dataUrl) => {
     if (!tray || tray.isDestroyed() || typeof dataUrl !== 'string') return;
