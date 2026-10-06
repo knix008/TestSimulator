@@ -76,6 +76,7 @@ async function openPanelWindow(options = {}) {
     toClock: [],
     panelCloses: 0,
     fullscreens: 0,
+    fullscreenCloses: 0,
     startupSet: [],
     clockUpdates: [],
     fits: [],
@@ -184,6 +185,9 @@ async function openPanelWindow(options = {}) {
     fullscreen: {
       open: () => {
         log.fullscreens += 1;
+      },
+      close: () => {
+        log.fullscreenCloses += 1;
       }
     },
     startup: {

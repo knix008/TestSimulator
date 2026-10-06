@@ -1217,6 +1217,7 @@ function wireSettingsTab() {
   );
 
   $('fullscreenBtn').addEventListener('click', () => api.fullscreen.open());
+  $('restoreSizeBtn').addEventListener('click', () => api.fullscreen.close());
 }
 
 // ── 상태 수신 ───────────────────────────────────────────────────────────

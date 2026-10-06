@@ -31,6 +31,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const store = require('./store');
+const { menuIcon } = require('./menu-icons');
 
 const APP_NAME = 'MyClock';
 const APP_ID = 'com.shkwon.myclock';
@@ -655,6 +656,7 @@ function openClockSettings(id) {
   });
 
   clockSettingsWins.set(id, win);
+  watchAboveFullscreen(win);
   win.loadFile(path.join(__dirname, '..', 'src', 'panel.html'), {
     query: { only: 'settings', tool: '1', clock: id }
   });
@@ -737,6 +739,7 @@ function openToolWindow(tab) {
   });
 
   toolWins.set(tab, win);
+  watchAboveFullscreen(win);
   win.loadFile(path.join(__dirname, '..', 'src', 'panel.html'), { query: { only: tab, tool: '1' } });
   win.once('ready-to-show', () => win.show());
   win.on('show', () => win.setSkipTaskbar(true));
@@ -833,6 +836,7 @@ function openPanel(tab) {
   });
 
   // 설정 패널은 설정만 맡는다. 알람·타이머·스톱워치·캘린더·세계 시간은 저마다 창이다.
+  watchAboveFullscreen(panelWin);
   panelWin.loadFile(path.join(__dirname, '..', 'src', 'panel.html'), { query: { only: 'settings' } });
 
   panelWin.once('ready-to-show', () => {
@@ -927,6 +931,7 @@ function openAboutWindow() {
     }
   });
 
+  watchAboveFullscreen(aboutWin);
   aboutWin.loadFile(path.join(__dirname, '..', 'src', 'about.html'));
   aboutWin.once('ready-to-show', () => aboutWin.show());
   aboutWin.on('closed', () => {
@@ -963,6 +968,7 @@ function showAlarmPopup(payload) {
     }
   });
 
+  watchAboveFullscreen(alarmWin);
   alarmWin.loadFile(path.join(__dirname, '..', 'src', 'alarm.html'));
   alarmWin.once('ready-to-show', () => {
     alarmWin.show();
@@ -1014,6 +1020,7 @@ function openMenuWindow(payload) {
     }
   });
 
+  watchAboveFullscreen(menuWin);
   menuWin.loadFile(path.join(__dirname, '..', 'src', 'menu.html'));
   menuWin.once('ready-to-show', () => {
     menuWin.webContents.send('menu:items', { ...payload, anchor: cursor });
@@ -1051,11 +1058,14 @@ function placeMenuWindow(size) {
 
 // ── 전체 화면 시계 (화면 보호기 대체) ──────────────────────────────────
 
-/** 커서가 있는 화면 전체. 작업 영역이 아니라 화면 경계라 작업 표시줄까지 덮는다. */
+/**
+ * 커서가 있는 화면의 작업 영역.
+ * 작업 표시줄은 남겨 두어, 전체 화면인 동안에도 트레이 메뉴를 열 수 있게 한다.
+ */
 function fullscreenDisplayBounds(anchor) {
   const point = anchor || screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(point) || screen.getPrimaryDisplay();
-  const area = display.bounds;
+  const area = display.workArea;
   return {
     x: Math.round(area.x),
     y: Math.round(area.y),
@@ -1082,6 +1092,48 @@ function pinFullscreen(forceBounds) {
   } finally {
     pinningFullscreen = false;
   }
+  // 설정·기능 창은 전체 화면 위에도 그대로 둔다.
+  raiseFullscreenOverlays();
+}
+
+/** 전체 화면 위에 올려도 되는 창 — 시계 창은 넣지 않는다. */
+function overlayWins() {
+  return [panelWin, aboutWin, alarmWin, menuWin, ...toolWins.values(), ...clockSettingsWins.values()];
+}
+
+function raiseOverFullscreen(win) {
+  if (!fullWin || fullWin.isDestroyed() || !win || win.isDestroyed()) return;
+  const parent = typeof win.getParentWindow === 'function' ? win.getParentWindow() : null;
+  if (parent && !parent.isDestroyed()) {
+    win.__savedParent = parent;
+    win.setParentWindow(null);
+  }
+  win.setAlwaysOnTop(true, 'pop-up-menu');
+  win.moveTop();
+}
+
+function raiseFullscreenOverlays() {
+  if (!fullWin || fullWin.isDestroyed()) return;
+  for (const win of overlayWins()) {
+    if (win && !win.isDestroyed() && win.isVisible()) raiseOverFullscreen(win);
+  }
+}
+
+function restoreOverlayParents() {
+  for (const win of overlayWins()) {
+    if (!win || win.isDestroyed() || !win.__savedParent || win.__savedParent.isDestroyed()) continue;
+    win.setParentWindow(win.__savedParent);
+    win.setAlwaysOnTop(win.__savedParent.isAlwaysOnTop() === true);
+    win.__savedParent = null;
+  }
+}
+
+function watchAboveFullscreen(win) {
+  win.on('show', () => raiseOverFullscreen(win));
+}
+
+function closeFullscreenClock() {
+  if (fullWin && !fullWin.isDestroyed()) fullWin.close();
 }
 
 function openFullscreenClock() {
@@ -1132,12 +1184,16 @@ function openFullscreenClock() {
     pinFullscreen(true);
     fullWin.show();
     fullWin.focus();
+    raiseFullscreenOverlays();
+    refreshTrayMenu();
     // 창을 보인 직후 OS 가 크기를 되돌리는 경우가 있어 한 번 더 덮는다.
     setTimeout(() => pinFullscreen(true), 200);
   });
   fullWin.loadFile(path.join(__dirname, '..', 'src', 'fullscreen.html'));
   fullWin.on('closed', () => {
     fullWin = null;
+    restoreOverlayParents();
+    refreshTrayMenu();
   });
 }
 
@@ -1153,29 +1209,44 @@ function buildTrayMenu() {
   const open = settings.extraClocks;
 
   const addSubmenu = cities.slice(0, 15).map((city) => ({
+    icon: menuIcon('clock'),
     label: city.region ? `${city.city} · ${city.region}` : city.city,
     click: () => addExtraClock(city)
   }));
   addSubmenu.push({ type: 'separator' });
-  addSubmenu.push({ label: '다른 도시 찾기...', click: () => openToolWindow('world') });
+  addSubmenu.push({
+    icon: menuIcon('world'),
+    label: '다른 도시 찾기...',
+    click: () => openToolWindow('world')
+  });
 
   const template = [
-    { label: '열기', click: () => restoreFromTray() },
+    { icon: menuIcon('open'), label: '열기', click: () => restoreFromTray() },
     // 설정 탭을 지정해 연다 — 지정하지 않으면 패널이 열려 있을 때 그냥 닫힌다.
-    { label: '설정...', click: () => { restoreFromTray(); togglePanel('settings'); } },
+    {
+      icon: menuIcon('settings'),
+      label: '설정...',
+      click: () => {
+        restoreFromTray();
+        togglePanel('settings');
+      }
+    },
     { type: 'separator' },
-    { label: '시계 추가', submenu: addSubmenu }
+    { icon: menuIcon('add'), label: '시계 추가', submenu: addSubmenu }
   ];
 
+  const fullscreenOpen = !!(fullWin && !fullWin.isDestroyed());
   // 앱 전체에 걸리는 설정은 여기(트레이)에서 다룬다 — 설정 창은 시계 모양만 맡는다.
   const systemItems = [
     {
+      icon: menuIcon('pin'),
       label: '항상 위에 표시',
       type: 'checkbox',
       checked: settings.alwaysOnTop,
       click: (item) => setAlwaysOnTop(item.checked)
     },
     {
+      icon: menuIcon('startup'),
       label: '시작 시 자동 실행',
       type: 'checkbox',
       checked: isStartupEnabled(),
@@ -1185,13 +1256,21 @@ function buildTrayMenu() {
         refreshTrayMenu();
       }
     },
-    { label: '기본값으로 초기화...', click: () => confirmReset() }
+    {
+      icon: menuIcon('restore'),
+      label: '원래 크기로 돌아가기',
+      enabled: fullscreenOpen,
+      click: () => closeFullscreenClock()
+    },
+    { icon: menuIcon('reset'), label: '기본값으로 초기화...', click: () => confirmReset() }
   ];
 
   if (open.length) {
     template.push({
+      icon: menuIcon('close'),
       label: '시계 닫기',
       submenu: open.map((clock) => ({
+        icon: menuIcon('clock'),
         label: clock.city || clock.zone,
         click: () => removeExtraClock(clock.id)
       }))
@@ -1200,16 +1279,16 @@ function buildTrayMenu() {
 
   template.push(
     { type: 'separator' },
-    { label: '시스템 설정', submenu: systemItems },
+    { icon: menuIcon('system'), label: '시스템 설정', submenu: systemItems },
     { type: 'separator' },
-    { label: '세계 시간', click: () => openToolWindow('world') },
-    { label: '알람', click: () => openToolWindow('alarm') },
-    { label: '타이머', click: () => openToolWindow('timer') },
-    { label: '스톱워치', click: () => openToolWindow('stopwatch') },
-    { label: '캘린더', click: () => openToolWindow('calendar') },
+    { icon: menuIcon('world'), label: '세계 시간', click: () => openToolWindow('world') },
+    { icon: menuIcon('alarm'), label: '알람', click: () => openToolWindow('alarm') },
+    { icon: menuIcon('timer'), label: '타이머', click: () => openToolWindow('timer') },
+    { icon: menuIcon('stopwatch'), label: '스톱워치', click: () => openToolWindow('stopwatch') },
+    { icon: menuIcon('calendar'), label: '캘린더', click: () => openToolWindow('calendar') },
     { type: 'separator' },
-    { label: '프로그램 정보...', click: () => openAboutWindow() },
-    { label: '종료', click: () => quitApp() }
+    { icon: menuIcon('info'), label: '프로그램 정보...', click: () => openAboutWindow() },
+    { icon: menuIcon('quit'), label: '종료', click: () => quitApp() }
   );
 
   return Menu.buildFromTemplate(template);
@@ -1296,6 +1375,11 @@ function restoreFromTray() {
   if (!clockWin || clockWin.isDestroyed()) return;
   hiddenByUser = false;
   recoverClockOnScreen({ forceShow: true, remount: true });
+  // 전체 화면 시계가 떠 있으면 그 모드를 유지한다. 시계 창을 앞으로 꺼내지 않는다.
+  if (fullWin && !fullWin.isDestroyed()) {
+    pinFullscreen(true);
+    return;
+  }
   if (clockWin && !clockWin.isDestroyed()) clockWin.focus();
 }
 
@@ -1699,7 +1783,7 @@ function registerIpc() {
   ipcMain.on('about:open', () => openAboutWindow());
 
   ipcMain.on('fullscreen:open', () => openFullscreenClock());
-  ipcMain.on('fullscreen:close', () => fullWin?.close());
+  ipcMain.on('fullscreen:close', () => closeFullscreenClock());
 
   ipcMain.on('tray:icon', (_e, dataUrl) => {
     if (!tray || tray.isDestroyed() || typeof dataUrl !== 'string') return;

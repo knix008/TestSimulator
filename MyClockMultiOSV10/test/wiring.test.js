@@ -349,11 +349,48 @@ test('전체 화면 시계도 배경이 투명하다', () => {
   assert.match(main, /setAlwaysOnTop\(true, 'screen-saver'\)/);
   assert.match(main, /function fullscreenDisplayBounds/);
 
-  // 연 직후의 클릭·미세한 마우스 움직임으로 닫히면 원래 시계로 돌아간 것처럼 보인다.
+  // 클릭이나 마우스 움직임으로 닫히면 전체 화면이 유지되지 않는다.
   const page = readSource('src/js/fullscreen.js');
-  assert.match(page, /const DISMISS_GRACE_MS = \d+/);
-  assert.match(page, /const MOVE_THRESHOLD_PX = \d+/);
-  assert.match(page, /if \(!dismissArmed\) return/);
+  assert.ok(!page.includes('mousemove'), '마우스 움직임으로 전체 화면이 닫힌다');
+  assert.ok(!page.includes('fullscreen.close'), '입력으로 전체 화면이 닫힌다');
+});
+
+test('트레이 메뉴 항목마다 아이콘이 있고, 설정에서 원래 크기로 돌아간다', () => {
+  const main = readSource('electron/main.js');
+  const { ICON_NAMES, renderIconPng, SIZE } = require('../electron/menu-icons');
+
+  for (const name of [
+    'open',
+    'settings',
+    'add',
+    'clock',
+    'world',
+    'close',
+    'system',
+    'pin',
+    'startup',
+    'restore',
+    'reset',
+    'alarm',
+    'timer',
+    'stopwatch',
+    'calendar',
+    'info',
+    'quit'
+  ]) {
+    assert.ok(ICON_NAMES.includes(name), `아이콘이 없다: ${name}`);
+    assert.match(main, new RegExp(`menuIcon\\('${name}'\\)`), `트레이에서 ${name} 아이콘을 쓰지 않는다`);
+    const png = renderIconPng(name);
+    assert.equal(png[0], 0x89, `${name} 아이콘이 PNG 가 아니다`);
+    assert.equal(png.readUInt32BE(16), SIZE, `${name} 아이콘 폭`);
+    assert.equal(png.readUInt32BE(20), SIZE, `${name} 아이콘 높이`);
+  }
+
+  assert.match(main, /label: '원래 크기로 돌아가기'/);
+  assert.match(main, /click: \(\) => closeFullscreenClock\(\)/);
+  assert.match(readSource('src/panel.html'), /id="restoreSizeBtn"/);
+  assert.match(readSource('src/js/panel.js'), /\$\('restoreSizeBtn'\)[\s\S]{0,80}fullscreen\.close/);
+  assert.match(readSource('src/fullscreen.html'), /원래 크기로 돌아가기/);
 });
 
 test('정보 창이 열리는 길이 메뉴와 트레이에 있다', () => {

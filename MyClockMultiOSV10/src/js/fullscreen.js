@@ -1,6 +1,6 @@
 'use strict';
 
-/** 전체 화면 시계 — 현재 설정을 그대로 사용하고, 입력이 있으면 닫는다. */
+/** 전체 화면 시계 — 현재 설정을 그대로 쓰고, 설정에서 원래 크기로 돌아갈 때까지 유지한다. */
 
 const api = window.myclock;
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -71,33 +71,6 @@ function tick() {
   }
 }
 
-/**
- * 연 직후의 클릭·더블클릭, 마우스가 조금 흔들리는 정도로는 닫지 않는다.
- * 그 입력까지 닫기로 보면 전체 화면이 잠깐 보였다가 원래 시계로 돌아간다.
- */
-const DISMISS_GRACE_MS = 700;
-const MOVE_THRESHOLD_PX = 48;
-let dismissArmed = false;
-let moveOrigin = null;
-
-function close() {
-  if (!dismissArmed) return;
-  api.fullscreen.close();
-}
-
-function onMouseMove(event) {
-  if (!dismissArmed) return;
-  const x = event.screenX;
-  const y = event.screenY;
-  if (!moveOrigin) {
-    moveOrigin = { x, y };
-    return;
-  }
-  const dx = x - moveOrigin.x;
-  const dy = y - moveOrigin.y;
-  if (dx * dx + dy * dy >= MOVE_THRESHOLD_PX * MOVE_THRESHOLD_PX) close();
-}
-
 api.settings.load().then((loaded) => {
   applySettings(loaded);
   tick();
@@ -107,11 +80,3 @@ api.settings.load().then((loaded) => {
 api.bus.onFromClock((message) => {
   if (message && message.type === 'state' && message.settings) applySettings(message.settings);
 });
-
-for (const event of ['keydown', 'mousedown', 'wheel']) {
-  window.addEventListener(event, close);
-}
-window.addEventListener('mousemove', onMouseMove);
-window.setTimeout(() => {
-  dismissArmed = true;
-}, DISMISS_GRACE_MS);

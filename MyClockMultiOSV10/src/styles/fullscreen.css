@@ -19,7 +19,7 @@ body {
   background: rgba(0, 0, 0, 0.004);
   color: var(--foreground, #cdd6f4);
   font-family: 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-  cursor: none;
+  cursor: default;
   user-select: none;
 }
 

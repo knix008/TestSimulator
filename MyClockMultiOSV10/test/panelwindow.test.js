@@ -444,6 +444,8 @@ test('설정 창에는 시스템 설정이 없다 (트레이에서 다룬다)', 
   await panel.emit(panel.document.querySelectorAll('.sub-tab').find((t) => t.dataset.sub === 'style'), 'click');
   await panel.click('fullscreenBtn');
   assert.equal(panel.log.fullscreens, 1);
+  await panel.click('restoreSizeBtn');
+  assert.equal(panel.log.fullscreenCloses, 1);
 });
 
 test('설정 — 미리듣기를 눌러도 터지지 않는다', async () => {
@@ -730,7 +732,12 @@ test('갈래마다 들어갈 설정이 제자리에 있다', async () => {
   assert.ok(has('clock', 'formatGroup') && has('clock', 'brightnessSlider') && has('clock', 'clockCloseBtn'));
   assert.ok(has('look', 'themeBaseGroup') && has('look', 'themeGrid'), '테마 갈래');
   assert.ok(has('color', 'customThemeColor') && has('color', 'digitColor') && has('color', 'amPmColor'), '색 갈래');
-  assert.ok(has('style', 'digitalStyleSelect') && has('style', 'analogStyleSelect') && has('style', 'fullscreenBtn'));
+  assert.ok(
+    has('style', 'digitalStyleSelect') &&
+      has('style', 'analogStyleSelect') &&
+      has('style', 'fullscreenBtn') &&
+      has('style', 'restoreSizeBtn')
+  );
   assert.ok(has('sound', 'soundSelect') && has('sound', 'volumeSlider') && has('sound', 'soundPreviewBtn'));
 });
 
