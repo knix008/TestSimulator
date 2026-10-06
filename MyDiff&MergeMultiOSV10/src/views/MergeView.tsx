@@ -71,7 +71,7 @@ export function MergeView({ tab }: {
   const copyResult = useCallback(async () => {
     const text = rows.result.map((row) => row.text ?? "").join("\n");
     await host.copyText(text);
-    app.setStatus(t("dlg.copied"));
+    app.setStatus((t) => t("dlg.copied"));
   }, [app, rows.result, t]);
 
   const headerFor = (pane: MergePaneKind) => {

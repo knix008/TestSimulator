@@ -18,7 +18,7 @@ import {
 } from "react";
 import { APP_NAME, DOC_EXTENSION } from "../core/appInfo.js";
 import type { DirectoryCompareResult } from "../core/dirCompare.js";
-import { translator, type Language, type StringKey } from "../core/i18n.js";
+import { translator, type Language, type StringKey, type Translate } from "../core/i18n.js";
 import {
   buildResultText,
   conflictCount,
@@ -117,8 +117,24 @@ export type Place = { tabId: string; view?: GitViewSpec; cursor?: number };
 /** How far back the history remembers. */
 const MAX_HISTORY = 50;
 
+/*
+ * A message for the status bar or the log.
+ *
+ * Messages are kept as a function of the language rather than as finished text, so
+ * that switching the language re-renders what the bar already says instead of
+ * leaving the last comparison's result frozen in the language it ran in. Plain
+ * strings are still allowed for text with nothing to translate - a path, a branch
+ * name, a message the server wrote.
+ */
+export type Message = string | ((t: Translate) => string);
+
+/** Renders a message in the language in force now. */
+export function renderMessage(message: Message, t: Translate): string {
+  return typeof message === "function" ? message(t) : message;
+}
+
 /** One line of the activity log shown in the bottom panel. */
-export type LogEntry = { at: number; kind: "info" | "error"; text: string };
+export type LogEntry = { at: number; kind: "info" | "error"; text: Message };
 
 /** How much of the log is kept; older lines fall off the top. */
 const MAX_LOG = 500;
@@ -141,7 +157,7 @@ export type AppStore = {
   closeTab: (id: string) => void;
 
   status: string;
-  setStatus: (text: string) => void;
+  setStatus: (text: Message) => void;
 
   /** Where the user has been, and how to go back and forward through it. */
   canGoBack: boolean;
@@ -234,7 +250,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings & { settingsPath: string } | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [status, setStatusText] = useState<string>("");
+  const [status, setStatusText] = useState<Message>("");
   const [log, setLog] = useState<LogEntry[]>([]);
   const [history, setHistory] = useState<Place[]>([]);
   const [historyAt, setHistoryAt] = useState(-1);
@@ -258,13 +274,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
    * last line, the panel keeps them all. Routing every message through here is what
    * makes the log complete without a logging call at each of the fifty call sites.
    */
-  const append = useCallback((kind: LogEntry["kind"], text: string) => {
+  const append = useCallback((kind: LogEntry["kind"], text: Message) => {
     if (!text) return;
     setLog((entries) => [...entries, { at: Date.now(), kind, text }].slice(-MAX_LOG));
   }, []);
 
-  const setStatus = useCallback((text: string) => {
-    setStatusText(text);
+  const setStatus = useCallback((text: Message) => {
+    // Wrapped, because a bare function handed to a state setter is an updater: React
+    // would call the message with the previous status instead of storing it.
+    setStatusText(() => text);
     append("info", text);
   }, [append]);
 
@@ -309,7 +327,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       code: failure.code,
     };
     host.openDialog("error", payload);
-    setStatusText(failure.message);
+    setStatusText(() => failure.message);
     append("error", failure.detail || failure.message);
   }, [append]);
 
@@ -437,7 +455,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         summary,
         cursor: summary.diffBlocks[0] ?? 0,
       });
-      setStatus(summary.identical ? t("status.identicalFiles") : summaryText(summary, t));
+      setStatus((t) => summaryText(summary, t));
       setSettings(await api.settings());
     } catch (error) {
       report(error);
@@ -457,7 +475,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         filters: { same: true, different: true, leftOnly: true, rightOnly: true, renamed: true },
         sync: sync ? { mode: "updateToRight", allowDaylightShift: true, plan: null } : null,
       });
-      setStatus(directoryStatus(directory.result, t));
+      setStatus((t) => directoryStatus(directory.result, t));
       setSettings(await api.settings());
     } catch (error) {
       report(error);
@@ -482,7 +500,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         filters: { same: true, different: true, leftOnly: true, rightOnly: true, renamed: true },
         sync: null,
       });
-      setStatus(directoryStatus(directory.result, t));
+      setStatus((t) => directoryStatus(directory.result, t));
     } catch (error) {
       report(error);
     }
@@ -499,7 +517,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         summary,
         cursor: summary.diffBlocks[0] ?? 0,
       });
-      setStatus(summaryText(summary, t));
+      setStatus((t) => summaryText(summary, t));
     } catch (error) {
       report(error);
     }
@@ -523,7 +541,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const info = await withProgress("progress.readingFiles", () => api.openThreeWay(base, local, remote, merged));
       addMergeTab(info);
-      setStatus(mergeStatus(info.document, t));
+      setStatus((t) => mergeStatus(info.document, t));
       setSettings(await api.settings());
     } catch (error) {
       report(error);
@@ -534,7 +552,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const info = await withProgress("progress.readingFiles", () => api.openConflictFile(path));
       addMergeTab(info);
-      setStatus(mergeStatus(info.document, t));
+      setStatus((t) => mergeStatus(info.document, t));
       setSettings(await api.settings());
     } catch (error) {
       report(error);
@@ -582,7 +600,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const info = await withProgress("progress.readingFiles", () =>
         api.openRepositoryConflict(tab.repository.path, file));
       addMergeTab(info);
-      setStatus(mergeStatus(info.document, t));
+      setStatus((t) => mergeStatus(info.document, t));
     } catch (error) {
       report(error);
     }
@@ -633,11 +651,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (tab.kind === "compare") {
         const summary = await withProgress("progress.readingFiles", () => api.reloadCompare(tab.summary.id));
         patchTab<CompareTab>(tab.id, (current) => ({ ...current, summary }));
-        setStatus(summaryText(summary, t));
+        setStatus((t) => summaryText(summary, t));
       } else if (tab.kind === "directory") {
         const directory = await withProgress("progress.comparingDirs", () => api.reloadDirectory(tab.directoryId));
         patchTab<DirectoryTab>(tab.id, (current) => ({ ...current, result: directory.result }));
-        setStatus(directoryStatus(directory.result, t));
+        setStatus((t) => directoryStatus(directory.result, t));
       } else if (tab.kind === "git") {
         const result = await withProgress("progress.loadingRepo", () => api.gitChanges(tab.view));
         patchTab<GitTab>(tab.id, (current) => ({
@@ -680,7 +698,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selected: null,
         title: `${baseName(directory.result.left)} ↔ ${baseName(directory.result.right)}`,
       }));
-      setStatus(directoryStatus(directory.result, t));
+      setStatus((t) => directoryStatus(directory.result, t));
       setSettings(await api.settings());
     } catch (error) {
       report(error);
@@ -709,7 +727,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         result: response.directory.result,
       }));
       const failed = response.result.failed;
-      setStatus(failed.length === 0
+      setStatus((t) => failed.length === 0
         ? t("dir.done", response.result.done.length)
         : t("dir.partly", response.result.done.length, failed.length));
       if (failed.length > 0) {
@@ -744,7 +762,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         result: response.directory.result,
         selected: next,
       }));
-      setStatus(`${t("dir.rename")}: ${rel} → ${next}`);
+      setStatus((t) => `${t("dir.rename")}: ${rel} → ${next}`);
     } catch (error) {
       report(error);
     }
@@ -763,7 +781,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         allowDaylightShift: settings.allowDaylightShift,
       });
       patchTab<DirectoryTab>(tab.id, (current) => ({ ...current, sync: { ...settings, plan } }));
-      setStatus(t("sync.planned", plan.actions.length, plan.skipped));
+      setStatus((t) => t("sync.planned", plan.actions.length, plan.skipped));
     } catch (error) {
       report(error);
     }
@@ -792,7 +810,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         result: response.directory.result,
         sync: current.sync ? { ...current.sync, plan: null } : null,
       }));
-      setStatus(failed.length === 0 ? t("dir.done", done) : t("dir.partly", done, failed.length));
+      setStatus((t) => failed.length === 0 ? t("dir.done", done) : t("dir.partly", done, failed.length));
       if (failed.length > 0) {
         report(new Error(failed.map((item) => `${item.rel}: ${item.reason}`).join("\n")));
       }
@@ -806,7 +824,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const summary = await withProgress("progress.saving", () => api.takeRows(tab.summary.id, target, rows));
       patchTab<CompareTab>(tab.id, (current) => ({ ...current, summary }));
-      setStatus(summaryText(summary, t));
+      setStatus((t) => summaryText(summary, t));
     } catch (error) {
       report(error);
     }
@@ -822,7 +840,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const summary = await withProgress("progress.saving", () =>
         api.editRow(tab.summary.id, side, row, text_));
       patchTab<CompareTab>(tab.id, (current) => ({ ...current, summary }));
-      setStatus(summaryText(summary, t));
+      setStatus((t) => summaryText(summary, t));
     } catch (error) {
       report(error);
     }
@@ -839,7 +857,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cursor: summary.diffBlocks[0] ?? 0,
         title: `${baseName(summary.left.label)} ↔ ${baseName(summary.right.label)}`,
       }));
-      setStatus(summary.identical ? t("status.identicalFiles") : summaryText(summary, t));
+      setStatus((t) => summaryText(summary, t));
       setSettings(await api.settings());
     } catch (error) {
       report(error);
@@ -854,7 +872,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const set = (document: MergeDocument, dirty: boolean) => {
       patchTab<MergeTab>(tabId, (current) => ({ ...current, document, dirty }));
       // The status bar follows the resolution count, including through undo.
-      setStatus(mergeStatus(document, t));
+      setStatus((t) => mergeStatus(document, t));
     };
     set(next, true);
     undo.push({
@@ -923,7 +941,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         info: { ...current.info, mergedPath: result.path },
       }));
       if (isFullyResolved(tab.document)) host.reportMergeSaved();
-      setStatus(`${t("status.saved")}: ${result.path}${result.staged ? " (git add)" : ""}`);
+      setStatus((t) => `${t("status.saved")}: ${result.path}${result.staged ? " (git add)" : ""}`);
     } catch (error) {
       report(error);
     }
@@ -994,7 +1012,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     const rest = (settingsRef.current?.sessions ?? []).filter((item) => item.id !== entry.id);
     await updateSettings({ sessions: [entry, ...rest] });
-    setStatus(`${t("session.saved")}: ${entry.name}`);
+    setStatus((t) => `${t("session.saved")}: ${entry.name}`);
   }, [describeActive, setStatus, t, updateSettings]);
 
   const openSavedSession = useCallback(async (session: SavedSession) => {
@@ -1046,7 +1064,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void saveAs;
     try {
       const saved = await api.saveSession(target, sessionPayload());
-      setStatus(`${t("status.saved")}: ${saved}`);
+      setStatus((t) => `${t("status.saved")}: ${saved}`);
       setSettings(await api.settings());
     } catch (error) {
       report(error);
@@ -1218,7 +1236,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     active,
     setActive,
     closeTab,
-    status: status || (settings ? t("status.ready") : APP_NAME),
+    status: renderMessage(status, t) || (settings ? t("status.ready") : APP_NAME),
     canGoBack: findPlace(historyAt, -1) >= 0,
     canGoForward: findPlace(historyAt, 1) >= 0,
     goBack,

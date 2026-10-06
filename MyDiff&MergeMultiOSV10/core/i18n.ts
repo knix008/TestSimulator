@@ -218,7 +218,22 @@ const STRINGS = {
   "image.title": ["이미지 비교", "Image compare"],
   "image.blend": ["겹쳐 보기", "Blend"],
   "image.sideBySide": ["나란히 보기", "Side by side"],
-  "image.difference": ["차이 강조", "Difference"],
+  "image.difference": ["차이만 보기", "Difference map"],
+  "image.marks": ["다른 부분 표시", "Mark changes"],
+  "image.zoomIn": ["확대", "Zoom in"],
+  "image.zoomOut": ["축소", "Zoom out"],
+  "image.fit": ["창에 맞추기", "Fit"],
+  "image.actual": ["실제 크기", "Actual size"],
+  "image.pan": [
+    "끌어서 이동, Alt+휠로 확대·축소, 더반클릭으로 전환",
+    "Drag to pan, Alt+wheel to zoom, double-click to toggle",
+  ],
+  "image.identicalPixels": ["한 픽셀도 다르지 않습니다", "every pixel matches"],
+  "image.differentPixels": ["달라진 픽셀 {0}개 ({1}%)", "{0} pixels differ ({1}%)"],
+  "image.sizeMismatch": [
+    "두 이미지의 크기가 다릅니다: {0} ↔ {1}. 비교는 둘을 덮는 크기에서 이뤄집니다.",
+    "The two pictures are not the same size: {0} vs {1}. The comparison is made over the area that covers both.",
+  ],
   "progress.copying": ["파일을 복사하는 중...", "Copying files..."],
 
   /* -------------------------------------------------------- left panel */

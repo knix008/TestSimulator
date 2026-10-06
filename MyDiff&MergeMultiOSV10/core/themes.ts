@@ -9,7 +9,7 @@
  * The same table drives the browser (CSS custom properties) and Electron (the window
  * background color, so the first paint matches instead of flashing white).
  */
-import { alpha, darken, lighten, mix, readableOn } from "./color.js";
+import { alpha, contrastRatio, darken, lighten, mix, readableOn } from "./color.js";
 import seeds from "./themeSeeds.json" with { type: "json" };
 
 export type ThemeKind = "light" | "dark";
@@ -51,6 +51,35 @@ function expand(seed: ThemeSeed): Theme {
   const tint = (color: string, amount: number) => mix(seed.panel, color, amount);
   const shade = (amount: number) => (dark ? lighten(seed.panel, amount) : darken(seed.panel, amount));
 
+  /*
+   * A surface a measured step away from the panel.
+   *
+   * Taken toward the theme's own text rather than toward black or white, because a
+   * step toward black is no step at all on a black panel: the high-contrast dark
+   * theme used to derive its zebra stripe, its blank rows and its gutter as three
+   * shades of #000000, and a user comparing two folders could not see which side a
+   * file was missing from. Mixing toward the text always moves — the text clears AA
+   * against the panel in every theme — and it moves within the theme's own family.
+   */
+  const step = (amount: number) => mix(seed.panel, seed.text, amount);
+
+  /*
+   * A semantic hue pushed until it can be seen on this panel.
+   *
+   * The five diff colours are fixed hues, and a mid-tone like the amber of
+   * "modified" sits at 2:1 against a white panel — a count in the status bar, or an
+   * icon in a filter chip, drawn in it is a rumour. So each one is stepped away from
+   * the surface until it clears the ratio asked for, which leaves the hue
+   * recognisable (the amber is still amber) while making it legible on all forty.
+   */
+  const legible = (color: string, minimum: number) => {
+    let result = color;
+    for (let i = 0; i < 16 && contrastRatio(seed.panel, result) < minimum; i += 1) {
+      result = dark ? lighten(result, 0.07) : darken(result, 0.07);
+    }
+    return result;
+  };
+
   const vars: Record<string, string> = {
     "--bg": seed.bg,
     "--panel": seed.panel,
@@ -76,8 +105,14 @@ function expand(seed: ThemeSeed): Theme {
     "--tooltip-text": dark ? seed.text : readableOn(seed.text),
 
     "--row-even": seed.panel,
-    "--row-zebra": shade(0.045),
-    "--row-blank": dark ? darken(seed.panel, 0.1) : darken(seed.panel, 0.045),
+    /*
+     * The zebra stripe is quiet by design — it is there to be followed, not read —
+     * but the blank row is a statement: this side has no such file. It used to be
+     * derived as the same value as the stripe on every light theme, which left the
+     * one thing a directory comparison exists to show looking like ruled paper.
+     */
+    "--row-zebra": step(0.055),
+    "--row-blank": step(0.15),
     "--row-added": tint(SEMANTIC.added, dark ? 0.22 : 0.18),
     "--row-removed": tint(SEMANTIC.removed, dark ? 0.22 : 0.16),
     "--row-modified": tint(SEMANTIC.modified, dark ? 0.2 : 0.2),
@@ -90,7 +125,7 @@ function expand(seed: ThemeSeed): Theme {
      * theme's own text colour to stay legible on that theme's panel, and comments
      * are deliberately the quietest thing on the line.
      */
-    "--tok-comment": mix(seed.panel, seed.text, dark ? 0.45 : 0.42),
+    "--tok-comment": legible(mix(seed.panel, seed.text, dark ? 0.45 : 0.42), 3.2),
     "--tok-string": mix(seed.text, dark ? "#7ee787" : "#0a7a3d", 0.78),
     "--tok-number": mix(seed.text, dark ? "#f0a868" : "#a4530a", 0.78),
     "--tok-keyword": mix(seed.text, dark ? "#9db4ff" : "#1f4fd8", 0.72),
@@ -98,16 +133,16 @@ function expand(seed: ThemeSeed): Theme {
     "--word-removed": tint(SEMANTIC.removed, dark ? 0.46 : 0.4),
     "--word-modified": tint(SEMANTIC.modified, dark ? 0.44 : 0.46),
 
-    "--gutter-bg": dark ? darken(seed.panel, 0.14) : darken(seed.panel, 0.04),
-    "--gutter-text": mix(seed.text, seed.panel, 0.5),
+    "--gutter-bg": step(0.05),
+    "--gutter-text": legible(mix(seed.text, seed.panel, 0.5), 3.2),
 
-    "--added-accent": dark ? lighten(SEMANTIC.added, 0.2) : SEMANTIC.added,
-    "--removed-accent": dark ? lighten(SEMANTIC.removed, 0.2) : SEMANTIC.removed,
-    "--modified-accent": dark ? lighten(SEMANTIC.modified, 0.15) : SEMANTIC.modified,
-    "--conflict-accent": dark ? lighten(SEMANTIC.conflict, 0.2) : SEMANTIC.conflict,
-    "--resolved-accent": dark ? lighten(SEMANTIC.resolved, 0.2) : SEMANTIC.resolved,
+    "--added-accent": legible(dark ? lighten(SEMANTIC.added, 0.2) : SEMANTIC.added, 4),
+    "--removed-accent": legible(dark ? lighten(SEMANTIC.removed, 0.2) : SEMANTIC.removed, 4),
+    "--modified-accent": legible(dark ? lighten(SEMANTIC.modified, 0.15) : SEMANTIC.modified, 4),
+    "--conflict-accent": legible(dark ? lighten(SEMANTIC.conflict, 0.2) : SEMANTIC.conflict, 4),
+    "--resolved-accent": legible(dark ? lighten(SEMANTIC.resolved, 0.2) : SEMANTIC.resolved, 4),
 
-    "--overview-bg": dark ? darken(seed.panel, 0.14) : darken(seed.panel, 0.04),
+    "--overview-bg": step(0.05),
     "--overview-viewport": alpha(seed.text, 0.22),
     "--shadow": dark ? "0 18px 44px rgba(0, 0, 0, 0.55)" : "0 14px 36px rgba(15, 23, 42, 0.16)",
     "--scrollbar": alpha(seed.text, dark ? 0.26 : 0.22),

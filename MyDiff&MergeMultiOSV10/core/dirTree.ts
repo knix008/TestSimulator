@@ -25,7 +25,24 @@ export type TreeNode = {
   renamedTo?: string;
 };
 
-export type TreeRow = { node: TreeNode; depth: number; expandable: boolean; expanded: boolean };
+export type TreeRow = {
+  node: TreeNode;
+  depth: number;
+  expandable: boolean;
+  expanded: boolean;
+  /*
+   * What the tree's guide lines look like on this row.
+   *
+   * `rails[i]` says whether the branch at indent level `i` carries on below this
+   * row, which is what decides between a line and a blank there; `last` says
+   * whether this row is the final child of its parent, which is what turns the
+   * elbow from a tee into a corner. Both are decided here rather than in the view
+   * because they depend on which rows the filter and the search left behind — a
+   * row is the last child when it is the last one *shown*.
+   */
+  rails: boolean[];
+  last: boolean;
+};
 
 export type StatusFilters = Record<FileCompareStatus, boolean>;
 
@@ -129,16 +146,19 @@ export function flatten(
     return !needle || node.rel.toLowerCase().includes(needle);
   };
 
-  const walk = (list: readonly TreeNode[], depth: number) => {
-    for (const node of list) {
-      if (!visible(node)) continue;
+  const walk = (list: readonly TreeNode[], depth: number, rails: boolean[]) => {
+    const shown = list.filter(visible);
+    shown.forEach((node, index) => {
+      const last = index === shown.length - 1;
       const isExpanded = node.directory && expanded.has(node.rel);
-      rows.push({ node, depth, expandable: node.directory, expanded: isExpanded });
-      if (isExpanded) walk(node.children, depth + 1);
-    }
+      rows.push({ node, depth, expandable: node.directory, expanded: isExpanded, rails, last });
+      // The children's rails are this row's, plus one for this row's own branch:
+      // the top level has no rail of its own, so its children start from none.
+      if (isExpanded) walk(node.children, depth + 1, depth === 0 ? [] : [...rails, !last]);
+    });
   };
 
-  walk(nodes, 0);
+  walk(nodes, 0, []);
   return rows;
 }
 
@@ -207,5 +227,8 @@ export function flatRows(
       depth: 0,
       expandable: false,
       expanded: false,
+      // A flat list has no hierarchy to draw lines for.
+      rails: [],
+      last: true,
     }));
 }

@@ -85,7 +85,7 @@
     "bg": "#f2f2f3",
     "panel": "#fefefe",
     "text": "#292b2e",
-    "accent": "#546378"
+    "accent": "#5a5f66"
   },
   {
     "id": "forest-light",
@@ -140,7 +140,7 @@
     "bg": "#f1f2f3",
     "panel": "#fefefe",
     "text": "#262b30",
-    "accent": "#40668c"
+    "accent": "#5e81ac"
   },
   {
     "id": "solarized-light",
@@ -162,7 +162,7 @@
     "bg": "#f2f2f2",
     "panel": "#fefefe",
     "text": "#2b2b2b",
-    "accent": "#bd7d0f"
+    "accent": "#c47312"
   },
   {
     "id": "moss-light",
@@ -195,7 +195,7 @@
     "bg": "#f2f2f3",
     "panel": "#fefefe",
     "text": "#282c2f",
-    "accent": "#4a6b82"
+    "accent": "#3d6b73"
   },
   {
     "id": "berry-light",
@@ -305,7 +305,7 @@
     "bg": "#151517",
     "panel": "#212224",
     "text": "#e5e5e6",
-    "accent": "#97a3b4"
+    "accent": "#a8aaa8"
   },
   {
     "id": "forest-dark",
@@ -360,7 +360,7 @@
     "bg": "#131618",
     "panel": "#1f2226",
     "text": "#e4e6e7",
-    "accent": "#88a6c4"
+    "accent": "#93b8d8"
   },
   {
     "id": "solarized-dark",
@@ -382,7 +382,7 @@
     "bg": "#161616",
     "panel": "#222222",
     "text": "#e6e6e6",
-    "accent": "#eab861"
+    "accent": "#e59a4f"
   },
   {
     "id": "moss-dark",
@@ -415,7 +415,7 @@
     "bg": "#141617",
     "panel": "#202325",
     "text": "#e5e6e6",
-    "accent": "#90a9bb"
+    "accent": "#79a8b8"
   },
   {
     "id": "berry-dark",

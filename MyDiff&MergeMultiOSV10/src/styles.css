@@ -32,6 +32,17 @@
   --gutter-width: 54px;
   --divider-width: 34px;
   --scrollbar-width: 22px;
+  /* The tree's own measures: an indent step, the padding the guide lines bridge,
+     and the width ::-webkit-scrollbar is given below, which the header row must
+     also leave so that its divider lands on the trees' divider. */
+  --tree-indent: 16px;
+  --tree-row-pad: 2px;
+  --tree-scrollbar: 14px;
+  /* Mixed from the theme's own text colour so the lines read on every one of the
+     twenty themes, and on the coloured rows, without being drawn as loudly as the
+     names they organise. */
+  --tree-guide: var(--border-strong);
+  --tree-guide: color-mix(in srgb, var(--text) 34%, transparent);
 
   /* The label columns of the merge panels and of the dialog fields. */
   --property-label-width: 116px;
@@ -1331,11 +1342,19 @@ mark.word.modified { background: var(--word-modified); }
 
 /* -------------------------------------------------------- directory view */
 
+/*
+ * The two path bars sit above the two trees, so the line where they meet has to be
+ * the line where the trees meet. They are not in the same scroller as the rows —
+ * the toolbar is between them — so the width the scroller loses to its scrollbar is
+ * added back here as padding, and the scrollbar is always there to lose (the gutter
+ * is reserved whether or not the comparison is long enough to need it). Without
+ * both halves of that the right-hand tree sits half a scrollbar off its own header.
+ */
 .tree-headers {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--gap);
-  padding: var(--gap) var(--gap) 0;
+  padding: var(--gap) calc(var(--gap) + var(--tree-scrollbar)) 0 var(--gap);
   background: var(--panel-2);
 }
 
@@ -1343,6 +1362,7 @@ mark.word.modified { background: var(--word-modified); }
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   margin: 0 var(--gap) var(--gap);
   background: var(--panel);
 }
@@ -1369,7 +1389,7 @@ mark.word.modified { background: var(--word-modified); }
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 2px 10px;
+  padding: var(--tree-row-pad) 10px;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
   font-family: var(--pane-font);
@@ -1380,6 +1400,55 @@ mark.word.modified { background: var(--word-modified); }
 .tree-cell.missing { background: var(--row-blank) !important; }
 
 .tree-name { display: flex; align-items: center; gap: 5px; min-width: 0; }
+
+/*
+ * The guide lines.
+ *
+ * One slot per level of indent: the levels above carry their branch's line straight
+ * through, and the row's own slot carries the elbow that joins it to its parent — a
+ * corner on the last child, a tee on the others. The lines are drawn a row at a
+ * time, so each one reaches out past the row's padding to meet the row above and
+ * below; without that they would be a column of dashes.
+ */
+.tree-indent { display: flex; flex: 0 0 auto; align-self: stretch; margin-right: -5px; }
+
+.tree-rail { position: relative; flex: 0 0 var(--tree-indent); width: var(--tree-indent); }
+
+.tree-rail.on::before,
+.tree-rail.elbow::before {
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--tree-row-pad));
+  bottom: calc(-1 * var(--tree-row-pad));
+  left: calc(var(--tree-indent) / 2);
+  border-left: 1px solid var(--tree-guide);
+}
+
+/* The last child's line stops where it turns: nothing of that branch is below. */
+.tree-rail.elbow.last::before { bottom: 50%; }
+
+.tree-rail.elbow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(var(--tree-indent) / 2);
+  width: calc(var(--tree-indent) / 2 + 5px);
+  border-top: 1px solid var(--tree-guide);
+}
+
+/* What the file is, and how the two sides differ: two marks, never one. */
+.tree-kind { flex: 0 0 auto; color: var(--muted); }
+.tree-mark {
+  display: inline-flex;
+  flex: 0 0 12px;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+}
+.tree-mark.status-different { color: var(--modified-accent); }
+.tree-mark.status-leftOnly { color: var(--removed-accent); }
+.tree-mark.status-rightOnly { color: var(--added-accent); }
+.tree-mark.status-renamed { color: var(--accent); }
 .tree-size, .tree-date { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
 .tree-twisty {
@@ -2045,13 +2114,19 @@ mark.word.modified { background: var(--word-modified); }
 
 /* ------------------------------------------------------------ image view */
 
+/*
+ * The stage holds the panes; each pane scrolls its own copy of one geometry, and the
+ * view keeps their scroll positions in step. The pane scrolls rather than the stage
+ * because at eight times life size there is nothing to see without scrolling, and
+ * two panes that scroll together are the whole point of a side-by-side comparison.
+ */
 .image-stage {
   display: grid;
   gap: var(--gap);
   flex: 1 1 auto;
   min-height: 0;
   padding: var(--gap);
-  overflow: auto;
+  overflow: hidden;
   background: var(--panel-2);
 }
 
@@ -2059,12 +2134,18 @@ mark.word.modified { background: var(--word-modified); }
 .image-stage.mode-blend, .image-stage.mode-difference { grid-template-columns: minmax(0, 1fr); }
 
 .image-pane {
-  display: grid;
-  place-items: center;
+  /* Flex with an auto margin on the frame, rather than centring the pane's own
+     content: a grid or flex box that centres what overflows it puts the first
+     pixels of the picture out of reach above and to the left of the scrollbars. */
+  display: flex;
   min-width: 0;
+  min-height: 0;
   padding: 8px;
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  cursor: grab;
+  touch-action: none;
   /* A chequerboard, so a transparent image is not mistaken for a white one. */
   background:
     linear-gradient(45deg, var(--row-zebra) 25%, transparent 25%, transparent 75%, var(--row-zebra) 75%) 0 0 / 16px 16px,
@@ -2072,21 +2153,27 @@ mark.word.modified { background: var(--word-modified); }
     var(--panel);
 }
 
-.image-pane img, .image-blend img, .image-blend canvas { display: block; max-width: 100%; height: auto; }
+.image-pane:active { cursor: grabbing; }
+.image-pane.dark { background: #101216; }
 
-.image-blend {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--panel);
+/* One box, at the scale in force, with every layer pinned to its top-left corner. */
+.image-frame { position: relative; flex: 0 0 auto; margin: auto; }
+
+.image-layer {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
 }
 
-.image-blend img { grid-area: 1 / 1; }
-.image-blend canvas { grid-area: 1 / 1; background: #101216; }
+/* A canvas has its own pixel size; these two are drawn at the picture's
+   resolution and stretched to whatever the scale makes of it. */
+.image-stretch { width: 100%; height: 100%; }
+.image-marks { pointer-events: none; }
+
+/* Past life size the pixel grid is the thing being inspected, so it is not blurred. */
+.image-stage.pixelated .image-layer { image-rendering: pixelated; }
 
 .blend-slider { display: inline-flex; align-items: center; gap: 7px; }
 .blend-slider input[type="range"] { width: 140px; accent-color: var(--accent); }

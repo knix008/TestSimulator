@@ -22,6 +22,7 @@ import { SYNC_MODES, type SyncMode } from "../../core/sync.js";
 import { formatBytes } from "../../core/text.js";
 import type { FileCompareStatus } from "../../core/dirCompare.js";
 import { paneHeaderStyle } from "../../core/themes.js";
+import { fileIcon } from "../fileIcons.js";
 import { Icon } from "../icons.js";
 import { PathBar } from "../PathBar.js";
 import { useApp, type DirectoryTab } from "../state.js";
@@ -63,17 +64,10 @@ export function DirectoryView({ tab }: {
    * file with its whole path. The flat list is what you want when the question is
    * "what differs" rather than "what is in this folder".
    */
-  /*
-   * Two shapes for the same comparison: a tree to browse, or one flat list of
-   * every file with its whole path. The flat list is what you want when the
-   * question is "what differs" rather than "what is in this folder".
-   */
   const rows = useMemo(
     () => (settings.flatView
       ? flatRows(tab.result.entries, tab.filters, query)
-      : settings.flatView
-    ? flatRows(tab.result.entries, tab.filters, query)
-    : flatten(tree, expanded, tab.filters, query)),
+      : flatten(tree, expanded, tab.filters, query)),
     [expanded, query, settings.flatView, tab.filters, tab.result.entries, tree],
   );
 
@@ -185,7 +179,7 @@ export function DirectoryView({ tab }: {
 
       <div className="tree-scroller" data-testid="directory-tree">
         <div className="tree-grid">
-          {rows.map(({ node, depth, expandable, expanded: isExpanded }) => (
+          {rows.map(({ node, depth, expandable, expanded: isExpanded, rails, last }) => (
             <div
               key={node.rel}
               className={`tree-pair status-${node.status}${tab.selected === node.rel ? " selected" : ""}`}
@@ -197,6 +191,8 @@ export function DirectoryView({ tab }: {
                 side="left"
                 node={node}
                 depth={depth}
+                rails={rails}
+                last={last}
                 expandable={expandable}
                 expanded={isExpanded}
                 present={node.left !== null}
@@ -208,6 +204,8 @@ export function DirectoryView({ tab }: {
                 side="right"
                 node={node}
                 depth={depth}
+                rails={rails}
+                last={last}
                 expandable={expandable}
                 expanded={isExpanded}
                 present={node.right !== null}
@@ -406,6 +404,8 @@ function TreeCell({
   side,
   node,
   depth,
+  rails,
+  last,
   expandable,
   expanded,
   present,
@@ -416,6 +416,8 @@ function TreeCell({
   side: "left" | "right";
   node: TreeNode;
   depth: number;
+  rails: boolean[];
+  last: boolean;
   expandable: boolean;
   expanded: boolean;
   present: boolean;
@@ -430,7 +432,21 @@ function TreeCell({
 
   return (
     <div className={`tree-cell side-${side}`}>
-      <span className="tree-name" style={{ paddingLeft: depth * 16 }} title={node.rel}>
+      <span className="tree-name" title={node.rel}>
+        {/*
+          * The indent is drawn rather than padded: one slot per level, the earlier
+          * ones carrying their branch's line and the last one the elbow into this
+          * row. A tree whose levels are only spaced apart leaves the eye to guess
+          * which folder a deep file belongs to.
+          */}
+        {depth > 0 ? (
+          <span className="tree-indent" aria-hidden="true">
+            {rails.map((rail, level) => (
+              <span key={level} className={rail ? "tree-rail on" : "tree-rail"} />
+            ))}
+            <span className={last ? "tree-rail elbow last" : "tree-rail elbow"} />
+          </span>
+        ) : null}
         {expandable ? (
           <button
             type="button"
@@ -447,7 +463,15 @@ function TreeCell({
         ) : (
           <span className="tree-twisty placeholder" />
         )}
-        <Icon name={node.directory ? "folder" : STATUS_ICON[node.status]} size={14} />
+        {/*
+          * Kind and state, in that order and never in one glyph: the icon says what
+          * the file is, the marker beside it says how the two sides differ, and the
+          * marker's slot is held open on identical rows so the names stay in line.
+          */}
+        <Icon name={fileIcon(node.name, node.directory)} size={14} className="tree-kind" />
+        <span className={`tree-mark status-${node.status}`}>
+          {node.status === "same" ? null : <Icon name={STATUS_ICON[node.status]} size={12} />}
+        </span>
         <span className="tree-label">{node.name}</span>
       </span>
       <span className="tree-size">{node.directory ? "" : formatBytes(size)}</span>

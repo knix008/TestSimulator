@@ -101,7 +101,7 @@ export function FindBar({
     if (!query) return;
     const outcome = await api.replaceAll(compareId, side, query, replacement, flags).catch(() => null);
     if (!outcome) return;
-    app.setStatus(t("find.replaced", outcome.replaced));
+    app.setStatus((t) => t("find.replaced", outcome.replaced));
     onReplaced();
     void run(query, flags);
   };
