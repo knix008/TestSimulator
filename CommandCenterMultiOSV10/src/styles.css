@@ -135,9 +135,12 @@ html.wco .menubar .menu-title { -webkit-app-region: no-drag; }
 .tree-row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
 .tree-row:hover { background: var(--bg-hover); }
 .tree-row.selected { background: var(--bg-sel); }
-.tree-expander { width: 16px; display: inline-flex; justify-content: center; color: var(--fg-muted); }
+.tree-expander { flex: none; width: 16px; display: inline-flex; justify-content: center; color: var(--fg-muted); }
 .tree-leaf { display: inline-block; width: 14px; }
-.tree-icon { color: var(--folder); }
+.tree-icon { flex: none; color: var(--folder); }
+/* a narrow tree cuts the name at its end (…); the chevron and the icon keep their size */
+.tree-row .ellipsis { flex: 0 1 auto; min-width: 0; }
+.tree-row > .muted { flex: none; }
 
 /* ── File table ── */
 .table-wrap { flex: 1; overflow: auto; outline: none; position: relative; }
