@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("desktop", {
   pickDirectory: (dir) => ipcRenderer.invoke("pick-directory", dir),
   writeFile: (file, text) => ipcRenderer.invoke("write-file", { file: file, text: text }),
   writeBinary: (file, base64) => ipcRenderer.invoke("write-binary", { file: file, base64: base64 }),
+  clipboardWriteImage: (dataUrl) => ipcRenderer.invoke("clipboard-write-image", { dataUrl: dataUrl }),
   downloadUrl: (url) => ipcRenderer.invoke("download-url", url),
   cancelDownload: () => ipcRenderer.invoke("cancel-download"),
   readFile: (file) => ipcRenderer.invoke("read-file", file),

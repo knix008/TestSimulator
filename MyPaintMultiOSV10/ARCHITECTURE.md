@@ -54,7 +54,10 @@ the geometry (`makeRegion`, `growRegion`, `regionHas`, `clipRegion`, `regionOutl
 `app.js` keeps the one that is live, draws it as an SVG marquee over the canvas, and turns it
 into pixels: cropping rasterises the document through the region's clip path and replaces the
 document with the result, erasing paints the region with the canvas colour, and copying puts
-the cropped pixels on the clipboard as an image shape.
+the cropped pixels on MyPaint's own clipboard as an image shape and on the system clipboard as
+a PNG — through `clipboard.writeImage` in the Electron main process, or the asynchronous
+clipboard API in a browser — so another program can paste it. Nothing is ever written to the
+system clipboard as text: MyPaint's own shape list would be gibberish anywhere else.
 
 ## Reading a picture
 

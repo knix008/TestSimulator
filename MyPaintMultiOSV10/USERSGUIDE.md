@@ -28,6 +28,8 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
   고르면 영역 밖은 투명하게 남습니다.
 - **선택 영역 지우기**: 고른 영역을 바탕색으로 지웁니다.
 - Ctrl+C로 고른 영역을 복사하고, Ctrl+X로 복사하면서 지웁니다. Ctrl+V로 붙여넣습니다.
+- 복사한 영역은 시스템 클립보드에 그림(PNG)으로도 올라가므로, 그림판·워드·메신저 등 다른
+  프로그램에 그대로 붙여넣을 수 있습니다. 타원이나 자유 영역으로 고르면 영역 밖은 투명합니다.
 
 ### 탭
 
@@ -40,11 +42,22 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
 그림을 옮깁니다. 확대와 축소는 화면 한가운데를 기준으로 하므로, 보고 있던 자리가 그대로
 가운데에 남습니다.
 
+배율은 25%에서 400%까지 서른일곱 단계입니다. 한 단계가 늘 12분의 1 정도씩만 바뀌어서,
+작게 보고 있을 때나 크게 보고 있을 때나 한 번 누른 만큼이 비슷하게 느껴집니다. 25·50·100·
+200·400%가 모두 단계에 들어 있어 익숙한 배율에 정확히 멈춥니다. 도구 모음의 배율 숫자를
+누르면 100%로 돌아갑니다.
+
+Ctrl과 휠로 확대할 때는 휠을 돌린 만큼 바뀝니다. 마우스 휠 한 칸은 단추 한 번과 같고,
+트랙패드에서 두 손가락으로 밀면 1%씩 따라와 매끄럽게 움직입니다.
+
 ### 되돌리기와 복사
 
 실행 취소는 Ctrl+Z, 다시 실행은 Ctrl+Y입니다. 복사는 Ctrl+C, 붙여넣기는 Ctrl+V,
 잘라내기는 Ctrl+X, 모두 선택은 Ctrl+A입니다. 마우스 오른쪽 단추를 누르면 이 명령들이
 상황 메뉴로 나옵니다.
+
+복사와 잘라내기는 MyPaint 안에서 쓸 도형과 함께, 시스템 클립보드에 그림을 올립니다.
+그래서 다른 프로그램에 바로 붙여넣을 수 있고, MyPaint 안에서는 도형 그대로 붙습니다.
 
 ### 사진과 그림 파일
 
@@ -151,6 +164,8 @@ outlined with a dashed line and the right panel names its shape and size.
   what falls outside stays transparent.
 - **Erase the picked area** paints it with the canvas colour.
 - Ctrl+C copies the picked area, Ctrl+X copies and clears it, Ctrl+V pastes it back.
+- The copied area also goes onto the system clipboard as a PNG, so it can be pasted into any
+  other program.
 
 ### Tabs
 
@@ -164,10 +179,22 @@ A picture smaller than the window sits in the middle. Dragging beside the pictur
 and moves it. Zooming works from the middle of the view, so whatever you were looking at stays
 where it was.
 
+The zoom runs from 25% to 400% in thirty-seven steps. Each one changes the picture by about a
+twelfth, so a click feels the same whether the picture is small or large, and 25, 50, 100, 200
+and 400% are all steps of their own. Clicking the percentage in the toolbar goes back to 100%.
+
+Ctrl and the wheel zoom by however far the wheel was turned: one notch of a mouse wheel matches
+one click of the button, while a trackpad follows two fingers a per cent at a time.
+
 ### Undo and the clipboard
 
 Ctrl+Z undoes, Ctrl+Y redoes. Ctrl+C, Ctrl+V and Ctrl+X copy, paste and cut; Ctrl+A selects
 everything. The right mouse button offers the same commands.
+
+Copying and cutting put a picture on the system clipboard as well as the shapes MyPaint keeps
+for itself, so what was copied can be pasted straight into another program — Paint, Word, a
+chat window — while pasting inside MyPaint still brings the shapes back. With an ellipse or a
+free outline, what falls outside the picked area is transparent.
 
 ### Photographs and image files
 

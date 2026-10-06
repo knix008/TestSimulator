@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, screen, clipboard, nativeImage } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
@@ -234,6 +234,16 @@ ipcMain.handle("write-file", async (_event, payload) => {
 
 ipcMain.handle("write-binary", async (_event, payload) => {
   await fs.promises.writeFile(payload.file, Buffer.from(String(payload.base64 || ""), "base64"));
+  return true;
+});
+
+/* A picture onto the system clipboard, so what was copied here can be pasted into any other
+ * program. Only the image is written: MyPaint keeps its own shapes in its own clipboard, and a
+ * text flavour would mean another program pasting MyPaint's internals as text. */
+ipcMain.handle("clipboard-write-image", (_event, payload) => {
+  const image = nativeImage.createFromDataURL(String((payload && payload.dataUrl) || ""));
+  if (image.isEmpty()) return false;
+  clipboard.writeImage(image);
   return true;
 });
 

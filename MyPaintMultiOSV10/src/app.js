@@ -50,6 +50,8 @@
   let downloadStop = null;
   let pendingClose = -1;
   let region = null;
+  let regionDrag = false;   // the picked area is still being dragged out
+  let lastSystemCopy = null;   // the picture last handed to the system clipboard
   let band = null;
   const images = {};
   const extras = new Map();
@@ -1558,10 +1560,46 @@
     stage.scrollTop += (view.top + point.y * factor) - (box.top + box.height / 2);
   }
 
+  /* The steps zoom in and out walk through: a twelfth bigger each time, counted away from 100%
+   * so that 100 — and 25, 50, 200, 400 with it — land exactly on a step. A click is a nudge
+   * rather than a jump, and the way back down passes through the same numbers. */
+  const ZOOM_RATIO = 1.08;
+  const ZOOM_STOPS = (() => {
+    const stops = [];
+    for (let n = -18; n <= 18; n += 1) {
+      const stop = Math.round(100 * Math.pow(ZOOM_RATIO, n));
+      if (stop >= 25 && stop <= 400 && stops[stops.length - 1] !== stop) stops.push(stop);
+    }
+    return stops;
+  })();
+  const ZOOM_MIN = ZOOM_STOPS[0];
+  const ZOOM_MAX = ZOOM_STOPS[ZOOM_STOPS.length - 1];
+
+  function zoomStep(direction) {
+    const now = settings.zoom;
+    if (direction > 0) {
+      const next = ZOOM_STOPS.find((stop) => stop > now + 0.5);
+      return setZoom(next === undefined ? ZOOM_MAX : next);
+    }
+    const below = ZOOM_STOPS.filter((stop) => stop < now - 0.5);
+    return setZoom(below.length ? below[below.length - 1] : ZOOM_MIN);
+  }
+
+  /* The wheel zooms by however far it was turned: a mouse notch comes in at about 100 and moves
+   * one step, while a trackpad sends a stream of small amounts and glides. */
+  function zoomByWheel(delta) {
+    const now = settings.zoom;
+    const next = now * Math.pow(ZOOM_RATIO, -delta / 100);
+    const rounded = Math.round(next);
+    // never let a small turn round away to nothing
+    if (rounded === now && delta !== 0) return setZoom(now + (delta < 0 ? 1 : -1));
+    return setZoom(rounded);
+  }
+
   function setZoom(value) {
     // zooming keeps whatever sits in the middle of the stage in the middle
     const anchor = stageCenterPoint();
-    settings.zoom = clamp(value, 25, 400);
+    settings.zoom = clamp(value, ZOOM_MIN, ZOOM_MAX);
     saveSettings();
     applyVisual();
     const label = $("zoomValue");
@@ -1695,6 +1733,7 @@
     const marquee = (Paint.TOOLS.find((item) => item.id === tool) || {}).region;
     if (marquee) {
       region = Paint.makeRegion(marquee, x, y);
+      regionDrag = true;
       selected = [];
       renderOverlay();
       renderStatus();
@@ -1753,7 +1792,7 @@
       renderStatus();
       return band;
     }
-    if (region && !draft) {
+    if (regionDrag && region && !draft) {
       Paint.growRegion(region, x, y);
       renderOverlay();
       renderStatus();
@@ -1802,8 +1841,9 @@
       renderAll();
       return state;
     }
-    if (region && !draft) {
+    if (regionDrag && region && !draft) {
       if (x != null && y != null) Paint.growRegion(region, x, y);
+      regionDrag = false;
       const box = Paint.regionBounds(region);
       if (box.w < 2 && box.h < 2) region = null;
       renderOverlay();
@@ -1826,6 +1866,13 @@
     markDirty();
     renderAll();
     return added;
+  }
+
+  /* Is a press that started on the board still being dragged? Drawing tools have a draft
+   * shape and moving shapes has a drag state, but picking an area and the select tool's box
+   * have neither — without them the pointer handlers would drop the drag on the floor. */
+  function boardDragging() {
+    return Boolean(draft || dragState || band || regionDrag);
   }
 
   function regionCanvas() {
@@ -1866,6 +1913,7 @@
       source.bytes = null;
     }
     region = null;
+    regionDrag = false;
     selected = [];
     markDirty();
     renderAll();
@@ -1885,9 +1933,69 @@
     pushUndo();
     replaceWithCanvas(doc, source);
     region = null;
+    regionDrag = false;
     markDirty();
     renderAll();
     return { width: doc.width, height: doc.height };
+  }
+
+  /* What was copied, as a picture, so the system clipboard can carry it to another program:
+   * the picked area with everything outside it transparent, or the smallest rectangle around
+   * the selected shapes, cut out of the drawing as it looks. */
+  function clipboardCanvas() {
+    const doc = current();
+    if (!doc) return null;
+    if (region) {
+      const cut = regionCanvas();
+      return cut ? cut.canvas : null;
+    }
+    const shapes = selectedShapes();
+    if (!shapes.length) return null;
+    let box = null;
+    shapes.forEach((shape) => {
+      const b = Paint.bounds(shape);
+      box = box ? {
+        x: Math.min(box.x, b.x), y: Math.min(box.y, b.y),
+        r: Math.max(box.r, b.x + b.w), b: Math.max(box.b, b.y + b.h),
+      } : { x: b.x, y: b.y, r: b.x + b.w, b: b.y + b.h };
+    });
+    const x = Math.max(0, Math.floor(box.x));
+    const y = Math.max(0, Math.floor(box.y));
+    const w = Math.min(doc.width - x, Math.ceil(box.r - x));
+    const h = Math.min(doc.height - y, Math.ceil(box.b - y));
+    if (w < 1 || h < 1) return null;
+    const source = renderCanvas(doc);
+    const out = document.createElement("canvas");
+    out.width = w;
+    out.height = h;
+    out.getContext("2d").drawImage(source, -x, -y);
+    return out;
+  }
+
+  /* Hand a picture to the system clipboard. Electron passes it to the OS, and in a browser the
+   * async clipboard API does it where the page is allowed to. Nothing is written as text: the
+   * shapes MyPaint keeps for its own paste would be gibberish in another program. */
+  function toSystemClipboard(canvas) {
+    if (!canvas) return Promise.resolve(false);
+    lastSystemCopy = { width: canvas.width, height: canvas.height, type: "image/png", done: false };
+    const dataUrl = canvas.toDataURL("image/png");
+    const browserWrite = () => new Promise((resolve) => {
+      if (!navigator.clipboard || !navigator.clipboard.write || typeof ClipboardItem !== "function" || !canvas.toBlob) {
+        resolve(false);
+        return;
+      }
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(false); return; }
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).then(() => resolve(true)).catch(() => resolve(false));
+      }, "image/png");
+    });
+    const finish = (done) => { lastSystemCopy.done = Boolean(done); return lastSystemCopy.done; };
+    if (window.desktop && window.desktop.clipboardWriteImage) {
+      return Promise.resolve(window.desktop.clipboardWriteImage(dataUrl))
+        .then((done) => (done ? finish(true) : browserWrite().then(finish)))
+        .catch(() => browserWrite().then(finish));
+    }
+    return browserWrite().then(finish);
   }
 
   function copyRegion() {
@@ -1901,12 +2009,13 @@
       h: cut.canvas.height,
       width: 1,
     })]);
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(clipboard).catch(() => {});
+    toSystemClipboard(cut.canvas);
     return clipboard;
   }
 
   function clearRegion() {
     region = null;
+    regionDrag = false;
     renderOverlay();
     renderRight();
     renderStatus();
@@ -1930,7 +2039,7 @@
     const shapes = selectedShapes();
     if (!shapes.length) return "";
     clipboard = JSON.stringify(shapes);
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(clipboard).catch(() => {});
+    toSystemClipboard(clipboardCanvas());
     return clipboard;
   }
 
@@ -1983,6 +2092,7 @@
   function doDeselect() {
     selected = [];
     region = null;
+    regionDrag = false;
     band = null;
     renderOverlay();
     renderLeft();
@@ -2845,8 +2955,8 @@
     bringForward: () => moveSelectedLayer(1),
     sendBackward: () => moveSelectedLayer(-1),
     clearDrawing: () => clearDrawing(),
-    zoomIn: () => setZoom(settings.zoom + 25),
-    zoomOut: () => setZoom(settings.zoom - 25),
+    zoomIn: () => zoomStep(1),
+    zoomOut: () => zoomStep(-1),
     zoomReset: () => setZoom(100),
     print: () => openPopup("print"),
     settings: () => openPopup("settings"),
@@ -3228,7 +3338,7 @@
     });
     board.addEventListener("pointermove", (event) => {
       const point = toDocPoint(event.clientX, event.clientY);
-      if (!draft && !dragState) {
+      if (!boardDragging()) {
         pointer = point;
         probeAt(point.x, point.y);
         renderStatus();
@@ -3237,7 +3347,7 @@
       moveDraw(point.x, point.y);
     });
     const finish = (event) => {
-      if (!draft && !dragState) return;
+      if (!boardDragging()) return;
       const point = toDocPoint(event.clientX, event.clientY);
       endDraw(point.x, point.y);
     };
@@ -3393,7 +3503,7 @@
     window.addEventListener("wheel", (event) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      setZoom(settings.zoom + (event.deltaY < 0 ? 25 : -25));
+      zoomByWheel(event.deltaY);
     }, { passive: false });
     window.addEventListener("dragover", (event) => { event.preventDefault(); });
     window.addEventListener("drop", (event) => {
@@ -3529,6 +3639,7 @@
     pendingDrop = null;
     pendingClose = -1;
     region = null;
+    regionDrag = false;
     band = null;
     draft = null;
     dragState = null;
@@ -3653,6 +3764,8 @@
     cut: doCut,
     paste: doPaste,
     getClipboard: () => clipboard,
+    systemClipboard: () => (lastSystemCopy ? Object.assign({}, lastSystemCopy) : null),
+    clipboardImage: () => { const canvas = clipboardCanvas(); return canvas ? { width: canvas.width, height: canvas.height, dataUrl: canvas.toDataURL("image/png") } : null; },
     undo: doUndo,
     redo: doRedo,
     canUndo: canUndo,

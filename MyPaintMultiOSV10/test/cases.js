@@ -434,6 +434,75 @@
         api.undo();
         assert(api.getDoc().width === 200, String(api.getDoc().width));
       }),
+      test("an area can be dragged out with the mouse, on a picture and on a drawing", async (api, doc) => {
+        // The tests above drive the drawing layer directly; this one presses, moves and releases
+        // on the board the way a hand does, which is the only path a person ever takes.
+        const drag = (x0, y0, x1, y1) => {
+          const board = doc.getElementById("board");
+          const box = board.getBoundingClientRect();
+          const view = doc.defaultView;
+          const factor = api.getZoom() / 100;
+          const at = (x, y) => ({ clientX: box.left + x * factor, clientY: box.top + y * factor, bubbles: true, button: 0, pointerId: 4, pointerType: "mouse" });
+          board.dispatchEvent(new view.PointerEvent("pointerdown", at(x0, y0)));
+          board.dispatchEvent(new view.PointerEvent("pointermove", at((x0 + x1) / 2, (y0 + y1) / 2)));
+          board.dispatchEvent(new view.PointerEvent("pointermove", at(x1, y1)));
+          board.dispatchEvent(new view.PointerEvent("pointerup", at(x1, y1)));
+        };
+        await api.openBytes(await bytesOf("/samples/scene.png"), "scene.png");
+        for (const tool of ["selectRect", "selectEllipse"]) {
+          api.clearRegion();
+          api.setTool(tool);
+          drag(40, 30, 200, 150);
+          const box = api.regionBounds();
+          assert(api.getRegion() && api.getRegion().kind === tool.slice(6).toLowerCase(), tool + " picked " + JSON.stringify(api.getRegion()));
+          assert(box && Math.round(box.w) === 160 && Math.round(box.h) === 120, tool + " picked " + JSON.stringify(box));
+        }
+        api.clearRegion();
+        api.setTool("selectFree");
+        const board = doc.getElementById("board");
+        const corner = board.getBoundingClientRect();
+        const view = doc.defaultView;
+        const at = (x, y) => ({ clientX: corner.left + x, clientY: corner.top + y, bubbles: true, button: 0, pointerId: 5, pointerType: "mouse" });
+        board.dispatchEvent(new view.PointerEvent("pointerdown", at(20, 20)));
+        [[90, 25], [95, 95], [25, 90]].forEach((point) => board.dispatchEvent(new view.PointerEvent("pointermove", at(point[0], point[1]))));
+        board.dispatchEvent(new view.PointerEvent("pointerup", at(25, 90)));
+        assert(api.getRegion() && api.getRegion().kind === "free", JSON.stringify(api.getRegion()));
+        assert(api.regionBounds().w > 60, "the free outline came out " + JSON.stringify(api.regionBounds()));
+
+        // and what was picked can be cut out
+        api.clearRegion();
+        api.setTool("selectRect");
+        drag(40, 30, 200, 150);
+        const cut = api.cropRegion();
+        assert(cut && cut.width === 160 && cut.height === 120, "the cut gave " + JSON.stringify(cut));
+
+        // the same on a drawing, and the select tool's box still picks shapes
+        freshDoc(api);
+        api.applyCanvas({ width: 400, height: 300, background: "#ffffff" });
+        api.setTool("rect");
+        const near = api.draw(20, 20, 120, 100);
+        api.deselect();
+        api.setTool("selectRect");
+        drag(20, 20, 120, 100);
+        assert(Math.round(api.regionBounds().w) === 100, JSON.stringify(api.regionBounds()));
+        api.clearRegion();
+        api.setTool("select");
+        drag(10, 10, 160, 150);
+        assert(api.getSelection().length === 1 && api.getSelection()[0] === near.id, "the box did not pick the shape: " + JSON.stringify(api.getSelection()));
+        assert(api.getBand() === null, "the box is still being dragged");
+      }),
+      test("the picked area stays where it was left when the pointer moves on", async (api, doc) => {
+        freshDoc(api);
+        api.applyCanvas({ width: 300, height: 200, background: "#ffffff" });
+        api.setTool("selectRect");
+        api.draw(20, 20, 120, 100);
+        const before = JSON.stringify(api.regionBounds());
+        const board = doc.getElementById("board");
+        const box = board.getBoundingClientRect();
+        const view = doc.defaultView;
+        board.dispatchEvent(new view.PointerEvent("pointermove", { clientX: box.left + 280, clientY: box.top + 180, bubbles: true, pointerId: 6, pointerType: "mouse" }));
+        assert(JSON.stringify(api.regionBounds()) === before, "moving the pointer afterwards changed the area: " + JSON.stringify(api.regionBounds()));
+      }),
       test("the cut command is offered only while an area is picked", (api, doc) => {
         freshDoc(api);
         api.clearRegion();
@@ -529,6 +598,63 @@
         assert(api.shapeCount() === 1);
         press("y");
         assert(api.shapeCount() === 2);
+      }),
+      test("a picked area goes to the system clipboard as a picture", async (api) => {
+        // What another program pastes has to be the picture, not the shapes MyPaint keeps for
+        // itself. The system clipboard itself is the desktop's business; what is checked here is
+        // that a PNG of the right size is what gets handed over.
+        await api.openBytes(await bytesOf("/samples/scene.png"), "scene.png");
+        api.setTool("selectRect");
+        api.draw(40, 30, 200, 150);
+        const payload = api.copyRegion();
+        const handed = api.systemClipboard();
+        assert(handed, "nothing was handed to the system clipboard");
+        assert(handed.type === "image/png", "it was handed over as " + handed.type);
+        assert(handed.width === 160 && handed.height === 120, "it was handed over as " + handed.width + "x" + handed.height);
+        assert(payload.indexOf("data:image/png") > 0, "MyPaint's own clipboard lost the picture");
+        const picture = api.clipboardImage();
+        assert(picture && picture.dataUrl.indexOf("data:image/png") === 0, "the picked area did not come out as a PNG");
+        assert(picture.width === 160 && picture.height === 120, picture.width + "x" + picture.height);
+      }),
+      test("copied shapes go to the system clipboard as a picture too", (api) => {
+        freshDoc(api);
+        api.applyCanvas({ width: 300, height: 200, background: "#ffffff" });
+        api.setTool("rect");
+        api.draw(20, 30, 120, 110);
+        api.selectAll();
+        api.copy();
+        const handed = api.systemClipboard();
+        assert(handed && handed.type === "image/png", JSON.stringify(handed));
+        // the picture is the box around what was picked, give or take the line width
+        assert(Math.abs(handed.width - 100) <= 6 && Math.abs(handed.height - 80) <= 6, handed.width + "x" + handed.height);
+        assert(api.getClipboard().indexOf("rect") >= 0, "MyPaint's own clipboard lost the shape");
+      }),
+      test("nothing of MyPaint's own is written to the system clipboard as text", (api, doc, win) => {
+        const written = [];
+        let patched = true;
+        try {
+          Object.defineProperty(win.navigator, "clipboard", {
+            configurable: true,
+            value: {
+              writeText: (text) => { written.push(text); return Promise.resolve(); },
+              write: () => Promise.resolve(),
+            },
+          });
+        } catch (error) { patched = false; }
+        if (!patched) return;   // the browser will not let the clipboard be stood in for
+        try {
+          freshDoc(api);
+          api.setTool("rect");
+          api.draw(10, 10, 80, 80);
+          api.selectAll();
+          api.copy();
+          api.setTool("selectRect");
+          api.draw(10, 10, 60, 60);
+          api.copyRegion();
+          assert(written.length === 0, "it wrote text to the system clipboard: " + String(written[0]).slice(0, 40));
+        } finally {
+          delete win.navigator.clipboard;
+        }
       }),
     ]),
 
@@ -1264,7 +1390,7 @@
       test("zoom in, out and reset stay inside the limits", (api) => {
         api.setZoom(100);
         api.run("zoomIn");
-        assert(api.getZoom() === 125, String(api.getZoom()));
+        assert(api.getZoom() === 108, String(api.getZoom()));
         api.run("zoomOut");
         assert(api.getZoom() === 100);
         api.setZoom(10);
@@ -1274,12 +1400,78 @@
         api.run("zoomReset");
         assert(api.getZoom() === 100);
       }),
+      test("every zoom step is a small one, in and out alike", (api) => {
+        const climb = [];
+        api.setZoom(25);
+        for (let i = 0; i < 40 && api.getZoom() < 400; i += 1) {
+          const before = api.getZoom();
+          api.run("zoomIn");
+          const after = api.getZoom();
+          assert(after > before, "zooming in stopped at " + before);
+          climb.push(after / before);
+        }
+        assert(api.getZoom() === 400, "zooming in did not reach 400%: " + api.getZoom());
+        assert(climb.length >= 30, "there are only " + climb.length + " steps between 25% and 400%");
+        const worst = Math.max(...climb);
+        assert(worst < 1.11, "one step enlarges the picture by " + Math.round((worst - 1) * 100) + "%");
+        // the familiar percentages are steps of their own, so stepping off one and back lands on it
+        [50, 100, 200].forEach((stop) => {
+          api.setZoom(stop);
+          api.run("zoomIn");
+          api.run("zoomOut");
+          assert(api.getZoom() === stop, stop + "% is not one of the steps: it became " + api.getZoom());
+        });
+        [25, 400].forEach((edge) => {
+          api.setZoom(edge);
+          api.run(edge === 25 ? "zoomIn" : "zoomOut");
+          api.run(edge === 25 ? "zoomOut" : "zoomIn");
+          assert(api.getZoom() === edge, edge + "% is not one of the steps: it became " + api.getZoom());
+        });
+        // and the way back down lands on exactly the same stops
+        const drop = [];
+        for (let i = 0; i < 40 && api.getZoom() > 25; i += 1) {
+          api.run("zoomOut");
+          drop.push(api.getZoom());
+        }
+        assert(api.getZoom() === 25, "zooming out did not reach 25%: " + api.getZoom());
+        const up = [25];
+        api.setZoom(25);
+        for (let i = 0; i < 40 && api.getZoom() < 400; i += 1) { api.run("zoomIn"); up.push(api.getZoom()); }
+        assert(drop.slice().reverse().join(",") === up.slice(0, -1).join(","), "the way down is not the way up: " + drop.join(","));
+      }),
       test("Ctrl and the wheel zoom the drawing", (api, doc, win) => {
+        const wheel = (deltaY) => win.dispatchEvent(new win.WheelEvent("wheel", { deltaY: deltaY, ctrlKey: true, bubbles: true, cancelable: true }));
         api.setZoom(100);
-        win.dispatchEvent(new win.WheelEvent("wheel", { deltaY: -100, ctrlKey: true, bubbles: true, cancelable: true }));
-        assert(api.getZoom() === 125, String(api.getZoom()));
-        win.dispatchEvent(new win.WheelEvent("wheel", { deltaY: 100, ctrlKey: true, bubbles: true, cancelable: true }));
-        assert(api.getZoom() === 100);
+        wheel(-100);
+        assert(api.getZoom() === 108, String(api.getZoom()));
+        wheel(100);
+        assert(api.getZoom() === 100, String(api.getZoom()));
+      }),
+      test("a trackpad zooms by however far it was pushed", (api, doc, win) => {
+        const wheel = (deltaY) => win.dispatchEvent(new win.WheelEvent("wheel", { deltaY: deltaY, ctrlKey: true, bubbles: true, cancelable: true }));
+        // a trackpad sends a stream of small amounts, and each one has to move the picture a
+        // little rather than a whole step
+        api.setZoom(100);
+        wheel(-12);
+        const small = api.getZoom();
+        assert(small > 100 && small < 104, "a small push gave " + small + "%");
+        for (let i = 0; i < 7; i += 1) wheel(-12);
+        assert(api.getZoom() > small, "pushing on did not keep zooming: " + api.getZoom());
+        assert(api.getZoom() <= 110, "eight small pushes went all the way to " + api.getZoom() + "%");
+        // the smallest push there is still has to move by one per cent, not nothing
+        api.setZoom(100);
+        wheel(-1);
+        assert(api.getZoom() === 101, "the smallest push gave " + api.getZoom() + "%");
+        api.setZoom(100);
+        wheel(1);
+        assert(api.getZoom() === 99, "the smallest push back gave " + api.getZoom() + "%");
+        // and it stays inside the limits
+        api.setZoom(400);
+        wheel(-1000);
+        assert(api.getZoom() === 400, String(api.getZoom()));
+        api.setZoom(25);
+        wheel(1000);
+        assert(api.getZoom() === 25, String(api.getZoom()));
       }),
       test("a picture smaller than the stage sits in the middle", (api, doc) => {
         freshDoc(api);
