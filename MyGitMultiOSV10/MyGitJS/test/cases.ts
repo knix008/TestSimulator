@@ -12,7 +12,7 @@ import { documentFromLines } from "../core/lineDiff.js";
 import { BUILTIN_MERGE_TOOL, isBuiltinMergeTool, usesBuiltinMerge } from "../core/mergeTool.js";
 import { buildResult, conflictCount, mergeTexts } from "../core/threeWayMerge.js";
 import { GitApp } from "../core/gitApp.js";
-import { releaseStaleIndexLock, clearStaleIndexLock, runGit } from "../core/gitProcess.js";
+import { gitEnv, releaseStaleIndexLock, clearStaleIndexLock, runGit } from "../core/gitProcess.js";
 import { renderCsv, renderDocx, renderMarkdown, renderXlsx, type Report } from "../core/report.js";
 import { defaultPageSetup, paginate, renderPrintHtml, runningBands, type PrintBlock } from "../core/printLayout.js";
 import { renderPdf } from "../core/reportPdf.js";
@@ -1020,6 +1020,37 @@ export function cases(ctx: Ctx): TestCase[] {
     assert(merge?.kind === "merge" && merge.file === "dir/b.txt", JSON.stringify(merge));
     assert(parseToolHash("#tool?kind=diff") === null, "missing file");
     assert(parseToolHash("") === null, "empty");
+  });
+
+  add("Git", "A status poll leaves the index alone so a terminal commit is not blocked", async () => {
+    assert(gitEnv().GIT_OPTIONAL_LOCKS === "0", String(gitEnv().GIT_OPTIONAL_LOCKS));
+    assert(gitEnv().GIT_TERMINAL_PROMPT === "0", String(gitEnv().GIT_TERMINAL_PROMPT));
+    const repo = path.join(ctx.home, "poll-lock-repo");
+    fs.mkdirSync(repo);
+    await git(repo, ["init", "-b", "main"]);
+    await identity(repo);
+    const names = ["a.txt", "b.txt", "c.txt"];
+    for (const name of names) fs.writeFileSync(path.join(repo, name), name + "\n");
+    await git(repo, ["add", "."]);
+    await git(repo, ["commit", "-m", "Base"]);
+    const index = path.join(repo, ".git", "index");
+    const lock = path.join(repo, ".git", "index.lock");
+    let locks = 0;
+    const watch = setInterval(() => { if (fs.existsSync(lock)) locks += 1; }, 1);
+    const before = fs.statSync(index).mtimeMs;
+    try {
+      for (let round = 0; round < 6; round++) {
+        const stamp = new Date(Date.now() + round * 1000);
+        for (const name of names) fs.utimesSync(path.join(repo, name), stamp, stamp);
+        const result = await runGit(repo, ["status", "--porcelain", "-unormal"]);
+        assert(result.code === 0, result.stderr);
+      }
+    } finally {
+      clearInterval(watch);
+    }
+    assert(locks === 0, "the status poll took .git/index.lock");
+    assert(fs.statSync(index).mtimeMs === before, "the status poll rewrote .git/index");
+    await git(repo, ["commit", "--allow-empty", "-m", "Still writable"]);
   });
 
   add("Build", "The bundled server entry points are CommonJS and the run scripts point at them", async () => {
