@@ -53,7 +53,7 @@ class Session {
 
   load() {
     try {
-      const raw = JSON.parse(fs.readFileSync(this.file, 'utf-8'));
+      const raw = JSON.parse(fs.readFileSync(this.file, 'utf-8').replace(/^\uFEFF/, ''));   // a BOM: saved by a Windows editor
       this.data = { ...DEFAULTS, ...raw };
     } catch {
       this.data = { ...DEFAULTS };

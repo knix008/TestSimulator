@@ -392,6 +392,26 @@ function iconPath() {
   return path.join(dir, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
 }
 
+// The saved bounds, made safe to open at: at least the minimum size, at most the work area of the screen
+// they are on, and a position only when the window still lands on a connected screen (a monitor may
+// have been unplugged since) — otherwise the system centres it.
+function startBounds(saved, minW, minH) {
+  const ok = (n) => Number.isFinite(n);
+  const hasPos = saved && ok(saved.x) && ok(saved.y);
+  const w0 = saved && ok(saved.width) ? saved.width : minW;
+  const h0 = saved && ok(saved.height) ? saved.height : minH;
+  const area = (hasPos ? screen.getDisplayMatching({ x: saved.x, y: saved.y, width: w0, height: h0 }) : screen.getPrimaryDisplay()).workArea;
+  const width = Math.max(minW, Math.min(Math.round(w0), area.width));
+  const height = Math.max(minH, Math.min(Math.round(h0), area.height));
+  if (!hasPos) return { width, height };
+  const visible = screen.getAllDisplays().some(({ workArea: a }) =>
+    saved.x < a.x + a.width - 100 && saved.x + width > a.x + 100 && saved.y >= a.y - 10 && saved.y < a.y + a.height - 50);
+  if (!visible) return { width, height };
+  const x = Math.min(Math.max(saved.x, area.x), area.x + area.width - width);
+  const y = Math.min(Math.max(saved.y, area.y), area.y + area.height - height);
+  return { x: Math.round(Math.max(x, area.x)), y: Math.round(Math.max(y, area.y)), width, height };
+}
+
 function createWindow() {
   const session = api.session.get();
   const saved = session.windowBounds || null;
@@ -401,12 +421,10 @@ function createWindow() {
   // win:minwidth) — so this constant only has to be right before the first paint, and no size the
   // window can be dragged to ever clips a toolbar button.
   const MIN_W = 1149, MIN_H = 713;   // see .app min-width in styles.css
+  const start = startBounds(saved, MIN_W, MIN_H);
   const win = new BrowserWindow({
-    // The window always opens at its minimum size; only the last position is restored.
-    width: MIN_W,
-    height: MIN_H,
-    x: saved && Number.isFinite(saved.x) ? saved.x : undefined,
-    y: saved && Number.isFinite(saved.y) ? saved.y : undefined,
+    // The size and position the window had when it was last closed, kept on a screen that still exists.
+    ...start,
     // Wide enough for the full icon toolbar in either language, so switching the language never
     // changes the window and no button is ever clipped.
     minWidth: MIN_W,
@@ -430,7 +448,7 @@ function createWindow() {
   mainWin = win;
   win.ccOverlay = process.platform === 'win32' && PAGE_TITLEBAR;   // setTitleBarOverlay works on this window
 
-  revealWhenReady(win, () => win.show());
+  revealWhenReady(win, () => { if (saved && saved.maximized) win.maximize(); win.show(); });
 
   // Links and "open in browser" requests go to the system browser.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -440,7 +458,7 @@ function createWindow() {
 
   const saveBounds = () => {
     if (win.isDestroyed()) return;
-    const b = win.isMaximized() ? win.getNormalBounds() : win.getBounds();
+    const b = win.isMaximized() || win.isMinimized() || win.isFullScreen() ? win.getNormalBounds() : win.getBounds();
     api.session.save({ windowBounds: { ...b, maximized: win.isMaximized() } });
   };
   win.on('close', saveBounds);
