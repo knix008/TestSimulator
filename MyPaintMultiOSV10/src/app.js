@@ -580,13 +580,18 @@
         '<button type="button" class="action grow" data-action="dicomCine" title="' + esc(cineTimer ? t("dicom.stop") : t("dicom.play")) + '">' +
         Icons.icon(cineTimer ? "stop" : "play") + "</button></div>");
     }
-    const chosen = extrasOf(doc).preset || "file";
-    rows.push(propLine(t("dicom.preset"), '<select data-dicom="preset" title="' + esc(t("dicom.preset")) + '">' +
-      dicomPresets(image).map((preset) => optionTag(preset.id, preset.label, chosen)).join("") + "</select>"));
-    rows.push(propLine(t("dicom.center"), propSpin("dicom", "wc", Math.round(state.wc == null ? 0 : state.wc), null, null, 10, t("dicom.center"))));
-    rows.push(propLine(t("dicom.width"), propSpin("dicom", "ww", Math.round(state.ww == null ? 1 : state.ww), 1, null, 10, t("dicom.width"))));
-    rows.push(propLine(t("dicom.colormap"), '<select data-dicom="colormap" title="' + esc(t("dicom.colormap")) + '">' +
-      (image.colormaps || ["gray"]).map((name) => optionTag(name, name, state.colormap)).join("") + "</select>"));
+    // A window, a colour map and a VOI function only mean something for grey values; an RGB or
+    // palette scan keeps the frame stepper, inversion and its overlays.
+    const windowed = image.windowed !== false;
+    if (windowed) {
+      const chosen = extrasOf(doc).preset || "file";
+      rows.push(propLine(t("dicom.preset"), '<select data-dicom="preset" title="' + esc(t("dicom.preset")) + '">' +
+        dicomPresets(image).map((preset) => optionTag(preset.id, preset.label, chosen)).join("") + "</select>"));
+      rows.push(propLine(t("dicom.center"), propSpin("dicom", "wc", Math.round(state.wc == null ? 0 : state.wc), null, null, 10, t("dicom.center"))));
+      rows.push(propLine(t("dicom.width"), propSpin("dicom", "ww", Math.round(state.ww == null ? 1 : state.ww), 1, null, 10, t("dicom.width"))));
+      rows.push(propLine(t("dicom.colormap"), '<select data-dicom="colormap" title="' + esc(t("dicom.colormap")) + '">' +
+        (image.colormaps || ["gray"]).map((name) => optionTag(name, name, state.colormap)).join("") + "</select>"));
+    }
     rows.push('<label class="line prop-line"><span>' + esc(t("dicom.invert")) + '</span><input data-dicom="invert" type="checkbox"' + (state.invert ? " checked" : "") + "></label>");
     if ((image.overlays || []).length) {
       rows.push('<label class="line prop-line"><span>' + esc(t("dicom.overlays")) + '</span><input data-dicom="overlays" type="checkbox"' + (state.overlays ? " checked" : "") + "></label>");
@@ -596,8 +601,10 @@
         [{ id: "-1", label: t("dicom.preset.file") }].concat(image.voiLuts.map((lut, index) => ({ id: String(index), label: lut.label })))
           .map((item) => optionTag(item.id, item.label, String(state.voiLut))).join("") + "</select>"));
     }
-    rows.push(propLine(t("dicom.voiFunction"), '<select data-dicom="voiFunction" title="' + esc(t("dicom.voiFunction")) + '">' +
-      ["LINEAR", "LINEAR_EXACT", "SIGMOID"].map((name) => optionTag(name, name, state.voiFunction)).join("") + "</select>"));
+    if (windowed) {
+      rows.push(propLine(t("dicom.voiFunction"), '<select data-dicom="voiFunction" title="' + esc(t("dicom.voiFunction")) + '">' +
+        ["LINEAR", "LINEAR_EXACT", "SIGMOID"].map((name) => optionTag(name, name, state.voiFunction)).join("") + "</select>"));
+    }
     if (lastProbe) {
       const text = lastProbe.r != null
         ? lastProbe.r + ", " + lastProbe.g + ", " + lastProbe.b
@@ -1174,7 +1181,7 @@
         ["studyDescription", meta.studyDescription], ["seriesDescription", meta.seriesDescription],
         ["imageSize", meta.imageSize], ["photometric", meta.photometric], ["bitDepth", meta.bitDepth],
         ["frames", meta.frames], ["transferSyntax", meta.transferSyntax], ["pixelSpacing", meta.pixelSpacing],
-        ["window", meta.window],
+        ["window", meta.window], ["warning", meta.warning],
       ].filter((row) => row[1]);
       const tags = dicomTags();
       const pages = tagPages();

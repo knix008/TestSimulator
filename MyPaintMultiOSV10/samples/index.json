@@ -45,6 +45,10 @@
    "kind": "raw"
   },
   {
+   "file": "grid.heic",
+   "kind": "heif"
+  },
+  {
    "file": "hasselblad.3fr",
    "kind": "raw"
   },

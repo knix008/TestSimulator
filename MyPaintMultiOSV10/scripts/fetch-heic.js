@@ -28,6 +28,11 @@ const SAMPLES = [
     url: "https://github.com/nokiatech/heif_conformance/raw/master/conformance_files/C003.heic",
     note: "Nokia's HEIF conformance file C003",
   },
+  {
+    file: "grid.heic",
+    url: "https://github.com/nokiatech/heif_conformance/raw/master/conformance_files/C007.heic",
+    note: "Nokia's HEIF conformance file C007, a 2x2 grid",
+  },
 ];
 
 async function decodes(bytes) {
@@ -36,7 +41,8 @@ async function decodes(bytes) {
   const decoder = new lib.HeifDecoder();
   const images = decoder.decode(bytes);
   if (!images || !images.length) return null;
-  const image = images[0];
+  // The same choice MyPaint makes: the file's primary image, not simply the first one.
+  const image = images.find((item) => { try { return item.is_primary(); } catch (error) { return false; } }) || images[0];
   const width = image.get_width();
   const height = image.get_height();
   const out = new Uint8ClampedArray(width * height * 4);

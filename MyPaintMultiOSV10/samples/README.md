@@ -67,13 +67,18 @@ header rather than a TIFF directory, so both readers are covered.
 |------|---------------------|
 | `photo.heic` | Nokia's [HEIF sample page](https://nokiatech.github.io/heif/) — 1440x960 |
 | `example.heif` | the [libheif](https://github.com/strukturag/libheif) example image — 1280x854 |
-| `conformance.heic` | Nokia's [HEIF conformance](https://github.com/nokiatech/heif_conformance) file C003 — 1280x720 |
+| `conformance.heic` | Nokia's [HEIF conformance](https://github.com/nokiatech/heif_conformance) file C003 — two images, 1280x720 each |
+| `grid.heic` | HEIF conformance file C007: a 2560x1440 picture stored as a 2x2 grid of 1280x720 tiles, the way a phone writes a large photo. Opens as the whole picture; its four tiles follow as pages |
 
-These three are downloaded rather than generated: nothing in this toolchain can write HEVC.
+These four are downloaded rather than generated: nothing in this toolchain can write HEVC.
 `npm run samples:heic` fetches them again (`--force` to replace what is already there), and
 each file is decoded with libheif before it is kept, so a broken download is never written.
 
-MyPaint reads HEIC and HEIF but cannot write them, for the same reason.
+MyPaint reads HEIC and HEIF but cannot write them, for the same reason. A file holding more than
+one image opens at the one it calls its primary image — the whole grid, or the turned or cropped
+version of a picture — and the others are reached with `<` and `>` in the right panel. An image
+sequence (a `.heics`, or anything whose brands include `msf1`) is a movie track rather than a
+picture, and MyPaint says so instead of opening it.
 
 ## index.json
 

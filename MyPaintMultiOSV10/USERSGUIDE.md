@@ -53,7 +53,9 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
 
 - 일반 그림: PNG, JPEG, GIF, WebP, BMP, ICO, AVIF
 - TIFF: 여러 쪽, 8~16비트, LZW·PackBits·Deflate·JPEG 압축
-- HEIC/HEIF: 요즘 휴대전화 사진
+- HEIC/HEIF: 요즘 휴대전화 사진. 한 파일에 그림이 여러 장 들어 있으면 대표 그림이 먼저
+  열리고 — 타일을 이어 붙인 전체 사진, 또는 돌리거나 잘라낸 쪽 — 나머지는 `<` `>` 로 넘깁니다.
+  움직이는 이미지 시퀀스(`.heics`)는 열지 못하고 그렇다고 알려 줍니다.
 - JPEG 2000: `.jp2`, `.j2k`
 - 카메라 RAW: 캐논 `.cr2` `.cr3`, 니콘 `.nef` `.nrw`, 소니 `.arw` `.sr2`, 후지 `.raf`,
   올림푸스 `.orf`, 파나소닉 `.rw2`, 펜탁스 `.pef`, 삼성 `.srw`, 시그마 `.x3f`,
@@ -62,7 +64,7 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
   오른쪽 패널에 적어 줍니다.
 - DICOM 의료 영상: `.dcm`, `.dicom`
 
-여러 쪽짜리 TIFF는 오른쪽 패널의 `<` `>` 단추로 쪽을 넘깁니다.
+여러 쪽짜리 TIFF와 그림이 여러 장 들어 있는 HEIC는 오른쪽 패널의 `<` `>` 단추로 넘깁니다.
 
 ### 링크에서 받기
 
@@ -89,6 +91,7 @@ DICOM 파일을 열면 오른쪽에 의료 영상 패널이 나옵니다.
 - **창 중심(WC) / 창 너비(WW)**: 직접 숫자로 넣습니다.
 - **색상표**: gray, hotiron, pet, hotmetalblue, pet20, jet, rainbow, bone.
 - **흑백 반전**, **오버레이 표시**, **VOI LUT**, **창 함수**(LINEAR, LINEAR_EXACT, SIGMOID).
+  컬러 영상이나 팔레트 영상에는 창 설정이 없어서 흑백 반전만 나옵니다.
 - **DICOM 정보**: 환자·검사·영상 요약과 파일 안의 모든 태그를 보여 줍니다. 태그가 많으면
   `<` `>`로 넘깁니다.
 
@@ -173,7 +176,9 @@ the current one, or use it as the workspace background. It reads:
 
 - Common images: PNG, JPEG, GIF, WebP, BMP, ICO, AVIF
 - TIFF: every page, 8–16 bit, LZW / PackBits / Deflate / JPEG
-- HEIC/HEIF from recent phones
+- HEIC/HEIF from recent phones. A file holding several pictures opens at the one it calls its
+  primary image — the whole tiled photograph, or the turned or cropped version — and the rest
+  are reached with `<` and `>`. An image sequence (`.heics`) cannot be opened, and MyPaint says so.
 - JPEG 2000: `.jp2`, `.j2k`
 - Camera RAW: Canon `.cr2` `.cr3`, Nikon `.nef` `.nrw`, Sony `.arw` `.sr2`, Fujifilm `.raf`,
   Olympus `.orf`, Panasonic `.rw2`, Pentax `.pef`, Samsung `.srw`, Sigma `.x3f`,
@@ -182,7 +187,8 @@ the current one, or use it as the workspace background. It reads:
   lens in the right panel.
 - DICOM medical images: `.dcm`, `.dicom`
 
-A TIFF with several pages steps through them with the `<` and `>` buttons in the right panel.
+A TIFF with several pages, and a HEIC holding more than one picture, step through them with the
+`<` and `>` buttons in the right panel.
 
 ### Downloading from a link
 
@@ -210,7 +216,7 @@ Opening a DICOM file adds a medical image panel on the right.
 - **Centre (WC) / Width (WW)**: typed in directly.
 - **Colour map**: gray, hotiron, pet, hotmetalblue, pet20, jet, rainbow, bone.
 - **Invert grey**, **Show overlays**, **VOI LUT**, **Window function** (LINEAR, LINEAR_EXACT,
-  SIGMOID).
+  SIGMOID). A colour or palette scan has no window to set, so only the inversion is offered.
 - **DICOM details**: the patient, study and image summary, and every tag in the file, paged
   with `<` and `>`.
 

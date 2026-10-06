@@ -65,7 +65,7 @@ hands it to one reader:
 |------|--------|
 | `native` | `createImageBitmap` — PNG, JPEG, GIF, WebP, BMP, ICO, AVIF |
 | `tiff` | UTIF, every page, LZW / PackBits / Deflate / JPEG, 8–16 bit |
-| `heif` | the platform first, then libheif compiled to WebAssembly |
+| `heif` | the platform first, then libheif compiled to WebAssembly — the file's primary image, with every other image it holds as a further page |
 | `j2k` | OpenJPEG |
 | `raw` | the full-size JPEG the camera wrote into the file |
 | `dicom` | `dicom.js` |
@@ -87,8 +87,10 @@ base64, so a `<script>` tag is enough and the packaged application needs no `nod
 ## DICOM
 
 `src/dicom.js` is the decoder: transfer syntaxes from implicit little endian through RLE,
-JPEG, JPEG-LS, JPEG 2000 and HTJ2K; modality rescale and LUTs; VOI windows, VOI LUTs and
-window functions; colour maps; overlay planes; enhanced multi-frame groups. `image.render()`
+deflate, JPEG, JPEG-LS, JPEG 2000 and HTJ2K; modality rescale and LUTs; VOI windows, VOI LUTs
+and window functions; colour maps; overlay planes; enhanced multi-frame groups. A file saved
+without the Part 10 preamble is read as well, taking its transfer syntax from the file meta
+group when that is present and guessing it from the first element when it is not. `image.render()`
 returns RGBA for one frame, `image.stats()` and `image.valueAt()` answer measurements, and
 `image.tags` is the whole file.
 

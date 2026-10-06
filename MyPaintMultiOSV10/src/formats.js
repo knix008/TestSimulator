@@ -8,8 +8,9 @@
  *
  * Browser decoders: PNG / JPEG / GIF / WebP / BMP / ICO / AVIF go through createImageBitmap.
  * TIFF (every page, LZW / PackBits / Deflate / JPEG, 8-16 bit) uses UTIF, HEIC / HEIF uses
- * libheif, JPEG 2000 uses OpenJPEG, DICOM uses the full decoder in dicom.js, and camera RAW
- * files are shown from the full-size JPEG the camera embeds in them.
+ * libheif (the file's primary image first, every other image it holds as a further page),
+ * JPEG 2000 uses OpenJPEG, DICOM uses the full decoder in dicom.js, and camera RAW files are
+ * shown from the full-size JPEG the camera embeds in them.
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./dicom"), require("./encoders"));
@@ -169,7 +170,19 @@
 
   /* ── HEIF / HEIC ── */
 
-  async function decodeHeif(bytes) {
+  /* The brands in the ftyp box at the front of the file. "msf1" marks an image sequence, which
+   * lives in a movie track rather than in image items — libheif reads the items only. */
+  function heifBrands(bytes) {
+    if (bytes.length < 16) return [];
+    if (String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) !== "ftyp") return [];
+    const size = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+    const end = Math.min(size || bytes.length, bytes.length);
+    const brands = [];
+    for (let at = 8; at + 4 <= end; at += 4) brands.push(String.fromCharCode(bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]));
+    return brands;
+  }
+
+  async function decodeHeif(bytes, page) {
     try {
       const native = await decodeNative(bytes, "image/heic");
       if (native.width > 0) return Object.assign(native, { pages: 1, page: 0 });
@@ -177,8 +190,19 @@
     const lib = await D.vendor("libheif");
     const decoder = new lib.HeifDecoder();
     const images = decoder.decode(bytes);
-    if (!images || !images.length) throw new Error("The HEIF file holds no image.");
-    const image = images[0];
+    if (!images || !images.length) {
+      throw new Error(heifBrands(bytes).indexOf("msf1") >= 0
+        ? "This HEIF file holds an image sequence, which MyPaint cannot read."
+        : "The HEIF file holds no image.");
+    }
+    // A HEIF file names one of its images the primary item: the grid a phone writes a large
+    // photo as, or the turned or cropped version of a picture. The rest are its tiles and
+    // alternates, so the primary one comes first and the others follow as further pages.
+    const order = images.slice();
+    const primary = order.findIndex((item) => { try { return item.is_primary(); } catch (error) { return false; } });
+    if (primary > 0) order.unshift(order.splice(primary, 1)[0]);
+    const index = Math.max(0, Math.min(order.length - 1, Math.round(Number(page) || 0)));
+    const image = order[index];
     const width = image.get_width();
     const height = image.get_height();
     const out = new Uint8ClampedArray(width * height * 4);
@@ -186,7 +210,7 @@
       image.display({ data: out, width: width, height: height }, (done) => (done ? resolve(done) : reject(new Error("The HEIF image could not be decoded."))));
     });
     images.forEach((item) => { try { item.free(); } catch (error) { /* already freed */ } });
-    return { width: width, height: height, rgba: out, pages: images.length, page: 0 };
+    return { width: width, height: height, rgba: out, pages: images.length, page: index };
   }
 
   /* ── JPEG 2000 ── */
@@ -466,7 +490,7 @@
     if (!kind) throw new Error("MyPaint does not know the format of " + (name || "this file") + ".");
     let result;
     if (kind === "tiff") result = await decodeTiff(bytes, opts.page);
-    else if (kind === "heif") result = await decodeHeif(bytes);
+    else if (kind === "heif") result = await decodeHeif(bytes, opts.page);
     else if (kind === "j2k") result = await decodeJ2k(bytes);
     else if (kind === "raw") result = await decodeRaw(bytes);
     else if (kind === "dicom") result = await decodeDicom(bytes, opts);

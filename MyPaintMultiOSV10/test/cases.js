@@ -1806,6 +1806,85 @@
         assert(popup.textContent.indexOf(api.t("dicom.none")) >= 0);
         api.closePopup();
       }),
+      test("a data set saved without the Part 10 wrapper still opens", async (api) => {
+        for (const file of ["ct-no-preamble.dcm", "ct-no-meta.dcm"]) {
+          await api.openBytes(await bytesOf("/test/fixtures/" + file), file);
+          assert(api.getDoc().width === 64 && api.getDoc().height === 64, file + " came out " + api.getDoc().width + "x" + api.getDoc().height);
+          assert(api.dicomMeta().patientName === "Test Phantom", file + ": " + api.dicomMeta().patientName);
+          assert(api.dicom().modality === "CT", file + ": " + api.dicom().modality);
+          assert(api.dicom().transferSyntaxName === "Explicit VR Little Endian", file + ": " + api.dicom().transferSyntaxName);
+        }
+      }),
+      test("8-bit colour written as words in big endian keeps its colours", async (api) => {
+        const shot = async (file) => {
+          await api.openBytes(await bytesOf("/test/fixtures/" + file), file);
+          // The drawing itself is held to the smallest canvas MyPaint keeps; the picture is 3x3.
+          assert(api.dicom().width === 3 && api.dicom().height === 3, file + " came out " + api.dicom().width + "x" + api.dicom().height);
+          const out = [];
+          for (let y = 0; y < 3; y += 1) for (let x = 0; x < 3; x += 1) out.push(api.framePixelAt(x, y).join(","));
+          return out;
+        };
+        const little = await shot("rgb-odd.dcm");
+        const big = await shot("rgb-odd-be.dcm");
+        assert(little[0] === "166,141,52,255", "the little endian file read as " + little[0]);
+        assert(big.join(" ") === little.join(" "), "big endian gave " + big.join(" ") + " instead of " + little.join(" "));
+      }),
+      test("4:2:2 chroma is spread back over the pixels", async (api) => {
+        const shot = async (file) => {
+          await api.openBytes(await bytesOf("/test/fixtures/" + file), file);
+          assert(api.dicom().photometric.indexOf("YBR") === 0, file + " read as " + api.dicom().photometric);
+          const out = [];
+          for (let y = 0; y < 4; y += 1) for (let x = 0; x < 4; x += 1) out.push(api.framePixelAt(x, y).join(","));
+          return out;
+        };
+        const full = await shot("ybr-full.dcm");
+        const half = await shot("ybr-422.dcm");
+        assert(half.join(" ") === full.join(" "), "4:2:2 gave " + half.join(" ") + " instead of " + full.join(" "));
+      }),
+      test("float pixel data is windowed over the values it holds", async (api) => {
+        await api.openBytes(await bytesOf("/test/fixtures/float-map.dcm"), "float-map.dcm");
+        assert(api.dicom().isFloat === true, "the file should be read as float");
+        assert(api.dicomState().voiFunction === "LINEAR_EXACT", api.dicomState().voiFunction);
+        const greys = {};
+        for (let y = 0; y < 16; y += 1) for (let x = 0; x < 16; x += 1) greys[api.framePixelAt(x, y)[0]] = true;
+        assert(Object.keys(greys).length > 16, "the ramp came out as " + Object.keys(greys).length + " shades");
+        assert(api.framePixelAt(0, 0)[0] < api.framePixelAt(15, 15)[0], "the ramp does not run dark to light");
+      }),
+      test("frames deflated one at a time are read", async (api) => {
+        const shot = async (file) => {
+          await api.openBytes(await bytesOf("/test/fixtures/" + file), file);
+          assert(api.dicom().frames === 2, file + " has " + api.dicom().frames + " frames");
+          const out = [];
+          for (const frame of [0, 1]) {
+            await api.dicomRender({ frame: frame });
+            for (let i = 0; i < 16; i += 1) out.push(api.framePixelAt(i, i).join(","));
+          }
+          return out;
+        };
+        const plain = await shot("frames-plain.dcm");
+        const deflated = await shot("frames-deflated.dcm");
+        assert(api.dicom().transferSyntaxName === "Deflated Image Frame Compression", api.dicom().transferSyntaxName);
+        assert(deflated.join(" ") === plain.join(" "), "the deflated frames came out differently");
+      }),
+      test("a VOI function can be chosen without typing a window first", async (api) => {
+        await api.openBytes(await bytesOf("/test/fixtures/ct-sphere.dcm"), "ct-sphere.dcm");
+        const plain = api.pixelAt(20, 20)[0];
+        const sigmoid = await api.dicomRender({ voiFunction: "SIGMOID" });
+        assert(sigmoid.voiFunction === "SIGMOID", "the function stayed " + sigmoid.voiFunction);
+        assert(api.pixelAt(20, 20)[0] !== plain, "SIGMOID did not change the picture");
+        await api.dicomRender({ resetWindow: true });
+        assert(api.dicomState().voiFunction === "LINEAR", api.dicomState().voiFunction);
+      }),
+      test("the window rows are left out for a scan that has no window", async (api, doc) => {
+        await api.openBytes(await bytesOf("/samples/colour-capture.dcm"), "colour-capture.dcm");
+        api.deselect();
+        assert(api.dicom().windowed === false, "an RGB capture has no window to set");
+        const panel = doc.getElementById("rightPanel");
+        ["wc", "ww", "preset", "colormap", "voiFunction"].forEach((name) => {
+          assert(!panel.querySelector('[data-dicom="' + name + '"]'), name + " should not be offered for an RGB capture");
+        });
+        assert(panel.querySelector('[data-dicom="invert"]'), "inversion still applies");
+      }),
     ]),
 
     suite("Convert", [
@@ -1925,6 +2004,46 @@
           assert(a[3] === 255 && b[3] === 255, row.file + " has no pixels");
           assert(Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) > 10, row.file + " decoded flat");
         }
+      }),
+      test("a grid HEIC opens as the whole picture, with its tiles behind it", async (api) => {
+        await api.openBytes(await bytesOf("/samples/grid.heic"), "grid.heic");
+        const doc = api.getDoc();
+        // The file stores a 2560x1440 photograph as four 1280x720 tiles; the grid is its primary
+        // image, so that is what has to open — not one tile.
+        assert(doc.width === 2560 && doc.height === 1440, "the grid came out " + doc.width + "x" + doc.height);
+        assert(api.sourceInfo().pages === 5, String(api.sourceInfo().pages));
+        assert(api.framePixelAt(1400, 800)[3] === 255, "the bottom right quarter of the grid is empty");
+        await api.showPage(1);
+        assert(api.sourceInfo().page === 1, "the page did not step: " + api.sourceInfo().page);
+        assert(api.getDoc().width === 1280 && api.getDoc().height === 720, "a tile came out " + api.getDoc().width + "x" + api.getDoc().height);
+      }),
+      test("stepping through a HEIC with two images shows the other one", async (api) => {
+        await api.openBytes(await bytesOf("/samples/conformance.heic"), "conformance.heic");
+        assert(api.sourceInfo().pages === 2, String(api.sourceInfo().pages));
+        const spots = [[200, 150], [640, 360], [1000, 500]];
+        const first = spots.map((spot) => api.framePixelAt(spot[0], spot[1]).join(","));
+        await api.showPage(1);
+        assert(api.sourceInfo().page === 1, "the page did not step: " + api.sourceInfo().page);
+        const second = spots.map((spot) => api.framePixelAt(spot[0], spot[1]).join(","));
+        assert(second.join(" ") !== first.join(" "), "the second image looks exactly like the first");
+      }),
+      test("an image sequence says what it is instead of opening", async (api) => {
+        // ftyp saying "msf1" (an image sequence) and a movie box: pictures live in a track here,
+        // which libheif does not read, so the reader has to say so rather than blame the file.
+        const bytes = new Uint8Array(32);
+        const view = new DataView(bytes.buffer);
+        const write = (at, text) => { for (let i = 0; i < 4; i += 1) bytes[at + i] = text.charCodeAt(i); };
+        view.setUint32(0, 24);
+        write(4, "ftyp");
+        write(8, "msf1");
+        view.setUint32(12, 0);
+        write(16, "msf1");
+        write(20, "iso8");
+        view.setUint32(24, 8);
+        write(28, "moov");
+        let message = "";
+        try { await api.openBytes(bytes, "clip.heics"); } catch (error) { message = error.message; }
+        assert(/sequence/i.test(message), "the reader said: " + message);
       }),
       test("the multi-page TIFF sample carries three pages", async (api) => {
         await api.openBytes(await bytesOf("/samples/pages.tif"), "pages.tif");

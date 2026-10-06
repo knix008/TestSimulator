@@ -2,6 +2,7 @@
  *
  *   DicomDecoder.load(bytes) → Promise<image>
  *     image.width / height / frames / gray / photometric / modality …
+ *     image.windowed             grey values a window applies to (false for RGB and PALETTE COLOR)
  *     image.fileWindows          [{ wc, ww, label }] from the file (may be empty)
  *     image.windowsFor(frame)    the windows that apply to one frame (enhanced multi-frame: per-frame)
  *     image.voiLuts              [{ label, n, first, bits }] VOI LUT Sequence entries (non-linear windows)
@@ -15,6 +16,7 @@
  *     image.state                { frame, wc, ww, invert, voiLut, voiFunction, colormap, overlays } currently rendered
  *     image.range                { min, max } of the rendered frame (rescaled units)
  *     image.meta                 summary for the info panel (patient, study, series, pixel format …)
+ *     image.warning              what went wrong while reading a file that still opened (or '')
  *     image.tags                 every element (sequences nested): [{ tag, name, vr, value, depth }]
  *     image.render(opts)         → Promise<{ rgba, width, height, state }>
  *       opts: { frame, wc, ww, invert, voiLut (index | -1), voiFunction ('LINEAR' | 'LINEAR_EXACT' | 'SIGMOID'),
@@ -26,11 +28,15 @@
  *     image.histogram(bins)      { counts, min, max, binWidth } of the rendered frame's values
  *     image.dirLabel(sx, sy)     anatomical label ('R', 'L', 'A', 'P', 'H', 'F', or two letters) of a direction in image space
  *
- * Tags are read with dicom-parser. Pixel data is decoded with the codec the transfer
- * syntax asks for: implicit / explicit little endian, explicit big endian, deflated,
- * RLE lossless (here), JPEG baseline / extended 12-bit (libjpeg-turbo), JPEG lossless
- * (jpeg-lossless-decoder-js), JPEG-LS (CharLS), JPEG 2000 / HTJ2K (OpenJPEG).
- * Photometric interpretations: MONOCHROME1 / 2, RGB, YBR_FULL / YBR_FULL_422, PALETTE COLOR.
+ * Tags are read with dicom-parser, from a Part 10 file or from a bare data set saved without
+ * the preamble (the transfer syntax is then taken from the file meta group if it is there, and
+ * guessed from the first element if it is not). Pixel data is decoded with the codec the
+ * transfer syntax asks for: implicit / explicit little endian, explicit big endian, deflated
+ * (the whole data set or one frame at a time), RLE lossless (here), JPEG baseline / extended
+ * 12-bit (libjpeg-turbo), JPEG lossless (jpeg-lossless-decoder-js), JPEG-LS (CharLS),
+ * JPEG 2000 / HTJ2K (OpenJPEG).
+ * Photometric interpretations: MONOCHROME1 / 2, RGB, YBR_FULL / YBR_FULL_422 (4:2:2 subsampled
+ * when it is not compressed), PALETTE COLOR.
  * 8 / 16 / 32-bit integer and 32 / 64-bit float samples, signed or unsigned, multi-frame,
  * modality rescale or Modality LUT, VOI windows / VOI LUTs (LINEAR, LINEAR_EXACT, SIGMOID),
  * Presentation LUT Shape, enhanced multi-frame functional groups, overlay planes.
@@ -56,6 +62,7 @@
     DEFLATED_LE: '1.2.840.10008.1.2.1.99',
     EXPLICIT_BE: '1.2.840.10008.1.2.2',
     RLE: '1.2.840.10008.1.2.5',
+    DEFLATED_FRAMES: '1.2.840.10008.1.2.8.1',
     JPEG_BASELINE: '1.2.840.10008.1.2.4.50',
     JPEG_EXTENDED: '1.2.840.10008.1.2.4.51',
     JPEG_LOSSLESS: '1.2.840.10008.1.2.4.57',
@@ -74,6 +81,7 @@
     [TS.DEFLATED_LE]: 'Deflated Explicit VR Little Endian',
     [TS.EXPLICIT_BE]: 'Explicit VR Big Endian',
     [TS.RLE]: 'RLE Lossless',
+    [TS.DEFLATED_FRAMES]: 'Deflated Image Frame Compression',
     [TS.JPEG_BASELINE]: 'JPEG Baseline (8-bit)',
     [TS.JPEG_EXTENDED]: 'JPEG Extended (12-bit)',
     [TS.JPEG_LOSSLESS]: 'JPEG Lossless',
@@ -444,37 +452,87 @@
   }
 
   /* ── Parse ── */
+  const VR_NAMES = new Set(['AE', 'AS', 'AT', 'CS', 'DA', 'DS', 'DT', 'FD', 'FL', 'IS', 'LO', 'LT',
+    'OB', 'OD', 'OF', 'OL', 'OV', 'OW', 'PN', 'SH', 'SL', 'SQ', 'SS', 'ST', 'SV', 'TM', 'UC', 'UI',
+    'UL', 'UN', 'UR', 'US', 'UT', 'UV']);
+
+  /* A data set written without the 128-byte preamble and "DICM" — a raw dump out of a PACS, or
+   * simply how some tools write files. Either the file meta group is still in front, and putting
+   * a preamble back makes the file read normally, or there is no meta at all and the transfer
+   * syntax has to be guessed from the shape of the first element. */
+  function bareDataSet(b) {
+    if (!b || b.length < 8) return null;
+    const explicit = VR_NAMES.has(String.fromCharCode(b[4], b[5]));
+    const groupLE = b[0] | (b[1] << 8);
+    const groupBE = (b[0] << 8) | b[1];
+    if (explicit && groupLE === 0x0002) return { wrap: true };
+    if (explicit && groupBE <= 0x0010 && groupLE > 0x0010) return { candidates: [TS.EXPLICIT_BE, TS.EXPLICIT_LE, TS.IMPLICIT_LE] };
+    if (explicit) return { candidates: [TS.EXPLICIT_LE, TS.IMPLICIT_LE, TS.EXPLICIT_BE] };
+    return { candidates: [TS.IMPLICIT_LE, TS.EXPLICIT_LE, TS.EXPLICIT_BE] };
+  }
+
+  function withPreamble(b) {
+    const out = new Uint8Array(132 + b.length);
+    out[128] = 0x44; out[129] = 0x49; out[130] = 0x43; out[131] = 0x4D;   // "DICM"
+    out.set(b, 132);
+    return out;
+  }
+
+  // Did a guessed transfer syntax produce something that reads like a data set?
+  function looksParsed(ds) {
+    if (!ds || !ds.elements) return false;
+    if (ds.elements.x7fe00010 || ds.elements.x7fe00008 || ds.elements.x7fe00009) return true;
+    return Object.keys(ds.elements).length >= 8;
+  }
+
   async function parseDataSet(bytes) {
     const dicomParser = await vendor('parser');
-    let header = null;
-    try { header = dicomParser.readPart10Header(bytes); } catch { header = null; }
-    const ts = header ? clean(header.string('x00020010')) : '';
     let data = bytes;
+    let header = null;
+    let candidates = [];
+    try { header = dicomParser.readPart10Header(data); } catch { header = null; }
+    if (!header) {
+      const bare = bareDataSet(bytes);
+      if (bare && bare.wrap) {
+        const wrapped = withPreamble(bytes);
+        try { header = dicomParser.readPart10Header(wrapped); data = wrapped; } catch { header = null; }
+      }
+      if (!header && bare) candidates = bare.candidates || [];
+    }
     let options;
-    if (ts === TS.DEFLATED_LE && header) {
+    if (header && clean(header.string('x00020010')) === TS.DEFLATED_LE) {
       const pos = header.position;
-      const inflated = await inflateRaw(bytes.subarray(pos));
-      data = new Uint8Array(pos + inflated.length);
-      data.set(bytes.subarray(0, pos), 0);
-      data.set(inflated, pos);
+      const inflated = await inflateRaw(data.subarray(pos));
+      const joined = new Uint8Array(pos + inflated.length);
+      joined.set(data.subarray(0, pos), 0);
+      joined.set(inflated, pos);
+      data = joined;
       options = { inflater: (b) => b };
     }
-    try {
-      return { ds: dicomParser.parseDicom(data, options), bytes: data, dicomParser };
-    } catch (err) {
-      // dicom-parser hands back what it managed to read ({ exception, dataSet }); a truncated
-      // file that still carries its pixel data is worth showing.
-      const partial = err && err.dataSet;
-      if (partial && partial.elements && partial.elements.x7fe00010) {
-        return { ds: partial, bytes: data, dicomParser, warning: errorMessage(err) };
+    let failure = null;
+    for (const ts of candidates.length ? candidates : [null]) {
+      const opts = ts ? Object.assign({}, options, { TransferSyntaxUID: ts }) : options;
+      try {
+        const ds = dicomParser.parseDicom(data, opts);
+        if (!ts || looksParsed(ds)) return { ds, bytes: data, dicomParser };
+      } catch (err) {
+        // dicom-parser hands back what it managed to read ({ exception, dataSet }); a truncated
+        // file that still carries its pixel data is worth showing.
+        const partial = err && err.dataSet;
+        if (partial && partial.elements && partial.elements.x7fe00010) {
+          return { ds: partial, bytes: data, dicomParser, warning: errorMessage(err) };
+        }
+        if (!failure) failure = err;
       }
-      throw new Error(`Not a readable DICOM file: ${errorMessage(err)}`);
     }
+    // dicom-parser prefixes its messages with the function that raised them; drop that.
+    const why = errorMessage(failure || 'the data set could not be read').replace(/^dicomParser\.\w+:\s*/, '');
+    throw new Error(`Not a readable DICOM file: ${why}`);
   }
 
   /* ── Pixel unpacking ── */
   // Raw bytes → one typed array of samples.
-  function unpack(raw, { n, spp, bitsAllocated, signed, bigEndian, float }) {
+  function unpack(raw, { n, spp, bitsAllocated, signed, bigEndian, swap8, float }) {
     const count = n * spp;
     if (float) {   // Float Pixel Data (7FE0,0008) / Double Float Pixel Data (7FE0,0009)
       const bytes = bitsAllocated === 64 ? 8 : 4;
@@ -485,6 +543,14 @@
       return out;
     }
     if (bitsAllocated === 8) {
+      // Explicit VR Big Endian writes 8-bit pixel data declared OW as 16-bit words, so the
+      // samples arrive swapped in pairs and have to be put back (OB data needs no swapping).
+      if (swap8) {
+        const out = signed ? new Int8Array(count) : new Uint8Array(count);
+        const m = Math.min(count, raw.length);
+        for (let i = 0; i < m; i++) out[i] = raw[(i ^ 1) < raw.length ? (i ^ 1) : i];
+        return out;
+      }
       const len = Math.min(count, raw.length);
       return signed ? new Int8Array(raw.buffer, raw.byteOffset, len) : new Uint8Array(raw.buffer, raw.byteOffset, len);
     }
@@ -516,6 +582,20 @@
       return out;
     }
     throw new Error(`${bitsAllocated} bits allocated is not supported`);
+  }
+
+  /* YBR_FULL_422 / YBR_PARTIAL_422 without compression: two luma samples share one chroma pair,
+   * written as Y1 Y2 Cb Cr. Spread the chroma back so the colour path sees an ordinary frame of
+   * three interleaved samples per pixel. */
+  function expand422(src, n) {
+    const out = new src.constructor(n * 3);
+    for (let p = 0; p < n; p += 2) {
+      const at = (p >> 1) * 4;
+      const y0 = src[at], y1 = src[at + 1], cb = src[at + 2], cr = src[at + 3];
+      out[p * 3] = y0; out[p * 3 + 1] = cb; out[p * 3 + 2] = cr;
+      if (p + 1 < n) { out[p * 3 + 3] = y1; out[p * 3 + 4] = cb; out[p * 3 + 5] = cr; }
+    }
+    return out;
   }
 
   // DICOM RLE (PackBits per segment; segments are planes: one per byte of each sample, MSB first).
@@ -578,10 +658,15 @@
     throw new Error('Cannot locate the frame in the pixel data (no offset table)');
   }
 
-  async function decodeFragment(frag, ts, { rows, cols, spp, bitsAllocated, signed }) {
+  async function decodeFragment(frag, ts, { rows, cols, spp, bitsAllocated, signed, planar }) {
     const n = rows * cols;
     if (ts === TS.RLE) {
       return { samples: unpack(rleDecode(frag, n, spp, bitsAllocated), { n, spp, bitsAllocated, signed, bigEndian: false }), planar: true };
+    }
+    // Deflated Image Frame Compression: each frame is the plain pixel data, deflated on its own.
+    if (ts === TS.DEFLATED_FRAMES) {
+      const raw = await inflateRaw(frag);
+      return { samples: unpack(raw, { n, spp, bitsAllocated, signed, bigEndian: false }), planar };
     }
     if (ts === TS.JPEG_BASELINE || ts === TS.JPEG_EXTENDED) {
       const order = bitsAllocated > 8 ? ['jpeg12', 'jpeg8'] : ['jpeg8', 'jpeg12'];
@@ -972,7 +1057,7 @@
   /* ── Load ── */
   async function load(input) {
     const raw = toU8(input);
-    const { ds, bytes, dicomParser } = await parseDataSet(raw);
+    const { ds, bytes, dicomParser, warning } = await parseDataSet(raw);
     const str = (tag) => { try { return clean(ds.string(tag)); } catch { return ''; } };
     const u16 = (tag, i) => { try { const v = ds.uint16(tag, i); return v == null ? undefined : v; } catch { return undefined; } };
     const nums = (tag) => str(tag).split('\\').map(num).filter((v) => v !== undefined);
@@ -1003,6 +1088,13 @@
     const modalityLut = (slopeTop === undefined && interceptTop === undefined) ? readModalityLut(ds, signed) : null;
     const voiLuts = gray ? readVoiLuts(ds, signed) : [];
     const voiFunctionTop = (str('x00281056') || 'LINEAR').toUpperCase();
+    // LINEAR is defined over stored integers and divides by (window width − 1), which collapses
+    // to a two-level mask for the narrow windows float pixel data comes with (a parametric map
+    // holding 0..1 with a width of 1). LINEAR_EXACT is the function meant for those values.
+    const voiFunctionFor = (fn) => {
+      const f = fn || voiFunctionTop;
+      return isFloat && f === 'LINEAR' ? 'LINEAR_EXACT' : f;
+    };
     const presentationLut = str('x20500020').toUpperCase();
     const groups = readFunctionalGroups(ds);
     const overlays = rows && cols ? readOverlays(ds, { rows, cols, frames, bitsAllocated }) : [];
@@ -1079,6 +1171,7 @@
     const meta = buildMeta(ds, str, {
       rows, cols, spp, photometric, bitsAllocated, bitsStored, signed, planar, frames, slope, intercept, ts, modality, fileWindows,
       isFloat, modalityLut, voiLuts, voiFunction: voiFunctionTop, presentationLut, overlays, groups, geometry, frameRate, units, frameInfo0: frameInfo(0),
+      warning,
     });
     const tags = listTags(ds, explicit);
 
@@ -1091,7 +1184,10 @@
 
     // ── Frame access (decoded once, then cached as typed samples) ──
     const encapsulated = !!(px.encapsulatedPixelData || px.fragments);
-    const frameBytes = Math.ceil(rows * cols * spp * bitsAllocated / 8);
+    // 4:2:2 chroma subsampling halves the samples on disk; a JPEG codec hands back full frames.
+    const subsampled = !encapsulated && spp === 3 && /^YBR_(FULL|PARTIAL)_422$/.test(photometric);
+    const swap8 = ts === TS.EXPLICIT_BE && bitsAllocated === 8 && px.vr === 'OW';
+    const frameBytes = Math.ceil(rows * cols * (subsampled ? 2 : spp) * bitsAllocated / 8);
     const cache = new Map();
     const rangeCache = new Map();
     const frameSamples = async (i) => {
@@ -1099,15 +1195,22 @@
       let s;
       if (!encapsulated) {
         const off = px.dataOffset + i * frameBytes;
-        const len = Math.min(frameBytes, Math.max(0, px.length - i * frameBytes));
-        const rawFrame = new Uint8Array(bytes.buffer, bytes.byteOffset + off, len);
-        s = { samples: unpack(rawFrame, { n: rows * cols, spp, bitsAllocated, signed, bigEndian: ts === TS.EXPLICIT_BE, float: isFloat }), planar };
+        const left = Math.max(0, px.length - i * frameBytes);
+        // A file that ends early must not reach past its own bytes.
+        const len = Math.min(frameBytes, left, Math.max(0, bytes.length - off));
+        // The odd byte at the end of a swapped frame sits in the next byte of the element.
+        const pad = swap8 && (len & 1) && left > len && bytes.length > off + len ? 1 : 0;
+        const rawFrame = new Uint8Array(bytes.buffer, bytes.byteOffset + off, len + pad);
+        const samples = unpack(rawFrame, { n: rows * cols, spp: subsampled ? 2 : spp, bitsAllocated, signed, bigEndian: ts === TS.EXPLICIT_BE, swap8, float: isFloat });
+        s = subsampled && samples.length >= rows * cols * 2
+          ? { samples: expand422(samples, rows * cols), planar: false }
+          : { samples, planar };
       } else {
         const frag = encapsulatedFrame(dicomParser, ds, px, i, frames, ts);
-        s = await decodeFragment(frag, ts, { rows, cols, spp, bitsAllocated, signed });
+        s = await decodeFragment(frag, ts, { rows, cols, spp, bitsAllocated, signed, planar });
       }
       const need = rows * cols * (s.spp || spp);
-      if (s.samples.length < need) throw new Error(`Frame ${i + 1} is short (${s.samples.length} of ${need} samples)`);
+      if (s.samples.length < need) throw new Error(`The file ends in the middle of frame ${i + 1}: ${s.samples.length} of ${need} samples are there.`);
       cache.set(i, s);
       return s;
     };
@@ -1156,18 +1259,22 @@
     const invertDefault = (photometric === 'MONOCHROME1') !== (presentationLut === 'INVERSE');
     const state = {
       frame: 0, wc: undefined, ww: undefined, invert: invertDefault,
-      voiLut: -1, voiFunction: voiFunctionTop, colormap: 'gray', overlays: true, overlayColor: [0, 255, 128],
+      voiLut: -1, voiFunction: voiFunctionFor(), colormap: 'gray', overlays: true, overlayColor: [0, 255, 128],
     };
-    let windowCustom = false;   // false: the window follows each frame's own values
+    let windowCustom = false;         // false: the window follows each frame's own values
+    let voiFunctionCustom = false;    // true: the viewer picked a VOI function, so keep it
     const image = {
       width: cols, height: rows, frames, samplesPerPixel: spp, photometric, bitsAllocated, bitsStored, signed, planar, isFloat,
       transferSyntax: ts, transferSyntaxName: TS_NAME[ts] || '', modality, gray, isColor: !gray,
+      // A palette image is one sample per pixel but carries its colours in a LUT, so a window,
+      // a colour map and a VOI function mean nothing for it.
+      windowed: gray && !palette,
       slope, intercept, rescaleType, units, modalityLut: modalityLut ? { n: modalityLut.n, first: modalityLut.first, type: modalityLut.type } : null,
       fileWindows, voiLuts: voiLuts.map((l) => ({ label: l.label, n: l.n, first: l.first, bits: l.bits })),
       presets: modality === 'CT' ? CT_PRESETS.slice() : [],
       colormaps: COLORMAP_IDS.slice(), overlays: overlays.map((o) => ({ ...o, bits: undefined })),
       presentationLut, geometry, frameTimes, frameRate, enhanced: !!groups,
-      state, range: null, meta, tags,
+      state, range: null, meta, tags, warning: meta.warning || '',
     };
 
     image.frameInfo = frameInfo;
@@ -1185,7 +1292,7 @@
 
     function parseOpts(opts) {
       if (Number.isFinite(opts.frame)) state.frame = Math.max(0, Math.min(frames - 1, Math.round(opts.frame)));
-      if (opts.resetWindow) { windowCustom = false; state.voiLut = -1; state.wc = undefined; state.ww = undefined; state.voiFunction = frameInfo(state.frame).voiFunction || voiFunctionTop; }
+      if (opts.resetWindow) { windowCustom = false; voiFunctionCustom = false; state.voiLut = -1; state.wc = undefined; state.ww = undefined; state.voiFunction = voiFunctionFor(frameInfo(state.frame).voiFunction); }
       if (Number.isFinite(opts.wc) || Number.isFinite(opts.ww)) {
         if (Number.isFinite(opts.wc)) state.wc = opts.wc;
         if (Number.isFinite(opts.ww)) state.ww = Math.max(1e-6, opts.ww);
@@ -1196,7 +1303,10 @@
         state.voiLut = opts.voiLut >= 0 && opts.voiLut < voiLuts.length ? opts.voiLut : -1;
         windowCustom = state.voiLut >= 0 ? true : windowCustom;
       }
-      if (typeof opts.voiFunction === 'string' && /^(LINEAR|LINEAR_EXACT|SIGMOID)$/.test(opts.voiFunction)) state.voiFunction = opts.voiFunction;
+      if (typeof opts.voiFunction === 'string' && /^(LINEAR|LINEAR_EXACT|SIGMOID)$/.test(opts.voiFunction)) {
+        state.voiFunction = opts.voiFunction;
+        voiFunctionCustom = true;
+      }
       if (typeof opts.invert === 'boolean') state.invert = opts.invert;
       if (typeof opts.colormap === 'string' && COLORMAP_IDS.includes(opts.colormap)) state.colormap = opts.colormap;
       if (typeof opts.overlays === 'boolean') state.overlays = opts.overlays;
@@ -1282,8 +1392,8 @@
       if (!windowCustom || !Number.isFinite(state.wc) || !Number.isFinite(state.ww)) {
         const wins = fi.windows || [];
         if (wins.length) { state.wc = wins[0].wc; state.ww = wins[0].ww; }
-        else { state.wc = (min + max) / 2; state.ww = Math.max(1, max - min); }
-        if (!windowCustom) state.voiFunction = fi.voiFunction || voiFunctionTop;
+        else { state.wc = (min + max) / 2; state.ww = Math.max(isFloat ? 1e-6 : 1, max - min); }
+        if (!windowCustom && !voiFunctionCustom) state.voiFunction = voiFunctionFor(fi.voiFunction);
       }
       const valueFn = valueFnFor(state.frame);
       const voi = voiMapper(state, voiLuts);
@@ -1333,7 +1443,7 @@
     };
 
     image.autoWindow = () => (image.range
-      ? { wc: (image.range.min + image.range.max) / 2, ww: Math.max(1, image.range.max - image.range.min) }
+      ? { wc: (image.range.min + image.range.max) / 2, ww: Math.max(isFloat ? 1e-6 : 1, image.range.max - image.range.min) }
       : null);
 
     image.defaultWindow = (frame) => {
@@ -1491,6 +1601,7 @@
       presentationLut: p.presentationLut || '',
       overlays: (p.overlays || []).length ? p.overlays.map((o) => `${o.group.slice(1, 5)}: ${o.cols} × ${o.rows}${o.label || o.description ? ` — ${o.label || o.description}` : ''}${o.embedded ? ' (embedded)' : ''}`).join(' · ') : '',
       lossyCompression: str('x00282110') === '01' ? `Yes${str('x00282112') ? ` (${str('x00282112')}:1)` : ''}` : '',
+      warning: p.warning ? String(p.warning).replace(/^dicomParser.w+:s*/, '') : '',
       studyInstanceUid: str('x0020000d'),
       seriesInstanceUid: str('x0020000e'),
       sopInstanceUid: str('x00080018'),
@@ -1505,19 +1616,25 @@
     const b = toU8(input);
     if (b.length > 132 && b[128] === 0x44 && b[129] === 0x49 && b[130] === 0x43 && b[131] === 0x4D) return true;
     if (b.length < 8) return false;
-    const group = b[0] | (b[1] << 8);
-    if (group !== 0x0002 && group !== 0x0008 && group !== 0x0010) return false;
-    const vr = String.fromCharCode(b[4], b[5]);
-    return /^[A-Z]{2}$/.test(vr) || (b[4] | (b[5] << 8) | (b[6] << 16) | (b[7] << 24)) < 0x10000;
+    // No preamble: the first element still has to start with a group a data set opens with,
+    // read either way round, and carry a known VR or a sane implicit length.
+    const known = (g) => g === 0x0002 || g === 0x0008 || g === 0x0010;
+    const groupLE = b[0] | (b[1] << 8);
+    const groupBE = (b[0] << 8) | b[1];
+    if (VR_NAMES.has(String.fromCharCode(b[4], b[5])) && (known(groupLE) || known(groupBE))) return true;
+    if (!known(groupLE)) return false;
+    return (b[4] | (b[5] << 8) | (b[6] << 16) | (b[7] << 24)) < 0x10000;
   }
 
   /** Cheap header read (stops before the pixel data) for sorting files into series. */
   async function scanHeader(input) {
     const dicomParser = await vendor('parser');
     const bytes = toU8(input);
-    let ds;
+    let ds = null;
     try { ds = dicomParser.parseDicom(bytes, { untilTag: 'x7fe00010' }); }
-    catch (err) { ds = err && err.dataSet; if (!ds) throw new Error(errorMessage(err)); }
+    catch (err) { ds = (err && err.dataSet) || null; }
+    // A deflated body, or a data set written without a preamble, needs the full preparation.
+    if (!ds || !ds.elements || !ds.elements.x00280010) ({ ds } = await parseDataSet(bytes));
     const str = (t) => { try { return clean(ds.string(t)); } catch { return ''; } };
     const nums = (t) => str(t).split('\\').map(num).filter((v) => v !== undefined);
     const orientation = nums('x00200037');
