@@ -1887,6 +1887,13 @@ function closeSheets() {
   settingsSheet.hidden = true;
 }
 
+// The settings are either their own window or a sheet over the pad, so closing
+// means two different things and every exit from them goes through here.
+function closeSettingsView() {
+  if (pageKind === "settings") window.close();
+  else closeSheets();
+}
+
 // The help is written once in i18n and laid out here, so a section reads the
 // same in both languages and nothing has to be kept in step by hand.
 function renderHelp() {
@@ -2528,16 +2535,16 @@ document.getElementById("langBtn").addEventListener("click", () => {
   applyLanguage(uiLang === "ko" ? "en" : "ko");
   publishUi({ type: "lang", lang: uiLang });
 });
-document.getElementById("closeSettings").addEventListener("click", () => {
-  if (pageKind === "settings") window.close();
-  else closeSheets();
-});
+document.getElementById("closeSettings").addEventListener("click", closeSettingsView);
 document.getElementById("infoOk").addEventListener("click", () => {
   if (pageKind === "info") window.close();
   else closeSheets();
 });
 document.getElementById("resetSettings").addEventListener("click", resetSettings);
-document.getElementById("applyCustom").addEventListener("click", applyCustomTheme);
+document.getElementById("applyCustom").addEventListener("click", () => {
+  applyCustomTheme();
+  closeSettingsView();
+});
 infoSheet.addEventListener("click", (ev) => {
   if (pageKind === "info") return;
   if (ev.target === infoSheet) closeSheets();
