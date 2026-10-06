@@ -71,8 +71,31 @@ function tick() {
   }
 }
 
+/**
+ * 연 직후의 클릭·더블클릭, 마우스가 조금 흔들리는 정도로는 닫지 않는다.
+ * 그 입력까지 닫기로 보면 전체 화면이 잠깐 보였다가 원래 시계로 돌아간다.
+ */
+const DISMISS_GRACE_MS = 700;
+const MOVE_THRESHOLD_PX = 48;
+let dismissArmed = false;
+let moveOrigin = null;
+
 function close() {
+  if (!dismissArmed) return;
   api.fullscreen.close();
+}
+
+function onMouseMove(event) {
+  if (!dismissArmed) return;
+  const x = event.screenX;
+  const y = event.screenY;
+  if (!moveOrigin) {
+    moveOrigin = { x, y };
+    return;
+  }
+  const dx = x - moveOrigin.x;
+  const dy = y - moveOrigin.y;
+  if (dx * dx + dy * dy >= MOVE_THRESHOLD_PX * MOVE_THRESHOLD_PX) close();
 }
 
 api.settings.load().then((loaded) => {
@@ -88,5 +111,7 @@ api.bus.onFromClock((message) => {
 for (const event of ['keydown', 'mousedown', 'wheel']) {
   window.addEventListener(event, close);
 }
-// 창이 열린 직후의 잔여 마우스 이동으로 바로 닫히지 않도록 잠시 무시한다.
-window.setTimeout(() => window.addEventListener('mousemove', close), 1200);
+window.addEventListener('mousemove', onMouseMove);
+window.setTimeout(() => {
+  dismissArmed = true;
+}, DISMISS_GRACE_MS);

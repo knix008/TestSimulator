@@ -1051,16 +1051,61 @@ function placeMenuWindow(size) {
 
 // ── 전체 화면 시계 (화면 보호기 대체) ──────────────────────────────────
 
+/** 커서가 있는 화면 전체. 작업 영역이 아니라 화면 경계라 작업 표시줄까지 덮는다. */
+function fullscreenDisplayBounds(anchor) {
+  const point = anchor || screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(point) || screen.getPrimaryDisplay();
+  const area = display.bounds;
+  return {
+    x: Math.round(area.x),
+    y: Math.round(area.y),
+    width: Math.round(area.width),
+    height: Math.round(area.height)
+  };
+}
+
+let pinningFullscreen = false;
+let fullscreenLeavePins = 0;
+
+/**
+ * 전체 화면 시계를 그 화면 위에 고정한다.
+ * 투명 창은 fullscreen 모드가 바로 풀리므로, 화면 크기와 화면 보호기 층으로 덮는다.
+ */
+function pinFullscreen(forceBounds) {
+  if (!fullWin || fullWin.isDestroyed() || pinningFullscreen) return;
+  pinningFullscreen = true;
+  try {
+    if (forceBounds) fullWin.setBounds(fullscreenDisplayBounds(fullWin.__anchor));
+    // 탁상시계를 '항상 위'로 올려도 전체 화면 시계가 그 위에 남는다.
+    fullWin.setAlwaysOnTop(true, 'screen-saver');
+    fullWin.moveTop();
+  } finally {
+    pinningFullscreen = false;
+  }
+}
+
 function openFullscreenClock() {
   if (fullWin && !fullWin.isDestroyed()) {
     fullWin.focus();
+    pinFullscreen(true);
     return;
   }
+
+  const anchor = screen.getCursorScreenPoint();
+  fullscreenLeavePins = 0;
   fullWin = new BrowserWindow({
-    fullscreen: true,
+    ...fullscreenDisplayBounds(anchor),
+    // 투명 창을 전체 화면 모드로 열면 Windows 가 잠깐 보여 주다가
+    // 바로 풀어서, 원래 시계가 다시 보인다.
+    fullscreen: false,
+    fullscreenable: false,
     frame: false,
     skipTaskbar: true,
-    alwaysOnTop: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    show: false,
     // 시계 창과 같이 배경은 비워 둔다 — 바탕화면이 그대로 비친다.
     transparent: true,
     hasShadow: false,
@@ -1072,6 +1117,23 @@ function openFullscreenClock() {
       nodeIntegration: false,
       backgroundThrottling: false
     }
+  });
+  fullWin.__anchor = anchor;
+
+  const restoreCover = () => {
+    if (fullscreenLeavePins >= 3) return;
+    fullscreenLeavePins += 1;
+    pinFullscreen(true);
+  };
+  // OS 가 전체 화면을 풀면 화면 크기로 다시 덮는다.
+  fullWin.on('leave-full-screen', restoreCover);
+  fullWin.once('ready-to-show', () => {
+    if (!fullWin || fullWin.isDestroyed()) return;
+    pinFullscreen(true);
+    fullWin.show();
+    fullWin.focus();
+    // 창을 보인 직후 OS 가 크기를 되돌리는 경우가 있어 한 번 더 덮는다.
+    setTimeout(() => pinFullscreen(true), 200);
   });
   fullWin.loadFile(path.join(__dirname, '..', 'src', 'fullscreen.html'));
   fullWin.on('closed', () => {
@@ -1163,6 +1225,7 @@ function setAlwaysOnTop(onTop) {
   }
   // 열려 있는 설정 창들이 같은 값을 보도록 시계 창에 알린다.
   clockWin?.webContents.send('from-panel', { type: 'settings:patch', patch: { alwaysOnTop: onTop === true } });
+  pinFullscreen(false);
   refreshTrayMenu();
 }
 
@@ -1252,6 +1315,7 @@ function reapplyAlwaysOnTop() {
     clockWin.setAlwaysOnTop(false);
     clockWin.setAlwaysOnTop(true);
   }
+  pinFullscreen(false);
 }
 
 /**
@@ -1286,7 +1350,10 @@ function recoverClockOnScreen(opts = {}) {
 
   ensureClockOnScreen();
 
-  if (hiddenByUser && !opts.forceShow) return;
+  if (hiddenByUser && !opts.forceShow) {
+    pinFullscreen(true);
+    return;
+  }
 
   if (clockWin.isMinimized()) clockWin.restore();
 
@@ -1294,6 +1361,7 @@ function recoverClockOnScreen(opts = {}) {
   else if (!clockWin.isVisible()) clockWin.show();
 
   reapplyAlwaysOnTop();
+  pinFullscreen(true);
 }
 
 function markDisplayChange() {
@@ -1557,6 +1625,7 @@ function registerIpc() {
     for (const win of [...extraClockWins.values(), ...toolWins.values(), ...clockSettingsWins.values()]) {
       if (win && !win.isDestroyed()) win.setAlwaysOnTop(onTop === true);
     }
+    pinFullscreen(false);
   });
 
   ipcMain.on('window:set-min-size', (e, size) => {

@@ -342,6 +342,18 @@ test('전체 화면 시계도 배경이 투명하다', () => {
   );
   // 투명 위에서도 읽히도록 글자에 그림자를 넣는다.
   assert.match(css, /\.full-stage \{[\s\S]*?text-shadow/);
+
+  // 투명 창을 fullscreen 모드로 열면 Windows 가 잠깐 보여 주고 바로 푼다.
+  assert.match(block[1], /fullscreen:\s*false/);
+  assert.ok(!/fullscreen:\s*true/.test(block[1]), '투명 창을 fullscreen 모드로 열면 바로 풀린다');
+  assert.match(main, /setAlwaysOnTop\(true, 'screen-saver'\)/);
+  assert.match(main, /function fullscreenDisplayBounds/);
+
+  // 연 직후의 클릭·미세한 마우스 움직임으로 닫히면 원래 시계로 돌아간 것처럼 보인다.
+  const page = readSource('src/js/fullscreen.js');
+  assert.match(page, /const DISMISS_GRACE_MS = \d+/);
+  assert.match(page, /const MOVE_THRESHOLD_PX = \d+/);
+  assert.match(page, /if \(!dismissArmed\) return/);
 });
 
 test('정보 창이 열리는 길이 메뉴와 트레이에 있다', () => {
