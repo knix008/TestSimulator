@@ -18,7 +18,7 @@
     "build:linux": "node scripts/prepare-icons.mjs && vite build && node scripts/build-server.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux AppImage deb --x64 && node scripts/copy-installer.mjs",
     "build:mac": "node scripts/prepare-icons.mjs && vite build && node scripts/build-server.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --x64 && node scripts/copy-installer.mjs",
     "build:web": "vite build && node scripts/build-server.mjs && node scripts/package-web.mjs && node scripts/copy-installer.mjs",
-    "start:web": "vite build && node scripts/build-server.mjs && node dist-server/cli.js",
+    "start:web": "vite build && node scripts/build-server.mjs && node dist-server/cli.cjs",
     "start:desktop": "vite build && node scripts/build-server.mjs && cross-env MYGIT_MODE=prod electron .",
     "dist": "node scripts/prepare-icons.mjs && vite build && node scripts/build-server.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder && node scripts/copy-installer.mjs",
     "test": "tsx test/run.ts",

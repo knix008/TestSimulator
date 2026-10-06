@@ -137,5 +137,6 @@ dotnet run --project Assets/GenerateIcon.csproj -- Assets/MyGit.ico
 - Checkout, 파일·폴더 만들기와 삭제, `.gitignore`
 - 한국어 / English. Git 명령 이름은 영어를 유지합니다.
 - 외부 diff 도구 (`{left}`, `{right}`)
+- 내장 Diff & Merge. 충돌 해결의 기본 도구이고 별도 창으로 열립니다. 외부 merge 도구도 고를 수 있습니다.
 
 MyGitJS는 여기에 드라이브 탐색, 폴더 열기, Light/Dark 테마 각 20개, 복사 가능한 오류 상세, Markdown 요약과 인쇄를 더합니다. WinForms 앱은 PDF, Word, Markdown 차트 리포트를 내보냅니다.

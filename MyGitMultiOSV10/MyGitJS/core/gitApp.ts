@@ -4,7 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ApiError, redact } from "./errors.js";
-import { runGit, releaseStaleIndexLock, clearStaleIndexLock, removeIndexLock, startGit } from "./gitProcess.js";
+import { isBuiltinMergeTool } from "./mergeTool.js";
+import { runGit, gitEnv, releaseStaleIndexLock, clearStaleIndexLock, removeIndexLock, startGit } from "./gitProcess.js";
 import { remoteCacheDirectory, SettingsStore } from "./settings.js";
 import { badgeOf, colorOf, countWork, EMPTY_STATUS, hasChanges, mergeStatus, parseAheadBehind, statusFromPorcelain, type PathStatus, type WorkCounts } from "./status.js";
 
@@ -500,6 +501,9 @@ export class GitApp {
     this.requireWritable();
     const root = this.requireRepo();
     const configured = this.settings.get().externalMergeToolPath.trim();
+    if (isBuiltinMergeTool(configured)) {
+      throw new ApiError("The built-in Diff & Merge tool resolves this file.", "BUILTIN_MERGE");
+    }
     const tool = configured ? unwrapCommand(configured) : "";
     if (!configured) throw new ApiError("Merge tool is not configured.", "NO_MERGE_TOOL");
     if (!tool || !fs.existsSync(tool)) {
@@ -581,6 +585,10 @@ export class GitApp {
     this.requireWritable();
     const root = this.requireRepo();
     const rel = normalizeRel(file);
+    const staged = await this.gitOrThrow(root, ["ls-files", "-u", "--", rel]);
+    if (!staged.trim()) {
+      throw new ApiError("The file has no merge conflict to resolve.", "NOT_CONFLICTED", 400, `Path: ${rel}`);
+    }
     let current = "";
     try {
       current = fs.readFileSync(safeJoin(root, rel), "utf8");
@@ -759,11 +767,7 @@ export class GitApp {
     try {
       await this.queued(async () => {
         if (this.repoPath !== root || this.remoteView || this.bare) return;
-        clearStaleIndexLock(root);
-        let result = await runGit(root, ["status", "--porcelain", "-unormal"]);
-        if (result.code !== 0 && releaseStaleIndexLock(`${result.stderr}\n${result.stdout}`)) {
-          result = await runGit(root, ["status", "--porcelain", "-unormal"]);
-        }
+        const result = await runGit(root, ["status", "--porcelain", "-unormal"]);
         if (this.repoPath !== root) return;
         const snapshot = result.code === 0 ? result.stdout : "";
         if (this.dirtySnapshot === null) {
@@ -856,7 +860,7 @@ export class GitApp {
       cwd: this.repoPath ?? undefined,
       encoding: "utf8",
       windowsHide: true,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: gitEnv(),
       maxBuffer: 20 * 1024 * 1024,
     });
   }

@@ -4,11 +4,12 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { ApiError, redact } from "../core/errors.js";
 import { listDirectory, systemDrives } from "../core/fsBrowse.js";
 import { collectDiffTools, installedDiffTools } from "../core/diffTools.js";
 import { documentFromLines } from "../core/lineDiff.js";
+import { BUILTIN_MERGE_TOOL, isBuiltinMergeTool, usesBuiltinMerge } from "../core/mergeTool.js";
 import { buildResult, conflictCount, mergeTexts } from "../core/threeWayMerge.js";
 import { GitApp } from "../core/gitApp.js";
 import { releaseStaleIndexLock, clearStaleIndexLock, runGit } from "../core/gitProcess.js";
@@ -510,6 +511,8 @@ export function cases(ctx: Ctx): TestCase[] {
     ].join("\n"));
     const previous = ctx.app.info()?.path ?? ctx.repo;
     try {
+      await expectCode(() => ctx.app.externalMerge("note.txt"), "BUILTIN_MERGE");
+      ctx.app.settings.update({ externalMergeToolPath: "" });
       await expectCode(() => ctx.app.externalMerge("note.txt"), "NO_MERGE_TOOL");
       ctx.app.settings.update({
         externalMergeToolPath: process.execPath,
@@ -523,7 +526,7 @@ export function cases(ctx: Ctx): TestCase[] {
       assert(readText(path.join(repo, "note.txt")) === "resolved\n", "merged file");
     } finally {
       ctx.app.settings.update({
-        externalMergeToolPath: "",
+        externalMergeToolPath: BUILTIN_MERGE_TOOL,
         externalMergeToolArguments: "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"",
       });
       await ctx.app.open(previous);
@@ -900,7 +903,7 @@ export function cases(ctx: Ctx): TestCase[] {
     assert(saved.get().theme === "light-classic", saved.get().theme);
     assert(saved.get().externalDiffToolPath === "", "tool");
     assert(saved.get().externalDiffToolArguments.includes("{left}"), "args");
-    assert(saved.get().externalMergeToolPath === "", "merge tool");
+    assert(saved.get().externalMergeToolPath === BUILTIN_MERGE_TOOL, saved.get().externalMergeToolPath);
     assert(saved.get().externalMergeToolArguments.includes("{merged}"), "merge args");
     assert(saved.get().terminalShell === "", "shell");
     assert(saved.get().recentRepositoryPaths.some((item) => item === ctx.repo), "recent kept");
@@ -959,6 +962,57 @@ export function cases(ctx: Ctx): TestCase[] {
     assert(buildResult(conflict, ["remote"]) === "theirs\n", buildResult(conflict, ["remote"]));
   });
 
+  add("Git", "The built-in Diff & Merge resolves a conflict and stages the file", async () => {
+    const repo = path.join(ctx.home, "builtin-merge-repo");
+    fs.mkdirSync(repo);
+    await git(repo, ["init", "-b", "main"]);
+    await identity(repo);
+    fs.writeFileSync(path.join(repo, "note.txt"), "base\n");
+    await git(repo, ["add", "note.txt"]);
+    await git(repo, ["commit", "-m", "Base"]);
+    await git(repo, ["checkout", "-b", "side"]);
+    fs.writeFileSync(path.join(repo, "note.txt"), "theirs\n");
+    await git(repo, ["add", "note.txt"]);
+    await git(repo, ["commit", "-m", "Theirs"]);
+    await git(repo, ["checkout", "main"]);
+    fs.writeFileSync(path.join(repo, "note.txt"), "ours\n");
+    await git(repo, ["add", "note.txt"]);
+    await git(repo, ["commit", "-m", "Ours"]);
+    const conflict = await runGit(repo, ["merge", "side"]);
+    assert(conflict.code !== 0, conflict.stderr || conflict.stdout);
+    const previous = ctx.app.info()?.path ?? ctx.repo;
+    try {
+      await ctx.app.open(repo);
+      const sources = await ctx.app.conflictSources("note.txt");
+      assert(sources.base === "base\n" && sources.local === "ours\n" && sources.remote === "theirs\n", JSON.stringify(sources));
+      const document = mergeTexts(sources.base, sources.local, sources.remote);
+      assert(conflictCount(document) === 1, `conflicts ${conflictCount(document)}`);
+      await ctx.app.saveMerge("note.txt", buildResult(document, ["local"]));
+      assert(readText(path.join(repo, "note.txt")) === "ours\n", readText(path.join(repo, "note.txt")));
+      const unresolved = await runGit(repo, ["diff", "--name-only", "--diff-filter=U"]);
+      assert(!unresolved.stdout.trim(), unresolved.stdout);
+      await expectCode(() => ctx.app.conflictSources("note.txt"), "NOT_CONFLICTED");
+    } finally {
+      await ctx.app.open(previous);
+    }
+  });
+
+  add("Settings", "The built-in Diff & Merge is the default merge tool", async () => {
+    const dir = path.join(ctx.home, "settings-merge-default");
+    const store = new SettingsStore(dir);
+    assert(store.get().externalMergeToolPath === BUILTIN_MERGE_TOOL, store.get().externalMergeToolPath);
+    assert(store.publicView().externalMergeToolPath === BUILTIN_MERGE_TOOL, "public view");
+    store.update({ externalMergeToolPath: "" });
+    assert(new SettingsStore(dir).get().externalMergeToolPath === BUILTIN_MERGE_TOOL, "an empty path falls back");
+    store.update({ externalMergeToolPath: "MyGit:Builtin" });
+    assert(new SettingsStore(dir).get().externalMergeToolPath === BUILTIN_MERGE_TOOL, "casing");
+    const external = path.join("C:\\", "Tools", "merge.exe");
+    store.update({ externalMergeToolPath: external });
+    assert(new SettingsStore(dir).get().externalMergeToolPath === external, "an external tool is kept");
+    assert(usesBuiltinMerge("") && usesBuiltinMerge(" mygit:builtin ") && !usesBuiltinMerge(external), "usesBuiltinMerge");
+    assert(isBuiltinMergeTool(BUILTIN_MERGE_TOOL) && !isBuiltinMergeTool("") && !isBuiltinMergeTool(external), "isBuiltinMergeTool");
+  });
+
   add("Diff", "A tool window address names the diff or the merge", async () => {
     const diff = parseToolHash("#tool?kind=diff&sha=abc&file=a%20b.txt");
     assert(diff?.kind === "diff" && diff.sha === "abc" && diff.file === "a b.txt", JSON.stringify(diff));
@@ -966,6 +1020,27 @@ export function cases(ctx: Ctx): TestCase[] {
     assert(merge?.kind === "merge" && merge.file === "dir/b.txt", JSON.stringify(merge));
     assert(parseToolHash("#tool?kind=diff") === null, "missing file");
     assert(parseToolHash("") === null, "empty");
+  });
+
+  add("Build", "The bundled server entry points are CommonJS and the run scripts point at them", async () => {
+    const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const read = (name: string) => fs.readFileSync(path.join(projectDir, name), "utf8");
+    const builder = read(path.join("scripts", "build-server.mjs"));
+    const outfiles = [...builder.matchAll(/outfile:\s*"([^"]+)"/g)].map((match) => match[1]);
+    assert(outfiles.length === 2, outfiles.join(", "));
+    for (const outfile of outfiles) {
+      assert(outfile.endsWith(".cjs"), `${outfile} must be CommonJS: express cannot be bundled into ESM`);
+    }
+    assert(!/format:\s*"esm"/.test(builder), "an esm bundle breaks on a dynamic require of node:path");
+    const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+    const web = read(path.join("scripts", "package-web.mjs"));
+    const cli = outfiles.find((outfile) => outfile.includes("cli"));
+    assert(cli, outfiles.join(", "));
+    assert(pkg.scripts["start:web"].includes(cli), pkg.scripts["start:web"]);
+    assert(web.includes(`node ${cli}`), "the web package start script");
+    const electron = read(path.join("electron", "main.cjs"));
+    const server = outfiles.find((outfile) => outfile !== cli);
+    assert(server && electron.includes(path.basename(server)), server ?? "");
   });
 
   add("Diff", "Installed diff tools can be selected and keep left and right arguments", async () => {

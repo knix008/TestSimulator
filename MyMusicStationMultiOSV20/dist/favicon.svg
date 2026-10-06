@@ -1,0 +1,57 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Music player mark: 3D squircle that fills the canvas (taskbar / window icon). -->
+  <defs>
+    <linearGradient id="body" x1="0.08" y1="0" x2="0.92" y2="1">
+      <stop offset="0" stop-color="#9AFFFF"/>
+      <stop offset="0.32" stop-color="#6A62FF"/>
+      <stop offset="0.68" stop-color="#E03AE6"/>
+      <stop offset="1" stop-color="#FF4F7A"/>
+    </linearGradient>
+    <radialGradient id="orbCyan" cx="0.18" cy="0.12" r="0.55">
+      <stop offset="0" stop-color="#E7FFFF" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#E7FFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbMagenta" cx="0.88" cy="0.86" r="0.5">
+      <stop offset="0" stop-color="#FF79C8" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#FF79C8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="shade" cx="0.78" cy="0.92" r="0.7">
+      <stop offset="0" stop-color="#3A0858" stop-opacity="0.48"/>
+      <stop offset="1" stop-color="#3A0858" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gloss" cx="0.28" cy="0.12" r="0.68">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.62"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="note" x1="300" y1="260" x2="560" y2="780" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#F4F7FF"/>
+      <stop offset="1" stop-color="#C9D4FF"/>
+    </linearGradient>
+    <clipPath id="tile">
+      <rect x="12" y="12" width="1000" height="1000" rx="248"/>
+    </clipPath>
+    <filter id="noteShadow" x="-35%" y="-25%" width="170%" height="170%">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#2a0860" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect x="12" y="12" width="1000" height="1000" rx="248" fill="url(#body)"/>
+  <g clip-path="url(#tile)">
+    <rect x="12" y="12" width="1000" height="1000" fill="url(#orbCyan)"/>
+    <rect x="12" y="12" width="1000" height="1000" fill="url(#orbMagenta)"/>
+    <rect x="12" y="12" width="1000" height="1000" fill="url(#shade)"/>
+    <circle cx="512" cy="530" r="176" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="14"/>
+    <circle cx="512" cy="530" r="262" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="11"/>
+    <rect x="12" y="12" width="1000" height="1000" fill="url(#gloss)"/>
+    <ellipse cx="390" cy="140" rx="280" ry="96" fill="#ffffff" fill-opacity="0.28"/>
+  </g>
+
+  <g filter="url(#noteShadow)" fill="url(#note)">
+    <path d="M562 278 C722 278 824 366 800 502 C790 564 756 610 710 636
+             C752 568 744 498 706 448 C676 406 622 382 562 376 Z"/>
+    <rect x="562" y="278" width="58" height="408" rx="29"/>
+    <ellipse cx="448" cy="670" rx="132" ry="102" transform="rotate(-18 448 670)"/>
+  </g>
+</svg>

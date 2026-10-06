@@ -39,6 +39,8 @@ API와 개발 서버는 `127.0.0.1`에만 바인딩됩니다. 다른 컴퓨터�
 | `npm run start:web` | `dist`를 API가 함께 제공합니다. | `PORT` 또는 4730 |
 | `npm run start:desktop` / `npm run dist` | Electron이 패키지 안의 `dist`를 엽니다. | 빈 포트의 로컬 서버 |
 
+`npm run build`와 `build:server`는 `server/index.ts`를 `dist-server/index.cjs`로, `server/cli.ts`를 `dist-server/cli.cjs`로 묶습니다. 둘 다 CommonJS입니다. express가 `require("path")`를 런타임에 호출하기 때문에 ESM으로 묶으면 실행되지 않습니다. Electron은 `index.cjs`를, `start:web`과 웹 패키지는 `cli.cjs`를 씁니다.
+
 웹에서는 경로를 입력합니다. Electron은 `preload.cjs`의 `pickDirectory`로 운영체제 폴더 대화상자를 엽니다. `contextIsolation`이 켜져 있고 `nodeIntegration`은 꺼져 있습니다.
 
 ### 소스
@@ -48,11 +50,18 @@ API와 개발 서버는 `127.0.0.1`에만 바인딩됩니다. 다른 컴퓨터�
 | `src/App.tsx` | 메뉴, 도구 모음, Files / Repository, 히스토리, diff, 대화상자 |
 | `src/CommitHistory.tsx` | 커밋 목록과 그래프 렌더링 |
 | `src/DiffView.tsx` | unified diff |
+| `src/BuiltinTools.tsx` | 내장 Diff(좌우 비교)와 내장 Diff & Merge(3-way 충돌 선택) 화면 |
+| `src/ToolWindow.tsx` | 도구 창의 껍데기. 주소의 `#tool`을 읽어 Diff 또는 Merge를 그립니다 |
+| `src/toolLaunch.ts` | `#tool` 주소를 만들고 해석합니다. Electron은 `openTool`, 웹은 `window.open` |
 | `src/graph.ts` | WinForms `CommitGraphBuilder`와 같은 레인 계산. 경로 필터는 평탄한 그래프 |
 | `src/icons.tsx` | 메뉴, 도구 모음, 컨텍스트 메뉴용 SVG |
 | `src/i18n.ts` | 한국어(기본)와 English. Git 명령 이름은 영어 |
 | `src/api.ts` | `/api` 호출. 실패 시 메서드, URL, HTTP 상태, 코드, 서버 상세를 묶습니다. |
 | `core/themes.ts` | Light 20, Dark 20. CSS 변수를 `documentElement`에 적용 |
+| `core/lineDiff.ts` | 줄 정렬과 단어 단위 강조 |
+| `core/threeWayMerge.ts` | base/local/remote를 덩어리로 나누고 선택대로 결과를 만듭니다 |
+| `core/diffTools.ts` | 설치된 외부 diff·merge 도구 탐색과 인수 템플릿 |
+| `core/mergeTool.ts` | 내장 merge 도구 식별자 `mygit:builtin`. 화면과 서버가 함께 씁니다 |
 | `core/gitApp.ts` | open, clone, browse, status, log, diff, commit, fetch, pull, push, stash, export |
 | `core/gitProcess.ts` | `git` 프로세스. `GIT_TERMINAL_PROMPT=0` |
 | `core/status.ts` | porcelain 배지 U D R T ! ± X P |
@@ -60,7 +69,7 @@ API와 개발 서버는 `127.0.0.1`에만 바인딩됩니다. 다른 컴퓨터�
 | `core/fsBrowse.ts` | 드라이브 목록과 한 단계 폴더 목록 |
 | `core/errors.ts` | `ApiError`. URL에 붙은 자격 증명을 `https://***@`로 가림 |
 | `server/index.ts` | Express 라우트. 오류 JSON은 `{ error, code, detail }` |
-| `server/cli.ts` | 개발/웹 실행 진입점 |
+| `server/cli.ts` | 개발/웹 실행 진입점. 번들은 `dist-server/cli.cjs` |
 | `electron/main.cjs`, `preload.cjs` | 창과 폴더 대화상자 |
 | `test/run.ts`, `test/cases.ts`, `test/report.ts` | 기능 테스트와 색이 있는 Summary |
 
@@ -71,6 +80,21 @@ API와 개발 서버는 `127.0.0.1`에만 바인딩됩니다. 다른 컴퓨터�
 3. `GitApp`은 `git`을 실행하고, 실패하면 `ApiError`를 던집니다. 인증이 필요하면 `AUTH_REQUIRED`이고, 짧은 메시지와 함께 git 출력이 `detail`에 남습니다.
 4. 저장소가 아니면 `NOT_A_REPO`입니다. Files의 **폴더 열기**는 이 경우 그 폴더를 파일 목록으로 보여 줍니다. 드라이브 버튼은 저장소를 열지 않고 그 드라이브의 폴더만 나열합니다.
 5. 성공한 open / clone / browse는 마지막 세션과 최근 목록을 설정 파일에 기록합니다.
+
+### Diff와 Merge 도구
+
+Diff와 Merge는 각각 도구를 따로 고릅니다.
+
+| 설정 | 기본값 | 열리는 곳 |
+|------|--------|-----------|
+| `externalDiffToolPath` | 빈 값 | 지정했을 때만 우클릭 **외부 Diff 도구**가 그 프로그램을 실행합니다. 내장 Diff는 우클릭이나 더블클릭으로 따로 엽니다. |
+| `externalMergeToolPath` | `mygit:builtin` | 내장 Diff & Merge 창. 외부 도구 경로를 고르면 그 프로그램을 실행합니다. |
+
+`mygit:builtin`은 `core/mergeTool.ts`의 식별자입니다. 설정 파일의 merge 도구가 비어 있으면 읽을 때 이 값으로 바뀌므로, merge는 아무 설정 없이도 동작합니다. `GitApp.externalMerge`는 이 값이 설정돼 있으면 `BUILTIN_MERGE`로 거절합니다. 화면이 내장 창을 열어야 하는 경우이기 때문입니다.
+
+내장 Diff & Merge는 `/api/merge-sources`로 `:1:` `:2:` `:3:` 스테이지를 읽습니다. 충돌 스테이지가 없는 파일은 `NOT_CONFLICTED`입니다. 저장은 `/api/merge-save`가 작업 트리에 쓰고 `git add`까지 합니다.
+
+도구 창은 같은 번들의 `#tool?kind=merge&file=...` 주소입니다. Electron은 `openTool`로 창을 만들고, 웹은 팝업을 엽니다. 팝업이 막히면 화면에 그 이유가 표시됩니다.
 
 Clone과 Browse Remote는 자격 증명을 URL에 남겨 두지 않습니다. clone 직후 `git remote set-url origin`으로 원래 URL을 다시 넣습니다.
 

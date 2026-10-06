@@ -6,6 +6,7 @@ import { openToolWindow } from "./toolLaunch";
 import { translate, type Lang } from "./i18n";
 import { ThemePicker } from "./ThemePicker";
 import { publishAppearance } from "../core/appearance";
+import { BUILTIN_MERGE_TOOL, isBuiltinMergeTool, usesBuiltinMerge } from "../core/mergeTool";
 import { applyTheme, nextThemeId, THEMES, themeById } from "../core/themes";
 import { Flag, Icon, MenuGlyph, type IconName } from "./icons";
 import { TerminalPane } from "./TerminalPane";
@@ -240,6 +241,13 @@ export function App() {
     void api.externalMerge(file).catch(fail);
   }, [fail]);
 
+  const builtinMergeDefault = usesBuiltinMerge(settings?.externalMergeToolPath);
+
+  const openMergeTool = useCallback((file: string) => {
+    if (usesBuiltinMerge(settings?.externalMergeToolPath)) openBuiltinMerge(file);
+    else openExternalMerge(file);
+  }, [settings?.externalMergeToolPath, openBuiltinMerge, openExternalMerge]);
+
   useEffect(() => {
     if (!selectedSha) {
       setDetail(null);
@@ -438,6 +446,14 @@ export function App() {
     [fsRoot, fsFiles, fsExpanded, fsChildren, rootFiles, expanded, children],
   );
 
+  const mergeTarget = useMemo(() => {
+    if (fsRoot) return null;
+    const conflicts = visibleFiles.filter((item) => !item.entry.directory && isConflict(item.entry));
+    if (!conflicts.length) return null;
+    const picked = selectedPath ? conflicts.find((item) => item.entry.path === selectedPath) : null;
+    return (picked ?? conflicts[0]).entry.path;
+  }, [fsRoot, selectedPath, visibleFiles]);
+
   async function toggleDir(entry: FileEntry) {
     if (!entry.directory) {
       setSelectedPath(entry.path);
@@ -551,6 +567,7 @@ export function App() {
           { icon: "undo", label: t("gitReset"), disabled: !writable, action: () => void run(t("gitReset"), async () => (await api.unstage(selectedPath ? [selectedPath] : [])).message) },
           { icon: "discard", label: t("discard"), disabled: !writable, action: () => void discard(selectedPath ? [selectedPath] : []) },
           { icon: "commit", label: t("gitCommit"), disabled: !writable, action: () => void doCommit() },
+          { icon: "branch", label: t("resolveConflict"), disabled: !writable || !mergeTarget, action: () => { if (mergeTarget) openMergeTool(mergeTarget); } },
           { icon: "fetch", label: t("gitFetch"), disabled: !repo, action: () => void run(t("gitFetch"), () => authed((creds) => api.fetch(creds)).then((r) => r.message)) },
           { icon: "pull", label: t("gitPull"), disabled: !writable, action: () => void run(t("gitPull"), () => authed((creds) => api.pull(creds)).then((r) => r.message)) },
           { icon: "push", label: t("gitPush"), disabled: !writable, action: () => void run(t("gitPush"), () => authed((creds) => api.push(creds)).then((r) => r.message)) },
@@ -588,6 +605,7 @@ export function App() {
         <ToolButton icon="refresh" label={t("refresh")} disabled={!repo || busy} onClick={() => void refresh()} />
         <ToolButton icon="plus" label={t("gitAdd")} disabled={!writable || busy} onClick={() => void doAdd(selectedPath ? [selectedPath] : [])} />
         <ToolButton icon="commit" label={t("gitCommit")} disabled={!writable || busy} onClick={() => void doCommit()} />
+        <ToolButton icon="branch" label={t("resolveConflict")} disabled={!writable || !mergeTarget || busy} onClick={() => { if (mergeTarget) openMergeTool(mergeTarget); }} />
         <ToolButton icon="pull" label={t("gitPull")} disabled={!writable || busy} onClick={() => void run(t("gitPull"), () => authed((creds) => api.pull(creds)).then((r) => r.message))} />
         <ToolButton icon="push" label={t("gitPush")} disabled={!writable || busy} onClick={() => void run(t("gitPush"), () => authed((creds) => api.push(creds)).then((r) => r.message))} />
         {busy && <ToolButton icon="stop" label={t("stop")} onClick={() => void api.cancel()} />}
@@ -878,8 +896,10 @@ export function App() {
   function fileMenu(entry: FileEntry): MenuItem[] {
     return [
       ...(isConflict(entry) ? [
-        { icon: "browse" as const, label: t("builtinMerge"), disabled: !writable, action: () => openBuiltinMerge(entry.path) },
-        { icon: "browse" as const, label: t("openMerge"), disabled: !writable, action: () => openExternalMerge(entry.path) },
+        { icon: "branch" as const, label: t("resolveConflict"), disabled: !writable, action: () => openMergeTool(entry.path) },
+        ...(builtinMergeDefault ? [] : [
+          { icon: "browse" as const, label: t("builtinMerge"), disabled: !writable, action: () => openBuiltinMerge(entry.path) },
+        ]),
       ] : []),
       { icon: "history", label: t("showLog"), action: () => { setPathFilter(entry.path); filterRef.current = entry.path; void reload(entry.path); } },
       { icon: "copy", label: t("copyPath"), action: () => void navigator.clipboard.writeText(entry.path) },
@@ -1028,6 +1048,19 @@ function diffToolOptions(tools: { id: string; label: string; args: string }[], c
 }
 
 function selectedDiffTool(tools: { id: string; label: string; args: string }[], current: string): string {
+  return tools.find((item) => sameToolPath(item.id, current))?.id ?? current;
+}
+
+function mergeToolOptions(tools: { id: string; label: string }[], current: string, builtinLabel: string) {
+  const options = [{ id: BUILTIN_MERGE_TOOL, label: builtinLabel }, ...tools.map((item) => ({ id: item.id, label: item.label }))];
+  if (current && !isBuiltinMergeTool(current) && !tools.some((item) => sameToolPath(item.id, current))) {
+    options.push({ id: current, label: current.split(/[/\\]/).pop() || current });
+  }
+  return options;
+}
+
+function selectedMergeTool(tools: { id: string }[], current: string): string {
+  if (isBuiltinMergeTool(current) || !current) return BUILTIN_MERGE_TOOL;
   return tools.find((item) => sameToolPath(item.id, current))?.id ?? current;
 }
 
@@ -1396,27 +1429,37 @@ function DialogHost(props: {
                       <div className="tool-line">
                         <span title={t("mergeTool")}>{t("mergeTool")}</span>
                         <span className="tool-pick">
-                          <select value={selectedDiffTool(diffTools, dialog.mergeTool)} onChange={(event) => {
+                          <select value={selectedMergeTool(diffTools, dialog.mergeTool)} onChange={(event) => {
                             const mergeTool = event.target.value;
+                            if (isBuiltinMergeTool(mergeTool)) {
+                              setDialog({ ...dialog, mergeTool: BUILTIN_MERGE_TOOL });
+                              props.onPrefs({ externalMergeToolPath: BUILTIN_MERGE_TOOL });
+                              return;
+                            }
                             const known = diffTools.find((item) => sameToolPath(item.id, mergeTool));
                             const mergeArgs = known?.mergeArgs || dialog.mergeArgs;
                             setDialog({ ...dialog, mergeTool, mergeArgs });
                             props.onPrefs({ externalMergeToolPath: mergeTool, externalMergeToolArguments: mergeArgs });
                           }}>
-                            <option value="">{t("empty")}</option>
-                            {diffToolOptions(diffTools, dialog.mergeTool, dialog.mergeArgs).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                            {mergeToolOptions(diffTools, dialog.mergeTool, t("builtinMergeTool")).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                           </select>
                           <button type="button" onClick={() => void browseExternalTool("merge", dialog, diffTools, setDialog, props.onPrefs, t)}>{t("diffBrowse")}</button>
                         </span>
                       </div>
                       <div className="tool-line">
                         <span>{t("path")}</span>
-                        <input value={dialog.mergeTool} onChange={(event) => { const mergeTool = event.target.value; setDialog({ ...dialog, mergeTool }); props.onPrefs({ externalMergeToolPath: mergeTool }); }} />
+                        <input
+                          value={isBuiltinMergeTool(dialog.mergeTool) ? "" : dialog.mergeTool}
+                          disabled={isBuiltinMergeTool(dialog.mergeTool)}
+                          placeholder={isBuiltinMergeTool(dialog.mergeTool) ? t("builtinMergeTool") : ""}
+                          onChange={(event) => { const mergeTool = event.target.value; setDialog({ ...dialog, mergeTool }); props.onPrefs({ externalMergeToolPath: mergeTool }); }}
+                        />
                       </div>
                       <div className="tool-line">
                         <span title={t("mergeArgs")}>{t("toolArgs")}</span>
-                        <input value={dialog.mergeArgs} title={t("mergeArgs")} onChange={(event) => { const mergeArgs = event.target.value; setDialog({ ...dialog, mergeArgs }); props.onPrefs({ externalMergeToolArguments: mergeArgs }); }} />
+                        <input value={dialog.mergeArgs} title={t("mergeArgs")} disabled={isBuiltinMergeTool(dialog.mergeTool)} onChange={(event) => { const mergeArgs = event.target.value; setDialog({ ...dialog, mergeArgs }); props.onPrefs({ externalMergeToolArguments: mergeArgs }); }} />
                       </div>
+                      <div className="tool-hint">{t("mergeToolHint")}</div>
                     </div>
                   </>
                 )}

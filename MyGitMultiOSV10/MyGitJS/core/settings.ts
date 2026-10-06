@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { BUILTIN_MERGE_TOOL, isBuiltinMergeTool } from "./mergeTool.js";
 import { DEFAULT_THEME_ID, isThemeId } from "./themes.js";
 import fs from "node:fs";
 import os from "node:os";
@@ -77,7 +78,7 @@ function defaults(): AppSettings {
     commitCategories: [...DEFAULT_COMMIT_CATEGORIES],
     externalDiffToolPath: "",
     externalDiffToolArguments: "\"{left}\" \"{right}\"",
-    externalMergeToolPath: "",
+    externalMergeToolPath: BUILTIN_MERGE_TOOL,
     externalMergeToolArguments: "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"",
     gitUsername: "",
     gitTokenProtected: "",
@@ -220,6 +221,8 @@ export class SettingsStore {
       if (!merged.commitCategories?.length) merged.commitCategories = [...DEFAULT_COMMIT_CATEGORIES];
       if (!isThemeId(merged.theme)) merged.theme = DEFAULT_THEME_ID;
       if (merged.terminalShell && !fs.existsSync(merged.terminalShell)) merged.terminalShell = "";
+      if (!merged.externalMergeToolPath?.trim()) merged.externalMergeToolPath = BUILTIN_MERGE_TOOL;
+      else if (isBuiltinMergeTool(merged.externalMergeToolPath)) merged.externalMergeToolPath = BUILTIN_MERGE_TOOL;
       merged.recentRepositoryPaths = (Array.isArray(merged.recentRepositoryPaths) ? merged.recentRepositoryPaths : [])
         .filter((item): item is string => typeof item === "string" && item.length > 0)
         .slice(0, MAX_RECENT);

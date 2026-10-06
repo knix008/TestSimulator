@@ -800,6 +800,8 @@ button { cursor: pointer; }
   gap: 8px;
 }
 .tool-line > span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tool-hint { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.prefs-page.tools input:disabled, .prefs-page.tools select:disabled { opacity: 0.6; }
 .prefs-page.tools input, .prefs-page.tools select { padding: 4px 8px; width: 100%; min-width: 0; }
 .dialog.prefs .theme-picker { gap: 10px; }
 .dialog.prefs .theme-picker .group { padding: 0 2px 0; }

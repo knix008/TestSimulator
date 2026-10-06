@@ -30,6 +30,9 @@ public sealed class FileDiffView : UserControl
     private readonly AppSettings _settings;
     private DiffSession? _session;
     private Func<DiffSession>? _initialSessionFactory;
+    private readonly List<FileSystemWatcher> _fileWatchers = new();
+    private System.Windows.Forms.Timer? _fileReloadTimer;
+    private int _fileReloadAttempts;
 
     public FileDiffView(AppSettings settings)
     {
@@ -202,6 +205,7 @@ public sealed class FileDiffView : UserControl
         UpdateActionState();
         ApplyBinaryUiState();
         UpdatePaneHeaderText();
+        WatchSessionFiles();
         SessionChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -478,5 +482,117 @@ public sealed class FileDiffView : UserControl
         StatusChanged?.Invoke(this, doc.HasDifferences
             ? Strings.FormatStatus(_session.LeftPath, _session.RightPath, doc.AddedCount, doc.RemovedCount, doc.ModifiedCount)
             : Strings.StatusIdentical);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            DisposeFileWatchers();
+            _fileReloadTimer?.Dispose();
+            _fileReloadTimer = null;
+        }
+
+        base.Dispose(disposing);
+    }
+
+    private void WatchSessionFiles()
+    {
+        DisposeFileWatchers();
+        if (_session == null)
+        {
+            return;
+        }
+
+        WatchFile(_session.LeftPath);
+        if (!string.Equals(_session.LeftPath, _session.RightPath, StringComparison.OrdinalIgnoreCase))
+        {
+            WatchFile(_session.RightPath);
+        }
+    }
+
+    private void WatchFile(string filePath)
+    {
+        string? directory = Path.GetDirectoryName(filePath);
+        string name = Path.GetFileName(filePath);
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(name) || !Directory.Exists(directory))
+        {
+            return;
+        }
+
+        var watcher = new FileSystemWatcher(directory, name)
+        {
+            NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+            EnableRaisingEvents = true,
+        };
+        FileSystemEventHandler changed = (_, _) => ScheduleFileReload();
+        watcher.Changed += changed;
+        watcher.Created += changed;
+        watcher.Renamed += (_, _) => ScheduleFileReload();
+        _fileWatchers.Add(watcher);
+    }
+
+    private void ScheduleFileReload()
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            try
+            {
+                BeginInvoke(ScheduleFileReload);
+            }
+            catch (InvalidOperationException)
+            {
+                /* the view is closing */
+            }
+
+            return;
+        }
+
+        _fileReloadTimer ??= new System.Windows.Forms.Timer { Interval = 300 };
+        _fileReloadTimer.Tick -= OnFileReloadTick;
+        _fileReloadTimer.Tick += OnFileReloadTick;
+        _fileReloadTimer.Stop();
+        _fileReloadTimer.Start();
+    }
+
+    private void OnFileReloadTick(object? sender, EventArgs e)
+    {
+        _fileReloadTimer?.Stop();
+        if (_session == null || IsDisposed)
+        {
+            return;
+        }
+
+        try
+        {
+            LoadSession(DiffSession.Load(_session.LeftPath, _session.RightPath));
+            _fileReloadAttempts = 0;
+        }
+        catch (IOException) when (_fileReloadAttempts < 5)
+        {
+            _fileReloadAttempts++;
+            ScheduleFileReload();
+        }
+        catch (Exception ex)
+        {
+            _fileReloadAttempts = 0;
+            ErrorDialog.Show(FindForm(), Strings.ErrorOpenFile, ex);
+        }
+    }
+
+    private void DisposeFileWatchers()
+    {
+        foreach (FileSystemWatcher watcher in _fileWatchers)
+        {
+            watcher.EnableRaisingEvents = false;
+            watcher.Dispose();
+        }
+
+        _fileWatchers.Clear();
     }
 }

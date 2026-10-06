@@ -21,7 +21,7 @@ files.push({
     version: pkg.version,
     private: true,
     type: "module",
-    scripts: { start: "node dist-server/cli.js" },
+    scripts: { start: "node dist-server/cli.cjs" },
   }, null, 2) + "\n"),
 });
 

@@ -1,3 +1,15 @@
+// ELECTRON_RUN_AS_NODE makes the Electron binary behave like plain Node: there is no
+// `app`, no window, and the process just exits. Some machines have it set globally, so
+// relaunch ourselves without it rather than dying with a confusing TypeError.
+if (process.env.ELECTRON_RUN_AS_NODE) {
+  const environment = { ...process.env };
+  delete environment.ELECTRON_RUN_AS_NODE;
+  require("child_process")
+    .spawn(process.execPath, process.argv.slice(1), { env: environment, detached: true, stdio: "ignore" })
+    .unref();
+  process.exit(0);
+}
+
 const { app, BrowserWindow, Menu, ipcMain, dialog, clipboard, shell } = require("electron");
 const fs = require("fs");
 const os = require("os");
@@ -45,7 +57,7 @@ function resolveIcon() {
     __dirname,
     path.join(__dirname, "..", "build"),
     path.join(__dirname, "..", "public"),
-    path.join(__dirname, "..", "..", "Assets"),
+    path.join(__dirname, "..", "Assets"),
   ];
   for (const root of roots) {
     if (!root) continue;

@@ -1,126 +1,91 @@
-# MyDiff Win V10
+# MyDiff (Multi-OS V10)
 
-Windows desktop 2-way line diff viewer built with WinForms (.NET 8). Designed to be launched
-*by* your existing Git tooling rather than to talk to Git itself — register it as a
-`git difftool`, or point [MyGitWinV10](../MyGitWinV10)'s External Diff Tool preference at it.
+Cross-platform 2-way diff viewer for files, directories and git repositories — a
+JavaScript/Electron rewrite of the WinForms [MyDiffWinV10](../MyDiffWinV10). The same code
+runs as a desktop app on **Windows, macOS and Linux**, and as a **web app** in a browser.
+
+Designed to be launched *by* your existing Git tooling as much as on its own — register it
+as a `git difftool` and it opens the pair it is handed.
 
 ## Features
 
 - Side-by-side Left/Right panes with line-level diff highlighting (added / removed / modified)
-- Synchronized scrolling between the two panes, with line numbers
-- **Diff overview bar** next to each pane's scrollbar — a minimap of where every
-  difference sits in the file, with a viewport indicator and click-to-jump
-- Previous/Next difference navigation (toolbar, menu, or **F3** / **Shift+F3**)
-- Word wrap toggle, adjustable pane font size
-- Status bar with added/removed/modified counts
-- Korean/English UI language, switchable without restart (**File → Preferences...**)
-- Restores the last-opened Left/Right pair on standalone startup
-- Tooltips on every menu, menu item, and toolbar button
-- Errors are reported in a copyable popup dialog (type/message/source/stack trace),
-  not silently swallowed
+  and word-level highlighting inside modified lines
+- Synchronized scrolling, line numbers, virtualized rendering for very large files
+- **Diff overview bar** next to each pane — a minimap of where every difference sits,
+  with a viewport indicator and click-to-jump
+- Previous/Next difference navigation
+- **Directory comparison** with configurable exclude list (`.git`, `node_modules`, …)
+- **Git panel** — working tree, staged, commit and range views, commit log, unified diff
+- **Binary comparison** — files that are not text fall back to a side-by-side hex dump
+- Korean/English UI and light/dark themes, switchable without restart
+- Errors are reported in a copyable dialog, not silently swallowed
 
-This is a **read-only diff viewer**, not a merge tool. For resolving 3-way merge conflicts,
-use the sibling app [DiffMergeWinV10](../DIff&MergeWinV10), which already covers that role —
-`MyDiffWinV10` intentionally only registers as a `difftool`, not a `mergetool`.
+This is a **read-only diff viewer**, not a merge tool.
 
 ## Requirements
 
-- Windows 10 or later
-- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) (for framework-dependent builds)
+- Node.js 20.19+ (24 recommended) to build or run from source
+- `git` on `PATH` for the git features (everything else works without it)
 
-## Build & Run
+## Running from source
 
-```powershell
-dotnet build MyDiffWinV10.slnx
-dotnet run --project MyDiffWinV10.App
+```bash
+npm install
+npm start          # Electron desktop app
+npm run dev:web    # same UI in a browser at http://127.0.0.1:5174
 ```
 
-### Building the installer (MSI)
+Both modes run straight from source, so a restart always picks up the latest edit.
 
-Building the **App project in Release** (in Visual Studio or via `dotnet build`) also produces
-an MSI — no separate "build the installer" step needed, and the installer project doesn't need
-to be added to a solution:
-
-```powershell
-dotnet build MyDiffWinV10.App/MyDiffWinV10.App.csproj -c Release
+```bash
+npm run typecheck  # tsc --noEmit
+npm run build      # icons + UI (dist/) + bundled server (dist-server/)
+npm run preview    # run the production build without packaging
+npm run serve      # production web server only
 ```
 
-Output: `installer\bin\Release\MyDiffWinV10Setup.msi`
+## Building installers
 
-The installer publishes the app (`win-x64`, framework-dependent) and lets the user choose
-during setup whether to create a **Start Menu shortcut** and/or **Desktop shortcut** (both
-checked by default, both optional) — both shortcuts use the application's icon.
-
-> Close any running `MyDiffWinV10.App.exe` before a Release build — a locked exe can block
-> the publish step that feeds the installer.
-
-To build only the installer (e.g. after the app is already published):
-
-```powershell
-dotnet build installer/MyDiffWinV10.Installer.wixproj -c Release -p:Platform=x64 -p:BuildMsiPackage=true
+```bash
+npm run build:win     # NSIS installer (x64, arm64) + portable exe
+npm run build:mac     # dmg + zip (x64, arm64)
+npm run build:linux   # AppImage, deb, rpm, tar.gz
+npm run build:all     # all three
 ```
 
-### Command-line usage
+Output lands in `release/`. Each command runs the full build first, so the installer always
+contains the current sources. The usual Electron cross-build rules apply — build macOS
+targets on macOS, and deb/rpm on Linux (or in Docker).
+
+### Windows install behaviour
+
+Carried over from the WinForms MSI, implemented in [build/installer.nsh](build/installer.nsh):
+
+- **An existing MyDiff is removed completely before reinstalling** — the old uninstaller
+  runs first, then its leftover program folder is deleted.
+- **User data is never deleted silently.** If settings are present, the installer asks once
+  whether to wipe them, and the uninstaller asks again. A silent run (`/S`, e.g. an
+  automated upgrade) never prompts and never deletes.
+
+Settings live in `%APPDATA%\MyDiffJS` on Windows, `~/Library/Application Support/MyDiffJS`
+on macOS and `~/.config/MyDiffJS` on Linux.
+
+> **Note:** if `ELECTRON_RUN_AS_NODE` is set in your environment, the Electron binary starts
+> as plain Node and the app window never appears. Unset it before launching an installed
+> MyDiff; the npm scripts already strip it.
+
+## Using it as a git difftool
 
 ```
-MyDiffWinV10.App.exe                 # standalone — pick Left/Right via Open dialogs
-MyDiffWinV10.App.exe <LEFT> <RIGHT>  # diff the two files directly
+mydiff LEFT RIGHT
 ```
 
-## Registering with your Git tooling
+is what `git difftool` passes, and MyDiff opens that pair directly. Registration and
+removal are both buttons in the app's git panel; they write
+`git config --global difftool.mydiff.cmd`.
 
-### As a `git difftool`
+## Documentation
 
-```powershell
-git config --global difftool.mydiff.cmd '"C:\\Path\\To\\MyDiffWinV10.App.exe" "$LOCAL" "$REMOTE"'
-git difftool -t mydiff
-```
-
-### As MyGitWinV10's external diff tool
-
-In MyGitWinV10: **File → Preferences... → External diff tool**
-
-- Path: the built `MyDiffWinV10.App.exe`
-- Arguments: `"{left}" "{right}"`
-
-Double-clicking a changed file in MyGitWinV10's Commit Details will then open it here instead
-of MyGitWinV10's built-in diff panel.
-
-## Project layout
-
-| Path | Description |
-|------|--------------|
-| `MyDiffWinV10.App/` | Main WinForms application |
-| `MyDiffWinV10.App/Core/` | `LineDiff` (2-way LCS line diff), `DiffDocument`, `DiffSession` (file I/O) |
-| `MyDiffWinV10.App/Controls/` | `SyncLineListBox`, `LineNumberGutter`, pane theme, runtime-drawn icons |
-| `MyDiffWinV10.App/Services/` | Settings persistence, Korean/English string table |
-| `MyDiffWinV10.App/Dialogs/` | Preferences, error dialog |
-| `Assets/` | Application icon generator (`GenerateIcon.csproj`) |
-| `installer/` | WiX Toolset v6 MSI installer project |
-
-## Key source files
-
-| File | Role |
-|------|------|
-| `DiffForm.cs` | Main window layout, toolbar/menu, diff rendering |
-| `Core/LineDiff.cs` | LCS-anchor 2-way line diff (added/removed/modified classification) |
-| `Core/DiffDocument.cs` | Row list + summary counts |
-| `Core/DiffSession.cs` | Loads Left/Right files from disk |
-| `Controls/SyncLineListBox.cs` | Scroll-synchronized owner-draw list pane |
-| `Controls/PaneTheme.cs` | Row/diff colors and header tints |
-| `Services/Strings.cs` | Korean/English UI strings |
-| `Services/AppSettingsStore.cs` | User settings persistence |
-| `Dialogs/PreferencesDialog.cs` | Font size, word wrap, language |
-
-## Settings and runtime data
-
-| Item | Location |
-|------|----------|
-| User settings | `%AppData%\MyDiffWinV10\settings.json` |
-
-Settings include window size, pane font size, word wrap, UI language (Korean by default), and
-the last-opened Left/Right file pair (restored on standalone startup).
-
-## User documentation
-
-See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface and workflows (Korean).
+- [Architecture.md](Architecture.md) — how the code is organised and how the build works
+- [UsersGuide.md](UsersGuide.md) — 사용자 가이드 (Korean)

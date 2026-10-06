@@ -1,53 +1,35 @@
+# Dependencies
+node_modules/
+
 # Build output
-[Bb]in/
-[Oo]bj/
-artifacts/
-build-check/
-publish/
-**/publish/
+dist/
+dist-server/
+release/
 
-# Visual Studio / Rider
-.vs/
-.idea/
-*.user
-*.suo
-*.userosscache
-*.sln.docstates
-*.rsuser
-*.DotSettings.user
+# Generated icons (scripts/generate-icons.mjs rebuilds them during `npm run build`)
+build/icon.ico
+build/icon.png
+build/icons/
 
-# Build artifacts
-*.cache
+# Logs / caches
 *.log
 *.tmp
 *.bak
-*.pdb
-*.ilk
-*.aps
-*.nupkg
-*.snupkg
-*.msi
-UpgradeLog.htm
-UpgradeLog*.htm
+.vite/
+.eslintcache
+npm-debug.log*
+yarn-error.log*
 
-# WiX / installer intermediates
-*.wixobj
-*.wixpdb
-installer/bin/
-installer/obj/
+# Editors
+.vs/
+.idea/
+*.swp
+*~
 
-# Test / coverage
-TestResults/
-coverage/
-*.coverage
-*.coveragexml
-
-# OS / editor
+# OS
 .DS_Store
 Thumbs.db
 Desktop.ini
-*.swp
-*~
 
 # Local / AI tooling (not part of the product)
 .claude/

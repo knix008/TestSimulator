@@ -41,6 +41,14 @@ export function removeIndexLock(repo: string | undefined | null): void {
   }
 }
 
+// Read-only queries such as `git status` refresh the index, and that write takes
+// .git/index.lock. The app polls status while the user may be running git in the
+// built-in terminal, so every spawn here opts out of those optional locks. Locks a
+// command genuinely requires, such as add or commit, are still taken.
+export function gitEnv(): NodeJS.ProcessEnv {
+  return { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" };
+}
+
 export function runGit(cwd: string | undefined, args: string[], limit = 32_000_000): Promise<GitResult> {
   return new Promise((resolve) => {
     let child: ChildProcess;
@@ -48,7 +56,7 @@ export function runGit(cwd: string | undefined, args: string[], limit = 32_000_0
       child = spawn("git", args, {
         cwd,
         windowsHide: true,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+        env: gitEnv(),
       });
     } catch (error) {
       resolve({ code: 1, stdout: "", stderr: error instanceof Error ? error.message : String(error) });
@@ -83,7 +91,7 @@ export function startGit(cwd: string | undefined, args: string[]): ChildProcess 
   return spawn("git", args, {
     cwd,
     windowsHide: true,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env: gitEnv(),
   });
 }
 

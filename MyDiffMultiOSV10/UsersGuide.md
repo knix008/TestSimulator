@@ -1,6 +1,6 @@
-# MyDiff Win V10 — 사용자 가이드
+# MyDiff — 사용자 가이드
 
-MyDiff는 Windows용 2-way 줄 단위 diff 뷰어입니다. 왼쪽/오른쪽 두 파일을 나란히 비교하고 추가/삭제/변경된 줄을 색으로 구분해서 보여줍니다. 독립 실행 외에도 `git difftool`이나 MyGitWinV10의 외부 diff 도구로 등록해서 쓸 수 있습니다.
+MyDiff는 Windows / macOS / Linux와 브라우저에서 모두 쓸 수 있는 2-way 줄 단위 diff 뷰어입니다. 왼쪽/오른쪽 두 파일을 나란히 비교하고 추가/삭제/변경된 줄을 색으로 구분해서 보여줍니다. 독립 실행 외에도 `git difftool`이나 다른 도구의 외부 diff 도구로 등록해서 쓸 수 있습니다.
 
 ---
 
@@ -17,7 +17,7 @@ MyDiff는 Windows용 2-way 줄 단위 diff 뷰어입니다. 왼쪽/오른쪽 두
 9. [git 연동](#git-연동)
 10. [오류 보고](#오류-보고)
 11. [설정 및 데이터 저장 위치](#설정-및-데이터-저장-위치)
-12. [MSI 설치 (관리자용 요약)](#msi-설치-관리자용-요약)
+12. [설치 (관리자용 요약)](#설치-관리자용-요약)
 13. [문제 해결](#문제-해결)
 
 ---
@@ -26,12 +26,14 @@ MyDiff는 Windows용 2-way 줄 단위 diff 뷰어입니다. 왼쪽/오른쪽 두
 
 ### 실행 방법
 
-- **개발 빌드:** `dotnet run --project MyDiffWinV10.App`
-- **설치본:** 시작 메뉴 또는 바탕화면의 **MyDiff Win V10** 바로 가기
+- **설치본:** 시작 메뉴 또는 바탕화면의 **MyDiff** 바로 가기 (macOS는 응용 프로그램, Linux는 AppImage/deb/rpm)
+- **소스에서 실행:** `npm install` 후 `npm start`
+- **브라우저에서:** `npm run dev:web` 실행 후 http://127.0.0.1:5174 접속
 
-### .NET 런타임
+### 필요 환경
 
-프레임워크 종속(framework-dependent) 빌드를 사용하는 경우 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)이 필요합니다.
+설치본은 추가 런타임이 필요 없습니다. 소스에서 빌드하거나 실행하려면 Node.js 20.19 이상이 필요합니다.
+git 연동 기능을 쓰려면 `git`이 `PATH`에 있어야 하고, 나머지 기능은 git 없이도 동작합니다.
 
 ### 마지막 세션 자동 복원
 
@@ -79,11 +81,12 @@ MyDiff는 Windows용 2-way 줄 단위 diff 뷰어입니다. 왼쪽/오른쪽 두
 ### 명령줄에서 열기 (가장 흔한 사용 방식)
 
 ```
-MyDiffWinV10.App.exe                  # 대화상자로 왼쪽/오른쪽 파일 선택
-MyDiffWinV10.App.exe <LEFT> <RIGHT>   # 두 파일을 바로 비교
+MyDiff                  # 대화상자로 왼쪽/오른쪽 파일 선택
+MyDiff <LEFT> <RIGHT>   # 두 파일(또는 두 폴더)을 바로 비교
 ```
 
-`git difftool`이나 MyGitWinV10의 외부 diff 도구로 등록하면, Git/MyGitWinV10이 자동으로 이 두 번째 형태로 앱을 실행합니다. 자세한 등록 방법은 [git 연동](#git-연동)을 참고하세요.
+`git difftool`이나 외부 diff 도구로 등록하면 자동으로 두 번째 형태로 실행됩니다.
+자세한 등록 방법은 [git 연동](#git-연동)을 참고하세요.
 
 ### 앱에서 직접 열기
 
@@ -174,21 +177,27 @@ MyDiffWinV10.App.exe <LEFT> <RIGHT>   # 두 파일을 바로 비교
 
 ### `git difftool`로 등록
 
-```powershell
-git config --global difftool.mydiff.cmd '"C:\\Path\\To\\MyDiffWinV10.App.exe" "$LOCAL" "$REMOTE"'
+앱의 **git 패널**에서 버튼 한 번으로 등록하거나 해제할 수 있습니다. 직접 등록하려면:
+
+```bash
+git config --global difftool.mydiff.cmd '"<MyDiff 실행 파일 경로>" "$LOCAL" "$REMOTE"'
 git difftool -t mydiff
 ```
 
-### MyGitWinV10의 외부 diff 도구로 등록
+실행 파일 경로는 OS마다 다릅니다.
 
-MyGitWinV10에서 **파일 → 환경 설정... → 외부 diff 도구**:
+| OS | 경로 |
+|------|------|
+| Windows | `%LOCALAPPDATA%\Programs\MyDiff\MyDiff.exe` (기본 설치 위치) |
+| macOS | `/Applications/MyDiff.app/Contents/MacOS/MyDiff` |
+| Linux | AppImage 파일 경로 또는 `/opt/MyDiff/mydiff` |
 
-- 경로: 빌드된 `MyDiffWinV10.App.exe`
-- 인자: `"{left}" "{right}"`
+### 다른 도구의 외부 diff 도구로 등록
 
-이렇게 설정하면 MyGitWinV10의 커밋 상세에서 변경된 파일을 더블클릭할 때 MyGitWinV10 내부 diff 패널 대신 MyDiff가 열립니다.
+경로에 MyDiff 실행 파일을, 인자에 `"{left}" "{right}"` 형태(도구에 따라 표기가 다름)를 지정하면
+해당 도구에서 파일을 열 때 MyDiff가 뜹니다.
 
-> MyDiff는 **읽기 전용 diff 뷰어**입니다. 3-way 병합 충돌 해결이 필요하면 형제 앱인 **DiffMergeWinV10**을 `git mergetool`로 등록해서 사용하세요 — MyDiff는 의도적으로 `mergetool`에는 등록하지 않습니다.
+> MyDiff는 **읽기 전용 diff 뷰어**입니다. 3-way 병합 충돌 해결에는 쓸 수 없고, `mergetool`로도 의도적으로 등록하지 않습니다.
 
 ---
 
@@ -204,33 +213,46 @@ MyGitWinV10에서 **파일 → 환경 설정... → 외부 diff 도구**:
 
 ## 설정 및 데이터 저장 위치
 
-| 항목 | 위치 |
+| OS | 위치 |
 |------|------|
-| 사용자 설정 | `%AppData%\MyDiffWinV10\settings.json` |
+| Windows | `%AppData%\MyDiffJS\settings.json` |
+| macOS | `~/Library/Application Support/MyDiffJS/settings.json` |
+| Linux | `~/.config/MyDiffJS/settings.json` |
+
+`MYDIFF_SETTINGS_DIR` 환경 변수로 다른 위치를 지정할 수 있습니다.
 
 설정 파일에 저장되는 내용:
 
-- 창 크기
-- 패널 글꼴 크기, 자동 줄 바꿈
+- 창 크기와 최대화 여부
+- 패널 글꼴 크기, 자동 줄 바꿈, 단어 단위 하이라이트
+- 테마(라이트/다크)와 좌우 머리글 색
 - UI 언어 (기본값: 한국어)
-- 마지막으로 비교한 왼쪽/오른쪽 파일 경로 (독립 실행 시 복원)
+- 디렉터리 비교에서 제외할 폴더 목록
+- 마지막으로 비교한 왼쪽/오른쪽 파일 경로와 최근 저장소 (독립 실행 시 복원)
 
 비교 대상 **파일 내용**은 설정 파일에 저장되지 않습니다. 경로만 기억됩니다.
 
 ---
 
-## MSI 설치 (관리자용 요약)
+## 설치 (관리자용 요약)
 
-App 프로젝트(또는 솔루션)를 **Release**로 빌드하면 MSI가 자동으로 생성됩니다.
+| OS | 빌드 명령 | 산출물 (`release/`) |
+|------|------|------|
+| Windows | `npm run build:win` | NSIS 설치 파일(x64 / arm64 / 통합), 포터블 exe |
+| macOS | `npm run build:mac` | dmg, zip (x64, arm64) |
+| Linux | `npm run build:linux` | AppImage, deb, rpm, tar.gz |
 
-| 항목 | 내용 |
-|------|------|
-| 빌드 명령 | `dotnet build MyDiffWinV10.App/MyDiffWinV10.App.csproj -c Release` |
-| MSI 출력 | `installer\bin\Release\MyDiffWinV10Setup.msi` |
-| 설치 위치 | `Program Files\MyDiffWinV10` |
-| 기능 선택 | 시작 메뉴 바로가기, 바탕화면 바로가기 (설치 마법사에서 각각 켜고 끌 수 있음, 기본은 둘 다 켜짐) |
+설치 마법사에서 설치 위치와 바로 가기(시작 메뉴 / 바탕화면)를 고를 수 있습니다.
 
-두 바로가기 모두 프로그램 아이콘을 사용합니다.
+### 재설치와 사용자 데이터
+
+- **기존 MyDiff가 설치되어 있으면 완전히 제거한 뒤 새로 설치합니다.** 이전 제거 프로그램을
+  먼저 실행하고, 남아 있는 설치 폴더까지 지웁니다.
+- **사용자 데이터는 묻지 않고 지우지 않습니다.** 설정이 남아 있으면 설치할 때 한 번,
+  제거할 때 한 번 삭제 여부를 물어봅니다. 조용한 설치(`/S`)에서는 묻지도 지우지도 않고
+  설정을 그대로 둡니다.
+- git에 등록한 difftool 설정은 사용자의 git 설정이므로 설치 프로그램이 건드리지 않습니다.
+  필요하면 앱의 git 탭에서 해제하세요.
 
 ---
 
@@ -238,7 +260,9 @@ App 프로젝트(또는 솔루션)를 **Release**로 빌드하면 MSI가 자동�
 
 ### 앱이 시작되지 않음
 
-- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)이 설치되어 있는지 확인하세요.
+- `ELECTRON_RUN_AS_NODE` 환경 변수가 설정되어 있으면 Electron이 창 없이 Node로 실행되고 바로 종료됩니다.
+  이 변수를 해제한 뒤 다시 실행하세요.
+- 소스에서 실행하는 경우 `npm install`이 끝났는지, Node.js 20.19 이상인지 확인하세요.
 
 ### 마지막 세션이 복원되지 않음
 
@@ -256,10 +280,11 @@ App 프로젝트(또는 솔루션)를 **Release**로 빌드하면 MSI가 자동�
 
 **파일 → 환경 설정... → 언어 → English → 확인**
 
-### Release 빌드에서 MSI가 생성되지 않음
+### 설치 파일이 만들어지지 않음
 
-- 실행 중인 `MyDiffWinV10.App.exe`가 있으면 종료 후 다시 빌드하세요.
-- 앱 프로젝트만 빌드해도 MSI가 만들어지지 않으면 `dotnet build installer\MyDiffWinV10.Installer.wixproj -c Release -p:Platform=x64 -p:BuildMsiPackage=true`로 직접 빌드해 보세요.
+- 실행 중인 MyDiff가 있으면 종료한 뒤 다시 빌드하세요. `release\win-unpacked`이 잠겨 있으면
+  `EPERM` 오류가 납니다.
+- macOS 타깃은 macOS에서, deb/rpm은 Linux(또는 Docker)에서 빌드해야 합니다.
 
 ---
 
