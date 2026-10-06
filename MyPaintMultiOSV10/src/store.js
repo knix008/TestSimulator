@@ -15,6 +15,7 @@
       fontSize: 24,
       fontStyle: "normal",
       zoom: 100,
+      showGrid: false,
       backgroundOpacity: 35,
       backgroundName: "",
       backgroundBytes: 0,

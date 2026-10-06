@@ -39,6 +39,7 @@
   --editor-weight: 400;
   --editor-style: normal;
   --zoom: 1;
+  --grid-step: 32px;
   --left: 200px;
   --right: 200px;
   --canvas-w: 900px;
@@ -64,7 +65,8 @@ button, input, select, textarea {
 button { cursor: pointer; }
 
 #shell {
-  min-width: 1180px;
+  width: 100%;
+  min-width: 0;
   min-height: 720px;
   height: 100%;
   display: flex;
@@ -86,7 +88,8 @@ button { cursor: pointer; }
   position: relative;
   z-index: 1;
   flex: 1;
-  min-width: 1180px;
+  width: 100%;
+  min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -556,7 +559,21 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 
 .stage.panning { cursor: grabbing; }
 
-.canvas-overlay { position: absolute; inset: 0; pointer-events: none; }
+/* The step is screen pixels. Zoom only resizes the frame, so the lines stay the same distance apart. */
+.canvas-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, #fff 1px, transparent 1px),
+    linear-gradient(to bottom, #fff 1px, transparent 1px);
+  background-size: var(--grid-step) var(--grid-step);
+  mix-blend-mode: difference;
+  opacity: 0.55;
+}
+
+.canvas-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 
 .canvas-overlay .region {
   position: absolute;

@@ -33,6 +33,7 @@
     next: '<path d="M9 6l6 6-6 6"/>',
     zoomIn: '<circle cx="11" cy="11" r="6"/><path d="M11 8v6M8 11h6M16 16l4 4"/>',
     zoomOut: '<circle cx="11" cy="11" r="6"/><path d="M8 11h6M16 16l4 4"/>',
+    grid: '<rect x="3.5" y="3.5" width="17" height="17" rx="1"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 3.5v17M14.5 3.5v17"/>',
     print: '<path d="M7 8V3h10v5"/><rect x="5" y="8" width="14" height="8" rx="1.5"/><path d="M7 14h10v7H7z"/>',
     settings: '<g transform="translate(12 12) scale(0.84) translate(-12 -12)">' +
       '<circle cx="12" cy="12" r="3.2"/>' +

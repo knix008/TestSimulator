@@ -269,6 +269,10 @@
     return '<button type="button" class="tool-btn" data-action="' + action + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + Icons.icon(icon) + (extra || "") + "</button>";
   }
 
+  function toggleButton(action, icon, label, on) {
+    return '<button type="button" class="tool-btn' + (on ? " on" : "") + '" data-action="' + action + '" aria-pressed="' + (on ? "true" : "false") + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + Icons.icon(icon) + "</button>";
+  }
+
   function renderToolbar() {
     $("toolbar").innerHTML = [
       button("new", "new", t("file.new")),
@@ -288,6 +292,7 @@
       button("zoomOut", "zoomOut", t("view.zoomOut")),
       '<button type="button" class="tool-btn zoom-readout" data-action="zoomReset" id="zoomValue" title="' + esc(t("view.zoomReset")) + '">' + settings.zoom + "%</button>",
       button("zoomIn", "zoomIn", t("view.zoomIn")),
+      toggleButton("toggleGrid", "grid", t("view.grid"), settings.showGrid),
       '<i class="sep"></i>',
       button("print", "print", t("file.print")),
       '<i class="sep"></i>',
@@ -296,6 +301,16 @@
       '<span class="toolbar-end">' + toolbarActions().map(toolActionButton).join("") + "</span>",
     ].join("");
     updateHistoryButtons();
+    syncGrid();
+  }
+
+  function syncGrid() {
+    const grid = $("canvasGrid");
+    if (grid) grid.hidden = !settings.showGrid;
+    document.querySelectorAll('[data-action="toggleGrid"]').forEach((el) => {
+      el.classList.toggle("on", Boolean(settings.showGrid));
+      el.setAttribute("aria-pressed", settings.showGrid ? "true" : "false");
+    });
   }
 
   function languageButton() {
@@ -376,6 +391,7 @@
         menuItem("zoomIn", "zoomIn", t("view.zoomIn")),
         menuItem("zoomOut", "zoomOut", t("view.zoomOut")),
         menuItem("zoomReset", "check", t("view.zoomReset")),
+        menuItem("toggleGrid", "grid", t("view.grid")),
         menuItem("toggleLeft", "panelLeft", t("view.left")),
         menuItem("toggleRight", "panelRight", t("view.right")),
       ] },
@@ -2958,6 +2974,12 @@
     zoomIn: () => zoomStep(1),
     zoomOut: () => zoomStep(-1),
     zoomReset: () => setZoom(100),
+    toggleGrid: () => {
+      settings.showGrid = !settings.showGrid;
+      saveSettings();
+      syncGrid();
+      return settings.showGrid;
+    },
     print: () => openPopup("print"),
     settings: () => openPopup("settings"),
     about: () => openPopup("about"),

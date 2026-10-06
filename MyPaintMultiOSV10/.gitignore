@@ -1,6 +1,33 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 release/
-*.log
-.DS_Store
+
+# The Windows setup copied next to the project by scripts/copy-setup.js
 *.exe
+
+# Logs and scratch files
+*.log
+npm-debug.log*
+*.tmp
+*.bak
+
+# A picture dropped at the project root, not a sample or an icon
+/untitled-*.png
+
+# Editors
+.vs/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local tooling
+.claude/
+.cursor/

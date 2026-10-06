@@ -50,6 +50,13 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
 Ctrl과 휠로 확대할 때는 휠을 돌린 만큼 바뀝니다. 마우스 휠 한 칸은 단추 한 번과 같고,
 트랙패드에서 두 손가락으로 밀면 1%씩 따라와 매끄럽게 움직입니다.
 
+도구 모음의 격자 단추로 그림 위에 격자를 켜고 끕니다. 보기 메뉴에도 같은 명령이 있습니다.
+칸 간격은 화면에서 32px로 고정되어, 확대하거나 축소해도 칸이 커지거나 촘촘해지지 않습니다.
+격자는 그림 위에만 그려지고, 그 위로 그리거나 영역을 고르는 것은 그대로 됩니다. 켠 상태는
+다음 실행 때도 남습니다.
+
+창을 최소 크기까지 줄여도 도구 모음의 단추는 잘리거나 서로 겹치지 않습니다.
+
 ### 되돌리기와 복사
 
 실행 취소는 Ctrl+Z, 다시 실행은 Ctrl+Y입니다. 복사는 Ctrl+C, 붙여넣기는 Ctrl+V,
@@ -185,6 +192,13 @@ and 400% are all steps of their own. Clicking the percentage in the toolbar goes
 
 Ctrl and the wheel zoom by however far the wheel was turned: one notch of a mouse wheel matches
 one click of the button, while a trackpad follows two fingers a per cent at a time.
+
+The grid button on the toolbar, also in the View menu, draws a grid over the picture. The
+cells stay 32 pixels apart on screen, so zooming in or out does not make them larger or
+denser. The grid sits on the picture only, and drawing or picking an area still works through
+it. Whether it is on is remembered for the next run.
+
+Shrinking the window to its minimum does not cut off or overlap the toolbar buttons.
 
 ### Undo and the clipboard
 

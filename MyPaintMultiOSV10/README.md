@@ -50,9 +50,11 @@ application in headless Edge or Chrome, and prints the result per suite with a s
 
 Drawing: pencil, brush, eraser, line, rectangle, ellipse, text, fill and colour picker, with
 a selection tool that moves shapes, a shape list, layer order, undo and redo, clipboard,
-Ctrl+wheel zoom, a context menu, drag and drop from outside, printing with a preview, a
-background image for the workspace, 41 themes, and a settings window that remembers
-everything for the next run.
+Ctrl+wheel zoom, and a grid over the picture. The grid is turned on from the toolbar and
+keeps the same spacing on screen at every zoom. Shrinking the window to its minimum still
+leaves every toolbar button visible. There is also a context menu, drag and drop from
+outside, printing with a preview, a background image for the workspace, 41 themes, and a
+settings window that remembers everything for the next run.
 
 Pictures also come from a link: paste an address and MyPaint downloads it, showing how much
 has arrived and letting you stop part way.

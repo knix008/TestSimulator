@@ -114,12 +114,31 @@ Popups are a fixed size from `metrics.POPUPS`, and the test suite asserts that n
 them scrolls and that no row is taller than one line. Long lists page with `<` and `>` buttons
 rather than scrolling — the print preview and the DICOM tag browser both do this.
 
+## The grid
+
+The grid is not part of the picture. `#canvasGrid` sits over the canvas and under the
+selection overlay, with `pointer-events: none`, so drawing and picking still hit the canvas.
+Its lines are a repeating gradient whose step is the CSS variable `--grid-step` (32px). Zoom
+changes the canvas frame's width and height from `--canvas-w`, `--canvas-h` and `--zoom`; it
+does not scale the frame with a transform, so the step stays a distance on screen. White lines
+with `mix-blend-mode: difference` stay visible on a light canvas and on a dark photograph.
+`settings.showGrid` is saved with the other settings. The toolbar button and the View menu
+both toggle it.
+
+## Fitting the window
+
+`metrics.MIN_WIDTH` (1180) is the smallest Electron will make the window. The page itself is
+`width: 100%` and does not force a layout wider than the window, so the right-hand toolbar
+buttons are not pushed off the edge when the view is narrower than that, or when the desktop
+window is at its minimum. The buttons do not shrink. The spare space sits between the drawing
+commands and the buttons grouped at the right end.
+
 ## Settings
 
 `store.js` keeps everything in `localStorage` under one key: language, theme, custom colours,
-font, zoom, tool, colours, line width, canvas defaults, panel widths, print setup, the last
-open and save folders, the opened folders, and the ten most recent files. The workspace
-background image is too large for that, so it lives in IndexedDB.
+font, zoom, whether the grid is on, tool, colours, line width, canvas defaults, panel widths,
+print setup, the last open and save folders, the opened folders, and the ten most recent
+files. The workspace background image is too large for that, so it lives in IndexedDB.
 
 ## Tests
 

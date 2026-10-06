@@ -1017,9 +1017,37 @@
         const width = children.reduce((sum, node) => sum + node.offsetWidth, 0) + gaps + 16;
         assert(width <= api.metrics.MIN_WIDTH, "the toolbar needs " + Math.round(width) + "px but the minimum width is " + api.metrics.MIN_WIDTH);
         assert(bar.scrollWidth <= bar.clientWidth + 2, "the toolbar is clipped");
+        const frame = doc.defaultView.frameElement;
+        const previousWidth = frame.style.width;
+        const previousLanguage = api.getSettings().language;
+        const hidden = [];
+        frame.style.width = "1000px";
+        ["ko", "en"].forEach((language) => {
+          api.setLanguage(language);
+          const view = doc.defaultView;
+          const box = doc.getElementById("toolbar").getBoundingClientRect();
+          const buttons = [...doc.querySelectorAll("#toolbar button")];
+          buttons.forEach((button) => {
+            const rect = button.getBoundingClientRect();
+            const name = button.dataset.action || button.id;
+            if (rect.width < 8 || rect.left < box.left - 1 || rect.right > box.right + 1 || rect.right > view.innerWidth + 1) hidden.push(language + " " + name);
+          });
+          for (let i = 0; i < buttons.length; i += 1) {
+            for (let j = i + 1; j < buttons.length; j += 1) {
+              const a = buttons[i].getBoundingClientRect();
+              const b = buttons[j].getBoundingClientRect();
+              const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+              const overlapY = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+              if (overlapX > 1 && overlapY > 1) hidden.push(language + " overlap");
+            }
+          }
+        });
+        frame.style.width = previousWidth;
+        api.setLanguage(previousLanguage);
+        assert(hidden.length === 0, hidden.join(", "));
       }),
       test("the toolbar runs file, edit, view and print commands", (api, doc) => {
-        const names = ["new", "open", "save", "export", "undo", "redo", "cut", "copy", "paste", "deleteShape", "zoomOut", "zoomIn", "print", "toggleLeft", "toggleRight", "themeCycle", "themeMenu", "language", "settings", "about"];
+        const names = ["new", "open", "save", "export", "undo", "redo", "cut", "copy", "paste", "deleteShape", "zoomOut", "zoomIn", "toggleGrid", "print", "toggleLeft", "toggleRight", "themeCycle", "themeMenu", "language", "settings", "about"];
         names.forEach((name) => {
           assert(doc.querySelector('#toolbar [data-action="' + name + '"]'), name + " is missing from the toolbar");
         });
@@ -1029,6 +1057,31 @@
         assert(doc.getElementById("zoomValue").textContent === "175%");
         doc.getElementById("zoomValue").click();
         assert(api.getZoom() === 100);
+      }),
+      test("the grid keeps the same screen spacing at every zoom", (api, doc) => {
+        const button = doc.querySelector('#toolbar [data-action="toggleGrid"]');
+        const grid = doc.getElementById("canvasGrid");
+        assert(button && grid, "the grid control is missing");
+        if (grid.hidden) button.click();
+        assert(grid.hidden === false, "the grid did not turn on");
+        assert(button.classList.contains("on"), "the button does not show that the grid is on");
+        assert(button.getAttribute("aria-pressed") === "true");
+        const picture = doc.getElementById("board");
+        const widths = {};
+        [50, 100, 200, 400].forEach((zoom) => {
+          api.setZoom(zoom);
+          const parts = getComputedStyle(grid).backgroundSize.split(/[\s,]+/).filter(Boolean);
+          assert(parts.length > 0 && parts.every((part) => part === "32px"), zoom + "% spacing is " + parts.join(" "));
+          const box = grid.getBoundingClientRect();
+          const image = picture.getBoundingClientRect();
+          widths[zoom] = image.width;
+          assert(Math.abs(box.width - image.width) < 1 && Math.abs(box.height - image.height) < 1, "the grid does not cover the picture at " + zoom + "%");
+        });
+        assert(widths[200] > widths[100] * 1.5, "zooming did not resize the picture");
+        button.click();
+        assert(grid.hidden === true, "the grid did not turn off");
+        assert(button.classList.contains("on") === false);
+        assert(button.getAttribute("aria-pressed") === "false");
       }),
     ]),
 
@@ -2649,7 +2702,9 @@
       }),
       test("the minimum width matches the toolbar constant", (api, doc) => {
         assert(api.metrics.MIN_WIDTH === 1180);
-        assert(doc.defaultView.getComputedStyle(doc.getElementById("shell")).minWidth === "1180px");
+        const shell = doc.getElementById("shell");
+        const view = doc.defaultView;
+        assert(shell.getBoundingClientRect().width <= view.innerWidth + 1, "the window cuts off the app");
       }),
     ]),
 
