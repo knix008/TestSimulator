@@ -137,6 +137,33 @@ test("icons › the app icon is lit from the top-left", () => {
   );
 });
 
+test("icons › the app icon carries both arrows: compare across, merge down", () => {
+  const icon = decodePng(read("build/icons/256x256.png"));
+  // The two-way arrow lies between the columns, across their middle; the slab just
+  // above it is the control, so this cannot pass on a generally pale icon.
+  const across = brightness(icon.at(128, 104));
+  const slab = brightness(icon.at(128, 70));
+  assert.ok(across > 200, `nothing bright between the columns (${across.toFixed(1)})`);
+  assert.ok(across > slab + 100, `the two-way arrow does not stand out (${across.toFixed(1)} vs ${slab.toFixed(1)})`);
+  // Both heads, not one: a single-headed arrow would leave one of these dark.
+  assert.ok(brightness(icon.at(106, 104)) > 200, "the left head is missing");
+  assert.ok(brightness(icon.at(150, 104)) > 200, "the right head is missing");
+  // And the merge arrow still runs down into the point below them.
+  const merge = icon.at(128, 200);
+  assert.ok(merge.r > 200 && merge.g > 150 && merge.b < 110, `the merge arrow is not yellow (${JSON.stringify(merge)})`);
+});
+
+test("icons › the app icon's edge is lit on one side and shaded on the other", () => {
+  // A slab with a thickness, rather than a flat shape: the top edge catches the
+  // lamp and the bottom falls away. An even rim all round would fail this.
+  const icon = decodePng(read("build/icons/256x256.png"));
+  const topEdge = brightness(icon.at(128, 20));
+  const bottomEdge = brightness(icon.at(128, 236));
+  const middle = brightness(icon.at(96, 128));
+  assert.ok(topEdge > middle + 15, `the top edge (${topEdge.toFixed(1)}) is not lit against ${middle.toFixed(1)}`);
+  assert.ok(bottomEdge < middle - 15, `the bottom edge (${bottomEdge.toFixed(1)}) is not shaded against ${middle.toFixed(1)}`);
+});
+
 test("icons › the app icon has depth rather than one flat colour", () => {
   const icon = decodePng(read("build/icons/256x256.png"));
   const samples = [];

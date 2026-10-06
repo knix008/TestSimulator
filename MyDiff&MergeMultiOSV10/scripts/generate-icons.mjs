@@ -147,6 +147,45 @@ function gradient(x, y, w, h, from, to, direction) {
   };
 }
 
+/**
+ * The slab's own edge, shaded by which way it faces: what turns a flat sticker into
+ * something with a thickness to it.
+ *
+ * A distance field knows more than where its edge is — the direction the distance
+ * grows in *is* the outward normal of that edge, and it can be read straight off the
+ * field by sampling either side of the point. So the lighting here is real shading
+ * rather than a painted-on outline: the part of the rim that faces the lamp catches
+ * it, the part facing away falls into shade, and the two sides of the slab in between
+ * pass through untouched.
+ *
+ * That last part is the whole difference between depth and a border. A bevel of even
+ * strength all the way round reads as a drawn line, so this one is signed: it only
+ * ever lightens the edges that face the light and darkens the ones that face away.
+ *
+ * `width` is how far in from the edge the bevel reaches, in pixels.
+ */
+function bevel(shape, width, { lit = 0.5, shade = 0.42, light = [-0.7071, -0.7071] } = {}) {
+  return (px, py) => {
+    const depth = -shape(px, py);
+    if (depth < 0 || depth > width) return [0, 0, 0, 0];
+
+    // The outward normal, from the field itself. A half-pixel step is small enough
+    // to stay on one edge at the corners and large enough not to be lost in rounding.
+    const nx = shape(px + 0.5, py) - shape(px - 0.5, py);
+    const ny = shape(px, py + 0.5) - shape(px, py - 0.5);
+    const length = Math.hypot(nx, ny);
+    if (length === 0) return [0, 0, 0, 0];
+
+    const facing = ((nx / length) * light[0] + (ny / length) * light[1]);
+    // Brightest right at the edge and gone by `width` in, so the slab's middle keeps
+    // whatever colour it was given.
+    const falloff = (1 - depth / width) ** 2.2;
+    const strength = facing > 0 ? lit : shade;
+    const alpha = strength * falloff * Math.abs(facing) ** 1.1;
+    return facing > 0 ? [1, 1, 1, alpha] : [0, 0, 0, alpha];
+  };
+}
+
 /** The specular highlight: brightest at (cx, cy), fading to nothing by `radius`. */
 function glow(cx, cy, radius, color, strength) {
   return (px, py) => {
@@ -166,10 +205,13 @@ const round255 = (value) => Math.round(clamp(value, 0, 1) * 255);
  * Two document columns being merged into one, on a rounded slab.
  *
  * The 3D reading comes from light, not from an outline: a diagonal body gradient
- * that runs from lit to shaded, and a soft specular glow sitting over the top-left
- * corner as though a lamp were up and to the left. There is deliberately no rim —
- * an inner bevel all the way round reads as a drawn border, which is the one thing
- * the icon must not have.
+ * that runs from lit to shaded, a soft specular glow sitting over the top-left
+ * corner as though a lamp were up and to the left, and the slab's own edge shaded
+ * by which way it faces, so the thing has a thickness instead of being a sticker.
+ * There is deliberately no rim — an even bevel all the way round reads as a drawn
+ * border, which is the one thing the icon must not have — so the edge lighting is
+ * directional: lit along the top and left, shaded along the bottom and right, and
+ * nothing at all on the two corners in between.
  */
 function drawAppIcon(size) {
   const canvas = new Canvas(size);
@@ -191,6 +233,12 @@ function drawAppIcon(size) {
 
   // 3. and the far corner falling away, which is what makes the near one look lit
   canvas.fillClipped(body, body, glow(box.x + box.w - s(30), box.y + box.h - s(26), s(180), rgb(0, 0, 0), 0.26));
+
+  // 4. the edge: the top and left catch the lamp, the bottom and right fall into
+  // shade, and the slab stops being a flat shape with a gradient on it. Wide enough
+  // to be a rounded-over edge rather than a hairline, and clipped to the body, so
+  // the transparent surround is untouched.
+  canvas.fill(body, bevel(body, Math.max(s(15), 1.5), { lit: 0.5, shade: 0.45 }));
 
   /* --- the mark: two columns merging into one --- */
 
@@ -222,6 +270,51 @@ function drawAppIcon(size) {
       canvas.fill(capsule(leftX - s(11), y, leftX + s(11), y, width), line);
       canvas.fill(capsule(rightX - s(11), y, rightX + s(11), y, width), line);
     }
+  }
+
+  /*
+   * The comparison: a two-way arrow in the gap between the columns.
+   *
+   * The icon has two things to say and they happen in that order — the files are
+   * compared against each other, and then they are merged into one — so the
+   * sideways arrow sits between the columns and the merge arrow runs below them.
+   * White rather than the merge's yellow: two marks of one colour would read as one
+   * shape, and the gap is narrow enough that they nearly touch.
+   *
+   * Skipped below 48px for the same reason as the text lines: the gap between the
+   * columns is eight pixels there, and an arrow drawn into it is a smudge that
+   * costs the merge mark its clarity without reading as an arrow itself.
+   */
+  if (size >= 48) {
+    const compareY = (top + bottom) / 2;
+    const leftTip = leftX + s(26);
+    const rightTip = rightX - s(26);
+    const head = s(15);
+    const halfHead = s(11);
+    // Drawn twice: once offset into shadow, once in white, so it sits above the
+    // slab the same way the columns do rather than being painted onto it.
+    const drawCompare = (dx, dy, paint) => {
+      canvas.fill(capsule(leftTip + head + dx, compareY + dy, rightTip - head + dx, compareY + dy, s(9)), paint);
+      canvas.fill(
+        triangle(
+          leftTip + dx, compareY + dy,
+          leftTip + head + dx, compareY - halfHead + dy,
+          leftTip + head + dx, compareY + halfHead + dy,
+        ),
+        paint,
+      );
+      canvas.fill(
+        triangle(
+          rightTip + dx, compareY + dy,
+          rightTip - head + dx, compareY + halfHead + dy,
+          rightTip - head + dx, compareY - halfHead + dy,
+        ),
+        paint,
+      );
+    };
+
+    drawCompare(s(3), s(4), solid(rgb(0, 0, 0, 0.22)));
+    drawCompare(0, 0, solid(rgb(255, 255, 255, 0.95)));
   }
 
   // The merge: two arms joining and one arrow pointing down into the result.
@@ -263,6 +356,10 @@ function drawDocumentIcon(size) {
   const body = (x, y) => Math.max(sheet(x, y), -corner(x, y));
 
   canvas.fill(body, gradient(page.x, page.y, page.w, page.h, rgb(252, 253, 255), rgb(203, 213, 233), "diagonal"));
+  // The sheet's own edge, before the outline goes over it: a page this pale has
+  // almost no room to be lightened, so most of the roundness here comes from the
+  // bottom and right rolling into shade.
+  canvas.fill(body, bevel(body, Math.max(s(14), 1.2), { lit: 0.5, shade: 0.45 }));
   canvas.stroke(body, Math.max(s(2.4), 1), solid(rgb(120, 136, 165, 0.75)));
   canvas.fillClipped(body, body, glow(page.x + s(40), page.y + s(36), s(120), rgb(255, 255, 255), 0.55));
 
@@ -276,6 +373,7 @@ function drawDocumentIcon(size) {
     page.x + page.w - fold, page.y, fold, fold,
     rgb(232, 238, 250), rgb(166, 181, 208), "diagonal",
   ));
+  canvas.fill(flap, bevel(flap, Math.max(s(9), 1.2), { lit: 0.55, shade: 0.34 }));
   canvas.stroke(flap, Math.max(s(2), 1), solid(rgb(120, 136, 165, 0.6)));
 
   const leftX = page.x + s(44);
