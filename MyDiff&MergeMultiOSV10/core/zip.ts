@@ -19,6 +19,8 @@ import fs from "node:fs";
 import zlib from "node:zlib";
 import { ApiError } from "./errors.js";
 
+export { ARCHIVE_EXTENSIONS, isArchivePath } from "./archives.js";
+
 export type ZipEntry = {
   /** The path inside the archive, forward slashes, no leading one. */
   name: string;
@@ -34,18 +36,6 @@ export type ZipEntry = {
   /** Where the local header begins — where extraction starts from. */
   offset: number;
 };
-
-/** Extensions read as archives. The format is the same for all of them. */
-export const ARCHIVE_EXTENSIONS = new Set([
-  "zip", "jar", "war", "ear", "apk", "aar", "xpi", "whl", "nupkg", "vsix", "docx",
-  "xlsx", "pptx", "odt", "ods", "odp", "epub", "crx", "ipa",
-]);
-
-export function isArchivePath(file: string): boolean {
-  const name = file.split(/[\\/]/).pop()?.toLowerCase() ?? "";
-  const extension = name.includes(".") ? name.split(".").pop()! : "";
-  return ARCHIVE_EXTENSIONS.has(extension);
-}
 
 /** The separator between an archive's path and a path inside it. */
 export const ARCHIVE_SEPARATOR = "!";

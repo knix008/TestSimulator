@@ -12,9 +12,9 @@
  * bytes of every file in them. `languageFor` is reused for source code so that a
  * file highlighted as code here is a file highlighted as code in the diff.
  */
+import { ARCHIVE_EXTENSIONS } from "../core/archives.js";
 import { isPlain, languageFor } from "../core/grammar.js";
 import { IMAGE_EXTENSIONS } from "../core/images.js";
-import { ARCHIVE_EXTENSIONS } from "../core/zip.js";
 
 const AUDIO = new Set([
   "mp3", "mp2", "wav", "flac", "ogg", "oga", "m4a", "aac", "wma", "aiff", "aif", "opus", "mid", "midi",
