@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-server/
+release/
+# The one installer `npm run installer` leaves at the root for convenience
+MyDiffMerge-*.exe
+MyDiffMerge-*.dmg
+MyDiffMerge-*.AppImage
+test-results/
+
+# Generated icons (scripts/generate-icons.mjs rebuilds them during `npm run build`)
+build/icon.ico
+build/icon.png
+build/document.ico
+build/icons/
+public/icon.png
+public/document.png
+
+# Generated sample trees
+samples/
+
+# Logs / caches
+*.log
+*.tmp
+*.bak
+.vite/
+
+# Editors
+.vs/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local / AI tooling (not part of the product)
+.claude/
+.cursor/
+user-settings.json

@@ -1,0 +1,2098 @@
+/*
+ * The stylesheet.
+ *
+ * Every colour is a theme variable set by `core/themes.ts`, so forty-one themes need
+ * no CSS of their own. Three other variables carry the layout: `--zoom`, which
+ * Ctrl+Wheel moves and which scales the comparison text without touching the chrome;
+ * `--min-app-width`, which the toolbar measures itself into so no button is ever
+ * clipped; and `--row-height`, the one place a comparison row's height is decided.
+ *
+ * Two rules run through all of it. Every label is one line — a wrapped label changes
+ * a row's height and throws the pane beside it out of alignment. And every surface
+ * states its own edge: the two halves of a comparison, the panes of a merge and the
+ * dialogs are framed rather than left to run into one another.
+ */
+
+:root {
+  --zoom: 1;
+  --min-app-width: 1080px;
+  --pane-font: Consolas, "D2Coding", "Courier New", monospace;
+  --pane-font-size: 13px;
+  --pane-font-weight: normal;
+  --pane-font-style: normal;
+  --ui-font: "Segoe UI", "Malgun Gothic", -apple-system, BlinkMacSystemFont, "Noto Sans KR", system-ui, sans-serif;
+  --row-height: calc(var(--pane-font-size) * var(--zoom) * 1.5);
+
+  /* One rhythm for the whole of the chrome. */
+  --gap: 6px;
+  --pad: 8px;
+  --radius: 6px;
+  --radius-lg: 9px;
+  --control-height: 28px;
+  --gutter-width: 54px;
+  --divider-width: 34px;
+  --scrollbar-width: 22px;
+
+  /* The label columns of the merge panels and of the dialog fields. */
+  --property-label-width: 116px;
+  --field-label-width: 40%;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--ui-font);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  font-family: var(--pane-font);
+  font-size: 11px;
+}
+
+::-webkit-scrollbar { width: 14px; height: 14px; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 7px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.boot {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+/*
+ * Every label is one line. A wrapped label changes a row's height, which pushes the
+ * row beneath it out of alignment with the pane beside it and makes a fixed-size
+ * dialog scroll. Anything that cannot fit is cut with an ellipsis and keeps its full
+ * text in its tooltip.
+ */
+.property-label,
+.property-value,
+.field-label,
+.panel-section h3,
+.panel-title span,
+.menu-label,
+.tab-label,
+.tree-label,
+.status-cell,
+.status-message,
+.chip > span,
+.dialog-tab > span,
+.welcome-tile > span,
+.recent-label,
+.tree-hint,
+.picker-name,
+.conflict-state,
+.slider-value,
+.brand-text,
+.feature-list li span,
+.badge {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ shell */
+
+.shell {
+  position: relative;
+  display: grid;
+  /* An explicit `minmax(0, 1fr)` column: a grid item's automatic minimum size is its
+     content's, so without this a wide pane (a hex dump, a long path) makes the whole
+     shell grow sideways instead of scrolling inside its own pane. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr auto auto auto;
+  height: 100%;
+  width: 100%;
+  /*
+   * The shell always fits the window.
+   *
+   * It used to carry the toolbar's width as a minimum, so that no button could be
+   * cut off. But a minimum wider than the screen does not widen the screen — it
+   * overflows, and since the body cannot scroll, everything to the right of the
+   * edge goes with it: the end of the toolbar, the right-hand panel, the tab
+   * strip. The window still asks to be at least as wide as its toolbar; when it
+   * cannot be, the toolbar scrolls and nothing else is pushed anywhere.
+   */
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.body {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+/* The middle column: the tab strip and whatever the active tab shows, stacked. */
+.workspace-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* --------------------------------------------------- menubar / title bar */
+
+/*
+ * There is no OS title bar: this row is it. The whole strip is a drag region, with
+ * the menu buttons and the window controls punched back out of it.
+ */
+.menubar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 0 0 var(--pad);
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.menubar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 14px 6px 0;
+  margin-right: 4px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.brand-icon { display: block; flex: 0 0 auto; }
+.brand-text { font-size: 13px; letter-spacing: 0.01em; }
+
+.menubar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: default;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+.menubar-item:hover { background: var(--hover); }
+.menubar-item.open { background: var(--accent-soft); border-color: var(--border-strong); }
+.menubar-drag { flex: 1 1 auto; align-self: stretch; min-width: 24px; }
+
+.window-controls { display: flex; align-self: stretch; -webkit-app-region: no-drag; }
+
+.window-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.window-button:hover { background: var(--hover); color: var(--text); }
+.window-button.danger:hover { background: #d93025; color: #ffffff; }
+
+/* --------------------------------------------------------------- toolbar */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* The same padding at both ends, so the first button sits exactly as far from the
+     left edge as the last one does from the right. */
+  padding: 5px var(--pad);
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  /* When the window is narrower than the toolbar, the toolbar is what scrolls. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  user-select: none;
+}
+
+.toolbar::-webkit-scrollbar { height: 6px; }
+
+.toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.toolbar-divider { width: 1px; height: 20px; margin: 0 5px; background: var(--border-strong); }
+.toolbar-spacer { flex: 1 1 auto; min-width: 10px; }
+
+.tool-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: var(--control-height);
+  min-width: var(--control-height);
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+.tool-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
+.tool-button:active:not(:disabled) { background: var(--active); }
+.tool-button.checked { background: var(--accent-soft); border-color: var(--accent); }
+.tool-button:disabled { opacity: 0.35; cursor: default; }
+
+/* The three framed groups: font size, the theme control and zoom. */
+.font-group, .zoom-group, .theme-group {
+  gap: 4px;
+  height: var(--control-height);
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.theme-group { padding-right: 0; }
+.theme-toggle { gap: 6px; }
+
+.theme-group .caret {
+  min-width: 22px;
+  padding: 0 2px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* Three chips of the theme's own colours, so the button reads as a palette. */
+.theme-chips { display: inline-flex; gap: 2px; }
+.theme-chips > span {
+  width: 7px;
+  height: 16px;
+  border-radius: 2px;
+  border: 1px solid rgba(128, 128, 128, 0.45);
+}
+
+.language-select { padding: 0 6px; }
+.flag { display: block; border-radius: 2px; }
+
+/* The −/+ stepper, used wherever a number is typed. */
+.stepper { display: inline-flex; align-items: center; gap: 2px; }
+
+.stepper-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.stepper-button:hover:not(:disabled) { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+.stepper-button:disabled { opacity: 0.35; cursor: default; }
+
+.stepper-value {
+  width: 48px;
+  padding: 2px 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--panel-2);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.stepper-value::-webkit-outer-spin-button,
+.stepper-value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper-suffix { color: var(--muted); font-size: 11px; }
+
+/* ------------------------------------------------------------------ tabs */
+
+/*
+ * The tab strip never gives up its height.
+ *
+ * It is a flex child of the workspace column, and a flex child shrinks by default:
+ * with a tall comparison below it the strip was squeezed down to nothing and the
+ * tabs vanished. `flex: 0 0 auto` says it keeps its size and the comparison takes
+ * whatever is left, which is the right way round — the tabs are how you get back
+ * to the other comparisons.
+ */
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* With nothing open there are no tabs to keep, so the strip takes no room. */
+.tabbar.empty { display: none; }
+
+.tab-strip {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 2px;
+  padding: 4px var(--pad) 0;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--panel-3);
+  cursor: default;
+  white-space: nowrap;
+}
+
+.tab:hover { background: var(--hover); }
+.tab.active { background: var(--panel); border-color: var(--border-strong); font-weight: 600; }
+.tab-dirty { color: var(--modified-accent); font-size: 10px; }
+
+.tab-close, .tab-scroll, .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.tab-close:hover, .tab-scroll:hover:not(:disabled), .icon-button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.icon-button:disabled, .tab-scroll:disabled { opacity: 0.35; cursor: default; }
+
+.tab-scrollers {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px var(--pad);
+  border-left: 1px solid var(--border);
+}
+
+/* ------------------------------------------------- the merge panels */
+
+/*
+ * The two side panels. They belong to a merge and appear on no other kind of tab:
+ * the conflicts on the left, opened out so each can be read and settled in place,
+ * and what the merge is and how far it has got on the right.
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  background: var(--panel-2);
+}
+
+.panel-left { min-width: 200px; border-right: 1px solid var(--border); }
+.panel-right { min-width: 200px; border-left: 1px solid var(--border); }
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  font-weight: 600;
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* Setting one axis makes the other `auto` by default, and one long path would then
+     let the whole panel slide sideways. */
+  overflow-x: hidden;
+  padding: var(--gap);
+}
+
+.panel-section { margin-bottom: 14px; }
+
+.panel-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 2px 0 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-empty { margin: 4px 2px; color: var(--muted); }
+
+/* One button per line, icon then label, all starting at the same x. */
+.panel-actions { display: flex; flex-direction: column; gap: 2px; }
+
+.panel-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.panel-button > svg { flex: 0 0 auto; }
+.panel-button > span:not(.count) { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
+.panel-button.checked { background: var(--accent-soft); border-color: var(--accent); }
+.panel-button:disabled { opacity: 0.35; cursor: default; }
+
+.count {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+}
+
+/* ------------------------------------------------- a conflict, opened */
+
+.conflict-card {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.conflict-card.unresolved { border-color: var(--conflict-accent); }
+.conflict-card.selected { box-shadow: 0 0 0 1px var(--accent); border-color: var(--accent); }
+
+.conflict-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.conflict-card.unresolved .conflict-card-head { background: var(--row-conflict); }
+.conflict-card.resolved .conflict-card-head { background: var(--row-resolved); }
+.conflict-name { font-weight: 700; font-variant-numeric: tabular-nums; }
+.conflict-state { margin-left: auto; color: var(--muted); }
+
+/* Each side is a button: reading it and choosing it are the same gesture. */
+.conflict-side {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.conflict-side:first-of-type { border-top: none; }
+.conflict-side:hover { background: var(--hover); }
+.conflict-side.chosen { background: var(--row-resolved); }
+
+.conflict-side-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.conflict-side-head > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conflict-side-count { margin-left: auto; font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+/*
+ * The preview is the only text in the chrome allowed more than one line: it is a
+ * quotation of the file, and a conflict of four lines shown as one would be useless.
+ * It is clipped to a few lines and never scrolls sideways.
+ */
+.conflict-side-text {
+  display: block;
+  margin-top: 2px;
+  max-height: calc(4 * 1.45em);
+  overflow: hidden;
+  font-family: var(--pane-font);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.conflict-card-actions {
+  display: flex;
+  gap: 4px;
+  padding: 5px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.conflict-card-actions .chip { flex: 1 1 0; min-width: 0; height: 22px; padding: 0 8px; justify-content: center; }
+.empty-row { padding: 8px; color: var(--muted); list-style: none; }
+
+/* ------------------------------------------------------ property rows */
+
+.property-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 24px;
+  padding: 3px 6px;
+}
+
+/* A fixed label column rather than a percentage: a percentage of a narrow panel is
+   not wide enough for "Remote (상대)", and the label then wraps onto a second line. */
+.property-label {
+  flex: 0 0 var(--property-label-width);
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.property-value { flex: 1 1 auto; min-width: 0; text-align: right; }
+
+/*
+ * A path is shown from its tail: the file name is the part worth reading, so it is
+ * the start of the path that gets cut. `direction: rtl` is what moves the ellipsis
+ * to the front; `plaintext` would hand the direction back to the first letter and
+ * put it back at the end. It never wraps — the full text is in the tooltip.
+ */
+.path {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.count-added { color: var(--added-accent); font-weight: 600; }
+.count-removed { color: var(--removed-accent); font-weight: 600; }
+.count-modified { color: var(--modified-accent); font-weight: 600; }
+
+.swatch-strip { display: flex; flex-wrap: wrap; gap: 3px; }
+
+.swatch-chip {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.swatch-chip.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* The draggable divider between a panel and the merge, or above the log. */
+.splitter {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.splitter.horizontal {
+  flex: 0 0 5px;
+  height: 5px;
+  cursor: row-resize;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.splitter:hover, .splitter:active { background: var(--accent); }
+
+/* ------------------------------------------------- the sync bar */
+
+/*
+ * Only on a folder-sync session: the mode, the preview and what the preview found.
+ * The Run button is pushed to the far end, away from everything else, because it is
+ * the one control here that changes files on disk.
+ */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  height: 38px;
+  flex: 0 0 38px;
+  padding: 0 var(--pad);
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.sync-bar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.sync-bar .select { flex: 0 1 260px; height: 24px; }
+.sync-bar .chip { flex: 0 0 auto; }
+.sync-counts { display: inline-flex; gap: 10px; flex: 0 0 auto; font-size: 11px; white-space: nowrap; }
+
+/* ---------------------------------------------------- the session list */
+
+/* The save button sits at the far end of the panel's title, away from the name. */
+.panel-title > .icon-button { margin-left: auto; }
+
+.session-row { display: flex; align-items: center; gap: 2px; }
+.session-row .panel-button { flex: 1 1 auto; min-width: 0; }
+.session-row .icon-button { flex: 0 0 auto; opacity: 0; }
+.session-row:hover .icon-button { opacity: 1; }
+
+/* ------------------------------------------------------- the log panel */
+
+/*
+ * Across the bottom, the full width of the window: it is the application's log, not
+ * the current comparison's, so it runs under the side panels rather than between
+ * them.
+ */
+.log-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel-2);
+}
+
+.log-panel .panel-title { padding: 4px 10px; }
+.log-panel .panel-title .count { margin-left: 8px; }
+.log-panel .panel-title .icon-button:first-of-type { margin-left: auto; }
+
+.log-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 0;
+  background: var(--panel);
+  font-family: var(--pane-font);
+  font-size: 12px;
+}
+
+.log-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 10px;
+}
+
+.log-row.error { background: var(--row-removed); }
+.log-row.error svg { color: var(--removed-accent); }
+.log-row.info svg { color: var(--added-accent); }
+.log-time { flex: 0 0 auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.log-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ------------------------------------------------------------- workspace */
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  /* A wide view — a hex dump is well over a thousand pixels of fixed-width columns —
+     scrolls inside its own pane rather than pushing the property panel off screen. */
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.welcome { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+.welcome-card {
+  width: min(780px, 100%);
+  margin: 28px auto;
+  padding: 0 24px;
+}
+
+.welcome-card h1 { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; font-size: 24px; }
+.welcome-card h2 { display: flex; align-items: center; gap: 8px; margin: 24px 0 8px; font-size: 13px; color: var(--muted); }
+.welcome-lead { margin: 0 0 20px; color: var(--muted); }
+
+/* Four across: the catalogue has eight kinds, so three columns left a ragged row. */
+.welcome-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+
+.welcome-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.welcome-tile:hover:not(:disabled) { border-color: var(--accent); background: var(--hover); }
+.welcome-tile:disabled { opacity: 0.45; cursor: default; }
+.welcome-tile > span { width: 100%; font-weight: 600; }
+
+/*
+ * The one-line description under a tile's name. It is allowed two lines — a tile is
+ * not a row in a list, so nothing lines up against it — but no more than that.
+ */
+.welcome-tile > small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  width: 100%;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.welcome-recent { list-style: none; margin: 0 0 10px; padding: 0; }
+.welcome-recent li { display: flex; align-items: center; gap: 6px; }
+
+.recent-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.recent-open:hover { background: var(--hover); border-color: var(--border); }
+.welcome-hint { display: flex; align-items: center; gap: 8px; margin-top: 22px; color: var(--muted); }
+
+/* ------------------------------------------------------------ pane chrome */
+
+.pane-headers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--gap);
+  padding: var(--gap) var(--gap) 0;
+  background: var(--panel-2);
+}
+
+.pane-headers.two-up { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.pane-headers.one-up { grid-template-columns: minmax(0, 1fr); }
+
+/*
+ * A comparison's path bars run the full width and meet in the middle.
+ *
+ * Insetting them to line up with the panes looked like a margin at each end,
+ * because the difference scrollbars sit in that space and read as empty. These
+ * bars belong to the comparison rather than to either pane, so they take the
+ * whole row and touch each other, with one line where they meet.
+ */
+.diff-view > .pane-headers {
+  gap: 0;
+  padding: 0;
+}
+
+.diff-view > .pane-headers .path-bar { border-radius: 0; }
+.diff-view > .pane-headers .path-bar + .path-bar { border-left: 1px solid var(--border-strong); }
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 9px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  font-weight: 600;
+  /* The colour comes from `paneHeaderStyle`, which blends the user's swatch into
+     the theme and then measures a readable text colour against the result. */
+}
+
+.pane-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.pane-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; opacity: 0.8; }
+.pane-header .icon-button { color: inherit; }
+
+.path-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.path-bar .icon-button { color: inherit; }
+
+.path-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  padding: 2px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  /* The theme's own field colours, so the box reads as an input on a dark theme as
+     well as a light one. */
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  /* The tail of a long path is the part worth reading — until it is being typed. */
+  direction: rtl;
+  text-align: left;
+}
+
+.path-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; direction: ltr; }
+
+/*
+ * One row, and always the same height.
+ *
+ * These bars gain and lose controls — a replace box, a filter, a hint — and when
+ * their height followed their contents the comparison below them jumped every time
+ * anything changed. The height is fixed and the contents scroll out of the way
+ * instead; the counts they used to carry are on the status bar, which is where the
+ * result of a comparison belongs.
+ */
+.pane-find-row, .tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  height: 38px;
+  flex: 0 0 38px;
+  padding: 0 var(--pad);
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  /* One row, never two: the buttons keep their size, and the search box and the hint
+     give up their space first. */
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+/* The search box keeps its width; it is the buttons beside it that give ground. */
+.pane-find { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+
+.find-input {
+  width: 160px;
+  min-width: 110px;
+  height: 24px;
+  padding: 2px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+/*
+ * A directory toolbar holds more than a narrow window has room for, so the row gives
+ * ground in a deliberate order: first the hint, which is the one thing nobody needs
+ * twice, and only then the buttons, down to a floor that still leaves their labels
+ * legible. The large shrink factor is what buys that ordering — shrinking is shared
+ * in proportion to factor times width, so the hint absorbs the whole deficit before
+ * a button loses a pixel.
+ */
+.tree-toolbar .chip { flex: 0 1 auto; min-width: 84px; }
+/* A filter is an icon and a number; its name is in the tooltip. */
+.tree-toolbar .chip.filter-chip { flex: 0 0 auto; min-width: 0; padding: 0 7px; gap: 4px; }
+.tree-toolbar .chip.filter-chip .count { margin-left: 0; }
+.tree-toolbar .chip.icon-only { flex: 0 0 auto; min-width: 28px; }
+.tree-spacer { flex: 1 1 auto; min-width: 0; }
+.tree-hint { flex: 0 200 auto; min-width: 0; color: var(--muted); font-size: 11px; }
+.tree-divider { width: 1px; align-self: stretch; margin: 0 4px; background: var(--border-strong); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--panel);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.chip.icon-only { padding: 0; width: 28px; justify-content: center; }
+.chip:hover:not(:disabled) { background: var(--hover); }
+.chip:disabled { opacity: 0.4; cursor: default; }
+.chip.checked { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.chip.danger:not(:disabled):hover { background: var(--row-removed); border-color: var(--removed-accent); }
+
+/* -------------------------------------------------------------- diff view */
+
+.diff-view, .merge-view, .directory-view, .git-view, .image-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.diff-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--gap);
+  padding: 0 var(--gap) var(--gap);
+  background: var(--panel-2);
+}
+
+.diff-scroller {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  background: var(--panel);
+  /* The painted scrollbar on each side is this pane's vertical scrollbar, so the
+     native one is hidden: three bars side by side made it hard to grab the right
+     one. Horizontal scrolling, which a hex dump needs, keeps its bar. */
+  scrollbar-width: none;
+}
+
+.diff-scroller::-webkit-scrollbar:vertical { width: 0; }
+
+.diff-spacer { position: relative; min-width: 100%; }
+.diff-rows { position: absolute; top: 0; left: 0; right: 0; will-change: transform; }
+
+/*
+ * A hex dump is a fixed-width layout: sixteen bytes and their ASCII on each side. It
+ * does not shrink to fit, so the rows get a minimum width and the view scrolls
+ * sideways rather than cutting the dump off mid-byte.
+ */
+.diff-spacer.hex { min-width: calc(210px + 134ch); font-family: var(--pane-font); }
+
+/*
+ * The two sides are two documents, not two columns of one: each half carries its own
+ * frame and its own line numbers, and the divider between them holds the marker and
+ * the arrows that copy a change across.
+ */
+.diff-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--divider-width) minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--gap);
+  min-height: var(--row-height);
+  font-family: var(--pane-font);
+  font-size: calc(var(--pane-font-size) * var(--zoom));
+  font-weight: var(--pane-font-weight);
+  font-style: var(--pane-font-style);
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.diff-half {
+  display: grid;
+  grid-template-columns: var(--gutter-width) minmax(0, 1fr);
+  min-width: 0;
+  background: var(--row-even);
+  border-left: 1px solid var(--border-strong);
+  border-right: 1px solid var(--border-strong);
+}
+
+.diff-row.wrap { white-space: pre-wrap; }
+.diff-row.zebra .diff-half { background: var(--row-zebra); }
+.diff-row.kind-added .diff-half { background: var(--row-added); }
+.diff-row.kind-removed .diff-half { background: var(--row-removed); }
+.diff-row.kind-modified .diff-half { background: var(--row-modified); }
+.diff-row.pending .diff-half { background: var(--row-blank); }
+.diff-row.current .diff-half { outline: 1px solid var(--accent); outline-offset: -1px; }
+.diff-row.found .diff-half { box-shadow: inset 3px 0 0 var(--accent); }
+
+.cell-gutter {
+  padding: 0 7px;
+  text-align: right;
+  color: var(--gutter-text);
+  background: var(--gutter-bg);
+  border-right: 1px solid var(--border);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-text { padding: 0 8px; overflow: hidden; }
+.cell-text.blank { background: var(--row-blank); }
+
+/*
+ * The gutter between the two documents. It is drawn rather than left as a gap: the
+ * two halves are separate files, and an unmarked space between them reads as one
+ * wide pane with an odd blank column down the middle.
+ */
+.cell-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* Its own surface, framed on both sides: a channel between two documents rather
+     than a gap in one. */
+  background: var(--panel-3);
+  border-left: 1px solid var(--border-strong);
+  border-right: 1px solid var(--border-strong);
+  color: var(--muted);
+  user-select: none;
+}
+
+/* The line down the centre of the gutter, continuous from row to row. */
+.cell-divider::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  margin-left: -0.5px;
+  background: var(--border-strong);
+}
+
+/* …except where a marker or an arrow sits on top of it. */
+.cell-marker, .apply-button { position: relative; z-index: 1; }
+.cell-marker { padding: 0 3px; background: var(--panel-3); font-size: 11px; }
+
+
+/*
+ * Syntax colours. A span may carry both a word-change mark and a token class, so
+ * the token class only sets the colour — the mark keeps its background, and the two
+ * can be read at once.
+ */
+.tok-comment { color: var(--tok-comment); font-style: italic; }
+.tok-string { color: var(--tok-string); }
+.tok-number { color: var(--tok-number); }
+.tok-keyword { color: var(--tok-keyword); font-weight: 600; }
+
+mark.word { padding: 0; border-radius: 2px; color: inherit; }
+mark.word.added { background: var(--word-added); }
+mark.word.removed { background: var(--word-removed); }
+mark.word.modified { background: var(--word-modified); }
+
+.hex-byte { display: inline-block; width: 2.1em; }
+.hex-byte.diff { color: var(--removed-accent); font-weight: 700; }
+.hex-ascii { margin-left: 10px; color: var(--muted); }
+
+.row-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  font-family: var(--pane-font);
+  font-size: calc(var(--pane-font-size) * var(--zoom));
+  line-height: 1.5;
+}
+
+/* The arrows that copy a difference block to the other side. */
+.apply-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.diff-row:hover .apply-button { display: inline-flex; }
+.apply-button:hover { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+
+.diff-banner {
+  padding: 5px 12px;
+  background: var(--accent-soft);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.diff-banner.warn { background: var(--row-modified); }
+
+/*
+ * The scrollbar beside each pane is also the map of the document: every difference
+ * painted in its own colour, with the viewport drawn over it as a draggable thumb.
+ */
+.diff-scrollbar {
+  position: relative;
+  /* All three of these: a flex item's automatic minimum size is its content's, and
+     the canvas inside is as wide as its backing store. */
+  flex: 0 0 var(--scrollbar-width);
+  width: var(--scrollbar-width);
+  min-width: 0;
+  max-width: var(--scrollbar-width);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--overview-bg);
+  cursor: pointer;
+}
+
+.diff-scrollbar canvas { display: block; width: 100%; height: 100%; }
+
+/* The thumb is an outline rather than a fill: it sits over the map, and the map is
+   the part worth seeing. */
+.scrollbar-thumb {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  min-height: 26px;
+  border: 1px solid var(--text);
+  border-radius: 5px;
+  background: var(--overview-viewport);
+  box-shadow: inset 0 0 0 1px var(--panel);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------ merge view */
+
+.merge-headers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.merge-view[data-panes="2"] .merge-headers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.result-header { grid-template-columns: minmax(0, 1fr); padding-top: var(--gap); }
+
+.merge-scroller {
+  flex: 1 1 55%;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 var(--gap);
+  background: var(--panel-2);
+}
+
+.merge-grid { display: grid; gap: var(--gap); }
+.merge-pane { min-width: 0; background: var(--panel); border: 1px solid var(--border); }
+
+.result-scroller {
+  flex: 1 1 45%;
+  min-height: 0;
+  overflow: auto;
+  margin: 0 var(--gap) var(--gap);
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.merge-row {
+  display: grid;
+  grid-template-columns: var(--gutter-width) minmax(0, 1fr);
+  align-items: start;
+  min-height: var(--row-height);
+  background: var(--row-even);
+  font-family: var(--pane-font);
+  font-size: calc(var(--pane-font-size) * var(--zoom));
+  line-height: 1.5;
+  white-space: pre;
+}
+
+/*
+ * Alternating rows, the way a list view does it.
+ *
+ * All four panes lay out the same row count — that is what `layout()` guarantees —
+ * so striping by position stripes the same lines in every pane and the four stay
+ * readable across. It comes before the kind colours deliberately: a conflict or a
+ * resolution has something to say and should not be dimmed by a stripe.
+ */
+.merge-row:nth-child(even) { background: var(--row-zebra); }
+
+.merge-row.kind-conflict { background: var(--row-conflict); }
+.merge-row.kind-resolved { background: var(--row-resolved); }
+.merge-row.kind-pad { background: var(--row-blank); }
+.merge-row.selected { box-shadow: inset 3px 0 0 var(--accent); }
+
+.cell-edit {
+  width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.pane-empty-row { padding: 14px; color: var(--muted); text-align: center; }
+
+/* -------------------------------------------------------- directory view */
+
+.tree-headers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--gap);
+  padding: var(--gap) var(--gap) 0;
+  background: var(--panel-2);
+}
+
+.tree-scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin: 0 var(--gap) var(--gap);
+  background: var(--panel);
+}
+
+.tree-grid { display: flex; flex-direction: column; min-width: min-content; }
+
+.tree-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--gap);
+  cursor: default;
+}
+
+.tree-pair:nth-child(odd) .tree-cell { background: var(--row-zebra); }
+.tree-pair:nth-child(even) .tree-cell { background: var(--row-even); }
+.tree-pair.status-different .tree-cell { background: var(--row-modified); }
+.tree-pair.status-leftOnly .tree-cell.side-left { background: var(--row-removed); }
+.tree-pair.status-rightOnly .tree-cell.side-right { background: var(--row-added); }
+.tree-pair.selected .tree-cell { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+.tree-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px 124px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 10px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  font-family: var(--pane-font);
+  font-size: calc(var(--pane-font-size) * var(--zoom));
+  line-height: 1.5;
+}
+
+.tree-cell.missing { background: var(--row-blank) !important; }
+
+.tree-name { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.tree-size, .tree-date { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+.tree-twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tree-twisty:hover { background: var(--hover); color: var(--text); }
+.tree-twisty.placeholder { cursor: default; }
+
+/* -------------------------------------------------------------- git view */
+
+.git-body {
+  display: grid;
+  /* Three tracks: the two lists and the divider between them. The ratio comes
+     from the settings, so the proportions survive a window resize. */
+  grid-template-columns: minmax(0, 1fr) 5px minmax(0, 1fr);
+  gap: var(--gap);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 var(--gap) var(--gap);
+  background: var(--panel-2);
+}
+
+.git-changes, .git-history {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.git-changes h3, .git-history h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 7px 10px;
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.git-changes h3 .count, .git-history h3 .count {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  font-size: 10px;
+}
+
+.git-list { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+.git-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.git-row:hover { background: var(--hover); }
+.git-row.selected { background: var(--selection); }
+.git-row.conflicted { background: var(--row-conflict); }
+
+.git-path, .git-subject {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-status { font-size: 11px; color: var(--muted); }
+.git-add { color: var(--added-accent); font-variant-numeric: tabular-nums; }
+.git-del { color: var(--removed-accent); font-variant-numeric: tabular-nums; }
+.git-sha { font-family: var(--pane-font); color: var(--accent); }
+
+/*
+ * The history graph sits where the commit icon used to, and is as wide as the
+ * history is deep. The row's height is fixed so the lanes join up from one row to
+ * the next — a graph drawn per row only lines up if every row is the same height.
+ */
+.git-graph { flex: 0 0 auto; display: block; overflow: visible; }
+.git-row.commit { height: 24px; padding-top: 0; padding-bottom: 0; }
+
+.git-refs { display: inline-flex; gap: 4px; flex: 0 0 auto; }
+
+.git-ref {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.git-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: var(--panel-2);
+  border-top: 1px solid var(--border);
+}
+
+.git-actions .panel-button { width: auto; }
+
+/* ------------------------------------------------------------ status bar */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px var(--pad);
+  background: var(--statusbar-bg);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.status-message { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.status-spacer { flex: 1 1 auto; }
+.status-cell { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status-cell.added { color: var(--added-accent); }
+.status-cell.removed { color: var(--removed-accent); }
+.status-cell.modified { color: var(--modified-accent); }
+.status-cell.conflict { color: var(--conflict-accent); }
+
+/* --------------------------------------------- the directory filters */
+
+/*
+ * The four kinds of row with their counts — the whole summary of a directory
+ * comparison, on the line above the trees it describes.
+ */
+.tree-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: var(--gap) var(--pad);
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.tree-filters-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tree-filters .chip { flex: 0 1 auto; min-width: 92px; }
+.mask-box { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.find-count { flex: 0 0 auto; min-width: 54px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.line-input { width: 70px; min-width: 56px; }
+/* A bookmarked row keeps a mark in its gutter, on both sides. */
+.diff-row.bookmarked .cell-gutter { box-shadow: inset 3px 0 0 var(--accent); font-weight: 700; }
+.mask-box .find-input { width: 150px; min-width: 100px; }
+
+/* --------------------------------------------------- the resize grip */
+
+/*
+ * The bottom-right corner. A frameless window still has a native resize border, but
+ * it is a few invisible pixels; this draws the corner so the window plainly can be
+ * resized, and is big enough to hit.
+ */
+.resize-grip {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: -4px -4px -4px 2px;
+  color: var(--muted);
+  cursor: nwse-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}
+
+.resize-grip:hover { color: var(--accent); }
+
+/* ----------------------------------------------------------------- menus */
+
+/*
+ * A menu is its own window, so it can extend past the edge of the application. The
+ * window itself is transparent and the popup inside it draws the frame and the
+ * shadow; the padding around it is the room the shadow needs.
+ */
+.popup, .popup body { background: transparent; }
+.menu-window { padding: 4px; background: transparent; }
+.menu-window.empty { display: none; }
+.menu-measure { display: inline-block; }
+
+.menu-popup {
+  display: flex;
+  flex-direction: column;
+  min-width: 210px;
+  padding: 5px;
+  border: 1px solid var(--menu-border);
+  border-radius: var(--radius-lg);
+  background: var(--menu-bg);
+  box-shadow: var(--shadow);
+}
+
+/*
+ * A fixed five-column grid: tick, icon, label, hint, shortcut. Every row uses the
+ * same track widths, so the shortcuts line up down the right-hand edge of the menu
+ * instead of each row packing itself independently.
+ */
+.menu-row {
+  display: grid;
+  grid-template-columns: 18px 26px max-content 1fr max-content;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.menu-row:hover:not(.disabled), .menu-row.focused:not(.disabled) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.menu-row.disabled { opacity: 0.4; cursor: default; }
+.menu-check { display: inline-flex; justify-content: center; }
+.menu-icon { display: inline-flex; justify-content: center; }
+.menu-hint { font-size: 11px; opacity: 0.65; text-align: right; overflow: hidden; text-overflow: ellipsis; }
+.menu-shortcut { font-size: 11px; opacity: 0.75; text-align: right; font-variant-numeric: tabular-nums; }
+.menu-separator { height: 1px; margin: 4px 6px; background: var(--border); }
+
+/*
+ * A row of themes, as swatches. Forty of them listed one per line was a menu
+ * taller than the screen; as two rows it is two lines, and the swatch says more
+ * about a theme than its name does.
+ */
+/* Two columns side by side, each a list of themes of one kind. */
+.menu-columns { display: flex; gap: 4px; align-items: flex-start; }
+.menu-column { display: flex; flex-direction: column; min-width: 0; }
+.menu-column + .menu-column { border-left: 1px solid var(--border); padding-left: 4px; }
+
+/* A column's rows are tighter than a menu's, and carry no shortcut column. */
+.menu-row.compact {
+  grid-template-columns: 16px 24px max-content;
+  gap: 6px;
+  padding: 3px 8px;
+}
+
+
+/* A theme row shows the theme rather than describing it. */
+.menu-swatches { display: inline-flex; gap: 1px; }
+.menu-swatches > span {
+  width: 5px;
+  height: 15px;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 1px;
+}
+
+.menu-header {
+  padding: 6px 9px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.inline-menu-layer { position: fixed; inset: 0; z-index: 400; }
+.inline-menu { position: fixed; }
+
+/* --------------------------------------------------------------- dialogs */
+
+/*
+ * A popup window is exactly its content: every box from the window down to the
+ * buttons fills the height it is given, so no strip of the window's own background
+ * is ever left showing underneath.
+ */
+.dialog-window { height: 100%; background: var(--panel); color: var(--text); }
+.dialog-window > div { height: 100%; }
+.dialog-window.empty { display: none; }
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  -webkit-app-region: drag;
+}
+
+.dialog-title .icon-button { -webkit-app-region: no-drag; }
+.dialog-close { margin-left: auto; }
+
+.dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 14px 12px;
+  overflow: hidden;
+}
+
+.dialog-tabs { display: flex; gap: 3px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+.dialog-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dialog-tab:hover { background: var(--hover); }
+.dialog-tab.active { background: var(--panel-3); border-color: var(--border); font-weight: 600; }
+
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 2px 0;
+}
+
+.field-label { flex: 0 0 var(--field-label-width); min-width: 0; color: var(--muted); }
+
+/* `overflow: hidden`, so a long value — a settings path — is cut rather than
+   widening a dialog that cannot grow. */
+.field-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.field-stack { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-height: 0; }
+
+/* The label above a stacked control takes its own height. `flex-basis` is measured
+   along the container's axis, so the shared 40% would be 40% of the stack's height. */
+.field-stack > .field-label { flex: 0 0 auto; }
+.field-error { margin: 4px 0; color: var(--removed-accent); }
+
+.field-note {
+  margin: 10px 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.check-field { cursor: pointer; }
+.check-field .field-control { justify-content: flex-start; }
+
+.select, .text-input, .number-input {
+  height: var(--control-height);
+  padding: 2px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.text-input { flex: 1 1 auto; min-width: 0; }
+.number-input { width: 80px; }
+.select { flex: 1 1 auto; min-width: 0; }
+
+.color-field { display: inline-flex; align-items: center; gap: 8px; }
+
+.color-input {
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+
+.field-control.slider { gap: 8px; }
+.field-control.slider input[type="range"] { flex: 1 1 auto; accent-color: var(--accent); }
+.slider-end { font-size: 11px; color: var(--muted); }
+.slider-value { min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: auto; padding-top: 10px; }
+
+.dialog-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  cursor: pointer;
+}
+
+.dialog-button:hover:not(:disabled) { background: var(--hover); }
+.dialog-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.dialog-button:disabled { opacity: 0.4; cursor: default; }
+
+.about-hero { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.about-icon { display: block; flex: 0 0 auto; }
+.about-hero h2 { margin: 0 0 4px; font-size: 18px; }
+.about-hero p { margin: 0; color: var(--muted); }
+.license-text { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+.feature-list { list-style: none; margin: 0 0 6px; padding: 0; }
+.feature-list li { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.feature-list li svg { flex: 0 0 auto; color: var(--added-accent); }
+
+.error-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; color: var(--removed-accent); }
+.error-message { margin: 0 0 2px; color: var(--text); font-weight: 600; }
+.error-code { margin: 0; font-size: 11px; color: var(--muted); }
+
+.error-detail {
+  flex: 1 1 auto;
+  min-height: 140px;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--text);
+  font-family: var(--pane-font);
+  font-size: 12px;
+  resize: none;
+}
+
+.progress-body { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0; }
+.progress-label { margin: 0; }
+.progress-track { width: 100%; height: 6px; border-radius: 3px; background: var(--panel-3); overflow: hidden; }
+.progress-fill { width: 35%; height: 100%; background: var(--accent); animation: progress-slide 1.1s ease-in-out infinite; }
+
+@keyframes progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+.confirm-body { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0 2px; }
+.confirm-body p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+
+.recent-list { list-style: none; margin: 0; padding: 0; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.recent-item { display: flex; align-items: center; gap: 6px; }
+
+.recent-list.compact .recent-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 6px;
+}
+
+.badge { padding: 2px 9px; border-radius: 10px; background: var(--panel-3); font-size: 11px; }
+.badge.on { background: var(--row-added); color: var(--text); }
+.code-line { font-family: var(--pane-font); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.font-preview {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+
+.picker-places { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+
+.place {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-2);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.picker-path { display: flex; align-items: center; gap: 7px; padding: 4px 0; }
+
+.picker-list {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 9px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.picker-row:hover { background: var(--hover); }
+.picker-row.selected { background: var(--selection); }
+.picker-row.directory { font-weight: 600; }
+
+/* ------------------------------------------------------------ print view */
+
+.print-dialog {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.print-side { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: hidden; }
+.print-side h3 { margin: 10px 0 2px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.print-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
+
+.print-preview-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel-3);
+}
+
+.print-loading { color: var(--muted); }
+
+/* A picture this build cannot decode, said plainly instead of a broken-image icon. */
+.image-missing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  margin: 0;
+  padding: 14px;
+  color: var(--muted);
+  text-align: left;
+  line-height: 1.5;
+}
+
+.image-missing svg { flex: 0 0 auto; color: var(--modified-accent); }
+
+/* The box the page really occupies once it is scaled — this is what centres. */
+.print-sheet-fit { position: relative; flex: 0 0 auto; }
+
+.print-sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #ffffff;
+  color: #111111;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3);
+  transform-origin: center center;
+}
+
+.sheet-body { display: flex; flex-direction: column; height: 100%; font-family: var(--pane-font); font-size: 8pt; }
+.sheet-header, .sheet-footer { display: flex; justify-content: space-between; gap: 12px; font-size: 7pt; color: #555555; }
+.sheet-header { padding-bottom: 1mm; margin-bottom: 1.5mm; border-bottom: 0.4mm solid #dddddd; }
+.sheet-footer { padding-top: 1mm; margin-top: auto; border-top: 0.4mm solid #dddddd; }
+.sheet-rows { flex: 1 1 auto; overflow: hidden; }
+
+.sheet-row {
+  display: grid;
+  grid-template-columns: 9mm 1fr 9mm 1fr;
+  gap: 1mm;
+  line-height: 1.25;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.sheet-no { text-align: right; color: #888888; }
+.sheet-text { overflow: hidden; text-overflow: clip; }
+.sheet-body.colored .sheet-row.kind-added { background: #e6f7ea; }
+.sheet-body.colored .sheet-row.kind-removed { background: #fdeaea; }
+.sheet-body.colored .sheet-row.kind-modified { background: #fdf5e0; }
+.sheet-body.colored .sheet-row.kind-conflict { background: #fde8ec; }
+.sheet-body.colored .sheet-row.kind-resolved { background: #e8f7ea; }
+
+.print-output { display: none; }
+
+@media print {
+  body > #root > .dialog-window > div > .dialog > .dialog-content > .print-dialog > .print-side,
+  body > #root > .dialog-window > div > .dialog > .dialog-content > .print-dialog > .print-preview-frame,
+  .dialog-title { display: none !important; }
+
+  .print-output { display: block; }
+  .print-page { break-after: page; background: #ffffff; }
+  .print-page:last-child { break-after: auto; }
+  .dialog, .dialog-content, .dialog-window, .print-dialog { display: block !important; padding: 0 !important; height: auto !important; overflow: visible !important; }
+}
+
+/* ------------------------------------------------------------ image view */
+
+.image-stage {
+  display: grid;
+  gap: var(--gap);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--gap);
+  overflow: auto;
+  background: var(--panel-2);
+}
+
+.image-stage.mode-sideBySide { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.image-stage.mode-blend, .image-stage.mode-difference { grid-template-columns: minmax(0, 1fr); }
+
+.image-pane {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* A chequerboard, so a transparent image is not mistaken for a white one. */
+  background:
+    linear-gradient(45deg, var(--row-zebra) 25%, transparent 25%, transparent 75%, var(--row-zebra) 75%) 0 0 / 16px 16px,
+    linear-gradient(45deg, var(--row-zebra) 25%, transparent 25%, transparent 75%, var(--row-zebra) 75%) 8px 8px / 16px 16px,
+    var(--panel);
+}
+
+.image-pane img, .image-blend img, .image-blend canvas { display: block; max-width: 100%; height: auto; }
+
+.image-blend {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.image-blend img { grid-area: 1 / 1; }
+.image-blend canvas { grid-area: 1 / 1; background: #101216; }
+
+.blend-slider { display: inline-flex; align-items: center; gap: 7px; }
+.blend-slider input[type="range"] { width: 140px; accent-color: var(--accent); }
+
+/* --------------------------------------------------------- drag and drop */
+
+.drop-overlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  border: 3px dashed var(--accent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 18px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------- the web build's dialogs */
+
+/*
+ * In a browser there are no child windows, so the same dialogs float over the page.
+ * The sizes match the Electron windows in `electron/childwindows.cjs` exactly, so a
+ * dialog that fits on the desktop fits on the web.
+ */
+.dialog-layer { position: fixed; inset: 0; z-index: 500; }
+
+.dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.dialog.floating {
+  width: 560px;
+  height: auto;
+  max-height: 86vh;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.dialog.floating.size-settings { width: 760px; height: 640px; }
+.dialog.floating.size-about { width: 560px; height: 440px; }
+.dialog.floating.size-print { width: min(1000px, 94vw); height: min(760px, 90vh); }
+.dialog.floating.size-error { width: 660px; height: 440px; }
+.dialog.floating.size-recent { width: 680px; height: 480px; }
+.dialog.floating.size-prompt { width: 560px; height: 560px; }
+.dialog.floating.size-text { width: 460px; height: 190px; }
+.dialog.floating.size-remote { width: 520px; height: 420px; }

@@ -1,0 +1,55 @@
+{
+  "name": "mydiffmerge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "My Diff & Merge — cross-platform file, directory and 3-way merge tool that also works as a git difftool/mergetool",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "postinstall": "node scripts/postinstall.mjs",
+    "start": "node scripts/dev.mjs desktop",
+    "dev": "node scripts/dev.mjs desktop",
+    "dev:web": "node scripts/dev.mjs web",
+    "serve": "node dist-server/cli.mjs",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "icons": "node scripts/generate-icons.mjs",
+    "installer": "node scripts/copy-installer.mjs",
+    "samples": "node scripts/make-samples.mjs",
+    "build:ui": "node node_modules/vite/bin/vite.js build",
+    "build:server": "node scripts/bundle-server.mjs",
+    "build": "npm run icons && npm run build:ui && npm run build:server",
+    "preview": "npm run build && node scripts/preview.mjs",
+    "pack": "npm run build && node scripts/package.mjs --dir",
+    "build:win": "npm run build && node scripts/package.mjs --win && npm run installer",
+    "build:mac": "npm run build && node scripts/package.mjs --mac && npm run installer",
+    "build:linux": "npm run build && node scripts/package.mjs --linux && npm run installer",
+    "build:all": "npm run build && node scripts/package.mjs --win --mac --linux && npm run installer",
+    "test": "node scripts/test-all.mjs",
+    "test:unit": "node scripts/test-all.mjs --unit",
+    "test:gui": "node scripts/test-all.mjs --gui",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
