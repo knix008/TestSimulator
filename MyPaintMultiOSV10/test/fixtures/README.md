@@ -13,5 +13,6 @@ Pictures the test run opens.
 | `frames-plain.dcm`, `frames-deflated.dcm` | two frames stored plainly and with each frame deflated on its own |
 | `CT_small.dcm`, `SC_rgb_small_odd.dcm`, `JPEG2000.dcm` | [pydicom](https://github.com/pydicom/pydicom) test files (MIT), anonymised: an explicit VR CT, an RGB secondary capture with odd dimensions, and a JPEG 2000 compressed image |
 
-The generated files are rewritten by `npm test`, so only the three pydicom files are kept
-in the repository as they are.
+`npm test` rewrites the generated files, and they are kept in the repository so a checkout
+can be looked at without running the generator. The three pydicom files are the originals:
+`scripts/make-fixtures.js` does not produce them.
