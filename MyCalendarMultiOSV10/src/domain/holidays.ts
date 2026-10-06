@@ -1,4 +1,5 @@
-import { FALLBACK_COUNTRIES, KOREAN_COUNTRY_NAMES, type Country } from "./countries";
+import { builtinCountryCodes, builtinHolidays } from "./builtinHolidays";
+import { countryFor, FALLBACK_COUNTRIES, type Country } from "./countries";
 import type { Language } from "./messages";
 
 export interface Holiday {
@@ -13,6 +14,7 @@ export interface YearBundle {
   holidays: Holiday[];
   fetchedAt: number;
   fromCache: boolean;
+  builtin?: boolean;
 }
 
 const FRESH_MS = 10 * 60 * 1000;
@@ -117,6 +119,8 @@ export async function loadYear(country: string, year: number, signal: AbortSigna
   } catch (error) {
     if (signal.aborted) throw error;
     if (cached) return { ...cached, fromCache: true };
+    const holidays = await builtinHolidays(country, year).catch(() => []);
+    if (holidays.length > 0) return { holidays, fetchedAt: 0, fromCache: true, builtin: true };
     throw error;
   }
 }
@@ -125,6 +129,16 @@ let countryRequest: Promise<{ countries: Country[]; live: boolean }> | null = nu
 
 export function clearCountriesCache(): void {
   countryRequest = null;
+}
+
+/** Adds the countries that only the built-in rules cover, so they can be chosen even without the live list. */
+async function withBuiltinCountries(result: { countries: Country[]; live: boolean }): Promise<{ countries: Country[]; live: boolean }> {
+  const codes = await builtinCountryCodes().catch(() => []);
+  const known = new Set(result.countries.map((country) => country.code));
+  const extra = codes
+    .filter((code) => /^[A-Z]{2}$/.test(code) && !known.has(code))
+    .map(countryFor);
+  return { countries: [...result.countries, ...extra], live: result.live };
 }
 
 export function loadCountries(): Promise<{ countries: Country[]; live: boolean }> {
@@ -137,17 +151,18 @@ export function loadCountries(): Promise<{ countries: Country[]; live: boolean }
           .map((item) => {
             if (!item || typeof item !== "object") return null;
             const row = item as Record<string, unknown>;
-            if (typeof row.countryCode !== "string" || typeof row.name !== "string") return null;
+            if (typeof row.countryCode !== "string") return null;
             const code = row.countryCode.toUpperCase();
             if (!/^[A-Z]{2}$/.test(code)) return null;
-            return { code, en: row.name, ko: KOREAN_COUNTRY_NAMES[code] ?? row.name };
+            return countryFor(code);
           })
           .filter((country): country is Country => country !== null);
         const unique = [...new Map(countries.map((country) => [country.code, country])).values()];
         if (unique.length === 0) return { countries: FALLBACK_COUNTRIES, live: false };
         return { countries: unique, live: true };
       })
-      .catch(() => ({ countries: FALLBACK_COUNTRIES, live: false }));
+      .catch(() => ({ countries: FALLBACK_COUNTRIES, live: false }))
+      .then(withBuiltinCountries);
   }
   return countryRequest;
 }

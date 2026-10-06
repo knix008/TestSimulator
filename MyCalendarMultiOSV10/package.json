@@ -5,20 +5,27 @@
   "type": "module",
   "description": "Transparent desktop calendar for Web, Linux, macOS, and Windows",
   "scripts": {
+    "start": "tauri dev",
+    "start:web": "vite --open",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:web": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "node test/run.mjs",
     "desktop": "tauri dev",
     "build:desktop": "tauri build",
-    "build:windows": "tauri build --bundles nsis",
+    "build:win": "tauri build --bundles nsis",
     "build:linux": "tauri build --bundles deb,rpm,appimage",
-    "build:macos": "tauri build --bundles dmg",
-    "icon": "node scripts/generate-icon.mjs && tauri icon src-tauri/icons/source.png"
+    "build:mac": "tauri build --bundles dmg",
+    "build:windows": "npm run build:win",
+    "build:macos": "npm run build:mac",
+    "icon": "node scripts/generate-icon.mjs && tauri icon src-tauri/icons/source.png && node scripts/generate-tray-icons.mjs",
+    "icon:tray": "node scripts/generate-tray-icons.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
     "@tauri-apps/plugin-autostart": "^2.5.0",
+    "date-holidays": "^3.37.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
@@ -27,6 +34,7 @@
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.2",
+    "happy-dom": "^20.14.5",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
     "vitest": "^3.2.4"

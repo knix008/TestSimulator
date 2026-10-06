@@ -1,12 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Calendar, settings, and about windows",
-  "windows": ["main", "settings", "about"],
+  "description": "Calendar, settings, events, print preview, and reminder windows",
+  "windows": ["main", "settings", "events", "print", "reminder"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
     "core:window:allow-start-resize-dragging",
+    "core:window:allow-set-size",
+    "core:window:allow-set-min-size",
     "core:window:allow-close",
     "core:window:allow-hide",
     "core:window:allow-show",
