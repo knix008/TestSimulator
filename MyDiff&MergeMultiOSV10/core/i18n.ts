@@ -459,6 +459,12 @@ const STRINGS = {
   "unsaved.discard": ["저장 안 함", "Don't save"],
 
   "recent.title": ["최근 사용한 파일", "Recent files"],
+  "recent.clear": ["최근 목록 모두 지우기", "Clear the whole recent list"],
+  "recent.remove": ["이 항목을 최근 목록에서 삭제", "Remove this item from the recent list"],
+
+  /* ------------------------------------------------------- the panels */
+  "panel.collapse": ["패널 접기", "Collapse the panel"],
+  "panel.expand": ["패널 펼치기", "Expand the panel"],
 
   /* ----------------------------------------------------------- errors */
   "err.noFile": ["파일을 선택해 주세요.", "Select a file first."],

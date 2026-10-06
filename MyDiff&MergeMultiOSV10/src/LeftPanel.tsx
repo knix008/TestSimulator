@@ -38,6 +38,15 @@ export function LeftPanel({ tab }: { tab: MergeTab }) {
         <Icon name="conflict" size={15} />
         <span>{t("merge.conflicts")}</span>
         <span className="count">{resolved} / {total}</span>
+        <button
+          type="button"
+          className="icon-button"
+          data-command="panel.collapse"
+          title={t("panel.collapse")}
+          onClick={() => void app.updateSettings({ showLeftPanel: false })}
+        >
+          <Icon name="prev" size={14} />
+        </button>
       </header>
 
       <div className="panel-scroll">

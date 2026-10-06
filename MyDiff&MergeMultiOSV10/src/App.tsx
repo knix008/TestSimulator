@@ -25,6 +25,7 @@ import * as host from "./host.js";
 import { InlineDialogs } from "./DialogHost.js";
 import { InlineMenu } from "./MenuPopup.js";
 import { MenuBar } from "./MenuBar.js";
+import { Icon } from "./icons.js";
 import { LeftPanel } from "./LeftPanel.js";
 import { LogPanel } from "./LogPanel.js";
 import { SessionPanel } from "./SessionPanel.js";
@@ -222,7 +223,20 @@ export function App() {
             {merge ? <LeftPanel tab={merge} /> : <SessionPanel onChoose={choose} />}
             <Splitter side="left" />
           </>
-        ) : null}
+        ) : (
+          /* A closed panel leaves a rail rather than nothing: the panel is closed
+             from its own header, so it has to be reopenable from where it was. */
+          <button
+            type="button"
+            className="panel-rail"
+            data-command="panel.expand"
+            title={app.t("panel.expand")}
+            onClick={() => void app.updateSettings({ showLeftPanel: true })}
+          >
+            <Icon name="next" size={13} />
+            <span>{merge ? app.t("merge.conflicts") : app.t("session.title")}</span>
+          </button>
+        )}
 
         {/* The tabs belong to the comparison, so they live in its column — between
             the panels rather than running across the top of them. */}

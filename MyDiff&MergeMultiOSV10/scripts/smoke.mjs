@@ -17,7 +17,12 @@ const outDir = path.join(root, "test-results", "smoke");
 
 // A fresh profile every run: the previous run's settings and recent list would
 // otherwise be restored into the test.
-fs.rmSync(outDir, { recursive: true, force: true });
+//
+// With retries, because on Windows this directory holds the screenshots the run
+// just wrote and anything that still has one open — a virus scanner, Explorer, a
+// viewer — makes the delete fail with EPERM for a moment. Without them the whole
+// GUI suite dies before its first step over a handle that closes by itself.
+fs.rmSync(outDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 fs.mkdirSync(outDir, { recursive: true });
 
 if (!fs.existsSync(path.join(root, "dist", "index.html"))) {

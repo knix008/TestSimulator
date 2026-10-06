@@ -7,7 +7,7 @@
  * taller than the app window still shows all of its rows. `InlineMenu` is the web
  * build's equivalent, positioned over the page.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { applyTheme } from "../core/themes.js";
 import { Icon } from "./icons.js";
 import { inlineMenu, type InlineMenuState, type MenuItem, type MenuSpec } from "./host.js";
@@ -24,6 +24,7 @@ export function MenuList({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [focused, setFocused] = useState(() => firstEnabled(spec.items));
+  const tracks = trackLayout(spec.items);
 
   const move = useCallback((direction: 1 | -1) => {
     setFocused((current) => {
@@ -61,7 +62,13 @@ export function MenuList({
   }, [focused, move, onChoose, onDismiss, spec.items]);
 
   return (
-    <div className="menu-popup" ref={containerRef} role="menu" data-menu={spec.menu}>
+    <div
+      className="menu-popup"
+      ref={containerRef}
+      role="menu"
+      data-menu={spec.menu}
+      style={{ "--menu-columns": tracks.columns } as CSSProperties}
+    >
       {spec.items.map((item, index) => {
         if (item.kind === "separator") return <div className="menu-separator" key={`sep-${index}`} role="separator" />;
         if (item.kind === "columns") {
@@ -121,7 +128,9 @@ export function MenuList({
             onMouseEnter={() => setFocused(index)}
             onClick={() => onChoose(item.id)}
           >
-            <span className="menu-check">{item.checked ? <Icon name="check" size={14} /> : null}</span>
+            {tracks.check
+              ? <span className="menu-check">{item.checked ? <Icon name="check" size={14} /> : null}</span>
+              : null}
             <span className="menu-icon">
               {item.swatches?.length
                 ? (
@@ -134,13 +143,51 @@ export function MenuList({
                 : <Icon name={item.icon} size={16} />}
             </span>
             <span className="menu-label">{item.label}</span>
-            <span className="menu-hint">{item.hint ?? ""}</span>
-            <span className="menu-shortcut">{item.shortcut ?? ""}</span>
+            {tracks.spacer ? <span className="menu-hint">{item.hint ?? ""}</span> : null}
+            {tracks.shortcut ? <span className="menu-shortcut">{item.shortcut ?? ""}</span> : null}
           </button>
         );
       })}
     </div>
   );
+}
+
+/**
+ * Which of the row's optional columns this menu actually needs.
+ *
+ * The rows share one grid so the shortcuts line up down the right-hand edge, but a
+ * column every row leaves empty is not alignment — it is a margin. A menu with
+ * nothing to tick (File, say) used to indent every label past a tick column anyway,
+ * which read as the labels being badly left-aligned; a menu with no shortcuts paid
+ * for the spacer that pushes them right. So the tracks are decided once per menu,
+ * from its own items, and the cells for the tracks it dropped are not rendered.
+ *
+ * `checked: false` still counts: an unticked toggle needs the room its tick will
+ * take, or the labels would shift sideways the moment it is switched on.
+ */
+export function trackLayout(items: MenuItem[]): {
+  columns: string;
+  check: boolean;
+  spacer: boolean;
+  shortcut: boolean;
+} {
+  const rows = items.filter((item) => !item.kind || item.kind === "item");
+  const check = rows.some((item) => "checked" in item && item.checked !== undefined);
+  const shortcut = rows.some((item) => "shortcut" in item && Boolean(item.shortcut));
+  const hint = rows.some((item) => "hint" in item && Boolean(item.hint));
+  // The flexible track is both the hint's home and the gap that holds the
+  // shortcuts against the right-hand edge, so either one keeps it.
+  const spacer = hint || shortcut;
+  const columns = [
+    // Just wide enough for the tick and the 16px row icon: the gutter is a place
+    // for them, not a margin, and every pixel of it is in front of every label.
+    check ? "16px" : null,
+    "20px",
+    "max-content",
+    spacer ? "1fr" : null,
+    shortcut ? "max-content" : null,
+  ].filter(Boolean).join(" ");
+  return { columns, check, spacer, shortcut };
 }
 
 function firstEnabled(items: MenuItem[]): number {

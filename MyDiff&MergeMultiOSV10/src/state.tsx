@@ -31,7 +31,7 @@ import {
   type ConflictResolution,
   type MergeDocument,
 } from "../core/mergeDocument.js";
-import { defaultSettings, type AppSettings } from "../core/settings.js";
+import { defaultSettings, recentKey, type AppSettings, type RecentEntry } from "../core/settings.js";
 import { defaultSessionName, type SavedSession, type SessionKind } from "../core/sessions.js";
 import type { FormatId } from "../core/formats.js";
 import type { SyncMode, SyncPlan } from "../core/sync.js";
@@ -204,6 +204,8 @@ export type AppStore = {
   saveSession: () => Promise<void>;
   openSavedSession: (session: SavedSession) => Promise<void>;
   removeSession: (id: string) => Promise<void>;
+  removeRecent: (entry: Pick<RecentEntry, "kind" | "paths">) => Promise<void>;
+  clearRecent: () => Promise<void>;
 
   setCursor: (row: number) => void;
   setDirectorySelection: (rel: string | null) => void;
@@ -1019,6 +1021,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await updateSettings({ sessions: rest });
   }, [updateSettings]);
 
+  /*
+   * Recent entries go by identity rather than by position: the list is rewritten
+   * every time something is opened, so the index the panel drew a row at is not
+   * necessarily the row still there when the remove button is pressed.
+   */
+  const removeRecent = useCallback(async (entry: Pick<RecentEntry, "kind" | "paths">) => {
+    const key = recentKey(entry);
+    const rest = (settingsRef.current?.recent ?? []).filter((item) => recentKey(item) !== key);
+    await updateSettings({ recent: rest });
+  }, [updateSettings]);
+
+  const clearRecent = useCallback(async () => {
+    await updateSettings({ recent: [] });
+  }, [updateSettings]);
+
   const saveSessionDocument = useCallback(async (saveAs: boolean) => {
     const target = await host.pickSave({
       title: t("cmd.file.saveSessionAs"),
@@ -1244,6 +1261,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saveSession,
     openSavedSession,
     removeSession,
+    removeRecent,
+    clearRecent,
     setCursor,
     setDirectorySelection,
     setDirectoryFilters,

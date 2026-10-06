@@ -446,6 +446,15 @@ kbd {
   border-bottom: 1px solid var(--border);
 }
 
+/* The name takes the room, so the panel's buttons sit against its right edge. */
+.panel-title > span:not(.count) {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .panel-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -713,6 +722,40 @@ kbd {
 
 /* The save button sits at the far end of the panel's title, away from the name. */
 .panel-title > .icon-button { margin-left: auto; }
+
+/*
+ * What a closed panel leaves behind: a strip the width of its own button, with the
+ * panel's name turned on its side. Hiding the panel outright is the View menu's job
+ * and leaves nothing to click, which is fine from a menu and not fine from a close
+ * button on the panel itself — this is what that button closes to.
+ */
+.panel-rail {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 26px;
+  padding: 8px 0;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--panel-3);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.panel-rail:hover { background: var(--hover); color: var(--text); }
+
+.panel-rail > span {
+  min-height: 0;
+  overflow: hidden;
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 
 .session-row { display: flex; align-items: center; gap: 2px; }
 .session-row .panel-button { flex: 1 1 auto; min-width: 0; }
@@ -1565,7 +1608,7 @@ mark.word.modified { background: var(--word-modified); }
 .menu-popup {
   display: flex;
   flex-direction: column;
-  min-width: 210px;
+  min-width: 170px;
   padding: 5px;
   border: 1px solid var(--menu-border);
   border-radius: var(--radius-lg);
@@ -1574,16 +1617,19 @@ mark.word.modified { background: var(--word-modified); }
 }
 
 /*
- * A fixed five-column grid: tick, icon, label, hint, shortcut. Every row uses the
- * same track widths, so the shortcuts line up down the right-hand edge of the menu
- * instead of each row packing itself independently.
+ * Up to five columns: tick, icon, label, hint, shortcut. Every row in one menu uses
+ * the same track widths, so the shortcuts line up down the right-hand edge of the
+ * menu instead of each row packing itself independently — but which of them exist
+ * is decided per menu by `trackLayout()` in MenuPopup.tsx and arrives as
+ * `--menu-columns`, so a menu with nothing to tick does not indent its labels past
+ * an empty tick column. The fallback here is the full set.
  */
 .menu-row {
   display: grid;
-  grid-template-columns: 18px 26px max-content 1fr max-content;
+  grid-template-columns: var(--menu-columns, 16px 20px max-content 1fr max-content);
   align-items: center;
-  gap: 8px;
-  padding: 5px 9px;
+  gap: 6px;
+  padding: 5px 8px;
   border: none;
   border-radius: 5px;
   background: transparent;
@@ -1632,7 +1678,7 @@ mark.word.modified { background: var(--word-modified); }
 }
 
 .menu-header {
-  padding: 6px 9px 3px;
+  padding: 6px 8px 3px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;

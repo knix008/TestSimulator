@@ -140,7 +140,10 @@ npm run build:mac    # dmg + zip
 npm run build:linux  # AppImage, deb, rpm, tar.gz
 ```
 
-Output lands in `release/`.
+Output lands in `release/`. Each platform build ends with `npm run installer`, which
+copies the one installer for the machine it ran on — not the portable build, not the
+uninstaller electron-builder leaves beside it — to the project root, so the file to
+hand somebody is at the top of the project rather than buried in `release/`.
 
 The Windows installer:
 

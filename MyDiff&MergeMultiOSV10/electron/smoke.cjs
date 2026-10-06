@@ -224,6 +224,33 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       return `session panel with ${layout.sessions} kinds`;
     });
 
+    await step("window", "the session panel closes and reopens from the panel itself", async () => {
+      await hook("h.settings({ showLeftPanel: true })");
+      await waitFor(async () => (await state()).settings.showLeftPanel === true);
+      const open = await js("document.querySelector('.panel-left').getBoundingClientRect().width");
+
+      await hook(`h.click('.panel-left [data-command="panel.collapse"]')`);
+      await waitFor(async () => (await state()).settings.showLeftPanel === false, 6000);
+      const closed = await js(`(() => {
+        const rail = document.querySelector('.panel-rail');
+        return {
+          panels: document.querySelectorAll('.panel-left').length,
+          // Closing to nothing would leave no way back except the View menu.
+          rail: rail ? Math.round(rail.getBoundingClientRect().width) : 0,
+          label: rail ? rail.textContent.trim() : "",
+        };
+      })()`);
+      assert(closed.panels === 0, "the panel is still there after being closed");
+      assert(closed.rail > 0 && closed.rail < 40, `the rail is ${closed.rail}px wide`);
+      assert(closed.label.length > 0, "the rail does not say which panel it reopens");
+
+      await hook(`h.click('.panel-rail')`);
+      await waitFor(async () => (await state()).settings.showLeftPanel === true, 6000);
+      const reopened = await js("document.querySelector('.panel-left').getBoundingClientRect().width");
+      assert(Math.abs(reopened - open) < 2, `the panel came back ${reopened}px wide instead of ${open}px`);
+      return `${Math.round(open)}px → ${closed.rail}px rail → ${Math.round(reopened)}px`;
+    });
+
     await step("window", "the minimum width is the toolbar's, and nothing else", async () => {
       const [minWidth] = win.getMinimumSize();
       const toolbar = await hook("h.toolbarWidth()");
@@ -336,6 +363,7 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
         );
         assert(rows > 0, `menu ${id} is empty`);
         if (id === "file") await shot("02-menu-file", popup);
+        if (id === "compare") await shot("02b-menu-compare", popup);
         await hook("h.click('.menubar')").catch(() => {});
         await js("window.mdm && window.mdm.closeMenu()");
         await sleep(120);
@@ -361,6 +389,56 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       assert(counts.total === counts.withLabel, `${counts.total - counts.withLabel} rows without a label`);
       await js("window.mdm && window.mdm.closeMenu()");
       return `${counts.total} rows, each with an icon and a label`;
+    });
+
+    await step("menu", "a menu with nothing to tick does not indent past a tick column", async () => {
+      // The rows share one grid so shortcuts line up, but a column every row leaves
+      // empty is a margin, not alignment: File has no toggles, so its icons must
+      // start at the popup's own left edge, while Compare, which has three, keeps
+      // the room its ticks need.
+      const measure = async (menu) => {
+        await hook("h.closeMenu()").catch(() => {});
+        await sleep(150);
+        await hook(`h.openMenu(${JSON.stringify(menu)})`);
+        const popup = await waitFor(() => {
+          const window_ = childWindows.getMenuWindow();
+          return window_ && window_.isVisible() && window_.getBounds().height > 30 ? window_ : null;
+        });
+        return popup.webContents.executeJavaScript(`(() => {
+          const popup = document.querySelector('.menu-popup');
+          const rows = [...popup.querySelectorAll('.menu-row:not(.compact)')];
+          const style = getComputedStyle(popup);
+          const content = popup.getBoundingClientRect().left
+            + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+          const icons = rows.map((row) => row.querySelector('.menu-icon').getBoundingClientRect().left);
+          const rowStyle = getComputedStyle(rows[0]);
+          return {
+            rows: rows.length,
+            ticks: popup.querySelectorAll('.menu-row:not(.compact) .menu-check').length,
+            // How far an icon sits from where the row itself starts.
+            gutter: Math.round(Math.min(...icons) - content - parseFloat(rowStyle.paddingLeft)),
+            spread: Math.round(Math.max(...icons) - Math.min(...icons)),
+            width: Math.round(popup.getBoundingClientRect().width),
+          };
+        })()`, true);
+      };
+
+      const file = await measure("file");
+      const compare = await measure("compare");
+      // The renderer's own close, so the menubar stops believing a menu is open and
+      // the next step's click on a menu title opens rather than toggles shut.
+      await hook("h.closeMenu()");
+      await sleep(150);
+
+      assert(file.ticks === 0, `the File menu reserves ${file.ticks} tick cells it never fills`);
+      assert(file.gutter === 0, `the File menu indents its icons by ${file.gutter}px of nothing`);
+      assert(file.spread === 0, "the File menu's icons are not aligned with each other");
+      assert(
+        compare.ticks === compare.rows,
+        `the Compare menu has ${compare.rows} rows but ${compare.ticks} tick cells`,
+      );
+      assert(compare.gutter > 0, "the Compare menu left no room for its ticks");
+      return `file ${file.width}px, no tick column; compare ${compare.width}px, ${compare.gutter}px tick gutter`;
     });
 
     await step("menu", "a menu taller than the window is still shown in full", async () => {
@@ -1667,6 +1745,38 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       return `${page.trim()}, ${rows} rows on the page`;
     });
 
+    await step("print", "the preview settles at the size that fits, and stays there", async () => {
+      // The fit used to measure the wrapper around the sheet, which is itself the
+      // page times the current scale: every pass then read a box the pass before it
+      // had shrunk, so the preview appeared at the right size and then crept down to
+      // the minimum. Two readings a moment apart catch exactly that.
+      const dialog = childWindows.getDialogWindow("print");
+      const measure = () => dialog.webContents.executeJavaScript(`(() => {
+        const frame = document.querySelector('.print-preview-frame');
+        const sheet = document.querySelector('.print-sheet');
+        const box = sheet.getBoundingClientRect();
+        const available = frame.getBoundingClientRect();
+        return {
+          scale: Number((sheet.style.transform.match(/[\\d.]+/) || [0])[0]),
+          // How much of the space the dialog gives the preview the page takes up.
+          fill: Math.round(100 * Math.max(box.width / available.width, box.height / available.height)),
+          overflows: box.width > available.width + 1 || box.height > available.height + 1,
+        };
+      })()`, true);
+
+      const first = await measure();
+      await sleep(900);
+      const second = await measure();
+
+      assert(
+        Math.abs(first.scale - second.scale) < 0.001,
+        `the preview is still resizing itself: ${first.scale} → ${second.scale}`,
+      );
+      assert(!second.overflows, "the page is larger than the space the preview has");
+      assert(second.fill >= 80, `the page uses only ${second.fill}% of the preview area`);
+      return `scale ${second.scale.toFixed(2)}, filling ${second.fill}% of the frame`;
+    });
+
     await step("print", "page setup re-paginates the preview", async () => {
       const dialog = childWindows.getDialogWindow("print");
       const before = await dialog.webContents.executeJavaScript(
@@ -1817,13 +1927,35 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       return `${rows} recent entries`;
     });
 
-    await step("recent", "one entry can be removed and the list cleared", async () => {
-      const before = (await state()).settings.recent.length;
-      await hook(`h.settings({ recent: window.__mdmStore.settings.recent.slice(1) })`);
-      await waitFor(async () => (await state()).settings.recent.length === before - 1);
-      await hook("h.run('file.clearRecent')");
+    await step("recent", "one entry can be removed and the list cleared, from the panel", async () => {
+      // From the panel's own buttons rather than through the store: the point of
+      // the buttons is that the list can be tidied without going to the File menu.
+      await hook("h.settings({ showLeftPanel: true })");
+      await waitFor(async () => (await state()).settings.showLeftPanel === true);
+
+      const before = (await state()).settings.recent;
+      assert(before.length > 1, `only ${before.length} recent entries to work with`);
+      const rows = await js("document.querySelectorAll('.panel-left [data-recent]').length");
+      assert(rows === before.length, `${before.length} entries but ${rows} rows in the panel`);
+
+      const removed = before[0];
+      await hook(`h.click('.panel-left [data-recent-remove="0"]')`);
+      await waitFor(async () => (await state()).settings.recent.length === before.length - 1, 8000);
+      const left = (await state()).settings.recent;
+      assert(
+        !left.some((entry) => entry.paths.join("|") === removed.paths.join("|")),
+        "the remove button took a different entry than the one it was on",
+      );
+
+      await hook(`h.click('.panel-left [data-command="recent.clear"]')`);
       await waitFor(async () => (await state()).settings.recent.length === 0, 8000);
-      return `${before} → 0`;
+      const empty = await js(`(() => ({
+        rows: document.querySelectorAll('.panel-left [data-recent]').length,
+        clearDisabled: document.querySelector('.panel-left [data-command="recent.clear"]').disabled,
+      }))()`);
+      assert(empty.rows === 0, `${empty.rows} rows survived clearing the list`);
+      assert(empty.clearDisabled, "Clear stays live with an empty list");
+      return `${before.length} → ${before.length - 1} → 0`;
     });
 
     /* ------------------------------------------------------ drag & drop */

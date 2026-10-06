@@ -41,7 +41,7 @@ export function PrintDialog({ payload, settings, t, close }: DialogProps) {
   const [page, setPage] = useState(1);
   const [mode, setMode] = useState<"all" | "current" | "custom">("all");
   const [custom, setCustom] = useState("");
-  const sheetRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   /* --------------------------------------------------- gather rows */
@@ -106,10 +106,18 @@ export function PrintDialog({ payload, settings, t, close }: DialogProps) {
 
   /* ------------------------------------ fit the sheet to the window */
 
+  /*
+   * The frame, and nothing inside it. What the sheet is scaled to fit is the space
+   * the dialog gives the preview, which is fixed by the grid and does not move when
+   * the scale changes. Measuring anything the scale resizes — the wrapper around the
+   * sheet is exactly `page × scale` — makes each pass read a box the previous pass
+   * shrank, so the preview starts right and then walks itself down to the minimum.
+   */
   useEffect(() => {
-    const frame = sheetRef.current?.parentElement;
+    const frame = frameRef.current;
     if (!frame) return;
     const fit = () => {
+      // A little room so the sheet's drop shadow is not clipped by the frame.
       const available = { width: frame.clientWidth - 24, height: frame.clientHeight - 24 };
       const mmToPx = 96 / 25.4;
       const next = Math.min(
@@ -236,7 +244,7 @@ export function PrintDialog({ payload, settings, t, close }: DialogProps) {
         </Buttons>
       </div>
 
-      <div className="print-preview-frame">
+      <div className="print-preview-frame" ref={frameRef}>
         {loading ? (
           <div className="print-loading">{t("progress.printing")}</div>
         ) : (
@@ -256,7 +264,6 @@ export function PrintDialog({ payload, settings, t, close }: DialogProps) {
           >
           <div
             className="print-sheet"
-            ref={sheetRef}
             style={{
               width: `${page_.width}mm`,
               height: `${page_.height}mm`,

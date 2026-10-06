@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import zlib from "node:zlib";
+import { INSTALLER, chooseInstaller } from "../scripts/copy-installer.mjs";
 
 const root = path.resolve(".");
 const read = (relative) => fs.readFileSync(path.join(root, relative));
@@ -176,6 +177,56 @@ test("installer › both prompts exist in Korean and English", () => {
   assert.ok(nsh.includes("A previous version is installed"), "English upgrade prompt");
   assert.ok(nsh.includes("삭제하시겠습니까"), "Korean data prompt");
   assert.ok(nsh.includes("Delete them as well?"), "English data prompt");
+});
+
+/*
+ * What `npm run installer` copies to the project root. electron-builder fills
+ * release/ with more .exe files than the one a person wants handed to them, and
+ * two of them look a lot like the installer.
+ */
+
+test("installer › the uninstaller is never mistaken for the installer", () => {
+  // Written in this order by a real build: the uninstaller comes first, and it
+  // carries the architecture in its name too, so ranking on "matches this arch,
+  // then newest" alone could pick either one.
+  const release = [
+    { name: "MyDiffMerge-1.0.0-win-x64.__uninstaller.exe", mtimeMs: 2_000 },
+    { name: "MyDiffMerge-1.0.0-win-x64.exe", mtimeMs: 1_000 },
+    { name: "MyDiffMerge-1.0.0-win-x64.exe.blockmap", mtimeMs: 3_000 },
+  ];
+  assert.equal(chooseInstaller(release, "x64", ".exe"), "MyDiffMerge-1.0.0-win-x64.exe");
+});
+
+test("installer › a portable build is not offered as the installer", () => {
+  const release = [
+    { name: "MyDiffMerge-1.0.0-win-x64-portable.exe", mtimeMs: 2_000 },
+    { name: "MyDiffMerge-1.0.0-win-x64.exe", mtimeMs: 1_000 },
+  ];
+  assert.equal(chooseInstaller(release, "x64", ".exe"), "MyDiffMerge-1.0.0-win-x64.exe");
+  // With nothing else to copy, there is no installer rather than a portable one.
+  assert.equal(chooseInstaller(release.slice(0, 1), "x64", ".exe"), null);
+});
+
+test("installer › this machine's architecture wins over a newer one", () => {
+  const release = [
+    { name: "MyDiffMerge-1.0.0-win-arm64.exe", mtimeMs: 9_000 },
+    { name: "MyDiffMerge-1.0.0-win-x64.exe", mtimeMs: 1_000 },
+  ];
+  assert.equal(chooseInstaller(release, "x64", ".exe"), "MyDiffMerge-1.0.0-win-x64.exe");
+  assert.equal(chooseInstaller(release, "arm64", ".exe"), "MyDiffMerge-1.0.0-win-arm64.exe");
+  // An installer that names no architecture still answers for any machine.
+  const universal = [{ name: "My Diff & Merge-1.0.0.dmg", mtimeMs: 1 }];
+  assert.equal(chooseInstaller(universal, "arm64", ".dmg"), "My Diff & Merge-1.0.0.dmg");
+});
+
+test("installer › each desktop platform's installer extension is the one it ships", () => {
+  assert.deepEqual(INSTALLER, { win32: ".exe", darwin: ".dmg", linux: ".AppImage" });
+  // The zip/deb/rpm/tar.gz targets are archives, not something to double-click.
+  const linux = [
+    { name: "MyDiffMerge-1.0.0-linux-x64.tar.gz", mtimeMs: 3_000 },
+    { name: "MyDiffMerge-1.0.0-linux-x64.AppImage", mtimeMs: 1_000 },
+  ];
+  assert.equal(chooseInstaller(linux, "x64", ".AppImage"), "MyDiffMerge-1.0.0-linux-x64.AppImage");
 });
 
 /* --------------------------------------------------------- packaging */

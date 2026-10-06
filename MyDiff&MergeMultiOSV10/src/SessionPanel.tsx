@@ -10,6 +10,7 @@
  * has its conflicts to show instead, replaces it.
  */
 import { SESSION_TYPES, sessionType, type SavedSession } from "../core/sessions.js";
+import { recentKey } from "../core/settings.js";
 import { Icon } from "./icons.js";
 import { useApp } from "./state.js";
 
@@ -33,6 +34,17 @@ export function SessionPanel({ onChoose }: { onChoose: (id: string) => void }) {
           onClick={() => void app.saveSession()}
         >
           <Icon name="save" size={14} />
+        </button>
+        {/* Closing the panel from the panel itself; the rail it leaves behind
+            reopens it, so this does not strand anybody in the View menu. */}
+        <button
+          type="button"
+          className="icon-button"
+          data-command="panel.collapse"
+          title={t("panel.collapse")}
+          onClick={() => void app.updateSettings({ showLeftPanel: false })}
+        >
+          <Icon name="prev" size={14} />
         </button>
       </header>
 
@@ -72,22 +84,42 @@ export function SessionPanel({ onChoose }: { onChoose: (id: string) => void }) {
           <h3>
             {t("session.recent")}
             <span className="count">{recent.length}</span>
+            <button
+              type="button"
+              className="icon-button"
+              data-command="recent.clear"
+              title={t("recent.clear")}
+              disabled={recent.length === 0}
+              onClick={() => void app.clearRecent()}
+            >
+              <Icon name="clearAll" size={13} />
+            </button>
           </h3>
           {recent.length === 0 ? (
             <p className="panel-empty">{t("settings.noRecent")}</p>
           ) : (
             recent.map((entry, index) => (
-              <button
-                key={index}
-                type="button"
-                className="panel-button"
-                data-recent={index}
-                title={entry.paths.join("\n")}
-                onClick={() => void app.openRecentEntry(entry.kind, entry.paths)}
-              >
-                <Icon name={iconForRecent(entry.kind)} size={15} />
-                <span>{shortName(entry.paths)}</span>
-              </button>
+              <div className="session-row" key={recentKey(entry)}>
+                <button
+                  type="button"
+                  className="panel-button"
+                  data-recent={index}
+                  title={entry.paths.join("\n")}
+                  onClick={() => void app.openRecentEntry(entry.kind, entry.paths)}
+                >
+                  <Icon name={iconForRecent(entry.kind)} size={15} />
+                  <span>{shortName(entry.paths)}</span>
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  data-recent-remove={index}
+                  title={t("recent.remove")}
+                  onClick={() => void app.removeRecent(entry)}
+                >
+                  <Icon name="close" size={13} />
+                </button>
+              </div>
             ))
           )}
         </section>
