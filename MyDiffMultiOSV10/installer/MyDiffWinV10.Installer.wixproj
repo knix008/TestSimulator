@@ -1,0 +1,109 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>MyDiffWinV10Setup</OutputName>
+    <Platform>x64</Platform>
+    <Platforms>x64</Platforms>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <SuppressValidation>true</SuppressValidation>
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
+    <AppProject>$(MSBuildThisFileDirectory)..\MyDiffWinV10.App\MyDiffWinV10.App.csproj</AppProject>
+    <PublishOutputDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\publish\installer\'))</PublishOutputDir>
+    <MsiOutputPath>$(OutputPath)en-us\$(OutputName).msi</MsiOutputPath>
+    <InstallerBuildEnabled>false</InstallerBuildEnabled>
+  </PropertyGroup>
+
+  <!-- Release MSI runs only when explicitly requested (App post-build, dotnet build installer, or BuildMsiPackage=true). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' AND ('$(BuildingMsiPackage)' == 'true' OR '$(BuildMsiPackage)' == 'true' OR ('$(BuildingProject)' == 'true' AND ('$(SolutionPath)' == '' OR '$(SolutionPath)' == '*Undefined*')))">
+    <InstallerBuildEnabled>true</InstallerBuildEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' != 'Release'">
+    <OutputType>None</OutputType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' AND '$(InstallerBuildEnabled)' != 'true'">
+    <OutputType>None</OutputType>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);PublishOutputDir=$(PublishOutputDir)</DefineConstants>
+    <Cultures>en-us;ko-kr</Cultures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" GeneratePathProperty="true" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(PkgWixToolset_UI_wixext)' != ''">$(PkgWixToolset_UI_wixext)\wixext6\WixToolset.UI.wixext.dll</_UiWixExtDll>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.ui.wixext\6.0.2\wixext6\WixToolset.UI.wixext.dll</_UiWixExtDll>
+    <_UtilWixExtDll Condition="'$(_UtilWixExtDll)' == '' and '$(PkgWixToolset_Util_wixext)' != ''">$(PkgWixToolset_Util_wixext)\wixext6\WixToolset.Util.wixext.dll</_UtilWixExtDll>
+    <_UtilWixExtDll Condition="'$(_UtilWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.util.wixext\6.0.2\wixext6\WixToolset.Util.wixext.dll</_UtilWixExtDll>
+    <_UtilWixExtDll Condition="'$(_UtilWixExtDll)' == ''">$([System.IO.Path]::Combine('$(UserProfile)', '.nuget', 'packages', 'wixtoolset.util.wixext', '6.0.2', 'wixext6', 'WixToolset.Util.wixext.dll'))</_UtilWixExtDll>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == ''">$([System.IO.Path]::Combine('$(UserProfile)', '.nuget', 'packages', 'wixtoolset.ui.wixext', '6.0.2', 'wixext6', 'WixToolset.UI.wixext.dll'))</_UiWixExtDll>
+  </PropertyGroup>
+  <ItemGroup>
+    <WixExtension Include="$(_UiWixExtDll)" Condition="Exists('$(_UiWixExtDll)')" />
+    <WixExtension Include="$(_UtilWixExtDll)" Condition="Exists('$(_UtilWixExtDll)')" />
+  </ItemGroup>
+
+  <Target Name="VerifyWixExtensionPackages"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Error Condition="!Exists('$(_UtilWixExtDll)')"
+           Text="WixToolset.Util.wixext was not restored (required for util:RemoveFolderEx in UserData.wxs). Run: dotnet restore installer\MyDiffWinV10.Installer.wixproj" />
+    <Error Condition="!Exists('$(_UiWixExtDll)')"
+           Text="WixToolset.UI.wixext was not restored. Run: dotnet restore installer\MyDiffWinV10.Installer.wixproj" />
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="$(AppProject)">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <Private>false</Private>
+      <Properties>SkipInstaller=true;BuildingMsiPackage=true</Properties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="EnsureX64InstallerPlatform"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <PropertyGroup>
+      <Platform>x64</Platform>
+      <Platforms>x64</Platforms>
+      <InstallerPlatform>x64</InstallerPlatform>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="PublishForInstaller"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Exec Command="cmd /c taskkill /IM MyDiffWinV10.App.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <RemoveDir Directories="$(PublishOutputDir)" Condition="Exists('$(PublishOutputDir)')" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="dotnet publish &quot;$(AppProject)&quot; -c Release -r win-x64 --self-contained false -p:SkipInstaller=true -p:BuildingMsiPackage=true -p:Platform=AnyCPU -o &quot;$(PublishOutputDir)&quot;" />
+    <Error Condition="!Exists('$(PublishOutputDir)MyDiffWinV10.App.exe')"
+           Text="Publish output was not created at $(PublishOutputDir). Close any running MyDiffWinV10.App.exe and rebuild." />
+  </Target>
+
+  <Target Name="SkipNonReleaseBuild"
+          BeforeTargets="Build"
+          Condition="'$(InstallerBuildEnabled)' != 'true'">
+    <Message Importance="high" Text="MyDiffWinV10.Installer: skipped (Release MSI is built by MyDiffWinV10.App or: dotnet build installer\MyDiffWinV10.Installer.wixproj -c Release -p:Platform=x64 -p:BuildMsiPackage=true)" />
+  </Target>
+
+  <Target Name="VerifyMsiOutput"
+          AfterTargets="Build"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Error Condition="!Exists('$(MsiOutputPath)')"
+           Text="MSI was not created at $(MsiOutputPath). Close any running MyDiffWinV10.App.exe and rebuild." />
+    <Copy SourceFiles="$(MsiOutputPath)"
+          DestinationFiles="$(OutputPath)$(OutputName).msi"
+          Condition="Exists('$(MsiOutputPath)')" />
+    <Message Importance="high" Text="MSI created: $(MsiOutputPath)" />
+    <Message Importance="high" Text="MSI copied: $(OutputPath)$(OutputName).msi" Condition="Exists('$(OutputPath)$(OutputName).msi')" />
+  </Target>
+</Project>
