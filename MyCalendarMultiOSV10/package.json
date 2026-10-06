@@ -1,0 +1,34 @@
+{
+  "name": "my-calendar-multios",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Transparent desktop calendar for Web, Linux, macOS, and Windows",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "desktop": "tauri dev",
+    "build:desktop": "tauri build",
+    "build:windows": "tauri build --bundles nsis",
+    "build:linux": "tauri build --bundles deb,rpm,appimage",
+    "build:macos": "tauri build --bundles dmg",
+    "icon": "node scripts/generate-icon.mjs && tauri icon src-tauri/icons/source.png"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-autostart": "^2.5.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5",
+    "vitest": "^3.2.4"
+  }
+}
