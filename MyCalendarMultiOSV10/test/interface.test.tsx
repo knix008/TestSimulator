@@ -697,6 +697,58 @@ describe("Interface", () => {
     await view.unmount();
   });
 
+  it("deletes events straight from the calendar's list after a confirmation", async () => {
+    localStorage.clear();
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const base = { date: iso, interval: 1, until: "", color: "#3d7dff", skip: [], reminder: null };
+    localStorage.setItem(
+      "mycalendar.events.v1",
+      JSON.stringify([
+        { ...base, id: "gym", title: "운동", time: "07:30", repeat: "weekly" },
+        { ...base, id: "call", title: "통화", time: "10:00", repeat: "none" },
+      ]),
+    );
+    const stored = () => JSON.parse(localStorage.getItem("mycalendar.events.v1") ?? "[]") as Array<{ id: string; skip: string[] }>;
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const remove = (title: string) =>
+      view.host.querySelector(`.day-items button[aria-label="${messages.ko.deleteEvent}: ${title}"]`) as HTMLButtonElement | null;
+    const confirm = () => view.host.querySelector(".day-items .day-confirm") as HTMLElement | null;
+    const confirmButton = (label: string) => [...confirm()!.querySelectorAll("button")].find((button) => button.textContent === label);
+    expect(remove("운동")).not.toBeNull();
+    expect(remove("통화")).not.toBeNull();
+
+    // A repeating event asks whether to drop only this day or the whole series; Escape keeps it.
+    click(remove("운동")!);
+    expect(confirm()?.textContent).toContain(formatMessage(messages.ko.confirmDelete, { title: "운동" }));
+    expect(confirmButton(messages.ko.deleteOccurrence)).toBeDefined();
+    expect(confirmButton(messages.ko.deleteSeries)).toBeDefined();
+    expect(document.activeElement?.textContent).toBe(messages.ko.cancel);
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    await act(async () => {
+      document.activeElement!.dispatchEvent(escape);
+    });
+    expect(escape.defaultPrevented).toBe(true);
+    expect(confirm()).toBeNull();
+    expect(stored()).toHaveLength(2);
+    click(remove("운동")!);
+    click(confirmButton(messages.ko.deleteOccurrence)!);
+    expect(remove("운동")).toBeNull();
+    expect(stored().find((event) => event.id === "gym")?.skip).toEqual([iso]);
+
+    // The Delete key on an event asks too; a one-off event is simply deleted.
+    const call = view.host.querySelector(`.day-items button[aria-label="${messages.ko.editEvent}: 통화"]`) as HTMLButtonElement;
+    await act(async () => {
+      call.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true }));
+    });
+    expect(confirmButton(messages.ko.deleteOccurrence)).toBeUndefined();
+    click(confirmButton(messages.ko.deleteEvent)!);
+    expect(stored().map((event) => event.id)).toEqual(["gym"]);
+    expect(view.host.querySelector(".day-items")?.textContent).toContain(messages.ko.noEvents);
+    await view.unmount();
+  });
+
   it("adds a repeating colored event, edits one day, and lists it in the event manager", async () => {
     localStorage.clear();
     let openedEvents = 0;

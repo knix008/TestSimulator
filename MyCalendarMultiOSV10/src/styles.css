@@ -728,6 +728,16 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   text-align: left;
 }
 .day-event:hover { background: var(--surface); }
+.day-items > li:has(.day-delete) { display: flex; align-items: center; gap: 2px; }
+.day-items > li > .day-event { flex: 1 1 auto; min-width: 0; width: auto; }
+.icon-btn.day-delete { flex: none; width: 24px; height: 24px; border-radius: 7px; color: var(--muted); opacity: 0.55; }
+.icon-btn.day-delete .icon { width: 15px; height: 15px; }
+.day-items > li:hover .day-delete, .icon-btn.day-delete:focus-visible { opacity: 1; }
+.icon-btn.day-delete:hover { color: var(--holiday); opacity: 1; }
+.day-confirm-row { display: flex; align-items: center; gap: 4px; height: var(--event-line); padding: 0 2px 0 8px; border-radius: 8px; background: var(--surface); }
+.day-confirm-row > .icon { flex: none; width: 15px; height: 15px; color: var(--holiday); }
+.day-confirm-row .event-title { font-size: 13px; }
+.day-confirm-row .text-btn { flex: none; height: calc(var(--event-line) - 4px); padding: 0 8px; font-size: 12px; }
 .event-dot { flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .event-time { flex: none; width: 3.2rem; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .event-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -57,6 +57,7 @@ import {
   ResizeGripIcon,
   RestoreIcon,
   TodayIcon,
+  TrashIcon,
 } from "./icons";
 import { dateFontStyle } from "./dateFont";
 import { DayMenu, type DayMenuItem } from "./DayMenu";
@@ -455,6 +456,15 @@ export function CalendarScreen({
     return rows;
   }, [viewYear, viewMonth, map, eventsByDay, settings.language]);
   const selectedKey = formatISODate(selected);
+  // The event of the selected day waiting for its delete to be confirmed; another day starts with none.
+  const [confirmingDelete, setConfirmingDelete] = useState<{ id: string; day: string } | null>(null);
+  const confirmingId = confirmingDelete?.day === selectedKey ? confirmingDelete.id : null;
+  const deleteFromList = (event: CalendarEvent, onlyThisDay: boolean) => {
+    if (onlyThisDay) store.skip(event.id, selectedKey);
+    else store.remove(event.id);
+    setConfirmingDelete(null);
+    panelRef.current?.focus({ preventScroll: true });
+  };
   const selectedNames = (map[selectedKey] ?? []).map((holiday) => holidayTitle(holiday, settings.language));
   const selectedEvents = eventsByDay.get(selectedKey) ?? eventsOn(store.events, selected);
   const selectedNote = settings.showLunar ? dayNote(selected, t) : null;
@@ -780,6 +790,45 @@ export function CalendarScreen({
               {selectedNames.length > 0 && <li className="selected-holiday">{selectedNames.join(", ")}</li>}
               {selectedEvents.map((event) => {
                 const repeat = repeatLabel(event, t);
+                if (confirmingId === event.id) {
+                  const repeating = event.repeat !== "none";
+                  return (
+                    <li key={event.id} className="day-confirm" role="alert">
+                      <div
+                        className="day-confirm-row"
+                        onKeyDown={(key) => {
+                          if (key.key !== "Escape") return;
+                          // Cancels the delete without the app-wide Escape hiding the calendar.
+                          key.preventDefault();
+                          setConfirmingDelete(null);
+                          panelRef.current?.focus({ preventScroll: true });
+                        }}
+                      >
+                        <TrashIcon />
+                        <span className="event-title">{formatMessage(t.confirmDelete, { title: event.title })}</span>
+                        {repeating && (
+                          <button type="button" className="text-btn danger" onClick={() => deleteFromList(event, true)}>
+                            {t.deleteOccurrence}
+                          </button>
+                        )}
+                        <button type="button" className="text-btn danger" onClick={() => deleteFromList(event, false)}>
+                          {repeating ? t.deleteSeries : t.deleteEvent}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-btn"
+                          autoFocus
+                          onClick={() => {
+                            setConfirmingDelete(null);
+                            panelRef.current?.focus({ preventScroll: true });
+                          }}
+                        >
+                          {t.cancel}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                }
                 return (
                   <li key={event.id}>
                     <button
@@ -787,6 +836,11 @@ export function CalendarScreen({
                       className="day-event"
                       aria-label={`${t.editEvent}: ${event.title}`}
                       onClick={() => setEditing({ event, occurrence: selectedKey })}
+                      onKeyDown={(key) => {
+                        if (key.key !== "Delete") return;
+                        key.preventDefault();
+                        setConfirmingDelete({ id: event.id, day: selectedKey });
+                      }}
                     >
                       <i className="event-dot" style={{ background: event.color }} />
                       <span className="event-time">{event.time || t.allDay}</span>
@@ -801,6 +855,15 @@ export function CalendarScreen({
                           <RepeatIcon />
                         </span>
                       )}
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn day-delete"
+                      aria-label={`${t.deleteEvent}: ${event.title}`}
+                      title={t.deleteEvent}
+                      onClick={() => setConfirmingDelete({ id: event.id, day: selectedKey })}
+                    >
+                      <TrashIcon />
                     </button>
                   </li>
                 );
