@@ -55,6 +55,7 @@ const PATHS = {
   windowRestore: '<rect x="5.5" y="9" width="9.5" height="9.5" rx="1.5"/><path d="M9 6.5v-.1c0-.5.4-.9.9-.9h7.2c.8 0 1.4.6 1.4 1.4v7.2c0 .5-.4.9-.9.9h-.1"/>',
   windowClose: '<path d="M7 7l10 10M17 7 7 17"/>',
   show: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 9h16"/>',
+  general: '<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="8" cy="17" r="1.6"/>',
   palette: '<path d="M12 4a8 8 0 0 0 0 16c1.3 0 2-.8 2-1.8 0-1.4-1.2-1.7-1.2-2.9 0-1 .8-1.8 1.8-1.8H17a3 3 0 0 0 3-3C20 7.1 16.4 4 12 4z"/><circle cx="8.2" cy="11" r="1"/><circle cx="10.5" cy="7.6" r="1"/><circle cx="14.6" cy="7.8" r="1"/>',
   moon: '<path d="M18.5 14.5A7 7 0 0 1 9.5 5.5a7 7 0 1 0 9 9z"/>',
 };
@@ -81,7 +82,12 @@ const COLOR = {
   about: '<circle cx="12" cy="12" r="9" fill="#2f94ff"/><circle cx="12" cy="8.2" r="1.3" fill="#fff"/><rect x="10.8" y="11" width="2.4" height="6" rx="1" fill="#fff"/>',
   exit: '<rect x="4" y="4" width="9" height="16" rx="1.5" fill="#2470e6"/><path d="M11 12h8M16 8.5 19.5 12 16 15.5" fill="none" stroke="#e5484d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
   daily: '<rect x="4" y="6" width="16" height="14" rx="2" fill="#fff" stroke="#2470e6" stroke-width="1.5"/><path d="M4 6h16v5H4z" fill="#e5484d"/><path d="M8 4v4M16 4v4" fill="none" stroke="#2470e6" stroke-width="2" stroke-linecap="round"/>',
+  weekly: '<rect x="3" y="9" width="5" height="12" rx="1.2" fill="#2f94ff"/><rect x="9.5" y="4" width="5" height="17" rx="1.2" fill="#20b060"/><rect x="16" y="11" width="5" height="10" rx="1.2" fill="#ff8c24"/>',
+  monthly: '<rect x="3" y="3" width="18" height="18" rx="2" fill="#fff" stroke="#2470e6" stroke-width="1.4"/><path d="M3 5.2A2 2 0 0 1 5 3h14a2 2 0 0 1 2 2.2V9H3z" fill="#2f94ff"/><rect x="6" y="11.5" width="3" height="3" rx="0.4" fill="#e5484d"/><rect x="10.5" y="11.5" width="3" height="3" rx="0.4" fill="#20b060"/><rect x="15" y="11.5" width="3" height="3" rx="0.4" fill="#ff8c24"/><rect x="6" y="16" width="3" height="3" rx="0.4" fill="#2470e6"/><rect x="10.5" y="16" width="3" height="3" rx="0.4" fill="#2470e6"/><rect x="15" y="16" width="3" height="3" rx="0.4" fill="#2470e6"/>',
+  weather: '<circle cx="8.2" cy="8" r="4.2" fill="#ffc428"/><path d="M8 17.6h8.6a3.2 3.2 0 0 0 .4-6.4 4.8 4.8 0 0 0-9.2 1.5A2.8 2.8 0 0 0 8 17.6z" fill="#fff" stroke="#2f94ff" stroke-width="1.4"/>',
   favorite: '<path d="M12 19.2s-6.4-3.9-6.4-8.1A3.5 3.5 0 0 1 12 8.2a3.5 3.5 0 0 1 6.4 2.9c0 4.2-6.4 8.1-6.4 8.1z" fill="#e5484d"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2" fill="#2f94ff"/><circle cx="8.5" cy="9" r="2" fill="#ffc428"/><path d="M3 15.5 8 11l3.2 2.8L14 11l7 5.2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="#20b060"/>',
+  trash: '<path d="M9 3.5h6l1 2.2H8z" fill="#ff8c24"/><rect x="5" y="6.2" width="14" height="2.2" rx="1" fill="#e5484d"/><path d="M7.2 8.8h9.6l-.8 11.2H8z" fill="#e5484d"/>',
   show: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="#2f94ff"/><path d="M3.5 9h17" stroke="#fff" stroke-width="2"/><rect x="6" y="12" width="8" height="4" rx="1" fill="#fff"/>',
 };
 

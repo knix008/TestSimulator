@@ -59,6 +59,9 @@ export function createElectronPlatform(api) {
     async confirmQuit() {
       return api.confirmQuit();
     },
+    async windowBounds() {
+      return api.windowBounds?.() || null;
+    },
     async showMenu(payload) {
       return api.showMenu(payload);
     },
@@ -69,11 +72,14 @@ export function createElectronPlatform(api) {
       api.onRequestClose(callback);
     },
     async openPopup(spec) {
-      const id = await api.beginPopup(spec);
+      const started = await api.beginPopup(spec);
+      if (started?.focused) return { action: "focused" };
+      const id = started?.id || started;
       return (await api.waitPopup(id)) || { action: "close" };
     },
     async beginProgress(spec) {
-      const id = await api.beginPopup(spec);
+      const started = await api.beginPopup(spec);
+      const id = started?.id || started;
       return {
         update: (percent, message) => api.updatePopup(id, { percent, message }),
         close: () => api.endPopup(id),
@@ -84,6 +90,12 @@ export function createElectronPlatform(api) {
     },
     onPopupImmediate(callback) {
       api.onPopupImmediate(callback);
+    },
+    broadcastTheme(payload) {
+      api.broadcastTheme?.(payload);
+    },
+    broadcastWallpaper(payload) {
+      api.broadcastWallpaper?.(payload);
     },
     async writeClipboard(text) {
       return api.clipboardWrite(text);

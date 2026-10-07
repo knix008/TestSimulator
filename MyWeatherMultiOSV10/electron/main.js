@@ -8,7 +8,8 @@ import { createI18n } from "../src/core/i18n.js";
 import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js";
 import { themeColors, themeVars, DEFAULT_THEME_ID } from "../src/core/themes.js";
 import { buildTrayMenu, placeTrayMenu, trayIconFile, trayMenuSize } from "../src/ui/tray-menu.js";
-import { WINDOW_DEFAULT, WINDOW_MIN } from "../src/ui/window-spec.js";
+import { sanitizeSettings } from "../src/core/settings.js";
+import { WINDOW_DEFAULT, WINDOW_MIN, placeWindow, stampWindowPlacement, windowIsVisible } from "../src/ui/window-spec.js";
 import { PopupHub } from "./popup-hub.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -89,10 +90,27 @@ function revealWindow(win, onShown) {
   win.webContents.once("did-finish-load", reveal);
 }
 
+function savedWindowPlacement() {
+  const settings = sanitizeSettings(readJson(settingsFile()));
+  const areas = screen.getAllDisplays().map((display) => display.workArea);
+  const saved = {
+    x: settings.windowPosition?.x,
+    y: settings.windowPosition?.y,
+    width: settings.windowSize?.width,
+    height: settings.windowSize?.height,
+  };
+  const placed = placeWindow(saved, areas, WINDOW_DEFAULT);
+  const onScreen = !settings.windowPosition || windowIsVisible({ x: saved.x, y: saved.y, width: placed.width, height: placed.height }, areas);
+  return { ...placed, maximized: Boolean(settings.windowMaximized) && onScreen };
+}
+
 function createMainWindow() {
+  const placement = savedWindowPlacement();
   const win = new BrowserWindow({
-    width: WINDOW_DEFAULT.width,
-    height: WINDOW_DEFAULT.height,
+    x: placement.x,
+    y: placement.y,
+    width: placement.width,
+    height: placement.height,
     minWidth: WINDOW_MIN.width,
     minHeight: WINDOW_MIN.height,
     show: false,
@@ -115,10 +133,12 @@ function createMainWindow() {
   win.loadFile(path.join(__dirname, "../src/index.html"));
   const keepOffTaskbar = () => hideFromTaskbar(win);
   win.once("ready-to-show", () => {
+    if (placement.maximized) win.maximize();
     keepOffTaskbar();
     win.show();
     win.setIgnoreMouseEvents(false);
     keepOffTaskbar();
+    sendWindowState(win);
   });
   for (const name of ["show", "restore"]) win.on(name, keepOffTaskbar);
   win.on("focus", () => setTimeout(keepOffTaskbar, 250));
@@ -183,6 +203,32 @@ function readJson(file) {
   } catch {
     return null;
   }
+}
+
+function currentPlacement() {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  const maximized = mainWindow.isMaximized();
+  const bounds = maximized ? mainWindow.getNormalBounds() : mainWindow.getBounds();
+  return {
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
+    maximized,
+  };
+}
+
+function writeSettingsFile(settings) {
+  fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
+  fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2));
+}
+
+function saveWindowPlacement() {
+  const placement = currentPlacement();
+  if (!placement) return;
+  const settings = stampWindowPlacement(sanitizeSettings(readJson(settingsFile())), placement);
+  if (!settings.windowSize) return;
+  writeSettingsFile(settings);
 }
 
 function revealMainWindow() {
@@ -315,6 +361,7 @@ app.whenReady().then(() => {
 });
 
 app.on("before-quit", () => {
+  if (!quitting) saveWindowPlacement();
   quitting = true;
   if (tray) tray.destroy();
   tray = null;
@@ -351,8 +398,8 @@ ipcMain.handle("window-move", (event, step = {}) => {
   }
   if (step.phase === "end") {
     moveStarts.delete(win.id);
-    const [x, y] = win.getPosition();
-    return { x, y };
+    const bounds = win.getBounds();
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: win.isMaximized() };
   }
   const origin = moveStarts.get(win.id) || (() => {
     const [x, y] = win.getPosition();
@@ -374,8 +421,17 @@ ipcMain.handle("fetch-url", async (_event, url, options = {}) => {
 ipcMain.handle("read-settings", () => readJson(settingsFile()));
 
 ipcMain.handle("write-settings", (_event, data) => {
-  fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
-  fs.writeFileSync(settingsFile(), JSON.stringify(data, null, 2));
+  const incoming = data && typeof data === "object" ? data : {};
+  const placement = currentPlacement();
+  if (placement) {
+    writeSettingsFile(stampWindowPlacement(incoming, placement));
+    return true;
+  }
+  const previous = readJson(settingsFile()) || {};
+  if (!incoming.windowSize && previous.windowSize) incoming.windowSize = previous.windowSize;
+  if (!incoming.windowPosition && previous.windowPosition) incoming.windowPosition = previous.windowPosition;
+  if (incoming.windowMaximized == null && previous.windowMaximized != null) incoming.windowMaximized = previous.windowMaximized;
+  writeSettingsFile(incoming);
   return true;
 });
 
@@ -410,10 +466,16 @@ ipcMain.handle("write-file", (_event, filePath, text) => {
   return { path: filePath, directory: path.dirname(filePath) };
 });
 
+function imageDialogPath(dir) {
+  const text = String(dir || "").trim();
+  if (!text) return undefined;
+  return text.endsWith("/") || text.endsWith("\\") ? text : text + path.sep;
+}
+
 ipcMain.handle("pick-image", async (event, opts = {}) => {
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   const result = await dialog.showOpenDialog(parent, {
-    defaultPath: opts.startDir || undefined,
+    defaultPath: imageDialogPath(opts.startDir),
     filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"] }],
     properties: ["openFile"],
   });
@@ -458,7 +520,10 @@ ipcMain.handle("window-control", (_event, action) => {
   sendWindowState(mainWindow);
 });
 
+ipcMain.handle("window-bounds", () => currentPlacement());
+
 ipcMain.handle("confirm-quit", () => {
+  saveWindowPlacement();
   quitting = true;
   hub.closeAll();
   mainWindow?.close();
@@ -469,10 +534,11 @@ ipcMain.handle("clipboard-read", () => clipboard.readText());
 
 ipcMain.handle("begin-popup", (event, spec) => {
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
-  const id = hub.begin(spec, (stored) => {
-    const bounds = screen.getDisplayMatching(parent.getBounds()).bounds;
+  const started = hub.begin(spec, (stored) => {
+    const parentBounds = parent.getBounds();
+    const workArea = screen.getDisplayMatching(parentBounds).workArea;
     const win = new BrowserWindow({
-      ...popupWindowOptions(stored, parent, bounds),
+      ...popupWindowOptions(stored, parent, workArea, parentBounds),
       icon: iconPath,
       webPreferences: {
         preload: path.join(__dirname, "preload.cjs"),
@@ -496,9 +562,16 @@ ipcMain.handle("begin-popup", (event, spec) => {
       close() {
         if (!win.isDestroyed()) win.close();
       },
+      focus() {
+        if (win.isDestroyed()) return;
+        if (win.isMinimized()) win.restore();
+        win.show();
+        win.moveTop();
+        win.focus();
+      },
     };
   });
-  return id;
+  return started;
 });
 
 ipcMain.handle("take-popup-spec", (event) => hub.take(contentsToPopup.get(event.sender.id)));
@@ -506,6 +579,29 @@ ipcMain.handle("finish-popup", (event, result) => hub.finish(contentsToPopup.get
 ipcMain.handle("update-popup", (_event, id, patch) => hub.update(id, patch));
 ipcMain.handle("wait-popup", (_event, id) => hub.wait(id));
 ipcMain.handle("end-popup", (_event, id) => hub.finish(id, { action: "close" }));
+
+ipcMain.on("broadcast-theme", (event, payload) => {
+  if (!payload || typeof payload !== "object") return;
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed() || win.webContents.id === event.sender.id) continue;
+    win.webContents.send("apply-theme", {
+      vars: payload.vars || {},
+      mode: payload.mode || "",
+      theme: payload.theme || "",
+      customTheme: payload.customTheme || null,
+      transparency: payload.transparency,
+    });
+  }
+});
+
+ipcMain.on("broadcast-wallpaper", (event, payload) => {
+  if (!payload || typeof payload !== "object") return;
+  const message = { image: typeof payload.image === "string" ? payload.image : "", opacity: Number(payload.opacity) || 0 };
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed() || win.webContents.id === event.sender.id) continue;
+    win.webContents.send("apply-wallpaper", message);
+  }
+});
 
 ipcMain.on("popup-immediate", (event, message) => {
   const popupId = contentsToPopup.get(event.sender.id) || message.popupId;

@@ -18,12 +18,12 @@ import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
 import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconFile, trayIconFile } from "../../src/ui/tray-menu.js";
-import { layoutMenu, menuWindowOptions, popupWindowOptions } from "../../src/ui/menu-layout.js";
+import { layoutMenu, menuWindowOptions, placeBeside, popupWindowOptions } from "../../src/ui/menu-layout.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, sceneFit, sceneScale, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, placeWindow, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
-import { aggregate } from "../../src/weather/aggregate.js";
+import { aggregate, presentWeather } from "../../src/weather/aggregate.js";
 import { formatTemp } from "../../src/weather/format.js";
 import { geocodeUrl, metNoUrl, openMeteoUrl, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
 import { loadWeather } from "../../src/weather/service.js";
@@ -67,14 +67,28 @@ export function registerLogic(h) {
     assert.equal("opacity" in settings, false);
     assert.deepEqual(settings.customTheme, { mode: "dark", bg: "#16283a", text: "#abcdef", accent: "#5cc8ff" });
     assert.equal(settings.windowSize, null);
+    assert.deepEqual(sanitizeSettings({ windowPosition: { x: 12.6, y: -8 }, windowMaximized: 1 }).windowPosition, { x: 13, y: -8 });
+    assert.equal(sanitizeSettings({ windowPosition: { x: 12.6, y: -8 }, windowMaximized: 1 }).windowMaximized, true);
+    assert.equal(sanitizeSettings({ windowPosition: { x: "left", y: 4 } }).windowPosition, null);
+    assert.equal(sanitizeSettings(null).windowMaximized, false);
     assert.equal(sanitizeSettings({ theme: "midnight" }).theme, "dark-midnight");
     assert.equal(sanitizeSettings({ theme: "ocean" }).theme, "light-sky");
     assert.equal(sanitizeSettings({ theme: "custom" }).theme, "custom");
     assert.equal(sanitizeSettings(null).transparency, 30);
+    assert.equal(sanitizeSettings(null).backgroundOpacity, 40);
+    assert.equal(sanitizeSettings(null).displayPriority, "average");
+    assert.equal(sanitizeSettings({ displayPriority: "ecmwf" }).displayPriority, "ecmwf");
+    assert.equal(sanitizeSettings({ displayPriority: "nope" }).displayPriority, "average");
+    assert.equal(sanitizeSettings({ backgroundOpacity: 140 }).backgroundOpacity, 100);
+    assert.equal(sanitizeSettings({ backgroundOpacity: -3 }).backgroundOpacity, 0);
     assert.equal(settings.fontSize, 8);
     assert.equal(settings.fontStyle, "normal");
     assert.equal(settings.zoom, 200);
     assert.equal(settings.units, "C");
+    assert.equal(settings.updateHours, 1);
+    assert.equal(sanitizeSettings({ updateHours: 12 }).updateHours, 12);
+    assert.equal(sanitizeSettings({ updateHours: 3 }).updateHours, 1);
+    assert.equal(sanitizeSettings({ updateHours: 24 }).updateHours, 24);
     assert.equal(settings.recentFiles.length, 10);
   });
   h.test("undo redo and a new edit clears the redo stack", () => {
@@ -244,6 +258,11 @@ export function registerLogic(h) {
     ]);
     assert.equal(weather.daily[0].tempMax, 21);
     assert.equal(weather.daily[0].bySource.ecmwf.tempMax, 20);
+    assert.equal(weather.hourly[0].bySource.ecmwf.temp, 11);
+    const preferred = presentWeather(weather, "ecmwf");
+    assert.equal(preferred.daily[0].tempMax, 20);
+    assert.equal(presentWeather(weather, "average").daily[0].tempMax, 21);
+    assert.equal(presentWeather(weather, "metno").daily[0].tempMax, 21);
     assert.equal(weather.sources.filter((source) => source.ok).length, 2);
     assert.throws(() => aggregate([{ id: "ecmwf", ok: false, error: "down" }]), /All weather sources failed/);
   });
@@ -333,6 +352,21 @@ export function registerLogic(h) {
     assert.equal(options.parent.id, "main");
     assert.equal(options.width, 680);
     assert.equal(options.height, 560);
+    assert.equal(options.x, Math.round((1000 - 680) / 2));
+    const work = { x: 0, y: 0, width: 1920, height: 1080 };
+    const main = { x: 100, y: 80, width: 760, height: 640 };
+    const beside = popupWindowOptions({ type: "settings", width: 680, height: 640 }, { id: "main" }, work, main);
+    assert.equal(beside.x, 100 + 760 + 16);
+    assert.equal(beside.y, 80);
+    const forecast = placeBeside(main, { width: 720, height: 520 }, work);
+    assert.equal(forecast.x, 100 + 760 + 16);
+    assert.equal(forecast.y, 80 + Math.round((640 - 520) / 2));
+    const parked = placeBeside({ x: 0, y: 0, width: 1920, height: 1080 }, { width: 680, height: 640 }, work);
+    assert.equal(parked.x, 1920 - 680);
+    assert.ok(parked.x > 0);
+    const wide = placeBeside({ x: 0, y: 0, width: 1400, height: 1080 }, { width: 680, height: 640 }, work);
+    assert.equal(wide.x, 1920 - 680);
+    assert.match(fs.readFileSync(path.join(root, "electron/main.js"), "utf8"), /popupWindowOptions\(stored, parent, workArea, parentBounds\)/);
   });
   h.test("tab overflow uses previous and next instead of a scrollbar", () => {
     const layout = layoutTabScroller(0, 8, 300, 148);
@@ -351,6 +385,20 @@ export function registerLogic(h) {
     assert.equal(WINDOW_MIN.height, 46 + CONTENT_PADDING.top + CONTENT_PADDING.bottom + Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE));
     assert.deepEqual(clampWindowSize({ width: 10, height: 10 }), WINDOW_MIN);
     assert.deepEqual(clampWindowSize({ width: 900.4, height: 700.6 }), { width: 900, height: 701 });
+    const desk = [{ x: 0, y: 0, width: 1920, height: 1080 }];
+    const restored = placeWindow({ x: 40, y: 60, width: 800, height: 640 }, desk);
+    assert.deepEqual(restored, { x: 40, y: 60, width: 800, height: 640 });
+    const centered = placeWindow({ width: 760, height: 640 }, desk);
+    assert.equal(centered.x, Math.round((1920 - 760) / 2));
+    assert.equal(centered.y, Math.round((1080 - 640) / 2));
+    const missing = placeWindow({ x: 4000, y: 20, width: 800, height: 640 }, desk);
+    assert.deepEqual(missing, placeWindow({ width: 800, height: 640 }, desk));
+    const second = [{ x: 0, y: 0, width: 1280, height: 800 }, { x: 1280, y: 0, width: 1920, height: 1080 }];
+    assert.deepEqual(placeWindow({ x: 1400, y: 80, width: 900, height: 700 }, second), { x: 1400, y: 80, width: 900, height: 700 });
+    const kept = stampWindowPlacement({ windowSize: null, windowPosition: { x: 10, y: 20 } }, { x: 30, y: 40, width: 880, height: 610, maximized: false });
+    assert.deepEqual(kept.windowSize, { width: 880, height: 610 });
+    assert.deepEqual(kept.windowPosition, { x: 30, y: 40 });
+    assert.equal(stampWindowPlacement({ windowSize: { width: 880, height: 610 } }, { width: 10, height: 10 }).windowSize.width, 880);
     assert.equal(sceneScale(SCENE_NATURAL), 1);
     assert.equal(sceneScale({ width: 2000, height: 2000 }), Math.round((2000 / SCENE_NATURAL.width) * 1000) / 1000);
     assert.equal(sceneScale({ width: 80, height: 80 }), SCENE_MIN_SCALE);
@@ -391,11 +439,39 @@ export function registerLogic(h) {
     assert.equal(row.style.justifyContent, "flex-start");
     assert.equal(row.style.textAlign, "left");
     assert.ok(row.querySelector(".menu-icon svg"));
+    const weather = column.querySelector('[data-cmd="weather"] .menu-icon svg');
+    assert.match(weather.innerHTML, /fill="#ffc428"/);
+    const opened = buildTrayColumn(buildTrayMenu((key) => createI18n("ko").t(key)).find((entry) => entry.id === "weather").submenu);
+    for (const name of ["daily", "weekly", "monthly"]) {
+      const svg = opened.querySelector(`[data-cmd="${name}"] .menu-icon svg`);
+      assert.match(svg.innerHTML, /fill="#[0-9a-f]{6}"/i, name);
+    }
   });
   h.test("popup hub closes every popup when the app quits", async () => {
     const hub = new PopupHub();
     const closed = [];
-    const id = hub.begin({ type: "about" }, () => ({ close: () => closed.push("about"), send() {} }));
+    let focuses = 0;
+    const started = hub.begin({ type: "about" }, () => ({
+      close: () => closed.push("about"),
+      send() {},
+      focus() {
+        focuses += 1;
+      },
+    }));
+    const id = started.id;
+    assert.equal(started.focused, false);
+    const again = hub.begin({ type: "about" }, () => {
+      throw new Error("about should stay open");
+    });
+    assert.equal(again.focused, true);
+    assert.equal(again.id, id);
+    assert.equal(focuses, 1);
+    assert.equal(hub.windows.size, 1);
+    const daily = hub.begin({ type: "forecast", range: "daily" }, () => ({ close() {}, send() {}, focus() {} }));
+    const weekly = hub.begin({ type: "forecast", range: "weekly" }, () => ({ close() {}, send() {}, focus() {} }));
+    assert.equal(daily.focused, false);
+    assert.equal(weekly.focused, false);
+    assert.notEqual(daily.id, weekly.id);
     const pending = hub.wait(id);
     hub.closeAll();
     assert.deepEqual(await pending, { action: "close" });
@@ -557,6 +633,8 @@ export function registerLogic(h) {
     const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
     assert.match(main, /assets\/icon\.png/);
     assert.match(main, /frame: false/);
+    assert.match(main, /saveWindowPlacement/);
+    assert.match(main, /window-bounds/);
     assert.match(main, /thickFrame: false/);
     assert.match(main, /skipTaskbar: true/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, "src/styles.css"), "utf8"), /app-region/);
@@ -591,6 +669,8 @@ export function registerLogic(h) {
     assert.match(main, /WINDOW_MIN/);
     assert.match(main, /window-resize/);
     assert.match(main, /window-move/);
+    assert.match(main, /savedWindowPlacement/);
+    assert.match(main, /placeWindow/);
     assert.match(main, /function revealWindow/);
     assert.match(main, /revealWindow\(win\)/);
     assert.match(main, /uncaughtException/);

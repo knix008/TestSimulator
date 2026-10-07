@@ -1,11 +1,12 @@
 import { esc } from "./html.js";
+import { presentWeather } from "../weather/aggregate.js";
 import { formatTemp, isoDate } from "../weather/format.js";
 import { conditionIcon, conditionText } from "../weather/wmo.js";
 
-export function renderWeatherHtml({ tab, language, units, today, t }) {
-  const weather = tab?.weather;
+export function renderWeatherHtml({ tab, language, units, today, t, priority = "average" }) {
+  const shown = preferTab(tab, priority);
   const city = language === "ko" ? tab?.place?.cityKo || tab?.place?.cityEn || "" : tab?.place?.cityEn || tab?.place?.cityKo || "";
-  const reading = currentReading(tab, today);
+  const reading = currentReading(shown, today);
   const code = reading?.code ?? 1;
   const art = conditionIcon(code);
   const scene = `<section class="weather-scene" data-gui="scene">
@@ -14,14 +15,15 @@ export function renderWeatherHtml({ tab, language, units, today, t }) {
         <div class="scene-city">${esc(city)}</div>
         <div class="scene-temp">${esc(reading ? formatTemp(reading.temp, units) : "—")}</div>
         <div class="scene-cond">${esc(reading ? conditionText(code, language) : t("weather.empty"))}</div>
-        <div class="scene-range">${esc(reading ? `${formatTemp(reading.day.tempMin, units)} – ${formatTemp(reading.day.tempMax, units)}` : "")}</div>
+        <div class="scene-range">${esc(reading ? `${formatTemp(reading.day.tempMin, units)} – ${formatTemp(reading.day.tempMax, units)}` : "\u00a0")}</div>
       </div>
     </section>`;
-  const empty = weather?.daily?.length ? "" : `<p class="empty" data-gui="empty">${esc(t("weather.empty"))}</p>`;
-  return `<div class="weather">${scene}${empty}</div>`;
+  return `<div class="weather">${scene}</div>`;
 }
 
-export function renderForecastHtml({ range, tab, language, units, today, t }) {
+export function renderForecastHtml({ range, tab, language, units, today, t, priority = "average" }) {
+  const shown = preferTab(tab, priority);
+  tab = shown;
   const weather = tab?.weather;
   if (!weather?.daily?.length) return `<p class="empty" data-gui="empty">${esc(t("weather.empty"))}</p>`;
   const reading = currentReading(tab, today);
@@ -35,6 +37,11 @@ export function forecastFitHeight(range, hasWeather) {
   if (range === "weekly") return 200;
   if (range === "monthly") return 500;
   return 300;
+}
+
+function preferTab(tab, priority) {
+  if (!tab?.weather) return tab;
+  return { ...tab, weather: presentWeather(tab.weather, priority) };
 }
 
 function currentReading(tab, today) {

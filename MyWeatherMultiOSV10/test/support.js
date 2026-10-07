@@ -60,6 +60,7 @@ export function createMemoryPlatform() {
     nextSavePath: null,
     nextOpen: null,
     nextImage: null,
+    imageStarts: [],
     lastStartDir: undefined,
     clipboardText: "",
     fetchImpl: defaultFetch,
@@ -114,7 +115,8 @@ export function createMemoryPlatform() {
       files.set(filePath, text);
       return { path: filePath, directory: filePath.replace(/\\/g, "/").replace(/\/[^/]*$/, "") };
     },
-    async pickImage() {
+    async pickImage({ startDir } = {}) {
+      this.imageStarts.push(startDir || "");
       return this.nextImage;
     },
     async print(payload) {

@@ -19,6 +19,8 @@ export function buildMenuItems(name, ctx) {
       item("print", "print", t("cmd.print"), "Ctrl+P", true),
       item("add-tab", "add", t("cmd.addTab"), "", true, true),
       item("close-tab", "close", t("cmd.closeTab"), "", true),
+      item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),
+      item("clear-wallpaper", "trash", t("cmd.clearWallpaper"), "", true),
       item("settings", "settings", t("cmd.settings"), "Ctrl+,", true, true),
       item("about", "about", t("cmd.about"), "", true),
       item("exit", "exit", t("cmd.exit"), "", true, true),
@@ -30,6 +32,8 @@ export function buildMenuItems(name, ctx) {
       item("daily", "daily", t("cmd.daily"), "", true),
       item("toggle-favorite", "favorite", t("cmd.toggleFavorite"), "", true),
       item("refresh", "refresh", t("cmd.refresh"), "", true, true),
+      item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),
+      item("clear-wallpaper", "trash", t("cmd.clearWallpaper"), "", true),
     ];
   }
   return [];

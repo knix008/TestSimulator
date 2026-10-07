@@ -60,7 +60,23 @@ export function mergeHourly(okSources) {
       wind: round1(average(rows.map((row) => row.wind))),
       humidity: round1(average(rows.map((row) => row.humidity))),
       code: mode(rows.map((row) => row.code)),
+      bySource: Object.fromEntries(rows.filter((row) => row.source).map((row) => [row.source, row])),
     }));
+}
+
+/** Values shown for a display priority. A missing source keeps the averaged row. */
+export function presentWeather(weather, priority) {
+  if (!weather || !priority || priority === "average") return weather;
+  const pick = (row) => {
+    const preferred = row?.bySource?.[priority];
+    if (!preferred) return row;
+    return { ...row, ...preferred, bySource: row.bySource };
+  };
+  return {
+    ...weather,
+    daily: (weather.daily || []).map(pick),
+    hourly: (weather.hourly || []).map(pick),
+  };
 }
 
 function mode(values) {

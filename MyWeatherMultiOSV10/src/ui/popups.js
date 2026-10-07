@@ -2,9 +2,11 @@ import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
 import { FONT_STYLES } from "../core/fonts.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
+import { DEFAULT_SETTINGS, DISPLAY_PRIORITIES, UPDATE_HOURS } from "../core/settings.js";
 import { SOURCE_IDS } from "../weather/providers.js";
 import { esc } from "./html.js";
 import { icon } from "./icons.js";
+import { keepsOneWindow, placeBeside, popupKey } from "./menu-layout.js";
 import { layoutTabScroller } from "./tab-scroller.js";
 
 const ROW = "display:flex;align-items:center;gap:8px;height:32px;white-space:nowrap;overflow:hidden;flex:0 0 auto";
@@ -27,15 +29,16 @@ export function buildSettingsSpec(model) {
     catalog: model.catalog || [],
     language: model.language || "ko",
     tabs: [
-      { id: "general", label: t("tab.general"), rows: generalRows(model) },
-      { id: "appearance", label: t("tab.appearance"), rows: appearanceRows(model) },
-      { id: "wallpaper", label: t("tab.wallpaper"), rows: wallpaperRows(model) },
-      { id: "font", label: t("tab.font"), rows: fontRows(model) },
-      { id: "data", label: t("tab.data"), rows: dataRows(model) },
-      { id: "recent", label: t("tab.recent"), rows: recentRows(recent, t) },
+      { id: "general", icon: "general", label: t("tab.general"), rows: generalRows(model) },
+      { id: "data", icon: "weather", label: t("tab.data"), rows: dataRows(model) },
+      { id: "appearance", icon: "palette", label: t("tab.appearance"), rows: appearanceRows(model) },
+      { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: wallpaperRows(model) },
+      { id: "font", icon: "font", label: t("tab.font"), rows: fontRows(model) },
+      { id: "recent", icon: "recent", label: t("tab.recent"), rows: recentRows(recent, t) },
     ],
     closeLabel: t("tip.close"),
     buttons: [
+      { id: "reset", action: "reset", icon: "refresh", label: t("btn.reset"), title: t("tip.reset"), align: "start" },
       { id: "ok", action: "ok", icon: "check", label: t("btn.ok") },
       { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") },
     ],
@@ -49,16 +52,15 @@ export function buildAboutSpec(t) {
     icon: "about",
     title: t("popup.about"),
     width: 560,
-    height: 420,
+    height: 380,
     resizable: false,
     scroll: "none",
     rows: [
-      { kind: "static", id: "name", label: APP_INFO.name, value: APP_INFO.version },
+      { kind: "about", id: "intro", name: APP_INFO.name, description: t("about.description"), icon: "../assets/icon.png" },
       { kind: "static", id: "version", label: t("about.version"), value: APP_INFO.version },
       { kind: "static", id: "build", label: t("about.buildNumber"), value: APP_INFO.buildNumber },
       { kind: "static", id: "date", label: t("about.buildDate"), value: APP_INFO.buildDate },
       { kind: "static", id: "author", label: t("about.author"), value: APP_INFO.author },
-      { kind: "static", id: "desc", label: t("about.description"), value: APP_INFO.author },
     ],
     buttons: [{ id: "close", action: "close", icon: "close", label: t("btn.close") }],
   };
@@ -229,7 +231,7 @@ export function buildPreviewSpec(printModel, t) {
 
 const FORECAST_WIDTH = { daily: 640, weekly: 720, monthly: 720 };
 
-export function buildForecastSpec({ range, markup, fitHeight, transparency = 0, t }) {
+export function buildForecastSpec({ range, markup, fitHeight, transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
   const body = Math.max(72, Number(fitHeight) || 72);
   return {
     type: "forecast",
@@ -237,12 +239,23 @@ export function buildForecastSpec({ range, markup, fitHeight, transparency = 0, 
     icon: range,
     title: t(`forecast.${range}`),
     transparency: Math.max(0, Math.min(100, Math.round(Number(transparency) || 0))),
+    backgroundImage: typeof backgroundImage === "string" ? backgroundImage : "",
+    backgroundOpacity: Math.max(0, Math.min(100, Math.round(Number(backgroundOpacity) || 0))),
     width: FORECAST_WIDTH[range] || 640,
     height: 44 + 48 + 16 + body,
     markup,
     fitHeight: body,
     buttons: [{ id: "close", action: "close", icon: "close", label: t("btn.close") }],
   };
+}
+
+export function paintWallpaper(layer, image, opacity) {
+  if (!layer) return;
+  const picture = typeof image === "string" ? image : "";
+  const value = Math.max(0, Math.min(100, Number(opacity) || 0));
+  layer.style.backgroundImage = picture ? `url("${picture}")` : "none";
+  layer.style.opacity = picture ? String(value / 100) : "0";
+  layer.dataset.image = picture ? "yes" : "no";
 }
 
 export function buildPopupElement(spec) {
@@ -277,12 +290,15 @@ export function buildPopupElement(spec) {
     ? `<div class="popup-tabs" data-gui="popup-tabs" style="display:flex;height:36px;overflow:hidden;flex:0 0 auto"><div class="popup-tabstrip" style="display:flex;overflow:hidden;flex:1;min-width:0"></div><button type="button" data-action="tab-prev" data-gui="tab-nav" title="&lt;">&lt;</button><button type="button" data-action="tab-next" data-gui="tab-nav" title="&gt;">&gt;</button></div>`
     : "";
   const closeLabel = spec.closeLabel || "Close";
-  el.innerHTML = `<header class="popup-head" style="height:44px;display:flex;align-items:center;gap:8px;overflow:hidden;flex:0 0 auto;white-space:nowrap"><span class="popup-icon">${icon(spec.icon || "info")}</span><span class="popup-title">${esc(spec.title || "")}</span><button type="button" class="icon-btn win-btn win-close popup-x" data-action="${spec.type === "progress" ? "cancel" : "close"}" data-gui="popup-close" title="${esc(closeLabel)}" aria-label="${esc(closeLabel)}">${icon("windowClose")}</button></header>${tabBar}<div class="popup-body" style="overflow:hidden;flex:1 1 auto;min-height:0">${panels}</div><footer class="popup-foot" style="height:48px;display:flex;align-items:center;justify-content:flex-end;gap:8px;overflow:hidden;flex:0 0 auto">${(spec.buttons || [])
+  const titleIcon = spec.type === "about" ? icon("about", { colorful: true }) : icon(spec.icon || "info");
+  const hasOk = (spec.buttons || []).some((button) => button.action === "ok");
+  el.innerHTML = `${spec.type === "forecast" ? `<div class="wallpaper" data-gui="wallpaper"></div>` : ""}<header class="popup-head" style="height:44px;display:flex;align-items:center;gap:8px;overflow:hidden;flex:0 0 auto;white-space:nowrap"><span class="popup-icon">${titleIcon}</span><span class="popup-title">${esc(spec.title || "")}</span><button type="button" class="icon-btn win-btn win-close popup-x" data-action="${spec.type === "progress" ? "cancel" : "close"}" data-gui="popup-close" title="${esc(closeLabel)}" aria-label="${esc(closeLabel)}">${icon("windowClose")}</button></header>${tabBar}<div class="popup-body" style="overflow:hidden;flex:1 1 auto;min-height:0">${panels}</div><footer class="popup-foot" style="height:48px;display:flex;align-items:center;justify-content:flex-end;gap:8px;overflow:hidden;flex:0 0 auto">${(spec.buttons || [])
     .map(
       (button, index) =>
-        `<button type="button" class="popup-btn${index === 0 ? " primary" : ""}" data-action="${esc(button.action)}" data-gui="popup-button" title="${esc(button.label)}" style="white-space:nowrap;display:inline-flex;align-items:center;gap:6px">${icon(button.icon || "dot")}<span class="menu-label">${esc(button.label)}</span></button>`,
+        `<button type="button" class="popup-btn${button.action === "ok" || (!hasOk && index === 0) ? " primary" : ""}" data-action="${esc(button.action)}" data-gui="popup-button" title="${esc(button.title || button.label)}" style="white-space:nowrap;display:inline-flex;align-items:center;gap:6px;${button.align === "start" ? "margin-right:auto;" : ""}">${icon(button.icon || "dot")}<span class="menu-label">${esc(button.label)}</span></button>`,
     )
     .join("")}</footer>`;
+  if (spec.type === "forecast") paintWallpaper(el.querySelector("[data-gui='wallpaper']"), spec.backgroundImage, spec.backgroundOpacity);
   for (const row of rowsOf(spec)) {
     if (row.kind !== "input" || !/^[\w-]+$/.test(row.id)) continue;
     const input = el.querySelector(`[data-field="${row.id}"]`);
@@ -359,7 +375,10 @@ export function wirePopup(el, spec, handlers = {}) {
       button.title = tab.label;
       button.style.whiteSpace = "nowrap";
       button.style.height = "32px";
-      button.textContent = tab.label;
+      button.style.display = "inline-flex";
+      button.style.alignItems = "center";
+      button.style.gap = "6px";
+      button.innerHTML = `${tab.icon ? icon(tab.icon) : ""}<span>${esc(tab.label)}</span>`;
       if (tab.id === activeTab()) button.classList.add("is-active");
       button.addEventListener("click", () => activate(tab.id));
       strip.appendChild(button);
@@ -385,13 +404,21 @@ export function wirePopup(el, spec, handlers = {}) {
     handlers.localTheme?.(draft);
     void handlers.immediate?.({ type: "theme-preview", ...draft, popupId: spec.popupId });
   };
-  const setTransparency = (value) => {
-    const input = el.querySelector('[data-field="transparency"]');
+  const setSteppedNumber = (input, value) => {
+    const min = input.min === "" ? -Infinity : Number(input.min);
+    const max = input.max === "" ? Infinity : Number(input.max);
+    input.value = String(Math.max(min, Math.min(max, Math.round(Number(value) || 0))));
+  };
+  const setRange = (field, value) => {
+    const input = el.querySelector(`[data-field="${field}"]`);
     if (!input) return;
     input.value = String(Math.max(0, Math.min(100, Math.round(Number(value) || 0))));
-    const out = el.querySelector('[data-out="transparency"]');
+    const out = el.querySelector(`[data-out="${field}"]`);
     if (out) out.textContent = `${input.value}%`;
-    previewTheme();
+    if (field === "transparency") previewTheme();
+    if (field === "backgroundOpacity") {
+      void handlers.immediate?.({ type: "wallpaper-opacity", value: Number(input.value), popupId: spec.popupId });
+    }
   };
   el.addEventListener("contextmenu", (event) => {
     if (spec.type !== "forecast") return;
@@ -431,8 +458,11 @@ export function wirePopup(el, spec, handlers = {}) {
     }
     const step = event.target.closest("[data-step]");
     if (step) {
-      const input = el.querySelector(`[data-field="${step.dataset.target}"]`);
-      setTransparency(Number(input?.value || 0) + Number(step.dataset.step));
+      const field = step.dataset.target;
+      const input = el.querySelector(`[data-field="${field}"]`);
+      const next = Number(input?.value || 0) + Number(step.dataset.step);
+      if (input?.type === "number") setSteppedNumber(input, next);
+      else setRange(field, next);
       return;
     }
     const button = event.target.closest("[data-action]");
@@ -451,6 +481,17 @@ export function wirePopup(el, spec, handlers = {}) {
     if (action === "recent-clear") {
       el.querySelectorAll(".popup-row[data-recent]").forEach((row) => row.remove());
       void handlers.immediate?.({ type: "recent-clear", popupId: spec.popupId });
+      return;
+    }
+    if (action === "reset") {
+      resetSettingsForm(el, spec);
+      previewTheme();
+      void handlers.immediate?.({
+        type: "wallpaper-preview",
+        image: "",
+        opacity: DEFAULT_SETTINGS.backgroundOpacity,
+        popupId: spec.popupId,
+      });
       return;
     }
     if (action === "search-online") {
@@ -500,9 +541,9 @@ export function wirePopup(el, spec, handlers = {}) {
     if (!hit || !el.contains(hit)) return;
     suppressClick = true;
     onPopupPointer(event);
-    queueMicrotask(() => {
+    setTimeout(() => {
       suppressClick = false;
-    });
+    }, 50);
   });
   el.addEventListener("click", (event) => {
     if (suppressClick) {
@@ -529,18 +570,11 @@ export function wirePopup(el, spec, handlers = {}) {
   });
   el.addEventListener("input", (event) => {
     const field = event.target.dataset?.field;
-    if (field === "transparency") {
-      setTransparency(event.target.value);
+    if (field === "transparency" || field === "backgroundOpacity") {
+      setRange(field, event.target.value);
       return;
     }
-    if (field === "customBg" || field === "customText" || field === "customAccent") {
-      customEdited(field);
-      return;
-    }
-    if (field === "backgroundOpacity") {
-      const out = el.querySelector(`[data-out="${field}"]`);
-      if (out) out.textContent = event.target.value;
-    }
+    if (field === "customBg" || field === "customText" || field === "customAccent") customEdited(field);
   });
   el.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -582,6 +616,26 @@ export function bootPopup(spec, api, container = document.body) {
   return el;
 }
 
+const COMPANION_POPUPS = new Set(["forecast", "settings", "about"]);
+
+export function placeCompanionPopup(el, view = window) {
+  if (!COMPANION_POPUPS.has(el.dataset.popup) || Number(el.dataset.scale) < 1) return;
+  const shell = document.querySelector(".window-shell");
+  if (!shell) return;
+  const parent = shell.getBoundingClientRect();
+  const width = parseInt(el.style.width, 10) || 0;
+  const height = parseInt(el.style.height, 10) || 0;
+  if (!width || !height) return;
+  const spot = placeBeside(
+    { x: parent.left, y: parent.top, width: parent.width, height: parent.height },
+    { width, height },
+    { x: 0, y: 0, width: view.innerWidth || 0, height: view.innerHeight || 0 },
+  );
+  el.style.left = `${spot.x}px`;
+  el.style.top = `${spot.y}px`;
+  el.style.transform = "none";
+}
+
 export function fitPopupToViewport(el, view = window) {
   const width = parseInt(el.style.width, 10) || 0;
   const height = parseInt(el.style.height, 10) || 0;
@@ -598,22 +652,42 @@ export class PopupLayer {
     this.overlay = overlay;
     this.waiters = new Set();
     this.progress = null;
-    this.onResize = () => this.overlay.querySelectorAll(".popup").forEach((el) => fitPopupToViewport(el));
+    this.onResize = () =>
+      this.overlay.querySelectorAll(".popup").forEach((el) => {
+        fitPopupToViewport(el);
+        placeCompanionPopup(el);
+      });
     if (typeof window !== "undefined") window.addEventListener("resize", this.onResize);
   }
 
+  raise(el) {
+    this.z = (this.z || 80) + 1;
+    el.style.zIndex = String(this.z);
+    this.overlay.appendChild(el);
+    el.focus();
+  }
+
   open(spec, handlers = {}) {
-    this.closeType(spec.type);
-    const backdrop = document.createElement("div");
-    backdrop.className = "popup-backdrop";
-    backdrop.dataset.backdrop = spec.type;
+    const key = popupKey(spec);
+    const existing = keepsOneWindow(spec) ? this.overlay.querySelector(`[data-popup-key="${key}"]`) : null;
+    if (existing) {
+      this.raise(existing);
+      return Promise.resolve({ action: "focused" });
+    }
+    if (spec.type !== "forecast") this.closeType(spec.type);
+    const companion = COMPANION_POPUPS.has(spec.type);
+    const backdrop = companion ? null : document.createElement("div");
+    if (backdrop) {
+      backdrop.className = "popup-backdrop";
+      backdrop.dataset.backdrop = spec.type;
+    }
     const el = buildPopupElement(spec);
     return new Promise((resolve) => {
       const finish = (result) => {
         if (finish.done) return;
         finish.done = true;
         this.waiters.delete(finish);
-        backdrop.remove();
+        backdrop?.remove();
         el.remove();
         resolve(result);
       };
@@ -627,9 +701,11 @@ export class PopupLayer {
         },
         copy: handlers.copy,
       });
-      this.overlay.appendChild(backdrop);
-      this.overlay.appendChild(el);
+      el.dataset.popupKey = key;
+      if (backdrop) this.overlay.appendChild(backdrop);
+      this.raise(el);
       fitPopupToViewport(el);
+      placeCompanionPopup(el);
       el.focus();
     });
   }
@@ -726,6 +802,23 @@ function generalRows(model) {
     },
     {
       kind: "select",
+      id: "updateHours",
+      label: t("field.updateHours"),
+      value: String(values.updateHours ?? 1),
+      options: UPDATE_HOURS.map((hours) => ({ value: String(hours), label: t(`update.h${hours}`) })),
+    },
+    {
+      kind: "select",
+      id: "displayPriority",
+      label: t("field.displayPriority"),
+      value: values.displayPriority || "average",
+      options: DISPLAY_PRIORITIES.map((id) => ({
+        value: id,
+        label: id === "average" ? t("priority.average") : t(`source.${id}`),
+      })),
+    },
+    {
+      kind: "select",
       id: "countryCode",
       label: t("field.country"),
       value: values.countryCode,
@@ -762,7 +855,15 @@ function appearanceRows(model) {
   const mode = theme === CUSTOM_THEME_ID ? CUSTOM_THEME_ID : DARK_THEMES.some((item) => item.id === theme) ? "dark" : "light";
   const custom = sanitizeCustomTheme(values.customTheme);
   return [
-    { kind: "range", id: "transparency", label: t("field.transparency"), value: values.transparency, stepper: true, t },
+    {
+      kind: "range",
+      id: "transparency",
+      label: t("field.transparency"),
+      value: values.transparency,
+      suffix: "%",
+      decrease: t("tip.decrease"),
+      increase: t("tip.increase"),
+    },
     {
       kind: "theme-mode",
       id: "themeMode",
@@ -781,7 +882,16 @@ function appearanceRows(model) {
       mode,
       language,
       custom,
-      t,
+      labels: {
+        custom: t("theme.custom"),
+        customHint: t("theme.customHint"),
+        customMode: t("field.customMode"),
+        modeDark: t("theme.modeDark"),
+        modeLight: t("theme.modeLight"),
+        customBg: t("field.customBg"),
+        customText: t("field.customText"),
+        customAccent: t("field.customAccent"),
+      },
     },
   ];
 }
@@ -790,10 +900,21 @@ function wallpaperRows(model) {
   const t = model.t;
   const values = model.values;
   return [
+    { kind: "hidden", id: "wallpaperEdited", value: "" },
+    { kind: "hidden", id: "backgroundImage", value: "" },
+    { kind: "hidden", id: "backgroundName", value: values.backgroundName || "" },
     { kind: "static", id: "wallpaper", label: t("field.wallpaper"), value: values.backgroundName || "—" },
     { kind: "action", id: "pick-wallpaper", action: "pick-wallpaper", icon: "image", label: t("btn.chooseImage") },
     { kind: "action", id: "clear-wallpaper", action: "clear-wallpaper", icon: "trash", label: t("btn.clearImage") },
-    { kind: "range", id: "backgroundOpacity", label: t("field.wallpaperOpacity"), value: values.backgroundOpacity },
+    {
+      kind: "range",
+      id: "backgroundOpacity",
+      label: t("field.wallpaperOpacity"),
+      value: values.backgroundOpacity ?? 40,
+      suffix: "%",
+      decrease: t("tip.decrease"),
+      increase: t("tip.increase"),
+    },
   ];
 }
 
@@ -809,7 +930,17 @@ function fontRows(model) {
       value: values.fontFamily,
       options: fonts.map((name) => ({ value: name, label: name })),
     },
-    { kind: "number", id: "fontSize", label: t("field.fontSize"), value: values.fontSize, min: 8, max: 72 },
+    {
+      kind: "number",
+      id: "fontSize",
+      label: t("field.fontSize"),
+      value: values.fontSize,
+      min: 8,
+      max: 72,
+      step: 1,
+      decrease: t("tip.decrease"),
+      increase: t("tip.increase"),
+    },
     {
       kind: "select",
       id: "fontStyle",
@@ -825,6 +956,7 @@ function dataRows(model) {
   const enabled = new Set(model.values.enabledSources || []);
   const status = model.values.sourceStatus || {};
   return [
+    { kind: "static", id: "sources", label: t("field.sources"), value: t("field.sourcesHint") },
     ...SOURCE_IDS.map((id) => {
       const source = status[id];
       const state = !source ? "—" : source.ok ? t("source.ok") : t("source.fail");
@@ -833,6 +965,7 @@ function dataRows(model) {
         id: `source-${id}`,
         source: id,
         label: t(`source.${id}`),
+        detail: t(`source.${id}From`),
         checked: enabled.has(id),
         state,
         tone: !source ? "idle" : source.ok ? "ok" : "bad",
@@ -863,32 +996,79 @@ function recentRows(recent, t) {
   ];
 }
 
+function resetSettingsForm(el, spec) {
+  const defaults = DEFAULT_SETTINGS;
+  const place = defaults.defaultLocation;
+  const custom = sanitizeCustomTheme(defaults.customTheme);
+  const assign = (field, value) => {
+    const node = el.querySelector(`[data-field="${field}"]`);
+    if (node) node.value = value == null ? "" : String(value);
+  };
+  assign("language", defaults.language);
+  assign("units", defaults.units);
+  assign("updateHours", defaults.updateHours);
+  assign("displayPriority", defaults.displayPriority);
+  assign("countryCode", place.countryCode);
+  if (spec) refillCities(el, spec);
+  assign("cityEn", place.cityEn);
+  assign("lat", place.lat);
+  assign("lon", place.lon);
+  assign("search", "");
+  const reopen = el.querySelector('[data-field="reopen"]');
+  if (reopen) reopen.checked = defaults.reopenLast;
+  el.querySelectorAll('[data-group="source"]').forEach((box) => {
+    box.checked = defaults.enabledSources.includes(box.dataset.source);
+  });
+  assign("fontFamily", defaults.fontFamily);
+  assign("fontSize", defaults.fontSize);
+  assign("fontStyle", defaults.fontStyle);
+  assign("customMode", custom.mode);
+  assign("customBg", custom.bg);
+  assign("customText", custom.text);
+  assign("customAccent", custom.accent);
+  const mode = defaults.theme === CUSTOM_THEME_ID ? CUSTOM_THEME_ID : DARK_THEMES.some((item) => item.id === defaults.theme) ? "dark" : "light";
+  showThemeGroup(el, mode);
+  markTheme(el, defaults.theme);
+  paintCustomChip(el);
+  assign("wallpaperEdited", "1");
+  assign("backgroundImage", "");
+  assign("backgroundName", "");
+  const name = el.querySelector('[data-row="wallpaper"] span:last-child');
+  if (name) name.textContent = "—";
+  assign("transparency", defaults.transparency);
+  assign("backgroundOpacity", defaults.backgroundOpacity);
+  for (const field of ["transparency", "backgroundOpacity"]) {
+    const out = el.querySelector(`[data-out="${field}"]`);
+    const input = el.querySelector(`[data-field="${field}"]`);
+    if (out && input) out.textContent = `${input.value}%`;
+  }
+}
+
 function renderRow(row) {
   const style = ` style="${ROW}"`;
+  if (row.kind === "about") {
+    return `<div class="about-intro" data-row="${esc(row.id)}"><img class="about-app-icon" src="${esc(row.icon)}" alt="" width="72" height="72"><div class="about-copy"><strong class="about-name">${esc(row.name)}</strong><p class="about-desc">${esc(row.description)}</p></div></div>`;
+  }
+  if (row.kind === "hidden") return `<input type="hidden" data-field="${esc(row.id)}" value="${esc(row.value || "")}">`;
   if (row.kind === "select") {
     const options = (row.options || [])
       .map((option) => `<option value="${esc(option.value)}"${option.value === row.value ? " selected" : ""}>${esc(option.label)}</option>`)
       .join("");
     return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><select data-field="${esc(row.id)}" ${row.setup ? 'data-setup="1"' : ""} title="${esc(row.label)}">${options}</select></div>`;
   }
-  if (row.kind === "check" || row.kind === "source") {
-    const source = row.kind === "source" ? ` data-group="source" data-source="${esc(row.source)}"` : "";
-    const state = row.kind === "source"
-      ? `<span class="source-state is-${esc(row.tone || "idle")}" data-gui="source-state" title="${esc(row.stateTitle || row.state || "")}">${esc(row.state || "—")}</span>`
-      : "";
-    return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span>${state}<input type="checkbox" data-field="${esc(row.kind === "source" ? row.source : row.id)}"${source} title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;
+  if (row.kind === "source") {
+    return `<label class="popup-row source-row" data-row="${esc(row.id)}"${style}><input type="checkbox" data-field="${esc(row.source)}" data-group="source" data-source="${esc(row.source)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}><span class="source-name">${esc(row.label)}</span><span class="source-detail" title="${esc(row.detail || "")}">${esc(row.detail || "")}</span><span class="source-state is-${esc(row.tone || "idle")}" data-gui="source-state" title="${esc(row.stateTitle || row.state || "")}">${esc(row.state || "—")}</span></label>`;
+  }
+  if (row.kind === "check") {
+    return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="checkbox" data-field="${esc(row.id)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;
   }
   if (row.kind === "radio") {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="radio" name="${esc(row.name)}" value="${esc(row.value)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;
   }
   if (row.kind === "range") {
-    const minus = row.stepper
-      ? `<button type="button" class="step-btn" data-step="-5" data-target="${esc(row.id)}" data-gui="popup-button" title="-5">−</button>`
-      : "";
-    const plus = row.stepper
-      ? `<button type="button" class="step-btn" data-step="5" data-target="${esc(row.id)}" data-gui="popup-button" title="+5">+</button>`
-      : "";
-    return `<div class="popup-row range-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label>${minus}<span class="range-end">0</span><input type="range" min="0" max="100" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}"><span class="range-end">100</span>${plus}<output data-out="${esc(row.id)}">${esc(row.value)}${row.stepper ? "%" : ""}</output></div>`;
+    const decrease = row.decrease || "−";
+    const increase = row.increase || "+";
+    return `<div class="popup-row range-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="range-control"><button type="button" class="step-btn" data-step="-5" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(decrease)}" aria-label="${esc(decrease)}">−</button><span class="range-end">0</span><input type="range" min="0" max="100" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}"><span class="range-end">100</span><button type="button" class="step-btn" data-step="5" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(increase)}" aria-label="${esc(increase)}">+</button></div><output data-out="${esc(row.id)}">${esc(row.value)}${esc(row.suffix || "")}</output></div>`;
   }
   if (row.kind === "theme-mode") {
     const buttons = row.options
@@ -900,6 +1080,12 @@ function renderRow(row) {
     return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="segmented" role="group">${buttons}</div></div>`;
   }
   if (row.kind === "themes") return themeBlock(row);
+  if (row.kind === "number" && row.decrease) {
+    const amount = Number(row.step) || 1;
+    const decrease = row.decrease || "−";
+    const increase = row.increase || "+";
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="range-control"><button type="button" class="step-btn" data-step="-${amount}" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(decrease)}" aria-label="${esc(decrease)}">−</button><input type="number" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}" min="${esc(row.min)}" max="${esc(row.max)}" step="${amount}"><button type="button" class="step-btn" data-step="${amount}" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(increase)}" aria-label="${esc(increase)}">+</button></div></div>`;
+  }
   if (row.kind === "number" || row.kind === "date" || row.kind === "text") {
     const type = row.kind === "date" ? "date" : row.kind === "text" ? "text" : "number";
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="${type}" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}"${type === "number" ? ' step="any"' : ""}${row.min != null ? ` min="${row.min}" max="${row.max}"` : ""}></label>`;
@@ -928,7 +1114,8 @@ function swatch(id, name, colors, selected) {
 }
 
 function themeBlock(row) {
-  const { t, language, value, mode, custom } = row;
+  const { language, value, mode, custom } = row;
+  const t = (key) => row.labels?.[key] || "";
   const group = (id, themes) =>
     `<div class="theme-grid" data-theme-group="${id}" ${mode === id ? "" : "hidden"} style="display:${mode === id ? "grid" : "none"}">${themes
       .map((theme) => swatch(theme.id, theme.name[language] || theme.name.en, theme, theme.id === value))
@@ -937,11 +1124,11 @@ function themeBlock(row) {
   const colorRow = (id, label, current) =>
     `<label class="popup-row" data-row="${id}" style="${ROW}"><span>${esc(label)}</span><input type="color" data-field="${id}" title="${esc(label)}" value="${esc(current)}"><code data-out="${id}">${esc(current)}</code></label>`;
   const customGroup = `<div class="custom-theme" data-theme-group="${CUSTOM_THEME_ID}" ${mode === CUSTOM_THEME_ID ? "" : "hidden"} style="display:${mode === CUSTOM_THEME_ID ? "flex" : "none"};flex-direction:column">
-    <div class="custom-head">${swatch(CUSTOM_THEME_ID, t("theme.custom"), customColors, value === CUSTOM_THEME_ID)}<span class="custom-hint">${esc(t("theme.customHint"))}</span></div>
-    <div class="popup-row" data-row="customMode" style="${ROW}"><label>${esc(t("field.customMode"))}</label><select data-field="customMode" title="${esc(t("field.customMode"))}"><option value="dark"${custom.mode === "dark" ? " selected" : ""}>${esc(t("theme.modeDark"))}</option><option value="light"${custom.mode === "light" ? " selected" : ""}>${esc(t("theme.modeLight"))}</option></select></div>
-    ${colorRow("customBg", t("field.customBg"), custom.bg)}
-    ${colorRow("customText", t("field.customText"), custom.text)}
-    ${colorRow("customAccent", t("field.customAccent"), custom.accent)}
+    <div class="custom-head">${swatch(CUSTOM_THEME_ID, t("custom"), customColors, value === CUSTOM_THEME_ID)}<span class="custom-hint">${esc(t("customHint"))}</span></div>
+    <div class="popup-row" data-row="customMode" style="${ROW}"><label>${esc(t("customMode"))}</label><select data-field="customMode" title="${esc(t("customMode"))}"><option value="dark"${custom.mode === "dark" ? " selected" : ""}>${esc(t("modeDark"))}</option><option value="light"${custom.mode === "light" ? " selected" : ""}>${esc(t("modeLight"))}</option></select></div>
+    ${colorRow("customBg", t("customBg"), custom.bg)}
+    ${colorRow("customText", t("customText"), custom.text)}
+    ${colorRow("customAccent", t("customAccent"), custom.accent)}
   </div>`;
   return `<div class="theme-block" data-row="themes" data-fit-height="${THEME_GRID_HEIGHT}" style="height:${THEME_GRID_HEIGHT}px;overflow:hidden;flex:0 0 auto"><input type="hidden" data-field="theme" value="${esc(value)}">${group("light", LIGHT_THEMES)}${group("dark", DARK_THEMES)}${customGroup}</div>`;
 }
@@ -1047,6 +1234,14 @@ function applyPatch(el, patch, spec) {
   if (patch.backgroundName != null) {
     const row = el.querySelector('[data-row="wallpaper"] span:last-child');
     if (row) row.textContent = patch.backgroundName || "—";
+    const name = el.querySelector('[data-field="backgroundName"]');
+    if (name) name.value = patch.backgroundName || "";
+    const edited = el.querySelector('[data-field="wallpaperEdited"]');
+    if (edited) edited.value = "1";
+  }
+  if (patch.backgroundImage != null) {
+    const image = el.querySelector('[data-field="backgroundImage"]');
+    if (image) image.value = patch.backgroundImage || "";
   }
   if (patch.html) {
     el._html = patch.html;

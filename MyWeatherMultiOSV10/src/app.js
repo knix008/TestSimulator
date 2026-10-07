@@ -8,7 +8,7 @@ import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
 import { buildPrintModel, normalizeSetup } from "./core/print-model.js";
 import { RecentFiles } from "./core/recent.js";
-import { clamp, sanitizeSettings } from "./core/settings.js";
+import { clamp, normalizeDisplayPriority, normalizeUpdateHours, sanitizeSettings } from "./core/settings.js";
 import { applyThemeVars, isTheme, sanitizeCustomTheme, themeColors, themeVars } from "./core/themes.js";
 import { UndoStack } from "./core/undo.js";
 import { FONT_STYLES } from "./core/fonts.js";
@@ -21,6 +21,7 @@ import { gripIcon, icon } from "./ui/icons.js";
 import { layoutMenu } from "./ui/menu-layout.js";
 import { buildMenuElement, buildMenuItems } from "./ui/menus.js";
 import {
+  paintWallpaper,
   PopupLayer,
   buildAboutSpec,
   buildErrorSpec,
@@ -33,7 +34,7 @@ import {
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { CONTENT_PADDING, WINDOW_DEFAULT, clampWindowSize, sceneFit } from "./ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, clampWindowSize, sceneFit } from "./ui/window-spec.js";
 import { forecastFitHeight, renderForecastHtml, renderWeatherHtml } from "./ui/weather-view.js";
 
 export function createApp(container, options = {}) {
@@ -70,9 +71,11 @@ class WeatherApp {
     this.menuEl = null;
     this.progressAborted = false;
     this.now = options.now || (() => new Date());
-    this.maximized = false;
+    this.maximized = Boolean(this.settings.windowMaximized);
     this.minimized = false;
-    this.shellOffset = { x: 0, y: 0 };
+    this.placementReady = typeof this.platform.readSettingsSync === "function";
+    this.pendingPlacement = null;
+    this.shellOffset = this.settings.windowPosition ? { ...this.settings.windowPosition } : { x: 0, y: 0 };
     this.statusMessage = "";
     this.titleText = "";
     this.shellSize = clampWindowSize(this.settings.windowSize || WINDOW_DEFAULT);
@@ -159,8 +162,19 @@ class WeatherApp {
       }
       this.fonts = resolveFontList(await this.platform.listFonts());
       if (!this.fonts.includes(this.settings.fontFamily)) this.fonts.unshift(this.settings.fontFamily);
+      this.shellSize = clampWindowSize(this.settings.windowSize || WINDOW_DEFAULT);
+      if (this.settings.windowPosition) this.shellOffset = { ...this.settings.windowPosition };
+      this.applyShellSize();
+      if (this.settings.windowMaximized) this.applyWindowState({ maximized: true });
       this.applyAll();
-      if (this.options.autoLoad) await this.refreshWeather();
+      this.placementReady = true;
+      this.applySceneScale();
+      if (this.pendingPlacement) {
+        const pending = this.pendingPlacement;
+        this.pendingPlacement = null;
+        this.rememberWindowPlacement(pending);
+      }
+      if (this.options.autoLoad) void this.refreshWeather({ quiet: true });
     } catch (error) {
       this.reportError(error, "startup");
     }
@@ -170,6 +184,9 @@ class WeatherApp {
     if (this.destroyed) return;
     this.destroyed = true;
     clearTimeout(this.toastTimer);
+    clearTimeout(this.updateTimer);
+    this.updateTimer = null;
+    this.weatherAbort?.abort();
     this.endResize?.();
     this.detachDrag?.();
     this.popups?.closeAll();
@@ -208,9 +225,9 @@ class WeatherApp {
       if (!button || button.disabled || !this.frame.contains(button)) return;
       suppressClick = button;
       runCommand(button, event);
-      queueMicrotask(() => {
+      setTimeout(() => {
         if (suppressClick === button) suppressClick = null;
-      });
+      }, 50);
     };
     const onClick = (event) => {
       const button = event.target.closest("[data-cmd]");
@@ -372,7 +389,7 @@ class WeatherApp {
         copy: () => this.copy(),
         paste: () => this.paste(),
         print: () => this.openPrint(),
-        refresh: () => this.refreshWeather(),
+        refresh: () => this.refreshWeather({ progress: true }),
         settings: () => this.showSettings("general"),
         fonts: () => this.showSettings("font"),
         about: () => this.showAbout(),
@@ -430,7 +447,9 @@ class WeatherApp {
 
   applyWindowState(state = {}) {
     if (this.destroyed) return;
-    this.maximized = Boolean(state.maximized);
+    const nextMaximized = state.maximized === undefined ? this.maximized : Boolean(state.maximized);
+    const placementChanged = state.maximized !== undefined && nextMaximized !== Boolean(this.settings.windowMaximized);
+    this.maximized = nextMaximized;
     this.minimized = Boolean(state.minimized);
     this.frame.dataset.maximized = String(this.maximized);
     this.frame.dataset.minimized = String(this.minimized);
@@ -445,6 +464,7 @@ class WeatherApp {
     }
     this.grip.hidden = this.maximized || this.minimized;
     this.applyShellSize();
+    if (placementChanged) this.rememberWindowPlacement({ maximized: this.maximized });
   }
 
   applyShellSize() {
@@ -454,22 +474,52 @@ class WeatherApp {
       this.shell.style.removeProperty("width");
       this.shell.style.removeProperty("height");
       this.shell.style.removeProperty("transform");
-      this.shellOffset = { x: 0, y: 0 };
     } else {
       this.shell.style.width = `${this.shellSize.width}px`;
       this.shell.style.height = this.minimized ? "" : `${this.shellSize.height}px`;
+      this.shell.style.transform = this.shellOffset.x || this.shellOffset.y ? `translate(${this.shellOffset.x}px, ${this.shellOffset.y}px)` : "";
     }
     this.applySceneScale();
+  }
+
+  rememberWindowPlacement(bounds) {
+    if (!bounds || typeof bounds !== "object") return;
+    if (!this.placementReady) {
+      this.pendingPlacement = { ...this.pendingPlacement, ...bounds };
+      return;
+    }
+    let changed = false;
+    if (Number.isFinite(Number(bounds.width)) && Number.isFinite(Number(bounds.height))) {
+      this.shellSize = clampWindowSize({ width: bounds.width, height: bounds.height });
+      this.settings.windowSize = { ...this.shellSize };
+      changed = true;
+    }
+    if (Number.isFinite(Number(bounds.x)) && Number.isFinite(Number(bounds.y))) {
+      this.settings.windowPosition = { x: Math.round(Number(bounds.x)), y: Math.round(Number(bounds.y)) };
+      if (!this.platform.nativeWindow) this.shellOffset = { ...this.settings.windowPosition };
+      changed = true;
+    }
+    if (typeof bounds.maximized === "boolean" && this.settings.windowMaximized !== bounds.maximized) {
+      this.settings.windowMaximized = bounds.maximized;
+      changed = true;
+    }
+    if (changed) void this.persist();
   }
 
   onShellDrag(step) {
     if (this.maximized || this.minimized) return;
     if (this.platform.nativeWindow) {
-      void this.platform.moveWindow?.(step);
+      void Promise.resolve(this.platform.moveWindow?.(step)).then((bounds) => {
+        if (step.phase === "end") this.rememberWindowPlacement(bounds);
+      });
       return;
     }
     if (step.phase === "start") {
       this.dragOrigin = { ...this.shellOffset };
+      return;
+    }
+    if (step.phase === "end") {
+      this.rememberWindowPlacement({ x: this.shellOffset.x, y: this.shellOffset.y, width: this.shellSize.width, height: this.shellSize.height });
       return;
     }
     if (step.phase !== "move") return;
@@ -506,11 +556,10 @@ class WeatherApp {
     const up = () => {
       this.endResize?.();
       if (native) {
-        void this.platform.resizeWindow?.({ phase: "end" });
+        void Promise.resolve(this.platform.resizeWindow?.({ phase: "end" })).then((bounds) => this.rememberWindowPlacement(bounds));
         return;
       }
-      this.settings.windowSize = { ...this.shellSize };
-      void this.persist();
+      this.rememberWindowPlacement({ ...this.shellSize, x: this.shellOffset.x, y: this.shellOffset.y });
     };
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", up);
@@ -588,6 +637,7 @@ class WeatherApp {
     this.applyWallpaper();
     this.applyI18n();
     this.syncPanels();
+    this.syncUpdateTimer();
   }
 
   applyI18n() {
@@ -621,6 +671,8 @@ class WeatherApp {
     const vars = themeVars(colors, transparency);
     applyThemeVars(document.documentElement, vars, colors.mode);
     this.themeState = { vars, mode: colors.mode };
+    this.platform.broadcastTheme?.({ vars, mode: colors.mode, theme, customTheme: custom, transparency });
+    this.applyWallpaper(this.wallpaperOpacityPreview ?? this.settings.backgroundOpacity);
     this.frame.dataset.theme = theme;
     this.frame.dataset.mode = colors.mode;
     this.frame.dataset.transparency = String(transparency);
@@ -656,11 +708,16 @@ class WeatherApp {
     this.content.style.zoom = String(this.settings.zoom / 100);
   }
 
-  applyWallpaper() {
-    const image = this.settings.backgroundImage;
-    this.wallpaper.style.backgroundImage = image ? `url("${image}")` : "none";
-    this.wallpaper.style.opacity = String((this.settings.backgroundOpacity ?? 0) / 100);
-    this.wallpaper.dataset.image = image ? "yes" : "no";
+  applyWallpaper(opacity = this.settings.backgroundOpacity) {
+    const savedImage = this.settings.backgroundImage || "";
+    const image = this.wallpaperImagePreview != null ? this.wallpaperImagePreview : savedImage;
+    const value = clamp(opacity, 0, 100);
+    paintWallpaper(this.wallpaper, image, value);
+    document.querySelectorAll('[data-popup="forecast"] [data-gui="wallpaper"]').forEach((layer) => paintWallpaper(layer, image, value));
+    const key = `${image}\n${value}`;
+    if (key === this.wallpaperBroadcast) return;
+    this.wallpaperBroadcast = key;
+    this.platform.broadcastWallpaper?.({ image, opacity: value });
   }
 
   renderTabs() {
@@ -725,9 +782,11 @@ class WeatherApp {
       tab,
       language: this.settings.language,
       units: this.settings.units,
+      priority: this.settings.displayPriority,
       today: this.now(),
       t: (key, vars) => this.t(key, vars),
     });
+    this.applySceneScale();
   }
 
   renderStatus() {
@@ -891,7 +950,8 @@ class WeatherApp {
   async setWallpaper(dataUrl, name = "") {
     this.settings.backgroundImage = dataUrl || "";
     this.settings.backgroundName = name || "";
-    this.applyWallpaper();
+    this.wallpaperImagePreview = dataUrl || "";
+    this.applyWallpaper(this.wallpaperOpacityPreview ?? this.settings.backgroundOpacity);
     await this.persist();
   }
 
@@ -904,10 +964,19 @@ class WeatherApp {
       tab,
       language: this.settings.language,
       units: this.settings.units,
+      priority: this.settings.displayPriority,
       today: this.now(),
       t,
     });
-    return this.openPopup(buildForecastSpec({ range, markup, fitHeight: forecastFitHeight(range, hasWeather), transparency: this.settings.transparency, t }), {
+    return this.openPopup(buildForecastSpec({
+      range,
+      markup,
+      fitHeight: forecastFitHeight(range, hasWeather),
+      transparency: this.settings.transparency,
+      backgroundImage: this.settings.backgroundImage,
+      backgroundOpacity: this.wallpaperOpacityPreview ?? this.settings.backgroundOpacity,
+      t,
+    }), {
       immediate: (msg) => {
         if (msg?.type !== "select-date") return;
         this.selectDate(msg.date);
@@ -929,12 +998,24 @@ class WeatherApp {
         width: this.shellSize.width - CONTENT_PADDING.left - CONTENT_PADDING.right,
         height: this.shellSize.height - 46 - CONTENT_PADDING.top - CONTENT_PADDING.bottom,
       };
-    const copy = this.content.querySelector(".scene-copy");
-    const current = Number(this.content.style.getPropertyValue("--scene-scale")) || 1;
-    const textWidth = copy && copy.scrollWidth > 0 ? copy.scrollWidth / current : 200;
-    const fit = sceneFit(available, textWidth);
+    const fit = sceneFit(available, SCENE_TEXT);
+    const boxKey = `${Math.round(available.width)}x${Math.round(available.height)}`;
+    if (this.content.dataset.sceneReady === "1" && this._sceneBox === boxKey) return;
+    if (this.content.dataset.sceneReady === "1") {
+      const prevArt = Number(this.content.style.getPropertyValue("--art-scale"));
+      const prevText = Number(this.content.style.getPropertyValue("--scene-scale"));
+      if (Math.abs(prevArt - fit.art) < 0.03 && Math.abs(prevText - fit.text) < 0.03) {
+        this._sceneBox = boxKey;
+        return;
+      }
+    }
+    this.content.style.setProperty("--scene-text", `${SCENE_TEXT}px`);
     this.content.style.setProperty("--scene-scale", String(fit.text));
     this.content.style.setProperty("--art-scale", String(fit.art));
+    if (this.placementReady && measured) {
+      this._sceneBox = boxKey;
+      this.content.dataset.sceneReady = "1";
+    }
   }
 
   toggleSource(id, enabled) {
@@ -1123,34 +1204,83 @@ class WeatherApp {
     this.afterStructure();
   }
 
-  async refreshWeather() {
-    this.operationAbort?.abort();
-    this.operationAbort = new AbortController();
-    this.progressAborted = false;
-    const tab = this.currentTab();
-    this.setStatus(this.t("status.loading"));
+  updateIntervalMs() {
+    return this.settings.updateHours * 60 * 60 * 1000;
+  }
+
+  syncUpdateTimer() {
+    if (this.destroyed) return;
+    if (this.updateTimer && this.updateHoursArmed === this.settings.updateHours) return;
+    this.armUpdateTimer();
+  }
+
+  armUpdateTimer() {
+    clearTimeout(this.updateTimer);
+    this.updateHoursArmed = this.settings.updateHours;
+    this.updateDelay = this.updateIntervalMs();
+    this.updateTimer = setTimeout(() => {
+      this.updateTimer = null;
+      void this.refreshWeather({ quiet: true, all: true }).finally(() => {
+        if (!this.destroyed) this.armUpdateTimer();
+      });
+    }, this.updateDelay);
+  }
+
+  async refreshWeather({ quiet = false, progress = false, all = false } = {}) {
+    if (quiet && this.refreshJob) return;
+    const generation = (this.refreshGeneration || 0) + 1;
+    this.refreshGeneration = generation;
+    this.weatherAbort?.abort();
+    this.weatherAbort = new AbortController();
+    const signal = this.weatherAbort.signal;
+    if (progress) {
+      this.progressAborted = false;
+      this.operationAbort = this.weatherAbort;
+    }
+    const tabs = all ? [...this.doc.tabs] : [this.currentTab()].filter(Boolean);
+    const job = progress
+      ? this.withProgress("progress.fetch", (report) => this.loadTabs(tabs, signal, false, report))
+      : this.loadTabs(tabs, signal, quiet);
+    this.refreshJob = job;
     try {
-      const weather = await this.withProgress("progress.fetch", (report) =>
-        loadWeather(tab.place, {
+      await job;
+    } finally {
+      if (this.refreshGeneration === generation) this.refreshJob = null;
+    }
+  }
+
+  async loadTabs(tabs, signal, quiet, report) {
+    if (!tabs.length) return;
+    this.setStatus(this.t("status.loading"));
+    let failed = null;
+    for (const tab of tabs) {
+      if (signal.aborted || this.destroyed || this.progressAborted) break;
+      try {
+        const weather = await loadWeather(tab.place, {
           fetchImpl: (url, options) => this.platform.fetch(url, options),
           sources: this.settings.enabledSources,
-          signal: this.operationAbort.signal,
-          onProgress: (percent, id) => report(percent, this.t(`source.${id}`)),
-        }),
-      );
-      weather.fetchedAt = new Date().toISOString();
-      tab.weather = weather;
-      const date = tab.selectedDate || this.preferredDate(weather);
-      this.selectDate(date);
-      this.setStatus(this.t("status.ready"));
-    } catch (error) {
-      if (error?.name === "AbortError" || this.progressAborted) {
-        this.setStatus(this.t("status.cancelled"));
-        return;
+          signal,
+          onProgress: report ? (percent, id) => report(percent, this.t(`source.${id}`)) : undefined,
+        });
+        if (signal.aborted || this.destroyed || this.progressAborted) break;
+        weather.fetchedAt = new Date().toISOString();
+        tab.weather = weather;
+        if (tab.id === this.currentTab()?.id) {
+          this.selectDate(tab.selectedDate || this.preferredDate(weather));
+        }
+      } catch (error) {
+        if (error?.name === "AbortError" || signal.aborted || this.progressAborted) break;
+        failed = error;
+        if (!quiet) break;
       }
-      this.setStatus(this.t("status.ready"));
-      throw error;
     }
+    if (this.destroyed) return;
+    if (signal.aborted || this.progressAborted) {
+      this.setStatus(this.t("status.cancelled"));
+      return;
+    }
+    this.setStatus(this.t("status.ready"));
+    if (failed && !quiet) throw failed;
   }
 
   preferredDate(weather) {
@@ -1350,6 +1480,8 @@ class WeatherApp {
   async shutdown() {
     this.popups?.closeAll();
     this.closeMenu();
+    const bounds = await this.platform.windowBounds?.();
+    if (bounds) this.rememberWindowPlacement(bounds);
     await this.persist();
     this.closed = true;
     this.destroy();
@@ -1464,6 +1596,8 @@ class WeatherApp {
       values: {
         language: this.settings.language,
         units: this.settings.units,
+        updateHours: this.settings.updateHours,
+        displayPriority: this.settings.displayPriority,
         countryCode: place.countryCode,
         cityEn: place.cityEn,
         lat: place.lat,
@@ -1484,8 +1618,11 @@ class WeatherApp {
       },
     });
     const answer = await this.openPopup(spec, { immediate: (msg) => this.handlePopupImmediate(msg) });
-    this.applyTheme();
+    if (answer?.action === "focused") return answer;
     if (answer?.action === "ok") await this.applySettingsForm(answer.values);
+    this.wallpaperOpacityPreview = null;
+    this.wallpaperImagePreview = null;
+    this.applyTheme();
     if (answer?.action === "recent-open") await this.openRecentPath(answer.path);
     return answer;
   }
@@ -1501,6 +1638,8 @@ class WeatherApp {
     const placeBefore = tab ? { ...tab.place } : null;
     this.settings.language = values.language === "en" ? "en" : "ko";
     this.settings.units = values.units === "F" ? "F" : "C";
+    this.settings.updateHours = normalizeUpdateHours(values.updateHours);
+    this.settings.displayPriority = normalizeDisplayPriority(values.displayPriority);
     if (isTheme(values.theme)) this.settings.theme = values.theme;
     if (values.customBg || values.customText || values.customAccent || values.customMode) {
       this.settings.customTheme = sanitizeCustomTheme({
@@ -1511,12 +1650,19 @@ class WeatherApp {
       });
     }
     if (values.transparency != null && values.transparency !== "") this.settings.transparency = clamp(values.transparency, 0, 100);
-    this.settings.backgroundOpacity = clamp(values.backgroundOpacity, 0, 100);
+    if (values.backgroundOpacity != null && values.backgroundOpacity !== "") this.settings.backgroundOpacity = clamp(values.backgroundOpacity, 0, 100);
+    if (values.wallpaperEdited === "1") {
+      this.settings.backgroundImage = values.backgroundImage || "";
+      this.settings.backgroundName = values.backgroundName || "";
+    }
     if (values.fontFamily) this.settings.fontFamily = values.fontFamily;
     this.settings.fontSize = clamp(values.fontSize, 8, 72);
     this.settings.fontStyle = FONT_STYLES.includes(values.fontStyle) ? values.fontStyle : "normal";
     this.settings.reopenLast = Boolean(values.reopen);
-    if (values.sources) this.settings.enabledSources = Object.entries(values.sources).filter(([, on]) => on).map(([id]) => id);
+    if (values.sources) {
+      const nextSources = Object.entries(values.sources).filter(([, on]) => on).map(([id]) => id);
+      if (nextSources.length) this.settings.enabledSources = nextSources;
+    }
     const found = this.cityChoices().find((entry) => entry.countryCode === values.countryCode && entry.cityEn === values.cityEn);
     let placeAfter = placeBefore;
     if (found) {
@@ -1548,7 +1694,7 @@ class WeatherApp {
   }
 
   async showAbout() {
-    await this.openPopup(buildAboutSpec((key, vars) => this.t(key, vars)));
+    return this.openPopup(buildAboutSpec((key, vars) => this.t(key, vars)));
   }
 
   reportError(error, operation = "") {
@@ -1583,11 +1729,17 @@ class WeatherApp {
     }
     if (msg.type === "pick-wallpaper") {
       await this.chooseWallpaper();
-      return { backgroundName: this.settings.backgroundName || "" };
+      return { backgroundName: this.settings.backgroundName || "", backgroundImage: this.settings.backgroundImage || "" };
     }
     if (msg.type === "clear-wallpaper") {
       await this.setWallpaper("", "");
-      return { backgroundName: "" };
+      return { backgroundName: "", backgroundImage: "" };
+    }
+    if (msg.type === "wallpaper-preview") {
+      this.wallpaperImagePreview = typeof msg.image === "string" ? msg.image : "";
+      this.wallpaperOpacityPreview = clamp(msg.opacity, 0, 100);
+      this.applyWallpaper(this.wallpaperOpacityPreview);
+      return null;
     }
     if (msg.type === "search-online") {
       await this.searchOnline(msg.query);
@@ -1597,6 +1749,11 @@ class WeatherApp {
     }
     if (msg.type === "theme-preview") {
       this.applyTheme({ theme: msg.theme, customTheme: msg.customTheme, transparency: msg.transparency });
+      return null;
+    }
+    if (msg.type === "wallpaper-opacity") {
+      this.wallpaperOpacityPreview = clamp(msg.value, 0, 100);
+      this.applyWallpaper(this.wallpaperOpacityPreview);
       return null;
     }
     if (msg.type === "progress-cancel") this.operationAbort?.abort();
@@ -1637,11 +1794,11 @@ class WeatherApp {
   }
 
   async chooseWallpaper() {
-    const image = await this.platform.pickImage?.({ startDir: this.settings.lastDirectory });
+    const image = await this.platform.pickImage?.({ startDir: this.settings.imageDirectory || "" });
     if (!image?.dataUrl) return;
     const check = acceptImage({ name: image.name || "image.png", type: image.type || "image/png", size: image.size ?? image.dataUrl.length });
     if (!check.ok) throw new AppError(this.t("msg.dropUnknown"), image.name || "", "DROP");
-    if (image.directory) this.rememberDir(image.directory);
+    if (image.directory) this.settings.imageDirectory = image.directory;
     await this.setWallpaper(image.dataUrl, image.name || "");
   }
 

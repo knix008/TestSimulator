@@ -1,3 +1,5 @@
+import { keepsOneWindow, popupKey } from "../src/ui/menu-layout.js";
+
 export class PopupHub {
   constructor() {
     this.windows = new Map();
@@ -7,12 +9,20 @@ export class PopupHub {
   }
 
   begin(spec, createWindow) {
+    const key = popupKey(spec);
+    if (keepsOneWindow(spec)) {
+      for (const entry of this.windows.values()) {
+        if (entry.key !== key) continue;
+        entry.win.focus?.();
+        return { id: entry.spec.popupId, focused: true };
+      }
+    }
     this.sequence += 1;
     const id = `${spec.type}-${this.sequence}`;
     const stored = { ...spec, popupId: id };
     const win = createWindow(stored);
-    this.windows.set(id, { spec: stored, win });
-    return id;
+    this.windows.set(id, { spec: stored, win, key });
+    return { id, focused: false };
   }
 
   take(id) {

@@ -3,6 +3,9 @@ import { buildMenuElement, buildTrayColumn } from "./ui/menus.js";
 
 const spec = await window.electronAPI.takeMenuSpec();
 if (spec.theme?.vars) applyThemeVars(document.documentElement, spec.theme.vars, spec.theme.mode);
+window.electronAPI.onApplyTheme?.((payload) => {
+  if (payload?.vars) applyThemeVars(document.documentElement, payload.vars, payload.mode);
+});
 
 if (spec.kind === "tray") mountTrayMenu(spec);
 else mountCommandMenu(spec);

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createApp } from "../../src/app.js";
 import { AppError } from "../../src/core/errors.js";
 import { serializeDocument } from "../../src/core/document.js";
 import { DARK_THEMES, LIGHT_THEMES, THEMES } from "../../src/core/themes.js";
@@ -78,6 +79,7 @@ export function registerGui(h) {
       pointer(document, "pointerup", 140, 120);
       await settle();
       assert.deepEqual(platform.settings.windowSize, { width: 800, height: 660 });
+      assert.deepEqual(platform.settings.windowPosition, { x: 0, y: 0 });
       pointer(document, "pointermove", 400, 400);
       assert.equal(app.shell.style.width, "800px");
     });
@@ -90,10 +92,18 @@ export function registerGui(h) {
       async ({ app }) => {
         assert.equal(app.shell.dataset.sized, "fill");
         const grip = app.root.querySelector("[data-gui='resize-grip']");
+        platform.resizeWindow = async (step) => {
+          platform.resizeSteps.push(step);
+          if (step.phase === "end") return { x: 12, y: 24, width: 510, height: 430 };
+          return null;
+        };
         pointer(grip, "pointerdown", 10, 10);
         pointer(document, "pointermove", 50, 30);
         pointer(document, "pointerup", 50, 30);
+        await settle();
         assert.deepEqual(platform.resizeSteps, [{ phase: "start" }, { phase: "move", dx: 40, dy: 20 }, { phase: "end" }]);
+        assert.deepEqual(platform.settings.windowSize, { width: 510, height: 430 });
+        assert.deepEqual(platform.settings.windowPosition, { x: 12, y: 24 });
         await app.run("maximize");
         assert.equal(app.frame.dataset.maximized, "false");
         platform.emitWindowState({ maximized: true });
@@ -114,9 +124,16 @@ export function registerGui(h) {
     await withApp(
       async ({ app }) => {
         const scene = app.content;
+        platform.moveWindow = async (step) => {
+          platform.moveSteps.push(step);
+          if (step.phase === "end") return { x: 140, y: 90 };
+          return null;
+        };
         pointer(scene, "pointerdown", 20, 20);
         pointer(document, "pointermove", 70, 50);
         pointer(document, "pointerup", 70, 50);
+        await settle();
+        assert.deepEqual(platform.settings.windowPosition, { x: 140, y: 90 });
         assert.deepEqual(platform.moveSteps, [
           { phase: "start" },
           { phase: "move", dx: 50, dy: 30 },
@@ -131,17 +148,21 @@ export function registerGui(h) {
         pointer(document, "pointerup", 40, 40);
         assert.deepEqual(platform.moveSteps, []);
         pointer(settings, "pointerup", 8, 8);
-        assert.equal(app.root.querySelector("[data-popup='settings']") != null, true);
+        assert.equal(app.root.querySelectorAll("[data-popup='settings']").length, 1);
+        await new Promise((resolve) => setTimeout(resolve, 0));
         settings.click();
-        assert.equal(app.root.querySelector("[data-popup='settings']") != null, true);
+        assert.equal(app.root.querySelectorAll("[data-popup='settings']").length, 1);
       },
       { platform },
     );
-    await withApp(async ({ app }) => {
+    await withApp(async ({ app, platform: web }) => {
       pointer(app.root.querySelector(".title-name"), "pointerdown", 4, 4);
       pointer(document, "pointermove", 24, 16);
       pointer(document, "pointerup", 24, 16);
+      await settle();
       assert.equal(app.shell.style.transform, "translate(20px, 12px)");
+      assert.deepEqual(web.settings.windowPosition, { x: 20, y: 12 });
+      assert.deepEqual(web.settings.windowSize, { width: 760, height: 640 });
       const daily = app.root.querySelector('[data-cmd="daily"]');
       pointer(daily, "pointerdown", 1, 1);
       pointer(document, "pointermove", 30, 30);
@@ -150,6 +171,24 @@ export function registerGui(h) {
       daily.click();
       assert.equal(app.root.querySelector("[data-popup='forecast']") != null, true);
     });
+  });
+  h.test("the next launch opens at the saved size and position", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.settings = { windowSize: { width: 520, height: 420 }, windowPosition: { x: 30, y: 18 }, windowMaximized: false };
+    await withApp(async ({ app }) => {
+      assert.equal(app.shell.style.width, "520px");
+      assert.equal(app.shell.style.height, "420px");
+      assert.equal(app.shell.style.transform, "translate(30px, 18px)");
+      assert.equal(app.frame.dataset.maximized, "false");
+    }, { platform });
+    const maximized = createMemoryPlatform();
+    maximized.settings = { windowSize: { width: 520, height: 420 }, windowPosition: { x: 30, y: 18 }, windowMaximized: true };
+    await withApp(async ({ app }) => {
+      assert.equal(app.frame.dataset.maximized, "true");
+      assert.equal(app.shell.dataset.sized, "fill");
+      assert.equal(app.root.querySelector('[data-cmd="maximize"]').title, "이전 크기로");
+    }, { platform: maximized });
   });
   h.test("ctrl wheel zooms between 50 and 200", async () => {
     await withApp(async ({ app }) => {
@@ -210,6 +249,39 @@ export function registerGui(h) {
       assert.ok(monthly.popup.querySelector('[data-gui="month"]'));
       assert.equal(getComputedStyle(monthly.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await monthly.close();
+    });
+  });
+  h.test("daily, weekly, and monthly forecasts use the background image", async () => {
+    await withApp(async ({ app }) => {
+      await app.setWallpaper("data:image/png;base64,bbbb", "cloud.png");
+      app.settings.backgroundOpacity = 25;
+      app.applyWallpaper(25);
+      for (const range of ["daily", "weekly", "monthly"]) {
+        const pending = app.showForecast(range);
+        await settle();
+        const popup = document.querySelector('[data-popup="forecast"]');
+        const layer = popup.querySelector("[data-gui='wallpaper']");
+        assert.equal(layer.dataset.image, "yes", range);
+        assert.equal(layer.style.backgroundImage, app.wallpaper.style.backgroundImage, range);
+        assert.equal(layer.style.opacity, "0.25", range);
+        app.applyWallpaper(60);
+        assert.equal(layer.style.opacity, "0.6", range);
+        popup.querySelector('[data-action="close"]').click();
+        await pending;
+      }
+      await app.setWallpaper("", "");
+      const pending = app.showForecast("daily");
+      await settle();
+      const cleared = document.querySelector('[data-popup="forecast"] [data-gui="wallpaper"]');
+      assert.equal(cleared.dataset.image, "no");
+      assert.equal(cleared.style.opacity, "0");
+      document.querySelector('[data-popup="forecast"] [data-action="close"]').click();
+      await pending;
+      const settings = app.showSettings("general");
+      await settle();
+      assert.equal(document.querySelector('[data-popup="settings"] [data-gui="wallpaper"]'), null);
+      document.querySelector('[data-popup="settings"] [data-action="cancel"]').click();
+      await settings;
     });
   });
   h.test("tabs move with chevrons instead of a scrollbar", async () => {
@@ -287,7 +359,7 @@ export function registerGui(h) {
       assert.equal(menu.style.columnCount, "1");
       const items = [...menu.querySelectorAll('[role="menuitem"]')];
       const ids = items.map((item) => item.dataset.cmd);
-      for (const id of ["refresh", "undo", "redo", "copy", "paste", "new", "open", "save", "save-as", "print", "settings", "about", "exit"]) {
+      for (const id of ["refresh", "undo", "redo", "copy", "paste", "new", "open", "save", "save-as", "print", "choose-wallpaper", "clear-wallpaper", "settings", "about", "exit"]) {
         assert.ok(ids.includes(id), id);
       }
       for (const item of items) {
@@ -340,9 +412,22 @@ export function registerGui(h) {
       const menu = document.querySelector('.menu-popup[data-menu="context"]');
       assert.ok(menu);
       assert.equal(menu.dataset.columns, "1");
+      assert.equal(menu.querySelector('[data-cmd="choose-wallpaper"] .menu-label').textContent, "배경 선택");
+      assert.equal(menu.querySelector('[data-cmd="clear-wallpaper"] .menu-label').textContent, "배경 삭제");
+      assert.match(menu.querySelector('[data-cmd="choose-wallpaper"]').innerHTML, /fill="#2f94ff"/);
+      assert.match(menu.querySelector('[data-cmd="clear-wallpaper"]').innerHTML, /fill="#e5484d"/);
       menu.querySelector('[data-cmd="copy"]').click();
       await settle();
       assert.match(platform.clipboardText, /2026-10-07/);
+      platform.nextImage = { dataUrl: "data:image/png;base64,aaaa", name: "sky.png", type: "image/png", size: 120 };
+      app.openMenu("context", { clientX: 20, clientY: 20 }, { atPointer: true });
+      document.querySelector('.menu-popup[data-menu="context"] [data-cmd="choose-wallpaper"]').click();
+      await settle();
+      assert.equal(app.root.querySelector("[data-gui='wallpaper']").dataset.image, "yes");
+      app.openMenu("context", { clientX: 20, clientY: 20 }, { atPointer: true });
+      document.querySelector('.menu-popup[data-menu="context"] [data-cmd="clear-wallpaper"]').click();
+      await settle();
+      assert.equal(app.root.querySelector("[data-gui='wallpaper']").dataset.image, "no");
       await forecast.close();
     });
   });
@@ -356,8 +441,9 @@ export function registerGui(h) {
         sawProgress = Boolean(document.querySelector('[data-popup="progress"]'));
         return original(url, options);
       };
-      await app.refreshWeather();
+      await app.run("refresh");
       assert.equal(sawProgress, true);
+      assert.equal(document.querySelector('[data-popup="progress"]'), null);
       assert.ok(app.progressLog.some((entry) => entry.percent === 100));
       assert.equal(app.root.querySelector("[data-gui='source']"), null);
       assert.equal(app.root.textContent.includes("종합"), false);
@@ -369,6 +455,12 @@ export function registerGui(h) {
       assert.equal(data.querySelector('[data-row="source-gfs"] .source-state').textContent, "정상");
       assert.equal(data.querySelector('[data-row="source-jma"] .source-state').textContent, "실패");
       assert.equal(data.querySelector('[data-row="source-metno"] .source-state').textContent, "실패");
+      const states = [...data.querySelectorAll(".source-state")];
+      assert.ok(states.length >= 4);
+      for (const state of states) {
+        assert.equal(getComputedStyle(state).width, "72px");
+        assert.equal(getComputedStyle(state).textAlign, "left");
+      }
       data.querySelector('[data-action="cancel"]').click();
       await settings;
       const daily = await openForecast(app, "daily");
@@ -637,6 +729,23 @@ export function registerGui(h) {
         assert.equal(row.querySelectorAll("br").length, 0);
       }
       assert.equal(popup.querySelector('[data-field="fontFamily"]').options.length, 50);
+      const sizeRow = popup.querySelector('[data-row="fontSize"]');
+      const steps = [...sizeRow.querySelectorAll("[data-step]")];
+      assert.deepEqual(steps.map((button) => button.dataset.step), ["-1", "1"]);
+      assert.equal(steps[0].title, "감소");
+      assert.equal(steps[1].title, "증가");
+      const size = popup.querySelector('[data-field="fontSize"]');
+      steps[1].click();
+      assert.equal(size.value, "15");
+      steps[0].click();
+      steps[0].click();
+      assert.equal(size.value, "13");
+      size.value = "8";
+      steps[0].click();
+      assert.equal(size.value, "8");
+      size.value = "72";
+      steps[1].click();
+      assert.equal(size.value, "72");
       popup.querySelector('[data-field="fontFamily"]').value = "Family 3";
       popup.querySelector('[data-field="fontStyle"]').value = "bolditalic";
       popup.querySelector('[data-field="fontSize"]').value = "18";
@@ -654,6 +763,7 @@ export function registerGui(h) {
       assert.equal(app.frame.dataset.theme, "dark-forest");
       assert.equal(app.settings.units, "F");
       assert.equal(app.settings.transparency, 80);
+      assert.equal(app.settings.updateHours, 1);
       assert.equal(app.i18n.missing.size, 0);
       app.undo();
       assert.equal(app.settings.theme, "dark-ink");
@@ -711,6 +821,23 @@ export function registerGui(h) {
       await pending;
     });
   });
+  h.test("a theme change is sent to windows that are already open", async () => {
+    await withApp(async ({ app, platform }) => {
+      const sent = [];
+      platform.broadcastTheme = (payload) => sent.push(payload);
+      const pending = app.showForecast("daily");
+      await settle();
+      await app.setTheme("light-sakura");
+      assert.equal(document.querySelector("[data-popup='forecast']") != null, true);
+      assert.equal(document.documentElement.style.getPropertyValue("--bg-solid"), "#fff0f5");
+      assert.equal(sent.at(-1).mode, "light");
+      assert.equal(sent.at(-1).theme, "light-sakura");
+      assert.equal(sent.at(-1).vars["--bg-solid"], "#fff0f5");
+      assert.equal(sent.at(-1).vars["--fg"], "#4a2740");
+      document.querySelector("[data-popup='forecast'] [data-action='close']").click();
+      await pending;
+    });
+  });
   h.test("theme and transparency preview live and revert on cancel", async () => {
     await withApp(async ({ app }) => {
       const root = document.documentElement;
@@ -724,6 +851,14 @@ export function registerGui(h) {
       assert.equal(app.frame.dataset.mode, "light");
       assert.equal(root.style.getPropertyValue("--bg-solid"), "#fff0f5");
       const slider = popup.querySelector('[data-field="transparency"]');
+      const control = popup.querySelector('[data-row="transparency"] .range-control');
+      const steps = [...control.querySelectorAll(".step-btn")];
+      assert.equal(steps.map((button) => button.dataset.step).join(","), "-5,5");
+      assert.deepEqual(steps.map((button) => button.title), ["감소", "증가"]);
+      assert.equal(steps[0].nextElementSibling.textContent, "0");
+      assert.equal(steps[0].nextElementSibling.nextElementSibling, slider);
+      assert.equal(slider.nextElementSibling.textContent, "100");
+      assert.equal(slider.nextElementSibling.nextElementSibling, steps[1]);
       assert.equal(slider.min, "0");
       assert.equal(slider.max, "100");
       slider.value = "0";
@@ -799,28 +934,242 @@ export function registerGui(h) {
       assert.equal(app.settings.transparency, 100);
     });
   });
-  h.test("background image opacity is independent of window opacity", async () => {
+  h.test("the weather update interval is saved and used in the background", async () => {
     await withApp(async ({ app, platform }) => {
-      platform.nextImage = { dataUrl: "data:image/png;base64,aaaa", name: "sky.png", type: "image/png", size: 9_000_000 };
+      assert.equal(app.settings.updateHours, 1);
+      assert.equal(app.updateDelay, 60 * 60 * 1000);
+      let calls = 0;
+      const original = platform.fetchImpl;
+      platform.fetchImpl = async (url, options) => {
+        calls += 1;
+        return original(url, options);
+      };
+      const pending = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const field = popup.querySelector('[data-field="updateHours"]');
+      assert.deepEqual([...field.options].map((option) => option.value), ["1", "2", "4", "6", "12", "24"]);
+      assert.equal(field.selectedOptions[0].textContent, "1시간");
+      field.value = "6";
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.settings.updateHours, 6);
+      assert.equal(platform.settings.updateHours, 6);
+      assert.equal(app.updateDelay, 6 * 60 * 60 * 1000);
+      const host = document.createElement("div");
+      const next = createApp(host, {
+        platform,
+        autoLoad: false,
+        now: () => new Date(2026, 9, 7, 9, 0, 0),
+      });
+      try {
+        await next.ready;
+        assert.equal(next.settings.updateHours, 6);
+      } finally {
+        next.destroy();
+        host.remove();
+      }
+      app.updateIntervalMs = () => 20;
+      const before = calls;
+      app.armUpdateTimer();
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      assert.ok(calls > before);
+      assert.equal(document.querySelector('[data-popup="progress"]'), null);
+      assert.ok(app.currentTab().weather.fetchedAt);
+    });
+  });
+
+  h.test("the sources page shows where weather is fetched and saves the choice", async () => {
+    await withApp(async ({ app }) => {
+      const pending = app.showSettings("data");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const panel = popup.querySelector('[data-panel="data"]');
+      assert.equal(panel.hidden, false);
+      assert.equal(panel.querySelector('[data-row="sources"] span').textContent, "날씨 정보를 가져올 출처");
+      assert.match(popup.querySelector('[data-tab="data"]').textContent, /날씨 출처/);
+      for (const id of ["ecmwf", "gfs", "jma", "metno", "wttr"]) {
+        const box = panel.querySelector(`[data-source="${id}"]`);
+        assert.equal(box.type, "checkbox");
+        assert.equal(box.checked, true);
+        assert.ok(box.closest(".source-row").querySelector(".source-detail").textContent.trim());
+      }
+      panel.querySelector('[data-source="wttr"]').click();
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.settings.enabledSources.includes("wttr"), false);
+      assert.deepEqual(app.settings.enabledSources, ["ecmwf", "gfs", "jma", "metno"]);
+    });
+  });
+
+  h.test("settings reset restores the original values after confirmation", async () => {
+    await withApp(async ({ app }) => {
+      app.settings.language = "en";
+      app.settings.theme = "light-paper";
+      app.settings.transparency = 80;
+      app.settings.backgroundOpacity = 10;
+      app.settings.updateHours = 12;
+      app.settings.displayPriority = "ecmwf";
+      app.settings.enabledSources = ["gfs"];
+      app.settings.fontSize = 22;
+      app.settings.reopenLast = true;
+      app.settings.windowPosition = { x: 40, y: 18 };
+      app.recent.add("C:/weather/keep.myweather");
+      await app.setWallpaper("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E", "kept.svg");
+      const keptRecent = app.recent.toJSON();
+      const pending = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const reset = popup.querySelector('[data-action="reset"]');
+      assert.equal(reset.querySelector(".menu-label").textContent, "초기화");
+      assert.match(reset.title, /처음 값/);
+      reset.click();
+      await settle();
+      assert.equal(popup.isConnected, true);
+      assert.equal(popup.querySelector('[data-field="language"]').value, "ko");
+      assert.equal(popup.querySelector('[data-field="theme"]').value, "dark-ink");
+      assert.equal(popup.querySelector('[data-field="transparency"]').value, "30");
+      assert.equal(popup.querySelector('[data-field="backgroundOpacity"]').value, "40");
+      assert.equal(popup.querySelector('[data-field="updateHours"]').value, "1");
+      assert.equal(popup.querySelector('[data-field="displayPriority"]').value, "average");
+      assert.equal(popup.querySelector('[data-field="fontSize"]').value, "14");
+      assert.equal(popup.querySelector('[data-field="reopen"]').checked, false);
+      assert.equal(popup.querySelector('[data-field="countryCode"]').value, "KR");
+      assert.equal(popup.querySelector('[data-field="cityEn"]').value, "Seoul");
+      assert.equal(popup.querySelector('[data-source="ecmwf"]').checked, true);
+      assert.equal(popup.querySelector('[data-row="wallpaper"] span:last-child').textContent, "—");
+      assert.equal(app.wallpaper.dataset.image, "no");
+      assert.equal(app.settings.language, "en");
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+      assert.equal(app.settings.language, "en");
+      assert.equal(app.settings.theme, "light-paper");
+      assert.equal(app.settings.backgroundName, "kept.svg");
+      assert.equal(app.wallpaper.dataset.image, "yes");
+      const again = app.showSettings("general");
+      await settle();
+      const next = document.querySelector('[data-popup="settings"]');
+      next.querySelector('[data-action="reset"]').click();
+      await settle();
+      next.querySelector('[data-action="ok"]').click();
+      await again;
+      assert.equal(app.settings.language, "ko");
+      assert.equal(app.settings.theme, "dark-ink");
+      assert.equal(app.settings.transparency, 30);
+      assert.equal(app.settings.backgroundOpacity, 40);
+      assert.equal(app.settings.updateHours, 1);
+      assert.equal(app.settings.displayPriority, "average");
+      assert.equal(app.settings.fontSize, 14);
+      assert.equal(app.settings.reopenLast, false);
+      assert.deepEqual(app.settings.enabledSources, ["ecmwf", "gfs", "jma", "metno", "wttr"]);
+      assert.equal(app.settings.backgroundImage, "");
+      assert.equal(app.settings.backgroundName, "");
+      assert.equal(app.settings.defaultLocation.cityEn, "Seoul");
+      assert.deepEqual(app.settings.windowPosition, { x: 40, y: 18 });
+      assert.deepEqual(app.recent.toJSON(), keptRecent);
+    });
+  });
+  h.test("the general page saves a display priority and the scene follows it", async () => {
+    await withApp(async ({ app, platform }) => {
+      const day = {
+        date: "2026-10-07",
+        tempMin: 10,
+        tempMax: 21,
+        precip: 0,
+        wind: 1,
+        humidity: 50,
+        code: 1,
+        bySource: {
+          ecmwf: { tempMin: 8, tempMax: 20, precip: 0, wind: 1, humidity: 40, code: 0 },
+        },
+      };
+      const hour = {
+        time: "2026-10-07T09:00",
+        temp: 15,
+        precip: 0,
+        wind: 1,
+        humidity: 50,
+        code: 1,
+        bySource: {
+          ecmwf: { temp: 18, precip: 0, wind: 1, humidity: 40, code: 0 },
+        },
+      };
+      app.currentTab().weather = { daily: [day], hourly: [hour], sources: [] };
+      app.currentTab().selectedDate = "2026-10-07";
+      app.renderWeather();
+      assert.match(app.root.querySelector(".scene-temp").textContent, /15°C/);
+      const pending = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const field = popup.querySelector('[data-field="displayPriority"]');
+      assert.equal(popup.querySelector('[data-panel="general"]').hidden, false);
+      const tabIcons = new Map();
+      const collectTabs = () => {
+        for (const button of popup.querySelectorAll(".popup-tab")) tabIcons.set(button.dataset.tab, button.querySelector("svg"));
+      };
+      collectTabs();
+      const nextTab = popup.querySelector('[data-action="tab-next"]');
+      while (nextTab && !nextTab.disabled) {
+        nextTab.click();
+        collectTabs();
+      }
+      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "data", "font", "general", "recent", "wallpaper"]);
+      for (const [id, svg] of tabIcons) assert.ok(svg, id);
+      popup.querySelector('[data-action="tab-prev"]').click();
+      assert.deepEqual([...field.options].map((option) => option.value), ["average", "ecmwf", "gfs", "jma", "metno", "wttr"]);
+      assert.equal(field.selectedOptions[0].textContent, "평균");
+      field.value = "ecmwf";
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.settings.displayPriority, "ecmwf");
+      assert.equal(platform.settings.displayPriority, "ecmwf");
+      assert.match(app.root.querySelector(".scene-temp").textContent, /18°C/);
+    });
+  });
+
+  h.test("wallpaper opacity is saved separately and its slider steps from both sides", async () => {
+    await withApp(async ({ app, platform }) => {
+      platform.nextImage = { dataUrl: "data:image/png;base64,aaaa", name: "sky.png", type: "image/png", size: 9_000_000, directory: "D:/pictures" };
       await app.chooseWallpaper();
       assert.equal(app.settings.backgroundName, "sky.png");
+      assert.equal(app.settings.imageDirectory, "D:/pictures");
+      assert.deepEqual(platform.imageStarts, [""]);
+      await app.chooseWallpaper();
+      assert.deepEqual(platform.imageStarts, ["", "D:/pictures"]);
       assert.equal(app.wallpaper.dataset.image, "yes");
+      assert.equal(app.wallpaper.style.opacity, "0.4");
       const pending = app.showSettings("wallpaper");
       await settle();
       const popup = document.querySelector('[data-popup="settings"]');
       assert.equal(popup.querySelector('[data-panel="wallpaper"]').hidden, false);
       assert.match(popup.querySelector('[data-panel="wallpaper"]').textContent, /sky\.png/);
-      const clearButton = popup.querySelector('[data-action="clear-wallpaper"]');
-      assert.equal(clearButton.previousElementSibling.tagName, "SPAN");
-      assert.equal(clearButton.previousElementSibling.textContent, "");
-      const label = popup.querySelector('[data-row="backgroundOpacity"] > label, [data-row="backgroundOpacity"] > span');
-      assert.equal(label.style.width || getComputedStyle(label).width, getComputedStyle(clearButton.previousElementSibling).width);
-      popup.querySelector('[data-field="backgroundOpacity"]').value = "25";
-      popup.querySelector('[data-action="clear-wallpaper"]').click();
+      const row = popup.querySelector('[data-row="backgroundOpacity"]');
+      const slider = row.querySelector('[data-field="backgroundOpacity"]');
+      const steps = [...row.querySelectorAll(".step-btn")];
+      assert.equal(steps.map((button) => button.dataset.step).join(","), "-5,5");
+      assert.deepEqual(steps.map((button) => button.title), ["감소", "증가"]);
+      assert.equal(steps[0].nextElementSibling.textContent, "0");
+      assert.equal(steps[0].nextElementSibling.nextElementSibling, slider);
+      assert.equal(slider.nextElementSibling.textContent, "100");
+      assert.equal(slider.nextElementSibling.nextElementSibling, steps[1]);
+      steps[0].click();
       await settle();
-      assert.equal(app.wallpaper.dataset.image, "no");
-      popup.querySelector('[data-action="cancel"]').click();
+      assert.equal(slider.value, "35");
+      assert.equal(popup.querySelector('[data-out="backgroundOpacity"]').textContent, "35%");
+      assert.equal(app.wallpaper.style.opacity, "0.35");
+      slider.value = "25";
+      slider.dispatchEvent(new window.Event("input", { bubbles: true }));
+      await settle();
+      assert.equal(app.wallpaper.style.opacity, "0.25");
+      popup.querySelector('[data-action="ok"]').click();
       await pending;
+      assert.equal(app.settings.backgroundOpacity, 25);
+      assert.equal(platform.settings.backgroundOpacity, 25);
+      assert.equal(app.wallpaper.style.opacity, "0.25");
+      await app.setTransparency(0);
+      assert.equal(app.wallpaper.style.opacity, "0.25");
+      await app.setTransparency(100);
+      assert.equal(app.wallpaper.style.opacity, "0.25");
     });
   });
 
@@ -831,6 +1180,8 @@ export function registerGui(h) {
       await settle();
       const popup = document.querySelector('[data-popup="about"]');
       assert.equal(popup.dataset.independent, "true");
+      assert.equal(document.querySelector('[data-backdrop="about"]'), null);
+      assert.equal(popup.style.transform, "none");
       assert.equal(app.frame.contains(popup), false);
       assert.equal(popupFits(popup).fits, true);
       const text = popup.textContent;
@@ -839,9 +1190,54 @@ export function registerGui(h) {
       assert.match(text, /20261007\.1/);
       assert.match(text, /2026-10-07/);
       assert.match(text, /SHKWON\(knix008@naver\.com\)/);
+      assert.match(popup.querySelector(".popup-icon svg").innerHTML, /#2f94ff/);
+      const intro = popup.querySelector(".about-intro");
+      assert.match(intro.querySelector(".about-app-icon").getAttribute("src"), /icon\.png$/);
+      assert.match(intro.querySelector(".about-desc").textContent, /여러 출처/);
+      const facts = [...popup.querySelectorAll(".popup-row")].map((row) => [row.querySelector("span")?.textContent, row.querySelector("span:last-child")?.textContent]);
+      assert.deepEqual(facts, [
+        ["버전", "1.0.0"],
+        ["빌드 번호", "20261007.1"],
+        ["빌드 날짜", "2026-10-07"],
+        ["제작자", "SHKWON(knix008@naver.com)"],
+      ]);
       popup.querySelector('[data-action="close"]').click();
       await pending;
       assert.equal(document.querySelector('[data-popup="about"]'), null);
+    });
+  });
+  h.test("each forecast, settings, and about window stays single and comes forward", async () => {
+    await withApp(async ({ app }) => {
+      const daily = app.showForecast("daily");
+      await settle();
+      const weekly = app.showForecast("weekly");
+      await settle();
+      assert.equal(document.querySelectorAll('[data-popup="forecast"]').length, 2);
+      const again = await app.showForecast("daily");
+      assert.equal(again.action, "focused");
+      assert.equal(document.querySelectorAll('[data-popup-key="forecast:daily"]').length, 1);
+      const order = [...document.querySelectorAll("[data-popup]")].map((el) => el.dataset.popupKey);
+      assert.equal(order.at(-1), "forecast:daily");
+      const settings = app.showSettings("general");
+      await settle();
+      const second = await app.showSettings("font");
+      assert.equal(second.action, "focused");
+      assert.equal(document.querySelectorAll('[data-popup="settings"]').length, 1);
+      assert.equal(document.querySelector('[data-popup="settings"] [data-panel="general"]').hidden, false);
+      const about = app.showAbout();
+      await settle();
+      const aboutAgain = await app.showAbout();
+      assert.equal(aboutAgain.action, "focused");
+      assert.equal(document.querySelectorAll('[data-popup="about"]').length, 1);
+      assert.equal([...document.querySelectorAll("[data-popup]")].at(-1).dataset.popup, "about");
+      document.querySelector('[data-popup="about"] [data-action="close"]').click();
+      await about;
+      document.querySelector('[data-popup="settings"] [data-action="cancel"]').click();
+      await settings;
+      for (const popup of [...document.querySelectorAll('[data-popup="forecast"]')]) popup.querySelector('[data-action="close"]').click();
+      await daily;
+      await weekly;
+      assert.equal(document.querySelector("[data-popup]"), null);
     });
   });
   h.test("popups are fixed, single-line, and close with the application", async () => {
@@ -946,26 +1342,46 @@ export function registerGui(h) {
       await settle();
     });
   });
-  h.test("refresh can be cancelled from the progress popup", async () => {
-    await withApp(async ({ app, platform }) => {
-      platform.fetchImpl = (_url, options) =>
-        new Promise((resolve, reject) => {
-          const timer = setTimeout(() => resolve(jsonResponse(openMeteoBody(SAMPLE_DATES, 20))), 3000);
-          options?.signal?.addEventListener("abort", () => {
-            clearTimeout(timer);
-            const error = new Error("Aborted");
-            error.name = "AbortError";
-            reject(error);
-          });
-        });
-      const pending = app.refreshWeather();
-      await settle();
-      const popup = document.querySelector('[data-popup="progress"]');
-      assert.ok(popup);
-      assert.equal(popupFits(popup).fits, true);
-      popup.querySelector('[data-action="cancel"]').click();
-      await pending;
-      assert.equal(app.statusMessage, "취소됨");
+  h.test("startup refresh stays in the background and the refresh button shows progress", async () => {
+    await withApp(async ({ platform }) => {
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const original = platform.fetchImpl;
+      platform.fetchImpl = async (url, options) => {
+        await gate;
+        return original(url, options);
+      };
+      const root = document.createElement("div");
+      document.body.appendChild(root);
+      const app = createApp(root, { platform, autoLoad: true, now: () => new Date(2026, 9, 7, 9, 0, 0) });
+      try {
+        await app.ready;
+        await settle();
+        assert.equal(document.querySelector('[data-popup="progress"]'), null);
+        const settings = app.showSettings("general");
+        await settle();
+        assert.ok(document.querySelector('[data-popup="settings"]'));
+        document.querySelector('[data-popup="settings"] [data-action="cancel"]').click();
+        await settings;
+        release();
+        await settle();
+        assert.ok(app.currentTab().weather.daily.length);
+        assert.equal(document.querySelector('[data-popup="progress"]'), null);
+        let sawProgress = false;
+        platform.fetchImpl = async (url, options) => {
+          sawProgress = Boolean(document.querySelector('[data-popup="progress"]'));
+          return original(url, options);
+        };
+        app.root.querySelector('[data-cmd="refresh"]').click();
+        await settle();
+        assert.equal(sawProgress, true);
+        assert.equal(document.querySelector('[data-popup="progress"]'), null);
+      } finally {
+        app.destroy();
+        root.remove();
+      }
     });
   });
 
@@ -1134,6 +1550,15 @@ export function registerGui(h) {
       const text = Number(app.content.style.getPropertyValue("--scene-scale"));
       assert.equal(text, 1);
       assert.ok(art > text);
+      const copy = app.content.querySelector(".scene-copy");
+      Object.defineProperty(copy, "scrollWidth", { configurable: true, get: () => 480 });
+      app.applySceneScale();
+      assert.equal(app.content.style.getPropertyValue("--art-scale"), String(art));
+      await app.refreshWeather();
+      Object.defineProperty(app.content.querySelector(".scene-copy"), "scrollWidth", { configurable: true, get: () => 140 });
+      app.applySceneScale();
+      assert.equal(app.content.style.getPropertyValue("--art-scale"), String(art));
+      assert.equal(app.content.style.getPropertyValue("--scene-scale"), String(text));
       app.shellSize = { width: WINDOW_MIN.width, height: WINDOW_MIN.height };
       app.applyShellSize();
       const smallArt = Number(app.content.style.getPropertyValue("--art-scale"));
@@ -1149,6 +1574,29 @@ export function registerGui(h) {
         assert.equal(style.overflowX || style.overflow, "hidden", selector);
         assert.equal(style.overflowY || style.overflow, "hidden", selector);
       }
+    });
+  });
+  h.test("the weather scene appears at the measured scale and ignores a small shift", async () => {
+    await withApp(async ({ app }) => {
+      app.shellSize = { width: 760, height: 640 };
+      let width = 0;
+      let height = 0;
+      Object.defineProperty(app.content, "clientWidth", { configurable: true, get: () => width });
+      Object.defineProperty(app.content, "clientHeight", { configurable: true, get: () => height });
+      app.applySceneScale();
+      const scene = app.content.querySelector(".weather-scene");
+      assert.equal(app.content.dataset.sceneReady || "", "");
+      assert.equal(getComputedStyle(scene).visibility, "hidden");
+      width = 760;
+      height = 594;
+      app.applySceneScale();
+      const art = app.content.style.getPropertyValue("--art-scale");
+      assert.equal(app.content.dataset.sceneReady, "1");
+      assert.equal(getComputedStyle(scene).visibility, "visible");
+      width = 756;
+      height = 590;
+      app.applySceneScale();
+      assert.equal(app.content.style.getPropertyValue("--art-scale"), art);
     });
   });
   h.test("forecast buttons stay icon-only and a chosen day becomes the selection", async () => {

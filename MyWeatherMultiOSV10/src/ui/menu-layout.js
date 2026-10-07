@@ -43,10 +43,61 @@ export function menuWindowOptions(layout, parent) {
   };
 }
 
-export function popupWindowOptions(spec, parent, displayBounds) {
+const BESIDE_GAP = 16;
+const COMPANION_POPUPS = new Set(["forecast", "settings", "about"]);
+const ONE_WINDOW = new Set(["forecast", "settings", "about", "print", "preview", "unsaved"]);
+
+export function popupKey(spec) {
+  if (!spec?.type) return "popup";
+  if (spec.type === "forecast") return `forecast:${spec.range || "daily"}`;
+  return spec.type;
+}
+
+export function keepsOneWindow(spec) {
+  return ONE_WINDOW.has(spec?.type);
+}
+
+function clampPopupOrigin(x, y, size, area) {
+  const maxX = area.x + Math.max(0, area.width - size.width);
+  const maxY = area.y + Math.max(0, area.height - size.height);
+  return {
+    x: Math.round(Math.max(area.x, Math.min(x, maxX))),
+    y: Math.round(Math.max(area.y, Math.min(y, maxY))),
+  };
+}
+
+function fitsPopup(origin, size, area) {
+  return origin.x >= area.x && origin.y >= area.y && origin.x + size.width <= area.x + area.width && origin.y + size.height <= area.y + area.height;
+}
+
+/** Keep a companion window beside the main window so both stay visible. */
+export function placeBeside(parent, size, workArea) {
+  const area = workArea || { x: 0, y: 0, width: 1280, height: 800 };
+  const frame = parent || { x: area.x, y: area.y, width: 0, height: 0 };
+  const y = frame.y + (frame.height - size.height) / 2;
+  const candidates = [
+    { x: frame.x + frame.width + BESIDE_GAP, y },
+    { x: frame.x - size.width - BESIDE_GAP, y },
+    { x: frame.x + (frame.width - size.width) / 2, y: frame.y + frame.height + BESIDE_GAP },
+    { x: frame.x + (frame.width - size.width) / 2, y: frame.y - size.height - BESIDE_GAP },
+  ];
+  for (const spot of candidates) {
+    if (fitsPopup(spot, size, area)) return clampPopupOrigin(spot.x, spot.y, size, area);
+  }
+  const parentMid = frame.x + frame.width / 2;
+  const areaMid = area.x + area.width / 2;
+  const parkX = parentMid <= areaMid ? area.x + area.width - size.width : area.x;
+  return clampPopupOrigin(parkX, frame.y, size, area);
+}
+
+export function popupWindowOptions(spec, parent, displayBounds, parentBounds) {
   const width = spec.width;
   const height = spec.height;
   const bounds = displayBounds || { x: 0, y: 0, width: 1280, height: 800 };
+  const beside = COMPANION_POPUPS.has(spec.type) && parentBounds;
+  const spot = beside
+    ? placeBeside(parentBounds, { width, height }, bounds)
+    : { x: bounds.x + (bounds.width - width) / 2, y: bounds.y + (bounds.height - height) / 2 };
   return {
     parent: parent || null,
     modal: false,
@@ -64,7 +115,7 @@ export function popupWindowOptions(spec, parent, displayBounds) {
     useContentSize: true,
     width,
     height,
-    x: Math.round(bounds.x + (bounds.width - width) / 2),
-    y: Math.round(bounds.y + (bounds.height - height) / 2),
+    x: Math.round(spot.x),
+    y: Math.round(spot.y),
   };
 }
