@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { en } from "../src/domain/en";
-import { formatMessage, messages } from "../src/domain/i18n";
+import { formatMessage, messages, systemLanguage } from "../src/domain/i18n";
 import { ko } from "../src/domain/ko";
 import type { Messages } from "../src/domain/messages";
 
@@ -46,6 +46,14 @@ describe("Languages", () => {
     expect(ko.appName).not.toBe(en.appName);
     expect(ko.settings).not.toBe(en.settings);
     expect(ko.about).not.toBe(en.about);
+  });
+
+  it("falls back to the system language so only the installer and the web app ask", () => {
+    expect(systemLanguage(["ko-KR", "en-US"])).toBe("ko");
+    expect(systemLanguage(["KO"])).toBe("ko");
+    expect(systemLanguage(["en-GB"])).toBe("en");
+    expect(systemLanguage([])).toBe("en");
+    expect(systemLanguage()).toMatch(/^(ko|en)$/);
   });
 
   it("substitutes placeholders in status text", () => {

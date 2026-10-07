@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { en } from "../src/domain/en";
+import { systemLanguage } from "../src/domain/i18n";
 import { ko } from "../src/domain/ko";
-import { DEFAULT_SETTINGS, MIN_EVENTS_HEIGHT } from "../src/domain/settings";
+import { DEFAULT_SETTINGS, MIN_EVENTS_HEIGHT, STORAGE_KEY } from "../src/domain/settings";
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(async (): Promise<unknown> => null),
@@ -303,6 +305,32 @@ describe("Desktop", () => {
     mocks.invoke.mockClear();
     await desktop.openHolidaySource();
     expect(mocks.invoke).toHaveBeenCalledWith("open_external", { url: "https://date.nager.at" });
+  });
+
+  it("asks for the language on the web only, and follows the system on a desktop run with no installer choice", async () => {
+    const { useSettings } = await import("../src/ui/useSettings");
+    const { render } = await import("./render");
+    const seen: (string | null)[] = [];
+    const Probe = () => {
+      const model = useSettings();
+      if (model.ready) seen.push(model.settings.language);
+      return null;
+    };
+
+    const web = await render(createElement(Probe));
+    await web.settle();
+    expect(seen.at(-1)).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    await web.unmount();
+
+    asDesktop();
+    mocks.invoke.mockReset();
+    mocks.invoke.mockResolvedValue(null);
+    const app = await render(createElement(Probe));
+    await app.settle();
+    expect(seen.at(-1)).toBe(systemLanguage());
+    expect(localStorage.getItem(STORAGE_KEY)).toContain(`"language":"${systemLanguage()}"`);
+    await app.unmount();
   });
 
   it("ships a frameless transparent tray window that hides instead of quitting", () => {

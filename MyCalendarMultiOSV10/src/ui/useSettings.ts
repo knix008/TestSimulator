@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { messages } from "../domain/i18n";
+import { messages, systemLanguage } from "../domain/i18n";
 import type { Language, Messages } from "../domain/messages";
 import {
   DEFAULT_SETTINGS,
@@ -9,7 +9,7 @@ import {
   type Settings,
 } from "../domain/settings";
 import { applyTheme, getTheme } from "../domain/themes";
-import { onTrayLanguage, readInstallLanguage, setAutostartEnabled, syncShell } from "../platform/desktop";
+import { isTauri, onTrayLanguage, readInstallLanguage, setAutostartEnabled, syncShell } from "../platform/desktop";
 
 export interface ReadyContext {
   settings: Settings & { language: Language };
@@ -33,7 +33,8 @@ export function useSettings({ followTray = false }: { followTray?: boolean } = {
       const stored = readStoredSettings();
       let next = stored ?? { ...DEFAULT_SETTINGS };
       if (!next.language) {
-        const installed = await readInstallLanguage();
+        /** The installer picked the language; a desktop run that never went through one follows the system instead of asking. */
+        const installed = (await readInstallLanguage()) ?? (isTauri() ? systemLanguage() : null);
         if (installed) {
           next = { ...next, language: installed };
           writeStoredSettings(next);
