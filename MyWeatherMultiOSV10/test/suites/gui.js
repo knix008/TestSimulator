@@ -296,6 +296,9 @@ export function registerGui(h) {
         assert.equal(item.style.whiteSpace, "nowrap");
         assert.ok(item.title);
       }
+      assert.match(menu.querySelector('[data-cmd="refresh"] svg').innerHTML, /#2f94ff/);
+      assert.match(menu.querySelector('[data-cmd="settings"] svg').innerHTML, /#ffba30/);
+      assert.match(menu.querySelector('[data-cmd="exit"] svg').innerHTML, /#e5484d/);
       assert.ok(menu.querySelectorAll('[role="separator"]').length >= 4);
       assert.equal(menu.querySelector('[data-cmd="undo"]').disabled, true);
       document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));

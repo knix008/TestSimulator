@@ -2,11 +2,12 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, net, screen, shell } from "electron";
+import { app, BrowserWindow, Tray, clipboard, dialog, ipcMain, net, screen, shell } from "electron";
 import { parseFcList, parseMacFonts, parseWindowsFonts, resolveFontList } from "../src/core/fonts.js";
 import { createI18n } from "../src/core/i18n.js";
 import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js";
-import { buildTrayMenu, menuIconFile, trayIconFile } from "../src/ui/tray-menu.js";
+import { themeColors, themeVars, DEFAULT_THEME_ID } from "../src/core/themes.js";
+import { buildTrayMenu, placeTrayMenu, trayIconFile, trayMenuSize } from "../src/ui/tray-menu.js";
 import { WINDOW_DEFAULT, WINDOW_MIN } from "../src/ui/window-spec.js";
 import { PopupHub } from "./popup-hub.js";
 
@@ -17,6 +18,11 @@ const contentsToPopup = new Map();
 const menuSpecs = new Map();
 let mainWindow = null;
 let tray = null;
+let trayMenuWin = null;
+let trayMenuAnchor = null;
+let trayMenuClosedAt = 0;
+let trayCommand = "";
+let trayRevealUntil = 0;
 let quitting = false;
 let resizeStart = null;
 const moveStarts = new Map();
@@ -68,6 +74,21 @@ function hideFromTaskbar(win) {
   win.setSkipTaskbar(true);
 }
 
+function revealWindow(win, onShown) {
+  if (!win) return;
+  let revealed = false;
+  const reveal = () => {
+    if (revealed || win.isDestroyed()) return;
+    revealed = true;
+    hideFromTaskbar(win);
+    win.show();
+    win.focus();
+    if (onShown) setTimeout(onShown, 80);
+  };
+  win.once("ready-to-show", reveal);
+  win.webContents.once("did-finish-load", reveal);
+}
+
 function createMainWindow() {
   const win = new BrowserWindow({
     width: WINDOW_DEFAULT.width,
@@ -101,6 +122,18 @@ function createMainWindow() {
   });
   for (const name of ["show", "restore"]) win.on(name, keepOffTaskbar);
   win.on("focus", () => setTimeout(keepOffTaskbar, 250));
+  const restoreAfterTray = () => {
+    if (Date.now() > trayRevealUntil || win.isDestroyed()) return;
+    setTimeout(() => {
+      if (Date.now() > trayRevealUntil || win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      if (!win.isVisible()) win.show();
+      win.focus();
+      keepOffTaskbar();
+    }, 0);
+  };
+  win.on("hide", restoreAfterTray);
+  win.on("minimize", restoreAfterTray);
   for (const name of ["maximize", "unmaximize", "minimize", "restore"]) win.on(name, () => sendWindowState(win));
   win.webContents.on("render-process-gone", (_event, details) =>
     void showFatalError("The window renderer stopped", new Error(`${details.reason} (exit code ${details.exitCode})`)),
@@ -152,11 +185,6 @@ function readJson(file) {
   }
 }
 
-function menuImage(name) {
-  const image = nativeImage.createFromPath(path.join(__dirname, "..", menuIconFile(name)));
-  return image.isEmpty() ? undefined : image.resize({ width: 16, height: 16 });
-}
-
 function revealMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
@@ -166,24 +194,104 @@ function revealMainWindow() {
   hideFromTaskbar(mainWindow);
 }
 
-function dispatchTrayCommand(id) {
-  revealMainWindow();
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("menu-command", id);
+function revealMainWindowFromTray() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  trayRevealUntil = Date.now() + 700;
+  mainWindow.setAlwaysOnTop(true);
+  mainWindow.show();
+  mainWindow.moveTop();
+  mainWindow.focus();
+  hideFromTaskbar(mainWindow);
 }
 
-function toTrayTemplate(entry) {
-  if (entry.type === "separator") return { type: "separator" };
-  const template = { label: entry.label, icon: menuImage(entry.icon), enabled: true };
-  if (entry.submenu) template.submenu = entry.submenu.map(toTrayTemplate);
-  else template.click = () => dispatchTrayCommand(entry.id);
-  return template;
+function finishTrayCommand() {
+  const command = trayCommand;
+  trayCommand = "";
+  if (!command || !mainWindow || mainWindow.isDestroyed()) return;
+  revealMainWindowFromTray();
+  setTimeout(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.setAlwaysOnTop(false);
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.focus();
+    hideFromTaskbar(mainWindow);
+    mainWindow.webContents.send("menu-command", command);
+  }, 280);
+}
+
+function closeTrayMenu() {
+  trayMenuClosedAt = Date.now();
+  trayMenuAnchor = null;
+  const win = trayMenuWin;
+  trayMenuWin = null;
+  if (win && !win.isDestroyed()) {
+    win.hide();
+    win.close();
+    return;
+  }
+  if (trayCommand) finishTrayCommand();
 }
 
 function showTrayMenu() {
   if (!tray) return;
-  const settings = readJson(settingsFile());
-  const i18n = createI18n(settings?.language);
-  tray.popUpContextMenu(Menu.buildFromTemplate(buildTrayMenu((key) => i18n.t(key)).map(toTrayTemplate)));
+  if (trayMenuWin && !trayMenuWin.isDestroyed()) {
+    closeTrayMenu();
+    return;
+  }
+  if (Date.now() - trayMenuClosedAt < 500) return;
+  const settings = readJson(settingsFile()) || {};
+  const i18n = createI18n(settings.language);
+  const items = buildTrayMenu((key) => i18n.t(key));
+  const colors = themeColors(settings.theme || DEFAULT_THEME_ID, settings.customTheme);
+  const icon = tray.getBounds();
+  const area = screen.getDisplayMatching(icon).workArea;
+  const placed = placeTrayMenu(icon, trayMenuSize(items), area);
+  const win = new BrowserWindow({
+    frame: false,
+    transparent: true,
+    thickFrame: false,
+    show: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    hasShadow: false,
+    backgroundColor: "#00000000",
+    x: placed.x,
+    y: placed.y,
+    width: placed.width,
+    height: placed.height,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  trayMenuWin = win;
+  trayMenuAnchor = null;
+  menuSpecs.set(win.webContents.id, {
+    kind: "tray",
+    items,
+    theme: { vars: themeVars(colors, 0), mode: colors.mode },
+  });
+  let acceptBlur = false;
+  win.on("blur", () => {
+    if (acceptBlur && !trayCommand) closeTrayMenu();
+  });
+  win.on("closed", () => {
+    if (trayMenuWin === win) trayMenuWin = null;
+    if (trayCommand) finishTrayCommand();
+  });
+  revealWindow(win, () => {
+    acceptBlur = true;
+  });
+  win.loadFile(path.join(__dirname, "../src/menu-host.html"));
 }
 
 function createTray() {
@@ -379,6 +487,7 @@ ipcMain.handle("begin-popup", (event, spec) => {
       contentsToPopup.delete(contentsId);
       if (hub.windows.has(stored.popupId)) hub.finish(stored.popupId, { action: "close" });
     });
+    revealWindow(win);
     win.loadFile(path.join(__dirname, "../src/popup-host.html"));
     return {
       send(patch) {
@@ -420,8 +529,12 @@ ipcMain.handle("show-menu", (event, payload) => {
     },
   });
   menuSpecs.set(win.webContents.id, payload);
+  let acceptBlur = false;
   win.on("blur", () => {
-    if (!win.isDestroyed()) win.close();
+    if (acceptBlur && !win.isDestroyed()) win.close();
+  });
+  revealWindow(win, () => {
+    acceptBlur = true;
   });
   win.loadFile(path.join(__dirname, "../src/menu-host.html"));
   return true;
@@ -429,8 +542,40 @@ ipcMain.handle("show-menu", (event, payload) => {
 
 ipcMain.handle("take-menu-spec", (event) => menuSpecs.get(event.sender.id) || null);
 
+ipcMain.handle("fit-tray-menu", (event, size = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed() || !tray) return null;
+  const icon = tray.getBounds();
+  const area = screen.getDisplayMatching(icon).workArea;
+  const width = Math.max(1, Math.ceil(Number(size.width) || win.getBounds().width));
+  const height = Math.max(1, Math.ceil(Number(size.height) || win.getBounds().height));
+  if (!trayMenuAnchor) {
+    const placed = placeTrayMenu(icon, { width, height }, area);
+    trayMenuAnchor = { x: placed.x, y: placed.y };
+    win.setBounds(placed);
+    return placed;
+  }
+  let x = trayMenuAnchor.x;
+  let y = trayMenuAnchor.y;
+  if (x + width > area.x + area.width) x = area.x + area.width - width;
+  if (x < area.x) x = area.x;
+  if (y + height > area.y + area.height) y = area.y + area.height - height;
+  if (y < area.y) y = area.y;
+  const bounds = { x: Math.round(x), y: Math.round(y), width, height };
+  win.setBounds(bounds);
+  return bounds;
+});
+
 ipcMain.on("menu-command", (event, id) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("menu-command", id);
+  if (win && trayMenuWin && win === trayMenuWin) {
+    if (id) trayCommand = id;
+    closeTrayMenu();
+    return;
+  }
+  if (id && mainWindow && !mainWindow.isDestroyed()) {
+    if (win && win !== mainWindow) revealMainWindow();
+    mainWindow.webContents.send("menu-command", id);
+  }
   if (win && win !== mainWindow && !win.isDestroyed()) win.close();
 });

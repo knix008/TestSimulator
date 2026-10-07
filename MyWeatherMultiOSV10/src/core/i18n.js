@@ -44,6 +44,7 @@ const ROWS = [
   ["cmd.settings", "설정", "Settings"],
   ["cmd.about", "프로그램 정보", "About"],
   ["cmd.exit", "종료", "Exit"],
+  ["tray.show", "창 표시", "Show window"],
   ["tray.weather", "날씨", "Weather"],
   ["tray.file", "파일", "File"],
   ["tray.edit", "편집", "Edit"],

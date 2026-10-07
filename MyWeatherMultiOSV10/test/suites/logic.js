@@ -17,8 +17,9 @@ import { sanitizeSettings } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
-import { buildTrayMenu, listTrayItems, menuIconFile, programIconFile, trayIconFile } from "../../src/ui/tray-menu.js";
+import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconFile, trayIconFile } from "../../src/ui/tray-menu.js";
 import { layoutMenu, menuWindowOptions, popupWindowOptions } from "../../src/ui/menu-layout.js";
+import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
 import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, sceneFit, sceneScale, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
@@ -374,6 +375,23 @@ export function registerLogic(h) {
     ];
     assert.equal(layoutMenu(items, { x: 0, y: 0 }).height, 3 * 32 + 2 * 9 + 12);
   });
+  h.test("the tray menu stays left aligned", () => {
+    const work = { x: 0, y: 0, width: 1200, height: 700 };
+    const aligned = placeTrayMenu({ x: 80, y: 660, width: 24, height: 40 }, { width: 220, height: 240 }, work);
+    assert.equal(aligned.x, 80);
+    assert.equal(aligned.y, 420);
+    const shifted = placeTrayMenu({ x: 1160, y: 660, width: 32, height: 40 }, { width: 220, height: 240 }, work);
+    assert.equal(shifted.x, 980);
+    assert.equal(shifted.x + shifted.width, work.width);
+    const column = buildTrayColumn(buildTrayMenu((key) => createI18n("ko").t(key)));
+    assert.equal(column.dataset.align, "left");
+    assert.equal(column.style.textAlign, "left");
+    assert.equal(column.style.flexDirection, "column");
+    const row = column.querySelector(".menu-item");
+    assert.equal(row.style.justifyContent, "flex-start");
+    assert.equal(row.style.textAlign, "left");
+    assert.ok(row.querySelector(".menu-icon svg"));
+  });
   h.test("popup hub closes every popup when the app quits", async () => {
     const hub = new PopupHub();
     const closed = [];
@@ -543,7 +561,11 @@ export function registerLogic(h) {
     assert.match(main, /skipTaskbar: true/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, "src/styles.css"), "utf8"), /app-region/);
     assert.match(main, /new Tray/);
-    assert.match(main, /popUpContextMenu/);
+    assert.match(main, /placeTrayMenu/);
+    assert.match(main, /fit-tray-menu/);
+    assert.match(main, /trayCommand/);
+    assert.match(main, /revealMainWindowFromTray/);
+    assert.doesNotMatch(main, /popUpContextMenu/);
     const koMenu = buildTrayMenu((key) => createI18n("ko").t(key));
     const enMenu = buildTrayMenu((key) => createI18n("en").t(key));
     const koItems = listTrayItems(koMenu);
@@ -553,6 +575,9 @@ export function registerLogic(h) {
       assert.ok(item.label);
       assert.ok(fs.existsSync(path.join(root, menuIconFile(item.icon))), item.icon);
     }
+    assert.equal(koMenu[0].id, "show-window");
+    assert.equal(koMenu[0].label, "창 표시");
+    assert.equal(enMenu[0].label, "Show window");
     assert.equal(koItems.find((item) => item.id === "weather").label, "날씨");
     assert.equal(enMenu.find((item) => item.id === "file").label, "File");
     assert.ok(fs.existsSync(path.join(root, "README.md")));
@@ -566,6 +591,8 @@ export function registerLogic(h) {
     assert.match(main, /WINDOW_MIN/);
     assert.match(main, /window-resize/);
     assert.match(main, /window-move/);
+    assert.match(main, /function revealWindow/);
+    assert.match(main, /revealWindow\(win\)/);
     assert.match(main, /uncaughtException/);
     assert.match(main, /render-process-gone/);
     assert.match(main, /clipboard\.writeText\(text\)/);

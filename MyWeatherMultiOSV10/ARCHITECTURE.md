@@ -18,7 +18,7 @@ MyWeather 1.0.0 is a vanilla ES-module app. Electron hosts the same pages that t
 
 The main `BrowserWindow` is frameless, transparent, and created with `skipTaskbar: true`. `ready-to-show`, `show`, and `focus` call `setSkipTaskbar(true)` again so Windows does not put the program icon back on the taskbar. Popup and print windows also skip the taskbar.
 
-On startup the main process creates a `Tray` from `assets/icon.ico` on Windows and `assets/icon.png` elsewhere. A click builds a native menu from `buildTrayMenu`. Labels follow the language in `settings.json`. Each item, including the Weather, File, and Edit parents, has a PNG from `assets/menu`. Choosing an item shows the main window and sends `menu-command` to the renderer, which runs the same actions as the in-window menu.
+On startup the main process creates a `Tray` from `assets/icon.ico` on Windows and `assets/icon.png` elsewhere. A click builds a native menu from `buildTrayMenu`. Labels follow the language in `settings.json`. Each item, including the Weather, File, and Edit parents, has a PNG from `assets/menu`. The first item, Show window, only reveals the main window. Choosing any other item shows the main window and sends `menu-command` to the renderer, which runs the same actions as the in-window menu.
 
 Closing the window still asks the renderer to save or discard. Quit destroys the tray.
 
@@ -28,7 +28,7 @@ Closing the window still asks the renderer to save or discard. Quit destroys the
 
 The Windows package turns electron-builder's automatic shortcuts off. `installer.nsh` shows two checkboxes and creates `.lnk` files with `$INSTDIR\resources\icon.ico`. That file is `assets/icon.ico`, copied with `extraResources`, and it is also `build.win.icon`, `installerIcon`, and `uninstallerIcon`. If a previous install is found, the script deletes the old shortcuts, runs the old uninstaller, and removes the install directory before the new files are written. User data under `%APPDATA%\MyWeather` is removed only after Yes.
 
-`npm run dist:win` builds `MyWeather-Setup-1.0.0.exe` and copies it to the root. `dist/` and that root installer stay gitignored.
+`npm run build:win` builds `MyWeather-Setup-1.0.0.exe` and copies it to the root. `dist/` and that root installer stay gitignored.
 
 ## Themes and documents
 

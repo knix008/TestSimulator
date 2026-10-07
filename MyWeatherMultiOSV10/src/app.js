@@ -376,6 +376,7 @@ class WeatherApp {
         settings: () => this.showSettings("general"),
         fonts: () => this.showSettings("font"),
         about: () => this.showAbout(),
+        "show-window": () => {},
         minimize: () => this.minimizeWindow(),
         maximize: () => this.toggleMaximize(),
         close: () => this.requestClose(),

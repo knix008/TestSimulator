@@ -34,6 +34,7 @@ export function menuWindowOptions(layout, parent) {
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
+    show: false,
     x: Math.round(layout.screenX ?? layout.x),
     y: Math.round(layout.screenY ?? layout.y),
     width: Math.ceil(layout.width),

@@ -54,6 +54,7 @@ const PATHS = {
   windowMax: '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>',
   windowRestore: '<rect x="5.5" y="9" width="9.5" height="9.5" rx="1.5"/><path d="M9 6.5v-.1c0-.5.4-.9.9-.9h7.2c.8 0 1.4.6 1.4 1.4v7.2c0 .5-.4.9-.9.9h-.1"/>',
   windowClose: '<path d="M7 7l10 10M17 7 7 17"/>',
+  show: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 9h16"/>',
   palette: '<path d="M12 4a8 8 0 0 0 0 16c1.3 0 2-.8 2-1.8 0-1.4-1.2-1.7-1.2-2.9 0-1 .8-1.8 1.8-1.8H17a3 3 0 0 0 3-3C20 7.1 16.4 4 12 4z"/><circle cx="8.2" cy="11" r="1"/><circle cx="10.5" cy="7.6" r="1"/><circle cx="14.6" cy="7.8" r="1"/>',
   moon: '<path d="M18.5 14.5A7 7 0 0 1 9.5 5.5a7 7 0 1 0 9 9z"/>',
 };
@@ -62,8 +63,30 @@ export function gripIcon() {
   return '<svg class="grip-svg" viewBox="0 0 14 14" aria-hidden="true"><path d="M13 3 3 13M13 7.5 7.5 13M13 12l-1 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 }
 
-export function icon(name) {
-  const body = PATHS[name] || PATHS.dot;
+const COLOR = {
+  refresh: '<circle cx="12" cy="12" r="9" fill="#2f94ff"/><path d="M16.2 8.4a5 5 0 1 0 1.1 4.4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M16.2 5.2v4h-4" fill="none" stroke="#ffd15c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  undo: '<circle cx="12" cy="12" r="9" fill="#ff8c24"/><path d="M8.2 8H5.4v2.8M6.2 10.6a5 5 0 1 0 1.5-3.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  redo: '<circle cx="12" cy="12" r="9" fill="#ff8c24"/><path d="M15.8 8H18.6v2.8M17.8 10.6a5 5 0 1 1-1.5-3.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  copy: '<rect x="8" y="7" width="12" height="13" rx="2" fill="#14a8b0"/><rect x="4" y="4" width="12" height="13" rx="2" fill="#fff" stroke="#2f94ff" stroke-width="1.6"/>',
+  paste: '<rect x="6" y="7" width="12" height="13" rx="2" fill="#fff" stroke="#2470e6" stroke-width="1.6"/><rect x="9" y="4" width="6" height="5" rx="1.2" fill="#f4b028"/><rect x="8" y="12" width="8" height="2" rx="1" fill="#2f94ff"/><rect x="8" y="16" width="5" height="2" rx="1" fill="#20b060"/>',
+  new: '<rect x="4" y="4" width="16" height="16" rx="5" fill="#20b060"/><path d="M12 7.5v9M7.5 12h9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>',
+  add: '<rect x="4" y="4" width="16" height="16" rx="5" fill="#20b060"/><path d="M12 7.5v9M7.5 12h9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>',
+  open: '<path d="M3 9h7l2-3h9v3z" fill="#e8a020"/><path d="M3 11h18v9H3z" fill="#ffd056"/>',
+  recent: '<circle cx="12" cy="12" r="9" fill="#2f94ff"/><path d="M12 7.5V12l3 2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  save: '<rect x="5" y="3" width="14" height="18" rx="2" fill="#2470e6"/><rect x="8" y="3" width="8" height="5" fill="#164eaa"/><rect x="7" y="12" width="10" height="7" rx="1" fill="#fff"/><rect x="9" y="14" width="6" height="2" fill="#7ec8ff"/>',
+  saveAs: '<rect x="3" y="5" width="12" height="12" rx="1.5" fill="#fff" stroke="#2470e6" stroke-width="1.6"/><circle cx="16.5" cy="16.5" r="5.5" fill="#20b060"/><path d="M16.5 13.8v5.4M13.8 16.5h5.4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>',
+  print: '<rect x="8" y="3" width="8" height="5" rx="1" fill="#fff" stroke="#2f94ff" stroke-width="1.4"/><rect x="4" y="8" width="16" height="7" rx="2" fill="#2470e6"/><rect x="7" y="13" width="10" height="8" rx="1" fill="#fff" stroke="#2f94ff" stroke-width="1.4"/>',
+  close: '<circle cx="12" cy="12" r="9" fill="#e5484d"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>',
+  settings: '<path fill="#ffba30" stroke="none" fill-rule="evenodd" d="M8.2 3.2h7.6L21 12l-5.2 8.8H8.2L3 12zM14.8 12a2.8 2.8 0 1 0-5.6 0 2.8 2.8 0 1 0 5.6 0z"/>',
+  about: '<circle cx="12" cy="12" r="9" fill="#2f94ff"/><circle cx="12" cy="8.2" r="1.3" fill="#fff"/><rect x="10.8" y="11" width="2.4" height="6" rx="1" fill="#fff"/>',
+  exit: '<rect x="4" y="4" width="9" height="16" rx="1.5" fill="#2470e6"/><path d="M11 12h8M16 8.5 19.5 12 16 15.5" fill="none" stroke="#e5484d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  daily: '<rect x="4" y="6" width="16" height="14" rx="2" fill="#fff" stroke="#2470e6" stroke-width="1.5"/><path d="M4 6h16v5H4z" fill="#e5484d"/><path d="M8 4v4M16 4v4" fill="none" stroke="#2470e6" stroke-width="2" stroke-linecap="round"/>',
+  favorite: '<path d="M12 19.2s-6.4-3.9-6.4-8.1A3.5 3.5 0 0 1 12 8.2a3.5 3.5 0 0 1 6.4 2.9c0 4.2-6.4 8.1-6.4 8.1z" fill="#e5484d"/>',
+  show: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="#2f94ff"/><path d="M3.5 9h17" stroke="#fff" stroke-width="2"/><rect x="6" y="12" width="8" height="4" rx="1" fill="#fff"/>',
+};
+
+export function icon(name, options = {}) {
+  const body = (options.colorful && COLOR[name]) || PATHS[name] || PATHS.dot;
   return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
 }
 

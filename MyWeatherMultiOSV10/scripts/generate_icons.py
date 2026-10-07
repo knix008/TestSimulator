@@ -244,128 +244,142 @@ def save_ico(path: Path, master: Image.Image) -> None:
     images[-1].save(path, format="ICO", sizes=[(s, s) for s in sizes], append_images=images[:-1])
 
 
-INK = (22, 50, 90, 255)
-
-
-def _icon() -> tuple[Image.Image, ImageDraw.ImageDraw]:
+def _menu() -> tuple[Image.Image, ImageDraw.ImageDraw]:
     img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     return img, ImageDraw.Draw(img)
 
 
-def _line(draw: ImageDraw.ImageDraw, points: list[tuple[int, int]]) -> None:
-    draw.line(points, fill=INK, width=2)
-
-
 def write_menu_icons() -> None:
-    """Small tray-menu glyphs. Each command has its own picture."""
+    """Filled tray-menu glyphs. Each command uses its own bright colours."""
     folder = OUT / "menu"
     folder.mkdir(parents=True, exist_ok=True)
     icons: dict[str, Image.Image] = {}
+    sun = (255, 196, 40, 255)
+    sky = (48, 148, 255, 255)
+    cloud = (255, 255, 255, 255)
+    paper = (255, 252, 245, 255)
+    red = (226, 64, 74, 255)
+    green = (32, 176, 96, 255)
+    orange = (255, 140, 36, 255)
+    blue = (36, 112, 230, 255)
+    gold = (244, 176, 40, 255)
+    teal = (16, 168, 176, 255)
+    white = (255, 255, 255, 255)
 
-    img, draw = _icon()
-    draw.ellipse((6, 8, 16, 18), outline=INK, width=2)
-    draw.ellipse((10, 16, 26, 26), outline=INK, width=2)
+    img, draw = _menu()
+    draw.rounded_rectangle((4, 5, 28, 27), radius=4, fill=sky)
+    draw.rectangle((4, 5, 28, 13), fill=(20, 110, 220, 255))
+    draw.rounded_rectangle((8, 16, 20, 23), radius=2, fill=white)
+    icons["show"] = img
+
+    img, draw = _menu()
+    draw.ellipse((4, 3, 18, 17), fill=sun)
+    draw.ellipse((9, 14, 28, 28), fill=cloud, outline=sky, width=2)
     icons["weather"] = img
 
-    img, draw = _icon()
-    draw.arc((6, 6, 26, 26), start=30, end=300, fill=INK, width=2)
-    draw.polygon([(22, 6), (28, 6), (24, 12)], fill=INK)
+    img, draw = _menu()
+    draw.arc((5, 5, 27, 27), start=40, end=310, fill=sky, width=4)
+    draw.polygon([(20, 4), (29, 5), (23, 13)], fill=orange)
     icons["refresh"] = img
 
-    img, draw = _icon()
-    draw.rounded_rectangle((6, 7, 26, 26), radius=2, outline=INK, width=2)
-    draw.line((6, 13, 26, 13), fill=INK, width=2)
-    draw.line((12, 5, 12, 10), fill=INK, width=2)
-    draw.line((20, 5, 20, 10), fill=INK, width=2)
+    img, draw = _menu()
+    draw.rounded_rectangle((6, 7, 26, 27), radius=3, fill=paper, outline=blue, width=2)
+    draw.rectangle((6, 7, 26, 14), fill=red)
+    draw.line((12, 4, 12, 10), fill=blue, width=3)
+    draw.line((20, 4, 20, 10), fill=blue, width=3)
     icons["daily"] = img
 
-    img, draw = _icon()
-    draw.rounded_rectangle((5, 8, 11, 24), radius=1, outline=INK, width=2)
-    draw.rounded_rectangle((13, 8, 19, 24), radius=1, outline=INK, width=2)
-    draw.rounded_rectangle((21, 8, 27, 24), radius=1, outline=INK, width=2)
+    img, draw = _menu()
+    draw.rounded_rectangle((4, 8, 12, 26), radius=2, fill=sky)
+    draw.rounded_rectangle((13, 5, 21, 26), radius=2, fill=green)
+    draw.rounded_rectangle((22, 11, 30, 26), radius=2, fill=orange)
     icons["weekly"] = img
 
-    img, draw = _icon()
-    draw.rounded_rectangle((5, 5, 27, 27), radius=2, outline=INK, width=2)
-    draw.line((5, 12, 27, 12), fill=INK, width=2)
-    draw.line((13, 12, 13, 27), fill=INK, width=2)
-    draw.line((20, 12, 20, 27), fill=INK, width=2)
-    draw.line((5, 19, 27, 19), fill=INK, width=2)
+    img, draw = _menu()
+    draw.rounded_rectangle((4, 4, 28, 28), radius=3, fill=paper, outline=blue, width=2)
+    draw.rectangle((4, 4, 28, 11), fill=sky)
+    for col, color in ((8, red), (16, green), (23, orange)):
+        draw.rectangle((col, 15, col + 4, 19), fill=color)
+        draw.rectangle((col, 22, col + 4, 26), fill=blue)
     icons["monthly"] = img
 
-    img, draw = _icon()
-    draw.polygon([(4, 12), (12, 12), (15, 8), (28, 8), (28, 25), (4, 25)], outline=INK)
+    img, draw = _menu()
+    draw.polygon([(3, 12), (12, 12), (15, 7), (29, 7), (29, 26), (3, 26)], fill=gold)
+    draw.polygon([(3, 13), (29, 13), (29, 26), (3, 26)], fill=(255, 204, 72, 255))
     icons["open"] = img
 
-    img, draw = _icon()
-    _line(draw, [(16, 6), (16, 26)])
-    _line(draw, [(6, 16), (26, 16)])
+    img, draw = _menu()
+    draw.rounded_rectangle((4, 4, 28, 28), radius=7, fill=green)
+    draw.rectangle((14, 8, 18, 24), fill=white)
+    draw.rectangle((8, 14, 24, 18), fill=white)
     icons["new"] = img
 
-    img, draw = _icon()
-    draw.polygon([(6, 4), (20, 4), (26, 10), (26, 28), (6, 28)], outline=INK)
-    draw.rectangle((10, 4, 20, 12), outline=INK, width=2)
-    draw.rectangle((10, 18, 22, 28), outline=INK, width=2)
+    img, draw = _menu()
+    draw.rounded_rectangle((6, 4, 26, 28), radius=3, fill=blue)
+    draw.rectangle((10, 4, 22, 12), fill=(20, 78, 180, 255))
+    draw.rectangle((9, 16, 23, 26), fill=white)
+    draw.rectangle((12, 19, 20, 22), fill=sky)
     icons["save"] = img
 
-    img, draw = _icon()
-    draw.polygon([(4, 6), (16, 6), (20, 10), (20, 16), (4, 16)], outline=INK)
-    _line(draw, [(22, 18), (22, 28)])
-    _line(draw, [(17, 23), (27, 23)])
+    img, draw = _menu()
+    draw.rounded_rectangle((3, 6, 20, 22), radius=2, fill=paper, outline=blue, width=2)
+    draw.ellipse((16, 14, 30, 28), fill=green)
+    draw.rectangle((21, 17, 25, 25), fill=white)
+    draw.rectangle((19, 20, 27, 23), fill=white)
     icons["saveAs"] = img
 
-    img, draw = _icon()
-    draw.rectangle((8, 4, 24, 10), outline=INK, width=2)
-    draw.rounded_rectangle((5, 10, 27, 20), radius=2, outline=INK, width=2)
-    draw.rectangle((8, 18, 24, 28), outline=INK, width=2)
+    img, draw = _menu()
+    draw.rectangle((9, 3, 23, 12), fill=paper, outline=sky, width=2)
+    draw.rounded_rectangle((4, 10, 28, 20), radius=3, fill=blue)
+    draw.rectangle((13, 16, 19, 20), fill=white)
+    draw.rectangle((10, 18, 22, 28), fill=paper, outline=sky, width=2)
     icons["print"] = img
 
-    img, draw = _icon()
-    draw.rounded_rectangle((8, 8, 24, 26), radius=2, outline=INK, width=2)
-    draw.rounded_rectangle((4, 4, 18, 20), radius=2, outline=INK, width=2)
+    img, draw = _menu()
+    draw.rounded_rectangle((10, 8, 28, 28), radius=3, fill=teal)
+    draw.rounded_rectangle((4, 4, 22, 24), radius=3, fill=paper, outline=sky, width=2)
     icons["copy"] = img
 
-    img, draw = _icon()
-    draw.arc((8, 8, 24, 24), start=200, end=40, fill=INK, width=2)
-    draw.polygon([(6, 10), (6, 18), (12, 14)], fill=INK)
+    img, draw = _menu()
+    draw.arc((7, 7, 26, 26), start=200, end=30, fill=orange, width=4)
+    draw.polygon([(5, 8), (5, 18), (13, 13)], fill=orange)
     icons["undo"] = img
 
-    img, draw = _icon()
-    draw.arc((8, 8, 24, 24), start=140, end=340, fill=INK, width=2)
-    draw.polygon([(26, 10), (26, 18), (20, 14)], fill=INK)
+    img, draw = _menu()
+    draw.arc((6, 7, 25, 26), start=150, end=340, fill=orange, width=4)
+    draw.polygon([(27, 8), (27, 18), (19, 13)], fill=orange)
     icons["redo"] = img
 
-    img, draw = _icon()
-    draw.rounded_rectangle((8, 8, 24, 28), radius=2, outline=INK, width=2)
-    draw.rectangle((12, 4, 20, 10), outline=INK, width=2)
+    img, draw = _menu()
+    draw.rounded_rectangle((7, 8, 25, 28), radius=3, fill=paper, outline=blue, width=2)
+    draw.rounded_rectangle((11, 3, 21, 11), radius=2, fill=gold)
+    draw.rectangle((10, 15, 22, 18), fill=sky)
+    draw.rectangle((10, 21, 18, 24), fill=green)
     icons["paste"] = img
 
-    img, draw = _icon()
+    img, draw = _menu()
     nut = []
     for index in range(6):
         angle = math.radians(-90 + index * 60)
-        nut.append((16 + 12 * math.cos(angle), 16 + 12 * math.sin(angle)))
-    draw.polygon(nut, outline=INK)
-    draw.line(nut + [nut[0]], fill=INK, width=2)
+        nut.append((16 + 13 * math.cos(angle), 16 + 13 * math.sin(angle)))
+    draw.polygon(nut, fill=(255, 186, 48, 255), outline=(214, 130, 20, 255))
     pixels = img.load()
     for y in range(32):
         for x in range(32):
-            if (x - 16) ** 2 + (y - 16) ** 2 <= 16:
+            if (x - 16) ** 2 + (y - 16) ** 2 <= 20:
                 pixels[x, y] = (0, 0, 0, 0)
     icons["settings"] = img
 
-    img, draw = _icon()
-    draw.ellipse((6, 6, 26, 26), outline=INK, width=2)
-    draw.ellipse((15, 10, 18, 13), fill=INK)
-    draw.line((16, 15, 16, 23), fill=INK, width=2)
+    img, draw = _menu()
+    draw.ellipse((4, 4, 28, 28), fill=sky)
+    draw.ellipse((14, 8, 18, 12), fill=white)
+    draw.rounded_rectangle((14, 14, 18, 24), radius=1, fill=white)
     icons["about"] = img
 
-    img, draw = _icon()
-    draw.line((8, 6, 8, 26), fill=INK, width=2)
-    draw.line((8, 6, 16, 6), fill=INK, width=2)
-    draw.line((8, 26, 16, 26), fill=INK, width=2)
-    draw.line((12, 16, 26, 16), fill=INK, width=2)
-    draw.polygon([(22, 12), (28, 16), (22, 20)], fill=INK)
+    img, draw = _menu()
+    draw.rounded_rectangle((5, 5, 18, 27), radius=2, fill=blue)
+    draw.polygon([(14, 12), (28, 16), (14, 20)], fill=red)
+    draw.rectangle((8, 15, 18, 18), fill=red)
     icons["exit"] = img
 
     for name, picture in icons.items():

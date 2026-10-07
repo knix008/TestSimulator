@@ -30,7 +30,7 @@ The command regenerates the icons and runs the full suite. The summary at the en
 ## Build the Windows installer
 
 ```bash
-npm run dist:win
+npm run build:win
 ```
 
 electron-builder writes `dist/MyWeather-Setup-1.0.0.exe`. The same command copies that one file to the project root. The installer icon, the installed program icon, and both shortcuts are `assets/icon.ico`.
