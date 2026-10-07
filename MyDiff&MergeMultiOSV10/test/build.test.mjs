@@ -294,6 +294,16 @@ test("packaging › the custom installer script is included", () => {
   assert.match(readText("electron-builder.yml"), /include: build\/installer\.nsh/);
 });
 
+test("packaging › electron-builder does not walk node_modules", async () => {
+  // npmRebuild: false returns before beforeBuild, so the collector would still
+  // log "duplicate dependency references" once per architecture.
+  const yml = readText("electron-builder.yml");
+  assert.match(yml, /beforeBuild: \.\/scripts\/skip-node-modules\.cjs/);
+  assert.doesNotMatch(yml, /^npmRebuild:\s*false/m);
+  const { default: beforeBuild } = await import("../scripts/skip-node-modules.cjs");
+  assert.equal(await beforeBuild(), false);
+});
+
 test("packaging › npm scripts do not rely on PATH-resolved binaries", () => {
   // The project folder contains "&", which Windows' shell splits a PATH entry on;
   // every tool is therefore launched by its script path instead of its bin name.

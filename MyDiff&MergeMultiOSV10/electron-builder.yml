@@ -7,8 +7,14 @@ directories:
   buildResources: build
 
 # The packaged app is the built UI, the bundled server and the Electron shell.
-# node_modules is bundled into dist-server/ by scripts/bundle-server.mjs, so the
-# dependency tree would only be dead weight in the installer.
+# node_modules is bundled into dist-server/ by scripts/bundle-server.mjs.
+# beforeBuild returns false so electron-builder does not walk that tree. The walk
+# is what prints "duplicate dependency references" once per architecture, and the
+# `!node_modules` pattern below already drops every file it would have copied.
+# npmRebuild: false is not set: that option returns before beforeBuild runs, so
+# the walk would still happen.
+beforeBuild: ./scripts/skip-node-modules.cjs
+
 files:
   - dist/**/*
   - dist-server/**/*
@@ -26,7 +32,6 @@ extraResources:
     to: document.ico
 
 asar: true
-npmRebuild: false
 
 # The app's own save format. The installer registers it with its own icon, so a
 # .dmrg session opens in My Diff & Merge from the file manager.
