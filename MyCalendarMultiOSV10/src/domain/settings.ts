@@ -1,10 +1,4 @@
-import {
-  clampBackgroundImageOpacity,
-  DEFAULT_BACKGROUND_IMAGE_OPACITY,
-  DEFAULT_BACKGROUND_WINDOWS,
-  normalizeBackgroundWindows,
-  type BackgroundWindows,
-} from "./backgroundImage";
+import { clampBackgroundImageOpacity, DEFAULT_BACKGROUND_IMAGE_OPACITY } from "./backgroundImage";
 import { DEFAULT_MONTH_TITLE_FORMATS, normalizeMonthTitleFormats, type MonthTitleFormats } from "./calendar";
 import { isReminder, type Reminder } from "./events";
 import { MIN_OPACITY, themes } from "./themes";
@@ -34,10 +28,8 @@ export interface Settings {
   fullscreenDateFont: DateFont | null;
   /** Calendar window size when it was last resized, restored on the next launch. */
   windowSize: { width: number; height: number } | null;
-  /** How strongly the background image shows over the theme, 0–1. The image itself is stored apart. */
+  /** How strongly the background image shows over the calendar's theme, 0–1. The image itself is stored apart. */
   backgroundImageOpacity: number;
-  /** Which windows show the background image. */
-  backgroundImageWindows: BackgroundWindows;
   /** How the title bar writes the year and month, chosen separately for Korean and English. */
   monthTitleFormats: MonthTitleFormats;
 }
@@ -160,7 +152,6 @@ export const DEFAULT_SETTINGS: Settings = {
   fullscreenDateFont: null,
   windowSize: null,
   backgroundImageOpacity: DEFAULT_BACKGROUND_IMAGE_OPACITY,
-  backgroundImageWindows: DEFAULT_BACKGROUND_WINDOWS,
   monthTitleFormats: DEFAULT_MONTH_TITLE_FORMATS,
 };
 
@@ -220,7 +211,6 @@ export function normalizeSettings(input: Partial<Settings> | null | undefined): 
       input?.backgroundImageOpacity === undefined
         ? DEFAULT_BACKGROUND_IMAGE_OPACITY
         : clampBackgroundImageOpacity(Number(input.backgroundImageOpacity)),
-    backgroundImageWindows: normalizeBackgroundWindows(input?.backgroundImageWindows),
     monthTitleFormats: normalizeMonthTitleFormats(input?.monthTitleFormats),
   };
 }

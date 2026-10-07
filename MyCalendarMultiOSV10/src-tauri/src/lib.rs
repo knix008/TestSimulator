@@ -132,10 +132,16 @@ fn events_label(language: &str) -> &'static str {
 }
 
 fn aux_title(app: &tauri::AppHandle, label: &str) -> String {
-    if label == "print" {
+    if label == "print" || label == "editor" {
         // Not in the tray, so there is no label to copy; the page sets its own title once it loads.
         let language = read_install_language_value().unwrap_or_else(|| "en".to_string());
-        return if language == "ko" { "인쇄 미리 보기" } else { "Print preview" }.to_string();
+        let title = match (label, language == "ko") {
+            ("print", true) => "인쇄 미리 보기",
+            ("print", false) => "Print preview",
+            (_, true) => "일정 추가",
+            (_, false) => "Add event",
+        };
+        return title.to_string();
     }
     let current = app.try_state::<TrayState>().and_then(|state| {
         let item = if label == "events" { &state.events } else { &state.settings };
@@ -149,19 +155,28 @@ fn aux_title(app: &tauri::AppHandle, label: &str) -> String {
 }
 
 fn open_aux(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
-    if label != "settings" && label != "events" && label != "print" {
+    if label != "settings" && label != "events" && label != "print" && label != "editor" {
         return Err("unknown window".into());
     }
+    // The editor is opened from the calendar, so it must not end up behind a calendar kept on top.
+    let on_top = label == "editor" && KEEP_ON_TOP.load(Ordering::SeqCst);
     if let Some(window) = app.get_webview_window(label) {
         window.show().map_err(|error| error.to_string())?;
+        if label == "editor" {
+            window.set_always_on_top(on_top).map_err(|error| error.to_string())?;
+        }
         window.set_focus().map_err(|error| error.to_string())?;
         return Ok(());
     }
-    // The print preview shows whole pages beside its options, so it is wide and can be resized.
+    // The print preview shows whole pages beside its options, so it is wide and can be resized. The editor can be
+    // resized too; its form scrolls when the window is shorter than the form.
     let (icon, width, height, min_width, min_height, resizable): (&[u8], f64, f64, f64, f64, bool) = match label {
         "events" => (include_bytes!("../icons/tray/events-64.png"), 520.0, 640.0, 380.0, 420.0, false),
         "print" => (include_bytes!("../icons/tray/print-64.png"), 1040.0, 720.0, 760.0, 520.0, true),
-        _ => (include_bytes!("../icons/tray/settings-64.png"), 520.0, 624.0, 380.0, 420.0, false),
+        // The height of a plain new event; the window then follows the form as fields come and go.
+        "editor" => (include_bytes!("../icons/tray/events-64.png"), 460.0, 492.0, 380.0, EDITOR_MIN_HEIGHT, true),
+        // Tall enough for the longest tab (the general one, with holidays and the background) in either language.
+        _ => (include_bytes!("../icons/tray/settings-64.png"), 600.0, 760.0, 380.0, 420.0, false),
     };
     WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(aux_title(app, label))
@@ -174,6 +189,7 @@ fn open_aux(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
         .transparent(true)
         .shadow(false)
         .skip_taskbar(true)
+        .always_on_top(on_top)
         .center()
         .visible(true)
         .background_color(tauri::window::Color(0, 0, 0, 0))
@@ -364,6 +380,37 @@ fn place_reminder(window: &tauri::WebviewWindow, height: f64) -> Result<(), Stri
     window.set_always_on_top(true).map_err(|error| error.to_string())
 }
 
+/// Fits the event editor's height to its form, keeping its width and staying inside the work area.
+#[tauri::command]
+async fn fit_editor_window(window: tauri::WebviewWindow, height: f64) -> Result<(), String> {
+    let monitor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| window.primary_monitor().ok().flatten())
+        .ok_or("no monitor")?;
+    let scale = monitor.scale_factor();
+    let area = monitor.work_area();
+    let area_top = area.position.y as f64 / scale;
+    let area_height = area.size.height as f64 / scale;
+    let height = height.clamp(EDITOR_MIN_HEIGHT, (area_height - 16.0).max(EDITOR_MIN_HEIGHT));
+    let width = window.inner_size().map_err(|error| error.to_string())?.width as f64 / scale;
+    window
+        .set_size(tauri::LogicalSize::new(width, height))
+        .map_err(|error| error.to_string())?;
+    let position = window.outer_position().map_err(|error| error.to_string())?;
+    let top = position.y as f64 / scale;
+    let fitted = top.min(area_top + area_height - height - 8.0).max(area_top + 8.0);
+    if (fitted - top).abs() >= 1.0 {
+        window
+            .set_position(tauri::LogicalPosition::new(position.x as f64 / scale, fitted))
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+const EDITOR_MIN_HEIGHT: f64 = 240.0;
+
 /// Overlapping calls would otherwise each build the same settings or events window.
 static AUX_LOCK: Mutex<()> = Mutex::new(());
 
@@ -505,7 +552,8 @@ pub fn run() {
             open_aux_window,
             open_external,
             show_reminder_window,
-            fit_reminder_window
+            fit_reminder_window,
+            fit_editor_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running My Calendar");

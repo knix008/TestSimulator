@@ -13,8 +13,10 @@ import {
 } from "../platform/desktop";
 import { ReminderPopup, useReminderScheduler } from "./ReminderPopup";
 import { CalendarScreen } from "./CalendarScreen";
+import { EventEditorWindow } from "./EventEditorWindow";
 import { EventsScreen } from "./EventsScreen";
 import { PrintScreen } from "./PrintScreen";
+import { requestEventsDay } from "../domain/eventsDay";
 import { requestPrintMonth } from "../domain/print";
 import { Boot, LanguageGate } from "./LanguageGate";
 import { SettingsScreen } from "./SettingsScreen";
@@ -68,8 +70,9 @@ function Gate({ children, followTray = false }: { children: (ctx: ReadyContext) 
   return children(ctx);
 }
 
-type WindowKind = "pending" | "main" | "settings" | "events" | "print" | "reminder";
+type WindowKind = "pending" | "main" | "settings" | "events" | "print" | "editor" | "reminder";
 type AuxView = "settings" | "events" | "print";
+const AUX_WINDOWS: readonly string[] = ["settings", "events", "print", "editor", "reminder"];
 
 /** The webview's own menu (back, reload, print the raw page, inspect) never makes sense in the desktop app. */
 function useNoNativeMenu() {
@@ -91,8 +94,7 @@ function useWindowKind(): WindowKind {
     let alive = true;
     void currentWindowLabel().then((label) => {
       if (!alive) return;
-      if (label === "settings" || label === "events" || label === "print" || label === "reminder") setKind(label);
-      else setKind("main");
+      setKind(AUX_WINDOWS.includes(label) ? (label as WindowKind) : "main");
     });
     return () => {
       alive = false;
@@ -127,7 +129,7 @@ function AuxDialog({ view, ctx, onClose }: { view: AuxView; ctx: ReadyContext; o
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div
-        className={view === "print" ? "modal print-modal" : "modal"}
+        className={`modal ${view}-modal`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
@@ -162,7 +164,8 @@ function MainWindow() {
     if (isTauri()) void openAux("settings");
     else setDialog("settings");
   };
-  const openEvents = () => {
+  const openEvents = (day?: string) => {
+    requestEventsDay(day ?? null);
     if (isTauri()) void openAux("events");
     else setDialog("events");
   };
@@ -193,7 +196,7 @@ function MainWindow() {
           {dialog && <AuxDialog key={dialog} view={dialog} ctx={ctx} onClose={() => setDialog(null)} />}
           {!isTauri() && (
             <div className="reminder-overlay">
-              <ReminderPopup t={ctx.t} language={ctx.settings.language} settings={ctx.settings} />
+              <ReminderPopup t={ctx.t} language={ctx.settings.language} />
             </div>
           )}
         </div>
@@ -227,6 +230,19 @@ function AuxWindowContent({ view, ctx }: { view: AuxView; ctx: ReadyContext }) {
   );
 }
 
+/** The form handles Escape itself, so the window adds no key handler of its own. */
+function EditorWindow() {
+  return (
+    <Gate>
+      {(ctx) => (
+        <div className="app-frame">
+          <EventEditorWindow ctx={ctx} onClose={() => void closeCurrentWindow()} />
+        </div>
+      )}
+    </Gate>
+  );
+}
+
 function ReminderWindow() {
   return (
     <Gate>
@@ -244,7 +260,6 @@ function ReminderWindowContent({ ctx }: { ctx: ReadyContext }) {
       <ReminderPopup
         t={ctx.t}
         language={ctx.settings.language}
-        settings={ctx.settings}
         onSize={(height) => void fitReminderWindow(height)}
         onEmpty={() => void hideCurrentWindow()}
       />
@@ -266,6 +281,8 @@ export function App() {
     <AppBoundary>
       {kind === "settings" || kind === "events" || kind === "print" ? (
         <AuxWindow view={kind} />
+      ) : kind === "editor" ? (
+        <EditorWindow />
       ) : kind === "reminder" ? (
         <ReminderWindow />
       ) : (

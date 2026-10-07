@@ -1,23 +1,14 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import {
-  BACKGROUND_WINDOWS,
   backgroundImageOpacityFromTransparency,
   backgroundImageTransparency,
   writeBackgroundImage,
-  type BackgroundWindow,
 } from "../domain/backgroundImage";
 import type { Messages } from "../domain/messages";
 import type { Settings } from "../domain/settings";
 import { prepareBackgroundImage, useBackgroundImage } from "./BackgroundImage";
-import { BellIcon, CalendarIcon, EventsIcon, ImageIcon, PrintIcon, TransparencyIcon, TrashIcon } from "./icons";
+import { ImageIcon, TransparencyIcon, TrashIcon } from "./icons";
 import { RangeField } from "./RangeField";
-
-const WINDOW_ICONS: Record<BackgroundWindow, ReactNode> = {
-  main: <CalendarIcon />,
-  events: <EventsIcon />,
-  print: <PrintIcon />,
-  reminder: <BellIcon />,
-};
 
 export function BackgroundImageSettings({
   settings,
@@ -113,22 +104,6 @@ export function BackgroundImageSettings({
         t={t}
         onChange={(value) => update({ backgroundImageOpacity: backgroundImageOpacityFromTransparency(value) })}
       />
-      <p className="field">{t.backgroundImageWindows}</p>
-      <div className="background-image-windows">
-        {BACKGROUND_WINDOWS.map((name) => (
-          <label key={name} className="check">
-            <input
-              type="checkbox"
-              checked={settings.backgroundImageWindows[name]}
-              onChange={(event) =>
-                update({ backgroundImageWindows: { ...settings.backgroundImageWindows, [name]: event.target.checked } })
-              }
-            />
-            {WINDOW_ICONS[name]}
-            <span>{t.backgroundImageTargets[name]}</span>
-          </label>
-        ))}
-      </div>
       <p className="hint">{t.backgroundImageHint}</p>
     </>
   );

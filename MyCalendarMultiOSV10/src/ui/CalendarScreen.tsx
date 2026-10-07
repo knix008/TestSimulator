@@ -39,6 +39,7 @@ import {
 import { blankEvent, eventsOn, type CalendarEvent } from "../domain/events";
 import { PanelBackdrop } from "./BackgroundImage";
 import { EventEditor, reminderLabel, repeatLabel } from "./EventEditor";
+import { useEventEditor } from "./useEventEditor";
 import {
   BellIcon,
   ChevronIcon,
@@ -229,13 +230,14 @@ export function CalendarScreen({
 }: {
   ctx: ReadyContext;
   onOpenSettings: (tab?: SettingsTab) => void;
-  onOpenEvents: () => void;
+  /** With a day, the events screen lists only that day's events. */
+  onOpenEvents: (day?: string) => void;
   onOpenPrint?: (year: number, month: number) => void;
 }) {
   const { settings, update, t } = ctx;
   const drag = usePanelDrag();
   const store = useEvents();
-  const [editing, setEditing] = useState<{ event: CalendarEvent; occurrence?: string } | null>(null);
+  const editor = useEventEditor();
   /** A day's menu when `date` is set, otherwise the calendar's own menu from the title bar or the panel. */
   const [menu, setMenu] = useState<{ x: number; y: number; date?: Date } | null>(null);
   const closeMenu = useCallback(() => {
@@ -540,7 +542,7 @@ export function CalendarScreen({
     if (event.target instanceof HTMLElement && event.target.closest("input, select, textarea, .sheet-back")) return;
     if (event.key === "n" || event.key === "N") {
       event.preventDefault();
-      setEditing({ event: blankEvent(selected, settings.defaultReminder) });
+      editor.open(blankEvent(selected, settings.defaultReminder));
       return;
     }
     if ((event.ctrlKey || event.metaKey) && event.key === ",") {
@@ -585,7 +587,7 @@ export function CalendarScreen({
       id: "add",
       label: t.addEventOn,
       icon: <PlusIcon />,
-      onSelect: () => setEditing({ event: blankEvent(date, settings.defaultReminder) }),
+      onSelect: () => editor.open(blankEvent(date, settings.defaultReminder)),
     },
     ...(eventsByDay.get(formatISODate(date)) ?? []).slice(0, 6).map((event, index) => ({
       id: `event-${event.id}`,
@@ -593,10 +595,10 @@ export function CalendarScreen({
       icon: <PencilIcon />,
       color: event.color,
       separated: index === 0,
-      onSelect: () => setEditing({ event, occurrence: formatISODate(date) }),
+      onSelect: () => editor.open(event, formatISODate(date)),
     })),
     { id: "today", label: t.goToday, icon: <TodayIcon />, separated: true, onSelect: () => selectDate(new Date()) },
-    { id: "events", label: t.manageEvents, icon: <ListIcon />, onSelect: onOpenEvents },
+    { id: "events", label: t.manageEvents, icon: <ListIcon />, onSelect: () => onOpenEvents() },
     { id: "print", label: t.print, icon: <PrintIcon />, onSelect: printView },
     { id: "settings", label: t.settings, icon: <GearIcon />, onSelect: () => onOpenSettings() },
   ];
@@ -610,9 +612,9 @@ export function CalendarScreen({
       label: t.addEvent,
       icon: <PlusIcon />,
       separated: true,
-      onSelect: () => setEditing({ event: blankEvent(selected, settings.defaultReminder) }),
+      onSelect: () => editor.open(blankEvent(selected, settings.defaultReminder)),
     },
-    { id: "events", label: t.manageEvents, icon: <ListIcon />, onSelect: onOpenEvents },
+    { id: "events", label: t.manageEvents, icon: <ListIcon />, onSelect: () => onOpenEvents() },
     { id: "print", label: t.print, icon: <PrintIcon />, separated: true, onSelect: printView },
     { id: "settings", label: t.settings, icon: <GearIcon />, onSelect: () => onOpenSettings() },
     ...(desktop
@@ -670,7 +672,7 @@ export function CalendarScreen({
         } as CSSProperties
       }
     >
-      <PanelBackdrop settings={settings} target="main" />
+      <PanelBackdrop settings={settings} />
       <header className="toolbar" ref={toolbarRef}>
         <div className="toolbar-group">
           <span className="app-brand" title={t.appName}>
@@ -782,7 +784,7 @@ export function CalendarScreen({
                 aria-label={label}
                 title={note?.cell ? label : undefined}
                 onClick={() => setSelected(date)}
-                onDoubleClick={() => setEditing({ event: blankEvent(date, settings.defaultReminder) })}
+                onDoubleClick={() => (dayEvents.length > 0 ? onOpenEvents(iso) : editor.open(blankEvent(date, settings.defaultReminder)))}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   setSelected(date);
@@ -854,7 +856,7 @@ export function CalendarScreen({
                   className="icon-btn"
                   aria-label={t.addEvent}
                   title={t.addEvent}
-                  onClick={() => setEditing({ event: blankEvent(selected, settings.defaultReminder) })}
+                  onClick={() => editor.open(blankEvent(selected, settings.defaultReminder))}
                 >
                   <PlusIcon />
                 </button>
@@ -863,7 +865,7 @@ export function CalendarScreen({
                   className="icon-btn"
                   aria-label={t.manageEvents}
                   title={t.manageEvents}
-                  onClick={onOpenEvents}
+                  onClick={() => onOpenEvents()}
                 >
                   <ListIcon />
                 </button>
@@ -918,7 +920,7 @@ export function CalendarScreen({
                       type="button"
                       className="day-event"
                       aria-label={`${t.editEvent}: ${event.title}`}
-                      onClick={() => setEditing({ event, occurrence: selectedKey })}
+                      onClick={() => editor.open(event, selectedKey)}
                       onKeyDown={(key) => {
                         if (key.key !== "Delete") return;
                         key.preventDefault();
@@ -1005,17 +1007,17 @@ export function CalendarScreen({
           items={menu.date ? dayMenuItems(menu.date) : windowMenuItems()}
         />
       )}
-      {editing && (
+      {editor.editing && (
         <EventEditor
           t={t}
           language={settings.language}
-          initial={editing.event}
-          occurrence={editing.occurrence}
+          initial={editor.editing.event}
+          occurrence={editor.editing.occurrence}
           onSave={store.save}
           onDelete={store.remove}
           onSkip={store.skip}
           onClose={() => {
-            setEditing(null);
+            editor.close();
             panelRef.current?.focus();
           }}
         />

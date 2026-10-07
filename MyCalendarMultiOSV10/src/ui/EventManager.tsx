@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { blankEvent, isReminder, sortForList, type CalendarEvent, type Reminder } from "../domain/events";
+import { parseISODate } from "../domain/calendar";
+import { blankEvent, eventsOn, isReminder, sortForList, type Reminder } from "../domain/events";
 import { formatMessage } from "../domain/i18n";
 import type { Language, Messages } from "../domain/messages";
 import { Dropdown } from "./Dropdown";
-import { EventEditor, eventDateLabel, reminderLabel, reminderOptions, repeatSummary } from "./EventEditor";
-import { BellIcon, PencilIcon, PlusIcon, RepeatIcon, TrashIcon } from "./icons";
+import { EventEditor, eventDateLabel, formatEventDate, reminderLabel, reminderOptions, repeatSummary } from "./EventEditor";
+import { BellIcon, CalendarIcon, PencilIcon, PlusIcon, RepeatIcon, TrashIcon } from "./icons";
+import { useEventEditor } from "./useEventEditor";
 import { useEvents } from "./useEvents";
 
 export function EventManager({
@@ -12,24 +14,39 @@ export function EventManager({
   language,
   defaultReminder,
   onDefaultReminderChange,
+  day = null,
+  onShowAll,
 }: {
   t: Messages;
   language: Language;
   defaultReminder: Reminder;
   onDefaultReminderChange: (reminder: Reminder) => void;
+  /** Lists only the events that fall on this ISO date, repeats included; null lists every event. */
+  day?: string | null;
+  onShowAll?: () => void;
 }) {
   const store = useEvents();
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<CalendarEvent | null>(null);
+  const editor = useEventEditor();
   const [confirming, setConfirming] = useState<string | null>(null);
+  const listed = useMemo(() => (day ? eventsOn(store.events, parseISODate(day)) : sortForList(store.events)), [store.events, day]);
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const sorted = sortForList(store.events);
-    return needle ? sorted.filter((event) => event.title.toLowerCase().includes(needle)) : sorted;
-  }, [store.events, query]);
+    return needle ? listed.filter((event) => event.title.toLowerCase().includes(needle)) : listed;
+  }, [listed, query]);
+  const occurrence = day ?? undefined;
 
   return (
     <div className="event-manager">
+      {day && (
+        <div className="manage-day">
+          <CalendarIcon />
+          <strong>{formatEventDate(day, language)}</strong>
+          <button type="button" className="text-btn" onClick={onShowAll}>
+            {t.showAllEvents}
+          </button>
+        </div>
+      )}
       <div className="manage-head">
         <input
           className="text-input"
@@ -40,7 +57,7 @@ export function EventManager({
           autoComplete="off"
           onChange={(event) => setQuery(event.target.value)}
         />
-        <button type="button" className="text-btn solid add-event" onClick={() => setEditing(blankEvent(new Date(), defaultReminder))}>
+        <button type="button" className="text-btn solid add-event" onClick={() => editor.open(blankEvent(day ? parseISODate(day) : new Date(), defaultReminder))}>
           <PlusIcon />
           {t.addEvent}
         </button>
@@ -60,10 +77,10 @@ export function EventManager({
         />
       </label>
       <p className="hint">
-        {formatMessage(t.eventCount, { count: store.events.length })} · {t.remindersHint}
+        {formatMessage(t.eventCount, { count: listed.length })} · {t.remindersHint}
       </p>
-      {store.events.length === 0 ? (
-        <p className="hint">{t.noEventsYet}</p>
+      {listed.length === 0 ? (
+        <p className="hint">{day ? t.noEventsOnDay : t.noEventsYet}</p>
       ) : visible.length === 0 ? (
         <p className="hint">{t.noMatchingEvents}</p>
       ) : (
@@ -93,7 +110,7 @@ export function EventManager({
             }
             return (
               <li key={event.id}>
-                <button type="button" className="manage-main" onClick={() => setEditing(event)}>
+                <button type="button" className="manage-main" onClick={() => editor.open(event, occurrence)}>
                   <i className="event-dot" style={{ background: event.color }} />
                   <span className="manage-title">{event.title}</span>
                   <span className="manage-when">
@@ -123,7 +140,7 @@ export function EventManager({
                     className="icon-btn"
                     aria-label={`${t.editEvent}: ${event.title}`}
                     title={t.editEvent}
-                    onClick={() => setEditing(event)}
+                    onClick={() => editor.open(event, occurrence)}
                   >
                     <PencilIcon />
                   </button>
@@ -142,15 +159,16 @@ export function EventManager({
           })}
         </ul>
       )}
-      {editing && (
+      {editor.editing && (
         <EventEditor
           t={t}
           language={language}
-          initial={editing}
+          initial={editor.editing.event}
+          occurrence={editor.editing.occurrence}
           onSave={store.save}
           onDelete={store.remove}
           onSkip={store.skip}
-          onClose={() => setEditing(null)}
+          onClose={editor.close}
         />
       )}
     </div>

@@ -6,6 +6,7 @@ export interface Messages {
   about: string;
   /** Short enough for the settings tab row. */
   aboutTab: string;
+  backgroundTab: string;
   hide: string;
   minimize: string;
   maximize: string;
@@ -26,8 +27,6 @@ export interface Messages {
   noBackgroundImage: string;
   backgroundImageTransparency: string;
   backgroundImageTransparencyHint: string;
-  backgroundImageWindows: string;
-  backgroundImageTargets: { main: string; events: string; print: string; reminder: string };
   backgroundImageHint: string;
   backgroundImageUnreadable: string;
   backgroundImageTooLarge: string;
@@ -146,6 +145,8 @@ export interface Messages {
   noEventsYet: string;
   searchEvents: string;
   noMatchingEvents: string;
+  noEventsOnDay: string;
+  showAllEvents: string;
   titleRequired: string;
   eventCount: string;
   reminder: string;

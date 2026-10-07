@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  BACKGROUND_IMAGE_EVENT,
-  BACKGROUND_IMAGE_KEY,
-  readBackgroundImage,
-  type BackgroundWindow,
-} from "../domain/backgroundImage";
+import { BACKGROUND_IMAGE_EVENT, BACKGROUND_IMAGE_KEY, readBackgroundImage } from "../domain/backgroundImage";
 import type { Settings } from "../domain/settings";
 
 /** The stored image as a data URL, following changes made in any window. */
@@ -46,10 +41,10 @@ function useImageUrl(image: string | null): string | null {
   return url;
 }
 
-/** Sits behind the panel's content and above its themed background. */
-export function PanelBackdrop({ settings, target }: { settings: Settings; target: BackgroundWindow }) {
+/** Sits behind the calendar panel's content and above its themed background; no other window shows the image. */
+export function PanelBackdrop({ settings }: { settings: Settings }) {
   const image = useBackgroundImage();
-  const enabled = Boolean(image) && settings.backgroundImageWindows[target] && settings.backgroundImageOpacity > 0;
+  const enabled = Boolean(image) && settings.backgroundImageOpacity > 0;
   const url = useImageUrl(enabled ? image : null);
   if (!enabled || !url) return null;
   return (

@@ -40,9 +40,11 @@ flowchart LR
 | `countries.ts` | 국가 목록과 이름 정렬 |
 | `lunar.ts` | `Intl.DateTimeFormat`의 `dangi`/`chinese` 달력으로 음력을, 태양 황경 계산으로 24절기를 구합니다. 음력 연도의 달 목록(`lunarMonths`)과 음력 → 양력 변환(`fromLunar`)도 여기 있습니다. |
 | `events.ts` | 일정 모델, 반복 전개, 정규화, 저장. 일정의 `calendar`가 `"lunar"`면 매월·매년 반복을 음력 날짜로 계산합니다. |
+| `eventEdit.ts` | 일정 입력 창에 보낼 요청(편집할 일정의 id, 또는 새 일정의 날짜와 알림) |
+| `eventsDay.ts` | 일정 관리 창에 보낼 요청(그날의 일정만 보여 줄 날짜, 없으면 전체) |
 | `reminders.ts` | 알림 시각 계산, 대기열, 다시 알림(5분), 이미 울린 알림 기록 |
 | `settings.ts` | 설정 모델과 정규화, 창과 전체 화면의 날짜 글꼴 |
-| `backgroundImage.ts` | 배경 이미지 저장(data URL 검사 포함), 투명도 변환, 이미지를 깔 창 목록 |
+| `backgroundImage.ts` | 배경 이미지 저장(data URL 검사 포함), 투명도 변환 |
 | `print.ts` | 용지·방향·여백, 인쇄할 달과 주, 인쇄 옵션 저장 |
 | `themes.ts` | 테마 40종, CSS 변수 적용 |
 | `messages.ts`, `ko.ts`, `en.ts`, `i18n.ts` | 화면 문구. `{name}` 같은 자리는 `formatMessage`가 채웁니다. |
@@ -53,12 +55,13 @@ flowchart LR
 |---|---|
 | `App.tsx` | 창 종류를 판별해 알맞은 화면을 띄웁니다. 언어 선택 게이트(`Gate`), ESC 처리, 웹 대화상자 |
 | `CalendarScreen.tsx` | 메인 캘린더: 툴바, 날짜 격자, 일정 목록, 우클릭 메뉴, 최대화(전체 화면), 창 크기 맞춤과 기억 |
-| `SettingsScreen.tsx` | 설정 다섯 탭: 일반, 모양, 달력, 공휴일, 정보 |
-| `EventsScreen.tsx`, `EventManager.tsx`, `EventEditor.tsx` | 일정 관리 창, 목록, 편집 시트 |
+| `SettingsScreen.tsx` | 설정 네 탭: 일반(공휴일, 배경 이미지 포함), 모양, 달력, 정보. 설정 창은 600×760입니다. |
+| `EventsScreen.tsx`, `EventManager.tsx`, `EventEditor.tsx` | 일정 관리 창, 목록(전체 또는 더블클릭한 날의 일정), 일정 입력 양식(웹에서는 시트, 데스크톱에서는 별도 창의 내용) |
+| `EventEditorWindow.tsx`, `useEventEditor.ts` | 데스크톱의 일정 입력 창과, 일정 입력을 여는 훅(데스크톱이면 창을 열고 웹이면 시트를 띄움) |
 | `PrintScreen.tsx` | 인쇄 미리 보기와 페이지 설정 |
 | `ReminderPopup.tsx` | 알림 스케줄러(`useReminderScheduler`)와 알림 팝업 |
 | `DayMenu.tsx` | 아이콘이 붙은 우클릭 메뉴 |
-| `BackgroundImage.tsx`, `BackgroundImageSettings.tsx` | 패널 뒤에 까는 배경 이미지 층(`PanelBackdrop`)과 이미지 축소, 설정 "모양" 탭의 배경 이미지 항목 |
+| `BackgroundImage.tsx`, `BackgroundImageSettings.tsx` | 캘린더 패널 뒤에만 까는 배경 이미지 층(`PanelBackdrop`)과 이미지 축소, 설정 "일반" 탭의 배경 항목 |
 | `WindowChrome.tsx` | 별도 창의 제목 줄(아이콘, 이름, 닫기) |
 | `RangeField.tsx`, `Dropdown.tsx` | 감소·증가 버튼이 붙은 슬라이더, 드롭다운 |
 | `useSettings.ts`, `useEvents.ts`, `useCountries.ts` | 저장된 데이터를 읽고 다른 창의 변경을 따라가는 훅 |
@@ -66,7 +69,7 @@ flowchart LR
 
 ## 창
 
-데스크톱에는 다섯 가지 창이 있습니다. 모두 같은 `index.html`을 열고, `App.tsx`가 창 라벨로 화면을 고릅니다.
+데스크톱에는 여섯 가지 창이 있습니다. 모두 같은 `index.html`을 열고, `App.tsx`가 창 라벨로 화면을 고릅니다.
 
 | 라벨 | 화면 | 만드는 곳 |
 |---|---|---|
@@ -74,9 +77,20 @@ flowchart LR
 | `settings` | 설정 | `open_aux` (Rust) |
 | `events` | 일정 관리 | `open_aux` (Rust) |
 | `print` | 인쇄 미리 보기 | `open_aux` (Rust) |
+| `editor` | 일정 입력 | `open_aux` (Rust), 폭 460, 높이는 양식에 맞춤(`fit_editor_window`, 화면 작업 영역 안), 크기 조절 가능 |
 | `reminder` | 알림 팝업 | `show_reminder_window` (Rust), 화면 오른쪽 아래 |
 
 - 웹에서는 별도 창 대신 메인 화면 위의 대화상자로 같은 화면을 엽니다. 알림은 화면 위에 겹쳐 표시합니다.
+- 일정 입력 창은 캘린더 창 크기와 상관없이 양식 전체를 보여 줍니다.
+  - 창을 줄이면 양식이 스크롤되고, 저장·취소 줄은 아래에 붙어 있습니다.
+  - 캘린더가 "다른 창보다 위에 두기"이면 일정 입력 창도 위에 둡니다. 그래야 캘린더 뒤로 숨지 않습니다.
+  - 열 일정은 `mycalendar.event-edit`로 전합니다. 창이 이미 열려 있을 때 다른 일정을 고르면 양식이 그 일정으로 바뀝니다.
+  - 편집할 일정은 id로만 전하고 창에서 저장소를 다시 읽습니다. 그사이 지워진 일정이면 창을 닫습니다.
+- 설정 창은 600×760이고 크기가 고정입니다. 어느 탭을 열어도 창 크기는 그대로입니다. 웹의 설정 대화상자도 같은 높이입니다.
+  - 가장 긴 탭(한국어 일반 탭, 내용 667px)에 제목 줄과 탭 줄(91px)을 더한 높이라, 그 탭 아래에 여백이 거의 남지 않습니다.
+  - 드롭다운과 검색 칸은 30px 높이이고, 드롭다운 목록의 항목은 버튼 글자 크기에 맞춰 em 단위 여백을 씁니다.
+  - 설정 내용의 글자는 모두 12px입니다. 날짜 글꼴 미리 보기 숫자와 정보 탭의 프로그램 이름만 예외입니다.
+  - 화면이 창보다 낮아 창이 줄어들 때만 탭 줄 아래 내용이 스크롤됩니다.
 - 허용된 Tauri 권한은 `src-tauri/capabilities/default.json`에 있습니다.
 
 ### 메인 창의 층(z-order)
@@ -126,14 +140,14 @@ flowchart LR
 
 | 키 | 내용 |
 |---|---|
-| `mycalendar.settings.v1` | 설정 전체 (언어, 테마, 투명도, 국가, 날짜 글꼴, 창 크기, 배경 이미지 투명도와 적용할 창 등) |
+| `mycalendar.settings.v1` | 설정 전체 (언어, 테마, 투명도, 국가, 날짜 글꼴, 창 크기, 배경 이미지 투명도 등) |
 | `mycalendar.background-image.v1` | 배경 이미지 (JPEG data URL, 긴 변 2560픽셀 이하, 약 3.6 MB 이하). 설정은 바뀔 때마다 모든 창이 다시 읽으므로 따로 둡니다. |
 | `mycalendar.events.v1` | 일정 |
 | `mycalendar.holidays.v1.<국가>.<연도>` | 공휴일 캐시 |
 | `mycalendar.reminders.queue`, `mycalendar.reminders.fired` | 표시할 알림, 이미 울린 알림 |
 | `mycalendar.print.v1` | 인쇄 옵션 |
 | `mycalendar.fullscreen` | 메인 창이 전체 화면인지 (설정 창이 어느 글꼴을 고칠지 정할 때 씀) |
-| `mycalendar.settings-tab`, `mycalendar.print-request`, `mycalendar.holiday-refresh` | 다른 창에 보내는 일회성 요청 (열 탭, 인쇄할 달, 공휴일 다시 확인) |
+| `mycalendar.settings-tab`, `mycalendar.print-request`, `mycalendar.holiday-refresh`, `mycalendar.event-edit`, `mycalendar.events-day` | 다른 창에 보내는 일회성 요청 (열 탭, 인쇄할 달, 공휴일 다시 확인, 입력할 일정, 일정 관리 창에 보여 줄 날짜) |
 
 - 창들은 같은 출처(origin)를 쓰므로 `localStorage`를 함께 봅니다.
 - 한 창이 값을 쓰면 다른 창은 `storage` 이벤트로 바뀐 내용을 받아 화면을 다시 그립니다.

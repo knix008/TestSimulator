@@ -57,7 +57,7 @@ export async function onTrayAbout(handler: () => void): Promise<() => void> {
   return listen("tray-about", () => handler());
 }
 
-export async function openAux(label: "settings" | "events" | "print"): Promise<void> {
+export async function openAux(label: "settings" | "events" | "print" | "editor"): Promise<void> {
   if (!isTauri()) return;
   await invoke("open_aux_window", { label });
 }
@@ -71,6 +71,12 @@ export async function showReminderWindow(): Promise<void> {
 export async function fitReminderWindow(height: number): Promise<void> {
   if (!isTauri()) return;
   await invoke("fit_reminder_window", { height: Math.ceil(height) });
+}
+
+/** Sets the event editor window's height, in CSS pixels, keeping its width. */
+export async function fitEditorWindow(height: number): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("fit_editor_window", { height: Math.ceil(height) });
 }
 
 export async function hideCurrentWindow(): Promise<void> {

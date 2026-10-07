@@ -35,6 +35,7 @@ import {
   FontIcon,
   GearIcon,
   GlobeIcon,
+  ImageIcon,
   InfoIcon,
   KoreaFlag,
   LocationIcon,
@@ -67,7 +68,6 @@ export function SettingsScreen({
 }) {
   const { settings, update, t, desktopError } = ctx;
   const desktop = isTauri();
-  const currentMode = settings.themeId.startsWith("light-") ? "light" : "dark";
   const transparency = transparencyFromOpacity(settings.opacity);
   const [tab, setTab] = useState<SettingsTab>(() => takeRequestedTab() ?? "general");
   const [today] = useState(() => new Date());
@@ -95,10 +95,8 @@ export function SettingsScreen({
   }, [desktop]);
   const font = dateFontFor(settings, fontFullscreen);
   const setFont = (patch: Partial<DateFont>) => update(dateFontPatch(settings, fontFullscreen, patch));
-  const [mode, setMode] = useState<"light" | "dark">(currentMode);
   const [query, setQuery] = useState("");
   const { countries, source, reload } = useCountries();
-  const visibleThemes = mode === "light" ? lightThemes : darkThemes;
   const countryOptions = useMemo(() => {
     const sorted = sortCountries(countries, settings.language);
     const needle = query.trim().toLowerCase();
@@ -129,12 +127,11 @@ export function SettingsScreen({
     { id: "general", label: t.general, icon: <SlidersIcon /> },
     { id: "appearance", label: t.appearance, icon: <PaletteIcon /> },
     { id: "calendar", label: t.calendarSection, icon: <CalendarIcon /> },
-    { id: "holidays", label: t.holidaysSection, icon: <FlagIcon /> },
     { id: "about", label: t.aboutTab, icon: <InfoIcon /> },
   ];
 
   return (
-    <section className="panel screen">
+    <section className="panel screen settings-screen">
       <WindowChrome icon={<GearIcon />} title={t.settings} closeLabel={t.close} onClose={onClose} onMouseDown={onMouseDown} />
       <div className="tabs" role="tablist">
         {tabs.map((item) => (
@@ -190,6 +187,54 @@ export function SettingsScreen({
             </label>
             {!desktop && <p className="hint">{t.desktopOnly}</p>}
             {desktopError && <p className="error">{desktopError}</p>}
+
+            <h2 className="section-heading">
+              <FlagIcon />
+              {t.holidaysSection}
+            </h2>
+            <p className="hint">{t.countryHint}</p>
+            <label className="field with-icon" htmlFor="country-search">
+              <LocationIcon />
+              {t.country}
+            </label>
+            <input
+              id="country-search"
+              className="text-input"
+              value={query}
+              placeholder={t.searchCountry}
+              autoComplete="off"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <Dropdown
+              value={settings.countryCode}
+              ariaLabel={t.country}
+              options={countryOptions.map((country) => ({
+                value: country.code,
+                label: `${countryName(country, settings.language)} (${country.code})`,
+              }))}
+              onChange={(countryCode) => update({ countryCode })}
+            />
+            {countryOptions.length === 0 && <p className="hint">{t.noCountry}</p>}
+            <p className="hint">
+              {source === "loading" ? t.countriesLoading : source === "live" ? t.countriesLive : t.countriesFallback}
+            </p>
+            <button
+              type="button"
+              className="text-btn solid"
+              onClick={() => {
+                void reload();
+                requestHolidayRefresh();
+              }}
+            >
+              <RefreshIcon />
+              {t.refreshHolidays}
+            </button>
+
+            <h2 className="section-heading">
+              <ImageIcon />
+              {t.backgroundTab}
+            </h2>
+            <BackgroundImageSettings settings={settings} update={update} t={t} />
           </>
         )}
         {tab === "appearance" && (
@@ -209,33 +254,33 @@ export function SettingsScreen({
               t={t}
               onChange={(value) => update({ opacity: opacityFromTransparency(value) })}
             />
-            <div className="segment">
-              <button type="button" aria-pressed={mode === "light"} onClick={() => setMode("light")}>
-                <SunIcon />
-                {t.light}
-              </button>
-              <button type="button" aria-pressed={mode === "dark"} onClick={() => setMode("dark")}>
-                <MoonIcon />
-                {t.dark}
-              </button>
-            </div>
-            <div className="theme-grid">
-              {visibleThemes.map((theme) => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  className="swatch"
-                  aria-pressed={settings.themeId === theme.id}
-                  onClick={() => update({ themeId: theme.id })}
-                >
-                  <span className="chip" style={{ background: `linear-gradient(160deg, ${theme.bgTop}, ${theme.bg})` }}>
-                    <i style={{ background: theme.accent }} />
-                  </span>
-                  <span className="swatch-name">{theme.name[settings.language]}</span>
-                </button>
-              ))}
-            </div>
-            <BackgroundImageSettings settings={settings} update={update} t={t} />
+            {[
+              { id: "light", icon: <SunIcon />, label: t.light, themes: lightThemes },
+              { id: "dark", icon: <MoonIcon />, label: t.dark, themes: darkThemes },
+            ].map((group) => (
+              <div key={group.id} className="theme-group" role="group" aria-labelledby={`theme-group-${group.id}`}>
+                <p className="field with-icon" id={`theme-group-${group.id}`}>
+                  {group.icon}
+                  {group.label}
+                </p>
+                <div className="theme-grid">
+                  {group.themes.map((theme) => (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      className="swatch"
+                      aria-pressed={settings.themeId === theme.id}
+                      onClick={() => update({ themeId: theme.id })}
+                    >
+                      <span className="chip" style={{ background: `linear-gradient(160deg, ${theme.bgTop}, ${theme.bg})` }}>
+                        <i style={{ background: theme.accent }} />
+                      </span>
+                      <span className="swatch-name">{theme.name[settings.language]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </>
         )}
         {tab === "calendar" && (
@@ -367,47 +412,6 @@ export function SettingsScreen({
             </div>
             <p className="hint">{t.dateFontSizeHint}</p>
             {desktop && <p className="hint">{t.dateFontTargetHint}</p>}
-          </>
-        )}
-        {tab === "holidays" && (
-          <>
-            <p className="hint">{t.countryHint}</p>
-            <label className="field with-icon" htmlFor="country-search">
-              <LocationIcon />
-              {t.country}
-            </label>
-            <input
-              id="country-search"
-              className="text-input"
-              value={query}
-              placeholder={t.searchCountry}
-              autoComplete="off"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <Dropdown
-              value={settings.countryCode}
-              ariaLabel={t.country}
-              options={countryOptions.map((country) => ({
-                value: country.code,
-                label: `${countryName(country, settings.language)} (${country.code})`,
-              }))}
-              onChange={(countryCode) => update({ countryCode })}
-            />
-            {countryOptions.length === 0 && <p className="hint">{t.noCountry}</p>}
-            <p className="hint">
-              {source === "loading" ? t.countriesLoading : source === "live" ? t.countriesLive : t.countriesFallback}
-            </p>
-            <button
-              type="button"
-              className="text-btn solid"
-              onClick={() => {
-                void reload();
-                requestHolidayRefresh();
-              }}
-            >
-              <RefreshIcon />
-              {t.refreshHolidays}
-            </button>
           </>
         )}
         {tab === "about" && <AboutInfo t={t} />}

@@ -1,6 +1,6 @@
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
+import { EVENTS_DAY_KEY, parseEventsDay, readEventsDay, requestEventsDay } from "../domain/eventsDay";
 import { dragWindow, isTauri } from "../platform/desktop";
-import { PanelBackdrop } from "./BackgroundImage";
 import { EventManager } from "./EventManager";
 import { EventsIcon } from "./icons";
 import type { ReadyContext } from "./useSettings";
@@ -16,6 +16,14 @@ export function EventsScreen({
   onHeaderMouseDown?: (event: MouseEvent) => void;
 }) {
   const { settings, update, t } = ctx;
+  const [day, setDay] = useState(readEventsDay);
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === EVENTS_DAY_KEY) setDay(parseEventsDay(event.newValue));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
   const onMouseDown = (event: MouseEvent) => {
     if (isTauri()) {
       void dragWindow(event);
@@ -25,7 +33,6 @@ export function EventsScreen({
   };
   return (
     <section className="panel screen events-screen">
-      <PanelBackdrop settings={settings} target="events" />
       <WindowChrome icon={<EventsIcon />} title={t.manageEvents} closeLabel={t.close} onClose={onClose} onMouseDown={onMouseDown} />
       <div className="screen-body">
         <EventManager
@@ -33,6 +40,11 @@ export function EventsScreen({
           language={settings.language}
           defaultReminder={settings.defaultReminder}
           onDefaultReminderChange={(defaultReminder) => update({ defaultReminder })}
+          day={day}
+          onShowAll={() => {
+            requestEventsDay(null);
+            setDay(null);
+          }}
         />
       </div>
     </section>

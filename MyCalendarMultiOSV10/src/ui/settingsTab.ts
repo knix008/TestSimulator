@@ -1,6 +1,6 @@
-export type SettingsTab = "general" | "appearance" | "calendar" | "holidays" | "about";
+export type SettingsTab = "general" | "appearance" | "calendar" | "about";
 
-const SETTINGS_TABS: SettingsTab[] = ["general", "appearance", "calendar", "holidays", "about"];
+const SETTINGS_TABS: SettingsTab[] = ["general", "appearance", "calendar", "about"];
 
 /** The settings window may live in another webview, so the wanted tab travels through storage. */
 export const SETTINGS_TAB_KEY = "mycalendar.settings-tab";

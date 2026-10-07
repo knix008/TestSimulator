@@ -1,19 +1,3 @@
-/** The windows that can show the background image; the settings window, About included, never does. */
-export const BACKGROUND_WINDOWS = ["main", "events", "print", "reminder"] as const;
-export type BackgroundWindow = (typeof BACKGROUND_WINDOWS)[number];
-export type BackgroundWindows = Record<BackgroundWindow, boolean>;
-
-export const DEFAULT_BACKGROUND_WINDOWS: BackgroundWindows = { main: true, events: true, print: true, reminder: true };
-
-export function normalizeBackgroundWindows(value: unknown): BackgroundWindows {
-  const input = value && typeof value === "object" ? (value as Partial<Record<string, unknown>>) : {};
-  const result = { ...DEFAULT_BACKGROUND_WINDOWS };
-  for (const name of BACKGROUND_WINDOWS) {
-    if (typeof input[name] === "boolean") result[name] = input[name];
-  }
-  return result;
-}
-
 export const DEFAULT_BACKGROUND_IMAGE_OPACITY = 0.5;
 
 export function clampBackgroundImageOpacity(value: number): number {

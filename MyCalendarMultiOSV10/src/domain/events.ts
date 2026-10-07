@@ -54,7 +54,7 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const HEX = /^#[0-9a-f]{6}$/i;
 const DAY_MS = 86_400_000;
 
-function isISODate(value: unknown): value is string {
+export function isISODate(value: unknown): value is string {
   return typeof value === "string" && ISO_DATE.test(value) && formatISODate(parseISODate(value)) === value;
 }
 

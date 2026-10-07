@@ -20,7 +20,7 @@
 /* No visible scrollbars except in the events lists; other lists still scroll with the wheel, touch, and keyboard. */
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
-.events .holiday-list, .events .day-items { scrollbar-width: thin; }
+.events .holiday-list, .events .day-items, .settings-screen > .screen-body { scrollbar-width: thin; }
 
 html, body, #root {
   height: 100%;
@@ -451,34 +451,36 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   font-variant-numeric: tabular-nums;
 }
 
+/* Tabs share the row by their label width, so a long English label takes the room a short one leaves. */
 .tabs {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
   gap: 6px;
   padding: 10px 12px 0;
 }
 
 .tabs button {
-  height: 50px;
+  flex: 1 1 auto;
+  height: 36px;
   min-width: 0;
-  padding: 0 2px;
+  padding: 0 4px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 5px;
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text);
   font-size: 13px;
 }
-.tabs button > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabs button > svg { flex: none; }
+.tabs button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .tabs button[aria-selected="true"] {
   background: var(--accent);
   color: var(--accent-text);
-  border-color: transparent;
+  border-color: var(--border);
 }
 
 .screen-body {
@@ -492,6 +494,15 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 :lang(ko) .screen-body { word-break: keep-all; overflow-wrap: anywhere; }
 .screen-body section, .about-info { display: flex; flex-direction: column; gap: 8px; }
 .screen-body h2 { font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+/* Holidays and the background image share the general tab, each under its own ruled heading. */
+.screen-body h2.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
 
 .banner {
   padding: 10px 12px;
@@ -554,7 +565,8 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   color: var(--text);
   box-shadow: 0 10px 28px var(--shadow, rgba(0, 0, 0, 0.35));
 }
-.dropdown-list [role="option"] { padding: 7px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* In em, so the rows follow the font the list copies from its button. */
+.dropdown-list [role="option"] { padding: 0.45em 0.8em; border-radius: 7px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dropdown-list [role="option"].active { background: var(--surface); background: color-mix(in srgb, var(--accent) 20%, transparent); }
 .dropdown-list [role="option"][aria-selected="true"] { color: var(--accent); font-weight: 600; }
 .day-menu {
@@ -599,8 +611,8 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   flex: none;
   display: grid;
   place-items: center;
-  width: 96px;
-  height: 60px;
+  width: 160px;
+  height: 100px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface) center / cover no-repeat;
@@ -608,35 +620,38 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   font-size: 12px;
 }
 .background-image-actions { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.background-image-windows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
-
-.theme-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+/* The light and the dark themes are shown together, one group above the other. */
+.theme-group { display: flex; flex-direction: column; gap: 6px; }
+.theme-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
 .swatch {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 6px 4px;
+  padding: 4px;
+  border-radius: 8px;
   text-align: center;
 }
 .swatch-name {
   max-width: 100%;
   font-size: 11px;
   line-height: 1.25;
-  white-space: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .chip {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  align-self: stretch;
+  height: 24px;
+  border-radius: 5px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   border: 1px solid rgba(0, 0, 0, 0.16);
 }
-.chip i { width: 8px; height: 8px; border-radius: 50%; }
+.chip i { width: 10px; height: 10px; border-radius: 50%; }
 
 .gate { justify-content: center; padding: 28px 22px; gap: 8px; }
 .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: 0.04em; }
@@ -692,10 +707,13 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   height: auto;
   margin-block: auto;
 }
+.modal.settings-modal { width: min(600px, calc(100vw - 24px)); }
 .modal .panel {
   width: 100%;
   height: auto;
 }
+/* One size for every tab, the same as the desktop settings window; a screen too short for it scrolls the tab. */
+.modal.settings-modal .panel { height: min(760px, calc(100vh - 32px)); }
 
 .resize { position: absolute; z-index: 3; }
 .resize.e { top: 18px; right: 0; bottom: 18px; width: 8px; cursor: ew-resize; }
@@ -847,20 +865,41 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   box-shadow: 0 18px 40px var(--shadow);
   user-select: text;
 }
+/* The editor's own window: the window takes the form's height, and the form scrolls only when the screen is shorter. */
+.editor-screen > .sheet.standalone {
+  flex: 0 1 auto;
+  min-height: 0;
+  width: auto;
+  max-height: none;
+  padding: 12px 14px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+/* Save and cancel stay in reach at any height, above the resize grip in the corner. */
+.sheet.standalone .sheet-actions {
+  position: sticky;
+  bottom: 0;
+  padding: 10px 26px 12px 0;
+  background: var(--bg-solid, #14181f);
+}
 .sheet-head { display: flex; align-items: center; justify-content: space-between; }
 .sheet-head h2 { font-size: 15px; }
 .sheet-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .sheet-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.sheet .text-input { height: 34px; padding: 4px 10px; }
-.sheet .segment button { height: 32px; }
+/* The same text size and control heights as the settings. */
+.sheet, .sheet :not(.sheet-head h2) { font-size: 12px; }
+.sheet .select, .sheet .text-input { height: 30px; padding: 0 10px; }
+.sheet > * { flex-shrink: 0; }
 .interval { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .interval .text-input { width: 64px; flex: none; }
 /* Lunar year, month, and day on one line: the month picker takes the space the numbers leave. */
 .lunar-date { display: flex; align-items: center; gap: 6px; }
 .lunar-date .text-input { flex: none; width: 78px; }
 .lunar-date input[name="lunarDay"] { width: 62px; }
-.lunar-date .lunar-month { flex: 1 1 auto; min-width: 0; height: 34px; padding: 4px 10px; }
-.solar-date { display: flex; align-items: center; height: 34px; font-weight: 600; }
+.lunar-date .lunar-month { flex: 1 1 auto; min-width: 0; }
+.solar-date { display: flex; align-items: center; height: 30px; font-weight: 600; }
 .color-row { display: flex; gap: 8px; }
 .color-row button {
   width: 26px;
@@ -903,6 +942,10 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 .text-btn.primary { padding: 0 16px; background: var(--accent); color: var(--accent-text); font-weight: 700; }
 .text-btn.danger { padding: 0 10px; color: var(--holiday); }
 
+.manage-day { display: flex; align-items: center; gap: 8px; }
+.manage-day > .icon { flex: none; width: 18px; height: 18px; color: var(--accent); }
+.manage-day > strong { flex: 1; min-width: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.manage-day > .text-btn { flex: none; }
 .manage-head { display: flex; gap: 8px; }
 .manage-head .text-input { flex: 1; min-width: 0; }
 .add-event { display: inline-flex; align-items: center; gap: 4px; flex: none; }
@@ -920,6 +963,15 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 }
 /* The events window has a fixed height, so the list takes whatever the controls above it leave. */
 html[data-platform="desktop"] .events-screen > .screen-body { flex: 1 1 0; min-height: 0; }
+/* The settings window is tall enough for every tab; only a screen too short for the window brings a scroll bar. */
+.settings-screen > .tabs { flex: none; }
+/* One text size throughout the settings; the font preview and the program's name keep sizes of their own. */
+.settings-screen > .screen-body,
+.settings-screen > .screen-body :not(.font-preview b, .about-name) { font-size: 12px; }
+.settings-screen .select, .settings-screen .text-input { height: 30px; padding: 0 10px; }
+/* A screen too short for the tab scrolls it; nothing in it is squeezed to make room. */
+.settings-screen > .screen-body > * { flex-shrink: 0; }
+.settings-screen > .screen-body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
 html[data-platform="desktop"] .events-screen .manage-list { flex: 1 1 0; max-height: none; min-height: 0; }
 .manage-list > li { display: flex; align-items: center; gap: 2px; border-radius: 10px; }
 .manage-list > li:hover { background: var(--surface); }

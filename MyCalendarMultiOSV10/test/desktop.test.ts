@@ -257,6 +257,19 @@ describe("Desktop", () => {
     expect(app).toContain('kind === "settings" || kind === "events"');
     // The print preview is a wide, resizable window of its own.
     expect(rust).toContain('"print" => (include_bytes!("../icons/tray/print-64.png"), 1040.0, 720.0, 760.0, 520.0, true)');
+    expect(rust).toContain('_ => (include_bytes!("../icons/tray/settings-64.png"), 600.0, 760.0, 380.0, 420.0, false)');
+    // The event editor is a resizable window of its own, kept above a calendar that stays on top.
+    expect(rust).toContain('"editor" => (include_bytes!("../icons/tray/events-64.png"), 460.0, 492.0, 380.0, EDITOR_MIN_HEIGHT, true)');
+    // Its height then follows the form, inside the work area, so no space is left under the buttons.
+    expect(rust).toContain("async fn fit_editor_window(window: tauri::WebviewWindow, height: f64)");
+    expect(rust).toMatch(/generate_handler!\[[^\]]*fit_editor_window/s);
+    const editor = readFileSync(resolve("src/ui/EventEditor.tsx"), "utf8");
+    expect(editor).toContain("const wanted = above + form.scrollHeight");
+    expect(editor).toContain("void fitEditorWindow(wanted)");
+    expect(rust).toContain('let on_top = label == "editor" && KEEP_ON_TOP.load(Ordering::SeqCst);');
+    expect(rust).toContain(".always_on_top(on_top)");
+    expect(capabilities.windows).toContain("editor");
+    expect(app).toContain('kind === "editor" ? (');
     expect(capabilities.windows).toContain("print");
     expect(app).toContain('kind === "print"');
     // Right-clicking the desktop app never shows the webview's own menu outside text fields.

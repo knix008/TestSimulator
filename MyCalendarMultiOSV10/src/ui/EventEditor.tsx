@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { formatISODate, parseISODate } from "../domain/calendar";
 import {
   EVENT_CALENDARS,
@@ -23,8 +23,10 @@ import {
   lunarSupported,
   toLunar,
 } from "../domain/lunar";
+import { dragWindow, fitEditorWindow, resizeWindow } from "../platform/desktop";
 import { Dropdown, type DropdownOption } from "./Dropdown";
-import { CloseIcon } from "./icons";
+import { CloseIcon, PencilIcon, PlusIcon, ResizeGripIcon } from "./icons";
+import { WindowChrome } from "./WindowChrome";
 
 export function formatEventDate(iso: string, language: Language): string {
   return new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
@@ -112,9 +114,21 @@ export interface EventEditorProps {
   onDelete: (id: string) => void;
   onSkip: (id: string, iso: string) => void;
   onClose: () => void;
+  /** Fills a window of its own, under a title bar that drags it, where the form scrolls when the window is short. */
+  standalone?: boolean;
 }
 
-export function EventEditor({ t, language, initial, occurrence, onSave, onDelete, onSkip, onClose }: EventEditorProps) {
+export function EventEditor({
+  t,
+  language,
+  initial,
+  occurrence,
+  onSave,
+  onDelete,
+  onSkip,
+  onClose,
+  standalone = false,
+}: EventEditorProps) {
   const [draft, setDraft] = useState(initial);
   const [lunarForm, setLunarForm] = useState(() => lunarFormOf(initial.date));
   const [error, setError] = useState("");
@@ -181,28 +195,26 @@ export function EventEditor({ t, language, initial, occurrence, onSave, onDelete
     }
   };
 
+  const heading = editing ? t.editEvent : t.addEvent;
   return (
-    <div
-      className="sheet-back"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
+    <EditorFrame standalone={standalone} heading={heading} editing={editing} t={t} onClose={onClose}>
       <form
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="event-editor-title"
+        className={standalone ? "sheet standalone" : "sheet"}
+        role={standalone ? undefined : "dialog"}
+        aria-modal={standalone ? undefined : true}
+        aria-labelledby={standalone ? "dialog-title" : "event-editor-title"}
         onSubmit={submit}
         onKeyDown={onKeyDown}
         noValidate
       >
-        <header className="sheet-head">
-          <h2 id="event-editor-title">{editing ? t.editEvent : t.addEvent}</h2>
-          <button type="button" className="icon-btn close-btn" aria-label={t.close} onClick={onClose}>
-            <CloseIcon />
-          </button>
-        </header>
+        {!standalone && (
+          <header className="sheet-head">
+            <h2 id="event-editor-title">{heading}</h2>
+            <button type="button" className="icon-btn close-btn" aria-label={t.close} onClick={onClose}>
+              <CloseIcon />
+            </button>
+          </header>
+        )}
 
         <label className="sheet-field">
           <span className="field">{t.eventTitle}</span>
@@ -463,6 +475,114 @@ export function EventEditor({ t, language, initial, occurrence, onSave, onDelete
           </button>
         </footer>
       </form>
+    </EditorFrame>
+  );
+}
+
+function EditorFrame({
+  standalone,
+  heading,
+  editing,
+  t,
+  onClose,
+  children,
+}: {
+  standalone: boolean;
+  heading: string;
+  editing: boolean;
+  t: Messages;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  if (standalone) {
+    return (
+      <StandaloneFrame heading={heading} editing={editing} t={t} onClose={onClose}>
+        {children}
+      </StandaloneFrame>
+    );
+  }
+  return (
+    <div
+      className="sheet-back"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      {children}
     </div>
+  );
+}
+
+/** The editor's own window, whose height follows the form as fields appear and disappear. */
+function StandaloneFrame({
+  heading,
+  editing,
+  t,
+  onClose,
+  children,
+}: {
+  heading: string;
+  editing: boolean;
+  t: Messages;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const frameRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    const form = frame?.querySelector<HTMLElement>("form.sheet");
+    if (!frame || !form) return;
+    let frameId = 0;
+    const fit = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const above = form.getBoundingClientRect().top - frame.getBoundingClientRect().top;
+        const wanted = above + form.scrollHeight + parseFloat(getComputedStyle(frame).borderBottomWidth || "0");
+        if (Math.abs(wanted - window.innerHeight) >= 1) void fitEditorWindow(wanted);
+      });
+    };
+    const sizes = new ResizeObserver(fit);
+    const watch = () => {
+      sizes.disconnect();
+      sizes.observe(form);
+      for (const child of form.children) sizes.observe(child);
+    };
+    const changes = new MutationObserver(() => {
+      watch();
+      fit();
+    });
+    changes.observe(form, { childList: true, subtree: true });
+    watch();
+    fit();
+    return () => {
+      cancelAnimationFrame(frameId);
+      sizes.disconnect();
+      changes.disconnect();
+    };
+  }, []);
+  return (
+    <section ref={frameRef} className="panel screen editor-screen">
+      <WindowChrome
+        icon={editing ? <PencilIcon /> : <PlusIcon />}
+        title={heading}
+        closeLabel={t.close}
+        onClose={onClose}
+        onMouseDown={(event) => void dragWindow(event)}
+      />
+      {children}
+      <button
+        type="button"
+        className="resize-grip"
+        aria-label={t.resizeWindow}
+        title={t.resizeWindow}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          void resizeWindow("SouthEast");
+        }}
+      >
+        <ResizeGripIcon />
+      </button>
+    </section>
   );
 }

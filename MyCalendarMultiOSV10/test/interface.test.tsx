@@ -4,6 +4,10 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BACKGROUND_IMAGE_KEY, isBackgroundImage, writeBackgroundImage } from "../src/domain/backgroundImage";
 import { addMonths, monthTitle } from "../src/domain/calendar";
+import { EVENT_EDIT_KEY, parseEventEditRequest, requestEventEdit } from "../src/domain/eventEdit";
+import { blankEvent } from "../src/domain/events";
+import { formatISODate } from "../src/domain/calendar";
+import { parseEventsDay, readEventsDay, requestEventsDay } from "../src/domain/eventsDay";
 import { formatMessage, messages } from "../src/domain/i18n";
 import { DEFAULT_SETTINGS, FULLSCREEN_KEY, MIN_EVENTS_HEIGHT, normalizeSettings, type Settings } from "../src/domain/settings";
 import { APP_VERSION } from "../src/version";
@@ -11,6 +15,7 @@ import { App } from "../src/ui/App";
 import { CalendarScreen } from "../src/ui/CalendarScreen";
 import { Dropdown } from "../src/ui/Dropdown";
 import { formatEventDate } from "../src/ui/EventEditor";
+import { EventEditorWindow } from "../src/ui/EventEditorWindow";
 import { EventsScreen } from "../src/ui/EventsScreen";
 import { PrintScreen } from "../src/ui/PrintScreen";
 import { LanguageGate } from "../src/ui/LanguageGate";
@@ -29,7 +34,7 @@ function CalendarHarness({
 }: {
   language?: "ko" | "en";
   onOpenSettings?: (tab?: SettingsTab) => void;
-  onOpenEvents?: () => void;
+  onOpenEvents?: (day?: string) => void;
   onOpenPrint?: (year: number, month: number) => void;
   initial?: Partial<Settings>;
 }) {
@@ -154,7 +159,7 @@ describe("Interface", () => {
 
   it("changes transparency from the appearance settings", async () => {
     const view = await render(<SettingsHarness />);
-    expect(view.host.querySelector('input[type="range"]')).toBeNull();
+    expect(view.host.querySelector("#transparency")).toBeNull();
     click([...view.host.querySelectorAll('[role="tab"]')][1]!);
     const slider = view.host.querySelector('input[type="range"]') as HTMLInputElement;
     expect(view.host.querySelector('label[for="transparency"]')?.textContent).toBe(messages.ko.transparency);
@@ -273,7 +278,7 @@ describe("Interface", () => {
     await view.unmount();
   });
 
-  it("offers general, appearance, calendar, and holiday settings", async () => {
+  it("offers general, appearance, background, calendar, and holiday settings", async () => {
     const view = await render(<SettingsHarness />);
     await view.settle();
     const tabs = [...view.host.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent);
@@ -281,17 +286,48 @@ describe("Interface", () => {
       messages.ko.general,
       messages.ko.appearance,
       messages.ko.calendarSection,
-      messages.ko.holidaysSection,
       messages.ko.aboutTab,
     ]);
+    // Holidays and the background image sit under their own headings in the general tab.
+    expect([...view.host.querySelectorAll(".screen-body h2.section-heading")].map((heading) => heading.textContent)).toEqual([
+      messages.ko.holidaysSection,
+      messages.ko.backgroundTab,
+    ]);
+    expect(view.host.querySelector("#country-search")).not.toBeNull();
+    expect(view.host.querySelector(".background-image-thumb")).not.toBeNull();
     expect(view.host.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(messages.ko.general);
+    // Only the chosen tab is outlined, each icon beside its label.
+    const tabCss = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(tabCss).toMatch(/\.tabs \{[^}]*display: flex;/);
+    expect(tabCss).toMatch(/\.tabs button \{[^}]*flex: 1 1 auto;[^}]*flex-direction: row;[^}]*border: 1px solid transparent;/);
+    expect(tabCss).toMatch(/\.tabs button\[aria-selected="true"\] \{[^}]*border-color: var\(--border\);/);
+    expect(tabCss).toContain(".modal.settings-modal { width: min(600px, calc(100vw - 24px)); }");
+    // The desktop settings window fits every tab; only a screen shorter than the window makes its content scroll.
+    expect(view.host.querySelector("section.panel.screen.settings-screen > .screen-body")).not.toBeNull();
+    expect(tabCss).toContain(".settings-screen > .screen-body { flex: 1 1 0; min-height: 0; overflow-y: auto; }");
+    // The web dialog keeps one height whichever tab is open, like the desktop window.
+    expect(tabCss).toContain(".modal.settings-modal .panel { height: min(760px, calc(100vh - 32px)); }");
+    // Every setting is written at one size, a little under the rest of the app.
+    expect(tabCss).toContain(
+      ".settings-screen > .screen-body :not(.font-preview b, .about-name) { font-size: 12px; }",
+    );
+    expect(tabCss).toContain(".settings-screen .select, .settings-screen .text-input { height: 30px; padding: 0 10px; }");
+    // In a short browser the tab scrolls with a visible bar, and no control is squeezed to fit.
+    expect(tabCss).toContain(".settings-screen > .screen-body > * { flex-shrink: 0; }");
+    // The event form uses the same text size and control heights.
+    expect(tabCss).toContain(".sheet, .sheet :not(.sheet-head h2) { font-size: 12px; }");
+    expect(tabCss).toContain(".sheet .select, .sheet .text-input { height: 30px; padding: 0 10px; }");
+    expect(tabCss).not.toContain(".sheet .segment button { height: 32px; }");
+    expect(tabCss).toMatch(/, \.settings-screen > \.screen-body \{ scrollbar-width: thin; \}/);
+    expect(tabCss).toContain('.dropdown-list [role="option"] { padding: 0.45em 0.8em;');
     expect([...view.host.querySelectorAll('[role="tab"]')].every((tab) => tab.querySelector("svg.icon"))).toBe(true);
     const languageButton = (label: string) => [...view.host.querySelectorAll(".segment button")].find((button) => button.textContent === label);
     expect(languageButton("한국어")?.querySelector("svg.flag")?.getAttribute("viewBox")).toBe("-36 -24 72 48");
     expect(languageButton("English")?.querySelector("svg.flag")?.getAttribute("viewBox")).toBe("0 0 60 30");
+    // Always on top and autostart.
     expect(view.host.querySelectorAll(".check > svg.icon")).toHaveLength(2);
     expect(view.host.querySelector(".field.with-icon > svg.icon")).not.toBeNull();
-    expect(view.host.querySelector('input[type="range"]')).toBeNull();
+    expect(view.host.querySelector("#transparency")).toBeNull();
     expect(view.host.querySelector(".chrome-icon svg")).not.toBeNull();
     expect(view.host.querySelector(".chrome-close")?.getAttribute("aria-label")).toBe(messages.ko.close);
     // Every window's close button turns red under the pointer, like the calendar's own.
@@ -303,13 +339,16 @@ describe("Interface", () => {
     expect((view.host.querySelector('input[type="checkbox"]') as HTMLInputElement).disabled).toBe(true);
 
     click([...view.host.querySelectorAll('[role="tab"]')][1]!);
-    expect(view.host.querySelectorAll(".swatch")).toHaveLength(20);
-    const lightButton = [...view.host.querySelectorAll("button")].find((button) => button.textContent === messages.ko.light);
-    click(lightButton!);
-    expect(view.host.querySelectorAll(".swatch")).toHaveLength(20);
-    expect(view.host.textContent).toContain("종이");
-    click([...view.host.querySelectorAll(".swatch")][0]!);
+    // Light and dark themes are shown together, without a switch between them.
+    const groups = [...view.host.querySelectorAll('.theme-group[role="group"]')];
+    expect(groups.map((group) => group.querySelector(".field")?.textContent)).toEqual([messages.ko.light, messages.ko.dark]);
+    expect(groups.map((group) => group.querySelectorAll(".swatch").length)).toEqual([20, 20]);
+    expect([...view.host.querySelectorAll("button")].some((button) => button.textContent === messages.ko.light)).toBe(false);
+    click(groups[0].querySelector(".swatch")!);
     expect(view.host.querySelector('.swatch[aria-pressed="true"] .swatch-name')?.textContent).toBe("종이");
+    expect(view.host.querySelectorAll('.swatch[aria-pressed="true"]')).toHaveLength(1);
+    expect(tabCss).toContain(".theme-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }");
+    expect(tabCss).toMatch(/\.chip \{\s*align-self: stretch;\s*height: 24px;/);
 
     click([...view.host.querySelectorAll('[role="tab"]')][2]!);
     const weekdayButtons = [...view.host.querySelectorAll<HTMLButtonElement>(".weekday-segment button")];
@@ -326,7 +365,7 @@ describe("Interface", () => {
     expect((view.host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(false);
     expect(view.host.textContent).toContain(messages.ko.lunarHint);
 
-    click([...view.host.querySelectorAll('[role="tab"]')][3]!);
+    click([...view.host.querySelectorAll('[role="tab"]')][0]!);
     expect(view.host.querySelector(".weekday-segment")).toBeNull();
     const search = view.host.querySelector("#country-search") as HTMLInputElement;
     setControlValue(search, "일본");
@@ -349,12 +388,12 @@ describe("Interface", () => {
 
     const view = await render(<SettingsHarness />);
     const tabs = [...view.host.querySelectorAll('[role="tab"]')];
-    expect(tabs).toHaveLength(5);
-    expect(tabs[4]?.textContent).toBe(messages.ko.aboutTab);
-    expect(tabs[4]?.querySelector("svg circle")).not.toBeNull();
+    expect(tabs).toHaveLength(4);
+    expect(tabs[3]?.textContent).toBe(messages.ko.aboutTab);
+    expect(tabs[3]?.querySelector("svg circle")).not.toBeNull();
     expect(view.host.querySelector(".about-info")).toBeNull();
-    click(tabs[4]!);
-    expect(tabs[4]?.getAttribute("aria-selected")).toBe("true");
+    click(tabs[3]!);
+    expect(tabs[3]?.getAttribute("aria-selected")).toBe("true");
     expect(view.host.textContent).toContain(APP_VERSION);
     expect(view.host.textContent).toContain("Web, Linux, macOS, Windows");
     expect(view.host.textContent).toContain("date.nager.at");
@@ -635,11 +674,11 @@ describe("Interface", () => {
     await view.unmount();
   });
 
-  it("shows a vertical scrollbar only in the events lists", () => {
+  it("shows a vertical scrollbar only in the events lists and a settings tab too tall for its screen", () => {
     const css = readFileSync(resolve("src/styles.css"), "utf8");
     expect(css).toContain("* { scrollbar-width: none; }");
     expect(css).toContain("*::-webkit-scrollbar { display: none; }");
-    expect(css).toContain(".events .holiday-list, .events .day-items { scrollbar-width: thin; }");
+    expect(css).toContain(".events .holiday-list, .events .day-items, .settings-screen > .screen-body { scrollbar-width: thin; }");
     expect(css.match(/scrollbar-width: (thin|auto)/g)).toHaveLength(1);
   });
 
@@ -844,6 +883,60 @@ describe("Interface", () => {
     expect(manager.host.querySelector(".manage-list")).toBeNull();
     expect(manager.host.textContent).toContain(messages.ko.noEventsYet);
     await manager.unmount();
+  });
+
+  it("lists a double-clicked day's events for editing, and adds one on an empty day", async () => {
+    localStorage.clear();
+    const today = new Date();
+    const later = new Date(today.getFullYear(), today.getMonth() + 2, 1);
+    const todayIso = formatISODate(today);
+    localStorage.setItem(
+      "mycalendar.events.v1",
+      JSON.stringify([
+        { ...blankEvent(today, null), id: "a", title: "회의" },
+        { ...blankEvent(later, null), id: "b", title: "여행" },
+      ]),
+    );
+    const doubleClick = (target: Element) =>
+      act(() => {
+        target.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+      });
+
+    let opened: string | undefined | null = null;
+    const view = await render(<CalendarHarness onOpenEvents={(day) => { opened = day; }} />);
+    await view.settle();
+    doubleClick(view.host.querySelector(".day.today")!);
+    expect(opened).toBe(todayIso);
+    expect(view.host.querySelector(".sheet")).toBeNull();
+    // A day without events has nothing to list, so it goes straight to a new event on that day.
+    opened = null;
+    doubleClick(view.host.querySelector(".day:not(.out):not(.today):not(:has(.dots))")!);
+    expect(opened).toBeNull();
+    expect(view.host.querySelector(".sheet")).not.toBeNull();
+    await view.unmount();
+
+    requestEventsDay(todayIso);
+    const manager = await render(<EventsHarness />);
+    expect(manager.host.querySelector(".manage-day strong")?.textContent).toBe(formatEventDate(todayIso, "ko"));
+    const titles = () => [...manager.host.querySelectorAll(".manage-list .manage-title")].map((node) => node.textContent);
+    expect(titles()).toEqual(["회의"]);
+    click(manager.host.querySelector(`[aria-label="${messages.ko.editEvent}: 회의"]`)!);
+    expect((manager.host.querySelector('.sheet input[name="title"]') as HTMLInputElement).value).toBe("회의");
+    click([...manager.host.querySelectorAll(".sheet button")].find((button) => button.textContent === messages.ko.cancel)!);
+    expect(manager.host.querySelector(".sheet")).toBeNull();
+    click([...manager.host.querySelectorAll(".manage-day button")].find((button) => button.textContent === messages.ko.showAllEvents)!);
+    expect(manager.host.querySelector(".manage-day")).toBeNull();
+    expect(titles()).toEqual(["회의", "여행"]);
+    expect(readEventsDay()).toBeNull();
+    await manager.unmount();
+
+    requestEventsDay(formatISODate(new Date(later.getFullYear(), later.getMonth(), 2)));
+    const empty = await render(<EventsHarness />);
+    expect(empty.host.textContent).toContain(messages.ko.noEventsOnDay);
+    await empty.unmount();
+    expect(parseEventsDay('{"day":"2026-02-30"}')).toBeNull();
+    expect(parseEventsDay("nonsense")).toBeNull();
+    localStorage.clear();
   });
 
 
@@ -1220,13 +1313,20 @@ describe("Interface", () => {
     else delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   });
 
-  it("puts a background image behind the chosen windows and leaves the settings window plain", async () => {
+  it("puts a background image behind the calendar window only", async () => {
     localStorage.clear();
     const image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
     localStorage.setItem(BACKGROUND_IMAGE_KEY, image);
 
     const settings = await render(<SettingsHarness />);
-    click([...settings.host.querySelectorAll('[role="tab"]')][1]!);
+    const settingsTabs = [...settings.host.querySelectorAll('[role="tab"]')];
+    // The image is chosen in the general tab; the appearance tab keeps only transparency and themes.
+    click(settingsTabs[1]!);
+    expect(settings.host.querySelector(".theme-grid")).not.toBeNull();
+    expect(settings.host.querySelector(".background-image-thumb")).toBeNull();
+    click(settingsTabs[0]!);
+    expect(settingsTabs[0]?.getAttribute("aria-selected")).toBe("true");
+    expect(settings.host.querySelector(".theme-grid")).toBeNull();
     expect(settings.host.querySelector(".panel-backdrop")).toBeNull();
     const thumb = settings.host.querySelector(".background-image-thumb") as HTMLElement;
     expect(thumb.style.backgroundImage).toContain("data:image/png");
@@ -1234,12 +1334,8 @@ describe("Interface", () => {
     expect(slider.value).toBe("50");
     setControlValue(slider, "30");
     expect(slider.value).toBe("30");
-    const reminderBox = [...settings.host.querySelectorAll<HTMLLabelElement>(".background-image-windows label")]
-      .find((label) => label.textContent === messages.ko.backgroundImageTargets.reminder)!
-      .querySelector("input")!;
-    expect(reminderBox.checked).toBe(true);
-    click(reminderBox);
-    expect(reminderBox.checked).toBe(false);
+    // There is no choice of windows: the image belongs to the calendar.
+    expect(settings.host.querySelector(".background-image-windows")).toBeNull();
     const remove = [...settings.host.querySelectorAll("button")].find((button) => button.textContent === messages.ko.removeBackgroundImage)!;
     click(remove);
     expect(localStorage.getItem(BACKGROUND_IMAGE_KEY)).toBeNull();
@@ -1257,17 +1353,18 @@ describe("Interface", () => {
     await calendar.unmount();
 
     localStorage.setItem(BACKGROUND_IMAGE_KEY, image);
-    const hidden = await render(
-      <CalendarHarness initial={{ backgroundImageWindows: { ...DEFAULT_SETTINGS.backgroundImageWindows, main: false } }} />,
-    );
-    expect(hidden.host.querySelector(".panel-backdrop")).toBeNull();
-    await hidden.unmount();
     const events = await render(<EventsHarness />);
-    expect(events.host.querySelector(".events-screen > .panel-backdrop")).not.toBeNull();
+    expect(events.host.querySelector(".panel-backdrop")).toBeNull();
     await events.unmount();
     const print = await render(<PrintHarness />);
-    expect(print.host.querySelector(".print-screen > .panel-backdrop")).not.toBeNull();
+    expect(print.host.querySelector(".panel-backdrop")).toBeNull();
     await print.unmount();
+    const reminder = await render(<ReminderPopup t={messages.ko} language="ko" />);
+    expect(reminder.host.querySelector(".panel-backdrop")).toBeNull();
+    await reminder.unmount();
+    for (const file of ["EventsScreen", "PrintScreen", "ReminderPopup", "SettingsScreen", "EventEditor"]) {
+      expect(readFileSync(resolve(`src/ui/${file}.tsx`), "utf8")).not.toContain("PanelBackdrop");
+    }
 
     const css = readFileSync(resolve("src/styles.css"), "utf8");
     expect(css).toMatch(/\.panel-backdrop \{[^}]*z-index: -1;[^}]*background-size: cover;/);
@@ -1325,6 +1422,69 @@ describe("Interface", () => {
     await view.unmount();
   });
 
+  it("edits events in a window of its own on the desktop, whose form scrolls when the window is short", async () => {
+    localStorage.clear();
+    const base = { calendar: "solar", time: "09:00", interval: 1, until: "", color: "#3d7dff", skip: [], reminder: null };
+    localStorage.setItem(
+      "mycalendar.events.v1",
+      JSON.stringify([{ ...base, id: "gym", title: "운동", date: "2026-10-12", repeat: "weekly" }]),
+    );
+    const ctx: ReadyContext = { settings: { ...DEFAULT_SETTINGS, language: "ko" }, update: () => {}, desktopError: null, t: messages.ko };
+    let closed = 0;
+    const gym = JSON.parse(localStorage.getItem("mycalendar.events.v1")!)[0];
+    requestEventEdit(gym, "2026-10-19");
+    expect(parseEventEditRequest(localStorage.getItem(EVENT_EDIT_KEY))).toMatchObject({ id: "gym", occurrence: "2026-10-19" });
+    expect(parseEventEditRequest("not json")).toBeNull();
+
+    const view = await render(<EventEditorWindow ctx={ctx} onClose={() => { closed += 1; }} />);
+    const form = () => view.host.querySelector(".editor-screen > form.sheet.standalone") as HTMLFormElement;
+    // A title bar of its own replaces the sheet's heading, with a grip to resize the window.
+    expect(view.host.querySelector(".sheet-back")).toBeNull();
+    expect(view.host.querySelector(".editor-screen > .chrome h1")?.textContent).toBe(messages.ko.editEvent);
+    expect(form().querySelector(".sheet-head")).toBeNull();
+    expect(form().getAttribute("role")).toBeNull();
+    expect(view.host.querySelector(`.editor-screen > .resize-grip[aria-label="${messages.ko.resizeWindow}"]`)).not.toBeNull();
+    expect((form().querySelector('input[name="title"]') as HTMLInputElement).value).toBe("운동");
+    expect([...form().querySelectorAll("button")].some((button) => button.textContent === messages.ko.deleteOccurrence)).toBe(true);
+
+    // Asking for a new event while the window is open replaces the form.
+    await act(async () => {
+      requestEventEdit(blankEvent(new Date(2026, 9, 21), 10));
+      window.dispatchEvent(new StorageEvent("storage", { key: EVENT_EDIT_KEY, newValue: localStorage.getItem(EVENT_EDIT_KEY) }));
+    });
+    expect(view.host.querySelector(".editor-screen > .chrome h1")?.textContent).toBe(messages.ko.addEvent);
+    expect((form().querySelector('input[name="title"]') as HTMLInputElement).value).toBe("");
+    expect((form().querySelector('input[name="date"]') as HTMLInputElement).value).toBe("2026-10-21");
+    setControlValue(form().querySelector('input[name="title"]') as HTMLInputElement, "회의");
+    await act(async () => {
+      form().dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(closed).toBe(1);
+    const stored = JSON.parse(localStorage.getItem("mycalendar.events.v1")!) as Array<{ title: string; date: string; reminder: number | null }>;
+    expect(stored.find((event) => event.title === "회의")).toMatchObject({ date: "2026-10-21", reminder: 10 });
+    await view.unmount();
+
+    // An event deleted meanwhile has nothing to edit, so the window closes.
+    requestEventEdit({ ...gym, id: "gone" });
+    const gone = await render(<EventEditorWindow ctx={ctx} onClose={() => { closed += 1; }} />);
+    expect(closed).toBe(2);
+    expect(gone.host.querySelector("form")).toBeNull();
+    await gone.unmount();
+    localStorage.clear();
+
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.editor-screen > \.sheet\.standalone \{[^}]*flex: 0 1 auto;[^}]*min-height: 0;[^}]*max-height: none;/);
+    expect(css).toMatch(/\.sheet\.standalone \.sheet-actions \{[^}]*position: sticky;[^}]*bottom: 0;/);
+    // Both screens that open the editor go through the hook, which picks the window on the desktop.
+    const hook = readFileSync(resolve("src/ui/useEventEditor.ts"), "utf8");
+    expect(hook).toMatch(/if \(isTauri\(\)\) \{\s*requestEventEdit\(event, occurrence\);\s*void openAux\("editor"\);/);
+    for (const file of ["src/ui/CalendarScreen.tsx", "src/ui/EventManager.tsx"]) {
+      const source = readFileSync(resolve(file), "utf8");
+      expect(source).toContain("const editor = useEventEditor();");
+      expect(source).not.toContain("setEditing(");
+    }
+  });
+
   it("draws a colored dot for every event of a day, in rows that wrap only when full", async () => {
     localStorage.clear();
     const now = new Date();
@@ -1366,9 +1526,9 @@ describe("Interface", () => {
     expect(DEFAULT_SETTINGS.backgroundImageOpacity).toBe(0.5);
     expect(normalizeSettings({ backgroundImageOpacity: 4 } as Partial<Settings>).backgroundImageOpacity).toBe(1);
     expect(normalizeSettings({ backgroundImageOpacity: -1 } as Partial<Settings>).backgroundImageOpacity).toBe(0);
-    expect(
-      normalizeSettings({ backgroundImageWindows: { main: false, print: "no" } } as unknown as Partial<Settings>).backgroundImageWindows,
-    ).toEqual({ main: false, events: true, print: true, reminder: true });
+    expect(normalizeSettings({ backgroundImageWindows: { main: false } } as unknown as Partial<Settings>)).not.toHaveProperty(
+      "backgroundImageWindows",
+    );
     expect(isBackgroundImage("data:image/jpeg;base64,AAAA")).toBe(true);
     expect(isBackgroundImage("javascript:alert(1)")).toBe(false);
     expect(isBackgroundImage('data:image/png;base64,AA") url("x')).toBe(false);
