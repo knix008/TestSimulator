@@ -149,6 +149,11 @@ file with an embedded NUL opened in the line view.
 pair `README.md` with `readme.md`, so the map key is lower-cased — but the entry
 reports the path as it is actually spelled on disk.
 
+**A terminal's tab is the terminal.** The bottom panel's strip holds the log and then
+one tab per open shell, named after it; there is no tab called "terminal" in front of
+them, because a tab that only leads to more tabs is a click that says nothing. Turning the
+terminal on opens one, and closing the last one turns it off again.
+
 **The terminal's shells have no pseudo-terminal, so the panel draws the prompt.** The
 shells start with their own prompt and echo switched off; after each command they print
 a marker line (`__MDM_CWD__:<dir>;<exit code>`) which is stripped from the output and

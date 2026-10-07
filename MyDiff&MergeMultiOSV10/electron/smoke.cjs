@@ -804,8 +804,6 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
         setter.call(find, 'red');
         find.dispatchEvent(new Event('input', { bubbles: true }));
       })()`);
-      await sleep(450);
-
       await hook("h.click('[data-find=\"toggleReplace\"]')");
       await waitFor(async () => (await hook('h.query(\'[data-field="replace"]\')')) === 1, 6000);
       await js(`(() => {
@@ -814,6 +812,16 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
         setter.call(box, 'green');
         box.dispatchEvent(new Event('input', { bubbles: true }));
       })()`);
+      // Both boxes are controlled, and anything that re-renders the app between setting a
+      // value and clicking — a line arriving in the log, say — puts the stored value back
+      // in. So the click waits until the store has taken both of them, and until the
+      // button it is about to press is actually enabled.
+      await waitFor(async () => js(`(() => {
+        const find = document.querySelector('[data-field="find"]');
+        const box = document.querySelector('[data-field="replace"]');
+        const button = document.querySelector('[data-find="replaceLeft"]');
+        return Boolean(find && box && button && find.value === 'red' && box.value === 'green' && !button.disabled);
+      })()`), 10000);
       await hook("h.click('[data-find=\"replaceLeft\"]')");
 
       await waitFor(async () => (await fs.readFile(left, "utf8")) === "green\ngreen and green\nblue\n", 10000);
@@ -1615,8 +1623,9 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       }))()`);
       assert(equal.left === equal.right, `the panels are ${equal.left}px and ${equal.right}px`);
 
-      const splitters = await hook("h.query('.splitter')");
-      assert(splitters === 2, `${splitters} splitters, expected one per panel`);
+      // One per side panel. The bottom panel has one too, which is not what this is about.
+      const splitters = await hook("h.query('.body .splitter')");
+      assert(splitters === 2, `${splitters} splitters, expected one per side panel`);
 
       // Drag the left splitter 60px to the right; the panel should follow it.
       await js(`(() => {
@@ -1739,6 +1748,10 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
     });
 
     await step("chrome", "the log panel opens across the whole window", async () => {
+      // It is open from the start, so the step closes it first and then opens it the way
+      // a user would — otherwise the first toggle would be the one that closes it.
+      await hook("h.settings({ showLogPanel: false })");
+      await waitFor(async () => (await hook("h.query('.bottom-panel')")) === 0, 6000);
       await hook("h.run('view.logPanel')");
       await waitFor(async () => (await hook("h.query('.bottom-panel')")) === 1, 6000);
       const box = await js(`(() => {

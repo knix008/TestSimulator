@@ -607,10 +607,75 @@ function startDirectory(app: ReturnType<typeof useApp>): string {
   return tab.repository.path;
 }
 
-export function TerminalTools() {
+/**
+ * The open terminals, as tabs in the bottom panel's own strip.
+ *
+ * There is no tab called "terminal" in front of them: turning the terminal on opens one
+ * and its shell's name is the tab, so clicking a name both brings the terminal forward
+ * and selects that session. Closing the last one turns the terminal off, because a
+ * terminal with no name would have no tab to come back to.
+ */
+export function TerminalTabs({ inFront }: { inFront: boolean }) {
   const app = useApp();
   const { t, settings } = app;
   const { tabs, activeId } = useTerminals();
+
+  const select = (id: number) => {
+    terminals.activate(id);
+    if (!inFront) void app.updateSettings({ bottomPanel: "terminal" });
+  };
+
+  const close = (id: number) => {
+    closeTerminal(id);
+    // The tab was the terminal; with none left there is nothing for the panel to show.
+    if (terminals.get().tabs.length === 0) void app.updateSettings({ showTerminalPanel: false });
+  };
+
+  return (
+    <>
+      {tabs.map((tab) => (
+        <div
+          key={tab.id}
+          role="tab"
+          aria-selected={inFront && tab.id === activeId}
+          className={`panel-tab term-tab${inFront && tab.id === activeId ? " active" : ""}`}
+          title={tab.cwd}
+          data-panel-tab={`terminal:${tab.id}`}
+          data-terminal-tab={tab.id}
+          onMouseDown={(event) => {
+            if (event.button === 1) {
+              event.preventDefault();
+              close(tab.id);
+            } else {
+              select(tab.id);
+            }
+          }}
+        >
+          <Icon name="terminal" size={14} />
+          <span className="ellipsis">{tab.title}</span>
+          <button
+            type="button"
+            className="tab-close"
+            title={t("dlg.close")}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              close(tab.id);
+            }}
+          >
+            <Icon name="close" size={12} />
+          </button>
+        </div>
+      ))}
+      <TerminalOpener />
+    </>
+  );
+}
+
+/** The "+" and the shell menu beside the terminal tabs, and the first terminal of all. */
+function TerminalOpener() {
+  const app = useApp();
+  const { t, settings } = app;
   /** Only the shells the server could actually start; see `core/terminal.ts`. */
   const [listed, setListed] = useState<{ id: string; label: string }[]>([]);
 
@@ -629,16 +694,17 @@ export function TerminalTools() {
     try {
       const info = await api.termCreate(startDirectory(app), shell || preferred);
       terminals.add(info);
+      void app.updateSettings({ bottomPanel: "terminal" });
     } catch (error) {
       app.report(error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [app, listed, settings.termShell, settings.termCwd]);
 
-  // Opening the terminal tab with nothing in it opens one session, so the panel is never
-  // an empty box the user has to click a second time. The guard is a ref rather than the
-  // dependency list because StrictMode runs a mount effect twice, and twice here would be
-  // two shells; the store is read live, so a session opened elsewhere counts.
+  // Turning the terminal on opens one, so the panel is never an empty box the user has to
+  // click a second time. The guard is a ref rather than the dependency list because
+  // StrictMode runs a mount effect twice, and twice here would be two shells; the store is
+  // read live, so a session opened earlier counts.
   const autoOpened = useRef(false);
   useEffect(() => {
     if (autoOpened.current) return;
@@ -667,38 +733,6 @@ export function TerminalTools() {
 
   return (
     <>
-      <div className="term-tabs">
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={`term-tab${tab.id === activeId ? " active" : ""}`}
-            title={tab.cwd}
-            data-terminal-tab={tab.id}
-            onMouseDown={(event) => {
-              if (event.button === 1) {
-                event.preventDefault();
-                closeTerminal(tab.id);
-              } else {
-                terminals.activate(tab.id);
-              }
-            }}
-          >
-            <span className="ellipsis">{tab.title}</span>
-            <button
-              type="button"
-              className="tab-close"
-              title={t("dlg.close")}
-              onMouseDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                closeTerminal(tab.id);
-              }}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
-        ))}
-      </div>
       <button type="button" className="icon-button" data-command="terminal.new" title={t("terminal.new")}
         onClick={() => void open()}>
         <Icon name="plus" size={15} />
@@ -714,6 +748,15 @@ export function TerminalTools() {
           <Icon name="down" size={14} />
         </button>
       ) : null}
+    </>
+  );
+}
+
+/** What the panel's right-hand end shows while the terminal is the pane in front. */
+export function TerminalTools() {
+  const { t } = useApp();
+  return (
+    <>
       <span className="panel-spacer" />
       <button
         type="button"

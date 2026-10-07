@@ -1,34 +1,33 @@
 /**
  * The bottom panel.
  *
- * It spans the whole width — under the side panels, not between them — because both of
- * its tabs belong to the application rather than to whatever is open in the middle: the
- * log of what has happened, and a terminal in the folder being compared.
+ * It spans the whole width — under the side panels, not between them — because what it
+ * holds belongs to the application rather than to whatever is open in the middle: the log
+ * of everything that has happened, and terminals in the folder being compared.
  *
- * Each tab has its own switch (View › Log Panel / Terminal Panel, and the two toolbar
- * buttons), so the strip only shows the tabs that are turned on and the panel itself is
- * there whenever either of them is. The buttons at the right end belong to the tab in
- * front; the last one closes that tab, which is the same as switching it off.
+ * The strip across its head is one row of tabs: the log, then one tab per open terminal,
+ * named after its shell. There is no tab called "terminal" standing in front of them —
+ * turning the terminal on opens one and its own name is the tab, which is also why
+ * closing the last one turns the terminal off again.
+ *
+ * The log and the terminal each have their own switch (View menu, and the two toolbar
+ * buttons), so the panel is there whenever either of them is.
  */
-import type { BottomPanelTab } from "../core/settings.js";
 import { Icon } from "./icons.js";
 import { LogList, LogTools } from "./LogPanel.js";
 import { Splitter } from "./Splitter.js";
-import { TerminalBody, TerminalTools, type TerminalEnv } from "./TerminalPanel.js";
+import { TerminalBody, TerminalTabs, TerminalTools, type TerminalEnv } from "./TerminalPanel.js";
 import { useApp } from "./state.js";
 
 export function BottomPanel() {
   const app = useApp();
   const { t, settings, bootstrap } = app;
 
-  const open: Record<BottomPanelTab, boolean> = {
-    log: settings.showLogPanel,
-    terminal: settings.showTerminalPanel,
-  };
-  const tabs = (["log", "terminal"] as BottomPanelTab[]).filter((id) => open[id]);
-  if (tabs.length === 0) return null;
-  // A tab that was switched off while in front hands over to the one that is left.
-  const active: BottomPanelTab = tabs.includes(settings.bottomPanel) ? settings.bottomPanel : tabs[0];
+  const showLog = settings.showLogPanel;
+  const showTerminal = settings.showTerminalPanel;
+  if (!showLog && !showTerminal) return null;
+  // A pane that was switched off while in front hands over to the one that is left.
+  const terminalInFront = showTerminal && (settings.bottomPanel === "terminal" || !showLog);
 
   const env: TerminalEnv = {
     home: bootstrap?.home ?? "",
@@ -37,43 +36,47 @@ export function BottomPanel() {
     platform: bootstrap?.platform ?? "",
   };
 
-  const close = () => void app.updateSettings(active === "log" ? { showLogPanel: false } : { showTerminalPanel: false });
+  const close = () => void app.updateSettings(
+    terminalInFront ? { showTerminalPanel: false } : { showLogPanel: false },
+  );
 
   return (
     <>
       <Splitter side="bottom" />
       <section className="bottom-panel" style={{ height: settings.logPanelHeight }} data-testid="bottom-panel">
-        <header className="panel-title bottom-tabs" role="tablist" data-tab={active}>
-          {tabs.map((id) => (
+        <header className="panel-title bottom-tabs" role="tablist" data-tab={terminalInFront ? "terminal" : "log"}>
+          {showLog ? (
             <button
-              key={id}
               type="button"
               role="tab"
-              aria-selected={id === active}
-              className={`panel-tab${id === active ? " active" : ""}`}
-              data-panel-tab={id}
-              onClick={() => void app.updateSettings({ bottomPanel: id })}
+              aria-selected={!terminalInFront}
+              className={`panel-tab${terminalInFront ? "" : " active"}`}
+              data-panel-tab="log"
+              onClick={() => void app.updateSettings({ bottomPanel: "log" })}
             >
-              <Icon name={id === "log" ? "list" : "terminal"} size={14} />
-              <span>{t(id === "log" ? "log.title" : "terminal.title")}</span>
+              <Icon name="list" size={14} />
+              <span>{t("log.title")}</span>
+              <span className="count">{app.log.length}</span>
             </button>
-          ))}
+          ) : null}
 
-          {active === "log" ? <LogTools /> : <TerminalTools />}
+          {showTerminal ? <TerminalTabs inFront={terminalInFront} /> : null}
+
+          {terminalInFront ? <TerminalTools /> : <LogTools />}
 
           <button
             type="button"
             className="icon-button"
-            data-command={active === "log" ? "log.close" : "terminal.close"}
-            title={t(active === "log" ? "log.hide" : "terminal.hide")}
+            data-command={terminalInFront ? "terminal.close" : "log.close"}
+            title={t(terminalInFront ? "terminal.hide" : "log.hide")}
             onClick={close}
           >
             <Icon name="close" size={14} />
           </button>
         </header>
 
-        <div className={`bottom-body tab-${active}`}>
-          {active === "log" ? <LogList /> : <TerminalBody settings={settings} env={env} />}
+        <div className={`bottom-body tab-${terminalInFront ? "terminal" : "log"}`}>
+          {terminalInFront ? <TerminalBody settings={settings} env={env} /> : <LogList />}
         </div>
       </section>
     </>

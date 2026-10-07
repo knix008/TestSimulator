@@ -81,9 +81,10 @@ opened recently.
 
 ### A terminal where the comparison is
 
-The bottom panel has two tabs: the **log** of everything that has happened, and a
-**terminal** (`` Ctrl+` ``, or the toolbar button) that opens in the folder being
-compared — so `git add`, `npm test` and `cd` are a keystroke away from the diff.
+The bottom panel opens on the **log** of everything that has happened. Turn the
+**terminal** on (`` Ctrl+` ``, or the toolbar button) and one starts straight away in the
+folder being compared, its shell's name taking its place in the same strip of tabs — so
+`git add`, `npm test` and `cd` are a keystroke away from the diff.
 
 - Every shell installed on the machine: Command Prompt, Windows PowerShell, PowerShell,
   Git Bash, MSYS2, Cygwin, each WSL distribution, anything Windows Terminal knows about,

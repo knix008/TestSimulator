@@ -203,7 +203,10 @@ export function defaultSettings(): AppSettings {
     showLeftPanel: true,
     showRightPanel: true,
     showStatusBar: true,
-    showLogPanel: false,
+    // The log is open from the start: it is the running account of what the application
+    // has done, and it is worth nothing if it is only looked at after something went
+    // wrong. The terminal is not, because opening one starts a shell.
+    showLogPanel: true,
     showTerminalPanel: false,
     bottomPanel: "log",
     leftPanelWidth: MIN_PANEL_WIDTH,
@@ -300,7 +303,7 @@ export function sanitize(value: AppSettings): AppSettings {
     showLeftPanel: value.showLeftPanel !== false,
     showRightPanel: value.showRightPanel !== false,
     showStatusBar: value.showStatusBar !== false,
-    showLogPanel: value.showLogPanel === true,
+    showLogPanel: value.showLogPanel !== false,
     showTerminalPanel: value.showTerminalPanel === true,
     bottomPanel: value.bottomPanel === "terminal" ? "terminal" : "log",
     // The floor is what the panels' own labels need to stay on one line.

@@ -17,7 +17,7 @@ import * as host from "./host.js";
 import { Icon } from "./icons.js";
 import { renderMessage, useApp } from "./state.js";
 
-/** The log's own buttons in the panel header: copy the lot, and clear it. */
+/** The log's own buttons at the right-hand end of the panel header: copy, and clear. */
 export function LogTools() {
   const app = useApp();
   const { t, log } = app;
@@ -29,7 +29,6 @@ export function LogTools() {
 
   return (
     <>
-      <span className="count">{log.length}</span>
       <span className="panel-spacer" />
       <button
         type="button"
