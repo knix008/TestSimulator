@@ -53,7 +53,13 @@ export function PopupWindow({ kind, tab = '' }) {
       if (patch.theme !== undefined || patch.customThemes !== undefined) { const cur = { ...(settingsRef.current || {}), ...patch }; if (cur.theme) applyTheme(cur.theme); }
       if (patch.language !== undefined) setLanguage(patch.language);
     });
-    return () => { alive = false; off(); };
+    // The window is kept loaded and only hidden when closed (electron/main.js POPUP_KEEP),
+    // so it reads the session again whenever it comes back — it can have been away a while.
+    const onFocus = () => {
+      call('session.get').then((session) => { if (!alive || !session) return; const s = pickSettings(session); setLanguage(s.language); setCustomThemes(s.customThemes); applyTheme(s.theme); setSettingsState(s); setFolder(session.folder || ''); }).catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => { alive = false; off(); window.removeEventListener('focus', onFocus); };
   }, [kind]);
 
   const change = (patch) => {

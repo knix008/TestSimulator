@@ -20,7 +20,7 @@ MyEditorMultiOSV10/
 │  ├ terminal.js        터미널 세션(파이프 셸 — 프롬프트·에코 없이 기동, 명령은 스크립트 파일로 source/call, 콘솔 코드 페이지 변환, SGR 색 유지, 단독 CR 은 통과, 출력 버퍼, cwd/종료 코드/idle 마커) + Tab 자동완성(내장 명령·PATH·경로) + git status 파싱
 │  └ api.js             메서드 테이블 `api.call(name, args)` + 오류 직렬화
 ├ electron/             데스크톱 호스트
-│  ├ main.js            창, 단일 인스턴스, argv 파일 열기, 네이티브 대화상자, 닫기 확인, 팝업 창(설정·정보·단축키 — ?popup=, 자식 창), 인쇄(미리보기 대화상자 → 숨은 창 → 시스템 대화상자), 스모크 훅
+│  ├ main.js            창, 단일 인스턴스, argv 파일 열기, 네이티브 대화상자, 닫기 확인, 팝업 창(설정·정보·단축키 — ?popup=, 자식 창; 설정 창은 POPUP_KEEP — 시작 후 미리 로드하고 닫으면 숨길 뿐이라 다시 열 때 즉시 나타남), 인쇄(미리보기 대화상자 → 숨은 창 → 시스템 대화상자), 스모크 훅
 │  ├ ipc.js             ipcMain: 'api' · 'dialog' · 창 제어
 │  └ preload.js         contextBridge → window.myEditor
 ├ server/server.js      웹 호스트: dist/ 정적 서빙 + POST /api/<name>
@@ -42,7 +42,7 @@ MyEditorMultiOSV10/
 │  ├ lib/i18n.js        ko / en 사전
 │  ├ lib/settings.js    설정 기본값
 │  ├ lib/print.js       코드 목록 인쇄 HTML(구문 강조·줄무늬·여백·글꼴 크기, 경로·줄 번호·테두리·페이지 번호, A4 쪽 나누기)
-│  ├ themes.js          20 테마 + 사용자 정의 테마(setCustomThemes) → CSS 변수(구문 색 --syn-* 포함)
+│  ├ themes.js          40 테마(어두운 20 · 밝은 20) + 사용자 정의 테마(setCustomThemes) → CSS 변수(구문 색 --syn-* 포함)
 │  ├ lib/prompt.js      프롬프트 테마 모델: 프리셋 20종, Go 스타일 템플릿 렌더, 세그먼트 컨텍스트
 │  ├ lib/termtext.js    터미널 출력의 CR 처리(덮어쓰기/줄 바꿈/제거)
 │  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · HtmlPreview · ImagePreview(래스터·HEIC·DICOM 슬라이더·윈도우/레벨) · Prompt · Sidebar · SearchPanel · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons

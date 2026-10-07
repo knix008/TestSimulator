@@ -170,12 +170,29 @@ const POPUPS = {
   print: { width: 1100, height: 800, resizable: true },
 };
 const popups = new Map();
+// The settings window is the one opened again and again, and building it means a
+// second renderer loading the whole bundle (a visible wait). So it is kept: one is
+// made ready in the background shortly after start-up ({ warm: true } — loaded but
+// never shown), closing it only hides it, and opening it is then just show().
+const POPUP_KEEP = new Set(['settings']);
+let popupsDying = false;   // closePopups / app quit: the kept windows really go
 let pendingPrintJob = null;
-function openPopup(kind, tab) {
+function placePopup(win) {
+  if (!mainWin || mainWin.isDestroyed() || win.isDestroyed()) return;
+  const pb = mainWin.getBounds(), b = win.getBounds();
+  win.setPosition(Math.round(pb.x + (pb.width - b.width) / 2), Math.round(pb.y + Math.max(40, (pb.height - b.height) / 2)));
+}
+function openPopup(kind, tab, { warm = false } = {}) {
   const spec = POPUPS[kind];
   if (!spec || !mainWin || mainWin.isDestroyed()) return null;
   const existing = popups.get(kind);
-  if (existing && !existing.isDestroyed()) { existing.focus(); return existing; }
+  if (existing && !existing.isDestroyed()) {
+    if (warm) return existing;
+    existing.warm = false;
+    if (!existing.isVisible()) { placePopup(existing); existing.show(); }
+    existing.focus();
+    return existing;
+  }
   const session = api.session.get();
   const pb = mainWin.getBounds();
   const resizable = !!spec.resizable;
@@ -198,8 +215,11 @@ function openPopup(kind, tab) {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
   });
   popups.set(kind, win);
+  win.warm = warm;
   if (icon) { try { win.setIcon(icon); } catch { /* best-effort */ } }
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => { if (!win.warm) win.show(); });
+  // A kept window is hidden instead of destroyed, so the next open is instant.
+  if (POPUP_KEEP.has(kind)) win.on('close', (e) => { if (popupsDying || !mainWin || mainWin.isDestroyed()) return; e.preventDefault(); win.hide(); });
   win.on('closed', () => { if (popups.get(kind) === win) popups.delete(kind); });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   const query = { popup: kind, ...(tab ? { tab } : {}) };
@@ -273,7 +293,7 @@ function printRun(_event, opts) {
 function printHtml(html, _title, _labels, opts) {
   return runPrintJob(html, opts || {});
 }
-function closePopups() { for (const w of popups.values()) { if (!w.isDestroyed()) w.close(); } popups.clear(); }
+function closePopups() { popupsDying = true; for (const w of popups.values()) { if (!w.isDestroyed()) w.destroy(); } popups.clear(); popupsDying = false; }
 
 // Default first-launch size. The real minimum width is the toolbar / menu
 // bar (measured in the renderer); this floor is only a fallback before that.
@@ -350,6 +370,14 @@ function createWindow() {
   else if (isDev) win.loadURL(DEV_URL);
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
 
+  // Once the editor is up and idle, build the kept popups in the background (hidden):
+  // the first 설정 then opens as fast as every one after it.
+  if (!argValue('smoke-shot') || argValue('smoke-popup')) {
+    win.webContents.once('did-finish-load', () => setTimeout(() => {
+      for (const kind of POPUP_KEEP) if (mainWin && !mainWin.isDestroyed() && !popups.get(kind)) openPopup(kind, '', { warm: true });
+    }, 1500));
+  }
+
   const shot = argValue('smoke-shot');
   if (shot) {
     win.webContents.once('did-finish-load', () => {
@@ -364,14 +392,30 @@ function createWindow() {
           }
           const popupKind = argValue('smoke-popup');
           if (popupKind) {
+            const t0 = Date.now();   // how long the window takes to come up (logged below): a warm popup is near zero
             const pw = openPopup(popupKind);
-            await new Promise((r) => pw.webContents.once('did-finish-load', r));
+            const shown = pw.isVisible() ? Promise.resolve(0) : new Promise((r) => pw.once('show', () => r(Date.now() - t0)));
+            if (pw.webContents.isLoading()) await new Promise((r) => pw.webContents.once('did-finish-load', r));
+            const msLoaded = Date.now() - t0;
+            const msShown = await shown;
             await new Promise((r) => setTimeout(r, 1200));
             const pimg = await pw.webContents.capturePage();
             fs.mkdirSync(path.dirname(shot), { recursive: true });
             fs.writeFileSync(shot.replace(/\.png$/, `.${popupKind}.png`), pimg.toPNG());
             const pb2 = pw.getBounds(), mb = win.getBounds();
-            console.log('[smoke-popup]', JSON.stringify({ kind: popupKind, bounds: pb2, parent: mb, title: pw.getTitle(), url: pw.webContents.getURL().replace(/^.*[\\/]/, '') }));
+            console.log('[smoke-popup]', JSON.stringify({ kind: popupKind, ms: { shown: msShown, loaded: msLoaded }, bounds: pb2, parent: mb, title: pw.getTitle(), url: pw.webContents.getURL().replace(/^.*[\\/]/, '') }));
+          }
+          if (argValue('smoke-popup')) {   // closing a kept popup only hides it: the next open is a show()
+            const pw = popups.get(argValue('smoke-popup'));
+            if (pw && !pw.isDestroyed()) {
+              pw.close();
+              await new Promise((r) => setTimeout(r, 400));
+              const kept = !pw.isDestroyed(), hidden = kept && !pw.isVisible();
+              const t1 = Date.now();
+              const again = openPopup(argValue('smoke-popup'));
+              console.log('[smoke-popup-again]', JSON.stringify({ kept, hidden, same: again === pw, visible: !!again && again.isVisible(), ms: Date.now() - t1 }));
+              if (again && !again.isDestroyed()) again.hide();
+            }
           }
           const img = await win.webContents.capturePage();
           fs.mkdirSync(path.dirname(shot), { recursive: true });
@@ -490,6 +534,9 @@ if (!gotLock) {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
   });
+
+  // Quitting (File › 끝내기, the OS): a kept popup must not refuse to close, or the quit is cancelled.
+  app.on('before-quit', () => { popupsDying = true; });
 
   app.on('window-all-closed', () => {
     if (api) api.shutdown().catch(() => {});

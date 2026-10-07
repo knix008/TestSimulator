@@ -571,6 +571,45 @@ const SCENARIOS = {
     window.__med.action('theme:' + S().settings.customThemes[0].id); await wait(200); window.__med.action('settings'); await wait(300); [...document.querySelectorAll('.settings-tab')].find((b) => /테마|Theme/.test(b.textContent)).click(); await wait(300);
     [...document.querySelectorAll('.dlg.settings .pe-quick .btn.small')][1].click(); await wait(300); out.afterDelete = { theme: S().settings.theme, cards: document.querySelectorAll('.theme-card').length, count: S().settings.customThemes.length };
     return JSON.stringify(out); })()`,
+  // ── splitting never shows the same document twice: new panes take the other tabs, then wait empty ──
+  split_fill_empty: `(async () => { ${PRELUDE} const S = () => window.__med.state; const out = {};
+    const names = () => window.__med.panes.map((p) => { const d = S().docs.find((x) => x.id === p.docId); return (d ? d.name : null) + (p.active ? '*' : ''); });
+    for (let i = 0; i < 7; i++) { window.__med.action('toggleSplit'); await wait(250); }   // 9 panes, 4 documents
+    const shown = () => window.__med.panes.map((p) => p.docId).filter((id) => id != null);
+    const dupes = () => shown().length - new Set(shown()).size, empties = () => window.__med.panes.filter((p) => p.docId == null).length;
+    await wait(500); out.panes = names(); out.dupes = dupes(); out.empty = empties();
+    await window.__med.openPath(${wp(path.join(work, 'src', 'lib', 'util.py'))}); await wait(700); out.afterOpen = names(); out.dupesAfterOpen = dupes(); out.emptyAfterOpen = empties();
+    window.__med.newUntitled('from smoke' + String.fromCharCode(10)); await wait(500); out.afterNew = names(); out.dupesAfterNew = dupes(); out.emptyAfterNew = empties();
+    return JSON.stringify(out); })()`,
+  // ── the theme dropdown: 20 dark + 20 light, each mode in its own columns ──
+  theme_menu: `(async () => { ${PRELUDE} const out = {};
+    const look = async () => { const caret = document.querySelector('.tb-split-caret'); caret.click(); await until(() => document.querySelector('.ctx-menu.theme-menu'), 4000); await wait(400);
+      const m = document.querySelector('.ctx-menu.theme-menu'); const r = m.getBoundingClientRect(); const its = [...m.querySelectorAll('.ctx-item')];
+      const xs = [...new Set(its.map((e) => Math.round(e.getBoundingClientRect().x)))].sort((a, b) => a - b);
+      const dark = its.slice(0, 20).map((e) => Math.round(e.getBoundingClientRect().x)), light = its.slice(20).map((e) => Math.round(e.getBoundingClientRect().x));
+      const vis = its.every((e) => { const b = e.getBoundingClientRect(); return b.top >= -1 && b.bottom <= window.innerHeight + 1 && b.left >= -1 && b.right <= window.innerWidth + 1; });
+      return { win: [window.innerWidth, window.innerHeight], items: its.length, rows: m.style.gridTemplateRows, cols: xs.length,
+        heads: [...m.querySelectorAll('.ctx-header')].map((e) => [e.textContent, Math.round(e.getBoundingClientRect().x)]), swatches: m.querySelectorAll('.theme-swatch').length,
+        darkCols: new Set(dark).size, lightCols: new Set(light).size, modesApart: Math.max(...dark) < Math.min(...light), dense: (m.className.match(/dense\d/) || [''])[0],
+        scrolled: m.scrollHeight > m.clientHeight + 1, allVisible: vis, fits: r.top >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth,
+        rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)] }; };
+    const shut = async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await until(() => !document.querySelector('.ctx-menu.theme-menu'), 3000); };
+    out.wide = await look(); await shut();
+    if (window.myEditor && window.myEditor.setWindowSize) { window.myEditor.setWindowSize(1100, 600); await wait(900); out.short = await look(); await shut(); }
+    return JSON.stringify(out); })()`,
+  // ── the bottom panel (terminal / log / problems) spans the window, under the sidebar as well,
+  //    and the ⚙ of the tab shown opens the settings on that tab ──
+  bottom_full_width: `(async () => { ${PRELUDE} const S = () => window.__med.state; const out = {};
+    const geom = () => { const p = document.querySelector('.term-panel').getBoundingClientRect(); const sb = document.querySelector('.sidebar-column').getBoundingClientRect(); const ed = document.querySelector('.editor-area').getBoundingClientRect();
+      return { left: Math.round(p.left), right: Math.round(p.right), width: Math.round(p.width), win: window.innerWidth, overSidebar: p.left <= sb.left + 1, editorAbove: Math.round(ed.bottom) <= Math.round(p.top) + 1, sidebarAbove: Math.round(sb.bottom) <= Math.round(p.top) + 1 }; };
+    const gears = () => [...document.querySelectorAll('.term-head .icon-btn')].map((b) => b.title);
+    window.__med.action('toggleTerminal'); await until(() => document.querySelector('.term-panel'), 8000); await wait(700);
+    out.terminal = { ...geom(), gears: gears(), tab: S().settings.bottomTab };
+    window.__med.action('toggleLintPanel'); await until(() => /문제점|Problems/.test(((document.querySelector('.panel-mode.active') || {}).textContent) || ''), 6000); await wait(600);
+    out.lint = { ...geom(), gears: gears(), tab: S().settings.bottomTab, tabs: [...document.querySelectorAll('.panel-mode')].map((b) => b.textContent.trim()) };
+    const gear = [...document.querySelectorAll('.term-head .icon-btn')].find((b) => /설정|settings/i.test(b.title)); out.gearTitle = gear ? gear.title : null;
+    if (gear) { gear.click(); await until(() => document.querySelector('.dlg.settings'), 6000); await wait(500); out.dialogTab = (document.querySelector('.settings-tab.active') || {}).textContent; window.__med.closeDialog(); await wait(200); }
+    return JSON.stringify(out); })()`,
   // ── the HTML preview pane: local stylesheet and image inlined, the page's script ran ──
   html_preview: `(async () => { ${PRELUDE} const S = () => window.__med.state; await window.__med.openPath(${wp(path.join(work, 'docs', 'page.html'))}); await wait(500); const d = S().docs.find((x) => x.name === 'page.html');
     const out = { lang: d.langName, bar: !!document.querySelector('.htmlbar'), before: !!document.querySelector('.html-preview') };

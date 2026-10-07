@@ -88,10 +88,11 @@ export default function App() {
   const [view, setView] = useState(null);
   const statesRef = useRef(new Map());     // id → EditorState of docs not shown in a pane
   const hexRef = useRef(new Map());        // id → read(offset, length) of a binary document (kind 'hex'; its editor state stays empty)
-  // Split view: one or more panes (보기 › 편집 창 나누기). A new pane shows
-  // the document last opened in the pane it was split from (the same file
-  // may appear in more than one pane). The active pane is the one the tab
-  // bar, find bar and preview follow, and viewRef is its view.
+  // Split view: one or more panes (보기 › 편집 창 나누기). A new pane shows a
+  // document no other pane shows — never a second copy of one already on screen —
+  // and stays empty when the tabs run out, waiting for the next document opened.
+  // The active pane is the one the tab bar, find bar and preview follow, and
+  // viewRef is its view.
   const [panes, setPanes] = useState([{ key: 1, docId: null }]);
   const [paneMenu, setPaneMenu] = useState(null);   // { i, el, files: [{ name, path }] | null }
   // The pane's document picker: the open documents, then the files of the
@@ -675,23 +676,22 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     activate(id);
   };
 
-  // The layout: 'none' (one pane) · 'cols' · 'rows' · 'grid' (2 × 2). A new
-  // pane shows the document last opened in the pane it was split from (the
-  // active pane); if that pane is empty, the new one stays empty. Removed
-  // panes hand theirs back.
+  // The layout: 'none' (one pane) · 'cols' · 'rows' · 'grid' (2 × 2). A new pane
+  // shows a document that no other pane shows (the next tab in order); with no
+  // tab left over it stays empty until a document is opened. Removed panes hand
+  // theirs back.
   // mode: none · cols · rows · grid (the View menu) · multi (the toolbar button: n panes in a balanced grid, 2‥9)
   const setSplit = (mode, n) => {
     const count = mode === 'grid' ? 4 : mode === 'multi' ? Math.max(2, Math.min(9, n || 2)) : mode === 'cols' || mode === 'rows' ? 2 : 1;
     const cur = panesRef.current;
     if (count > cur.length) {
-      const src = cur[activePaneRef.current];
-      const sourceId = src && src.docId != null ? src.docId : null;
-      if (sourceId != null) {
-        const sv = paneViews.current.get(src.key);
-        if (sv) statesRef.current.set(sourceId, sv.state);
-      }
       const next = cur.map((p) => ({ ...p }));
-      while (next.length < count) next.push({ key: paneKeyRef.current++, docId: sourceId });
+      // Every new pane takes a document no pane shows yet, in tab order — the same file is
+      // never opened twice. With the tabs used up the pane stays empty and waits: the next
+      // document opened goes there (fillEmptyPane in addDoc).
+      const shown = new Set(next.map((p) => p.docId).filter((id) => id != null));
+      const spare = docsRef.current.filter((d) => !shown.has(d.id)).map((d) => d.id);
+      while (next.length < count) { const id = spare.length ? spare.shift() : null; if (id != null) shown.add(id); next.push({ key: paneKeyRef.current++, docId: id }); }
       panesRef.current = next;
       setPanes(next);
     } else if (count < cur.length) {
@@ -741,6 +741,19 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
   };
   const nextPane = () => { const n = panesRef.current.length; if (n > 1) focusPane((activePaneRef.current + 1) % n); };
 
+  // A document just opened goes to the pane a split left empty (that is what it is waiting
+  // for), so nothing has to be moved by hand. Returns the pane it went to, or -1.
+  const fillEmptyPane = (id) => {
+    if (panesRef.current.length < 2 || id == null || paneOfDoc(id) >= 0) return -1;
+    const i = panesRef.current.findIndex((p) => p.docId == null);
+    if (i < 0) return -1;
+    updatePanes((ps) => { ps[i].docId = id; return ps; });
+    const v = paneViews.current.get(panesRef.current[i].key);
+    const st = statesRef.current.get(id);
+    if (v && st) loadViewState(v, st);
+    return i;
+  };
+
   const addDoc = (meta, text, { activateIt = true, dirty = false, selection } = {}) => {
     const id = nextDocId++;
     const doc = { id, path: null, name: '', encoding: settingsRef.current.defaultEncoding, eol: settingsRef.current.defaultEol, language: null, langName: null, dirty, readonly: false, mtime: null, size: 0, missing: false, untitledNo: null, ...meta };
@@ -751,6 +764,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     setDocs((ds) => [...ds, doc]);
     applyLanguage(doc);
     if (doc.readonly) dispatchTo(id, { effects: readOnlyEffect(true) });
+    fillEmptyPane(id);
     if (activateIt) activate(id);
     return doc;
   };
@@ -1375,6 +1389,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     }
     if (id === 'newTerminal') return newTerminal(arg);
     if (id === 'termSettings') { if (!openPopup('settings', 'terminal')) setDialog({ type: 'settings', tab: 'terminal' }); else sendSettingsPatch({ settingsTab: 'terminal' }); return undefined; }   // ⚙ in the terminal header: settings on the terminal tab (prompt, line endings)
+    if (id === 'lintSettings') { if (!openPopup('settings', 'lint')) setDialog({ type: 'settings', tab: 'lint' }); else sendSettingsPatch({ settingsTab: 'lint' }); return undefined; }   // ⚙ in the Problems header: settings on the checks tab
     if (id === 'togglePreview') { const d = getDoc(activeIdRef.current); if (d && isSvgName(d.name)) toggleSetting('imagePreview'); else if (d && isBinaryImageName(d.name)) return undefined; else if (d && d.langName === 'HTML') toggleSetting('htmlPreview'); else if (d && d.langName === 'Markdown') toggleSetting('mdPreview'); return undefined; }   // Ctrl+Shift+M: the preview pane (SVG / HTML / Markdown). A binary image is the picture itself.
     if (id === 'toggleImageHex') {
       const d = getDoc(typeof arg === 'number' ? arg : activeIdRef.current);
@@ -2010,6 +2025,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       <MenuBar menus={menus} onAction={action} theme={settings.theme} controls={!settings.toolbarVisible} />
       {settings.toolbarVisible && <Toolbar onAction={action} onSetting={changeSettings} settings={settings} state={toolbarState} />}
       <div className="body">
+        {/* sidebar + editor side by side; the bottom panel below spans the whole window */}
+        <div className="body-row">
         {settings.sidebarVisible && (
           <>
             <div className="sidebar-column" ref={sidebarColumnRef} style={{ width: Math.max(sidebarWidth, sidebarMin), minWidth: sidebarMin, '--search-share': settings.searchVisible ? settings.searchRatio : 0 }}>
@@ -2127,6 +2144,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
             )}
           </div>
         </div>
+        </div>
+        </div>
         {(settings.showTerminal || settings.showLog || settings.showLint) && (
           <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
             onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings(hideBottomPanel())}
@@ -2135,10 +2154,9 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
             onPanel={(tab) => { changeSettings({ bottomTab: tab }); if (tab === 'terminal' && !terms.length) newTerminal(); if (tab === 'lint' && settings.lint && activeIdRef.current != null) runLint(activeIdRef.current); }}
             lintDoc={cur} lint={cur ? cur.lint : null} lintEnabled={!!settings.lint}
             onLintGoto={(d) => { withView((vw) => { const ln = Math.min(Math.max(1, d.line || 1), vw.state.doc.lines); const line = vw.state.doc.line(ln); const pos = Math.min(line.from + Math.max(0, (d.col || 1) - 1), line.to); vw.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) }); vw.focus(); }); }}
-            onLintRefresh={() => { if (activeIdRef.current != null) runLint(activeIdRef.current); }}
+            onLintRefresh={() => { if (activeIdRef.current != null) runLint(activeIdRef.current); }} onLintSettings={() => action('lintSettings')}
             logEntries={appLog} onLogClear={() => setAppLog([])} />
         )}
-        </div>
       </div>
       {settings.statusBarVisible && (
         <StatusBar message={message} cursor={cursor} settings={settings} zoom={zoom} pickers={statusPickers} onAction={action} lint={cur ? cur.lint : null}

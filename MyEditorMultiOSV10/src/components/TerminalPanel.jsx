@@ -17,6 +17,8 @@
 //
 // Terminal / Log / Problems tabs follow the toolbar buttons (showTerminal /
 // showLog / showLint). Each button is independent; only the on tabs appear.
+// The ⚙ at the right end belongs to the tab shown: the terminal settings on
+// the terminal tab, the checker settings on the Problems one.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
@@ -285,7 +287,7 @@ export function TerminalPanel({
   terms, activeId, shells, onActivate, onNew, onClose, onHide, onExit, onSettings, height, onResizeStart,
   prompt, env, termEol, termCr, termColor = true,
   panel = 'terminal', panels, onPanel,
-  lintDoc, lint, lintEnabled, onLintGoto, onLintRefresh,
+  lintDoc, lint, lintEnabled, onLintGoto, onLintRefresh, onLintSettings,
   logEntries, onLogClear,
 }) {
   useLanguage();
@@ -336,6 +338,7 @@ export function TerminalPanel({
         )}
         <span className="spacer" />
         {tab === 'terminal' && onSettings && <button className="icon-btn" title={t('term_settings')} onClick={onSettings}><Icon name="settings" size={14} /></button>}
+        {tab === 'lint' && onLintSettings && <button className="icon-btn" title={t('lint_settings')} onClick={onLintSettings}><Icon name="settings" size={14} /></button>}
         <button className="icon-btn" title={t('term_hide')} onClick={onHide}><Icon name="close" size={15} /></button>
       </div>
       <div className="term-body">

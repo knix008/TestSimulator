@@ -89,25 +89,27 @@ test('termtext: a lone CR overwrites the line, breaks it, or is dropped — CR L
   assert.equal(mergeOutput('abc\r', 'def\n', 'strip'), 'abcdef\n');
 });
 
-test('themes: 20 built-in (12 dark, 8 light), custom themes join the registry and the cycle', () => {
-  assert.equal(themes.THEMES.length, 20);
-  assert.equal(themes.THEMES.filter((t) => t.mode === 'dark').length, 12);
-  assert.equal(themes.THEMES.filter((t) => t.mode === 'light').length, 8);
-  assert.equal(new Set(themes.THEMES.map((t) => t.id)).size, 20, 'ids are unique');
+test('themes: 40 built-in (20 dark, 20 light), custom themes join the registry and the cycle', () => {
+  assert.equal(themes.THEMES.length, 40);
+  assert.equal(themes.THEMES.filter((t) => t.mode === 'dark').length, 20);
+  assert.equal(themes.THEMES.filter((t) => t.mode === 'light').length, 20);
+  assert.equal(new Set(themes.THEMES.map((t) => t.id)).size, 40, 'ids are unique');
+  for (const th of themes.THEMES) assert.ok(th.label && th.labelEn, `${th.id} is named in both languages`);
   for (const th of themes.THEMES) for (const k of ['--bg', '--fg', '--accent', '--syn-keyword', '--syn-string']) assert.ok(th.tokens[k], `${th.id} has ${k}`);
   const base = themes.baseColorsOf(themes.themeById('nord'));
   for (const k of themes.CUSTOM_COLOR_KEYS) assert.ok(base[k], `base colour ${k}`);
   themes.setCustomThemes([{ id: 'custom-x', label: 'Mine', mode: 'light', colors: { ...base, accent: '#ff0000' } }, { id: 'bad' }]);
-  assert.equal(themes.allThemes().length, 21, 'a custom theme without colours is ignored');
+  assert.equal(themes.allThemes().length, 41, 'a custom theme without colours is ignored');
   const mine = themes.themeById('custom-x');
   assert.equal(mine.custom, true);
   assert.equal(mine.mode, 'light');
   assert.equal(mine.tokens['--accent'], '#ff0000');
   assert.equal(mine.tokens['--syn-keyword'], themes.themeById('daylight').tokens['--syn-keyword'], 'light syntax palette');
-  assert.equal(themes.nextThemeId('sand'), 'custom-x');
+  const last = themes.THEMES[themes.THEMES.length - 1].id;
+  assert.equal(themes.nextThemeId(last), 'custom-x');
   assert.equal(themes.nextThemeId('custom-x'), 'midnight');
   themes.setCustomThemes([]);
-  assert.equal(themes.nextThemeId('sand'), 'midnight');
+  assert.equal(themes.nextThemeId(last), 'midnight');
   assert.equal(themes.themeById('custom-x').id, 'midnight', 'unknown id falls back to the first theme');
 });
 

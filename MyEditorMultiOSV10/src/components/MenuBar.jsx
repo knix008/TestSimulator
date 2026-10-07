@@ -10,7 +10,8 @@
 // Both bars are rendered here (MenuBar).
 //
 // AppControls — theme picker (split button: main part cycles, caret lists
-// all 16), language toggle (the flag of the language you switch TO),
+// them all, dark and light side by side), language toggle (the flag of the
+// language you switch TO),
 // Settings and Info — sit at the right end of the toolbar row (Toolbar.jsx),
 // or here when the toolbar is hidden.
 import React, { useEffect, useLayoutEffect, useState } from 'react';
@@ -42,12 +43,24 @@ function WindowButtons() {
   );
 }
 
+const THEME_ROWS = 21;   // theme dropdown: one header + that mode's 20 themes, all in one column
+
 export function AppControls({ onAction, theme, compact = false }) {   // compact: icons only for Settings / Info (toolbar row)
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
-  const themeItems = allThemes().map((th) => ({ id: `theme:${th.id}`, label: `${th.custom ? '★ ' : ''}${lang === 'ko' ? th.label : th.labelEn}`, checked: th.id === theme, swatch: th.tokens['--accent'], swatchBg: th.tokens['--bg'] }));   // built-in and custom (★) alike
+  // The list is grouped by mode: the dark themes first, then the light ones, each
+  // in a single column of THEME_ROWS rows (a header + its 20 themes), so the two
+  // modes stand side by side and the custom ones (★, in their own mode's group)
+  // follow their mode. Spacers pad a group so the next one starts a new column.
+  const themeGroup = (title, list) => {
+    if (!list.length) return [];
+    const cells = [{ header: title }, ...list.map((th) => ({ id: `theme:${th.id}`, label: `${th.custom ? '★ ' : ''}${lang === 'ko' ? th.label : th.labelEn}`, checked: th.id === theme, swatch: th.tokens['--accent'], swatchBg: th.tokens['--bg'] }))];
+    while (cells.length % THEME_ROWS) cells.push({ spacer: true });
+    return cells;
+  };
+  const themeItems = [...themeGroup(t('set_theme_dark'), allThemes().filter((th) => th.mode === 'dark')), ...themeGroup(t('set_theme_light'), allThemes().filter((th) => th.mode === 'light'))];
   const keep = (e) => e.preventDefault();   // keep the editor focused
   return (
     <span className="app-controls">
@@ -70,7 +83,7 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
         <Icon name="info" />{!compact && <Widest k="menu_info" />}
       </button>
       {themeMenu && (
-        <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}
+        <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} rows={THEME_ROWS} className="theme-menu" onClose={() => setThemeMenu(null)}
           onPick={(id) => { setThemeMenu(null); onAction(id); }} />
       )}
     </span>

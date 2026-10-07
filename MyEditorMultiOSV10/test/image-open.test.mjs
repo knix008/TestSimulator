@@ -98,6 +98,13 @@ function createEditor() {
     if (pi >= 0) activePane = pi;
     else panes[activePane].docId = id;
   }
+  // A document just opened goes to a pane the split left empty (App.jsx fillEmptyPane).
+  function fillEmptyPane(id) {
+    if (panes.length < 2 || id == null || paneOf(id) >= 0) return -1;
+    const i = panes.findIndex((p) => p.docId == null);
+    if (i >= 0) panes[i].docId = id;
+    return i;
+  }
   function focusPane(i) { if (panes[i]) activePane = i; }
 
   function open(filePath, { force = false } = {}) {
@@ -111,14 +118,16 @@ function createEditor() {
       imageHex: false, readonly: kind === 'picture', langName: kind === 'svg' ? 'XML' : null,
     };
     docs.push(doc);
+    fillEmptyPane(doc.id);
     activate(doc.id);
     return doc;
   }
 
   function setSplit(mode) {
     const count = mode === 'grid' ? 4 : mode === 'cols' || mode === 'rows' || mode === 'multi' ? 2 : 1;
-    const sourceId = panes[activePane] && panes[activePane].docId != null ? panes[activePane].docId : null;
-    while (panes.length < count) panes.push({ key: panes.length + 1, docId: sourceId });
+    const shown = new Set(panes.map((p) => p.docId).filter((id) => id != null));
+    const spare = docs.filter((d) => !shown.has(d.id)).map((d) => d.id);
+    while (panes.length < count) { const id = spare.length ? spare.shift() : null; if (id != null) shown.add(id); panes.push({ key: panes.length + 1, docId: id }); }
     if (panes.length > count) panes = panes.slice(0, count);
     if (activePane >= panes.length) activePane = 0;
   }
@@ -314,15 +323,31 @@ test('split grid: four rasters each fill their pane independently', () => {
   assert.deepEqual(later.map((v) => v.hexaBeside), [true, false, true, false]);
 });
 
-test('split copies the last document of the existing pane into the new pane', () => {
+test('split gives the new pane another tab, never a second copy of the one on screen', () => {
   const ed = createEditor();
   const png = ed.open(path.join(fixtures, 'sample.png'));
-  ed.open(path.join(fixtures, 'sample.jpg'));
+  const jpg = ed.open(path.join(fixtures, 'sample.jpg'));
   const last = ed.open(path.join(fixtures, 'sample.webp'));
   ed.setSplit('cols');
   assert.equal(ed.panes[0].docId, last.id);
-  assert.equal(ed.panes[1].docId, last.id, 'the new pane shows what the existing pane last opened');
-  assert.notEqual(ed.panes[1].docId, png.id);
+  assert.equal(ed.panes[1].docId, png.id, 'the first tab no pane shows');
+  assert.notEqual(ed.panes[1].docId, last.id);
+  ed.setSplit('grid');
+  assert.equal(ed.panes[2].docId, jpg.id, 'the next tab nothing shows');
+  assert.equal(ed.panes[3].docId, null, 'tabs used up — the pane waits empty');
+  const shown = ed.panes.map((p) => p.docId).filter((id) => id != null);
+  assert.equal(new Set(shown).size, shown.length, 'no document is shown twice');
+});
+
+test('a document opened later goes to the pane the split left empty', () => {
+  const ed = createEditor();
+  const png = ed.open(path.join(fixtures, 'sample.png'));
+  ed.setSplit('grid');
+  assert.deepEqual(ed.panes.map((p) => p.docId), [png.id, null, null, null]);
+  const jpg = ed.open(path.join(fixtures, 'sample.jpg'));
+  assert.deepEqual(ed.panes.map((p) => p.docId), [png.id, jpg.id, null, null], 'the first empty pane takes it');
+  const webp = ed.open(path.join(fixtures, 'sample.webp'));
+  assert.deepEqual(ed.panes.map((p) => p.docId), [png.id, jpg.id, webp.id, null]);
 });
 
 test('split from an empty pane leaves the new pane empty', () => {
@@ -342,7 +367,7 @@ test('opening a raster into a split pane does not steal the other pane\'s docume
   const png = ed.open(path.join(fixtures, 'sample.png'));
   ed.setSplit('cols');
   assert.equal(ed.panes[0].docId, png.id);
-  assert.equal(ed.panes[1].docId, png.id);
+  assert.equal(ed.panes[1].docId, null, 'nothing else open — the new pane waits');
   ed.focusPane(1);
   ed.open(path.join(fixtures, 'sample.jpg'));
   assert.equal(ed.panes[0].docId, png.id);
@@ -352,10 +377,11 @@ test('opening a raster into a split pane does not steal the other pane\'s docume
   assert.equal(views[1].fillPicture, true);
 });
 
-test('App.jsx new split panes take the last document of the existing pane', () => {
+test('App.jsx new split panes take a document no pane shows, then wait empty', () => {
   const src = fs.readFileSync(path.join(root, 'src', 'App.jsx'), 'utf8');
-  assert.match(src, /sourceId/);
-  assert.match(src, /docId: sourceId/);
+  assert.match(src, /const spare = docsRef\.current\.filter/);
+  assert.match(src, /const fillEmptyPane/);
+  assert.doesNotMatch(src, /docId: sourceId/);
   assert.match(src, /viewsOfDoc/);
 });
 
