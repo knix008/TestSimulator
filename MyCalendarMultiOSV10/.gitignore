@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+.npm/
+*.tgz
 
 # Web build output (npm run build:web)
 dist/
@@ -9,6 +11,16 @@ dist-ssr/
 # Tauri build output and generated schemas (npm run build:*, tauri dev)
 src-tauri/target/
 src-tauri/gen/
+src-tauri/WixTools/
+
+# Installers copied into the project root by npm run copy:installer
+/*.exe
+/*.exe.blockmap
+/*.msi
+/*.dmg
+/*.AppImage
+/*.deb
+/*.rpm
 
 # TypeScript and tool caches
 *.tsbuildinfo
@@ -16,6 +28,7 @@ src-tauri/gen/
 .vitest/
 coverage/
 .eslintcache
+.cache/
 
 # Logs
 *.log
@@ -31,12 +44,20 @@ pnpm-debug.log*
 
 # Editors
 .idea/
+.vs/
 .vscode/*
 !.vscode/extensions.json
 *.swp
 *.swo
+*~
 
 # Operating systems
 .DS_Store
+._*
+.AppleDouble
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
