@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MyMoney
+Comment=Stock quotes, exchange rates, and today's business news
+Exec=mymoney %f
+Icon=mymoney
+Terminal=false
+Type=Application
+Categories=Office;Finance;
+MimeType=application/x-mymoney;
+StartupWMClass=MyMoney

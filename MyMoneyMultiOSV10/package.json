@@ -1,0 +1,107 @@
+{
+  "name": "mymoney",
+  "productName": "MyMoney",
+  "version": "1.0.0",
+  "description": "Stock quotes for a chosen market, exchange rates, and today's business news.",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "icons": "python scripts/generate_icons.py",
+    "verify:icons": "python scripts/verify_icons.py",
+    "test": "python scripts/generate_icons.py && node test/run-all.js",
+    "start": "electron .",
+    "start:web": "python -m http.server 4173",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win nsis && node scripts/copy-installer.js",
+    "build:linux": "electron-builder --linux",
+    "build:mac": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "jsdom": "^26.1.0"
+  },
+  "build": {
+    "appId": "com.shkwon.mymoney",
+    "productName": "MyMoney",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**",
+      "src/**",
+      "assets/**",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "assets/icon.ico",
+      "assets/icon.png",
+      "assets/icon.icns",
+      "assets/menu/**"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "include": "installer/windows/installer.nsh",
+      "artifactName": "MyMoney-Setup-${version}.${ext}",
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "shortcutName": "MyMoney"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Office",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "mimeTypes": [
+        "application/x-mymoney"
+      ]
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.finance",
+      "target": [
+        "dmg"
+      ]
+    },
+    "fileAssociations": [
+      {
+        "ext": "mymoney",
+        "name": "MyMoney Document",
+        "description": "MyMoney market document",
+        "icon": "assets/file.ico",
+        "mimeType": "application/x-mymoney",
+        "role": "Editor"
+      }
+    ]
+  }
+}

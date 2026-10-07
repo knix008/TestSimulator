@@ -1,0 +1,185 @@
+import { FONT_STYLES } from "./fonts.js";
+import { DEFAULT_CUSTOM_THEME, DEFAULT_THEME_ID, isTheme, sanitizeCustomTheme } from "./themes.js";
+import { CURRENCIES, findMarket } from "../market/markets.js";
+import { SOURCE_IDS } from "../market/providers.js";
+
+const LEGACY_THEMES = {
+  light: "light-paper",
+  dark: "dark-ink",
+  ocean: "light-sky",
+  sunset: "light-peach",
+  forest: "dark-forest",
+  midnight: "dark-midnight",
+  contrast: "dark-obsidian",
+  aurora: "dark-aurora",
+};
+
+/** The board the app opens with: Korea, a short watchlist, prices against the won. */
+export const DEFAULT_BOARD = {
+  marketCode: "KR",
+  countryKo: "대한민국",
+  countryEn: "South Korea",
+  marketKo: "한국거래소",
+  marketEn: "Korea Exchange",
+  currency: "KRW",
+  index: "^KS11",
+  indexKo: "코스피",
+  indexEn: "KOSPI",
+  baseCurrency: "KRW",
+  symbols: [
+    { symbol: "005930.KS", code: "005930", marketCode: "KR", nameKo: "삼성전자", nameEn: "Samsung Electronics" },
+    { symbol: "000660.KS", code: "000660", marketCode: "KR", nameKo: "SK하이닉스", nameEn: "SK hynix" },
+    { symbol: "035420.KS", code: "035420", marketCode: "KR", nameKo: "NAVER", nameEn: "NAVER" },
+  ],
+  activeSymbol: "005930.KS",
+};
+
+export const DEFAULT_SETTINGS = {
+  language: "ko",
+  theme: DEFAULT_THEME_ID,
+  customTheme: { ...DEFAULT_CUSTOM_THEME },
+  transparency: 30,
+  fontFamily: "Segoe UI",
+  fontSize: 14,
+  fontStyle: "normal",
+  backgroundImage: "",
+  backgroundName: "",
+  backgroundOpacity: 40,
+  lastDirectory: "",
+  imageDirectory: "",
+  recentFiles: [],
+  defaultBoard: cloneBoard(DEFAULT_BOARD),
+  enabledSources: [...SOURCE_IDS],
+  zoom: 100,
+  units: "native",
+  baseCurrency: "KRW",
+  displayPriority: "average",
+  reopenLast: false,
+  updateHours: 1,
+  windowSize: null,
+  windowPosition: null,
+  windowMaximized: false,
+};
+
+export const UPDATE_HOURS = [1, 2, 4, 6, 12, 24];
+
+export const DISPLAY_PRIORITIES = ["average", ...SOURCE_IDS];
+
+/** Prices either keep their own currency or are converted to the base currency. */
+export const PRICE_UNITS = ["native", "base"];
+
+export const MAX_SYMBOLS = 20;
+
+export function normalizeDisplayPriority(value) {
+  return DISPLAY_PRIORITIES.includes(value) ? value : DEFAULT_SETTINGS.displayPriority;
+}
+
+export function normalizeUpdateHours(value) {
+  const hours = Number(value);
+  return UPDATE_HOURS.includes(hours) ? hours : DEFAULT_SETTINGS.updateHours;
+}
+
+export function normalizeCurrency(value) {
+  const code = String(value || "").toUpperCase();
+  return CURRENCIES.includes(code) ? code : DEFAULT_SETTINGS.baseCurrency;
+}
+
+export function clamp(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, number));
+}
+
+export function cloneBoard(board) {
+  return {
+    ...board,
+    symbols: (board.symbols || []).map((entry) => ({ ...entry })),
+  };
+}
+
+export function sanitizeBoard(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const market = findMarket(source.marketCode) || findMarket(DEFAULT_BOARD.marketCode);
+  const symbols = Array.isArray(source.symbols)
+    ? source.symbols
+        .filter((entry) => entry && typeof entry === "object" && entry.symbol)
+        .map((entry) => ({
+          symbol: String(entry.symbol),
+          code: String(entry.code || String(entry.symbol).split(".")[0]),
+          marketCode: String(entry.marketCode || market.marketCode),
+          nameKo: String(entry.nameKo || entry.nameEn || entry.symbol),
+          nameEn: String(entry.nameEn || entry.nameKo || entry.symbol),
+        }))
+    : cloneBoard(DEFAULT_BOARD).symbols;
+  const unique = [];
+  const seen = new Set();
+  for (const entry of symbols) {
+    if (seen.has(entry.symbol) || unique.length >= MAX_SYMBOLS) continue;
+    seen.add(entry.symbol);
+    unique.push(entry);
+  }
+  const active = unique.some((entry) => entry.symbol === source.activeSymbol) ? String(source.activeSymbol) : unique[0]?.symbol || "";
+  return {
+    marketCode: market.marketCode,
+    countryKo: market.countryKo,
+    countryEn: market.countryEn,
+    marketKo: market.marketKo,
+    marketEn: market.marketEn,
+    currency: market.currency,
+    index: market.index,
+    indexKo: market.indexKo,
+    indexEn: market.indexEn,
+    baseCurrency: normalizeCurrency(source.baseCurrency || market.currency),
+    symbols: unique,
+    activeSymbol: active,
+  };
+}
+
+export function sanitizeSettings(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    ...source,
+    defaultBoard: sanitizeBoard(source.defaultBoard || DEFAULT_SETTINGS.defaultBoard),
+  };
+  delete settings.opacity;
+  delete settings.panels;
+  delete settings.defaultLocation;
+  settings.language = settings.language === "en" ? "en" : "ko";
+  const migrated = LEGACY_THEMES[settings.theme] || settings.theme;
+  settings.theme = isTheme(migrated) ? migrated : DEFAULT_SETTINGS.theme;
+  settings.customTheme = sanitizeCustomTheme(settings.customTheme);
+  settings.transparency = clamp(settings.transparency ?? DEFAULT_SETTINGS.transparency, 0, 100);
+  settings.backgroundOpacity = clamp(settings.backgroundOpacity ?? DEFAULT_SETTINGS.backgroundOpacity, 0, 100);
+  settings.fontSize = clamp(settings.fontSize || 14, 8, 72);
+  settings.fontStyle = FONT_STYLES.includes(settings.fontStyle) ? settings.fontStyle : "normal";
+  settings.fontFamily = String(settings.fontFamily || DEFAULT_SETTINGS.fontFamily);
+  settings.zoom = clamp(settings.zoom || 100, 50, 200);
+  settings.units = PRICE_UNITS.includes(settings.units) ? settings.units : DEFAULT_SETTINGS.units;
+  settings.baseCurrency = normalizeCurrency(settings.baseCurrency);
+  settings.displayPriority = normalizeDisplayPriority(settings.displayPriority);
+  settings.updateHours = normalizeUpdateHours(settings.updateHours);
+  settings.backgroundImage = typeof settings.backgroundImage === "string" ? settings.backgroundImage : "";
+  settings.backgroundName = typeof settings.backgroundName === "string" ? settings.backgroundName : "";
+  settings.lastDirectory = typeof settings.lastDirectory === "string" ? settings.lastDirectory : "";
+  settings.imageDirectory = typeof settings.imageDirectory === "string" ? settings.imageDirectory : "";
+  settings.recentFiles = Array.isArray(settings.recentFiles) ? settings.recentFiles.filter(Boolean).slice(0, 10) : [];
+  const known = new Set(SOURCE_IDS);
+  settings.enabledSources = Array.isArray(settings.enabledSources)
+    ? settings.enabledSources.filter((id) => known.has(id))
+    : [...DEFAULT_SETTINGS.enabledSources];
+  settings.reopenLast = Boolean(settings.reopenLast);
+  const size = settings.windowSize;
+  settings.windowSize =
+    size && Number(size.width) >= 200 && Number(size.height) >= 200
+      ? { width: Math.round(Number(size.width)), height: Math.round(Number(size.height)) }
+      : null;
+  const position = settings.windowPosition;
+  settings.windowPosition =
+    position && Number.isFinite(Number(position.x)) && Number.isFinite(Number(position.y))
+      ? { x: Math.round(Number(position.x)), y: Math.round(Number(position.y)) }
+      : null;
+  settings.windowMaximized = Boolean(settings.windowMaximized);
+  settings.defaultBoard.baseCurrency = settings.baseCurrency;
+  return settings;
+}
