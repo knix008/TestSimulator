@@ -167,9 +167,34 @@ flowchart LR
 - Linux와 macOS는 `installer/` 아래 스크립트가 같은 파일을 만듭니다.
 - 앱은 시작할 때 `install_language` 명령으로 이 파일을 읽습니다. 파일이 없으면 첫 화면에서 언어를 고르게 합니다.
 
+## 다시 설치
+
+- 설치 프로그램은 기존 설치를 찾으면 완전히 삭제한 뒤 새로 설치하고, 사용자 데이터를 지울지는 사용자에게 묻습니다.
+- **Windows:** `hooks.nsh`가 시작 화면보다 앞에 `MC_PageRemovePrevious` 페이지를 넣습니다.
+  - 등록된 `UninstallString`이 있으면 예/아니요/취소 질문을 띄우고, 기존 제거 프로그램을 `/S _?=<설치 폴더>`로 실행합니다. 제거 프로그램이 실행 중인 앱을 먼저 닫습니다.
+  - 그다음 남은 `uninstall.exe`, `install-language.txt`, 빈 설치 폴더를 지웁니다.
+  - 데이터 삭제를 고르면 `%APPDATA%`와 `%LOCALAPPDATA%`의 `com.mycalendar.multios`(WebView2 저장소)도 지웁니다.
+  - 등록 정보가 없어지므로 Tauri의 기본 재설치 페이지는 나오지 않습니다.
+  - `/S`는 페이지가 없어서 `NSIS_HOOK_PREINSTALL`에서 데이터를 남긴 채 제거합니다. `/P`도 묻지 않고 데이터를 남깁니다. Tauri 업데이트(`/UPDATE`)는 기존 방식 그대로 덮어씁니다.
+  - `hooks.nsh`는 Tauri의 `!define`보다 먼저 포함되므로 제품 이름, 식별자, 실행 파일 이름을 직접 적습니다. `installer.test.ts`가 이 값이 설정 파일과 같은지 확인합니다. 한글 문구 때문에 파일은 UTF-8 BOM으로 저장합니다.
+- **Linux:** `install.sh`는 `my-calendar` deb·rpm 패키지나 `~/.local/bin/my-calendar.AppImage`를 지웁니다. 데이터를 지우면 `~/.local/share`, `~/.config`, `~/.cache` 아래 `com.mycalendar.multios`와 `~/.config/my-calendar`도 지웁니다.
+- **macOS:** `install.command`는 `My Calendar.app`을 지웁니다. 데이터를 지우면 `~/Library`의 Application Support, WebKit, Caches, Preferences, Saved Application State에서 `com.mycalendar.multios` 항목도 지웁니다.
+
 ## 아이콘
 
-- `scripts/generate-icon.mjs`가 앱 아이콘 원본을 만들고, `tauri icon`이 운영체제별 아이콘을 만듭니다.
+- `scripts/generate-icon.mjs`가 `assets/`에 아이콘 원본을 그립니다. 크기마다 따로 그리고, 작은 크기에서는 달력 칸 수를 줄여 알아보기 쉽게 합니다.
+
+  | 파일 | 쓰는 곳 |
+  |---|---|
+  | `assets/app.ico` | 프로그램 exe에 들어가는 아이콘. 바탕화면·시작 메뉴 바로가기, 작업 표시줄, 실행 중인 창, 트레이, 프로그램 추가/제거에 표시됩니다. |
+  | `assets/installer.ico` | Windows 설치 파일(setup.exe) 아이콘. 달력에 초록 다운로드 표시가 붙어 있습니다. |
+  | `assets/app.png` | 1024px 원본. `tauri icon`이 이 파일로 `src-tauri/icons/`의 macOS(`icon.icns`)·Linux PNG 아이콘을 만듭니다. |
+  | `assets/installer.png` | 설치 파일 아이콘 1024px 미리 보기 |
+
+- Windows 바로가기는 exe에 들어 있는 아이콘을 그대로 쓰므로, 바로가기와 실행 중인 프로그램의 아이콘은 같은 `app.ico`에서 나옵니다.
+- `tauri.conf.json`의 `bundle.icon` 첫 항목이 `../assets/app.ico`이고, `bundle.windows.nsis.installerIcon`이 `../assets/installer.ico`입니다.
+- 제목 줄과 프로그램 정보에 쓰는 `public/favicon.png`(128px)도 같은 스크립트가 만듭니다.
+- `npm run icon`으로 모두 다시 만듭니다. `node scripts/generate-icon.mjs --assets-only`는 `assets/`와 favicon만 다시 그립니다.
 - `scripts/generate-tray-icons.mjs`는 트레이 메뉴와 별도 창 제목에 쓰는 아이콘을 `src-tauri/icons/tray/`에 만듭니다.
 - `scripts/png.mjs`는 외부 패키지 없이 PNG를 쓰는 도우미입니다.
 
@@ -187,7 +212,7 @@ cd src-tauri && cargo check
 | `interface.test.tsx` | 화면 동작: 메뉴, 설정, 일정, 인쇄, 전체 화면, 글꼴 |
 | `desktop.test.ts` | Tauri 연동, 권한, Rust 코드 약속 |
 | `languages.test.ts` | 한국어와 English 문구가 모두 채워져 있는지 |
-| `installer.test.ts` | 설치 언어 처리 |
+| `installer.test.ts` | 설치 언어 처리, 다시 설치할 때 기존 프로그램 삭제와 사용자 데이터 질문 |
 
 - 네트워크는 `test/network.ts`가 막고 가짜 응답을 줍니다.
 - `test/reporter.ts`는 기능별 통과·실패 표를 출력합니다.

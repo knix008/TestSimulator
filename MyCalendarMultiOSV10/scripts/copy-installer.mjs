@@ -1,11 +1,12 @@
 // Copies the installer from the latest `tauri build` into the project root, replacing
 // any installer an earlier build left there, so the root always holds exactly one.
 import { copyFileSync, existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const bundle = join(root, "src-tauri", "target", "release", "bundle");
+const target = process.env.CARGO_TARGET_DIR ? resolve(root, "src-tauri", process.env.CARGO_TARGET_DIR) : join(root, "src-tauri", "target");
+const bundle = join(target, "release", "bundle");
 const { productName } = JSON.parse(readFileSync(join(root, "src-tauri", "tauri.conf.json"), "utf8"));
 
 // Preferred installer per OS when one build produces several (Linux makes deb, rpm and AppImage).
@@ -44,6 +45,6 @@ const installer = found
 for (const name of readdirSync(root)) {
   if (name.startsWith(productName) && extensionOf(name)) rmSync(join(root, name));
 }
-const target = join(root, basename(installer.path));
-copyFileSync(installer.path, target);
-console.log(`Copied installer to ${target}`);
+const copy = join(root, basename(installer.path));
+copyFileSync(installer.path, copy);
+console.log(`Copied installer to ${copy}`);

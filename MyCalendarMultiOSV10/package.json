@@ -20,7 +20,7 @@
     "copy:installer": "node scripts/copy-installer.mjs",
     "build:windows": "npm run build:win",
     "build:macos": "npm run build:mac",
-    "icon": "node scripts/generate-icon.mjs && tauri icon src-tauri/icons/source.png && node scripts/generate-tray-icons.mjs",
+    "icon": "node scripts/generate-icon.mjs && node scripts/generate-tray-icons.mjs",
     "icon:tray": "node scripts/generate-tray-icons.mjs"
   },
   "dependencies": {

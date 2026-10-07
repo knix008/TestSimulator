@@ -41,11 +41,11 @@
     "active": true,
     "targets": ["nsis", "dmg", "appimage", "deb", "rpm"],
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
+      "../assets/app.ico",
       "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/128x128.png",
+      "icons/32x32.png",
+      "icons/icon.icns"
     ],
     "category": "Utility",
     "shortDescription": "Transparent desktop calendar",
@@ -58,6 +58,7 @@
         "displayLanguageSelector": true,
         "languages": ["English", "Korean"],
         "installMode": "currentUser",
+        "installerIcon": "../assets/installer.ico",
         "installerHooks": "windows/hooks.nsh"
       }
     }

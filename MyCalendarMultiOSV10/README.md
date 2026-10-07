@@ -83,7 +83,8 @@ npm run build:web    # dist/ 웹 배포 파일
 | `src/ui/` | React 화면과 컴포넌트 |
 | `src/platform/desktop.ts` | Tauri API를 감싼 데스크톱 기능 (웹에서는 아무 일도 하지 않음) |
 | `src-tauri/` | Rust 앱, 트레이, 창 관리, 설치 설정 |
-| `scripts/` | 아이콘 생성 스크립트 |
+| `assets/` | 프로그램 아이콘(`app.ico`, `app.png`)과 설치 파일 아이콘(`installer.ico`) |
+| `scripts/` | 아이콘 생성, 설치 파일 복사 스크립트 |
 | `installer/` | Linux, macOS 설치 스크립트 |
 | `test/` | Vitest 테스트 |
 
