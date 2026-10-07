@@ -1,6 +1,12 @@
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { clearCountriesCache } from "../src/domain/holidays";
 import { installHolidayFetch } from "./network";
+
+// The app fetches the rules file it ships with; tests stub fetch to simulate being offline, so read the same data directly.
+vi.mock("../src/domain/holidayRules", async () => {
+  const { data } = await import("date-holidays/data");
+  return { loadHolidayRules: async () => data };
+});
 
 beforeEach(() => {
   localStorage.clear();

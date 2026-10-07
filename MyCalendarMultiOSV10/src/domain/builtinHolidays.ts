@@ -1,3 +1,5 @@
+import type HolidaysParser from "date-holidays-parser";
+import { loadHolidayRules } from "./holidayRules";
 import type { Holiday } from "./holidays";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -10,12 +12,23 @@ const TYPE_NAMES: Record<string, string> = {
   observance: "Observance",
 };
 
-type Engine = typeof import("date-holidays").default;
+type Engine = new (country?: string) => HolidaysParser;
 let engine: Promise<Engine> | null = null;
 
 /** The rules for about 200 countries are large, so they load only when the built-in holidays are needed. */
 function loadEngine(): Promise<Engine> {
-  engine ??= import("date-holidays").then((module) => module.default);
+  engine ??= Promise.all([import("date-holidays-parser"), loadHolidayRules()]).then(
+    ([{ default: Parser }, rules]) =>
+      class extends Parser {
+        constructor(country?: string) {
+          if (country === undefined) super(rules);
+          else super(rules, country);
+        }
+      },
+  );
+  engine.catch(() => {
+    engine = null;
+  });
   return engine;
 }
 

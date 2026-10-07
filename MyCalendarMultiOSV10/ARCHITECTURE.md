@@ -35,7 +35,8 @@ flowchart LR
 |---|---|
 | `calendar.ts` | 날짜 형식 변환, 5주 달력 격자(`buildMonthGrid`, `buildMonthWeeks`), 달 제목 |
 | `holidays.ts` | Nager.Date 조회, 국가·연도별 캐시, 실패 시 대체 순서 |
-| `builtinHolidays.ts` | `date-holidays` 패키지로 계산하는 내장 공휴일 (필요할 때 동적으로 불러옴) |
+| `builtinHolidays.ts` | `date-holidays-parser`로 계산하는 내장 공휴일 (필요할 때 동적으로 불러옴) |
+| `holidayRules.ts` | 내장 공휴일 규칙과 시간대 데이터를 JSON 파일로 불러옴 |
 | `countries.ts` | 국가 목록과 이름 정렬 |
 | `lunar.ts` | `Intl.DateTimeFormat`의 `dangi`/`chinese` 달력으로 음력을, 태양 황경 계산으로 24절기를 구합니다. |
 | `events.ts` | 일정 모델, 반복 전개, 정규화, 저장 |
@@ -130,6 +131,9 @@ flowchart LR
 1. 인터넷에서 확인합니다 (`https://date.nager.at/api/v3/PublicHolidays/{연도}/{국가}`). 10분 안에 확인한 내용이 있으면 다시 묻지 않습니다.
 2. 실패하면 마지막으로 확인한 캐시를 보여 줍니다.
 3. 캐시도 없으면 `date-holidays`의 내장 규칙으로 계산합니다.
+   - 규칙(`date-holidays/data/holidays.json`, 약 800 kB)과 시간대 데이터(`moment-timezone/data/packed/latest.json`, 약 700 kB)는 스크립트에 넣지 않고 JSON 파일로 함께 배포합니다. `holidayRules.ts`가 처음 필요할 때 두 파일을 불러옵니다.
+   - `vite.config.ts`는 `moment-timezone`을 데이터 없는 코어(`moment-timezone/moment-timezone.js`)로 바꿔 연결합니다. 그래서 공휴일 계산 코드 묶음이 약 220 kB로 줄고, 500 kB 묶음 크기 경고가 나지 않습니다.
+   - 테스트는 `fetch`를 막아 오프라인을 흉내 내므로, `test/setup.ts`가 `holidayRules.ts`를 패키지 데이터를 바로 읽는 버전으로 바꿉니다.
 
 화면 아래 상태 줄에 "실시간 확인됨", "마지막 확인 내용", "내장 공휴일" 중 어느 상태인지 표시합니다. 한국어 화면은 현지 이름을, English 화면은 영어 이름을 씁니다.
 
