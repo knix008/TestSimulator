@@ -73,6 +73,8 @@ npm run build:web    # dist/ 웹 배포 파일
 
 각 명령은 해당 운영체제에서 실행합니다. 설치 파일은 `src-tauri/target/release/bundle/` 아래에 만들어집니다. Windows 파일은 `nsis/`에 있습니다.
 
+빌드가 끝나면 설치 파일 하나가 프로젝트 루트로 복사됩니다(예: `My Calendar_1.0.0_x64-setup.exe`). 이전 빌드에서 복사된 설치 파일은 지워지므로 루트에는 항상 최신 파일 하나만 남습니다. Linux에서는 AppImage를 복사합니다. 이미 빌드한 결과만 다시 복사하려면 `npm run copy:installer`를 실행합니다.
+
 ## 폴더 구성
 
 | 경로 | 내용 |
