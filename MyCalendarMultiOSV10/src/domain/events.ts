@@ -1,8 +1,14 @@
 import { formatISODate, parseISODate } from "./calendar";
+import { lunarMonthLength, lunarMonthOf, lunarMonthsBetween, toLunar } from "./lunar";
 
 export type Repeat = "none" | "weekly" | "monthly" | "yearly";
 
 export const REPEATS: Repeat[] = ["none", "weekly", "monthly", "yearly"];
+
+/** Calendar a date was entered in. Lunar events keep their lunar date and repeat on it. */
+export type EventCalendar = "solar" | "lunar";
+
+export const EVENT_CALENDARS: EventCalendar[] = ["solar", "lunar"];
 
 export const EVENT_COLORS = ["#3d7dff", "#12a594", "#30a46c", "#ffb224", "#f76b15", "#e5484d", "#d6409f", "#8e4ec6"] as const;
 
@@ -23,8 +29,10 @@ export const ALL_DAY_REMINDER_TIME = "09:00";
 export interface CalendarEvent {
   id: string;
   title: string;
-  /** First occurrence, YYYY-MM-DD. */
+  /** First occurrence, YYYY-MM-DD; always a solar date, even when it was entered as a lunar one. */
   date: string;
+  /** Calendar the date was entered in; "lunar" repeats monthly and yearly on the lunar date. */
+  calendar: EventCalendar;
   /** HH:MM, or empty for an all-day event. */
   time: string;
   repeat: Repeat;
@@ -61,6 +69,7 @@ export function blankEvent(date: Date, reminder: Reminder = null): CalendarEvent
     id: "",
     title: "",
     date: formatISODate(date),
+    calendar: "solar",
     time: "",
     repeat: "none",
     interval: 1,
@@ -81,6 +90,7 @@ export function normalizeEvent(input: Partial<CalendarEvent> | null | undefined)
     id: input.id,
     title,
     date: input.date,
+    calendar: input.calendar === "lunar" ? "lunar" : "solar",
     time: typeof input.time === "string" && TIME.test(input.time) ? input.time : "",
     repeat,
     interval: repeat === "none" || !Number.isFinite(interval) ? 1 : Math.min(MAX_INTERVAL, Math.max(1, interval)),
@@ -100,6 +110,28 @@ function landingDay(startDay: number, year: number, month: number): number {
   return Math.min(startDay, daysInMonth(year, month));
 }
 
+/**
+ * Monthly and yearly repetitions of a lunar event, which land on its lunar date: a lunar month has
+ * 29 or 30 days, so day 30 lands on the last day of a shorter month, and a lunar date in a leap
+ * month falls back to the plain month in years without that leap month.
+ * Null when the runtime cannot convert the day, and the solar rule applies instead.
+ */
+function lunarOccursOn(event: CalendarEvent, start: Date, date: Date): boolean | null {
+  const from = toLunar(start);
+  const here = toLunar(date);
+  if (!from || !here) return null;
+  if (event.repeat === "yearly") {
+    const month = lunarMonthOf(here.year, from.month, from.leap);
+    if (!month) return null;
+    if ((here.year - from.year) % event.interval !== 0) return false;
+    return month.month === here.month && month.leap === here.leap && here.day === Math.min(from.day, month.length);
+  }
+  const months = lunarMonthsBetween(start, date);
+  const length = lunarMonthLength(here);
+  if (months === null || length === null) return null;
+  return months % event.interval === 0 && here.day === Math.min(from.day, length);
+}
+
 export function occursOn(event: CalendarEvent, date: Date): boolean {
   const iso = formatISODate(date);
   if (iso < event.date) return false;
@@ -108,6 +140,10 @@ export function occursOn(event: CalendarEvent, date: Date): boolean {
   if (event.skip.includes(iso)) return false;
 
   const start = parseISODate(event.date);
+  if (event.calendar === "lunar" && (event.repeat === "monthly" || event.repeat === "yearly")) {
+    const lunar = lunarOccursOn(event, start, date);
+    if (lunar !== null) return lunar;
+  }
   const year = date.getFullYear();
   const month = date.getMonth();
   switch (event.repeat) {

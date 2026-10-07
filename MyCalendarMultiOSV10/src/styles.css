@@ -360,12 +360,17 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 
 .footer > * { flex: none; }
 
+/*
+ * One right inset for every footer row, wide enough to clear the resize grip in the corner. It keeps
+ * the status row's buttons still when the events collapse and lines them up with the events' own
+ * buttons in a single column.
+ */
 .footer {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px 12px 12px;
+  padding: 8px 30px 12px 12px;
   border-top: 1px solid var(--border);
 }
 
@@ -379,8 +384,10 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 }
 
 .status-row span:nth-child(3) { color: var(--text); }
-.status-row .icon-btn:first-of-type { margin-left: auto; }
-.status-row .icon-btn { width: 28px; height: 28px; }
+/* Pushed to the footer's right inset in both rows, so collapsing never moves these buttons. */
+.footer-actions { flex: none; display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.footer-actions .icon-btn { width: 24px; height: 24px; flex: none; }
+.footer-actions .icon { width: 16px; height: 16px; }
 
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; }
 .dot.live { background: #2f9e68; }
@@ -673,8 +680,8 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 .footer-toggle .icon { transition: transform 160ms ease; }
 .footer-toggle[aria-expanded="false"] .icon { transform: rotate(180deg); }
 
-.footer.collapsed { gap: 0; padding-bottom: 8px; padding-right: 30px; }
-.events { --event-line: 24px; display: flex; flex-direction: column; gap: 0; padding-right: 18px; box-sizing: border-box; overflow: hidden; }
+.footer.collapsed { gap: 0; padding-bottom: 8px; }
+.events { --event-line: 24px; display: flex; flex-direction: column; gap: 0; box-sizing: border-box; overflow: hidden; }
 .events > p,
 .events .holiday-list button {
   flex: none;
@@ -793,6 +800,12 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 .sheet .segment button { height: 32px; }
 .interval { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .interval .text-input { width: 64px; flex: none; }
+/* Lunar year, month, and day on one line: the month picker takes the space the numbers leave. */
+.lunar-date { display: flex; align-items: center; gap: 6px; }
+.lunar-date .text-input { flex: none; width: 78px; }
+.lunar-date input[name="lunarDay"] { width: 62px; }
+.lunar-date .lunar-month { flex: 1 1 auto; min-width: 0; height: 34px; padding: 4px 10px; }
+.solar-date { display: flex; align-items: center; height: 34px; font-weight: 600; }
 .color-row { display: flex; gap: 8px; }
 .color-row button {
   width: 26px;

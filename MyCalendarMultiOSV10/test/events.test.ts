@@ -73,6 +73,62 @@ describe("Events", () => {
     expect(on(everyTwo, "2027-10-06")).toBe(false);
   });
 
+
+  it("repeats a lunar event on its lunar date", () => {
+    // 2026-10-06 is the 26th day of the eighth lunar month.
+    const birthday = event({ date: "2026-10-06", calendar: "lunar", repeat: "yearly" });
+    expect(on(birthday, "2026-10-06")).toBe(true);
+    expect(on(birthday, "2027-09-26")).toBe(true);
+    expect(on(birthday, "2028-10-14")).toBe(true);
+    expect(on(birthday, "2027-10-06")).toBe(false);
+
+    const solar = event({ date: "2026-10-06", repeat: "yearly" });
+    expect(solar.calendar).toBe("solar");
+    expect(on(solar, "2027-10-06")).toBe(true);
+    expect(on(solar, "2027-09-26")).toBe(false);
+
+    const everyTwo = event({ date: "2026-10-06", calendar: "lunar", repeat: "yearly", interval: 2 });
+    expect(on(everyTwo, "2028-10-14")).toBe(true);
+    expect(on(everyTwo, "2027-09-26")).toBe(false);
+
+    const monthly = event({ date: "2026-10-06", calendar: "lunar", repeat: "monthly" });
+    expect(on(monthly, "2026-11-05")).toBe(true);
+    expect(on(monthly, "2026-12-04")).toBe(true);
+    expect(on(monthly, "2026-11-06")).toBe(false);
+
+    const everyThirdMonth = event({ date: "2026-10-06", calendar: "lunar", repeat: "monthly", interval: 3 });
+    expect(on(everyThirdMonth, "2027-01-03")).toBe(true);
+    expect(on(everyThirdMonth, "2026-11-05")).toBe(false);
+
+    // A lunar week is a solar week, so weekly repetitions are unchanged.
+    const weekly = event({ date: "2026-10-06", calendar: "lunar", repeat: "weekly" });
+    expect(on(weekly, "2026-10-13")).toBe(true);
+    expect(on(weekly, "2026-10-14")).toBe(false);
+  });
+
+  it("lands a lunar 30th and a leap month on the nearest day a shorter year has", () => {
+    // 2026-10-10 is the 30th day of the eighth lunar month; 2027 has only 29 days in that month.
+    const thirtieth = event({ date: "2026-10-10", calendar: "lunar", repeat: "yearly" });
+    expect(on(thirtieth, "2027-09-29")).toBe(true);
+    expect(on(thirtieth, "2027-09-30")).toBe(false);
+
+    // 2025-07-25 is the first day of the leap sixth month, which 2026 does not have.
+    const leap = event({ date: "2025-07-25", calendar: "lunar", repeat: "yearly" });
+    expect(on(leap, "2025-07-25")).toBe(true);
+    expect(on(leap, "2026-07-14")).toBe(true);
+    expect(on(leap, "2026-08-13")).toBe(false);
+  });
+
+  it("stops a lunar repetition on its end date and skips single occurrences", () => {
+    const until = event({ date: "2026-10-06", calendar: "lunar", repeat: "yearly", until: "2027-12-31" });
+    expect(on(until, "2027-09-26")).toBe(true);
+    expect(on(until, "2028-10-14")).toBe(false);
+
+    const [skipped] = skipOccurrence([until], "e1", "2027-09-26");
+    expect(on(skipped, "2027-09-26")).toBe(false);
+    expect(on(skipped, "2026-10-06")).toBe(true);
+  });
+
   it("removes a single repetition without touching the rest", () => {
     const weekly = event({ date: "2026-10-06", repeat: "weekly" });
     const [skipped] = skipOccurrence([weekly], "e1", "2026-10-13");
@@ -103,7 +159,9 @@ describe("Events", () => {
       until: "2026-01-01",
       color: "red",
     })!;
-    expect(repaired).toMatchObject({ title: "A", time: "", repeat: "none", interval: 1, until: "", color: "#3d7dff" });
+    expect(repaired).toMatchObject({ title: "A", time: "", repeat: "none", interval: 1, until: "", color: "#3d7dff", calendar: "solar" });
+    expect(normalizeEvent({ id: "x", title: "A", date: "2026-10-06", calendar: "dangi" as never })!.calendar).toBe("solar");
+    expect(normalizeEvent({ id: "x", title: "A", date: "2026-10-06", calendar: "lunar" })!.calendar).toBe("lunar");
     const capped = normalizeEvent({ id: "y", title: "B", date: "2026-10-06", repeat: "weekly", interval: 500, until: "2026-01-01" })!;
     expect(capped.interval).toBe(99);
     expect(capped.until).toBe("");

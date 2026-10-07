@@ -83,6 +83,9 @@ export interface Messages {
   /** "{month}", "{day}", and "{leap}" (lunarLeapMark in a leap month, otherwise empty). */
   lunarFull: string;
   lunarLeapMark: string;
+  /** "{month}" is the lunar month number. */
+  lunarMonthName: string;
+  lunarLeapMonthName: string;
   solarTerms: string[];
   eventsSection: string;
   addEvent: string;
@@ -91,6 +94,17 @@ export interface Messages {
   eventTitle: string;
   eventTitlePlaceholder: string;
   eventDate: string;
+  /** Picks the calendar the date is typed in. */
+  dateCalendar: string;
+  calendarSolar: string;
+  calendarLunar: string;
+  solarDate: string;
+  lunarDate: string;
+  lunarYear: string;
+  lunarMonth: string;
+  lunarDay: string;
+  lunarRepeatHint: string;
+  lunarDateInvalid: string;
   eventTime: string;
   allDay: string;
   repeat: string;
