@@ -1,8 +1,49 @@
+# Dependencies and build output
 node_modules/
 dist/
+release/
 out/
+*.asar
 *.log
+npm-debug.log*
+yarn-error.log*
+
+# Installers copied to the project root by scripts/copy-installer.js
+MyWeather-Setup-*.exe
+MyWeather-*.dmg
+MyWeather-*.AppImage
+MyWeather_*.deb
+MyWeather-*-mac.zip
+MyWeather-*-win.zip
+
+# OS and editors
 .DS_Store
 Thumbs.db
-*.asar
+Desktop.ini
+.vs/
+.vscode/
+.idea/
+.cursor/
+*.swp
+*~
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Tests and caches
+coverage/
+.nyc_output/
+*.lcov
 .cache/
+__pycache__/
+*.pyc
+
+# Electron debug profiles and crash dumps
+userdata/
+user-data-dir/
+*.heapsnapshot
+*.cpuprofile
+*.dmp
+crashpad/

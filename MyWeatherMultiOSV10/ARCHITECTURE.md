@@ -28,7 +28,7 @@ Closing the window still asks the renderer to save or discard. Quit destroys the
 
 The Windows package turns electron-builder's automatic shortcuts off. `installer.nsh` shows two checkboxes and creates `.lnk` files with `$INSTDIR\resources\icon.ico`. That file is `assets/icon.ico`, copied with `extraResources`, and it is also `build.win.icon`, `installerIcon`, and `uninstallerIcon`. If a previous install is found, the script deletes the old shortcuts, runs the old uninstaller, and removes the install directory before the new files are written. User data under `%APPDATA%\MyWeather` is removed only after Yes.
 
-`npm run dist:win` builds `MyWeather-Setup-1.0.0.exe` and copies it to the root. `dist/` stays gitignored.
+`npm run dist:win` builds `MyWeather-Setup-1.0.0.exe` and copies it to the root. `dist/` and that root installer stay gitignored.
 
 ## Themes and documents
 
