@@ -48,7 +48,26 @@ export function sceneFit(box, textWidth = 200) {
   return { text: 1, art: Math.round((artPx / SCENE_ART) * 1000) / 1000 };
 }
 
-/** Keep the real window rectangle when settings are written. A missing size must not erase it. */
+/** Prefer the size recorded while resizing. Settings often keep the position and drop the size. */
+export function recordedWindowPlacement(settings, recorded) {
+  const recordedWidth = Math.round(Number(recorded?.width));
+  const recordedHeight = Math.round(Number(recorded?.height));
+  const settingsWidth = Math.round(Number(settings?.windowSize?.width));
+  const settingsHeight = Math.round(Number(settings?.windowSize?.height));
+  const width = recordedWidth >= 200 ? recordedWidth : settingsWidth >= 200 ? settingsWidth : null;
+  const height = recordedHeight >= 200 ? recordedHeight : settingsHeight >= 200 ? settingsHeight : null;
+  const recordedX = Number(recorded?.x);
+  const recordedY = Number(recorded?.y);
+  const settingsX = Number(settings?.windowPosition?.x);
+  const settingsY = Number(settings?.windowPosition?.y);
+  return {
+    x: Number.isFinite(recordedX) ? Math.round(recordedX) : Number.isFinite(settingsX) ? Math.round(settingsX) : null,
+    y: Number.isFinite(recordedY) ? Math.round(recordedY) : Number.isFinite(settingsY) ? Math.round(settingsY) : null,
+    width,
+    height,
+    maximized: Boolean(recorded?.maximized || settings?.windowMaximized),
+  };
+}
 export function stampWindowPlacement(settings, placement) {
   const next = settings && typeof settings === "object" ? settings : {};
   const width = Math.round(Number(placement?.width));

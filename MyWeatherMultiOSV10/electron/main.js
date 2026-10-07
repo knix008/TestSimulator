@@ -9,7 +9,7 @@ import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js"
 import { themeColors, themeVars, DEFAULT_THEME_ID } from "../src/core/themes.js";
 import { buildTrayMenu, placeTrayMenu, trayIconFile, trayMenuSize } from "../src/ui/tray-menu.js";
 import { sanitizeSettings } from "../src/core/settings.js";
-import { WINDOW_DEFAULT, WINDOW_MIN, placeWindow, stampWindowPlacement, windowIsVisible } from "../src/ui/window-spec.js";
+import { WINDOW_DEFAULT, WINDOW_MIN, placeWindow, recordedWindowPlacement, stampWindowPlacement, windowIsVisible } from "../src/ui/window-spec.js";
 import { PopupHub } from "./popup-hub.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +18,7 @@ const hub = new PopupHub();
 const contentsToPopup = new Map();
 const menuSpecs = new Map();
 let mainWindow = null;
+let liveBounds = null;
 let tray = null;
 let trayMenuWin = null;
 let trayMenuAnchor = null;
@@ -92,20 +93,28 @@ function revealWindow(win, onShown) {
 
 function savedWindowPlacement() {
   const settings = sanitizeSettings(readJson(settingsFile()));
+  const recorded = recordedWindowPlacement(settings, readJson(windowStateFile()));
   const areas = screen.getAllDisplays().map((display) => display.workArea);
   const saved = {
-    x: settings.windowPosition?.x,
-    y: settings.windowPosition?.y,
-    width: settings.windowSize?.width,
-    height: settings.windowSize?.height,
+    x: Number.isFinite(recorded.x) ? recorded.x : undefined,
+    y: Number.isFinite(recorded.y) ? recorded.y : undefined,
+    width: recorded.width || undefined,
+    height: recorded.height || undefined,
   };
   const placed = placeWindow(saved, areas, WINDOW_DEFAULT);
-  const onScreen = !settings.windowPosition || windowIsVisible({ x: saved.x, y: saved.y, width: placed.width, height: placed.height }, areas);
-  return { ...placed, maximized: Boolean(settings.windowMaximized) && onScreen };
+  const onScreen = !Number.isFinite(recorded.x) || windowIsVisible({ x: saved.x, y: saved.y, width: placed.width, height: placed.height }, areas);
+  return { ...placed, maximized: Boolean(recorded.maximized) && onScreen };
 }
 
 function createMainWindow() {
   const placement = savedWindowPlacement();
+  liveBounds = {
+    x: placement.x,
+    y: placement.y,
+    width: placement.width,
+    height: placement.height,
+    maximized: Boolean(placement.maximized),
+  };
   const win = new BrowserWindow({
     x: placement.x,
     y: placement.y,
@@ -167,6 +176,22 @@ function createMainWindow() {
     event.preventDefault();
     win.webContents.send("request-close");
   });
+  const rememberCurrent = () => {
+    if (win.isDestroyed()) return;
+    const maximized = win.isMaximized();
+    const bounds = maximized ? win.getNormalBounds() : win.getBounds();
+    noteBounds({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width >= 200 ? bounds.width : liveBounds?.width,
+      height: bounds.height >= 200 ? bounds.height : liveBounds?.height,
+      maximized,
+    });
+  };
+  win.on("resized", rememberCurrent);
+  win.on("moved", rememberCurrent);
+  win.on("maximize", () => noteBounds({ ...liveBounds, maximized: true }));
+  win.on("unmaximize", rememberCurrent);
   return win;
 }
 
@@ -197,6 +222,10 @@ function settingsFile() {
   return path.join(app.getPath("userData"), "settings.json");
 }
 
+function windowStateFile() {
+  return path.join(app.getPath("userData"), "window.json");
+}
+
 function readJson(file) {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -205,17 +234,37 @@ function readJson(file) {
   }
 }
 
+function noteBounds(bounds) {
+  const width = Math.round(Number(bounds?.width));
+  const height = Math.round(Number(bounds?.height));
+  const x = Math.round(Number(bounds?.x));
+  const y = Math.round(Number(bounds?.y));
+  const next = {
+    x: Number.isFinite(x) ? x : liveBounds?.x,
+    y: Number.isFinite(y) ? y : liveBounds?.y,
+    width: width >= 200 ? width : liveBounds?.width,
+    height: height >= 200 ? height : liveBounds?.height,
+    maximized: typeof bounds?.maximized === "boolean" ? bounds.maximized : Boolean(liveBounds?.maximized),
+  };
+  if (!(next.width >= 200) || !(next.height >= 200) || !Number.isFinite(next.x) || !Number.isFinite(next.y)) return liveBounds;
+  liveBounds = next;
+  try {
+    fs.mkdirSync(path.dirname(windowStateFile()), { recursive: true });
+    fs.writeFileSync(windowStateFile(), JSON.stringify(liveBounds));
+  } catch {
+    /* a later resize or quit writes the same rectangle */
+  }
+  return liveBounds;
+}
+
 function currentPlacement() {
+  if (liveBounds && liveBounds.width >= 200 && liveBounds.height >= 200 && Number.isFinite(liveBounds.x) && Number.isFinite(liveBounds.y)) {
+    return { ...liveBounds };
+  }
   if (!mainWindow || mainWindow.isDestroyed()) return null;
   const maximized = mainWindow.isMaximized();
   const bounds = maximized ? mainWindow.getNormalBounds() : mainWindow.getBounds();
-  return {
-    x: Math.round(bounds.x),
-    y: Math.round(bounds.y),
-    width: Math.round(bounds.width),
-    height: Math.round(bounds.height),
-    maximized,
-  };
+  return noteBounds({ ...bounds, maximized });
 }
 
 function writeSettingsFile(settings) {
@@ -367,6 +416,13 @@ app.on("before-quit", () => {
   tray = null;
 });
 
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.on(signal, () => {
+    saveWindowPlacement();
+    app.quit();
+  });
+}
+
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
@@ -374,18 +430,26 @@ app.on("window-all-closed", () => {
 ipcMain.handle("window-resize", (_event, step = {}) => {
   if (!mainWindow || mainWindow.isMaximized()) return null;
   if (step.phase === "start") {
-    resizeStart = mainWindow.getBounds();
+    const bounds = mainWindow.getBounds();
+    resizeStart = {
+      x: bounds.x,
+      y: bounds.y,
+      width: liveBounds?.width >= 200 ? liveBounds.width : bounds.width,
+      height: liveBounds?.height >= 200 ? liveBounds.height : bounds.height,
+    };
     return resizeStart;
   }
   if (step.phase === "end") {
     resizeStart = null;
-    return mainWindow.getBounds();
+    return currentPlacement();
   }
   if (!resizeStart) resizeStart = mainWindow.getBounds();
   const width = Math.max(WINDOW_MIN.width, Math.round(resizeStart.width + Number(step.dx || 0)));
   const height = Math.max(WINDOW_MIN.height, Math.round(resizeStart.height + Number(step.dy || 0)));
-  mainWindow.setBounds({ x: resizeStart.x, y: resizeStart.y, width, height });
-  return { width, height };
+  const next = { x: resizeStart.x, y: resizeStart.y, width, height, maximized: false };
+  mainWindow.setBounds(next);
+  noteBounds(next);
+  return { x: next.x, y: next.y, width, height };
 });
 
 ipcMain.handle("window-move", (event, step = {}) => {
@@ -399,7 +463,14 @@ ipcMain.handle("window-move", (event, step = {}) => {
   if (step.phase === "end") {
     moveStarts.delete(win.id);
     const bounds = win.getBounds();
-    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: win.isMaximized() };
+    const noted = noteBounds({
+      x: bounds.x,
+      y: bounds.y,
+      width: liveBounds?.width || bounds.width,
+      height: liveBounds?.height || bounds.height,
+      maximized: win.isMaximized(),
+    });
+    return noted || { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: win.isMaximized() };
   }
   const origin = moveStarts.get(win.id) || (() => {
     const [x, y] = win.getPosition();
@@ -408,6 +479,7 @@ ipcMain.handle("window-move", (event, step = {}) => {
   const x = Math.round(origin.x + Number(step.dx || 0));
   const y = Math.round(origin.y + Number(step.dy || 0));
   win.setPosition(x, y);
+  noteBounds({ x, y, width: liveBounds?.width, height: liveBounds?.height, maximized: false });
   return { x, y };
 });
 

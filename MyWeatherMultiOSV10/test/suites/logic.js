@@ -21,7 +21,7 @@ import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconF
 import { layoutMenu, menuWindowOptions, placeBeside, popupWindowOptions } from "../../src/ui/menu-layout.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, placeWindow, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { aggregate, presentWeather } from "../../src/weather/aggregate.js";
 import { formatTemp } from "../../src/weather/format.js";
@@ -399,6 +399,8 @@ export function registerLogic(h) {
     assert.deepEqual(kept.windowSize, { width: 880, height: 610 });
     assert.deepEqual(kept.windowPosition, { x: 30, y: 40 });
     assert.equal(stampWindowPlacement({ windowSize: { width: 880, height: 610 } }, { width: 10, height: 10 }).windowSize.width, 880);
+    const recorded = recordedWindowPlacement({ windowSize: null, windowPosition: { x: 12, y: 8 } }, { x: 40, y: 18, width: 910, height: 640 });
+    assert.deepEqual({ x: recorded.x, y: recorded.y, width: recorded.width, height: recorded.height }, { x: 40, y: 18, width: 910, height: 640 });
     assert.equal(sceneScale(SCENE_NATURAL), 1);
     assert.equal(sceneScale({ width: 2000, height: 2000 }), Math.round((2000 / SCENE_NATURAL.width) * 1000) / 1000);
     assert.equal(sceneScale({ width: 80, height: 80 }), SCENE_MIN_SCALE);
@@ -635,6 +637,7 @@ export function registerLogic(h) {
     assert.match(main, /frame: false/);
     assert.match(main, /saveWindowPlacement/);
     assert.match(main, /window-bounds/);
+    assert.match(main, /window\.json/);
     assert.match(main, /thickFrame: false/);
     assert.match(main, /skipTaskbar: true/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, "src/styles.css"), "utf8"), /app-region/);
