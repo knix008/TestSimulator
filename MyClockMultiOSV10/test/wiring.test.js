@@ -513,6 +513,20 @@ test('시스템 설정은 트레이에서 다룬다', () => {
   assert.match(main, /fresh\.extraClocks = current\.extraClocks/);
 });
 
+test('표시 우선순위는 시계마다 따로 걸린다', () => {
+  const main = readSource('electron/main.js');
+  const clock = readSource('src/js/clock.js');
+
+  // 트레이 스위치와 시계 창의 저장 모두 같은 길로 창마다 다시 건다.
+  assert.match(main, /function setAlwaysOnTop[\s\S]{0,200}applyDisplayPriority\(\)/);
+  assert.match(main, /ipcMain\.on\('window:set-always-on-top', \(\) => applyDisplayPriority\(\)\)/);
+  assert.match(main, /'displayPriority' in patch\) applyDisplayPriority\(\)/, '추가 시계의 우선순위가 바로 걸리지 않는다');
+  assert.match(clock, /'displayPriority' in patch/, '메인 시계의 우선순위가 바로 걸리지 않는다');
+  // 시계 창은 처음부터 자기 우선순위로 뜬다.
+  assert.match(main, /alwaysOnTop: priorityOnTop\(settings\.displayPriority/);
+  assert.match(main, /alwaysOnTop: priorityOnTop\(config\.displayPriority/);
+});
+
 test('메인 시계도 도시를 가질 수 있다', () => {
   const clock = readSource('src/js/clock.js');
   const store = readSource('electron/store.js');

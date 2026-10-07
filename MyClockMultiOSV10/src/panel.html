@@ -177,12 +177,31 @@
       <!-- 창 하나에 다 넣으면 길어져 스크롤이 생기므로, 갈래별 탭으로 나눈다. -->
       <section class="tab-page" data-page="settings">
         <nav class="sub-tabs" id="settingsTabs">
+          <button class="sub-tab" data-sub="general" type="button"><span class="sub-icon">⚙</span>시스템</button>
           <button class="sub-tab" data-sub="look" type="button"><span class="sub-icon">🎨</span>테마</button>
           <button class="sub-tab" data-sub="color" type="button"><span class="sub-icon">🖌</span>색</button>
           <button class="sub-tab" data-sub="clock" type="button"><span class="sub-icon">🕘</span>시계</button>
           <button class="sub-tab" data-sub="style" type="button"><span class="sub-icon">✒</span>스타일</button>
           <button class="sub-tab" data-sub="sound" type="button"><span class="sub-icon">🔔</span>소리</button>
         </nav>
+
+        <!-- 시스템 — 이 시계 창을 어떻게 띄울지 -->
+        <div class="sub-page" data-sub-page="general">
+          <div class="section-title"><span class="section-icon">📌</span>표시 우선 순위</div>
+          <div class="segmented" id="priorityGroup">
+            <button class="seg-btn" data-value="low" type="button">낮음</button>
+            <button class="seg-btn" data-value="normal" type="button">보통</button>
+            <button class="seg-btn" data-value="high" type="button">높음</button>
+            <button class="seg-btn" data-value="highest" type="button">가장 높음</button>
+          </div>
+          <div class="hint" id="priorityHint"></div>
+          <div class="hint">
+            <b>낮음</b> 다른 창에 가려집니다 ·
+            <b>보통</b> 트레이의 "항상 위에 표시"를 따릅니다 ·
+            <b>높음</b> 언제나 다른 창 위에 ·
+            <b>가장 높음</b> 다른 시계와 겹쳐도 이 시계가 위에 보입니다.
+          </div>
+        </div>
 
         <!-- 모양 — 테마와 색 -->
         <div class="sub-page" data-sub-page="look">

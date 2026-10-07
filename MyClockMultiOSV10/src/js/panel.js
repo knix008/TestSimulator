@@ -37,10 +37,10 @@ let clockTarget = params.get('clock') || 'main';
 /** @type {any[]} 추가 시계 목록 (메인 프로세스가 들고 있다) */
 let clocks = [];
 /**
- * 설정 창 안의 갈래 — 시계 · 모양 · 스타일 · 소리.
- * 열면 테마가 바로 보이도록 "모양" 부터 보여 준다.
+ * 설정 창 안의 갈래 — 시스템 · 모양 · 시계 · 스타일 · 소리.
+ * 열면 "시스템" 갈래부터 보여 준다.
  */
-let settingsSub = 'look';
+let settingsSub = 'general';
 /** 테마 칸을 한 줄에 몇 개 둘지 — 창 폭이 이 수에 맞춰 정해진다. */
 const THEME_COLUMNS = 4;
 let suggestions = [];
@@ -1093,6 +1093,16 @@ function renderSettingsTab() {
   setValue($('volumeSlider'), settings.alarmVolume);
   $('volumeValue').textContent = `${settings.alarmVolume}%`;
 
+  const priority = target.displayPriority || 'normal';
+  for (const button of document.querySelectorAll('#priorityGroup .seg-btn')) {
+    button.classList.toggle('active', button.dataset.value === priority);
+  }
+  $('priorityHint').textContent =
+    priority === 'normal'
+      ? `지금은 트레이의 "항상 위에 표시"가 ${settings.alwaysOnTop ? '켜져 있어 다른 창 위에 보입니다' : '꺼져 있어 다른 창에 가려집니다'}.`
+      : '';
+  $('priorityHint').hidden = priority !== 'normal';
+
   for (const button of document.querySelectorAll('#modeGroup .seg-btn')) {
     button.classList.toggle('active', (button.dataset.value === 'digital') === target.isDigital);
   }
@@ -1164,6 +1174,13 @@ function wireSettingsTab() {
   $('soundPreviewBtn').addEventListener('click', () => {
     player.preview(settings.alarmSoundId, settings.alarmVolume / 100);
   });
+
+  for (const button of document.querySelectorAll('#priorityGroup .seg-btn')) {
+    button.addEventListener('click', () => {
+      patchSettings({ displayPriority: button.dataset.value });
+      renderSettingsTab();
+    });
+  }
 
   for (const button of document.querySelectorAll('#modeGroup .seg-btn')) {
     button.addEventListener('click', () => {

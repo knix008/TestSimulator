@@ -26,8 +26,23 @@ const DEFAULT_WORLD_CITIES = [
   { city: '호놀룰루', region: '미국 하와이', zone: 'Pacific/Honolulu' }
 ];
 
+/**
+ * 시계마다 정하는 표시 우선순위.
+ *   low     — 일반 창처럼 다른 창에 가려진다 (트레이의 "항상 위에 표시"를 따르지 않는다)
+ *   normal  — 트레이의 "항상 위에 표시"를 따른다
+ *   high    — 언제나 다른 창 위
+ *   highest — 언제나 다른 창 위, 시계끼리 겹치면 이 시계가 위
+ */
+const DISPLAY_PRIORITIES = ['low', 'normal', 'high', 'highest'];
+
+function displayPriority(value) {
+  return DISPLAY_PRIORITIES.includes(value) ? value : 'normal';
+}
+
 const DEFAULT_SETTINGS = {
   alwaysOnTop: false,
+  // 메인 시계의 표시 우선순위 (추가 시계는 extraClocks[] 에 저마다 둔다)
+  displayPriority: 'normal',
   use24h: false,
   worldUse24h: false,
   theme: 'DarkTheme',
@@ -181,6 +196,7 @@ function normalizeExtraClock(raw) {
     region: typeof src.region === 'string' ? src.region : '',
     zone: src.zone,
     showCity: src.showCity !== false,
+    displayPriority: displayPriority(src.displayPriority),
     theme: typeof src.theme === 'string' && src.theme ? src.theme : DEFAULT_SETTINGS.theme,
     customThemeColor: hex(src.customThemeColor, DEFAULT_SETTINGS.customThemeColor),
     customThemeLight: src.customThemeLight === true,
@@ -221,6 +237,7 @@ function normalizeSettings(raw) {
     : null;
   return {
     alwaysOnTop: src.alwaysOnTop === true,
+    displayPriority: displayPriority(src.displayPriority),
     use24h: src.use24h === true,
     worldUse24h: src.worldUse24h === true,
     theme: typeof src.theme === 'string' && src.theme ? src.theme : DEFAULT_SETTINGS.theme,
@@ -448,6 +465,7 @@ function migrateFromWpfIfNeeded() {
 module.exports = {
   DEFAULT_SETTINGS,
   DEFAULT_WORLD_CITIES,
+  DISPLAY_PRIORITIES,
   defaults,
   normalizeExtraClock,
   loadSettings,

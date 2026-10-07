@@ -621,7 +621,34 @@ test('시계 설정 창에는 공용 설정 갈래가 아예 보이지 않는다
   const sound = clock.document.querySelectorAll('.sub-tab').find((t) => t.dataset.sub === 'sound');
   assert.equal(sound.hidden, true, '소리 갈래는 공용이라 시계 설정 창에 없다');
   const visible = clock.document.querySelectorAll('.sub-tab').filter((t) => !t.hidden).map((t) => t.dataset.sub);
-  assert.deepEqual(visible, ['look', 'color', 'clock', 'style']);
+  assert.deepEqual(visible, ['general', 'look', 'color', 'clock', 'style']);
+});
+
+test('시스템 갈래에서 고른 표시 우선순위는 메인 시계로 간다', async () => {
+  const panel = await openPanelWindow();
+  const buttons = panel.document.querySelectorAll('#priorityGroup .seg-btn');
+  assert.deepEqual(buttons.map((b) => b.dataset.value), ['low', 'normal', 'high', 'highest']);
+  assert.equal(buttons.find((b) => b.classList.contains('active')).dataset.value, 'normal', '기본은 보통');
+  assert.equal(panel.$('priorityHint').hidden, false, '보통이면 트레이 설정을 따른다고 알려 준다');
+
+  await panel.emit(buttons.find((b) => b.dataset.value === 'highest'), 'click');
+  assert.equal(panel.lastPatch().displayPriority, 'highest');
+  assert.equal(panel.$('priorityHint').hidden, true);
+});
+
+test('시계 설정 창의 표시 우선순위는 그 시계에만 간다', async () => {
+  const panel = await clockPanel('c1');
+  const active = panel.document.querySelectorAll('.sub-page').find((p) => p.classList.contains('active'));
+  assert.equal(active.dataset.subPage, 'general', '시계 설정 창도 시스템 갈래부터 보인다');
+  const before = panel.log.toClock.length;
+  const high = panel.document.querySelectorAll('#priorityGroup .seg-btn').find((b) => b.dataset.value === 'high');
+  await panel.emit(high, 'click');
+
+  const update = panel.lastClockPatch();
+  assert.equal(update.id, 'c1');
+  assert.deepEqual({ ...update.patch }, { displayPriority: 'high' });
+  assert.equal(panel.log.toClock.length, before, '메인 시계에는 아무것도 보내지 않는다');
+  assert.ok(high.classList.contains('active'));
 });
 
 test('공용 설정은 메인 시계의 설정 창에만 있다', async () => {
@@ -707,13 +734,13 @@ test('설정은 갈래 탭으로 나뉘고 한 번에 하나만 보인다', asyn
   const panel = await openPanelWindow();
   const tabs = panel.document.querySelectorAll('.sub-tab');
 
-  assert.deepEqual(tabs.map((t) => t.dataset.sub), ['look', 'color', 'clock', 'style', 'sound']);
+  assert.deepEqual(tabs.map((t) => t.dataset.sub), ['general', 'look', 'color', 'clock', 'style', 'sound']);
   assert.equal(panel.document.body.classList.contains('settings-window'), true, '스크롤 없는 설정 창');
 
   const open = () => panel.document.querySelectorAll('.sub-page').filter((p) => p.classList.contains('active'));
   assert.equal(open().length, 1, '한 번에 한 갈래만');
-  assert.equal(open()[0].dataset.subPage, 'look', '열면 테마가 먼저 보인다');
-  assert.ok(panel.document.querySelectorAll('.theme-btn').length > 20, '테마 칸이 바로 보인다');
+  assert.equal(open()[0].dataset.subPage, 'general', '열면 시스템 갈래가 먼저 보인다');
+  assert.ok(panel.document.querySelectorAll('.theme-btn').length > 20, '테마 칸은 미리 그려 둔다');
 
   for (const tab of tabs) {
     await panel.emit(tab, 'click');
