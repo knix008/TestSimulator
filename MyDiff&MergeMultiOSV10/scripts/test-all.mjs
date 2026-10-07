@@ -33,6 +33,7 @@ const UNIT_FILES = [
   "test/archive.test.mjs",
   "test/ftp.test.mjs",
   "test/gitgraph.test.mjs",
+  "test/terminal.test.mjs",
   "test/tools.test.mjs",
   "test/server.test.mjs",
   "test/build.test.mjs",

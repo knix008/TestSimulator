@@ -1,10 +1,16 @@
 /**
  * Settings.
  *
- * Seven tabs rather than one long scroll, because the window is a fixed size and must
- * not scroll; each setting is one line. Changes are written as they are made and
- * published to the other windows, so the app behind the dialog follows along live
- * instead of waiting for an OK.
+ * Tabs rather than one long scroll, because the window is a fixed size and must not
+ * scroll; each setting is one line. Changes are written as they are made and published to
+ * the other windows, so the app behind the dialog follows along live instead of waiting
+ * for an OK.
+ *
+ * The terminal takes three tabs of its own. The first is the shell and how its output is
+ * read; the second is the prompt — presets, which segments show, the colour per
+ * repository state — and the third the prompts the user saved under a name, with the
+ * segment-by-segment editor behind them. They are three because each is a whole screen's
+ * work, and sharing one tab would have meant scrolling.
  */
 import { useEffect, useMemo, useState } from "react";
 import { LANGUAGES } from "../../core/i18n.js";
@@ -16,8 +22,13 @@ import {
   MIN_FONT_SIZE,
   MIN_ZOOM,
   recentKey,
+  TERMINAL_CRS,
+  TERMINAL_EOLS,
   type AppSettings,
+  type TerminalCr,
+  type TerminalEol,
 } from "../../core/settings.js";
+import type { CustomPrompt, PromptConfig } from "../../core/prompt.js";
 import type { FontFamily } from "../../core/fonts.js";
 import { CUSTOM_THEME_ID, HEADER_PALETTE, THEMES, type CustomTheme } from "../../core/themes.js";
 import { api, type ToolRegistration } from "../api.js";
@@ -25,6 +36,7 @@ import type { DialogProps } from "../DialogHost.js";
 import * as host from "../host.js";
 import { Icon } from "../icons.js";
 import { Button, Buttons, CheckField, Field, StepperField, TabPanel, Tabs } from "./parts.js";
+import { PromptCustom, PromptPresets } from "./PromptEditor.js";
 
 export function SettingsDialog({ payload, settings: initial, t, close }: DialogProps) {
   const requested = (payload as { tab?: string } | null)?.tab;
@@ -32,10 +44,15 @@ export function SettingsDialog({ payload, settings: initial, t, close }: DialogP
   const [settings, setSettings] = useState<AppSettings & { settingsPath: string }>(initial);
   const [fonts, setFonts] = useState<FontFamily[]>([]);
   const [tools, setTools] = useState<{ diff: ToolRegistration; merge: ToolRegistration } | null>(null);
+  // `null` until the check has answered: the list is built by starting each shell, so
+  // for a moment there is nothing to show and "none installed" would be a lie.
+  const [shells, setShells] = useState<{ id: string; label: string }[] | null>(null);
 
   useEffect(() => {
     api.fonts().then(setFonts).catch(() => setFonts([]));
     api.gitTools().then(setTools).catch(() => setTools(null));
+    // Refreshed rather than cached: a shell installed since the app started should appear.
+    api.termShells(true).then(setShells).catch(() => setShells([]));
   }, []);
 
   const save = async (patch: Partial<AppSettings>) => {
@@ -68,6 +85,9 @@ export function SettingsDialog({ payload, settings: initial, t, close }: DialogP
           { id: "font", label: t("settings.tab.font"), icon: "font" },
           { id: "compare", label: t("settings.tab.compare"), icon: "compareFiles" },
           { id: "git", label: t("settings.tab.git"), icon: "git" },
+          { id: "terminal", label: t("settings.tab.terminal"), icon: "terminal" },
+          { id: "prompt", label: t("settings.tab.prompt"), icon: "code" },
+          { id: "promptCustom", label: t("settings.tab.promptCustom"), icon: "bookmark" },
         ]}
       />
 
@@ -121,6 +141,8 @@ export function SettingsDialog({ payload, settings: initial, t, close }: DialogP
           checked={settings.showRightPanel} onChange={(value) => void save({ showRightPanel: value })} />
         <CheckField label={t("settings.showLogPanel")} name="showLogPanel" icon="list"
           checked={settings.showLogPanel} onChange={(value) => void save({ showLogPanel: value })} />
+        <CheckField label={t("settings.showTerminalPanel")} name="showTerminalPanel" icon="terminal"
+          checked={settings.showTerminalPanel} onChange={(value) => void save({ showTerminalPanel: value })} />
         <CheckField label={t("cmd.view.statusBar")} name="showStatusBar" icon="statusBar"
           checked={settings.showStatusBar} onChange={(value) => void save({ showStatusBar: value })} />
         <StepperField
@@ -337,6 +359,104 @@ export function SettingsDialog({ payload, settings: initial, t, close }: DialogP
             {tools?.merge.registered ? t("settings.unregister") : t("settings.register")} mergetool
           </Button>
         </Buttons>
+      </TabPanel>
+
+      <TabPanel active={tab} id="terminal">
+        <Field label={t("settings.termCwd")} hint={t("settings.termCwdHint")}>
+          <input
+            className="text-input"
+            data-field="termCwd"
+            placeholder={t("settings.termCwdDefault")}
+            spellCheck={false}
+            defaultValue={settings.termCwd}
+            key={settings.termCwd}
+            onBlur={(event) => void save({ termCwd: event.target.value })}
+          />
+          <Button
+            icon="folder"
+            name="browseTermCwd"
+            onClick={async () => {
+              const picked = await host.pickDirectory({
+                title: t("settings.termCwd"),
+                defaultPath: settings.termCwd || undefined,
+              });
+              if (picked) void save({ termCwd: picked });
+            }}
+          >
+            {t("dlg.browse")}
+          </Button>
+        </Field>
+        <Field label={t("settings.termShell")} hint={t("settings.termShellHint")}>
+          {shells === null ? (
+            <select className="select" data-field="termShell" disabled value="">
+              <option value="">{t("settings.termShellChecking")}</option>
+            </select>
+          ) : (
+            <select
+              className="select"
+              data-field="termShell"
+              value={settings.termShell}
+              onChange={(event) => void save({ termShell: event.target.value })}
+            >
+              <option value="">{t("settings.termShellDefault", shells[0]?.label ?? "-")}</option>
+              {shells.map((shell) => <option key={shell.id} value={shell.id}>{shell.label}</option>)}
+              {/* A shell chosen before it was uninstalled still has to be shown, or the
+                  list would silently read as though something else had been chosen. */}
+              {settings.termShell && !shells.some((shell) => shell.id === settings.termShell) ? (
+                <option value={settings.termShell}>{t("settings.termShellMissing", settings.termShell)}</option>
+              ) : null}
+            </select>
+          )}
+        </Field>
+        <Field label={t("settings.termEol")} hint={t("settings.termEolHint")}>
+          <select
+            className="select"
+            data-field="termEol"
+            value={settings.termEol}
+            onChange={(event) => void save({ termEol: event.target.value as TerminalEol })}
+          >
+            {TERMINAL_EOLS.map((value) => (
+              <option key={value} value={value}>{t(`settings.termEol.${value}` as "settings.termEol.lf")}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t("settings.termCr")}>
+          <select
+            className="select"
+            data-field="termCr"
+            value={settings.termCr}
+            onChange={(event) => void save({ termCr: event.target.value as TerminalCr })}
+          >
+            {TERMINAL_CRS.map((value) => (
+              <option key={value} value={value}>{t(`settings.termCr.${value}` as "settings.termCr.strip")}</option>
+            ))}
+          </select>
+        </Field>
+        <CheckField label={t("settings.termColor")} name="termColor" icon="palette"
+          checked={settings.termColor} onChange={(value) => void save({ termColor: value })} />
+        <p className="field-note">{t("settings.termColorHint")}</p>
+      </TabPanel>
+
+      <TabPanel active={tab} id="prompt">
+        <PromptPresets
+          value={settings.prompt}
+          onChange={(prompt) => void save({ prompt })}
+          custom={settings.customPrompts}
+          language={settings.language}
+          t={t}
+        />
+      </TabPanel>
+
+      <TabPanel active={tab} id="promptCustom">
+        <PromptCustom
+          value={settings.prompt}
+          onChange={(prompt) => void save({ prompt })}
+          custom={settings.customPrompts}
+          onCustomChange={(list: CustomPrompt[], apply?: PromptConfig) =>
+            void save(apply ? { customPrompts: list, prompt: apply } : { customPrompts: list })}
+          language={settings.language}
+          t={t}
+        />
       </TabPanel>
 
       <Buttons>

@@ -41,8 +41,8 @@
   /* Mixed from the theme's own text colour so the lines read on every one of the
      twenty themes, and on the coloured rows, without being drawn as loudly as the
      names they organise. */
-  --tree-guide: var(--border-strong);
-  --tree-guide: color-mix(in srgb, var(--text) 34%, transparent);
+  --tree-guide: var(--border);
+  --tree-guide: color-mix(in srgb, var(--text) 18%, transparent);
 
   /* The label columns of the merge panels and of the dialog fields. */
   --property-label-width: 116px;
@@ -285,6 +285,10 @@ kbd {
 .tool-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
 .tool-button:active:not(:disabled) { background: var(--active); }
 .tool-button.checked { background: var(--accent-soft); border-color: var(--accent); }
+/* Hovering a button that is already on must not take its accent border away: the border
+   is what says the setting is on, and losing it under the pointer reads as a click
+   having turned it off. */
+.tool-button.checked:hover:not(:disabled) { border-color: var(--accent); }
 .tool-button:disabled { opacity: 0.35; cursor: default; }
 
 /* The three framed groups: font size, the theme control and zoom. */
@@ -755,6 +759,7 @@ kbd {
   cursor: pointer;
 }
 
+.panel-rail.right { border-right: none; border-left: 1px solid var(--border); }
 .panel-rail:hover { background: var(--hover); color: var(--text); }
 
 .panel-rail > span {
@@ -773,23 +778,56 @@ kbd {
 .session-row .icon-button { flex: 0 0 auto; opacity: 0; }
 .session-row:hover .icon-button { opacity: 1; }
 
-/* ------------------------------------------------------- the log panel */
+/* ---------------------------------------------------- the bottom panel */
 
 /*
- * Across the bottom, the full width of the window: it is the application's log, not
- * the current comparison's, so it runs under the side panels rather than between
- * them.
+ * Across the bottom, the full width of the window: the log and the terminal are the
+ * application's, not the current comparison's, so the panel runs under the side panels
+ * rather than between them.
+ *
+ * Its header is a tab strip followed by whatever the tab in front needs, which is why the
+ * general rules that push a panel's first button to the right edge are undone here: the
+ * terminal's own tabs and its "+" belong beside the strip, not against the far edge.
  */
-.log-panel {
+.bottom-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: var(--panel-2);
 }
 
-.log-panel .panel-title { padding: 4px 10px; }
-.log-panel .panel-title .count { margin-left: 8px; }
-.log-panel .panel-title .icon-button:first-of-type { margin-left: auto; }
+.bottom-panel .panel-title { gap: 2px; padding: 2px 8px; }
+.bottom-panel .panel-title > .icon-button { margin-left: 0; }
+.bottom-panel .panel-title .count { margin-left: 4px; }
+
+.panel-spacer { flex: 1 1 auto; min-width: 6px; }
+
+.panel-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel-tab:hover { background: var(--hover); color: var(--text); }
+.panel-tab.active { background: var(--panel); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+.bottom-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--panel);
+}
 
 .log-list {
   flex: 1 1 auto;
@@ -814,6 +852,282 @@ kbd {
 .log-row.info svg { color: var(--added-accent); }
 .log-time { flex: 0 0 auto; color: var(--muted); font-variant-numeric: tabular-nums; }
 .log-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --------------------------------------------------------- the terminal */
+
+/* The session tabs, in the panel header beside the tab strip. */
+.term-tabs { display: flex; align-items: stretch; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.term-tabs::-webkit-scrollbar { display: none; }
+
+.term-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  max-width: 200px;
+  padding: 0 4px 0 10px;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+  cursor: default;
+}
+
+.term-tab:hover { background: var(--hover); color: var(--text); }
+.term-tab.active { background: var(--panel); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+.term-view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.term-view.hidden { display: none; }
+
+/*
+ * The transcript. `white-space: pre-wrap` keeps the shell's own layout and still wraps a
+ * line too long for the panel; `word-break: break-all` is what makes a wrapped path break
+ * where the panel ends rather than widening it.
+ */
+.term-out {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 10px;
+  overflow: auto;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--pane-font);
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+}
+
+/*
+ * The prompt. A powerline segment is a box clipped to an arrow, so it needs no Nerd Font;
+ * the arrow's tip overlaps the next segment, which is why each segment is stacked above
+ * the one after it and the next one is pulled back under the tip.
+ */
+.term-out .term-prompt { color: var(--accent); white-space: pre-wrap; }
+
+.term-out .pseg {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+  height: 1.45em;
+  line-height: 1.45em;
+  white-space: pre;
+  font-weight: 600;
+}
+
+.term-out .pseg svg { vertical-align: -2px; }
+
+.term-out .pseg-pl {
+  padding: 0 calc(0.8em + 2px) 0 4px;
+  clip-path: polygon(0 0, calc(100% - 0.8em) 0, 100% 50%, calc(100% - 0.8em) 100%, 0 100%);
+}
+
+.term-out .pseg-pl.nobg { padding-right: 4px; clip-path: none; }
+.term-out .pseg-pl.after-pl { margin-left: -0.8em; padding-left: calc(0.8em + 4px); }
+.term-out .pseg-dm { margin: 0 1px; padding: 0 6px; border-radius: 0.72em; }
+.term-out .pseg-plain { padding: 0 2px; font-weight: 500; }
+/* The git status is still being read: the prompt is shown, a shade quieter. */
+.term-out .term-prompt.stale .pseg { opacity: 0.85; }
+
+/* The prompt is not drawn at all until the first status answers, so it never appears in
+   one colour and then jumps to another. */
+.term-out .term-live.pending { opacity: 0; }
+
+/*
+ * The input sits inline at the end of the output, as wide as what is typed: the grid holds
+ * a hidden copy of the text, and the input is laid over it.
+ */
+.term-out .term-inline { display: inline-grid; max-width: 100%; vertical-align: baseline; }
+.term-out .term-inline::after { content: attr(data-value) " "; grid-area: 1 / 1; visibility: hidden; white-space: pre; }
+
+.term-out .term-inline input {
+  grid-area: 1 / 1;
+  width: 100%;
+  min-width: 2ch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  caret-color: var(--text);
+}
+
+/* What the programs did not colour themselves (see src/ansi.tsx). */
+.term-out .t-err { color: #ff6b6b; }
+.term-out .t-warn { color: #ffd166; }
+.term-out .t-ok { color: #7cfc8b; }
+.term-out .t-info { color: #7cc4ff; }
+.term-out .t-url { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.term-out .t-path { color: #c9a8ff; }
+.term-out .t-dim { opacity: 0.6; }
+.term-out .t-dir { color: #6cb6ff; font-weight: 600; }
+.term-out .t-link { color: #5fd7d7; }
+.term-out .t-exe { color: #7cfc8b; }
+.term-out .t-arch { color: #ff7b72; }
+.term-out .t-img { color: #d2a8ff; }
+.term-out .t-doc { color: #e3c07b; }
+.term-out .t-code { color: #a5d6ff; }
+
+/* ------------------------------------------- the prompt editor (settings) */
+
+.prompt-editor { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-height: 0; }
+.prompt-editor .field-note { margin: 6px 0 2px; display: flex; gap: 8px; align-items: baseline; }
+.prompt-editor .field-note .muted { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+/* The three sample prompts. A fixed height, because the window cannot grow. */
+.pe-preview {
+  flex: 0 0 auto;
+  height: 104px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  cursor: default;
+}
+
+.pe-preview.small { height: 62px; }
+
+.pe-presets { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+
+.pe-preset {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 48px;
+  padding: 2px 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.pe-preset:hover { border-color: var(--accent); }
+.pe-preset.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+.pe-preset-out {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font-size: 9.5px;
+  line-height: 1.45;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pe-preset-out .term-prompt { display: block; width: max-content; white-space: pre; }
+.pe-preset-out .pseg { height: 1.5em; line-height: 1.5em; }
+.pe-preset-name { flex: 0 0 auto; padding-left: 2px; font-size: 11px; line-height: 14px; color: var(--muted); }
+.pe-preset.active .pe-preset-name { color: var(--text); }
+.pe-star { color: var(--accent); margin-right: 3px; }
+
+.pe-quick { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.pe-quick .select { flex: 0 1 auto; max-width: 180px; }
+.pe-quick .text-input { flex: 0 1 200px; }
+.pe-check { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; }
+
+.pe-gitcolor { display: inline-flex; align-items: center; gap: 4px; }
+.pe-gitcolor input[type="color"] {
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+/* Fixed, so the window never resizes: room for the largest preset and the fullest
+   segment fields. */
+.pe-advanced { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: minmax(0, 1fr); gap: 8px; height: 300px; }
+.pe-advanced > * { min-height: 0; }
+
+.pe-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+.pe-list-rows { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+.pe-list-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px;
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.pe-list-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 8px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pe-list-row:hover { background: var(--hover); }
+.pe-list-row.active { background: var(--accent-soft); }
+.pe-list-row.off { opacity: 0.5; text-decoration: line-through; }
+.pe-swatch { flex: 0 0 auto; width: 12px; height: 12px; border: 1px solid var(--border); border-radius: 3px; }
+
+.pe-list-tools {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-3);
+}
+
+.pe-list-tools .select { min-width: 0; }
+
+.pe-detail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: auto; }
+.pe-fields { padding: 4px 10px 8px; }
+.pe-fields .field { min-height: 28px; }
+.pe-fields .field-label { flex: 0 0 124px; }
+.pe-fields textarea.text-input { height: auto; min-height: 44px; padding: 4px 7px; resize: vertical; }
+.pe-fields .text-input.narrow { flex: 0 0 72px; }
+.pe-vars { margin: 6px 0 0; color: var(--muted); line-height: 1.35; }
+.pe-color { display: inline-flex; align-items: center; gap: 3px; min-width: 0; }
+
+.pe-color input[type="color"] {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.pe-color .text-input { flex: 1 1 60px; min-width: 0; }
+
+/* -------------------------------------------------------- small helpers */
+
+.muted { color: var(--muted); }
+.mono { font-family: var(--pane-font); }
+.ellipsis { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* ------------------------------------------------------------- workspace */
 
@@ -1878,6 +2192,8 @@ mark.word.modified { background: var(--word-modified); }
 }
 
 .text-input { flex: 1 1 auto; min-width: 0; }
+/* A button beside a field keeps its width; the text input gives way instead. */
+.field-control > .dialog-button { flex: 0 0 auto; }
 .number-input { width: 80px; }
 .select { flex: 1 1 auto; min-width: 0; }
 
@@ -2221,7 +2537,7 @@ mark.word.modified { background: var(--word-modified); }
   overflow: hidden;
 }
 
-.dialog.floating.size-settings { width: 760px; height: 640px; }
+.dialog.floating.size-settings { width: min(1060px, 96vw); height: min(700px, 92vh); }
 .dialog.floating.size-about { width: 560px; height: 440px; }
 .dialog.floating.size-print { width: min(1000px, 94vw); height: min(760px, 90vh); }
 .dialog.floating.size-error { width: 660px; height: 440px; }

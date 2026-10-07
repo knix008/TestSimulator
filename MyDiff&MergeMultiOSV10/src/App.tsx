@@ -3,15 +3,15 @@
  *
  * Layout, from the top down: the menu bar, the toolbar, then a row of three — a left
  * panel, the comparison with its own tab strip, and on a merge a right panel — then
- * the log and the status bar across the bottom. The tabs sit inside the middle
+ * the bottom panel (the log and the terminal) and the status bar across the bottom. The tabs sit inside the middle
  * column because they belong to the comparison; the log sits outside it because it
  * belongs to the application.
  *
  * What the side panels hold follows the session: a merge shows its conflicts on the
  * left and its own state on the right, and everything else shows the session list on
  * the left and nothing on the right, because a comparison has no second story to
- * tell. The log spans the whole width, under the panels, because it belongs to the
- * application rather than to one tab.
+ * tell. The bottom panel spans the whole width, under the panels, because the log and
+ * the terminal belong to the application rather than to one tab.
  *
  * This component owns the things that are global to the window: the keyboard map,
  * Ctrl+Wheel zoom, drag & drop, and the measurement that keeps the window from ever
@@ -27,7 +27,7 @@ import { InlineMenu } from "./MenuPopup.js";
 import { MenuBar } from "./MenuBar.js";
 import { Icon } from "./icons.js";
 import { LeftPanel } from "./LeftPanel.js";
-import { LogPanel } from "./LogPanel.js";
+import { BottomPanel } from "./BottomPanel.js";
 import { SessionPanel } from "./SessionPanel.js";
 import { RightPanel } from "./RightPanel.js";
 import { Splitter } from "./Splitter.js";
@@ -245,15 +245,30 @@ export function App() {
           <Workspace onContextMenu={openContextMenu} />
         </div>
 
-        {merge && app.settings.showRightPanel ? (
-          <>
-            <Splitter side="right" />
-            <RightPanel tab={merge} />
-          </>
+        {merge ? (
+          app.settings.showRightPanel ? (
+            <>
+              <Splitter side="right" />
+              <RightPanel tab={merge} />
+            </>
+          ) : (
+            /* The same rail as on the left, against the other edge: a panel closed
+               from its own header has to be reopenable from where it was. */
+            <button
+              type="button"
+              className="panel-rail right"
+              data-command="panel.expandRight"
+              title={app.t("panel.expand")}
+              onClick={() => void app.updateSettings({ showRightPanel: true })}
+            >
+              <Icon name="prev" size={13} />
+              <span>{app.t("merge.info")}</span>
+            </button>
+          )
         ) : null}
       </div>
 
-      {app.settings.showLogPanel ? <LogPanel /> : null}
+      <BottomPanel />
       {app.settings.showStatusBar ? <StatusBar /> : null}
 
       {dropping ? <div className="drop-overlay">{app.t("pane.dropHint")}</div> : null}

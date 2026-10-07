@@ -66,6 +66,8 @@ divergence. It also means the popups can be real windows loading the same URL.
 | `renames.ts` | Pairing a file missing on one side with an identical one on the other, by size then by fingerprint — conservative, because a wrong pair is worse than a missed one. |
 | `ftp.ts` / `remote.ts` / `remoteCompare.ts` | An FTP and FTPS client written out rather than depended on, a session over it, and a folder comparison that walks a server's listing instead of downloading it. |
 | `gitGraph.ts` | Lanes and edges for a history, as data. The view draws lines; this decides what they are. |
+| `terminal.ts` | The shells behind the terminal panel: which ones this computer has — and which of those actually start, checked once at launch — a session per tab with piped stdio, Tab completion, and the `git status` the prompt is coloured by. The only module here that spawns anything. |
+| `prompt.ts` | The terminal prompt as data — blocks of segments, their colours and a subset of Go's `text/template` — plus the nineteen presets and the renderer both the panel and the settings preview draw with. No DOM, which is why the settings store can sanitise a prompt and a unit test can render one. |
 | `i18n.ts` | Korean and English, as `[ko, en]` pairs so a missing translation is a type error. |
 | `print.ts` | Page geometry in millimetres and pagination. |
 | `fonts.ts` | System font discovery, reading the family out of each file's `name` table. |
@@ -146,6 +148,29 @@ file with an embedded NUL opened in the line view.
 **The directory map is case-folded but the reported path is not.** Windows and macOS
 pair `README.md` with `readme.md`, so the map key is lower-cased — but the entry
 reports the path as it is actually spelled on disk.
+
+**The terminal's shells have no pseudo-terminal, so the panel draws the prompt.** The
+shells start with their own prompt and echo switched off; after each command they print
+a marker line (`__MDM_CWD__:<dir>;<exit code>`) which is stripped from the output and
+tells the panel the directory, the status and that the shell is idle again. The command
+itself goes into a script file the shell sources, so the one line on stdin is short —
+otherwise a program the command starts and which reads stdin would swallow the next
+line the user typed. It also means `vim` and `top` cannot run in the panel, which is the
+trade for a prompt the app can style and a transcript it can keep.
+
+**A shell that is on disk is not a shell that works.** The scan reads a registry key, a
+path, a Windows Terminal profile — any of which can name something that was removed or
+refuses to start under a pipe. Each candidate is therefore started once at launch and
+given the line it would use to report its directory; only the ones that answer are
+offered, and `create` refuses a shell that is not among them rather than quietly opening
+a different one. The six on this machine verify in about two and a half seconds, in
+parallel and off the startup path.
+
+**cmd expands `%CD%` before it parses the line.** The marker above is `echo` like any
+other command, so a directory with `&` in its name — this project's own, as it happens —
+cut the echo in half and ran the rest of the path as a command. `%CD%` is quoted and the
+quotes stripped when the marker is read; the posix and PowerShell shells quote theirs
+already. `test/terminal.test.mjs` runs a command in such a directory.
 
 ---
 

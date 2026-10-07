@@ -28,6 +28,7 @@ import type { CompareOptions } from "./lineDiff.js";
 import { buildResultText, type MergeDocument } from "./mergeDocument.js";
 import type { RecentKind } from "./settings.js";
 import { SettingsStore } from "./settingsStore.js";
+import { createTerminals, type Terminals } from "./terminal.js";
 import { detectNewline, readBytes, splitBody, stripBom } from "./textFile.js";
 import { merge as threeWayMerge } from "./threeWay.js";
 
@@ -67,6 +68,8 @@ const nextId = (prefix: string): string => `${prefix}-${(counter += 1)}`;
 
 export class DiffMergeApp {
   readonly settings = new SettingsStore();
+  /** Shell sessions behind the terminal panel; one per tab the user opened. */
+  readonly terminals: Terminals = createTerminals();
   /** Path of the executable a user would register with git; shown in Settings. */
   readonly launcher: string;
 

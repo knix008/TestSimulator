@@ -183,7 +183,7 @@ export function useCommands(): {
           "view.ignoreNumberFormat",
           "view.syntaxHighlight",
         ]),
-        ...toItems(["-", "view.leftPanel", "view.rightPanel", "view.logPanel", "view.statusBar"]),
+        ...toItems(["-", "view.leftPanel", "view.rightPanel", "view.logPanel", "view.terminalPanel", "view.statusBar"]),
       ],
     },
     {
@@ -265,7 +265,7 @@ export function useCommands(): {
       ]);
     }
     if (target === "log") {
-      return toItems(["view.logPanel"]);
+      return toItems(["view.logPanel", "view.terminalPanel"]);
     }
     if (target === "conflict") {
       return toItems([
@@ -961,13 +961,29 @@ function build(app: AppStore): CommandMap {
     checked: settings.showRightPanel,
     run: () => set({ showRightPanel: !settings.showRightPanel }),
   });
+  // Each tab of the bottom panel has its own switch, and turning one on also brings it to
+  // the front: otherwise opening the terminal would show the log, which is not what was
+  // asked for.
   add({
     id: "view.logPanel",
     label: t("cmd.view.logPanel"),
     icon: "list",
     enabled: true,
     checked: settings.showLogPanel,
-    run: () => set({ showLogPanel: !settings.showLogPanel }),
+    run: () => set(settings.showLogPanel
+      ? { showLogPanel: false }
+      : { showLogPanel: true, bottomPanel: "log" }),
+  });
+  add({
+    id: "view.terminalPanel",
+    label: t("cmd.view.terminalPanel"),
+    icon: "terminal",
+    shortcut: "Ctrl+`",
+    enabled: true,
+    checked: settings.showTerminalPanel,
+    run: () => set(settings.showTerminalPanel
+      ? { showTerminalPanel: false }
+      : { showTerminalPanel: true, bottomPanel: "terminal" }),
   });
   add({
     id: "view.statusBar",

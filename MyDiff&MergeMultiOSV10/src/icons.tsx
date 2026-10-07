@@ -109,6 +109,7 @@ const STROKE: Record<string, string> = {
   filter: "M3 5h18l-7 8v6l-4 2v-8z",
   tree: "M5 4v14a2 2 0 0 0 2 2h3M5 10h5M19 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM19 22a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM10 6h7M10 20h7",
   list: "M4 6h2M4 12h2M4 18h2M9 6h11M9 12h11M9 18h11",
+  terminal: "M3 5h18v14H3zM7 10l2.5 2L7 14M12.5 15h4",
   sync: "M4 9a8 8 0 0 1 13.3-3.3L20 8M20 4v4h-4M20 15a8 8 0 0 1-13.3 3.3L4 16M4 20v-4h4",
   hex: "M4 5h16v14H4zM8 5v14M12 5v14M16 5v14M4 9.7h16M4 14.3h16",
   columns: "M4 4h7v16H4zM13 4h7v16h-7z",

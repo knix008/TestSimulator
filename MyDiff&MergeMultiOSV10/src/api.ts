@@ -25,10 +25,12 @@ import type { MergeSessionInfo, PendingRequest } from "../core/app.js";
 import type { FontFamily } from "../core/fonts.js";
 import type { FileOperation, OperationResult } from "../core/fileOps.js";
 import type { BrowseResult } from "../core/fsBrowse.js";
+import type { Completion, GitStatus, TerminalInfo, TerminalRead } from "../core/terminal.js";
 
 export type { CompareSummary, TextRow, HexRow, DirectoryCompareResult, MergeDocument, MergeSessionInfo };
 export type { CommitInfo, GitChange, RepoInfo, ToolRegistration, AppSettings, PendingRequest, FontFamily };
 export type { FileOperation, OperationResult };
+export type { Completion, GitStatus, TerminalInfo, TerminalRead };
 
 export class ApiFailure extends Error {
   readonly code: string;
@@ -91,6 +93,10 @@ export type Bootstrap = {
   launcher: string;
   platform: string;
   node: string;
+  /** What the terminal prompt needs to draw `user@host` and shorten a path to `~`. */
+  home: string;
+  user: string;
+  hostname: string;
 };
 
 export const api = {
@@ -187,6 +193,38 @@ export const api = {
   drives: () => get<{ drives: { label: string; path: string }[]; home: string; separator: string }>("/api/drives"),
   fonts: (refresh = false) => get<{ fonts: FontFamily[] }>(`/api/fonts?refresh=${refresh ? 1 : 0}`).then((r) => r.fonts),
   imageUrl: (path: string) => `/api/image?path=${encodeURIComponent(path)}&v=${Date.now()}`,
+
+  /* ------------------------------------------------- the terminal panel */
+
+  termShells: (refresh = false) =>
+    get<{ shells: { id: string; label: string }[] }>(`/api/term/shells?refresh=${refresh ? 1 : 0}`)
+      .then((r) => r.shells),
+  termCreate: (cwd: string, shell?: string) =>
+    post<{ terminal: TerminalInfo }>("/api/term", { cwd, shell }).then((r) => r.terminal),
+  termRun: (id: number, line: string, eol?: string) =>
+    post<{ ok: boolean }>(`/api/term/${id}/run`, { line, eol }).then((r) => r.ok),
+  termWrite: (id: number, data: string) =>
+    post<{ ok: boolean }>(`/api/term/${id}/write`, { data }).then((r) => r.ok),
+  /**
+   * The long poll. A terminal the server has forgotten answers 404, which is the panel's
+   * cue to drop the tab rather than an error worth a dialog.
+   */
+  termRead: async (id: number, options: { since: number; idle: boolean; wait: number }) => {
+    const query = `since=${options.since}&idle=${options.idle ? 1 : 0}&wait=${options.wait}`;
+    try {
+      return await get<TerminalRead>(`/api/term/${id}/read?${query}`);
+    } catch (error) {
+      if (error instanceof ApiFailure && error.status === 404) return null;
+      throw error;
+    }
+  },
+  termComplete: (id: number, line: string, cursor: number) =>
+    post<Completion>(`/api/term/${id}/complete`, { line, cursor }),
+  termKill: (id: number) => remove<{ ok: boolean }>(`/api/term/${id}`),
+  termGit: (path: string, cmd?: string) =>
+    get<{ git: GitStatus }>(
+      `/api/term/git?path=${encodeURIComponent(path)}${cmd === undefined ? "" : `&cmd=${encodeURIComponent(cmd)}`}`,
+    ).then((r) => r.git),
 
   settings: () => get<AppSettings & { settingsPath: string }>("/api/settings"),
   updateSettings: (patch: Partial<AppSettings>) => put<AppSettings & { settingsPath: string }>("/api/settings", patch),

@@ -7,7 +7,8 @@
  * one, how its three sides differ in size.
  *
  * It is read-only. Everything that changes something is on the toolbar, in the left
- * panel, or on the panes themselves.
+ * panel, or on the panes themselves — the one button in its header closes the panel,
+ * which changes the window rather than the merge.
  */
 import {
   conflictCount,
@@ -42,6 +43,17 @@ export function RightPanel({ tab }: { tab: MergeTab }) {
       <header className="panel-title">
         <Icon name="merge" size={15} />
         <span>{t("merge.info")}</span>
+        {/* Closed from its own header, the way the left panel is; the rail it leaves
+            against the right edge is what opens it again. */}
+        <button
+          type="button"
+          className="icon-button"
+          data-command="panel.collapseRight"
+          title={t("panel.collapse")}
+          onClick={() => void app.updateSettings({ showRightPanel: false })}
+        >
+          <Icon name="next" size={14} />
+        </button>
       </header>
 
       <div className="panel-scroll">

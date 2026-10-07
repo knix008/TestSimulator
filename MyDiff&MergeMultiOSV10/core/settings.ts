@@ -13,6 +13,13 @@ import {
   type CustomTheme,
 } from "./themes.js";
 import type { Language } from "./i18n.js";
+import {
+  normalizePrompt,
+  PROMPT_DEFAULT,
+  sanitizeCustomPrompts,
+  type CustomPrompt,
+  type PromptConfig,
+} from "./prompt.js";
 import { sanitizeSessions, type SavedSession } from "./sessions.js";
 
 /** Folder names a directory comparison skips unless the user says otherwise. */
@@ -30,6 +37,15 @@ export type RecentEntry = {
   /** Milliseconds since the epoch, so the list can be shown newest first. */
   at: number;
 };
+
+/** The two tabs of the bottom panel. */
+export type BottomPanelTab = "log" | "terminal";
+
+export const TERMINAL_EOLS = ["shell", "lf", "crlf"] as const;
+export type TerminalEol = (typeof TERMINAL_EOLS)[number];
+
+export const TERMINAL_CRS = ["overwrite", "newline", "strip"] as const;
+export type TerminalCr = (typeof TERMINAL_CRS)[number];
 
 export type FontSettings = {
   family: string;
@@ -93,13 +109,36 @@ export type AppSettings = {
   showLeftPanel: boolean;
   showRightPanel: boolean;
   showStatusBar: boolean;
-  /** The activity log across the bottom of the window. */
+  /** The two tabs of the bottom panel: the activity log and the terminal. */
   showLogPanel: boolean;
+  showTerminalPanel: boolean;
+  /** Which of them is in front; a tab that is switched off falls back to the other. */
+  bottomPanel: BottomPanelTab;
   leftPanelWidth: number;
   rightPanelWidth: number;
+  /** Height of the bottom panel, whichever of its tabs is shown. */
   logPanelHeight: number;
   /** How the git view divides its row, as the left pane's share (0.2–0.8). */
   gitSplit: number;
+
+  /**
+   * Where a new terminal starts. Empty means the folder of whatever is open — the left
+   * root of a folder comparison, the folder of a compared file, a repository — and the
+   * home directory when nothing is open.
+   */
+  termCwd: string;
+  /** Shell a new terminal starts with; '' means the first one this computer offers. */
+  termShell: string;
+  /** The line ending Enter sends to a program that is reading the terminal's input. */
+  termEol: TerminalEol;
+  /** What a lone carriage return in the output does — a progress bar redrawing itself. */
+  termCr: TerminalCr;
+  /** Draw the output in colour: the program's own ANSI colours and our highlighting. */
+  termColor: boolean;
+  /** The terminal prompt's theme. */
+  prompt: PromptConfig;
+  /** Prompts the user saved under a name, offered beside the built-in presets. */
+  customPrompts: CustomPrompt[];
 
   confirmExit: boolean;
   restoreSession: boolean;
@@ -126,7 +165,8 @@ export const DEFAULT_PANEL_WIDTH = 252;
 export const MIN_PANEL_WIDTH = 200;
 export const DEFAULT_LOG_HEIGHT = 140;
 export const MIN_LOG_HEIGHT = 72;
-export const MAX_LOG_HEIGHT = 420;
+/** The terminal wants more room than the log ever did, so the ceiling is generous. */
+export const MAX_LOG_HEIGHT = 720;
 export const MAX_PANEL_WIDTH = 560;
 /** What the comparison itself needs before the window stops being useful. */
 export const MIN_WORKSPACE = 520;
@@ -164,10 +204,20 @@ export function defaultSettings(): AppSettings {
     showRightPanel: true,
     showStatusBar: true,
     showLogPanel: false,
+    showTerminalPanel: false,
+    bottomPanel: "log",
     leftPanelWidth: MIN_PANEL_WIDTH,
     rightPanelWidth: DEFAULT_PANEL_WIDTH,
     logPanelHeight: DEFAULT_LOG_HEIGHT,
     gitSplit: 0.5,
+
+    termCwd: "",
+    termShell: "",
+    termEol: "shell",
+    termCr: "overwrite",
+    termColor: true,
+    prompt: normalizePrompt(PROMPT_DEFAULT),
+    customPrompts: [],
 
     confirmExit: true,
     restoreSession: true,
@@ -251,11 +301,21 @@ export function sanitize(value: AppSettings): AppSettings {
     showRightPanel: value.showRightPanel !== false,
     showStatusBar: value.showStatusBar !== false,
     showLogPanel: value.showLogPanel === true,
+    showTerminalPanel: value.showTerminalPanel === true,
+    bottomPanel: value.bottomPanel === "terminal" ? "terminal" : "log",
     // The floor is what the panels' own labels need to stay on one line.
     leftPanelWidth: clamp(Number(value.leftPanelWidth), MIN_PANEL_WIDTH, MAX_PANEL_WIDTH, defaults.leftPanelWidth),
     rightPanelWidth: clamp(Number(value.rightPanelWidth), MIN_PANEL_WIDTH, MAX_PANEL_WIDTH, defaults.rightPanelWidth),
     logPanelHeight: clamp(Number(value.logPanelHeight), MIN_LOG_HEIGHT, MAX_LOG_HEIGHT, defaults.logPanelHeight),
     gitSplit: clamp(Number(value.gitSplit), 0.2, 0.8, defaults.gitSplit),
+
+    termCwd: typeof value.termCwd === "string" ? value.termCwd.trim().slice(0, 600) : "",
+    termShell: typeof value.termShell === "string" ? value.termShell.slice(0, 120) : "",
+    termEol: TERMINAL_EOLS.includes(value.termEol) ? value.termEol : defaults.termEol,
+    termCr: TERMINAL_CRS.includes(value.termCr) ? value.termCr : defaults.termCr,
+    termColor: value.termColor !== false,
+    prompt: normalizePrompt(value.prompt),
+    customPrompts: sanitizeCustomPrompts(value.customPrompts),
 
     confirmExit: value.confirmExit !== false,
     restoreSession: value.restoreSession !== false,

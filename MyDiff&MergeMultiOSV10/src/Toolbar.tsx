@@ -37,12 +37,17 @@ const GROUPS: Group[] = [
   ["view.refresh", "view.swap"],
 ];
 
-/** The view and comparison settings, as toggle buttons with their own tooltips. */
-/** The two panel switches. They only do anything on a merge tab, and say so. */
+/**
+ * The panel switches: the two side panels, which only do anything on a merge tab and say
+ * so, and the two tabs of the bottom panel, which work anywhere. Adding one here widens
+ * the toolbar, and the window's minimum width is measured from the toolbar (App.tsx), so
+ * the floor follows on its own.
+ */
 const PANELS: { id: string; tip: Parameters<ReturnType<typeof useApp>["t"]>[0] }[] = [
   { id: "view.leftPanel", tip: "tip.leftPanel" },
   { id: "view.rightPanel", tip: "tip.rightPanel" },
   { id: "view.logPanel", tip: "tip.logPanel" },
+  { id: "view.terminalPanel", tip: "tip.terminalPanel" },
 ];
 
 const TOGGLES: { id: string; tip: Parameters<ReturnType<typeof useApp>["t"]>[0] }[] = [

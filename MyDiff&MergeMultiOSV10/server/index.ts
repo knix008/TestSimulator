@@ -7,6 +7,7 @@
  * one implementation.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { APP_NAME, APP_TITLE, APP_VERSION, AUTHOR, DOC_EXTENSION } from "../core/appInfo.js";
@@ -17,6 +18,7 @@ import { systemFonts } from "../core/fonts.js";
 import { gitAvailable, type GitChange } from "../core/git.js";
 import type { FileOperation } from "../core/fileOps.js";
 import { homeDirectory, listDirectory, systemDrives } from "../core/fsBrowse.js";
+import { warmShells } from "../core/terminal.js";
 import type { MergeDocument } from "../core/mergeDocument.js";
 import { sanitize, type AppSettings } from "../core/settings.js";
 
@@ -83,6 +85,13 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
   const server = express();
   server.use(express.json({ limit: "64mb" }));
 
+  // Which shells this computer actually has is settled shortly after launch, so the
+  // terminal panel never waits for the check and never offers one that is gone. It is
+  // held back a moment and unreferenced: starting half a dozen shells is not worth
+  // competing with the window for the first seconds, and it must not keep the process
+  // alive on its own.
+  setTimeout(warmShells, 1500).unref();
+
   const wrap = (handler: (req: Request, res: Response) => Promise<void> | void) =>
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -113,6 +122,10 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
       launcher: app.launcher,
       platform: process.platform,
       node: process.versions.node,
+      // The terminal prompt draws the user, the host and the home directory.
+      home: homeDirectory(),
+      user: userName(),
+      hostname: os.hostname(),
     });
   }));
 
@@ -410,6 +423,61 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
     res.json(app.settings.publicView());
   }));
 
+  /* ------------------------------------------------- the terminal panel */
+
+  server.get("/api/term/shells", wrap(async (req, res) => {
+    res.json({ shells: await app.terminals.shells({ refresh: req.query.refresh === "1" }) });
+  }));
+
+  server.post("/api/term", wrap(async (req, res) => {
+    res.json({ terminal: await app.terminals.create({ cwd: text(req.body?.cwd), shell: text(req.body?.shell) }) });
+  }));
+
+  server.post("/api/term/:id/run", wrap((req, res) => {
+    res.json({ ok: app.terminals.run({ id: Number(routeId(req)), line: text(req.body?.line), eol: text(req.body?.eol) }) });
+  }));
+
+  server.post("/api/term/:id/write", wrap((req, res) => {
+    res.json({ ok: app.terminals.write({ id: Number(routeId(req)), data: text(req.body?.data) }) });
+  }));
+
+  /*
+   * The long poll. `idle` is the state the panel believes the shell is in and `wait` how
+   * long it is willing to be held: both have to reach the session or the panel spins,
+   * asking again the moment each answer arrives.
+   */
+  server.get("/api/term/:id/read", wrap(async (req, res) => {
+    const idle = req.query.idle === undefined ? undefined : req.query.idle === "1";
+    const result = await app.terminals.read({
+      id: Number(routeId(req)),
+      since: number(req.query.since, 0),
+      idle,
+      wait: number(req.query.wait, 0),
+    });
+    if (!result) {
+      res.status(404).json({ error: "That terminal is no longer open.", code: "NO_TERMINAL", detail: "" });
+      return;
+    }
+    res.json(result);
+  }));
+
+  server.post("/api/term/:id/complete", wrap((req, res) => {
+    res.json(app.terminals.complete({
+      id: Number(routeId(req)),
+      line: text(req.body?.line),
+      cursor: number(req.body?.cursor, 0),
+    }));
+  }));
+
+  server.delete("/api/term/:id", wrap((req, res) => {
+    res.json({ ok: app.terminals.kill({ id: Number(routeId(req)) }) });
+  }));
+
+  server.get("/api/term/git", wrap(async (req, res) => {
+    const cmd = req.query.cmd === undefined ? undefined : text(req.query.cmd);
+    res.json({ git: await app.terminals.git({ cwd: text(req.query.path), cmd }) });
+  }));
+
   /* ---------------------------------------------------- static files */
 
   if (options.staticDir && fs.existsSync(options.staticDir)) {
@@ -439,6 +507,8 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
         port,
         app,
         close: () => new Promise((done) => {
+          // The shells are separate processes; closing the server has to take them with it.
+          app.terminals.shutdown();
           listener.close(() => done());
         }),
       });
@@ -498,6 +568,15 @@ function settingsPatch(body: unknown): Partial<AppSettings> {
 function routeId(req: Request): string {
   const value = req.params.id;
   return Array.isArray(value) ? value[0] ?? "" : String(value ?? "");
+}
+
+/** The account name, for the terminal prompt's `user@host` segment. */
+function userName(): string {
+  try {
+    return os.userInfo().username;
+  } catch {
+    return process.env.USERNAME || process.env.USER || "";
+  }
 }
 
 function text(value: unknown): string {

@@ -79,6 +79,22 @@ opened recently.
 - **Back and forward** (`Alt+Left`, `Alt+Right`) through everything you have looked
   at, across tabs and within a repository.
 
+### A terminal where the comparison is
+
+The bottom panel has two tabs: the **log** of everything that has happened, and a
+**terminal** (`` Ctrl+` ``, or the toolbar button) that opens in the folder being
+compared — so `git add`, `npm test` and `cd` are a keystroke away from the diff.
+
+- Every shell installed on the machine: Command Prompt, Windows PowerShell, PowerShell,
+  Git Bash, MSYS2, Cygwin, each WSL distribution, anything Windows Terminal knows about,
+  and on the other platforms `$SHELL` and `/etc/shells`. One tab per session.
+- Tab completion, command history, `Ctrl+C`, `Ctrl+L`, multi-line paste.
+- The output keeps the programs' own ANSI colours, and colours what they left plain:
+  error, warning and success lines, links, `file:line`, and directory listings by kind.
+- **A prompt the app draws itself**, from nineteen presets or one you build segment by
+  segment — the branch coloured by the state of the repository, and every command kept
+  in the transcript with the prompt it was typed at.
+
 ---
 
 ## Running it
@@ -195,7 +211,7 @@ TOTAL                387 / 387  ████████████████
 
 | Path | What is in it |
 |------|---------------|
-| `core/` | Everything with no platform behind it: the diff and merge engines, the directory tree, file operations, git, settings, themes, strings, print layout. |
+| `core/` | Everything with no platform behind it: the diff and merge engines, the directory tree, file operations, git, the terminal and its prompt themes, settings, themes, strings, print layout. |
 | `server/` | The HTTP API and the standalone web server. |
 | `electron/` | The desktop shell: the main process, the preload bridge, the popup-window manager and the GUI test harness. |
 | `src/` | The React interface, shared by the desktop and web builds. |

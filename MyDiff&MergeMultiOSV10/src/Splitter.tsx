@@ -1,5 +1,5 @@
 /**
- * The draggable divider between a side panel and the merge.
+ * The draggable divider beside a side panel, and the one above the bottom panel.
  *
  * It writes the new width into the settings, so a panel keeps the width it was given
  * across restarts. The drag is tracked with pointer capture rather than window-level
@@ -56,7 +56,7 @@ export function Splitter({ side }: { side: "left" | "right" | "bottom" }) {
         const drag = dragging.current;
         if (!drag) return;
         // The left panel grows as the pointer moves right; the right panel and the
-        // log, which are anchored to the far edge, grow as it moves the other way.
+        // bottom panel, anchored to the far edge, grow as it moves the other way.
         const delta = (horizontal ? event.clientY : event.clientX) - drag.start;
         apply(drag.from + (side === "left" ? delta : -delta));
       }}

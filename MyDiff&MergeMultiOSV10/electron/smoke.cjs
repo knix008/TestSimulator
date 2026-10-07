@@ -1175,12 +1175,13 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
         const rows = [...document.querySelectorAll('.panel-right .property-row')];
         return {
           rows: rows.length,
-          controls: document.querySelectorAll('.panel-right input, .panel-right select, .panel-right button').length,
+          controls: document.querySelectorAll('.panel-right .panel-scroll input, .panel-right .panel-scroll select, .panel-right .panel-scroll button').length,
           text: rows.map((row) => row.textContent).join(" | "),
         };
       })()`);
       assert(panel.rows >= 6, `only ${panel.rows} rows of merge information`);
-      // It describes the merge; everything that changes it lives elsewhere.
+      // It describes the merge; everything that changes the merge lives elsewhere. The
+      // header's collapse button changes the window, not the merge, so it is not counted.
       assert(panel.controls === 0, `${panel.controls} controls in a read-only panel`);
       return `${panel.rows} rows, read-only`;
     });
@@ -1333,7 +1334,8 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
         "document.querySelectorAll('.dialog-tabs .dialog-tab').length",
         true,
       );
-      assert(tabs === 6, `${tabs} tabs`);
+      // General, Appearance, Custom, Font, Compare, Git, Terminal, Prompt, Custom prompts.
+      assert(tabs === 9, `${tabs} tabs`);
       const perLine = await dialog.webContents.executeJavaScript(`(() => {
         const fields = [...document.querySelectorAll('.tab-panel .field')];
         const tops = fields.map((field) => Math.round(field.getBoundingClientRect().top));
@@ -1341,6 +1343,13 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       })()`, true);
       assert(perLine.fields > 0 && perLine.fields === perLine.rows, `${perLine.fields} fields on ${perLine.rows} rows`);
       await shot("08-settings", dialog);
+      // The prompt editor is the largest thing in the dialog, so it gets its own picture.
+      for (const [name, tab] of [["08b-settings-terminal", "terminal"], ["08c-settings-prompt", "prompt"], ["08d-settings-prompt-custom", "promptCustom"]]) {
+        await dialog.webContents.executeJavaScript(`document.querySelector('[data-tab="${tab}"]').click()`, true);
+        await sleep(300);
+        await shot(name, dialog);
+      }
+      await dialog.webContents.executeJavaScript("document.querySelector('[data-tab=\"general\"]').click()", true);
       return `${tabs} tabs, ${perLine.fields} fields each on its own line`;
     });
 
@@ -1468,7 +1477,10 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
     await step("labels", "dialog labels stay on one line too", async () => {
       const dialog = await openDialog("settings", "tools.settings");
       const offenders = [];
-      for (const tab of ["general", "appearance", "custom", "font", "compare", "git"]) {
+      // Every tab, the prompt editor included: its own rows carry the long wording in a
+      // tooltip exactly so that no label has to wrap.
+      const tabs = ["general", "appearance", "custom", "font", "compare", "git", "terminal", "prompt", "promptCustom"];
+      for (const tab of tabs) {
         await dialog.webContents.executeJavaScript(
           `document.querySelector('[data-tab="${tab}"]').click()`, true);
         await sleep(200);
@@ -1489,7 +1501,7 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       await dialog.webContents.executeJavaScript("window.mdm.closeDialog()", true);
       await sleep(200);
       assert(offenders.length === 0, offenders.slice(0, 6).join(" | "));
-      return "six tabs, no wrapped label";
+      return `${tabs.length} tabs, no wrapped label`;
     });
 
     /* ------------------------------------------------------ the chrome */
@@ -1654,6 +1666,61 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       return "conflicts on a merge, sessions elsewhere";
     });
 
+    /*
+     * Both of a merge's panels close from their own header and leave a rail against
+     * their own edge of the window, so neither can be closed into a state the View
+     * menu is the only way out of.
+     */
+    await step("merge", "both merge panels collapse to a rail and come back", async () => {
+      await openMergeTab();
+      await hook("h.settings({ showLeftPanel: true, showRightPanel: true })");
+      await waitFor(async () => (await state()).settings.showRightPanel === true, 6000);
+
+      const rails = async () => js(`(() => {
+        const body = document.querySelector('.body').getBoundingClientRect();
+        return [...document.querySelectorAll('.panel-rail')].map((rail) => {
+          const box = rail.getBoundingClientRect();
+          return {
+            width: Math.round(box.width),
+            label: rail.textContent.trim(),
+            // Which half of the window it is pinned to.
+            side: box.left - body.left < body.right - box.right ? "left" : "right",
+          };
+        });
+      })()`);
+
+      await hook(`h.click('.panel-right [data-command="panel.collapseRight"]')`);
+      await waitFor(async () => (await state()).settings.showRightPanel === false, 6000);
+      let listed = await rails();
+      assert(listed.length === 1, `${listed.length} rails with only the right panel closed`);
+      assert(listed[0].side === "right", "the right panel left its rail on the left");
+      assert(listed[0].width > 0 && listed[0].width < 40, `the rail is ${listed[0].width}px wide`);
+      assert(listed[0].label.length > 0, "the rail does not say which panel it reopens");
+
+      await hook(`h.click('.panel-left [data-command="panel.collapse"]')`);
+      await waitFor(async () => (await state()).settings.showLeftPanel === false, 6000);
+      listed = await rails();
+      assert(listed.length === 2, `${listed.length} rails with both panels closed`);
+      assert(listed[0].side === "left" && listed[1].side === "right", "the two rails are on the same edge");
+
+      await hook(`h.click('.panel-rail.right')`);
+      await waitFor(async () => (await state()).settings.showRightPanel === true, 6000);
+      await hook(`h.click('.panel-rail:not(.right)')`);
+      await waitFor(async () => (await state()).settings.showLeftPanel === true, 6000);
+      const back = await js(`(() => ({
+        left: document.querySelectorAll('.panel-left').length,
+        right: document.querySelectorAll('.panel-right').length,
+        rails: document.querySelectorAll('.panel-rail').length,
+      }))()`);
+      assert(back.left === 1 && back.right === 1 && back.rails === 0, JSON.stringify(back));
+
+      // Hand the window back the way the step before it left it: a comparison in front,
+      // so the steps that follow find the session panel on the left.
+      await hook(`h.open('files', ${JSON.stringify([sample("files", "left.txt"), sample("files", "right.txt")])})`);
+      await waitFor(async () => (await state()).tabs.at(-1).kind === "compare", 8000);
+      return "both closed to their own edge and reopened from the rail";
+    });
+
     await step("chrome", "a session can be saved and reopened from the panel", async () => {
       await hook("h.click('[data-command=\"session.save\"]')");
       await waitFor(async () => ((await state()).settings.sessions ?? []).length > 0, 6000);
@@ -1673,9 +1740,9 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
 
     await step("chrome", "the log panel opens across the whole window", async () => {
       await hook("h.run('view.logPanel')");
-      await waitFor(async () => (await hook("h.query('.log-panel')")) === 1, 6000);
+      await waitFor(async () => (await hook("h.query('.bottom-panel')")) === 1, 6000);
       const box = await js(`(() => {
-        const log = document.querySelector('.log-panel').getBoundingClientRect();
+        const log = document.querySelector('.bottom-panel').getBoundingClientRect();
         const shell = document.querySelector('.shell').getBoundingClientRect();
         const rows = document.querySelectorAll('.log-row').length;
         return { log: Math.round(log.width), shell: Math.round(shell.width), rows };
@@ -1684,8 +1751,36 @@ module.exports.install = function install({ childWindows, getMainWindow }) {
       assert(box.log === box.shell, `the log is ${box.log}px of a ${box.shell}px window`);
       assert(box.rows > 0, "the log recorded nothing");
       await hook("h.run('view.logPanel')");
-      await waitFor(async () => (await hook("h.query('.log-panel')")) === 0, 6000);
+      await waitFor(async () => (await hook("h.query('.bottom-panel')")) === 0, 6000);
       return `${box.log}px wide, ${box.rows} entries`;
+    });
+
+    /*
+     * The terminal shares the bottom panel with the log. The step runs a command the
+     * shell cannot fail at and waits for its output, which is what proves the whole
+     * chain: a session was created, a script file was sourced, the marker came back and
+     * the prompt was drawn from the theme.
+     */
+    await step("chrome", "the terminal panel runs a command and draws its prompt", async () => {
+      await hook("h.run('view.terminalPanel')");
+      await waitFor(async () => (await hook("h.query('.term-view')")) === 1, 20000);
+      await waitFor(async () => (await hook("h.query('.term-prompt')")) > 0, 20000);
+      const marker = `mdm-smoke-${Date.now()}`;
+      await js(`(() => {
+        const input = document.querySelector('.term-out input');
+        if (!input) return false;
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(input, 'echo ${marker}');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        return true;
+      })()`);
+      await waitFor(async () => js(`document.querySelector('.term-out').textContent.split('${marker}').length > 2`), 25000);
+      const prompts = await hook("h.query('.term-prompt')");
+      await shot("12-terminal");
+      await hook("h.run('view.terminalPanel')");
+      await waitFor(async () => (await hook("h.query('.bottom-panel')")) === 0, 6000);
+      return `the command echoed back, ${prompts} prompts drawn`;
     });
 
     await step("chrome", "the resize grip is drawn in the corner and resizes the window", async () => {
