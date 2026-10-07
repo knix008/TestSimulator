@@ -229,13 +229,14 @@ export function buildPreviewSpec(printModel, t) {
 
 const FORECAST_WIDTH = { daily: 640, weekly: 720, monthly: 720 };
 
-export function buildForecastSpec({ range, markup, fitHeight, t }) {
+export function buildForecastSpec({ range, markup, fitHeight, transparency = 0, t }) {
   const body = Math.max(72, Number(fitHeight) || 72);
   return {
     type: "forecast",
     range,
     icon: range,
-    title: t(`fold.${range}`),
+    title: t(`forecast.${range}`),
+    transparency: Math.max(0, Math.min(100, Math.round(Number(transparency) || 0))),
     width: FORECAST_WIDTH[range] || 640,
     height: 44 + 48 + 16 + body,
     markup,
@@ -399,7 +400,8 @@ export function wirePopup(el, spec, handlers = {}) {
     event.preventDefault();
     void handlers.immediate?.({ type: "select-date", date: day.dataset.date, clientX: event.clientX, clientY: event.clientY, popupId: spec.popupId });
   });
-  el.addEventListener("click", (event) => {
+  let suppressClick = false;
+  const onPopupPointer = (event) => {
     const forecastDay = spec.type === "forecast" ? event.target.closest("[data-date]") : null;
     if (forecastDay && !event.target.closest("[data-action]")) {
       void handlers.immediate?.({ type: "select-date", date: forecastDay.dataset.date, popupId: spec.popupId });
@@ -491,6 +493,23 @@ export function wirePopup(el, spec, handlers = {}) {
       void handlers.immediate?.({ type: "progress-cancel", popupId: spec.popupId });
     }
     finish({ action });
+  };
+  el.addEventListener("pointerup", (event) => {
+    if (event.button != null && event.button !== 0) return;
+    const hit = event.target?.closest?.("button, [data-action], [data-date], [data-step], .swatch");
+    if (!hit || !el.contains(hit)) return;
+    suppressClick = true;
+    onPopupPointer(event);
+    queueMicrotask(() => {
+      suppressClick = false;
+    });
+  });
+  el.addEventListener("click", (event) => {
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
+    onPopupPointer(event);
   });
   const customEdited = (field) => {
     const out = el.querySelector(`[data-out="${field}"]`);
@@ -536,8 +555,10 @@ export function wirePopup(el, spec, handlers = {}) {
 export function applyPopupTheme(spec, draft = {}) {
   const theme = draft.theme || spec.theme;
   const colors = themeColors(theme, draft.customTheme || spec.customTheme);
-  applyThemeVars(document.documentElement, themeVars(colors, 0), colors.mode);
+  const transparency = spec.type === "forecast" ? Number(draft.transparency ?? spec.transparency) || 0 : 0;
+  applyThemeVars(document.documentElement, themeVars(colors, transparency), colors.mode);
   document.body.dataset.theme = theme || "";
+  document.body.dataset.transparency = String(transparency);
 }
 
 export function bootPopup(spec, api, container = document.body) {

@@ -2,9 +2,11 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, clipboard, dialog, ipcMain, net, screen, shell } from "electron";
+import { app, BrowserWindow, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, net, screen, shell } from "electron";
 import { parseFcList, parseMacFonts, parseWindowsFonts, resolveFontList } from "../src/core/fonts.js";
+import { createI18n } from "../src/core/i18n.js";
 import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js";
+import { buildTrayMenu, menuIconFile, trayIconFile } from "../src/ui/tray-menu.js";
 import { WINDOW_DEFAULT, WINDOW_MIN } from "../src/ui/window-spec.js";
 import { PopupHub } from "./popup-hub.js";
 
@@ -14,8 +16,10 @@ const hub = new PopupHub();
 const contentsToPopup = new Map();
 const menuSpecs = new Map();
 let mainWindow = null;
+let tray = null;
 let quitting = false;
 let resizeStart = null;
+const moveStarts = new Map();
 
 app.setName("MyWeather");
 if (process.platform === "linux") app.commandLine.appendSwitch("enable-transparent-visuals");
@@ -59,17 +63,25 @@ function sendWindowState(win) {
   win.webContents.send("window-state", { maximized: win.isMaximized(), minimized: win.isMinimized() });
 }
 
+function hideFromTaskbar(win) {
+  if (!win || win.isDestroyed()) return;
+  win.setSkipTaskbar(true);
+}
+
 function createMainWindow() {
   const win = new BrowserWindow({
     width: WINDOW_DEFAULT.width,
     height: WINDOW_DEFAULT.height,
     minWidth: WINDOW_MIN.width,
     minHeight: WINDOW_MIN.height,
+    show: false,
     frame: false,
     transparent: true,
+    thickFrame: false,
     resizable: true,
     backgroundColor: "#00000000",
     hasShadow: false,
+    skipTaskbar: true,
     title: "MyWeather V1.0",
     icon: iconPath,
     webPreferences: {
@@ -80,6 +92,15 @@ function createMainWindow() {
     },
   });
   win.loadFile(path.join(__dirname, "../src/index.html"));
+  const keepOffTaskbar = () => hideFromTaskbar(win);
+  win.once("ready-to-show", () => {
+    keepOffTaskbar();
+    win.show();
+    win.setIgnoreMouseEvents(false);
+    keepOffTaskbar();
+  });
+  for (const name of ["show", "restore"]) win.on(name, keepOffTaskbar);
+  win.on("focus", () => setTimeout(keepOffTaskbar, 250));
   for (const name of ["maximize", "unmaximize", "minimize", "restore"]) win.on(name, () => sendWindowState(win));
   win.webContents.on("render-process-gone", (_event, details) =>
     void showFatalError("The window renderer stopped", new Error(`${details.reason} (exit code ${details.exitCode})`)),
@@ -131,12 +152,64 @@ function readJson(file) {
   }
 }
 
+function menuImage(name) {
+  const image = nativeImage.createFromPath(path.join(__dirname, "..", menuIconFile(name)));
+  return image.isEmpty() ? undefined : image.resize({ width: 16, height: 16 });
+}
+
+function revealMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  hideFromTaskbar(mainWindow);
+  mainWindow.show();
+  mainWindow.focus();
+  hideFromTaskbar(mainWindow);
+}
+
+function dispatchTrayCommand(id) {
+  revealMainWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("menu-command", id);
+}
+
+function toTrayTemplate(entry) {
+  if (entry.type === "separator") return { type: "separator" };
+  const template = { label: entry.label, icon: menuImage(entry.icon), enabled: true };
+  if (entry.submenu) template.submenu = entry.submenu.map(toTrayTemplate);
+  else template.click = () => dispatchTrayCommand(entry.id);
+  return template;
+}
+
+function showTrayMenu() {
+  if (!tray) return;
+  const settings = readJson(settingsFile());
+  const i18n = createI18n(settings?.language);
+  tray.popUpContextMenu(Menu.buildFromTemplate(buildTrayMenu((key) => i18n.t(key)).map(toTrayTemplate)));
+}
+
+function createTray() {
+  const iconFile = path.join(__dirname, "..", trayIconFile(process.platform));
+  tray = new Tray(iconFile);
+  tray.setToolTip("MyWeather V1.0");
+  tray.on("click", showTrayMenu);
+  tray.on("right-click", showTrayMenu);
+}
+
 app.whenReady().then(() => {
-  if (process.platform === "darwin" && app.dock) app.dock.setIcon(iconPath);
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setIcon(iconPath);
+    app.dock.hide();
+  }
+  createTray();
   mainWindow = createMainWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow();
   });
+});
+
+app.on("before-quit", () => {
+  quitting = true;
+  if (tray) tray.destroy();
+  tray = null;
 });
 
 app.on("window-all-closed", () => {
@@ -158,6 +231,29 @@ ipcMain.handle("window-resize", (_event, step = {}) => {
   const height = Math.max(WINDOW_MIN.height, Math.round(resizeStart.height + Number(step.dy || 0)));
   mainWindow.setBounds({ x: resizeStart.x, y: resizeStart.y, width, height });
   return { width, height };
+});
+
+ipcMain.handle("window-move", (event, step = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed() || win.isMaximized()) return null;
+  if (step.phase === "start") {
+    const [x, y] = win.getPosition();
+    moveStarts.set(win.id, { x, y });
+    return { x, y };
+  }
+  if (step.phase === "end") {
+    moveStarts.delete(win.id);
+    const [x, y] = win.getPosition();
+    return { x, y };
+  }
+  const origin = moveStarts.get(win.id) || (() => {
+    const [x, y] = win.getPosition();
+    return { x, y };
+  })();
+  const x = Math.round(origin.x + Number(step.dx || 0));
+  const y = Math.round(origin.y + Number(step.dy || 0));
+  win.setPosition(x, y);
+  return { x, y };
 });
 
 ipcMain.handle("list-fonts", () => listSystemFonts());
@@ -232,6 +328,7 @@ ipcMain.handle("print", async (event, payload) => {
   const printWindow = new BrowserWindow({
     parent: parent || mainWindow,
     show: false,
+    skipTaskbar: true,
     webPreferences: { sandbox: true },
   });
   await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(payload.html || "")}`);

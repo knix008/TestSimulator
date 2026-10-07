@@ -210,7 +210,7 @@ function sceneArt(name, size = 240) {
     fog: `<g stroke="#9aa8b5" stroke-width="6" stroke-linecap="round"><path d="M24 46h72M18 64h84M28 82h64"/></g>`,
   };
   const body = pictures[name] || pictures.cloud;
-  return `<span class="scene-art" data-art="${esc(name)}"><svg class="scene-svg" viewBox="0 0 120 120" width="${size}" height="${size}" aria-hidden="true">${body}</svg></span>`;
+  return `<span class="scene-art" data-art="${esc(name)}"><svg class="scene-svg" viewBox="12 12 96 96" width="${size}" height="${size}" aria-hidden="true">${body}</svg></span>`;
 }
 
 function isAlert(day, tab) {

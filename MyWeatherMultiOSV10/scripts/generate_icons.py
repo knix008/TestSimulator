@@ -134,7 +134,8 @@ def draw_weather(img: Image.Image) -> None:
     """Centered sun with the app's radial rays, and a wide, low cloud in front."""
     art = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(art)
-    sx, sy, disk = 256, 176, 50
+    # Sit the weather a little below the tile's vertical center.
+    sx, sy, disk = 256, 206, 50
     ray = (255, 183, 3, 255)
     for index in range(8):
         angle = index * math.pi / 4
@@ -156,14 +157,14 @@ def draw_weather(img: Image.Image) -> None:
     cloud = Image.new("RGBA", img.size, (0, 0, 0, 0))
     cd = ImageDraw.Draw(cloud)
     shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).ellipse((120, 346, 400, 390), fill=(16, 72, 140, 64))
+    ImageDraw.Draw(shadow).ellipse((120, 388, 400, 424), fill=(16, 72, 140, 64))
     img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(radius=8)))
-    cd.ellipse((128, 328, 392, 372), fill=(214, 230, 242, 255))
+    cd.ellipse((128, 376, 392, 420), fill=(214, 230, 242, 255))
     for box in (
-        (104, 286, 248, 358),
-        (164, 238, 360, 352),
-        (266, 282, 414, 356),
-        (96, 314, 418, 370),
+        (104, 340, 246, 408),
+        (168, 332, 356, 406),
+        (268, 336, 414, 406),
+        (96, 366, 418, 420),
     ):
         cd.ellipse(box, fill=(255, 255, 255, 255))
     img.alpha_composite(cloud)
@@ -243,6 +244,134 @@ def save_ico(path: Path, master: Image.Image) -> None:
     images[-1].save(path, format="ICO", sizes=[(s, s) for s in sizes], append_images=images[:-1])
 
 
+INK = (22, 50, 90, 255)
+
+
+def _icon() -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    return img, ImageDraw.Draw(img)
+
+
+def _line(draw: ImageDraw.ImageDraw, points: list[tuple[int, int]]) -> None:
+    draw.line(points, fill=INK, width=2)
+
+
+def write_menu_icons() -> None:
+    """Small tray-menu glyphs. Each command has its own picture."""
+    folder = OUT / "menu"
+    folder.mkdir(parents=True, exist_ok=True)
+    icons: dict[str, Image.Image] = {}
+
+    img, draw = _icon()
+    draw.ellipse((6, 8, 16, 18), outline=INK, width=2)
+    draw.ellipse((10, 16, 26, 26), outline=INK, width=2)
+    icons["weather"] = img
+
+    img, draw = _icon()
+    draw.arc((6, 6, 26, 26), start=30, end=300, fill=INK, width=2)
+    draw.polygon([(22, 6), (28, 6), (24, 12)], fill=INK)
+    icons["refresh"] = img
+
+    img, draw = _icon()
+    draw.rounded_rectangle((6, 7, 26, 26), radius=2, outline=INK, width=2)
+    draw.line((6, 13, 26, 13), fill=INK, width=2)
+    draw.line((12, 5, 12, 10), fill=INK, width=2)
+    draw.line((20, 5, 20, 10), fill=INK, width=2)
+    icons["daily"] = img
+
+    img, draw = _icon()
+    draw.rounded_rectangle((5, 8, 11, 24), radius=1, outline=INK, width=2)
+    draw.rounded_rectangle((13, 8, 19, 24), radius=1, outline=INK, width=2)
+    draw.rounded_rectangle((21, 8, 27, 24), radius=1, outline=INK, width=2)
+    icons["weekly"] = img
+
+    img, draw = _icon()
+    draw.rounded_rectangle((5, 5, 27, 27), radius=2, outline=INK, width=2)
+    draw.line((5, 12, 27, 12), fill=INK, width=2)
+    draw.line((13, 12, 13, 27), fill=INK, width=2)
+    draw.line((20, 12, 20, 27), fill=INK, width=2)
+    draw.line((5, 19, 27, 19), fill=INK, width=2)
+    icons["monthly"] = img
+
+    img, draw = _icon()
+    draw.polygon([(4, 12), (12, 12), (15, 8), (28, 8), (28, 25), (4, 25)], outline=INK)
+    icons["open"] = img
+
+    img, draw = _icon()
+    _line(draw, [(16, 6), (16, 26)])
+    _line(draw, [(6, 16), (26, 16)])
+    icons["new"] = img
+
+    img, draw = _icon()
+    draw.polygon([(6, 4), (20, 4), (26, 10), (26, 28), (6, 28)], outline=INK)
+    draw.rectangle((10, 4, 20, 12), outline=INK, width=2)
+    draw.rectangle((10, 18, 22, 28), outline=INK, width=2)
+    icons["save"] = img
+
+    img, draw = _icon()
+    draw.polygon([(4, 6), (16, 6), (20, 10), (20, 16), (4, 16)], outline=INK)
+    _line(draw, [(22, 18), (22, 28)])
+    _line(draw, [(17, 23), (27, 23)])
+    icons["saveAs"] = img
+
+    img, draw = _icon()
+    draw.rectangle((8, 4, 24, 10), outline=INK, width=2)
+    draw.rounded_rectangle((5, 10, 27, 20), radius=2, outline=INK, width=2)
+    draw.rectangle((8, 18, 24, 28), outline=INK, width=2)
+    icons["print"] = img
+
+    img, draw = _icon()
+    draw.rounded_rectangle((8, 8, 24, 26), radius=2, outline=INK, width=2)
+    draw.rounded_rectangle((4, 4, 18, 20), radius=2, outline=INK, width=2)
+    icons["copy"] = img
+
+    img, draw = _icon()
+    draw.arc((8, 8, 24, 24), start=200, end=40, fill=INK, width=2)
+    draw.polygon([(6, 10), (6, 18), (12, 14)], fill=INK)
+    icons["undo"] = img
+
+    img, draw = _icon()
+    draw.arc((8, 8, 24, 24), start=140, end=340, fill=INK, width=2)
+    draw.polygon([(26, 10), (26, 18), (20, 14)], fill=INK)
+    icons["redo"] = img
+
+    img, draw = _icon()
+    draw.rounded_rectangle((8, 8, 24, 28), radius=2, outline=INK, width=2)
+    draw.rectangle((12, 4, 20, 10), outline=INK, width=2)
+    icons["paste"] = img
+
+    img, draw = _icon()
+    nut = []
+    for index in range(6):
+        angle = math.radians(-90 + index * 60)
+        nut.append((16 + 12 * math.cos(angle), 16 + 12 * math.sin(angle)))
+    draw.polygon(nut, outline=INK)
+    draw.line(nut + [nut[0]], fill=INK, width=2)
+    pixels = img.load()
+    for y in range(32):
+        for x in range(32):
+            if (x - 16) ** 2 + (y - 16) ** 2 <= 16:
+                pixels[x, y] = (0, 0, 0, 0)
+    icons["settings"] = img
+
+    img, draw = _icon()
+    draw.ellipse((6, 6, 26, 26), outline=INK, width=2)
+    draw.ellipse((15, 10, 18, 13), fill=INK)
+    draw.line((16, 15, 16, 23), fill=INK, width=2)
+    icons["about"] = img
+
+    img, draw = _icon()
+    draw.line((8, 6, 8, 26), fill=INK, width=2)
+    draw.line((8, 6, 16, 6), fill=INK, width=2)
+    draw.line((8, 26, 16, 26), fill=INK, width=2)
+    draw.line((12, 16, 26, 16), fill=INK, width=2)
+    draw.polygon([(22, 12), (28, 16), (22, 20)], fill=INK)
+    icons["exit"] = img
+
+    for name, picture in icons.items():
+        picture.save(folder / f"{name}.png")
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     app = make_app_icon()
@@ -253,6 +382,7 @@ def main() -> None:
     save_ico(OUT / "file.ico", doc)
     write_icns(OUT / "icon.icns", app)
     write_icns(OUT / "file.icns", doc)
+    write_menu_icons()
     print(f"wrote icons in {OUT}")
 
 

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("electronAPI", {
   isElectron: true,
   resizeWindow: (step) => ipcRenderer.invoke("window-resize", step),
+  moveWindow: (step) => ipcRenderer.invoke("window-move", step),
   onWindowState: (callback) => ipcRenderer.on("window-state", (_event, state) => callback(state)),
   listFonts: () => ipcRenderer.invoke("list-fonts"),
   fetch: (url, options) => ipcRenderer.invoke("fetch-url", url, options),

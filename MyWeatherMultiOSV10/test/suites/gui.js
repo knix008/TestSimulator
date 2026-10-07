@@ -38,6 +38,12 @@ export function registerGui(h) {
       assert.ok(shell);
       assert.equal(getComputedStyle(shell).borderRadius, "22px");
       assert.equal(getComputedStyle(shell).overflow, "hidden");
+      for (const el of [document.documentElement, document.body, app.frame, shell, app.content]) {
+        const style = getComputedStyle(el);
+        const label = el.id || el.className || el.tagName;
+        assert.equal(style.overflowX || style.overflow, "hidden", label);
+        assert.equal(style.overflowY || style.overflow, "hidden", label);
+      }
       const controls = [...app.root.querySelectorAll("[data-gui='window-control']")].map((button) => button.dataset.cmd);
       assert.deepEqual(controls, ["minimize", "maximize", "close"]);
       for (const button of app.root.querySelectorAll("[data-gui='window-control']")) {
@@ -101,6 +107,50 @@ export function registerGui(h) {
       { platform },
     );
   });
+  h.test("dragging the weather area moves the window and buttons still run", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.nativeWindow = true;
+    await withApp(
+      async ({ app }) => {
+        const scene = app.content;
+        pointer(scene, "pointerdown", 20, 20);
+        pointer(document, "pointermove", 70, 50);
+        pointer(document, "pointerup", 70, 50);
+        assert.deepEqual(platform.moveSteps, [
+          { phase: "start" },
+          { phase: "move", dx: 50, dy: 30 },
+          { phase: "end" },
+        ]);
+        platform.moveSteps.length = 0;
+        const settings = app.root.querySelector('[data-cmd="settings"]');
+        const buttonFill = getComputedStyle(settings).backgroundColor;
+        assert.ok(buttonFill !== "transparent" && buttonFill !== "rgba(0, 0, 0, 0)", buttonFill);
+        pointer(settings, "pointerdown", 8, 8);
+        pointer(document, "pointermove", 40, 40);
+        pointer(document, "pointerup", 40, 40);
+        assert.deepEqual(platform.moveSteps, []);
+        pointer(settings, "pointerup", 8, 8);
+        assert.equal(app.root.querySelector("[data-popup='settings']") != null, true);
+        settings.click();
+        assert.equal(app.root.querySelector("[data-popup='settings']") != null, true);
+      },
+      { platform },
+    );
+    await withApp(async ({ app }) => {
+      pointer(app.root.querySelector(".title-name"), "pointerdown", 4, 4);
+      pointer(document, "pointermove", 24, 16);
+      pointer(document, "pointerup", 24, 16);
+      assert.equal(app.shell.style.transform, "translate(20px, 12px)");
+      const daily = app.root.querySelector('[data-cmd="daily"]');
+      pointer(daily, "pointerdown", 1, 1);
+      pointer(document, "pointermove", 30, 30);
+      pointer(document, "pointerup", 30, 30);
+      assert.equal(app.shell.style.transform, "translate(20px, 12px)");
+      daily.click();
+      assert.equal(app.root.querySelector("[data-popup='forecast']") != null, true);
+    });
+  });
   h.test("ctrl wheel zooms between 50 and 200", async () => {
     await withApp(async ({ app }) => {
       wheel(app, -120);
@@ -133,25 +183,32 @@ export function registerGui(h) {
       const scene = app.root.querySelector("[data-gui='scene']");
       assert.ok(scene);
       assert.equal(scene.querySelector(".scene-svg").getAttribute("width"), "240");
-      assert.deepEqual(
-        [...app.root.querySelectorAll("[data-gui='range-button'] .tool-label")].map((label) => label.textContent),
-        ["일간", "주간", "월간"],
-      );
+      const ranges = [...app.root.querySelectorAll("[data-gui='range-button']")];
+      assert.deepEqual(ranges.map((button) => button.title), ["일간 예보", "주간 예보", "월간 예보"]);
+      assert.ok(ranges.every((button) => button.querySelector("svg") && !button.querySelector(".tool-label")));
       assert.equal(app.root.querySelector("[data-fold]"), null);
       const background = getComputedStyle(app.frame).backgroundColor;
       assert.ok(background === "rgba(0, 0, 0, 0)" || background === "transparent", background);
       await app.refreshWeather();
       assert.ok(app.root.querySelector(".scene-temp").textContent);
+      assert.equal(app.root.querySelector(".tabbar").hidden, true);
+      await app.setTransparency(80);
       const daily = await openForecast(app, "daily");
       assert.equal(daily.popup.dataset.popup, "forecast");
+      assert.equal(daily.popup.querySelector(".popup-title").textContent, "일간 예보");
       assert.ok(daily.popup.querySelector("[data-hour]"));
       assert.equal(popupFits(daily.popup).fits, true);
+      assert.equal(getComputedStyle(daily.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await daily.close();
       const weekly = await openForecast(app, "weekly");
+      assert.equal(weekly.popup.querySelector(".popup-title").textContent, "주간 예보");
       assert.ok(weekly.popup.querySelector('[data-gui="week"]'));
+      assert.equal(getComputedStyle(weekly.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await weekly.close();
       const monthly = await openForecast(app, "monthly");
+      assert.equal(monthly.popup.querySelector(".popup-title").textContent, "월간 예보");
       assert.ok(monthly.popup.querySelector('[data-gui="month"]'));
+      assert.equal(getComputedStyle(monthly.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await monthly.close();
     });
   });
@@ -332,6 +389,12 @@ export function registerGui(h) {
       assert.match(daily.popup.querySelector('[data-hour="2026-10-07T00:00"]').textContent, /0시/);
       assert.match(daily.popup.querySelector('[data-hour="2026-10-07T12:00"]').textContent, /12시/);
       assert.equal(getComputedStyle(daily.popup.querySelector(".hour-band")).display, "grid");
+      const hour = daily.popup.querySelector(".hour");
+      assert.equal(getComputedStyle(hour).borderTopWidth, "0px");
+      assert.equal(getComputedStyle(hour).borderLeftWidth, "0px");
+      const raised = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".hour:hover, .day:hover, .hour:focus-visible, .day:focus-visible");
+      assert.match(raised.cssText, /translateY\(-2px\)/);
+      assert.match(raised.cssText, /14px/);
       await daily.close();
 
       const weekly = await openForecast(app, "weekly");
@@ -346,6 +409,7 @@ export function registerGui(h) {
       );
       assert.equal(week[3].classList.contains("is-selected"), true);
       assert.equal(getComputedStyle(weekly.popup.querySelector('[data-gui="week"]')).display, "grid");
+      assert.equal(getComputedStyle(week[3]).borderTopWidth, "0px");
       assert.match(weekly.popup.textContent, /10월 4일/);
       await weekly.close();
 
@@ -359,6 +423,7 @@ export function registerGui(h) {
       assert.equal(cells[0].dataset.date, undefined);
       assert.equal(cells[0].textContent, "27");
       assert.equal(cells[0].classList.contains("is-outside"), true);
+      assert.equal(getComputedStyle(cells[0]).borderTopWidth, "0px");
       assert.equal(month.querySelector('[data-date="2026-10-01"]').classList.contains("is-outside"), false);
       assert.ok(month.querySelector('[data-date="2026-10-31"]'));
       assert.equal(month.querySelector('[data-date="2026-10-07"]').classList.contains("is-today"), true);
@@ -545,7 +610,7 @@ export function registerGui(h) {
         assert.equal(next.settings.transparency, 55);
         assert.equal(next.settings.language, "en");
         assert.equal(next.settings.lastDirectory, "E:/maps");
-        assert.equal(next.root.querySelector("[data-i18n='fold.daily']").textContent, "Daily");
+        assert.equal(next.root.querySelector("[data-cmd='daily']").title, "Daily forecast");
       } finally {
         next.destroy();
         root.remove();
@@ -656,11 +721,18 @@ export function registerGui(h) {
       assert.equal(app.frame.dataset.mode, "light");
       assert.equal(root.style.getPropertyValue("--bg-solid"), "#fff0f5");
       const slider = popup.querySelector('[data-field="transparency"]');
+      assert.equal(slider.min, "0");
+      assert.equal(slider.max, "100");
+      slider.value = "0";
+      slider.dispatchEvent(new window.Event("input", { bubbles: true }));
+      await settle();
+      assert.equal(popup.querySelector('[data-out="transparency"]').textContent, "0%");
+      assert.equal(root.style.getPropertyValue("--bg"), "rgba(255, 240, 245, 1)");
       slider.value = "100";
       slider.dispatchEvent(new window.Event("input", { bubbles: true }));
       await settle();
       assert.equal(popup.querySelector('[data-out="transparency"]').textContent, "100%");
-      assert.equal(root.style.getPropertyValue("--bg"), "rgba(255, 240, 245, 0.06)");
+      assert.equal(root.style.getPropertyValue("--bg"), "rgba(255, 240, 245, 0.25)");
       assert.equal(root.style.getPropertyValue("--fg"), "#4a2740");
       popup.querySelector('[data-step="-5"]').click();
       assert.equal(slider.value, "95");
@@ -668,7 +740,7 @@ export function registerGui(h) {
       popup.querySelector('[data-action="cancel"]').click();
       await pending;
       assert.equal(app.frame.dataset.theme, "dark-ink");
-      assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 0.718)");
+      assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 0.775)");
     });
   });
   h.test("a custom theme uses the chosen colours and is saved", async () => {
@@ -714,7 +786,7 @@ export function registerGui(h) {
       await app.setTransparency(0);
       assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 1)");
       await app.setTransparency(100);
-      assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 0.06)");
+      assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 0.25)");
       assert.equal(root.style.getPropertyValue("--fg"), "#eef2f8");
       assert.equal(app.frame.style.opacity, "");
       assert.equal(app.shell.style.opacity, "");
@@ -965,6 +1037,187 @@ export function registerGui(h) {
     });
   });
 
+  h.category("Coverage");
+  h.test("keyboard shortcuts zoom, refresh, print, and open settings", async () => {
+    await withApp(async ({ app }) => {
+      press("=", { ctrlKey: true });
+      assert.equal(app.settings.zoom, 110);
+      press("z", { ctrlKey: true });
+      assert.equal(app.settings.zoom, 100);
+      press("z", { ctrlKey: true, shiftKey: true });
+      assert.equal(app.settings.zoom, 110);
+      press("-", { ctrlKey: true });
+      press("0", { ctrlKey: true });
+      assert.equal(app.settings.zoom, 100);
+      press("F5");
+      await settle();
+      assert.match(app.root.querySelector(".scene-temp").textContent, /°C/);
+      press("p", { ctrlKey: true });
+      await settle();
+      const print = document.querySelector('[data-popup="print"]');
+      assert.ok(print);
+      print.querySelector('[data-action="cancel"]').click();
+      await settle();
+      press(",", { ctrlKey: true });
+      await settle();
+      const settings = document.querySelector('[data-popup="settings"]');
+      assert.equal(settings.querySelector(".popup-title").textContent, "설정");
+      settings.querySelector('[data-action="cancel"]').click();
+      await settle();
+      assert.equal(document.querySelector(".popup"), null);
+    });
+  });
+  h.test("ctrl+n discards unsaved work into a new document", async () => {
+    await withApp(async ({ app }) => {
+      app.currentTab().properties.label = "keep-me";
+      app.markDirty();
+      press("n", { ctrlKey: true });
+      await settle();
+      const unsaved = document.querySelector('[data-popup="unsaved"]');
+      assert.ok(unsaved);
+      unsaved.querySelector('[data-action="discard"]').click();
+      await settle();
+      assert.equal(app.doc.dirty, false);
+      assert.equal(app.doc.tabs.length, 1);
+      assert.notEqual(app.currentTab().properties.label, "keep-me");
+      assert.equal(app.root.querySelector(".tabbar").hidden, true);
+    });
+  });
+  h.test("double-clicking the title maximizes and a toolbar button does not", async () => {
+    await withApp(async ({ app }) => {
+      app.root.querySelector('[data-cmd="daily"]').dispatchEvent(new window.MouseEvent("dblclick", { bubbles: true }));
+      await settle();
+      assert.equal(app.frame.dataset.maximized, "false");
+      assert.equal(document.querySelector('[data-popup="forecast"]'), null);
+      app.root.querySelector("[data-gui='window-title']").dispatchEvent(new window.MouseEvent("dblclick", { bubbles: true }));
+      await settle();
+      assert.equal(app.frame.dataset.maximized, "true");
+      assert.equal(app.shell.dataset.sized, "fill");
+      assert.equal(app.root.querySelector("[data-gui='resize-grip']").hidden, true);
+      app.root.querySelector('[data-cmd="minimize"]').click();
+      await settle();
+      assert.equal(getComputedStyle(app.content).display, "none");
+      app.root.querySelector('[data-cmd="minimize"]').click();
+      await settle();
+      assert.notEqual(getComputedStyle(app.content).display, "none");
+    });
+  });
+  h.test("a favorite and an extra tab can be undone, and tabs are not city names", async () => {
+    await withApp(async ({ app }) => {
+      await app.run("add-tab");
+      assert.equal(app.root.querySelector(".tabbar").hidden, false);
+      assert.deepEqual(
+        [...app.root.querySelectorAll("[data-gui='tab']")].map((tab) => tab.textContent),
+        ["1", "2"],
+      );
+      assert.equal(app.root.querySelector(".shell-top").textContent.includes("서울"), false);
+      await app.run("toggle-favorite");
+      assert.match(app.root.querySelector(".tab.is-active").textContent, /^★ /);
+      app.undo();
+      assert.equal(app.root.querySelector(".tab.is-active").textContent, "2");
+      await app.run("close-tab");
+      assert.equal(app.doc.tabs.length, 1);
+      assert.equal(app.root.querySelector(".tabbar").hidden, true);
+      app.undo();
+      assert.equal(app.doc.tabs.length, 2);
+      assert.equal(app.root.querySelector(".tabbar").hidden, false);
+    });
+  });
+  h.test("a tall window enlarges the weather picture and the main window does not scroll", async () => {
+    await withApp(async ({ app }) => {
+      app.shellSize = { width: 760, height: 640 };
+      app.applyShellSize();
+      const art = Number(app.content.style.getPropertyValue("--art-scale"));
+      const text = Number(app.content.style.getPropertyValue("--scene-scale"));
+      assert.equal(text, 1);
+      assert.ok(art > text);
+      app.shellSize = { width: WINDOW_MIN.width, height: WINDOW_MIN.height };
+      app.applyShellSize();
+      const smallArt = Number(app.content.style.getPropertyValue("--art-scale"));
+      const smallText = Number(app.content.style.getPropertyValue("--scene-scale"));
+      assert.equal(smallArt, smallText);
+      assert.ok(smallArt >= 0.55 && smallArt <= 1);
+      const content = getComputedStyle(app.content);
+      assert.equal(content.paddingTop, "2px");
+      assert.equal(content.paddingBottom, "2px");
+      assert.equal(content.overflow, "hidden");
+      for (const selector of [".shell-top", ".weather", ".weather-scene"]) {
+        const style = getComputedStyle(app.root.querySelector(selector));
+        assert.equal(style.overflowX || style.overflow, "hidden", selector);
+        assert.equal(style.overflowY || style.overflow, "hidden", selector);
+      }
+    });
+  });
+  h.test("forecast buttons stay icon-only and a chosen day becomes the selection", async () => {
+    await withApp(async ({ app }) => {
+      const buttons = [...app.root.querySelectorAll("[data-gui='range-button']")];
+      assert.deepEqual(buttons.map((button) => button.textContent.trim()), ["", "", ""]);
+      assert.deepEqual(buttons.map((button) => button.title), ["일간 예보", "주간 예보", "월간 예보"]);
+      buttons[0].click();
+      await settle();
+      const opened = document.querySelector('[data-popup="forecast"]');
+      assert.equal(opened.querySelector(".popup-title").textContent, "일간 예보");
+      opened.querySelector('[data-action="close"]').click();
+      await settle();
+      await app.refreshWeather();
+      const weekly = await openForecast(app, "weekly");
+      const day = weekly.popup.querySelector('[data-date="2026-10-07"]');
+      assert.ok(day);
+      day.click();
+      assert.match(app.selectionText, new RegExp(day.dataset.date));
+      assert.equal(document.querySelector(".menu-popup"), null);
+      day.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 18, clientY: 24 }));
+      await settle();
+      assert.ok(document.querySelector('.menu-popup[data-menu="context"]'));
+      app.closeMenu();
+      await weekly.close();
+      await app.setLanguage("en");
+      assert.deepEqual(
+        [...app.root.querySelectorAll("[data-gui='range-button']")].map((button) => button.title),
+        ["Daily forecast", "Weekly forecast", "Monthly forecast"],
+      );
+    });
+  });
+  h.test("units, wallpaper, a missing download, and a disabled source take effect", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshWeather();
+      const settings = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      popup.querySelector('[data-field="units"]').value = "F";
+      popup.querySelector('[data-source="gfs"]').checked = false;
+      popup.querySelector('[data-action="ok"]').click();
+      await settings;
+      assert.match(app.root.querySelector(".scene-temp").textContent, /°F/);
+      assert.equal(app.settings.enabledSources.includes("gfs"), false);
+      const urls = [];
+      platform.fetchImpl = async (url) => {
+        urls.push(String(url));
+        if (String(url).includes("models=gfs")) return jsonResponse(openMeteoBody(SAMPLE_DATES, 22));
+        if (String(url).includes("met.no") || String(url).includes("wttr")) return jsonResponse({}, false, 503);
+        if (String(url).includes("models=jma")) return jsonResponse({}, false, 400);
+        return jsonResponse(openMeteoBody(SAMPLE_DATES, 18));
+      };
+      await app.refreshWeather();
+      assert.equal(urls.some((url) => url.includes("models=gfs")), false);
+      assert.ok(urls.some((url) => url.includes("models=ecmwf")));
+      platform.nextImage = { dataUrl: "data:image/png;base64,aaaa", name: "sky.png", type: "image/png", size: 120 };
+      await app.run("choose-wallpaper");
+      assert.equal(app.root.querySelector("[data-gui='wallpaper']").dataset.image, "yes");
+      assert.equal(app.settings.backgroundName, "sky.png");
+      await app.run("clear-wallpaper");
+      assert.equal(app.root.querySelector("[data-gui='wallpaper']").dataset.image, "no");
+      app.currentTab().weather = null;
+      await app.run("download");
+      await settle();
+      const error = document.querySelector('[data-popup="error"]');
+      assert.ok(error);
+      assert.match(error.textContent, /NO_WEATHER|날씨/);
+      error.querySelector('[data-action="close"]').click();
+      await settle();
+    });
+  });
+
   h.category("GUI audit");
   h.test("every window, menu, and popup control has a tooltip or label in both languages", async () => {
     await withApp(async ({ app }) => {
@@ -1020,6 +1273,10 @@ function chooseScope(popup, scope) {
   popup.querySelectorAll('input[name="scope"]').forEach((input) => {
     input.checked = input.value === scope;
   });
+}
+
+function press(key, extra = {}) {
+  document.dispatchEvent(new window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...extra }));
 }
 
 function pointer(target, type, x, y) {

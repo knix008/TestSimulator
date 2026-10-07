@@ -9,18 +9,19 @@ import { parseDocument, serializeDocument, createDocument } from "../../src/core
 import { acceptImage, classifyDrop } from "../../src/core/drop.js";
 import { AppError, errorCopyText, normalizeError } from "../../src/core/errors.js";
 import { parseFcList, parseWindowsFonts, resolveFontList } from "../../src/core/fonts.js";
-import { DICT, dictionaryKeys } from "../../src/core/i18n.js";
+import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
 import { buildPrintModel } from "../../src/core/print-model.js";
 import { RecentFiles } from "../../src/core/recent.js";
 import { sanitizeSettings } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
-import { applyPlan, planInstall, runInstaller } from "../../installer/plan.js";
+import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
+import { buildTrayMenu, listTrayItems, menuIconFile, programIconFile, trayIconFile } from "../../src/ui/tray-menu.js";
 import { layoutMenu, menuWindowOptions, popupWindowOptions } from "../../src/ui/menu-layout.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, sceneScale, toolbarMinWidth } from "../../src/ui/window-spec.js";
-import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
+import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, sceneFit, sceneScale, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { aggregate } from "../../src/weather/aggregate.js";
 import { formatTemp } from "../../src/weather/format.js";
 import { geocodeUrl, metNoUrl, openMeteoUrl, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
@@ -147,14 +148,17 @@ export function registerLogic(h) {
     assert.equal(themeColors("nope").id, "dark-ink");
   });
   h.test("transparency only changes the background alpha", () => {
+    assert.ok(MIN_ALPHA > 0 && MIN_ALPHA < 1);
     assert.equal(backgroundAlpha(0), 1);
-    assert.equal(backgroundAlpha(100), 0.06);
-    assert.equal(backgroundAlpha(50), 0.53);
+    assert.equal(backgroundAlpha(100), MIN_ALPHA);
+    assert.equal(backgroundAlpha(50), 0.625);
+    assert.equal(backgroundAlpha(-20), 1);
+    assert.equal(backgroundAlpha(180), MIN_ALPHA);
     const colors = themeColors("light-paper");
     const solid = themeVars(colors, 0);
     const clear = themeVars(colors, 100);
     assert.equal(solid["--bg"], "rgba(247, 248, 251, 1)");
-    assert.equal(clear["--bg"], "rgba(247, 248, 251, 0.06)");
+    assert.equal(clear["--bg"], `rgba(247, 248, 251, ${MIN_ALPHA})`);
     assert.equal(clear["--fg"], solid["--fg"]);
     assert.equal(clear["--bg-solid"], "#f7f8fb");
   });
@@ -317,12 +321,14 @@ export function registerLogic(h) {
     assert.equal(options.parent.id, "parent");
     assert.equal(options.resizable, false);
     assert.equal(options.frame, false);
+    assert.equal(options.thickFrame, false);
     assert.equal(options.width, Math.ceil(layout.width));
   });
   h.test("popup windows are fixed and parented to the main window", () => {
     const options = popupWindowOptions({ width: 680, height: 560 }, { id: "main" }, { x: 0, y: 0, width: 1000, height: 800 });
     assert.equal(options.resizable, false);
     assert.equal(options.maximizable, false);
+    assert.equal(options.thickFrame, false);
     assert.equal(options.parent.id, "main");
     assert.equal(options.width, 680);
     assert.equal(options.height, 560);
@@ -340,14 +346,25 @@ export function registerLogic(h) {
   h.test("window size is clamped to a usable minimum", () => {
     assert.deepEqual(clampWindowSize(null), WINDOW_DEFAULT);
     assert.equal(WINDOW_MIN.width, toolbarMinWidth());
-    assert.ok(WINDOW_MIN.width >= 560);
-    assert.equal(WINDOW_MIN.height, 46 + 24 + Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE));
+    assert.ok(WINDOW_MIN.width >= 320);
+    assert.equal(WINDOW_MIN.height, 46 + CONTENT_PADDING.top + CONTENT_PADDING.bottom + Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE));
     assert.deepEqual(clampWindowSize({ width: 10, height: 10 }), WINDOW_MIN);
     assert.deepEqual(clampWindowSize({ width: 900.4, height: 700.6 }), { width: 900, height: 701 });
-    assert.equal(sceneScale({ width: 2000, height: 2000 }), 1);
+    assert.equal(sceneScale(SCENE_NATURAL), 1);
+    assert.equal(sceneScale({ width: 2000, height: 2000 }), Math.round((2000 / SCENE_NATURAL.width) * 1000) / 1000);
     assert.equal(sceneScale({ width: 80, height: 80 }), SCENE_MIN_SCALE);
-    const fitted = { width: WINDOW_MIN.width - 32, height: WINDOW_MIN.height - 46 - 24 };
+    const fitted = {
+      width: WINDOW_MIN.width - CONTENT_PADDING.left - CONTENT_PADDING.right,
+      height: WINDOW_MIN.height - 46 - CONTENT_PADDING.top - CONTENT_PADDING.bottom,
+    };
     assert.ok(sceneScale(fitted) >= SCENE_MIN_SCALE);
+    const roomy = sceneFit({ width: 726, height: 572 }, 143);
+    assert.equal(roomy.text, 1);
+    assert.equal(roomy.art, Math.round((555 / 240) * 1000) / 1000);
+    const tight = sceneFit({ width: 300, height: 160 }, 143);
+    assert.ok(tight.text < 1);
+    assert.equal(tight.text, tight.art);
+    assert.ok(tight.text >= SCENE_MIN_SCALE);
   });
   h.test("menus count separators in their height", () => {
     const items = [
@@ -389,12 +406,24 @@ export function registerLogic(h) {
       deleteData: false,
       installPath: "/opt/MyWeather",
       userDataPath: "/data",
+      shortcuts: ["/desktop/MyWeather.lnk"],
     });
-    const kept = applyPlan({ install: { "/opt/MyWeather": { old: true } }, data: { "/data": { settings: true } }, registry: {} }, keep);
+    const kept = applyPlan(
+      {
+        install: { "/opt/MyWeather": { old: true } },
+        data: { "/data": { settings: true } },
+        registry: {},
+        links: { "/desktop/MyWeather.lnk": true },
+        shortcuts: { desktop: "old" },
+      },
+      keep,
+    );
     assert.equal(kept.log.includes("uninstall-existing"), true);
     assert.equal(kept.log.includes("delete-user-data"), false);
     assert.ok(kept.data["/data"]);
     assert.equal(kept.install["/opt/MyWeather"].language, "ko");
+    assert.equal(kept.links["/desktop/MyWeather.lnk"], undefined);
+    assert.deepEqual(kept.shortcuts, {});
     const remove = planInstall({
       language: "en",
       existingInstall: true,
@@ -434,10 +463,39 @@ export function registerLogic(h) {
     );
     assert.equal(plan.language, "ko");
     assert.ok(prompts.some((message) => message.includes("삭제하시겠습니까")));
+    assert.ok(prompts.some((message) => message.includes("바탕화면 바로가기")));
+    assert.ok(prompts.some((message) => message.includes("시작 메뉴")));
     assert.ok(steps.includes("delete-user-data"));
     assert.ok(steps.includes("uninstall-existing"));
+    assert.ok(steps.includes("shortcut-desktop"));
+    assert.ok(steps.includes("shortcut-start-menu"));
+    assert.equal(plan.steps.find((step) => step.action === "shortcut-desktop").icon, "assets/icon.png");
     assert.ok(steps.includes("register-app-icon"));
     assert.ok(steps.includes("register-file-icon"));
+    const declined = [];
+    await runInstaller(
+      {
+        async chooseLanguage() {
+          return "en";
+        },
+        async confirm() {
+          return false;
+        },
+        async notify() {},
+      },
+      {
+        async detectExisting() {
+          return { installed: true, userDataExists: true, installPath: "/opt/MyWeather", userDataPath: "/data", programIcon: "assets/icon.ico", platform: "win32" };
+        },
+        async exec(step) {
+          declined.push(step.action);
+        },
+      },
+    );
+    assert.equal(declined.includes("delete-user-data"), false);
+    assert.equal(declined.includes("shortcut-desktop"), false);
+    assert.equal(declined.includes("shortcut-start-menu"), false);
+    assert.equal(declined.includes("uninstall-existing"), true);
   });
   h.test("packaged installers use one icon and offer korean and english", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
@@ -452,11 +510,24 @@ export function registerLogic(h) {
     assert.ok(pkg.build.nsis.installerLanguages.includes("ko_KR"));
     assert.ok(pkg.build.nsis.installerLanguages.includes("en_US"));
     assert.equal(pkg.build.nsis.deleteAppDataOnUninstall, false);
+    assert.equal(pkg.build.nsis.createDesktopShortcut, false);
+    assert.equal(pkg.build.nsis.createStartMenuShortcut, false);
+    assert.equal(pkg.build.extraResources[0].from, "assets/icon.ico");
+    assert.equal(pkg.build.extraResources[0].to, "icon.ico");
+    assert.equal(programIconFile("win32"), pkg.build.win.icon);
+    assert.equal(trayIconFile("win32"), "assets/icon.ico");
+    assert.equal(programIconFor("darwin"), "assets/icon.icns");
+    assert.equal(programIconFor("linux"), "assets/icon.png");
     const nsis = fs.readFileSync(path.join(root, "installer/windows/installer.nsh"), "utf8");
     assert.match(nsis, /Saved data from the previous installation/);
     assert.match(nsis, /이전에 설치한 프로그램의 저장 데이터가 있습니다/);
     assert.match(nsis, /완전히 삭제/);
     assert.match(nsis, /file\.ico/);
+    assert.match(nsis, /바탕화면 바로가기/);
+    assert.match(nsis, /시작 메뉴 바로가기/);
+    assert.match(nsis, /resources\\icon\.ico/);
+    assert.match(nsis, /CreateShortCut/);
+    assert.match(nsis, /RMDir \/r "\$INSTDIR"/);
     const linux = fs.readFileSync(path.join(root, "installer/linux/install.sh"), "utf8");
     const mac = fs.readFileSync(path.join(root, "installer/macos/install.sh"), "utf8");
     assert.match(linux, /cli\.js/);
@@ -468,9 +539,33 @@ export function registerLogic(h) {
     const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
     assert.match(main, /assets\/icon\.png/);
     assert.match(main, /frame: false/);
+    assert.match(main, /thickFrame: false/);
+    assert.match(main, /skipTaskbar: true/);
+    assert.doesNotMatch(fs.readFileSync(path.join(root, "src/styles.css"), "utf8"), /app-region/);
+    assert.match(main, /new Tray/);
+    assert.match(main, /popUpContextMenu/);
+    const koMenu = buildTrayMenu((key) => createI18n("ko").t(key));
+    const enMenu = buildTrayMenu((key) => createI18n("en").t(key));
+    const koItems = listTrayItems(koMenu);
+    assert.ok(koItems.length >= 12);
+    for (const item of koItems) {
+      assert.ok(item.icon, item.label);
+      assert.ok(item.label);
+      assert.ok(fs.existsSync(path.join(root, menuIconFile(item.icon))), item.icon);
+    }
+    assert.equal(koItems.find((item) => item.id === "weather").label, "날씨");
+    assert.equal(enMenu.find((item) => item.id === "file").label, "File");
+    assert.ok(fs.existsSync(path.join(root, "README.md")));
+    assert.ok(fs.existsSync(path.join(root, "ARCHITECTURE.md")));
+    assert.ok(fs.existsSync(path.join(root, "UsersGuide.md")));
+    const guide = fs.readFileSync(path.join(root, "UsersGuide.md"), "utf8");
+    assert.match(guide, /바탕화면/);
+    assert.match(guide, /시작 메뉴/);
+    assert.match(guide, /트레이/);
     assert.match(main, /transparent: true/);
     assert.match(main, /WINDOW_MIN/);
     assert.match(main, /window-resize/);
+    assert.match(main, /window-move/);
     assert.match(main, /uncaughtException/);
     assert.match(main, /render-process-gone/);
     assert.match(main, /clipboard\.writeText\(text\)/);

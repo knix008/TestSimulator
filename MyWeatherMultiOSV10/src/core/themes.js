@@ -47,8 +47,8 @@ const DARK = [
 export const CUSTOM_THEME_ID = "custom";
 export const DEFAULT_THEME_ID = "dark-ink";
 export const DEFAULT_CUSTOM_THEME = { mode: "dark", bg: "#16283a", text: "#eef6ff", accent: "#5cc8ff" };
-/** Background alpha at 100% transparency, so the rounded window still shows faintly. */
-export const MIN_ALPHA = 0.06;
+/** Background alpha at 100% transparency. The window stays visible. */
+export const MIN_ALPHA = 0.25;
 
 export const LIGHT_THEMES = LIGHT.map(([id, ko, en, bg, bgTop, surface, text, muted, accent]) => ({
   id,

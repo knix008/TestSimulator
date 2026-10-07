@@ -4,7 +4,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { userDataDir } from "../src/core/paths.js";
-import { INSTALL_STRINGS, runInstaller } from "./plan.js";
+import { INSTALL_STRINGS, programIconFor, runInstaller } from "./plan.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -40,8 +40,24 @@ export function createIo() {
   };
 }
 
+function shortcutPaths() {
+  const home = os.homedir();
+  const desktop = path.join(home, "Desktop", "MyWeather.desktop");
+  const start = process.platform === "darwin"
+    ? path.join(home, "Applications", "MyWeather.desktop")
+    : path.join(home, ".local", "share", "applications", "MyWeather.desktop");
+  return [desktop, start];
+}
+
+function writeDesktopShortcut(file, dest, icon) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const desktop = fs.readFileSync(path.join(root, "installer/linux/myweather.desktop"), "utf8").replace("Icon=myweather", `Icon=${icon}`);
+  fs.writeFileSync(file, desktop);
+}
+
 export function createFsEnv(dest) {
   const dataPath = userDataDir(process.platform, os.homedir());
+  const links = shortcutPaths();
   return {
     async detectExisting() {
       return {
@@ -49,23 +65,30 @@ export function createFsEnv(dest) {
         userDataExists: fs.existsSync(path.join(dataPath, "settings.json")),
         installPath: dest,
         userDataPath: dataPath,
+        shortcuts: links,
+        programIcon: programIconFor(process.platform),
+        platform: process.platform,
       };
     },
     async exec(step) {
       if (step.action === "delete-user-data") fs.rmSync(step.path, { recursive: true, force: true });
-      if (step.action === "uninstall-existing") fs.rmSync(step.path, { recursive: true, force: true });
+      if (step.action === "uninstall-existing") {
+        fs.rmSync(step.path, { recursive: true, force: true });
+        for (const link of step.shortcuts || []) fs.rmSync(link, { force: true });
+      }
       if (step.action === "install") {
         fs.mkdirSync(dest, { recursive: true });
         for (const name of ["package.json", "src", "electron", "assets", "installer"]) {
           fs.cpSync(path.join(root, name), path.join(dest, name), { recursive: true });
         }
-        const desktop = fs.readFileSync(path.join(root, "installer/linux/myweather.desktop"), "utf8").replace("Icon=myweather", `Icon=${path.join(dest, "assets/icon.png")}`);
-        fs.writeFileSync(path.join(dest, "MyWeather.desktop"), desktop);
+        const icon = path.join(dest, step.icon || programIconFor(process.platform));
         fs.writeFileSync(
           path.join(dest, "file-association.txt"),
-          `ext=.myweather\nicon=${path.join(dest, "assets/file.ico")}\nappIcon=${path.join(dest, "assets/icon.png")}\nlanguage=${step.language}\n`,
+          `ext=.myweather\nicon=${path.join(dest, "assets/file.ico")}\nappIcon=${icon}\nlanguage=${step.language}\n`,
         );
       }
+      if (step.action === "shortcut-desktop") writeDesktopShortcut(links[0], dest, path.join(dest, step.icon));
+      if (step.action === "shortcut-start-menu") writeDesktopShortcut(links[1], dest, path.join(dest, step.icon));
     },
   };
 }

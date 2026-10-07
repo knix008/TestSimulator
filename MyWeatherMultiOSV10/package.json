@@ -15,7 +15,7 @@
     "start": "electron .",
     "start:web": "python -m http.server 4173",
     "dist": "electron-builder",
-    "dist:win": "electron-builder --win nsis",
+    "dist:win": "electron-builder --win nsis && node scripts/copy-installer.js",
     "dist:linux": "electron-builder --linux",
     "dist:mac": "electron-builder --mac"
   },
@@ -37,6 +37,18 @@
       "package.json"
     ],
     "asar": true,
+    "asarUnpack": [
+      "assets/icon.ico",
+      "assets/icon.png",
+      "assets/icon.icns",
+      "assets/menu/**"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
     "win": {
       "icon": "assets/icon.ico",
       "target": [
@@ -58,8 +70,9 @@
         "ko_KR"
       ],
       "include": "installer/windows/installer.nsh",
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
+      "artifactName": "MyWeather-Setup-${version}.${ext}",
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
       "shortcutName": "MyWeather"
     },
     "linux": {

@@ -49,6 +49,7 @@ export function createMemoryPlatform() {
     nativeMenus: false,
     nativeWindow: false,
     resizeSteps: [],
+    moveSteps: [],
     fonts: ["Segoe UI", "Malgun Gothic", "Arial", "Consolas", "Times New Roman"],
     files,
     settings: null,
@@ -76,6 +77,9 @@ export function createMemoryPlatform() {
     },
     async resizeWindow(step) {
       this.resizeSteps.push(step);
+    },
+    async moveWindow(step) {
+      this.moveSteps.push(step);
     },
     onWindowState(callback) {
       this.emitWindowState = callback;

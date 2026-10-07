@@ -20,6 +20,9 @@ export function createElectronPlatform(api) {
     async resizeWindow(step) {
       return api.resizeWindow(step);
     },
+    async moveWindow(step) {
+      return api.moveWindow(step);
+    },
     onWindowState(callback) {
       api.onWindowState(callback);
     },

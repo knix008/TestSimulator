@@ -32,7 +32,8 @@ import {
   buildUnsavedSpec,
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
-import { WINDOW_DEFAULT, clampWindowSize, sceneScale } from "./ui/window-spec.js";
+import { attachWindowDrag } from "./ui/window-drag.js";
+import { CONTENT_PADDING, WINDOW_DEFAULT, clampWindowSize, sceneFit } from "./ui/window-spec.js";
 import { forecastFitHeight, renderForecastHtml, renderWeatherHtml } from "./ui/weather-view.js";
 
 export function createApp(container, options = {}) {
@@ -71,6 +72,7 @@ class WeatherApp {
     this.now = options.now || (() => new Date());
     this.maximized = false;
     this.minimized = false;
+    this.shellOffset = { x: 0, y: 0 };
     this.statusMessage = "";
     this.titleText = "";
     this.shellSize = clampWindowSize(this.settings.windowSize || WINDOW_DEFAULT);
@@ -87,11 +89,11 @@ class WeatherApp {
               <span class="title-name" data-gui="window-title">${WINDOW_TITLE}</span>
             </div>
             <div class="range-tools" data-gui="range-tools">
-              <button type="button" class="tool-btn" data-cmd="daily" data-gui="range-button" data-i18n-title="fold.daily">${icon("daily")}<span class="tool-label" data-i18n="fold.daily">${escapeAttr(this.t("fold.daily"))}</span></button>
-              <button type="button" class="tool-btn" data-cmd="weekly" data-gui="range-button" data-i18n-title="fold.weekly">${icon("weekly")}<span class="tool-label" data-i18n="fold.weekly">${escapeAttr(this.t("fold.weekly"))}</span></button>
-              <button type="button" class="tool-btn" data-cmd="monthly" data-gui="range-button" data-i18n-title="fold.monthly">${icon("monthly")}<span class="tool-label" data-i18n="fold.monthly">${escapeAttr(this.t("fold.monthly"))}</span></button>
+              <button type="button" class="tool-btn" data-cmd="daily" data-gui="range-button" data-i18n-title="forecast.daily">${icon("daily")}</button>
+              <button type="button" class="tool-btn" data-cmd="weekly" data-gui="range-button" data-i18n-title="forecast.weekly">${icon("weekly")}</button>
+              <button type="button" class="tool-btn" data-cmd="monthly" data-gui="range-button" data-i18n-title="forecast.monthly">${icon("monthly")}</button>
             </div>
-            <div class="tabbar" data-gui="tabbar">
+            <div class="tabbar" data-gui="tabbar" hidden>
               <button type="button" class="chev" data-cmd="tab-prev" data-gui="tab-nav" data-i18n-title="tip.tabPrev">${icon("left")}</button>
               <div id="tab-strip" class="tab-strip"></div>
               <button type="button" class="chev" data-cmd="tab-next" data-gui="tab-nav" data-i18n-title="tip.tabNext">${icon("right")}</button>
@@ -121,6 +123,7 @@ class WeatherApp {
     this.wallpaper = this.root.querySelector(".wallpaper");
     this.popups = new PopupLayer(this.overlay);
     this.bind();
+    this.detachDrag = attachWindowDrag(this.shell, (step) => this.onShellDrag(step));
     this.applyShellSize();
     if (typeof ResizeObserver === "function") {
       this.sceneObserver = new ResizeObserver(() => this.applySceneScale());
@@ -168,6 +171,7 @@ class WeatherApp {
     this.destroyed = true;
     clearTimeout(this.toastTimer);
     this.endResize?.();
+    this.detachDrag?.();
     this.popups?.closeAll();
     this.sceneObserver?.disconnect();
     this.closeMenu();
@@ -192,12 +196,30 @@ class WeatherApp {
   bind() {
     const onKey = (event) => this.onKey(event);
     const onPointer = (event) => this.onPointer(event);
-    const onClick = (event) => {
-      const button = event.target.closest("[data-cmd]");
-      if (!button || button.disabled || !this.frame.contains(button)) return;
+    let suppressClick = null;
+    const runCommand = (button, event) => {
       const cmd = button.dataset.cmd;
       if (cmd.startsWith("menu:")) this.openMenu(cmd.slice(5), event);
       else this.run(cmd);
+    };
+    const onPointerUp = (event) => {
+      if (event.button != null && event.button !== 0) return;
+      const button = event.target?.closest?.("[data-cmd]");
+      if (!button || button.disabled || !this.frame.contains(button)) return;
+      suppressClick = button;
+      runCommand(button, event);
+      queueMicrotask(() => {
+        if (suppressClick === button) suppressClick = null;
+      });
+    };
+    const onClick = (event) => {
+      const button = event.target.closest("[data-cmd]");
+      if (!button || button.disabled || !this.frame.contains(button)) return;
+      if (suppressClick === button) {
+        suppressClick = null;
+        return;
+      }
+      runCommand(button, event);
     };
     const onInput = (event) => this.onInput(event);
     const onChange = (event) => this.onChange(event);
@@ -245,6 +267,7 @@ class WeatherApp {
       const tab = event.target.closest("[data-tab-id]");
       if (tab) this.selectTab(tab.dataset.tabId);
     };
+    this.frame.addEventListener("pointerup", onPointerUp);
     this.frame.addEventListener("click", onClick);
     this.frame.addEventListener("input", onInput);
     this.frame.addEventListener("change", onChange);
@@ -429,11 +452,29 @@ class WeatherApp {
     if (native || this.maximized) {
       this.shell.style.removeProperty("width");
       this.shell.style.removeProperty("height");
+      this.shell.style.removeProperty("transform");
+      this.shellOffset = { x: 0, y: 0 };
     } else {
       this.shell.style.width = `${this.shellSize.width}px`;
       this.shell.style.height = this.minimized ? "" : `${this.shellSize.height}px`;
     }
     this.applySceneScale();
+  }
+
+  onShellDrag(step) {
+    if (this.maximized || this.minimized) return;
+    if (this.platform.nativeWindow) {
+      void this.platform.moveWindow?.(step);
+      return;
+    }
+    if (step.phase === "start") {
+      this.dragOrigin = { ...this.shellOffset };
+      return;
+    }
+    if (step.phase !== "move") return;
+    const origin = this.dragOrigin || this.shellOffset;
+    this.shellOffset = { x: origin.x + step.dx, y: origin.y + step.dy };
+    this.shell.style.transform = `translate(${this.shellOffset.x}px, ${this.shellOffset.y}px)`;
   }
 
   beginResize(event) {
@@ -865,7 +906,7 @@ class WeatherApp {
       today: this.now(),
       t,
     });
-    return this.openPopup(buildForecastSpec({ range, markup, fitHeight: forecastFitHeight(range, hasWeather), t }), {
+    return this.openPopup(buildForecastSpec({ range, markup, fitHeight: forecastFitHeight(range, hasWeather), transparency: this.settings.transparency, t }), {
       immediate: (msg) => {
         if (msg?.type !== "select-date") return;
         this.selectDate(msg.date);
@@ -877,10 +918,22 @@ class WeatherApp {
 
   applySceneScale() {
     if (!this.content) return;
-    const width = this.content.clientWidth || Math.max(1, this.shellSize.width - 32);
-    const height = this.content.clientHeight || Math.max(1, this.shellSize.height - 46);
-    const available = { width: Math.max(1, width - 32), height: Math.max(1, height - 24) };
-    this.content.style.setProperty("--scene-scale", String(sceneScale(available)));
+    const measured = this.content.clientWidth > 0 && this.content.clientHeight > 0;
+    const available = measured
+      ? {
+        width: this.content.clientWidth - CONTENT_PADDING.left - CONTENT_PADDING.right,
+        height: this.content.clientHeight - CONTENT_PADDING.top - CONTENT_PADDING.bottom,
+      }
+      : {
+        width: this.shellSize.width - CONTENT_PADDING.left - CONTENT_PADDING.right,
+        height: this.shellSize.height - 46 - CONTENT_PADDING.top - CONTENT_PADDING.bottom,
+      };
+    const copy = this.content.querySelector(".scene-copy");
+    const current = Number(this.content.style.getPropertyValue("--scene-scale")) || 1;
+    const textWidth = copy && copy.scrollWidth > 0 ? copy.scrollWidth / current : 200;
+    const fit = sceneFit(available, textWidth);
+    this.content.style.setProperty("--scene-scale", String(fit.text));
+    this.content.style.setProperty("--art-scale", String(fit.art));
   }
 
   toggleSource(id, enabled) {
