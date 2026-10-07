@@ -6,7 +6,9 @@ import {
   CALENDAR_WEEKS,
   formatISODate,
   isSameDay,
+  MONTH_TITLE_FORMATS,
   monthTitle,
+  normalizeMonthTitleFormats,
   parseISODate,
   shiftDays,
   weekdayLabels,
@@ -69,5 +71,17 @@ describe("Calendar", () => {
   it("formats the month title in Korean and English", () => {
     expect(monthTitle(2026, 9, "ko", ko.months)).toBe("2026년 10월");
     expect(monthTitle(2026, 9, "en", en.months)).toBe("October 2026");
+  });
+
+  it("writes the year and month in every supported format", () => {
+    const ko2 = MONTH_TITLE_FORMATS.ko.map((format) => monthTitle(2026, 2, "ko", ko.months, format));
+    expect(ko2).toEqual(["2026년 3월", "26년 3월", "2026年 3月", "2026. 3.", "2026.03", "2026-03", "2026/03", "3월"]);
+    const en2 = MONTH_TITLE_FORMATS.en.map((format) => monthTitle(2026, 8, "en", en.months, format));
+    expect(en2).toEqual(["September 2026", "Sep 2026", "Sep '26", "SEP 2026", "09/2026", "09.2026", "2026-09", "September"]);
+    expect(monthTitle(2005, 0, "ko", ko.months, "ko-short-year")).toBe("05년 1월");
+    // A format of the other language falls back to the default of this one.
+    expect(monthTitle(2026, 9, "en", en.months, "ko-hanja")).toBe("October 2026");
+    expect(normalizeMonthTitleFormats({ ko: "ko-dash", en: "ko-dash" })).toEqual({ ko: "ko-dash", en: "en-long" });
+    expect(normalizeMonthTitleFormats(null)).toEqual({ ko: "ko-long", en: "en-long" });
   });
 });

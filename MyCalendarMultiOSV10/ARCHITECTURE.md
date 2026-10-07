@@ -33,7 +33,7 @@ flowchart LR
 
 | 파일 | 내용 |
 |---|---|
-| `calendar.ts` | 날짜 형식 변환, 5주 달력 격자(`buildMonthGrid`, `buildMonthWeeks`), 달 제목 |
+| `calendar.ts` | 날짜 형식 변환, 5주 달력 격자(`buildMonthGrid`, `buildMonthWeeks`), 달 제목과 언어별 연월 표기(`MONTH_TITLE_FORMATS`) |
 | `holidays.ts` | Nager.Date 조회, 국가·연도별 캐시, 실패 시 대체 순서 |
 | `builtinHolidays.ts` | `date-holidays-parser`로 계산하는 내장 공휴일 (필요할 때 동적으로 불러옴) |
 | `holidayRules.ts` | 내장 공휴일 규칙과 시간대 데이터를 JSON 파일로 불러옴 |
@@ -42,6 +42,7 @@ flowchart LR
 | `events.ts` | 일정 모델, 반복 전개, 정규화, 저장. 일정의 `calendar`가 `"lunar"`면 매월·매년 반복을 음력 날짜로 계산합니다. |
 | `reminders.ts` | 알림 시각 계산, 대기열, 다시 알림(5분), 이미 울린 알림 기록 |
 | `settings.ts` | 설정 모델과 정규화, 창과 전체 화면의 날짜 글꼴 |
+| `backgroundImage.ts` | 배경 이미지 저장(data URL 검사 포함), 투명도 변환, 이미지를 깔 창 목록 |
 | `print.ts` | 용지·방향·여백, 인쇄할 달과 주, 인쇄 옵션 저장 |
 | `themes.ts` | 테마 40종, CSS 변수 적용 |
 | `messages.ts`, `ko.ts`, `en.ts`, `i18n.ts` | 화면 문구. `{name}` 같은 자리는 `formatMessage`가 채웁니다. |
@@ -57,6 +58,7 @@ flowchart LR
 | `PrintScreen.tsx` | 인쇄 미리 보기와 페이지 설정 |
 | `ReminderPopup.tsx` | 알림 스케줄러(`useReminderScheduler`)와 알림 팝업 |
 | `DayMenu.tsx` | 아이콘이 붙은 우클릭 메뉴 |
+| `BackgroundImage.tsx`, `BackgroundImageSettings.tsx` | 패널 뒤에 까는 배경 이미지 층(`PanelBackdrop`)과 이미지 축소, 설정 "모양" 탭의 배경 이미지 항목 |
 | `WindowChrome.tsx` | 별도 창의 제목 줄(아이콘, 이름, 닫기) |
 | `RangeField.tsx`, `Dropdown.tsx` | 감소·증가 버튼이 붙은 슬라이더, 드롭다운 |
 | `useSettings.ts`, `useEvents.ts`, `useCountries.ts` | 저장된 데이터를 읽고 다른 창의 변경을 따라가는 훅 |
@@ -86,6 +88,17 @@ flowchart LR
 - 전체 화면에서 ESC를 누르면 `CalendarScreen`이 최대화를 풉니다. 이때 앱 전체의 "ESC로 트레이로 숨기기"보다 먼저 처리합니다.
 - 최대화된 동안에는 `setWindowSize`와 `setWindowMinSize`가 아무 일도 하지 않습니다. Windows에서는 최대화된 창의 크기를 바꾸면 최대화가 풀리기 때문입니다.
 
+### 메인 창의 최소 폭
+
+- 최소 폭은 툴바가 한 줄에 들어가는 폭입니다. "오늘"은 글자 없이 아이콘 버튼으로 표시합니다.
+- 프로그램 이름(`.app-name`)은 최소 폭에 넣지 않습니다. `toolbarWidth`는 보이는 이름의 폭을 빼고 잽니다.
+  - 패널을 `ResizeObserver`로 지켜보다가, 패널 폭이 툴바 폭과 이름 폭의 합 이상이면 이름을 보여 줍니다. 모자라면 숨겨서 아이콘만 남깁니다.
+  - 숨긴 이름은 `data-hidden`을 달고 `position: absolute; visibility: hidden`으로 레이아웃에서 빠집니다. 그래도 폭은 잴 수 있어서, 언제 다 들어가는지 계산할 수 있습니다.
+- 툴바 폭은 언어와 연월 표기에 따라 달라집니다. 그래서 `CalendarScreen`이 그려진 툴바를 재고(`toolbarWidth`), 언어나 표기가 바뀔 때마다 다시 잽니다.
+  - 예: 데스크톱에서 "2026년 10월"은 364px, "October 2026"은 392px, "10월"은 317px입니다.
+- `tauri.conf.json`의 `minWidth`(366)와 `MIN_WINDOW_WIDTH`는 기본 한국어 표기 기준입니다. 툴바를 재기 전 처음 값으로만 씁니다.
+- 연월 제목 뒤에는 그해 열두 달의 제목이 보이지 않게 겹쳐 있습니다(`.month-title-sizer`). 제목 칸은 그중 가장 넓은 폭을 차지하므로, 달을 넘겨도 화살표가 움직이지 않습니다.
+
 ## Rust 명령과 이벤트
 
 `src-tauri/src/lib.rs`
@@ -95,7 +108,7 @@ flowchart LR
 | `install_language` | 설치 프로그램이 저장한 언어(`install-language.txt`)를 읽습니다. |
 | `update_tray_labels` | 트레이 메뉴와 툴팁 문구를 현재 언어로 바꿉니다. |
 | `set_main_always_on_top` | "다른 창보다 위에 두기"를 적용합니다. |
-| `hide_main`, `minimize_main`, `toggle_maximize_main` | 메인 창을 숨기고, 최소화하고, 최대화하거나 되돌립니다. |
+| `hide_main`, `minimize_main`, `toggle_maximize_main` | 메인 창을 숨기고, 최소화하고, 최대화하거나 되돌립니다. 최소화도 작업 표시줄 버튼 없이 트레이로 숨기며, Win+↓ 같은 OS 최소화도 같은 방식으로 처리합니다. |
 | `open_aux_window` | 설정, 일정 관리, 인쇄 창을 엽니다. 이미 열려 있으면 앞으로 가져옵니다. |
 | `show_reminder_window`, `fit_reminder_window` | 알림 창을 띄우고 내용 높이에 맞춥니다. |
 | `open_external` | 공휴일 출처 같은 외부 주소를 기본 브라우저로 엽니다. |
@@ -113,7 +126,8 @@ flowchart LR
 
 | 키 | 내용 |
 |---|---|
-| `mycalendar.settings.v1` | 설정 전체 (언어, 테마, 투명도, 국가, 날짜 글꼴, 창 크기 등) |
+| `mycalendar.settings.v1` | 설정 전체 (언어, 테마, 투명도, 국가, 날짜 글꼴, 창 크기, 배경 이미지 투명도와 적용할 창 등) |
+| `mycalendar.background-image.v1` | 배경 이미지 (JPEG data URL, 긴 변 2560픽셀 이하, 약 3.6 MB 이하). 설정은 바뀔 때마다 모든 창이 다시 읽으므로 따로 둡니다. |
 | `mycalendar.events.v1` | 일정 |
 | `mycalendar.holidays.v1.<국가>.<연도>` | 공휴일 캐시 |
 | `mycalendar.reminders.queue`, `mycalendar.reminders.fired` | 표시할 알림, 이미 울린 알림 |

@@ -2,6 +2,7 @@ import { act, useState } from "react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { BACKGROUND_IMAGE_KEY, isBackgroundImage, writeBackgroundImage } from "../src/domain/backgroundImage";
 import { addMonths, monthTitle } from "../src/domain/calendar";
 import { formatMessage, messages } from "../src/domain/i18n";
 import { DEFAULT_SETTINGS, FULLSCREEN_KEY, MIN_EVENTS_HEIGHT, normalizeSettings, type Settings } from "../src/domain/settings";
@@ -111,7 +112,12 @@ describe("Interface", () => {
     const button = (label: string) => [...view.host.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === label || item.textContent === label);
     click(button(messages.ko.nextMonth)!);
     expect(heading()).toBe(monthTitle(addMonths(today, 1).getFullYear(), addMonths(today, 1).getMonth(), "ko", messages.ko.months));
-    click(button(messages.ko.today)!);
+    const todayButton = button(messages.ko.today)!;
+    // An icon button: no text label, the name is spoken and shown as a tooltip.
+    expect(todayButton.textContent).toBe("");
+    expect(todayButton.getAttribute("title")).toBe(messages.ko.today);
+    expect(todayButton.querySelector("svg")).not.toBeNull();
+    click(todayButton);
     expect(heading()).toBe(monthTitle(today.getFullYear(), today.getMonth(), "ko", messages.ko.months));
     const selected = view.host.querySelector(".day.selected");
     expect(selected?.getAttribute("aria-pressed")).toBe("true");
@@ -258,7 +264,7 @@ describe("Interface", () => {
     await view.settle();
     const toolbar = view.host.querySelector(".toolbar");
     expect(toolbar?.textContent).not.toContain("Transparency");
-    expect(toolbar?.textContent).toContain("Today");
+    expect(toolbar?.querySelector(".today-btn")?.getAttribute("aria-label")).toBe("Today");
     expect(toolbar?.querySelector("h1")?.textContent).toBe(
       monthTitle(new Date().getFullYear(), new Date().getMonth(), "en", messages.en.months),
     );
@@ -377,7 +383,7 @@ describe("Interface", () => {
     expect(document.body.textContent).toContain("Choose your installation language");
     click([...document.body.querySelectorAll("button")].find((button) => button.textContent === "한국어")!);
     await app.settle();
-    expect(document.body.textContent).toContain(messages.ko.today);
+    expect(document.body.querySelector(`[aria-label="${messages.ko.today}"]`)).not.toBeNull();
     expect(document.documentElement.lang).toBe("ko");
     click(document.body.querySelector(`[aria-label="${messages.ko.settings}"]`)!);
     expect(document.body.textContent).toContain(messages.ko.general);
@@ -507,10 +513,14 @@ describe("Interface", () => {
     const css = readFileSync(resolve("src/styles.css"), "utf8");
     expect(css).toMatch(/\.days \{[^}]*grid-template-rows: repeat\(5, minmax\(0, 1fr\)\);[^}]*gap: 2px;/s);
     expect(css).toMatch(/\.mark \{[^}]*position: absolute;/s);
-    expect(css).toContain('html[lang="ko"] .toolbar h1 { width: 92px; }');
-    expect(css).toContain('html[lang="en"] .toolbar h1 { width: 122px; }');
+    expect(css).toContain(".month-title > * { grid-area: 1 / 1; }");
+    expect(css).toContain(".month-title-sizer { visibility: hidden; }");
 
     const view = await render(<CalendarHarness />);
+    // Every month's title is laid out in the same cell, so the widest one sets the width all year.
+    const sizers = [...view.host.querySelectorAll(".month-title-sizer")].map((node) => node.textContent);
+    expect(sizers).toEqual(messages.ko.months.map((_, month) => monthTitle(new Date().getFullYear(), month, "ko", messages.ko.months)));
+    expect(view.host.querySelector(".month-title-sizer")?.getAttribute("aria-hidden")).toBe("true");
     await view.settle();
     const next = [...view.host.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === messages.ko.nextMonth)!;
     for (let month = 0; month < 12; month += 1) {
@@ -688,7 +698,7 @@ describe("Interface", () => {
     expect(events().style.height).toBe("160px");
     expect(panel.style.transform).toBe("translate(30px, 0px)");
     await pointer("pointermove", 100, 0);
-    expect(panel.style.width).toBe("470px");
+    expect(panel.style.width).toBe("366px");
     expect(grid()).toBe("");
     expect(events().style.height).toBe(`${MIN_EVENTS_HEIGHT}px`);
     await pointer("pointermove", 520, 700);
@@ -786,7 +796,7 @@ describe("Interface", () => {
 
     const dotted = [...view.host.querySelectorAll(".day:not(.out) .dots")];
     expect(dotted.length).toBeGreaterThanOrEqual(1);
-    expect((dotted[0].querySelector("i") as HTMLElement).style.background).toMatch(/#e5484d|rgb\(229, 72, 77\)/);
+    expect((dotted[0].querySelector("i:not(.holiday-dot)") as HTMLElement).style.background).toMatch(/#e5484d|rgb\(229, 72, 77\)/);
     const item = view.host.querySelector(".day-items .day-event") as HTMLElement;
     expect(item.textContent).toContain("07:30");
     expect(item.textContent).toContain("운동");
@@ -1208,6 +1218,161 @@ describe("Interface", () => {
     localStorage.removeItem(FULLSCREEN_KEY);
     if (tauri) Object.defineProperty(window, "__TAURI_INTERNALS__", tauri);
     else delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+  });
+
+  it("puts a background image behind the chosen windows and leaves the settings window plain", async () => {
+    localStorage.clear();
+    const image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    localStorage.setItem(BACKGROUND_IMAGE_KEY, image);
+
+    const settings = await render(<SettingsHarness />);
+    click([...settings.host.querySelectorAll('[role="tab"]')][1]!);
+    expect(settings.host.querySelector(".panel-backdrop")).toBeNull();
+    const thumb = settings.host.querySelector(".background-image-thumb") as HTMLElement;
+    expect(thumb.style.backgroundImage).toContain("data:image/png");
+    const slider = settings.host.querySelector("#background-image-transparency") as HTMLInputElement;
+    expect(slider.value).toBe("50");
+    setControlValue(slider, "30");
+    expect(slider.value).toBe("30");
+    const reminderBox = [...settings.host.querySelectorAll<HTMLLabelElement>(".background-image-windows label")]
+      .find((label) => label.textContent === messages.ko.backgroundImageTargets.reminder)!
+      .querySelector("input")!;
+    expect(reminderBox.checked).toBe(true);
+    click(reminderBox);
+    expect(reminderBox.checked).toBe(false);
+    const remove = [...settings.host.querySelectorAll("button")].find((button) => button.textContent === messages.ko.removeBackgroundImage)!;
+    click(remove);
+    expect(localStorage.getItem(BACKGROUND_IMAGE_KEY)).toBeNull();
+    expect(settings.host.querySelector(".background-image-thumb")?.textContent).toBe(messages.ko.noBackgroundImage);
+    await settings.unmount();
+
+    localStorage.setItem(BACKGROUND_IMAGE_KEY, image);
+    const calendar = await render(<CalendarHarness initial={{ backgroundImageOpacity: 0.7 }} />);
+    const backdrop = calendar.host.querySelector(".panel.calendar > .panel-backdrop") as HTMLElement;
+    expect(backdrop).not.toBeNull();
+    expect(backdrop.style.opacity).toBe("0.7");
+    expect(backdrop.style.backgroundImage).toContain("url(");
+    await act(async () => writeBackgroundImage(null));
+    expect(calendar.host.querySelector(".panel-backdrop")).toBeNull();
+    await calendar.unmount();
+
+    localStorage.setItem(BACKGROUND_IMAGE_KEY, image);
+    const hidden = await render(
+      <CalendarHarness initial={{ backgroundImageWindows: { ...DEFAULT_SETTINGS.backgroundImageWindows, main: false } }} />,
+    );
+    expect(hidden.host.querySelector(".panel-backdrop")).toBeNull();
+    await hidden.unmount();
+    const events = await render(<EventsHarness />);
+    expect(events.host.querySelector(".events-screen > .panel-backdrop")).not.toBeNull();
+    await events.unmount();
+    const print = await render(<PrintHarness />);
+    expect(print.host.querySelector(".print-screen > .panel-backdrop")).not.toBeNull();
+    await print.unmount();
+
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.panel-backdrop \{[^}]*z-index: -1;[^}]*background-size: cover;/);
+    expect(css).toMatch(/\.panel \{[^}]*isolation: isolate;/);
+    localStorage.clear();
+  });
+
+  it("shows the app name beside the icon only when it fits, and the year and month in the chosen format", async () => {
+    const calendar = await render(
+      <CalendarHarness initial={{ monthTitleFormats: { ko: "ko-dot", en: "en-long" } }} />,
+    );
+    const brand = calendar.host.querySelector(".toolbar .app-brand")!;
+    const name = brand.querySelector(".app-name")!;
+    expect(brand.querySelector("img.app-icon")?.getAttribute("alt")).toBe(messages.ko.appName);
+    expect(name.textContent).toBe(messages.ko.appName);
+    // Without a measured toolbar there is no room known, so only the icon shows.
+    expect(name.hasAttribute("data-hidden")).toBe(true);
+    expect(name.getAttribute("aria-hidden")).toBe("true");
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toContain(".app-name[data-hidden] { position: absolute; visibility: hidden; pointer-events: none; }");
+    const source = readFileSync(resolve("src/ui/CalendarScreen.tsx"), "utf8");
+    expect(source).toContain("setShowName(panel.offsetWidth >= needed + name)");
+    expect(source).toContain('querySelector<HTMLElement>(".app-name:not([data-hidden])")');
+    expect(source).toContain("new ResizeObserver(fitName)");
+    const now = new Date();
+    expect(calendar.host.querySelector(".toolbar h1")?.textContent).toBe(`${now.getFullYear()}. ${now.getMonth() + 1}.`);
+    await calendar.unmount();
+
+    const view = await render(<SettingsHarness />);
+    const tabs = () => [...view.host.querySelectorAll('[role="tab"]')];
+    const format = () => view.host.querySelector(`[role="combobox"][aria-label="${messages.ko.monthTitleFormat}"]`) as HTMLButtonElement;
+    const pick = (label: string) => {
+      click(format());
+      const options = [...document.body.querySelectorAll('[role="listbox"] [role="option"]')];
+      click(options.find((option) => option.textContent === label)!);
+    };
+    click(tabs()[2]!);
+    expect(format().textContent).toBe(monthTitle(now.getFullYear(), now.getMonth(), "ko", messages.ko.months));
+    click(format());
+    expect([...document.body.querySelectorAll('[role="listbox"] [role="option"]')]).toHaveLength(8);
+    click(format());
+    pick(`${now.getMonth() + 1}월`);
+    expect(format().textContent).toBe(`${now.getMonth() + 1}월`);
+
+    // English keeps its own choice, and switching back finds the Korean one unchanged.
+    click(tabs()[0]!);
+    click([...view.host.querySelectorAll(".segment button")].find((button) => button.textContent === "English")!);
+    click(tabs()[2]!);
+    const english = () => view.host.querySelector(`[role="combobox"][aria-label="${messages.en.monthTitleFormat}"]`) as HTMLButtonElement;
+    expect(english().textContent).toBe(monthTitle(now.getFullYear(), now.getMonth(), "en", messages.en.months));
+    click(tabs()[0]!);
+    click([...view.host.querySelectorAll(".segment button")].find((button) => button.textContent === "한국어")!);
+    click(tabs()[2]!);
+    expect(format().textContent).toBe(`${now.getMonth() + 1}월`);
+    await view.unmount();
+  });
+
+  it("draws a colored dot for every event of a day, in rows that wrap only when full", async () => {
+    localStorage.clear();
+    const now = new Date();
+    const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-15`;
+    const colors = ["#e5484d", "#46a758", "#0090ff", "#ffc53d", "#6e56cf", "#12a594", "#d6409f"];
+    const events = colors.map((color, index) => ({
+      id: `dot-${index}`,
+      title: `점 ${index}`,
+      date: day,
+      calendar: "solar",
+      time: "",
+      repeat: "none",
+      interval: 1,
+      until: "",
+      color,
+      skip: [],
+      reminder: null,
+    }));
+    localStorage.setItem("mycalendar.events.v1", JSON.stringify(events));
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const cell = [...view.host.querySelectorAll(".day:not(.out)")].find((node) => node.querySelector(".num")?.textContent === "15")!;
+    const dots = [...cell.querySelectorAll(".dots i:not(.holiday-dot)")] as HTMLElement[];
+    const rgb = (hex: string) => `rgb(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5), 16)})`;
+    expect(dots).toHaveLength(colors.length);
+    expect(dots.map((dot) => dot.style.background.replace(/^#\w+$/, rgb))).toEqual(colors.map(rgb));
+    await view.unmount();
+    localStorage.clear();
+
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.dots \{[^}]*top: calc\(50% \+ 0\.56em\);[^}]*flex-wrap: wrap;[^}]*align-content: flex-start;[^}]*overflow: hidden;/);
+    expect(css).toMatch(/\.day\.has-sub \.dots \{[^}]*bottom: calc\(50% \+ 0\.56em\);[^}]*flex-wrap: wrap-reverse;/);
+    expect(css).toContain(".dots i.holiday-dot { background: var(--holiday); }");
+    const source = readFileSync(resolve("src/ui/CalendarScreen.tsx"), "utf8");
+    expect(source).toContain('{names.length > 0 && <i className="holiday-dot" />}');
+  });
+
+  it("keeps the background image choices within range", () => {
+    expect(DEFAULT_SETTINGS.backgroundImageOpacity).toBe(0.5);
+    expect(normalizeSettings({ backgroundImageOpacity: 4 } as Partial<Settings>).backgroundImageOpacity).toBe(1);
+    expect(normalizeSettings({ backgroundImageOpacity: -1 } as Partial<Settings>).backgroundImageOpacity).toBe(0);
+    expect(
+      normalizeSettings({ backgroundImageWindows: { main: false, print: "no" } } as unknown as Partial<Settings>).backgroundImageWindows,
+    ).toEqual({ main: false, events: true, print: true, reminder: true });
+    expect(isBackgroundImage("data:image/jpeg;base64,AAAA")).toBe(true);
+    expect(isBackgroundImage("javascript:alert(1)")).toBe(false);
+    expect(isBackgroundImage('data:image/png;base64,AA") url("x')).toBe(false);
+    expect(() => writeBackgroundImage("https://example.com/a.png")).toThrow();
   });
 
   it("pops up due reminders and snoozes or dismisses them", async () => {

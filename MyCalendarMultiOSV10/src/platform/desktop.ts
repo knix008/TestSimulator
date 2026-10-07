@@ -1,4 +1,4 @@
-import type { Language, Messages } from "../domain/messages";
+import type { Messages } from "../domain/messages";
 import type { Settings } from "../domain/settings";
 
 export function isTauri(): boolean {
@@ -154,13 +154,11 @@ export async function setWindowSize(width: number, height: number): Promise<void
   await current.setSize(new LogicalSize(Math.round(width), Math.ceil(height)));
 }
 
-/** Matches `minWidth` in tauri.conf.json: the Korean toolbar with the app name needs about 462px. */
-export const MIN_WINDOW_WIDTH = 470;
-
-/** The English month title is wider, so its toolbar needs about 507px before the close button is cut off. */
-export function minWindowWidth(language: Language): number {
-  return language === "en" ? 510 : MIN_WINDOW_WIDTH;
-}
+/**
+ * Matches `minWidth` in tauri.conf.json, the width the default Korean toolbar needs. The calendar measures its
+ * toolbar after layout and raises or lowers the minimum for the language and year-month format on screen.
+ */
+export const MIN_WINDOW_WIDTH = 366;
 
 /** Ignored while maximized, where the minimum measured from the screen-wide grid would outlast the full screen. */
 export async function setWindowMinSize(width: number, height: number): Promise<void> {

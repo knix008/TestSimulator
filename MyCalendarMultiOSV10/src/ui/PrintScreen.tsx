@@ -25,6 +25,7 @@ import {
 } from "../domain/print";
 import type { Weekday } from "../domain/settings";
 import { dragWindow, isTauri, resizeWindow } from "../platform/desktop";
+import { PanelBackdrop } from "./BackgroundImage";
 import { Dropdown } from "./Dropdown";
 import { ChevronIcon, PageSetupIcon, PlusIcon, PrintIcon, ResizeGripIcon } from "./icons";
 import { useEvents } from "./useEvents";
@@ -320,6 +321,7 @@ export function PrintScreen({
 
   return (
     <section className="panel screen print-screen">
+      <PanelBackdrop settings={ctx.settings} target="print" />
       <WindowChrome icon={<PrintIcon />} title={t.printTitle} closeLabel={t.close} onClose={onClose} onMouseDown={onMouseDown} />
       <div className="print-body">
         <aside className="print-options" aria-label={t.printSetup}>

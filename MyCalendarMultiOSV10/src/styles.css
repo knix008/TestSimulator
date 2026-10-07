@@ -91,10 +91,23 @@ html[data-platform="web"] .app-frame {
   border-radius: 22px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 18px 40px var(--shadow);
   user-select: none;
+  isolation: isolate;
 }
 
 .panel.screen {
   background: linear-gradient(180deg, var(--bg-top-solid), var(--bg-solid));
+}
+
+/* Above the panel's themed background and below everything in it. */
+.panel-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
 }
 
 .toolbar {
@@ -119,7 +132,7 @@ html[data-platform="web"] .app-frame {
   height: 32px;
 }
 
-.toolbar h1 {
+.toolbar h1, .month-title-sizer {
   display: flex;
   align-items: center;
   height: 32px;
@@ -134,12 +147,24 @@ html[data-platform="web"] .app-frame {
   justify-content: center;
 }
 
-.app-brand { display: flex; align-items: center; gap: 6px; flex: none; padding: 0 8px 0 4px; white-space: nowrap; }
+.app-brand { display: flex; align-items: center; flex: none; padding: 0 6px 0 4px; }
 .app-icon { flex: none; width: 20px; height: 20px; border-radius: 5px; }
-.app-name { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: -0.01em; }
+.app-name {
+  flex: none;
+  padding-left: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+/* Kept measurable while out of the layout, so the toolbar knows when the whole name fits. */
+.app-name[data-hidden] { position: absolute; visibility: hidden; pointer-events: none; }
 
-html[lang="ko"] .toolbar h1 { width: 92px; }
-html[lang="en"] .toolbar h1 { width: 122px; }
+/* The hidden titles of every month share the grid cell, so the title is as wide as the widest of them. */
+.month-title { display: grid; flex: none; }
+.month-title > * { grid-area: 1 / 1; }
+.month-title-sizer { visibility: hidden; }
 
 .chrome {
   display: flex;
@@ -199,7 +224,7 @@ html[lang="en"] .toolbar h1 { width: 122px; }
   background: var(--surface);
 }
 
-.today-btn { color: var(--accent); font-weight: 700; }
+.today-btn { color: var(--accent); }
 
 .window-controls { gap: 0; margin-left: -4px; }
 .window-controls .icon-btn { width: 28px; }
@@ -569,6 +594,22 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 .text-btn.solid { align-self: flex-start; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .text-btn.solid > .icon { width: 16px; height: 16px; }
 
+.background-image-row { display: flex; align-items: center; gap: 10px; }
+.background-image-thumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 60px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface) center / cover no-repeat;
+  color: var(--muted);
+  font-size: 12px;
+}
+.background-image-actions { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.background-image-windows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+
 .theme-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .swatch {
   display: flex;
@@ -639,14 +680,17 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   position: fixed;
   inset: 0;
   display: grid;
-  place-items: center;
+  place-items: start center;
   padding: 16px;
+  overflow-y: auto;
   background: rgba(12, 16, 24, 0.55);
 }
 
+/* Auto margins centre the dialog and still let a tall one scroll from its top. */
 .modal {
   width: min(520px, calc(100vw - 24px));
   height: auto;
+  margin-block: auto;
 }
 .modal .panel {
   width: 100%;
@@ -755,17 +799,28 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 .agenda-event { margin-right: 10px; }
 .agenda-event .event-dot { margin-right: 4px; vertical-align: 1px; }
 
+/* The dots line up across the cell under the date and wrap onto the next row only when a row is full.
+   Rows that would run past the cell are cut off rather than drawn over the date. */
 .dots {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0.32em;
+  left: 0.3em;
+  right: 0.3em;
+  top: calc(50% + 0.56em);
+  bottom: 0.06em;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 0.18em;
+  align-content: flex-start;
+  gap: 0.1em 0.18em;
+  overflow: hidden;
   pointer-events: none;
 }
-.dots i { width: 0.32em; height: 0.32em; border-radius: 50%; }
+/* The lunar or solar-term text takes the space under the date, so the dots move above it: the first row sits
+   right on the date and further rows stack upward. */
+.day.has-sub .dots { top: 0.06em; bottom: calc(50% + 0.56em); flex-wrap: wrap-reverse; }
+.day-pair .day.has-sub .dots { top: calc(50% + 0.56em); bottom: 0.06em; flex-wrap: wrap; }
+.dots i { flex: none; width: 0.32em; height: 0.32em; border-radius: 50%; }
+.dots i.holiday-dot { background: var(--holiday); }
 
 .sheet-back {
   position: absolute;
@@ -933,6 +988,9 @@ html[data-platform="desktop"] .events-screen .manage-list { flex: 1 1 0; max-hei
   width: min(360px, calc(100vw - 32px));
 }
 .reminder-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 8px;

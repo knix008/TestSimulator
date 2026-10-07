@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { MONTH_TITLE_FORMATS, monthTitle } from "../domain/calendar";
 import { countryName, sortCountries } from "../domain/countries";
 import { requestHolidayRefresh } from "../domain/holidays";
 import { lunarSupported } from "../domain/lunar";
@@ -25,6 +26,7 @@ import { dateFontStyle } from "./dateFont";
 import { darkThemes, lightThemes } from "../domain/themes";
 import { dragWindow, isTauri } from "../platform/desktop";
 import { AboutInfo } from "./AboutInfo";
+import { BackgroundImageSettings } from "./BackgroundImageSettings";
 import { Dropdown } from "./Dropdown";
 import { RangeField } from "./RangeField";
 import {
@@ -68,6 +70,7 @@ export function SettingsScreen({
   const currentMode = settings.themeId.startsWith("light-") ? "light" : "dark";
   const transparency = transparencyFromOpacity(settings.opacity);
   const [tab, setTab] = useState<SettingsTab>(() => takeRequestedTab() ?? "general");
+  const [today] = useState(() => new Date());
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
@@ -232,10 +235,27 @@ export function SettingsScreen({
                 </button>
               ))}
             </div>
+            <BackgroundImageSettings settings={settings} update={update} t={t} />
           </>
         )}
         {tab === "calendar" && (
           <>
+            <label className="field with-icon" id="month-title-format-label">
+              <CalendarIcon />
+              {t.monthTitleFormat}
+            </label>
+            <Dropdown
+              value={settings.monthTitleFormats[settings.language]}
+              ariaLabel={t.monthTitleFormat}
+              options={MONTH_TITLE_FORMATS[settings.language].map((format) => ({
+                value: format,
+                label: monthTitle(today.getFullYear(), today.getMonth(), settings.language, t.months, format),
+              }))}
+              onChange={(format) =>
+                update({ monthTitleFormats: { ...settings.monthTitleFormats, [settings.language]: format } })
+              }
+            />
+            <p className="hint">{t.monthTitleFormatHint}</p>
             <label className="field with-icon" id="week-start-label">
               <WeekStartIcon />
               {t.weekStart}

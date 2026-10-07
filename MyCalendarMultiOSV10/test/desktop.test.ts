@@ -144,7 +144,7 @@ describe("Desktop", () => {
     expect(seen).toEqual(["ko", "en"]);
   });
 
-  it("minimizes to the taskbar and toggles maximize on the calendar window", async () => {
+  it("minimizes to the tray and toggles maximize on the calendar window", async () => {
     asDesktop();
     mocks.invoke.mockReset();
     mocks.invoke.mockResolvedValue(null);
@@ -181,8 +181,10 @@ describe("Desktop", () => {
     expect(screen).toContain("size.width >= window.screen.availWidth && size.height >= window.screen.availHeight");
 
     const rust = readFileSync(resolve("src-tauri/src/lib.rs"), "utf8");
-    expect(rust).toContain("window.set_skip_taskbar(false)");
-    expect(rust).toMatch(/WindowEvent::Focused\(true\)[^=]*=> \{\s*let _ = window\.set_skip_taskbar\(true\)/);
+    // The calendar never gets a taskbar button: minimizing, from the app or the OS, hides it to the tray.
+    expect(rust).not.toContain("set_skip_taskbar(false)");
+    expect(rust).toMatch(/fn minimize_main\([^)]*\)[^{]*\{[^}]*window\.hide\(\)/);
+    expect(rust).toMatch(/WindowEvent::Resized\(_\) if window\.is_minimized\(\)\.unwrap_or\(false\) => \{\s*let _ = window\.hide\(\);/);
     expect(rust).toMatch(/minimize_main,\s*toggle_maximize_main,/);
   });
 
@@ -192,9 +194,12 @@ describe("Desktop", () => {
     // Toolbar 46, weekdays 25, square 7x5 grid at the narrowest width, collapsed footer 45, 1px border top and bottom.
     const collapsed = 46 + 25 + ((main.minWidth - 2) * 5) / 7 + 45 + 2;
     expect(main.minWidth).toBe(desktop.MIN_WINDOW_WIDTH);
-    // The app name sits in the toolbar, and the English month title is wider than the Korean one.
-    expect(desktop.minWindowWidth("ko")).toBe(470);
-    expect(desktop.minWindowWidth("en")).toBe(510);
+    // The minimum leaves the app's name out; it follows the toolbar measured for the language and format.
+    expect(desktop.MIN_WINDOW_WIDTH).toBe(366);
+    const screenSource = readFileSync(resolve("src/ui/CalendarScreen.tsx"), "utf8");
+    expect(screenSource).toContain("toolbarWidth(toolbarRef.current, panel)");
+    expect(screenSource).toContain("[settings.language, titleFormat]");
+    expect(screenSource).toContain("- (name?.getBoundingClientRect().width ?? 0)");
     expect(main.minHeight).toBe(Math.ceil(collapsed));
 
     // The minimum follows the current width, so changing only the height never squeezes the grid; while the
@@ -219,7 +224,9 @@ describe("Desktop", () => {
     const screen = readFileSync(resolve("src/ui/CalendarScreen.tsx"), "utf8");
     expect(grip).toMatch(/if \(isTauri\(\)\) \{\s*void resizeWindow\("SouthEast"\);\s*return;/);
     expect(grip).not.toContain("setWindowSize");
-    expect(screen).not.toContain("ResizeObserver");
+    // The one observer only decides whether the app's name fits; it never sizes the window.
+    expect(screen.match(/new ResizeObserver\(\w+\)/g)).toEqual(["new ResizeObserver(fitName)"]);
+    expect(screen).toMatch(/const fitName = \(\) => \{[^}]*setShowName\([^)]*\);\s*\};/);
     expect(screen).toContain("}, [collapsed, maximized]);");
     expect(screen).toContain('window.addEventListener("resize", remember)');
     // The events height saved by the same resize re-renders first; reading through refs keeps that from

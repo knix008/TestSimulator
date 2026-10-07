@@ -43,6 +43,16 @@ export function InfoIcon() {
   );
 }
 
+export function ImageIcon() {
+  return (
+    <Glyph>
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="9" cy="10" r="1.7" fill="currentColor" />
+      <path d="m4.5 17.5 5-5 3.5 3.5 2.5-2.5 4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </Glyph>
+  );
+}
+
 export function MinimizeIcon() {
   return (
     <Glyph>

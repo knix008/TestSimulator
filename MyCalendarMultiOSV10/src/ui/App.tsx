@@ -193,7 +193,7 @@ function MainWindow() {
           {dialog && <AuxDialog key={dialog} view={dialog} ctx={ctx} onClose={() => setDialog(null)} />}
           {!isTauri() && (
             <div className="reminder-overlay">
-              <ReminderPopup t={ctx.t} language={ctx.settings.language} />
+              <ReminderPopup t={ctx.t} language={ctx.settings.language} settings={ctx.settings} />
             </div>
           )}
         </div>
@@ -244,6 +244,7 @@ function ReminderWindowContent({ ctx }: { ctx: ReadyContext }) {
       <ReminderPopup
         t={ctx.t}
         language={ctx.settings.language}
+        settings={ctx.settings}
         onSize={(height) => void fitReminderWindow(height)}
         onEmpty={() => void hideCurrentWindow()}
       />

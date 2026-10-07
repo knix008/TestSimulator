@@ -281,12 +281,12 @@ fn hide_main(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-/// The calendar normally stays off the taskbar, so it gets a taskbar button while minimized to be restorable.
+/// The calendar stays off the taskbar, so minimizing hides it to the tray; the tray icon brings it back.
+/// A real minimize without a taskbar button would leave a small stub on the desktop on Windows.
 #[tauri::command]
 fn minimize_main(app: tauri::AppHandle) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("missing main window")?;
-    window.set_skip_taskbar(false).map_err(|error| error.to_string())?;
-    window.minimize().map_err(|error| error.to_string())
+    window.hide().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -471,8 +471,9 @@ pub fn run() {
                     api.prevent_close();
                     let _ = window.hide();
                 }
-                WindowEvent::Focused(true) if !window.is_minimized().unwrap_or(false) => {
-                    let _ = window.set_skip_taskbar(true);
+                // Minimizing from the OS (Win+Down) also goes to the tray, so no taskbar button or desktop stub appears.
+                WindowEvent::Resized(_) if window.is_minimized().unwrap_or(false) => {
+                    let _ = window.hide();
                 }
                 // Covers maximizing from the OS too (Win+Up, dragging to the top edge, double-clicking).
                 // Queued from another thread so the layer is applied after the size change in progress finishes.

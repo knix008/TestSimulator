@@ -1,5 +1,6 @@
 import type { MouseEvent } from "react";
 import { dragWindow, isTauri } from "../platform/desktop";
+import { PanelBackdrop } from "./BackgroundImage";
 import { EventManager } from "./EventManager";
 import { EventsIcon } from "./icons";
 import type { ReadyContext } from "./useSettings";
@@ -24,6 +25,7 @@ export function EventsScreen({
   };
   return (
     <section className="panel screen events-screen">
+      <PanelBackdrop settings={settings} target="events" />
       <WindowChrome icon={<EventsIcon />} title={t.manageEvents} closeLabel={t.close} onClose={onClose} onMouseDown={onMouseDown} />
       <div className="screen-body">
         <EventManager

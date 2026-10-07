@@ -31,12 +31,13 @@ import {
   minimizeMain,
   onMaximizedChange,
   resizeWindow,
-  minWindowWidth,
+  MIN_WINDOW_WIDTH,
   setWindowMinSize,
   setWindowSize,
   toggleMaximizeMain,
 } from "../platform/desktop";
 import { blankEvent, eventsOn, type CalendarEvent } from "../domain/events";
+import { PanelBackdrop } from "./BackgroundImage";
 import { EventEditor, reminderLabel, repeatLabel } from "./EventEditor";
 import {
   BellIcon,
@@ -175,6 +176,26 @@ function normalWindowSize(size: Settings["windowSize"]): Settings["windowSize"] 
   return size;
 }
 
+/** The narrowest panel that fits the toolbar's groups side by side; 0 before layout. */
+function toolbarWidth(toolbar: HTMLElement | null, panel: HTMLElement | null): number {
+  if (!toolbar || !panel) return 0;
+  const groups = [...toolbar.children] as HTMLElement[];
+  // A negative margin pulls a group closer; the end group's auto margin is free space, not width it needs.
+  // The app's name only appears when there is room for it, so it never counts.
+  const name = toolbar.querySelector<HTMLElement>(".app-name:not([data-hidden])");
+  const content =
+    groups.reduce(
+      (sum, group) => sum + group.getBoundingClientRect().width + Math.min(0, parseFloat(getComputedStyle(group).marginLeft) || 0),
+      0,
+    ) - (name?.getBoundingClientRect().width ?? 0);
+  if (content <= 0) return 0;
+  const style = getComputedStyle(toolbar);
+  const gaps = Math.max(0, groups.length - 1) * (parseFloat(style.columnGap) || 0);
+  const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const border = panel.offsetWidth - panel.clientWidth;
+  return Math.ceil(content + gaps + padding + border);
+}
+
 /** Height of everything around the grid and the events list, and the grid's height with square cells. */
 function measureLayout(panel: HTMLElement): { chrome: number; squareDays: number } | null {
   const days = panel.querySelector(".days")?.getBoundingClientRect();
@@ -221,7 +242,36 @@ export function CalendarScreen({
     setMenu(null);
     panelRef.current?.focus({ preventScroll: true });
   }, []);
-  const minWidth = minWindowWidth(settings.language);
+  const titleFormat = settings.monthTitleFormats[settings.language];
+  const toolbarRef = useRef<HTMLElement>(null);
+  const [minWidth, setMinWidth] = useState(MIN_WINDOW_WIDTH);
+  const [showName, setShowName] = useState(false);
+  // The toolbar's width depends on the language and the year-month format, so the window minimum is measured.
+  // The name joins the icon only while the whole of it fits beside the toolbar's buttons.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const fitName = () => {
+      const needed = toolbarWidth(toolbarRef.current, panel);
+      const name = toolbarRef.current?.querySelector(".app-name")?.getBoundingClientRect().width ?? 0;
+      if (panel && needed > 0) setShowName(panel.offsetWidth >= needed + name);
+    };
+    const measure = () => {
+      const needed = toolbarWidth(toolbarRef.current, panel);
+      if (needed > 0) setMinWidth(needed);
+      fitName();
+    };
+    measure();
+    let alive = true;
+    void document.fonts?.ready.then(() => {
+      if (alive) measure();
+    });
+    const observer = typeof ResizeObserver === "undefined" || !panel ? null : new ResizeObserver(fitName);
+    if (panel) observer?.observe(panel);
+    return () => {
+      alive = false;
+      observer?.disconnect();
+    };
+  }, [settings.language, titleFormat]);
   const resize = usePanelResize(
     drag.offset,
     settings.eventsHeight,
@@ -428,6 +478,11 @@ export function CalendarScreen({
   const desktop = isTauri();
   const viewYear = view.year;
   const viewMonth = view.month;
+  // Every month of the year laid on top of each other keeps the title, and the arrows beside it, from moving.
+  const titleSizers = useMemo(
+    () => [...new Set(t.months.map((_, month) => monthTitle(viewYear, month, settings.language, t.months, titleFormat)))],
+    [viewYear, settings.language, t.months, titleFormat],
+  );
   const cells = useMemo(
     () => buildMonthWeeks(viewYear, viewMonth, settings.weekStartsOn),
     [viewYear, viewMonth, settings.weekStartsOn],
@@ -615,21 +670,37 @@ export function CalendarScreen({
         } as CSSProperties
       }
     >
-      <header className="toolbar">
+      <PanelBackdrop settings={settings} target="main" />
+      <header className="toolbar" ref={toolbarRef}>
         <div className="toolbar-group">
-          <span className="app-brand">
-            <img className="app-icon" src="/favicon.png" alt="" width={20} height={20} draggable={false} />
-            <span className="app-name">MyCalendar</span>
+          <span className="app-brand" title={t.appName}>
+            <img className="app-icon" src="/favicon.png" alt={showName ? "" : t.appName} width={20} height={20} draggable={false} />
+            <span className="app-name" data-hidden={showName ? undefined : ""} aria-hidden={showName ? undefined : true}>
+              {t.appName}
+            </span>
           </span>
           <button type="button" className="icon-btn" aria-label={t.prevMonth} onClick={() => shiftMonth(-1)}>
             <ChevronIcon direction="left" />
           </button>
-          <h1>{monthTitle(viewYear, viewMonth, settings.language, t.months)}</h1>
+          <div className="month-title">
+            <h1>{monthTitle(viewYear, viewMonth, settings.language, t.months, titleFormat)}</h1>
+            {titleSizers.map((sample) => (
+              <span key={sample} className="month-title-sizer" aria-hidden="true">
+                {sample}
+              </span>
+            ))}
+          </div>
           <button type="button" className="icon-btn" aria-label={t.nextMonth} onClick={() => shiftMonth(1)}>
             <ChevronIcon direction="right" />
           </button>
-          <button type="button" className="text-btn today-btn" onClick={() => selectDate(new Date())}>
-            {t.today}
+          <button
+            type="button"
+            className="icon-btn today-btn"
+            aria-label={t.today}
+            title={t.today}
+            onClick={() => selectDate(new Date())}
+          >
+            <TodayIcon />
           </button>
         </div>
         <div className="toolbar-group toolbar-end">
@@ -719,11 +790,12 @@ export function CalendarScreen({
                 }}
               >
                 <span className="num">{date.getDate()}</span>
-                {names.length > 0 && <span className="mark" />}
+                {names.length > 0 && dayEvents.length === 0 && <span className="mark" />}
                 {note?.cell && <span className={note.term ? "sub term" : "sub"}>{note.cell}</span>}
                 {dayEvents.length > 0 && (
                   <span className="dots">
-                    {dayEvents.slice(0, 3).map((event) => (
+                    {names.length > 0 && <i className="holiday-dot" />}
+                    {dayEvents.map((event) => (
                       <i key={event.id} style={{ background: event.color }} />
                     ))}
                   </span>

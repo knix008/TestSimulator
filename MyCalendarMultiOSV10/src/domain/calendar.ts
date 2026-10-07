@@ -51,7 +51,76 @@ export function weekdayLabels(labels: string[], weekStartsOn: number): string[] 
   return [...labels.slice(weekStartsOn), ...labels.slice(0, weekStartsOn)];
 }
 
-export function monthTitle(year: number, month: number, language: "ko" | "en", monthNames: string[]): string {
-  if (language === "ko") return `${year}년 ${monthNames[month]}`;
-  return `${monthNames[month]} ${year}`;
+/** Ways to write the year and month in the calendar's title bar; each language keeps its own choice. */
+export const MONTH_TITLE_FORMATS = {
+  ko: ["ko-long", "ko-short-year", "ko-hanja", "ko-dot", "ko-compact", "ko-dash", "ko-slash", "ko-month"],
+  en: ["en-long", "en-short", "en-apostrophe", "en-upper", "en-slash", "en-dot", "en-dash", "en-month"],
+} as const;
+export type KoMonthTitleFormat = (typeof MONTH_TITLE_FORMATS.ko)[number];
+export type EnMonthTitleFormat = (typeof MONTH_TITLE_FORMATS.en)[number];
+export type MonthTitleFormat = KoMonthTitleFormat | EnMonthTitleFormat;
+export type MonthTitleFormats = { ko: KoMonthTitleFormat; en: EnMonthTitleFormat };
+export const DEFAULT_MONTH_TITLE_FORMATS: MonthTitleFormats = { ko: "ko-long", en: "en-long" };
+
+export function normalizeMonthTitleFormats(value: unknown): MonthTitleFormats {
+  const input = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const pick = <T extends string>(options: readonly T[], candidate: unknown, fallback: T): T =>
+    options.includes(candidate as T) ? (candidate as T) : fallback;
+  return {
+    ko: pick(MONTH_TITLE_FORMATS.ko, input.ko, DEFAULT_MONTH_TITLE_FORMATS.ko),
+    en: pick(MONTH_TITLE_FORMATS.en, input.en, DEFAULT_MONTH_TITLE_FORMATS.en),
+  };
+}
+
+/** `month` is 0-based; a format from the other language falls back to this language's default. */
+export function monthTitle(
+  year: number,
+  month: number,
+  language: "ko" | "en",
+  monthNames: string[],
+  format: MonthTitleFormat = DEFAULT_MONTH_TITLE_FORMATS[language],
+): string {
+  const m = month + 1;
+  const mm = String(m).padStart(2, "0");
+  const yy = String(year % 100).padStart(2, "0");
+  if (language === "ko") {
+    switch (format) {
+      case "ko-short-year":
+        return `${yy}년 ${m}월`;
+      case "ko-hanja":
+        return `${year}年 ${m}月`;
+      case "ko-dot":
+        return `${year}. ${m}.`;
+      case "ko-compact":
+        return `${year}.${mm}`;
+      case "ko-dash":
+        return `${year}-${mm}`;
+      case "ko-slash":
+        return `${year}/${mm}`;
+      case "ko-month":
+        return `${m}월`;
+      default:
+        return `${year}년 ${m}월`;
+    }
+  }
+  const name = monthNames[month];
+  const short = name.slice(0, 3);
+  switch (format) {
+    case "en-short":
+      return `${short} ${year}`;
+    case "en-apostrophe":
+      return `${short} '${yy}`;
+    case "en-upper":
+      return `${short.toUpperCase()} ${year}`;
+    case "en-slash":
+      return `${mm}/${year}`;
+    case "en-dot":
+      return `${mm}.${year}`;
+    case "en-dash":
+      return `${year}-${mm}`;
+    case "en-month":
+      return name;
+    default:
+      return `${name} ${year}`;
+  }
 }

@@ -14,7 +14,9 @@ import {
   writeQueue,
   type ReminderItem,
 } from "../domain/reminders";
+import type { Settings } from "../domain/settings";
 import { showReminderWindow } from "../platform/desktop";
+import { PanelBackdrop } from "./BackgroundImage";
 import { formatEventDate, reminderLabel } from "./EventEditor";
 import { BellIcon } from "./icons";
 
@@ -102,11 +104,14 @@ export function useReminderQueue() {
 export function ReminderPopup({
   t,
   language,
+  settings,
   onSize,
   onEmpty,
 }: {
   t: Messages;
   language: Language;
+  /** Carries the background image choices; without it the popup keeps the plain theme. */
+  settings?: Settings;
   /** Reports the rendered height so a desktop popup window can fit it. */
   onSize?: (height: number) => void;
   onEmpty?: () => void;
@@ -138,6 +143,7 @@ export function ReminderPopup({
 
   return (
     <section ref={panelRef} className="reminder-panel" role="alertdialog" aria-labelledby="reminder-title" aria-live="assertive">
+      {settings && <PanelBackdrop settings={settings} target="reminder" />}
       <header className="reminder-head">
         <span className="reminder-bell">
           <BellIcon />

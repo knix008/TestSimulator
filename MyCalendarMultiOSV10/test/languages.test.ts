@@ -29,7 +29,7 @@ describe("Languages", () => {
           expect(value.every((item) => item.trim().length > 0)).toBe(true);
         } else if (typeof value === "object") {
           expect(Object.values(value).every((item) => item.trim().length > 0), key).toBe(true);
-          const counted = !["repeatEveryOne", "fontFamilies", "fontWeights", "printOrientations", "printMargins", "dateFontTargets"].includes(key);
+          const counted = !["repeatEveryOne", "fontFamilies", "fontWeights", "printOrientations", "printMargins", "dateFontTargets", "backgroundImageTargets"].includes(key);
           expect(Object.values(value).every((item) => item.includes("{n}")), key).toBe(counted);
         } else {
           expect(value.trim().length, key).toBeGreaterThan(0);
