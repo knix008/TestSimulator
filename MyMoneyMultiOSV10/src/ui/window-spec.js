@@ -53,6 +53,26 @@ export function sceneFit(box, textWidth = SCENE_TEXT) {
   return { text: shared, art: shared };
 }
 
+/** One row of the watchlist board: a 32px row and the 2px gap under it. */
+export const BOARD_ROW = 34;
+export const BOARD_HEAD = 26;
+/** Five columns of numbers need room; a board window is never narrower than this. */
+export const BOARD_MIN_WIDTH = 620;
+export const BOARD_MAX_HEIGHT = 1000;
+
+/**
+ * The window that shows the whole watchlist is exactly as tall as its rows, so
+ * every symbol is visible without a scrollbar. The width only ever grows.
+ */
+export function boardWindowSize(rowCount, currentWidth) {
+  const rows = Math.max(1, Math.round(Number(rowCount) || 1));
+  const content = BOARD_HEAD + rows * BOARD_ROW + CONTENT_PADDING.top + CONTENT_PADDING.bottom;
+  return clampWindowSize({
+    width: Math.max(BOARD_MIN_WIDTH, Math.round(Number(currentWidth) || WINDOW_DEFAULT.width)),
+    height: Math.min(BOARD_MAX_HEIGHT, TOOLBAR_HEIGHT + content),
+  });
+}
+
 /** Prefer the size recorded while resizing. Settings often keep the position and drop the size. */
 export function recordedWindowPlacement(settings, recorded) {
   const recordedWidth = Math.round(Number(recorded?.width));

@@ -13,7 +13,7 @@ import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
 import { buildPrintModel } from "../../src/core/print-model.js";
 import { RecentFiles } from "../../src/core/recent.js";
-import { MAX_SYMBOLS, sanitizeSettings } from "../../src/core/settings.js";
+import { MAX_RATE_CURRENCIES, MAX_SYMBOLS, normalizeRateCurrencies, sanitizeSettings } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
@@ -21,11 +21,11 @@ import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconF
 import { layoutMenu, menuWindowOptions, placeBeside, popupKey, popupWindowOptions } from "../../src/ui/menu-layout.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { CONTENT_PADDING, SCENE_ART, SCENE_GAP, SCENE_MAX_SCALE, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { BOARD_HEAD, BOARD_MAX_HEIGHT, BOARD_MIN_WIDTH, BOARD_ROW, CONTENT_PADDING, SCENE_ART, SCENE_GAP, SCENE_MAX_SCALE, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, WINDOW_DEFAULT, WINDOW_MIN, boardWindowSize, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
-import { aggregateQuote, aggregateRates, mergeNews, presentBoard } from "../../src/market/aggregate.js";
+import { aggregateQuote, aggregateRates, mergeNews, newsKey, presentBoard } from "../../src/market/aggregate.js";
 import { formatMoney, formatPercent, formatPrice, formatRate, formatSigned, formatVolume, quotePair } from "../../src/market/format.js";
-import { LISTINGS, MARKETS, filterListings, findMarket, listingName, marketOfSymbol } from "../../src/market/markets.js";
+import { CURRENCIES, LISTINGS, MARKETS, currencyName, filterListings, findMarket, listingName, marketOfSymbol } from "../../src/market/markets.js";
 import {
   SOURCE_IDS,
   erApiUrl,
@@ -33,8 +33,10 @@ import {
   googleNewsUrl,
   parseErApi,
   parseFrankfurter,
+  newsWireUrl,
   parseNewsFeed,
   parseSymbolSearch,
+  safeImageUrl,
   parseYahooChart,
   sourcePageUrl,
   yahooChartUrl,
@@ -42,7 +44,7 @@ import {
 } from "../../src/market/providers.js";
 import { loadBoard, newsQuery } from "../../src/market/service.js";
 import { trendOf, trendText } from "../../src/market/trend.js";
-import { rateBetween } from "../../src/ui/market-view.js";
+import { boardRowCount, rateBetween, shownRateRows } from "../../src/ui/market-view.js";
 import { SAMPLE_DATES, erApiBody, frankfurterBody, jsonResponse, newsBody, textResponse, yahooBody } from "../support.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -382,6 +384,28 @@ export function registerLogic(h) {
     // A source that never answered falls back to the average.
     assert.equal(presentBoard(board, "gnews").quotes[0].last, 101);
   });
+  h.test("one story carried by two feeds becomes one row that keeps the picture", () => {
+    // The search feed spells it "Headline - Outlet"; the wire spells it plain.
+    assert.equal(newsKey("뉴욕증시 하락 출발 - 연합뉴스"), newsKey("뉴욕증시 하락 출발"));
+    assert.equal(newsKey("Boots sold in £7bn deal - BBC News"), newsKey("Boots sold in £7bn deal"));
+    assert.notEqual(newsKey("삼성전자 신고가"), newsKey("코스피 상승"));
+    assert.equal(newsKey(""), "");
+    const merged = mergeNews([
+      {
+        id: "gnews",
+        ok: true,
+        data: { rows: [{ title: "뉴욕증시 하락 출발 - 연합뉴스", published: "2026-10-07T22:58:00Z", image: "", outlet: "연합뉴스", link: "a" }] },
+      },
+      {
+        id: "wires",
+        ok: true,
+        data: { rows: [{ title: "뉴욕증시 하락 출발", published: "2026-10-07T22:58:00Z", image: "https://img.example/x.jpg", outlet: "yna", link: "b" }] },
+      },
+    ]);
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].title, "뉴욕증시 하락 출발 - 연합뉴스");
+    assert.equal(merged[0].image, "https://img.example/x.jpg");
+  });
   h.test("headlines merge, drop repeats, and stay newest first", () => {
     const merged = mergeNews([
       { id: "gnews", ok: true, data: parseNewsFeed(newsBody(["가", "나"])) },
@@ -466,6 +490,7 @@ export function registerLogic(h) {
         }
         if (href.includes("frankfurter")) return jsonResponse(frankfurterBody("KRW"));
         if (href.includes("er-api")) return jsonResponse(erApiBody("KRW"));
+        if (href.includes("yna.co.kr") || href.includes("bbci.co.uk")) return textResponse(newsBody(["사진 기사"], { images: true }));
         return textResponse(newsBody());
       },
     });
@@ -473,11 +498,13 @@ export function registerLogic(h) {
     assert.equal(data.quotes[0].last, 100);
     assert.equal(data.index.symbol, "^KS11");
     assert.ok(data.rates.rows.length >= 2);
-    assert.equal(data.news.length, 2);
+    assert.equal(data.news.length, 3);
+    assert.equal(data.news.filter((row) => row.image).length, 1);
     assert.equal(seen.at(-1)[0], 100);
     assert.equal(data.sources.find((source) => source.id === "yahoo").ok, true);
     assert.equal(data.sources.find((source) => source.id === "yahoo2").ok, false);
     assert.equal(data.sources.find((source) => source.id === "gnews").ok, true);
+    assert.equal(data.sources.find((source) => source.id === "wires").ok, true);
     assert.deepEqual(data.sources.map((source) => source.id).sort(), [...SOURCE_IDS].sort());
   });
   h.test("a board whose every quote source fails is an error", async () => {
@@ -487,7 +514,7 @@ export function registerLogic(h) {
       /All quote sources failed/,
     );
     await assert.rejects(
-      loadBoard(board, { sources: ["gnews"], fetchImpl: async () => textResponse(newsBody()) }),
+      loadBoard(board, { sources: ["gnews", "wires"], fetchImpl: async () => textResponse(newsBody()) }),
       /No quote source is enabled/,
     );
   });
@@ -502,6 +529,91 @@ export function registerLogic(h) {
     assert.match(newsQuery(board, "ko"), /삼성전자/);
     assert.match(newsQuery(board, "en"), /Korea Exchange/);
     assert.match(newsQuery(board, "en"), /stock market/);
+  });
+
+  h.test("the window mode, the rotation interval, and the currency list are checked", () => {
+    assert.equal(sanitizeSettings(null).sceneMode, "single");
+    assert.equal(sanitizeSettings(null).rotateSeconds, 0);
+    assert.equal(sanitizeSettings({ sceneMode: "all" }).sceneMode, "all");
+    assert.equal(sanitizeSettings({ sceneMode: "grid" }).sceneMode, "single");
+    assert.equal(sanitizeSettings({ rotateSeconds: 10 }).rotateSeconds, 10);
+    assert.equal(sanitizeSettings({ rotateSeconds: 7 }).rotateSeconds, 0);
+    assert.equal(sanitizeSettings({ rotateSeconds: "30" }).rotateSeconds, 30);
+    assert.deepEqual(sanitizeSettings(null).rateCurrencies, ["USD", "JPY", "EUR", "CNY"]);
+    // A list drops the unknown, the repeats, and the base itself, and stops at the ceiling.
+    const trimmed = sanitizeSettings({
+      baseCurrency: "USD",
+      rateCurrencies: ["usd", "jpy", "JPY", "NOPE", ...CURRENCIES],
+    }).rateCurrencies;
+    assert.equal(trimmed.includes("USD"), false);
+    assert.equal(trimmed.filter((code) => code === "JPY").length, 1);
+    assert.equal(trimmed.includes("NOPE"), false);
+    assert.equal(trimmed.length, MAX_RATE_CURRENCIES);
+    assert.deepEqual(normalizeRateCurrencies(["EUR", "EUR", "KRW"], "KRW"), ["EUR"]);
+  });
+  h.test("the currency catalog covers many countries and every code is named", () => {
+    assert.ok(CURRENCIES.length >= 30);
+    assert.equal(new Set(CURRENCIES).size, CURRENCIES.length);
+    for (const code of CURRENCIES) {
+      assert.match(code, /^[A-Z]{3}$/);
+      assert.ok(currencyName(code, "ko"), code);
+      assert.ok(currencyName(code, "en"), code);
+      assert.notEqual(currencyName(code, "ko"), code);
+    }
+    for (const code of ["USD", "KRW", "EUR", "JPY", "CNY", "GBP", "THB", "VND", "MXN", "ZAR"]) {
+      assert.ok(CURRENCIES.includes(code), code);
+    }
+  });
+  h.test("only the chosen currencies are listed, in the order they were added", () => {
+    const rates = {
+      base: "KRW",
+      rows: [{ code: "USD", rate: 1 }, { code: "EUR", rate: 2 }, { code: "JPY", rate: 3 }],
+    };
+    assert.deepEqual(shownRateRows(rates, ["JPY", "USD"]).rows.map((row) => row.code), ["JPY", "USD"]);
+    // A currency fetched only so a price could be converted is not listed.
+    assert.deepEqual(shownRateRows(rates, ["EUR"]).rows.map((row) => row.code), ["EUR"]);
+    assert.equal(shownRateRows(rates, ["GBP"]).rows.length, 0);
+    assert.equal(shownRateRows(rates, []).rows.length, 3);
+    assert.equal(shownRateRows(null, ["USD"]).rows.length, 0);
+  });
+  h.test("a whole-watchlist window is exactly as tall as its rows", () => {
+    const four = boardWindowSize(4, 760);
+    assert.equal(four.width, 760);
+    assert.equal(four.height, 46 + BOARD_HEAD + 4 * BOARD_ROW + CONTENT_PADDING.top + CONTENT_PADDING.bottom);
+    // One more symbol is one more row of window.
+    assert.equal(boardWindowSize(5, 760).height - four.height, BOARD_ROW);
+    // Five columns of numbers need width even if the window was narrow.
+    assert.equal(boardWindowSize(4, 400).width, BOARD_MIN_WIDTH);
+    assert.equal(boardWindowSize(3, 900).width, 900);
+    assert.ok(boardWindowSize(99, 760).height <= BOARD_MAX_HEIGHT);
+    assert.ok(boardWindowSize(0, 760).height >= WINDOW_MIN.height);
+  });
+  h.test("the board row count falls back to the watchlist before any data arrives", () => {
+    const board = { symbols: [{ symbol: "A" }, { symbol: "B" }] };
+    assert.equal(boardRowCount({ board }), 3);
+    assert.equal(boardRowCount({ board, data: { quotes: [{}, {}], index: {} } }), 3);
+    assert.equal(boardRowCount({ board, data: { quotes: [{}, {}], index: null } }), 2);
+    assert.equal(boardRowCount({}), 1);
+  });
+  h.test("a feed picture is taken only from an image tag with a web address", () => {
+    const item = (inner) => `<rss><channel><item><title>T</title><link>https://a.example/1</link>${inner}</item></channel></rss>`;
+    assert.equal(parseNewsFeed(item('<media:content url="https://img.example/a.jpg"/>')).rows[0].image, "https://img.example/a.jpg");
+    assert.equal(parseNewsFeed(item('<media:thumbnail width="240" url="https://img.example/b.png"/>')).rows[0].image, "https://img.example/b.png");
+    assert.equal(parseNewsFeed(item('<enclosure url="https://img.example/c.webp" type="image/webp"/>')).rows[0].image, "https://img.example/c.webp");
+    assert.equal(parseNewsFeed(item("<description>&lt;img src=\"https://img.example/d.gif\"&gt;</description>")).rows[0].image, "https://img.example/d.gif");
+    // A video, a script URL, and a feed with no picture at all.
+    assert.equal(parseNewsFeed(item('<media:content url="https://v.example/clip.mp4" type="video/mp4"/>')).rows[0].image, "");
+    assert.equal(parseNewsFeed(item('<media:content url="javascript:alert(1)"/>')).rows[0].image, "");
+    assert.equal(parseNewsFeed(item('<media:content url="data:image/png;base64,AAA"/>')).rows[0].image, "");
+    assert.equal(parseNewsFeed(item("")).rows[0].image, "");
+    assert.equal(safeImageUrl("https://ok.example/a.jpg"), "https://ok.example/a.jpg");
+    assert.equal(safeImageUrl("ftp://no.example/a.jpg"), "");
+    assert.equal(safeImageUrl(`https://long.example/${"a".repeat(700)}`), "");
+    assert.equal(parseNewsFeed(item('<media:content url="https://img.example/a.jpg"/>'), "wires").rows[0].source, "wires");
+  });
+  h.test("the wire feed follows the reader's language", () => {
+    assert.match(newsWireUrl("ko"), /yna\.co\.kr/);
+    assert.match(newsWireUrl("en"), /bbci\.co\.uk/);
   });
 
   h.category("Print");

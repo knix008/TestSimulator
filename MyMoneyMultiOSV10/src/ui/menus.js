@@ -29,6 +29,7 @@ export function buildMenuItems(name, ctx) {
   if (name === "context") {
     return [
       item("copy", "copy", t("cmd.copySummary"), "", true),
+      item("next-symbol", "next", t("cmd.nextSymbol"), "", ctx.canCycle !== false),
       item("stocks", "stocks", t("cmd.stocks"), "", true),
       item("remove-symbol", "trash", t("cmd.removeSymbol"), "", ctx.canRemoveSymbol !== false),
       item("toggle-favorite", "favorite", t("cmd.toggleFavorite"), "", true),

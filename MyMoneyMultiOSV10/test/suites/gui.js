@@ -459,8 +459,9 @@ export function registerGui(h) {
       assert.equal(data.querySelector('[data-row="source-yahoo"] .source-state').textContent, "정상");
       assert.equal(data.querySelector('[data-row="source-yahoo2"] .source-state').textContent, "정상");
       assert.equal(data.querySelector('[data-row="source-gnews"] .source-state').textContent, "정상");
+      assert.equal(data.querySelector('[data-row="source-wires"] .source-state').textContent, "정상");
       const states = [...data.querySelectorAll(".source-state")];
-      assert.equal(states.length, 5);
+      assert.equal(states.length, 6);
       for (const state of states) {
         assert.equal(getComputedStyle(state).width, "72px");
         assert.equal(getComputedStyle(state).textAlign, "left");
@@ -511,9 +512,15 @@ export function registerGui(h) {
 
       const news = await openPanel(app, "news");
       const items = [...news.popup.querySelectorAll('[data-gui="news"]')];
-      assert.equal(items.length, 2);
-      assert.match(items[0].querySelector(".news-title").textContent, /삼성전자|코스피/);
+      assert.equal(items.length, 3);
       assert.match(items[0].dataset.link, /^https:\/\//);
+      assert.ok(items.every((row) => row.querySelector(".news-thumb")));
+      // Only the item whose feed offered a picture gets one.
+      const pictured = items.filter((row) => row.querySelector(".news-thumb img"));
+      assert.equal(pictured.length, 1);
+      assert.match(pictured[0].querySelector(".news-thumb img").getAttribute("src"), /^https:\/\/img\.example\//);
+      assert.equal(pictured[0].querySelector(".news-thumb img").getAttribute("referrerpolicy"), "no-referrer");
+      assert.equal(pictured[0].querySelector(".news-thumb").dataset.image, "yes");
       await news.close();
 
       await app.setLanguage("en");
@@ -692,6 +699,7 @@ export function registerGui(h) {
       const popup = document.querySelector('[data-popup="settings"]');
       assert.deepEqual([...popup.querySelector('[data-field="units"]').options].map((option) => option.value), ["native", "base"]);
       popup.querySelector('[data-field="units"]').value = "base";
+      // The base currency lives on the Currencies page, but it is one form.
       popup.querySelector('[data-field="baseCurrency"]').value = "USD";
       popup.querySelector('[data-action="ok"]').click();
       await pending;
@@ -702,6 +710,321 @@ export function registerGui(h) {
       const stocks = await openPanel(app, "stocks");
       assert.match(stocks.popup.querySelector('[data-symbol="005930.KS"] .quote-price').textContent, /0\.0/);
       await stocks.close();
+    });
+  });
+
+  h.category("Showing symbols");
+  h.test("clicking the quote area moves to the next watched symbol and wraps", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const scene = () => app.root.querySelector("[data-gui='scene']");
+      const name = () => app.root.querySelector(".scene-name").textContent;
+      assert.equal(scene().dataset.sceneAdvance, "1");
+      assert.equal(scene().title, "눌러서 다음 종목 보기");
+      assert.equal(name(), "삼성전자");
+      scene().click();
+      assert.equal(name(), "SK하이닉스");
+      scene().click();
+      assert.equal(name(), "NAVER");
+      // The last symbol wraps back to the first.
+      scene().click();
+      assert.equal(name(), "삼성전자");
+      assert.equal(app.currentTab().selectedSymbol, "005930.KS");
+      assert.match(app.selectionText, /005930\.KS/);
+    });
+  });
+  h.test("a one-symbol watchlist has nothing to advance to", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      app.removeSymbol("000660.KS");
+      app.removeSymbol("035420.KS");
+      assert.equal(app.currentTab().board.symbols.length, 1);
+      app.renderMarket();
+      assert.equal(app.root.querySelector("[data-gui='scene']").dataset.sceneAdvance, undefined);
+      assert.equal(app.cycleSymbol(1), "005930.KS");
+    });
+  });
+  h.test("the click that ends a window drag does not change the symbol", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const before = app.root.querySelector(".scene-name").textContent;
+      pointer(app.content, "pointerdown", 20, 20);
+      pointer(document, "pointermove", 90, 60);
+      pointer(document, "pointerup", 90, 60);
+      await settle();
+      app.content.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
+      assert.equal(app.root.querySelector(".scene-name").textContent, before);
+      // Once the drag is forgotten, a plain click works again.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      app.root.querySelector("[data-gui='scene']").click();
+      assert.notEqual(app.root.querySelector(".scene-name").textContent, before);
+    });
+  });
+  h.test("the context menu advances the symbol without a click on the scene", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      app.openMenu("context", { clientX: 10, clientY: 10 }, { atPointer: true });
+      const menu = document.querySelector('.menu-popup[data-menu="context"]');
+      assert.equal(menu.querySelector('[data-cmd="next-symbol"] .menu-label').textContent, "다음 종목");
+      menu.querySelector('[data-cmd="next-symbol"]').click();
+      await settle();
+      assert.equal(app.root.querySelector(".scene-name").textContent, "SK하이닉스");
+    });
+  });
+  h.test("the chosen interval moves the window on by itself", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshMarket();
+      assert.equal(app.rotateTimer, null);
+      const pending = app.showSettings("watchlist");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const field = popup.querySelector('[data-field="rotateSeconds"]');
+      assert.deepEqual([...field.options].map((option) => option.value), ["0", "3", "5", "10", "30", "60"]);
+      assert.equal(field.selectedOptions[0].textContent, "끔");
+      field.value = "3";
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.settings.rotateSeconds, 3);
+      assert.equal(platform.settings.rotateSeconds, 3);
+      assert.equal(app.rotateDelay, 3000);
+      assert.ok(app.rotateTimer);
+      // Drive it by hand instead of waiting three seconds.
+      const first = app.root.querySelector(".scene-name").textContent;
+      app.cycleSymbol(1);
+      assert.notEqual(app.root.querySelector(".scene-name").textContent, first);
+      // Turning it off stops the timer.
+      app.settings.rotateSeconds = 0;
+      app.syncRotateTimer();
+      assert.equal(app.rotateTimer, null);
+    });
+  });
+  h.test("rotation really fires on its interval and stops when the window closes", async () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    const app = createApp(root, { platform, autoLoad: false, now: () => new Date(2026, 9, 7, 9, 0, 0) });
+    try {
+      await app.ready;
+      await app.refreshMarket();
+      app.settings.rotateSeconds = 3;
+      app.syncRotateTimer();
+      assert.equal(app.rotateDelay, 3000);
+      let ticks = 0;
+      const cycle = app.cycleSymbol.bind(app);
+      app.cycleSymbol = (delta) => {
+        ticks += 1;
+        return cycle(delta);
+      };
+      // Drive the armed timer faster than three seconds so the test stays quick.
+      clearInterval(app.rotateTimer);
+      app.rotateTimer = setInterval(() => app.cycleSymbol(1), 20);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      assert.ok(ticks >= 2, `fired ${ticks} times`);
+      app.destroy();
+      const stopped = ticks;
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      assert.equal(app.rotateTimer, null);
+      assert.equal(ticks, stopped);
+    } finally {
+      app.destroy();
+      root.remove();
+    }
+  });
+  h.test("the whole watchlist fits a window that grows with it", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshMarket();
+      const pending = app.showSettings("watchlist");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const mode = popup.querySelector('[data-field="sceneMode"]');
+      assert.deepEqual([...mode.options].map((option) => option.value), ["single", "all"]);
+      assert.equal(mode.selectedOptions[0].textContent, "한 종목씩");
+      mode.value = "all";
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.settings.sceneMode, "all");
+      assert.equal(app.content.dataset.sceneMode, "all");
+      const board = app.root.querySelector("[data-gui='board']");
+      assert.ok(board);
+      assert.equal(app.root.querySelector(".market-scene"), null);
+      // Three symbols plus the index.
+      const rows = board.querySelectorAll(".quote-row");
+      assert.equal(rows.length, 4);
+      assert.equal(app.shellSize.height, 46 + 26 + 4 * 34 + 4);
+      assert.equal(app.shell.style.height, `${app.shellSize.height}px`);
+      assert.deepEqual(platform.settings.windowSize, { ...app.shellSize });
+      const before = app.shellSize.height;
+      // One more symbol makes the window one row taller, once its quote lands.
+      app.addSymbol("000270.KS");
+      await waitFor(() => (app.currentTab().data.quotes || []).some((quote) => quote.symbol === "000270.KS"));
+      assert.equal(app.root.querySelectorAll("[data-gui='board'] .quote-row").length, 5);
+      assert.equal(app.shellSize.height, before + 34);
+      // Removing it takes the row, and the height, straight back.
+      app.removeSymbol("000270.KS");
+      await settle();
+      assert.equal(app.shellSize.height, before);
+    });
+  });
+  h.test("leaving the whole-watchlist view gives the window its old size back", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const original = { ...app.shellSize };
+      app.settings.sceneMode = "all";
+      app.applyAll();
+      assert.notDeepEqual({ ...app.shellSize }, original);
+      app.settings.sceneMode = "single";
+      app.applyAll();
+      assert.deepEqual({ ...app.shellSize }, original);
+      assert.ok(app.root.querySelector(".market-scene"));
+    });
+  });
+  h.test("on the desktop the whole-watchlist window is sized through the main process", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.nativeWindow = true;
+    await withApp(
+      async ({ app }) => {
+        await app.refreshMarket();
+        app.settings.sceneMode = "all";
+        app.applyAll();
+        await settle();
+        assert.equal(platform.resizeTargets.length, 1);
+        assert.equal(platform.resizeTargets[0].height, 46 + 26 + 4 * 34 + 4);
+        assert.ok(platform.resizeTargets[0].width >= 620);
+      },
+      { platform },
+    );
+  });
+  h.test("a whole-watchlist row still chooses the symbol it was clicked on", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      app.settings.sceneMode = "all";
+      app.applyAll();
+      const row = app.root.querySelector('[data-symbol="035420.KS"]');
+      assert.ok(row);
+      row.click();
+      assert.equal(app.currentTab().selectedSymbol, "035420.KS");
+      app.settings.sceneMode = "single";
+      app.applyAll();
+      assert.equal(app.root.querySelector(".scene-name").textContent, "NAVER");
+    });
+  });
+
+  h.test("adding to the board re-fetches even while a refresh is already running", async () => {
+    await withApp(async ({ app, platform }) => {
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const original = platform.fetchImpl;
+      const asked = [];
+      platform.fetchImpl = async (url, options) => {
+        asked.push(String(url));
+        await gate;
+        return original(url, options);
+      };
+      // Start a quiet refresh and leave it hanging.
+      void app.refreshMarket({ quiet: true });
+      await settle();
+      assert.ok(app.refreshJob, "a refresh should be in flight");
+      asked.length = 0;
+      app.addSymbol("000270.KS");
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      // The new symbol was fetched instead of being skipped.
+      assert.ok(asked.some((url) => url.includes("000270.KS")), asked.join(" | "));
+      release();
+      await settle();
+      await settle();
+      assert.ok(app.currentTab().data.quotes.some((quote) => quote.symbol === "000270.KS"));
+    });
+  });
+
+  h.category("Currencies");
+  h.test("currencies can be added and removed, and the base is never listed", async () => {
+    await withApp(async ({ app, platform }) => {
+      assert.deepEqual(app.settings.rateCurrencies, ["USD", "JPY", "EUR", "CNY"]);
+      const pending = app.showSettings("rates");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const list = popup.querySelector('[data-gui="ratelist"]');
+      assert.ok(list);
+      assert.equal(popupFits(popup).fits, true);
+      assert.deepEqual([...list.querySelectorAll("[data-watch]")].map((row) => row.dataset.watch), ["USD", "JPY", "EUR", "CNY"]);
+      assert.match(list.textContent, /미국 달러/);
+      const picker = popup.querySelector('[data-field="currency"]');
+      // The base and anything already listed are not offered again.
+      const offered = [...picker.options].map((option) => option.value);
+      assert.equal(offered.includes("KRW"), false);
+      assert.equal(offered.includes("USD"), false);
+      assert.ok(offered.includes("THB"));
+      picker.value = "THB";
+      popup.querySelector('[data-action="add-currency"]').click();
+      await settle();
+      assert.deepEqual(app.settings.rateCurrencies, ["USD", "JPY", "EUR", "CNY", "THB"]);
+      assert.equal(list.querySelectorAll("[data-watch]").length, 5);
+      assert.match(app.root.querySelector("[data-gui='toast']").textContent, /태국 바트/);
+      list.querySelector('[data-action="currency-remove"]').click();
+      await settle();
+      assert.deepEqual(app.settings.rateCurrencies, ["JPY", "EUR", "CNY", "THB"]);
+      assert.equal(platform.settings.rateCurrencies.includes("USD"), false);
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+      app.undo();
+      assert.ok(app.settings.rateCurrencies.includes("USD"));
+    });
+  });
+  h.test("the rate panel lists exactly the chosen currencies and grows with them", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const first = await openPanel(app, "rates");
+      assert.deepEqual([...first.popup.querySelectorAll("[data-code]")].map((row) => row.dataset.code), ["USD", "JPY", "EUR", "CNY"]);
+      const shortHeight = parseInt(first.popup.style.height, 10);
+      await first.close();
+      app.addCurrency("GBP");
+      await settle();
+      const second = await openPanel(app, "rates");
+      assert.deepEqual(
+        [...second.popup.querySelectorAll("[data-code]")].map((row) => row.dataset.code),
+        ["USD", "JPY", "EUR", "CNY", "GBP"],
+      );
+      // One more currency, one more row of window.
+      assert.equal(parseInt(second.popup.style.height, 10) - shortHeight, 30);
+      assert.equal(popupFits(second.popup).fits, true);
+      await second.close();
+    });
+  });
+  h.test("a currency fetched only to convert a price is not listed", async () => {
+    await withApp(async ({ app }) => {
+      app.setRateCurrencies(["USD"]);
+      app.applyMarket("JP");
+      // The yen is needed to price a Tokyo listing in won, so it is fetched...
+      assert.ok(app.fetchCurrencies(app.currentTab()).includes("JPY"));
+      await app.refreshMarket();
+      const rates = await openPanel(app, "rates");
+      // ...but only the dollar was asked for, so only the dollar is listed.
+      assert.deepEqual([...rates.popup.querySelectorAll("[data-code]")].map((row) => row.dataset.code), ["USD"]);
+      await rates.close();
+    });
+  });
+  h.test("changing the base currency drops it from the list", async () => {
+    await withApp(async ({ app }) => {
+      const pending = app.showSettings("rates");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const base = popup.querySelector('[data-field="baseCurrency"]');
+      base.value = "USD";
+      base.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(app.settings.rateCurrencies.includes("USD"), false);
+      assert.deepEqual(
+        [...popup.querySelector('[data-gui="ratelist"]').querySelectorAll("[data-watch]")].map((row) => row.dataset.watch),
+        ["JPY", "EUR", "CNY"],
+      );
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.settings.baseCurrency, "USD");
+      assert.equal(app.settings.rateCurrencies.includes("USD"), false);
     });
   });
 
@@ -1085,7 +1408,7 @@ export function registerGui(h) {
       assert.equal(panel.hidden, false);
       assert.equal(panel.querySelector('[data-row="sources"] span').textContent, "정보를 가져올 출처");
       assert.match(popup.querySelector('[data-tab="data"]').textContent, /정보 출처/);
-      for (const id of ["yahoo", "yahoo2", "frankfurter", "erapi", "gnews"]) {
+      for (const id of ["yahoo", "yahoo2", "frankfurter", "erapi", "gnews", "wires"]) {
         const box = panel.querySelector(`[data-source="${id}"]`);
         assert.equal(box.type, "checkbox");
         assert.equal(box.checked, true);
@@ -1095,7 +1418,7 @@ export function registerGui(h) {
       popup.querySelector('[data-action="ok"]').click();
       await pending;
       assert.equal(app.settings.enabledSources.includes("yahoo2"), false);
-      assert.deepEqual(app.settings.enabledSources, ["yahoo", "frankfurter", "erapi", "gnews"]);
+      assert.deepEqual(app.settings.enabledSources, ["yahoo", "frankfurter", "erapi", "gnews", "wires"]);
     });
   });
   h.test("settings reset restores the original values after confirmation", async () => {
@@ -1163,7 +1486,7 @@ export function registerGui(h) {
       assert.equal(app.settings.reopenLast, false);
       assert.equal(app.settings.units, "native");
       assert.equal(app.settings.baseCurrency, "KRW");
-      assert.deepEqual(app.settings.enabledSources, ["yahoo", "yahoo2", "frankfurter", "erapi", "gnews"]);
+      assert.deepEqual(app.settings.enabledSources, ["yahoo", "yahoo2", "frankfurter", "erapi", "gnews", "wires"]);
       assert.equal(app.settings.backgroundImage, "");
       assert.equal(app.settings.backgroundName, "");
       assert.equal(app.settings.defaultBoard.marketCode, "KR");
@@ -1190,10 +1513,10 @@ export function registerGui(h) {
         nextTab.click();
         collectTabs();
       }
-      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "data", "font", "general", "recent", "wallpaper", "watchlist"]);
+      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "data", "font", "general", "rates", "recent", "wallpaper", "watchlist"]);
       for (const [id, svg] of tabIcons) assert.ok(svg, id);
       popup.querySelector('[data-action="tab-prev"]').click();
-      assert.deepEqual([...field.options].map((option) => option.value), ["average", "yahoo", "yahoo2", "frankfurter", "erapi", "gnews"]);
+      assert.deepEqual([...field.options].map((option) => option.value), ["average", "yahoo", "yahoo2", "frankfurter", "erapi", "gnews", "wires"]);
       assert.equal(field.selectedOptions[0].textContent, "평균");
       field.value = "yahoo";
       popup.querySelector('[data-action="ok"]').click();
@@ -1751,7 +2074,7 @@ export function registerGui(h) {
         assertTitled(document.querySelector('[data-popup="about"]'));
         document.querySelector('[data-popup="about"] [data-action="close"]').click();
         await about;
-        for (const tab of ["general", "watchlist", "data", "appearance", "wallpaper", "font", "recent"]) {
+        for (const tab of ["general", "watchlist", "rates", "data", "appearance", "wallpaper", "font", "recent"]) {
           const settings = app.showSettings(tab);
           await settle();
           const popup = document.querySelector('[data-popup="settings"]');
@@ -1786,6 +2109,15 @@ export function registerGui(h) {
       assert.equal(app.i18n.missing.size, 0, [...app.i18n.missing].join(","));
     });
   });
+}
+
+/** Wait for a condition the app reaches on its own, instead of guessing a delay. */
+async function waitFor(check, label = "condition") {
+  for (let i = 0; i < 200; i += 1) {
+    if (check()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail(`timed out waiting for ${label}`);
 }
 
 async function openPanel(app, panel) {

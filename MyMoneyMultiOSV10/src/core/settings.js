@@ -52,6 +52,9 @@ export const DEFAULT_SETTINGS = {
   enabledSources: [...SOURCE_IDS],
   zoom: 100,
   units: "native",
+  rateCurrencies: ["USD", "JPY", "EUR", "CNY"],
+  sceneMode: "single",
+  rotateSeconds: 0,
   baseCurrency: "KRW",
   displayPriority: "average",
   reopenLast: false,
@@ -68,7 +71,16 @@ export const DISPLAY_PRIORITIES = ["average", ...SOURCE_IDS];
 /** Prices either keep their own currency or are converted to the base currency. */
 export const PRICE_UNITS = ["native", "base"];
 
+/** The window shows one watched symbol at a time, or the whole watchlist. */
+export const SCENE_MODES = ["single", "all"];
+
+/** How often the single-symbol window moves to the next symbol. 0 turns it off. */
+export const ROTATE_SECONDS = [0, 3, 5, 10, 30, 60];
+
 export const MAX_SYMBOLS = 20;
+
+/** The rate panel grows with its list, so the list has a ceiling the screen can hold. */
+export const MAX_RATE_CURRENCIES = 12;
 
 export function normalizeDisplayPriority(value) {
   return DISPLAY_PRIORITIES.includes(value) ? value : DEFAULT_SETTINGS.displayPriority;
@@ -79,9 +91,33 @@ export function normalizeUpdateHours(value) {
   return UPDATE_HOURS.includes(hours) ? hours : DEFAULT_SETTINGS.updateHours;
 }
 
+export function normalizeSceneMode(value) {
+  return SCENE_MODES.includes(value) ? value : DEFAULT_SETTINGS.sceneMode;
+}
+
+export function normalizeRotateSeconds(value) {
+  const seconds = Number(value);
+  return ROTATE_SECONDS.includes(seconds) ? seconds : DEFAULT_SETTINGS.rotateSeconds;
+}
+
 export function normalizeCurrency(value) {
   const code = String(value || "").toUpperCase();
   return CURRENCIES.includes(code) ? code : DEFAULT_SETTINGS.baseCurrency;
+}
+
+/** Known codes only, no repeats, never the base itself, and never more than the panel can show. */
+export function normalizeRateCurrencies(value, base) {
+  const home = String(base || "").toUpperCase();
+  const seen = new Set();
+  const list = [];
+  for (const entry of Array.isArray(value) ? value : DEFAULT_SETTINGS.rateCurrencies) {
+    const code = String(entry || "").toUpperCase();
+    if (!CURRENCIES.includes(code) || code === home || seen.has(code)) continue;
+    seen.add(code);
+    list.push(code);
+    if (list.length >= MAX_RATE_CURRENCIES) break;
+  }
+  return list;
 }
 
 export function clamp(value, min, max) {
@@ -156,7 +192,10 @@ export function sanitizeSettings(raw) {
   settings.fontFamily = String(settings.fontFamily || DEFAULT_SETTINGS.fontFamily);
   settings.zoom = clamp(settings.zoom || 100, 50, 200);
   settings.units = PRICE_UNITS.includes(settings.units) ? settings.units : DEFAULT_SETTINGS.units;
+  settings.sceneMode = normalizeSceneMode(settings.sceneMode);
+  settings.rotateSeconds = normalizeRotateSeconds(settings.rotateSeconds);
   settings.baseCurrency = normalizeCurrency(settings.baseCurrency);
+  settings.rateCurrencies = normalizeRateCurrencies(settings.rateCurrencies, settings.baseCurrency);
   settings.displayPriority = normalizeDisplayPriority(settings.displayPriority);
   settings.updateHours = normalizeUpdateHours(settings.updateHours);
   settings.backgroundImage = typeof settings.backgroundImage === "string" ? settings.backgroundImage : "";

@@ -483,6 +483,24 @@ ipcMain.handle("window-move", (event, step = {}) => {
   return { x, y };
 });
 
+/** Set the window to an exact size, used when the whole watchlist is shown. */
+ipcMain.handle("window-size", (_event, size = {}) => {
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMaximized()) return null;
+  const bounds = mainWindow.getBounds();
+  const area = screen.getDisplayMatching(bounds).workArea;
+  const width = Math.min(area.width, Math.max(WINDOW_MIN.width, Math.round(Number(size.width) || bounds.width)));
+  const height = Math.min(area.height, Math.max(WINDOW_MIN.height, Math.round(Number(size.height) || bounds.height)));
+  const next = {
+    x: Math.max(area.x, Math.min(bounds.x, area.x + area.width - width)),
+    y: Math.max(area.y, Math.min(bounds.y, area.y + area.height - height)),
+    width,
+    height,
+    maximized: false,
+  };
+  mainWindow.setBounds(next);
+  return noteBounds(next);
+});
+
 ipcMain.handle("list-fonts", () => listSystemFonts());
 
 ipcMain.handle("fetch-url", async (_event, url, options = {}) => {

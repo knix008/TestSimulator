@@ -2,17 +2,24 @@ import { esc } from "./html.js";
 import { activeQuote, presentBoard } from "../market/aggregate.js";
 import { formatPercent, formatPrice, formatRate, formatSigned, formatVolume, formatWhen, quotePair } from "../market/format.js";
 import { currencyName, listingName, marketName } from "../market/markets.js";
+import { safeImageUrl } from "../market/providers.js";
 import { trendOf, trendText, trendTone } from "../market/trend.js";
 
-/** The one number the window shows large: the active symbol's last price. */
-export function renderMarketHtml({ tab, language, units, baseCurrency, today, t, priority = "average" }) {
+/**
+ * The window either shows one symbol large, or the whole watchlist as rows.
+ * In the single view the scene itself advances to the next symbol on a click.
+ */
+export function renderMarketHtml({ tab, language, units, baseCurrency, today, t, priority = "average", mode = "single" }) {
   const shown = preferTab(tab, priority);
+  if (mode === "all") return renderBoardHtml(shown, language, units, baseCurrency, t);
   const quote = activeQuote(shown.data, shown.selectedSymbol || shown.board?.activeSymbol);
   const listing = (tab?.board?.symbols || []).find((entry) => entry.symbol === quote?.symbol);
   const title = quote ? listingName(listing, language) || quote.name || quote.symbol : marketName(tab?.board, language);
   const trend = quote ? trendOf(quote.changePercent) : "none";
   const priced = convert(quote, units, baseCurrency, shown.data?.rates);
-  const scene = `<section class="market-scene" data-gui="scene">
+  const many = (tab?.board?.symbols || []).length > 1;
+  const advance = many ? ` data-scene-advance="1" title="${esc(t("tip.nextSymbol"))}"` : "";
+  const scene = `<section class="market-scene" data-gui="scene" data-symbol="${esc(quote?.symbol || "")}"${advance}>
       ${sceneArt(trend)}
       <div class="scene-copy">
         <div class="scene-name" title="${esc(title)}">${esc(title)}</div>
@@ -26,7 +33,27 @@ export function renderMarketHtml({ tab, language, units, baseCurrency, today, t,
   return `<div class="market">${scene}</div>`;
 }
 
-export function renderPanelHtml({ panel, tab, language, units, baseCurrency, today, t, priority = "average" }) {
+function renderBoardHtml(shown, language, units, baseCurrency, t) {
+  if (!(shown.board?.symbols || []).length) {
+    return `<div class="market market-board"><p class="empty" data-gui="empty">${esc(t("market.noSymbols"))}</p></div>`;
+  }
+  if (!shown.data?.quotes?.length) {
+    return `<div class="market market-board"><p class="empty" data-gui="empty">${esc(t("market.empty"))}</p></div>`;
+  }
+  return `<div class="market market-board" data-gui="board">${stocksHtml(shown, language, units, baseCurrency, t)}</div>`;
+}
+
+/**
+ * Rows the whole-watchlist window will draw. Before the first fetch lands this
+ * guesses from the watchlist itself, so the window does not resize twice.
+ */
+export function boardRowCount(tab) {
+  const quotes = tab?.data?.quotes?.length || 0;
+  const rows = quotes ? quotes + (tab?.data?.index ? 1 : 0) : (tab?.board?.symbols || []).length + 1;
+  return Math.max(1, rows);
+}
+
+export function renderPanelHtml({ panel, tab, language, units, baseCurrency, currencies, today, t, priority = "average" }) {
   const shown = preferTab(tab, priority);
   const data = shown?.data;
   if (panel === "stocks") {
@@ -35,8 +62,9 @@ export function renderPanelHtml({ panel, tab, language, units, baseCurrency, tod
     return stocksHtml(shown, language, units, baseCurrency, t);
   }
   if (panel === "rates") {
-    if (!data?.rates?.rows?.length) return `<p class="empty" data-gui="empty">${esc(t("market.noRates"))}</p>`;
-    return ratesHtml(data.rates, language, t);
+    const shownRates = shownRateRows(data?.rates, currencies);
+    if (!shownRates.rows.length) return `<p class="empty" data-gui="empty">${esc(t("market.noRates"))}</p>`;
+    return ratesHtml(shownRates, language, t);
   }
   if (!data?.news?.length) return `<p class="empty" data-gui="empty">${esc(t("market.noNews"))}</p>`;
   return newsHtml(data.news, language, t);
@@ -47,14 +75,27 @@ export function panelFitHeight(panel, rowCount) {
   if (!rows) return 72;
   if (panel === "stocks") return Math.min(420, 54 + rows * 34);
   if (panel === "rates") return Math.min(420, 30 + rows * 30);
-  return Math.min(440, 30 + rows * 46);
+  return Math.min(540, 30 + rows * NEWS_ROW);
 }
 
 /** How many rows a panel will draw, so the popup can be sized before it is built. */
 export function panelRowCount(panel, tab) {
   if (panel === "stocks") return (tab?.data?.quotes || []).length + (tab?.data?.index ? 1 : 0);
-  if (panel === "rates") return (tab?.data?.rates?.rows || []).length;
+  if (panel === "rates") return shownRateRows(tab?.data?.rates, tab?.rateCurrencies).rows.length;
   return Math.min(10, (tab?.data?.news || []).length);
+}
+
+/**
+ * The fetch asks for more currencies than the panel shows, because a price
+ * conversion needs the listing's own currency too. Only the chosen ones are
+ * listed, in the order the reader put them in.
+ */
+export function shownRateRows(rates, currencies) {
+  const base = rates?.base || "";
+  const rows = rates?.rows || [];
+  if (!currencies?.length) return { base, date: rates?.date || "", rows };
+  const byCode = new Map(rows.map((row) => [row.code, row]));
+  return { base, date: rates?.date || "", rows: currencies.map((code) => byCode.get(code)).filter(Boolean) };
 }
 
 function preferTab(tab, priority) {
@@ -141,13 +182,22 @@ function ratesHtml(rates, language, t) {
   return `<div class="rate-board" data-gui="rates">${head}${rows.join("")}</div>`;
 }
 
+/** One headline row: 48px tall, with room for a thumbnail whether or not one exists. */
+export const NEWS_ROW = 50;
+
 function newsHtml(news, language, t) {
   const rows = news.slice(0, 10).map((item) => {
     const when = formatWhen(item.published, language);
     const meta = [item.outlet, when].filter(Boolean).join(" · ");
+    const picture = safeImageUrl(item.image)
+      ? `<img src="${esc(safeImageUrl(item.image))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+      : "";
     return `<button type="button" class="news-row" data-gui="news" data-link="${esc(item.link || "")}" title="${esc(item.title)}">
-        <span class="news-title">${esc(item.title)}</span>
-        <span class="news-meta">${esc(meta || t("col.outlet"))}</span>
+        <span class="news-thumb" data-image="${picture ? "yes" : "no"}">${picture}</span>
+        <span class="news-copy">
+          <span class="news-title">${esc(item.title)}</span>
+          <span class="news-meta">${esc(meta || t("col.outlet"))}</span>
+        </span>
       </button>`;
   });
   return `<div class="news-board" data-gui="news-board">${rows.join("")}</div>`;

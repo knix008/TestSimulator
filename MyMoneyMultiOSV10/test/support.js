@@ -57,18 +57,18 @@ export function yahooBody(symbol, dates, last = 100, step = 2, currency = "KRW")
   };
 }
 
-export function newsBody(titles = ["삼성전자 신고가", "코스피 상승 마감"]) {
+export function newsBody(titles = ["삼성전자 신고가", "코스피 상승 마감"], { images = false } = {}) {
   const items = titles
-    .map(
-      (title, index) =>
-        `<item><title><![CDATA[${title}]]></title><link>https://news.example/${index}</link><source url="https://news.example">Example News</source><pubDate>Wed, 07 Oct 2026 0${index}:00:00 GMT</pubDate></item>`,
-    )
+    .map((title, index) => {
+      const media = images ? `<media:content url="https://img.example/${index}.jpg"/>` : "";
+      return `<item><title><![CDATA[${title}]]></title><link>https://news.example/${index}</link><source url="https://news.example">Example News</source><pubDate>Wed, 07 Oct 2026 0${index}:00:00 GMT</pubDate>${media}</item>`;
+    })
     .join("");
   return `<?xml version="1.0"?><rss version="2.0"><channel>${items}</channel></rss>`;
 }
 
 export function frankfurterBody(base = "KRW") {
-  return { base, date: "2026-10-07", rates: { USD: 0.00074, EUR: 0.00068, JPY: 0.11, CNY: 0.0053 } };
+  return { base, date: "2026-10-07", rates: { USD: 0.00074, EUR: 0.00068, JPY: 0.11, CNY: 0.0053, GBP: 0.00056, THB: 0.024, AUD: 0.00107 } };
 }
 
 export function erApiBody(base = "KRW") {
@@ -76,7 +76,7 @@ export function erApiBody(base = "KRW") {
     result: "success",
     base_code: base,
     time_last_update_utc: "Wed, 07 Oct 2026 00:00:00 +0000",
-    rates: { [base]: 1, USD: 0.00076, EUR: 0.0007, JPY: 0.113, CNY: 0.0055 },
+    rates: { [base]: 1, USD: 0.00076, EUR: 0.0007, JPY: 0.113, CNY: 0.0055, GBP: 0.00056, THB: 0.024, AUD: 0.00107 },
   };
 }
 
@@ -92,6 +92,7 @@ export function defaultFetch(url) {
   if (href.includes("frankfurter")) return jsonResponse(frankfurterBody("KRW"));
   if (href.includes("open.er-api.com")) return jsonResponse(erApiBody("KRW"));
   if (href.includes("news.google.com")) return textResponse(newsBody());
+  if (href.includes("yna.co.kr") || href.includes("bbci.co.uk")) return textResponse(newsBody(["사진 있는 기사"], { images: true }));
   return jsonResponse({ error: "unknown" }, false, 404);
 }
 
@@ -103,6 +104,7 @@ export function createMemoryPlatform() {
     nativeMenus: false,
     nativeWindow: false,
     resizeSteps: [],
+    resizeTargets: [],
     moveSteps: [],
     fonts: ["Segoe UI", "Malgun Gothic", "Arial", "Consolas", "Times New Roman"],
     files,
@@ -135,6 +137,10 @@ export function createMemoryPlatform() {
     },
     async moveWindow(step) {
       this.moveSteps.push(step);
+    },
+    async resizeWindowTo(size) {
+      this.resizeTargets.push(size);
+      return size;
     },
     onWindowState(callback) {
       this.emitWindowState = callback;

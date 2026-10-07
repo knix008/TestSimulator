@@ -2,7 +2,7 @@ import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
 import { FONT_STYLES } from "../core/fonts.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
-import { DEFAULT_SETTINGS, DISPLAY_PRIORITIES, PRICE_UNITS, UPDATE_HOURS } from "../core/settings.js";
+import { DEFAULT_SETTINGS, DISPLAY_PRIORITIES, PRICE_UNITS, ROTATE_SECONDS, SCENE_MODES, UPDATE_HOURS } from "../core/settings.js";
 import { CURRENCIES, currencyName } from "../market/markets.js";
 import { SOURCE_IDS } from "../market/providers.js";
 import { esc } from "./html.js";
@@ -13,6 +13,7 @@ import { layoutTabScroller } from "./tab-scroller.js";
 const ROW = "display:flex;align-items:center;gap:8px;height:32px;white-space:nowrap;overflow:hidden;flex:0 0 auto";
 export const THEME_GRID_HEIGHT = 252;
 export const WATCHLIST_HEIGHT = 300;
+export const RATE_LIST_HEIGHT = 200;
 const SETTINGS_ROW_GAP = 10;
 
 export function buildSettingsSpec(model) {
@@ -34,6 +35,7 @@ export function buildSettingsSpec(model) {
     tabs: [
       { id: "general", icon: "general", label: t("tab.general"), rows: generalRows(model) },
       { id: "watchlist", icon: "stocks", label: t("tab.watchlist"), rows: watchlistRows(model) },
+      { id: "rates", icon: "rates", label: t("tab.rates"), rows: rateRows(model) },
       { id: "data", icon: "market", label: t("tab.data"), rows: dataRows(model) },
       { id: "appearance", icon: "palette", label: t("tab.appearance"), rows: appearanceRows(model) },
       { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: wallpaperRows(model) },
@@ -446,9 +448,9 @@ export function wirePopup(el, spec, handlers = {}) {
         return;
       }
     }
-    const watchDelete = event.target.closest("[data-action='symbol-remove']");
+    const watchDelete = event.target.closest("[data-action='symbol-remove'], [data-action='currency-remove']");
     if (watchDelete) {
-      void handlers.immediate?.({ type: "symbol-remove", symbol: watchDelete.dataset.symbol, popupId: spec.popupId });
+      void handlers.immediate?.({ type: watchDelete.dataset.action, symbol: watchDelete.dataset.symbol, popupId: spec.popupId });
       return;
     }
     const recent = event.target.closest("[data-action='recent-delete']");
@@ -524,6 +526,15 @@ export function wirePopup(el, spec, handlers = {}) {
       });
       return;
     }
+    if (action === "add-currency") {
+      void handlers.immediate?.({
+        type: "add-currency",
+        code: el.querySelector('[data-field="currency"]')?.value || "",
+        base: el.querySelector('[data-field="baseCurrency"]')?.value || "",
+        popupId: spec.popupId,
+      });
+      return;
+    }
     if (action === "pick-wallpaper" || action === "clear-wallpaper") {
       void handlers.immediate?.({ type: action, popupId: spec.popupId });
       return;
@@ -589,6 +600,9 @@ export function wirePopup(el, spec, handlers = {}) {
   el.addEventListener("change", (event) => {
     const field = event.target.dataset?.field;
     if (field === "marketCode") refillSymbols(el, spec);
+    if (field === "baseCurrency") {
+      void handlers.immediate?.({ type: "base-currency", base: event.target.value, popupId: spec.popupId });
+    }
     if (field === "customMode") customEdited(field);
     if (event.target.dataset?.setup) {
       void handlers.immediate?.({ type: "page-setup", popupId: spec.popupId, values: setupValues(el) });
@@ -602,6 +616,19 @@ export function wirePopup(el, spec, handlers = {}) {
     }
     if (field === "customBg" || field === "customText" || field === "customAccent") customEdited(field);
   });
+  // A headline picture that will not load leaves its slot empty rather than a broken icon.
+  el.addEventListener(
+    "error",
+    (event) => {
+      const image = event.target;
+      if (image?.tagName !== "IMG") return;
+      const slot = image.closest(".news-thumb");
+      if (!slot) return;
+      image.remove();
+      slot.dataset.image = "no";
+    },
+    true,
+  );
   el.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       event.stopPropagation();
@@ -825,13 +852,6 @@ function generalRows(model) {
     },
     {
       kind: "select",
-      id: "baseCurrency",
-      label: t("field.baseCurrency"),
-      value: values.baseCurrency,
-      options: CURRENCIES.map((code) => ({ value: code, label: `${code} · ${currencyName(code, language)}` })),
-    },
-    {
-      kind: "select",
       id: "updateHours",
       label: t("field.updateHours"),
       value: String(values.updateHours ?? 1),
@@ -873,9 +893,61 @@ function generalRows(model) {
 
 function watchlistRows(model) {
   const t = model.t;
+  const values = model.values;
   return [
+    {
+      kind: "select",
+      id: "sceneMode",
+      label: t("field.sceneMode"),
+      value: values.sceneMode,
+      options: SCENE_MODES.map((mode) => ({ value: mode, label: t(`scene.${mode}`) })),
+    },
+    {
+      kind: "select",
+      id: "rotateSeconds",
+      label: t("field.rotateSeconds"),
+      value: String(values.rotateSeconds ?? 0),
+      options: ROTATE_SECONDS.map((seconds) => ({ value: String(seconds), label: t(`rotate.s${seconds}`) })),
+    },
     { kind: "static", id: "watchlistHint", label: t("field.watchlist"), value: t("field.watchlistHint") },
     { kind: "watchlist", id: "watchlist", entries: model.values.watchlist || [], removeTip: t("tip.removeSymbol"), empty: t("market.noSymbols") },
+  ];
+}
+
+function rateRows(model) {
+  const t = model.t;
+  const values = model.values;
+  const language = model.language || "ko";
+  const option = (code) => ({ value: code, label: `${code} · ${currencyName(code, language)}` });
+  const listed = new Set(values.rateCurrencies || []);
+  const addable = CURRENCIES.filter((code) => code !== values.baseCurrency && !listed.has(code));
+  return [
+    {
+      kind: "select",
+      id: "baseCurrency",
+      label: t("field.baseCurrency"),
+      value: values.baseCurrency,
+      options: CURRENCIES.map(option),
+    },
+    {
+      kind: "select",
+      id: "currency",
+      label: t("field.currency"),
+      value: addable[0] || "",
+      options: (addable.length ? addable : [values.baseCurrency]).map(option),
+    },
+    { kind: "action", id: "add-currency", action: "add-currency", icon: "add", label: t("btn.addSymbol"), title: t("tip.addCurrency") },
+    { kind: "static", id: "rateListHint", label: t("field.rateList"), value: t("field.rateListHint") },
+    {
+      kind: "watchlist",
+      id: "rateList",
+      gui: "ratelist",
+      remove: "currency-remove",
+      entries: (values.rateCurrencies || []).map((code) => ({ symbol: code, name: currencyName(code, language) })),
+      removeTip: t("tip.removeCurrency"),
+      empty: t("market.noRates"),
+      height: RATE_LIST_HEIGHT,
+    },
   ];
 }
 
@@ -1041,6 +1113,9 @@ function resetSettingsForm(el, spec) {
   assign("baseCurrency", defaults.baseCurrency);
   assign("updateHours", defaults.updateHours);
   assign("displayPriority", defaults.displayPriority);
+  assign("sceneMode", defaults.sceneMode);
+  assign("rotateSeconds", defaults.rotateSeconds);
+  assign("baseCurrency", defaults.baseCurrency);
   assign("marketCode", board.marketCode);
   if (spec) refillSymbols(el, spec);
   assign("symbol", board.symbols[0]?.symbol || "");
@@ -1082,7 +1157,9 @@ function renderRow(row) {
   }
   if (row.kind === "hidden") return `<input type="hidden" data-field="${esc(row.id)}" value="${esc(row.value || "")}">`;
   if (row.kind === "watchlist") {
-    return `<div class="watchlist" data-row="${esc(row.id)}" data-gui="watchlist" data-fit-height="${WATCHLIST_HEIGHT}" data-remove-tip="${esc(row.removeTip || "")}" data-empty="${esc(row.empty || "")}" style="height:${WATCHLIST_HEIGHT}px;overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto">${watchlistBody(row.entries, row.removeTip, row.empty)}</div>`;
+    const height = Number(row.height) || WATCHLIST_HEIGHT;
+    const remove = row.remove || "symbol-remove";
+    return `<div class="watchlist" data-row="${esc(row.id)}" data-gui="${esc(row.gui || "watchlist")}" data-fit-height="${height}" data-remove="${esc(remove)}" data-remove-tip="${esc(row.removeTip || "")}" data-empty="${esc(row.empty || "")}" style="height:${height}px;overflow:hidden;flex:0 0 auto">${watchlistBody(row.entries, row.removeTip, row.empty, remove)}</div>`;
   }
   if (row.kind === "select") {
     const options = (row.options || [])
@@ -1143,13 +1220,13 @@ function renderRow(row) {
   return `<div class="popup-row" data-row="${esc(row.id || "static")}"${tone}${style}><span>${esc(row.label || "")}</span><span title="${esc(row.value || "")}">${esc(row.value || "")}</span></div>`;
 }
 
-function watchlistBody(entries, removeTip, empty) {
+function watchlistBody(entries, removeTip, empty, remove = "symbol-remove") {
   const rows = entries || [];
   if (!rows.length) return `<p class="empty" data-gui="watchlist-empty">${esc(empty || "")}</p>`;
   return rows
     .map(
       (entry) =>
-        `<div class="watch-row" data-watch="${esc(entry.symbol)}" style="display:flex;align-items:center;gap:8px;height:30px;white-space:nowrap;overflow:hidden;flex:0 0 auto"><span class="watch-name" title="${esc(entry.name)}">${esc(entry.name)}</span><span class="watch-symbol">${esc(entry.symbol)}</span><button type="button" class="icon-btn" data-action="symbol-remove" data-symbol="${esc(entry.symbol)}" data-gui="popup-button" title="${esc(removeTip || entry.symbol)}" aria-label="${esc(removeTip || entry.symbol)}">${icon("trash")}</button></div>`,
+        `<div class="watch-row" data-watch="${esc(entry.symbol)}" style="display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden"><span class="watch-name" title="${esc(entry.name)}">${esc(entry.name)}</span><span class="watch-symbol">${esc(entry.symbol)}</span><button type="button" class="icon-btn" data-action="${esc(remove)}" data-symbol="${esc(entry.symbol)}" data-gui="popup-button" title="${esc(removeTip || entry.symbol)}" aria-label="${esc(removeTip || entry.symbol)}">${icon("trash")}</button></div>`,
     )
     .join("");
 }
@@ -1246,6 +1323,12 @@ function refillMarkets(el, spec) {
   if ([...select.options].some((option) => option.value === current)) select.value = current;
 }
 
+function repaintList(el, gui, entries) {
+  const box = el.querySelector(`[data-gui="${gui}"]`);
+  if (!box) return;
+  box.innerHTML = watchlistBody(entries, box.dataset.removeTip, box.dataset.empty, box.dataset.remove);
+}
+
 function applyPatch(el, patch, spec) {
   if (!patch) return;
   if (patch.markets && spec) {
@@ -1265,9 +1348,19 @@ function applyPatch(el, patch, spec) {
     const select = el.querySelector('[data-field="symbol"]');
     if (select && [...select.options].some((option) => option.value === patch.symbol)) select.value = patch.symbol;
   }
-  if (patch.watchlist) {
-    const box = el.querySelector('[data-gui="watchlist"]');
-    if (box) box.innerHTML = watchlistBody(patch.watchlist, box.dataset.removeTip, box.dataset.empty);
+  if (patch.watchlist) repaintList(el, "watchlist", patch.watchlist);
+  if (patch.rateList) repaintList(el, "ratelist", patch.rateList);
+  if (patch.currencyOptions) {
+    const select = el.querySelector('[data-field="currency"]');
+    if (select) {
+      select.innerHTML = "";
+      for (const option of patch.currencyOptions) {
+        const node = document.createElement("option");
+        node.value = option.value;
+        node.textContent = option.label;
+        select.appendChild(node);
+      }
+    }
   }
   if (patch.percent != null) {
     const fill = el.querySelector(".bar-fill");

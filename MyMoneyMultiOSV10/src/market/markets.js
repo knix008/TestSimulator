@@ -138,9 +138,11 @@ export const LISTINGS = LISTING_ROWS.map(([marketCode, code, nameKo, nameEn]) =>
   nameEn,
 }));
 
-/** Currencies the exchange-rate panel can show. The base is chosen in Settings. */
-export const CURRENCIES = ["USD", "KRW", "EUR", "JPY", "CNY", "HKD", "TWD", "GBP", "CHF", "CAD", "AUD", "INR", "BRL", "SGD"];
-
+/**
+ * Every currency the rate panel can be asked for. The base and the shown list
+ * are both chosen in Settings. Between the two rate sources these all resolve;
+ * one that a source omits still arrives from the other.
+ */
 export const CURRENCY_NAMES = {
   USD: ["미국 달러", "US Dollar"],
   KRW: ["대한민국 원", "Korean Won"],
@@ -153,10 +155,30 @@ export const CURRENCY_NAMES = {
   CHF: ["스위스 프랑", "Swiss Franc"],
   CAD: ["캐나다 달러", "Canadian Dollar"],
   AUD: ["호주 달러", "Australian Dollar"],
+  NZD: ["뉴질랜드 달러", "New Zealand Dollar"],
   INR: ["인도 루피", "Indian Rupee"],
   BRL: ["브라질 헤알", "Brazilian Real"],
   SGD: ["싱가포르 달러", "Singapore Dollar"],
+  THB: ["태국 바트", "Thai Baht"],
+  VND: ["베트남 동", "Vietnamese Dong"],
+  IDR: ["인도네시아 루피아", "Indonesian Rupiah"],
+  MYR: ["말레이시아 링깃", "Malaysian Ringgit"],
+  PHP: ["필리핀 페소", "Philippine Peso"],
+  MXN: ["멕시코 페소", "Mexican Peso"],
+  ZAR: ["남아프리카 랜드", "South African Rand"],
+  TRY: ["튀르키예 리라", "Turkish Lira"],
+  SEK: ["스웨덴 크로나", "Swedish Krona"],
+  NOK: ["노르웨이 크로네", "Norwegian Krone"],
+  DKK: ["덴마크 크로네", "Danish Krone"],
+  PLN: ["폴란드 즈워티", "Polish Zloty"],
+  CZK: ["체코 코루나", "Czech Koruna"],
+  HUF: ["헝가리 포린트", "Hungarian Forint"],
+  ILS: ["이스라엘 셰켈", "Israeli Shekel"],
+  AED: ["아랍에미리트 디르함", "UAE Dirham"],
+  SAR: ["사우디 리얄", "Saudi Riyal"],
 };
+
+export const CURRENCIES = Object.keys(CURRENCY_NAMES);
 
 export function findMarket(marketCode) {
   return MARKETS.find((market) => market.marketCode === marketCode) || null;

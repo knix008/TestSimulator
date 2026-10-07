@@ -20,10 +20,14 @@ import { dirname } from "./core/paths.js";
 import { buildPrintModel, normalizeSetup } from "./core/print-model.js";
 import { RecentFiles } from "./core/recent.js";
 import {
+  MAX_RATE_CURRENCIES,
   MAX_SYMBOLS,
   clamp,
   normalizeCurrency,
+  normalizeRateCurrencies,
   normalizeDisplayPriority,
+  normalizeRotateSeconds,
+  normalizeSceneMode,
   normalizeUpdateHours,
   sanitizeSettings,
 } from "./core/settings.js";
@@ -31,7 +35,7 @@ import { applyThemeVars, isTheme, sanitizeCustomTheme, themeColors, themeVars } 
 import { UndoStack } from "./core/undo.js";
 import { activeQuote } from "./market/aggregate.js";
 import { formatPercent, formatPrice, formatSigned, isoDate } from "./market/format.js";
-import { CURRENCIES, LISTINGS, MARKETS, filterListings, findListing, findMarket, listingName } from "./market/markets.js";
+import { CURRENCIES, LISTINGS, MARKETS, currencyName, filterListings, findListing, findMarket, listingName } from "./market/markets.js";
 import { sourcePageUrl } from "./market/providers.js";
 import { loadBoard, searchSymbols } from "./market/service.js";
 import { trendText } from "./market/trend.js";
@@ -52,8 +56,8 @@ import {
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, clampWindowSize, sceneFit } from "./ui/window-spec.js";
-import { panelFitHeight, panelRowCount, renderMarketHtml, renderPanelHtml } from "./ui/market-view.js";
+import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, sceneFit } from "./ui/window-spec.js";
+import { boardRowCount, panelFitHeight, panelRowCount, renderMarketHtml, renderPanelHtml } from "./ui/market-view.js";
 
 export function createApp(container, options = {}) {
   const app = new MoneyApp(container, options);
@@ -204,6 +208,11 @@ class MoneyApp {
     clearTimeout(this.toastTimer);
     clearTimeout(this.updateTimer);
     this.updateTimer = null;
+    clearInterval(this.rotateTimer);
+    this.rotateTimer = null;
+    clearTimeout(this.sceneDragTimer);
+    clearTimeout(this.refreshSoonTimer);
+    this.refreshSoonTimer = null;
     this.marketAbort?.abort();
     this.endResize?.();
     this.detachDrag?.();
@@ -306,6 +315,12 @@ class MoneyApp {
     };
     const onGripDown = (event) => this.beginResize(event);
     const onContentClick = (event) => {
+      // The quote area is also the drag handle, so the click that ends a drag is not a choice.
+      if (this.suppressSceneClick) return;
+      if (event.target.closest("[data-scene-advance]")) {
+        this.cycleSymbol(1);
+        return;
+      }
       const quote = event.target.closest("[data-symbol]");
       if (quote) this.selectSymbol(quote.dataset.symbol);
     };
@@ -439,6 +454,7 @@ class MoneyApp {
         news: () => this.showPanel("news"),
         "clear-recent": () => this.clearRecent(),
         "toggle-favorite": () => this.toggleFavorite(),
+        "next-symbol": () => this.cycleSymbol(1),
         "remove-symbol": () => this.removeSymbol(this.currentTab()?.selectedSymbol),
       };
       if (actions[id]) await actions[id]();
@@ -534,7 +550,9 @@ class MoneyApp {
     if (this.maximized || this.minimized) return;
     if (this.platform.nativeWindow) {
       void Promise.resolve(this.platform.moveWindow?.(step)).then((bounds) => {
-        if (step.phase === "end") this.rememberWindowPlacement(bounds);
+        if (step.phase !== "end") return;
+        this.noteSceneDrag();
+        this.rememberWindowPlacement(bounds);
       });
       return;
     }
@@ -543,6 +561,7 @@ class MoneyApp {
       return;
     }
     if (step.phase === "end") {
+      this.noteSceneDrag();
       this.rememberWindowPlacement({ x: this.shellOffset.x, y: this.shellOffset.y, width: this.shellSize.width, height: this.shellSize.height });
       return;
     }
@@ -606,6 +625,8 @@ class MoneyApp {
     this.applyI18n();
     this.syncPanels();
     this.syncUpdateTimer();
+    this.syncRotateTimer();
+    this.syncBoardWindow();
   }
 
   applyI18n() {
@@ -750,10 +771,81 @@ class MoneyApp {
       units: this.settings.units,
       baseCurrency: this.settings.baseCurrency,
       priority: this.settings.displayPriority,
+      mode: this.settings.sceneMode,
       today: this.now(),
       t: (key, vars) => this.t(key, vars),
     });
+    this.content.dataset.sceneMode = this.settings.sceneMode;
     this.applySceneScale();
+    this.syncBoardWindow();
+  }
+
+  /** A click that ends a window drag must not also count as "next symbol". */
+  noteSceneDrag() {
+    this.suppressSceneClick = true;
+    clearTimeout(this.sceneDragTimer);
+    this.sceneDragTimer = setTimeout(() => {
+      this.suppressSceneClick = false;
+    }, 150);
+  }
+
+  /** Move to the next watched symbol, wrapping round. */
+  cycleSymbol(delta = 1) {
+    const tab = this.currentTab();
+    const symbols = (tab?.board?.symbols || []).map((entry) => entry.symbol);
+    if (symbols.length < 2) return symbols[0] || "";
+    const at = symbols.indexOf(tab.selectedSymbol || tab.board.activeSymbol);
+    const from = at < 0 ? 0 : at;
+    const next = symbols[(((from + delta) % symbols.length) + symbols.length) % symbols.length];
+    this.selectSymbol(next);
+    return next;
+  }
+
+  syncRotateTimer() {
+    clearInterval(this.rotateTimer);
+    this.rotateTimer = null;
+    this.rotateDelay = 0;
+    if (this.destroyed) return;
+    const seconds = normalizeRotateSeconds(this.settings.rotateSeconds);
+    if (!seconds || this.settings.sceneMode !== "single") return;
+    this.rotateDelay = seconds * 1000;
+    this.rotateTimer = setInterval(() => this.cycleSymbol(1), this.rotateDelay);
+  }
+
+  /**
+   * The whole-watchlist window is exactly as tall as its rows. Leaving that
+   * mode gives the window its previous size back instead of a tall sliver.
+   */
+  syncBoardWindow({ force = false } = {}) {
+    if (this.destroyed || !this.placementReady) return;
+    if (this.settings.sceneMode !== "all") {
+      const previous = this.sizeBeforeBoard;
+      this.boardRows = null;
+      this.sizeBeforeBoard = null;
+      if (previous) this.resizeShell(previous);
+      return;
+    }
+    if (this.maximized || this.minimized) return;
+    const rows = boardRowCount(this.currentTab());
+    if (!force && this.boardRows === rows) return;
+    if (this.boardRows == null) this.sizeBeforeBoard = { ...this.shellSize };
+    this.boardRows = rows;
+    this.resizeShell(boardWindowSize(rows, this.shellSize.width));
+  }
+
+  resizeShell(size) {
+    const next = clampWindowSize(size);
+    if (next.width === this.shellSize.width && next.height === this.shellSize.height) return;
+    if (this.platform.nativeWindow) {
+      void Promise.resolve(this.platform.resizeWindowTo?.(next)).then((bounds) => {
+        this.shellSize = clampWindowSize(bounds || next);
+        this.rememberWindowPlacement(bounds || next);
+      });
+      return;
+    }
+    this.shellSize = next;
+    this.applyShellSize();
+    this.rememberWindowPlacement({ ...next, x: this.shellOffset.x, y: this.shellOffset.y });
   }
 
   renderStatus() {
@@ -905,6 +997,7 @@ class MoneyApp {
       language: this.settings.language,
       units: this.settings.units,
       baseCurrency: this.settings.baseCurrency,
+      currencies: this.settings.rateCurrencies,
       priority: this.settings.displayPriority,
       today: this.now(),
       t,
@@ -913,7 +1006,7 @@ class MoneyApp {
       buildPanelSpec({
         panel,
         markup,
-        fitHeight: panelFitHeight(panel, panelRowCount(panel, tab)),
+        fitHeight: panelFitHeight(panel, panelRowCount(panel, { ...tab, rateCurrencies: this.settings.rateCurrencies })),
         transparency: this.settings.transparency,
         backgroundImage: this.settings.backgroundImage,
         backgroundOpacity: this.wallpaperOpacityPreview ?? this.settings.backgroundOpacity,
@@ -1045,6 +1138,7 @@ class MoneyApp {
     this.setBoard(tab.id, next);
     this.markDirty();
     this.setStatus(this.t("msg.applied"));
+    this.refreshSoon();
     return true;
   }
 
@@ -1071,7 +1165,7 @@ class MoneyApp {
     this.setBoard(tab.id, next);
     this.markDirty();
     this.setStatus(this.t("msg.symbolAdded", { n: listingName(listing, this.settings.language) }));
-    void this.refreshMarket({ quiet: true });
+    this.refreshSoon();
     return "added";
   }
 
@@ -1096,6 +1190,74 @@ class MoneyApp {
     this.afterStructure();
     this.setStatus(this.t("msg.symbolRemoved", { n: listingName(listing, this.settings.language) }));
     return "removed";
+  }
+
+  /** The chosen currencies, plus the board's own so a converted price still works. */
+  fetchCurrencies(tab) {
+    const wanted = new Set(this.settings.rateCurrencies);
+    for (const code of [tab?.board?.currency, this.settings.baseCurrency]) {
+      if (code && code !== this.settings.baseCurrency) wanted.add(code);
+    }
+    return [...wanted].filter((code) => CURRENCIES.includes(code));
+  }
+
+  addCurrency(code) {
+    const want = String(code || "").toUpperCase();
+    if (!CURRENCIES.includes(want)) return "none";
+    if (want === this.settings.baseCurrency) {
+      this.setStatus(this.t("msg.currencyBase"));
+      return "base";
+    }
+    if (this.settings.rateCurrencies.includes(want)) {
+      this.setStatus(this.t("msg.currencyExists"));
+      return "exists";
+    }
+    if (this.settings.rateCurrencies.length >= MAX_RATE_CURRENCIES) {
+      this.setStatus(this.t("msg.currencyFull", { n: MAX_RATE_CURRENCIES }));
+      return "full";
+    }
+    const before = [...this.settings.rateCurrencies];
+    const after = [...before, want];
+    this.pushUndo({
+      undo: () => this.setRateCurrencies(before),
+      redo: () => this.setRateCurrencies(after),
+    });
+    this.setRateCurrencies(after);
+    this.setStatus(this.t("msg.currencyAdded", { n: currencyName(want, this.settings.language) }));
+    this.refreshSoon();
+    return "added";
+  }
+
+  removeCurrency(code) {
+    const want = String(code || "").toUpperCase();
+    if (!this.settings.rateCurrencies.includes(want)) return "none";
+    const before = [...this.settings.rateCurrencies];
+    const after = before.filter((entry) => entry !== want);
+    this.pushUndo({
+      undo: () => this.setRateCurrencies(before),
+      redo: () => this.setRateCurrencies(after),
+    });
+    this.setRateCurrencies(after);
+    this.setStatus(this.t("msg.currencyRemoved", { n: currencyName(want, this.settings.language) }));
+    return "removed";
+  }
+
+  setRateCurrencies(list) {
+    this.settings.rateCurrencies = normalizeRateCurrencies(list, this.settings.baseCurrency);
+    void this.persist();
+  }
+
+  rateListRows() {
+    return this.settings.rateCurrencies.map((code) => ({ symbol: code, name: currencyName(code, this.settings.language) }));
+  }
+
+  /** Currencies still free to add, for the Settings picker. */
+  addableCurrencies(base = this.settings.baseCurrency) {
+    const listed = new Set(this.settings.rateCurrencies);
+    return CURRENCIES.filter((code) => code !== base && !listed.has(code)).map((code) => ({
+      value: code,
+      label: `${code} · ${currencyName(code, this.settings.language)}`,
+    }));
   }
 
   watchlistRows() {
@@ -1217,8 +1379,21 @@ class MoneyApp {
     }, this.updateDelay);
   }
 
-  async refreshMarket({ quiet = false, progress = false, all = false } = {}) {
-    if (quiet && this.refreshJob) return;
+  /**
+   * Re-fetch after the board changed, even if a quiet refresh is already
+   * running. A burst of edits - a market swap, then three added symbols -
+   * collapses into one fetch.
+   */
+  refreshSoon() {
+    clearTimeout(this.refreshSoonTimer);
+    this.refreshSoonTimer = setTimeout(() => {
+      this.refreshSoonTimer = null;
+      if (!this.destroyed) void this.refreshMarket({ quiet: true, force: true });
+    }, 60);
+  }
+
+  async refreshMarket({ quiet = false, progress = false, all = false, force = false } = {}) {
+    if (quiet && this.refreshJob && !force) return;
     const generation = (this.refreshGeneration || 0) + 1;
     this.refreshGeneration = generation;
     this.marketAbort?.abort();
@@ -1248,7 +1423,7 @@ class MoneyApp {
       if (signal.aborted || this.destroyed || this.progressAborted) break;
       try {
         const data = await loadBoard(
-          { ...tab.board, baseCurrency: this.settings.baseCurrency, currencies: CURRENCIES },
+          { ...tab.board, baseCurrency: this.settings.baseCurrency, currencies: this.fetchCurrencies(tab) },
           {
             fetchImpl: (url, options) => this.platform.fetch(url, options),
             sources: this.settings.enabledSources,
@@ -1271,7 +1446,9 @@ class MoneyApp {
     }
     if (this.destroyed) return;
     if (signal.aborted || this.progressAborted) {
-      this.setStatus(this.t("status.cancelled"));
+      // Only a refresh the reader cancelled is worth saying out loud; one
+      // replaced by a newer fetch should leave the last numbers alone.
+      if (this.progressAborted) this.setStatus(this.t("status.cancelled"));
       return;
     }
     this.setStatus(this.t("status.ready"));
@@ -1583,8 +1760,11 @@ class MoneyApp {
         language: this.settings.language,
         units: this.settings.units,
         baseCurrency: this.settings.baseCurrency,
+        rateCurrencies: [...this.settings.rateCurrencies],
         updateHours: this.settings.updateHours,
         displayPriority: this.settings.displayPriority,
+        sceneMode: this.settings.sceneMode,
+        rotateSeconds: this.settings.rotateSeconds,
         marketCode: board.marketCode,
         symbol: board.activeSymbol || filterListings(this.listingChoices(), board.marketCode, "")[0]?.symbol || "",
         watchlist: this.watchlistRows(),
@@ -1625,8 +1805,11 @@ class MoneyApp {
     this.settings.language = values.language === "en" ? "en" : "ko";
     this.settings.units = values.units === "base" ? "base" : "native";
     this.settings.baseCurrency = normalizeCurrency(values.baseCurrency);
+    this.settings.rateCurrencies = normalizeRateCurrencies(this.settings.rateCurrencies, this.settings.baseCurrency);
     this.settings.updateHours = normalizeUpdateHours(values.updateHours);
     this.settings.displayPriority = normalizeDisplayPriority(values.displayPriority);
+    this.settings.sceneMode = normalizeSceneMode(values.sceneMode);
+    this.settings.rotateSeconds = normalizeRotateSeconds(values.rotateSeconds);
     if (isTheme(values.theme)) this.settings.theme = values.theme;
     if (values.customBg || values.customText || values.customAccent || values.customMode) {
       this.settings.customTheme = sanitizeCustomTheme({
@@ -1743,6 +1926,19 @@ class MoneyApp {
       this.removeSymbol(msg.symbol);
       return { watchlist: this.watchlistRows() };
     }
+    if (msg.type === "add-currency") {
+      this.addCurrency(msg.code);
+      return { rateList: this.rateListRows(), currencyOptions: this.addableCurrencies() };
+    }
+    if (msg.type === "currency-remove") {
+      this.removeCurrency(msg.symbol);
+      return { rateList: this.rateListRows(), currencyOptions: this.addableCurrencies() };
+    }
+    if (msg.type === "base-currency") {
+      const base = normalizeCurrency(msg.base);
+      this.setRateCurrencies(this.settings.rateCurrencies.filter((code) => code !== base));
+      return { rateList: this.rateListRows(), currencyOptions: this.addableCurrencies(base) };
+    }
     if (msg.type === "open-news") return this.openNews(msg.url);
     if (msg.type === "search-online") {
       await this.searchOnline(msg.query);
@@ -1838,6 +2034,7 @@ class MoneyApp {
       canUndo: this.history.canUndo(),
       canRedo: this.history.canRedo(),
       canRemoveSymbol: (this.currentTab()?.board.symbols || []).length > 1,
+      canCycle: (this.currentTab()?.board.symbols || []).length > 1,
     });
     const rect = atPointer ? null : anchorEvent?.currentTarget?.getBoundingClientRect?.() || anchorEvent?.target?.getBoundingClientRect?.();
     const anchor = {

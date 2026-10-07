@@ -1,13 +1,13 @@
 /**
- * The five places MyMoney fetches from. Two serve quotes, two serve exchange
- * rates, and one serves headlines. None of them needs an API key.
+ * The six places MyMoney fetches from. Two serve quotes, two serve exchange
+ * rates, and two serve headlines. None of them needs an API key.
  *
  * Every parser returns the same shape for its kind so `aggregate.js` can
  * average two quote sources, or two rate sources, without knowing which is
  * which.
  */
 
-export const SOURCE_IDS = ["yahoo", "yahoo2", "frankfurter", "erapi", "gnews"];
+export const SOURCE_IDS = ["yahoo", "yahoo2", "frankfurter", "erapi", "gnews", "wires"];
 
 export const SOURCE_KIND = {
   yahoo: "quote",
@@ -15,6 +15,7 @@ export const SOURCE_KIND = {
   frankfurter: "rates",
   erapi: "rates",
   gnews: "news",
+  wires: "news",
 };
 
 /** Yahoo serves the chart API from two edge hosts. The second is the failover. */
@@ -65,6 +66,14 @@ export function googleNewsUrl(query, language) {
   return url.toString();
 }
 
+/**
+ * A wire feed in the reader's language. Unlike the Google News search these
+ * carry a picture with most items, which is what fills the headline thumbnails.
+ */
+export function newsWireUrl(language) {
+  return language === "en" ? "https://feeds.bbci.co.uk/news/business/rss.xml" : "https://www.yna.co.kr/rss/market.xml";
+}
+
 /** The page a reader should land on when they ask to see where a number came from. */
 export function sourcePageUrl(symbol) {
   return `https://finance.yahoo.com/quote/${encodeURIComponent(symbol || "")}`;
@@ -105,7 +114,14 @@ export function createProviders() {
       kind: "news",
       headers: { "User-Agent": USER_AGENT },
       url: (request) => googleNewsUrl(request.query, request.language),
-      parse: (payload) => parseNewsFeed(payload.text()),
+      parse: (payload) => parseNewsFeed(payload.text(), "gnews"),
+    },
+    {
+      id: "wires",
+      kind: "news",
+      headers: { "User-Agent": USER_AGENT },
+      url: (request) => newsWireUrl(request.language),
+      parse: (payload) => parseNewsFeed(payload.text(), "wires"),
     },
   ];
 }
@@ -175,9 +191,10 @@ export function parseErApi(json, currencies) {
 
 /**
  * RSS 2.0 in, headlines out. The feed is XML from a third party, so every value
- * is treated as text and the markup is never inserted into the page.
+ * is treated as text and the markup is never inserted into the page. A picture
+ * is kept only when the feed offers one and its address is http(s).
  */
-export function parseNewsFeed(xml) {
+export function parseNewsFeed(xml, sourceId = "gnews") {
   const text = String(xml || "");
   const items = [...text.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map((match) => match[1]);
   if (!items.length) throw new Error("No headlines in the feed");
@@ -187,11 +204,51 @@ export function parseNewsFeed(xml) {
       link: decodeXml(tagText(body, "link")),
       outlet: decodeXml(tagText(body, "source")) || hostOf(decodeXml(tagText(body, "link"))),
       published: toIso(decodeXml(tagText(body, "pubDate"))),
-      source: "gnews",
+      image: imageFrom(body),
+      source: sourceId,
     }))
     .filter((row) => row.title);
   if (!rows.length) throw new Error("No headlines in the feed");
-  return { rows, source: "gnews" };
+  return { rows, source: sourceId };
+}
+
+const MEDIA_TAG = /<(?:media:content|media:thumbnail|enclosure)\b[^>]*>/gi;
+const IMAGE_FILE = /\.(?:jpe?g|png|webp|gif)(?:[?#]|$)/i;
+
+/** The item's picture, from the media tags first and then from the summary HTML. */
+export function imageFrom(body) {
+  for (const tag of String(body).match(MEDIA_TAG) || []) {
+    const url = attr(tag, "url");
+    if (!url) continue;
+    const type = attr(tag, "type");
+    const medium = attr(tag, "medium");
+    if (type && !type.startsWith("image/")) continue;
+    if (medium && medium !== "image") continue;
+    if (!type && !medium && !IMAGE_FILE.test(url)) continue;
+    const safe = safeImageUrl(decodeXml(url));
+    if (safe) return safe;
+  }
+  const html = `${decodeXml(rawTag(body, "description"))} ${decodeXml(rawTag(body, "content:encoded"))}`;
+  const inline = html.match(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i);
+  return inline ? safeImageUrl(inline[1]) : "";
+}
+
+/** Only a plain web address may reach an `src`; never `javascript:` or `data:`. */
+export function safeImageUrl(value) {
+  const url = String(value || "").trim();
+  if (!/^https?:\/\//i.test(url) || url.length > 600) return "";
+  return url;
+}
+
+function attr(tag, name) {
+  const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, "i")) || tag.match(new RegExp(`\\b${name}\\s*=\\s*'([^']*)'`, "i"));
+  return match ? match[1].trim() : "";
+}
+
+function rawTag(body, name) {
+  const match = String(body).match(new RegExp(`<${name}\\b[^>]*>([\\s\\S]*?)</${name}>`, "i"));
+  if (!match) return "";
+  return match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
 }
 
 export function parseSymbolSearch(json) {

@@ -83,21 +83,40 @@ export function aggregateRates(base, sourceResults) {
   return { base: String(base || "").toUpperCase(), date: ok[0].data.date || "", rows };
 }
 
-/** Headlines from every working feed, newest first, one row per title. */
+/**
+ * Headlines from every working feed, newest first, one row per story.
+ *
+ * The same story reaches us twice: a search feed writes "Headline - Outlet"
+ * while the wire writes just "Headline". They are matched on a stripped title,
+ * and the copy that is kept takes the picture from whichever copy had one.
+ */
 export function mergeNews(sourceResults, limit = 40) {
   const ok = sourceResults.filter((source) => source.ok && source.data);
-  const seen = new Set();
-  const rows = [];
+  const byKey = new Map();
   for (const source of ok) {
     for (const row of source.data.rows || []) {
-      const key = row.title.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push(row);
+      const key = newsKey(row.title);
+      if (!key) continue;
+      const kept = byKey.get(key);
+      if (!kept) {
+        byKey.set(key, { ...row });
+        continue;
+      }
+      if (!kept.image && row.image) kept.image = row.image;
+      if (!kept.outlet && row.outlet) kept.outlet = row.outlet;
     }
   }
+  const rows = [...byKey.values()];
   rows.sort((a, b) => String(b.published || "").localeCompare(String(a.published || "")));
   return rows.slice(0, limit);
+}
+
+/** Two feeds' spelling of one story, reduced to the same key. Never shown. */
+export function newsKey(title) {
+  return String(title || "")
+    .replace(/\s+[-–—|]\s+\S[^-–—|]{0,40}$/u, "")
+    .toLowerCase()
+    .replace(/[\s‘’“”"'`.,!?:;()\[\]{}<>·…-]+/gu, "");
 }
 
 /** Values shown for a display priority. A missing source keeps the averaged row. */

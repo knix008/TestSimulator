@@ -20,9 +20,19 @@ A board is one market plus the symbols watched in it. `loadBoard` runs every ena
 
 Quote sources return the same `{ days, currency, name }` shape, so `aggregateQuote` averages them by date and keeps each source's own series under `bySource`. Yahoo serves the chart API from two edge hosts; `yahoo` is `query1` and `yahoo2` is `query2`, so a board still fills when one host is unreachable. The display priority in Settings picks one of those series instead of the average; a priority whose source did not answer falls back to the average. Rate tables average the same way. Headlines are merged, de-duplicated by title, and sorted newest first.
 
-A source that fails is recorded in `sources` and the rest of the board is still shown. Only a board with no usable quote at all raises an error. Google News returns RSS, so `parseNewsFeed` strips the markup and decodes the entities itself; a headline is only ever inserted as escaped text.
+A source that fails is recorded in `sources` and the rest of the board is still shown. Only a board with no usable quote at all raises an error. The news feeds return RSS, so `parseNewsFeed` strips the markup and decodes the entities itself; a headline is only ever inserted as escaped text, and a picture is kept only when the feed offers one through `media:content`, `media:thumbnail`, `enclosure` or an `img` in the summary, and only when its address is http(s).
 
-Prices are shown in the listing's own currency, or converted to the base currency when Settings asks for that. The conversion uses the fetched rate table, which is quoted against one base, so a cross rate is one division.
+The two news feeds carry the same story twice, because a search feed writes "Headline - Outlet" where a wire writes "Headline". `mergeNews` matches them on a stripped key and the surviving row takes the picture from whichever copy had one. The rate table is fetched for the chosen currencies plus the board's own currency, because converting a price needs that one too; `shownRateRows` then lists only what the reader asked for.
+
+Any change to what is watched - a market swap, an added symbol, an added currency - calls `refreshSoon`, which forces a fetch even when a quiet one is already running and coalesces a burst of edits into a single pass. A fetch replaced by a newer one finishes silently; only a refresh the reader cancelled reports it.
+
+Prices are shown in the listing's own currency, or converted to the base currency when Settings asks for that. The conversion uses the fetched rate table, which is quoted against one base, so a cross rate is one division. `quotePair` then flips each displayed pair to whichever side is at least one, so no row reads 0.000749.
+
+## The two window views
+
+`settings.sceneMode` picks what the main window draws. `single` is the large price, and the scene carries `data-scene-advance` so a click moves to the next symbol; because the same area is the window's drag handle, `noteSceneDrag` swallows the click that ends a drag. `rotateSeconds` arms an interval that calls the same move.
+
+`all` draws the watchlist as rows and `syncBoardWindow` sets the window to `boardWindowSize(rows)`, which is the toolbar plus the header plus one `BOARD_ROW` per row. It only resizes when the row count actually changes, so it never fights a reader dragging the grip, and it remembers the size held before the mode was entered so leaving restores it. On the desktop the exact size goes through the `window-size` IPC; in the browser preview the shell is sized directly.
 
 ## Window and tray
 
