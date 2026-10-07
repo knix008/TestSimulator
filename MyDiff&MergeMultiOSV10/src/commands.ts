@@ -662,7 +662,7 @@ function build(app: AppStore): CommandMap {
       const text = window.getSelection()?.toString() ?? "";
       if (text) {
         await host.copyText(text);
-        app.setStatus(t("dlg.copied"));
+        app.setStatus((t) => t("dlg.copied"));
       }
     },
   });

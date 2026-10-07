@@ -8,7 +8,8 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { compareDirectories, maskFilter } from "../core/dirCompare.ts";
-import { allFolders, buildTree, flatten, foldersWithDifferences } from "../core/dirTree.ts";
+import { allFolders, buildTree, flatRows, flatten, foldersWithDifferences } from "../core/dirTree.ts";
+import { fileIcon } from "../src/fileIcons.ts";
 import { applyOperation, copyEntry, deleteEntry, resolveInside } from "../core/fileOps.ts";
 import { CompareSession } from "../core/compareSession.ts";
 
@@ -113,6 +114,37 @@ test("tree › flattening respects expansion, filters and search", () => {
   assert.equal(searched.some((row) => row.node.rel === "README.md"), false);
 });
 
+test("tree › every row carries the guides its indent needs", () => {
+  const { left, right } = pair("tree-d");
+  const tree = buildTree(compareDirectories(left, right).entries);
+  const rows = flatten(tree, new Set(allFolders(tree)));
+
+  for (const row of rows) {
+    // One rail per level above the row's own, which is where its elbow goes.
+    assert.equal(row.rails.length, Math.max(0, row.depth - 1), `${row.node.rel} at depth ${row.depth}`);
+  }
+
+  // The last row of a folder closes its branch; the ones before it do not.
+  const inSrc = rows.filter((row) => row.node.rel.startsWith("src/") && row.depth === 1);
+  assert.ok(inSrc.length > 1);
+  assert.equal(inSrc.at(-1).last, true);
+  assert.equal(inSrc.slice(0, -1).every((row) => row.last === false), true);
+
+  // A grandchild's rail is drawn only while its parent's folder has more to come.
+  const deep = rows.filter((row) => row.depth === 2);
+  assert.ok(deep.length > 0);
+  for (const row of deep) {
+    const parent = rows.find((other) => other.node.rel === row.node.rel.split("/").slice(0, -1).join("/"));
+    assert.equal(row.rails[0], !parent.last, `${row.node.rel} under ${parent.node.rel}`);
+  }
+
+  // The flat list has no hierarchy, so it has no guides either.
+  for (const row of flatRows(compareDirectories(left, right).entries)) {
+    assert.deepEqual(row.rails, []);
+    assert.equal(row.depth, 0);
+  }
+});
+
 test("tree › a folder with nothing left after filtering disappears", () => {
   const { left, right } = pair("tree-e");
   const tree = buildTree(compareDirectories(left, right).entries);
@@ -121,6 +153,30 @@ test("tree › a folder with nothing left after filtering disappears", () => {
   });
   assert.equal(rows.some((row) => row.node.rel === "src"), false, "src holds nothing left-only");
   assert.ok(rows.some((row) => row.node.rel === "only-left.log"));
+});
+
+test("tree › an entry is drawn as the kind of file it is", () => {
+  // The kind comes from the name, which is all a directory comparison has.
+  assert.equal(fileIcon("anything", true), "folder");
+  assert.equal(fileIcon("logo.png", false), "image");
+  assert.equal(fileIcon("diagram.svg", false), "image", "a drawing is a picture, not markup");
+  assert.equal(fileIcon("theme.mp3", false), "music");
+  assert.equal(fileIcon("clip.mp4", false), "video");
+  assert.equal(fileIcon("bundle.zip", false), "archive");
+  assert.equal(fileIcon("report.docx", false), "page", "an office document is not an archive");
+  assert.equal(fileIcon("budget.xlsx", false), "grid");
+  assert.equal(fileIcon("app.ts", false), "code", "and not a video stream");
+  assert.equal(fileIcon("server.key", false), "lock", "and not a Keynote deck");
+  assert.equal(fileIcon("config.yml", false), "settings");
+  assert.equal(fileIcon("tool.exe", false), "binary");
+  assert.equal(fileIcon(".gitignore", false), "git");
+  assert.equal(fileIcon("notes.txt", false), "page");
+  assert.equal(fileIcon("mystery.qqq", false), "file");
+  assert.equal(fileIcon("LICENSE", false), "page");
+
+  // The flat view lists whole paths, and the name is the last part of one.
+  assert.equal(fileIcon("src/assets/logo.png", false), "image");
+  assert.equal(fileIcon("src\\assets\\logo.png", false), "image");
 });
 
 test("tree › the changed folders are the ones worth opening", () => {

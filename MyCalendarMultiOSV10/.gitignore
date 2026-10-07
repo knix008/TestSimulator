@@ -1,6 +1,42 @@
-node_modules
-dist
-.DS_Store
+# Dependencies
+node_modules/
+
+# Web build output (npm run build:web)
+dist/
+dist-ssr/
+*.local
+
+# Tauri build output and generated schemas (npm run build:*, tauri dev)
+src-tauri/target/
+src-tauri/gen/
+
+# TypeScript and tool caches
+*.tsbuildinfo
+.vite/
+.vitest/
+coverage/
+.eslintcache
+
+# Logs
 *.log
-src-tauri/target
-src-tauri/gen
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Operating systems
+.DS_Store
+Thumbs.db
+Desktop.ini

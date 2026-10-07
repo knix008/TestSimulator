@@ -15,7 +15,7 @@ import { useEffect, useRef } from "react";
 import * as host from "./host.js";
 import { Icon } from "./icons.js";
 import { Splitter } from "./Splitter.js";
-import { useApp } from "./state.js";
+import { renderMessage, useApp } from "./state.js";
 
 export function LogPanel() {
   const app = useApp();
@@ -29,7 +29,8 @@ export function LogPanel() {
   }, [log]);
 
   const asText = () => log
-    .map((entry) => `${time(entry.at)}\t${entry.kind === "error" ? "ERROR" : "INFO"}\t${entry.text}`)
+    .map((entry) =>
+      `${time(entry.at)}\t${entry.kind === "error" ? "ERROR" : "INFO"}\t${renderMessage(entry.text, t)}`)
     .join("\n");
 
   return (
@@ -84,13 +85,18 @@ export function LogPanel() {
           {log.length === 0 ? (
             <p className="panel-empty">{t("log.empty")}</p>
           ) : (
-            log.map((entry, index) => (
-              <div className={`log-row ${entry.kind}`} key={index}>
-                <span className="log-time">{time(entry.at)}</span>
-                <Icon name={entry.kind === "error" ? "warning" : "check"} size={12} />
-                <span className="log-text" title={entry.text}>{entry.text}</span>
-              </div>
-            ))
+            log.map((entry, index) => {
+              // Rendered here, not when the line was logged, so the whole log
+              // follows the language setting the way the status bar does.
+              const text = renderMessage(entry.text, t);
+              return (
+                <div className={`log-row ${entry.kind}`} key={index}>
+                  <span className="log-time">{time(entry.at)}</span>
+                  <Icon name={entry.kind === "error" ? "warning" : "check"} size={12} />
+                  <span className="log-text" title={text}>{text}</span>
+                </div>
+              );
+            })
           )}
         </div>
       </section>

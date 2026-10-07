@@ -1,0 +1,1147 @@
+import { act, useState } from "react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { addMonths, monthTitle } from "../src/domain/calendar";
+import { formatMessage, messages } from "../src/domain/i18n";
+import { DEFAULT_SETTINGS, FULLSCREEN_KEY, MIN_EVENTS_HEIGHT, normalizeSettings, type Settings } from "../src/domain/settings";
+import { APP_VERSION } from "../src/version";
+import { App } from "../src/ui/App";
+import { CalendarScreen } from "../src/ui/CalendarScreen";
+import { Dropdown } from "../src/ui/Dropdown";
+import { EventsScreen } from "../src/ui/EventsScreen";
+import { PrintScreen } from "../src/ui/PrintScreen";
+import { LanguageGate } from "../src/ui/LanguageGate";
+import { ReminderPopup } from "../src/ui/ReminderPopup";
+import { SettingsScreen } from "../src/ui/SettingsScreen";
+import type { SettingsTab } from "../src/ui/settingsTab";
+import type { ReadyContext } from "../src/ui/useSettings";
+import { click, render, setControlValue } from "./render";
+
+function CalendarHarness({
+  language = "ko" as const,
+  onOpenSettings = () => {},
+  onOpenEvents = () => {},
+  onOpenPrint = () => {},
+  initial = {},
+}: {
+  language?: "ko" | "en";
+  onOpenSettings?: (tab?: SettingsTab) => void;
+  onOpenEvents?: () => void;
+  onOpenPrint?: (year: number, month: number) => void;
+  initial?: Partial<Settings>;
+}) {
+  const [settings, setSettings] = useState<Settings>({ ...DEFAULT_SETTINGS, ...initial, language });
+  const update = (patch: Partial<Settings>) => {
+    setSettings((current) => normalizeSettings({ ...current, ...patch }));
+  };
+  const active = settings.language === "en" ? "en" : "ko";
+  const ctx: ReadyContext = {
+    settings: { ...settings, language: active },
+    update,
+    desktopError: null,
+    t: messages[active],
+  };
+  return <CalendarScreen ctx={ctx} onOpenSettings={onOpenSettings} onOpenEvents={onOpenEvents} onOpenPrint={onOpenPrint} />;
+}
+
+function SettingsHarness() {
+  const [settings, setSettings] = useState<Settings>({ ...DEFAULT_SETTINGS, language: "ko" });
+  const update = (patch: Partial<Settings>) => {
+    setSettings((current) => normalizeSettings({ ...current, ...patch }));
+  };
+  const active = settings.language === "en" ? "en" : "ko";
+  const ctx: ReadyContext = {
+    settings: { ...settings, language: active },
+    update,
+    desktopError: null,
+    t: messages[active],
+  };
+  return <SettingsScreen ctx={ctx} onClose={() => {}} />;
+}
+
+function EventsHarness() {
+  const [settings, setSettings] = useState<Settings>({ ...DEFAULT_SETTINGS, language: "ko" });
+  const ctx: ReadyContext = {
+    settings: { ...settings, language: "ko" },
+    update: (patch) => setSettings((current) => normalizeSettings({ ...current, ...patch })),
+    desktopError: null,
+    t: messages.ko,
+  };
+  return <EventsScreen ctx={ctx} onClose={() => {}} />;
+}
+
+function PrintHarness() {
+  const ctx: ReadyContext = {
+    settings: { ...DEFAULT_SETTINGS, language: "ko" },
+    update: () => {},
+    desktopError: null,
+    t: messages.ko,
+  };
+  return <PrintScreen ctx={ctx} onClose={() => {}} />;
+}
+
+describe("Interface", () => {
+  it("keeps the toolbar on one aligned row without a transparency slider", async () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.toolbar\s*\{[^}]*flex-direction:\s*row;/s);
+    expect(css).toMatch(/\.toolbar\s*\{[^}]*flex-wrap:\s*nowrap;/s);
+    expect(css).toMatch(/\.toolbar\s*\{[^}]*align-items:\s*center;/s);
+    expect(css).toContain(".chrome-close { margin-left: auto; }");
+    expect(css).toMatch(/\.screen-body\s*\{[^}]*overflow:\s*visible;/s);
+    expect(css).toContain("* { scrollbar-width: none; }");
+
+    const view = await render(<CalendarHarness />);
+    const toolbar = view.host.querySelector(".toolbar");
+    expect(toolbar).not.toBeNull();
+    expect(toolbar?.children).toHaveLength(2);
+    expect(toolbar?.querySelector("h1")?.textContent).toBe(monthTitle(new Date().getFullYear(), new Date().getMonth(), "ko", messages.ko.months));
+    expect(view.host.querySelector('input[type="range"]')).toBeNull();
+    expect(toolbar?.textContent).not.toContain("투명도");
+    expect(toolbar?.lastElementChild?.classList.contains("toolbar-end")).toBe(true);
+    expect(css).toMatch(/\.toolbar-end\s*\{[^}]*margin-left:\s*auto;/s);
+    await view.unmount();
+  });
+
+  it("moves the month, selects a day, and jumps back to today", async () => {
+    const view = await render(<CalendarHarness />);
+    const today = new Date();
+    const heading = () => view.host.querySelector(".toolbar h1")?.textContent;
+    const button = (label: string) => [...view.host.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === label || item.textContent === label);
+    click(button(messages.ko.nextMonth)!);
+    expect(heading()).toBe(monthTitle(addMonths(today, 1).getFullYear(), addMonths(today, 1).getMonth(), "ko", messages.ko.months));
+    click(button(messages.ko.today)!);
+    expect(heading()).toBe(monthTitle(today.getFullYear(), today.getMonth(), "ko", messages.ko.months));
+    const selected = view.host.querySelector(".day.selected");
+    expect(selected?.getAttribute("aria-pressed")).toBe("true");
+    expect(selected?.textContent).toContain(String(today.getDate()));
+    await view.unmount();
+  });
+
+  it("keeps the month and every date in place when a day is clicked", async () => {
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const heading = () => view.host.querySelector(".toolbar h1")?.textContent;
+    const layout = () => [...view.host.querySelectorAll(".day")].map((day) => `${day.className.includes("out")}:${day.textContent}`).join("|");
+    const button = (label: string) => [...view.host.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === label);
+    const month = heading();
+    const before = layout();
+    const days = () => [...view.host.querySelectorAll<HTMLButtonElement>(".day")];
+    const leading = days().find((day, index) => index < 7 && day.classList.contains("out"));
+    const trailing = days().reverse().find((day) => day.classList.contains("out"));
+    const inside = days().find((day) => !day.classList.contains("out"));
+    for (const target of [leading, inside, trailing].filter((day): day is HTMLButtonElement => Boolean(day))) {
+      const label = target.getAttribute("aria-label");
+      click(target);
+      expect(heading()).toBe(month);
+      expect(layout()).toBe(before);
+      expect(view.host.querySelector(".day.selected")?.getAttribute("aria-label")).toBe(label);
+      expect(view.host.querySelector(".selected-date")?.textContent?.startsWith(label?.split(",")[0] ?? "-")).toBe(true);
+    }
+    const today = new Date();
+    const following = addMonths(new Date(today.getFullYear(), today.getMonth(), 1), 1);
+    click(button(messages.ko.nextMonth)!);
+    expect(heading()).toBe(monthTitle(following.getFullYear(), following.getMonth(), "ko", messages.ko.months));
+    await view.unmount();
+  });
+
+  it("changes transparency from the appearance settings", async () => {
+    const view = await render(<SettingsHarness />);
+    expect(view.host.querySelector('input[type="range"]')).toBeNull();
+    click([...view.host.querySelectorAll('[role="tab"]')][1]!);
+    const slider = view.host.querySelector('input[type="range"]') as HTMLInputElement;
+    expect(view.host.querySelector('label[for="transparency"]')?.textContent).toBe(messages.ko.transparency);
+    expect(view.host.querySelector('label[for="transparency"] > svg.icon')).not.toBeNull();
+    expect(slider.min).toBe("0");
+    expect(slider.max).toBe("100");
+    expect(slider.value).toBe("22");
+    setControlValue(slider, "75");
+    expect(view.host.querySelector(".opacity strong")?.textContent).toBe("75%");
+    setControlValue(slider, "100");
+    expect(view.host.querySelector(".opacity strong")?.textContent).toBe("100%");
+    expect((view.host.querySelector('input[type="range"]') as HTMLInputElement).value).toBe("100");
+    setControlValue(slider, "0");
+    expect(view.host.querySelector(".opacity strong")?.textContent).toBe("0%");
+
+    // The buttons move in steps of 5 and snap a dragged value onto them.
+    const down = view.host.querySelector(`button[aria-label="${formatMessage(messages.ko.decrease, { name: messages.ko.transparency })}"]`) as HTMLButtonElement;
+    const up = view.host.querySelector(`button[aria-label="${formatMessage(messages.ko.increase, { name: messages.ko.transparency })}"]`) as HTMLButtonElement;
+    expect(down.disabled).toBe(true);
+    click(up);
+    expect(slider.value).toBe("5");
+    setControlValue(slider, "22");
+    click(up);
+    expect(slider.value).toBe("25");
+    setControlValue(slider, "22");
+    click(down);
+    expect(slider.value).toBe("20");
+    await view.unmount();
+  });
+
+  it("moves the calendar when the month title is dragged", async () => {
+    const view = await render(<CalendarHarness />);
+    const title = view.host.querySelector(".toolbar h1")!;
+    await act(async () => {
+      title.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, clientX: 20, clientY: 16, button: 0 }));
+    });
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 50, clientY: 36, button: 0 }));
+    });
+    expect(view.host.querySelector(".calendar")?.getAttribute("style")).toContain("translate(30px, 20px)");
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+    });
+    await view.unmount();
+  });
+
+  it("drags from anywhere on the panel while a short press still selects a date", async () => {
+    const view = await render(<CalendarHarness />);
+    const style = () => view.host.querySelector(".calendar")?.getAttribute("style") ?? "";
+    const press = async (target: Element, from: [number, number], to: [number, number], click: boolean) => {
+      await act(async () => {
+        target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, clientX: from[0], clientY: from[1], button: 0 }));
+        window.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true, clientX: to[0], clientY: to[1], button: 0 }));
+        window.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+        if (click) (target as HTMLElement).click();
+      });
+    };
+
+    await press(view.host.querySelector(".weekdays")!, [10, 10], [30, 25], false);
+    expect(style()).toContain("translate(20px, 15px)");
+
+    const selectedLabel = () => view.host.querySelector(".day.selected")?.getAttribute("aria-label");
+    const before = selectedLabel();
+    const days = Array.from(view.host.querySelectorAll<HTMLButtonElement>(".day:not(.out)"));
+    const other = days.find((day) => day.getAttribute("aria-label") !== before)!;
+    await press(other, [100, 100], [140, 110], true);
+    expect(style()).toContain("translate(60px, 25px)");
+    expect(selectedLabel()).toBe(before);
+
+    await press(other, [100, 100], [102, 101], true);
+    expect(style()).toContain("translate(60px, 25px)");
+    expect(selectedLabel()).toBe(other.getAttribute("aria-label"));
+    await view.unmount();
+  });
+
+  it("moves the selected day with the keyboard", async () => {
+    const view = await render(<CalendarHarness />);
+    const section = view.host.querySelector(".calendar")!;
+    const before = view.host.querySelector(".day.selected")?.getAttribute("aria-label");
+    await act(async () => {
+      section.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }));
+    });
+    expect(view.host.querySelector(".day.selected")?.getAttribute("aria-label")).not.toBe(before);
+    await act(async () => {
+      section.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "t" }));
+    });
+    expect(view.host.querySelector(".day.selected")?.textContent).toContain(String(new Date().getDate()));
+    await view.unmount();
+  });
+
+  it("shows live public holidays for the selected country and hides observances", async () => {
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const text = view.host.textContent ?? "";
+    expect(text).toContain("개천절");
+    expect(text).toContain("한글날");
+    expect(text).not.toContain("기념일");
+    expect(text).toContain("대한민국");
+    expect(text).toContain(messages.ko.holidayLive);
+    const holiday = view.host.querySelector(`[aria-label*="개천절"]`);
+    expect(holiday?.className).toContain("holiday");
+    await view.unmount();
+  });
+
+  it("switches the calendar between Korean and English", async () => {
+    const view = await render(<CalendarHarness language="en" />);
+    await view.settle();
+    const toolbar = view.host.querySelector(".toolbar");
+    expect(toolbar?.textContent).not.toContain("Transparency");
+    expect(toolbar?.textContent).toContain("Today");
+    expect(toolbar?.querySelector("h1")?.textContent).toBe(
+      monthTitle(new Date().getFullYear(), new Date().getMonth(), "en", messages.en.months),
+    );
+    expect(view.host.textContent).toContain("Foundation Day");
+    expect(view.host.textContent).not.toContain("개천절");
+    await view.unmount();
+  });
+
+  it("offers general, appearance, calendar, and holiday settings", async () => {
+    const view = await render(<SettingsHarness />);
+    await view.settle();
+    const tabs = [...view.host.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent);
+    expect(tabs).toEqual([
+      messages.ko.general,
+      messages.ko.appearance,
+      messages.ko.calendarSection,
+      messages.ko.holidaysSection,
+      messages.ko.aboutTab,
+    ]);
+    expect(view.host.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(messages.ko.general);
+    expect([...view.host.querySelectorAll('[role="tab"]')].every((tab) => tab.querySelector("svg.icon"))).toBe(true);
+    const languageButton = (label: string) => [...view.host.querySelectorAll(".segment button")].find((button) => button.textContent === label);
+    expect(languageButton("한국어")?.querySelector("svg.flag")?.getAttribute("viewBox")).toBe("-36 -24 72 48");
+    expect(languageButton("English")?.querySelector("svg.flag")?.getAttribute("viewBox")).toBe("0 0 60 30");
+    expect(view.host.querySelectorAll(".check > svg.icon")).toHaveLength(2);
+    expect(view.host.querySelector(".field.with-icon > svg.icon")).not.toBeNull();
+    expect(view.host.querySelector('input[type="range"]')).toBeNull();
+    expect(view.host.querySelector(".chrome-icon svg")).not.toBeNull();
+    expect(view.host.querySelector(".chrome-close")?.getAttribute("aria-label")).toBe(messages.ko.close);
+    // Every window's close button turns red under the pointer, like the calendar's own.
+    expect(view.host.querySelector(".chrome-close")?.classList.contains("close-btn")).toBe(true);
+    expect(readFileSync(resolve("src/styles.css"), "utf8")).toContain(
+      ".icon-btn.close-btn:hover, .icon-btn.close-btn:focus-visible { background: #e5484d; color: #fff; }",
+    );
+    expect(view.host.textContent).toContain(messages.ko.webBanner);
+    expect((view.host.querySelector('input[type="checkbox"]') as HTMLInputElement).disabled).toBe(true);
+
+    click([...view.host.querySelectorAll('[role="tab"]')][1]!);
+    expect(view.host.querySelectorAll(".swatch")).toHaveLength(20);
+    const lightButton = [...view.host.querySelectorAll("button")].find((button) => button.textContent === messages.ko.light);
+    click(lightButton!);
+    expect(view.host.querySelectorAll(".swatch")).toHaveLength(20);
+    expect(view.host.textContent).toContain("종이");
+    click([...view.host.querySelectorAll(".swatch")][0]!);
+    expect(view.host.querySelector('.swatch[aria-pressed="true"] .swatch-name')?.textContent).toBe("종이");
+
+    click([...view.host.querySelectorAll('[role="tab"]')][2]!);
+    const weekdayButtons = [...view.host.querySelectorAll<HTMLButtonElement>(".weekday-segment button")];
+    expect(weekdayButtons.map((button) => button.textContent)).toEqual(messages.ko.weekdaysShort);
+    expect(view.host.querySelector('.weekday-segment [aria-pressed="true"]')?.getAttribute("aria-label")).toBe(messages.ko.sunday);
+    click(weekdayButtons[1]);
+    expect(view.host.querySelector('.weekday-segment [aria-pressed="true"]')?.getAttribute("aria-label")).toBe(messages.ko.monday);
+    click(view.host.querySelector('.weekday-segment [aria-label="토요일"]')!);
+    expect(view.host.querySelector('.weekday-segment [aria-pressed="true"]')?.textContent).toBe("토");
+    const lunar = view.host.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(lunar.checked).toBe(true);
+    expect(lunar.closest("label")?.textContent).toBe(messages.ko.showLunar);
+    click(lunar);
+    expect((view.host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(false);
+    expect(view.host.textContent).toContain(messages.ko.lunarHint);
+
+    click([...view.host.querySelectorAll('[role="tab"]')][3]!);
+    expect(view.host.querySelector(".weekday-segment")).toBeNull();
+    const search = view.host.querySelector("#country-search") as HTMLInputElement;
+    setControlValue(search, "일본");
+    expect(view.host.querySelector("select")).toBeNull();
+    const combo = view.host.querySelector('[role="combobox"]') as HTMLButtonElement;
+    expect(combo.getAttribute("aria-label")).toBe(messages.ko.country);
+    click(combo);
+    const options = [...document.body.querySelectorAll('[role="listbox"] [role="option"]')];
+    expect(options.some((option) => option.textContent === "일본 (JP)")).toBe(true);
+    click(options.find((option) => option.textContent === "일본 (JP)")!);
+    expect(document.body.querySelector('[role="listbox"]')).toBeNull();
+    expect(combo.textContent).toBe("일본 (JP)");
+    await view.unmount();
+  });
+
+  it("shows the program information as the last settings tab, without a calendar button", async () => {
+    const calendar = await render(<CalendarHarness />);
+    expect(calendar.host.querySelector(`[aria-label="${messages.ko.about}"]`)).toBeNull();
+    await calendar.unmount();
+
+    const view = await render(<SettingsHarness />);
+    const tabs = [...view.host.querySelectorAll('[role="tab"]')];
+    expect(tabs).toHaveLength(5);
+    expect(tabs[4]?.textContent).toBe(messages.ko.aboutTab);
+    expect(tabs[4]?.querySelector("svg circle")).not.toBeNull();
+    expect(view.host.querySelector(".about-info")).toBeNull();
+    click(tabs[4]!);
+    expect(tabs[4]?.getAttribute("aria-selected")).toBe("true");
+    expect(view.host.textContent).toContain(APP_VERSION);
+    expect(view.host.textContent).toContain("Web, Linux, macOS, Windows");
+    expect(view.host.textContent).toContain("date.nager.at");
+    // The app icon sits beside the name and description, and every item below is a label/value row.
+    const head = view.host.querySelector(".about-head");
+    expect(head?.querySelector("img.about-icon")?.getAttribute("src")).toBe("/favicon.png");
+    expect(head?.querySelector(".about-name")?.textContent).toBe(messages.ko.appName);
+    expect(head?.textContent).toContain(messages.ko.aboutBody);
+    const labels = [...view.host.querySelectorAll(".about-grid > dt")].map((dt) => dt.textContent);
+    expect(labels).toEqual([messages.ko.version, messages.ko.featuresTitle, messages.ko.aboutPlatformsLabel, messages.ko.language, messages.ko.holidaysSection]);
+    expect(view.host.querySelectorAll(".about-grid > dd")).toHaveLength(labels.length);
+    await view.unmount();
+  });
+
+  it("asks for Korean or English before the first calendar is shown", async () => {
+    let selected = "";
+    const gate = await render(<LanguageGate onSelect={(language) => { selected = language; }} />);
+    expect(gate.host.textContent).toContain("한국어");
+    expect(gate.host.textContent).toContain("English");
+    click([...gate.host.querySelectorAll("button")].find((button) => button.textContent === "English")!);
+    expect(selected).toBe("en");
+    await gate.unmount();
+
+    const app = await render(<App />);
+    await app.settle();
+    expect(document.body.textContent).toContain("Choose your installation language");
+    click([...document.body.querySelectorAll("button")].find((button) => button.textContent === "한국어")!);
+    await app.settle();
+    expect(document.body.textContent).toContain(messages.ko.today);
+    expect(document.documentElement.lang).toBe("ko");
+    click(document.body.querySelector(`[aria-label="${messages.ko.settings}"]`)!);
+    expect(document.body.textContent).toContain(messages.ko.general);
+    await act(async () => {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    });
+    await app.settle();
+    expect(document.body.querySelector(".screen")).toBeNull();
+    await app.unmount();
+  });
+
+  it("shows minimize, maximize, and close controls only in the desktop app", async () => {
+    const web = await render(<CalendarHarness />);
+    expect(web.host.querySelector(".window-controls")).toBeNull();
+    expect(web.host.querySelectorAll(".resize")).toHaveLength(0);
+    await web.unmount();
+
+    Object.defineProperty(window, "__TAURI_INTERNALS__", { value: {}, configurable: true });
+    const desktop = await render(<CalendarHarness />);
+    const controls = [...desktop.host.querySelectorAll(".window-controls button")].map((button) => button.getAttribute("aria-label"));
+    expect(controls).toEqual([messages.ko.minimize, messages.ko.maximize, messages.ko.close]);
+    expect(desktop.host.querySelector(".toolbar")?.children).toHaveLength(3);
+    expect(desktop.host.querySelectorAll(".resize")).toHaveLength(1);
+    expect(desktop.host.querySelector(".resize-grip")).not.toBeNull();
+    await desktop.unmount();
+  });
+
+  it("leaves the maximized desktop window with Escape", async () => {
+    let maximized = true;
+    const calls: string[] = [];
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      configurable: true,
+      value: {
+        metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
+        transformCallback: () => 1,
+        invoke: async (command: string) => {
+          calls.push(command);
+          if (command === "plugin:window|is_maximized") return maximized;
+          if (command === "toggle_maximize_main") {
+            maximized = !maximized;
+            return maximized;
+          }
+          return null;
+        },
+      },
+    });
+    Object.defineProperty(window, "__TAURI_EVENT_PLUGIN_INTERNALS__", {
+      configurable: true,
+      value: { unregisterListener: () => {} },
+    });
+    const fullscreenFont = { dateFontScale: 1.6, dateFontFamily: "serif", dateFontWeight: "heavy", dateFontItalic: false } as const;
+    const view = await render(<CalendarHarness initial={{ dateFontScale: 1.2, fullscreenDateFont: fullscreenFont }} />);
+    await view.settle();
+    const days = () => view.host.querySelector(".days") as HTMLElement;
+    expect(view.host.querySelector(".calendar")?.classList.contains("maximized")).toBe(true);
+    // Full screen keeps a date font of its own, and tells the settings window which one is on screen.
+    expect(days().style.getPropertyValue("--date-font-scale")).toBe("1.6");
+    expect(days().style.getPropertyValue("--date-weight")).toBe("850");
+    expect(localStorage.getItem(FULLSCREEN_KEY)).toBe("1");
+    // The full screen button gives its focus back to the calendar, so no focus ring stays on it afterwards.
+    const restore = view.host.querySelector(`.window-controls button[aria-label="${messages.ko.restore}"]`) as HTMLButtonElement;
+    restore.focus();
+    const escape = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" });
+    await act(async () => {
+      document.body.dispatchEvent(escape);
+    });
+    await view.settle();
+    expect(escape.defaultPrevented).toBe(true);
+    expect(calls).toContain("toggle_maximize_main");
+    expect(view.host.querySelector(".calendar")?.classList.contains("maximized")).toBe(false);
+    expect(days().style.getPropertyValue("--date-font-scale")).toBe("1.2");
+    expect(days().style.getPropertyValue("--date-weight")).toBe("680");
+    expect(localStorage.getItem(FULLSCREEN_KEY)).toBe("0");
+    expect(document.activeElement).toBe(view.host.querySelector(".panel.calendar"));
+    const toggles = calls.filter((command) => command === "toggle_maximize_main").length;
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    });
+    expect(calls.filter((command) => command === "toggle_maximize_main")).toHaveLength(toggles);
+    await view.unmount();
+    delete (window as unknown as { __TAURI_EVENT_PLUGIN_INTERNALS__?: unknown }).__TAURI_EVENT_PLUGIN_INTERNALS__;
+  });
+
+  it("collapses and expands the holiday list under the calendar", async () => {
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const toggle = () => view.host.querySelector(".footer-toggle") as HTMLButtonElement;
+    expect(toggle().getAttribute("aria-expanded")).toBe("true");
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toContain('.footer-toggle[aria-expanded="false"] .icon { transform: rotate(180deg); }');
+    expect(toggle().getAttribute("aria-label")).toBe(messages.ko.collapseEvents);
+    expect(view.host.querySelector("#calendar-events")?.textContent).toContain("개천절");
+
+    click(toggle());
+    expect(toggle().getAttribute("aria-expanded")).toBe("false");
+    expect(toggle().getAttribute("aria-label")).toBe(messages.ko.expandEvents);
+    expect(view.host.querySelector("#calendar-events")).toBeNull();
+    expect(view.host.querySelector(".footer")?.className).toContain("collapsed");
+    expect(view.host.querySelector(".status-row")?.textContent).toContain("대한민국");
+
+    click(toggle());
+    expect(view.host.querySelector("#calendar-events")?.textContent).toContain("한글날");
+    await view.unmount();
+  });
+
+  it("keeps the calendar grid height when the holiday list opens, closes, or changes", async () => {
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const grid = () => (view.host.querySelector(".days") as HTMLElement).style.height;
+    expect(grid()).toBe("");
+    expect((view.host.querySelector(".calendar") as HTMLElement).style.height).toBe("");
+    click(view.host.querySelector(".footer-toggle")!);
+    expect(grid()).toBe("");
+    click(view.host.querySelector(".footer-toggle")!);
+    expect(grid()).toBe("");
+    click([...view.host.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === messages.ko.nextMonth)!);
+    await view.settle();
+    expect(grid()).toBe("");
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.days \{\s*flex: 0 1 auto;\s*aspect-ratio: 7 \/ 5;/);
+    expect(css).toMatch(/\.app-frame > \.panel\.calendar,[^{]*\{\s*height: auto;/);
+    expect(css).not.toContain("max-height: 108px");
+    await view.unmount();
+  });
+
+  it("keeps calendar rows, columns, and the month title the same size in every month", async () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.days \{[^}]*grid-template-rows: repeat\(5, minmax\(0, 1fr\)\);[^}]*gap: 2px;/s);
+    expect(css).toMatch(/\.mark \{[^}]*position: absolute;/s);
+    expect(css).toContain('html[lang="ko"] .toolbar h1 { width: 92px; }');
+    expect(css).toContain('html[lang="en"] .toolbar h1 { width: 122px; }');
+
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const next = [...view.host.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === messages.ko.nextMonth)!;
+    for (let month = 0; month < 12; month += 1) {
+      expect(view.host.querySelector(".days")?.children).toHaveLength(35);
+      for (const pair of view.host.querySelectorAll(".day-pair")) {
+        expect(pair.querySelectorAll(".day")).toHaveLength(2);
+        expect(pair.getAttribute("role")).toBe("gridcell");
+      }
+      click(next);
+      await view.settle();
+    }
+    await view.unmount();
+  });
+
+  it("starts the week on any chosen day", async () => {
+    const view = await render(<CalendarHarness initial={{ weekStartsOn: 6 }} />);
+    await view.settle();
+    const header = [...view.host.querySelectorAll(".weekdays span")].map((item) => item.textContent);
+    expect(header).toEqual(["토", "일", "월", "화", "수", "목", "금"]);
+    expect(view.host.querySelector(".weekdays span")?.className).toBe("saturday");
+    const first = view.host.querySelector(".days .day") as HTMLElement;
+    expect(first.getAttribute("aria-label")).toContain("토요일");
+    await view.unmount();
+  });
+
+  it("shows small lunar dates on month starts and the solar terms", async () => {
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const firstOfMonth = [...view.host.querySelectorAll(".day:not(.out)")][0] as HTMLElement;
+    expect(firstOfMonth.querySelector(".num")?.textContent).toBe("1");
+    expect(firstOfMonth.querySelector(".sub")?.textContent).toMatch(/^(음|윤) \d+\.\d+/);
+    const subs = [...view.host.querySelectorAll(".day .sub")];
+    const terms = subs.filter((sub) => sub.classList.contains("term")).map((sub) => sub.textContent);
+    expect(terms.length).toBeGreaterThanOrEqual(1);
+    for (const term of terms) expect(messages.ko.solarTerms.some((name) => term?.includes(name))).toBe(true);
+    const lunarDays = subs.filter((sub) => !sub.classList.contains("term")).length;
+    expect(lunarDays).toBeLessThanOrEqual(4);
+    expect(view.host.querySelectorAll(".day:not(.out)").length - subs.length).toBeGreaterThan(20);
+    expect(view.host.querySelector(".selected-lunar")?.textContent).toMatch(/^음력 (윤)?\d+월 \d+일/);
+    await view.unmount();
+
+    const plain = await render(<CalendarHarness initial={{ showLunar: false }} />);
+    await plain.settle();
+    expect(plain.host.querySelectorAll(".day .sub")).toHaveLength(0);
+    expect(plain.host.querySelector(".selected-lunar")).toBeNull();
+    await plain.unmount();
+  });
+
+  it("scrolls only inside the events area and never the calendar page", () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/html\[data-platform="desktop"\],\s*html\[data-platform="desktop"\] body \{ overflow: hidden; \}/);
+    expect(css).toContain('html[data-platform="desktop"] .app-frame > .panel.calendar { height: 100%; }');
+    expect(css).toContain('html[data-platform="desktop"] .panel.calendar .events { flex: 1 1 auto; min-height: 48px; }');
+    expect(css).toMatch(/\.toolbar \{\s*flex: none;/);
+    expect(css).toContain(".footer > * { flex: none; }");
+    expect(css).toContain('html[data-platform="web"] .app-frame > .panel.calendar { max-height: calc(100vh - 24px); }');
+    expect(css).toMatch(/\.events \.holiday-list \{[^}]*overflow-y: auto;/);
+    expect(css).toMatch(/\.day-items \{[^}]*overflow-y: auto;/s);
+  });
+
+  it("draws dropdowns in the theme's colours instead of the OS list", async () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.dropdown \{[^}]*color: var\(--text\);/);
+    expect(css).toMatch(/\.dropdown-list \{[^}]*background: var\(--bg-solid, #14181f\);[^}]*color: var\(--text\);/);
+    for (const file of ["SettingsScreen", "EventEditor", "EventManager"]) {
+      expect(readFileSync(resolve(`src/ui/${file}.tsx`), "utf8")).not.toContain("<select");
+    }
+
+    let value = "b";
+    let outerKeys = 0;
+    const options = [
+      { value: "a", label: "Apple" },
+      { value: "b", label: "Banana" },
+      { value: "c", label: "Cherry" },
+    ];
+    function Harness() {
+      const [current, setCurrent] = useState(value);
+      return (
+        <div onKeyDown={() => (outerKeys += 1)}>
+          <Dropdown value={current} options={options} ariaLabel="Fruit" onChange={(next) => { value = next; setCurrent(next); }} />
+        </div>
+      );
+    }
+    const view = await render(<Harness />);
+    const combo = view.host.querySelector('[role="combobox"]') as HTMLButtonElement;
+    const key = (name: string) =>
+      act(() => {
+        combo.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+      });
+    const list = () => document.body.querySelector('[role="listbox"]');
+    expect(combo.getAttribute("aria-expanded")).toBe("false");
+    key("ArrowDown");
+    expect(list()).not.toBeNull();
+    expect(list()?.querySelector('[aria-selected="true"]')?.textContent).toBe("Banana");
+    key("ArrowDown");
+    expect(combo.getAttribute("aria-activedescendant")).toBe(list()?.querySelector(".active")?.id);
+    key("Enter");
+    expect(list()).toBeNull();
+    expect(value).toBe("c");
+    key("Enter");
+    key("Escape");
+    expect(list()).toBeNull();
+    expect(value).toBe("c");
+    expect(outerKeys).toBe(0);
+    key("a");
+    expect(value).toBe("a");
+    click(combo);
+    act(() => {
+      document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    });
+    expect(list()).toBeNull();
+    await view.unmount();
+  });
+
+  it("shows a vertical scrollbar only in the events lists", () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toContain("* { scrollbar-width: none; }");
+    expect(css).toContain("*::-webkit-scrollbar { display: none; }");
+    expect(css).toContain(".events .holiday-list, .events .day-items { scrollbar-width: thin; }");
+    expect(css.match(/scrollbar-width: (thin|auto)/g)).toHaveLength(1);
+  });
+
+  it("scales the day numbers with the calendar width", () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.days \{[^}]*container-type: inline-size;/);
+    expect(css).toMatch(/\.days > \* \{[^}]*font-size: clamp\(7px, round\(calc\(2\.78cqw \* var\(--date-font-scale, 1\)\), 1px\), 80px\);/);
+    expect(css).toMatch(/\.num \{ font-size: 1em;/);
+    expect(css).toMatch(/\.mark \{[^}]*top: calc\(50% \+ 0\.79em\);[^}]*width: 0\.36em;/);
+    expect(css).toMatch(/\.sub \{[^}]*font-size: calc\(0\.72em \/ var\(--date-font-scale, 1\)\);/);
+    expect(css).not.toMatch(/\.(num|mark|sub) \{[^}]*\b(1[0-9]|[5-9])px/);
+  });
+
+  it("gives every holiday line the same fixed line height", () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.events \{[^}]*--event-line: 24px;[^}]*gap: 0;/);
+    expect(css).toMatch(/\.events > p,\s*\.events \.holiday-list button \{[^}]*height: var\(--event-line\);[^}]*line-height: var\(--event-line\);[^}]*white-space: nowrap;/s);
+  });
+
+  it("keeps the holiday area the same height in every month", async () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.events \{[^}]*overflow: hidden;/);
+    expect(css).toMatch(/\.events \.holiday-list \{[^}]*overflow-y: auto;/);
+
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const next = [...view.host.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === messages.ko.nextMonth)!;
+    const heights = new Set<string>();
+    for (let month = 0; month < 12; month += 1) {
+      heights.add((view.host.querySelector("#calendar-events") as HTMLElement).style.height);
+      click(next);
+      await view.settle();
+    }
+    expect([...heights]).toEqual([`${DEFAULT_SETTINGS.eventsHeight}px`]);
+    await view.unmount();
+  });
+
+  it("resizes from the bottom-right grip without moving the dates", async () => {
+    const view = await render(<CalendarHarness />);
+    const panel = view.host.querySelector(".calendar") as HTMLElement;
+    panel.getBoundingClientRect = () => new DOMRect(0, 0, 520, 600);
+    const grip = view.host.querySelector(".resize-grip") as HTMLButtonElement;
+    expect(grip.getAttribute("aria-label")).toBe(messages.ko.resizeWindow);
+    expect(grip.querySelector("svg")).not.toBeNull();
+    const pointer = (type: string, x: number, y: number) =>
+      act(async () => {
+        grip.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, pointerId: 1 }));
+      });
+    const grid = () => (view.host.querySelector(".days") as HTMLElement).style.height;
+    const events = () => view.host.querySelector("#calendar-events") as HTMLElement;
+    events().getBoundingClientRect = () => new DOMRect(0, 0, 500, 120);
+    await pointer("pointerdown", 520, 600);
+    await pointer("pointermove", 580, 640);
+    expect(panel.style.width).toBe("580px");
+    expect(grid()).toBe("");
+    expect(events().style.height).toBe("160px");
+    expect(panel.style.transform).toBe("translate(30px, 0px)");
+    await pointer("pointermove", 100, 0);
+    expect(panel.style.width).toBe("470px");
+    expect(grid()).toBe("");
+    expect(events().style.height).toBe(`${MIN_EVENTS_HEIGHT}px`);
+    await pointer("pointermove", 520, 700);
+    await pointer("pointerup", 520, 700);
+    expect(grid()).toBe("");
+    expect(events().style.height).toBe("220px");
+    await view.unmount();
+  });
+
+  it("deletes events straight from the calendar's list after a confirmation", async () => {
+    localStorage.clear();
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const base = { date: iso, interval: 1, until: "", color: "#3d7dff", skip: [], reminder: null };
+    localStorage.setItem(
+      "mycalendar.events.v1",
+      JSON.stringify([
+        { ...base, id: "gym", title: "운동", time: "07:30", repeat: "weekly" },
+        { ...base, id: "call", title: "통화", time: "10:00", repeat: "none" },
+      ]),
+    );
+    const stored = () => JSON.parse(localStorage.getItem("mycalendar.events.v1") ?? "[]") as Array<{ id: string; skip: string[] }>;
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const remove = (title: string) =>
+      view.host.querySelector(`.day-items button[aria-label="${messages.ko.deleteEvent}: ${title}"]`) as HTMLButtonElement | null;
+    const confirm = () => view.host.querySelector(".day-items .day-confirm") as HTMLElement | null;
+    const confirmButton = (label: string) => [...confirm()!.querySelectorAll("button")].find((button) => button.textContent === label);
+    expect(remove("운동")).not.toBeNull();
+    expect(remove("통화")).not.toBeNull();
+
+    // A repeating event asks whether to drop only this day or the whole series; Escape keeps it.
+    click(remove("운동")!);
+    expect(confirm()?.textContent).toContain(formatMessage(messages.ko.confirmDelete, { title: "운동" }));
+    expect(confirmButton(messages.ko.deleteOccurrence)).toBeDefined();
+    expect(confirmButton(messages.ko.deleteSeries)).toBeDefined();
+    expect(document.activeElement?.textContent).toBe(messages.ko.cancel);
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    await act(async () => {
+      document.activeElement!.dispatchEvent(escape);
+    });
+    expect(escape.defaultPrevented).toBe(true);
+    expect(confirm()).toBeNull();
+    expect(stored()).toHaveLength(2);
+    click(remove("운동")!);
+    click(confirmButton(messages.ko.deleteOccurrence)!);
+    expect(remove("운동")).toBeNull();
+    expect(stored().find((event) => event.id === "gym")?.skip).toEqual([iso]);
+
+    // The Delete key on an event asks too; a one-off event is simply deleted.
+    const call = view.host.querySelector(`.day-items button[aria-label="${messages.ko.editEvent}: 통화"]`) as HTMLButtonElement;
+    await act(async () => {
+      call.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true }));
+    });
+    expect(confirmButton(messages.ko.deleteOccurrence)).toBeUndefined();
+    click(confirmButton(messages.ko.deleteEvent)!);
+    expect(stored().map((event) => event.id)).toEqual(["gym"]);
+    expect(view.host.querySelector(".day-items")?.textContent).toContain(messages.ko.noEvents);
+    await view.unmount();
+  });
+
+  it("adds a repeating colored event, edits one day, and lists it in the event manager", async () => {
+    localStorage.clear();
+    let openedEvents = 0;
+    const view = await render(<CalendarHarness onOpenEvents={() => { openedEvents += 1; }} />);
+    await view.settle();
+    const byLabel = (label: string) => view.host.querySelector(`[aria-label="${label}"]`) as HTMLElement;
+    const sheet = () => view.host.querySelector(".sheet") as HTMLFormElement | null;
+    const submit = () =>
+      act(() => {
+        sheet()!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      });
+
+    click(byLabel(messages.ko.addEvent));
+    expect(sheet()?.querySelector("h2")?.textContent).toBe(messages.ko.addEvent);
+    submit();
+    expect(sheet()?.querySelector('[role="alert"]')?.textContent).toBe(messages.ko.titleRequired);
+
+    setControlValue(sheet()!.querySelector('input[name="title"]') as HTMLInputElement, "운동");
+    setControlValue(sheet()!.querySelector('input[name="time"]') as HTMLInputElement, "07:30");
+    click([...sheet()!.querySelectorAll(".segment button")].find((button) => button.textContent === messages.ko.repeatWeekly)!);
+    expect(sheet()!.querySelector('input[name="interval"]')).not.toBeNull();
+    expect(sheet()!.textContent).toContain("주마다");
+    const custom = sheet()!.querySelector(`input[type="color"][aria-label="${messages.ko.customColor}"]`) as HTMLInputElement;
+    expect(custom.closest(".custom-color")?.classList.contains("selected")).toBe(false);
+    setControlValue(custom, "#abcdef");
+    expect(custom.closest(".custom-color")?.classList.contains("selected")).toBe(true);
+    expect((custom.closest(".custom-color")!.querySelector("i") as HTMLElement).style.background).toMatch(/#abcdef|rgb\(171, 205, 239\)/);
+    expect(sheet()!.querySelector('[role="radio"][aria-checked="true"]')).toBeNull();
+    click(sheet()!.querySelector(`[aria-label="${messages.ko.colorNames[5]}"]`)!);
+    expect(custom.closest(".custom-color")?.classList.contains("selected")).toBe(false);
+    expect(sheet()!.querySelector('[role="radio"][aria-checked="true"]')?.getAttribute("aria-label")).toBe(messages.ko.colorNames[5]);
+    submit();
+    expect(sheet()).toBeNull();
+
+    const dotted = [...view.host.querySelectorAll(".day:not(.out) .dots")];
+    expect(dotted.length).toBeGreaterThanOrEqual(1);
+    expect((dotted[0].querySelector("i") as HTMLElement).style.background).toMatch(/#e5484d|rgb\(229, 72, 77\)/);
+    const item = view.host.querySelector(".day-items .day-event") as HTMLElement;
+    expect(item.textContent).toContain("07:30");
+    expect(item.textContent).toContain("운동");
+    expect(item.querySelector(".event-repeat")).not.toBeNull();
+    expect(view.host.querySelector(".holiday-list")?.textContent).toContain("운동");
+
+    click(item);
+    expect(sheet()?.querySelector("h2")?.textContent).toBe(messages.ko.editEvent);
+    click([...sheet()!.querySelectorAll("button")].find((button) => button.textContent === messages.ko.deleteOccurrence)!);
+    expect(view.host.querySelector(".day-items .day-event")).toBeNull();
+    expect(view.host.querySelector(".day-items")?.textContent).toContain(messages.ko.noEvents);
+    expect(view.host.querySelectorAll(".day:not(.out) .dots").length).toBe(dotted.length - 1);
+
+    click(byLabel(messages.ko.manageEvents));
+    expect(openedEvents).toBe(1);
+    await view.unmount();
+
+    const settings = await render(<SettingsHarness />);
+    expect(settings.host.querySelector(".manage-list")).toBeNull();
+    await settings.unmount();
+
+    const manager = await render(<EventsHarness />);
+    expect(manager.host.querySelector(".chrome-title, h1")?.textContent).toBe(messages.ko.manageEvents);
+    const rows = [...manager.host.querySelectorAll(".manage-list .manage-main")];
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain("운동");
+    expect(rows[0].textContent).toContain(messages.ko.repeatEveryOne.weekly);
+
+    click(manager.host.querySelector(`[aria-label="${messages.ko.editEvent}: 운동"]`)!);
+    const editor = manager.host.querySelector(".sheet") as HTMLFormElement;
+    setControlValue(editor.querySelector('input[name="title"]') as HTMLInputElement, "수영");
+    act(() => {
+      editor.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(manager.host.querySelector(".sheet")).toBeNull();
+    expect(manager.host.querySelector(".manage-list")?.textContent).toContain("수영");
+
+    click(manager.host.querySelector(`[aria-label="${messages.ko.deleteEvent}: 수영"]`)!);
+    const confirm = manager.host.querySelector('.manage-confirm[role="alert"]');
+    expect(confirm?.textContent).toContain("'수영' 일정을 삭제할까요?");
+    click([...confirm!.querySelectorAll("button")].find((button) => button.textContent === messages.ko.cancel)!);
+    expect(manager.host.querySelector(".manage-confirm")).toBeNull();
+    click(manager.host.querySelector(`[aria-label="${messages.ko.deleteEvent}: 수영"]`)!);
+    click([...manager.host.querySelectorAll(".manage-confirm button")].find((button) => button.textContent === messages.ko.deleteEvent)!);
+    expect(manager.host.querySelector(".manage-list")).toBeNull();
+    expect(manager.host.textContent).toContain(messages.ko.noEventsYet);
+    await manager.unmount();
+  });
+
+  it("opens a context menu with an icon on every item when a day is right-clicked", async () => {
+    localStorage.clear();
+    let openedEvents = 0;
+    let openedSettings = 0;
+    const view = await render(
+      <CalendarHarness onOpenEvents={() => { openedEvents += 1; }} onOpenSettings={() => { openedSettings += 1; }} />,
+    );
+    await view.settle();
+    const day = [...view.host.querySelectorAll<HTMLButtonElement>(".day:not(.out)")].find((cell) => cell.textContent?.startsWith("15"))!;
+    const rightClick = () =>
+      act(() => {
+        day.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+      });
+    rightClick();
+    const menu = () => view.host.querySelector('.day-menu[role="menu"]');
+    expect(day.getAttribute("aria-pressed")).toBe("true");
+    const items = [...menu()!.querySelectorAll('[role="menuitem"]')];
+    expect(items.map((item) => item.textContent)).toEqual([
+      messages.ko.addEventOn,
+      messages.ko.goToday,
+      messages.ko.manageEvents,
+      messages.ko.print,
+      messages.ko.settings,
+    ]);
+    expect(items.every((item) => item.querySelector(".day-menu-icon svg.icon"))).toBe(true);
+
+    act(() => {
+      menu()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(menu()).toBeNull();
+
+    rightClick();
+    click(menu()!.querySelector('[role="menuitem"]')!);
+    expect(menu()).toBeNull();
+    const editor = view.host.querySelector(".sheet") as HTMLFormElement;
+    expect(editor.querySelector("h2")?.textContent).toBe(messages.ko.addEvent);
+    setControlValue(editor.querySelector('input[name="title"]') as HTMLInputElement, "치과");
+    act(() => {
+      editor.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+
+    rightClick();
+    const edit = [...menu()!.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === `${messages.ko.editEvent}: 치과`);
+    expect(edit?.querySelector(".day-menu-icon svg.icon")).not.toBeNull();
+    expect(menu()!.querySelectorAll('[role="separator"]')).toHaveLength(2);
+    click(edit!);
+    expect(view.host.querySelector(".sheet h2")?.textContent).toBe(messages.ko.editEvent);
+    act(() => {
+      view.host.querySelector(".sheet")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+
+    rightClick();
+    click([...menu()!.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === messages.ko.manageEvents)!);
+    rightClick();
+    click([...menu()!.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === messages.ko.settings)!);
+    expect(openedEvents).toBe(1);
+    expect(openedSettings).toBe(1);
+    await view.unmount();
+  });
+
+  it("opens the calendar menu with icons from the title bar and prints the month on view", async () => {
+    localStorage.clear();
+    let printed: [number, number] | null = null;
+    let openedEvents = 0;
+    const view = await render(
+      <CalendarHarness onOpenPrint={(year, month) => { printed = [year, month]; }} onOpenEvents={() => { openedEvents += 1; }} />,
+    );
+    await view.settle();
+    const menu = () => view.host.querySelector('.day-menu[role="menu"]');
+    const openMenu = (target: Element) =>
+      act(() => {
+        target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 30, clientY: 20 }));
+      });
+    openMenu(view.host.querySelector(".toolbar h1")!);
+    expect(menu()?.getAttribute("aria-label")).toBe(messages.ko.windowMenu);
+    const items = [...menu()!.querySelectorAll('[role="menuitem"]')];
+    expect(items.map((item) => item.textContent)).toEqual([
+      messages.ko.prevMonth,
+      messages.ko.nextMonth,
+      messages.ko.goToday,
+      messages.ko.addEvent,
+      messages.ko.manageEvents,
+      messages.ko.print,
+      messages.ko.settings,
+    ]);
+    expect(items.every((item) => item.querySelector(".day-menu-icon svg.icon"))).toBe(true);
+
+    click(items[1]);
+    const next = addMonths(new Date(), 1);
+    expect(view.host.querySelector(".toolbar h1")?.textContent).toBe(monthTitle(next.getFullYear(), next.getMonth(), "ko", messages.ko.months));
+    openMenu(view.host.querySelector(".status-row")!);
+    click([...menu()!.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === messages.ko.print)!);
+    expect(printed).toEqual([next.getFullYear(), next.getMonth()]);
+    openMenu(view.host.querySelector(".toolbar")!);
+    click([...menu()!.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === messages.ko.manageEvents)!);
+    expect(openedEvents).toBe(1);
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, bubbles: true, cancelable: true }));
+    });
+    expect(printed).toEqual([next.getFullYear(), next.getMonth()]);
+    await view.unmount();
+  });
+
+  it("previews the print with page setup and prints the laid-out pages", async () => {
+    localStorage.clear();
+    localStorage.setItem("mycalendar.events.v1", JSON.stringify([]));
+    localStorage.setItem("mycalendar.print-request", `2026-9:${Date.now()}`);
+    const view = await render(<PrintHarness />);
+    await view.settle();
+    const previewPages = () => [...view.host.querySelectorAll<HTMLElement>(".print-preview .print-page")];
+    const printPages = () => [...document.body.querySelectorAll<HTMLElement>(".print-root .print-page")];
+    expect(view.host.querySelector(".chrome h1")?.textContent).toBe(messages.ko.printTitle);
+    expect(previewPages()).toHaveLength(1);
+    expect(printPages()).toHaveLength(1);
+    expect(previewPages()[0].querySelector(".print-head h2")?.textContent).toBe("2026년 10월");
+    expect(previewPages()[0].style.width).toBe("297mm");
+    expect(previewPages()[0].style.height).toBe("210mm");
+    expect(previewPages()[0].style.padding).toBe("12mm");
+    expect(previewPages()[0].querySelectorAll(".print-day")).toHaveLength(35);
+    expect(document.head.querySelector('style[data-print="page"]')?.textContent).toBe("@page { size: 297mm 210mm; margin: 0; }");
+
+    const byText = (selector: string, text: string) =>
+      [...view.host.querySelectorAll<HTMLElement>(selector)].find((element) => element.textContent?.includes(text))!;
+    click(byText(".print-options .segment button", messages.ko.printOrientations.portrait));
+    expect(previewPages()[0].style.width).toBe("210mm");
+    click(byText(".print-options .segment button", messages.ko.printMargins.wide));
+    expect(previewPages()[0].style.padding).toBe("20mm");
+
+    const months = view.host.querySelector(`[role="combobox"][aria-label="${messages.ko.printMonths}"]`) as HTMLElement;
+    click(months);
+    click([...document.body.querySelectorAll('[role="option"]')].find((option) => option.textContent === "3")!);
+    expect(previewPages().map((page) => page.querySelector(".print-head h2")?.textContent)).toEqual(["2026년 10월", "2026년 11월", "2026년 12월"]);
+    expect(printPages()).toHaveLength(3);
+    expect(previewPages()[2].querySelector(".print-foot")?.textContent).toContain("3 / 3쪽");
+    expect(view.host.textContent).toContain("모두 3쪽");
+
+    const paper = view.host.querySelector(`[role="combobox"][aria-label="${messages.ko.printPaper}"]`) as HTMLElement;
+    click(paper);
+    click([...document.body.querySelectorAll('[role="option"]')].find((option) => option.textContent?.startsWith("A5"))!);
+    expect(previewPages()[0].style.width).toBe("148mm");
+
+    click(byText(".print-options .check", messages.ko.printEventList).querySelector("input")!);
+    expect(previewPages()[0].querySelector(".print-list h3")?.textContent).toBe(messages.ko.printMonthEvents);
+    click(byText(".print-options .check", messages.ko.printGrayscale).querySelector("input")!);
+    expect(previewPages()[0].classList.contains("grayscale")).toBe(true);
+    expect(JSON.parse(localStorage.getItem("mycalendar.print.v1")!)).toMatchObject({ paper: "a5", months: 3, margin: "wide" });
+
+    const zoom = byText(".print-zoom .text-btn", "%");
+    const before = zoom.textContent;
+    click(view.host.querySelector(`[aria-label="${messages.ko.zoomIn}"]`)!);
+    expect(zoom.textContent).not.toBe(before);
+
+    const original = window.print;
+    let calls = 0;
+    window.print = () => {
+      calls += 1;
+    };
+    click(byText(".print-btn", messages.ko.print));
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, bubbles: true, cancelable: true }));
+    });
+    window.print = original;
+    expect(calls).toBe(2);
+    await view.unmount();
+    expect(document.head.querySelector('style[data-print="page"]')).toBeNull();
+    expect(document.body.querySelector(".print-root")).toBeNull();
+
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/@media print \{[^@]*body > :not\(\.print-root\) \{ display: none !important; \}/);
+  });
+
+  it("scales, swaps, and styles the date font from the calendar settings", async () => {
+    const view = await render(<SettingsHarness />);
+    click([...view.host.querySelectorAll('[role="tab"]')][2]!);
+    const size = view.host.querySelector("#date-font-size") as HTMLInputElement;
+    expect(size.min).toBe("60");
+    expect(size.max).toBe("180");
+    expect(size.value).toBe("100");
+    setControlValue(size, "140");
+    expect(view.host.querySelector(".font-row .opacity strong")?.textContent).toBe("140%");
+    const preview = view.host.querySelector(".font-preview") as HTMLElement;
+    expect(preview.style.getPropertyValue("--date-font-scale")).toBe("1.4");
+
+    // Step buttons sit on either side of every number slider in the settings.
+    const stepper = (name: string, label: string) =>
+      view.host.querySelector(`button[aria-label="${formatMessage(label, { name })}"]`) as HTMLButtonElement;
+    const sizeDown = stepper(messages.ko.dateFontSize, messages.ko.decrease);
+    const sizeUp = stepper(messages.ko.dateFontSize, messages.ko.increase);
+    expect(sizeDown.nextElementSibling).toBe(size);
+    expect(size.nextElementSibling).toBe(sizeUp);
+    click(sizeUp);
+    expect(size.value).toBe("145");
+    click(sizeDown);
+    click(sizeDown);
+    expect(size.value).toBe("135");
+    setControlValue(size, "180");
+    expect(sizeUp.disabled).toBe(true);
+    setControlValue(size, "60");
+    expect(sizeDown.disabled).toBe(true);
+    setControlValue(size, "140");
+
+    const family = view.host.querySelector(`[role="combobox"][aria-label="${messages.ko.dateFontFamily}"]`) as HTMLButtonElement;
+    click(family);
+    click([...document.body.querySelectorAll('[role="option"]')].find((option) => option.textContent === messages.ko.fontFamilies.serif)!);
+    expect(preview.style.getPropertyValue("--date-font")).toContain("serif");
+
+    click([...view.host.querySelectorAll(".font-row .segment button")].find((button) => button.textContent === messages.ko.fontWeights.heavy)!);
+    expect(preview.style.getPropertyValue("--date-weight")).toBe("850");
+    const italic = [...view.host.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].find((box) =>
+      box.closest("label")?.textContent?.includes(messages.ko.dateFontItalic),
+    )!;
+    click(italic);
+    expect(preview.style.getPropertyValue("--date-style")).toBe("italic");
+
+    const reset = [...view.host.querySelectorAll<HTMLButtonElement>(".font-head button")][0];
+    expect(reset.disabled).toBe(false);
+    click(reset);
+    expect(reset.disabled).toBe(true);
+    expect(preview.style.getPropertyValue("--date-font-scale")).toBe("1");
+    expect(preview.style.getPropertyValue("--date-font")).toBe("");
+    await view.unmount();
+
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toContain("round(calc(2.78cqw * var(--date-font-scale, 1)), 1px)");
+    expect(css).toMatch(/\.num \{[^}]*font-weight: var\(--date-weight, 680\);[^}]*font-style: var\(--date-style, normal\)/);
+    const calendar = await render(<CalendarHarness initial={{ dateFontScale: 1.5, dateFontWeight: "regular" }} />);
+    const days = calendar.host.querySelector(".days") as HTMLElement;
+    expect(days.style.getPropertyValue("--date-font-scale")).toBe("1.5");
+    expect(days.style.getPropertyValue("--date-weight")).toBe("450");
+    await calendar.unmount();
+  });
+
+  it("keeps a separate date font for full screen and edits the one on screen", async () => {
+    const tauri = Object.getOwnPropertyDescriptor(window, "__TAURI_INTERNALS__");
+    Object.defineProperty(window, "__TAURI_INTERNALS__", { value: {}, configurable: true });
+    localStorage.setItem(FULLSCREEN_KEY, "1");
+    const view = await render(<SettingsHarness />);
+    click([...view.host.querySelectorAll('[role="tab"]')][2]!);
+    const target = (label: string) =>
+      [...view.host.querySelectorAll<HTMLButtonElement>(".font-row .segment button")].find((button) => button.textContent === label)!;
+    const size = () => view.host.querySelector("#date-font-size") as HTMLInputElement;
+    // Opened while the calendar is in full screen, the full screen font is the one being changed.
+    expect(target(messages.ko.dateFontTargets.fullscreen).getAttribute("aria-pressed")).toBe("true");
+    setControlValue(size(), "160");
+    expect(size().value).toBe("160");
+    click(target(messages.ko.dateFontTargets.window));
+    expect(size().value).toBe("100");
+    setControlValue(size(), "120");
+    click(target(messages.ko.dateFontTargets.fullscreen));
+    expect(size().value).toBe("160");
+
+    // Leaving full screen switches the settings to the window font.
+    await act(async () => {
+      window.dispatchEvent(new StorageEvent("storage", { key: FULLSCREEN_KEY, newValue: "0" }));
+    });
+    expect(target(messages.ko.dateFontTargets.window).getAttribute("aria-pressed")).toBe("true");
+    expect(size().value).toBe("120");
+    await view.unmount();
+    localStorage.removeItem(FULLSCREEN_KEY);
+    if (tauri) Object.defineProperty(window, "__TAURI_INTERNALS__", tauri);
+    else delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+  });
+
+  it("pops up due reminders and snoozes or dismisses them", async () => {
+    localStorage.clear();
+    const now = Date.now();
+    const item = (key: string, title: string) => ({
+      key,
+      eventId: key,
+      title,
+      color: "#e5484d",
+      date: "2026-10-06",
+      time: "10:00",
+      minutesBefore: 10,
+      startAt: now + 10 * 60_000,
+      showAt: now - 1000,
+    });
+    localStorage.setItem("mycalendar.reminders.queue", JSON.stringify([item("a", "치과"), item("b", "회의")]));
+    let emptied = 0;
+    const view = await render(<ReminderPopup t={messages.ko} language="ko" onEmpty={() => { emptied += 1; }} />);
+    const titles = () => [...view.host.querySelectorAll(".reminder-text strong")].map((node) => node.textContent);
+    expect(view.host.querySelector('[role="alertdialog"] h1')?.textContent).toBe(messages.ko.remindersTitle);
+    expect(titles()).toEqual(["치과", "회의"]);
+    expect(view.host.querySelector(".reminder-text")?.textContent).toContain("10분 후 시작");
+    expect(view.host.querySelector(".reminder-text")?.textContent).toContain("10분 전");
+
+    click([...view.host.querySelectorAll(".reminder-item button")].find((button) => button.textContent === messages.ko.snooze)!);
+    expect(titles()).toEqual(["회의"]);
+    expect(JSON.parse(localStorage.getItem("mycalendar.reminders.queue")!)).toHaveLength(2);
+    click([...view.host.querySelectorAll(".reminder-item button")].find((button) => button.textContent === messages.ko.dismiss)!);
+    expect(view.host.querySelector(".reminder-panel")).toBeNull();
+    expect(emptied).toBe(1);
+    expect(JSON.parse(localStorage.getItem("mycalendar.reminders.queue")!).map((entry: { key: string }) => entry.key)).toEqual(["a"]);
+    await view.unmount();
+  });
+
+  it("opens the settings window on the tab the calendar asked for", async () => {
+    localStorage.setItem("mycalendar.settings-tab", `about:${Date.now()}`);
+    const view = await render(<SettingsHarness />);
+    expect(view.host.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(messages.ko.aboutTab);
+    expect(localStorage.getItem("mycalendar.settings-tab")).toBeNull();
+    await view.unmount();
+  });
+
+  it("fills the desktop window without an outer gap", () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/html\[data-platform="desktop"\] \.app-frame \{ padding: 0; \}/);
+  });
+});

@@ -9,7 +9,7 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { compareDirectories, DEFAULT_EXCLUDES } from "../core/dirCompare.ts";
 import { parseArguments } from "../core/cli.ts";
-import { contrastRatio, luminance, mix, parseHex, readableOn, toHex } from "../core/color.ts";
+import { contrastRatio, deltaE, luminance, mix, parseHex, readableOn, toHex } from "../core/color.ts";
 import { LANGUAGES, translate, translator } from "../core/i18n.ts";
 import { allPages, formatPageRange, geometry, paginate, parsePageRange, PAPER } from "../core/print.ts";
 import { defaultSettings, MAX_RECENT, recentKey, sanitize } from "../core/settings.ts";
@@ -269,6 +269,95 @@ test("themes › the accent is readable against its own contrast colour", () => 
   }
 });
 
+/*
+ * The colours a view puts side by side have to be told apart, which contrast alone
+ * does not promise: two tints can clear the same ratio against the same text and
+ * still look like one colour. These are measured in CIEDE2000, where 1 is the
+ * smallest difference the eye can see.
+ */
+test("themes › the rows of a comparison are told apart in every theme", () => {
+  // The zebra stripe is quiet on purpose — it is a rhythm to follow, not a signal —
+  // so it is held to a lower bar than the rows that mean something.
+  const MEANINGFUL = 4;
+  const STRIPE = 2;
+  const views = [
+    ["--row-even", "--row-blank", "--row-added", "--row-removed", "--row-modified"],
+    ["--row-even", "--row-conflict", "--row-resolved"],
+  ];
+
+  for (const item of THEMES) {
+    for (const view of views) {
+      for (let i = 0; i < view.length; i++) {
+        for (let j = i + 1; j < view.length; j++) {
+          const distance = deltaE(item.vars[view[i]], item.vars[view[j]]);
+          assert.ok(distance >= MEANINGFUL, `${item.id}: ${view[i]} vs ${view[j]} is ${distance.toFixed(2)}`);
+        }
+      }
+      for (const key of view) {
+        const distance = deltaE(item.vars["--row-zebra"], item.vars[key]);
+        const floor = key === "--row-even" ? STRIPE : MEANINGFUL;
+        assert.ok(distance >= floor, `${item.id}: zebra vs ${key} is ${distance.toFixed(2)}`);
+      }
+    }
+
+    // And the selection has to show on both stripes of the zebra.
+    for (const key of ["--row-even", "--row-zebra"]) {
+      const distance = deltaE(item.vars["--selection"], item.vars[key]);
+      assert.ok(distance >= MEANINGFUL, `${item.id}: selection vs ${key} is ${distance.toFixed(2)}`);
+    }
+  }
+});
+
+test("themes › the diff colours are legible on the panel, and are five colours", () => {
+  const accents = ["--added-accent", "--removed-accent", "--modified-accent"];
+  for (const item of THEMES) {
+    for (const key of [...accents, "--conflict-accent", "--resolved-accent"]) {
+      const ratio = contrastRatio(item.vars["--panel"], item.vars[key]);
+      assert.ok(ratio >= 3.9, `${item.id}: ${key} on panel is ${ratio.toFixed(2)}`);
+    }
+    // These three are read together — the counts in the status bar are a row of them.
+    for (let i = 0; i < accents.length; i++) {
+      for (let j = i + 1; j < accents.length; j++) {
+        const distance = deltaE(item.vars[accents[i]], item.vars[accents[j]]);
+        assert.ok(distance >= 12, `${item.id}: ${accents[i]} vs ${accents[j]} is ${distance.toFixed(2)}`);
+      }
+    }
+  }
+});
+
+test("themes › comments, line numbers and syntax stay readable", () => {
+  const tokens = ["--tok-comment", "--tok-string", "--tok-number", "--tok-keyword"];
+  for (const item of THEMES) {
+    for (const key of [...tokens, "--gutter-text", "--muted"]) {
+      const against = key === "--gutter-text" ? "--gutter-bg" : "--panel";
+      const ratio = contrastRatio(item.vars[against], item.vars[key]);
+      // Comments, line numbers and secondary text are quiet; the tokens are code.
+      const floor = ["--tok-comment", "--gutter-text", "--muted"].includes(key) ? 3 : 4.5;
+      assert.ok(ratio >= floor, `${item.id}: ${key} on ${against} is ${ratio.toFixed(2)}`);
+    }
+    for (let i = 0; i < tokens.length; i++) {
+      for (let j = i + 1; j < tokens.length; j++) {
+        const distance = deltaE(item.vars[tokens[i]], item.vars[tokens[j]]);
+        assert.ok(distance >= 10, `${item.id}: ${tokens[i]} vs ${tokens[j]} is ${distance.toFixed(2)}`);
+      }
+    }
+  }
+});
+
+test("themes › no two themes of a kind wear the same accent", () => {
+  // The theme menu lists all twenty swatches of a kind together, so two themes that
+  // only differ by name are a menu a user cannot use.
+  for (const kind of ["light", "dark"]) {
+    const list = THEMES.filter((item) => item.kind === kind);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const distance = deltaE(list[i].vars["--accent"], list[j].vars["--accent"]);
+        assert.ok(distance >= 6.5, `${list[i].id} vs ${list[j].id}: accents are ${distance.toFixed(2)} apart`);
+      }
+    }
+  }
+});
+
 test("themes › an unknown id falls back to the default", () => {
   assert.equal(isThemeId("classic-dark"), true);
   assert.equal(isThemeId(CUSTOM_THEME_ID), true);
@@ -291,6 +380,19 @@ test("color › the maths behaves", () => {
   assert.ok(luminance("#ffffff") > luminance("#000000"));
   assert.equal(readableOn("#ffffff"), "#10151c");
   assert.equal(readableOn("#000000"), "#f8fafc");
+});
+
+test("color › perceptual distance is measured, not guessed", () => {
+  assert.equal(deltaE("#ff8000", "#ff8000"), 0);
+  // Black to white is the whole lightness range; a hair of grey is nothing.
+  assert.ok(deltaE("#000000", "#ffffff") > 99);
+  assert.ok(deltaE("#808080", "#828282") < 1);
+  // Two colours of equal contrast against white can still be told apart: this is
+  // the case the contrast ratio cannot see.
+  const green = "#22c55e";
+  const amber = "#f59e0b";
+  assert.ok(Math.abs(contrastRatio("#ffffff", green) - contrastRatio("#ffffff", amber)) < 0.3);
+  assert.ok(deltaE(green, amber) > 25);
 });
 
 /* ---------------------------------------------------------------- i18n */

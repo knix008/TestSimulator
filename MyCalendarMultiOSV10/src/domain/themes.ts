@@ -105,8 +105,11 @@ export function accentInk(hex: string): string {
   return luminance > 0.64 ? "#17202a" : "#ffffff";
 }
 
+/** Background opacity at 100% transparency; the panel stays faintly visible. */
+export const MIN_OPACITY = 0.1;
+
 export function applyTheme(theme: Theme, opacity: number): void {
-  const alpha = Math.min(1, Math.max(0.15, opacity));
+  const alpha = Math.min(1, Math.max(MIN_OPACITY, opacity));
   const style = document.documentElement.style;
   style.setProperty("--bg", hexToRgba(theme.bg, alpha));
   style.setProperty("--bg-top", hexToRgba(theme.bgTop, Math.min(1, alpha + 0.08)));

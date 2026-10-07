@@ -1,4 +1,4 @@
-import type { Messages } from "../domain/messages";
+import type { Language, Messages } from "../domain/messages";
 import type { Settings } from "../domain/settings";
 
 export function isTauri(): boolean {
@@ -24,12 +24,23 @@ export async function syncShell(settings: Settings, copy: Messages): Promise<voi
   if (!isTauri()) return;
   await invoke("update_tray_labels", {
     show: copy.showHide,
+    events: copy.manageEvents,
     settings: copy.settings,
     about: copy.about,
     quit: copy.quit,
     tooltip: copy.trayTooltip,
+    language: settings.language ?? "en",
+    languageSwitch: copy.languageSwitch,
   });
   await invoke("set_main_always_on_top", { on: settings.alwaysOnTop });
+}
+
+export async function onTrayLanguage(handler: (language: "ko" | "en") => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<string>("tray-language", (event) => {
+    if (event.payload === "ko" || event.payload === "en") handler(event.payload);
+  });
 }
 
 export async function setAutostartEnabled(enabled: boolean): Promise<void> {
@@ -39,14 +50,68 @@ export async function setAutostartEnabled(enabled: boolean): Promise<void> {
   else await autostart.disable();
 }
 
-export async function openAux(label: "settings" | "about"): Promise<void> {
+/** The tray's About item opens the settings window on its About tab, which the calendar window arranges. */
+export async function onTrayAbout(handler: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen("tray-about", () => handler());
+}
+
+export async function openAux(label: "settings" | "events" | "print"): Promise<void> {
   if (!isTauri()) return;
   await invoke("open_aux_window", { label });
+}
+
+export async function showReminderWindow(): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("show_reminder_window");
+}
+
+/** Sizes the reminder popup to its content and pins it to the bottom-right of the work area. */
+export async function fitReminderWindow(height: number): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("fit_reminder_window", { height: Math.ceil(height) });
+}
+
+export async function hideCurrentWindow(): Promise<void> {
+  if (!isTauri()) return;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await getCurrentWindow().hide();
 }
 
 export async function hideMain(): Promise<void> {
   if (!isTauri()) return;
   await invoke("hide_main");
+}
+
+export async function minimizeMain(): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("minimize_main");
+}
+
+/** Resolves to whether the window is maximized afterwards. */
+export async function toggleMaximizeMain(): Promise<boolean> {
+  if (!isTauri()) return false;
+  return Boolean(await invoke<boolean>("toggle_maximize_main"));
+}
+
+/** Reports the maximized state now and whenever the window is resized, including by the OS (Win+Up, snapping). */
+export async function onMaximizedChange(handler: (maximized: boolean) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  const current = getCurrentWindow();
+  const report = async () => handler(await current.isMaximized());
+  // Asked once the size settles so a live drag is not slowed by a native round trip per frame.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const unlisten = await current.onResized(() => {
+    clearTimeout(timer);
+    timer = setTimeout(() => void report(), 120);
+  });
+  await report();
+  return () => {
+    clearTimeout(timer);
+    unlisten();
+  };
 }
 
 export async function openHolidaySource(): Promise<void> {
@@ -65,10 +130,51 @@ export async function dragWindow(event: { button: number; target: EventTarget | 
   await getCurrentWindow().startDragging();
 }
 
+export async function startWindowDrag(): Promise<void> {
+  if (!isTauri()) return;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await getCurrentWindow().startDragging();
+}
+
 export async function resizeWindow(direction: "East" | "South" | "SouthEast"): Promise<void> {
   if (!isTauri()) return;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   await getCurrentWindow().startResizeDragging(direction);
+}
+
+/**
+ * Ignored while maximized: on Windows sizing a maximized window un-maximizes it, and a fit queued by the resize
+ * that maximizing itself causes would otherwise leave a screen-sized normal window.
+ */
+export async function setWindowSize(width: number, height: number): Promise<void> {
+  if (!isTauri()) return;
+  const { getCurrentWindow, LogicalSize } = await import("@tauri-apps/api/window");
+  const current = getCurrentWindow();
+  if (await current.isMaximized()) return;
+  await current.setSize(new LogicalSize(Math.round(width), Math.ceil(height)));
+}
+
+/** Matches `minWidth` in tauri.conf.json: the Korean toolbar with the app name needs about 462px. */
+export const MIN_WINDOW_WIDTH = 470;
+
+/** The English month title is wider, so its toolbar needs about 507px before the close button is cut off. */
+export function minWindowWidth(language: Language): number {
+  return language === "en" ? 510 : MIN_WINDOW_WIDTH;
+}
+
+/** Ignored while maximized, where the minimum measured from the screen-wide grid would outlast the full screen. */
+export async function setWindowMinSize(width: number, height: number): Promise<void> {
+  if (!isTauri()) return;
+  const { getCurrentWindow, LogicalSize } = await import("@tauri-apps/api/window");
+  const current = getCurrentWindow();
+  if (await current.isMaximized()) return;
+  await current.setMinSize(new LogicalSize(Math.round(width), Math.ceil(height)));
+}
+
+export async function setWindowTitle(title: string): Promise<void> {
+  if (!isTauri()) return;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await getCurrentWindow().setTitle(title);
 }
 
 export async function closeCurrentWindow(): Promise<void> {

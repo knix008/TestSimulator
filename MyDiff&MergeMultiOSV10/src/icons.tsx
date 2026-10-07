@@ -128,6 +128,10 @@ const STROKE: Record<string, string> = {
   stage: "M12 20V8M8 12l4-4 4 4M5 4h14",
   page: "M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6",
   grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  // The file kinds the directory tree draws beside a name.
+  archive: "M3 7.5 12 3l9 4.5v9L12 21l-9-4.5zM3 7.5 12 12l9-4.5M12 12v9M7.5 5.2l9 4.5",
+  video: "M3 6h12v12H3zM15 10l6-3.5v11L15 14M7 9.5l4 2.5-4 2.5z",
+  binary: "M8 8h8v8H8zM9 4v4M15 4v4M9 16v4M15 16v4M4 9h4M4 15h4M16 9h4M16 15h4",
 };
 
 export type IconName = keyof typeof STROKE | string;

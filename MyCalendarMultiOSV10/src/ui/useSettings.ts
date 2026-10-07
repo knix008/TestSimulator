@@ -9,7 +9,7 @@ import {
   type Settings,
 } from "../domain/settings";
 import { applyTheme, getTheme } from "../domain/themes";
-import { readInstallLanguage, setAutostartEnabled, syncShell } from "../platform/desktop";
+import { onTrayLanguage, readInstallLanguage, setAutostartEnabled, syncShell } from "../platform/desktop";
 
 export interface ReadyContext {
   settings: Settings & { language: Language };
@@ -18,7 +18,8 @@ export interface ReadyContext {
   t: Messages;
 }
 
-export function useSettings() {
+/** Only one window should follow the tray language item, the others pick the change up from storage. */
+export function useSettings({ followTray = false }: { followTray?: boolean } = {}) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
   const [desktopError, setDesktopError] = useState<string | null>(null);
@@ -94,6 +95,22 @@ export function useSettings() {
     writeStoredSettings(next);
     setDesktopError(null);
   };
+  const updateRef = useRef(update);
+  updateRef.current = update;
+
+  useEffect(() => {
+    if (!followTray) return;
+    let stop: (() => void) | null = null;
+    let alive = true;
+    void onTrayLanguage((language) => updateRef.current({ language })).then((unlisten) => {
+      if (alive) stop = unlisten;
+      else unlisten();
+    });
+    return () => {
+      alive = false;
+      stop?.();
+    };
+  }, [followTray]);
 
   return { settings, ready, update, desktopError };
 }

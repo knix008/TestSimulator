@@ -4,7 +4,12 @@ export interface Messages {
   today: string;
   settings: string;
   about: string;
+  /** Short enough for the settings tab row. */
+  aboutTab: string;
   hide: string;
+  minimize: string;
+  maximize: string;
+  restore: string;
   close: string;
   quit: string;
   showHide: string;
@@ -29,6 +34,7 @@ export interface Messages {
   refreshHolidays: string;
   holidayLive: string;
   holidayCached: string;
+  holidayBuiltin: string;
   holidayError: string;
   checkedAt: string;
   checking: string;
@@ -43,6 +49,8 @@ export interface Messages {
   weekdays: string[];
   weekdaysShort: string[];
   trayTooltip: string;
+  /** Tray item that switches to the other language, written in that language. */
+  languageSwitch: string;
   webBanner: string;
   featuresTitle: string;
   featureTransparent: string;
@@ -62,6 +70,132 @@ export interface Messages {
   aboutDataNote: string;
   startup: string;
   monthHolidays: string;
+  collapseEvents: string;
+  expandEvents: string;
+  resizeWindow: string;
+  calendarSection: string;
+  weekStartHint: string;
+  showLunar: string;
+  lunarHint: string;
+  lunarUnavailable: string;
+  lunarShort: string;
+  lunarLeapShort: string;
+  /** "{month}", "{day}", and "{leap}" (lunarLeapMark in a leap month, otherwise empty). */
+  lunarFull: string;
+  lunarLeapMark: string;
+  solarTerms: string[];
+  eventsSection: string;
+  addEvent: string;
+  editEvent: string;
+  manageEvents: string;
+  eventTitle: string;
+  eventTitlePlaceholder: string;
+  eventDate: string;
+  eventTime: string;
+  allDay: string;
+  repeat: string;
+  repeatNone: string;
+  repeatWeekly: string;
+  repeatMonthly: string;
+  repeatYearly: string;
+  /** "{n}" is the interval; one entry per unit. */
+  repeatEvery: { weekly: string; monthly: string; yearly: string };
+  repeatEveryOne: { weekly: string; monthly: string; yearly: string };
+  repeatInterval: string;
+  repeatUntil: string;
+  repeatUntilHint: string;
+  /** "{date}" is the last day. */
+  repeatUntilShort: string;
+  eventColor: string;
+  colorNames: string[];
+  customColor: string;
+  save: string;
+  cancel: string;
+  deleteEvent: string;
+  deleteSeries: string;
+  deleteOccurrence: string;
+  noEvents: string;
+  noEventsYet: string;
+  searchEvents: string;
+  noMatchingEvents: string;
+  titleRequired: string;
+  eventCount: string;
+  reminder: string;
+  reminderNone: string;
+  reminderAtStart: string;
+  /** "{n}" is the count; singular and plural forms. */
+  reminderBefore: {
+    minute: string;
+    minutes: string;
+    hour: string;
+    hours: string;
+    day: string;
+    days: string;
+    week: string;
+    weeks: string;
+  };
+  allDayReminderHint: string;
+  defaultReminder: string;
+  remindersHint: string;
+  remindersTitle: string;
+  startingNow: string;
+  /** "{time}" is HH:MM, "{date}" a short date, "{n}" minutes. */
+  startedAt: string;
+  startsInMinutes: string;
+  todayAt: string;
+  tomorrowAt: string;
+  dateAt: string;
+  todayAllDay: string;
+  tomorrowAllDay: string;
+  dateAllDay: string;
+  snooze: string;
+  dismiss: string;
+  dismissAll: string;
+  /** "{title}" is the event's title. */
+  confirmDelete: string;
+  goToday: string;
+  addEventOn: string;
+  dateFont: string;
+  dateFontSize: string;
+  dateFontSizeHint: string;
+  dateFontFamily: string;
+  dateFontWeight: string;
+  dateFontItalic: string;
+  fontFamilies: { system: string; sans: string; serif: string; rounded: string; mono: string };
+  fontWeights: { regular: string; bold: string; heavy: string };
+  fontPreview: string;
+  resetFont: string;
+  dateFontTarget: string;
+  dateFontTargets: { window: string; fullscreen: string };
+  dateFontTargetHint: string;
+  print: string;
+  printTitle: string;
+  printSetup: string;
+  printStart: string;
+  printMonths: string;
+  printPaper: string;
+  printOrientation: string;
+  printOrientations: { portrait: string; landscape: string };
+  printMargin: string;
+  printMargins: { none: string; narrow: string; normal: string; wide: string };
+  printContent: string;
+  printCellEvents: string;
+  printEventList: string;
+  printHolidayNames: string;
+  printLunar: string;
+  printGrayscale: string;
+  printPageOf: string;
+  printPages: string;
+  printPrinted: string;
+  printMonthEvents: string;
+  printMore: string;
+  printHint: string;
+  zoomIn: string;
+  zoomOut: string;
+  /** "{name}" is the setting, e.g. "Transparency". */
+  decrease: string;
+  increase: string;
+  windowMenu: string;
 }
 
 export type Language = "ko" | "en";

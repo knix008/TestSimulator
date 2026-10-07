@@ -237,7 +237,7 @@ export function DiffView({ tab }: { tab: CompareTab }) {
   const copySide = useCallback(async (side: "left" | "right" | "both") => {
     const value = await api.compareText(summary.id, side, 0, Math.min(summary.rowCount, 200_000));
     await host.copyText(value);
-    app.setStatus(t("dlg.copied"));
+    app.setStatus((t) => t("dlg.copied"));
   }, [app, summary.id, summary.rowCount, t]);
 
   /** The whole run of differing rows around `row` — what "apply" acts on. */
