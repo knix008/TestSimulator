@@ -149,9 +149,12 @@ Electron 창이 열리고, 운영체제의 폴더 선택 대화상자를 사용�
 | **Copy Path** | 저장소 기준 경로 복사 |
 | **Show All Commits** | 경로 필터 해제 |
 | **Git Add / Git Reset / Discard Changes** | 선택 항목에 대한 Git 작업 |
+| **Git Commit / Git Fetch / Git Pull / Git Push / Git Stash / Git Stash Pop / Git Status** | 저장소 전체에 대한 Git 작업. **저장소** 메뉴와 같습니다. |
 | **새 파일... / 새 폴더...** | 선택 위치 아래에 만들기 |
 | **삭제** | 디스크에서 삭제 |
 | **.gitignore에 추가 / 제거** | 무시 규칙 변경 |
+
+파일과 폴더의 메뉴는 같습니다. Git Add, Git Reset, Discard Changes, Show Log는 고른 경로에만 적용되고, Commit과 Fetch / Pull / Push / Stash는 저장소 전체에 적용됩니다.
 
 폴더 탐색 중일 때의 메뉴는 **폴더 열기**와 **경로 복사**입니다.
 

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MyWeather
+Comment=Aggregated daily, weekly, and monthly weather
+Exec=myweather %f
+Icon=myweather
+Terminal=false
+Type=Application
+Categories=Utility;
+MimeType=application/x-myweather;
+StartupWMClass=MyWeather

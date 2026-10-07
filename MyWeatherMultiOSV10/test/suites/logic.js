@@ -1,0 +1,508 @@
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { APP_INFO, titleText } from "../../src/core/app-info.js";
+import { copyRange, cutText, pasteText } from "../../src/core/clipboard.js";
+import { parseDocument, serializeDocument, createDocument } from "../../src/core/document.js";
+import { acceptImage, classifyDrop } from "../../src/core/drop.js";
+import { AppError, errorCopyText, normalizeError } from "../../src/core/errors.js";
+import { parseFcList, parseWindowsFonts, resolveFontList } from "../../src/core/fonts.js";
+import { DICT, dictionaryKeys } from "../../src/core/i18n.js";
+import { dirname, userDataDir } from "../../src/core/paths.js";
+import { buildPrintModel } from "../../src/core/print-model.js";
+import { RecentFiles } from "../../src/core/recent.js";
+import { sanitizeSettings } from "../../src/core/settings.js";
+import { UndoStack } from "../../src/core/undo.js";
+import { PopupHub } from "../../electron/popup-hub.js";
+import { applyPlan, planInstall, runInstaller } from "../../installer/plan.js";
+import { layoutMenu, menuWindowOptions, popupWindowOptions } from "../../src/ui/menu-layout.js";
+import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
+import { SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, sceneScale, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
+import { aggregate } from "../../src/weather/aggregate.js";
+import { formatTemp } from "../../src/weather/format.js";
+import { geocodeUrl, metNoUrl, openMeteoUrl, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
+import { loadWeather } from "../../src/weather/service.js";
+import { conditionText } from "../../src/weather/wmo.js";
+import { jsonResponse, openMeteoBody, SAMPLE_DATES } from "../support.js";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+export function registerLogic(h) {
+  h.category("Core");
+  h.test("title is the product name and version", () => {
+    assert.equal(titleText(), "MyWeather 1.0.0");
+    assert.equal(APP_INFO.author, "SHKWON(knix008@naver.com)");
+    assert.equal(APP_INFO.buildNumber, "20261007.1");
+    assert.equal(APP_INFO.buildDate, "2026-10-07");
+    assert.equal(APP_INFO.fileExtension, "myweather");
+  });
+  h.test("korean and english catalogs have the same keys", () => {
+    assert.deepEqual(Object.keys(DICT.ko).sort(), Object.keys(DICT.en).sort());
+    for (const key of dictionaryKeys()) {
+      assert.ok(DICT.ko[key].trim());
+      assert.ok(DICT.en[key].trim());
+    }
+  });
+  h.test("settings reject out of range values and keep ten recent files", () => {
+    const settings = sanitizeSettings({
+      language: "fr",
+      theme: "nope",
+      transparency: 140,
+      customTheme: { mode: "neon", bg: "red", text: "#ABCDEF", accent: 5 },
+      windowSize: { width: 50, height: 9000 },
+      fontSize: 2,
+      fontStyle: "fancy",
+      zoom: 999,
+      recentFiles: Array.from({ length: 12 }, (_, index) => `f${index}.myweather`),
+      units: "K",
+    });
+    assert.equal(settings.language, "ko");
+    assert.equal(settings.theme, "dark-ink");
+    assert.equal(settings.transparency, 100);
+    assert.equal("opacity" in settings, false);
+    assert.deepEqual(settings.customTheme, { mode: "dark", bg: "#16283a", text: "#abcdef", accent: "#5cc8ff" });
+    assert.equal(settings.windowSize, null);
+    assert.equal(sanitizeSettings({ theme: "midnight" }).theme, "dark-midnight");
+    assert.equal(sanitizeSettings({ theme: "ocean" }).theme, "light-sky");
+    assert.equal(sanitizeSettings({ theme: "custom" }).theme, "custom");
+    assert.equal(sanitizeSettings(null).transparency, 30);
+    assert.equal(settings.fontSize, 8);
+    assert.equal(settings.fontStyle, "normal");
+    assert.equal(settings.zoom, 200);
+    assert.equal(settings.units, "C");
+    assert.equal(settings.recentFiles.length, 10);
+  });
+  h.test("undo redo and a new edit clears the redo stack", () => {
+    const stack = new UndoStack();
+    let value = 0;
+    stack.push({ undo: () => (value = 0), redo: () => (value = 1) });
+    stack.undo();
+    assert.equal(value, 0);
+    stack.redo();
+    assert.equal(value, 1);
+    stack.undo();
+    stack.push({ undo: () => (value = 0), redo: () => (value = 2) });
+    assert.equal(stack.canRedo(), false);
+    stack.redo();
+    assert.equal(value, 0);
+  });
+  h.test("recent files keep the newest ten and can drop one or all", () => {
+    const recent = new RecentFiles(10);
+    for (let index = 0; index < 12; index += 1) recent.add(`file-${index}.myweather`);
+    assert.equal(recent.items.length, 10);
+    assert.equal(recent.items[0], "file-11.myweather");
+    recent.add("file-11.myweather");
+    assert.equal(recent.items.filter((item) => item === "file-11.myweather").length, 1);
+    recent.remove("file-11.myweather");
+    assert.equal(recent.items.includes("file-11.myweather"), false);
+    recent.clear();
+    assert.equal(recent.items.length, 0);
+  });
+  h.test("clipboard helpers cut and paste a range", () => {
+    assert.equal(copyRange("abcdef", 1, 4), "bcd");
+    const cut = cutText("abcdef", 1, 4);
+    assert.equal(cut.clipboard, "bcd");
+    assert.equal(cut.text, "aef");
+    assert.equal(pasteText("aef", 1, 1, "bcd").text, "abcdef");
+  });
+  h.test("paths and user data folders are platform specific", () => {
+    assert.equal(dirname("C:/docs/a.myweather"), "C:/docs");
+    assert.equal(dirname("C:\\docs\\a.myweather"), "C:/docs");
+    assert.match(userDataDir("win32", "C:/Users/me"), /MyWeather/);
+    assert.match(userDataDir("darwin", "/Users/me"), /Application Support\/MyWeather/);
+    assert.match(userDataDir("linux", "/home/me"), /.config\/MyWeather/);
+  });
+  h.test("error text keeps the code, message, time, operation, app, and details", () => {
+    const error = new AppError("Geocoder failed", "HTTP 500 from provider", "GEO");
+    const info = normalizeError(error, { operation: "search-online", time: new Date(2026, 9, 7, 9, 5, 3), environment: "test-env" });
+    assert.equal(info.time, "2026-10-07 09:05:03");
+    assert.equal(info.app, "MyWeather 1.0.0");
+    const text = errorCopyText(info, { time: "Time" });
+    assert.match(text, /^\[GEO\] Geocoder failed/);
+    assert.match(text, /Time: 2026-10-07 09:05:03/);
+    assert.match(text, /Operation: search-online/);
+    assert.match(text, /Application: MyWeather 1\.0\.0/);
+    assert.match(text, /Environment: test-env/);
+    assert.match(text, /HTTP 500/);
+    const plain = normalizeError(new RangeError("bad range"));
+    assert.equal(plain.code, "RangeError");
+    assert.match(plain.details, /RangeError: bad range/);
+    assert.equal(normalizeError("text failure").message, "text failure");
+  });
+  h.test("there are 20 light and 20 dark themes plus a custom theme", () => {
+    assert.equal(LIGHT_THEMES.length, 20);
+    assert.equal(DARK_THEMES.length, 20);
+    assert.ok(LIGHT_THEMES.every((theme) => theme.mode === "light" && theme.name.ko && theme.name.en));
+    assert.ok(DARK_THEMES.every((theme) => theme.mode === "dark" && theme.name.ko && theme.name.en));
+    assert.equal(new Set(THEMES.map((theme) => theme.id)).size, 40);
+    assert.ok(THEMES.every((theme) => [theme.bg, theme.bgTop, theme.text, theme.accent].every(isHexColor)));
+    assert.equal(isTheme(CUSTOM_THEME_ID), true);
+    assert.equal(isTheme("nope"), false);
+    const custom = themeColors(CUSTOM_THEME_ID, { mode: "light", bg: "#ffffff", text: "#000000", accent: "#ff0000" });
+    assert.equal(custom.mode, "light");
+    assert.equal(custom.accent, "#ff0000");
+    assert.equal(themeColors("nope").id, "dark-ink");
+  });
+  h.test("transparency only changes the background alpha", () => {
+    assert.equal(backgroundAlpha(0), 1);
+    assert.equal(backgroundAlpha(100), 0.06);
+    assert.equal(backgroundAlpha(50), 0.53);
+    const colors = themeColors("light-paper");
+    const solid = themeVars(colors, 0);
+    const clear = themeVars(colors, 100);
+    assert.equal(solid["--bg"], "rgba(247, 248, 251, 1)");
+    assert.equal(clear["--bg"], "rgba(247, 248, 251, 0.06)");
+    assert.equal(clear["--fg"], solid["--fg"]);
+    assert.equal(clear["--bg-solid"], "#f7f8fb");
+  });
+  h.test("document round trip keeps the location and drops old notes", () => {
+    const doc = createDocument();
+    doc.tabs[0].properties.label = "harbor";
+    const raw = JSON.parse(serializeDocument(doc));
+    raw.tabs[0].dayNotes = { "2026-10-07": "umbrella" };
+    const parsed = parseDocument(JSON.stringify(raw));
+    assert.equal(parsed.tabs[0].properties.label, "harbor");
+    assert.equal("dayNotes" in parsed.tabs[0], false);
+    assert.equal(JSON.parse(serializeDocument(parsed)).tabs[0].dayNotes, undefined);
+    assert.throws(() => parseDocument("{"), /Invalid document/);
+    assert.throws(() => parseDocument(JSON.stringify({ format: "other" })), /Invalid document/);
+  });
+  h.test("image drops are accepted at any size and unknown files are not", () => {
+    assert.equal(classifyDrop({ name: "a.myweather", type: "application/json" }), "document");
+    assert.equal(classifyDrop({ name: "a.PNG", type: "" }), "image");
+    assert.equal(acceptImage({ name: "huge.png", type: "image/png", size: 80_000_000 }).ok, true);
+    assert.equal(acceptImage({ name: "notes.txt", type: "text/plain", size: 10 }).ok, false);
+  });
+  h.test("font lists keep every system name", () => {
+    const windows = parseWindowsFonts("Malgun Gothic\r\nSegoe UI\r\nArial\r\n");
+    assert.deepEqual(windows, ["Arial", "Malgun Gothic", "Segoe UI"]);
+    const linux = parseFcList("/usr/share/fonts/a.ttf: Noto Sans,Noto Sans Bold:style=Regular\n");
+    assert.deepEqual(linux, ["Noto Sans"]);
+    const many = Array.from({ length: 40 }, (_, index) => `Family ${index}`);
+    assert.equal(resolveFontList(many).length, 40);
+    assert.ok(resolveFontList([]).includes("Malgun Gothic"));
+  });
+
+  h.category("Weather");
+  h.test("provider urls carry coordinates and model names", () => {
+    const location = { lat: 37.5665, lon: 126.978, cityEn: "Seoul" };
+    assert.match(openMeteoUrl(location, "ecmwf_ifs025"), /models=ecmwf_ifs025/);
+    assert.match(openMeteoUrl(location, "ecmwf_ifs025"), /latitude=37.5665/);
+    assert.match(openMeteoUrl(location, "gfs_seamless"), /past_days=14/);
+    assert.match(metNoUrl(location), /lat=37.5665/);
+    assert.match(wttrUrl(location), /wttr\.in\/Seoul/);
+    assert.match(geocodeUrl("부산", "ko"), /language=ko/);
+    assert.match(sourcePageUrl(location), /open-meteo.com/);
+  });
+  h.test("open-meteo, met norway, and wttr parsers share one shape", () => {
+    const meteo = parseOpenMeteo(openMeteoBody(SAMPLE_DATES, 20), "ecmwf");
+    assert.equal(meteo.daily[0].tempMax, 20);
+    assert.equal(meteo.daily[0].humidity, 50);
+    const met = parseMetNo({
+      properties: {
+        timeseries: [
+          {
+            time: "2026-10-07T00:00:00Z",
+            data: {
+              instant: { details: { air_temperature: 10, wind_speed: 3, relative_humidity: 80 } },
+              next_1_hours: { summary: { symbol_code: "rain" }, details: { precipitation_amount: 1 } },
+            },
+          },
+          {
+            time: "2026-10-07T06:00:00Z",
+            data: {
+              instant: { details: { air_temperature: 16, wind_speed: 4, relative_humidity: 60 } },
+              next_1_hours: { summary: { symbol_code: "clearsky_day" }, details: { precipitation_amount: 0 } },
+            },
+          },
+        ],
+      },
+    });
+    assert.equal(met.daily[0].tempMin, 10);
+    assert.equal(met.daily[0].tempMax, 16);
+    assert.equal(met.daily[0].wind, 14.4);
+    const wttr = parseWttr({
+      weather: [{ date: "2026-10-07", mintempC: "9", maxtempC: "18", hourly: [{ time: "0", tempC: "9", weatherCode: "113", precipMM: "0", windspeedKmph: "11", humidity: "55" }] }],
+    });
+    assert.equal(wttr.daily[0].code, 0);
+    assert.equal(conditionText(0, "ko"), "맑음");
+    assert.equal(conditionText(0, "en"), "Clear");
+  });
+  h.test("aggregation averages sources and survives partial failure", () => {
+    const weather = aggregate([
+      { id: "ecmwf", ok: true, data: parseOpenMeteo(openMeteoBody(SAMPLE_DATES, 20), "ecmwf") },
+      { id: "gfs", ok: true, data: parseOpenMeteo(openMeteoBody(SAMPLE_DATES, 22), "gfs") },
+      { id: "jma", ok: false, error: "HTTP 400" },
+    ]);
+    assert.equal(weather.daily[0].tempMax, 21);
+    assert.equal(weather.daily[0].bySource.ecmwf.tempMax, 20);
+    assert.equal(weather.sources.filter((source) => source.ok).length, 2);
+    assert.throws(() => aggregate([{ id: "ecmwf", ok: false, error: "down" }]), /All weather sources failed/);
+  });
+  h.test("loadWeather reports progress and keeps working sources", async () => {
+    const seen = [];
+    const weather = await loadWeather(
+      { lat: 37.5, lon: 127, cityEn: "Seoul" },
+      {
+        sources: ["ecmwf", "gfs", "metno"],
+        onProgress: (percent, id) => seen.push([percent, id]),
+        fetchImpl: async (url) => {
+          if (String(url).includes("met.no")) return jsonResponse({}, false, 503);
+          if (String(url).includes("gfs")) return jsonResponse(openMeteoBody(SAMPLE_DATES, 22));
+          return jsonResponse(openMeteoBody(SAMPLE_DATES, 20));
+        },
+      },
+    );
+    assert.equal(weather.daily[0].tempMax, 21);
+    assert.equal(seen.at(-1)[0], 100);
+    assert.equal(weather.sources.find((source) => source.id === "metno").ok, false);
+  });
+  h.test("geocoding results become places", () => {
+    const rows = parseGeocoding({ results: [{ name: "Busan", country: "South Korea", country_code: "kr", latitude: 35.1, longitude: 129 }] });
+    assert.equal(rows[0].countryCode, "KR");
+    assert.equal(rows[0].lat, 35.1);
+  });
+  h.test("temperature formatting switches units", () => {
+    assert.equal(formatTemp(0, "C"), "0°C");
+    assert.equal(formatTemp(0, "F"), "32°F");
+    assert.equal(formatTemp(null, "C"), "—");
+  });
+
+  h.category("Print");
+  h.test("print scopes cover all tabs, the current tab, and a custom date range", () => {
+    const tabs = [
+      tab("Seoul", ["2026-10-07", "2026-10-08", "2026-10-09"]),
+      tab("Busan", ["2026-10-07", "2026-10-08"]),
+    ];
+    const all = buildPrintModel({ scope: "all", tabs, activeIndex: 0, pageSetup: { paper: "A4", orientation: "portrait", margin: 15 }, language: "en" });
+    assert.match(all.html, /Seoul/);
+    assert.match(all.html, /Busan/);
+    assert.match(all.html, /size: A4 portrait/);
+    const current = buildPrintModel({ scope: "current", tabs, activeIndex: 1, pageSetup: { paper: "Letter", orientation: "landscape", margin: 10 }, language: "en" });
+    assert.equal(current.html.includes("Seoul"), false);
+    assert.match(current.html, /Letter landscape/);
+    const custom = buildPrintModel({
+      scope: "custom",
+      tabs,
+      activeIndex: 0,
+      fromDate: "2026-10-08",
+      toDate: "2026-10-08",
+      pageSetup: { paper: "A4", orientation: "portrait", margin: 15 },
+      language: "ko",
+    });
+    assert.match(custom.html, /2026-10-08/);
+    assert.equal(custom.html.includes("2026-10-07"), false);
+    assert.throws(
+      () => buildPrintModel({ scope: "custom", tabs, activeIndex: 0, fromDate: "2026-10-09", toDate: "2026-10-01", pageSetup: {}, language: "en" }),
+      /Invalid range/,
+    );
+  });
+
+  h.category("Layout");
+  h.test("menus stay one column and are not clipped to the window", () => {
+    const items = [
+      { label: "새로 만들기", shortcut: "Ctrl+N" },
+      { label: "다른 이름으로 저장", shortcut: "Ctrl+Shift+S" },
+    ];
+    const layout = layoutMenu(items, { x: 10, y: 20, screenX: 400, screenY: 500 }, { width: 80, height: 40 });
+    assert.equal(layout.columns, 1);
+    assert.equal(layout.clippedToWindow, false);
+    assert.ok(layout.width > 80);
+    assert.ok(layout.height > 40);
+    assert.equal(layout.x, 10);
+    const options = menuWindowOptions(layout, { id: "parent" });
+    assert.equal(options.parent.id, "parent");
+    assert.equal(options.resizable, false);
+    assert.equal(options.frame, false);
+    assert.equal(options.width, Math.ceil(layout.width));
+  });
+  h.test("popup windows are fixed and parented to the main window", () => {
+    const options = popupWindowOptions({ width: 680, height: 560 }, { id: "main" }, { x: 0, y: 0, width: 1000, height: 800 });
+    assert.equal(options.resizable, false);
+    assert.equal(options.maximizable, false);
+    assert.equal(options.parent.id, "main");
+    assert.equal(options.width, 680);
+    assert.equal(options.height, 560);
+  });
+  h.test("tab overflow uses previous and next instead of a scrollbar", () => {
+    const layout = layoutTabScroller(0, 8, 300, 148);
+    assert.equal(layout.scrollbar, false);
+    assert.equal(layout.overflow, "hidden");
+    assert.equal(layout.visible, 2);
+    assert.equal(layout.showPrev, false);
+    assert.equal(layout.showNext, true);
+    const next = layoutTabScroller(1, 8, 300, 148);
+    assert.equal(next.showPrev, true);
+  });
+  h.test("window size is clamped to a usable minimum", () => {
+    assert.deepEqual(clampWindowSize(null), WINDOW_DEFAULT);
+    assert.equal(WINDOW_MIN.width, toolbarMinWidth());
+    assert.ok(WINDOW_MIN.width >= 560);
+    assert.equal(WINDOW_MIN.height, 46 + 24 + Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE));
+    assert.deepEqual(clampWindowSize({ width: 10, height: 10 }), WINDOW_MIN);
+    assert.deepEqual(clampWindowSize({ width: 900.4, height: 700.6 }), { width: 900, height: 701 });
+    assert.equal(sceneScale({ width: 2000, height: 2000 }), 1);
+    assert.equal(sceneScale({ width: 80, height: 80 }), SCENE_MIN_SCALE);
+    const fitted = { width: WINDOW_MIN.width - 32, height: WINDOW_MIN.height - 46 - 24 };
+    assert.ok(sceneScale(fitted) >= SCENE_MIN_SCALE);
+  });
+  h.test("menus count separators in their height", () => {
+    const items = [
+      { label: "A", separated: false },
+      { label: "B", separated: true },
+      { label: "C", separated: true },
+    ];
+    assert.equal(layoutMenu(items, { x: 0, y: 0 }).height, 3 * 32 + 2 * 9 + 12);
+  });
+  h.test("popup hub closes every popup when the app quits", async () => {
+    const hub = new PopupHub();
+    const closed = [];
+    const id = hub.begin({ type: "about" }, () => ({ close: () => closed.push("about"), send() {} }));
+    const pending = hub.wait(id);
+    hub.closeAll();
+    assert.deepEqual(await pending, { action: "close" });
+    assert.deepEqual(closed, ["about"]);
+    assert.equal(hub.windows.size, 0);
+  });
+
+  h.category("Installer");
+  h.test("fresh install only copies the app and registers both icons", () => {
+    const plan = planInstall({ language: "en", existingInstall: false, userDataExists: false, installPath: "/opt/MyWeather", userDataPath: "/data" });
+    assert.deepEqual(
+      plan.steps.map((step) => step.action),
+      ["install", "register-app-icon", "register-file-icon"],
+    );
+    const vfs = applyPlan({ install: {}, data: { "/data": { settings: true } }, registry: {} }, plan);
+    assert.equal(vfs.install["/opt/MyWeather"].appIcon, "assets/icon.png");
+    assert.equal(vfs.registry.fileIcon, "assets/file.ico");
+    assert.equal(vfs.registry.fileExt, "myweather");
+    assert.ok(vfs.data["/data"]);
+  });
+  h.test("an existing install is removed and saved data is deleted only when asked", () => {
+    const keep = planInstall({
+      language: "ko",
+      existingInstall: true,
+      userDataExists: true,
+      deleteData: false,
+      installPath: "/opt/MyWeather",
+      userDataPath: "/data",
+    });
+    const kept = applyPlan({ install: { "/opt/MyWeather": { old: true } }, data: { "/data": { settings: true } }, registry: {} }, keep);
+    assert.equal(kept.log.includes("uninstall-existing"), true);
+    assert.equal(kept.log.includes("delete-user-data"), false);
+    assert.ok(kept.data["/data"]);
+    assert.equal(kept.install["/opt/MyWeather"].language, "ko");
+    const remove = planInstall({
+      language: "en",
+      existingInstall: true,
+      userDataExists: true,
+      deleteData: true,
+      installPath: "/opt/MyWeather",
+      userDataPath: "/data",
+    });
+    const removed = applyPlan({ install: { "/opt/MyWeather": { old: true } }, data: { "/data": { settings: true } }, registry: {} }, remove);
+    assert.equal(removed.data["/data"], undefined);
+    assert.throws(() => planInstall({ language: "", existingInstall: false }), /language/);
+  });
+  h.test("the installer asks in the selected language before deleting data", async () => {
+    const prompts = [];
+    const steps = [];
+    const plan = await runInstaller(
+      {
+        async chooseLanguage() {
+          return "ko";
+        },
+        async confirm(message) {
+          prompts.push(message);
+          return true;
+        },
+        async notify(message) {
+          prompts.push(message);
+        },
+      },
+      {
+        async detectExisting() {
+          return { installed: true, userDataExists: true, installPath: "/opt/MyWeather", userDataPath: "/data" };
+        },
+        async exec(step) {
+          steps.push(step.action);
+        },
+      },
+    );
+    assert.equal(plan.language, "ko");
+    assert.ok(prompts.some((message) => message.includes("삭제하시겠습니까")));
+    assert.ok(steps.includes("delete-user-data"));
+    assert.ok(steps.includes("uninstall-existing"));
+    assert.ok(steps.includes("register-app-icon"));
+    assert.ok(steps.includes("register-file-icon"));
+  });
+  h.test("packaged installers use one icon and offer korean and english", () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    assert.equal(pkg.build.win.icon, "assets/icon.ico");
+    assert.equal(pkg.build.nsis.installerIcon, pkg.build.win.icon);
+    assert.equal(pkg.build.nsis.uninstallerIcon, pkg.build.win.icon);
+    assert.equal(pkg.build.nsis.installerHeaderIcon, pkg.build.win.icon);
+    assert.equal(pkg.build.mac.icon, "assets/icon.icns");
+    assert.equal(pkg.build.linux.icon, "assets/icon.png");
+    assert.equal(pkg.build.fileAssociations[0].icon, "assets/file.ico");
+    assert.equal(pkg.build.fileAssociations[0].ext, "myweather");
+    assert.ok(pkg.build.nsis.installerLanguages.includes("ko_KR"));
+    assert.ok(pkg.build.nsis.installerLanguages.includes("en_US"));
+    assert.equal(pkg.build.nsis.deleteAppDataOnUninstall, false);
+    const nsis = fs.readFileSync(path.join(root, "installer/windows/installer.nsh"), "utf8");
+    assert.match(nsis, /Saved data from the previous installation/);
+    assert.match(nsis, /이전에 설치한 프로그램의 저장 데이터가 있습니다/);
+    assert.match(nsis, /완전히 삭제/);
+    assert.match(nsis, /file\.ico/);
+    const linux = fs.readFileSync(path.join(root, "installer/linux/install.sh"), "utf8");
+    const mac = fs.readFileSync(path.join(root, "installer/macos/install.sh"), "utf8");
+    assert.match(linux, /cli\.js/);
+    assert.match(mac, /cli\.js/);
+    const desktop = fs.readFileSync(path.join(root, "installer/linux/myweather.desktop"), "utf8");
+    assert.match(desktop, /application\/x-myweather/);
+    const mime = fs.readFileSync(path.join(root, "installer/linux/myweather-mime.xml"), "utf8");
+    assert.match(mime, /\*\.myweather/);
+    const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
+    assert.match(main, /assets\/icon\.png/);
+    assert.match(main, /frame: false/);
+    assert.match(main, /transparent: true/);
+    assert.match(main, /WINDOW_MIN/);
+    assert.match(main, /window-resize/);
+    assert.match(main, /uncaughtException/);
+    assert.match(main, /render-process-gone/);
+    assert.match(main, /clipboard\.writeText\(text\)/);
+    assert.match(main, /const contentsId = win\.webContents\.id/);
+    assert.match(main, /contentsToPopup\.delete\(contentsId\)/);
+    assert.doesNotMatch(main, /set-opacity/);
+    const page = fs.readFileSync(path.join(root, "src/index.html"), "utf8");
+    assert.match(page, /MyWeather V1\.0/);
+    assert.match(page, /assets\/icon\.png/);
+  });
+
+  h.category("Icons");
+  h.test("app and document icons are transparent, distinct, and the app tile is a lit 3D background", () => {
+    const output = execFileSync("python", ["scripts/verify_icons.py"], { cwd: root, encoding: "utf8" });
+    assert.match(output, /OK transparent_border app/);
+    assert.match(output, /OK beveled_background app/);
+    assert.match(output, /OK transparent_border file/);
+    assert.match(output, /OK top_left_glow file/);
+    assert.match(output, /OK icons_differ/);
+    assert.match(output, /OK packaged_formats/);
+    for (const name of ["icon.png", "icon.ico", "icon.icns", "file.png", "file.ico", "file.icns"]) {
+      assert.ok(fs.statSync(path.join(root, "assets", name)).size > 100, name);
+    }
+  });
+}
+
+function tab(city, dates) {
+  return {
+    place: { cityKo: city, cityEn: city, countryKo: "대한민국", countryEn: "South Korea" },
+    properties: { label: "" },
+    weather: {
+      daily: dates.map((date) => ({ date, tempMin: 10, tempMax: 20, precip: 1, wind: 5 })),
+    },
+  };
+}

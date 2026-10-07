@@ -1,0 +1,94 @@
+{
+  "name": "myweather",
+  "productName": "MyWeather",
+  "version": "1.0.0",
+  "description": "Aggregated daily, weekly, and monthly weather for a chosen country and city.",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "icons": "python scripts/generate_icons.py",
+    "verify:icons": "python scripts/verify_icons.py",
+    "test": "python scripts/generate_icons.py && node test/run-all.js",
+    "start": "electron .",
+    "start:web": "python -m http.server 4173",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win nsis",
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "jsdom": "^26.1.0"
+  },
+  "build": {
+    "appId": "com.shkwon.myweather",
+    "productName": "MyWeather",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**",
+      "src/**",
+      "assets/**",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "en_US",
+        "ko_KR"
+      ],
+      "include": "installer/windows/installer.nsh",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyWeather"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Utility",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "mimeTypes": [
+        "application/x-myweather"
+      ]
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.weather",
+      "target": [
+        "dmg"
+      ]
+    },
+    "fileAssociations": [
+      {
+        "ext": "myweather",
+        "name": "MyWeather Document",
+        "description": "MyWeather weather document",
+        "icon": "assets/file.ico",
+        "mimeType": "application/x-myweather",
+        "role": "Editor"
+      }
+    ]
+  }
+}
