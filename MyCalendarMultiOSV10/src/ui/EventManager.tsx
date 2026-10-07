@@ -3,7 +3,7 @@ import { blankEvent, isReminder, sortForList, type CalendarEvent, type Reminder 
 import { formatMessage } from "../domain/i18n";
 import type { Language, Messages } from "../domain/messages";
 import { Dropdown } from "./Dropdown";
-import { EventEditor, formatEventDate, reminderLabel, reminderOptions, repeatSummary } from "./EventEditor";
+import { EventEditor, eventDateLabel, reminderLabel, reminderOptions, repeatSummary } from "./EventEditor";
 import { BellIcon, PencilIcon, PlusIcon, RepeatIcon, TrashIcon } from "./icons";
 import { useEvents } from "./useEvents";
 
@@ -97,7 +97,7 @@ export function EventManager({
                   <i className="event-dot" style={{ background: event.color }} />
                   <span className="manage-title">{event.title}</span>
                   <span className="manage-when">
-                    {formatEventDate(event.date, language)}
+                    {eventDateLabel(event, t, language)}
                     {event.time ? ` ${event.time}` : ""}
                   </span>
                   {(summary || event.reminder !== null) && (
@@ -145,6 +145,7 @@ export function EventManager({
       {editing && (
         <EventEditor
           t={t}
+          language={language}
           initial={editing}
           onSave={store.save}
           onDelete={store.remove}

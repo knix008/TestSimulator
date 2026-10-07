@@ -41,6 +41,21 @@ test('사용자 정의 테마 색은 #RRGGBB 만 받고 대문자로 적는다',
   assert.equal(store.saveSettings({ customThemeLight: true }).customThemeLight, true);
 });
 
+test('표시 우선순위는 시계마다 따로 두고, 모르는 값은 보통으로 둔다', () => {
+  const { store } = loadStore();
+  assert.equal(store.defaults().displayPriority, 'normal');
+  assert.equal(store.saveSettings({ displayPriority: 'highest' }).displayPriority, 'highest');
+  assert.equal(store.saveSettings({ displayPriority: 'top' }).displayPriority, 'normal');
+
+  const saved = store.saveSettings({
+    extraClocks: [
+      { id: 'a', zone: 'Asia/Tokyo', displayPriority: 'low' },
+      { id: 'b', zone: 'Europe/Paris' }
+    ]
+  });
+  assert.deepEqual(saved.extraClocks.map((c) => c.displayPriority), ['low', 'normal']);
+});
+
 test('범위를 벗어난 값은 잘라서 저장한다', () => {
   const { store } = loadStore();
   const s = store.saveSettings({

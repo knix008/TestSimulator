@@ -488,7 +488,7 @@ const panelCommands = {
     await persistSettings(patch);
     applyThemeSettings();
     applyClockMode();
-    if (Object.prototype.hasOwnProperty.call(patch, 'alwaysOnTop')) {
+    if ('alwaysOnTop' in patch || 'displayPriority' in patch) {
       api.window.setAlwaysOnTop(settings.alwaysOnTop);
     }
     redrawNow();

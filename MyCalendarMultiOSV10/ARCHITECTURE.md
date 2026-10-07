@@ -38,8 +38,8 @@ flowchart LR
 | `builtinHolidays.ts` | `date-holidays-parser`로 계산하는 내장 공휴일 (필요할 때 동적으로 불러옴) |
 | `holidayRules.ts` | 내장 공휴일 규칙과 시간대 데이터를 JSON 파일로 불러옴 |
 | `countries.ts` | 국가 목록과 이름 정렬 |
-| `lunar.ts` | `Intl.DateTimeFormat`의 `dangi`/`chinese` 달력으로 음력을, 태양 황경 계산으로 24절기를 구합니다. |
-| `events.ts` | 일정 모델, 반복 전개, 정규화, 저장 |
+| `lunar.ts` | `Intl.DateTimeFormat`의 `dangi`/`chinese` 달력으로 음력을, 태양 황경 계산으로 24절기를 구합니다. 음력 연도의 달 목록(`lunarMonths`)과 음력 → 양력 변환(`fromLunar`)도 여기 있습니다. |
+| `events.ts` | 일정 모델, 반복 전개, 정규화, 저장. 일정의 `calendar`가 `"lunar"`면 매월·매년 반복을 음력 날짜로 계산합니다. |
 | `reminders.ts` | 알림 시각 계산, 대기열, 다시 알림(5분), 이미 울린 알림 기록 |
 | `settings.ts` | 설정 모델과 정규화, 창과 전체 화면의 날짜 글꼴 |
 | `print.ts` | 용지·방향·여백, 인쇄할 달과 주, 인쇄 옵션 저장 |
@@ -152,6 +152,7 @@ flowchart LR
   - 창에서는 80px, 전체 화면에서는 160px까지 커집니다.
 - **날짜 글꼴:** 창과 전체 화면을 따로 저장합니다 (`dateFont*`, `fullscreenDateFont`).
   - 전체 화면 글꼴을 한 번도 바꾸지 않았다면 창 글꼴을 씁니다.
+- **아래 영역 버튼:** 상태 줄의 ⟳·접기와 일정 줄의 +·일정 관리는 `.footer-actions` 묶음에 담겨 같은 오른쪽 여백(그립을 피하는 30px)에 붙습니다. 일정 목록을 접어도 상태 줄 버튼이 움직이지 않고, 네 버튼이 한 열에 섭니다.
 - **창 높이:** 데스크톱 창은 정사각형 날짜 칸, 일정 추가 줄, 일정 한 줄보다 작아지지 않습니다.
   - 폭이 넓어지면 이 최소 높이도 함께 커집니다.
 - **창 크기 기억:**

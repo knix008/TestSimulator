@@ -745,20 +745,29 @@ export function CalendarScreen({
           <span>{countryLabel}</span>
           <span aria-live="polite">{statusText}</span>
           {status.fetchedAt ? <span>{formatMessage(t.checkedAt, { time: formatWhen(status.fetchedAt, settings.language) })}</span> : null}
-          <button type="button" className="icon-btn" aria-label={t.refreshHolidays} onClick={() => requestHolidayRefresh()}>
-            <RefreshIcon />
-          </button>
-          <button
-            type="button"
-            className="icon-btn footer-toggle"
-            aria-label={collapsed ? t.expandEvents : t.collapseEvents}
-            aria-expanded={!collapsed}
-            aria-controls="calendar-events"
-            title={collapsed ? t.expandEvents : t.collapseEvents}
-            onClick={toggleEvents}
-          >
-            <CollapseIcon />
-          </button>
+          {/* The same right-hand column as the events head below, so the four buttons line up. */}
+          <span className="footer-actions">
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={t.refreshHolidays}
+              title={t.refreshHolidays}
+              onClick={() => requestHolidayRefresh()}
+            >
+              <RefreshIcon />
+            </button>
+            <button
+              type="button"
+              className="icon-btn footer-toggle"
+              aria-label={collapsed ? t.expandEvents : t.collapseEvents}
+              aria-expanded={!collapsed}
+              aria-controls="calendar-events"
+              title={collapsed ? t.expandEvents : t.collapseEvents}
+              onClick={toggleEvents}
+            >
+              <CollapseIcon />
+            </button>
+          </span>
         </div>
         {!collapsed && (
           <div id="calendar-events" className="events" style={desktop ? undefined : { height: resize.eventsHeight }}>
@@ -767,24 +776,26 @@ export function CalendarScreen({
                 {formatFull(selected, settings.language, t.months, t.weekdays)}
                 {selectedNote?.full ? <span className="selected-lunar">{selectedNote.full}</span> : null}
               </p>
-              <button
-                type="button"
-                className="icon-btn"
-                aria-label={t.addEvent}
-                title={t.addEvent}
-                onClick={() => setEditing({ event: blankEvent(selected, settings.defaultReminder) })}
-              >
-                <PlusIcon />
-              </button>
-              <button
-                type="button"
-                className="icon-btn"
-                aria-label={t.manageEvents}
-                title={t.manageEvents}
-                onClick={onOpenEvents}
-              >
-                <ListIcon />
-              </button>
+              <span className="footer-actions">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={t.addEvent}
+                  title={t.addEvent}
+                  onClick={() => setEditing({ event: blankEvent(selected, settings.defaultReminder) })}
+                >
+                  <PlusIcon />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={t.manageEvents}
+                  title={t.manageEvents}
+                  onClick={onOpenEvents}
+                >
+                  <ListIcon />
+                </button>
+              </span>
             </div>
             <ul className="day-items" aria-label={formatFull(selected, settings.language, t.months, t.weekdays)}>
               {selectedNames.length > 0 && <li className="selected-holiday">{selectedNames.join(", ")}</li>}
@@ -925,6 +936,7 @@ export function CalendarScreen({
       {editing && (
         <EventEditor
           t={t}
+          language={settings.language}
           initial={editing.event}
           occurrence={editing.occurrence}
           onSave={store.save}

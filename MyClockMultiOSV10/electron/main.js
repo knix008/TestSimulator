@@ -366,7 +366,7 @@ function createClockWindow() {
     show: false,
     hasShadow: false,
     backgroundColor: '#00000000',
-    alwaysOnTop: settings.alwaysOnTop,
+    alwaysOnTop: priorityOnTop(settings.displayPriority, settings.alwaysOnTop),
     icon: appIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -376,6 +376,8 @@ function createClockWindow() {
     }
   });
 
+  setWindowPriority(clockWin, settings.displayPriority, settings.alwaysOnTop);
+  keepHighestOnTop(clockWin, () => store.loadSettings().displayPriority);
   clockWin.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
 
   clockWin.once('ready-to-show', () => {
@@ -383,6 +385,7 @@ function createClockWindow() {
     if (startInTray) return;
     hiddenByUser = false;
     clockWin.show();
+    raiseHighestClocks();
   });
 
   clockWin.on('move', onClockGeometryChanged);
@@ -505,7 +508,7 @@ function openExtraClock(config) {
     show: false,
     hasShadow: false,
     backgroundColor: '#00000000',
-    alwaysOnTop: store.loadSettings().alwaysOnTop,
+    alwaysOnTop: priorityOnTop(config.displayPriority, store.loadSettings().alwaysOnTop),
     icon: appIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -517,6 +520,8 @@ function openExtraClock(config) {
 
   extraClockWins.set(config.id, win);
   clockIdByWindow.set(win.id, config.id);
+  setWindowPriority(win, config.displayPriority, store.loadSettings().alwaysOnTop);
+  keepHighestOnTop(win, () => extraClockConfig(config.id)?.displayPriority);
 
   win.loadFile(path.join(__dirname, '..', 'src', 'zoneclock.html'), { query: { id: config.id } });
   win.once('ready-to-show', () => {
@@ -525,6 +530,7 @@ function openExtraClock(config) {
       return;
     }
     win.show();
+    raiseHighestClocks();
   });
   win.on('show', () => win.setSkipTaskbar(true));
 
@@ -610,6 +616,7 @@ function updateExtraClock(id, patch) {
     win.setTitle(`${APP_NAME} — ${next.city || next.zone}`);
     win.webContents.send('clock:config', next);
   }
+  if (patch && 'displayPriority' in patch) applyDisplayPriority();
   return next;
 }
 
@@ -662,7 +669,7 @@ function openClockSettings(id) {
     title: `${APP_NAME} — ${config.city || config.zone} 설정`,
     show: false,
     backgroundColor: '#1E1E2E',
-    alwaysOnTop: store.loadSettings().alwaysOnTop,
+    alwaysOnTop: priorityOnTop(config.displayPriority, store.loadSettings().alwaysOnTop),
     icon: appIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -1410,18 +1417,79 @@ function buildTrayMenu() {
   return Menu.buildFromTemplate(template);
 }
 
-/** 항상 위에 표시 — 모든 창에 같이 걸고 설정에도 적어 둔다. */
+/** 항상 위에 표시 — 표시 우선순위가 "보통"인 시계와 기능 창에 걸고 설정에도 적어 둔다. */
 function setAlwaysOnTop(onTop) {
   store.saveSettings({ alwaysOnTop: onTop === true });
-  clockWin?.setAlwaysOnTop(onTop === true);
-  panelWin?.setAlwaysOnTop(onTop === true);
-  for (const win of [...extraClockWins.values(), ...toolWins.values(), ...clockSettingsWins.values()]) {
-    if (win && !win.isDestroyed()) win.setAlwaysOnTop(onTop === true);
-  }
+  applyDisplayPriority();
   // 열려 있는 설정 창들이 같은 값을 보도록 시계 창에 알린다.
   clockWin?.webContents.send('from-panel', { type: 'settings:patch', patch: { alwaysOnTop: onTop === true } });
-  pinFullscreen(false);
   refreshTrayMenu();
+}
+
+// ── 표시 우선순위 ───────────────────────────────────────────────────────
+//
+// 시계마다 낮음·보통·높음·가장 높음 중 하나를 고른다 (store.js 의 DISPLAY_PRIORITIES).
+// 트레이의 "항상 위에 표시"는 "보통" 시계와 기능 창에만 걸린다.
+
+function priorityOnTop(priority, globalOnTop) {
+  if (priority === 'low') return false;
+  if (priority === 'high' || priority === 'highest') return true;
+  return globalOnTop === true;
+}
+
+/** 창 하나에 우선순위를 건다. macOS 는 단계(relativeLevel)로, Windows·Linux 는 쌓는 순서로 가른다. */
+function setWindowPriority(win, priority, globalOnTop) {
+  if (!win || win.isDestroyed()) return;
+  const onTop = priorityOnTop(priority, globalOnTop);
+  if (onTop && priority === 'highest') win.setAlwaysOnTop(true, 'floating', 1);
+  else win.setAlwaysOnTop(onTop);
+}
+
+/** 우선순위가 붙은 시계 창들 — [창, 우선순위, 그 시계의 설정 창] */
+function clockPriorityEntries(settings) {
+  const entries = [[clockWin, settings.displayPriority, panelWin]];
+  for (const config of settings.extraClocks) {
+    entries.push([extraClockWins.get(config.id), config.displayPriority, clockSettingsWins.get(config.id)]);
+  }
+  return entries;
+}
+
+/**
+ * "가장 높음" 시계를 다른 시계 위로 다시 올린다.
+ * Windows 는 맨 위 창들끼리는 단계가 없고 마지막으로 앞에 온 창이 위이므로,
+ * 다른 시계를 누를 때마다 다시 올려야 한다. 그 뒤 메뉴·알람 팝업을 그 위로 되돌린다.
+ */
+function raiseHighestClocks() {
+  const settings = store.loadSettings();
+  for (const [win, priority] of clockPriorityEntries(settings)) {
+    if (priority === 'highest' && win && !win.isDestroyed() && win.isVisible()) win.moveTop();
+  }
+  for (const win of [alarmWin, menuWin]) {
+    if (win && !win.isDestroyed() && win.isVisible()) win.moveTop();
+  }
+}
+
+/**
+ * 저장된 우선순위를 열려 있는 창 모두에 다시 건다.
+ * 시계의 설정 창은 그 시계보다 낮으면 시계 뒤로 숨으므로 시계와 같은 높이로 둔다.
+ */
+function applyDisplayPriority() {
+  const settings = store.loadSettings();
+  for (const [win, priority, settingsWin] of clockPriorityEntries(settings)) {
+    setWindowPriority(win, priority, settings.alwaysOnTop);
+    setWindowPriority(settingsWin, priority === 'highest' ? 'high' : priority, settings.alwaysOnTop);
+  }
+  for (const win of toolWins.values()) setWindowPriority(win, 'normal', settings.alwaysOnTop);
+  raiseHighestClocks();
+  pinFullscreen(false);
+}
+
+/** 시계를 누르면 그 시계가 앞으로 오므로, "가장 높음" 시계를 다시 위로 올린다. */
+function keepHighestOnTop(win, priorityOf) {
+  win.on('focus', () => {
+    if (priorityOf() === 'highest') return;
+    setTimeout(raiseHighestClocks, 0);
+  });
 }
 
 /** 되돌릴 수 없는 일이라 한 번 묻는다. */
@@ -1513,8 +1581,9 @@ function reapplyAlwaysOnTop() {
   if (!clockWin || clockWin.isDestroyed()) return;
   if (clockWin.isAlwaysOnTop()) {
     clockWin.setAlwaysOnTop(false);
-    clockWin.setAlwaysOnTop(true);
+    setWindowPriority(clockWin, store.loadSettings().displayPriority, true);
   }
+  raiseHighestClocks();
   pinFullscreen(false);
 }
 
@@ -1824,15 +1893,8 @@ function registerIpc() {
     return !!win && !win.isDestroyed() && win.isMaximized();
   });
 
-  ipcMain.on('window:set-always-on-top', (_e, onTop) => {
-    // 메인 시계의 설정이므로 딸린 창들도 함께 따른다.
-    clockWin?.setAlwaysOnTop(onTop === true);
-    panelWin?.setAlwaysOnTop(onTop === true);
-    for (const win of [...extraClockWins.values(), ...toolWins.values(), ...clockSettingsWins.values()]) {
-      if (win && !win.isDestroyed()) win.setAlwaysOnTop(onTop === true);
-    }
-    pinFullscreen(false);
-  });
+  // 시계 창이 항상 위·표시 우선순위를 저장한 뒤 부른다 — 저장된 값을 창마다 다시 건다.
+  ipcMain.on('window:set-always-on-top', () => applyDisplayPriority());
 
   ipcMain.on('window:set-min-size', (e, size) => {
     const win = senderWindow(e);

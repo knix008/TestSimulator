@@ -9,6 +9,7 @@ import { APP_VERSION } from "../src/version";
 import { App } from "../src/ui/App";
 import { CalendarScreen } from "../src/ui/CalendarScreen";
 import { Dropdown } from "../src/ui/Dropdown";
+import { formatEventDate } from "../src/ui/EventEditor";
 import { EventsScreen } from "../src/ui/EventsScreen";
 import { PrintScreen } from "../src/ui/PrintScreen";
 import { LanguageGate } from "../src/ui/LanguageGate";
@@ -833,6 +834,116 @@ describe("Interface", () => {
     expect(manager.host.querySelector(".manage-list")).toBeNull();
     expect(manager.host.textContent).toContain(messages.ko.noEventsYet);
     await manager.unmount();
+  });
+
+
+  it("enters an event by its lunar date and keeps the solar date in step", async () => {
+    localStorage.clear();
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const sheet = () => view.host.querySelector(".sheet") as HTMLFormElement;
+    const field = (name: string) => sheet().querySelector(`[name="${name}"]`) as HTMLInputElement;
+    click(view.host.querySelector(`[aria-label="${messages.ko.addEvent}"]`)!);
+
+    const solar = sheet().querySelector('button[name="calendar-solar"]') as HTMLButtonElement;
+    const lunar = sheet().querySelector('button[name="calendar-lunar"]') as HTMLButtonElement;
+    expect([solar.textContent, lunar.textContent]).toEqual([messages.ko.calendarSolar, messages.ko.calendarLunar]);
+    // Solar is the default and keeps the plain date field.
+    expect(solar.getAttribute("aria-pressed")).toBe("true");
+    expect(lunar.getAttribute("aria-pressed")).toBe("false");
+    expect(sheet().querySelector('input[name="date"]')).not.toBeNull();
+    expect(sheet().querySelector('input[name="lunarYear"]')).toBeNull();
+
+    click(lunar);
+    expect(lunar.getAttribute("aria-pressed")).toBe("true");
+    expect(sheet().querySelector('input[name="date"]')).toBeNull();
+
+    setControlValue(field("lunarYear"), "2026");
+    click(sheet().querySelector(".lunar-month")!);
+    const options = [...document.body.querySelectorAll('[role="listbox"] [role="option"]')];
+    expect(options).toHaveLength(12);
+    click(options.find((option) => option.textContent === "8월")!);
+    setControlValue(field("lunarDay"), "26");
+    expect(sheet().querySelector('output[name="solarDate"]')?.textContent).toBe(formatEventDate("2026-10-06", "ko"));
+
+    // An empty day has no date to save, and the editor says so instead of storing the old one.
+    setControlValue(field("lunarDay"), "");
+    setControlValue(field("title"), "제사");
+    const submit = () =>
+      act(() => {
+        sheet().dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      });
+    submit();
+    expect(sheet().querySelector('[role="alert"]')?.textContent).toBe(messages.ko.lunarDateInvalid);
+
+    setControlValue(field("lunarDay"), "26");
+    click([...sheet().querySelectorAll(".segment button")].find((button) => button.textContent === messages.ko.repeatYearly)!);
+    submit();
+    expect(view.host.querySelector(".sheet")).toBeNull();
+    const stored = () => JSON.parse(localStorage.getItem("mycalendar.events.v1") ?? "[]");
+    expect(stored()).toHaveLength(1);
+    expect(stored()[0]).toMatchObject({ title: "제사", date: "2026-10-06", calendar: "lunar", repeat: "yearly" });
+    await view.unmount();
+
+    const manager = await render(<EventsHarness />);
+    // A lunar event is listed by the date its owner typed.
+    expect(manager.host.querySelector(".manage-when")?.textContent).toContain("음력 8월 26일");
+    click(manager.host.querySelector(`[aria-label="${messages.ko.editEvent}: 제사"]`)!);
+    const editor = manager.host.querySelector(".sheet") as HTMLFormElement;
+    const lunarField = (name: string) => editor.querySelector(`[name="${name}"]`) as HTMLInputElement;
+    expect(editor.querySelector('button[name="calendar-lunar"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(lunarField("lunarYear").value).toBe("2026");
+    expect(lunarField("lunarDay").value).toBe("26");
+    expect(editor.querySelector(".lunar-month")?.textContent).toContain("8월");
+
+    // The eighth month of 2026 has 30 days but 2027's has 29, so the 30th moves to the month's end.
+    setControlValue(lunarField("lunarDay"), "30");
+    expect(lunarField("lunarDay").value).toBe("30");
+    setControlValue(lunarField("lunarYear"), "2027");
+    expect(lunarField("lunarDay").value).toBe("29");
+    expect(editor.querySelector('output[name="solarDate"]')?.textContent).toBe(formatEventDate("2027-09-29", "ko"));
+
+    // Switching back to solar keeps the date the lunar fields resolved.
+    click(editor.querySelector('button[name="calendar-solar"]') as HTMLButtonElement);
+    expect((editor.querySelector('input[name="date"]') as HTMLInputElement).value).toBe("2027-09-29");
+    act(() => {
+      editor.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(JSON.parse(localStorage.getItem("mycalendar.events.v1") ?? "[]")[0]).toMatchObject({
+      date: "2027-09-29",
+      calendar: "solar",
+    });
+    expect(manager.host.querySelector(".manage-when")?.textContent).toContain(formatEventDate("2027-09-29", "ko"));
+    await manager.unmount();
+  });
+
+  it("keeps the footer buttons in one right-aligned column whether the events are open or closed", async () => {
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    // One right inset for every footer row: collapsing the events cannot shift the status row.
+    expect(css).toMatch(/\.footer \{[^}]*padding: 8px 30px 12px 12px;/s);
+    expect(css).toContain(".footer.collapsed { gap: 0; padding-bottom: 8px; }");
+    expect(css).not.toMatch(/\.footer\.collapsed \{[^}]*padding-right/);
+    expect(css).not.toMatch(/\.events \{[^}]*padding-right/);
+    expect(css).toMatch(/\.footer-actions \{[^}]*margin-left: auto;/);
+    expect(css).toContain(".footer-actions .icon-btn { width: 24px; height: 24px; flex: none; }");
+
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const status = () => view.host.querySelector(".status-row");
+    const head = () => view.host.querySelector(".events-head");
+    const labels = (row: Element | null) =>
+      [...(row?.querySelectorAll(".footer-actions .icon-btn") ?? [])].map((button) => button.getAttribute("aria-label"));
+    expect(labels(status())).toEqual([messages.ko.refreshHolidays, messages.ko.collapseEvents]);
+    expect(labels(head())).toEqual([messages.ko.addEvent, messages.ko.manageEvents]);
+    // Both rows end with the same right-aligned group, so the four buttons share one column.
+    expect(status()?.lastElementChild?.className).toBe("footer-actions");
+    expect(head()?.lastElementChild?.className).toBe("footer-actions");
+
+    click(view.host.querySelector(".footer-toggle")!);
+    expect(head()).toBeNull();
+    expect(labels(status())).toEqual([messages.ko.refreshHolidays, messages.ko.expandEvents]);
+    expect(status()?.lastElementChild?.className).toBe("footer-actions");
+    await view.unmount();
   });
 
   it("opens a context menu with an icon on every item when a day is right-clicked", async () => {
