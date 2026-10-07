@@ -1,0 +1,57 @@
+# ── 빌드 산출물 ────────────────────────────────────────────────
+# 실행 파일은 프로젝트 루트에 놓인다 (Windows 는 .exe, 그 밖은 확장자 없음).
+# ./clean.sh (.\clean.ps1) 이 아래 것들을 지운다.
+kstt-cli
+kstt-gui
+kstt-gui-native
+kstt-gui-gtk4
+kstt-tests
+kstt-gui-native.app/
+
+# 중간 산출물
+build/
+build-*/
+out/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+compile_commands.json
+*.o
+*.obj
+*.a
+*.lib
+*.exe
+*.dll
+*.so
+*.so.*
+*.dylib
+*.pdb
+*.ilk
+*.res
+*.app/
+
+# ── fetch_deps 가 받아 오는 것들 (크고, 저장소에 넣지 않는다) ──
+# libvosk: third_party/vosk-win64-*, vosk-linux-*, vosk-osx-*
+third_party/
+# Vosk 모델: 압축 83MB, 풀면 253MB
+models/
+*.zip
+
+# 시험 음원은 작으니 저장소에 둔다 (scripts/make_sample_wav 로 다시 만들 수도 있다)
+!tests/data/sample-ko.wav
+
+# ── 실행하면서 생기는 것들 ─────────────────────────────────────
+*.log
+인식결과*.txt
+transcript*.txt
+
+# ── 편집기·운영체제 ────────────────────────────────────────────
+.vscode/
+.idea/
+.vs/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

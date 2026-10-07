@@ -1,0 +1,6 @@
+/* app/gui/windows/app.rc — 실행 파일에 매니페스트를 심는다.
+   1 = CREATEPROCESS_MANIFEST_RESOURCE_ID, 24 = RT_MANIFEST */
+1 24 "app.manifest"
+
+/* 프로그램 아이콘. 번호 1 이라 탐색기·작업 표시줄이 이 아이콘을 쓴다. */
+1 ICON "../../../assets/icon.ico"

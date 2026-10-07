@@ -1,0 +1,5 @@
+/* app/app_icon.rc
+   GUI·CLI 실행 파일에 아이콘을 심는다. Windows 는 이 리소스를 탐색기와 작업
+   표시줄에 쓴다. (Win32 GUI 가 쓰는 매니페스트는 app/gui/windows/app.rc 에 따로
+   있다 — GTK 와 콘솔에는 그 설정이 필요 없다.) */
+1 ICON "../assets/icon.ico"
