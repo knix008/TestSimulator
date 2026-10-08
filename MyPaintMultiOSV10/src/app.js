@@ -228,6 +228,19 @@
     return shapes.length ? shapes[0].fontFamily : settings.fontFamily;
   }
 
+  function fontFlag(kind) {
+    const shapes = activeTextShapes();
+    const style = String(shapes.length ? shapes[0].fontStyle : settings.fontStyle);
+    if (kind === "bold") return style.indexOf("bold") >= 0;
+    if (kind === "italic") return style.indexOf("italic") >= 0;
+    if (kind === "underline") return shapes.length ? !!shapes[0].underline : !!settings.fontUnderline;
+    return shapes.length ? !!shapes[0].strike : !!settings.fontStrike;
+  }
+
+  function fontStyleButton(action, mark, label, on) {
+    return '<button type="button" class="tool-btn font-style' + (on ? " on" : "") + '" data-action="' + action + '" aria-pressed="' + (on ? "true" : "false") + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + mark + "</button>";
+  }
+
   function fontToolbar() {
     const family = activeFontFamily();
     const size = activeFontSize();
@@ -240,6 +253,10 @@
       '<button type="button" class="tool-btn font-step" data-action="fontDown" title="' + esc(t("font.smaller")) + '" aria-label="' + esc(t("font.smaller")) + '"' + down + ">−</button>" +
       '<button type="button" class="tool-btn font-size" id="fontSizeValue" title="' + esc(t("font.size")) + '" aria-label="' + esc(t("font.size") + " " + size) + '">' + size + "</button>" +
       '<button type="button" class="tool-btn font-step" data-action="fontUp" title="' + esc(t("font.larger")) + '" aria-label="' + esc(t("font.larger")) + '"' + up + ">+</button>" +
+      fontStyleButton("fontBold", "<b>B</b>", t("font.bold"), fontFlag("bold")) +
+      fontStyleButton("fontItalic", "<i>I</i>", t("font.italic"), fontFlag("italic")) +
+      fontStyleButton("fontUnderline", "<u>U</u>", t("font.underline"), fontFlag("underline")) +
+      fontStyleButton("fontStrike", "<s>S</s>", t("font.strike"), fontFlag("strike")) +
       "</span>";
   }
 
@@ -374,9 +391,9 @@
         menuItem("clearDrawing", "clear", t("draw.clear")),
       ]) },
       { id: "view", label: t("menu.view"), icon: "zoomIn", items: [
-        menuItem("zoomIn", "zoomIn", t("view.zoomIn")),
-        menuItem("zoomOut", "zoomOut", t("view.zoomOut")),
-        menuItem("zoomReset", "check", t("view.zoomReset")),
+        menuItem("zoomIn", "zoomIn", t("view.zoomIn"), "Ctrl++"),
+        menuItem("zoomOut", "zoomOut", t("view.zoomOut"), "Ctrl+-"),
+        menuItem("zoomReset", "check", t("view.zoomReset"), "Ctrl+0"),
         menuItem("toggleGrid", "grid", t("view.grid")),
         menuItem("toggleShapes", "shapes", t("view.shapes")),
         menuItem("toggleLeft", "panelLeft", t("view.left")),
@@ -454,7 +471,7 @@
     document.documentElement.style.setProperty("--canvas-w", doc.width + "px");
     document.documentElement.style.setProperty("--canvas-h", doc.height + "px");
     const ctx = board.getContext("2d");
-    let shapes = settings.showShapes === false ? [] : doc.shapes;
+    let shapes = doc.shapes;
     if (textEditing) shapes = shapes.filter((shape) => shape.id !== textEditing);
     Paint.render(ctx, doc, {
       preview: draft,
@@ -470,7 +487,7 @@
     if (!overlay) return;
     const factor = scale();
     const doc = current();
-    const shapes = (settings.showShapes === false ? [] : selectedShapes()).map((shape) => {
+    const shapes = selectedShapes().map((shape) => {
       const box = Paint.bounds(shape);
       return '<div class="marquee" style="left:' + (box.x * factor) + "px;top:" + (box.y * factor) +
         "px;width:" + Math.max(2, box.w * factor) + "px;height:" + Math.max(2, box.h * factor) + 'px"></div>';
@@ -575,8 +592,7 @@
       '<label class="color-row"><span>' + esc(t("palette.none")) + '</span><input type="checkbox" data-pick="noFill"' + (settings.fillColor ? "" : " checked") + ' title="' + esc(t("palette.none")) + '"></label>',
       widthPicks(),
       widthStep(),
-      "<h2>" + esc(t("left.shapes")) + "</h2>",
-      '<div class="shape-list">' + shapeRows + "</div>",
+      settings.showShapes === false ? "" : "<h2>" + esc(t("left.shapes")) + "</h2>" + '<div class="shape-list">' + shapeRows + "</div>",
     ].join("");
   }
 
@@ -1734,6 +1750,16 @@
   const ZOOM_MIN = ZOOM_STOPS[0];
   const ZOOM_MAX = ZOOM_STOPS[ZOOM_STOPS.length - 1];
 
+  /* `code` is the physical key, so Ctrl+S still saves when the input language is Korean
+   * and `key` comes back as Hangul or "Process". */
+  function shortcutLetter(event) {
+    const code = String(event.code || "");
+    if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+    const key = String(event.key || "");
+    if (key.length === 1) return key.toLowerCase();
+    return "";
+  }
+
   function zoomStep(direction) {
     const now = settings.zoom;
     if (direction > 0) {
@@ -1783,11 +1809,17 @@
     const shapes = activeTextShapes();
     if (patch.fontFamily) settings.fontFamily = patch.fontFamily;
     if (patch.fontSize != null) settings.fontSize = clamp(patch.fontSize, 6, 400);
+    if (patch.fontStyle) settings.fontStyle = patch.fontStyle;
+    if (patch.underline != null) settings.fontUnderline = !!patch.underline;
+    if (patch.strike != null) settings.fontStrike = !!patch.strike;
     if (shapes.length) {
       pushUndo();
       shapes.forEach((shape) => {
         if (patch.fontFamily) shape.fontFamily = settings.fontFamily;
         if (patch.fontSize != null) shape.fontSize = settings.fontSize;
+        if (patch.fontStyle) shape.fontStyle = settings.fontStyle;
+        if (patch.underline != null) shape.underline = settings.fontUnderline;
+        if (patch.strike != null) shape.strike = settings.fontStrike;
         Paint.normalizeShape(shape);
       });
       markDirty();
@@ -1801,6 +1833,23 @@
     const editor = $("textEditor");
     if (editing && editor && textEditing === editing) editor.focus();
     return { family: settings.fontFamily, size: activeFontSize() };
+  }
+
+  function toggleFontFace(kind) {
+    const shapes = activeTextShapes();
+    const style = String(shapes.length ? shapes[0].fontStyle : settings.fontStyle);
+    const bold = kind === "bold" ? style.indexOf("bold") < 0 : style.indexOf("bold") >= 0;
+    const italic = kind === "italic" ? style.indexOf("italic") < 0 : style.indexOf("italic") >= 0;
+    let next = "normal";
+    if (bold && italic) next = "bold-italic";
+    else if (bold) next = "bold";
+    else if (italic) next = "italic";
+    applyTextFont({ fontStyle: next });
+  }
+
+  function toggleFontMark(kind) {
+    const on = fontFlag(kind);
+    applyTextFont(kind === "underline" ? { underline: !on } : { strike: !on });
   }
 
   function openFontMenu(x, y) {
@@ -1939,6 +1988,7 @@
     editor.style.caretColor = shape.color;
     editor.style.fontStyle = String(shape.fontStyle).indexOf("italic") >= 0 ? "italic" : "normal";
     editor.style.fontWeight = String(shape.fontStyle).indexOf("bold") >= 0 ? "700" : "400";
+    editor.style.textDecoration = [shape.underline ? "underline" : "", shape.strike ? "line-through" : ""].filter(Boolean).join(" ") || "none";
     editor.style.height = (shape.fontSize * 1.35 * zoom) + "px";
     editor.style.width = (Math.max(shape.fontSize * 2, chars * shape.fontSize + shape.fontSize) * zoom) + "px";
   }
@@ -2087,6 +2137,8 @@
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize,
         fontStyle: settings.fontStyle,
+        underline: !!settings.fontUnderline,
+        strike: !!settings.fontStrike,
       }));
       selected = [shape.id];
       markDirty();
@@ -2791,7 +2843,23 @@
     else frame.contentWindow.print();
   }
 
+  function bytesFromBase64(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function diskPath(file) {
+    if (!file || !window.desktop || typeof window.desktop.pathForFile !== "function") return "";
+    try { return window.desktop.pathForFile(file) || ""; } catch (error) { return ""; }
+  }
+
   async function fileBytes(file) {
+    const disk = diskPath(file);
+    if (disk && window.desktop.readBinary) {
+      try { return bytesFromBase64(await window.desktop.readBinary(disk)); } catch (error) { /* the file itself may still be readable */ }
+    }
     if (typeof file.arrayBuffer === "function") return new Uint8Array(await file.arrayBuffer());
     return new Uint8Array(0);
   }
@@ -2799,7 +2867,11 @@
   async function readFileEntry(file) {
     const size = file.size || String(file.text || "").length;
     const named = Formats.kindOf(file.name, null);
-    if (named === "" && /\.mpaint$/i.test(file.name)) {
+    const disk = diskPath(file);
+    if ((named === "" && /\.mpaint$/i.test(file.name || "")) || (disk && /\.mpaint$/i.test(disk))) {
+      if (disk && window.desktop.readFile) {
+        return { kind: "drawing", name: file.name, text: await window.desktop.readFile(disk) };
+      }
       const text = typeof file.text === "function" ? await file.text() : String(file.text || "");
       return { kind: "drawing", name: file.name, text: text };
     }
@@ -3345,7 +3417,7 @@
       settings.showShapes = settings.showShapes === false;
       saveSettings();
       syncShapes();
-      renderBoard();
+      renderLeft();
       return settings.showShapes;
     },
     print: () => openPopup("print"),
@@ -3354,6 +3426,10 @@
     language: () => setLanguage(settings.language === "en" ? "ko" : "en"),
     fontDown: () => applyTextFont({ fontSize: activeFontSize() - 1 }),
     fontUp: () => applyTextFont({ fontSize: activeFontSize() + 1 }),
+    fontBold: () => toggleFontFace("bold"),
+    fontItalic: () => toggleFontFace("italic"),
+    fontUnderline: () => toggleFontMark("underline"),
+    fontStrike: () => toggleFontMark("strike"),
     fontMenu: () => openFontMenu(80, 48),
     themeCycle: () => setTheme(Themes.next(settings.theme)),
     themeMenu: () => {
@@ -3382,10 +3458,7 @@
         saveSettings();
         continue;
       }
-      const base64 = await window.desktop.readBinary(file);
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      const bytes = bytesFromBase64(await window.desktop.readBinary(file));
       await openPicture(bytes, name, file);
       Store.rememberDirectory(settings, "open", file);
       saveSettings();
@@ -3947,38 +4020,51 @@
         editor.focus();
         return;
       }
-      if (event.key === "Escape") { closeMenu(); doDeselect(); return; }
-      if (event.key === "Delete" && !event.target.closest("input, select, textarea")) {
+      if (event.key === "Escape" || event.code === "Escape") {
+        if (inField) return;
+        closeMenu();
+        doDeselect();
+        return;
+      }
+      if (!inField && (event.key === "Delete" || event.key === "Backspace" || event.code === "Delete" || event.code === "Backspace")) {
         event.preventDefault();
         deleteSelection();
         return;
       }
-      if (!(event.ctrlKey || event.metaKey)) return;
-      const key = event.key.toLowerCase();
-      if (key === "c") doCopy();
-      else if (key === "v") { event.preventDefault(); doPaste(); }
-      else if (key === "x") { event.preventDefault(); doCut(); }
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = shortcutLetter(event);
+      if (!key && event.code !== "Equal" && event.code !== "Minus" && event.code !== "Digit0" && event.code !== "NumpadAdd" && event.code !== "NumpadSubtract" && event.code !== "Numpad0") return;
+      if (key === "c") { if (!inField) doCopy(); }
+      else if (key === "v") { if (!inField) { event.preventDefault(); doPaste(); } }
+      else if (key === "x") { if (!inField) { event.preventDefault(); doCut(); } }
+      else if (key === "a") { if (!inField) { event.preventDefault(); doSelectAll(); } }
       else if (key === "z" && event.shiftKey) { event.preventDefault(); doRedo(); }
       else if (key === "z") { event.preventDefault(); doUndo(); }
       else if (key === "y") { event.preventDefault(); doRedo(); }
-      else if (key === "a") { event.preventDefault(); doSelectAll(); }
-      else if (key === "s") { event.preventDefault(); actions.save(); }
+      else if (key === "s" && !event.shiftKey) { event.preventDefault(); actions.save(); }
       else if (key === "p") { event.preventDefault(); actions.print(); }
       else if (key === "n") { event.preventDefault(); actions.new(); }
       else if (key === "o") { event.preventDefault(); actions.open(); }
-    });
+      else if (!inField && (key === "+" || key === "=" || event.code === "Equal" || event.code === "NumpadAdd")) { event.preventDefault(); zoomStep(1); }
+      else if (!inField && (key === "-" || event.code === "Minus" || event.code === "NumpadSubtract")) { event.preventDefault(); zoomStep(-1); }
+      else if (!inField && (key === "0" || event.code === "Digit0" || event.code === "Numpad0")) { event.preventDefault(); setZoom(100); }
+    }, true);
     window.addEventListener("wheel", (event) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       zoomByWheel(event.deltaY);
     }, { passive: false });
-    window.addEventListener("dragover", (event) => { event.preventDefault(); });
-    window.addEventListener("drop", (event) => {
+    const acceptDrop = (event) => {
       event.preventDefault();
-      if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length) {
-        handleDroppedFiles(event.dataTransfer.files).catch(showError);
-      }
-    });
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    };
+    window.addEventListener("dragenter", acceptDrop, true);
+    window.addEventListener("dragover", acceptDrop, true);
+    window.addEventListener("drop", (event) => {
+      acceptDrop(event);
+      const files = event.dataTransfer && event.dataTransfer.files;
+      if (files && files.length) handleDroppedFiles(files).catch(showError);
+    }, true);
     document.addEventListener("mousedown", (event) => {
       if (menuEl && !menuEl.contains(event.target) && !event.target.closest("[data-menu]") && !event.target.closest("#toolbar [data-action]")) closeMenu();
     });

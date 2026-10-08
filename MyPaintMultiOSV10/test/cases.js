@@ -242,6 +242,33 @@
         assert(shape.fontFamily === "Arial", shape.fontFamily);
         api.closeMenu();
       }),
+      test("the toolbar sets bold, italic, underline and strikethrough", (api, doc) => {
+        freshDoc(api);
+        ["fontBold", "fontItalic", "fontUnderline", "fontStrike"].forEach((name) => {
+          const button = doc.querySelector('#toolbar [data-action="' + name + '"]');
+          assert(button, name);
+          assert(button.getAttribute("aria-pressed") === "false", name);
+        });
+        doc.querySelector('#toolbar [data-action="fontUnderline"]').click();
+        assert(api.getSettings().fontUnderline === true, "underline default");
+        api.setTool("text");
+        const shape = api.click(40, 70);
+        doc.getElementById("textEditor").value = "가";
+        doc.getElementById("textEditor").dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        assert(shape.underline === true, "new text underline");
+        doc.querySelector('#toolbar [data-action="fontBold"]').click();
+        doc.querySelector('#toolbar [data-action="fontItalic"]').click();
+        doc.querySelector('#toolbar [data-action="fontStrike"]').click();
+        assert(shape.fontStyle === "bold-italic", shape.fontStyle);
+        assert(shape.strike === true, "strike");
+        assert(doc.querySelector('#toolbar [data-action="fontBold"]').classList.contains("on"), "bold on");
+        assert(doc.getElementById("textEditor").style.fontWeight === "700", "editor weight");
+        assert(doc.getElementById("textEditor").style.textDecoration.indexOf("line-through") >= 0, doc.getElementById("textEditor").style.textDecoration);
+        doc.querySelector('#toolbar [data-action="fontBold"]').click();
+        assert(shape.fontStyle === "italic", shape.fontStyle);
+        doc.querySelector('#toolbar [data-action="fontUnderline"]').click();
+        assert(shape.underline === false, "underline off");
+      }),
       test("the fill tool repaints a shape and then the canvas", (api) => {
         freshDoc(api);
         api.setTool("rect");
@@ -646,6 +673,11 @@
         assert(api.shapeCount() === 1);
         press("y");
         assert(api.shapeCount() === 2);
+        win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Process", code: "KeyZ", ctrlKey: true, bubbles: true }));
+        assert(api.shapeCount() === 1, "a shortcut must follow the physical key");
+        api.setZoom(100);
+        win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "=", code: "Equal", ctrlKey: true, bubbles: true }));
+        assert(api.getSettings().zoom > 100, String(api.getSettings().zoom));
       }),
       test("a picked area goes to the system clipboard as a picture", async (api) => {
         // What another program pastes has to be the picture, not the shapes MyPaint keeps for
@@ -1064,7 +1096,7 @@
         assert(buttons.length >= 15, String(buttons.length));
         buttons.forEach((button) => {
           assert(button.title && button.title.length > 0, (button.dataset.action || button.id) + " has no tooltip");
-          assert(button.querySelector("svg") || button.id === "zoomValue" || button.id === "fontSizeValue" || button.classList.contains("font-step") || button.classList.contains("lang-btn"), (button.dataset.action || "") + " has no icon");
+          assert(button.querySelector("svg") || button.id === "zoomValue" || button.id === "fontSizeValue" || button.classList.contains("font-step") || button.classList.contains("font-style") || button.classList.contains("lang-btn"), (button.dataset.action || "") + " has no icon");
         });
       }),
       test("the toolbar fits inside the smallest window", (api, doc) => {
@@ -1140,18 +1172,21 @@
         assert(button.classList.contains("on") === false);
         assert(button.getAttribute("aria-pressed") === "false");
       }),
-      test("the shapes button hides the drawing and shows it again", (api, doc) => {
+      test("the shape list button hides the list and leaves the drawing", (api, doc) => {
         freshDoc(api);
         api.setTool("rect");
         api.draw(20, 20, 120, 80);
         const button = doc.querySelector('#toolbar [data-action="toggleShapes"]');
-        assert(button && button.getAttribute("aria-pressed") === "true", "shapes start hidden");
+        assert(button && button.getAttribute("aria-pressed") === "true", "the list starts hidden");
+        assert(doc.querySelector("#leftPanel .shape-list"), "the shape list is missing");
         const shown = doc.getElementById("board").toDataURL();
         button.click();
         assert(api.getSettings().showShapes === false);
         assert(button.classList.contains("on") === false);
-        assert(doc.getElementById("board").toDataURL() !== shown, "hiding shapes left the picture unchanged");
+        assert(!doc.querySelector("#leftPanel .shape-list"), "the shape list stayed open");
+        assert(doc.getElementById("board").toDataURL() === shown, "hiding the list changed the picture");
         button.click();
+        assert(doc.querySelector("#leftPanel .shape-list"), "the shape list did not come back");
         assert(doc.getElementById("board").toDataURL() === shown);
       }),
     ]),
@@ -1773,6 +1808,21 @@
         await api.dropFiles([{ name: "work.mpaint", text: raw }]);
         assert(api.getDocs().length > before, String(api.getDocs().length));
         assert(api.getDoc().name === "work.mpaint", api.getDoc().name);
+      }),
+      test("dropping an image file on the window asks how to use it", async (api, doc, win) => {
+        freshDoc(api);
+        const png = await picture(win, 12, 12, "#2266aa", "image/png");
+        const file = new win.File([png], "outside.png", { type: "image/png" });
+        const transfer = new win.DataTransfer();
+        transfer.items.add(file);
+        win.dispatchEvent(new win.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+        for (let i = 0; i < 30 && !(api.getPopup() && api.getPopup().dataset.kind === "drop"); i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        const popup = api.getPopup();
+        assert(popup && popup.dataset.kind === "drop", "dropping a picture did not ask");
+        assert(popup.querySelector("#dropKind"), "the dropped file was not recognised");
+        api.closePopup();
       }),
       test("a dropped picture asks how it should be used", async (api) => {
         freshDoc(api);
@@ -2690,6 +2740,8 @@
         assert(main.indexOf("build.title") >= 0);
         assert(main.indexOf("iconPath") >= 0);
         assert(main.indexOf("closeChildren") >= 0);
+        assert(main.indexOf("removeMenu") >= 0, "the stock menu would swallow the shortcuts");
+        assert(main.indexOf("will-navigate") >= 0, "a dropped file would replace the window");
         assert(main.indexOf("parent:") >= 0);
         assert(main.indexOf("resizable: false") >= 0);
       }),

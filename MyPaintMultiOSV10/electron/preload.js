@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 contextBridge.exposeInMainWorld("desktop", {
   windowCommand: (name) => ipcRenderer.invoke("window-command", name),
@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld("desktop", {
   cancelDownload: () => ipcRenderer.invoke("cancel-download"),
   readFile: (file) => ipcRenderer.invoke("read-file", file),
   readBinary: (file) => ipcRenderer.invoke("read-binary", file),
+  pathForFile: (file) => {
+    try { return webUtils.getPathForFile(file) || ""; } catch (error) { return ""; }
+  },
   listFonts: () => ipcRenderer.invoke("list-fonts"),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   print: (options) => ipcRenderer.invoke("print", options),

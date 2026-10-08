@@ -14,6 +14,8 @@
       fontFamily: "Segoe UI",
       fontSize: 24,
       fontStyle: "normal",
+      fontUnderline: false,
+      fontStrike: false,
       zoom: 100,
       showGrid: false,
       showShapes: true,

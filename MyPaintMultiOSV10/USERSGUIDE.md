@@ -14,7 +14,7 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
 왼쪽 패널 위쪽에 도구가 있습니다. 연필, 붓, 마커, 스프레이, 지우개는 끌어서 자유롭게 그리고,
 직선·화살표·곡선·사각형·둥근 사각형·타원·삼각형은 끌어서 크기를 정합니다. 글자 도구는
 누른 자리에서 바로 글자를 입력하고, 오른쪽 패널에서도 고칩니다. 글꼴과 크기는 툴바에서
-고르거나 −, 현재 크기, + 로 바꾸고, 글자를 오른쪽 클릭한 메뉴에서도 바꿉니다. 색 채우기는 도형이나
+고르거나 −, 현재 크기, + 로 바꾸고, B·I·U·S 로 굵게, 기울임, 밑줄, 취소선을 켭니다. 글자를 오른쪽 클릭한 메뉴에서도 글꼴과 크기를 바꿉니다. 색 채우기는 도형이나
 바탕의 색을 바꾸고, 색 고르기는 누른 자리의 색을 가져옵니다.
 
 색은 왼쪽 패널의 색판에서 고르거나, 선 색·채움 색을 직접 지정합니다. 선 굵기는 그 아래
@@ -56,8 +56,8 @@ Ctrl과 휠로 확대할 때는 휠을 돌린 만큼 바뀝니다. 마우스 휠
 도구 모음의 격자 단추로 그림 위에 격자를 켜고 끕니다. 보기 메뉴에도 같은 명령이 있습니다.
 칸 간격은 화면에서 32px로 고정되어, 확대하거나 축소해도 칸이 커지거나 촘촘해지지 않습니다.
 격자는 그림 위에만 그려지고, 그 위로 그리거나 영역을 고르는 것은 그대로 됩니다. 켠 상태는
-다음 실행 때도 남습니다. 옆의 도형 표시 단추는 캔버스 위의 도형을 보이거나 숨깁니다.
-숨겨도 도형은 지워지지 않고, 저장과 인쇄에는 그대로 들어갑니다.
+다음 실행 때도 남습니다. 옆의 도형 목록 단추는 왼쪽 패널의 도형 목록을 보이거나 숨깁니다.
+목록을 숨겨도 캔버스의 도형은 그대로 보이고, 고르거나 그리는 것도 그대로 됩니다.
 
 새 그림(Ctrl+N)을 누르면 너비와 높이를 묻는 창이 열립니다. 칸에는 설정에 적어 둔
 기본 크기가 채워져 있고, 숫자를 고친 뒤 만들기를 누르면 그 크기의 빈 그림이 생깁니다.
@@ -67,16 +67,17 @@ Ctrl과 휠로 확대할 때는 휠을 돌린 만큼 바뀝니다. 마우스 휠
 ### 되돌리기와 복사
 
 실행 취소는 Ctrl+Z, 다시 실행은 Ctrl+Y입니다. 복사는 Ctrl+C, 붙여넣기는 Ctrl+V,
-잘라내기는 Ctrl+X, 모두 선택은 Ctrl+A입니다. 마우스 오른쪽 단추를 누르면 이 명령들이
-상황 메뉴로 나옵니다.
+잘라내기는 Ctrl+X, 모두 선택은 Ctrl+A입니다. 열기는 Ctrl+O, 저장은 Ctrl+S, 인쇄는 Ctrl+P,
+확대는 Ctrl++, 축소는 Ctrl+-, 100%는 Ctrl+0입니다. 한글 입력 상태에서도 같은 키로 동작합니다.
+마우스 오른쪽 단추를 누르면 이 명령들이 상황 메뉴로 나옵니다.
 
 복사와 잘라내기는 MyPaint 안에서 쓸 도형과 함께, 시스템 클립보드에 그림을 올립니다.
 그래서 다른 프로그램에 바로 붙여넣을 수 있고, MyPaint 안에서는 도형 그대로 붙습니다.
 
 ### 사진과 그림 파일
 
-바깥에서 파일을 끌어다 놓으면 새 그림으로 열지, 지금 그림 안에 넣을지, 창 바탕 그림으로
-쓸지 물어봅니다. 열 수 있는 형식은 다음과 같습니다.
+탐색기에서 그림 파일을 창 위로 끌어다 놓으면 새 그림으로 열지, 지금 그림 안에 넣을지,
+창 바탕 그림으로 쓸지 물어봅니다. 열 수 있는 형식은 다음과 같습니다.
 
 - 일반 그림: PNG, JPEG, GIF, WebP, BMP, ICO, AVIF
 - TIFF: 여러 쪽, 8~16비트, LZW·PackBits·Deflate·JPEG 압축
@@ -164,7 +165,8 @@ The tools are at the top of the left panel. Pencil, brush, marker, spray and the
 drag; line, arrow, curve, rectangle, rounded rectangle, ellipse and triangle take their size
 from the drag. The text tool lets you type where you click, and the right panel can
 edit that text too. The toolbar sets the font and steps the size with −, the current
-size and +, and the same choices are in the menu you get by right-clicking the text. Fill changes the colour of a shape or of the canvas, and the picker takes
+size and +. B, I, U and S turn on bold, italic, underline and strikethrough. The font and
+size are also in the menu you get by right-clicking the text. Fill changes the colour of a shape or of the canvas, and the picker takes
 the colour under the pointer.
 
 Pick colours from the swatches, or set the line and fill colours directly. The pictures
@@ -207,9 +209,9 @@ one click of the button, while a trackpad follows two fingers a per cent at a ti
 The grid button on the toolbar, also in the View menu, draws a grid over the picture. The
 cells stay 32 pixels apart on screen, so zooming in or out does not make them larger or
 denser. The grid sits on the picture only, and drawing or picking an area still works through
-it. Whether it is on is remembered for the next run. The shapes button beside it shows or
-hides the shapes on the canvas. Hiding them does not delete them, and saving and printing
-still include them.
+it. Whether it is on is remembered for the next run. The shape list button beside it shows
+or hides the shape list in the left panel. Hiding the list leaves the shapes on the canvas,
+and selecting or drawing them still works.
 
 New drawing (Ctrl+N) asks for the width and height. The fields start with the size set in
 Settings, and Create opens a blank drawing at the size you leave there.
@@ -219,7 +221,9 @@ Shrinking the window to its minimum does not cut off or overlap the toolbar butt
 ### Undo and the clipboard
 
 Ctrl+Z undoes, Ctrl+Y redoes. Ctrl+C, Ctrl+V and Ctrl+X copy, paste and cut; Ctrl+A selects
-everything. The right mouse button offers the same commands.
+everything. Ctrl+O opens, Ctrl+S saves, Ctrl+P prints, Ctrl++ and Ctrl+- zoom, and Ctrl+0
+returns to 100%. The same keys work while a Korean input language is selected. The right
+mouse button offers the same commands.
 
 Copying and cutting put a picture on the system clipboard as well as the shapes MyPaint keeps
 for itself, so what was copied can be pasted straight into another program — Paint, Word, a
@@ -228,8 +232,9 @@ free outline, what falls outside the picked area is transparent.
 
 ### Photographs and image files
 
-Drop a file on the window and MyPaint asks whether to open it as a new drawing, place it in
-the current one, or use it as the workspace background. It reads:
+Drop an image file from outside the program onto the window and MyPaint asks whether to
+open it as a new drawing, place it in the current one, or use it as the workspace background.
+It reads:
 
 - Common images: PNG, JPEG, GIF, WebP, BMP, ICO, AVIF
 - TIFF: every page, 8–16 bit, LZW / PackBits / Deflate / JPEG

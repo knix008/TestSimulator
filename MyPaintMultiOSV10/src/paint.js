@@ -95,6 +95,8 @@
       shape.fontFamily = shape.fontFamily || "Segoe UI";
       shape.fontSize = clamp(shape.fontSize == null ? 24 : shape.fontSize, 6, 400);
       shape.fontStyle = shape.fontStyle || "normal";
+      shape.underline = !!shape.underline;
+      shape.strike = !!shape.strike;
     }
     if (shape.kind === "image") shape.src = shape.src || "";
     return shape;
@@ -392,6 +394,24 @@
       ctx.font = fontOf(shape);
       ctx.textBaseline = "alphabetic";
       ctx.fillText(shape.text, shape.x, shape.y);
+      if (shape.text && (shape.underline || shape.strike)) {
+        const width = ctx.measureText(shape.text).width;
+        const size = shape.fontSize;
+        ctx.strokeStyle = shape.color;
+        ctx.lineWidth = Math.max(1, size / 14);
+        ctx.beginPath();
+        if (shape.underline) {
+          const y = shape.y + size * 0.15;
+          ctx.moveTo(shape.x, y);
+          ctx.lineTo(shape.x + width, y);
+        }
+        if (shape.strike) {
+          const y = shape.y - size * 0.32;
+          ctx.moveTo(shape.x, y);
+          ctx.lineTo(shape.x + width, y);
+        }
+        ctx.stroke();
+      }
       ctx.restore();
       return;
     }
