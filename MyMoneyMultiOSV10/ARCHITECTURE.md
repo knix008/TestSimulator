@@ -34,6 +34,18 @@ Prices are shown in the listing's own currency, or converted to the base currenc
 
 `all` draws the watchlist as rows and `syncBoardWindow` sets the window to `boardWindowSize(rows)`, which is the toolbar plus the header plus one `BOARD_ROW` per row. It only resizes when the row count actually changes, so it never fights a reader dragging the grip, and it remembers the size held before the mode was entered so leaving restores it. On the desktop the exact size goes through the `window-size` IPC; in the browser preview the shell is sized directly.
 
+`toolbarMinWidth()` counts the icon and the buttons but not the program name, because below `titleTextMinWidth()` the name is hidden and only the icon stays. That is what lets the window be as narrow as it is; `applyTitleRoom` measures the window itself, not the shell, whose border would hide the name a pixel early.
+
+## Window placement
+
+`noteBounds` writes `window.json` on every move and resize, so the last placement survives even a kill, and `before-quit` writes the same rectangle into `settings.json`. On the next start `savedWindowPlacement` prefers the recorded rectangle, falls back to the settings copy, and `placeWindow` re-centres it when the display it belonged to is gone.
+
+A size counts as worth saving when it clears `WINDOW_MIN`, not a round number: `isUsableSize` is the single rule used by `noteBounds`, `recordedWindowPlacement` and `stampWindowPlacement`. A fixed floor of 200 used to sit above the real minimum height, so a window shrunk all the way down came back at its old size.
+
+## Settings window size
+
+Settings pages differ a lot in length, so the popup is not one fixed box. `settingsWidth` adds up the tab labels - counting a Korean letter as a full em and a latin one as half - so every tab is on screen at once in either language and the arrows that would scroll them are hidden. `fitHeight` then measures the page on show with `popupFits` and sets the window to exactly that, bounded by `SETTINGS_MIN_HEIGHT` and `SETTINGS_MAX_HEIGHT`. The watchlist and currency blocks are two columns and take `listBlockHeight` for their own row count, so a three-symbol list is three rows tall rather than a fixed box. On the desktop the popup asks the main process for its new size through the `resize-popup` IPC.
+
 ## Window and tray
 
 The main `BrowserWindow` is frameless, transparent, and created with `skipTaskbar: true`. `ready-to-show`, `show`, and `focus` call `setSkipTaskbar(true)` again so Windows does not put the program icon back on the taskbar. Popup and print windows also skip the taskbar.

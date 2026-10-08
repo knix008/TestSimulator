@@ -61,6 +61,12 @@ The window shows one symbol at a time or the whole watchlist, chosen on the Watc
 - **One symbol.** Clicking the quote moves to the next watched symbol and wraps round at the end. The same move is on the right-click menu. Auto-advance can be set to every 3, 5, 10, 30 or 60 seconds, and is off by default.
 - **The whole watchlist.** Every symbol is listed with the market index on top, and the window is made exactly as tall as the rows so nothing is cut off and nothing scrolls. Adding or removing a symbol resizes it again. Going back to one symbol restores the window's earlier size.
 
+## Window
+
+The window remembers where it was and how big it was, and opens there next time. Narrow it and the program name gives up its place to leave room for the buttons; widen it and the name comes back.
+
+The settings window is wide enough to show every tab at once in either language, and only as tall as the page you are on.
+
 ## Currencies
 
 The Currencies page of Settings holds the base currency and the list of currencies to show against it, picked from thirty-two. The rate window grows with that list. Each pair is quoted on the side that reads as a price, so against the won the dollar shows as `USD/KRW 1,335.11` rather than its reciprocal.

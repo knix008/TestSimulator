@@ -21,8 +21,9 @@ import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconF
 import { layoutMenu, menuWindowOptions, placeBeside, popupKey, popupWindowOptions } from "../../src/ui/menu-layout.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { BOARD_HEAD, BOARD_MAX_HEIGHT, BOARD_MIN_WIDTH, BOARD_ROW, CONTENT_PADDING, SCENE_ART, SCENE_GAP, SCENE_MAX_SCALE, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, WINDOW_DEFAULT, WINDOW_MIN, boardWindowSize, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { BOARD_HEAD, BOARD_MAX_HEIGHT, BOARD_MIN_WIDTH, BOARD_ROW, CONTENT_PADDING, SCENE_ART, SCENE_GAP, SCENE_MAX_SCALE, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, TITLE_LABEL_WIDTH, WINDOW_DEFAULT, WINDOW_MIN, boardWindowSize, isUsableSize, showsTitleText, titleTextMinWidth, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
+import { LIST_GAP, LIST_ROW, SETTINGS_MAX_WIDTH, SETTINGS_MIN_WIDTH, listBlockHeight, settingsWidth, tabLabelWidth } from "../../src/ui/popups.js";
 import { aggregateQuote, aggregateRates, mergeNews, newsKey, presentBoard } from "../../src/market/aggregate.js";
 import { formatMoney, formatPercent, formatPrice, formatRate, formatSigned, formatVolume, quotePair } from "../../src/market/format.js";
 import { CURRENCIES, LISTINGS, MARKETS, currencyName, filterListings, findMarket, listingName, marketOfSymbol } from "../../src/market/markets.js";
@@ -84,7 +85,11 @@ export function registerLogic(h) {
     assert.equal(settings.transparency, 100);
     assert.equal("opacity" in settings, false);
     assert.deepEqual(settings.customTheme, { mode: "dark", bg: "#16283a", text: "#abcdef", accent: "#5cc8ff" });
-    assert.equal(settings.windowSize, null);
+    // A stored size is kept as given; the window's own minimum is applied on use.
+    assert.deepEqual(settings.windowSize, { width: 50, height: 9000 });
+    assert.deepEqual(clampWindowSize(settings.windowSize), { width: WINDOW_MIN.width, height: 9000 });
+    assert.equal(sanitizeSettings({ windowSize: { width: "wide", height: 400 } }).windowSize, null);
+    assert.equal(sanitizeSettings({ windowSize: { width: 0, height: 0 } }).windowSize, null);
     assert.deepEqual(sanitizeSettings({ windowPosition: { x: 12.6, y: -8 }, windowMaximized: 1 }).windowPosition, { x: 13, y: -8 });
     assert.equal(sanitizeSettings({ windowPosition: { x: 12.6, y: -8 }, windowMaximized: 1 }).windowMaximized, true);
     assert.equal(sanitizeSettings({ windowPosition: { x: "left", y: 4 } }).windowPosition, null);
@@ -739,6 +744,27 @@ export function registerLogic(h) {
     assert.ok(tight.text >= SCENE_MIN_SCALE);
     assert.equal(sceneFit({ width: 10, height: 10 }).art, SCENE_MIN_SCALE);
   });
+  h.test("a window shrunk to its minimum is still remembered", () => {
+    // The floor for "worth saving" is the window's own minimum, not a round number.
+    assert.equal(isUsableSize({ width: WINDOW_MIN.width, height: WINDOW_MIN.height }), true);
+    assert.equal(isUsableSize({ width: WINDOW_MIN.width - 1, height: WINDOW_MIN.height }), false);
+    assert.equal(isUsableSize({ width: WINDOW_MIN.width, height: WINDOW_MIN.height - 1 }), false);
+    assert.equal(isUsableSize(null), false);
+    const tiny = { x: 12, y: 34, width: WINDOW_MIN.width, height: WINDOW_MIN.height, maximized: false };
+    const stamped = stampWindowPlacement({}, tiny);
+    assert.deepEqual(stamped.windowSize, { width: WINDOW_MIN.width, height: WINDOW_MIN.height });
+    assert.deepEqual(stamped.windowPosition, { x: 12, y: 34 });
+    const recorded = recordedWindowPlacement({ windowSize: { width: 900, height: 700 } }, tiny);
+    assert.equal(recorded.width, WINDOW_MIN.width);
+    assert.equal(recorded.height, WINDOW_MIN.height);
+    // And it reopens at exactly that size and place.
+    assert.deepEqual(placeWindow({ x: 12, y: 34, width: WINDOW_MIN.width, height: WINDOW_MIN.height }, [{ x: 0, y: 0, width: 1920, height: 1080 }]), {
+      x: 12,
+      y: 34,
+      width: WINDOW_MIN.width,
+      height: WINDOW_MIN.height,
+    });
+  });
   h.test("menus count separators in their height", () => {
     const items = [
       { label: "A", separated: false },
@@ -801,6 +827,43 @@ export function registerLogic(h) {
     assert.deepEqual(await pending, { action: "close" });
     assert.deepEqual(closed, ["about"]);
     assert.equal(hub.windows.size, 0);
+  });
+
+  h.test("a list block is only as tall as its rows", () => {
+    // Two columns, so four entries are two rows.
+    assert.equal(listBlockHeight(0, 300), LIST_ROW);
+    assert.equal(listBlockHeight(1, 300), LIST_ROW);
+    assert.equal(listBlockHeight(4, 300), 2 * LIST_ROW + LIST_GAP);
+    assert.equal(listBlockHeight(20, 300), Math.min(300, 10 * LIST_ROW + 9 * LIST_GAP));
+    assert.ok(listBlockHeight(200, 300) <= 300);
+  });
+  h.test("the settings window is wide enough for every tab in either language", () => {
+    const ko = ["일반", "관심 종목", "환율 목록", "정보 출처", "모양", "바탕 그림", "글꼴", "최근 파일"];
+    const en = ["General", "Watchlist", "Currencies", "Sources", "Appearance", "Wallpaper", "Font", "Recent files"];
+    // A wide letter costs more room than a latin one, so English needs more width here.
+    assert.ok(tabLabelWidth("관심 종목") > tabLabelWidth("Font"));
+    assert.ok(settingsWidth(en) > settingsWidth(ko));
+    for (const labels of [ko, en]) {
+      const width = settingsWidth(labels);
+      assert.ok(width >= SETTINGS_MIN_WIDTH, `${width} >= ${SETTINGS_MIN_WIDTH}`);
+      assert.ok(width <= SETTINGS_MAX_WIDTH, `${width} <= ${SETTINGS_MAX_WIDTH}`);
+      // Room for all eight, measured the same way the strip lays them out.
+      const needed = labels.reduce((sum, label) => sum + 45 + tabLabelWidth(label), 0) + 7 * 4 + 24;
+      assert.ok(width >= needed, `${width} >= ${needed}`);
+    }
+    assert.equal(settingsWidth([]), SETTINGS_MIN_WIDTH);
+    assert.equal(settingsWidth(["x".repeat(400)]), SETTINGS_MAX_WIDTH);
+  });
+  h.test("the program name yields the title bar when the window is narrow", () => {
+    assert.equal(WINDOW_MIN.width, toolbarMinWidth());
+    assert.ok(toolbarMinWidth() >= 320);
+    // The icon-only toolbar is narrower than one that also shows the name.
+    assert.ok(titleTextMinWidth() > toolbarMinWidth());
+    assert.equal(titleTextMinWidth(), toolbarMinWidth() + TITLE_LABEL_WIDTH);
+    assert.equal(showsTitleText(titleTextMinWidth()), true);
+    assert.equal(showsTitleText(titleTextMinWidth() - 1), false);
+    assert.equal(showsTitleText(WINDOW_DEFAULT.width), true);
+    assert.equal(showsTitleText(0), false);
   });
 
   h.category("Installer");

@@ -208,9 +208,11 @@ export function sanitizeSettings(raw) {
     ? settings.enabledSources.filter((id) => known.has(id))
     : [...DEFAULT_SETTINGS.enabledSources];
   settings.reopenLast = Boolean(settings.reopenLast);
+  // Any real size is kept; the window's own minimum is applied where it is used,
+  // so a window shrunk to that minimum still comes back at that minimum.
   const size = settings.windowSize;
   settings.windowSize =
-    size && Number(size.width) >= 200 && Number(size.height) >= 200
+    size && Number.isFinite(Number(size.width)) && Number.isFinite(Number(size.height)) && Number(size.width) >= 1 && Number(size.height) >= 1
       ? { width: Math.round(Number(size.width)), height: Math.round(Number(size.height)) }
       : null;
   const position = settings.windowPosition;

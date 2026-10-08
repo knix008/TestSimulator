@@ -10,11 +10,24 @@ const TOOLBAR_HEIGHT = 46;
 export const CONTENT_PADDING = { top: 2, right: 16, bottom: 2, left: 16 };
 
 /**
- * Narrowest main window that keeps the icon, "MyMoney V1.0", and the
- * icon buttons fully visible. One pixel narrower clips the toolbar.
+ * Narrowest main window that keeps the icon and every toolbar button fully
+ * visible. The program name is not counted: it steps aside below
+ * `titleTextMinWidth()` so the window can be this narrow.
  */
 export function toolbarMinWidth() {
-  return 439;
+  return 341;
+}
+
+/** The program name and the gap before it. */
+export const TITLE_LABEL_WIDTH = 98;
+
+/** From this width up there is room for "MyMoney V1.0" beside the icon. */
+export function titleTextMinWidth() {
+  return toolbarMinWidth() + TITLE_LABEL_WIDTH;
+}
+
+export function showsTitleText(width) {
+  return Math.round(Number(width) || 0) >= titleTextMinWidth();
 }
 
 export const WINDOW_MIN = {
@@ -73,14 +86,23 @@ export function boardWindowSize(rowCount, currentWidth) {
   });
 }
 
+/**
+ * A size worth remembering. The test is the window's own minimum, not a round
+ * number: a window shrunk all the way down is still a size the reader chose,
+ * and must survive a restart.
+ */
+export function isUsableSize(size) {
+  const width = Math.round(Number(size?.width));
+  const height = Math.round(Number(size?.height));
+  return width >= WINDOW_MIN.width && height >= WINDOW_MIN.height;
+}
+
 /** Prefer the size recorded while resizing. Settings often keep the position and drop the size. */
 export function recordedWindowPlacement(settings, recorded) {
-  const recordedWidth = Math.round(Number(recorded?.width));
-  const recordedHeight = Math.round(Number(recorded?.height));
-  const settingsWidth = Math.round(Number(settings?.windowSize?.width));
-  const settingsHeight = Math.round(Number(settings?.windowSize?.height));
-  const width = recordedWidth >= 200 ? recordedWidth : settingsWidth >= 200 ? settingsWidth : null;
-  const height = recordedHeight >= 200 ? recordedHeight : settingsHeight >= 200 ? settingsHeight : null;
+  const fromRecorded = isUsableSize(recorded);
+  const fromSettings = isUsableSize(settings?.windowSize);
+  const width = fromRecorded ? Math.round(Number(recorded.width)) : fromSettings ? Math.round(Number(settings.windowSize.width)) : null;
+  const height = fromRecorded ? Math.round(Number(recorded.height)) : fromSettings ? Math.round(Number(settings.windowSize.height)) : null;
   const recordedX = Number(recorded?.x);
   const recordedY = Number(recorded?.y);
   const settingsX = Number(settings?.windowPosition?.x);
@@ -96,9 +118,9 @@ export function recordedWindowPlacement(settings, recorded) {
 
 export function stampWindowPlacement(settings, placement) {
   const next = settings && typeof settings === "object" ? settings : {};
-  const width = Math.round(Number(placement?.width));
-  const height = Math.round(Number(placement?.height));
-  if (!(width >= 200) || !(height >= 200)) return next;
+  if (!isUsableSize(placement)) return next;
+  const width = Math.round(Number(placement.width));
+  const height = Math.round(Number(placement.height));
   next.windowSize = { width, height };
   const x = Number(placement?.x);
   const y = Number(placement?.y);

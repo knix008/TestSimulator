@@ -56,7 +56,7 @@ import {
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, sceneFit } from "./ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, sceneFit, showsTitleText } from "./ui/window-spec.js";
 import { boardRowCount, panelFitHeight, panelRowCount, renderMarketHtml, renderPanelHtml } from "./ui/market-view.js";
 
 export function createApp(container, options = {}) {
@@ -151,7 +151,10 @@ class MoneyApp {
     this.detachDrag = attachWindowDrag(this.shell, (step) => this.onShellDrag(step));
     this.applyShellSize();
     if (typeof ResizeObserver === "function") {
-      this.sceneObserver = new ResizeObserver(() => this.applySceneScale());
+      this.sceneObserver = new ResizeObserver(() => {
+        this.applyTitleRoom();
+        this.applySceneScale();
+      });
       this.sceneObserver.observe(this.content);
     }
     this.applyAll();
@@ -519,7 +522,20 @@ class MoneyApp {
       this.shell.style.height = this.minimized ? "" : `${this.shellSize.height}px`;
       this.shell.style.transform = this.shellOffset.x || this.shellOffset.y ? `translate(${this.shellOffset.x}px, ${this.shellOffset.y}px)` : "";
     }
+    this.applyTitleRoom();
     this.applySceneScale();
+  }
+
+  /**
+   * Below a certain width the program name steps aside and only the icon stays.
+   * The window's own width is the measure; the shell's border would lose two
+   * pixels and hide the name one pixel early.
+   */
+  applyTitleRoom() {
+    if (!this.frame) return;
+    const measured = this.platform.nativeWindow ? this.frame.clientWidth || 0 : 0;
+    const width = measured > 0 ? measured : this.shellSize.width;
+    this.frame.dataset.titleText = showsTitleText(width) ? "shown" : "hidden";
   }
 
   rememberWindowPlacement(bounds) {

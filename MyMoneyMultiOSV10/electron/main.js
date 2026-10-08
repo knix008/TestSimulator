@@ -9,7 +9,7 @@ import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js"
 import { themeColors, themeVars, DEFAULT_THEME_ID } from "../src/core/themes.js";
 import { buildTrayMenu, placeTrayMenu, trayIconFile, trayMenuSize } from "../src/ui/tray-menu.js";
 import { sanitizeSettings } from "../src/core/settings.js";
-import { WINDOW_DEFAULT, WINDOW_MIN, placeWindow, recordedWindowPlacement, stampWindowPlacement, windowIsVisible } from "../src/ui/window-spec.js";
+import { WINDOW_DEFAULT, WINDOW_MIN, isUsableSize, placeWindow, recordedWindowPlacement, stampWindowPlacement, windowIsVisible } from "../src/ui/window-spec.js";
 import { PopupHub } from "./popup-hub.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -183,8 +183,8 @@ function createMainWindow() {
     noteBounds({
       x: bounds.x,
       y: bounds.y,
-      width: bounds.width >= 200 ? bounds.width : liveBounds?.width,
-      height: bounds.height >= 200 ? bounds.height : liveBounds?.height,
+      width: bounds.width >= WINDOW_MIN.width ? bounds.width : liveBounds?.width,
+      height: bounds.height >= WINDOW_MIN.height ? bounds.height : liveBounds?.height,
       maximized,
     });
   };
@@ -242,11 +242,11 @@ function noteBounds(bounds) {
   const next = {
     x: Number.isFinite(x) ? x : liveBounds?.x,
     y: Number.isFinite(y) ? y : liveBounds?.y,
-    width: width >= 200 ? width : liveBounds?.width,
-    height: height >= 200 ? height : liveBounds?.height,
+    width: width >= WINDOW_MIN.width ? width : liveBounds?.width,
+    height: height >= WINDOW_MIN.height ? height : liveBounds?.height,
     maximized: typeof bounds?.maximized === "boolean" ? bounds.maximized : Boolean(liveBounds?.maximized),
   };
-  if (!(next.width >= 200) || !(next.height >= 200) || !Number.isFinite(next.x) || !Number.isFinite(next.y)) return liveBounds;
+  if (!isUsableSize(next) || !Number.isFinite(next.x) || !Number.isFinite(next.y)) return liveBounds;
   liveBounds = next;
   try {
     fs.mkdirSync(path.dirname(windowStateFile()), { recursive: true });
@@ -258,7 +258,7 @@ function noteBounds(bounds) {
 }
 
 function currentPlacement() {
-  if (liveBounds && liveBounds.width >= 200 && liveBounds.height >= 200 && Number.isFinite(liveBounds.x) && Number.isFinite(liveBounds.y)) {
+  if (liveBounds && isUsableSize(liveBounds) && Number.isFinite(liveBounds.x) && Number.isFinite(liveBounds.y)) {
     return { ...liveBounds };
   }
   if (!mainWindow || mainWindow.isDestroyed()) return null;
@@ -434,8 +434,8 @@ ipcMain.handle("window-resize", (_event, step = {}) => {
     resizeStart = {
       x: bounds.x,
       y: bounds.y,
-      width: liveBounds?.width >= 200 ? liveBounds.width : bounds.width,
-      height: liveBounds?.height >= 200 ? liveBounds.height : bounds.height,
+      width: liveBounds?.width >= WINDOW_MIN.width ? liveBounds.width : bounds.width,
+      height: liveBounds?.height >= WINDOW_MIN.height ? liveBounds.height : bounds.height,
     };
     return resizeStart;
   }
@@ -662,6 +662,23 @@ ipcMain.handle("begin-popup", (event, spec) => {
     };
   });
   return started;
+});
+
+/** A popup that measured its own page asks for exactly that much window. */
+ipcMain.handle("resize-popup", (event, size = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return null;
+  const bounds = win.getBounds();
+  const area = screen.getDisplayMatching(bounds).workArea;
+  const width = Math.min(area.width, Math.max(240, Math.round(Number(size.width) || bounds.width)));
+  const height = Math.min(area.height, Math.max(160, Math.round(Number(size.height) || bounds.height)));
+  win.setBounds({
+    x: Math.max(area.x, Math.min(bounds.x, area.x + area.width - width)),
+    y: Math.max(area.y, Math.min(bounds.y, area.y + area.height - height)),
+    width,
+    height,
+  });
+  return { width, height };
 });
 
 ipcMain.handle("take-popup-spec", (event) => hub.take(contentsToPopup.get(event.sender.id)));

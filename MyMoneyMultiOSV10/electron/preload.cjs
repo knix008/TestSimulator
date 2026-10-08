@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   endPopup: (id) => ipcRenderer.invoke("end-popup", id),
   takePopupSpec: () => ipcRenderer.invoke("take-popup-spec"),
   finishPopup: (result) => ipcRenderer.invoke("finish-popup", result),
+  resizePopup: (size) => ipcRenderer.invoke("resize-popup", size),
   popupImmediate: (message) => ipcRenderer.send("popup-immediate", message),
   broadcastTheme: (payload) => ipcRenderer.send("broadcast-theme", payload),
   broadcastWallpaper: (payload) => ipcRenderer.send("broadcast-wallpaper", payload),

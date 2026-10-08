@@ -129,6 +129,7 @@ body[data-host="desktop"] .window-shell { box-shadow: inset 0 1px 0 rgba(255, 25
 }
 .title-icon { width: 18px; height: 18px; flex: 0 0 auto; border-radius: 4px; display: block; }
 .title-name { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.app-frame[data-title-text="hidden"] .title-name { display: none; }
 
 .shell-top {
   position: relative;

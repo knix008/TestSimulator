@@ -22,6 +22,7 @@ window.electronAPI.onApplyWallpaper?.((payload) => {
 const spec = await window.electronAPI.takePopupSpec();
 bootPopup(spec, {
   finish: (result) => window.electronAPI.finishPopup(result),
+  resize: (size) => window.electronAPI.resizePopup?.(size),
   immediate: (message) => window.electronAPI.popupImmediate(message),
   onUpdate: (callback) => window.electronAPI.onPopupUpdate(callback),
 });

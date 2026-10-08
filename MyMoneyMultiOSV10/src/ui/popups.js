@@ -12,36 +12,85 @@ import { layoutTabScroller } from "./tab-scroller.js";
 
 const ROW = "display:flex;align-items:center;gap:8px;height:32px;white-space:nowrap;overflow:hidden;flex:0 0 auto";
 export const THEME_GRID_HEIGHT = 252;
+/** Tallest a list block may grow to; a short list is shorter than this. */
 export const WATCHLIST_HEIGHT = 300;
 export const RATE_LIST_HEIGHT = 200;
 const SETTINGS_ROW_GAP = 10;
+
+/** A list block is two columns of these rows, and only as tall as it needs. */
+export const LIST_ROW = 26;
+export const LIST_GAP = 3;
+export const LIST_COLUMNS = 2;
+
+/** Settings is never a sliver and never taller than a small laptop screen. */
+export const SETTINGS_MIN_HEIGHT = 300;
+export const SETTINGS_MAX_HEIGHT = 720;
+export const SETTINGS_MIN_WIDTH = 680;
+export const SETTINGS_MAX_WIDTH = 1200;
+
+const TAB_PAD = 24;
+const TAB_ICON = 15;
+const TAB_ICON_GAP = 6;
+const TAB_SPACING = 4;
+const STRIP_PADDING = 24;
+/** Korean, Japanese and Chinese letters take a full em; latin ones about half. */
+const WIDE_LETTER = /[\u1100-\u11FF\u2E80-\uA4CF\uAC00-\uD7FF\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60]/;
+
+export function tabLabelWidth(label) {
+  let width = 0;
+  for (const letter of String(label || "")) {
+    if (letter === " ") width += 4;
+    else width += WIDE_LETTER.test(letter) ? 14 : 8;
+  }
+  return Math.ceil(width);
+}
+
+/**
+ * Every settings tab is shown at once, in either language, so the window is
+ * made wide enough for all of them rather than hiding some behind arrows.
+ */
+export function settingsWidth(labels) {
+  const tabs = labels || [];
+  const strip =
+    tabs.reduce((sum, label) => sum + TAB_PAD + TAB_ICON + TAB_ICON_GAP + tabLabelWidth(label), 0) +
+    Math.max(0, tabs.length - 1) * TAB_SPACING +
+    STRIP_PADDING;
+  return Math.max(SETTINGS_MIN_WIDTH, Math.min(SETTINGS_MAX_WIDTH, Math.ceil(strip)));
+}
+
+export function listBlockHeight(count, max = WATCHLIST_HEIGHT) {
+  const rows = Math.max(1, Math.ceil(Math.max(0, Number(count) || 0) / LIST_COLUMNS));
+  return Math.min(max, rows * LIST_ROW + (rows - 1) * LIST_GAP);
+}
 
 export function buildSettingsSpec(model) {
   const t = model.t;
   const values = model.values;
   const recent = model.recent || [];
+  const tabs = [
+    { id: "general", icon: "general", label: t("tab.general"), rows: generalRows(model) },
+    { id: "watchlist", icon: "stocks", label: t("tab.watchlist"), rows: watchlistRows(model) },
+    { id: "rates", icon: "rates", label: t("tab.rates"), rows: rateRows(model) },
+    { id: "data", icon: "market", label: t("tab.data"), rows: dataRows(model) },
+    { id: "appearance", icon: "palette", label: t("tab.appearance"), rows: appearanceRows(model) },
+    { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: wallpaperRows(model) },
+    { id: "font", icon: "font", label: t("tab.font"), rows: fontRows(model) },
+    { id: "recent", icon: "recent", label: t("tab.recent"), rows: recentRows(recent, t) },
+  ];
   return {
     type: "settings",
     icon: "settings",
     title: t("popup.settings"),
-    width: 680,
-    height: 640,
+    width: settingsWidth(tabs.map((tab) => tab.label)),
+    height: SETTINGS_MIN_HEIGHT,
     resizable: false,
     scroll: "none",
+    allTabs: true,
     activeTab: model.activeTab || "general",
     catalog: model.catalog || [],
     markets: model.markets || [],
     language: model.language || "ko",
-    tabs: [
-      { id: "general", icon: "general", label: t("tab.general"), rows: generalRows(model) },
-      { id: "watchlist", icon: "stocks", label: t("tab.watchlist"), rows: watchlistRows(model) },
-      { id: "rates", icon: "rates", label: t("tab.rates"), rows: rateRows(model) },
-      { id: "data", icon: "market", label: t("tab.data"), rows: dataRows(model) },
-      { id: "appearance", icon: "palette", label: t("tab.appearance"), rows: appearanceRows(model) },
-      { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: wallpaperRows(model) },
-      { id: "font", icon: "font", label: t("tab.font"), rows: fontRows(model) },
-      { id: "recent", icon: "recent", label: t("tab.recent"), rows: recentRows(recent, t) },
-    ],
+    tabs,
     closeLabel: t("tip.close"),
     buttons: [
       { id: "reset", action: "reset", icon: "refresh", label: t("btn.reset"), title: t("tip.reset"), align: "start" },
@@ -370,7 +419,10 @@ export function wirePopup(el, spec, handlers = {}) {
   const renderTabs = () => {
     const strip = el.querySelector(".popup-tabstrip");
     if (!strip || !spec.tabs) return;
-    const layout = layoutTabScroller(tabStart, spec.tabs.length, Math.max(132, (spec.width || 640) - 120), 132);
+    // Settings is sized to hold every tab, so it never hides one behind an arrow.
+    const layout = spec.allTabs
+      ? { start: 0, visible: spec.tabs.length, showPrev: false, showNext: false }
+      : layoutTabScroller(tabStart, spec.tabs.length, Math.max(132, (spec.width || 640) - 120), 132);
     tabStart = layout.start;
     strip.innerHTML = "";
     spec.tabs.slice(layout.start, layout.start + layout.visible).forEach((tab) => {
@@ -392,11 +444,29 @@ export function wirePopup(el, spec, handlers = {}) {
     });
     const prev = el.querySelector('[data-action="tab-prev"]');
     const next = el.querySelector('[data-action="tab-next"]');
-    if (prev) prev.disabled = !layout.showPrev;
-    if (next) next.disabled = !layout.showNext;
+    for (const [button, on] of [[prev, layout.showPrev], [next, layout.showNext]]) {
+      if (!button) continue;
+      button.disabled = !on;
+      button.hidden = Boolean(spec.allTabs);
+      button.style.display = spec.allTabs ? "none" : "";
+    }
     el.dataset.tabStart = String(layout.start);
   };
   const activeTab = () => el.querySelector(".popup-panel:not([hidden])")?.dataset.panel || spec.activeTab;
+  /**
+   * Settings pages differ a lot in length, so the window takes the height of
+   * the page on show instead of standing at the tallest one with dead space
+   * under every short page.
+   */
+  const fitHeight = () => {
+    if (spec.type !== "settings") return;
+    const used = popupFits(el).used;
+    const height = Math.max(SETTINGS_MIN_HEIGHT, Math.min(SETTINGS_MAX_HEIGHT, used));
+    if (parseInt(el.style.height, 10) === height) return;
+    el.style.height = `${height}px`;
+    handlers.resized?.({ width: parseInt(el.style.width, 10) || spec.width, height });
+  };
+  el._fitHeight = fitHeight;
   const activate = (id) => {
     el.querySelectorAll(".popup-panel").forEach((panel) => {
       const on = panel.dataset.panel === id;
@@ -404,8 +474,10 @@ export function wirePopup(el, spec, handlers = {}) {
       panel.style.display = on ? "flex" : "none";
     });
     el.querySelectorAll(".popup-tab").forEach((button) => button.classList.toggle("is-active", button.dataset.tab === id));
+    fitHeight();
   };
   renderTabs();
+  fitHeight();
   const previewTheme = () => {
     const draft = themeDraft(el);
     handlers.localTheme?.(draft);
@@ -456,6 +528,7 @@ export function wirePopup(el, spec, handlers = {}) {
     const recent = event.target.closest("[data-action='recent-delete']");
     if (recent) {
       recent.closest(".popup-row")?.remove();
+      fitHeight();
       void handlers.immediate?.({ type: "recent-delete", path: recent.dataset.path, popupId: spec.popupId });
       return;
     }
@@ -467,6 +540,7 @@ export function wirePopup(el, spec, handlers = {}) {
     const modeButton = event.target.closest("[data-theme-mode]");
     if (modeButton) {
       showThemeGroup(el, modeButton.dataset.themeMode);
+      fitHeight();
       return;
     }
     const swatchButton = event.target.closest(".swatch[data-theme-id]");
@@ -499,6 +573,7 @@ export function wirePopup(el, spec, handlers = {}) {
     }
     if (action === "recent-clear") {
       el.querySelectorAll(".popup-row[data-recent]").forEach((row) => row.remove());
+      fitHeight();
       void handlers.immediate?.({ type: "recent-clear", popupId: spec.popupId });
       return;
     }
@@ -663,6 +738,7 @@ export function bootPopup(spec, api, container = document.body) {
     localTheme: (draft) => applyPopupTheme(spec, draft),
     immediate: (msg) => api.immediate?.({ ...msg, popupId: spec.popupId }),
     copy: (text) => api.immediate?.({ type: "copy", text, popupId: spec.popupId }),
+    resized: (size) => api.resize?.(size),
   });
   api.onUpdate?.((patch) => el._update(patch));
   container.appendChild(el);
@@ -753,6 +829,10 @@ export class PopupLayer {
           return patch;
         },
         copy: handlers.copy,
+        resized: () => {
+          fitPopupToViewport(el);
+          placeCompanionPopup(el);
+        },
       });
       el.dataset.popupKey = key;
       if (backdrop) this.overlay.appendChild(backdrop);
@@ -1157,9 +1237,9 @@ function renderRow(row) {
   }
   if (row.kind === "hidden") return `<input type="hidden" data-field="${esc(row.id)}" value="${esc(row.value || "")}">`;
   if (row.kind === "watchlist") {
-    const height = Number(row.height) || WATCHLIST_HEIGHT;
+    const height = listBlockHeight((row.entries || []).length, Number(row.height) || WATCHLIST_HEIGHT);
     const remove = row.remove || "symbol-remove";
-    return `<div class="watchlist" data-row="${esc(row.id)}" data-gui="${esc(row.gui || "watchlist")}" data-fit-height="${height}" data-remove="${esc(remove)}" data-remove-tip="${esc(row.removeTip || "")}" data-empty="${esc(row.empty || "")}" style="height:${height}px;overflow:hidden;flex:0 0 auto">${watchlistBody(row.entries, row.removeTip, row.empty, remove)}</div>`;
+    return `<div class="watchlist" data-row="${esc(row.id)}" data-gui="${esc(row.gui || "watchlist")}" data-fit-height="${height}" data-max-height="${Number(row.height) || WATCHLIST_HEIGHT}" data-remove="${esc(remove)}" data-remove-tip="${esc(row.removeTip || "")}" data-empty="${esc(row.empty || "")}" style="height:${height}px;overflow:hidden;flex:0 0 auto">${watchlistBody(row.entries, row.removeTip, row.empty, remove)}</div>`;
   }
   if (row.kind === "select") {
     const options = (row.options || [])
@@ -1327,6 +1407,10 @@ function repaintList(el, gui, entries) {
   const box = el.querySelector(`[data-gui="${gui}"]`);
   if (!box) return;
   box.innerHTML = watchlistBody(entries, box.dataset.removeTip, box.dataset.empty, box.dataset.remove);
+  const height = listBlockHeight((entries || []).length, Number(box.dataset.maxHeight) || WATCHLIST_HEIGHT);
+  box.dataset.fitHeight = String(height);
+  box.style.height = `${height}px`;
+  el._fitHeight?.();
 }
 
 function applyPatch(el, patch, spec) {

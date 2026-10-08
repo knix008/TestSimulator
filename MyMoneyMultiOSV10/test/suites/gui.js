@@ -3,7 +3,7 @@ import { createApp } from "../../src/app.js";
 import { AppError } from "../../src/core/errors.js";
 import { serializeDocument } from "../../src/core/document.js";
 import { DARK_THEMES, LIGHT_THEMES, THEMES } from "../../src/core/themes.js";
-import { buildAboutSpec, bootPopup, fitPopupToViewport, popupFits } from "../../src/ui/popups.js";
+import { SETTINGS_MAX_HEIGHT, SETTINGS_MIN_HEIGHT, buildAboutSpec, bootPopup, fitPopupToViewport, popupFits } from "../../src/ui/popups.js";
 import { WINDOW_MIN } from "../../src/ui/window-spec.js";
 import { SAMPLE_DATES, jsonResponse, newsBody, settle, textResponse, withApp, yahooBody } from "../support.js";
 
@@ -1255,7 +1255,8 @@ export function registerGui(h) {
       const hover = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".popup-x:hover, .popup-x:focus-visible");
       assert.equal(hover.style.background, "#e5484d");
       assert.equal(hover.style.color, "#fff");
-      assert.equal(popup.style.height, "640px");
+      // The window is exactly as tall as this page needs, not a fixed tall box.
+      assert.equal(popup.style.height, `${popupFits(popup).used}px`);
       assert.equal(getComputedStyle(popup.querySelector(".popup-body")).paddingTop, "16px");
       assert.equal(getComputedStyle(popup.querySelector('[data-panel="appearance"]')).gap, "10px");
       assert.equal(popupFits(popup).fits, true);
@@ -1587,6 +1588,84 @@ export function registerGui(h) {
       assert.equal(app.wallpaper.style.opacity, "0.25");
       await app.setTransparency(100);
       assert.equal(app.wallpaper.style.opacity, "0.25");
+    });
+  });
+
+  h.test("settings is as tall as the page on show and never hides a tab", async () => {
+    await withApp(async ({ app }) => {
+      for (const language of ["ko", "en"]) {
+        await app.setLanguage(language);
+        const pending = app.showSettings("font");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        // All eight tabs are drawn, and the arrows that would hide some are gone.
+        const tabs = [...popup.querySelectorAll(".popup-tab")].map((button) => button.dataset.tab);
+        assert.deepEqual(tabs.sort(), ["appearance", "data", "font", "general", "rates", "recent", "wallpaper", "watchlist"], language);
+        for (const nav of popup.querySelectorAll('[data-gui="tab-nav"]')) {
+          assert.equal(nav.hidden, true, `${language} tab arrow`);
+          assert.equal(nav.style.display, "none", `${language} tab arrow`);
+        }
+        assert.ok(parseInt(popup.style.width, 10) >= 680, language);
+        // A short page is short; moving to a long one makes the window taller.
+        const short = parseInt(popup.style.height, 10);
+        assert.equal(short, Math.max(SETTINGS_MIN_HEIGHT, popupFits(popup).used), `${language} font page`);
+        popup.querySelector('[data-tab="general"]').click();
+        await settle();
+        const tall = parseInt(popup.style.height, 10);
+        assert.equal(tall, Math.max(SETTINGS_MIN_HEIGHT, popupFits(popup).used), `${language} general page`);
+        assert.ok(tall > short, `${language}: ${tall} > ${short}`);
+        // No page leaves a big empty band under its last row.
+        for (const id of ["general", "watchlist", "rates", "data", "appearance", "wallpaper", "font", "recent"]) {
+          popup.querySelector(`[data-tab="${id}"]`).click();
+          await settle();
+          const fit = popupFits(popup);
+          const height = parseInt(popup.style.height, 10);
+          const slack = height - fit.used;
+          assert.ok(fit.fits, `${language}/${id} must fit`);
+          assert.ok(height <= SETTINGS_MAX_HEIGHT, `${language}/${id} height ${height}`);
+          // A page shorter than the floor keeps the floor; nothing else leaves a band.
+          assert.ok(height === SETTINGS_MIN_HEIGHT || slack === 0, `${language}/${id} slack ${slack}`);
+        }
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+      }
+    });
+  });
+  h.test("the watchlist block shrinks to the symbols it holds", async () => {
+    await withApp(async ({ app }) => {
+      const pending = app.showSettings("watchlist");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const box = popup.querySelector('[data-gui="watchlist"]');
+      // Three symbols are two rows of two columns, not a 300px box.
+      assert.equal(parseInt(box.style.height, 10), 2 * 26 + 3);
+      const before = parseInt(popup.style.height, 10);
+      box.querySelector('[data-action="symbol-remove"]').click();
+      await settle();
+      assert.equal(app.currentTab().board.symbols.length, 2);
+      assert.equal(parseInt(box.style.height, 10), 26);
+      assert.ok(parseInt(popup.style.height, 10) < before);
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+    });
+  });
+  h.test("the title bar drops the program name when the window is narrow", async () => {
+    await withApp(async ({ app }) => {
+      const label = app.root.querySelector(".title-name");
+      assert.equal(app.frame.dataset.titleText, "shown");
+      assert.notEqual(getComputedStyle(label).display, "none");
+      assert.equal(label.textContent, "MyMoney V1.0");
+      // Shrink below the width the name needs: only the icon is left.
+      app.shellSize = { width: WINDOW_MIN.width, height: 400 };
+      app.applyShellSize();
+      assert.equal(app.frame.dataset.titleText, "hidden");
+      assert.equal(getComputedStyle(label).display, "none");
+      assert.ok(app.root.querySelector(".title-icon"));
+      // Give the room back and the name returns.
+      app.shellSize = { width: 760, height: 400 };
+      app.applyShellSize();
+      assert.equal(app.frame.dataset.titleText, "shown");
+      assert.notEqual(getComputedStyle(label).display, "none");
     });
   });
 
