@@ -253,7 +253,7 @@ function monthTitle(today, language, format = "long") {
   return `${MONTH_EN[today.getMonth()]} ${year}`;
 }
 
-function sceneArt(name, size = 240) {
+function sceneArt(name, size = 152) {
   const pictures = {
     sun: `<circle cx="60" cy="60" r="18" fill="#ffd15c"/><g stroke="#ffb703" stroke-width="4" stroke-linecap="round"><path d="M60 16v12M60 92v12M16 60h12M92 60h12M28 28l9 9M83 83l9 9M92 28l-9 9M37 83l-9 9"/></g>`,
     partly: `<circle cx="42" cy="46" r="14" fill="#ffd15c"/><path d="M38 86h44a16 16 0 0 0 1-32 22 22 0 0 0-42 6 14 14 0 0 0-3 26z" fill="#f4f8ff" stroke="#9db4c8"/>`,

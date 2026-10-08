@@ -390,6 +390,7 @@ export function registerLogic(h) {
     assert.equal(WINDOW_MIN.width, toolbarMinWidth());
     assert.ok(WINDOW_MIN.width >= 320);
     assert.equal(WINDOW_MIN.height, 46 + CONTENT_PADDING.top + CONTENT_PADDING.bottom + Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE));
+    assert.equal(WINDOW_MIN.height, 150);
     assert.deepEqual(clampWindowSize({ width: 10, height: 10 }), WINDOW_MIN);
     assert.deepEqual(clampWindowSize({ width: 900.4, height: 700.6 }), { width: 900, height: 701 });
     const desk = [{ x: 0, y: 0, width: 1920, height: 1080 }];
@@ -407,9 +408,9 @@ export function registerLogic(h) {
     assert.deepEqual(kept.windowPosition, { x: 30, y: 40 });
     assert.equal(stampWindowPlacement({ windowSize: { width: 880, height: 610 } }, { width: 10, height: 10 }).windowSize.width, 880);
     const recorded = recordedWindowPlacement({ windowSize: null, windowPosition: { x: 12, y: 8 } }, { x: 40, y: 18, width: 910, height: 640 });
-    const minimum = recordedWindowPlacement({}, { x: 2352, y: 0, width: 329, height: 187, maximized: false });
-    assert.deepEqual(minimum, { x: 2352, y: 0, width: 329, height: 187, maximized: false });
-    assert.deepEqual(stampWindowPlacement({}, { x: 2352, y: 0, width: 329, height: 187, maximized: false }).windowSize, { width: 329, height: 187 });
+    const minimum = recordedWindowPlacement({}, { x: 2352, y: 0, width: 329, height: 150, maximized: false });
+    assert.deepEqual(minimum, { x: 2352, y: 0, width: 329, height: 150, maximized: false });
+    assert.deepEqual(stampWindowPlacement({}, { x: 2352, y: 0, width: 329, height: 150, maximized: false }).windowSize, { width: 329, height: 150 });
     assert.deepEqual({ x: recorded.x, y: recorded.y, width: recorded.width, height: recorded.height }, { x: 40, y: 18, width: 910, height: 640 });
     assert.equal(sceneScale(SCENE_NATURAL), 1);
     assert.equal(sceneScale({ width: 2000, height: 2000 }), Math.round((2000 / SCENE_NATURAL.width) * 1000) / 1000);
@@ -420,12 +421,15 @@ export function registerLogic(h) {
     };
     assert.ok(sceneScale(fitted) >= SCENE_MIN_SCALE);
     const roomy = sceneFit({ width: 726, height: 572 }, 143);
-    assert.equal(roomy.text, 1);
-    assert.equal(roomy.art, Math.round((555 / 240) * 1000) / 1000);
+    assert.equal(roomy.text, roomy.art);
+    assert.equal(roomy.art, Math.round((726 / (152 + 28 + 143)) * 1000) / 1000);
     const tight = sceneFit({ width: 300, height: 160 }, 143);
     assert.ok(tight.text < 1);
     assert.equal(tight.text, tight.art);
     assert.ok(tight.text >= SCENE_MIN_SCALE);
+    const widget = sceneFit({ width: WINDOW_MIN.width - CONTENT_PADDING.left - CONTENT_PADDING.right, height: WINDOW_MIN.height - 46 - CONTENT_PADDING.top - CONTENT_PADDING.bottom }, 172);
+    assert.equal(widget.art, widget.text);
+    assert.ok(Math.abs(152 * widget.art + 2 * 7 * widget.art - 100) <= 1);
   });
   h.test("menus count separators in their height", () => {
     const items = [

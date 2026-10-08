@@ -244,7 +244,7 @@ export function registerGui(h) {
       assert.equal(app.root.querySelector("#right-panel"), null);
       const scene = app.root.querySelector("[data-gui='scene']");
       assert.ok(scene);
-      assert.equal(scene.querySelector(".scene-svg").getAttribute("width"), "240");
+      assert.equal(scene.querySelector(".scene-svg").getAttribute("width"), "152");
       const ranges = [...app.root.querySelectorAll("[data-gui='range-button']")];
       assert.deepEqual(ranges.map((button) => button.title), ["일간 예보", "주간 예보", "월간 예보"]);
       assert.ok(ranges.every((button) => button.querySelector("svg") && !button.querySelector(".tool-label")));
@@ -1890,14 +1890,14 @@ export function registerGui(h) {
       assert.equal(app.root.querySelector(".tabbar").hidden, false);
     });
   });
-  h.test("a tall window enlarges the weather picture and the main window does not scroll", async () => {
+  h.test("a tall window enlarges the whole scene and the main window does not scroll", async () => {
     await withApp(async ({ app }) => {
       app.shellSize = { width: 760, height: 640 };
       app.applyShellSize();
       const art = Number(app.content.style.getPropertyValue("--art-scale"));
       const text = Number(app.content.style.getPropertyValue("--scene-scale"));
-      assert.equal(text, 1);
-      assert.ok(art > text);
+      assert.ok(text > 1);
+      assert.equal(art, text);
       const copy = app.content.querySelector(".scene-copy");
       Object.defineProperty(copy, "scrollWidth", { configurable: true, get: () => 480 });
       app.applySceneScale();

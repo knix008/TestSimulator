@@ -1,8 +1,16 @@
 export const WINDOW_DEFAULT = { width: 760, height: 640 };
 
+/** The picture is a square as tall as the label column, with a little room above and below it. */
+export const SCENE_ART = 152;
+export const SCENE_GAP = 28;
+/** Fixed label column. Live weather text must not change the picture size. */
+export const SCENE_TEXT = 172;
+/** Space above and below the picture at scale 1. Matches `.scene-art` margin in styles.css. */
+export const SCENE_ART_MARGIN = 7;
+
 /** Natural size of the weather picture and its labels, before the window shrinks them together. */
-export const SCENE_NATURAL = { width: 440, height: 248 };
-export const SCENE_MIN_SCALE = 0.55;
+export const SCENE_NATURAL = { width: SCENE_ART + SCENE_GAP + SCENE_TEXT, height: SCENE_ART + SCENE_ART_MARGIN * 2 };
+export const SCENE_MIN_SCALE = 0.6;
 const TOOLBAR_HEIGHT = 46;
 /** Tight inset around the weather scene. Matches `.content` padding in styles.css. */
 export const CONTENT_PADDING = { top: 2, right: 16, bottom: 2, left: 16 };
@@ -30,24 +38,17 @@ export function sceneScale(box) {
   return Math.round(Math.max(SCENE_MIN_SCALE, scale) * 1000) / 1000;
 }
 
-const SCENE_ART = 240;
-const SCENE_GAP = 28;
-/** Fixed label column. Live weather text must not change the picture size. */
-export const SCENE_TEXT = SCENE_NATURAL.width - SCENE_ART - SCENE_GAP;
-
 /**
- * Picture and labels share one scale while the window is small.
- * In a taller window the picture grows to the leftover height and the labels stay readable.
+ * Picture and labels share one scale at every window size, so the picture stays
+ * exactly as tall as the labels beside it and keeps its margin above and below.
  */
-export function sceneFit(box, textWidth = 200) {
+export function sceneFit(box, textWidth = SCENE_TEXT) {
   const width = Math.max(1, Number(box?.width) || SCENE_NATURAL.width);
   const height = Math.max(1, Number(box?.height) || SCENE_NATURAL.height);
-  const text = Math.max(1, Number(textWidth) || 200);
-  const uniform = Math.min(width / (SCENE_ART + SCENE_GAP + text), height / SCENE_ART);
-  const shared = Math.round(Math.max(SCENE_MIN_SCALE, Math.min(1, uniform)) * 1000) / 1000;
-  if (uniform <= 1) return { text: shared, art: shared };
-  const artPx = Math.min(height, Math.max(SCENE_ART, width - SCENE_GAP - text));
-  return { text: 1, art: Math.round((artPx / SCENE_ART) * 1000) / 1000 };
+  const text = Math.max(1, Number(textWidth) || SCENE_TEXT);
+  const uniform = Math.min(width / (SCENE_ART + SCENE_GAP + text), height / SCENE_NATURAL.height);
+  const shared = Math.round(Math.max(SCENE_MIN_SCALE, uniform) * 1000) / 1000;
+  return { text: shared, art: shared };
 }
 
 /** Prefer the size recorded while resizing. Settings often keep the position and drop the size. */

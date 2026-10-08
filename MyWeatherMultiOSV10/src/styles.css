@@ -277,7 +277,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 
 .drop-active .window-shell { outline: 3px dashed var(--accent); outline-offset: -6px; }
 
-/* Weather scene. The picture and labels share --scene-scale and fill the content box. */
+/* Weather scene. The picture is as tall as the labels; both share --scene-scale and fill the content box. */
 .weather {
   height: 100%;
   max-height: 100%;
@@ -312,8 +312,8 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .scene-date { min-height: calc(16px * 1.2 * var(--scene-scale)); font-size: calc(16px * var(--scene-scale)); color: var(--muted); font-weight: 650; line-height: 1.2; white-space: nowrap; }
 .scene-temp { min-height: calc(68px * var(--scene-scale)); font-size: calc(68px * var(--scene-scale)); font-weight: 720; line-height: 1; letter-spacing: -1px; white-space: nowrap; }
 .scene-cond, .scene-range { min-height: calc(16px * 1.2 * var(--scene-scale)); font-size: calc(16px * var(--scene-scale)); color: var(--muted); line-height: 1.2; white-space: nowrap; }
-.scene-art { display: inline-flex; flex: 0 0 auto; filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.22)); }
-.scene-art .scene-svg { width: calc(240px * var(--art-scale)); height: auto; }
+.scene-art { display: inline-flex; flex: 0 0 auto; margin: calc(7px * var(--art-scale)) 0; filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.22)); }
+.weather-scene .scene-art .scene-svg { width: calc(152px * var(--art-scale)); height: calc(152px * var(--art-scale)); }
 .content[data-scene-ready="1"] .weather-scene { visibility: visible; }
 
 .forecast-fit .hour-board { flex: 1 1 auto; min-height: 0; }
@@ -375,7 +375,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 }
 .hour.is-empty, .hour-gap { color: var(--muted); }
 .hour.is-empty { background: rgba(0, 0, 0, 0.01); }
-.hour .scene-art, .day .scene-art { filter: none; }
+.hour .scene-art, .day .scene-art { margin: 0; filter: none; }
 .hour:hover, .day:hover, .hour:focus-visible, .day:focus-visible {
   background: var(--surface-strong);
   transform: translateY(-2px);
