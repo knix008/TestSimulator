@@ -34,7 +34,7 @@ export function renderForecastHtml({ range, tab, language, units, today, t, prio
 
 export function forecastFitHeight(range, hasWeather) {
   if (!hasWeather) return 72;
-  if (range === "weekly") return 200;
+  if (range === "weekly") return 96;
   if (range === "monthly") return 500;
   return 300;
 }

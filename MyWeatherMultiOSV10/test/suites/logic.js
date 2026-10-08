@@ -67,6 +67,7 @@ export function registerLogic(h) {
     assert.equal("opacity" in settings, false);
     assert.deepEqual(settings.customTheme, { mode: "dark", bg: "#16283a", text: "#abcdef", accent: "#5cc8ff" });
     assert.equal(settings.windowSize, null);
+    assert.deepEqual(sanitizeSettings({ windowSize: { width: 329, height: 187 } }).windowSize, { width: 329, height: 187 });
     assert.deepEqual(sanitizeSettings({ windowPosition: { x: 12.6, y: -8 }, windowMaximized: 1 }).windowPosition, { x: 13, y: -8 });
     assert.equal(sanitizeSettings({ windowPosition: { x: 12.6, y: -8 }, windowMaximized: 1 }).windowMaximized, true);
     assert.equal(sanitizeSettings({ windowPosition: { x: "left", y: 4 } }).windowPosition, null);
@@ -400,6 +401,9 @@ export function registerLogic(h) {
     assert.deepEqual(kept.windowPosition, { x: 30, y: 40 });
     assert.equal(stampWindowPlacement({ windowSize: { width: 880, height: 610 } }, { width: 10, height: 10 }).windowSize.width, 880);
     const recorded = recordedWindowPlacement({ windowSize: null, windowPosition: { x: 12, y: 8 } }, { x: 40, y: 18, width: 910, height: 640 });
+    const minimum = recordedWindowPlacement({}, { x: 2352, y: 0, width: 329, height: 187, maximized: false });
+    assert.deepEqual(minimum, { x: 2352, y: 0, width: 329, height: 187, maximized: false });
+    assert.deepEqual(stampWindowPlacement({}, { x: 2352, y: 0, width: 329, height: 187, maximized: false }).windowSize, { width: 329, height: 187 });
     assert.deepEqual({ x: recorded.x, y: recorded.y, width: recorded.width, height: recorded.height }, { x: 40, y: 18, width: 910, height: 640 });
     assert.equal(sceneScale(SCENE_NATURAL), 1);
     assert.equal(sceneScale({ width: 2000, height: 2000 }), Math.round((2000 / SCENE_NATURAL.width) * 1000) / 1000);
@@ -673,6 +677,8 @@ export function registerLogic(h) {
     assert.match(main, /window-resize/);
     assert.match(main, /window-move/);
     assert.match(main, /savedWindowPlacement/);
+    assert.match(main, /holdSavedBounds/);
+    assert.match(main, /setBounds\(bounds\)/);
     assert.match(main, /placeWindow/);
     assert.match(main, /function revealWindow/);
     assert.match(main, /revealWindow\(win\)/);

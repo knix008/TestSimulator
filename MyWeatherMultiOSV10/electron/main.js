@@ -27,6 +27,9 @@ let trayCommand = "";
 let trayRevealUntil = 0;
 let quitting = false;
 let resizeStart = null;
+let applyingPlacement = false;
+let savedPlacementToken = 0;
+let recordPlacement = false;
 const moveStarts = new Map();
 
 app.setName("MyWeather");
@@ -106,6 +109,36 @@ function savedWindowPlacement() {
   return { ...placed, maximized: Boolean(recorded.maximized) && onScreen };
 }
 
+function boundsOf(placement) {
+  return {
+    x: Math.round(placement.x),
+    y: Math.round(placement.y),
+    width: Math.round(placement.width),
+    height: Math.round(placement.height),
+  };
+}
+
+/** A transparent frameless window can ignore its first size until setBounds runs after it is shown. */
+function holdSavedBounds(win, placement) {
+  if (!win || win.isDestroyed() || placement.maximized) return;
+  const token = savedPlacementToken;
+  const bounds = boundsOf(placement);
+  const apply = () => {
+    if (token !== savedPlacementToken || win.isDestroyed() || win.isMaximized()) return;
+    applyingPlacement = true;
+    try {
+      win.setBounds(bounds);
+    } catch {
+      /* shown again once the window is ready */
+    } finally {
+      applyingPlacement = false;
+    }
+  };
+  apply();
+  setTimeout(apply, 0);
+  setTimeout(apply, 150);
+}
+
 function createMainWindow() {
   const placement = savedWindowPlacement();
   liveBounds = {
@@ -130,7 +163,7 @@ function createMainWindow() {
     backgroundColor: "#00000000",
     hasShadow: false,
     skipTaskbar: true,
-    title: "MyWeather V1.0",
+    title: "MyWeather",
     icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -140,14 +173,20 @@ function createMainWindow() {
     },
   });
   win.loadFile(path.join(__dirname, "../src/index.html"));
+  holdSavedBounds(win, placement);
   const keepOffTaskbar = () => hideFromTaskbar(win);
   win.once("ready-to-show", () => {
+    holdSavedBounds(win, placement);
     if (placement.maximized) win.maximize();
     keepOffTaskbar();
     win.show();
     win.setIgnoreMouseEvents(false);
     keepOffTaskbar();
     sendWindowState(win);
+    setTimeout(() => {
+      recordPlacement = true;
+      if (savedPlacementToken === 0) rememberCurrent();
+    }, 200);
   });
   for (const name of ["show", "restore"]) win.on(name, keepOffTaskbar);
   win.on("focus", () => setTimeout(keepOffTaskbar, 250));
@@ -177,14 +216,14 @@ function createMainWindow() {
     win.webContents.send("request-close");
   });
   const rememberCurrent = () => {
-    if (win.isDestroyed()) return;
+    if (!recordPlacement || applyingPlacement || win.isDestroyed()) return;
     const maximized = win.isMaximized();
     const bounds = maximized ? win.getNormalBounds() : win.getBounds();
     noteBounds({
       x: bounds.x,
       y: bounds.y,
-      width: bounds.width >= 200 ? bounds.width : liveBounds?.width,
-      height: bounds.height >= 200 ? bounds.height : liveBounds?.height,
+      width: bounds.width >= WINDOW_MIN.width ? bounds.width : liveBounds?.width,
+      height: bounds.height >= WINDOW_MIN.height ? bounds.height : liveBounds?.height,
       maximized,
     });
   };
@@ -242,11 +281,11 @@ function noteBounds(bounds) {
   const next = {
     x: Number.isFinite(x) ? x : liveBounds?.x,
     y: Number.isFinite(y) ? y : liveBounds?.y,
-    width: width >= 200 ? width : liveBounds?.width,
-    height: height >= 200 ? height : liveBounds?.height,
+    width: width >= WINDOW_MIN.width ? width : liveBounds?.width,
+    height: height >= WINDOW_MIN.height ? height : liveBounds?.height,
     maximized: typeof bounds?.maximized === "boolean" ? bounds.maximized : Boolean(liveBounds?.maximized),
   };
-  if (!(next.width >= 200) || !(next.height >= 200) || !Number.isFinite(next.x) || !Number.isFinite(next.y)) return liveBounds;
+  if (!(next.width >= WINDOW_MIN.width) || !(next.height >= WINDOW_MIN.height) || !Number.isFinite(next.x) || !Number.isFinite(next.y)) return liveBounds;
   liveBounds = next;
   try {
     fs.mkdirSync(path.dirname(windowStateFile()), { recursive: true });
@@ -258,7 +297,12 @@ function noteBounds(bounds) {
 }
 
 function currentPlacement() {
-  if (liveBounds && liveBounds.width >= 200 && liveBounds.height >= 200 && Number.isFinite(liveBounds.x) && Number.isFinite(liveBounds.y)) {
+  if (recordPlacement && mainWindow && !mainWindow.isDestroyed()) {
+    const maximized = mainWindow.isMaximized();
+    const bounds = maximized ? mainWindow.getNormalBounds() : mainWindow.getBounds();
+    return noteBounds({ ...bounds, maximized });
+  }
+  if (liveBounds && liveBounds.width >= WINDOW_MIN.width && liveBounds.height >= WINDOW_MIN.height && Number.isFinite(liveBounds.x) && Number.isFinite(liveBounds.y)) {
     return { ...liveBounds };
   }
   if (!mainWindow || mainWindow.isDestroyed()) return null;
@@ -392,7 +436,7 @@ function showTrayMenu() {
 function createTray() {
   const iconFile = path.join(__dirname, "..", trayIconFile(process.platform));
   tray = new Tray(iconFile);
-  tray.setToolTip("MyWeather V1.0");
+  tray.setToolTip("MyWeather");
   tray.on("click", showTrayMenu);
   tray.on("right-click", showTrayMenu);
 }
@@ -429,13 +473,15 @@ app.on("window-all-closed", () => {
 
 ipcMain.handle("window-resize", (_event, step = {}) => {
   if (!mainWindow || mainWindow.isMaximized()) return null;
+  savedPlacementToken += 1;
+  recordPlacement = true;
   if (step.phase === "start") {
     const bounds = mainWindow.getBounds();
     resizeStart = {
       x: bounds.x,
       y: bounds.y,
-      width: liveBounds?.width >= 200 ? liveBounds.width : bounds.width,
-      height: liveBounds?.height >= 200 ? liveBounds.height : bounds.height,
+      width: bounds.width >= WINDOW_MIN.width ? bounds.width : liveBounds?.width,
+      height: bounds.height >= WINDOW_MIN.height ? bounds.height : liveBounds?.height,
     };
     return resizeStart;
   }
@@ -448,13 +494,16 @@ ipcMain.handle("window-resize", (_event, step = {}) => {
   const height = Math.max(WINDOW_MIN.height, Math.round(resizeStart.height + Number(step.dy || 0)));
   const next = { x: resizeStart.x, y: resizeStart.y, width, height, maximized: false };
   mainWindow.setBounds(next);
-  noteBounds(next);
-  return { x: next.x, y: next.y, width, height };
+  const actual = mainWindow.getBounds();
+  noteBounds({ x: actual.x, y: actual.y, width: actual.width, height: actual.height, maximized: false });
+  return { x: actual.x, y: actual.y, width: actual.width, height: actual.height };
 });
 
 ipcMain.handle("window-move", (event, step = {}) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || win.isDestroyed() || win.isMaximized()) return null;
+  savedPlacementToken += 1;
+  recordPlacement = true;
   if (step.phase === "start") {
     const [x, y] = win.getPosition();
     moveStarts.set(win.id, { x, y });
@@ -479,8 +528,9 @@ ipcMain.handle("window-move", (event, step = {}) => {
   const x = Math.round(origin.x + Number(step.dx || 0));
   const y = Math.round(origin.y + Number(step.dy || 0));
   win.setPosition(x, y);
-  noteBounds({ x, y, width: liveBounds?.width, height: liveBounds?.height, maximized: false });
-  return { x, y };
+  const actual = win.getBounds();
+  noteBounds({ x: actual.x, y: actual.y, width: actual.width, height: actual.height, maximized: false });
+  return { x: actual.x, y: actual.y };
 });
 
 ipcMain.handle("list-fonts", () => listSystemFonts());

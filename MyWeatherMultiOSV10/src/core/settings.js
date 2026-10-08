@@ -1,4 +1,5 @@
 import { FONT_STYLES } from "./fonts.js";
+import { WINDOW_MIN } from "../ui/window-spec.js";
 import { DEFAULT_CUSTOM_THEME, DEFAULT_THEME_ID, isTheme, sanitizeCustomTheme } from "./themes.js";
 
 const LEGACY_THEMES = {
@@ -101,7 +102,7 @@ export function sanitizeSettings(raw) {
   settings.reopenLast = Boolean(settings.reopenLast);
   const size = settings.windowSize;
   settings.windowSize =
-    size && Number(size.width) >= 200 && Number(size.height) >= 200
+    size && Number(size.width) >= WINDOW_MIN.width && Number(size.height) >= WINDOW_MIN.height
       ? { width: Math.round(Number(size.width)), height: Math.round(Number(size.height)) }
       : null;
   const position = settings.windowPosition;

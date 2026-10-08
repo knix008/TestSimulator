@@ -118,13 +118,16 @@ body[data-host="desktop"] .window-shell { box-shadow: inset 0 1px 0 rgba(255, 25
 .titlebar {
   position: relative;
   z-index: 2;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
+  overflow: hidden;
 }
-.title-icon { width: 18px; height: 18px; flex: 0 0 auto; border-radius: 4px; display: block; }
-.title-name { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.title-icon { width: 18px; height: 18px; flex: 0 0 auto; border-radius: 4px; display: block; -webkit-user-drag: none; user-select: none; }
+.title-name { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.title-name[hidden], .app-frame[data-minimized="true"] .title-name { display: none; }
 
 .shell-top {
   position: relative;
@@ -300,7 +303,8 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .forecast-fit .hour-board { flex: 1 1 auto; min-height: 0; }
 .forecast-fit .hour-band { flex: 1 1 auto; min-height: 0; }
 .forecast-fit .range-title { flex: 0 0 auto; }
-.forecast-fit .week-row, .forecast-fit .month-cal { flex: 1 1 auto; min-height: 0; align-content: stretch; }
+.forecast-fit .week-row { flex: 0 0 auto; align-content: start; }
+.forecast-fit .month-cal { flex: 1 1 auto; min-height: 0; align-content: stretch; }
 .forecast-fit .week-row .day, .forecast-fit .month-cal .day { min-height: 0; height: auto; }
 .fold { margin-top: 8px; }
 .fold-toggle {
@@ -372,7 +376,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .day-num { font-size: 12px; font-weight: 650; }
 
 .week-row, .month-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.week-row .day { min-height: 96px; padding: 8px 2px; }
+.week-row .day { min-height: 0; padding: 1px 2px; gap: 0; }
 .month-head {
   text-align: center;
   font-size: 12px;
@@ -485,6 +489,8 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .popup-tab .ico { width: 15px; height: 15px; }
 .popup-tab:hover { background: var(--surface); color: var(--fg); }
 .popup-tab.is-active { background: var(--surface-strong); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+.popup[data-popup="settings"] .popup-tab { flex: 1 1 0; min-width: 0; justify-content: center; }
+.popup[data-popup="settings"] .popup-tab span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .popup-tabs [data-gui="tab-nav"] { width: 26px; height: 30px; border: 0; border-radius: 8px; background: rgba(0, 0, 0, 0.01); color: var(--muted); padding: 0; }
 
 .popup-body { padding: 8px 16px 0; }

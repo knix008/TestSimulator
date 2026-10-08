@@ -11,7 +11,7 @@ export const APP_INFO = {
   userDataFolder: "MyWeather",
 };
 
-export const WINDOW_TITLE = "MyWeather V1.0";
+export const WINDOW_TITLE = APP_INFO.name;
 
 export function titleText() {
   return `${APP_INFO.name} ${APP_INFO.version}`;

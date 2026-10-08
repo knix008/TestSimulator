@@ -9,7 +9,7 @@ import { jsonResponse, openMeteoBody, SAMPLE_DATES, settle, withApp } from "../s
 
 export function registerGui(h) {
   h.category("Window");
-  h.test("the title bar shows the icon and MyWeather V1.0 without a place name", async () => {
+  h.test("the title bar shows the icon and MyWeather without a place name", async () => {
     await withApp(async ({ app }) => {
       assert.equal(app.frame.dataset.chromeless, "true");
       for (const selector of [".menubar", ".toolbar", ".statusbar", "#statusbar", "[data-status]", "[data-gui='menubar-item']", "#opacity-slider"]) {
@@ -21,16 +21,28 @@ export function registerGui(h) {
       assert.equal(bar.parentElement.dataset.gui, "drag-region");
       assert.equal(app.root.querySelector(".tabbar").hidden, true);
       assert.equal(app.root.querySelector(".shell-top").textContent.includes("서울"), false);
-      assert.equal(title.textContent, "MyWeather V1.0");
-      assert.equal(app.titleText, "MyWeather V1.0");
-      assert.equal(document.title, "MyWeather V1.0");
+      assert.equal(title.textContent, "MyWeather");
+      assert.equal(title.textContent.includes("V1.0"), false);
+      assert.equal(app.titleText, "MyWeather");
+      assert.equal(document.title, "MyWeather");
       assert.match(icon.getAttribute("src"), /icon\.png$/);
       assert.equal(getComputedStyle(bar).display, "flex");
       assert.ok(Number.parseFloat(getComputedStyle(icon).width) > 0);
       assert.equal(bar.textContent.includes("서울"), false);
       app.markDirty();
-      assert.equal(app.titleText, "MyWeather V1.0");
-      assert.equal(title.textContent, "MyWeather V1.0");
+      assert.equal(app.titleText, "MyWeather");
+      assert.equal(title.textContent, "MyWeather");
+      app.applyWindowState({ minimized: true });
+      assert.equal(title.hidden, true);
+      app.applyWindowState({ minimized: false });
+      let room = 10;
+      Object.defineProperty(title, "clientWidth", { configurable: true, get: () => room });
+      Object.defineProperty(title, "scrollWidth", { configurable: true, get: () => 90 });
+      app.syncWindowTitle();
+      assert.equal(title.hidden, true);
+      room = 90;
+      window.dispatchEvent(new Event("resize"));
+      assert.equal(title.hidden, false);
     });
   });
   h.test("the shell is one rounded panel with minimize, maximize, and close buttons", async () => {
@@ -156,7 +168,18 @@ export function registerGui(h) {
       { platform },
     );
     await withApp(async ({ app, platform: web }) => {
-      pointer(app.root.querySelector(".title-name"), "pointerdown", 4, 4);
+      const icon = app.root.querySelector(".title-icon");
+      assert.equal(icon.getAttribute("draggable"), "false");
+      const drag = new Event("dragstart", { bubbles: true, cancelable: true });
+      icon.dispatchEvent(drag);
+      assert.equal(drag.defaultPrevented, true);
+      pointer(icon, "pointerdown", 4, 4);
+      pointer(document, "pointermove", 24, 16);
+      pointer(document, "pointerup", 24, 16);
+      await settle();
+      assert.equal(app.shell.style.transform, "translate(20px, 12px)");
+      assert.equal(app.settings.backgroundImage, "");
+      pointer(app.root.querySelector(".title-name"), "pointerdown", 24, 16);
       pointer(document, "pointermove", 24, 16);
       pointer(document, "pointerup", 24, 16);
       await settle();
@@ -638,18 +661,10 @@ export function registerGui(h) {
     await withApp(async ({ app }) => {
       for (let index = 0; index < 12; index += 1) app.recent.add(`C:/docs/file-${index}.myweather`);
       assert.equal(app.recent.items.length, 10);
-      const pending = app.showSettings("recent");
-      await settle();
-      const popup = document.querySelector('[data-popup="settings"]');
-      assert.equal(popup.querySelectorAll("[data-recent]").length, 10);
-      popup.querySelector('[data-action="recent-delete"]').click();
-      await settle();
+      app.removeRecent(app.recent.items[0]);
       assert.equal(app.recent.items.length, 9);
-      popup.querySelector('[data-action="recent-clear"]').click();
-      await settle();
+      app.clearRecent();
       assert.equal(app.recent.items.length, 0);
-      popup.querySelector('[data-action="cancel"]').click();
-      await pending;
       app.undo();
       assert.equal(app.recent.items.length, 9);
     });
@@ -765,6 +780,14 @@ export function registerGui(h) {
       assert.equal(app.settings.transparency, 80);
       assert.equal(app.settings.updateHours, 1);
       assert.equal(app.i18n.missing.size, 0);
+      const again = app.showSettings("font");
+      await settle();
+      const english = document.querySelector('[data-popup="settings"]');
+      assert.deepEqual([...english.querySelectorAll(".popup-tab")].map((button) => button.textContent), ["General", "Sources", "Appearance", "Image & font"]);
+      assert.equal(english.querySelector('[data-panel="wallpaper"]').hidden, false);
+      assert.ok(english.querySelector('[data-field="fontFamily"]'));
+      english.querySelector('[data-action="cancel"]').click();
+      await again;
       app.undo();
       assert.equal(app.settings.theme, "dark-ink");
       assert.equal(app.settings.transparency, 30);
@@ -1113,7 +1136,9 @@ export function registerGui(h) {
         nextTab.click();
         collectTabs();
       }
-      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "data", "font", "general", "recent", "wallpaper"]);
+      assert.deepEqual([...popup.querySelectorAll(".popup-tab")].map((button) => button.dataset.tab), ["general", "data", "appearance", "wallpaper"]);
+      assert.equal(popup.querySelector('[data-action="tab-next"]').hidden, true);
+      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "data", "general", "wallpaper"]);
       for (const [id, svg] of tabIcons) assert.ok(svg, id);
       popup.querySelector('[data-action="tab-prev"]').click();
       assert.deepEqual([...field.options].map((option) => option.value), ["average", "ecmwf", "gfs", "jma", "metno", "wttr"]);

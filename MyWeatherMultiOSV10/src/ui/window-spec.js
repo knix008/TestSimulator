@@ -8,11 +8,13 @@ const TOOLBAR_HEIGHT = 46;
 export const CONTENT_PADDING = { top: 2, right: 16, bottom: 2, left: 16 };
 
 /**
- * Narrowest main window that keeps the icon, "MyWeather V1.0", and the
- * icon buttons fully visible. One pixel narrower clips the toolbar.
+ * Narrowest main window that keeps the icon and every toolbar button visible.
+ * The program name is shown only when the window is wider than this.
+ * Shell padding 20, gaps 12, icon 18, three forecast buttons 104,
+ * corner buttons and separator 173, and the 1px shell border on each side.
  */
 export function toolbarMinWidth() {
-  return 439;
+  return 329;
 }
 
 export const WINDOW_MIN = {
@@ -54,8 +56,8 @@ export function recordedWindowPlacement(settings, recorded) {
   const recordedHeight = Math.round(Number(recorded?.height));
   const settingsWidth = Math.round(Number(settings?.windowSize?.width));
   const settingsHeight = Math.round(Number(settings?.windowSize?.height));
-  const width = recordedWidth >= 200 ? recordedWidth : settingsWidth >= 200 ? settingsWidth : null;
-  const height = recordedHeight >= 200 ? recordedHeight : settingsHeight >= 200 ? settingsHeight : null;
+  const width = recordedWidth >= WINDOW_MIN.width ? recordedWidth : settingsWidth >= WINDOW_MIN.width ? settingsWidth : null;
+  const height = recordedHeight >= WINDOW_MIN.height ? recordedHeight : settingsHeight >= WINDOW_MIN.height ? settingsHeight : null;
   const recordedX = Number(recorded?.x);
   const recordedY = Number(recorded?.y);
   const settingsX = Number(settings?.windowPosition?.x);
@@ -72,7 +74,7 @@ export function stampWindowPlacement(settings, placement) {
   const next = settings && typeof settings === "object" ? settings : {};
   const width = Math.round(Number(placement?.width));
   const height = Math.round(Number(placement?.height));
-  if (!(width >= 200) || !(height >= 200)) return next;
+  if (!(width >= WINDOW_MIN.width) || !(height >= WINDOW_MIN.height)) return next;
   next.windowSize = { width, height };
   const x = Number(placement?.x);
   const y = Number(placement?.y);

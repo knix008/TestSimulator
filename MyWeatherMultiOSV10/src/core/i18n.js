@@ -157,7 +157,7 @@ const ROWS = [
   ["popup.preview", "인쇄 미리보기", "Print preview"],
   ["tab.general", "일반", "General"],
   ["tab.appearance", "모양", "Appearance"],
-  ["tab.wallpaper", "바탕 그림", "Wallpaper"],
+  ["tab.wallpaper", "바탕·글꼴", "Image & font"],
   ["tab.font", "글꼴", "Font"],
   ["tab.data", "날씨 출처", "Sources"],
   ["field.sources", "날씨 정보를 가져올 출처", "Sources to fetch"],

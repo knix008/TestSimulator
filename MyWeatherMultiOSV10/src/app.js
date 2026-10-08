@@ -88,7 +88,7 @@ class WeatherApp {
           <div class="wallpaper" data-gui="wallpaper"></div>
           <div class="shell-top" data-gui="drag-region">
             <div class="titlebar" data-gui="titlebar">
-              <img class="title-icon" src="../assets/icon.png" alt="" width="18" height="18">
+              <img class="title-icon" src="../assets/icon.png" alt="" width="18" height="18" draggable="false">
               <span class="title-name" data-gui="window-title">${WINDOW_TITLE}</span>
             </div>
             <div class="range-tools" data-gui="range-tools">
@@ -128,9 +128,15 @@ class WeatherApp {
     this.bind();
     this.detachDrag = attachWindowDrag(this.shell, (step) => this.onShellDrag(step));
     this.applyShellSize();
+    this.onWindowResize = () => this.syncWindowTitle();
+    window.addEventListener("resize", this.onWindowResize);
     if (typeof ResizeObserver === "function") {
-      this.sceneObserver = new ResizeObserver(() => this.applySceneScale());
+      this.sceneObserver = new ResizeObserver(() => {
+        this.applySceneScale();
+        this.syncWindowTitle();
+      });
       this.sceneObserver.observe(this.content);
+      this.sceneObserver.observe(this.root.querySelector(".shell-top"));
     }
     this.applyAll();
     this.platform.onMenuCommand?.((id) => this.run(id));
@@ -191,6 +197,7 @@ class WeatherApp {
     this.detachDrag?.();
     this.popups?.closeAll();
     this.sceneObserver?.disconnect();
+    if (this.onWindowResize) window.removeEventListener("resize", this.onWindowResize);
     this.closeMenu();
     this.unbind?.();
     if (this.onWindowError) window.removeEventListener("error", this.onWindowError);
@@ -249,6 +256,9 @@ class WeatherApp {
       event.preventDefault();
       this.setZoom(this.settings.zoom + (event.deltaY < 0 ? 10 : -10), { recordUndo: false });
     };
+    const onDragStart = (event) => {
+      if (event.target?.closest?.("img")) event.preventDefault();
+    };
     const onDragOver = (event) => {
       event.preventDefault();
       this.frame.classList.add("drop-active");
@@ -291,6 +301,7 @@ class WeatherApp {
     this.frame.addEventListener("focusin", onFocusIn);
     this.frame.addEventListener("focusout", onFocusOut);
     this.frame.addEventListener("wheel", onWheel, { passive: false });
+    this.frame.addEventListener("dragstart", onDragStart);
     this.frame.addEventListener("dragover", onDragOver);
     this.frame.addEventListener("dragleave", onDragLeave);
     this.frame.addEventListener("drop", onDrop);
@@ -480,6 +491,20 @@ class WeatherApp {
       this.shell.style.transform = this.shellOffset.x || this.shellOffset.y ? `translate(${this.shellOffset.x}px, ${this.shellOffset.y}px)` : "";
     }
     this.applySceneScale();
+    this.syncWindowTitle();
+  }
+
+  syncWindowTitle() {
+    const name = this.root.querySelector("[data-gui='window-title']");
+    if (!name) return;
+    if (this.minimized) {
+      name.hidden = true;
+      return;
+    }
+    name.hidden = false;
+    const needed = name.scrollWidth;
+    const width = name.clientWidth;
+    if (needed > 0 && needed > width + 1) name.hidden = true;
   }
 
   rememberWindowPlacement(bounds) {

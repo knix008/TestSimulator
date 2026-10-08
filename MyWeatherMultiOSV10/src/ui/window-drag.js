@@ -5,6 +5,7 @@ export function attachWindowDrag(root, onStep) {
   const onDown = (event) => {
     if (event.button != null && event.button !== 0) return;
     if (event.target?.closest?.(INTERACTIVE)) return;
+    if (event.target?.closest?.("img")) event.preventDefault();
     const start = { x: event.screenX ?? event.clientX ?? 0, y: event.screenY ?? event.clientY ?? 0 };
     let started = false;
     const move = (next) => {

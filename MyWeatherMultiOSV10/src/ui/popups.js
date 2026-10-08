@@ -16,7 +16,8 @@ const SETTINGS_ROW_GAP = 10;
 export function buildSettingsSpec(model) {
   const t = model.t;
   const values = model.values;
-  const recent = model.recent || [];
+  const requested = model.activeTab === "font" ? "wallpaper" : model.activeTab;
+  const activeTab = ["general", "data", "appearance", "wallpaper"].includes(requested) ? requested : "general";
   return {
     type: "settings",
     icon: "settings",
@@ -25,16 +26,14 @@ export function buildSettingsSpec(model) {
     height: 640,
     resizable: false,
     scroll: "none",
-    activeTab: model.activeTab || "general",
+    activeTab,
     catalog: model.catalog || [],
     language: model.language || "ko",
     tabs: [
       { id: "general", icon: "general", label: t("tab.general"), rows: generalRows(model) },
       { id: "data", icon: "weather", label: t("tab.data"), rows: dataRows(model) },
       { id: "appearance", icon: "palette", label: t("tab.appearance"), rows: appearanceRows(model) },
-      { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: wallpaperRows(model) },
-      { id: "font", icon: "font", label: t("tab.font"), rows: fontRows(model) },
-      { id: "recent", icon: "recent", label: t("tab.recent"), rows: recentRows(recent, t) },
+      { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: [...wallpaperRows(model), ...fontRows(model)] },
     ],
     closeLabel: t("tip.close"),
     buttons: [
@@ -363,10 +362,14 @@ export function wirePopup(el, spec, handlers = {}) {
   const renderTabs = () => {
     const strip = el.querySelector(".popup-tabstrip");
     if (!strip || !spec.tabs) return;
-    const layout = layoutTabScroller(tabStart, spec.tabs.length, Math.max(132, (spec.width || 640) - 120), 132);
+    const showAll = spec.type === "settings";
+    const layout = showAll
+      ? { start: 0, visible: spec.tabs.length, showPrev: false, showNext: false }
+      : layoutTabScroller(tabStart, spec.tabs.length, Math.max(132, (spec.width || 640) - 120), 132);
     tabStart = layout.start;
     strip.innerHTML = "";
-    spec.tabs.slice(layout.start, layout.start + layout.visible).forEach((tab) => {
+    const tabs = showAll ? spec.tabs : spec.tabs.slice(layout.start, layout.start + layout.visible);
+    tabs.forEach((tab) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "popup-tab";
@@ -385,8 +388,14 @@ export function wirePopup(el, spec, handlers = {}) {
     });
     const prev = el.querySelector('[data-action="tab-prev"]');
     const next = el.querySelector('[data-action="tab-next"]');
-    if (prev) prev.disabled = !layout.showPrev;
-    if (next) next.disabled = !layout.showNext;
+    if (prev) {
+      prev.disabled = !layout.showPrev;
+      prev.hidden = showAll;
+    }
+    if (next) {
+      next.disabled = !layout.showNext;
+      next.hidden = showAll;
+    }
     el.dataset.tabStart = String(layout.start);
   };
   const activeTab = () => el.querySelector(".popup-panel:not([hidden])")?.dataset.panel || spec.activeTab;
@@ -903,7 +912,7 @@ function wallpaperRows(model) {
     { kind: "hidden", id: "wallpaperEdited", value: "" },
     { kind: "hidden", id: "backgroundImage", value: "" },
     { kind: "hidden", id: "backgroundName", value: values.backgroundName || "" },
-    { kind: "static", id: "wallpaper", label: t("field.wallpaper"), value: values.backgroundName || "—" },
+    { kind: "picture", id: "wallpaper", image: values.backgroundImage || "", name: values.backgroundName || "" },
     { kind: "action", id: "pick-wallpaper", action: "pick-wallpaper", icon: "image", label: t("btn.chooseImage") },
     { kind: "action", id: "clear-wallpaper", action: "clear-wallpaper", icon: "trash", label: t("btn.clearImage") },
     {
@@ -1033,8 +1042,7 @@ function resetSettingsForm(el, spec) {
   assign("wallpaperEdited", "1");
   assign("backgroundImage", "");
   assign("backgroundName", "");
-  const name = el.querySelector('[data-row="wallpaper"] span:last-child');
-  if (name) name.textContent = "—";
+  paintWallpaperPreview(el, "", "");
   assign("transparency", defaults.transparency);
   assign("backgroundOpacity", defaults.backgroundOpacity);
   for (const field of ["transparency", "backgroundOpacity"]) {
