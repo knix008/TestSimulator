@@ -279,9 +279,48 @@ describe("Desktop", () => {
     // Commands that build windows must be async; a sync one deadlocks every later command on Windows.
     expect(rust).toContain("async fn open_aux_window(");
     expect(rust).toContain("async fn show_reminder_window(");
+    expect(rust).toContain("async fn grow_window_for_menu(");
+    expect(rust).toContain("async fn restore_window_after_menu(");
+    expect(rust).toMatch(/generate_handler!\[[^\]]*grow_window_for_menu/s);
+    expect(rust).toMatch(/generate_handler!\[[^\]]*restore_window_after_menu/s);
+    expect(rust).toContain("async fn open_menu_window(");
+    expect(rust).toContain("async fn prepare_menu_window(");
+    expect(rust).toContain("async fn place_menu_window(");
+    expect(rust).toContain("async fn finish_menu(");
+    expect(rust).toMatch(/generate_handler!\[[^\]]*open_menu_window/s);
+    expect(capabilities.windows).toContain("menu");
+    expect(app).toContain('kind === "menu"');
+    const screen = readFileSync(resolve("src/ui/CalendarScreen.tsx"), "utf8");
+    expect(screen).toContain("openMenuWindow");
+    expect(screen).toContain("prepareMenuWindow");
     expect(app).toContain("setWindowTitle(title)");
     const png = readFileSync(resolve("src-tauri/icons/tray/settings-64.png"));
     expect(png.readUInt32BE(16)).toBe(64);
+  });
+
+  it("opens the context menu in its own window at the cursor", async () => {
+    asDesktop();
+    mocks.invoke.mockClear();
+    await desktop.openMenuWindow(12, 34, "Menu", [
+      { id: "hide", label: "Hide to tray", icon: "hide", color: null, separated: false, checked: null },
+    ]);
+    expect(mocks.invoke).toHaveBeenCalledWith("open_menu_window", {
+      x: 12,
+      y: 34,
+      label: "Menu",
+      entries: [{ id: "hide", label: "Hide to tray", icon: "hide", color: null, separated: false, checked: null }],
+    });
+  });
+
+  it("grows the desktop window for a context menu and restores it afterwards", async () => {
+    asDesktop();
+    mocks.invoke.mockClear();
+    await desktop.growWindowForMenu({ left: 0, top: 12, right: 4, bottom: 40 });
+    await desktop.restoreWindowAfterMenu();
+    expect(mocks.invoke).toHaveBeenCalledWith("grow_window_for_menu", { left: 0, top: 12, right: 4, bottom: 40 });
+    expect(mocks.invoke).toHaveBeenCalledWith("restore_window_after_menu", undefined);
+    expect(desktop.menuGeometryBusy()).toBe(false);
+    expect(desktop.menuGeometryBusy()).toBe(false);
   });
 
   it("opens the program information as a settings tab from the tray", async () => {

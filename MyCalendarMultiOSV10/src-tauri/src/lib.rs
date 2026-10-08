@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use tauri::image::Image;
 use tauri::menu::{IconMenuItem, Menu, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
@@ -411,6 +411,328 @@ async fn fit_editor_window(window: tauri::WebviewWindow, height: f64) -> Result<
 
 const EDITOR_MIN_HEIGHT: f64 = 240.0;
 
+struct MenuWindow {
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+}
+
+/// Size and position from before a context menu grew the window. A second grow reuses it, so pads do not stack.
+static MENU_WINDOW: Mutex<Option<MenuWindow>> = Mutex::new(None);
+
+fn restore_menu_window(window: &tauri::WebviewWindow, held: MenuWindow) -> Result<(), String> {
+    window
+        .set_position(tauri::PhysicalPosition::new(held.x, held.y))
+        .map_err(|error| error.to_string())?;
+    window
+        .set_size(tauri::PhysicalSize::new(held.width, held.height))
+        .map_err(|error| error.to_string())
+}
+
+/// Grows the window so a context menu can extend past the calendar. Ignored while maximized, which would
+/// otherwise leave full screen. The page pins the calendar; closing the menu restores this geometry.
+#[tauri::command]
+async fn grow_window_for_menu(
+    window: tauri::WebviewWindow,
+    left: f64,
+    top: f64,
+    right: f64,
+    bottom: f64,
+) -> Result<(), String> {
+    if window.is_maximized().unwrap_or(false) {
+        return Ok(());
+    }
+    let saved = {
+        let mut slot = MENU_WINDOW.lock().map_err(|error| error.to_string())?;
+        if slot.is_none() {
+            let pos = window.outer_position().map_err(|error| error.to_string())?;
+            let size = window.inner_size().map_err(|error| error.to_string())?;
+            *slot = Some(MenuWindow {
+                x: pos.x,
+                y: pos.y,
+                width: size.width,
+                height: size.height,
+            });
+        }
+        slot.as_ref().map(|held| (held.x, held.y, held.width, held.height))
+    };
+    let Some((saved_x, saved_y, saved_width, saved_height)) = saved else {
+        return Ok(());
+    };
+    let scale = window.scale_factor().map_err(|error| error.to_string())?;
+    if scale <= 0.0 {
+        return Ok(());
+    }
+    window
+        .set_position(tauri::LogicalPosition::new(
+            saved_x as f64 / scale - left,
+            saved_y as f64 / scale - top,
+        ))
+        .map_err(|error| error.to_string())?;
+    window
+        .set_size(tauri::LogicalSize::new(
+            (saved_width as f64 / scale + left + right).ceil().max(1.0),
+            (saved_height as f64 / scale + top + bottom).ceil().max(1.0),
+        ))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn restore_window_after_menu(window: tauri::WebviewWindow) -> Result<(), String> {
+    let held = MENU_WINDOW.lock().map_err(|error| error.to_string())?.take();
+    if let Some(held) = held {
+        restore_menu_window(&window, held)?;
+    }
+    Ok(())
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct MenuEntry {
+    id: String,
+    label: String,
+    icon: String,
+    #[serde(default)]
+    color: Option<String>,
+    #[serde(default)]
+    separated: bool,
+    #[serde(default)]
+    checked: Option<bool>,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct MenuPayload {
+    generation: u64,
+    label: String,
+    entries: Vec<MenuEntry>,
+}
+
+struct MenuSession {
+    generation: u64,
+    anchor_x: f64,
+    anchor_y: f64,
+    payload: MenuPayload,
+    settled: bool,
+}
+
+/// The open context menu. A newer open replaces it, so a dismiss from the previous one is ignored.
+static MENU_SESSION: Mutex<Option<MenuSession>> = Mutex::new(None);
+static MENU_GENERATION: AtomicU64 = AtomicU64::new(0);
+static MENU_LOCK: Mutex<()> = Mutex::new(());
+
+const MENU_PROVISIONAL_WIDTH: f64 = 320.0;
+const MENU_PROVISIONAL_HEIGHT: f64 = 720.0;
+const MENU_SCREEN_MARGIN: f64 = 6.0;
+
+fn menu_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
+    WebviewWindowBuilder::new(app, "menu", WebviewUrl::App("index.html".into()))
+        .title("Menu")
+        .inner_size(MENU_PROVISIONAL_WIDTH, MENU_PROVISIONAL_HEIGHT)
+        .resizable(false)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .skip_taskbar(true)
+        .always_on_top(true)
+        .focused(false)
+        .visible(false)
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .build()
+        .map_err(|error| error.to_string())
+}
+
+fn present_menu(window: &tauri::WebviewWindow, anchor_x: f64, anchor_y: f64) -> Result<(), String> {
+    window
+        .set_size(tauri::LogicalSize::new(MENU_PROVISIONAL_WIDTH, MENU_PROVISIONAL_HEIGHT))
+        .map_err(|error| error.to_string())?;
+    window
+        .set_position(tauri::LogicalPosition::new(anchor_x, anchor_y))
+        .map_err(|error| error.to_string())?;
+    let _ = window.set_always_on_top(true);
+    window.show().map_err(|error| error.to_string())?;
+    let _ = window.set_focus();
+    Ok(())
+}
+
+/// The monitor that contains the cursor, so a menu opened on a side screen stays on that screen.
+fn monitor_for_anchor(window: &tauri::WebviewWindow, x: f64, y: f64) -> Option<tauri::Monitor> {
+    if let Ok(monitors) = window.available_monitors() {
+        for monitor in monitors {
+            let scale = monitor.scale_factor();
+            if scale <= 0.0 {
+                continue;
+            }
+            let pos = monitor.position();
+            let size = monitor.size();
+            let left = pos.x as f64 / scale;
+            let top = pos.y as f64 / scale;
+            let right = left + size.width as f64 / scale;
+            let bottom = top + size.height as f64 / scale;
+            if x >= left && x < right && y >= top && y < bottom {
+                return Some(monitor);
+            }
+        }
+    }
+    window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| window.primary_monitor().ok().flatten())
+}
+
+fn axis_origin(anchor: f64, size: f64, start: f64, end: f64, margin: f64) -> f64 {
+    let forward = anchor;
+    let backward = anchor - size;
+    let fits = |origin: f64| origin >= start + margin && origin + size <= end - margin;
+    let chosen = if fits(forward) {
+        forward
+    } else if fits(backward) {
+        backward
+    } else {
+        let room_forward = end - margin - (anchor + size);
+        let room_backward = backward - (start + margin);
+        if room_backward > room_forward { backward } else { forward }
+    };
+    let min = start + margin;
+    let max = (end - margin - size).max(min);
+    chosen.clamp(min, max)
+}
+
+/// Builds the menu window once and keeps it, so the first right-click does not wait on a new webview.
+#[tauri::command]
+async fn prepare_menu_window(app: tauri::AppHandle) -> Result<(), String> {
+    let _guard = MENU_LOCK.lock().map_err(|error| error.to_string())?;
+    if app.get_webview_window("menu").is_none() {
+        menu_window(&app)?;
+    }
+    Ok(())
+}
+
+/// Opens the context menu in its own window, at the cursor, so it can extend past the calendar.
+#[tauri::command]
+async fn open_menu_window(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    x: f64,
+    y: f64,
+    label: String,
+    entries: Vec<MenuEntry>,
+) -> Result<(), String> {
+    let _guard = MENU_LOCK.lock().map_err(|error| error.to_string())?;
+    let scale = window.scale_factor().map_err(|error| error.to_string())?;
+    if scale <= 0.0 {
+        return Ok(());
+    }
+    let origin = window.inner_position().map_err(|error| error.to_string())?;
+    let anchor_x = origin.x as f64 / scale + x;
+    let anchor_y = origin.y as f64 / scale + y;
+    let generation = MENU_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    {
+        let mut slot = MENU_SESSION.lock().map_err(|error| error.to_string())?;
+        *slot = Some(MenuSession {
+            generation,
+            anchor_x,
+            anchor_y,
+            payload: MenuPayload {
+                generation,
+                label,
+                entries,
+            },
+            settled: false,
+        });
+    }
+    let menu = match app.get_webview_window("menu") {
+        Some(existing) => existing,
+        None => menu_window(&app)?,
+    };
+    present_menu(&menu, anchor_x, anchor_y)?;
+    app.emit_to("menu", "menu-open", generation)
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn menu_payload() -> Result<Option<MenuPayload>, String> {
+    let slot = MENU_SESSION.lock().map_err(|error| error.to_string())?;
+    Ok(slot.as_ref().map(|session| session.payload.clone()))
+}
+
+/// Sizes the menu window to its contents and keeps that window on the work area, outside the calendar if needed.
+#[tauri::command]
+async fn place_menu_window(window: tauri::WebviewWindow, width: f64, height: f64, generation: u64) -> Result<(), String> {
+    if !width.is_finite() || !height.is_finite() {
+        return Ok(());
+    }
+    let (anchor_x, anchor_y) = {
+        let slot = MENU_SESSION.lock().map_err(|error| error.to_string())?;
+        let Some(session) = slot.as_ref() else {
+            return Ok(());
+        };
+        if session.generation != generation || session.settled {
+            return Ok(());
+        }
+        (session.anchor_x, session.anchor_y)
+    };
+    let Some(monitor) = monitor_for_anchor(&window, anchor_x, anchor_y) else {
+        return Ok(());
+    };
+    let scale = monitor.scale_factor();
+    if scale <= 0.0 {
+        return Ok(());
+    }
+    let area = monitor.work_area();
+    let area_left = area.position.x as f64 / scale;
+    let area_top = area.position.y as f64 / scale;
+    let area_right = area_left + area.size.width as f64 / scale;
+    let area_bottom = area_top + area.size.height as f64 / scale;
+    let max_w = (area_right - area_left - MENU_SCREEN_MARGIN * 2.0).max(1.0);
+    let max_h = (area_bottom - area_top - MENU_SCREEN_MARGIN * 2.0).max(1.0);
+    let width = width.ceil().clamp(1.0, max_w);
+    let height = height.ceil().clamp(1.0, max_h);
+    let x = axis_origin(anchor_x, width, area_left, area_right, MENU_SCREEN_MARGIN);
+    let y = axis_origin(anchor_y, height, area_top, area_bottom, MENU_SCREEN_MARGIN);
+    {
+        let slot = MENU_SESSION.lock().map_err(|error| error.to_string())?;
+        let Some(session) = slot.as_ref() else {
+            return Ok(());
+        };
+        if session.generation != generation || session.settled {
+            return Ok(());
+        }
+    }
+    window
+        .set_size(tauri::LogicalSize::new(width, height))
+        .map_err(|error| error.to_string())?;
+    window
+        .set_position(tauri::LogicalPosition::new(x, y))
+        .map_err(|error| error.to_string())?;
+    let _ = window.set_always_on_top(true);
+    window.show().map_err(|error| error.to_string())?;
+    let _ = window.set_focus();
+    Ok(())
+}
+
+/// Hides the menu window and tells the calendar which item was chosen. A stale generation is ignored.
+#[tauri::command]
+async fn finish_menu(app: tauri::AppHandle, id: Option<String>, generation: u64) -> Result<(), String> {
+    {
+        let mut slot = MENU_SESSION.lock().map_err(|error| error.to_string())?;
+        let Some(session) = slot.as_mut() else {
+            return Ok(());
+        };
+        if session.generation != generation || session.settled {
+            return Ok(());
+        }
+        session.settled = true;
+    }
+    if let Some(window) = app.get_webview_window("menu") {
+        let _ = window.hide();
+    }
+    app.emit_to("main", "menu-result", id)
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 /// Overlapping calls would otherwise each build the same settings or events window.
 static AUX_LOCK: Mutex<()> = Mutex::new(());
 
@@ -553,7 +875,14 @@ pub fn run() {
             open_external,
             show_reminder_window,
             fit_reminder_window,
-            fit_editor_window
+            fit_editor_window,
+            grow_window_for_menu,
+            restore_window_after_menu,
+            prepare_menu_window,
+            open_menu_window,
+            menu_payload,
+            place_menu_window,
+            finish_menu
         ])
         .run(tauri::generate_context!())
         .expect("error while running My Calendar");

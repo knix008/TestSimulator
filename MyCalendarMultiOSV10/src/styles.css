@@ -365,6 +365,13 @@ html[data-platform="web"] .app-frame {
 
 html[data-platform="desktop"],
 html[data-platform="desktop"] body { overflow: hidden; }
+/* The window grows around an open context menu; the calendar stays the size it was. */
+html[data-menu-host] .app-frame {
+  width: var(--menu-host-width);
+  height: var(--menu-host-height);
+  margin-left: var(--menu-host-pad-x);
+  margin-top: var(--menu-host-pad-y);
+}
 html[data-platform="web"] .app-frame > .panel.calendar { max-height: calc(100vh - 24px); }
 /* On the desktop the window size is the user's: the grid keeps square cells and the events area takes the rest. */
 html[data-platform="desktop"] .app-frame > .panel.calendar { height: 100%; }
@@ -570,12 +577,13 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 .dropdown-list [role="option"].active { background: var(--surface); background: color-mix(in srgb, var(--accent) 20%, transparent); }
 .dropdown-list [role="option"][aria-selected="true"] { color: var(--accent); font-weight: 600; }
 .day-menu {
-  position: absolute;
+  position: fixed;
   z-index: 900;
   display: flex;
   flex-direction: column;
   min-width: 180px;
-  max-width: min(280px, calc(100% - 12px));
+  max-width: 280px;
+  overflow: visible;
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -603,6 +611,25 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 .day-menu-icon { flex: none; display: inline-flex; width: 16px; height: 16px; color: var(--accent); }
 .day-menu-icon .icon { width: 16px; height: 16px; }
 .day-menu-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The desktop menu is its own window, so it can sit past the calendar. The page is only the menu. */
+html[data-window="menu"],
+html[data-window="menu"] body,
+html[data-window="menu"] #root {
+  height: 100%;
+  overflow: auto;
+  background: transparent;
+}
+html[data-window="menu"] .menu-popup {
+  width: max-content;
+  height: max-content;
+  padding: 2px;
+}
+html[data-window="menu"] .menu-popup .day-menu {
+  position: relative;
+  left: auto;
+  top: auto;
+  max-height: none;
+}
 .text-btn.solid { align-self: flex-start; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .text-btn.solid > .icon { width: 16px; height: 16px; }
 

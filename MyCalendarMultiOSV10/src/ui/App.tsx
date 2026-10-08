@@ -9,10 +9,12 @@ import {
   isTauri,
   onTrayAbout,
   openAux,
+  peekWindowLabel,
   setWindowTitle,
 } from "../platform/desktop";
 import { ReminderPopup, useReminderScheduler } from "./ReminderPopup";
 import { CalendarScreen } from "./CalendarScreen";
+import { MenuWindow } from "./DayMenu";
 import { EventEditorWindow } from "./EventEditorWindow";
 import { EventsScreen } from "./EventsScreen";
 import { PrintScreen } from "./PrintScreen";
@@ -70,9 +72,16 @@ function Gate({ children, followTray = false }: { children: (ctx: ReadyContext) 
   return children(ctx);
 }
 
-type WindowKind = "pending" | "main" | "settings" | "events" | "print" | "editor" | "reminder";
+type WindowKind = "pending" | "main" | "settings" | "events" | "print" | "editor" | "reminder" | "menu";
 type AuxView = "settings" | "events" | "print";
-const AUX_WINDOWS: readonly string[] = ["settings", "events", "print", "editor", "reminder"];
+const AUX_WINDOWS: readonly string[] = ["settings", "events", "print", "editor", "reminder", "menu"];
+
+function initialWindowKind(): WindowKind {
+  if (!isTauri()) return "main";
+  const label = peekWindowLabel();
+  if (!label) return "pending";
+  return AUX_WINDOWS.includes(label) ? (label as WindowKind) : "main";
+}
 
 /** The webview's own menu (back, reload, print the raw page, inspect) never makes sense in the desktop app. */
 function useNoNativeMenu() {
@@ -88,7 +97,7 @@ function useNoNativeMenu() {
 }
 
 function useWindowKind(): WindowKind {
-  const [kind, setKind] = useState<WindowKind>(isTauri() ? "pending" : "main");
+  const [kind, setKind] = useState<WindowKind>(initialWindowKind);
   useEffect(() => {
     if (!isTauri()) return;
     let alive = true;
@@ -285,6 +294,8 @@ export function App() {
         <EditorWindow />
       ) : kind === "reminder" ? (
         <ReminderWindow />
+      ) : kind === "menu" ? (
+        <MenuWindow />
       ) : (
         <MainWindow />
       )}

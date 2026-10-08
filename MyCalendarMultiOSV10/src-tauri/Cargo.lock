@@ -2127,6 +2127,7 @@ name = "my-calendar"
 version = "1.0.0"
 dependencies = [
  "open",
+ "serde",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",

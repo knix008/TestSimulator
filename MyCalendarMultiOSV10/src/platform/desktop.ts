@@ -175,6 +175,64 @@ export async function setWindowMinSize(width: number, height: number): Promise<v
   await current.setMinSize(new LogicalSize(Math.round(width), Math.ceil(height)));
 }
 
+export interface MenuPads {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+let geometry: Promise<void> = Promise.resolve();
+let geometryBusy = 0;
+
+/** True while the window is being grown or put back for an open context menu, so that resize is not a user resize. */
+export function menuGeometryBusy(): boolean {
+  return geometryBusy > 0;
+}
+
+function enqueueGeometry(task: () => Promise<unknown>): Promise<void> {
+  geometryBusy += 1;
+  const run = geometry.then(
+    () => task(),
+    () => task(),
+  );
+  geometry = run.then(
+    () => waitForGeometryResize(),
+    () => waitForGeometryResize(),
+  );
+  return geometry;
+}
+
+function waitForGeometryResize(): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      geometryBusy -= 1;
+      resolve();
+    };
+    // The resize event from the size change can land a task after the command resolves.
+    requestAnimationFrame(() => requestAnimationFrame(finish));
+    setTimeout(finish, 50);
+  });
+}
+
+/**
+ * Grows the current window by `pads` so a context menu can paint past the calendar.
+ * Repeated calls keep the size from before the first growth; they do not stack.
+ */
+export function growWindowForMenu(pads: MenuPads): Promise<void> {
+  if (!isTauri()) return Promise.resolve();
+  return enqueueGeometry(() => invoke("grow_window_for_menu", { ...pads }));
+}
+
+/** Puts the window back to the size and position from before `growWindowForMenu`. */
+export function restoreWindowAfterMenu(): Promise<void> {
+  if (!isTauri()) return Promise.resolve();
+  return enqueueGeometry(() => invoke("restore_window_after_menu"));
+}
+
 export async function setWindowTitle(title: string): Promise<void> {
   if (!isTauri()) return;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
@@ -191,4 +249,72 @@ export async function currentWindowLabel(): Promise<string> {
   if (!isTauri()) return "main";
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   return getCurrentWindow().label;
+}
+
+/** The webview label when Tauri has already published it. Missing in tests that only set a bare runtime flag. */
+export function peekWindowLabel(): string | null {
+  if (!isTauri()) return null;
+  const internals = (
+    window as Window & {
+      __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } };
+    }
+  ).__TAURI_INTERNALS__;
+  const label = internals?.metadata?.currentWindow?.label;
+  return typeof label === "string" && label ? label : null;
+}
+
+export interface MenuEntry {
+  id: string;
+  label: string;
+  icon: string;
+  color: string | null;
+  separated: boolean;
+  checked: boolean | null;
+}
+
+export interface MenuPayload {
+  generation: number;
+  label: string;
+  entries: MenuEntry[];
+}
+
+/** Creates the hidden menu window ahead of the first right-click. */
+export function prepareMenuWindow(): Promise<void> {
+  if (!isTauri()) return Promise.resolve();
+  return invoke<void>("prepare_menu_window");
+}
+
+/** Shows the context menu in its own window at the cursor, past the calendar's edges. */
+export function openMenuWindow(x: number, y: number, label: string, entries: MenuEntry[]): Promise<void> {
+  if (!isTauri()) return Promise.resolve();
+  return invoke<void>("open_menu_window", { x, y, label, entries });
+}
+
+export async function menuPayload(): Promise<MenuPayload | null> {
+  if (!isTauri()) return null;
+  return invoke<MenuPayload | null>("menu_payload");
+}
+
+export function placeMenuWindow(width: number, height: number, generation: number): Promise<void> {
+  if (!isTauri()) return Promise.resolve();
+  return invoke<void>("place_menu_window", { width, height, generation });
+}
+
+export function finishMenu(id: string | null, generation: number): Promise<void> {
+  if (!isTauri()) return Promise.resolve();
+  return invoke<void>("finish_menu", { id, generation });
+}
+
+export async function onMenuOpen(handler: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen("menu-open", () => handler());
+}
+
+export async function onMenuResult(handler: (id: string | null) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<string | null>("menu-result", (event) => {
+    handler(typeof event.payload === "string" ? event.payload : null);
+  });
 }

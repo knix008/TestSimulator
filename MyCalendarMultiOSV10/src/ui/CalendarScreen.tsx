@@ -30,12 +30,17 @@ import {
   isTauri,
   minimizeMain,
   onMaximizedChange,
+  onMenuResult,
+  openMenuWindow,
+  prepareMenuWindow,
   resizeWindow,
   MIN_WINDOW_WIDTH,
   setWindowMinSize,
   setWindowSize,
   toggleMaximizeMain,
+  type MenuEntry,
 } from "../platform/desktop";
+import { menuHostActive } from "./menuHost";
 import { blankEvent, eventsOn, type CalendarEvent } from "../domain/events";
 import { PanelBackdrop } from "./BackgroundImage";
 import { EventEditor, reminderLabel, repeatLabel } from "./EventEditor";
@@ -46,14 +51,10 @@ import {
   CollapseIcon,
   CloseIcon,
   GearIcon,
-  HideIcon,
   ListIcon,
   MaximizeIcon,
   MinimizeIcon,
-  PencilIcon,
-  PinIcon,
   PlusIcon,
-  PrintIcon,
   RefreshIcon,
   RepeatIcon,
   ResizeGripIcon,
@@ -379,6 +380,7 @@ export function CalendarScreen({
     let frame = 0;
     let settle = 0;
     const follow = () => {
+      if (menuHostActive()) return;
       window.cancelAnimationFrame(frame);
       window.clearTimeout(settle);
       frame = window.requestAnimationFrame(() => {
@@ -420,7 +422,8 @@ export function CalendarScreen({
       return;
     }
     const release = () => {
-      if (!fitting.current) setDaysPin(null);
+      if (menuHostActive() || fitting.current) return;
+      setDaysPin(null);
     };
     window.addEventListener("resize", release);
     return () => window.removeEventListener("resize", release);
@@ -436,8 +439,10 @@ export function CalendarScreen({
     if (!isTauri() || collapsed || maximized) return;
     let timer = 0;
     const remember = () => {
+      if (menuHostActive()) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
+        if (menuHostActive()) return;
         const height = panelRef.current?.querySelector("#calendar-events")?.getBoundingClientRect().height;
         if (height && Math.abs(height - settings.eventsHeight) > 1) update({ eventsHeight: clampEventsHeight(height) });
       }, 400);
@@ -461,6 +466,11 @@ export function CalendarScreen({
     const remember = () => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
+        // Growing the window for a context menu must not become the size restored next launch.
+        if (menuHostActive()) {
+          remember();
+          return;
+        }
         if (maximizedRef.current || document.visibilityState === "hidden") return;
         const width = Math.round(window.innerWidth);
         const height = Math.round(window.innerHeight);
@@ -478,6 +488,26 @@ export function CalendarScreen({
   const [selected, setSelected] = useState(() => new Date());
   const [view, setView] = useState(() => ({ year: selected.getFullYear(), month: selected.getMonth() }));
   const desktop = isTauri();
+  const menuActions = useRef(new Map<string, () => void>());
+  useEffect(() => {
+    if (!desktop) return;
+    void prepareMenuWindow().catch(() => undefined);
+    let alive = true;
+    let stop = () => {};
+    void onMenuResult((id) => {
+      if (!alive) return;
+      const run = id ? menuActions.current.get(id) : undefined;
+      menuActions.current = new Map();
+      run?.();
+    }).then((unlisten) => {
+      if (!alive) unlisten();
+      else stop = unlisten;
+    });
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, [desktop]);
   const viewYear = view.year;
   const viewMonth = view.month;
   // Every month of the year laid on top of each other keeps the title, and the arrows beside it, from moving.
@@ -586,63 +616,87 @@ export function CalendarScreen({
     {
       id: "add",
       label: t.addEventOn,
-      icon: <PlusIcon />,
+      icon: "plus",
       onSelect: () => editor.open(blankEvent(date, settings.defaultReminder)),
     },
     ...(eventsByDay.get(formatISODate(date)) ?? []).slice(0, 6).map((event, index) => ({
       id: `event-${event.id}`,
       label: `${t.editEvent}: ${event.title}`,
-      icon: <PencilIcon />,
+      icon: "pencil" as const,
       color: event.color,
       separated: index === 0,
       onSelect: () => editor.open(event, formatISODate(date)),
     })),
-    { id: "today", label: t.goToday, icon: <TodayIcon />, separated: true, onSelect: () => selectDate(new Date()) },
-    { id: "events", label: t.manageEvents, icon: <ListIcon />, onSelect: () => onOpenEvents() },
-    { id: "print", label: t.print, icon: <PrintIcon />, onSelect: printView },
-    { id: "settings", label: t.settings, icon: <GearIcon />, onSelect: () => onOpenSettings() },
+    { id: "today", label: t.goToday, icon: "today" as const, separated: true, onSelect: () => selectDate(new Date()) },
+    { id: "events", label: t.manageEvents, icon: "list" as const, onSelect: () => onOpenEvents() },
+    { id: "print", label: t.print, icon: "print" as const, onSelect: printView },
+    { id: "settings", label: t.settings, icon: "gear" as const, onSelect: () => onOpenSettings() },
   ];
 
   const windowMenuItems = (): DayMenuItem[] => [
-    { id: "prev", label: t.prevMonth, icon: <ChevronIcon direction="left" />, onSelect: () => shiftMonth(-1) },
-    { id: "next", label: t.nextMonth, icon: <ChevronIcon direction="right" />, onSelect: () => shiftMonth(1) },
-    { id: "today", label: t.goToday, icon: <TodayIcon />, onSelect: () => selectDate(new Date()) },
+    { id: "prev", label: t.prevMonth, icon: "chevron-left", onSelect: () => shiftMonth(-1) },
+    { id: "next", label: t.nextMonth, icon: "chevron-right", onSelect: () => shiftMonth(1) },
+    { id: "today", label: t.goToday, icon: "today", onSelect: () => selectDate(new Date()) },
     {
       id: "add",
       label: t.addEvent,
-      icon: <PlusIcon />,
+      icon: "plus",
       separated: true,
       onSelect: () => editor.open(blankEvent(selected, settings.defaultReminder)),
     },
-    { id: "events", label: t.manageEvents, icon: <ListIcon />, onSelect: () => onOpenEvents() },
-    { id: "print", label: t.print, icon: <PrintIcon />, separated: true, onSelect: printView },
-    { id: "settings", label: t.settings, icon: <GearIcon />, onSelect: () => onOpenSettings() },
+    { id: "events", label: t.manageEvents, icon: "list", onSelect: () => onOpenEvents() },
+    { id: "print", label: t.print, icon: "print", separated: true, onSelect: printView },
+    { id: "settings", label: t.settings, icon: "gear", onSelect: () => onOpenSettings() },
     ...(desktop
       ? [
           {
             id: "top",
             label: t.alwaysOnTop,
-            icon: <PinIcon />,
+            icon: "pin" as const,
             separated: true,
             checked: settings.alwaysOnTop,
             onSelect: () => update({ alwaysOnTop: !settings.alwaysOnTop }),
           },
-          { id: "minimize", label: t.minimize, icon: <MinimizeIcon />, onSelect: () => void minimizeMain() },
+          { id: "minimize", label: t.minimize, icon: "minimize" as const, onSelect: () => void minimizeMain() },
           {
             id: "maximize",
             label: maximized ? t.restore : t.maximize,
-            icon: maximized ? <RestoreIcon /> : <MaximizeIcon />,
+            icon: maximized ? ("restore" as const) : ("maximize" as const),
             onSelect: () => void toggleMaximizeMain().then(setMaximized),
           },
-          { id: "hide", label: t.hide, icon: <HideIcon />, onSelect: () => void hideMain() },
+          { id: "hide", label: t.hide, icon: "hide" as const, onSelect: () => void hideMain() },
         ]
       : []),
   ];
 
+  const menuEntry = (item: DayMenuItem): MenuEntry => ({
+    id: item.id,
+    label: item.label,
+    icon: item.icon,
+    color: item.color ?? null,
+    separated: Boolean(item.separated),
+    checked: item.checked ?? null,
+  });
+
+  const openContextMenu = (x: number, y: number, date?: Date) => {
+    const items = date ? dayMenuItems(date) : windowMenuItems();
+    if (desktop) {
+      menuActions.current = new Map(items.map((item) => [item.id, item.onSelect]));
+      void openMenuWindow(
+        x,
+        y,
+        date ? formatFull(date, settings.language, t.months, t.weekdays) : t.windowMenu,
+        items.map(menuEntry),
+      ).catch(() => undefined);
+      return;
+    }
+    setMenu({ x, y, date });
+  };
+
   const onPanelMenu = (event: MouseEvent) => {
     if (event.target instanceof Element && event.target.closest("input, textarea, .sheet-back, .day-menu, .day, .day-pair")) return;
     event.preventDefault();
-    setMenu({ x: event.clientX, y: event.clientY });
+    openContextMenu(event.clientX, event.clientY);
   };
 
   const statusText =
@@ -788,7 +842,7 @@ export function CalendarScreen({
                 onContextMenu={(event) => {
                   event.preventDefault();
                   setSelected(date);
-                  setMenu({ x: event.clientX, y: event.clientY, date });
+                  openContextMenu(event.clientX, event.clientY, date);
                 }}
               >
                 <span className="num">{date.getDate()}</span>
@@ -997,11 +1051,10 @@ export function CalendarScreen({
           <ResizeGripIcon />
         </button>
       )}
-      {menu && panelRef.current && (
+      {menu && !desktop && panelRef.current && (
         <DayMenu
           x={menu.x}
           y={menu.y}
-          bounds={panelRef.current}
           label={menu.date ? formatFull(menu.date, settings.language, t.months, t.weekdays) : t.windowMenu}
           onClose={closeMenu}
           items={menu.date ? dayMenuItems(menu.date) : windowMenuItems()}

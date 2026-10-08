@@ -1063,7 +1063,12 @@ describe("Interface", () => {
         day.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
       });
     rightClick();
-    const menu = () => view.host.querySelector('.day-menu[role="menu"]');
+    const menu = () => document.querySelector('.day-menu[role="menu"]');
+    expect(menu()?.parentElement).toBe(document.body);
+    expect(view.host.querySelector(".day-menu")).toBeNull();
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toMatch(/\.day-menu\s*\{[^}]*position:\s*fixed;/s);
+    expect(css).toMatch(/\.day-menu\s*\{[^}]*max-width:\s*280px;/s);
     expect(day.getAttribute("aria-pressed")).toBe("true");
     const items = [...menu()!.querySelectorAll('[role="menuitem"]')];
     expect(items.map((item) => item.textContent)).toEqual([
@@ -1117,7 +1122,7 @@ describe("Interface", () => {
       <CalendarHarness onOpenPrint={(year, month) => { printed = [year, month]; }} onOpenEvents={() => { openedEvents += 1; }} />,
     );
     await view.settle();
-    const menu = () => view.host.querySelector('.day-menu[role="menu"]');
+    const menu = () => document.querySelector('.day-menu[role="menu"]');
     const openMenu = (target: Element) =>
       act(() => {
         target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 30, clientY: 20 }));
