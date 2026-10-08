@@ -1,10 +1,46 @@
 export const MENU_ROW = 32;
 export const MENU_SEPARATOR = 9;
 
+/**
+ * Room a label needs at the menu's 13px font. Korean glyphs are about twice
+ * as wide as Latin ones, so counting characters alone makes the window too
+ * narrow and the shortcut on the right ends up against its edge.
+ */
+function labelWidth(text, narrow = 7.5, wide = 14) {
+  let total = 0;
+  for (const ch of String(text || "")) {
+    const code = ch.codePointAt(0);
+    const isWide =
+      (code >= 0x1100 && code <= 0x115f) ||
+      (code >= 0x2e80 && code <= 0xa4cf) ||
+      (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xfe30 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6);
+    total += isWide ? wide : narrow;
+  }
+  return total;
+}
+
+/**
+ * Icon, gaps and padding around a row, plus the breathing space the shortcut
+ * keeps from the right edge.
+ */
+const MENU_ROW_CHROME = 8 + 2 + 8 + 16 + 9 + 14;
+const MENU_SHORTCUT_GAP = 20;
+
 export function layoutMenu(items, anchor, windowRect) {
-  const width = Math.max(
-    240,
-    ...items.map((item) => 52 + String(item.label || "").length * 8 + (item.shortcut ? String(item.shortcut).length * 7 + 16 : 0)),
+  const width = Math.ceil(
+    Math.max(
+      240,
+      ...items.map(
+        (item) =>
+          MENU_ROW_CHROME +
+          labelWidth(item.label) +
+          (item.shortcut ? MENU_SHORTCUT_GAP + labelWidth(item.shortcut, 7, 12) : 0),
+      ),
+    ),
   );
   const separators = items.filter((item, index) => item.separated && index > 0).length;
   const height = Math.max(MENU_ROW, items.length * MENU_ROW + separators * MENU_SEPARATOR + 12);

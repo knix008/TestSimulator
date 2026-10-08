@@ -30,20 +30,55 @@ const MARKET_ROWS = [
 const LISTING_ROWS = [
   // marketCode, code, nameKo, nameEn
   ["KR", "005930", "삼성전자", "Samsung Electronics"],
+  // Preferred shares trade under their own code. Yahoo gives them the parent
+  // company's English name, so searching 삼성전자 cannot tell them apart; the
+  // catalogue names them properly.
+  ["KR", "005935", "삼성전자우", "Samsung Electronics (pref)"],
   ["KR", "000660", "SK하이닉스", "SK hynix"],
   ["KR", "373220", "LG에너지솔루션", "LG Energy Solution"],
   ["KR", "207940", "삼성바이오로직스", "Samsung Biologics"],
   ["KR", "005380", "현대차", "Hyundai Motor"],
+  ["KR", "005385", "현대차우", "Hyundai Motor (pref)"],
   ["KR", "000270", "기아", "Kia"],
   ["KR", "035420", "NAVER", "NAVER"],
   ["KR", "035720", "카카오", "Kakao"],
   ["KR", "051910", "LG화학", "LG Chem"],
+  ["KR", "051915", "LG화학우", "LG Chem (pref)"],
   ["KR", "005490", "POSCO홀딩스", "POSCO Holdings"],
   ["KR", "068270", "셀트리온", "Celltrion"],
   ["KR", "105560", "KB금융", "KB Financial"],
   ["KR", "055550", "신한지주", "Shinhan Financial"],
   ["KR", "012330", "현대모비스", "Hyundai Mobis"],
   ["KR", "015760", "한국전력", "KEPCO"],
+  ["KR", "329180", "HD현대중공업", "HD Hyundai Heavy Industries"],
+  ["KR", "009540", "HD한국조선해양", "HD Korea Shipbuilding & Offshore Engineering"],
+  ["KR", "010140", "삼성중공업", "Samsung Heavy Industries"],
+  ["KR", "042660", "한화오션", "Hanwha Ocean"],
+  ["KR", "012450", "한화에어로스페이스", "Hanwha Aerospace"],
+  ["KR", "034020", "두산에너빌리티", "Doosan Enerbility"],
+  ["KR", "006400", "삼성SDI", "Samsung SDI"],
+  ["KR", "066570", "LG전자", "LG Electronics"],
+  ["KR", "028260", "삼성물산", "Samsung C&T"],
+  ["KR", "018260", "삼성에스디에스", "Samsung SDS"],
+  ["KR", "032830", "삼성생명", "Samsung Life Insurance"],
+  ["KR", "000810", "삼성화재", "Samsung Fire & Marine Insurance"],
+  ["KR", "003550", "LG", "LG Corp"],
+  ["KR", "034730", "SK", "SK Inc"],
+  ["KR", "017670", "SK텔레콤", "SK Telecom"],
+  ["KR", "096770", "SK이노베이션", "SK Innovation"],
+  ["KR", "030200", "KT", "KT Corporation"],
+  ["KR", "033780", "KT&G", "KT&G"],
+  ["KR", "086790", "하나금융지주", "Hana Financial Group"],
+  ["KR", "316140", "우리금융지주", "Woori Financial Group"],
+  ["KR", "024110", "기업은행", "Industrial Bank of Korea"],
+  ["KR", "010130", "고려아연", "Korea Zinc"],
+  ["KR", "011170", "롯데케미칼", "Lotte Chemical"],
+  ["KR", "004020", "현대제철", "Hyundai Steel"],
+  ["KR", "011200", "HMM", "HMM"],
+  ["KR", "097950", "CJ제일제당", "CJ Cheiljedang"],
+  ["KR", "036570", "엔씨소프트", "NCSoft"],
+  ["KR", "251270", "넷마블", "Netmarble"],
+  ["KR", "161390", "한국타이어앤테크놀로지", "Hankook Tire & Technology"],
   ["US", "AAPL", "애플", "Apple"],
   ["US", "MSFT", "마이크로소프트", "Microsoft"],
   ["US", "NVDA", "엔비디아", "NVIDIA"],
@@ -204,12 +239,30 @@ export function listingsOf(list, marketCode) {
   return (list || []).filter((entry) => entry.marketCode === marketCode);
 }
 
+/** Lower case and without spaces, so "HD 현대" and "HD현대" are the same thing. */
+function matchable(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+/**
+ * Listings a query names. Every word in the query must turn up somewhere in a
+ * listing - its name in either language, its code or its full symbol - and
+ * spaces are ignored on both sides. So "HD 현대" finds HD현대중공업, "현대 차"
+ * finds 현대차, and a bare code finds the one listing that carries it.
+ */
 export function filterListings(list, marketCode, query) {
-  const q = String(query || "").trim().toLowerCase();
+  const words = String(query || "")
+    .trim()
+    .split(/\s+/)
+    .map(matchable)
+    .filter(Boolean);
   return (list || []).filter((entry) => {
     if (marketCode && entry.marketCode !== marketCode) return false;
-    if (!q) return true;
-    return [entry.symbol, entry.code, entry.nameEn, entry.nameKo].some((value) => String(value).toLowerCase().includes(q));
+    if (!words.length) return true;
+    const fields = [entry.symbol, entry.code, entry.nameEn, entry.nameKo].map(matchable);
+    return words.every((word) => fields.some((field) => field.includes(word)));
   });
 }
 

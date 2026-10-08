@@ -1,7 +1,8 @@
 import { esc } from "./html.js";
+import { icon } from "./icons.js";
 import { activeQuote, presentBoard } from "../market/aggregate.js";
-import { formatPercent, formatPrice, formatRate, formatSigned, formatVolume, formatWhen, quotePair } from "../market/format.js";
-import { currencyName, listingName, marketName } from "../market/markets.js";
+import { formatAsOf, formatPercent, formatPrice, formatRate, formatSigned, formatVolume, formatWhen, quotePair } from "../market/format.js";
+import { currencyName, findMarket, listingName, marketName } from "../market/markets.js";
 import { safeImageUrl } from "../market/providers.js";
 import { trendOf, trendText, trendTone } from "../market/trend.js";
 
@@ -19,6 +20,11 @@ export function renderMarketHtml({ tab, language, units, baseCurrency, today, t,
   const priced = convert(quote, units, baseCurrency, shown.data?.rates);
   const many = (tab?.board?.symbols || []).length > 1;
   const advance = many ? ` data-scene-advance="1" title="${esc(t("tip.nextSymbol"))}"` : "";
+  // When the figures were last pulled, so a window left open looks stale.
+  const updated = formatAsOf(shown.data?.fetchedAt, quote?.date);
+  const noteText = quote
+    ? [priced.currency || "", trendText(trend, language), quote.date || "", updated].filter(Boolean).join(" · ")
+    : "";
   const scene = `<section class="market-scene" data-gui="scene" data-symbol="${esc(quote?.symbol || "")}"${advance}>
       ${sceneArt(trend)}
       <div class="scene-copy">
@@ -27,7 +33,7 @@ export function renderMarketHtml({ tab, language, units, baseCurrency, today, t,
         <div class="scene-move" data-tone="${esc(trendTone(trend))}">${esc(
           quote ? `${formatSigned(priced.change, priced.currency, language)}  ${formatPercent(quote.changePercent)}` : t("market.empty"),
         )}</div>
-        <div class="scene-note">${esc(quote ? `${priced.currency || ""} · ${trendText(trend, language)} · ${quote.date || ""}`.trim() : " ")}</div>
+        <div class="scene-note" title="${esc(noteText)}">${esc(noteText || " ")}</div>
       </div>
     </section>`;
   return `<div class="market">${scene}</div>`;
@@ -53,13 +59,13 @@ export function boardRowCount(tab) {
   return Math.max(1, rows);
 }
 
-export function renderPanelHtml({ panel, tab, language, units, baseCurrency, currencies, today, t, priority = "average" }) {
+export function renderPanelHtml({ panel, tab, language, units, baseCurrency, currencies, today, t, priority = "average", page = 0 }) {
   const shown = preferTab(tab, priority);
   const data = shown?.data;
   if (panel === "stocks") {
     if (!(shown.board?.symbols || []).length) return `<p class="empty" data-gui="empty">${esc(t("market.noSymbols"))}</p>`;
     if (!data?.quotes?.length) return `<p class="empty" data-gui="empty">${esc(t("market.empty"))}</p>`;
-    return stocksHtml(shown, language, units, baseCurrency, t);
+    return stocksHtml(shown, language, units, baseCurrency, t, page);
   }
   if (panel === "rates") {
     const shownRates = shownRateRows(data?.rates, currencies);
@@ -67,22 +73,103 @@ export function renderPanelHtml({ panel, tab, language, units, baseCurrency, cur
     return ratesHtml(shownRates, language, t);
   }
   if (!data?.news?.length) return `<p class="empty" data-gui="empty">${esc(t("market.noNews"))}</p>`;
-  return newsHtml(data.news, language, t);
+  return newsHtml(data.news, language, t, page);
 }
 
-export function panelFitHeight(panel, rowCount) {
+/** Title bar, footer, padding and the window border around a panel's rows. */
+export const PANEL_CHROME = 44 + 48 + 16 + 2;
+
+/**
+ * Tallest a panel's rows may grow before they start to scroll. A panel takes
+ * the height its contents need; only the screen stops it, and the margin
+ * leaves the window clear of the screen edges.
+ */
+/** Rows a panel shows at once; the rest wait on another page. */
+export const PAGE_SIZE = 10;
+/** The strip of page buttons under a list. */
+export const PAGER_HEIGHT = 36;
+
+/** Pages a list of this length needs, never fewer than one. */
+export function pageCount(total) {
+  return Math.max(1, Math.ceil(Math.max(0, Number(total) || 0) / PAGE_SIZE));
+}
+
+/** A page number clamped to the pages that exist. */
+export function clampPage(page, total) {
+  return Math.min(Math.max(0, Math.round(Number(page) || 0)), pageCount(total) - 1);
+}
+
+/** The slice of `rows` that page `page` shows. */
+export function pageSlice(rows, page) {
+  const list = rows || [];
+  const at = clampPage(page, list.length);
+  return list.slice(at * PAGE_SIZE, at * PAGE_SIZE + PAGE_SIZE);
+}
+
+/**
+ * First, previous, the page numbers, next and last. The arrows are icons; the
+ * numbers read as numbers, and the page in view is marked.
+ */
+function pagerHtml(panel, page, total, t) {
+  const pages = pageCount(total);
+  if (pages < 2) return "";
+  const at = clampPage(page, total);
+  const step = (id, to, iconName, tip, off) =>
+    `<button type="button" class="pager-btn" data-gui="pager" data-page="${to}" data-pager="${esc(id)}" title="${esc(tip)}" aria-label="${esc(tip)}"${off ? " disabled" : ""}>${icon(iconName)}</button>`;
+  const numbers = Array.from({ length: pages }, (_, index) => index)
+    .map(
+      (index) =>
+        `<button type="button" class="pager-num${index === at ? " is-current" : ""}" data-gui="pager" data-page="${index}" title="${esc(t("tip.pageGo", { n: index + 1 }))}" aria-current="${index === at}">${index + 1}</button>`,
+    )
+    .join("");
+  const label = t("page.count", { page: at + 1, total: pages });
+  return `<div class="pager" data-gui="pager-bar" data-panel="${esc(panel)}" data-page="${at}" data-pages="${pages}" title="${esc(label)}">${step(
+    "first",
+    0,
+    "pageFirst",
+    t("tip.pageFirst"),
+    at === 0,
+  )}${step("prev", at - 1, "pagePrev", t("tip.pagePrev"), at === 0)}<span class="pager-nums">${numbers}</span>${step(
+    "next",
+    at + 1,
+    "pageNext",
+    t("tip.pageNext"),
+    at >= pages - 1,
+  )}${step("last", pages - 1, "pageLast", t("tip.pageLast"), at >= pages - 1)}</div>`;
+}
+
+export function panelMaxBody(availableHeight) {
+  const room = Math.max(320, Number(availableHeight) || 0);
+  return Math.max(150, room - PANEL_CHROME - 80);
+}
+
+/** Height a panel's rows ask for, grown to fit them and capped by the screen. */
+export function panelFitHeight(panel, rowCount, maxBody = panelMaxBody(0), pages = 1) {
   const rows = Math.max(0, Number(rowCount) || 0);
   if (!rows) return 72;
-  if (panel === "stocks") return Math.min(420, 54 + rows * 34);
-  if (panel === "rates") return Math.min(420, 30 + rows * 30);
-  return Math.min(540, 30 + rows * NEWS_ROW);
+  const pager = Number(pages) > 1 ? PAGER_HEIGHT : 0;
+  const ceiling = Math.max(150, Number(maxBody) || panelMaxBody(0)) - pager;
+  if (panel === "stocks") return Math.min(ceiling, 54 + rows * 34) + pager;
+  // A rate row is 32px with a 2px gap under it, the same as a quote row.
+  if (panel === "rates") return Math.min(ceiling, 30 + rows * 34) + pager;
+  return Math.min(ceiling, 30 + rows * NEWS_ROW) + pager;
 }
 
 /** How many rows a panel will draw, so the popup can be sized before it is built. */
+/** Rows one page draws, so the window is sized for a page and never resizes. */
 export function panelRowCount(panel, tab) {
-  if (panel === "stocks") return (tab?.data?.quotes || []).length + (tab?.data?.index ? 1 : 0);
+  if (panel === "stocks") {
+    return Math.min(PAGE_SIZE, (tab?.data?.quotes || []).length) + (tab?.data?.index ? 1 : 0);
+  }
   if (panel === "rates") return shownRateRows(tab?.data?.rates, tab?.rateCurrencies).rows.length;
-  return Math.min(10, (tab?.data?.news || []).length);
+  return Math.min(PAGE_SIZE, (tab?.data?.news || []).length);
+}
+
+/** How many pages a panel has, so the window can leave room for the pager. */
+export function panelPageCount(panel, tab) {
+  if (panel === "stocks") return pageCount((tab?.data?.quotes || []).length);
+  if (panel === "news") return pageCount((tab?.data?.news || []).length);
+  return 1;
 }
 
 /**
@@ -136,40 +223,57 @@ export function rateBetween(rates, from, to) {
   return b / a;
 }
 
-function stocksHtml(tab, language, units, baseCurrency, t) {
+function stocksHtml(tab, language, units, baseCurrency, t, page = 0) {
   const rates = tab.data?.rates;
-  const head = `<div class="quote-head" data-gui="quote-head"><span>${esc(t("col.symbol"))}</span><span>${esc(t("col.price"))}</span><span>${esc(t("col.change"))}</span><span>${esc(t("col.percent"))}</span><span>${esc(t("col.volume"))}</span></div>`;
-  const rows = (tab.data.quotes || []).map((quote) => {
+  const dragTip = t("tip.dragRow");
+  const head = `<div class="quote-head" data-gui="quote-head"><span>${esc(t("col.symbol"))}</span><span>${esc(t("col.exchange"))}</span><span>${esc(t("col.price"))}</span><span>${esc(t("col.change"))}</span><span>${esc(t("col.percent"))}</span><span>${esc(t("col.volume"))}</span><span></span></div>`;
+  // The watchlist decides the order; anything fetched but no longer watched
+  // follows it rather than disappearing.
+  const bySymbol = new Map((tab.data.quotes || []).map((quote) => [quote.symbol, quote]));
+  const ordered = (tab.board.symbols || []).map((entry) => bySymbol.get(entry.symbol)).filter(Boolean);
+  for (const quote of tab.data.quotes || []) if (!ordered.includes(quote)) ordered.push(quote);
+  // Ten at a time; the pager under the board reaches the rest.
+  const shownQuotes = pageSlice(ordered, page);
+  const rows = shownQuotes.map((quote) => {
     const listing = (tab.board.symbols || []).find((entry) => entry.symbol === quote.symbol);
     const name = listingName(listing, language) || quote.name || quote.symbol;
     const trend = trendOf(quote.changePercent);
     const priced = convert(quote, units, baseCurrency, rates);
     const selected = quote.symbol === tab.selectedSymbol ? " is-selected" : "";
     const alert = isAlert(quote, tab) ? " is-alert" : "";
-    const title = `${name} ${quote.symbol} ${formatPrice(priced.last, priced.currency, language)} ${priced.currency} ${formatPercent(quote.changePercent)}`;
+    // Which exchange a listing trades on, so a mixed watchlist stays readable.
+    const market = findMarket(listing?.marketCode || tab.board?.marketCode);
+    const exchange = market ? market.marketCode : "";
+    const exchangeFull = market ? marketName(market, language) : "";
+    const title = `${name} ${quote.symbol} ${exchangeFull} ${formatPrice(priced.last, priced.currency, language)} ${priced.currency} ${formatPercent(quote.changePercent)}`;
     return `<button type="button" class="quote-row${selected}${alert}" data-gui="quote" data-symbol="${esc(quote.symbol)}" data-tone="${esc(trendTone(trend))}" title="${esc(title)}">
         <span class="quote-name"><strong>${esc(name)}</strong><em>${esc(quote.symbol)}</em></span>
+        <span class="quote-exchange" title="${esc(exchangeFull)}">${esc(exchange)}</span>
         <span class="quote-price">${esc(formatPrice(priced.last, priced.currency, language))}</span>
         <span class="quote-change">${esc(formatSigned(priced.change, priced.currency, language))}</span>
         <span class="quote-percent">${esc(formatPercent(quote.changePercent))}</span>
         <span class="quote-volume">${esc(formatVolume(quote.volumeLast ?? quote.days?.[quote.days.length - 1]?.volume, language))}</span>
+        <span class="row-grip" data-grip="1" title="${esc(dragTip)}" aria-hidden="true">${icon("drag")}</span>
       </button>`;
   });
   const index = tab.data.index;
   const indexRow = index
     ? `<div class="quote-row is-index" data-gui="index" data-tone="${esc(trendTone(trendOf(index.changePercent)))}" title="${esc(`${t("col.index")} ${index.symbol}`)}">
         <span class="quote-name"><strong>${esc(indexLabel(tab.board, language))}</strong><em>${esc(index.symbol)}</em></span>
+        <span class="quote-exchange">${esc(tab.board?.marketCode || "")}</span>
         <span class="quote-price">${esc(formatPrice(index.last, "", language))}</span>
         <span class="quote-change">${esc(formatSigned(index.change, "", language))}</span>
         <span class="quote-percent">${esc(formatPercent(index.changePercent))}</span>
         <span class="quote-volume">—</span>
+        <span class="row-grip" aria-hidden="true"></span>
       </div>`
     : "";
-  return `<div class="quote-board" data-gui="stocks">${head}${indexRow}${rows.join("")}</div>`;
+  return `<div class="quote-board" data-gui="stocks">${head}<div class="board-rows" data-gui="quote-rows">${indexRow}${rows.join("")}</div>${pagerHtml("stocks", page, ordered.length, t)}</div>`;
 }
 
 function ratesHtml(rates, language, t) {
-  const head = `<div class="rate-head" data-gui="rate-head"><span>${esc(t("col.pair"))}</span><span>${esc(t("col.rate"))}</span><span>${esc(t("col.currency"))}</span></div>`;
+  const dragTip = t("tip.dragRow");
+  const head = `<div class="rate-head" data-gui="rate-head"><span>${esc(t("col.pair"))}</span><span>${esc(t("col.rate"))}</span><span>${esc(t("col.currency"))}</span><span></span></div>`;
   const rows = (rates.rows || []).map((row) => {
     const quoted = quotePair(rates.base, row.code, row.rate);
     const name = currencyName(row.code, language);
@@ -177,16 +281,18 @@ function ratesHtml(rates, language, t) {
         <span class="rate-pair">${esc(quoted.pair)}</span>
         <span class="rate-value">${esc(formatRate(quoted.value, language))}</span>
         <span class="rate-name">${esc(name)}</span>
+        <span class="row-grip" data-grip="1" title="${esc(dragTip)}" aria-hidden="true">${icon("drag")}</span>
       </div>`;
   });
-  return `<div class="rate-board" data-gui="rates">${head}${rows.join("")}</div>`;
+  return `<div class="rate-board" data-gui="rates">${head}<div class="board-rows" data-gui="rate-rows">${rows.join("")}</div></div>`;
 }
 
 /** One headline row: 48px tall, with room for a thumbnail whether or not one exists. */
 export const NEWS_ROW = 50;
 
-function newsHtml(news, language, t) {
-  const rows = news.slice(0, 10).map((item) => {
+function newsHtml(news, language, t, page = 0) {
+  const all = news || [];
+  const rows = pageSlice(all, page).map((item) => {
     const when = formatWhen(item.published, language);
     const meta = [item.outlet, when].filter(Boolean).join(" · ");
     const picture = safeImageUrl(item.image)
@@ -200,7 +306,7 @@ function newsHtml(news, language, t) {
         </span>
       </button>`;
   });
-  return `<div class="news-board" data-gui="news-board">${rows.join("")}</div>`;
+  return `<div class="news-board" data-gui="news-board">${rows.join("")}</div>${pagerHtml("news", page, all.length, t)}`;
 }
 
 function indexLabel(board, language) {

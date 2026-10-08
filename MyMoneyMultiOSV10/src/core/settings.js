@@ -57,14 +57,18 @@ export const DEFAULT_SETTINGS = {
   rotateSeconds: 0,
   baseCurrency: "KRW",
   displayPriority: "average",
-  reopenLast: false,
-  updateHours: 1,
+  startAtLogin: false,
+  updateMinutes: 10,
   windowSize: null,
   windowPosition: null,
   windowMaximized: false,
 };
 
-export const UPDATE_HOURS = [1, 2, 4, 6, 12, 24];
+/**
+ * How often prices are fetched again. Quotes move all day, so the choice
+ * starts at a minute; the long ends are for leaving the window open.
+ */
+export const UPDATE_MINUTES = [1, 2, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440];
 
 export const DISPLAY_PRIORITIES = ["average", ...SOURCE_IDS];
 
@@ -86,9 +90,15 @@ export function normalizeDisplayPriority(value) {
   return DISPLAY_PRIORITIES.includes(value) ? value : DEFAULT_SETTINGS.displayPriority;
 }
 
-export function normalizeUpdateHours(value) {
-  const hours = Number(value);
-  return UPDATE_HOURS.includes(hours) ? hours : DEFAULT_SETTINGS.updateHours;
+export function normalizeUpdateMinutes(value) {
+  const minutes = Number(value);
+  if (UPDATE_MINUTES.includes(minutes)) return minutes;
+  // Not one of the offered steps: take the nearest, so a hand-edited or
+  // older settings file still lands on something sensible.
+  if (Number.isFinite(minutes) && minutes > 0) {
+    return UPDATE_MINUTES.reduce((best, step) => (Math.abs(step - minutes) < Math.abs(best - minutes) ? step : best));
+  }
+  return DEFAULT_SETTINGS.updateMinutes;
 }
 
 export function normalizeSceneMode(value) {
@@ -197,7 +207,17 @@ export function sanitizeSettings(raw) {
   settings.baseCurrency = normalizeCurrency(settings.baseCurrency);
   settings.rateCurrencies = normalizeRateCurrencies(settings.rateCurrencies, settings.baseCurrency);
   settings.displayPriority = normalizeDisplayPriority(settings.displayPriority);
-  settings.updateHours = normalizeUpdateHours(settings.updateHours);
+  // Settings written before the interval moved to minutes stored whole hours.
+  // The defaults always carry `updateMinutes`, so the raw input decides.
+  const legacyHours = Number(source.updateHours);
+  const chosenMinutes =
+    source.updateMinutes != null
+      ? source.updateMinutes
+      : Number.isFinite(legacyHours) && legacyHours > 0
+        ? legacyHours * 60
+        : DEFAULT_SETTINGS.updateMinutes;
+  settings.updateMinutes = normalizeUpdateMinutes(chosenMinutes);
+  delete settings.updateHours;
   settings.backgroundImage = typeof settings.backgroundImage === "string" ? settings.backgroundImage : "";
   settings.backgroundName = typeof settings.backgroundName === "string" ? settings.backgroundName : "";
   settings.lastDirectory = typeof settings.lastDirectory === "string" ? settings.lastDirectory : "";
@@ -207,7 +227,9 @@ export function sanitizeSettings(raw) {
   settings.enabledSources = Array.isArray(settings.enabledSources)
     ? settings.enabledSources.filter((id) => known.has(id))
     : [...DEFAULT_SETTINGS.enabledSources];
-  settings.reopenLast = Boolean(settings.reopenLast);
+  settings.startAtLogin = Boolean(settings.startAtLogin);
+  // The "reopen last file" switch never reopened anything; it is gone.
+  delete settings.reopenLast;
   // Any real size is kept; the window's own minimum is applied where it is used,
   // so a window shrunk to that minimum still comes back at that minimum.
   const size = settings.windowSize;

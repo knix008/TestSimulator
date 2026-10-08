@@ -127,9 +127,23 @@ body[data-host="desktop"] .window-shell { box-shadow: inset 0 1px 0 rgba(255, 25
   align-items: center;
   gap: 8px;
 }
+/*
+ * No picture in the window is a drag source. Grabbing the app icon, or a
+ * headline thumbnail, moves the window instead of starting an image drag
+ * that could land back on the window as a new background.
+ */
+img, svg { -webkit-user-drag: none; user-drag: none; }
 .title-icon { width: 18px; height: 18px; flex: 0 0 auto; border-radius: 4px; display: block; }
 .title-name { font-size: 13px; font-weight: 700; white-space: nowrap; }
 .app-frame[data-title-text="hidden"] .title-name { display: none; }
+/*
+ * Narrow window: the program name steps aside and the spacing tightens, so
+ * every toolbar button keeps its full size. The app icon always stays - it is
+ * how the window is recognised, minimised or not.
+ */
+.app-frame[data-compact="true"] .titlebar { gap: 0; }
+.app-frame[data-compact="true"] .shell-top { padding: 0 6px; gap: 4px; }
+.app-frame[data-compact="true"] .corner-sep { margin: 0 2px; }
 
 .shell-top {
   position: relative;
@@ -309,20 +323,48 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .market-board .empty { margin: auto; }
 
 .panel-fit .quote-board, .panel-fit .rate-board, .panel-fit .news-board { flex: 1 1 auto; min-height: 0; }
+/* More headlines than the window can show: the list scrolls rather than being cut off. */
+/* Panels page through their rows, so a scrollbar is the last resort. */
+.panel-fit .board-rows, .panel-fit .news-board { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; flex: 0 0 32px; margin-top: 2px; }
+.pager-nums { display: flex; align-items: center; gap: 2px; overflow: hidden; }
+.pager-btn, .pager-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.01);
+  color: var(--fg);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pager-btn .ico { width: 14px; height: 14px; }
+.pager-btn:hover:not(:disabled), .pager-num:hover { background: var(--surface-strong); }
+.pager-btn:disabled { opacity: 0.35; }
+.pager-num.is-current { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+/* The titles reserve the same gutter the scroller gives its scrollbar. */
+.panel-fit .quote-head, .panel-fit .rate-head { padding-right: calc(10px + var(--scrollbar, 0px)); }
+/* The column titles sit outside the scroller, so they stay put. */
+.board-rows { display: flex; flex-direction: column; gap: 2px; min-height: 0; flex: 1 1 auto; }
+/* The column titles stay put while the rows under them scroll. */
 .empty { color: var(--muted); text-align: center; }
 
 /* Stocks, rates, and news tables. No borders; rows lift on hover. */
 .quote-board, .rate-board, .news-board { display: flex; flex-direction: column; gap: 2px; }
 .quote-head, .quote-row {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 0.7fr) minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) 20px;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
 .rate-head, .rate-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) 20px;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -336,9 +378,13 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   flex: 0 0 auto;
 }
 .quote-head > span:not(:first-child), .quote-row > span:not(.quote-name) { text-align: right; }
+/* The exchange is a short tag, read left to right beside the name. */
+.quote-head > span:nth-child(2), .quote-row > span.quote-exchange { text-align: left; }
+.quote-exchange { color: var(--muted); font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 .rate-head > span:nth-child(2), .rate-row > .rate-value { text-align: right; }
 .quote-row, .rate-row, .news-row {
   height: 32px;
+  flex: 0 0 32px;
   padding: 0 10px;
   border: 0;
   border-radius: 10px;
@@ -357,6 +403,23 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   box-shadow: 0 6px 14px var(--shadow);
   z-index: 1;
 }
+/* Rows in a panel can be dragged into a new order. */
+.is-dragging { opacity: 0.45; }
+/* Rows move by their grip: three lines at the right-hand end. */
+.row-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex: 0 0 20px;
+  color: var(--muted);
+  cursor: grab;
+  opacity: 0.6;
+}
+.row-grip:hover { opacity: 1; }
+.row-grip:active { cursor: grabbing; }
+.row-grip .ico { width: 14px; height: 14px; }
+.watch-row .row-grip { margin-left: 2px; }
 .quote-row.is-selected { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .quote-row.is-selected:hover { background: color-mix(in srgb, var(--accent) 24%, var(--surface-strong)); }
 .quote-row.is-alert { box-shadow: inset 0 0 0 2px var(--danger); }
@@ -374,7 +437,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .quote-row[data-tone="loss"] .quote-change, .quote-row[data-tone="loss"] .quote-percent { color: var(--loss); font-weight: 650; }
 .rate-pair { font-weight: 650; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .rate-name { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.news-row { height: 48px; display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 10px; }
+.news-row { height: 48px; flex: 0 0 48px; display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 10px; }
 .news-thumb { width: 56px; height: 34px; border-radius: 6px; overflow: hidden; display: block; flex: 0 0 auto; }
 .news-thumb[data-image="yes"] { background: var(--surface); }
 .news-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -448,7 +511,9 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 18px 50px var(--shadow);
 }
 .host-body .popup { left: 0; top: 0; transform: none; box-shadow: none; }
-.host-body .menu-popup { box-shadow: none; }
+/* In its own window the menu fills it exactly, so nothing is ever clipped
+   and the shortcut keeps the row padding between it and the edge. */
+.host-body .menu-popup { box-shadow: none; width: 100%; min-width: 0; }
 
 .popup-head, .popup-body, .popup-foot { position: relative; z-index: 1; }
 .popup-head { padding: 0 8px 0 16px; border-bottom: 1px solid var(--line); }
@@ -495,6 +560,31 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .popup[data-popup="settings"] .popup-foot { padding: 0 24px; }
 .popup[data-popup="settings"] .popup-row { padding: 0; }
 .popup-row { padding: 0 2px; border-radius: 8px; }
+/* A sentence, not a labelled field: it uses the whole width and wraps. */
+.popup-note { margin: 0; padding: 0 2px; line-height: 1.5; white-space: normal; flex: 0 0 auto; }
+/* Search hits: one row each, picked with a click. */
+.picks { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; scrollbar-width: thin; }
+.pick-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  flex: 0 0 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.01);
+  color: inherit;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.pick-row:hover, .pick-row:focus-visible { background: var(--surface-strong); }
+.pick-name { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.pick-symbol, .pick-exchange { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.popup-note[data-row="file"] { color: var(--muted); font-weight: 600; }
 .popup-row > label, .popup-row > span:first-child { width: 150px; flex: 0 0 150px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .source-row .source-name { flex: 0 0 auto; font-weight: 600; }
 .source-row .source-detail { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }

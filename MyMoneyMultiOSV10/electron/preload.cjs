@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   windowBounds: () => ipcRenderer.invoke("window-bounds"),
   readSettings: () => ipcRenderer.invoke("read-settings"),
   writeSettings: (data) => ipcRenderer.invoke("write-settings", data),
+  setAutoStart: (on) => ipcRenderer.invoke("set-auto-start", on),
+  getAutoStart: () => ipcRenderer.invoke("get-auto-start"),
   beginPopup: (spec) => ipcRenderer.invoke("begin-popup", spec),
   updatePopup: (id, patch) => ipcRenderer.invoke("update-popup", id, patch),
   waitPopup: (id) => ipcRenderer.invoke("wait-popup", id),
