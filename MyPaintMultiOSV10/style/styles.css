@@ -723,6 +723,23 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 
 .canvas-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 
+.text-editor {
+  position: absolute;
+  z-index: 4;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 2px;
+  border: 1px dashed var(--accent);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.92);
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+  line-height: 1.15;
+}
+
+.text-editor:focus { outline: none; }
+
 .canvas-overlay .region {
   position: absolute;
   left: 0;

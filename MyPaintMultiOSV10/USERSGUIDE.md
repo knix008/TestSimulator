@@ -13,7 +13,7 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
 
 왼쪽 패널 위쪽에 도구가 있습니다. 연필, 붓, 마커, 스프레이, 지우개는 끌어서 자유롭게 그리고,
 직선·화살표·곡선·사각형·둥근 사각형·타원·삼각형은 끌어서 크기를 정합니다. 글자 도구는
-누른 자리에 글자를 넣고, 글자 내용은 오른쪽 패널에서 고칩니다. 색 채우기는 도형이나
+누른 자리에서 바로 글자를 입력하고, 오른쪽 패널에서도 고칩니다. 색 채우기는 도형이나
 바탕의 색을 바꾸고, 색 고르기는 누른 자리의 색을 가져옵니다.
 
 색은 왼쪽 패널의 색판에서 고르거나, 선 색·채움 색을 직접 지정합니다. 선 굵기는 그 아래
@@ -161,8 +161,8 @@ finishes, `.mpaint` files carry the MyPaint document icon and open in MyPaint.
 
 The tools are at the top of the left panel. Pencil, brush, marker, spray and the eraser draw while you
 drag; line, arrow, curve, rectangle, rounded rectangle, ellipse and triangle take their size
-from the drag. The text tool places text where you click, and the text itself is edited in
-the right panel. Fill changes the colour of a shape or of the canvas, and the picker takes
+from the drag. The text tool lets you type where you click, and the right panel can
+edit that text too. Fill changes the colour of a shape or of the canvas, and the picker takes
 the colour under the pointer.
 
 Pick colours from the swatches, or set the line and fill colours directly. The pictures

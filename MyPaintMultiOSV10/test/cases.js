@@ -191,11 +191,18 @@
         api.setTool("text");
         const shape = api.click(60, 80);
         assert(shape.kind === "text", shape.kind);
-        assert(shape.text.length > 0);
         assert(api.getSelection()[0] === shape.id);
+        const editor = doc.getElementById("textEditor");
+        assert(editor && !editor.hidden, "the text editor is missing");
+        editor.value = "안녕";
+        editor.dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        assert(shape.text === "안녕", shape.text);
         const input = doc.querySelector('#rightPanel [data-prop="text"]');
         assert(input, "the text field is missing");
+        assert(input.value === "안녕", input.value);
         input.value = "hello";
+        input.dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        assert(api.shapes()[0].text === "hello", api.shapes()[0].text);
         input.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
         assert(api.shapes()[0].text === "hello", api.shapes()[0].text);
       }),

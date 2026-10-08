@@ -45,6 +45,11 @@
   let draft = null;
   let dragState = null;
   let pointer = { x: 0, y: 0 };
+  let pointerSeen = false;
+  let textEditing = null;
+  let textSession = null;
+  let textFieldUndo = false;
+  let textFocusToken = 0;
   let cineTimer = null;
   let tagPage = 0;
   let convertState = { format: "png", quality: 92 };
@@ -419,12 +424,15 @@
     document.documentElement.style.setProperty("--canvas-w", doc.width + "px");
     document.documentElement.style.setProperty("--canvas-h", doc.height + "px");
     const ctx = board.getContext("2d");
+    let shapes = settings.showShapes === false ? [] : doc.shapes;
+    if (textEditing) shapes = shapes.filter((shape) => shape.id !== textEditing);
     Paint.render(ctx, doc, {
       preview: draft,
       images: images,
-      shapes: settings.showShapes === false ? [] : doc.shapes,
+      shapes: shapes,
     });
     renderOverlay();
+    layoutTextEditor();
   }
 
   function renderOverlay() {
@@ -1731,6 +1739,7 @@
 
   function setTool(id) {
     if (!Paint.TOOLS.some((tool) => tool.id === id)) return settings.tool;
+    if (textEditing && id !== "text") finishTextEditor();
     settings.tool = id;
     band = null;
     saveSettings();
@@ -1808,6 +1817,131 @@
     };
   }
 
+  function editingShape() {
+    const doc = current();
+    if (!doc || textEditing == null) return null;
+    return doc.shapes.find((shape) => shape.id === textEditing) || null;
+  }
+
+  function layoutTextEditor() {
+    const shape = editingShape();
+    const editor = $("textEditor");
+    if (!shape || !editor || editor.hidden) return;
+    const zoom = scale();
+    const chars = Math.max(1, editor.value.length);
+    editor.style.left = (shape.x * zoom) + "px";
+    editor.style.top = ((shape.y - shape.fontSize * 0.92) * zoom) + "px";
+    editor.style.fontSize = (shape.fontSize * zoom) + "px";
+    editor.style.fontFamily = cssFamily(shape.fontFamily);
+    editor.style.color = shape.color;
+    editor.style.caretColor = shape.color;
+    editor.style.fontStyle = String(shape.fontStyle).indexOf("italic") >= 0 ? "italic" : "normal";
+    editor.style.fontWeight = String(shape.fontStyle).indexOf("bold") >= 0 ? "700" : "400";
+    editor.style.height = (shape.fontSize * 1.35 * zoom) + "px";
+    editor.style.width = (Math.max(shape.fontSize * 2, chars * shape.fontSize + shape.fontSize) * zoom) + "px";
+  }
+
+  function ensureTextEditor() {
+    let editor = $("textEditor");
+    if (editor) return editor;
+    editor = document.createElement("textarea");
+    editor.id = "textEditor";
+    editor.className = "text-editor";
+    editor.rows = 1;
+    editor.spellcheck = false;
+    editor.autocomplete = "off";
+    editor.addEventListener("input", () => {
+      const shape = editingShape();
+      if (!shape) return;
+      shape.text = editor.value;
+      const field = document.querySelector('#rightPanel [data-prop="text"]');
+      if (field && document.activeElement !== field) field.value = shape.text;
+      markDirty();
+      renderBoard();
+    });
+    editor.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        event.preventDefault();
+        editor.blur();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        editor.blur();
+      }
+    });
+    editor.addEventListener("blur", () => {
+      const id = textEditing;
+      setTimeout(() => {
+        if (textEditing !== id) return;
+        if (document.activeElement === editor) return;
+        const field = document.querySelector('#rightPanel [data-prop="text"]');
+        if (field && document.activeElement === field) {
+          const shape = editingShape();
+          if (shape) shape.text = editor.value;
+          textEditing = null;
+          editor.hidden = true;
+          return;
+        }
+        finishTextEditor();
+      }, 0);
+    });
+    $("canvasFrame").appendChild(editor);
+    return editor;
+  }
+
+  function focusTextEditor(selectAll) {
+    const editor = $("textEditor");
+    const token = ++textFocusToken;
+    const id = textEditing;
+    setTimeout(() => {
+      if (!editor || token !== textFocusToken || textEditing !== id) return;
+      editor.focus();
+      if (selectAll) editor.select();
+      else editor.setSelectionRange(editor.value.length, editor.value.length);
+    }, 0);
+  }
+
+  function openTextEditor(shape, fresh) {
+    if (textEditing === shape.id) {
+      const editor = ensureTextEditor();
+      editor.hidden = false;
+      layoutTextEditor();
+      focusTextEditor(false);
+      return;
+    }
+    if (textEditing) finishTextEditor();
+    const editor = ensureTextEditor();
+    if (!fresh) pushUndo();
+    textSession = { id: shape.id, fresh: !!fresh, before: shape.text || "", depth: undoStack.length };
+    textEditing = shape.id;
+    editor.hidden = false;
+    editor.value = shape.text || "";
+    editor.setAttribute("aria-label", t("prop.text"));
+    layoutTextEditor();
+    focusTextEditor(!!editor.value);
+  }
+
+  function finishTextEditor() {
+    const session = textSession;
+    const editor = $("textEditor");
+    const shape = editingShape();
+    const doc = current();
+    textEditing = null;
+    textSession = null;
+    if (editor) editor.hidden = true;
+    if (shape && editor) shape.text = editor.value;
+    if (shape && doc && !shape.text) {
+      doc.shapes = doc.shapes.filter((item) => item.id !== shape.id);
+      selected = selected.filter((id) => id !== shape.id);
+      if (session && session.fresh && undoStack.length === session.depth) undoStack.pop();
+      updateHistoryButtons();
+    } else if (session && !session.fresh && shape && shape.text === session.before && undoStack.length === session.depth) {
+      undoStack.pop();
+      updateHistoryButtons();
+    }
+    renderAll();
+  }
+
   function beginDraw(x, y) {
     const doc = current();
     if (!doc) return null;
@@ -1829,6 +1963,16 @@
       return result;
     }
     if (tool === "text") {
+      const hit = Paint.hitTest(doc, x, y);
+      if (hit && hit.kind === "text") {
+        selected = [hit.id];
+        renderBoard();
+        renderLeft();
+        renderRight();
+        renderStatus();
+        openTextEditor(hit, false);
+        return hit;
+      }
       pushUndo();
       const shape = Paint.addShape(doc, Object.assign(shapeDefaults(), {
         kind: "text",
@@ -1837,7 +1981,7 @@
         w: 0,
         h: 0,
         fill: "",
-        text: settings.language === "en" ? "Text" : "글자",
+        text: "",
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize,
         fontStyle: settings.fontStyle,
@@ -1849,6 +1993,7 @@
       renderRight();
       renderStatus();
       renderTabs();
+      openTextEditor(shape, true);
       return shape;
     }
     const marquee = (Paint.TOOLS.find((item) => item.id === tool) || {}).region;
@@ -3406,6 +3551,21 @@
     const doc = current();
     const key = target.dataset.prop;
     const shape = firstSelected();
+    if (shape && key === "text") {
+      if (textEditing === shape.id) {
+        textEditing = null;
+        textSession = null;
+        const editor = $("textEditor");
+        if (editor) editor.hidden = true;
+      }
+      if (!textFieldUndo) pushUndo();
+      textFieldUndo = false;
+      shape.text = target.value;
+      Paint.normalizeShape(shape);
+      markDirty();
+      renderAll();
+      return;
+    }
     pushUndo();
     if (shape) {
       if (key === "width" || key === "opacity" || key === "fontSize" || key === "x" || key === "y") shape[key] = Number(target.value);
@@ -3492,6 +3652,7 @@
       const point = toDocPoint(event.clientX, event.clientY);
       if (!boardDragging()) {
         pointer = point;
+        pointerSeen = true;
         probeAt(point.x, point.y);
         renderStatus();
         return;
@@ -3522,7 +3683,7 @@
     stage.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
       // the canvas itself draws; the space around it drags the picture
-      if (event.target.closest("#board")) return;
+      if (event.target.closest("#board, #textEditor")) return;
       event.preventDefault();
       stage.classList.add("panning");
       const startX = event.clientX;
@@ -3572,6 +3733,25 @@
     });
     $("leftPanel").addEventListener("change", onPaletteChange);
     $("leftPanel").addEventListener("input", onPaletteChange);
+    $("rightPanel").addEventListener("input", (event) => {
+      const target = event.target;
+      if (!target.dataset || target.dataset.prop !== "text") return;
+      const shape = firstSelected();
+      if (!shape || shape.kind !== "text") return;
+      if (textEditing === shape.id) {
+        textEditing = null;
+        textSession = null;
+        const editor = $("textEditor");
+        if (editor) editor.hidden = true;
+      }
+      if (!textFieldUndo) {
+        pushUndo();
+        textFieldUndo = true;
+      }
+      shape.text = target.value;
+      markDirty();
+      renderBoard();
+    });
     $("rightPanel").addEventListener("change", onPropertyChange);
     $("rightPanel").addEventListener("change", onDicomChange);
     $("rightPanel").addEventListener("click", (event) => {
@@ -3619,6 +3799,7 @@
       }
       const tab = event.target.closest("[data-tab]");
       if (!tab) return;
+      if (textEditing) finishTextEditor();
       active = Number(tab.dataset.tab);
       selected = [];
       renderAll();
@@ -3631,6 +3812,25 @@
       openContext(event.clientX, event.clientY);
     });
     window.addEventListener("keydown", (event) => {
+      const inField = event.target.closest && event.target.closest("input, textarea, select");
+      if (settings.tool === "text" && !inField && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1) {
+        event.preventDefault();
+        let shape = editingShape();
+        if (!shape) {
+          const doc = current();
+          if (!doc) return;
+          const point = pointerSeen ? pointer : { x: doc.width / 2, y: doc.height / 2 };
+          shape = beginDraw(point.x, point.y);
+        }
+        const editor = $("textEditor");
+        if (!editor || !shape) return;
+        const next = (editor.value || "") + event.key;
+        editor.value = next;
+        editor.setSelectionRange(next.length, next.length);
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+        editor.focus();
+        return;
+      }
       if (event.key === "Escape") { closeMenu(); doDeselect(); return; }
       if (event.key === "Delete" && !event.target.closest("input, select, textarea")) {
         event.preventDefault();
@@ -3801,6 +4001,12 @@
     draft = null;
     dragState = null;
     pointer = { x: 0, y: 0 };
+    pointerSeen = false;
+    textEditing = null;
+    textSession = null;
+    textFieldUndo = false;
+    const textEditor = $("textEditor");
+    if (textEditor) textEditor.hidden = true;
     stopCine();
     extras.clear();
     Object.keys(images).forEach((key) => { delete images[key]; });
