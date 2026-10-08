@@ -251,24 +251,37 @@ export function registerGui(h) {
       assert.equal(app.root.querySelector("[data-fold]"), null);
       const background = getComputedStyle(app.frame).backgroundColor;
       assert.ok(background === "rgba(0, 0, 0, 0)" || background === "transparent", background);
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일");
       await app.refreshWeather();
-      assert.ok(app.root.querySelector(".scene-temp").textContent);
+      const todayTemp = app.root.querySelector(".scene-temp").textContent;
+      assert.ok(todayTemp);
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일");
       assert.equal(app.root.querySelector(".tabbar").hidden, true);
       await app.setTransparency(80);
       const daily = await openForecast(app, "daily");
       assert.equal(daily.popup.dataset.popup, "forecast");
       assert.equal(daily.popup.querySelector(".popup-title").textContent, "일간 예보");
+      assert.ok(daily.popup.querySelector(".popup-icon .ico-color"));
+      assert.equal(daily.popup.querySelector(".popup-when").textContent, "10월 7일");
       assert.ok(daily.popup.querySelector("[data-hour]"));
       assert.equal(popupFits(daily.popup).fits, true);
       assert.equal(getComputedStyle(daily.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await daily.close();
       const weekly = await openForecast(app, "weekly");
       assert.equal(weekly.popup.querySelector(".popup-title").textContent, "주간 예보");
+      assert.ok(weekly.popup.querySelector(".popup-icon .ico-color"));
+      assert.equal(weekly.popup.querySelector(".popup-when").textContent, "10월 4일 – 10월 10일");
       assert.ok(weekly.popup.querySelector('[data-gui="week"]'));
+      weekly.popup.querySelector('[data-date="2026-10-09"]').click();
+      assert.equal(app.currentTab().selectedDate, "2026-10-09");
+      assert.equal(app.root.querySelector(".scene-temp").textContent, todayTemp);
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일");
       assert.equal(getComputedStyle(weekly.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await weekly.close();
       const monthly = await openForecast(app, "monthly");
       assert.equal(monthly.popup.querySelector(".popup-title").textContent, "월간 예보");
+      assert.ok(monthly.popup.querySelector(".popup-icon .ico-color"));
+      assert.equal(monthly.popup.querySelector(".popup-when").textContent, "2026년 10월");
       assert.ok(monthly.popup.querySelector('[data-gui="month"]'));
       assert.equal(getComputedStyle(monthly.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await monthly.close();
@@ -386,7 +399,10 @@ export function registerGui(h) {
         assert.ok(ids.includes(id), id);
       }
       for (const item of items) {
-        assert.ok(item.querySelector("svg"), item.textContent);
+        const svg = item.querySelector("svg");
+        assert.ok(svg, item.textContent);
+        assert.ok(svg.classList.contains("ico-color"), item.dataset.cmd);
+        assert.match(svg.innerHTML, /fill="#[0-9a-f]{6}"/i, item.dataset.cmd);
         assert.ok(item.querySelector(".menu-label").textContent.trim(), item.textContent);
         assert.equal(item.style.whiteSpace, "nowrap");
         assert.ok(item.title);
@@ -396,6 +412,14 @@ export function registerGui(h) {
       assert.match(menu.querySelector('[data-cmd="exit"] svg').innerHTML, /#e5484d/);
       assert.ok(menu.querySelectorAll('[role="separator"]').length >= 4);
       assert.equal(menu.querySelector('[data-cmd="undo"]').disabled, true);
+      const shortcuts = [...menu.querySelectorAll(".menu-key")].filter((key) => key.textContent);
+      assert.ok(shortcuts.length > 1);
+      const rights = shortcuts.map((key) => key.getBoundingClientRect().right);
+      for (const key of shortcuts) {
+        assert.equal(key.style.marginLeft, "auto", key.textContent);
+        assert.equal(key.style.textAlign, "right", key.textContent);
+      }
+      assert.equal(new Set(rights.map((value) => Math.round(value))).size, 1);
       document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
       assert.equal(document.querySelector(".menu-popup"), null);
       const realHeight = window.innerHeight;
@@ -439,6 +463,14 @@ export function registerGui(h) {
       assert.equal(menu.querySelector('[data-cmd="clear-wallpaper"] .menu-label').textContent, "배경 삭제");
       assert.match(menu.querySelector('[data-cmd="choose-wallpaper"]').innerHTML, /fill="#2f94ff"/);
       assert.match(menu.querySelector('[data-cmd="clear-wallpaper"]').innerHTML, /fill="#e5484d"/);
+      for (const item of menu.querySelectorAll('[role="menuitem"]')) {
+        const svg = item.querySelector("svg");
+        const label = item.querySelector(".menu-label");
+        assert.ok(svg.classList.contains("ico-color"), item.dataset.cmd);
+        assert.match(svg.innerHTML, /fill="#[0-9a-f]{6}"/i, item.dataset.cmd);
+        assert.equal(getComputedStyle(label).overflow, "visible", label.textContent);
+        assert.equal(item.style.overflow, "visible", item.dataset.cmd);
+      }
       menu.querySelector('[data-cmd="copy"]').click();
       await settle();
       assert.match(platform.clipboardText, /2026-10-07/);
@@ -451,6 +483,11 @@ export function registerGui(h) {
       document.querySelector('.menu-popup[data-menu="context"] [data-cmd="clear-wallpaper"]').click();
       await settle();
       assert.equal(app.root.querySelector("[data-gui='wallpaper']").dataset.image, "no");
+      forecast.popup.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 12, clientY: 16, screenX: 400, screenY: 220 }));
+      const windowMenu = document.querySelector('.menu-popup[data-menu="window"]');
+      assert.ok(windowMenu);
+      assert.equal(windowMenu.querySelectorAll(".ico-color").length, windowMenu.querySelectorAll('[role="menuitem"]').length);
+      app.closeMenu();
       await forecast.close();
     });
   });
@@ -494,6 +531,81 @@ export function registerGui(h) {
       assert.ok(monthly.popup.querySelector('[data-date="2026-10-09"]'));
       assert.ok(monthly.popup.querySelector(".day.is-alert"));
       await monthly.close();
+    });
+  });
+  h.test("double-clicking a week or month day shows that day's hourly forecast", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshWeather();
+      const weekly = await openForecast(app, "weekly");
+      weekly.popup.querySelector('[data-date="2026-10-09"]').dispatchEvent(new window.MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+      await settle();
+      const daily = document.querySelector('[data-popup-key="forecast:daily"]');
+      assert.ok(daily);
+      assert.equal(daily.querySelector(".popup-when").textContent, "10월 9일");
+      assert.equal(app.currentTab().selectedDate, "2026-10-09");
+      const ninth = [...daily.querySelectorAll("[data-hour]")];
+      assert.ok(ninth.length > 0);
+      assert.ok(ninth.every((hour) => hour.dataset.hour.startsWith("2026-10-09")));
+      weekly.popup.querySelector('[data-date="2026-10-08"]').dispatchEvent(new window.MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+      await settle();
+      assert.equal(document.querySelectorAll('[data-popup-key="forecast:daily"]').length, 1);
+      const same = document.querySelector('[data-popup-key="forecast:daily"]');
+      assert.equal(same.querySelector(".popup-when").textContent, "10월 8일");
+      const eighth = [...same.querySelectorAll("[data-hour]")];
+      assert.ok(eighth.length > 0);
+      assert.ok(eighth.every((hour) => hour.dataset.hour.startsWith("2026-10-08")));
+      same.querySelector('[data-action="close"]').click();
+      await settle();
+      await weekly.close();
+      const monthly = await openForecast(app, "monthly");
+      monthly.popup.querySelector('[data-date="2026-10-07"]').dispatchEvent(new window.MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+      await settle();
+      const fromMonth = document.querySelector('[data-popup-key="forecast:daily"]');
+      assert.equal(document.querySelectorAll('[data-popup-key="forecast:daily"]').length, 1);
+      const seventh = [...fromMonth.querySelectorAll("[data-hour]")];
+      assert.ok(seventh.length > 0);
+      assert.ok(seventh.every((hour) => hour.dataset.hour.startsWith("2026-10-07")));
+      fromMonth.querySelector('[data-action="close"]').click();
+      await settle();
+      await monthly.close();
+    });
+  });
+  h.test("choosing a month day updates the open daily and weekly forecasts", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshWeather();
+      const dailyPending = app.run("daily");
+      await settle();
+      const weeklyPending = app.run("weekly");
+      await settle();
+      const monthlyPending = app.run("monthly");
+      await settle();
+      const daily = document.querySelector('[data-popup-key="forecast:daily"]');
+      const weekly = document.querySelector('[data-popup-key="forecast:weekly"]');
+      const monthly = document.querySelector('[data-popup-key="forecast:monthly"]');
+      assert.equal(daily.querySelector(".popup-when").textContent, "10월 7일");
+      assert.equal(weekly.querySelector(".popup-when").textContent, "10월 4일 – 10월 10일");
+      monthly.querySelector('[data-date="2026-10-09"]').click();
+      await settle();
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일");
+      assert.equal(daily.querySelector(".popup-when").textContent, "10월 9일");
+      assert.ok([...daily.querySelectorAll("[data-hour]")].every((hour) => hour.dataset.hour.startsWith("2026-10-09")));
+      assert.equal(weekly.querySelector('[data-date="2026-10-09"]').classList.contains("is-selected"), true);
+      monthly.querySelector('[data-date="2026-10-11"]').click();
+      await settle();
+      assert.equal(daily.querySelector(".popup-when").textContent, "10월 11일");
+      assert.equal(daily.querySelector("[data-hour]"), null);
+      assert.equal(weekly.querySelector(".popup-when").textContent, "10월 11일 – 10월 17일");
+      assert.equal(weekly.querySelector('[data-date="2026-10-11"]').classList.contains("is-selected"), true);
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일");
+      app.root.querySelector("[data-cmd='daily']").click();
+      await settle();
+      assert.equal(daily.querySelector(".popup-when").textContent, "10월 7일");
+      assert.ok([...daily.querySelectorAll("[data-hour]")].every((hour) => hour.dataset.hour.startsWith("2026-10-07")));
+      app.root.querySelector("[data-cmd='weekly']").click();
+      await settle();
+      assert.equal(weekly.querySelector(".popup-when").textContent, "10월 4일 – 10월 10일");
+      for (const popup of [daily, weekly, monthly]) popup.querySelector('[data-action="close"]').click();
+      await Promise.all([dailyPending, weeklyPending, monthlyPending]);
     });
   });
   h.test("daily hours, the week, and the month are arranged instead of listed", async () => {
@@ -551,12 +663,15 @@ export function registerGui(h) {
       await app.setLanguage("en");
       const dailyEn = await openForecast(app, "daily");
       assert.match(dailyEn.popup.querySelector('[data-band="morning"]').textContent, /Morning/);
+      assert.equal(dailyEn.popup.querySelector(".popup-when").textContent, "October 7");
       await dailyEn.close();
       const weeklyEn = await openForecast(app, "weekly");
       assert.equal(weeklyEn.popup.querySelector('[data-gui="week"] .weekday').textContent, "Sun");
+      assert.equal(weeklyEn.popup.querySelector(".popup-when").textContent, "Oct 4 – Oct 10");
       await weeklyEn.close();
       const monthlyEn = await openForecast(app, "monthly");
       assert.match(monthlyEn.popup.textContent, /October 2026/);
+      assert.equal(monthlyEn.popup.querySelector(".popup-when").textContent, "October 2026");
       await monthlyEn.close();
     });
   });
@@ -764,7 +879,17 @@ export function registerGui(h) {
       popup.querySelector('[data-field="fontFamily"]').value = "Family 3";
       popup.querySelector('[data-field="fontStyle"]').value = "bolditalic";
       popup.querySelector('[data-field="fontSize"]').value = "18";
-      popup.querySelector('[data-field="language"]').value = "en";
+      const korean = popup.querySelector('[data-choice="language"][data-value="ko"]');
+      const englishButton = popup.querySelector('[data-choice="language"][data-value="en"]');
+      assert.equal(korean.querySelector("span").textContent, "한국어");
+      assert.ok(korean.querySelector(".flag-kr"));
+      assert.equal(englishButton.querySelector("span").textContent, "English");
+      assert.ok(englishButton.querySelector(".flag-gb"));
+      assert.equal(korean.getAttribute("aria-pressed"), "true");
+      englishButton.click();
+      assert.equal(popup.querySelector('[data-field="language"]').value, "en");
+      assert.equal(englishButton.getAttribute("aria-pressed"), "true");
+      assert.equal(korean.getAttribute("aria-pressed"), "false");
       popup.querySelector('.swatch[data-theme-id="dark-forest"]').click();
       popup.querySelector('[data-field="units"]').value = "F";
       popup.querySelector('[data-field="transparency"]').value = "80";
@@ -828,7 +953,7 @@ export function registerGui(h) {
       const hover = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".popup-x:hover, .popup-x:focus-visible");
       assert.equal(hover.style.background, "#e5484d");
       assert.equal(hover.style.color, "#fff");
-      assert.equal(popup.style.height, "640px");
+      assert.equal(popup.style.height, "700px");
       assert.equal(getComputedStyle(popup.querySelector(".popup-body")).paddingTop, "16px");
       assert.equal(getComputedStyle(popup.querySelector(".popup-body")).paddingBottom, "16px");
       assert.equal(getComputedStyle(popup.querySelector('[data-panel="appearance"]')).gap, "10px");
@@ -859,6 +984,45 @@ export function registerGui(h) {
       assert.equal(sent.at(-1).vars["--fg"], "#4a2740");
       document.querySelector("[data-popup='forecast'] [data-action='close']").click();
       await pending;
+    });
+  });
+  h.test("choosing a theme updates every open window immediately", async () => {
+    await withApp(async ({ app, platform }) => {
+      const sent = [];
+      platform.broadcastTheme = (payload) => sent.push(payload);
+      const forecast = app.showForecast("daily");
+      await settle();
+      const pending = app.showSettings("appearance");
+      await settle();
+      const settings = document.querySelector('[data-popup="settings"]');
+      settings.querySelector('[data-theme-mode="light"]').click();
+      settings.querySelector('.swatch[data-theme-id="light-sakura"]').click();
+      await settle();
+      const daily = document.querySelector('[data-popup="forecast"]');
+      assert.equal(sent.at(-1).theme, "light-sakura");
+      assert.equal(sent.at(-1).vars["--bg-solid"], "#fff0f5");
+      assert.equal(daily.dataset.theme, "light-sakura");
+      assert.equal(daily.style.getPropertyValue("--bg-solid"), "#fff0f5");
+      assert.equal(daily.style.getPropertyValue("--fg"), "#4a2740");
+      assert.equal(settings.dataset.theme, "light-sakura");
+      assert.equal(settings.style.getPropertyValue("--bg-solid"), "#fff0f5");
+      assert.equal(settings.style.getPropertyValue("--bg"), "rgba(255, 240, 245, 1)");
+      assert.equal(daily.style.getPropertyValue("--bg"), "rgba(255, 240, 245, 0.775)");
+      assert.equal(app.settings.theme, "dark-ink");
+      const weekly = app.showForecast("weekly");
+      await settle();
+      const next = [...document.querySelectorAll('[data-popup="forecast"]')].find((popup) => popup.querySelector('[data-range="weekly"], [data-gui="forecast"][data-range="weekly"]'));
+      const opened = document.querySelector('[data-range="weekly"]')?.closest("[data-popup]") || next;
+      assert.equal(opened.dataset.theme, "light-sakura");
+      settings.querySelector('[data-action="cancel"]').click();
+      await pending;
+      assert.equal(daily.dataset.theme, "dark-ink");
+      assert.equal(opened.dataset.theme, "dark-ink");
+      assert.equal(app.settings.theme, "dark-ink");
+      opened.querySelector("[data-action='close']").click();
+      daily.querySelector("[data-action='close']").click();
+      await forecast;
+      await weekly;
     });
   });
   h.test("theme and transparency preview live and revert on cancel", async () => {
@@ -902,6 +1066,75 @@ export function registerGui(h) {
       await pending;
       assert.equal(app.frame.dataset.theme, "dark-ink");
       assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 0.775)");
+    });
+  });
+  h.test("a settings change appears immediately and cancel puts it back", async () => {
+    await withApp(async ({ app }) => {
+      const day = {
+        date: "2026-10-07",
+        tempMin: 10,
+        tempMax: 21,
+        precip: 0,
+        wind: 1,
+        humidity: 50,
+        code: 1,
+        bySource: { ecmwf: { tempMin: 8, tempMax: 20, precip: 0, wind: 1, humidity: 40, code: 0 } },
+      };
+      const hour = {
+        time: "2026-10-07T09:00",
+        temp: 15,
+        precip: 0,
+        wind: 1,
+        humidity: 50,
+        code: 1,
+        bySource: { ecmwf: { temp: 18, precip: 0, wind: 1, humidity: 40, code: 0 } },
+      };
+      app.currentTab().weather = { daily: [day], hourly: [hour], sources: [] };
+      app.currentTab().selectedDate = "2026-10-07";
+      app.renderWeather();
+      const pending = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      popup.querySelector('[data-choice="language"][data-value="en"]').click();
+      await settle();
+      assert.equal(app.root.querySelector('[data-cmd="settings"]').title, "Settings");
+      assert.equal(popup.querySelector(".popup-title").textContent, "Settings");
+      assert.equal(popup.querySelector('[data-field="units"] option[value="C"]').textContent, "Celsius");
+      assert.equal(app.settings.language, "ko");
+      const size = popup.querySelector('[data-field="fontSize"]');
+      size.value = "22";
+      size.dispatchEvent(new window.Event("input", { bubbles: true }));
+      await settle();
+      assert.equal(app.frame.style.fontSize, "22px");
+      assert.equal(popup.style.fontSize, "22px");
+      assert.equal(app.settings.fontSize, 14);
+      const units = popup.querySelector('[data-field="units"]');
+      units.value = "F";
+      units.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.match(app.root.querySelector(".scene-temp").textContent, /°F/);
+      assert.equal(app.settings.units, "C");
+      const priority = popup.querySelector('[data-field="displayPriority"]');
+      priority.value = "ecmwf";
+      priority.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.match(app.root.querySelector(".scene-temp").textContent, /64°F/);
+      const city = popup.querySelector('[data-field="cityEn"]');
+      const other = [...city.options].find((option) => option.value !== city.value);
+      city.value = other.value;
+      city.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(app.root.querySelector(".scene-city").textContent, other.textContent);
+      assert.equal(app.currentTab().place.cityEn, "Seoul");
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+      assert.equal(app.settings.language, "ko");
+      assert.equal(app.settings.fontSize, 14);
+      assert.equal(app.settings.units, "C");
+      assert.equal(app.root.querySelector('[data-cmd="settings"]').title, "설정");
+      assert.equal(app.frame.style.fontSize, "14px");
+      assert.match(app.root.querySelector(".scene-temp").textContent, /15°C/);
+      assert.equal(app.root.querySelector(".scene-city").textContent, "서울");
     });
   });
   h.test("a custom theme uses the chosen colours and is saved", async () => {
@@ -1028,6 +1261,7 @@ export function registerGui(h) {
   h.test("settings reset restores the original values after confirmation", async () => {
     await withApp(async ({ app }) => {
       app.settings.language = "en";
+      app.settings.dateFormat = "iso";
       app.settings.theme = "light-paper";
       app.settings.transparency = 80;
       app.settings.backgroundOpacity = 10;
@@ -1036,6 +1270,7 @@ export function registerGui(h) {
       app.settings.enabledSources = ["gfs"];
       app.settings.fontSize = 22;
       app.settings.reopenLast = true;
+      app.settings.openAtLogin = true;
       app.settings.windowPosition = { x: 40, y: 18 };
       app.recent.add("C:/weather/keep.myweather");
       await app.setWallpaper("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E", "kept.svg");
@@ -1050,6 +1285,7 @@ export function registerGui(h) {
       await settle();
       assert.equal(popup.isConnected, true);
       assert.equal(popup.querySelector('[data-field="language"]').value, "ko");
+      assert.equal(popup.querySelector('[data-field="dateFormat"]').value, "long");
       assert.equal(popup.querySelector('[data-field="theme"]').value, "dark-ink");
       assert.equal(popup.querySelector('[data-field="transparency"]').value, "30");
       assert.equal(popup.querySelector('[data-field="backgroundOpacity"]').value, "40");
@@ -1057,6 +1293,7 @@ export function registerGui(h) {
       assert.equal(popup.querySelector('[data-field="displayPriority"]').value, "average");
       assert.equal(popup.querySelector('[data-field="fontSize"]').value, "14");
       assert.equal(popup.querySelector('[data-field="reopen"]').checked, false);
+      assert.equal(popup.querySelector('[data-field="openAtLogin"]').checked, false);
       assert.equal(popup.querySelector('[data-field="countryCode"]').value, "KR");
       assert.equal(popup.querySelector('[data-field="cityEn"]').value, "Seoul");
       assert.equal(popup.querySelector('[data-source="ecmwf"]').checked, true);
@@ -1066,6 +1303,7 @@ export function registerGui(h) {
       popup.querySelector('[data-action="cancel"]').click();
       await pending;
       assert.equal(app.settings.language, "en");
+      assert.equal(app.settings.dateFormat, "iso");
       assert.equal(app.settings.theme, "light-paper");
       assert.equal(app.settings.backgroundName, "kept.svg");
       assert.equal(app.wallpaper.dataset.image, "yes");
@@ -1077,6 +1315,7 @@ export function registerGui(h) {
       next.querySelector('[data-action="ok"]').click();
       await again;
       assert.equal(app.settings.language, "ko");
+      assert.equal(app.settings.dateFormat, "long");
       assert.equal(app.settings.theme, "dark-ink");
       assert.equal(app.settings.transparency, 30);
       assert.equal(app.settings.backgroundOpacity, 40);
@@ -1084,12 +1323,91 @@ export function registerGui(h) {
       assert.equal(app.settings.displayPriority, "average");
       assert.equal(app.settings.fontSize, 14);
       assert.equal(app.settings.reopenLast, false);
+      assert.equal(app.settings.openAtLogin, false);
       assert.deepEqual(app.settings.enabledSources, ["ecmwf", "gfs", "jma", "metno", "wttr"]);
       assert.equal(app.settings.backgroundImage, "");
       assert.equal(app.settings.backgroundName, "");
       assert.equal(app.settings.defaultLocation.cityEn, "Seoul");
       assert.deepEqual(app.settings.windowPosition, { x: 40, y: 18 });
       assert.deepEqual(app.recent.toJSON(), keptRecent);
+    });
+  });
+  h.test("start with the system is chosen in settings and applies immediately", async () => {
+    await withApp(async ({ app, platform }) => {
+      assert.equal(platform.loginItems.at(-1), false);
+      const pending = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const box = popup.querySelector('[data-field="openAtLogin"]');
+      assert.equal(box.type, "checkbox");
+      assert.equal(box.checked, false);
+      assert.equal(box.closest(".popup-row").querySelector("span").textContent, "시스템 시작 시 자동 실행");
+      box.click();
+      await settle();
+      assert.equal(box.checked, true);
+      assert.equal(app.settings.openAtLogin, false);
+      assert.equal(platform.loginItems.at(-1), true);
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+      assert.equal(app.settings.openAtLogin, false);
+      assert.equal(platform.loginItems.at(-1), false);
+      const again = app.showSettings("general");
+      await settle();
+      const next = document.querySelector('[data-popup="settings"]');
+      next.querySelector('[data-field="openAtLogin"]').click();
+      await settle();
+      next.querySelector('[data-action="ok"]').click();
+      await again;
+      assert.equal(app.settings.openAtLogin, true);
+      assert.equal(platform.settings.openAtLogin, true);
+      assert.equal(platform.loginItems.at(-1), true);
+    });
+  });
+  h.test("the date format is chosen in settings and applies immediately", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshWeather();
+      const weekly = await openForecast(app, "weekly");
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일");
+      assert.equal(weekly.popup.querySelector(".popup-when").textContent, "10월 4일 – 10월 10일");
+      const pending = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const field = popup.querySelector('[data-field="dateFormat"]');
+      assert.equal(popup.querySelector('[data-row="dateFormat"] span, [data-row="dateFormat"] label').textContent, "날짜 표시");
+      assert.equal(field.value, "long");
+      assert.deepEqual([...field.options].map((option) => option.value), ["long", "iso", "dot", "slash", "weekday"]);
+      field.value = "iso";
+      field.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(app.settings.dateFormat, "long");
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "2026-10-07");
+      assert.equal(weekly.popup.querySelector(".popup-when").textContent, "2026-10-04 – 2026-10-10");
+      assert.match(weekly.popup.querySelector(".range-title").textContent, /2026-10-04/);
+      const dailyPending = app.showForecast("daily");
+      await settle();
+      const daily = document.querySelector('[data-popup-key="forecast:daily"]');
+      assert.equal(daily.querySelector(".popup-when").textContent, "2026-10-07");
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+      assert.equal(app.settings.dateFormat, "long");
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일");
+      assert.equal(weekly.popup.querySelector(".popup-when").textContent, "10월 4일 – 10월 10일");
+      assert.equal(daily.querySelector(".popup-when").textContent, "10월 7일");
+      daily.querySelector('[data-action="close"]').click();
+      await dailyPending;
+      const again = app.showSettings("general");
+      await settle();
+      const next = document.querySelector('[data-popup="settings"]');
+      const nextField = next.querySelector('[data-field="dateFormat"]');
+      nextField.value = "weekday";
+      nextField.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      next.querySelector('[data-action="ok"]').click();
+      await again;
+      assert.equal(app.settings.dateFormat, "weekday");
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일 (수)");
+      assert.match(weekly.popup.querySelector(".popup-when").textContent, /10월 4일 \(일\).*10월 10일 \(토\)/);
+      await weekly.close();
     });
   });
   h.test("the general page saves a display priority and the scene follows it", async () => {
@@ -1168,6 +1486,11 @@ export function registerGui(h) {
       const popup = document.querySelector('[data-popup="settings"]');
       assert.equal(popup.querySelector('[data-panel="wallpaper"]').hidden, false);
       assert.match(popup.querySelector('[data-panel="wallpaper"]').textContent, /sky\.png/);
+      const preview = popup.querySelector("[data-gui='wallpaper-preview']");
+      assert.equal(preview.dataset.image, "yes");
+      assert.match(preview.style.backgroundImage, /aaaa/);
+      assert.equal(popup.querySelector(".wallpaper-file").textContent, "sky.png");
+      assert.equal(popup.querySelector(".wallpaper-file").title, "sky.png");
       const row = popup.querySelector('[data-row="backgroundOpacity"]');
       const slider = row.querySelector('[data-field="backgroundOpacity"]');
       const steps = [...row.querySelectorAll(".step-btn")];
@@ -1648,6 +1971,7 @@ export function registerGui(h) {
       app.closeMenu();
       await weekly.close();
       await app.setLanguage("en");
+      assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "October 7");
       assert.deepEqual(
         [...app.root.querySelectorAll("[data-gui='range-button']")].map((button) => button.title),
         ["Daily forecast", "Weekly forecast", "Monthly forecast"],

@@ -90,6 +90,11 @@ export function registerLogic(h) {
     assert.equal(sanitizeSettings({ updateHours: 12 }).updateHours, 12);
     assert.equal(sanitizeSettings({ updateHours: 3 }).updateHours, 1);
     assert.equal(sanitizeSettings({ updateHours: 24 }).updateHours, 24);
+    assert.equal(sanitizeSettings(null).dateFormat, "long");
+    assert.equal(sanitizeSettings({ dateFormat: "iso" }).dateFormat, "iso");
+    assert.equal(sanitizeSettings({ dateFormat: "nope" }).dateFormat, "long");
+    assert.equal(sanitizeSettings(null).openAtLogin, false);
+    assert.equal(sanitizeSettings({ openAtLogin: 1 }).openAtLogin, true);
     assert.equal(settings.recentFiles.length, 10);
   });
   h.test("undo redo and a new edit clears the redo stack", () => {
@@ -336,6 +341,7 @@ export function registerLogic(h) {
     assert.equal(layout.columns, 1);
     assert.equal(layout.clippedToWindow, false);
     assert.ok(layout.width > 80);
+    assert.ok(layout.width >= 300);
     assert.ok(layout.height > 40);
     assert.equal(layout.x, 10);
     const options = menuWindowOptions(layout, { id: "parent" });
@@ -478,6 +484,14 @@ export function registerLogic(h) {
     assert.equal(daily.focused, false);
     assert.equal(weekly.focused, false);
     assert.notEqual(daily.id, weekly.id);
+    const sent = [];
+    hub.windows.get(daily.id).win.send = (patch) => sent.push(patch);
+    const refreshed = hub.refresh("forecast:daily", { markup: "<p>2026-10-09</p>" });
+    assert.equal(refreshed.focused, true);
+    assert.equal(refreshed.id, daily.id);
+    assert.equal(sent[0].markup, "<p>2026-10-09</p>");
+    assert.match(hub.take(daily.id).markup, /2026-10-09/);
+    assert.equal(hub.refresh("forecast:missing", { markup: "no" }), null);
     const pending = hub.wait(id);
     hub.closeAll();
     assert.deepEqual(await pending, { action: "close" });
@@ -644,10 +658,14 @@ export function registerLogic(h) {
     assert.match(main, /window\.json/);
     assert.match(main, /thickFrame: false/);
     assert.match(main, /skipTaskbar: true/);
+    assert.match(main, /setLoginItemSettings/);
+    assert.match(main, /set-open-at-login/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, "src/styles.css"), "utf8"), /app-region/);
     assert.match(main, /new Tray/);
     assert.match(main, /placeTrayMenu/);
     assert.match(main, /fit-tray-menu/);
+    assert.match(main, /fit-menu/);
+    assert.match(main, /delete options\.parent/);
     assert.match(main, /trayCommand/);
     assert.match(main, /revealMainWindowFromTray/);
     assert.doesNotMatch(main, /popUpContextMenu/);

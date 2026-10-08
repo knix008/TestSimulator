@@ -41,8 +41,10 @@ export const DEFAULT_SETTINGS = {
   enabledSources: ["ecmwf", "gfs", "jma", "metno", "wttr"],
   zoom: 100,
   units: "C",
+  dateFormat: "long",
   displayPriority: "average",
   reopenLast: false,
+  openAtLogin: false,
   updateHours: 1,
   windowSize: null,
   windowPosition: null,
@@ -52,6 +54,12 @@ export const DEFAULT_SETTINGS = {
 export const UPDATE_HOURS = [1, 2, 4, 6, 12, 24];
 
 export const DISPLAY_PRIORITIES = ["average", "ecmwf", "gfs", "jma", "metno", "wttr"];
+
+export const DATE_FORMATS = ["long", "iso", "dot", "slash", "weekday"];
+
+export function normalizeDateFormat(value) {
+  return DATE_FORMATS.includes(value) ? value : DEFAULT_SETTINGS.dateFormat;
+}
 
 export function normalizeDisplayPriority(value) {
   return DISPLAY_PRIORITIES.includes(value) ? value : DEFAULT_SETTINGS.displayPriority;
@@ -88,6 +96,7 @@ export function sanitizeSettings(raw) {
   settings.fontFamily = String(settings.fontFamily || DEFAULT_SETTINGS.fontFamily);
   settings.zoom = clamp(settings.zoom || 100, 50, 200);
   settings.units = settings.units === "F" ? "F" : "C";
+  settings.dateFormat = normalizeDateFormat(settings.dateFormat);
   settings.displayPriority = normalizeDisplayPriority(settings.displayPriority);
   settings.updateHours = normalizeUpdateHours(settings.updateHours);
   settings.backgroundImage = typeof settings.backgroundImage === "string" ? settings.backgroundImage : "";
@@ -100,6 +109,7 @@ export function sanitizeSettings(raw) {
     ? settings.enabledSources.filter((id) => known.has(id))
     : [...DEFAULT_SETTINGS.enabledSources];
   settings.reopenLast = Boolean(settings.reopenLast);
+  settings.openAtLogin = Boolean(settings.openAtLogin);
   const size = settings.windowSize;
   settings.windowSize =
     size && Number(size.width) >= WINDOW_MIN.width && Number(size.height) >= WINDOW_MIN.height

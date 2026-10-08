@@ -29,6 +29,17 @@ export class PopupHub {
     return this.windows.get(id)?.spec || null;
   }
 
+  refresh(key, patch, options = {}) {
+    for (const entry of this.windows.values()) {
+      if (entry.key !== key) continue;
+      entry.spec = { ...entry.spec, ...patch };
+      if (options.focus !== false) entry.win.focus?.();
+      entry.win.send?.(patch);
+      return { id: entry.spec.popupId, focused: true };
+    }
+    return null;
+  }
+
   update(id, patch) {
     this.windows.get(id)?.win.send?.(patch);
   }

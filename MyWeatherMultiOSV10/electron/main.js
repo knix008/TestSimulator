@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, Tray, clipboard, dialog, ipcMain, net, screen, shell } from "electron";
+import { app, BrowserWindow, Tray, clipboard, dialog, ipcMain, nativeImage, net, screen, shell } from "electron";
 import { parseFcList, parseMacFonts, parseWindowsFonts, resolveFontList } from "../src/core/fonts.js";
 import { createI18n } from "../src/core/i18n.js";
 import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js";
@@ -33,6 +33,7 @@ let recordPlacement = false;
 const moveStarts = new Map();
 
 app.setName("MyWeather");
+if (process.platform === "win32") app.setAppUserModelId("com.shkwon.myweather");
 if (process.platform === "linux") app.commandLine.appendSwitch("enable-transparent-visuals");
 
 function errorText(title, error) {
@@ -182,13 +183,14 @@ function createMainWindow() {
     win.show();
     win.setIgnoreMouseEvents(false);
     keepOffTaskbar();
+    refreshTrayIcon();
     sendWindowState(win);
     setTimeout(() => {
       recordPlacement = true;
       if (savedPlacementToken === 0) rememberCurrent();
     }, 200);
   });
-  for (const name of ["show", "restore"]) win.on(name, keepOffTaskbar);
+  for (const name of ["show", "restore", "minimize"]) win.on(name, keepOffTaskbar);
   win.on("focus", () => setTimeout(keepOffTaskbar, 250));
   const restoreAfterTray = () => {
     if (Date.now() > trayRevealUntil || win.isDestroyed()) return;
@@ -433,12 +435,108 @@ function showTrayMenu() {
   win.loadFile(path.join(__dirname, "../src/menu-host.html"));
 }
 
-function createTray() {
+function trayImage() {
   const iconFile = path.join(__dirname, "..", trayIconFile(process.platform));
-  tray = new Tray(iconFile);
+  const source = nativeImage.createFromPath(process.platform === "win32" ? iconPath : iconFile);
+  const chosen = source.isEmpty() ? nativeImage.createFromPath(iconFile) : source;
+  if (chosen.isEmpty()) return chosen;
+  const edge = process.platform === "darwin" ? 22 : 32;
+  const sized = chosen.resize({ width: edge, height: edge, quality: "best" });
+  return sized.isEmpty() ? chosen : sized;
+}
+
+function bindTray(image) {
+  const usable = image && !image.isEmpty?.() ? image : nativeImage.createFromPath(iconPath);
+  if (!usable || usable.isEmpty()) return;
+  if (tray) {
+    try {
+      tray.destroy();
+    } catch {
+      /* The previous icon is already gone. */
+    }
+    tray = null;
+  }
+  tray = new Tray(usable);
   tray.setToolTip("MyWeather");
   tray.on("click", showTrayMenu);
   tray.on("right-click", showTrayMenu);
+}
+
+function refreshTrayIcon() {
+  if (!tray || quitting) return;
+  try {
+    tray.setImage(trayImage());
+    tray.setToolTip("MyWeather");
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function createTray() {
+  try {
+    fs.rmSync(path.join(app.getPath("userData"), "tray.ico"), { force: true });
+  } catch {
+    /* The broken icon file is already gone. */
+  }
+  try {
+    bindTray(trayImage());
+  } catch (error) {
+    console.error(error);
+    try {
+      bindTray(nativeImage.createFromPath(iconPath));
+    } catch (again) {
+      console.error(again);
+    }
+  }
+  if (tray && process.platform === "win32") promoteWindowsTrayIcon();
+}
+
+function applyOpenAtLogin(enabled) {
+  const openAtLogin = Boolean(enabled);
+  const options = { openAtLogin };
+  if (process.platform === "win32") {
+    options.path = process.execPath;
+    options.args = app.isPackaged ? [] : [app.getAppPath()];
+    options.name = "MyWeather";
+  }
+  try {
+    app.setLoginItemSettings(options);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function promoteWindowsTrayIcon(attempt = 0) {
+  if (quitting || attempt > 6) return;
+  const exe = process.execPath.replace(/'/g, "''");
+  const command = [
+    `$exe='${exe}'`,
+    "$root='HKCU:\\Control Panel\\NotifyIconSettings'",
+    "$changed=$false",
+    "if (Test-Path $root) {",
+    "  Get-ChildItem $root | ForEach-Object {",
+    "    $item = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue",
+    "    if ($item.ExecutablePath -eq $exe -and $item.IsPromoted -ne 1) {",
+    "      Set-ItemProperty $_.PSPath -Name IsPromoted -Type DWord -Value 1",
+    "      $changed=$true",
+    "    }",
+    "  }",
+    "}",
+    "if ($changed) { exit 2 } else { exit 0 }",
+  ].join("; ");
+  execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", command], { windowsHide: true }, (error) => {
+    if (quitting) return;
+    const code = error && typeof error.code === "number" ? error.code : 0;
+    if (code === 2) {
+      try {
+        bindTray(trayImage());
+      } catch (again) {
+        console.error(again);
+      }
+      return;
+    }
+    setTimeout(() => promoteWindowsTrayIcon(attempt + 1), 800);
+  });
 }
 
 app.whenReady().then(() => {
@@ -446,6 +544,7 @@ app.whenReady().then(() => {
     app.dock.setIcon(iconPath);
     app.dock.hide();
   }
+  applyOpenAtLogin(sanitizeSettings(readJson(settingsFile())).openAtLogin);
   createTray();
   mainWindow = createMainWindow();
   app.on("activate", () => {
@@ -554,6 +653,11 @@ ipcMain.handle("write-settings", (_event, data) => {
   if (!incoming.windowPosition && previous.windowPosition) incoming.windowPosition = previous.windowPosition;
   if (incoming.windowMaximized == null && previous.windowMaximized != null) incoming.windowMaximized = previous.windowMaximized;
   writeSettingsFile(incoming);
+  return true;
+});
+
+ipcMain.handle("set-open-at-login", (_event, enabled) => {
+  applyOpenAtLogin(enabled);
   return true;
 });
 
@@ -699,6 +803,7 @@ ipcMain.handle("begin-popup", (event, spec) => {
 ipcMain.handle("take-popup-spec", (event) => hub.take(contentsToPopup.get(event.sender.id)));
 ipcMain.handle("finish-popup", (event, result) => hub.finish(contentsToPopup.get(event.sender.id), result));
 ipcMain.handle("update-popup", (_event, id, patch) => hub.update(id, patch));
+ipcMain.handle("refresh-popup", (_event, key, patch, options) => hub.refresh(key, patch, options));
 ipcMain.handle("wait-popup", (_event, id) => hub.wait(id));
 ipcMain.handle("end-popup", (_event, id) => hub.finish(id, { action: "close" }));
 
@@ -712,6 +817,10 @@ ipcMain.on("broadcast-theme", (event, payload) => {
       theme: payload.theme || "",
       customTheme: payload.customTheme || null,
       transparency: payload.transparency,
+      language: payload.language || "",
+      fontFamily: payload.fontFamily || "",
+      fontSize: payload.fontSize,
+      fontStyle: payload.fontStyle || "",
     });
   }
 });
@@ -733,6 +842,7 @@ ipcMain.on("popup-immediate", (event, message) => {
 ipcMain.handle("show-menu", (event, payload) => {
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   const options = menuWindowOptions(payload.layout, parent);
+  delete options.parent;
   const area = screen.getDisplayNearestPoint({ x: options.x, y: options.y }).workArea;
   options.x = Math.max(area.x, Math.min(options.x, area.x + area.width - options.width));
   if (options.y + options.height > area.y + area.height) options.y = Math.max(area.y, options.y - options.height);
@@ -759,6 +869,24 @@ ipcMain.handle("show-menu", (event, payload) => {
 });
 
 ipcMain.handle("take-menu-spec", (event) => menuSpecs.get(event.sender.id) || null);
+
+ipcMain.handle("fit-menu", (event, size = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return null;
+  const width = Math.max(1, Math.ceil(Number(size.width) || 1));
+  const height = Math.max(1, Math.ceil(Number(size.height) || 1));
+  const bounds = win.getBounds();
+  const area = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }).workArea;
+  let x = bounds.x;
+  let y = bounds.y;
+  if (x + width > area.x + area.width) x = area.x + area.width - width;
+  if (x < area.x) x = area.x;
+  if (y + height > area.y + area.height) y = area.y + area.height - height;
+  if (y < area.y) y = area.y;
+  win.setContentSize(width, height);
+  win.setPosition(Math.round(x), Math.round(y));
+  return { x: Math.round(x), y: Math.round(y), width, height };
+});
 
 ipcMain.handle("fit-tray-menu", (event, size = {}) => {
   const win = BrowserWindow.fromWebContents(event.sender);
