@@ -1,10 +1,20 @@
 import { applyThemeVars } from "./core/themes.js";
-import { applyPopupTheme, bootPopup, paintWallpaper } from "./ui/popups.js";
+import { applyPopupFont, applyPopupLanguage, applyPopupTheme, bootPopup, paintWallpaper } from "./ui/popups.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
 
+let popupSpec = null;
 window.electronAPI.onApplyTheme?.((payload) => {
   if (!payload) return;
   const type = document.querySelector("[data-popup]")?.dataset.popup || "";
+  if (payload.fontSize != null) {
+    applyPopupFont(document.body, payload);
+    const popup = document.querySelector("[data-popup]");
+    if (popup) applyPopupFont(popup, payload);
+  }
+  if (payload.language && popupSpec?.type === "settings") {
+    popupSpec.language = payload.language === "en" ? "en" : "ko";
+    applyPopupLanguage(document.body, popupSpec);
+  }
   if (payload.theme) {
     applyPopupTheme(
       { type, theme: payload.theme, customTheme: payload.customTheme, transparency: payload.transparency },
@@ -20,6 +30,7 @@ window.electronAPI.onApplyWallpaper?.((payload) => {
 });
 
 const spec = await window.electronAPI.takePopupSpec();
+popupSpec = spec;
 bootPopup(spec, {
   finish: (result) => window.electronAPI.finishPopup(result),
   immediate: (message) => window.electronAPI.popupImmediate(message),

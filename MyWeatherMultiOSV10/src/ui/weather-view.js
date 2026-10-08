@@ -3,16 +3,17 @@ import { presentWeather } from "../weather/aggregate.js";
 import { formatTemp, isoDate } from "../weather/format.js";
 import { conditionIcon, conditionText } from "../weather/wmo.js";
 
-export function renderWeatherHtml({ tab, language, units, today, t, priority = "average" }) {
+export function renderWeatherHtml({ tab, language, units, today, t, priority = "average", dateFormat = "long" }) {
   const shown = preferTab(tab, priority);
   const city = language === "ko" ? tab?.place?.cityKo || tab?.place?.cityEn || "" : tab?.place?.cityEn || tab?.place?.cityKo || "";
-  const reading = currentReading(shown, today);
+  const reading = todayReading(shown, today);
   const code = reading?.code ?? 1;
   const art = conditionIcon(code);
   const scene = `<section class="weather-scene" data-gui="scene">
       ${sceneArt(art)}
       <div class="scene-copy">
         <div class="scene-city">${esc(city)}</div>
+        <div class="scene-date" data-gui="scene-date">${esc(formatDay(isoDate(today), language, dateFormat, t) || "\u00a0")}</div>
         <div class="scene-temp">${esc(reading ? formatTemp(reading.temp, units) : "—")}</div>
         <div class="scene-cond">${esc(reading ? conditionText(code, language) : t("weather.empty"))}</div>
         <div class="scene-range">${esc(reading ? `${formatTemp(reading.day.tempMin, units)} – ${formatTemp(reading.day.tempMax, units)}` : "\u00a0")}</div>
@@ -21,15 +22,15 @@ export function renderWeatherHtml({ tab, language, units, today, t, priority = "
   return `<div class="weather">${scene}</div>`;
 }
 
-export function renderForecastHtml({ range, tab, language, units, today, t, priority = "average" }) {
+export function renderForecastHtml({ range, tab, language, units, today, t, priority = "average", dateFormat = "long", anchor = "" }) {
   const shown = preferTab(tab, priority);
   tab = shown;
   const weather = tab?.weather;
   if (!weather?.daily?.length) return `<p class="empty" data-gui="empty">${esc(t("weather.empty"))}</p>`;
-  const reading = currentReading(tab, today);
-  if (range === "daily") return hoursHtml(reading?.day, tab, language, units, t);
-  if (range === "weekly") return weekHtml(weather.daily, tab, language, units, today, t);
-  return monthHtml(weather.daily, tab, language, units, today, t);
+  const basis = anchor || isoDate(today);
+  if (range === "daily") return hoursHtml(dayRecord(tab, basis), tab, language, units, t);
+  if (range === "weekly") return weekHtml(weather.daily, tab, language, units, today, t, dateFormat, basis);
+  return monthHtml(weather.daily, tab, language, units, today, t, dateFormat);
 }
 
 export function forecastFitHeight(range, hasWeather) {
@@ -39,9 +40,29 @@ export function forecastFitHeight(range, hasWeather) {
   return 300;
 }
 
+export function forecastWhen({ range, tab, language, today, priority = "average", dateFormat = "long", t, anchor = "" }) {
+  const shown = preferTab(tab, priority);
+  if (range === "weekly") return weekTitle(weekStart(dateOf(anchor, today)), language, dateFormat, t);
+  if (range === "monthly") return monthTitle(today, language, dateFormat);
+  return formatDay(anchor || currentReading(shown, today)?.day?.date || isoDate(today), language, dateFormat, t);
+}
+
 function preferTab(tab, priority) {
   if (!tab?.weather) return tab;
   return { ...tab, weather: presentWeather(tab.weather, priority) };
+}
+
+function dayRecord(tab, iso) {
+  return (tab?.weather?.daily || []).find((row) => row.date === iso) || { date: iso };
+}
+
+function todayReading(tab, today) {
+  const todayKey = isoDate(today);
+  const day = (tab?.weather?.daily || []).find((row) => row.date === todayKey);
+  if (!day) return null;
+  const hours = (tab.weather.hourly || []).filter((row) => String(row.time).slice(0, 10) === todayKey);
+  const hour = nearestHour(hours, today);
+  return { day, hour, temp: hour?.temp ?? day.tempMax, code: hour?.code ?? day.code };
 }
 
 function currentReading(tab, today) {
@@ -106,8 +127,8 @@ function hoursHtml(day, tab, language, units, t) {
   return `<div class="hour-board" data-gui="hours">${bands}</div>`;
 }
 
-function weekHtml(days, tab, language, units, today, t) {
-  const start = weekStart(today);
+function weekHtml(days, tab, language, units, today, t, dateFormat, anchor) {
+  const start = weekStart(dateOf(anchor, today));
   const byDate = new Map(days.map((day) => [day.date, day]));
   const cells = WEEKDAYS.map((id, index) => {
     const date = addDays(start, index);
@@ -123,10 +144,10 @@ function weekHtml(days, tab, language, units, today, t) {
       iconSize: 26,
     });
   }).join("");
-  return `<div class="range-title">${esc(weekTitle(start, language))}</div><div class="week-row" data-gui="week">${cells}</div>`;
+  return `<div class="range-title">${esc(weekTitle(start, language, dateFormat, t))}</div><div class="week-row" data-gui="week">${cells}</div>`;
 }
 
-function monthHtml(days, tab, language, units, today, t) {
+function monthHtml(days, tab, language, units, today, t, dateFormat) {
   const year = today.getFullYear();
   const month = today.getMonth();
   const first = new Date(year, month, 1);
@@ -156,7 +177,7 @@ function monthHtml(days, tab, language, units, today, t) {
     cursor.setDate(cursor.getDate() + 1);
     if (cells.length > 42) break;
   }
-  return `<div class="range-title">${esc(monthTitle(today, language))}</div><div class="month-cal" data-gui="month">${heads}${cells.join("")}</div>`;
+  return `<div class="range-title">${esc(monthTitle(today, language, dateFormat))}</div><div class="month-cal" data-gui="month">${heads}${cells.join("")}</div>`;
 }
 
 function dayCell({ dateKey, day, tab, language, units, today, name, iconSize }) {
@@ -180,6 +201,12 @@ function hourLabel(hour, language) {
   return `${hour12} ${hour < 12 ? "AM" : "PM"}`;
 }
 
+function dateOf(iso, fallback) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!match) return fallback;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
 function weekStart(today) {
   return addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), -today.getDay());
 }
@@ -190,20 +217,40 @@ function addDays(date, days) {
   return next;
 }
 
-function weekTitle(start, language) {
-  const end = addDays(start, 6);
-  if (language === "ko") {
-    const right = start.getMonth() === end.getMonth() ? `${end.getDate()}일` : `${end.getMonth() + 1}월 ${end.getDate()}일`;
-    return `${start.getMonth() + 1}월 ${start.getDate()}일 – ${right}`;
-  }
-  const left = `${MONTH_EN[start.getMonth()].slice(0, 3)} ${start.getDate()}`;
-  const right = start.getMonth() === end.getMonth() ? String(end.getDate()) : `${MONTH_EN[end.getMonth()].slice(0, 3)} ${end.getDate()}`;
-  return `${left} – ${right}`;
+function formatDay(iso, language, format = "long", t) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!match) return "";
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12) return "";
+  if (format === "iso") return `${year}-${match[2]}-${match[3]}`;
+  if (format === "dot") return `${year}. ${month}. ${day}.`;
+  if (format === "slash") return `${year}/${match[2]}/${match[3]}`;
+  const long = language === "ko" ? `${month}월 ${day}일` : `${MONTH_EN[month - 1]} ${day}`;
+  if (format !== "weekday") return long;
+  const name = t?.(`weekday.${WEEKDAYS[new Date(year, month - 1, day).getDay()]}`) || "";
+  if (!name) return long;
+  return language === "ko" ? `${long} (${name})` : `${name}, ${long}`;
 }
 
-function monthTitle(today, language) {
-  if (language === "ko") return `${today.getFullYear()}년 ${today.getMonth() + 1}월`;
-  return `${MONTH_EN[today.getMonth()]} ${today.getFullYear()}`;
+function weekTitle(start, language, format = "long", t) {
+  const end = addDays(start, 6);
+  if (format === "iso" || format === "dot" || format === "slash" || format === "weekday") {
+    return `${formatDay(isoDate(start), language, format, t)} – ${formatDay(isoDate(end), language, format, t)}`;
+  }
+  if (language === "ko") return `${start.getMonth() + 1}월 ${start.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
+  return `${MONTH_EN[start.getMonth()].slice(0, 3)} ${start.getDate()} – ${MONTH_EN[end.getMonth()].slice(0, 3)} ${end.getDate()}`;
+}
+
+function monthTitle(today, language, format = "long") {
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  if (format === "iso") return `${year}-${String(month).padStart(2, "0")}`;
+  if (format === "dot") return `${year}. ${month}.`;
+  if (format === "slash") return `${year}/${String(month).padStart(2, "0")}`;
+  if (language === "ko") return `${year}년 ${month}월`;
+  return `${MONTH_EN[today.getMonth()]} ${year}`;
 }
 
 function sceneArt(name, size = 240) {

@@ -73,10 +73,15 @@ export function buildMenuElement(items) {
     row.style.alignItems = "center";
     row.style.whiteSpace = "nowrap";
     row.style.height = "32px";
-    row.style.overflow = "hidden";
+    row.style.width = "100%";
+    row.style.minWidth = "max-content";
+    row.style.overflow = "visible";
     row.innerHTML = `<span class="menu-icon">${icon(entry.icon, { colorful: true })}</span><span class="menu-label"></span><span class="menu-key"></span>`;
     row.querySelector(".menu-label").textContent = entry.label;
-    row.querySelector(".menu-key").textContent = entry.shortcut || "";
+    const key = row.querySelector(".menu-key");
+    key.textContent = entry.shortcut || "";
+    key.style.marginLeft = "auto";
+    key.style.textAlign = "right";
     menu.appendChild(row);
   }
   return menu;
@@ -112,7 +117,9 @@ export function buildTrayColumn(entries) {
     row.style.justifyContent = "flex-start";
     row.style.alignItems = "center";
     row.style.textAlign = "left";
-    row.style.width = "100%";
+    row.style.width = "max-content";
+    row.style.minWidth = "100%";
+    row.style.overflow = "visible";
     row.innerHTML = `<span class="menu-icon">${icon(entry.icon, { colorful: true })}</span><span class="menu-label"></span>`;
     row.querySelector(".menu-label").textContent = entry.label || "";
     if (entry.submenu) {

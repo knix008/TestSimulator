@@ -24,6 +24,7 @@ export function createWebPlatform() {
     async writeSettings(data) {
       localStorage.setItem(KEY, JSON.stringify(data));
     },
+    async setOpenAtLogin() {},
     async listFonts() {
       try {
         if (typeof window.queryLocalFonts === "function") {

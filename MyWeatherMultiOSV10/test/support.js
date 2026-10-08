@@ -53,6 +53,7 @@ export function createMemoryPlatform() {
     fonts: ["Segoe UI", "Malgun Gothic", "Arial", "Consolas", "Times New Roman"],
     files,
     settings: null,
+    loginItems: [],
     prints: [],
     external: [],
     commands: [],
@@ -72,6 +73,9 @@ export function createMemoryPlatform() {
     },
     async writeSettings(data) {
       this.settings = structuredClone(data);
+    },
+    async setOpenAtLogin(enabled) {
+      this.loginItems.push(Boolean(enabled));
     },
     async listFonts() {
       return [...this.fonts];

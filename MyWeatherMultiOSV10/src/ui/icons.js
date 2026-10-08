@@ -91,9 +91,28 @@ const COLOR = {
   show: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="#2f94ff"/><path d="M3.5 9h17" stroke="#fff" stroke-width="2"/><rect x="6" y="12" width="8" height="4" rx="1" fill="#fff"/>',
 };
 
+function trigram(x, y, pattern, rotate) {
+  const bars = [...pattern]
+    .map((bit, index) => {
+      const dy = index * 1.8;
+      if (bit === "1") return `<rect x="0" y="${dy}" width="6.2" height="1.05" fill="#111"/>`;
+      return `<rect x="0" y="${dy}" width="2.5" height="1.05" fill="#111"/><rect x="3.7" y="${dy}" width="2.5" height="1.05" fill="#111"/>`;
+    })
+    .join("");
+  return `<g transform="translate(${x} ${y}) rotate(${rotate})">${bars}</g>`;
+}
+
+export function flagIcon(code) {
+  if (code === "gb") {
+    return `<svg class="flag flag-gb" viewBox="0 0 60 30" aria-hidden="true"><defs><clipPath id="flag-gb-clip"><rect width="60" height="30"/></clipPath></defs><g clip-path="url(#flag-gb-clip)"><rect width="60" height="30" fill="#012169"/><path d="M0 0 60 30M60 0 0 30" stroke="#fff" stroke-width="8"/><path d="M0 0 60 30M60 0 0 30" stroke="#C8102E" stroke-width="3"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="12"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="7"/></g></svg>`;
+  }
+  return `<svg class="flag flag-kr" viewBox="0 0 36 24" aria-hidden="true"><rect width="36" height="24" fill="#fff"/><g transform="translate(18 12)"><circle r="5.1" fill="#cd2e3a"/><path d="M0-5.1a5.1 5.1 0 0 1 0 10.2 2.55 2.55 0 0 1 0-5.1 2.55 2.55 0 0 0 0-5.1z" fill="#0047a0"/></g>${trigram(4.2, 3.2, "111", 55)}${trigram(24.6, 2.4, "101", -55)}${trigram(5.2, 15.2, "010", -55)}${trigram(24.2, 14.6, "000", 55)}</svg>`;
+}
+
 export function icon(name, options = {}) {
-  const body = (options.colorful && COLOR[name]) || PATHS[name] || PATHS.dot;
-  return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+  const colorful = Boolean(options.colorful && COLOR[name]);
+  const body = (colorful && COLOR[name]) || PATHS[name] || PATHS.dot;
+  return `<svg class="${colorful ? "ico ico-color" : "ico"}" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
 }
 
 export function knownIcons() {

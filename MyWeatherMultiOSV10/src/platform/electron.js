@@ -32,6 +32,9 @@ export function createElectronPlatform(api) {
     async writeSettings(data) {
       return api.writeSettings(data);
     },
+    async setOpenAtLogin(enabled) {
+      return api.setOpenAtLogin(Boolean(enabled));
+    },
     async openFile(opts) {
       return api.openFile(opts);
     },
@@ -87,6 +90,9 @@ export function createElectronPlatform(api) {
     },
     async updatePopup(id, patch) {
       return api.updatePopup(id, patch);
+    },
+    refreshPopup(key, patch, options) {
+      return api.refreshPopup?.(key, patch, options) || false;
     },
     onPopupImmediate(callback) {
       api.onPopupImmediate(callback);

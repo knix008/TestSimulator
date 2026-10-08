@@ -5,6 +5,8 @@ const spec = await window.electronAPI.takeMenuSpec();
 if (spec.theme?.vars) applyThemeVars(document.documentElement, spec.theme.vars, spec.theme.mode);
 window.electronAPI.onApplyTheme?.((payload) => {
   if (payload?.vars) applyThemeVars(document.documentElement, payload.vars, payload.mode);
+  const menu = document.querySelector(".menu-popup");
+  if (menu && payload?.vars) applyThemeVars(menu, payload.vars, payload.mode);
 });
 
 if (spec.kind === "tray") mountTrayMenu(spec);
@@ -19,6 +21,10 @@ function mountCommandMenu(spec) {
     if (!item || item.dataset.enabled === "false") return;
     window.electronAPI.menuCommand(item.dataset.cmd);
   });
+  const fit = () => {
+    window.electronAPI.fitMenu?.({ width: Math.ceil(menu.offsetWidth), height: Math.ceil(menu.offsetHeight) });
+  };
+  requestAnimationFrame(fit);
 }
 
 function mountTrayMenu(spec) {

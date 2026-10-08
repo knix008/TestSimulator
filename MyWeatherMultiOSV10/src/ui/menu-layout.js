@@ -3,8 +3,12 @@ export const MENU_SEPARATOR = 9;
 
 export function layoutMenu(items, anchor, windowRect) {
   const width = Math.max(
-    240,
-    ...items.map((item) => 52 + String(item.label || "").length * 8 + (item.shortcut ? String(item.shortcut).length * 7 + 16 : 0)),
+    280,
+    ...items.map((item) => {
+      const label = String(item.label || "");
+      const shortcut = String(item.shortcut || "");
+      return 72 + label.length * 14 + (shortcut ? shortcut.length * 8 + 24 : 0);
+    }),
   );
   const separators = items.filter((item, index) => item.separated && index > 0).length;
   const height = Math.max(MENU_ROW, items.length * MENU_ROW + separators * MENU_SEPARATOR + 12);

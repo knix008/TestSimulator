@@ -2,16 +2,30 @@ import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
 import { FONT_STYLES } from "../core/fonts.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
-import { DEFAULT_SETTINGS, DISPLAY_PRIORITIES, UPDATE_HOURS } from "../core/settings.js";
+import { createI18n } from "../core/i18n.js";
+import { DATE_FORMATS, DEFAULT_SETTINGS, DISPLAY_PRIORITIES, UPDATE_HOURS, clamp } from "../core/settings.js";
 import { SOURCE_IDS } from "../weather/providers.js";
 import { esc } from "./html.js";
-import { icon } from "./icons.js";
+import { flagIcon, icon } from "./icons.js";
 import { keepsOneWindow, placeBeside, popupKey } from "./menu-layout.js";
 import { layoutTabScroller } from "./tab-scroller.js";
 
 const ROW = "display:flex;align-items:center;gap:8px;height:32px;white-space:nowrap;overflow:hidden;flex:0 0 auto";
+
+function textKey(key) {
+  return key ? ` data-i18n="${esc(key)}" data-i18n-title="${esc(key)}"` : "";
+}
+
+function titleOnly(key) {
+  return key ? ` data-i18n-title="${esc(key)}"` : "";
+}
+
+function textOnly(key) {
+  return key ? ` data-i18n="${esc(key)}"` : "";
+}
 export const THEME_GRID_HEIGHT = 252;
 const SETTINGS_ROW_GAP = 10;
+const SKIP_LIVE = new Set(["search", "wallpaperEdited", "backgroundImage", "backgroundName"]);
 
 export function buildSettingsSpec(model) {
   const t = model.t;
@@ -22,8 +36,9 @@ export function buildSettingsSpec(model) {
     type: "settings",
     icon: "settings",
     title: t("popup.settings"),
+    titleKey: "popup.settings",
     width: 680,
-    height: 640,
+    height: 700,
     resizable: false,
     scroll: "none",
     activeTab,
@@ -36,10 +51,11 @@ export function buildSettingsSpec(model) {
       { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: [...wallpaperRows(model), ...fontRows(model)] },
     ],
     closeLabel: t("tip.close"),
+    closeKey: "tip.close",
     buttons: [
-      { id: "reset", action: "reset", icon: "refresh", label: t("btn.reset"), title: t("tip.reset"), align: "start" },
-      { id: "ok", action: "ok", icon: "check", label: t("btn.ok") },
-      { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") },
+      { id: "reset", action: "reset", icon: "refresh", label: t("btn.reset"), title: t("tip.reset"), i18n: "btn.reset", titleKey: "tip.reset", align: "start" },
+      { id: "ok", action: "ok", icon: "check", label: t("btn.ok"), i18n: "btn.ok" },
+      { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel"), i18n: "btn.cancel" },
     ],
     values,
   };
@@ -230,13 +246,14 @@ export function buildPreviewSpec(printModel, t) {
 
 const FORECAST_WIDTH = { daily: 640, weekly: 720, monthly: 720 };
 
-export function buildForecastSpec({ range, markup, fitHeight, transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
+export function buildForecastSpec({ range, markup, fitHeight, when = "", transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
   const body = Math.max(72, Number(fitHeight) || 72);
   return {
     type: "forecast",
     range,
     icon: range,
     title: t(`forecast.${range}`),
+    when: typeof when === "string" ? when : "",
     transparency: Math.max(0, Math.min(100, Math.round(Number(transparency) || 0))),
     backgroundImage: typeof backgroundImage === "string" ? backgroundImage : "",
     backgroundOpacity: Math.max(0, Math.min(100, Math.round(Number(backgroundOpacity) || 0))),
@@ -261,6 +278,7 @@ export function buildPopupElement(spec) {
   const el = document.createElement("section");
   el.className = "popup";
   el.dataset.popup = spec.type;
+  el.dataset.theme = spec.theme || "";
   el.dataset.gui = "popup";
   el.dataset.scroll = "none";
   el.dataset.independent = "true";
@@ -289,12 +307,13 @@ export function buildPopupElement(spec) {
     ? `<div class="popup-tabs" data-gui="popup-tabs" style="display:flex;height:36px;overflow:hidden;flex:0 0 auto"><div class="popup-tabstrip" style="display:flex;overflow:hidden;flex:1;min-width:0"></div><button type="button" data-action="tab-prev" data-gui="tab-nav" title="&lt;">&lt;</button><button type="button" data-action="tab-next" data-gui="tab-nav" title="&gt;">&gt;</button></div>`
     : "";
   const closeLabel = spec.closeLabel || "Close";
-  const titleIcon = spec.type === "about" ? icon("about", { colorful: true }) : icon(spec.icon || "info");
+  const titleIcon = icon(spec.icon || "info", { colorful: spec.type === "about" || spec.type === "forecast" });
+  const when = spec.type === "forecast" ? `<span class="popup-when">${esc(spec.when || "")}</span>` : "";
   const hasOk = (spec.buttons || []).some((button) => button.action === "ok");
-  el.innerHTML = `${spec.type === "forecast" ? `<div class="wallpaper" data-gui="wallpaper"></div>` : ""}<header class="popup-head" style="height:44px;display:flex;align-items:center;gap:8px;overflow:hidden;flex:0 0 auto;white-space:nowrap"><span class="popup-icon">${titleIcon}</span><span class="popup-title">${esc(spec.title || "")}</span><button type="button" class="icon-btn win-btn win-close popup-x" data-action="${spec.type === "progress" ? "cancel" : "close"}" data-gui="popup-close" title="${esc(closeLabel)}" aria-label="${esc(closeLabel)}">${icon("windowClose")}</button></header>${tabBar}<div class="popup-body" style="overflow:hidden;flex:1 1 auto;min-height:0">${panels}</div><footer class="popup-foot" style="height:48px;display:flex;align-items:center;justify-content:flex-end;gap:8px;overflow:hidden;flex:0 0 auto">${(spec.buttons || [])
+  el.innerHTML = `${spec.type === "forecast" ? `<div class="wallpaper" data-gui="wallpaper"></div>` : ""}<header class="popup-head" style="height:44px;display:flex;align-items:center;gap:8px;overflow:hidden;flex:0 0 auto;white-space:nowrap"><span class="popup-icon">${titleIcon}</span><span class="popup-title"${textKey(spec.titleKey)}>${esc(spec.title || "")}</span>${when}<button type="button" class="icon-btn win-btn win-close popup-x" data-action="${spec.type === "progress" ? "cancel" : "close"}" data-gui="popup-close" title="${esc(closeLabel)}" aria-label="${esc(closeLabel)}"${titleOnly(spec.closeKey)}>${icon("windowClose")}</button></header>${tabBar}<div class="popup-body" style="overflow:hidden;flex:1 1 auto;min-height:0">${panels}</div><footer class="popup-foot" style="height:48px;display:flex;align-items:center;justify-content:flex-end;gap:8px;overflow:hidden;flex:0 0 auto">${(spec.buttons || [])
     .map(
       (button, index) =>
-        `<button type="button" class="popup-btn${button.action === "ok" || (!hasOk && index === 0) ? " primary" : ""}" data-action="${esc(button.action)}" data-gui="popup-button" title="${esc(button.title || button.label)}" style="white-space:nowrap;display:inline-flex;align-items:center;gap:6px;${button.align === "start" ? "margin-right:auto;" : ""}">${icon(button.icon || "dot")}<span class="menu-label">${esc(button.label)}</span></button>`,
+        `<button type="button" class="popup-btn${button.action === "ok" || (!hasOk && index === 0) ? " primary" : ""}" data-action="${esc(button.action)}" data-gui="popup-button" title="${esc(button.title || button.label)}"${titleOnly(button.titleKey || button.i18n)} style="white-space:nowrap;display:inline-flex;align-items:center;gap:6px;${button.align === "start" ? "margin-right:auto;" : ""}">${icon(button.icon || "dot")}<span class="menu-label"${textKey(button.i18n)}>${esc(button.label)}</span></button>`,
     )
     .join("")}</footer>`;
   if (spec.type === "forecast") paintWallpaper(el.querySelector("[data-gui='wallpaper']"), spec.backgroundImage, spec.backgroundOpacity);
@@ -381,7 +400,8 @@ export function wirePopup(el, spec, handlers = {}) {
       button.style.display = "inline-flex";
       button.style.alignItems = "center";
       button.style.gap = "6px";
-      button.innerHTML = `${tab.icon ? icon(tab.icon) : ""}<span>${esc(tab.label)}</span>`;
+      button.innerHTML = `${tab.icon ? icon(tab.icon) : ""}<span${spec.type === "settings" ? textOnly(`tab.${tab.id}`) : ""}>${esc(tab.label)}</span>`;
+      if (spec.type === "settings") button.dataset.i18nTitle = `tab.${tab.id}`;
       if (tab.id === activeTab()) button.classList.add("is-active");
       button.addEventListener("click", () => activate(tab.id));
       strip.appendChild(button);
@@ -413,6 +433,17 @@ export function wirePopup(el, spec, handlers = {}) {
     handlers.localTheme?.(draft);
     void handlers.immediate?.({ type: "theme-preview", ...draft, popupId: spec.popupId });
   };
+  const previewSettings = () => {
+    if (spec.type !== "settings") return;
+    const values = collectValues(el);
+    const language = values.language === "en" ? "en" : "ko";
+    if (spec.language !== language) {
+      spec.language = language;
+      applyPopupLanguage(el, spec);
+    }
+    applyPopupFont(el, values);
+    void handlers.immediate?.({ type: "settings-preview", values, popupId: spec.popupId });
+  };
   const setSteppedNumber = (input, value) => {
     const min = input.min === "" ? -Infinity : Number(input.min);
     const max = input.max === "" ? Infinity : Number(input.max);
@@ -431,16 +462,27 @@ export function wirePopup(el, spec, handlers = {}) {
   };
   el.addEventListener("contextmenu", (event) => {
     if (spec.type !== "forecast") return;
+    event.preventDefault();
+    const day = event.target.closest("[data-date]");
+    const point = { clientX: event.clientX, clientY: event.clientY, screenX: event.screenX, screenY: event.screenY, popupId: spec.popupId };
+    if (!day) {
+      void handlers.immediate?.({ type: "window-menu", ...point });
+      return;
+    }
+    void handlers.immediate?.({ type: "select-date", date: day.dataset.date, range: spec.range, ...point });
+  });
+  el.addEventListener("dblclick", (event) => {
+    if (spec.type !== "forecast" || spec.range === "daily") return;
     const day = event.target.closest("[data-date]");
     if (!day) return;
     event.preventDefault();
-    void handlers.immediate?.({ type: "select-date", date: day.dataset.date, clientX: event.clientX, clientY: event.clientY, popupId: spec.popupId });
+    void handlers.immediate?.({ type: "open-daily", date: day.dataset.date, range: spec.range, popupId: spec.popupId });
   });
   let suppressClick = false;
   const onPopupPointer = (event) => {
     const forecastDay = spec.type === "forecast" ? event.target.closest("[data-date]") : null;
     if (forecastDay && !event.target.closest("[data-action]")) {
-      void handlers.immediate?.({ type: "select-date", date: forecastDay.dataset.date, popupId: spec.popupId });
+      void handlers.immediate?.({ type: "select-date", date: forecastDay.dataset.date, range: spec.range, popupId: spec.popupId });
       return;
     }
     const recent = event.target.closest("[data-action='recent-delete']");
@@ -452,6 +494,14 @@ export function wirePopup(el, spec, handlers = {}) {
     const opener = event.target.closest("[data-action='recent-open']");
     if (opener) {
       finish({ action: "recent-open", path: opener.dataset.path });
+      return;
+    }
+    const choice = event.target.closest("[data-choice]");
+    if (choice) {
+      const field = el.querySelector(`[data-field="${choice.dataset.choice}"]`);
+      if (field) field.value = choice.dataset.value;
+      markChoice(el, choice.dataset.choice);
+      previewSettings();
       return;
     }
     const modeButton = event.target.closest("[data-theme-mode]");
@@ -470,8 +520,10 @@ export function wirePopup(el, spec, handlers = {}) {
       const field = step.dataset.target;
       const input = el.querySelector(`[data-field="${field}"]`);
       const next = Number(input?.value || 0) + Number(step.dataset.step);
-      if (input?.type === "number") setSteppedNumber(input, next);
-      else setRange(field, next);
+      if (input?.type === "number") {
+        setSteppedNumber(input, next);
+        previewSettings();
+      } else setRange(field, next);
       return;
     }
     const button = event.target.closest("[data-action]");
@@ -501,6 +553,7 @@ export function wirePopup(el, spec, handlers = {}) {
         opacity: DEFAULT_SETTINGS.backgroundOpacity,
         popupId: spec.popupId,
       });
+      previewSettings();
       return;
     }
     if (action === "search-online") {
@@ -576,6 +629,8 @@ export function wirePopup(el, spec, handlers = {}) {
     if (event.target.dataset?.setup) {
       void handlers.immediate?.({ type: "page-setup", popupId: spec.popupId, values: setupValues(el) });
     }
+    if (field && event.target.dataset?.group !== "source" && SKIP_LIVE.has(field)) return;
+    previewSettings();
   });
   el.addEventListener("input", (event) => {
     const field = event.target.dataset?.field;
@@ -584,6 +639,8 @@ export function wirePopup(el, spec, handlers = {}) {
       return;
     }
     if (field === "customBg" || field === "customText" || field === "customAccent") customEdited(field);
+    if (!field || SKIP_LIVE.has(field)) return;
+    previewSettings();
   });
   el.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -595,13 +652,22 @@ export function wirePopup(el, spec, handlers = {}) {
   return el;
 }
 
+export function paintPopupSurface(popup, colors, transparency, theme) {
+  if (!popup) return;
+  const forecast = popup.dataset.popup === "forecast";
+  applyThemeVars(popup, themeVars(colors, forecast ? transparency : 0), colors.mode);
+  popup.dataset.theme = theme || "";
+}
+
 export function applyPopupTheme(spec, draft = {}) {
   const theme = draft.theme || spec.theme;
   const colors = themeColors(theme, draft.customTheme || spec.customTheme);
   const transparency = spec.type === "forecast" ? Number(draft.transparency ?? spec.transparency) || 0 : 0;
-  applyThemeVars(document.documentElement, themeVars(colors, transparency), colors.mode);
+  const vars = themeVars(colors, transparency);
+  applyThemeVars(document.documentElement, vars, colors.mode);
   document.body.dataset.theme = theme || "";
   document.body.dataset.transparency = String(transparency);
+  paintPopupSurface(document.querySelector("[data-popup]"), colors, transparency, theme);
 }
 
 export function bootPopup(spec, api, container = document.body) {
@@ -622,6 +688,7 @@ export function bootPopup(spec, api, container = document.body) {
   });
   api.onUpdate?.((patch) => el._update(patch));
   container.appendChild(el);
+  paintPopupSurface(el, themeColors(spec.theme, spec.customTheme), Number(spec.transparency) || 0, spec.theme);
   return el;
 }
 
@@ -713,6 +780,7 @@ export class PopupLayer {
       el.dataset.popupKey = key;
       if (backdrop) this.overlay.appendChild(backdrop);
       this.raise(el);
+      paintPopupSurface(el, themeColors(spec.theme, spec.customTheme), Number(spec.transparency) || 0, spec.theme);
       fitPopupToViewport(el);
       placeCompanionPopup(el);
       el.focus();
@@ -790,45 +858,59 @@ function generalRows(model) {
   const language = model.language || "ko";
   return [
     {
-      kind: "select",
+      kind: "choice",
       id: "language",
+      i18n: "field.language",
       label: t("field.language"),
-      value: values.language,
+      value: values.language === "en" ? "en" : "ko",
       options: [
-        { value: "ko", label: "한국어" },
-        { value: "en", label: "English" },
+        { value: "ko", label: "한국어", flag: "kr" },
+        { value: "en", label: "English", flag: "gb" },
       ],
     },
     {
       kind: "select",
+      id: "dateFormat",
+      i18n: "field.dateFormat",
+      label: t("field.dateFormat"),
+      value: DATE_FORMATS.includes(values.dateFormat) ? values.dateFormat : "long",
+      options: DATE_FORMATS.map((id) => ({ value: id, i18n: `date.${id}`, label: t(`date.${id}`) })),
+    },
+    {
+      kind: "select",
       id: "units",
+      i18n: "field.units",
       label: t("field.units"),
       value: values.units,
       options: [
-        { value: "C", label: t("units.c") },
-        { value: "F", label: t("units.f") },
+        { value: "C", i18n: "units.c", label: t("units.c") },
+        { value: "F", i18n: "units.f", label: t("units.f") },
       ],
     },
     {
       kind: "select",
       id: "updateHours",
+      i18n: "field.updateHours",
       label: t("field.updateHours"),
       value: String(values.updateHours ?? 1),
-      options: UPDATE_HOURS.map((hours) => ({ value: String(hours), label: t(`update.h${hours}`) })),
+      options: UPDATE_HOURS.map((hours) => ({ value: String(hours), i18n: `update.h${hours}`, label: t(`update.h${hours}`) })),
     },
     {
       kind: "select",
       id: "displayPriority",
+      i18n: "field.displayPriority",
       label: t("field.displayPriority"),
       value: values.displayPriority || "average",
       options: DISPLAY_PRIORITIES.map((id) => ({
         value: id,
+        i18n: id === "average" ? "priority.average" : `source.${id}`,
         label: id === "average" ? t("priority.average") : t(`source.${id}`),
       })),
     },
     {
       kind: "select",
       id: "countryCode",
+      i18n: "field.country",
       label: t("field.country"),
       value: values.countryCode,
       options: uniqueCountries(model.catalog).map((entry) => ({
@@ -839,6 +921,7 @@ function generalRows(model) {
     {
       kind: "select",
       id: "cityEn",
+      i18n: "field.city",
       label: t("field.city"),
       value: values.cityEn,
       options: model.catalog
@@ -848,11 +931,12 @@ function generalRows(model) {
           label: language === "ko" ? entry.cityKo || entry.cityEn : entry.cityEn,
         })),
     },
-    { kind: "text", id: "search", label: t("field.search"), value: values.search || "" },
-    { kind: "action", id: "search-online", action: "search-online", icon: "search", label: t("tip.search") },
-    { kind: "number", id: "lat", label: t("field.lat"), value: values.lat ?? "" },
-    { kind: "number", id: "lon", label: t("field.lon"), value: values.lon ?? "" },
-    { kind: "check", id: "reopen", label: t("field.reopen"), checked: Boolean(values.reopen) },
+    { kind: "text", id: "search", i18n: "field.search", label: t("field.search"), value: values.search || "" },
+    { kind: "action", id: "search-online", action: "search-online", icon: "search", i18n: "tip.search", label: t("tip.search") },
+    { kind: "number", id: "lat", i18n: "field.lat", label: t("field.lat"), value: values.lat ?? "" },
+    { kind: "number", id: "lon", i18n: "field.lon", label: t("field.lon"), value: values.lon ?? "" },
+    { kind: "check", id: "reopen", i18n: "field.reopen", label: t("field.reopen"), checked: Boolean(values.reopen) },
+    { kind: "check", id: "openAtLogin", i18n: "field.openAtLogin", label: t("field.openAtLogin"), checked: Boolean(values.openAtLogin) },
   ];
 }
 
@@ -867,21 +951,25 @@ function appearanceRows(model) {
     {
       kind: "range",
       id: "transparency",
+      i18n: "field.transparency",
       label: t("field.transparency"),
       value: values.transparency,
       suffix: "%",
       decrease: t("tip.decrease"),
       increase: t("tip.increase"),
+      decreaseKey: "tip.decrease",
+      increaseKey: "tip.increase",
     },
     {
       kind: "theme-mode",
       id: "themeMode",
+      i18n: "field.theme",
       label: t("field.theme"),
       value: mode,
       options: [
-        { value: "light", icon: "sun", label: t("theme.modeLight") },
-        { value: "dark", icon: "moon", label: t("theme.modeDark") },
-        { value: CUSTOM_THEME_ID, icon: "palette", label: t("theme.modeCustom") },
+        { value: "light", icon: "sun", i18n: "theme.modeLight", label: t("theme.modeLight") },
+        { value: "dark", icon: "moon", i18n: "theme.modeDark", label: t("theme.modeDark") },
+        { value: CUSTOM_THEME_ID, icon: "palette", i18n: "theme.modeCustom", label: t("theme.modeCustom") },
       ],
     },
     {
@@ -913,16 +1001,19 @@ function wallpaperRows(model) {
     { kind: "hidden", id: "backgroundImage", value: "" },
     { kind: "hidden", id: "backgroundName", value: values.backgroundName || "" },
     { kind: "picture", id: "wallpaper", image: values.backgroundImage || "", name: values.backgroundName || "" },
-    { kind: "action", id: "pick-wallpaper", action: "pick-wallpaper", icon: "image", label: t("btn.chooseImage") },
-    { kind: "action", id: "clear-wallpaper", action: "clear-wallpaper", icon: "trash", label: t("btn.clearImage") },
+    { kind: "action", id: "pick-wallpaper", action: "pick-wallpaper", icon: "image", i18n: "btn.chooseImage", label: t("btn.chooseImage") },
+    { kind: "action", id: "clear-wallpaper", action: "clear-wallpaper", icon: "trash", i18n: "btn.clearImage", label: t("btn.clearImage") },
     {
       kind: "range",
       id: "backgroundOpacity",
+      i18n: "field.wallpaperOpacity",
       label: t("field.wallpaperOpacity"),
       value: values.backgroundOpacity ?? 40,
       suffix: "%",
       decrease: t("tip.decrease"),
       increase: t("tip.increase"),
+      decreaseKey: "tip.decrease",
+      increaseKey: "tip.increase",
     },
   ];
 }
@@ -935,6 +1026,7 @@ function fontRows(model) {
     {
       kind: "select",
       id: "fontFamily",
+      i18n: "field.fontFamily",
       label: t("field.fontFamily"),
       value: values.fontFamily,
       options: fonts.map((name) => ({ value: name, label: name })),
@@ -942,6 +1034,7 @@ function fontRows(model) {
     {
       kind: "number",
       id: "fontSize",
+      i18n: "field.fontSize",
       label: t("field.fontSize"),
       value: values.fontSize,
       min: 8,
@@ -949,13 +1042,16 @@ function fontRows(model) {
       step: 1,
       decrease: t("tip.decrease"),
       increase: t("tip.increase"),
+      decreaseKey: "tip.decrease",
+      increaseKey: "tip.increase",
     },
     {
       kind: "select",
       id: "fontStyle",
+      i18n: "field.fontStyle",
       label: t("field.fontStyle"),
       value: values.fontStyle,
-      options: FONT_STYLES.map((style) => ({ value: style, label: t(`style.${style}`) })),
+      options: FONT_STYLES.map((style) => ({ value: style, i18n: `style.${style}`, label: t(`style.${style}`) })),
     },
   ];
 }
@@ -965,7 +1061,7 @@ function dataRows(model) {
   const enabled = new Set(model.values.enabledSources || []);
   const status = model.values.sourceStatus || {};
   return [
-    { kind: "static", id: "sources", label: t("field.sources"), value: t("field.sourcesHint") },
+    { kind: "static", id: "sources", i18n: "field.sources", label: t("field.sources"), valueKey: "field.sourcesHint", value: t("field.sourcesHint") },
     ...SOURCE_IDS.map((id) => {
       const source = status[id];
       const state = !source ? "—" : source.ok ? t("source.ok") : t("source.fail");
@@ -973,15 +1069,18 @@ function dataRows(model) {
         kind: "source",
         id: `source-${id}`,
         source: id,
+        i18n: `source.${id}`,
         label: t(`source.${id}`),
+        detailKey: `source.${id}From`,
         detail: t(`source.${id}From`),
         checked: enabled.has(id),
         state,
+        stateKey: !source ? "" : source.ok ? "source.ok" : "source.fail",
         tone: !source ? "idle" : source.ok ? "ok" : "bad",
         stateTitle: source?.error || state,
       };
     }),
-    { kind: "static", id: "lastDirectory", label: t("field.lastDirectory"), value: model.values.lastDirectory || "—" },
+    { kind: "static", id: "lastDirectory", i18n: "field.lastDirectory", label: t("field.lastDirectory"), value: model.values.lastDirectory || "—" },
   ];
 }
 
@@ -1014,6 +1113,8 @@ function resetSettingsForm(el, spec) {
     if (node) node.value = value == null ? "" : String(value);
   };
   assign("language", defaults.language);
+  markChoice(el, "language");
+  assign("dateFormat", defaults.dateFormat);
   assign("units", defaults.units);
   assign("updateHours", defaults.updateHours);
   assign("displayPriority", defaults.displayPriority);
@@ -1025,6 +1126,8 @@ function resetSettingsForm(el, spec) {
   assign("search", "");
   const reopen = el.querySelector('[data-field="reopen"]');
   if (reopen) reopen.checked = defaults.reopenLast;
+  const openAtLogin = el.querySelector('[data-field="openAtLogin"]');
+  if (openAtLogin) openAtLogin.checked = defaults.openAtLogin;
   el.querySelectorAll('[data-group="source"]').forEach((box) => {
     box.checked = defaults.enabledSources.includes(box.dataset.source);
   });
@@ -1052,23 +1155,69 @@ function resetSettingsForm(el, spec) {
   }
 }
 
+function choiceRow(row) {
+  const current = row.value;
+  const buttons = (row.options || [])
+    .map(
+      (option) =>
+        `<button type="button" class="choice-btn" data-choice="${esc(row.id)}" data-value="${esc(option.value)}" data-gui="popup-button" title="${esc(option.label)}" aria-pressed="${option.value === current}">${flagIcon(option.flag)}<span>${esc(option.label)}</span></button>`,
+    )
+    .join("");
+  return `<div class="popup-row" data-row="${esc(row.id)}" style="${ROW}"><label${textKey(row.i18n)}>${esc(row.label)}</label><div class="choice-row" role="group" aria-label="${esc(row.label)}">${buttons}</div><input type="hidden" data-field="${esc(row.id)}" value="${esc(current)}"></div>`;
+}
+
+function markChoice(el, field) {
+  const value = el.querySelector(`[data-field="${field}"]`)?.value;
+  el.querySelectorAll(`[data-choice="${field}"]`).forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.value === value));
+  });
+}
+
+function wallpaperCard(row) {
+  const name = row.name || "—";
+  const image = row.image || "";
+  return `<div class="wallpaper-card" data-row="wallpaper" data-fit-height="112" data-gui="wallpaper-card" style="display:flex;align-items:center;gap:12px;height:112px;overflow:hidden;flex:0 0 auto"><div class="wallpaper-thumb" data-gui="wallpaper-preview" data-image="${image ? "yes" : "no"}" style="background-image:${cssImage(image)}"></div><span class="wallpaper-file" title="${esc(name)}">${esc(name)}</span></div>`;
+}
+
+function cssImage(image) {
+  const picture = String(image || "").replace(/['"\\\n\r]/g, "");
+  return picture ? `url('${picture}')` : "none";
+}
+
+function paintWallpaperPreview(el, image, name) {
+  const thumb = el.querySelector("[data-gui='wallpaper-preview']");
+  if (thumb) {
+    const picture = image || "";
+    thumb.dataset.image = picture ? "yes" : "no";
+    thumb.style.backgroundImage = cssImage(picture);
+  }
+  const file = el.querySelector("[data-row='wallpaper'] .wallpaper-file");
+  if (file) {
+    const label = name || "—";
+    file.textContent = label;
+    file.title = label;
+  }
+}
+
 function renderRow(row) {
   const style = ` style="${ROW}"`;
   if (row.kind === "about") {
     return `<div class="about-intro" data-row="${esc(row.id)}"><img class="about-app-icon" src="${esc(row.icon)}" alt="" width="72" height="72"><div class="about-copy"><strong class="about-name">${esc(row.name)}</strong><p class="about-desc">${esc(row.description)}</p></div></div>`;
   }
   if (row.kind === "hidden") return `<input type="hidden" data-field="${esc(row.id)}" value="${esc(row.value || "")}">`;
+  if (row.kind === "picture") return wallpaperCard(row);
+  if (row.kind === "choice") return choiceRow(row);
   if (row.kind === "select") {
     const options = (row.options || [])
-      .map((option) => `<option value="${esc(option.value)}"${option.value === row.value ? " selected" : ""}>${esc(option.label)}</option>`)
+      .map((option) => `<option value="${esc(option.value)}"${textOnly(option.i18n)}${option.value === row.value ? " selected" : ""}>${esc(option.label)}</option>`)
       .join("");
-    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><select data-field="${esc(row.id)}" ${row.setup ? 'data-setup="1"' : ""} title="${esc(row.label)}">${options}</select></div>`;
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label${textKey(row.i18n)}>${esc(row.label)}</label><select data-field="${esc(row.id)}" ${row.setup ? 'data-setup="1"' : ""} title="${esc(row.label)}"${titleOnly(row.i18n)}>${options}</select></div>`;
   }
   if (row.kind === "source") {
-    return `<label class="popup-row source-row" data-row="${esc(row.id)}"${style}><input type="checkbox" data-field="${esc(row.source)}" data-group="source" data-source="${esc(row.source)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}><span class="source-name">${esc(row.label)}</span><span class="source-detail" title="${esc(row.detail || "")}">${esc(row.detail || "")}</span><span class="source-state is-${esc(row.tone || "idle")}" data-gui="source-state" title="${esc(row.stateTitle || row.state || "")}">${esc(row.state || "—")}</span></label>`;
+    return `<label class="popup-row source-row" data-row="${esc(row.id)}"${style}><input type="checkbox" data-field="${esc(row.source)}" data-group="source" data-source="${esc(row.source)}" title="${esc(row.label)}"${titleOnly(row.i18n)}${row.checked ? " checked" : ""}><span class="source-name"${textOnly(row.i18n)}>${esc(row.label)}</span><span class="source-detail" title="${esc(row.detail || "")}"${textOnly(row.detailKey)}>${esc(row.detail || "")}</span><span class="source-state is-${esc(row.tone || "idle")}" data-gui="source-state" title="${esc(row.stateTitle || row.state || "")}"${textOnly(row.stateKey)}>${esc(row.state || "—")}</span></label>`;
   }
   if (row.kind === "check") {
-    return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="checkbox" data-field="${esc(row.id)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;
+    return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span${textKey(row.i18n)}>${esc(row.label)}</span><input type="checkbox" data-field="${esc(row.id)}" title="${esc(row.label)}"${titleOnly(row.i18n)}${row.checked ? " checked" : ""}></label>`;
   }
   if (row.kind === "radio") {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="radio" name="${esc(row.name)}" value="${esc(row.value)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;
@@ -1076,27 +1225,27 @@ function renderRow(row) {
   if (row.kind === "range") {
     const decrease = row.decrease || "−";
     const increase = row.increase || "+";
-    return `<div class="popup-row range-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="range-control"><button type="button" class="step-btn" data-step="-5" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(decrease)}" aria-label="${esc(decrease)}">−</button><span class="range-end">0</span><input type="range" min="0" max="100" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}"><span class="range-end">100</span><button type="button" class="step-btn" data-step="5" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(increase)}" aria-label="${esc(increase)}">+</button></div><output data-out="${esc(row.id)}">${esc(row.value)}${esc(row.suffix || "")}</output></div>`;
+    return `<div class="popup-row range-row" data-row="${esc(row.id)}"${style}><label${textKey(row.i18n)}>${esc(row.label)}</label><div class="range-control"><button type="button" class="step-btn" data-step="-5" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(decrease)}" aria-label="${esc(decrease)}"${titleOnly(row.decreaseKey)}>−</button><span class="range-end">0</span><input type="range" min="0" max="100" data-field="${esc(row.id)}" title="${esc(row.label)}"${titleOnly(row.i18n)} value="${esc(row.value)}"><span class="range-end">100</span><button type="button" class="step-btn" data-step="5" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(increase)}" aria-label="${esc(increase)}"${titleOnly(row.increaseKey)}>+</button></div><output data-out="${esc(row.id)}">${esc(row.value)}${esc(row.suffix || "")}</output></div>`;
   }
   if (row.kind === "theme-mode") {
     const buttons = row.options
       .map(
         (option) =>
-          `<button type="button" class="seg-btn" data-theme-mode="${esc(option.value)}" data-gui="popup-button" title="${esc(option.label)}" aria-pressed="${option.value === row.value}">${icon(option.icon)}<span>${esc(option.label)}</span></button>`,
+          `<button type="button" class="seg-btn" data-theme-mode="${esc(option.value)}" data-gui="popup-button" title="${esc(option.label)}"${titleOnly(option.i18n)} aria-pressed="${option.value === row.value}">${icon(option.icon)}<span${textOnly(option.i18n)}>${esc(option.label)}</span></button>`,
       )
       .join("");
-    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="segmented" role="group">${buttons}</div></div>`;
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label${textKey(row.i18n)}>${esc(row.label)}</label><div class="segmented" role="group">${buttons}</div></div>`;
   }
   if (row.kind === "themes") return themeBlock(row);
   if (row.kind === "number" && row.decrease) {
     const amount = Number(row.step) || 1;
     const decrease = row.decrease || "−";
     const increase = row.increase || "+";
-    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="range-control"><button type="button" class="step-btn" data-step="-${amount}" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(decrease)}" aria-label="${esc(decrease)}">−</button><input type="number" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}" min="${esc(row.min)}" max="${esc(row.max)}" step="${amount}"><button type="button" class="step-btn" data-step="${amount}" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(increase)}" aria-label="${esc(increase)}">+</button></div></div>`;
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label${textKey(row.i18n)}>${esc(row.label)}</label><div class="range-control"><button type="button" class="step-btn" data-step="-${amount}" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(decrease)}" aria-label="${esc(decrease)}"${titleOnly(row.decreaseKey)}>−</button><input type="number" data-field="${esc(row.id)}" title="${esc(row.label)}"${titleOnly(row.i18n)} value="${esc(row.value)}" min="${esc(row.min)}" max="${esc(row.max)}" step="${amount}"><button type="button" class="step-btn" data-step="${amount}" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(increase)}" aria-label="${esc(increase)}"${titleOnly(row.increaseKey)}>+</button></div></div>`;
   }
   if (row.kind === "number" || row.kind === "date" || row.kind === "text") {
     const type = row.kind === "date" ? "date" : row.kind === "text" ? "text" : "number";
-    return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="${type}" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}"${type === "number" ? ' step="any"' : ""}${row.min != null ? ` min="${row.min}" max="${row.max}"` : ""}></label>`;
+    return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span${textKey(row.i18n)}>${esc(row.label)}</span><input type="${type}" data-field="${esc(row.id)}" title="${esc(row.label)}"${titleOnly(row.i18n)} value="${esc(row.value)}"${type === "number" ? ' step="any"' : ""}${row.min != null ? ` min="${row.min}" max="${row.max}"` : ""}></label>`;
   }
   if (row.kind === "input" && row.multiline) {
     return `<label class="text-block" data-row="${esc(row.id)}" data-fit-height="${ERROR_TEXT_HEIGHT}" style="display:flex;flex-direction:column;gap:4px;height:${ERROR_TEXT_HEIGHT}px;overflow:hidden;flex:0 0 auto"><span>${esc(row.label)}</span><textarea readonly wrap="off" data-field="${esc(row.id)}" title="${esc(row.label)}"></textarea></label>`;
@@ -1105,7 +1254,7 @@ function renderRow(row) {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="text" readonly data-field="${esc(row.id)}" title="${esc(row.label)}"></label>`;
   }
   if (row.kind === "action") {
-    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><span></span><button type="button" data-action="${esc(row.action)}" data-gui="popup-button" title="${esc(row.label)}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap">${icon(row.icon || "dot")}<span class="menu-label">${esc(row.label)}</span></button></div>`;
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><span></span><button type="button" data-action="${esc(row.action)}" data-gui="popup-button" title="${esc(row.label)}"${titleOnly(row.i18n)} style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap">${icon(row.icon || "dot")}<span class="menu-label"${textOnly(row.i18n)}>${esc(row.label)}</span></button></div>`;
   }
   if (row.kind === "recent") {
     return `<div class="popup-row" data-row="${esc(row.id)}" data-recent="1"${style}><span class="path" title="${esc(row.label)}">${esc(row.label)}</span><button type="button" class="icon-btn" data-action="recent-open" data-path="${esc(row.path)}" data-gui="popup-button" title="${esc(row.openTip || row.label)}" style="white-space:nowrap">${icon("open")}</button><button type="button" class="icon-btn" data-action="recent-delete" data-path="${esc(row.path)}" data-gui="popup-button" title="${esc(row.tip || row.label)}" style="white-space:nowrap">${icon("trash")}</button></div>`;
@@ -1114,7 +1263,7 @@ function renderRow(row) {
     return `<div class="popup-row" data-row="bar"${style}><div class="bar-track" style="flex:1;height:8px;overflow:hidden"><div class="bar-fill" style="width:0%;height:8px"></div></div><span data-progress-pct>0%</span></div>`;
   }
   const tone = row.tone ? ` data-tone="${esc(row.tone)}"` : "";
-  return `<div class="popup-row" data-row="${esc(row.id || "static")}"${tone}${style}><span>${esc(row.label || "")}</span><span title="${esc(row.value || "")}">${esc(row.value || "")}</span></div>`;
+  return `<div class="popup-row" data-row="${esc(row.id || "static")}"${tone}${style}><span${textKey(row.i18n)}>${esc(row.label || "")}</span><span${textKey(row.valueKey)} title="${esc(row.value || "")}">${esc(row.value || "")}</span></div>`;
 }
 
 function swatch(id, name, colors, selected) {
@@ -1129,14 +1278,14 @@ function themeBlock(row) {
       .map((theme) => swatch(theme.id, theme.name[language] || theme.name.en, theme, theme.id === value))
       .join("")}</div>`;
   const customColors = themeColors(CUSTOM_THEME_ID, custom);
-  const colorRow = (id, label, current) =>
-    `<label class="popup-row" data-row="${id}" style="${ROW}"><span>${esc(label)}</span><input type="color" data-field="${id}" title="${esc(label)}" value="${esc(current)}"><code data-out="${id}">${esc(current)}</code></label>`;
+  const colorRow = (id, label, current, key) =>
+    `<label class="popup-row" data-row="${id}" style="${ROW}"><span${textKey(key)}>${esc(label)}</span><input type="color" data-field="${id}" title="${esc(label)}"${titleOnly(key)} value="${esc(current)}"><code data-out="${id}">${esc(current)}</code></label>`;
   const customGroup = `<div class="custom-theme" data-theme-group="${CUSTOM_THEME_ID}" ${mode === CUSTOM_THEME_ID ? "" : "hidden"} style="display:${mode === CUSTOM_THEME_ID ? "flex" : "none"};flex-direction:column">
-    <div class="custom-head">${swatch(CUSTOM_THEME_ID, t("custom"), customColors, value === CUSTOM_THEME_ID)}<span class="custom-hint">${esc(t("customHint"))}</span></div>
-    <div class="popup-row" data-row="customMode" style="${ROW}"><label>${esc(t("customMode"))}</label><select data-field="customMode" title="${esc(t("customMode"))}"><option value="dark"${custom.mode === "dark" ? " selected" : ""}>${esc(t("modeDark"))}</option><option value="light"${custom.mode === "light" ? " selected" : ""}>${esc(t("modeLight"))}</option></select></div>
-    ${colorRow("customBg", t("customBg"), custom.bg)}
-    ${colorRow("customText", t("customText"), custom.text)}
-    ${colorRow("customAccent", t("customAccent"), custom.accent)}
+    <div class="custom-head">${swatch(CUSTOM_THEME_ID, t("custom"), customColors, value === CUSTOM_THEME_ID)}<span class="custom-hint"${textOnly("theme.customHint")}>${esc(t("customHint"))}</span></div>
+    <div class="popup-row" data-row="customMode" style="${ROW}"><label${textKey("field.customMode")}>${esc(t("customMode"))}</label><select data-field="customMode" title="${esc(t("customMode"))}"${titleOnly("field.customMode")}><option value="dark"${textOnly("theme.modeDark")}${custom.mode === "dark" ? " selected" : ""}>${esc(t("modeDark"))}</option><option value="light"${textOnly("theme.modeLight")}${custom.mode === "light" ? " selected" : ""}>${esc(t("modeLight"))}</option></select></div>
+    ${colorRow("customBg", t("customBg"), custom.bg, "field.customBg")}
+    ${colorRow("customText", t("customText"), custom.text, "field.customText")}
+    ${colorRow("customAccent", t("customAccent"), custom.accent, "field.customAccent")}
   </div>`;
   return `<div class="theme-block" data-row="themes" data-fit-height="${THEME_GRID_HEIGHT}" style="height:${THEME_GRID_HEIGHT}px;overflow:hidden;flex:0 0 auto"><input type="hidden" data-field="theme" value="${esc(value)}">${group("light", LIGHT_THEMES)}${group("dark", DARK_THEMES)}${customGroup}</div>`;
 }
@@ -1208,6 +1357,55 @@ function refillCountries(el, spec) {
   if ([...country.options].some((option) => option.value === current)) country.value = current;
 }
 
+export function applyPopupLanguage(root, spec) {
+  const language = spec?.language === "en" ? "en" : "ko";
+  if (spec) spec.language = language;
+  const i18n = createI18n(language);
+  const text = (key) => (key ? i18n.t(key) : "");
+  root.querySelectorAll("[data-i18n]").forEach((node) => {
+    const next = text(node.dataset.i18n);
+    if (!next || next.startsWith("«")) return;
+    node.textContent = next;
+  });
+  root.querySelectorAll("[data-i18n-title]").forEach((node) => {
+    const next = text(node.dataset.i18nTitle);
+    if (!next || next.startsWith("«")) return;
+    node.title = next;
+    if (node.hasAttribute("aria-label")) node.setAttribute("aria-label", next);
+  });
+  for (const theme of [...LIGHT_THEMES, ...DARK_THEMES]) {
+    const button = root.querySelector(`.swatch[data-theme-id="${theme.id}"]`);
+    if (!button) continue;
+    const name = theme.name?.[language] || theme.name?.en || "";
+    if (!name) continue;
+    button.title = name;
+    const label = button.querySelector(".swatch-name");
+    if (label) label.textContent = name;
+  }
+  const customName = text("theme.custom");
+  const custom = root.querySelector(`.swatch[data-theme-id="${CUSTOM_THEME_ID}"]`);
+  if (custom && customName && !customName.startsWith("«")) {
+    custom.title = customName;
+    const label = custom.querySelector(".swatch-name");
+    if (label) label.textContent = customName;
+  }
+  if (spec?.catalog) {
+    refillCountries(root, spec);
+    refillCities(root, spec);
+  }
+}
+
+export function applyPopupFont(el, values = {}) {
+  if (!el) return;
+  const size = clamp(values.fontSize, 8, 72);
+  const style = FONT_STYLES.includes(values.fontStyle) ? values.fontStyle : "normal";
+  const family = values.fontFamily || "";
+  el.style.fontFamily = family ? `"${family}", sans-serif` : "";
+  el.style.fontSize = `${size}px`;
+  el.style.fontWeight = style === "bold" || style === "bolditalic" ? "700" : "400";
+  el.style.fontStyle = style === "italic" || style === "bolditalic" ? "italic" : "normal";
+}
+
 function applyPatch(el, patch, spec) {
   if (!patch) return;
   if (patch.catalog && spec) {
@@ -1239,17 +1437,28 @@ function applyPatch(el, patch, spec) {
     const message = el.querySelector('[data-row="message"] span:last-child');
     if (message && patch.message) message.textContent = patch.message;
   }
-  if (patch.backgroundName != null) {
-    const row = el.querySelector('[data-row="wallpaper"] span:last-child');
-    if (row) row.textContent = patch.backgroundName || "—";
+  if (patch.backgroundName != null || patch.backgroundImage != null) {
     const name = el.querySelector('[data-field="backgroundName"]');
-    if (name) name.value = patch.backgroundName || "";
-    const edited = el.querySelector('[data-field="wallpaperEdited"]');
-    if (edited) edited.value = "1";
-  }
-  if (patch.backgroundImage != null) {
     const image = el.querySelector('[data-field="backgroundImage"]');
-    if (image) image.value = patch.backgroundImage || "";
+    const edited = el.querySelector('[data-field="wallpaperEdited"]');
+    if (patch.backgroundName != null && name) name.value = patch.backgroundName || "";
+    if (patch.backgroundImage != null && image) image.value = patch.backgroundImage || "";
+    if (edited) edited.value = "1";
+    paintWallpaperPreview(
+      el,
+      patch.backgroundImage != null ? patch.backgroundImage : image?.value || "",
+      patch.backgroundName != null ? patch.backgroundName : name?.value || "",
+    );
+  }
+  if (patch.markup != null) {
+    const fit = el.querySelector(".forecast-fit");
+    if (fit) fit.innerHTML = patch.markup;
+    if (spec) spec.markup = patch.markup;
+  }
+  if (patch.when != null) {
+    const label = el.querySelector(".popup-when");
+    if (label) label.textContent = patch.when || "";
+    if (spec) spec.when = patch.when;
   }
   if (patch.html) {
     el._html = patch.html;
