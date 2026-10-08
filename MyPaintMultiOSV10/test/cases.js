@@ -206,6 +206,42 @@
         input.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
         assert(api.shapes()[0].text === "hello", api.shapes()[0].text);
       }),
+      test("the toolbar and the context menu set the text font and size", (api, doc) => {
+        freshDoc(api);
+        const down = doc.querySelector('#toolbar [data-action="fontDown"]');
+        const up = doc.querySelector('#toolbar [data-action="fontUp"]');
+        const now = doc.getElementById("fontSizeValue");
+        const pick = doc.querySelector("#toolbar .font-pick");
+        assert(down && down.textContent === "−", "no smaller-text button");
+        assert(up && up.textContent === "+", "no larger-text button");
+        assert(now && pick, "the font controls are missing");
+        const start = Number(now.textContent);
+        up.click();
+        assert(api.getSettings().fontSize === start + 1, String(api.getSettings().fontSize));
+        assert(doc.getElementById("fontSizeValue").textContent === String(start + 1));
+        api.setTool("text");
+        const shape = api.click(40, 50);
+        doc.getElementById("textEditor").value = "가";
+        doc.getElementById("textEditor").dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        doc.querySelector('#toolbar [data-action="fontUp"]').click();
+        assert(shape.fontSize === start + 2, String(shape.fontSize));
+        const family = doc.querySelector("#toolbar .font-pick");
+        family.value = "Georgia";
+        family.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
+        assert(shape.fontFamily === "Georgia", shape.fontFamily);
+        const menu = api.openContextAt(40, 50);
+        ["fontDown", "fontUp", "fontMenu"].forEach((name) => {
+          assert(menu.querySelector('[data-action="' + name + '"]'), name + " is missing from the context menu");
+        });
+        menu.querySelector('[data-action="fontDown"]').click();
+        assert(shape.fontSize === start + 1, String(shape.fontSize));
+        api.run("fontMenu");
+        const fonts = api.getMenu();
+        assert(fonts && fonts.querySelector('[data-action="font:Arial"]'), "the font list is missing");
+        fonts.querySelector('[data-action="font:Arial"]').click();
+        assert(shape.fontFamily === "Arial", shape.fontFamily);
+        api.closeMenu();
+      }),
       test("the fill tool repaints a shape and then the canvas", (api) => {
         freshDoc(api);
         api.setTool("rect");
@@ -1028,7 +1064,7 @@
         assert(buttons.length >= 15, String(buttons.length));
         buttons.forEach((button) => {
           assert(button.title && button.title.length > 0, (button.dataset.action || button.id) + " has no tooltip");
-          assert(button.querySelector("svg") || button.id === "zoomValue" || button.classList.contains("lang-btn"), (button.dataset.action || "") + " has no icon");
+          assert(button.querySelector("svg") || button.id === "zoomValue" || button.id === "fontSizeValue" || button.classList.contains("font-step") || button.classList.contains("lang-btn"), (button.dataset.action || "") + " has no icon");
         });
       }),
       test("the toolbar fits inside the smallest window", (api, doc) => {

@@ -214,6 +214,35 @@
     persistSession();
   }
 
+  function activeTextShapes() {
+    return selectedShapes().filter((shape) => shape.kind === "text");
+  }
+
+  function activeFontSize() {
+    const shapes = activeTextShapes();
+    return shapes.length ? shapes[0].fontSize : settings.fontSize;
+  }
+
+  function activeFontFamily() {
+    const shapes = activeTextShapes();
+    return shapes.length ? shapes[0].fontFamily : settings.fontFamily;
+  }
+
+  function fontToolbar() {
+    const family = activeFontFamily();
+    const size = activeFontSize();
+    const names = fontCatalog.indexOf(family) >= 0 ? fontCatalog : [family].concat(fontCatalog);
+    const down = size <= 6 ? " disabled" : "";
+    const up = size >= 400 ? " disabled" : "";
+    return '<span class="font-bar">' +
+      '<select class="font-pick" data-font="family" title="' + esc(t("font.family")) + '" aria-label="' + esc(t("font.family")) + '">' +
+      names.map((name) => optionTag(name, name, family)).join("") + "</select>" +
+      '<button type="button" class="tool-btn font-step" data-action="fontDown" title="' + esc(t("font.smaller")) + '" aria-label="' + esc(t("font.smaller")) + '"' + down + ">−</button>" +
+      '<button type="button" class="tool-btn font-size" id="fontSizeValue" title="' + esc(t("font.size")) + '" aria-label="' + esc(t("font.size") + " " + size) + '">' + size + "</button>" +
+      '<button type="button" class="tool-btn font-step" data-action="fontUp" title="' + esc(t("font.larger")) + '" aria-label="' + esc(t("font.larger")) + '"' + up + ">+</button>" +
+      "</span>";
+  }
+
   function button(action, icon, label, extra) {
     return '<button type="button" class="tool-btn" data-action="' + action + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + Icons.icon(icon) + (extra || "") + "</button>";
   }
@@ -243,6 +272,7 @@
       button("zoomIn", "zoomIn", t("view.zoomIn")),
       toggleButton("toggleGrid", "grid", t("view.grid"), settings.showGrid),
       toggleButton("toggleShapes", "shapes", t("view.shapes"), settings.showShapes !== false),
+      fontToolbar(),
       '<i class="sep"></i>',
       button("print", "print", t("file.print")),
       '<span class="toolbar-end">' + toolbarActions().map(toolActionButton).join("") + "</span>",
@@ -895,10 +925,21 @@
       menuItem("eraseRegion", "marquee", t("edit.eraseRegion"), "", !region),
       menuItem("bringForward", "layerUp", t("draw.bringForward"), "", !shape),
       menuItem("sendBackward", "layerDown", t("draw.sendBackward"), "", !shape),
+    ].concat(textContextItems()).concat([
       menuItem("palette", "palette", t("draw.palette")),
       menuItem("canvasSize", "canvas", t("draw.canvasSize")),
       menuItem("export", "download", t("file.export")),
       menuItem("print", "print", t("file.print"), "Ctrl+P"),
+    ]);
+  }
+
+  function textContextItems() {
+    const shape = activeTextShapes()[0];
+    if (!shape) return [];
+    return [
+      menuItem("fontDown", "text", t("font.smaller"), "", shape.fontSize <= 6),
+      menuItem("fontUp", "text", t("font.larger"), "", shape.fontSize >= 400),
+      menuItem("fontMenu", "text", t("font.family")),
     ];
   }
 
@@ -1735,6 +1776,67 @@
     saveSettings();
     applyVisual();
     return { family: settings.fontFamily, size: settings.fontSize, style: settings.fontStyle };
+  }
+
+  function applyTextFont(patch) {
+    const editing = textEditing;
+    const shapes = activeTextShapes();
+    if (patch.fontFamily) settings.fontFamily = patch.fontFamily;
+    if (patch.fontSize != null) settings.fontSize = clamp(patch.fontSize, 6, 400);
+    if (shapes.length) {
+      pushUndo();
+      shapes.forEach((shape) => {
+        if (patch.fontFamily) shape.fontFamily = settings.fontFamily;
+        if (patch.fontSize != null) shape.fontSize = settings.fontSize;
+        Paint.normalizeShape(shape);
+      });
+      markDirty();
+    }
+    saveSettings();
+    applyVisual();
+    if (editing) layoutTextEditor();
+    renderBoard();
+    renderRight();
+    renderToolbar();
+    const editor = $("textEditor");
+    if (editing && editor && textEditing === editing) editor.focus();
+    return { family: settings.fontFamily, size: activeFontSize() };
+  }
+
+  function openFontMenu(x, y) {
+    const width = 240;
+    const full = Math.max(1, fontCatalog.length) * metrics.MENU_ROW + metrics.MENU_PAD + 2;
+    const height = Math.min(full, Math.max(metrics.MENU_ROW + metrics.MENU_PAD, window.innerHeight - 16));
+    const place = fitMenu(x, y, width, height);
+    const current = activeFontFamily();
+    const html = fontCatalog.map((name) => (
+      '<button type="button" class="menu-item' + (name === current ? " on" : "") + '" data-action="font:' + esc(name) + '" title="' + esc(name) + '">' +
+      '<span class="ico">' + Icons.icon("text") + "</span>" +
+      '<span class="label">' + esc(name) + "</span></button>"
+    )).join("");
+    if (window.desktop && window.desktop.openMenu && !TEST) {
+      window.desktop.openMenu({
+        id: "font",
+        x: place.x,
+        y: place.y,
+        width: width,
+        height: height,
+        html: themeStyle() + '<div class="menu font-menu">' + html + "</div>",
+      });
+      return null;
+    }
+    closeMenu();
+    const el = document.createElement("div");
+    el.className = "menu font-menu";
+    el.dataset.menu = "font";
+    el.style.left = place.x + "px";
+    el.style.top = place.y + "px";
+    el.style.width = width + "px";
+    el.style.height = height + "px";
+    el.innerHTML = html;
+    $("menuLayer").appendChild(el);
+    menuEl = el;
+    return el;
   }
 
   function setTool(id) {
@@ -3250,6 +3352,9 @@
     settings: () => openPopup("settings"),
     about: () => openPopup("about"),
     language: () => setLanguage(settings.language === "en" ? "ko" : "en"),
+    fontDown: () => applyTextFont({ fontSize: activeFontSize() - 1 }),
+    fontUp: () => applyTextFont({ fontSize: activeFontSize() + 1 }),
+    fontMenu: () => openFontMenu(80, 48),
     themeCycle: () => setTheme(Themes.next(settings.theme)),
     themeMenu: () => {
       const place = anchorUnder("[data-action='themeMenu']", 0);
@@ -3297,6 +3402,13 @@
       if (action.startsWith("removeShape:")) { closeMenu(); return removeShapeById(action.slice(12)); }
       if (action.startsWith("shape:")) { closeMenu(); return selectShape(action.slice(6)); }
       if (action.startsWith("theme:")) { closeMenu(); return setTheme(action.slice(6)); }
+      if (action === "fontMenu") {
+        const node = document.querySelector("[data-action='fontMenu']");
+        const rect = node ? node.getBoundingClientRect() : { left: 80, bottom: 48 };
+        closeMenu();
+        return openFontMenu(rect.left, rect.bottom);
+      }
+      if (action.startsWith("font:")) { closeMenu(); return applyTextFont({ fontFamily: action.slice(5) }); }
       const fn = actions[action];
       if (!fn) throw new Error("Unknown action: " + action);
       closeMenu();
@@ -3714,6 +3826,10 @@
     $("toolbar").addEventListener("click", (event) => {
       const btn = event.target.closest("[data-action]");
       if (btn) runAction(btn.dataset.action);
+    });
+    $("toolbar").addEventListener("change", (event) => {
+      const pick = event.target.closest("[data-font='family']");
+      if (pick) applyTextFont({ fontFamily: pick.value });
     });
     $("menubar").addEventListener("click", (event) => {
       const control = event.target.closest("[data-window]");
