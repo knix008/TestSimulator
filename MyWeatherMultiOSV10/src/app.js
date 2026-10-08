@@ -35,7 +35,7 @@ import {
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, clampWindowSize, sceneFit } from "./ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, clampWindowSize, isCompactWidth, sceneFit } from "./ui/window-spec.js";
 import { forecastFitHeight, forecastWhen, renderForecastHtml, renderWeatherHtml } from "./ui/weather-view.js";
 
 export function createApp(container, options = {}) {
@@ -497,7 +497,20 @@ class WeatherApp {
     this.syncWindowTitle();
   }
 
+  /**
+   * Narrow window: the title bar tightens its padding and gaps so every button
+   * keeps its full size. The window's own width is the measure; the shell's
+   * border would lose two pixels and tighten the row one pixel early.
+   */
+  applyTitleRoom() {
+    if (!this.frame) return;
+    const measured = this.platform.nativeWindow ? this.frame.clientWidth || 0 : 0;
+    const width = measured > 0 ? measured : this.shellSize.width;
+    this.frame.dataset.compact = isCompactWidth(width) ? "true" : "false";
+  }
+
   syncWindowTitle() {
+    this.applyTitleRoom();
     const name = this.root.querySelector("[data-gui='window-title']");
     if (!name) return;
     if (this.minimized) {

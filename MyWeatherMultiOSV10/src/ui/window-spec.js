@@ -16,13 +16,52 @@ const TOOLBAR_HEIGHT = 46;
 export const CONTENT_PADDING = { top: 2, right: 16, bottom: 2, left: 16 };
 
 /**
+ * The title bar, measured from the sizes `styles.css` gives its pieces. The
+ * window may be narrowed until these stop fitting, and no further: a button
+ * that cannot be clicked is worse than a window that will not shrink.
+ */
+const TOOL_BUTTON = 32;
+const WINDOW_BUTTON = 30;
+const TOOL_COUNT = 3;
+const CORNER_BUTTONS = 2;
+const WINDOW_BUTTONS = 3;
+const CORNER_SEPARATOR = 1;
+const TITLE_ICON = 18;
+const SHELL_BORDER = 2;
+
+/** Roomy spacing: what `.shell-top` and its groups use by default. */
+const ROOMY = { padding: 20, groupGap: 6, toolGap: 4, cornerGap: 2, separatorMargin: 4 };
+/** Compact spacing: the narrow-window rules in `styles.css`. */
+const COMPACT = { padding: 12, groupGap: 4, toolGap: 4, cornerGap: 2, separatorMargin: 2 };
+
+function titleBarWidth(space) {
+  const tools = TOOL_COUNT * TOOL_BUTTON + (TOOL_COUNT - 1) * space.toolGap;
+  const corner =
+    CORNER_BUTTONS * TOOL_BUTTON +
+    WINDOW_BUTTONS * WINDOW_BUTTON +
+    CORNER_SEPARATOR +
+    2 * space.separatorMargin +
+    (CORNER_BUTTONS + WINDOW_BUTTONS) * space.cornerGap;
+  return space.padding + TITLE_ICON + space.groupGap + tools + space.groupGap + corner + SHELL_BORDER;
+}
+
+/**
  * Narrowest main window that keeps the icon and every toolbar button visible.
- * The program name is shown only when the window is wider than this.
- * Shell padding 20, gaps 12, icon 18, three forecast buttons 104,
- * corner buttons and separator 173, and the 1px shell border on each side.
+ * The spacing has tightened to its compact step and the program name has
+ * stepped aside; the app icon stays, it is how the window is recognised.
  */
 export function toolbarMinWidth() {
-  return 329;
+  return titleBarWidth(COMPACT);
+}
+
+/** From this width up the title bar can afford its roomy padding and gaps. */
+export function roomyMinWidth() {
+  return titleBarWidth(ROOMY);
+}
+
+/** True while the window is too narrow for the roomy spacing. */
+export function isCompactWidth(width) {
+  return Math.round(Number(width) || 0) < roomyMinWidth();
 }
 
 export const WINDOW_MIN = {

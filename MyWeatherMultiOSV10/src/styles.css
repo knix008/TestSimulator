@@ -143,7 +143,6 @@ body[data-host="desktop"] .window-shell { box-shadow: inset 0 1px 0 rgba(255, 25
 .title-icon { width: 18px; height: 18px; flex: 0 0 auto; border-radius: 4px; display: block; -webkit-user-drag: none; user-select: none; }
 .title-name { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .title-name[hidden], .app-frame[data-minimized="true"] .title-name { display: none; }
-
 .shell-top {
   position: relative;
   z-index: 2;
@@ -200,6 +199,15 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .tool-btn:hover, .tool-btn:focus-visible { background: var(--surface); }
 .corner-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; margin-left: auto; }
 .corner-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line); }
+
+/*
+ * Narrow window: the program name has stepped aside and the spacing tightens,
+ * so every toolbar button keeps its full size. The app icon always stays - it
+ * is how the window is recognised, minimised or not.
+ */
+.app-frame[data-compact="true"] .titlebar { gap: 0; }
+.app-frame[data-compact="true"] .shell-top { padding: 0 6px; gap: 4px; }
+.app-frame[data-compact="true"] .corner-sep { margin: 0 2px; }
 
 .icon-btn {
   width: 32px;

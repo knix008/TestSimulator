@@ -21,7 +21,7 @@ import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconF
 import { layoutMenu, menuWindowOptions, placeBeside, popupWindowOptions } from "../../src/ui/menu-layout.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, isCompactWidth, placeWindow, recordedWindowPlacement, roomyMinWidth, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { aggregate, presentWeather } from "../../src/weather/aggregate.js";
 import { formatTemp } from "../../src/weather/format.js";
@@ -385,10 +385,32 @@ export function registerLogic(h) {
     const next = layoutTabScroller(1, 8, 300, 148);
     assert.equal(next.showPrev, true);
   });
+  h.test("the narrowest window is exactly what the title bar buttons need", () => {
+    // Sizes come from styles.css: .tool-btn and .icon-btn are 32px, .win-btn
+    // is 30px, the separator is 1px, and the shell adds a 1px border a side.
+    const tools = 3 * 32 + 2 * 4;
+    const corner = (separatorMargin, gap) => 2 * 32 + 3 * 30 + 1 + 2 * separatorMargin + 5 * gap;
+    // Compact: 6px padding a side, 4px between the groups, 2px separator margins.
+    // The app icon is always there, so it counts at both spacings.
+    const compact = 12 + (18 + 4) + tools + 4 + corner(2, 2) + 2;
+    // Roomy: 12px/8px padding, 6px gaps, 4px separator margins, plus the icon.
+    const roomy = 20 + (18 + 6) + tools + 6 + corner(4, 2) + 2;
+    assert.equal(toolbarMinWidth(), compact);
+    assert.equal(roomyMinWidth(), roomy);
+    assert.equal(WINDOW_MIN.width, compact);
+    // The same floor the stock quotes window has, and narrower than the old 329.
+    assert.equal(WINDOW_MIN.width, 313);
+    assert.ok(toolbarMinWidth() < 329, `${toolbarMinWidth()} is narrower than the old 329`);
+    // The spacing tightens only while the roomy row no longer fits.
+    assert.equal(isCompactWidth(roomyMinWidth()), false);
+    assert.equal(isCompactWidth(roomyMinWidth() - 1), true);
+    assert.equal(isCompactWidth(toolbarMinWidth()), true);
+    assert.equal(isCompactWidth(WINDOW_DEFAULT.width), false);
+  });
   h.test("window size is clamped to a usable minimum", () => {
     assert.deepEqual(clampWindowSize(null), WINDOW_DEFAULT);
     assert.equal(WINDOW_MIN.width, toolbarMinWidth());
-    assert.ok(WINDOW_MIN.width >= 320);
+    assert.ok(WINDOW_MIN.width >= 3 * 32 + 2 * 32 + 3 * 30, "every title bar button still fits");
     assert.equal(WINDOW_MIN.height, 46 + CONTENT_PADDING.top + CONTENT_PADDING.bottom + Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE));
     assert.equal(WINDOW_MIN.height, 150);
     assert.deepEqual(clampWindowSize({ width: 10, height: 10 }), WINDOW_MIN);

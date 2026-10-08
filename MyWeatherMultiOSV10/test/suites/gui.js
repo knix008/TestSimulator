@@ -84,9 +84,17 @@ export function registerGui(h) {
       pointer(document, "pointermove", 160, 140);
       assert.equal(app.shell.style.width, "820px");
       assert.equal(app.shell.style.height, "680px");
+      assert.equal(app.frame.dataset.compact, "false");
+      assert.equal(getComputedStyle(app.root.querySelector(".shell-top")).padding, "0px 8px 0px 12px");
       pointer(document, "pointermove", -2000, -2000);
       assert.equal(app.shell.style.width, `${WINDOW_MIN.width}px`);
       assert.equal(app.shell.style.height, `${WINDOW_MIN.height}px`);
+      // At the floor the title bar is on its compact spacing, so the three
+      // forecast buttons and every corner button are still there in full.
+      assert.equal(app.frame.dataset.compact, "true");
+      assert.equal(getComputedStyle(app.root.querySelector(".shell-top")).padding, "0px 6px");
+      assert.equal(app.root.querySelectorAll(".range-tools .tool-btn").length, 3);
+      assert.equal(app.root.querySelectorAll(".corner-actions button").length, 5);
       pointer(document, "pointermove", 140, 120);
       pointer(document, "pointerup", 140, 120);
       await settle();
