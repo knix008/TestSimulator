@@ -940,6 +940,30 @@ export function registerGui(h) {
     });
   });
 
+  h.test("the trend arrow head points the same way its line travels", async () => {
+    await withApp(async ({ app }) => {
+      // A gain rises to the right, a loss falls to the right; neither points straight down.
+      for (const [trend, rising] of [["up", true], ["down", false]]) {
+        const art = renderArt(app, rising);
+        assert.equal(art.dataset.art, trend, trend);
+        const line = lastSegment(art);
+        const tip = arrowTip(art);
+        assert.ok(line.dx > 0, `${trend} line should travel right, got dx=${line.dx}`);
+        assert.equal(line.dy < 0, rising, `${trend} line direction`);
+        // The head's square corner is the tip; it has to sit at the far end of the line.
+        assert.equal(tip.x, Math.max(...tip.xs), `${trend} tip should be the right-most corner`);
+        assert.equal(
+          tip.y,
+          rising ? Math.min(...tip.ys) : Math.max(...tip.ys),
+          `${trend} tip should be the ${rising ? "highest" : "lowest"} corner`,
+        );
+        // The tip continues the line rather than doubling back under it.
+        assert.ok(tip.x >= line.x, `${trend} tip must be beyond the line end`);
+        assert.equal(tip.y > line.y, !rising, `${trend} tip must continue the line's slope`);
+      }
+    });
+  });
+
   h.category("Currencies");
   h.test("currencies can be added and removed, and the base is never listed", async () => {
     await withApp(async ({ app, platform }) => {
@@ -2109,6 +2133,97 @@ export function registerGui(h) {
       assert.equal(app.i18n.missing.size, 0, [...app.i18n.missing].join(","));
     });
   });
+}
+
+/** The scene artwork for a quote that is rising or falling. */
+function renderArt(app, rising) {
+  const tab = app.currentTab();
+  const close = rising ? 110 : 90;
+  tab.data = {
+    quotes: [
+      {
+        symbol: tab.board.symbols[0].symbol,
+        currency: "KRW",
+        last: close,
+        change: rising ? 10 : -10,
+        changePercent: rising ? 10 : -10,
+        days: [{ date: "2026-10-07", close: 100 }, { date: "2026-10-08", close }],
+      },
+    ],
+    rates: { base: "KRW", rows: [] },
+    news: [],
+    sources: [],
+  };
+  tab.selectedSymbol = tab.board.symbols[0].symbol;
+  app.renderMarket();
+  const art = app.root.querySelector(".scene-art");
+  assert.ok(art, "scene art");
+  return art;
+}
+
+/** Every number in an SVG path `d`, as absolute points. */
+function pathPoints(d) {
+  const parts = String(d).trim().split(/(?=[A-Za-z])/);
+  const points = [];
+  let x = 0;
+  let y = 0;
+  for (const part of parts) {
+    const command = part[0];
+    const numbers = (part.slice(1).match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+    if (command === "M" || command === "L") {
+      for (let i = 0; i + 1 < numbers.length; i += 2) {
+        x = numbers[i];
+        y = numbers[i + 1];
+        points.push({ x, y });
+      }
+    } else if (command === "l") {
+      for (let i = 0; i + 1 < numbers.length; i += 2) {
+        x += numbers[i];
+        y += numbers[i + 1];
+        points.push({ x, y });
+      }
+    } else if (command === "h") {
+      for (const n of numbers) {
+        x += n;
+        points.push({ x, y });
+      }
+    } else if (command === "v") {
+      for (const n of numbers) {
+        y += n;
+        points.push({ x, y });
+      }
+    }
+  }
+  return points;
+}
+
+/** The last leg of the open trend line: the stroked path with no fill. */
+function lastSegment(art) {
+  const line = [...art.querySelectorAll("path")].find(
+    (node) => node.getAttribute("fill") === "none" && (node.getAttribute("stroke-width") || "") === "6",
+  );
+  assert.ok(line, "trend line");
+  const points = pathPoints(line.getAttribute("d"));
+  const end = points[points.length - 1];
+  const before = points[points.length - 2];
+  return { x: end.x, y: end.y, dx: end.x - before.x, dy: end.y - before.y };
+}
+
+/** The arrowhead's square corner, which is the tip of a right-triangle head. */
+function arrowTip(art) {
+  const head = [...art.querySelectorAll("path")].find((node) => node.getAttribute("fill")?.startsWith("#") && !node.getAttribute("stroke"));
+  assert.ok(head, "arrow head");
+  const points = pathPoints(head.getAttribute("d"));
+  assert.equal(points.length, 3, "a right-triangle head has three corners");
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  // The square corner shares its x with one neighbour and its y with the other.
+  const tip = points.find((point) => {
+    const others = points.filter((other) => other !== point);
+    return others.some((other) => other.x === point.x) && others.some((other) => other.y === point.y);
+  });
+  assert.ok(tip, "right-angle corner");
+  return { ...tip, xs, ys };
 }
 
 /** Wait for a condition the app reaches on its own, instead of guessing a delay. */

@@ -208,10 +208,16 @@ function indexLabel(board, language) {
   return language === "en" ? board.indexEn || board.index || "" : board.indexKo || board.index || "";
 }
 
+/**
+ * Each arrowhead is a right triangle whose square corner is the tip. That
+ * corner must sit on the far end of the line's last segment: up-right for a
+ * gain, down-right for a loss. Mirroring it makes the arrow read as pointing
+ * straight down.
+ */
 function sceneArt(trend, size = 160) {
   const pictures = {
     up: `<path d="M22 92h76" stroke="#8fa6b8" stroke-width="3" stroke-linecap="round"/><rect x="26" y="68" width="16" height="24" rx="4" fill="#cfe3d8"/><rect x="50" y="56" width="16" height="36" rx="4" fill="#a9d6c2"/><rect x="74" y="42" width="16" height="50" rx="4" fill="#79c6a6"/><path d="M28 70l20-16 14 10 26-32" fill="none" stroke="#1fa971" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M76 30h20v20z" fill="#1fa971"/>`,
-    down: `<path d="M22 92h76" stroke="#8fa6b8" stroke-width="3" stroke-linecap="round"/><rect x="26" y="42" width="16" height="50" rx="4" fill="#f0cdcd"/><rect x="50" y="58" width="16" height="34" rx="4" fill="#efbcbc"/><rect x="74" y="72" width="16" height="20" rx="4" fill="#e79a9a"/><path d="M28 36l20 18 14-10 26 30" fill="none" stroke="#e05252" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M96 84h-20v-20z" fill="#e05252"/>`,
+    down: `<path d="M22 92h76" stroke="#8fa6b8" stroke-width="3" stroke-linecap="round"/><rect x="26" y="42" width="16" height="50" rx="4" fill="#f0cdcd"/><rect x="50" y="58" width="16" height="34" rx="4" fill="#efbcbc"/><rect x="74" y="72" width="16" height="20" rx="4" fill="#e79a9a"/><path d="M28 36l20 18 14-10 26 30" fill="none" stroke="#e05252" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M76 84h20v-20z" fill="#e05252"/>`,
     flat: `<path d="M22 92h76" stroke="#8fa6b8" stroke-width="3" stroke-linecap="round"/><rect x="26" y="60" width="16" height="32" rx="4" fill="#d9e2ea"/><rect x="50" y="58" width="16" height="34" rx="4" fill="#cfd9e3"/><rect x="74" y="61" width="16" height="31" rx="4" fill="#c5d1dd"/><path d="M28 50h60" fill="none" stroke="#7d8ea0" stroke-width="6" stroke-linecap="round"/><path d="M92 42v16l14-8z" fill="#7d8ea0"/>`,
     none: `<rect x="24" y="30" width="72" height="62" rx="10" fill="#eef3f8" stroke="#9db4c8" stroke-width="3"/><path d="M36 50h48M36 62h36M36 74h26" stroke="#9db4c8" stroke-width="5" stroke-linecap="round"/>`,
   };
