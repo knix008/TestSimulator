@@ -73,6 +73,8 @@
         "--hunk-bg": soft,
         "--hunk-ink": accent,
         "--input": panel,
+        "--size-bg": mode === "light" ? blend(accent, "#101218", 0.80) : blend(bg, "#000000", 0.42),
+        "--size-ink": mode === "light" ? "#f7f8fa" : ink,
         "--banner-bg": light ? "#fff7ed" : "#3b2a14",
         "--banner-ink": light ? "#9a3412" : "#fdba74",
         "--overlay": light ? "rgba(16, 24, 40, 0.35)" : "rgba(0, 0, 0, 0.55)",

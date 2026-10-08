@@ -106,9 +106,10 @@ drawing model for annotations.
 
 Menus and popups are real operating-system windows (`childWindow` in `electron/main.js`),
 parented to the main window so they close with it. The renderer sends the finished HTML plus
-the theme as CSS variables; the child sends back one action. In the web build the same HTML is
-placed in `#menuLayer` or `#popupLayer` instead, which is also the path the tests take, so one
-set of assertions covers both.
+the theme as CSS variables; the child sends back one action. In the web build a popup is also
+its own window: `window.open("popup.html")` receives the same HTML and posts each action back.
+Menus stay in `#menuLayer` there. The test page (`?test=1`) still mounts popup HTML in
+`#popupLayer`, so the layout assertions keep one document to measure.
 
 Popups are a fixed size from `metrics.POPUPS`, and the test suite asserts that nothing inside
 them scrolls and that no row is taller than one line. Long lists page with `<` and `>` buttons
@@ -136,7 +137,7 @@ commands and the buttons grouped at the right end.
 ## Settings
 
 `store.js` keeps everything in `localStorage` under one key: language, theme, custom colours,
-font, zoom, whether the grid is on, tool, colours, line width, canvas defaults, panel widths,
+font, zoom, whether the grid is on, tool, colours, line width, canvas defaults,
 print setup, the last open and save folders, the opened folders, and the ten most recent
 files. The workspace background image is too large for that, so it lives in IndexedDB.
 

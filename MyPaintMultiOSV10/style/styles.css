@@ -40,8 +40,9 @@
   --editor-style: normal;
   --zoom: 1;
   --grid-step: 32px;
-  --left: 200px;
-  --right: 200px;
+  --tool-panel: 200px;
+  --prop-panel: 200px;
+  --panel-rail: 28px;
   --canvas-w: 900px;
   --canvas-h: 560px;
   color: var(--ink);
@@ -241,7 +242,7 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 .body { flex: 1; min-height: 0; display: flex; }
 
 .panel {
-  width: var(--left);
+  width: var(--tool-panel);
   flex: none;
   border-right: 1px solid var(--line);
   display: flex;
@@ -251,8 +252,153 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
   overflow: hidden;
 }
 
-.panel.right { width: var(--right); border-right: 0; border-left: 0; }
+.panel.right { width: var(--prop-panel); border-right: 0; border-left: 1px solid var(--line); }
+.panel.collapsed { width: var(--panel-rail); }
 .panel.hidden { display: none; }
+
+.panel-bar {
+  margin: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 8px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--head-ink);
+  background: var(--header);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.panel-bar span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-fold {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 0;
+}
+
+.panel-fold:hover { background: var(--hover); color: var(--accent); }
+.panel-fold svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.panel.collapsed > :not(.panel-bar) { display: none !important; }
+.panel.collapsed .panel-bar {
+  height: auto;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px 0;
+  border-bottom: 0;
+  gap: 10px;
+}
+.panel.collapsed .panel-bar span {
+  writing-mode: vertical-rl;
+  flex: none;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.width-picks {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 6px;
+  flex: none;
+}
+
+.width-pick {
+  flex: 1;
+  height: 22px;
+  min-width: 0;
+  border: 1px solid var(--button-border);
+  border-radius: 4px;
+  background: var(--button);
+  color: var(--ink);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.width-pick svg { width: 100%; height: 16px; display: block; }
+.width-pick:hover { border-color: var(--accent); color: var(--accent); }
+.width-pick.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+.width-step {
+  display: flex;
+  align-items: stretch;
+  margin: 0 8px 8px;
+  height: 26px;
+  flex: none;
+}
+
+.width-step button {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--button);
+  color: var(--ink);
+  padding: 0 4px;
+  font-size: 16px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.width-step button:first-child { border-radius: 4px 0 0 4px; border-right: 0; }
+.width-step button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+.width-step button:hover:not(:disabled) { background: var(--hover); border-color: var(--accent); color: var(--accent); }
+.width-step button:disabled { opacity: 0.45; cursor: default; }
+
+.width-now {
+  flex: 0 0 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 1px solid var(--line);
+  background: var(--size-bg);
+  color: var(--size-ink);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.width-now input {
+  width: 2.2em;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.width-now input::-webkit-outer-spin-button,
+.width-now input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.width-now .unit { font-size: 11px; opacity: 0.92; }
 
 .splitter { background: var(--line); flex: none; align-self: stretch; }
 .splitter.v { width: 4px; min-width: 4px; cursor: col-resize; }
@@ -307,6 +453,7 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
   color: var(--ink);
 }
 
+.tool-cell svg { width: 18px; height: 18px; }
 .tool-cell:hover { background: var(--hover); border-color: var(--accent); color: var(--accent); }
 .tool-cell.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
@@ -475,6 +622,7 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 }
 
 .tabstrip { flex: 1; min-width: 0; display: flex; overflow: hidden; gap: 4px; }
+.tab-nav { display: inline-flex; gap: 4px; flex: none; }
 
 .tab {
   height: 24px;
@@ -757,6 +905,21 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 .popup header .spacer, .popup footer .spacer, .line .grow { flex: 1; }
 .popup footer { border-top: 1px solid var(--line); justify-content: flex-end; gap: 8px; background: var(--header); }
 .popup[data-kind="about"] footer, .popup[data-kind="guide"] footer { justify-content: center; }
+.about-head { display: flex; align-items: center; gap: 14px; flex: none; }
+.about-head img { width: 48px; height: 48px; flex: none; }
+.about-intro { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.about-intro b { font-size: 15px; line-height: 1.3; }
+.about-intro span { color: var(--muted); white-space: normal; line-height: 1.4; }
+.about-table {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 6px;
+  align-items: start;
+  flex: none;
+}
+.about-name { color: var(--muted); white-space: nowrap; }
+.about-value { min-width: 0; white-space: normal; overflow: visible; line-height: 1.45; }
 .popup[data-kind="about"] footer .spacer, .popup[data-kind="guide"] footer .spacer { display: none; }
 
 .popup-body {

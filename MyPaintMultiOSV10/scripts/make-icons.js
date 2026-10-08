@@ -105,9 +105,6 @@ function inEllipse(nx, ny, cx, cy, rx, ry) {
   return dx * dx + dy * dy <= 1;
 }
 
-/* The mark is three overlapping discs of paint. On the deep plate of the application icon
- * they are screened, so the overlaps glow; on the pale card of the document icon they are
- * multiplied, the way real ink mixes on paper. */
 const PLATE_STOPS = [
   [0.00, [196, 181, 253, 255]],
   [0.35, [139, 92, 246, 255]],
@@ -122,74 +119,15 @@ const CARD_STOPS = [
   [1.00, [223, 216, 248, 255]],
 ];
 
-const MARKS = [
-  { x: 0.385, y: 0.415, r: 0.175, glow: [56, 189, 248, 255], ink: [34, 211, 238, 255] },
-  { x: 0.615, y: 0.415, r: 0.175, glow: [251, 113, 133, 255], ink: [244, 114, 182, 255] },
-  { x: 0.500, y: 0.615, r: 0.175, glow: [250, 204, 21, 255], ink: [253, 224, 71, 255] },
-];
-
 const FOLD_FROM = [237, 233, 254, 255];
 const FOLD_TO = [124, 58, 237, 255];
 
-function screenBlend(base, over, amount) {
-  const out = base.slice();
-  for (let i = 0; i < 3; i += 1) {
-    const value = 255 - ((255 - base[i]) * (255 - over[i])) / 255;
-    out[i] = Math.round(base[i] + (value - base[i]) * amount);
-  }
-  return out;
-}
-
-function multiplyBlend(base, over, amount) {
-  const out = base.slice();
-  for (let i = 0; i < 3; i += 1) {
-    const value = (base[i] * over[i]) / 255;
-    out[i] = Math.round(base[i] + (value - base[i]) * amount);
-  }
-  return out;
-}
-
-/* The discs are lit as beads of paint: the union of the three is treated as one surface, the
- * normal comes from whichever disc the point sits nearest the middle of, and the plate catches
- * their shadow. That, plus the bevel on the plate itself, is what makes both read as solid. */
+/* Paint on the palette is lit as a bead, from the same side as the wood and the brush. */
 const LIGHT = (() => {
   const v = [-0.45, -0.55, 0.70];
   const len = Math.hypot(v[0], v[1], v[2]);
   return [v[0] / len, v[1] / len, v[2] / len];
 })();
-
-function marksAt(nx, ny, box) {
-  const gx = (nx - box.left) / box.size;
-  const gy = (ny - box.top) / box.size;
-  if (gx < -0.3 || gy < -0.3 || gx > 1.3 || gy > 1.3) return null;
-  let hit = null;
-  for (let i = 0; i < MARKS.length; i += 1) {
-    const mark = MARKS[i];
-    if (Math.hypot(gx - mark.x, gy - mark.y) > mark.r) continue;
-    if (!hit) hit = [];
-    hit.push(mark);
-  }
-  return hit;
-}
-
-/* How far into the union of the discs a point lies, and the surface normal there. */
-function beadSurface(nx, ny, box, hit) {
-  const gx = (nx - box.left) / box.size;
-  const gy = (ny - box.top) / box.size;
-  let nearest = hit[0];
-  let closest = 2;
-  hit.forEach((mark) => {
-    const t = Math.hypot(gx - mark.x, gy - mark.y) / mark.r;
-    if (t < closest) {
-      closest = t;
-      nearest = mark;
-    }
-  });
-  const dx = (gx - nearest.x) / nearest.r;
-  const dy = (gy - nearest.y) / nearest.r;
-  const nz = Math.sqrt(Math.max(0, 1 - dx * dx - dy * dy));
-  return { dx: dx, dy: dy, nz: nz, edge: closest };
-}
 
 function litBead(color, surface, gloss) {
   const diffuse = Math.max(0, surface.dx * LIGHT[0] + surface.dy * LIGHT[1] + surface.nz * LIGHT[2]);
@@ -201,18 +139,6 @@ function litBead(color, surface, gloss) {
   const spot = Math.exp(-(((surface.dx + 0.44) ** 2 + (surface.dy + 0.50) ** 2) / 0.085));
   if (spot > 0.004) out = mix(out, [255, 255, 255, 255], Math.min(1, spot * gloss));
   return out;
-}
-
-/* A soft shadow on the plate: the union shifted down and to the right, minus the union. */
-function beadShadow(nx, ny, box) {
-  const gx = (nx - box.left) / box.size - 0.040;
-  const gy = (ny - box.top) / box.size - 0.052;
-  let closest = 9;
-  MARKS.forEach((mark) => {
-    closest = Math.min(closest, Math.hypot(gx - mark.x, gy - mark.y) / mark.r);
-  });
-  if (closest >= 1.10) return 0;
-  return Math.min(1, (1.10 - closest) / 0.34);
 }
 
 function ramp(stops, t) {
@@ -244,26 +170,114 @@ function shadePlate(nx, ny, left, top, width, height, radius, stops) {
   return color;
 }
 
-/* A pencil resting across the paint, lit from the same side as everything else: the barrel is
- * shaded like a cylinder, the wood tapers into a graphite tip, and a ferrule holds the eraser. */
-const PENCIL = {
-  tip: [0.585, 0.790],
-  end: [0.880, 0.335],
-  half: 0.042,
+/* A painter's palette: an oval wooden board with a thumb hole, lit as a thick disc. */
+const PALETTE = {
+  cx: 0.42,
+  cy: 0.52,
+  rx: 0.30,
+  ry: 0.22,
+  hole: { x: 0.56, y: 0.54, r: 0.070 },
 };
-const PENCIL_PARTS = [
-  { until: 0.10, color: [55, 60, 72, 255], taper: true },
-  { until: 0.27, color: [233, 196, 146, 255], taper: true },
-  { until: 0.82, color: [245, 170, 36, 255], taper: false },
-  { until: 0.90, color: [203, 208, 214, 255], taper: false },
-  { until: 1.00, color: [244, 143, 158, 255], taper: false },
+
+const DABS = [
+  { x: 0.26, y: 0.42, r: 0.046, color: [56, 189, 248, 255] },
+  { x: 0.36, y: 0.39, r: 0.042, color: [244, 114, 182, 255] },
+  { x: 0.24, y: 0.54, r: 0.040, color: [250, 204, 21, 255] },
+  { x: 0.34, y: 0.51, r: 0.038, color: [52, 211, 153, 255] },
+  { x: 0.30, y: 0.62, r: 0.036, color: [248, 250, 252, 255] },
 ];
 
-function pencilAt(nx, ny) {
-  const ax = PENCIL.tip[0];
-  const ay = PENCIL.tip[1];
-  const bx = PENCIL.end[0];
-  const by = PENCIL.end[1];
+function ellipseOutward(nx, ny) {
+  const ex = (nx - PALETTE.cx) / (PALETTE.rx * PALETTE.rx);
+  const ey = (ny - PALETTE.cy) / (PALETTE.ry * PALETTE.ry);
+  const len = Math.hypot(ex, ey) || 1;
+  return [ex / len, ey / len];
+}
+
+function onPalette(nx, ny) {
+  const dx = (nx - PALETTE.cx) / PALETTE.rx;
+  const dy = (ny - PALETTE.cy) / PALETTE.ry;
+  const edge = Math.hypot(dx, dy);
+  if (edge > 1) return null;
+  const hx = nx - PALETTE.hole.x;
+  const hy = ny - PALETTE.hole.y;
+  const hd = Math.hypot(hx, hy);
+  if (hd <= PALETTE.hole.r) return null;
+  return { edge: edge, hd: hd, hx: hx, hy: hy };
+}
+
+function paletteShadowAmount(nx, ny) {
+  if (onPalette(nx, ny)) return 0;
+  const dx = (nx - PALETTE.cx - 0.028) / (PALETTE.rx * 1.05);
+  const dy = (ny - PALETTE.cy - 0.036) / (PALETTE.ry * 1.08);
+  const edge = Math.hypot(dx, dy);
+  if (edge >= 1) return 0;
+  return Math.min(1, (1 - edge) / 0.32) * 0.55;
+}
+
+function paletteWood(nx, ny, hit) {
+  const u = (nx - PALETTE.cx) / PALETTE.rx;
+  const v = (ny - PALETTE.cy) / PALETTE.ry;
+  let color = mix([226, 168, 102, 255], [132, 74, 36, 255], (v + 1) * 0.45);
+  const grain = Math.sin((nx * 62 + ny * 7) * Math.PI * 2);
+  color = mix(color, [108, 58, 26, 255], (grain * 0.5 + 0.5) * 0.08);
+
+  const outward = ellipseOutward(nx, ny);
+  const rim = Math.max(0, (hit.edge - 0.84) / 0.16);
+  let nnx = outward[0] * rim;
+  let nny = outward[1] * rim;
+  let nnz = 1 - rim * 0.78;
+  const holeGap = hit.hd - PALETTE.hole.r;
+  const holeRim = Math.max(0, 1 - holeGap / 0.028);
+  if (holeRim > 0) {
+    const ix = -hit.hx / hit.hd;
+    const iy = -hit.hy / hit.hd;
+    nnx = nnx * (1 - holeRim) + ix * holeRim;
+    nny = nny * (1 - holeRim) + iy * holeRim;
+    nnz = nnz * (1 - holeRim) + 0.12 * holeRim;
+  }
+  const nlen = Math.hypot(nnx, nny, nnz) || 1;
+  const diffuse = Math.max(0, (nnx / nlen) * LIGHT[0] + (nny / nlen) * LIGHT[1] + (nnz / nlen) * LIGHT[2]);
+  const shade = 0.40 + 0.88 * diffuse;
+  color = color.map((value, index) => (index === 3 ? value : Math.round(Math.min(255, value * shade))));
+  const spec = Math.exp(-(((u + 0.38) ** 2 + (v + 0.48) ** 2) / 0.10));
+  if (spec > 0.02) color = mix(color, [255, 236, 214, 255], spec * 0.42);
+  if (rim > 0.72) color = mix(color, [36, 16, 8, 255], ((rim - 0.72) / 0.28) * 0.40);
+  return color;
+}
+
+function dabAt(nx, ny) {
+  if (!onPalette(nx, ny)) return null;
+  for (let i = DABS.length - 1; i >= 0; i -= 1) {
+    const dab = DABS[i];
+    const dx = (nx - dab.x) / dab.r;
+    const dy = (ny - dab.y) / dab.r;
+    const edge = Math.hypot(dx, dy);
+    if (edge > 1) continue;
+    const nz = Math.sqrt(Math.max(0, 1 - dx * dx - dy * dy));
+    return litBead(dab.color, { dx: dx, dy: dy, nz: nz, edge: edge }, 0.92);
+  }
+  return null;
+}
+
+/* A brush lying across the palette, lit from the same side as everything else: the bristles
+ * fan at the tip, a metal ferrule binds them, and the wooden handle runs up to the right. */
+const BRUSH = {
+  tip: [0.62, 0.80],
+  end: [0.90, 0.30],
+  half: 0.030,
+};
+const BRUSH_PARTS = [
+  { until: 0.18, color: [72, 52, 34, 255], bristle: true },
+  { until: 0.32, color: [196, 204, 212, 255], bristle: false },
+  { until: 1.00, color: [176, 104, 48, 255], bristle: false },
+];
+
+function brushAt(nx, ny) {
+  const ax = BRUSH.tip[0];
+  const ay = BRUSH.tip[1];
+  const bx = BRUSH.end[0];
+  const by = BRUSH.end[1];
   const dx = bx - ax;
   const dy = by - ay;
   const len2 = dx * dx + dy * dy;
@@ -271,22 +285,20 @@ function pencilAt(nx, ny) {
   if (t < 0 || t > 1) return null;
   const px = ax + dx * t;
   const py = ay + dy * t;
-  // which side of the axis, in units of the half width
   const len = Math.sqrt(len2);
   const across = ((nx - px) * (-dy) + (ny - py) * dx) / len;
-  let half = PENCIL.half;
-  if (t < 0.27) half *= 0.14 + 0.86 * Math.min(1, t / 0.27);
+  let half = BRUSH.half;
+  if (t < 0.18) half = BRUSH.half + (0.18 - t) / 0.18 * 0.042;
   const u = across / half;
   if (Math.abs(u) > 1) return null;
 
-  let part = PENCIL_PARTS[PENCIL_PARTS.length - 1];
-  for (let i = 0; i < PENCIL_PARTS.length; i += 1) {
-    if (t <= PENCIL_PARTS[i].until) {
-      part = PENCIL_PARTS[i];
+  let part = BRUSH_PARTS[BRUSH_PARTS.length - 1];
+  for (let i = 0; i < BRUSH_PARTS.length; i += 1) {
+    if (t <= BRUSH_PARTS[i].until) {
+      part = BRUSH_PARTS[i];
       break;
     }
   }
-  // a cylinder: the lit stripe sits toward the light, the far side falls into shade
   const round = Math.sqrt(Math.max(0, 1 - u * u));
   const lit = Math.max(0, (-u) * 0.62 + round * 0.78);
   const shade = 0.44 + 0.78 * lit;
@@ -294,44 +306,54 @@ function pencilAt(nx, ny) {
   const spot = Math.exp(-(((u + 0.42) ** 2) / 0.055));
   if (spot > 0.004) color = mix(color, [255, 255, 255, 255], spot * 0.55);
   if (Math.abs(u) > 0.86) color = mix(color, [0, 0, 0, 255], (Math.abs(u) - 0.86) / 0.14 * 0.30);
-  // the metal band gets two rings so it reads as a ferrule
-  if (t > 0.82 && t <= 0.90) {
-    const ring = Math.abs(((t - 0.82) / 0.08) * 3 % 1 - 0.5);
-    color = mix(color, [0, 0, 0, 255], (0.5 - ring) * 0.26);
+  if (part.bristle && Math.sin(u * Math.PI * 7) > 0.15) color = mix(color, [28, 18, 12, 255], 0.42);
+  if (t > 0.18 && t <= 0.32) {
+    const ring = Math.abs(((t - 0.18) / 0.14) * 2 % 1 - 0.5);
+    color = mix(color, [0, 0, 0, 255], (0.5 - ring) * 0.24);
   }
   return color;
 }
 
-function pencilShadow(nx, ny) {
-  return pencilAt(nx - 0.030, ny - 0.038) ? 1 : 0;
+function brushShadow(nx, ny) {
+  return brushAt(nx - 0.028, ny - 0.034) ? 1 : 0;
 }
 
 const APP_PLATE = { left: 0.05, top: 0.05, width: 0.90, height: 0.90, radius: 0.255 };
-const APP_GLYPH = { left: 0.05, top: 0.05, size: 0.90 };
 
 function sampleApp(nx, ny) {
   if (nx < 0.05 || ny < 0.05 || nx > 0.95 || ny > 0.95) return [0, 0, 0, 0];
   const plate = APP_PLATE;
   if (!inRound(nx, ny, plate.left, plate.top, plate.width, plate.height, plate.radius)) return [0, 0, 0, 0];
   let color = shadePlate(nx, ny, plate.left, plate.top, plate.width, plate.height, plate.radius, PLATE_STOPS);
-  const hit = marksAt(nx, ny, APP_GLYPH);
-  if (hit) {
-    // the first disc lays down its own colour, the ones over it light the overlap up
-    color = mix(color, hit[0].glow, 0.94);
-    // a gentle screen keeps the overlap lighter without washing the colour out of it
-    for (let i = 1; i < hit.length; i += 1) color = screenBlend(color, hit[i].glow, 0.55);
-    color = litBead(color, beadSurface(nx, ny, APP_GLYPH, hit), 0.80);
-  } else {
-    const shadow = beadShadow(nx, ny, APP_GLYPH);
-    if (shadow > 0) color = mix(color, [20, 6, 50, 255], shadow * 0.40);
+  const cast = paletteShadowAmount(nx, ny);
+  if (cast > 0) color = mix(color, [20, 6, 50, 255], cast);
+  const holeD = Math.hypot(nx - PALETTE.hole.x, ny - PALETTE.hole.y);
+  if (holeD < PALETTE.hole.r) {
+    const lip = Math.max(0, 1 - (PALETTE.hole.r - holeD) / 0.020);
+    color = mix(color, [10, 4, 24, 255], lip * 0.62);
   }
-  // the pencil lies on top of the paint, with its own shadow under it
-  if (pencilShadow(nx, ny) && !pencilAt(nx, ny)) return mix(color, [20, 6, 50, 255], 0.34);
-  return pencilAt(nx, ny) || color;
+  const board = onPalette(nx, ny);
+  if (board) color = paletteWood(nx, ny, board);
+  const dab = dabAt(nx, ny);
+  if (dab) color = dab;
+  if (brushShadow(nx, ny) && !brushAt(nx, ny)) return mix(color, [20, 6, 50, 255], 0.40);
+  return brushAt(nx, ny) || color;
 }
 
 const DOC_CARD = { left: 0.125, top: 0.05, width: 0.75, height: 0.90, radius: 0.13 };
-const DOC_GLYPH = { left: 0.21, top: 0.235, size: 0.58 };
+/* The same palette and brush as the application icon, fitted onto the page under the fold. */
+const GLYPH_SRC = { left: 0.08, top: 0.22, width: 0.86, height: 0.66 };
+
+function docGlyphPoint(nx, ny, size) {
+  const small = size && size < 48;
+  const dst = small
+    ? { left: 0.16, top: 0.32, width: 0.68, height: 0.56 }
+    : { left: 0.18, top: 0.34, width: 0.64, height: 0.52 };
+  const u = (nx - dst.left) / dst.width;
+  const v = (ny - dst.top) / dst.height;
+  if (u < -0.02 || v < -0.02 || u > 1.02 || v > 1.02) return null;
+  return [GLYPH_SRC.left + u * GLYPH_SRC.width, GLYPH_SRC.top + v * GLYPH_SRC.height];
+}
 
 function sampleDoc(nx, ny, size) {
   if (nx < 0.05 || ny < 0.05 || nx > 0.95 || ny > 0.95) return [0, 0, 0, 0];
@@ -342,21 +364,30 @@ function sampleDoc(nx, ny, size) {
   const fx = card.left + card.width - fold;
   const u = (nx - fx) / fold;
   const v = (ny - card.top) / fold;
-  if (u >= 0 && v >= 0 && u <= 1 && v <= 1 && u + v <= 1) {
+  const onFold = u >= 0 && v >= 0 && u <= 1 && v <= 1 && u + v <= 1;
+  if (onFold) {
     color = mix(FOLD_FROM, FOLD_TO, Math.min(1, (u + v) * 1.1));
-    // the fold lifts off the page along its diagonal
     const crease = Math.max(0, 1 - Math.abs(u + v - 1) / 0.22);
     color = mix(color, [255, 255, 255, 255], crease * 0.30);
+    return color;
   }
-  const small = size && size < 48;
-  const box = small ? { left: 0.165, top: 0.20, size: 0.67 } : DOC_GLYPH;
-  const hit = marksAt(nx, ny, box);
-  if (!hit) {
-    const shadow = beadShadow(nx, ny, box);
-    return shadow > 0 ? mix(color, [86, 70, 130, 255], shadow * 0.26) : color;
+  const mapped = docGlyphPoint(nx, ny, size);
+  if (!mapped) return color;
+  const gx = mapped[0];
+  const gy = mapped[1];
+  const cast = paletteShadowAmount(gx, gy);
+  if (cast > 0) color = mix(color, [86, 70, 130, 255], cast * 0.85);
+  const holeD = Math.hypot(gx - PALETTE.hole.x, gy - PALETTE.hole.y);
+  if (holeD < PALETTE.hole.r) {
+    const lip = Math.max(0, 1 - (PALETTE.hole.r - holeD) / 0.020);
+    color = mix(color, [90, 70, 140, 255], lip * 0.45);
   }
-  hit.forEach((mark) => { color = multiplyBlend(color, mark.ink, 0.92); });
-  return litBead(color, beadSurface(nx, ny, box, hit), 0.55);
+  const board = onPalette(gx, gy);
+  if (board) color = paletteWood(gx, gy, board);
+  const dab = dabAt(gx, gy);
+  if (dab) color = dab;
+  if (brushShadow(gx, gy) && !brushAt(gx, gy)) color = mix(color, [70, 54, 110, 255], 0.35);
+  return brushAt(gx, gy) || color;
 }
 
 function lum(color) {

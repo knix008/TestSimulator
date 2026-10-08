@@ -29,7 +29,12 @@
   let lastLink = "";
   let lastPrint = null;
   let progressMarks = [];
+  let progressLabel = "";
   let popupEl = null;
+  let popupWindow = null;
+  let popupHtml = "";
+  let popupKind = "";
+  let popupBoxSize = null;
   let menuEl = null;
   let appClosed = false;
   let fontCatalog = Fonts.FALLBACK.slice();
@@ -154,70 +159,9 @@
     root.style.setProperty("--canvas-w", (doc ? doc.width : 900) + "px");
     root.style.setProperty("--canvas-h", (doc ? doc.height : 560) + "px");
     root.style.setProperty("--workspace-image-opacity", String((settings.backgroundOpacity || 0) / 100));
-    applyLayout();
     document.title = BUILD.title;
     const title = $("appTitle");
     if (title) title.textContent = BUILD.title;
-  }
-
-  function layout() {
-    if (!settings.layout) settings.layout = { left: metrics.PANEL_MIN, right: metrics.PANEL_MIN };
-    return settings.layout;
-  }
-
-  function applyLayout() {
-    const root = document.documentElement;
-    const box = layout();
-    // never narrower than the longest label, so nothing is cut off or pushed onto a second line
-    box.left = Math.max(metrics.PANEL_MIN, box.left || metrics.PANEL_MIN);
-    box.right = Math.max(metrics.PANEL_MIN, box.right || metrics.PANEL_MIN);
-    root.style.setProperty("--left", box.left + "px");
-    root.style.setProperty("--right", box.right + "px");
-  }
-
-  function bindSplitters() {
-    const root = document.documentElement;
-    const bars = {
-      splitLeft: (event) => {
-        const left = document.querySelector(".body").getBoundingClientRect().left;
-        const value = clamp(event.clientX - left, metrics.PANEL_MIN, 520);
-        layout().left = value;
-        root.style.setProperty("--left", value + "px");
-      },
-      splitRight: (event) => {
-        const right = document.querySelector(".body").getBoundingClientRect().right;
-        const value = clamp(right - event.clientX, metrics.PANEL_MIN, 520);
-        layout().right = value;
-        root.style.setProperty("--right", value + "px");
-      },
-    };
-    Object.keys(bars).forEach((id) => {
-      const bar = $(id);
-      if (!bar) return;
-      bar.addEventListener("pointerdown", (event) => {
-        event.preventDefault();
-        bar.classList.add("dragging");
-        try { bar.setPointerCapture(event.pointerId); } catch (error) { /* synthetic pointer */ }
-        const move = (motion) => bars[id](motion);
-        const stop = () => {
-          bar.classList.remove("dragging");
-          bar.removeEventListener("pointermove", move);
-          bar.removeEventListener("pointerup", stop);
-          bar.removeEventListener("pointercancel", stop);
-          saveSettings();
-        };
-        bar.addEventListener("pointermove", move);
-        bar.addEventListener("pointerup", stop);
-        bar.addEventListener("pointercancel", stop);
-      });
-      bar.addEventListener("dblclick", () => {
-        const box = layout();
-        if (id === "splitLeft") box.left = metrics.PANEL_MIN;
-        else box.right = metrics.PANEL_MIN;
-        applyLayout();
-        saveSettings();
-      });
-    });
   }
 
   function newDoc(options) {
@@ -293,15 +237,14 @@
       '<button type="button" class="tool-btn zoom-readout" data-action="zoomReset" id="zoomValue" title="' + esc(t("view.zoomReset")) + '">' + settings.zoom + "%</button>",
       button("zoomIn", "zoomIn", t("view.zoomIn")),
       toggleButton("toggleGrid", "grid", t("view.grid"), settings.showGrid),
+      toggleButton("toggleShapes", "shapes", t("view.shapes"), settings.showShapes !== false),
       '<i class="sep"></i>',
       button("print", "print", t("file.print")),
-      '<i class="sep"></i>',
-      button("toggleLeft", "panelLeft", t("view.left")),
-      button("toggleRight", "panelRight", t("view.right")),
       '<span class="toolbar-end">' + toolbarActions().map(toolActionButton).join("") + "</span>",
     ].join("");
     updateHistoryButtons();
     syncGrid();
+    syncShapes();
   }
 
   function syncGrid() {
@@ -310,6 +253,14 @@
     document.querySelectorAll('[data-action="toggleGrid"]').forEach((el) => {
       el.classList.toggle("on", Boolean(settings.showGrid));
       el.setAttribute("aria-pressed", settings.showGrid ? "true" : "false");
+    });
+  }
+
+  function syncShapes() {
+    const on = settings.showShapes !== false;
+    document.querySelectorAll('[data-action="toggleShapes"]').forEach((el) => {
+      el.classList.toggle("on", on);
+      el.setAttribute("aria-pressed", on ? "true" : "false");
     });
   }
 
@@ -392,6 +343,7 @@
         menuItem("zoomOut", "zoomOut", t("view.zoomOut")),
         menuItem("zoomReset", "check", t("view.zoomReset")),
         menuItem("toggleGrid", "grid", t("view.grid")),
+        menuItem("toggleShapes", "shapes", t("view.shapes")),
         menuItem("toggleLeft", "panelLeft", t("view.left")),
         menuItem("toggleRight", "panelRight", t("view.right")),
       ] },
@@ -467,7 +419,11 @@
     document.documentElement.style.setProperty("--canvas-w", doc.width + "px");
     document.documentElement.style.setProperty("--canvas-h", doc.height + "px");
     const ctx = board.getContext("2d");
-    Paint.render(ctx, doc, { preview: draft, images: images });
+    Paint.render(ctx, doc, {
+      preview: draft,
+      images: images,
+      shapes: settings.showShapes === false ? [] : doc.shapes,
+    });
     renderOverlay();
   }
 
@@ -476,7 +432,7 @@
     if (!overlay) return;
     const factor = scale();
     const doc = current();
-    const shapes = selectedShapes().map((shape) => {
+    const shapes = (settings.showShapes === false ? [] : selectedShapes()).map((shape) => {
       const box = Paint.bounds(shape);
       return '<div class="marquee" style="left:' + (box.x * factor) + "px;top:" + (box.y * factor) +
         "px;width:" + Math.max(2, box.w * factor) + "px;height:" + Math.max(2, box.h * factor) + 'px"></div>';
@@ -494,10 +450,67 @@
     overlay.innerHTML = shapes + picked;
   }
 
+  const WIDTHS = [1, 2, 4, 8, 12, 20];
+
+  function panelBar(side, titleKey) {
+    const open = side === "left" ? settings.showLeft : settings.showRight;
+    const action = side === "left" ? "toggleLeft" : "toggleRight";
+    const label = open ? t("panel.fold") : t("panel.unfold");
+    const points = side === "left"
+      ? (open ? "14 6 8 12 14 18" : "10 6 16 12 10 18")
+      : (open ? "10 6 16 12 10 18" : "14 6 8 12 14 18");
+    return '<div class="panel-bar"><span>' + esc(t(titleKey)) + "</span>" +
+      '<button type="button" class="panel-fold" data-action="' + action + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" aria-expanded="' + (open ? "true" : "false") + '">' +
+      '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M' + points + '"/></svg></button></div>';
+  }
+
+  function sizingEraser() {
+    return settings.tool === "eraser";
+  }
+
+  function activeSize() {
+    return sizingEraser() ? settings.eraserSize : settings.strokeWidth;
+  }
+
+  function widthMark(width) {
+    if (sizingEraser()) {
+      const side = Math.max(4, Math.min(14, 3 + width * 0.5));
+      const x = (36 - side) / 2;
+      const y = (16 - side) / 2;
+      return '<rect x="' + x + '" y="' + y + '" width="' + side + '" height="' + side + '" rx="1" fill="currentColor"/>';
+    }
+    const thick = Math.max(1.4, Math.min(7.5, width * 0.42));
+    return '<line x1="4" y1="8" x2="32" y2="8" stroke="currentColor" stroke-linecap="round" stroke-width="' + thick + '"/>';
+  }
+
+  function widthPicks() {
+    const label = t(sizingEraser() ? "palette.eraser" : "palette.width");
+    const current = activeSize();
+    return '<div class="width-picks" role="group" aria-label="' + esc(label) + '">' +
+      WIDTHS.map((width) => {
+        const on = current === width;
+        return '<button type="button" class="width-pick' + (on ? " on" : "") + '" data-action="width:' + width + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" aria-pressed="' + (on ? "true" : "false") + '">' +
+          '<svg viewBox="0 0 36 16" aria-hidden="true">' + widthMark(width) + "</svg></button>";
+      }).join("") + "</div>";
+  }
+
+  function widthStep() {
+    const width = activeSize();
+    const label = t(sizingEraser() ? "palette.eraser" : "palette.width");
+    const down = width <= 1 ? " disabled" : "";
+    const up = width >= 96 ? " disabled" : "";
+    return '<div class="width-step" role="group" aria-label="' + esc(label) + '">' +
+      '<button type="button" data-action="strokeDown" title="' + esc(t("palette.thinner")) + '" aria-label="' + esc(t("palette.thinner")) + '"' + down + ">-</button>" +
+      '<label class="width-now" title="' + esc(label) + '">' +
+      '<input type="number" min="1" max="96" data-pick="size" value="' + width + '" aria-label="' + esc(label + " " + width + "px") + '">' +
+      '<span class="unit">px</span></label>' +
+      '<button type="button" data-action="strokeUp" title="' + esc(t("palette.thicker")) + '" aria-label="' + esc(t("palette.thicker")) + '"' + up + ">+</button>" +
+      "</div>";
+  }
+
   function renderLeft() {
     const doc = current();
-    $("leftPanel").classList.toggle("hidden", !settings.showLeft);
-    $("splitLeft").classList.toggle("hidden", !settings.showLeft);
+    $("leftPanel").classList.toggle("collapsed", !settings.showLeft);
     const tools = Paint.TOOLS.map((tool) => (
       '<button type="button" class="tool-cell' + (settings.tool === tool.id ? " on" : "") + '" data-action="tool:' + tool.id + '" title="' + esc(t("tool." + tool.id)) + '" aria-label="' + esc(t("tool." + tool.id)) + '">' +
       Icons.icon(tool.icon) + "</button>"
@@ -508,25 +521,22 @@
     const shapeRows = (doc ? doc.shapes : []).slice().reverse().map((shape) => (
       '<div class="shape-item' + (selected.indexOf(shape.id) >= 0 ? " active" : "") + '">' +
       '<button type="button" class="shape-pick" data-action="shape:' + esc(shape.id) + '" title="' + esc(t("kind." + shape.kind)) + '">' +
-      Icons.icon(shape.kind === "pencil" ? "pencil" : shape.kind === "brush" ? "brush" : shape.kind === "eraser" ? "eraser" : shape.kind) +
+      Icons.icon(shape.kind) +
       "<span>" + esc(t("kind." + shape.kind)) + "</span>" +
       '<i class="dot" style="background:' + esc(shape.fill || shape.color) + '"></i></button>' +
       '<button type="button" class="shape-remove" data-action="removeShape:' + esc(shape.id) + '" title="' + esc(t("left.removeShape")) + '" aria-label="' + esc(t("left.removeShape")) + '">' +
       '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button></div>'
     )).join("") || '<div class="line" style="padding:0 8px">' + esc(t("status.none")) + "</div>";
     $("leftPanel").innerHTML = [
-      "<h2>" + esc(t("left.tools")) + "</h2>",
+      panelBar("left", "left.tools"),
       '<div class="tool-grid">' + tools + "</div>",
       "<h2>" + esc(t("left.colors")) + "</h2>",
       '<div class="swatches">' + swatches + "</div>",
       '<label class="color-row"><span>' + esc(t("palette.color")) + '</span><input type="color" data-pick="color" value="' + esc(settings.color) + '" title="' + esc(t("palette.color")) + '"></label>',
       '<label class="color-row"><span>' + esc(t("palette.fill")) + '</span><input type="color" data-pick="fillColor" value="' + esc(settings.fillColor || "#ffffff") + '" title="' + esc(t("palette.fill")) + '"></label>',
       '<label class="color-row"><span>' + esc(t("palette.none")) + '</span><input type="checkbox" data-pick="noFill"' + (settings.fillColor ? "" : " checked") + ' title="' + esc(t("palette.none")) + '"></label>',
-      '<div class="color-row"><span>' + esc(t("palette.width")) + "</span>" +
-        '<button type="button" class="step-btn" data-action="strokeDown" title="' + esc(t("palette.thinner")) + '" aria-label="' + esc(t("palette.thinner")) + '">&#8722;</button>' +
-        '<input type="range" min="1" max="48" value="' + settings.strokeWidth + '" data-pick="strokeWidth" title="' + esc(t("palette.width")) + '" aria-label="' + esc(t("palette.width")) + '">' +
-        '<button type="button" class="step-btn" data-action="strokeUp" title="' + esc(t("palette.thicker")) + '" aria-label="' + esc(t("palette.thicker")) + '">+</button>' +
-        '<b id="strokeValue">' + settings.strokeWidth + "</b></div>",
+      widthPicks(),
+      widthStep(),
       "<h2>" + esc(t("left.shapes")) + "</h2>",
       '<div class="shape-list">' + shapeRows + "</div>",
     ].join("");
@@ -636,14 +646,13 @@
 
   function renderRight() {
     const doc = current();
-    $("rightPanel").classList.toggle("hidden", !settings.showRight);
-    $("splitRight").classList.toggle("hidden", !settings.showRight);
+    $("rightPanel").classList.toggle("collapsed", !settings.showRight);
     const shape = firstSelected();
     const rows = [];
     if (shape) {
       rows.push('<div class="line"><span>' + esc(t("prop.kind")) + '</span><b class="grow">' + esc(t("kind." + shape.kind)) + "</b></div>");
       rows.push(propLine(t("prop.color"), '<input data-prop="color" type="color" value="' + esc(shape.color) + '" title="' + esc(t("prop.color")) + '">'));
-      if (shape.kind === "rect" || shape.kind === "ellipse") {
+      if (shape.kind === "rect" || shape.kind === "roundRect" || shape.kind === "ellipse" || shape.kind === "triangle") {
         rows.push(propLine(t("prop.fill"), '<input data-prop="fill" type="color" value="' + esc(shape.fill || "#ffffff") + '" title="' + esc(t("prop.fill")) + '">'));
       }
       rows.push(propLine(t("prop.width"), propSpin("prop", "width", shape.width, 1, 96, 1, t("prop.width"))));
@@ -693,7 +702,7 @@
         rows.push('<div class="line"><span>' + esc(t("status.selection")) + '</span><b class="grow">' + esc(t("status.none")) + "</b></div>");
       }
     }
-    $("rightPanel").innerHTML = "<h2>" + esc(t("right.props")) + '</h2><div class="props">' + rows.join("") + "</div>" +
+    $("rightPanel").innerHTML = panelBar("right", "right.props") + '<div class="props">' + rows.join("") + "</div>" +
       pictureSection(doc) + dicomSection(doc);
     const shapeNode = firstSelected();
     if (shapeNode && shapeNode.kind === "text") {
@@ -929,6 +938,7 @@
       save: "save",
       unsaved: "save",
       canvas: "canvas",
+      newdoc: "new",
       drop: "image",
       palette: "palette",
       convert: "download",
@@ -949,6 +959,7 @@
       recent: "popup.recent",
       save: "popup.save",
       canvas: "popup.canvas",
+      newdoc: "popup.newdoc",
       drop: "popup.drop",
       theme: "popup.theme",
       guide: "popup.guide",
@@ -1072,14 +1083,36 @@
       '<button type="button" class="spin-btn" data-spin="' + field + ':1" tabindex="-1" aria-label="+">+</button></span>'
     );
     if (kind === "about") {
+      const families = [
+        ["native", Formats.NATIVE],
+        ["tiff", Formats.TIFF],
+        ["heif", Formats.HEIF],
+        ["j2k", Formats.J2K],
+        ["dicom", Formats.DICOM],
+        ["raw", Formats.RAW],
+      ];
+      const aboutRow = (name, value, attrs) => (
+        '<span class="about-name">' + esc(name) + '</span><span class="about-value"' + (attrs || "") + ">" + value + "</span>"
+      );
+      const formats = families.map((family) => {
+        const names = Array.from(family[1]).sort().map((name) => "." + name).join("  ");
+        return aboutRow(t("kind." + family[0]), esc(names));
+      }).join("");
+      const channelKey = "channel." + BUILD.channel;
+      const channelName = t(channelKey) === channelKey ? BUILD.channel : t(channelKey);
       return head(t("popup.about")) +
         '<div class="popup-body">' +
-        '<div class="line"><img src="assets/icon.png" width="20" height="20" alt=""><b>' + esc(BUILD.title) + "</b></div>" +
-        '<div class="line" id="aboutBuild">' + esc(settings.language === "en" ? "Build" : "빌드") + " " + esc(BUILD.build) + "</div>" +
-        '<div class="line" id="aboutAuthor" data-author="' + esc(BUILD.author) + '">' + esc(BUILD.author) + "</div>" +
-        '<div class="line">' + esc(t("about.desc")) + "</div>" +
-        '<div class="line">' + esc(BUILD.builtAt) + "</div>" +
-        "</div>" + foot(btn("close", t("action.close")));
+        '<div class="about-head">' +
+        '<img src="assets/icon.png" width="48" height="48" alt="">' +
+        '<div class="about-intro"><b>' + esc(BUILD.title) + "</b><span>" + esc(t("about.desc")) + "</span></div></div>" +
+        '<div class="about-table">' +
+        aboutRow(t("about.version"), esc(BUILD.version), ' id="aboutVersion"') +
+        aboutRow(t("about.build"), esc(BUILD.build), ' id="aboutBuild"') +
+        aboutRow(t("about.channel"), esc(channelName), ' id="aboutChannel"') +
+        aboutRow(t("about.author"), esc(BUILD.author), ' id="aboutAuthor" data-author="' + esc(BUILD.author) + '"') +
+        aboutRow(t("about.built"), esc(BUILD.builtAt)) +
+        formats +
+        "</div></div>" + foot(btn("close", t("action.close")));
     }
     if (kind === "error") {
       const message = (lastError.split("\n")[1] || lastError).slice(0, 180);
@@ -1093,7 +1126,7 @@
       const value = progressMarks.length ? progressMarks[progressMarks.length - 1] : 0;
       return head(t("popup.progress")) +
         '<div class="popup-body">' +
-        '<div class="line" id="progressText">' + esc(t("status.busy")) + "</div>" +
+        '<div class="line" id="progressText">' + esc(progressLabel || t("status.busy")) + "</div>" +
         '<div class="line bar-row"><span class="bar"><span id="progressFill" style="width:' + value + '%"></span></span>' +
         '<b id="progressPct">' + value + '</b><span class="unit">%</span></div>' +
         "</div>" + foot(btn("stop-progress", t("action.cancel")));
@@ -1129,6 +1162,13 @@
         '<label class="line"><span>' + esc(t("canvas.height")) + "</span>" + number("height", doc ? doc.height : 560, 16, 8192) + "</label>" +
         '<label class="line"><span>' + esc(t("canvas.background")) + '</span><input data-field="background" type="color" value="' + esc(doc ? doc.background : "#ffffff") + '"></label>' +
         "</div>" + foot(btn("apply-canvas", t("action.apply"), true) + btn("cancel", t("action.cancel")));
+    }
+    if (kind === "newdoc") {
+      return head(t("popup.newdoc")) +
+        '<div class="popup-body">' +
+        '<label class="line"><span>' + esc(t("canvas.width")) + "</span>" + number("width", settings.canvasWidth, 16, 8192) + "</label>" +
+        '<label class="line"><span>' + esc(t("canvas.height")) + "</span>" + number("height", settings.canvasHeight, 16, 8192) + "</label>" +
+        "</div>" + foot(btn("create-new", t("action.create"), true) + btn("cancel", t("action.cancel")));
     }
     if (kind === "palette") {
       return head(t("popup.palette")) +
@@ -1334,11 +1374,52 @@
       "</div></div>" + foot(btn("apply-settings", t("action.apply"), true) + btn("cancel", t("action.cancel")));
   }
 
+  function messageTarget() {
+    return /^https?:$/.test(location.protocol) ? location.origin : "*";
+  }
+
+  function postPopup(type, extra) {
+    if (!popupWindow || popupWindow.closed) return;
+    popupWindow.postMessage(Object.assign({ source: "mypaint", type: type }, extra || {}), messageTarget());
+  }
+
+  function postPopupHtml() {
+    const box = popupBoxSize || { width: 0, height: 0 };
+    postPopup("html", { html: popupHtml, width: box.width, height: box.height });
+  }
+
+  /* English labels are wider, so the format list wraps onto more lines. */
+  function popupSpec(kind) {
+    const spec = metrics.POPUPS[kind];
+    if (kind === "about" && settings.language === "en") return { width: spec.width, height: 497 };
+    return spec;
+  }
+
   function closePopup() {
     if (popupEl) popupEl.remove();
     popupEl = null;
-    // in the desktop build the popup is a window of its own, so the host closes it
+    popupKind = "";
+    popupHtml = "";
     if (window.desktop && window.desktop.closePopup && !TEST) window.desktop.closePopup();
+    if (popupWindow && !popupWindow.closed) popupWindow.close();
+    popupWindow = null;
+  }
+
+  /* A browser popup is its own window. Reuse it when another dialog replaces the one on screen. */
+  function openOwnWindow(kind, spec, place) {
+    popupHtml = popupDocument(kind);
+    popupBoxSize = spec;
+    const left = Math.round((window.screenX || 0) + place.x);
+    const top = Math.round((window.screenY || 0) + place.y);
+    if (!popupWindow || popupWindow.closed) {
+      const features = "popup=yes,width=" + spec.width + ",height=" + spec.height + ",left=" + left + ",top=" + top;
+      popupWindow = window.open("popup.html", "mypaint-popup", features);
+      return Boolean(popupWindow);
+    }
+    popupWindow.focus();
+    try { popupWindow.moveTo(left, top); } catch (error) { /* a browser may refuse to move a window it did not open just now */ }
+    postPopupHtml();
+    return true;
   }
 
   function popupDocument(kind) {
@@ -1347,11 +1428,12 @@
 
   function openPopup(kind, anchor) {
     if (kind === "print") printState = Object.assign({}, Store.defaults().print, settings.print, { pageIndex: 0 });
-    const spec = metrics.POPUPS[kind];
+    const spec = popupSpec(kind);
     const place = anchor || {
       x: Math.max(0, (window.innerWidth - spec.width) / 2),
       y: Math.max(0, (window.innerHeight - spec.height) / 2),
     };
+    popupKind = kind;
     if (window.desktop && window.desktop.openPopup && !TEST) {
       window.desktop.openPopup({
         kind: kind,
@@ -1365,7 +1447,13 @@
       });
       return null;
     }
+    if (!TEST && openOwnWindow(kind, spec, place)) {
+      if (popupEl) popupEl.remove();
+      popupEl = null;
+      return null;
+    }
     closePopup();
+    popupKind = kind;
     const el = document.createElement("section");
     el.className = "popup";
     el.dataset.kind = kind;
@@ -1464,6 +1552,7 @@
   function beginProgress(label) {
     if (progressDepth === 0) {
       progressMarks.push(0);
+      progressLabel = label || "";
       openPopup("progress");
       paintProgress(label, 0);
     } else if (label) {
@@ -1473,14 +1562,18 @@
   }
 
   function paintProgress(label, value) {
-    if (!popupEl || popupEl.dataset.kind !== "progress") return;
-    const text = popupEl.querySelector("#progressText");
-    const fill = popupEl.querySelector("#progressFill");
-    const pct = popupEl.querySelector("#progressPct");
+    if (label) progressLabel = label;
     const now = value == null ? (progressMarks[progressMarks.length - 1] || 0) : value;
-    if (text && label) text.textContent = label;
-    if (fill) fill.style.width = now + "%";
-    if (pct) pct.textContent = String(now);
+    if (popupEl && popupEl.dataset.kind === "progress") {
+      const text = popupEl.querySelector("#progressText");
+      const fill = popupEl.querySelector("#progressFill");
+      const pct = popupEl.querySelector("#progressPct");
+      if (text && progressLabel) text.textContent = progressLabel;
+      if (fill) fill.style.width = now + "%";
+      if (pct) pct.textContent = String(now);
+      return;
+    }
+    if (!TEST && popupKind === "progress") refreshPopupDocument("progress");
   }
 
   /* Stopping whatever the progress window is showing. Only a download can be interrupted
@@ -1535,6 +1628,7 @@
 
   function paintChildWindows() {
     if (window.desktop && window.desktop.applyTheme && !TEST) window.desktop.applyTheme(themeCss());
+    if (popupWindow && !popupWindow.closed) postPopup("theme", { css: themeCss() });
   }
 
   function setCustom(colors) {
@@ -1661,6 +1755,17 @@
     return settings.strokeWidth;
   }
 
+  function setEraserSize(value) {
+    settings.eraserSize = clamp(value, 1, 96);
+    saveSettings();
+    renderLeft();
+    return settings.eraserSize;
+  }
+
+  function setActiveSize(value) {
+    return sizingEraser() ? setEraserSize(value) : setStrokeWidth(value);
+  }
+
   async function setBackgroundBlob(blob, name) {
     if (bgObjectUrl) URL.revokeObjectURL(bgObjectUrl);
     bgObjectUrl = URL.createObjectURL(blob);
@@ -1698,7 +1803,7 @@
     return {
       color: settings.color,
       fill: settings.fillColor || "",
-      width: settings.strokeWidth,
+      width: settings.tool === "eraser" ? settings.eraserSize : settings.strokeWidth,
       opacity: settings.shapeOpacity,
     };
   }
@@ -2155,6 +2260,15 @@
     markDirty();
     renderAll();
     return doc.shapes.length;
+  }
+
+  function createNewDoc(fields) {
+    const doc = newDoc({
+      width: clamp(fields.width, 16, 8192),
+      height: clamp(fields.height, 16, 8192),
+    });
+    closePopup();
+    return addDoc(doc, false);
   }
 
   function applyCanvas(fields) {
@@ -2796,12 +2910,12 @@
     const image = dicomOf();
     if (!image || !shape) return null;
     const spacing = image.geometry && image.geometry.pixelSpacing;
-    if (shape.kind === "line") {
+    if (shape.kind === "line" || shape.kind === "arrow") {
       const px = Math.hypot(shape.w, shape.h);
       const mm = spacing ? Math.hypot(shape.w * spacing[1], shape.h * spacing[0]) : 0;
       return { kind: "length", px: px, mm: mm };
     }
-    if (shape.kind === "rect" || shape.kind === "ellipse") {
+    if (shape.kind === "rect" || shape.kind === "roundRect" || shape.kind === "ellipse" || shape.kind === "triangle") {
       const box = Paint.normalizeRect(shape);
       const stats = image.stats({ x: box.x, y: box.y, w: box.w, h: box.h, shape: shape.kind === "ellipse" ? "ellipse" : "rect" });
       return stats ? Object.assign({ kind: "roi" }, stats) : null;
@@ -2905,7 +3019,7 @@
   }
 
   const actions = {
-    new: () => addDoc(newDoc(), false),
+    new: () => openPopup("newdoc"),
     open: () => {
       if (TEST) {
         return openDrawingText(Paint.serialize([Paint.createDoc(Sample.shapes)]), "opened.mpaint", "");
@@ -2961,8 +3075,8 @@
     deleteShape: () => deleteSelection(),
     selectAll: () => doSelectAll(),
     deselect: () => doDeselect(),
-    strokeDown: () => setStrokeWidth(settings.strokeWidth - 1),
-    strokeUp: () => setStrokeWidth(settings.strokeWidth + 1),
+    strokeDown: () => setActiveSize(activeSize() - 1),
+    strokeUp: () => setActiveSize(activeSize() + 1),
     cropRegion: () => cropToRegion(),
     eraseRegion: () => eraseRegion(),
     clearRegion: () => clearRegion(),
@@ -2979,6 +3093,13 @@
       saveSettings();
       syncGrid();
       return settings.showGrid;
+    },
+    toggleShapes: () => {
+      settings.showShapes = settings.showShapes === false;
+      saveSettings();
+      syncShapes();
+      renderBoard();
+      return settings.showShapes;
     },
     print: () => openPopup("print"),
     settings: () => openPopup("settings"),
@@ -3027,6 +3148,7 @@
       if (action.startsWith("recent:")) { closeMenu(); return openRecent(action.slice(7)); }
       if (action.startsWith("tool:")) { closeMenu(); return setTool(action.slice(5)); }
       if (action.startsWith("color:")) { closeMenu(); return setColor(action.slice(6)); }
+      if (action.startsWith("width:")) { closeMenu(); return setActiveSize(Number(action.slice(6))); }
       if (action.startsWith("removeShape:")) { closeMenu(); return removeShapeById(action.slice(12)); }
       if (action.startsWith("shape:")) { closeMenu(); return selectShape(action.slice(6)); }
       if (action.startsWith("theme:")) { closeMenu(); return setTheme(action.slice(6)); }
@@ -3088,8 +3210,14 @@
 
   function refreshPopupDocument(kind, tab) {
     if (kind === "settings") settingsTab = tab || settingsTab;
+    const html = popupDocument(kind);
     if (window.desktop && window.desktop.refreshPopup && !TEST) {
-      window.desktop.refreshPopup(popupDocument(kind));
+      window.desktop.refreshPopup(html);
+      return;
+    }
+    if (popupWindow && !popupWindow.closed && !TEST) {
+      popupHtml = html;
+      postPopupHtml();
       return;
     }
     if (popupEl && popupEl.dataset.kind === kind) {
@@ -3145,6 +3273,7 @@
     if (action === "apply-palette") { applyPaletteForm(fields); closePopup(); return settings; }
     if (action === "palette-sync") return applyPaletteForm(fields);
     if (action === "apply-canvas") { const result = applyCanvas(fields); closePopup(); return result; }
+    if (action === "create-new") return createNewDoc(fields);
     if (action === "canvas-sync") return null;
     if (action === "apply-custom") {
       setCustom(fields);
@@ -3265,7 +3394,7 @@
         return lastPrint;
       }
       refreshPrintPreview();
-      if (!popupEl && window.desktop && window.desktop.refreshPopup && !TEST) window.desktop.refreshPopup(popupDocument("print"));
+      if (!popupEl) refreshPopupDocument("print");
       return printState;
     }
     return null;
@@ -3321,6 +3450,7 @@
     else if (key === "fillColor") { settings.fillColor = target.value; saveSettings(); renderLeft(); }
     else if (key === "noFill") { settings.fillColor = target.checked ? "" : (settings.fillColor || "#ffffff"); saveSettings(); renderLeft(); }
     else if (key === "strokeWidth") setStrokeWidth(target.value);
+    else if (key === "size") setActiveSize(target.value);
   }
 
   function wireResizeGrip() {
@@ -3420,7 +3550,6 @@
     wireResizeGrip();
     wireBoard();
     wireStagePan();
-    bindSplitters();
     $("toolbar").addEventListener("click", (event) => {
       const btn = event.target.closest("[data-action]");
       if (btn) runAction(btn.dataset.action);
@@ -3555,14 +3684,20 @@
       });
     }
     if (window.desktop && window.desktop.onCloseRequest) window.desktop.onCloseRequest(() => requestClose());
-    if (window.desktop && window.desktop.onHostAction) {
-      window.desktop.onHostAction((payload) => {
-        const name = payload && payload.name;
-        if (!name) return;
-        if (actions[name] || name.indexOf(":") > 0) runAction(name);
-        else popupAction(name, null, payload.detail || {});
-      });
-    }
+    const onPopupMessage = (payload) => {
+      const name = payload && payload.name;
+      if (!name) return;
+      if (actions[name] || name.indexOf(":") > 0) runAction(name);
+      else popupAction(name, null, payload.detail || {});
+    };
+    if (window.desktop && window.desktop.onHostAction) window.desktop.onHostAction(onPopupMessage);
+    window.addEventListener("message", (event) => {
+      if (!popupWindow || event.source !== popupWindow) return;
+      const data = event.data;
+      if (!data || data.source !== "mypaint") return;
+      if (data.type === "ready") postPopupHtml();
+      if (data.type === "action") onPopupMessage(data);
+    });
     if (window.desktop && window.desktop.onDownloadProgress) {
       window.desktop.onDownloadProgress((payload) => {
         if (!downloadWatcher || !payload) return;
@@ -3704,12 +3839,7 @@
     getSettings: () => Object.assign({}, settings),
     saveSettings: saveSettings,
     loadSettings: () => { settings = Store.load(localStorage); applyVisual(); renderAll(); return api.getSettings(); },
-    setPanelWidth: (side, value) => {
-      layout()[side] = value;
-      applyLayout();
-      saveSettings();
-      return side === "left" ? layout().left : layout().right;
-    },
+    setPanelWidth: (side) => (side === "right" ? metrics.PROP_PANEL : metrics.TOOL_PANEL),
     rememberDirectory: (kind, filePath) => { Store.rememberDirectory(settings, kind, filePath); saveSettings(); return kind === "save" ? settings.lastSaveDir : settings.lastOpenDir; },
     run: runAction,
     menuDefinitions: menuDefinitions,

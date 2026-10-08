@@ -13,16 +13,22 @@
     { id: "selectFree", icon: "lasso", kind: "", drag: true, region: "free" },
     { id: "pencil", icon: "pencil", kind: "pencil", drag: true },
     { id: "brush", icon: "brush", kind: "brush", drag: true },
+    { id: "marker", icon: "marker", kind: "marker", drag: true },
+    { id: "spray", icon: "spray", kind: "spray", drag: true },
     { id: "eraser", icon: "eraser", kind: "eraser", drag: true },
     { id: "line", icon: "line", kind: "line", drag: true },
+    { id: "arrow", icon: "arrow", kind: "arrow", drag: true },
+    { id: "curve", icon: "curve", kind: "curve", drag: true },
     { id: "rect", icon: "rect", kind: "rect", drag: true },
+    { id: "roundRect", icon: "roundRect", kind: "roundRect", drag: true },
     { id: "ellipse", icon: "ellipse", kind: "ellipse", drag: true },
+    { id: "triangle", icon: "triangle", kind: "triangle", drag: true },
     { id: "text", icon: "text", kind: "text", drag: false },
     { id: "fill", icon: "fill", kind: "", drag: false },
     { id: "picker", icon: "picker", kind: "", drag: false },
   ];
 
-  const SHAPE_KINDS = ["pencil", "brush", "eraser", "line", "rect", "ellipse", "text", "image"];
+  const SHAPE_KINDS = ["pencil", "brush", "marker", "spray", "eraser", "line", "arrow", "curve", "rect", "roundRect", "ellipse", "triangle", "text", "image"];
 
   const PALETTE = [
     "#000000", "#7f7f7f", "#880015", "#ed1c24", "#ff7f27", "#fff200",
@@ -45,7 +51,7 @@
   }
 
   function isStroke(kind) {
-    return kind === "pencil" || kind === "brush" || kind === "eraser";
+    return kind === "pencil" || kind === "brush" || kind === "marker" || kind === "spray" || kind === "eraser";
   }
 
   function createDoc(options) {
@@ -107,7 +113,7 @@
   function bounds(shape) {
     if (!shape) return { x: 0, y: 0, w: 0, h: 0 };
     if (isStroke(shape.kind)) {
-      const pad = shape.width / 2;
+      const pad = shape.kind === "spray" ? shape.width * 2.4 : shape.kind === "marker" ? shape.width * 1.8 : shape.width / 2;
       let minX = Infinity;
       let minY = Infinity;
       let maxX = -Infinity;
@@ -124,8 +130,8 @@
       const width = Math.max(shape.w || 0, shape.text.length * shape.fontSize * 0.56);
       return { x: shape.x, y: shape.y - shape.fontSize, w: width, h: shape.fontSize * 1.3 };
     }
-    if (shape.kind === "line") {
-      const pad = shape.width / 2;
+    if (shape.kind === "line" || shape.kind === "arrow") {
+      const pad = shape.width / 2 + (shape.kind === "arrow" ? Math.max(10, shape.width * 3.2) : 0);
       const box = normalizeRect({ x: shape.x, y: shape.y, w: shape.w, h: shape.h });
       return { x: box.x - pad, y: box.y - pad, w: box.w + pad * 2, h: box.h + pad * 2 };
     }
@@ -162,8 +168,12 @@
       }
       return false;
     }
-    if (shape.kind === "line") {
+    if (shape.kind === "line" || shape.kind === "arrow") {
       return distanceToSegment(x, y, shape.x, shape.y, shape.x + shape.w, shape.y + shape.h) <= slack;
+    }
+    if (shape.kind === "curve") {
+      return distanceToSegment(x, y, shape.x, shape.y, shape.x, shape.y + shape.h) <= slack
+        || distanceToSegment(x, y, shape.x, shape.y + shape.h, shape.x + shape.w, shape.y + shape.h) <= slack;
     }
     const box = bounds(shape);
     if (!insideBox(box, x, y, 0)) return false;
@@ -242,7 +252,7 @@
       doc.dirty = true;
       return { target: "background", color: color };
     }
-    if (isStroke(shape.kind) || shape.kind === "line") shape.color = color;
+    if (isStroke(shape.kind) || shape.kind === "line" || shape.kind === "arrow" || shape.kind === "curve") shape.color = color;
     else shape.fill = color;
     doc.dirty = true;
     return { target: shape.id, color: color };
@@ -283,7 +293,29 @@
     ctx.fillStyle = shape.fill || shape.color;
     if (isStroke(shape.kind)) {
       if (shape.kind === "brush") ctx.lineWidth = shape.width * 2.5;
-      if (shape.kind === "eraser") ctx.lineWidth = shape.width * 3;
+      if (shape.kind === "eraser") {
+        ctx.lineWidth = shape.width;
+        ctx.lineCap = "square";
+        ctx.lineJoin = "miter";
+      }
+      if (shape.kind === "marker") {
+        ctx.lineWidth = shape.width * 3.4;
+        ctx.globalAlpha *= 0.45;
+      }
+      if (shape.kind === "spray") {
+        ctx.fillStyle = shape.color;
+        shape.points.forEach((point, index) => {
+          for (let n = 0; n < 5; n += 1) {
+            const angle = ((index * 17 + n * 47) % 360) * Math.PI / 180;
+            const dist = ((index * 13 + n * 31) % 100) / 100 * shape.width * 2.2;
+            ctx.beginPath();
+            ctx.arc(point.x + Math.cos(angle) * dist, point.y + Math.sin(angle) * dist, Math.max(0.6, shape.width * 0.35), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+        ctx.restore();
+        return;
+      }
       ctx.beginPath();
       const points = shape.points;
       ctx.moveTo(points[0].x, points[0].y);
@@ -293,18 +325,56 @@
       ctx.restore();
       return;
     }
-    if (shape.kind === "line") {
+    if (shape.kind === "line" || shape.kind === "arrow") {
+      const x1 = shape.x;
+      const y1 = shape.y;
+      const x2 = shape.x + shape.w;
+      const y2 = shape.y + shape.h;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      if (shape.kind === "arrow") {
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const head = Math.max(10, shape.width * 3.2);
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - head * Math.cos(angle - 0.42), y2 - head * Math.sin(angle - 0.42));
+        ctx.lineTo(x2 - head * Math.cos(angle + 0.42), y2 - head * Math.sin(angle + 0.42));
+        ctx.closePath();
+        ctx.fillStyle = shape.color;
+        ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
+    if (shape.kind === "curve") {
       ctx.beginPath();
       ctx.moveTo(shape.x, shape.y);
-      ctx.lineTo(shape.x + shape.w, shape.y + shape.h);
+      ctx.quadraticCurveTo(shape.x, shape.y + shape.h, shape.x + shape.w, shape.y + shape.h);
       ctx.stroke();
       ctx.restore();
       return;
     }
-    if (shape.kind === "rect") {
+    if (shape.kind === "rect" || shape.kind === "roundRect") {
       const box = normalizeRect(shape);
-      if (shape.fill) ctx.fillRect(box.x, box.y, box.w, box.h);
-      ctx.strokeRect(box.x, box.y, box.w, box.h);
+      const radius = shape.kind === "roundRect" ? Math.min(box.w, box.h) * 0.22 : 0;
+      ctx.beginPath();
+      ctx.roundRect(box.x, box.y, Math.max(0, box.w), Math.max(0, box.h), radius);
+      if (shape.fill) ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    if (shape.kind === "triangle") {
+      const box = normalizeRect(shape);
+      ctx.beginPath();
+      ctx.moveTo(box.x + box.w / 2, box.y);
+      ctx.lineTo(box.x + box.w, box.y + box.h);
+      ctx.lineTo(box.x, box.y + box.h);
+      ctx.closePath();
+      if (shape.fill) ctx.fill();
+      ctx.stroke();
       ctx.restore();
       return;
     }

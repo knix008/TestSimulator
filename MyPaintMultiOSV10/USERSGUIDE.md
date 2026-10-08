@@ -11,12 +11,14 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
 
 ### 그리기
 
-왼쪽 패널 위쪽에 도구가 있습니다. 연필과 붓은 끌어서 자유롭게 그리고, 직선·사각형·타원은
-끌어서 크기를 정합니다. 글자 도구는 누른 자리에 글자를 넣고, 글자 내용은 오른쪽 패널에서
-고칩니다. 색 채우기는 도형이나 바탕의 색을 바꾸고, 색 고르기는 누른 자리의 색을 가져옵니다.
+왼쪽 패널 위쪽에 도구가 있습니다. 연필, 붓, 마커, 스프레이, 지우개는 끌어서 자유롭게 그리고,
+직선·화살표·곡선·사각형·둥근 사각형·타원·삼각형은 끌어서 크기를 정합니다. 글자 도구는
+누른 자리에 글자를 넣고, 글자 내용은 오른쪽 패널에서 고칩니다. 색 채우기는 도형이나
+바탕의 색을 바꾸고, 색 고르기는 누른 자리의 색을 가져옵니다.
 
 색은 왼쪽 패널의 색판에서 고르거나, 선 색·채움 색을 직접 지정합니다. 선 굵기는 그 아래
-막대로 정합니다. 선택 도구로 도형을 고르면 오른쪽 패널에서 색, 굵기, 투명도, 위치를
+그림으로 고르고, 그림 아래의 −, 현재 값, + 로 한 단계씩 바꾸거나 px 숫자를 직접 넣습니다. 지우개를 고르면 같은 단추로 지우개 크기를 정합니다. 도구 패널과 속성 패널의 너비는 고정이고, 제목 옆 단추로
+접고 펼칩니다. 선택 도구로 도형을 고르면 오른쪽 패널에서 색, 굵기, 투명도, 위치를
 고칠 수 있고, 끌어서 옮길 수 있습니다. Delete 키로 지웁니다.
 
 ### 영역 고르기와 잘라내기
@@ -34,7 +36,7 @@ MyPaint 문서 아이콘으로 바뀌고, 두 번 누르면 MyPaint가 열립니
 ### 탭
 
 여러 그림을 탭으로 함께 엽니다. 각 탭의 × 단추로 그 탭만 닫고, 바뀐 내용이 있으면 닫기 전에
-저장할지 물어봅니다. 탭이 많아 한 줄에 다 안 들어가면 양쪽 끝의 `<` `>` 단추로 넘깁니다.
+저장할지 물어봅니다. 탭이 많아 한 줄에 다 안 들어가면 오른쪽의 `<` `>` 단추로 넘깁니다.
 
 ### 화면 옮기기와 확대
 
@@ -53,7 +55,11 @@ Ctrl과 휠로 확대할 때는 휠을 돌린 만큼 바뀝니다. 마우스 휠
 도구 모음의 격자 단추로 그림 위에 격자를 켜고 끕니다. 보기 메뉴에도 같은 명령이 있습니다.
 칸 간격은 화면에서 32px로 고정되어, 확대하거나 축소해도 칸이 커지거나 촘촘해지지 않습니다.
 격자는 그림 위에만 그려지고, 그 위로 그리거나 영역을 고르는 것은 그대로 됩니다. 켠 상태는
-다음 실행 때도 남습니다.
+다음 실행 때도 남습니다. 옆의 도형 표시 단추는 캔버스 위의 도형을 보이거나 숨깁니다.
+숨겨도 도형은 지워지지 않고, 저장과 인쇄에는 그대로 들어갑니다.
+
+새 그림(Ctrl+N)을 누르면 너비와 높이를 묻는 창이 열립니다. 칸에는 설정에 적어 둔
+기본 크기가 채워져 있고, 숫자를 고친 뒤 만들기를 누르면 그 크기의 빈 그림이 생깁니다.
 
 창을 최소 크기까지 줄여도 도구 모음의 단추는 잘리거나 서로 겹치지 않습니다.
 
@@ -153,14 +159,17 @@ finishes, `.mpaint` files carry the MyPaint document icon and open in MyPaint.
 
 ### Drawing
 
-The tools are at the top of the left panel. Pencil and brush draw while you drag; line,
-rectangle and ellipse take their size from the drag. The text tool places text where you
-click, and the text itself is edited in the right panel. Fill changes the colour of a shape
-or of the canvas, and the picker takes the colour under the pointer.
+The tools are at the top of the left panel. Pencil, brush, marker, spray and the eraser draw while you
+drag; line, arrow, curve, rectangle, rounded rectangle, ellipse and triangle take their size
+from the drag. The text tool places text where you click, and the text itself is edited in
+the right panel. Fill changes the colour of a shape or of the canvas, and the picker takes
+the colour under the pointer.
 
-Pick colours from the swatches, or set the line and fill colours directly. The slider below
-them sets the line width. With the select tool, clicking a shape shows its colour, width,
-opacity and position in the right panel, dragging moves it, and Delete removes it.
+Pick colours from the swatches, or set the line and fill colours directly. The pictures
+below them set the line width. − and + step it by one, and the px field takes a number you type. With the eraser selected, the same controls set the eraser size. Both panels keep one width, and they fold and
+open from the button beside the title. With the select tool, clicking a shape shows its
+colour, width, opacity and position in the right panel, dragging moves it, and Delete
+removes it.
 
 ### Picking an area and cutting it out
 
@@ -177,7 +186,7 @@ outlined with a dashed line and the right panel names its shape and size.
 ### Tabs
 
 Several drawings stay open as tabs. The × on a tab closes that one, and a tab with unsaved
-work asks first. When there are more tabs than fit, the `<` and `>` buttons at both ends move
+work asks first. When there are more tabs than fit, the `<` and `>` buttons on the right move
 through them.
 
 ### Moving and zooming the picture
@@ -196,7 +205,12 @@ one click of the button, while a trackpad follows two fingers a per cent at a ti
 The grid button on the toolbar, also in the View menu, draws a grid over the picture. The
 cells stay 32 pixels apart on screen, so zooming in or out does not make them larger or
 denser. The grid sits on the picture only, and drawing or picking an area still works through
-it. Whether it is on is remembered for the next run.
+it. Whether it is on is remembered for the next run. The shapes button beside it shows or
+hides the shapes on the canvas. Hiding them does not delete them, and saving and printing
+still include them.
+
+New drawing (Ctrl+N) asks for the width and height. The fields start with the size set in
+Settings, and Create opens a blank drawing at the size you leave there.
 
 Shrinking the window to its minimum does not cut off or overlap the toolbar buttons.
 
