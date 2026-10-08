@@ -33,7 +33,7 @@
           <img class="logo" src="assets/icon.png" alt="" width="42" height="42" draggable="false" />
           <div>
             <h1>MyCalc <span class="version">10.0</span></h1>
-            <p data-i18n="tagline">기본, 공학용, 프로그래머, 그래프, 단위</p>
+            <p data-i18n="tagline">기본, 공학용, 프로그래머, 통계, 그래프, 단위</p>
           </div>
         </div>
         <div class="brand-actions">
@@ -46,12 +46,13 @@
         </div>
       </div>
       <nav class="modes" role="tablist" data-i18n-aria="modes" aria-label="계산기 모드">
-        <button type="button" role="tab" data-mode="basic" aria-selected="true"><span class="icon icon-basic" aria-hidden="true"></span><span data-i18n="mode.basic">기본</span></button>
-        <button type="button" role="tab" data-mode="scientific" aria-selected="false"><span class="icon icon-scientific" aria-hidden="true"></span><span data-i18n="mode.scientific">공학용</span></button>
-        <button type="button" role="tab" data-mode="programmer" aria-selected="false"><span class="icon icon-programmer" aria-hidden="true"></span><span data-i18n="mode.programmer">프로그래머</span></button>
-        <button type="button" role="tab" data-mode="graph" aria-selected="false"><span class="icon icon-graph" aria-hidden="true"></span><span data-i18n="mode.graph">그래프</span></button>
-        <button type="button" role="tab" data-mode="currency" aria-selected="false"><span class="icon icon-rates" aria-hidden="true"></span><span data-i18n="mode.currency">환율</span></button>
-        <button type="button" role="tab" data-mode="unit" aria-selected="false" data-i18n-title="mode.unit" data-tooltip="단위"><span class="icon icon-units" aria-hidden="true"></span><span data-i18n="mode.unit">단위</span></button>
+        <button type="button" role="tab" data-mode="basic" aria-selected="true" data-i18n-aria="mode.basic" data-i18n-title="mode.basic" aria-label="기본" data-tooltip="기본"><span class="icon icon-basic" aria-hidden="true"></span></button>
+        <button type="button" role="tab" data-mode="scientific" aria-selected="false" data-i18n-aria="mode.scientific" data-i18n-title="mode.scientific" aria-label="공학용" data-tooltip="공학용"><span class="icon icon-scientific" aria-hidden="true"></span></button>
+        <button type="button" role="tab" data-mode="programmer" aria-selected="false" data-i18n-aria="mode.programmer" data-i18n-title="mode.programmer" aria-label="프로그래머" data-tooltip="프로그래머"><span class="icon icon-programmer" aria-hidden="true"></span></button>
+        <button type="button" role="tab" data-mode="stats" aria-selected="false" data-i18n-aria="mode.stats" data-i18n-title="mode.stats" aria-label="통계" data-tooltip="통계"><span class="icon icon-stats" aria-hidden="true"></span></button>
+        <button type="button" role="tab" data-mode="graph" aria-selected="false" data-i18n-aria="mode.graph" data-i18n-title="mode.graph" aria-label="그래프" data-tooltip="그래프"><span class="icon icon-graph" aria-hidden="true"></span></button>
+        <button type="button" role="tab" data-mode="currency" aria-selected="false" data-i18n-aria="mode.currency" data-i18n-title="mode.currency" aria-label="환율" data-tooltip="환율"><span class="icon icon-rates" aria-hidden="true"></span></button>
+        <button type="button" role="tab" data-mode="unit" aria-selected="false" data-i18n-aria="mode.unit" data-i18n-title="mode.unit" aria-label="단위" data-tooltip="단위"><span class="icon icon-units" aria-hidden="true"></span></button>
       </nav>
     </header>
 
@@ -127,6 +128,29 @@
         <output id="unitResult" class="rate-result">0</output>
       </div>
       <div class="rate-note" id="unitNote"></div>
+    </section>
+
+    <section class="screen" id="screenStats" hidden>
+      <div class="stat-head">
+        <span class="stat-n" id="statN">n = 0</span>
+        <button type="button" id="statSort" class="tool-icon" data-i18n-aria="statSort" data-i18n-title="statSort" aria-label="오름차순 정렬" data-tooltip="오름차순 정렬"><span class="icon icon-sort" aria-hidden="true"></span></button>
+        <button type="button" id="statUndo" class="tool-icon" data-i18n-aria="statUndo" data-i18n-title="statUndo" aria-label="마지막 값 지우기" data-tooltip="마지막 값 지우기"><span class="icon icon-undo" aria-hidden="true"></span></button>
+        <button type="button" id="statClear" class="tool-icon" data-i18n-aria="statClear" data-i18n-title="statClear" aria-label="데이터 모두 지우기" data-tooltip="데이터 모두 지우기"><span class="icon icon-trash" aria-hidden="true"></span></button>
+      </div>
+      <input type="file" id="statCsvFile" accept=".csv,.tsv,.txt,text/csv,text/plain" hidden />
+      <div class="stat-body">
+        <div class="stat-left">
+          <div class="stat-data">
+            <ol class="stat-list" id="statList" data-i18n-aria="statData" aria-label="데이터"></ol>
+            <p class="stat-empty" id="statEmpty" data-i18n="statEmpty">값을 입력하고 추가를 누르세요.</p>
+          </div>
+          <label class="stat-field">
+            <input id="statInput" class="stat-input" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0" data-i18n-aria="statValue" aria-label="값" />
+          </label>
+          <div class="stat-note" id="statNote"></div>
+        </div>
+        <dl class="stat-summary" id="statSummary"></dl>
+      </div>
     </section>
 
     <section class="screen graph-screen" id="screenGraph" hidden>
@@ -226,9 +250,17 @@
         </div>
         <p class="export-error" id="exportError"></p>
       </form>
+      <div class="expr-pad" id="exprPad" role="group" data-i18n-aria="exprPad" aria-label="빠른 입력"></div>
       <div class="presets" id="presets"></div>
+      <div class="presets stat-presets" id="statPresets" role="group" data-i18n-aria="statPresets" aria-label="통계 그래프"></div>
       <div class="graph-body">
-        <ul class="fn-list" id="fnList"></ul>
+        <div class="fn-panel">
+          <div class="fn-head">
+            <span class="fn-count" id="fnCount"></span>
+            <button type="button" id="fnSort" class="tool-icon" data-i18n-aria="fnSortUp" data-i18n-title="fnSortUp" aria-label="식 오름차순 정렬" data-tooltip="식 오름차순 정렬"><span class="icon icon-sort" aria-hidden="true"></span></button>
+          </div>
+          <ul class="fn-list" id="fnList"></ul>
+        </div>
         <div class="graph-split" id="graphSplit" role="separator" aria-orientation="vertical" data-i18n-aria="panelSize" data-i18n-title="panelSize" aria-label="패널 크기" data-tooltip="패널 크기"></div>
         <div class="canvas-wrap">
           <canvas id="plot" width="800" height="420" data-i18n-aria="canvas" aria-label="함수 그래프"></canvas>
@@ -237,7 +269,7 @@
           <div id="readout" class="readout">드래그로 이동, 휠로 확대</div>
         </div>
         <aside class="graph-side" id="graphSide" hidden>
-          <section class="side-group">
+          <section class="side-group" id="sideLightGroup">
             <h3 data-i18n="light">광원</h3>
             <label class="side-check"><input type="checkbox" id="sideLightOn" checked /><span data-i18n="lightOn">광원 켜기</span></label>
             <label class="side-slide"><span data-i18n="lightTurn">방위</span><input type="range" id="sideLightTurn" min="-180" max="180" step="1" value="-54" /><output id="sideLightTurnOut">-54°</output></label>
@@ -246,6 +278,7 @@
           </section>
         </aside>
       </div>
+      <div class="graph-status" id="graphStatus" role="status" data-i18n-aria="graphStatus" aria-label="그래프 상태"></div>
     </section>
 
     <section id="keys" class="keys"></section>

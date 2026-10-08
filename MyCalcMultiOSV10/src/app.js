@@ -9,6 +9,7 @@ const screenProg = document.getElementById("screenProg");
 const screenGraph = document.getElementById("screenGraph");
 const screenRates = document.getElementById("screenRates");
 const screenUnit = document.getElementById("screenUnit");
+const screenStats = document.getElementById("screenStats");
 const angleBtn = document.getElementById("angleBtn");
 const notationBtn = document.getElementById("notationBtn");
 const memFlag = document.getElementById("memFlag");
@@ -43,6 +44,20 @@ function digitRows() {
   return state.keypad === "123" ? rows.slice().reverse() : rows;
 }
 
+const STATS_KEY = "mycalc-stats";
+// A data set people typed by hand; past this it is a file, not a keypad.
+const STATS_MAX = 500;
+
+function readStoredStats() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STATS_KEY));
+    if (!Array.isArray(saved)) return [];
+    return saved.filter((value) => typeof value === "number" && Number.isFinite(value)).slice(0, STATS_MAX);
+  } catch {
+    return [];
+  }
+}
+
 const state = {
   mode: "basic",
   notation: "norm",
@@ -56,6 +71,7 @@ const state = {
   currency: { amount: "1", from: "USD", to: "KRW" },
   keypad: readStoredKeypad(),
   unit: readStoredUnit() || { group: "length", from: "cm", to: "in", amount: "1" },
+  stats: { values: readStoredStats(), draft: "" },
 };
 
 let rateTable = readStoredRates() || RATE_FALLBACK;
@@ -102,6 +118,28 @@ const PRESETS = {
   "2d": ["sin(x)", "cos(x)", "tan(x)", "x^2", "1/x", "ln(x)", "e^(-x^2)"],
   "3d": ["sin(x)*cos(y)", "x^2+y^2", "x^2-y^2", "sin(sqrt(x^2+y^2))", "e^(-(x^2+y^2))", "cos(x)+sin(y)"],
 };
+
+// The statistics row is 2D only; a density over two variables is not what the
+// surface plotter is for. The last entry is filled from the statistics mode's
+// own data, so a data set typed there can be seen as a curve in one click.
+const STAT_PRESETS = [
+  { expr: "normalpdf(x)", key: "statStdNormal" },
+  { expr: "normalcdf(x)", key: "statNormalCdf" },
+  { expr: "normalpdf(x,0,2)", key: "statWideNormal" },
+  { expr: "normalpdf(x,0,0.5)", key: "statNarrowNormal" },
+  { fromData: true, key: "statFromData" },
+];
+
+// Tokens that are a nuisance on a keyboard but constant in graphing. A token
+// ending in "(" closes itself and leaves the caret inside.
+const EXPR_PAD = [
+  { id: "var", tokens: ["x"], dims: ["2d", "3d"] },
+  { id: "var3d", tokens: ["y"], dims: ["3d"] },
+  { id: "op", tokens: ["+", "-", "*", "/", "^", "(", ")"], dims: ["2d", "3d"] },
+  { id: "const", tokens: ["pi", "e"], dims: ["2d", "3d"] },
+  { id: "fn", tokens: ["sqrt(", "sin(", "cos(", "tan(", "ln(", "log(", "abs(", "exp("], dims: ["2d", "3d"] },
+  { id: "stat", tokens: ["normalpdf(", "normalcdf(", "invnorm("], dims: ["2d"] },
+];
 
 function basicKeys() {
   const ops = ["×", "−", "+"];
@@ -262,6 +300,51 @@ function unitKeys() {
   return rows;
 }
 
+// Four columns of entry beside three of tools, in a grid whose cells come out
+// square. Everything the mode can do is on the pad, so a data set can be typed,
+// tidied and sent to the graph without reaching for the mouse.
+function statsKeys() {
+  const digit = (label) => ({ label, type: "sdigit", value: label });
+  const tool = (icon, type, key) => ({ label: t(key), icon, type, className: "fn stat-tool", title: t(key) });
+  const entrySides = [
+    { label: "E", type: "sexp", className: "util" },
+    { label: "00", type: "sdigit", value: "00" },
+    digit("0"),
+  ];
+  const toolRows = [
+    // Getting data in, getting it out, then tidying what is there.
+    [
+      tool("csv", "scsv", "statOpenCsvTip"),
+      tool("paste", "spaste", "statPasteTip"),
+      tool("repeat", "srepeat", "statRepeatTip"),
+    ],
+    [
+      tool("copy", "scopydata", "statCopyDataTip"),
+      tool("summary", "scopysummary", "statCopySummaryTip"),
+      tool("graph", "splot", "statPlotTip"),
+    ],
+    [
+      tool("sort", "ssortup", statSortDesc ? "statSortDesc" : "statSort"),
+      tool("undo", "sundo", "statUndo"),
+      tool("trash", "sclearall", "statClear"),
+    ],
+  ];
+  const rows = [
+    [
+      { label: "AC", type: "sclear", className: "util" },
+      { label: "⌫", type: "sback", className: "util" },
+      { label: "±", type: "ssign", className: "util" },
+      { label: ".", type: "sdot", className: "util" },
+      ...toolRows[0],
+    ],
+  ];
+  digitRows().forEach((trio, index) => {
+    const tail = index < 2 ? toolRows[index + 1] : [{ label: t("statAdd"), type: "sadd", className: "eq", span: 3 }];
+    rows.push([...trio.map((label) => digit(label)), entrySides[index], ...tail]);
+  });
+  return rows;
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -288,6 +371,10 @@ function renderKeys() {
     keysEl.append(renderGrid(unitKeys(), 4));
     return;
   }
+  if (state.mode === "stats") {
+    keysEl.append(renderGrid(statsKeys(), 7));
+    return;
+  }
   if (state.mode === "scientific") {
     const wrap = el("div", "sci-layout");
     wrap.append(renderGrid(sciKeys(), 5));
@@ -306,8 +393,15 @@ function renderGrid(rows, columns) {
     const second = state.second && (key.altLabel || key.altValue);
     const button = el("button", "key " + (key.className || ""));
     button.type = "button";
-    button.textContent = second ? key.altLabel || key.altValue : key.label;
-    if (key.title) button.title = key.title;
+    if (key.icon) {
+      // An icon key says nothing on its own, so the name it would have carried
+      // becomes its tooltip and its label for a screen reader.
+      button.append(el("span", `icon icon-${key.icon}`));
+      button.setAttribute("aria-label", key.title || key.label);
+    } else {
+      button.textContent = second ? key.altLabel || key.altValue : key.label;
+    }
+    if (key.title) button.dataset.tooltip = key.title;
     if (key.type === "second" && state.second) button.classList.add("active");
     if (key.type === "pdigit" && digitValue(key.value) >= state.base) button.disabled = true;
     if (key.span > 1) button.style.gridColumn = `span ${key.span}`;
@@ -356,6 +450,24 @@ function onKey(key, second) {
   else if (type === "uback") setUnitAmount(state.unit.amount.slice(0, -1) || "0");
   else if (type === "usign") toggleUnitSign();
   else if (type === "uswap") swapUnit();
+  else if (type === "sdigit") typeStat(value);
+  else if (type === "sdot") typeStat(".");
+  else if (type === "sexp") typeStat("E");
+  else if (type === "sback") setStatDraft(state.stats.draft.slice(0, -1));
+  else if (type === "ssign") toggleStatSign();
+  // AC clears what is being typed, as it does in the other modes. Wiping the
+  // whole data set is the key labelled for it, which cannot be hit by reflex.
+  else if (type === "sclear") setStatDraft("");
+  else if (type === "sundo") dropLastStat();
+  else if (type === "sclearall") clearStats();
+  else if (type === "sadd") addStat();
+  else if (type === "spaste") pasteStats();
+  else if (type === "scopydata") copyStatData();
+  else if (type === "scopysummary") copyStatSummary();
+  else if (type === "srepeat") repeatStat();
+  else if (type === "splot") plotStatNormal();
+  else if (type === "ssortup") sortStats();
+  else if (type === "scsv") openStatCsv();
   else if (type === "ucopy") copyToClipboard(document.getElementById("unitResult").textContent);
   else if (type === "ccopy") copyToClipboard(document.getElementById("rateResult").textContent);
 }
@@ -692,8 +804,10 @@ function setMode(mode) {
   for (const tab of document.querySelectorAll(".modes button")) {
     tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
   }
-  screenCalc.hidden = mode === "programmer" || mode === "graph" || mode === "currency" || mode === "unit";
+  screenCalc.hidden =
+    mode === "programmer" || mode === "graph" || mode === "currency" || mode === "unit" || mode === "stats";
   screenProg.hidden = mode !== "programmer";
+  screenStats.hidden = mode !== "stats";
   // The off-screen plot keeps drawing in the calculator window so a graph
   // window opened later starts with the picture already in hand.
   screenGraph.hidden = graphPopup && mode !== "graph";
@@ -702,6 +816,7 @@ function setMode(mode) {
   renderKeys();
   if (mode === "currency") openCurrency();
   if (mode === "unit") openUnit();
+  if (mode === "stats") openStats();
   if (mode === "graph") {
     requestAnimationFrame(() => requestAnimationFrame(() => board.resize()));
   }
@@ -710,7 +825,7 @@ function setMode(mode) {
 
 function fitModeWindow(mode) {
   if (pageKind || !window.mycalcDesktop) return;
-  const sized = ["basic", "scientific", "programmer", "currency", "unit"];
+  const sized = ["basic", "scientific", "programmer", "stats", "currency", "unit"];
   if (!sized.includes(mode)) return;
   window.mycalcDesktop.setContentSize(mode);
 }
@@ -889,7 +1004,37 @@ function openLegendEditor(id, hit) {
   editor.select();
 }
 
+// One key does both directions: each press sorts the other way, and the glyph
+// turns over to show which way the list is now running.
+let fnSortDesc = false;
+
+// The list is the drawing order as well as a list, so sorting it re-stacks the
+// curves. Comparing with the locale collator keeps "x10" after "x2".
+function sortFunctions() {
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+  board.functions.sort((a, b) => (fnSortDesc ? -1 : 1) * collator.compare(a.expr, b.expr));
+  fnSortDesc = !fnSortDesc;
+  board.meshKey = "";
+  board.draw();
+  renderFunctions();
+  publishGraph();
+}
+
 function renderFunctions() {
+  syncGraphStatus();
+  const count = document.getElementById("fnCount");
+  if (count) {
+    const shown = board.functions.filter((fn) => fn.visible).length;
+    count.textContent = board.functions.length ? `${shown} / ${board.functions.length}` : "";
+  }
+  const sortBtn = document.getElementById("fnSort");
+  if (sortBtn) {
+    sortBtn.disabled = board.functions.length < 2;
+    const label = t(fnSortDesc ? "fnSortDown" : "fnSortUp");
+    sortBtn.dataset.tooltip = label;
+    sortBtn.setAttribute("aria-label", label);
+    sortBtn.querySelector(".icon").classList.toggle("flip", fnSortDesc);
+  }
   fnListEl.replaceChildren();
   if (board.functions.length === 0) {
     const empty = board.dimension === "3d" ? t("empty3d") : t("empty2d");
@@ -938,12 +1083,47 @@ function renderFunctions() {
   }
 }
 
+// The status bar is the one place that answers "what am I looking at": how many
+// curves, over what range, with which switches on. It is read, never typed in.
+function syncGraphStatus() {
+  const bar = document.getElementById("graphStatus");
+  if (!bar) return;
+  const is3d = board.dimension === "3d";
+  const view = board.view;
+  const shown = board.functions.filter((fn) => fn.visible).length;
+  const span = (lo, hi) => `${spanText(lo)} … ${spanText(hi)}`;
+  const cells = [
+    [t("statusDim"), is3d ? "3D" : "2D"],
+    [t("statusCurves"), `${shown} / ${board.functions.length}`],
+    ["x", span(view.xMin, view.xMax)],
+    ["y", span(view.yMin, view.yMax)],
+  ];
+  if (is3d) cells.push(["z", span(view.zMin, view.zMax)]);
+  cells.push([t("statusGrid"), board.showGrid ? t("statusOn") : t("statusOff")]);
+  cells.push([t("statusLegend"), board.showLegend ? t("statusOn") : t("statusOff")]);
+  if (is3d) cells.push([t("light"), board.light.on ? t("statusOn") : t("statusOff")]);
+  cells.push([t("statusAngle"), engine.angleMode === "rad" ? "RAD" : "DEG"]);
+
+  bar.replaceChildren();
+  for (const [label, value] of cells) {
+    const cell = el("span", "status-cell");
+    cell.append(el("span", "status-label", label));
+    cell.append(el("span", "status-value", value));
+    bar.append(cell);
+  }
+  const hover = el("span", "status-cell status-hover");
+  hover.append(el("span", "status-label", t("statusCursor")));
+  hover.append(el("span", "status-value", board.hoverLabel || "—"));
+  bar.append(hover);
+}
+
 function syncViewFields() {
   // Panning and zooming set the whole range; nothing here is typed in.
   if (board.dimension === "2d" && board.hover && !board.drag) {
     readoutEl.textContent = board.hoverLabel || readoutEl.textContent;
   }
   syncAxisSpans();
+  syncGraphStatus();
 }
 
 // A number the reader can edit: short enough to fit the box, and written so
@@ -1066,6 +1246,13 @@ function syncGraphChrome() {
   const lightToggle = document.getElementById("lightToggle");
   lightToggle.hidden = !is3d;
   lightToggle.setAttribute("aria-pressed", String(board.light.on));
+  // A 2D plot has nothing for a lamp to fall on, so the light panel goes quiet
+  // rather than offering settings that change nothing.
+  const lightGroup = document.getElementById("sideLightGroup");
+  if (lightGroup) {
+    lightGroup.classList.toggle("side-group-off", !is3d);
+    for (const field of lightGroup.querySelectorAll("input")) field.disabled = !is3d;
+  }
   gridToggle.setAttribute("aria-pressed", String(board.showGrid));
   axisToggle.setAttribute("aria-pressed", String(board.showAxisValues));
   const axesOn = board.axes.x.visible || board.axes.y.visible || board.axes.z.visible;
@@ -1106,6 +1293,79 @@ function renderPresets() {
     button.addEventListener("click", () => addGraph(expr));
     presets.append(button);
   }
+  renderStatPresets();
+  renderExprPad();
+}
+
+// The fitted curve needs a spread, and a spread needs two points, so the key
+// stays out of reach until the statistics mode has them.
+function statFit() {
+  const values = state.stats.values;
+  if (values.length < 2) return null;
+  const summary = statSummary(values);
+  if (!summary || !(summary.sampleSd > 0)) return null;
+  return { mean: summary.mean, sd: summary.sampleSd };
+}
+
+function renderStatPresets() {
+  const host = document.getElementById("statPresets");
+  if (!host) return;
+  host.replaceChildren();
+  host.hidden = board.dimension !== "2d";
+  if (host.hidden) return;
+  host.append(el("span", "preset-label", t("statPresets")));
+  for (const preset of STAT_PRESETS) {
+    const fit = preset.fromData ? statFit() : null;
+    const expr = preset.fromData
+      ? fit && `normalpdf(x,${formatForChain(fit.mean)},${formatForChain(fit.sd)})`
+      : preset.expr;
+    const button = el("button", "", preset.fromData ? t(preset.key) : preset.expr);
+    button.type = "button";
+    button.dataset.tooltip = preset.fromData ? t("statFromDataTip") : t(preset.key);
+    if (!expr) {
+      button.disabled = true;
+      button.dataset.tooltip = t("statFromDataNone");
+    } else {
+      button.addEventListener("click", () => addGraph(expr));
+    }
+    host.append(button);
+  }
+}
+
+function renderExprPad() {
+  const pad = document.getElementById("exprPad");
+  if (!pad) return;
+  pad.replaceChildren();
+  for (const group of EXPR_PAD) {
+    if (!group.dims.includes(board.dimension)) continue;
+    const box = el("div", "pad-group");
+    for (const token of group.tokens) {
+      // "sqrt(" is shown as its name; a bare "(" is shown as itself.
+      const named = token.length > 1 && token.endsWith("(");
+      const button = el("button", "", named ? token.slice(0, -1) : token);
+      button.type = "button";
+      button.tabIndex = -1;
+      button.addEventListener("mousedown", (ev) => ev.preventDefault());
+      button.addEventListener("click", () => insertGraphToken(token));
+      box.append(button);
+    }
+    pad.append(box);
+  }
+}
+
+// Typing goes in at the caret and the caret stays where the next character
+// belongs, so a whole expression can be built without touching the keyboard.
+function insertGraphToken(token) {
+  const input = graphExprEl;
+  if (!input) return;
+  const text = token.endsWith("(") ? token + ")" : token;
+  const back = token.endsWith("(") ? 1 : 0;
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? start;
+  input.value = input.value.slice(0, start) + text + input.value.slice(end);
+  const pos = start + text.length - back;
+  input.focus();
+  input.setSelectionRange(pos, pos);
 }
 
 function addGraph(expr) {
@@ -1285,8 +1545,12 @@ function bind() {
   bindAxisSpans();
   document.getElementById("helpGraph").addEventListener("click", () => openChildWindow("help"));
   renderPresets();
+  document.getElementById("fnSort").addEventListener("click", () => sortFunctions());
   document.getElementById("plot").addEventListener("pointermove", () => {
     if (board.hoverLabel) readoutEl.textContent = board.hoverLabel;
+    // Only the one cell changes under the pointer, so the bar is not rebuilt.
+    const cell = document.querySelector("#graphStatus .status-hover .status-value");
+    if (cell) cell.textContent = board.hoverLabel || "—";
   });
   document.addEventListener("keydown", (ev) => {
     if (state.mode === "graph") return;
@@ -1328,6 +1592,10 @@ function typeConverterKey(key) {
 const infoSheet = document.getElementById("infoSheet");
 const settingsSheet = document.getElementById("settingsSheet");
 let activeThemeId = "dark-1";
+// Whether a custom swatch has been changed since a theme was last chosen. Apply
+// only writes a custom theme when it has something of the reader's to write;
+// otherwise it would overwrite the preset they just picked with the swatches.
+let customTouched = false;
 
 function renderThemeGroups() {
   for (const group of ["dark", "light"]) {
@@ -1408,7 +1676,8 @@ function applyStoredTheme() {
   const stored = loadTheme();
   activeThemeId = stored?.id || "dark-1";
   if (!settingsSheet.hidden) {
-    renderCustomFields(stored?.picks);
+    customTouched = false;
+    renderCustomFields(picksForActive(stored));
     renderThemeGroups();
   }
 }
@@ -1426,7 +1695,8 @@ function resetSettings() {
   activeThemeId = theme.id;
   applyTheme(theme);
   storeTheme({ id: theme.id });
-  renderCustomFields();
+  customTouched = false;
+  renderCustomFields(picksFromTheme(theme));
   renderThemeGroups();
   publishUi({ type: "theme" });
   setKeypad(KEYPAD_ORDERS[0]);
@@ -1436,6 +1706,10 @@ function selectPreset(theme) {
   activeThemeId = theme.id;
   applyTheme(theme);
   storeTheme({ id: theme.id });
+  // The swatches follow the preset, so the custom section starts from what is
+  // on screen instead of holding colours the reader never chose.
+  customTouched = false;
+  renderCustomFields(picksFromTheme(theme));
   renderThemeGroups();
   publishUi({ type: "theme" });
 }
@@ -1446,6 +1720,21 @@ function customPicks() {
     picks[input.dataset.custom] = input.value;
   }
   return picks;
+}
+
+// The seven custom swatches are the seven colours a theme is built from, so a
+// preset can be read straight back into them.
+function picksFromTheme(theme) {
+  const picks = {};
+  for (const [key] of CUSTOM_FIELDS) picks[key] = theme?.vars?.[`--${key}`];
+  return picks;
+}
+
+// Which colours the swatches should show for whatever is in force: a custom
+// theme's own picks, otherwise the preset's colours.
+function picksForActive(stored) {
+  if (stored?.picks) return stored.picks;
+  return picksFromTheme(themeById(stored?.id || activeThemeId) || THEMES[0]);
 }
 
 function renderCustomFields(picks) {
@@ -1467,6 +1756,9 @@ function renderCustomFields(picks) {
     input.type = "color";
     input.dataset.custom = key;
     input.value = picks?.[key] || defaults[key];
+    input.addEventListener("input", () => {
+      customTouched = true;
+    });
     field.append(input);
     host.append(field);
   }
@@ -1475,6 +1767,7 @@ function renderCustomFields(picks) {
 function applyCustomTheme() {
   const next = customPicks();
   activeThemeId = "custom";
+  customTouched = false;
   applyTheme(themeFromCustom(next));
   storeTheme({ id: "custom", picks: next });
   renderThemeGroups();
@@ -1731,6 +2024,362 @@ function bindUnit() {
   document.getElementById("unitSwap").addEventListener("click", swapUnit);
   renderUnitOptions();
   renderUnit();
+}
+
+// ---- statistics ----
+
+function rememberStats() {
+  try {
+    localStorage.setItem(STATS_KEY, JSON.stringify(state.stats.values));
+  } catch {
+    /* The data set simply starts over next time. */
+  }
+  // The graph lives in its own window and offers a curve fitted to this data,
+  // so it has to hear about a value the moment it is typed here.
+  if (uiChannel) uiChannel.postMessage({ type: "stats" });
+}
+
+function applyStoredStats() {
+  state.stats.values = readStoredStats();
+  renderStats();
+}
+
+// Linear interpolation between order statistics — the same quartiles R calls
+// type 7 and spreadsheets call PERCENTILE.INC, so the numbers agree with what
+// people check them against.
+function quantile(sorted, p) {
+  if (!sorted.length) return NaN;
+  if (sorted.length === 1) return sorted[0];
+  const pos = (sorted.length - 1) * p;
+  const low = Math.floor(pos);
+  const high = Math.ceil(pos);
+  if (low === high) return sorted[low];
+  return sorted[low] + (sorted[high] - sorted[low]) * (pos - low);
+}
+
+function statSummary(values) {
+  const n = values.length;
+  if (!n) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const sum = values.reduce((a, b) => a + b, 0);
+  const mean = sum / n;
+  let sumsq = 0;
+  let spread = 0;
+  for (const value of values) {
+    sumsq += value * value;
+    spread += (value - mean) ** 2;
+  }
+  const popVar = spread / n;
+  const sampleVar = n > 1 ? spread / (n - 1) : NaN;
+  const q1 = quantile(sorted, 0.25);
+  const q3 = quantile(sorted, 0.75);
+  return {
+    n,
+    sum,
+    sumsq,
+    mean,
+    median: quantile(sorted, 0.5),
+    sampleSd: Math.sqrt(sampleVar),
+    popSd: Math.sqrt(popVar),
+    sampleVar,
+    popVar,
+    min: sorted[0],
+    max: sorted[n - 1],
+    range: sorted[n - 1] - sorted[0],
+    q1,
+    q3,
+    iqr: q3 - q1,
+    se: n > 1 ? Math.sqrt(sampleVar / n) : NaN,
+  };
+}
+
+const STAT_ROWS = [
+  "n", "mean", "median", "sampleSd", "popSd", "sampleVar", "popVar",
+  "se", "sum", "sumsq", "min", "max", "range", "q1", "q3", "iqr",
+];
+
+function formatStat(value) {
+  if (!Number.isFinite(value)) return "—";
+  return formatNumber(value, state.notation);
+}
+
+function renderStats() {
+  const list = document.getElementById("statList");
+  const summaryEl = document.getElementById("statSummary");
+  if (!list || !summaryEl) return;
+  const values = state.stats.values;
+
+  list.replaceChildren();
+  values.forEach((value, index) => {
+    const row = el("li", "stat-row");
+    row.append(el("span", "stat-index", String(index + 1)));
+    row.append(el("span", "stat-value", formatNumber(value, state.notation)));
+    const drop = el("button", "stat-drop", "×");
+    drop.type = "button";
+    drop.dataset.tooltip = t("statDrop");
+    drop.setAttribute("aria-label", t("statDrop"));
+    drop.addEventListener("click", () => removeStat(index));
+    row.append(drop);
+    list.append(row);
+  });
+  // The newest value is the one just typed, so keep it in view.
+  if (values.length) list.scrollTop = list.scrollHeight;
+
+  const empty = document.getElementById("statEmpty");
+  if (empty) empty.hidden = values.length > 0;
+  document.getElementById("statN").textContent = `n = ${values.length}`;
+
+  const summary = statSummary(values);
+  summaryEl.replaceChildren();
+  for (const key of STAT_ROWS) {
+    const term = el("dt", "", t(`stat.${key}`));
+    const value = el("dd", "", summary ? formatStat(summary[key]) : "—");
+    if (key === "n" && summary) value.textContent = String(summary.n);
+    summaryEl.append(term, value);
+  }
+
+  // Typing in the field updates the draft without re-rendering, so writing the
+  // draft back here cannot fight the caret and does clear the field after Add.
+  const input = document.getElementById("statInput");
+  if (input && input.value !== state.stats.draft) input.value = state.stats.draft;
+  const note = document.getElementById("statNote");
+  if (note) note.textContent = values.length === 1 ? t("statNeedTwo") : "";
+  // The graph's fitted-curve key turns on the moment there is enough data.
+  renderStatPresets();
+  for (const id of ["statSort", "statUndo", "statClear"]) {
+    const button = document.getElementById(id);
+    if (button) button.disabled = values.length === 0;
+  }
+  const sortBtn = document.getElementById("statSort");
+  if (sortBtn) {
+    const label = t(statSortDesc ? "statSortDesc" : "statSort");
+    sortBtn.dataset.tooltip = label;
+    sortBtn.setAttribute("aria-label", label);
+    sortBtn.querySelector(".icon").classList.toggle("flip", statSortDesc);
+  }
+}
+
+function setStatDraft(text) {
+  state.stats.draft = text;
+  const input = document.getElementById("statInput");
+  if (input) input.value = text;
+  renderStats();
+}
+
+function typeStat(text) {
+  const draft = state.stats.draft;
+  if (text === "." && draft.includes(".")) return;
+  if (text === "." && !draft) {
+    setStatDraft("0.");
+    return;
+  }
+  setStatDraft(draft + text);
+}
+
+function toggleStatSign() {
+  const draft = state.stats.draft;
+  setStatDraft(draft.startsWith("-") ? draft.slice(1) : "-" + draft);
+}
+
+function addStat() {
+  const text = state.stats.draft.trim();
+  const note = document.getElementById("statNote");
+  if (!text) return;
+  const value = Number(text);
+  if (!Number.isFinite(value)) {
+    if (note) note.textContent = t("statBadValue");
+    return;
+  }
+  if (state.stats.values.length >= STATS_MAX) return;
+  state.stats.values.push(value);
+  state.stats.draft = "";
+  rememberStats();
+  renderStats();
+}
+
+function removeStat(index) {
+  state.stats.values.splice(index, 1);
+  rememberStats();
+  renderStats();
+}
+
+function dropLastStat() {
+  // With something half-typed the key clears that first — it is the nearer undo.
+  if (state.stats.draft) {
+    setStatDraft("");
+    return;
+  }
+  state.stats.values.pop();
+  rememberStats();
+  renderStats();
+}
+
+function clearStats() {
+  state.stats.values = [];
+  state.stats.draft = "";
+  rememberStats();
+  renderStats();
+}
+
+// As on the graph list, the one key alternates: ascending, then descending.
+let statSortDesc = false;
+
+function sortStats() {
+  state.stats.values.sort((a, b) => (statSortDesc ? b - a : a - b));
+  statSortDesc = !statSortDesc;
+  rememberStats();
+  renderStats();
+}
+
+function statNote(text) {
+  const note = document.getElementById("statNote");
+  if (note) note.textContent = text;
+}
+
+// A pasted list is the quick way in: anything that is not part of a number is
+// treated as a separator, so commas, tabs, spaces and line breaks all work.
+function readStatList(text) {
+  return String(text)
+    .split(/[^0-9eE.+-]+/)
+    .map((piece) => piece.trim())
+    .filter(Boolean)
+    .map(Number)
+    .filter((value) => Number.isFinite(value));
+}
+
+async function pasteStats() {
+  let text = "";
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    statNote(t("statPasteFail"));
+    return;
+  }
+  const values = readStatList(text);
+  if (!values.length) {
+    statNote(t("statPasteNone"));
+    return;
+  }
+  const room = STATS_MAX - state.stats.values.length;
+  state.stats.values.push(...values.slice(0, room));
+  statNote(values.length > room ? t("statFull") : "");
+  rememberStats();
+  renderStats();
+}
+
+// A CSV from a spreadsheet brings headers, labels and several columns. Every
+// cell that reads as a number is taken and everything else is passed over, so a
+// header row or an id column costs the reader nothing.
+function readStatCsv(text) {
+  const values = [];
+  for (const line of String(text).split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    for (let cell of line.split(/[,;\t]/)) {
+      cell = cell.trim().replace(/^"(.*)"$/, "$1").replace(/,/g, "");
+      if (!cell) continue;
+      const value = Number(cell);
+      if (Number.isFinite(value)) values.push(value);
+    }
+  }
+  return values;
+}
+
+function openStatCsv() {
+  const picker = document.getElementById("statCsvFile");
+  if (!picker) return;
+  picker.value = "";
+  picker.click();
+}
+
+async function loadStatCsv(file) {
+  if (!file) return;
+  let text = "";
+  try {
+    text = await file.text();
+  } catch {
+    statNote(t("statCsvFail"));
+    return;
+  }
+  const values = readStatCsv(text);
+  if (!values.length) {
+    statNote(t("statCsvNone"));
+    return;
+  }
+  // A file replaces the data set rather than piling onto it; that is what
+  // opening a file means everywhere else.
+  state.stats.values = values.slice(0, STATS_MAX);
+  state.stats.draft = "";
+  statNote(values.length > STATS_MAX ? t("statFull") : "");
+  rememberStats();
+  renderStats();
+}
+
+function copyStatData() {
+  if (!state.stats.values.length) return;
+  copyToClipboard(state.stats.values.join("\n"));
+}
+
+function copyStatSummary() {
+  const summary = statSummary(state.stats.values);
+  if (!summary) return;
+  const lines = STAT_ROWS.map((key) => `${t(`stat.${key}`)}\t${key === "n" ? summary.n : formatStat(summary[key])}`);
+  copyToClipboard(lines.join("\n"));
+}
+
+// Frequency tables are typed as "this value again", so the key adds whatever is
+// in the field, or the last value already in the list when the field is empty.
+function repeatStat() {
+  if (state.stats.draft.trim()) {
+    addStat();
+    return;
+  }
+  const values = state.stats.values;
+  if (!values.length || values.length >= STATS_MAX) return;
+  values.push(values[values.length - 1]);
+  rememberStats();
+  renderStats();
+}
+
+function plotStatNormal() {
+  const fit = statFit();
+  if (!fit) {
+    statNote(t("statFromDataNone"));
+    return;
+  }
+  statNote("");
+  addGraph(`normalpdf(x,${formatForChain(fit.mean)},${formatForChain(fit.sd)})`);
+  setMode("graph");
+}
+
+function openStats() {
+  renderStats();
+  const input = document.getElementById("statInput");
+  if (input) input.focus();
+}
+
+function bindStats() {
+  const input = document.getElementById("statInput");
+  if (!input) return;
+  input.addEventListener("input", () => {
+    const cleaned = input.value
+      .replace(/[^0-9.eE+-]/g, "")
+      .replace(/(\..*)\./g, "$1");
+    if (cleaned !== input.value) input.value = cleaned;
+    state.stats.draft = cleaned;
+    const note = document.getElementById("statNote");
+    if (note && note.textContent === t("statBadValue")) note.textContent = "";
+  });
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter") return;
+    ev.preventDefault();
+    addStat();
+  });
+  const picker = document.getElementById("statCsvFile");
+  if (picker) picker.addEventListener("change", () => loadStatCsv(picker.files && picker.files[0]));
+  document.getElementById("statSort").addEventListener("click", () => sortStats());
+  document.getElementById("statUndo").addEventListener("click", dropLastStat);
+  document.getElementById("statClear").addEventListener("click", clearStats);
+  renderStats();
 }
 
 // The expression panel can be widened with the bar beside it.
@@ -2519,6 +3168,7 @@ bind();
 bindExport();
 bindCurrency();
 bindUnit();
+bindStats();
 bindTooltips();
 renderKeys();
 renderFunctions();
@@ -2526,7 +3176,7 @@ syncViewFields();
 setMode("basic");
 const storedTheme = loadTheme();
 activeThemeId = storedTheme?.id || "dark-1";
-renderCustomFields(storedTheme?.picks);
+renderCustomFields(picksForActive(storedTheme));
 renderThemeGroups();
 renderPadChoices();
 document.getElementById("infoBtn").addEventListener("click", openInfoWindow);
@@ -2542,7 +3192,9 @@ document.getElementById("infoOk").addEventListener("click", () => {
 });
 document.getElementById("resetSettings").addEventListener("click", resetSettings);
 document.getElementById("applyCustom").addEventListener("click", () => {
-  applyCustomTheme();
+  // A preset chip has already applied and stored itself. Apply is for the
+  // swatches, so with none of them touched it closes and leaves the choice be.
+  if (customTouched) applyCustomTheme();
   closeSettingsView();
 });
 infoSheet.addEventListener("click", (ev) => {
@@ -2580,6 +3232,7 @@ document.addEventListener("keydown", (ev) => {
 window.addEventListener("storage", (ev) => {
   if (ev.key === "mycalc-theme") applyStoredTheme();
   if (ev.key === KEYPAD_KEY) applyStoredKeypad();
+  if (ev.key === STATS_KEY) applyStoredStats();
   if (ev.key === "mycalc-lang" && (ev.newValue === "ko" || ev.newValue === "en") && ev.newValue !== uiLang) applyLanguage(ev.newValue);
 });
 if (uiChannel) {
@@ -2588,6 +3241,7 @@ if (uiChannel) {
     if (!message) return;
     if (message.type === "theme") applyStoredTheme();
     if (message.type === "keypad") applyStoredKeypad();
+    if (message.type === "stats") applyStoredStats();
     if (message.type === "lang" && (message.lang === "ko" || message.lang === "en") && message.lang !== uiLang) applyLanguage(message.lang);
   };
 }

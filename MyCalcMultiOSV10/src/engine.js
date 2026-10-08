@@ -36,6 +36,22 @@ const FUNCTIONS = {
   // Σ: the first argument names the counter, so it is read as a name rather
   // than worked out, and the last argument waits until the counter has a value.
   sum: { args: 4, counts: true },
+  // Statistics. These read a list, so they take as many arguments as they are
+  // given; `sum` was already the counted Σ, hence `total` for a plain list.
+  total: { args: { min: 1 } },
+  count: { args: { min: 1 } },
+  mean: { args: { min: 1 } },
+  median: { args: { min: 1 } },
+  // stdev / variance divide by n-1 and want two points; the population pair
+  // divides by n and is happy with one.
+  stdev: { args: { min: 2 } },
+  variance: { args: { min: 2 } },
+  stdevp: { args: { min: 1 } },
+  variancep: { args: { min: 1 } },
+  // The normal distribution, standard unless a mean and deviation are given.
+  normalpdf: { args: { min: 1, max: 3 } },
+  normalcdf: { args: { min: 1, max: 3 } },
+  invnorm: { args: { min: 1, max: 3 } },
 };
 
 // A runaway loop would hang the window, so the counter is kept to a length a
@@ -320,7 +336,11 @@ class Parser {
         if (!this.peek() || this.peek().type !== "rparen") this.fail(uiText("괄호가 맞지 않습니다", "Parentheses do not match"), t, name);
         this.eat();
         const expected = FUNCTIONS[name].args;
-        if (args.length !== expected) this.fail(uiText("인수 개수가 맞지 않습니다", "Wrong number of arguments"), t, name);
+        const wrongCount =
+          typeof expected === "number"
+            ? args.length !== expected
+            : args.length < (expected.min ?? 0) || args.length > (expected.max ?? Infinity);
+        if (wrongCount) this.fail(uiText("인수 개수가 맞지 않습니다", "Wrong number of arguments"), t, name);
         return { type: "call", name, args, at: t.at };
       }
       return { type: "var", name, at: t.at };
@@ -366,6 +386,105 @@ function permutation(n, r, at) {
   let p = 1;
   for (let i = 0; i < r; i++) p *= n - i;
   return p;
+}
+
+function listMean(values) {
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function listMedian(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// `ddof` is what comes off the divisor: 1 for a sample, 0 for a population.
+// The two-pass form is used because the Σx² shortcut loses its digits on data
+// that sits far from zero, which is exactly the data people paste in.
+function listVariance(values, ddof) {
+  const n = values.length;
+  if (n - ddof <= 0) return 0;
+  const avg = listMean(values);
+  let total = 0;
+  for (const value of values) total += (value - avg) ** 2;
+  return total / (n - ddof);
+}
+
+function sigmaOf(value, at, near) {
+  const sigma = value === undefined ? 1 : value;
+  if (!(sigma > 0)) throw CalcError(uiText("범위 오류", "Out of range"), at, near);
+  return sigma;
+}
+
+function normalPdf(x, mu, sigma) {
+  const z = (x - mu) / sigma;
+  return Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+}
+
+// The Chebyshev erfc of Numerical Recipes. The screen shows twelve digits, so
+// the cheap 1e-7 rational forms would be wrong in plain sight; this one holds
+// to roughly machine precision.
+const ERFC_COF = [
+  -1.3026537197817094, 6.4196979235649026e-1, 1.9476473204185836e-2, -9.561514786808631e-3,
+  -9.46595344482036e-4, 3.66839497852761e-4, 4.2523324806907e-5, -2.0278578112534e-5,
+  -1.624290004647e-6, 1.30365583558e-6, 1.5626441722e-8, -8.5238095915e-8,
+  6.529054439e-9, 5.059343495e-9, -9.91364156e-10, -2.27365122e-10,
+  9.6467911e-11, 2.394038e-12, -6.886027e-12, 8.94487e-13,
+  3.13092e-13, -1.12708e-13, 3.81e-16, 7.106e-15,
+  -1.523e-15, -9.4e-17, 1.21e-16, -2.8e-17,
+];
+
+function erfcCheb(z) {
+  const t = 2 / (2 + z);
+  const ty = 4 * t - 2;
+  let d = 0;
+  let dd = 0;
+  for (let j = ERFC_COF.length - 1; j > 0; j--) {
+    const tmp = d;
+    d = ty * d - dd + ERFC_COF[j];
+    dd = tmp;
+  }
+  return t * Math.exp(-z * z + 0.5 * (ERFC_COF[0] + ty * d) - dd);
+}
+
+function erfc(x) {
+  return x >= 0 ? erfcCheb(x) : 2 - erfcCheb(-x);
+}
+
+function erf(x) {
+  return 1 - erfc(x);
+}
+
+// Φ is taken from erfc rather than erf so the far left tail keeps its digits
+// instead of cancelling against 1.
+function normalCdf(x, mu, sigma) {
+  return 0.5 * erfc(-(x - mu) / (sigma * Math.SQRT2));
+}
+
+// Acklam's inverse-normal approximation, then one Halley step against the cdf
+// above so the result agrees with normalcdf to the digits on screen.
+function normalQuantile(p) {
+  const a = [-3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2, -3.066479806614716e1, 2.506628277459239];
+  const b = [-5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1, -1.328068155288572e1];
+  const c = [-7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+  const low = 0.02425;
+  let x;
+  if (p < low) {
+    const q = Math.sqrt(-2 * Math.log(p));
+    x = (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  } else if (p <= 1 - low) {
+    const q = p - 0.5;
+    const r = q * q;
+    x = ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
+      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  } else {
+    const q = Math.sqrt(-2 * Math.log(1 - p));
+    x = -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  }
+  const err = normalCdf(x, 0, 1) - p;
+  const u = err * Math.sqrt(2 * Math.PI) * Math.exp((x * x) / 2);
+  return x - u / (1 + (x * u) / 2);
 }
 
 function realPow(a, b, at) {
@@ -570,6 +689,30 @@ class CalcEngine {
         return Math.min(x, y);
       case "max":
         return Math.max(x, y);
+      case "total":
+        return args.reduce((a, b) => a + b, 0);
+      case "count":
+        return args.length;
+      case "mean":
+        return listMean(args);
+      case "median":
+        return listMedian(args);
+      case "stdev":
+        return Math.sqrt(listVariance(args, 1));
+      case "variance":
+        return listVariance(args, 1);
+      case "stdevp":
+        return Math.sqrt(listVariance(args, 0));
+      case "variancep":
+        return listVariance(args, 0);
+      case "normalpdf":
+        return normalPdf(x, args[1] ?? 0, sigmaOf(args[2], ast.at, "normalpdf"));
+      case "normalcdf":
+        return normalCdf(x, args[1] ?? 0, sigmaOf(args[2], ast.at, "normalcdf"));
+      case "invnorm": {
+        if (!(x > 0) || !(x < 1)) throw CalcError(uiText("정의되지 않음", "Undefined"), ast.at, "invnorm");
+        return (args[1] ?? 0) + sigmaOf(args[2], ast.at, "invnorm") * normalQuantile(x);
+      }
       default:
         throw CalcError(uiText("알 수 없는 함수", "Unknown function"), ast.at, ast.name);
     }
