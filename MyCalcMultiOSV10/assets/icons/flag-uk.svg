@@ -1,17 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 48">
   <defs>
     <clipPath id="uk">
-      <path d="M0,0 v30 h60 v-30 z"/>
+      <path d="M0,0 v48 h72 v-48 z"/>
     </clipPath>
     <clipPath id="ukd">
-      <path d="M30,15 h30 v15 z v-30 h-30 z h-30 v15 z v-15 h30 z"/>
+      <path d="M36,24 h36 v24 z v-48 h-36 z h-36 v24 z v-24 h36 z"/>
     </clipPath>
   </defs>
   <g clip-path="url(#uk)">
-    <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
-    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
-    <path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#ukd)" stroke="#C8102E" stroke-width="4"/>
-    <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>
-    <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/>
+    <path d="M0,0 v48 h72 v-48 z" fill="#012169"/>
+    <path d="M0,0 L72,48 M72,0 L0,48" stroke="#fff" stroke-width="9.6"/>
+    <path d="M0,0 L72,48 M72,0 L0,48" clip-path="url(#ukd)" stroke="#C8102E" stroke-width="6.4"/>
+    <path d="M36,0 v48 M0,24 h72" stroke="#fff" stroke-width="16"/>
+    <path d="M36,0 v48 M0,24 h72" stroke="#C8102E" stroke-width="9.6"/>
   </g>
 </svg>

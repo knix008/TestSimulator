@@ -1031,6 +1031,86 @@ suite("Themes and settings", () => {
     appWindow.closeSheets();
   });
 
+  test("The name and version stay readable on light themes", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-theme");
+    const name = doc.querySelector(".brand h1");
+    const version = doc.querySelector(".version");
+    try {
+      // On a light palette both are pinned to a fixed dark pair.
+      for (const theme of appCall(() => THEMES.filter((t) => t.group === "light").map((t) => t.id))) {
+        appCall((id) => applyTheme(themeById(id)), theme);
+        const got = [appWindow.getComputedStyle(name).color, appWindow.getComputedStyle(version).color];
+        assert(got[0] === "rgb(28, 25, 23)", `${theme} name ${got[0]}`);
+        assert(got[1] === "rgb(87, 83, 78)", `${theme} version ${got[1]}`);
+      }
+      // A dark palette is left alone, so the pair still comes from the theme.
+      for (const id of ["dark-1", "dark-3", "dark-12"]) {
+        const theme = appCall((wanted) => {
+          applyTheme(themeById(wanted));
+          return themeById(wanted).vars;
+        }, id);
+        const asRgb = (hex) => {
+          const n = parseInt(String(hex).replace("#", ""), 16);
+          return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+        };
+        assert(appWindow.getComputedStyle(name).color === asRgb(theme["--ink"]), `${id} name is not the theme ink`);
+        assert(appWindow.getComputedStyle(version).color === asRgb(theme["--muted"]), `${id} version is not the theme muted`);
+      }
+    } finally {
+      if (saved == null) localStorage.removeItem("mycalc-theme");
+      else localStorage.setItem("mycalc-theme", saved);
+      appWindow.applyStoredTheme();
+    }
+  });
+
+  test("Apply keeps the preset that was picked", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-theme");
+    try {
+      appWindow.openSheet(doc.getElementById("settingsSheet"));
+      const preset = appCall(() => themeById("light-4"));
+      doc.querySelectorAll("#lightThemes .theme-chip")[3].click();
+      const picked = doc.documentElement.style.getPropertyValue("--bg");
+      assert(picked === preset.vars["--bg"], `Chip did not apply: ${picked}`);
+      // The swatches follow the chip, so the custom section starts from it.
+      const picks = appCall(() => customPicks());
+      assert(picks.bg === preset.vars["--bg"], `Swatches kept stale colours: ${picks.bg}`);
+      // Apply with nothing of the reader's own must not overwrite that choice.
+      doc.getElementById("applyCustom").click();
+      const after = doc.documentElement.style.getPropertyValue("--bg");
+      assert(after === preset.vars["--bg"], `Apply reverted the theme: ${after}`);
+      assert(appCall(() => activeThemeId) === "light-4", appCall(() => activeThemeId));
+      assert(JSON.parse(localStorage.getItem("mycalc-theme")).id === "light-4", localStorage.getItem("mycalc-theme"));
+    } finally {
+      appWindow.closeSheets();
+      if (saved == null) localStorage.removeItem("mycalc-theme");
+      else localStorage.setItem("mycalc-theme", saved);
+      appWindow.applyStoredTheme();
+    }
+  });
+
+  test("Apply writes the swatches once they are edited", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-theme");
+    try {
+      appWindow.openSheet(doc.getElementById("settingsSheet"));
+      doc.querySelectorAll("#lightThemes .theme-chip")[3].click();
+      const field = doc.querySelector('#customFields input[data-custom="bg"]');
+      field.value = "#0a1a2f";
+      field.dispatchEvent(new appWindow.Event("input", { bubbles: true }));
+      doc.getElementById("applyCustom").click();
+      const after = doc.documentElement.style.getPropertyValue("--bg");
+      assert(after === "#0a1a2f", `Edited swatch was not applied: ${after}`);
+      assert(appCall(() => activeThemeId) === "custom", appCall(() => activeThemeId));
+    } finally {
+      appWindow.closeSheets();
+      if (saved == null) localStorage.removeItem("mycalc-theme");
+      else localStorage.setItem("mycalc-theme", saved);
+      appWindow.applyStoredTheme();
+    }
+  });
+
   test("A custom theme is applied", () => {
     const saved = localStorage.getItem("mycalc-theme");
     try {
@@ -1191,7 +1271,12 @@ suite("Product features", () => {
     assert(appCall(() => board.functions.length) === 1, "Function count");
     assert(appCall(() => board.dimension) === "2d", "Dimension");
     assert(appCall(() => board.showGrid) === true, "Grid state");
-    assert(!doc.getElementById("graphStatus"), "The status bar is still in the graph");
+    const status = doc.getElementById("graphStatus");
+    assert(status, "The graph has no status bar");
+    const statusText = status.textContent;
+    assert(/2D/.test(statusText), `Dimension missing from the status bar: ${statusText}`);
+    assert(/1 \/ 1/.test(statusText), `Curve count missing from the status bar: ${statusText}`);
+    assert(/DEG/.test(statusText), `Angle unit missing from the status bar: ${statusText}`);
     doc.querySelector("#fnList .icon-btn").click();
     assert(appCall(() => board.functions[0].visible) === false, "Hide");
     assert(doc.querySelector(".fn-expr").style.opacity === "0.4", "Hidden expression");
@@ -2290,11 +2375,21 @@ suite("Function coverage", () => {
     appCall(() => {
       const engine = new CalcEngine();
       engine.angleMode = "rad";
-      const safe = { asin: "0.5", acos: "0.5", atanh: "0.5", acosh: "2", log: "10", ln: "2", log2: "8", log10: "10", sqrt: "4", fact: "4" };
+      // invnorm takes a probability, so it needs a value strictly inside 0..1.
+      const safe = { asin: "0.5", acos: "0.5", atanh: "0.5", acosh: "2", log: "10", ln: "2", log2: "8", log10: "10", sqrt: "4", fact: "4", invnorm: "0.5" };
       const missed = [];
+      // A list function takes as many arguments as it is given; it is called
+      // with the fewest it will accept, so the lower bound is covered too.
+      const least = (shape) => (typeof shape.args === "number" ? shape.args : shape.args.min ?? 1);
       for (const [name, shape] of Object.entries(FUNCTIONS)) {
         // A counted function names its counter first, so it is written out.
-        const args = shape.counts ? "k, 1, 4, k" : shape.args === 2 ? "5,2" : safe[name] || "0.5";
+        const args = shape.counts
+          ? "k, 1, 4, k"
+          : typeof shape.args === "object"
+            ? safe[name] || Array.from({ length: least(shape) }, (_, i) => String(i + 2)).join(",")
+            : shape.args === 2
+              ? "5,2"
+              : safe[name] || "0.5";
         let value;
         try {
           value = engine.evaluate(`${name}(${args})`);
@@ -2948,11 +3043,13 @@ suite("Units", () => {
       appWindow.applyLanguage("ko");
       const koGroup = [...doc.getElementById("unitGroup").options].find((option) => option.value === "length");
       assert(koGroup.textContent === "길이", koGroup.textContent);
-      assert(doc.querySelector('.modes button[data-mode="unit"] span:last-child').textContent === "단위", "Korean tab");
+      // The mode tabs are icon only, so the name lives in the tooltip and label.
+      const unitTab = doc.querySelector('.modes button[data-mode="unit"]');
+      assert(unitTab.dataset.tooltip === "단위" && unitTab.getAttribute("aria-label") === "단위", `Korean tab: ${unitTab.dataset.tooltip}`);
       appWindow.applyLanguage("en");
       const enGroup = [...doc.getElementById("unitGroup").options].find((option) => option.value === "length");
       assert(enGroup.textContent === "Length", enGroup.textContent);
-      assert(doc.querySelector('.modes button[data-mode="unit"] span:last-child').textContent === "Units", "English tab");
+      assert(unitTab.dataset.tooltip === "Units" && unitTab.getAttribute("aria-label") === "Units", `English tab: ${unitTab.dataset.tooltip}`);
       const first = doc.getElementById("unitFrom").options[0];
       assert(first.textContent.includes("·"), first.textContent);
       assert(doc.getElementById("unitGroup").value === appCall(() => state.unit.group), "The category reset when the language changed");
@@ -2977,7 +3074,8 @@ suite("Units", () => {
       assert(last.bottom <= rect.bottom + 1 && last.right <= rect.right + 1, "The keypad spills out of the card");
       assert(app.scrollHeight - app.clientHeight === 0, `${app.scrollHeight - app.clientHeight}px of overflow`);
       const tabs = [...doc.querySelectorAll(".modes button")];
-      assert(tabs.length === 6, `${tabs.length} tabs`);
+      assert(tabs.length === 7, `${tabs.length} tabs`);
+      assert(tabs.every((tab) => tab.querySelector(".icon") && tab.dataset.tooltip), "Every mode tab needs an icon and a tooltip");
       assert(tabs.find((tab) => tab.dataset.mode === "unit").getAttribute("aria-selected") === "true", "The unit tab is not selected");
     } finally {
       appWindow.setMode("basic");

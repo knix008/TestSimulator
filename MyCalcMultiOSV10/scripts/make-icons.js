@@ -126,7 +126,9 @@ function sample(nx, ny) {
     if (rim > 0) pixel = mix(pixel, [255, 236, 210, 255], rim * 0.9);
     else pixel = mix(pixel, [64, 18, 4, 255], -rim * 0.75);
   }
-  const body = { left: 0.16, top: 0.16, width: 0.68, height: 0.68, radius: 0.08 };
+  // The orange plate behind it keeps its full 0.92, but the calculator itself
+  // is a portrait device, so its image is narrower than it is tall.
+  const body = { left: 0.22, top: 0.16, width: 0.56, height: 0.68, radius: 0.08 };
   const scale = 0.9;
   const ix = (nx - 0.5) / scale + 0.5;
   const iy = (ny - 0.5) / scale + 0.5;
@@ -134,21 +136,21 @@ function sample(nx, ny) {
   if (shadow > 0 && shadow < 0.035 && pixel[3] > 0) pixel = mix(pixel, [72, 24, 6, 255], (1 - shadow / 0.035) * 0.45);
   const face = raised(ix, iy, body.left, body.top, body.width, body.height, body.radius, [255, 250, 244, 255], [255, 255, 255, 255]);
   if (face) pixel = face;
-  const screen = raised(ix, iy, 0.24, 0.24, 0.52, 0.14, 0.03, [22, 18, 16, 255], [58, 52, 48, 255]);
+  const screen = raised(ix, iy, 0.28, 0.24, 0.44, 0.14, 0.03, [22, 18, 16, 255], [58, 52, 48, 255]);
   if (screen) {
-    const rim = edgeLight(ix, iy, 0.24, 0.24, 0.52, 0.14, 0.03, 0.03);
+    const rim = edgeLight(ix, iy, 0.28, 0.24, 0.44, 0.14, 0.03, 0.03);
     pixel = rim > 0 ? mix(screen, [8, 6, 5, 255], rim * 0.7) : mix(screen, [96, 88, 80, 255], -rim * 0.45);
   }
   const keys = [
-    [0.24, 0.46], [0.40, 0.46], [0.56, 0.46],
-    [0.24, 0.58], [0.40, 0.58], [0.56, 0.58],
-    [0.24, 0.70], [0.40, 0.70],
+    [0.28, 0.46], [0.415, 0.46], [0.55, 0.46],
+    [0.28, 0.58], [0.415, 0.58], [0.55, 0.58],
+    [0.28, 0.70], [0.415, 0.70],
   ];
   for (const [left, top] of keys) {
-    const key = raised(ix, iy, left, top, 0.12, 0.09, 0.02, [228, 224, 218, 255], [255, 255, 255, 255]);
+    const key = raised(ix, iy, left, top, 0.1, 0.09, 0.02, [228, 224, 218, 255], [255, 255, 255, 255]);
     if (key) pixel = key;
   }
-  const equals = raised(ix, iy, 0.56, 0.70, 0.20, 0.09, 0.02, [234, 88, 12, 255], [255, 176, 96, 255]);
+  const equals = raised(ix, iy, 0.55, 0.70, 0.17, 0.09, 0.02, [234, 88, 12, 255], [255, 176, 96, 255]);
   if (equals) pixel = equals;
   return pixel;
 }
