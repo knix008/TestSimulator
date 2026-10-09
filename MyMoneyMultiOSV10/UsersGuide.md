@@ -21,13 +21,29 @@ The Windows setup file asks for the language first. An existing installation is 
 
 프로그램을 실행하면 창은 열리지만 작업 표시줄에는 아이콘이 나타나지 않습니다. 아이콘은 시스템 트레이에 있습니다. 주식, 환율, 뉴스 창과 설정, 프로그램 정보는 메인 창 옆에 열려 두 창이 함께 보입니다. 같은 창은 하나만 열리고, 버튼을 다시 누르면 그 창이 앞으로 옵니다.
 
-트레이 아이콘을 누르거나 마우스 오른쪽 단추로 누르면 메뉴가 열립니다. 맨 위의 창 표시는 프로그램 창만 다시 엽니다. 시장, 파일, 편집은 하위 메뉴이고, 설정, 프로그램 정보, 종료는 바로 표시됩니다. 각 항목에는 아이콘이 있습니다.
+창의 닫기 단추는 창을 숨기기만 합니다. 프로그램은 트레이에 남아 계속 시세를 받아 옵니다. 프로그램을 끝내려면 트레이 메뉴의 종료를 고릅니다.
 
+프로그램은 한 번에 하나만 돌아갑니다. 이미 돌아가고 있는데 또 실행하면 이미 실행 중이라고 알려 주고 바로 끝납니다. 돌아가고 있던 쪽은 그대로 두므로, 창이 보이지 않으면 트레이 아이콘을 눌러 다시 불러옵니다.
+
+트레이 아이콘을 누르거나 마우스 오른쪽 단추로 누르면 메뉴가 열립니다. 맨 위의 모든 창 표시는 숨긴 창을 모두 다시 엽니다. 창, 시장, 편집은 하위 메뉴이고, 설정, 프로그램 정보, 종료는 바로 표시됩니다. 하위 메뉴까지 모든 항목에 컬러 아이콘이 있습니다.
+
+- 창: 새 창, 그리고 열려 있는 창 목록(시장과 처음 두 종목으로 표시, 지금 쓰는 창에는 ● 표시). 목록의 창을 고르면 그 창이 앞으로 옵니다.
 - 시장: 새로고침, 주식 시세, 환율, 오늘의 뉴스
-- 파일: 새로 만들기, 열기, 저장, 다른 이름으로 저장, 인쇄
-- 편집: 실행 취소, 다시 실행, 복사, 붙여넣기
+- 편집: 실행 취소, 다시 실행, 복사, 붙여넣기, 인쇄
 
-The window stays off the taskbar. Click the tray icon to open these menus. Every entry has an icon.
+시장과 편집의 명령은 마지막으로 쓴 창에 적용됩니다.
+
+The window stays off the taskbar. Its close button only hides it; quit from the tray. A second launch says the program is already running and exits. Click the tray icon to open the menus; every entry, submenus included, has a colour icon.
+
+## 여러 창
+
+창마다 다른 종목을 볼 수 있습니다. 트레이의 창 > 새 창, 또는 창의 마우스 오른쪽 단추 메뉴의 새 창을 고르면 창이 하나 더 열립니다. 새 창은 기본 관심 종목으로 시작하고, 그 창의 설정 > 관심 종목에서 시장과 종목을 따로 정합니다. 창마다의 시장과 관심 종목, 창 위치와 크기는 각각 저장되고, 다음에 실행하면 모든 창이 제자리에 다시 열립니다.
+
+언어, 테마, 투명도, 바탕 그림, 글꼴, 정보 출처, 확인 주기는 모든 창이 함께 씁니다. 한 창에서 바꾸면 다른 창도 바로 따라 바뀝니다.
+
+처음 창을 뺀 나머지 창은 마우스 오른쪽 단추 메뉴의 이 창 없애기로 없앨 수 있습니다. 그 창의 관심 종목도 함께 지워지므로 먼저 묻습니다. 닫기 단추는 창을 숨길 뿐 없애지 않습니다. 창은 처음 창을 포함해 16개까지 열 수 있습니다.
+
+Each window keeps its own market, watchlist, size and place, and every window comes back on the next start. Language, theme, font and the other settings are shared. Open another window from the tray or the right-click menu; remove an extra window from its right-click menu.
 
 ## 주식 보기
 
@@ -71,7 +87,15 @@ The window stays off the taskbar. Click the tray icon to open these menus. Every
 
 ## 설정
 
-설정은 일반, 관심 종목, 환율 목록, 정보 출처, 모양, 바탕 그림, 글꼴, 최근 파일로 나뉩니다. 탭은 한 줄에 모두 보이고, 영어로 바꾸면 창이 그만큼 넓어집니다. 창 높이는 지금 보고 있는 탭의 내용에 맞춰지므로 아래쪽에 빈 공간이 남지 않습니다.
+설정은 일반, 관심 종목, 환율 목록, 정보 출처, 모양, 바탕 그림과 글꼴로 나뉩니다. 탭은 한 줄에 모두 보이고, 영어로 바꾸면 창이 그만큼 넓어집니다. 창 높이는 지금 보고 있는 탭의 내용에 맞춰지므로 아래쪽에 빈 공간이 남지 않습니다.
+
+설정 창에서 바꾼 것은 바로 창에 반영됩니다. 확인을 누르면 그대로 저장되고, 취소나 설정 창의 닫기 단추, Esc를 누르면 설정 창을 열기 전으로 모두 되돌아갑니다. 설정 창을 열어 둔 동안 추가하거나 뺀 종목과 통화도 함께 되돌아갑니다. 확인한 변경은 실행 취소 한 번으로 통째로 되돌릴 수 있습니다.
+
+글꼴에서는 글꼴 종류와 크기, 그리고 굵게, 기울임, 밑줄, 취소선을 각각 켜고 끕니다. 아래의 미리 보기 줄이 그 모양을 바로 보여 주고, 메인 창의 시세와 주식 시세, 환율, 뉴스 창의 글자에도 바로 적용됩니다.
+
+모양의 테마 견본은 테마 이름 아래에 강조색을 가로 띠로 길게 보여 줍니다.
+
+Changes in Settings show at once. OK keeps them; Cancel, the close button and Escape put everything back. The Font page sets the family and size and four separate switches - bold, italic, underline and strikethrough - which apply to the quotes in the main window and in the stock, rate and news windows.
 
 일반에서는 언어, 가격 표시, 확인 주기, 표시 우선 순위, 시장과 종목을 정합니다. 가격 표시를 기준 통화로 환산으로 바꾸면 모든 종목의 가격을 그 통화로 바꿔서 보여 줍니다. 환산에는 그때 받아 온 환율표를 사용합니다.
 
@@ -91,8 +115,20 @@ The window stays off the taskbar. Click the tray icon to open these menus. Every
 
 Background transparency runs from 0 through 100. At 100 the window background stays visible. Wallpaper opacity is a separate control and may be 0. Both sliders have decrease and increase buttons.
 
-## 파일
+## 인쇄
 
-시세 문서는 `.mymoney` 파일입니다. 이 파일의 아이콘은 프로그램 아이콘과 다른 문서 아이콘입니다. 최근 파일은 설정과 창 메뉴에서 다시 열 수 있습니다. 받아 온 시세만 따로 저장하려면 창 메뉴의 다운로드로 JSON 파일을 만듭니다.
+트레이의 편집 > 인쇄, 창 메뉴의 인쇄, 또는 Ctrl+P로 인쇄 창을 엽니다. 인쇄 창은 하나뿐이고, 왼쪽에서 정한 대로 오른쪽 미리 보기가 바로 바뀝니다.
 
-창을 닫거나 트레이에서 종료를 고르면, 저장하지 않은 내용이 있을 때 저장, 버리기, 취소를 묻습니다.
+- 무엇을 인쇄할까요: 모든 탭, 현재 탭, 기간별 가격 포함 중에서 고릅니다. 기간별 가격 포함은 시작 날짜와 끝 날짜 사이의 날짜별 시가, 고가, 저가, 종가를 덧붙입니다. 시작 날짜가 끝 날짜보다 늦으면 상태 표시줄에 알리고 미리 보기는 그대로 둡니다.
+- 주식 시세, 환율, 오늘의 뉴스: 넣을 부분을 고릅니다. 하나도 고르지 않으면 모두 인쇄합니다.
+- 용지와 배치: 용지(A4, A3, A5, Letter, Legal, B5), 방향(세로, 가로), 여백(5~30 mm), 글자 크기(80~125 %), 머리글, 페이지 번호와 그 위치(왼쪽, 가운데, 오른쪽).
+
+오른쪽 미리 보기는 실제 용지 비율과 크기대로 한 쪽씩 보여 주고, 이전과 다음으로 넘깁니다. 종목이나 뉴스가 많으면 다음 쪽으로 이어집니다. 인쇄를 누르면 바로 프린터 선택 창으로 넘어갑니다.
+
+Print opens one window: page settings on the left, a true-to-size preview of each page on the right with Previous and Next. Choose what to print, the sections, paper, orientation, margin, text size, header and page number.
+
+## 데이터 저장
+
+새로 만들기, 열기, 저장, 다른 이름으로 저장 같은 파일 명령은 없습니다. 창마다의 관심 종목과 시장, 창 위치, 그리고 모든 설정은 바뀔 때마다 자동으로 사용자 데이터 폴더의 설정 파일에 저장됩니다. Windows에서는 `%APPDATA%\MyMoney\settings.json`입니다. 설정 창을 열어 둔 동안의 변경만은 확인을 눌러야 저장됩니다.
+
+There are no file commands. Every window's watchlist and place and all settings are saved automatically to `settings.json` in the user data folder (`%APPDATA%\MyMoney` on Windows).

@@ -8,12 +8,12 @@ import { copyRange, cutText, pasteText } from "../../src/core/clipboard.js";
 import { createDocument, parseDocument, serializeDocument, withSymbol, withoutSymbol } from "../../src/core/document.js";
 import { acceptImage, classifyDrop } from "../../src/core/drop.js";
 import { AppError, errorCopyText, normalizeError } from "../../src/core/errors.js";
-import { parseFcList, parseWindowsFonts, resolveFontList } from "../../src/core/fonts.js";
+import { fontFace, fontStyleOf, parseFcList, parseWindowsFonts, resolveFontList } from "../../src/core/fonts.js";
 import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
-import { buildPrintModel } from "../../src/core/print-model.js";
+import { MARGINS, PAPERS, PRINT_SECTIONS, SCALES, buildPrintModel, normalizeSections, normalizeSetup, paperSize } from "../../src/core/print-model.js";
 import { RecentFiles } from "../../src/core/recent.js";
-import { MAX_RATE_CURRENCIES, MAX_SYMBOLS, normalizeRateCurrencies, sanitizeSettings } from "../../src/core/settings.js";
+import { MAX_RATE_CURRENCIES, MAX_SYMBOLS, WINDOW_FIELDS, normalizeRateCurrencies, sanitizeSettings, sanitizeWindowSlots, sharedSettings, windowLabel } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
@@ -656,6 +656,77 @@ export function registerLogic(h) {
       /Invalid range/,
     );
   });
+  h.test("a page per board and section, with the paper, margins, text size and page number chosen", () => {
+    const tabs = [tab("한국거래소", "Korea Exchange", "005930.KS", SAMPLE_DATES), tab("미국 증시", "US Markets", "AAPL", SAMPLE_DATES)];
+    const all = buildPrintModel({ scope: "all", tabs, activeIndex: 0, pageSetup: {}, language: "en" });
+    assert.equal(all.pages.length, 6);
+    assert.deepEqual(all.pages.map((page) => page.range), ["stocks", "rates", "news", "stocks", "rates", "news"]);
+    assert.equal(all.pages[0].city, "Korea Exchange");
+    assert.equal(all.pages[1].rangeLabel, "Exchange rates");
+    assert.match(all.html, /class="print-doc"/);
+    assert.equal((all.html.match(/<section class="sheet">/g) || []).length, 6);
+    // A printed page is a plain report: no pager, no drag grips, no clickable rows.
+    assert.doesNotMatch(all.html, /pager|row-grip|data-gui=/);
+    const some = buildPrintModel({ scope: "current", tabs, activeIndex: 0, pageSetup: {}, language: "ko", sections: ["news"] });
+    assert.deepEqual(some.pages.map((page) => page.range), ["news"]);
+    assert.deepEqual(normalizeSections([]), PRINT_SECTIONS, "asking for none prints everything");
+    const empty = buildPrintModel({ scope: "all", tabs: [], activeIndex: 0, pageSetup: {}, language: "ko" });
+    assert.match(empty.html, /인쇄할 내용이 없습니다/);
+    assert.deepEqual(normalizeSetup({}), { paper: "A4", orientation: "portrait", margin: 15, scale: 100, header: true, pageNumber: true, pageNumberAt: "right" });
+    assert.deepEqual(normalizeSetup({ paper: "B9", margin: 13, scale: 300, pageNumberAt: "top" }), normalizeSetup({}));
+    assert.deepEqual(paperSize({ paper: "A4" }), { width: 210, height: 297 });
+    assert.deepEqual(paperSize({ paper: "Legal", orientation: "landscape" }), { width: 356, height: 216 });
+    assert.deepEqual(PAPERS, ["A4", "A3", "A5", "Letter", "Legal", "B5"]);
+    assert.ok(MARGINS.includes(25) && SCALES.includes(125));
+    const setup = { paper: "Legal", orientation: "landscape", margin: 25, scale: 125, header: false, pageNumber: true, pageNumberAt: "center" };
+    const styled = buildPrintModel({ scope: "current", tabs, activeIndex: 0, pageSetup: setup, language: "en" });
+    assert.match(styled.html, /size: Legal landscape/);
+    assert.match(styled.html, /margin: 25mm/);
+    assert.match(styled.html, /font-size: 16.25px/);
+    assert.match(styled.html, /class="sheet-foot" data-at="center"/);
+    assert.doesNotMatch(styled.html, /class="sheet-head"/);
+    // Many quotes run onto more than one page instead of being cut off.
+    const crowded = tab("한국거래소", "Korea Exchange", "005930.KS", SAMPLE_DATES);
+    crowded.data.quotes = Array.from({ length: 60 }, (_, index) => ({ ...crowded.data.quotes[0], symbol: `S${index}` }));
+    const long = buildPrintModel({ scope: "current", tabs: [crowded], activeIndex: 0, pageSetup: {}, language: "en", sections: ["stocks"] });
+    assert.ok(long.pages.length >= 2, `${long.pages.length} pages`);
+  });
+
+  h.category("Windows");
+  h.test("each window keeps its own board; the rest of the settings are shared", () => {
+    const board = { ...sanitizeSettings({}).defaultBoard, marketCode: "US" };
+    const slots = sanitizeWindowSlots([
+      { id: "w1", board, bounds: { x: 10, y: 20, width: 500, height: 400 } },
+      { id: "w1", board },
+      { id: "../evil", board },
+      { id: "w2" },
+      null,
+    ]);
+    assert.deepEqual(slots.map((slot) => slot.id), ["w1", "w2"]);
+    assert.equal(slots[0].board.marketCode, "US");
+    assert.deepEqual(slots[0].bounds, { x: 10, y: 20, width: 500, height: 400 });
+    assert.equal(slots[1].bounds, null);
+    assert.equal(slots[1].board.marketCode, "KR", "a slot without a board starts on the starter board");
+    const shared = sharedSettings({ language: "en", theme: "dark-ink", defaultBoard: board, windowSize: { width: 1, height: 1 }, windows: slots });
+    assert.deepEqual(Object.keys(shared).sort(), ["language", "theme"]);
+    for (const field of WINDOW_FIELDS) assert.equal(field in shared, false, field);
+    assert.match(windowLabel(sanitizeSettings({}).defaultBoard, "ko", 0), /^1\. 한국거래소 · 삼성전자, SK하이닉스 외 1$/);
+    assert.match(windowLabel(board, "en", 1), /^2\. /);
+  });
+  h.test("the font style is four switches, read from the older single choice when missing", () => {
+    const old = sanitizeSettings({ fontStyle: "bolditalic" });
+    assert.equal(old.fontBold, true);
+    assert.equal(old.fontItalic, true);
+    assert.equal(old.fontUnderline, false);
+    assert.equal(old.fontStrike, false);
+    const fresh = sanitizeSettings({ fontBold: false, fontItalic: true, fontUnderline: true, fontStrike: true, fontStyle: "bold" });
+    assert.equal(fresh.fontBold, false, "the switches win over the old choice");
+    assert.equal(fresh.fontStyle, "italic");
+    assert.equal(fontStyleOf(true, false), "bold");
+    const face = fontFace({ fontFamily: "Arial", fontSize: 18, fontBold: true, fontUnderline: true, fontStrike: true });
+    assert.deepEqual(face, { family: '"Arial", sans-serif', size: "18px", bold: true, italic: false, decoration: "underline line-through" });
+    assert.equal(fontFace({}).decoration, "none");
+  });
 
   h.category("Layout");
   h.test("menus stay one column and are not clipped to the window", () => {
@@ -1128,22 +1199,42 @@ export function registerLogic(h) {
     assert.match(main, /placeTrayMenu/);
     assert.match(main, /fit-tray-menu/);
     assert.match(main, /trayCommand/);
-    assert.match(main, /revealMainWindowFromTray/);
+    assert.match(main, /revealFromTray/);
+    // A second launch says the program is already running and quits.
+    assert.match(main, /requestSingleInstanceLock/);
+    assert.match(main, /tellAlreadyRunning/);
+    assert.match(main, /msg.alreadyRunning/);
+    // The close button hides the window; only the tray ends the program.
+    assert.match(main, /hideMoneyWindow/);
+    assert.match(main, /quitApp/);
     assert.doesNotMatch(main, /popUpContextMenu/);
-    const koMenu = buildTrayMenu((key) => createI18n("ko").t(key));
-    const enMenu = buildTrayMenu((key) => createI18n("en").t(key));
+    const windows = [{ slot: "main", label: "1. 한국거래소", active: true }, { slot: "w1", label: "2. 나스닥", active: false }];
+    const koMenu = buildTrayMenu((key) => createI18n("ko").t(key), { windows });
+    const enMenu = buildTrayMenu((key) => createI18n("en").t(key), { windows });
     const koItems = listTrayItems(koMenu);
     assert.ok(koItems.length >= 12);
     for (const item of koItems) {
       assert.ok(item.icon, item.label);
       assert.ok(item.label);
       assert.ok(fs.existsSync(path.join(root, menuIconFile(item.icon))), item.icon);
+      // Every tray row, submenus and window list included, carries a coloured glyph.
+      assert.match(icon(item.icon, { colorful: true }), /(?:fill|stroke)="#[0-9a-f]{3,6}"/i, item.icon);
     }
     assert.equal(koMenu[0].id, "show-window");
-    assert.equal(koMenu[0].label, "창 표시");
-    assert.equal(enMenu[0].label, "Show window");
+    assert.equal(koMenu[0].label, "모든 창 표시");
+    assert.equal(enMenu[0].label, "Show windows");
+    // Every window is listed, the one in use marked; a new one is a click away.
+    const windowGroup = koMenu.find((item) => item.id === "windows");
+    assert.equal(windowGroup.icon, "window");
+    assert.deepEqual(
+      windowGroup.submenu.filter((item) => item.id).map((item) => item.id),
+      ["new-window", "window:main", "window:w1"],
+    );
+    assert.equal(windowGroup.submenu.find((item) => item.id === "window:main").label, "● 1. 한국거래소");
     assert.equal(koItems.find((item) => item.id === "market").label, "시장");
-    assert.equal(enMenu.find((item) => item.id === "file").label, "File");
+    // Boards are saved on their own; there is nothing to open or save by hand.
+    assert.equal(enMenu.find((item) => item.id === "file"), undefined);
+    assert.ok(!koItems.some((item) => ["new", "open", "save", "save-as"].includes(item.id)));
     assert.ok(fs.existsSync(path.join(root, "README.md")));
     assert.ok(fs.existsSync(path.join(root, "ARCHITECTURE.md")));
     assert.ok(fs.existsSync(path.join(root, "UsersGuide.md")));

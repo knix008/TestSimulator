@@ -61,6 +61,8 @@ const PATHS = {
   windowMax: '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>',
   windowRestore: '<rect x="5.5" y="9" width="9.5" height="9.5" rx="1.5"/><path d="M9 6.5v-.1c0-.5.4-.9.9-.9h7.2c.8 0 1.4.6 1.4 1.4v7.2c0 .5-.4.9-.9.9h-.1"/>',
   windowClose: '<path d="M7 7l10 10M17 7 7 17"/>',
+  window: '<rect x="3" y="4" width="14" height="12" rx="2"/><path d="M3 8h14M18 14v6M15 17h6"/>',
+  board: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18M7 16l3-3 2 2 5-5"/>',
   show: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 9h16"/>',
   general: '<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="8" cy="17" r="1.6"/>',
   palette: '<path d="M12 4a8 8 0 0 0 0 16c1.3 0 2-.8 2-1.8 0-1.4-1.2-1.7-1.2-2.9 0-1 .8-1.8 1.8-1.8H17a3 3 0 0 0 3-3C20 7.1 16.4 4 12 4z"/><circle cx="8.2" cy="11" r="1"/><circle cx="10.5" cy="7.6" r="1"/><circle cx="14.6" cy="7.8" r="1"/>',
@@ -99,6 +101,8 @@ const COLOR = {
   trash: '<path d="M9 3.5h6l1 2.2H8z" fill="#ff8c24"/><rect x="5" y="6.2" width="14" height="2.2" rx="1" fill="#e5484d"/><path d="M7.2 8.8h9.6l-.8 11.2H8z" fill="#e5484d"/>',
   flagKr: '<rect x="2" y="5.5" width="20" height="13" rx="2" fill="#fff" stroke="#d6dde6" stroke-width="0.8"/><circle cx="12" cy="12" r="3.6" fill="#cd2e3a" stroke="none"/><path d="M8.4 12a1.8 1.8 0 0 1 3.6 0 1.8 1.8 0 0 0 3.6 0 3.6 3.6 0 0 1-7.2 0z" fill="#0047a0" stroke="none"/><g stroke="#111" stroke-width="0.7" stroke-linecap="round" fill="none"><path d="M4.3 8.1l1.7 1.7M3.6 8.8l1.7 1.7"/><path d="M18 8.1l-1.7 1.7M18.7 8.8l-1.7 1.7"/><path d="M4.3 15.9l1.7-1.7M3.6 15.2l1.7-1.7"/><path d="M18 15.9l-1.7-1.7M18.7 15.2l-1.7-1.7"/></g>',
   flagGb: '<defs><clipPath id="flag-gb-clip"><rect x="2" y="5.5" width="20" height="13" rx="2"/></clipPath></defs><g clip-path="url(#flag-gb-clip)" fill="none"><rect x="2" y="5.5" width="20" height="13" fill="#012169" stroke="none"/><path d="M2 5.5 22 18.5M22 5.5 2 18.5" stroke="#fff" stroke-width="3.2"/><path d="M2 5.5 22 18.5M22 5.5 2 18.5" stroke="#c8102e" stroke-width="1.6"/><path d="M12 5.5v13M2 12h20" stroke="#fff" stroke-width="5"/><path d="M12 5.5v13M2 12h20" stroke="#c8102e" stroke-width="2.6"/></g><rect x="2" y="5.5" width="20" height="13" rx="2" fill="none" stroke="#d6dde6" stroke-width="0.8"/>',
+  window: '<rect x="2.5" y="3.5" width="15" height="13" rx="2.2" fill="#2f94ff"/><path d="M2.5 7.6h15" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="17.5" r="5" fill="#20b060"/><path d="M17.5 15v5M15 17.5h5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>',
+  board: '<rect x="2.5" y="3.5" width="19" height="17" rx="3" fill="#7c5cff"/><path d="M2.5 8h19" stroke="#fff" stroke-width="1.8"/><path d="M6 16.5l3.5-3.5 2.5 2 5-5" fill="none" stroke="#ffc430" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
   show: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="#2f94ff"/><path d="M3.5 9h17" stroke="#fff" stroke-width="2"/><rect x="6" y="12" width="8" height="4" rx="1" fill="#fff"/>',
 };
 

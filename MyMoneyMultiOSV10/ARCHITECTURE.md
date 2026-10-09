@@ -50,9 +50,29 @@ Settings pages differ a lot in length, so the popup is not one fixed box. `setti
 
 The main `BrowserWindow` is frameless, transparent, and created with `skipTaskbar: true`. `ready-to-show`, `show`, and `focus` call `setSkipTaskbar(true)` again so Windows does not put the program icon back on the taskbar. Popup and print windows also skip the taskbar.
 
-On startup the main process creates a `Tray` from `assets/icon.ico` on Windows and `assets/icon.png` elsewhere. A click builds a native menu from `buildTrayMenu`. Labels follow the language in `settings.json`. Each item, including the Market, File, and Edit parents, has a PNG from `assets/menu`. The first item, Show window, only reveals the main window. Choosing any other item shows the main window and sends `menu-command` to the renderer, which runs the same actions as the in-window menu.
+On startup the main process creates a `Tray` from `assets/icon.ico` on Windows and `assets/icon.png` elsewhere. A click opens the themed menu window built from `buildTrayMenu`. Labels follow the language in `settings.json`. Every item, the Windows, Market and Edit parents and the window list included, has a colour glyph (`icons.js` `COLOR`, with a matching PNG in `assets/menu`). Show windows reveals every hidden window; Windows › New window and Windows › `window:<slot>` open or raise one; Exit calls `quitApp`. Any other item goes to the window used last (`activeWindow`) as `menu-command`.
 
-Closing the window still asks the renderer to save or discard. Quit destroys the tray.
+The close button never quits: `win.on("close")` turns into `hideMoneyWindow`, and the program ends only from Exit, which writes every window's rectangle and destroys all windows. There is no File menu and no unsaved state: boards and settings are written as they change.
+
+## Single instance
+
+`requestSingleInstanceLock` guards the program. A second launch shows `msg.alreadyRunning` in a native message box, in the saved language, and exits with code 0; the running copy is left alone, since its windows may be hidden in the tray. `--multi` / `MYMONEY_MULTI` (unpackaged only) skip the lock and move the copy to its own user data folder for testing.
+
+## Several windows
+
+Every market window is a slot. The first is `main`: its board is `settings.defaultBoard` and its rectangle is the usual window placement. The others live in `settings.windows` as `{ id, board, bounds }` (`sanitizeWindowSlots`). The renderer never knows which slot it is: `read-settings` hands each window the shared settings with its own board and rectangle substituted, and `write-settings` from an extra window writes the shared part over the file and its board into its slot. The main process owns `settings.windows`; a renderer's copy is ignored, so two windows cannot undo each other's lists.
+
+`WINDOW_FIELDS` (board, size, position, maximized) are per window; everything else is shared. After a write the main process sends `settings-changed` with `sharedSettings(...)` to the other windows, and `takeSharedSettings` applies it without writing back. Popups and menus are routed to the window that opened them through `windowOwners`; `PopupHub` scopes its one-window keys by owner, so each window has its own Settings and panels.
+
+## Settings session
+
+Opening Settings snapshots the settings, the board and the undo stacks (`beginSettingsSession`). Every change in the form sends `settings-preview`, and `previewSettingsForm` applies it at once; `persist` is a no-op while the session is open. OK runs `applySettingsForm` against the snapshot, so one Undo takes back the whole visit; Cancel, the close button and Escape run `revertSettingsSession`, which also takes back symbols and currencies added while the window was open.
+
+Fonts: `fontBold`, `fontItalic`, `fontUnderline` and `fontStrike` replace the older `fontStyle` (still written for compatibility, and read when the switches are missing). `applyFontFace` marks the quote area and every panel with `data-font-scope="stocks"`; the stylesheet draws bold and italic over the whole scope and the decoration on each leaf element, so a strike line crosses a 44px price at its own middle.
+
+## Printing
+
+One window, `type: "print"`, 980×700: `.preview-setup` on the left, `.preview-side` on the right. `buildPrintModel` returns one page per board and section (`PRINT_SECTIONS` = stocks, rates, news, plus a price history for a custom range), chunked so a long list runs onto more pages, as plain tables styled by `print-style.js`. Each change sends `print-setup`; `openPrint` rebuilds and returns `{ pages, pageSetup, html }`, and `paintPreviewPage` keeps the page in view. The preview lays the page out at its real size in CSS pixels (`PX_PER_MM`) and scales it into the stage, so line breaks match the paper. Paper, orientation and margins reach the printer through the `@page` rule.
 
 ## Installer
 

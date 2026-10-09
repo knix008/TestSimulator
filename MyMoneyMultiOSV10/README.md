@@ -50,7 +50,9 @@ Linux and macOS setup scripts in `installer/linux` and `installer/macos` ask the
 
 ## Window
 
-The window has no operating-system title bar. It does not place an icon on the Windows taskbar. A system-tray icon is shown instead. Click or right-click that icon to open the market, file, and edit menus. Every entry has its own icon.
+The window has no operating-system title bar. It does not place an icon on the Windows taskbar. A system-tray icon is shown instead. Click or right-click that icon to open the windows, market, and edit menus. Every entry has its own colour icon. The close button only hides a window; Exit in the tray ends the program. Only one copy runs at a time: a second launch says so and exits.
+
+Several windows can be open at once, each with its own market and watchlist. Open one from the tray (Windows › New window) or the right-click menu. Every window's board and place, and all settings, are saved automatically to `settings.json` in the user data folder; there are no file commands.
 
 The three toolbar buttons open the stocks, exchange-rate, and news windows beside the main window. The main window itself shows the selected symbol's price, its change, and its direction.
 

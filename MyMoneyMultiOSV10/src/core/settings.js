@@ -1,4 +1,4 @@
-import { FONT_STYLES } from "./fonts.js";
+import { FONT_FLAGS, FONT_STYLES, fontStyleOf } from "./fonts.js";
 import { DEFAULT_CUSTOM_THEME, DEFAULT_THEME_ID, isTheme, sanitizeCustomTheme } from "./themes.js";
 import { CURRENCIES, findMarket } from "../market/markets.js";
 import { SOURCE_IDS } from "../market/providers.js";
@@ -42,6 +42,10 @@ export const DEFAULT_SETTINGS = {
   fontFamily: "Segoe UI",
   fontSize: 14,
   fontStyle: "normal",
+  fontBold: false,
+  fontItalic: false,
+  fontUnderline: false,
+  fontStrike: false,
   backgroundImage: "",
   backgroundName: "",
   backgroundOpacity: 40,
@@ -82,6 +86,66 @@ export const SCENE_MODES = ["single", "all"];
 export const ROTATE_SECONDS = [0, 3, 5, 10, 30, 60];
 
 export const MAX_SYMBOLS = 20;
+
+/**
+ * Each window keeps its own board and its own place on the screen; everything
+ * else - language, theme, font, sources - is one setting for every window.
+ */
+export const WINDOW_FIELDS = ["defaultBoard", "windowSize", "windowPosition", "windowMaximized"];
+
+/** The main process owns this list, so a window never writes it back. */
+export const WINDOW_LIST_FIELD = "windows";
+
+/** At most this many windows besides the first. */
+export const MAX_EXTRA_WINDOWS = 15;
+
+/** Settings without the per-window part, for telling the other windows what changed. */
+export function sharedSettings(settings) {
+  const shared = { ...(settings && typeof settings === "object" ? settings : {}) };
+  for (const field of WINDOW_FIELDS) delete shared[field];
+  delete shared[WINDOW_LIST_FIELD];
+  return shared;
+}
+
+/**
+ * The windows opened besides the first one. A slot is an id, a board, and the
+ * last rectangle; a slot that lost its id or its board is dropped.
+ */
+export function sanitizeWindowSlots(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const seen = new Set();
+  const slots = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const id = String(entry.id || "").trim();
+    if (!/^w[0-9a-z]+$/i.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    const bounds = entry.bounds && typeof entry.bounds === "object" ? entry.bounds : null;
+    const rect =
+      bounds && ["x", "y", "width", "height"].every((key) => Number.isFinite(Number(bounds[key])))
+        ? {
+            x: Math.round(Number(bounds.x)),
+            y: Math.round(Number(bounds.y)),
+            width: Math.round(Number(bounds.width)),
+            height: Math.round(Number(bounds.height)),
+          }
+        : null;
+    slots.push({ id, board: sanitizeBoard(entry.board), bounds: rect });
+    if (slots.length >= MAX_EXTRA_WINDOWS) break;
+  }
+  return slots;
+}
+
+/** A short name for a window in the tray: its market and the first symbols it watches. */
+export function windowLabel(board, language, index) {
+  const safe = sanitizeBoard(board);
+  const ko = language !== "en";
+  const market = ko ? safe.marketKo : safe.marketEn;
+  const names = safe.symbols.slice(0, 2).map((entry) => (ko ? entry.nameKo : entry.nameEn));
+  const more = safe.symbols.length > 2 ? (ko ? ` 외 ${safe.symbols.length - 2}` : ` +${safe.symbols.length - 2}`) : "";
+  const list = names.length ? ` · ${names.join(", ")}${more}` : "";
+  return `${index + 1}. ${market}${list}`;
+}
 
 /** The rate panel grows with its list, so the list has a ceiling the screen can hold. */
 export const MAX_RATE_CURRENCIES = 12;
@@ -199,6 +263,12 @@ export function sanitizeSettings(raw) {
   settings.backgroundOpacity = clamp(settings.backgroundOpacity ?? DEFAULT_SETTINGS.backgroundOpacity, 0, 100);
   settings.fontSize = clamp(settings.fontSize || 14, 8, 72);
   settings.fontStyle = FONT_STYLES.includes(settings.fontStyle) ? settings.fontStyle : "normal";
+  // Before the four switches there was one style choice; it still decides bold
+  // and italic for a file that has never stored the switches.
+  if (source.fontBold == null) settings.fontBold = settings.fontStyle === "bold" || settings.fontStyle === "bolditalic";
+  if (source.fontItalic == null) settings.fontItalic = settings.fontStyle === "italic" || settings.fontStyle === "bolditalic";
+  for (const flag of FONT_FLAGS) settings[flag] = Boolean(settings[flag]);
+  settings.fontStyle = fontStyleOf(settings.fontBold, settings.fontItalic);
   settings.fontFamily = String(settings.fontFamily || DEFAULT_SETTINGS.fontFamily);
   settings.zoom = clamp(settings.zoom || 100, 50, 200);
   settings.units = PRICE_UNITS.includes(settings.units) ? settings.units : DEFAULT_SETTINGS.units;

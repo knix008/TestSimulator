@@ -1,6 +1,8 @@
 import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
-import { FONT_STYLES } from "../core/fonts.js";
+import { FONT_FLAGS, applyFontFace, fontFace } from "../core/fonts.js";
+import { MARGINS, PAGE_NUMBER_SPOTS, PAPERS, PRINT_SECTIONS, SCALES, pageHtml, paperSize } from "../core/print-model.js";
+import { PRINT_CSS } from "../core/print-style.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
 import { DEFAULT_SETTINGS, DISPLAY_PRIORITIES, PRICE_UNITS, ROTATE_SECONDS, SCENE_MODES, UPDATE_MINUTES } from "../core/settings.js";
 import { CURRENCIES, currencyName } from "../market/markets.js";
@@ -198,6 +200,24 @@ export function buildUnsavedSpec(fileLabel, t) {
   };
 }
 
+/** Asked before an extra window goes away for good, taking its watchlist with it. */
+export function buildRemoveWindowSpec(t) {
+  return {
+    type: "remove-window",
+    icon: "trash",
+    title: t("cmd.removeWindow"),
+    width: 480,
+    height: 200,
+    resizable: false,
+    scroll: "none",
+    rows: [{ kind: "static", id: "message", label: t("msg.removeWindow"), value: "" }],
+    buttons: [
+      { id: "ok", action: "ok", icon: "trash", label: t("btn.ok") },
+      { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") },
+    ],
+  };
+}
+
 /** Asked before a dropped picture replaces the background, which has no undo. */
 export function buildWallpaperDropSpec(fileLabel, t) {
   return {
@@ -247,87 +267,140 @@ export function buildSearchResultsSpec(query, results, t, trouble = "") {
   };
 }
 
-export function buildPrintSpec(t, draft) {
+/**
+ * The print window shows what will come out and everything that decides it, side by side.
+ * Pressing print sends the sheet straight to the printer; there is no second window.
+ */
+export function buildPrintSpec(t, draft, model) {
+  const setup = model.pageSetup;
+  const wanted = Array.isArray(draft.sections) ? draft.sections : [...PRINT_SECTIONS];
+  const onOff = [
+    { value: "on", label: t("print.headerOn") },
+    { value: "off", label: t("print.headerOff") },
+  ];
   return {
     type: "print",
     icon: "print",
     title: t("popup.print"),
-    width: 560,
-    height: 360,
+    width: 980,
+    height: 700,
     resizable: false,
     scroll: "none",
+    pages: model.pages,
+    pageSetup: setup,
+    html: model.html,
+    labels: { prev: t("print.pagePrev"), next: t("print.pageNext") },
     rows: [
+      { kind: "static", id: "whatHead", label: t("print.what"), value: "" },
       { kind: "radio", id: "scope-all", name: "scope", value: "all", checked: draft.scope === "all", label: t("print.scopeAll") },
       { kind: "radio", id: "scope-current", name: "scope", value: "current", checked: draft.scope !== "all" && draft.scope !== "custom", label: t("print.scopeCurrent") },
       { kind: "radio", id: "scope-custom", name: "scope", value: "custom", checked: draft.scope === "custom", label: t("print.scopeCustom") },
       { kind: "date", id: "from", label: t("print.from"), value: draft.from || "" },
       { kind: "date", id: "to", label: t("print.to"), value: draft.to || "" },
+      ...PRINT_SECTIONS.map((section) => ({ kind: "check", id: `section-${section}`, label: t(`panel.${section}`), checked: wanted.includes(section) })),
+      { kind: "static", id: "paperHead", label: t("print.paperHead"), value: "" },
+      { kind: "select", id: "paper", setup: true, label: t("print.paper"), value: setup.paper, options: PAPERS.map((value) => ({ value, label: value })) },
+      {
+        kind: "select",
+        id: "orientation",
+        setup: true,
+        label: t("print.orientation"),
+        value: setup.orientation,
+        options: [
+          { value: "portrait", label: t("print.portrait") },
+          { value: "landscape", label: t("print.landscape") },
+        ],
+      },
+      { kind: "select", id: "margin", setup: true, label: t("print.margin"), value: String(setup.margin), options: MARGINS.map((value) => ({ value: String(value), label: `${value} mm` })) },
+      { kind: "select", id: "scale", setup: true, label: t("print.scale"), value: String(setup.scale), options: SCALES.map((value) => ({ value: String(value), label: `${value} %` })) },
+      { kind: "select", id: "header", setup: true, label: t("print.header"), value: setup.header ? "on" : "off", options: onOff },
+      { kind: "select", id: "pageNumber", setup: true, label: t("print.pageNumber"), value: setup.pageNumber ? "on" : "off", options: onOff },
+      {
+        kind: "select",
+        id: "pageNumberAt",
+        setup: true,
+        label: t("print.pageNumberAt"),
+        value: setup.pageNumberAt,
+        options: PAGE_NUMBER_SPOTS.map((value) => ({ value, label: t(`print.at${value[0].toUpperCase()}${value.slice(1)}`) })),
+      },
     ],
     buttons: [
-      { id: "preview", action: "preview", icon: "eye", label: t("btn.preview") },
+      { id: "print", action: "print", icon: "print", label: t("btn.printNow") },
       { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") },
     ],
   };
 }
 
-export function buildPreviewSpec(printModel, t) {
-  const setup = printModel.pageSetup;
-  return {
-    type: "preview",
-    icon: "print",
-    title: t("popup.preview"),
-    width: 760,
-    height: 620,
-    resizable: false,
-    scroll: "none",
-    html: printModel.html,
-    activeTab: "setup",
-    tabs: [
-      {
-        id: "setup",
-        label: t("tab.setup"),
-        rows: [
-          {
-            kind: "select",
-            id: "paper",
-            setup: true,
-            label: t("print.paper"),
-            value: setup.paper,
-            options: ["A4", "A3", "Letter"].map((value) => ({ value, label: value })),
-          },
-          {
-            kind: "select",
-            id: "orientation",
-            setup: true,
-            label: t("print.orientation"),
-            value: setup.orientation,
-            options: [
-              { value: "portrait", label: t("print.portrait") },
-              { value: "landscape", label: t("print.landscape") },
-            ],
-          },
-          {
-            kind: "select",
-            id: "margin",
-            setup: true,
-            label: t("print.margin"),
-            value: String(setup.margin),
-            options: [10, 15, 20].map((value) => ({ value: String(value), label: `${value} mm` })),
-          },
-        ],
-      },
-      ...printModel.pages.map((page, index) => ({
-        id: `page-${index}`,
-        label: t("print.page", { n: index + 1 }),
-        rows: [],
-        lines: page,
-      })),
-    ],
-    buttons: [
-      { id: "print", action: "print", icon: "print", label: t("btn.printNow") },
-      { id: "close", action: "close", icon: "close", label: t("btn.close") },
-    ],
-  };
+/** Page settings on the left, the sheet on the right, and only previous and next below it. */
+function previewPanel(spec) {
+  const labels = spec.labels || {};
+  const rows = (spec.rows || []).map((row) => renderRow(row)).join("");
+  const nav = (action, label, iconName, after) =>
+    `<button type="button" class="popup-btn nav-btn" data-action="${action}" data-gui="popup-button" title="${esc(label)}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap">${after ? "" : icon(iconName)}<span class="menu-label">${esc(label)}</span>${after ? icon(iconName) : ""}</button>`;
+  return `<div class="popup-panel preview-panel" data-panel="main" style="display:flex;flex-direction:row;gap:16px;overflow:hidden;height:100%;flex:1 1 auto"><div class="preview-setup" data-gui="print-setup">${rows}</div><div class="preview-side"><div class="preview-stage" data-preview-stage><div class="preview-paper" data-preview-paper><div class="preview-page" data-preview-page><style>${PRINT_CSS}</style><div class="print-doc preview-sheet" data-preview-sheet></div></div></div></div><div class="preview-nav">${nav("page-prev", labels.prev || "", "pagePrev", false)}<span class="preview-count" data-preview-count></span>${nav("page-next", labels.next || "", "pageNext", true)}</div></div></div>`;
+}
+
+/** Millimetres to CSS pixels, the measure the printed page is laid out in. */
+const PX_PER_MM = 96 / 25.4;
+
+/**
+ * The sheet is as large as the stage allows while keeping the paper's proportions. The page
+ * inside is laid out at its real size and scaled down, so the preview shows the same line
+ * breaks and the same amount on each page as the paper will.
+ */
+function fitPaper(el, paper, size, attempt = 0) {
+  const stage = el.querySelector("[data-preview-stage]");
+  const page = el.querySelector("[data-preview-page]");
+  if (!stage || !page) return;
+  const box = stage.getBoundingClientRect();
+  const room = { width: box.width - 16, height: box.height - 16 };
+  if (!(room.width > 0) || !(room.height > 0)) {
+    // Not on screen yet (a native popup paints before it is attached): try again shortly.
+    if (attempt < 20 && typeof requestAnimationFrame === "function") requestAnimationFrame(() => fitPaper(el, paper, size, attempt + 1));
+    return;
+  }
+  const ratio = size.width / size.height;
+  let width = room.height * ratio;
+  let height = room.height;
+  if (width > room.width) {
+    width = room.width;
+    height = room.width / ratio;
+  }
+  paper.style.width = `${Math.round(width)}px`;
+  paper.style.height = `${Math.round(height)}px`;
+  page.style.transform = `scale(${(width / (size.width * PX_PER_MM)).toFixed(4)})`;
+}
+
+/** Shows one page and keeps the counter and the two buttons honest. */
+export function paintPreviewPage(el, spec, at) {
+  const sheet = el?.querySelector("[data-preview-sheet]");
+  if (!sheet) return;
+  const pages = Array.isArray(spec?.pages) ? spec.pages : [];
+  const count = Math.max(1, pages.length);
+  const page = Math.min(Math.max(0, Number(at) || 0), count - 1);
+  const setup = spec.pageSetup || {};
+  spec.pageAt = page;
+  sheet.innerHTML = pages[page] ? pageHtml(pages[page], setup, page, count) : "";
+  sheet.dataset.page = String(page + 1);
+  const paper = el.querySelector("[data-preview-paper]");
+  const frame = el.querySelector("[data-preview-page]");
+  if (paper && frame) {
+    const size = paperSize(setup);
+    paper.dataset.orientation = setup.orientation || "portrait";
+    paper.style.aspectRatio = `${size.width} / ${size.height}`;
+    // The page is drawn at its real size: margins in millimetres, text at the chosen scale.
+    frame.style.width = `${Math.round(size.width * PX_PER_MM)}px`;
+    frame.style.height = `${Math.round(size.height * PX_PER_MM)}px`;
+    sheet.style.padding = `${Math.round((Number(setup.margin) || 15) * PX_PER_MM)}px`;
+    sheet.style.fontSize = `${(13 * (Number(setup.scale) || 100)) / 100}px`;
+    fitPaper(el, paper, size);
+  }
+  const counter = el.querySelector("[data-preview-count]");
+  if (counter) counter.textContent = `${page + 1} / ${count}`;
+  const prev = el.querySelector('[data-action="page-prev"]');
+  const next = el.querySelector('[data-action="page-next"]');
+  if (prev) prev.disabled = page === 0;
+  if (next) next.disabled = page >= count - 1;
 }
 
 const PANEL_WIDTH = { stocks: 720, rates: 560, news: 720 };
@@ -407,10 +480,12 @@ export function buildPopupElement(spec) {
     ? tabs
         .map(
           (tab) =>
-            `<div class="popup-panel" data-panel="${esc(tab.id)}" ${tab.id === (spec.activeTab || tabs[0].id) ? "" : "hidden"} style="overflow:hidden;display:${tab.id === (spec.activeTab || tabs[0].id) ? "flex" : "none"};flex-direction:column">${tab.lines ? previewBlock(tab.lines) : ""}${tab.rows.map((row) => renderRow(row)).join("")}</div>`,
+            `<div class="popup-panel" data-panel="${esc(tab.id)}" ${tab.id === (spec.activeTab || tabs[0].id) ? "" : "hidden"} style="overflow:hidden;display:${tab.id === (spec.activeTab || tabs[0].id) ? "flex" : "none"};flex-direction:column">${tab.rows.map((row) => renderRow(row)).join("")}</div>`,
         )
         .join("")
-    : `<div class="popup-panel" data-panel="main" style="overflow:hidden;display:flex;flex-direction:column">${panelBlock(spec)}${(spec.rows || []).map((row) => renderRow(row)).join("")}</div>`;
+    : spec.type === "print"
+      ? previewPanel(spec)
+      : `<div class="popup-panel" data-panel="main" style="overflow:hidden;display:flex;flex-direction:column">${panelBlock(spec)}${(spec.rows || []).map((row) => renderRow(row)).join("")}</div>`;
   const tabBar = tabs.length
     ? `<div class="popup-tabs" data-gui="popup-tabs" style="display:flex;height:36px;overflow:hidden;flex:0 0 auto"><div class="popup-tabstrip" style="display:flex;overflow:hidden;flex:1;min-width:0"></div><button type="button" data-action="tab-prev" data-gui="tab-nav" title="&lt;">&lt;</button><button type="button" data-action="tab-next" data-gui="tab-nav" title="&gt;">&gt;</button></div>`
     : "";
@@ -473,7 +548,11 @@ function paintCustomChip(el) {
 function panelBlock(spec) {
   if (!spec.markup) return "";
   const height = Math.max(0, Number(spec.fitHeight) || 0);
-  return `<div class="panel-fit" data-gui="panel" data-panel-kind="${esc(spec.panel || "")}" data-fit-height="${height}" style="height:${height}px;overflow:hidden;display:flex;flex-direction:column;min-height:0">${spec.markup}</div>`;
+  // The quotes in a panel are drawn in the font chosen in Settings, like the window's own.
+  const face = fontFace(spec);
+  const font = `data-font-scope="stocks" data-font-bold="${face.bold}" data-font-italic="${face.italic}"`;
+  const fontStyle = `font-family:${esc(face.family)};--font-decoration:${esc(face.decoration)};`;
+  return `<div class="panel-fit" data-gui="panel" data-panel-kind="${esc(spec.panel || "")}" ${font} data-fit-height="${height}" style="${fontStyle}height:${height}px;overflow:hidden;display:flex;flex-direction:column;min-height:0">${spec.markup}</div>`;
 }
 
 function rowsOf(spec) {
@@ -484,6 +563,11 @@ function rowsOf(spec) {
 
 export function wirePopup(el, spec, handlers = {}) {
   const finish = (result) => handlers.result?.(result);
+  if (spec.type === "print") {
+    el._html = spec.html || "";
+    el.dataset.printHtml = spec.html || "";
+    paintPreviewPage(el, spec, 0);
+  }
   let tabStart = 0;
   const renderTabs = () => {
     const strip = el.querySelector(".popup-tabstrip");
@@ -551,6 +635,25 @@ export function wirePopup(el, spec, handlers = {}) {
     handlers.localTheme?.(draft);
     void handlers.immediate?.({ type: "theme-preview", ...draft, popupId: spec.popupId });
   };
+  // Settings take effect as they are changed; the window itself decides on
+  // OK or Cancel whether they stay.
+  let settingsPreviewTimer = null;
+  const previewSettings = () => {
+    if (spec.type !== "settings") return;
+    paintFontPreview(el);
+    clearTimeout(settingsPreviewTimer);
+    settingsPreviewTimer = setTimeout(() => {
+      if (!el.isConnected) return;
+      void handlers.immediate?.({ type: "settings-preview", values: collectValues(el), popupId: spec.popupId });
+    }, 40);
+  };
+  if (spec.type === "settings") {
+    el.addEventListener("change", previewSettings);
+    el.addEventListener("input", previewSettings);
+    el.addEventListener("click", (event) => {
+      if (event.target.closest?.("[data-choice], .swatch, [data-step], [data-action='reset']")) setTimeout(previewSettings, 0);
+    });
+  }
   const setSteppedNumber = (input, value) => {
     const min = input.min === "" ? -Infinity : Number(input.min);
     const max = input.max === "" ? Infinity : Number(input.max);
@@ -598,6 +701,11 @@ export function wirePopup(el, spec, handlers = {}) {
       recent.closest(".popup-row")?.remove();
       fitHeight();
       void handlers.immediate?.({ type: "recent-delete", path: recent.dataset.path, popupId: spec.popupId });
+      return;
+    }
+    const turn = event.target.closest('[data-action="page-prev"], [data-action="page-next"]');
+    if (turn) {
+      if (!turn.disabled) paintPreviewPage(el, spec, (Number(spec.pageAt) || 0) + (turn.dataset.action === "page-next" ? 1 : -1));
       return;
     }
     const pager = event.target.closest("[data-gui='pager']");
@@ -712,17 +820,6 @@ export function wirePopup(el, spec, handlers = {}) {
       void handlers.copy?.(text);
       return;
     }
-    if (action === "preview") {
-      finish({
-        action: "preview",
-        values: {
-          scope: el.querySelector('input[name="scope"]:checked')?.value || "current",
-          from: el.querySelector('[data-field="from"]')?.value || "",
-          to: el.querySelector('[data-field="to"]')?.value || "",
-        },
-      });
-      return;
-    }
     if (action === "print") {
       finish({
         action: "print",
@@ -767,6 +864,10 @@ export function wirePopup(el, spec, handlers = {}) {
   };
   el.addEventListener("change", (event) => {
     const field = event.target.dataset?.field;
+    if (spec.type === "print") {
+      void handlers.immediate?.({ type: "print-setup", popupId: spec.popupId, values: printValues(el) });
+      return;
+    }
     if (field === "marketCode") refillSymbols(el, spec);
     if (field === "baseCurrency") {
       void handlers.immediate?.({ type: "base-currency", base: event.target.value, popupId: spec.popupId });
@@ -1305,13 +1406,37 @@ function fontRows(model) {
       increase: t("tip.increase"),
     },
     {
-      kind: "select",
-      id: "fontStyle",
-      label: t("field.fontStyle"),
-      value: values.fontStyle,
-      options: FONT_STYLES.map((style) => ({ value: style, label: t(`style.${style}`) })),
+      kind: "toggles",
+      id: "fontEffects",
+      label: t("field.fontEffects"),
+      options: [
+        { id: "fontBold", glyph: "B", label: t("field.fontBold"), checked: Boolean(values.fontBold) },
+        { id: "fontItalic", glyph: "I", label: t("field.fontItalic"), checked: Boolean(values.fontItalic) },
+        { id: "fontUnderline", glyph: "U", label: t("field.fontUnderline"), checked: Boolean(values.fontUnderline) },
+        { id: "fontStrike", glyph: "S", label: t("field.fontStrike"), checked: Boolean(values.fontStrike) },
+      ],
     },
+    { kind: "font-preview", id: "fontPreview", label: t("field.fontPreview"), text: t("font.sample"), values },
   ];
+}
+
+/** The sample line under the font controls, drawn the way the quotes will be. */
+function paintFontPreview(el) {
+  const sample = el.querySelector('[data-gui="font-preview"]');
+  if (!sample) return;
+  const read = (field) => el.querySelector(`[data-field="${field}"]`);
+  const settings = {
+    fontFamily: read("fontFamily")?.value,
+    fontSize: read("fontSize")?.value,
+  };
+  for (const flag of FONT_FLAGS) settings[flag] = Boolean(read(flag)?.checked);
+  applyFontFace(sample, settings);
+  sample.style.fontSize = `${clampNumber(settings.fontSize, 8, 72, 14)}px`;
+}
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
 }
 
 function dataRows(model) {
@@ -1370,7 +1495,11 @@ function resetSettingsForm(el, spec) {
   });
   assign("fontFamily", defaults.fontFamily);
   assign("fontSize", defaults.fontSize);
-  assign("fontStyle", defaults.fontStyle);
+  for (const flag of FONT_FLAGS) {
+    const box = el.querySelector(`[data-field="${flag}"]`);
+    if (box) box.checked = Boolean(defaults[flag]);
+  }
+  paintFontPreview(el);
   assign("customMode", custom.mode);
   assign("customBg", custom.bg);
   assign("customText", custom.text);
@@ -1422,6 +1551,20 @@ function renderRow(row) {
   }
   if (row.kind === "check") {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="checkbox" data-field="${esc(row.id)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;
+  }
+  if (row.kind === "toggles") {
+    const boxes = (row.options || [])
+      .map(
+        (option) =>
+          `<label class="font-toggle" data-gui="font-toggle" data-toggle="${esc(option.id)}" title="${esc(option.label)}"><input type="checkbox" data-field="${esc(option.id)}" aria-label="${esc(option.label)}"${option.checked ? " checked" : ""}><span class="font-glyph" aria-hidden="true">${esc(option.glyph)}</span><span class="font-toggle-name">${esc(option.label)}</span></label>`,
+      )
+      .join("");
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="font-toggles" role="group">${boxes}</div></div>`;
+  }
+  if (row.kind === "font-preview") {
+    const face = fontFace(row.values || {});
+    const flags = `data-font-scope="stocks" data-font-bold="${face.bold}" data-font-italic="${face.italic}"`;
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="font-preview" data-gui="font-preview" ${flags} style="font-family:${esc(face.family)};font-size:${esc(face.size)};--font-decoration:${esc(face.decoration)}"><span>${esc(row.text || "")}</span></div></div>`;
   }
   if (row.kind === "radio") {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="radio" name="${esc(row.name)}" value="${esc(row.value)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;
@@ -1527,13 +1670,6 @@ function themeBlock(row) {
   return `<div class="theme-block" data-row="themes" data-fit-height="${THEME_GRID_HEIGHT}" style="height:${THEME_GRID_HEIGHT}px;overflow:hidden;flex:0 0 auto"><input type="hidden" data-field="theme" value="${esc(value)}">${group("light", LIGHT_THEMES)}${group("dark", DARK_THEMES)}${customGroup}</div>`;
 }
 
-function previewBlock(lines) {
-  const body = (lines || [])
-    .map((line) => `<div style="white-space:nowrap;overflow:hidden;height:22px">${esc(line.text)}</div>`)
-    .join("");
-  return `<div class="preview-fit" data-gui="preview" style="height:340px;overflow:hidden">${body}</div>`;
-}
-
 function collectValues(el) {
   const values = { sources: {} };
   el.querySelectorAll("[data-field]").forEach((node) => {
@@ -1552,6 +1688,21 @@ function setupValues(el) {
     paper: el.querySelector('[data-field="paper"]')?.value || "A4",
     orientation: el.querySelector('[data-field="orientation"]')?.value || "portrait",
     margin: Number(el.querySelector('[data-field="margin"]')?.value || 15),
+    scale: Number(el.querySelector('[data-field="scale"]')?.value || 100),
+    header: el.querySelector('[data-field="header"]')?.value !== "off",
+    pageNumber: el.querySelector('[data-field="pageNumber"]')?.value !== "off",
+    pageNumberAt: el.querySelector('[data-field="pageNumberAt"]')?.value || "right",
+  };
+}
+
+/** Everything the print window decides: what goes on the paper and how the paper is set up. */
+function printValues(el) {
+  return {
+    ...setupValues(el),
+    scope: el.querySelector('input[name="scope"]:checked')?.value || "current",
+    from: el.querySelector('[data-field="from"]')?.value || "",
+    to: el.querySelector('[data-field="to"]')?.value || "",
+    sections: PRINT_SECTIONS.filter((section) => el.querySelector(`[data-field="section-${section}"]`)?.checked),
   };
 }
 
@@ -1669,14 +1820,11 @@ function applyPatch(el, patch, spec) {
     el._html = patch.html;
     el.dataset.printHtml = patch.html;
   }
-  if (patch.pages) {
-    patch.pages.forEach((page, index) => {
-      const panel = el.querySelector(`[data-panel="page-${index}"] .preview-fit`);
-      if (!panel) return;
-      panel.innerHTML = page
-        .map((line) => `<div style="white-space:nowrap;overflow:hidden;height:22px">${esc(line.text)}</div>`)
-        .join("");
-    });
+  if (spec?.type === "print" && patch.html) spec.html = patch.html;
+  if (patch.pages && spec) {
+    spec.pages = patch.pages;
+    if (patch.pageSetup) spec.pageSetup = patch.pageSetup;
+    paintPreviewPage(el, spec, spec.pageAt || 0);
   }
 }
 

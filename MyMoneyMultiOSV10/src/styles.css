@@ -680,13 +680,15 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   justify-content: center;
   min-width: 0;
   height: 100%;
-  padding: 0 16px;
+  padding: 0 16px 8px;
   border-radius: 10px;
   border: 1px solid rgba(127, 127, 127, 0.35);
+  overflow: hidden;
 }
 .swatch:hover .chip { filter: brightness(1.08); }
 .swatch[aria-pressed="true"] .chip { box-shadow: inset 0 0 0 2px var(--accent); }
-.swatch .chip i { position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; border-radius: 50%; }
+/* The accent runs the width of the swatch as a band, not a dot in the corner. */
+.swatch .chip i { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; border-radius: 0; }
 .swatch-name { min-width: 0; max-width: 100%; font-size: 12px; font-weight: 650; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .custom-theme { gap: 10px; }
 .custom-head { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin-left: 158px; }
@@ -698,8 +700,40 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .bar-track { background: var(--surface); border-radius: 999px; }
 .bar-fill { background: var(--accent); border-radius: 999px; transition: width 120ms ease; }
 .preview-fit { background: #fff; color: #123; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.preview-panel { min-height: 0; }
+.preview-setup { flex: 0 0 320px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; overflow-x: hidden; padding-right: 4px; }
+.preview-setup .popup-row > label, .preview-setup .popup-row > span:first-child { width: 120px; flex: 0 0 120px; }
+.preview-setup [data-row="whatHead"] > span:first-child, .preview-setup [data-row="paperHead"] > span:first-child { width: auto; flex: 1 1 auto; color: var(--fg); font-weight: 700; }
+.preview-setup [data-row="paperHead"] { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.preview-side { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.preview-stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--surface); border-radius: 8px; padding: 8px; }
+.preview-paper { position: relative; height: 100%; flex: 0 0 auto; overflow: hidden; border: 1px solid var(--line); border-radius: 2px; background: #fff; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+.preview-page { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: #fff; }
+.preview-sheet { box-sizing: border-box; width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.preview-nav { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 10px; height: 32px; }
+.preview-nav .nav-btn { height: 30px; padding: 0 12px; }
+.preview-nav .nav-btn svg { width: 16px; height: 16px; }
+.preview-count { color: var(--muted); font-weight: 600; min-width: 64px; text-align: center; }
 
 .startup-error { max-width: 720px; margin: 40px auto; padding: 16px; border-radius: 18px; background: #1b1f27; color: #f3f6fa; display: flex; flex-direction: column; gap: 10px; }
 .startup-error h1 { margin: 0; font-size: 18px; color: #ff6b6b; }
 .startup-error textarea { height: 280px; resize: none; font-family: Consolas, monospace; font-size: 12px; background: #11141a; color: inherit; border: 1px solid #333; border-radius: 8px; padding: 8px; }
 .startup-error button { align-self: flex-end; height: 32px; padding: 0 14px; border-radius: 9px; border: 0; background: #5cc8ff; color: #08131c; font-weight: 600; }
+
+/* Font settings on the stock display: the window's quote area, the panels, and the sample in Settings. */
+[data-font-scope="stocks"][data-font-bold="true"], [data-font-scope="stocks"][data-font-bold="true"] * { font-weight: 800 !important; }
+[data-font-scope="stocks"][data-font-italic="true"], [data-font-scope="stocks"][data-font-italic="true"] * { font-style: italic !important; }
+[data-font-scope="stocks"] *:not(:has(*)) { text-decoration-line: var(--font-decoration, none); text-decoration-skip-ink: auto; }
+.font-toggles { display: flex; flex: 1 1 auto; min-width: 0; gap: 4px; }
+.font-toggle { position: relative; flex: 1 1 0; min-width: 0; height: 28px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; overflow: hidden; }
+.font-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.font-toggle:has(input:checked) { background: var(--accent); border-color: transparent; color: var(--accent-text); }
+.font-toggle:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.font-glyph { flex: 0 0 auto; font-family: Georgia, "Times New Roman", serif; font-size: 15px; line-height: 1; }
+.font-toggle[data-toggle="fontBold"] .font-glyph { font-weight: 800; }
+.font-toggle[data-toggle="fontItalic"] .font-glyph { font-style: italic; }
+.font-toggle[data-toggle="fontUnderline"] .font-glyph { text-decoration: underline; }
+.font-toggle[data-toggle="fontStrike"] .font-glyph { text-decoration: line-through; }
+.font-toggle-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.font-preview { flex: 1 1 auto; min-width: 0; height: 40px; display: flex; align-items: center; padding: 0 10px; border-radius: 8px; border: 1px dashed var(--line); background: var(--surface); overflow: hidden; white-space: nowrap; }
+.font-preview span { overflow: hidden; text-overflow: ellipsis; }

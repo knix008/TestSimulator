@@ -1,22 +1,21 @@
-import { basename } from "../core/paths.js";
 import { icon } from "./icons.js";
 
 export function buildMenuItems(name, ctx) {
   const t = ctx.t;
   if (name === "window") {
-    const recent = (ctx.recent || []).slice(0, 3);
+    // Boards are kept in the settings as they change, so there is nothing to
+    // open or save by hand. A window can hold its own board instead.
+    const windows = [];
+    if (ctx.canAddWindow !== false) windows.push(item("new-window", "window", t("cmd.newWindow"), "", true, true));
+    if (ctx.canRemoveWindow) windows.push(item("remove-window", "trash", t("cmd.removeWindow"), "", true, !windows.length));
     return [
       item("refresh", "refresh", t("cmd.refresh"), "F5", true),
       item("undo", "undo", t("cmd.undo"), "Ctrl+Z", ctx.canUndo, true),
       item("redo", "redo", t("cmd.redo"), "Ctrl+Y", ctx.canRedo),
       item("copy", "copy", t("cmd.copy"), "Ctrl+C", true),
       item("paste", "paste", t("cmd.paste"), "Ctrl+V", true),
-      item("new", "new", t("cmd.new"), "Ctrl+N", true, true),
-      item("open", "open", t("cmd.open"), "Ctrl+O", true),
-      ...recent.map((filePath, index) => item(`recent:${index}`, "recent", basename(filePath), "", true)),
-      item("save", "save", t("cmd.save"), "Ctrl+S", true),
-      item("save-as", "saveAs", t("cmd.saveAs"), "Ctrl+Shift+S", true),
       item("print", "print", t("cmd.print"), "Ctrl+P", true),
+      ...windows,
       item("add-tab", "add", t("cmd.addTab"), "", true, true),
       item("close-tab", "close", t("cmd.closeTab"), "", true),
       item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),

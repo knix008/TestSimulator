@@ -8,8 +8,9 @@ export class PopupHub {
     this.sequence = 0;
   }
 
-  begin(spec, createWindow) {
-    const key = popupKey(spec);
+  /** Each market window keeps its own dialogs, so a key is only unique within one owner. */
+  begin(spec, createWindow, owner = "") {
+    const key = `${owner || ""}#${popupKey(spec)}`;
     if (keepsOneWindow(spec)) {
       for (const entry of this.windows.values()) {
         if (entry.key !== key) continue;
@@ -21,7 +22,7 @@ export class PopupHub {
     const id = `${spec.type}-${this.sequence}`;
     const stored = { ...spec, popupId: id };
     const win = createWindow(stored);
-    this.windows.set(id, { spec: stored, win, key });
+    this.windows.set(id, { spec: stored, win, key, owner });
     return { id, focused: false };
   }
 
@@ -63,5 +64,12 @@ export class PopupHub {
 
   closeAll() {
     for (const id of [...this.windows.keys()]) this.finish(id, { action: "close" });
+  }
+
+  /** A market window that goes away takes its own dialogs with it. */
+  closeOwned(owner) {
+    for (const [id, entry] of [...this.windows]) {
+      if (entry.owner === owner) this.finish(id, { action: "close" });
+    }
   }
 }

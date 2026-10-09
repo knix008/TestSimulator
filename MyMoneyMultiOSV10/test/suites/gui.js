@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createApp } from "../../src/app.js";
 import { AppError } from "../../src/core/errors.js";
 import { serializeDocument } from "../../src/core/document.js";
+import { sanitizeSettings } from "../../src/core/settings.js";
 import { DARK_THEMES, LIGHT_THEMES, THEMES } from "../../src/core/themes.js";
 import { SETTINGS_MAX_HEIGHT, SETTINGS_MIN_HEIGHT, buildAboutSpec, bootPopup, fitPopupToViewport, popupFits, tallestPanelHeight } from "../../src/ui/popups.js";
 import { WINDOW_MIN } from "../../src/ui/window-spec.js";
@@ -360,9 +361,11 @@ export function registerGui(h) {
       assert.equal(menu.style.columnCount, "1");
       const items = [...menu.querySelectorAll('[role="menuitem"]')];
       const ids = items.map((item) => item.dataset.cmd);
-      for (const id of ["refresh", "undo", "redo", "copy", "paste", "new", "open", "save", "save-as", "print", "choose-wallpaper", "clear-wallpaper", "settings", "about", "exit"]) {
+      for (const id of ["refresh", "undo", "redo", "copy", "paste", "print", "choose-wallpaper", "clear-wallpaper", "settings", "about", "exit"]) {
         assert.ok(ids.includes(id), id);
       }
+      // Boards save themselves into the settings, so there is no file to open or save.
+      for (const id of ["new", "open", "save", "save-as"]) assert.ok(!ids.includes(id), id);
       for (const item of items) {
         assert.ok(item.querySelector("svg"), item.textContent);
         assert.ok(item.querySelector(".menu-label").textContent.trim(), item.textContent);
@@ -391,12 +394,12 @@ export function registerGui(h) {
       }
     });
   });
-  h.test("window menu commands run and recent files appear in it", async () => {
+  h.test("window menu commands run and no file list appears in it", async () => {
     await withApp(async ({ app }) => {
       app.recent.add("C:/docs/recent.mymoney");
       app.openMenu("window", { clientX: 10, clientY: 10 }, { atPointer: true });
       const menu = document.querySelector('.menu-popup[data-menu="window"]');
-      assert.ok(menu.querySelector('[data-cmd="recent:0"]'));
+      assert.equal(menu.querySelector('[data-cmd^="recent:"]'), null);
       menu.querySelector('[data-cmd="about"]').click();
       await settle();
       assert.ok(document.querySelector('[data-popup="about"]'));
@@ -1027,9 +1030,9 @@ export function registerGui(h) {
         const expected = [before[before.length - 1], ...before.slice(0, -1)];
         assert.deepEqual(codesOf(), expected, "the list shows the new order");
         assert.deepEqual(app.currentTab().board.symbols.map((entry) => entry.symbol), expected);
-        assert.deepEqual(platform.settings.defaultBoard.symbols.map((entry) => entry.symbol), expected, "saved");
-        popup.querySelector('[data-action="cancel"]').click();
+        popup.querySelector('[data-action="ok"]').click();
         await pending;
+        assert.deepEqual(platform.settings.defaultBoard.symbols.map((entry) => entry.symbol), expected, "saved on OK");
       },
       { platform },
     );
@@ -1054,9 +1057,9 @@ export function registerGui(h) {
         await settle();
         const expected = [before[before.length - 1], ...before.slice(0, -1)];
         assert.deepEqual(app.settings.rateCurrencies, expected);
-        assert.deepEqual(platform.settings.rateCurrencies, expected, "saved");
-        popup.querySelector('[data-action="cancel"]').click();
+        popup.querySelector('[data-action="ok"]').click();
         await pending;
+        assert.deepEqual(platform.settings.rateCurrencies, expected, "saved on OK");
       },
       { platform },
     );
@@ -1130,7 +1133,7 @@ export function registerGui(h) {
       await pending;
     });
   });
-  h.test("a symbol added in Settings is saved at once and is still there next launch", async () => {
+  h.test("a symbol added in Settings shows at once, Cancel drops it, OK keeps it for the next launch", async () => {
     const platform = createMemoryPlatform();
     let added = "";
     await withApp(
@@ -1148,12 +1151,23 @@ export function registerGui(h) {
         await settle();
         // The board shows it straight away ...
         assert.ok(app.currentTab().board.symbols.some((entry) => entry.symbol === added));
-        // ... and it is written to settings without pressing OK.
-        const saved = platform.settings.defaultBoard.symbols.map((entry) => entry.symbol);
-        assert.ok(saved.includes(added), `saved: ${saved.join(", ")}`);
-        // Cancel must not take the added symbol back out of the saved settings.
+        // ... but nothing is written while the window is open.
+        assert.equal(platform.settings?.defaultBoard?.symbols.some((entry) => entry.symbol === added) || false, false);
+        // Cancel puts the watchlist back as it was.
         popup.querySelector('[data-action="cancel"]').click();
         await pending;
+        await settle();
+        assert.equal(app.currentTab().board.symbols.some((entry) => entry.symbol === added), false);
+        assert.equal(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === added), false);
+        // OK keeps it.
+        const again = app.showSettings("watchlist");
+        await settle();
+        const second = document.querySelector('[data-popup="settings"]');
+        second.querySelector('[data-field="symbol"]').value = added;
+        second.querySelector('[data-action="add-symbol"]').click();
+        await settle();
+        second.querySelector('[data-action="ok"]').click();
+        await again;
         await settle();
         assert.ok(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === added));
       },
@@ -1189,7 +1203,7 @@ export function registerGui(h) {
       { platform },
     );
   });
-  h.test("switching markets from the Watchlist page is saved at once", async () => {
+  h.test("switching markets from the Watchlist page is saved on OK", async () => {
     const platform = createMemoryPlatform();
     await withApp(
       async ({ app }) => {
@@ -1202,10 +1216,11 @@ export function registerGui(h) {
         popup.querySelector('[data-field="symbol"]').value = "TSLA";
         popup.querySelector('[data-action="add-symbol"]').click();
         await settle();
+        assert.equal(app.currentTab().board.marketCode, "US");
+        popup.querySelector('[data-action="ok"]').click();
+        await pending;
         assert.equal(platform.settings.defaultBoard.marketCode, "US");
         assert.ok(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === "TSLA"));
-        popup.querySelector('[data-action="cancel"]').click();
-        await pending;
       },
       { platform },
     );
@@ -1234,9 +1249,9 @@ export function registerGui(h) {
         app.addSymbol("7203.T");
         await settle();
         assert.ok(app.currentTab().board.symbols.some((entry) => entry.symbol === "7203.T"));
-        assert.ok(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === "7203.T"));
-        popup.querySelector('[data-action="cancel"]').click();
+        popup.querySelector('[data-action="ok"]').click();
         await pending;
+        assert.ok(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === "7203.T"));
       },
       { platform },
     );
@@ -1867,11 +1882,12 @@ export function registerGui(h) {
       list.querySelector('[data-action="currency-remove"]').click();
       await settle();
       assert.deepEqual(app.settings.rateCurrencies, ["JPY", "EUR", "CNY", "THB"]);
-      assert.equal(platform.settings.rateCurrencies.includes("USD"), false);
-      popup.querySelector('[data-action="cancel"]').click();
+      popup.querySelector('[data-action="ok"]').click();
       await pending;
+      assert.equal(platform.settings.rateCurrencies.includes("USD"), false);
+      // One undo takes back everything the Settings window changed.
       app.undo();
-      assert.ok(app.settings.rateCurrencies.includes("USD"));
+      assert.deepEqual(app.settings.rateCurrencies, ["USD", "JPY", "EUR", "CNY"]);
     });
   });
   h.test("the rate panel lists exactly the chosen currencies and grows with them", async () => {
@@ -1971,13 +1987,11 @@ export function registerGui(h) {
     await withApp(async ({ app }) => {
       for (let index = 0; index < 12; index += 1) app.recent.add(`C:/docs/file-${index}.mymoney`);
       assert.equal(app.recent.items.length, 10);
-      // Settings no longer carries a recent page; the window menu lists them.
+      // Files are no longer part of the menus; the list is only kept.
       app.openMenu("window", { clientX: 40, clientY: 40 }, { atPointer: true });
       await settle();
       const menu = document.querySelector(".menu-popup");
-      const listed = [...menu.querySelectorAll('[data-cmd^="recent:"]')];
-      assert.ok(listed.length >= 1, "the menu lists recent files");
-      assert.match(listed[0].textContent, /file-11\.mymoney/);
+      assert.equal(menu.querySelectorAll('[data-cmd^="recent:"]').length, 0);
       app.closeMenu();
       await settle();
       app.removeRecent("C:/docs/file-11.mymoney");
@@ -2149,7 +2163,11 @@ export function registerGui(h) {
       steps[1].click();
       assert.equal(size.value, "72");
       popup.querySelector('[data-field="fontFamily"]').value = "Family 3";
-      popup.querySelector('[data-field="fontStyle"]').value = "bolditalic";
+      for (const flag of ["fontBold", "fontItalic"]) {
+        const box = popup.querySelector(`[data-field="${flag}"]`);
+        box.checked = true;
+        box.dispatchEvent(new window.Event("change", { bubbles: true }));
+      }
       popup.querySelector('[data-field="fontSize"]').value = "18";
       popup.querySelector('[data-field="language"]').value = "en";
       popup.querySelector('.swatch[data-theme-id="dark-forest"]').click();
@@ -2170,6 +2188,136 @@ export function registerGui(h) {
       assert.equal(app.settings.transparency, 30);
     });
   });
+  h.test("font switches bold, italic, underline and strikethrough show at once on the quotes", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshMarket();
+      const panel = await openPanel(app, "stocks");
+      const pending = app.showSettings("wallpaper");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      assert.equal(popup.querySelector('[data-field="fontStyle"]'), null, "the single style list is gone");
+      const toggles = [...popup.querySelectorAll('[data-gui="font-toggle"]')];
+      assert.deepEqual(toggles.map((toggle) => toggle.dataset.toggle), ["fontBold", "fontItalic", "fontUnderline", "fontStrike"]);
+      assert.deepEqual(toggles.map((toggle) => toggle.title), ["굵게", "기울임", "밑줄", "취소선"]);
+      const flip = (flag) => {
+        const box = popup.querySelector(`[data-field="${flag}"]`);
+        box.checked = !box.checked;
+        box.dispatchEvent(new window.Event("change", { bubbles: true }));
+      };
+      for (const flag of ["fontBold", "fontItalic", "fontUnderline", "fontStrike"]) flip(flag);
+      const family = popup.querySelector('[data-field="fontFamily"]');
+      family.value = "Consolas";
+      family.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await settle();
+      // The sample in Settings, the window's quotes and the open stock panel all follow.
+      const sample = popup.querySelector('[data-gui="font-preview"]');
+      assert.equal(sample.dataset.fontBold, "true");
+      assert.equal(sample.style.getPropertyValue("--font-decoration"), "underline line-through");
+      assert.equal(app.content.dataset.fontScope, "stocks");
+      assert.equal(app.content.dataset.fontBold, "true");
+      assert.equal(app.content.dataset.fontItalic, "true");
+      assert.equal(app.content.style.getPropertyValue("--font-decoration"), "underline line-through");
+      assert.match(app.content.style.fontFamily, /Consolas/);
+      const stockPanel = panel.popup.querySelector('[data-gui="panel"]');
+      assert.equal(stockPanel.dataset.fontBold, "true");
+      assert.equal(stockPanel.style.getPropertyValue("--font-decoration"), "underline line-through");
+      assert.equal(platform.settings?.fontUnderline || false, false, "nothing is written before OK");
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(platform.settings.fontBold, true);
+      assert.equal(platform.settings.fontItalic, true);
+      assert.equal(platform.settings.fontUnderline, true);
+      assert.equal(platform.settings.fontStrike, true);
+      assert.equal(platform.settings.fontFamily, "Consolas");
+      // The stylesheet draws the lines on the text of the stock display.
+      const rule = [...document.styleSheets[0].cssRules].find((item) => /data-font-scope="stocks"\] \*:not\(:has\(\*\)\)/.test(item.selectorText || ""));
+      assert.ok(rule, "decoration rule");
+      assert.ok(rule.cssText.includes("text-decoration-line: var(--font-decoration, none)"), rule.cssText);
+      await panel.close();
+    });
+  });
+  h.test("settings show at once; Cancel, the close button and Escape all put them back", async () => {
+    await withApp(async ({ app, platform }) => {
+      for (const exit of ["cancel", "close", "escape"]) {
+        const pending = app.showSettings("general");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        const language = popup.querySelector('[data-field="language"]');
+        language.value = "en";
+        language.dispatchEvent(new window.Event("change", { bubbles: true }));
+        const size = popup.querySelector('[data-field="fontSize"]');
+        size.value = "20";
+        size.dispatchEvent(new window.Event("input", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        await settle();
+        assert.equal(app.settings.language, "en", `${exit}: shown at once`);
+        assert.equal(app.frame.style.fontSize, "20px", exit);
+        assert.equal(app.root.querySelector('[data-cmd="refresh"]').title, "Refresh quotes", exit);
+        if (exit === "escape") popup.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        else popup.querySelector(`[data-action="${exit}"]`).click();
+        await pending;
+        await settle();
+        assert.equal(app.settings.language, "ko", `${exit}: put back`);
+        assert.equal(app.frame.style.fontSize, "14px", exit);
+        assert.equal(platform.settings?.language ?? "ko", "ko", exit);
+      }
+      assert.equal(app.history.canUndo(), false, "a cancelled window leaves nothing to undo");
+    });
+  });
+  h.test("on the desktop the close button hides the window and exit ends every window", async () => {
+    const platform = createMemoryPlatform();
+    platform.nativeWindow = true;
+    platform.windows = [];
+    platform.windowBoot = async () => ({ slot: "w1", primary: false, canAddWindow: true });
+    platform.newWindow = async () => {
+      platform.windows.push("new");
+      return true;
+    };
+    platform.removeWindow = async () => {
+      platform.windows.push("removed");
+      return true;
+    };
+    await withApp(
+      async ({ app }) => {
+        await app.run("close");
+        assert.deepEqual(platform.commands, ["hide"]);
+        assert.equal(platform.quit, 0, "closing is not quitting");
+        assert.equal(app.destroyed, false);
+        app.openMenu("window", { clientX: 10, clientY: 10 }, { atPointer: true });
+        const menu = document.querySelector('.menu-popup[data-menu="window"]');
+        assert.ok(menu.querySelector('[data-cmd="new-window"] svg'));
+        assert.ok(menu.querySelector('[data-cmd="remove-window"] svg'));
+        menu.querySelector('[data-cmd="new-window"]').click();
+        await settle();
+        assert.deepEqual(platform.windows, ["new"]);
+        // Removing a window asks first; Cancel keeps it.
+        const asked = app.removeWindow();
+        await settle();
+        document.querySelector('[data-popup="remove-window"] [data-action="cancel"]').click();
+        assert.equal(await asked, false);
+        assert.deepEqual(platform.windows, ["new"]);
+        await app.run("exit");
+        assert.equal(platform.quit, 1);
+      },
+      { platform },
+    );
+  });
+  h.test("a shared setting from another window is taken, but this window keeps its own board", async () => {
+    await withApp(async ({ app, platform }) => {
+      const before = app.settings.defaultBoard.symbols.map((entry) => entry.symbol);
+      const other = sanitizeSettings({ language: "en", theme: "light-sakura", fontUnderline: true });
+      other.defaultBoard.symbols = other.defaultBoard.symbols.slice(0, 1);
+      const shared = { ...other };
+      delete shared.defaultBoard;
+      app.takeSharedSettings(shared);
+      assert.equal(app.settings.language, "en");
+      assert.equal(app.frame.dataset.theme, "light-sakura");
+      assert.equal(app.content.style.getPropertyValue("--font-decoration"), "underline");
+      assert.deepEqual(app.settings.defaultBoard.symbols.map((entry) => entry.symbol), before);
+      assert.equal(platform.settings, null, "the other window already wrote it");
+    });
+  });
   h.test("appearance offers 20 light themes, 20 dark themes, and a custom theme", async () => {
     await withApp(async ({ app }) => {
       const pending = app.showSettings("appearance");
@@ -2188,6 +2336,12 @@ export function registerGui(h) {
         const name = swatch.querySelector(".swatch-name");
         assert.ok(swatch.title && swatch.querySelector(".chip i") && name.textContent, swatch.dataset.themeId);
         assert.equal(swatch.querySelector(".chip").contains(name), true);
+        // The accent runs the width of the swatch instead of sitting in a corner as a dot.
+        const band = getComputedStyle(swatch.querySelector(".chip i"));
+        assert.equal(band.left, "0px", swatch.dataset.themeId);
+        assert.equal(band.right, "0px", swatch.dataset.themeId);
+        assert.equal(band.bottom, "0px", swatch.dataset.themeId);
+        assert.equal(parseFloat(band.borderRadius) || 0, 0, swatch.dataset.themeId);
       }
       const modes = [...popup.querySelectorAll("[data-theme-mode]")].map((button) => button.dataset.themeMode);
       assert.deepEqual(modes, ["light", "dark", "custom"]);
@@ -2272,9 +2426,13 @@ export function registerGui(h) {
       assert.equal(root.style.getPropertyValue("--fg"), "#4a2740");
       popup.querySelector('[data-step="-5"]').click();
       assert.equal(slider.value, "95");
-      assert.equal(app.settings.theme, "dark-ink");
+      // Changes are shown at once ...
+      await settle();
+      assert.equal(app.settings.theme, "light-sakura");
       popup.querySelector('[data-action="cancel"]').click();
       await pending;
+      // ... and Cancel puts them back.
+      assert.equal(app.settings.theme, "dark-ink");
       assert.equal(app.frame.dataset.theme, "dark-ink");
       assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 0.775)");
     });
@@ -2441,7 +2599,8 @@ export function registerGui(h) {
       assert.equal(popup.querySelector('[data-source="yahoo"]').checked, true);
       assert.equal(popup.querySelector('[data-row="wallpaper"] span:last-child').textContent, "—");
       assert.equal(app.wallpaper.dataset.image, "no");
-      assert.equal(app.settings.language, "en");
+      // The reset values are already showing in the window.
+      assert.equal(app.settings.language, "ko");
       popup.querySelector('[data-action="cancel"]').click();
       await pending;
       assert.equal(app.settings.language, "en");
@@ -2904,7 +3063,7 @@ export function registerGui(h) {
   });
 
   h.category("Print GUI");
-  h.test("preview prints all, current, or a custom range and can change page setup", async () => {
+  h.test("one print window sets up the page on the left and previews it on the right", async () => {
     await withApp(async ({ app, platform }) => {
       await app.refreshMarket();
       app.addTab();
@@ -2912,71 +3071,150 @@ export function registerGui(h) {
       app.doc.tabs[1].data = app.doc.tabs[0].data;
       const pending = app.openPrint();
       await settle();
-      let popup = document.querySelector('[data-popup="print"]');
-      chooseScope(popup, "all");
-      popup.querySelector('[data-action="preview"]').click();
-      await settle();
-      popup = document.querySelector('[data-popup="preview"]');
-      assert.equal(popupFits(popup).fits, true);
+      const popup = document.querySelector('[data-popup="print"]');
+      // No second step: no separate preview window and no page tabs.
+      assert.equal(document.querySelector('[data-popup="preview"]'), null);
+      assert.equal(popup.querySelector(".popup-tabs"), null);
       assert.equal(popup.style.overflow, "hidden");
+      const setup = popup.querySelector(".preview-setup");
+      const side = popup.querySelector(".preview-side");
+      assert.ok(setup && side);
+      assert.equal(setup.nextElementSibling, side, "settings sit left of the preview");
+      for (const field of ["from", "to", "section-stocks", "section-rates", "section-news", "paper", "orientation", "margin", "scale", "header", "pageNumber", "pageNumberAt"]) {
+        assert.ok(setup.querySelector(`[data-field="${field}"]`), field);
+      }
+      assert.equal(setup.querySelectorAll('input[name="scope"]').length, 3);
+      assert.deepEqual([...setup.querySelector('[data-field="paper"]').options].map((option) => option.value), ["A4", "A3", "A5", "Letter", "Legal", "B5"]);
+      assert.ok(side.querySelector("[data-preview-sheet]"));
+      assert.ok(side.querySelector("[data-preview-paper]"));
+      // The sheet is a printed page, not the interactive panel: no pager, no drag grips.
+      assert.equal(popup.querySelector(".pager-btn"), null);
+      assert.equal(popup.querySelector(".row-grip"), null);
+      assert.match(side.querySelector("[data-preview-sheet]").innerHTML, /삼성전자/);
+      const count = () => popup.querySelector("[data-preview-count]").textContent;
+      // The current tab, one page for each of quotes, rates and news.
+      assert.equal(count(), "1 / 3");
+      chooseScope(popup, "all");
+      popup.querySelector('input[name="scope"][value="all"]').dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(count(), "1 / 6");
+      const prev = popup.querySelector('[data-action="page-prev"]');
+      const next = popup.querySelector('[data-action="page-next"]');
+      assert.equal(prev.disabled, true);
+      next.click();
+      await settle();
+      assert.equal(count(), "2 / 6");
+      assert.equal(document.querySelector('[data-popup="print"]'), popup, "turning a page keeps the window open");
+      for (let step = 0; step < 6; step += 1) next.click();
+      assert.equal(count(), "6 / 6");
+      assert.equal(next.disabled, true);
+      const paperBox = popup.querySelector("[data-preview-paper]");
+      assert.equal(paperBox.style.aspectRatio, "210 / 297");
       const paper = popup.querySelector('[data-field="paper"]');
       paper.value = "A3";
       paper.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(paperBox.style.aspectRatio, "297 / 420");
+      assert.equal(count(), "6 / 6", "a new setup keeps the page in view");
       const orientation = popup.querySelector('[data-field="orientation"]');
       orientation.value = "landscape";
       orientation.dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
+      assert.equal(paperBox.style.aspectRatio, "420 / 297");
+      assert.equal(app.pageSetup.paper, "A3");
       popup.querySelector('[data-action="print"]').click();
       await pending;
       assert.equal(platform.prints.length, 1);
-      assert.match(platform.prints[0].html, /A3 landscape/);
+      assert.match(platform.prints[0].html, /size: A3 landscape/);
       assert.match(platform.prints[0].html, /한국거래소/);
       assert.match(platform.prints[0].html, /미국 증시/);
+      assert.equal(platform.prints[0].pageSetup.paper, "A3");
     });
   });
-  h.test("a reversed custom range explains the error", async () => {
+  h.test("only the sections asked for are printed, and the page number can move or go", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshMarket();
+      const pending = app.openPrint();
+      await settle();
+      const popup = document.querySelector('[data-popup="print"]');
+      const toggle = (field, on) => {
+        const box = popup.querySelector(`[data-field="${field}"]`);
+        box.checked = on;
+        box.dispatchEvent(new window.Event("change", { bubbles: true }));
+      };
+      toggle("section-rates", false);
+      toggle("section-news", false);
+      await settle();
+      assert.equal(popup.querySelector("[data-preview-count]").textContent, "1 / 1");
+      assert.ok(popup.querySelector('[data-preview-sheet] [data-section="stocks"]'));
+      const pick = (field, value) => {
+        const select = popup.querySelector(`[data-field="${field}"]`);
+        select.value = value;
+        select.dispatchEvent(new window.Event("change", { bubbles: true }));
+      };
+      pick("pageNumberAt", "center");
+      await settle();
+      assert.equal(popup.querySelector('[data-preview-sheet] .sheet-foot').dataset.at, "center");
+      pick("pageNumber", "off");
+      pick("header", "off");
+      await settle();
+      assert.equal(popup.querySelector("[data-preview-sheet] .sheet-foot"), null);
+      assert.equal(popup.querySelector("[data-preview-sheet] .sheet-head"), null);
+      pick("margin", "25");
+      pick("scale", "125");
+      await settle();
+      popup.querySelector('[data-action="print"]').click();
+      await pending;
+      assert.match(platform.prints[0].html, /margin: 25mm/);
+      assert.doesNotMatch(platform.prints[0].html, /data-section="rates"/);
+      assert.doesNotMatch(platform.prints[0].html, /class="sheet-foot"/);
+    });
+  });
+  h.test("a reversed custom range says so and keeps the last good sheet", async () => {
     await withApp(async ({ app }) => {
       await app.refreshMarket();
       const pending = app.openPrint();
       await settle();
       const popup = document.querySelector('[data-popup="print"]');
+      const sheet = popup.querySelector("[data-preview-sheet]");
+      const before = sheet.innerHTML;
       chooseScope(popup, "custom");
       popup.querySelector('[data-field="from"]').value = "2026-10-09";
-      popup.querySelector('[data-field="to"]').value = "2026-10-01";
-      popup.querySelector('[data-action="preview"]').click();
+      const to = popup.querySelector('[data-field="to"]');
+      to.value = "2026-10-01";
+      to.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(app.statusMessage, "날짜 범위가 올바르지 않습니다.");
+      assert.equal(sheet.innerHTML, before);
+      assert.ok(document.querySelector('[data-popup="print"]'));
+      popup.querySelector('[data-action="cancel"]').click();
       await pending;
-      const error = document.querySelector('[data-popup="error"]');
-      assert.match(error.textContent, /올바르지 않습니다|PRINT_RANGE|2026-10-09/);
-      assert.equal(popupFits(error).fits, true);
     });
   });
-  h.test("preview page tabs scroll with chevrons when they overflow", async () => {
+  h.test("a custom range adds the daily prices inside it, as many pages as they need", async () => {
     await withApp(async ({ app }) => {
       const start = new Date(2026, 9, 1);
-      const dates = Array.from({ length: 40 }, (_, index) => {
+      const dates = Array.from({ length: 80 }, (_, index) => {
         const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
         return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
       });
       app.currentTab().data = {
-        quotes: [{ symbol: "005930.KS", currency: "KRW", last: 1, change: 0, changePercent: 0, days: dates.map((date) => ({ date, close: 1 })) }],
+        quotes: [{ symbol: "005930.KS", currency: "KRW", last: 1, change: 0, changePercent: 0, days: dates.map((date) => ({ date, open: 1, high: 1, low: 1, close: 1 })) }],
         rates: { base: "KRW", rows: [] },
         news: [],
         sources: [],
       };
-      app.printDraft = { scope: "custom", from: "", to: "" };
+      app.printDraft = { scope: "custom", sections: ["stocks"] };
       const pending = app.openPrint();
       await settle();
-      chooseScope(document.querySelector('[data-popup="print"]'), "custom");
-      document.querySelector('[data-popup="print"] [data-action="preview"]').click();
-      await settle();
-      const popup = document.querySelector('[data-popup="preview"]');
-      const next = popup.querySelector('[data-action="tab-next"]');
-      assert.equal(next.disabled, false);
-      const before = popup.querySelector(".popup-tab").dataset.tab;
-      next.click();
-      assert.notEqual(popup.querySelector(".popup-tab").dataset.tab, before);
+      const popup = document.querySelector('[data-popup="print"]');
+      const total = Number(popup.querySelector("[data-preview-count]").textContent.split("/")[1]);
+      assert.ok(total >= 3, `quotes plus a history that runs over pages: ${total}`);
+      const next = popup.querySelector('[data-action="page-next"]');
+      while (!next.disabled) next.click();
+      assert.match(popup.querySelector("[data-preview-sheet]").innerHTML, /data-section="history"/);
       assert.equal(popup.querySelector(".scrollbar"), null);
-      popup.querySelector('[data-action="close"]').click();
+      popup.querySelector('[data-action="cancel"]').click();
       await pending;
     });
   });
@@ -3011,20 +3249,14 @@ export function registerGui(h) {
       assert.equal(document.querySelector(".popup"), null);
     });
   });
-  h.test("ctrl+n discards unsaved work into a new document", async () => {
+  h.test("ctrl+n, ctrl+o and ctrl+s no longer start, open or save a file", async () => {
     await withApp(async ({ app }) => {
       app.currentTab().properties.label = "keep-me";
-      app.markDirty();
-      press("n", { ctrlKey: true });
+      for (const key of ["n", "o", "s"]) press(key, { ctrlKey: true });
+      press("s", { ctrlKey: true, shiftKey: true });
       await settle();
-      const unsaved = document.querySelector('[data-popup="unsaved"]');
-      assert.ok(unsaved);
-      unsaved.querySelector('[data-action="discard"]').click();
-      await settle();
-      assert.equal(app.doc.dirty, false);
-      assert.equal(app.doc.tabs.length, 1);
-      assert.notEqual(app.currentTab().properties.label, "keep-me");
-      assert.equal(app.root.querySelector(".tabbar").hidden, true);
+      assert.equal(document.querySelector(".popup"), null);
+      assert.equal(app.currentTab().properties.label, "keep-me");
     });
   });
   h.test("double-clicking the title maximizes and a toolbar button does not", async () => {

@@ -80,6 +80,18 @@ export function createElectronPlatform(api) {
     onRequestClose(callback) {
       api.onRequestClose(callback);
     },
+    onSettingsChanged(callback) {
+      api.onSettingsChanged?.(callback);
+    },
+    async windowBoot() {
+      return (await api.windowBoot?.()) || null;
+    },
+    async newWindow() {
+      return api.newWindow?.();
+    },
+    async removeWindow() {
+      return api.removeWindow?.();
+    },
     async openPopup(spec) {
       const started = await api.beginPopup(spec);
       if (started?.focused) return { action: "focused" };

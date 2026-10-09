@@ -12,35 +12,52 @@ export function menuIconFile(name) {
   return `assets/menu/${name}.png`;
 }
 
-export function buildTrayMenu(t) {
-  const item = (id, icon, label) => ({ id, icon, label });
-  const group = (id, icon, label, submenu) => ({ id, icon, label, submenu });
+function item(id, icon, label) {
+  return { id, icon, label };
+}
+
+function group(id, icon, label, submenu) {
+  return { id, icon, label, submenu };
+}
+
+/**
+ * The tray menu. Data is kept in the settings file as it changes, so there is
+ * no File menu; the Windows group opens another window or brings one back.
+ * `options.windows` is [{ slot, label, active }] for every open window.
+ */
+export function buildTrayMenu(t, options = {}) {
   return [
     item("show-window", "show", t("tray.show")),
+    group("windows", "window", t("tray.windows"), windowItems(t, options)),
     group("market", "market", t("tray.market"), [
       item("refresh", "refresh", t("cmd.refresh")),
       item("stocks", "stocks", t("panel.stocks")),
       item("rates", "rates", t("panel.rates")),
       item("news", "news", t("panel.news")),
     ]),
-    group("file", "open", t("tray.file"), [
-      item("new", "new", t("cmd.new")),
-      item("open", "open", t("cmd.open")),
-      item("save", "save", t("cmd.save")),
-      item("save-as", "saveAs", t("cmd.saveAs")),
-      item("print", "print", t("cmd.print")),
-    ]),
     group("edit", "copy", t("tray.edit"), [
       item("undo", "undo", t("cmd.undo")),
       item("redo", "redo", t("cmd.redo")),
       item("copy", "copy", t("cmd.copy")),
       item("paste", "paste", t("cmd.paste")),
+      item("print", "print", t("cmd.print")),
     ]),
     item("settings", "settings", t("cmd.settings")),
     item("about", "about", t("cmd.about")),
     { type: "separator" },
     item("exit", "exit", t("cmd.exit")),
   ];
+}
+
+function windowItems(t, options) {
+  const items = [];
+  if (options.canAddWindow !== false) items.push(item("new-window", "window", t("cmd.newWindow")));
+  const windows = Array.isArray(options.windows) ? options.windows : [];
+  if (windows.length && items.length) items.push({ type: "separator" });
+  for (const entry of windows) {
+    items.push(item(`window:${entry.slot}`, "board", entry.active ? `● ${entry.label}` : entry.label));
+  }
+  return items;
 }
 
 export function trayMenuSize(menu) {

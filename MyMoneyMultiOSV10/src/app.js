@@ -14,7 +14,7 @@ import {
 } from "./core/document.js";
 import { acceptImage, classifyDrop } from "./core/drop.js";
 import { AppError, normalizeError } from "./core/errors.js";
-import { FONT_STYLES, resolveFontList } from "./core/fonts.js";
+import { FONT_FLAGS, applyFontFace, fontFace, fontStyleOf, resolveFontList } from "./core/fonts.js";
 import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
 import { buildPrintModel, normalizeSetup } from "./core/print-model.js";
@@ -22,6 +22,7 @@ import { RecentFiles } from "./core/recent.js";
 import {
   MAX_RATE_CURRENCIES,
   MAX_SYMBOLS,
+  WINDOW_FIELDS,
   clamp,
   normalizeCurrency,
   normalizeRateCurrencies,
@@ -48,11 +49,11 @@ import {
   buildAboutSpec,
   buildErrorSpec,
   buildPanelSpec,
-  buildPreviewSpec,
   buildPrintSpec,
   buildProgressSpec,
   buildSettingsSpec,
   buildUnsavedSpec,
+  buildRemoveWindowSpec,
   buildSearchResultsSpec,
   buildWallpaperDropSpec,
 } from "./ui/popups.js";
@@ -93,6 +94,8 @@ class MoneyApp {
     this.panelPage = { stocks: 0, news: 0 };
     this.listingDraft = null;
     this.closed = false;
+    /** Which window this page is. Only an extra window can be removed. */
+    this.windowInfo = { primary: true, canAddWindow: true };
     this.destroyed = false;
     this.menuEl = null;
     this.progressAborted = false;
@@ -166,6 +169,7 @@ class MoneyApp {
     this.applyAll();
     this.platform.onMenuCommand?.((id) => this.run(id));
     this.platform.onRequestClose?.(() => this.requestClose());
+    this.platform.onSettingsChanged?.((shared) => this.takeSharedSettings(shared));
     this.platform.onWindowState?.((state) => this.applyWindowState(state));
     this.platform.onPopupImmediate?.(async (msg) => {
       const handler = this.nativeImmediate || ((item) => this.handlePopupImmediate(item));
@@ -183,6 +187,8 @@ class MoneyApp {
 
   async finishLoad() {
     try {
+      const boot = await this.platform.windowBoot?.();
+      if (boot) this.windowInfo = { ...this.windowInfo, ...boot };
       if (!this.platform.readSettingsSync && this.platform.readSettings) {
         const raw = await this.platform.readSettings();
         if (raw) {
@@ -408,9 +414,6 @@ class MoneyApp {
     if (!mod) return;
     const key = event.key.toLowerCase();
     const map = {
-      n: () => this.run("new"),
-      o: () => this.run("open"),
-      s: () => this.run(event.shiftKey ? "save-as" : "save"),
       z: () => this.run(event.shiftKey ? "redo" : "undo"),
       y: () => this.run("redo"),
       x: () => this.run("cut"),
@@ -450,14 +453,9 @@ class MoneyApp {
   async run(id) {
     try {
       if (!id) return;
-      if (id.startsWith("recent:")) return await this.openRecent(Number(id.slice(7)));
       if (id.startsWith("theme:")) return await this.setTheme(id.slice(6));
       if (id.startsWith("lang:")) return await this.setLanguage(id.slice(5));
       const actions = {
-        new: () => this.newDocument(),
-        open: () => this.open(),
-        save: () => this.save(),
-        "save-as": () => this.saveAs(),
         undo: () => this.undo(),
         redo: () => this.redo(),
         cut: () => this.cut(),
@@ -471,8 +469,10 @@ class MoneyApp {
         "show-window": () => {},
         minimize: () => this.minimizeWindow(),
         maximize: () => this.toggleMaximize(),
-        close: () => this.requestClose(),
-        exit: () => this.requestClose(),
+        close: () => this.closeWindow(),
+        exit: () => this.exitProgram(),
+        "new-window": () => this.openNewWindow(),
+        "remove-window": () => this.removeWindow(),
         "tab-prev": () => this.nudgeTabs(-1),
         "tab-next": () => this.nudgeTabs(1),
         "add-tab": () => this.addTab(),
@@ -488,7 +488,6 @@ class MoneyApp {
         stocks: () => this.showPanel("stocks"),
         rates: () => this.showPanel("rates"),
         news: () => this.showPanel("news"),
-        "clear-recent": () => this.clearRecent(),
         "toggle-favorite": () => this.toggleFavorite(),
         "next-symbol": () => this.cycleSymbol(1),
         "add-symbol": () => this.showSettings("watchlist"),
@@ -733,12 +732,31 @@ class MoneyApp {
     await this.persist();
   }
 
+  /**
+   * The font settings. Family, size, bold and italic set the whole window;
+   * the quote area and the stock panels also take underline and strikethrough,
+   * which would only clutter the toolbar.
+   */
   applyFont() {
-    const style = this.settings.fontStyle;
-    this.frame.style.fontFamily = `"${this.settings.fontFamily}", sans-serif`;
-    this.frame.style.fontSize = `${this.settings.fontSize}px`;
-    this.frame.style.fontWeight = style === "bold" || style === "bolditalic" ? "700" : "400";
-    this.frame.style.fontStyle = style === "italic" || style === "bolditalic" ? "italic" : "normal";
+    const face = fontFace(this.settings);
+    this.frame.style.fontFamily = face.family;
+    this.frame.style.fontSize = face.size;
+    this.frame.style.fontWeight = face.bold ? "700" : "400";
+    this.frame.style.fontStyle = face.italic ? "italic" : "normal";
+    applyFontFace(this.content, this.settings);
+    document.querySelectorAll('[data-popup="panel"] [data-gui="panel"]').forEach((panel) => applyFontFace(panel, this.settings));
+    const font = this.fontSettings();
+    const key = JSON.stringify(font);
+    if (key === this.fontBroadcast) return;
+    this.fontBroadcast = key;
+    this.platform.broadcastTheme?.({ font });
+  }
+
+  /** The font part of the settings, as the popups and panels take it. */
+  fontSettings() {
+    const font = { fontFamily: this.settings.fontFamily, fontSize: this.settings.fontSize, fontStyle: this.settings.fontStyle };
+    for (const flag of FONT_FLAGS) font[flag] = Boolean(this.settings[flag]);
+    return font;
   }
 
   applyZoom() {
@@ -1868,6 +1886,62 @@ class MoneyApp {
     await this.platform.confirmQuit?.();
   }
 
+  /**
+   * The close button. On the desktop the window is only put away - the program
+   * stays in the tray and quits from there - and the board is already saved.
+   */
+  async closeWindow() {
+    if (!this.platform.nativeWindow) return this.requestClose();
+    this.popups?.closeAll();
+    this.closeMenu();
+    await this.persist();
+    await this.platform.windowControl?.("hide");
+    return "hidden";
+  }
+
+  /** Exit from a menu ends the whole program, every window with it. */
+  async exitProgram() {
+    if (!this.platform.nativeWindow) return this.requestClose();
+    await this.persist();
+    await this.platform.confirmQuit?.();
+    return "closed";
+  }
+
+  async openNewWindow() {
+    const opened = this.platform.newWindow ? await this.platform.newWindow() : false;
+    if (!opened) this.showToast(this.t("msg.windowLimit"));
+    return Boolean(opened);
+  }
+
+  /** An extra window can be removed; its board goes with it. The first window stays. */
+  async removeWindow() {
+    if (!this.platform.removeWindow || this.windowInfo.primary !== false) return false;
+    const answer = await this.openPopup(buildRemoveWindowSpec((key, vars) => this.t(key, vars)));
+    if (answer?.action !== "ok") return false;
+    this.closed = true;
+    this.destroy();
+    return Boolean(await this.platform.removeWindow());
+  }
+
+  /**
+   * Another window changed a shared setting. This window takes it but keeps its
+   * own board and rectangle, and does not write it back - the other window did.
+   */
+  takeSharedSettings(shared) {
+    if (!shared || typeof shared !== "object" || this.destroyed || this.settingsSession) return;
+    const own = {};
+    for (const field of WINDOW_FIELDS) own[field] = this.settings[field];
+    const before = this.settings;
+    this.settings = sanitizeSettings({ ...shared, ...own });
+    this.recent.load(this.settings.recentFiles);
+    this.applyAll();
+    this.renderMarket();
+    const refetch = ["enabledSources", "baseCurrency", "rateCurrencies", "language"].some(
+      (key) => JSON.stringify(before[key]) !== JSON.stringify(this.settings[key]),
+    );
+    if (refetch) this.refreshSoon();
+  }
+
   async copy() {
     const picked = this.selectedEditableText();
     const text = picked != null ? picked : this.selectionText || "";
@@ -1924,24 +1998,19 @@ class MoneyApp {
     return "";
   }
 
+  /**
+   * One window: what to print and how the paper is set up on the left, the page
+   * itself on the right. Print sends it straight to the printer.
+   */
   async openPrint() {
     const days = this.currentTab().data?.quotes?.[0]?.days || [];
-    const draft = {
-      scope: "current",
+    this.printDraft = {
+      scope: this.printDraft?.scope || "current",
       from: days[0]?.date || isoDate(this.now()),
       to: days[days.length - 1]?.date || isoDate(this.now()),
+      sections: this.printDraft?.sections || ["stocks", "rates", "news"],
     };
-    const answer = await this.openPopup(buildPrintSpec((key, vars) => this.t(key, vars), draft));
-    if (!answer || answer.action !== "preview") return;
-    this.printDraft = answer.values;
-    try {
-      await this.openPreview();
-    } catch (error) {
-      this.reportError(new AppError(this.t("msg.badRange"), `${answer.values.from} > ${answer.values.to}\n${error.message}`, "PRINT_RANGE"), "print");
-    }
-  }
-
-  async openPreview() {
+    this.pageSetup = normalizeSetup(this.pageSetup);
     const build = () =>
       buildPrintModel({
         scope: this.printDraft.scope,
@@ -1951,17 +2020,40 @@ class MoneyApp {
         toDate: this.printDraft.to,
         pageSetup: this.pageSetup,
         language: this.settings.language,
+        sections: this.printDraft.sections,
+        units: this.settings.units,
+        baseCurrency: this.settings.baseCurrency,
+        currencies: this.settings.rateCurrencies,
+        priority: this.settings.displayPriority,
+        today: this.now(),
       });
-    const model = build();
-    const answer = await this.openPopup(buildPreviewSpec(model, (key, vars) => this.t(key, vars)), {
+    let model = build();
+    const spec = buildPrintSpec((key, vars) => this.t(key, vars), this.printDraft, model);
+    const answer = await this.openPopup(spec, {
       immediate: async (msg) => {
-        if (msg.type !== "page-setup") return this.handlePopupImmediate(msg);
-        this.pageSetup = normalizeSetup(msg.values);
-        const next = build();
-        return { pages: next.pages, html: next.html };
+        if (msg?.type !== "print-setup") return this.handlePopupImmediate(msg);
+        const values = msg.values || {};
+        this.printDraft = {
+          scope: values.scope || "current",
+          from: values.from || this.printDraft.from,
+          to: values.to || this.printDraft.to,
+          sections: Array.isArray(values.sections) ? values.sections : this.printDraft.sections,
+        };
+        this.pageSetup = normalizeSetup(values);
+        try {
+          model = build();
+        } catch (error) {
+          // A backwards date range leaves the last good sheet on screen and says so.
+          if (error?.code !== "PRINT_RANGE") throw error;
+          this.setStatus(this.t("msg.badRange"));
+          return null;
+        }
+        return { pages: model.pages, pageSetup: model.pageSetup, html: model.html };
       },
     });
-    if (answer?.action === "print") await this.platform.print({ html: answer.html || model.html, pageSetup: answer.pageSetup || this.pageSetup });
+    if (answer?.action !== "print") return;
+    await this.platform.print({ html: answer.html || model.html, pageSetup: answer.pageSetup || this.pageSetup });
+    this.setStatus(this.t("status.ready"));
   }
 
   async showSettings(activeTab = "general") {
@@ -1993,81 +2085,151 @@ class MoneyApp {
         transparency: this.settings.transparency,
         backgroundOpacity: this.settings.backgroundOpacity,
         backgroundName: this.settings.backgroundName,
-        fontFamily: this.settings.fontFamily,
-        fontSize: this.settings.fontSize,
-        fontStyle: this.settings.fontStyle,
+        ...this.fontSettings(),
         enabledSources: this.settings.enabledSources,
         sourceStatus: Object.fromEntries((this.currentTab()?.data?.sources || []).map((source) => [source.id, source])),
         lastDirectory: this.settings.lastDirectory,
       },
     });
-    const answer = await this.openPopup(spec, { immediate: (msg) => this.handlePopupImmediate(msg) });
+    if (this.settingsSession) {
+      // Already open: bring it forward; the first call still owns the session.
+      return this.openPopup(spec, { immediate: (msg) => this.handlePopupImmediate(msg) });
+    }
+    const session = this.beginSettingsSession();
+    let answer = null;
+    try {
+      answer = await this.openPopup(spec, { immediate: (msg) => this.handlePopupImmediate(msg) });
+    } finally {
+      if (this.settingsSession === session) this.settingsSession = null;
+    }
     if (answer?.action === "focused") return answer;
-    if (answer?.action === "ok") await this.applySettingsForm(answer.values);
     this.wallpaperOpacityPreview = null;
     this.wallpaperImagePreview = null;
+    // OK keeps what the window has been showing; Cancel, the close button and
+    // Escape all put the settings back as they were when the window opened.
+    if (answer?.action === "ok") await this.applySettingsForm(answer.values, session);
+    else await this.revertSettingsSession(session);
     this.applyTheme();
-    if (answer?.action === "recent-open") await this.openRecentPath(answer.path);
     return answer;
   }
 
-  async openRecentPath(filePath) {
-    const index = this.recent.items.indexOf(filePath);
-    if (index >= 0) await this.openRecent(index);
+  /**
+   * What the Settings window started from. While it is open every change is
+   * shown at once but nothing is written, so Cancel has a clean place to return to.
+   */
+  beginSettingsSession() {
+    const tab = this.currentTab();
+    const session = {
+      settings: structuredClone(this.settings),
+      tabId: tab?.id || "",
+      board: tab ? structuredClone(tab.board) : null,
+      undo: [...this.history.undoStack],
+      redo: [...this.history.redoStack],
+    };
+    this.settingsSession = session;
+    return session;
   }
 
-  async applySettingsForm(values) {
-    const before = structuredClone(this.settings);
+  async revertSettingsSession(session) {
+    const before = this.settings;
+    const tab = this.doc.tabs.find((item) => item.id === session.tabId);
+    const boardChanged = Boolean(tab && session.board && JSON.stringify(tab.board) !== JSON.stringify(session.board));
+    this.settings = sanitizeSettings(structuredClone(session.settings));
+    this.recent.load(this.settings.recentFiles);
+    if (boardChanged) this.setBoard(tab.id, session.board);
+    this.history.undoStack = [...session.undo];
+    this.history.redoStack = [...session.redo];
+    this.applyAll();
+    this.renderMarket();
+    if (boardChanged || needsRefetch(before, this.settings)) this.refreshSoon();
+    await this.persist();
+  }
+
+  /** One change in the open Settings window, shown at once and not yet kept. */
+  previewSettingsForm(values) {
+    if (!this.settingsSession || !values) return;
+    const before = this.settings;
+    const tab = this.currentTab();
+    const { settings, board } = this.settingsFromForm(values);
+    this.settings = sanitizeSettings(settings);
+    this.recent.load(this.settings.recentFiles);
+    const boardChanged = Boolean(tab && board && JSON.stringify(createBoard(board)) !== JSON.stringify(tab.board));
+    if (boardChanged) this.setBoard(tab.id, board);
+    this.applyAll();
+    this.renderMarket();
+    if (boardChanged || needsRefetch(before, this.settings)) this.refreshSoon();
+  }
+
+  /** The settings and board the form describes, built on what the window shows now. */
+  settingsFromForm(values) {
+    const next = structuredClone(this.settings);
     const tab = this.currentTab();
     const boardBefore = tab ? structuredClone(tab.board) : null;
-    this.settings.language = values.language === "en" ? "en" : "ko";
-    this.settings.units = values.units === "base" ? "base" : "native";
-    this.settings.baseCurrency = normalizeCurrency(values.baseCurrency);
-    this.settings.rateCurrencies = normalizeRateCurrencies(this.settings.rateCurrencies, this.settings.baseCurrency);
-    this.settings.updateMinutes = normalizeUpdateMinutes(values.updateMinutes);
-    this.settings.displayPriority = normalizeDisplayPriority(values.displayPriority);
-    this.settings.sceneMode = normalizeSceneMode(values.sceneMode);
-    this.settings.rotateSeconds = normalizeRotateSeconds(values.rotateSeconds);
-    if (isTheme(values.theme)) this.settings.theme = values.theme;
+    next.language = values.language === "en" ? "en" : "ko";
+    next.units = values.units === "base" ? "base" : "native";
+    next.baseCurrency = normalizeCurrency(values.baseCurrency);
+    next.rateCurrencies = normalizeRateCurrencies(next.rateCurrencies, next.baseCurrency);
+    next.updateMinutes = normalizeUpdateMinutes(values.updateMinutes);
+    next.displayPriority = normalizeDisplayPriority(values.displayPriority);
+    next.sceneMode = normalizeSceneMode(values.sceneMode);
+    next.rotateSeconds = normalizeRotateSeconds(values.rotateSeconds);
+    if (isTheme(values.theme)) next.theme = values.theme;
     if (values.customBg || values.customText || values.customAccent || values.customMode) {
-      this.settings.customTheme = sanitizeCustomTheme({
+      next.customTheme = sanitizeCustomTheme({
         mode: values.customMode,
         bg: values.customBg,
         text: values.customText,
         accent: values.customAccent,
       });
     }
-    if (values.transparency != null && values.transparency !== "") this.settings.transparency = clamp(values.transparency, 0, 100);
-    if (values.backgroundOpacity != null && values.backgroundOpacity !== "") this.settings.backgroundOpacity = clamp(values.backgroundOpacity, 0, 100);
+    if (values.transparency != null && values.transparency !== "") next.transparency = clamp(values.transparency, 0, 100);
+    if (values.backgroundOpacity != null && values.backgroundOpacity !== "") next.backgroundOpacity = clamp(values.backgroundOpacity, 0, 100);
     if (values.wallpaperEdited === "1") {
-      this.settings.backgroundImage = values.backgroundImage || "";
-      this.settings.backgroundName = values.backgroundName || "";
+      next.backgroundImage = values.backgroundImage || "";
+      next.backgroundName = values.backgroundName || "";
     }
-    if (values.fontFamily) this.settings.fontFamily = values.fontFamily;
-    this.settings.fontSize = clamp(values.fontSize, 8, 72);
-    this.settings.fontStyle = FONT_STYLES.includes(values.fontStyle) ? values.fontStyle : "normal";
-    this.settings.startAtLogin = Boolean(values.startAtLogin);
-    // The system keeps this one, not the settings file, so tell it as well.
-    await this.platform.setAutoStart?.(this.settings.startAtLogin);
+    if (values.fontFamily) next.fontFamily = values.fontFamily;
+    if (values.fontSize != null && values.fontSize !== "") next.fontSize = clamp(values.fontSize, 8, 72);
+    for (const flag of FONT_FLAGS) if (values[flag] != null) next[flag] = values[flag] === true || values[flag] === "true";
+    next.fontStyle = fontStyleOf(next.fontBold, next.fontItalic);
+    if (values.startAtLogin != null) next.startAtLogin = Boolean(values.startAtLogin);
     if (values.sources) {
       const nextSources = Object.entries(values.sources).filter(([, on]) => on).map(([id]) => id);
-      if (nextSources.length) this.settings.enabledSources = nextSources;
+      if (nextSources.length) next.enabledSources = nextSources;
     }
     const market = findMarket(values.marketCode);
-    let boardAfter = boardBefore;
+    let board = boardBefore;
     if (market && boardBefore) {
       // Listings from other exchanges stay; see applyMarket.
       const kept = boardBefore.symbols;
       const symbols = kept.length ? kept : filterListings(this.listingChoices(), market.marketCode, "").slice(0, 3);
-      boardAfter = createBoard({
+      board = createBoard({
         ...market,
-        baseCurrency: this.settings.baseCurrency,
+        baseCurrency: next.baseCurrency,
         symbols,
         activeSymbol: symbols.some((entry) => entry.symbol === boardBefore.activeSymbol) ? boardBefore.activeSymbol : symbols[0]?.symbol || "",
       });
-      this.settings.defaultBoard = structuredClone(boardAfter);
+      next.defaultBoard = structuredClone(board);
     }
-    const after = structuredClone(this.settings);
+    return { settings: next, board };
+  }
+
+  /**
+   * OK in the Settings window. `session` is where the window started, so one
+   * Undo takes back everything that was changed while it was open.
+   */
+  async applySettingsForm(values, session = null) {
+    const before = structuredClone(session?.settings || this.settings);
+    const tab = session ? this.doc.tabs.find((item) => item.id === session.tabId) : this.currentTab();
+    const boardBefore = session?.board ? structuredClone(session.board) : tab ? structuredClone(tab.board) : null;
+    const { settings, board: boardAfter } = this.settingsFromForm(values);
+    // The system keeps this one, not the settings file, so tell it as well.
+    await this.platform.setAutoStart?.(settings.startAtLogin);
+    if (session) {
+      this.history.undoStack = [...session.undo];
+      this.history.redoStack = [...session.redo];
+    }
+    const after = structuredClone(settings);
     this.pushUndo({
       undo: () => {
         this.replaceSettings(before);
@@ -2078,8 +2240,10 @@ class MoneyApp {
         if (tab && boardAfter) this.setBoard(tab.id, boardAfter);
       },
     });
+    const shownBefore = this.settings;
     this.replaceSettings(after);
     if (tab && boardAfter) this.setBoard(tab.id, boardAfter);
+    if (needsRefetch(shownBefore, this.settings)) this.refreshSoon();
     await this.persist();
   }
 
@@ -2175,6 +2339,10 @@ class MoneyApp {
         symbol: listing.symbol,
       };
     }
+    if (msg.type === "settings-preview") {
+      this.previewSettingsForm(msg.values);
+      return null;
+    }
     if (msg.type === "theme-preview") {
       this.applyTheme({ theme: msg.theme, customTheme: msg.customTheme, transparency: msg.transparency });
       return null;
@@ -2264,6 +2432,8 @@ class MoneyApp {
       canRedo: this.history.canRedo(),
       canRemoveSymbol: (this.currentTab()?.board.symbols || []).length > 1,
       canCycle: (this.currentTab()?.board.symbols || []).length > 1,
+      canAddWindow: Boolean(this.platform.newWindow) && this.windowInfo.canAddWindow !== false,
+      canRemoveWindow: Boolean(this.platform.removeWindow) && this.windowInfo.primary === false,
     });
     const rect = atPointer ? null : anchorEvent?.currentTarget?.getBoundingClientRect?.() || anchorEvent?.target?.getBoundingClientRect?.();
     const anchor = {
@@ -2317,9 +2487,7 @@ class MoneyApp {
       ...spec,
       theme: this.settings.theme,
       customTheme: this.settings.customTheme,
-      fontFamily: this.settings.fontFamily,
-      fontSize: this.settings.fontSize,
-      fontStyle: this.settings.fontStyle,
+      ...this.fontSettings(),
       language: this.settings.language,
       closeLabel: this.t("tip.close"),
     };
@@ -2363,8 +2531,15 @@ class MoneyApp {
 
   async persist() {
     this.settings.recentFiles = this.recent.toJSON();
+    // The open Settings window writes once, on OK or on Cancel.
+    if (this.settingsSession) return;
     await this.platform.writeSettings(sanitizeSettings(this.settings));
   }
+}
+
+/** A change that alters what is fetched, not only how it is drawn. */
+function needsRefetch(before, after) {
+  return ["enabledSources", "baseCurrency", "rateCurrencies"].some((key) => JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]));
 }
 
 /**

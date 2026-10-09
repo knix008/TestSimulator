@@ -371,6 +371,24 @@ def write_menu_icons() -> None:
     draw.rectangle((8, 15, 18, 18), fill=red)
     icons["exit"] = img
 
+    # New window: a window with a green plus.
+    img, draw = _menu()
+    draw.rounded_rectangle((2, 4, 21, 20), radius=3, fill=sky)
+    draw.line((2, 9, 21, 9), fill=white, width=2)
+    draw.ellipse((17, 16, 30, 29), fill=green)
+    draw.rectangle((22, 19, 25, 26), fill=white)
+    draw.rectangle((20, 21, 27, 24), fill=white)
+    icons["window"] = img
+
+    # One window in the list: a purple board with a gold rising line.
+    img, draw = _menu()
+    draw.rounded_rectangle((3, 4, 29, 28), radius=4, fill=(124, 92, 255, 255))
+    draw.line((3, 10, 29, 10), fill=white, width=2)
+    draw.line((8, 23, 13, 18), fill=gold, width=3)
+    draw.line((13, 18, 17, 21), fill=gold, width=3)
+    draw.line((17, 21, 24, 14), fill=gold, width=3)
+    icons["board"] = img
+
     for name, picture in icons.items():
         picture.save(folder / f"{name}.png")
 

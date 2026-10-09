@@ -13,6 +13,46 @@ export const FALLBACK_FONTS = [
 
 export const FONT_STYLES = ["normal", "bold", "italic", "bolditalic"];
 
+/** The four switches of the Font page. Each is on or off on its own. */
+export const FONT_FLAGS = ["fontBold", "fontItalic", "fontUnderline", "fontStrike"];
+
+/** The older single style choice, kept in step so files from 1.0 still read it. */
+export function fontStyleOf(bold, italic) {
+  if (bold && italic) return "bolditalic";
+  if (bold) return "bold";
+  if (italic) return "italic";
+  return "normal";
+}
+
+/**
+ * The CSS for the quote text. `weight` and `style` go on the stock display as a
+ * whole; `decoration` is drawn on each piece of text so a strike line runs through
+ * the middle of a 44px price as well as a 12px exchange name.
+ */
+export function fontFace(settings = {}) {
+  const lines = [];
+  if (settings.fontUnderline) lines.push("underline");
+  if (settings.fontStrike) lines.push("line-through");
+  return {
+    family: `"${String(settings.fontFamily || FALLBACK_FONTS[0])}", sans-serif`,
+    size: `${Number(settings.fontSize) || 14}px`,
+    bold: Boolean(settings.fontBold),
+    italic: Boolean(settings.fontItalic),
+    decoration: lines.length ? lines.join(" ") : "none",
+  };
+}
+
+/** Put the face on one element that holds stock text. */
+export function applyFontFace(node, settings) {
+  if (!node) return;
+  const face = fontFace(settings);
+  node.dataset.fontScope = "stocks";
+  node.dataset.fontBold = String(face.bold);
+  node.dataset.fontItalic = String(face.italic);
+  node.style.fontFamily = face.family;
+  node.style.setProperty("--font-decoration", face.decoration);
+}
+
 export function parseWindowsFonts(stdout) {
   return uniqueLines(stdout);
 }

@@ -8,7 +8,16 @@ import { createI18n } from "../src/core/i18n.js";
 import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js";
 import { themeColors, themeVars, DEFAULT_THEME_ID } from "../src/core/themes.js";
 import { buildTrayMenu, placeTrayMenu, trayIconFile, trayMenuSize } from "../src/ui/tray-menu.js";
-import { sanitizeSettings } from "../src/core/settings.js";
+import {
+  MAX_EXTRA_WINDOWS,
+  WINDOW_FIELDS,
+  WINDOW_LIST_FIELD,
+  sanitizeBoard,
+  sanitizeSettings,
+  sanitizeWindowSlots,
+  sharedSettings,
+  windowLabel,
+} from "../src/core/settings.js";
 import { WINDOW_DEFAULT, WINDOW_MIN, isUsableSize, placeWindow, recordedWindowPlacement, stampWindowPlacement, windowIsVisible } from "../src/ui/window-spec.js";
 import { PopupHub } from "./popup-hub.js";
 
@@ -17,7 +26,20 @@ const iconPath = path.join(__dirname, "../assets/icon.png");
 const hub = new PopupHub();
 const contentsToPopup = new Map();
 const menuSpecs = new Map();
+/**
+ * Every market window and the slot it keeps its board under. The first window
+ * is slot "main": its board is `defaultBoard` and its rectangle is the saved
+ * window placement. Every other window has a slot in `settings.windows`.
+ */
+const MAIN_SLOT = "main";
+const moneyWindows = new Map();
+/** Menu and popup windows route their result back to the market window that opened them. */
+const windowOwners = new Map();
+const resizeStarts = new Map();
+const slotBoundsTimers = new Map();
 let mainWindow = null;
+/** The market window a tray command goes to: the one used last. */
+let activeWindow = null;
 let liveBounds = null;
 let tray = null;
 let trayMenuWin = null;
@@ -25,30 +47,46 @@ let trayMenuAnchor = null;
 let trayMenuClosedAt = 0;
 let trayCommand = "";
 let trayRevealUntil = 0;
+let windowCascade = 0;
 let quitting = false;
-let resizeStart = null;
 const moveStarts = new Map();
 
 app.setName("MyMoney");
+if (process.platform === "win32") app.setAppUserModelId("com.shkwon.mymoney");
+if (process.platform === "linux") app.commandLine.appendSwitch("enable-transparent-visuals");
 
 /**
- * One copy at a time. Two of them share a settings file and a Chromium cache
- * directory, which costs the second one its cache ("Unable to move the cache",
- * 0x5) and lets either overwrite the other's saved watchlist. A second launch
- * hands its turn to the window that is already up.
+ * One copy at a time. Two of them share settings.json, window.json and one
+ * Chromium cache directory, so the second would overwrite the first's
+ * watchlists and lose its own cache. A duplicate launch says so and leaves the
+ * running copy alone; the message points at the tray because the close button
+ * only hides the windows.
+ *
+ * `--multi` and MYMONEY_MULTI are for driving a second copy while developing.
+ * They are ignored in a packaged build, and they move the duplicate to its own
+ * user data folder so the two never write over each other.
  */
-const singleInstance = app.requestSingleInstanceLock();
-if (!singleInstance) {
-  app.quit();
-} else {
-  app.on("second-instance", () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    if (!mainWindow.isVisible()) mainWindow.show();
-    mainWindow.focus();
+const allowMultipleInstances =
+  !app.isPackaged &&
+  (process.argv.includes("--multi") || ["1", "true", "yes"].includes(String(process.env.MYMONEY_MULTI || "").toLowerCase()));
+const singleInstance = allowMultipleInstances || app.requestSingleInstanceLock();
+if (allowMultipleInstances) {
+  app.setPath("userData", `${app.getPath("userData")}-pid-${process.pid}`);
+}
+
+/** The duplicate has no window to speak through, so it uses the saved language. */
+function tellAlreadyRunning() {
+  const i18n = createI18n(sanitizeSettings(readJson(settingsFile())).language);
+  const t = (key) => i18n.t(key);
+  dialog.showMessageBoxSync({
+    type: "info",
+    title: app.getName(),
+    message: t("msg.alreadyRunning"),
+    detail: t("msg.alreadyRunningHint"),
+    buttons: [t("btn.ok")],
+    noLink: true,
   });
 }
-if (process.platform === "linux") app.commandLine.appendSwitch("enable-transparent-visuals");
 
 function errorText(title, error) {
   const detail = error && error.stack ? error.stack : String(error);
@@ -83,6 +121,32 @@ async function showFatalError(title, error) {
 
 process.on("uncaughtException", (error) => void showFatalError("Unexpected error in the main process", error));
 process.on("unhandledRejection", (reason) => void showFatalError("Unhandled promise rejection in the main process", reason));
+
+function slotOf(win) {
+  return moneyWindows.get(win)?.slot || "";
+}
+
+function isPrimary(win) {
+  return Boolean(win) && win === mainWindow;
+}
+
+/** The market window a request came from, directly or through one of its popups. */
+function moneyWindowOf(sender) {
+  const direct = BrowserWindow.fromWebContents(sender);
+  if (direct && moneyWindows.has(direct)) return direct;
+  const owner = windowOwners.get(sender.id);
+  if (owner && !owner.isDestroyed()) return owner;
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+}
+
+/** A stable key for the window a dialog belongs to; the hub stores it as a string. */
+function ownerKey(win) {
+  return win && !win.isDestroyed() ? `win-${win.id}` : "";
+}
+
+function liveWindows() {
+  return [...moneyWindows.keys()].filter((win) => !win.isDestroyed());
+}
 
 function sendWindowState(win) {
   if (win.isDestroyed()) return;
@@ -124,15 +188,85 @@ function savedWindowPlacement() {
   return { ...placed, maximized: Boolean(recorded.maximized) && onScreen };
 }
 
-function createMainWindow() {
-  const placement = savedWindowPlacement();
-  liveBounds = {
-    x: placement.x,
-    y: placement.y,
-    width: placement.width,
-    height: placement.height,
-    maximized: Boolean(placement.maximized),
+/** Extra windows step down and right from the first one instead of covering it. */
+function cascadedPlacement() {
+  const base = savedWindowPlacement();
+  windowCascade = (windowCascade % 8) + 1;
+  const step = 32 * windowCascade;
+  const area = screen.getDisplayMatching({ x: base.x, y: base.y, width: base.width, height: base.height }).workArea;
+  const x = Math.min(base.x + step, area.x + area.width - base.width);
+  const y = Math.min(base.y + step, area.y + area.height - base.height);
+  return {
+    x: Math.max(area.x, Math.round(x)),
+    y: Math.max(area.y, Math.round(y)),
+    width: base.width,
+    height: base.height,
+    maximized: false,
   };
+}
+
+/** Where an extra window goes: its own last rectangle, or a step off the first window. */
+function slotPlacement(slot) {
+  const bounds = slot?.bounds;
+  if (!bounds) return cascadedPlacement();
+  const areas = screen.getAllDisplays().map((display) => display.workArea);
+  return { ...placeWindow(bounds, areas, WINDOW_DEFAULT), maximized: false };
+}
+
+function readSlots() {
+  return sanitizeWindowSlots(readJson(settingsFile())?.[WINDOW_LIST_FIELD]);
+}
+
+/** Read, change and write the slot list in one step, so two windows never undo each other. */
+function editSlots(change) {
+  const stored = readJson(settingsFile()) || {};
+  const slots = sanitizeWindowSlots(stored[WINDOW_LIST_FIELD]);
+  const next = change(slots) || slots;
+  stored[WINDOW_LIST_FIELD] = next;
+  writeSettingsFile(stored);
+  return next;
+}
+
+/** An extra window's rectangle is kept in its slot a moment after it stops moving. */
+function rememberSlotBounds(win) {
+  const slot = slotOf(win);
+  if (!slot || slot === MAIN_SLOT || win.isDestroyed()) return;
+  clearTimeout(slotBoundsTimers.get(slot));
+  slotBoundsTimers.set(
+    slot,
+    setTimeout(() => {
+      slotBoundsTimers.delete(slot);
+      if (win.isDestroyed() || quitting) return;
+      const bounds = win.isMaximized() ? win.getNormalBounds() : win.getBounds();
+      editSlots((slots) => slots.map((entry) => (entry.id === slot ? { ...entry, bounds: { ...bounds } } : entry)));
+    }, 250),
+  );
+}
+
+function newSlotId() {
+  const taken = new Set(readSlots().map((entry) => entry.id));
+  let id = "";
+  do id = `w${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+  while (taken.has(id));
+  return id;
+}
+
+/**
+ * A market window. `slot` is MAIN_SLOT for the first window and a slot id for
+ * the others; the slot decides which board read-settings hands the page.
+ */
+function createMainWindow(slot = MAIN_SLOT, slotEntry = null) {
+  const first = slot === MAIN_SLOT;
+  const placement = first ? savedWindowPlacement() : slotPlacement(slotEntry);
+  if (first) {
+    liveBounds = {
+      x: placement.x,
+      y: placement.y,
+      width: placement.width,
+      height: placement.height,
+      maximized: Boolean(placement.maximized),
+    };
+  }
   const win = new BrowserWindow({
     x: placement.x,
     y: placement.y,
@@ -157,10 +291,14 @@ function createMainWindow() {
       sandbox: false,
     },
   });
+  const winId = win.id;
+  moneyWindows.set(win, { slot });
+  if (first) mainWindow = win;
+  activeWindow = win;
   win.loadFile(path.join(__dirname, "../src/index.html"));
   const keepOffTaskbar = () => hideFromTaskbar(win);
   win.once("ready-to-show", () => {
-    if (placement.maximized) win.maximize();
+    if (first && placement.maximized) win.maximize();
     keepOffTaskbar();
     win.show();
     win.setIgnoreMouseEvents(false);
@@ -168,9 +306,12 @@ function createMainWindow() {
     sendWindowState(win);
   });
   for (const name of ["show", "restore"]) win.on(name, keepOffTaskbar);
-  win.on("focus", () => setTimeout(keepOffTaskbar, 250));
+  win.on("focus", () => {
+    activeWindow = win;
+    setTimeout(keepOffTaskbar, 250);
+  });
   const restoreAfterTray = () => {
-    if (Date.now() > trayRevealUntil || win.isDestroyed()) return;
+    if (Date.now() > trayRevealUntil || win.isDestroyed() || win !== activeWindow) return;
     setTimeout(() => {
       if (Date.now() > trayRevealUntil || win.isDestroyed()) return;
       if (win.isMinimized()) win.restore();
@@ -189,13 +330,27 @@ function createMainWindow() {
     void showFatalError("The window failed to load", new Error(`${description} (${code}) ${url}`)),
   );
   win.webContents.on("preload-error", (_event, preloadPath, error) => void showFatalError(`Preload failed: ${preloadPath}`, error));
+  // The close button only puts the window away. The program keeps running in
+  // the tray and ends from the tray menu.
   win.on("close", (event) => {
     if (quitting) return;
     event.preventDefault();
-    win.webContents.send("request-close");
+    hideMoneyWindow(win);
+  });
+  win.on("closed", () => {
+    moneyWindows.delete(win);
+    resizeStarts.delete(winId);
+    moveStarts.delete(winId);
+    for (const [id, owner] of [...windowOwners]) if (owner === win) windowOwners.delete(id);
+    if (activeWindow === win) activeWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : liveWindows()[0] || null;
+    if (mainWindow === win) mainWindow = null;
   });
   const rememberCurrent = () => {
     if (win.isDestroyed()) return;
+    if (!first) {
+      rememberSlotBounds(win);
+      return;
+    }
     const maximized = win.isMaximized();
     const bounds = maximized ? win.getNormalBounds() : win.getBounds();
     noteBounds({
@@ -208,9 +363,70 @@ function createMainWindow() {
   };
   win.on("resized", rememberCurrent);
   win.on("moved", rememberCurrent);
-  win.on("maximize", () => noteBounds({ ...liveBounds, maximized: true }));
+  win.on("maximize", () => {
+    if (first) noteBounds({ ...liveBounds, maximized: true });
+  });
   win.on("unmaximize", rememberCurrent);
   return win;
+}
+
+/** A new window with its own board, which starts as the starter watchlist. */
+function openNewWindow() {
+  if (readSlots().length >= MAX_EXTRA_WINDOWS) return null;
+  const id = newSlotId();
+  const entry = { id, board: sanitizeBoard(null), bounds: null };
+  editSlots((slots) => [...slots, entry]);
+  return createMainWindow(id, entry);
+}
+
+/** Put a window away. Its board and its place stay; the tray brings it back. */
+function hideMoneyWindow(win) {
+  if (!win || win.isDestroyed()) return;
+  if (isPrimary(win)) saveWindowPlacement();
+  else rememberSlotBounds(win);
+  hub.closeOwned(ownerKey(win));
+  win.hide();
+}
+
+/** Remove an extra window for good, board and all. The first window cannot be removed. */
+function removeMoneyWindow(win) {
+  if (!win || win.isDestroyed() || isPrimary(win)) return false;
+  const slot = slotOf(win);
+  clearTimeout(slotBoundsTimers.get(slot));
+  slotBoundsTimers.delete(slot);
+  editSlots((slots) => slots.filter((entry) => entry.id !== slot));
+  hub.closeOwned(ownerKey(win));
+  moneyWindows.delete(win);
+  win.destroy();
+  return true;
+}
+
+function revealMoneyWindow(win) {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  hideFromTaskbar(win);
+  win.show();
+  win.focus();
+  hideFromTaskbar(win);
+  activeWindow = win;
+}
+
+/** End the program: every window's state is already on disk, so nothing is asked. */
+function quitApp() {
+  if (quitting) return;
+  saveWindowPlacement();
+  for (const win of liveWindows()) {
+    if (!isPrimary(win)) {
+      const bounds = win.isMaximized() ? win.getNormalBounds() : win.getBounds();
+      const slot = slotOf(win);
+      clearTimeout(slotBoundsTimers.get(slot));
+      editSlots((slots) => slots.map((entry) => (entry.id === slot ? { ...entry, bounds: { ...bounds } } : entry)));
+    }
+  }
+  quitting = true;
+  hub.closeAll();
+  for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.destroy();
+  app.quit();
 }
 
 function listSystemFonts() {
@@ -298,39 +514,87 @@ function saveWindowPlacement() {
   writeSettingsFile(settings);
 }
 
-function revealMainWindow() {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  hideFromTaskbar(mainWindow);
-  mainWindow.show();
-  mainWindow.focus();
-  hideFromTaskbar(mainWindow);
+/** The window a tray command acts on: the one used last, or the first. */
+function trayTarget() {
+  if (activeWindow && !activeWindow.isDestroyed()) return activeWindow;
+  if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
+  return liveWindows()[0] || null;
 }
 
-function revealMainWindowFromTray() {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
+function revealFromTray(win) {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  activeWindow = win;
   trayRevealUntil = Date.now() + 700;
-  mainWindow.setAlwaysOnTop(true);
-  mainWindow.show();
-  mainWindow.moveTop();
-  mainWindow.focus();
-  hideFromTaskbar(mainWindow);
+  win.setAlwaysOnTop(true);
+  win.show();
+  win.moveTop();
+  win.focus();
+  hideFromTaskbar(win);
+}
+
+/** Bring every window back: the tray's "Show windows". */
+function revealAllWindows() {
+  const target = trayTarget();
+  for (const win of liveWindows()) {
+    if (win === target) continue;
+    if (win.isMinimized()) win.restore();
+    win.showInactive();
+    hideFromTaskbar(win);
+  }
+  revealMoneyWindow(target);
+}
+
+/** The tray lists every window by its market and first symbols. */
+function trayWindowList(language) {
+  const stored = sanitizeSettings(readJson(settingsFile()));
+  const slots = readSlots();
+  const list = [];
+  const windows = liveWindows();
+  windows.sort((a, b) => (isPrimary(a) ? -1 : isPrimary(b) ? 1 : a.id - b.id));
+  windows.forEach((win, index) => {
+    const slot = slotOf(win);
+    const board = slot === MAIN_SLOT ? stored.defaultBoard : slots.find((entry) => entry.id === slot)?.board;
+    list.push({ slot, label: windowLabel(board, language, index), active: win === trayTarget(), visible: win.isVisible() });
+  });
+  return list;
+}
+
+function windowBySlot(slot) {
+  return liveWindows().find((win) => slotOf(win) === slot) || null;
 }
 
 function finishTrayCommand() {
   const command = trayCommand;
   trayCommand = "";
-  if (!command || !mainWindow || mainWindow.isDestroyed()) return;
-  revealMainWindowFromTray();
+  if (!command) return;
+  if (command === "exit") {
+    quitApp();
+    return;
+  }
+  if (command === "show-window") {
+    revealAllWindows();
+    return;
+  }
+  if (command === "new-window") {
+    openNewWindow();
+    return;
+  }
+  if (command.startsWith("window:")) {
+    revealMoneyWindow(windowBySlot(command.slice(7)));
+    return;
+  }
+  const target = trayTarget();
+  if (!target) return;
+  revealFromTray(target);
   setTimeout(() => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.setAlwaysOnTop(false);
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    if (!mainWindow.isVisible()) mainWindow.show();
-    mainWindow.focus();
-    hideFromTaskbar(mainWindow);
-    mainWindow.webContents.send("menu-command", command);
+    if (target.isDestroyed()) return;
+    target.setAlwaysOnTop(false);
+    if (target.isMinimized()) target.restore();
+    if (!target.isVisible()) target.show();
+    target.focus();
+    hideFromTaskbar(target);
+    target.webContents.send("menu-command", command);
   }, 280);
 }
 
@@ -354,9 +618,12 @@ function showTrayMenu() {
     return;
   }
   if (Date.now() - trayMenuClosedAt < 500) return;
-  const settings = readJson(settingsFile()) || {};
+  const settings = sanitizeSettings(readJson(settingsFile()));
   const i18n = createI18n(settings.language);
-  const items = buildTrayMenu((key) => i18n.t(key));
+  const items = buildTrayMenu((key) => i18n.t(key), {
+    windows: trayWindowList(settings.language),
+    canAddWindow: readSlots().length < MAX_EXTRA_WINDOWS,
+  });
   const colors = themeColors(settings.theme || DEFAULT_THEME_ID, settings.customTheme);
   const icon = tray.getBounds();
   const area = screen.getDisplayMatching(icon).workArea;
@@ -388,7 +655,8 @@ function showTrayMenu() {
   });
   trayMenuWin = win;
   trayMenuAnchor = null;
-  menuSpecs.set(win.webContents.id, {
+  const trayContentsId = win.webContents.id;
+  menuSpecs.set(trayContentsId, {
     kind: "tray",
     items,
     theme: { vars: themeVars(colors, 0), mode: colors.mode },
@@ -398,6 +666,7 @@ function showTrayMenu() {
     if (acceptBlur && !trayCommand) closeTrayMenu();
   });
   win.on("closed", () => {
+    menuSpecs.delete(trayContentsId);
     if (trayMenuWin === win) trayMenuWin = null;
     if (trayCommand) finishTrayCommand();
   });
@@ -416,15 +685,23 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
-  if (!singleInstance) return;
+  if (!singleInstance) {
+    tellAlreadyRunning();
+    app.exit(0);
+    return;
+  }
   if (process.platform === "darwin" && app.dock) {
     app.dock.setIcon(iconPath);
     app.dock.hide();
   }
   createTray();
-  mainWindow = createMainWindow();
+  createMainWindow(MAIN_SLOT);
+  // Every window that was open last time comes back with its own board.
+  for (const slot of readSlots()) createMainWindow(slot.id, slot);
+  activeWindow = mainWindow;
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow();
+    if (moneyWindows.size === 0) createMainWindow(MAIN_SLOT);
+    else revealAllWindows();
   });
 });
 
@@ -442,33 +719,52 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   });
 }
 
+// Windows are only hidden, never closed, until the tray says to quit.
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (quitting && process.platform !== "darwin") app.quit();
 });
 
-ipcMain.handle("window-resize", (_event, step = {}) => {
-  if (!mainWindow || mainWindow.isMaximized()) return null;
+function boundsReply(win) {
+  const bounds = win.getBounds();
+  return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: win.isMaximized() };
+}
+
+/** After a window changed shape: the first one keeps window.json, the others their slot. */
+function noteWindowShape(win) {
+  if (isPrimary(win)) {
+    const actual = win.getBounds();
+    return noteBounds({ x: actual.x, y: actual.y, width: actual.width, height: actual.height, maximized: false });
+  }
+  if (moneyWindows.has(win)) rememberSlotBounds(win);
+  return boundsReply(win);
+}
+
+ipcMain.handle("window-resize", (event, step = {}) => {
+  const win = moneyWindowOf(event.sender);
+  if (!win || win.isDestroyed() || win.isMaximized()) return null;
   if (step.phase === "start") {
-    const bounds = mainWindow.getBounds();
-    resizeStart = {
+    const bounds = win.getBounds();
+    const sized = isPrimary(win) ? liveBounds : null;
+    const start = {
       x: bounds.x,
       y: bounds.y,
-      width: liveBounds?.width >= WINDOW_MIN.width ? liveBounds.width : bounds.width,
-      height: liveBounds?.height >= WINDOW_MIN.height ? liveBounds.height : bounds.height,
+      width: sized?.width >= WINDOW_MIN.width ? sized.width : bounds.width,
+      height: sized?.height >= WINDOW_MIN.height ? sized.height : bounds.height,
     };
-    return resizeStart;
+    resizeStarts.set(win.id, start);
+    return start;
   }
   if (step.phase === "end") {
-    resizeStart = null;
-    return currentPlacement();
+    resizeStarts.delete(win.id);
+    return isPrimary(win) ? currentPlacement() : noteWindowShape(win);
   }
-  if (!resizeStart) resizeStart = mainWindow.getBounds();
-  const width = Math.max(WINDOW_MIN.width, Math.round(resizeStart.width + Number(step.dx || 0)));
-  const height = Math.max(WINDOW_MIN.height, Math.round(resizeStart.height + Number(step.dy || 0)));
-  const next = { x: resizeStart.x, y: resizeStart.y, width, height, maximized: false };
-  mainWindow.setBounds(next);
-  noteBounds(next);
-  return { x: next.x, y: next.y, width, height };
+  const base = resizeStarts.get(win.id) || win.getBounds();
+  if (!resizeStarts.has(win.id)) resizeStarts.set(win.id, base);
+  const width = Math.max(WINDOW_MIN.width, Math.round(base.width + Number(step.dx || 0)));
+  const height = Math.max(WINDOW_MIN.height, Math.round(base.height + Number(step.dy || 0)));
+  win.setBounds({ x: base.x, y: base.y, width, height });
+  noteWindowShape(win);
+  return { x: base.x, y: base.y, width, height };
 });
 
 ipcMain.handle("window-move", (event, step = {}) => {
@@ -481,6 +777,10 @@ ipcMain.handle("window-move", (event, step = {}) => {
   }
   if (step.phase === "end") {
     moveStarts.delete(win.id);
+    if (!isPrimary(win)) {
+      if (moneyWindows.has(win)) rememberSlotBounds(win);
+      return boundsReply(win);
+    }
     const bounds = win.getBounds();
     const noted = noteBounds({
       x: bounds.x,
@@ -489,7 +789,7 @@ ipcMain.handle("window-move", (event, step = {}) => {
       height: liveBounds?.height || bounds.height,
       maximized: win.isMaximized(),
     });
-    return noted || { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: win.isMaximized() };
+    return noted || boundsReply(win);
   }
   const origin = moveStarts.get(win.id) || (() => {
     const [x, y] = win.getPosition();
@@ -498,14 +798,16 @@ ipcMain.handle("window-move", (event, step = {}) => {
   const x = Math.round(origin.x + Number(step.dx || 0));
   const y = Math.round(origin.y + Number(step.dy || 0));
   win.setPosition(x, y);
-  noteBounds({ x, y, width: liveBounds?.width, height: liveBounds?.height, maximized: false });
+  if (isPrimary(win)) noteBounds({ x, y, width: liveBounds?.width, height: liveBounds?.height, maximized: false });
+  else if (moneyWindows.has(win)) rememberSlotBounds(win);
   return { x, y };
 });
 
 /** Set the window to an exact size, used when the whole watchlist is shown. */
-ipcMain.handle("window-size", (_event, size = {}) => {
-  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMaximized()) return null;
-  const bounds = mainWindow.getBounds();
+ipcMain.handle("window-size", (event, size = {}) => {
+  const win = moneyWindowOf(event.sender);
+  if (!win || win.isDestroyed() || win.isMaximized()) return null;
+  const bounds = win.getBounds();
   const area = screen.getDisplayMatching(bounds).workArea;
   const width = Math.min(area.width, Math.max(WINDOW_MIN.width, Math.round(Number(size.width) || bounds.width)));
   const height = Math.min(area.height, Math.max(WINDOW_MIN.height, Math.round(Number(size.height) || bounds.height)));
@@ -514,10 +816,11 @@ ipcMain.handle("window-size", (_event, size = {}) => {
     y: Math.max(area.y, Math.min(bounds.y, area.y + area.height - height)),
     width,
     height,
-    maximized: false,
   };
-  mainWindow.setBounds(next);
-  return noteBounds(next);
+  win.setBounds(next);
+  if (isPrimary(win)) return noteBounds({ ...next, maximized: false });
+  rememberSlotBounds(win);
+  return { ...next, maximized: false };
 });
 
 ipcMain.handle("list-fonts", () => listSystemFonts());
@@ -527,20 +830,66 @@ ipcMain.handle("fetch-url", async (_event, url, options = {}) => {
   return { ok: response.ok, status: response.status, text: await response.text() };
 });
 
-ipcMain.handle("read-settings", () => readJson(settingsFile()));
+/**
+ * Each window reads the same settings file but sees its own board and its own
+ * rectangle in it, so the page code never has to know which window it is in.
+ */
+ipcMain.handle("read-settings", (event) => {
+  const stored = readJson(settingsFile());
+  const win = moneyWindowOf(event.sender);
+  const slot = slotOf(win);
+  if (!stored || !slot || slot === MAIN_SLOT) {
+    if (stored) delete stored[WINDOW_LIST_FIELD];
+    return stored;
+  }
+  const entry = readSlots().find((item) => item.id === slot);
+  const view = sharedSettings(stored);
+  view.defaultBoard = entry?.board || sanitizeBoard(null);
+  if (!win.isDestroyed()) {
+    const bounds = win.getBounds();
+    view.windowSize = { width: bounds.width, height: bounds.height };
+    view.windowPosition = { x: bounds.x, y: bounds.y };
+  }
+  view.windowMaximized = false;
+  return view;
+});
 
-ipcMain.handle("write-settings", (_event, data) => {
-  const incoming = data && typeof data === "object" ? data : {};
+/** Tell the other windows about a shared change - a theme, a font, a language. */
+function shareSettings(fromWin, settings) {
+  const shared = sharedSettings(settings);
+  for (const win of liveWindows()) {
+    if (win === fromWin) continue;
+    win.webContents.send("settings-changed", shared);
+  }
+}
+
+ipcMain.handle("write-settings", (event, data) => {
+  const incoming = data && typeof data === "object" ? { ...data } : {};
+  delete incoming[WINDOW_LIST_FIELD];
+  const win = moneyWindowOf(event.sender);
+  const stored = readJson(settingsFile()) || {};
+  const slots = sanitizeWindowSlots(stored[WINDOW_LIST_FIELD]);
+  const slot = slotOf(win);
+  if (slot && slot !== MAIN_SLOT) {
+    // An extra window writes the shared part over the file and its board into its slot.
+    const next = { ...stored, ...sharedSettings(incoming) };
+    for (const field of WINDOW_FIELDS) if (stored[field] !== undefined) next[field] = stored[field];
+    next[WINDOW_LIST_FIELD] = slots.map((entry) => (entry.id === slot ? { ...entry, board: sanitizeBoard(incoming.defaultBoard) } : entry));
+    writeSettingsFile(next);
+    shareSettings(win, next);
+    return true;
+  }
+  incoming[WINDOW_LIST_FIELD] = slots;
   const placement = currentPlacement();
   if (placement) {
     writeSettingsFile(stampWindowPlacement(incoming, placement));
-    return true;
+  } else {
+    if (!incoming.windowSize && stored.windowSize) incoming.windowSize = stored.windowSize;
+    if (!incoming.windowPosition && stored.windowPosition) incoming.windowPosition = stored.windowPosition;
+    if (incoming.windowMaximized == null && stored.windowMaximized != null) incoming.windowMaximized = stored.windowMaximized;
+    writeSettingsFile(incoming);
   }
-  const previous = readJson(settingsFile()) || {};
-  if (!incoming.windowSize && previous.windowSize) incoming.windowSize = previous.windowSize;
-  if (!incoming.windowPosition && previous.windowPosition) incoming.windowPosition = previous.windowPosition;
-  if (incoming.windowMaximized == null && previous.windowMaximized != null) incoming.windowMaximized = previous.windowMaximized;
-  writeSettingsFile(incoming);
+  shareSettings(win, incoming);
   return true;
 });
 
@@ -621,22 +970,36 @@ ipcMain.handle("print", async (event, payload) => {
 
 ipcMain.handle("open-external", (_event, url) => shell.openExternal(url));
 
-ipcMain.handle("window-control", (_event, action) => {
-  if (!mainWindow) return;
-  if (action === "minimize") mainWindow.minimize();
-  if (action === "maximize") mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
-  if (action === "close") mainWindow.close();
-  sendWindowState(mainWindow);
+ipcMain.handle("window-control", (event, action) => {
+  const win = moneyWindowOf(event.sender);
+  if (!win || win.isDestroyed()) return;
+  if (action === "minimize") win.minimize();
+  if (action === "maximize") win.isMaximized() ? win.unmaximize() : win.maximize();
+  if (action === "hide" || action === "close") {
+    hideMoneyWindow(win);
+    return;
+  }
+  sendWindowState(win);
 });
 
-ipcMain.handle("window-bounds", () => currentPlacement());
-
-ipcMain.handle("confirm-quit", () => {
-  saveWindowPlacement();
-  quitting = true;
-  hub.closeAll();
-  mainWindow?.close();
+ipcMain.handle("window-bounds", (event) => {
+  const win = moneyWindowOf(event.sender);
+  if (isPrimary(win)) return currentPlacement();
+  if (!win || win.isDestroyed()) return null;
+  return boundsReply(win);
 });
+
+/** Which window the page is: the first one cannot be removed, the others can. */
+ipcMain.handle("window-boot", (event) => {
+  const win = moneyWindowOf(event.sender);
+  return { slot: slotOf(win) || MAIN_SLOT, primary: isPrimary(win), canAddWindow: readSlots().length < MAX_EXTRA_WINDOWS };
+});
+
+ipcMain.handle("new-window", () => Boolean(openNewWindow()));
+
+ipcMain.handle("remove-window", (event) => removeMoneyWindow(moneyWindowOf(event.sender)));
+
+ipcMain.handle("confirm-quit", () => quitApp());
 
 /**
  * Windows and macOS keep the "start with the system" flag themselves, so the
@@ -664,6 +1027,7 @@ ipcMain.handle("clipboard-read", () => clipboard.readText());
 
 ipcMain.handle("begin-popup", (event, spec) => {
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const owner = moneyWindowOf(event.sender);
   const started = hub.begin(spec, (stored) => {
     const parentBounds = parent.getBounds();
     const workArea = screen.getDisplayMatching(parentBounds).workArea;
@@ -679,8 +1043,10 @@ ipcMain.handle("begin-popup", (event, spec) => {
     });
     const contentsId = win.webContents.id;
     contentsToPopup.set(contentsId, stored.popupId);
+    if (owner) windowOwners.set(contentsId, owner);
     win.on("closed", () => {
       contentsToPopup.delete(contentsId);
+      windowOwners.delete(contentsId);
       if (hub.windows.has(stored.popupId)) hub.finish(stored.popupId, { action: "close" });
     });
     revealWindow(win);
@@ -700,7 +1066,7 @@ ipcMain.handle("begin-popup", (event, spec) => {
         win.focus();
       },
     };
-  });
+  }, ownerKey(owner));
   return started;
 });
 
@@ -737,6 +1103,7 @@ ipcMain.on("broadcast-theme", (event, payload) => {
       theme: payload.theme || "",
       customTheme: payload.customTheme || null,
       transparency: payload.transparency,
+      font: payload.font && typeof payload.font === "object" ? payload.font : null,
     });
   }
 });
@@ -752,11 +1119,13 @@ ipcMain.on("broadcast-wallpaper", (event, payload) => {
 
 ipcMain.on("popup-immediate", (event, message) => {
   const popupId = contentsToPopup.get(event.sender.id) || message.popupId;
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("popup-immediate", { ...message, popupId });
+  const owner = moneyWindowOf(event.sender);
+  if (owner && !owner.isDestroyed()) owner.webContents.send("popup-immediate", { ...message, popupId });
 });
 
 ipcMain.handle("show-menu", (event, payload) => {
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const owner = moneyWindowOf(event.sender);
   const options = menuWindowOptions(payload.layout, parent);
   const area = screen.getDisplayNearestPoint({ x: options.x, y: options.y }).workArea;
   options.x = Math.max(area.x, Math.min(options.x, area.x + area.width - options.width));
@@ -771,7 +1140,13 @@ ipcMain.handle("show-menu", (event, payload) => {
       sandbox: false,
     },
   });
-  menuSpecs.set(win.webContents.id, payload);
+  const menuContentsId = win.webContents.id;
+  menuSpecs.set(menuContentsId, payload);
+  if (owner) windowOwners.set(menuContentsId, owner);
+  win.on("closed", () => {
+    windowOwners.delete(menuContentsId);
+    menuSpecs.delete(menuContentsId);
+  });
   let acceptBlur = false;
   win.on("blur", () => {
     if (acceptBlur && !win.isDestroyed()) win.close();
@@ -816,9 +1191,10 @@ ipcMain.on("menu-command", (event, id) => {
     closeTrayMenu();
     return;
   }
-  if (id && mainWindow && !mainWindow.isDestroyed()) {
-    if (win && win !== mainWindow) revealMainWindow();
-    mainWindow.webContents.send("menu-command", id);
+  const owner = moneyWindowOf(event.sender);
+  if (id && owner && !owner.isDestroyed()) {
+    if (win && win !== owner) revealMoneyWindow(owner);
+    owner.webContents.send("menu-command", id);
   }
-  if (win && win !== mainWindow && !win.isDestroyed()) win.close();
+  if (win && !moneyWindows.has(win) && !win.isDestroyed()) win.close();
 });
