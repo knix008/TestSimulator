@@ -43,6 +43,39 @@ app.setName("MyWeather");
 if (process.platform === "win32") app.setAppUserModelId("com.shkwon.myweather");
 if (process.platform === "linux") app.commandLine.appendSwitch("enable-transparent-visuals");
 
+/**
+ * One copy at a time. Two of them share settings.json, window.json and one Chromium
+ * cache directory, so the second would overwrite the first's city list and lose its
+ * own cache. A duplicate launch says so and leaves the running copy alone, which is
+ * why the message points at the tray: the close button only hides that window, so
+ * the person may have no way of seeing that it is still there.
+ *
+ * `--multi` and MYWEATHER_MULTI are for driving a second copy while developing. They
+ * are ignored in a packaged build, and they move the duplicate to its own user data
+ * folder so the two never write over each other.
+ */
+const allowMultipleInstances =
+  !app.isPackaged &&
+  (process.argv.includes("--multi") || ["1", "true", "yes"].includes(String(process.env.MYWEATHER_MULTI || "").toLowerCase()));
+const singleInstance = allowMultipleInstances || app.requestSingleInstanceLock();
+if (allowMultipleInstances) {
+  app.setPath("userData", `${app.getPath("userData")}-pid-${process.pid}`);
+}
+
+/** The duplicate has no window to speak through, so it uses the saved language. */
+function tellAlreadyRunning() {
+  const i18n = createI18n(sanitizeSettings(readJson(settingsFile())).language);
+  const t = (key) => i18n.t(key);
+  dialog.showMessageBoxSync({
+    type: "info",
+    title: app.getName(),
+    message: t("msg.alreadyRunning"),
+    detail: t("msg.alreadyRunningHint"),
+    buttons: [t("btn.ok")],
+    noLink: true,
+  });
+}
+
 function errorText(title, error) {
   const detail = error && error.stack ? error.stack : String(error);
   return [
@@ -629,6 +662,11 @@ function promoteWindowsTrayIcon(attempt = 0) {
 }
 
 app.whenReady().then(() => {
+  if (!singleInstance) {
+    tellAlreadyRunning();
+    app.exit(0);
+    return;
+  }
   if (process.platform === "darwin" && app.dock) {
     app.dock.setIcon(iconPath);
     app.dock.hide();

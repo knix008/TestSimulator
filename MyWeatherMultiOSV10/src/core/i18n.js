@@ -292,6 +292,8 @@ const ROWS = [
   ["msg.oneWindow", "이 환경에서는 창을 더 열 수 없습니다.", "More windows are not available here."],
   ["msg.lastCity", "마지막 도시는 지울 수 없습니다.", "The last city cannot be removed."],
   ["msg.cityFull", "도시는 최대 {n}개까지 넣을 수 있습니다.", "Up to {n} cities can be listed."],
+  ["msg.alreadyRunning", "MyWeather가 이미 실행 중입니다.", "MyWeather is already running."],
+  ["msg.alreadyRunningHint", "실행 중인 창은 시스템 트레이에 있습니다. 트레이 아이콘을 누르면 다시 보입니다.", "The running copy is in the system tray. Click the tray icon to bring it back."],
   ["recent.empty", "최근 파일 없음", "No recent files"],
 ];
 

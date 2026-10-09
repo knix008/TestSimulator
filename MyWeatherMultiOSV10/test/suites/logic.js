@@ -975,6 +975,41 @@ export function registerLogic(h) {
     assert.match(page, /assets\/icon\.png/);
   });
 
+  h.test("a second launch says so and leaves instead of opening another copy", () => {
+    const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
+    assert.match(main, /app\.requestSingleInstanceLock\(\)/, "the lock is taken at startup");
+    // The copy that loses the lock must say its piece and go before building anything.
+    const ready = main.slice(main.indexOf("app.whenReady().then("));
+    const body = ready.slice(0, ready.indexOf("});"));
+    assert.match(body, /if \(!singleInstance\)/, body.slice(0, 200));
+    assert.match(body, /tellAlreadyRunning\(\);[\s\S]{0,40}app\.exit\(0\);[\s\S]{0,20}return;/, body.slice(0, 300));
+    assert.ok(
+      body.indexOf("app.exit(0)") < body.indexOf("createTray()"),
+      "it leaves before the tray icon and the window are built",
+    );
+    // It has no window of its own, so it speaks through a dialog in the saved language.
+    const telling = main.slice(main.indexOf("function tellAlreadyRunning()"));
+    assert.match(telling, /dialog\.showMessageBoxSync/);
+    assert.match(telling, /msg\.alreadyRunning/);
+    assert.match(telling, /msg\.alreadyRunningHint/);
+    for (const language of ["ko", "en"]) {
+      const i18n = createI18n(language);
+      for (const key of ["msg.alreadyRunning", "msg.alreadyRunningHint"]) {
+        const text = i18n.t(key);
+        assert.ok(text && !text.includes("\u00ab"), `${language} ${key}`);
+      }
+    }
+    assert.match(createI18n("ko").t("msg.alreadyRunningHint"), /트레이/, "it points at the tray, where the window hides");
+    assert.match(createI18n("en").t("msg.alreadyRunningHint"), /tray/i);
+    // The running copy is left alone: no second-instance handler steals its focus.
+    assert.doesNotMatch(main, /app\.on\("second-instance"/);
+    // The way past the lock is for development only and keeps its own user data.
+    assert.match(main, /!app\.isPackaged &&/);
+    assert.match(main, /MYWEATHER_MULTI/);
+    assert.match(main, /--multi/);
+    assert.match(main, /setPath\("userData", `\$\{app\.getPath\("userData"\)\}-pid-\$\{process\.pid\}`\)/);
+  });
+
   h.category("Icons");
   h.test("app and document icons are transparent, distinct, and the app tile is a lit 3D background", () => {
     const output = execFileSync("python", ["scripts/verify_icons.py"], { cwd: root, encoding: "utf8" });
