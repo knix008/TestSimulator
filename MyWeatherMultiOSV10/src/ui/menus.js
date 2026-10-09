@@ -1,29 +1,21 @@
-import { basename } from "../core/paths.js";
 import { icon } from "./icons.js";
 
 export function buildMenuItems(name, ctx) {
   const t = ctx.t;
   if (name === "window") {
-    const recent = (ctx.recent || []).slice(0, 3);
     return [
       item("refresh", "refresh", t("cmd.refresh"), "F5", true),
-      item("undo", "undo", t("cmd.undo"), "Ctrl+Z", ctx.canUndo, true),
-      item("redo", "redo", t("cmd.redo"), "Ctrl+Y", ctx.canRedo),
       item("copy", "copy", t("cmd.copy"), "Ctrl+C", true),
       item("paste", "paste", t("cmd.paste"), "Ctrl+V", true),
-      item("new", "new", t("cmd.new"), "Ctrl+N", true, true),
-      item("open", "open", t("cmd.open"), "Ctrl+O", true),
-      ...recent.map((filePath, index) => item(`recent:${index}`, "recent", basename(filePath), "", true)),
-      item("save", "save", t("cmd.save"), "Ctrl+S", true),
-      item("save-as", "saveAs", t("cmd.saveAs"), "Ctrl+Shift+S", true),
-      item("print", "print", t("cmd.print"), "Ctrl+P", true),
-      item("add-tab", "add", t("cmd.addTab"), "", true, true),
-      item("close-tab", "close", t("cmd.closeTab"), "", true),
+      item("next-city", "next", t("cmd.nextCity"), "", true, true),
+      item("add-city", "add", t("cmd.addCity"), "", true),
+      item("close-tab", "close", t("cmd.closeCity"), "", true),
+      item("new-window", "window", t("cmd.newWindow"), "", true, true),
+      item("print", "print", t("cmd.print"), "Ctrl+P", true, true),
       item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),
       item("clear-wallpaper", "trash", t("cmd.clearWallpaper"), "", true),
       item("settings", "settings", t("cmd.settings"), "Ctrl+,", true, true),
       item("about", "about", t("cmd.about"), "", true),
-      item("exit", "exit", t("cmd.exit"), "", true, true),
     ];
   }
   if (name === "context") {
@@ -32,6 +24,9 @@ export function buildMenuItems(name, ctx) {
       item("daily", "daily", t("cmd.daily"), "", true),
       item("toggle-favorite", "favorite", t("cmd.toggleFavorite"), "", true),
       item("refresh", "refresh", t("cmd.refresh"), "", true, true),
+      item("next-city", "next", t("cmd.nextCity"), "", true, true),
+      item("add-city", "add", t("cmd.addCity"), "", true),
+      item("new-window", "window", t("cmd.newWindow"), "", true),
       item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),
       item("clear-wallpaper", "trash", t("cmd.clearWallpaper"), "", true),
     ];

@@ -287,12 +287,16 @@ def write_menu_icons() -> None:
     draw.rectangle((6, 7, 26, 14), fill=red)
     draw.line((12, 4, 12, 10), fill=blue, width=3)
     draw.line((20, 4, 20, 10), fill=blue, width=3)
+    draw.rounded_rectangle((12, 17, 20, 24), radius=1, fill=sun)
     icons["daily"] = img
 
     img, draw = _menu()
-    draw.rounded_rectangle((4, 8, 12, 26), radius=2, fill=sky)
-    draw.rounded_rectangle((13, 5, 21, 26), radius=2, fill=green)
-    draw.rounded_rectangle((22, 11, 30, 26), radius=2, fill=orange)
+    draw.rounded_rectangle((4, 6, 28, 28), radius=3, fill=paper, outline=blue, width=2)
+    draw.rectangle((4, 6, 28, 13), fill=sky)
+    draw.line((10, 3, 10, 9), fill=blue, width=3)
+    draw.line((22, 3, 22, 9), fill=blue, width=3)
+    for col, color in ((7, red), (14, sun), (21, green)):
+        draw.rounded_rectangle((col, 17, col + 5, 23), radius=1, fill=color)
     icons["weekly"] = img
 
     img, draw = _menu()
@@ -313,6 +317,7 @@ def write_menu_icons() -> None:
     draw.rectangle((14, 8, 18, 24), fill=white)
     draw.rectangle((8, 14, 24, 18), fill=white)
     icons["new"] = img
+    icons["add"] = img.copy()
 
     img, draw = _menu()
     draw.rounded_rectangle((6, 4, 26, 28), radius=3, fill=blue)
@@ -381,6 +386,26 @@ def write_menu_icons() -> None:
     draw.polygon([(14, 12), (28, 16), (14, 20)], fill=red)
     draw.rectangle((8, 15, 18, 18), fill=red)
     icons["exit"] = img
+
+    img, draw = _menu()
+    draw.ellipse((6, 3, 26, 23), fill=red)
+    draw.polygon([(10, 18), (22, 18), (16, 30)], fill=red)
+    draw.ellipse((12, 9, 20, 17), fill=white)
+    icons["city"] = img
+
+    img, draw = _menu()
+    draw.ellipse((4, 4, 28, 28), fill=green)
+    draw.line((13, 10, 20, 16), fill=white, width=3)
+    draw.line((20, 16, 13, 22), fill=white, width=3)
+    icons["next"] = img
+
+    img, draw = _menu()
+    draw.rounded_rectangle((2, 4, 21, 20), radius=3, fill=sky)
+    draw.line((2, 9, 21, 9), fill=white, width=2)
+    draw.ellipse((17, 16, 30, 29), fill=green)
+    draw.rectangle((22, 19, 25, 26), fill=white)
+    draw.rectangle((20, 21, 27, 24), fill=white)
+    icons["window"] = img
 
     for name, picture in icons.items():
         picture.save(folder / f"{name}.png")

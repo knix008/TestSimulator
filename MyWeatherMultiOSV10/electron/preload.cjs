@@ -41,6 +41,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   fitMenu: (size) => ipcRenderer.invoke("fit-menu", size),
   menuCommand: (id) => ipcRenderer.send("menu-command", id),
   onRequestClose: (callback) => ipcRenderer.on("request-close", () => callback()),
+  shownCity: (index) => ipcRenderer.send("shown-city", index),
+  newWindow: (options) => ipcRenderer.invoke("new-window", options),
+  windowBoot: () => ipcRenderer.invoke("window-boot"),
   clipboardWrite: (text) => ipcRenderer.invoke("clipboard-write", text),
   clipboardRead: () => ipcRenderer.invoke("clipboard-read"),
 });

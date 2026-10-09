@@ -40,14 +40,17 @@ export function createTab(place) {
   };
 }
 
-export function createDocument(place) {
+/** One tab per shown city, so a document opens on the same list the window rotates through. */
+export function createDocument(placeOrPlaces) {
+  const places = Array.isArray(placeOrPlaces) ? placeOrPlaces : [placeOrPlaces];
+  const tabs = places.filter(Boolean).map((place) => createTab(place));
   return {
     format: "myweather",
     formatVersion: 1,
     filePath: "",
     dirty: false,
     activeIndex: 0,
-    tabs: [createTab(place)],
+    tabs: tabs.length ? tabs : [createTab(undefined)],
   };
 }
 

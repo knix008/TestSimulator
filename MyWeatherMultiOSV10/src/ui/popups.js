@@ -1,9 +1,10 @@
 import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
-import { FONT_STYLES } from "../core/fonts.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
-import { createI18n } from "../core/i18n.js";
-import { DATE_FORMATS, DEFAULT_SETTINGS, DISPLAY_PRIORITIES, UPDATE_HOURS, clamp } from "../core/settings.js";
+import { createI18n, formatMessage } from "../core/i18n.js";
+import { DATE_FORMATS, DEFAULT_SETTINGS, DISPLAY_PRIORITIES, MAX_CITIES, ROTATE_SECONDS, UPDATE_HOURS, clamp, samePlace } from "../core/settings.js";
+import { MARGINS, PAGE_NUMBER_SPOTS, PAPERS, PRINT_RANGES, SCALES, pageHtml, paperSize } from "../core/print-model.js";
+import { PRINT_CSS } from "../core/print-style.js";
 import { SOURCE_IDS } from "../weather/providers.js";
 import { esc } from "./html.js";
 import { flagIcon, icon } from "./icons.js";
@@ -31,14 +32,14 @@ export function buildSettingsSpec(model) {
   const t = model.t;
   const values = model.values;
   const requested = model.activeTab === "font" ? "wallpaper" : model.activeTab;
-  const activeTab = ["general", "data", "appearance", "wallpaper"].includes(requested) ? requested : "general";
+  const activeTab = ["general", "cities", "data", "appearance", "wallpaper"].includes(requested) ? requested : "general";
   return {
     type: "settings",
     icon: "settings",
     title: t("popup.settings"),
     titleKey: "popup.settings",
     width: 680,
-    height: 700,
+    height: 600,
     resizable: false,
     scroll: "none",
     activeTab,
@@ -46,6 +47,7 @@ export function buildSettingsSpec(model) {
     language: model.language || "ko",
     tabs: [
       { id: "general", icon: "general", label: t("tab.general"), rows: generalRows(model) },
+      { id: "cities", icon: "city", label: t("tab.cities"), rows: cityRows(model) },
       { id: "data", icon: "weather", label: t("tab.data"), rows: dataRows(model) },
       { id: "appearance", icon: "palette", label: t("tab.appearance"), rows: appearanceRows(model) },
       { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: [...wallpaperRows(model), ...fontRows(model)] },
@@ -58,6 +60,40 @@ export function buildSettingsSpec(model) {
       { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel"), i18n: "btn.cancel" },
     ],
     values,
+  };
+}
+
+export function buildSearchSpec({ query, results, language, t, target = "" }) {
+  return {
+    type: "search",
+    icon: "search",
+    title: t("popup.search"),
+    titleKey: "popup.search",
+    query: String(query || ""),
+    results: Array.isArray(results) ? results : [],
+    language: language === "en" ? "en" : "ko",
+    target: String(target || ""),
+    width: 560,
+    height: 44 + 48 + 32 + 32 + SEARCH_BOX_GAP + SETTINGS_ROW_GAP + SEARCH_LIST_HEIGHT + SETTINGS_ROW_GAP + 32 + 2,
+    resizable: false,
+    scroll: "none",
+    rows: [
+      {
+        kind: "search",
+        id: "query",
+        i18n: "field.search",
+        label: t("field.search"),
+        value: String(query || ""),
+        placeholder: t("field.searchHint"),
+        wide: true,
+        action: "city-search",
+        buttonLabel: t("tip.search"),
+        buttonKey: "tip.search",
+      },
+      { kind: "found", id: "cityFound", label: "", height: SEARCH_LIST_HEIGHT },
+      { kind: "pager", id: "cityPager" },
+    ],
+    buttons: [{ id: "close", action: "close", icon: "close", label: t("btn.close") }],
   };
 }
 
@@ -161,99 +197,131 @@ export function buildUnsavedSpec(fileLabel, t) {
   };
 }
 
-export function buildPrintSpec(t, draft) {
+/**
+ * The print window shows what will come out and everything that decides it, side by side.
+ * Pressing print sends the sheet straight to the printer; there is no second window.
+ */
+export function buildPrintSpec(t, draft, model) {
+  const setup = model.pageSetup;
+  const wanted = Array.isArray(draft.ranges) ? draft.ranges : [...PRINT_RANGES];
   return {
     type: "print",
     icon: "print",
     title: t("popup.print"),
-    width: 560,
-    height: 360,
+    titleKey: "popup.print",
+    width: 980,
+    height: 700,
     resizable: false,
     scroll: "none",
+    pages: model.pages,
+    pageSetup: setup,
+    html: model.html,
+    labels: { prev: t("print.pagePrev"), next: t("print.pageNext") },
     rows: [
+      { kind: "static", id: "whatHead", i18n: "print.what", label: t("print.what"), value: "" },
       { kind: "radio", id: "scope-all", name: "scope", value: "all", checked: draft.scope === "all", label: t("print.scopeAll") },
       { kind: "radio", id: "scope-current", name: "scope", value: "current", checked: draft.scope !== "all" && draft.scope !== "custom", label: t("print.scopeCurrent") },
       { kind: "radio", id: "scope-custom", name: "scope", value: "custom", checked: draft.scope === "custom", label: t("print.scopeCustom") },
-      { kind: "date", id: "from", label: t("print.from"), value: draft.from || "" },
-      { kind: "date", id: "to", label: t("print.to"), value: draft.to || "" },
-    ],
-    buttons: [
-      { id: "preview", action: "preview", icon: "eye", label: t("btn.preview") },
-      { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") },
-    ],
-  };
-}
-
-export function buildPreviewSpec(printModel, t) {
-  const setup = printModel.pageSetup;
-  return {
-    type: "preview",
-    icon: "print",
-    title: t("popup.preview"),
-    width: 760,
-    height: 620,
-    resizable: false,
-    scroll: "none",
-    html: printModel.html,
-    activeTab: "setup",
-    tabs: [
+      { kind: "date", id: "from", i18n: "print.from", label: t("print.from"), value: draft.from || "" },
+      { kind: "date", id: "to", i18n: "print.to", label: t("print.to"), value: draft.to || "" },
+      { kind: "check", id: "range-daily", i18n: "forecast.daily", label: t("forecast.daily"), checked: wanted.includes("daily") },
+      { kind: "check", id: "range-weekly", i18n: "forecast.weekly", label: t("forecast.weekly"), checked: wanted.includes("weekly") },
+      { kind: "check", id: "range-monthly", i18n: "forecast.monthly", label: t("forecast.monthly"), checked: wanted.includes("monthly") },
+      { kind: "static", id: "paperHead", i18n: "print.paperHead", label: t("print.paperHead"), value: "" },
       {
-        id: "setup",
-        label: t("tab.setup"),
-        rows: [
-          {
-            kind: "select",
-            id: "paper",
-            setup: true,
-            label: t("print.paper"),
-            value: setup.paper,
-            options: ["A4", "A3", "Letter"].map((value) => ({ value, label: value })),
-          },
-          {
-            kind: "select",
-            id: "orientation",
-            setup: true,
-            label: t("print.orientation"),
-            value: setup.orientation,
-            options: [
-              { value: "portrait", label: t("print.portrait") },
-              { value: "landscape", label: t("print.landscape") },
-            ],
-          },
-          {
-            kind: "select",
-            id: "margin",
-            setup: true,
-            label: t("print.margin"),
-            value: String(setup.margin),
-            options: [10, 15, 20].map((value) => ({ value: String(value), label: `${value} mm` })),
-          },
+        kind: "select",
+        id: "paper",
+        setup: true,
+        i18n: "print.paper",
+        label: t("print.paper"),
+        value: setup.paper,
+        options: PAPERS.map((value) => ({ value, label: value })),
+      },
+      {
+        kind: "select",
+        id: "orientation",
+        setup: true,
+        i18n: "print.orientation",
+        label: t("print.orientation"),
+        value: setup.orientation,
+        options: [
+          { value: "portrait", i18n: "print.portrait", label: t("print.portrait") },
+          { value: "landscape", i18n: "print.landscape", label: t("print.landscape") },
         ],
       },
-      ...printModel.pages.map((page, index) => ({
-        id: `page-${index}`,
-        label: t("print.page", { n: index + 1 }),
-        rows: [],
-        lines: page,
-      })),
+      {
+        kind: "select",
+        id: "margin",
+        setup: true,
+        i18n: "print.margin",
+        label: t("print.margin"),
+        value: String(setup.margin),
+        options: MARGINS.map((value) => ({ value: String(value), label: `${value} mm` })),
+      },
+      {
+        kind: "select",
+        id: "scale",
+        setup: true,
+        i18n: "print.scale",
+        label: t("print.scale"),
+        value: String(setup.scale),
+        options: SCALES.map((value) => ({ value: String(value), label: `${value} %` })),
+      },
+      {
+        kind: "select",
+        id: "header",
+        setup: true,
+        i18n: "print.header",
+        label: t("print.header"),
+        value: setup.header ? "on" : "off",
+        options: [
+          { value: "on", i18n: "print.headerOn", label: t("print.headerOn") },
+          { value: "off", i18n: "print.headerOff", label: t("print.headerOff") },
+        ],
+      },
+      {
+        kind: "select",
+        id: "pageNumber",
+        setup: true,
+        i18n: "print.pageNumber",
+        label: t("print.pageNumber"),
+        value: setup.pageNumber ? "on" : "off",
+        options: [
+          { value: "on", i18n: "print.headerOn", label: t("print.headerOn") },
+          { value: "off", i18n: "print.headerOff", label: t("print.headerOff") },
+        ],
+      },
+      {
+        kind: "select",
+        id: "pageNumberAt",
+        setup: true,
+        i18n: "print.pageNumberAt",
+        label: t("print.pageNumberAt"),
+        value: setup.pageNumberAt,
+        options: PAGE_NUMBER_SPOTS.map((value) => ({ value, i18n: `print.at${value[0].toUpperCase()}${value.slice(1)}`, label: t(`print.at${value[0].toUpperCase()}${value.slice(1)}`) })),
+      },
     ],
     buttons: [
-      { id: "print", action: "print", icon: "print", label: t("btn.printNow") },
-      { id: "close", action: "close", icon: "close", label: t("btn.close") },
+      { id: "print", action: "print", icon: "print", label: t("btn.printNow"), i18n: "btn.printNow" },
+      { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel"), i18n: "btn.cancel" },
     ],
   };
 }
 
 const FORECAST_WIDTH = { daily: 640, weekly: 720, monthly: 720 };
 
-export function buildForecastSpec({ range, markup, fitHeight, when = "", transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
+export function buildForecastSpec({ range, markup, fitHeight, when = "", city = "", refreshLabel = "", transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
   const body = Math.max(72, Number(fitHeight) || 72);
   return {
     type: "forecast",
     range,
     icon: range,
     title: t(`forecast.${range}`),
+    city: typeof city === "string" ? city : "",
     when: typeof when === "string" ? when : "",
+    refresh: true,
+    refreshLabel: refreshLabel || t("cmd.refresh"),
+    refreshKey: "cmd.refresh",
     transparency: Math.max(0, Math.min(100, Math.round(Number(transparency) || 0))),
     backgroundImage: typeof backgroundImage === "string" ? backgroundImage : "",
     backgroundOpacity: Math.max(0, Math.min(100, Math.round(Number(backgroundOpacity) || 0))),
@@ -263,6 +331,63 @@ export function buildForecastSpec({ range, markup, fitHeight, when = "", transpa
     fitHeight: body,
     buttons: [{ id: "close", action: "close", icon: "close", label: t("btn.close") }],
   };
+}
+
+/** Page settings on the left, the sheet on the right, and only previous and next below it. */
+function previewPanel(spec) {
+  const labels = spec.labels || {};
+  const rows = (spec.rows || []).map((row) => renderRow(row)).join("");
+  return `<div class="popup-panel preview-panel" data-panel="main" style="display:flex;flex-direction:row;gap:16px;overflow:hidden;height:100%;flex:1 1 auto"><div class="preview-setup">${rows}</div><div class="preview-side"><div class="preview-stage" data-preview-stage><div class="preview-paper" data-preview-paper><style>${PRINT_CSS}</style><div class="print-doc preview-sheet" data-preview-sheet></div></div></div><div class="preview-nav"><button type="button" class="popup-btn nav-btn" data-action="page-prev" data-gui="popup-button" title="${esc(labels.prev || "")}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap">${icon("arrowLeft")}<span class="menu-label">${esc(labels.prev || "")}</span></button><span class="preview-count" data-preview-count></span><button type="button" class="popup-btn nav-btn" data-action="page-next" data-gui="popup-button" title="${esc(labels.next || "")}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span class="menu-label">${esc(labels.next || "")}</span>${icon("arrowRight")}</button></div></div></div>`;
+}
+
+/**
+ * The sheet is as large as the stage allows while keeping the paper's proportions, so turning
+ * a page or changing what is printed never changes its size.
+ */
+function fitPaper(el, paper, size) {
+  const stage = el.querySelector("[data-preview-stage]");
+  if (!stage) return;
+  const box = stage.getBoundingClientRect();
+  const room = { width: box.width - 16, height: box.height - 16 };
+  if (!(room.width > 0) || !(room.height > 0)) return;
+  const ratio = size.width / size.height;
+  let width = room.height * ratio;
+  let height = room.height;
+  if (width > room.width) {
+    width = room.width;
+    height = room.width / ratio;
+  }
+  paper.style.width = `${Math.round(width)}px`;
+  paper.style.height = `${Math.round(height)}px`;
+}
+
+/** Shows one page and keeps the counter and the two buttons honest. */
+export function paintPreviewPage(el, spec, at) {
+  const sheet = el?.querySelector("[data-preview-sheet]");
+  if (!sheet) return;
+  const pages = Array.isArray(spec?.pages) ? spec.pages : [];
+  const count = Math.max(1, pages.length);
+  const page = Math.min(Math.max(0, Number(at) || 0), count - 1);
+  const setup = spec.pageSetup || {};
+  spec.pageAt = page;
+  sheet.innerHTML = pages[page] ? pageHtml(pages[page], setup, page, count) : "";
+  sheet.dataset.page = String(page + 1);
+  const paper = el.querySelector("[data-preview-paper]");
+  if (paper) {
+    // The sheet is the size of the paper, so what is on it is laid out, never resized by it.
+    const size = paperSize(setup);
+    paper.dataset.orientation = setup.orientation || "portrait";
+    paper.style.aspectRatio = `${size.width} / ${size.height}`;
+    paper.style.setProperty("--paper-margin", `${((Number(setup.margin) || 15) / size.width) * 100}%`);
+    paper.style.setProperty("--paper-scale", String((Number(setup.scale) || 100) / 100));
+    fitPaper(el, paper, size);
+  }
+  const counter = el.querySelector("[data-preview-count]");
+  if (counter) counter.textContent = `${page + 1} / ${count}`;
+  const prev = el.querySelector('[data-action="page-prev"]');
+  const next = el.querySelector('[data-action="page-next"]');
+  if (prev) prev.disabled = page === 0;
+  if (next) next.disabled = page >= count - 1;
 }
 
 export function paintWallpaper(layer, image, opacity) {
@@ -302,15 +427,21 @@ export function buildPopupElement(spec) {
             `<div class="popup-panel" data-panel="${esc(tab.id)}" ${tab.id === (spec.activeTab || tabs[0].id) ? "" : "hidden"} style="overflow:hidden;display:${tab.id === (spec.activeTab || tabs[0].id) ? "flex" : "none"};flex-direction:column">${tab.lines ? previewBlock(tab.lines) : ""}${tab.rows.map((row) => renderRow(row)).join("")}</div>`,
         )
         .join("")
-    : `<div class="popup-panel" data-panel="main" style="overflow:hidden;display:flex;flex-direction:column">${forecastBlock(spec)}${(spec.rows || []).map((row) => renderRow(row)).join("")}</div>`;
+    : spec.type === "print"
+      ? previewPanel(spec)
+      : `<div class="popup-panel" data-panel="main" style="overflow:hidden;display:flex;flex-direction:column">${forecastBlock(spec)}${(spec.rows || []).map((row) => renderRow(row)).join("")}</div>`;
   const tabBar = tabs.length
     ? `<div class="popup-tabs" data-gui="popup-tabs" style="display:flex;height:36px;overflow:hidden;flex:0 0 auto"><div class="popup-tabstrip" style="display:flex;overflow:hidden;flex:1;min-width:0"></div><button type="button" data-action="tab-prev" data-gui="tab-nav" title="&lt;">&lt;</button><button type="button" data-action="tab-next" data-gui="tab-nav" title="&gt;">&gt;</button></div>`
     : "";
   const closeLabel = spec.closeLabel || "Close";
-  const titleIcon = icon(spec.icon || "info", { colorful: spec.type === "about" || spec.type === "forecast" });
-  const when = spec.type === "forecast" ? `<span class="popup-when">${esc(spec.when || "")}</span>` : "";
+  const titleIcon = icon(spec.icon || "info", { colorful: ["about", "forecast", "search"].includes(spec.type) });
+  const place = spec.type === "forecast" ? `<span class="popup-city" data-gui="popup-city">${esc(spec.city || "")}</span>` : "";
+  const when = spec.type === "forecast" || spec.type === "search" ? `<span class="popup-when">${esc(spec.when || "")}</span>` : "";
+  const refresher = spec.refresh
+    ? `<button type="button" class="icon-btn popup-refresh" data-action="forecast-refresh" data-gui="popup-button" title="${esc(spec.refreshLabel || "")}" aria-label="${esc(spec.refreshLabel || "")}"${titleOnly(spec.refreshKey)}>${icon("refresh", { colorful: true })}</button>`
+    : "";
   const hasOk = (spec.buttons || []).some((button) => button.action === "ok");
-  el.innerHTML = `${spec.type === "forecast" ? `<div class="wallpaper" data-gui="wallpaper"></div>` : ""}<header class="popup-head" style="height:44px;display:flex;align-items:center;gap:8px;overflow:hidden;flex:0 0 auto;white-space:nowrap"><span class="popup-icon">${titleIcon}</span><span class="popup-title"${textKey(spec.titleKey)}>${esc(spec.title || "")}</span>${when}<button type="button" class="icon-btn win-btn win-close popup-x" data-action="${spec.type === "progress" ? "cancel" : "close"}" data-gui="popup-close" title="${esc(closeLabel)}" aria-label="${esc(closeLabel)}"${titleOnly(spec.closeKey)}>${icon("windowClose")}</button></header>${tabBar}<div class="popup-body" style="overflow:hidden;flex:1 1 auto;min-height:0">${panels}</div><footer class="popup-foot" style="height:48px;display:flex;align-items:center;justify-content:flex-end;gap:8px;overflow:hidden;flex:0 0 auto">${(spec.buttons || [])
+  el.innerHTML = `${spec.type === "forecast" ? `<div class="wallpaper" data-gui="wallpaper"></div>` : ""}<header class="popup-head" style="height:44px;display:flex;align-items:center;gap:8px;overflow:hidden;flex:0 0 auto;white-space:nowrap"><span class="popup-icon">${titleIcon}</span><span class="popup-title"${textKey(spec.titleKey)}>${esc(spec.title || "")}</span>${place}${when}${refresher}<button type="button" class="icon-btn win-btn win-close popup-x" data-action="${spec.type === "progress" ? "cancel" : "close"}" data-gui="popup-close" title="${esc(closeLabel)}" aria-label="${esc(closeLabel)}"${titleOnly(spec.closeKey)}>${icon("windowClose")}</button></header>${tabBar}<div class="popup-body" style="overflow:hidden;flex:1 1 auto;min-height:0">${panels}</div><footer class="popup-foot" style="height:48px;display:flex;align-items:center;justify-content:flex-end;gap:8px;overflow:hidden;flex:0 0 auto">${(spec.buttons || [])
     .map(
       (button, index) =>
         `<button type="button" class="popup-btn${button.action === "ok" || (!hasOk && index === 0) ? " primary" : ""}" data-action="${esc(button.action)}" data-gui="popup-button" title="${esc(button.title || button.label)}"${titleOnly(button.titleKey || button.i18n)} style="white-space:nowrap;display:inline-flex;align-items:center;gap:6px;${button.align === "start" ? "margin-right:auto;" : ""}">${icon(button.icon || "dot")}<span class="menu-label"${textKey(button.i18n)}>${esc(button.label)}</span></button>`,
@@ -428,6 +559,13 @@ export function wirePopup(el, spec, handlers = {}) {
     el.querySelectorAll(".popup-tab").forEach((button) => button.classList.toggle("is-active", button.dataset.tab === id));
   };
   renderTabs();
+  renderCityList(el, spec);
+  renderFoundList(el, spec);
+  if (spec.type === "print") {
+    el._html = spec.html || "";
+    el.dataset.printHtml = spec.html || "";
+    paintPreviewPage(el, spec, 0);
+  }
   const previewTheme = () => {
     const draft = themeDraft(el);
     handlers.localTheme?.(draft);
@@ -478,11 +616,147 @@ export function wirePopup(el, spec, handlers = {}) {
     event.preventDefault();
     void handlers.immediate?.({ type: "open-daily", date: day.dataset.date, range: spec.range, popupId: spec.popupId });
   });
+  let dragFrom = -1;
+  const cityField = () => el.querySelector('[data-field="cities"]');
+  const cityListEl = () => el.querySelector('[data-row="cityList"] .city-list');
+
+  /** Rows keep their own element through a move, so the shuffle can be animated. */
+  const renumberCityRows = () => {
+    const list = cityListEl();
+    if (!list) return;
+    [...list.children].forEach((row, index) => {
+      row.dataset.cityEntry = String(index);
+      const remove = row.querySelector('[data-action="city-remove"]');
+      if (remove) remove.dataset.index = String(index);
+      const grip = row.querySelector("[data-city-grip]");
+      if (grip) grip.dataset.cityGrip = String(index);
+    });
+  };
+
+  /**
+   * First/Last/Invert/Play: the rows that give way are moved in the DOM, then slid from where
+   * they used to be back to where they now are, so the list settles instead of jumping.
+   */
+  const glideCityRows = (change) => {
+    const list = cityListEl();
+    if (!list) {
+      change();
+      return;
+    }
+    const rows = [...list.children];
+    const before = new Map(rows.map((row) => [row, row.getBoundingClientRect().top]));
+    change();
+    for (const row of [...list.children]) {
+      const start = before.get(row);
+      if (start == null) continue;
+      const delta = start - row.getBoundingClientRect().top;
+      if (!delta) continue;
+      row.style.transition = "none";
+      row.style.transform = `translateY(${delta}px)`;
+      requestAnimationFrame(() => {
+        row.style.transition = "transform 140ms ease";
+        row.style.transform = "";
+      });
+    }
+  };
+
+  const markCityDrag = () => {
+    const list = cityListEl();
+    const block = el.querySelector('[data-row="cityList"]');
+    if (!list || !block) return;
+    list.querySelectorAll("[data-dragged]").forEach((row) => row.removeAttribute("data-dragged"));
+    if (dragFrom < 0) {
+      block.removeAttribute("data-dragging");
+      return;
+    }
+    block.setAttribute("data-dragging", "1");
+    list.children[dragFrom]?.setAttribute("data-dragged", "1");
+  };
+
+  const endCityDrag = () => {
+    if (dragFrom < 0) return;
+    dragFrom = -1;
+    markCityDrag();
+  };
+
+  el.addEventListener("pointerdown", (event) => {
+    const grip = event.target.closest("[data-city-grip]");
+    if (!grip) return;
+    event.preventDefault();
+    try {
+      // Capture keeps the moves coming if the pointer outruns the row; losing it is not fatal.
+      if (event.pointerId != null) grip.setPointerCapture?.(event.pointerId);
+    } catch {
+      /* the pointer is already gone */
+    }
+    dragFrom = Number(grip.dataset.cityGrip);
+    markCityDrag();
+  });
+
+  el.addEventListener("pointermove", (event) => {
+    if (dragFrom < 0) return;
+    const list = cityListEl();
+    const field = cityField();
+    if (!list || !field) return;
+    const target = cityDropIndex(list, event);
+    if (!Number.isFinite(target) || target === dragFrom) return;
+    const moving = list.children[dragFrom];
+    if (!moving) return;
+    glideCityRows(() => {
+      const anchor = list.children[target > dragFrom ? target + 1 : target];
+      list.insertBefore(moving, anchor || null);
+    });
+    field.value = JSON.stringify(moveCity(parseCityList(field.value), dragFrom, target));
+    dragFrom = target;
+    renumberCityRows();
+    markCityDrag();
+  });
+
+  for (const name of ["pointerup", "pointercancel"]) el.addEventListener(name, endCityDrag);
   let suppressClick = false;
   const onPopupPointer = (event) => {
     const forecastDay = spec.type === "forecast" ? event.target.closest("[data-date]") : null;
     if (forecastDay && !event.target.closest("[data-action]")) {
       void handlers.immediate?.({ type: "select-date", date: forecastDay.dataset.date, range: spec.range, popupId: spec.popupId });
+      return;
+    }
+    const turn = event.target.closest('[data-action="page-prev"], [data-action="page-next"]');
+    if (turn && !turn.disabled) {
+      paintPreviewPage(el, spec, (Number(spec.pageAt) || 0) + (turn.dataset.action === "page-next" ? 1 : -1));
+      return;
+    }
+    const pageStep = event.target.closest(".pager-btn");
+    if (pageStep && !pageStep.disabled) {
+      const block = el.querySelector(".list-block[data-page-count]");
+      const at = Number(block?.dataset.pageAt) || 1;
+      const pages = Number(block?.dataset.pageCount) || 1;
+      const want = pageStep.dataset.page;
+      const steps = { "back-span": at - PAGE_SPAN, prev: at - 1, next: at + 1, "next-span": at + PAGE_SPAN };
+      const next = want in steps ? steps[want] : Number(want) || at;
+      block.dataset.pageAt = String(Math.min(Math.max(1, next), pages));
+      renderFoundList(el, spec);
+      return;
+    }
+    const useCity = event.target.closest("[data-action='city-use']");
+    if (useCity) {
+      const place = (spec.results || [])[Number(useCity.dataset.index)];
+      if (place) void handlers.immediate?.({ type: "city-pick", place, target: spec.target || "", popupId: spec.popupId });
+      return;
+    }
+    const dropCity = event.target.closest("[data-action='city-remove']");
+    if (dropCity) {
+      const field = el.querySelector('[data-field="cities"]');
+      const cities = parseCityList(field?.value);
+      const index = Number(dropCity.dataset.index);
+      if (cities.length <= 1) {
+        void handlers.immediate?.({ type: "city-notice", notice: "last", popupId: spec.popupId });
+        return;
+      }
+      if (index >= 0 && index < cities.length) {
+        cities.splice(index, 1);
+        field.value = JSON.stringify(cities);
+        renderCityList(el, spec);
+      }
       return;
     }
     const recent = event.target.closest("[data-action='recent-delete']");
@@ -556,8 +830,20 @@ export function wirePopup(el, spec, handlers = {}) {
       previewSettings();
       return;
     }
-    if (action === "search-online") {
-      void handlers.immediate?.({ type: "search-online", query: el.querySelector('[data-field="search"]')?.value || "", popupId: spec.popupId });
+    if (action === "forecast-refresh") {
+      void handlers.immediate?.({ type: "forecast-refresh", range: spec.range, popupId: spec.popupId });
+      return;
+    }
+    if (action === "open-search") {
+      void handlers.immediate?.({
+        type: "open-search",
+        cities: el.querySelector('[data-field="cities"]')?.value || "[]",
+        popupId: spec.popupId,
+      });
+      return;
+    }
+    if (action === "city-search") {
+      void handlers.immediate?.({ type: "city-search", query: el.querySelector('[data-field="query"]')?.value || "", popupId: spec.popupId });
       return;
     }
     if (action === "pick-wallpaper" || action === "clear-wallpaper") {
@@ -576,16 +862,13 @@ export function wirePopup(el, spec, handlers = {}) {
           scope: el.querySelector('input[name="scope"]:checked')?.value || "current",
           from: el.querySelector('[data-field="from"]')?.value || "",
           to: el.querySelector('[data-field="to"]')?.value || "",
+          ranges: ["daily", "weekly", "monthly"].filter((range) => el.querySelector(`[data-field="range-${range}"]`)?.checked),
         },
       });
       return;
     }
     if (action === "print") {
-      finish({
-        action: "print",
-        html: el.dataset.printHtml || el._html || "",
-        pageSetup: setupValues(el),
-      });
+      finish({ action: "print", html: el.dataset.printHtml || el._html || "", pageSetup: setupValues(el) });
       return;
     }
     if (action === "ok") {
@@ -624,8 +907,15 @@ export function wirePopup(el, spec, handlers = {}) {
   };
   el.addEventListener("change", (event) => {
     const field = event.target.dataset?.field;
-    if (field === "countryCode") refillCities(el, spec);
+    if (field === "countryCode") {
+      refillCities(el, spec);
+      void handlers.immediate?.({ type: "country-pick", countryCode: event.target.value, popupId: spec.popupId });
+    }
     if (field === "customMode") customEdited(field);
+    if (spec.type === "print") {
+      void handlers.immediate?.({ type: "print-setup", popupId: spec.popupId, values: printValues(el) });
+      return;
+    }
     if (event.target.dataset?.setup) {
       void handlers.immediate?.({ type: "page-setup", popupId: spec.popupId, values: setupValues(el) });
     }
@@ -643,12 +933,19 @@ export function wirePopup(el, spec, handlers = {}) {
     previewSettings();
   });
   el.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target?.dataset?.field === "query") {
+      event.preventDefault();
+      event.stopPropagation();
+      void handlers.immediate?.({ type: "city-search", query: event.target.value || "", popupId: spec.popupId });
+      return;
+    }
     if (event.key === "Escape") {
       event.stopPropagation();
       finish({ action: "close" });
     }
   });
   el._update = (patch) => applyPatch(el, patch, spec);
+  el._spec = spec;
   return el;
 }
 
@@ -675,7 +972,6 @@ export function bootPopup(spec, api, container = document.body) {
   document.body.style.margin = "0";
   document.body.style.overflow = "hidden";
   document.body.style.fontFamily = spec.fontFamily ? `"${spec.fontFamily}", sans-serif` : "sans-serif";
-  document.body.style.fontSize = `${spec.fontSize || 14}px`;
   const el = buildPopupElement(spec);
   el.style.position = "relative";
   el.style.left = "0";
@@ -692,7 +988,7 @@ export function bootPopup(spec, api, container = document.body) {
   return el;
 }
 
-const COMPANION_POPUPS = new Set(["forecast", "settings", "about"]);
+const COMPANION_POPUPS = new Set(["forecast", "settings", "about", "search"]);
 
 export function placeCompanionPopup(el, view = window) {
   if (!COMPANION_POPUPS.has(el.dataset.popup) || Number(el.dataset.scale) < 1) return;
@@ -897,6 +1193,14 @@ function generalRows(model) {
     },
     {
       kind: "select",
+      id: "rotateSeconds",
+      i18n: "field.rotateSeconds",
+      label: t("field.rotateSeconds"),
+      value: String(values.rotateSeconds ?? 0),
+      options: ROTATE_SECONDS.map((seconds) => ({ value: String(seconds), i18n: `rotate.s${seconds}`, label: t(`rotate.s${seconds}`) })),
+    },
+    {
+      kind: "select",
       id: "displayPriority",
       i18n: "field.displayPriority",
       label: t("field.displayPriority"),
@@ -907,6 +1211,17 @@ function generalRows(model) {
         label: id === "average" ? t("priority.average") : t(`source.${id}`),
       })),
     },
+    { kind: "check", id: "openAtLogin", i18n: "field.openAtLogin", label: t("field.openAtLogin"), checked: Boolean(values.openAtLogin) },
+  ];
+}
+
+/** The shown city, the list the window rotates through, and how long each city stays up. */
+function cityRows(model) {
+  const t = model.t;
+  const values = model.values;
+  const language = model.language || "ko";
+  const cities = Array.isArray(values.cities) ? values.cities : [];
+  return [
     {
       kind: "select",
       id: "countryCode",
@@ -931,12 +1246,19 @@ function generalRows(model) {
           label: language === "ko" ? entry.cityKo || entry.cityEn : entry.cityEn,
         })),
     },
-    { kind: "text", id: "search", i18n: "field.search", label: t("field.search"), value: values.search || "" },
-    { kind: "action", id: "search-online", action: "search-online", icon: "search", i18n: "tip.search", label: t("tip.search") },
     { kind: "number", id: "lat", i18n: "field.lat", label: t("field.lat"), value: values.lat ?? "" },
     { kind: "number", id: "lon", i18n: "field.lon", label: t("field.lon"), value: values.lon ?? "" },
-    { kind: "check", id: "reopen", i18n: "field.reopen", label: t("field.reopen"), checked: Boolean(values.reopen) },
-    { kind: "check", id: "openAtLogin", i18n: "field.openAtLogin", label: t("field.openAtLogin"), checked: Boolean(values.openAtLogin) },
+    { kind: "action", id: "add-city", action: "open-search", icon: "add", i18n: "btn.addCity", label: t("btn.addCity"), title: t("tip.addCity"), titleKey: "tip.addCity" },
+    { kind: "hidden", id: "cities", value: JSON.stringify(cities) },
+    {
+      kind: "cities",
+      id: "cityList",
+      i18n: "field.cities",
+      label: t("field.cities"),
+      cities,
+      language,
+      removeTip: t("tip.removeCity"),
+    },
   ];
 }
 
@@ -1001,8 +1323,14 @@ function wallpaperRows(model) {
     { kind: "hidden", id: "backgroundImage", value: "" },
     { kind: "hidden", id: "backgroundName", value: values.backgroundName || "" },
     { kind: "picture", id: "wallpaper", image: values.backgroundImage || "", name: values.backgroundName || "" },
-    { kind: "action", id: "pick-wallpaper", action: "pick-wallpaper", icon: "image", i18n: "btn.chooseImage", label: t("btn.chooseImage") },
-    { kind: "action", id: "clear-wallpaper", action: "clear-wallpaper", icon: "trash", i18n: "btn.clearImage", label: t("btn.clearImage") },
+    {
+      kind: "actions",
+      id: "wallpaperButtons",
+      buttons: [
+        { action: "pick-wallpaper", icon: "image", i18n: "btn.chooseImage", label: t("btn.chooseImage") },
+        { action: "clear-wallpaper", icon: "trash", i18n: "btn.clearImage", label: t("btn.clearImage") },
+      ],
+    },
     {
       kind: "range",
       id: "backgroundOpacity",
@@ -1031,28 +1359,7 @@ function fontRows(model) {
       value: values.fontFamily,
       options: fonts.map((name) => ({ value: name, label: name })),
     },
-    {
-      kind: "number",
-      id: "fontSize",
-      i18n: "field.fontSize",
-      label: t("field.fontSize"),
-      value: values.fontSize,
-      min: 8,
-      max: 72,
-      step: 1,
-      decrease: t("tip.decrease"),
-      increase: t("tip.increase"),
-      decreaseKey: "tip.decrease",
-      increaseKey: "tip.increase",
-    },
-    {
-      kind: "select",
-      id: "fontStyle",
-      i18n: "field.fontStyle",
-      label: t("field.fontStyle"),
-      value: values.fontStyle,
-      options: FONT_STYLES.map((style) => ({ value: style, i18n: `style.${style}`, label: t(`style.${style}`) })),
-    },
+    { kind: "fontsample", id: "fontSample", i18n: "field.fontSample", label: t("field.fontSample"), text: t("field.fontSampleText") },
   ];
 }
 
@@ -1080,7 +1387,6 @@ function dataRows(model) {
         stateTitle: source?.error || state,
       };
     }),
-    { kind: "static", id: "lastDirectory", i18n: "field.lastDirectory", label: t("field.lastDirectory"), value: model.values.lastDirectory || "—" },
   ];
 }
 
@@ -1117,23 +1423,25 @@ function resetSettingsForm(el, spec) {
   assign("dateFormat", defaults.dateFormat);
   assign("units", defaults.units);
   assign("updateHours", defaults.updateHours);
+  assign("rotateSeconds", defaults.rotateSeconds);
   assign("displayPriority", defaults.displayPriority);
+  const cityField = el.querySelector('[data-field="cities"]');
+  if (cityField) {
+    cityField.value = JSON.stringify(defaults.cities);
+    renderCityList(el, spec);
+  }
   assign("countryCode", place.countryCode);
   if (spec) refillCities(el, spec);
   assign("cityEn", place.cityEn);
   assign("lat", place.lat);
   assign("lon", place.lon);
   assign("search", "");
-  const reopen = el.querySelector('[data-field="reopen"]');
-  if (reopen) reopen.checked = defaults.reopenLast;
   const openAtLogin = el.querySelector('[data-field="openAtLogin"]');
   if (openAtLogin) openAtLogin.checked = defaults.openAtLogin;
   el.querySelectorAll('[data-group="source"]').forEach((box) => {
     box.checked = defaults.enabledSources.includes(box.dataset.source);
   });
   assign("fontFamily", defaults.fontFamily);
-  assign("fontSize", defaults.fontSize);
-  assign("fontStyle", defaults.fontStyle);
   assign("customMode", custom.mode);
   assign("customBg", custom.bg);
   assign("customText", custom.text);
@@ -1236,7 +1544,18 @@ function renderRow(row) {
       .join("");
     return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label${textKey(row.i18n)}>${esc(row.label)}</label><div class="segmented" role="group">${buttons}</div></div>`;
   }
+  if (row.kind === "pager") {
+    return `<div class="popup-row pager-row" data-row="${esc(row.id)}" style="${ROW};padding:0;justify-content:center"><div class="pager" data-pager></div></div>`;
+  }
   if (row.kind === "themes") return themeBlock(row);
+  if (row.kind === "cities") return cityBlock(row);
+  if (row.kind === "found") return foundBlock(row);
+  if (row.kind === "search") {
+    // A row with no label column also drops the inset, so it lines up with the list below it.
+    const label = row.wide ? "" : `<label${textKey(row.i18n)}>${esc(row.label)}</label>`;
+    const box = row.wide ? ` style="${ROW};padding:0;margin-bottom:${SEARCH_BOX_GAP}px"` : style;
+    return `<div class="popup-row" data-row="${esc(row.id)}"${box}>${label}<div class="search-control"><input type="text" data-field="${esc(row.id)}" title="${esc(row.label)}"${titleOnly(row.i18n)} value="${esc(row.value || "")}" placeholder="${esc(row.placeholder || "")}"><button type="button" data-action="${esc(row.action)}" data-gui="popup-button" title="${esc(row.buttonLabel)}"${titleOnly(row.buttonKey)}>${icon("search")}<span${textOnly(row.buttonKey)}>${esc(row.buttonLabel)}</span></button></div></div>`;
+  }
   if (row.kind === "number" && row.decrease) {
     const amount = Number(row.step) || 1;
     const decrease = row.decrease || "−";
@@ -1252,6 +1571,18 @@ function renderRow(row) {
   }
   if (row.kind === "input") {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="text" readonly data-field="${esc(row.id)}" title="${esc(row.label)}"></label>`;
+  }
+  if (row.kind === "fontsample") {
+    return `<div class="popup-row font-sample-row" data-row="${esc(row.id)}"${style}><span${textKey(row.i18n)}>${esc(row.label)}</span><div class="font-sample" data-font-sample>${esc(row.text)}</div></div>`;
+  }
+  if (row.kind === "actions") {
+    const buttons = (row.buttons || [])
+      .map(
+        (button) =>
+          `<button type="button" data-action="${esc(button.action)}" data-gui="popup-button" title="${esc(button.label)}"${titleOnly(button.i18n)} style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap">${icon(button.icon || "dot")}<span class="menu-label"${textOnly(button.i18n)}>${esc(button.label)}</span></button>`,
+      )
+      .join("");
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><span></span><div class="row-actions">${buttons}</div></div>`;
   }
   if (row.kind === "action") {
     return `<div class="popup-row" data-row="${esc(row.id)}"${style}><span></span><button type="button" data-action="${esc(row.action)}" data-gui="popup-button" title="${esc(row.label)}"${titleOnly(row.i18n)} style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap">${icon(row.icon || "dot")}<span class="menu-label"${textOnly(row.i18n)}>${esc(row.label)}</span></button></div>`;
@@ -1315,6 +1646,21 @@ function setupValues(el) {
     paper: el.querySelector('[data-field="paper"]')?.value || "A4",
     orientation: el.querySelector('[data-field="orientation"]')?.value || "portrait",
     margin: Number(el.querySelector('[data-field="margin"]')?.value || 15),
+    scale: Number(el.querySelector('[data-field="scale"]')?.value || 100),
+    header: el.querySelector('[data-field="header"]')?.value !== "off",
+    pageNumber: el.querySelector('[data-field="pageNumber"]')?.value !== "off",
+    pageNumberAt: el.querySelector('[data-field="pageNumberAt"]')?.value || "right",
+  };
+}
+
+/** Everything the print window decides: what goes on the paper and how the paper is set up. */
+function printValues(el) {
+  return {
+    ...setupValues(el),
+    scope: el.querySelector('input[name="scope"]:checked')?.value || "current",
+    from: el.querySelector('[data-field="from"]')?.value || "",
+    to: el.querySelector('[data-field="to"]')?.value || "",
+    ranges: ["daily", "weekly", "monthly"].filter((range) => el.querySelector(`[data-field="range-${range}"]`)?.checked),
   };
 }
 
@@ -1393,17 +1739,20 @@ export function applyPopupLanguage(root, spec) {
     refillCountries(root, spec);
     refillCities(root, spec);
   }
+  renderCityList(root, spec);
+  renderFoundList(root, spec);
 }
 
+/**
+ * The chosen font is shown on a sample line rather than applied to the whole dialog, which
+ * would reshape its own labels and buttons.
+ */
 export function applyPopupFont(el, values = {}) {
   if (!el) return;
-  const size = clamp(values.fontSize, 8, 72);
-  const style = FONT_STYLES.includes(values.fontStyle) ? values.fontStyle : "normal";
+  const sample = el?.querySelector("[data-font-sample]");
+  if (!sample) return;
   const family = values.fontFamily || "";
-  el.style.fontFamily = family ? `"${family}", sans-serif` : "";
-  el.style.fontSize = `${size}px`;
-  el.style.fontWeight = style === "bold" || style === "bolditalic" ? "700" : "400";
-  el.style.fontStyle = style === "italic" || style === "bolditalic" ? "italic" : "normal";
+  sample.style.fontFamily = family ? `"${family}", sans-serif` : "";
 }
 
 function applyPatch(el, patch, spec) {
@@ -1455,6 +1804,31 @@ function applyPatch(el, patch, spec) {
     if (fit) fit.innerHTML = patch.markup;
     if (spec) spec.markup = patch.markup;
   }
+  if (patch.query != null) {
+    const box = el.querySelector('[data-field="query"]');
+    if (box) box.value = String(patch.query);
+    if (spec) spec.query = String(patch.query);
+  }
+  if (patch.results != null) {
+    if (spec) spec.results = Array.isArray(patch.results) ? patch.results : [];
+    const block = el.querySelector('[data-row="cityFound"]');
+    if (block) block.dataset.pageAt = "1";
+    renderFoundList(el, spec);
+  }
+  if (patch.cities != null) {
+    const field = el.querySelector('[data-field="cities"]');
+    if (field) {
+      field.value = JSON.stringify(parseCityList(patch.cities));
+      renderCityList(el, spec);
+      const list = el.querySelector('[data-row="cityList"] .city-list');
+      if (list) list.scrollTop = list.scrollHeight;
+    }
+  }
+  if (patch.city != null) {
+    const label = el.querySelector(".popup-city");
+    if (label) label.textContent = patch.city || "";
+    if (spec) spec.city = patch.city;
+  }
   if (patch.when != null) {
     const label = el.querySelector(".popup-when");
     if (label) label.textContent = patch.when || "";
@@ -1464,15 +1838,209 @@ function applyPatch(el, patch, spec) {
     el._html = patch.html;
     el.dataset.printHtml = patch.html;
   }
+  if (spec?.type === "print" && patch.html) spec.html = patch.html;
   if (patch.pages) {
-    patch.pages.forEach((page, index) => {
-      const panel = el.querySelector(`[data-panel="page-${index}"] .preview-fit`);
-      if (!panel) return;
-      panel.innerHTML = page
-        .map((line) => `<div style="white-space:nowrap;overflow:hidden;height:22px">${esc(line.text)}</div>`)
-        .join("");
-    });
+    if (spec) {
+      spec.pages = patch.pages;
+      if (patch.pageSetup) spec.pageSetup = patch.pageSetup;
+    }
+    paintPreviewPage(el, spec, spec?.pageAt || 0);
   }
+}
+
+export const CITY_LIST_HEIGHT = 190;
+export const SEARCH_LIST_HEIGHT = 144;
+/** Space under the search box, so it reads apart from the results it brings back. */
+export const SEARCH_BOX_GAP = 12;
+export const CITY_PAGE_SIZE = 8;
+
+/** A label on the left and a paged list on the right, so the block lines up with the plain rows. */
+function listBlock(row, { listClass, gui }) {
+  const height = Number(row.height) || CITY_LIST_HEIGHT;
+  return `<div class="list-block" data-row="${esc(row.id)}" data-fit-height="${height}" style="display:flex;gap:8px;height:${height}px;overflow:hidden;flex:0 0 auto"><span class="list-block-label"${textOnly(row.i18n)}>${esc(row.label)}</span><div class="list-block-body"><div class="${listClass}" data-gui="${gui}"></div></div></div>`;
+}
+
+function cityBlock(row) {
+  const height = Number(row.height) || CITY_LIST_HEIGHT;
+  return `<div class="list-block" data-row="${esc(row.id)}" data-fit-height="${height}" style="display:flex;gap:8px;height:${height}px;overflow:hidden;flex:0 0 auto"><span class="list-block-label"${textOnly(row.i18n)}>${esc(row.label)}</span><div class="list-block-body"><div class="city-list" data-gui="city-list"></div></div></div>`;
+}
+
+function foundBlock(row) {
+  return listBlock(row, { listClass: "city-grid", gui: "city-found" });
+}
+
+export function cityName(place, language) {
+  const ko = language !== "en";
+  if (!place) return "";
+  return ko ? place.cityKo || place.cityEn || "" : place.cityEn || place.cityKo || "";
+}
+
+export function countryName(place, language) {
+  const ko = language !== "en";
+  if (!place) return "";
+  return ko ? place.countryKo || place.countryEn || "" : place.countryEn || place.countryKo || "";
+}
+
+/** How many page numbers are offered at once, and how far the outer arrows jump. */
+export const PAGE_SPAN = 10;
+
+/** Pages are 1-based for the reader and clamped so an emptied list never shows a blank page. */
+export function pageWindow(count, page, size = CITY_PAGE_SIZE) {
+  const pages = Math.max(1, Math.ceil(Math.max(0, count) / size));
+  const at = Math.min(Math.max(1, Math.round(Number(page) || 1)), pages);
+  const first = Math.max(1, Math.min(at - Math.floor(PAGE_SPAN / 2), pages - PAGE_SPAN + 1));
+  const numbers = [];
+  for (let n = first; n <= Math.min(pages, first + PAGE_SPAN - 1); n += 1) numbers.push(n);
+  return { page: at, pages, start: (at - 1) * size, end: Math.min(count, at * size), numbers };
+}
+
+function pagerHtml(window_, labels) {
+  if (window_.pages <= 1) return "";
+  const step = (action, text, tip, off) =>
+    `<button type="button" class="pager-btn" data-page="${action}" data-gui="popup-button" title="${esc(tip)}" aria-label="${esc(tip)}"${off ? " disabled" : ""}>${esc(text)}</button>`;
+  const numbers = window_.numbers
+    .map(
+      (n) =>
+        `<button type="button" class="pager-btn pager-num${n === window_.page ? " is-active" : ""}" data-page="${n}" data-gui="popup-button" title="${n}" aria-label="${n}">${n}</button>`,
+    )
+    .join("");
+  return `${step("back-span", "\u00ab", labels.backSpan, window_.page === 1)}${step("prev", "\u2039", labels.prev, window_.page === 1)}${numbers}${step("next", "\u203a", labels.next, window_.page === window_.pages)}${step("next-span", "\u00bb", labels.nextSpan, window_.page === window_.pages)}`;
+}
+
+function cityEntries(cities, language, tip, action) {
+  return (cities || [])
+    .map((place, index) => {
+      const name = cityName(place, language);
+      const full = `${name} · ${countryName(place, language)}`;
+      return `<div class="city-entry" data-city-entry="${index}"><span class="city-name" title="${esc(full)}">${esc(name)}</span><span class="city-country" title="${esc(countryName(place, language))}">${esc(countryName(place, language))}</span><button type="button" class="icon-btn" data-action="${esc(action)}" data-index="${index}" data-gui="popup-button" title="${esc(tip)}" aria-label="${esc(tip)}">${icon("add", { colorful: true })}</button></div>`;
+    })
+    .join("");
+}
+
+/** One city per line, with the country beside it and the handle that moves it. */
+function cityLines(cities, language, removeTip, dragTip) {
+  return (cities || [])
+    .map((place, index) => {
+      const name = cityName(place, language);
+      const country = countryName(place, language);
+      return `<div class="city-row" data-city-entry="${index}"><span class="city-name" title="${esc(name)}">${esc(name)}</span><span class="city-country" title="${esc(country)}">${esc(country)}</span><button type="button" class="icon-btn" data-action="city-remove" data-index="${index}" data-gui="popup-button" title="${esc(removeTip)}" aria-label="${esc(removeTip)}">${icon("trash", { colorful: true })}</button><button type="button" class="icon-btn city-grip" data-city-grip="${index}" data-gui="popup-button" title="${esc(dragTip)}" aria-label="${esc(dragTip)}">${icon("grip")}</button></div>`;
+    })
+    .join("");
+}
+
+/**
+ * Which row the pointer is over. The cursor position decides it when the list has laid out,
+ * and the row under the pointer otherwise, which is what a test sees.
+ */
+function cityDropIndex(list, event) {
+  const rows = [...list.children];
+  const box = list.getBoundingClientRect();
+  if (box.height > 0 && Number.isFinite(event.clientY)) {
+    for (let index = 0; index < rows.length; index += 1) {
+      const rect = rows[index].getBoundingClientRect();
+      if (event.clientY < rect.top + rect.height / 2) return index;
+    }
+    return rows.length - 1;
+  }
+  const over = event.target?.closest?.("[data-city-entry]");
+  return over && list.contains(over) ? rows.indexOf(over) : Number.NaN;
+}
+
+/** Moving an entry pushes the ones it passes along, instead of swapping two of them. */
+export function moveCity(list, from, to) {
+  const next = [...(list || [])];
+  if (from < 0 || from >= next.length) return next;
+  const at = Math.min(Math.max(0, to), next.length - 1);
+  if (at === from) return next;
+  const [moved] = next.splice(from, 1);
+  next.splice(at, 0, moved);
+  return next;
+}
+
+export function parseCityList(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    const list = JSON.parse(String(value || "[]"));
+    return Array.isArray(list) ? list.filter((entry) => entry && typeof entry === "object") : [];
+  } catch {
+    return [];
+  }
+}
+
+function pagerLabels(i18n) {
+  return {
+    backSpan: formatMessage(i18n.t("page.backSpan"), { n: PAGE_SPAN }),
+    prev: i18n.t("page.prev"),
+    next: i18n.t("page.next"),
+    nextSpan: formatMessage(i18n.t("page.nextSpan"), { n: PAGE_SPAN }),
+  };
+}
+
+function paintList(block, pager, places, language, tip, action) {
+  if (!block) return;
+  const grid = block.querySelector(".city-grid");
+  if (!grid) return;
+  const i18n = createI18n(language);
+  const window_ = pageWindow(places.length, Number(block.dataset.pageAt) || 1);
+  block.dataset.pageAt = String(window_.page);
+  block.dataset.pageCount = String(window_.pages);
+  const shown = places.slice(window_.start, window_.end);
+  const offset = (attribute) => (html) => html.replace(new RegExp(`${attribute}="(\\d+)"`, "g"), (_, at) => `${attribute}="${window_.start + Number(at)}"`);
+  grid.innerHTML = offset("data-city-entry")(offset("data-index")(cityEntries(shown, language, tip, action)));
+  if (pager) pager.innerHTML = pagerHtml(window_, pagerLabels(i18n));
+}
+
+function renderCityList(el, spec) {
+  const block = el?.querySelector('[data-row="cityList"]');
+  const field = el?.querySelector('[data-field="cities"]');
+  const list = block?.querySelector(".city-list");
+  if (!block || !field || !list) return;
+  const language = spec?.language === "en" ? "en" : "ko";
+  const i18n = createI18n(language);
+  list.innerHTML = cityLines(parseCityList(field.value), language, i18n.t("tip.removeCity"), i18n.t("tip.reorderCity"));
+}
+
+function renderFoundList(el, spec) {
+  const block = el?.querySelector('[data-row="cityFound"]');
+  if (!block) return;
+  const language = spec?.language === "en" ? "en" : "ko";
+  const found = Array.isArray(spec?.results) ? spec.results : [];
+  paintList(block, el.querySelector("[data-pager]"), found, language, createI18n(language).t("tip.addCity"), "city-use");
+  const empty = block.querySelector(".city-grid");
+  if (empty && !found.length) empty.innerHTML = `<span class="city-empty">${esc(createI18n(language).t("field.foundHint"))}</span>`;
+}
+
+function addCity(el, spec, handlers, place) {
+  if (!place) return;
+  const field = el.querySelector('[data-field="cities"]');
+  const cities = parseCityList(field?.value);
+  if (cities.some((entry) => samePlace(entry, place))) {
+    void handlers.immediate?.({ type: "city-notice", notice: "exists", popupId: spec.popupId });
+    return;
+  }
+  if (cities.length >= MAX_CITIES) {
+    void handlers.immediate?.({ type: "city-notice", notice: "full", popupId: spec.popupId });
+    return;
+  }
+  cities.push(place);
+  field.value = JSON.stringify(cities);
+  renderCityList(el, spec);
+  void handlers.immediate?.({ type: "city-notice", notice: "added", popupId: spec.popupId });
+}
+
+/** The country and city pickers describe one place; the catalog carries its names and coordinates. */
+function pickedPlace(el, spec) {
+  const countryCode = el.querySelector('[data-field="countryCode"]')?.value || "";
+  const cityEn = el.querySelector('[data-field="cityEn"]')?.value || "";
+  const found = (spec?.catalog || []).find((entry) => entry.countryCode === countryCode && entry.cityEn === cityEn);
+  if (!found) return null;
+  const lat = Number(el.querySelector('[data-field="lat"]')?.value);
+  const lon = Number(el.querySelector('[data-field="lon"]')?.value);
+  return {
+    ...found,
+    lat: Number.isFinite(lat) ? lat : found.lat,
+    lon: Number.isFinite(lon) ? lon : found.lon,
+  };
 }
 
 export function popupFits(el) {

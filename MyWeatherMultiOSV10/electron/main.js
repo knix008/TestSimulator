@@ -17,6 +17,12 @@ const iconPath = path.join(__dirname, "../assets/icon.png");
 const hub = new PopupHub();
 const contentsToPopup = new Map();
 const menuSpecs = new Map();
+/** Every weather window. The first one owns the saved placement and the tray commands. */
+const weatherWindows = new Set();
+/** Menu and popup windows route their result back to the weather window that opened them. */
+const windowOwners = new Map();
+const windowBoot = new Map();
+const resizeStarts = new Map();
 let mainWindow = null;
 let liveBounds = null;
 let tray = null;
@@ -24,9 +30,10 @@ let trayMenuWin = null;
 let trayMenuAnchor = null;
 let trayMenuClosedAt = 0;
 let trayCommand = "";
+let shownCityIndex = 0;
+let windowCascade = 0;
 let trayRevealUntil = 0;
 let quitting = false;
-let resizeStart = null;
 let applyingPlacement = false;
 let savedPlacementToken = 0;
 let recordPlacement = false;
@@ -70,6 +77,23 @@ async function showFatalError(title, error) {
 process.on("uncaughtException", (error) => void showFatalError("Unexpected error in the main process", error));
 process.on("unhandledRejection", (reason) => void showFatalError("Unhandled promise rejection in the main process", reason));
 
+function weatherWindowOf(sender) {
+  const direct = BrowserWindow.fromWebContents(sender);
+  if (direct && weatherWindows.has(direct)) return direct;
+  const owner = windowOwners.get(sender.id);
+  if (owner && !owner.isDestroyed()) return owner;
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+}
+
+function isPrimary(win) {
+  return Boolean(win) && win === mainWindow;
+}
+
+/** A stable key for the window a dialog belongs to; the hub stores it as a string. */
+function ownerKey(win) {
+  return win && !win.isDestroyed() ? `win-${win.id}` : "";
+}
+
 function sendWindowState(win) {
   if (win.isDestroyed()) return;
   win.webContents.send("window-state", { maximized: win.isMaximized(), minimized: win.isMinimized() });
@@ -110,6 +134,23 @@ function savedWindowPlacement() {
   return { ...placed, maximized: Boolean(recorded.maximized) && onScreen };
 }
 
+/** Extra windows step down and right from the saved spot instead of covering it. */
+function cascadedPlacement() {
+  const base = savedWindowPlacement();
+  windowCascade += 1;
+  const step = 32 * windowCascade;
+  const area = screen.getDisplayMatching({ x: base.x, y: base.y, width: base.width, height: base.height }).workArea;
+  const x = Math.min(base.x + step, area.x + area.width - base.width);
+  const y = Math.min(base.y + step, area.y + area.height - base.height);
+  return {
+    x: Math.max(area.x, Math.round(x)),
+    y: Math.max(area.y, Math.round(y)),
+    width: base.width,
+    height: base.height,
+    maximized: false,
+  };
+}
+
 function boundsOf(placement) {
   return {
     x: Math.round(placement.x),
@@ -140,9 +181,10 @@ function holdSavedBounds(win, placement) {
   setTimeout(apply, 150);
 }
 
-function createMainWindow() {
-  const placement = savedWindowPlacement();
-  liveBounds = {
+function createMainWindow(boot = {}) {
+  const first = weatherWindows.size === 0;
+  const placement = first ? savedWindowPlacement() : cascadedPlacement();
+  if (first) liveBounds = {
     x: placement.x,
     y: placement.y,
     width: placement.width,
@@ -173,12 +215,17 @@ function createMainWindow() {
       sandbox: false,
     },
   });
+  const winId = win.id;
+  weatherWindows.add(win);
+  if (first) mainWindow = win;
+  const contentsId = win.webContents.id;
+  windowBoot.set(contentsId, { cityIndex: Number(boot.cityIndex) || 0, primary: first });
   win.loadFile(path.join(__dirname, "../src/index.html"));
-  holdSavedBounds(win, placement);
+  if (first) holdSavedBounds(win, placement);
   const keepOffTaskbar = () => hideFromTaskbar(win);
   win.once("ready-to-show", () => {
-    holdSavedBounds(win, placement);
-    if (placement.maximized) win.maximize();
+    if (first) holdSavedBounds(win, placement);
+    if (first && placement.maximized) win.maximize();
     keepOffTaskbar();
     win.show();
     win.setIgnoreMouseEvents(false);
@@ -186,6 +233,7 @@ function createMainWindow() {
     refreshTrayIcon();
     sendWindowState(win);
     setTimeout(() => {
+      if (!first) return;
       recordPlacement = true;
       if (savedPlacementToken === 0) rememberCurrent();
     }, 200);
@@ -214,11 +262,22 @@ function createMainWindow() {
   win.webContents.on("preload-error", (_event, preloadPath, error) => void showFatalError(`Preload failed: ${preloadPath}`, error));
   win.on("close", (event) => {
     if (quitting) return;
+    if (!isPrimary(win)) {
+      hub.closeOwned(ownerKey(win));
+      return;
+    }
     event.preventDefault();
-    win.webContents.send("request-close");
+    hideMainWindow();
+  });
+  win.on("closed", () => {
+    weatherWindows.delete(win);
+    windowBoot.delete(contentsId);
+    resizeStarts.delete(winId);
+    for (const [id, owner] of [...windowOwners]) if (owner === win) windowOwners.delete(id);
+    if (mainWindow === win) mainWindow = weatherWindows.values().next().value || null;
   });
   const rememberCurrent = () => {
-    if (!recordPlacement || applyingPlacement || win.isDestroyed()) return;
+    if (!first || !recordPlacement || applyingPlacement || win.isDestroyed()) return;
     const maximized = win.isMaximized();
     const bounds = maximized ? win.getNormalBounds() : win.getBounds();
     noteBounds({
@@ -231,7 +290,9 @@ function createMainWindow() {
   };
   win.on("resized", rememberCurrent);
   win.on("moved", rememberCurrent);
-  win.on("maximize", () => noteBounds({ ...liveBounds, maximized: true }));
+  win.on("maximize", () => {
+    if (first) noteBounds({ ...liveBounds, maximized: true });
+  });
   win.on("unmaximize", rememberCurrent);
   return win;
 }
@@ -326,6 +387,23 @@ function saveWindowPlacement() {
   writeSettingsFile(settings);
 }
 
+/** The tray icon keeps the program alive, so the window is only put away. */
+function hideMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  saveWindowPlacement();
+  hub.closeAll();
+  mainWindow.hide();
+}
+
+function revealWeatherWindow(win) {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  hideFromTaskbar(win);
+  win.show();
+  win.focus();
+  hideFromTaskbar(win);
+}
+
 function revealMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
@@ -350,6 +428,10 @@ function finishTrayCommand() {
   const command = trayCommand;
   trayCommand = "";
   if (!command || !mainWindow || mainWindow.isDestroyed()) return;
+  if (command === "exit") {
+    mainWindow.webContents.send("menu-command", command);
+    return;
+  }
   revealMainWindowFromTray();
   setTimeout(() => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -382,9 +464,14 @@ function showTrayMenu() {
     return;
   }
   if (Date.now() - trayMenuClosedAt < 500) return;
-  const settings = readJson(settingsFile()) || {};
+  const stored = readJson(settingsFile()) || {};
+  const settings = sanitizeSettings(stored);
   const i18n = createI18n(settings.language);
-  const items = buildTrayMenu((key) => i18n.t(key));
+  const items = buildTrayMenu((key) => i18n.t(key), {
+    cities: settings.cities,
+    language: settings.language,
+    activeIndex: shownCityIndex,
+  });
   const colors = themeColors(settings.theme || DEFAULT_THEME_ID, settings.customTheme);
   const icon = tray.getBounds();
   const area = screen.getDisplayMatching(icon).workArea;
@@ -416,7 +503,8 @@ function showTrayMenu() {
   });
   trayMenuWin = win;
   trayMenuAnchor = null;
-  menuSpecs.set(win.webContents.id, {
+  const trayContentsId = win.webContents.id;
+  menuSpecs.set(trayContentsId, {
     kind: "tray",
     items,
     theme: { vars: themeVars(colors, 0), mode: colors.mode },
@@ -426,6 +514,7 @@ function showTrayMenu() {
     if (acceptBlur && !trayCommand) closeTrayMenu();
   });
   win.on("closed", () => {
+    menuSpecs.delete(trayContentsId);
     if (trayMenuWin === win) trayMenuWin = null;
     if (trayCommand) finishTrayCommand();
   });
@@ -546,9 +635,9 @@ app.whenReady().then(() => {
   }
   applyOpenAtLogin(sanitizeSettings(readJson(settingsFile())).openAtLogin);
   createTray();
-  mainWindow = createMainWindow();
+  createMainWindow();
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow();
+    if (weatherWindows.size === 0) createMainWindow();
   });
 });
 
@@ -570,39 +659,50 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-ipcMain.handle("window-resize", (_event, step = {}) => {
-  if (!mainWindow || mainWindow.isMaximized()) return null;
-  savedPlacementToken += 1;
-  recordPlacement = true;
+ipcMain.handle("window-resize", (event, step = {}) => {
+  const win = weatherWindowOf(event.sender);
+  if (!win || win.isDestroyed() || win.isMaximized()) return null;
+  const primary = isPrimary(win);
+  if (primary) {
+    savedPlacementToken += 1;
+    recordPlacement = true;
+  }
+  const started = resizeStarts.get(win.id);
   if (step.phase === "start") {
-    const bounds = mainWindow.getBounds();
-    resizeStart = {
+    const bounds = win.getBounds();
+    const start = {
       x: bounds.x,
       y: bounds.y,
-      width: bounds.width >= WINDOW_MIN.width ? bounds.width : liveBounds?.width,
-      height: bounds.height >= WINDOW_MIN.height ? bounds.height : liveBounds?.height,
+      width: bounds.width >= WINDOW_MIN.width ? bounds.width : WINDOW_MIN.width,
+      height: bounds.height >= WINDOW_MIN.height ? bounds.height : WINDOW_MIN.height,
     };
-    return resizeStart;
+    resizeStarts.set(win.id, start);
+    return start;
   }
   if (step.phase === "end") {
-    resizeStart = null;
-    return currentPlacement();
+    resizeStarts.delete(win.id);
+    if (primary) return currentPlacement();
+    const bounds = win.getBounds();
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: false };
   }
-  if (!resizeStart) resizeStart = mainWindow.getBounds();
-  const width = Math.max(WINDOW_MIN.width, Math.round(resizeStart.width + Number(step.dx || 0)));
-  const height = Math.max(WINDOW_MIN.height, Math.round(resizeStart.height + Number(step.dy || 0)));
-  const next = { x: resizeStart.x, y: resizeStart.y, width, height, maximized: false };
-  mainWindow.setBounds(next);
-  const actual = mainWindow.getBounds();
-  noteBounds({ x: actual.x, y: actual.y, width: actual.width, height: actual.height, maximized: false });
+  const base = started || win.getBounds();
+  if (!started) resizeStarts.set(win.id, base);
+  const width = Math.max(WINDOW_MIN.width, Math.round(base.width + Number(step.dx || 0)));
+  const height = Math.max(WINDOW_MIN.height, Math.round(base.height + Number(step.dy || 0)));
+  win.setBounds({ x: base.x, y: base.y, width, height, maximized: false });
+  const actual = win.getBounds();
+  if (primary) noteBounds({ x: actual.x, y: actual.y, width: actual.width, height: actual.height, maximized: false });
   return { x: actual.x, y: actual.y, width: actual.width, height: actual.height };
 });
 
 ipcMain.handle("window-move", (event, step = {}) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || win.isDestroyed() || win.isMaximized()) return null;
-  savedPlacementToken += 1;
-  recordPlacement = true;
+  const primary = isPrimary(win);
+  if (primary) {
+    savedPlacementToken += 1;
+    recordPlacement = true;
+  }
   if (step.phase === "start") {
     const [x, y] = win.getPosition();
     moveStarts.set(win.id, { x, y });
@@ -611,6 +711,7 @@ ipcMain.handle("window-move", (event, step = {}) => {
   if (step.phase === "end") {
     moveStarts.delete(win.id);
     const bounds = win.getBounds();
+    if (!primary) return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: win.isMaximized() };
     const noted = noteBounds({
       x: bounds.x,
       y: bounds.y,
@@ -628,7 +729,7 @@ ipcMain.handle("window-move", (event, step = {}) => {
   const y = Math.round(origin.y + Number(step.dy || 0));
   win.setPosition(x, y);
   const actual = win.getBounds();
-  noteBounds({ x: actual.x, y: actual.y, width: actual.width, height: actual.height, maximized: false });
+  if (primary) noteBounds({ x: actual.x, y: actual.y, width: actual.width, height: actual.height, maximized: false });
   return { x: actual.x, y: actual.y };
 });
 
@@ -641,14 +742,18 @@ ipcMain.handle("fetch-url", async (_event, url, options = {}) => {
 
 ipcMain.handle("read-settings", () => readJson(settingsFile()));
 
-ipcMain.handle("write-settings", (_event, data) => {
+ipcMain.handle("write-settings", (event, data) => {
   const incoming = data && typeof data === "object" ? data : {};
+  const stored = readJson(settingsFile()) || {};
+  if (!isPrimary(weatherWindowOf(event.sender)) && Array.isArray(stored.cities) && stored.cities.length) {
+    incoming.cities = stored.cities;
+  }
   const placement = currentPlacement();
   if (placement) {
     writeSettingsFile(stampWindowPlacement(incoming, placement));
     return true;
   }
-  const previous = readJson(settingsFile()) || {};
+  const previous = stored;
   if (!incoming.windowSize && previous.windowSize) incoming.windowSize = previous.windowSize;
   if (!incoming.windowPosition && previous.windowPosition) incoming.windowPosition = previous.windowPosition;
   if (incoming.windowMaximized == null && previous.windowMaximized != null) incoming.windowMaximized = previous.windowMaximized;
@@ -738,21 +843,46 @@ ipcMain.handle("print", async (event, payload) => {
 
 ipcMain.handle("open-external", (_event, url) => shell.openExternal(url));
 
-ipcMain.handle("window-control", (_event, action) => {
-  if (!mainWindow) return;
-  if (action === "minimize") mainWindow.minimize();
-  if (action === "maximize") mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
-  if (action === "close") mainWindow.close();
-  sendWindowState(mainWindow);
+ipcMain.handle("window-control", (event, action) => {
+  const win = weatherWindowOf(event.sender);
+  if (!win || win.isDestroyed()) return;
+  if (action === "minimize") win.minimize();
+  if (action === "maximize") win.isMaximized() ? win.unmaximize() : win.maximize();
+  if (action === "hide" || action === "close") {
+    if (isPrimary(win)) hideMainWindow();
+    else win.close();
+    return;
+  }
+  sendWindowState(win);
 });
 
-ipcMain.handle("window-bounds", () => currentPlacement());
+/** A second weather window opens on the next city in the list. */
+ipcMain.handle("new-window", (_event, options = {}) => {
+  const win = createMainWindow({ cityIndex: Number(options.cityIndex) || 0 });
+  return Boolean(win);
+});
+
+ipcMain.handle("window-boot", (event) => windowBoot.get(event.sender.id) || null);
+
+ipcMain.handle("window-bounds", (event) => {
+  const win = weatherWindowOf(event.sender);
+  if (isPrimary(win)) return currentPlacement();
+  if (!win || win.isDestroyed()) return null;
+  const bounds = win.getBounds();
+  return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized: win.isMaximized() };
+});
+
+/** The tray marks the city the window shows, so it has to hear about every change. */
+ipcMain.on("shown-city", (_event, index) => {
+  const at = Number(index);
+  shownCityIndex = Number.isFinite(at) && at >= 0 ? Math.round(at) : 0;
+});
 
 ipcMain.handle("confirm-quit", () => {
   saveWindowPlacement();
   quitting = true;
   hub.closeAll();
-  mainWindow?.close();
+  for (const win of [...weatherWindows]) if (!win.isDestroyed()) win.close();
 });
 
 ipcMain.handle("clipboard-write", (_event, text) => clipboard.writeText(String(text ?? "")));
@@ -760,6 +890,7 @@ ipcMain.handle("clipboard-read", () => clipboard.readText());
 
 ipcMain.handle("begin-popup", (event, spec) => {
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const owner = weatherWindowOf(event.sender);
   const started = hub.begin(spec, (stored) => {
     const parentBounds = parent.getBounds();
     const workArea = screen.getDisplayMatching(parentBounds).workArea;
@@ -775,8 +906,10 @@ ipcMain.handle("begin-popup", (event, spec) => {
     });
     const contentsId = win.webContents.id;
     contentsToPopup.set(contentsId, stored.popupId);
+    if (owner) windowOwners.set(contentsId, owner);
     win.on("closed", () => {
       contentsToPopup.delete(contentsId);
+      windowOwners.delete(contentsId);
       if (hub.windows.has(stored.popupId)) hub.finish(stored.popupId, { action: "close" });
     });
     revealWindow(win);
@@ -796,14 +929,14 @@ ipcMain.handle("begin-popup", (event, spec) => {
         win.focus();
       },
     };
-  });
+  }, ownerKey(owner));
   return started;
 });
 
 ipcMain.handle("take-popup-spec", (event) => hub.take(contentsToPopup.get(event.sender.id)));
 ipcMain.handle("finish-popup", (event, result) => hub.finish(contentsToPopup.get(event.sender.id), result));
 ipcMain.handle("update-popup", (_event, id, patch) => hub.update(id, patch));
-ipcMain.handle("refresh-popup", (_event, key, patch, options) => hub.refresh(key, patch, options));
+ipcMain.handle("refresh-popup", (event, key, patch, options) => hub.refresh(key, patch, options, ownerKey(weatherWindowOf(event.sender))));
 ipcMain.handle("wait-popup", (_event, id) => hub.wait(id));
 ipcMain.handle("end-popup", (_event, id) => hub.finish(id, { action: "close" }));
 
@@ -836,11 +969,13 @@ ipcMain.on("broadcast-wallpaper", (event, payload) => {
 
 ipcMain.on("popup-immediate", (event, message) => {
   const popupId = contentsToPopup.get(event.sender.id) || message.popupId;
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("popup-immediate", { ...message, popupId });
+  const owner = weatherWindowOf(event.sender);
+  if (owner && !owner.isDestroyed()) owner.webContents.send("popup-immediate", { ...message, popupId });
 });
 
 ipcMain.handle("show-menu", (event, payload) => {
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const owner = weatherWindowOf(event.sender);
   const options = menuWindowOptions(payload.layout, parent);
   delete options.parent;
   const area = screen.getDisplayNearestPoint({ x: options.x, y: options.y }).workArea;
@@ -856,7 +991,13 @@ ipcMain.handle("show-menu", (event, payload) => {
       sandbox: false,
     },
   });
-  menuSpecs.set(win.webContents.id, payload);
+  const menuContentsId = win.webContents.id;
+  menuSpecs.set(menuContentsId, payload);
+  if (owner) windowOwners.set(menuContentsId, owner);
+  win.on("closed", () => {
+    windowOwners.delete(menuContentsId);
+    menuSpecs.delete(menuContentsId);
+  });
   let acceptBlur = false;
   win.on("blur", () => {
     if (acceptBlur && !win.isDestroyed()) win.close();
@@ -919,9 +1060,10 @@ ipcMain.on("menu-command", (event, id) => {
     closeTrayMenu();
     return;
   }
-  if (id && mainWindow && !mainWindow.isDestroyed()) {
-    if (win && win !== mainWindow) revealMainWindow();
-    mainWindow.webContents.send("menu-command", id);
+  const owner = weatherWindowOf(event.sender);
+  if (id && owner && !owner.isDestroyed()) {
+    if (win && win !== owner) revealWeatherWindow(owner);
+    owner.webContents.send("menu-command", id);
   }
-  if (win && win !== mainWindow && !win.isDestroyed()) win.close();
+  if (win && !weatherWindows.has(win) && !win.isDestroyed()) win.close();
 });

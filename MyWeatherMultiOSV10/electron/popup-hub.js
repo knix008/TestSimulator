@@ -8,8 +8,9 @@ export class PopupHub {
     this.sequence = 0;
   }
 
-  begin(spec, createWindow) {
-    const key = popupKey(spec);
+  /** Each weather window keeps its own dialogs, so a key is only unique within one owner. */
+  begin(spec, createWindow, owner = "") {
+    const key = this.scoped(popupKey(spec), owner);
     if (keepsOneWindow(spec)) {
       for (const entry of this.windows.values()) {
         if (entry.key !== key) continue;
@@ -21,17 +22,22 @@ export class PopupHub {
     const id = `${spec.type}-${this.sequence}`;
     const stored = { ...spec, popupId: id };
     const win = createWindow(stored);
-    this.windows.set(id, { spec: stored, win, key });
+    this.windows.set(id, { spec: stored, win, key, owner });
     return { id, focused: false };
+  }
+
+  scoped(key, owner) {
+    return `${owner || ""}#${key}`;
   }
 
   take(id) {
     return this.windows.get(id)?.spec || null;
   }
 
-  refresh(key, patch, options = {}) {
+  refresh(key, patch, options = {}, owner = "") {
+    const scoped = this.scoped(key, owner);
     for (const entry of this.windows.values()) {
-      if (entry.key !== key) continue;
+      if (entry.key !== scoped) continue;
       entry.spec = { ...entry.spec, ...patch };
       if (options.focus !== false) entry.win.focus?.();
       entry.win.send?.(patch);
@@ -74,5 +80,12 @@ export class PopupHub {
 
   closeAll() {
     for (const id of [...this.windows.keys()]) this.finish(id, { action: "close" });
+  }
+
+  /** A weather window that goes away takes its own dialogs with it. */
+  closeOwned(owner) {
+    for (const [id, entry] of [...this.windows]) {
+      if (entry.owner === owner) this.finish(id, { action: "close" });
+    }
   }
 }

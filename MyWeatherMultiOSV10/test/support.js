@@ -58,6 +58,9 @@ export function createMemoryPlatform() {
     external: [],
     commands: [],
     quit: 0,
+    newWindows: [],
+    shownCities: [],
+    boot: null,
     nextSavePath: null,
     nextOpen: null,
     nextImage: null,
@@ -134,6 +137,16 @@ export function createMemoryPlatform() {
     },
     async confirmQuit() {
       this.quit += 1;
+    },
+    shownCity(index) {
+      this.shownCities.push(index);
+    },
+    async newWindow(options) {
+      this.newWindows.push(options);
+      return true;
+    },
+    async windowBoot() {
+      return this.boot;
     },
     async writeClipboard(text) {
       this.clipboardText = String(text);

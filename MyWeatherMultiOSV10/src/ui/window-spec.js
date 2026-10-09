@@ -30,10 +30,15 @@ export function sceneScale(box) {
   return Math.round(Math.max(SCENE_MIN_SCALE, scale) * 1000) / 1000;
 }
 
-const SCENE_ART = 240;
+/** Drawn size of the weather picture at scale 1. The CSS art width repeats this number. */
+export const SCENE_ART = 216;
 const SCENE_GAP = 28;
 /** Fixed label column. Live weather text must not change the picture size. */
-export const SCENE_TEXT = SCENE_NATURAL.width - SCENE_ART - SCENE_GAP;
+export const SCENE_TEXT = 172;
+/** Room left above and below the picture so it never touches the window edge. */
+export const SCENE_BREATH = 10;
+/** The picture takes most of the leftover width, not all of it, so the scene keeps a margin. */
+const ART_SHARE = 0.86;
 
 /**
  * Picture and labels share one scale while the window is small.
@@ -42,11 +47,12 @@ export const SCENE_TEXT = SCENE_NATURAL.width - SCENE_ART - SCENE_GAP;
 export function sceneFit(box, textWidth = 200) {
   const width = Math.max(1, Number(box?.width) || SCENE_NATURAL.width);
   const height = Math.max(1, Number(box?.height) || SCENE_NATURAL.height);
+  const room = Math.max(1, height - SCENE_BREATH * 2);
   const text = Math.max(1, Number(textWidth) || 200);
-  const uniform = Math.min(width / (SCENE_ART + SCENE_GAP + text), height / SCENE_ART);
+  const uniform = Math.min(width / (SCENE_ART + SCENE_GAP + text), room / SCENE_ART);
   const shared = Math.round(Math.max(SCENE_MIN_SCALE, Math.min(1, uniform)) * 1000) / 1000;
   if (uniform <= 1) return { text: shared, art: shared };
-  const artPx = Math.min(height, Math.max(SCENE_ART, width - SCENE_GAP - text));
+  const artPx = Math.min(room, Math.max(SCENE_ART, (width - SCENE_GAP - text) * ART_SHARE));
   return { text: 1, art: Math.round((artPx / SCENE_ART) * 1000) / 1000 };
 }
 

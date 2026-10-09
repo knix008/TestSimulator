@@ -48,8 +48,8 @@ export function menuWindowOptions(layout, parent) {
 }
 
 const BESIDE_GAP = 16;
-const COMPANION_POPUPS = new Set(["forecast", "settings", "about"]);
-const ONE_WINDOW = new Set(["forecast", "settings", "about", "print", "preview", "unsaved"]);
+const COMPANION_POPUPS = new Set(["forecast", "settings", "about", "search"]);
+const ONE_WINDOW = new Set(["forecast", "settings", "about", "print", "preview", "unsaved", "search"]);
 
 export function popupKey(spec) {
   if (!spec?.type) return "popup";
@@ -114,7 +114,8 @@ export function popupWindowOptions(spec, parent, displayBounds, parentBounds) {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    alwaysOnTop: true,
+    // Not always on top: a popup rides with its parent window instead of over every other app.
+    alwaysOnTop: false,
     show: false,
     useContentSize: true,
     width,

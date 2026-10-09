@@ -6,12 +6,11 @@ let popupSpec = null;
 window.electronAPI.onApplyTheme?.((payload) => {
   if (!payload) return;
   const type = document.querySelector("[data-popup]")?.dataset.popup || "";
-  if (payload.fontSize != null) {
-    applyPopupFont(document.body, payload);
+  if (payload.fontFamily != null) {
     const popup = document.querySelector("[data-popup]");
     if (popup) applyPopupFont(popup, payload);
   }
-  if (payload.language && popupSpec?.type === "settings") {
+  if (payload.language && ["settings", "search"].includes(popupSpec?.type)) {
     popupSpec.language = payload.language === "en" ? "en" : "ko";
     applyPopupLanguage(document.body, popupSpec);
   }

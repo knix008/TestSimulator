@@ -169,6 +169,7 @@ export function parseWttr(json) {
 
 export function parseGeocoding(json) {
   return (json?.results || []).map((row) => ({
+    id: row.id ?? null,
     countryCode: String(row.country_code || "").toUpperCase(),
     countryKo: row.country || "",
     countryEn: row.country || "",
@@ -178,6 +179,52 @@ export function parseGeocoding(json) {
     lon: row.longitude,
     admin: row.admin1 || "",
   }));
+}
+
+/**
+ * The geocoder answers in one language at a time, so a city found in Korean has no English
+ * name and the other way round. Matching the two answers by id gives a place with both.
+ */
+function spotOf(row) {
+  return `${Number(row?.lat).toFixed(2)}|${Number(row?.lon).toFixed(2)}`;
+}
+
+export function mergeGeocoding(korean, english) {
+  const byId = new Map();
+  const bySpot = new Map();
+  for (const row of english || []) {
+    if (row.id != null) byId.set(row.id, row);
+    if (!bySpot.has(spotOf(row))) bySpot.set(spotOf(row), row);
+  }
+  const merged = (korean || []).map((row) => {
+    // The two answers rarely carry the same ids, so where they fall is the surer match.
+    const other = (row.id == null ? null : byId.get(row.id)) || bySpot.get(spotOf(row)) || null;
+    if (other) {
+      if (other.id != null) byId.delete(other.id);
+      bySpot.delete(spotOf(other));
+    }
+    return {
+      id: row.id,
+      countryCode: row.countryCode || other?.countryCode || "",
+      countryKo: row.countryKo || other?.countryEn || "",
+      countryEn: other?.countryEn || row.countryKo || "",
+      cityKo: row.cityKo || other?.cityEn || "",
+      cityEn: other?.cityEn || row.cityKo || "",
+      lat: row.lat,
+      lon: row.lon,
+      admin: row.admin || other?.admin || "",
+    };
+  });
+  for (const row of bySpot.values()) {
+    merged.push({ ...row, cityKo: row.cityKo || row.cityEn, countryKo: row.countryKo || row.countryEn });
+  }
+  const seen = new Set();
+  return merged.filter((row) => {
+    const spot = spotOf(row);
+    if (seen.has(spot)) return false;
+    seen.add(spot);
+    return true;
+  });
 }
 
 function modelProvider(id) {

@@ -6,6 +6,9 @@ import { DARK_THEMES, LIGHT_THEMES, THEMES } from "../../src/core/themes.js";
 import { buildAboutSpec, bootPopup, fitPopupToViewport, popupFits } from "../../src/ui/popups.js";
 import { WINDOW_MIN } from "../../src/ui/window-spec.js";
 import { jsonResponse, openMeteoBody, SAMPLE_DATES, settle, withApp } from "../support.js";
+import { findCity } from "../../src/weather/cities.js";
+import { pageWindow, parseCityList } from "../../src/ui/popups.js";
+void pageWindow;
 
 export function registerGui(h) {
   h.category("Window");
@@ -19,7 +22,7 @@ export function registerGui(h) {
       const title = bar.querySelector("[data-gui='window-title']");
       const icon = bar.querySelector("img");
       assert.equal(bar.parentElement.dataset.gui, "drag-region");
-      assert.equal(app.root.querySelector(".tabbar").hidden, true);
+      assert.equal(app.root.querySelector(".tabbar"), null, "cities are not toolbar buttons");
       assert.equal(app.root.querySelector(".shell-top").textContent.includes("서울"), false);
       assert.equal(title.textContent, "MyWeather");
       assert.equal(title.textContent.includes("V1.0"), false);
@@ -256,7 +259,16 @@ export function registerGui(h) {
       const todayTemp = app.root.querySelector(".scene-temp").textContent;
       assert.ok(todayTemp);
       assert.equal(app.root.querySelector("[data-gui='scene-date']").textContent, "10월 7일");
-      assert.equal(app.root.querySelector(".tabbar").hidden, true);
+      // The city name leads the scene, set larger than the date beneath it. jsdom drops
+      // calc() declarations, so the rules are read from the stylesheet source.
+      const sheet = document.querySelector("head style").textContent;
+      const cityRule = /\.scene-city \{[^}]*\}/.exec(sheet)[0];
+      const dateRule = /\.scene-date \{[^}]*\}/.exec(sheet)[0];
+      assert.match(cityRule, /font-size: calc\(30px/, cityRule);
+      assert.match(dateRule, /font-size: calc\(16px/, dateRule);
+      assert.match(cityRule, /font-weight: 800/, cityRule);
+      assert.match(cityRule, /text-overflow: ellipsis/, "a long name tails off instead of being cut");
+      assert.equal(app.root.querySelector(".tabbar"), null);
       await app.setTransparency(80);
       const daily = await openForecast(app, "daily");
       assert.equal(daily.popup.dataset.popup, "forecast");
@@ -320,20 +332,22 @@ export function registerGui(h) {
       await settings;
     });
   });
-  h.test("tabs move with chevrons instead of a scrollbar", async () => {
+  h.test("the toolbar keeps the icon at the left and every button at the right", async () => {
     await withApp(async ({ app }) => {
       for (let i = 0; i < 8; i += 1) app.addTab();
-      app.setWorkspaceWidth(300);
-      const next = app.root.querySelector('[data-cmd="tab-next"]');
-      const prev = app.root.querySelector('[data-cmd="tab-prev"]');
-      assert.equal(next.disabled, false);
-      assert.equal(app.tabStrip.style.overflow, "hidden");
+      assert.equal(app.doc.tabs.length, 9);
+      for (const selector of [".tabbar", ".tab", ".chev", '[data-cmd="tab-next"]', '[data-cmd="tab-prev"]']) {
+        assert.equal(app.root.querySelector(selector), null, selector);
+      }
       assert.equal(app.root.querySelector(".scrollbar"), null);
-      const first = app.root.querySelector(".tab").dataset.tabId;
-      next.click();
-      assert.notEqual(app.root.querySelector(".tab").dataset.tabId, first);
-      assert.equal(prev.disabled, false);
-      assert.equal(app.root.querySelectorAll(".tab").length <= 2, true);
+      const icon = app.root.querySelector(".title-icon");
+      const titlebar = app.root.querySelector(".titlebar");
+      assert.equal(getComputedStyle(icon).flexShrink, "0");
+      assert.equal(getComputedStyle(icon).width, "18px");
+      assert.equal(getComputedStyle(titlebar).minWidth, "18px");
+      assert.equal(titlebar, app.root.querySelector(".shell-top").firstElementChild);
+      assert.equal(getComputedStyle(app.root.querySelector(".range-tools")).marginLeft, "auto");
+      assert.ok([...app.root.querySelector(".shell-top").querySelectorAll("button")].length >= 8);
     });
   });
   h.test("the last tab cannot be closed", async () => {
@@ -344,7 +358,7 @@ export function registerGui(h) {
       assert.equal(app.root.querySelector("[data-gui='toast']").textContent, "마지막 탭은 닫을 수 없습니다.");
     });
   });
-  h.test("window buttons minimize, maximize, and ask before closing dirty work", async () => {
+  h.test("window buttons minimize and maximize, and closing never asks about saving", async () => {
     await withApp(async ({ app, platform }) => {
       app.root.querySelector('[data-cmd="minimize"]').click();
       await settle();
@@ -365,20 +379,548 @@ export function registerGui(h) {
       assert.deepEqual(platform.commands, ["minimize", "minimize", "maximize", "maximize"]);
       app.currentTab().properties.label = "umbrella";
       app.markDirty();
-      const cancelled = app.requestClose();
-      const unsaved = document.querySelector('[data-popup="unsaved"]');
-      assert.ok(unsaved);
-      assert.equal(popupFits(unsaved).fits, true);
-      unsaved.querySelector('[data-action="cancel"]').click();
-      assert.equal(await cancelled, "cancelled");
-      assert.equal(app.closed, false);
-      platform.nextSavePath = "C:/docs/keep.myweather";
+      // The settings look after themselves, so closing asks nothing.
       const closing = app.requestClose();
-      document.querySelector('[data-popup="unsaved"] [data-action="save"]').click();
+      await settle();
+      assert.equal(document.querySelector('[data-popup="unsaved"]'), null, "no save prompt");
       assert.equal(await closing, "closed");
       assert.equal(platform.quit, 1);
-      assert.match(platform.files.get("C:/docs/keep.myweather"), /umbrella/);
+      assert.equal(app.closed, true);
     });
+  });
+
+  h.category("Cities");
+  h.test("clicking the window shows the next city and the forecasts follow it", async () => {
+    await withApp(async ({ app, platform }) => {
+      app.settings.cities = [findCity("KR", "Seoul"), findCity("JP", "Tokyo"), findCity("FR", "Paris")];
+      app.syncTabsToCities();
+      app.afterStructure();
+      assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Seoul", "Tokyo", "Paris"]);
+      assert.equal(app.root.querySelector(".scene-city").textContent, "서울");
+      app.content.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      assert.equal(app.doc.activeIndex, 1);
+      assert.equal(app.root.querySelector(".scene-city").textContent, "도쿄");
+      app.content.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      assert.equal(app.root.querySelector(".scene-city").textContent, "파리");
+      app.content.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      assert.equal(app.doc.activeIndex, 0, "the list wraps around");
+      assert.deepEqual(platform.shownCities.slice(-3), [1, 2, 0]);
+      app.root.querySelector('[data-cmd="refresh"]').dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await settle();
+      assert.equal(app.doc.activeIndex, 0, "a toolbar button is not a city change");
+      app.showCity(2);
+      await app.refreshWeather();
+      const forecast = await openForecast(app, "weekly");
+      assert.match(forecast.popup.textContent, /10/);
+      assert.equal(app.currentTab().place.cityEn, "Paris");
+      app.showCity(0);
+      assert.equal(app.currentTab().place.cityEn, "Seoul");
+      await forecast.close();
+    });
+  });
+  h.test("dragging the window by the weather does not count as a city change", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.nativeWindow = true;
+    platform.moveWindow = async (step) => {
+      platform.moveSteps.push(step);
+      return step.phase === "end" ? { x: 90, y: 40, width: 760, height: 640 } : null;
+    };
+    await withApp(
+      async ({ app }) => {
+        app.settings.cities = [findCity("KR", "Seoul"), findCity("JP", "Tokyo")];
+        app.syncTabsToCities();
+        app.afterStructure();
+        assert.ok(app.content.querySelector("[data-scene-advance]"), "the picture offers the next city");
+        pointer(app.content, "pointerdown", 20, 20);
+        pointer(document, "pointermove", 90, 60);
+        pointer(document, "pointerup", 90, 60);
+        await settle();
+        app.content.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+        assert.equal(app.doc.activeIndex, 0, "the click that ends the drag is swallowed");
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        app.content.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+        assert.equal(app.doc.activeIndex, 1, "a later click still advances");
+        app.doc.tabs = [app.doc.tabs[0]];
+        app.afterStructure();
+        assert.equal(app.content.querySelector("[data-scene-advance]"), null, "one city offers nothing to advance to");
+      },
+      { platform },
+    );
+  });
+  h.test("a forecast follows the city even when its weather arrives later", async () => {
+    await withApp(async ({ app }) => {
+      app.settings.cities = [findCity("KR", "Seoul"), findCity("FR", "Paris")];
+      app.syncTabsToCities();
+      // Only the first city is loaded, so the second has to fetch after the switch.
+      await app.refreshWeather();
+      assert.ok(app.doc.tabs[0].weather);
+      assert.equal(app.doc.tabs[1].weather, null);
+      const forecast = await openForecast(app, "weekly");
+      assert.equal(forecast.popup.querySelector(".popup-city").textContent, "서울");
+      app.showCity(1);
+      assert.equal(forecast.popup.querySelector(".popup-city").textContent, "파리", "the name changes at once");
+      const waiting = forecast.popup.querySelector(".forecast-fit").textContent;
+      assert.match(waiting, /새로고침으로 날씨를 불러/, "and waits with nothing to show");
+      await app.refreshWeather();
+      assert.ok(app.doc.tabs[1].weather, "the second city has loaded by now");
+      const after = forecast.popup.querySelector(".forecast-fit").textContent;
+      assert.notEqual(after, waiting, "the forecast was repainted when the weather landed");
+      assert.doesNotMatch(after, /새로고침으로 날씨를 불러/, "no empty placeholder is left behind");
+      assert.match(after, /°C/, "the readings are on screen");
+      await forecast.close();
+    });
+  });
+  h.test("each forecast window has a refresh button beside its close button", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshWeather();
+      for (const range of ["daily", "weekly", "monthly"]) {
+        const forecast = await openForecast(app, range);
+        const head = forecast.popup.querySelector(".popup-head");
+        const refresh = head.querySelector('[data-action="forecast-refresh"]');
+        const close = head.querySelector('[data-gui="popup-close"]');
+        assert.ok(refresh, range);
+        assert.ok(refresh.title, "it says what it does");
+        assert.ok(refresh.querySelector("svg.ico-color"), "and carries the refresh icon");
+        const order = [...head.children];
+        assert.ok(order.indexOf(refresh) < order.indexOf(close), `${range}: refresh sits left of close`);
+        const asked = platform.fetchCount || 0;
+        platform.fetchCount = asked;
+        refresh.click();
+        await settle();
+        await app.refreshJob;
+        assert.ok(forecast.popup.isConnected, "refreshing does not close the window");
+        await forecast.close();
+      }
+    });
+  });
+  h.test("the daily, weekly, and monthly windows name the city they show", async () => {
+    await withApp(async ({ app }) => {
+      app.settings.cities = [findCity("KR", "Seoul"), findCity("FR", "Paris")];
+      app.syncTabsToCities();
+      await app.refreshWeather({ all: true });
+      for (const range of ["daily", "weekly", "monthly"]) {
+        const forecast = await openForecast(app, range);
+        assert.equal(forecast.popup.querySelector(".popup-city").textContent, "서울", range);
+        assert.ok(forecast.popup.querySelector(".popup-when").textContent, range);
+        app.showCity(1);
+        assert.equal(forecast.popup.querySelector(".popup-city").textContent, "파리", `${range} follows the shown city`);
+        await app.setLanguage("en");
+        assert.equal(forecast.popup.querySelector(".popup-city").textContent, "Paris", range);
+        await app.setLanguage("ko");
+        app.showCity(0);
+        assert.equal(forecast.popup.querySelector(".popup-city").textContent, "서울", range);
+        await forecast.close();
+      }
+    });
+  });
+  h.test("the city changes on its own at the chosen interval", async () => {
+    await withApp(async ({ app }) => {
+      app.settings.cities = [findCity("KR", "Seoul"), findCity("JP", "Tokyo")];
+      app.syncTabsToCities();
+      app.settings.rotateSeconds = 10;
+      app.armRotateTimer();
+      assert.equal(app.rotateDelay, 10000);
+      assert.ok(app.rotateTimer);
+      await new Promise((resolve) => {
+        const timer = app.rotateTimer;
+        clearTimeout(timer);
+        app.rotateTimer = null;
+        app.nextCity();
+        resolve();
+      });
+      assert.equal(app.currentTab().place.cityEn, "Tokyo");
+      app.settings.rotateSeconds = 0;
+      app.syncRotateTimer();
+      assert.equal(app.rotateTimer, null, "off leaves no timer behind");
+      app.settings.rotateSeconds = 30;
+      app.syncRotateTimer();
+      assert.equal(app.rotateDelay, 30000);
+      app.doc.tabs = [app.doc.tabs[0]];
+      app.syncRotateTimer();
+      assert.equal(app.rotateTimer, null, "one city needs no timer");
+      app.destroy();
+      assert.equal(app.rotateTimer, null);
+    });
+  });
+  h.test("add city opens the search window and a pick there joins the list", async () => {
+    await withApp(async ({ app, platform }) => {
+      const pending = app.showSettings("cities");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      assert.equal(popup.querySelector('[data-panel="cities"]').hidden, false);
+      assert.equal(popup.querySelector('[data-field="search"]'), null, "the search box lives in its own window");
+      assert.equal(popup.querySelector('[data-field="rotateSeconds"]').closest(".popup-panel").dataset.panel, "general", "the interval sits with the general choices");
+      const shown = () => [...popup.querySelectorAll('[data-row="cityList"] .city-name')].map((node) => node.textContent);
+      assert.deepEqual(shown(), ["서울"]);
+      popup.querySelector('[data-action="open-search"]').click();
+      await settle();
+      const search = document.querySelector('[data-popup="search"]');
+      assert.ok(search, "add city opens the search window");
+      assert.equal(search.querySelector(".popup-title").textContent, "도시 검색");
+      assert.ok(search.querySelector(".popup-icon svg.ico-color"), "the title bar carries a colour magnifier");
+      const box = search.querySelector('[data-field="query"]');
+      assert.ok(box, "the search box is in the search window");
+      assert.ok(box.placeholder, "and says what to type");
+      // The box and the results start at the same edge: no label column, no row inset.
+      assert.equal(search.querySelector('[data-row="query"] label'), null);
+      assert.equal(getComputedStyle(search.querySelector('[data-row="query"]')).paddingLeft, "0px");
+      assert.notEqual(getComputedStyle(search.querySelector('[data-row="query"]')).marginBottom, "0px", "the box stands clear of the results");
+      assert.equal(getComputedStyle(search.querySelector('[data-row="cityFound"] .list-block-label')).display, "none");
+      assert.equal(popupFits(search).fits, true);
+      assert.ok(popupFits(search).height - popupFits(search).used < 60, "the window hugs its contents");
+      const results = () => [...search.querySelectorAll(".city-name")].map((node) => node.textContent);
+      assert.ok(results().length > 0, "it opens showing the catalog");
+      box.value = "파리";
+      search.querySelector('[data-action="city-search"]').click();
+      await settle();
+      assert.deepEqual(results(), ["파리"], "a Korean search names the city in Korean");
+      search.querySelector('[data-action="city-use"]').click();
+      await settle();
+      assert.deepEqual(shown(), ["서울", "파리"]);
+      search.querySelector('[data-action="city-use"]').click();
+      await settle();
+      assert.deepEqual(shown(), ["서울", "파리"], "the same city is not taken twice");
+      assert.equal(app.statusMessage, "이미 목록에 있는 도시입니다.");
+      search.querySelector('[data-action="close"]').click();
+      await settle();
+      assert.equal(document.querySelector('[data-popup="search"]'), null);
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.deepEqual(app.settings.cities.map((place) => place.cityEn), ["Seoul", "Paris"]);
+      assert.deepEqual(app.settings.cities.map((place) => place.cityKo), ["서울", "파리"]);
+      assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Seoul", "Paris"]);
+      assert.equal(platform.settings.cities.length, 2);
+    });
+  });
+  h.test("enter in the search window looks the city up, and a menu add goes straight in", async () => {
+    await withApp(async ({ app }) => {
+      // The command stays open until the window is closed, so it is not awaited here.
+      const opened = app.run("add-city");
+      await settle();
+      const search = document.querySelector('[data-popup="search"]');
+      assert.ok(search, "the menu command opens the same window");
+      const box = search.querySelector('[data-field="query"]');
+      box.value = "로마";
+      box.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+      await settle();
+      assert.deepEqual([...search.querySelectorAll(".city-name")].map((node) => node.textContent), ["로마"]);
+      search.querySelector('[data-action="city-use"]').click();
+      await settle();
+      assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Seoul", "Rome"], "with no settings open it joins the window");
+      assert.equal(app.currentTab().place.cityEn, "Rome", "and becomes the city on show");
+      search.querySelector('[data-action="city-use"]').click();
+      await settle();
+      assert.equal(app.doc.tabs.length, 2, "the same city is not taken twice");
+      assert.equal(app.statusMessage, "이미 목록에 있는 도시입니다.");
+      search.querySelector('[data-action="close"]').click();
+      await opened;
+    });
+  });
+  h.test("the search reaches past the built-in list and names what it finds in either language", async () => {
+    const { createMemoryPlatform, jsonResponse } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    const asked = [];
+    platform.fetchImpl = async (url) => {
+      const href = String(url);
+      if (!href.includes("geocoding-api")) return jsonResponse({});
+      asked.push(new URL(href).searchParams.get("language"));
+      const korean = new URL(href).searchParams.get("language") === "ko";
+      return jsonResponse({
+        results: [
+          {
+            id: 4242,
+            name: korean ? "스프링필드" : "Springfield",
+            country: korean ? "미국" : "United States",
+            country_code: "us",
+            latitude: 39.78,
+            longitude: -89.64,
+          },
+        ],
+      });
+    };
+    await withApp(
+      async ({ app }) => {
+        const opened = app.run("add-city");
+        await settle();
+        const search = document.querySelector('[data-popup="search"]');
+        const names = () => [...search.querySelectorAll(".city-name")].map((node) => node.textContent);
+        const look = async (text) => {
+          search.querySelector('[data-field="query"]').value = text;
+          search.querySelector('[data-action="city-search"]').click();
+          await settle();
+        };
+        await look("Springfield");
+        assert.deepEqual(asked, ["ko", "en"], "the geocoder is asked in both languages");
+        assert.deepEqual(names(), ["스프링필드"], "a city outside the built-in list is found and named in Korean");
+        await app.setLanguage("en");
+        assert.deepEqual(names(), ["Springfield"], "switching the language renames what is on screen");
+        await app.setLanguage("ko");
+        assert.deepEqual(names(), ["스프링필드"]);
+        // The built-in cities answer to either language without going anywhere.
+        const before = asked.length;
+        await look("파리");
+        assert.ok(names().includes("파리"));
+        await look("Paris");
+        assert.ok(names().includes("파리"), "an English name finds the same city");
+        assert.ok(asked.length > before, "and the wider world is still searched alongside");
+        search.querySelector('[data-action="city-use"]').click();
+        await settle();
+        assert.ok(app.doc.tabs.some((tab) => tab.place.cityKo === "파리" || tab.place.cityKo === "스프링필드"));
+        search.querySelector('[data-action="close"]').click();
+        await opened;
+      },
+      { platform },
+    );
+  });
+  h.test("a search that cannot reach the network still shows what is known here", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.fetchImpl = async () => {
+      throw new Error("offline");
+    };
+    await withApp(
+      async ({ app }) => {
+        const opened = app.run("add-city");
+        await settle();
+        const search = document.querySelector('[data-popup="search"]');
+        search.querySelector('[data-field="query"]').value = "서울";
+        search.querySelector('[data-action="city-search"]').click();
+        await settle();
+        assert.deepEqual([...search.querySelectorAll(".city-name")].map((node) => node.textContent), ["서울"]);
+        assert.equal(document.querySelector('[data-popup="error"]'), null, "no error window for a city we already know");
+        search.querySelector('[data-action="close"]').click();
+        await opened;
+      },
+      { platform },
+    );
+  });
+  h.test("the page controls sit centred on their own line and step one page or ten", async () => {
+    await withApp(async ({ app }) => {
+      const opened = app.run("add-city");
+      await settle();
+      const search = document.querySelector('[data-popup="search"]');
+      const pagerRow = search.querySelector('[data-row="cityPager"]');
+      assert.ok(pagerRow, "the controls have a line of their own");
+      assert.equal(getComputedStyle(pagerRow).justifyContent, "center");
+      assert.equal(search.querySelector('[data-row="cityFound"] .pager'), null, "and are not inside the results");
+      const body = search.querySelector(".popup-body");
+      assert.equal(body.lastElementChild.querySelector("[data-pager]") ? true : body.lastElementChild.contains(pagerRow), true, "they come last, above the buttons");
+      const block = search.querySelector(".list-block[data-page-count]");
+      const steps = [...search.querySelectorAll(".pager-btn")].map((button) => button.dataset.page);
+      assert.deepEqual(steps.slice(0, 2), ["back-span", "prev"]);
+      assert.deepEqual(steps.slice(-2), ["next", "next-span"]);
+      const numbers = steps.slice(2, -2).map(Number);
+      assert.ok(numbers.length <= 10 && numbers.length > 1, String(numbers.length));
+      assert.equal(block.dataset.pageAt, "1");
+      search.querySelector('[data-page="next"]').click();
+      assert.equal(block.dataset.pageAt, "2", "one page forward");
+      search.querySelector('[data-page="prev"]').click();
+      assert.equal(block.dataset.pageAt, "1");
+      search.querySelector('[data-page="next-span"]').click();
+      assert.equal(block.dataset.pageAt, String(Math.min(11, Number(block.dataset.pageCount))), "ten pages forward");
+      search.querySelector('[data-page="back-span"]').click();
+      assert.equal(block.dataset.pageAt, "1", "and ten back again");
+      assert.equal(search.querySelector('[data-page="prev"]').disabled, true);
+      search.querySelector('[data-action="close"]').click();
+      await opened;
+    });
+  });
+  h.test("the shown cities read one per line and scroll when there are many", async () => {
+    await withApp(async ({ app }) => {
+      const pending = app.showSettings("cities");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const list = popup.querySelector('[data-row="cityList"] .city-list');
+      assert.ok(list);
+      assert.equal(getComputedStyle(list).flexDirection, "column", "one city per line");
+      assert.equal(getComputedStyle(list).overflowY, "auto", "a long list scrolls");
+      assert.equal(popup.querySelector('[data-row="cityList"] .pager'), null, "the shown list is not paged");
+      popup.querySelector('[data-action="open-search"]').click();
+      await settle();
+      const search = document.querySelector('[data-popup="search"]');
+      search.querySelectorAll('[data-action="city-use"]').forEach((button) => button.click());
+      await settle();
+      search.querySelector('[data-page="next"]').click();
+      search.querySelectorAll('[data-action="city-use"]').forEach((button) => button.click());
+      await settle();
+      const names = [...list.querySelectorAll(".city-name")].map((node) => node.textContent);
+      assert.equal(names.length, 12, "every city stays on show, scrolled rather than paged");
+      assert.equal(new Set(names).size, 12, "and none of them is lost");
+      assert.ok(list.querySelector(".city-row .city-country"), "each line names its country too");
+      search.querySelector('[data-action="close"]').click();
+      await settle();
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+    });
+  });
+  h.test("the shown order is changed by dragging a city's grip, and nothing is lost on the way", async () => {
+    await withApp(async ({ app }) => {
+      const pending = app.showSettings("cities");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const block = popup.querySelector('[data-row="cityList"]');
+      const list = block.querySelector(".city-list");
+      popup.querySelector('[data-action="open-search"]').click();
+      await settle();
+      const search = document.querySelector('[data-popup="search"]');
+      [...search.querySelectorAll('[data-action="city-use"]')].slice(0, 6).forEach((button) => button.click());
+      await settle();
+      search.querySelector('[data-action="close"]').click();
+      await settle();
+      const shown = () => [...list.querySelectorAll(".city-name")].map((node) => node.textContent);
+      const started = shown();
+      assert.deepEqual(started, ["서울", "부산", "인천", "대구", "대전", "광주"]);
+      const carried = () => list.querySelector("[data-dragged] .city-name")?.textContent;
+      const grips = list.querySelectorAll("[data-city-grip]");
+      assert.equal(grips.length, 6);
+      assert.ok(grips[0].title);
+      // A browser refuses to capture an unknown pointer; that must not cost us the drag.
+      grips[0].setPointerCapture = () => {
+        throw new Error("InvalidPointerId");
+      };
+      grips[0].dispatchEvent(new window.Event("pointerdown", { bubbles: true }));
+      assert.equal(block.dataset.dragging, "1");
+      assert.equal(carried(), "서울", "the city being moved is marked as soon as it is picked up");
+      const dropOn = (index) => list.children[index].dispatchEvent(new window.Event("pointermove", { bubbles: true }));
+      dropOn(1);
+      assert.equal(carried(), "서울", "it stays marked while it travels");
+      dropOn(2);
+      assert.deepEqual(shown(), ["부산", "인천", "서울", "대구", "대전", "광주"]);
+      // Wander over every row, then back: the set of cities must come through untouched.
+      for (const index of [5, 0, 3, 1, 4, 2, 0, 5]) dropOn(index);
+      assert.deepEqual([...shown()].sort(), [...started].sort(), "dragging never drops a city");
+      assert.equal(carried(), "서울", "and the carried one is still the one that was picked up");
+      list.dispatchEvent(new window.Event("pointerup", { bubbles: true }));
+      assert.equal(block.dataset.dragging, undefined);
+      assert.equal(carried(), undefined, "the mark goes when the city is put down");
+      const settled = shown();
+      dropOn(0);
+      assert.deepEqual(shown(), settled, "no drag, no move");
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.deepEqual(
+        app.doc.tabs.map((tab) => tab.place.cityKo),
+        settled,
+        "the window follows the order the list was left in",
+      );
+    });
+  });
+  h.test("every settings page fits its window and shares one label column", async () => {
+    await withApp(async ({ app }) => {
+      let tallest = 0;
+      let height = 0;
+      for (const tab of ["general", "cities", "data", "appearance", "wallpaper"]) {
+        const pending = app.showSettings(tab);
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        const fit = popupFits(popup);
+        assert.equal(fit.fits, true, `${tab} overflows: ${fit.used} of ${fit.height}`);
+        tallest = Math.max(tallest, fit.used);
+        height = fit.height;
+        const panel = popup.querySelector(`[data-panel="${tab}"]`);
+        const labels = [...panel.querySelectorAll(".popup-row > label, .popup-row > span:first-child, .list-block-label")];
+        for (const label of labels) {
+          if (!label.textContent.trim()) continue;
+          assert.equal(getComputedStyle(label).width, "150px", `${tab}: ${label.textContent}`);
+        }
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+      }
+      assert.ok(height - tallest < 80, `the window is ${height - tallest}px taller than its longest page`);
+    });
+  });
+  h.test("the city list and the change interval come back on the next launch", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    await withApp(
+      async ({ app }) => {
+        app.settings.cities = [findCity("KR", "Seoul"), findCity("FR", "Paris"), findCity("JP", "Tokyo")];
+        app.syncTabsToCities();
+        app.settings.rotateSeconds = 30;
+        await app.persist();
+        assert.deepEqual(platform.settings.cities.map((place) => place.cityEn), ["Seoul", "Paris", "Tokyo"]);
+        assert.equal(platform.settings.rotateSeconds, 30);
+      },
+      { platform },
+    );
+    await withApp(
+      async ({ app }) => {
+        assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Seoul", "Paris", "Tokyo"], "the stored cities open again");
+        assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityKo), ["서울", "파리", "도쿄"]);
+        assert.equal(app.settings.rotateSeconds, 30);
+        assert.equal(app.rotateArmed, 30, "and the timer is armed for them");
+        assert.ok(app.rotateTimer, "with more than one city it runs");
+      },
+      { platform },
+    );
+  });
+  h.test("an extra window keeps its own city list", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.settings = { cities: [findCity("KR", "Seoul"), findCity("JP", "Tokyo")] };
+    platform.boot = { cityIndex: 1, primary: false };
+    await withApp(
+      async ({ app }) => {
+        assert.equal(app.ownsCityList, false);
+        assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Seoul", "Tokyo"]);
+        assert.equal(app.currentTab().place.cityEn, "Tokyo");
+        app.addTab();
+        assert.equal(app.doc.tabs.length, 3);
+        await app.persist();
+        assert.deepEqual(platform.settings.cities.map((place) => place.cityEn), ["Seoul", "Tokyo"], "the stored list is left to the first window");
+      },
+      { platform },
+    );
+  });
+  h.test("a new weather window opens on the next city", async () => {
+    await withApp(async ({ app, platform }) => {
+      app.settings.cities = [findCity("KR", "Seoul"), findCity("JP", "Tokyo")];
+      app.syncTabsToCities();
+      await app.run("new-window");
+      assert.deepEqual(platform.newWindows, [{ cityIndex: 1 }]);
+      app.showCity(1);
+      await app.run("new-window");
+      assert.deepEqual(platform.newWindows[1], { cityIndex: 0 });
+      assert.deepEqual(platform.settings.cities.map((place) => place.cityEn), ["Seoul", "Tokyo"]);
+    });
+  });
+  h.test("a window told to open on a city starts there", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.settings = { cities: [findCity("KR", "Seoul"), findCity("JP", "Tokyo"), findCity("FR", "Paris")] };
+    platform.boot = { cityIndex: 2 };
+    await withApp(
+      async ({ app }) => {
+        assert.equal(app.doc.tabs.length, 3);
+        assert.equal(app.currentTab().place.cityEn, "Paris");
+        assert.equal(app.root.querySelector(".scene-city").textContent, "파리");
+      },
+      { platform },
+    );
+  });
+  h.test("the close button puts the window away and only exit quits", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.nativeWindow = true;
+    await withApp(
+      async ({ app }) => {
+        app.markDirty();
+        assert.equal(await app.requestClose(), "hidden");
+        assert.equal(platform.commands.at(-1), "hide");
+        assert.equal(platform.quit, 0);
+        assert.equal(app.closed, false);
+        assert.equal(document.querySelector('[data-popup="unsaved"]'), null);
+        app.root.querySelector('[data-cmd="close"]').dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+        await settle();
+        assert.equal(platform.commands.at(-1), "hide");
+        assert.equal(platform.quit, 0);
+        await app.run("exit");
+        assert.equal(platform.quit, 1);
+        assert.equal(app.closed, true);
+      },
+      { platform },
+    );
   });
 
   h.category("Menus");
@@ -395,8 +937,12 @@ export function registerGui(h) {
       assert.equal(menu.style.columnCount, "1");
       const items = [...menu.querySelectorAll('[role="menuitem"]')];
       const ids = items.map((item) => item.dataset.cmd);
-      for (const id of ["refresh", "undo", "redo", "copy", "paste", "new", "open", "save", "save-as", "print", "choose-wallpaper", "clear-wallpaper", "settings", "about", "exit"]) {
+      for (const id of ["refresh", "copy", "paste", "next-city", "add-city", "close-tab", "new-window", "print", "choose-wallpaper", "clear-wallpaper", "settings", "about"]) {
         assert.ok(ids.includes(id), id);
+      }
+      // Nothing is saved to a file and nothing is undone, so those commands are gone.
+      for (const id of ["save", "save-as", "exit", "new", "open", "undo", "redo"]) {
+        assert.equal(ids.includes(id), false, id);
       }
       for (const item of items) {
         const svg = item.querySelector("svg");
@@ -409,9 +955,8 @@ export function registerGui(h) {
       }
       assert.match(menu.querySelector('[data-cmd="refresh"] svg').innerHTML, /#2f94ff/);
       assert.match(menu.querySelector('[data-cmd="settings"] svg').innerHTML, /#ffba30/);
-      assert.match(menu.querySelector('[data-cmd="exit"] svg').innerHTML, /#e5484d/);
+      assert.match(menu.querySelector('[data-cmd="close-tab"] svg').innerHTML, /#e5484d/);
       assert.ok(menu.querySelectorAll('[role="separator"]').length >= 4);
-      assert.equal(menu.querySelector('[data-cmd="undo"]').disabled, true);
       const shortcuts = [...menu.querySelectorAll(".menu-key")].filter((key) => key.textContent);
       assert.ok(shortcuts.length > 1);
       const rights = shortcuts.map((key) => key.getBoundingClientRect().right);
@@ -437,12 +982,12 @@ export function registerGui(h) {
       }
     });
   });
-  h.test("window menu commands run and recent files appear in it", async () => {
+  h.test("window menu commands run and no file history is offered", async () => {
     await withApp(async ({ app }) => {
       app.recent.add("C:/docs/recent.myweather");
       app.openMenu("window", { clientX: 10, clientY: 10 }, { atPointer: true });
       const menu = document.querySelector('.menu-popup[data-menu="window"]');
-      assert.ok(menu.querySelector('[data-cmd="recent:0"]'));
+      assert.equal(menu.querySelector('[data-cmd="recent:0"]'), null, "recent files belong to a file app");
       menu.querySelector('[data-cmd="about"]').click();
       await settle();
       assert.ok(document.querySelector('[data-popup="about"]'));
@@ -859,26 +1404,18 @@ export function registerGui(h) {
         assert.equal(row.querySelectorAll("br").length, 0);
       }
       assert.equal(popup.querySelector('[data-field="fontFamily"]').options.length, 50);
-      const sizeRow = popup.querySelector('[data-row="fontSize"]');
-      const steps = [...sizeRow.querySelectorAll("[data-step]")];
-      assert.deepEqual(steps.map((button) => button.dataset.step), ["-1", "1"]);
-      assert.equal(steps[0].title, "감소");
-      assert.equal(steps[1].title, "증가");
-      const size = popup.querySelector('[data-field="fontSize"]');
-      steps[1].click();
-      assert.equal(size.value, "15");
-      steps[0].click();
-      steps[0].click();
-      assert.equal(size.value, "13");
-      size.value = "8";
-      steps[0].click();
-      assert.equal(size.value, "8");
-      size.value = "72";
-      steps[1].click();
-      assert.equal(size.value, "72");
+      // The font is a single choice now: no size, no style.
+      assert.equal(popup.querySelector('[data-field="fontSize"]'), null);
+      assert.equal(popup.querySelector('[data-field="fontStyle"]'), null);
+      assert.equal(popup.querySelector("[data-style]"), null);
+      const sample = popup.querySelector("[data-font-sample]");
+      assert.ok(sample && sample.textContent.trim(), "a sample shows the chosen font");
+      assert.equal(getComputedStyle(sample).justifyContent, "center", "and is centred");
       popup.querySelector('[data-field="fontFamily"]').value = "Family 3";
-      popup.querySelector('[data-field="fontStyle"]').value = "bolditalic";
-      popup.querySelector('[data-field="fontSize"]').value = "18";
+      popup.querySelector('[data-field="fontFamily"]').dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.match(sample.style.fontFamily, /Family 3/, "the sample wears it");
+      assert.equal(popup.style.fontSize, "", "the dialog keeps its own size");
       const korean = popup.querySelector('[data-choice="language"][data-value="ko"]');
       const englishButton = popup.querySelector('[data-choice="language"][data-value="en"]');
       assert.equal(korean.querySelector("span").textContent, "한국어");
@@ -896,9 +1433,7 @@ export function registerGui(h) {
       popup.querySelector('[data-action="ok"]').click();
       await pending;
       assert.equal(app.settings.fontFamily, "Family 3");
-      assert.equal(app.frame.style.fontWeight, "700");
-      assert.equal(app.frame.style.fontStyle, "italic");
-      assert.equal(app.frame.style.fontSize, "18px");
+      assert.match(app.frame.style.fontFamily, /Family 3/, "only the window takes the font");
       assert.equal(app.settings.language, "en");
       assert.equal(app.frame.dataset.theme, "dark-forest");
       assert.equal(app.settings.units, "F");
@@ -908,7 +1443,7 @@ export function registerGui(h) {
       const again = app.showSettings("font");
       await settle();
       const english = document.querySelector('[data-popup="settings"]');
-      assert.deepEqual([...english.querySelectorAll(".popup-tab")].map((button) => button.textContent), ["General", "Sources", "Appearance", "Image & font"]);
+      assert.deepEqual([...english.querySelectorAll(".popup-tab")].map((button) => button.textContent), ["General", "Cities", "Sources", "Appearance", "Image & font"]);
       assert.equal(english.querySelector('[data-panel="wallpaper"]').hidden, false);
       assert.ok(english.querySelector('[data-field="fontFamily"]'));
       english.querySelector('[data-action="cancel"]').click();
@@ -936,8 +1471,16 @@ export function registerGui(h) {
       assert.equal(new Set([...light, ...dark].map((swatch) => swatch.dataset.themeId)).size, 40);
       for (const swatch of [...light, ...dark]) {
         const name = swatch.querySelector(".swatch-name");
-        assert.ok(swatch.title && swatch.querySelector(".chip i") && name.textContent, swatch.dataset.themeId);
+        const accent = swatch.querySelector(".chip i");
+        assert.ok(swatch.title && accent && name.textContent, swatch.dataset.themeId);
         assert.equal(swatch.querySelector(".chip").contains(name), true);
+        // The accent runs the width of the swatch instead of sitting in a corner as a dot.
+        const band = getComputedStyle(accent);
+        assert.equal(band.left, "0px", swatch.dataset.themeId);
+        assert.equal(band.right, "0px", swatch.dataset.themeId);
+        assert.equal(band.bottom, "0px", swatch.dataset.themeId);
+        assert.equal(parseFloat(band.borderRadius) || 0, 0, swatch.dataset.themeId);
+        assert.equal(band.width, "", "the band is stretched by its edges, not given a width");
       }
       const modes = [...popup.querySelectorAll("[data-theme-mode]")].map((button) => button.dataset.themeMode);
       assert.deepEqual(modes, ["light", "dark", "custom"]);
@@ -953,7 +1496,7 @@ export function registerGui(h) {
       const hover = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".popup-x:hover, .popup-x:focus-visible");
       assert.equal(hover.style.background, "#e5484d");
       assert.equal(hover.style.color, "#fff");
-      assert.equal(popup.style.height, "700px");
+      assert.equal(popup.style.height, "600px");
       assert.equal(getComputedStyle(popup.querySelector(".popup-body")).paddingTop, "16px");
       assert.equal(getComputedStyle(popup.querySelector(".popup-body")).paddingBottom, "16px");
       assert.equal(getComputedStyle(popup.querySelector('[data-panel="appearance"]')).gap, "10px");
@@ -1068,6 +1611,34 @@ export function registerGui(h) {
       assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 0.775)");
     });
   });
+  h.test("closing the settings with the X keeps nothing, like cancel", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshWeather();
+      const start = { units: app.settings.units, theme: app.settings.theme };
+      for (const [button, kept] of [["ok", true], ["cancel", false], ["close", false]]) {
+        app.settings.units = start.units;
+        app.settings.theme = start.theme;
+        app.applyAll();
+        await app.persist();
+        const pending = app.showSettings("general");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        const units = popup.querySelector('[data-field="units"]');
+        units.value = "F";
+        units.dispatchEvent(new window.Event("change", { bubbles: true }));
+        await settle();
+        // Whatever the button, the change shows the moment it is made.
+        assert.match(app.root.querySelector(".scene-temp").textContent, /°F/, `${button}: shown at once`);
+        assert.equal(app.settings.units, "C", `${button}: nothing saved yet`);
+        popup.querySelector(`[data-action="${button}"]`).click();
+        await pending;
+        await settle();
+        assert.equal(app.settings.units, kept ? "F" : "C", `${button}: ${kept ? "kept" : "put back"}`);
+        assert.match(app.root.querySelector(".scene-temp").textContent, kept ? /°F/ : /°C/, `${button}: the window agrees`);
+        assert.equal(platform.settings.units, kept ? "F" : "C", `${button}: and so does the saved copy`);
+      }
+    });
+  });
   h.test("a settings change appears immediately and cancel puts it back", async () => {
     await withApp(async ({ app }) => {
       const day = {
@@ -1101,13 +1672,13 @@ export function registerGui(h) {
       assert.equal(popup.querySelector(".popup-title").textContent, "Settings");
       assert.equal(popup.querySelector('[data-field="units"] option[value="C"]').textContent, "Celsius");
       assert.equal(app.settings.language, "ko");
-      const size = popup.querySelector('[data-field="fontSize"]');
-      size.value = "22";
-      size.dispatchEvent(new window.Event("input", { bubbles: true }));
+      const family = popup.querySelector('[data-field="fontFamily"]');
+      family.value = "Consolas";
+      family.dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
-      assert.equal(app.frame.style.fontSize, "22px");
-      assert.equal(popup.style.fontSize, "22px");
-      assert.equal(app.settings.fontSize, 14);
+      assert.match(app.frame.style.fontFamily, /Consolas/, "the window shows it at once");
+      assert.equal(popup.style.fontSize, "", "the dialog is not resized by it");
+      assert.equal(app.settings.fontFamily, "Segoe UI", "and nothing is saved until OK");
       const units = popup.querySelector('[data-field="units"]');
       units.value = "F";
       units.dispatchEvent(new window.Event("change", { bubbles: true }));
@@ -1129,10 +1700,8 @@ export function registerGui(h) {
       popup.querySelector('[data-action="cancel"]').click();
       await pending;
       assert.equal(app.settings.language, "ko");
-      assert.equal(app.settings.fontSize, 14);
       assert.equal(app.settings.units, "C");
       assert.equal(app.root.querySelector('[data-cmd="settings"]').title, "설정");
-      assert.equal(app.frame.style.fontSize, "14px");
       assert.match(app.root.querySelector(".scene-temp").textContent, /15°C/);
       assert.equal(app.root.querySelector(".scene-city").textContent, "서울");
     });
@@ -1268,8 +1837,6 @@ export function registerGui(h) {
       app.settings.updateHours = 12;
       app.settings.displayPriority = "ecmwf";
       app.settings.enabledSources = ["gfs"];
-      app.settings.fontSize = 22;
-      app.settings.reopenLast = true;
       app.settings.openAtLogin = true;
       app.settings.windowPosition = { x: 40, y: 18 };
       app.recent.add("C:/weather/keep.myweather");
@@ -1291,8 +1858,6 @@ export function registerGui(h) {
       assert.equal(popup.querySelector('[data-field="backgroundOpacity"]').value, "40");
       assert.equal(popup.querySelector('[data-field="updateHours"]').value, "1");
       assert.equal(popup.querySelector('[data-field="displayPriority"]').value, "average");
-      assert.equal(popup.querySelector('[data-field="fontSize"]').value, "14");
-      assert.equal(popup.querySelector('[data-field="reopen"]').checked, false);
       assert.equal(popup.querySelector('[data-field="openAtLogin"]').checked, false);
       assert.equal(popup.querySelector('[data-field="countryCode"]').value, "KR");
       assert.equal(popup.querySelector('[data-field="cityEn"]').value, "Seoul");
@@ -1321,8 +1886,6 @@ export function registerGui(h) {
       assert.equal(app.settings.backgroundOpacity, 40);
       assert.equal(app.settings.updateHours, 1);
       assert.equal(app.settings.displayPriority, "average");
-      assert.equal(app.settings.fontSize, 14);
-      assert.equal(app.settings.reopenLast, false);
       assert.equal(app.settings.openAtLogin, false);
       assert.deepEqual(app.settings.enabledSources, ["ecmwf", "gfs", "jma", "metno", "wttr"]);
       assert.equal(app.settings.backgroundImage, "");
@@ -1454,9 +2017,9 @@ export function registerGui(h) {
         nextTab.click();
         collectTabs();
       }
-      assert.deepEqual([...popup.querySelectorAll(".popup-tab")].map((button) => button.dataset.tab), ["general", "data", "appearance", "wallpaper"]);
+      assert.deepEqual([...popup.querySelectorAll(".popup-tab")].map((button) => button.dataset.tab), ["general", "cities", "data", "appearance", "wallpaper"]);
       assert.equal(popup.querySelector('[data-action="tab-next"]').hidden, true);
-      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "data", "general", "wallpaper"]);
+      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "cities", "data", "general", "wallpaper"]);
       for (const [id, svg] of tabIcons) assert.ok(svg, id);
       popup.querySelector('[data-action="tab-prev"]').click();
       assert.deepEqual([...field.options].map((option) => option.value), ["average", "ecmwf", "gfs", "jma", "metno", "wttr"]);
@@ -1734,7 +2297,7 @@ export function registerGui(h) {
   });
 
   h.category("Print GUI");
-  h.test("preview prints all, current, or a custom range and can change page setup", async () => {
+  h.test("the print window sets the page on the left and shows the sheet on the right", async () => {
     await withApp(async ({ app, platform }) => {
       await app.refreshWeather();
       app.addTab();
@@ -1742,64 +2305,136 @@ export function registerGui(h) {
       app.doc.tabs[1].weather = app.doc.tabs[0].weather;
       const pending = app.openPrint();
       await settle();
-      let popup = document.querySelector('[data-popup="print"]');
+      const popup = document.querySelector('[data-popup="print"]');
+      assert.ok(popup);
+      assert.equal(document.querySelector('[data-popup="preview"]'), null, "there is no second window");
+      assert.equal(popup.querySelector(".popup-tabs"), null, "and no tabs");
+      const setup = popup.querySelector(".preview-setup");
+      const side = popup.querySelector(".preview-side");
+      assert.ok(setup && side);
+      assert.ok(setup.getBoundingClientRect().left <= side.getBoundingClientRect().left, "settings left, sheet right");
+      // Everything a print needs is on the left of the one window.
+      for (const field of ["from", "to", "range-daily", "range-weekly", "range-monthly", "paper", "orientation", "margin", "scale", "header", "pageNumber", "pageNumberAt"]) {
+        assert.ok(setup.querySelector(`[data-field="${field}"]`), field);
+      }
+      assert.equal(setup.querySelectorAll('input[name="scope"]').length, 3);
+      const sheet = popup.querySelector("[data-preview-sheet]");
+      const paper = popup.querySelector("[data-preview-paper]");
+      const count = popup.querySelector("[data-preview-count]");
+      const prev = popup.querySelector('[data-action="page-prev"]');
+      const next = popup.querySelector('[data-action="page-next"]');
+      assert.ok(sheet && paper && count && prev && next);
+      assert.equal(popup.querySelector(".pager-btn"), null, "only previous and next");
       chooseScope(popup, "all");
-      popup.querySelector('[data-action="preview"]').click();
+      popup.querySelector('input[name="scope"]').dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
-      popup = document.querySelector('[data-popup="preview"]');
-      assert.equal(popupFits(popup).fits, true);
-      assert.equal(popup.style.overflow, "hidden");
-      const paper = popup.querySelector('[data-field="paper"]');
-      paper.value = "A3";
-      paper.dispatchEvent(new window.Event("change", { bubbles: true }));
-      const orientation = popup.querySelector('[data-field="orientation"]');
-      orientation.value = "landscape";
-      orientation.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.equal(count.textContent, "1 / 6", "two cities, three forecasts each");
+      assert.equal(prev.disabled, true);
+      assert.match(sheet.innerHTML, /서울/);
+      assert.match(sheet.innerHTML, /class="hour-board"/, "the sheet carries the real forecast");
+      assert.match(sheet.innerHTML, /<svg/, "pictures and all");
+      // The paper keeps its shape whatever is laid out on it.
+      assert.equal(paper.style.aspectRatio, "210 / 297");
+      next.click();
+      assert.equal(count.textContent, "2 / 6");
+      assert.match(sheet.innerHTML, /class="week-row"/);
+      next.click();
+      assert.match(sheet.innerHTML, /class="month-cal"/);
+      prev.click();
+      assert.equal(count.textContent, "2 / 6");
+      for (let i = 0; i < 6; i += 1) next.click();
+      assert.equal(count.textContent, "6 / 6");
+      assert.equal(next.disabled, true, "it stops at the last page");
+      assert.match(sheet.innerHTML, /부산/);
+      const paperField = popup.querySelector('[data-field="paper"]');
+      paperField.value = "A3";
+      paperField.dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
+      assert.equal(app.pageSetup.paper, "A3");
+      assert.equal(paper.style.aspectRatio, "297 / 420", "a new paper reshapes the sheet");
+      const turned = popup.querySelector('[data-field="orientation"]');
+      turned.value = "landscape";
+      turned.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(paper.style.aspectRatio, "420 / 297");
+      // Print goes straight to the printer from this window.
       popup.querySelector('[data-action="print"]').click();
       await pending;
       assert.equal(platform.prints.length, 1);
-      assert.match(platform.prints[0].html, /A3 landscape/);
-      assert.match(platform.prints[0].html, /Seoul|서울/);
-      assert.match(platform.prints[0].html, /Busan|부산/);
+      assert.match(platform.prints[0].html, /class="sheet-city">서울</);
+      assert.match(platform.prints[0].html, /size: A3 landscape/);
+      assert.equal(platform.prints[0].pageSetup.paper, "A3");
     });
   });
-  h.test("a reversed custom range explains the error", async () => {
+  h.test("the print window prints only the forecasts that were asked for", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshWeather();
+      const pending = app.openPrint();
+      await settle();
+      const popup = document.querySelector('[data-popup="print"]');
+      assert.equal(popup.querySelector("[data-preview-count]").textContent, "1 / 3");
+      const daily = popup.querySelector('[data-field="range-daily"]');
+      daily.checked = false;
+      daily.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      const monthly = popup.querySelector('[data-field="range-monthly"]');
+      monthly.checked = false;
+      monthly.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(popup.querySelector("[data-preview-count]").textContent, "1 / 1");
+      const sheet = popup.querySelector("[data-preview-sheet]");
+      assert.match(sheet.innerHTML, /주간 예보/);
+      assert.doesNotMatch(sheet.innerHTML, /일간 예보/);
+      popup.querySelector('[data-action="print"]').click();
+      await pending;
+      assert.match(platform.prints[0].html, /주간 예보/);
+      assert.doesNotMatch(platform.prints[0].html, /월간 예보/);
+    });
+  });
+  h.test("the page number can be moved or left off", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshWeather();
+      const pending = app.openPrint();
+      await settle();
+      const popup = document.querySelector('[data-popup="print"]');
+      const sheet = popup.querySelector("[data-preview-sheet]");
+      assert.match(sheet.innerHTML, /data-at="right"/);
+      const at = popup.querySelector('[data-field="pageNumberAt"]');
+      at.value = "center";
+      at.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.match(sheet.innerHTML, /data-at="center"/);
+      assert.match(sheet.innerHTML, /1 \/ 3/);
+      const on = popup.querySelector('[data-field="pageNumber"]');
+      on.value = "off";
+      on.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.doesNotMatch(sheet.innerHTML, /sheet-foot/);
+      const header = popup.querySelector('[data-field="header"]');
+      header.value = "off";
+      header.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.doesNotMatch(sheet.innerHTML, /sheet-head/, "the heading can go too");
+      popup.querySelector('[data-action="print"]').click();
+      await pending;
+      assert.doesNotMatch(platform.prints[0].html, /<footer class="sheet-foot"/);
+    });
+  });
+  h.test("a reversed custom range leaves the last good sheet up and says so", async () => {
     await withApp(async ({ app }) => {
       await app.refreshWeather();
       const pending = app.openPrint();
       await settle();
       const popup = document.querySelector('[data-popup="print"]');
+      const before = popup.querySelector("[data-preview-sheet]").innerHTML;
       chooseScope(popup, "custom");
       popup.querySelector('[data-field="from"]').value = "2026-10-09";
-      popup.querySelector('[data-field="to"]').value = "2026-10-01";
-      popup.querySelector('[data-action="preview"]').click();
-      await pending;
-      const error = document.querySelector('[data-popup="error"]');
-      assert.match(error.textContent, /올바르지 않습니다|PRINT_RANGE|2026-10-09/);
-      assert.equal(popupFits(error).fits, true);
-    });
-  });
-  h.test("preview page tabs scroll with chevrons when they overflow", async () => {
-    await withApp(async ({ app }) => {
-      const dates = Array.from({ length: 40 }, (_, index) => `2026-10-${String((index % 28) + 1).padStart(2, "0")}`);
-      app.currentTab().weather = {
-        daily: dates.map((date) => ({ date, tempMin: 1, tempMax: 2, precip: 0, wind: 1, code: 1, bySource: {} })),
-        hourly: [],
-        sources: [],
-      };
-      const pending = app.openPrint();
+      popup.querySelector('[data-field="to"]').value = "2026-10-07";
+      popup.querySelector('[data-field="to"]').dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
-      document.querySelector('[data-popup="print"] [data-action="preview"]').click();
-      await settle();
-      const popup = document.querySelector('[data-popup="preview"]');
-      const next = popup.querySelector('[data-action="tab-next"]');
-      assert.equal(next.disabled, false);
-      const before = popup.querySelector(".popup-tab").dataset.tab;
-      next.click();
-      assert.notEqual(popup.querySelector(".popup-tab").dataset.tab, before);
-      assert.equal(popup.querySelector(".scrollbar"), null);
-      popup.querySelector('[data-action="close"]').click();
+      assert.equal(app.statusMessage, "날짜 범위가 올바르지 않습니다.");
+      assert.equal(popup.querySelector("[data-preview-sheet]").innerHTML, before, "the sheet is left alone");
+      popup.querySelector('[data-action="cancel"]').click();
       await pending;
     });
   });
@@ -1834,20 +2469,22 @@ export function registerGui(h) {
       assert.equal(document.querySelector(".popup"), null);
     });
   });
-  h.test("ctrl+n discards unsaved work into a new document", async () => {
+  h.test("the file shortcuts are gone with the file commands", async () => {
     await withApp(async ({ app }) => {
       app.currentTab().properties.label = "keep-me";
       app.markDirty();
-      press("n", { ctrlKey: true });
+      for (const key of ["n", "o", "s"]) {
+        press(key, { ctrlKey: true });
+        await settle();
+      }
+      assert.equal(document.querySelector('[data-popup="unsaved"]'), null);
+      assert.equal(app.currentTab().properties.label, "keep-me", "nothing was thrown away");
+      // Printing is what this app puts on paper, and it still answers.
+      press("p", { ctrlKey: true });
       await settle();
-      const unsaved = document.querySelector('[data-popup="unsaved"]');
-      assert.ok(unsaved);
-      unsaved.querySelector('[data-action="discard"]').click();
+      assert.ok(document.querySelector('[data-popup="print"]'));
+      document.querySelector('[data-popup="print"] [data-action="cancel"]').click();
       await settle();
-      assert.equal(app.doc.dirty, false);
-      assert.equal(app.doc.tabs.length, 1);
-      assert.notEqual(app.currentTab().properties.label, "keep-me");
-      assert.equal(app.root.querySelector(".tabbar").hidden, true);
     });
   });
   h.test("double-clicking the title maximizes and a toolbar button does not", async () => {
@@ -1869,25 +2506,20 @@ export function registerGui(h) {
       assert.notEqual(getComputedStyle(app.content).display, "none");
     });
   });
-  h.test("a favorite and an extra tab can be undone, and tabs are not city names", async () => {
+  h.test("a favorite and an extra city can be undone, and the title row stays free of city names", async () => {
     await withApp(async ({ app }) => {
-      await app.run("add-tab");
-      assert.equal(app.root.querySelector(".tabbar").hidden, false);
-      assert.deepEqual(
-        [...app.root.querySelectorAll("[data-gui='tab']")].map((tab) => tab.textContent),
-        ["1", "2"],
-      );
+      app.addTab();
+      assert.equal(app.doc.tabs.length, 2);
       assert.equal(app.root.querySelector(".shell-top").textContent.includes("서울"), false);
+      assert.equal(app.root.querySelector(".shell-top").textContent.includes("부산"), false);
       await app.run("toggle-favorite");
-      assert.match(app.root.querySelector(".tab.is-active").textContent, /^★ /);
+      assert.equal(app.currentTab().properties.favorite, true);
       app.undo();
-      assert.equal(app.root.querySelector(".tab.is-active").textContent, "2");
+      assert.equal(app.currentTab().properties.favorite, false);
       await app.run("close-tab");
       assert.equal(app.doc.tabs.length, 1);
-      assert.equal(app.root.querySelector(".tabbar").hidden, true);
       app.undo();
       assert.equal(app.doc.tabs.length, 2);
-      assert.equal(app.root.querySelector(".tabbar").hidden, false);
     });
   });
   h.test("a tall window enlarges the weather picture and the main window does not scroll", async () => {
@@ -2050,7 +2682,7 @@ export function registerGui(h) {
       assert.equal(app.i18n.missing.size, 0, [...app.i18n.missing].join(","));
       assert.equal(app.root.textContent.includes("«"), false);
       const buttons = app.root.querySelectorAll("button");
-      assert.ok(buttons.length >= 10);
+      assert.ok(buttons.length >= 9, String(buttons.length));
     });
   });
 }

@@ -12,9 +12,15 @@ export function menuIconFile(name) {
   return `assets/menu/${name}.png`;
 }
 
-export function buildTrayMenu(t) {
-  const item = (id, icon, label) => ({ id, icon, label });
-  const group = (id, icon, label, submenu) => ({ id, icon, label, submenu });
+function item(id, icon, label) {
+  return { id, icon, label };
+}
+
+function group(id, icon, label, submenu) {
+  return { id, icon, label, submenu };
+}
+
+export function buildTrayMenu(t, options = {}) {
   return [
     item("show-window", "show", t("tray.show")),
     group("weather", "weather", t("tray.weather"), [
@@ -23,16 +29,9 @@ export function buildTrayMenu(t) {
       item("weekly", "weekly", t("forecast.weekly")),
       item("monthly", "monthly", t("forecast.monthly")),
     ]),
-    group("file", "open", t("tray.file"), [
-      item("new", "new", t("cmd.new")),
-      item("open", "open", t("cmd.open")),
-      item("save", "save", t("cmd.save")),
-      item("save-as", "saveAs", t("cmd.saveAs")),
-      item("print", "print", t("cmd.print")),
-    ]),
+    group("cities", "city", t("tray.cities"), cityItems(t, options)),
     group("edit", "copy", t("tray.edit"), [
-      item("undo", "undo", t("cmd.undo")),
-      item("redo", "redo", t("cmd.redo")),
+      item("print", "print", t("cmd.print")),
       item("copy", "copy", t("cmd.copy")),
       item("paste", "paste", t("cmd.paste")),
     ]),
@@ -41,6 +40,21 @@ export function buildTrayMenu(t) {
     { type: "separator" },
     item("exit", "exit", t("cmd.exit")),
   ];
+}
+
+/** The tray lists the cities the window rotates through so one can be shown without opening it. */
+function cityItems(t, options) {
+  const cities = Array.isArray(options.cities) ? options.cities : [];
+  const language = options.language === "en" ? "en" : "ko";
+  const active = Number(options.activeIndex) || 0;
+  const items = [item("next-city", "next", t("cmd.nextCity")), item("add-city", "add", t("cmd.addCity")), item("new-window", "window", t("cmd.newWindow"))];
+  if (!cities.length) return items;
+  items.push({ type: "separator" });
+  cities.forEach((place, index) => {
+    const name = language === "ko" ? place.cityKo || place.cityEn : place.cityEn || place.cityKo;
+    items.push(item(`city:${index}`, "city", index === active ? `● ${name}` : name));
+  });
+  return items;
 }
 
 export function trayMenuSize(menu) {

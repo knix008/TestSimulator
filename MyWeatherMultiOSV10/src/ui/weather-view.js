@@ -3,13 +3,14 @@ import { presentWeather } from "../weather/aggregate.js";
 import { formatTemp, isoDate } from "../weather/format.js";
 import { conditionIcon, conditionText } from "../weather/wmo.js";
 
-export function renderWeatherHtml({ tab, language, units, today, t, priority = "average", dateFormat = "long" }) {
+export function renderWeatherHtml({ tab, language, units, today, t, priority = "average", dateFormat = "long", cityCount = 1 }) {
   const shown = preferTab(tab, priority);
   const city = language === "ko" ? tab?.place?.cityKo || tab?.place?.cityEn || "" : tab?.place?.cityEn || tab?.place?.cityKo || "";
   const reading = todayReading(shown, today);
   const code = reading?.code ?? 1;
   const art = conditionIcon(code);
-  const scene = `<section class="weather-scene" data-gui="scene">
+  const advance = cityCount > 1 ? ` data-scene-advance="1" title="${esc(t("tip.nextCity"))}"` : "";
+  const scene = `<section class="weather-scene" data-gui="scene"${advance}>
       ${sceneArt(art)}
       <div class="scene-copy">
         <div class="scene-city">${esc(city)}</div>

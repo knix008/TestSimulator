@@ -8,13 +8,12 @@ import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
 import { buildPrintModel, normalizeSetup } from "./core/print-model.js";
 import { RecentFiles } from "./core/recent.js";
-import { clamp, normalizeDateFormat, normalizeDisplayPriority, normalizeUpdateHours, sanitizeSettings } from "./core/settings.js";
+import { MAX_CITIES, clamp, normalizeDateFormat, normalizeDisplayPriority, normalizeRotateSeconds, normalizeUpdateHours, sanitizeCities, sanitizeSettings, samePlace } from "./core/settings.js";
 import { applyThemeVars, isTheme, sanitizeCustomTheme, themeColors, themeVars } from "./core/themes.js";
 import { UndoStack } from "./core/undo.js";
-import { FONT_STYLES } from "./core/fonts.js";
 import { CITIES, filterCities } from "./weather/cities.js";
 import { formatTemp, isoDate } from "./weather/format.js";
-import { geocodeUrl, parseGeocoding, sourcePageUrl } from "./weather/providers.js";
+import { geocodeUrl, mergeGeocoding, parseGeocoding, sourcePageUrl } from "./weather/providers.js";
 import { loadWeather } from "./weather/service.js";
 import { conditionText } from "./weather/wmo.js";
 import { gripIcon, icon } from "./ui/icons.js";
@@ -27,13 +26,14 @@ import {
   buildAboutSpec,
   buildErrorSpec,
   buildForecastSpec,
-  buildPreviewSpec,
   buildPrintSpec,
   buildProgressSpec,
+  applyPopupLanguage,
+  buildSearchSpec,
   buildSettingsSpec,
   buildUnsavedSpec,
+  parseCityList,
 } from "./ui/popups.js";
-import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
 import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, clampWindowSize, sceneFit } from "./ui/window-spec.js";
 import { forecastFitHeight, forecastWhen, renderForecastHtml, renderWeatherHtml } from "./ui/weather-view.js";
@@ -55,16 +55,16 @@ class WeatherApp {
     this.history = new UndoStack();
     this.recent = new RecentFiles(10);
     this.extraCities = [];
+    /** Extra windows keep their own city list, so only the first window stores one. */
+    this.ownsCityList = true;
     this.fonts = resolveFontList([]);
     this.settings = sanitizeSettings(this.platform.readSettingsSync?.() || null);
     this.recent.load(this.settings.recentFiles);
     this.i18n.setLanguage(this.settings.language);
-    this.doc = createDocument(this.settings.defaultLocation);
+    this.doc = createDocument(this.settings.cities);
     this.pageSetup = { paper: "A4", orientation: "portrait", margin: 15 };
     this.selectionText = "";
     this.progressLog = [];
-    this.tabStart = 0;
-    this.workspaceWidth = null;
     this.searchQuery = "";
     this.locationDraft = null;
     this.closed = false;
@@ -98,11 +98,6 @@ class WeatherApp {
               <button type="button" class="tool-btn" data-cmd="weekly" data-gui="range-button" data-i18n-title="forecast.weekly">${icon("weekly")}</button>
               <button type="button" class="tool-btn" data-cmd="monthly" data-gui="range-button" data-i18n-title="forecast.monthly">${icon("monthly")}</button>
             </div>
-            <div class="tabbar" data-gui="tabbar" hidden>
-              <button type="button" class="chev" data-cmd="tab-prev" data-gui="tab-nav" data-i18n-title="tip.tabPrev">${icon("left")}</button>
-              <div id="tab-strip" class="tab-strip"></div>
-              <button type="button" class="chev" data-cmd="tab-next" data-gui="tab-nav" data-i18n-title="tip.tabNext">${icon("right")}</button>
-            </div>
             <div class="corner-actions" data-gui="corner-actions">
               <button type="button" class="icon-btn" data-cmd="refresh" data-gui="corner-button" data-i18n-title="tip.refresh">${icon("refresh")}</button>
               <button type="button" class="icon-btn" data-cmd="settings" data-gui="corner-button" data-i18n-title="tip.settings">${icon("settings")}</button>
@@ -122,7 +117,6 @@ class WeatherApp {
     this.shell = this.root.querySelector(".window-shell");
     this.overlay = this.root.querySelector("#overlay-root");
     this.content = this.root.querySelector("#content");
-    this.tabStrip = this.root.querySelector("#tab-strip");
     this.toast = this.root.querySelector(".toast");
     this.grip = this.root.querySelector(".resize-grip");
     this.wallpaper = this.root.querySelector(".wallpaper");
@@ -170,6 +164,11 @@ class WeatherApp {
       }
       this.fonts = resolveFontList(await this.platform.listFonts());
       if (!this.fonts.includes(this.settings.fontFamily)) this.fonts.unshift(this.settings.fontFamily);
+      this.extraCities = [...(this.settings.extraCities || [])];
+      this.syncTabsToCities();
+      const boot = await this.platform.windowBoot?.();
+      if (boot?.primary === false) this.ownsCityList = false;
+      if (boot && Number.isFinite(Number(boot.cityIndex))) this.doc.activeIndex = Math.max(0, Math.min(this.doc.tabs.length - 1, Math.round(Number(boot.cityIndex))));
       this.shellSize = clampWindowSize(this.settings.windowSize || WINDOW_DEFAULT);
       if (this.settings.windowPosition) this.shellOffset = { ...this.settings.windowPosition };
       this.applyShellSize();
@@ -195,6 +194,9 @@ class WeatherApp {
     clearTimeout(this.toastTimer);
     clearTimeout(this.updateTimer);
     this.updateTimer = null;
+    clearTimeout(this.rotateTimer);
+    this.rotateTimer = null;
+    clearTimeout(this.sceneDragTimer);
     this.weatherAbort?.abort();
     this.endResize?.();
     this.detachDrag?.();
@@ -290,12 +292,15 @@ class WeatherApp {
     };
     const onGripDown = (event) => this.beginResize(event);
     const onContentClick = (event) => {
+      // The weather picture is also the drag handle, so the click that ends a drag is not a choice.
       const day = event.target.closest("[data-date]");
-      if (day) this.selectDate(day.dataset.date);
-    };
-    const onTabClick = (event) => {
-      const tab = event.target.closest("[data-tab-id]");
-      if (tab) this.selectTab(tab.dataset.tabId);
+      if (day) {
+        this.selectDate(day.dataset.date);
+        return;
+      }
+      if (this.suppressSceneClick) return;
+      if (event.target.closest("[data-cmd], button, input, select, textarea, a")) return;
+      this.nextCity();
     };
     this.frame.addEventListener("pointerup", onPointerUp);
     this.frame.addEventListener("click", onClick);
@@ -312,7 +317,6 @@ class WeatherApp {
     this.root.querySelector(".shell-top").addEventListener("dblclick", onTopDouble);
     this.grip.addEventListener("pointerdown", onGripDown);
     this.content.addEventListener("click", onContentClick);
-    this.tabStrip.addEventListener("click", onTabClick);
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
     this.unbind = () => {
@@ -342,9 +346,6 @@ class WeatherApp {
     if (!mod) return;
     const key = event.key.toLowerCase();
     const map = {
-      n: () => this.run("new"),
-      o: () => this.run("open"),
-      s: () => this.run(event.shiftKey ? "save-as" : "save"),
       z: () => this.run(event.shiftKey ? "redo" : "undo"),
       y: () => this.run("redo"),
       x: () => this.run("cut"),
@@ -390,6 +391,7 @@ class WeatherApp {
     try {
       if (!id) return;
       if (id.startsWith("recent:")) return await this.openRecent(Number(id.slice(7)));
+      if (id.startsWith("city:")) return this.showCity(Number(id.slice(5)));
       if (id.startsWith("theme:")) return await this.setTheme(id.slice(6));
       if (id.startsWith("lang:")) return await this.setLanguage(id.slice(5));
       const actions = {
@@ -411,11 +413,12 @@ class WeatherApp {
         minimize: () => this.minimizeWindow(),
         maximize: () => this.toggleMaximize(),
         close: () => this.requestClose(),
-        exit: () => this.requestClose(),
-        "tab-prev": () => this.nudgeTabs(-1),
-        "tab-next": () => this.nudgeTabs(1),
+        exit: () => this.quitApp(),
+        "next-city": () => this.nextCity(),
         "apply-location": () => this.applyLocation(),
         "add-tab": () => this.addTab(),
+        "add-city": () => this.openCitySearch(),
+        "new-window": () => this.openWeatherWindow(),
         "close-tab": () => this.closeTab(),
         "search-online": () => this.searchOnline(),
         download: () => this.downloadWeather(),
@@ -538,7 +541,9 @@ class WeatherApp {
     if (this.maximized || this.minimized) return;
     if (this.platform.nativeWindow) {
       void Promise.resolve(this.platform.moveWindow?.(step)).then((bounds) => {
-        if (step.phase === "end") this.rememberWindowPlacement(bounds);
+        if (step.phase !== "end") return;
+        this.noteSceneDrag();
+        this.rememberWindowPlacement(bounds);
       });
       return;
     }
@@ -547,6 +552,7 @@ class WeatherApp {
       return;
     }
     if (step.phase === "end") {
+      this.noteSceneDrag();
       this.rememberWindowPlacement({ x: this.shellOffset.x, y: this.shellOffset.y, width: this.shellSize.width, height: this.shellSize.height });
       return;
     }
@@ -579,8 +585,7 @@ class WeatherApp {
       }
       this.shellSize = clampWindowSize({ width: start.size.width + dx, height: start.size.height + dy });
       this.applyShellSize();
-      this.renderTabs();
-    };
+      };
     const up = () => {
       this.endResize?.();
       if (native) {
@@ -666,6 +671,7 @@ class WeatherApp {
     this.applyI18n();
     this.syncPanels();
     this.syncUpdateTimer();
+    this.syncRotateTimer();
   }
 
   applyI18n() {
@@ -681,7 +687,6 @@ class WeatherApp {
     });
     this.fillCountries();
     this.fillCities();
-    this.renderTabs();
     this.renderWeather();
     this.renderStatus();
     this.root.querySelectorAll("input, select, textarea").forEach((el) => {
@@ -690,6 +695,16 @@ class WeatherApp {
       if (span?.textContent) el.title = span.textContent;
     });
     this.refreshOpenForecasts();
+    this.retranslateOpenPopups();
+  }
+
+  /** Dialogs drawn inside the window follow the language too, as the separate ones already do. */
+  retranslateOpenPopups() {
+    for (const popup of this.overlay?.querySelectorAll("[data-popup]") || []) {
+      if (!popup._spec) continue;
+      popup._spec.language = this.settings.language;
+      applyPopupLanguage(popup, popup._spec);
+    }
   }
 
   applyTheme(draft = {}) {
@@ -709,8 +724,6 @@ class WeatherApp {
       transparency,
       language: this.settings.language,
       fontFamily: this.settings.fontFamily,
-      fontSize: this.settings.fontSize,
-      fontStyle: this.settings.fontStyle,
     });
     this.applyWallpaper(this.wallpaperOpacityPreview ?? this.settings.backgroundOpacity);
     this.frame.dataset.theme = theme;
@@ -736,11 +749,7 @@ class WeatherApp {
   }
 
   applyFont() {
-    const style = this.settings.fontStyle;
     this.frame.style.fontFamily = `"${this.settings.fontFamily}", sans-serif`;
-    this.frame.style.fontSize = `${this.settings.fontSize}px`;
-    this.frame.style.fontWeight = style === "bold" || style === "bolditalic" ? "700" : "400";
-    this.frame.style.fontStyle = style === "italic" || style === "bolditalic" ? "italic" : "normal";
   }
 
   applyZoom() {
@@ -760,60 +769,104 @@ class WeatherApp {
     this.platform.broadcastWallpaper?.({ image, opacity: value });
   }
 
-  renderTabs() {
-    const multiple = this.doc.tabs.length > 1;
-    const tabbar = this.root.querySelector(".tabbar");
-    if (tabbar) tabbar.hidden = !multiple;
-    const bar = this.tabStrip.parentElement?.clientWidth || 0;
-    const width = this.workspaceWidth || (bar > 60 ? bar - 60 : 0) || 720;
-    const layout = layoutTabScroller(this.tabStart, this.doc.tabs.length, width, TAB_WIDTH);
-    this.tabStart = layout.start;
-    const slice = this.doc.tabs.slice(layout.start, layout.start + layout.visible);
-    this.tabStrip.innerHTML = "";
-    this.tabStrip.dataset.tabStart = String(layout.start);
-    this.tabStrip.style.overflow = "hidden";
-    if (!multiple) return;
-    for (const tab of slice) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "tab";
-      button.dataset.tabId = tab.id;
-      button.dataset.gui = "tab";
-      const label = tab.properties.label || String(this.doc.tabs.indexOf(tab) + 1);
-      button.textContent = `${tab.properties.favorite ? "★ " : ""}${label}`;
-      button.title = button.textContent;
-      button.style.whiteSpace = "nowrap";
-      if (tab.id === this.currentTab()?.id) button.classList.add("is-active");
-      this.tabStrip.appendChild(button);
-    }
-    const prev = this.root.querySelector('[data-cmd="tab-prev"]');
-    const next = this.root.querySelector('[data-cmd="tab-next"]');
-    const scrolling = layout.showPrev || layout.showNext;
-    if (prev) {
-      prev.disabled = !layout.showPrev;
-      prev.hidden = !scrolling;
-    }
-    if (next) {
-      next.disabled = !layout.showNext;
-      next.hidden = !scrolling;
-    }
+  cities() {
+    return this.doc.tabs.map((tab) => createPlace(tab.place));
   }
 
-  setWorkspaceWidth(px) {
-    this.workspaceWidth = px;
-    this.renderTabs();
+  /**
+   * What the results list offers: the catalog narrowed by the search box, or by the chosen
+   * country while the box is empty, so there is always something to add from.
+   */
+  cityMatches(query, countryCode = "") {
+    const typed = String(query || "").trim();
+    const pool = this.cityChoices();
+    if (!typed) return countryCode ? pool.filter((entry) => entry.countryCode === countryCode) : pool.slice(0, 60);
+    return filterCities(pool, "", typed).slice(0, 60);
   }
 
-  nudgeTabs(delta) {
-    this.tabStart += delta;
-    this.renderTabs();
+  /** The same spot under two spellings is still the same city, so coordinates settle it. */
+  knownPlace(place) {
+    const spot = placeKey(place);
+    return [...CITIES, ...this.extraCities].some((entry) => samePlace(entry, place) || placeKey(entry) === spot);
   }
 
-  selectTab(id) {
-    const index = this.doc.tabs.findIndex((tab) => tab.id === id);
-    if (index < 0) return;
-    this.doc.activeIndex = index;
+  /** A city the window does not show yet, so adding one never repeats what is already listed. */
+  freeCity() {
+    const shown = this.cities();
+    const fresh = this.cityChoices().find((entry) => !shown.some((place) => samePlace(place, entry)));
+    return fresh || this.settings.defaultLocation;
+  }
+
+  /** A click that ends a window drag must not also count as "next city". */
+  noteSceneDrag() {
+    this.suppressSceneClick = true;
+    clearTimeout(this.sceneDragTimer);
+    this.sceneDragTimer = setTimeout(() => {
+      this.suppressSceneClick = false;
+    }, 150);
+  }
+
+  /** Another window starts on the city after the one this window shows. */
+  async openWeatherWindow() {
+    if (!this.platform.newWindow) {
+      this.setStatus(this.t("msg.oneWindow"));
+      return;
+    }
+    const count = this.doc.tabs.length;
+    const cityIndex = count > 1 ? (this.doc.activeIndex + 1) % count : this.doc.activeIndex;
+    await this.persist();
+    await this.platform.newWindow({ cityIndex });
+  }
+
+  /** A click on the window, the tray, or the rotation timer all land here. */
+  nextCity(delta = 1) {
+    const count = this.doc.tabs.length;
+    if (count < 2) {
+      this.setStatus(this.t("msg.oneCity"));
+      return;
+    }
+    this.showCity(this.doc.activeIndex + delta);
+  }
+
+  showCity(index) {
+    const count = this.doc.tabs.length;
+    if (!count) return;
+    const wanted = Number(index);
+    if (!Number.isFinite(wanted)) return;
+    this.doc.activeIndex = ((Math.round(wanted) % count) + count) % count;
     this.afterStructure();
+    const tab = this.currentTab();
+    this.selectDate(tab.selectedDate || (tab.weather ? this.preferredDate(tab.weather) : ""));
+    this.armRotateTimer();
+    // A window told not to load on its own does not go fetching when the city changes either.
+    if (!tab.weather && this.options.autoLoad !== false) void this.refreshWeather({ quiet: true });
+  }
+
+  /** Keeps one tab per listed city, reusing the tab a city already had so its weather survives. */
+  syncTabsToCities() {
+    const cities = sanitizeCities(this.settings.cities, this.settings.defaultLocation);
+    const previous = this.doc.tabs;
+    const activeId = previous[this.doc.activeIndex]?.id;
+    const taken = new Set();
+    this.doc.tabs = cities.map((place, index) => {
+      const match = previous.findIndex((tab, at) => !taken.has(at) && samePlace(tab.place, place));
+      if (match >= 0) {
+        taken.add(match);
+        previous[match].place = createPlace(place);
+        return previous[match];
+      }
+      if (previous[index] && !taken.has(index)) {
+        taken.add(index);
+        const reused = previous[index];
+        reused.place = createPlace(place);
+        reused.weather = null;
+        reused.selectedDate = "";
+        return reused;
+      }
+      return createTab(place);
+    });
+    const at = this.doc.tabs.findIndex((tab) => tab.id === activeId);
+    this.doc.activeIndex = at >= 0 ? at : Math.min(this.doc.activeIndex, this.doc.tabs.length - 1);
   }
 
   renderWeather() {
@@ -825,6 +878,7 @@ class WeatherApp {
       priority: this.settings.displayPriority,
       dateFormat: this.dateFormatPreview || this.settings.dateFormat,
       today: this.now(),
+      cityCount: this.doc.tabs.length,
       t: (key, vars) => this.t(key, vars),
     });
     this.applySceneScale();
@@ -912,10 +966,11 @@ class WeatherApp {
   }
 
   afterStructure() {
-    this.renderTabs();
     this.syncPanels();
     this.renderWeather();
     this.renderStatus();
+    this.refreshOpenForecasts();
+    this.platform.shownCity?.(this.doc.activeIndex);
   }
 
   pushUndo(command) {
@@ -968,21 +1023,27 @@ class WeatherApp {
     await this.persist();
   }
 
+  /** Windows of their own hear about the language through the theme broadcast. */
+  applyLanguage() {
+    this.applyI18n();
+    this.applyTheme();
+  }
+
   async setLanguage(lang) {
     const next = lang === "en" ? "en" : "ko";
     const prev = this.settings.language;
     if (prev === next) return;
     this.settings.language = next;
-    this.applyI18n();
+    this.applyLanguage();
     this.pushUndo({
       undo: () => {
         this.settings.language = prev;
-        this.applyI18n();
+        this.applyLanguage();
         void this.persist();
       },
       redo: () => {
         this.settings.language = next;
-        this.applyI18n();
+        this.applyLanguage();
         void this.persist();
       },
     });
@@ -1012,7 +1073,12 @@ class WeatherApp {
       anchor: basis,
       t,
     };
-    return { anchor: basis, markup: renderForecastHtml(shared), when: forecastWhen(shared) };
+    return {
+      anchor: basis,
+      markup: renderForecastHtml(shared),
+      when: forecastWhen(shared),
+      city: displayCity(tab?.place, this.settings.language),
+    };
   }
 
   async showForecast(range, options = {}) {
@@ -1021,12 +1087,14 @@ class WeatherApp {
     const tab = this.currentTab();
     const hasWeather = Boolean(tab?.weather?.daily?.length);
     const t = (key, vars) => this.t(key, vars);
-    const { markup, when } = this.forecastView(range, anchor);
+    const { markup, when, city } = this.forecastView(range, anchor);
     const spec = buildForecastSpec({
       range,
       markup,
       when,
+      city,
       fitHeight: forecastFitHeight(range, hasWeather),
+      refreshLabel: this.t("cmd.refresh"),
       transparency: this.themePreview?.transparency ?? this.settings.transparency,
       backgroundImage: this.settings.backgroundImage,
       backgroundOpacity: this.wallpaperOpacityPreview ?? this.settings.backgroundOpacity,
@@ -1045,6 +1113,10 @@ class WeatherApp {
           void this.showForecast("daily", { anchor: msg.date });
           return;
         }
+        if (msg?.type === "forecast-refresh") {
+          void this.refreshForecast();
+          return;
+        }
         if (msg?.type !== "select-date") return;
         this.selectDate(msg.date);
         if (msg.range === "monthly") this.followMonthSelection(msg.date);
@@ -1052,16 +1124,24 @@ class WeatherApp {
         this.openMenu("context", point, { atPointer: true });
       },
     };
-    if (this.replaceLocalForecast(range, markup, when)) return Promise.resolve({ action: "focused" });
+    if (this.replaceLocalForecast(range, markup, when, city)) return Promise.resolve({ action: "focused" });
     if (!this.platform.refreshPopup) return this.openPopup(spec, handlers);
-    return this.openOrRefreshForecast(spec, handlers, markup);
+    return this.openOrRefreshForecast(spec, handlers, markup, city);
   }
 
-  replaceLocalForecast(range, markup, when) {
+  /** Fetch the shown city again and repaint whatever forecast windows are open. */
+  async refreshForecast() {
+    await this.refreshWeather({ quiet: true });
+    this.refreshOpenForecasts();
+  }
+
+  replaceLocalForecast(range, markup, when, city = "") {
     const popup = this.overlay.querySelector(`[data-popup-key="forecast:${range}"]`);
     if (!popup) return false;
     const fit = popup.querySelector(".forecast-fit");
     if (fit) fit.innerHTML = markup;
+    const place = popup.querySelector(".popup-city");
+    if (place) place.textContent = city || "";
     const label = popup.querySelector(".popup-when");
     if (label) label.textContent = when || "";
     this.popups.raise(popup);
@@ -1079,12 +1159,14 @@ class WeatherApp {
   paintOpenForecast(range) {
     const popup = this.overlay?.querySelector(`[data-popup-key="forecast:${range}"]`);
     if (!popup && !this.platform.refreshPopup) return;
-    const { markup, when } = this.forecastView(range);
+    const { markup, when, city } = this.forecastView(range);
     const fit = popup?.querySelector(".forecast-fit");
     if (fit) fit.innerHTML = markup;
+    const place = popup?.querySelector(".popup-city");
+    if (place) place.textContent = city || "";
     const label = popup?.querySelector(".popup-when");
     if (label) label.textContent = when || "";
-    if (this.platform.refreshPopup) void this.platform.refreshPopup(`forecast:${range}`, { markup, when: when || "" }, { focus: false });
+    if (this.platform.refreshPopup) void this.platform.refreshPopup(`forecast:${range}`, { markup, when: when || "", city: city || "" }, { focus: false });
   }
 
   refreshOpenForecasts() {
@@ -1092,8 +1174,8 @@ class WeatherApp {
     for (const range of ["daily", "weekly", "monthly"]) this.paintOpenForecast(range);
   }
 
-  async openOrRefreshForecast(spec, handlers, markup) {
-    const refreshed = await this.platform.refreshPopup(`forecast:${spec.range}`, { markup, when: spec.when || "" });
+  async openOrRefreshForecast(spec, handlers, markup, city = "") {
+    const refreshed = await this.platform.refreshPopup(`forecast:${spec.range}`, { markup, when: spec.when || "", city });
     if (refreshed?.focused) return { action: "focused" };
     return this.openPopup(spec, handlers);
   }
@@ -1196,7 +1278,6 @@ class WeatherApp {
     if (!tab) return;
     tab.place = createPlace(place);
     this.syncPanels();
-    this.renderTabs();
     this.renderStatus();
   }
 
@@ -1245,7 +1326,6 @@ class WeatherApp {
     if (!tab) return;
     tab.properties[field] = value;
     this.syncPanels();
-    this.renderTabs();
     this.renderWeather();
   }
 
@@ -1268,8 +1348,8 @@ class WeatherApp {
     this.renderStatus();
   }
 
-  addTab() {
-    const tab = createTab(this.settings.defaultLocation);
+  addTab(place) {
+    const tab = createTab(place || this.freeCity());
     const index = this.doc.tabs.length;
     this.doc.tabs.push(tab);
     const id = tab.id;
@@ -1285,9 +1365,9 @@ class WeatherApp {
         this.afterStructure();
       },
     });
-    this.doc.activeIndex = index;
     this.markDirty();
-    this.afterStructure();
+    this.showCity(index);
+    void this.persist();
   }
 
   closeTab() {
@@ -1314,10 +1394,39 @@ class WeatherApp {
     });
     this.markDirty();
     this.afterStructure();
+    void this.persist();
   }
 
   updateIntervalMs() {
     return this.settings.updateHours * 60 * 60 * 1000;
+  }
+
+  rotateIntervalMs() {
+    return normalizeRotateSeconds(this.settings.rotateSeconds) * 1000;
+  }
+
+  syncRotateTimer() {
+    if (this.destroyed) return;
+    const seconds = normalizeRotateSeconds(this.settings.rotateSeconds);
+    const count = this.doc.tabs.length;
+    if (seconds === this.rotateArmed && count === this.rotateCount) return;
+    this.armRotateTimer();
+  }
+
+  /** Off, or a single city, leaves no timer running. */
+  armRotateTimer() {
+    clearTimeout(this.rotateTimer);
+    this.rotateTimer = null;
+    const seconds = normalizeRotateSeconds(this.settings.rotateSeconds);
+    this.rotateArmed = seconds;
+    this.rotateCount = this.doc.tabs.length;
+    this.rotateDelay = seconds * 1000;
+    if (!this.rotateDelay || this.rotateCount < 2 || this.destroyed) return;
+    this.rotateTimer = setTimeout(() => {
+      this.rotateTimer = null;
+      if (this.destroyed) return;
+      this.nextCity();
+    }, this.rotateDelay);
   }
 
   syncUpdateTimer() {
@@ -1379,6 +1488,7 @@ class WeatherApp {
         tab.weather = weather;
         if (tab.id === this.currentTab()?.id) {
           this.selectDate(tab.selectedDate || this.preferredDate(weather));
+          this.refreshOpenForecasts();
         }
       } catch (error) {
         if (error?.name === "AbortError" || signal.aborted || this.progressAborted) break;
@@ -1401,18 +1511,121 @@ class WeatherApp {
     return weather.daily.find((day) => day.date >= today)?.date || weather.daily[0]?.date || "";
   }
 
+  /**
+   * One window does the searching, wherever it was asked for. Opened from the settings dialog
+   * it fills that dialog's list; opened from a menu it adds to the window straight away.
+   */
+  async openCitySearch({ settingsId = "", cities = null, query = "" } = {}) {
+    this.citySearchFor = settingsId;
+    this.pendingCities = settingsId ? sanitizeCities(parseCityList(cities), this.settings.defaultLocation) : null;
+    const spec = buildSearchSpec({
+      query,
+      results: this.cityMatches(query),
+      language: this.settings.language,
+      target: settingsId,
+      t: (key, vars) => this.t(key, vars),
+    });
+    if (this.replaceLocalSearch(spec)) return;
+    const refreshed = await this.platform.refreshPopup?.("search", { results: spec.results, query, target: settingsId });
+    if (refreshed?.focused) return;
+    await this.openPopup(spec, { immediate: (message) => this.handlePopupImmediate(message) });
+  }
+
+  replaceLocalSearch(spec) {
+    const popup = this.overlay?.querySelector('[data-popup-key="search"]');
+    if (!popup?._update) return false;
+    popup._update({ results: spec.results, query: spec.query });
+    this.popups.raise(popup);
+    return true;
+  }
+
+  /**
+   * Every city in the world is reachable: the built-in ones answer at once and the geocoder is
+   * always asked as well, so a name that is not in the list still turns up. A search that cannot
+   * reach the network still shows what is known here.
+   */
+  async findCities(query) {
+    const typed = String(query || "").trim();
+    this.searchQuery = typed;
+    if (!typed) return this.cityMatches("");
+    const known = this.cityMatches(typed);
+    try {
+      await this.searchOnline(typed);
+    } catch (error) {
+      if (!known.length) throw error;
+    }
+    const results = this.cityMatches(typed);
+    if (!results.length) this.setStatus(this.t("msg.noResults"));
+    return results;
+  }
+
+  /** A city chosen in the search window joins whichever list asked for the window. */
+  takeFoundCity(place, target = "") {
+    if (!place) return null;
+    if (!target) return this.addCityPlace(place);
+    const next = [...(this.pendingCities || [])];
+    if (next.some((entry) => samePlace(entry, place))) {
+      this.setStatus(this.t("msg.cityExists"));
+      return null;
+    }
+    if (next.length >= MAX_CITIES) {
+      this.setStatus(this.t("msg.cityFull", { n: MAX_CITIES }));
+      return null;
+    }
+    next.push(createPlace(place));
+    this.pendingCities = next;
+    this.setStatus(this.t("msg.applied"));
+    void this.pushCityList(next);
+    return null;
+  }
+
+  /** Adding without the settings dialog open puts the city straight into this window. */
+  addCityPlace(place) {
+    const next = createPlace(place);
+    if (this.doc.tabs.some((tab) => samePlace(tab.place, next))) {
+      this.setStatus(this.t("msg.cityExists"));
+      return null;
+    }
+    if (this.doc.tabs.length >= MAX_CITIES) {
+      this.setStatus(this.t("msg.cityFull", { n: MAX_CITIES }));
+      return null;
+    }
+    this.addTab(next);
+    this.setStatus(this.t("msg.applied"));
+    return null;
+  }
+
+  async pushCityList(cities) {
+    const patch = { cities };
+    const popup = this.overlay?.querySelector('[data-popup="settings"]');
+    if (popup?._update) {
+      popup._update(patch);
+      return;
+    }
+    if (this.citySearchFor) await this.platform.updatePopup?.(this.citySearchFor, patch);
+  }
+
   async searchOnline(query) {
     const field = this.root.querySelector("#search-input") || document.querySelector('[data-popup="settings"] [data-field="search"]');
     const typed = String(query ?? field?.value ?? this.searchQuery ?? "").trim();
     const q = typed || this.currentTab().place.cityEn;
     await this.withProgress("progress.search", async (report) => {
       report(30, q);
-      const response = await this.platform.fetch(geocodeUrl(q, this.settings.language));
-      if (!response.ok) throw new AppError(this.t("msg.noResults"), `HTTP ${response.status}`, "GEO");
-      const rows = parseGeocoding(await response.json());
+      const fetchRows = async (language) => {
+        const response = await this.platform.fetch(geocodeUrl(q, language));
+        if (!response.ok) throw new AppError(this.t("msg.noResults"), `HTTP ${response.status}`, "GEO");
+        return parseGeocoding(await response.json());
+      };
+      const korean = await fetchRows("ko");
+      report(70, q);
+      const english = await fetchRows("en").catch(() => []);
+      const rows = mergeGeocoding(korean, english);
       report(100, this.t("progress.done"));
       if (!rows.length) throw new AppError(this.t("msg.noResults"), q, "GEO");
-      this.extraCities.push(...rows);
+      for (const row of rows) {
+        if (!this.knownPlace(row)) this.extraCities.push(row);
+      }
+      void this.persist();
       const first = rows[0];
       this.locationDraft = { ...first };
       const country = this.root.querySelector("#country-select");
@@ -1459,8 +1672,7 @@ class WeatherApp {
   }
 
   async newDocument() {
-    if (!(await this.ensureSaved())) return false;
-    this.doc = createDocument(this.settings.defaultLocation);
+    this.doc = createDocument(this.settings.cities);
     this.history = new UndoStack();
     this.selectionText = "";
     this.afterStructure();
@@ -1583,8 +1795,24 @@ class WeatherApp {
     return false;
   }
 
+  /** The window keeps running behind the tray icon; only the tray's exit ends the program. */
   async requestClose() {
-    if (!(await this.ensureSaved())) return "cancelled";
+    if (this.platform.nativeWindow) return this.hideWindow();
+    return this.quitApp();
+  }
+
+  async hideWindow() {
+    this.popups?.closeAll();
+    this.closeMenu();
+    const bounds = await this.platform.windowBounds?.();
+    if (bounds) this.rememberWindowPlacement(bounds);
+    await this.persist();
+    await this.platform.windowControl?.("hide");
+    return "hidden";
+  }
+
+  /** Settings keep themselves; there is no document to save, so exit just goes. */
+  async quitApp() {
     await this.shutdown();
     return "closed";
   }
@@ -1656,24 +1884,18 @@ class WeatherApp {
     return "";
   }
 
+  /**
+   * One window: what to print and how it will look, side by side with the sheet itself.
+   * Print sends it straight to the printer.
+   */
   async openPrint() {
     const days = this.currentTab().weather?.daily || [];
-    const draft = {
-      scope: "current",
+    this.printDraft = {
+      scope: this.printDraft?.scope || "current",
       from: days[0]?.date || isoDate(this.now()),
       to: days[days.length - 1]?.date || isoDate(this.now()),
+      ranges: this.printDraft?.ranges || ["daily", "weekly", "monthly"],
     };
-    const answer = await this.openPopup(buildPrintSpec((key, vars) => this.t(key, vars), draft));
-    if (!answer || answer.action !== "preview") return;
-    this.printDraft = answer.values;
-    try {
-      await this.openPreview();
-    } catch (error) {
-      this.reportError(new AppError(this.t("msg.badRange"), `${answer.values.from} > ${answer.values.to}\n${error.message}`, "PRINT_RANGE"), "print");
-    }
-  }
-
-  async openPreview() {
     const build = () =>
       buildPrintModel({
         scope: this.printDraft.scope,
@@ -1683,17 +1905,40 @@ class WeatherApp {
         toDate: this.printDraft.to,
         pageSetup: this.pageSetup,
         language: this.settings.language,
+        ranges: this.printDraft.ranges,
+        today: this.now(),
+        units: this.settings.units,
+        priority: this.settings.displayPriority,
+        dateFormat: this.dateFormatPreview || this.settings.dateFormat,
+        t: (key, vars) => this.t(key, vars),
       });
-    const model = build();
-    const answer = await this.openPopup(buildPreviewSpec(model, (key, vars) => this.t(key, vars)), {
+    let model = build();
+    const spec = buildPrintSpec((key, vars) => this.t(key, vars), this.printDraft, model);
+    const answer = await this.openPopup(spec, {
       immediate: async (msg) => {
-        if (msg.type !== "page-setup") return this.handlePopupImmediate(msg);
-        this.pageSetup = normalizeSetup(msg.values);
-        const next = build();
-        return { pages: next.pages, html: next.html };
+        if (msg?.type !== "print-setup") return this.handlePopupImmediate(msg);
+        const values = msg.values || {};
+        this.printDraft = {
+          scope: values.scope || "current",
+          from: values.from || this.printDraft.from,
+          to: values.to || this.printDraft.to,
+          ranges: Array.isArray(values.ranges) && values.ranges.length ? values.ranges : this.printDraft.ranges,
+        };
+        this.pageSetup = normalizeSetup(values);
+        try {
+          model = build();
+        } catch (error) {
+          // A backwards date range leaves the last good sheet on screen and says so.
+          this.setStatus(this.t("msg.badRange"));
+          void error;
+          return null;
+        }
+        return { pages: model.pages, pageSetup: model.pageSetup, html: model.html };
       },
     });
-    if (answer?.action === "print") await this.platform.print({ html: answer.html || model.html, pageSetup: answer.pageSetup || this.pageSetup });
+    if (answer?.action !== "print") return;
+    await this.platform.print({ html: answer.html || model.html, pageSetup: answer.pageSetup || this.pageSetup });
+    this.setStatus(this.t("status.ready"));
   }
 
   async showSettings(activeTab = "general") {
@@ -1710,13 +1955,14 @@ class WeatherApp {
         dateFormat: this.settings.dateFormat,
         units: this.settings.units,
         updateHours: this.settings.updateHours,
+        rotateSeconds: this.settings.rotateSeconds,
+        cities: this.cities(),
         displayPriority: this.settings.displayPriority,
         countryCode: place.countryCode,
         cityEn: place.cityEn,
         lat: place.lat,
         lon: place.lon,
         search: "",
-        reopen: this.settings.reopenLast,
         openAtLogin: this.settings.openAtLogin,
         theme: this.settings.theme,
         customTheme: this.settings.customTheme,
@@ -1725,8 +1971,6 @@ class WeatherApp {
         backgroundName: this.settings.backgroundName,
         backgroundImage: this.settings.backgroundImage,
         fontFamily: this.settings.fontFamily,
-        fontSize: this.settings.fontSize,
-        fontStyle: this.settings.fontStyle,
         enabledSources: this.settings.enabledSources,
         sourceStatus: Object.fromEntries((this.currentTab()?.weather?.sources || []).map((source) => [source.id, source])),
         lastDirectory: this.settings.lastDirectory,
@@ -1756,6 +2000,7 @@ class WeatherApp {
     target.units = values.units === "F" ? "F" : "C";
     target.dateFormat = normalizeDateFormat(values.dateFormat);
     target.updateHours = normalizeUpdateHours(values.updateHours);
+    target.rotateSeconds = normalizeRotateSeconds(values.rotateSeconds);
     target.displayPriority = normalizeDisplayPriority(values.displayPriority);
     if (isTheme(values.theme)) target.theme = values.theme;
     if (values.customBg || values.customText || values.customAccent || values.customMode) {
@@ -1773,21 +2018,36 @@ class WeatherApp {
       target.backgroundName = values.backgroundName || "";
     }
     if (values.fontFamily) target.fontFamily = values.fontFamily;
-    target.fontSize = clamp(values.fontSize, 8, 72);
-    target.fontStyle = FONT_STYLES.includes(values.fontStyle) ? values.fontStyle : "normal";
-    target.reopenLast = Boolean(values.reopen);
     target.openAtLogin = Boolean(values.openAtLogin);
     if (values.sources) {
       const nextSources = Object.entries(values.sources).filter(([, on]) => on).map(([id]) => id);
       if (nextSources.length) target.enabledSources = nextSources;
     }
+    const edited = values.cities == null ? null : sanitizeCities(parseCityList(values.cities), target.defaultLocation);
+    if (edited) target.cities = edited;
     const found = this.cityChoices().find((entry) => entry.countryCode === values.countryCode && entry.cityEn === values.cityEn);
     if (!found) return null;
     const lat = values.lat === "" || values.lat == null ? found.lat : Number(values.lat);
     const lon = values.lon === "" || values.lon == null ? found.lon : Number(values.lon);
     const place = createPlace({ ...found, lat, lon });
     target.defaultLocation = place;
+    target.cities = this.listWithShownCity(target.cities, place);
     return place;
+  }
+
+  /**
+   * The pickers name the city on screen, so a pick that is not in the list replaces the shown
+   * entry; a pick already listed was just added and stays where it is.
+   */
+  listWithShownCity(cities, place) {
+    const list = sanitizeCities(cities, place);
+    if (list.some((entry) => samePlace(entry, place))) return list;
+    const shown = this.currentTab()?.place;
+    const at = list.findIndex((entry) => samePlace(entry, shown));
+    const index = at >= 0 ? at : Math.min(this.doc.activeIndex, list.length - 1);
+    const next = [...list];
+    next[index] = createPlace(place);
+    return next;
   }
 
   previewSettingsForm(values) {
@@ -1816,30 +2076,24 @@ class WeatherApp {
     }
   }
 
+  /** The saved city list carries the pickers' choice, so restoring the settings restores the tabs. */
   async applySettingsForm(values) {
     const before = structuredClone(this.settings);
-    const tab = this.currentTab();
-    const placeBefore = tab ? { ...tab.place } : null;
-    const placeAfter = this.writeSettingsValues(this.settings, values) || placeBefore;
+    this.writeSettingsValues(this.settings, values);
     const after = structuredClone(this.settings);
     this.pushUndo({
-      undo: () => {
-        this.replaceSettings(before);
-        if (tab && placeBefore) this.setPlace(tab.id, placeBefore);
-      },
-      redo: () => {
-        this.replaceSettings(after);
-        if (tab && placeAfter) this.setPlace(tab.id, placeAfter);
-      },
+      undo: () => this.replaceSettings(before),
+      redo: () => this.replaceSettings(after),
     });
     this.replaceSettings(after);
-    if (tab && placeAfter) this.setPlace(tab.id, placeAfter);
     await this.persist();
   }
 
   replaceSettings(next) {
     this.settings = sanitizeSettings(structuredClone(next));
     this.recent.load(this.settings.recentFiles);
+    this.syncTabsToCities();
+    this.afterStructure();
     this.applyAll();
     this.syncOpenAtLogin();
   }
@@ -1896,11 +2150,26 @@ class WeatherApp {
       this.applyWallpaper(this.wallpaperOpacityPreview);
       return null;
     }
-    if (msg.type === "search-online") {
-      await this.searchOnline(msg.query);
-      const place = this.locationDraft;
-      if (!place) return null;
-      return { catalog: this.cityChoices(), countryCode: place.countryCode, cityEn: place.cityEn, lat: place.lat, lon: place.lon };
+    if (msg.type === "city-notice") {
+      const text = {
+        exists: this.t("msg.cityExists"),
+        full: this.t("msg.cityFull", { n: MAX_CITIES }),
+        last: this.t("msg.lastCity"),
+        added: this.t("msg.applied"),
+      }[msg.notice];
+      if (text) this.setStatus(text);
+      return null;
+    }
+    if (msg.type === "open-search") {
+      // A dialog drawn inside the window has no popup id; the request itself says it came from settings.
+      await this.openCitySearch({ settingsId: msg.popupId || "settings", cities: msg.cities });
+      return null;
+    }
+    if (msg.type === "city-search") {
+      return { results: await this.findCities(msg.query) };
+    }
+    if (msg.type === "city-pick") {
+      return this.takeFoundCity(msg.place, msg.target);
     }
     if (msg.type === "theme-preview") {
       this.applyTheme({ theme: msg.theme, customTheme: msg.customTheme, transparency: msg.transparency });
@@ -2043,8 +2312,6 @@ class WeatherApp {
       theme: live?.theme || this.settings.theme,
       customTheme: live?.customTheme || this.settings.customTheme,
       fontFamily: this.settings.fontFamily,
-      fontSize: this.settings.fontSize,
-      fontStyle: this.settings.fontStyle,
       language: this.settings.language,
       closeLabel: this.t("tip.close"),
     };
@@ -2086,8 +2353,15 @@ class WeatherApp {
 
   async persist() {
     this.settings.recentFiles = this.recent.toJSON();
+    if (this.ownsCityList) this.settings.cities = this.cities();
+    this.settings.extraCities = this.extraCities.map((entry) => createPlace(entry));
     await this.platform.writeSettings(sanitizeSettings(this.settings));
   }
+}
+
+/** Two places within about a kilometre of each other are the same city for our purposes. */
+function placeKey(place) {
+  return `${Number(place?.lat).toFixed(2)}|${Number(place?.lon).toFixed(2)}`;
 }
 
 function escapeAttr(value) {

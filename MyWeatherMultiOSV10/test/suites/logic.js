@@ -11,23 +11,26 @@ import { AppError, errorCopyText, normalizeError } from "../../src/core/errors.j
 import { parseFcList, parseWindowsFonts, resolveFontList } from "../../src/core/fonts.js";
 import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
-import { buildPrintModel } from "../../src/core/print-model.js";
+import { MARGINS, PAPERS, PRINT_RANGES, SCALES, buildPrintModel, normalizeRanges, normalizeSetup, paperSize } from "../../src/core/print-model.js";
 import { RecentFiles } from "../../src/core/recent.js";
-import { sanitizeSettings } from "../../src/core/settings.js";
+import { DEFAULT_LOCATION, MAX_CITIES, ROTATE_SECONDS, sanitizeCities, sanitizeSettings, samePlace } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
 import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconFile, trayIconFile } from "../../src/ui/tray-menu.js";
+import { icon, knownIcons } from "../../src/ui/icons.js";
 import { layoutMenu, menuWindowOptions, placeBeside, popupWindowOptions } from "../../src/ui/menu-layout.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
+import { CITY_PAGE_SIZE, PAGE_SPAN, moveCity, pageWindow } from "../../src/ui/popups.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { CONTENT_PADDING, SCENE_MIN_SCALE, SCENE_NATURAL, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_ART, SCENE_BREATH, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { aggregate, presentWeather } from "../../src/weather/aggregate.js";
 import { formatTemp } from "../../src/weather/format.js";
-import { geocodeUrl, metNoUrl, openMeteoUrl, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
+import { geocodeUrl, mergeGeocoding, metNoUrl, openMeteoUrl, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
 import { loadWeather } from "../../src/weather/service.js";
 import { conditionText } from "../../src/weather/wmo.js";
+import { CITIES, countries, filterCities, findCity } from "../../src/weather/cities.js";
 import { jsonResponse, openMeteoBody, SAMPLE_DATES } from "../support.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -82,8 +85,9 @@ export function registerLogic(h) {
     assert.equal(sanitizeSettings({ displayPriority: "nope" }).displayPriority, "average");
     assert.equal(sanitizeSettings({ backgroundOpacity: 140 }).backgroundOpacity, 100);
     assert.equal(sanitizeSettings({ backgroundOpacity: -3 }).backgroundOpacity, 0);
-    assert.equal(settings.fontSize, 8);
-    assert.equal(settings.fontStyle, "normal");
+    const fresh = sanitizeSettings(null);
+    assert.equal(fresh.fontSize, undefined, "a font size is no longer kept");
+    assert.equal(fresh.fontStyle, undefined, "nor a font style");
     assert.equal(settings.zoom, 200);
     assert.equal(settings.units, "C");
     assert.equal(settings.updateHours, 1);
@@ -96,6 +100,57 @@ export function registerLogic(h) {
     assert.equal(sanitizeSettings(null).openAtLogin, false);
     assert.equal(sanitizeSettings({ openAtLogin: 1 }).openAtLogin, true);
     assert.equal(settings.recentFiles.length, 10);
+  });
+  h.test("the shown city list and the city change interval are stored with the settings", () => {
+    const fresh = sanitizeSettings(null);
+    assert.deepEqual(fresh.cities, [DEFAULT_LOCATION]);
+    assert.equal(fresh.rotateSeconds, 0);
+    assert.deepEqual(fresh.extraCities, []);
+    for (const seconds of ROTATE_SECONDS) assert.equal(sanitizeSettings({ rotateSeconds: seconds }).rotateSeconds, seconds);
+    assert.equal(sanitizeSettings({ rotateSeconds: 7 }).rotateSeconds, 0);
+    assert.equal(sanitizeSettings({ rotateSeconds: "60" }).rotateSeconds, 60);
+    const busan = findCity("KR", "Busan");
+    const paris = findCity("FR", "Paris");
+    const kept = sanitizeSettings({ cities: [busan, paris] }).cities;
+    assert.deepEqual(kept.map((place) => place.cityEn), ["Busan", "Paris"]);
+    assert.equal(kept[1].lat, paris.lat);
+    assert.deepEqual(sanitizeCities([]), [DEFAULT_LOCATION]);
+    assert.deepEqual(sanitizeCities(null), [DEFAULT_LOCATION]);
+    assert.deepEqual(sanitizeCities([{ cityEn: "" }]), [DEFAULT_LOCATION]);
+    assert.equal(sanitizeCities(new Array(40).fill(busan)).length, MAX_CITIES);
+    assert.deepEqual(sanitizeCities([busan, busan]).map((place) => place.cityEn), ["Busan", "Busan"]);
+    assert.equal(samePlace(busan, findCity("KR", "Busan")), true);
+    assert.equal(samePlace(busan, paris), false);
+    const searched = sanitizeSettings({ extraCities: [{ countryCode: "ZZ", cityEn: "Nowhere", lat: 1, lon: 2 }, { cityEn: "" }] });
+    assert.deepEqual(searched.extraCities.map((place) => place.cityEn), ["Nowhere"]);
+  });
+  h.test("a document opens one tab per stored city", () => {
+    const one = createDocument(DEFAULT_LOCATION);
+    assert.equal(one.tabs.length, 1);
+    const places = [findCity("KR", "Seoul"), findCity("JP", "Tokyo"), findCity("US", "New York")];
+    const many = createDocument(places);
+    assert.deepEqual(many.tabs.map((tab) => tab.place.cityEn), ["Seoul", "Tokyo", "New York"]);
+    assert.equal(many.activeIndex, 0);
+    assert.equal(new Set(many.tabs.map((tab) => tab.id)).size, 3);
+    assert.equal(createDocument([]).tabs.length, 1);
+  });
+  h.test("the city catalog reaches every continent and keeps country and city names in both languages", () => {
+    assert.ok(CITIES.length >= 200, String(CITIES.length));
+    assert.ok(countries().length >= 100, String(countries().length));
+    for (const place of CITIES) {
+      assert.match(place.countryCode, /^[A-Z]{2}$/, place.cityEn);
+      for (const field of ["countryKo", "countryEn", "cityKo", "cityEn"]) assert.ok(place[field], `${place.cityEn} ${field}`);
+      assert.ok(Number.isFinite(place.lat) && place.lat >= -90 && place.lat <= 90, place.cityEn);
+      assert.ok(Number.isFinite(place.lon) && place.lon >= -180 && place.lon <= 180, place.cityEn);
+    }
+    assert.equal(new Set(CITIES.map((place) => `${place.countryCode}/${place.cityEn}`)).size, CITIES.length);
+    for (const code of ["KR", "JP", "US", "GB", "FR", "BR", "ZA", "AU", "EG", "IN", "RU", "MX", "NG", "TR", "AR"]) {
+      assert.ok(CITIES.some((place) => place.countryCode === code), code);
+    }
+    assert.ok(CITIES.filter((place) => place.countryCode === "KR").length >= 10);
+    assert.ok(CITIES.filter((place) => place.countryCode !== "KR").length > CITIES.filter((place) => place.countryCode === "KR").length);
+    assert.deepEqual(filterCities(CITIES, "FR", "par").map((place) => place.cityEn), ["Paris"]);
+    assert.equal(filterCities(CITIES, "", "서울")[0].cityEn, "Seoul");
   });
   h.test("undo redo and a new edit clears the redo stack", () => {
     const stack = new UndoStack();
@@ -302,33 +357,102 @@ export function registerLogic(h) {
   });
 
   h.category("Print");
-  h.test("print scopes cover all tabs, the current tab, and a custom date range", () => {
-    const tabs = [
-      tab("Seoul", ["2026-10-07", "2026-10-08", "2026-10-09"]),
-      tab("Busan", ["2026-10-07", "2026-10-08"]),
-    ];
-    const all = buildPrintModel({ scope: "all", tabs, activeIndex: 0, pageSetup: { paper: "A4", orientation: "portrait", margin: 15 }, language: "en" });
+  h.test("print scopes cover all cities, the current one, and a custom date range", () => {
+    const tabs = [tab("Seoul", ["2026-10-07", "2026-10-08", "2026-10-09"]), tab("Busan", ["2026-10-07", "2026-10-08"])];
+    const at = new Date(2026, 9, 7);
+    const all = buildPrintModel({ scope: "all", tabs, activeIndex: 0, pageSetup: {}, language: "en", today: at });
     assert.match(all.html, /Seoul/);
     assert.match(all.html, /Busan/);
     assert.match(all.html, /size: A4 portrait/);
-    const current = buildPrintModel({ scope: "current", tabs, activeIndex: 1, pageSetup: { paper: "Letter", orientation: "landscape", margin: 10 }, language: "en" });
+    assert.equal(all.pages.length, 6, "three forecasts for each of the two cities");
+    const current = buildPrintModel({ scope: "current", tabs, activeIndex: 1, pageSetup: { paper: "Letter", orientation: "landscape", margin: 10 }, language: "en", today: at });
     assert.equal(current.html.includes("Seoul"), false);
     assert.match(current.html, /Letter landscape/);
+    assert.equal(current.pages.length, 3);
     const custom = buildPrintModel({
       scope: "custom",
       tabs,
       activeIndex: 0,
       fromDate: "2026-10-08",
       toDate: "2026-10-08",
-      pageSetup: { paper: "A4", orientation: "portrait", margin: 15 },
+      pageSetup: {},
       language: "ko",
+      today: at,
     });
-    assert.match(custom.html, /2026-10-08/);
-    assert.equal(custom.html.includes("2026-10-07"), false);
+    const weekly = custom.pages.find((page) => page.range === "weekly");
+    // The week still shows seven days; only the chosen one carries readings.
+    assert.match(weekly.body, /data-date="2026-10-08"[\s\S]*?class="temps"/);
+    assert.match(weekly.body, /data-date="2026-10-07"[^>]*>(?:(?!<\/button>)[\s\S])*?hour-gap/, "a day outside the range is left blank");
     assert.throws(
-      () => buildPrintModel({ scope: "custom", tabs, activeIndex: 0, fromDate: "2026-10-09", toDate: "2026-10-01", pageSetup: {}, language: "en" }),
+      () => buildPrintModel({ scope: "custom", tabs, activeIndex: 0, fromDate: "2026-10-09", toDate: "2026-10-07", pageSetup: {}, language: "ko" }),
       /Invalid range/,
     );
+  });
+  h.test("printing lays the forecast out by city and by range, as it looks on screen", () => {
+    const tabs = [tab("서울", ["2026-10-07", "2026-10-08", "2026-10-09"]), tab("부산", ["2026-10-07", "2026-10-08"])];
+    const at = new Date(2026, 9, 7);
+    const model = buildPrintModel({ scope: "all", tabs, activeIndex: 0, pageSetup: {}, language: "ko", today: at });
+    assert.deepEqual(model.pages.map((page) => page.city), ["서울", "서울", "서울", "부산", "부산", "부산"]);
+    assert.deepEqual(model.pages.map((page) => page.range), ["daily", "weekly", "monthly", "daily", "weekly", "monthly"]);
+    assert.deepEqual(model.pages.map((page) => page.rangeLabel), ["일간 예보", "주간 예보", "월간 예보", "일간 예보", "주간 예보", "월간 예보"]);
+    for (const page of model.pages) {
+      assert.equal(page.country, "대한민국");
+      assert.ok(page.when, "each page says which days it covers");
+    }
+    // Days with readings draw their weather picture.
+    assert.match(model.pages[1].body, /<svg/, "the weather pictures come through");
+    assert.match(model.pages[2].body, /<svg/);
+    // The pages carry the real forecast markup, not a list of text lines.
+    assert.match(model.pages[0].body, /class="hour-board"/);
+    assert.match(model.pages[1].body, /class="week-row"/);
+    assert.match(model.pages[2].body, /class="month-cal"/);
+    assert.match(model.html, /class="sheet-city">서울</);
+    assert.match(model.html, /class="sheet-range">주간 예보</);
+    assert.match(model.html, /class="print-doc"/);
+    assert.match(model.html, /font-weight: 800/, "the sheet carries its own weights and sizes");
+    assert.equal((model.html.match(/class="sheet"/g) || []).length, 6);
+    const english = buildPrintModel({ scope: "current", tabs, activeIndex: 1, pageSetup: {}, language: "en", today: at });
+    assert.deepEqual(english.pages.map((page) => page.rangeLabel), ["Daily forecast", "Weekly forecast", "Monthly forecast"]);
+    assert.equal(english.pages[0].country, "South Korea");
+    const weekly = buildPrintModel({ scope: "current", tabs, activeIndex: 0, pageSetup: {}, language: "ko", ranges: ["weekly"], today: at });
+    assert.deepEqual(weekly.ranges, ["weekly"]);
+    assert.equal(weekly.pages.length, 1);
+    assert.equal(weekly.pages[0].rangeLabel, "주간 예보");
+    assert.deepEqual(normalizeRanges([]), PRINT_RANGES, "asking for nothing prints everything");
+    assert.deepEqual(normalizeRanges(["monthly", "nope"]), ["monthly"]);
+    const bare = buildPrintModel({ scope: "all", tabs: [], activeIndex: 0, pageSetup: {}, language: "ko" });
+    assert.equal(bare.pages.length, 1);
+    assert.match(bare.pages[0].body, /인쇄할 내용이 없습니다/);
+  });
+  h.test("page setup offers papers, margins, text size, and a header", () => {
+    const plain = normalizeSetup({});
+    assert.deepEqual(plain, { paper: "A4", orientation: "portrait", margin: 15, scale: 100, header: true, pageNumber: true, pageNumberAt: "right" });
+    assert.equal(normalizeSetup({ pageNumber: false }).pageNumber, false);
+    assert.equal(normalizeSetup({ pageNumberAt: "center" }).pageNumberAt, "center");
+    assert.equal(normalizeSetup({ pageNumberAt: "nowhere" }).pageNumberAt, "right");
+    // The preview sheet takes its shape from the paper, upright or on its side.
+    assert.deepEqual(paperSize({ paper: "A4", orientation: "portrait" }), { width: 210, height: 297 });
+    assert.deepEqual(paperSize({ paper: "A4", orientation: "landscape" }), { width: 297, height: 210 });
+    assert.deepEqual(paperSize({ paper: "Legal", orientation: "portrait" }), { width: 216, height: 356 });
+    assert.deepEqual(paperSize({}), { width: 210, height: 297 });
+    const numbered = buildPrintModel({ scope: "current", tabs: [tab("서울", ["2026-10-07"])], activeIndex: 0, pageSetup: { pageNumberAt: "center" }, language: "ko", today: new Date(2026, 9, 7) });
+    assert.match(numbered.html, /class="sheet-foot" data-at="center"/);
+    assert.match(numbered.html, /1 \/ 3/);
+    const bare = buildPrintModel({ scope: "current", tabs: [tab("서울", ["2026-10-07"])], activeIndex: 0, pageSetup: { pageNumber: false }, language: "ko", today: new Date(2026, 9, 7) });
+    assert.doesNotMatch(bare.html, /<footer class="sheet-foot"/);
+    for (const paper of PAPERS) assert.equal(normalizeSetup({ paper }).paper, paper);
+    for (const margin of MARGINS) assert.equal(normalizeSetup({ margin }).margin, margin);
+    for (const scale of SCALES) assert.equal(normalizeSetup({ scale }).scale, scale);
+    assert.equal(normalizeSetup({ paper: "nope" }).paper, "A4");
+    assert.equal(normalizeSetup({ margin: 7 }).margin, 15);
+    assert.equal(normalizeSetup({ scale: 300 }).scale, 100);
+    assert.equal(normalizeSetup({ header: false }).header, false);
+    const tabs = [tab("서울", ["2026-10-07"])];
+    const wide = buildPrintModel({ scope: "current", tabs, activeIndex: 0, pageSetup: { paper: "Legal", orientation: "landscape", margin: 25, scale: 125, header: false }, language: "ko" });
+    assert.match(wide.html, /size: Legal landscape/);
+    assert.match(wide.html, /margin: 25mm/);
+    assert.match(wide.html, /font-size: 125%/);
+    assert.doesNotMatch(wide.html, /<h1>MyWeather<\/h1>/, "the header can be left off");
   });
 
   h.category("Layout");
@@ -357,6 +481,8 @@ export function registerLogic(h) {
     assert.equal(options.maximizable, false);
     assert.equal(options.thickFrame, false);
     assert.equal(options.parent.id, "main");
+    // A popup belongs to its window, so it must not float over every other application.
+    assert.equal(options.alwaysOnTop, false);
     assert.equal(options.width, 680);
     assert.equal(options.height, 560);
     assert.equal(options.x, Math.round((1000 - 680) / 2));
@@ -421,11 +547,99 @@ export function registerLogic(h) {
     assert.ok(sceneScale(fitted) >= SCENE_MIN_SCALE);
     const roomy = sceneFit({ width: 726, height: 572 }, 143);
     assert.equal(roomy.text, 1);
-    assert.equal(roomy.art, Math.round((555 / 240) * 1000) / 1000);
+    const roomyArt = roomy.art * SCENE_ART;
+    assert.ok(roomyArt > SCENE_ART, roomyArt);
+    assert.ok(roomyArt < 726 - 28 - 143, roomyArt);
+    assert.ok(roomyArt <= 572 - SCENE_BREATH * 2, roomyArt);
     const tight = sceneFit({ width: 300, height: 160 }, 143);
     assert.ok(tight.text < 1);
     assert.equal(tight.text, tight.art);
     assert.ok(tight.text >= SCENE_MIN_SCALE);
+    const smallest = sceneFit(fitted, SCENE_TEXT);
+    assert.equal(smallest.art, smallest.text);
+    assert.ok(smallest.art * SCENE_ART <= fitted.height - SCENE_BREATH, smallest.art * SCENE_ART);
+  });
+  h.test("a list pages in fixed blocks and keeps the page in range", () => {
+    assert.deepEqual(pageWindow(0, 1), { page: 1, pages: 1, start: 0, end: 0, numbers: [1] });
+    const one = pageWindow(CITY_PAGE_SIZE, 1);
+    assert.equal(one.pages, 1);
+    assert.equal(one.end, CITY_PAGE_SIZE);
+    const two = pageWindow(CITY_PAGE_SIZE + 1, 2);
+    assert.equal(two.pages, 2);
+    assert.equal(two.start, CITY_PAGE_SIZE);
+    assert.equal(two.end, CITY_PAGE_SIZE + 1);
+    assert.deepEqual(two.numbers, [1, 2]);
+    assert.equal(pageWindow(CITY_PAGE_SIZE + 1, 9).page, 2, "a page past the end clamps back");
+    assert.equal(pageWindow(CITY_PAGE_SIZE + 1, 0).page, 1);
+    assert.equal(PAGE_SPAN, 10);
+    assert.deepEqual(pageWindow(CITY_PAGE_SIZE * 9, 5).numbers, [1, 2, 3, 4, 5, 6, 7, 8, 9], "every page is offered while they fit");
+    assert.deepEqual(pageWindow(CITY_PAGE_SIZE * 30, 1).numbers, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "ten at a time");
+    assert.deepEqual(pageWindow(CITY_PAGE_SIZE * 30, 12).numbers, [7, 8, 9, 10, 11, 12, 13, 14, 15, 16], "centred on the page shown");
+    assert.deepEqual(pageWindow(CITY_PAGE_SIZE * 30, 30).numbers, [21, 22, 23, 24, 25, 26, 27, 28, 29, 30], "and held at the end");
+  });
+  h.test("moving a city pushes the ones it passes instead of swapping", () => {
+    const list = ["a", "b", "c", "d"];
+    assert.deepEqual(moveCity(list, 0, 2), ["b", "c", "a", "d"]);
+    assert.deepEqual(moveCity(list, 3, 1), ["a", "d", "b", "c"]);
+    assert.deepEqual(moveCity(list, 1, 1), ["a", "b", "c", "d"]);
+    assert.deepEqual(moveCity(list, 0, 9), ["b", "c", "d", "a"], "a drop past the end lands last");
+    assert.deepEqual(moveCity(list, -1, 2), list, "an unknown source changes nothing");
+    assert.deepEqual(list, ["a", "b", "c", "d"], "the original list is left alone");
+  });
+  h.test("the geocoder answers are merged so a found city has both names", () => {
+    const korean = [{ id: 7, countryCode: "FR", countryKo: "프랑스", countryEn: "프랑스", cityKo: "파리", cityEn: "파리", lat: 48.85, lon: 2.35 }];
+    const english = [{ id: 7, countryCode: "FR", countryKo: "France", countryEn: "France", cityKo: "Paris", cityEn: "Paris", lat: 48.85, lon: 2.35 }];
+    const [place] = mergeGeocoding(korean, english);
+    assert.equal(place.cityKo, "파리");
+    assert.equal(place.cityEn, "Paris");
+    assert.equal(place.countryEn, "France");
+    assert.equal(place.lat, 48.85);
+    const [only] = mergeGeocoding(korean, []);
+    assert.equal(only.cityKo, "파리");
+    assert.equal(only.cityEn, "파리", "with no English answer the one name is used for both");
+    const [extra] = mergeGeocoding([], english);
+    assert.equal(extra.cityKo, "Paris");
+  });
+  h.test("the day, week, and month icons are three different calendars", () => {
+    const paths = knownIcons();
+    for (const name of ["daily", "weekly", "monthly", "city", "next", "window", "grip"]) assert.ok(paths.includes(name), name);
+    const svg = (name, colorful) => icon(name, { colorful });
+    const [day, week, month] = ["daily", "weekly", "monthly"].map((name) => svg(name, false));
+    assert.notEqual(day, week);
+    assert.notEqual(week, month);
+    assert.notEqual(day, month);
+    // Each one is a calendar body with the hanging pegs, not a bar chart.
+    for (const markup of [day, week, month]) assert.match(markup, /M(4|5) 5h1[46]v14/);
+    assert.match(week, /M8 3v4M16 3v4/);
+    assert.doesNotMatch(week, /M4 6h4v12H4/, "the old bar chart is gone");
+    for (const name of ["daily", "weekly", "monthly"]) {
+      const colour = svg(name, true);
+      assert.match(colour, /class="ico ico-color"/, name);
+      assert.match(colour, /fill="#[0-9a-f]{6}"/i, name);
+    }
+  });
+  h.test("every tray entry draws a colourful icon beside its label", () => {
+    for (const language of ["ko", "en"]) {
+      const i18n = createI18n(language);
+      const menu = buildTrayMenu((key) => i18n.t(key), {
+        cities: [findCity("KR", "Seoul"), findCity("FR", "Paris")],
+        language,
+        activeIndex: 0,
+      });
+      for (const entries of [menu, ...menu.filter((entry) => entry.submenu).map((entry) => entry.submenu)]) {
+        const column = buildTrayColumn(entries);
+        const items = [...column.querySelectorAll(".menu-item")];
+        assert.equal(items.length, entries.filter((entry) => entry.type !== "separator").length);
+        for (const item of items) {
+          const svg = item.querySelector("svg");
+          assert.ok(svg, item.textContent);
+          assert.ok(svg.classList.contains("ico-color"), `${language} ${item.dataset.cmd}`);
+          assert.match(svg.innerHTML, /fill="#[0-9a-f]{6}"/i, `${language} ${item.dataset.cmd}`);
+          assert.ok(item.querySelector(".menu-label").textContent.trim(), item.dataset.cmd);
+          assert.doesNotMatch(item.querySelector(".menu-label").textContent, /«/, "no missing translation");
+        }
+      }
+    }
   });
   h.test("menus count separators in their height", () => {
     const items = [
@@ -458,6 +672,24 @@ export function registerLogic(h) {
       const svg = opened.querySelector(`[data-cmd="${name}"] .menu-icon svg`);
       assert.match(svg.innerHTML, /fill="#[0-9a-f]{6}"/i, name);
     }
+  });
+  h.test("each window keeps its own dialogs and loses them when it closes", () => {
+    const hub = new PopupHub();
+    const closed = [];
+    const stub = (name) => ({ close: () => closed.push(name), focus: () => {} });
+    const first = hub.begin({ type: "settings" }, () => stub("first"), "window-a");
+    const second = hub.begin({ type: "settings" }, () => stub("second"), "window-b");
+    assert.equal(first.focused, false);
+    assert.equal(second.focused, false);
+    assert.notEqual(first.id, second.id);
+    assert.equal(hub.begin({ type: "settings" }, () => stub("again"), "window-a").focused, true);
+    assert.equal(hub.refresh("settings", { title: "x" }, { focus: false }, "window-b").id, second.id);
+    assert.equal(hub.refresh("settings", { title: "x" }, { focus: false }, "window-c"), null);
+    hub.closeOwned("window-a");
+    assert.deepEqual(closed, ["first"]);
+    assert.equal(hub.windows.size, 1);
+    hub.closeAll();
+    assert.equal(hub.windows.size, 0);
   });
   h.test("popup hub closes every popup when the app quits", async () => {
     const hub = new PopupHub();
@@ -667,6 +899,16 @@ export function registerLogic(h) {
     assert.match(main, /fit-menu/);
     assert.match(main, /delete options\.parent/);
     assert.match(main, /trayCommand/);
+    // The tray icon goes up at startup and the close button only puts the window away.
+    assert.match(main, /app\.whenReady\(\)[\s\S]*?createTray\(\)/);
+    assert.match(main, /function hideMainWindow\(\)[\s\S]*?mainWindow\.hide\(\)/);
+    assert.match(main, /if \(!isPrimary\(win\)\)[\s\S]*?event\.preventDefault\(\);\n    hideMainWindow\(\);/);
+    assert.match(main, /ipcMain\.handle\("new-window"/);
+    assert.match(main, /windowBoot\.set\([\s\S]{0,80}primary: first/);
+    // A destroyed window cannot be asked for its webContents, so closed handlers use a saved id.
+    const closedHandlers = main.split('on("closed"').slice(1).map((part) => part.slice(0, part.indexOf("});")));
+    assert.ok(closedHandlers.length >= 3, String(closedHandlers.length));
+    for (const handler of closedHandlers) assert.doesNotMatch(handler, /webContents/, handler.slice(0, 160));
     assert.match(main, /revealMainWindowFromTray/);
     assert.doesNotMatch(main, /popUpContextMenu/);
     const koMenu = buildTrayMenu((key) => createI18n("ko").t(key));
@@ -678,11 +920,33 @@ export function registerLogic(h) {
       assert.ok(item.label);
       assert.ok(fs.existsSync(path.join(root, menuIconFile(item.icon))), item.icon);
     }
+    const withCities = buildTrayMenu((key) => createI18n("ko").t(key), {
+      cities: [findCity("KR", "Seoul"), findCity("FR", "Paris")],
+      language: "ko",
+      activeIndex: 1,
+    });
+    const cityGroup = withCities.find((entry) => entry.id === "cities");
+    assert.ok(cityGroup.submenu);
+    const cityIds = cityGroup.submenu.filter((entry) => entry.id).map((entry) => entry.id);
+    assert.deepEqual(cityIds, ["next-city", "add-city", "new-window", "city:0", "city:1"]);
+    assert.equal(cityGroup.submenu.find((entry) => entry.id === "city:0").label, "서울");
+    assert.match(cityGroup.submenu.find((entry) => entry.id === "city:1").label, /파리$/);
+    for (const entry of listTrayItems(withCities)) {
+      assert.ok(entry.icon, entry.label);
+      assert.ok(fs.existsSync(path.join(root, menuIconFile(entry.icon))), entry.icon);
+    }
+    for (const id of ["save", "save-as"]) {
+      assert.equal(listTrayItems(withCities).some((entry) => entry.id === id), false, id);
+    }
     assert.equal(koMenu[0].id, "show-window");
     assert.equal(koMenu[0].label, "창 표시");
     assert.equal(enMenu[0].label, "Show window");
     assert.equal(koItems.find((item) => item.id === "weather").label, "날씨");
-    assert.equal(enMenu.find((item) => item.id === "file").label, "File");
+    assert.equal(enMenu.find((item) => item.id === "edit").label, "Edit");
+    // Nothing is saved to a file, so the tray offers no file commands.
+    for (const id of ["new", "open", "save", "save-as"]) {
+      assert.equal(koItems.some((item) => item.id === id), false, id);
+    }
     assert.ok(fs.existsSync(path.join(root, "README.md")));
     assert.ok(fs.existsSync(path.join(root, "ARCHITECTURE.md")));
     assert.ok(fs.existsSync(path.join(root, "UsersGuide.md")));
