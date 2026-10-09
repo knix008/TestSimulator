@@ -1,0 +1,2121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyCircuit 10.0 사용 설명서</title>
+<style>
+:root {
+  --bg: #fbfbf8; --paper: #ffffff; --text: #1f2328; --muted: #5b636e; --line: #e3e5e8; --line2: #d0d4da;
+  --accent: #1f6feb; --accent-soft: #e8f0fe; --code: #f3f4f6; --side: #f4f5f2;
+  --tip: #e9f7ef; --tip-line: #2e9e5b; --warn: #fff4e5; --warn-line: #e08a00; --note: #eef4ff; --note-line: #3b74d8; --bad: #fdecec; --bad-line: #d33c3c;
+  --font: "Pretendard", "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+  --mono: "Cascadia Mono", "JetBrains Mono", Consolas, "D2Coding", monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15.5px/1.72 var(--font); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 100vh; }
+nav.toc { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--side); border-right: 1px solid var(--line); padding: 18px 14px 40px 18px; font-size: 13.5px; line-height: 1.45; }
+nav.toc .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; font-weight: 700; font-size: 17px; }
+nav.toc .brand .logo { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, #1f6feb, #2fb36d); display: grid; place-items: center; color: #fff; font-size: 14px; }
+nav.toc .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 12px 38px; }
+nav.toc input { width: 100%; padding: 7px 10px; border: 1px solid var(--line2); border-radius: 7px; font: inherit; background: #fff; margin-bottom: 10px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; }
+nav.toc li.ch > a { display: block; padding: 5px 8px; border-radius: 6px; color: var(--text); font-weight: 600; margin-top: 2px; }
+nav.toc li.ch > ol { margin: 0 0 4px 10px; padding-left: 8px; border-left: 1px solid var(--line2); display: none; }
+nav.toc li.ch.open > ol, nav.toc.searching li.ch > ol { display: block; }
+nav.toc li.sec > a { display: block; padding: 3px 8px; border-radius: 5px; color: var(--muted); }
+nav.toc a.active { background: var(--accent-soft); color: var(--accent) !important; }
+nav.toc li.hide { display: none; }
+main { padding: 34px 48px 120px; max-width: 1060px; }
+header.cover { border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 18px; }
+header.cover h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -0.5px; }
+header.cover p { margin: 4px 0; color: var(--muted); }
+h2 { font-size: 26px; margin: 64px 0 14px; padding-top: 18px; border-top: 2px solid var(--text); letter-spacing: -0.3px; }
+h3 { font-size: 19px; margin: 36px 0 10px; }
+h4 { font-size: 16px; margin: 24px 0 6px; }
+h2 .num, h3 .num { color: var(--accent); margin-right: 8px; }
+p { margin: 10px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--code); padding: 1px 5px; border-radius: 4px; border: 1px solid #e6e8eb; }
+pre { font-family: var(--mono); font-size: 13px; background: #f6f8fa; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; border: 0; padding: 0; }
+kbd { display: inline-block; font-family: var(--mono); font-size: 0.82em; line-height: 1.2; padding: 2px 6px; margin: 0 1px; border: 1px solid #c9ced6; border-bottom-width: 2px; border-radius: 5px; background: linear-gradient(#fff, #f3f4f6); color: #24292f; white-space: nowrap; vertical-align: 1px; }
+.menu { font-weight: 600; color: #3a4350; background: #eef1f5; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.ui { font-weight: 600; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; background: var(--paper); }
+th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: #f1f3f6; font-weight: 700; }
+tbody tr:nth-child(even) td { background: #fafbfc; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+tr.group td { background: #e9eef6 !important; font-weight: 700; color: #234; }
+table.lib td { font-size: 13px; }
+table.lib td.pins { font-family: var(--mono); font-size: 12px; max-width: 280px; }
+table.lib td.fps code { font-size: 11.5px; }
+.table-wrap { overflow-x: auto; }
+figure { margin: 18px 0 24px; }
+figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line2); border-radius: 8px; box-shadow: 0 4px 18px rgba(20, 30, 50, 0.10); cursor: zoom-in; }
+figure figcaption { font-size: 13.5px; color: var(--muted); margin-top: 7px; }
+.callout { border-left: 4px solid; border-radius: 6px; padding: 10px 14px 10px 44px; margin: 14px 0; position: relative; }
+.callout::before { position: absolute; left: 14px; top: 9px; font-size: 17px; }
+.callout p:first-child { margin-top: 0; }
+.callout p:last-child { margin-bottom: 0; }
+.tip { background: var(--tip); border-color: var(--tip-line); }
+.tip::before { content: "💡"; }
+.warn { background: var(--warn); border-color: var(--warn-line); }
+.warn::before { content: "⚠️"; }
+.note { background: var(--note); border-color: var(--note-line); }
+.note::before { content: "ℹ️"; }
+.bad { background: var(--bad); border-color: var(--bad-line); }
+.bad::before { content: "⛔"; }
+.callout b.t { display: block; margin-bottom: 2px; }
+ol.steps { counter-reset: step; list-style: none; padding-left: 0; }
+ol.steps > li { counter-increment: step; position: relative; padding-left: 40px; margin: 12px 0; }
+ol.steps > li::before { content: counter(step); position: absolute; left: 0; top: 1px; width: 27px; height: 27px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 13.5px; }
+.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 18px; font-size: 14px; }
+.legend div b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #e33; color: #fff; font-size: 12px; margin-right: 6px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pill { display: inline-block; padding: 0 8px; border-radius: 10px; font-size: 12.5px; font-weight: 700; }
+.pill.e { background: #fde2e2; color: #b42318; }
+.pill.w { background: #fff1d6; color: #9a5b00; }
+.badge-new { background: #2fb36d; color: #fff; border-radius: 4px; font-size: 11px; padding: 0 5px; margin-left: 4px; }
+.lightbox { position: fixed; inset: 0; background: rgba(10, 14, 20, 0.85); display: none; align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 20px; }
+.lightbox.on { display: flex; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
+.totop { position: fixed; right: 18px; bottom: 18px; width: 38px; height: 38px; border-radius: 50%; background: var(--text); color: #fff; display: grid; place-items: center; font-size: 18px; opacity: 0.75; }
+.totop:hover { opacity: 1; text-decoration: none; }
+footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 960px) {
+  .layout { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; max-height: 50vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  main { padding: 20px 16px 80px; }
+  .grid2 { grid-template-columns: 1fr; }
+}
+@media print {
+  nav.toc, .totop, .lightbox { display: none !important; }
+  .layout { display: block; }
+  main { max-width: none; padding: 0; }
+  h2 { page-break-before: always; }
+  figure, table { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" id="toc">
+  <div class="brand"><span class="logo">MC</span>MyCircuit 10.0</div>
+  <div class="sub">사용 설명서</div>
+  <input id="toc-filter" type="search" placeholder="목차 검색…" autocomplete="off">
+  <ol><li class="ch"><a href="#ch1">1 소개와 설치</a><ol><li class="sec"><a href="#ch1-1">1.1 MyCircuit이란</a></li><li class="sec"><a href="#ch1-2">1.2 시스템 요구 사항</a></li><li class="sec"><a href="#ch1-3">1.3 Windows 설치</a></li><li class="sec"><a href="#ch1-4">1.4 macOS 설치</a></li><li class="sec"><a href="#ch1-5">1.5 Linux 설치</a></li><li class="sec"><a href="#ch1-6">1.6 웹 버전 실행</a></li><li class="sec"><a href="#ch1-7">1.7 소스에서 실행하고 빌드하기</a></li><li class="sec"><a href="#ch1-8">1.8 설정과 데이터가 저장되는 곳</a></li><li class="sec"><a href="#ch1-9">1.9 처음 실행</a></li></ol></li><li class="ch"><a href="#ch2">2 화면 구성</a><ol><li class="sec"><a href="#ch2-1">2.1 전체 모습</a></li><li class="sec"><a href="#ch2-2">2.2 메뉴 막대</a></li><li class="sec"><a href="#ch2-3">2.3 문서 탭과 배지</a></li><li class="sec"><a href="#ch2-4">2.4 도구 모음</a></li><li class="sec"><a href="#ch2-5">2.5 왼쪽 패널</a></li><li class="sec"><a href="#ch2-6">2.6 오른쪽 패널 (속성과 문제 목록)</a></li><li class="sec"><a href="#ch2-7">2.7 상태 표시줄</a></li><li class="sec"><a href="#ch2-8">2.8 명령 팔레트와 찾기</a></li><li class="sec"><a href="#ch2-9">2.9 캔버스 조작 (확대·이동)</a></li><li class="sec"><a href="#ch2-10">2.10 테마와 언어</a></li><li class="sec"><a href="#ch2-11">2.11 시작 페이지</a></li><li class="sec"><a href="#ch2-12">2.12 파일 다루기, 실행 취소, 자동 저장</a></li><li class="sec"><a href="#ch2-13">2.13 그리드와 눈금자</a></li><li class="sec"><a href="#ch2-14">2.14 테마</a></li><li class="sec"><a href="#ch2-15">2.15 정보 창</a></li><li class="sec"><a href="#ch2-16">2.16 대화형 튜토리얼</a></li></ol></li><li class="ch"><a href="#ch3">3 빠른 시작 튜토리얼 — LED 회로를 처음부터</a><ol><li class="sec"><a href="#ch3-1">3.1 새 프로젝트 만들기</a></li><li class="sec"><a href="#ch3-2">3.2 부품 배치</a></li><li class="sec"><a href="#ch3-3">3.3 배선</a></li><li class="sec"><a href="#ch3-4">3.4 참조 번호와 ERC</a></li><li class="sec"><a href="#ch3-5">3.5 풋프린트 지정</a></li><li class="sec"><a href="#ch3-6">3.6 PCB 업데이트</a></li><li class="sec"><a href="#ch3-7">3.7 기판 외곽선과 부품 배치</a></li><li class="sec"><a href="#ch3-8">3.8 배선 — 손으로, 그리고 자동으로</a></li><li class="sec"><a href="#ch3-9">3.9 그라운드 영역(구리 붓기)</a></li><li class="sec"><a href="#ch3-10">3.10 DRC</a></li><li class="sec"><a href="#ch3-11">3.11 3D로 확인</a></li><li class="sec"><a href="#ch3-12">3.12 시뮬레이션</a></li><li class="sec"><a href="#ch3-13">3.13 거버와 드릴 파일 출력</a></li></ol></li><li class="ch"><a href="#ch4">4 회로도 편집기</a><ol><li class="sec"><a href="#ch4-1">4.1 좌표, 그리드, 시트</a></li><li class="sec"><a href="#ch4-2">4.2 선택</a></li><li class="sec"><a href="#ch4-3">4.3 이동과 고무줄 드래그</a></li><li class="sec"><a href="#ch4-4">4.4 회전과 대칭</a></li><li class="sec"><a href="#ch4-5">4.5 복사, 잘라내기, 붙여넣기, 복제</a></li><li class="sec"><a href="#ch4-6">4.6 삭제</a></li><li class="sec"><a href="#ch4-7">4.7 부품 배치</a></li><li class="sec"><a href="#ch4-8">4.8 전원 포트</a></li><li class="sec"><a href="#ch4-9">4.9 배선</a></li><li class="sec"><a href="#ch4-10">4.10 정션</a></li><li class="sec"><a href="#ch4-11">4.11 넷 레이블과 글로벌 레이블</a></li><li class="sec"><a href="#ch4-12">4.12 버스</a></li><li class="sec"><a href="#ch4-13">4.13 연결 없음 플래그</a></li><li class="sec"><a href="#ch4-14">4.14 텍스트</a></li><li class="sec"><a href="#ch4-15">4.15 속성 편집</a></li><li class="sec"><a href="#ch4-16">4.16 참조 번호 부여</a></li><li class="sec"><a href="#ch4-17">4.17 넷 강조와 교차 탐색</a></li><li class="sec"><a href="#ch4-18">4.18 오른쪽 클릭 메뉴</a></li><li class="sec"><a href="#ch4-19">4.19 시트 크기와 표제란</a></li><li class="sec"><a href="#ch4-20">4.20 캔버스 위의 표시</a></li><li class="sec"><a href="#ch4-21">4.21 여러 페이지 회로도</a></li><li class="sec"><a href="#ch4-22">4.22 측정과 치수</a></li><li class="sec"><a href="#ch4-23">4.23 계층 시트</a></li><li class="sec"><a href="#ch4-24">4.24 벡터(버스) 레이블</a></li><li class="sec"><a href="#ch4-25">4.25 다중 유닛 부품</a></li></ol></li><li class="ch"><a href="#ch5">5 연결 규칙과 ERC</a><ol><li class="sec"><a href="#ch5-1">5.1 연결 규칙</a></li><li class="sec"><a href="#ch5-2">5.2 넷 이름 정하기</a></li><li class="sec"><a href="#ch5-3">5.3 ERC 실행</a></li><li class="sec"><a href="#ch5-4">5.4 ERC 검사 항목</a></li></ol></li><li class="ch"><a href="#ch6">6 부품 라이브러리</a><ol><li class="sec"><a href="#ch6-1">6.1 라이브러리 패널 사용법</a></li><li class="sec"><a href="#ch6-2">6.2 내장 심볼 목록</a></li><li class="sec"><a href="#ch6-3">6.3 내장 풋프린트 목록</a></li><li class="sec"><a href="#ch6-4">6.4 핀 번호와 패드의 대응</a></li><li class="sec"><a href="#ch6-5">6.5 심볼 편집기</a></li><li class="sec"><a href="#ch6-6">6.6 풋프린트 마법사</a></li><li class="sec"><a href="#ch6-7">6.7 프로젝트 로컬 라이브러리</a></li><li class="sec"><a href="#ch6-8">6.8 풋프린트 지정 대화상자</a></li></ol></li><li class="ch"><a href="#ch7">7 PCB 편집기</a><ol><li class="sec"><a href="#ch7-1">7.1 단위, 좌표, 그리드</a></li><li class="sec"><a href="#ch7-2">7.2 회로도에서 PCB 업데이트 (F8)</a></li><li class="sec"><a href="#ch7-3">7.3 레이어</a></li><li class="sec"><a href="#ch7-4">7.4 풋프린트 배치</a></li><li class="sec"><a href="#ch7-5">7.5 선택</a></li><li class="sec"><a href="#ch7-6">7.6 대화형 배선</a></li><li class="sec"><a href="#ch7-7">7.7 비아</a></li><li class="sec"><a href="#ch7-8">7.8 트랙 폭과 넷 클래스</a></li><li class="sec"><a href="#ch7-9">7.9 구리 영역 (Zone)</a></li><li class="sec"><a href="#ch7-10">7.10 기판 외곽선</a></li><li class="sec"><a href="#ch7-11">7.11 텍스트와 그래픽 선</a></li><li class="sec"><a href="#ch7-12">7.12 측정과 치수</a></li><li class="sec"><a href="#ch7-13">7.13 래츠네스트와 넷 패널</a></li><li class="sec"><a href="#ch7-14">7.14 정리와 보고서</a></li><li class="sec"><a href="#ch7-15">7.15 속성 패널 (PCB)</a></li><li class="sec"><a href="#ch7-16">7.16 오른쪽 클릭 메뉴 (PCB)</a></li><li class="sec"><a href="#ch7-17">7.17 다층 기판</a></li><li class="sec"><a href="#ch7-18">7.18 보드 크기 표시와 눈금자</a></li><li class="sec"><a href="#ch7-19">7.19 길이 맞춤</a></li><li class="sec"><a href="#ch7-20">7.20 차동 쌍 배선</a></li></ol></li><li class="ch"><a href="#ch8">8 자동 배선기</a><ol><li class="sec"><a href="#ch8-1">8.1 실행 방법</a></li><li class="sec"><a href="#ch8-2">8.2 동작 원리</a></li><li class="sec"><a href="#ch8-3">8.3 제약 사항</a></li><li class="sec"><a href="#ch8-4">8.4 잘 배선하는 요령</a></li></ol></li><li class="ch"><a href="#ch9">9 DRC (설계 규칙 검사)</a><ol><li class="sec"><a href="#ch9-1">9.1 DRC 실행</a></li><li class="sec"><a href="#ch9-2">9.2 DRC 검사 항목</a></li></ol></li><li class="ch"><a href="#ch10">10 기판 설정</a><ol><li class="sec"><a href="#ch10-1">10.1 적층 구조 및 표면 처리</a></li><li class="sec"><a href="#ch10-2">10.2 외곽선</a></li><li class="sec"><a href="#ch10-3">10.3 설계 규칙</a></li><li class="sec"><a href="#ch10-4">10.4 속성 패널의 빠른 규칙</a></li><li class="sec"><a href="#ch10-5">10.5 넷 클래스</a></li></ol></li><li class="ch"><a href="#ch11">11 3D 보기</a><ol><li class="sec"><a href="#ch11-1">11.1 조작</a></li><li class="sec"><a href="#ch11-2">11.2 표시 옵션, 그리드, 좌표축, 치수</a></li><li class="sec"><a href="#ch11-3">11.3 스크린샷과 3D 내보내기</a></li></ol></li><li class="ch"><a href="#ch12">12 시뮬레이션</a><ol><li class="sec"><a href="#ch12-1">12.1 시뮬레이션 탭</a></li><li class="sec"><a href="#ch12-2">12.2 해석 종류와 설정</a></li><li class="sec"><a href="#ch12-3">12.3 공학 표기법 (값 입력)</a></li><li class="sec"><a href="#ch12-4">12.4 소자 모델</a></li><li class="sec"><a href="#ch12-5">12.5 기준 전위와 연결 확인</a></li><li class="sec"><a href="#ch12-6">12.6 부호 규칙</a></li><li class="sec"><a href="#ch12-7">12.7 프로브</a></li><li class="sec"><a href="#ch12-8">12.8 회로도 전압 오버레이</a></li><li class="sec"><a href="#ch12-9">12.9 SPICE 넷리스트</a></li><li class="sec"><a href="#ch12-10">12.10 제약 사항</a></li></ol></li><li class="ch"><a href="#ch13">13 출력</a><ol><li class="sec"><a href="#ch13-1">13.1 인쇄</a></li><li class="sec"><a href="#ch13-2">13.2 그림 내보내기 (SVG / PNG)</a></li><li class="sec"><a href="#ch13-3">13.3 넷리스트와 SPICE</a></li><li class="sec"><a href="#ch13-4">13.4 BOM (부품표)</a></li><li class="sec"><a href="#ch13-5">13.5 픽앤플레이스 (부품 좌표)</a></li><li class="sec"><a href="#ch13-6">13.6 제조 출력 (거버/드릴 패키지)</a></li><li class="sec"><a href="#ch13-7">13.7 3D 모델 (STL / GLB)</a></li><li class="sec"><a href="#ch13-8">13.8 거버 뷰어</a></li><li class="sec"><a href="#ch13-9">13.9 KiCad 프로젝트 가져오기</a></li></ol></li><li class="ch"><a href="#ch14">14 계산기</a><ol></ol></li><li class="ch"><a href="#ch15">15 예제 프로젝트</a><ol></ol></li><li class="ch"><a href="#ch16">16 단축키 전체 표</a><ol><li class="sec"><a href="#ch16-1">16.1 공통</a></li><li class="sec"><a href="#ch16-2">16.2 회로도</a></li><li class="sec"><a href="#ch16-3">16.3 PCB</a></li><li class="sec"><a href="#ch16-4">16.4 3D</a></li><li class="sec"><a href="#ch16-5">16.5 목록과 대화상자</a></li></ol></li><li class="ch"><a href="#ch17">17 설정</a><ol></ol></li><li class="ch"><a href="#ch18">18 파일 형식 (.mycircuit)</a><ol></ol></li><li class="ch"><a href="#ch19">19 문제 해결 (FAQ)</a><ol><li class="sec"><a href="#ch19-1">19.1 자주 묻는 질문</a></li><li class="sec"><a href="#ch19-2">19.2 개발과 테스트</a></li></ol></li><li class="ch"><a href="#ch20">20 용어집</a><ol></ol></li></ol>
+</nav>
+<main id="top">
+<header class="cover">
+  <h1>MyCircuit 10.0 사용 설명서</h1>
+  <p>회로도 작성 · PCB 레이아웃 · 자동 배선 · 3D 보기 · 회로 시뮬레이션 · 거버/드릴/BOM 제조 출력을 한 창에서 처리하는 전자 회로 설계 프로그램</p>
+  <p>Windows · macOS · Linux 데스크톱 앱과 웹 브라우저에서 똑같이 동작합니다. 이 설명서는 프로그램 안에서 <span class="menu">도움말 → 사용 설명서</span>(<kbd>F1</kbd>)로 열 수 있고, 브라우저에서 직접 열어도 됩니다(웹 버전의 설명서 창에는 <span class="ui">브라우저에서 열기</span> 버튼이 있습니다. 데스크톱 앱에서는 설명서가 앱 안에 들어 있어 이 버튼이 없습니다).</p>
+</header>
+
+<div class="callout note"><p><b class="t">이 설명서를 읽는 방법</b>처음이라면 <a href="#ch3">3장 빠른 시작 튜토리얼</a>을 따라 LED 회로를 한 번 끝까지 만들어 보세요. 회로도 → PCB → 3D → 시뮬레이션 → 거버 출력까지 15분이면 전체 흐름을 익힐 수 있습니다. 특정 기능이 궁금하면 왼쪽 목차의 검색 칸에 단어(예: “비아”, “ERC”, “거버”)를 입력하세요. 단축키는 <a href="#ch16">16장</a>, 오류 메시지의 의미는 <a href="#ch5">5장(ERC)</a>과 <a href="#ch9">9장(DRC)</a>에 모두 정리되어 있습니다.</p></div>
+
+<h2 id="ch1"><span class="num">1</span>소개와 설치</h2>
+
+<h3 id="ch1-1"><span class="num">1.1</span>MyCircuit이란</h3>
+<p>MyCircuit은 KiCad와 비슷한 작업 흐름을 가진 전자 회로 설계(EDA) 프로그램입니다. 하나의 프로젝트 파일(<code>.mycircuit</code>) 안에 회로도, PCB, 프로젝트 전용 부품 라이브러리, 시뮬레이션 설정이 모두 들어 있어서 파일 하나만 주고받으면 어디서든 그대로 열립니다.</p>
+<table>
+<thead><tr><th>기능 영역</th><th>할 수 있는 일</th></tr></thead>
+<tbody>
+<tr><td>회로도 편집기</td><td>부품 배치, 직교 배선(자동 정션·자동 종료), 넷 레이블/글로벌 레이블/계층 레이블, 전원 포트, 버스와 벡터 레이블(<code>D[0..7]</code>), 연결 없음 플래그, 텍스트, 고무줄(rubber-band) 드래그, 회전/대칭, 복사/붙여넣기, 참조 번호 자동 부여, 실시간 ERC, 여러 페이지와 <b>계층 시트</b>, <b>다중 유닛 부품</b>, 측정과 치수선</td></tr>
+<tr><td>PCB 편집기</td><td>2/4/6층 기판, 풋프린트 배치·회전·뒤집기·잠금, 45° 대화형 배선(실시간 간격 검사, 충돌 표시/밀어내기/장애물에서 멈춤 모드), 비아와 층 전환, 넷 클래스, 구리 영역(써멀 릴리프·우선순위), 기판 외곽선, 실크 텍스트/선, 측정·치수, 보드 크기 자동 표시, 래츠네스트, <b>길이 맞춤(미앤더)</b>, <b>차동 쌍 배선</b></td></tr>
+<tr><td>자동 배선기</td><td>A* 미로 탐색 기반 자동 배선(바깥 2층 또는 모든 구리 레이어), 실패 연결 우선 재시도(rip-up and retry)</td></tr>
+<tr><td>화면 조작</td><td>빈 곳 드래그로 화면 이동, Shift+드래그 상자 선택, 손(이동) 도구, 5×5 선 그리드, 위·왼쪽 눈금자(mm/mil)</td></tr>
+<tr><td>검사</td><td>ERC 12종, DRC 18종(간격, 단락, 가장자리, 홀 간격, 애뉼러 링, 코트야드, 미배선 …)</td></tr>
+<tr><td>3D 보기</td><td>three.js 기반 실시간 3D 기판·부품 모델, 7가지 시점, 5×5 그리드·눈금 있는 X/Y/Z 좌표축·방향 표시기·보드 치수(cm/inch), X-ray, PNG 스크린샷, STL/GLB 내보내기</td></tr>
+<tr><td>시뮬레이션</td><td>SPICE 방식 MNA + 뉴턴-랩슨 엔진: 동작점(DC), 과도 해석, AC(보드 선도), DC 스윕, 회로도 위 전압 표시, SPICE 넷리스트 내보내기</td></tr>
+<tr><td>출력</td><td>인쇄(미리 보기·1:1·흑백·PDF), 회로도 SVG/PNG, PCB SVG, KiCad 넷리스트, SPICE, BOM, 픽앤플레이스, 거버 X2 + Excellon 드릴 + IPC-356 + 작업 파일 ZIP, 내장 거버 뷰어</td></tr>
+<tr><td>도구</td><td>심볼 편집기, 풋프린트 마법사, 풋프린트 지정, 계산기(색 코드, LED/옴, 분압기, 트랙 폭, 555/RC, 단위), <b>KiCad 프로젝트 가져오기</b></td></tr>
+<tr><td>사용 편의</td><td>40가지 테마(다크 20 + 라이트 20)와 사용자 테마, 한국어/영어, 9개 탭의 설정 창, 14개 레슨의 대화형 튜토리얼(보기·따라 하기)</td></tr>
+</tbody>
+</table>
+
+<h3 id="ch1-2"><span class="num">1.2</span>시스템 요구 사항</h3>
+<ul>
+<li><b>데스크톱</b>: Windows 10/11 64비트, macOS(Intel/Apple Silicon), 최신 64비트 Linux 배포판. 창의 최소 크기는 1024 × 700 픽셀이며, 처음에는 1440 × 900으로 열립니다.</li>
+<li><b>웹</b>: ES 모듈과 WebGL을 지원하는 최신 Chrome, Edge, Firefox, Safari. 반드시 HTTP 서버를 통해 열어야 합니다(<a href="#ch1-6">1.6</a> 참고).</li>
+<li><b>소스에서 실행/빌드</b>: Node.js 22 이상, <code>npm install</code>.</li>
+<li>3D 보기에는 WebGL이 필요합니다. WebGL을 쓸 수 없으면 3D 탭에 “3D 보기를 사용할 수 없습니다”라는 안내가 나오고 나머지 기능은 그대로 동작합니다.</li>
+</ul>
+
+<h3 id="ch1-3"><span class="num">1.3</span>Windows 설치</h3>
+<p>Windows용 설치 프로그램은 <code>MyCircuit-Setup-10.0.0.exe</code>(NSIS, 64비트)입니다. 실행하면 다음 순서로 진행됩니다.</p>
+<ol class="steps">
+<li><b>언어 선택</b> — 설치 마법사의 언어를 한국어 또는 English 중에서 고릅니다. 아래 질문 상자들도 이 언어로 표시됩니다.</li>
+<li><b>기존 설치 제거</b> — 이미 MyCircuit이 설치되어 있으면 “이미 설치된 MyCircuit 가 있습니다. 이 버전을 설치하기 전에 기존 프로그램을 완전히 삭제합니다.”라는 안내가 나옵니다. <b>확인</b>을 누르면 기존 프로그램의 제거 프로그램을 조용히 실행해 완전히 지운 뒤 새로 설치합니다(같은 버전을 다시 설치해도 모든 파일이 확실히 바뀝니다). <b>취소</b>를 누르면 설치를 그만둡니다. 사용자 데이터를 지울지는 다음 단계에서 따로 묻습니다.</li>
+<li><b>이전 데이터 삭제 질문</b> — <code>%APPDATA%\MyCircuit</code> 폴더가 있으면 “이미 설치한 프로그램에서 저장한 데이터(설정, 자동 저장)가 있습니다. 삭제하시겠습니까?”라고 묻습니다. <b>예</b>를 누르면 설정(<code>settings.json</code>)과 창의 Local Storage(자동 저장 복구본 포함)가 모두 지워져 처음 설치한 상태가 됩니다. 프로젝트 파일(<code>.mycircuit</code>)은 이 폴더에 저장되지 않으므로 지워지지 않습니다.</li>
+<li><b>설치 위치 선택</b> — 원클릭 설치가 아니므로 설치 폴더를 바꿀 수 있습니다. 기본은 현재 사용자용 설치이며, 필요하면 관리자 권한으로 올려 설치할 수 있습니다.</li>
+<li><b>바로 가기와 파일 연결</b> — 바탕 화면과 시작 메뉴에 “MyCircuit” 바로 가기가 만들어지고, <code>.mycircuit</code> 파일이 MyCircuit 문서 아이콘과 함께 연결됩니다. 탐색기에서 프로젝트 파일을 더블클릭하면 MyCircuit에서 열립니다.</li>
+</ol>
+<div class="callout tip"><p>MyCircuit은 사용자 데이터 폴더마다 <b>하나만</b> 실행됩니다. 이미 실행 중일 때 다른 <code>.mycircuit</code> 파일을 더블클릭하면 새 창이 뜨지 않고, 실행 중인 창이 앞으로 나와 그 파일을 엽니다(저장하지 않은 변경 내용이 있으면 먼저 저장할지 묻습니다).</p></div>
+<p><b>제거</b>: <span class="menu">설정 → 앱</span> 또는 제어판에서 MyCircuit을 제거합니다. 제거해도 <code>%APPDATA%\MyCircuit</code>의 설정은 남습니다(다음 설치 때 지울지 물어봅니다).</p>
+
+<h3 id="ch1-4"><span class="num">1.4</span>macOS 설치</h3>
+<p>macOS용으로는 <code>MyCircuit-10.0.0-&lt;arch&gt;.dmg</code>와 <code>.zip</code>이 만들어집니다. dmg를 열고 MyCircuit을 응용 프로그램 폴더로 끌어 놓으세요.</p>
+<div class="callout warn"><p>macOS 빌드는 코드 서명이 되어 있지 않습니다. 처음 실행할 때 “확인되지 않은 개발자” 경고가 나오면 Finder에서 앱을 <b>Control-클릭 → 열기</b>로 한 번 열면 다음부터는 바로 실행됩니다.</p></div>
+<p>macOS에서는 창 왼쪽 위에 신호등 버튼이 그대로 표시되고, 단축키의 <kbd>Ctrl</kbd>은 <kbd>⌘ Cmd</kbd>로도 동작합니다(앱이 <code>ctrlKey</code>와 <code>metaKey</code>를 똑같이 취급합니다). Finder에서 <code>.mycircuit</code> 파일을 앱 아이콘으로 끌어 놓거나 더블클릭해도 열립니다.</p>
+
+<h3 id="ch1-5"><span class="num">1.5</span>Linux 설치</h3>
+<table>
+<thead><tr><th>패키지</th><th>설치 방법</th></tr></thead>
+<tbody>
+<tr><td><code>MyCircuit-10.0.0-x86_64.AppImage</code></td><td>설치가 필요 없습니다. <code>chmod +x MyCircuit-*.AppImage</code> 후 실행합니다.</td></tr>
+<tr><td><code>.deb</code> (Debian/Ubuntu)</td><td><code>sudo apt install ./MyCircuit-10.0.0-amd64.deb</code> — 메뉴의 “Development / Electronics” 분류에 등록되고 <code>application/x-mycircuit</code> 형식이 연결됩니다.</td></tr>
+<tr><td><code>.tar.gz</code></td><td>원하는 곳에 압축을 풀고 <code>MyCircuit</code> 실행 파일을 실행합니다.</td></tr>
+</tbody>
+</table>
+
+<h3 id="ch1-6"><span class="num">1.6</span>웹 버전 실행</h3>
+<p>웹 버전은 데스크톱 앱과 똑같은 파일(번들러 없이 순수 ES 모듈)을 브라우저에서 실행합니다.</p>
+<pre><code>npm run serve                 # 프로젝트 폴더를 http://localhost:8642 로 서비스
+npm run build:web             # dist/web/ 에 웹 배포본 생성
+npm run serve -- dist/web     # 만든 배포본을 서비스
+PORT=9000 npm run serve       # 다른 포트 사용</code></pre>
+<div class="callout warn"><p><code>index.html</code>을 파일 탐색기에서 더블클릭해 <code>file://</code>로 열면 ES 모듈이 로드되지 않아 동작하지 않습니다. 반드시 위처럼 HTTP 서버로 여세요. <code>dist/web</code>은 아무 정적 웹 서버(nginx, GitHub Pages 등)에 그대로 올려도 됩니다.</p></div>
+<p>웹 버전과 데스크톱 버전의 차이:</p>
+<table>
+<thead><tr><th>항목</th><th>데스크톱</th><th>웹</th></tr></thead>
+<tbody>
+<tr><td>열기</td><td>운영체제 파일 대화상자</td><td>브라우저 파일 선택 창(또는 창에 파일 끌어 놓기)</td></tr>
+<tr><td>저장</td><td>경로를 기억해 <kbd>Ctrl</kbd>+<kbd>S</kbd>는 대화상자 없이 덮어씀</td><td>브라우저가 지원하면 “다른 이름으로 저장” 선택 창, 아니면 다운로드 폴더로 내려받기(매번 새 파일)</td></tr>
+<tr><td>최근 파일</td><td>있음(경로 기준, 최대 10개)</td><td>없음(브라우저는 파일 경로를 알려 주지 않음)</td></tr>
+<tr><td>인쇄</td><td>시스템 인쇄 대화상자 + <span class="ui">PDF로 저장…</span></td><td>브라우저 인쇄(PDF로 저장은 브라우저 인쇄 대화상자에서 선택)</td></tr>
+<tr><td>설정</td><td><code>settings.json</code></td><td>브라우저 <code>localStorage</code>의 <code>mycircuit.settings</code></td></tr>
+<tr><td>창 닫기 확인</td><td>“저장하지 않은 변경 내용” 대화상자</td><td>브라우저의 “페이지를 떠나시겠습니까?” 확인</td></tr>
+<tr><td>끝내기 메뉴</td><td>있음(<kbd>Alt</kbd>+<kbd>F4</kbd>)</td><td>비활성</td></tr>
+</tbody>
+</table>
+
+<h3 id="ch1-7"><span class="num">1.7</span>소스에서 실행하고 빌드하기</h3>
+<table>
+<thead><tr><th>명령</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>npm start</code></td><td>데스크톱 앱 실행 (<code>scripts/start.mjs</code>가 <code>ELECTRON_RUN_AS_NODE</code> 환경 변수를 지우고 Electron을 띄움)</td></tr>
+<tr><td><code>npm test</code></td><td>단위 테스트 전체 실행 (<code>npm test -- sim drc</code>처럼 이름 일부로 거를 수 있음)</td></tr>
+<tr><td><code>npm run dist:win</code> / <code>dist:mac</code> / <code>dist:linux</code></td><td>각 OS용 설치 파일을 <code>release/</code>에 만들고 프로젝트 루트에도 복사</td></tr>
+<tr><td><code>npm run build:all</code></td><td>웹 빌드 + 세 OS 패키지</td></tr>
+<tr><td><code>npm run build:art</code> (= <code>build:icons</code>), <code>build:installer</code></td><td>프로그램 아이콘(위에서 내려다본 회로 기판 그림, <code>scripts/art/art.js</code>)과 NSIS 파일 연결 스크립트 생성</td></tr>
+<tr><td><code>node scripts/build-info.mjs</code></td><td>버전·커밋·빌드 날짜를 <code>src/buildinfo.js</code>에 기록(정보 창에 표시, <code>npm start</code>와 각 빌드가 자동 실행, Git에는 넣지 않음)</td></tr>
+</tbody>
+</table>
+<div class="callout warn"><p>VS Code 같은 Electron 기반 터미널은 <code>ELECTRON_RUN_AS_NODE=1</code>을 물려주는 경우가 있습니다. 이 상태에서 <code>electron .</code>을 직접 실행하면 앱이 아무 말 없이 종료됩니다. <code>npm start</code>를 쓰거나 변수를 지운 뒤 실행하세요(빈 값으로 두는 것만으로는 안 되고, 변수 자체를 없애야 합니다).</p></div>
+
+<h3 id="ch1-8"><span class="num">1.8</span>설정과 데이터가 저장되는 곳</h3>
+<table>
+<thead><tr><th>OS</th><th>설정 파일 (<code>settings.json</code>)</th><th>자동 저장 복구본</th></tr></thead>
+<tbody>
+<tr><td>Windows</td><td><code>%APPDATA%\MyCircuit\settings.json</code></td><td rowspan="3">같은 폴더의 창 Local Storage (<code>mycircuit.autosave</code>)</td></tr>
+<tr><td>macOS</td><td><code>~/Library/Application Support/MyCircuit/settings.json</code></td></tr>
+<tr><td>Linux</td><td><code>~/.config/MyCircuit/settings.json</code></td></tr>
+<tr><td>웹</td><td>브라우저 <code>localStorage</code> → <code>mycircuit.settings</code></td><td><code>localStorage</code> → <code>mycircuit.autosave</code>, <code>mycircuit.autosave.at</code></td></tr>
+</tbody>
+</table>
+<p>명령줄에 <code>--user-data-dir=&lt;폴더&gt;</code>를 주면 그 폴더를 사용자 데이터 폴더로 씁니다(테스트용으로 설정을 분리할 때 유용합니다). 설정 파일에 저장되는 항목은 <a href="#ch17">17장</a>에 정리되어 있습니다.</p>
+
+<h3 id="ch1-9"><span class="num">1.9</span>처음 실행</h3>
+<p>처음 실행하면 운영체제 언어가 한국어이면 한국어, 그 밖에는 영어로 시작하고, 잠시 뒤 <span class="ui">MyCircuit 10.0에 오신 것을 환영합니다</span> 대화상자가 나타납니다. 네 단계(회로도 그리기 → 기판으로 보내기 → 배치 및 배선 → 3D 확인·시뮬레이션·제조)를 요약해 보여 주며, 세 개의 버튼이 있습니다.</p>
+<ul>
+<li><span class="ui">예제 열기</span> — 예제 프로젝트 선택 창을 엽니다.</li>
+<li><span class="ui">새 프로젝트 시작</span> — 빈 프로젝트를 만들고 회로도 탭으로 갑니다.</li>
+<li><span class="ui">확인</span> — 대화상자를 닫습니다.</li>
+</ul>
+<p>어느 버튼을 누르든 다시는 자동으로 나타나지 않습니다(설정 → 일반의 <span class="ui">시작할 때 환영 창 보이기</span>를 켜면 매번 나타납니다). 나중에 다시 보려면 <span class="menu">도움말 → 빠른 둘러보기</span>를 고르세요. 기본 테마는 <b>미드나이트</b>(어두운 테마)입니다. 설정 → 일반의 <span class="ui">시작할 때</span>를 <span class="ui">마지막 프로젝트 다시 열기</span>로 바꾸면 데스크톱에서 마지막으로 연 파일이 바로 열립니다. 처음이라면 <span class="menu">도움말 → 대화형 튜토리얼</span>(<a href="#ch2-16">2.16</a>)도 권합니다.</p>
+<figure><img width="1532" height="900" src="images/ko-welcome.webp" alt="환영 대화상자" loading="lazy"><figcaption>그림 1-1. 처음 실행할 때 나타나는 환영 대화상자</figcaption></figure>
+<p>이전에 저장하지 않고 종료한 작업이 있으면(자동 저장이 켜져 있을 때) 시작할 때 <span class="ui">작업 복구</span> 대화상자가 “○○에 저장되지 않은 프로젝트를 복구했습니다. 복원하시겠습니까?”라고 묻습니다. <span class="ui">복원</span>을 누르면 그 프로젝트가 “변경됨” 상태로 열리고, <span class="ui">버리기</span>를 누르면 복구본이 삭제됩니다. 자세한 내용은 <a href="#ch2-12">2.12</a>를 보세요.</p>
+
+<h2 id="ch2"><span class="num">2</span>화면 구성</h2>
+
+<h3 id="ch2-1"><span class="num">2.1</span>전체 모습</h3>
+<figure><img width="1532" height="900" src="images/ko-overview.webp" alt="MyCircuit 전체 화면" loading="lazy"><figcaption>그림 2-1. 회로도 탭을 연 MyCircuit 창 (예제 “555 LED 점멸기”)</figcaption></figure>
+<table>
+<thead><tr><th>위치</th><th>영역</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>맨 위 줄</td><td>타이틀 바</td><td>앱 로고, 메뉴 막대(파일·편집·보기·배치·배선·검사·도구·시뮬레이션·도움말), 가운데의 문서 제목, 오른쪽의 팔레트(무작위 테마)와 ▾(테마 목록), 국기(언어 전환), 설정, 정보 버튼. 데스크톱에서는 이 줄을 끌어 창을 옮깁니다.</td></tr>
+<tr><td>둘째 줄</td><td>문서 탭</td><td>시작 · 회로도 · PCB · 3D 보기 · 시뮬레이션 탭과 오른쪽 끝의 명령 팔레트 검색 칸</td></tr>
+<tr><td>셋째 줄</td><td>도구 모음</td><td>현재 탭에 맞는 도구와 명령. 버튼 위에 마우스를 올리면 이름과 단축키가 나옵니다. 오른쪽 끝에는 대화형 튜토리얼·단축키·정보 버튼이 있습니다. 도구 모음 버튼은 절대 숨겨지지 않습니다(<a href="#ch2-4">2.4</a>).</td></tr>
+<tr><td>왼쪽</td><td>왼쪽 패널</td><td>회로도: 부품 라이브러리 / PCB: 배선 진행률·레이어·넷 / 3D: 보기 옵션 / 시뮬레이션: 프로브</td></tr>
+<tr><td>가운데</td><td>캔버스</td><td>편집 영역. 아래쪽에 현재 도구의 사용법이 7초 동안 떠 있다가 서서히 사라집니다(같은 내용이 상태 표시줄에 계속 남습니다). 회로도 탭에서는 캔버스 왼쪽 아래에 <b>페이지 탭</b>(<code>1. Main</code>, <code>+</code>)이 있습니다(<a href="#ch4-21">4.21</a>).</td></tr>
+<tr><td>오른쪽</td><td>오른쪽 패널</td><td>선택한 항목의 속성(인스펙터)과 ERC/DRC 문제 목록</td></tr>
+<tr><td>맨 아래</td><td>상태 표시줄</td><td>도움말 문장, 커서 좌표, 그리드, 확대율, 활성 레이어, 배선 진행, 단위, ERC/DRC 상태</td></tr>
+</tbody>
+</table>
+<p>왼쪽·오른쪽 패널과 캔버스 사이의 경계선(스플리터)을 끌면 패널 폭을 200~520픽셀 사이에서 바꿀 수 있고, 폭은 설정에 저장됩니다. <kbd>Ctrl</kbd>+<kbd>1</kbd>은 왼쪽 패널, <kbd>Ctrl</kbd>+<kbd>2</kbd>는 오른쪽 패널을 숨기거나 보입니다. 시작 탭에서는 두 패널이 모두 숨겨지고, 시뮬레이션 탭에서는 오른쪽 패널이 숨겨집니다.</p>
+
+<h3 id="ch2-2"><span class="num">2.2</span>메뉴 막대</h3>
+<p>메뉴 이름을 클릭하면 메뉴가 열리고, 메뉴가 열린 상태에서 다른 메뉴 이름 위로 마우스를 옮기면 그 메뉴로 바뀝니다. 각 항목 오른쪽에 단축키가 표시되고, 지금 쓸 수 없는 항목(예: PCB 탭에서의 잘라내기)은 흐리게 표시됩니다. 체크 표시가 있는 항목은 켜고 끄는 설정입니다.</p>
+<figure><img width="1532" height="900" src="images/ko-menu-file.webp" alt="파일 메뉴" loading="lazy"><figcaption>그림 2-2. 파일 메뉴</figcaption></figure>
+<table>
+<thead><tr><th>메뉴</th><th>항목</th></tr></thead>
+<tbody>
+<tr><td><span class="menu">파일</span></td><td>새 프로젝트(<kbd>Ctrl</kbd>+<kbd>N</kbd>) · 열기…(<kbd>Ctrl</kbd>+<kbd>O</kbd>) · 예제 열기… · 최근 파일 열기 ▸(최근 파일이 있을 때) · <b>KiCad 프로젝트 가져오기…</b>(<a href="#ch13-9">13.9</a>) · 저장(<kbd>Ctrl</kbd>+<kbd>S</kbd>) · 다른 이름으로 저장…(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>) · 내보내기 ▸ · 제조 출력 (거버, 드릴)… · 인쇄…(<kbd>Ctrl</kbd>+<kbd>P</kbd>) · 프로젝트 속성… · 끝내기(<kbd>Alt</kbd>+<kbd>F4</kbd>, 데스크톱만)</td></tr>
+<tr><td><span class="menu">편집</span></td><td>실행 취소(<kbd>Ctrl</kbd>+<kbd>Z</kbd>) · 다시 실행(<kbd>Ctrl</kbd>+<kbd>Y</kbd>) · 실행 취소 기록… · 잘라내기/복사/붙여넣기(회로도에서만) · 복제(<kbd>Ctrl</kbd>+<kbd>D</kbd>) · 삭제(<kbd>Del</kbd>) · 모두 선택(<kbd>Ctrl</kbd>+<kbd>A</kbd>) · 찾기…(<kbd>Ctrl</kbd>+<kbd>F</kbd>) · 회전(<kbd>R</kbd>) · 좌우 대칭(<kbd>Y</kbd>) · 상하 대칭(<kbd>X</kbd>) · 반대 면으로 뒤집기(<kbd>F</kbd>, PCB에서만)</td></tr>
+<tr><td><span class="menu">보기</span></td><td>시작 페이지 · 회로도 편집기(<kbd>F2</kbd>) · PCB 편집기(<kbd>F3</kbd>) · 3D 뷰어(<kbd>F4</kbd>) · 시뮬레이션(<kbd>F6</kbd>) · 확대(<kbd>Ctrl</kbd>+<kbd>=</kbd>) · 축소(<kbd>Ctrl</kbd>+<kbd>-</kbd>) · 화면에 맞추기(<kbd>Home</kbd>) · <b>이동(손)</b> · 그리드 표시 · <b>눈금자 표시</b> · <b>보드 크기 표시</b> · 라이브러리 / 레이어 패널 표시(<kbd>Ctrl</kbd>+<kbd>1</kbd>) · 속성 패널 표시(<kbd>Ctrl</kbd>+<kbd>2</kbd>) · 래츠네스트 표시 · 고대비 레이어(<kbd>H</kbd>) · 회로도에 시뮬레이션 전압 표시</td></tr>
+<tr><td><span class="menu">배치</span></td><td>부품 추가(<kbd>A</kbd>) · 전원 포트(<kbd>P</kbd>) · 배선(<kbd>W</kbd>) · 버스(<kbd>B</kbd>) · 넷 레이블(<kbd>L</kbd>) · 글로벌 레이블(<kbd>Ctrl</kbd>+<kbd>L</kbd>) · <b>계층 레이블</b>(<kbd>H</kbd>) · <b>계층 시트</b>(<kbd>S</kbd>) · 연결 없음 플래그(<kbd>Q</kbd>) · 정션(<kbd>J</kbd>) · 텍스트(<kbd>T</kbd>) · <b>측정</b>(<kbd>M</kbd>) · <b>치수</b>(<kbd>D</kbd>) — 어느 탭에서 골라도 회로도 탭으로 전환됩니다.</td></tr>
+<tr><td><span class="menu">배선</span></td><td>트랙 배선(<kbd>X</kbd>) · 비아(<kbd>V</kbd>) · 구리 영역(<kbd>Z</kbd>) · 기판 외곽선(<kbd>O</kbd>) · 텍스트(<kbd>T</kbd>) · 그래픽 선(<kbd>G</kbd>) · 치수(<kbd>D</kbd>) · 측정(<kbd>M</kbd>) · 모두 자동 배선(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>) · 강조된 넷 자동 배선 · <b>차동 쌍 배선…</b> · <b>길이 맞춤…</b> · <b>배선: 충돌 표시 / 배선: 밀어내기 / 배선: 장애물에서 멈춤</b>(배선 모드, 하나만 체크) · 기판을 접지 영역으로 채우기 · 기판에 풋프린트 정렬 · 트랙 정리 · 모든 트랙과 비아 제거 — PCB 탭으로 전환됩니다.</td></tr>
+<tr><td><span class="menu">검사</span></td><td>전기 규칙 검사 (ERC) · 설계 규칙 검사 (DRC) · 넷 목록… · 넷 길이 보고서…</td></tr>
+<tr><td><span class="menu">도구</span></td><td>회로도 참조 번호 부여 · 모든 부품 참조 번호 다시 부여 · 풋프린트 지정… · 회로도에서 PCB 업데이트(<kbd>F8</kbd>) · 기판 설정… · 심볼 편집기… · 풋프린트 마법사… · 부품표(BOM)… · 거버 뷰어… · 계산기… · 설정…(<kbd>Ctrl</kbd>+<kbd>,</kbd>)</td></tr>
+<tr><td><span class="menu">시뮬레이션</span></td><td>시뮬레이션 실행(<kbd>F5</kbd>) · 동작점 (DC) · 과도 해석 · AC 해석 (보드 선도) · DC 스윕 · SPICE 넷리스트 보기… · 시뮬레이션 오버레이 지우기</td></tr>
+<tr><td><span class="menu">도움말</span></td><td><b>대화형 튜토리얼</b> · 사용 설명서(<kbd>F1</kbd>) · 단축키(<kbd>Ctrl</kbd>+<kbd>/</kbd>) · 빠른 둘러보기 · MyCircuit 정보</td></tr>
+</tbody>
+</table>
+<p><span class="menu">파일 → 내보내기 ▸</span>를 고르면 검색 가능한 목록이 열립니다: 회로도를 SVG로 / PNG로, PCB를 SVG로, 넷리스트 (KiCad), SPICE 넷리스트, BOM (CSV), 픽앤플레이스 (CSV), 제조 출력, 3D 모델 (STL / GLB). 각 항목은 <a href="#ch13">13장</a>에서 설명합니다.</p>
+
+<h3 id="ch2-3"><span class="num">2.3</span>문서 탭과 배지</h3>
+<p>문서 탭은 한 프로젝트의 다섯 가지 화면입니다. 탭을 바꿔도 프로젝트는 하나이므로, 회로도에서 고친 내용은 PCB 업데이트(<kbd>F8</kbd>) 후 기판에, 기판에서 고친 내용은 곧바로 3D에 반영됩니다.</p>
+<table>
+<thead><tr><th>탭</th><th>단축키</th><th>탭 옆의 배지</th></tr></thead>
+<tbody>
+<tr><td>시작</td><td>—</td><td>없음</td></tr>
+<tr><td>회로도</td><td><kbd>F2</kbd></td><td>빨간 숫자 = ERC 오류 개수, 노란 숫자 = (오류가 없을 때) ERC 경고 개수</td></tr>
+<tr><td>PCB</td><td><kbd>F3</kbd></td><td>빨간 숫자 = DRC 오류 개수, 노란 숫자 = 배선되지 않은 연결 수, 초록 ✓ = 모든 연결이 배선됨</td></tr>
+<tr><td>3D 보기</td><td><kbd>F4</kbd></td><td>없음</td></tr>
+<tr><td>시뮬레이션</td><td><kbd>F6</kbd></td><td>없음</td></tr>
+</tbody>
+</table>
+<p>회로도에서 배선 중이거나 PCB에서 트랙을 배선하는 도중에 탭을 바꾸면 진행 중인 배선이 그 자리에서 마무리됩니다.</p>
+
+<h3 id="ch2-4"><span class="num">2.4</span>도구 모음</h3>
+<p>도구 모음의 왼쪽에는 항상 새로 만들기·열기·저장, 실행 취소·다시 실행이 있고, 오른쪽 끝에는 단축키 표 버튼이 있습니다. 가운데는 탭마다 다릅니다.</p>
+<table>
+<thead><tr><th>탭</th><th>도구 모음 버튼(왼쪽부터)</th></tr></thead>
+<tbody>
+<tr><td>시작</td><td>예제 열기 · 회로도 편집기 · PCB 편집기 · 사용 설명서</td></tr>
+<tr><td>회로도</td><td>선택 · 부품 추가 · 전원 포트 · 배선 · 버스 · 넷 레이블 · 글로벌 레이블 · 연결 없음 플래그 · 정션 · 텍스트 · 계층 레이블 · 계층 시트 · 측정 · 치수 | 회전 · 좌우 대칭 · 상하 대칭 · 삭제 | 참조 번호 부여 · ERC · 풋프린트 지정 · <b>회로도에서 PCB 업데이트</b> | 시뮬레이션 실행 | (오른쪽) 이동(손) · 그리드 표시 · 눈금자 표시 | 축소 · 확대 · 화면에 맞추기</td></tr>
+<tr><td>PCB</td><td>선택 · 트랙 배선 · 비아 · 구리 영역 · 기판 외곽선 · 텍스트 · 그래픽 선 · 치수 · 측정 | <b>레이어</b> 선택 상자 | 회전 · 뒤집기 · 삭제 | DRC · <b>모두 자동 배선</b> · 접지 영역 채우기 · 기판 설정 · 제조 출력 | 고대비 · 래츠네스트 | (오른쪽) 이동(손) · 그리드 표시 · 눈금자 표시 · 보드 크기 표시 | 축소 · 확대 · 화면에 맞추기</td></tr>
+<tr><td>3D 보기</td><td>회전 · 이동(P) 탐색 모드 | 등각 · 위 · 아래 · 앞 · 뒤 · 왼쪽 · 오른쪽 | 부품 · 실크스크린 · 솔더 마스크 · 구리 영역 · X-ray 토글 | 그리드(G) · 좌표축(A) · 방향 표시기 · 보드 치수 · <b>cm/inch</b> 단위 버튼 · 화면에 맞추기 | 스크린샷 (PNG) · 3D 모델 내보내기 | PCB 편집기</td></tr>
+<tr><td>시뮬레이션</td><td>시뮬레이션 실행 | 동작점 · 과도 해석 · AC · DC 스윕 | SPICE 넷리스트 보기 · SPICE 넷리스트 내보내기 | 회로도 편집기 · 시뮬레이션 오버레이 지우기</td></tr>
+</tbody>
+</table>
+<p>현재 선택된 도구 버튼은 강조되어 표시됩니다. 켜고 끄는 버튼(고대비, 래츠네스트, 3D 토글)은 켜져 있을 때 강조됩니다.</p>
+<div class="callout note"><p><b>도구 모음 버튼은 절대 숨겨지지 않습니다.</b> 데스크톱에서는 창의 최소 폭이 가장 넓은 도구 모음에 맞춰지므로 창을 줄여도 버튼이 잘리지 않습니다. 화면 자체가 도구 모음보다 좁으면 글자가 붙은 버튼(<span class="ui">회로도에서 PCB 업데이트</span>, <span class="ui">모두 자동 배선</span> 등)이 아이콘만 남도록 줄어들고 — 마우스를 올리면 여전히 이름과 단축키가 나옵니다 — 그래도 넘치면 도구 모음이 두 줄로 나뉩니다. 웹 버전에서 브라우저 창이 좁을 때도 같습니다.</p></div>
+
+<h3 id="ch2-5"><span class="num">2.5</span>왼쪽 패널</h3>
+<ul>
+<li><b>회로도 탭 — 부품 라이브러리</b>: 검색 칸, 분류 칩(전체/수동 소자/다이오드/…), 최근 사용 부품, 분류별 부품 목록, 아래쪽 미리 보기. 머리글의 두 아이콘은 심볼 편집기와 전원 포트입니다. 사용법은 <a href="#ch6-1">6.1</a>.</li>
+<li><b>PCB 탭</b>: <span class="ui">배선</span>(배선된 연결 수/전체, 진행률 막대, 자동 배선·회로도에서 업데이트 버튼), <span class="ui">레이어</span>(눈 아이콘으로 표시/숨김, 클릭해 활성 레이어 지정, 고대비 버튼), <span class="ui">넷</span>(넷 필터와 넷별 미배선 수). 자세한 내용은 <a href="#ch7-3">7.3</a>, <a href="#ch7-13">7.13</a>.</li>
+<li><b>3D 탭</b>: 표시 옵션 체크 상자와 기판 외관(솔더 마스크 색, 실크 색, 표면 처리, 두께), 부품·메시·삼각형 통계. <a href="#ch11">11장</a>.</li>
+<li><b>시뮬레이션 탭 — 프로브</b>: 그래프에 그릴 넷 전압과 부품 전류의 체크 상자. <a href="#ch12-7">12.7</a>.</li>
+</ul>
+
+<h3 id="ch2-6"><span class="num">2.6</span>오른쪽 패널 (속성과 문제 목록)</h3>
+<p>위쪽 <span class="ui">속성</span> 패널은 선택한 항목을 바로 편집하는 인스펙터입니다. 값을 바꾸고 <kbd>Enter</kbd>를 누르거나 다른 곳을 클릭하면 적용되며, 하나의 실행 취소 단계가 됩니다.</p>
+<ul>
+<li>아무것도 선택하지 않으면: 회로도는 프로젝트 제목·부품/배선/넷 개수·시트 크기, PCB는 기판 크기·층 수·풋프린트 수와 기본 트랙 폭·간격·비아 크기·비아 드릴·마스크 색·표면 처리를 보여 줍니다.</li>
+<li>여러 개를 선택하면: 개수와 종류별 수, 그리고 회전·대칭(또는 뒤집기)·복제·삭제 버튼. PCB에서 트랙만 여러 개 선택하면 폭을 한꺼번에 바꿀 수 있습니다.</li>
+<li><b>숫자 항목은 모두 스테퍼</b>입니다 — 기판 규칙(기본 트랙 폭·간격·비아 크기·드릴), 풋프린트 X/Y/회전, 트랙 폭, 비아 지름/드릴, 구리 영역 간격/우선순위, 텍스트 크기 등. 왼쪽 <b>−</b>, 오른쪽 <b>+</b>, 값은 가운데. 한 번 누를 때마다 그 항목의 간격만큼 바뀌고 하나의 실행 취소 단계가 되며, 누르고 있으면 반복됩니다. 값을 클릭해 숫자를 직접 입력하고 <kbd>Enter</kbd>(또는 다른 곳 클릭)로 적용할 수도 있습니다.</li>
+<li>한 개를 선택하면 종류에 맞는 항목이 나옵니다(부품, 레이블, 텍스트, 배선, 풋프린트, 트랙, 비아, 구리 영역, 기판 외곽선). 각 장에서 자세히 설명합니다.</li>
+</ul>
+<p>아래쪽은 <span class="ui">ERC 문제</span>(회로도 탭) 또는 <span class="ui">DRC 문제</span>(PCB 탭) 목록입니다. 오류/경고 개수가 맨 위에 표시되고, 항목을 클릭하면 (문제가 다른 회로도 페이지에 있으면 그 페이지로 바꾼 뒤) 캔버스가 그 위치로 이동·확대하고 관련 항목을 선택하며 빨간 원이 퍼지는 애니메이션으로 위치를 알려 줍니다. 머리글의 새로 고침 버튼은 검사를 다시 실행합니다. 최대 400개까지 표시됩니다.</p>
+
+<h3 id="ch2-7"><span class="num">2.7</span>상태 표시줄</h3>
+<table>
+<thead><tr><th>칸</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>도움말</td><td>현재 도구의 사용법(아무 도구도 아니면 “준비”)</td></tr>
+<tr><td>X / Y</td><td>커서 위치. 회로도는 단위가 mm이면 mm, mil이면 mil로, PCB는 mm 또는 mil로 표시</td></tr>
+<tr><td>그리드</td><td>클릭하면 그리드 메뉴가 열립니다. 회로도: 10 / 25 / 50 / 100 mil, PCB: 0.05 / 0.1 / 0.127 / 0.25 / 0.5 / 0.635 / 1 / 1.27 / 2.54 mm</td></tr>
+<tr><td>확대율</td><td>회로도는 %, PCB는 px/mm</td></tr>
+<tr><td>활성 레이어</td><td>(PCB) 레이어 색 견본과 이름</td></tr>
+<tr><td>배선됨</td><td>(PCB) 배선된 연결 / 전체 연결</td></tr>
+<tr><td>단위</td><td><code>mm</code> 또는 <code>mil</code> — 클릭하면 전환</td></tr>
+<tr><td>시뮬레이션 오버레이 켜짐</td><td>(회로도) 동작점 전압이 표시 중일 때</td></tr>
+<tr><td>ERC ✓ / ✖ n</td><td>ERC 오류 개수. 클릭하면 ERC를 실행</td></tr>
+<tr><td>DRC — / ✓ / ✖ n</td><td>DRC 오류 개수(아직 실행 안 함은 —). 클릭하면 DRC를 실행</td></tr>
+</tbody>
+</table>
+
+<h3 id="ch2-8"><span class="num">2.8</span>명령 팔레트와 찾기</h3>
+<p><kbd>Ctrl</kbd>+<kbd>K</kbd> 또는 탭 막대 오른쪽의 검색 칸을 누르면 <b>명령 팔레트</b>가 열립니다. 모든 명령(메뉴에 없는 것 포함), 회로도의 모든 부품(참조 번호·값·심볼·풋프린트), 모든 넷 이름을 한 곳에서 검색합니다.</p>
+<ul>
+<li>단어를 여러 개 입력하면 모두 포함된 항목만 남습니다. 이름이 입력한 단어로 시작하는 항목이 위로 올라옵니다.</li>
+<li><kbd>↑</kbd>/<kbd>↓</kbd>로 고르고 <kbd>Enter</kbd>로 실행, <kbd>Esc</kbd>로 닫습니다. 마우스로 클릭해도 됩니다.</li>
+<li>부품을 고르면 그 부품을 선택하고 화면 가운데로 옮깁니다(PCB 탭이면 기판에서, 아니면 회로도에서).</li>
+<li>넷을 고르면 회로도와 PCB에서 그 넷을 강조합니다.</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-palette.webp" alt="명령 팔레트" loading="lazy"><figcaption>그림 2-3. 명령 팔레트에서 “rout”를 검색한 모습</figcaption></figure>
+<p><kbd>Ctrl</kbd>+<kbd>F</kbd>(<span class="menu">편집 → 찾기…</span>)는 비슷한 창으로 부품, 넷 레이블, 텍스트, 넷만 찾습니다. 넷 항목에는 연결된 핀(예: <code>R1.2, D1.2</code>)이 함께 보입니다.</p>
+
+<h3 id="ch2-9"><span class="num">2.9</span>캔버스 조작 (확대·이동)</h3>
+<p>회로도와 PCB 캔버스는 같은 방식으로 움직입니다. 기본 설정에서는 <b>빈 곳을 왼쪽 버튼으로 끌면 화면이 움직이고</b>, 상자 선택은 <kbd>Shift</kbd>(또는 <kbd>Ctrl</kbd>)를 누른 채 끕니다. 부품·배선 위에서 끌면 그 항목을 옮깁니다.</p>
+<table>
+<thead><tr><th>동작</th><th>방법</th></tr></thead>
+<tbody>
+<tr><td>화면 이동(팬)</td><td><b>빈 곳 왼쪽 드래그</b>(기본값), 가운데 버튼 드래그, 오른쪽 버튼 드래그, <kbd>Space</kbd>를 누른 채 왼쪽 드래그, <kbd>Shift</kbd>+휠(가로 이동), 두 손가락 드래그 — 가운데·오른쪽·<kbd>Space</kbd> 드래그는 어떤 도구에서도 항상 이동입니다.</td></tr>
+<tr><td>상자 선택</td><td><kbd>Shift</kbd>+드래그 또는 <kbd>Ctrl</kbd>+드래그(왼쪽→오른쪽 = 완전히 포함된 것만, 오른쪽→왼쪽 = 걸친 것도, <a href="#ch4-2">4.2</a>). 설정 → 단위와 그리드 → <span class="ui">빈 캔버스에서 왼쪽 드래그</span>를 <span class="ui">상자 선택</span>으로 바꾸면 이전처럼 빈 곳 드래그가 상자 선택이 됩니다.</td></tr>
+<tr><td>손(이동) 도구</td><td>도구 모음 오른쪽의 손 모양 <span class="ui">이동(손): 왼쪽 드래그로 화면 이동</span> 버튼(<span class="menu">보기 → 이동(손)</span>). 켜져 있는 동안 왼쪽 드래그는 항목 위에서도 화면만 옮깁니다. <kbd>Esc</kbd>나 버튼을 다시 누르면 끝납니다.</td></tr>
+<tr><td>확대/축소</td><td>마우스 휠(커서 위치 기준), <kbd>Ctrl</kbd>+휠(트랙패드 핀치), <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd>, 도구 모음 버튼, 두 손가락 핀치. 휠 한 칸의 확대 비율은 설정 → 단위와 그리드 → <span class="ui">휠 확대 속도</span>(× 0.5 ~ × 3)로 조절합니다.</td></tr>
+<tr><td>화면에 맞추기</td><td><kbd>Home</kbd> — 회로도는 그린 내용(없으면 시트 전체), PCB는 기판과 모든 풋프린트</td></tr>
+<tr><td>오른쪽 클릭 메뉴</td><td>움직이지 않고 오른쪽 버튼을 눌렀다 떼면 상황 메뉴가 열립니다(드래그하면 이동).</td></tr>
+</tbody>
+</table>
+<p>창 크기를 바꾸거나 패널을 열고 닫아도 화면 가운데에 있던 내용이 가운데에 그대로 유지됩니다. 그리드와 눈금자는 <a href="#ch2-13">2.13</a>을 보세요.</p>
+
+<h3 id="ch2-10"><span class="num">2.10</span>테마와 언어</h3>
+<p>타이틀 바 오른쪽에 테마와 언어 버튼이 있습니다.</p>
+<ul>
+<li><b>팔레트 버튼</b>(<span class="ui">무작위 테마</span>): 누를 때마다 40가지 테마 중 하나를 무작위로 적용하고 이름을 잠깐 알려 줍니다.</li>
+<li><b>▾ 버튼</b>(<span class="ui">테마 선택</span>): 다크 테마 20개, 라이트 테마 20개, 사용자 테마 목록이 세로로 나란히 나오는 창을 엽니다. 자세한 내용은 <a href="#ch2-14">2.14</a>.</li>
+<li><b>국기 버튼</b>(언어 전환): 한국어 화면에서는 영국 국기가, 영어 화면에서는 태극기가 보이며, 누르면 그 나라 말로 바뀝니다.</li>
+</ul>
+<p>바꾸는 즉시 메뉴, 도구, 대화상자, 회로도·PCB·3D·그래프 색이 모두 바뀌고 설정에 저장됩니다. 데스크톱에서는 창 오른쪽 위의 최소화/최대화/닫기 버튼 색도 테마에 맞춰집니다.</p>
+<figure><img width="1532" height="900" src="images/ko-light-theme.webp" alt="밝은 테마" loading="lazy"><figcaption>그림 2-4. 밝은 테마의 PCB 편집기</figcaption></figure>
+<div class="callout note"><p>ERC/DRC 문제 목록의 메시지도 언어 설정을 따릅니다. 검사 엔진은 영어 문장을 만들고, 한국어 화면에서는 이를 한국어 문장으로 바꿔 보여 줍니다(예: “Track width 0.1 mm &lt; minimum 0.15 mm” → “트랙 폭 0.1 mm &lt; 최소 0.15 mm”). 메시지 아래의 작은 회색 글자(예: <code>track_width · B.Cu</code>)는 언어와 관계없는 검사 코드와 레이어이며, <a href="#ch5-4">5.4</a>와 <a href="#ch9-2">9.2</a>의 표에서 찾아볼 수 있습니다.</p></div>
+
+<h3 id="ch2-11"><span class="num">2.11</span>시작 페이지</h3>
+<p>시작 탭에는 빠른 작업(새 프로젝트, 프로젝트 열기…, 예제 둘러보기, 사용 설명서, 단축키), 최근 프로젝트(최대 8개, 데스크톱), 오늘의 팁, 그리고 예제 카드가 있습니다. 예제 카드에는 회로도 미리 보기 그림, 제목, 설명, 태그가 표시되며 클릭하면 그 예제가 열립니다.</p>
+<figure><img width="1532" height="900" src="images/ko-start.webp" alt="시작 페이지" loading="lazy"><figcaption>그림 2-5. 시작 페이지</figcaption></figure>
+
+<h3 id="ch2-12"><span class="num">2.12</span>파일 다루기, 실행 취소, 자동 저장</h3>
+<h4>새로 만들기·열기·저장</h4>
+<ul>
+<li><b>새 프로젝트</b>(<kbd>Ctrl</kbd>+<kbd>N</kbd>): 빈 회로도(A4)와 60 × 40 mm 2층 기판, 기본 설계 규칙을 가진 “제목 없음” 프로젝트를 만들고 회로도 탭으로 갑니다.</li>
+<li><b>열기</b>(<kbd>Ctrl</kbd>+<kbd>O</kbd>): <code>.mycircuit</code> 파일을 엽니다. 회로도에 부품이 있으면 회로도 탭, 없으면 PCB 탭으로 갑니다. 창에 파일을 끌어 놓아도 열리며(<code>.mycircuit</code> 또는 <code>.json</code>만), 데스크톱에서는 탐색기 더블클릭·명령줄 인자로도 열립니다.</li>
+<li><b>저장</b>(<kbd>Ctrl</kbd>+<kbd>S</kbd>): 이미 경로가 있으면 대화상자 없이 덮어씁니다. 처음 저장할 때는 프로젝트 제목(파일 이름에 쓸 수 없는 문자는 <code>_</code>로 바뀜)으로 이름을 제안합니다. <b>다른 이름으로 저장</b>은 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.</li>
+<li>예제를 열면 원본을 보호하기 위해 경로가 비워집니다. 처음 저장할 때 새 이름을 묻습니다.</li>
+<li>저장하지 않은 변경이 있으면 제목 옆에 <b>●</b>가 표시되고, 새로 만들기·열기·예제 열기·창 닫기 때 <span class="ui">저장하지 않은 변경 내용</span> 대화상자가 <span class="ui">취소 / 저장 안 함 / 저장</span>을 묻습니다.</li>
+</ul>
+<h4>실행 취소</h4>
+<p>모든 편집은 실행 취소 단계로 기록됩니다(최대 200단계). 드래그 한 번, 배선 한 줄(여러 꺾임 포함), 대화상자의 확인 한 번이 각각 한 단계입니다. 실행 취소/다시 실행 때 화면 아래에 “실행 취소: 이동”처럼 무엇을 되돌렸는지 잠깐 표시됩니다. <span class="menu">편집 → 실행 취소 기록…</span>은 단계 목록을 보여 주며, 단계를 클릭하면 그 단계 이전 상태로 한 번에 되돌립니다. 파일을 새로 열면 기록은 비워집니다.</p>
+<h4>자동 저장(복구본)</h4>
+<p>설정의 <span class="ui">자동 저장</span>이 켜져 있으면(기본값) 저장하지 않은 변경이 있을 때 30초마다 프로젝트 전체를 복구용으로 보관합니다. 이것은 원래 파일을 덮어쓰지 않는 <b>별도의 복구본</b>입니다. 저장하거나 새 프로젝트를 만들면 복구본은 지워집니다. 프로그램이 비정상 종료되면 다음 시작 때 복원 여부를 묻습니다.</p>
+<div class="callout warn"><p>복구본은 하나만 보관됩니다. 복원 질문에서 <span class="ui">버리기</span>를 누르면 되살릴 수 없습니다.</p></div>
+
+<h3 id="ch2-13"><span class="num">2.13</span>그리드와 눈금자</h3>
+<p><b>그리드</b>는 기본적으로 <b>5 × 5 선 그리드</b>입니다. 가는 선이 한 칸, 5칸마다 굵은 주 그리드선이 그려집니다. 확대·축소하면 화면의 칸 크기가 늘 10~50픽셀이 되도록 칸이 ×5 단위로 다시 나뉘므로, 어느 배율에서도 같은 간격의 5×5 무늬로 보입니다(실제 맞춤 그리드는 회로도 그리드·PCB 그리드 설정 그대로입니다). 그리드는 도구 모음 오른쪽의 <span class="ui">그리드 표시</span> 버튼이나 <span class="menu">보기 → 그리드 표시</span>로 켜고 끄며, 설정 → 단위와 그리드 → <span class="ui">그리드 스타일</span>에서 <span class="ui">선 (5 × 5)</span>와 <span class="ui">점</span>을 고릅니다.</p>
+<p><b>눈금자</b>는 캔버스 위쪽과 왼쪽 가장자리에 표시되며, 편집기 단위(mm 또는 mil)로 값이 적혀 있습니다(왼쪽 위 모서리에 단위 표시). 커서 위치는 두 눈금자 위의 주황색 표시선으로 나타납니다. 눈금 간격은 1-2-5 단계로 확대율에 맞춰 자동으로 바뀝니다. <span class="ui">눈금자 표시</span> 버튼(<span class="menu">보기 → 눈금자 표시</span>, 설정의 <span class="ui">캔버스 가장자리에 눈금자 표시</span>)으로 켜고 끕니다.</p>
+<figure><img width="1532" height="900" src="images/ko-sch-grid-rulers.webp" alt="그리드와 눈금자" loading="lazy"><figcaption>그림 2-6. 5×5 선 그리드와 위·왼쪽 눈금자(예제 08 회로도)</figcaption></figure>
+
+<h3 id="ch2-14"><span class="num">2.14</span>테마</h3>
+<p>테마는 다크 20개(미드나이트, 그래파이트, 노르드, 드라큘라, 모노카이, 솔라라이즈드 다크, 그루브박스 다크, 원 다크, 도쿄 나이트, 카푸치노 모카, 오셔닉, 포레스트, 크림슨, 애미시스트, 사이버펑크, 슬레이트, 에스프레소, 딥 씨, 오로라, 고대비 다크)와 라이트 20개(데이라이트, 페이퍼, 솔라라이즈드 라이트, 그루브박스 라이트, 노르드 라이트, 깃허브 라이트 등)가 있습니다. 테마는 배경·패널·글자·강조색 같은 몇 가지 색만 정하고, 나머지 화면 색과 회로도·PCB 캔버스 색은 이 색들에서 계산되므로 어떤 테마에서도 읽기 쉽습니다.</p>
+<figure><img width="1532" height="900" src="images/ko-theme-menu.webp" alt="테마 목록" loading="lazy"><figcaption>그림 2-7. ▾ 버튼으로 연 테마 목록 — 다크·라이트·사용자 테마</figcaption></figure>
+<ul>
+<li>목록에서 이름을 누르면 바로 적용됩니다. 현재 테마는 강조되어 있습니다.</li>
+<li><span class="ui">자동</span> 아래 <span class="ui">시스템 설정 따르기</span>를 켜면 운영체제의 밝게/어둡게 설정에 따라 마지막으로 고른 다크 테마와 라이트 테마를 번갈아 씁니다.</li>
+<li><span class="ui">새 사용자 테마…</span>: 이름, 유형(어둡게/밝게), 강조색, 배경, 패널, 텍스트 네 가지 색을 고르는 창이 열리고, 고르는 동안 프로그램 전체에 미리 보기가 적용됩니다. <span class="ui">테마 저장</span>을 누르면 목록의 <span class="ui">사용자 테마</span>에 추가되고, 이름 옆 × 로 지울 수 있습니다. 사용자 테마는 설정 파일에 저장됩니다.</li>
+<li>설정 → 모양 → <span class="ui">테마…</span> 버튼은 같은 테마를 견본 그림으로 보여 주는 갤러리 창을 엽니다.</li>
+</ul>
+
+<h3 id="ch2-15"><span class="num">2.15</span>정보 창</h3>
+<p><span class="menu">도움말 → MyCircuit 정보</span>(또는 타이틀 바·도구 모음의 ⓘ 버튼)는 왼쪽에 프로그램 아이콘(위에서 내려다본 회로 기판 그림), 오른쪽에 자세한 설명 — “전자 회로 설계 및 3D 도구”라는 소개 문구와 회로도·PCB·3D와 시뮬레이션·출력 네 줄의 기능 요약 — 을 보여 줍니다. 아래에는 항목/값 표가 있습니다: 프로그램(버전), 빌드(커밋·브랜치, 수정된 상태면 “(+)”), 빌드 날짜, 작성자(<b>SHKWON (knix008@naver.com)</b>), 에디션(데스크톱/웹), 운영체제, 실행 환경(Electron·Chromium·Node.js 버전), 3D 엔진(three.js 버전), 라이브러리(심볼·풋프린트 수), 파일 형식, 언어 / 테마, 라이선스. <span class="ui">정보 복사</span>는 표 내용을 클립보드에 복사합니다(문의할 때 붙여 넣기 좋습니다).</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-about.webp" alt="정보 창" loading="lazy"><figcaption>그림 2-8. MyCircuit 정보 창</figcaption></figure>
+
+<h3 id="ch2-16"><span class="num">2.16</span>대화형 튜토리얼</h3>
+<p><span class="menu">도움말 → 대화형 튜토리얼</span>(도구 모음 오른쪽의 플라스크 모양 버튼)은 실제 프로그램을 직접 조작하며 기능을 가르쳐 주는 안내 창을 화면 오른쪽 아래에 엽니다. 튜토리얼은 열려 있는 프로젝트를 바꾸므로, 저장하지 않은 작업이 있으면 먼저 저장할지 묻습니다.</p>
+<figure><img width="1532" height="900" src="images/ko-tutorial.webp" alt="튜토리얼" loading="lazy"><figcaption>그림 2-9. 대화형 튜토리얼 창(보기 모드)</figcaption></figure>
+<ul>
+<li><b>보기</b> 모드: 프로그램이 각 단계를 직접 실행합니다. 움직이는 커서가 도구 모음 버튼, 라이브러리, 캔버스, 대화상자 버튼으로 가서 실제로 클릭·입력하므로 기능이 쓰이는 모습을 그대로 볼 수 있습니다. ▶(자동 재생)/일시 정지, ‹ 이전 단계, › 다음 단계 실행, 속도(0.5× ~ 4×)를 고릅니다.</li>
+<li><b>따라 하기</b> 모드: 안내대로 직접 해 보면 결과를 자동으로 확인하고 다음 단계로 넘어갑니다. 막히면 <span class="ui">보여 주기</span>로 그 단계를 실행해 볼 수 있습니다.</li>
+<li>위쪽 목록에서 레슨을 고릅니다. 14개 레슨, 모두 62단계: 시작하기: 화면 둘러보기 · 회로도: 부품 배치 · 회로도: 배선과 레이블 · 회로도: 편집 기능 · 여러 페이지 회로도 · 참조 번호와 전기 규칙 검사(ERC) · 풋프린트 지정과 PCB로 보내기 · PCB: 기판과 배치 · PCB: 배선 · PCB: 실크·치수·측정 · 3D 보기 · 시뮬레이션 · 제조 출력과 인쇄 · 라이브러리 만들기와 도구. 마지막 레슨에는 “화면 이동, 그리드, 눈금자”, “치수 재기와 치수선”, “3D: 회전, 이동, 그리드와 좌표축”, “고급 배선: 길이 맞춤, 차동 쌍, 밀어내기”(길이 맞춤·차동 쌍 대화 상자를 열고 배선 모드를 바꿔 봄) 단계가 들어 있습니다.</li>
+<li>레슨을 모두 마치면 만든 프로젝트가 그대로 열려 있으므로 저장하거나 계속 고칠 수 있습니다. × 로 튜토리얼을 끝냅니다.</li>
+</ul>
+
+<h2 id="ch3"><span class="num">3</span>빠른 시작 튜토리얼 — LED 회로를 처음부터</h2>
+<p>9 V 배터리, 470 Ω 저항, 빨간 LED로 이루어진 가장 간단한 회로를 회로도부터 거버 출력까지 만들어 봅니다. 각 단계의 그림은 실제 실행 화면입니다.</p>
+
+<h3 id="ch3-1"><span class="num">3.1</span>새 프로젝트 만들기</h3>
+<ol class="steps">
+<li><span class="menu">파일 → 새 프로젝트</span>(<kbd>Ctrl</kbd>+<kbd>N</kbd>)를 누릅니다. 회로도 탭이 빈 A4 시트와 함께 열립니다.</li>
+<li><span class="menu">파일 → 프로젝트 속성…</span>에서 제목을 <code>LED Tutorial</code>로 바꿉니다. 제목은 시트 오른쪽 아래 표제란, 내보내는 파일 이름, 제조 파일에 쓰입니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-01-new.webp" alt="새 프로젝트" loading="lazy"><figcaption>그림 3-1. 새 프로젝트. 왼쪽은 부품 라이브러리, 오른쪽은 속성/ERC 패널</figcaption></figure>
+<div class="callout tip"><p>제조 파일 이름에는 영문자·숫자·<code>_ . -</code>만 쓰이고 나머지는 <code>_</code>로 바뀝니다. 제목이 한글뿐이면 파일 이름이 <code>board-…</code>가 되므로 영문 제목을 권장합니다.</p></div>
+
+<h3 id="ch3-2"><span class="num">3.2</span>부품 배치</h3>
+<ol class="steps">
+<li><kbd>A</kbd>를 누르면 부품 추가 창이 열립니다. <code>battery</code>를 입력하고 <kbd>Enter</kbd>를 누르면 마우스를 따라다니는 배터리 심볼(고스트)이 나타납니다. 시트를 클릭해 놓습니다.</li>
+<li>같은 방법으로 <code>R</code>(저항)과 <code>led</code>(LED)를 놓습니다. 배치 중에 <kbd>R</kbd>로 90° 회전, <kbd>Y</kbd>/<kbd>X</kbd>로 대칭할 수 있습니다. 한 번 놓은 뒤에도 같은 부품이 계속 붙어 다니므로 여러 개를 연달아 놓을 수 있고, <kbd>Esc</kbd>나 오른쪽 클릭으로 끝냅니다. <kbd>Shift</kbd>를 누른 채 클릭하면 한 개만 놓고 바로 선택 도구로 돌아갑니다.</li>
+<li><kbd>P</kbd>를 눌러 전원 심볼 목록에서 <code>GND</code>를 고르고 배터리 아래와 LED 아래에 하나씩 놓습니다.</li>
+<li>배치한 부품을 더블클릭하거나 값 글자를 더블클릭해 값을 바꿉니다: 배터리 <code>9</code>, 저항 <code>470</code>, LED <code>Red</code>.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-02-picker.webp" alt="부품 추가 창" loading="lazy"><figcaption>그림 3-2. <kbd>A</kbd>로 연 부품 추가 창에서 “led”를 검색</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-tut-03-parts.webp" alt="부품 배치" loading="lazy"><figcaption>그림 3-3. 배터리, 저항, LED, GND 두 개를 놓은 상태. 참조 번호는 아직 <code>BT?</code>, <code>R?</code>, <code>D?</code></figcaption></figure>
+<p>왼쪽 라이브러리에서 부품을 시트로 <b>끌어 놓거나</b>, 목록의 부품을 클릭한 뒤 시트를 클릭해도 됩니다. 핀 끝의 작은 원은 아직 연결되지 않은 핀을 뜻합니다.</p>
+
+<h3 id="ch3-3"><span class="num">3.3</span>배선</h3>
+<ol class="steps">
+<li><kbd>W</kbd>를 누르고 배터리의 <b>+</b> 핀 끝을 클릭합니다. 커서가 핀이나 배선 끝 근처에 가면 작은 사각형 표시로 달라붙습니다.</li>
+<li>위쪽으로 한 번 클릭해 꺾임점을 만들고, 저항의 위쪽 핀을 클릭합니다. <b>핀에 닿으면 배선이 자동으로 끝납니다.</b> 점선은 다음에 그려질 미리 보기이며, <kbd>/</kbd>로 꺾이는 방향(가로 먼저/세로 먼저)을 바꿀 수 있습니다.</li>
+<li>저항 아래 핀 → LED 위(애노드) 핀, LED 아래(캐소드) 핀 → GND, 배터리 <b>−</b> 핀 → GND도 같은 방법으로 잇습니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-04-wiring.webp" alt="배선 중" loading="lazy"><figcaption>그림 3-4. 배선하는 중. 점선이 다음 구간의 미리 보기, 오른쪽에는 실시간 ERC 결과</figcaption></figure>
+<div class="callout tip"><p>배선 중 <kbd>Backspace</kbd>는 마지막 꺾임점을 지우고, <kbd>Enter</kbd>·<kbd>Esc</kbd>·더블클릭·오른쪽 클릭은 그 자리에서 배선을 끝냅니다. 세 개 이상의 연결이 만나는 곳에는 정션 점이 자동으로 생깁니다.</p></div>
+
+<h3 id="ch3-4"><span class="num">3.4</span>참조 번호와 ERC</h3>
+<p>ERC(전기 규칙 검사)는 그리는 동안 자동으로 실행됩니다. 지금은 “BT? is not annotated” 같은 오류가 오른쪽 목록에 보이고, 회로도 탭 옆에 빨간 숫자 배지가, 캔버스의 문제 위치에 작은 빨간 깃발이 표시됩니다.</p>
+<figure><img width="1532" height="900" src="images/ko-tut-05-erc-before.webp" alt="ERC 오류" loading="lazy"><figcaption>그림 3-5. 배선을 마친 상태 — 참조 번호가 없어서 ERC 오류 3개</figcaption></figure>
+<ol class="steps">
+<li>도구 모음의 <span class="ui">참조 번호 부여</span> 버튼(또는 <span class="menu">도구 → 회로도 참조 번호 부여</span>)을 누릅니다. 위에서 아래, 왼쪽에서 오른쪽 순으로 <code>BT1</code>, <code>R1</code>, <code>D1</code>이 붙습니다.</li>
+<li>ERC 버튼을 누르거나 상태 표시줄의 <span class="ui">ERC</span> 칸을 클릭하면 “ERC 통과 — 문제가 없습니다.”가 표시됩니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-06-erc-ok.webp" alt="ERC 통과" loading="lazy"><figcaption>그림 3-6. 참조 번호를 부여하고 ERC를 통과한 회로도</figcaption></figure>
+<p>부품을 클릭하면 오른쪽 속성 패널에서 참조 번호, 값, 풋프린트, 회전, 대칭, 실장 안 함(DNP)을 바로 바꿀 수 있습니다.</p>
+<figure><img width="1532" height="900" src="images/ko-tut-07-inspector.webp" alt="속성 패널" loading="lazy"><figcaption>그림 3-7. R1을 선택했을 때의 속성 패널</figcaption></figure>
+
+<h3 id="ch3-5"><span class="num">3.5</span>풋프린트 지정</h3>
+<p>풋프린트는 부품이 기판에 차지하는 구리 패드와 외형입니다. 라이브러리 심볼에는 기본 풋프린트가 들어 있어(저항은 <code>R_0805</code>, LED는 <code>LED_0805</code>) 그대로 써도 됩니다. 여기서는 손으로 납땜하기 쉬운 스루홀 부품으로 바꿉니다.</p>
+<ol class="steps">
+<li>도구 모음의 <span class="ui">풋프린트 지정</span> 버튼(또는 <span class="menu">도구 → 풋프린트 지정…</span>)을 누릅니다.</li>
+<li>왼쪽 표에서 <code>R1</code>을 클릭하고 오른쪽 목록에서 <code>R_Axial_P7.62mm</code>를 클릭합니다. <code>D1</code>은 <code>LED_D5.0mm</code>로 바꿉니다. ★는 심볼이 추천하는 풋프린트이고, 목록 위에 마우스를 올리면 아래에 패드 모양이 미리 보입니다.</li>
+<li><span class="ui">적용</span>을 누릅니다. (<span class="ui">빈 항목에 첫 번째 추천 사용</span>은 풋프린트가 없는 부품에 첫 번째 추천을 한꺼번에 넣습니다.)</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-08-footprints.webp" alt="풋프린트 지정" loading="lazy"><figcaption>그림 3-8. 풋프린트 지정 대화상자</figcaption></figure>
+
+<h3 id="ch3-6"><span class="num">3.6</span>PCB 업데이트</h3>
+<p><kbd>F8</kbd>(<span class="ui">회로도에서 PCB 업데이트</span>)을 누르면 PCB 탭으로 바뀌고, 풋프린트가 기판 외곽선 <b>오른쪽 바깥</b>에 줄지어 나타납니다. 같은 넷의 패드끼리 가는 선(래츠네스트, 에어와이어)으로 이어져 무엇을 연결해야 하는지 보여 줍니다. 화면 아래에 “PCB 업데이트됨 — 3개 추가”가 표시됩니다.</p>
+<figure><img width="1532" height="900" src="images/ko-tut-09-pcb-update.webp" alt="PCB 업데이트" loading="lazy"><figcaption>그림 3-9. F8 직후. 왼쪽 패널에 배선 진행률 0/3, 레이어, 넷 목록</figcaption></figure>
+
+<h3 id="ch3-7"><span class="num">3.7</span>기판 외곽선과 부품 배치</h3>
+<ol class="steps">
+<li><kbd>O</kbd>(기판 외곽선)를 누르고 캔버스에서 사각형을 <b>드래그</b>합니다. 드래그하는 동안 크기(예: 36.20 × 24.13 mm)가 표시되고, 놓는 순간 외곽선이 그 사각형으로 바뀝니다.</li>
+<li><kbd>Esc</kbd>로 선택 도구로 돌아와 풋프린트를 하나씩 기판 안으로 끌어 놓습니다. 끄는 동안 풋프린트 원점이 그리드(기본 0.635 mm)에 맞춰집니다.</li>
+<li>LED를 선택하고 <kbd>R</kbd>을 눌러 90° 회전합니다. 래츠네스트가 짧아지도록 배치하면 배선이 쉬워집니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-10-placed.webp" alt="부품 배치" loading="lazy"><figcaption>그림 3-10. 외곽선을 줄이고 부품을 기판 안에 배치한 상태</figcaption></figure>
+
+<h3 id="ch3-8"><span class="num">3.8</span>배선 — 손으로, 그리고 자동으로</h3>
+<ol class="steps">
+<li><kbd>X</kbd>(트랙 배선)를 누르고 BT1의 1번 패드를 클릭합니다. 상태 표시줄에 “넷 Net-(BT1-Pad1) 배선 중 — 폭 0.25 mm”가 나옵니다.</li>
+<li>커서를 움직이면 직선 + 45° 대각선의 미리 보기가 따라옵니다. 둘레의 옅은 띠는 간격(클리어런스) 영역이며, 다른 넷의 구리에 너무 가까워지면 미리 보기가 <b>빨간색</b>으로 바뀝니다.</li>
+<li>R1의 1번 패드를 클릭하면 같은 넷의 구리에 닿았으므로 배선이 자동으로 끝납니다.</li>
+<li>나머지는 도구 모음의 <span class="ui">모두 자동 배선</span>(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>)으로 처리합니다. 몇십 밀리초 만에 “모든 연결을 배선했습니다 (트랙 7개, 비아 0개, 37 ms).”가 표시되고 PCB 탭 배지가 초록 ✓로 바뀝니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-11-routing.webp" alt="대화형 배선" loading="lazy"><figcaption>그림 3-11. 대화형 배선 중. 45° 미리 보기와 간격 띠</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-tut-12-autoroute.webp" alt="자동 배선" loading="lazy"><figcaption>그림 3-12. 자동 배선을 마친 기판 (3/3 연결, 100%)</figcaption></figure>
+<div class="callout note"><p>GND 트랙이 더 굵은 이유: 기본 넷 클래스 “Power”에 GND, VCC, +5V, +3V3, +12V, -12V, VBAT가 들어 있고 트랙 폭이 0.5 mm로 정해져 있기 때문입니다(<a href="#ch10-5">10.5</a>).</p></div>
+
+<h3 id="ch3-9"><span class="num">3.9</span>그라운드 영역(구리 붓기)</h3>
+<ol class="steps">
+<li>도구 모음의 <span class="ui">기판을 접지 영역으로 채우기</span> 버튼(또는 <span class="menu">배선 → 기판을 접지 영역으로 채우기</span>)을 누릅니다.</li>
+<li>넷은 자동으로 <code>GND</code>가 선택되고 F.Cu와 B.Cu가 모두 체크되어 있습니다. <span class="ui">만들기</span>를 누릅니다.</li>
+<li>기판 가장자리에서 (가장자리 간격 + 0.2 mm) 안쪽으로 양면에 GND 구리 영역이 생깁니다. 다른 넷의 패드·트랙 주변은 간격만큼 비워지고, GND 패드는 네 갈래 써멀 릴리프로 연결됩니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-13-groundpour-dialog.webp" alt="접지 영역 대화상자" loading="lazy"><figcaption>그림 3-13. 기판을 접지 영역으로 채우기 대화상자</figcaption></figure>
+
+<h3 id="ch3-10"><span class="num">3.10</span>DRC</h3>
+<p>도구 모음의 방패 모양 <span class="ui">DRC</span> 버튼을 누릅니다. 이 기판은 “DRC 통과 — 기판에 문제가 없습니다.”로 오류도 경고도 없습니다. 문제가 있으면 오른쪽 목록의 항목을 클릭해 위치로 이동할 수 있습니다. 한 번 DRC를 실행하면 이후 편집할 때마다 자동으로 다시 실행됩니다(<a href="#ch9-1">9.1</a>).</p>
+<figure><img width="1532" height="900" src="images/ko-tut-14-drc.webp" alt="DRC 결과" loading="lazy"><figcaption>그림 3-14. 접지 영역을 만들고 DRC를 실행한 결과</figcaption></figure>
+
+<h3 id="ch3-11"><span class="num">3.11</span>3D로 확인</h3>
+<p><kbd>F4</kbd>를 누르면 3D 보기 탭에 기판이 등각 시점으로 나타납니다. 왼쪽 드래그로 회전, 오른쪽 드래그로 이동, 휠로 확대합니다. 숫자 <kbd>1</kbd>~<kbd>7</kbd>은 등각/위/아래/앞/뒤/왼쪽/오른쪽 시점, <kbd>C</kbd>는 부품 표시를 켜고 끕니다. 부품을 클릭하면 회로도와 PCB에서도 같은 부품이 선택됩니다.</p>
+<figure><img width="1532" height="900" src="images/ko-tut-15-3d.webp" alt="3D 보기" loading="lazy"><figcaption>그림 3-15. 3D 보기</figcaption></figure>
+
+<h3 id="ch3-12"><span class="num">3.12</span>시뮬레이션</h3>
+<ol class="steps">
+<li><span class="menu">시뮬레이션 → 동작점 (DC)</span>를 고릅니다. 시뮬레이션 탭으로 바뀌고 넷별 전압과 부품별 전류·전력 표가 나옵니다. LED 전류는 약 14.9 mA입니다.</li>
+<li><kbd>F2</kbd>로 회로도로 돌아가면 각 넷 배선 위에 전압 배지(9 V, 1.99 V, 0 V)가 표시됩니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-16-sim-op.webp" alt="동작점 결과" loading="lazy"><figcaption>그림 3-16. 동작점 해석 결과 표</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-tut-17-sim-overlay.webp" alt="전압 오버레이" loading="lazy"><figcaption>그림 3-17. 회로도 위에 표시된 동작점 전압</figcaption></figure>
+<div class="callout note"><p>배터리 전류가 음수(−14.9 mA)로 표시되는 것은 SPICE 규칙 때문입니다. 전원의 전류는 + 핀으로 <b>들어가는</b> 방향이 양수이므로, 전력을 공급하는 전원은 음수가 됩니다(<a href="#ch12-6">12.6</a>).</p></div>
+
+<h3 id="ch3-13"><span class="num">3.13</span>거버와 드릴 파일 출력</h3>
+<ol class="steps">
+<li><span class="menu">파일 → 제조 출력 (거버, 드릴)…</span>(또는 PCB 도구 모음의 공장 아이콘)을 엽니다. 먼저 DRC가 자동 실행되어 결과가 맨 위에 표시됩니다.</li>
+<li>만들어질 파일 목록(레이어별 거버, PTH/NPTH 드릴, BOM, 픽앤플레이스, IPC-356, 작업 파일, README)과 크기를 확인합니다.</li>
+<li><span class="ui">거버 뷰어에서 미리 보기</span>로 결과물을 레이어별로 겹쳐 확인하거나, <span class="ui">ZIP 저장…</span>으로 <code>LED_Tutorial-fabrication.zip</code>을 저장합니다. 이 ZIP을 그대로 PCB 제조사에 올리면 됩니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-18-fab.webp" alt="제조 출력" loading="lazy"><figcaption>그림 3-18. 제조 출력 대화상자</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-tut-19-gerber.webp" alt="거버 뷰어" loading="lazy"><figcaption>그림 3-19. 거버 뷰어에서 본 결과물</figcaption></figure>
+<p>마지막으로 <kbd>Ctrl</kbd>+<kbd>S</kbd>로 프로젝트를 저장하면 튜토리얼이 끝납니다. 이제 각 장에서 기능을 더 자세히 살펴보세요.</p>
+
+<h2 id="ch4"><span class="num">4</span>회로도 편집기</h2>
+<p>회로도 탭(<kbd>F2</kbd>)은 부품 심볼을 놓고 배선으로 연결해 “무엇이 무엇과 연결되는가”(넷리스트)를 정의하는 곳입니다. 여기서 만든 연결 정보가 PCB, 시뮬레이션, BOM의 출발점입니다.</p>
+<figure><img width="1532" height="900" src="images/ko-overview.webp" alt="회로도 편집기" loading="lazy"><figcaption>그림 4-1. 회로도 편집기 (예제 “555 LED 점멸기”)</figcaption></figure>
+
+<h3 id="ch4-1"><span class="num">4.1</span>좌표, 그리드, 시트</h3>
+<ul>
+<li>회로도의 내부 단위는 <b>mil</b>(1/1000 인치, 0.0254 mm)입니다. 상태 표시줄의 좌표는 단위 설정에 따라 mm 또는 mil로 표시됩니다.</li>
+<li>모든 배치와 이동은 <b>회로도 그리드</b>(기본 50 mil)에 맞춰집니다. 상태 표시줄의 <span class="ui">그리드</span> 칸을 클릭하거나 설정에서 10 / 25 / 50 / 100 mil 중에서 고릅니다. 라이브러리 심볼의 핀 간격이 100 mil이므로 보통 50 mil을 그대로 쓰는 것이 좋습니다.</li>
+<li>시트는 테두리, 열 번호(1, 2, …)와 행 문자(A, B, …)가 표시된 도면 틀입니다. 아무것도 선택하지 않았을 때 속성 패널의 <span class="ui">시트 크기</span>에서 A4 · A3 · A2 · Letter · Tabloid를 고릅니다.</li>
+<li>오른쪽 아래 <b>표제란</b>에는 회사, 제목, 날짜, 리비전, 설명, 시트 크기, 작성자, “Sheet: 현재/전체 페이지 이름”이 표시됩니다. 내용은 <span class="menu">파일 → 프로젝트 속성…</span>에서 고칩니다(<a href="#ch4-19">4.19</a>).</li>
+<li>그리드 표시와 모양(점/선)은 <span class="menu">보기 → 그리드 표시</span>와 설정에서 바꿉니다. 많이 축소하면 그리드 점이 너무 빽빽해지지 않도록 자동으로 성기게 그려집니다.</li>
+</ul>
+
+<h3 id="ch4-2"><span class="num">4.2</span>선택</h3>
+<p>선택 도구(<kbd>Esc</kbd>로 언제든 돌아옴)에서:</p>
+<ul>
+<li><b>클릭</b>: 항목 하나를 선택합니다. 마우스를 올리면 항목이 강조되고 커서가 이동 모양으로 바뀝니다. 겹쳐 있으면 레이블·텍스트 → 연결 없음 표시 → 정션 → 배선 → 버스 → 부품 순으로 위에 있는 것이 잡힙니다(핀으로 들어가는 배선도 클릭할 수 있도록 배선이 부품 몸체보다 먼저입니다).</li>
+<li><kbd>Shift</kbd>+클릭 또는 <kbd>Ctrl</kbd>+클릭: 선택에 더하거나 뺍니다.</li>
+<li><b>상자 선택</b>: <kbd>Shift</kbd>(또는 <kbd>Ctrl</kbd>)를 누른 채 빈 곳에서 드래그합니다(기존 선택에 더해짐). 방향에 따라 동작이 다릅니다.
+  <ul><li><b>왼쪽 → 오른쪽(윈도 선택, 파란 실선 상자)</b>: 상자 안에 <b>완전히</b> 들어간 항목만 선택합니다(배선은 양 끝이 모두 안에 있어야 함).</li>
+  <li><b>오른쪽 → 왼쪽(크로싱 선택, 초록 점선 상자)</b>: 상자에 <b>걸치기만 해도</b> 선택합니다(배선은 한쪽 끝만 안에 있어도 됨).</li></ul>
+  수정자 키 없이 빈 곳을 끌면 화면이 이동합니다(<a href="#ch2-9">2.9</a>). 설정에서 <span class="ui">빈 캔버스에서 왼쪽 드래그</span>를 <span class="ui">상자 선택</span>으로 바꾸면 수정자 없이도 상자 선택이 됩니다.</li>
+<li><kbd>Ctrl</kbd>+<kbd>A</kbd>: 현재 페이지의 모든 항목을 선택합니다.</li>
+<li>빈 곳을 클릭하거나 <kbd>Esc</kbd>를 누르면 선택이 풀립니다. <kbd>Esc</kbd>는 순서대로 ① 손(이동) 모드 끝내기 ② 측정 지우기 ③ 진행 중인 배선 끝내기 ④ 진행 중인 드래그 취소 ⑤ 선택 도구로 돌아가기 ⑥ 넷 강조 해제 ⑦ 선택 해제를 합니다.</li>
+</ul>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-sch-window.webp" alt="윈도 선택" loading="lazy"><figcaption>그림 4-2. 왼쪽→오른쪽 윈도 선택 (완전히 포함된 것만)</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-sch-crossing.webp" alt="크로싱 선택" loading="lazy"><figcaption>그림 4-3. 오른쪽→왼쪽 크로싱 선택 (걸친 것도 포함)</figcaption></figure>
+</div>
+
+<h3 id="ch4-3"><span class="num">4.3</span>이동과 고무줄 드래그</h3>
+<ul>
+<li>선택한 항목을 끌면 그리드 단위로 이동합니다(4픽셀 이상 움직여야 드래그로 인식). 놓을 때 한 번의 실행 취소 단계가 됩니다. 드래그 중 <kbd>Esc</kbd>를 누르면 원래 자리로 돌아갑니다.</li>
+<li><b>고무줄(rubber-band)</b>: 부품이나 레이블을 옮기면 그 핀/앵커에 붙어 있던 배선 끝이 함께 따라옵니다. 배선이 비스듬해지면 놓는 순간 꺾임점이 하나 추가되어 다시 가로·세로 배선(L자)으로 정리됩니다. 원래 가로로 뻗어 있던 배선은 가로 방향을 유지합니다.</li>
+<li><kbd>Alt</kbd>(macOS는 <kbd>Option</kbd>)를 누른 채 끌면 붙어 있는 배선을 끌지 않고 항목만 옮깁니다(연결이 끊어질 수 있으니 주의).</li>
+<li>방향키 <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd>: 선택한 항목을 그리드 한 칸씩 옮깁니다(고무줄 적용).</li>
+<li><b>필드 끌기</b>: 부품의 참조 번호(R1)나 값(10k) 글자만 클릭해서 끌면 부품은 그대로 두고 글자 위치만 옮겨집니다(“필드 이동”). 부품을 회전·대칭하거나 회전 값을 바꾸면 글자 위치는 기본 위치로 돌아갑니다.</li>
+</ul>
+
+<h3 id="ch4-4"><span class="num">4.4</span>회전과 대칭</h3>
+<table>
+<thead><tr><th>키</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><kbd>R</kbd></td><td>선택을 화면 기준 90° 반시계 방향으로 회전. 여러 개를 선택하면 선택 영역의 중심(그리드에 맞춤)을 기준으로 함께 회전</td></tr>
+<tr><td><kbd>Y</kbd></td><td>좌우 대칭(세로축 기준)</td></tr>
+<tr><td><kbd>X</kbd></td><td>상하 대칭(가로축 기준) — 내부적으로 좌우 대칭 + 180° 회전</td></tr>
+</tbody>
+</table>
+<p>회전/대칭 후에도 부품 핀에 붙어 있던 배선 끝은 새 핀 위치로 따라가고, 비스듬해진 배선은 L자로 정리됩니다. 부품을 배치하는 중(고스트 상태)에도 <kbd>R</kbd>, <kbd>X</kbd>, <kbd>Y</kbd>가 동작합니다. 속성 패널의 <span class="ui">회전</span>(0°/90°/180°/270°)과 <span class="ui">대칭됨</span> 체크로도 바꿀 수 있습니다.</p>
+
+<h3 id="ch4-5"><span class="num">4.5</span>복사, 잘라내기, 붙여넣기, 복제</h3>
+<ul>
+<li><kbd>Ctrl</kbd>+<kbd>C</kbd> 복사, <kbd>Ctrl</kbd>+<kbd>X</kbd> 잘라내기, <kbd>Ctrl</kbd>+<kbd>V</kbd> 붙여넣기 — 선택한 항목(부품, 배선, 레이블, 텍스트 등)을 앱 내부 클립보드에 넣습니다. 붙여넣기는 <b>마우스 커서 위치</b>(그리드에 맞춤)에 선택 영역 중심이 오도록 놓습니다. 빈 곳 오른쪽 클릭 메뉴의 <span class="ui">붙여넣기</span>는 클릭한 위치에 놓습니다. 다른 페이지에 붙여넣을 수도 있습니다.</li>
+<li><kbd>Ctrl</kbd>+<kbd>D</kbd> 복제: 선택을 오른쪽 아래로 200 mil 떨어진 곳에 바로 복사하고 새로 만든 항목을 선택합니다.</li>
+<li>붙여넣은 부품의 참조 번호가 이미 쓰이고 있으면 <code>R?</code>처럼 번호가 지워집니다. 참조 번호 부여를 다시 실행하세요.</li>
+<li>잘라내기/복사/붙여넣기는 회로도에서만 동작합니다. PCB의 풋프린트는 회로도에서 오므로 PCB에서는 트랙·비아·영역·텍스트·그래픽만 복제할 수 있습니다.</li>
+</ul>
+
+<h3 id="ch4-6"><span class="num">4.6</span>삭제</h3>
+<p><kbd>Del</kbd> 또는 <kbd>Backspace</kbd>(배선 중이 아닐 때)로 선택을 지웁니다. 지운 뒤에는 자동 정리(<a href="#ch4-9">4.9</a>)가 실행되어 더 이상 필요 없는 정션이 사라지고 한 줄로 이어지는 배선이 합쳐집니다.</p>
+
+<h3 id="ch4-7"><span class="num">4.7</span>부품 배치</h3>
+<p>부품을 놓는 방법은 세 가지입니다.</p>
+<ol>
+<li><kbd>A</kbd>(<span class="menu">배치 → 부품 추가</span>): 검색 창에 이름·값·키워드(한글 키워드 포함, 예: “저항”, “커패시터”)를 입력하고 <kbd>Enter</kbd>. 최근에 쓴 부품이 위에 나옵니다.</li>
+<li>왼쪽 라이브러리에서 부품을 시트로 <b>끌어 놓기</b>: 놓은 자리에 하나만 배치하고 선택 도구로 돌아갑니다.</li>
+<li>라이브러리 목록의 부품을 <b>클릭</b>한 뒤 시트를 클릭(검색 칸에서 <kbd>Enter</kbd>를 누르면 첫 번째 결과를 고름).</li>
+</ol>
+<p>배치 도구에서는 마우스를 따라다니는 반투명 고스트가 보입니다. 클릭할 때마다 하나씩 놓이며 도구가 유지되므로 같은 부품을 연달아 놓을 수 있습니다. <kbd>Shift</kbd>+클릭은 하나만 놓고 선택 도구로 돌아갑니다(전원 포트는 예외로 계속 유지). <kbd>Esc</kbd>나 오른쪽 클릭으로 끝냅니다.</p>
+<p>새 부품의 참조 번호는 <code>R?</code>처럼 물음표로 시작하고(참조 번호 부여 전), 값과 풋프린트는 라이브러리의 기본값(예: 저항 10k, <code>R_0805</code>)이 들어갑니다. 놓은 부품은 최근 사용 목록(최대 12개)에 기록됩니다.</p>
+
+<h3 id="ch4-8"><span class="num">4.8</span>전원 포트</h3>
+<p><kbd>P</kbd>(<span class="menu">배치 → 전원 포트</span>)를 누르면 전원 심볼 목록이 열립니다: <code>GND</code>, <code>VCC</code>, <code>+5V</code>, <code>+3V3</code>, <code>+12V</code>, <code>VBAT</code>, <code>-12V</code>, <code>PWR_FLAG</code>. 고른 뒤 클릭해 놓습니다(연속 배치 가능).</p>
+<ul>
+<li>전원 심볼은 <b>값 이름의 넷</b>에 연결됩니다. 같은 이름의 전원 심볼은 배선이 없어도, <b>다른 페이지에 있어도</b> 모두 같은 넷입니다.</li>
+<li>전원 심볼의 <b>값을 바꾸면 넷 이름도 바뀝니다</b>. 예를 들어 <code>VCC</code> 심볼의 값을 <code>+9V</code>로 바꾸면 <code>+9V</code> 넷이 됩니다.</li>
+<li>전원 심볼에는 숨은 참조 번호(<code>#PWR01</code>…)가 붙고, BOM과 PCB에는 나타나지 않습니다.</li>
+<li><code>PWR_FLAG</code>는 “이 넷은 외부에서 전원을 공급받는다”고 ERC에 알려 주는 표시입니다. 커넥터로만 전원이 들어오는 회로에서 IC의 전원 입력 핀 때문에 생기는 <code>power-undriven</code> 오류를 없앨 때 씁니다(<a href="#ch5-4">5.4</a>).</li>
+<li>시뮬레이션의 기준 전위(0 V)는 <code>GND</code>(또는 <code>0</code>, <code>AGND</code>) 넷입니다. 시뮬레이션하려면 GND 심볼이 반드시 있어야 합니다.</li>
+</ul>
+
+<h3 id="ch4-9"><span class="num">4.9</span>배선</h3>
+<p><kbd>W</kbd>(<span class="menu">배치 → 배선</span>)로 배선 도구를 고릅니다.</p>
+<ol class="steps">
+<li>시작점을 클릭합니다. 커서가 핀 끝, 배선 끝, 레이블 앵커 근처(약 9 화면 픽셀)에 가면 그 점으로 달라붙고 작은 사각형 표시가 나타납니다. 달라붙을 곳이 없으면 그리드 점(십자 표시)에 맞춰집니다.</li>
+<li>다음 점을 클릭할 때마다 배선이 그려집니다. 두 점이 가로·세로로 맞지 않으면 꺾임이 하나 있는 직교 경로가 됩니다. 기본은 <b>가로 먼저</b>이며, <kbd>/</kbd>를 누르면 <b>세로 먼저</b>로 바뀝니다(미리 보기 점선으로 확인).</li>
+<li><b>자동 종료</b>: 핀, 다른 배선의 끝, 레이블, 또는 다른 배선의 중간에 닿으면 배선이 자동으로 끝납니다.</li>
+<li>빈 곳에서 끝내려면 <kbd>Enter</kbd>, <kbd>Esc</kbd>, 더블클릭, 오른쪽 클릭 중 하나를 씁니다. <kbd>Backspace</kbd>는 마지막으로 만든 꺾임(구간)을 지웁니다.</li>
+</ol>
+<p>배선 한 줄(시작부터 끝까지)이 한 번의 실행 취소 단계입니다. 배선을 끝내거나 항목을 추가·삭제·이동할 때마다 다음 <b>자동 정리</b>가 실행됩니다.</p>
+<ul>
+<li>길이가 0인 배선과 똑같은 배선(겹친 중복)을 지웁니다.</li>
+<li>한 직선 위에서 끝과 끝이 만나는 두 배선을, 그 점에 다른 것이 연결되어 있지 않으면 하나로 합칩니다.</li>
+<li>배선 중간에 정션이 있으면 그 점에서 배선을 둘로 나눕니다.</li>
+<li><b>자동 정션</b>: 세 개 이상의 연결(배선 끝, 핀, T자로 만나는 배선)이 모이는 점에 정션 점을 자동으로 만들고, 더 이상 필요 없는 정션은 지웁니다.</li>
+</ul>
+<p>연결되지 않은 배선 끝에는 노란 작은 원이 그려지고, 확대했을 때 연결되지 않은 핀 끝에는 작은 원이 표시되어 끊어진 곳을 쉽게 찾을 수 있습니다.</p>
+<div class="callout warn"><p>두 배선이 단순히 <b>교차</b>하는 것만으로는 연결되지 않습니다. 교차점을 연결하려면 정션(<kbd>J</kbd>)을 놓으세요. 반대로 배선 끝이나 핀 끝이 다른 배선의 <b>중간</b>에 닿으면(T자) 연결됩니다(<a href="#ch5-1">5.1</a>).</p></div>
+
+<h3 id="ch4-10"><span class="num">4.10</span>정션</h3>
+<p><kbd>J</kbd>로 정션 도구를 고르고 연결할 점을 클릭합니다. 정션은 그 점을 지나는 배선을 나누어 연결합니다. 세 개 이상의 연결이 모이지 않는 곳에 놓은 정션은 자동 정리 때 지워집니다(정션은 연결점 표시이므로 혼자서는 의미가 없습니다).</p>
+
+<h3 id="ch4-11"><span class="num">4.11</span>넷 레이블과 글로벌 레이블</h3>
+<p>레이블은 배선으로 직접 잇지 않고 <b>이름으로</b> 연결하는 방법입니다.</p>
+<ul>
+<li><kbd>L</kbd>(넷 레이블) 또는 <kbd>Ctrl</kbd>+<kbd>L</kbd>(글로벌 레이블)을 누르고 배선 끝이나 핀 끝을 클릭하면 이름 입력 칸이 뜹니다. 이름을 입력하고 <kbd>Enter</kbd>(<kbd>Esc</kbd>는 취소).</li>
+<li><b>번호 자동 증가</b>: 직전에 입력한 이름이 숫자로 끝나면 다음 레이블에는 1 증가한 이름이 미리 들어갑니다(<code>D0</code> → <code>D1</code>, <code>ADDR07</code> → <code>ADDR08</code>). 버스 신호를 연달아 붙일 때 편리합니다.</li>
+<li><b>방향 자동 결정</b>: 배선 끝에 놓으면 레이블이 배선 반대쪽을 향하도록 자동으로 회전합니다.</li>
+<li>같은 페이지에서 이름이 같은 넷 레이블은 모두 같은 넷입니다. <b>글로벌 레이블</b>은 이름이 같으면 <b>모든 페이지</b>에서 연결됩니다. 같은 페이지에서 글로벌 레이블과 같은 이름의 넷 레이블도 함께 연결됩니다.</li>
+<li>레이블을 더블클릭하면 이름을 고칠 수 있고, 속성 패널에서 이름·유형(넷 레이블/글로벌 레이블)·회전을 바꿀 수 있습니다.</li>
+<li>넷 이름을 정하는 데도 레이블을 씁니다. 레이블이 붙은 넷은 자동 이름(<code>Net-(R1-Pad2)</code>) 대신 레이블 이름을 갖고, 이 이름이 PCB·시뮬레이션 프로브·넷리스트에 그대로 쓰입니다.</li>
+</ul>
+
+<h3 id="ch4-12"><span class="num">4.12</span>버스</h3>
+<p><kbd>B</kbd>로 버스 도구를 고르고, 배선처럼 클릭으로 꺾임점을 찍은 뒤 더블클릭으로 끝냅니다. 버스는 굵은 선으로 그려지는 <b>그림 요소</b>일 뿐 전기적 연결 정보는 없습니다. 실제 연결은 각 신호에 붙인 넷 레이블로 이루어집니다(예제 “74HC595 LED 바” 참고).</p>
+<figure><img width="1532" height="900" src="images/ko-sch-bus.webp" alt="버스와 레이블" loading="lazy"><figcaption>그림 4-4. 버스와 넷 레이블로 여덟 개의 출력을 정리한 회로도</figcaption></figure>
+
+<h3 id="ch4-13"><span class="num">4.13</span>연결 없음 플래그</h3>
+<p><kbd>Q</kbd>로 도구를 고르고 쓰지 않는 핀 끝을 클릭하면 × 표시가 붙습니다. 그 핀은 의도적으로 연결하지 않았다는 뜻이므로 ERC의 <code>unconnected-pin</code> 경고가 사라집니다. 핀이 아닌 곳을 클릭하면 “핀 끝을 클릭해 연결 없음 플래그를 배치합니다.”라는 안내가 나옵니다. 플래그가 있는 핀을 나중에 연결하면 <code>nc-connected</code> 경고가 납니다.</p>
+
+<h3 id="ch4-14"><span class="num">4.14</span>텍스트</h3>
+<p><kbd>T</kbd>로 도구를 고르고 클릭한 곳에 메모를 입력합니다. 텍스트는 전기적 의미가 없습니다. 더블클릭하면 한 줄 편집, 속성 패널에서는 여러 줄 텍스트와 크기(mil, 기본 50)를 고칠 수 있습니다.</p>
+
+<h3 id="ch4-15"><span class="num">4.15</span>속성 편집</h3>
+<h4>속성 패널(인스펙터)</h4>
+<p>부품 하나를 선택하면 참조 번호, 값, 풋프린트(심볼이 추천하는 목록 + <span class="ui">더 보기…</span>는 풋프린트 지정 창), 회전, 대칭됨, 실장 안 함(DNP)이 나옵니다. 시뮬레이션 필드가 있는 부품(전압원, 스위치 등)은 그 아래 <span class="ui">시뮬레이션</span> 구역에 필드가 나오며, <code>wave</code>는 DC/사인파/펄스, <code>state</code>는 열림/닫힘 선택 상자입니다. 버튼으로 <span class="ui">모든 속성…</span> 대화상자와 <span class="ui">PCB에서 보기</span>를 엽니다.</p>
+<p>배선을 선택하면 넷 이름과 길이(mm), <span class="ui">넷 강조</span>와 <span class="ui">프로브 추가</span> 버튼이 나옵니다.</p>
+<h4>부품 속성 대화상자</h4>
+<p>부품을 더블클릭하거나 <kbd>E</kbd>, 또는 오른쪽 클릭 → <span class="ui">속성…</span>으로 엽니다. 세 개의 탭이 있습니다.</p>
+<ul>
+<li><b>일반</b>: 참조 번호, 값(입력하면 “= 4.7 k”처럼 해석된 값이 옆에 표시됨), 회전, 옵션(대칭됨, 실장 안 함, 값 숨기기).</li>
+<li><b>풋프린트</b>: 이름 입력(자동 완성), 심볼이 추천하는 풋프린트 칩, 패드 미리 보기.</li>
+<li><b>필드</b>: 시뮬레이션 필드와 사용자 필드. <span class="ui">필드 이름</span> 칸에 <code>MPN</code>, <code>Supplier</code>처럼 새 이름을 넣고 <span class="ui">필드 추가</span>로 늘립니다. 값을 비워 두면 그 필드는 저장되지 않습니다.</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-dlg-partprops.webp" alt="부품 속성" loading="lazy"><figcaption>그림 4-5. 부품 속성 대화상자 — 일반 탭</figcaption></figure>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-dlg-partprops-fp.webp" alt="풋프린트 탭" loading="lazy"><figcaption>그림 4-6. 풋프린트 탭</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-dlg-partprops-fields.webp" alt="필드 탭" loading="lazy"><figcaption>그림 4-7. 필드 탭</figcaption></figure>
+</div>
+<h4>바로 편집</h4>
+<ul>
+<li>부품의 <b>값 글자</b>를 더블클릭하면 그 자리에 입력 칸이 떠서 값만 바로 고칠 수 있습니다.</li>
+<li>레이블과 텍스트는 더블클릭하면 그 자리에서 고칩니다.</li>
+<li><b>DNP(실장 안 함)</b>로 표시한 부품은 PCB 업데이트 때 기판에 추가되지 않고, 시뮬레이션에서 빠지며, BOM에 “(DNP)”로 따로 표시됩니다.</li>
+</ul>
+
+<h3 id="ch4-16"><span class="num">4.16</span>참조 번호 부여</h3>
+<ul>
+<li><span class="menu">도구 → 회로도 참조 번호 부여</span>: 참조 번호가 <code>?</code>로 끝나는 부품에만 번호를 붙입니다. 접두사(R, C, D, U, Q, J, SW …)별로 이미 쓰인 번호는 건너뛰고, 위에서 아래(100 mil 단위 줄), 같은 줄에서는 왼쪽에서 오른쪽 순으로 1부터 매깁니다. 여러 페이지면 페이지 순서대로(첫 페이지의 부품부터) 번호를 매깁니다.</li>
+<li><span class="menu">도구 → 모든 부품 참조 번호 다시 부여</span>: 모든 부품의 번호를 위 규칙으로 처음부터 다시 매깁니다.</li>
+<li>전원 심볼과 PWR_FLAG는 항상 <code>#PWR01</code>, <code>#FLG01</code>…로 다시 번호가 붙습니다.</li>
+<li><kbd>F8</kbd>(PCB 업데이트)을 누를 때 번호가 없는 부품이 있으면 자동으로 참조 번호 부여가 먼저 실행됩니다.</li>
+<li>다중 유닛 부품(<a href="#ch4-25">4.25</a>)은 한 부품의 유닛들이 같은 참조 번호를 받고 유닛 문자가 붙습니다(U1A, U1B …).</li>
+</ul>
+
+<h3 id="ch4-17"><span class="num">4.17</span>넷 강조와 교차 탐색</h3>
+<ul>
+<li>배선을 클릭하면 그 배선이 속한 넷 전체가 강조됩니다(굵은 강조색 배선, 그 넷에 연결된 핀, 같은 이름의 레이블). 오른쪽 클릭 → <span class="ui">넷 ○○ 강조</span>, 명령 팔레트/찾기에서 넷을 골라도 됩니다. 강조는 PCB에도 함께 적용됩니다. <kbd>Esc</kbd>로 해제합니다.</li>
+<li><b>교차 탐색(cross-probing)</b>: 회로도에서 부품을 선택하면 PCB와 3D에서도 같은 참조 번호의 풋프린트가 선택되고, 반대도 마찬가지입니다. <span class="ui">PCB에서 보기</span> / <span class="ui">3D에서 보기</span> / <span class="ui">회로도에서 보기</span>는 탭을 바꾸고 그 부품을 화면 가운데로 옮깁니다. 부품이 다른 페이지에 있으면 그 페이지로 바뀝니다. BOM 표의 행을 클릭해도 모든 화면에서 선택됩니다.</li>
+</ul>
+
+<h3 id="ch4-18"><span class="num">4.18</span>오른쪽 클릭 메뉴</h3>
+<p>선택 도구에서 오른쪽 클릭하면 상황에 맞는 메뉴가 나옵니다(다른 도구에서는 오른쪽 클릭이 선택 도구로 돌아가기, 배선 중에는 배선 끝내기).</p>
+<ul>
+<li>부품 위: 속성…, PCB에서 보기, 3D에서 보기</li>
+<li>배선 위: 넷 ○○ 강조, 시뮬레이션에서 이 넷 측정(프로브 추가)</li>
+<li>선택이 있을 때: 회전, 좌우 대칭, 상하 대칭, 복제, 복사, 잘라내기, 삭제</li>
+<li>빈 곳: 붙여넣기, 부품 추가…, 배선</li>
+<li>항상: 화면에 맞추기, 모두 선택</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-ctx-sch.webp" alt="오른쪽 클릭 메뉴" loading="lazy"><figcaption>그림 4-8. 부품 위에서 연 오른쪽 클릭 메뉴</figcaption></figure>
+
+<h3 id="ch4-19"><span class="num">4.19</span>시트 크기와 표제란</h3>
+<p><span class="menu">파일 → 프로젝트 속성…</span>에서 제목, 작성자, 회사, 리비전, 날짜, 설명을 입력합니다. 이 값들은 표제란, 인쇄물, 제조 파일의 README와 Gerber 작업 파일, KiCad 넷리스트의 title_block에 쓰입니다. 시트 크기는 아무것도 선택하지 않은 상태의 속성 패널에서 바꿉니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-project.webp" alt="프로젝트 속성" loading="lazy"><figcaption>그림 4-9. 프로젝트 속성 대화상자</figcaption></figure>
+
+<h3 id="ch4-20"><span class="num">4.20</span>캔버스 위의 표시</h3>
+<table>
+<thead><tr><th>표시</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>빨간/노란 작은 깃발(삼각형)</td><td>ERC 오류/경고 위치</td></tr>
+<tr><td>배선 끝의 노란 원</td><td>아무것에도 연결되지 않은 배선 끝</td></tr>
+<tr><td>핀 끝의 작은 원(확대 시)</td><td>연결되지 않은 핀</td></tr>
+<tr><td>배선 위의 전압 배지</td><td>동작점 시뮬레이션 결과(<span class="menu">보기 → 회로도에 시뮬레이션 전압 표시</span>로 켜고 끔, <span class="menu">시뮬레이션 → 시뮬레이션 오버레이 지우기</span>로 지움)</td></tr>
+<tr><td>퍼지는 빨간 원</td><td>문제 목록이나 찾기에서 고른 위치</td></tr>
+<tr><td>점선 사각형</td><td>선택된 부품</td></tr>
+</tbody>
+</table>
+
+<h3 id="ch4-21"><span class="num">4.21</span>여러 페이지 회로도</h3>
+<p>큰 회로는 여러 페이지(시트)로 나눌 수 있습니다. 회로도 캔버스 <b>왼쪽 아래</b>에 페이지 탭이 있습니다. 새 프로젝트는 <code>1. Main</code> 페이지 하나로 시작합니다.</p>
+<table>
+<thead><tr><th>동작</th><th>방법</th></tr></thead>
+<tbody>
+<tr><td>페이지 열기</td><td>페이지 탭 클릭</td></tr>
+<tr><td>페이지 추가</td><td>맨 오른쪽 <code>+</code> 탭 — “페이지 N”이 추가되고 바로 열립니다</td></tr>
+<tr><td>이름 바꾸기</td><td>탭 더블클릭, 또는 오른쪽 클릭 → <span class="ui">페이지 이름 바꾸기…</span></td></tr>
+<tr><td>순서 바꾸기</td><td>오른쪽 클릭 → <span class="ui">왼쪽으로 이동</span> / <span class="ui">오른쪽으로 이동</span></td></tr>
+<tr><td>삭제</td><td>오른쪽 클릭 → <span class="ui">페이지 삭제</span> — 확인 후 그 페이지의 모든 항목과 함께 지워집니다(페이지가 하나뿐이면 삭제 불가)</td></tr>
+</tbody>
+</table>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-sch-pages.webp" alt="페이지 탭" loading="lazy"><figcaption>그림 4-10. 캔버스 왼쪽 아래의 페이지 탭</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-sch-pages-menu.webp" alt="페이지 메뉴" loading="lazy"><figcaption>그림 4-11. 페이지 탭의 오른쪽 클릭 메뉴</figcaption></figure>
+</div>
+<p><b>페이지 사이의 연결 규칙</b></p>
+<ul>
+<li>배선, 핀, 정션 같은 <b>도형은 페이지를 넘어 연결되지 않습니다</b>. 다른 페이지의 같은 좌표에 있어도 별개입니다.</li>
+<li><b>넷 레이블</b>은 자기 페이지 안에서만 연결됩니다.</li>
+<li><b>글로벌 레이블</b>과 <b>전원 포트</b>(GND, +5V …)는 모든 페이지에 걸쳐 연결됩니다. 페이지를 추가하면 “페이지 사이의 넷은 글로벌 레이블이나 전원 포트로 연결하세요.”라는 안내가 나옵니다.</li>
+</ul>
+<p>편집(선택, 모두 선택, 이동, 붙여넣기 등)은 현재 페이지에서만 이루어집니다. ERC는 모든 페이지를 함께 검사하고, 문제 항목을 클릭하면 해당 페이지로 이동합니다. 교차 탐색도 부품이 있는 페이지로 바꿔 줍니다. 인쇄할 때는 페이지마다 한 장씩 나오고, 표제란에 “Sheet: 2/3 이름”처럼 페이지 번호와 이름이 표시됩니다. SVG/PNG 내보내기는 <b>현재 페이지</b>만 저장합니다.</p>
+
+<h3 id="ch4-22"><span class="num">4.22</span>측정과 치수</h3>
+<p>회로도에도 거리 측정과 도면 치수선이 있습니다(<span class="menu">배치</span> 메뉴, 도구 모음).</p>
+<ul>
+<li><b>측정</b>(<kbd>M</kbd>): 두 점을 클릭하면 그 사이에 점선과 거리 표시가 나타납니다 — 예: “28.40 mm (1118 mil)  Δx 1000  Δy 500 mil”. 점은 회로도 그리드에 맞춰집니다. 다시 클릭하면 새로 재고, <kbd>Esc</kbd>로 지웁니다. 측정은 저장되지 않습니다.</li>
+<li><b>치수</b>(<kbd>D</kbd>): ① 첫 점 클릭 ② 둘째 점 클릭 ③ 마우스를 옆으로 움직여 치수선을 측정 대상에서 띄울 거리(오프셋, 25 mil 단위)를 정하고 클릭 — 이렇게 세 번 클릭하면 보조선·화살표·길이 글자가 있는 치수선이 도면에 추가됩니다. 길이는 편집기 단위에 따라 “12.70 mm (500 mil)” 또는 “500 mil (12.70 mm)”처럼 두 단위로 표시됩니다.</li>
+<li>치수선은 <code>schematic.dimensions</code>에 페이지별로 저장되고, 선택·이동·삭제할 수 있으며, 인쇄·SVG·PNG 출력에도 나옵니다.</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-sch-dimension.webp" alt="회로도 치수" loading="lazy"><figcaption>그림 4-12. 회로도 치수선(위)과 측정 중인 거리(아래)</figcaption></figure>
+
+<h3 id="ch4-23"><span class="num">4.23</span>계층 시트</h3>
+<p>계층 시트는 다른 페이지의 회로를 하나의 <b>블록</b>으로 그려 넣는 방법입니다. 블록의 가장자리에 있는 <b>시트 핀</b>이 그 페이지 안의 <b>계층 레이블</b>과 연결됩니다.</p>
+<ol class="steps">
+<li><kbd>S</kbd>(<span class="menu">배치 → 계층 시트</span>)를 누르고 캔버스에 사각형을 <b>드래그</b>합니다(최소 600 × 400 mil).</li>
+<li>나타나는 입력 칸에 시트 이름(기본 “시트 1”)을 입력하고 <kbd>Enter</kbd>. 같은 이름의 새 <b>페이지</b>가 만들어지고, 페이지 탭에 추가됩니다. “시트를 만들었습니다. 두 번 클릭해 페이지를 열고 계층 레이블(H)을 추가하세요 — 블록에 핀으로 나타납니다.”라는 안내가 나옵니다.</li>
+<li>블록을 <b>더블클릭</b>하면 그 페이지가 열립니다. 거기서 회로를 그리고, 바깥과 연결할 신호에 <kbd>H</kbd>(<span class="menu">배치 → 계층 레이블</span>)로 계층 레이블을 붙입니다.</li>
+<li>계층 레이블을 추가하거나 이름을 바꾸거나 지우면 블록의 <b>시트 핀이 자동으로 맞춰집니다</b>(이름순으로 왼쪽·오른쪽에 번갈아 100 mil 간격, 블록 높이도 자동으로 늘어남). 시트 핀은 계층 레이블에서 만들어지는 정보이므로 실행 취소 단계가 생기지 않습니다.</li>
+<li>원래 페이지로 돌아와 시트 핀 끝에 배선을 연결합니다. 시트 핀 끝은 배선이 달라붙는 연결점입니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-sch-sheet.webp" alt="계층 시트 블록" loading="lazy"><figcaption>그림 4-13. 계층 시트 블록 “센서” — 대상 페이지의 계층 레이블 SDA, SCL, D[0..3]이 시트 핀으로 나타남</figcaption></figure>
+<ul>
+<li>블록은 이름(위), 대상 페이지 이름(아래), 시트 핀을 보여 줍니다. 블록을 선택·이동·삭제할 수 있습니다(블록을 지워도 대상 페이지는 남습니다).</li>
+<li>연결 규칙: 계층 레이블은 <b>그 페이지를 보여 주는 블록의 같은 이름 시트 핀</b>에만 연결됩니다. 같은 페이지의 계층 레이블끼리도 이름이 같으면 연결됩니다.</li>
+<li>ERC: 대상 페이지가 없는 블록은 <code>sheet-target</code> 오류, 짝이 되는 시트 핀이 없는 계층 레이블은 <code>hier-unconnected</code> 경고입니다(<a href="#ch5-4">5.4</a>).</li>
+<li>KiCad의 계층 시트를 가져오면 같은 구조(블록 + 페이지)로 만들어집니다(<a href="#ch13-9">13.9</a>).</li>
+</ul>
+<div class="callout note"><p>시트 블록을 선택하면 속성 패널에서 <span class="ui">이름</span>(대상 페이지 이름도 함께 바뀜), <span class="ui">폭</span>·<span class="ui">높이</span>(− / + 스테퍼)를 바꾸고, 시트 핀 목록을 보고, <span class="ui">시트 페이지 열기</span> 버튼으로 그 페이지로 갈 수 있습니다.</p></div>
+
+<h3 id="ch4-24"><span class="num">4.24</span>벡터(버스) 레이블</h3>
+<p>레이블 이름을 <code>이름[시작..끝]</code> 꼴로 쓰면 여러 신호를 한꺼번에 나타내는 벡터 레이블이 됩니다. 예: <code>D[0..7]</code>은 <code>D0</code>, <code>D1</code>, …, <code>D7</code>의 여덟 신호를 뜻합니다(최대 256개).</p>
+<ul>
+<li><b>글로벌 레이블</b>로 쓴 벡터 레이블은 각 멤버를 모든 페이지의 같은 이름 신호(<code>D0</code> … <code>D7</code>)와 연결합니다.</li>
+<li><b>시트 핀</b> 이름이 벡터이면(대상 페이지에 <code>D[0..7]</code> 계층 레이블을 둔 경우) 바깥 페이지의 <code>D0</code>…<code>D7</code>과 대상 페이지의 <code>D0</code>…<code>D7</code>이 멤버별로 연결됩니다.</li>
+<li>벡터 레이블 자체는 배선 한 가닥에 붙는 넷이 아니라 이름 묶음입니다. 각 멤버 신호에는 보통 넷 레이블(<code>D0</code> …)을 붙여 연결합니다. 굵은 버스 선(<kbd>B</kbd>)은 여전히 그림일 뿐입니다.</li>
+</ul>
+
+<h3 id="ch4-25"><span class="num">4.25</span>다중 유닛 부품</h3>
+<p>한 패키지에 같은 기능이 여러 개 들어 있는 IC는 <b>유닛</b>으로 나뉜 심볼로 그립니다. 내장 라이브러리의 다중 유닛 심볼:</p>
+<table>
+<thead><tr><th>심볼</th><th>유닛</th></tr></thead>
+<tbody>
+<tr><td><code>LM358_DUAL</code> (듀얼 연산 증폭기)</td><td>A: 3(+), 2(−), 1(출력) · B: 5(+), 6(−), 7(출력) · C: 전원 8(V+), 4(V−)</td></tr>
+<tr><td><code>74HC00</code> (4회로 2입력 NAND)</td><td>A: 1, 2 → 3 · B: 4, 5 → 6 · C: 9, 10 → 8 · D: 12, 13 → 11 · E: 전원 14(VCC), 7(GND)</td></tr>
+</tbody>
+</table>
+<ul>
+<li>배치 도구에서 클릭할 때마다 다음 유닛이 놓입니다(U?A → U?B → … 마지막 유닛 뒤에는 새 부품). 상태 표시줄에 “유닛 B 배치 중 — 클릭해 배치, Esc로 중지.”가 나옵니다. 함께 놓은 유닛들은 한 부품으로 묶여 같은 참조 번호를 받습니다.</li>
+<li>속성 패널의 <span class="ui">유닛</span> 선택 상자로 그 심볼이 보여 줄 유닛(A, B …)을 바꿀 수 있습니다.</li>
+<li>참조 번호에는 유닛 문자가 붙어 표시됩니다(U1A, U1B). 한 부품의 유닛들은 PCB에서 <b>하나의 풋프린트</b>가 되고, 공통 핀(전원 유닛)은 같은 넷으로 연결됩니다. 다른 유닛이 같은 참조 번호를 쓰는 것은 중복 참조 번호 오류가 아닙니다.</li>
+<li>KiCad에서 가져온 다중 유닛 심볼도 같은 방식으로 동작합니다.</li>
+</ul>
+
+<h2 id="ch5"><span class="num">5</span>연결 규칙과 ERC</h2>
+
+<h3 id="ch5-1"><span class="num">5.1</span>연결 규칙</h3>
+<p>MyCircuit은 KiCad와 같은 규칙으로 무엇이 연결되었는지 판단합니다.</p>
+<ol>
+<li>배선의 끝점은 정확히 그 위에 있는 것(핀 끝, 다른 배선 끝, 레이블 앵커, 정션)과 연결됩니다.</li>
+<li>배선 끝, 핀 끝, 레이블 앵커, 정션이 다른 배선의 <b>중간</b>에 놓이면 그 배선과 연결됩니다(T자 연결).</li>
+<li>두 배선이 단순히 교차하는 것은 연결이 아닙니다. 교차점에 정션이 있을 때만 연결됩니다.</li>
+<li>이름이 같은 넷 레이블은 같은 페이지 안에서 같은 넷입니다. 글로벌 레이블은 모든 페이지에서 같은 넷입니다.</li>
+<li>전원 심볼은 값 이름의 넷(GND, +5V …)에 모든 페이지에서 연결됩니다.</li>
+<li>한 부품 안에서 번호가 같은 핀(예: 택트 스위치의 같은 번호 패드 두 개)은 같은 넷입니다.</li>
+<li>도형은 페이지를 넘어 연결되지 않습니다.</li>
+<li>계층 레이블은 그 페이지를 보여 주는 시트 블록의 같은 이름 시트 핀과 연결됩니다(<a href="#ch4-23">4.23</a>).</li>
+<li>벡터 레이블 <code>D[0..7]</code>은 글로벌 레이블과 시트 핀에서 멤버 <code>D0</code>…<code>D7</code>로 펼쳐집니다(<a href="#ch4-24">4.24</a>).</li>
+<li>다중 유닛 부품의 유닛들은 한 부품입니다: 같은 번호의 핀은 같은 넷입니다.</li>
+<li>일반 부품의 숨은 전원 입력 핀(KiCad에서 가져온 로직 IC 등)은 핀 이름과 같은 이름의 넷(VCC, GND …)에 자동으로 연결됩니다.</li>
+<li>버스와 텍스트는 연결 정보를 갖지 않습니다.</li>
+</ol>
+
+<h3 id="ch5-2"><span class="num">5.2</span>넷 이름 정하기</h3>
+<p>각 넷의 이름은 다음 순서로 정해집니다.</p>
+<ol>
+<li>전원 심볼 이름(GND, +5V …)</li>
+<li>글로벌 레이블 이름</li>
+<li>넷 레이블 이름</li>
+<li>이름이 없으면 자동 이름 <code>Net-(참조-Pad핀)</code> — 그 넷에 연결된 부품 중 참조 번호가 가장 앞선 부품의 핀 번호로 만듭니다. 예: <code>Net-(R1-Pad2)</code></li>
+</ol>
+<p>서로 다른 넷이 같은 이름을 갖게 되면 뒤의 것에 <code>_1</code>, <code>_2</code>가 붙습니다. 넷 이름은 PCB의 패드·트랙, 시뮬레이션 프로브, 넷리스트·BOM에 그대로 쓰이므로, 중요한 신호에는 레이블로 이름을 붙이는 것이 좋습니다. 넷 목록은 <span class="menu">검사 → 넷 목록…</span>에서 볼 수 있습니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-netlist.webp" alt="넷 목록" loading="lazy"><figcaption>그림 5-1. 넷 목록 대화상자 (내보내기… 버튼으로 KiCad 넷리스트 저장)</figcaption></figure>
+
+<h3 id="ch5-3"><span class="num">5.3</span>ERC 실행</h3>
+<p>설정의 <span class="ui">ERC 계속 실행</span>이 켜져 있으면(기본값) 편집할 때마다 약 0.35초 뒤 ERC가 자동으로 다시 실행되어 오른쪽 목록, 회로도 탭 배지, 상태 표시줄, 캔버스의 깃발이 갱신됩니다. 수동으로는 <span class="menu">검사 → 전기 규칙 검사 (ERC)</span>, 도구 모음의 ERC 버튼, 상태 표시줄의 ERC 칸, 문제 목록의 새로 고침 버튼으로 실행합니다. 수동 실행 때는 결과가 “ERC: 오류 n개, 경고 m개” 알림으로 표시되고 오른쪽 패널이 열립니다.</p>
+<figure><img width="1532" height="900" src="images/ko-erc-issues.webp" alt="ERC 문제 목록" loading="lazy"><figcaption>그림 5-2. ERC 문제 목록 — 배선 두 개를 지운 예제 회로</figcaption></figure>
+
+<h3 id="ch5-4"><span class="num">5.4</span>ERC 검사 항목</h3>
+<table>
+<thead><tr><th>코드</th><th>심각도</th><th>메시지(한국어 화면)</th><th>의미</th><th>고치는 방법</th></tr></thead>
+<tbody>
+<tr><td><code>unknown-symbol</code></td><td><span class="pill e">오류</span></td><td>알 수 없는 심볼 "…"</td><td>라이브러리에 없는 심볼을 쓰는 부품(다른 프로젝트의 사용자 심볼을 복사한 경우 등)</td><td>부품을 지우고 라이브러리의 심볼로 다시 놓거나, 심볼 편집기로 같은 이름의 심볼을 만듭니다.</td></tr>
+<tr><td><code>unannotated</code></td><td><span class="pill e">오류</span></td><td>R?에 참조 번호가 없습니다</td><td>참조 번호가 <code>?</code>로 끝나거나 비어 있음</td><td><span class="menu">도구 → 회로도 참조 번호 부여</span></td></tr>
+<tr><td><code>duplicate-ref</code></td><td><span class="pill e">오류</span></td><td>참조 번호 R1이(가) 중복됩니다</td><td>두 부품이 같은 참조 번호를 가짐</td><td>한쪽 번호를 직접 바꾸거나 <span class="menu">모든 부품 참조 번호 다시 부여</span></td></tr>
+<tr><td><code>no-footprint</code></td><td><span class="pill w">경고</span></td><td>R1에 풋프린트가 지정되지 않았습니다</td><td>핀이 있는 부품에 풋프린트가 없음 — 그 부품은 PCB에 추가되지 않습니다</td><td>속성 패널 또는 <span class="menu">도구 → 풋프린트 지정…</span></td></tr>
+<tr><td><code>output-conflict</code></td><td><span class="pill e">오류</span></td><td>출력 핀 U1.3, U2.3이(가) 같은 넷 …을(를) 구동합니다</td><td>유형이 output인 핀 두 개 이상이 한 넷에 연결됨</td><td>배선을 확인합니다. 출력끼리 직접 연결하면 안 됩니다.</td></tr>
+<tr><td><code>power-undriven</code></td><td><span class="pill e">오류</span></td><td>전원 입력 U1.8 (VCC, 넷 +5V)을 구동하는 전원 출력이 없습니다 — PWR_FLAG를 추가하세요</td><td>power_in 핀이 있는 넷에 power_out 핀(전압원, 배터리, 레귤레이터 출력, USB VBUS 등)도 PWR_FLAG도 없음</td><td>전원이 커넥터 등으로 외부에서 들어온다면 그 넷에 <code>PWR_FLAG</code>를 놓습니다. 실제로 전원이 빠졌다면 전원을 연결합니다.</td></tr>
+<tr><td><code>unconnected-pin</code></td><td><span class="pill w">경고</span></td><td>핀 R1.1 (~)이(가) 연결되지 않았습니다</td><td>아무것에도 연결되지 않은 핀(레이블이나 전원도 없음)</td><td>연결하거나, 일부러 비워 둔 핀이면 연결 없음 플래그(<kbd>Q</kbd>)를 붙입니다.</td></tr>
+<tr><td><code>nc-connected</code></td><td><span class="pill w">경고</span></td><td>핀 U1.5에 연결 없음 플래그가 있지만 연결되어 있습니다</td><td>× 플래그가 있는 핀이 다른 핀과 연결됨</td><td>플래그를 지우거나 연결을 끊습니다.</td></tr>
+<tr><td><code>no-driver</code></td><td><span class="pill w">경고</span></td><td>넷 …에 입력 핀만 있습니다 (구동원이 없음)</td><td>둘 이상의 핀이 모두 input 유형</td><td>신호를 내보내는 출력이나 풀업/풀다운 저항을 연결합니다.</td></tr>
+<tr><td><code>dangling-wire</code></td><td><span class="pill w">경고</span></td><td>배선 끝이 아무 것에도 연결되지 않았습니다</td><td>배선 끝이 핀·레이블·다른 배선 어디에도 닿지 않음(캔버스에 노란 원)</td><td>배선을 연장해 연결하거나 남는 배선을 지웁니다.</td></tr>
+<tr><td><code>single-label</code></td><td><span class="pill w">경고</span></td><td>레이블 "…"이(가) 한 번만 사용되었습니다</td><td>이름이 한 번만 쓰였고 그 넷에 핀이 두 개 미만 — 짝이 되는 레이블을 빠뜨렸을 가능성(계층 레이블과 벡터 레이블은 여기서 검사하지 않으며, 계층 레이블은 <code>hier-unconnected</code>로 검사합니다)</td><td>같은 이름의 레이블을 연결할 곳에 추가하거나 이름 오타를 고칩니다.</td></tr>
+<tr><td><code>stray-nc</code></td><td><span class="pill w">경고</span></td><td>연결 없음 플래그가 핀 위에 있지 않습니다</td><td>× 플래그가 핀 끝이 아닌 곳에 있음(부품을 옮긴 뒤 남은 경우 등)</td><td>플래그를 지우고 핀 끝에 다시 놓습니다.</td></tr>
+<tr><td><code>sheet-target</code></td><td><span class="pill e">오류</span></td><td>시트 "…"이(가) 존재하지 않는 페이지를 가리킵니다</td><td>계층 시트 블록의 대상 페이지가 지워짐</td><td>블록을 지우고 다시 그리거나, 페이지를 되살립니다(실행 취소).</td></tr>
+<tr><td><code>hier-unconnected</code></td><td><span class="pill w">경고</span></td><td>계층 레이블 "…"에 맞는 시트 핀이 없습니다</td><td>계층 레이블이 있는 페이지를 보여 주는 블록이 없거나, 이름이 맞지 않음</td><td>그 페이지를 보여 주는 계층 시트 블록을 만들거나, 일반 넷 레이블/글로벌 레이블을 씁니다.</td></tr>
+</tbody>
+</table>
+<div class="callout tip"><p>오류(빨강)는 제조 전에 반드시 고쳐야 할 문제이고, 경고(노랑)는 확인이 필요한 사항입니다. 회로도 탭 배지는 오류가 있으면 오류 수(빨강), 없으면 경고 수(노랑)를 보여 줍니다.</p></div>
+
+<h2 id="ch6"><span class="num">6</span>부품 라이브러리</h2>
+
+<h3 id="ch6-1"><span class="num">6.1</span>라이브러리 패널 사용법</h3>
+<ul>
+<li><b>검색</b>: 이름, 설명(영어/한국어), 분류, 키워드, 기본값을 대상으로 찾습니다. 여러 단어는 모두 포함해야 합니다(예: <code>smd led</code>는 해당 없음, <code>led</code>, <code>10k</code>, <code>555</code>, <code>저항</code>, <code>타이머</code>). <kbd>Enter</kbd>를 누르면 첫 번째 결과를 배치 도구로 고릅니다.</li>
+<li><b>분류 칩</b>: 전체 · 수동 소자 · 다이오드 · 트랜지스터 · 시뮬레이션 · 전원 · 스위치 · 기타 · 기구 · 커넥터 · IC · MCU · 로직 · 인터페이스(+ 사용자 심볼의 분류)</li>
+<li><b>최근 사용</b>: 검색어와 분류가 비어 있을 때 맨 위에 최근에 놓은 부품이 나옵니다.</li>
+<li><b>미리 보기</b>: 부품 위에 마우스를 올리면 패널 아래에 큰 심볼 그림과 기본 풋프린트가 나옵니다.</li>
+<li><b>배치</b>: 클릭 후 시트 클릭, 또는 시트로 끌어 놓기.</li>
+</ul>
+
+<h3 id="ch6-2"><span class="num">6.2</span>내장 심볼 목록</h3>
+<p>내장 라이브러리에는 59개의 심볼이 있습니다. 다중 유닛 심볼은 핀 칸 아래에 유닛 이름을 적었습니다(<a href="#ch4-25">4.25</a>). 핀 유형이 passive가 아닌 경우 괄호 안에 표시했습니다(input, output, bidir, tristate, power_in, power_out, open_collector). “모델 핀 순서”는 시뮬레이터가 핀을 받는 순서입니다(예: 다이오드는 2(A), 1(K) 순).</p>
+<div class="table-wrap"><table class="lib">
+<thead><tr><th>이름</th><th>설명</th><th>참조</th><th>기본값</th><th>핀 (번호:이름(유형))</th><th>시뮬레이션 모델</th><th>추천 풋프린트</th></tr></thead>
+<tbody>
+<tr class="group"><td colspan="7">수동 소자 (Passive)</td></tr>
+<tr><td><code>R</code></td><td>저항</td><td><code>R</code></td><td>10k</td><td class="pins">1 2</td><td><code>R</code> 저항<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>R_0805</code><br><code>R_0603</code><br><code>R_1206</code><br><code>R_Axial_P10.16mm</code><br><code>R_Axial_P7.62mm</code></td></tr>
+<tr><td><code>R_POT</code></td><td>가변 저항</td><td><code>RV</code></td><td>10k</td><td class="pins">1 2:W 3</td><td><code>POT</code> 가변 저항(분압)<br><small>모델 핀 순서: 1,2,3</small></td><td class="fps"><code>Potentiometer_3386P</code></td></tr>
+<tr><td><code>C</code></td><td>커패시터</td><td><code>C</code></td><td>100n</td><td class="pins">1 2</td><td><code>C</code> 커패시터<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>C_0805</code><br><code>C_0603</code><br><code>C_1206</code><br><code>C_Disc_D5.0mm_P5.00mm</code></td></tr>
+<tr><td><code>C_POL</code></td><td>극성 커패시터</td><td><code>C</code></td><td>10u</td><td class="pins">1 2</td><td><code>C</code> 커패시터<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>CP_Radial_D5.0mm_P2.00mm</code><br><code>CP_Radial_D8.0mm_P3.50mm</code></td></tr>
+<tr><td><code>L</code></td><td>인덕터</td><td><code>L</code></td><td>10u</td><td class="pins">1 2</td><td><code>L</code> 인덕터<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>L_0805</code><br><code>L_1206</code></td></tr>
+<tr><td><code>FUSE</code></td><td>퓨즈</td><td><code>F</code></td><td>500mA</td><td class="pins">1 2</td><td><code>R</code> 저항 — 값과 무관하게 고정 0.05 Ω<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>Fuse_1206</code></td></tr>
+<tr><td><code>CRYSTAL</code></td><td>크리스탈</td><td><code>Y</code></td><td>16MHz</td><td class="pins">1 2</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>Crystal_HC49-U</code></td></tr>
+<tr class="group"><td colspan="7">다이오드 (Diode)</td></tr>
+<tr><td><code>D</code></td><td>다이오드</td><td><code>D</code></td><td>1N4148</td><td class="pins">1:K 2:A</td><td><code>D</code> 다이오드(쇼클리)<br><small>is=2.52e-9, n=1.752</small><br><small>모델 핀 순서: 2,1</small></td><td class="fps"><code>D_SOD-123</code><br><code>D_DO-41_P10.16mm</code></td></tr>
+<tr><td><code>D_SCHOTTKY</code></td><td>쇼트키 다이오드</td><td><code>D</code></td><td>BAT54</td><td class="pins">1:K 2:A</td><td><code>D</code> 다이오드(쇼클리)<br><small>is=3e-7, n=1.05</small><br><small>모델 핀 순서: 2,1</small></td><td class="fps"><code>D_SOD-123</code></td></tr>
+<tr><td><code>D_ZENER</code></td><td>제너 다이오드</td><td><code>D</code></td><td>5V1</td><td class="pins">1:K 2:A</td><td><code>D</code> 다이오드(쇼클리)<br><small>is=1e-12, n=1.5, bv=5.1</small><br><small>모델 핀 순서: 2,1</small></td><td class="fps"><code>D_SOD-123</code></td></tr>
+<tr><td><code>LED</code></td><td>LED</td><td><code>D</code></td><td>Red</td><td class="pins">1:K 2:A</td><td><code>D</code> 다이오드(쇼클리) — LED: 직렬 저항 rs=10 Ω 자동<br><small>is=1e-19, n=1.8</small><br><small>모델 핀 순서: 2,1</small></td><td class="fps"><code>LED_0805</code><br><code>LED_D5.0mm</code><br><code>LED_D3.0mm</code></td></tr>
+<tr class="group"><td colspan="7">트랜지스터 (Transistor)</td></tr>
+<tr><td><code>Q_NPN</code></td><td>NPN 트랜지스터</td><td><code>Q</code></td><td>2N3904</td><td class="pins">2:B(input) 3:C 1:E</td><td><code>NPN</code> NPN (Ebers-Moll)<br><small>is=6.7e-15, bf=200, br=2</small><br><small>모델 핀 순서: 3,2,1</small></td><td class="fps"><code>TO-92_Inline</code><br><code>SOT-23_Q</code></td></tr>
+<tr><td><code>Q_PNP</code></td><td>PNP 트랜지스터</td><td><code>Q</code></td><td>2N3906</td><td class="pins">2:B(input) 3:C 1:E</td><td><code>PNP</code> PNP (Ebers-Moll)<br><small>is=6.7e-15, bf=200, br=2</small><br><small>모델 핀 순서: 3,2,1</small></td><td class="fps"><code>TO-92_Inline</code><br><code>SOT-23_Q</code></td></tr>
+<tr><td><code>Q_NMOS</code></td><td>N채널 MOSFET</td><td><code>Q</code></td><td>2N7000</td><td class="pins">2:G(input) 3:D 1:S</td><td><code>NMOS</code> NMOS (제곱 법칙)<br><small>vt=2.1, k=0.1</small><br><small>모델 핀 순서: 3,2,1</small></td><td class="fps"><code>TO-92_Inline</code><br><code>SOT-23_Q</code></td></tr>
+<tr><td><code>Q_PMOS</code></td><td>P채널 MOSFET</td><td><code>Q</code></td><td>PMOS</td><td class="pins">2:G(input) 3:D 1:S</td><td><code>PMOS</code> PMOS (제곱 법칙)<br><small>vt=2, k=0.1</small><br><small>모델 핀 순서: 3,2,1</small></td><td class="fps"><code>TO-92_Inline</code><br><code>SOT-23_Q</code></td></tr>
+<tr class="group"><td colspan="7">시뮬레이션 (Simulation)</td></tr>
+<tr><td><code>VSOURCE</code></td><td>전압원</td><td><code>V</code></td><td>5</td><td class="pins">1:+(power_out) 2:-(power_out)</td><td><code>V</code> 전압원<br><small>모델 핀 순서: 1,2</small><br><small>기본 필드: wave=dc, amplitude=1, freq=1k, offset=0, period=1m, duty=50</small></td><td class="fps"><code>PinHeader_1x02_P2.54mm</code></td></tr>
+<tr><td><code>ISOURCE</code></td><td>전류원</td><td><code>I</code></td><td>1m</td><td class="pins">1:+(power_out) 2:-(power_out)</td><td><code>I</code> 전류원<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>PinHeader_1x02_P2.54mm</code></td></tr>
+<tr><td><code>OPAMP</code></td><td>연산 증폭기</td><td><code>U</code></td><td>OPAMP</td><td class="pins">3:+(input) 2:-(input) 1(output) 7:V+(power_in) 4:V-(power_in)</td><td><code>OPAMP</code> 연산 증폭기 (고이득 VCVS, 레일 제한)<br><small>gain=100000</small><br><small>모델 핀 순서: 3,2,1,7,4</small></td><td class="fps"><code>DIP-8_W7.62mm</code><br><code>SOIC-8_3.9x4.9mm</code></td></tr>
+<tr class="group"><td colspan="7">전원 (Power)</td></tr>
+<tr><td><code>BATTERY</code></td><td>배터리</td><td><code>BT</code></td><td>9</td><td class="pins">1:+(power_out) 2:-(power_out)</td><td><code>V</code> 전압원<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>PinHeader_1x02_P2.54mm</code></td></tr>
+<tr><td><code>GND</code></td><td>접지</td><td><code>#PWR</code></td><td>GND</td><td class="pins">1:GND(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps">—</td></tr>
+<tr><td><code>VCC</code></td><td>전원 VCC</td><td><code>#PWR</code></td><td>VCC</td><td class="pins">1:VCC(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps">—</td></tr>
+<tr><td><code>+5V</code></td><td>전원 +5V</td><td><code>#PWR</code></td><td>+5V</td><td class="pins">1:+5V(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps">—</td></tr>
+<tr><td><code>+3V3</code></td><td>전원 +3V3</td><td><code>#PWR</code></td><td>+3V3</td><td class="pins">1:+3V3(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps">—</td></tr>
+<tr><td><code>+12V</code></td><td>전원 +12V</td><td><code>#PWR</code></td><td>+12V</td><td class="pins">1:+12V(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps">—</td></tr>
+<tr><td><code>VBAT</code></td><td>전원 VBAT</td><td><code>#PWR</code></td><td>VBAT</td><td class="pins">1:VBAT(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps">—</td></tr>
+<tr><td><code>-12V</code></td><td>전원 -12V</td><td><code>#PWR</code></td><td>-12V</td><td class="pins">1:-12V(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps">—</td></tr>
+<tr><td><code>PWR_FLAG</code></td><td>전원 플래그</td><td><code>#FLG</code></td><td>PWR_FLAG</td><td class="pins">1:pwr(power_out)</td><td>— (시뮬레이션에서 제외)</td><td class="fps">—</td></tr>
+<tr><td><code>LM7805</code></td><td>5V 선형 레귤레이터</td><td><code>U</code></td><td>LM7805</td><td class="pins">1:VI(power_in) 3:VO(power_out) 2:GND(power_in)</td><td><code>REG</code> 선형 레귤레이터<br><small>vout=5, dropout=2</small><br><small>모델 핀 순서: 1,3,2</small></td><td class="fps"><code>TO-220-3_Vertical</code></td></tr>
+<tr><td><code>AMS1117-3.3</code></td><td>3.3V LDO 레귤레이터</td><td><code>U</code></td><td>AMS1117-3.3</td><td class="pins">3:VI(power_in) 2:VO(power_out) 1:GND(power_in)</td><td><code>REG</code> 선형 레귤레이터<br><small>vout=3.3, dropout=1.1</small><br><small>모델 핀 순서: 3,2,1</small></td><td class="fps"><code>SOT-223-3</code></td></tr>
+<tr class="group"><td colspan="7">스위치 (Switch)</td></tr>
+<tr><td><code>SW_PUSH</code></td><td>푸시 버튼</td><td><code>SW</code></td><td>SW_Push</td><td class="pins">1 2</td><td><code>SW</code> 스위치 (닫힘 0.01 Ω / 열림 1 GΩ)<br><small>모델 핀 순서: 1,2</small><br><small>기본 필드: state=open</small></td><td class="fps"><code>SW_PUSH_6mm</code></td></tr>
+<tr><td><code>SW_SPST</code></td><td>토글 스위치</td><td><code>SW</code></td><td>SW_SPST</td><td class="pins">1 2</td><td><code>SW</code> 스위치 (닫힘 0.01 Ω / 열림 1 GΩ)<br><small>모델 핀 순서: 1,2</small><br><small>기본 필드: state=closed</small></td><td class="fps"><code>PinHeader_1x02_P2.54mm</code></td></tr>
+<tr class="group"><td colspan="7">기타 (Misc)</td></tr>
+<tr><td><code>BUZZER</code></td><td>부저</td><td><code>BZ</code></td><td>Buzzer</td><td class="pins">1:+ 2:-</td><td><code>R</code> 저항 — 값과 무관하게 고정 42 Ω<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>Buzzer_12mm</code></td></tr>
+<tr><td><code>MOTOR</code></td><td>DC 모터</td><td><code>M</code></td><td>Motor</td><td class="pins">1 2</td><td><code>R</code> 저항 — 값과 무관하게 고정 20 Ω<br><small>모델 핀 순서: 1,2</small></td><td class="fps"><code>PinHeader_1x02_P2.54mm</code></td></tr>
+<tr><td><code>TESTPOINT</code></td><td>테스트 포인트</td><td><code>TP</code></td><td>TP</td><td class="pins">1</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>TestPoint_Pad_D1.5mm</code></td></tr>
+<tr class="group"><td colspan="7">기구 (Mechanical)</td></tr>
+<tr><td><code>MOUNTING_HOLE</code></td><td>마운팅 홀</td><td><code>H</code></td><td>MountingHole</td><td class="pins">—</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>MountingHole_3.2mm</code></td></tr>
+<tr class="group"><td colspan="7">커넥터 (Connector)</td></tr>
+<tr><td><code>Conn_01x01</code></td><td>커넥터 1×1</td><td><code>J</code></td><td>Conn_01x01</td><td class="pins">1:Pin_1</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x01_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x02</code></td><td>커넥터 1×2</td><td><code>J</code></td><td>Conn_01x02</td><td class="pins">1:Pin_1 2:Pin_2</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x02_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x03</code></td><td>커넥터 1×3</td><td><code>J</code></td><td>Conn_01x03</td><td class="pins">1:Pin_1 2:Pin_2 3:Pin_3</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x03_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x04</code></td><td>커넥터 1×4</td><td><code>J</code></td><td>Conn_01x04</td><td class="pins">1:Pin_1 2:Pin_2 3:Pin_3 4:Pin_4</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x04_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x05</code></td><td>커넥터 1×5</td><td><code>J</code></td><td>Conn_01x05</td><td class="pins">1:Pin_1 2:Pin_2 3:Pin_3 4:Pin_4 5:Pin_5</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x05_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x06</code></td><td>커넥터 1×6</td><td><code>J</code></td><td>Conn_01x06</td><td class="pins">1:Pin_1 2:Pin_2 3:Pin_3 4:Pin_4 5:Pin_5 6:Pin_6</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x06_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x07</code></td><td>커넥터 1×7</td><td><code>J</code></td><td>Conn_01x07</td><td class="pins">1:Pin_1 2:Pin_2 3:Pin_3 4:Pin_4 5:Pin_5 6:Pin_6 7:Pin_7</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x07_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x08</code></td><td>커넥터 1×8</td><td><code>J</code></td><td>Conn_01x08</td><td class="pins">1:Pin_1 2:Pin_2 3:Pin_3 4:Pin_4 5:Pin_5 6:Pin_6 7:Pin_7 8:Pin_8</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x08_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x09</code></td><td>커넥터 1×9</td><td><code>J</code></td><td>Conn_01x09</td><td class="pins">1:Pin_1 2:Pin_2 3:Pin_3 4:Pin_4 5:Pin_5 6:Pin_6 7:Pin_7 8:Pin_8 9:Pin_9</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x09_P2.54mm</code></td></tr>
+<tr><td><code>Conn_01x10</code></td><td>커넥터 1×10</td><td><code>J</code></td><td>Conn_01x10</td><td class="pins">1:Pin_1 2:Pin_2 3:Pin_3 4:Pin_4 5:Pin_5 6:Pin_6 7:Pin_7 8:Pin_8 9:Pin_9 10:Pin_10</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_1x10_P2.54mm</code></td></tr>
+<tr><td><code>Conn_02x02</code></td><td>커넥터 2×2</td><td><code>J</code></td><td>Conn_02x02</td><td class="pins">1:Pin_1 3:Pin_3 2:Pin_2 4:Pin_4</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_2x02_P2.54mm</code></td></tr>
+<tr><td><code>Conn_02x03</code></td><td>커넥터 2×3</td><td><code>J</code></td><td>Conn_02x03</td><td class="pins">1:Pin_1 3:Pin_3 5:Pin_5 2:Pin_2 4:Pin_4 6:Pin_6</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_2x03_P2.54mm</code></td></tr>
+<tr><td><code>Conn_02x04</code></td><td>커넥터 2×4</td><td><code>J</code></td><td>Conn_02x04</td><td class="pins">1:Pin_1 3:Pin_3 5:Pin_5 7:Pin_7 2:Pin_2 4:Pin_4 6:Pin_6 8:Pin_8</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_2x04_P2.54mm</code></td></tr>
+<tr><td><code>Conn_02x05</code></td><td>커넥터 2×5</td><td><code>J</code></td><td>Conn_02x05</td><td class="pins">1:Pin_1 3:Pin_3 5:Pin_5 7:Pin_7 9:Pin_9 2:Pin_2 4:Pin_4 6:Pin_6 8:Pin_8 10:Pin_10</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_2x05_P2.54mm</code></td></tr>
+<tr><td><code>Conn_02x08</code></td><td>커넥터 2×8</td><td><code>J</code></td><td>Conn_02x08</td><td class="pins">1:Pin_1 3:Pin_3 5:Pin_5 7:Pin_7 9:Pin_9 11:Pin_11 13:Pin_13 15:Pin_15 2:Pin_2 4:Pin_4 6:Pin_6 8:Pin_8 10:Pin_10 12:Pin_12 14:Pin_14 16:Pin_16</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>PinHeader_2x08_P2.54mm</code></td></tr>
+<tr><td><code>USB_B_Micro</code></td><td>Micro USB 커넥터</td><td><code>J</code></td><td>USB_B_Micro</td><td class="pins">1:VBUS(power_out) 2:D-(bidir) 3:D+(bidir) 4:ID 5:GND(power_out)</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>USB_Micro-B</code></td></tr>
+<tr class="group"><td colspan="7">IC (IC)</td></tr>
+<tr><td><code>NE555</code></td><td>NE555 타이머</td><td><code>U</code></td><td>NE555</td><td class="pins">2:TR(input) 6:THR(input) 5:CV(input) 4:R(input) 3:Q(output) 7:DIS(open_collector) 8:VCC(power_in) 1:GND(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>DIP-8_W7.62mm</code><br><code>SOIC-8_3.9x4.9mm</code></td></tr>
+<tr><td><code>LM358</code></td><td>듀얼 연산 증폭기</td><td><code>U</code></td><td>LM358</td><td class="pins">3:+IN_A(input) 2:-IN_A(input) 5:+IN_B(input) 6:-IN_B(input) 1:OUT_A(output) 7:OUT_B(output) 8:V+(power_in) 4:V-(power_in)</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>DIP-8_W7.62mm</code><br><code>SOIC-8_3.9x4.9mm</code></td></tr>
+<tr><td><code>LM358_DUAL</code></td><td>듀얼 연산증폭기 (유닛 2개 + 전원)</td><td><code>U</code></td><td>LM358</td><td class="pins">3:+(input) 2:-(input) 1(output) 5:+(input) 6:-(input) 7(output) 8:V+(power_in) 4:V-(power_in)<br><small>유닛: A, B, C</small></td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>DIP-8_W7.62mm</code><br><code>SOIC-8_3.9x4.9mm</code></td></tr>
+<tr class="group"><td colspan="7">MCU (MCU)</td></tr>
+<tr><td><code>ATmega328P</code></td><td>ATmega328P MCU</td><td><code>U</code></td><td>ATmega328P-PU</td><td class="pins">1:~RESET~/PC6(input) 9:XTAL1/PB6(bidir) 10:XTAL2/PB7(bidir) 7:VCC(power_in) 20:AVCC(power_in) 21:AREF 8:GND(power_in) 22:GND(power_in) 2:PD0/RXD(bidir) 3:PD1/TXD(bidir) 4:PD2(bidir) 5:PD3(bidir) 6:PD4(bidir) 11:PD5(bidir) 12:PD6(bidir) 13:PD7(bidir) 14:PB0(bidir) 15:PB1(bidir) 16:PB2(bidir) 17:PB3/MOSI(bidir) 18:PB4/MISO(bidir) 19:PB5/SCK(bidir) 23:PC0(bidir) 24:PC1(bidir) 25:PC2(bidir) 26:PC3(bidir) 27:PC4/SDA(bidir) 28:PC5/SCL(bidir)</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>DIP-28_W7.62mm</code></td></tr>
+<tr><td><code>ATtiny85</code></td><td>ATtiny85 MCU</td><td><code>U</code></td><td>ATtiny85-20PU</td><td class="pins">1:PB5/~RESET~(bidir) 2:PB3(bidir) 3:PB4(bidir) 4:GND(power_in) 8:VCC(power_in) 7:PB2/SCK(bidir) 6:PB1/MISO(bidir) 5:PB0/MOSI(bidir)</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>DIP-8_W7.62mm</code><br><code>SOIC-8_3.9x4.9mm</code></td></tr>
+<tr class="group"><td colspan="7">로직 (Logic)</td></tr>
+<tr><td><code>74HC595</code></td><td>8비트 시프트 레지스터</td><td><code>U</code></td><td>74HC595</td><td class="pins">14:SER(input) 11:SRCLK(input) 12:RCLK(input) 10:~SRCLR~(input) 13:~OE~(input) 16:VCC(power_in) 8:GND(power_in) 15:QA(tristate) 1:QB(tristate) 2:QC(tristate) 3:QD(tristate) 4:QE(tristate) 5:QF(tristate) 6:QG(tristate) 7:QH(tristate) 9:QH'(output)</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>DIP-16_W7.62mm</code><br><code>SOIC-16_3.9x9.9mm</code></td></tr>
+<tr><td><code>74HC00</code></td><td>2입력 NAND 4회로 (게이트 4개 + 전원)</td><td><code>U</code></td><td>74HC00</td><td class="pins">1(input) 2(input) 3(output) 4(input) 5(input) 6(output) 9(input) 10(input) 8(output) 12(input) 13(input) 11(output) 14:VCC(power_in) 7:GND(power_in)<br><small>유닛: A, B, C, D, E</small></td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>DIP-14_W7.62mm</code></td></tr>
+<tr class="group"><td colspan="7">인터페이스 (Interface)</td></tr>
+<tr><td><code>CH340G</code></td><td>USB-UART 브리지</td><td><code>U</code></td><td>CH340G</td><td class="pins">5:UD+(bidir) 6:UD-(bidir) 9:XI(input) 10:XO(output) 16:VCC(power_in) 4:V3 1:GND(power_in) 2:TXD(output) 3:RXD(input) 13:~DTR~(output) 14:~RTS~(output) 11:~CTS~(input) 12:~DSR~(input) 15:R232(input) 7:~RI~(input) 8:~DCD~(input)</td><td>— (시뮬레이션에서 제외)</td><td class="fps"><code>SOIC-16_3.9x9.9mm</code></td></tr>
+</tbody></table></div>
+
+<h3 id="ch6-3"><span class="num">6.3</span>내장 풋프린트 목록</h3>
+<p>내장 풋프린트는 56개입니다. 패드의 레이어 표기는 <code>F</code>(윗면 SMD), <code>*</code>(스루홀, 모든 구리 레이어), <code>B</code>(풋프린트의 <b>반대쪽 면</b> SMD — 기판 가장자리에 끼우는 커넥터처럼 양면에 패드가 있는 부품용; KiCad에서 가져온 풋프린트나 사용자 풋프린트에서 쓰임)입니다. 단위는 mm이며, 코트야드는 부품이 차지하는 금지 영역(DRC의 코트야드 겹침 검사와 배치에 사용)의 크기입니다. 모든 풋프린트에는 3D 모델이 연결되어 있습니다.</p>
+<div class="table-wrap"><table class="lib">
+<thead><tr><th>이름</th><th>설명</th><th>실장</th><th>패드 수</th><th>드릴</th><th>코트야드 (mm)</th></tr></thead>
+<tbody>
+<tr class="group"><td colspan="6">SMD 칩</td></tr>
+<tr><td><code>R_1206</code></td><td>저항 1206 (3.2×1.60 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">4.65×2.70</td></tr>
+<tr><td><code>C_1206</code></td><td>커패시터 1206 (3.2×1.60 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">4.65×2.70</td></tr>
+<tr><td><code>L_1206</code></td><td>인덕터 1206 (3.2×1.60 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">4.65×2.70</td></tr>
+<tr><td><code>Fuse_1206</code></td><td>퓨즈 1206 (3.2×1.60 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">4.65×2.70</td></tr>
+<tr><td><code>R_0402</code></td><td>저항 0402 (1.0×0.50 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">2.10×1.10</td></tr>
+<tr><td><code>C_0402</code></td><td>커패시터 0402 (1.0×0.50 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">2.10×1.10</td></tr>
+<tr><td><code>R_0603</code></td><td>저항 0603 (1.6×0.80 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">3.00×1.85</td></tr>
+<tr><td><code>C_0603</code></td><td>커패시터 0603 (1.6×0.80 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">3.00×1.85</td></tr>
+<tr><td><code>LED_0603</code></td><td>LED 0603 (1.6×0.80 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">3.00×1.85</td></tr>
+<tr><td><code>R_0805</code></td><td>저항 0805 (2.0×1.25 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">3.40×2.35</td></tr>
+<tr><td><code>C_0805</code></td><td>커패시터 0805 (2.0×1.25 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">3.40×2.35</td></tr>
+<tr><td><code>L_0805</code></td><td>인덕터 0805 (2.0×1.25 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">3.40×2.35</td></tr>
+<tr><td><code>LED_0805</code></td><td>LED 0805 (2.0×1.25 mm) SMD</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">3.40×2.35</td></tr>
+<tr class="group"><td colspan="6">축방향(Axial)</td></tr>
+<tr><td><code>R_Axial_P7.62mm</code></td><td>축방향 저항 DIN0204, 피치 7.62 mm</td><td>THT</td><td class="num">2</td><td class="num">0.8 mm</td><td class="num">9.72×2.10</td></tr>
+<tr><td><code>R_Axial_P10.16mm</code></td><td>축방향 저항 DIN0207, 피치 10.16 mm</td><td>THT</td><td class="num">2</td><td class="num">0.8 mm</td><td class="num">12.26×3.00</td></tr>
+<tr><td><code>D_DO-41_P10.16mm</code></td><td>다이오드 DO-41, 피치 10.16 mm</td><td>THT</td><td class="num">2</td><td class="num">1.1 mm</td><td class="num">12.86×3.30</td></tr>
+<tr class="group"><td colspan="6">방사형(Radial)</td></tr>
+<tr><td><code>CP_Radial_D5.0mm_P2.00mm</code></td><td>전해 커패시터 D5 mm, 피치 2 mm</td><td>THT</td><td class="num">2</td><td class="num">0.8 mm</td><td class="num">6.82×5.92</td></tr>
+<tr><td><code>CP_Radial_D8.0mm_P3.50mm</code></td><td>전해 커패시터 D8 mm, 피치 3.5 mm</td><td>THT</td><td class="num">2</td><td class="num">0.8 mm</td><td class="num">9.82×8.92</td></tr>
+<tr><td><code>C_Disc_D5.0mm_P5.00mm</code></td><td>세라믹 디스크 커패시터 D5 mm, 피치 5 mm</td><td>THT</td><td class="num">2</td><td class="num">0.8 mm</td><td class="num">7.10×3.50</td></tr>
+<tr class="group"><td colspan="6">LED</td></tr>
+<tr><td><code>LED_D3.0mm</code></td><td>LED 3 mm 원형 THT</td><td>THT</td><td class="num">2</td><td class="num">0.9 mm</td><td class="num">5.70×5.70</td></tr>
+<tr><td><code>LED_D5.0mm</code></td><td>LED 5 mm 원형 THT</td><td>THT</td><td class="num">2</td><td class="num">0.9 mm</td><td class="num">6.30×6.30</td></tr>
+<tr class="group"><td colspan="6">크리스탈</td></tr>
+<tr><td><code>Crystal_HC49-U</code></td><td>크리스탈 HC-49/U, 피치 4.88 mm</td><td>THT</td><td class="num">2</td><td class="num">0.8 mm</td><td class="num">12.00×5.10</td></tr>
+<tr class="group"><td colspan="6">가변 저항</td></tr>
+<tr><td><code>Potentiometer_3386P</code></td><td>트리머 가변 저항 Bourns 3386P</td><td>THT</td><td class="num">3</td><td class="num">0.9 mm</td><td class="num">10.20×7.90</td></tr>
+<tr class="group"><td colspan="6">기타</td></tr>
+<tr><td><code>Buzzer_12mm</code></td><td>압전 부저 12 mm, 피치 7.6 mm</td><td>THT</td><td class="num">2</td><td class="num">1 mm</td><td class="num">12.70×12.70</td></tr>
+<tr><td><code>TestPoint_Pad_D1.5mm</code></td><td>테스트 포인트 패드 Ø1.5 mm</td><td>SMD</td><td class="num">1</td><td class="num">—</td><td class="num">2.50×2.50</td></tr>
+<tr class="group"><td colspan="6">스위치</td></tr>
+<tr><td><code>SW_PUSH_6mm</code></td><td>택트 스위치 6×6 mm THT</td><td>THT</td><td class="num">4</td><td class="num">1.1 mm</td><td class="num">9.00×7.00</td></tr>
+<tr class="group"><td colspan="6">기구</td></tr>
+<tr><td><code>MountingHole_3.2mm</code></td><td>마운팅 홀 M3 (3.2 mm, NPTH)</td><td>THT</td><td class="num">1</td><td class="num">3.2 mm</td><td class="num">6.50×6.50</td></tr>
+<tr class="group"><td colspan="6">커넥터</td></tr>
+<tr><td><code>PinHeader_1x01_P2.54mm</code></td><td>핀 헤더 1×1, 2.54 mm</td><td>THT</td><td class="num">1</td><td class="num">1 mm</td><td class="num">3.16×3.16</td></tr>
+<tr><td><code>PinHeader_1x02_P2.54mm</code></td><td>핀 헤더 1×2, 2.54 mm</td><td>THT</td><td class="num">2</td><td class="num">1 mm</td><td class="num">3.16×5.70</td></tr>
+<tr><td><code>PinHeader_1x03_P2.54mm</code></td><td>핀 헤더 1×3, 2.54 mm</td><td>THT</td><td class="num">3</td><td class="num">1 mm</td><td class="num">3.16×8.24</td></tr>
+<tr><td><code>PinHeader_1x04_P2.54mm</code></td><td>핀 헤더 1×4, 2.54 mm</td><td>THT</td><td class="num">4</td><td class="num">1 mm</td><td class="num">3.16×10.78</td></tr>
+<tr><td><code>PinHeader_1x05_P2.54mm</code></td><td>핀 헤더 1×5, 2.54 mm</td><td>THT</td><td class="num">5</td><td class="num">1 mm</td><td class="num">3.16×13.32</td></tr>
+<tr><td><code>PinHeader_1x06_P2.54mm</code></td><td>핀 헤더 1×6, 2.54 mm</td><td>THT</td><td class="num">6</td><td class="num">1 mm</td><td class="num">3.16×15.86</td></tr>
+<tr><td><code>PinHeader_1x07_P2.54mm</code></td><td>핀 헤더 1×7, 2.54 mm</td><td>THT</td><td class="num">7</td><td class="num">1 mm</td><td class="num">3.16×18.40</td></tr>
+<tr><td><code>PinHeader_1x08_P2.54mm</code></td><td>핀 헤더 1×8, 2.54 mm</td><td>THT</td><td class="num">8</td><td class="num">1 mm</td><td class="num">3.16×20.94</td></tr>
+<tr><td><code>PinHeader_1x09_P2.54mm</code></td><td>핀 헤더 1×9, 2.54 mm</td><td>THT</td><td class="num">9</td><td class="num">1 mm</td><td class="num">3.16×23.48</td></tr>
+<tr><td><code>PinHeader_1x10_P2.54mm</code></td><td>핀 헤더 1×10, 2.54 mm</td><td>THT</td><td class="num">10</td><td class="num">1 mm</td><td class="num">3.16×26.02</td></tr>
+<tr><td><code>PinHeader_2x02_P2.54mm</code></td><td>핀 헤더 2×2, 2.54 mm</td><td>THT</td><td class="num">4</td><td class="num">1 mm</td><td class="num">5.70×5.70</td></tr>
+<tr><td><code>PinHeader_2x03_P2.54mm</code></td><td>핀 헤더 2×3, 2.54 mm</td><td>THT</td><td class="num">6</td><td class="num">1 mm</td><td class="num">5.70×8.24</td></tr>
+<tr><td><code>PinHeader_2x04_P2.54mm</code></td><td>핀 헤더 2×4, 2.54 mm</td><td>THT</td><td class="num">8</td><td class="num">1 mm</td><td class="num">5.70×10.78</td></tr>
+<tr><td><code>PinHeader_2x05_P2.54mm</code></td><td>핀 헤더 2×5, 2.54 mm</td><td>THT</td><td class="num">10</td><td class="num">1 mm</td><td class="num">5.70×13.32</td></tr>
+<tr><td><code>PinHeader_2x08_P2.54mm</code></td><td>핀 헤더 2×8, 2.54 mm</td><td>THT</td><td class="num">16</td><td class="num">1 mm</td><td class="num">5.70×20.94</td></tr>
+<tr><td><code>USB_Micro-B</code></td><td>USB Micro-B 리셉터클 (SMD)</td><td>SMD</td><td class="num">9</td><td class="num">—</td><td class="num">8.80×5.47</td></tr>
+<tr class="group"><td colspan="6">DIP</td></tr>
+<tr><td><code>DIP-8_W7.62mm</code></td><td>DIP-8, 7.62 mm 열 간격</td><td>THT</td><td class="num">8</td><td class="num">0.8 mm</td><td class="num">9.72×11.78</td></tr>
+<tr><td><code>DIP-14_W7.62mm</code></td><td>DIP-14, 7.62 mm 열 간격</td><td>THT</td><td class="num">14</td><td class="num">0.8 mm</td><td class="num">9.72×19.40</td></tr>
+<tr><td><code>DIP-16_W7.62mm</code></td><td>DIP-16, 7.62 mm 열 간격</td><td>THT</td><td class="num">16</td><td class="num">0.8 mm</td><td class="num">9.72×21.94</td></tr>
+<tr><td><code>DIP-28_W7.62mm</code></td><td>DIP-28, 7.62 mm 열 간격</td><td>THT</td><td class="num">28</td><td class="num">0.8 mm</td><td class="num">9.72×37.18</td></tr>
+<tr class="group"><td colspan="6">SOIC</td></tr>
+<tr><td><code>SOIC-8_3.9x4.9mm</code></td><td>SOIC-8, 3.9×4.9 mm, 1.27 mm 피치</td><td>SMD</td><td class="num">8</td><td class="num">—</td><td class="num">7.47×5.60</td></tr>
+<tr><td><code>SOIC-16_3.9x9.9mm</code></td><td>SOIC-16, 3.9×9.9 mm, 1.27 mm 피치</td><td>SMD</td><td class="num">16</td><td class="num">—</td><td class="num">7.47×10.60</td></tr>
+<tr class="group"><td colspan="6">QFP</td></tr>
+<tr><td><code>TQFP-32_7x7mm_P0.8mm</code></td><td>TQFP-32, 7×7 mm, 0.8 mm 피치</td><td>SMD</td><td class="num">32</td><td class="num">—</td><td class="num">10.50×10.50</td></tr>
+<tr class="group"><td colspan="6">SOT</td></tr>
+<tr><td><code>SOT-23</code></td><td>SOT-23 (3핀)</td><td>SMD</td><td class="num">3</td><td class="num">—</td><td class="num">3.54×3.70</td></tr>
+<tr><td><code>SOT-23_Q</code></td><td>SOT-23 트랜지스터 (pad 1 = B/G, 2 = E/S, 3 = C/D)</td><td>SMD</td><td class="num">3</td><td class="num">—</td><td class="num">3.54×3.70</td></tr>
+<tr><td><code>SOT-223-3</code></td><td>SOT-223 (3핀 + 탭)</td><td>SMD</td><td class="num">4</td><td class="num">—</td><td class="num">8.80×7.20</td></tr>
+<tr class="group"><td colspan="6">다이오드</td></tr>
+<tr><td><code>D_SOD-123</code></td><td>다이오드 SOD-123</td><td>SMD</td><td class="num">2</td><td class="num">—</td><td class="num">4.95×2.50</td></tr>
+<tr class="group"><td colspan="6">TO</td></tr>
+<tr><td><code>TO-92_Inline</code></td><td>TO-92 일렬, 1.27 mm 피치</td><td>THT</td><td class="num">3</td><td class="num">0.6 mm</td><td class="num">5.70×5.70</td></tr>
+<tr><td><code>TO-220-3_Vertical</code></td><td>TO-220-3 수직, 2.54 mm 피치</td><td>THT</td><td class="num">3</td><td class="num">1.1 mm</td><td class="num">10.50×4.90</td></tr>
+</tbody></table></div>
+
+<h3 id="ch6-4"><span class="num">6.4</span>핀 번호와 패드의 대응</h3>
+<p>심볼의 핀 번호는 같은 번호의 풋프린트 패드에 연결됩니다. 다이오드와 LED는 1번이 캐소드(K), 2번이 애노드(A)이며, 스루홀 풋프린트에서 사각형 패드가 1번(캐소드)입니다.</p>
+<div class="callout note"><p><b>트랜지스터 핀 번호</b> — 내장 트랜지스터 심볼은 흔한 TO-92 부품의 핀 순서를 따릅니다: <code>Q_NPN</code>/<code>Q_PNP</code>는 1 = E, 2 = B, 3 = C(2N3904/2N3906의 E-B-C), <code>Q_NMOS</code>/<code>Q_PMOS</code>는 1 = S, 2 = G, 3 = D(2N7000의 S-G-D)입니다. SMD용 <code>SOT-23_Q</code> 풋프린트는 물리적 1번 패드에 B/G(번호 "2"), 2번 패드에 E/S(번호 "1"), 3번 패드에 C/D를 두어 SOT-23 트랜지스터와 바르게 연결됩니다(일반 <code>SOT-23</code>은 번호가 패드 위치 그대로). 핀 순서가 다른 부품(예: BS170/BS250은 D-G-S)은 데이터시트를 확인하고 필요하면 심볼 편집기로 핀 번호를 맞춘 사용자 심볼을 만드세요.</p></div>
+
+<h3 id="ch6-5"><span class="num">6.5</span>심볼 편집기</h3>
+<p><span class="menu">도구 → 심볼 편집기…</span>(또는 라이브러리 패널 머리글의 아이콘)는 핀 표로 IC 같은 상자형 심볼을 만듭니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-symbol-editor.webp" alt="심볼 편집기" loading="lazy"><figcaption>그림 6-1. 심볼 편집기 — 왼쪽 핀 표, 오른쪽 실시간 미리 보기</figcaption></figure>
+<ol class="steps">
+<li>위쪽에 심볼 이름(공백은 <code>_</code>로 바뀜), 설명, 분류(라이브러리 패널의 분류 칩이 됨), 참조 번호 접두사, 기본값, 기본 풋프린트를 입력합니다.</li>
+<li>핀 표에서 번호, 이름, 유형(input, output, bidir, tristate, passive, power_in, power_out, open_collector, no_connect, unspecified), 위치(왼쪽/오른쪽/위/아래)를 정합니다. <span class="ui">핀 추가</span>, <span class="ui">핀 4개 추가</span>(왼쪽·오른쪽에 번갈아 추가), <span class="ui">번호순 정렬</span>, 휴지통 버튼(삭제)을 씁니다.</li>
+<li>핀이 많으면 <span class="ui">텍스트에서 일괄 가져오기</span>를 펼치고 한 줄에 하나씩 <code>번호, 이름, 유형, 위치</code>를 붙여 넣은 뒤 <span class="ui">가져오기</span>를 누릅니다(쉼표, 탭, 세미콜론 구분. 유형·위치를 빼면 bidir/왼쪽).</li>
+<li>오른쪽 미리 보기는 입력할 때마다 갱신됩니다. 핀 간격은 100 mil이고, 상자 폭은 가장 긴 핀 이름에 맞춰 커집니다.</li>
+<li><span class="ui">프로젝트에 저장</span>을 누르면 심볼이 프로젝트 파일에 저장되고, 라이브러리에 나타나며, 곧바로 배치 도구가 그 심볼로 시작됩니다.</li>
+</ol>
+<p>내장 심볼과 같은 이름은 쓸 수 없고(“다른 심볼 이름을 정하세요”), 핀 번호가 중복되면 저장되지 않습니다. 이미 만든 사용자 심볼을 고치려면 <span class="ui">기존 파일 열기…</span>로 목록에서 고릅니다. 사용자 심볼에는 시뮬레이션 모델이 없습니다.</p>
+
+<h3 id="ch6-6"><span class="num">6.6</span>풋프린트 마법사</h3>
+<p><span class="menu">도구 → 풋프린트 마법사…</span>는 치수를 입력해 표준 형태의 풋프린트를 만듭니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-fpwizard.webp" alt="풋프린트 마법사" loading="lazy"><figcaption>그림 6-2. 풋프린트 마법사 (SOIC)</figcaption></figure>
+<table>
+<thead><tr><th>패키지 종류</th><th>입력 항목</th><th>만들어지는 것</th></tr></thead>
+<tbody>
+<tr><td>핀 헤더</td><td>열 수(1–2), 열당 핀 수(최대 40), 피치</td><td>스루홀 1.7 mm 패드/1.0 mm 드릴, 1번 사각형</td></tr>
+<tr><td>DIP</td><td>핀 수(짝수, 4–64), 열 간격</td><td>2.54 mm 피치 스루홀 1.6 mm 패드/0.8 mm 드릴</td></tr>
+<tr><td>SOIC / SOP</td><td>핀 수(짝수, 4–64), 피치, 패드 열 간격</td><td>SMD 1.55 mm × (피치×0.47) 패드</td></tr>
+<tr><td>QFP</td><td>변당 핀 수(2–40), 피치, 몸체 크기</td><td>네 변 SMD 패드</td></tr>
+<tr><td>2패드 칩 (R/C/L)</td><td>길이, 폭</td><td>SMD 두 패드</td></tr>
+<tr><td>사용자 패드</td><td>3D 몸체 높이, 패드 표(번호, 모양: 사각형/둥근 사각형/원/타원, X, Y, W, H, 드릴), <span class="ui">패드 추가</span></td><td>표에 적은 그대로의 패드. 드릴이 0이면 윗면 SMD 패드, 드릴 값이 있으면 도금 관통 홀 패드. 실크 외곽선과 코트야드는 패드를 0.5 mm 감싸도록 자동 생성, 3D는 상자 모델</td></tr>
+</tbody>
+</table>
+<p>미리 보기 아래에 패드 수와 코트야드 크기가 표시됩니다. <span class="ui">프로젝트에 저장</span>하면 프로젝트 파일에 들어가며, 같은 이름이 있으면 덮어씁니다. 만든 풋프린트는 풋프린트 지정 창과 부품 속성의 풋프린트 칸에서 이름으로 고를 수 있습니다.</p>
+
+<h3 id="ch6-7"><span class="num">6.7</span>프로젝트 로컬 라이브러리</h3>
+<p>심볼 편집기와 풋프린트 마법사로 만든 부품은 <code>.mycircuit</code> 파일의 <code>library</code> 항목에 저장됩니다. 따라서 파일만 있으면 다른 컴퓨터에서도 그대로 열립니다. 대신 다른 프로젝트에서 쓰려면 그 프로젝트에서 다시 만들어야 합니다(또는 부품을 복사해 붙여 넣은 뒤 같은 심볼을 만드세요). 예제 <a href="#ch15">“사용자 심볼과 풋프린트”</a>가 이 기능을 보여 줍니다.</p>
+<figure><img width="1532" height="900" src="images/ko-sch-custom.webp" alt="사용자 라이브러리" loading="lazy"><figcaption>그림 6-3. 프로젝트 전용 심볼(BME280 모듈)을 쓴 회로도</figcaption></figure>
+
+<h3 id="ch6-8"><span class="num">6.8</span>풋프린트 지정 대화상자</h3>
+<p><span class="menu">도구 → 풋프린트 지정…</span>은 모든 부품의 풋프린트를 한 화면에서 정합니다. 왼쪽 표(참조 번호, 값, 심볼, 풋프린트)에서 부품을 클릭하고, 오른쪽의 필터 칸으로 풋프린트를 찾아 클릭합니다. ★가 붙은 풋프린트는 심볼이 추천하는 것으로 목록 맨 위에 옵니다. 마우스를 올리면 아래에 패드가 미리 보입니다. <span class="ui">적용</span>으로 저장하고, <span class="ui">빈 항목에 첫 번째 추천 사용</span>은 비어 있는 부품에 추천 첫 번째를 넣고 저장합니다. 저장 후 “F8을 눌러 PCB를 업데이트하세요.”라는 안내가 나옵니다.</p>
+
+<h2 id="ch7"><span class="num">7</span>PCB 편집기</h2>
+<p>PCB 탭(<kbd>F3</kbd>)에서는 회로도에서 넘어온 풋프린트를 기판 위에 배치하고, 구리 트랙·비아·구리 영역으로 연결합니다.</p>
+<figure><img width="1532" height="900" src="images/ko-pcb-555.webp" alt="PCB 편집기" loading="lazy"><figcaption>그림 7-1. PCB 편집기 (예제 “555 LED 점멸기”, 빨간 솔더 마스크, 뒷면 GND 영역)</figcaption></figure>
+
+<h3 id="ch7-1"><span class="num">7.1</span>단위, 좌표, 그리드</h3>
+<ul>
+<li>PCB의 내부 단위는 <b>mm</b>이고 y축은 아래로 증가합니다. 상태 표시줄은 단위 설정에 따라 mm(소수 3자리) 또는 mil로 표시합니다.</li>
+<li>PCB 그리드 기본값은 0.635 mm(25 mil)입니다. 상태 표시줄 그리드 칸이나 설정에서 0.05 / 0.1 / 0.127 / 0.25 / 0.5 / 0.635 / 1 / 1.27 / 2.54 mm 중에서 고릅니다.</li>
+<li>확대율은 px/mm로 표시되며 0.5~400 px/mm 범위입니다.</li>
+</ul>
+
+<h3 id="ch7-2"><span class="num">7.2</span>회로도에서 PCB 업데이트 (F8)</h3>
+<p><kbd>F8</kbd>, <span class="menu">도구 → 회로도에서 PCB 업데이트</span>, 회로도 도구 모음 버튼, PCB 왼쪽 패널의 <span class="ui">회로도에서 업데이트</span>로 실행합니다. 하는 일은 다음과 같습니다.</p>
+<ol>
+<li>참조 번호가 없는 부품이 있으면 먼저 참조 번호를 부여합니다.</li>
+<li>회로도의 각 부품(전원 심볼·PWR_FLAG 제외)에 대해:
+  <ul><li><b>새 부품</b>: 기판 외곽선 오른쪽 5 mm 바깥에 세로로 줄지어 풋프린트를 추가합니다(높이 40 mm 또는 기판 높이를 넘으면 다음 열).</li>
+  <li><b>이미 있는 부품</b>(부품 ID 또는 참조 번호로 찾음): 위치·회전·면은 그대로 두고 참조 번호, 값, 풋프린트, 패드별 넷을 갱신합니다.</li>
+  <li><b>DNP</b> 부품, 풋프린트가 없거나 라이브러리에 없는 부품은 추가하지 않습니다(알림에 “풋프린트 없음: R5, …”).</li></ul></li>
+<li>회로도에서 지워진 부품의 풋프린트는 기판에서도 지웁니다(회로도와 무관하게 기판에만 있는 항목은 그대로).</li>
+<li>넷 이름이 바뀌었으면(예: 레이블을 붙여 <code>Net-(R1-Pad2)</code> → <code>LED_A</code>) 그 넷의 기존 트랙·비아·구리 영역의 넷 이름도 새 이름으로 바꿉니다.</li>
+</ol>
+<p>끝나면 PCB 탭으로 바뀌고 화면에 맞추며, “PCB 업데이트됨 — 3개 추가, 1개 업데이트”처럼 요약을 보여 줍니다. 바뀐 것이 없으면 “PCB가 이미 최신 상태입니다.”</p>
+<div class="callout warn"><p>풋프린트 속성 대화상자에서 풋프린트를 바꿔도 다음 PCB 업데이트 때 회로도의 값으로 덮어써집니다. 풋프린트는 회로도(부품 속성 또는 풋프린트 지정)에서 바꾸세요.</p></div>
+
+<h3 id="ch7-3"><span class="num">7.3</span>레이어</h3>
+<table>
+<thead><tr><th>레이어</th><th>설명</th><th>활성화 가능</th></tr></thead>
+<tbody>
+<tr><td><code>F.Cu</code> / <code>B.Cu</code></td><td>윗면 / 아랫면 구리</td><td>예</td></tr>
+<tr><td><code>In1.Cu</code> … <code>In4.Cu</code></td><td>내층 구리(4층: In1, In2 / 6층: In1~In4)</td><td>예</td></tr>
+<tr><td><code>F.SilkS</code> / <code>B.SilkS</code></td><td>윗면 / 아랫면 실크스크린(글자, 외형선)</td><td>예</td></tr>
+<tr><td><code>Edge.Cuts</code></td><td>기판 외곽선</td><td>예</td></tr>
+<tr><td>Courtyard (<code>F.CrtYd</code>)</td><td>부품 금지 영역(분홍 사각형). 설정 <span class="ui">코트야드 표시</span>와 함께 켜고 끔</td><td>아니요</td></tr>
+<tr><td><code>F.Fab</code></td><td>값(제조 도면용). 기본은 숨김</td><td>아니요</td></tr>
+<tr><td><code>Dwgs.User</code></td><td>사용자 도면(메모, 선)</td><td>예</td></tr>
+<tr><td>구리 영역 / 비아</td><td>모든 구리 영역 / 모든 비아의 표시</td><td>아니요</td></tr>
+</tbody>
+</table>
+<ul>
+<li><b>활성 레이어</b>: 새 트랙·구리 영역·텍스트·선이 그려질 레이어입니다. 도구 모음의 <span class="ui">레이어</span> 선택 상자, 왼쪽 패널의 레이어 행 클릭, <kbd>PgUp</kbd>/<kbd>PgDn</kbd>(구리 레이어 사이를 순환)로 바꿉니다. 활성 레이어는 맨 위에 그려지고, 겹친 항목을 클릭하면 활성 레이어의 것이 먼저 선택됩니다.</li>
+<li><b>표시/숨기기</b>: 레이어 행의 눈 아이콘. 숨긴 레이어의 항목은 클릭이나 영역 선택으로 선택되지 않습니다.</li>
+<li><b>고대비</b>(<kbd>H</kbd>, <span class="menu">보기 → 고대비 레이어</span>): 활성 레이어가 아닌 구리 레이어를 25% 밝기로 어둡게 그려 한 층에 집중할 수 있게 합니다.</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-pcb-track-contrast.webp" alt="고대비" loading="lazy"><figcaption>그림 7-2. 고대비 모드에서 트랙을 선택한 모습 — 오른쪽에 트랙 속성과 허용 전류</figcaption></figure>
+
+<h3 id="ch7-4"><span class="num">7.4</span>풋프린트 배치</h3>
+<ul>
+<li><b>이동</b>: 풋프린트를 끌면 그 원점이 PCB 그리드에 맞춰집니다(여러 개를 함께 옮기면 모두 같은 거리만큼). 방향키로 그리드 한 칸씩 옮깁니다.</li>
+<li><b>회전</b>: <kbd>R</kbd> 90° 반시계, <kbd>Shift</kbd>+<kbd>R</kbd> 90° 시계 방향. 풋프린트 하나는 자기 원점을 중심으로, 여러 항목은 선택 영역 중심을 기준으로 돕니다. 속성 패널/대화상자에서는 임의 각도(15° 단위 입력 상자)도 넣을 수 있습니다.</li>
+<li><b>뒤집기</b>: <kbd>F</kbd>(<span class="menu">편집 → 반대 면으로 뒤집기</span>) — 풋프린트를 반대 면으로 옮깁니다. 좌우가 거울 대칭이 되고 회전 방향이 반대가 되며, SMD 패드는 B.Cu로, 실크는 B.SilkS로 갑니다. 선택한 트랙·텍스트·그래픽·구리 영역도 반대 면 레이어로 바뀝니다. 여러 개를 함께 뒤집으면 선택 중심을 기준으로 좌우가 바뀝니다.</li>
+<li><b>잠금</b>: <kbd>L</kbd> 또는 오른쪽 클릭 → <span class="ui">잠금</span>. 잠긴 풋프린트는 이동·회전·뒤집기·삭제가 되지 않고(삭제 시 “잠긴 풋프린트 n개는 유지했습니다.”), 윈도 영역 선택에도 잡히지 않습니다. 선택하면 자물쇠 표시가 보입니다.</li>
+<li><b>속성 대화상자</b>: 더블클릭 또는 <kbd>E</kbd> — X/Y(mm), 회전, 면(윗면/아랫면), 풋프린트, 잠김, 참조 번호 숨기기.</li>
+<li><b>정렬</b>: <span class="menu">배선 → 기판에 풋프린트 정렬</span>은 잠기지 않은 모든 풋프린트를 참조 번호 순으로 기판 안 왼쪽 위부터 2 mm 간격의 격자로 늘어놓습니다. F8 직후 대략적인 배치를 시작할 때 편리합니다.</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-pcb-footprint-selected.webp" alt="풋프린트 선택" loading="lazy"><figcaption>그림 7-3. 풋프린트를 선택하면 속성 패널에 위치·회전·면·잠금과 패드별 넷 표가 나옵니다</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-dlg-fpprops.webp" alt="풋프린트 속성" loading="lazy"><figcaption>그림 7-4. 풋프린트 속성 대화상자</figcaption></figure>
+
+<h3 id="ch7-5"><span class="num">7.5</span>선택</h3>
+<p>선택 방법은 회로도와 같습니다(클릭, <kbd>Shift</kbd>/<kbd>Ctrl</kbd>+클릭, <kbd>Shift</kbd>/<kbd>Ctrl</kbd>+드래그 상자 선택 — 왼쪽→오른쪽 윈도, 오른쪽→왼쪽 크로싱, <kbd>Ctrl</kbd>+<kbd>A</kbd>). 수정자 없이 빈 곳을 끌면 화면이 이동합니다(<a href="#ch2-9">2.9</a>). 추가로:</p>
+<ul>
+<li>구리(패드·트랙·비아·영역)를 클릭하면 그 넷이 강조되고 래츠네스트도 그 넷만 보입니다. 빈 곳을 클릭하거나 <kbd>Esc</kbd>로 해제합니다.</li>
+<li>트랙을 <b>더블클릭</b>하면 그 트랙과 이어진 모든 트랙·비아(한 연결 전체)를 선택합니다. 트랙 속성 패널과 오른쪽 클릭 메뉴의 <span class="ui">연결된 구리 선택</span>도 같습니다.</li>
+<li>기판 외곽선의 가장자리를 클릭하면 외곽선 전체가 선택되어 함께 옮기거나 회전할 수 있습니다(삭제는 불가).</li>
+<li><kbd>Ctrl</kbd>+<kbd>D</kbd> 복제는 트랙·비아·영역·텍스트·그래픽·치수를 오른쪽 아래로 2 mm 옮겨 복사합니다. 풋프린트는 복제할 수 없습니다(회로도에서 부품을 복제하세요).</li>
+</ul>
+
+<h3 id="ch7-6"><span class="num">7.6</span>대화형 배선</h3>
+<p><kbd>X</kbd>(<span class="menu">배선 → 트랙 배선</span>)로 시작합니다.</p>
+<ol class="steps">
+<li><b>시작</b>: 패드, 비아, 트랙 끝을 클릭합니다. 활성 레이어의 구리를 우선 찾고, 없으면 다른 레이어의 구리에서 시작합니다. 시작한 구리의 넷이 배선의 넷이 됩니다(빈 곳에서 시작하면 그 자리 구리의 넷 또는 넷 없음). SMD 패드에서 시작하면 활성 레이어가 자동으로 그 패드의 면으로 바뀌고, 스루홀 패드와 비아에서는 현재 활성 레이어로 배선합니다.</li>
+<li><b>트랙 폭</b>: 넷 클래스에 정한 폭(없으면 기본 트랙 폭)으로 시작합니다. 상태 표시줄과 캔버스 도움말에 “넷 … 배선 중 — 폭 0.25 mm”가 나옵니다. 배선 중에 <kbd>W</kbd>를 누르면 한 단계 넓게, <kbd>Shift</kbd>+<kbd>W</kbd>는 한 단계 좁게 바뀝니다: 0.15 → 0.2 → 0.25 → 0.3 → 0.4 → 0.5 → 0.6 → 0.8 → 1.0 → 1.5 → 2.0 mm.</li>
+<li><b>45° 자세</b>: 커서까지 직선 + 45° 대각선 두 구간의 미리 보기가 그려집니다. 기본은 “직선 먼저, 대각선 나중”이며 <kbd>/</kbd>를 누르면 “대각선 먼저”로 바뀝니다. 커서는 같은 넷의 패드·비아·트랙 끝에 달라붙고, 그 밖에는 PCB 그리드에 맞춰집니다.</li>
+<li><b>실시간 간격 검사</b>: 미리 보기 둘레의 옅은 띠는 간격(클리어런스) 영역입니다. 미리 보기 구간이 다른 넷의 구리(패드·트랙·비아)에 간격 규칙보다 가깝거나 기판 가장자리 간격을 어기면 미리 보기가 <b>빨간색</b>으로 바뀌고 “간격 위반 — 이 구간이 다른 구리와 너무 가깝습니다.”라고 표시됩니다(그래도 클릭하면 그려지며, DRC에서 오류로 잡힙니다). 넷 클래스의 간격 중 큰 값이 적용됩니다.</li>
+<li><b>꺾임점</b>: 클릭할 때마다 미리 보기가 트랙으로 확정됩니다. <kbd>Backspace</kbd>는 마지막 구간을 지웁니다.</li>
+<li><b>비아와 층 전환</b>: 배선 중 <kbd>V</kbd>를 누르면 커서 위치까지 트랙을 확정하고 그 끝에 비아를 놓은 뒤 레이어를 바꿉니다. F.Cu ↔ B.Cu는 서로, 내층은 다음 구리 레이어로 넘어갑니다. 비아 크기는 넷 클래스 또는 기본 규칙을 따릅니다.</li>
+<li><b>끝내기</b>: 같은 넷의 패드·비아·다른 트랙 끝에 닿으면 자동으로 끝납니다. 직접 끝내려면 <kbd>Enter</kbd>, <kbd>Esc</kbd>, 더블클릭, 오른쪽 클릭. 한 번의 배선(여러 구간·비아 포함)이 한 번의 실행 취소 단계입니다.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-tut-11-routing.webp" alt="대화형 배선" loading="lazy"><figcaption>그림 7-5. 대화형 배선 미리 보기와 간격 띠</figcaption></figure>
+<h4>배선 모드</h4>
+<p>트랙 구간을 확정할 때 다른 넷의 구리에 간격 규칙보다 가까우면 어떻게 할지를 <span class="menu">배선</span> 메뉴의 세 항목(또는 설정 → 배선 → <span class="ui">배선 모드</span>)으로 고릅니다.</p>
+<table>
+<thead><tr><th>모드</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><b>배선: 충돌 표시</b> (기본)</td><td>구간을 그대로 놓습니다. 미리 보기가 빨갛게 바뀌어 경고하고, DRC가 오류로 잡습니다.</td></tr>
+<tr><td><b>배선: 밀어내기</b></td><td>같은 레이어에서 가까운 다른 넷의 <b>트랙</b>을 옆으로 밀어 간격을 확보합니다. 밀린 트랙은 평행하게 움직이고, 끝이 이웃 트랙과 이어져 있으면 그 이웃을 따라 미끄러지며, 패드·비아에 붙은 끝은 그대로 두고 45° 꺾임을 넣습니다. 밀린 트랙이 다른 트랙에 닿으면 그 트랙도 밀립니다(2단계까지). 패드, 비아, NPTH 구멍, 기판 가장자리는 밀지 않으므로, 이것들이 막으면 “밀어내기: 패드, 비아, 기판 가장자리 또는 너무 많은 트랙이 막고 있어 구간을 놓지 않았습니다.”라고 알리고 그 구간에서 멈춥니다.</td></tr>
+<tr><td><b>배선: 장애물에서 멈춤</b></td><td>간격을 어기는 구간은 놓지 않고 “간격 위반: 구간을 놓지 않았습니다”라고 알립니다.</td></tr>
+</tbody>
+</table>
+<p>설정 → 배선의 <span class="ui">배선 중 간격 경고</span>를 끄면 미리 보기의 빨간 경고를 표시하지 않습니다.</p>
+<div class="callout tip"><p>배선 후 트랙 폭을 바꾸려면 트랙을 선택하고 속성 패널의 <span class="ui">폭</span>을 고치거나, 여러 트랙을 선택해 한꺼번에 바꿉니다. <span class="ui">넷 클래스 폭 사용</span> 버튼은 선택한 트랙을 넷 클래스의 폭으로 되돌립니다. 속성 패널에는 IPC-2221 근사로 계산한 허용 전류(1 oz 구리, 10 °C 상승, 내층/외층 구분)도 표시됩니다.</p></div>
+
+<h3 id="ch7-7"><span class="num">7.7</span>비아</h3>
+<p><kbd>V</kbd>(배선 중이 아닐 때)는 비아 도구입니다. 커서 위치에 비아 크기의 반투명 원이 보이고, 클릭하면 그 자리에 비아를 놓습니다. 비아는 아래에 있는 구리(패드·트랙 끝·비아·구리)의 넷을 자동으로 따르며, 넷 클래스가 있으면 그 지름·드릴을 씁니다. 비아는 모든 구리 레이어를 관통합니다(블라인드/베리드 비아는 없음). 속성 패널에서 지름, 드릴, 넷, X, Y를 바꿀 수 있습니다.</p>
+
+<h3 id="ch7-8"><span class="num">7.8</span>트랙 폭과 넷 클래스</h3>
+<p>트랙 폭·간격·비아 크기는 다음 순서로 정해집니다.</p>
+<ol>
+<li>넷이 어떤 <b>넷 클래스</b>의 넷 목록에 있으면 그 클래스의 트랙 폭, 간격, 비아 지름, 비아 드릴</li>
+<li>아니면 <b>설계 규칙</b>의 기본값(트랙 폭 0.25 mm, 간격 0.2 mm, 비아 0.8/0.4 mm)</li>
+</ol>
+<p>두 넷 사이의 간격은 기본 간격과 두 넷의 클래스 간격 중 가장 큰 값입니다. 새 프로젝트에는 <b>Power</b> 클래스(트랙 0.5 mm, 간격 0.25 mm, 비아 1.0/0.5 mm; GND, VCC, +5V, +3V3, +12V, -12V, VBAT)가 들어 있습니다. 넷 클래스는 <span class="menu">도구 → 기판 설정… → 넷 클래스</span>에서 편집합니다(<a href="#ch10-5">10.5</a>).</p>
+
+<h3 id="ch7-9"><span class="num">7.9</span>구리 영역 (Zone)</h3>
+<p>구리 영역(구리 붓기, pour)은 다각형 안을 구리로 채우되 다른 넷의 구리 주변은 간격만큼 비워 두는 기능입니다. 보통 GND 평면을 만들 때 씁니다.</p>
+<h4>그리기</h4>
+<ol class="steps">
+<li>구리 레이어를 활성으로 하고 <kbd>Z</kbd>를 누릅니다.</li>
+<li>꼭짓점을 차례로 클릭합니다(그리드에 맞춤). 점선으로 다각형이 미리 보입니다.</li>
+<li>더블클릭이나 <kbd>Enter</kbd>로 닫습니다(꼭짓점이 3개 미만이면 “다각형에는 꼭짓점이 3개 이상 필요합니다.”). <kbd>Esc</kbd>는 취소.</li>
+<li><span class="ui">새 구리 영역</span> 대화상자에서 넷(기본: GND/AGND/DGND/VSS 중 있는 것, 없으면 첫 넷), 레이어, 간격(mm, 기본 0.3), 우선순위, 패드에 써멀 릴리프 적용을 정하고 <span class="ui">구리 영역 만들기</span>.</li>
+</ol>
+<figure><img width="1532" height="900" src="images/ko-dlg-zone.webp" alt="구리 영역 속성" loading="lazy"><figcaption>그림 7-6. 구리 영역 속성 대화상자</figcaption></figure>
+<h4>채우기 규칙</h4>
+<ul>
+<li>영역 안의 <b>다른 넷</b> 패드·트랙·비아 주변은 max(영역 간격, 기본 간격)만큼 비워집니다. 넷이 없는 패드도 비워지고, NPTH 구멍 주변도 비워집니다.</li>
+<li><b>같은 넷</b>의 패드는 <b>써멀 릴리프</b>로 연결됩니다: 패드 둘레를 간격만큼 비운 뒤 네 방향 스포크(폭 = max(0.3 mm, 패드 짧은 변 × 0.45, 넷 클래스 트랙 폭 × 0.8))로 잇습니다. 스포크가 다른 넷의 트랙이나 비아에 걸리면 그 스포크만 생략됩니다. 써멀 릴리프를 끄면 패드가 영역에 그대로 묻힙니다. 영역 다각형 밖에 있는 패드에는 스포크를 만들지 않습니다.</li>
+<li>같은 넷의 트랙과 비아는 영역에 그대로 합쳐집니다.</li>
+<li><b>우선순위</b>: 같은 레이어에서 다른 넷의 영역이 겹치면 우선순위가 높은 영역이 이기고, 낮은 쪽은 높은 영역 둘레를 간격만큼 비웁니다. 우선순위가 같으면 DRC가 <code>zone_overlap</code> 오류를 냅니다.</li>
+<li><b>연결성</b>: 패드·트랙 끝·비아가 같은 넷 영역의 다각형 안에 있으면 그 영역을 통해 연결된 것으로 봅니다. 그래서 GND 영역을 만들면 영역 안의 GND 패드 사이 래츠네스트가 사라집니다. 영역은 화면에서 반투명하게 그려지고 외곽이 점선으로 표시됩니다.</li>
+</ul>
+<div class="callout warn"><p>연결성 판정은 “같은 넷의 영역 다각형 안에 있는가”만 봅니다. 영역이 다른 넷의 트랙에 의해 실제로 둘로 갈라져 섬이 생겨도 연결된 것으로 계산될 수 있습니다. 좁은 곳을 지나는 GND 연결은 3D 보기나 거버 뷰어로 실제 채움을 확인하세요.</p></div>
+<h4>편집과 기판 전체 붓기</h4>
+<ul>
+<li>영역은 외곽 근처를 클릭하면 선택되고(안쪽은 다른 항목보다 우선순위가 낮음), 더블클릭하거나 오른쪽 클릭 → <span class="ui">구리 영역 속성…</span>으로 속성을 고칩니다. 속성 패널에서 넷, 레이어, 간격, 우선순위, 써멀 릴리프를 바로 바꿀 수 있습니다. 끌면 다각형 전체가 이동합니다.</li>
+<li><span class="menu">배선 → 기판을 접지 영역으로 채우기</span>: 넷(기본 GND), 레이어(F.Cu/B.Cu 체크), “이 넷의 기존 구리 영역 대체”를 고르고 <span class="ui">만들기</span>. 기판 외곽선을 (가장자리 간격 + 0.2 mm)만큼 안쪽으로 줄인 다각형으로 영역을 만듭니다(간격 0.3 mm, 써멀 켬, 우선순위 0). 기판에 넷이 없으면 “먼저 회로도에서 PCB를 업데이트하세요.”라고 안내합니다.</li>
+</ul>
+
+<h3 id="ch7-10"><span class="num">7.10</span>기판 외곽선</h3>
+<ul>
+<li><kbd>O</kbd>(기판 외곽선 도구)로 <b>사각형을 드래그</b>하면 그 크기의 사각형 외곽선으로 즉시 바뀝니다(그리드 한 칸보다 커야 함). 드래그 중 크기가 mm로 표시되고, 끝나면 “기판 외곽선을 W × H mm로 설정했습니다”. 설정의 <span class="ui">기판 외곽선 모서리 반경</span>이 0보다 크면 둥근 모서리가 됩니다.</li>
+<li>사각형이 아닌 모양은 <b>꼭짓점을 차례로 클릭</b>하고 더블클릭 또는 <kbd>Enter</kbd>로 닫습니다(3개 이상).</li>
+<li><span class="menu">기판 설정… → 외곽선</span>에서 폭·높이·모서리 반경을 숫자로 입력하고 “외곽선을 이 사각형으로 바꾸기”를 체크해 적용할 수도 있습니다(왼쪽 위 모서리는 유지).</li>
+<li>외곽선은 하나의 닫힌 다각형입니다. 기판 안의 구멍·홈은 <code>Edge.Cuts</code> 레이어에 그래픽 선(<kbd>G</kbd>)으로 그립니다(<a href="#ch7-11">7.11</a>). 외곽선 가장자리를 클릭하면 선택되어 이동·회전할 수 있고, 속성 패널에 꼭짓점 수와 크기가 표시됩니다.</li>
+<li>외곽선은 <code>Edge.Cuts</code> 거버(<code>.gm1</code>)로 출력되며, DRC는 외곽선의 유효성(점 3개 이상, 면적, 자기 교차)과 가장자리 간격을 검사합니다.</li>
+</ul>
+
+<h3 id="ch7-11"><span class="num">7.11</span>텍스트와 그래픽 선</h3>
+<ul>
+<li><kbd>T</kbd>(텍스트): 클릭한 곳에 글자를 입력합니다. 활성 레이어가 <code>F.SilkS</code>/<code>B.SilkS</code>/<code>Dwgs.User</code>면 그 레이어에, 구리 레이어면 그 면의 실크스크린(F.Cu → F.SilkS, B.Cu → B.SilkS)에 놓이며, <code>Edge.Cuts</code>에는 절대 놓이지 않습니다(그때는 F.SilkS). 크기 기본 1.5 mm. 아랫면 글자는 출력에서 자동으로 거울 반전됩니다. 더블클릭으로 내용을 고치고, 속성 패널에서 크기·회전·레이어를 바꿉니다. 거버에는 내장 벡터(스트로크) 글꼴로 출력되며 영문·숫자·기호를 지원합니다.</li>
+<li><kbd>G</kbd>(그래픽 선, 전용 “선” 아이콘): 클릭할 때마다 한 구간씩 선(폭 0.15 mm)이 추가되고 더블클릭으로 끝냅니다. 활성 실크스크린, <code>Dwgs.User</code>, <code>Edge.Cuts</code> 레이어에 그려지고, 구리 레이어가 활성이면 그 면의 실크스크린에 그려집니다.</li>
+</ul>
+<div class="callout note"><p><code>Edge.Cuts</code>에 그린 선은 기판 절단선(컷아웃)으로 외곽선 거버(<code>.gm1</code>)에 함께 출력됩니다. 기판 안에 구멍이나 홈을 낼 때 씁니다.</p></div>
+
+<h3 id="ch7-12"><span class="num">7.12</span>측정과 치수</h3>
+<ul>
+<li><kbd>M</kbd>(측정): 두 점을 클릭하면 거리(mm), Δx, Δy, mil 값이 선 위에 표시됩니다. 구리 중심에 달라붙습니다. 다시 클릭하면 새 측정을 시작하고 <kbd>Esc</kbd>로 지웁니다. 측정은 저장되지 않습니다.</li>
+<li><kbd>D</kbd>(치수): 두 점을 클릭하면 도면에 치수선(2 mm 오프셋)을 추가합니다. 치수는 프로젝트에 저장됩니다.</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-pcb-measure.webp" alt="측정" loading="lazy"><figcaption>그림 7-7. 측정 도구</figcaption></figure>
+
+<h3 id="ch7-13"><span class="num">7.13</span>래츠네스트와 넷 패널</h3>
+<p>래츠네스트(에어와이어)는 같은 넷이지만 아직 구리로 이어지지 않은 부분을 잇는 가는 선입니다. 넷마다 구리로 이미 이어진 덩어리(섬)들을 최소 신장 트리로 연결하는 가장 짧은 선들을 그립니다. <span class="menu">보기 → 래츠네스트 표시</span>나 도구 모음 버튼으로 켜고 끕니다. 넷을 강조하면 그 넷의 래츠네스트만 보입니다.</p>
+<ul>
+<li>왼쪽 패널 <span class="ui">배선</span>: “배선된 연결 / 전체 연결”과 진행률. 연결 수는 넷마다 (패드 수 − 1)의 합입니다.</li>
+<li><span class="ui">넷</span> 목록: 넷 이름과 남은 미배선 수(“1 열림”) 또는 ✓. 클릭하면 강조(다시 클릭하면 해제), <b>더블클릭하면 그 넷만 자동 배선</b>합니다. 필터 칸으로 넷을 찾습니다.</li>
+</ul>
+
+<h3 id="ch7-14"><span class="num">7.14</span>정리와 보고서</h3>
+<table>
+<thead><tr><th>명령</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><span class="menu">배선 → 트랙 정리</span></td><td>길이 0 트랙과 중복 트랙을 지우고, 한 직선 위에서 이어지는 같은 넷·같은 폭·같은 레이어 트랙을 하나로 합칩니다(그 점에 다른 트랙 끝, 비아, 패드가 없을 때만). 구리 레이어를 두 개 이상 잇지 않는 쓸모없는 비아도 지웁니다. 결과: “정리: n개 제거, m개 병합.”</td></tr>
+<tr><td><span class="menu">배선 → 모든 트랙과 비아 제거</span></td><td>확인 후 기판의 모든 트랙·비아를 지웁니다(구리 영역은 유지). 자동 배선을 다시 하고 싶을 때.</td></tr>
+<tr><td><span class="menu">검사 → 넷 길이 보고서…</span></td><td>넷별 트랙 길이(mm), 구간 수, 비아 수와 전체 배선 진행률</td></tr>
+<tr><td><span class="menu">검사 → 넷 목록…</span></td><td>회로도 기준 넷과 연결 핀 목록(내보내기 버튼)</td></tr>
+</tbody>
+</table>
+<figure><img width="1532" height="900" src="images/ko-dlg-lengths.webp" alt="넷 길이 보고서" loading="lazy"><figcaption>그림 7-8. 넷 길이 보고서</figcaption></figure>
+
+<h3 id="ch7-15"><span class="num">7.15</span>속성 패널 (PCB)</h3>
+<table>
+<thead><tr><th>선택</th><th>편집 항목</th></tr></thead>
+<tbody>
+<tr><td>없음(기판)</td><td>크기·층 수·풋프린트 수 요약, 트랙 폭, 간격, 비아 크기, 비아 드릴, 마스크 색상, 표면 처리, <span class="ui">기판 설정…</span></td></tr>
+<tr><td>풋프린트</td><td>X, Y(mm), 회전, 면, 잠김, 패드-넷 표(최대 40개), 회로도에서 보기, 3D에서 보기</td></tr>
+<tr><td>트랙</td><td>넷·길이, 폭, 레이어, 넷, 허용 전류, 연결된 구리 선택, 넷 클래스 폭 사용</td></tr>
+<tr><td>비아</td><td>지름, 드릴, 넷, X, Y</td></tr>
+<tr><td>구리 영역</td><td>넷, 레이어, 간격, 우선순위, 써멀 릴리프</td></tr>
+<tr><td>텍스트</td><td>텍스트, 크기(mm), 회전, 레이어</td></tr>
+<tr><td>기판 외곽선</td><td>꼭짓점 수와 크기, 기판 설정…</td></tr>
+<tr><td>여러 항목</td><td>회전, 뒤집기, 삭제 (트랙만이면 폭 일괄 변경)</td></tr>
+</tbody>
+</table>
+
+<h3 id="ch7-16"><span class="num">7.16</span>오른쪽 클릭 메뉴 (PCB)</h3>
+<p>선택 도구에서 오른쪽 클릭하면: 풋프린트 위 — 속성…, 회로도에서 보기, 3D에서 보기, 잠금/잠금 해제 / 구리 영역 위 — 구리 영역 속성… / 구리 위 — 넷 ○○ 강조, 넷 ○○ 자동 배선, (트랙·비아) 연결된 구리 선택 / 선택이 있을 때 — 회전, 반대 면으로 뒤집기, 복제, 삭제 / 항상 — 트랙 배선, 화면에 맞추기. 다른 도구에서는 오른쪽 클릭이 진행 중인 작업을 끝내거나 선택 도구로 돌아갑니다.</p>
+<figure><img width="1532" height="900" src="images/ko-ctx-pcb.webp" alt="PCB 오른쪽 클릭 메뉴" loading="lazy"><figcaption>그림 7-9. 패드 위에서 연 오른쪽 클릭 메뉴</figcaption></figure>
+
+<h3 id="ch7-17"><span class="num">7.17</span>다층 기판</h3>
+<p><span class="menu">기판 설정 → 적층 구조 및 표면 처리</span>에서 구리 레이어를 2/4/6으로 바꿉니다. 4층은 F.Cu, In1.Cu, In2.Cu, B.Cu, 6층은 In1~In4가 추가됩니다. 층 수를 줄이면 없어진 레이어의 트랙과 영역은 B.Cu로 옮겨집니다. 내층에는 주로 전원/GND 평면을 구리 영역으로 만들고, 비아로 연결합니다(예제 “4층 기판의 ATtiny85”).</p>
+<figure><img width="1532" height="900" src="images/ko-pcb-4layer.webp" alt="4층 기판" loading="lazy"><figcaption>그림 7-10. 4층 기판 — In1.Cu GND 평면, In2.Cu +3V3 평면</figcaption></figure>
+
+<h3 id="ch7-18"><span class="num">7.18</span>보드 크기 표시와 눈금자</h3>
+<p>PCB 캔버스에는 기판 외곽선의 <b>가로·세로 크기</b>가 치수선과 함께 자동으로 표시됩니다(아래쪽 가로, 오른쪽 세로, mm 단위 — 예: “40.00 mm”, “24.00 mm”). 외곽선을 바꾸면 즉시 갱신됩니다. 도구 모음 오른쪽의 <span class="ui">보드 크기 표시</span> 버튼(<span class="menu">보기 → 보드 크기 표시</span>, 설정 → 단위와 그리드 → <span class="ui">PCB에 보드의 가로·세로 크기 표시</span>)으로 켜고 끕니다. 눈금자와 그리드는 회로도와 같습니다(<a href="#ch2-13">2.13</a>).</p>
+<figure><img width="1532" height="900" src="images/ko-pcb-boardsize.webp" alt="보드 크기 표시" loading="lazy"><figcaption>그림 7-11. 보드 크기 자동 표시와 눈금자(예제 08)</figcaption></figure>
+
+<h3 id="ch7-19"><span class="num">7.19</span>길이 맞춤</h3>
+<p><span class="menu">배선 → 길이 맞춤…</span>은 이미 배선된 넷의 길이를 늘려(구불구불한 미앤더) 목표 길이에 맞춥니다. 버스 신호의 길이를 맞출 때 씁니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-tuning.webp" alt="길이 맞춤" loading="lazy"><figcaption>그림 7-12. 길이 맞춤 대화상자</figcaption></figure>
+<ul>
+<li>표에는 트랙이 있는 넷과 현재 길이(mm)가 긴 순서로 나옵니다(8개씩 페이지). 맞출 넷을 체크합니다(강조된 넷은 미리 체크됨). 아래에 “선택한 넷 중 가장 긴 길이”가 표시됩니다.</li>
+<li><span class="ui">목표</span>: <span class="ui">선택한 넷 중 가장 긴 넷에 맞춤</span> 또는 <span class="ui">고정 길이</span>(스테퍼, mm).</li>
+<li><span class="ui">미앤더 모양</span>: 둥근 사각형(둥근 굴곡) / 모따기 (45°) / 직각. <span class="ui">면</span>(진행 방향의 어느 쪽으로 구부릴지): 양쪽 / 왼쪽 / 오른쪽. <span class="ui">간격</span>: 구불구불한 다리 사이 간격(0.1~3 mm). <span class="ui">허용 오차</span>: ± 0.01 ~ 1 mm.</li>
+<li><span class="ui">맞추기</span>를 누르면 각 넷의 가장 긴 직선 구간에 미앤더를 넣습니다. 각 굴곡의 높이는 다른 넷의 구리와 기판 가장자리 간격을 지키도록 줄어들거나 생략되고, 필요한 최소 개수의 굴곡을 균일하게 늘려 목표 길이에 맞춥니다. 결과는 한 번의 실행 취소 단계이며 “넷 n개를 L mm로 맞췄습니다 (최대 길이 차 s mm).”가 표시됩니다.</li>
+<li>공간이 없으면 “맞출 것이 없습니다: 이미 길이가 같거나 미앤더를 넣을 자리가 없습니다.”라고 알립니다. 넷의 길이는 트랙 길이와 비아 길이를 더한 값입니다.</li>
+</ul>
+
+<h3 id="ch7-20"><span class="num">7.20</span>차동 쌍 배선</h3>
+<p><span class="menu">배선 → 차동 쌍 배선…</span>은 이름으로 짝지어진 두 넷(예: <code>USB_D+</code>/<code>USB_D-</code>, <code>CLK_P</code>/<code>CLK_N</code>)을 일정한 간격의 평행한 두 트랙으로 함께 배선합니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-diffpair.webp" alt="차동 쌍 배선" loading="lazy"><figcaption>그림 7-13. 차동 쌍 배선 대화상자(예제 09의 USB_D+ / USB_D-)</figcaption></figure>
+<ul>
+<li>표에는 찾은 쌍(쌍 이름, P 넷, N 넷, 현재 길이 차)이 나옵니다. 하나를 고르고 <span class="ui">레이어</span>, <span class="ui">트랙 폭</span>, <span class="ui">간격</span>(트랙 사이)을 정한 뒤 <span class="ui">배선</span>을 누릅니다.</li>
+<li>두 넷의 기존 트랙은 바뀝니다. 각 넷에 해당 레이어의 패드가 두 개씩 있어야 하며, 두 쌍의 패드 중간을 잇는 중심선을 A* 탐색으로 찾은 뒤 양쪽으로 띄워 두 트랙을 만들고, 패드까지 짧은 팬아웃으로 잇습니다.</li>
+<li>끝나면 “USB_D+ / USB_D- 배선됨: a / b mm, 길이 차 s mm.”가 표시됩니다. 쌍을 찾지 못하면 “차동 쌍을 찾지 못했습니다. USB_D+ / USB_D- 나 CLK_P / CLK_N처럼 넷 이름을 붙이세요.”라고 알립니다.</li>
+</ul>
+
+<h2 id="ch8"><span class="num">8</span>자동 배선기</h2>
+
+<h3 id="ch8-1"><span class="num">8.1</span>실행 방법</h3>
+<ul>
+<li><span class="menu">배선 → 모두 자동 배선</span>(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>), PCB 도구 모음의 <span class="ui">모두 자동 배선</span>, 왼쪽 패널의 <span class="ui">자동 배선</span>: 배선되지 않은 모든 연결.</li>
+<li><span class="menu">배선 → 강조된 넷 자동 배선</span>: 먼저 패드나 트랙을 클릭해 넷을 강조한 뒤 실행(강조된 넷이 없으면 “먼저 패드나 트랙을 클릭해 넷을 고르세요.”).</li>
+<li>넷 패널에서 넷을 <b>더블클릭</b>하거나, 구리 위 오른쪽 클릭 → <span class="ui">넷 ○○ 자동 배선</span>.</li>
+</ul>
+<p>실행 중에는 “연결 n개 자동 배선 중…” 알림이 나오고, 끝나면 결과가 하나의 실행 취소 단계로 추가됩니다(<kbd>Ctrl</kbd>+<kbd>Z</kbd>로 한 번에 되돌림). 모두 성공하면 “모든 연결을 배선했습니다 (트랙 n개, 비아 m개, t ms).”, 일부 실패하면 “연결 r개를 배선했고, f개는 배선하지 못했습니다.”가 표시됩니다.</p>
+
+<h3 id="ch8-2"><span class="num">8.2</span>동작 원리</h3>
+<ol>
+<li><b>격자</b>: 기판을 설정 → 배선 → <span class="ui">자동 배선 그리드</span>(기본 0.25 mm, 0.05~0.5 mm) 간격의 격자 노드로 나누고(노드가 300만 개를 넘는 큰 기판은 간격을 두 배씩 늘림), 장애물 지도는 그 절반 간격으로 만들어 대각선 이동이 패드 모서리를 스치지 않게 합니다.</li>
+<li><b>장애물</b>: 다른 넷의 패드·트랙·비아 둘레(간격 + 트랙 폭/2 + 양자화 여유), 기판 가장자리(가장자리 간격), NPTH 구멍을 막습니다. 넷 클래스별로(트랙 폭·비아 크기·간격 조합마다) 지도를 따로 만듭니다. 구리 영역은 장애물이 아닙니다(영역이 알아서 비켜 감).</li>
+<li><b>비아</b>: 비아용 지도가 따로 있어 모든 구리 레이어의 장애물, 홀 간격, 가장자리를 함께 봅니다. SMD 패드 위에는 비아를 놓지 않습니다(via-in-pad 금지). 비아 비용은 이동 20칸에 해당합니다.</li>
+<li><b>탐색</b>: 래츠네스트의 각 연결을 짧은 것부터 차례로, 출발 섬(이미 이어진 구리 전체)의 모든 노드에서 도착 섬의 아무 노드까지 A* 탐색으로 찾습니다. 8방향(직선·45°) 이동이며, 방향을 바꿀 때 비용(45° 0.35, 90° 0.9, 135° 6)을 더해 깔끔한 경로를 선호하고, 레이어마다 선호 방향(짝수 층 가로, 홀수 층 세로)에 약한 가산점을 줍니다.</li>
+<li><b>확정</b>: 찾은 경로는 일직선 구간을 합쳐 트랙과 비아로 만들고, 끝을 패드·비아 중심에 정확히 맞춘 뒤 즉시 장애물 지도에 반영해 다음 연결이 피해 가게 합니다.</li>
+<li><b>재시도(rip-up and retry)</b>: 실패한 연결이 있으면 실패한 것부터 먼저 배선하는 순서로 처음부터 다시 시도하고(최대 3회), 더 많이 배선한 결과를 씁니다.</li>
+<li><b>시간 제한</b>: 전체 15초. 넘으면 그때까지의 결과를 씁니다.</li>
+</ol>
+
+<h3 id="ch8-3"><span class="num">8.3</span>제약 사항</h3>
+<ul>
+<li>기본값에서 자동 배선기는 <b>F.Cu와 B.Cu 두 레이어만</b> 씁니다. 설정 → 배선 → <span class="ui">자동 배선 레이어</span>를 <span class="ui">모든 구리 레이어</span>로 바꾸면 4/6층 기판의 내층도 씁니다(내층을 전원 평면으로 쓸 때는 바깥 레이어만 두세요).</li>
+<li>격자 기반이라 0.25 mm 격자에 맞지 않는 미세 피치(예: 0.5 mm 피치 QFP) 사이로는 통과하지 못할 수 있습니다.</li>
+<li>기존 트랙은 지우지 않습니다. 손으로 그린 트랙이 길을 막으면 그 연결은 실패할 수 있습니다.</li>
+<li>차동 쌍, 길이 맞추기, 임피던스 제어는 지원하지 않습니다.</li>
+</ul>
+
+<h3 id="ch8-4"><span class="num">8.4</span>잘 배선하는 요령</h3>
+<ul>
+<li>먼저 부품을 래츠네스트가 짧고 덜 교차하도록 배치하세요. 배치가 결과의 대부분을 결정합니다.</li>
+<li>전원/GND는 구리 영역(<a href="#ch7-9">7.9</a>)으로 처리하면 배선할 연결이 크게 줄어듭니다. 영역을 먼저 만들고 자동 배선하면 GND 연결은 건너뜁니다.</li>
+<li>중요한 신호나 굵은 전원선은 먼저 손으로 배선하고 나머지를 자동 배선하세요.</li>
+<li>실패하면 <span class="menu">모든 트랙과 비아 제거</span> 후 부품을 조금 옮겨 다시 시도하거나, 간격·트랙 폭을 조정합니다.</li>
+<li>자동 배선 후 <span class="menu">트랙 정리</span>와 DRC를 실행하세요.</li>
+</ul>
+
+<h2 id="ch9"><span class="num">9</span>DRC (설계 규칙 검사)</h2>
+
+<h3 id="ch9-1"><span class="num">9.1</span>DRC 실행</h3>
+<p><span class="menu">검사 → 설계 규칙 검사 (DRC)</span>, PCB 도구 모음의 방패 버튼, 상태 표시줄의 DRC 칸, 문제 목록의 새로 고침 버튼으로 실행합니다. 결과는 “DRC: 오류 n개, 경고 m개” 알림, 오른쪽 <span class="ui">DRC 문제</span> 목록(코드와 레이어 표시), PCB 탭 배지, 캔버스의 원+× 표시(빨강 오류, 노랑 경고)로 나타납니다. 항목을 클릭하면 그 위치로 이동·확대하고 관련 항목을 선택합니다. <span class="menu">파일 → 제조 출력…</span>을 열 때도 DRC가 자동 실행됩니다.</p>
+<figure><img width="1532" height="900" src="images/ko-drc-issues.webp" alt="DRC 문제" loading="lazy"><figcaption>그림 9-1. DRC 문제 목록과 캔버스 표시</figcaption></figure>
+<p>한 번 DRC를 실행하면(설정 <span class="ui">한 번 실행한 뒤에는 편집할 때마다 DRC 다시 실행</span>이 켜져 있을 때, 기본값) 이후 편집할 때마다 DRC가 자동으로 다시 실행되어 목록과 표시가 갱신됩니다. 결과가 깨끗했던 경우도 마찬가지입니다. 다른 파일을 열면 다시 수동 실행 전 상태(“DRC —”)로 돌아갑니다.</p>
+
+<h3 id="ch9-2"><span class="num">9.2</span>DRC 검사 항목</h3>
+<table>
+<thead><tr><th>코드</th><th>심각도</th><th>의미</th><th>고치는 방법</th></tr></thead>
+<tbody>
+<tr><td><code>missing_footprint</code></td><td><span class="pill e">오류</span></td><td>기판의 풋프린트 이름이 라이브러리에 없음(사용자 풋프린트를 지운 경우 등)</td><td>회로도에서 올바른 풋프린트를 지정하고 F8</td></tr>
+<tr><td><code>outline</code></td><td><span class="pill e">오류</span></td><td>외곽선의 점이 3개 미만, 잘못된 점, 면적 0, 자기 교차</td><td>외곽선 도구(<kbd>O</kbd>)로 다시 그리기</td></tr>
+<tr><td><code>footprint_outside</code></td><td><span class="pill e">오류</span></td><td>풋프린트 코트야드가 외곽선 밖에 있거나 걸쳐 있음</td><td>풋프린트를 기판 안으로 옮기거나 외곽선을 키움</td></tr>
+<tr><td><code>courtyard_overlap</code></td><td><span class="pill w">경고</span></td><td>같은 면 두 풋프린트의 코트야드가 겹침</td><td>부품 간격을 벌림(일부러 붙인 경우 무시 가능)</td></tr>
+<tr><td><code>track_width</code></td><td><span class="pill e">오류</span></td><td>트랙 폭 &lt; 최소 트랙 폭(기본 0.15 mm)</td><td>트랙 폭을 키우거나 규칙 조정</td></tr>
+<tr><td><code>via_drill</code></td><td><span class="pill e">오류</span></td><td>비아 드릴 &lt; 최소 드릴(기본 0.3 mm)</td><td>비아 드릴 키우기</td></tr>
+<tr><td><code>pad_drill</code></td><td><span class="pill w">경고</span></td><td>패드 드릴 &lt; 최소 드릴</td><td>다른 풋프린트 선택 또는 제조사 능력 확인</td></tr>
+<tr><td><code>annular_ring</code></td><td><span class="pill e">오류</span></td><td>비아 또는 도금 패드의 애뉼러 링((지름 − 드릴)/2) &lt; 0.13 mm</td><td>비아 지름을 키우거나 드릴을 줄임</td></tr>
+<tr><td><code>hole_to_hole</code></td><td><span class="pill e">오류</span></td><td>두 구멍(패드·비아) 가장자리 사이 거리 &lt; 홀 간 간격(기본 0.25 mm)</td><td>비아를 옮김</td></tr>
+<tr><td><code>clearance</code></td><td><span class="pill e">오류</span></td><td>다른 넷 구리(패드·트랙·비아) 사이 거리 &lt; 요구 간격(넷 클래스 중 큰 값)</td><td>트랙을 옮기거나 폭을 줄임</td></tr>
+<tr><td><code>short</code></td><td><span class="pill e">오류</span></td><td>다른 넷 구리가 닿거나 겹침(거리 ≤ 0)</td><td>잘못 그린 트랙/비아 삭제 후 다시 배선</td></tr>
+<tr><td><code>no_net</code></td><td><span class="pill w">경고</span></td><td>넷이 없는 트랙/비아가 넷이 있는 구리에 닿음</td><td>트랙/비아의 넷을 속성 패널에서 지정하거나 삭제</td></tr>
+<tr><td><code>zone_overlap</code></td><td><span class="pill e">오류</span></td><td>같은 레이어에서 다른 넷의 구리 영역이 같은 우선순위로 겹침</td><td>한쪽 우선순위를 올리거나 다각형을 고침</td></tr>
+<tr><td><code>edge_clearance</code></td><td><span class="pill e">오류</span></td><td>구리가 기판 가장자리에서 가장자리 간격(기본 0.3 mm)보다 가깝거나 외곽선 밖에 있음</td><td>구리를 안쪽으로 옮김</td></tr>
+<tr><td><code>dangling</code></td><td><span class="pill w">경고</span></td><td>트랙 끝이 아무것에도(같은 넷 구리나 영역) 닿지 않음</td><td>연결하거나 <span class="menu">트랙 정리</span>/삭제</td></tr>
+<tr><td><code>silk_over_pad</code></td><td><span class="pill w">경고</span></td><td>실크스크린 선이 노출된 패드에 0.1 mm보다 가깝거나 겹침(인쇄 시 잘림)</td><td>실크/글자를 옮김(내장 풋프린트는 모두 이 경고 없이 배치되도록 검사되어 있음)</td></tr>
+<tr><td><code>unconnected</code></td><td><span class="pill e">오류</span></td><td>래츠네스트가 남은 연결(미배선)</td><td>배선하거나 구리 영역으로 연결</td></tr>
+</tbody>
+</table>
+<p>오류는 항상 경고보다 먼저 나열됩니다. 메시지는 한국어 화면에서 한국어로 표시됩니다(예: “Clearance 0.150 mm &lt; 0.2 mm between …” → “간격 …”).</p>
+
+<h2 id="ch10"><span class="num">10</span>기판 설정</h2>
+<p><span class="menu">도구 → 기판 설정…</span>(PCB 도구 모음의 톱니바퀴, 속성 패널의 버튼)은 네 개의 탭으로 이루어져 있습니다. <span class="ui">적용</span>을 눌러야 저장되며 한 번의 실행 취소 단계가 됩니다. 왼쪽 아래 <span class="ui">기본 규칙 복원</span>은 설계 규칙과 넷 클래스를 기본값으로 되돌립니다.</p>
+
+<h3 id="ch10-1"><span class="num">10.1</span>적층 구조 및 표면 처리</h3>
+<figure><img width="1532" height="900" src="images/ko-dlg-boardsetup.webp" alt="기판 설정" loading="lazy"><figcaption>그림 10-1. 기판 설정 — 적층 구조 및 표면 처리</figcaption></figure>
+<table>
+<thead><tr><th>항목</th><th>선택지</th><th>쓰이는 곳</th></tr></thead>
+<tbody>
+<tr><td>구리 레이어</td><td>2 / 4 / 6</td><td>편집기 레이어, 거버 파일 수, 작업 파일</td></tr>
+<tr><td>두께 (mm)</td><td>0.8 / 1.0 / 1.2 / 1.6 / 2.0</td><td>3D 모델, 작업 파일, README</td></tr>
+<tr><td>솔더 마스크</td><td>초록, 빨강, 파랑, 검정, 흰색, 보라, 노랑</td><td>3D 색, 작업 파일, README</td></tr>
+<tr><td>실크스크린</td><td>흰색, 검정, 노랑</td><td>3D 색, 작업 파일</td></tr>
+<tr><td>표면 처리</td><td>HASL, ENIG, OSP</td><td>3D 패드 색(ENIG 금색, HASL 주석색, OSP 구리색), 작업 파일</td></tr>
+</tbody>
+</table>
+<p>마스크 색·표면 처리는 아무것도 선택하지 않았을 때의 속성 패널, 3D 탭 왼쪽 패널에서도 바꿀 수 있습니다.</p>
+
+<h3 id="ch10-2"><span class="num">10.2</span>외곽선</h3>
+<p>현재 외곽선의 크기와 꼭짓점 수가 표시되고, 폭·높이·모서리 반경(mm)을 입력한 뒤 <span class="ui">외곽선을 이 사각형으로 바꾸기</span>를 체크하고 적용하면 왼쪽 위 모서리를 기준으로 사각형 외곽선이 됩니다. 모서리 반경은 설정에도 저장되어 외곽선 도구의 사각형 드래그에도 쓰입니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-boardsetup-outline.webp" alt="외곽선 탭" loading="lazy"><figcaption>그림 10-2. 외곽선 탭</figcaption></figure>
+
+<h3 id="ch10-3"><span class="num">10.3</span>설계 규칙</h3>
+<table>
+<thead><tr><th>규칙</th><th>기본값</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>간격(클리어런스)</td><td class="num">0.2 mm</td><td>다른 넷 구리 사이 최소 거리</td></tr>
+<tr><td>트랙 폭</td><td class="num">0.25 mm</td><td>넷 클래스가 없는 넷의 배선 폭</td></tr>
+<tr><td>최소 트랙 폭</td><td class="num">0.15 mm</td><td>DRC <code>track_width</code> 기준</td></tr>
+<tr><td>비아 지름</td><td class="num">0.8 mm</td><td>새 비아의 바깥 지름</td></tr>
+<tr><td>비아 드릴</td><td class="num">0.4 mm</td><td>새 비아의 구멍</td></tr>
+<tr><td>최소 드릴</td><td class="num">0.3 mm</td><td>DRC <code>via_drill</code>, <code>pad_drill</code> 기준</td></tr>
+<tr><td>가장자리 간격</td><td class="num">0.3 mm</td><td>구리와 기판 가장자리 사이(배선기·DRC·접지 영역)</td></tr>
+<tr><td>홀 간 간격</td><td class="num">0.25 mm</td><td>구멍 가장자리 사이 최소 거리</td></tr>
+</tbody>
+</table>
+<p>애뉼러 링 최소값(0.13 mm)과 실크-패드 간격(0.1 mm)은 고정값입니다. 주문할 PCB 제조사의 공정 능력에 맞춰 규칙을 정하세요.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-boardsetup-rules.webp" alt="설계 규칙" loading="lazy"><figcaption>그림 10-3. 설계 규칙 탭</figcaption></figure>
+
+<h3 id="ch10-4"><span class="num">10.4</span>속성 패널의 빠른 규칙</h3>
+<p>PCB에서 아무것도 선택하지 않으면 속성 패널에서 트랙 폭, 간격, 비아 크기, 비아 드릴을 바로 고칠 수 있습니다(기판 설정과 같은 값).</p>
+
+<h3 id="ch10-5"><span class="num">10.5</span>넷 클래스</h3>
+<p>표의 각 행이 넷 클래스입니다: 이름, 트랙, 간격, 비아, 드릴, 넷(쉼표로 구분). <span class="ui">넷 클래스 추가</span>로 행을 늘리고(기본 규칙 값으로 시작), 휴지통 버튼으로 지웁니다. 아래에 기판에 있는 넷 이름 목록이 표시되어 복사해 넣기 편합니다. 넷 이름은 정확히 일치해야 합니다(대소문자 구분). 한 넷이 여러 클래스에 들어 있으면 표에서 먼저 나오는 클래스가 쓰입니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-boardsetup-netclasses.webp" alt="넷 클래스" loading="lazy"><figcaption>그림 10-4. 넷 클래스 탭</figcaption></figure>
+<p>넷 클래스는 대화형 배선의 시작 폭, 자동 배선기의 폭·간격·비아, 비아 도구, 접지 영역의 스포크 폭, DRC 간격 계산에 쓰입니다. 이미 그린 트랙의 폭은 바뀌지 않으므로, 필요하면 트랙을 선택하고 <span class="ui">넷 클래스 폭 사용</span>을 누르세요.</p>
+
+<h2 id="ch11"><span class="num">11</span>3D 보기</h2>
+<p>3D 탭(<kbd>F4</kbd>)은 기판과 부품을 실시간 3D로 보여 줍니다. 처음 열 때 3D 엔진을 불러오느라 잠깐 걸립니다. PCB를 고치면 3D 탭이 열려 있을 때 0.25초 뒤 자동으로 다시 만들어집니다.</p>
+<figure><img width="1532" height="900" src="images/ko-3d-555.webp" alt="3D 보기" loading="lazy"><figcaption>그림 11-1. 3D 보기 (예제 “555 LED 점멸기”)</figcaption></figure>
+
+<h3 id="ch11-1"><span class="num">11.1</span>조작</h3>
+<p>도구 모음 맨 왼쪽의 두 버튼이 <b>탐색 모드</b>입니다: <span class="ui">회전: 왼쪽 드래그로 화면 회전</span>(기본)과 <span class="ui">이동 (P): 왼쪽 드래그로 화면 이동</span>.</p>
+<table>
+<thead><tr><th>동작</th><th>회전 모드(기본)</th><th>이동 모드(P)</th></tr></thead>
+<tbody>
+<tr><td>왼쪽 드래그</td><td>회전(궤도)</td><td>이동</td></tr>
+<tr><td>오른쪽 드래그</td><td>이동</td><td>회전</td></tr>
+<tr><td>휠 / 가운데 드래그</td><td colspan="2">확대/축소</td></tr>
+<tr><td>방향키 / <kbd>Shift</kbd>+방향키</td><td colspan="2">7.5°씩 회전 / 조금씩 이동</td></tr>
+<tr><td>더블클릭</td><td colspan="2">클릭한 지점을 중심으로 부드럽게 다가감</td></tr>
+<tr><td><kbd>1</kbd>~<kbd>7</kbd></td><td colspan="2">등각 · 위 · 아래 · 앞 · 뒤 · 왼쪽 · 오른쪽 시점(도구 모음 버튼도 같음)</td></tr>
+<tr><td><kbd>P</kbd> / <kbd>G</kbd> / <kbd>A</kbd> / <kbd>C</kbd> / <kbd>Home</kbd></td><td colspan="2">이동 모드 전환 / 그리드 / 좌표축 / 부품 표시 / 화면에 맞추기</td></tr>
+<tr><td>부품 클릭</td><td colspan="2">회로도와 PCB에서도 선택되고 오른쪽 패널에 참조 번호, 풋프린트, 면, 위치, 회전과 <span class="ui">PCB에서 보기</span>/<span class="ui">회로도에서 보기</span> 버튼이 나옵니다</td></tr>
+</tbody>
+</table>
+<p>회전 속도는 설정 → 3D 보기 → <span class="ui">회전 속도</span>(× 0.25 ~ × 3), 원근감은 <span class="ui">시야각</span>(15°~75°, 기본 35°)으로 조절합니다.</p>
+
+<h3 id="ch11-2"><span class="num">11.2</span>표시 옵션, 그리드, 좌표축, 치수</h3>
+<p>왼쪽 패널의 체크 상자: 부품, 실크스크린, 솔더 마스크, 구리, 구리 영역, 기판 몸체, X-ray 기판, 좌표축, 그리드, 방향 표시기, 보드 치수 (가로 × 세로 × 높이). 도구 모음에도 부품·실크스크린·솔더 마스크·구리 영역·X-ray와 그리드(G)·좌표축(A)·방향 표시기·보드 치수 토글이 있습니다.</p>
+<ul>
+<li><b>그리드</b>: 기판 아래에 5 × 5 선 그리드가 깔립니다. 한 칸은 측정 단위의 1/5(2 mm 또는 0.2 in)에 5의 거듭제곱을 곱한 크기로, 카메라 거리에 따라 자동으로 바뀌어 어느 배율에서도 같은 무늬로 보입니다. 가장자리에 주 그리드선 값이 적히고, 한쪽 구석에 “□ 한 칸 ▦ 주 칸” 크기가 표시됩니다.</li>
+<li><b>좌표축</b>: X(빨강)·Y(파랑)·Z(초록) 축에 눈금과 값이 표시됩니다(축 이름에 단위, 예: “X (cm)”).</li>
+<li><b>방향 표시기</b>: 화면 왼쪽 아래의 작은 X/Y/Z 축이 지금 보고 있는 방향을 알려 줍니다.</li>
+<li><b>보드 치수</b>: 기판의 가로(W), 세로(D), 부품을 포함한 높이(H)가 노란 치수선과 글자로 표시됩니다(예: “W 6.2 cm”, “D 4.8 cm”, “H 1.4 cm”).</li>
+<li><b>측정 단위</b>: 도구 모음의 <b>cm/inch</b> 버튼(<span class="ui">측정 단위 (cm / inch) — 설정에서도 바꿀 수 있습니다</span>)이나 설정 → 단위와 그리드 → <span class="ui">3D 측정 단위</span>(센티미터 (cm) / 인치 (in))로 그리드·좌표축·치수의 단위를 바꿉니다.</li>
+<li>설정 → 3D 보기의 <span class="ui">시작할 때</span>에서 처음 열 때 켜 둘 도우미(눈금 있는 그리드, 좌표축, 보드 치수)를 고릅니다. 3D 배경(그라데이션/단색)과 3D 그림자(부품 아래 부드러운 그림자)도 이 탭에 있습니다.</li>
+</ul>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-3d-iso-cm.webp" alt="3D 등각 cm" loading="lazy"><figcaption>그림 11-2. 등각 시점 — 그리드, 좌표축, 방향 표시기, 보드 치수(cm)</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-3d-top-inch.webp" alt="3D 위 inch" loading="lazy"><figcaption>그림 11-3. 위 시점 — 단위를 inch로 바꾼 모습</figcaption></figure>
+</div>
+<p>아래 <span class="ui">기판 외관</span>에서 솔더 마스크 색, 실크스크린 색, 표면 처리, 두께를 바꾸면 기판 설정에도 그대로 저장됩니다(실행 취소 가능). 패널 맨 아래에 부품 수, 메시 수, 삼각형 수가 표시됩니다.</p>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-3d-xray.webp" alt="X-ray" loading="lazy"><figcaption>그림 11-4. 아래에서 본 X-ray 모드</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-3d-usb.webp" alt="SMD 기판" loading="lazy"><figcaption>그림 11-5. 파란 마스크·ENIG의 SMD 기판</figcaption></figure>
+</div>
+
+<h3 id="ch11-3"><span class="num">11.3</span>스크린샷과 3D 내보내기</h3>
+<ul>
+<li><span class="ui">스크린샷 (PNG)</span>: 현재 3D 화면을 <code>제목-3d.png</code>로 저장합니다.</li>
+<li><span class="ui">3D 모델 내보내기 (STL / GLB)…</span>(<span class="menu">파일 → 내보내기</span>에도 있음): <b>GLB</b>는 색과 재질을 유지합니다(Blender, 웹 뷰어, Windows 3D 뷰어). <b>STL</b>은 형상만 담습니다(기구 CAD, 케이스 목업 3D 프린팅). 현재 표시 옵션과 관계없이 기판과 부품 전체가 내보내집니다.</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-dlg-3dexport.webp" alt="3D 내보내기" loading="lazy"><figcaption>그림 11-4. 3D 모델 내보내기 대화상자</figcaption></figure>
+<p>부품 모델은 풋프린트에 지정된 종류(칩, 축방향, 방사형, DIP, SOIC, SOT-23, TO-92, TO-220, 헤더, LED, 버튼, 크리스탈, QFP, 부저, 가변 저항, USB, 테스트 포인트 등)에 따라 치수로 만들어지는 단순화된 모델입니다. 축방향 저항 모델에는 값에 맞는 색띠가 그려집니다(예: 4k7 = 노랑-보라-빨강-금색). 노출된 패드 색은 표면 처리에 따라 ENIG는 금색, HASL은 주석색, OSP는 구리색입니다.</p>
+
+<h2 id="ch12"><span class="num">12</span>시뮬레이션</h2>
+<p>MyCircuit에는 SPICE 방식의 회로 시뮬레이터가 들어 있습니다. 수정 절점 해석(MNA)으로 회로 방정식을 세우고 비선형 소자는 뉴턴-랩슨 반복으로 풉니다. 회로도를 그대로 시뮬레이션하므로 따로 넷리스트를 만들 필요가 없습니다.</p>
+
+<h3 id="ch12-1"><span class="num">12.1</span>시뮬레이션 탭</h3>
+<p><kbd>F6</kbd>로 시뮬레이션 탭을 엽니다. 위쪽 막대에 해석 종류(동작점 · 과도 해석 · AC (보드 선도) · DC 스윕) 버튼, 해석별 설정 칸, <span class="ui">실행</span>(<kbd>F5</kbd>) 버튼, 상태(“15 ms 만에 완료 · 경고 n개”), 오른쪽에 범례가 있습니다. 가운데는 그래프, 아래는 결과 표, 왼쪽은 프로브 패널입니다.</p>
+<figure><img width="1532" height="900" src="images/ko-sim-tran.webp" alt="과도 해석" loading="lazy"><figcaption>그림 12-1. 과도 해석 (예제 “비반전 연산증폭기 증폭기”) — 커서 위치의 값이 표시됩니다</figcaption></figure>
+<ul>
+<li><kbd>F5</kbd> 또는 <span class="menu">시뮬레이션 → 시뮬레이션 실행</span>은 현재 선택된 해석을 실행합니다. 메뉴의 <span class="ui">동작점 (DC)</span>, <span class="ui">과도 해석</span>, <span class="ui">AC 해석</span>, <span class="ui">DC 스윕</span>은 해석 종류를 바꾸고 바로 실행합니다.</li>
+<li>설정 칸에서 <kbd>Enter</kbd>를 누르면 값을 저장하고 바로 실행합니다. 설정은 프로젝트 파일에 저장됩니다.</li>
+<li>그래프 위에서 마우스를 움직이면 세로 점선 커서와 그 지점의 x값·각 신호 값이 표시됩니다. 범례 항목을 클릭하면 그 신호를 숨기거나 다시 보입니다.</li>
+<li>회로도가 비어 있으면 “회로도가 비어 있습니다 — 먼저 회로를 그리세요.”라는 안내가 나옵니다.</li>
+</ul>
+
+<h3 id="ch12-2"><span class="num">12.2</span>해석 종류와 설정</h3>
+<table>
+<thead><tr><th>해석</th><th>설정 칸</th><th>새 프로젝트 기본값</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td><b>동작점</b> (op)</td><td>없음</td><td>—</td><td>넷별 전압 표, 부품별 전류·전력 표. 회로도 배선 위에 전압 배지 표시</td></tr>
+<tr><td><b>과도 해석</b> (tran)</td><td>종료 시간, 간격</td><td>10m, 10u</td><td>시간 축 그래프(선택한 프로브). 출력 점 수가 10만 개를 넘으면 간격을 자동으로 늘리고 경고</td></tr>
+<tr><td><b>AC (보드 선도)</b> (ac)</td><td>시작 주파수, 끝 주파수, 디케이드당 점 수, 표시: 크기(dB)/크기(V)/위상(°)</td><td>10, 1Meg, 50</td><td>로그 주파수 축 그래프</td></tr>
+<tr><td><b>DC 스윕</b> (dc)</td><td>소스(회로의 전압원/전류원/배터리 중 선택), 시작, 끝, 간격</td><td>0, 10, 0.1</td><td>소스 값을 바꾸며 구한 동작점 그래프(최대 100 001점)</td></tr>
+</tbody>
+</table>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-sim-ac.webp" alt="AC 해석" loading="lazy"><figcaption>그림 12-2. AC 해석 — RC 저역 통과 필터의 보드 선도(dB)</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-sim-dc.webp" alt="DC 스윕" loading="lazy"><figcaption>그림 12-3. DC 스윕 — 배터리 전압을 0→5 V로 바꾸며 본 NPN 스위치</figcaption></figure>
+</div>
+<p><b>과도 해석의 시작 상태</b>: t = 0의 상태는 동작점(DC) 해석으로 정합니다(커패시터는 DC 전압으로 충전된 상태, 인덕터는 DC 전류). 적분은 처음 두 단계와 펄스 모서리 직후에 후진 오일러, 그 밖에는 사다리꼴 공식을 쓰며, 수렴하지 않으면 시간 간격을 1/4로 줄여 다시 시도합니다. 펄스의 모서리 시각은 반드시 계산 지점에 포함됩니다.</p>
+<p><b>AC 해석의 신호원</b>: <code>acmag</code> 필드가 있는 전원이 있으면 그 전원을, 없으면 사인파/펄스 전압원 → <code>VSOURCE</code> 부품 → 첫 번째 전압원 순으로 하나를 골라 크기 1 V(0°)를 넣습니다. 결과는 그 입력에 대한 각 넷의 전달 함수입니다. 비선형 소자는 동작점 주변에서 선형화됩니다.</p>
+
+<h3 id="ch12-3"><span class="num">12.3</span>공학 표기법 (값 입력)</h3>
+<p>부품 값, 시뮬레이션 설정, 필드 값, 계산기 입력은 모두 같은 규칙으로 해석됩니다.</p>
+<table>
+<thead><tr><th>접두사</th><th>배수</th><th>예</th></tr></thead>
+<tbody>
+<tr><td><code>f</code></td><td>10<sup>−15</sup></td><td><code>10f</code></td></tr>
+<tr><td><code>p</code></td><td>10<sup>−12</sup></td><td><code>22p</code> = 22 pF</td></tr>
+<tr><td><code>n</code></td><td>10<sup>−9</sup></td><td><code>100n</code>, <code>2.2nF</code></td></tr>
+<tr><td><code>u</code> 또는 <code>µ</code></td><td>10<sup>−6</sup></td><td><code>10u</code>, <code>4.7µF</code></td></tr>
+<tr><td><code>m</code></td><td>10<sup>−3</sup></td><td><code>10m</code> = 10 ms, <code>20mA</code></td></tr>
+<tr><td><code>k</code> 또는 <code>K</code></td><td>10<sup>3</sup></td><td><code>10k</code>, <code>4k7</code> = 4.7 k</td></tr>
+<tr><td><code>M</code> 또는 <code>Meg</code>/<code>meg</code></td><td>10<sup>6</sup></td><td><code>1Meg</code>, <code>1M</code></td></tr>
+<tr><td><code>G</code>, <code>T</code></td><td>10<sup>9</sup>, 10<sup>12</sup></td><td><code>1G</code></td></tr>
+</tbody>
+</table>
+<ul>
+<li>접두사를 소수점 자리에 쓸 수 있습니다: <code>4k7</code> = 4700, <code>2M2</code> = 2.2 M, <code>4R7</code> = 4.7, <code>5V1</code> = 5.1.</li>
+<li>단위 글자(<code>V</code>, <code>A</code>, <code>F</code>, <code>H</code>, <code>Hz</code>, <code>s</code>, <code>Ω</code>, <code>ohm</code>)는 무시됩니다: <code>2.2nF</code>, <code>12V</code>, <code>470Ω</code>.</li>
+<li>지수 표기도 됩니다: <code>1e-6</code>, <code>2.5E3</code>.</li>
+</ul>
+<div class="callout warn"><p>SPICE와 달리 <b>대문자 <code>M</code>은 메가(10<sup>6</sup>)</b>, 소문자 <code>m</code>은 밀리(10<sup>−3</sup>)입니다. 헷갈리면 메가는 <code>Meg</code>로 쓰세요. <code>16MHz</code>처럼 해석할 수 없는 값을 가진 부품(크리스탈)은 시뮬레이션 모델이 없어 영향이 없습니다. 값이 숫자로 읽히지 않는 R/C/L/전원은 “cannot read value” 오류가 납니다.</p></div>
+
+<h3 id="ch12-4"><span class="num">12.4</span>소자 모델</h3>
+<p>부품의 <b>값</b>이 주 파라미터이고, <b>필드</b>(부품 속성의 필드 탭이나 속성 패널의 시뮬레이션 구역)로 모델 파라미터를 덮어쓸 수 있습니다. 숫자로 읽히는 필드 중 이름이 모델 파라미터와 같은 것이 적용됩니다.</p>
+<table>
+<thead><tr><th>모델</th><th>심볼</th><th>값</th><th>필드 / 파라미터 (기본값)</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>R</td><td>R, FUSE(0.05 Ω 고정), BUZZER(42 Ω 고정), MOTOR(20 Ω 고정)</td><td>저항 [Ω]</td><td>—</td><td>0 이하이면 1 µΩ으로 바꾸고 경고</td></tr>
+<tr><td>POT</td><td>R_POT</td><td>전체 저항</td><td><code>position</code> 0~1 또는 % (0.5)</td><td>1–W 사이 = 전체 × position, W–3 사이 = 전체 × (1 − position), 각각 최소 1 mΩ</td></tr>
+<tr><td>C</td><td>C, C_POL</td><td>용량 [F]</td><td>—</td><td>DC에서 개방. 0 이하는 오류</td></tr>
+<tr><td>L</td><td>L</td><td>인덕턴스 [H]</td><td>—</td><td>DC에서 단락</td></tr>
+<tr><td>V</td><td>VSOURCE, BATTERY</td><td>DC 전압</td><td><code>wave</code>(dc/sine/pulse), <code>amplitude</code>(1), <code>freq</code>(1k), <code>offset</code>(0), <code>period</code>(1m), <code>duty</code>(50 %), <code>phase</code>(0°), <code>acmag</code>, <code>acphase</code></td><td>V(1) − V(2) = 파형. BATTERY는 필드가 없으면 DC</td></tr>
+<tr><td>I</td><td>ISOURCE</td><td>DC 전류</td><td>V와 같음(필드는 직접 추가)</td><td>값만큼의 전류를 + 핀에서 외부 회로로 밀어냄</td></tr>
+<tr><td>SW</td><td>SW_PUSH(open), SW_SPST(closed)</td><td>—</td><td><code>state</code> open/closed</td><td>닫힘 0.01 Ω, 열림 1 GΩ의 저항</td></tr>
+<tr><td>D</td><td>D(<code>is</code>=2.52n, <code>n</code>=1.752), D_SCHOTTKY(3e-7, 1.05), D_ZENER(1e-12, 1.5, <code>bv</code>=5.1), LED(1e-19, 1.8)</td><td>—</td><td><code>is</code>, <code>n</code>, <code>rs</code>, <code>bv</code>, <code>ibv</code>(1 m)</td><td>쇼클리 다이오드 + 선택적 역방향 항복(bv) + 직렬 저항(rs). LED는 rs를 지정하지 않으면 10 Ω (10 mA에서 약 1.8~2 V)</td></tr>
+<tr><td>NPN / PNP</td><td>Q_NPN, Q_PNP</td><td>—</td><td><code>is</code>(6.7e-15), <code>bf</code>(200), <code>br</code>(2)</td><td>에버스-몰 모델. 모델 핀 순서 C, B, E(심볼 핀 3, 2, 1)</td></tr>
+<tr><td>NMOS / PMOS</td><td>Q_NMOS(<code>vt</code>=2.1, 값 2N7000), Q_PMOS(2.0, 값 PMOS)</td><td>—</td><td><code>vt</code>, <code>k</code>(0.1 A/V²), <code>lambda</code>(0.01)</td><td>제곱 법칙(SPICE level 1과 유사), 몸체 단자 없음. 모델 핀 순서 D, G, S(심볼 핀 3, 2, 1)</td></tr>
+<tr><td>OPAMP</td><td>OPAMP</td><td>—</td><td><code>gain</code>(1e5), <code>vpos</code>(15), <code>vneg</code>(−15)</td><td>고이득 전압 제어 전압원. 출력은 tanh 곡선으로 V+와 V− 사이에 부드럽게 제한. 전원 핀이 연결되지 않으면 ±15 V(vpos/vneg) 고정 레일을 쓰고 경고</td></tr>
+<tr><td>REG</td><td>LM7805(<code>vout</code>=5, <code>dropout</code>=2), AMS1117-3.3(3.3, 1.1)</td><td>—</td><td><code>vout</code>, <code>dropout</code>, <code>rout</code>(0.1 Ω), <code>iq</code>(5 mA)</td><td>출력 = min(vout, 입력 − dropout) (0 이상), 출력 저항 rout, 입력에서 접지로 대기 전류 iq</td></tr>
+</tbody>
+</table>
+<p><b>파형 정의</b></p>
+<ul>
+<li><b>sine</b>: v(t) = offset + amplitude · sin(2π · freq · t + phase°). 동작점 값은 t = 0의 값(offset + amplitude · sin(phase)).</li>
+<li><b>pulse</b>: <code>offset</code>이 <b>낮은 레벨</b>, <code>amplitude</code>가 <b>높은 레벨</b>(합이 아님)입니다. 매 주기 시작에 높은 레벨로 올라가 period × duty 동안 유지한 뒤 낮은 레벨로 내려갑니다(모서리는 이상적). 동작점 값은 낮은 레벨.</li>
+<li><b>dc</b>: 부품의 값이 그대로 전압/전류입니다.</li>
+</ul>
+<p>시뮬레이션 모델이 없는 부품(크리스탈, 테스트 포인트, 커넥터, NE555, LM358, MCU, 로직 IC, 사용자 심볼 등)은 무시되고, 핀이 두 개 이상이면 “has no simulation model, ignored” 경고가 나옵니다. 연산 증폭기를 시뮬레이션하려면 <code>OPAMP</code> 심볼을 쓰세요. DNP 부품도 제외됩니다.</p>
+
+<h3 id="ch12-5"><span class="num">12.5</span>기준 전위와 연결 확인</h3>
+<ul>
+<li>넷 이름이 <code>GND</code>, <code>0</code>, <code>AGND</code>인 넷이 0 V 기준입니다. 없으면 “No GND net” 오류가 납니다 — GND 전원 심볼을 놓으세요.</li>
+<li>연결되지 않은 핀은 내부의 떠 있는 노드가 되고 “pin n is not connected” 경고가 납니다.</li>
+<li>접지로 가는 DC 경로가 없는 넷(예: 커패시터로만 연결된 넷)은 아주 작은 컨덕턴스(gmin = 10<sup>−12</sup> S)로 0 V에 묶이고 “no DC path to ground” 경고가 납니다.</li>
+<li>동작점이 바로 수렴하지 않으면 gmin 스테핑, 소스 스테핑을 차례로 시도합니다. 그래도 안 되면 “Operating point did not converge” 오류입니다.</li>
+<li>전압원끼리 병렬, 인덕터와 전압원의 루프 등으로 행렬이 특이해지면 “Singular matrix …” 오류에 문제가 된 넷이나 부품 이름이 표시됩니다.</li>
+</ul>
+
+<h3 id="ch12-6"><span class="num">12.6</span>부호 규칙</h3>
+<p>표와 그래프의 전류 <code>I(참조)</code>는 모두 <b>소자의 주 핀으로 들어가는</b> 전류입니다.</p>
+<table>
+<thead><tr><th>소자</th><th>주 핀 / 양의 방향</th></tr></thead>
+<tbody>
+<tr><td>R, C, L, SW, POT</td><td>1번 핀 → 소자 → 2번 핀 방향이 양수</td></tr>
+<tr><td>D, LED</td><td>애노드로 들어가는 전류(순방향이면 양수)</td></tr>
+<tr><td>V, BATTERY</td><td>+ 핀으로 들어가 소자를 지나 − 핀으로 나가는 방향(SPICE 규칙) — <b>전력을 공급하는 전원은 음수</b></td></tr>
+<tr><td>I</td><td>+ 핀으로 들어가는 전류 — 값만큼 밀어내므로 −값으로 표시</td></tr>
+<tr><td>NPN/PNP</td><td>컬렉터로 들어가는 전류</td></tr>
+<tr><td>NMOS/PMOS</td><td>드레인으로 들어가는 전류</td></tr>
+<tr><td>REG</td><td>입력 핀으로 들어가는 전류</td></tr>
+<tr><td>OPAMP</td><td>출력 핀으로 들어가는 전류(전류를 내보내면 음수)</td></tr>
+</tbody>
+</table>
+<p><b>전력</b>은 Σ V(핀) × I(핀으로 들어감)입니다. 양수는 소비, 음수는 공급입니다.</p>
+
+<h3 id="ch12-7"><span class="num">12.7</span>프로브</h3>
+<ul>
+<li>왼쪽 <span class="ui">프로브</span> 패널에서 그래프에 그릴 <b>전압</b>(GND/0/AGND를 뺀 모든 넷)과 <b>전류</b>(시뮬레이션 모델이 있는 부품 <code>I(R1)</code>…)를 체크합니다. 휴지통 버튼은 모든 프로브를 지웁니다.</li>
+<li>회로도에서 배선을 오른쪽 클릭 → <span class="ui">시뮬레이션에서 이 넷 측정</span>, 또는 배선 속성의 <span class="ui">프로브 추가</span>로도 추가합니다(시뮬레이션 탭으로 전환).</li>
+<li>프로브 없이 과도/AC/DC 해석을 처음 실행하면 처음 네 개 넷의 전압이 자동으로 프로브됩니다.</li>
+<li>프로브 목록은 프로젝트에 저장됩니다. 그래프 색은 프로브 순서대로 10가지 색을 돌아가며 씁니다.</li>
+</ul>
+
+<h3 id="ch12-8"><span class="num">12.8</span>회로도 전압 오버레이</h3>
+<p>동작점 해석을 실행하면 회로도의 각 넷에서 가장 긴 배선 가운데에 전압 배지가 표시되고 상태 표시줄에 “시뮬레이션 오버레이 켜짐”이 나옵니다. <span class="menu">보기 → 회로도에 시뮬레이션 전압 표시</span>로 숨기거나 보이고, <span class="menu">시뮬레이션 → 시뮬레이션 오버레이 지우기</span>(시뮬레이션 도구 모음의 × 버튼)로 지웁니다. 다른 파일을 열면 지워집니다.</p>
+
+<h3 id="ch12-9"><span class="num">12.9</span>SPICE 넷리스트</h3>
+<p><span class="menu">시뮬레이션 → SPICE 넷리스트 보기…</span>는 회로를 표준 SPICE 형식으로 보여 주고 <span class="ui">복사</span>, <span class="ui">저장…</span>(<code>.cir</code>)할 수 있습니다. <span class="menu">파일 → 내보내기 → SPICE 넷리스트</span>로 바로 저장해도 됩니다. ngspice, LTspice 등 다른 시뮬레이터에서 쓸 수 있습니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-spice.webp" alt="SPICE 넷리스트" loading="lazy"><figcaption>그림 12-4. SPICE 넷리스트 보기</figcaption></figure>
+<ul>
+<li>GND/0/AGND는 노드 <code>0</code>, 다른 넷 이름은 SPICE에 맞게 영숫자와 <code>_+-.</code>만 남깁니다.</li>
+<li>다이오드·트랜지스터·MOSFET은 <code>.model</code> 카드, 연산 증폭기와 레귤레이터는 B-소스를 쓰는 <code>.subckt</code>로 내보냅니다. 스위치는 0.01 Ω/1 GΩ 저항, 가변 저항은 저항 두 개가 됩니다.</li>
+<li>펄스는 상승/하강 시간을 주기의 0.1 %로 둔 <code>PULSE</code>, 사인파는 <code>SIN</code>으로 바뀝니다. ISOURCE는 SPICE 방향에 맞게 노드 순서가 뒤집혀 나갑니다.</li>
+<li>마지막에 해석 명령(<code>.tran</code>, <code>.ac dec</code>, DC 스윕이면 <code>.dc &lt;소스&gt; &lt;시작&gt; &lt;끝&gt; &lt;간격&gt;</code>, 동작점이면 <code>.op</code>)과 경고가 주석으로 붙습니다.</li>
+</ul>
+
+<h3 id="ch12-10"><span class="num">12.10</span>제약 사항</h3>
+<ul>
+<li>노이즈, 왜곡, 온도, 몬테카를로, 파라미터 스윕은 없습니다. 디지털 소자(로직 IC, MCU, 555)는 시뮬레이션하지 않습니다.</li>
+<li>모델은 교육·검증용으로 단순화되어 있습니다(커패시턴스가 없는 트랜지스터, 이상적인 펄스 모서리 등). 고주파 특성은 정확하지 않습니다.</li>
+<li>동작점 표의 커패시터 전류는 항상 0입니다(DC에서 개방).</li>
+</ul>
+
+<h2 id="ch13"><span class="num">13</span>출력</h2>
+
+<h3 id="ch13-1"><span class="num">13.1</span>인쇄</h3>
+<p><span class="menu">파일 → 인쇄…</span>(<kbd>Ctrl</kbd>+<kbd>P</kbd>)는 미리 보기가 있는 인쇄 대화상자를 엽니다. 왼쪽은 옵션, 오른쪽은 페이지 미리 보기와 페이지 이동(◀ 1 / 3 — 이름 ▶)입니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-print.webp" alt="인쇄" loading="lazy"><figcaption>그림 13-1. 인쇄 대화상자</figcaption></figure>
+<table>
+<thead><tr><th>옵션</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>인쇄</td><td>회로도 / PCB 레이어 / 회로도와 PCB (PCB 탭에서 열면 기본이 PCB)</td></tr>
+<tr><td>용지</td><td>A4, A3, A5, Letter, Legal, Tabloid (회로도 시트가 A3이면 기본 A3)</td></tr>
+<tr><td>방향</td><td>가로 / 세로</td></tr>
+<tr><td>색상</td><td>흑백 — 회로도는 흑백 테마, PCB는 모든 레이어를 검정으로</td></tr>
+<tr><td>PCB 페이지</td><td>윗면(F.Cu + F.SilkS + 외곽선), 아랫면(B.Cu + B.SilkS + 외곽선), 내층(각 내층 한 장씩), 조립도(F.SilkS + F.Fab + 외곽선), 아랫면 레이어 대칭(아래에서 본 모습이 아닌, 위에서 본 방향으로 뒤집어 인쇄)</td></tr>
+<tr><td>PCB 배율</td><td>페이지에 맞추기 / <b>실제 크기 1:1 (토너 전사)</b> — 실제 mm 크기로 인쇄해 토너 전사 방식 자작 기판이나 부품 배치 확인에 씀</td></tr>
+<tr><td>매수</td><td>1~99</td></tr>
+</tbody>
+</table>
+<ul>
+<li>회로도는 <b>페이지마다 한 장</b>씩 인쇄되고, 표제란에 “Sheet: i/N 이름”이 표시됩니다.</li>
+<li><span class="ui">인쇄…</span>는 운영체제(또는 브라우저) 인쇄 대화상자를 엽니다. 데스크톱에서는 <span class="ui">PDF로 저장…</span>으로 PDF 파일을 바로 만들 수 있습니다(파일 이름은 <code>프로젝트 제목.pdf</code>로 제안됨).</li>
+<li>1:1 인쇄 때는 프린터 설정의 “용지에 맞춤” 같은 배율 조정을 끄세요. 인쇄 후 자로 기판 크기를 확인하는 것이 좋습니다.</li>
+</ul>
+
+<h3 id="ch13-2"><span class="num">13.2</span>그림 내보내기 (SVG / PNG)</h3>
+<ul>
+<li><b>회로도를 SVG로</b>: <b>현재 페이지</b>를 시트 크기 그대로 벡터 SVG(<code>제목-schematic.svg</code>, 인쇄용 흰 배경 테마)로 저장합니다.</li>
+<li><b>회로도를 PNG로</b>: 현재 페이지를 300 dpi(1000 mil = 300 px) 흰 배경 PNG로 저장합니다. A4는 약 3508 × 2480 픽셀.</li>
+<li><b>PCB를 SVG로</b>: 대화상자에서 레이어(구리 레이어들, B.SilkS, F.Mask, F.SilkS, Edge.Cuts), 배경(흰색/어둡게/투명), 대칭(아래에서 본 모습)을 고릅니다. 실제 mm 크기로 저장되어 다른 CAD나 레이저 가공에 쓸 수 있습니다.</li>
+</ul>
+<figure><img width="1532" height="900" src="images/ko-dlg-pcbsvg.webp" alt="PCB SVG 내보내기" loading="lazy"><figcaption>그림 13-2. PCB를 SVG로 내보내기</figcaption></figure>
+
+<h3 id="ch13-3"><span class="num">13.3</span>넷리스트와 SPICE</h3>
+<ul>
+<li><b>넷리스트 (KiCad)</b>: KiCad S-표현식 넷리스트(<code>.net</code>, version E) — 부품(참조, 값, 풋프린트, 심볼)과 넷(코드, 이름, 연결 핀)을 담습니다. 다른 PCB 도구로 옮길 때 씁니다.</li>
+<li><b>SPICE 넷리스트</b>: <code>.cir</code>. <a href="#ch12-9">12.9</a> 참고.</li>
+<li><b>IPC-D-356</b>: 제조 출력 ZIP 안의 <code>.d356</code>(기판의 패드·비아 기준 전기 검사용 넷리스트).</li>
+</ul>
+
+<h3 id="ch13-4"><span class="num">13.4</span>BOM (부품표)</h3>
+<p><span class="menu">도구 → 부품표(BOM)…</span>는 BOM 표를 보여 줍니다. 열: #, 수량, 참조 번호, 값, 풋프린트, 설명. <span class="ui">같은 부품 묶기</span>를 켜면(기본) 값·풋프린트·심볼·DNP가 같은 부품을 한 줄로 묶습니다. DNP 부품은 흐리게 표시되고 맨 뒤에 따로 묶입니다. 행을 클릭하면 회로도·PCB·3D에서 그 부품들이 선택됩니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-bom.webp" alt="BOM" loading="lazy"><figcaption>그림 13-3. 부품표 대화상자</figcaption></figure>
+<ul>
+<li><span class="ui">복사</span>: CSV를 클립보드에 복사(스프레드시트에 붙여 넣기).</li>
+<li><span class="ui">CSV 내보내기…</span>: <code>제목-BOM.csv</code>. 열은 <code>Item, Qty, References, Value, Footprint, Description, DNP</code>. UTF-8 BOM이 붙어 있어 Excel에서 한글이 깨지지 않습니다.</li>
+<li>전원 심볼(<code>#</code>로 시작하는 참조)은 제외되고, 회로도에 없이 기판에만 있는 풋프린트도 포함됩니다.</li>
+</ul>
+
+<h3 id="ch13-5"><span class="num">13.5</span>픽앤플레이스 (부품 좌표)</h3>
+<p><span class="menu">파일 → 내보내기 → 픽앤플레이스 (CSV)</span>는 조립 업체용 좌표 파일 <code>제목-pos.csv</code>를 만듭니다.</p>
+<pre><code>Ref,Val,Package,PosX,PosY,Rot,Side
+"C1","100n","C_0805",12.3000,8.4500,90.0000,top</code></pre>
+<ul>
+<li>원점은 기판 외곽선 경계 상자의 <b>왼쪽 아래</b>, X는 오른쪽, <b>Y는 위쪽</b>이 양수(mm, 소수 4자리)입니다.</li>
+<li>Rot은 위에서 본 반시계 방향 각도(0~360)이며, 아랫면 부품도 위에서 본 각도를 그대로 씁니다. Side는 <code>top</code>/<code>bottom</code>.</li>
+<li>패드가 없는 풋프린트, 마운팅 홀, NPTH만 있는 풋프린트는 제외됩니다.</li>
+</ul>
+
+<h3 id="ch13-6"><span class="num">13.6</span>제조 출력 (거버/드릴 패키지)</h3>
+<p><span class="menu">파일 → 제조 출력 (거버, 드릴)…</span>은 PCB 제조사가 요구하는 모든 파일을 ZIP 하나로 만듭니다. 대화상자를 열면 DRC가 먼저 실행되어, 오류가 있으면 빨간 안내(“DRC 오류가 n개 있습니다. 기판을 주문하기 전에 고치세요”)가 표시됩니다.</p>
+<table>
+<thead><tr><th>옵션</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>솔더 마스크 확장 (mm)</td><td>마스크 개구부를 패드보다 얼마나 크게 할지(기본 0.05)</td></tr>
+<tr><td>비아 텐팅</td><td>켜면(기본) 비아를 마스크로 덮음. 끄면 비아에도 마스크 개구부를 만듦</td></tr>
+<tr><td>포함</td><td>BOM, 픽앤플레이스, IPC-356을 넣을지</td></tr>
+</tbody>
+</table>
+<p>파일 이름은 <code>&lt;기본 이름&gt;-&lt;레이어&gt;.&lt;확장자&gt;</code>입니다. 기본 이름은 프로젝트 제목에서 영문자·숫자·<code>_ . -</code>만 남긴 것이며(없으면 <code>board</code>), 공백 등은 <code>_</code>가 됩니다.</p>
+<table>
+<thead><tr><th>파일</th><th>내용</th><th>Gerber X2 FileFunction</th></tr></thead>
+<tbody>
+<tr><td><code>…-F_Cu.gtl</code></td><td>윗면 구리(패드, 트랙, 비아, 구리 영역, 구리 레이어 텍스트)</td><td>Copper,L1,Top</td></tr>
+<tr><td><code>…-In1_Cu.g2</code>, <code>…-In2_Cu.g3</code> …</td><td>내층 구리(4/6층)</td><td>Copper,Ln,Inr</td></tr>
+<tr><td><code>…-B_Cu.gbl</code></td><td>아랫면 구리</td><td>Copper,Ln,Bot</td></tr>
+<tr><td><code>…-F_Mask.gts</code> / <code>…-B_Mask.gbs</code></td><td>솔더 마스크 개구부(음극성)</td><td>Soldermask,Top/Bot</td></tr>
+<tr><td><code>…-F_Paste.gtp</code> / <code>…-B_Paste.gbp</code></td><td>SMD 패드 솔더 페이스트(스텐실)</td><td>Paste,Top/Bot</td></tr>
+<tr><td><code>…-F_SilkS.gto</code> / <code>…-B_SilkS.gbo</code></td><td>실크스크린(풋프린트 외형, 참조 번호, 텍스트, 선)</td><td>Legend,Top/Bot</td></tr>
+<tr><td><code>…-Edge_Cuts.gm1</code></td><td>기판 외곽선(폭 0.1 mm)</td><td>Profile,NP</td></tr>
+<tr><td><code>…-PTH.drl</code></td><td>Excellon 드릴: 도금 구멍(패드 + 비아)</td><td>—</td></tr>
+<tr><td><code>…-NPTH.drl</code></td><td>Excellon 드릴: 비도금 구멍(마운팅 홀 등)</td><td>—</td></tr>
+<tr><td><code>…-BOM.csv</code></td><td>묶은 BOM</td><td>—</td></tr>
+<tr><td><code>…-pos.csv</code></td><td>픽앤플레이스(양면)</td><td>—</td></tr>
+<tr><td><code>….d356</code></td><td>IPC-D-356 전기 검사 넷리스트</td><td>—</td></tr>
+<tr><td><code>…-job.gbrjob</code></td><td>Gerber 작업 파일(JSON): 기판 크기, 층 수, 두께, 표면 처리, 설계 규칙, 파일별 기능, 재료 적층(마스크·실크 색 포함)</td><td>—</td></tr>
+<tr><td><code>README.txt</code></td><td>기판 정보, 단위·좌표 규칙, 파일 목록</td><td>—</td></tr>
+</tbody>
+</table>
+<p><b>형식과 좌표 규칙</b></p>
+<ul>
+<li>Gerber RS-274X + X2 속성(파일 기능, 극성, 생성 프로그램, 프로젝트 ID, 패드의 참조·핀·넷 객체 속성), 단위 mm, 형식 4.6(<code>%FSLAX46Y46*%</code>, 나노미터 정수).</li>
+<li>모든 거버와 드릴 파일은 같은 좌표를 씁니다: <b>(x, −y)</b> — 편집기 좌표의 y 부호만 바꾼 것으로, 원점 이동이 없습니다. 그래서 모든 레이어가 정확히 겹칩니다.</li>
+<li>Excellon: 미터 단위, 절대 좌표, 소수점 표기, 공구는 지름 순으로 T1, T2 …</li>
+<li>구리 영역은 어두운/밝은 극성(<code>%LPD*%</code>/<code>%LPC*%</code>)으로 채움과 비움을 그대로 표현합니다.</li>
+<li>ZIP은 압축하지 않는 저장(STORE) 방식입니다. 파일 크기는 조금 크지만 어떤 도구로도 열립니다.</li>
+</ul>
+<p><span class="ui">거버 뷰어에서 미리 보기</span>로 결과를 확인하고 <span class="ui">ZIP 저장…</span>으로 <code>제목-fabrication.zip</code>을 저장합니다.</p>
+<div class="callout tip"><p>주문 전 점검: ① DRC 오류 0개 ② 거버 뷰어에서 각 레이어 확인(특히 구리 영역 비움과 실크) ③ 드릴 파일의 구멍 위치 ④ 기판 크기·층 수·두께·색이 작업 파일/README와 주문서에서 같은지.</p></div>
+
+<h3 id="ch13-7"><span class="num">13.7</span>3D 모델 (STL / GLB)</h3>
+<p><a href="#ch11-3">11.3</a>을 보세요.</p>
+
+<h3 id="ch13-8"><span class="num">13.8</span>거버 뷰어</h3>
+<p><span class="menu">도구 → 거버 뷰어…</span>는 거버·드릴 파일을 레이어별로 겹쳐 보는 내장 뷰어입니다.</p>
+<figure><img width="1532" height="900" src="images/ko-tut-19-gerber.webp" alt="거버 뷰어" loading="lazy"><figcaption>그림 13-4. 거버 뷰어</figcaption></figure>
+<ul>
+<li><span class="ui">거버 / 드릴 / ZIP 열기…</span>: 여러 파일을 한 번에 고를 수 있습니다. 확장자 <code>.drl</code>/<code>.xln</code>(또는 M48로 시작하는 텍스트)는 드릴, <code>%FS</code>/<code>G04</code>/<code>%MO</code>가 있는 파일은 거버로 인식합니다. ZIP은 압축하지 않은(STORE) ZIP만 읽을 수 있습니다(MyCircuit이 만든 ZIP은 가능, 다른 프로그램의 압축 ZIP은 풀어서 파일로 여세요).</li>
+<li><span class="ui">현재 기판 불러오기</span>: 지금 프로젝트의 제조 파일을 바로 만들어 보여 줍니다.</li>
+<li>각 레이어의 체크 상자로 표시/숨김, 색 견본을 클릭해 색을 바꿉니다. 기본 색은 확장자로 정해집니다(gtl 빨강, gbl 파랑, gto 연노랑, gm1 노랑, 드릴 흰색 …).</li>
+<li>휠로 확대, 오른쪽 드래그로 이동합니다. 열면 모든 레이어가 화면에 맞춰집니다.</li>
+</ul>
+
+<h3 id="ch13-9"><span class="num">13.9</span>KiCad 프로젝트 가져오기</h3>
+<p><span class="menu">파일 → KiCad 프로젝트 가져오기…</span>는 KiCad 6/7/8/9의 회로도(<code>.kicad_sch</code>)와 기판(<code>.kicad_pcb</code>)을 MyCircuit 프로젝트로 바꿉니다.</p>
+<ol class="steps">
+<li>파일 선택 창에서 <code>.kicad_sch</code>와/또는 <code>.kicad_pcb</code>를 고릅니다(여러 개를 함께 고를 수 있습니다 — 하위 시트 파일 포함).</li>
+<li><b>데스크톱</b>에서는 고른 파일과 같은 폴더에 있는 짝 파일(같은 이름의 <code>.kicad_pcb</code>/<code>.kicad_sch</code>)과 하위 시트 파일을 자동으로 찾아 함께 가져옵니다. 웹에서는 필요한 파일을 모두 함께 고르세요.</li>
+<li>루트 회로도는 다른 회로도가 시트로 참조하지 않는 파일(또는 기판과 같은 이름의 파일)입니다. <b>계층 시트</b>는 MyCircuit의 시트 블록 + 페이지로 만들어지고(최대 8단계), 시트 핀은 하위 시트의 계층 레이블과 연결됩니다.</li>
+<li>끝나면 “○○ 가져옴: 부품 n개, 풋프린트 m개, 페이지 p개, 메모 w개.”가 표시되고 프로젝트가 “변경됨”(경로 없음) 상태로 열립니다. 저장하면 새 <code>.mycircuit</code> 파일이 됩니다.</li>
+<li>단순화되거나 건너뛴 항목이 있으면 <span class="ui">가져오기 메모</span> 창이 8개씩 페이지로 나눠 목록을 보여 줍니다.</li>
+</ol>
+<p><b>가져오는 것</b>: 회로도 — 라이브러리 심볼(lib_symbols, 다중 유닛 포함)과 배치된 부품(회전·대칭·값·풋프린트·필드), 배선, 정션, 연결 없음, 넷/글로벌/계층 레이블, 전원 심볼, 텍스트, 용지 크기. 기판 — 풋프린트와 패드(모양·드릴·면), 트랙, 비아, 구리 영역, 기판 외곽선(Edge.Cuts), 실크 텍스트와 그래픽, 층 수. 좌표는 KiCad의 mm를 회로도 mil(1.27 mm 그리드 = 50 mil)과 PCB mm로 정확히 옮깁니다.</p>
+<p><b>가져오기 메모에 나오는 단순화의 예</b>: 드모르간 대체 몸체 생략 · 90°가 아닌 각도의 핀/심볼 반올림 · 숨은 전원 핀은 같은 이름의 넷에 암묵적으로 연결 · 회로도의 그림 요소(선, 도형, 이미지) 생략 · 지원하지 않는 용지 크기는 A4 · 사용자 모양 패드와 사다리꼴 패드는 사각형 · 타원(슬롯) 드릴은 작은 지름의 원형 구멍 · 반대쪽 면 SMD 패드는 layers "B" · 원호 트랙은 직선 근사 · 블라인드/베리드 비아는 관통 비아 · 금지 영역(keep-out) 생략 · 구리 그래픽 도형 생략 · 닫히지 않은 외곽선은 경계 상자 사용 · 추가 Edge.Cuts 폐곡선은 컷아웃 그래픽 · 치수 생략 · 공급되지 않은 하위 시트는 빈 페이지.</p>
+<div class="callout tip"><p>개발자용 API: <code>importKicadProject({ schText, pcbText, name, sheetTexts })</code>(<code>src/io/kicad.js</code>)는 회로도·기판 텍스트와 하위 시트 텍스트(파일 이름 → 내용)를 받아 MyCircuit 프로젝트 객체를 돌려줍니다. 경고 목록은 <code>project.importWarnings</code>에 있습니다.</p></div>
+
+<h2 id="ch14"><span class="num">14</span>계산기</h2>
+<p><span class="menu">도구 → 계산기…</span>에는 여섯 개의 탭이 있습니다. 모든 입력은 공학 표기법(<code>4k7</code>, <code>20m</code>)을 받고, 입력하는 즉시 결과가 바뀝니다.</p>
+<table>
+<thead><tr><th>탭</th><th>입력</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td>색 코드</td><td>저항값, 색띠(4색띠 5 % / 5색띠 1 %)</td><td>색띠 그림과 색 이름, 가장 가까운 E24·E96 값(0.1 Ω ~ 100 MΩ)</td></tr>
+<tr><td>LED / 옴</td><td>공급 전압, LED 순방향 전압, 전류</td><td>직렬 저항 R = (Vs − Vf)/I와 가장 가까운 E24 값, 저항 전력과 권장 정격(2배 여유, 1/8 W 단위 올림), LED 없이 R = V/I와 전력</td></tr>
+<tr><td>분압기</td><td>Vin, 목표 Vout, R1, R2</td><td>Vout = Vin·R2/(R1+R2), 분압 전류, 목표 Vout을 위한 R2와 E24 값 및 그때의 Vout</td></tr>
+<tr><td>트랙 폭</td><td>전류(A), 구리 두께(0.5/1/2 oz), 온도 상승, 길이, 확인할 폭, 외층/내층</td><td>IPC-2221 최소 트랙 폭(mm, mil), 그 길이의 저항·전압 강하·손실, 지정한 폭의 허용 전류, 0.4 mm 비아의 허용 전류</td></tr>
+<tr><td>555 / RC</td><td>555 R1, R2, C / RC의 R, C</td><td>555 비안정: f = 1/(0.693·(R1+2R2)·C), 듀티, High/Low 시간 / RC: 차단 주파수 fc = 1/(2πRC), 시정수 τ</td></tr>
+<tr><td>단위</td><td>값</td><td>mm ↔ mil ↔ inch, oz 구리 → µm</td></tr>
+</tbody>
+</table>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-dlg-calc.webp" alt="색 코드" loading="lazy"><figcaption>그림 14-1. 색 코드 탭</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-dlg-calc-track.webp" alt="트랙 폭" loading="lazy"><figcaption>그림 14-2. 트랙 폭 탭</figcaption></figure>
+</div>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-dlg-calc-led.webp" alt="LED 계산" loading="lazy"><figcaption>그림 14-3. LED / 옴 탭</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-dlg-calc-555.webp" alt="555 계산" loading="lazy"><figcaption>그림 14-4. 555 / RC 탭</figcaption></figure>
+</div>
+
+<h2 id="ch15"><span class="num">15</span>예제 프로젝트</h2>
+<p>예제는 시작 페이지의 카드, <span class="menu">파일 → 예제 열기…</span>, 환영 대화상자의 <span class="ui">예제 열기</span>로 엽니다. 모든 예제는 ERC 오류 0개, 완전 배선, DRC 오류 0개 상태로 만들어져 있습니다. 예제를 열면 원본 경로가 비워지므로, 고친 뒤 저장하면 새 이름을 묻습니다.</p>
+<table>
+<thead><tr><th>#</th><th>예제</th><th>보여 주는 것</th><th>둘러보는 방법</th></tr></thead>
+<tbody>
+<tr><td>01</td><td><b>LED와 저항</b><br><small>beginner · simulation · THT</small></td><td>9 V 배터리, 토글 스위치(state = closed), 470 Ω, LED. 넷 레이블(VBAT, SW_OUT, LED_A), 36 × 22 mm 스루홀 기판</td><td><kbd>F5</kbd>(동작점)으로 LED 전류 확인 → 스위치의 <code>state</code>를 open으로 바꾸고 다시 실행 → <kbd>F4</kbd> 3D</td></tr>
+<tr><td>02</td><td><b>전압 분배기와 RC 저역 통과 필터</b><br><small>beginner · simulation · SMD</small></td><td>사인파 2 V 1 kHz 전원, 10k/10k 분압, 1k + 100n RC 필터(fc ≈ 1.6 kHz), 0805 SMD, 파란 마스크, 양면 GND 영역</td><td>AC 해석(10 Hz~100 kHz)으로 IN/DIV/OUT의 보드 선도 → 과도 해석으로 위상 지연 확인 → 계산기 555/RC 탭과 비교</td></tr>
+<tr><td>03</td><td><b>555 LED 점멸기</b><br><small>classic · THT · 3D</small></td><td>NE555 비안정 회로(R1 1k, R2 47k, C2 10µ)로 약 1.5 Hz 점멸, 9 V 배터리, 빨간 마스크 50 × 32 mm 기판, 뒷면 GND 영역</td><td><kbd>F4</kbd> 3D로 부품 모델 감상, 계산기 555 탭에 1k/47k/10u 입력. (NE555는 시뮬레이션 모델이 없습니다)</td></tr>
+<tr><td>04</td><td><b>5V 전원 공급기 (7805)</b><br><small>power · simulation · THT</small></td><td>12 V 입력 → 퓨즈 → 역전압 보호 다이오드 → LM7805 → 5 V 출력 커넥터, 입출력 커패시터, 전원 LED, 마운팅 홀 2개. 검정 마스크·ENIG, Power 넷 클래스에 VRAW/VIN 추가</td><td>동작점에서 VRAW, VIN, +5V 확인 → V1 값을 6V로 낮춰 드롭아웃 관찰 → DC 스윕(V1 0~15 V)</td></tr>
+<tr><td>05</td><td><b>NPN 트랜지스터 스위치</b><br><small>beginner · simulation · THT</small></td><td>누름 버튼(state = closed) → 10 kΩ → 2N3904 베이스, 100 kΩ 풀다운, LED + 220 Ω. 노란 마스크·검정 실크, SOT-23 트랜지스터(<code>SOT-23_Q</code> 풋프린트)</td><td>동작점으로 BASE, LED_K 확인 → 버튼을 open으로 → DC 스윕(BT1 0~5 V)으로 스위칭 곡선</td></tr>
+<tr><td>06</td><td><b>비반전 연산증폭기 증폭기</b><br><small>analog · simulation · op-amp</small></td><td>±12 V 전원의 OPAMP, Rf 100k / Rg 10k → 이득 11, 0.5 V 1 kHz 사인 입력. 흰 마스크·ENIG</td><td>과도 해석(3 ms)으로 IN/OUT 비교 → 입력 진폭을 2 V로 올려 레일 클리핑 관찰 → AC 해석으로 이득 20.8 dB</td></tr>
+<tr><td>07</td><td><b>반파 정류기</b><br><small>power · simulation · THT</small></td><td>12 V 50 Hz 사인 → 1N4007 → 470 µF 평활 → 1 kΩ 부하. OSP 마감</td><td>과도 해석(100 ms)으로 AC_IN과 VOUT의 리플 확인 → C1을 100u로 바꿔 리플 증가 관찰</td></tr>
+<tr><td>08</td><td><b>최소 구성 아두이노 (ATmega328P)</b><br><small>MCU · 2-layer · THT</small></td><td>ATmega328P, 16 MHz 크리스탈 + 22 pF, 리셋 버튼과 10k 풀업, 디커플링, ISP 헤더(2×3), D13 LED, 5V 입력, 마운팅 홀 4개. 연결 없음 플래그 17개, 레이블로 연결한 신호, 양면 GND 영역, 62 × 48 mm</td><td>연결 없음 플래그와 레이블 사용법 확인 → PCB에서 넷 패널로 RESET/SCK 강조 → BOM과 제조 출력</td></tr>
+<tr><td>09</td><td><b>USB-UART 변환기 (CH340G)</b><br><small>interface · SMD · 2-layer</small></td><td>Micro USB → CH340G(12 MHz 크리스탈) → 6핀 시리얼 헤더, 0603 부품, 디커플링 커패시터 C3·C4가 <b>뒷면</b>, 비아 15개, 파란 마스크·ENIG, 1.2 mm 두께</td><td>3D에서 <kbd>3</kbd>(아래 시점)으로 뒷면 부품 확인 → 픽앤플레이스 CSV의 bottom 행 → 고대비(<kbd>H</kbd>)로 층별 배선 보기</td></tr>
+<tr><td>10</td><td><b>74HC595 LED 바</b><br><small>logic · SMD · 2-layer</small></td><td>시프트 레지스터 하나로 LED 8개 구동, QA~QH 넷 레이블과 버스 선, ~OE~·~SRCLR~ 풀업/풀다운, 헤더 입력. 128 트랙·11 비아</td><td>회로도의 버스·레이블 확인 → 찾기(<kbd>Ctrl</kbd>+<kbd>F</kbd>)로 QA 검색 → BOM에서 같은 부품 묶기</td></tr>
+<tr><td>11</td><td><b>4층 기판의 ATtiny85</b><br><small>MCU · 4-layer · SMD</small></td><td>ATtiny85(SOIC-8), AMS1117-3.3, 버튼, LED, ISP 헤더. In1.Cu = GND 평면, In2.Cu = +3V3 평면, SMD 전원 패드는 비아로 평면에 연결</td><td>레이어 패널에서 In1/In2를 하나씩 보기, 고대비 모드 → 동작점으로 +5V/+3V3 확인 → 제조 출력에 내층 거버(g2, g3) 확인</td></tr>
+<tr><td>12</td><td><b>사용자 심볼과 풋프린트</b><br><small>library · sensor · I2C</small></td><td>심볼 편집기로 만든 <code>BME280_Module</code> 심볼과 풋프린트 마법사로 만든 <code>BME280_Module_P2.54</code> 풋프린트(프로젝트 파일 안에 저장), I2C 4k7 풀업, 보라 마스크</td><td><span class="menu">도구 → 심볼 편집기 → 기존 파일 열기…</span>로 심볼 보기 → 라이브러리 패널의 사용자 분류 → 풋프린트 지정 창에서 사용자 풋프린트 찾기</td></tr>
+</tbody>
+</table>
+<figure><img width="1532" height="900" src="images/ko-pcb-arduino.webp" alt="아두이노 예제" loading="lazy"><figcaption>그림 15-1. 예제 08 “최소 구성 아두이노”의 기판</figcaption></figure>
+
+<h2 id="ch16"><span class="num">16</span>단축키 전체 표</h2>
+<p><kbd>Ctrl</kbd>+<kbd>/</kbd>(<span class="menu">도움말 → 단축키</span>)로 프로그램 안에서도 볼 수 있습니다. macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>⌘</kbd>도 됩니다. 입력 칸에 글자를 입력하는 중에는 한 글자 단축키가 동작하지 않지만, <kbd>Ctrl</kbd> 조합(저장 등)과 F 키는 동작합니다. 대화상자가 열려 있으면 편집기 단축키는 꺼집니다.</p>
+<figure><img width="1532" height="900" src="images/ko-dlg-shortcuts.webp" alt="단축키" loading="lazy"><figcaption>그림 16-1. 단축키 창</figcaption></figure>
+<h3 id="ch16-1"><span class="num">16.1</span>공통</h3>
+<table>
+<thead><tr><th>키</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>명령 팔레트(모든 명령·부품·넷 검색)</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd> / <kbd>Ctrl</kbd>+<kbd>O</kbd> / <kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>새 프로젝트 / 열기 / 저장</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>다른 이름으로 저장</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> (또는 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>)</td><td>실행 취소 / 다시 실행</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>찾기</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>인쇄</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>설정</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>단축키 창</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>Ctrl</kbd>+<kbd>2</kbd></td><td>왼쪽 / 오른쪽 패널 표시 전환</td></tr>
+<tr><td><kbd>F1</kbd></td><td>사용 설명서</td></tr>
+<tr><td><kbd>F2</kbd> / <kbd>F3</kbd> / <kbd>F4</kbd> / <kbd>F6</kbd></td><td>회로도 / PCB / 3D / 시뮬레이션 탭</td></tr>
+<tr><td><kbd>F5</kbd></td><td>시뮬레이션 실행</td></tr>
+<tr><td><kbd>F8</kbd></td><td>회로도에서 PCB 업데이트</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd></td><td>확대 / 축소</td></tr>
+<tr><td><kbd>Home</kbd></td><td>화면에 맞추기</td></tr>
+<tr><td>휠 / <kbd>Ctrl</kbd>+휠</td><td>확대/축소</td></tr>
+<tr><td><kbd>Shift</kbd>+휠</td><td>가로 이동</td></tr>
+<tr><td>빈 곳 왼쪽 드래그(기본), 오른쪽 드래그, 가운데 드래그, <kbd>Space</kbd>+드래그</td><td>이동(팬)</td></tr>
+<tr><td><kbd>Shift</kbd>+드래그 / <kbd>Ctrl</kbd>+드래그</td><td>상자 선택(왼쪽→오른쪽 윈도, 오른쪽→왼쪽 크로싱)</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>진행 중인 작업 끝내기 → 선택 도구 → 강조 해제 → 선택 해제, 메뉴·대화상자 닫기</td></tr>
+<tr><td><kbd>Alt</kbd>+<kbd>F4</kbd></td><td>끝내기(데스크톱)</td></tr>
+</tbody>
+</table>
+<h3 id="ch16-2"><span class="num">16.2</span>회로도</h3>
+<table>
+<thead><tr><th>키</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><kbd>A</kbd></td><td>부품 추가</td></tr>
+<tr><td><kbd>P</kbd></td><td>전원 포트</td></tr>
+<tr><td><kbd>W</kbd></td><td>배선</td></tr>
+<tr><td><kbd>B</kbd></td><td>버스</td></tr>
+<tr><td><kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>넷 레이블 / 글로벌 레이블</td></tr>
+<tr><td><kbd>Q</kbd></td><td>연결 없음 플래그</td></tr>
+<tr><td><kbd>J</kbd></td><td>정션</td></tr>
+<tr><td><kbd>T</kbd></td><td>텍스트</td></tr>
+<tr><td><kbd>H</kbd></td><td>계층 레이블</td></tr>
+<tr><td><kbd>S</kbd></td><td>계층 시트</td></tr>
+<tr><td><kbd>M</kbd> / <kbd>D</kbd></td><td>측정 / 치수</td></tr>
+<tr><td><kbd>R</kbd></td><td>90° 회전(배치 중 고스트에도)</td></tr>
+<tr><td><kbd>Y</kbd> / <kbd>X</kbd></td><td>좌우 / 상하 대칭</td></tr>
+<tr><td><kbd>E</kbd> 또는 더블클릭</td><td>속성 편집</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd> / <kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>복사 / 잘라내기 / 붙여넣기 / 복제</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>모두 선택(현재 페이지)</td></tr>
+<tr><td><kbd>Del</kbd> / <kbd>Backspace</kbd></td><td>삭제</td></tr>
+<tr><td>방향키</td><td>그리드 한 칸 이동</td></tr>
+<tr><td><kbd>Shift</kbd>+클릭(배치 중)</td><td>하나만 놓고 선택 도구로</td></tr>
+<tr><td><kbd>Alt</kbd>+드래그</td><td>배선을 끌지 않고 이동</td></tr>
+<tr><td><kbd>/</kbd></td><td>배선 중: 꺾임 방향 전환</td></tr>
+<tr><td><kbd>Backspace</kbd></td><td>배선 중: 마지막 꺾임 취소</td></tr>
+<tr><td><kbd>Enter</kbd> / 더블클릭 / 오른쪽 클릭</td><td>배선 끝내기</td></tr>
+</tbody>
+</table>
+<h3 id="ch16-3"><span class="num">16.3</span>PCB</h3>
+<table>
+<thead><tr><th>키</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><kbd>X</kbd></td><td>트랙 배선</td></tr>
+<tr><td><kbd>V</kbd></td><td>비아 도구 / 배선 중: 비아 추가 후 레이어 전환</td></tr>
+<tr><td><kbd>W</kbd> / <kbd>Shift</kbd>+<kbd>W</kbd></td><td>배선 중: 트랙 넓게 / 좁게</td></tr>
+<tr><td><kbd>/</kbd></td><td>배선 중: 45° 꺾임 방식 전환</td></tr>
+<tr><td><kbd>Backspace</kbd></td><td>배선 중: 마지막 구간 취소 (배선 중이 아니면 삭제)</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>배선 끝내기 / 다각형 닫기</td></tr>
+<tr><td><kbd>Z</kbd></td><td>구리 영역</td></tr>
+<tr><td><kbd>O</kbd></td><td>기판 외곽선(드래그하면 사각형)</td></tr>
+<tr><td><kbd>T</kbd></td><td>텍스트</td></tr>
+<tr><td><kbd>G</kbd></td><td>그래픽 선</td></tr>
+<tr><td><kbd>M</kbd></td><td>측정</td></tr>
+<tr><td><kbd>D</kbd></td><td>치수</td></tr>
+<tr><td><kbd>R</kbd> / <kbd>Shift</kbd>+<kbd>R</kbd></td><td>반시계 / 시계 방향 90° 회전</td></tr>
+<tr><td><kbd>F</kbd></td><td>반대 면으로 뒤집기</td></tr>
+<tr><td><kbd>L</kbd></td><td>잠금 / 잠금 해제</td></tr>
+<tr><td><kbd>E</kbd> / 더블클릭</td><td>선택한 풋프린트의 속성 / 풋프린트·구리 영역 속성, 텍스트 바로 편집</td></tr>
+<tr><td><kbd>H</kbd></td><td>고대비 레이어</td></tr>
+<tr><td><kbd>PgUp</kbd> / <kbd>PgDn</kbd></td><td>활성 구리 레이어 변경</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd></td><td>모두 자동 배선</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd> / <kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>복제 / 모두 선택</td></tr>
+<tr><td><kbd>Del</kbd></td><td>삭제(잠긴 풋프린트 제외)</td></tr>
+<tr><td>방향키</td><td>그리드 한 칸 이동</td></tr>
+<tr><td>트랙 더블클릭</td><td>연결 전체 선택</td></tr>
+</tbody>
+</table>
+<h3 id="ch16-4"><span class="num">16.4</span>3D</h3>
+<table>
+<thead><tr><th>키</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>왼쪽 드래그 / 오른쪽 드래그 / 휠</td><td>회전 / 이동 / 확대·축소</td></tr>
+<tr><td>더블클릭</td><td>지점으로 이동</td></tr>
+<tr><td><kbd>1</kbd>–<kbd>7</kbd></td><td>등각 / 위 / 아래 / 앞 / 뒤 / 왼쪽 / 오른쪽</td></tr>
+<tr><td><kbd>C</kbd></td><td>부품 표시 전환</td></tr>
+<tr><td><kbd>P</kbd> / <kbd>G</kbd> / <kbd>A</kbd></td><td>이동 모드 전환 / 그리드 / 좌표축</td></tr>
+<tr><td>방향키 / <kbd>Shift</kbd>+방향키</td><td>회전 / 이동</td></tr>
+<tr><td><kbd>Home</kbd></td><td>화면에 맞추기</td></tr>
+</tbody>
+</table>
+<h3 id="ch16-5"><span class="num">16.5</span>목록과 대화상자</h3>
+<table>
+<thead><tr><th>키</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Enter</kbd>, <kbd>Esc</kbd></td><td>검색 목록(명령 팔레트, 부품 추가, 찾기 등)에서 고르기 / 실행 / 닫기</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>대화상자의 기본(파란) 버튼</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>대화상자 닫기(취소)</td></tr>
+<tr><td><kbd>Enter</kbd> / <kbd>Esc</kbd></td><td>캔버스 위 입력 칸(레이블, 텍스트, 값): 확정 / 취소</td></tr>
+</tbody>
+</table>
+
+<h2 id="ch17"><span class="num">17</span>설정</h2>
+<p><span class="menu">도구 → 설정…</span>(<kbd>Ctrl</kbd>+<kbd>,</kbd>, 타이틀 바의 톱니바퀴)은 <b>9개 탭</b>으로 되어 있습니다: 일반 · 모양 · 단위와 그리드 · 회로도 · PCB · 배선 · 3D 보기 · 시뮬레이션 · 출력. 창은 어느 탭에서도 같은 크기를 유지하고 스크롤되지 않습니다. <span class="ui">확인</span>을 눌러야 적용되며, <span class="ui">기본값으로 재설정</span>은 확인 후 모든 설정을 기본값(테마 미드나이트)으로 되돌립니다.</p>
+<p><b>숫자 값은 모두 스테퍼</b>입니다: 왼쪽 <b>−</b>, 가운데 값, 오른쪽 <b>+</b>. 버튼을 누르고 있으면 반복해서 바뀌고, 키보드 포커스가 있을 때는 방향키로 한 단계씩 바꿉니다. 정해진 값 목록이 있는 항목(예: 그리드)은 그 목록 안에서만 움직이고, 끝에 닿으면 버튼이 흐려집니다.</p>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-dlg-settings.webp" alt="설정 일반" loading="lazy"><figcaption>그림 17-1. 설정 — 일반</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-dlg-settings-appearance.webp" alt="설정 모양" loading="lazy"><figcaption>그림 17-2. 설정 — 모양</figcaption></figure>
+</div>
+<div class="grid2">
+<figure><img width="1532" height="900" src="images/ko-dlg-settings-units.webp" alt="설정 단위와 그리드" loading="lazy"><figcaption>그림 17-3. 설정 — 단위와 그리드</figcaption></figure>
+<figure><img width="1532" height="900" src="images/ko-dlg-settings-3d.webp" alt="설정 3D" loading="lazy"><figcaption>그림 17-4. 설정 — 3D 보기</figcaption></figure>
+</div>
+<table>
+<thead><tr><th>탭</th><th>항목</th><th>기본값</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td rowspan="6">일반</td><td>언어</td><td>OS 언어</td><td>한국어 / English</td></tr>
+<tr><td>시작할 때</td><td>시작 페이지 보이기</td><td>또는 마지막 프로젝트 다시 열기(데스크톱)</td></tr>
+<tr><td>최근 파일 개수</td><td>10</td><td>1~30</td></tr>
+<tr><td>환영</td><td>끔</td><td>시작할 때 환영 창 보이기</td></tr>
+<tr><td>자동 저장</td><td>켬</td><td>복구용 사본 보관</td></tr>
+<tr><td>자동 저장 간격</td><td>30 s</td><td>10 s ~ 10 min</td></tr>
+<tr><td rowspan="5">모양</td><td>테마</td><td>미드나이트</td><td>현재 테마 이름과 <span class="ui">테마…</span> 갤러리 버튼(<a href="#ch2-14">2.14</a>)</td></tr>
+<tr><td>화면 크기</td><td>100%</td><td>80%~150% (전체 화면 배율)</td></tr>
+<tr><td>애니메이션</td><td>켬</td><td>대화상자·메뉴·튜토리얼 애니메이션</td></tr>
+<tr><td>힌트</td><td>켬</td><td>캔버스에 도구 도움말 표시</td></tr>
+<tr><td>힌트 표시 시간</td><td>7 s</td><td>0(항상) ~ 30 s</td></tr>
+<tr><td rowspan="8">단위와 그리드</td><td>편집기 단위</td><td>mm</td><td>mm / mil (상태 표시줄·눈금자·치수)</td></tr>
+<tr><td>3D 측정 단위</td><td>cm</td><td>센티미터 (cm) / 인치 (in)</td></tr>
+<tr><td>그리드 스타일</td><td>선 (5 × 5)</td><td>선 / 점</td></tr>
+<tr><td>그리드</td><td>켬</td><td>그리드 표시</td></tr>
+<tr><td>눈금자</td><td>켬</td><td>캔버스 가장자리에 눈금자 표시</td></tr>
+<tr><td>보드 크기</td><td>켬</td><td>PCB에 보드의 가로·세로 크기 표시</td></tr>
+<tr><td>빈 캔버스에서 왼쪽 드래그</td><td>화면 이동</td><td>화면 이동 (Shift+드래그 = 상자 선택) / 상자 선택</td></tr>
+<tr><td>휠 확대 속도</td><td>× 1</td><td>× 0.5 ~ × 3</td></tr>
+<tr><td rowspan="6">회로도</td><td>회로도 그리드</td><td>50 mil</td><td>5 / 10 / 25 / 50 / 100 mil</td></tr>
+<tr><td>맞춤</td><td>켬</td><td>배선을 핀과 배선 끝에 맞추기</td></tr>
+<tr><td>교차 선택</td><td>켬</td><td>부품을 선택하면 다른 화면에서도 선택</td></tr>
+<tr><td>배선 끝</td><td>켬</td><td>연결되지 않은 배선 끝과 핀 표시</td></tr>
+<tr><td>검사</td><td>켬</td><td>ERC 계속 실행</td></tr>
+<tr><td>시뮬레이션</td><td>켬</td><td>회로도에 시뮬레이션 전압 표시</td></tr>
+<tr><td rowspan="6">PCB</td><td>PCB 그리드</td><td>0.635 mm</td><td>0.05 ~ 2.54 mm</td></tr>
+<tr><td>기판 외곽선 모서리 반경</td><td>0 mm</td><td>0 ~ 20 mm (외곽선 사각형 드래그)</td></tr>
+<tr><td>래츠네스트</td><td>켬</td><td>래츠네스트 표시</td></tr>
+<tr><td>코트야드</td><td>켬</td><td>코트야드 표시</td></tr>
+<tr><td>패드 표시</td><td>켬</td><td>확대하면 패드 번호와 넷 표시</td></tr>
+<tr><td>검사</td><td>켬</td><td>한 번 실행한 뒤에는 편집할 때마다 DRC 다시 실행</td></tr>
+<tr><td rowspan="4">배선</td><td>배선 모드</td><td>충돌 표시</td><td>충돌 표시 / 밀어내기 / 장애물에서 멈춤 (<a href="#ch7-6">7.6</a>)</td></tr>
+<tr><td>배선</td><td>켬</td><td>배선 중 간격 경고</td></tr>
+<tr><td>자동 배선 레이어</td><td>바깥 레이어만</td><td>바깥 레이어만 / 모든 구리 레이어</td></tr>
+<tr><td>자동 배선 그리드</td><td>0.25 mm</td><td>0.05 ~ 0.5 mm</td></tr>
+<tr><td rowspan="5">3D 보기</td><td>3D 배경</td><td>그라데이션</td><td>그라데이션 / 단색</td></tr>
+<tr><td>3D 그림자</td><td>켬</td><td>부품 아래 부드러운 그림자</td></tr>
+<tr><td>시야각</td><td>35°</td><td>15° ~ 75°</td></tr>
+<tr><td>회전 속도</td><td>× 1</td><td>× 0.25 ~ × 3</td></tr>
+<tr><td>시작할 때</td><td>모두 켬</td><td>눈금 있는 그리드 · 좌표축 · 보드 치수</td></tr>
+<tr><td>시뮬레이션</td><td>과도 해석 최대 점 수</td><td>100,000</td><td>10,000 ~ 1,000,000</td></tr>
+<tr><td rowspan="3">출력</td><td>기본 용지</td><td>A4</td><td>인쇄 대화상자의 기본 용지</td></tr>
+<tr><td>솔더 마스크 확장</td><td>0.05 mm</td><td>제조 출력 기본값</td></tr>
+<tr><td>비아</td><td>켬</td><td>비아 텐팅 (마스크로 덮기)</td></tr>
+</tbody>
+</table>
+<figure><img width="1532" height="900" src="images/ko-dlg-settings-routing.webp" alt="설정 배선" loading="lazy"><figcaption>그림 17-5. 설정 — 배선</figcaption></figure>
+<p>설정 파일(<code>settings.json</code>)에는 위 항목 외에 패널 폭(<code>leftW</code>, <code>rightW</code>)과 표시 여부, 최근 파일 목록(<code>recent</code>), 최근 사용 심볼(<code>recentSymbols</code>, 최대 12), 사용자 테마(<code>customThemes</code>), 시스템 테마용 다크/라이트 테마(<code>systemDark</code>, <code>systemLight</code>), 환영 창 표시 여부(<code>onboarded</code>)도 저장됩니다. 파일을 지우면 모든 설정이 기본값으로 돌아갑니다(<a href="#ch1-8">1.8</a>).</p>
+
+<h2 id="ch18"><span class="num">18</span>파일 형식 (.mycircuit)</h2>
+<p>프로젝트 파일은 UTF-8 JSON 텍스트입니다. 사람이 읽을 수 있고 버전 관리(Git)에 넣기 좋습니다. 좌표 단위는 회로도 mil, PCB mm입니다.</p>
+<pre><code>{
+ "format": "mycircuit", "version": 1,
+ "meta": { "title", "author", "company", "rev", "date", "comment" },
+ "library": { "symbols": [ … ], "footprints": [ … ] },      // 프로젝트 전용 부품
+ "schematic": {
+  "sheet": "A4",                                           // A4 | A3 | A2 | Letter | Tabloid
+  "pages": [ { "id": "p1", "name": "Main" } ],
+  "parts":      [ { "id", "lib", "ref", "value", "footprint", "x", "y", "rot", "mirror",
+                    "fields": {}, "dnp", "hideValue", "refOffset", "valueOffset", "page",
+                    "unit", "unitGroup" } ],                                    // 다중 유닛: 유닛 번호와 같은 부품 묶음
+  "wires":      [ { "id", "x1", "y1", "x2", "y2", "page" } ],
+  "buses":      [ { "id", "x1", "y1", "x2", "y2", "page" } ],
+  "junctions":  [ { "id", "x", "y", "page" } ],
+  "labels":     [ { "id", "kind": "local|global|hier", "text", "x", "y", "rot", "page" } ],
+  "noconnects": [ { "id", "x", "y", "page" } ],
+  "texts":      [ { "id", "text", "x", "y", "size", "rot", "page" } ],
+  "sheets":     [ { "id", "page", "x", "y", "w", "h", "name", "target",
+                    "pins": [ { "id", "name", "side": "L|R", "offset" } ] } ],   // 계층 시트 블록
+  "dimensions": [ { "id", "page", "x1", "y1", "x2", "y2", "offset" } ]           // 도면 치수(mil)
+ },
+ "pcb": {
+  "layerCount": 2, "thickness": 1.6, "maskColor": "green", "silkColor": "white", "finish": "HASL",
+  "outline": [ [x, y], … ],
+  "footprints": [ { "id", "partId", "ref", "value", "footprint", "x", "y", "rot", "side": "F|B",
+                    "padNets": { "1": "GND" }, "locked", "hideRef", "refPos" } ],
+  "tracks":   [ { "id", "layer", "net", "w", "x1", "y1", "x2", "y2" } ],
+  "vias":     [ { "id", "x", "y", "d", "drill", "net" } ],
+  "zones":    [ { "id", "layer", "net", "pts": [[x, y], …], "clearance", "thermal", "priority" } ],
+  "texts":    [ { "id", "layer", "text", "x", "y", "size", "rot" } ],
+  "graphics": [ { "id", "layer", "kind": "line|rect|circle", … , "w" } ],
+  "dimensions": [ { "id", "x1", "y1", "x2", "y2", "offset" } ],
+  "rules": { "clearance", "trackWidth", "viaDiameter", "viaDrill", "minTrackWidth", "minDrill",
+             "edgeClearance", "holeToHole", "netClasses": [ { "name", "trackWidth", "clearance",
+             "viaDiameter", "viaDrill", "nets": [] } ] }
+ },
+ "sim": { "mode": "op|tran|ac|dc", "tStop", "tStep", "fStart", "fStop", "points", "probes": [],
+          "dcSource", "dcStart", "dcStop", "dcStep" }
+}</code></pre>
+<ul>
+<li>파일을 열 때 빠진 항목은 기본값으로 채워지고, id가 없는 항목에는 id가 만들어집니다. <code>page</code>가 없는 회로도 항목은 첫 페이지에 속합니다. 그래서 손으로 쓴 파일이나 이전 버전 파일도 열립니다.</li>
+<li><code>format</code>이 <code>mycircuit</code>가 아니면 “unknown format” 오류로 열리지 않습니다.</li>
+<li>저장은 들여쓰기 1칸의 JSON입니다. 트랙의 넷 이름은 문자열이므로 넷 이름이 바뀌면 PCB 업데이트가 트랙의 넷 이름도 바꿉니다(<a href="#ch7-2">7.2</a>).</li>
+</ul>
+
+<h2 id="ch19"><span class="num">19</span>문제 해결 (FAQ)</h2>
+<h3 id="ch19-1"><span class="num">19.1</span>자주 묻는 질문</h3>
+<dl>
+<dt><b>빈 곳을 끌면 상자 선택이 아니라 화면이 움직입니다.</b></dt>
+<dd>기본 동작입니다. 상자 선택은 <kbd>Shift</kbd>(또는 <kbd>Ctrl</kbd>)+드래그입니다. 예전처럼 쓰려면 설정 → 단위와 그리드 → <span class="ui">빈 캔버스에서 왼쪽 드래그</span>를 <span class="ui">상자 선택</span>으로 바꾸세요.</dd>
+<dt><b>왼쪽 드래그로 부품이 옮겨지지 않고 화면만 움직입니다.</b></dt>
+<dd>손(이동) 모드가 켜져 있습니다. <kbd>Esc</kbd>를 누르거나 도구 모음의 손 버튼을 다시 누르세요.</dd>
+<dt><b>계층 레이블에 “맞는 시트 핀이 없습니다” 경고가 납니다.</b></dt>
+<dd>그 페이지를 보여 주는 계층 시트 블록이 있어야 합니다. 시트 도구(<kbd>S</kbd>)로 블록을 만들면 새 페이지가 생기므로, 계층 레이블은 그 페이지에 두세요.</dd>
+<dt><b>배선이 연결되지 않았다고 나옵니다.</b></dt>
+<dd>배선 끝이 핀 끝에 정확히 닿아야 합니다. 핀 끝의 작은 원이나 배선 끝의 노란 원이 보이면 연결되지 않은 것입니다. 배선 도구에서 커서가 핀에 달라붙는(사각형 표시) 위치를 클릭하세요. 두 배선이 교차하는 곳은 정션(<kbd>J</kbd>)이 있어야 연결됩니다.</dd>
+<dt><b>다른 페이지의 신호가 연결되지 않습니다.</b></dt>
+<dd>넷 레이블은 같은 페이지 안에서만 연결됩니다. 페이지 사이에는 글로벌 레이블(<kbd>Ctrl</kbd>+<kbd>L</kbd>)이나 전원 포트를 쓰세요.</dd>
+<dt><b>“Power input … is not driven” ERC 오류가 납니다.</b></dt>
+<dd>IC 전원 핀(power_in)이 있는 넷에 전원을 “공급하는” 핀이 없다는 뜻입니다. 커넥터로 전원이 들어오는 회로라면 그 넷에 <code>PWR_FLAG</code>(<kbd>P</kbd> → PWR_FLAG)를 놓으세요.</dd>
+<dt><b>F8을 눌렀는데 일부 부품이 PCB에 나타나지 않습니다.</b></dt>
+<dd>풋프린트가 지정되지 않았거나(알림에 “풋프린트 없음: …”), DNP로 표시된 부품입니다. 풋프린트 지정 창을 확인하세요.</dd>
+<dt><b>풋프린트를 바꿨는데 F8 후 원래대로 돌아갑니다.</b></dt>
+<dd>풋프린트는 회로도가 기준입니다. PCB의 풋프린트 속성이 아니라 회로도의 부품 속성이나 풋프린트 지정 창에서 바꾸세요.</dd>
+<dt><b>자동 배선이 일부 연결을 못 합니다.</b></dt>
+<dd><a href="#ch8-4">8.4</a>의 요령을 보세요. 부품 간격을 넓히고, GND는 구리 영역으로 처리하고, 4층 기판이면 내층에 평면을 만드세요(자동 배선기는 F.Cu/B.Cu만 씁니다).</dd>
+<dt><b>배선 미리 보기가 빨갛게 변합니다.</b></dt>
+<dd>그 구간이 다른 넷의 구리나 기판 가장자리에 간격 규칙보다 가깝다는 뜻입니다. 경로를 바꾸거나 <kbd>Shift</kbd>+<kbd>W</kbd>로 폭을 줄이세요.</dd>
+<dt><b>시뮬레이션이 “No GND net” 오류를 냅니다.</b></dt>
+<dd>GND 전원 심볼을 회로에 연결하세요. 기준 넷 이름은 GND, 0, AGND입니다.</dd>
+<dt><b>시뮬레이션에서 IC가 무시됩니다.</b></dt>
+<dd>NE555, LM358, MCU 등은 시뮬레이션 모델이 없습니다. 연산 증폭기는 <code>OPAMP</code> 심볼, 레귤레이터는 LM7805/AMS1117-3.3을 쓰세요(<a href="#ch12-4">12.4</a>).</dd>
+<dt><b>1M 저항이 1 mΩ처럼 동작합니다/반대입니다.</b></dt>
+<dd>MyCircuit에서 <code>M</code>은 메가, <code>m</code>은 밀리입니다. 메가는 <code>Meg</code>로 쓰면 확실합니다.</dd>
+<dt><b>웹 버전 화면이 비어 있습니다.</b></dt>
+<dd><code>index.html</code>을 파일로 직접 열었기 때문입니다. <code>npm run serve</code> 등 HTTP 서버로 여세요.</dd>
+<dt><b>앱이 실행되자마자 꺼집니다(소스에서 실행할 때).</b></dt>
+<dd>터미널의 <code>ELECTRON_RUN_AS_NODE</code> 환경 변수 때문입니다. <code>npm start</code>로 실행하세요.</dd>
+<dt><b>파일을 더블클릭했는데 새 창이 안 뜹니다.</b></dt>
+<dd>MyCircuit은 하나만 실행됩니다. 이미 열린 창에서 그 파일이 열립니다(<a href="#ch1-3">1.3</a>).</dd>
+<dt><b>설정을 초기화하고 싶습니다.</b></dt>
+<dd>설정 대화상자의 <span class="ui">기본값으로 재설정</span>을 누르거나, 프로그램을 끈 뒤 <a href="#ch1-8">1.8</a>의 <code>settings.json</code>을 지우세요.</dd>
+<dt><b>제조 파일 이름이 board-…로 나옵니다.</b></dt>
+<dd>프로젝트 제목이 한글 등 영문 이외의 문자로만 되어 있으면 기본 이름이 <code>board</code>가 됩니다. 프로젝트 속성에서 영문 제목을 넣으세요.</dd>
+<dt><b>거버 뷰어가 ZIP을 못 엽니다.</b></dt>
+<dd>압축된(Deflate) ZIP은 읽지 못합니다. 압축을 풀고 개별 파일을 여세요.</dd>
+<dt><b>실행 취소가 안 됩니다.</b></dt>
+<dd>파일을 새로 열면 기록이 비워집니다. 또 대화상자나 입력 칸에 포커스가 있으면 <kbd>Ctrl</kbd>+<kbd>Z</kbd>는 입력 칸의 실행 취소로 동작합니다. 캔버스를 한 번 클릭한 뒤 누르세요.</dd>
+</dl>
+
+<h3 id="ch19-2"><span class="num">19.2</span>개발과 테스트</h3>
+<p>소스에서 직접 빌드하거나 기능을 고칠 때 쓰는 명령입니다.</p>
+<table>
+<thead><tr><th>명령</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>npm test</code></td><td>모든 단위 테스트 파일(<code>test/unit/*.test.mjs</code>, 약 189개 테스트)을 하나씩 <code>node --test</code>로 실행하고, 분류별(핵심 모델·연결, 회로도·PCB 편집, PCB 검사·배선, 시뮬레이션, 제조 출력, 3D 보기, 가져오기·교환, 예제, 도구·계산기, 다국어)로 테스트마다 실행 시간을 보여 준 뒤 색깔 있는 요약을 출력합니다. <code>npm test -- sim drc</code>처럼 이름 일부로 거를 수 있습니다. 라이브러리의 모든 풋프린트를 배치해 DRC(실크-패드 겹침 없음, 패드 간격 0.2 mm)를 확인하는 테스트도 포함됩니다.</td></tr>
+<tr><td><code>npm run smoke</code></td><td>실제 Electron 앱을 띄우고 CDP(Chrome DevTools Protocol)로 연결해 약 173개의 GUI 검사를 실제 마우스·키보드 입력으로 실행합니다 — 모든 명령, 모든 예제, 배선, 밀어내기·장애물에서 멈춤·차동 쌍·길이 맞춤, 오른쪽 패널 스테퍼, 좁은 화면의 도구 모음, 페이지 탭, 화면 이동·그리드·눈금자, 치수, 3D 단위, 설정 창의 스테퍼와 크기 고정, 정보 창 배치, 도구 모음이 잘리지 않는지, 튜토리얼 보기/따라 하기. 렌더러 오류처럼 단위 테스트로는 잡히지 않는 문제를 찾습니다.</td></tr>
+<tr><td><code>npm run i18n:check</code></td><td>소스의 <code>t("…")</code> 문자열 중 한국어 사전(<code>src/ui/i18n-ko.js</code>)에 없는 키를 보고합니다.</td></tr>
+<tr><td><code>npm run serve</code></td><td>개발용 HTTP 서버(http://localhost:8642)</td></tr>
+</tbody>
+</table>
+<p><code>.gitignore</code>는 <code>node_modules/</code>, 빌드 결과(<code>dist/</code>, <code>release/</code>, <code>*.blockmap</code>, 루트에 복사된 설치 파일), 빌드 때 만들어지는 <code>src/buildinfo.js</code>, 테스트 출력과 로그(<code>test-results/</code>, <code>smoke-shots/</code>, <code>coverage/</code>, <code>*.log</code>), 편집기·운영체제 파일(<code>.vscode/</code>, <code>.idea/</code>, <code>.DS_Store</code>, <code>Thumbs.db</code> 등)을 제외합니다. 내부 구조는 프로젝트 루트의 <code>ARCHITECTURE.md</code>를 보세요.</p>
+
+<h2 id="ch20"><span class="num">20</span>용어집</h2>
+<table>
+<thead><tr><th>용어</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>넷 (Net)</td><td>전기적으로 서로 연결된 핀과 배선의 집합. 이름을 가짐(GND, LED_A, Net-(R1-Pad2))</td></tr>
+<tr><td>넷리스트</td><td>모든 넷과 각 넷에 연결된 부품 핀의 목록</td></tr>
+<tr><td>심볼</td><td>회로도에 그리는 부품 기호와 핀 정의</td></tr>
+<tr><td>풋프린트</td><td>기판 위 부품의 구리 패드, 구멍, 실크 외형, 코트야드</td></tr>
+<tr><td>참조 번호 (Reference)</td><td>부품 고유 이름(R1, C3, U2). 접두사는 종류를 나타냄</td></tr>
+<tr><td>참조 번호 부여 (Annotation)</td><td>R? 같은 부품에 번호를 자동으로 매기는 작업</td></tr>
+<tr><td>ERC</td><td>전기 규칙 검사 — 회로도의 연결 오류(미연결 핀, 전원 미공급 등) 검사</td></tr>
+<tr><td>DRC</td><td>설계 규칙 검사 — 기판의 제조 규칙(간격, 폭, 가장자리 등) 검사</td></tr>
+<tr><td>정션 (Junction)</td><td>배선이 연결되는 점을 나타내는 점</td></tr>
+<tr><td>넷 레이블 / 글로벌 레이블</td><td>이름으로 넷을 연결하는 표시. 글로벌은 모든 페이지에 적용</td></tr>
+<tr><td>PWR_FLAG</td><td>외부에서 전원이 공급되는 넷임을 ERC에 알리는 표시</td></tr>
+<tr><td>DNP</td><td>Do Not Populate, 실장하지 않는 부품</td></tr>
+<tr><td>트랙 (Track)</td><td>기판의 구리 배선</td></tr>
+<tr><td>비아 (Via)</td><td>층 사이를 잇는 도금 구멍</td></tr>
+<tr><td>패드</td><td>부품 핀을 납땜하는 구리 영역. SMD(표면 실장) 또는 THT(스루홀)</td></tr>
+<tr><td>애뉼러 링 (Annular ring)</td><td>구멍 둘레에 남는 구리 고리의 폭</td></tr>
+<tr><td>간격 (Clearance)</td><td>다른 넷의 구리 사이에 필요한 최소 거리</td></tr>
+<tr><td>넷 클래스</td><td>넷 묶음별 트랙 폭·간격·비아 규칙</td></tr>
+<tr><td>구리 영역 (Zone, Pour)</td><td>다각형 안을 채운 구리. 보통 GND 평면</td></tr>
+<tr><td>써멀 릴리프</td><td>구리 영역과 패드를 가는 스포크로 연결해 납땜 열이 빠지지 않게 하는 구조</td></tr>
+<tr><td>래츠네스트 (Ratsnest, 에어와이어)</td><td>아직 배선되지 않은 연결을 보여 주는 가는 직선</td></tr>
+<tr><td>코트야드 (Courtyard)</td><td>부품이 차지하는 금지 영역</td></tr>
+<tr><td>실크스크린 (Silkscreen, Legend)</td><td>기판 표면에 인쇄되는 글자·외형선</td></tr>
+<tr><td>솔더 마스크</td><td>구리를 덮는 절연 코팅(보통 초록). 패드 부분만 열림</td></tr>
+<tr><td>솔더 페이스트</td><td>SMD 납땜용 스텐실 레이어</td></tr>
+<tr><td>텐팅 (Tenting)</td><td>비아를 솔더 마스크로 덮는 것</td></tr>
+<tr><td>HASL / ENIG / OSP</td><td>표면 처리: 주석 납 도금 / 무전해 니켈 금도금 / 유기 보호막</td></tr>
+<tr><td>Gerber (RS-274X, X2)</td><td>PCB 레이어 그림의 표준 파일 형식</td></tr>
+<tr><td>Excellon</td><td>드릴 구멍 위치 파일 형식</td></tr>
+<tr><td>IPC-D-356</td><td>베어 보드 전기 검사용 넷리스트 형식</td></tr>
+<tr><td>픽앤플레이스 (Centroid)</td><td>자동 조립기용 부품 좌표·각도 파일</td></tr>
+<tr><td>BOM</td><td>Bill of Materials, 부품표</td></tr>
+<tr><td>동작점 (Operating point)</td><td>회로의 DC 정상 상태 전압·전류</td></tr>
+<tr><td>과도 해석 (Transient)</td><td>시간에 따른 전압·전류 변화 해석</td></tr>
+<tr><td>AC 해석 / 보드 선도</td><td>주파수에 따른 이득·위상 해석과 그 그래프</td></tr>
+<tr><td>DC 스윕</td><td>전원 값을 바꿔 가며 동작점을 구하는 해석</td></tr>
+<tr><td>MNA</td><td>수정 절점 해석, SPICE의 회로 방정식 구성 방법</td></tr>
+<tr><td>교차 탐색 (Cross-probing)</td><td>한 화면에서 고른 부품을 다른 화면에서도 선택하는 기능</td></tr>
+<tr><td>계층 시트 / 시트 핀 / 계층 레이블</td><td>다른 페이지를 블록으로 나타낸 것 / 블록 가장자리의 연결점 / 하위 페이지에서 시트 핀과 짝이 되는 레이블</td></tr>
+<tr><td>벡터(버스) 레이블</td><td><code>D[0..7]</code>처럼 여러 신호를 한 이름으로 묶은 레이블</td></tr>
+<tr><td>유닛</td><td>한 패키지 안의 독립된 기능 블록(듀얼 연산 증폭기의 A, B)</td></tr>
+<tr><td>미앤더 / 길이 맞춤</td><td>트랙을 구불구불하게 늘려 목표 길이에 맞추는 것</td></tr>
+<tr><td>차동 쌍</td><td>일정한 간격으로 함께 배선하는 +/− 두 신호(USB D+/D-)</td></tr>
+<tr><td>밀어내기 (Push and shove)</td><td>새 트랙이 다른 넷의 트랙을 옆으로 밀어 간격을 확보하는 배선 방식</td></tr>
+<tr><td>mil</td><td>1/1000 인치 = 0.0254 mm</td></tr>
+</tbody>
+</table>
+
+<footer>MyCircuit 10.0 사용 설명서 · 이 문서는 프로그램의 실제 동작(소스 코드)을 기준으로 작성되었습니다. 그림은 실제 실행 화면입니다.</footer>
+</main>
+</div>
+<div class="lightbox" id="lightbox"><img alt=""></div>
+<a class="totop" href="#top" title="Top">↑</a>
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var heads = Array.prototype.slice.call(document.querySelectorAll('main h2[id], main h3[id]'));
+  function spy() {
+    var y = window.scrollY + 90, cur = null;
+    for (var i = 0; i < heads.length; i++) { if (heads[i].offsetTop <= y) cur = heads[i]; else break; }
+    links.forEach(function (a) { a.classList.remove('active'); });
+    document.querySelectorAll('nav.toc li.ch.open').forEach(function (li) { li.classList.remove('open'); });
+    if (!cur) return;
+    var a = map[cur.id];
+    if (!a) return;
+    a.classList.add('active');
+    var ch = a.closest('li.ch');
+    if (ch) { ch.classList.add('open'); var top = ch.querySelector(':scope > a'); if (top && top !== a) top.classList.add('active'); }
+    var nav = document.getElementById('toc');
+    var r = a.getBoundingClientRect();
+    if (r.top < 80 || r.bottom > window.innerHeight - 40) a.scrollIntoView({ block: 'center' });
+  }
+  var t = null;
+  window.addEventListener('scroll', function () { clearTimeout(t); t = setTimeout(spy, 40); });
+  spy();
+  var f = document.getElementById('toc-filter');
+  f.addEventListener('input', function () {
+    var q = f.value.trim().toLowerCase();
+    document.getElementById('toc').classList.toggle('searching', !!q);
+    document.querySelectorAll('nav.toc li').forEach(function (li) {
+      if (!q) { li.classList.remove('hide'); return; }
+      var hit = li.textContent.toLowerCase().indexOf(q) >= 0;
+      li.classList.toggle('hide', !hit);
+    });
+  });
+  var lb = document.getElementById('lightbox');
+  document.querySelectorAll('figure img').forEach(function (img) {
+    img.addEventListener('click', function () { lb.querySelector('img').src = img.src; lb.classList.add('on'); });
+  });
+  lb.addEventListener('click', function () { lb.classList.remove('on'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lb.classList.remove('on'); });
+})();
+</script>
+</body>
+</html>

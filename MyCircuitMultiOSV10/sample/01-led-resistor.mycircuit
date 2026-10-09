@@ -1,0 +1,630 @@
+{
+ "format": "mycircuit",
+ "version": 1,
+ "meta": {
+  "title": "LED and resistor",
+  "author": "MyCircuit Samples",
+  "company": "MyCircuit Project",
+  "rev": "1.0",
+  "date": "2026-10-09",
+  "comment": "Beginner sample"
+ },
+ "library": {
+  "symbols": [],
+  "footprints": []
+ },
+ "schematic": {
+  "sheet": "A4",
+  "pages": [
+   {
+    "id": "p1",
+    "name": "Main"
+   }
+  ],
+  "parts": [
+   {
+    "id": "p1",
+    "lib": "BATTERY",
+    "ref": "BT1",
+    "value": "9V",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 2000,
+    "y": 2600,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p2",
+    "lib": "SW_SPST",
+    "ref": "SW1",
+    "value": "ON/OFF",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 2800,
+    "y": 2000,
+    "rot": 0,
+    "mirror": false,
+    "fields": {
+     "state": "closed"
+    }
+   },
+   {
+    "id": "p3",
+    "lib": "R",
+    "ref": "R1",
+    "value": "470",
+    "footprint": "R_Axial_P10.16mm",
+    "x": 3700,
+    "y": 2000,
+    "rot": 90,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p4",
+    "lib": "LED",
+    "ref": "D1",
+    "value": "Red",
+    "footprint": "LED_D5.0mm",
+    "x": 4500,
+    "y": 2600,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p5",
+    "lib": "GND",
+    "ref": "#PWR01",
+    "value": "GND",
+    "footprint": "",
+    "x": 2000,
+    "y": 2800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p6",
+    "lib": "GND",
+    "ref": "#PWR02",
+    "value": "GND",
+    "footprint": "",
+    "x": 4500,
+    "y": 2800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   }
+  ],
+  "wires": [
+   {
+    "id": "w1",
+    "x1": 2000,
+    "y1": 2000,
+    "x2": 2000,
+    "y2": 2400
+   },
+   {
+    "id": "w2",
+    "x1": 2000,
+    "y1": 2000,
+    "x2": 2600,
+    "y2": 2000
+   },
+   {
+    "id": "w3",
+    "x1": 3000,
+    "y1": 2000,
+    "x2": 3500,
+    "y2": 2000
+   },
+   {
+    "id": "w4",
+    "x1": 3900,
+    "y1": 2000,
+    "x2": 4500,
+    "y2": 2000
+   },
+   {
+    "id": "w5",
+    "x1": 4500,
+    "y1": 2000,
+    "x2": 4500,
+    "y2": 2400
+   }
+  ],
+  "buses": [],
+  "junctions": [],
+  "labels": [
+   {
+    "id": "l1",
+    "kind": "local",
+    "text": "VBAT",
+    "x": 2200,
+    "y": 2000,
+    "rot": 0
+   },
+   {
+    "id": "l2",
+    "kind": "local",
+    "text": "SW_OUT",
+    "x": 3100,
+    "y": 2000,
+    "rot": 0
+   },
+   {
+    "id": "l3",
+    "kind": "local",
+    "text": "LED_A",
+    "x": 4100,
+    "y": 2000,
+    "rot": 0
+   }
+  ],
+  "noconnects": [],
+  "texts": [
+   {
+    "id": "x1",
+    "text": "Your first circuit",
+    "x": 2000,
+    "y": 1400,
+    "size": 90,
+    "rot": 0
+   },
+   {
+    "id": "x2",
+    "text": "I(LED) = (9 V - 2 V) / 470 ohm = approx. 15 mA\nSimulate > Operating point, then hover the wires\nor open the probe list to read VBAT and LED_A.",
+    "x": 2000,
+    "y": 3400,
+    "size": 50,
+    "rot": 0
+   },
+   {
+    "id": "x3",
+    "text": "Toggle SW1 (field \"state\": open / closed)\nand run the simulation again.",
+    "x": 5200,
+    "y": 2200,
+    "size": 45,
+    "rot": 0
+   }
+  ],
+  "sheets": [],
+  "dimensions": []
+ },
+ "pcb": {
+  "layerCount": 2,
+  "thickness": 1.6,
+  "maskColor": "green",
+  "silkColor": "white",
+  "finish": "HASL",
+  "outline": [
+   [
+    34,
+    0
+   ],
+   [
+    34.5176,
+    0.0681
+   ],
+   [
+    35,
+    0.2679
+   ],
+   [
+    35.4142,
+    0.5858
+   ],
+   [
+    35.7321,
+    1
+   ],
+   [
+    35.9319,
+    1.4824
+   ],
+   [
+    36,
+    2
+   ],
+   [
+    36,
+    20
+   ],
+   [
+    35.9319,
+    20.5176
+   ],
+   [
+    35.7321,
+    21
+   ],
+   [
+    35.4142,
+    21.4142
+   ],
+   [
+    35,
+    21.7321
+   ],
+   [
+    34.5176,
+    21.9319
+   ],
+   [
+    34,
+    22
+   ],
+   [
+    2,
+    22
+   ],
+   [
+    1.4824,
+    21.9319
+   ],
+   [
+    1,
+    21.7321
+   ],
+   [
+    0.5858,
+    21.4142
+   ],
+   [
+    0.2679,
+    21
+   ],
+   [
+    0.0681,
+    20.5176
+   ],
+   [
+    0,
+    20
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0.0681,
+    1.4824
+   ],
+   [
+    0.2679,
+    1
+   ],
+   [
+    0.5858,
+    0.5858
+   ],
+   [
+    1,
+    0.2679
+   ],
+   [
+    1.4824,
+    0.0681
+   ],
+   [
+    2,
+    0
+   ]
+  ],
+  "footprints": [
+   {
+    "id": "f1",
+    "partId": "p1",
+    "ref": "BT1",
+    "value": "9V",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 4.2,
+    "y": 9.73,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "VBAT",
+     "2": "GND"
+    },
+    "locked": false
+   },
+   {
+    "id": "f2",
+    "partId": "p2",
+    "ref": "SW1",
+    "value": "ON/OFF",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 10.73,
+    "y": 4.6,
+    "rot": 90,
+    "side": "F",
+    "padNets": {
+     "1": "VBAT",
+     "2": "SW_OUT"
+    },
+    "locked": false
+   },
+   {
+    "id": "f3",
+    "partId": "p3",
+    "ref": "R1",
+    "value": "470",
+    "footprint": "R_Axial_P10.16mm",
+    "x": 11.92,
+    "y": 12,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "SW_OUT",
+     "2": "LED_A"
+    },
+    "locked": false
+   },
+   {
+    "id": "f4",
+    "partId": "p4",
+    "ref": "D1",
+    "value": "Red",
+    "footprint": "LED_D5.0mm",
+    "x": 28.73,
+    "y": 11,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "GND",
+     "2": "LED_A"
+    },
+    "locked": false
+   }
+  ],
+  "tracks": [
+   {
+    "id": "t1",
+    "layer": "B.Cu",
+    "net": "SW_OUT",
+    "w": 0.25,
+    "x1": 13.27,
+    "y1": 4.6,
+    "x2": 12.75,
+    "y2": 5.25
+   },
+   {
+    "id": "t2",
+    "layer": "B.Cu",
+    "net": "SW_OUT",
+    "w": 0.25,
+    "x1": 12.75,
+    "y1": 5.25,
+    "x2": 12.75,
+    "y2": 10.5
+   },
+   {
+    "id": "t3",
+    "layer": "B.Cu",
+    "net": "SW_OUT",
+    "w": 0.25,
+    "x1": 12.75,
+    "y1": 10.5,
+    "x2": 12,
+    "y2": 11.25
+   },
+   {
+    "id": "t4",
+    "layer": "B.Cu",
+    "net": "SW_OUT",
+    "w": 0.25,
+    "x1": 12,
+    "y1": 11.25,
+    "x2": 11.92,
+    "y2": 12
+   },
+   {
+    "id": "t5",
+    "layer": "F.Cu",
+    "net": "VBAT",
+    "w": 0.5,
+    "x1": 4.2,
+    "y1": 9.73,
+    "x2": 5,
+    "y2": 9
+   },
+   {
+    "id": "t6",
+    "layer": "F.Cu",
+    "net": "VBAT",
+    "w": 0.5,
+    "x1": 5,
+    "y1": 9,
+    "x2": 8.75,
+    "y2": 5.25
+   },
+   {
+    "id": "t7",
+    "layer": "F.Cu",
+    "net": "VBAT",
+    "w": 0.5,
+    "x1": 8.75,
+    "y1": 5.25,
+    "x2": 10,
+    "y2": 5.25
+   },
+   {
+    "id": "t8",
+    "layer": "F.Cu",
+    "net": "VBAT",
+    "w": 0.5,
+    "x1": 10,
+    "y1": 5.25,
+    "x2": 10.73,
+    "y2": 4.6
+   },
+   {
+    "id": "t9",
+    "layer": "F.Cu",
+    "net": "LED_A",
+    "w": 0.25,
+    "x1": 22.08,
+    "y1": 12,
+    "x2": 22.75,
+    "y2": 12.25
+   },
+   {
+    "id": "t10",
+    "layer": "F.Cu",
+    "net": "LED_A",
+    "w": 0.25,
+    "x1": 22.75,
+    "y1": 12.25,
+    "x2": 27.5,
+    "y2": 12.25
+   },
+   {
+    "id": "t11",
+    "layer": "F.Cu",
+    "net": "LED_A",
+    "w": 0.25,
+    "x1": 27.5,
+    "y1": 12.25,
+    "x2": 27.75,
+    "y2": 12.5
+   },
+   {
+    "id": "t12",
+    "layer": "F.Cu",
+    "net": "LED_A",
+    "w": 0.25,
+    "x1": 27.75,
+    "y1": 12.5,
+    "x2": 29.75,
+    "y2": 12.5
+   },
+   {
+    "id": "t13",
+    "layer": "F.Cu",
+    "net": "LED_A",
+    "w": 0.25,
+    "x1": 29.75,
+    "y1": 12.5,
+    "x2": 30.75,
+    "y2": 11.5
+   },
+   {
+    "id": "t14",
+    "layer": "F.Cu",
+    "net": "LED_A",
+    "w": 0.25,
+    "x1": 30.75,
+    "y1": 11.5,
+    "x2": 31.27,
+    "y2": 11
+   },
+   {
+    "id": "t15",
+    "layer": "F.Cu",
+    "net": "GND",
+    "w": 0.5,
+    "x1": 4.2,
+    "y1": 12.27,
+    "x2": 5,
+    "y2": 12
+   },
+   {
+    "id": "t16",
+    "layer": "F.Cu",
+    "net": "GND",
+    "w": 0.5,
+    "x1": 5,
+    "y1": 12,
+    "x2": 10,
+    "y2": 12
+   },
+   {
+    "id": "t17",
+    "layer": "F.Cu",
+    "net": "GND",
+    "w": 0.5,
+    "x1": 10,
+    "y1": 12,
+    "x2": 11.5,
+    "y2": 10.5
+   },
+   {
+    "id": "t18",
+    "layer": "F.Cu",
+    "net": "GND",
+    "w": 0.5,
+    "x1": 11.5,
+    "y1": 10.5,
+    "x2": 28,
+    "y2": 10.5
+   },
+   {
+    "id": "t19",
+    "layer": "F.Cu",
+    "net": "GND",
+    "w": 0.5,
+    "x1": 28,
+    "y1": 10.5,
+    "x2": 28.73,
+    "y2": 11
+   }
+  ],
+  "vias": [],
+  "zones": [],
+  "texts": [
+   {
+    "id": "s1",
+    "layer": "F.SilkS",
+    "text": "LED + R  v1.0",
+    "x": 15,
+    "y": 19,
+    "size": 1.4,
+    "rot": 0,
+    "mirror": false
+   }
+  ],
+  "graphics": [],
+  "dimensions": [],
+  "rules": {
+   "clearance": 0.2,
+   "trackWidth": 0.25,
+   "viaDiameter": 0.8,
+   "viaDrill": 0.4,
+   "minTrackWidth": 0.15,
+   "minDrill": 0.3,
+   "edgeClearance": 0.3,
+   "holeToHole": 0.25,
+   "netClasses": [
+    {
+     "name": "Power",
+     "trackWidth": 0.5,
+     "clearance": 0.25,
+     "viaDiameter": 1,
+     "viaDrill": 0.5,
+     "nets": [
+      "GND",
+      "VCC",
+      "+5V",
+      "+3V3",
+      "+12V",
+      "-12V",
+      "VBAT"
+     ]
+    }
+   ]
+  }
+ },
+ "sim": {
+  "mode": "op",
+  "tStop": "10m",
+  "tStep": "10u",
+  "fStart": "10",
+  "fStop": "1Meg",
+  "points": 50,
+  "probes": [
+   "VBAT",
+   "LED_A"
+  ]
+ }
+}

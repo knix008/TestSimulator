@@ -1,0 +1,707 @@
+{
+ "format": "mycircuit",
+ "version": 1,
+ "meta": {
+  "title": "Half-wave rectifier",
+  "author": "MyCircuit Samples",
+  "company": "MyCircuit Project",
+  "rev": "1.0",
+  "date": "2026-10-09",
+  "comment": ""
+ },
+ "library": {
+  "symbols": [],
+  "footprints": []
+ },
+ "schematic": {
+  "sheet": "A4",
+  "pages": [
+   {
+    "id": "p1",
+    "name": "Main"
+   }
+  ],
+  "parts": [
+   {
+    "id": "p1",
+    "lib": "VSOURCE",
+    "ref": "V1",
+    "value": "SIN 12V 50Hz",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 2000,
+    "y": 2700,
+    "rot": 0,
+    "mirror": false,
+    "fields": {
+     "wave": "sine",
+     "amplitude": "12",
+     "freq": "50",
+     "offset": "0",
+     "period": "1m",
+     "duty": "50"
+    },
+    "refOffset": {
+     "x": 130,
+     "y": -30
+    },
+    "valueOffset": {
+     "x": 130,
+     "y": 35
+    }
+   },
+   {
+    "id": "p2",
+    "lib": "D",
+    "ref": "D1",
+    "value": "1N4007",
+    "footprint": "D_DO-41_P10.16mm",
+    "x": 2800,
+    "y": 2200,
+    "rot": 90,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p3",
+    "lib": "C_POL",
+    "ref": "C1",
+    "value": "470u",
+    "footprint": "CP_Radial_D8.0mm_P3.50mm",
+    "x": 3600,
+    "y": 2800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p4",
+    "lib": "R",
+    "ref": "R1",
+    "value": "1k",
+    "footprint": "R_Axial_P10.16mm",
+    "x": 4300,
+    "y": 2800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p5",
+    "lib": "GND",
+    "ref": "#PWR01",
+    "value": "GND",
+    "footprint": "",
+    "x": 2000,
+    "y": 2900,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p6",
+    "lib": "GND",
+    "ref": "#PWR02",
+    "value": "GND",
+    "footprint": "",
+    "x": 3600,
+    "y": 3000,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p7",
+    "lib": "GND",
+    "ref": "#PWR03",
+    "value": "GND",
+    "footprint": "",
+    "x": 4300,
+    "y": 3000,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   }
+  ],
+  "wires": [
+   {
+    "id": "w1",
+    "x1": 2000,
+    "y1": 2200,
+    "x2": 2000,
+    "y2": 2500
+   },
+   {
+    "id": "w2",
+    "x1": 2000,
+    "y1": 2200,
+    "x2": 2600,
+    "y2": 2200
+   },
+   {
+    "id": "w3",
+    "x1": 3000,
+    "y1": 2200,
+    "x2": 3600,
+    "y2": 2200
+   },
+   {
+    "id": "w4",
+    "x1": 3600,
+    "y1": 2200,
+    "x2": 3600,
+    "y2": 2600
+   },
+   {
+    "id": "w5",
+    "x1": 4300,
+    "y1": 2200,
+    "x2": 4300,
+    "y2": 2600
+   },
+   {
+    "id": "w6",
+    "x1": 3600,
+    "y1": 2200,
+    "x2": 4300,
+    "y2": 2200
+   },
+   {
+    "id": "w7",
+    "x1": 4300,
+    "y1": 2200,
+    "x2": 4800,
+    "y2": 2200
+   }
+  ],
+  "buses": [],
+  "junctions": [
+   {
+    "id": "j1",
+    "x": 3600,
+    "y": 2200
+   },
+   {
+    "id": "j2",
+    "x": 4300,
+    "y": 2200
+   }
+  ],
+  "labels": [
+   {
+    "id": "l1",
+    "kind": "local",
+    "text": "AC_IN",
+    "x": 2200,
+    "y": 2200,
+    "rot": 0
+   },
+   {
+    "id": "l2",
+    "kind": "local",
+    "text": "VOUT",
+    "x": 4800,
+    "y": 2200,
+    "rot": 0
+   }
+  ],
+  "noconnects": [],
+  "texts": [
+   {
+    "id": "x1",
+    "text": "Half-wave rectifier with smoothing capacitor",
+    "x": 1500,
+    "y": 1400,
+    "size": 90,
+    "rot": 0
+   },
+   {
+    "id": "x2",
+    "text": "Peak output = 12 V - 0.7 V = approx. 11.3 V\nRipple = I / (f C) = (11.3 V / 1k) / (50 Hz x 470u) = approx. 0.48 V\nTry C1 = 47u in the transient to see the ripple grow.",
+    "x": 1500,
+    "y": 3700,
+    "size": 50,
+    "rot": 0
+   }
+  ],
+  "sheets": [],
+  "dimensions": []
+ },
+ "pcb": {
+  "layerCount": 2,
+  "thickness": 1.6,
+  "maskColor": "green",
+  "silkColor": "white",
+  "finish": "OSP",
+  "outline": [
+   [
+    38.5,
+    0
+   ],
+   [
+    38.8882,
+    0.0511
+   ],
+   [
+    39.25,
+    0.201
+   ],
+   [
+    39.5607,
+    0.4393
+   ],
+   [
+    39.799,
+    0.75
+   ],
+   [
+    39.9489,
+    1.1118
+   ],
+   [
+    40,
+    1.5
+   ],
+   [
+    40,
+    22.5
+   ],
+   [
+    39.9489,
+    22.8882
+   ],
+   [
+    39.799,
+    23.25
+   ],
+   [
+    39.5607,
+    23.5607
+   ],
+   [
+    39.25,
+    23.799
+   ],
+   [
+    38.8882,
+    23.9489
+   ],
+   [
+    38.5,
+    24
+   ],
+   [
+    1.5,
+    24
+   ],
+   [
+    1.1118,
+    23.9489
+   ],
+   [
+    0.75,
+    23.799
+   ],
+   [
+    0.4393,
+    23.5607
+   ],
+   [
+    0.201,
+    23.25
+   ],
+   [
+    0.0511,
+    22.8882
+   ],
+   [
+    0,
+    22.5
+   ],
+   [
+    0,
+    1.5
+   ],
+   [
+    0.0511,
+    1.1118
+   ],
+   [
+    0.201,
+    0.75
+   ],
+   [
+    0.4393,
+    0.4393
+   ],
+   [
+    0.75,
+    0.201
+   ],
+   [
+    1.1118,
+    0.0511
+   ],
+   [
+    1.5,
+    0
+   ]
+  ],
+  "footprints": [
+   {
+    "id": "f1",
+    "partId": "p1",
+    "ref": "V1",
+    "value": "SIN 12V 50Hz",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 3.5,
+    "y": 10.73,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "AC_IN",
+     "2": "GND"
+    },
+    "locked": false
+   },
+   {
+    "id": "f2",
+    "partId": "p2",
+    "ref": "D1",
+    "value": "1N4007",
+    "footprint": "D_DO-41_P10.16mm",
+    "x": 20.08,
+    "y": 7,
+    "rot": 180,
+    "side": "F",
+    "padNets": {
+     "1": "VOUT",
+     "2": "AC_IN"
+    },
+    "locked": false
+   },
+   {
+    "id": "f3",
+    "partId": "p3",
+    "ref": "C1",
+    "value": "470u",
+    "footprint": "CP_Radial_D8.0mm_P3.50mm",
+    "x": 20.79,
+    "y": 15.09,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "VOUT",
+     "2": "GND"
+    },
+    "locked": false
+   },
+   {
+    "id": "f4",
+    "partId": "p4",
+    "ref": "R1",
+    "value": "1k",
+    "footprint": "R_Axial_P10.16mm",
+    "x": 32,
+    "y": 17.08,
+    "rot": 90,
+    "side": "F",
+    "padNets": {
+     "1": "VOUT",
+     "2": "GND"
+    },
+    "locked": false
+   }
+  ],
+  "tracks": [
+   {
+    "id": "t1",
+    "layer": "F.Cu",
+    "net": "AC_IN",
+    "w": 0.25,
+    "x1": 3.5,
+    "y1": 10.73,
+    "x2": 4.25,
+    "y2": 10
+   },
+   {
+    "id": "t2",
+    "layer": "F.Cu",
+    "net": "AC_IN",
+    "w": 0.25,
+    "x1": 4.25,
+    "y1": 10,
+    "x2": 6.75,
+    "y2": 7.5
+   },
+   {
+    "id": "t3",
+    "layer": "F.Cu",
+    "net": "AC_IN",
+    "w": 0.25,
+    "x1": 6.75,
+    "y1": 7.5,
+    "x2": 9,
+    "y2": 7.5
+   },
+   {
+    "id": "t4",
+    "layer": "F.Cu",
+    "net": "AC_IN",
+    "w": 0.25,
+    "x1": 9,
+    "y1": 7.5,
+    "x2": 9.92,
+    "y2": 7
+   },
+   {
+    "id": "t5",
+    "layer": "B.Cu",
+    "net": "VOUT",
+    "w": 0.25,
+    "x1": 20.08,
+    "y1": 7,
+    "x2": 20,
+    "y2": 8
+   },
+   {
+    "id": "t6",
+    "layer": "B.Cu",
+    "net": "VOUT",
+    "w": 0.25,
+    "x1": 20,
+    "y1": 8,
+    "x2": 20,
+    "y2": 14.5
+   },
+   {
+    "id": "t7",
+    "layer": "B.Cu",
+    "net": "VOUT",
+    "w": 0.25,
+    "x1": 20,
+    "y1": 14.5,
+    "x2": 20.79,
+    "y2": 15.09
+   },
+   {
+    "id": "t8",
+    "layer": "F.Cu",
+    "net": "VOUT",
+    "w": 0.25,
+    "x1": 20.79,
+    "y1": 15.09,
+    "x2": 21.5,
+    "y2": 15.75
+   },
+   {
+    "id": "t9",
+    "layer": "F.Cu",
+    "net": "VOUT",
+    "w": 0.25,
+    "x1": 21.5,
+    "y1": 15.75,
+    "x2": 22.75,
+    "y2": 17
+   },
+   {
+    "id": "t10",
+    "layer": "F.Cu",
+    "net": "VOUT",
+    "w": 0.25,
+    "x1": 22.75,
+    "y1": 17,
+    "x2": 31.25,
+    "y2": 17
+   },
+   {
+    "id": "t11",
+    "layer": "F.Cu",
+    "net": "VOUT",
+    "w": 0.25,
+    "x1": 31.25,
+    "y1": 17,
+    "x2": 32,
+    "y2": 17.08
+   }
+  ],
+  "vias": [],
+  "zones": [
+   {
+    "id": "z1",
+    "layer": "B.Cu",
+    "net": "GND",
+    "pts": [
+     [
+      38.4672,
+      0.5
+     ],
+     [
+      38.7577,
+      0.5382
+     ],
+     [
+      38.9979,
+      0.6378
+     ],
+     [
+      39.2041,
+      0.7959
+     ],
+     [
+      39.3622,
+      1.0021
+     ],
+     [
+      39.4618,
+      1.2423
+     ],
+     [
+      39.5,
+      1.5328
+     ],
+     [
+      39.5,
+      22.4672
+     ],
+     [
+      39.4618,
+      22.7577
+     ],
+     [
+      39.3622,
+      22.9979
+     ],
+     [
+      39.2041,
+      23.2041
+     ],
+     [
+      38.9979,
+      23.3622
+     ],
+     [
+      38.7577,
+      23.4618
+     ],
+     [
+      38.4672,
+      23.5
+     ],
+     [
+      1.5328,
+      23.5
+     ],
+     [
+      1.2423,
+      23.4618
+     ],
+     [
+      1.0021,
+      23.3622
+     ],
+     [
+      0.7959,
+      23.2041
+     ],
+     [
+      0.6378,
+      22.9979
+     ],
+     [
+      0.5382,
+      22.7577
+     ],
+     [
+      0.5,
+      22.4672
+     ],
+     [
+      0.5,
+      1.5328
+     ],
+     [
+      0.5382,
+      1.2423
+     ],
+     [
+      0.6378,
+      1.0021
+     ],
+     [
+      0.7959,
+      0.7959
+     ],
+     [
+      1.0021,
+      0.6378
+     ],
+     [
+      1.2423,
+      0.5382
+     ],
+     [
+      1.5328,
+      0.5
+     ]
+    ],
+    "clearance": 0.3,
+    "thermal": true,
+    "priority": 0
+   }
+  ],
+  "texts": [
+   {
+    "id": "s1",
+    "layer": "F.SilkS",
+    "text": "RECTIFIER",
+    "x": 15,
+    "y": 21,
+    "size": 1.5,
+    "rot": 0,
+    "mirror": false
+   }
+  ],
+  "graphics": [],
+  "dimensions": [],
+  "rules": {
+   "clearance": 0.2,
+   "trackWidth": 0.25,
+   "viaDiameter": 0.8,
+   "viaDrill": 0.4,
+   "minTrackWidth": 0.15,
+   "minDrill": 0.3,
+   "edgeClearance": 0.3,
+   "holeToHole": 0.25,
+   "netClasses": [
+    {
+     "name": "Power",
+     "trackWidth": 0.5,
+     "clearance": 0.25,
+     "viaDiameter": 1,
+     "viaDrill": 0.5,
+     "nets": [
+      "GND",
+      "VCC",
+      "+5V",
+      "+3V3",
+      "+12V",
+      "-12V",
+      "VBAT"
+     ]
+    }
+   ]
+  }
+ },
+ "sim": {
+  "mode": "tran",
+  "tStop": "100m",
+  "tStep": "100u",
+  "fStart": "10",
+  "fStop": "1Meg",
+  "points": 20,
+  "probes": [
+   "AC_IN",
+   "VOUT"
+  ]
+ }
+}

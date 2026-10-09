@@ -1,0 +1,151 @@
+{
+  "name": "mycircuit",
+  "productName": "MyCircuit",
+  "version": "10.0.0",
+  "private": true,
+  "description": "MyCircuit 10.0 — schematic, PCB, 3D and simulation electronics design for Web, Windows, macOS and Linux",
+  "author": "SHKWON <knix008@naver.com>",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "node scripts/build-info.mjs && node scripts/start.mjs",
+    "serve": "node scripts/serve.mjs",
+    "test": "node scripts/test.mjs",
+    "build:icons": "node scripts/render-art.mjs",
+    "build:installer": "node scripts/create-installer.mjs",
+    "build:web": "node scripts/build-info.mjs && node scripts/build-web.mjs",
+    "build:clean": "node scripts/prepare-dist.mjs",
+    "dist": "npm run build:clean && npm run build:installer && node scripts/package.mjs && node scripts/copy-installers.cjs",
+    "dist:win": "node scripts/build-info.mjs && npm run build:clean && npm run build:installer && node scripts/package.mjs --win nsis --x64 && node scripts/copy-installers.cjs",
+    "build:win": "npm run dist:win",
+    "dist:mac": "node scripts/build-info.mjs && npm run build:clean && node scripts/package.mjs --mac dmg zip && node scripts/copy-installers.cjs",
+    "build:mac": "npm run dist:mac",
+    "dist:linux": "node scripts/build-info.mjs && npm run build:clean && node scripts/package.mjs --linux AppImage deb tar.gz && node scripts/copy-installers.cjs",
+    "build:linux": "npm run dist:linux",
+    "build:all": "node scripts/build-info.mjs && npm run build:clean && npm run build:web && npm run build:installer && node scripts/package.mjs -mwl && node scripts/copy-installers.cjs",
+    "dist:all": "npm run build:all",
+    "smoke": "node test/smoke/gui-smoke.mjs",
+    "i18n:check": "node scripts/i18n-keys.mjs",
+    "build:art": "node scripts/render-art.mjs"
+  },
+  "build": {
+    "appId": "com.shkwon.mycircuit",
+    "productName": "MyCircuit",
+    "executableName": "MyCircuit",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "style/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "electron/**/*",
+      "package.json",
+      "!test/**",
+      "!scripts/**",
+      "docs/**/*",
+      "!sample/**",
+      "!release/**",
+      "!dist/**"
+    ],
+    "extraResources": [
+      {
+        "from": "sample",
+        "to": "sample"
+      },
+      {
+        "from": "assets/file-icon.ico",
+        "to": "file-icon.ico"
+      },
+      {
+        "from": "assets/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "fileAssociations": [
+      {
+        "ext": "mycircuit",
+        "name": "MyCircuit.Project",
+        "description": "MyCircuit Project",
+        "icon": "assets/file-icon",
+        "role": "Editor",
+        "mimeType": "application/x-mycircuit"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyCircuit",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "include": "build/installer.nsh",
+      "artifactName": "MyCircuit-Setup-${version}.${ext}",
+      "menuCategory": false,
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "artifactName": "MyCircuit-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "MyCircuit ${version}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "icon": "assets/icons",
+      "category": "Development;Electronics",
+      "synopsis": "Schematic, PCB, 3D and simulation electronics design",
+      "maintainer": "shkwon <knix008@naver.com>",
+      "artifactName": "MyCircuit-${version}-${arch}.${ext}",
+      "mimeTypes": [
+        "application/x-mycircuit"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "png-to-ico": "^2.1.8",
+    "pngjs": "^7.0.0",
+    "three": "0.186.1"
+  }
+}

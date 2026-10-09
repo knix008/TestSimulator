@@ -1,0 +1,14 @@
+{
+  "generator": "scripts/create-installer.mjs",
+  "types": [
+    {
+      "ext": "mycircuit",
+      "name": "MyCircuit.Project",
+      "ko": "MyCircuit 프로젝트",
+      "en": "MyCircuit project",
+      "role": "Editor",
+      "default": true,
+      "builtin": true
+    }
+  ]
+}

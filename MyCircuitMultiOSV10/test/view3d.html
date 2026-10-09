@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D Viewer Check</title>
+<!-- Manual check page for src/view3d. Serve the project root over http
+     (ES modules don't load from file://), e.g. `npx http-server .` or
+     `python -m http.server`, then open /test/view3d.html. -->
+<style>
+  :root { --bg: #14171c; --panel: rgba(24, 28, 34, 0.86); --fg: #e6e9ee; --muted: #9aa3ae; --accent: #3d8bff; --line: #313844; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #bar { position: fixed; left: 12px; top: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+         background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; backdrop-filter: blur(6px); }
+  #bar button { background: #232933; color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 9px; cursor: pointer; font: inherit; }
+  #bar button:hover { border-color: var(--accent); }
+  #bar label { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); }
+  #bar select { background: #232933; color: var(--fg); border: 1px solid var(--line); border-radius: 5px; font: inherit; }
+  .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+  #status { position: fixed; left: 12px; bottom: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; color: var(--muted); }
+  #shot { position: fixed; right: 12px; bottom: 12px; max-width: 280px; border: 1px solid var(--line); border-radius: 6px; display: none; }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="bar">
+  <button data-view="iso">Iso</button><button data-view="top">Top</button><button data-view="bottom">Bottom</button>
+  <button data-view="front">Front</button><button data-view="back">Back</button><button data-view="left">Left</button><button data-view="right">Right</button>
+  <button id="fit">Fit</button>
+  <span class="sep"></span>
+  <label><input type="checkbox" data-opt="components" checked>Parts</label>
+  <label><input type="checkbox" data-opt="silkscreen" checked>Silk</label>
+  <label><input type="checkbox" data-opt="soldermask" checked>Mask</label>
+  <label><input type="checkbox" data-opt="copper" checked>Copper</label>
+  <label><input type="checkbox" data-opt="zones" checked>Zones</label>
+  <label><input type="checkbox" data-opt="boardBody" checked>Board</label>
+  <label><input type="checkbox" data-opt="transparentBoard">X-ray</label>
+  <label><input type="checkbox" data-opt="grid">Grid</label>
+  <label><input type="checkbox" data-opt="axes">Axes</label>
+  <span class="sep"></span>
+  <label>Mask <select id="mask"><option>green</option><option>red</option><option>blue</option><option>black</option><option>white</option><option>purple</option><option>yellow</option></select></label>
+  <label>Finish <select id="finish"><option>HASL</option><option>ENIG</option><option>OSP</option></select></label>
+  <span class="sep"></span>
+  <button id="hl">Highlight U1,Q1</button><button id="shotBtn">Screenshot</button><button id="stl">STL</button><button id="glb">GLB</button>
+</div>
+<div id="status">loading…</div>
+<img id="shot" alt="screenshot">
+<script type="module">
+  import { newProject } from "../src/core/project.js";
+  import { createViewer } from "../src/view3d/viewer.js";
+
+  const p = newProject("3D demo");
+  const pcb = p.pcb;
+  pcb.outline = [[0, 0], [90, 0], [90, 60], [0, 60]];
+  pcb.finish = "HASL";
+  let n = 0;
+  const fp = (ref, footprint, x, y, rot = 0, side = "F", padNets = {}) =>
+    pcb.footprints.push({ id: `f${++n}`, ref, value: "", footprint, x, y, rot, side, padNets });
+  fp("U1", "DIP-8_W7.62mm", 10, 10, 0, "F", { 1: "GND", 8: "VCC" });
+  fp("U2", "SOIC-8_3.9x4.9mm", 32, 14, 0, "F", { 4: "GND" });
+  fp("U3", "TQFP-32_7x7mm_P0.8mm", 48, 16, 0, "F", { 5: "GND" });
+  fp("R1", "R_0805", 24, 8, 0, "F", { 1: "VCC" });
+  fp("R2", "R_0603", 24, 12, 90);
+  fp("C1", "C_0805", 24, 16, 0, "F", { 2: "GND" });
+  fp("C2", "CP_Radial_D8.0mm_P3.50mm", 62, 10, 0, "F", { 2: "GND" });
+  fp("C3", "CP_Radial_D5.0mm_P2.00mm", 72, 10);
+  fp("C4", "C_Disc_D5.0mm_P5.00mm", 62, 22);
+  fp("R3", "R_Axial_P10.16mm", 8, 26);
+  fp("D1", "D_DO-41_P10.16mm", 8, 32);
+  fp("D2", "LED_D5.0mm", 76, 24);
+  fp("D3", "LED_0805", 30, 22, 0);
+  fp("D4", "D_SOD-123", 36, 22);
+  fp("Q1", "TO-92_Inline", 24, 30);
+  fp("Q2", "SOT-23", 36, 28);
+  fp("U4", "SOT-223-3", 46, 30);
+  fp("U5", "TO-220-3_Vertical", 58, 34);
+  fp("Y1", "Crystal_HC49-U", 70, 36);
+  fp("RV1", "Potentiometer_3386P", 10, 46);
+  fp("BZ1", "Buzzer_12mm", 24, 46);
+  fp("SW1", "SW_PUSH_6mm", 42, 44);
+  fp("J1", "PinHeader_1x04_P2.54mm", 84, 30);
+  fp("J2", "PinHeader_2x05_P2.54mm", 56, 44);
+  fp("J3", "USB_Micro-B", 80, 55.5);
+  fp("TP1", "TestPoint_Pad_D1.5mm", 70, 50);
+  for (const [i, [x, y]] of [[4, 4], [86, 4], [4, 56], [86, 56]].entries()) fp(`H${i + 1}`, "MountingHole_3.2mm", x, y);
+  fp("R10", "R_0805", 30, 40, 0, "B", { 1: "GND" });
+  fp("C10", "C_1206", 30, 44, 90, "B");
+  fp("U10", "SOIC-8_3.9x4.9mm", 46, 52, 0, "B");
+  pcb.tracks.push(
+    { id: "t1", layer: "F.Cu", net: "VCC", w: 0.5, x1: 17.62, y1: 10, x2: 23.05, y2: 8 },
+    { id: "t2", layer: "F.Cu", net: "", w: 0.25, x1: 10, y1: 12.54, x2: 20, y2: 20 },
+    { id: "t3", layer: "F.Cu", net: "", w: 0.25, x1: 20, y1: 20, x2: 44, y2: 20 },
+    { id: "t4", layer: "B.Cu", net: "", w: 0.3, x1: 10, y1: 15.08, x2: 40, y2: 36 },
+  );
+  pcb.vias.push({ id: "v1", x: 20, y: 20, d: 0.8, drill: 0.4, net: "" }, { id: "v2", x: 44, y: 20, d: 0.8, drill: 0.4, net: "" });
+  pcb.zones.push({ id: "z1", layer: "B.Cu", net: "GND", pts: [[1, 1], [89, 1], [89, 59], [1, 59]], clearance: 0.3, thermal: true, priority: 0 });
+  pcb.zones.push({ id: "z2", layer: "F.Cu", net: "GND", pts: [[60, 2], [88, 2], [88, 18], [60, 18]], clearance: 0.3, thermal: true, priority: 0 });
+  pcb.texts.push({ id: "x1", layer: "F.SilkS", text: "MyCircuit 10 3D demo", x: 45, y: 57, size: 1.6, rot: 0 });
+  pcb.texts.push({ id: "x2", layer: "B.SilkS", text: "BOTTOM rev A", x: 45, y: 8, size: 2, rot: 0, mirror: true });
+
+  const status = document.getElementById("status");
+  const viewer = createViewer(document.getElementById("view"));
+  viewer.setProject(p);
+  window.viewer = viewer; // for poking from devtools / CDP
+  window.demoProject = p;
+  const showStats = (extra = "") => { const s = viewer.stats(); status.textContent = `${s.components} parts · ${s.meshes} meshes · ${s.triangles} tris${extra}`; };
+  showStats();
+  viewer.onPick((ref) => { viewer.highlight(ref ? [ref] : []); showStats(ref ? ` · picked ${ref}` : ""); });
+
+  document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => viewer.setView(b.dataset.view)));
+  document.getElementById("fit").onclick = () => viewer.zoomToFit();
+  document.querySelectorAll("[data-opt]").forEach((c) => c.addEventListener("change", () => { viewer.setOptions({ [c.dataset.opt]: c.checked }); showStats(); }));
+  document.getElementById("mask").onchange = (e) => viewer.setOptions({ maskColor: e.target.value });
+  document.getElementById("finish").onchange = (e) => { p.pcb.finish = e.target.value; viewer.setProject(p); };
+  document.getElementById("hl").onclick = () => viewer.highlight(["U1", "Q1"]);
+  const download = (data, name, type) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([data], { type }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  document.getElementById("shotBtn").onclick = () => { const img = document.getElementById("shot"); img.src = viewer.screenshot(); img.style.display = "block"; };
+  document.getElementById("stl").onclick = () => download(viewer.exportSTL(), "board.stl", "model/stl");
+  document.getElementById("glb").onclick = async () => download(await viewer.exportGLB(), "board.glb", "model/gltf-binary");
+</script>
+</body>
+</html>

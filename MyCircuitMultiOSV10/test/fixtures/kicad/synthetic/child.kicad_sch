@@ -1,0 +1,39 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "5a1e0000-0000-4000-8000-000000000901")
+	(paper "A4")
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 50.8 50.8) (xy 76.2 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5a1e0000-0000-4000-8000-000000000902")
+	)
+	(label "KID"
+		(at 76.2 50.8 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "5a1e0000-0000-4000-8000-000000000903")
+	)
+	(hierarchical_label "IN"
+		(shape input)
+		(at 50.8 50.8 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "5a1e0000-0000-4000-8000-000000000904")
+	)
+)

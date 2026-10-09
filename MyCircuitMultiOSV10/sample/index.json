@@ -1,0 +1,239 @@
+[
+  {
+    "file": "01-led-resistor.mycircuit",
+    "title": "LED and resistor",
+    "titleKo": "LED와 저항",
+    "description": "The classic first circuit: a 9 V battery, a switch, a current-limiting resistor and an LED. Run the operating point to read the LED current.",
+    "descriptionKo": "가장 기본적인 첫 회로: 9V 배터리, 스위치, 전류 제한 저항과 LED. 동작점 해석으로 LED 전류를 확인해 보세요.",
+    "tags": [
+      "beginner",
+      "simulation",
+      "THT"
+    ],
+    "features": [
+      "schematic basics",
+      "power symbols",
+      "net labels",
+      "DC operating point",
+      "single-sided routing",
+      "3D view"
+    ]
+  },
+  {
+    "file": "02-voltage-divider-rc.mycircuit",
+    "title": "Voltage divider and RC low-pass",
+    "titleKo": "전압 분배기와 RC 저역 통과 필터",
+    "description": "A resistive divider followed by an RC low-pass filter, driven by a sine source. Run the AC sweep for a Bode plot or a transient to see the filtered wave.",
+    "descriptionKo": "저항 분배기 뒤에 RC 저역 통과 필터를 두고 사인파 전원으로 구동합니다. AC 해석으로 보드 선도를, 과도 해석으로 걸러진 파형을 확인하세요.",
+    "tags": [
+      "beginner",
+      "simulation",
+      "SMD"
+    ],
+    "features": [
+      "AC analysis (Bode plot)",
+      "transient analysis",
+      "sine source",
+      "probes",
+      "SMD 0805 parts",
+      "GND pour"
+    ]
+  },
+  {
+    "file": "03-555-blinker.mycircuit",
+    "title": "555 LED blinker",
+    "titleKo": "555 LED 점멸기",
+    "description": "An NE555 timer in astable mode blinks an LED about 1.5 times per second from a 9 V battery. A through-hole board made for the 3D view.",
+    "descriptionKo": "NE555 타이머를 비안정 모드로 써서 9V 배터리로 LED를 1초에 약 1.5번 깜빡입니다. 3D 보기에 어울리는 스루홀 기판입니다.",
+    "tags": [
+      "classic",
+      "THT",
+      "3D"
+    ],
+    "features": [
+      "IC symbol",
+      "net labels",
+      "DIP footprint",
+      "electrolytic capacitors",
+      "red solder mask",
+      "3D view"
+    ]
+  },
+  {
+    "file": "04-power-supply-7805.mycircuit",
+    "title": "5 V power supply (7805)",
+    "titleKo": "5V 전원 공급기 (7805)",
+    "description": "12 V in, 5 V out: input fuse, reverse-polarity diode, LM7805 linear regulator with input/output capacitors and a power LED. The operating point shows the regulated rail.",
+    "descriptionKo": "12V 입력, 5V 출력: 입력 퓨즈, 역전압 보호 다이오드, 입출력 커패시터가 달린 LM7805 리니어 레귤레이터와 전원 LED. 동작점 해석으로 안정된 5V 출력을 확인합니다.",
+    "tags": [
+      "power",
+      "simulation",
+      "THT"
+    ],
+    "features": [
+      "voltage regulator model",
+      "PWR_FLAG",
+      "polarized capacitors",
+      "power net class (wide tracks)",
+      "mounting holes",
+      "black mask / ENIG"
+    ]
+  },
+  {
+    "file": "05-npn-switch.mycircuit",
+    "title": "NPN transistor switch",
+    "titleKo": "NPN 트랜지스터 스위치",
+    "description": "A push button drives the base of a 2N3904 through 10 kΩ; the transistor switches an LED. The button's state field is set to closed so the operating point shows the LED on.",
+    "descriptionKo": "누름 버튼이 10kΩ을 거쳐 2N3904의 베이스를 구동하고, 트랜지스터가 LED를 켭니다. 버튼의 state 필드가 closed로 되어 있어 동작점 해석에서 LED가 켜진 상태를 볼 수 있습니다.",
+    "tags": [
+      "beginner",
+      "simulation",
+      "THT"
+    ],
+    "features": [
+      "BJT model",
+      "switch state field",
+      "pull-down resistor",
+      "SOT-23 footprint",
+      "yellow mask / black silk"
+    ]
+  },
+  {
+    "file": "06-opamp-amplifier.mycircuit",
+    "title": "Non-inverting op-amp amplifier",
+    "titleKo": "비반전 연산증폭기 증폭기",
+    "description": "An op-amp with ±12 V supplies amplifies a 0.5 V sine by 1 + Rf/Rg = 11. Run the transient to see input and output, or the AC sweep for the gain.",
+    "descriptionKo": "±12V 전원의 연산증폭기가 0.5V 사인파를 1 + Rf/Rg = 11배 증폭합니다. 과도 해석으로 입출력 파형을, AC 해석으로 이득을 확인하세요.",
+    "tags": [
+      "analog",
+      "simulation",
+      "op-amp"
+    ],
+    "features": [
+      "op-amp model",
+      "split ±12 V supply",
+      "feedback network",
+      "transient + AC analysis",
+      "white mask / ENIG"
+    ]
+  },
+  {
+    "file": "07-half-wave-rectifier.mycircuit",
+    "title": "Half-wave rectifier",
+    "titleKo": "반파 정류기",
+    "description": "A 12 V / 50 Hz sine is rectified by a diode and smoothed by a 470 µF capacitor into a 1 kΩ load. The transient shows the ripple.",
+    "descriptionKo": "12V / 50Hz 사인파를 다이오드로 정류하고 470µF 커패시터로 평활하여 1kΩ 부하에 공급합니다. 과도 해석으로 리플을 확인하세요.",
+    "tags": [
+      "power",
+      "simulation",
+      "THT"
+    ],
+    "features": [
+      "diode model",
+      "transient analysis",
+      "ripple",
+      "OSP finish"
+    ]
+  },
+  {
+    "file": "08-arduino-minimal.mycircuit",
+    "title": "Minimal Arduino (ATmega328P)",
+    "titleKo": "최소 구성 아두이노 (ATmega328P)",
+    "description": "A breadboard-Arduino on a PCB: ATmega328P with a 16 MHz crystal, reset button, decoupling, an ISP header for programming and the classic D13 LED. Two-layer board with GND pours on both sides and four mounting holes.",
+    "descriptionKo": "브레드보드 아두이노를 PCB로: 16MHz 크리스털, 리셋 버튼, 디커플링 커패시터, 프로그래밍용 ISP 헤더와 D13 LED를 갖춘 ATmega328P. 양면 GND 동박과 마운팅 홀 4개가 있는 2층 기판입니다.",
+    "tags": [
+      "MCU",
+      "2-layer",
+      "THT"
+    ],
+    "features": [
+      "net labels",
+      "no-connect flags",
+      "PWR_FLAG",
+      "crystal oscillator",
+      "ISP header",
+      "GND pour on both layers",
+      "mounting holes",
+      "autorouter"
+    ]
+  },
+  {
+    "file": "09-usb-uart-ch340.mycircuit",
+    "title": "USB to UART bridge (CH340G)",
+    "titleKo": "USB-UART 변환기 (CH340G)",
+    "description": "Micro-USB to a 6-pin serial header through a CH340G with its 12 MHz crystal. A compact SMD board with a blue mask and ENIG finish; some decoupling capacitors sit on the bottom side.",
+    "descriptionKo": "CH340G와 12MHz 크리스털로 마이크로 USB를 6핀 시리얼 헤더로 변환합니다. 파란 솔더마스크와 ENIG 마감의 작은 SMD 기판이며, 일부 디커플링 커패시터는 뒷면에 실장됩니다.",
+    "tags": [
+      "interface",
+      "SMD",
+      "2-layer"
+    ],
+    "features": [
+      "USB connector",
+      "SMD footprints",
+      "parts on both sides",
+      "net labels",
+      "no-connect flags",
+      "blue mask / ENIG"
+    ]
+  },
+  {
+    "file": "10-shift-register-leds.mycircuit",
+    "title": "74HC595 LED bar",
+    "titleKo": "74HC595 LED 바",
+    "description": "A 74HC595 shift register drives eight LEDs from three signals on a header. Net labels and a bus line keep the eight outputs readable; pull resistors set the default state of ~OE~ and ~SRCLR~.",
+    "descriptionKo": "74HC595 시프트 레지스터가 헤더의 신호 세 개로 LED 여덟 개를 구동합니다. 네트 라벨과 버스 선으로 여덟 개의 출력을 읽기 쉽게 그렸고, 풀업/풀다운 저항으로 ~OE~와 ~SRCLR~의 기본 상태를 정합니다.",
+    "tags": [
+      "logic",
+      "SMD",
+      "2-layer"
+    ],
+    "features": [
+      "net labels",
+      "bus graphics",
+      "pull-up / pull-down",
+      "8 identical channels",
+      "SOIC and 0805 footprints",
+      "red mask / ENIG"
+    ]
+  },
+  {
+    "file": "11-four-layer-attiny.mycircuit",
+    "title": "ATtiny85 on a 4-layer board",
+    "titleKo": "4층 기판의 ATtiny85",
+    "description": "An ATtiny85 (SOIC-8) with an AMS1117-3.3 regulator, a button, an LED and an ISP header on a 4-layer board: In1.Cu is a solid GND plane, In2.Cu a +3V3 plane, and every SMD supply pad drops into its plane through a via.",
+    "descriptionKo": "ATtiny85(SOIC-8)와 AMS1117-3.3 레귤레이터, 버튼, LED, ISP 헤더를 4층 기판에 배치했습니다. In1.Cu는 GND 평면, In2.Cu는 +3V3 평면이며 SMD 전원 패드는 모두 비아로 평면에 연결됩니다.",
+    "tags": [
+      "MCU",
+      "4-layer",
+      "SMD"
+    ],
+    "features": [
+      "4-layer stack-up",
+      "inner power planes",
+      "stitching vias",
+      "LDO regulator",
+      "black mask / ENIG"
+    ]
+  },
+  {
+    "file": "12-custom-library.mycircuit",
+    "title": "Custom symbol and footprint",
+    "titleKo": "사용자 심벌과 풋프린트",
+    "description": "A BME280 sensor module drawn with a project-local symbol (made with the symbol generator) and a custom footprint (made with the footprint wizard), wired to a host header with I2C pull-ups. Both live inside the project file.",
+    "descriptionKo": "프로젝트에 포함된 사용자 심벌(심벌 생성기로 제작)과 사용자 풋프린트(풋프린트 마법사로 제작)로 그린 BME280 센서 모듈을 I2C 풀업 저항과 함께 호스트 헤더에 연결했습니다. 둘 다 프로젝트 파일 안에 저장됩니다.",
+    "tags": [
+      "library",
+      "sensor",
+      "I2C"
+    ],
+    "features": [
+      "project library",
+      "custom symbol",
+      "custom footprint",
+      "I2C pull-ups",
+      "net labels",
+      "purple mask / ENIG"
+    ]
+  }
+]

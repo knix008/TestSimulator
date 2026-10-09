@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' blob: data:">
+  <title>MyCircuit 10.0</title>
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="style/app.css">
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="titlebar" id="titlebar">
+      <div class="brand"><img src="assets/icon.png" alt="" width="20" height="20"><span>MyCircuit</span></div>
+      <nav class="menubar" id="menubar" role="menubar"></nav>
+      <div class="title-drag" id="doc-title"></div>
+      <div class="title-right" id="title-right"></div>
+    </header>
+    <div class="tabbar" id="tabbar"></div>
+    <div class="toolbar" id="toolbar" role="toolbar"></div>
+    <main class="workspace" id="workspace">
+      <aside class="side left" id="left-panel"></aside>
+      <div class="splitter" data-side="left"></div>
+      <section class="center" id="center">
+        <div class="view" id="view-start"></div>
+        <div class="view" id="view-sch"></div>
+        <div class="view" id="view-pcb"></div>
+        <div class="view" id="view-3d"></div>
+        <div class="view" id="view-sim"></div>
+        <div class="floating-hint" id="hint"></div>
+      </section>
+      <div class="splitter" data-side="right"></div>
+      <aside class="side right" id="right-panel"></aside>
+    </main>
+    <footer class="statusbar" id="statusbar"></footer>
+  </div>
+  <div class="print-area" id="print-area"></div>
+  <script type="module" src="src/ui/app.js"></script>
+</body>
+</html>

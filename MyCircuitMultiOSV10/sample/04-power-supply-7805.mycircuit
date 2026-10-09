@@ -1,0 +1,1447 @@
+{
+ "format": "mycircuit",
+ "version": 1,
+ "meta": {
+  "title": "5 V power supply (LM7805)",
+  "author": "MyCircuit Samples",
+  "company": "MyCircuit Project",
+  "rev": "1.0",
+  "date": "2026-10-09",
+  "comment": ""
+ },
+ "library": {
+  "symbols": [],
+  "footprints": []
+ },
+ "schematic": {
+  "sheet": "A4",
+  "pages": [
+   {
+    "id": "p1",
+    "name": "Main"
+   }
+  ],
+  "parts": [
+   {
+    "id": "p1",
+    "lib": "VSOURCE",
+    "ref": "V1",
+    "value": "12V",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 1500,
+    "y": 2600,
+    "rot": 0,
+    "mirror": false,
+    "fields": {
+     "wave": "dc",
+     "amplitude": "1",
+     "freq": "1k",
+     "offset": "0",
+     "period": "1m",
+     "duty": "50"
+    },
+    "refOffset": {
+     "x": 130,
+     "y": -30
+    },
+    "valueOffset": {
+     "x": 130,
+     "y": 35
+    }
+   },
+   {
+    "id": "p2",
+    "lib": "FUSE",
+    "ref": "F1",
+    "value": "500mA",
+    "footprint": "Fuse_1206",
+    "x": 2100,
+    "y": 2000,
+    "rot": 90,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p3",
+    "lib": "D",
+    "ref": "D1",
+    "value": "1N4007",
+    "footprint": "D_DO-41_P10.16mm",
+    "x": 2900,
+    "y": 2000,
+    "rot": 90,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p4",
+    "lib": "C_POL",
+    "ref": "C1",
+    "value": "100u",
+    "footprint": "CP_Radial_D8.0mm_P3.50mm",
+    "x": 3500,
+    "y": 2600,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p5",
+    "lib": "LM7805",
+    "ref": "U1",
+    "value": "LM7805",
+    "footprint": "TO-220-3_Vertical",
+    "x": 4600,
+    "y": 2000,
+    "rot": 0,
+    "mirror": false,
+    "fields": {},
+    "valueOffset": {
+     "x": 30,
+     "y": 170
+    }
+   },
+   {
+    "id": "p6",
+    "lib": "C_POL",
+    "ref": "C2",
+    "value": "10u",
+    "footprint": "CP_Radial_D5.0mm_P2.00mm",
+    "x": 5500,
+    "y": 2600,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p7",
+    "lib": "C",
+    "ref": "C3",
+    "value": "100n",
+    "footprint": "C_0805",
+    "x": 6000,
+    "y": 2600,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p8",
+    "lib": "R",
+    "ref": "R1",
+    "value": "1k",
+    "footprint": "R_0805",
+    "x": 6500,
+    "y": 2400,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p9",
+    "lib": "LED",
+    "ref": "D2",
+    "value": "Green",
+    "footprint": "LED_0805",
+    "x": 6500,
+    "y": 3000,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p10",
+    "lib": "Conn_01x02",
+    "ref": "J1",
+    "value": "5V OUT",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 7700,
+    "y": 2100,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p11",
+    "lib": "MOUNTING_HOLE",
+    "ref": "H1",
+    "value": "MountingHole",
+    "footprint": "MountingHole_3.2mm",
+    "x": 2000,
+    "y": 4300,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p12",
+    "lib": "MOUNTING_HOLE",
+    "ref": "H2",
+    "value": "MountingHole",
+    "footprint": "MountingHole_3.2mm",
+    "x": 2500,
+    "y": 4300,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p13",
+    "lib": "GND",
+    "ref": "#PWR01",
+    "value": "GND",
+    "footprint": "",
+    "x": 1500,
+    "y": 2800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p14",
+    "lib": "GND",
+    "ref": "#PWR02",
+    "value": "GND",
+    "footprint": "",
+    "x": 3500,
+    "y": 2800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p15",
+    "lib": "GND",
+    "ref": "#PWR03",
+    "value": "GND",
+    "footprint": "",
+    "x": 4500,
+    "y": 2300,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p16",
+    "lib": "GND",
+    "ref": "#PWR04",
+    "value": "GND",
+    "footprint": "",
+    "x": 5500,
+    "y": 2800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p17",
+    "lib": "GND",
+    "ref": "#PWR05",
+    "value": "GND",
+    "footprint": "",
+    "x": 6000,
+    "y": 2800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p18",
+    "lib": "GND",
+    "ref": "#PWR06",
+    "value": "GND",
+    "footprint": "",
+    "x": 6500,
+    "y": 3200,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p19",
+    "lib": "GND",
+    "ref": "#PWR07",
+    "value": "GND",
+    "footprint": "",
+    "x": 7200,
+    "y": 2100,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p20",
+    "lib": "PWR_FLAG",
+    "ref": "#FLG01",
+    "value": "PWR_FLAG",
+    "footprint": "",
+    "x": 3300,
+    "y": 1700,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   },
+   {
+    "id": "p21",
+    "lib": "+5V",
+    "ref": "#PWR08",
+    "value": "+5V",
+    "footprint": "",
+    "x": 6900,
+    "y": 1800,
+    "rot": 0,
+    "mirror": false,
+    "fields": {}
+   }
+  ],
+  "wires": [
+   {
+    "id": "w1",
+    "x1": 1500,
+    "y1": 2000,
+    "x2": 1500,
+    "y2": 2400
+   },
+   {
+    "id": "w2",
+    "x1": 1500,
+    "y1": 2000,
+    "x2": 1900,
+    "y2": 2000
+   },
+   {
+    "id": "w3",
+    "x1": 2300,
+    "y1": 2000,
+    "x2": 2700,
+    "y2": 2000
+   },
+   {
+    "id": "w4",
+    "x1": 3100,
+    "y1": 2000,
+    "x2": 3300,
+    "y2": 2000
+   },
+   {
+    "id": "w5",
+    "x1": 5000,
+    "y1": 2000,
+    "x2": 5500,
+    "y2": 2000
+   },
+   {
+    "id": "w6",
+    "x1": 3500,
+    "y1": 2000,
+    "x2": 3500,
+    "y2": 2400
+   },
+   {
+    "id": "w7",
+    "x1": 3300,
+    "y1": 1700,
+    "x2": 3300,
+    "y2": 2000
+   },
+   {
+    "id": "w8",
+    "x1": 6900,
+    "y1": 1800,
+    "x2": 6900,
+    "y2": 2000
+   },
+   {
+    "id": "w9",
+    "x1": 5500,
+    "y1": 2000,
+    "x2": 5500,
+    "y2": 2400
+   },
+   {
+    "id": "w10",
+    "x1": 6000,
+    "y1": 2000,
+    "x2": 6000,
+    "y2": 2400
+   },
+   {
+    "id": "w11",
+    "x1": 6500,
+    "y1": 2000,
+    "x2": 6500,
+    "y2": 2200
+   },
+   {
+    "id": "w12",
+    "x1": 6500,
+    "y1": 2600,
+    "x2": 6500,
+    "y2": 2800
+   },
+   {
+    "id": "w13",
+    "x1": 3500,
+    "y1": 2000,
+    "x2": 4200,
+    "y2": 2000
+   },
+   {
+    "id": "w14",
+    "x1": 3300,
+    "y1": 2000,
+    "x2": 3500,
+    "y2": 2000
+   },
+   {
+    "id": "w15",
+    "x1": 6900,
+    "y1": 2000,
+    "x2": 7200,
+    "y2": 2000
+   },
+   {
+    "id": "w16",
+    "x1": 5500,
+    "y1": 2000,
+    "x2": 6000,
+    "y2": 2000
+   },
+   {
+    "id": "w17",
+    "x1": 6000,
+    "y1": 2000,
+    "x2": 6500,
+    "y2": 2000
+   },
+   {
+    "id": "w18",
+    "x1": 6500,
+    "y1": 2000,
+    "x2": 6900,
+    "y2": 2000
+   }
+  ],
+  "buses": [],
+  "junctions": [
+   {
+    "id": "j1",
+    "x": 3500,
+    "y": 2000
+   },
+   {
+    "id": "j2",
+    "x": 3300,
+    "y": 2000
+   },
+   {
+    "id": "j3",
+    "x": 6900,
+    "y": 2000
+   },
+   {
+    "id": "j4",
+    "x": 5500,
+    "y": 2000
+   },
+   {
+    "id": "j5",
+    "x": 6000,
+    "y": 2000
+   },
+   {
+    "id": "j6",
+    "x": 6500,
+    "y": 2000
+   }
+  ],
+  "labels": [
+   {
+    "id": "l1",
+    "kind": "local",
+    "text": "VRAW",
+    "x": 1700,
+    "y": 2000,
+    "rot": 0
+   },
+   {
+    "id": "l2",
+    "kind": "local",
+    "text": "VIN",
+    "x": 3800,
+    "y": 2000,
+    "rot": 0
+   }
+  ],
+  "noconnects": [],
+  "texts": [
+   {
+    "id": "x1",
+    "text": "5 V regulated supply",
+    "x": 1500,
+    "y": 1200,
+    "size": 90,
+    "rot": 0
+   },
+   {
+    "id": "x2",
+    "text": "F1 protects against shorts, D1 against a reversed plug.\nThe LM7805 needs about 2 V of headroom: VIN = 12 V - 0.7 V (D1).\nPWR_FLAG marks VIN as driven (it is fed only through F1 and D1).",
+    "x": 1500,
+    "y": 3500,
+    "size": 50,
+    "rot": 0
+   },
+   {
+    "id": "x3",
+    "text": "Mounting holes",
+    "x": 1800,
+    "y": 4000,
+    "size": 45,
+    "rot": 0
+   }
+  ],
+  "sheets": [],
+  "dimensions": []
+ },
+ "pcb": {
+  "layerCount": 2,
+  "thickness": 1.6,
+  "maskColor": "black",
+  "silkColor": "white",
+  "finish": "ENIG",
+  "outline": [
+   [
+    48,
+    0
+   ],
+   [
+    48.5176,
+    0.0681
+   ],
+   [
+    49,
+    0.2679
+   ],
+   [
+    49.4142,
+    0.5858
+   ],
+   [
+    49.7321,
+    1
+   ],
+   [
+    49.9319,
+    1.4824
+   ],
+   [
+    50,
+    2
+   ],
+   [
+    50,
+    30
+   ],
+   [
+    49.9319,
+    30.5176
+   ],
+   [
+    49.7321,
+    31
+   ],
+   [
+    49.4142,
+    31.4142
+   ],
+   [
+    49,
+    31.7321
+   ],
+   [
+    48.5176,
+    31.9319
+   ],
+   [
+    48,
+    32
+   ],
+   [
+    2,
+    32
+   ],
+   [
+    1.4824,
+    31.9319
+   ],
+   [
+    1,
+    31.7321
+   ],
+   [
+    0.5858,
+    31.4142
+   ],
+   [
+    0.2679,
+    31
+   ],
+   [
+    0.0681,
+    30.5176
+   ],
+   [
+    0,
+    30
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0.0681,
+    1.4824
+   ],
+   [
+    0.2679,
+    1
+   ],
+   [
+    0.5858,
+    0.5858
+   ],
+   [
+    1,
+    0.2679
+   ],
+   [
+    1.4824,
+    0.0681
+   ],
+   [
+    2,
+    0
+   ]
+  ],
+  "footprints": [
+   {
+    "id": "f1",
+    "partId": "p1",
+    "ref": "V1",
+    "value": "12V",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 3.5,
+    "y": 14.73,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "VRAW",
+     "2": "GND"
+    },
+    "locked": false
+   },
+   {
+    "id": "f2",
+    "partId": "p2",
+    "ref": "F1",
+    "value": "500mA",
+    "footprint": "Fuse_1206",
+    "x": 10,
+    "y": 9,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "VRAW",
+     "2": "Net-(D1-Pad2)"
+    },
+    "locked": false
+   },
+   {
+    "id": "f3",
+    "partId": "p3",
+    "ref": "D1",
+    "value": "1N4007",
+    "footprint": "D_DO-41_P10.16mm",
+    "x": 20.08,
+    "y": 15,
+    "rot": 180,
+    "side": "F",
+    "padNets": {
+     "1": "VIN",
+     "2": "Net-(D1-Pad2)"
+    },
+    "locked": false
+   },
+   {
+    "id": "f4",
+    "partId": "p4",
+    "ref": "C1",
+    "value": "100u",
+    "footprint": "CP_Radial_D8.0mm_P3.50mm",
+    "x": 15.29,
+    "y": 26.09,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "VIN",
+     "2": "GND"
+    },
+    "locked": false
+   },
+   {
+    "id": "f5",
+    "partId": "p5",
+    "ref": "U1",
+    "value": "LM7805",
+    "footprint": "TO-220-3_Vertical",
+    "x": 25.46,
+    "y": 10.95,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "VIN",
+     "2": "GND",
+     "3": "+5V"
+    },
+    "locked": false
+   },
+   {
+    "id": "f6",
+    "partId": "p6",
+    "ref": "C2",
+    "value": "10u",
+    "footprint": "CP_Radial_D5.0mm_P2.00mm",
+    "x": 29.54,
+    "y": 22.09,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "+5V",
+     "2": "GND"
+    },
+    "locked": false
+   },
+   {
+    "id": "f7",
+    "partId": "p7",
+    "ref": "C3",
+    "value": "100n",
+    "footprint": "C_0805",
+    "x": 36,
+    "y": 22,
+    "rot": 90,
+    "side": "F",
+    "padNets": {
+     "1": "+5V",
+     "2": "GND"
+    },
+    "locked": false
+   },
+   {
+    "id": "f8",
+    "partId": "p8",
+    "ref": "R1",
+    "value": "1k",
+    "footprint": "R_0805",
+    "x": 40,
+    "y": 13,
+    "rot": 90,
+    "side": "F",
+    "padNets": {
+     "1": "+5V",
+     "2": "Net-(D2-Pad2)"
+    },
+    "locked": false
+   },
+   {
+    "id": "f9",
+    "partId": "p9",
+    "ref": "D2",
+    "value": "Green",
+    "footprint": "LED_0805",
+    "x": 40,
+    "y": 19,
+    "rot": 90,
+    "side": "F",
+    "padNets": {
+     "1": "GND",
+     "2": "Net-(D2-Pad2)"
+    },
+    "locked": false
+   },
+   {
+    "id": "f10",
+    "partId": "p10",
+    "ref": "J1",
+    "value": "5V OUT",
+    "footprint": "PinHeader_1x02_P2.54mm",
+    "x": 46.5,
+    "y": 14.73,
+    "rot": 0,
+    "side": "F",
+    "padNets": {
+     "1": "+5V",
+     "2": "GND"
+    },
+    "locked": false
+   },
+   {
+    "id": "f11",
+    "partId": "p11",
+    "ref": "H1",
+    "value": "MountingHole",
+    "footprint": "MountingHole_3.2mm",
+    "x": 4.5,
+    "y": 27.5,
+    "rot": 0,
+    "side": "F",
+    "padNets": {},
+    "locked": false
+   },
+   {
+    "id": "f12",
+    "partId": "p12",
+    "ref": "H2",
+    "value": "MountingHole",
+    "footprint": "MountingHole_3.2mm",
+    "x": 45.5,
+    "y": 27.5,
+    "rot": 0,
+    "side": "F",
+    "padNets": {},
+    "locked": false
+   }
+  ],
+  "tracks": [
+   {
+    "id": "t1",
+    "layer": "F.Cu",
+    "net": "GND",
+    "w": 0.5,
+    "x1": 36,
+    "y1": 21.05,
+    "x2": 37.3,
+    "y2": 21.05
+   },
+   {
+    "id": "t2",
+    "layer": "F.Cu",
+    "net": "GND",
+    "w": 0.5,
+    "x1": 40,
+    "y1": 19.95,
+    "x2": 41.3,
+    "y2": 19.95
+   },
+   {
+    "id": "t3",
+    "layer": "F.Cu",
+    "net": "Net-(D2-Pad2)",
+    "w": 0.25,
+    "x1": 40,
+    "y1": 12.05,
+    "x2": 39.5,
+    "y2": 12.5
+   },
+   {
+    "id": "t4",
+    "layer": "F.Cu",
+    "net": "Net-(D2-Pad2)",
+    "w": 0.25,
+    "x1": 39.5,
+    "y1": 12.5,
+    "x2": 38.75,
+    "y2": 13.25
+   },
+   {
+    "id": "t5",
+    "layer": "F.Cu",
+    "net": "Net-(D2-Pad2)",
+    "w": 0.25,
+    "x1": 38.75,
+    "y1": 13.25,
+    "x2": 38.75,
+    "y2": 17
+   },
+   {
+    "id": "t6",
+    "layer": "F.Cu",
+    "net": "Net-(D2-Pad2)",
+    "w": 0.25,
+    "x1": 38.75,
+    "y1": 17,
+    "x2": 39.5,
+    "y2": 17.75
+   },
+   {
+    "id": "t7",
+    "layer": "F.Cu",
+    "net": "Net-(D2-Pad2)",
+    "w": 0.25,
+    "x1": 39.5,
+    "y1": 17.75,
+    "x2": 40,
+    "y2": 18.05
+   },
+   {
+    "id": "t8",
+    "layer": "F.Cu",
+    "net": "Net-(D1-Pad2)",
+    "w": 0.25,
+    "x1": 11.5,
+    "y1": 9,
+    "x2": 11,
+    "y2": 9.75
+   },
+   {
+    "id": "t9",
+    "layer": "F.Cu",
+    "net": "Net-(D1-Pad2)",
+    "w": 0.25,
+    "x1": 11,
+    "y1": 9.75,
+    "x2": 11,
+    "y2": 13.25
+   },
+   {
+    "id": "t10",
+    "layer": "F.Cu",
+    "net": "Net-(D1-Pad2)",
+    "w": 0.25,
+    "x1": 11,
+    "y1": 13.25,
+    "x2": 10.25,
+    "y2": 14
+   },
+   {
+    "id": "t11",
+    "layer": "F.Cu",
+    "net": "Net-(D1-Pad2)",
+    "w": 0.25,
+    "x1": 10.25,
+    "y1": 14,
+    "x2": 9.92,
+    "y2": 15
+   },
+   {
+    "id": "t12",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 36,
+    "y1": 22.95,
+    "x2": 35.5,
+    "y2": 23.25
+   },
+   {
+    "id": "t13",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 35.5,
+    "y1": 23.25,
+    "x2": 32.25,
+    "y2": 23.25
+   },
+   {
+    "id": "t14",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 32.25,
+    "y1": 23.25,
+    "x2": 32,
+    "y2": 23.5
+   },
+   {
+    "id": "t15",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 32,
+    "y1": 23.5,
+    "x2": 31,
+    "y2": 23.5
+   },
+   {
+    "id": "t16",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 31,
+    "y1": 23.5,
+    "x2": 30.25,
+    "y2": 22.75
+   },
+   {
+    "id": "t17",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 30.25,
+    "y1": 22.75,
+    "x2": 29.54,
+    "y2": 22.09
+   },
+   {
+    "id": "t18",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 40,
+    "y1": 13.95,
+    "x2": 40.5,
+    "y2": 14
+   },
+   {
+    "id": "t19",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 40.5,
+    "y1": 14,
+    "x2": 45.75,
+    "y2": 14
+   },
+   {
+    "id": "t20",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 45.75,
+    "y1": 14,
+    "x2": 46.5,
+    "y2": 14.73
+   },
+   {
+    "id": "t21",
+    "layer": "F.Cu",
+    "net": "VIN",
+    "w": 0.5,
+    "x1": 20.08,
+    "y1": 15,
+    "x2": 21,
+    "y2": 14
+   },
+   {
+    "id": "t22",
+    "layer": "F.Cu",
+    "net": "VIN",
+    "w": 0.5,
+    "x1": 21,
+    "y1": 14,
+    "x2": 23.25,
+    "y2": 11.75
+   },
+   {
+    "id": "t23",
+    "layer": "F.Cu",
+    "net": "VIN",
+    "w": 0.5,
+    "x1": 23.25,
+    "y1": 11.75,
+    "x2": 24.75,
+    "y2": 11.75
+   },
+   {
+    "id": "t24",
+    "layer": "F.Cu",
+    "net": "VIN",
+    "w": 0.5,
+    "x1": 24.75,
+    "y1": 11.75,
+    "x2": 25.46,
+    "y2": 10.95
+   },
+   {
+    "id": "t25",
+    "layer": "F.Cu",
+    "net": "VRAW",
+    "w": 0.5,
+    "x1": 3.5,
+    "y1": 14.73,
+    "x2": 4.25,
+    "y2": 14
+   },
+   {
+    "id": "t26",
+    "layer": "F.Cu",
+    "net": "VRAW",
+    "w": 0.5,
+    "x1": 4.25,
+    "y1": 14,
+    "x2": 8,
+    "y2": 10.25
+   },
+   {
+    "id": "t27",
+    "layer": "F.Cu",
+    "net": "VRAW",
+    "w": 0.5,
+    "x1": 8,
+    "y1": 10.25,
+    "x2": 8,
+    "y2": 9.75
+   },
+   {
+    "id": "t28",
+    "layer": "F.Cu",
+    "net": "VRAW",
+    "w": 0.5,
+    "x1": 8,
+    "y1": 9.75,
+    "x2": 8.5,
+    "y2": 9
+   },
+   {
+    "id": "t29",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 46.5,
+    "y1": 14.73,
+    "x2": 45.75,
+    "y2": 15.5
+   },
+   {
+    "id": "t30",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 45.75,
+    "y1": 15.5,
+    "x2": 42.5,
+    "y2": 18.75
+   },
+   {
+    "id": "t31",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 42.5,
+    "y1": 18.75,
+    "x2": 42.5,
+    "y2": 20.25
+   },
+   {
+    "id": "t32",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 42.5,
+    "y1": 20.25,
+    "x2": 40.25,
+    "y2": 22.5
+   },
+   {
+    "id": "t33",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 40.25,
+    "y1": 22.5,
+    "x2": 36.5,
+    "y2": 22.5
+   },
+   {
+    "id": "t34",
+    "layer": "F.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 36.5,
+    "y1": 22.5,
+    "x2": 36,
+    "y2": 22.95
+   },
+   {
+    "id": "t35",
+    "layer": "B.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 30.54,
+    "y1": 10.95,
+    "x2": 30.25,
+    "y2": 11.75
+   },
+   {
+    "id": "t36",
+    "layer": "B.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 30.25,
+    "y1": 11.75,
+    "x2": 30.25,
+    "y2": 21.5
+   },
+   {
+    "id": "t37",
+    "layer": "B.Cu",
+    "net": "+5V",
+    "w": 0.5,
+    "x1": 30.25,
+    "y1": 21.5,
+    "x2": 29.54,
+    "y2": 22.09
+   },
+   {
+    "id": "t38",
+    "layer": "B.Cu",
+    "net": "VIN",
+    "w": 0.5,
+    "x1": 20.08,
+    "y1": 15,
+    "x2": 19,
+    "y2": 16
+   },
+   {
+    "id": "t39",
+    "layer": "B.Cu",
+    "net": "VIN",
+    "w": 0.5,
+    "x1": 19,
+    "y1": 16,
+    "x2": 16,
+    "y2": 19
+   },
+   {
+    "id": "t40",
+    "layer": "B.Cu",
+    "net": "VIN",
+    "w": 0.5,
+    "x1": 16,
+    "y1": 19,
+    "x2": 16,
+    "y2": 25.5
+   },
+   {
+    "id": "t41",
+    "layer": "B.Cu",
+    "net": "VIN",
+    "w": 0.5,
+    "x1": 16,
+    "y1": 25.5,
+    "x2": 15.29,
+    "y2": 26.09
+   }
+  ],
+  "vias": [
+   {
+    "id": "v1",
+    "x": 37.3,
+    "y": 21.05,
+    "d": 1,
+    "drill": 0.5,
+    "net": "GND"
+   },
+   {
+    "id": "v2",
+    "x": 41.3,
+    "y": 19.95,
+    "d": 1,
+    "drill": 0.5,
+    "net": "GND"
+   }
+  ],
+  "zones": [
+   {
+    "id": "z1",
+    "layer": "B.Cu",
+    "net": "GND",
+    "pts": [
+     [
+      47.9672,
+      0.5
+     ],
+     [
+      48.3871,
+      0.5552
+     ],
+     [
+      48.7478,
+      0.7046
+     ],
+     [
+      49.0576,
+      0.9424
+     ],
+     [
+      49.2954,
+      1.2522
+     ],
+     [
+      49.4448,
+      1.6129
+     ],
+     [
+      49.5,
+      2.0328
+     ],
+     [
+      49.5,
+      29.9672
+     ],
+     [
+      49.4448,
+      30.3871
+     ],
+     [
+      49.2954,
+      30.7478
+     ],
+     [
+      49.0576,
+      31.0576
+     ],
+     [
+      48.7478,
+      31.2954
+     ],
+     [
+      48.3871,
+      31.4448
+     ],
+     [
+      47.9672,
+      31.5
+     ],
+     [
+      2.0328,
+      31.5
+     ],
+     [
+      1.6129,
+      31.4448
+     ],
+     [
+      1.2522,
+      31.2954
+     ],
+     [
+      0.9424,
+      31.0576
+     ],
+     [
+      0.7046,
+      30.7478
+     ],
+     [
+      0.5552,
+      30.3871
+     ],
+     [
+      0.5,
+      29.9672
+     ],
+     [
+      0.5,
+      2.0328
+     ],
+     [
+      0.5552,
+      1.6129
+     ],
+     [
+      0.7046,
+      1.2522
+     ],
+     [
+      0.9424,
+      0.9424
+     ],
+     [
+      1.2522,
+      0.7046
+     ],
+     [
+      1.6129,
+      0.5552
+     ],
+     [
+      2.0328,
+      0.5
+     ]
+    ],
+    "clearance": 0.3,
+    "thermal": true,
+    "priority": 0
+   }
+  ],
+  "texts": [
+   {
+    "id": "s1",
+    "layer": "F.SilkS",
+    "text": "7805 PSU",
+    "x": 30,
+    "y": 29,
+    "size": 1.8,
+    "rot": 0,
+    "mirror": false
+   },
+   {
+    "id": "s2",
+    "layer": "F.SilkS",
+    "text": "12V IN",
+    "x": 7,
+    "y": 3,
+    "size": 1.2,
+    "rot": 0,
+    "mirror": false
+   },
+   {
+    "id": "s3",
+    "layer": "F.SilkS",
+    "text": "5V OUT",
+    "x": 44,
+    "y": 3,
+    "size": 1.2,
+    "rot": 0,
+    "mirror": false
+   }
+  ],
+  "graphics": [],
+  "dimensions": [],
+  "rules": {
+   "clearance": 0.2,
+   "trackWidth": 0.25,
+   "viaDiameter": 0.8,
+   "viaDrill": 0.4,
+   "minTrackWidth": 0.15,
+   "minDrill": 0.3,
+   "edgeClearance": 0.3,
+   "holeToHole": 0.25,
+   "netClasses": [
+    {
+     "name": "Power",
+     "trackWidth": 0.5,
+     "clearance": 0.25,
+     "viaDiameter": 1,
+     "viaDrill": 0.5,
+     "nets": [
+      "GND",
+      "VCC",
+      "+5V",
+      "+3V3",
+      "+12V",
+      "-12V",
+      "VBAT",
+      "VRAW",
+      "VIN"
+     ]
+    }
+   ]
+  }
+ },
+ "sim": {
+  "mode": "op",
+  "tStop": "10m",
+  "tStep": "10u",
+  "fStart": "10",
+  "fStop": "1Meg",
+  "points": 50,
+  "probes": [
+   "VRAW",
+   "VIN",
+   "+5V"
+  ]
+ }
+}
