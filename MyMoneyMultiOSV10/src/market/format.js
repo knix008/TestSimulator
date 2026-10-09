@@ -86,6 +86,30 @@ export function formatWhen(iso, language = "ko") {
   return language === "ko" ? `${day} ${time}` : `${day} ${time}`;
 }
 
+/**
+ * When the figures were last pulled. Just the clock while that happened on
+ * `day` - the quote's own date - and the day in front once it did not, so a
+ * window left open over midnight cannot be misread.
+ */
+export function formatAsOf(iso, day) {
+  const text = String(iso || "");
+  if (!text) return "";
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (value) => String(value).padStart(2, "0");
+  const clock = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const local = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return local === String(day || "") ? clock : `${date.getMonth() + 1}/${date.getDate()} ${clock}`;
+}
+
+/** A full date and clock, for a window title: "2026-10-08 16:45". */
+export function formatStamp(when) {
+  const date = when instanceof Date ? when : new Date(when);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function round1(value) {
   return Math.round(value * 10) / 10;
 }

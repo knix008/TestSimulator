@@ -28,14 +28,14 @@ import {
   normalizeDisplayPriority,
   normalizeRotateSeconds,
   normalizeSceneMode,
-  normalizeUpdateHours,
+  normalizeUpdateMinutes,
   sanitizeSettings,
 } from "./core/settings.js";
 import { applyThemeVars, isTheme, sanitizeCustomTheme, themeColors, themeVars } from "./core/themes.js";
 import { UndoStack } from "./core/undo.js";
 import { activeQuote } from "./market/aggregate.js";
-import { formatPercent, formatPrice, formatSigned, isoDate } from "./market/format.js";
-import { CURRENCIES, LISTINGS, MARKETS, currencyName, filterListings, findListing, findMarket, listingName } from "./market/markets.js";
+import { formatPercent, formatPrice, formatSigned, formatStamp, isoDate } from "./market/format.js";
+import { CURRENCIES, LISTINGS, MARKETS, currencyName, filterListings, findListing, findMarket, listingName, marketName } from "./market/markets.js";
 import { sourcePageUrl } from "./market/providers.js";
 import { loadBoard, searchSymbols } from "./market/service.js";
 import { trendText } from "./market/trend.js";
@@ -53,11 +53,13 @@ import {
   buildProgressSpec,
   buildSettingsSpec,
   buildUnsavedSpec,
+  buildSearchResultsSpec,
+  buildWallpaperDropSpec,
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, sceneFit, showsTitleText } from "./ui/window-spec.js";
-import { boardRowCount, panelFitHeight, panelRowCount, renderMarketHtml, renderPanelHtml } from "./ui/market-view.js";
+import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, isCompactWidth, sceneFit, showsTitleText } from "./ui/window-spec.js";
+import { boardRowCount, clampPage, panelFitHeight, panelMaxBody, panelPageCount, panelRowCount, renderMarketHtml, renderPanelHtml } from "./ui/market-view.js";
 
 export function createApp(container, options = {}) {
   const app = new MoneyApp(container, options);
@@ -87,6 +89,8 @@ class MoneyApp {
     this.tabStart = 0;
     this.workspaceWidth = null;
     this.searchQuery = "";
+    /** Page each panel is showing, so it stays put while the window is open. */
+    this.panelPage = { stocks: 0, news: 0 };
     this.listingDraft = null;
     this.closed = false;
     this.destroyed = false;
@@ -95,6 +99,8 @@ class MoneyApp {
     this.now = options.now || (() => new Date());
     this.maximized = Boolean(this.settings.windowMaximized);
     this.minimized = false;
+    /** Handler of the native popup on top, if that popup carries one. */
+    this.nativeImmediate = null;
     this.placementReady = typeof this.platform.readSettingsSync === "function";
     this.pendingPlacement = null;
     this.shellOffset = this.settings.windowPosition ? { ...this.settings.windowPosition } : { x: 0, y: 0 };
@@ -110,7 +116,7 @@ class MoneyApp {
           <div class="wallpaper" data-gui="wallpaper"></div>
           <div class="shell-top" data-gui="drag-region">
             <div class="titlebar" data-gui="titlebar">
-              <img class="title-icon" src="../assets/icon.png" alt="" width="18" height="18">
+              <img class="title-icon" src="../assets/icon.png" alt="" width="18" height="18" draggable="false">
               <span class="title-name" data-gui="window-title">${WINDOW_TITLE}</span>
             </div>
             <div class="range-tools" data-gui="range-tools">
@@ -183,6 +189,14 @@ class MoneyApp {
           this.settings = sanitizeSettings(raw);
           this.recent.load(this.settings.recentFiles);
           this.i18n.setLanguage(this.settings.language);
+          // The document was built before these settings arrived, so it still
+          // holds the starter watchlist. Replace it with the saved one, unless
+          // something has already opened or changed a document.
+          if (!this.doc.filePath && !this.doc.dirty) {
+            this.doc = createDocument(this.settings.defaultBoard);
+            this.renderTabs();
+            this.renderMarket();
+          }
         }
       }
       this.fonts = resolveFontList(await this.platform.listFonts());
@@ -290,14 +304,31 @@ class MoneyApp {
       event.preventDefault();
       this.setZoom(this.settings.zoom + (event.deltaY < 0 ? 10 : -10), { recordUndo: false });
     };
+    /**
+     * Grabbing the app icon to move the window starts an image drag. Dropping
+     * that back on the window must do nothing - it is the window's own picture,
+     * not a file the reader chose.
+     */
+    const onDragStart = () => {
+      this.draggingOwnContent = true;
+    };
+    const onDragEnd = () => {
+      this.draggingOwnContent = false;
+      this.frame.classList.remove("drop-active");
+    };
     const onDragOver = (event) => {
       event.preventDefault();
+      if (this.draggingOwnContent) return;
       this.frame.classList.add("drop-active");
     };
     const onDragLeave = () => this.frame.classList.remove("drop-active");
     const onDrop = (event) => {
       event.preventDefault();
       this.frame.classList.remove("drop-active");
+      if (this.draggingOwnContent) {
+        this.draggingOwnContent = false;
+        return;
+      }
       void this.handleDroppedFiles(event.dataTransfer?.files);
     };
     const onContext = (event) => {
@@ -338,6 +369,8 @@ class MoneyApp {
     this.frame.addEventListener("focusin", onFocusIn);
     this.frame.addEventListener("focusout", onFocusOut);
     this.frame.addEventListener("wheel", onWheel, { passive: false });
+    this.frame.addEventListener("dragstart", onDragStart);
+    this.frame.addEventListener("dragend", onDragEnd);
     this.frame.addEventListener("dragover", onDragOver);
     this.frame.addEventListener("dragleave", onDragLeave);
     this.frame.addEventListener("drop", onDrop);
@@ -433,7 +466,7 @@ class MoneyApp {
         print: () => this.openPrint(),
         refresh: () => this.refreshMarket({ progress: true }),
         settings: () => this.showSettings("general"),
-        fonts: () => this.showSettings("font"),
+        fonts: () => this.showSettings("wallpaper"),
         about: () => this.showAbout(),
         "show-window": () => {},
         minimize: () => this.minimizeWindow(),
@@ -444,7 +477,7 @@ class MoneyApp {
         "tab-next": () => this.nudgeTabs(1),
         "add-tab": () => this.addTab(),
         "close-tab": () => this.closeTab(),
-        "search-online": () => this.searchOnline(),
+        "search-online": () => this.searchAndPick(),
         download: () => this.downloadMarket(),
         "open-link": () => this.openSourceLink(),
         "choose-wallpaper": () => this.chooseWallpaper(),
@@ -458,6 +491,7 @@ class MoneyApp {
         "clear-recent": () => this.clearRecent(),
         "toggle-favorite": () => this.toggleFavorite(),
         "next-symbol": () => this.cycleSymbol(1),
+        "add-symbol": () => this.showSettings("watchlist"),
         "remove-symbol": () => this.removeSymbol(this.currentTab()?.selectedSymbol),
       };
       if (actions[id]) await actions[id]();
@@ -536,6 +570,7 @@ class MoneyApp {
     const measured = this.platform.nativeWindow ? this.frame.clientWidth || 0 : 0;
     const width = measured > 0 ? measured : this.shellSize.width;
     this.frame.dataset.titleText = showsTitleText(width) ? "shown" : "hidden";
+    this.frame.dataset.compact = isCompactWidth(width) ? "true" : "false";
   }
 
   rememberWindowPlacement(bounds) {
@@ -939,6 +974,15 @@ class MoneyApp {
     this.afterStructure();
   }
 
+  /**
+   * A watchlist edit is kept in the settings the moment it happens, so it is
+   * not something to be asked about on the way out. Only a document opened
+   * from disk still has unsaved changes worth a prompt.
+   */
+  markBoardChanged() {
+    if (this.doc.filePath) this.markDirty();
+  }
+
   markDirty() {
     this.doc.dirty = true;
     this.renderStatus();
@@ -1004,11 +1048,19 @@ class MoneyApp {
     await this.persist();
   }
 
+  /** Height the screen offers a panel window, so it grows no further than that. */
+  screenHeight() {
+    const screen = typeof window === "undefined" ? null : window.screen;
+    return Number(screen?.availHeight) || Number(window?.innerHeight) || 0;
+  }
+
   showPanel(panel) {
     const tab = this.currentTab();
     const t = (key, vars) => this.t(key, vars);
+    const page = this.panelPage[panel] || 0;
     const markup = renderPanelHtml({
       panel,
+      page,
       tab,
       language: this.settings.language,
       units: this.settings.units,
@@ -1022,7 +1074,13 @@ class MoneyApp {
       buildPanelSpec({
         panel,
         markup,
-        fitHeight: panelFitHeight(panel, panelRowCount(panel, { ...tab, rateCurrencies: this.settings.rateCurrencies })),
+        fitHeight: panelFitHeight(
+          panel,
+          panelRowCount(panel, { ...tab, rateCurrencies: this.settings.rateCurrencies }),
+          panelMaxBody(this.screenHeight()),
+          panelPageCount(panel, tab),
+        ),
+        stamp: formatStamp(this.now()),
         transparency: this.settings.transparency,
         backgroundImage: this.settings.backgroundImage,
         backgroundOpacity: this.wallpaperOpacityPreview ?? this.settings.backgroundOpacity,
@@ -1031,6 +1089,11 @@ class MoneyApp {
       {
         immediate: (msg) => {
           if (msg?.type === "open-news") return this.openNews(msg.url);
+          if (msg?.type === "panel-page") return this.turnPanelPage(msg.panel, msg.page);
+          if (msg?.type === "reorder-panel") {
+            this.reorderPanel(msg.panel, msg.order);
+            return null;
+          }
           if (msg?.type !== "select-symbol") return null;
           this.selectSymbol(msg.symbol);
           if (msg.clientX == null) return null;
@@ -1039,6 +1102,70 @@ class MoneyApp {
         },
       },
     );
+  }
+
+  /**
+   * Move a panel to another page and hand back the markup for it. The window
+   * keeps its size, because it was built for a full page from the start.
+   */
+  turnPanelPage(panel, page) {
+    if (panel !== "stocks" && panel !== "news") return null;
+    const tab = this.currentTab();
+    if (!tab) return null;
+    const total = panel === "stocks" ? (tab.data?.quotes || []).length : (tab.data?.news || []).length;
+    const at = clampPage(page, total);
+    if (at === (this.panelPage[panel] || 0)) return null;
+    this.panelPage[panel] = at;
+    return { markup: this.panelMarkup(panel, at) };
+  }
+
+  /** The panel's contents for one page. */
+  panelMarkup(panel, page) {
+    return renderPanelHtml({
+      panel,
+      page,
+      tab: this.currentTab(),
+      language: this.settings.language,
+      units: this.settings.units,
+      baseCurrency: this.settings.baseCurrency,
+      currencies: this.settings.rateCurrencies,
+      priority: this.settings.displayPriority,
+      today: this.now(),
+      t: (key, vars) => this.t(key, vars),
+    });
+  }
+
+  /**
+   * A row was dragged somewhere else in a panel. The watchlist and the rate
+   * list carry their own order, so keeping it is all this has to do.
+   */
+  reorderPanel(panel, order) {
+    const wanted = (Array.isArray(order) ? order : []).filter(Boolean);
+    if (!wanted.length) return false;
+    if (panel === "rates") {
+      const known = new Set(this.settings.rateCurrencies);
+      const next = wanted.filter((code) => known.has(code));
+      for (const code of this.settings.rateCurrencies) if (!next.includes(code)) next.push(code);
+      if (next.join() === this.settings.rateCurrencies.join()) return false;
+      this.setRateCurrencies(next);
+      return true;
+    }
+    const tab = this.currentTab();
+    if (!tab) return false;
+    const bySymbol = new Map(tab.board.symbols.map((entry) => [entry.symbol, entry]));
+    const next = wanted.map((symbol) => bySymbol.get(symbol)).filter(Boolean);
+    for (const entry of tab.board.symbols) if (!next.includes(entry)) next.push(entry);
+    if (next.length !== tab.board.symbols.length) return false;
+    if (next.every((entry, index) => entry === tab.board.symbols[index])) return false;
+    const prev = { ...tab.board, symbols: tab.board.symbols.map((entry) => ({ ...entry })) };
+    const after = { ...tab.board, symbols: next.map((entry) => ({ ...entry })) };
+    this.pushUndo({
+      undo: () => this.setBoard(tab.id, prev),
+      redo: () => this.setBoard(tab.id, after),
+    });
+    this.setBoard(tab.id, after);
+    this.markBoardChanged();
+    return true;
   }
 
   async openNews(url) {
@@ -1131,28 +1258,45 @@ class MoneyApp {
     this.renderTabs();
     this.renderMarket();
     this.renderStatus();
+    if (tab.id === this.currentTab()?.id) this.rememberBoard(tab.board);
   }
 
-  /** Switch the board to another market, keeping only that market's symbols. */
+  /**
+   * The watchlist is a setting, not just a document: a symbol added in the
+   * Settings window is kept as it is added, so it is still there next launch
+   * without an OK or a save.
+   */
+  rememberBoard(board) {
+    this.settings.defaultBoard = structuredClone(createBoard(board));
+    void this.persist();
+  }
+
+  /**
+   * Switch the board to another market. The watchlist may hold listings from
+   * several exchanges at once, so nothing is dropped: the market only decides
+   * which benchmark index and which currency the board reports.
+   */
   applyMarket(marketCode) {
     const tab = this.currentTab();
     const market = findMarket(marketCode);
     if (!tab || !market || tab.board.marketCode === market.marketCode) return false;
     const prev = { ...tab.board, symbols: tab.board.symbols.map((entry) => ({ ...entry })) };
-    const kept = tab.board.symbols.filter((entry) => entry.marketCode === market.marketCode);
+    const kept = tab.board.symbols;
     const fallback = kept.length ? kept : filterListings(this.listingChoices(), market.marketCode, "").slice(0, 3);
     const next = createBoard({
       ...market,
       baseCurrency: this.settings.baseCurrency,
       symbols: fallback,
-      activeSymbol: fallback[0]?.symbol || "",
+      activeSymbol: fallback.some((entry) => entry.symbol === tab.board.activeSymbol)
+        ? tab.board.activeSymbol
+        : fallback[0]?.symbol || "",
     });
     this.pushUndo({
       undo: () => this.setBoard(tab.id, prev),
       redo: () => this.setBoard(tab.id, next),
     });
     this.setBoard(tab.id, next);
-    this.markDirty();
+    this.markBoardChanged();
     this.setStatus(this.t("msg.applied"));
     this.refreshSoon();
     return true;
@@ -1179,7 +1323,7 @@ class MoneyApp {
       redo: () => this.setBoard(tab.id, next),
     });
     this.setBoard(tab.id, next);
-    this.markDirty();
+    this.markBoardChanged();
     this.setStatus(this.t("msg.symbolAdded", { n: listingName(listing, this.settings.language) }));
     this.refreshSoon();
     return "added";
@@ -1202,7 +1346,7 @@ class MoneyApp {
     });
     this.setBoard(tab.id, next);
     if (tab.data) tab.data = { ...tab.data, quotes: (tab.data.quotes || []).filter((quote) => quote.symbol !== symbol) };
-    this.markDirty();
+    this.markBoardChanged();
     this.afterStructure();
     this.setStatus(this.t("msg.symbolRemoved", { n: listingName(listing, this.settings.language) }));
     return "removed";
@@ -1374,18 +1518,18 @@ class MoneyApp {
   }
 
   updateIntervalMs() {
-    return this.settings.updateHours * 60 * 60 * 1000;
+    return this.settings.updateMinutes * 60 * 1000;
   }
 
   syncUpdateTimer() {
     if (this.destroyed) return;
-    if (this.updateTimer && this.updateHoursArmed === this.settings.updateHours) return;
+    if (this.updateTimer && this.updateMinutesArmed === this.settings.updateMinutes) return;
     this.armUpdateTimer();
   }
 
   armUpdateTimer() {
     clearTimeout(this.updateTimer);
-    this.updateHoursArmed = this.settings.updateHours;
+    this.updateMinutesArmed = this.settings.updateMinutes;
     this.updateDelay = this.updateIntervalMs();
     this.updateTimer = setTimeout(() => {
       this.updateTimer = null;
@@ -1478,23 +1622,81 @@ class MoneyApp {
     return quotes[0]?.symbol || wanted || "";
   }
 
+  /**
+   * Find listings for a query. Yahoo's search answers 400 "Invalid Search
+   * Query" to anything that is not ASCII, so a Korean name is looked up in the
+   * catalogue first and Yahoo is then asked in a language it accepts. A failed
+   * or empty search is an answer, not an error: the result window reports it.
+   */
   async searchOnline(query) {
     const field = this.root.querySelector("#search-input") || document.querySelector('[data-popup="settings"] [data-field="search"]');
     const typed = String(query ?? field?.value ?? this.searchQuery ?? "").trim();
     const q = typed || this.currentTab().board.activeSymbol;
+    this.searchResults = [];
+    this.searchedFor = q;
+    this.searchTrouble = "";
     await this.withProgress("progress.search", async (report) => {
       report(30, q);
-      const rows = await searchSymbols(q, { fetchImpl: (url, options) => this.platform.fetch(url, options) });
+      // The catalogue carries Korean names, so it answers what Yahoo cannot.
+      const local = filterListings(this.listingChoices(), "", q).map((entry) => ({
+        ...entry,
+        marketCode: entry.marketCode || marketCodeOf(entry.symbol),
+      }));
+      const askable = asciiQuery(q) || asciiQuery(local[0]?.nameEn) || local[0]?.code || "";
+      let remote = [];
+      if (askable) {
+        try {
+          const rows = await searchSymbols(askable, { fetchImpl: (url, options) => this.platform.fetch(url, options) });
+          remote = rows
+            .filter((row) => findMarket(marketCodeOf(row.symbol)))
+            .map((row) => ({ ...row, marketCode: marketCodeOf(row.symbol) }));
+        } catch (error) {
+          // The window still opens; it says the online part did not answer.
+          this.searchTrouble = error?.message || String(error);
+        }
+      }
       report(100, this.t("progress.done"));
-      const usable = rows.filter((row) => findMarket(marketCodeOf(row.symbol)));
-      if (!usable.length) throw new AppError(this.t("msg.noResults"), q, "SEARCH");
-      const listings = usable.map((row) => ({ ...row, marketCode: marketCodeOf(row.symbol) }));
+      const listings = [];
+      const seen = new Set();
+      for (const entry of [...local, ...remote]) {
+        if (!entry?.symbol || seen.has(entry.symbol)) continue;
+        seen.add(entry.symbol);
+        listings.push(entry);
+      }
       for (const listing of listings) {
         if (!findListing(this.listingChoices(), listing.symbol)) this.extraListings.push(listing);
       }
-      this.listingDraft = { ...listings[0] };
+      this.searchResults = listings;
+      this.listingDraft = listings.length ? { ...listings[0] } : null;
       this.searchQuery = "";
     });
+    return this.searchResults;
+  }
+  /**
+   * Search, then show what came back and let the reader pick one. Returns the
+   * chosen listing, or null if they closed the window or nothing matched.
+   */
+  async searchAndPick(query) {
+    await this.searchOnline(query);
+    const results = this.searchResults || [];
+    const answer = await this.openPopup(
+      buildSearchResultsSpec(this.searchedFor || "", this.searchResultRows(results), (key, vars) => this.t(key, vars), this.searchTrouble),
+    );
+    if (!answer || answer.action !== "pick-symbol") return null;
+    const picked = results.find((entry) => entry.symbol === answer.symbol);
+    if (!picked) return null;
+    this.listingDraft = { ...picked };
+    return picked;
+  }
+
+  /** Search hits as the result window wants them: a name, a symbol, a market. */
+  searchResultRows(results) {
+    return (results || []).map((entry) => ({
+      symbol: entry.symbol,
+      name: listingName(entry, this.settings.language) || entry.symbol,
+      exchange: entry.exchange || marketName(findMarket(entry.marketCode), this.settings.language) || entry.marketCode || "",
+      marketCode: entry.marketCode || "",
+    }));
   }
 
   async downloadMarket() {
@@ -1777,7 +1979,7 @@ class MoneyApp {
         units: this.settings.units,
         baseCurrency: this.settings.baseCurrency,
         rateCurrencies: [...this.settings.rateCurrencies],
-        updateHours: this.settings.updateHours,
+        updateMinutes: this.settings.updateMinutes,
         displayPriority: this.settings.displayPriority,
         sceneMode: this.settings.sceneMode,
         rotateSeconds: this.settings.rotateSeconds,
@@ -1785,7 +1987,7 @@ class MoneyApp {
         symbol: board.activeSymbol || filterListings(this.listingChoices(), board.marketCode, "")[0]?.symbol || "",
         watchlist: this.watchlistRows(),
         search: "",
-        reopen: this.settings.reopenLast,
+        startAtLogin: this.settings.startAtLogin,
         theme: this.settings.theme,
         customTheme: this.settings.customTheme,
         transparency: this.settings.transparency,
@@ -1822,7 +2024,7 @@ class MoneyApp {
     this.settings.units = values.units === "base" ? "base" : "native";
     this.settings.baseCurrency = normalizeCurrency(values.baseCurrency);
     this.settings.rateCurrencies = normalizeRateCurrencies(this.settings.rateCurrencies, this.settings.baseCurrency);
-    this.settings.updateHours = normalizeUpdateHours(values.updateHours);
+    this.settings.updateMinutes = normalizeUpdateMinutes(values.updateMinutes);
     this.settings.displayPriority = normalizeDisplayPriority(values.displayPriority);
     this.settings.sceneMode = normalizeSceneMode(values.sceneMode);
     this.settings.rotateSeconds = normalizeRotateSeconds(values.rotateSeconds);
@@ -1844,7 +2046,9 @@ class MoneyApp {
     if (values.fontFamily) this.settings.fontFamily = values.fontFamily;
     this.settings.fontSize = clamp(values.fontSize, 8, 72);
     this.settings.fontStyle = FONT_STYLES.includes(values.fontStyle) ? values.fontStyle : "normal";
-    this.settings.reopenLast = Boolean(values.reopen);
+    this.settings.startAtLogin = Boolean(values.startAtLogin);
+    // The system keeps this one, not the settings file, so tell it as well.
+    await this.platform.setAutoStart?.(this.settings.startAtLogin);
     if (values.sources) {
       const nextSources = Object.entries(values.sources).filter(([, on]) => on).map(([id]) => id);
       if (nextSources.length) this.settings.enabledSources = nextSources;
@@ -1852,8 +2056,8 @@ class MoneyApp {
     const market = findMarket(values.marketCode);
     let boardAfter = boardBefore;
     if (market && boardBefore) {
-      const sameMarket = boardBefore.marketCode === market.marketCode;
-      const kept = sameMarket ? boardBefore.symbols : boardBefore.symbols.filter((entry) => entry.marketCode === market.marketCode);
+      // Listings from other exchanges stay; see applyMarket.
+      const kept = boardBefore.symbols;
       const symbols = kept.length ? kept : filterListings(this.listingChoices(), market.marketCode, "").slice(0, 3);
       boardAfter = createBoard({
         ...market,
@@ -1955,10 +2159,14 @@ class MoneyApp {
       this.setRateCurrencies(this.settings.rateCurrencies.filter((code) => code !== base));
       return { rateList: this.rateListRows(), currencyOptions: this.addableCurrencies(base) };
     }
+    if (msg.type === "panel-page") return this.turnPanelPage(msg.panel, msg.page);
+    if (msg.type === "reorder-panel") {
+      this.reorderPanel(msg.panel, msg.order);
+      return null;
+    }
     if (msg.type === "open-news") return this.openNews(msg.url);
     if (msg.type === "search-online") {
-      await this.searchOnline(msg.query);
-      const listing = this.listingDraft;
+      const listing = await this.searchAndPick(msg.query);
       if (!listing) return null;
       return {
         markets: this.marketChoices(),
@@ -2026,12 +2234,17 @@ class MoneyApp {
     const files = [...(fileList || [])];
     for (const file of files) {
       const kind = classifyDrop(file);
-      if (kind === "image") {
+      if (kind === "icon") {
+        this.reportError(new AppError(this.t("msg.dropIcon"), file.name || "", "DROP"), "drop");
+      } else if (kind === "image") {
         const check = acceptImage(file);
         if (!check.ok) {
           this.reportError(new AppError(this.t("msg.dropUnknown"), file.name, "DROP"), "drop");
           continue;
         }
+        // Replacing the background cannot be undone, so it is asked for first.
+        const answer = await this.openPopup(buildWallpaperDropSpec(file.name || "", (key, vars) => this.t(key, vars)));
+        if (!answer || answer.action !== "ok") continue;
         const dataUrl = await readAsDataURL(file);
         await this.setWallpaper(dataUrl, file.name);
       } else if (kind === "document") {
@@ -2115,11 +2328,14 @@ class MoneyApp {
   async openPopup(spec, handlers = {}) {
     const decorated = this.decorate(spec);
     if (this.platform.nativePopups && this.platform.openPopup) {
+      // A popup opened from inside another one must not take over its handler:
+      // the popup underneath is still on screen and still listening.
+      const underneath = this.nativeImmediate;
       this.nativeImmediate = handlers.immediate || null;
       try {
         return await this.platform.openPopup(decorated);
       } finally {
-        this.nativeImmediate = null;
+        this.nativeImmediate = underneath;
       }
     }
     return this.popups.open(decorated, handlers);
@@ -2149,6 +2365,22 @@ class MoneyApp {
     this.settings.recentFiles = this.recent.toJSON();
     await this.platform.writeSettings(sanitizeSettings(this.settings));
   }
+}
+
+/**
+ * Yahoo's search answers 400 to anything outside ASCII, so only plain text is
+ * sent. A mixed query keeps its plain words - "HD 현대" is asked as "HD" - and
+ * a wholly Korean one gives "", leaving the caller to ask another way.
+ */
+function asciiQuery(text) {
+  const value = String(text || "").trim();
+  const plain = value
+    .split(/\s+/)
+    // eslint-disable-next-line no-control-regex
+    .filter((word) => /^[\x20-\x7E]+$/.test(word))
+    .join(" ")
+    .trim();
+  return plain;
 }
 
 /** Yahoo suffix back to a market code, so a searched symbol lands in the right market. */

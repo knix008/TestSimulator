@@ -1,7 +1,9 @@
-popupHost.onTheme((css) => {
+/* The desktop build talks through popupHost. A browser window opened from the page
+ * talks to window.opener with the same messages. */
+function applyTheme(css) {
   const style = document.getElementById("themeVars");
   if (style) style.textContent = css;
-});
+}
 
 function collect(root) {
   const detail = {};
@@ -17,10 +19,24 @@ function collect(root) {
   return detail;
 }
 
+function sendAction(name, detail) {
+  if (window.popupHost) {
+    popupHost.action(name, detail);
+    return;
+  }
+  if (window.opener) window.opener.postMessage({ source: "mypaint", type: "action", name: name, detail: detail || {} }, targetOrigin());
+}
+
+function targetOrigin() {
+  return /^https?:$/.test(location.protocol) ? location.origin : "*";
+}
+
 let bound = false;
-popupHost.onHtml((html) => {
+function showHtml(html) {
   const root = document.getElementById("root");
   root.innerHTML = html;
+  const title = root.querySelector(".popup-title");
+  if (title && title.textContent) document.title = title.textContent;
   if (bound) return;
   bound = true;
   root.addEventListener("click", (event) => {
@@ -48,7 +64,7 @@ popupHost.onHtml((html) => {
     const detail = collect(root);
     if (button.dataset.theme) detail.theme = button.dataset.theme;
     if (button.dataset.id) detail.id = button.dataset.id;
-    popupHost.action(button.dataset.popupAction, detail);
+    sendAction(button.dataset.popupAction, detail);
   });
   root.addEventListener("change", (event) => {
     const popup = root.querySelector(".popup");
@@ -56,6 +72,27 @@ popupHost.onHtml((html) => {
     const sync = { settings: "settings-sync", print: "print-sync", palette: "palette-sync", canvas: "canvas-sync" };
     const name = sync[popup.dataset.kind];
     if (!name) return;
-    popupHost.action(name, collect(root));
+    sendAction(name, collect(root));
   });
-});
+}
+
+if (window.popupHost) {
+  popupHost.onTheme(applyTheme);
+  popupHost.onHtml(showHtml);
+} else if (window.opener) {
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.opener || !event.data || event.data.source !== "mypaint") return;
+    if (event.data.type === "theme") applyTheme(event.data.css || "");
+    if (event.data.type === "html") {
+      showHtml(event.data.html || "");
+      const width = Number(event.data.width) || 0;
+      const height = Number(event.data.height) || 0;
+      if (width > 0 && height > 0) {
+        const extraW = Math.max(0, window.outerWidth - window.innerWidth);
+        const extraH = Math.max(0, window.outerHeight - window.innerHeight);
+        window.resizeTo(width + extraW, height + extraH);
+      }
+    }
+  });
+  window.opener.postMessage({ source: "mypaint", type: "ready" }, targetOrigin());
+}

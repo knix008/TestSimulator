@@ -15,12 +15,13 @@
       <div id="toolbar" class="toolbar" role="toolbar"></div>
       <div class="body">
         <aside id="leftPanel" class="panel left"></aside>
-        <div class="splitter v" id="splitLeft" role="separator" aria-orientation="vertical" tabindex="-1"></div>
         <div class="center">
           <div class="tabbar">
-            <button id="tabPrev" class="tabnav" type="button">&lt;</button>
             <div id="tabstrip" class="tabstrip"></div>
-            <button id="tabNext" class="tabnav" type="button">&gt;</button>
+            <div class="tab-nav">
+              <button id="tabPrev" class="tabnav" type="button">&lt;</button>
+              <button id="tabNext" class="tabnav" type="button">&gt;</button>
+            </div>
           </div>
           <div class="stage" id="stage">
             <div class="canvas-frame" id="canvasFrame">
@@ -30,7 +31,6 @@
             </div>
           </div>
         </div>
-        <div class="splitter v" id="splitRight" role="separator" aria-orientation="vertical" tabindex="-1"></div>
         <aside id="rightPanel" class="panel right"></aside>
       </div>
       <footer id="statusbar" class="statusbar"></footer>

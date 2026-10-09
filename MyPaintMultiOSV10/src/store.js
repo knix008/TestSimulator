@@ -14,8 +14,11 @@
       fontFamily: "Segoe UI",
       fontSize: 24,
       fontStyle: "normal",
+      fontUnderline: false,
+      fontStrike: false,
       zoom: 100,
       showGrid: false,
+      showShapes: true,
       backgroundOpacity: 35,
       backgroundName: "",
       backgroundBytes: 0,
@@ -26,6 +29,7 @@
       color: "#000000",
       fillColor: "",
       strokeWidth: 2,
+      eraserSize: 12,
       shapeOpacity: 100,
       canvasWidth: 900,
       canvasHeight: 560,
@@ -76,6 +80,7 @@
       next.zoom = clamp(next.zoom, 25, 400);
       next.fontSize = clamp(next.fontSize, 6, 400);
       next.strokeWidth = clamp(next.strokeWidth, 1, 96);
+      next.eraserSize = clamp(next.eraserSize, 1, 96);
       next.shapeOpacity = clamp(next.shapeOpacity, 0, 100);
       next.backgroundOpacity = clamp(next.backgroundOpacity, 0, 100);
       next.canvasWidth = clamp(next.canvasWidth, 16, 8192);

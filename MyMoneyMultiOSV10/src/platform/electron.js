@@ -35,6 +35,12 @@ export function createElectronPlatform(api) {
     async writeSettings(data) {
       return api.writeSettings(data);
     },
+    async setAutoStart(on) {
+      return api.setAutoStart?.(Boolean(on));
+    },
+    async getAutoStart() {
+      return api.getAutoStart?.();
+    },
     async openFile(opts) {
       return api.openFile(opts);
     },

@@ -31,6 +31,7 @@ export function buildMenuItems(name, ctx) {
       item("copy", "copy", t("cmd.copySummary"), "", true),
       item("next-symbol", "next", t("cmd.nextSymbol"), "", ctx.canCycle !== false),
       item("stocks", "stocks", t("cmd.stocks"), "", true),
+      item("add-symbol", "add", t("cmd.addSymbol"), "", true),
       item("remove-symbol", "trash", t("cmd.removeSymbol"), "", ctx.canRemoveSymbol !== false),
       item("toggle-favorite", "favorite", t("cmd.toggleFavorite"), "", true),
       item("refresh", "refresh", t("cmd.refresh"), "", true, true),
@@ -50,7 +51,6 @@ export function buildMenuElement(items) {
   menu.style.display = "flex";
   menu.style.flexDirection = "column";
   menu.style.columnCount = "1";
-  menu.style.width = "max-content";
   menu.style.maxWidth = "none";
   menu.style.overflow = "visible";
   menu.style.whiteSpace = "nowrap";
@@ -92,7 +92,6 @@ export function buildTrayColumn(entries) {
   menu.style.flexDirection = "column";
   menu.style.alignItems = "stretch";
   menu.style.textAlign = "left";
-  menu.style.width = "max-content";
   menu.setAttribute("role", "menu");
   for (const entry of entries || []) {
     if (entry.type === "separator") {

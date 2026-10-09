@@ -56,7 +56,13 @@ function createWindow() {
       sandbox: true,
     },
   });
+  // The stock menu keeps Edit accelerators (Ctrl+Z, Ctrl+C, and the rest) for text fields,
+  // so they never reach the drawing. Removing it lets the page handle those shortcuts.
   Menu.setApplicationMenu(null);
+  win.removeMenu();
+  win.webContents.on("will-navigate", (event) => {
+    event.preventDefault();
+  });
   win.loadFile(path.join(__dirname, "..", "index.html"));
   win.on("close", (event) => {
     if (force) return;

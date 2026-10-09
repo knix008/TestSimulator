@@ -19,13 +19,14 @@ import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
 import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconFile, trayIconFile } from "../../src/ui/tray-menu.js";
 import { layoutMenu, menuWindowOptions, placeBeside, popupKey, popupWindowOptions } from "../../src/ui/menu-layout.js";
+import { icon, knownIcons } from "../../src/ui/icons.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { BOARD_HEAD, BOARD_MAX_HEIGHT, BOARD_MIN_WIDTH, BOARD_ROW, CONTENT_PADDING, SCENE_ART, SCENE_GAP, SCENE_MAX_SCALE, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, TITLE_LABEL_WIDTH, WINDOW_DEFAULT, WINDOW_MIN, boardWindowSize, isUsableSize, showsTitleText, titleTextMinWidth, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { BOARD_HEAD, BOARD_MAX_HEIGHT, BOARD_MIN_WIDTH, BOARD_ROW, CONTENT_PADDING, SCENE_ART, SCENE_GAP, SCENE_MAX_SCALE, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, TITLE_LABEL_WIDTH, WINDOW_DEFAULT, WINDOW_MIN, boardWindowSize, isUsableSize, showsTitleText, titleTextMinWidth, roomyMinWidth, isCompactWidth, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { LIST_GAP, LIST_ROW, SETTINGS_MAX_WIDTH, SETTINGS_MIN_WIDTH, listBlockHeight, settingsWidth, tabLabelWidth } from "../../src/ui/popups.js";
 import { aggregateQuote, aggregateRates, mergeNews, newsKey, presentBoard } from "../../src/market/aggregate.js";
-import { formatMoney, formatPercent, formatPrice, formatRate, formatSigned, formatVolume, quotePair } from "../../src/market/format.js";
+import { formatAsOf, formatMoney, formatPercent, formatPrice, formatRate, formatSigned, formatVolume, quotePair } from "../../src/market/format.js";
 import { CURRENCIES, LISTINGS, MARKETS, currencyName, filterListings, findMarket, listingName, marketOfSymbol } from "../../src/market/markets.js";
 import {
   SOURCE_IDS,
@@ -111,9 +112,15 @@ export function registerLogic(h) {
     assert.equal(settings.baseCurrency, "KRW");
     assert.equal(sanitizeSettings({ units: "base" }).units, "base");
     assert.equal(sanitizeSettings({ baseCurrency: "usd" }).baseCurrency, "USD");
-    assert.equal(settings.updateHours, 1);
-    assert.equal(sanitizeSettings({ updateHours: 12 }).updateHours, 12);
-    assert.equal(sanitizeSettings({ updateHours: 3 }).updateHours, 1);
+    assert.equal(settings.updateMinutes, 10);
+    assert.equal(sanitizeSettings({ updateMinutes: 5 }).updateMinutes, 5);
+    // An interval between the offered steps snaps to the nearest one.
+    assert.equal(sanitizeSettings({ updateMinutes: 7 }).updateMinutes, 5);
+    assert.equal(sanitizeSettings({ updateMinutes: 0 }).updateMinutes, 10);
+    // Settings saved when the interval was in hours still work.
+    assert.equal(sanitizeSettings({ updateHours: 12 }).updateMinutes, 720);
+    assert.equal(sanitizeSettings({ updateHours: 1 }).updateMinutes, 60);
+    assert.equal("updateHours" in sanitizeSettings({ updateHours: 2 }), false);
     assert.equal(settings.recentFiles.length, 10);
     assert.equal(settings.defaultBoard.marketCode, "KR");
     assert.ok(settings.defaultBoard.symbols.length >= 1);
@@ -706,7 +713,8 @@ export function registerLogic(h) {
   h.test("window size is clamped to a usable minimum", () => {
     assert.deepEqual(clampWindowSize(null), WINDOW_DEFAULT);
     assert.equal(WINDOW_MIN.width, toolbarMinWidth());
-    assert.ok(WINDOW_MIN.width >= 320);
+    // The floor is whatever the title bar buttons need, not a round number.
+    assert.equal(WINDOW_MIN.width, toolbarMinWidth());
     assert.equal(WINDOW_MIN.height, 46 + CONTENT_PADDING.top + CONTENT_PADDING.bottom + Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE));
     assert.deepEqual(clampWindowSize({ width: 10, height: 10 }), WINDOW_MIN);
     assert.deepEqual(clampWindowSize({ width: 900.4, height: 700.6 }), { width: 900, height: 701 });
@@ -794,7 +802,8 @@ export function registerLogic(h) {
     const opened = buildTrayColumn(buildTrayMenu((key) => createI18n("ko").t(key)).find((entry) => entry.id === "market").submenu);
     for (const name of ["stocks", "rates", "news"]) {
       const svg = opened.querySelector(`[data-cmd="${name}"] .menu-icon svg`);
-      assert.match(svg.innerHTML, /fill="#[0-9a-f]{6}"/i, name);
+      // A colourful icon may carry its colour as a fill or as a stroke.
+      assert.match(svg.innerHTML, /(?:fill|stroke)="#[0-9a-f]{6}"/i, name);
     }
   });
   h.test("popup hub closes every popup when the app quits", async () => {
@@ -856,14 +865,103 @@ export function registerLogic(h) {
   });
   h.test("the program name yields the title bar when the window is narrow", () => {
     assert.equal(WINDOW_MIN.width, toolbarMinWidth());
-    assert.ok(toolbarMinWidth() >= 320);
-    // The icon-only toolbar is narrower than one that also shows the name.
-    assert.ok(titleTextMinWidth() > toolbarMinWidth());
-    assert.equal(titleTextMinWidth(), toolbarMinWidth() + TITLE_LABEL_WIDTH);
+    // Three steps down: the name goes first, then the icon and the roomy
+    // spacing, and the buttons alone decide how narrow the window may get.
+    assert.ok(toolbarMinWidth() < roomyMinWidth());
+    assert.ok(roomyMinWidth() < titleTextMinWidth());
+    assert.equal(titleTextMinWidth(), roomyMinWidth() + TITLE_LABEL_WIDTH);
+    assert.equal(isCompactWidth(roomyMinWidth()), false);
+    assert.equal(isCompactWidth(roomyMinWidth() - 1), true);
+    assert.equal(isCompactWidth(toolbarMinWidth()), true);
     assert.equal(showsTitleText(titleTextMinWidth()), true);
     assert.equal(showsTitleText(titleTextMinWidth() - 1), false);
     assert.equal(showsTitleText(WINDOW_DEFAULT.width), true);
     assert.equal(showsTitleText(0), false);
+  });
+
+  h.test("the shortest window is the toolbar plus a readable quote, nothing more", () => {
+    // Above and below the quote view there is only the content padding, so the
+    // height is the toolbar, that padding, and the smallest the scene may be.
+    const scene = Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE);
+    assert.equal(WINDOW_MIN.height, 46 + CONTENT_PADDING.top + CONTENT_PADDING.bottom + scene);
+    assert.equal(CONTENT_PADDING.top + CONTENT_PADDING.bottom, 4, "the bands are already as thin as they go");
+    // It really is shorter than it used to be, and the scene is still sizeable.
+    assert.ok(WINDOW_MIN.height < 187, `${WINDOW_MIN.height} is shorter than the old 187`);
+    assert.ok(scene >= 90, `a ${scene}px scene is still readable`);
+    // The scene shrinks to exactly that floor and no further.
+    assert.equal(sceneScale({ width: 10, height: 10 }), SCENE_MIN_SCALE);
+  });
+
+  h.test("the narrowest window is exactly what the title bar buttons need", () => {
+    // Sizes come from styles.css: .tool-btn and .icon-btn are 32px, .win-btn
+    // is 30px, the separator is 1px, and the shell adds a 1px border a side.
+    const tools = 3 * 32 + 2 * 4;
+    const corner = (grid, gap) => 2 * 32 + 3 * 30 + 1 + 2 * grid + 5 * gap;
+    // Compact: 6px padding a side, 4px between the groups, 2px separator margins.
+    // The app icon is always there, so it counts at both spacings.
+    const compact = 12 + (18 + 4) + tools + 4 + corner(2, 2) + 2;
+    // Roomy: 12px/8px padding, 6px gaps, 4px separator margins, plus the icon.
+    const roomy = 20 + (18 + 6) + tools + 6 + corner(4, 2) + 2;
+    assert.equal(toolbarMinWidth(), compact);
+    assert.equal(roomyMinWidth(), roomy);
+    assert.equal(WINDOW_MIN.width, compact);
+    // It really is narrower than it used to be, and still fits every button.
+    assert.ok(toolbarMinWidth() < 341, `${toolbarMinWidth()} is narrower than the old 341`);
+    assert.ok(toolbarMinWidth() >= tools + corner(2, 2), "the buttons still fit");
+  });
+
+  h.test("a menu is wide enough for Korean labels and their shortcuts", () => {
+    // Korean glyphs are about twice as wide as Latin ones. Counting characters
+    // alone made the window too narrow and pushed the shortcut off its edge.
+    const items = [
+      { label: "다른 이름으로 저장", shortcut: "Ctrl+Shift+S" },
+      { label: "실행 취소", shortcut: "Ctrl+Z" },
+    ];
+    const wide = layoutMenu(items, { x: 0, y: 0 });
+    const latin = layoutMenu([{ label: "Save as", shortcut: "Ctrl+Shift+S" }], { x: 0, y: 0 });
+    assert.ok(wide.width > latin.width, `${wide.width} > ${latin.width}`);
+    assert.ok(wide.width >= 288, `${wide.width} fits the longest Korean row`);
+    // A longer label always asks for a wider window, never the same one.
+    const longer = layoutMenu([{ label: "다른 이름으로 저장하기", shortcut: "Ctrl+Shift+S" }], { x: 0, y: 0 });
+    assert.ok(longer.width > wide.width, `${longer.width} > ${wide.width}`);
+    // A shortcut costs room of its own.
+    const bare = layoutMenu([{ label: "다른 이름으로 저장" }], { x: 0, y: 0 });
+    assert.ok(wide.width > bare.width, `${wide.width} > ${bare.width}`);
+  });
+
+  h.test("the quote note says when the figures were last pulled", () => {
+    // Same trading day: the clock alone is enough.
+    assert.equal(formatAsOf(new Date(2026, 9, 8, 16, 7).toISOString(), "2026-10-08"), "16:07");
+    assert.equal(formatAsOf(new Date(2026, 9, 8, 9, 5).toISOString(), "2026-10-08"), "09:05");
+    // A window left open past midnight must not read as today.
+    assert.equal(formatAsOf(new Date(2026, 9, 9, 9, 2).toISOString(), "2026-10-08"), "10/9 09:02");
+    // Nothing to show rather than a broken string.
+    assert.equal(formatAsOf("", "2026-10-08"), "");
+    assert.equal(formatAsOf("nonsense", "2026-10-08"), "");
+    assert.equal(formatAsOf(null, null), "");
+  });
+
+  h.test("a search matches every word, in either language, and by code", () => {
+    const all = LISTINGS;
+    const names = (query) => filterListings(all, "", query).map((entry) => entry.nameKo);
+    // Spaces are ignored on both sides, so a spaced query finds a joined name.
+    assert.deepEqual(names("HD 현대"), ["HD현대중공업"]);
+    assert.deepEqual(names("HD현대"), ["HD현대중공업"]);
+    assert.deepEqual(names("현대 차"), ["현대차", "현대차우"]);
+    // Every word has to appear, so a second word narrows rather than widens.
+    assert.ok(names("삼성").length > names("삼성 전자").length);
+    assert.deepEqual(names("삼성 전자"), ["삼성전자", "삼성전자우"]);
+    // English names work the same way.
+    assert.deepEqual(names("samsung elec"), ["삼성전자", "삼성전자우"]);
+    assert.deepEqual(names("hyundai heavy"), ["HD현대중공업"]);
+    // And a code, whole or partial, finds its listing.
+    assert.deepEqual(names("329180"), ["HD현대중공업"]);
+    assert.deepEqual(names("005930.KS"), ["삼성전자"]);
+    // A word that matches nothing gives nothing, even beside one that does.
+    assert.deepEqual(names("삼성 zzzz"), []);
+    // The market filter still applies.
+    assert.deepEqual(filterListings(all, "US", "현대"), []);
+    assert.ok(filterListings(all, "KR", "현대").length >= 1);
   });
 
   h.category("Installer");
@@ -1073,6 +1171,46 @@ export function registerLogic(h) {
   });
 
   h.category("Icons");
+  h.test("the stock icon is three bars of rising height", () => {
+    const svg = icon("stocks");
+    const d = svg.match(/ d="([^"]+)"/)[1];
+    // Three vertical strokes, each one taller than the last.
+    const bars = [...d.matchAll(/M(\d+(?:\.\d+)?) 20v-(\d+(?:\.\d+)?)/g)].map((m) => ({
+      x: Number(m[1]),
+      height: Number(m[2]),
+    }));
+    assert.equal(bars.length, 3);
+    assert.deepEqual(
+      bars.map((bar) => bar.x),
+      [...bars.map((bar) => bar.x)].sort((a, b) => a - b),
+    );
+    for (let i = 1; i < bars.length; i += 1) assert.ok(bars[i].height > bars[i - 1].height, `bar ${i} is taller`);
+    // The colourful face is three filled bars, not the old pair of candles.
+    const colour = icon("stocks", { colorful: true });
+    assert.equal((colour.match(/<rect /g) || []).length, 3);
+    assert.equal(/candle/i.test(colour), false);
+  });
+  h.test("the rate icon draws currency signs rather than arrows", () => {
+    const mono = icon("rates");
+    const d = mono.match(/ d="([^"]+)"/)[1];
+    // A euro: an open arc crossed by two bars. A dollar: one upright through an S.
+    assert.match(d, /a4\.6 4\.6 0 1 0/, "euro bowl");
+    assert.equal((d.match(/h7(?![\d.])/g) || []).length, 2, "two euro bars");
+    assert.match(d, /M17\.5 5\.8v12\.4/, "dollar upright");
+    // Both signs are coloured in the colourful face, and it has no arrowheads.
+    const colour = icon("rates", { colorful: true });
+    const strokes = [...colour.matchAll(/stroke="(#[0-9a-f]{6})"/gi)].map((m) => m[1].toLowerCase());
+    assert.equal(strokes.length, 2);
+    assert.equal(new Set(strokes).size, 2, "the two signs differ in colour");
+  });
+  h.test("every icon name renders one svg and no name falls back silently", () => {
+    const fallback = icon("dot");
+    for (const name of knownIcons()) {
+      const svg = icon(name);
+      assert.match(svg, /^<svg class="ico" viewBox="0 0 24 24"[^>]*>[\s\S]+<\/svg>$/, name);
+      if (name !== "dot") assert.notEqual(svg, fallback, `${name} is not the fallback dot`);
+    }
+  });
   h.test("app and document icons are transparent, distinct, and the app tile is a lit 3D background", () => {
     const output = execFileSync("python", ["scripts/verify_icons.py"], { cwd: root, encoding: "utf8" });
     assert.match(output, /OK transparent_border app/);

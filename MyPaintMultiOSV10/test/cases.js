@@ -77,6 +77,11 @@
 
   function freshDoc(api) {
     api.run("new");
+    const popup = api.getPopup();
+    api.popupAction("create-new", {
+      width: popup.querySelector('[data-field="width"]').value,
+      height: popup.querySelector('[data-field="height"]').value,
+    });
     api.clearDrawing();
     return api.getDoc();
   }
@@ -172,27 +177,97 @@
         assert(api.shapeCount() === 1);
         assert(api.getDoc().dirty === true);
       }),
-      test("brush, eraser, line, rectangle and ellipse each add one shape", (api) => {
+      test("the drawing tools each add one shape", (api) => {
         freshDoc(api);
-        [["brush", "brush"], ["eraser", "eraser"], ["line", "line"], ["rect", "rect"], ["ellipse", "ellipse"]].forEach((pair) => {
+        [["brush", "brush"], ["marker", "marker"], ["spray", "spray"], ["eraser", "eraser"], ["line", "line"], ["arrow", "arrow"], ["curve", "curve"], ["rect", "rect"], ["roundRect", "roundRect"], ["ellipse", "ellipse"], ["triangle", "triangle"]].forEach((pair) => {
           api.setTool(pair[0]);
           const shape = api.draw(20, 20, 120, 90);
           assert(shape && shape.kind === pair[1], pair[0] + " drew " + (shape && shape.kind));
         });
-        assert(api.shapeCount() === 5, String(api.shapeCount()));
+        assert(api.shapeCount() === 11, String(api.shapeCount()));
       }),
       test("the text tool places text that the property panel edits", (api, doc) => {
         freshDoc(api);
         api.setTool("text");
         const shape = api.click(60, 80);
         assert(shape.kind === "text", shape.kind);
-        assert(shape.text.length > 0);
         assert(api.getSelection()[0] === shape.id);
+        const editor = doc.getElementById("textEditor");
+        assert(editor && !editor.hidden, "the text editor is missing");
+        editor.value = "안녕";
+        editor.dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        assert(shape.text === "안녕", shape.text);
         const input = doc.querySelector('#rightPanel [data-prop="text"]');
         assert(input, "the text field is missing");
+        assert(input.value === "안녕", input.value);
         input.value = "hello";
+        input.dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        assert(api.shapes()[0].text === "hello", api.shapes()[0].text);
         input.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
         assert(api.shapes()[0].text === "hello", api.shapes()[0].text);
+      }),
+      test("the toolbar and the context menu set the text font and size", (api, doc) => {
+        freshDoc(api);
+        const down = doc.querySelector('#toolbar [data-action="fontDown"]');
+        const up = doc.querySelector('#toolbar [data-action="fontUp"]');
+        const now = doc.getElementById("fontSizeValue");
+        const pick = doc.querySelector("#toolbar .font-pick");
+        assert(down && down.textContent === "−", "no smaller-text button");
+        assert(up && up.textContent === "+", "no larger-text button");
+        assert(now && pick, "the font controls are missing");
+        const start = Number(now.textContent);
+        up.click();
+        assert(api.getSettings().fontSize === start + 1, String(api.getSettings().fontSize));
+        assert(doc.getElementById("fontSizeValue").textContent === String(start + 1));
+        api.setTool("text");
+        const shape = api.click(40, 50);
+        doc.getElementById("textEditor").value = "가";
+        doc.getElementById("textEditor").dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        doc.querySelector('#toolbar [data-action="fontUp"]').click();
+        assert(shape.fontSize === start + 2, String(shape.fontSize));
+        const family = doc.querySelector("#toolbar .font-pick");
+        family.value = "Georgia";
+        family.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
+        assert(shape.fontFamily === "Georgia", shape.fontFamily);
+        const menu = api.openContextAt(40, 50);
+        ["fontDown", "fontUp", "fontMenu"].forEach((name) => {
+          assert(menu.querySelector('[data-action="' + name + '"]'), name + " is missing from the context menu");
+        });
+        menu.querySelector('[data-action="fontDown"]').click();
+        assert(shape.fontSize === start + 1, String(shape.fontSize));
+        api.run("fontMenu");
+        const fonts = api.getMenu();
+        assert(fonts && fonts.querySelector('[data-action="font:Arial"]'), "the font list is missing");
+        fonts.querySelector('[data-action="font:Arial"]').click();
+        assert(shape.fontFamily === "Arial", shape.fontFamily);
+        api.closeMenu();
+      }),
+      test("the toolbar sets bold, italic, underline and strikethrough", (api, doc) => {
+        freshDoc(api);
+        ["fontBold", "fontItalic", "fontUnderline", "fontStrike"].forEach((name) => {
+          const button = doc.querySelector('#toolbar [data-action="' + name + '"]');
+          assert(button, name);
+          assert(button.getAttribute("aria-pressed") === "false", name);
+        });
+        doc.querySelector('#toolbar [data-action="fontUnderline"]').click();
+        assert(api.getSettings().fontUnderline === true, "underline default");
+        api.setTool("text");
+        const shape = api.click(40, 70);
+        doc.getElementById("textEditor").value = "가";
+        doc.getElementById("textEditor").dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        assert(shape.underline === true, "new text underline");
+        doc.querySelector('#toolbar [data-action="fontBold"]').click();
+        doc.querySelector('#toolbar [data-action="fontItalic"]').click();
+        doc.querySelector('#toolbar [data-action="fontStrike"]').click();
+        assert(shape.fontStyle === "bold-italic", shape.fontStyle);
+        assert(shape.strike === true, "strike");
+        assert(doc.querySelector('#toolbar [data-action="fontBold"]').classList.contains("on"), "bold on");
+        assert(doc.getElementById("textEditor").style.fontWeight === "700", "editor weight");
+        assert(doc.getElementById("textEditor").style.textDecoration.indexOf("line-through") >= 0, doc.getElementById("textEditor").style.textDecoration);
+        doc.querySelector('#toolbar [data-action="fontBold"]').click();
+        assert(shape.fontStyle === "italic", shape.fontStyle);
+        doc.querySelector('#toolbar [data-action="fontUnderline"]').click();
+        assert(shape.underline === false, "underline off");
       }),
       test("the fill tool repaints a shape and then the canvas", (api) => {
         freshDoc(api);
@@ -598,6 +673,11 @@
         assert(api.shapeCount() === 1);
         press("y");
         assert(api.shapeCount() === 2);
+        win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Process", code: "KeyZ", ctrlKey: true, bubbles: true }));
+        assert(api.shapeCount() === 1, "a shortcut must follow the physical key");
+        api.setZoom(100);
+        win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "=", code: "Equal", ctrlKey: true, bubbles: true }));
+        assert(api.getSettings().zoom > 100, String(api.getSettings().zoom));
       }),
       test("a picked area goes to the system clipboard as a picture", async (api) => {
         // What another program pastes has to be the picture, not the shapes MyPaint keeps for
@@ -913,12 +993,21 @@
       test("the new drawing size comes from the settings", (api) => {
         api.popupAction("apply-settings", { canvasWidth: 400, canvasHeight: 300 });
         api.run("new");
-        assert(api.getDoc().width === 400 && api.getDoc().height === 300, api.getDoc().width + "x" + api.getDoc().height);
+        const popup = api.getPopup();
+        assert(popup && popup.dataset.kind === "newdoc", "new does not ask for a size");
+        assert(popup.querySelector('[data-field="width"]').value === "400", popup.querySelector('[data-field="width"]').value);
+        assert(popup.querySelector('[data-field="height"]').value === "300", popup.querySelector('[data-field="height"]').value);
+        popup.querySelector('[data-field="width"]').value = "640";
+        popup.querySelector('[data-field="height"]').value = "200";
+        popup.querySelector('[data-popup-action="create-new"]').click();
+        assert(api.getDoc().width === 640 && api.getDoc().height === 200, api.getDoc().width + "x" + api.getDoc().height);
       }),
       test("the panels can be hidden from the settings", (api, doc) => {
         api.popupAction("apply-settings", { showLeft: false, showRight: false });
-        assert(doc.getElementById("leftPanel").classList.contains("hidden"));
-        assert(doc.getElementById("rightPanel").classList.contains("hidden"));
+        assert(doc.getElementById("leftPanel").classList.contains("collapsed"));
+        assert(doc.getElementById("rightPanel").classList.contains("collapsed"));
+        assert(doc.getElementById("leftPanel").querySelector(".panel-fold"));
+        assert(doc.getElementById("rightPanel").querySelector(".panel-fold"));
       }),
     ]),
 
@@ -1007,7 +1096,7 @@
         assert(buttons.length >= 15, String(buttons.length));
         buttons.forEach((button) => {
           assert(button.title && button.title.length > 0, (button.dataset.action || button.id) + " has no tooltip");
-          assert(button.querySelector("svg") || button.id === "zoomValue" || button.classList.contains("lang-btn"), (button.dataset.action || "") + " has no icon");
+          assert(button.querySelector("svg") || button.id === "zoomValue" || button.id === "fontSizeValue" || button.classList.contains("font-step") || button.classList.contains("font-style") || button.classList.contains("lang-btn"), (button.dataset.action || "") + " has no icon");
         });
       }),
       test("the toolbar fits inside the smallest window", (api, doc) => {
@@ -1047,7 +1136,7 @@
         assert(hidden.length === 0, hidden.join(", "));
       }),
       test("the toolbar runs file, edit, view and print commands", (api, doc) => {
-        const names = ["new", "open", "save", "export", "undo", "redo", "cut", "copy", "paste", "deleteShape", "zoomOut", "zoomIn", "toggleGrid", "print", "toggleLeft", "toggleRight", "themeCycle", "themeMenu", "language", "settings", "about"];
+        const names = ["new", "open", "save", "export", "undo", "redo", "cut", "copy", "paste", "deleteShape", "zoomOut", "zoomIn", "toggleGrid", "toggleShapes", "print", "themeCycle", "themeMenu", "language", "settings", "about"];
         names.forEach((name) => {
           assert(doc.querySelector('#toolbar [data-action="' + name + '"]'), name + " is missing from the toolbar");
         });
@@ -1082,6 +1171,23 @@
         assert(grid.hidden === true, "the grid did not turn off");
         assert(button.classList.contains("on") === false);
         assert(button.getAttribute("aria-pressed") === "false");
+      }),
+      test("the shape list button hides the list and leaves the drawing", (api, doc) => {
+        freshDoc(api);
+        api.setTool("rect");
+        api.draw(20, 20, 120, 80);
+        const button = doc.querySelector('#toolbar [data-action="toggleShapes"]');
+        assert(button && button.getAttribute("aria-pressed") === "true", "the list starts hidden");
+        assert(doc.querySelector("#leftPanel .shape-list"), "the shape list is missing");
+        const shown = doc.getElementById("board").toDataURL();
+        button.click();
+        assert(api.getSettings().showShapes === false);
+        assert(button.classList.contains("on") === false);
+        assert(!doc.querySelector("#leftPanel .shape-list"), "the shape list stayed open");
+        assert(doc.getElementById("board").toDataURL() === shown, "hiding the list changed the picture");
+        button.click();
+        assert(doc.querySelector("#leftPanel .shape-list"), "the shape list did not come back");
+        assert(doc.getElementById("board").toDataURL() === shown);
       }),
     ]),
 
@@ -1155,11 +1261,11 @@
         assert(Math.abs(menuBox.top - fileBox.bottom) <= 2, menuBox.top + " vs " + fileBox.bottom);
         api.closeMenu();
         const bar = doc.getElementById("toolbar");
-        const panels = doc.querySelector("#toolbar [data-action='toggleRight']");
+        const print = doc.querySelector("#toolbar [data-action='print']");
         const right = ["themeCycle", "themeMenu", "language", "settings", "about"].map((name) => doc.querySelector("#toolbar [data-action='" + name + "']"));
         right.forEach((button, index) => {
           assert(button, "toolbar button " + index);
-          assert(button.getBoundingClientRect().left > panels.getBoundingClientRect().right, "right of the panel buttons " + index);
+          assert(button.getBoundingClientRect().left > print.getBoundingClientRect().right, "right of the print button " + index);
           if (index > 0) assert(button.getBoundingClientRect().left > right[index - 1].getBoundingClientRect().left);
         });
         assert(Math.abs(right[4].getBoundingClientRect().right - bar.getBoundingClientRect().right) <= 10, "flush right");
@@ -1192,7 +1298,7 @@
       test("every popup is fixed, fits without a scrollbar, and uses one line per row", (api) => {
         api.showError(new Error("the disk is full"));
         api.closePopup();
-        ["settings", "about", "error", "progress", "print", "unsaved", "recent", "save", "canvas", "drop", "theme", "guide", "palette", "convert", "formats", "dicom"].forEach((kind) => {
+        ["settings", "about", "error", "progress", "print", "unsaved", "recent", "save", "canvas", "newdoc", "drop", "theme", "guide", "palette", "convert", "formats", "dicom"].forEach((kind) => {
           const el = api.openPopup(kind);
           const spec = api.metrics.POPUPS[kind];
           assert(Math.abs(el.offsetWidth - spec.width) <= 2, kind + " width");
@@ -1282,6 +1388,10 @@
         assert(api.tabOverflow() === true);
         assert(doc.getElementById("tabNext").disabled === false);
         assert(doc.getElementById("tabNext").title.length > 0);
+        const prev = doc.getElementById("tabPrev");
+        const next = doc.getElementById("tabNext");
+        assert(prev.getBoundingClientRect().left > strip.getBoundingClientRect().right - 2, "the back arrow is not on the right");
+        assert(next.getBoundingClientRect().left >= prev.getBoundingClientRect().right - 1, "the arrows are not together");
         const before = strip.scrollLeft;
         api.scrollTabs(1);
         assert(strip.scrollLeft > before);
@@ -1698,6 +1808,21 @@
         await api.dropFiles([{ name: "work.mpaint", text: raw }]);
         assert(api.getDocs().length > before, String(api.getDocs().length));
         assert(api.getDoc().name === "work.mpaint", api.getDoc().name);
+      }),
+      test("dropping an image file on the window asks how to use it", async (api, doc, win) => {
+        freshDoc(api);
+        const png = await picture(win, 12, 12, "#2266aa", "image/png");
+        const file = new win.File([png], "outside.png", { type: "image/png" });
+        const transfer = new win.DataTransfer();
+        transfer.items.add(file);
+        win.dispatchEvent(new win.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+        for (let i = 0; i < 30 && !(api.getPopup() && api.getPopup().dataset.kind === "drop"); i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        const popup = api.getPopup();
+        assert(popup && popup.dataset.kind === "drop", "dropping a picture did not ask");
+        assert(popup.querySelector("#dropKind"), "the dropped file was not recognised");
+        api.closePopup();
       }),
       test("a dropped picture asks how it should be used", async (api) => {
         freshDoc(api);
@@ -2615,6 +2740,8 @@
         assert(main.indexOf("build.title") >= 0);
         assert(main.indexOf("iconPath") >= 0);
         assert(main.indexOf("closeChildren") >= 0);
+        assert(main.indexOf("removeMenu") >= 0, "the stock menu would swallow the shortcuts");
+        assert(main.indexOf("will-navigate") >= 0, "a dropped file would replace the window");
         assert(main.indexOf("parent:") >= 0);
         assert(main.indexOf("resizable: false") >= 0);
       }),
@@ -2683,8 +2810,30 @@
         assert(api.build.build === "2026.10.05.1");
         const about = api.openPopup("about");
         assert(about.textContent.indexOf("SHKWON(knix008@naver.com)") >= 0);
+        assert(about.textContent.indexOf("10.0.0") >= 0);
         assert(about.textContent.indexOf("2026.10.05.1") >= 0);
+        assert(about.textContent.indexOf("정식") >= 0);
         assert(about.querySelector("[data-author]").getAttribute("data-author") === "SHKWON(knix008@naver.com)");
+        const icon = about.querySelector(".about-head img");
+        const intro = about.querySelector(".about-intro");
+        assert(icon && intro, "the icon and the description are missing");
+        assert(icon.getBoundingClientRect().right <= intro.getBoundingClientRect().left + 1, "the icon is not left of the description");
+        assert(intro.textContent.indexOf("여러 운영체제에서 쓰는 그림판") >= 0);
+        const names = [...about.querySelectorAll(".about-name")];
+        const values = [...about.querySelectorAll(".about-value")];
+        assert(names.length === values.length && names.length >= 6, String(names.length));
+        const nameLeft = names[0].getBoundingClientRect().left;
+        const valueLeft = values[0].getBoundingClientRect().left;
+        names.forEach((name) => {
+          assert(Math.abs(name.getBoundingClientRect().left - nameLeft) <= 1, "a name is out of line");
+        });
+        values.forEach((value) => {
+          assert(Math.abs(value.getBoundingClientRect().left - valueLeft) <= 1, "a value is out of line");
+        });
+        assert(valueLeft > names[0].getBoundingClientRect().right - 1, "the values are not to the right of the names");
+        [".png", ".jpg", ".webp", ".tif", ".heic", ".jp2", ".dcm", ".cr2", ".nef"].forEach((ext) => {
+          assert(about.textContent.indexOf(ext) >= 0, ext + " is missing from the about window");
+        });
       }),
       test("the bottom-right corner shows a resize grip", (api, doc) => {
         const grip = doc.getElementById("resizeGrip");
@@ -2711,7 +2860,7 @@
     suite("Panels", [
       test("the left panel holds the tools and colors", (api, doc) => {
         const left = doc.getElementById("leftPanel");
-        assert(left.querySelectorAll(".tool-cell").length === 13, String(left.querySelectorAll(".tool-cell").length));
+        assert(left.querySelectorAll(".tool-cell").length === 19, String(left.querySelectorAll(".tool-cell").length));
         assert(left.querySelectorAll(".swatch-btn").length >= 20);
         left.querySelectorAll(".tool-cell").forEach((cell) => {
           assert(cell.title.length > 0, cell.dataset.action + " has no tooltip");
@@ -2722,26 +2871,52 @@
         left.querySelector('[data-action="color:#ed1c24"]').click();
         assert(api.getColor() === "#ed1c24");
       }),
-      test("the line width steps with a button on each side", (api, doc) => {
-        api.setStrokeWidth(5);
+      test("the line width is a row of pictures", (api, doc) => {
         const panel = doc.getElementById("leftPanel");
-        const down = panel.querySelector('[data-action="strokeDown"]');
-        const up = panel.querySelector('[data-action="strokeUp"]');
-        assert(down && up, "the step buttons are missing");
-        assert(down.title.length > 0 && up.title.length > 0, "a step button has no tooltip");
-        const slider = panel.querySelector('[data-pick="strokeWidth"]');
-        assert(slider, "the slider is gone");
-        assert(down.getBoundingClientRect().right <= slider.getBoundingClientRect().left + 1, "minus is not on the left");
-        assert(up.getBoundingClientRect().left >= slider.getBoundingClientRect().right - 1, "plus is not on the right");
-        up.click();
-        assert(api.getSettings().strokeWidth === 6, String(api.getSettings().strokeWidth));
-        doc.getElementById("leftPanel").querySelector('[data-action="strokeDown"]').click();
-        doc.getElementById("leftPanel").querySelector('[data-action="strokeDown"]').click();
-        assert(api.getSettings().strokeWidth === 4, String(api.getSettings().strokeWidth));
-        assert(doc.getElementById("strokeValue").textContent === "4");
-        api.setStrokeWidth(1);
-        doc.getElementById("leftPanel").querySelector('[data-action="strokeDown"]').click();
-        assert(api.getSettings().strokeWidth === 1, "the width must not go below one");
+        assert(!panel.querySelector('input[type="range"]'), "the slider is still there");
+        assert(!panel.querySelector("#strokeValue"), "the width still shows a number");
+        const picks = [...panel.querySelectorAll(".width-pick")];
+        assert(picks.length >= 4, String(picks.length));
+        picks.forEach((pick) => {
+          assert(pick.querySelector("line"), "a width has no line picture");
+          assert(!/\d/.test(pick.textContent || ""), "a width shows a number");
+        });
+        panel.querySelector('[data-action="width:8"]').click();
+        assert(api.getSettings().strokeWidth === 8, String(api.getSettings().strokeWidth));
+        assert(doc.getElementById("leftPanel").querySelector('[data-action="width:8"]').classList.contains("on"));
+        const step = doc.getElementById("leftPanel").querySelector(".width-step");
+        assert(step, "no decrease, current width, increase row");
+        assert(step.querySelector("[data-action='strokeDown']").textContent === "-");
+        assert(step.querySelector(".width-now input").value === "8");
+        assert(step.querySelector(".width-now .unit").textContent === "px");
+        assert(step.querySelector("[data-action='strokeUp']").textContent === "+");
+        step.querySelector("[data-action='strokeUp']").click();
+        assert(api.getSettings().strokeWidth === 9);
+        assert(doc.getElementById("leftPanel").querySelector(".width-now input").value === "9");
+        doc.getElementById("leftPanel").querySelector("[data-action='strokeDown']").click();
+        assert(api.getSettings().strokeWidth === 8);
+        api.setTool("eraser");
+        const eraser = doc.getElementById("leftPanel");
+        assert(eraser.querySelector('[data-action="tool:eraser"]').classList.contains("on"), "the eraser is not selected");
+        assert(eraser.querySelector(".width-pick rect"), "the eraser size is not a block");
+        assert(eraser.querySelector(".width-now input").value === "12");
+        eraser.querySelector('[data-action="width:20"]').click();
+        assert(api.getSettings().eraserSize === 20, String(api.getSettings().eraserSize));
+        assert(api.getSettings().strokeWidth === 8, "the line width changed with the eraser");
+        doc.getElementById("leftPanel").querySelector("[data-action='strokeUp']").click();
+        assert(api.getSettings().eraserSize === 21);
+        const wiped = api.stroke([{ x: 12, y: 12 }, { x: 48, y: 30 }]);
+        assert(wiped.kind === "eraser" && wiped.width === 21, String(wiped && wiped.width));
+        const typed = doc.getElementById("leftPanel").querySelector(".width-now input");
+        typed.value = "30";
+        typed.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
+        assert(api.getSettings().eraserSize === 30, String(api.getSettings().eraserSize));
+        api.setTool("pencil");
+        const lineSize = doc.getElementById("leftPanel").querySelector(".width-now input");
+        lineSize.value = "15";
+        lineSize.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
+        assert(api.getSettings().strokeWidth === 15, String(api.getSettings().strokeWidth));
+        assert(api.getSettings().eraserSize === 30, "typing the line width changed the eraser");
       }),
       test("the right panel edits the picked shape", (api, doc) => {
         freshDoc(api);
@@ -2830,21 +3005,31 @@
         assert(api.getDoc().name === "renamed.mpaint");
         assert(api.getDoc().dirty === true);
       }),
-      test("both panels can be hidden and shown again", (api, doc) => {
+      test("both panels can be folded and opened again", (api, doc) => {
         api.run("toggleLeft");
-        assert(doc.getElementById("leftPanel").classList.contains("hidden"));
-        api.run("toggleLeft");
-        assert(!doc.getElementById("leftPanel").classList.contains("hidden"));
+        const left = doc.getElementById("leftPanel");
+        assert(left.classList.contains("collapsed"));
+        assert(left.querySelector(".panel-fold"), "the tool panel has no way to open");
+        left.querySelector(".panel-fold").click();
+        assert(!doc.getElementById("leftPanel").classList.contains("collapsed"));
         api.run("toggleRight");
-        assert(doc.getElementById("rightPanel").classList.contains("hidden"));
-        api.run("toggleRight");
-        assert(!doc.getElementById("rightPanel").classList.contains("hidden"));
+        const right = doc.getElementById("rightPanel");
+        assert(right.classList.contains("collapsed"));
+        right.querySelector(".panel-fold").click();
+        assert(!doc.getElementById("rightPanel").classList.contains("collapsed"));
+        assert(!doc.querySelector("#toolbar [data-action='toggleLeft']"));
+        assert(!doc.querySelector("#toolbar [data-action='toggleRight']"));
       }),
-      test("both panels have the same smallest width", (api) => {
-        assert(typeof api.metrics.PANEL_MIN === "number", "the minimum width is not one number");
-        assert(api.metrics.PANEL_MIN <= 210, "the panels take more room than they need: " + api.metrics.PANEL_MIN);
-        assert(api.setPanelWidth("left", 40) === api.metrics.PANEL_MIN, "the left panel went below the minimum");
-        assert(api.setPanelWidth("right", 40) === api.metrics.PANEL_MIN, "the right panel went below the minimum");
+      test("both panels keep one width", (api, doc) => {
+        assert(api.metrics.TOOL_PANEL === 200);
+        assert(api.metrics.PROP_PANEL === 200);
+        const leftBefore = doc.getElementById("leftPanel").offsetWidth;
+        const rightBefore = doc.getElementById("rightPanel").offsetWidth;
+        assert(api.setPanelWidth("left", 40) === api.metrics.TOOL_PANEL, "the tool panel changed width");
+        assert(api.setPanelWidth("right", 40) === api.metrics.PROP_PANEL, "the property panel changed width");
+        assert(doc.getElementById("leftPanel").offsetWidth === leftBefore, "the tool panel moved");
+        assert(doc.getElementById("rightPanel").offsetWidth === rightBefore, "the property panel moved");
+        assert(!doc.getElementById("splitLeft") && !doc.getElementById("splitRight"));
       }),
       test("at the smallest width every row still fits and works", async (api, doc) => {
         const check = (where) => {
@@ -2891,15 +3076,6 @@
         await api.openBytes(await bytesOf("/samples/ct-eight-frames.dcm"), "ct-eight-frames.dcm");
         api.deselect();
         check("a scan");
-      }),
-      test("the panels can be resized by their splitters", (api, doc) => {
-        const splitter = doc.getElementById("splitLeft");
-        assert(doc.defaultView.getComputedStyle(splitter).cursor === "col-resize");
-        const before = doc.getElementById("leftPanel").offsetWidth;
-        splitter.dispatchEvent(new doc.defaultView.PointerEvent("pointerdown", { clientX: before, clientY: 300, bubbles: true, pointerId: 2 }));
-        splitter.dispatchEvent(new doc.defaultView.PointerEvent("pointermove", { clientX: before + 60, clientY: 300, bubbles: true, pointerId: 2 }));
-        splitter.dispatchEvent(new doc.defaultView.PointerEvent("pointerup", { clientX: before + 60, clientY: 300, bubbles: true, pointerId: 2 }));
-        assert(doc.getElementById("leftPanel").offsetWidth > before, doc.getElementById("leftPanel").offsetWidth + " vs " + before);
       }),
     ]),
   ];

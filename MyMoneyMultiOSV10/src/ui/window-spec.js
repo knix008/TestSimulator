@@ -2,7 +2,7 @@ export const WINDOW_DEFAULT = { width: 760, height: 640 };
 
 /** Natural size of the quote picture and its labels, before the window shrinks them together. */
 export const SCENE_NATURAL = { width: 440, height: 248 };
-export const SCENE_MIN_SCALE = 0.55;
+export const SCENE_MIN_SCALE = 0.4;
 /** The picture never outgrows the number beside it; a price is what the window is for. */
 export const SCENE_MAX_SCALE = 1.8;
 const TOOLBAR_HEIGHT = 46;
@@ -10,12 +10,53 @@ const TOOLBAR_HEIGHT = 46;
 export const CONTENT_PADDING = { top: 2, right: 16, bottom: 2, left: 16 };
 
 /**
- * Narrowest main window that keeps the icon and every toolbar button fully
- * visible. The program name is not counted: it steps aside below
- * `titleTextMinWidth()` so the window can be this narrow.
+ * The title bar, measured from the sizes `styles.css` gives its pieces. The
+ * window may be narrowed until these stop fitting, and no further: a button
+ * that cannot be clicked is worse than a window that will not shrink.
+ */
+const TOOL_BUTTON = 32;
+const WINDOW_BUTTON = 30;
+const TOOL_COUNT = 3;
+const CORNER_BUTTONS = 2;
+const WINDOW_BUTTONS = 3;
+const CORNER_SEPARATOR = 1;
+const TITLE_ICON = 18;
+const SHELL_BORDER = 2;
+
+/** Roomy spacing: what `.shell-top` and its groups use by default. */
+const ROOMY = { padding: 20, groupGap: 6, toolGap: 4, cornerGap: 2, separatorMargin: 4 };
+/** Compact spacing: the narrow-window rules in `styles.css`. */
+const COMPACT = { padding: 12, groupGap: 4, toolGap: 4, cornerGap: 2, separatorMargin: 2 };
+
+function titleBarWidth(space, withIcon) {
+  const tools = TOOL_COUNT * TOOL_BUTTON + (TOOL_COUNT - 1) * space.toolGap;
+  const corner =
+    CORNER_BUTTONS * TOOL_BUTTON +
+    WINDOW_BUTTONS * WINDOW_BUTTON +
+    CORNER_SEPARATOR +
+    2 * space.separatorMargin +
+    (CORNER_BUTTONS + WINDOW_BUTTONS) * space.cornerGap;
+  const icon = withIcon ? TITLE_ICON + space.groupGap : 0;
+  return space.padding + icon + tools + space.groupGap + corner + SHELL_BORDER;
+}
+
+/**
+ * Narrowest main window that still shows every toolbar button in full. The
+ * program name has stepped aside and the spacing has tightened, but the app
+ * icon stays: it is how the window is recognised, minimised or not.
  */
 export function toolbarMinWidth() {
-  return 341;
+  return titleBarWidth(COMPACT, true);
+}
+
+/** From this width up the title bar can afford its normal padding and gaps. */
+export function roomyMinWidth() {
+  return titleBarWidth(ROOMY, true);
+}
+
+/** True while the window is too narrow for the roomy spacing. */
+export function isCompactWidth(width) {
+  return Math.round(Number(width) || 0) < roomyMinWidth();
 }
 
 /** The program name and the gap before it. */
@@ -23,7 +64,7 @@ export const TITLE_LABEL_WIDTH = 98;
 
 /** From this width up there is room for "MyMoney V1.0" beside the icon. */
 export function titleTextMinWidth() {
-  return toolbarMinWidth() + TITLE_LABEL_WIDTH;
+  return roomyMinWidth() + TITLE_LABEL_WIDTH;
 }
 
 export function showsTitleText(width) {

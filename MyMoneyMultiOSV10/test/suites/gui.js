@@ -3,9 +3,10 @@ import { createApp } from "../../src/app.js";
 import { AppError } from "../../src/core/errors.js";
 import { serializeDocument } from "../../src/core/document.js";
 import { DARK_THEMES, LIGHT_THEMES, THEMES } from "../../src/core/themes.js";
-import { SETTINGS_MAX_HEIGHT, SETTINGS_MIN_HEIGHT, buildAboutSpec, bootPopup, fitPopupToViewport, popupFits } from "../../src/ui/popups.js";
+import { SETTINGS_MAX_HEIGHT, SETTINGS_MIN_HEIGHT, buildAboutSpec, bootPopup, fitPopupToViewport, popupFits, tallestPanelHeight } from "../../src/ui/popups.js";
 import { WINDOW_MIN } from "../../src/ui/window-spec.js";
-import { SAMPLE_DATES, jsonResponse, newsBody, settle, textResponse, withApp, yahooBody } from "../support.js";
+import { NEWS_ROW, panelMaxBody } from "../../src/ui/market-view.js";
+import { SAMPLE_DATES, createMemoryPlatform, defaultFetch, jsonResponse, newsBody, settle, textResponse, withApp, yahooBody } from "../support.js";
 
 export function registerGui(h) {
   h.category("Window");
@@ -234,16 +235,18 @@ export function registerGui(h) {
       const stocks = await openPanel(app, "stocks");
       assert.equal(stocks.popup.dataset.popup, "panel");
       assert.equal(stocks.popup.dataset.panelKind, "stocks");
-      assert.equal(stocks.popup.querySelector(".popup-title").textContent, "주식 시세");
+      // The quote and rate windows carry the date and time they were drawn.
+      assert.match(stocks.popup.querySelector(".popup-title").textContent, /^주식 시세 · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
       assert.ok(stocks.popup.querySelector("[data-symbol]"));
       assert.equal(popupFits(stocks.popup).fits, true);
       assert.equal(getComputedStyle(stocks.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await stocks.close();
       const rates = await openPanel(app, "rates");
-      assert.equal(rates.popup.querySelector(".popup-title").textContent, "환율");
+      assert.match(rates.popup.querySelector(".popup-title").textContent, /^환율 · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
       assert.ok(rates.popup.querySelector('[data-gui="rates"]'));
       await rates.close();
       const news = await openPanel(app, "news");
+      // The headlines are not a snapshot of a moment, so that window keeps its plain title.
       assert.equal(news.popup.querySelector(".popup-title").textContent, "오늘의 뉴스");
       assert.ok(news.popup.querySelector('[data-gui="news-board"]'));
       await news.close();
@@ -413,7 +416,12 @@ export function registerGui(h) {
       assert.ok(menu);
       assert.equal(menu.dataset.columns, "1");
       assert.equal(menu.querySelector('[data-cmd="choose-wallpaper"] .menu-label').textContent, "배경 선택");
+      assert.equal(menu.querySelector('[data-cmd="add-symbol"] .menu-label').textContent, "종목 추가");
       assert.equal(menu.querySelector('[data-cmd="remove-symbol"] .menu-label').textContent, "종목 제거");
+      // Add sits straight above Remove, and carries a colourful icon like the rest.
+      const order = [...menu.querySelectorAll("[data-cmd]")].map((row) => row.dataset.cmd);
+      assert.equal(order.indexOf("add-symbol") + 1, order.indexOf("remove-symbol"));
+      assert.match(menu.querySelector('[data-cmd="add-symbol"]').innerHTML, /(?:fill|stroke)="#[0-9a-f]{6}"/i);
       assert.match(menu.querySelector('[data-cmd="choose-wallpaper"]').innerHTML, /fill="#2f94ff"/);
       assert.match(menu.querySelector('[data-cmd="clear-wallpaper"]').innerHTML, /fill="#e5484d"/);
       menu.querySelector('[data-cmd="copy"]').click();
@@ -487,14 +495,14 @@ export function registerGui(h) {
       await app.refreshMarket();
       const stocks = await openPanel(app, "stocks");
       const head = stocks.popup.querySelector('[data-gui="quote-head"]');
-      assert.deepEqual([...head.children].map((cell) => cell.textContent), ["종목", "현재가", "전일 대비", "등락률", "거래량"]);
+      assert.deepEqual([...head.children].map((cell) => cell.textContent), ["종목", "거래소", "현재가", "전일 대비", "등락률", "거래량", ""]);
       assert.equal(getComputedStyle(head).display, "grid");
       const row = stocks.popup.querySelector('[data-symbol="005930.KS"]');
       assert.equal(row.dataset.tone, "gain");
       assert.match(row.querySelector(".quote-percent").textContent, /^\+/);
       assert.equal(getComputedStyle(row).borderTopWidth, "0px");
       const raised = [...document.styleSheets[0].cssRules].find(
-        (rule) => rule.selectorText === ".quote-row:hover, .rate-row:hover, .news-row:hover,\n.quote-row:focus-visible, .news-row:focus-visible",
+        (rule) => squashSpace(rule.selectorText) === ".quote-row:hover, .rate-row:hover, .news-row:hover, .quote-row:focus-visible, .news-row:focus-visible",
       );
       assert.ok(raised, "hover rule");
       assert.match(raised.cssText, /translateY\(-2px\)/);
@@ -610,8 +618,451 @@ export function registerGui(h) {
     });
   });
 
-  h.category("Watchlist");
-  h.test("a market and a symbol can be chosen and added from Settings", async () => {
+  h.test("the news panel shows ten at a time and pages through the rest", async () => {
+    const many = Array.from({ length: 23 }, (_, i) => `헤드라인 ${i + 1}`);
+    await withApp(
+      async ({ app }) => {
+        await app.refreshMarket();
+        const news = await openPanel(app, "news");
+        const titles = () => [...news.popup.querySelectorAll('[data-gui="news"]')].map((row) => row.title);
+        const board = () => news.popup.querySelector('[data-gui="news-board"]');
+        // A page is ten, never more. The feed decides the order, so the test
+        // follows which headlines appear rather than which comes first.
+        assert.equal(titles().length, 10);
+        const pageOne = titles();
+        // Nothing scrolls, because nothing overflows.
+        assert.ok(board().scrollHeight <= board().clientHeight + 1, `${board().scrollHeight} fits ${board().clientHeight}`);
+        // The pager says how many pages there are: 23 headlines make three.
+        const bar = news.popup.querySelector('[data-gui="pager-bar"]');
+        assert.ok(bar, "the pager is under the list");
+        assert.equal(bar.dataset.pages, "3");
+        const numbers = [...bar.querySelectorAll(".pager-num")].map((b) => b.textContent);
+        assert.deepEqual(numbers, ["1", "2", "3"]);
+        assert.equal(bar.querySelector(".pager-num.is-current").textContent, "1");
+        // First and previous are spent on page one; next and last are not.
+        const step = (id) => bar.querySelector(`[data-pager="${id}"]`);
+        assert.equal(step("first").disabled, true);
+        assert.equal(step("prev").disabled, true);
+        assert.equal(step("next").disabled, false);
+        assert.equal(step("last").disabled, false);
+        // Each step is an icon, not a character.
+        for (const id of ["first", "prev", "next", "last"]) {
+          assert.ok(step(id).querySelector("svg"), `${id} is an icon`);
+          assert.equal(step(id).textContent.trim(), "", `${id} carries no text`);
+        }
+        // Next moves on to ten different headlines.
+        step("next").click();
+        await settle();
+        const pageTwo = titles();
+        assert.equal(pageTwo.length, 10);
+        assert.equal(pageOne.some((title) => pageTwo.includes(title)), false, "a page repeats nothing");
+        // The last page holds the remainder: 23 headlines, so three.
+        news.popup.querySelector('[data-gui="pager-bar"] [data-pager="last"]').click();
+        await settle();
+        const pageThree = titles();
+        assert.equal(pageThree.length, 3);
+        // Between them the pages account for every headline exactly once.
+        const seen = new Set([...pageOne, ...pageTwo, ...pageThree]);
+        assert.equal(seen.size, 23, `${seen.size} of 23`);
+        // A number jumps straight to that page.
+        [...news.popup.querySelectorAll(".pager-num")].find((b) => b.textContent === "2").click();
+        await settle();
+        assert.deepEqual(titles(), pageTwo);
+        // The window never resized while paging.
+        assert.equal(Number(news.popup.querySelector('[data-gui="panel"]').dataset.fitHeight) > 0, true);
+        await news.close();
+      },
+      {
+        fetch: (url, options) => {
+          const href = String(url);
+          if (href.includes("news.google.com")) return textResponse(newsBody(many));
+          if (href.includes("yna.co.kr") || href.includes("bbci.co.uk")) return textResponse(newsBody(many));
+          return defaultFetch(href, options);
+        },
+      },
+    );
+  });
+  h.test("a short list gets no pager at all", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const news = await openPanel(app, "news");
+      const rows = news.popup.querySelectorAll('[data-gui="news"]').length;
+      assert.ok(rows >= 1 && rows <= 10, `${rows} headlines`);
+      assert.equal(news.popup.querySelector('[data-gui="pager-bar"]'), null, "one page needs no pager");
+      await news.close();
+    });
+  });
+  h.test("the quote panel pages too, ten symbols at a time", async () => {
+    await withApp(async ({ app }) => {
+      // Fill the watchlist past a single page.
+      const held = new Set(app.currentTab().board.symbols.map((entry) => entry.symbol));
+      for (const entry of app.listingChoices()) {
+        if (held.has(entry.symbol)) continue;
+        if (app.addSymbol(entry.symbol) !== "added") break;
+        held.add(entry.symbol);
+        if (held.size >= 13) break;
+      }
+      await app.refreshMarket();
+      const stocks = await openPanel(app, "stocks");
+      const shown = () => [...stocks.popup.querySelectorAll('[data-gui="quote"]')].map((row) => row.dataset.symbol);
+      assert.equal(shown().length, 10, shown().join(", "));
+      const bar = stocks.popup.querySelector('[data-gui="pager-bar"]');
+      assert.ok(bar, "the quote panel has a pager");
+      assert.equal(bar.dataset.pages, "2");
+      const first = shown();
+      bar.querySelector('[data-pager="next"]').click();
+      await settle();
+      const second = shown();
+      assert.equal(second.length, 3, second.join(", "));
+      assert.equal(first.some((symbol) => second.includes(symbol)), false, "a page shows its own symbols");
+      // The rows on the new page can still be dragged.
+      for (const row of stocks.popup.querySelectorAll('[data-gui="quote"]')) {
+        assert.ok(row.querySelector("[data-grip]"), "the new rows carry grips");
+      }
+      await stocks.close();
+    });
+  });
+  h.test("rows keep their height instead of being squeezed into the window", async () => {
+    // jsdom does no layout, so the guard is on the rules that decide it:
+    // a row in a column flex board must not shrink, or every row loses height.
+    const rules = [...document.styleSheets[0].cssRules];
+    const find = (selector) => rules.find((rule) => squashSpace(rule.selectorText) === selector);
+    const shared = find(".quote-row, .rate-row, .news-row");
+    assert.ok(shared, "shared row rule");
+    assert.match(squashSpace(shared.cssText), /flex: 0 0 32px/);
+    assert.match(squashSpace(shared.cssText), /height: 32px/);
+    const news = find(".news-row");
+    assert.ok(news, "news row rule");
+    assert.match(squashSpace(news.cssText), /flex: 0 0 48px/);
+    assert.match(squashSpace(news.cssText), /height: 48px/);
+  });
+  h.test("the quote and rate boards scroll their rows while the titles stay put", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const stocks = await openPanel(app, "stocks");
+      const board = stocks.popup.querySelector('[data-gui="stocks"]');
+      const head = board.querySelector('[data-gui="quote-head"]');
+      const rows = board.querySelector('[data-gui="quote-rows"]');
+      assert.ok(head && rows, "the board has a head and a row scroller");
+      // The head is a sibling of the scroller, never inside it.
+      assert.equal(head.parentElement, board);
+      assert.equal(rows.parentElement, board);
+      assert.equal(rows.contains(head), false);
+      assert.ok(board.querySelectorAll('[data-gui="quote-rows"] .quote-row').length >= 1);
+      assert.equal(getComputedStyle(rows).overflowY, "auto");
+      // The head reserves the scrollbar gutter, so the columns line up.
+      // jsdom resolves neither calc() nor var(), so read the rule itself.
+      const gutter = [...document.styleSheets[0].cssRules].find(
+        (rule) => squashSpace(rule.selectorText) === ".panel-fit .quote-head, .panel-fit .rate-head",
+      );
+      assert.ok(gutter, "gutter rule");
+      assert.match(squashSpace(gutter.cssText), /padding-right: calc\(10px \+ var\(--scrollbar, 0px\)\)/);
+      await stocks.close();
+
+      const rates = await openPanel(app, "rates");
+      const rateBoard = rates.popup.querySelector('[data-gui="rates"]');
+      const rateRows = rateBoard.querySelector('[data-gui="rate-rows"]');
+      assert.ok(rateRows, "the rate board has a row scroller");
+      assert.equal(rateRows.contains(rateBoard.querySelector('[data-gui="rate-head"]')), false);
+      assert.equal(getComputedStyle(rateRows).overflowY, "auto");
+      await rates.close();
+    });
+  });
+  h.test("a long watchlist makes the quote panel taller instead of scrolling", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const short = await openPanel(app, "stocks");
+      const shortFit = Number(short.popup.querySelector('[data-gui="panel"]').dataset.fitHeight);
+      const shortRows = short.popup.querySelectorAll('[data-gui="quote"]').length;
+      await short.close();
+      // Add symbols until the watchlist is well past the old 420px cap.
+      const held = new Set(app.currentTab().board.symbols.map((entry) => entry.symbol));
+      for (const entry of app.listingChoices()) {
+        if (held.has(entry.symbol)) continue;
+        if (app.addSymbol(entry.symbol) !== "added") break;
+        held.add(entry.symbol);
+        if (held.size >= 14) break;
+      }
+      await app.refreshMarket();
+      const tall = await openPanel(app, "stocks");
+      const tallFit = Number(tall.popup.querySelector('[data-gui="panel"]').dataset.fitHeight);
+      const tallRows = tall.popup.querySelectorAll('[data-gui="quote"]').length;
+      assert.ok(tallRows > shortRows, `${tallRows} > ${shortRows}`);
+      assert.ok(tallFit > shortFit, `the panel grew: ${tallFit} > ${shortFit}`);
+      assert.ok(tallFit > 420, `${tallFit} is past the old fixed cap`);
+      // And it is still within what the screen offers.
+      assert.ok(tallFit <= panelMaxBody(app.screenHeight()));
+      await tall.close();
+    });
+  });
+  h.test("a short news list neither scrolls nor leaves the window oversized", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const news = await openPanel(app, "news");
+      const board = news.popup.querySelector('[data-gui="news-board"]');
+      const rows = board.querySelectorAll('[data-gui="news"]');
+      assert.ok(rows.length >= 1 && rows.length <= 10, `drew ${rows.length} headlines`);
+      const fit = news.popup.querySelector('[data-gui="panel"]');
+      assert.equal(Number(fit.dataset.fitHeight), 30 + rows.length * 50);
+      await news.close();
+    });
+  });
+
+  h.test("a popup opened over another one hands the channel back when it closes", async () => {
+    // Native popups share one message channel. The window on top installs its
+    // handler, and closing it must hand the channel back to the one below -
+    // which is still on screen. Open the stocks panel, drop a picture on the
+    // window, answer the question, and the panel must still take clicks.
+    const platform = createMemoryPlatform();
+    platform.nativePopups = true;
+    let releaseOuter;
+    let releaseInner;
+    const seen = [];
+    platform.openPopup = (spec) => {
+      seen.push(spec.type);
+      return spec.type === "panel"
+        ? new Promise((resolve) => (releaseOuter = resolve))
+        : new Promise((resolve) => (releaseInner = resolve));
+    };
+    await withApp(
+      async ({ app }) => {
+        const panelHandler = (msg) => ({ from: "panel", type: msg.type });
+        const panel = app.openPopup({ type: "panel", panel: "stocks" }, { immediate: panelHandler });
+        await settle();
+        assert.equal(app.nativeImmediate, panelHandler, "the panel is listening");
+        // A second window opens over it, carrying no handler of its own.
+        const confirm = app.openPopup({ type: "wallpaper-drop" });
+        await settle();
+        assert.equal(app.nativeImmediate, null, "the window on top holds the channel");
+        releaseInner({ action: "cancel" });
+        await confirm;
+        assert.equal(app.nativeImmediate, panelHandler, "the panel gets the channel back");
+        releaseOuter({ action: "close" });
+        await panel;
+        assert.equal(app.nativeImmediate, null, "nothing is left listening");
+        assert.deepEqual(seen, ["panel", "wallpaper-drop"]);
+      },
+      { platform },
+    );
+  });
+
+  h.test("the context menu can add a symbol, opening the page that holds the pickers", async () => {
+    await withApp(async ({ app }) => {
+      app.openMenu("context", { clientX: 20, clientY: 20 }, { atPointer: true });
+      await settle();
+      const entry = document.querySelector('.menu-popup[data-menu="context"] [data-cmd="add-symbol"]');
+      assert.ok(entry, "the context menu offers 종목 추가");
+      entry.click();
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      assert.ok(popup, "Settings opens");
+      // It lands on the Watchlist page, where the market, symbol and Add live.
+      const page = popup.querySelector(".popup-panel:not([hidden])");
+      assert.equal(page.dataset.panel, "watchlist");
+      for (const field of ["marketCode", "symbol"]) assert.ok(page.querySelector(`[data-field="${field}"]`), field);
+      assert.ok(page.querySelector('[data-action="add-symbol"]'), "the Add button");
+      // And adding from there works, as it does from the page itself.
+      const held = new Set(app.currentTab().board.symbols.map((item) => item.symbol));
+      const free = [...page.querySelector('[data-field="symbol"]').options].map((o) => o.value).find((v) => !held.has(v));
+      page.querySelector('[data-field="symbol"]').value = free;
+      popup.querySelector('[data-action="add-symbol"]').click();
+      await settle();
+      assert.ok(app.currentTab().board.symbols.some((item) => item.symbol === free));
+      popup.querySelector('[data-action="cancel"]').click();
+      await settle();
+    });
+  });
+  h.test("the Fonts command opens the page the font settings now live on", async () => {
+    await withApp(async ({ app }) => {
+      // The font tab was merged into the background one; the command followed.
+      const pending = app.run("fonts");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const page = popup.querySelector(".popup-panel:not([hidden])");
+      assert.equal(page.dataset.panel, "wallpaper");
+      assert.ok(page.querySelector('[data-field="fontFamily"]'), "the font picker is on it");
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+    });
+  });
+
+  h.test("a quote row can be dragged into a new place and the order is kept", async () => {
+    const platform = createMemoryPlatform();
+    await withApp(
+      async ({ app }) => {
+        await app.refreshMarket();
+        const stocks = await openPanel(app, "stocks");
+        const list = stocks.popup.querySelector('[data-gui="quote-rows"]');
+        const symbolsOf = () => [...list.querySelectorAll("[data-symbol]")].map((row) => row.dataset.symbol);
+        const before = symbolsOf();
+        assert.ok(before.length >= 3, before.join(", "));
+        // Every row carries a grip; the index row is not part of the watchlist.
+        for (const row of list.querySelectorAll("[data-symbol]")) assert.ok(row.querySelector("[data-grip]"));
+        const index = list.querySelector('[data-gui="index"]');
+        if (index) assert.equal(index.querySelector("[data-grip]")?.innerHTML || "", "", "the index has no grip");
+        // Drag the last row onto the first one, above its midpoint.
+        const rows = [...list.querySelectorAll("[data-symbol]")];
+        const moved = rows[rows.length - 1];
+        const target = rows[0];
+        target.getBoundingClientRect = () => ({ top: 100, height: 32, bottom: 132, left: 0, right: 100, width: 100 });
+        dragRowByGrip(moved, target);
+        // It has already moved on screen.
+        assert.equal(symbolsOf()[0], before[before.length - 1], symbolsOf().join(", "));
+        await settle();
+        assert.equal(moved.classList.contains("is-dragging"), false);
+        // And the watchlist itself now carries that order ...
+        const expected = [before[before.length - 1], ...before.slice(0, -1)];
+        assert.deepEqual(app.currentTab().board.symbols.map((entry) => entry.symbol), expected);
+        // ... saved, so the next launch opens with it.
+        assert.deepEqual(platform.settings.defaultBoard.symbols.map((entry) => entry.symbol), expected);
+        // Undo puts it back.
+        app.undo();
+        assert.deepEqual(app.currentTab().board.symbols.map((entry) => entry.symbol), before);
+        await stocks.close();
+      },
+      { platform },
+    );
+  });
+  h.test("a rate row can be dragged into a new place and the order is kept", async () => {
+    const platform = createMemoryPlatform();
+    await withApp(
+      async ({ app }) => {
+        await app.refreshMarket();
+        const rates = await openPanel(app, "rates");
+        const list = rates.popup.querySelector('[data-gui="rate-rows"]');
+        const codesOf = () => [...list.querySelectorAll("[data-code]")].map((row) => row.dataset.code);
+        const before = codesOf();
+        assert.ok(before.length >= 3, before.join(", "));
+        const rows = [...list.querySelectorAll("[data-code]")];
+        const moved = rows[rows.length - 1];
+        const target = rows[0];
+        target.getBoundingClientRect = () => ({ top: 60, height: 30, bottom: 90, left: 0, right: 100, width: 100 });
+        dragRowByGrip(moved, target);
+        await settle();
+        const expected = [before[before.length - 1], ...before.slice(0, -1)];
+        assert.deepEqual(app.settings.rateCurrencies, expected);
+        assert.deepEqual(platform.settings.rateCurrencies, expected, "saved too");
+        await rates.close();
+      },
+      { platform },
+    );
+  });
+
+  h.test("the saved watchlist opens on a platform that only reads settings asynchronously", async () => {
+    // The desktop build has no synchronous read, so the document is built from
+    // the defaults and must be rebuilt once the saved settings arrive. Tests
+    // that use the synchronous read never exercise that path.
+    const platform = createMemoryPlatform();
+    // The desktop platform has no synchronous read and its async read goes
+    // straight to the file, so model both rather than delegating.
+    platform.readSettingsSync = null;
+    platform.readSettings = async () => (platform.settings ? structuredClone(platform.settings) : null);
+    let added = "";
+    await withApp(
+      async ({ app }) => {
+        const held = new Set(app.currentTab().board.symbols.map((entry) => entry.symbol));
+        added = app.listingChoices().map((entry) => entry.symbol).find((symbol) => !held.has(symbol));
+        assert.equal(app.addSymbol(added), "added");
+        await settle();
+        assert.ok(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === added));
+      },
+      { platform },
+    );
+    // A fresh launch on the same stored settings shows it.
+    await withApp(
+      async ({ app }) => {
+        const symbols = app.currentTab().board.symbols.map((entry) => entry.symbol);
+        assert.ok(symbols.includes(added), `after restart: ${symbols.join(", ")}`);
+        // The board on screen is the saved one, not the starter list.
+        assert.deepEqual(symbols, platform.settings.defaultBoard.symbols.map((entry) => entry.symbol));
+        assert.equal(app.root.querySelector(".scene-name") !== null, true);
+      },
+      { platform },
+    );
+  });
+  h.test("a document already opened is not replaced when the settings arrive", async () => {
+    const platform = createMemoryPlatform();
+    // The desktop platform has no synchronous read and its async read goes
+    // straight to the file, so model both rather than delegating.
+    platform.readSettingsSync = null;
+    platform.readSettings = async () => (platform.settings ? structuredClone(platform.settings) : null);
+    await withApp(
+      async ({ app }) => {
+        app.addSymbol(app.listingChoices().map((e) => e.symbol).find((symbol) => !app.currentTab().board.symbols.some((s) => s.symbol === symbol)));
+        await settle();
+      },
+      { platform },
+    );
+    const saved = platform.settings.defaultBoard.symbols.map((entry) => entry.symbol);
+    // Opening a file during start-up must win over the saved watchlist.
+    await withApp(
+      async ({ app }) => {
+        app.doc.filePath = "C:/money/other.mymoney";
+        await app.ready;
+        assert.equal(app.doc.filePath, "C:/money/other.mymoney");
+      },
+      { platform, app: { autoLoad: false } },
+    );
+    assert.ok(saved.length >= 1);
+  });
+
+  h.test("the Settings lists reorder by their grips as well", async () => {
+    const platform = createMemoryPlatform();
+    await withApp(
+      async ({ app }) => {
+        const pending = app.showSettings("watchlist");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        const list = popup.querySelector('[data-gui="watchlist"]');
+        const codesOf = () => [...list.querySelectorAll("[data-watch]")].map((row) => row.dataset.watch);
+        const before = codesOf();
+        assert.ok(before.length >= 3, before.join(", "));
+        const rows = [...list.querySelectorAll("[data-watch]")];
+        const moved = rows[rows.length - 1];
+        const target = rows[0];
+        // The list is two columns, so it is the horizontal midpoint that decides.
+        target.getBoundingClientRect = () => ({ top: 0, height: 26, bottom: 26, left: 40, right: 240, width: 200 });
+        dragRowByGrip(moved, target, { vertical: false });
+        await settle();
+        const expected = [before[before.length - 1], ...before.slice(0, -1)];
+        assert.deepEqual(codesOf(), expected, "the list shows the new order");
+        assert.deepEqual(app.currentTab().board.symbols.map((entry) => entry.symbol), expected);
+        assert.deepEqual(platform.settings.defaultBoard.symbols.map((entry) => entry.symbol), expected, "saved");
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+      },
+      { platform },
+    );
+  });
+  h.test("the Settings currency list reorders by its grips too", async () => {
+    const platform = createMemoryPlatform();
+    await withApp(
+      async ({ app }) => {
+        const pending = app.showSettings("rates");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        const list = popup.querySelector('[data-gui="ratelist"]');
+        assert.ok(list, "the currency list is on the page");
+        const codesOf = () => [...list.querySelectorAll("[data-watch]")].map((row) => row.dataset.watch);
+        const before = codesOf();
+        assert.ok(before.length >= 3, before.join(", "));
+        const rows = [...list.querySelectorAll("[data-watch]")];
+        const moved = rows[rows.length - 1];
+        const target = rows[0];
+        target.getBoundingClientRect = () => ({ top: 0, height: 26, bottom: 26, left: 40, right: 240, width: 200 });
+        dragRowByGrip(moved, target, { vertical: false });
+        await settle();
+        const expected = [before[before.length - 1], ...before.slice(0, -1)];
+        assert.deepEqual(app.settings.rateCurrencies, expected);
+        assert.deepEqual(platform.settings.rateCurrencies, expected, "saved");
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+      },
+      { platform },
+    );
+  });
+
+  h.category("Watchlist");  h.test("a market and a symbol can be chosen and added from Settings", async () => {
     await withApp(async ({ app }) => {
       const pending = app.showSettings("general");
       await settle();
@@ -632,12 +1083,413 @@ export function registerGui(h) {
       const board = app.currentTab().board;
       assert.equal(board.marketCode, "US");
       assert.equal(board.currency, "USD");
-      // Switching markets seeds the board with that market's first three listings.
-      assert.deepEqual(board.symbols.map((entry) => entry.symbol), ["AAPL", "MSFT", "NVDA", "TSLA"]);
+      // The watchlist spans exchanges: the Korean listings stay, TSLA joins them.
+      assert.deepEqual(board.symbols.map((entry) => entry.symbol), ["005930.KS", "000660.KS", "035420.KS", "TSLA"]);
+      assert.deepEqual([...new Set(board.symbols.map((entry) => entry.marketCode))], ["KR", "US"]);
       assert.match(app.root.querySelector("[data-gui='toast']").textContent, /테슬라/);
       assert.equal(popup.querySelector('[data-gui="watchlist"]').querySelectorAll("[data-watch]").length, 4);
       popup.querySelector('[data-action="cancel"]').click();
       await pending;
+    });
+  });
+  h.test("choosing, adding, and listing symbols all sit on the Watchlist page", async () => {
+    await withApp(async ({ app }) => {
+      const pending = app.showSettings("watchlist");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const page = popup.querySelector('.popup-panel[data-panel="watchlist"]');
+      assert.ok(page, "the Watchlist page exists");
+      // The market picker, the symbol picker, Add, search, and the list are one page.
+      for (const field of ["marketCode", "symbol", "search"]) {
+        assert.ok(page.querySelector(`[data-field="${field}"]`), field);
+      }
+      for (const action of ["add-symbol", "search-online"]) {
+        assert.ok(page.querySelector(`[data-action="${action}"]`), action);
+      }
+      assert.ok(page.querySelector('[data-gui="watchlist"]'), "the list itself");
+      // Search comes before the symbol picker: look one up, then choose and add it.
+      const order = [...page.children].map((row) => row.dataset.row).filter(Boolean);
+      assert.deepEqual(order, [
+        "marketCode",
+        "search",
+        "search-online",
+        "symbol",
+        "add-symbol",
+        "watchlistHint",
+        "watchlist",
+        "sceneMode",
+        "rotateSeconds",
+      ]);
+      // And none of them is left behind on the General page.
+      const general = popup.querySelector('.popup-panel[data-panel="general"]');
+      for (const field of ["marketCode", "symbol", "search"]) {
+        assert.equal(general.querySelector(`[data-field="${field}"]`), null, `${field} left General`);
+      }
+      assert.equal(general.querySelector('[data-action="add-symbol"]'), null, "Add left General");
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+    });
+  });
+  h.test("a symbol added in Settings is saved at once and is still there next launch", async () => {
+    const platform = createMemoryPlatform();
+    let added = "";
+    await withApp(
+      async ({ app }) => {
+        const pending = app.showSettings("watchlist");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        const field = popup.querySelector('[data-field="symbol"]');
+        const held = new Set(app.currentTab().board.symbols.map((entry) => entry.symbol));
+        // Pick an option the default watchlist does not already hold.
+        added = [...field.options].map((option) => option.value).find((value) => !held.has(value));
+        assert.ok(added, "an addable symbol exists");
+        field.value = added;
+        popup.querySelector('[data-action="add-symbol"]').click();
+        await settle();
+        // The board shows it straight away ...
+        assert.ok(app.currentTab().board.symbols.some((entry) => entry.symbol === added));
+        // ... and it is written to settings without pressing OK.
+        const saved = platform.settings.defaultBoard.symbols.map((entry) => entry.symbol);
+        assert.ok(saved.includes(added), `saved: ${saved.join(", ")}`);
+        // Cancel must not take the added symbol back out of the saved settings.
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+        await settle();
+        assert.ok(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === added));
+      },
+      { platform },
+    );
+    // A fresh app on the same stored settings opens with the symbol in place.
+    await withApp(
+      async ({ app }) => {
+        assert.ok(app.currentTab().board.symbols.some((entry) => entry.symbol === added));
+      },
+      { platform },
+    );
+  });
+  h.test("removing a symbol is saved at once too", async () => {
+    const platform = createMemoryPlatform();
+    await withApp(
+      async ({ app }) => {
+        const first = app.currentTab().board.symbols[0].symbol;
+        app.removeSymbol(first);
+        await settle();
+        assert.equal(
+          platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === first),
+          false,
+          `${first} is gone from the saved settings`,
+        );
+      },
+      { platform },
+    );
+    await withApp(
+      async ({ app }) => {
+        assert.ok(app.currentTab().board.symbols.length >= 1);
+      },
+      { platform },
+    );
+  });
+  h.test("switching markets from the Watchlist page is saved at once", async () => {
+    const platform = createMemoryPlatform();
+    await withApp(
+      async ({ app }) => {
+        const pending = app.showSettings("watchlist");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        const market = popup.querySelector('[data-field="marketCode"]');
+        market.value = "US";
+        market.dispatchEvent(new window.Event("change", { bubbles: true }));
+        popup.querySelector('[data-field="symbol"]').value = "TSLA";
+        popup.querySelector('[data-action="add-symbol"]').click();
+        await settle();
+        assert.equal(platform.settings.defaultBoard.marketCode, "US");
+        assert.ok(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === "TSLA"));
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+      },
+      { platform },
+    );
+  });
+  h.test("a symbol found by online search can be added and is saved", async () => {
+    const platform = createMemoryPlatform();
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      if (String(url).includes("finance/search")) {
+        return jsonResponse({ quotes: [{ symbol: "7203.T", longname: "Toyota Motor", exchDisp: "TSE", quoteType: "EQUITY" }] });
+      }
+      return original(url, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const pending = app.showSettings("watchlist");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        popup.querySelector('[data-field="search"]').value = "toyota";
+        popup.querySelector('[data-action="search-online"]').click();
+        await settle();
+        // The hit becomes a listing the pickers can offer.
+        assert.equal(app.listingDraft.symbol, "7203.T");
+        assert.ok(app.listingChoices().some((entry) => entry.symbol === "7203.T"));
+        // Adding it lands on the board and in the saved settings.
+        app.addSymbol("7203.T");
+        await settle();
+        assert.ok(app.currentTab().board.symbols.some((entry) => entry.symbol === "7203.T"));
+        assert.ok(platform.settings.defaultBoard.symbols.some((entry) => entry.symbol === "7203.T"));
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+      },
+      { platform },
+    );
+  });
+  h.test("a search that finds nothing says so and changes no symbols", async () => {
+    const platform = createMemoryPlatform();
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      if (String(url).includes("finance/search")) return jsonResponse({ quotes: [] });
+      return original(url, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const before = app.currentTab().board.symbols.map((entry) => entry.symbol);
+        const pending = app.searchAndPick("nothing-like-this");
+        await settle();
+        // An empty search is an answer, not an error popup.
+        const popup = document.querySelector('[data-popup="search-results"]');
+        assert.ok(popup, "the result window opens");
+        assert.equal(document.querySelector('[data-popup="error"]'), null, "no error popup");
+        assert.match(popup.textContent, /검색 결과가 없습니다/);
+        assert.match(popup.textContent, /nothing-like-this/);
+        assert.equal(popup.querySelectorAll('[data-gui="pick"]').length, 0);
+        popup.querySelector('[data-action="cancel"]').click();
+        assert.equal(await pending, null);
+        assert.deepEqual(app.currentTab().board.symbols.map((entry) => entry.symbol), before);
+      },
+      { platform },
+    );
+  });
+  h.test("a search lists what it found and the chosen one can be added", async () => {
+    const platform = createMemoryPlatform();
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      if (String(url).includes("finance/search")) {
+        return jsonResponse({
+          quotes: [
+            { symbol: "7203.T", longname: "Toyota Motor", exchDisp: "TSE", quoteType: "EQUITY" },
+            { symbol: "7267.T", longname: "Honda Motor", exchDisp: "TSE", quoteType: "EQUITY" },
+            { symbol: "TM", longname: "Toyota Motor ADR", exchDisp: "NYSE", quoteType: "EQUITY" },
+          ],
+        });
+      }
+      return original(url, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const pending = app.searchAndPick("toyota");
+        await settle();
+        const popup = document.querySelector('[data-popup="search-results"]');
+        assert.ok(popup, "the result window opens");
+        // Every hit is listed with its name, symbol and exchange.
+        const picks = [...popup.querySelectorAll('[data-gui="pick"]')];
+        assert.deepEqual(picks.map((row) => row.dataset.symbol), ["7203.T", "7267.T", "TM"]);
+        // The built-in catalogue answers first, so the row carries its Korean name.
+        assert.match(picks[0].textContent, /도요타|Toyota Motor/);
+        assert.match(picks[0].textContent, /7203\.T/);
+        assert.match(popup.textContent, /3건을 찾았습니다/);
+        // Choosing one closes the window and hands it back.
+        picks[1].click();
+        const chosen = await pending;
+        assert.equal(chosen.symbol, "7267.T");
+        assert.equal(chosen.marketCode, "JP");
+        assert.equal(document.querySelector('[data-popup="search-results"]'), null, "the window closed");
+        // It is now offered by the pickers, and adding it works.
+        assert.ok(app.listingChoices().some((entry) => entry.symbol === "7267.T"));
+        assert.equal(app.addSymbol("7267.T"), "added");
+        assert.ok(app.currentTab().board.symbols.some((entry) => entry.symbol === "7267.T"));
+      },
+      { platform },
+    );
+  });
+  h.test("searching 삼성전자 lists the ordinary share and the preferred one by name", async () => {
+    // Yahoo answers with the parent company name for every listing, so the
+    // preferred share is indistinguishable unless the catalogue names it.
+    const platform = createMemoryPlatform();
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      if (String(url).includes("finance/search")) {
+        return jsonResponse({
+          quotes: [
+            { symbol: "005930.KS", longname: "Samsung Electronics Co., Ltd.", exchDisp: "KSC", quoteType: "EQUITY" },
+            { symbol: "005935.KS", longname: "Samsung Electronics Co., Ltd.", exchDisp: "KSC", quoteType: "EQUITY" },
+            { symbol: "SSNLF", longname: "Samsung Electronics Co., Ltd.", exchDisp: "OTC", quoteType: "EQUITY" },
+          ],
+        });
+      }
+      return original(url, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const pending = app.searchAndPick("삼성전자");
+        await settle();
+        const popup = document.querySelector('[data-popup="search-results"]');
+        const rows = [...popup.querySelectorAll('[data-gui="pick"]')];
+        const named = new Map(rows.map((row) => [row.dataset.symbol, row.querySelector(".pick-name").textContent]));
+        assert.equal(named.get("005930.KS"), "삼성전자");
+        assert.equal(named.get("005935.KS"), "삼성전자우", "the preferred share is named, not left as the English one");
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+      },
+      { platform },
+    );
+  });
+  h.test("pressing Enter in the search box runs the search", async () => {
+    const platform = createMemoryPlatform();
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      if (String(url).includes("finance/search")) return jsonResponse({ quotes: [] });
+      return original(url, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const pending = app.showSettings("watchlist");
+        await settle();
+        const settings = document.querySelector('[data-popup="settings"]');
+        const box = settings.querySelector('[data-field="search"]');
+        // The box says which button its Enter key stands for.
+        assert.equal(box.dataset.submit, "search-online");
+        box.value = "삼성전자";
+        box.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+        await settle();
+        const popup = document.querySelector('[data-popup="search-results"]');
+        assert.ok(popup, "Enter alone opened the result window");
+        const rows = [...popup.querySelectorAll('[data-gui="pick"]')].map((row) => row.dataset.symbol);
+        assert.ok(rows.includes("005930.KS"), rows.join(", "));
+        popup.querySelector('[data-action="cancel"]').click();
+        await settle();
+        // Enter did not also press OK and close Settings.
+        assert.ok(document.querySelector('[data-popup="settings"]'), "Settings is still open");
+        settings.querySelector('[data-action="cancel"]').click();
+        await pending;
+      },
+      { platform },
+    );
+  });
+
+  h.test("a Korean name is searched even though the online search refuses one", async () => {
+    // Yahoo answers 400 "Invalid Search Query" to anything outside ASCII, so a
+    // Korean name is matched in the catalogue and Yahoo is asked in English.
+    const platform = createMemoryPlatform();
+    const asked = [];
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      const href = String(url);
+      if (href.includes("finance/search")) {
+        const q = new URL(href).searchParams.get("q") || "";
+        asked.push(q);
+        if (!/^[\x20-\x7E]+$/.test(q)) return jsonResponse({ finance: { error: "Invalid Search Query" } }, false, 400);
+        return jsonResponse({ quotes: [{ symbol: "005935.KS", longname: "Samsung Electronics Pfd", exchDisp: "KSC", quoteType: "EQUITY" }] });
+      }
+      return original(href, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const rows = await app.searchOnline("삼성전자");
+        const symbols = rows.map((row) => row.symbol);
+        // The catalogue match comes first, the online hit joins it.
+        assert.ok(symbols.includes("005930.KS"), `삼성전자: ${symbols.join(", ")}`);
+        assert.ok(symbols.includes("005935.KS"), `삼성전자우: ${symbols.join(", ")}`);
+        // Yahoo was never sent the Korean text; it was asked in English.
+        assert.ok(!asked.some((q) => /[^\x20-\x7E]/.test(q)), `asked: ${asked.join(" | ")}`);
+        assert.ok(asked.length >= 1, "the online search was still used");
+      },
+      { platform },
+    );
+  });
+  h.test("the result window still opens when the online search fails", async () => {
+    const platform = createMemoryPlatform();
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      if (String(url).includes("finance/search")) return jsonResponse({ error: "nope" }, false, 400);
+      return original(url, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const pending = app.searchAndPick("삼성전자");
+        await settle();
+        const popup = document.querySelector('[data-popup="search-results"]');
+        assert.ok(popup, "a failed online search still opens the window");
+        assert.equal(document.querySelector('[data-popup="error"]'), null, "and not an error popup");
+        // The catalogue match is listed, with a note that the online part was quiet.
+        const picks = [...popup.querySelectorAll('[data-gui="pick"]')].map((row) => row.dataset.symbol);
+        assert.ok(picks.includes("005930.KS"), picks.join(", "));
+        assert.match(popup.textContent, /온라인 검색은 응답하지 않아/);
+        popup.querySelector('[data-action="cancel"]').click();
+        await pending;
+      },
+      { platform },
+    );
+  });
+  h.test("a query that matches nothing at all still opens the window", async () => {
+    const platform = createMemoryPlatform();
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      if (String(url).includes("finance/search")) return jsonResponse({ quotes: [] });
+      return original(url, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const pending = app.searchAndPick("zzzzz-nothing");
+        await settle();
+        const popup = document.querySelector('[data-popup="search-results"]');
+        assert.ok(popup, "the window opens");
+        assert.equal(popup.querySelectorAll('[data-gui="pick"]').length, 0);
+        assert.match(popup.textContent, /검색 결과가 없습니다/);
+        popup.querySelector('[data-action="cancel"]').click();
+        assert.equal(await pending, null);
+      },
+      { platform },
+    );
+  });
+  h.test("the Settings search button opens the result window and fills the pickers", async () => {
+    const platform = createMemoryPlatform();
+    const original = platform.fetchImpl;
+    platform.fetchImpl = async (url, options) => {
+      if (String(url).includes("finance/search")) {
+        return jsonResponse({ quotes: [{ symbol: "7203.T", longname: "Toyota Motor", exchDisp: "TSE", quoteType: "EQUITY" }] });
+      }
+      return original(url, options);
+    };
+    await withApp(
+      async ({ app }) => {
+        const pending = app.showSettings("watchlist");
+        await settle();
+        const settings = document.querySelector('[data-popup="settings"]');
+        settings.querySelector('[data-field="search"]').value = "toyota";
+        settings.querySelector('[data-action="search-online"]').click();
+        await settle();
+        const results = document.querySelector('[data-popup="search-results"]');
+        assert.ok(results, "the result window opens over Settings");
+        results.querySelector('[data-gui="pick"]').click();
+        await settle();
+        // The pickers now stand on the hit, ready for Add.
+        assert.equal(settings.querySelector('[data-field="marketCode"]').value, "JP");
+        assert.equal(settings.querySelector('[data-field="symbol"]').value, "7203.T");
+        settings.querySelector('[data-action="add-symbol"]').click();
+        await settle();
+        assert.ok(app.currentTab().board.symbols.some((entry) => entry.symbol === "7203.T"));
+        settings.querySelector('[data-action="cancel"]').click();
+        await pending;
+      },
+      { platform },
+    );
+  });
+  h.test("the same symbol cannot be added twice and the cap is respected", async () => {
+    await withApp(async ({ app }) => {
+      const already = app.currentTab().board.symbols[0].symbol;
+      assert.equal(app.addSymbol(already), "exists");
+      const free = app.listingChoices().find((entry) => !app.currentTab().board.symbols.some((s) => s.symbol === entry.symbol));
+      assert.equal(app.addSymbol(free.symbol), "added");
+      assert.equal(app.addSymbol(free.symbol), "exists");
+      assert.equal(app.addSymbol("NOT-A-SYMBOL"), "none");
     });
   });
   h.test("the watchlist page lists the symbols and removes one at a time", async () => {
@@ -675,19 +1527,43 @@ export function registerGui(h) {
       assert.equal(app.statusMessage, "마지막 종목은 제거할 수 없습니다.");
     });
   });
-  h.test("choosing another market keeps only that market's symbols", async () => {
+  h.test("choosing another market moves the benchmark but keeps the watchlist", async () => {
     await withApp(async ({ app }) => {
+      const before = app.currentTab().board.symbols.map((entry) => entry.symbol);
+      assert.ok(before.length >= 1);
       assert.equal(app.applyMarket("JP"), true);
       const board = app.currentTab().board;
+      // The market decides the benchmark index and the board currency ...
       assert.equal(board.marketCode, "JP");
       assert.equal(board.currency, "JPY");
       assert.equal(board.index, "^N225");
-      assert.ok(board.symbols.length >= 1);
-      assert.ok(board.symbols.every((entry) => entry.symbol.endsWith(".T")));
-      assert.equal(board.activeSymbol, board.symbols[0].symbol);
+      // ... but the listings already being watched are not thrown away.
+      assert.deepEqual(board.symbols.map((entry) => entry.symbol), before);
+      assert.equal(board.activeSymbol, before[0]);
       assert.equal(app.applyMarket("JP"), false);
       app.undo();
       assert.equal(app.currentTab().board.marketCode, "KR");
+      assert.deepEqual(app.currentTab().board.symbols.map((entry) => entry.symbol), before);
+    });
+  });
+  h.test("one watchlist can hold listings from several exchanges at once", async () => {
+    await withApp(async ({ app }) => {
+      app.applyMarket("US");
+      assert.equal(app.addSymbol("AAPL"), "added");
+      app.applyMarket("JP");
+      assert.equal(app.addSymbol("7203.T"), "added");
+      const board = app.currentTab().board;
+      const codes = board.symbols.map((entry) => entry.marketCode);
+      assert.ok(codes.includes("KR") && codes.includes("US") && codes.includes("JP"), codes.join(","));
+      // The board names the exchange for every row, so the mix stays readable.
+      await app.refreshMarket();
+      const stocks = await openPanel(app, "stocks");
+      const rows = [...stocks.popup.querySelectorAll('[data-gui="quote"]')];
+      const shown = new Map(rows.map((row) => [row.dataset.symbol, row.querySelector(".quote-exchange").textContent]));
+      assert.equal(shown.get("AAPL"), "US");
+      assert.equal(shown.get("7203.T"), "JP");
+      assert.equal(shown.get("005930.KS"), "KR");
+      await stocks.close();
     });
   });
   h.test("the base currency converts every price when Settings asks for it", async () => {
@@ -1012,8 +1888,11 @@ export function registerGui(h) {
         [...second.popup.querySelectorAll("[data-code]")].map((row) => row.dataset.code),
         ["USD", "JPY", "EUR", "CNY", "GBP"],
       );
-      // One more currency, one more row of window.
-      assert.equal(parseInt(second.popup.style.height, 10) - shortHeight, 30);
+      // One more currency, one more row of window: a 32px row and its 2px gap.
+      assert.equal(parseInt(second.popup.style.height, 10) - shortHeight, 34);
+      // And the rows really do fit in it, none clipped at the bottom.
+      const board = second.popup.querySelector('[data-gui="rate-rows"]');
+      assert.ok(board.scrollHeight <= board.clientHeight + 1, `${board.scrollHeight} fits ${board.clientHeight}`);
       assert.equal(popupFits(second.popup).fits, true);
       await second.close();
     });
@@ -1092,18 +1971,19 @@ export function registerGui(h) {
     await withApp(async ({ app }) => {
       for (let index = 0; index < 12; index += 1) app.recent.add(`C:/docs/file-${index}.mymoney`);
       assert.equal(app.recent.items.length, 10);
-      const pending = app.showSettings("recent");
+      // Settings no longer carries a recent page; the window menu lists them.
+      app.openMenu("window", { clientX: 40, clientY: 40 }, { atPointer: true });
       await settle();
-      const popup = document.querySelector('[data-popup="settings"]');
-      assert.equal(popup.querySelectorAll("[data-recent]").length, 10);
-      popup.querySelector('[data-action="recent-delete"]').click();
+      const menu = document.querySelector(".menu-popup");
+      const listed = [...menu.querySelectorAll('[data-cmd^="recent:"]')];
+      assert.ok(listed.length >= 1, "the menu lists recent files");
+      assert.match(listed[0].textContent, /file-11\.mymoney/);
+      app.closeMenu();
       await settle();
+      app.removeRecent("C:/docs/file-11.mymoney");
       assert.equal(app.recent.items.length, 9);
-      popup.querySelector('[data-action="recent-clear"]').click();
-      await settle();
+      app.clearRecent();
       assert.equal(app.recent.items.length, 0);
-      popup.querySelector('[data-action="cancel"]').click();
-      await pending;
       app.undo();
       assert.equal(app.recent.items.length, 9);
     });
@@ -1133,12 +2013,80 @@ export function registerGui(h) {
       assert.equal(app.doc.filePath, "dropped.mymoney");
       const image = new window.File([Uint8Array.from([1, 2, 3, 4])], "wall.png", { type: "image/png" });
       Object.defineProperty(image, "size", { value: 50_000_000 });
-      await app.handleDroppedFiles([image]);
+      await answerWallpaperDrop(app, [image], "ok");
       assert.equal(app.wallpaper.dataset.image, "yes");
       assert.match(app.settings.backgroundImage, /^data:image\/png/);
       const unknown = new window.File(["hello"], "notes.txt", { type: "text/plain" });
       await app.handleDroppedFiles([unknown]);
       assert.match(document.querySelector('[data-popup="error"]').textContent, /notes\.txt/);
+    });
+  });
+  h.test("a dropped picture becomes the background only once it is confirmed", async () => {
+    await withApp(async ({ app }) => {
+      const image = new window.File([Uint8Array.from([9, 9])], "photo.png", { type: "image/png" });
+      // The dialog names the file, so the reader knows what is about to change.
+      const pending = app.handleDroppedFiles([image]);
+      await settle();
+      const popup = document.querySelector('[data-popup="wallpaper-drop"]');
+      assert.ok(popup, "the confirmation is asked for");
+      assert.match(popup.textContent, /photo\.png/);
+      // Nothing has changed while the question is on screen.
+      assert.equal(app.settings.backgroundImage, "");
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+      assert.equal(app.settings.backgroundImage, "", "cancel leaves the background alone");
+      assert.equal(app.wallpaper.dataset.image, "no");
+      // Saying yes applies it.
+      await answerWallpaperDrop(app, [image], "ok");
+      assert.match(app.settings.backgroundImage, /^data:image\/png/);
+    });
+  });
+  h.test("an icon file is turned away instead of becoming the background", async () => {
+    await withApp(async ({ app }) => {
+      // Windows reports an .ico as an image, so the name and the type both count.
+      for (const [name, type] of [
+        ["icon.ico", "image/x-icon"],
+        ["icon.ico", "image/vnd.microsoft.icon"],
+        ["icon.ico", ""],
+        ["app.icns", "image/icns"],
+      ]) {
+        document.querySelector('[data-popup="error"]')?.remove();
+        await app.handleDroppedFiles([new window.File([Uint8Array.from([1])], name, { type })]);
+        await settle();
+        assert.equal(document.querySelector('[data-popup="wallpaper-drop"]'), null, `${name} ${type}`);
+        assert.equal(app.settings.backgroundImage, "", `${name} ${type} left the background alone`);
+        const error = document.querySelector('[data-popup="error"]');
+        assert.ok(error, `${name} ${type} is reported`);
+        assert.match(error.textContent, /아이콘 파일/);
+      }
+    });
+  });
+  h.test("dragging the window's own picture cannot drop it back as the background", async () => {
+    await withApp(async ({ app }) => {
+      const bar = app.root.querySelector("[data-gui='titlebar']");
+      const appIcon = bar.querySelector("img");
+      // The app icon is not a drag source in the first place.
+      assert.equal(appIcon.getAttribute("draggable"), "false");
+      const rules = [...document.styleSheets[0].cssRules];
+      const noDrag = rules.find((rule) => squashSpace(rule.selectorText) === "img, svg");
+      assert.ok(noDrag, "pictures are not drag sources");
+      assert.match(squashSpace(noDrag.cssText), /-webkit-user-drag: none/);
+      // And if a drag does start inside the window, dropping it there does nothing.
+      appIcon.dispatchEvent(new window.Event("dragstart", { bubbles: true }));
+      assert.equal(app.draggingOwnContent, true);
+      // jsdom has no constructible DataTransfer; the handler only reads `.files`.
+      const drop = new window.Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, "dataTransfer", {
+        value: { files: [new window.File([Uint8Array.from([1])], "icon.png", { type: "image/png" })] },
+      });
+      app.frame.dispatchEvent(drop);
+      await settle();
+      assert.equal(document.querySelector('[data-popup="wallpaper-drop"]'), null, "nothing is asked");
+      assert.equal(app.settings.backgroundImage, "", "the background is untouched");
+      assert.equal(app.draggingOwnContent, false, "the flag clears for the next drop");
+      // A drop that did not start inside the window still works.
+      await answerWallpaperDrop(app, [new window.File([Uint8Array.from([2])], "wall.png", { type: "image/png" })], "ok");
+      assert.match(app.settings.backgroundImage, /^data:image\/png/);
     });
   });
   h.test("settings and the last directory are restored on the next launch", async () => {
@@ -1172,7 +2120,7 @@ export function registerGui(h) {
     await withApp(async ({ app }) => {
       const fonts = Array.from({ length: 50 }, (_, index) => `Family ${index}`);
       app.fonts = fonts;
-      const pending = app.showSettings("font");
+      const pending = app.showSettings("wallpaper");
       await settle();
       const popup = document.querySelector('[data-popup="settings"]');
       assert.equal(popup.style.overflow, "hidden");
@@ -1215,7 +2163,7 @@ export function registerGui(h) {
       assert.equal(app.settings.language, "en");
       assert.equal(app.frame.dataset.theme, "dark-forest");
       assert.equal(app.settings.transparency, 80);
-      assert.equal(app.settings.updateHours, 1);
+      assert.equal(app.settings.updateMinutes, 10);
       assert.equal(app.i18n.missing.size, 0);
       app.undo();
       assert.equal(app.settings.theme, "dark-ink");
@@ -1255,8 +2203,8 @@ export function registerGui(h) {
       const hover = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".popup-x:hover, .popup-x:focus-visible");
       assert.equal(hover.style.background, "#e5484d");
       assert.equal(hover.style.color, "#fff");
-      // The window is exactly as tall as this page needs, not a fixed tall box.
-      assert.equal(popup.style.height, `${popupFits(popup).used}px`);
+      // One height for every page, decided by the tallest of them.
+      assert.equal(popup.style.height, `${tallestPanelHeight(popup)}px`);
       assert.equal(getComputedStyle(popup.querySelector(".popup-body")).paddingTop, "16px");
       assert.equal(getComputedStyle(popup.querySelector('[data-panel="appearance"]')).gap, "10px");
       assert.equal(popupFits(popup).fits, true);
@@ -1386,8 +2334,8 @@ export function registerGui(h) {
   });
   h.test("the quote update interval is saved and used in the background", async () => {
     await withApp(async ({ app, platform }) => {
-      assert.equal(app.settings.updateHours, 1);
-      assert.equal(app.updateDelay, 60 * 60 * 1000);
+      assert.equal(app.settings.updateMinutes, 10);
+      assert.equal(app.updateDelay, 10 * 60 * 1000);
       let calls = 0;
       const original = platform.fetchImpl;
       platform.fetchImpl = async (url, options) => {
@@ -1397,20 +2345,26 @@ export function registerGui(h) {
       const pending = app.showSettings("general");
       await settle();
       const popup = document.querySelector('[data-popup="settings"]');
-      const field = popup.querySelector('[data-field="updateHours"]');
-      assert.deepEqual([...field.options].map((option) => option.value), ["1", "2", "4", "6", "12", "24"]);
-      assert.equal(field.selectedOptions[0].textContent, "1시간");
-      field.value = "6";
+      const field = popup.querySelector('[data-field="updateMinutes"]');
+      // Minutes first, because quotes move all day, then the longer waits.
+      assert.deepEqual(
+        [...field.options].map((option) => option.value),
+        ["1", "2", "5", "10", "15", "30", "60", "120", "240", "360", "720", "1440"],
+      );
+      assert.equal(field.selectedOptions[0].textContent, "10분");
+      assert.equal([...field.options].find((option) => option.value === "1").textContent, "1분");
+      assert.equal([...field.options].find((option) => option.value === "60").textContent, "1시간");
+      field.value = "360";
       popup.querySelector('[data-action="ok"]').click();
       await pending;
-      assert.equal(app.settings.updateHours, 6);
-      assert.equal(platform.settings.updateHours, 6);
-      assert.equal(app.updateDelay, 6 * 60 * 60 * 1000);
+      assert.equal(app.settings.updateMinutes, 360);
+      assert.equal(platform.settings.updateMinutes, 360);
+      assert.equal(app.updateDelay, 360 * 60 * 1000);
       const host = document.createElement("div");
       const next = createApp(host, { platform, autoLoad: false, now: () => new Date(2026, 9, 7, 9, 0, 0) });
       try {
         await next.ready;
-        assert.equal(next.settings.updateHours, 6);
+        assert.equal(next.settings.updateMinutes, 360);
       } finally {
         next.destroy();
         host.remove();
@@ -1452,11 +2406,11 @@ export function registerGui(h) {
       app.settings.theme = "light-paper";
       app.settings.transparency = 80;
       app.settings.backgroundOpacity = 10;
-      app.settings.updateHours = 12;
+      app.settings.updateMinutes = 720;
       app.settings.displayPriority = "yahoo";
       app.settings.enabledSources = ["yahoo"];
       app.settings.fontSize = 22;
-      app.settings.reopenLast = true;
+      app.settings.startAtLogin = true;
       app.settings.units = "base";
       app.settings.baseCurrency = "USD";
       app.settings.windowPosition = { x: 40, y: 18 };
@@ -1476,10 +2430,10 @@ export function registerGui(h) {
       assert.equal(popup.querySelector('[data-field="theme"]').value, "dark-ink");
       assert.equal(popup.querySelector('[data-field="transparency"]').value, "30");
       assert.equal(popup.querySelector('[data-field="backgroundOpacity"]').value, "40");
-      assert.equal(popup.querySelector('[data-field="updateHours"]').value, "1");
+      assert.equal(popup.querySelector('[data-field="updateMinutes"]').value, "10");
       assert.equal(popup.querySelector('[data-field="displayPriority"]').value, "average");
       assert.equal(popup.querySelector('[data-field="fontSize"]').value, "14");
-      assert.equal(popup.querySelector('[data-field="reopen"]').checked, false);
+      assert.equal(popup.querySelector('[data-field="startAtLogin"]').checked, false);
       assert.equal(popup.querySelector('[data-field="units"]').value, "native");
       assert.equal(popup.querySelector('[data-field="baseCurrency"]').value, "KRW");
       assert.equal(popup.querySelector('[data-field="marketCode"]').value, "KR");
@@ -1505,10 +2459,10 @@ export function registerGui(h) {
       assert.equal(app.settings.theme, "dark-ink");
       assert.equal(app.settings.transparency, 30);
       assert.equal(app.settings.backgroundOpacity, 40);
-      assert.equal(app.settings.updateHours, 1);
+      assert.equal(app.settings.updateMinutes, 10);
       assert.equal(app.settings.displayPriority, "average");
       assert.equal(app.settings.fontSize, 14);
-      assert.equal(app.settings.reopenLast, false);
+      assert.equal(app.settings.startAtLogin, false);
       assert.equal(app.settings.units, "native");
       assert.equal(app.settings.baseCurrency, "KRW");
       assert.deepEqual(app.settings.enabledSources, ["yahoo", "yahoo2", "frankfurter", "erapi", "gnews", "wires"]);
@@ -1538,7 +2492,7 @@ export function registerGui(h) {
         nextTab.click();
         collectTabs();
       }
-      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "data", "font", "general", "rates", "recent", "wallpaper", "watchlist"]);
+      assert.deepEqual([...tabIcons.keys()].sort(), ["appearance", "data", "general", "rates", "wallpaper", "watchlist"]);
       for (const [id, svg] of tabIcons) assert.ok(svg, id);
       popup.querySelector('[data-action="tab-prev"]').click();
       assert.deepEqual([...field.options].map((option) => option.value), ["average", "yahoo", "yahoo2", "frankfurter", "erapi", "gnews", "wires"]);
@@ -1591,44 +2545,58 @@ export function registerGui(h) {
     });
   });
 
-  h.test("settings is as tall as the page on show and never hides a tab", async () => {
+  h.test("settings keeps one size for every tab and never hides a tab", async () => {
     await withApp(async ({ app }) => {
       for (const language of ["ko", "en"]) {
         await app.setLanguage(language);
-        const pending = app.showSettings("font");
+        const pending = app.showSettings("wallpaper");
         await settle();
         const popup = document.querySelector('[data-popup="settings"]');
-        // All eight tabs are drawn, and the arrows that would hide some are gone.
+        // Six tabs are drawn, and the arrows that would hide some are gone.
         const tabs = [...popup.querySelectorAll(".popup-tab")].map((button) => button.dataset.tab);
-        assert.deepEqual(tabs.sort(), ["appearance", "data", "font", "general", "rates", "recent", "wallpaper", "watchlist"], language);
+        assert.deepEqual(tabs.sort(), ["appearance", "data", "general", "rates", "wallpaper", "watchlist"], language);
         for (const nav of popup.querySelectorAll('[data-gui="tab-nav"]')) {
           assert.equal(nav.hidden, true, `${language} tab arrow`);
           assert.equal(nav.style.display, "none", `${language} tab arrow`);
         }
         assert.ok(parseInt(popup.style.width, 10) >= 680, language);
-        // A short page is short; moving to a long one makes the window taller.
-        const short = parseInt(popup.style.height, 10);
-        assert.equal(short, Math.max(SETTINGS_MIN_HEIGHT, popupFits(popup).used), `${language} font page`);
-        popup.querySelector('[data-tab="general"]').click();
-        await settle();
-        const tall = parseInt(popup.style.height, 10);
-        assert.equal(tall, Math.max(SETTINGS_MIN_HEIGHT, popupFits(popup).used), `${language} general page`);
-        assert.ok(tall > short, `${language}: ${tall} > ${short}`);
-        // No page leaves a big empty band under its last row.
-        for (const id of ["general", "watchlist", "rates", "data", "appearance", "wallpaper", "font", "recent"]) {
+        // Every page is shown at the same height: the tallest page decides it.
+        const expected = Math.max(SETTINGS_MIN_HEIGHT, Math.min(SETTINGS_MAX_HEIGHT, tallestPanelHeight(popup)));
+        const seen = new Set();
+        for (const id of ["appearance", "data", "general", "rates", "wallpaper", "watchlist"]) {
           popup.querySelector(`[data-tab="${id}"]`).click();
           await settle();
-          const fit = popupFits(popup);
           const height = parseInt(popup.style.height, 10);
-          const slack = height - fit.used;
-          assert.ok(fit.fits, `${language}/${id} must fit`);
+          seen.add(height);
+          assert.equal(height, expected, `${language}/${id} height`);
+          // Nothing is cut off, so no page ever needs a scrollbar.
+          assert.ok(popupFits(popup).fits, `${language}/${id} must fit`);
           assert.ok(height <= SETTINGS_MAX_HEIGHT, `${language}/${id} height ${height}`);
-          // A page shorter than the floor keeps the floor; nothing else leaves a band.
-          assert.ok(height === SETTINGS_MIN_HEIGHT || slack === 0, `${language}/${id} slack ${slack}`);
         }
+        assert.equal(seen.size, 1, `${language}: the window never resized`);
         popup.querySelector('[data-action="cancel"]').click();
         await pending;
       }
+    });
+  });
+  h.test("no part of the settings window scrolls", async () => {
+    await withApp(async ({ app }) => {
+      const pending = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      for (const id of ["appearance", "data", "general", "rates", "wallpaper", "watchlist"]) {
+        popup.querySelector(`[data-tab="${id}"]`).click();
+        await settle();
+        const page = popup.querySelector(`.popup-panel[data-panel="${id}"]`);
+        for (const node of [popup, popup.querySelector(".popup-body"), page]) {
+          const style = getComputedStyle(node);
+          const label = `${id}/${node.className || node.tagName}`;
+          assert.equal(style.overflowY || style.overflow, "hidden", label);
+          assert.equal(style.overflowX || style.overflow, "hidden", label);
+        }
+      }
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
     });
   });
   h.test("the watchlist block shrinks to the symbols it holds", async () => {
@@ -1666,6 +2634,63 @@ export function registerGui(h) {
       app.applyShellSize();
       assert.equal(app.frame.dataset.titleText, "shown");
       assert.notEqual(getComputedStyle(label).display, "none");
+    });
+  });
+
+  h.test("auto-start is saved, told to the system, and still set next launch", async () => {
+    const platform = createMemoryPlatform();
+    const told = [];
+    platform.setAutoStart = async (on) => told.push(on);
+    await withApp(
+      async ({ app }) => {
+        assert.equal(app.settings.startAtLogin, false);
+        const pending = app.showSettings("general");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        const box = popup.querySelector('[data-field="startAtLogin"]');
+        assert.ok(box, "the General page offers the switch");
+        assert.equal(popup.querySelector('[data-field="reopen"]'), null, "the dead reopen switch is gone");
+        box.checked = true;
+        popup.querySelector('[data-action="ok"]').click();
+        await pending;
+        assert.equal(app.settings.startAtLogin, true);
+        assert.equal(platform.settings.startAtLogin, true, "it is written to the settings file");
+        assert.deepEqual(told, [true], "and handed to the system");
+      },
+      { platform },
+    );
+    // The next launch reads it back.
+    await withApp(async ({ app }) => assert.equal(app.settings.startAtLogin, true), { platform });
+  });
+  h.test("the language row is a pair of flag buttons, not a dropdown", async () => {
+    await withApp(async ({ app }) => {
+      const pending = app.showSettings("general");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const row = popup.querySelector('[data-row="language"]');
+      assert.ok(row, "the language row");
+      assert.equal(row.querySelector("select"), null, "no dropdown");
+      const buttons = [...row.querySelectorAll("[data-choice='language']")];
+      assert.deepEqual(buttons.map((b) => b.dataset.value), ["ko", "en"]);
+      assert.match(buttons[0].textContent, /한국어/);
+      assert.match(buttons[1].textContent, /English/);
+      // Each carries its flag, in colour.
+      for (const button of buttons) {
+        const svg = button.querySelector("svg");
+        assert.ok(svg, "a flag");
+        assert.match(svg.innerHTML, /fill="#[0-9a-f]{3,6}"/i);
+      }
+      // Korean is the current language, so its button is the pressed one.
+      assert.equal(buttons[0].getAttribute("aria-pressed"), "true");
+      assert.equal(buttons[1].getAttribute("aria-pressed"), "false");
+      // Pressing English moves the mark and the hidden field, and OK applies it.
+      buttons[1].click();
+      assert.equal(buttons[0].getAttribute("aria-pressed"), "false");
+      assert.equal(buttons[1].getAttribute("aria-pressed"), "true");
+      assert.equal(row.querySelector('[data-field="language"]').value, "en");
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.settings.language, "en");
     });
   });
 
@@ -1716,7 +2741,7 @@ export function registerGui(h) {
       assert.equal(order.at(-1), "panel:stocks");
       const settings = app.showSettings("general");
       await settle();
-      const second = await app.showSettings("font");
+      const second = await app.showSettings("wallpaper");
       assert.equal(second.action, "focused");
       assert.equal(document.querySelectorAll('[data-popup="settings"]').length, 1);
       assert.equal(document.querySelector('[data-popup="settings"] [data-panel="general"]').hidden, false);
@@ -2102,7 +3127,7 @@ export function registerGui(h) {
       buttons[0].click();
       await settle();
       const opened = document.querySelector('[data-popup="panel"]');
-      assert.equal(opened.querySelector(".popup-title").textContent, "주식 시세");
+      assert.match(opened.querySelector(".popup-title").textContent, /^주식 시세/);
       assert.match(opened.textContent, /새로고침으로 시세를 불러오세요/);
       opened.querySelector('[data-action="close"]').click();
       await settle();
@@ -2306,6 +3331,41 @@ function arrowTip(art) {
 }
 
 /** Wait for a condition the app reaches on its own, instead of guessing a delay. */
+/** CSS text keeps whatever line endings the file has, so compare selectors on one line. */
+function squashSpace(text) {
+  return String(text == null ? "" : text)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Drops files and answers the background confirmation the way `action` says. */
+async function answerWallpaperDrop(app, files, action) {
+  const pending = app.handleDroppedFiles(files);
+  await settle();
+  const popup = document.querySelector('[data-popup="wallpaper-drop"]');
+  assert.ok(popup, "the background confirmation is on screen");
+  popup.querySelector(`[data-action="${action}"]`).click();
+  await pending;
+}
+
+/**
+ * Drag a row by its grip onto another one. Mirrors what a mouse does: press
+ * the grip, drag over the target, let go.
+ */
+function dragRowByGrip(moved, target, { vertical = true } = {}) {
+  const grip = moved.querySelector("[data-grip]");
+  assert.ok(grip, "the row offers a grip");
+  grip.dispatchEvent(new window.Event("pointerdown", { bubbles: true }));
+  assert.equal(moved.getAttribute("draggable"), "true", "the grip arms the row");
+  moved.dispatchEvent(new window.Event("dragstart", { bubbles: true }));
+  const over = new window.Event("dragover", { bubbles: true, cancelable: true });
+  const box = target.getBoundingClientRect();
+  Object.defineProperty(over, "clientY", { value: vertical ? box.top + 1 : 0 });
+  Object.defineProperty(over, "clientX", { value: vertical ? 0 : box.left + 1 });
+  target.dispatchEvent(over);
+  moved.dispatchEvent(new window.Event("drop", { bubbles: true, cancelable: true }));
+}
+
 async function waitFor(check, label = "condition") {
   for (let i = 0; i < 200; i += 1) {
     if (check()) return;

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { JSDOM } from "jsdom";
+import { createReporter } from "./reporter.js";
 
 const dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", {
   url: "http://127.0.0.1/",
@@ -58,44 +59,35 @@ function createHarness() {
       current.tests.push({ name, fn });
     },
     async run() {
-      let passed = 0;
+      const reporter = createReporter();
+      const rows = [];
       let failed = 0;
-      const summary = [];
+      const started = Date.now();
       for (const group of groups) {
-        console.log(`\n=== ${group.name} ===`);
-        let groupPassed = 0;
-        let groupFailed = 0;
+        reporter.category(group.name);
+        const row = { name: group.name, passed: 0, failed: 0, ms: 0 };
         for (const test of group.tests) {
+          const began = Date.now();
           try {
             await test.fn();
-            groupPassed += 1;
-            passed += 1;
-            console.log(`  PASS  ${test.name}`);
+            const took = Date.now() - began;
+            row.passed += 1;
+            row.ms += took;
+            reporter.pass(test.name, took);
           } catch (error) {
-            groupFailed += 1;
+            const took = Date.now() - began;
+            row.failed += 1;
+            row.ms += took;
             failed += 1;
-            console.log(`  FAIL  ${test.name}`);
-            console.log(indent(error.stack || error.message));
+            reporter.fail(test.name, took, error);
           }
         }
-        summary.push({ name: group.name, passed: groupPassed, failed: groupFailed });
+        rows.push(row);
       }
-      console.log("\n========== Summary ==========");
-      const width = Math.max(...summary.map((row) => row.name.length), "TOTAL".length);
-      for (const row of summary) {
-        console.log(`${row.name.padEnd(width)}  ${row.passed} passed, ${row.failed} failed`);
-      }
-      console.log(`${"TOTAL".padEnd(width)}  ${passed} passed, ${failed} failed`);
+      reporter.summary(rows, Date.now() - started);
       if (failed) process.exitCode = 1;
     },
   };
-}
-
-function indent(text) {
-  return String(text)
-    .split("\n")
-    .map((line) => `    ${line}`)
-    .join("\n");
 }
 
 const harness = createHarness();

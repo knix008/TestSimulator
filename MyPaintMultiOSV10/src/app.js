@@ -29,7 +29,12 @@
   let lastLink = "";
   let lastPrint = null;
   let progressMarks = [];
+  let progressLabel = "";
   let popupEl = null;
+  let popupWindow = null;
+  let popupHtml = "";
+  let popupKind = "";
+  let popupBoxSize = null;
   let menuEl = null;
   let appClosed = false;
   let fontCatalog = Fonts.FALLBACK.slice();
@@ -40,6 +45,11 @@
   let draft = null;
   let dragState = null;
   let pointer = { x: 0, y: 0 };
+  let pointerSeen = false;
+  let textEditing = null;
+  let textSession = null;
+  let textFieldUndo = false;
+  let textFocusToken = 0;
   let cineTimer = null;
   let tagPage = 0;
   let convertState = { format: "png", quality: 92 };
@@ -154,70 +164,9 @@
     root.style.setProperty("--canvas-w", (doc ? doc.width : 900) + "px");
     root.style.setProperty("--canvas-h", (doc ? doc.height : 560) + "px");
     root.style.setProperty("--workspace-image-opacity", String((settings.backgroundOpacity || 0) / 100));
-    applyLayout();
     document.title = BUILD.title;
     const title = $("appTitle");
     if (title) title.textContent = BUILD.title;
-  }
-
-  function layout() {
-    if (!settings.layout) settings.layout = { left: metrics.PANEL_MIN, right: metrics.PANEL_MIN };
-    return settings.layout;
-  }
-
-  function applyLayout() {
-    const root = document.documentElement;
-    const box = layout();
-    // never narrower than the longest label, so nothing is cut off or pushed onto a second line
-    box.left = Math.max(metrics.PANEL_MIN, box.left || metrics.PANEL_MIN);
-    box.right = Math.max(metrics.PANEL_MIN, box.right || metrics.PANEL_MIN);
-    root.style.setProperty("--left", box.left + "px");
-    root.style.setProperty("--right", box.right + "px");
-  }
-
-  function bindSplitters() {
-    const root = document.documentElement;
-    const bars = {
-      splitLeft: (event) => {
-        const left = document.querySelector(".body").getBoundingClientRect().left;
-        const value = clamp(event.clientX - left, metrics.PANEL_MIN, 520);
-        layout().left = value;
-        root.style.setProperty("--left", value + "px");
-      },
-      splitRight: (event) => {
-        const right = document.querySelector(".body").getBoundingClientRect().right;
-        const value = clamp(right - event.clientX, metrics.PANEL_MIN, 520);
-        layout().right = value;
-        root.style.setProperty("--right", value + "px");
-      },
-    };
-    Object.keys(bars).forEach((id) => {
-      const bar = $(id);
-      if (!bar) return;
-      bar.addEventListener("pointerdown", (event) => {
-        event.preventDefault();
-        bar.classList.add("dragging");
-        try { bar.setPointerCapture(event.pointerId); } catch (error) { /* synthetic pointer */ }
-        const move = (motion) => bars[id](motion);
-        const stop = () => {
-          bar.classList.remove("dragging");
-          bar.removeEventListener("pointermove", move);
-          bar.removeEventListener("pointerup", stop);
-          bar.removeEventListener("pointercancel", stop);
-          saveSettings();
-        };
-        bar.addEventListener("pointermove", move);
-        bar.addEventListener("pointerup", stop);
-        bar.addEventListener("pointercancel", stop);
-      });
-      bar.addEventListener("dblclick", () => {
-        const box = layout();
-        if (id === "splitLeft") box.left = metrics.PANEL_MIN;
-        else box.right = metrics.PANEL_MIN;
-        applyLayout();
-        saveSettings();
-      });
-    });
   }
 
   function newDoc(options) {
@@ -265,6 +214,52 @@
     persistSession();
   }
 
+  function activeTextShapes() {
+    return selectedShapes().filter((shape) => shape.kind === "text");
+  }
+
+  function activeFontSize() {
+    const shapes = activeTextShapes();
+    return shapes.length ? shapes[0].fontSize : settings.fontSize;
+  }
+
+  function activeFontFamily() {
+    const shapes = activeTextShapes();
+    return shapes.length ? shapes[0].fontFamily : settings.fontFamily;
+  }
+
+  function fontFlag(kind) {
+    const shapes = activeTextShapes();
+    const style = String(shapes.length ? shapes[0].fontStyle : settings.fontStyle);
+    if (kind === "bold") return style.indexOf("bold") >= 0;
+    if (kind === "italic") return style.indexOf("italic") >= 0;
+    if (kind === "underline") return shapes.length ? !!shapes[0].underline : !!settings.fontUnderline;
+    return shapes.length ? !!shapes[0].strike : !!settings.fontStrike;
+  }
+
+  function fontStyleButton(action, mark, label, on) {
+    return '<button type="button" class="tool-btn font-style' + (on ? " on" : "") + '" data-action="' + action + '" aria-pressed="' + (on ? "true" : "false") + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + mark + "</button>";
+  }
+
+  function fontToolbar() {
+    const family = activeFontFamily();
+    const size = activeFontSize();
+    const names = fontCatalog.indexOf(family) >= 0 ? fontCatalog : [family].concat(fontCatalog);
+    const down = size <= 6 ? " disabled" : "";
+    const up = size >= 400 ? " disabled" : "";
+    return '<span class="font-bar">' +
+      '<select class="font-pick" data-font="family" title="' + esc(t("font.family")) + '" aria-label="' + esc(t("font.family")) + '">' +
+      names.map((name) => optionTag(name, name, family)).join("") + "</select>" +
+      '<button type="button" class="tool-btn font-step" data-action="fontDown" title="' + esc(t("font.smaller")) + '" aria-label="' + esc(t("font.smaller")) + '"' + down + ">−</button>" +
+      '<button type="button" class="tool-btn font-size" id="fontSizeValue" title="' + esc(t("font.size")) + '" aria-label="' + esc(t("font.size") + " " + size) + '">' + size + "</button>" +
+      '<button type="button" class="tool-btn font-step" data-action="fontUp" title="' + esc(t("font.larger")) + '" aria-label="' + esc(t("font.larger")) + '"' + up + ">+</button>" +
+      fontStyleButton("fontBold", "<b>B</b>", t("font.bold"), fontFlag("bold")) +
+      fontStyleButton("fontItalic", "<i>I</i>", t("font.italic"), fontFlag("italic")) +
+      fontStyleButton("fontUnderline", "<u>U</u>", t("font.underline"), fontFlag("underline")) +
+      fontStyleButton("fontStrike", "<s>S</s>", t("font.strike"), fontFlag("strike")) +
+      "</span>";
+  }
+
   function button(action, icon, label, extra) {
     return '<button type="button" class="tool-btn" data-action="' + action + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + Icons.icon(icon) + (extra || "") + "</button>";
   }
@@ -293,15 +288,15 @@
       '<button type="button" class="tool-btn zoom-readout" data-action="zoomReset" id="zoomValue" title="' + esc(t("view.zoomReset")) + '">' + settings.zoom + "%</button>",
       button("zoomIn", "zoomIn", t("view.zoomIn")),
       toggleButton("toggleGrid", "grid", t("view.grid"), settings.showGrid),
+      toggleButton("toggleShapes", "shapes", t("view.shapes"), settings.showShapes !== false),
+      fontToolbar(),
       '<i class="sep"></i>',
       button("print", "print", t("file.print")),
-      '<i class="sep"></i>',
-      button("toggleLeft", "panelLeft", t("view.left")),
-      button("toggleRight", "panelRight", t("view.right")),
       '<span class="toolbar-end">' + toolbarActions().map(toolActionButton).join("") + "</span>",
     ].join("");
     updateHistoryButtons();
     syncGrid();
+    syncShapes();
   }
 
   function syncGrid() {
@@ -310,6 +305,14 @@
     document.querySelectorAll('[data-action="toggleGrid"]').forEach((el) => {
       el.classList.toggle("on", Boolean(settings.showGrid));
       el.setAttribute("aria-pressed", settings.showGrid ? "true" : "false");
+    });
+  }
+
+  function syncShapes() {
+    const on = settings.showShapes !== false;
+    document.querySelectorAll('[data-action="toggleShapes"]').forEach((el) => {
+      el.classList.toggle("on", on);
+      el.setAttribute("aria-pressed", on ? "true" : "false");
     });
   }
 
@@ -388,10 +391,11 @@
         menuItem("clearDrawing", "clear", t("draw.clear")),
       ]) },
       { id: "view", label: t("menu.view"), icon: "zoomIn", items: [
-        menuItem("zoomIn", "zoomIn", t("view.zoomIn")),
-        menuItem("zoomOut", "zoomOut", t("view.zoomOut")),
-        menuItem("zoomReset", "check", t("view.zoomReset")),
+        menuItem("zoomIn", "zoomIn", t("view.zoomIn"), "Ctrl++"),
+        menuItem("zoomOut", "zoomOut", t("view.zoomOut"), "Ctrl+-"),
+        menuItem("zoomReset", "check", t("view.zoomReset"), "Ctrl+0"),
         menuItem("toggleGrid", "grid", t("view.grid")),
+        menuItem("toggleShapes", "shapes", t("view.shapes")),
         menuItem("toggleLeft", "panelLeft", t("view.left")),
         menuItem("toggleRight", "panelRight", t("view.right")),
       ] },
@@ -467,8 +471,15 @@
     document.documentElement.style.setProperty("--canvas-w", doc.width + "px");
     document.documentElement.style.setProperty("--canvas-h", doc.height + "px");
     const ctx = board.getContext("2d");
-    Paint.render(ctx, doc, { preview: draft, images: images });
+    let shapes = doc.shapes;
+    if (textEditing) shapes = shapes.filter((shape) => shape.id !== textEditing);
+    Paint.render(ctx, doc, {
+      preview: draft,
+      images: images,
+      shapes: shapes,
+    });
     renderOverlay();
+    layoutTextEditor();
   }
 
   function renderOverlay() {
@@ -494,10 +505,67 @@
     overlay.innerHTML = shapes + picked;
   }
 
+  const WIDTHS = [1, 2, 4, 8, 12, 20];
+
+  function panelBar(side, titleKey) {
+    const open = side === "left" ? settings.showLeft : settings.showRight;
+    const action = side === "left" ? "toggleLeft" : "toggleRight";
+    const label = open ? t("panel.fold") : t("panel.unfold");
+    const points = side === "left"
+      ? (open ? "14 6 8 12 14 18" : "10 6 16 12 10 18")
+      : (open ? "10 6 16 12 10 18" : "14 6 8 12 14 18");
+    return '<div class="panel-bar"><span>' + esc(t(titleKey)) + "</span>" +
+      '<button type="button" class="panel-fold" data-action="' + action + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" aria-expanded="' + (open ? "true" : "false") + '">' +
+      '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M' + points + '"/></svg></button></div>';
+  }
+
+  function sizingEraser() {
+    return settings.tool === "eraser";
+  }
+
+  function activeSize() {
+    return sizingEraser() ? settings.eraserSize : settings.strokeWidth;
+  }
+
+  function widthMark(width) {
+    if (sizingEraser()) {
+      const side = Math.max(4, Math.min(14, 3 + width * 0.5));
+      const x = (36 - side) / 2;
+      const y = (16 - side) / 2;
+      return '<rect x="' + x + '" y="' + y + '" width="' + side + '" height="' + side + '" rx="1" fill="currentColor"/>';
+    }
+    const thick = Math.max(1.4, Math.min(7.5, width * 0.42));
+    return '<line x1="4" y1="8" x2="32" y2="8" stroke="currentColor" stroke-linecap="round" stroke-width="' + thick + '"/>';
+  }
+
+  function widthPicks() {
+    const label = t(sizingEraser() ? "palette.eraser" : "palette.width");
+    const current = activeSize();
+    return '<div class="width-picks" role="group" aria-label="' + esc(label) + '">' +
+      WIDTHS.map((width) => {
+        const on = current === width;
+        return '<button type="button" class="width-pick' + (on ? " on" : "") + '" data-action="width:' + width + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" aria-pressed="' + (on ? "true" : "false") + '">' +
+          '<svg viewBox="0 0 36 16" aria-hidden="true">' + widthMark(width) + "</svg></button>";
+      }).join("") + "</div>";
+  }
+
+  function widthStep() {
+    const width = activeSize();
+    const label = t(sizingEraser() ? "palette.eraser" : "palette.width");
+    const down = width <= 1 ? " disabled" : "";
+    const up = width >= 96 ? " disabled" : "";
+    return '<div class="width-step" role="group" aria-label="' + esc(label) + '">' +
+      '<button type="button" data-action="strokeDown" title="' + esc(t("palette.thinner")) + '" aria-label="' + esc(t("palette.thinner")) + '"' + down + ">-</button>" +
+      '<label class="width-now" title="' + esc(label) + '">' +
+      '<input type="number" min="1" max="96" data-pick="size" value="' + width + '" aria-label="' + esc(label + " " + width + "px") + '">' +
+      '<span class="unit">px</span></label>' +
+      '<button type="button" data-action="strokeUp" title="' + esc(t("palette.thicker")) + '" aria-label="' + esc(t("palette.thicker")) + '"' + up + ">+</button>" +
+      "</div>";
+  }
+
   function renderLeft() {
     const doc = current();
-    $("leftPanel").classList.toggle("hidden", !settings.showLeft);
-    $("splitLeft").classList.toggle("hidden", !settings.showLeft);
+    $("leftPanel").classList.toggle("collapsed", !settings.showLeft);
     const tools = Paint.TOOLS.map((tool) => (
       '<button type="button" class="tool-cell' + (settings.tool === tool.id ? " on" : "") + '" data-action="tool:' + tool.id + '" title="' + esc(t("tool." + tool.id)) + '" aria-label="' + esc(t("tool." + tool.id)) + '">' +
       Icons.icon(tool.icon) + "</button>"
@@ -508,27 +576,23 @@
     const shapeRows = (doc ? doc.shapes : []).slice().reverse().map((shape) => (
       '<div class="shape-item' + (selected.indexOf(shape.id) >= 0 ? " active" : "") + '">' +
       '<button type="button" class="shape-pick" data-action="shape:' + esc(shape.id) + '" title="' + esc(t("kind." + shape.kind)) + '">' +
-      Icons.icon(shape.kind === "pencil" ? "pencil" : shape.kind === "brush" ? "brush" : shape.kind === "eraser" ? "eraser" : shape.kind) +
+      Icons.icon(shape.kind) +
       "<span>" + esc(t("kind." + shape.kind)) + "</span>" +
       '<i class="dot" style="background:' + esc(shape.fill || shape.color) + '"></i></button>' +
       '<button type="button" class="shape-remove" data-action="removeShape:' + esc(shape.id) + '" title="' + esc(t("left.removeShape")) + '" aria-label="' + esc(t("left.removeShape")) + '">' +
       '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button></div>'
     )).join("") || '<div class="line" style="padding:0 8px">' + esc(t("status.none")) + "</div>";
     $("leftPanel").innerHTML = [
-      "<h2>" + esc(t("left.tools")) + "</h2>",
+      panelBar("left", "left.tools"),
       '<div class="tool-grid">' + tools + "</div>",
       "<h2>" + esc(t("left.colors")) + "</h2>",
       '<div class="swatches">' + swatches + "</div>",
       '<label class="color-row"><span>' + esc(t("palette.color")) + '</span><input type="color" data-pick="color" value="' + esc(settings.color) + '" title="' + esc(t("palette.color")) + '"></label>',
       '<label class="color-row"><span>' + esc(t("palette.fill")) + '</span><input type="color" data-pick="fillColor" value="' + esc(settings.fillColor || "#ffffff") + '" title="' + esc(t("palette.fill")) + '"></label>',
       '<label class="color-row"><span>' + esc(t("palette.none")) + '</span><input type="checkbox" data-pick="noFill"' + (settings.fillColor ? "" : " checked") + ' title="' + esc(t("palette.none")) + '"></label>',
-      '<div class="color-row"><span>' + esc(t("palette.width")) + "</span>" +
-        '<button type="button" class="step-btn" data-action="strokeDown" title="' + esc(t("palette.thinner")) + '" aria-label="' + esc(t("palette.thinner")) + '">&#8722;</button>' +
-        '<input type="range" min="1" max="48" value="' + settings.strokeWidth + '" data-pick="strokeWidth" title="' + esc(t("palette.width")) + '" aria-label="' + esc(t("palette.width")) + '">' +
-        '<button type="button" class="step-btn" data-action="strokeUp" title="' + esc(t("palette.thicker")) + '" aria-label="' + esc(t("palette.thicker")) + '">+</button>' +
-        '<b id="strokeValue">' + settings.strokeWidth + "</b></div>",
-      "<h2>" + esc(t("left.shapes")) + "</h2>",
-      '<div class="shape-list">' + shapeRows + "</div>",
+      widthPicks(),
+      widthStep(),
+      settings.showShapes === false ? "" : "<h2>" + esc(t("left.shapes")) + "</h2>" + '<div class="shape-list">' + shapeRows + "</div>",
     ].join("");
   }
 
@@ -636,14 +700,13 @@
 
   function renderRight() {
     const doc = current();
-    $("rightPanel").classList.toggle("hidden", !settings.showRight);
-    $("splitRight").classList.toggle("hidden", !settings.showRight);
+    $("rightPanel").classList.toggle("collapsed", !settings.showRight);
     const shape = firstSelected();
     const rows = [];
     if (shape) {
       rows.push('<div class="line"><span>' + esc(t("prop.kind")) + '</span><b class="grow">' + esc(t("kind." + shape.kind)) + "</b></div>");
       rows.push(propLine(t("prop.color"), '<input data-prop="color" type="color" value="' + esc(shape.color) + '" title="' + esc(t("prop.color")) + '">'));
-      if (shape.kind === "rect" || shape.kind === "ellipse") {
+      if (shape.kind === "rect" || shape.kind === "roundRect" || shape.kind === "ellipse" || shape.kind === "triangle") {
         rows.push(propLine(t("prop.fill"), '<input data-prop="fill" type="color" value="' + esc(shape.fill || "#ffffff") + '" title="' + esc(t("prop.fill")) + '">'));
       }
       rows.push(propLine(t("prop.width"), propSpin("prop", "width", shape.width, 1, 96, 1, t("prop.width"))));
@@ -693,7 +756,7 @@
         rows.push('<div class="line"><span>' + esc(t("status.selection")) + '</span><b class="grow">' + esc(t("status.none")) + "</b></div>");
       }
     }
-    $("rightPanel").innerHTML = "<h2>" + esc(t("right.props")) + '</h2><div class="props">' + rows.join("") + "</div>" +
+    $("rightPanel").innerHTML = panelBar("right", "right.props") + '<div class="props">' + rows.join("") + "</div>" +
       pictureSection(doc) + dicomSection(doc);
     const shapeNode = firstSelected();
     if (shapeNode && shapeNode.kind === "text") {
@@ -878,10 +941,21 @@
       menuItem("eraseRegion", "marquee", t("edit.eraseRegion"), "", !region),
       menuItem("bringForward", "layerUp", t("draw.bringForward"), "", !shape),
       menuItem("sendBackward", "layerDown", t("draw.sendBackward"), "", !shape),
+    ].concat(textContextItems()).concat([
       menuItem("palette", "palette", t("draw.palette")),
       menuItem("canvasSize", "canvas", t("draw.canvasSize")),
       menuItem("export", "download", t("file.export")),
       menuItem("print", "print", t("file.print"), "Ctrl+P"),
+    ]);
+  }
+
+  function textContextItems() {
+    const shape = activeTextShapes()[0];
+    if (!shape) return [];
+    return [
+      menuItem("fontDown", "text", t("font.smaller"), "", shape.fontSize <= 6),
+      menuItem("fontUp", "text", t("font.larger"), "", shape.fontSize >= 400),
+      menuItem("fontMenu", "text", t("font.family")),
     ];
   }
 
@@ -929,6 +1003,7 @@
       save: "save",
       unsaved: "save",
       canvas: "canvas",
+      newdoc: "new",
       drop: "image",
       palette: "palette",
       convert: "download",
@@ -949,6 +1024,7 @@
       recent: "popup.recent",
       save: "popup.save",
       canvas: "popup.canvas",
+      newdoc: "popup.newdoc",
       drop: "popup.drop",
       theme: "popup.theme",
       guide: "popup.guide",
@@ -1072,14 +1148,36 @@
       '<button type="button" class="spin-btn" data-spin="' + field + ':1" tabindex="-1" aria-label="+">+</button></span>'
     );
     if (kind === "about") {
+      const families = [
+        ["native", Formats.NATIVE],
+        ["tiff", Formats.TIFF],
+        ["heif", Formats.HEIF],
+        ["j2k", Formats.J2K],
+        ["dicom", Formats.DICOM],
+        ["raw", Formats.RAW],
+      ];
+      const aboutRow = (name, value, attrs) => (
+        '<span class="about-name">' + esc(name) + '</span><span class="about-value"' + (attrs || "") + ">" + value + "</span>"
+      );
+      const formats = families.map((family) => {
+        const names = Array.from(family[1]).sort().map((name) => "." + name).join("  ");
+        return aboutRow(t("kind." + family[0]), esc(names));
+      }).join("");
+      const channelKey = "channel." + BUILD.channel;
+      const channelName = t(channelKey) === channelKey ? BUILD.channel : t(channelKey);
       return head(t("popup.about")) +
         '<div class="popup-body">' +
-        '<div class="line"><img src="assets/icon.png" width="20" height="20" alt=""><b>' + esc(BUILD.title) + "</b></div>" +
-        '<div class="line" id="aboutBuild">' + esc(settings.language === "en" ? "Build" : "빌드") + " " + esc(BUILD.build) + "</div>" +
-        '<div class="line" id="aboutAuthor" data-author="' + esc(BUILD.author) + '">' + esc(BUILD.author) + "</div>" +
-        '<div class="line">' + esc(t("about.desc")) + "</div>" +
-        '<div class="line">' + esc(BUILD.builtAt) + "</div>" +
-        "</div>" + foot(btn("close", t("action.close")));
+        '<div class="about-head">' +
+        '<img src="assets/icon.png" width="48" height="48" alt="">' +
+        '<div class="about-intro"><b>' + esc(BUILD.title) + "</b><span>" + esc(t("about.desc")) + "</span></div></div>" +
+        '<div class="about-table">' +
+        aboutRow(t("about.version"), esc(BUILD.version), ' id="aboutVersion"') +
+        aboutRow(t("about.build"), esc(BUILD.build), ' id="aboutBuild"') +
+        aboutRow(t("about.channel"), esc(channelName), ' id="aboutChannel"') +
+        aboutRow(t("about.author"), esc(BUILD.author), ' id="aboutAuthor" data-author="' + esc(BUILD.author) + '"') +
+        aboutRow(t("about.built"), esc(BUILD.builtAt)) +
+        formats +
+        "</div></div>" + foot(btn("close", t("action.close")));
     }
     if (kind === "error") {
       const message = (lastError.split("\n")[1] || lastError).slice(0, 180);
@@ -1093,7 +1191,7 @@
       const value = progressMarks.length ? progressMarks[progressMarks.length - 1] : 0;
       return head(t("popup.progress")) +
         '<div class="popup-body">' +
-        '<div class="line" id="progressText">' + esc(t("status.busy")) + "</div>" +
+        '<div class="line" id="progressText">' + esc(progressLabel || t("status.busy")) + "</div>" +
         '<div class="line bar-row"><span class="bar"><span id="progressFill" style="width:' + value + '%"></span></span>' +
         '<b id="progressPct">' + value + '</b><span class="unit">%</span></div>' +
         "</div>" + foot(btn("stop-progress", t("action.cancel")));
@@ -1129,6 +1227,13 @@
         '<label class="line"><span>' + esc(t("canvas.height")) + "</span>" + number("height", doc ? doc.height : 560, 16, 8192) + "</label>" +
         '<label class="line"><span>' + esc(t("canvas.background")) + '</span><input data-field="background" type="color" value="' + esc(doc ? doc.background : "#ffffff") + '"></label>' +
         "</div>" + foot(btn("apply-canvas", t("action.apply"), true) + btn("cancel", t("action.cancel")));
+    }
+    if (kind === "newdoc") {
+      return head(t("popup.newdoc")) +
+        '<div class="popup-body">' +
+        '<label class="line"><span>' + esc(t("canvas.width")) + "</span>" + number("width", settings.canvasWidth, 16, 8192) + "</label>" +
+        '<label class="line"><span>' + esc(t("canvas.height")) + "</span>" + number("height", settings.canvasHeight, 16, 8192) + "</label>" +
+        "</div>" + foot(btn("create-new", t("action.create"), true) + btn("cancel", t("action.cancel")));
     }
     if (kind === "palette") {
       return head(t("popup.palette")) +
@@ -1334,11 +1439,52 @@
       "</div></div>" + foot(btn("apply-settings", t("action.apply"), true) + btn("cancel", t("action.cancel")));
   }
 
+  function messageTarget() {
+    return /^https?:$/.test(location.protocol) ? location.origin : "*";
+  }
+
+  function postPopup(type, extra) {
+    if (!popupWindow || popupWindow.closed) return;
+    popupWindow.postMessage(Object.assign({ source: "mypaint", type: type }, extra || {}), messageTarget());
+  }
+
+  function postPopupHtml() {
+    const box = popupBoxSize || { width: 0, height: 0 };
+    postPopup("html", { html: popupHtml, width: box.width, height: box.height });
+  }
+
+  /* English labels are wider, so the format list wraps onto more lines. */
+  function popupSpec(kind) {
+    const spec = metrics.POPUPS[kind];
+    if (kind === "about" && settings.language === "en") return { width: spec.width, height: 497 };
+    return spec;
+  }
+
   function closePopup() {
     if (popupEl) popupEl.remove();
     popupEl = null;
-    // in the desktop build the popup is a window of its own, so the host closes it
+    popupKind = "";
+    popupHtml = "";
     if (window.desktop && window.desktop.closePopup && !TEST) window.desktop.closePopup();
+    if (popupWindow && !popupWindow.closed) popupWindow.close();
+    popupWindow = null;
+  }
+
+  /* A browser popup is its own window. Reuse it when another dialog replaces the one on screen. */
+  function openOwnWindow(kind, spec, place) {
+    popupHtml = popupDocument(kind);
+    popupBoxSize = spec;
+    const left = Math.round((window.screenX || 0) + place.x);
+    const top = Math.round((window.screenY || 0) + place.y);
+    if (!popupWindow || popupWindow.closed) {
+      const features = "popup=yes,width=" + spec.width + ",height=" + spec.height + ",left=" + left + ",top=" + top;
+      popupWindow = window.open("popup.html", "mypaint-popup", features);
+      return Boolean(popupWindow);
+    }
+    popupWindow.focus();
+    try { popupWindow.moveTo(left, top); } catch (error) { /* a browser may refuse to move a window it did not open just now */ }
+    postPopupHtml();
+    return true;
   }
 
   function popupDocument(kind) {
@@ -1347,11 +1493,12 @@
 
   function openPopup(kind, anchor) {
     if (kind === "print") printState = Object.assign({}, Store.defaults().print, settings.print, { pageIndex: 0 });
-    const spec = metrics.POPUPS[kind];
+    const spec = popupSpec(kind);
     const place = anchor || {
       x: Math.max(0, (window.innerWidth - spec.width) / 2),
       y: Math.max(0, (window.innerHeight - spec.height) / 2),
     };
+    popupKind = kind;
     if (window.desktop && window.desktop.openPopup && !TEST) {
       window.desktop.openPopup({
         kind: kind,
@@ -1365,7 +1512,13 @@
       });
       return null;
     }
+    if (!TEST && openOwnWindow(kind, spec, place)) {
+      if (popupEl) popupEl.remove();
+      popupEl = null;
+      return null;
+    }
     closePopup();
+    popupKind = kind;
     const el = document.createElement("section");
     el.className = "popup";
     el.dataset.kind = kind;
@@ -1464,6 +1617,7 @@
   function beginProgress(label) {
     if (progressDepth === 0) {
       progressMarks.push(0);
+      progressLabel = label || "";
       openPopup("progress");
       paintProgress(label, 0);
     } else if (label) {
@@ -1473,14 +1627,18 @@
   }
 
   function paintProgress(label, value) {
-    if (!popupEl || popupEl.dataset.kind !== "progress") return;
-    const text = popupEl.querySelector("#progressText");
-    const fill = popupEl.querySelector("#progressFill");
-    const pct = popupEl.querySelector("#progressPct");
+    if (label) progressLabel = label;
     const now = value == null ? (progressMarks[progressMarks.length - 1] || 0) : value;
-    if (text && label) text.textContent = label;
-    if (fill) fill.style.width = now + "%";
-    if (pct) pct.textContent = String(now);
+    if (popupEl && popupEl.dataset.kind === "progress") {
+      const text = popupEl.querySelector("#progressText");
+      const fill = popupEl.querySelector("#progressFill");
+      const pct = popupEl.querySelector("#progressPct");
+      if (text && progressLabel) text.textContent = progressLabel;
+      if (fill) fill.style.width = now + "%";
+      if (pct) pct.textContent = String(now);
+      return;
+    }
+    if (!TEST && popupKind === "progress") refreshPopupDocument("progress");
   }
 
   /* Stopping whatever the progress window is showing. Only a download can be interrupted
@@ -1535,6 +1693,7 @@
 
   function paintChildWindows() {
     if (window.desktop && window.desktop.applyTheme && !TEST) window.desktop.applyTheme(themeCss());
+    if (popupWindow && !popupWindow.closed) postPopup("theme", { css: themeCss() });
   }
 
   function setCustom(colors) {
@@ -1591,6 +1750,16 @@
   const ZOOM_MIN = ZOOM_STOPS[0];
   const ZOOM_MAX = ZOOM_STOPS[ZOOM_STOPS.length - 1];
 
+  /* `code` is the physical key, so Ctrl+S still saves when the input language is Korean
+   * and `key` comes back as Hangul or "Process". */
+  function shortcutLetter(event) {
+    const code = String(event.code || "");
+    if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+    const key = String(event.key || "");
+    if (key.length === 1) return key.toLowerCase();
+    return "";
+  }
+
   function zoomStep(direction) {
     const now = settings.zoom;
     if (direction > 0) {
@@ -1635,8 +1804,93 @@
     return { family: settings.fontFamily, size: settings.fontSize, style: settings.fontStyle };
   }
 
+  function applyTextFont(patch) {
+    const editing = textEditing;
+    const shapes = activeTextShapes();
+    if (patch.fontFamily) settings.fontFamily = patch.fontFamily;
+    if (patch.fontSize != null) settings.fontSize = clamp(patch.fontSize, 6, 400);
+    if (patch.fontStyle) settings.fontStyle = patch.fontStyle;
+    if (patch.underline != null) settings.fontUnderline = !!patch.underline;
+    if (patch.strike != null) settings.fontStrike = !!patch.strike;
+    if (shapes.length) {
+      pushUndo();
+      shapes.forEach((shape) => {
+        if (patch.fontFamily) shape.fontFamily = settings.fontFamily;
+        if (patch.fontSize != null) shape.fontSize = settings.fontSize;
+        if (patch.fontStyle) shape.fontStyle = settings.fontStyle;
+        if (patch.underline != null) shape.underline = settings.fontUnderline;
+        if (patch.strike != null) shape.strike = settings.fontStrike;
+        Paint.normalizeShape(shape);
+      });
+      markDirty();
+    }
+    saveSettings();
+    applyVisual();
+    if (editing) layoutTextEditor();
+    renderBoard();
+    renderRight();
+    renderToolbar();
+    const editor = $("textEditor");
+    if (editing && editor && textEditing === editing) editor.focus();
+    return { family: settings.fontFamily, size: activeFontSize() };
+  }
+
+  function toggleFontFace(kind) {
+    const shapes = activeTextShapes();
+    const style = String(shapes.length ? shapes[0].fontStyle : settings.fontStyle);
+    const bold = kind === "bold" ? style.indexOf("bold") < 0 : style.indexOf("bold") >= 0;
+    const italic = kind === "italic" ? style.indexOf("italic") < 0 : style.indexOf("italic") >= 0;
+    let next = "normal";
+    if (bold && italic) next = "bold-italic";
+    else if (bold) next = "bold";
+    else if (italic) next = "italic";
+    applyTextFont({ fontStyle: next });
+  }
+
+  function toggleFontMark(kind) {
+    const on = fontFlag(kind);
+    applyTextFont(kind === "underline" ? { underline: !on } : { strike: !on });
+  }
+
+  function openFontMenu(x, y) {
+    const width = 240;
+    const full = Math.max(1, fontCatalog.length) * metrics.MENU_ROW + metrics.MENU_PAD + 2;
+    const height = Math.min(full, Math.max(metrics.MENU_ROW + metrics.MENU_PAD, window.innerHeight - 16));
+    const place = fitMenu(x, y, width, height);
+    const current = activeFontFamily();
+    const html = fontCatalog.map((name) => (
+      '<button type="button" class="menu-item' + (name === current ? " on" : "") + '" data-action="font:' + esc(name) + '" title="' + esc(name) + '">' +
+      '<span class="ico">' + Icons.icon("text") + "</span>" +
+      '<span class="label">' + esc(name) + "</span></button>"
+    )).join("");
+    if (window.desktop && window.desktop.openMenu && !TEST) {
+      window.desktop.openMenu({
+        id: "font",
+        x: place.x,
+        y: place.y,
+        width: width,
+        height: height,
+        html: themeStyle() + '<div class="menu font-menu">' + html + "</div>",
+      });
+      return null;
+    }
+    closeMenu();
+    const el = document.createElement("div");
+    el.className = "menu font-menu";
+    el.dataset.menu = "font";
+    el.style.left = place.x + "px";
+    el.style.top = place.y + "px";
+    el.style.width = width + "px";
+    el.style.height = height + "px";
+    el.innerHTML = html;
+    $("menuLayer").appendChild(el);
+    menuEl = el;
+    return el;
+  }
+
   function setTool(id) {
     if (!Paint.TOOLS.some((tool) => tool.id === id)) return settings.tool;
+    if (textEditing && id !== "text") finishTextEditor();
     settings.tool = id;
     band = null;
     saveSettings();
@@ -1659,6 +1913,17 @@
     saveSettings();
     renderLeft();
     return settings.strokeWidth;
+  }
+
+  function setEraserSize(value) {
+    settings.eraserSize = clamp(value, 1, 96);
+    saveSettings();
+    renderLeft();
+    return settings.eraserSize;
+  }
+
+  function setActiveSize(value) {
+    return sizingEraser() ? setEraserSize(value) : setStrokeWidth(value);
   }
 
   async function setBackgroundBlob(blob, name) {
@@ -1698,9 +1963,135 @@
     return {
       color: settings.color,
       fill: settings.fillColor || "",
-      width: settings.strokeWidth,
+      width: settings.tool === "eraser" ? settings.eraserSize : settings.strokeWidth,
       opacity: settings.shapeOpacity,
     };
+  }
+
+  function editingShape() {
+    const doc = current();
+    if (!doc || textEditing == null) return null;
+    return doc.shapes.find((shape) => shape.id === textEditing) || null;
+  }
+
+  function layoutTextEditor() {
+    const shape = editingShape();
+    const editor = $("textEditor");
+    if (!shape || !editor || editor.hidden) return;
+    const zoom = scale();
+    const chars = Math.max(1, editor.value.length);
+    editor.style.left = (shape.x * zoom) + "px";
+    editor.style.top = ((shape.y - shape.fontSize * 0.92) * zoom) + "px";
+    editor.style.fontSize = (shape.fontSize * zoom) + "px";
+    editor.style.fontFamily = cssFamily(shape.fontFamily);
+    editor.style.color = shape.color;
+    editor.style.caretColor = shape.color;
+    editor.style.fontStyle = String(shape.fontStyle).indexOf("italic") >= 0 ? "italic" : "normal";
+    editor.style.fontWeight = String(shape.fontStyle).indexOf("bold") >= 0 ? "700" : "400";
+    editor.style.textDecoration = [shape.underline ? "underline" : "", shape.strike ? "line-through" : ""].filter(Boolean).join(" ") || "none";
+    editor.style.height = (shape.fontSize * 1.35 * zoom) + "px";
+    editor.style.width = (Math.max(shape.fontSize * 2, chars * shape.fontSize + shape.fontSize) * zoom) + "px";
+  }
+
+  function ensureTextEditor() {
+    let editor = $("textEditor");
+    if (editor) return editor;
+    editor = document.createElement("textarea");
+    editor.id = "textEditor";
+    editor.className = "text-editor";
+    editor.rows = 1;
+    editor.spellcheck = false;
+    editor.autocomplete = "off";
+    editor.addEventListener("input", () => {
+      const shape = editingShape();
+      if (!shape) return;
+      shape.text = editor.value;
+      const field = document.querySelector('#rightPanel [data-prop="text"]');
+      if (field && document.activeElement !== field) field.value = shape.text;
+      markDirty();
+      renderBoard();
+    });
+    editor.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        event.preventDefault();
+        editor.blur();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        editor.blur();
+      }
+    });
+    editor.addEventListener("blur", () => {
+      const id = textEditing;
+      setTimeout(() => {
+        if (textEditing !== id) return;
+        if (document.activeElement === editor) return;
+        const field = document.querySelector('#rightPanel [data-prop="text"]');
+        if (field && document.activeElement === field) {
+          const shape = editingShape();
+          if (shape) shape.text = editor.value;
+          textEditing = null;
+          editor.hidden = true;
+          return;
+        }
+        finishTextEditor();
+      }, 0);
+    });
+    $("canvasFrame").appendChild(editor);
+    return editor;
+  }
+
+  function focusTextEditor(selectAll) {
+    const editor = $("textEditor");
+    const token = ++textFocusToken;
+    const id = textEditing;
+    setTimeout(() => {
+      if (!editor || token !== textFocusToken || textEditing !== id) return;
+      editor.focus();
+      if (selectAll) editor.select();
+      else editor.setSelectionRange(editor.value.length, editor.value.length);
+    }, 0);
+  }
+
+  function openTextEditor(shape, fresh) {
+    if (textEditing === shape.id) {
+      const editor = ensureTextEditor();
+      editor.hidden = false;
+      layoutTextEditor();
+      focusTextEditor(false);
+      return;
+    }
+    if (textEditing) finishTextEditor();
+    const editor = ensureTextEditor();
+    if (!fresh) pushUndo();
+    textSession = { id: shape.id, fresh: !!fresh, before: shape.text || "", depth: undoStack.length };
+    textEditing = shape.id;
+    editor.hidden = false;
+    editor.value = shape.text || "";
+    editor.setAttribute("aria-label", t("prop.text"));
+    layoutTextEditor();
+    focusTextEditor(!!editor.value);
+  }
+
+  function finishTextEditor() {
+    const session = textSession;
+    const editor = $("textEditor");
+    const shape = editingShape();
+    const doc = current();
+    textEditing = null;
+    textSession = null;
+    if (editor) editor.hidden = true;
+    if (shape && editor) shape.text = editor.value;
+    if (shape && doc && !shape.text) {
+      doc.shapes = doc.shapes.filter((item) => item.id !== shape.id);
+      selected = selected.filter((id) => id !== shape.id);
+      if (session && session.fresh && undoStack.length === session.depth) undoStack.pop();
+      updateHistoryButtons();
+    } else if (session && !session.fresh && shape && shape.text === session.before && undoStack.length === session.depth) {
+      undoStack.pop();
+      updateHistoryButtons();
+    }
+    renderAll();
   }
 
   function beginDraw(x, y) {
@@ -1724,6 +2115,16 @@
       return result;
     }
     if (tool === "text") {
+      const hit = Paint.hitTest(doc, x, y);
+      if (hit && hit.kind === "text") {
+        selected = [hit.id];
+        renderBoard();
+        renderLeft();
+        renderRight();
+        renderStatus();
+        openTextEditor(hit, false);
+        return hit;
+      }
       pushUndo();
       const shape = Paint.addShape(doc, Object.assign(shapeDefaults(), {
         kind: "text",
@@ -1732,10 +2133,12 @@
         w: 0,
         h: 0,
         fill: "",
-        text: settings.language === "en" ? "Text" : "글자",
+        text: "",
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize,
         fontStyle: settings.fontStyle,
+        underline: !!settings.fontUnderline,
+        strike: !!settings.fontStrike,
       }));
       selected = [shape.id];
       markDirty();
@@ -1744,6 +2147,7 @@
       renderRight();
       renderStatus();
       renderTabs();
+      openTextEditor(shape, true);
       return shape;
     }
     const marquee = (Paint.TOOLS.find((item) => item.id === tool) || {}).region;
@@ -2157,6 +2561,15 @@
     return doc.shapes.length;
   }
 
+  function createNewDoc(fields) {
+    const doc = newDoc({
+      width: clamp(fields.width, 16, 8192),
+      height: clamp(fields.height, 16, 8192),
+    });
+    closePopup();
+    return addDoc(doc, false);
+  }
+
   function applyCanvas(fields) {
     const doc = current();
     if (!doc) return null;
@@ -2430,7 +2843,23 @@
     else frame.contentWindow.print();
   }
 
+  function bytesFromBase64(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function diskPath(file) {
+    if (!file || !window.desktop || typeof window.desktop.pathForFile !== "function") return "";
+    try { return window.desktop.pathForFile(file) || ""; } catch (error) { return ""; }
+  }
+
   async function fileBytes(file) {
+    const disk = diskPath(file);
+    if (disk && window.desktop.readBinary) {
+      try { return bytesFromBase64(await window.desktop.readBinary(disk)); } catch (error) { /* the file itself may still be readable */ }
+    }
     if (typeof file.arrayBuffer === "function") return new Uint8Array(await file.arrayBuffer());
     return new Uint8Array(0);
   }
@@ -2438,7 +2867,11 @@
   async function readFileEntry(file) {
     const size = file.size || String(file.text || "").length;
     const named = Formats.kindOf(file.name, null);
-    if (named === "" && /\.mpaint$/i.test(file.name)) {
+    const disk = diskPath(file);
+    if ((named === "" && /\.mpaint$/i.test(file.name || "")) || (disk && /\.mpaint$/i.test(disk))) {
+      if (disk && window.desktop.readFile) {
+        return { kind: "drawing", name: file.name, text: await window.desktop.readFile(disk) };
+      }
       const text = typeof file.text === "function" ? await file.text() : String(file.text || "");
       return { kind: "drawing", name: file.name, text: text };
     }
@@ -2796,12 +3229,12 @@
     const image = dicomOf();
     if (!image || !shape) return null;
     const spacing = image.geometry && image.geometry.pixelSpacing;
-    if (shape.kind === "line") {
+    if (shape.kind === "line" || shape.kind === "arrow") {
       const px = Math.hypot(shape.w, shape.h);
       const mm = spacing ? Math.hypot(shape.w * spacing[1], shape.h * spacing[0]) : 0;
       return { kind: "length", px: px, mm: mm };
     }
-    if (shape.kind === "rect" || shape.kind === "ellipse") {
+    if (shape.kind === "rect" || shape.kind === "roundRect" || shape.kind === "ellipse" || shape.kind === "triangle") {
       const box = Paint.normalizeRect(shape);
       const stats = image.stats({ x: box.x, y: box.y, w: box.w, h: box.h, shape: shape.kind === "ellipse" ? "ellipse" : "rect" });
       return stats ? Object.assign({ kind: "roi" }, stats) : null;
@@ -2905,7 +3338,7 @@
   }
 
   const actions = {
-    new: () => addDoc(newDoc(), false),
+    new: () => openPopup("newdoc"),
     open: () => {
       if (TEST) {
         return openDrawingText(Paint.serialize([Paint.createDoc(Sample.shapes)]), "opened.mpaint", "");
@@ -2961,8 +3394,8 @@
     deleteShape: () => deleteSelection(),
     selectAll: () => doSelectAll(),
     deselect: () => doDeselect(),
-    strokeDown: () => setStrokeWidth(settings.strokeWidth - 1),
-    strokeUp: () => setStrokeWidth(settings.strokeWidth + 1),
+    strokeDown: () => setActiveSize(activeSize() - 1),
+    strokeUp: () => setActiveSize(activeSize() + 1),
     cropRegion: () => cropToRegion(),
     eraseRegion: () => eraseRegion(),
     clearRegion: () => clearRegion(),
@@ -2980,10 +3413,24 @@
       syncGrid();
       return settings.showGrid;
     },
+    toggleShapes: () => {
+      settings.showShapes = settings.showShapes === false;
+      saveSettings();
+      syncShapes();
+      renderLeft();
+      return settings.showShapes;
+    },
     print: () => openPopup("print"),
     settings: () => openPopup("settings"),
     about: () => openPopup("about"),
     language: () => setLanguage(settings.language === "en" ? "ko" : "en"),
+    fontDown: () => applyTextFont({ fontSize: activeFontSize() - 1 }),
+    fontUp: () => applyTextFont({ fontSize: activeFontSize() + 1 }),
+    fontBold: () => toggleFontFace("bold"),
+    fontItalic: () => toggleFontFace("italic"),
+    fontUnderline: () => toggleFontMark("underline"),
+    fontStrike: () => toggleFontMark("strike"),
+    fontMenu: () => openFontMenu(80, 48),
     themeCycle: () => setTheme(Themes.next(settings.theme)),
     themeMenu: () => {
       const place = anchorUnder("[data-action='themeMenu']", 0);
@@ -3011,10 +3458,7 @@
         saveSettings();
         continue;
       }
-      const base64 = await window.desktop.readBinary(file);
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      const bytes = bytesFromBase64(await window.desktop.readBinary(file));
       await openPicture(bytes, name, file);
       Store.rememberDirectory(settings, "open", file);
       saveSettings();
@@ -3027,9 +3471,17 @@
       if (action.startsWith("recent:")) { closeMenu(); return openRecent(action.slice(7)); }
       if (action.startsWith("tool:")) { closeMenu(); return setTool(action.slice(5)); }
       if (action.startsWith("color:")) { closeMenu(); return setColor(action.slice(6)); }
+      if (action.startsWith("width:")) { closeMenu(); return setActiveSize(Number(action.slice(6))); }
       if (action.startsWith("removeShape:")) { closeMenu(); return removeShapeById(action.slice(12)); }
       if (action.startsWith("shape:")) { closeMenu(); return selectShape(action.slice(6)); }
       if (action.startsWith("theme:")) { closeMenu(); return setTheme(action.slice(6)); }
+      if (action === "fontMenu") {
+        const node = document.querySelector("[data-action='fontMenu']");
+        const rect = node ? node.getBoundingClientRect() : { left: 80, bottom: 48 };
+        closeMenu();
+        return openFontMenu(rect.left, rect.bottom);
+      }
+      if (action.startsWith("font:")) { closeMenu(); return applyTextFont({ fontFamily: action.slice(5) }); }
       const fn = actions[action];
       if (!fn) throw new Error("Unknown action: " + action);
       closeMenu();
@@ -3088,8 +3540,14 @@
 
   function refreshPopupDocument(kind, tab) {
     if (kind === "settings") settingsTab = tab || settingsTab;
+    const html = popupDocument(kind);
     if (window.desktop && window.desktop.refreshPopup && !TEST) {
-      window.desktop.refreshPopup(popupDocument(kind));
+      window.desktop.refreshPopup(html);
+      return;
+    }
+    if (popupWindow && !popupWindow.closed && !TEST) {
+      popupHtml = html;
+      postPopupHtml();
       return;
     }
     if (popupEl && popupEl.dataset.kind === kind) {
@@ -3145,6 +3603,7 @@
     if (action === "apply-palette") { applyPaletteForm(fields); closePopup(); return settings; }
     if (action === "palette-sync") return applyPaletteForm(fields);
     if (action === "apply-canvas") { const result = applyCanvas(fields); closePopup(); return result; }
+    if (action === "create-new") return createNewDoc(fields);
     if (action === "canvas-sync") return null;
     if (action === "apply-custom") {
       setCustom(fields);
@@ -3265,7 +3724,7 @@
         return lastPrint;
       }
       refreshPrintPreview();
-      if (!popupEl && window.desktop && window.desktop.refreshPopup && !TEST) window.desktop.refreshPopup(popupDocument("print"));
+      if (!popupEl) refreshPopupDocument("print");
       return printState;
     }
     return null;
@@ -3277,6 +3736,21 @@
     const doc = current();
     const key = target.dataset.prop;
     const shape = firstSelected();
+    if (shape && key === "text") {
+      if (textEditing === shape.id) {
+        textEditing = null;
+        textSession = null;
+        const editor = $("textEditor");
+        if (editor) editor.hidden = true;
+      }
+      if (!textFieldUndo) pushUndo();
+      textFieldUndo = false;
+      shape.text = target.value;
+      Paint.normalizeShape(shape);
+      markDirty();
+      renderAll();
+      return;
+    }
     pushUndo();
     if (shape) {
       if (key === "width" || key === "opacity" || key === "fontSize" || key === "x" || key === "y") shape[key] = Number(target.value);
@@ -3321,6 +3795,7 @@
     else if (key === "fillColor") { settings.fillColor = target.value; saveSettings(); renderLeft(); }
     else if (key === "noFill") { settings.fillColor = target.checked ? "" : (settings.fillColor || "#ffffff"); saveSettings(); renderLeft(); }
     else if (key === "strokeWidth") setStrokeWidth(target.value);
+    else if (key === "size") setActiveSize(target.value);
   }
 
   function wireResizeGrip() {
@@ -3362,6 +3837,7 @@
       const point = toDocPoint(event.clientX, event.clientY);
       if (!boardDragging()) {
         pointer = point;
+        pointerSeen = true;
         probeAt(point.x, point.y);
         renderStatus();
         return;
@@ -3392,7 +3868,7 @@
     stage.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
       // the canvas itself draws; the space around it drags the picture
-      if (event.target.closest("#board")) return;
+      if (event.target.closest("#board, #textEditor")) return;
       event.preventDefault();
       stage.classList.add("panning");
       const startX = event.clientX;
@@ -3420,10 +3896,13 @@
     wireResizeGrip();
     wireBoard();
     wireStagePan();
-    bindSplitters();
     $("toolbar").addEventListener("click", (event) => {
       const btn = event.target.closest("[data-action]");
       if (btn) runAction(btn.dataset.action);
+    });
+    $("toolbar").addEventListener("change", (event) => {
+      const pick = event.target.closest("[data-font='family']");
+      if (pick) applyTextFont({ fontFamily: pick.value });
     });
     $("menubar").addEventListener("click", (event) => {
       const control = event.target.closest("[data-window]");
@@ -3443,6 +3922,25 @@
     });
     $("leftPanel").addEventListener("change", onPaletteChange);
     $("leftPanel").addEventListener("input", onPaletteChange);
+    $("rightPanel").addEventListener("input", (event) => {
+      const target = event.target;
+      if (!target.dataset || target.dataset.prop !== "text") return;
+      const shape = firstSelected();
+      if (!shape || shape.kind !== "text") return;
+      if (textEditing === shape.id) {
+        textEditing = null;
+        textSession = null;
+        const editor = $("textEditor");
+        if (editor) editor.hidden = true;
+      }
+      if (!textFieldUndo) {
+        pushUndo();
+        textFieldUndo = true;
+      }
+      shape.text = target.value;
+      markDirty();
+      renderBoard();
+    });
     $("rightPanel").addEventListener("change", onPropertyChange);
     $("rightPanel").addEventListener("change", onDicomChange);
     $("rightPanel").addEventListener("click", (event) => {
@@ -3490,6 +3988,7 @@
       }
       const tab = event.target.closest("[data-tab]");
       if (!tab) return;
+      if (textEditing) finishTextEditor();
       active = Number(tab.dataset.tab);
       selected = [];
       renderAll();
@@ -3502,38 +4001,70 @@
       openContext(event.clientX, event.clientY);
     });
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") { closeMenu(); doDeselect(); return; }
-      if (event.key === "Delete" && !event.target.closest("input, select, textarea")) {
+      const inField = event.target.closest && event.target.closest("input, textarea, select");
+      if (settings.tool === "text" && !inField && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1) {
+        event.preventDefault();
+        let shape = editingShape();
+        if (!shape) {
+          const doc = current();
+          if (!doc) return;
+          const point = pointerSeen ? pointer : { x: doc.width / 2, y: doc.height / 2 };
+          shape = beginDraw(point.x, point.y);
+        }
+        const editor = $("textEditor");
+        if (!editor || !shape) return;
+        const next = (editor.value || "") + event.key;
+        editor.value = next;
+        editor.setSelectionRange(next.length, next.length);
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+        editor.focus();
+        return;
+      }
+      if (event.key === "Escape" || event.code === "Escape") {
+        if (inField) return;
+        closeMenu();
+        doDeselect();
+        return;
+      }
+      if (!inField && (event.key === "Delete" || event.key === "Backspace" || event.code === "Delete" || event.code === "Backspace")) {
         event.preventDefault();
         deleteSelection();
         return;
       }
-      if (!(event.ctrlKey || event.metaKey)) return;
-      const key = event.key.toLowerCase();
-      if (key === "c") doCopy();
-      else if (key === "v") { event.preventDefault(); doPaste(); }
-      else if (key === "x") { event.preventDefault(); doCut(); }
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = shortcutLetter(event);
+      if (!key && event.code !== "Equal" && event.code !== "Minus" && event.code !== "Digit0" && event.code !== "NumpadAdd" && event.code !== "NumpadSubtract" && event.code !== "Numpad0") return;
+      if (key === "c") { if (!inField) doCopy(); }
+      else if (key === "v") { if (!inField) { event.preventDefault(); doPaste(); } }
+      else if (key === "x") { if (!inField) { event.preventDefault(); doCut(); } }
+      else if (key === "a") { if (!inField) { event.preventDefault(); doSelectAll(); } }
       else if (key === "z" && event.shiftKey) { event.preventDefault(); doRedo(); }
       else if (key === "z") { event.preventDefault(); doUndo(); }
       else if (key === "y") { event.preventDefault(); doRedo(); }
-      else if (key === "a") { event.preventDefault(); doSelectAll(); }
-      else if (key === "s") { event.preventDefault(); actions.save(); }
+      else if (key === "s" && !event.shiftKey) { event.preventDefault(); actions.save(); }
       else if (key === "p") { event.preventDefault(); actions.print(); }
       else if (key === "n") { event.preventDefault(); actions.new(); }
       else if (key === "o") { event.preventDefault(); actions.open(); }
-    });
+      else if (!inField && (key === "+" || key === "=" || event.code === "Equal" || event.code === "NumpadAdd")) { event.preventDefault(); zoomStep(1); }
+      else if (!inField && (key === "-" || event.code === "Minus" || event.code === "NumpadSubtract")) { event.preventDefault(); zoomStep(-1); }
+      else if (!inField && (key === "0" || event.code === "Digit0" || event.code === "Numpad0")) { event.preventDefault(); setZoom(100); }
+    }, true);
     window.addEventListener("wheel", (event) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       zoomByWheel(event.deltaY);
     }, { passive: false });
-    window.addEventListener("dragover", (event) => { event.preventDefault(); });
-    window.addEventListener("drop", (event) => {
+    const acceptDrop = (event) => {
       event.preventDefault();
-      if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length) {
-        handleDroppedFiles(event.dataTransfer.files).catch(showError);
-      }
-    });
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    };
+    window.addEventListener("dragenter", acceptDrop, true);
+    window.addEventListener("dragover", acceptDrop, true);
+    window.addEventListener("drop", (event) => {
+      acceptDrop(event);
+      const files = event.dataTransfer && event.dataTransfer.files;
+      if (files && files.length) handleDroppedFiles(files).catch(showError);
+    }, true);
     document.addEventListener("mousedown", (event) => {
       if (menuEl && !menuEl.contains(event.target) && !event.target.closest("[data-menu]") && !event.target.closest("#toolbar [data-action]")) closeMenu();
     });
@@ -3555,14 +4086,20 @@
       });
     }
     if (window.desktop && window.desktop.onCloseRequest) window.desktop.onCloseRequest(() => requestClose());
-    if (window.desktop && window.desktop.onHostAction) {
-      window.desktop.onHostAction((payload) => {
-        const name = payload && payload.name;
-        if (!name) return;
-        if (actions[name] || name.indexOf(":") > 0) runAction(name);
-        else popupAction(name, null, payload.detail || {});
-      });
-    }
+    const onPopupMessage = (payload) => {
+      const name = payload && payload.name;
+      if (!name) return;
+      if (actions[name] || name.indexOf(":") > 0) runAction(name);
+      else popupAction(name, null, payload.detail || {});
+    };
+    if (window.desktop && window.desktop.onHostAction) window.desktop.onHostAction(onPopupMessage);
+    window.addEventListener("message", (event) => {
+      if (!popupWindow || event.source !== popupWindow) return;
+      const data = event.data;
+      if (!data || data.source !== "mypaint") return;
+      if (data.type === "ready") postPopupHtml();
+      if (data.type === "action") onPopupMessage(data);
+    });
     if (window.desktop && window.desktop.onDownloadProgress) {
       window.desktop.onDownloadProgress((payload) => {
         if (!downloadWatcher || !payload) return;
@@ -3666,6 +4203,12 @@
     draft = null;
     dragState = null;
     pointer = { x: 0, y: 0 };
+    pointerSeen = false;
+    textEditing = null;
+    textSession = null;
+    textFieldUndo = false;
+    const textEditor = $("textEditor");
+    if (textEditor) textEditor.hidden = true;
     stopCine();
     extras.clear();
     Object.keys(images).forEach((key) => { delete images[key]; });
@@ -3704,12 +4247,7 @@
     getSettings: () => Object.assign({}, settings),
     saveSettings: saveSettings,
     loadSettings: () => { settings = Store.load(localStorage); applyVisual(); renderAll(); return api.getSettings(); },
-    setPanelWidth: (side, value) => {
-      layout()[side] = value;
-      applyLayout();
-      saveSettings();
-      return side === "left" ? layout().left : layout().right;
-    },
+    setPanelWidth: (side) => (side === "right" ? metrics.PROP_PANEL : metrics.TOOL_PANEL),
     rememberDirectory: (kind, filePath) => { Store.rememberDirectory(settings, kind, filePath); saveSettings(); return kind === "save" ? settings.lastSaveDir : settings.lastOpenDir; },
     run: runAction,
     menuDefinitions: menuDefinitions,

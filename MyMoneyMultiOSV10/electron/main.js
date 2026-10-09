@@ -30,6 +30,24 @@ let resizeStart = null;
 const moveStarts = new Map();
 
 app.setName("MyMoney");
+
+/**
+ * One copy at a time. Two of them share a settings file and a Chromium cache
+ * directory, which costs the second one its cache ("Unable to move the cache",
+ * 0x5) and lets either overwrite the other's saved watchlist. A second launch
+ * hands its turn to the window that is already up.
+ */
+const singleInstance = app.requestSingleInstanceLock();
+if (!singleInstance) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.focus();
+  });
+}
 if (process.platform === "linux") app.commandLine.appendSwitch("enable-transparent-visuals");
 
 function errorText(title, error) {
@@ -398,6 +416,7 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
+  if (!singleInstance) return;
   if (process.platform === "darwin" && app.dock) {
     app.dock.setIcon(iconPath);
     app.dock.hide();
@@ -617,6 +636,27 @@ ipcMain.handle("confirm-quit", () => {
   quitting = true;
   hub.closeAll();
   mainWindow?.close();
+});
+
+/**
+ * Windows and macOS keep the "start with the system" flag themselves, so the
+ * settings file only remembers what the reader asked for. A packaged build
+ * registers its own executable; a dev run registers Electron with the project.
+ */
+ipcMain.handle("set-auto-start", (_event, on) => {
+  const openAtLogin = Boolean(on);
+  const options = { openAtLogin, openAsHidden: false };
+  if (!app.isPackaged) {
+    options.path = process.execPath;
+    options.args = [path.resolve(process.argv[1] || __dirname)];
+  }
+  app.setLoginItemSettings(options);
+  return app.getLoginItemSettings(options).openAtLogin;
+});
+
+ipcMain.handle("get-auto-start", () => {
+  const options = app.isPackaged ? {} : { path: process.execPath, args: [path.resolve(process.argv[1] || __dirname)] };
+  return app.getLoginItemSettings(options).openAtLogin;
 });
 
 ipcMain.handle("clipboard-write", (_event, text) => clipboard.writeText(String(text ?? "")));

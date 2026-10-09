@@ -2,7 +2,7 @@ import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
 import { FONT_STYLES } from "../core/fonts.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
-import { DEFAULT_SETTINGS, DISPLAY_PRIORITIES, PRICE_UNITS, ROTATE_SECONDS, SCENE_MODES, UPDATE_HOURS } from "../core/settings.js";
+import { DEFAULT_SETTINGS, DISPLAY_PRIORITIES, PRICE_UNITS, ROTATE_SECONDS, SCENE_MODES, UPDATE_MINUTES } from "../core/settings.js";
 import { CURRENCIES, currencyName } from "../market/markets.js";
 import { SOURCE_IDS } from "../market/providers.js";
 import { esc } from "./html.js";
@@ -66,16 +66,13 @@ export function listBlockHeight(count, max = WATCHLIST_HEIGHT) {
 export function buildSettingsSpec(model) {
   const t = model.t;
   const values = model.values;
-  const recent = model.recent || [];
   const tabs = [
     { id: "general", icon: "general", label: t("tab.general"), rows: generalRows(model) },
     { id: "watchlist", icon: "stocks", label: t("tab.watchlist"), rows: watchlistRows(model) },
     { id: "rates", icon: "rates", label: t("tab.rates"), rows: rateRows(model) },
     { id: "data", icon: "market", label: t("tab.data"), rows: dataRows(model) },
     { id: "appearance", icon: "palette", label: t("tab.appearance"), rows: appearanceRows(model) },
-    { id: "wallpaper", icon: "image", label: t("tab.wallpaper"), rows: wallpaperRows(model) },
-    { id: "font", icon: "font", label: t("tab.font"), rows: fontRows(model) },
-    { id: "recent", icon: "recent", label: t("tab.recent"), rows: recentRows(recent, t) },
+    { id: "wallpaper", icon: "image", label: t("tab.wallpaperFont"), rows: [...wallpaperRows(model), ...fontRows(model)] },
   ];
   return {
     type: "settings",
@@ -201,6 +198,55 @@ export function buildUnsavedSpec(fileLabel, t) {
   };
 }
 
+/** Asked before a dropped picture replaces the background, which has no undo. */
+export function buildWallpaperDropSpec(fileLabel, t) {
+  return {
+    type: "wallpaper-drop",
+    icon: "image",
+    title: t("popup.wallpaperDrop"),
+    width: 520,
+    height: 240,
+    resizable: false,
+    scroll: "none",
+    rows: [
+      { kind: "note", id: "message", text: t("wallpaperDrop.message") },
+      { kind: "note", id: "file", text: fileLabel || "" },
+    ],
+    buttons: [
+      { id: "ok", action: "ok", icon: "image", label: t("btn.useImage") },
+      { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") },
+    ],
+  };
+}
+
+/** Tallest the search result list grows to before it stops adding rows. */
+export const SEARCH_LIST_HEIGHT = 260;
+
+/**
+ * What an online symbol search found. The reader picks one; an empty search
+ * says so here rather than through an error popup.
+ */
+export function buildSearchResultsSpec(query, results, t, trouble = "") {
+  const rows = Array.isArray(results) ? results : [];
+  const note = rows.length ? t("search.found", { n: rows.length }) : t("search.none", { q: query || "" });
+  const extra = trouble ? [{ kind: "note", id: "trouble", text: t("search.offline") }] : [];
+  return {
+    type: "search-results",
+    icon: "search",
+    title: t("popup.searchResults"),
+    width: 560,
+    height: 420,
+    resizable: false,
+    scroll: "none",
+    rows: [
+      { kind: "note", id: "summary", text: note },
+      ...extra,
+      { kind: "picks", id: "results", entries: rows, height: SEARCH_LIST_HEIGHT, pickTip: t("tip.pickSymbol") },
+    ],
+    buttons: [{ id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") }],
+  };
+}
+
 export function buildPrintSpec(t, draft) {
   return {
     type: "print",
@@ -286,18 +332,21 @@ export function buildPreviewSpec(printModel, t) {
 
 const PANEL_WIDTH = { stocks: 720, rates: 560, news: 720 };
 
-export function buildPanelSpec({ panel, markup, fitHeight, transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
+export function buildPanelSpec({ panel, markup, fitHeight, transparency = 0, backgroundImage = "", backgroundOpacity = 40, stamp = "", t }) {
   const body = Math.max(72, Number(fitHeight) || 72);
   return {
     type: "panel",
     panel,
     icon: panel,
-    title: t(`panel.${panel}`),
+    // The quote and rate windows say when they were drawn, so a window left
+    // open is never mistaken for a fresh one.
+    title: stamp && panel !== "news" ? `${t(`panel.${panel}`)} · ${stamp}` : t(`panel.${panel}`),
     transparency: Math.max(0, Math.min(100, Math.round(Number(transparency) || 0))),
     backgroundImage: typeof backgroundImage === "string" ? backgroundImage : "",
     backgroundOpacity: Math.max(0, Math.min(100, Math.round(Number(backgroundOpacity) || 0))),
     width: PANEL_WIDTH[panel] || 680,
-    height: 44 + 48 + 16 + body,
+    // 44 head + 48 foot + 16 padding + the popup's own 1px border a side.
+    height: 44 + 48 + 16 + body + 2,
     markup,
     fitHeight: body,
     buttons: [{ id: "close", action: "close", icon: "close", label: t("btn.close") }],
@@ -313,6 +362,25 @@ export function paintWallpaper(layer, image, opacity) {
   layer.dataset.image = picture ? "yes" : "no";
 }
 
+/**
+ * A scrolling row list loses its scrollbar's width, while the column titles
+ * above it do not. Measuring once lets both reserve the same gutter, so the
+ * columns stay lined up. Platforms differ, and an overlay scrollbar is 0.
+ */
+let measuredScrollbar = null;
+export function scrollbarWidth() {
+  if (measuredScrollbar !== null) return measuredScrollbar;
+  try {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;top:-9999px;width:100px;height:100px;overflow-y:scroll;scrollbar-width:thin";
+    document.body.appendChild(probe);
+    measuredScrollbar = probe.offsetWidth - probe.clientWidth;
+    probe.remove();
+  } catch {
+    measuredScrollbar = 0;
+  }
+  return measuredScrollbar;
+}
 export function buildPopupElement(spec) {
   const el = document.createElement("section");
   el.className = "popup";
@@ -331,6 +399,7 @@ export function buildPopupElement(spec) {
   el.style.resize = "none";
   el.style.position = "fixed";
   el.style.boxSizing = "border-box";
+  el.style.setProperty("--scrollbar", `${scrollbarWidth()}px`);
   el._html = spec.html || "";
   el.dataset.printHtml = spec.html || "";
   const tabs = spec.tabs || [];
@@ -454,13 +523,12 @@ export function wirePopup(el, spec, handlers = {}) {
   };
   const activeTab = () => el.querySelector(".popup-panel:not([hidden])")?.dataset.panel || spec.activeTab;
   /**
-   * Settings pages differ a lot in length, so the window takes the height of
-   * the page on show instead of standing at the tallest one with dead space
-   * under every short page.
+   * One size for every page. The tallest page decides it, so switching tabs
+   * never resizes the window and no page ever needs to scroll.
    */
   const fitHeight = () => {
     if (spec.type !== "settings") return;
-    const used = popupFits(el).used;
+    const used = tallestPanelHeight(el);
     const height = Math.max(SETTINGS_MIN_HEIGHT, Math.min(SETTINGS_MAX_HEIGHT, used));
     if (parseInt(el.style.height, 10) === height) return;
     el.style.height = `${height}px`;
@@ -532,9 +600,34 @@ export function wirePopup(el, spec, handlers = {}) {
       void handlers.immediate?.({ type: "recent-delete", path: recent.dataset.path, popupId: spec.popupId });
       return;
     }
+    const pager = event.target.closest("[data-gui='pager']");
+    if (pager && !pager.disabled) {
+      void handlers.immediate?.({
+        type: "panel-page",
+        panel: spec.panel,
+        page: Number(pager.dataset.page) || 0,
+        popupId: spec.popupId,
+      });
+      return;
+    }
+    const picked = event.target.closest('[data-action="pick-symbol"]');
+    if (picked) {
+      finish({ action: "pick-symbol", symbol: picked.dataset.symbol });
+      return;
+    }
     const opener = event.target.closest("[data-action='recent-open']");
     if (opener) {
       finish({ action: "recent-open", path: opener.dataset.path });
+      return;
+    }
+    const choiceButton = event.target.closest("[data-choice]");
+    if (choiceButton) {
+      const name = choiceButton.dataset.choice;
+      const field = el.querySelector(`[data-field="${name}"]`);
+      if (field) field.value = choiceButton.dataset.value;
+      el.querySelectorAll(`[data-choice="${name}"]`).forEach((button) =>
+        button.setAttribute("aria-pressed", String(button === choiceButton)),
+      );
       return;
     }
     const modeButton = event.target.closest("[data-theme-mode]");
@@ -708,12 +801,96 @@ export function wirePopup(el, spec, handlers = {}) {
     if (event.key === "Escape") {
       event.stopPropagation();
       finish({ action: "close" });
+      return;
     }
+    if (event.key !== "Enter") return;
+    // Typing a query and pressing Enter is the same as pressing Search.
+    const box = event.target.closest?.("[data-submit]");
+    if (!box) return;
+    event.preventDefault();
+    event.stopPropagation();
+    el.querySelector(`[data-action="${box.dataset.submit}"]`)?.click();
   });
+  el._rewire = () => wireReorder(el, spec, handlers);
+  el._rewire();
   el._update = (patch) => applyPatch(el, patch, spec);
   return el;
 }
 
+/**
+ * Lists whose order the reader owns: the two panels and the two lists in
+ * Settings. Each says which attribute names a row and which order it belongs
+ * to, so one piece of wiring serves them all.
+ */
+const SORTABLE = [
+  { gui: "quote-rows", attribute: "symbol", panel: "stocks" },
+  { gui: "rate-rows", attribute: "code", panel: "rates" },
+  { gui: "watchlist", attribute: "watch", panel: "stocks" },
+  { gui: "ratelist", attribute: "watch", panel: "rates" },
+];
+
+/**
+ * A row moves by its grip. Pressing the grip arms the row for dragging, the
+ * rows under the pointer step aside as it passes, and letting go reports the
+ * order that is now on screen.
+ */
+function wireReorder(el, spec, handlers) {
+  for (const kind of SORTABLE) {
+    const list = el.querySelector(`[data-gui="${kind.gui}"]`);
+    if (!list) continue;
+    wireSortableList(list, kind, spec, handlers);
+  }
+}
+
+function wireSortableList(list, kind, spec, handlers) {
+  const rowsOf = () => [...list.querySelectorAll(`[data-${kind.attribute}]`)];
+  let dragged = null;
+  // Only the grip starts a drag, so a click on the row still does its own job.
+  list.addEventListener("pointerdown", (event) => {
+    const row = event.target.closest?.(`[data-${kind.attribute}]`);
+    const grip = event.target.closest?.("[data-grip]");
+    if (row) row.setAttribute("draggable", grip ? "true" : "false");
+  });
+  list.addEventListener("dragstart", (event) => {
+    const row = event.target.closest?.(`[data-${kind.attribute}]`);
+    if (!row || row.getAttribute("draggable") !== "true") return;
+    dragged = row;
+    row.classList.add("is-dragging");
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", row.dataset[kind.attribute] || "");
+    }
+  });
+  list.addEventListener("dragover", (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    const over = event.target.closest?.(`[data-${kind.attribute}]`);
+    if (!over || over === dragged) return;
+    const box = over.getBoundingClientRect();
+    const past = kind.gui === "watchlist" || kind.gui === "ratelist"
+      ? event.clientX > box.left + box.width / 2
+      : event.clientY > box.top + box.height / 2;
+    list.insertBefore(dragged, past ? over.nextSibling : over);
+  });
+  const settle = () => {
+    if (!dragged) return;
+    dragged.classList.remove("is-dragging");
+    dragged.setAttribute("draggable", "false");
+    dragged = null;
+    void handlers.immediate?.({
+      type: "reorder-panel",
+      panel: kind.panel,
+      order: rowsOf().map((row) => row.dataset[kind.attribute]),
+      popupId: spec.popupId,
+    });
+  };
+  list.addEventListener("drop", (event) => {
+    event.preventDefault();
+    settle();
+  });
+  list.addEventListener("dragend", settle);
+}
 export function applyPopupTheme(spec, draft = {}) {
   const theme = draft.theme || spec.theme;
   const colors = themeColors(theme, draft.customTheme || spec.customTheme);
@@ -911,16 +1088,15 @@ export class PopupLayer {
 function generalRows(model) {
   const t = model.t;
   const values = model.values;
-  const language = model.language || "ko";
   return [
     {
-      kind: "select",
+      kind: "choice",
       id: "language",
       label: t("field.language"),
       value: values.language,
       options: [
-        { value: "ko", label: "한국어" },
-        { value: "en", label: "English" },
+        { value: "ko", label: "한국어", icon: "flagKr" },
+        { value: "en", label: "English", icon: "flagGb" },
       ],
     },
     {
@@ -932,10 +1108,10 @@ function generalRows(model) {
     },
     {
       kind: "select",
-      id: "updateHours",
-      label: t("field.updateHours"),
-      value: String(values.updateHours ?? 1),
-      options: UPDATE_HOURS.map((hours) => ({ value: String(hours), label: t(`update.h${hours}`) })),
+      id: "updateMinutes",
+      label: t("field.updateMinutes"),
+      value: String(values.updateMinutes ?? 10),
+      options: UPDATE_MINUTES.map((minutes) => ({ value: String(minutes), label: t(`update.m${minutes}`) })),
     },
     {
       kind: "select",
@@ -947,6 +1123,16 @@ function generalRows(model) {
         label: id === "average" ? t("priority.average") : t(`source.${id}`),
       })),
     },
+    { kind: "check", id: "startAtLogin", label: t("field.startAtLogin"), checked: Boolean(values.startAtLogin) },
+  ];
+}
+
+function watchlistRows(model) {
+  const t = model.t;
+  const values = model.values;
+  const language = model.language || "ko";
+  // Choosing, adding, and seeing the watchlist all belong on one page.
+  return [
     {
       kind: "select",
       id: "marketCode",
@@ -957,6 +1143,8 @@ function generalRows(model) {
         label: `${language === "ko" ? market.countryKo : market.countryEn} · ${language === "ko" ? market.marketKo : market.marketEn}`,
       })),
     },
+    { kind: "text", id: "search", label: t("field.search"), value: values.search || "", submit: "search-online" },
+    { kind: "action", id: "search-online", action: "search-online", icon: "search", label: t("tip.search") },
     {
       kind: "select",
       id: "symbol",
@@ -965,16 +1153,8 @@ function generalRows(model) {
       options: symbolOptions(model.catalog, values.marketCode, language),
     },
     { kind: "action", id: "add-symbol", action: "add-symbol", icon: "add", label: t("btn.addSymbol"), title: t("tip.addSymbol") },
-    { kind: "text", id: "search", label: t("field.search"), value: values.search || "" },
-    { kind: "action", id: "search-online", action: "search-online", icon: "search", label: t("tip.search") },
-    { kind: "check", id: "reopen", label: t("field.reopen"), checked: Boolean(values.reopen) },
-  ];
-}
-
-function watchlistRows(model) {
-  const t = model.t;
-  const values = model.values;
-  return [
+    { kind: "static", id: "watchlistHint", label: t("field.watchlist"), value: t("field.watchlistHint") },
+    { kind: "watchlist", id: "watchlist", entries: model.values.watchlist || [], removeTip: t("tip.removeSymbol"), dragTip: t("tip.dragRow"), empty: t("market.noSymbols") },
     {
       kind: "select",
       id: "sceneMode",
@@ -989,8 +1169,6 @@ function watchlistRows(model) {
       value: String(values.rotateSeconds ?? 0),
       options: ROTATE_SECONDS.map((seconds) => ({ value: String(seconds), label: t(`rotate.s${seconds}`) })),
     },
-    { kind: "static", id: "watchlistHint", label: t("field.watchlist"), value: t("field.watchlistHint") },
-    { kind: "watchlist", id: "watchlist", entries: model.values.watchlist || [], removeTip: t("tip.removeSymbol"), empty: t("market.noSymbols") },
   ];
 }
 
@@ -1022,6 +1200,7 @@ function rateRows(model) {
       kind: "watchlist",
       id: "rateList",
       gui: "ratelist",
+      dragTip: t("tip.dragRow"),
       remove: "currency-remove",
       entries: (values.rateCurrencies || []).map((code) => ({ symbol: code, name: currencyName(code, language) })),
       removeTip: t("tip.removeCurrency"),
@@ -1160,26 +1339,6 @@ function dataRows(model) {
   ];
 }
 
-function recentRows(recent, t) {
-  if (!recent.length) {
-    return [
-      { kind: "static", id: "empty", label: t("recent.empty"), value: "" },
-      { kind: "action", id: "clear-recent", action: "recent-clear", icon: "clear", label: t("btn.clearRecent") },
-    ];
-  }
-  return [
-    ...recent.map((filePath, index) => ({
-      kind: "recent",
-      id: `recent-${index}`,
-      path: filePath,
-      label: filePath,
-      tip: t("tip.deleteRecent"),
-      openTip: t("tip.recentOpen"),
-    })),
-    { kind: "action", id: "clear-recent", action: "recent-clear", icon: "clear", label: t("btn.clearRecent") },
-  ];
-}
-
 function resetSettingsForm(el, spec) {
   const defaults = DEFAULT_SETTINGS;
   const board = defaults.defaultBoard;
@@ -1187,11 +1346,15 @@ function resetSettingsForm(el, spec) {
   const assign = (field, value) => {
     const node = el.querySelector(`[data-field="${field}"]`);
     if (node) node.value = value == null ? "" : String(value);
+    // A segmented choice keeps its state on the buttons, not only the field.
+    el.querySelectorAll(`[data-choice="${field}"]`).forEach((button) =>
+      button.setAttribute("aria-pressed", String(button.dataset.value === String(value))),
+    );
   };
   assign("language", defaults.language);
   assign("units", defaults.units);
   assign("baseCurrency", defaults.baseCurrency);
-  assign("updateHours", defaults.updateHours);
+  assign("updateMinutes", defaults.updateMinutes);
   assign("displayPriority", defaults.displayPriority);
   assign("sceneMode", defaults.sceneMode);
   assign("rotateSeconds", defaults.rotateSeconds);
@@ -1200,8 +1363,8 @@ function resetSettingsForm(el, spec) {
   if (spec) refillSymbols(el, spec);
   assign("symbol", board.symbols[0]?.symbol || "");
   assign("search", "");
-  const reopen = el.querySelector('[data-field="reopen"]');
-  if (reopen) reopen.checked = defaults.reopenLast;
+  const startAtLogin = el.querySelector('[data-field="startAtLogin"]');
+  if (startAtLogin) startAtLogin.checked = defaults.startAtLogin;
   el.querySelectorAll('[data-group="source"]').forEach((box) => {
     box.checked = defaults.enabledSources.includes(box.dataset.source);
   });
@@ -1236,10 +1399,17 @@ function renderRow(row) {
     return `<div class="about-intro" data-row="${esc(row.id)}"><img class="about-app-icon" src="${esc(row.icon)}" alt="" width="72" height="72"><div class="about-copy"><strong class="about-name">${esc(row.name)}</strong><p class="about-desc">${esc(row.description)}</p></div></div>`;
   }
   if (row.kind === "hidden") return `<input type="hidden" data-field="${esc(row.id)}" value="${esc(row.value || "")}">`;
+  if (row.kind === "picks") {
+    const height = Math.min(Number(row.height) || SEARCH_LIST_HEIGHT, Math.max(LIST_ROW, (row.entries || []).length * (LIST_ROW + LIST_GAP)));
+    return `<div class="picks" data-row="${esc(row.id)}" data-gui="picks" data-fit-height="${height}" style="height:${height}px;overflow:hidden;flex:0 0 auto">${picksBody(row.entries, row.pickTip)}</div>`;
+  }
+  if (row.kind === "note") {
+    return `<p class="popup-note" data-row="${esc(row.id)}">${esc(row.text || "")}</p>`;
+  }
   if (row.kind === "watchlist") {
     const height = listBlockHeight((row.entries || []).length, Number(row.height) || WATCHLIST_HEIGHT);
     const remove = row.remove || "symbol-remove";
-    return `<div class="watchlist" data-row="${esc(row.id)}" data-gui="${esc(row.gui || "watchlist")}" data-fit-height="${height}" data-max-height="${Number(row.height) || WATCHLIST_HEIGHT}" data-remove="${esc(remove)}" data-remove-tip="${esc(row.removeTip || "")}" data-empty="${esc(row.empty || "")}" style="height:${height}px;overflow:hidden;flex:0 0 auto">${watchlistBody(row.entries, row.removeTip, row.empty, remove)}</div>`;
+    return `<div class="watchlist" data-row="${esc(row.id)}" data-gui="${esc(row.gui || "watchlist")}" data-fit-height="${height}" data-max-height="${Number(row.height) || WATCHLIST_HEIGHT}" data-remove="${esc(remove)}" data-remove-tip="${esc(row.removeTip || "")}" data-drag-tip="${esc(row.dragTip || "")}" data-empty="${esc(row.empty || "")}" style="height:${height}px;overflow:hidden;flex:0 0 auto">${watchlistBody(row.entries, row.removeTip, row.empty, remove, row.dragTip)}</div>`;
   }
   if (row.kind === "select") {
     const options = (row.options || [])
@@ -1261,6 +1431,15 @@ function renderRow(row) {
     const increase = row.increase || "+";
     return `<div class="popup-row range-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="range-control"><button type="button" class="step-btn" data-step="-5" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(decrease)}" aria-label="${esc(decrease)}">−</button><span class="range-end">0</span><input type="range" min="0" max="100" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}"><span class="range-end">100</span><button type="button" class="step-btn" data-step="5" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(increase)}" aria-label="${esc(increase)}">+</button></div><output data-out="${esc(row.id)}">${esc(row.value)}${esc(row.suffix || "")}</output></div>`;
   }
+  if (row.kind === "choice") {
+    const buttons = (row.options || [])
+      .map(
+        (option) =>
+          `<button type="button" class="seg-btn" data-choice="${esc(row.id)}" data-value="${esc(option.value)}" data-gui="popup-button" title="${esc(option.label)}" aria-pressed="${option.value === row.value}">${icon(option.icon, { colorful: true })}<span>${esc(option.label)}</span></button>`,
+      )
+      .join("");
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><input type="hidden" data-field="${esc(row.id)}" value="${esc(row.value)}"><div class="segmented" role="group">${buttons}</div></div>`;
+  }
   if (row.kind === "theme-mode") {
     const buttons = row.options
       .map(
@@ -1279,7 +1458,9 @@ function renderRow(row) {
   }
   if (row.kind === "number" || row.kind === "date" || row.kind === "text") {
     const type = row.kind === "date" ? "date" : row.kind === "text" ? "text" : "number";
-    return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="${type}" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}"${type === "number" ? ' step="any"' : ""}${row.min != null ? ` min="${row.min}" max="${row.max}"` : ""}></label>`;
+    // `submit` names the button Enter stands for while the box has focus.
+    const submit = row.submit ? ` data-submit="${esc(row.submit)}"` : "";
+    return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="${type}" data-field="${esc(row.id)}" title="${esc(row.label)}" value="${esc(row.value)}"${submit}${type === "number" ? ' step="any"' : ""}${row.min != null ? ` min="${row.min}" max="${row.max}"` : ""}></label>`;
   }
   if (row.kind === "input" && row.multiline) {
     return `<label class="text-block" data-row="${esc(row.id)}" data-fit-height="${ERROR_TEXT_HEIGHT}" style="display:flex;flex-direction:column;gap:4px;height:${ERROR_TEXT_HEIGHT}px;overflow:hidden;flex:0 0 auto"><span>${esc(row.label)}</span><textarea readonly wrap="off" data-field="${esc(row.id)}" title="${esc(row.label)}"></textarea></label>`;
@@ -1300,13 +1481,24 @@ function renderRow(row) {
   return `<div class="popup-row" data-row="${esc(row.id || "static")}"${tone}${style}><span>${esc(row.label || "")}</span><span title="${esc(row.value || "")}">${esc(row.value || "")}</span></div>`;
 }
 
-function watchlistBody(entries, removeTip, empty, remove = "symbol-remove") {
+function picksBody(entries, pickTip) {
+  const rows = entries || [];
+  if (!rows.length) return "";
+  return rows
+    .map((entry) => {
+      const label = `${entry.name || entry.nameKo || entry.symbol} ${entry.symbol}`;
+      return `<button type="button" class="pick-row" data-action="pick-symbol" data-symbol="${esc(entry.symbol)}" data-gui="pick" title="${esc(pickTip || label)}"><span class="pick-name">${esc(entry.name || entry.nameKo || entry.symbol)}</span><span class="pick-symbol">${esc(entry.symbol)}</span><span class="pick-exchange">${esc(entry.exchange || entry.marketCode || "")}</span></button>`;
+    })
+    .join("");
+}
+
+function watchlistBody(entries, removeTip, empty, remove = "symbol-remove", dragTip = "") {
   const rows = entries || [];
   if (!rows.length) return `<p class="empty" data-gui="watchlist-empty">${esc(empty || "")}</p>`;
   return rows
     .map(
       (entry) =>
-        `<div class="watch-row" data-watch="${esc(entry.symbol)}" style="display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden"><span class="watch-name" title="${esc(entry.name)}">${esc(entry.name)}</span><span class="watch-symbol">${esc(entry.symbol)}</span><button type="button" class="icon-btn" data-action="${esc(remove)}" data-symbol="${esc(entry.symbol)}" data-gui="popup-button" title="${esc(removeTip || entry.symbol)}" aria-label="${esc(removeTip || entry.symbol)}">${icon("trash")}</button></div>`,
+        `<div class="watch-row" data-watch="${esc(entry.symbol)}" style="display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden"><span class="watch-name" title="${esc(entry.name)}">${esc(entry.name)}</span><span class="watch-symbol">${esc(entry.symbol)}</span><button type="button" class="icon-btn" data-action="${esc(remove)}" data-symbol="${esc(entry.symbol)}" data-gui="popup-button" title="${esc(removeTip || entry.symbol)}" aria-label="${esc(removeTip || entry.symbol)}">${icon("trash")}</button><span class="row-grip" data-grip="1" title="${esc(dragTip)}" aria-hidden="true">${icon("drag")}</span></div>`,
     )
     .join("");
 }
@@ -1406,7 +1598,7 @@ function refillMarkets(el, spec) {
 function repaintList(el, gui, entries) {
   const box = el.querySelector(`[data-gui="${gui}"]`);
   if (!box) return;
-  box.innerHTML = watchlistBody(entries, box.dataset.removeTip, box.dataset.empty, box.dataset.remove);
+  box.innerHTML = watchlistBody(entries, box.dataset.removeTip, box.dataset.empty, box.dataset.remove, box.dataset.dragTip);
   const height = listBlockHeight((entries || []).length, Number(box.dataset.maxHeight) || WATCHLIST_HEIGHT);
   box.dataset.fitHeight = String(height);
   box.style.height = `${height}px`;
@@ -1431,6 +1623,13 @@ function applyPatch(el, patch, spec) {
   if (patch.symbol) {
     const select = el.querySelector('[data-field="symbol"]');
     if (select && [...select.options].some((option) => option.value === patch.symbol)) select.value = patch.symbol;
+  }
+  if (patch.markup != null) {
+    const panel = el.querySelector('[data-gui="panel"]');
+    if (panel) {
+      panel.innerHTML = patch.markup;
+      el._rewire?.();
+    }
   }
   if (patch.watchlist) repaintList(el, "watchlist", patch.watchlist);
   if (patch.rateList) repaintList(el, "ratelist", patch.rateList);
@@ -1481,16 +1680,31 @@ function applyPatch(el, patch, spec) {
   }
 }
 
-export function popupFits(el) {
-  const height = parseInt(el.style.height, 10);
+/** Height one page needs, whether or not it is the page on show. */
+export function panelUsedHeight(el, panel) {
   const tabChrome = el.querySelector(".popup-tabs") ? 36 : 0;
-  const panel = el.querySelector(".popup-panel:not([hidden])") || el.querySelector(".popup-panel");
   const rows = panel ? [...panel.children].filter((node) => node.classList.contains("popup-row")).length : 0;
+  const notes = panel ? [...panel.children].filter((node) => node.classList.contains("popup-note")).length : 0;
   const blocks = panel ? [...panel.children].filter((node) => node.classList.contains("preview-fit") || node.dataset.fitHeight) : [];
   const extra = blocks.reduce((sum, node) => sum + (parseInt(node.dataset.fitHeight || node.style.height, 10) || 0), 0);
   const settings = el.dataset.popup === "settings";
-  const gaps = settings ? Math.max(0, rows + blocks.length - 1) * SETTINGS_ROW_GAP : 0;
+  const gaps = settings ? Math.max(0, rows + notes + blocks.length - 1) * SETTINGS_ROW_GAP : 0;
   const pad = settings ? 32 : 16;
-  const used = 44 + tabChrome + rows * 32 + gaps + extra + 48 + pad;
+  // The popup is border-box with a 1px border a side, so that counts too.
+  return 44 + tabChrome + rows * 32 + notes * 24 + gaps + extra + 48 + pad + 2;
+}
+
+/** The tallest page, so one window size suits them all. */
+export function tallestPanelHeight(el) {
+  const panels = [...el.querySelectorAll(".popup-panel")];
+  if (!panels.length) return panelUsedHeight(el, null);
+  return panels.reduce((tallest, panel) => Math.max(tallest, panelUsedHeight(el, panel)), 0);
+}
+
+export function popupFits(el) {
+  const height = parseInt(el.style.height, 10);
+  const panel = el.querySelector(".popup-panel:not([hidden])") || el.querySelector(".popup-panel");
+  const used = panelUsedHeight(el, panel);
+  const rows = panel ? [...panel.children].filter((node) => node.classList.contains("popup-row")).length : 0;
   return { used, height, fits: used <= height, rows };
 }
