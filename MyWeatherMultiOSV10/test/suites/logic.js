@@ -23,7 +23,7 @@ import { layoutMenu, menuWindowOptions, placeBeside, popupWindowOptions } from "
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { CITY_PAGE_SIZE, PAGE_SPAN, moveCity, pageWindow } from "../../src/ui/popups.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { CONTENT_PADDING, SCENE_ART, SCENE_BREATH, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_ART, SCENE_BREATH, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, isCompactWidth, placeWindow, recordedWindowPlacement, roomyMinWidth, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { aggregate, presentWeather } from "../../src/weather/aggregate.js";
 import { formatTemp } from "../../src/weather/format.js";
@@ -70,7 +70,7 @@ export function registerLogic(h) {
     assert.equal("opacity" in settings, false);
     assert.deepEqual(settings.customTheme, { mode: "dark", bg: "#16283a", text: "#abcdef", accent: "#5cc8ff" });
     assert.equal(settings.windowSize, null);
-    assert.deepEqual(sanitizeSettings({ windowSize: { width: 329, height: 187 } }).windowSize, { width: 329, height: 187 });
+    assert.deepEqual(sanitizeSettings({ windowSize: { width: 313, height: 150 } }).windowSize, { width: 313, height: 150 });
     assert.deepEqual(sanitizeSettings({ windowPosition: { x: 12.6, y: -8 }, windowMaximized: 1 }).windowPosition, { x: 13, y: -8 });
     assert.equal(sanitizeSettings({ windowPosition: { x: 12.6, y: -8 }, windowMaximized: 1 }).windowMaximized, true);
     assert.equal(sanitizeSettings({ windowPosition: { x: "left", y: 4 } }).windowPosition, null);
@@ -514,7 +514,7 @@ export function registerLogic(h) {
   h.test("window size is clamped to a usable minimum", () => {
     assert.deepEqual(clampWindowSize(null), WINDOW_DEFAULT);
     assert.equal(WINDOW_MIN.width, toolbarMinWidth());
-    assert.ok(WINDOW_MIN.width >= 320);
+    assert.deepEqual(WINDOW_MIN, { width: 313, height: 150 }, "the same minimum as MyMoney");
     assert.equal(WINDOW_MIN.height, 46 + CONTENT_PADDING.top + CONTENT_PADDING.bottom + Math.ceil(SCENE_NATURAL.height * SCENE_MIN_SCALE));
     assert.deepEqual(clampWindowSize({ width: 10, height: 10 }), WINDOW_MIN);
     assert.deepEqual(clampWindowSize({ width: 900.4, height: 700.6 }), { width: 900, height: 701 });
@@ -533,9 +533,9 @@ export function registerLogic(h) {
     assert.deepEqual(kept.windowPosition, { x: 30, y: 40 });
     assert.equal(stampWindowPlacement({ windowSize: { width: 880, height: 610 } }, { width: 10, height: 10 }).windowSize.width, 880);
     const recorded = recordedWindowPlacement({ windowSize: null, windowPosition: { x: 12, y: 8 } }, { x: 40, y: 18, width: 910, height: 640 });
-    const minimum = recordedWindowPlacement({}, { x: 2352, y: 0, width: 329, height: 187, maximized: false });
-    assert.deepEqual(minimum, { x: 2352, y: 0, width: 329, height: 187, maximized: false });
-    assert.deepEqual(stampWindowPlacement({}, { x: 2352, y: 0, width: 329, height: 187, maximized: false }).windowSize, { width: 329, height: 187 });
+    const minimum = recordedWindowPlacement({}, { x: 2352, y: 0, width: 313, height: 150, maximized: false });
+    assert.deepEqual(minimum, { x: 2352, y: 0, width: 313, height: 150, maximized: false });
+    assert.deepEqual(stampWindowPlacement({}, { x: 2352, y: 0, width: 313, height: 150, maximized: false }).windowSize, { width: 313, height: 150 });
     assert.deepEqual({ x: recorded.x, y: recorded.y, width: recorded.width, height: recorded.height }, { x: 40, y: 18, width: 910, height: 640 });
     assert.equal(sceneScale(SCENE_NATURAL), 1);
     assert.equal(sceneScale({ width: 2000, height: 2000 }), Math.round((2000 / SCENE_NATURAL.width) * 1000) / 1000);
@@ -558,6 +558,21 @@ export function registerLogic(h) {
     const smallest = sceneFit(fitted, SCENE_TEXT);
     assert.equal(smallest.art, smallest.text);
     assert.ok(smallest.art * SCENE_ART <= fitted.height - SCENE_BREATH, smallest.art * SCENE_ART);
+  });
+  h.test("the narrowest window is exactly what the title bar buttons need", () => {
+    // Sizes come from styles.css: .tool-btn and .icon-btn are 32px, .win-btn
+    // is 30px, the separator is 1px, and the shell adds a 1px border a side.
+    // Button spacing never changes: 4px group gaps, 2px separator margins, 6px right edge.
+    const tools = 3 * 32 + 2 * 4;
+    const corner = 2 * 32 + 3 * 30 + 1 + 2 * 2 + 5 * 2;
+    const buttons = 4 + tools + 4 + corner + 6;
+    // Only the inset left of the 18px icon changes: 6px when narrow, 12px otherwise.
+    assert.equal(toolbarMinWidth(), 6 + 18 + buttons + 2);
+    assert.equal(roomyMinWidth(), 12 + 18 + buttons + 2);
+    assert.equal(WINDOW_MIN.width, toolbarMinWidth());
+    assert.equal(isCompactWidth(toolbarMinWidth()), true);
+    assert.equal(isCompactWidth(roomyMinWidth() - 1), true);
+    assert.equal(isCompactWidth(roomyMinWidth()), false);
   });
   h.test("a list pages in fixed blocks and keeps the page in range", () => {
     assert.deepEqual(pageWindow(0, 1), { page: 1, pages: 1, start: 0, end: 0, numbers: [1] });

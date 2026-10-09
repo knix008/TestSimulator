@@ -4,7 +4,7 @@ import { AppError } from "../../src/core/errors.js";
 import { serializeDocument } from "../../src/core/document.js";
 import { DARK_THEMES, LIGHT_THEMES, THEMES } from "../../src/core/themes.js";
 import { buildAboutSpec, bootPopup, fitPopupToViewport, popupFits } from "../../src/ui/popups.js";
-import { WINDOW_MIN } from "../../src/ui/window-spec.js";
+import { SCENE_MIN_SCALE, WINDOW_MIN } from "../../src/ui/window-spec.js";
 import { jsonResponse, openMeteoBody, SAMPLE_DATES, settle, withApp } from "../support.js";
 import { findCity } from "../../src/weather/cities.js";
 import { pageWindow, parseCityList } from "../../src/ui/popups.js";
@@ -2544,7 +2544,7 @@ export function registerGui(h) {
       const smallArt = Number(app.content.style.getPropertyValue("--art-scale"));
       const smallText = Number(app.content.style.getPropertyValue("--scene-scale"));
       assert.equal(smallArt, smallText);
-      assert.ok(smallArt >= 0.55 && smallArt <= 1);
+      assert.ok(smallArt >= SCENE_MIN_SCALE && smallArt <= 1);
       const content = getComputedStyle(app.content);
       assert.equal(content.paddingTop, "2px");
       assert.equal(content.paddingBottom, "2px");

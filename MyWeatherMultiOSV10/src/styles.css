@@ -143,6 +143,12 @@ body[data-host="desktop"] .window-shell { box-shadow: inset 0 1px 0 rgba(255, 25
 .title-icon { width: 18px; height: 18px; flex: 0 0 auto; border-radius: 4px; display: block; -webkit-user-drag: none; user-select: none; }
 .title-name { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .title-name[hidden], .app-frame[data-minimized="true"] .title-name { display: none; }
+/*
+ * Narrow window: the program name steps aside and the icon moves closer to the
+ * left edge. The buttons keep their size and spacing, flush right.
+ */
+.app-frame[data-compact="true"] .titlebar { gap: 0; }
+.app-frame[data-compact="true"] .shell-top { padding-left: 6px; }
 
 .shell-top {
   position: relative;
@@ -150,11 +156,11 @@ body[data-host="desktop"] .window-shell { box-shadow: inset 0 1px 0 rgba(255, 25
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   height: 46px;
   min-width: 0;
   overflow: hidden;
-  padding: 0 8px 0 12px;
+  padding: 0 6px 0 12px;
 }
 /* A fully clear control is click-through on a transparent Windows window. */
 button, input, select, textarea, a, .resize-grip, .menu-item {
@@ -176,7 +182,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 }
 .tool-btn:hover, .tool-btn:focus-visible { background: var(--surface); }
 .corner-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; }
-.corner-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line); }
+.corner-sep { width: 1px; height: 18px; margin: 0 2px; background: var(--line); }
 
 .icon-btn {
   width: 32px;

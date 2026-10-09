@@ -35,7 +35,7 @@ import {
   parseCityList,
 } from "./ui/popups.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, clampWindowSize, sceneFit } from "./ui/window-spec.js";
+import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, clampWindowSize, isCompactWidth, sceneFit } from "./ui/window-spec.js";
 import { forecastFitHeight, forecastWhen, renderForecastHtml, renderWeatherHtml } from "./ui/weather-view.js";
 
 export function createApp(container, options = {}) {
@@ -501,6 +501,9 @@ class WeatherApp {
   }
 
   syncWindowTitle() {
+    // The window's own width is the measure; the shell's border would lose two pixels.
+    const measured = this.platform.nativeWindow ? this.frame?.clientWidth || 0 : 0;
+    if (this.frame) this.frame.dataset.compact = isCompactWidth(measured > 0 ? measured : this.shellSize.width) ? "true" : "false";
     const name = this.root.querySelector("[data-gui='window-title']");
     if (!name) return;
     if (this.minimized) {

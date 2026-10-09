@@ -2,19 +2,62 @@ export const WINDOW_DEFAULT = { width: 760, height: 640 };
 
 /** Natural size of the weather picture and its labels, before the window shrinks them together. */
 export const SCENE_NATURAL = { width: 440, height: 248 };
-export const SCENE_MIN_SCALE = 0.55;
+export const SCENE_MIN_SCALE = 0.4;
 const TOOLBAR_HEIGHT = 46;
 /** Tight inset around the weather scene. Matches `.content` padding in styles.css. */
 export const CONTENT_PADDING = { top: 2, right: 16, bottom: 2, left: 16 };
 
 /**
- * Narrowest main window that keeps the icon and every toolbar button visible.
- * The program name is shown only when the window is wider than this.
- * Shell padding 20, gaps 12, icon 18, three forecast buttons 104,
- * corner buttons and separator 173, and the 1px shell border on each side.
+ * The title bar, measured from the sizes `styles.css` gives its pieces. The
+ * window may be narrowed until these stop fitting, and no further: a button
+ * that cannot be clicked is worse than a window that will not shrink.
+ */
+const TOOL_BUTTON = 32;
+const WINDOW_BUTTON = 30;
+const TOOL_COUNT = 3;
+const CORNER_BUTTONS = 2;
+const WINDOW_BUTTONS = 3;
+const CORNER_SEPARATOR = 1;
+const TITLE_ICON = 18;
+const SHELL_BORDER = 2;
+
+/**
+ * The buttons keep one spacing at every width, hugging the right edge: 4px
+ * between groups, 4px between forecast buttons, 2px between corner buttons,
+ * 2px either side of the separator and 6px to the right edge.
+ */
+const BUTTON_SPACE = { groupGap: 4, toolGap: 4, cornerGap: 2, separatorMargin: 2, right: 6 };
+/** Only the room left of the app icon gives way in a narrow window. */
+export const ICON_INSET = { roomy: 12, compact: 6 };
+
+function titleBarWidth(iconInset) {
+  const space = BUTTON_SPACE;
+  const tools = TOOL_COUNT * TOOL_BUTTON + (TOOL_COUNT - 1) * space.toolGap;
+  const corner =
+    CORNER_BUTTONS * TOOL_BUTTON +
+    WINDOW_BUTTONS * WINDOW_BUTTON +
+    CORNER_SEPARATOR +
+    2 * space.separatorMargin +
+    (CORNER_BUTTONS + WINDOW_BUTTONS) * space.cornerGap;
+  return iconInset + TITLE_ICON + space.groupGap + tools + space.groupGap + corner + space.right + SHELL_BORDER;
+}
+
+/**
+ * Narrowest main window that still shows the icon and every toolbar button in
+ * full. The program name has stepped aside and the icon moved closer to the edge.
  */
 export function toolbarMinWidth() {
-  return 329;
+  return titleBarWidth(ICON_INSET.compact);
+}
+
+/** From this width up the icon keeps its normal inset. */
+export function roomyMinWidth() {
+  return titleBarWidth(ICON_INSET.roomy);
+}
+
+/** True while the window is too narrow for the normal icon inset. */
+export function isCompactWidth(width) {
+  return Math.round(Number(width) || 0) < roomyMinWidth();
 }
 
 export const WINDOW_MIN = {
