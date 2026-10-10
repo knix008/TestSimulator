@@ -21,6 +21,8 @@ import * as exports from "./exports.js";
 import { SETTING_DEFAULTS } from "./dialogs.js";
 import { StartPage } from "./start.js";
 import { View3DTab } from "./view3dtab.js";
+import { DocTabs } from "./doctabs.js";
+import * as lights from "./lights.js";
 
 const VERSION = "10.0.0";
 
@@ -31,10 +33,11 @@ const DEFAULT_SETTINGS = {
 
 // File types the Import command understands (extension → handler group).
 export const IMPORT_TYPES = {
-  myarch: "project", json: "project", dxf: "dxf", svg: "svg", ifc: "ifc",
+  myarch: "project", json: "project", dxf: "dxf", dwg: "dwg", svg: "svg", ifc: "ifc",
   obj: "model", stl: "model", ply: "model", glb: "model", gltf: "model", fbx: "model", dae: "model", "3mf": "model", "3ds": "model", wrl: "model", amf: "model",
   png: "image", jpg: "image", jpeg: "image", webp: "image", gif: "image", bmp: "image",
-  dwg: "closed", skp: "closed", rvt: "closed", pln: "closed", "3dm": "closed",
+  sh3d: "bim", gbxml: "bim", xml: "bim", ifczip: "bim", ifcxml: "closed",
+  skp: "closed", rvt: "closed", pln: "closed", "3dm": "closed",
 };
 
 class App {
@@ -62,6 +65,8 @@ class App {
     this.plan = new PlanEditor(this, this.$("view-plan"));
     this.start = new StartPage(this, this.$("view-start"));
     this.v3d = new View3DTab(this, this.$("view-3d"));
+    // Every open drawing is a document tab (strip under the tool bar).
+    this.docTabs = new DocTabs(this, this.$("doctabs"));
 
     this.registerCommands();
     this.buildMenus();
@@ -75,9 +80,9 @@ class App {
     onLanguage(() => this.refreshAll());
 
     platform.onOpenPath((p) => this.openPath(p));
-    platform.onRequestClose(async () => platform.confirmClose(await this.confirmDiscard()));
+    platform.onRequestClose(async () => platform.confirmClose(await this.docTabs.confirmAll()));
     window.addEventListener("beforeunload", (e) => {
-      if (this.store.dirty && !platform.isDesktop) { e.preventDefault(); e.returnValue = ""; }
+      if (this.docTabs.anyDirty() && !platform.isDesktop) { e.preventDefault(); e.returnValue = ""; }
     });
     window.addEventListener("resize", () => this.layout());
 
@@ -307,6 +312,7 @@ class App {
     el.innerHTML = "";
     el.append(h("span", {}, `${this.store.project.meta.title || name}`), h("span", { class: "dirty" }, this.store.dirty ? " ●" : ""), h("span", {}, `  —  ${name}`));
     platform.setWindowTitle(`${this.store.dirty ? "● " : ""}${name} — MyArchitecture 10.0`);
+    if (this.docTabs) this.docTabs.render();
   }
 
   // ---------------------------------------------------------------- hint & status
@@ -419,10 +425,11 @@ class App {
     return r === "discard";
   }
 
+  // A new project, an opened file or a sample gets its own document tab (an
+  // untouched "Untitled" tab is reused); other tabs keep their work.
   async newProject() {
-    if (!(await this.confirmDiscard())) return;
+    this.docTabs.prepareNew();
     this.store.load(newProject(t("Untitled")));
-    platform.clearAutosave();
     this.setTab("plan");
     toast(t("New project. Press W to draw walls."), "ok");
   }
@@ -430,6 +437,9 @@ class App {
   loadText(text, { fileName, filePath } = {}) {
     try {
       const project = parseProject(text);
+      // Already open in a tab → show that tab.
+      if (filePath && this.docTabs.focusPath(filePath)) { this.addRecent(filePath, project.meta.title); return true; }
+      this.docTabs.prepareNew();
       this.store.load(project, { fileName, filePath });
       if (filePath) this.addRecent(filePath, project.meta.title);
       return true;
@@ -440,17 +450,17 @@ class App {
   }
 
   async open() {
-    if (!(await this.confirmDiscard())) return;
     const f = await platform.openFile({ title: t("Open project"), filters: [platform.PROJECT_FILTER, ...this.importFilters()] });
     if (!f) return;
-    await this.openFileObject(f, { confirmed: true });
+    await this.openFileObject(f);
   }
 
   importFilters() {
     return [
       { name: t("All supported files"), extensions: Object.keys(IMPORT_TYPES).filter((e) => IMPORT_TYPES[e] !== "closed") },
-      { name: "AutoCAD DXF", extensions: ["dxf"] },
+      { name: "AutoCAD DXF / DWG", extensions: ["dxf", "dwg"] },
       { name: "IFC (BIM)", extensions: ["ifc"] },
+      { name: t("Other BIM programs (Sweet Home 3D, gbXML, IFC ZIP)"), extensions: ["sh3d", "gbxml", "xml", "ifczip"] },
       { name: t("3D models"), extensions: ["obj", "stl", "ply", "glb", "gltf", "fbx", "dae", "3mf", "3ds", "wrl", "amf"] },
       { name: "SVG", extensions: ["svg"] },
       { name: t("Images (tracing underlay)"), extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp"] },
@@ -472,10 +482,10 @@ class App {
     try {
       if (f.path && kind && kind !== "closed" && kind !== "project") this.addRecent(f.path, f.name);
       if (kind === "project") {
-        if (!confirmed && !(await this.confirmDiscard())) return;
         if (this.loadText(f.text, { fileName: f.name, filePath: f.path })) { this.setTab("plan"); toast(t("Opened {name}", { name: f.name }), "ok"); }
-      } else if (kind === "dxf" || kind === "svg") await exports.importDrawing(this, f, kind);
+      } else if (kind === "dxf" || kind === "dwg" || kind === "svg") await exports.importDrawing(this, f, kind);
       else if (kind === "ifc") await exports.importIfcFile(this, f, confirmed);
+      else if (kind === "bim") await (await import("./bimimport.js")).importBimFile(this, f, confirmed);
       else if (kind === "model") await exports.importModel(this, f);
       else if (kind === "image") await exports.importUnderlay(this, f);
       else if (kind === "closed") dialogs.closedFormat(this, ext);
@@ -490,8 +500,6 @@ class App {
     try {
       const f = await platform.readPath(path);
       if (!f) return;
-      const ext = (f.name.split(".").pop() || "").toLowerCase();
-      if (IMPORT_TYPES[ext] === "project" && !(await this.confirmDiscard())) return;
       await this.openFileObject(f, { confirmed: true });
     } catch (e) {
       toast(t("Could not open the file: {m}", { m: e.message }), "error");
@@ -501,7 +509,6 @@ class App {
   }
 
   async openSample(file) {
-    if (!(await this.confirmDiscard())) return;
     try {
       const text = await dialogs.loadSampleText(file);
       if (this.loadText(text, { fileName: file })) {
@@ -575,10 +582,10 @@ class App {
     toast(t("Phase view: {p}", { p: t(v === "new" ? "New design (no demolition)" : v === "existing" ? "Existing (before works)" : "All phases") }), "info", 1500);
   }
 
-  // The guided tour drives the real program; it replaces the open project,
-  // so unsaved work is offered for saving first.
+  // The guided tour drives the real program in a document tab of its own (the
+  // drawings in the other tabs are left alone).
   async openTutorial(opts = {}) {
-    if (!opts.skipConfirm && !(await this.confirmDiscard())) return null;
+    this.docTabs.tutorialTab();
     this.store.dirty = false;
     if (!this.tutorial) {
       const { TutorialPlayer } = await import("./tutorial.js");
@@ -588,9 +595,12 @@ class App {
     return this.tutorial;
   }
 
+  // Every tab with unsaved changes is kept for recovery.
   autosave() {
-    if (!this.settings.autosave || !this.store.dirty) return;
-    platform.storeAutosave(JSON.stringify({ fileName: this.store.fileName, filePath: this.store.filePath, project: this.store.project }));
+    if (!this.settings.autosave) return;
+    const data = this.docTabs.autosaveData();
+    if (data) platform.storeAutosave(JSON.stringify(data));
+    else platform.clearAutosave();
   }
 
   async checkAutosave() {
@@ -600,11 +610,7 @@ class App {
     const ok = await confirmDialog(t("An unsaved project from {when} was recovered. Restore it?", { when }), { title: t("Recover work"), ok: t("Restore"), cancel: t("Discard") });
     if (ok) {
       try {
-        const data = JSON.parse(a.text);
-        this.store.load(data.project, { fileName: data.fileName, filePath: data.filePath });
-        this.store.dirty = true;
-        this.updateTitle();
-        this.setTab("plan");
+        this.docTabs.restore(JSON.parse(a.text));
       } catch (e) { toast(e.message, "error"); }
     }
     platform.clearAutosave();
@@ -666,11 +672,15 @@ class App {
     C("file.import", "Import (DXF, IFC, 3D models, images…)…", "import", "Ctrl+I", () => this.importAny());
     C("file.importDxf", "Import DXF drawing…", "dxf", "", () => this.importAny("dxf"));
     C("file.importIfc", "Import IFC (BIM)…", "bim", "", () => this.importAny("ifc"));
+    C("file.importBim", "Import Sweet Home 3D, gbXML or IFC ZIP…", "bim", "", () => this.importAny("bim"));
     C("file.importModel", "Import 3D model (OBJ, FBX, GLB, STL…)…", "model3d", "", () => this.importAny("model"));
     C("file.importImage", "Import image as tracing underlay…", "underlay", "", () => this.importAny("image"));
     C("file.importSvg", "Import SVG drawing…", "image", "", () => this.importAny("svg"));
     C("file.save", "Save", "save", "Ctrl+S", () => this.save());
     C("file.saveAs", "Save as…", "saveAs", "Ctrl+Shift+S", () => this.save(true));
+    C("file.close", "Close tab", "close", "Ctrl+W", () => this.docTabs.close());
+    C("view.nextDoc", "Next document tab", "chevronRight", "Ctrl+Tab", () => this.docTabs.step(1), { enabled: () => this.docTabs.docs.count > 1 });
+    C("view.prevDoc", "Previous document tab", "chevronLeft", "Ctrl+Shift+Tab", () => this.docTabs.step(-1), { enabled: () => this.docTabs.docs.count > 1 });
     C("file.samples", "Open sample…", "sample", "", () => dialogs.samplePicker(this));
     C("file.print", "Print / PDF…", "print", "Ctrl+P", () => exports.printDialog(this));
     C("file.props", "Project properties…", "info", "", () => dialogs.projectProperties(this));
@@ -770,6 +780,13 @@ class App {
     C("v3d.addScene", "Add scene", "scenes", "", () => { this.setTab("3d"); this.v3d.ensure().then(() => this.v3d.addScene()); });
     C("v3d.playScenes", "Play scene animation", "play", "", () => { this.setTab("3d"); this.v3d.playScenes(); });
     C("v3d.fog", "Fog", "eye", "", () => { this.setTab("3d"); this.v3d.setOpt("fog", !this.v3d.opts.fog); }, { checked: () => !!this.v3d.opts.fog });
+    // Lighting (src/ui/lights.js): light fixtures, switching, night view.
+    C("plan.light", "Light fixture", "bulb", "", () => { this.setTab("plan"); this.plan.setTool("furniture", { kind: this.settings.lastLight || "ceilingLight" }); }, { checked: () => this.plan.tool === "furniture" && !!this.plan.ghost && lights.isLightKind(this.plan.ghost.kind) });
+    C("light.toggle", "Switch the selected lights on / off", "bulb", "", () => lights.toggleSelected(this));
+    C("light.all", "All lights on / off", "bulbRays", "", () => lights.switchAll(this), { checked: () => lights.anyLampOn(this.store.project) });
+    C("light.allOn", "All lights on", "bulbRays", "", () => lights.switchAll(this, true));
+    C("light.allOff", "All lights off", "bulbOff", "", () => lights.switchAll(this, false));
+    C("v3d.night", "Night view (interior lighting)", "moon", "", () => { this.setTab("3d"); this.v3d.setOpt("night", !this.v3d.opts.night); }, { checked: () => !!this.v3d.opts.night });
     // Settings / help
     C("tools.settings", "Settings…", "settings", "Ctrl+,", () => dialogs.settingsDialog(this));
     C("help.manual", "User manual", "help", "F1", () => dialogs.manual(this));
@@ -781,15 +798,15 @@ class App {
     void in3d;
   }
 
+  // Draw and 3D have no menu: every one of their commands is a toolbar button
+  // (the plan toolbar and the 3D toolbar), so the menu bar would only repeat it.
   buildMenus() {
     const M = {
-      File: ["file.new", "file.open", "file.samples", "file.recent", "file.clearRecent", "-", "file.save", "file.saveAs", "-", "file.import", "@import", "@export", "-", "file.print", "file.props", "-", "file.exit"],
+      File: ["file.new", "file.open", "file.samples", "file.recent", "file.clearRecent", "-", "file.save", "file.saveAs", "file.close", "-", "file.import", "@import", "@export", "-", "file.print", "file.props", "-", "file.exit"],
       Edit: ["edit.undo", "edit.redo", "edit.history", "-", "edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete", "-", "edit.selectAll", "edit.find", "-", "edit.rotate", "edit.mirror", "edit.mirrorV", "edit.scale", "edit.offset", "-", "edit.group", "edit.ungroup", "edit.properties"],
       View: ["view.start", "view.plan", "view.3d", "-", "view.zoomIn", "view.zoomOut", "view.fit", "view.pan", "-", "view.grid", "view.rulers", "view.snap", "view.ortho", "-", "view.dims", "view.furniture", "view.areas", "view.ghost", "view.underlays", "-", "view.phaseAll", "view.phaseNew", "view.phaseExisting", "-", "view.left", "view.right", "-", "view.themes", "view.themeDark", "view.themeLight", "view.themeSystem", "-", "view.langKo", "view.langEn"],
-      Draw: ["plan.select", "plan.wall", "plan.room", "plan.door", "plan.window", "plan.column", "plan.stair", "plan.furniture", "plan.roof", "-", "plan.massRect", "plan.massCircle", "plan.massPoly", "-", "plan.grid", "plan.dimension", "plan.text", "plan.line", "plan.measure"],
       Build: ["build.detectRooms", "build.autoRoof", "build.autoDims", "-", "build.addLevel", "build.levelProps", "build.defaults", "build.layers", "-", "build.check", "build.schedules"],
-      BIM: ["build.wallTypes", "build.bimProps", "build.selectSimilar", "-", "build.costs", "build.site", "-", "file.exportIfc", "file.importIfc"],
-      "3D": ["view.3d", "-", "v3d.iso", "v3d.top", "v3d.front", "-", "v3d.walk", "v3d.section", "v3d.ortho", "v3d.openDoors", "v3d.fog", "-", "v3d.pushpull", "v3d.paint", "v3d.tape", "-", "v3d.addScene", "v3d.playScenes", "-", "v3d.screenshot", "file.export3d"],
+      BIM: ["build.wallTypes", "build.bimProps", "build.selectSimilar", "-", "build.costs", "build.site", "-", "file.exportIfc", "file.importIfc", "file.importBim"],
       Help: ["help.tutorial", "help.manual", "help.keys", "help.formats", "help.tour", "-", "tools.settings", "help.about"],
     };
     this.menuMap = M;
@@ -931,13 +948,13 @@ class App {
     const add = (...els) => bar.append(...els.filter(Boolean));
     add(btn("file.new"), btn("file.open"), btn("file.save"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
     if (this.tab === "start") {
-      add(btn("help.tutorial", { label: true }), btn("file.samples", { label: true }), btn("file.import", { label: true }), btn("view.plan", { label: true }), btn("view.3d", { label: true }), btn("help.manual", { label: true }));
+      add(btn("help.tutorial", { label: true }), btn("file.samples", { label: true }), btn("file.import", { label: true }), btn("help.manual", { label: true }));
     } else if (this.tab === "plan") {
-      add(btn("plan.select"), btn("plan.wall"), btn("plan.room"), btn("plan.door"), btn("plan.window"), btn("plan.column"), btn("plan.stair"), btn("plan.furniture"), btn("plan.roof"), sep(),
+      add(btn("plan.select"), btn("plan.wall"), btn("plan.room"), btn("plan.door"), btn("plan.window"), btn("plan.column"), btn("plan.stair"), btn("plan.furniture"), btn("plan.light"), btn("light.all"), btn("plan.roof"), sep(),
         btn("plan.massRect"), btn("plan.massCircle"), btn("plan.massPoly"), sep(),
         btn("plan.grid"), btn("plan.dimension"), btn("plan.text"), btn("plan.line"), btn("plan.measure"), sep(),
         btn("edit.rotate"), btn("edit.mirror"), btn("edit.delete"), sep(),
-        btn("build.detectRooms"), btn("build.wallTypes"), btn("build.bimProps"), btn("build.check"), btn("build.schedules"), btn("view.3d", { label: true }),
+        btn("build.detectRooms"), btn("build.wallTypes"), btn("build.bimProps"), btn("build.check"), btn("build.schedules"),
         h("div", { class: "grow" }), btn("view.snap"), btn("view.ortho"), btn("view.pan"), btn("view.grid"), btn("view.rulers"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
     } else if (this.tab === "3d") {
       this.v3d.renderToolbar(bar, btn, sep);
@@ -959,6 +976,9 @@ class App {
         const lk = k.toLowerCase();
         const map = { s: e.shiftKey ? "file.saveAs" : "file.save", o: "file.open", n: "file.new", p: "file.print", i: "file.import", k: "palette", f: "edit.find", ",": "tools.settings", "/": "help.keys", "1": "view.left", "2": "view.right", g: e.shiftKey ? "edit.ungroup" : "edit.group" };
         if (map[lk]) { e.preventDefault(); this.run(map[lk]); return; }
+        // Document tabs: Ctrl+Tab / Ctrl+Shift+Tab (and Ctrl+PageDown / PageUp) switch, Ctrl+W closes.
+        if (k === "Tab" || k === "PageDown" || k === "PageUp") { e.preventDefault(); this.run(k === "PageUp" || (k === "Tab" && e.shiftKey) ? "view.prevDoc" : "view.nextDoc"); return; }
+        if (lk === "w" && !e.shiftKey) { e.preventDefault(); this.run("file.close"); return; }
         if (!typing && lk === "z" && !e.shiftKey) { e.preventDefault(); this.run("edit.undo"); return; }
         if (!typing && (lk === "y" || (lk === "z" && e.shiftKey))) { e.preventDefault(); this.run("edit.redo"); return; }
         if (!typing && (lk === "=" || lk === "+")) { e.preventDefault(); this.run("view.zoomIn"); return; }

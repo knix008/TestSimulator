@@ -8,7 +8,7 @@ import { uid, dist, rotPt, snap, pointInPolygon, polygonArea, fmtLen, offsetPoly
 import { wallLength, newLevel, levelById, levelIndex, findItem, LEVEL_COLLECTIONS } from "../core/project.js";
 import { wallAt, fitOpening, wallFrame, wallPoint, splitWall, mergeCollinear, wallOutlines } from "../core/walls.js";
 import { roomAtPoint, detectRooms, buildingOutlines, suggestRoomName } from "../core/rooms.js";
-import { furnitureDef, makeFurniture, drawFurniturePlan, furnitureCorners } from "../lib/furniture.js";
+import { furnitureDef, makeFurniture, drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight, mountElevation } from "../lib/furniture.js";
 import { PLAN_THEMES, drawPlan, planBounds, stairGeometry, roomColor } from "./render.js";
 import * as ops from "./ops.js";
 
@@ -210,7 +210,7 @@ export class PlanEditor {
         const asset = this.p.models.find((m) => m.id === opts.model);
         const sz = asset ? asset.size : [1000, 1000, 1000];
         this.ghost = { kind: "model", model: opts.model, name: asset ? asset.name : "", x: 0, y: 0, rot: 0, w: sz[0], d: sz[1], h: sz[2], elevation: 0 };
-      } else this.ghost = makeFurniture(kind, 0, 0);
+      } else this.ghost = makeFurniture(kind, 0, 0, this.mountedAt(kind));
       [this.ghost.x, this.ghost.y] = [this.vp.mouse.wx, this.vp.mouse.wy];
     }
     if (name === "column") this.ghost = { x: this.vp.mouse.wx, y: this.vp.mouse.wy, w: this.p.defaults.columnSize, d: this.p.defaults.columnSize, rot: 0, shape: "rect" };
@@ -602,6 +602,14 @@ export class PlanEditor {
   }
 
   // ---------------------------------------------------------------- furniture / columns
+  // Ceiling lamps hang under the ceiling of the current level.
+  mountedAt(kind) {
+    const def = furnitureDef(kind);
+    if (!def || def.mount !== "ceiling") return {};
+    const lv = levelById(this.p, this.level);
+    return { elevation: mountElevation(def, lv ? lv.height : this.p.defaults.wallHeight) };
+  }
+
   pointerPlace(type, e, x, y) {
     const g = this.ghost;
     if (!g) return;
@@ -616,9 +624,10 @@ export class PlanEditor {
       return;
     }
     const id = uid("u");
-    const item = { ...JSON.parse(JSON.stringify(g)), id, level: this.level };
-    this.store.edit(t("Add furniture"), (p) => { p.furniture.push(item); });
+    const item = { ...JSON.parse(JSON.stringify(g)), id, level: this.level, ...this.mountedAt(g.kind) };
+    this.store.edit(isLight(item) ? t("Add light") : t("Add furniture"), (p) => { p.furniture.push(item); });
     if (g.kind !== "model") { this.app.settings.lastFurniture = g.kind; this.app.recordRecentFurniture(g.kind); }
+    if (isLight(item)) this.app.settings.lastLight = g.kind;
     if (e.shiftKey) return; // Shift keeps placing
     this.setTool("select");
     this.select([id]);
@@ -924,6 +933,10 @@ export class PlanEditor {
           { label: t("Split wall here"), icon: "cut", action: () => this.splitWallAt(h.obj, x, y) },
           { label: t("Merge straight walls"), icon: "line", action: () => { let n = 0; this.store.edit(t("Merge walls"), (p) => { n = mergeCollinear(p, this.level); return n > 0; }); toast(t("{n} walls merged.", { n }), "info"); } });
       }
+      if (h.kind === "furniture" && isLight(h.obj)) {
+        const on = !h.obj.light || h.obj.light.on !== false;
+        items.push({ label: on ? t("Switch light off") : t("Switch light on"), icon: on ? "bulbOff" : "bulb", action: () => this.app.run("light.toggle") }, { label: t("All lights on / off"), icon: "bulbRays", action: () => this.app.run("light.all") });
+      }
       if (h.kind === "openings") items.push({ label: t("Flip swing side"), icon: "flip", shortcut: "X", action: () => this.flipSelected("side") }, { label: t("Swap hinge"), icon: "mirror", shortcut: "H", action: () => this.flipSelected("hinge") });
       items.push({ label: t("Select similar"), icon: "select", action: () => this.selectSimilar() }, { label: t("BIM properties…"), icon: "bim", action: () => this.app.run("build.bimProps") });
       items.push("-", { label: t("Rotate"), icon: "rotate", shortcut: "R", action: () => this.rotate(90) },
@@ -1067,7 +1080,7 @@ export class PlanEditor {
       if (g.rot) ctx.rotate((g.rot * Math.PI) / 180);
       if (this.tool === "column") { ctx.fillStyle = th.column; ctx.fillRect(-g.w / 2, -g.d / 2, g.w, g.d); }
       else if (g.kind === "model") { ctx.strokeStyle = acc; ctx.lineWidth = 1.5 * px; ctx.strokeRect(-g.w / 2, -g.d / 2, g.w, g.d); }
-      else drawFurniturePlan(ctx, g, th, px);
+      else { drawFurniturePlan(ctx, g, th, px); if (isLight(g)) drawLightSymbol(ctx, g, th, px); }
       ctx.restore();
       ctx.strokeStyle = acc;
       ctx.lineWidth = 1.5 * px;

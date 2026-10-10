@@ -8,7 +8,8 @@
 
 import * as THREE from "../vendor/three/three.module.js";
 import { OrbitControls } from "../vendor/three/addons/OrbitControls.js";
-import { buildBuilding, makeMaterials, modelExtent, M } from "./build.js";
+import { buildBuilding, makeMaterials, modelExtent, glowMaterial, M } from "./build.js";
+import { createLampRig, collectLamps } from "./lamps.js";
 
 const DEG = Math.PI / 180;
 
@@ -16,7 +17,7 @@ export const DEFAULT_OPTIONS = {
   background: "gradient", shadows: true, grid: true, axes: false, gizmo: true, dimensions: false, units3d: "m",
   style: "realistic", section: null, levels: null, openDoors: false, furniture: true, roofs: true, ground: true,
   sunAzimuth: 135, sunAltitude: 45, north: 0, navMode: "orbit", ortho: false, fov: 45, rotateSpeed: 1,
-  tool: "none", fog: false, solids: true,
+  tool: "none", fog: false, solids: true, night: false,
 };
 
 const VIEW_DIRS = {
@@ -132,6 +133,8 @@ export function createViewer(container, options = {}) {
   headlight.target.position.set(0, 0, -1);
   persp.add(headlight, headlight.target);
   scene.add(persp, ortho);
+  // Light fixtures: a capped pool of real lights on the nearest lit lamps.
+  const lampRig = createLampRig(THREE, scene);
 
   const content = new THREE.Group(); // the building: what gets exported
   content.name = "model";
@@ -187,13 +190,15 @@ export function createViewer(container, options = {}) {
     content.remove(building);
     disposeObject(building);
     if (edges) { helpers.remove(edges); disposeObject(edges); edges = null; }
-    if (!project) { building = new THREE.Group(); content.add(building); dirty = true; return; }
+    if (!project) { building = new THREE.Group(); content.add(building); lampRig.setLamps([]); dirty = true; return; }
     building = buildBuilding(THREE, project, mats, {
       openDoors: opts.openDoors, furniture: opts.furniture, roofs: opts.roofs, levels: opts.levels, phase: opts.phase, solids: opts.solids,
       loadModel, onAsync: () => { applyStyle(); applyHighlight(); dirty = true; },
     });
     content.add(building);
     building.traverse((o) => { if (o.isMesh) o.userData.baseMaterial = o.material; });
+    lampRig.setLamps(collectLamps(THREE, building));
+    lightKey = lampKey(project);
     extent = modelExtent(project);
     applyStyle();
     applyHighlight();
@@ -227,13 +232,78 @@ export function createViewer(container, options = {}) {
       });
       helpers.add(edges);
     }
-    const lit = style !== "lines";
-    sun.intensity = lit ? 2.4 : 0;
-    hemi.intensity = lit ? 0.75 : 1.4;
-    sun.castShadow = opts.shadows !== false && lit;
+    applyLighting();
+    syncLabelDepth();
     applyClipping();
     applyHighlight();
     dirty = true;
+  }
+
+  // Day: sun, sky and headlight. Night (interior lighting): the sun is off and
+  // the sky and headlight are faint, so the lamps light the rooms.
+  function applyLighting() {
+    const lit = (opts.style || "realistic") !== "lines";
+    const night = !!opts.night && lit;
+    sun.intensity = lit && !night ? 2.4 : 0;
+    hemi.intensity = !lit ? 1.4 : night ? 0.05 : 0.75;
+    sun.castShadow = opts.shadows !== false && lit && !night;
+    headlight.intensity = night ? 0.02 : 0.35;
+    scene.environmentIntensity = night ? 0.025 : 0.6;
+    lampRig.invalidate();
+    dirty = true;
+  }
+
+  // ---------------------------------------------------------------- lamps
+  // What of the project is not about lamp settings: when only lamps were
+  // switched or re-coloured, the model is kept and only the lamps change.
+  let lightKey = "";
+  function hasLamps(p) { return lampRig.lamps.length > 0 || (p && p.furniture.some((f) => f.light)); }
+  function lampKey(p) {
+    if (!p || !hasLamps(p)) return "";
+    return JSON.stringify(p, function (k, v) {
+      if (k === "light" && this && this.kind !== undefined) return undefined;
+      if (k === "data" && typeof v === "string" && v.length > 256) return v.length; // imported model data
+      if (k === "scenes" || k === "view") return undefined;
+      return v;
+    });
+  }
+
+  // Apply new lamp states ({id → light}): their glowing parts and their
+  // lights, in one pass over the model.
+  function setLampStates(map) {
+    const states = new Map();
+    for (const [id, light] of map) states.set(id, { on: light.on !== false, lumens: +light.lumens || 0, color: light.color || "#ffdfba", ...(light.beam ? { beam: light.beam } : {}) });
+    let found = 0;
+    building.traverse((o) => {
+      const st = o.userData && (o.userData.lamp ? states.get(o.userData.lamp.id) : o.isMesh && o.userData.glow ? states.get(o.userData.id) : null);
+      if (!st) return;
+      if (o.userData.lamp) { Object.assign(o.userData.lamp, st); found++; return; }
+      const m = glowMaterial(mats, o.userData.glow, st);
+      o.userData.baseMaterial = m;
+      if (!o.userData.hl) o.material = m;
+      else { o.userData.hl = m; o.material = highlightMaterial(m); }
+    });
+    for (const [id, st] of states) lampRig.setState(id, st);
+    return found;
+  }
+  const setLampState = (id, light) => setLampStates(new Map([[id, light]])) > 0;
+  // The realistic style shows the new materials as they are; other styles
+  // swap materials, so they are applied again.
+  const refreshMaterials = () => { if ((opts.style || "realistic") !== "realistic") applyStyle(); dirty = true; };
+
+  // Bring every lamp in line with the project (no rebuild).
+  function updateLamps(p) {
+    const byId = new Map(p.furniture.map((f) => [f.id, f]));
+    const changed = new Map();
+    for (const l of lampRig.lamps) {
+      const f = byId.get(l.id);
+      if (!f || !f.light) continue;
+      const cur = { on: f.light.on !== false, lumens: +f.light.lumens || 0, color: f.light.color, beam: f.light.beam };
+      if (cur.on !== l.on || cur.lumens !== l.lumens || cur.color !== l.color || (cur.beam && cur.beam !== l.beam)) changed.set(l.id, f.light);
+    }
+    if (changed.size) { setLampStates(changed); refreshMaterials(); }
+    dirty = true;
+    return changed.size;
   }
 
   function applyClipping() {
@@ -261,10 +331,20 @@ export function createViewer(container, options = {}) {
     g.fillText(text, c.width / 2, c.height / 2);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, toneMapped: false }));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: !labelsSeeThrough(), depthWrite: false, transparent: true, toneMapped: false }));
     sp.scale.set((height * c.width) / c.height, height, 1);
     sp.renderOrder = 10;
+    sp.userData.label3d = true;
     return sp;
+  }
+
+  // Labels (grid numbers, dimensions, tape readings, axis names) hide behind
+  // the building like anything else; only the X-ray style, where the building
+  // is see-through, shows them through walls.
+  function labelsSeeThrough() { return opts.style === "xray"; }
+  function syncLabelDepth() {
+    const on = !labelsSeeThrough();
+    scene.traverse((o) => { if (o.isSprite && o.userData.label3d) o.material.depthTest = on; });
   }
 
   function disposeGroup(gr) {
@@ -384,7 +464,8 @@ export function createViewer(container, options = {}) {
     for (let k = -n / 5; k <= n / 5; k += Math.max(1, Math.ceil(n / 5 / 6))) {
       const v = k * major;
       const lx = labelSprite(fmt(ox + v), "#ffb4a8", h0);
-      lx.position.set(ox + v, 0.05, oz + major * 4 + h0); // a row of labels in view, 4 blocks from the centre
+      lx.center.set(0.5, 0); // stands on the ground rather than half sunk into it
+      lx.position.set(ox + v, 0.02, oz + major * 4 + h0); // a row of labels in view, 4 blocks from the centre
       grid.add(lx);
     }
     grid.userData = { cell, major, unit: unitM().name, cx, cz, half: n, px, majorWidth: GRID_MAJOR_PX / px };
@@ -428,8 +509,8 @@ export function createViewer(container, options = {}) {
     l.material.depthTest = false;
     l.renderOrder = 9;
     dims.add(l);
-    const a = labelSprite(`W ${fmt(w, true)}`, "#ffd166", h0); a.position.set((x1 + x2) / 2, 0.2, z2 + off + h0); dims.add(a);
-    const b = labelSprite(`D ${fmt(d, true)}`, "#ffd166", h0); b.position.set(x2 + off + h0 * 2.5, 0.2, (z1 + z2) / 2); dims.add(b);
+    const a = labelSprite(`W ${fmt(w, true)}`, "#ffd166", h0); a.center.set(0.5, 0); a.position.set((x1 + x2) / 2, 0.2, z2 + off + h0); dims.add(a);
+    const b = labelSprite(`D ${fmt(d, true)}`, "#ffd166", h0); b.center.set(0.5, 0); b.position.set(x2 + off + h0 * 2.5, 0.2, (z1 + z2) / 2); dims.add(b);
     const c = labelSprite(`H ${fmt(h, true)}`, "#ffd166", h0); c.position.set(x2 + off + h0 * 2.5, h / 2, z1 - off); dims.add(c);
     dims.userData = { w, d, h };
     helpers.add(dims);
@@ -461,7 +542,7 @@ export function createViewer(container, options = {}) {
 
   function applyBackground() {
     if (bgTexture) { bgTexture.dispose(); bgTexture = null; }
-    const bg = opts.background;
+    const bg = opts.night ? { top: "#070b16", bottom: "#1b2337" } : opts.background;
     if (bg && typeof bg === "object" && bg.top) { bgTexture = backgroundTexture(bg.top, bg.bottom); scene.background = bgTexture; }
     else if (!bg || bg === "gradient") { bgTexture = backgroundTexture("#8fb6dc", "#e9eef2"); scene.background = bgTexture; }
     else scene.background = new THREE.Color(bg);
@@ -687,15 +768,54 @@ export function createViewer(container, options = {}) {
     return true;
   }
 
+  // Dragging a selected lamp: it slides on the horizontal plane through the
+  // point that was grabbed (a ceiling lamp stays under the ceiling).
+  let lampDrag = null;
+  let lastPickId = null;
+  function furnitureGroupOf(obj, id) {
+    let g = obj;
+    while (g.parent && g.parent !== building && !(g.userData.id === id && g.parent.name && g.parent.name.startsWith("level:"))) g = g.parent;
+    return g.userData.id === id ? g : null;
+  }
+  function lampDown(e) {
+    const hit = raycastAt(e.clientX, e.clientY);
+    if (!hit || hit.object.userData.kind !== "furniture") return false;
+    const id = hit.object.userData.id;
+    if (!highlighted.has(id) && lastPickId !== id) return false;
+    const g = furnitureGroupOf(hit.object, id);
+    if (!g || !g.getObjectByName("lamp")) return false;
+    lampDrag = { id, group: g, pos0: g.position.clone(), start: hit.point.clone(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -hit.point.y), dx: 0, dy: 0, moved: false };
+    controls.enabled = false;
+    return true;
+  }
+  function lampMove(e) {
+    const d = lampDrag;
+    const hit = rayFrom(e.clientX, e.clientY).intersectPlane(d.plane, new THREE.Vector3());
+    if (!hit) return;
+    const dx = hit.x - d.start.x, dz = hit.z - d.start.z;
+    if (!d.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) return;
+    if (!d.moved) { d.moved = true; emitTool({ type: "lampMoveStart", id: d.id }); }
+    d.dx = Math.round(dx * 1000);
+    d.dy = Math.round(dz * 1000);
+    d.group.position.set(d.pos0.x + dx, d.pos0.y, d.pos0.z + dz);
+    d.group.updateMatrixWorld(true);
+    for (const l of lampRig.lamps) if (l.anchor.parent === d.group) l.pos.setFromMatrixPosition(l.anchor.matrixWorld);
+    lampRig.invalidate();
+    dirty = true;
+    emitTool({ type: "lampMove", id: d.id, dx: d.dx, dy: d.dy });
+  }
+
   let down = null;
   function onPointerDown(e) {
     down = { x: e.clientX, y: e.clientY, button: e.button };
     if (e.button === 0 && opts.tool && opts.tool !== "none" && opts.navMode !== "walk") {
       if (toolDown(e)) { down.tool = true; return; }
     }
+    if (e.button === 0 && (!opts.tool || opts.tool === "none") && opts.navMode !== "walk" && lampDown(e)) { down.tool = true; return; }
     if (opts.navMode === "walk") { walk.drag = { x: e.clientX, y: e.clientY, yaw: walk.yaw, pitch: walk.pitch }; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); }
   }
   function onPointerMove(e) {
+    if (lampDrag) { lampMove(e); return; }
     if (push) {
       const y = heightAt(push.point, e.clientX, e.clientY);
       if (y !== null) emitTool({ type: "push", id: push.id, kind: push.kind, dy: (y - push.y0) * 1000, y });
@@ -709,6 +829,15 @@ export function createViewer(container, options = {}) {
   }
   function onPointerUp(e) {
     walk.drag = null;
+    if (lampDrag) {
+      const d = lampDrag;
+      lampDrag = null;
+      controls.enabled = opts.navMode !== "walk";
+      down = null;
+      if (d.moved) emitTool({ type: "lampMoveEnd", id: d.id, dx: d.dx, dy: d.dy });
+      else { lastPickId = d.id; const info = { id: d.id, kind: "furniture", level: d.group.userData.level || null, point: d.start }; for (const cb of pickCallbacks) { try { cb(info); } catch (err) { console.error(err); } } }
+      return;
+    }
     if (push) {
       emitTool({ type: "pushEnd", id: push.id, kind: push.kind });
       push = null;
@@ -723,10 +852,25 @@ export function createViewer(container, options = {}) {
     if (moved > 4 || !pickCallbacks.size) return;
     const hit = raycastAt(e.clientX, e.clientY);
     const info = hit ? { id: hit.object.userData.id || null, kind: hit.object.userData.kind || null, level: hit.object.userData.level || null, point: hit.point } : null;
+    lastPickId = info ? info.id : null;
     for (const cb of pickCallbacks) { try { cb(info); } catch (err) { console.error(err); } }
   }
+  // What is under a screen point: {id, kind, level, point, lamp} or null.
+  function pickAt(clientX, clientY) {
+    const hit = raycastAt(clientX, clientY);
+    if (!hit) return null;
+    const id = hit.object.userData.id || null;
+    const g = id && hit.object.userData.kind === "furniture" ? furnitureGroupOf(hit.object, id) : null;
+    const a = g && g.getObjectByName("lamp");
+    return { id, kind: hit.object.userData.kind || null, level: hit.object.userData.level || null, point: hit.point.clone(), lamp: a ? { ...a.userData.lamp } : null };
+  }
+  const dblCallbacks = new Set();
   function onDblClick(e) {
     if (opts.navMode === "walk") return;
+    if (dblCallbacks.size) {
+      const info = pickAt(e.clientX, e.clientY);
+      for (const cb of dblCallbacks) { try { if (cb(info)) return; } catch (err) { console.error(err); } }
+    }
     const hit = raycastAt(e.clientX, e.clientY);
     if (!hit) return;
     const dir = camera.position.clone().sub(controls.target);
@@ -795,6 +939,8 @@ export function createViewer(container, options = {}) {
   gizmoScene.add(gizmoAxes);
   for (const [txt, col, p] of [["X", "#ff5252", [1.35, 0, 0]], ["Y", "#448aff", [0, 0, 1.35]], ["Z", "#69f0ae", [0, 1.35, 0]], ["N", "#ffffff", [0, 0, -1.35]]]) {
     const sp = labelSprite(txt, col, 0.5);
+    sp.userData.label3d = false; // the corner gizmo is its own overlay
+    sp.material.depthTest = false;
     sp.position.set(...p);
     gizmoScene.add(sp);
   }
@@ -831,6 +977,7 @@ export function createViewer(container, options = {}) {
     if (changed && camera === ortho) syncOrtho();
     if (changed || dirty || anim || walk.keys.size) {
       fitGrid();
+      lampRig.update(camera.position, { clip: renderer.clippingPlanes.length ? clipPlane : null });
       renderer.render(scene, camera);
       renderGizmo();
       dirty = false;
@@ -840,6 +987,8 @@ export function createViewer(container, options = {}) {
   // ---------------------------------------------------------------- API
   function setProject(p) {
     const first = !project;
+    // Only lamps switched or re-coloured: keep the model, update the lamps.
+    if (!first && hasLamps(p) && lightKey && lampKey(p) === lightKey) { project = p; updateLamps(p); return "lamps"; }
     project = p;
     rebuild();
     if (first) {
@@ -865,7 +1014,8 @@ export function createViewer(container, options = {}) {
     if (["dimensions", "units3d"].some(changed)) buildDims();
     if (changed("ground")) buildGround();
     if (["sunAzimuth", "sunAltitude", "north"].some(changed)) placeSun();
-    if (changed("shadows")) sun.castShadow = opts.shadows !== false && opts.style !== "lines";
+    if (changed("shadows")) sun.castShadow = opts.shadows !== false && opts.style !== "lines" && !opts.night;
+    if (changed("night")) { applyLighting(); applyBackground(); applyFog(); }
     if (changed("navMode")) setNavMode(opts.navMode);
     if (changed("ortho")) setProjection(!!opts.ortho);
     if (changed("fov") && opts.fov > 5) { persp.fov = opts.fov; persp.updateProjectionMatrix(); }
@@ -978,6 +1128,7 @@ export function createViewer(container, options = {}) {
     canvas.removeEventListener("dblclick", onDblClick);
     canvas.removeEventListener("wheel", onWheel);
     controls.dispose();
+    lampRig.dispose();
     disposeObject(building);
     for (const g of [ground, grid, axes, dims, edges]) if (g) disposeGroup(g);
     mats.dispose();
@@ -1024,6 +1175,7 @@ export function createViewer(container, options = {}) {
     setProject, setOptions, setView, zoomToFit, highlight, onPick, screenshot, orbit, pan, setNavMode, walkKey,
     onTool: (cb) => { toolCallbacks.add(cb); return () => toolCallbacks.delete(cb); }, clearMeasures, measureCount: () => measures.children.length / 2, getCamera, setCamera,
     exportFile, exportRoot, resize, dispose, stats, rebuild,
+    pickAt, onDblPick: (cb) => { dblCallbacks.add(cb); return () => dblCallbacks.delete(cb); }, setLampState: (id, light) => { const ok = setLampState(id, light); refreshMaterials(); return ok; }, updateLamps: (p) => updateLamps(p || project), lampInfo: () => { lampRig.update(camera.position, { clip: renderer.clippingPlanes.length ? clipPlane : null }); return lampRig.info(); },
     getOptions: () => ({ ...opts }),
     helperInfo: () => ({ grid: grid ? { ...grid.userData } : null, dimensions: dims ? { ...dims.userData } : null, axes: !!axes, edges: !!edges, ortho: camera === ortho, walk: opts.navMode === "walk", section: renderer.clippingPlanes.length > 0 }),
     get three() { return { THREE, scene, camera, renderer, controls, content, building }; },

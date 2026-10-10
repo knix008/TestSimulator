@@ -145,6 +145,20 @@ export async function printPage() {
   window.print();
 }
 
+// Printers the desktop build can print to → [{name, displayName, isDefault}].
+export async function listPrinters() {
+  if (desktop && desktop.listPrinters) { try { return (await desktop.listPrinters()) || []; } catch { return []; } }
+  return [];
+}
+
+// The laid-out #print-area straight to a printer, no system dialog (desktop).
+// → {ok, error?}; the web build opens the browser's print dialog instead.
+export async function printSheets(opts) {
+  if (desktop && desktop.printSheets) return desktop.printSheets(opts || {});
+  window.print();
+  return { ok: true };
+}
+
 export async function printToPDF(opts) {
   if (desktop && desktop.printToPDF) return desktop.printToPDF(opts);
   window.print();

@@ -12,7 +12,7 @@ import { wallOutlines, wallPieces, openingSpans, wallFrame, wallPoint } from "..
 import { wallLength, openingTags, levelById, levelIndex } from "../core/project.js";
 import { roomArea, roomLabelPoint } from "../core/rooms.js";
 import { roofModel, roofBase } from "../core/roof.js";
-import { drawFurniturePlan, furnitureCorners } from "../lib/furniture.js";
+import { drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight } from "../lib/furniture.js";
 import { materialColor } from "../lib/materials.js";
 import { fmtLen, fmtArea, rotPt, labelPoint as labelPointOf } from "../core/geom.js";
 
@@ -455,7 +455,9 @@ export function drawPlan(ctx, p, th, opts) {
 
   // Furniture, stairs (under the walls so walls stay crisp).
   if (show.furniture) {
-    for (const f of on(p.furniture)) {
+    // Lamps last: a ceiling light over a table stays visible, with its on/off symbol.
+    const furn = on(p.furniture);
+    for (const f of [...furn.filter((x) => !isLight(x)), ...furn.filter(isLight)]) {
       ctx.save();
       ctx.translate(f.x, f.y);
       if (f.rot) ctx.rotate((f.rot * Math.PI) / 180);
@@ -472,7 +474,10 @@ export function drawPlan(ctx, p, th, opts) {
         ctx.strokeRect(-f.w / 2, -f.d / 2, f.w, f.d);
         ctx.setLineDash([]);
         text(ctx, f.name || (asset && asset.name) || "3D", 0, 0, Math.min(f.w, f.d) * 0.16 + 40, { color: th.furniture, px: o.px, minPx: 0 });
-      } else drawFurniturePlan(ctx, f, th, lw);
+      } else {
+        drawFurniturePlan(ctx, f, th, lw);
+        if (isLight(f)) drawLightSymbol(ctx, f, th, lw);
+      }
       ctx.restore();
     }
   }

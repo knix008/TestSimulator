@@ -31,7 +31,7 @@
  },
  "levels": [
   {
-   "id": "lv0hy9b004g2e",
+   "id": "lvl5okd004w64",
    "name": "1F",
    "elevation": 0,
    "height": 3200,
@@ -195,8 +195,8 @@
  ],
  "walls": [
   {
-   "id": "w0hy9b004hi5",
-   "level": "lv0hy9b004g2e",
+   "id": "wl5okd004xne",
+   "level": "lvl5okd004w64",
    "x1": 0,
    "y1": 0,
    "x2": 14000,
@@ -207,8 +207,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9b004ifb",
-   "level": "lv0hy9b004g2e",
+   "id": "wl5okd004ybf",
+   "level": "lvl5okd004w64",
    "x1": 14000,
    "y1": 0,
    "x2": 14000,
@@ -219,8 +219,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9b004ju9",
-   "level": "lv0hy9b004g2e",
+   "id": "wl5okd004zjr",
+   "level": "lvl5okd004w64",
    "x1": 14000,
    "y1": 9000,
    "x2": 0,
@@ -231,8 +231,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9b004kzu",
-   "level": "lv0hy9b004g2e",
+   "id": "wl5okd0050fp",
+   "level": "lvl5okd004w64",
    "x1": 0,
    "y1": 9000,
    "x2": 0,
@@ -243,8 +243,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9b004lh9",
-   "level": "lv0hy9b004g2e",
+   "id": "wl5okd0051jw",
+   "level": "lvl5okd004w64",
    "x1": 9600,
    "y1": 0,
    "x2": 9600,
@@ -255,8 +255,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9b004m4z",
-   "level": "lv0hy9b004g2e",
+   "id": "wl5okd0052r4",
+   "level": "lvl5okd004w64",
    "x1": 9600,
    "y1": 5000,
    "x2": 14000,
@@ -267,8 +267,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9b004nnz",
-   "level": "lv0hy9b004g2e",
+   "id": "wl5okd0053qg",
+   "level": "lvl5okd004w64",
    "x1": 0,
    "y1": 6200,
    "x2": 4200,
@@ -278,8 +278,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9b004ovd",
-   "level": "lv0hy9b004g2e",
+   "id": "wl5okd0054mt",
+   "level": "lvl5okd004w64",
    "x1": 4200,
    "y1": 6200,
    "x2": 4200,
@@ -291,8 +291,8 @@
  ],
  "openings": [
   {
-   "id": "o0hy9b004pnz",
-   "wall": "w0hy9b004hi5",
+   "id": "ol5okd00550z",
+   "wall": "wl5okd004xne",
    "kind": "window",
    "type": "casement",
    "at": 2000,
@@ -304,8 +304,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004qyb",
-   "wall": "w0hy9b004hi5",
+   "id": "ol5okd00561b",
+   "wall": "wl5okd004xne",
    "kind": "window",
    "type": "casement",
    "at": 4600,
@@ -317,8 +317,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004rto",
-   "wall": "w0hy9b004hi5",
+   "id": "ol5okd0057y3",
+   "wall": "wl5okd004xne",
    "kind": "window",
    "type": "casement",
    "at": 7200,
@@ -330,8 +330,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004sex",
-   "wall": "w0hy9b004hi5",
+   "id": "ol5okd0058po",
+   "wall": "wl5okd004xne",
    "kind": "window",
    "type": "casement",
    "at": 11800,
@@ -343,8 +343,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004txw",
-   "wall": "w0hy9b004ifb",
+   "id": "ol5okd0059h6",
+   "wall": "wl5okd004ybf",
    "kind": "window",
    "type": "casement",
    "at": 2500,
@@ -356,8 +356,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004u46",
-   "wall": "w0hy9b004ifb",
+   "id": "ol5okd005as8",
+   "wall": "wl5okd004ybf",
    "kind": "window",
    "type": "casement",
    "at": 7000,
@@ -369,8 +369,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004vei",
-   "wall": "w0hy9b004kzu",
+   "id": "ol5okd005brx",
+   "wall": "wl5okd0050fp",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -382,8 +382,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004wdy",
-   "wall": "w0hy9b004ju9",
+   "id": "ol5okd005c7z",
+   "wall": "wl5okd004zjr",
    "kind": "door",
    "type": "double",
    "at": 7600,
@@ -395,8 +395,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004xzy",
-   "wall": "w0hy9b004m4z",
+   "id": "ol5okd005dny",
+   "wall": "wl5okd0052r4",
    "kind": "door",
    "type": "sliding",
    "at": 1400,
@@ -408,8 +408,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004yff",
-   "wall": "w0hy9b004nnz",
+   "id": "ol5okd005etm",
+   "wall": "wl5okd0053qg",
    "kind": "door",
    "type": "single",
    "at": 2400,
@@ -421,8 +421,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9b004z3b",
-   "wall": "w0hy9b004ovd",
+   "id": "ol5okd005f15",
+   "wall": "wl5okd0054mt",
    "kind": "door",
    "type": "single",
    "at": 1500,
@@ -436,8 +436,8 @@
  ],
  "rooms": [
   {
-   "id": "r0hy9b0050bb",
-   "level": "lv0hy9b004g2e",
+   "id": "rl5oke005gpb",
+   "level": "lvl5okd004w64",
    "name": "Office",
    "pts": [
     [
@@ -477,8 +477,8 @@
    "phase": "new"
   },
   {
-   "id": "r0hy9b0051ml",
-   "level": "lv0hy9b004g2e",
+   "id": "rl5oke005hg0",
+   "level": "lvl5okd004w64",
    "name": "Meeting room",
    "pts": [
     [
@@ -502,8 +502,8 @@
    "phase": "new"
   },
   {
-   "id": "r0hy9b0052mh",
-   "level": "lv0hy9b004g2e",
+   "id": "rl5oke005i4b",
+   "level": "lvl5okd004w64",
    "name": "Toilet",
    "pts": [
     [
@@ -529,8 +529,8 @@
  ],
  "columns": [
   {
-   "id": "c0hy9b00536y",
-   "level": "lv0hy9b004g2e",
+   "id": "cl5oke005j30",
+   "level": "lvl5okd004w64",
    "x": 4800,
    "y": 4500,
    "w": 400,
@@ -540,8 +540,8 @@
    "phase": "new"
   },
   {
-   "id": "c0hy9b0054om",
-   "level": "lv0hy9b004g2e",
+   "id": "cl5oke005kc8",
+   "level": "lvl5okd004w64",
    "x": 9600,
    "y": 4500,
    "w": 400,
@@ -551,8 +551,8 @@
    "phase": "new"
   },
   {
-   "id": "c0hy9b00553n",
-   "level": "lv0hy9b004g2e",
+   "id": "cl5oke005l6x",
+   "level": "lvl5okd004w64",
    "x": 4800,
    "y": 4500,
    "w": 400,
@@ -565,8 +565,8 @@
  "stairs": [],
  "furniture": [
   {
-   "id": "u0hy9b0056kh",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005mr0",
+   "level": "lvl5okd004w64",
    "kind": "officeDesk",
    "x": 1700,
    "y": 1300,
@@ -579,8 +579,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b0057lf",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005npb",
+   "level": "lvl5okd004w64",
    "kind": "officeChair",
    "x": 1700,
    "y": 2050,
@@ -593,8 +593,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b0058ig",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005osm",
+   "level": "lvl5okd004w64",
    "kind": "officeDesk",
    "x": 4300,
    "y": 1300,
@@ -607,8 +607,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b0059jy",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005pam",
+   "level": "lvl5okd004w64",
    "kind": "officeChair",
    "x": 4300,
    "y": 2050,
@@ -621,8 +621,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005ank",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005q0g",
+   "level": "lvl5okd004w64",
    "kind": "officeDesk",
    "x": 6900,
    "y": 1300,
@@ -635,8 +635,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005beg",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005rub",
+   "level": "lvl5okd004w64",
    "kind": "officeChair",
    "x": 6900,
    "y": 2050,
@@ -649,8 +649,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005cby",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005sgp",
+   "level": "lvl5okd004w64",
    "kind": "officeDesk",
    "x": 1700,
    "y": 3600,
@@ -663,8 +663,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005dbe",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005thf",
+   "level": "lvl5okd004w64",
    "kind": "officeChair",
    "x": 1700,
    "y": 4350,
@@ -677,8 +677,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005eb9",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005ufw",
+   "level": "lvl5okd004w64",
    "kind": "officeDesk",
    "x": 4300,
    "y": 3600,
@@ -691,8 +691,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005fwu",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005vfm",
+   "level": "lvl5okd004w64",
    "kind": "officeChair",
    "x": 4300,
    "y": 4350,
@@ -705,8 +705,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005g4w",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005wlu",
+   "level": "lvl5okd004w64",
    "kind": "officeDesk",
    "x": 6900,
    "y": 3600,
@@ -719,8 +719,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005hk7",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005x17",
+   "level": "lvl5okd004w64",
    "kind": "officeChair",
    "x": 6900,
    "y": 4350,
@@ -733,8 +733,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005i8b",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005ywb",
+   "level": "lvl5okd004w64",
    "kind": "meetingTable",
    "x": 11800,
    "y": 2500,
@@ -747,8 +747,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005jx6",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke005zwn",
+   "level": "lvl5okd004w64",
    "kind": "chair",
    "x": 11000,
    "y": 1650,
@@ -761,8 +761,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005krq",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke00609p",
+   "level": "lvl5okd004w64",
    "kind": "chair",
    "x": 11000,
    "y": 3350,
@@ -775,8 +775,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005l7s",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke0061i5",
+   "level": "lvl5okd004w64",
    "kind": "chair",
    "x": 11800,
    "y": 1650,
@@ -789,8 +789,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005mrl",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke0062mr",
+   "level": "lvl5okd004w64",
    "kind": "chair",
    "x": 11800,
    "y": 3350,
@@ -803,8 +803,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005nyb",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke0063ua",
+   "level": "lvl5okd004w64",
    "kind": "chair",
    "x": 12600,
    "y": 1650,
@@ -817,8 +817,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005ote",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke00645i",
+   "level": "lvl5okd004w64",
    "kind": "chair",
    "x": 12600,
    "y": 3350,
@@ -831,8 +831,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005phd",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke0065qw",
+   "level": "lvl5okd004w64",
    "kind": "filing",
    "x": 9150,
    "y": 1000,
@@ -845,8 +845,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005qbu",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke0066cb",
+   "level": "lvl5okd004w64",
    "kind": "filing",
    "x": 9150,
    "y": 1600,
@@ -859,8 +859,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005r8y",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke0067la",
+   "level": "lvl5okd004w64",
    "kind": "plant",
    "x": 13500,
    "y": 8500,
@@ -873,8 +873,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005smh",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke00687d",
+   "level": "lvl5okd004w64",
    "kind": "sofa2",
    "x": 11800,
    "y": 8400,
@@ -887,8 +887,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005tj3",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke0069ht",
+   "level": "lvl5okd004w64",
    "kind": "toilet",
    "x": 3700,
    "y": 8500,
@@ -901,8 +901,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9b005u19",
-   "level": "lv0hy9b004g2e",
+   "id": "ul5oke006ab2",
+   "level": "lvl5okd004w64",
    "kind": "washbasin",
    "x": 600,
    "y": 8550,
@@ -917,8 +917,8 @@
  ],
  "roofs": [
   {
-   "id": "f0hy9b005xn5",
-   "level": "lv0hy9b004g2e",
+   "id": "fl5oke006dxb",
+   "level": "lvl5okd004w64",
    "pts": [
     [
      -150,
@@ -947,8 +947,8 @@
  ],
  "dimensions": [
   {
-   "id": "k0hy9b005vd6",
-   "level": "lv0hy9b004g2e",
+   "id": "kl5oke006bgb",
+   "level": "lvl5okd004w64",
    "x1": 0,
    "y1": 0,
    "x2": 14000,
@@ -958,8 +958,8 @@
    "phase": "new"
   },
   {
-   "id": "k0hy9b005wwb",
-   "level": "lv0hy9b004g2e",
+   "id": "kl5oke006ct4",
+   "level": "lvl5okd004w64",
    "x1": 0,
    "y1": 9000,
    "x2": 0,
@@ -976,6 +976,6 @@
  "solids": [],
  "scenes": [],
  "view": {
-  "level": "lv0hy9b004g2e"
+  "level": "lvl5okd004w64"
  }
 }

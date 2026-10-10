@@ -109,5 +109,85 @@
       "CAD layers",
       "tracing"
     ]
+  },
+  {
+    "file": "10-office-tower.myarch",
+    "title": "Office tower (8 storeys)",
+    "titleKo": "업무용 빌딩 (8개 층)",
+    "description": "A building-scale model: lobby and café, seven office floors with a concrete core (stairs, two lifts, toilets), curtain walls, a 9 × 8 m column grid, meeting rooms, 600+ furniture items and parking.",
+    "descriptionKo": "빌딩 규모 예제: 로비·카페, 코어(계단·엘리베이터 2대·화장실)가 있는 7개 사무 층, 커튼월, 9 × 8 m 기둥 그리드, 회의실, 가구 600여 개, 주차장.",
+    "tags": [
+      "8 levels",
+      "building",
+      "core",
+      "curtain wall",
+      "column grid"
+    ]
+  },
+  {
+    "file": "11-mixed-use.myarch",
+    "title": "Mixed-use building (5 storeys)",
+    "titleKo": "주상복합 (5개 층)",
+    "description": "Shops on the ground floor (supermarket aisles, a café with booths, a clothing store) and four floors of flats on a corridor with a stair and two lifts.",
+    "descriptionKo": "1층 상가(슈퍼마켓 진열대, 부스석 카페, 옷가게)와 복도식 아파트 4개 층, 계단과 엘리베이터 2대.",
+    "tags": [
+      "5 levels",
+      "building",
+      "retail",
+      "housing"
+    ]
+  },
+  {
+    "file": "12-hospital.myarch",
+    "title": "Community hospital",
+    "titleKo": "지역 병원",
+    "description": "Two floors on a double-loaded corridor: reception, waiting area, exam rooms, imaging and pharmacy below, wards with hospital beds and a nurse station above.",
+    "descriptionKo": "중복도형 2개 층: 1층 접수·대기실·진료실·영상실·약국, 2층 병상이 있는 병실과 간호사실.",
+    "tags": [
+      "2 levels",
+      "healthcare",
+      "corridor",
+      "hip roof"
+    ]
+  },
+  {
+    "file": "13-school.myarch",
+    "title": "Primary school",
+    "titleKo": "초등학교",
+    "description": "Two floors of classrooms with student desks, a library, canteen and school kitchen, staff office, and a tall sports hall with its own gable roof.",
+    "descriptionKo": "학생 책상이 놓인 교실 2개 층, 도서관, 급식실과 조리실, 교무실, 박공지붕의 높은 체육관.",
+    "tags": [
+      "2 levels",
+      "education",
+      "corridor",
+      "furniture"
+    ]
+  },
+  {
+    "file": "14-courtyard-house.myarch",
+    "title": "Courtyard house",
+    "titleKo": "중정형 주택",
+    "description": "A U-shaped single-storey house around a courtyard with a pool and pergola: three bedrooms, dressing room, open living, kitchen island, utility and a two-car garage under a hip roof.",
+    "descriptionKo": "수영장과 퍼걸러가 있는 중정을 둘러싼 ㄷ자형 단층 주택: 침실 3, 드레스룸, 거실, 아일랜드 주방, 다용도실, 2대 차고, 모임지붕.",
+    "tags": [
+      "1 level",
+      "house",
+      "courtyard",
+      "furniture",
+      "hip roof"
+    ]
+  },
+  {
+    "file": "15-sketchup-complex.myarch",
+    "title": "Cultural complex (SketchUp style)",
+    "titleKo": "문화 단지 (스케치업 스타일)",
+    "description": "A large push/pull massing model in groups: a museum with a cantilevered gallery and skylight pyramid, a round concert hall with an amphitheatre, a 24-floor twisting tower, a canopy on columns and terraced housing — with nine scenes in every style.",
+    "descriptionKo": "그룹으로 묶은 대형 밀기/끌기 매스 모델: 캔틸레버 전시동과 피라미드 천창의 미술관, 원형 공연장과 계단식 야외극장, 24층 비틀린 타워, 기둥 위 캐노피, 계단식 주거 — 모든 스타일의 장면 9개.",
+    "tags": [
+      "SketchUp",
+      "massing",
+      "groups",
+      "scenes"
+    ]
   }
 ]

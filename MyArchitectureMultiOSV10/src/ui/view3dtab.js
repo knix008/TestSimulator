@@ -9,8 +9,9 @@ import * as platform from "./platform.js";
 import { levelById, findItem, wallHeight } from "../core/project.js";
 import { materialsFor, materialColor } from "../lib/materials.js";
 import { uid } from "../core/geom.js";
-import { furnitureDef } from "../lib/furniture.js";
+import { furnitureDef, isLight } from "../lib/furniture.js";
 import { sunPosition, daylight } from "../core/sun.js";
+import { switchLamps, lampSummary } from "./lights.js";
 
 const VIEWS = [["iso", "Isometric", "1"], ["top", "Top", "2"], ["front", "Front", "3"], ["back", "Rear", "4"], ["left", "Left side", "5"], ["right", "Right side", "6"], ["bird", "Bird's eye", "7"]];
 const STYLES = [["realistic", "Realistic"], ["white", "White model"], ["lines", "Line drawing"], ["xray", "X-ray"]];
@@ -25,7 +26,7 @@ export class View3DTab {
     this.highlighted = [];
     this.picked = null;
     this.hiddenLevels = new Set();
-    this.opts = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, axes: false, gizmo: true, dimensions: false, ground: true, tool: "none", fog: false, solids: true };
+    this.opts = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, axes: false, gizmo: true, dimensions: false, ground: true, tool: "none", fog: false, solids: true, night: false };
     this.paintMaterial = "brick";
   }
 
@@ -84,6 +85,25 @@ export class View3DTab {
       this.markDirty();
       return;
     }
+    // A selected lamp dragged in 3D: the viewer moves it live; the plan
+    // position is written once, on release (one undo step).
+    if (ev.type === "lampMoveStart") { const it = findItem(p, ev.id); this.lampMove = it ? { id: ev.id, x0: it.obj.x, y0: it.obj.y } : null; return; }
+    if (ev.type === "lampMove" && this.lampMove) { app.setHint(`${t("Move")}: ${(ev.dx / 1000).toFixed(2)} m, ${(ev.dy / 1000).toFixed(2)} m`); return; }
+    if (ev.type === "lampMoveEnd" && this.lampMove) {
+      const m = this.lampMove;
+      this.lampMove = null;
+      const g = app.settings.snap !== false ? 10 : 1;
+      app.store.edit(t("Move light"), (pr) => {
+        const it = findItem(pr, m.id);
+        if (!it) return false;
+        it.obj.x = Math.round((m.x0 + ev.dx) / g) * g;
+        it.obj.y = Math.round((m.y0 + ev.dy) / g) * g;
+        return true;
+      });
+      this.app.setHint(this.hintText());
+      this.markDirty();
+      return;
+    }
     if (ev.type === "tape") toast(`${t("Distance")}: ${(ev.distance).toFixed(3)} m`, "info", 4000);
   }
 
@@ -139,7 +159,15 @@ export class View3DTab {
         this.viewer.onPick((info) => {
           this.picked = info;
           if (info && info.id) this.app.onSelection("3d", [info.id]);
+          // A picked lamp lights up as selected: drag it to move it.
+          if (info && info.id && this.isLamp(info.id)) { this.highlight([info.id]); this.app.setHint(t("Light selected: drag it to move it, double-click to switch it on or off.")); }
           this.app.refreshInspector();
+        });
+        // Double-click on a lamp switches it (elsewhere it zooms in).
+        this.viewer.onDblPick((info) => {
+          if (!info || !info.lamp) return false;
+          switchLamps(this.app, [info.id]);
+          return true;
         });
         this.bindContextMenu(this.viewer.three.renderer.domElement);
       } catch (e) {
@@ -159,8 +187,14 @@ export class View3DTab {
       e.preventDefault();
       if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
       down = null;
-      const items = [...this.app.undoMenuItems(), "-", ...this.app.menuItems(["v3d.iso", "v3d.top", "v3d.front", "-", "v3d.walk", "v3d.section", "v3d.ortho", "v3d.openDoors", "-", "v3d.pushpull", "v3d.paint", "v3d.tape", "-", "v3d.addScene", "v3d.screenshot"])];
+      const items = [...this.app.undoMenuItems(), "-", ...this.app.menuItems(["v3d.iso", "v3d.top", "v3d.front", "-", "v3d.walk", "v3d.section", "v3d.ortho", "v3d.openDoors", "-", "v3d.pushpull", "v3d.paint", "v3d.tape", "-", "light.all", "v3d.night", "-", "v3d.addScene", "v3d.screenshot"])];
       if (this.picked && this.picked.id) items.unshift({ label: t("Show in plan"), icon: "floorplan", action: () => this.app.crossProbe([this.picked.id], "plan") }, "-");
+      // Right-click on a lamp: switch it.
+      const under = this.viewer ? this.viewer.pickAt(e.clientX, e.clientY) : null;
+      if (under && under.lamp) {
+        const on = under.lamp.on;
+        items.unshift({ label: on ? t("Switch light off") : t("Switch light on"), icon: on ? "bulbOff" : "bulb", action: () => switchLamps(this.app, [under.id], !on) }, "-");
+      }
       contextMenu(items, e.clientX, e.clientY);
     });
   }
@@ -211,6 +245,8 @@ export class View3DTab {
     if (!v) return;
     v.resize();
     this.syncModel();
+    // A document tab brought back its own camera (src/ui/doctabs.js).
+    if (this.pendingCamera && this.framed) { v.setCamera(this.pendingCamera, 1); this.pendingCamera = null; }
     if (!this.framed) { v.setView("iso"); this.framed = true; }
     this.app.setHint(this.hintText());
     this.app.renderLeft();
@@ -224,6 +260,11 @@ export class View3DTab {
     if (this.opts.navMode === "walk") return t("Walk: W/A/S/D or arrows move, drag to look around, Q/E down/up, Shift runs. Esc leaves walk mode.");
     if (this.opts.navMode === "pan") return t("Pan mode: left-drag moves the view, right-drag rotates, wheel zooms.");
     return t("Left-drag to orbit, right-drag to pan, wheel to zoom. Click a wall, door or piece of furniture to select it in the plan too.");
+  }
+
+  isLamp(id) {
+    const it = findItem(this.app.store.project, id);
+    return !!(it && it.kind === "furniture" && isLight(it.obj));
   }
 
   markDirty() {
@@ -278,7 +319,7 @@ export class View3DTab {
   // Back to the default 3D view state (no tool, orbit, no section, every
   // level shown …) — the tutorial starts from here.
   resetView() {
-    const def = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, ground: true, tool: "none", fog: false, solids: true };
+    const def = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, ground: true, tool: "none", fog: false, solids: true, night: false };
     if (this.opts.navMode === "walk") this.setNav("orbit");
     if (this.viewer) this.viewer.clearMeasures();
     this.playing = false;
@@ -326,14 +367,15 @@ export class View3DTab {
     const styleSel = select(this.opts.style, STYLES.map(([id, label]) => [id, t(label)]), { onChange: (v) => this.setOpt("style", v) });
     styleSel.title = t("Render style");
     bar.append(...VIEWS.map(([id, label, key]) => vb(id, label, key)), sep(),
-      tog("ortho", "ortho", "Orthographic projection (O)"),
+      tog("ortho", "ortho", "Orthographic projection (O)"), btn("v3d.front"),
       h("button", { class: `icon-btn ${this.opts.section !== null ? "on" : ""}`, title: t("Section cut at the current level (X)"), onclick: () => this.toggleSection(), html: icon("section", 18) }),
-      tog("openDoors", "door", "Open doors"), tog("furniture", "sofa", "Furniture"), tog("roofs", "roof", "Roofs"), sep(),
+      tog("openDoors", "door", "Open doors"), tog("furniture", "sofa", "Furniture"), tog("roofs", "roof", "Roofs"), tog("fog", "eye", "Fog"), sep(),
+      btn("light.all"), btn("v3d.night"), sep(),
       h("span", { class: "group-label" }, t("Style")), styleSel, sep(),
       tog("grid", "grid", "Grid (G)"), tog("dimensions", "dimension", "Building dimensions"),
       h("button", { class: "icon-btn", title: t("Zoom to fit"), html: icon("zoomFit", 18), onclick: () => this.zoomToFit() }), sep(),
       h("button", { class: "icon-btn", title: t("Save 3D image (PNG)…"), html: icon("camera", 18), onclick: () => this.screenshot() }),
-      btn("file.export3d"), sep(), btn("view.plan", { label: true }));
+      btn("file.export3d"));
   }
 
   renderPanel(host) {
@@ -373,7 +415,7 @@ export class View3DTab {
     const vis = h("div", { class: "panel" });
     vis.append(panelHead("eye", t("Show")));
     const vb = h("div", { class: "panel-body" });
-    for (const [k, label] of [["furniture", "Furniture"], ["roofs", "Roofs"], ["solids", "Mass models"], ["openDoors", "Open doors"], ["ground", "Ground"], ["grid", "Grid"], ["axes", "Axes"], ["dimensions", "Building dimensions"], ["gizmo", "Orientation gizmo"], ["fog", "Fog"]]) {
+    for (const [k, label] of [["furniture", "Furniture"], ["roofs", "Roofs"], ["solids", "Mass models"], ["openDoors", "Open doors"], ["ground", "Ground"], ["grid", "Grid"], ["axes", "Axes"], ["dimensions", "Building dimensions"], ["gizmo", "Orientation gizmo"], ["fog", "Fog"], ["night", "Night (interior lighting)"]]) {
       vb.append(h("div", {}, checkbox(!!this.opts[k], t(label), { onChange: (v) => this.setOpt(k, v) })));
     }
     vis.append(vb);
@@ -427,6 +469,11 @@ export class View3DTab {
         h("div", { class: "prop-actions" },
           h("button", { class: "btn small", onclick: () => this.app.crossProbe([o.id], "plan") }, h("span", { html: icon("floorplan", 14) }), t("Show in plan")),
           h("button", { class: "btn small", onclick: () => this.app.editProperties(item.kind, o) }, h("span", { html: icon("settings", 14) }), t("Properties…"))));
+      if (item.kind === "furniture" && isLight(o)) {
+        const on = !o.light || o.light.on !== false;
+        body.append(h("div", { class: "prop-sub" }, lampSummary(o)), h("div", { class: "prop-actions" },
+          h("button", { class: `btn small ${on ? "primary" : ""}`, "data-lamp-switch": o.id, onclick: () => { switchLamps(this.app, [o.id]); this.app.refreshInspector(); } }, h("span", { html: icon(on ? "bulbOff" : "bulb", 14) }), on ? t("Switch light off") : t("Switch light on"))));
+      }
     } else body.append(h("div", { class: "empty-note" }, t("Click a wall, door, window, room floor or piece of furniture in the 3D view to see it here.")));
     p.append(body);
     host.append(p);

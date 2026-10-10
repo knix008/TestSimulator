@@ -60,7 +60,7 @@ From top to bottom:
 
 | Area | Contents |
 | --- | --- |
-| **Title bar** | Program icon, menus (File · Edit · View · Draw · Build · BIM · 3D · Help), right after them the **view tabs** (Start / Floor plan / 3D View), the document title, the **magnifier button** (command palette, <kbd>Ctrl</kbd>+<kbd>K</kbd>), and on the right the theme, language, settings and about buttons plus the window buttons |
+| **Title bar** | Program icon, menus (File · Edit · View · Build · BIM · Help), right after them the **view tabs** (Start / Floor plan / 3D View), the document title, the **magnifier button** (command palette, <kbd>Ctrl</kbd>+<kbd>K</kbd>), and on the right the theme, language, settings and about buttons plus the window buttons |
 | **Toolbar** | Tools for the current tab. It always starts with New project · Open · Save / Undo · Redo and ends with Tutorial · Keyboard shortcuts · About |
 | **Left panel** | Floor plan: the furniture library and CAD layers / 3D: scenes, levels, display, section and phases, sun study |
 | **Centre** | The start page, the plan drawing (with level tabs in the lower left) or the 3D view |
@@ -92,7 +92,7 @@ Below them, the **Recent** list shows the files you opened or saved most recentl
 
 The **Samples** cards on the right first appear as plan drawings and change to 3D pictures a moment later. Click a card to open that sample.
 
-On the Start tab the toolbar shows the text buttons **Interactive tutorial · Open sample… · Import… · Floor plan · 3D view · User manual**.
+On the Start tab the toolbar shows the text buttons **Interactive tutorial · Open sample… · Import… · User manual**. The floor plan and the 3D view are reached with the view tabs in the title bar (<kbd>F2</kbd> / <kbd>F3</kbd>).
 
 ### 1.5 Samples
 
@@ -109,6 +109,12 @@ Open them with **File → Open sample…** or from the start page cards. Samples
 | 7 | **Massing study** (`07-massing-study.myarch`) | SketchUp-style mass models: podium, towers, a rotunda and a tapered crown, with scenes to play | Mass boxes, cylinders and polygons, taper, groups, push/pull, scene playback |
 | 8 | **Apartment block** (`08-apartment-block.myarch`) | Three storeys of two units around a stair core, with columns on a structural grid and numbered rooms | Several levels, grids and columns, room numbers, the ‘2F cut’ scene |
 | 9 | **Tracing a DXF drawing** (`09-cad-tracing.myarch`) | An imported AutoCAD drawing on its own CAD layers, partly traced into walls | DXF import, showing and hiding CAD layers, tracing |
+| 10 | **Office tower (8 storeys)** (`10-office-tower.myarch`) | Lobby and café, seven office floors on a concrete core (stairs, two lifts, toilets), curtain walls, a 9 × 8 m column grid, meeting rooms, 600+ furniture items and parking | A building-scale drawing, many levels, core and grid, section scenes |
+| 11 | **Mixed-use building (5 storeys)** (`11-mixed-use.myarch`) | A supermarket, café and clothing store on the ground floor, four floors of flats on a corridor, stairs and lifts | Retail and housing furniture, a different plan per level, room numbers and departments |
+| 12 | **Community hospital** (`12-hospital.myarch`) | Two floors on a double-loaded corridor: reception, waiting, exam rooms, imaging, pharmacy, wards and a nurse station | Healthcare furniture, corridor plans, hip roof |
+| 13 | **Primary school** (`13-school.myarch`) | Two floors of classrooms, library, canteen and kitchen, staff office, a sports hall with a gable roof | School and fitness furniture, separate roofs, scenes in several styles |
+| 14 | **Courtyard house** (`14-courtyard-house.myarch`) | A U-shaped house around a courtyard with a pool and pergola, three bedrooms, dressing room, two-car garage | Irregular outline, a hip roof per wing, many kinds of home furniture |
+| 15 | **Cultural complex (SketchUp style)** (`15-sketchup-complex.myarch`) | A large massing model in groups: a cantilevered museum, a round concert hall with an amphitheatre, a 24-floor twisting tower, a canopy and terraced housing | 60+ push/pull masses, groups, taper, nine scenes in every style |
 
 ---
 
@@ -116,15 +122,27 @@ Open them with **File → Open sample…** or from the start page cards. Samples
 
 ### 2.1 The title bar
 
-From left to right the title bar holds the following. There is no separate tab row.
+From left to right the title bar holds the following. There is no separate row for the view tabs (the document tabs, one per open drawing, are described under “Document tabs” below).
 
-- **Menus**: File · Edit · View · Draw · Build · BIM · 3D · Help. With one menu open, moving the mouse over another menu name opens that menu at once.
+- **Menus**: File · Edit · View · Build · BIM · Help. With one menu open, moving the mouse over another menu name opens that menu at once.
 - **View tabs**: **Start** · **Floor plan** (<kbd>F2</kbd>) · **3D View** (<kbd>F3</kbd>). The Floor plan tab carries a badge with the model check result — the error count (red) if there are errors, or the warning count (yellow) if there are only warnings.
 - **Document title**: the project title (the title in the project properties), a **●** if there are unsaved changes, then the file name. The window title uses the same form, `● filename — MyArchitecture 10.0`.
 - **Magnifier button**: opens the command palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>). Its tooltip is “Search commands, rooms, furniture… (Ctrl+K)”. The search box itself is inside the palette (section 2.6).
 - **Buttons on the right**: the palette icon (**Random theme**) + ▾ (the **Choose a theme** list), the flag (in the English interface the Korean flag switches to 한국어; in the Korean interface the British flag switches to English), the gear (**Settings…**) and ⓘ (**About MyArchitecture**).
 
 Nothing in the title bar is ever hidden. The minimum window width is set so that every menu, tab and button fits, and on a very narrow screen the title bar wraps onto two lines.
+
+#### Document tabs (working on several drawings)
+
+Every open drawing gets a **document tab**. The tab strip sits under the tool bar, directly above the centre work area (floor plan, 3D or start page) only — the left and right panels touch the tool bar.
+
+- **New project** (<kbd>Ctrl</kbd>+<kbd>N</kbd>), **Open** (<kbd>Ctrl</kbd>+<kbd>O</kbd>), **Open sample**, **Recent files**, files opened from the file manager and `.myarch` files dropped on the window all open in a **new tab**. If the current tab is an untouched, empty “Untitled”, that tab is reused. Opening a file that is already open switches to its tab. **Imports** (DXF, IFC, 3D models, images) go into the current tab's drawing.
+- A tab shows the file name, with **●** when there are unsaved changes. Hovering a tab shows the project title and the full file path. The window title follows the active tab.
+- Clicking a tab switches to that drawing. Each drawing keeps its own undo/redo history, file name, level, zoom and view position, 3D camera and model check results (the selection is cleared). The Floor plan / 3D view you are in stays.
+- Close a tab with **×**, a **middle click**, <kbd>Ctrl</kbd>+<kbd>W</kbd> or **File → Close tab**; with unsaved changes you are asked to save first. Closing the last tab leaves an empty “Untitled” tab and the start page. Right-clicking a tab also offers **Close other tabs** and **Close tabs to the right**.
+- <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> (or <kbd>Ctrl</kbd>+<kbd>PageDown</kbd> / <kbd>PageUp</kbd>) move to the next / previous tab. Drag a tab sideways to reorder.
+- When there are more tabs than fit, the strip scrolls sideways. The **<** / **>** buttons at its right end bring the next hidden tab into view on that side and are greyed out at either end; the mouse wheel scrolls too. **+** starts a new project and **▾** lists every open drawing.
+- Closing the window asks about each tab with unsaved changes in turn. Autosave (recovery) keeps every unsaved tab, and recovery reopens each in its own tab. The interactive tutorial runs in a tab of its own and leaves the drawings in other tabs alone.
 
 ### 2.2 The menus at a glance
 
@@ -133,19 +151,16 @@ Nothing in the title bar is ever hidden. The minimum window width is set so that
 | **File** | New project, Open…, Open sample…, Recent files…, Clear recent files / Save, Save as… / Import (DXF, IFC, 3D models, images…)…, Import ▸, Export ▸ / Print / PDF…, Project properties… / Exit |
 | **Edit** | Undo, Redo, Undo history… / Cut, Copy, Paste, Duplicate, Delete / Select all, Find… / Rotate 90°, Mirror horizontally / flip door, Mirror vertically, Scale…, Offset… / Group, Ungroup, Properties… |
 | **View** | Start page, Floor plan, 3D view / Zoom in, Zoom out, Zoom to fit, Pan (hand) / Show grid, Show rulers, Snap to grid and walls, Orthogonal drawing (45° steps) / Show dimensions, Show furniture, Show room areas, Show the level below, Show underlays and CAD layers / Phases: show all, Phases: new design, Phases: existing building / Show library panel, Show properties panel / Themes…, Dark theme, Light theme, System theme / 한국어, English |
-| **Draw** | Select, Wall, Room, Door, Window, Column, Stair, Furniture, Roof / Mass box, Mass cylinder, Mass shape / Grid line, Dimension, Text, Line, Measure |
 | **Build** | Detect rooms from walls, Roof over the top level, Dimension the outside walls / Add level on top, Level properties…, Default sizes (walls, doors, windows)…, CAD layers… / Model check, Schedules and quantities… |
 | **BIM** | Wall types…, BIM properties of the selection…, Select similar / Cost estimate…, Site location (sun study)… / Export IFC (BIM)…, Import IFC (BIM)… |
-| **3D** | 3D view / Isometric view, Top view, Front elevation / Walk through (first person), Section cut at the current level, Orthographic projection, Open doors, Fog / Push/Pull, Paint bucket, Tape measure / Add scene, Play scene animation / Save 3D image (PNG)…, Export 3D model (GLB, glTF, OBJ, STL, DAE, 3MF, USDZ, PLY)… |
 | **Help** | Interactive tutorial, User manual, Keyboard shortcuts, Supported file formats…, Quick tour / Settings…, About MyArchitecture |
 
 Items that switch on and off (show grid, snap, phase views, walk and so on) carry a ✓ when they are on, and items you cannot use right now are greyed out. Items with a shortcut show the key on the right.
 
+Drawing and 3D commands have no menu of their own: they are all toolbar buttons (sections 2.3 and 5.1). Add scene and Play scene animation are in the **Scenes** panel on the left of the 3D view.
+
 ![The BIM menu](docs/images/en/menu-bim.webp)
 *The BIM menu*
-
-![The 3D menu](docs/images/en/menu-3d.webp)
-*The 3D menu*
 
 ### 2.3 The toolbar
 
@@ -153,7 +168,7 @@ Hover over a button to see its name and shortcut in a tooltip. Active tools and 
 
 - **Always**: New project · Open… · Save | **Undo · Redo** | … | (far right) Interactive tutorial · Keyboard shortcuts · About MyArchitecture
 - The tooltips of the **Undo/Redo buttons** name the action as well (for example “Undo: Add wall (Ctrl+Z)”). When there is nothing to undo, the button is greyed out.
-- **Floor plan tab**: Select · Wall · Room · Door · Window · Column · Stair · Furniture · Roof | Mass box · Mass cylinder · Mass shape | Grid line · Dimension · Text · Line · Measure | Rotate 90° · Mirror horizontally · Delete | Detect rooms from walls · Wall types… · BIM properties of the selection… · Model check · Schedules and quantities… · **3D view** | (right) Snap · Ortho · Pan (hand) · Grid · Rulers | Zoom out · Zoom in · Zoom to fit
+- **Floor plan tab**: Select · Wall · Room · Door · Window · Column · Stair · Furniture · Roof | Mass box · Mass cylinder · Mass shape | Grid line · Dimension · Text · Line · Measure | Rotate 90° · Mirror horizontally · Delete | Detect rooms from walls · Wall types… · BIM properties of the selection… · Model check · Schedules and quantities… | (right) Snap · Ortho · Pan (hand) · Grid · Rulers | Zoom out · Zoom in · Zoom to fit
 - **3D tab**: see section 5.1.
 - **Start tab**: see section 1.4.
 
@@ -246,7 +261,7 @@ Hovering over an element highlights it, and the cursor changes to the move curso
 
 ## 3. Drawing the plan
 
-You draw on the Floor plan tab (<kbd>F2</kbd>). Press a tool key or pick a tool on the toolbar or in the Draw menu to switch tools; the status bar (and the bottom of the drawing) shows the tool's hint. <kbd>Esc</kbd> finishes what you are drawing, and pressing it again returns to the **Select** tool.
+You draw on the Floor plan tab (<kbd>F2</kbd>). Press a tool key or pick a tool on the toolbar to switch tools; the status bar (and the bottom of the drawing) shows the tool's hint. <kbd>Esc</kbd> finishes what you are drawing, and pressing it again returns to the **Select** tool.
 
 ### 3.1 The tools
 
@@ -394,7 +409,7 @@ Fields in the right panel: **Kind** (Door / Window / Opening), **Type** (doors: 
 
 The **Furniture library** (left panel):
 
-- A search box at the top (“Search (sofa, bed, toilet…)”) and category chips: All · Living · Dining · Bedroom · Kitchen · Bathroom · Office · Outdoor · Other. Pressing <kbd>Enter</kbd> in the search box picks the first item.
+- A search box at the top (“Search (sofa, bed, toilet…)”) and category chips: All · Living · Dining · Bedroom · Kitchen · Bathroom · Office · Outdoor · … · Lighting · Other. Pressing <kbd>Enter</kbd> in the search box picks the first item.
 - With no search text and no category, **Recently used** furniture (up to 10) is shown at the top.
 - Each item shows its plan symbol and `width × depth × height`.
 - **Click an item, then click in the drawing**, or **drag an item onto the drawing** to place it.
@@ -415,6 +430,19 @@ While placing:
 | <kbd>Esc</kbd> | Stops placing |
 
 Furniture is placed and moved in **half grid steps** (hold <kbd>Shift</kbd> while dragging to move only horizontally or vertically). When selected, the right panel has **X, Y, Rotation, Width, Depth, Height, Elevation (height above the floor) and Colour** and a **Show in 3D** button. Double-clicking also lets you change the name and the kind (swap it for another piece of furniture). The full list is in section 12.4.
+
+#### Lighting
+
+Light fixtures are furniture of the **Lighting** category in the library: **Ceiling light, Pendant lamp, Recessed downlight, Spotlight, Track light (3 spots), Wall sconce, Table lamp** — and the **Floor lamp** (Living) and **Street lamp** (Outdoor) are lights too. The **Light fixture** button on the plan toolbar places the last light you used (a ceiling light the first time).
+
+- **Placing**: like any furniture — click it in the library, then click in the plan, or drag it onto the plan. Ceiling fixtures hang under the ceiling of the current level by themselves (their elevation is the level height minus the fixture's height); a wall sconce goes at 1.8 m; a table lamp stands on the floor — raise its **Elevation** to put it on a table.
+- **Moving with the mouse**: drag the lamp in the plan like furniture (half grid steps). In 3D, click a lamp to select it, then drag it: it slides at its height (a ceiling light stays under the ceiling) and the plan follows when you let go — one undo step.
+- **Plan symbol**: a circle with a cross over the fixture; **filled yellow with rays when it is on**, hollow when it is off. Lamps are drawn over the furniture under them, and clicking picks the lamp before the table it hangs over.
+- **On / off**: the **Light on** switch in the right panel, **Switch light off / on** in the right-click menu (plan and 3D), or **double-click a lamp in the 3D view**. **All lights on / off** (bulb button on the plan and 3D toolbars, also in the 3D right-click menu) switches every lamp; the button is lit while any lamp is on. Each switch is one undo step and is saved with the project.
+- **Settings** (right panel, under *Lighting*): **Brightness (lm)**, **Colour temperature** (warm white 2700 K / 3000 K, neutral white 4000 K, cool white 5000 K, daylight 6500 K), **Light colour** (any colour) and, for downlights, spotlights, track lights and street lamps, the **Beam angle**.
+- **3D**: a lit lamp glows and lights the room around it; a switched-off lamp is dark. **Night view (interior lighting)** (moon button on the 3D toolbar, or *Night* in the left panel's *Show* list) turns the sun off and dims the sky so only the lamps light the scene — hide the roof or the upper levels, or use the section cut, to look in from above.
+- **Performance**: to keep large models smooth, at most **12 point lights and 8 spot lights** are real light sources at a time — the lamps nearest the camera on the visible levels (and below the section cut). The others still glow. Lamps cast no shadows. Switching lamps or changing their settings does not rebuild the 3D model.
+- The model check leaves ceiling fixtures (2 m and higher) out of the clash tests, and wall lights may touch walls.
 
 ### 3.7 Stairs
 
@@ -665,11 +693,12 @@ The **3D View** tab (<kbd>F3</kbd>; <kbd>F4</kbd> does the same) shows what you 
 | Navigation | Orbit · Pan (P) · Walk (V) |
 | Tools | Push/Pull · Paint bucket · Tape measure |
 | Views | Isometric · Top · Front · Rear · Left side · Right side · Bird's eye (keys <kbd>1</kbd> to <kbd>7</kbd>) |
-| Display | Orthographic projection (O) · Section cut at the current level (X) · Open doors · Furniture · Roofs |
+| Display | Orthographic projection (O) · Front elevation · Section cut at the current level (X) · Open doors · Furniture · Roofs · Fog |
 | Style | The render style list (Realistic / White model / Line drawing / X-ray) |
 | Aids | Grid (G) · Building dimensions · Zoom to fit |
 | Output | Save 3D image (PNG)… · Export 3D model… |
-| Go to | Floor plan |
+
+Switching between the floor plan and the 3D view is done with the view tabs in the title bar and the **View** menu (<kbd>F2</kbd> / <kbd>F3</kbd>), not the toolbar.
 
 ### 5.2 Navigation (orbit · pan)
 
@@ -687,14 +716,14 @@ The **3D View** tab (<kbd>F3</kbd>; <kbd>F4</kbd> does the same) shows what you 
 
 ### 5.3 Views
 
-<kbd>1</kbd> Isometric · <kbd>2</kbd> Top · <kbd>3</kbd> Front · <kbd>4</kbd> Rear · <kbd>5</kbd> Left side · <kbd>6</kbd> Right side · <kbd>7</kbd> Bird's eye. The camera flies smoothly there and fits the whole building. The 3D menu has **Isometric view**, **Top view** and **Front elevation**.
+<kbd>1</kbd> Isometric · <kbd>2</kbd> Top · <kbd>3</kbd> Front · <kbd>4</kbd> Rear · <kbd>5</kbd> Left side · <kbd>6</kbd> Right side · <kbd>7</kbd> Bird's eye. The camera flies smoothly there and fits the whole building. Besides the view buttons, the toolbar also has a **Front elevation** button.
 
 ### 5.4 Walking (first person)
 
 ![Walk (V): walk around at eye height with W/A/S/D](docs/images/en/walk-mode.webp)
 *Walk (V): walk around at eye height with W/A/S/D*
 
-Press <kbd>V</kbd> (or the Walk button, 3D → **Walk through (first person)**, the navigation cell in the status bar) to stand on the floor of the lowest visible level with an eye height of 1.6 m.
+Press <kbd>V</kbd> (or the **Walk** button on the toolbar, or the navigation cell in the status bar) to stand on the floor of the lowest visible level with an eye height of 1.6 m.
 
 | Key / action | What it does |
 | --- | --- |
@@ -717,7 +746,7 @@ Walking works only in perspective (an orthographic view switches to perspective 
 *Front elevation in orthographic projection (O)*
 
 - <kbd>O</kbd> (Orthographic projection) shows the model in parallel projection without perspective. The status bar shows “Orthographic / Perspective”.
-- **3D → Front elevation** turns on orthographic projection + the Line drawing style + the front view in one go, so the model looks like an elevation drawing. From there use <kbd>4</kbd> to <kbd>6</kbd> for the other elevations.
+- The **Front elevation** button on the toolbar turns on orthographic projection + the Line drawing style + the front view in one go, so the model looks like an elevation drawing. From there use <kbd>4</kbd> to <kbd>6</kbd> for the other elevations.
 
 ### 5.6 Display styles
 
@@ -744,7 +773,7 @@ Choose one from the **Style** list on the toolbar or **Render style** in the **S
 ![Section (X): cuts the current level 1.2 m above the floor](docs/images/en/section-cut.webp)
 *Section (X): cuts the current level 1.2 m above the floor*
 
-- <kbd>X</kbd> (the section button, 3D → **Section cut at the current level**, the section cell in the status bar) cuts the building horizontally at **the floor of the level you are editing in the plan + 1.2 m** and removes everything above. The interior shows like a 3D floor plan. Press it again to turn it off.
+- <kbd>X</kbd> (the **Section cut at the current level** button on the toolbar, or the section cell in the status bar) cuts the building horizontally at **the floor of the level you are editing in the plan + 1.2 m** and removes everything above. The interior shows like a 3D floor plan. Press it again to turn it off.
 - In the **Section and phases** panel on the left: tick **Section**, and change the height with the **Cut height** stepper (0.1 m steps).
 - Parts that have been cut away cannot be selected by clicking.
 
@@ -769,7 +798,7 @@ The display options:
 | Grid (<kbd>G</kbd>) | See 5.8.1 |
 | Axes | The X (red), Y (blue) and Z (green) axes at the origin |
 | Building dimensions | The overall W (width), D (depth) and H (height) of the building as yellow dimensions |
-| Fog | Aerial perspective that fades with distance (same as **Fog** in the 3D menu) |
+| Fog | Aerial perspective that fades with distance (same as the **Fog** button on the toolbar) |
 
 #### 5.8.1 The 3D grid
 
@@ -788,7 +817,7 @@ The 3D grid is drawn like the plan grid.
 ![Push/Pull: drag the top of a mass or wall up or down](docs/images/en/pushpull.webp)
 *Push/Pull: drag the top of a mass or wall up or down*
 
-Turn on **Push/Pull** (toolbar, 3D menu, or a mass's **Push/Pull in 3D** button) and drag **the top face of a mass or wall** up or down to change its height in 50 mm steps (masses at least 100 mm, walls at least 300 mm). While dragging, the hint cell shows `height: … m`. One drag is one undo step. Press the same button again or <kbd>Esc</kbd> to leave the tool.
+Turn on **Push/Pull** (toolbar, or a mass's **Push/Pull in 3D** button) and drag **the top face of a mass or wall** up or down to change its height in 50 mm steps (masses at least 100 mm, walls at least 300 mm). While dragging, the hint cell shows `height: … m`. One drag is one undo step. Press the same button again or <kbd>Esc</kbd> to leave the tool.
 
 ### 5.10 Paint bucket
 
@@ -828,9 +857,9 @@ The **Sun study** panel on the left:
 ![Scenes: save the current view (+), click to fly there, ▶ plays them in turn](docs/images/en/scenes.webp)
 *Scenes: save the current view (+), click to fly there, ▶ plays them in turn*
 
-- **+** in the **Scenes** panel (or 3D → **Add scene**, the 3D right-click menu) saves the current camera, projection, display style, section height and phase view in the project as “Scene 1, Scene 2…”.
+- **+** in the **Scenes** panel (or the 3D right-click menu) saves the current camera, projection, display style, section height and phase view in the project as “Scene 1, Scene 2…”.
 - Click a scene name to fly smoothly to that view. Delete it with **×**.
-- **▶** (Play the scenes, 3D → **Play scene animation**) goes through the scenes in turn and keeps playing (about 2.5 seconds per scene). Press it again (■ Stop) to stop. With no scenes: “Add scenes first…”.
+- **▶** (Play scene animation) goes through the scenes in turn and keeps playing (about 2.5 seconds per scene). Press it again (■ Stop) to stop. With no scenes: “Add scenes first…”.
 
 ### 5.14 Selecting and right-clicking in 3D
 
@@ -1037,13 +1066,17 @@ All the rules (with the messages exactly as shown on screen) are in section 12.2
 ![Import: DXF, SVG, IFC, 3D models and images](docs/images/en/import-picker.webp)
 *Import: DXF, SVG, IFC, 3D models and images*
 
-**File → Import (DXF, IFC, 3D models, images…)…** (<kbd>Ctrl</kbd>+<kbd>I</kbd>) opens a file chooser for every supported file. **File → Import ▸** lists the commands per format: Import (all) · Import DXF drawing… · Import IFC (BIM)… · Import 3D model (OBJ, FBX, GLB, STL…)… · Import SVG drawing… · Import image as tracing underlay….
+**File → Import (DXF, IFC, 3D models, images…)…** (<kbd>Ctrl</kbd>+<kbd>I</kbd>) opens a file chooser for every supported file. **File → Import ▸** lists the commands per format: Import (all) · Import DXF drawing… · Import IFC (BIM)… · Import Sweet Home 3D, gbXML or IFC ZIP… · Import 3D model (OBJ, FBX, GLB, STL…)… · Import SVG drawing… · Import image as tracing underlay….
 
 | Format | How it is imported |
 | --- | --- |
 | **DXF** (.dxf) | The **Import DXF drawing** window: **Units in the file** (Detect automatically / mm / cm / m / inches / feet), **Level** (the level to put it on), **Move the drawing to the plan origin**. Lines, polylines, arcs, circles, splines, texts, blocks and hatch outlines come in on their own CAD layers. Afterwards: “Imported …: n drawing items, n texts (units)”, plus an **Import notes** window if there is anything to watch out for |
+| **DWG** (.dwg) | The **Import DWG drawing** window, the same as for DXF. Files saved by AutoCAD R13 to 2025 (the DWG formats R13, R14, 2000, 2004, 2007, 2010, 2013 and 2018) are read directly. Lines, polylines, arcs, circles, ellipses, splines, texts and MTEXT, blocks (nested, scaled, rotated), dimensions, hatch outlines and leaders in model space come in on their original layers (colour and on/off included). Paper space (layouts), external references and objects such as 3D solids, tables and images are skipped and counted in the **Import notes**. Files older than R13 and password-protected drawings cannot be opened |
 | **SVG** (.svg) | The **Import SVG drawing** window (the same fields as above). Paths, shapes and texts come in on the layer `SVG` |
 | **IFC** (.ifc) | **Replaces the current project** (after asking to save). Reads levels, walls, doors and windows, rooms, slabs, roofs, stairs, columns and furniture and opens them as a new project (named `filename.myarch`, unsaved). “Imported …: n levels, n walls, n doors/windows, n rooms.” |
+| **Sweet Home 3D** (.sh3d) | **Replaces the current project**, like IFC. Reads levels, walls (curved walls as short straight pieces), doors and windows, rooms with their floor materials, stairs, dimension lines, labels, furniture and lights from files of version 5.3 and later. Furniture is matched by name to the closest library item; anything without a match comes in as a box of the same size and colour. 3D models and textures inside the file are not imported. For files older than 5.3 you are asked to save them again in Sweet Home 3D |
+| **gbXML** (.gbxml, .xml) | The energy-analysis export of Revit, ArchiCAD and Vectorworks. **Replaces the current project**, like IFC. Reads storeys, walls, doors and windows, spaces (as rooms), flat roofs and approximate sloped roofs. Wall thickness comes from the construction layers, else 200 mm. UTF-16 files are read too |
+| **IFC ZIP** (.ifczip) | Unzipped, and the .ifc inside is imported exactly like IFC. ifcXML (.ifcxml) is not read |
 | **3D models** (.obj .fbx .glb .gltf .stl .dae .3mf .3ds .ply .wrl .amf) | The **Import 3D model — name** window: **Units in the file** (Detect automatically …), **Up axis** (Automatic / Y is up / Z is up). The model becomes **a piece of furniture**, placed in the centre of the view on the current level (or where you dropped it), and is stored inside the project file. You can place it again as often as you like from “Imported 3D models” in the furniture library. OBJ files also read the `.mtl` materials file of the same name in the same folder |
 | **Images** (.png .jpg .jpeg .webp .gif .bmp) | The **Import image as tracing underlay** window: **Width of the image in the plan** (mm), **Opacity** (10 to 100%). It is laid under the current level as an underlay |
 | **Projects** (.myarch, .json) | Same as Open |
@@ -1070,7 +1103,7 @@ All the rules (with the messages exactly as shown on screen) are in section 12.2
 ![3D export: GLB, glTF, OBJ, STL, DAE, 3MF, USDZ or PLY with units](docs/images/en/export-3d.webp)
 *3D export: GLB, glTF, OBJ, STL, DAE, 3MF, USDZ or PLY with units*
 
-**3D → Export 3D model…** (or the 3D toolbar, Export ▸):
+The **Export 3D model…** button on the 3D toolbar (or Export ▸):
 
 | Format | Use | File |
 | --- | --- | --- |
@@ -1088,44 +1121,53 @@ All the rules (with the messages exactly as shown on screen) are in section 12.2
 
 ### 7.6 Printing and PDF
 
-![Print preview: paper, scale, title block and north arrow; save as PDF or SVG](docs/images/en/print-preview.webp)
-*Print preview: paper, scale, title block and north arrow; save as PDF or SVG*
+![Print window: printer, paper, margins, scale and contents on the left, a preview of the real sheets on the right; Print prints at once](docs/images/en/print-preview.webp)
+*Print window: printer, paper, margins, scale and contents on the left, a preview of the real sheets on the right; Print prints at once*
 
-**File → Print / PDF…** (<kbd>Ctrl</kbd>+<kbd>P</kbd>) — options on the left, a preview of the drawing sheet on the right (turn pages with ◀ ▶; “1 / 2 — Floor plan — 1F · 1:100”).
+**File → Print / PDF…** (<kbd>Ctrl</kbd>+<kbd>P</kbd>) opens the **print window**. Its title bar shows the program icon, “Print” and a close button (✕); the window covers most of the editor (drag its lower-right corner to resize it). Detailed page settings are on the **left**; the **preview on the right** shows the real sheets and changes as soon as you change a setting.
 
-The **Contents** tab:
+Settings on the left (click a heading to fold it; only this column scrolls when it is long):
 
-- **Levels (one sheet each)**: tick the levels to print (the current level by default). With none ticked: “Tick at least one level”.
-- **Show**: Furniture, Dimensions, Room areas, Roofs (dashed), CAD layers.
-- **Colour: Black and white**.
+- **Printer** (desktop edition)
+  - **Printer**: the printers on this computer. The operating system's default printer is selected the first time; the last one used is remembered.
+  - **Copies**: 1–99.
+  - **Colour**: Colour / Black and white. Black and white draws the sheet in black and grey and tells the printer to print in monochrome.
+- **Page**
+  - **Paper size**: A4, A3, A2, A1, A0, A5, Letter, Legal, Tabloid or **Custom size** (width × height in mm, 50–2000).
+  - **Orientation**: Landscape / Portrait — the paper in the preview turns at once.
+  - **Margins**: None, Narrow (5 mm), Normal (10 mm), Wide (20 mm) or **Custom** (top, bottom, left, right in mm). The preview shows the margins as a dashed blue line (not printed).
+- **Drawing**
+  - **Drawing scale**: Fit to page, 1:20 … 1:1000 or **Custom** (1 : N); the project's drawing scale by default. When the drawing does not fit the paper at the chosen scale the preview says “The drawing does not fit on the page at 1:N.” and the overflow is cut off.
+  - **Centre on page**: off aligns the drawing to the top left.
+  - **Levels (one sheet each)**: the levels to print (the current level by default), **Select all**. With none ticked: “Tick at least one level”.
+  - **Page range**: All pages / Pages (e.g. `1-2, 4`).
+- **Drawing contents**: Furniture, Dimensions, Room areas, Roofs (dashed), CAD layers, Texts and labels, Structural grids.
+- **Sheet layout**: Sheet border, Title block, North arrow and scale bar, Header (project name and date), Footer (page numbers). The title block is filled in from File → Project properties.
 
-The **Page** tab:
+The preview on the right: turn pages with ◀ ▶ in its top bar (“Page 1 of 2”), zoom with − / +, and **Fit** fits the sheet into the window. The line below sums up the sheets, paper, orientation, scale, colour and copies.
 
-- **Paper**: A4, A3, A2, A1, A0, Letter, Tabloid (the default comes from Settings → Output → Default paper, initially A3).
-- **Orientation**: Landscape / Portrait.
-- **Drawing scale**: Fit to page, 1:20, 1:50, 1:75, 1:100, 1:150, 1:200, 1:250, 1:500, 1:1000 (the project's drawing scale by default). Fit to page picks the nearest standard scale that fits.
-- “Title block from File → Project properties.”
-
-Each sheet has a border, a **title block** in the lower right (title, client and address, the drawing “Floor plan — level”, scale, sheet number n / total, drawn by, date, revision), and a **north arrow** (following the north rotation) and **scale bar** in the lower left.
+Each sheet has a border, a **title block** in the lower right (title, client and address, the drawing “Floor plan — level”, scale, sheet number n / total, drawn by, date, revision), and a **north arrow** (following the north rotation) and **scale bar** in the lower left — each can be switched off.
 
 Buttons:
 
 | Button | Result |
 | --- | --- |
+| Save as PDF… | (Desktop edition) the chosen sheets in one PDF file — at paper size, no extra margin |
 | Save as SVG… | One SVG file in mm per sheet |
-| Save as PDF… | (Desktop edition) all sheets in one PDF file |
-| Print… | The operating system's print dialog (in the web edition, choose the “Save as PDF” printer here) |
+| Cancel | Close without printing |
+| **Print** | (Desktop edition) **prints straight away** on the chosen printer — no operating-system print dialog follows. “Sent n pages to …” confirms it. The web edition has **Print…** instead, which opens the browser's print dialog |
 
-### 7.7 Closed formats (DWG, SKP, RVT, PLN, 3DM)
+Paper, orientation, margins, printer, colour and the sheet layout are remembered for next time (the paper also becomes Settings → Output → Default paper).
+
+### 7.7 Closed formats (SKP, RVT, PLN, 3DM)
 
 These are proprietary, closed formats that cannot be read directly. If you try to open one, a **Format not supported** window explains what to do and offers a **Supported file formats…** button.
 
 | File | What to do |
 | --- | --- |
-| DWG (AutoCAD) | **Save as DXF** in a CAD program (AutoCAD, BricsCAD, ZWCAD, DraftSight, LibreCAD or the free ODA File Converter), then import the DXF |
 | SKP (SketchUp) | In SketchUp use File → Export → 3D Model and export as **Collada (.dae), OBJ or glTF**, then import that |
-| RVT (Revit) | In Revit use File → Export → **IFC**, then import the IFC file |
-| PLN (ArchiCAD) | **Save as IFC** in ArchiCAD, then import it |
+| RVT (Revit) | In Revit use File → Export → **IFC**, then import the IFC file. If walls, openings and rooms are enough, File → Export → **gbXML** works too |
+| PLN (ArchiCAD) | **Save as IFC** in ArchiCAD, then import it (its gbXML export can be imported as well) |
 | 3DM (Rhino) | Export **OBJ, STL or glTF** from Rhino, then import it |
 
 ![Supported formats for opening, import and export](docs/images/en/formats.webp)
@@ -1453,8 +1495,11 @@ In the import window choose the **Units in the file** yourself and tick **Move t
 **An imported 3D model has the wrong size / is lying on its side.**
 Change **Units in the file** and **Up axis** (Y is up / Z is up) in the import window and import it again. After import you can still change its width, depth and height in the right panel or use Scale….
 
-**I want to open DWG / SKP / RVT files.**
-They cannot be read directly. Convert them to DXF / DAE, OBJ or glTF / IFC as described in section 7.7 and import those.
+**I want to open DWG files.**
+Import them directly with **File → Import…** (files saved by AutoCAD R13 to 2025). If one does not open, save it as DXF in AutoCAD and import that.
+
+**I want to open SKP / RVT / PLN files.**
+They cannot be read directly. Convert them to DAE, OBJ or glTF / IFC or gbXML as described in section 7.7 and import those.
 
 **There is no Save as PDF button.**
 Not in the web edition. Press **Print…** and choose “Save as PDF” in the browser's print dialog, or use **Save as SVG…**.
@@ -1484,7 +1529,11 @@ Settings → **Reset to defaults**. To wipe them completely, quit the program an
 | --- | --- | :---: | :---: | --- |
 | MyArchitecture project | .myarch | ✓ | ✓ | Everything (JSON) |
 | AutoCAD DXF | .dxf | ✓ | ✓ | 2D drawing; import as CAD layers, export with A-WALL/A-DOOR… layers (R12) |
+| AutoCAD DWG | .dwg | ✓ | — | 2D drawings from AutoCAD R13 to 2025 (DWG formats R13 to 2018); imported as CAD layers like DXF |
 | IFC (BIM) | .ifc | ✓ | ✓ | IFC4 / IFC2X3: storeys, walls, doors, windows, spaces, slabs, roofs, stairs, columns, furniture |
+| IFC ZIP | .ifczip | ✓ | — | Zipped IFC (read like .ifc; ifcXML is not read) |
+| Sweet Home 3D | .sh3d | ✓ | — | 5.3 and later: levels, walls, doors, windows, rooms, furniture, stairs, dimensions, labels |
+| gbXML | .gbxml .xml | ✓ | — | Energy-model export of Revit, ArchiCAD, Vectorworks: storeys, walls, doors, windows, spaces (rooms), roofs |
 | glTF / GLB | .gltf .glb | ✓ | ✓ | 3D with materials (Blender, Unity, web) |
 | Wavefront OBJ (+MTL) | .obj | ✓ | ✓ | 3D with materials (OBJ + MTL in a ZIP) |
 | STL | .stl | ✓ | ✓ | 3D printing (geometry only) |
@@ -1499,7 +1548,7 @@ Settings → **Reset to defaults**. To wipe them completely, quit the program an
 | PDF | .pdf | — | ✓ | Drawing sheets with title block (print) |
 | PNG / JPG / WebP | .png .jpg .webp (import also .jpeg .gif .bmp) | ✓ | ✓ | Images: import as tracing underlay; export plan or 3D image |
 | CSV | .csv | — | ✓ | Room, door/window, wall type, cost and level schedules |
-| DWG / SKP / RVT / PLN (/ 3DM) | | — | — | Closed formats: use DXF, DAE/OBJ or IFC exported from those programs |
+| SKP / RVT / PLN (/ 3DM) | | — | — | Closed formats: use DAE/OBJ, IFC or gbXML exported from those programs |
 
 The Windows installation can associate DXF, IFC, SVG, OBJ, STL, PLY, GLB, glTF, FBX, DAE, 3MF, 3DS, WRL and AMF files with MyArchitecture, along with `.myarch`.
 

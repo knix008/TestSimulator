@@ -5,7 +5,7 @@
 import { wallLength, wallHeight, openingTags, levelAbove } from "./project.js";
 import { wallFrame, wallPoint, openingSpans, wallOutlines } from "./walls.js";
 import { roomArea } from "./rooms.js";
-import { furnitureCorners } from "../lib/furniture.js";
+import { furnitureCorners, furnitureDef } from "../lib/furniture.js";
 import { pointInPolygon, polygonCentroid, pointSegDist, segIntersect } from "./geom.js";
 
 export const CHECKS = [
@@ -25,7 +25,7 @@ export const CHECKS = [
   ["clash-column", "Clash: column in a door or window"],
 ];
 
-const SEATS = new Set(["chair", "barStool", "officeChair"]);
+const SEATS = new Set(["chair", "barStool", "officeChair", "studentChair"]);
 
 function polysOverlap(a, b) {
   for (const [x, y] of a) if (pointInPolygon(x, y, b)) return true;
@@ -93,7 +93,9 @@ export function runCheck(p) {
     // ---- furniture against walls and door swings
     const furn = p.furniture.filter((f) => f.level === lv.id && (f.elevation || 0) < 2000);
     for (const f of furn) {
-      if (f.kind === "rug") continue;
+      // Wall lights are meant to sit on a wall (ceiling lamps, at 2 m and
+      // above, are not checked at all).
+      if (f.kind === "rug" || (furnitureDef(f.kind) || {}).mount === "wall") continue;
       const fc = furnitureCorners(f);
       for (const w of walls) {
         const o = outlines.get(w.id);

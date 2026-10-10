@@ -205,7 +205,7 @@
  },
  "print-preview": {
   "file": "docs/images/en/print-preview.webp",
-  "caption": "Print preview: paper, scale, title block and north arrow; save as PDF or SVG"
+  "caption": "Print window: printer, paper, margins, scale and contents on the left, a preview of the real sheets on the right; Print prints at once"
  },
  "recent-files": {
   "file": "docs/images/en/recent-files.webp",

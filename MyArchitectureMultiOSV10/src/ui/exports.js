@@ -18,6 +18,12 @@ const fileBase = (name) => name.replace(/\.[^.]+$/, "");
 
 // ---------------------------------------------------------------- import: DXF / SVG
 export async function importDrawing(app, f, kind) {
+  if (kind === "dwg") {
+    const { detectDwgVersion } = await import("../io/dwg.js");
+    const v = detectDwgVersion(f.bytes);
+    if (!v) { toast(t("{name} is not an AutoCAD DWG drawing.", { name: f.name }), "warn", 6000); return; }
+    if (!v.supported) { toast(t("DWG {release} files are too old to read. Save the drawing as DXF, or as DWG R13 or newer.", { release: v.release }), "warn", 8000); return; }
+  }
   const p = app.store.project;
   const opts = { units: "auto", level: app.plan.level, origin: false };
   const levelOpts = p.levels.map((l) => [l.id, l.name]);
@@ -25,15 +31,19 @@ export async function importDrawing(app, f, kind) {
     field(t("Units in the file"), select(opts.units, [["auto", t("Detect automatically")], ["mm", "mm"], ["cm", "cm"], ["m", "m"], ["in", t("inches")], ["ft", t("feet")]], { onChange: (v) => { opts.units = v; } })),
     field(t("Level"), select(opts.level, levelOpts, { onChange: (v) => { opts.level = v; } })),
     h("div", { class: "span2" }, checkbox(false, t("Move the drawing to the plan origin"), { onChange: (v) => { opts.origin = v; } })),
-    h("p", { class: "field-hint span2" }, kind === "dxf"
+    h("p", { class: "field-hint span2" }, kind === "dxf" || kind === "dwg"
       ? t("Lines, polylines, arcs, circles, splines, texts, blocks and hatch outlines come in on their own CAD layers. Trace walls over them with W, then hide the layers.")
       : t("Paths, shapes and texts come in on the layer SVG.")));
-  const ok = await modal({ title: kind === "dxf" ? t("Import DXF drawing") : t("Import SVG drawing"), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
+  const title = { dxf: t("Import DXF drawing"), dwg: t("Import DWG drawing") }[kind] || t("Import SVG drawing");
+  const ok = await modal({ title, width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
   if (!ok) return;
   let res;
   if (kind === "dxf") {
     const { importDxf } = await import("../io/dxf.js");
     res = importDxf(f.text, { level: opts.level, units: opts.units });
+  } else if (kind === "dwg") {
+    const { importDwg } = await import("../io/dwg.js");
+    res = importDwg(f.bytes, { level: opts.level, units: opts.units });
   } else {
     const { importSvg } = await import("../io/svgimport.js");
     res = importSvg(f.text, { level: opts.level, mmPerUnit: opts.units === "auto" ? "auto" : { mm: 1, cm: 10, m: 1000, in: 25.4, ft: 304.8 }[opts.units] });
@@ -310,167 +320,11 @@ export async function export3d(app, format, unit = "m") {
 }
 
 // ---------------------------------------------------------------- print / PDF
-export const PAPER = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], A0: [1189, 841], Letter: [279.4, 215.9], Tabloid: [431.8, 279.4] };
-const SCALES = [20, 50, 75, 100, 150, 200, 250, 500, 1000];
-
-// One drawing sheet: frame, plan at scale (or fitted), title block, north
-// arrow and scale bar. → SVG string sized in paper millimetres.
-export function sheetSvg(app, level, cfg, index = 1, count = 1) {
-  const p = app.store.project;
-  const [pw, ph] = PAPER[cfg.paper] || PAPER.A3;
-  const W = cfg.landscape ? pw : ph, H = cfg.landscape ? ph : pw;
-  const m = W > 500 ? 15 : 10; // frame margin
-  const tbH = 28, tbW = Math.min(170, W - 2 * m);
-  const ctx = new SvgContext(W, H);
-  const area = { x1: m + 4, y1: m + 4, x2: W - m - 4, y2: H - m - tbH - 6 };
-  const b = planBounds(p, level) || { x1: 0, y1: 0, x2: 10000, y2: 8000 };
-  const bw = b.x2 - b.x1 + 1200, bh = b.y2 - b.y1 + 1200;
-  let scale = cfg.scale === "fit" ? Math.max(bw / (area.x2 - area.x1), bh / (area.y2 - area.y1)) : +cfg.scale;
-  if (cfg.scale === "fit") { const nice = SCALES.find((s) => s >= scale); scale = nice || Math.ceil(scale / 100) * 100; }
-  const cx = (area.x1 + area.x2) / 2, cy = (area.y1 + area.y2) / 2;
-  const k = 1 / scale;
-  ctx.save();
-  ctx.setTransform(k, 0, 0, k, cx - ((b.x1 + b.x2) / 2) * k, cy - ((b.y1 + b.y2) / 2) * k);
-  drawPlan(ctx, p, printTheme(cfg.mono), {
-    level, lw: 0.18 * scale, px: 0.06 * scale, print: true, units: app.settings.units, models: new Map(p.models.map((x) => [x.id, x])), labels: { up: t("UP") },
-    show: { ghost: false, underlays: false, furniture: cfg.furniture, dims: cfg.dims, areas: cfg.areas, roofs: cfg.roofs, drawings: cfg.drawings },
-  });
-  ctx.restore();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const ink = "#000000";
-  // Frame.
-  ctx.strokeStyle = ink;
-  ctx.lineWidth = 0.5;
-  ctx.strokeRect(m, m, W - 2 * m, H - 2 * m);
-  // Title block, bottom right.
-  const tx = W - m - tbW, ty = H - m - tbH;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(tx, ty, tbW, tbH);
-  ctx.strokeRect(tx, ty, tbW, tbH);
-  ctx.lineWidth = 0.25;
-  ctx.beginPath();
-  ctx.moveTo(tx, ty + 10); ctx.lineTo(tx + tbW, ty + 10);
-  ctx.moveTo(tx, ty + 19); ctx.lineTo(tx + tbW, ty + 19);
-  ctx.moveTo(tx + tbW * 0.55, ty + 10); ctx.lineTo(tx + tbW * 0.55, ty + tbH);
-  ctx.moveTo(tx + tbW * 0.78, ty + 10); ctx.lineTo(tx + tbW * 0.78, ty + tbH);
-  ctx.stroke();
-  const lv = levelById(p, level);
-  const label = (s, x, y, size, bold = false) => { ctx.font = `${bold ? "bold " : ""}${size}px "Segoe UI", "Malgun Gothic", sans-serif`; ctx.fillStyle = ink; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(s, x, y); };
-  const small = (s, x, y) => { ctx.font = `1.8px "Segoe UI", "Malgun Gothic", sans-serif`; ctx.fillStyle = "#555555"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(s, x, y); };
-  label(p.meta.title || t("Untitled"), tx + 3, ty + 6.2, 4.2, true);
-  small([p.meta.client, p.meta.address].filter(Boolean).join(" · "), tx + 3, ty + 9);
-  small(t("Drawing"), tx + 2, ty + 12.4); label(`${t("Floor plan")} — ${lv ? lv.name : ""}`, tx + 2, ty + 17, 3.2, true);
-  small(t("Drawing scale"), tx + tbW * 0.55 + 2, ty + 12.4); label(`1:${scale}`, tx + tbW * 0.55 + 2, ty + 17, 3.2);
-  small(t("Sheet"), tx + tbW * 0.78 + 2, ty + 12.4); label(`${index} / ${count}`, tx + tbW * 0.78 + 2, ty + 17, 3.2);
-  small(t("Drawn by"), tx + 2, ty + 21.4); label(p.meta.author || "—", tx + 2, ty + 26, 2.8);
-  small(t("Date"), tx + tbW * 0.55 + 2, ty + 21.4); label(p.meta.date || "", tx + tbW * 0.55 + 2, ty + 26, 2.8);
-  small(t("Rev."), tx + tbW * 0.78 + 2, ty + 21.4); label(p.meta.rev || "", tx + tbW * 0.78 + 2, ty + 26, 2.8);
-  // North arrow.
-  const nx = m + 14, ny = H - m - 16;
-  ctx.save();
-  ctx.translate(nx, ny);
-  ctx.rotate(((p.meta.north || 0) * Math.PI) / 180);
-  ctx.lineWidth = 0.35;
-  ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(2.6, 4); ctx.lineTo(0, 2); ctx.lineTo(-2.6, 4); ctx.closePath(); ctx.fillStyle = ink; ctx.fill();
-  ctx.font = "bold 3.4px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText("N", 0, -8.5);
-  ctx.restore();
-  // Scale bar: 5 m (or 1 m / 10 m) divided in fifths.
-  const len = [1000, 2000, 5000, 10000, 20000].find((v) => v / scale >= 25) || 50000;
-  const sx = m + 30, sy = H - m - 9, sw = len / scale;
-  ctx.lineWidth = 0.25;
-  for (let i = 0; i < 5; i++) { ctx.fillStyle = i % 2 ? "#ffffff" : ink; ctx.fillRect(sx + (sw * i) / 5, sy, sw / 5, 1.6); }
-  ctx.strokeRect(sx, sy, sw, 1.6);
-  ctx.font = "2.2px sans-serif"; ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
-  ctx.fillText("0", sx, sy - 0.8); ctx.fillText(`${len / 1000} m`, sx + sw, sy - 0.8);
-  return { svg: ctx.toString("#ffffff"), W, H, scale };
-}
-
-export async function printDialog(app, { pdf = false } = {}) {
-  const p = app.store.project;
-  const cfg = {
-    paper: app.settings.defaultPaper || "A3", landscape: true, scale: String(p.meta.scale || 100), mono: false,
-    furniture: app.settings.showFurniture !== false, dims: app.settings.showDims !== false, areas: app.settings.showAreas !== false, roofs: true, drawings: true,
-    levels: new Set([app.plan.level]),
-  };
-  const pages = () => {
-    const ls = p.levels.filter((l) => cfg.levels.has(l.id));
-    return ls.map((l, i) => ({ title: `${t("Floor plan")} — ${l.name}`, ...sheetSvg(app, l.id, cfg, i + 1, ls.length) }));
-  };
-  const stage = h("div", { class: "print-stage" });
-  const nav = h("div", { class: "summary-row", style: { justifyContent: "center" } });
-  let index = 0;
-  const draw = () => {
-    const ps = pages();
-    index = Math.min(index, Math.max(0, ps.length - 1));
-    stage.innerHTML = "";
-    const [pw, ph] = PAPER[cfg.paper];
-    const w = cfg.landscape ? pw : ph;
-    const hh = cfg.landscape ? ph : pw;
-    const page = h("div", { class: "page", style: { aspectRatio: `${w} / ${hh}`, height: "100%" } });
-    if (ps[index]) page.innerHTML = ps[index].svg.replace(/width="[\d.]+" height="[\d.]+"/, 'width="100%" height="100%"');
-    stage.append(page);
-    nav.innerHTML = "";
-    nav.append(h("button", { class: "icon-btn", disabled: index === 0, html: icon("chevronRight", 16), style: { transform: "rotate(180deg)" }, onclick: () => { index--; draw(); } }),
-      h("span", {}, ps.length ? `${index + 1} / ${ps.length} — ${ps[index].title} · 1:${ps[index].scale}` : t("Tick at least one level")),
-      h("button", { class: "icon-btn", disabled: index >= ps.length - 1, html: icon("chevronRight", 16), onclick: () => { index++; draw(); } }));
-  };
-  const levelChecks = h("div", { class: "check-col" }, ...p.levels.slice().reverse().map((l) => checkbox(cfg.levels.has(l.id), l.name, { onChange: (v) => { if (v) cfg.levels.add(l.id); else cfg.levels.delete(l.id); draw(); } })));
-  const contentsTab = h("div", { class: "print-options" },
-    field(t("Levels (one sheet each)"), levelChecks),
-    field(t("Show"), h("div", { class: "check-col" },
-      checkbox(cfg.furniture, t("Furniture"), { onChange: (v) => { cfg.furniture = v; draw(); } }),
-      checkbox(cfg.dims, t("Dimensions"), { onChange: (v) => { cfg.dims = v; draw(); } }),
-      checkbox(cfg.areas, t("Room areas"), { onChange: (v) => { cfg.areas = v; draw(); } }),
-      checkbox(cfg.roofs, t("Roofs (dashed)"), { onChange: (v) => { cfg.roofs = v; draw(); } }),
-      checkbox(cfg.drawings, t("CAD layers"), { onChange: (v) => { cfg.drawings = v; draw(); } }))),
-    field(t("Colour"), checkbox(cfg.mono, t("Black and white"), { onChange: (v) => { cfg.mono = v; draw(); } })));
-  const pageTab = h("div", { class: "print-options" },
-    field(t("Paper"), select(cfg.paper, Object.keys(PAPER).map((x) => [x, x]), { onChange: (v) => { cfg.paper = v; draw(); } })),
-    field(t("Orientation"), select("l", [["l", t("Landscape")], ["p", t("Portrait")]], { onChange: (v) => { cfg.landscape = v === "l"; draw(); } })),
-    field(t("Drawing scale"), select(cfg.scale, [["fit", t("Fit to page")], ...SCALES.map((s) => [String(s), `1:${s}`])], { onChange: (v) => { cfg.scale = v; draw(); } })),
-    h("p", { class: "field-hint" }, t("Title block from File → Project properties.")));
-  const opts = tabs([{ id: "c", label: t("Contents"), body: contentsTab }, { id: "p", label: t("Page"), body: pageTab }]);
-  const body = h("div", { class: "print-preview" }, opts, h("div", { style: { display: "flex", flexDirection: "column", gap: "6px", minHeight: 0 } }, stage, nav));
-  const r = await modal({
-    title: pdf ? t("Export plan as PDF…") : t("Print"), width: "min(1100px, 95vw)", body,
-    buttons: [{ label: t("Save as SVG…"), value: "svg", left: true }, ...(platform.isDesktop ? [{ label: t("Save as PDF…"), value: "pdf", primary: pdf }] : []), { label: t("Cancel"), value: null }, { label: t("Print…"), value: "print", primary: !pdf || !platform.isDesktop }],
-    onOpen: () => setTimeout(draw, 10),
-  });
-  if (!r) return;
-  const ps = pages();
-  if (!ps.length) { toast(t("Tick at least one level"), "warn"); return; }
-  if (r === "svg") {
-    for (const pg of ps) {
-      const out = pg.svg.replace(/width="([\d.]+)" height="([\d.]+)"/, 'width="$1mm" height="$2mm"');
-      const sv = await platform.saveTextFile({ name: `${baseName(app)}-${pg.title.split(" — ").pop()}.svg`, text: `<?xml version="1.0" encoding="UTF-8"?>\n${out}`, filters: [{ name: "SVG", extensions: ["svg"] }] });
-      if (!sv) return;
-    }
-    toast(t("Saved {name}", { name: `${ps.length} SVG` }), "ok");
-    return;
-  }
-  // Lay the sheets out in the hidden print area and hand over to the system.
-  const area = document.getElementById("print-area");
-  area.innerHTML = "";
-  const [pw, ph] = PAPER[cfg.paper];
-  let style = document.getElementById("print-page-style");
-  if (!style) { style = document.createElement("style"); style.id = "print-page-style"; document.head.append(style); }
-  style.textContent = `@page { size: ${cfg.landscape ? pw : ph}mm ${cfg.landscape ? ph : pw}mm; margin: 0; }`;
-  for (const pg of ps) {
-    const sheet = h("section", { class: "print-sheet" });
-    sheet.innerHTML = pg.svg.replace(/width="([\d.]+)" height="([\d.]+)"/, 'width="$1mm" height="$2mm"');
-    area.append(sheet);
-  }
-  await new Promise((res) => setTimeout(res, 60));
-  try {
-    if (r === "pdf") {
-      const out = await platform.printToPDF({ pageSize: { width: (cfg.landscape ? pw : ph) / 25.4, height: (cfg.landscape ? ph : pw) / 25.4 }, landscape: false, defaultPath: `${baseName(app)}.pdf` });
-      if (out && !out.canceled && out.ok !== false) toast(t("Saved {name}", { name: out.filePath || "PDF" }), "ok");
-      else if (out && out.ok === false) toast(out.error || "PDF", "error");
-    } else await platform.printPage();
-  } finally {
-    setTimeout(() => { area.innerHTML = ""; }, 1000);
-  }
+// The print window (settings on the left, live sheet preview on the right,
+// Print sends straight to the printer) lives in printwin.js.
+export async function printDialog(app, opts = {}) {
+  const { printWindow } = await import("./printwin.js");
+  return printWindow(app, opts);
 }
 
 export { ptsBounds, getLanguage };

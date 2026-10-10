@@ -31,7 +31,7 @@
  },
  "levels": [
   {
-   "id": "lv0hy9t00d3ds",
+   "id": "lvl5okt00djy1",
    "name": "1F",
    "elevation": 0,
    "height": 2800,
@@ -237,8 +237,8 @@
  ],
  "walls": [
   {
-   "id": "w0hya300iopr",
-   "level": "lv0hy9t00d3ds",
+   "id": "wl5ol200j4rh",
+   "level": "lvl5okt00djy1",
    "x1": 14000,
    "y1": 0,
    "x2": 25400,
@@ -248,8 +248,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hya300ip3b",
-   "level": "lv0hy9t00d3ds",
+   "id": "wl5ol200j5rv",
+   "level": "lvl5okt00djy1",
    "x1": 25400,
    "y1": 0,
    "x2": 25400,
@@ -259,8 +259,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hya300iqk3",
-   "level": "lv0hy9t00d3ds",
+   "id": "wl5ol200j6ii",
+   "level": "lvl5okt00djy1",
    "x1": 25400,
    "y1": 8400,
    "x2": 14000,
@@ -270,8 +270,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hya300irba",
-   "level": "lv0hy9t00d3ds",
+   "id": "wl5ol200j7v8",
+   "level": "lvl5okt00djy1",
    "x1": 14000,
    "y1": 8400,
    "x2": 14000,
@@ -283,8 +283,8 @@
  ],
  "openings": [
   {
-   "id": "o0hya300is5c",
-   "wall": "w0hya300iopr",
+   "id": "ol5ol200j8s1",
+   "wall": "wl5ol200j4rh",
    "kind": "window",
    "type": "casement",
    "at": 1800,
@@ -296,8 +296,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hya300ithg",
-   "wall": "w0hya300iopr",
+   "id": "ol5ol200j9mq",
+   "wall": "wl5ol200j4rh",
    "kind": "window",
    "type": "casement",
    "at": 5100,
@@ -309,8 +309,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hya300iu2m",
-   "wall": "w0hya300ip3b",
+   "id": "ol5ol200jawl",
+   "wall": "wl5ol200j5rv",
    "kind": "window",
    "type": "casement",
    "at": 4200,
@@ -330,8 +330,8 @@
  "dimensions": [],
  "texts": [
   {
-   "id": "t0hy9z00dsiv",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5oky00e8ea",
+   "level": "lvl5okt00djy1",
    "x": 15800,
    "y": -425,
    "text": "W01",
@@ -342,8 +342,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hy9z00dxvq",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5oky00edxc",
+   "level": "lvl5okt00djy1",
    "x": 19100,
    "y": -425,
    "text": "W02",
@@ -354,8 +354,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000e3vf",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5oky00ejo7",
+   "level": "lvl5okt00djy1",
    "x": 23000,
    "y": -425,
    "text": "W03",
@@ -366,8 +366,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000e8jp",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00eoiy",
+   "level": "lvl5okt00djy1",
    "x": 25745,
    "y": 4120,
    "text": "W05",
@@ -378,8 +378,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000edtr",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00etqf",
+   "level": "lvl5okt00djy1",
    "x": 22900,
    "y": 8665,
    "text": "W07",
@@ -390,8 +390,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000egk7",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00ew6g",
+   "level": "lvl5okt00djy1",
    "x": 20300,
    "y": 8665,
    "text": "D04",
@@ -402,8 +402,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000ellr",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00f1k3",
+   "level": "lvl5okt00djy1",
    "x": 16400,
    "y": 8665,
    "text": "W06",
@@ -414,8 +414,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000eqqe",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00f6ur",
+   "level": "lvl5okt00djy1",
    "x": 13655,
    "y": 2020,
    "text": "W04",
@@ -426,8 +426,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000etkk",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00f92c",
+   "level": "lvl5okt00djy1",
    "x": 15800,
    "y": 4415,
    "text": "D01",
@@ -438,8 +438,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000ewu2",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00fcnd",
+   "level": "lvl5okt00djy1",
    "x": 19100,
    "y": 4415,
    "text": "D02",
@@ -450,8 +450,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000eznx",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00ffpt",
+   "level": "lvl5okt00djy1",
    "x": 20895,
    "y": 6220,
    "text": "O01",
@@ -462,8 +462,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000f2ew",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00filh",
+   "level": "lvl5okt00djy1",
    "x": 17880,
    "y": 5620,
    "text": "D03",
@@ -474,8 +474,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000f4lq",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00fkim",
+   "level": "lvl5okt00djy1",
    "x": 15825,
    "y": 1887.5,
    "text": "Bedroom",
@@ -486,8 +486,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000f5cx",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00flb8",
+   "level": "lvl5okt00djy1",
    "x": 15825,
    "y": 2185,
    "text": "13.60 m²",
@@ -498,8 +498,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000f79c",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00fnqz",
+   "level": "lvl5okt00djy1",
    "x": 19100,
    "y": 1887.5,
    "text": "Bedroom",
@@ -510,8 +510,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000f8yn",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00foob",
+   "level": "lvl5okt00djy1",
    "x": 19100,
    "y": 2185,
    "text": "11.40 m²",
@@ -522,8 +522,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000fasd",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00fqrw",
+   "level": "lvl5okt00djy1",
    "x": 22975,
    "y": 3962.5,
    "text": "Living room",
@@ -534,8 +534,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000fbo9",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00frkb",
+   "level": "lvl5okt00djy1",
    "x": 22975,
    "y": 4260,
    "text": "37.49 m²",
@@ -546,8 +546,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000fdwx",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00ftvm",
+   "level": "lvl5okt00djy1",
    "x": 19092.5,
    "y": 6037.5,
    "text": "Hall",
@@ -558,8 +558,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000feyv",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00fu95",
+   "level": "lvl5okt00djy1",
    "x": 19092.5,
    "y": 6335,
    "text": "11.46 m²",
@@ -570,8 +570,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000fgtw",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00fw0h",
+   "level": "lvl5okt00djy1",
    "x": 15832.5,
    "y": 6037.5,
    "text": "Bathroom",
@@ -582,8 +582,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya000fhnv",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5okz00fxde",
+   "level": "lvl5okt00djy1",
    "x": 15832.5,
    "y": 6335,
    "text": "13.66 m²",
@@ -594,8 +594,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya200ihrl",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5ol100ixin",
+   "level": "lvl5okt00djy1",
    "x": 19700,
    "y": -1425,
    "text": "11400",
@@ -606,8 +606,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya200inlc",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5ol100j31h",
+   "level": "lvl5okt00djy1",
    "x": 12755,
    "y": 4200,
    "text": "8400",
@@ -618,8 +618,8 @@
    "phase": "new"
   },
   {
-   "id": "t0hya300ivi8",
-   "level": "lv0hy9t00d3ds",
+   "id": "tl5ol200jb6u",
+   "level": "lvl5okt00djy1",
    "x": 14000,
    "y": -2200,
    "text": "Continue tracing: W on the CAD lines, then A inside the walls",
@@ -630,8 +630,8 @@
  ],
  "drawings": [
   {
-   "id": "g0hy9z00d4ig",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dk88",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -656,8 +656,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00d5d2",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dlww",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -682,8 +682,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00d6oj",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dmu1",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -708,8 +708,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00d7ng",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dngo",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -734,8 +734,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00d87f",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dow6",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -760,8 +760,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00d9b2",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dppf",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -786,8 +786,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00danx",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dq3x",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -812,8 +812,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dbz8",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00drjx",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -838,8 +838,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dcwy",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dsf9",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -864,8 +864,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00ddfd",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dt6s",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -890,8 +890,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00deov",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dul0",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -916,8 +916,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dffv",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dvhz",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -942,8 +942,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dgbq",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dw0g",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -968,8 +968,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dho4",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dx24",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -994,8 +994,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00di66",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dypm",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -1020,8 +1020,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00djxu",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00dzyu",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -1046,8 +1046,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dke7",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e0jg",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -1072,8 +1072,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dlbi",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e1ru",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -1098,8 +1098,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dm0h",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e2ih",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -1124,8 +1124,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dnfd",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e3qw",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -1150,8 +1150,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00do93",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e4gy",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1168,8 +1168,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dp3g",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e55q",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1186,8 +1186,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dq34",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e6d3",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1204,8 +1204,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00drjn",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e7cv",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1222,8 +1222,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dt9p",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00e9pn",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1240,8 +1240,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00duy0",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00ea4w",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1258,8 +1258,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dv88",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00ebsd",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1276,8 +1276,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hy9z00dwmf",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00eco8",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1294,8 +1294,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000dyk3",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00ee8e",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1312,8 +1312,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000dzc9",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00ef9p",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1330,8 +1330,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000e0fi",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00eg8b",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1348,8 +1348,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000e1k6",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00eh75",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1366,8 +1366,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000e2vz",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5oky00eiso",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1384,8 +1384,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000e4rl",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00ek2m",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1402,8 +1402,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000e5lj",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00elj8",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1420,8 +1420,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000e68v",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00em9v",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1438,8 +1438,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000e7gt",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00en94",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1456,8 +1456,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000e9zv",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00epth",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1474,8 +1474,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eae3",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00eqbi",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1492,8 +1492,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000ebp1",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00er8c",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1510,8 +1510,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eczw",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00eswj",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1528,8 +1528,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eev5",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00eu7m",
+   "level": "lvl5okt00djy1",
    "layer": "A-DOOR",
    "kind": "polyline",
    "pts": [
@@ -1546,8 +1546,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eflv",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00ev6i",
+   "level": "lvl5okt00djy1",
    "layer": "A-DOOR",
    "kind": "arc",
    "cx": 20800,
@@ -1559,8 +1559,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000ehyu",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00ex9n",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1577,8 +1577,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eigw",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00eyzy",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1595,8 +1595,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000ejek",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00ezz1",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1613,8 +1613,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000ekrq",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00f084",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1631,8 +1631,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000emkp",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00f2gs",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1649,8 +1649,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000enl1",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00f3d4",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1667,8 +1667,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eox5",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00f46j",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1685,8 +1685,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eppn",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00f588",
+   "level": "lvl5okt00djy1",
    "layer": "A-GLAZ",
    "kind": "polyline",
    "pts": [
@@ -1703,8 +1703,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000er0y",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00f7fd",
+   "level": "lvl5okt00djy1",
    "layer": "A-DOOR",
    "kind": "polyline",
    "pts": [
@@ -1721,8 +1721,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000esud",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00f824",
+   "level": "lvl5okt00djy1",
    "layer": "A-DOOR",
    "kind": "arc",
    "cx": 15350,
@@ -1734,8 +1734,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eu6y",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00falg",
+   "level": "lvl5okt00djy1",
    "layer": "A-DOOR",
    "kind": "polyline",
    "pts": [
@@ -1752,8 +1752,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000evwb",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fbm0",
+   "level": "lvl5okt00djy1",
    "layer": "A-DOOR",
    "kind": "arc",
    "cx": 19550,
@@ -1765,8 +1765,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000ex8v",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fd85",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -1783,8 +1783,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000eygz",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00feog",
+   "level": "lvl5okt00djy1",
    "layer": "A-WALL",
    "kind": "polyline",
    "pts": [
@@ -1801,8 +1801,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000f04j",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fg09",
+   "level": "lvl5okt00djy1",
    "layer": "A-DOOR",
    "kind": "polyline",
    "pts": [
@@ -1819,8 +1819,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000f1v3",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fh5a",
+   "level": "lvl5okt00djy1",
    "layer": "A-DOOR",
    "kind": "arc",
    "cx": 17540,
@@ -1832,8 +1832,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000f3l3",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fjdt",
+   "level": "lvl5okt00djy1",
    "layer": "A-AREA",
    "kind": "polyline",
    "pts": [
@@ -1858,8 +1858,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000f61j",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fmdq",
+   "level": "lvl5okt00djy1",
    "layer": "A-AREA",
    "kind": "polyline",
    "pts": [
@@ -1884,8 +1884,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000f9jv",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fp27",
+   "level": "lvl5okt00djy1",
    "layer": "A-AREA",
    "kind": "polyline",
    "pts": [
@@ -1910,8 +1910,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000fcqv",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fs61",
+   "level": "lvl5okt00djy1",
    "layer": "A-AREA",
    "kind": "polyline",
    "pts": [
@@ -1936,8 +1936,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000ffdu",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fvov",
+   "level": "lvl5okt00djy1",
    "layer": "A-AREA",
    "kind": "polyline",
    "pts": [
@@ -1962,8 +1962,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000figf",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fy48",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -1988,8 +1988,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000fjy0",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00fzs6",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2014,8 +2014,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000fk4s",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g0sy",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2040,8 +2040,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000flwu",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g1hz",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2066,8 +2066,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000fm2n",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g2g0",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2092,8 +2092,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000fn63",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g3i5",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2118,8 +2118,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya000fo0i",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g4ra",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2144,8 +2144,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fpw4",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g5ye",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 14680,
@@ -2154,8 +2154,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fqju",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g6o4",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2180,8 +2180,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fr2f",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g7az",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2206,8 +2206,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fs1g",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g8jy",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2232,8 +2232,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100ft8y",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00g924",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2258,8 +2258,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fur5",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00gaw9",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2284,8 +2284,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fv3q",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00gbb3",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2310,8 +2310,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fw66",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00gc7m",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2336,8 +2336,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fxlh",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00gdt0",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2362,8 +2362,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fyvz",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00gecp",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2388,8 +2388,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100fz68",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5okz00gfgf",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2414,8 +2414,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g0vr",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gg1k",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2440,8 +2440,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g1ub",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000ghvi",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2466,8 +2466,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g24x",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gipr",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2492,8 +2492,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g3ws",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gjg9",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 19600,
@@ -2502,8 +2502,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g4un",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gkfp",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 19600,
@@ -2512,8 +2512,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g533",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000glnl",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2538,8 +2538,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g61c",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gmil",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2564,8 +2564,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g7ap",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gn8t",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2590,8 +2590,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g85a",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000go50",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2616,8 +2616,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100g9oz",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gpql",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2642,8 +2642,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gaj7",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gqi1",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2668,8 +2668,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gb00",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gr1e",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2694,8 +2694,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gcn4",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gsfr",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2720,8 +2720,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gd50",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gtkp",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2746,8 +2746,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100geos",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000guy2",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2772,8 +2772,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gfz4",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gvu8",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2798,8 +2798,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100ggmf",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gwyd",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2824,8 +2824,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100ghi7",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gxt0",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2850,8 +2850,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gio2",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gyw0",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2876,8 +2876,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gjk9",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000gz44",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2902,8 +2902,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gk6o",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h0w9",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2928,8 +2928,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100glt5",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h1wf",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2954,8 +2954,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gm8d",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h2h6",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -2980,8 +2980,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gns8",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h3b6",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3006,8 +3006,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gown",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h4uj",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3032,8 +3032,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gp99",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h56b",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3058,8 +3058,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gq9i",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h6l1",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3084,8 +3084,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gryv",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h7um",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3110,8 +3110,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gsx0",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h80s",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 23968,
@@ -3120,8 +3120,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gtkz",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000h9w2",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 24232,
@@ -3130,8 +3130,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gu3e",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000ha6r",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 23968,
@@ -3140,8 +3140,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gvmf",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hbru",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 24232,
@@ -3150,8 +3150,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gw4w",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hcz4",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3176,8 +3176,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gxw6",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hdy9",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3202,8 +3202,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gywj",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hecu",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3228,8 +3228,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100gzst",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hfeb",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3254,8 +3254,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100h032",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hg68",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3280,8 +3280,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100h12x",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hht0",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3306,8 +3306,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100h2e6",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hige",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3332,8 +3332,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100h3r0",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hjzg",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3358,8 +3358,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100h4z5",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hkhl",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3384,8 +3384,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100h54h",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hlc5",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3410,8 +3410,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100h6c6",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hm7u",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3436,8 +3436,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya100h7a9",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hnju",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3462,8 +3462,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200h8wa",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hofi",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3488,8 +3488,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200h9va",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hpxv",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3514,8 +3514,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hams",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hqph",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3540,8 +3540,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hb9k",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hryk",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3566,8 +3566,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hcic",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hsyc",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3592,8 +3592,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hdu7",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000htuc",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3618,8 +3618,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hea9",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hufx",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3644,8 +3644,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hflx",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hvu9",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3670,8 +3670,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hgty",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hwtp",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3696,8 +3696,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hh2b",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hxas",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3722,8 +3722,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hinc",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hykr",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3748,8 +3748,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hj67",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000hzb7",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3774,8 +3774,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hkvy",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000i05w",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3800,8 +3800,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hlac",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000i1of",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3826,8 +3826,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hmzp",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000i2jd",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3852,8 +3852,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hn4g",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000i3mv",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3878,8 +3878,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hord",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000i41k",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3904,8 +3904,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hpo5",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000i5wt",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3930,8 +3930,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hqz7",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000i6qt",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3956,8 +3956,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hrgi",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol000i7by",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -3982,8 +3982,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hsv8",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100i8a4",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4008,8 +4008,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ht8k",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100i9g5",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4034,8 +4034,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hu8g",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ia1l",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4060,8 +4060,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hvrs",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ibux",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4262,8 +4262,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hweu",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100icb0",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4464,8 +4464,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hxd0",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100idvs",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4490,8 +4490,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hydm",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ieko",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4692,8 +4692,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200hz9q",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ifr2",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 14630,
@@ -4702,8 +4702,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i0wv",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100igsn",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4728,8 +4728,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i103",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ih34",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4754,18 +4754,34 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i2ua",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ii8w",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
-   "kind": "circle",
-   "cx": 14150,
-   "cy": 4800,
-   "r": 180,
+   "kind": "polyline",
+   "pts": [
+    [
+     14159,
+     4620
+    ],
+    [
+     14159,
+     4980
+    ],
+    [
+     14149,
+     4980
+    ],
+    [
+     14149,
+     4620
+    ]
+   ],
+   "closed": true,
    "phase": "new"
   },
   {
-   "id": "g0hya200i303",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ijhw",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 24900,
@@ -4774,8 +4790,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i4vr",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ikja",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 24900,
@@ -4784,8 +4800,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i5p9",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ilif",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "circle",
    "cx": 24975,
@@ -4794,8 +4810,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i68c",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ime5",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4820,8 +4836,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i703",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100in5z",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4846,8 +4862,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i8k8",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100io4a",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4872,8 +4888,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200i92m",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ipe4",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4898,8 +4914,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200iat2",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100iqwd",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4924,8 +4940,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ibsr",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100irka",
+   "level": "lvl5okt00djy1",
    "layer": "A-FURN",
    "kind": "polyline",
    "pts": [
@@ -4950,8 +4966,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ic86",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100isrr",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -4968,8 +4984,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200idrh",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100it71",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -4986,8 +5002,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ieem",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100iupn",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -5004,8 +5020,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ifex",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100ivp6",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -5022,8 +5038,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200igu1",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100iw94",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -5040,8 +5056,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ii4p",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100iy3w",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -5058,8 +5074,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ijes",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100izpr",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -5076,8 +5092,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ikl5",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100j08e",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -5094,8 +5110,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200ilky",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100j193",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -5112,8 +5128,8 @@
    "phase": "new"
   },
   {
-   "id": "g0hya200imnl",
-   "level": "lv0hy9t00d3ds",
+   "id": "gl5ol100j2aa",
+   "level": "lvl5okt00djy1",
    "layer": "A-ANNO-DIMS",
    "kind": "polyline",
    "pts": [
@@ -5135,6 +5151,6 @@
  "solids": [],
  "scenes": [],
  "view": {
-  "level": "lv0hy9t00d3ds"
+  "level": "lvl5okt00djy1"
  }
 }

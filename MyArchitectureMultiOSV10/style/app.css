@@ -26,6 +26,7 @@
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   --titlebar-h: 38px;
   --toolbar-h: 42px;
+  --doctabs-h: 32px;
   --status-h: 26px;
   --left-w: 280px;
   --right-w: 300px;
@@ -126,6 +127,37 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .doc-tab .badge { font-size: 10px; padding: 0 5px; border-radius: 8px; background: var(--danger); color: #fff; font-weight: 700; }
 .doc-tab .badge.warn { background: var(--warn); color: #222; }
 .doc-tab .badge.ok { background: var(--ok); color: #fff; }
+
+/* ------------------------------------------------------------ document tabs (src/ui/doctabs.js)
+   One tab per open drawing, at the top of the centre column only (the side
+   panels touch the tool bar); the views start below it. The tabs scroll inside
+   the strip (they never widen the window); "<" / ">" at its right end move it. */
+#center > .view { top: var(--doctabs-h); }
+.doctabs { position: absolute; left: 0; right: 0; top: 0; height: var(--doctabs-h); z-index: 3; display: flex; align-items: stretch; min-width: 0; background: var(--panel); border-bottom: 1px solid var(--line); user-select: none; }
+.doctabs-scroll { flex: 1 1 auto; min-width: 0; display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-behavior: auto; }
+.doctabs-scroll::-webkit-scrollbar { display: none; }
+.doctab {
+  position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; max-width: 220px; min-width: 96px;
+  padding: 0 4px 0 10px; border-right: 1px solid var(--line); color: var(--muted); cursor: default; white-space: nowrap;
+}
+.doctab:hover { background: var(--hover); color: var(--text); }
+.doctab.on { background: var(--bg); color: var(--text); }
+.doctab.on::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent); }
+.doctab.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--bg); }
+.doctab.dragging { opacity: 0.75; background: var(--accent-soft); z-index: 1; }
+.doctab-ico { display: flex; color: var(--faint); }
+.doctab.on .doctab-ico { color: var(--accent); }
+.doctab-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
+.doctab.on .doctab-name { font-weight: 600; }
+.doctab-dirty { display: none; color: var(--warn); font-size: 11px; line-height: 1; }
+.doctab.dirty .doctab-dirty { display: inline; }
+.doctab-close { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--faint); cursor: pointer; }
+.doctab-close:hover { background: var(--press); color: var(--text); }
+.doctabs-nav { flex: none; display: flex; align-items: center; gap: 1px; padding: 0 4px; border-left: 1px solid var(--line); }
+.doctabs-nav .icon-btn { height: 26px; min-width: 26px; padding: 0 4px; }
+.doctabs-nav [data-act="prev"] { margin-left: 3px; }
+.doctabs.overflow .doctabs-nav { box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.35); }
+.ctx-menu.doctabs-list { max-height: 60vh; overflow-y: auto; min-width: 240px; }
 
 /* ------------------------------------------------------------ tool bar */
 .toolbar { display: flex; align-items: center; gap: 2px; padding: 0 8px; background: var(--panel2); border-bottom: 1px solid var(--line); overflow: hidden; }

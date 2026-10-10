@@ -41,7 +41,7 @@ const settingsFile = path.join(app.getPath('userData'), 'settings.json')
 
 // Every extension the installer can associate with MyArchitecture; keep in sync
 // with FILE_TYPES in scripts/create-installer.mjs.
-const SUPPORTED_EXTENSIONS = ['myarch', 'dxf', 'ifc', 'svg', 'obj', 'stl', 'ply', 'glb', 'gltf', 'fbx', 'dae', '3mf', '3ds', 'wrl', 'amf']
+const SUPPORTED_EXTENSIONS = ['myarch', 'dxf', 'dwg', 'ifc', 'svg', 'obj', 'stl', 'ply', 'glb', 'gltf', 'fbx', 'dae', '3mf', '3ds', 'wrl', 'amf']
 
 let mainWindow = null
 let allowClose = false
@@ -305,6 +305,70 @@ ipcMain.handle('print', async (event) => {
   })
 })
 
+// The system's default printer. Electron no longer reports it (PrinterInfo has
+// no isDefault), so ask the OS: the Windows "Device" registry value, or CUPS.
+function defaultPrinterName() {
+  const { execFile } = require('child_process')
+  const run = (cmd, args) => new Promise((resolve) => {
+    execFile(cmd, args, { timeout: 3000, windowsHide: true, encoding: 'utf8' }, (error, stdout) => resolve(error ? '' : String(stdout || '')))
+  })
+  if (process.platform === 'win32') {
+    return run('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows', '/v', 'Device'])
+      .then((out) => { const m = out.match(/Device\s+REG_SZ\s+([^,\r\n]+)/); return m ? m[1].trim() : '' })
+  }
+  return run('lpstat', ['-d']).then((out) => { const m = out.match(/:\s*(\S.*)$/m); return m ? m[1].trim() : '' })
+}
+
+// The print window's printer list → [{name, displayName, isDefault}].
+ipcMain.handle('list-printers', async (event) => {
+  const win = windowOf(event)
+  if (!win) return []
+  try {
+    const [list, def] = await Promise.all([win.webContents.getPrintersAsync(), defaultPrinterName().catch(() => '')])
+    return list.map((p) => ({ name: p.name, displayName: p.displayName || p.name, isDefault: !!(p.isDefault || (def && p.name === def)) }))
+  } catch {
+    return []
+  }
+})
+
+// Print button of the print window: the sheets laid out in .print-area go
+// straight to the chosen printer — silent, no second system dialog. Under
+// MYARCH_FAKE_DIALOGS nothing reaches a printer: a PDF of the job and the
+// options it would have used are written instead.
+ipcMain.handle('print-sheets', async (event, opts = {}) => {
+  const win = windowOf(event)
+  if (!win) return { ok: false, error: 'no window' }
+  const copies = Math.max(1, Math.min(99, Math.round(Number(opts.copies) || 1)))
+  const pageSize = typeof opts.pageSize === 'string' || (opts.pageSize && opts.pageSize.width && opts.pageSize.height) ? opts.pageSize : 'A4'
+  const options = {
+    silent: true,
+    deviceName: typeof opts.deviceName === 'string' && opts.deviceName ? opts.deviceName : undefined,
+    copies,
+    landscape: !!opts.landscape,
+    pageSize,
+    margins: { marginType: 'none' },
+    color: opts.color !== false,
+    printBackground: true
+  }
+  if (FAKE_DIALOGS) {
+    try {
+      const data = await win.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true, margins: { top: 0, bottom: 0, left: 0, right: 0 } })
+      fs.writeFileSync(fakeSavePath('print.pdf'), data)
+      fs.writeFileSync(fakeSavePath('print-job.json'), JSON.stringify({ ...options, pages: opts.pages, paper: opts.paper, sheet: opts.sheet }, null, 2))
+      return { ok: true, fake: true }
+    } catch (error) {
+      return { ok: false, error: errorText(error) }
+    }
+  }
+  return new Promise((resolve) => {
+    try {
+      win.webContents.print(options, (success, reason) => resolve(success ? { ok: true } : { ok: false, error: reason || 'failed' }))
+    } catch (error) {
+      resolve({ ok: false, error: errorText(error) })
+    }
+  })
+})
+
 ipcMain.handle('print-to-pdf', async (event, opts = {}) => {
   const win = windowOf(event)
   if (!win) return { canceled: true }
@@ -319,7 +383,9 @@ ipcMain.handle('print-to-pdf', async (event, opts = {}) => {
       pageSize: opts.pageSize || 'A4',
       landscape: !!opts.landscape,
       printBackground: true,
-      preferCSSPageSize: true
+      preferCSSPageSize: true,
+      // The sheets carry their own margins; the PDF page must not add more.
+      margins: { top: 0, bottom: 0, left: 0, right: 0 }
     })
     fs.writeFileSync(result.filePath, data)
     return { canceled: false, filePath: result.filePath }

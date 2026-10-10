@@ -883,12 +883,26 @@ function itemBounds(drawings, texts) {
  * `text` may also be an ArrayBuffer / Uint8Array (decoded per $DWGCODEPAGE).
  * Returns {drawings, texts, layers, units, scale, bounds, warnings, counts}.
  */
-export function importDxf(text, { level = null, units = "auto" } = {}) {
+export function importDxf(text, opts = {}) {
   const sections = splitSections(tokenize(text));
-  const vars = headerVars(sections.HEADER);
-  const layerTable = readLayers(toRecords(sections.TABLES));
-  const blocks = readBlocks(toRecords(sections.BLOCKS));
-  const entities = nest(toRecords(sections.ENTITIES));
+  return importCadRecords({
+    vars: headerVars(sections.HEADER),
+    tables: toRecords(sections.TABLES),
+    blocks: toRecords(sections.BLOCKS),
+    entities: sections.ENTITIES ? toRecords(sections.ENTITIES) : null,
+  }, opts);
+}
+
+/**
+ * The DXF importer behind importDxf, fed with already parsed records
+ * ({type, tags: [[code, value]]}, in DXF section order) — the DWG reader
+ * (dwg.js) translates its objects into these. `vars` maps "$NAME" → {code:
+ * value}; `entities` null means the file had no ENTITIES section.
+ */
+export function importCadRecords({ vars = {}, tables = [], blocks: blockRecs = [], entities: entityRecs = null }, { level = null, units = "auto" } = {}) {
+  const layerTable = readLayers(tables);
+  const blocks = readBlocks(blockRecs);
+  const entities = nest(entityRecs || []);
   const dimStyleText = vars.$DIMTXT ? parseFloat(vars.$DIMTXT[40]) : NaN;
 
   const imp = new Importer({ level, layerTable, blocks, dimText: Number.isFinite(dimStyleText) && dimStyleText > 0 ? dimStyleText : 2.5 });
@@ -902,7 +916,7 @@ export function importDxf(text, { level = null, units = "auto" } = {}) {
     imp.entity(e, ctx);
   }
   if (paper) imp.warn(`${paper} paper space entit${paper === 1 ? "y was" : "ies were"} skipped`);
-  if (!sections.ENTITIES) imp.warn("The file has no ENTITIES section");
+  if (!entityRecs) imp.warn("The file has no ENTITIES section");
 
   // Units → millimetres.
   let unit;
@@ -1361,7 +1375,7 @@ export function exportDxf(project, { level } = {}) {
 
   H.g(0, "SECTION"); H.g(2, "BLOCKS"); H.g(0, "ENDSEC");
   H.g(0, "SECTION"); H.g(2, "ENTITIES");
-  H.out.push(...W.out);
+  for (const line of W.out) H.out.push(line); // a spread overflows the call stack on big floors
   H.g(0, "ENDSEC");
   H.g(0, "EOF");
   return H.out.join("\n") + "\n";

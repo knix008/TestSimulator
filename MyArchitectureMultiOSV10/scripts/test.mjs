@@ -20,11 +20,12 @@ const filters = args;
 // Which category each test file belongs to (order = display order).
 export const CATEGORIES = [
   ["Core model & geometry", "핵심 모델·기하", ["core", "walls", "rooms"]],
-  ["Plan editing", "평면 편집", ["plan", "editor", "store"]],
+  ["Plan editing", "평면 편집", ["plan", "editor", "store", "docs"]],
   ["Checks & schedules", "검사·집계", ["check", "schedule"]],
-  ["3D model", "3D 모델", ["view3d"]],
-  ["CAD exchange (DXF, SVG)", "CAD 교환 (DXF, SVG)", ["dxf"]],
+  ["3D model", "3D 모델", ["view3d", "lights"]],
+  ["CAD exchange (DXF, DWG, SVG)", "CAD 교환 (DXF, DWG, SVG)", ["dxf", "dwg"]],
   ["BIM exchange (IFC)", "BIM 교환 (IFC)", ["ifc"]],
+  ["Other BIM (SH3D, gbXML, IFCZIP)", "다른 BIM (SH3D, gbXML, IFCZIP)", ["interop"]],
   ["3D exchange", "3D 교환", ["export3d", "models"]],
   ["Samples", "예제", ["samples"]],
   ["Localization", "다국어", ["i18n"]],

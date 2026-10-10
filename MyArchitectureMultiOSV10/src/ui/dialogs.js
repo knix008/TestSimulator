@@ -6,7 +6,7 @@ import { t, getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h, modal, toast, quickPick, field, input, select, checkbox, tabs, confirmDialog, pager, stepper } from "./widgets.js";
 import * as platform from "./platform.js";
-import { allFurniture, furnitureDef } from "../lib/furniture.js";
+import { allFurniture, furnitureDef, normalizeLight } from "../lib/furniture.js";
 import { materialsFor } from "../lib/materials.js";
 import { levelById, wallLength, DEFAULTS, openingTags } from "../core/project.js";
 import { roomArea } from "../core/rooms.js";
@@ -247,7 +247,7 @@ export async function itemProperties(app, kind, obj) {
       void pr;
     } else {
       for (const [k, v] of Object.entries(draft)) if (k !== "id" && k !== "level" && k !== "wall") obj[k] = v;
-      if (kind === "furniture") obj.rot = ((obj.rot % 360) + 360) % 360;
+      if (kind === "furniture") { obj.rot = ((obj.rot % 360) + 360) % 360; normalizeLight(obj); }
     }
   });
 }
@@ -602,7 +602,7 @@ export function recentPicker(app) {
 }
 
 export function importPicker(app) {
-  const ids = ["file.import", "file.importDxf", "file.importIfc", "file.importModel", "file.importSvg", "file.importImage"];
+  const ids = ["file.import", "file.importDxf", "file.importIfc", "file.importBim", "file.importModel", "file.importSvg", "file.importImage"];
   quickPick({ items: ids.map((id) => { const c = app.commands.get(id); return { label: t(c.label), icon: c.icon, id }; }), title: t("Import ▸"), placeholder: t("Import…"), onPick: (it) => app.run(it.id) });
 }
 
@@ -651,10 +651,10 @@ export function importReport(app, title, lines) {
 
 export function closedFormat(app, ext) {
   const msg = {
-    dwg: t("DWG is AutoCAD's closed binary format. Save the drawing as DXF in your CAD program (AutoCAD, BricsCAD, ZWCAD, DraftSight, LibreCAD, or the free ODA File Converter) and import the DXF."),
     skp: t("SketchUp files (.skp) are a closed format. In SketchUp use File → Export → 3D Model and choose Collada (.dae), OBJ or glTF, then import that."),
-    rvt: t("Revit files (.rvt) are a closed format. Export IFC from Revit (File → Export → IFC) and import the IFC file."),
-    pln: t("ArchiCAD files (.pln) are a closed format. Save as IFC in ArchiCAD and import the IFC file."),
+    rvt: t("Revit files (.rvt) are a closed format. Export IFC from Revit (File → Export → IFC) and import the IFC file — or export gbXML (File → Export → gbXML) for walls, openings and rooms."),
+    pln: t("ArchiCAD files (.pln) are a closed format. Save as IFC in ArchiCAD and import the IFC file — gbXML exported by ArchiCAD can be imported too."),
+    ifcxml: t("ifcXML (.ifcxml) is not read. Save or export the model as IFC (.ifc, STEP) or as a zipped .ifczip and import that."),
     "3dm": t("Rhino files (.3dm): export OBJ, STL or glTF from Rhino and import that."),
   }[ext];
   modal({ title: t("Format not supported"), width: 520, body: h("p", { class: "confirm-text" }, msg || t("This file type is not supported: .{ext}", { ext })), buttons: [{ label: t("Supported file formats…"), value: "f", left: true }, { label: t("OK"), value: null, primary: true }] })
@@ -669,7 +669,11 @@ export function phaseMenu(app, anchor) {
 export const FORMATS = [
   ["MyArchitecture project", ".myarch", "✓", "✓", "Everything (JSON)"],
   ["AutoCAD DXF", ".dxf", "✓", "✓", "2D drawing; import as CAD layers, export with A-WALL/A-DOOR… layers (R12)"],
+  ["AutoCAD DWG", ".dwg", "✓", "—", "2D drawing from AutoCAD R13 to 2025 (DWG R13–R2018); import as CAD layers like DXF"],
   ["IFC (BIM)", ".ifc", "✓", "✓", "IFC4 / IFC2X3: storeys, walls, doors, windows, spaces, slabs, roofs, stairs, columns, furniture"],
+  ["IFC ZIP", ".ifczip", "✓", "—", "A zipped IFC file: read like .ifc (ifcXML is not read)"],
+  ["Sweet Home 3D", ".sh3d", "✓", "—", "Sweet Home 3D 5.3+: levels, walls, doors, windows, rooms, furniture, stairs, dimensions, labels"],
+  ["gbXML", ".gbxml .xml", "✓", "—", "Energy-model export of Revit, ArchiCAD, Vectorworks…: storeys, walls, doors, windows, spaces as rooms, roofs"],
   ["glTF / GLB", ".gltf .glb", "✓", "✓", "3D with materials (Blender, Unity, web)"],
   ["Wavefront OBJ (+MTL)", ".obj", "✓", "✓", "3D with materials (OBJ + MTL in a ZIP)"],
   ["STL", ".stl", "✓", "✓", "3D printing (geometry only)"],
@@ -684,7 +688,7 @@ export const FORMATS = [
   ["PDF", ".pdf", "—", "✓", "Drawing sheets with title block (print)"],
   ["PNG / JPG / WebP", ".png .jpg .webp", "✓", "✓", "Images: import as tracing underlay; export plan or 3D image"],
   ["CSV", ".csv", "—", "✓", "Room, door/window, wall type, cost and level schedules"],
-  ["DWG / SKP / RVT / PLN", "", "—", "—", "Closed formats: use DXF, DAE/OBJ or IFC exported from those programs"],
+  ["SKP / RVT / PLN", "", "—", "—", "Closed formats, not read directly: export IFC or gbXML from Revit / ArchiCAD, DAE or OBJ from SketchUp, DXF from CAD programs, and import that"],
 ];
 
 export function formatsDialog() {
@@ -711,7 +715,7 @@ export async function about(app, version) {
     [t("Runtime"), desk ? `Electron ${v.electron || "?"} · Chromium ${v.chrome || "?"} · Node.js ${v.node || "?"}` : navigator.userAgent.replace(/^Mozilla\/5\.0 /, "").slice(0, 80)],
     [t("3D engine"), threeRev ? `three.js r${threeRev} (WebGL)` : "three.js"],
     [t("Library"), t("{f} furniture items · {m} materials", { f: allFurniture().length, m: materialsFor("wall").length + materialsFor("floor").length + materialsFor("roof").length })],
-    [t("File formats"), "MYARCH · DXF · IFC · GLB/glTF · OBJ · STL · DAE · 3MF · PLY · FBX · 3DS · USDZ · SVG · PDF · PNG · CSV"],
+    [t("File formats"), "MYARCH · DXF · DWG · IFC ·GLB/glTF · OBJ · STL · DAE · 3MF · PLY · FBX · 3DS · USDZ · SVG · PDF · PNG · CSV"],
     [t("Language / theme"), `${getLanguage() === "ko" ? "한국어" : "English"} · ${app.themeLabel ? app.themeLabel() : app.settings.theme}`],
     [t("License"), t("Freeware. 3D rendering by three.js (MIT licence).")],
   ];
@@ -737,7 +741,7 @@ export async function about(app, version) {
 }
 
 const SHORTCUTS = [
-  ["General", [["Ctrl+K", "Command palette — search every command, room and level"], ["Ctrl+N / Ctrl+O / Ctrl+S", "New / open / save"], ["Ctrl+I", "Import (DXF, IFC, 3D models, images…)"], ["Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z)", "Undo / redo"], ["Ctrl+X / Ctrl+A", "Cut / select all"], ["Ctrl+F", "Find"], ["Ctrl+P", "Print / PDF"], ["Ctrl+,", "Settings"], ["Ctrl+/", "Keyboard shortcuts"], ["F1", "User manual"], ["F2 / F3 (F4)", "Floor plan / 3D view"], ["F5", "Model check"], ["F8 / F9", "Orthogonal drawing / snapping"], ["Home", "Zoom to fit"], ["Ctrl+1 / Ctrl+2", "Toggle side panels"]]],
+  ["General", [["Ctrl+K", "Command palette — search every command, room and level"], ["Ctrl+N / Ctrl+O / Ctrl+S", "New / open / save"], ["Ctrl+Tab / Ctrl+Shift+Tab", "Next / previous document tab"], ["Ctrl+W", "Close the document tab"],["Ctrl+I", "Import (DXF, IFC, 3D models, images…)"], ["Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z)", "Undo / redo"], ["Ctrl+X / Ctrl+A", "Cut / select all"], ["Ctrl+F", "Find"], ["Ctrl+P", "Print / PDF"], ["Ctrl+,", "Settings"], ["Ctrl+/", "Keyboard shortcuts"], ["F1", "User manual"], ["F2 / F3 (F4)", "Floor plan / 3D view"], ["F5", "Model check"], ["F8 / F9", "Orthogonal drawing / snapping"], ["Home", "Zoom to fit"], ["Ctrl+1 / Ctrl+2", "Toggle side panels"]]],
   ["Floor plan", [["W", "Wall (click corners; type a length and Enter)"], ["A", "Room (click inside walls)"], ["D / N", "Door / window"], ["C", "Column"], ["S", "Stair"], ["F", "Furniture"], ["O", "Roof"], ["B / U", "Mass box / cylinder"], ["G", "Structural grid line"], ["K", "Dimension"], ["T", "Text"], ["L", "Line"], ["M", "Measure"], ["Ctrl+G / Ctrl+Shift+G", "Group / ungroup"], ["R / Shift+R", "Rotate 90° / back 15°"], ["X / Y", "Mirror (X also flips a door)"], ["H", "Swap door hinge"], ["E or double-click", "Edit properties"], ["Ctrl+C / Ctrl+V / Ctrl+D", "Copy / paste / duplicate"], ["Del", "Delete"], ["Arrows / Shift+arrows", "Nudge by one / ten grid steps"], ["Backspace", "While drawing: undo the last corner"], ["Shift", "While drawing: any angle"], ["Alt+drag", "Move without stretching joined walls"]]],
   ["Navigation", [["Wheel / Ctrl+wheel", "Zoom"], ["Shift+wheel", "Pan sideways"], ["Drag empty canvas, middle/right-drag, Space+drag", "Move the view (pan)"], ["Shift+drag", "Box selection (right-to-left: crossing)"], ["Esc", "Leave a tool / hand mode"]]],
   ["3D", [["Left-drag", "Orbit"], ["Right-drag", "Pan"], ["Wheel", "Zoom"], ["Double-click", "Zoom in on that point"], ["Arrows / Shift+arrows", "Orbit / pan"], ["1–7", "Iso / top / front / rear / left / right side / bird's eye"], ["P", "Pan mode"], ["V", "Walk through (WASD, Q/E up/down, drag to look)"], ["Q / E, PageDown / PageUp", "While walking: down / up"], ["O", "Orthographic projection"], ["X", "Section cut"], ["G", "Grid"], ["Esc", "Leave the tool or walk mode"]]],

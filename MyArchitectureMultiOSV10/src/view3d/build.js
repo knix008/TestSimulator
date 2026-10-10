@@ -12,7 +12,7 @@ import { wallOutlines, slicePoly, openingSpans, wallFrame } from "../core/walls.
 import { wallLength, wallHeight, levelById, levelAbove } from "../core/project.js";
 import { triangulate, polygonArea, rotPt } from "../core/geom.js";
 import { roofModel, roofBase } from "../core/roof.js";
-import { furnitureParts } from "../lib/furniture.js";
+import { furnitureParts, lightOf } from "../lib/furniture.js";
 import { materialById, materialColor, paintPattern, DEFAULT_MATERIAL } from "../lib/materials.js";
 import { phaseVisible } from "../plan/render.js";
 
@@ -175,6 +175,10 @@ export function makeMaterials(THREE, { textures = true } = {}) {
         color: hex, roughness: opts.rough ?? 0.7, metalness: opts.metal ?? 0, transparent: (opts.opacity ?? 1) < 1, opacity: opts.opacity ?? 1, side: (opts.opacity ?? 1) < 1 ? THREE.DoubleSide : THREE.FrontSide, name: hex,
       }));
     },
+    // A lit lamp part: its own colour glowing in the light's colour.
+    glow(hex, light, strength = 1) {
+      return get(`g:${hex}:${light}:${strength}`, () => new THREE.MeshStandardMaterial({ color: hex, emissive: light, emissiveIntensity: GLOW * strength, roughness: 0.4, name: `glow ${light}` }));
+    },
     glass() { return get("glass", () => new THREE.MeshStandardMaterial({ color: 0xa9d4e8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false, name: "glass" })); },
     frame() { return get("frame", () => new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.5, name: "frame" })); },
     door() { return get("door", () => new THREE.MeshStandardMaterial({ color: 0xb0835a, roughness: 0.6, name: "door" })); },
@@ -268,12 +272,25 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
   return g;
 }
 
+// Material of a lamp part that glows when the lamp is on (shared with the
+// viewer, which swaps it on a switch without rebuilding the model).
+export const GLOW = 2.2;
+export function glowMaterial(mats, part, light) {
+  if (light && light.on) return mats.glow(part.color, light.color, part.g);
+  return mats.color(part.c === "bulb" ? "#9a968c" : part.color, { rough: 0.6 });
+}
+
+// A lamp's light source is not a three.js light here: an empty "lamp" anchor
+// at the bulb carries what the viewer needs ({id, type, lumens, colour, on,
+// beam, dir}), and the viewer lights only the nearest few (see lamps.js).
 function furnitureGroup(THREE, mats, f) {
   const g = new THREE.Group();
+  const light = lightOf(f);
   for (const part of furnitureParts(f)) {
     const glassy = part.c === "glass";
     const metal = part.c === "metal";
-    const mat = glassy ? mats.color(part.color, { opacity: 0.35, rough: 0.1 }) : mats.color(part.color, { rough: metal ? 0.35 : 0.75, metal: metal ? 0.7 : 0 });
+    let mat = glassy ? mats.color(part.color, { opacity: 0.35, rough: 0.1 }) : mats.color(part.color, { rough: metal ? 0.35 : 0.75, metal: metal ? 0.7 : 0 });
+    if (light && part.g) mat = glowMaterial(mats, part, light);
     let mesh;
     if (part.t === "box") {
       mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1e-4, part.w * M), Math.max(1e-4, part.h * M), Math.max(1e-4, part.d * M)), mat);
@@ -286,9 +303,19 @@ function furnitureGroup(THREE, mats, f) {
       mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(part.r * M, 2), mat);
       mesh.position.set(part.x * M, part.z * M, part.y * M);
     }
-    mesh.castShadow = !glassy;
+    mesh.castShadow = !glassy && !part.g;
     mesh.receiveShadow = true;
+    if (light && part.g) mesh.userData.glow = { color: part.color, c: part.c, g: part.g };
     g.add(mesh);
+  }
+  if (light) {
+    const a = new THREE.Object3D();
+    a.name = "lamp";
+    const [x, y, z] = light.at;
+    a.position.set(x * M, z * M, y * M);
+    const [dx, dy, dz] = light.dir;
+    a.userData.lamp = { id: f.id, type: light.type, on: light.on, lumens: light.lumens, color: light.color, beam: light.beam, dir: [dx, dz, dy] };
+    g.add(a);
   }
   return g;
 }
@@ -410,6 +437,8 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
             }).catch(() => {});
           }
         } else g = furnitureGroup(THREE, mats, f);
+        const lamp = g.getObjectByName("lamp");
+        if (lamp) lamp.userData.lamp.floor = base * M; // the section cut keeps lamps whose floor is below it
         g.position.set(f.x * M, (base + (f.elevation || 0)) * M, f.y * M);
         g.rotation.y = (-(f.rot || 0) * Math.PI) / 180;
         g.name = `${f.kind} ${f.id}`;

@@ -31,14 +31,14 @@
  },
  "levels": [
   {
-   "id": "lv0hy9a002fv1",
+   "id": "lvl5okc002l1r",
    "name": "1F",
    "elevation": 0,
    "height": 2800,
    "slab": 200
   },
   {
-   "id": "lv0hy9a003ekm",
+   "id": "lvl5okd003prn",
    "name": "2F",
    "elevation": 2800,
    "height": 2800,
@@ -202,8 +202,8 @@
  ],
  "walls": [
   {
-   "id": "w0hy9a002gwj",
-   "level": "lv0hy9a002fv1",
+   "id": "wl5okc002mm5",
+   "level": "lvl5okc002l1r",
    "x1": 0,
    "y1": 0,
    "x2": 10000,
@@ -213,8 +213,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a002htr",
-   "level": "lv0hy9a002fv1",
+   "id": "wl5okc002nrk",
+   "level": "lvl5okc002l1r",
    "x1": 10000,
    "y1": 0,
    "x2": 10000,
@@ -224,8 +224,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a002itw",
-   "level": "lv0hy9a002fv1",
+   "id": "wl5okc002oph",
+   "level": "lvl5okc002l1r",
    "x1": 10000,
    "y1": 8000,
    "x2": 0,
@@ -235,8 +235,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a002jn9",
-   "level": "lv0hy9a002fv1",
+   "id": "wl5okc002p32",
+   "level": "lvl5okc002l1r",
    "x1": 0,
    "y1": 8000,
    "x2": 0,
@@ -246,8 +246,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a002kja",
-   "level": "lv0hy9a002fv1",
+   "id": "wl5okc002qp9",
+   "level": "lvl5okc002l1r",
    "x1": 6000,
    "y1": 0,
    "x2": 6000,
@@ -257,8 +257,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a002l8v",
-   "level": "lv0hy9a002fv1",
+   "id": "wl5okc002rto",
+   "level": "lvl5okc002l1r",
    "x1": 6000,
    "y1": 4400,
    "x2": 10000,
@@ -268,8 +268,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a003fiw",
-   "level": "lv0hy9a003ekm",
+   "id": "wl5okd003qhe",
+   "level": "lvl5okd003prn",
    "x1": 0,
    "y1": 0,
    "x2": 10000,
@@ -279,8 +279,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a003g6g",
-   "level": "lv0hy9a003ekm",
+   "id": "wl5okd003rvo",
+   "level": "lvl5okd003prn",
    "x1": 10000,
    "y1": 0,
    "x2": 10000,
@@ -290,8 +290,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a003hd4",
-   "level": "lv0hy9a003ekm",
+   "id": "wl5okd003s4e",
+   "level": "lvl5okd003prn",
    "x1": 10000,
    "y1": 8000,
    "x2": 0,
@@ -301,8 +301,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a003i49",
-   "level": "lv0hy9a003ekm",
+   "id": "wl5okd003tej",
+   "level": "lvl5okd003prn",
    "x1": 0,
    "y1": 8000,
    "x2": 0,
@@ -312,8 +312,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a003jyf",
-   "level": "lv0hy9a003ekm",
+   "id": "wl5okd003uck",
+   "level": "lvl5okd003prn",
    "x1": 5000,
    "y1": 0,
    "x2": 5000,
@@ -323,8 +323,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a003kdm",
-   "level": "lv0hy9a003ekm",
+   "id": "wl5okd003vrn",
+   "level": "lvl5okd003prn",
    "x1": 0,
    "y1": 5600,
    "x2": 10000,
@@ -334,8 +334,8 @@
    "phase": "new"
   },
   {
-   "id": "w0hy9a003l3a",
-   "level": "lv0hy9a003ekm",
+   "id": "wl5okd003wj5",
+   "level": "lvl5okd003prn",
    "x1": 7600,
    "y1": 5600,
    "x2": 7600,
@@ -347,8 +347,8 @@
  ],
  "openings": [
   {
-   "id": "o0hy9a002mf7",
-   "wall": "w0hy9a002gwj",
+   "id": "ol5okc002syx",
+   "wall": "wl5okc002mm5",
    "kind": "window",
    "type": "casement",
    "at": 1600,
@@ -360,8 +360,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a002nl0",
-   "wall": "w0hy9a002gwj",
+   "id": "ol5okc002tl8",
+   "wall": "wl5okc002mm5",
    "kind": "window",
    "type": "casement",
    "at": 4300,
@@ -373,8 +373,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a002o8m",
-   "wall": "w0hy9a002gwj",
+   "id": "ol5okc002ur0",
+   "wall": "wl5okc002mm5",
    "kind": "window",
    "type": "casement",
    "at": 8000,
@@ -386,8 +386,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a002plw",
-   "wall": "w0hy9a002jn9",
+   "id": "ol5okc002v89",
+   "wall": "wl5okc002p32",
    "kind": "window",
    "type": "sliding",
    "at": 4000,
@@ -399,8 +399,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a002qbn",
-   "wall": "w0hy9a002itw",
+   "id": "ol5okc002wya",
+   "wall": "wl5okc002oph",
    "kind": "window",
    "type": "sliding",
    "at": 1800,
@@ -412,8 +412,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a002r8q",
-   "wall": "w0hy9a002htr",
+   "id": "ol5okc002x6w",
+   "wall": "wl5okc002nrk",
    "kind": "window",
    "type": "casement",
    "at": 2200,
@@ -425,8 +425,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a002sqa",
-   "wall": "w0hy9a002itw",
+   "id": "ol5okc002ywg",
+   "wall": "wl5okc002oph",
    "kind": "door",
    "type": "single",
    "at": 4600,
@@ -438,8 +438,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a002t53",
-   "wall": "w0hy9a002kja",
+   "id": "ol5okc002zy1",
+   "wall": "wl5okc002qp9",
    "kind": "door",
    "type": "single",
    "at": 6200,
@@ -451,8 +451,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a002ulx",
-   "wall": "w0hy9a002l8v",
+   "id": "ol5okc0030ym",
+   "wall": "wl5okc002rto",
    "kind": "door",
    "type": "single",
    "at": 2000,
@@ -464,8 +464,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003mv4",
-   "wall": "w0hy9a003fiw",
+   "id": "ol5okd003xph",
+   "wall": "wl5okd003qhe",
    "kind": "window",
    "type": "casement",
    "at": 2500,
@@ -477,8 +477,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003nwp",
-   "wall": "w0hy9a003fiw",
+   "id": "ol5okd003yh3",
+   "wall": "wl5okd003qhe",
    "kind": "window",
    "type": "casement",
    "at": 7500,
@@ -490,8 +490,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003obj",
-   "wall": "w0hy9a003i49",
+   "id": "ol5okd003zda",
+   "wall": "wl5okd003tej",
    "kind": "window",
    "type": "casement",
    "at": 2800,
@@ -503,8 +503,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003p3o",
-   "wall": "w0hy9a003g6g",
+   "id": "ol5okd0040w1",
+   "wall": "wl5okd003rvo",
    "kind": "window",
    "type": "casement",
    "at": 2800,
@@ -516,8 +516,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003qwz",
-   "wall": "w0hy9a003hd4",
+   "id": "ol5okd0041vp",
+   "wall": "wl5okd003s4e",
    "kind": "window",
    "type": "casement",
    "at": 8800,
@@ -529,8 +529,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003r2c",
-   "wall": "w0hy9a003hd4",
+   "id": "ol5okd0042ua",
+   "wall": "wl5okd003s4e",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -542,8 +542,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003sux",
-   "wall": "w0hy9a003kdm",
+   "id": "ol5okd0043ba",
+   "wall": "wl5okd003vrn",
    "kind": "door",
    "type": "single",
    "at": 2000,
@@ -555,8 +555,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003t0z",
-   "wall": "w0hy9a003kdm",
+   "id": "ol5okd00442p",
+   "wall": "wl5okd003vrn",
    "kind": "door",
    "type": "single",
    "at": 7000,
@@ -568,8 +568,8 @@
    "phase": "new"
   },
   {
-   "id": "o0hy9a003u74",
-   "wall": "w0hy9a003l3a",
+   "id": "ol5okd00452f",
+   "wall": "wl5okd003wj5",
    "kind": "door",
    "type": "single",
    "at": 1200,
@@ -583,8 +583,8 @@
  ],
  "rooms": [
   {
-   "id": "r0hy9a002v60",
-   "level": "lv0hy9a002fv1",
+   "id": "rl5okd0031js",
+   "level": "lvl5okc002l1r",
    "name": "Living room",
    "pts": [
     [
@@ -608,8 +608,8 @@
    "phase": "new"
   },
   {
-   "id": "r0hy9a002wyw",
-   "level": "lv0hy9a002fv1",
+   "id": "rl5okd0032n1",
+   "level": "lvl5okc002l1r",
    "name": "Kitchen",
    "pts": [
     [
@@ -633,8 +633,8 @@
    "phase": "new"
   },
   {
-   "id": "r0hy9a002xgt",
-   "level": "lv0hy9a002fv1",
+   "id": "rl5okd0033uc",
+   "level": "lvl5okc002l1r",
    "name": "Toilet",
    "pts": [
     [
@@ -658,8 +658,8 @@
    "phase": "new"
   },
   {
-   "id": "r0hy9a003vna",
-   "level": "lv0hy9a003ekm",
+   "id": "rl5okd0046kb",
+   "level": "lvl5okd003prn",
    "name": "Bedroom",
    "pts": [
     [
@@ -683,8 +683,8 @@
    "phase": "new"
   },
   {
-   "id": "r0hy9a003w25",
-   "level": "lv0hy9a003ekm",
+   "id": "rl5okd0047t8",
+   "level": "lvl5okd003prn",
    "name": "Bedroom",
    "pts": [
     [
@@ -708,8 +708,8 @@
    "phase": "new"
   },
   {
-   "id": "r0hy9a003xs0",
-   "level": "lv0hy9a003ekm",
+   "id": "rl5okd0048g1",
+   "level": "lvl5okd003prn",
    "name": "Bathroom",
    "pts": [
     [
@@ -733,8 +733,8 @@
    "phase": "new"
   },
   {
-   "id": "r0hy9a003ypp",
-   "level": "lv0hy9a003ekm",
+   "id": "rl5okd0049w6",
+   "level": "lvl5okd003prn",
    "name": "Hall",
    "pts": [
     [
@@ -761,8 +761,8 @@
  "columns": [],
  "stairs": [
   {
-   "id": "s0hy9a002yef",
-   "level": "lv0hy9a002fv1",
+   "id": "sl5okd00345l",
+   "level": "lvl5okc002l1r",
    "x": 4000,
    "y": 6900,
    "rot": 0,
@@ -774,8 +774,8 @@
  ],
  "furniture": [
   {
-   "id": "u0hy9a002zjz",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd00350h",
+   "level": "lvl5okc002l1r",
    "kind": "sofa3",
    "x": 2400,
    "y": 2100,
@@ -788,8 +788,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a00304q",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd0036xb",
+   "level": "lvl5okc002l1r",
    "kind": "coffeeTable",
    "x": 2400,
    "y": 3200,
@@ -802,8 +802,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a003108",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd0037a1",
+   "level": "lvl5okc002l1r",
    "kind": "armchair",
    "x": 900,
    "y": 3300,
@@ -816,8 +816,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0032rd",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003883",
+   "level": "lvl5okc002l1r",
    "kind": "tvUnit",
    "x": 2400,
    "y": 4600,
@@ -830,8 +830,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0033n8",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd0039a8",
+   "level": "lvl5okc002l1r",
    "kind": "counter",
    "x": 8000,
    "y": 450,
@@ -844,8 +844,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0034pc",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003avm",
+   "level": "lvl5okc002l1r",
    "kind": "island",
    "x": 8000,
    "y": 2600,
@@ -858,8 +858,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0035lt",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003bg2",
+   "level": "lvl5okc002l1r",
    "kind": "barStool",
    "x": 7500,
    "y": 3300,
@@ -872,8 +872,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a00360y",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003c2p",
+   "level": "lvl5okc002l1r",
    "kind": "barStool",
    "x": 8500,
    "y": 3300,
@@ -886,8 +886,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0037va",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003dz5",
+   "level": "lvl5okc002l1r",
    "kind": "fridge",
    "x": 9500,
    "y": 1500,
@@ -900,8 +900,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a00389x",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003egj",
+   "level": "lvl5okc002l1r",
    "kind": "toilet",
    "x": 9500,
    "y": 5300,
@@ -914,8 +914,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0039tw",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003fof",
+   "level": "lvl5okc002l1r",
    "kind": "washbasin",
    "x": 9600,
    "y": 7000,
@@ -928,8 +928,105 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a003ajk",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003g2e",
+   "level": "lvl5okc002l1r",
+   "kind": "ceilingLight",
+   "x": 2400,
+   "y": 3200,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 120,
+   "elevation": 2680,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 2000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd003hb9",
+   "level": "lvl5okc002l1r",
+   "kind": "pendantLamp",
+   "x": 7500,
+   "y": 2600,
+   "rot": 0,
+   "w": 400,
+   "d": 400,
+   "h": 900,
+   "elevation": 1900,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 900,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd003i6i",
+   "level": "lvl5okc002l1r",
+   "kind": "pendantLamp",
+   "x": 8500,
+   "y": 2600,
+   "rot": 0,
+   "w": 400,
+   "d": 400,
+   "h": 900,
+   "elevation": 1900,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 900,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd003j48",
+   "level": "lvl5okc002l1r",
+   "kind": "downlight",
+   "x": 8000,
+   "y": 6200,
+   "rot": 0,
+   "w": 160,
+   "d": 160,
+   "h": 40,
+   "elevation": 2760,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 700,
+    "color": "#ffdfba",
+    "beam": 70
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd003kl7",
+   "level": "lvl5okc002l1r",
+   "kind": "trackLight",
+   "x": 8000,
+   "y": 1200,
+   "rot": 0,
+   "w": 1500,
+   "d": 160,
+   "h": 300,
+   "elevation": 2500,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1800,
+    "color": "#ffdfba",
+    "beam": 50
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd003loe",
+   "level": "lvl5okc002l1r",
    "kind": "car",
    "x": -2600,
    "y": 4000,
@@ -942,8 +1039,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a003b2w",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003m3q",
+   "level": "lvl5okc002l1r",
    "kind": "tree",
    "x": 13000,
    "y": 2500,
@@ -956,8 +1053,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a003c9x",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003nnb",
+   "level": "lvl5okc002l1r",
    "kind": "tree",
    "x": 12500,
    "y": 7000,
@@ -970,8 +1067,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a003d4b",
-   "level": "lv0hy9a002fv1",
+   "id": "ul5okd003oko",
+   "level": "lvl5okc002l1r",
    "kind": "shrub",
    "x": -1000,
    "y": 9200,
@@ -984,8 +1081,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a003z6c",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004a36",
+   "level": "lvl5okd003prn",
    "kind": "doubleBed",
    "x": 2500,
    "y": 1300,
@@ -998,8 +1095,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0040fs",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004bdk",
+   "level": "lvl5okd003prn",
    "kind": "wardrobe",
    "x": 700,
    "y": 4200,
@@ -1012,8 +1109,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0041m5",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004ckl",
+   "level": "lvl5okd003prn",
    "kind": "nightstand",
    "x": 1400,
    "y": 450,
@@ -1026,8 +1123,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0042zw",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004dvp",
+   "level": "lvl5okd003prn",
    "kind": "nightstand",
    "x": 3600,
    "y": 450,
@@ -1040,8 +1137,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a00430a",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004emu",
+   "level": "lvl5okd003prn",
    "kind": "singleBed",
    "x": 8600,
    "y": 1300,
@@ -1054,8 +1151,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a00449u",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004f7d",
+   "level": "lvl5okd003prn",
    "kind": "desk",
    "x": 6200,
    "y": 500,
@@ -1068,8 +1165,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0045hd",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004g3h",
+   "level": "lvl5okd003prn",
    "kind": "chair",
    "x": 6200,
    "y": 1100,
@@ -1082,8 +1179,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0046pg",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004hc3",
+   "level": "lvl5okd003prn",
    "kind": "bookshelf",
    "x": 9650,
    "y": 4300,
@@ -1096,8 +1193,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0047hw",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004iyj",
+   "level": "lvl5okd003prn",
    "kind": "bathtub",
    "x": 8900,
    "y": 7450,
@@ -1110,8 +1207,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0048jo",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004jtj",
+   "level": "lvl5okd003prn",
    "kind": "toilet",
    "x": 9500,
    "y": 6100,
@@ -1124,8 +1221,8 @@
    "phase": "new"
   },
   {
-   "id": "u0hy9a0049ii",
-   "level": "lv0hy9a003ekm",
+   "id": "ul5okd004k6e",
+   "level": "lvl5okd003prn",
    "kind": "washbasin",
    "x": 7900,
    "y": 6100,
@@ -1136,12 +1233,108 @@
    "elevation": 0,
    "color": null,
    "phase": "new"
+  },
+  {
+   "id": "ul5okd004l2v",
+   "level": "lvl5okd003prn",
+   "kind": "ceilingLight",
+   "x": 2500,
+   "y": 2800,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 120,
+   "elevation": 2680,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 2000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd004mto",
+   "level": "lvl5okd003prn",
+   "kind": "ceilingLight",
+   "x": 7500,
+   "y": 2800,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 120,
+   "elevation": 2680,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 2000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd004nhq",
+   "level": "lvl5okd003prn",
+   "kind": "downlight",
+   "x": 8800,
+   "y": 6800,
+   "rot": 0,
+   "w": 160,
+   "d": 160,
+   "h": 40,
+   "elevation": 2760,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 700,
+    "color": "#ffdfba",
+    "beam": 70
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd004om2",
+   "level": "lvl5okd003prn",
+   "kind": "pendantLamp",
+   "x": 2500,
+   "y": 6800,
+   "rot": 0,
+   "w": 400,
+   "d": 400,
+   "h": 900,
+   "elevation": 1900,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 900,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  },
+  {
+   "id": "ul5okd004px3",
+   "level": "lvl5okd003prn",
+   "kind": "tableLamp",
+   "x": 5800,
+   "y": 400,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 550,
+   "elevation": 750,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 450,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
   }
  ],
  "roofs": [
   {
-   "id": "f0hy9a004a6e",
-   "level": "lv0hy9a003ekm",
+   "id": "fl5okd004q80",
+   "level": "lvl5okd003prn",
    "pts": [
     [
      -150,
@@ -1170,8 +1363,8 @@
  ],
  "dimensions": [
   {
-   "id": "k0hy9a004brm",
-   "level": "lv0hy9a002fv1",
+   "id": "kl5okd004rxt",
+   "level": "lvl5okc002l1r",
    "x1": 0,
    "y1": 0,
    "x2": 10000,
@@ -1181,8 +1374,8 @@
    "phase": "new"
   },
   {
-   "id": "k0hy9a004cr6",
-   "level": "lv0hy9a002fv1",
+   "id": "kl5okd004swf",
+   "level": "lvl5okc002l1r",
    "x1": 0,
    "y1": 8000,
    "x2": 0,
@@ -1192,8 +1385,8 @@
    "phase": "new"
   },
   {
-   "id": "k0hy9a004dci",
-   "level": "lv0hy9a003ekm",
+   "id": "kl5okd004to3",
+   "level": "lvl5okd003prn",
    "x1": 0,
    "y1": 0,
    "x2": 10000,
@@ -1203,8 +1396,8 @@
    "phase": "new"
   },
   {
-   "id": "k0hy9a004eox",
-   "level": "lv0hy9a003ekm",
+   "id": "kl5okd004ufh",
+   "level": "lvl5okd003prn",
    "x1": 0,
    "y1": 8000,
    "x2": 0,
@@ -1221,6 +1414,6 @@
  "solids": [],
  "scenes": [],
  "view": {
-  "level": "lv0hy9a002fv1"
+  "level": "lvl5okc002l1r"
  }
 }

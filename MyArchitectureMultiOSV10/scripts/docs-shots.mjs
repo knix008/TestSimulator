@@ -278,8 +278,10 @@ async function shots() {
   await shot("export-ifc", T("IFC 내보내기: IFC4 또는 IFC2X3", "IFC export: IFC4 or IFC2X3"), async () => {
     await sample("06-renovation-bim.myarch"); await run("file.exportIfc"); await waitFor(`document.querySelector(".modal")`);
   });
-  await shot("print-preview", T("인쇄 미리 보기: 용지·축척·표제란·방위표, PDF/SVG 로 저장", "Print preview: paper, scale, title block and north arrow; save as PDF or SVG"), async () => {
-    await sample("03-two-storey-house.myarch"); await run("file.print"); await waitFor(`document.querySelector(".print-stage svg")`, 8000); await sleep(500);
+  await shot("print-preview", T("인쇄 창: 왼쪽은 프린터·용지·여백·축척·내용 설정, 오른쪽은 실제 시트 미리 보기, [인쇄] 는 바로 인쇄", "Print window: printer, paper, margins, scale and contents on the left, a preview of the real sheets on the right; Print prints at once"), async () => {
+    await sample("03-two-storey-house.myarch"); await run("file.print"); await waitFor(`document.querySelector(".print-stage svg")`, 8000); await sleep(800);
+    // The manual must not show the printers of the machine that made it.
+    await app(`const s = document.querySelector(".pw-printer"); if (s) { s.innerHTML = ""; s.append(new Option(${JSON.stringify("Office printer")} + " (" + app.t("Default printer") + ")", "")); } return 1`);
   });
   await shot("recent-files", T("최근 파일: 10개까지 기억하고 하나씩 지우거나 목록을 비웁니다", "Recent files: up to 10, remove one or clear the list"), async () => {
     await app(`for (let i = 0; i < 6; i++) app.addRecent("C:/Projects/house-" + (i + 1) + ".myarch", "house " + (i + 1)); return 1`);
@@ -325,9 +327,6 @@ async function shots() {
   });
   await shot("menu-bim", T("BIM 메뉴", "The BIM menu"), async () => {
     await tab("plan"); const r = await rect('.menu-root[data-menu="BIM"]'); await a.click(r.x + 14, r.y + 14);
-  });
-  await shot("menu-3d", T("3D 메뉴", "The 3D menu"), async () => {
-    await tab("plan"); const r = await rect('.menu-root[data-menu="3D"]'); await a.click(r.x + 14, r.y + 14);
   });
 }
 

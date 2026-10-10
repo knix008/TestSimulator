@@ -295,7 +295,7 @@ flowchart LR
   O -- ifc --> II["exports.importIfcFile → io/ifc.importIfc → 새 프로젝트 + 경고"]
   O -- model --> IM["exports.importModel → io/models3d.loadModelFile → models + furniture(kind model)"]
   O -- image --> IU["exports.importUnderlay → underlays"]
-  O -- closed --> X["dialogs.closedFormat (DWG, SKP, RVT, PLN, 3DM 안내)"]
+  O -- closed --> X["dialogs.closedFormat (SKP, RVT, PLN, 3DM 안내)"]
 ```
 
 | 모듈 | 역할 |
@@ -311,7 +311,7 @@ flowchart LR
 
 [src/ui/exports.js](src/ui/exports.js)는 위 모듈들의 UI 쪽입니다.
 
-- **인쇄/PDF**: `printDialog` → 층마다 `sheetSvg`(용지 `PAPER` A4–A0·Letter·Tabloid, 축척 고정 또는 "맞춤"이면 표준 축척 중 가장 가까운 값, 테두리와 표제란)를 `#print-area`에 깔고 `platform.printPage()` / `printToPDF()`.
+- **인쇄/PDF**: `printDialog`는 [src/ui/printwin.js](src/ui/printwin.js)의 `printWindow`(인쇄 창)를 엽니다. 제목 막대(아이콘·이름·✕)가 있는 큰 `modal`(`.print-window`, 크기 조절 가능)로, 왼쪽 `.pw-settings`에 접히는 구역(프린터·매수·색상 / 용지 `PAPER`·사용자 지정 크기·방향·여백 / 축척·가운데 배치·층·페이지 범위 / 표시할 내용 / 시트 구성), 오른쪽 `.print-stage`에 현재 시트 미리 보기(여백 점선, 쪽 넘기기, 확대·맞춤)가 있습니다. 시트는 `renderSheet(app, level, cfg)`가 종이 mm 크기 SVG로 그립니다(여백 안에 머리글·테두리·평면(그리기 영역으로 clip)·표제란·방위표·축척 막대·바닥글). **인쇄**는 시트를 `#print-area`에 깔고 `@page`를 용지 크기·여백 0으로 맞춘 뒤 `platform.printSheets()` → `print-sheets` IPC(`webContents.print({ silent: true, deviceName, copies, landscape, pageSize, margins: none, color })`)로 바로 보냅니다. 웹판은 `window.print()`. 설정은 `app.settings.print`에 기억합니다.
 - **평면 이미지**: `exportPlanSvg`(`planSvg`), `exportPlanPng`.
 - **DXF/IFC 내보내기**: `exportDxfFile`, `exportIfcFile`.
 - **3D 내보내기**: `EXPORT_3D` 목록(GLB, glTF, OBJ+MTL ZIP, DAE, STL, 3MF, PLY, USDZ; FBX는 안내만) → `export3d(app, format, unit)`. 3D 뷰에 보이는 것만 나가며, 3MF는 항상 mm.
@@ -324,7 +324,7 @@ flowchart LR
 
 **명령 레지스트리.** `registerCommands()` 안의 `C(id, label, icon, key, run, extra)`가 `this.commands`(Map)에 등록하고, 메뉴·툴바·단축키·명령 팔레트(Ctrl+K)·튜토리얼·스모크 테스트가 모두 `app.run(id)`으로 실행합니다. `extra.enabled()`가 거짓이면 실행하지 않고, `extra.checked()`는 메뉴의 체크 표시와 툴바의 `on` 상태가 됩니다. 비동기 실패는 토스트로 보고합니다. 접두어: `file.*`, `edit.*`, `view.*`, `plan.*`(PLAN_TOOLS에서 자동), `build.*`, `v3d.*`, `tools.settings`, `help.*`, `palette`.
 
-**메뉴.** `buildMenus()`의 `M`: File, Edit, View, Draw, Build, BIM, 3D, Help. `@import`/`@export` 같은 가상 항목은 하위 선택 창(`dialogs.importPicker`/`exportPicker`)을 엽니다. 메뉴는 `contextMenu`로 그려지며, 하나가 열린 상태에서 다른 루트에 마우스를 올리면 바로 바뀝니다.
+**메뉴.** `buildMenus()`의 `M`: File, Edit, View, Build, BIM, Help. Draw·3D 메뉴는 없습니다 — 그 명령은 모두 툴바(평면/3D 도구 모음)와 3D 장면 패널에 있습니다. `@import`/`@export` 같은 가상 항목은 하위 선택 창(`dialogs.importPicker`/`exportPicker`)을 엽니다. 메뉴는 `contextMenu`로 그려지며, 하나가 열린 상태에서 다른 루트에 마우스를 올리면 바로 바뀝니다.
 
 **제목 표시줄.** 별도의 탭 줄은 없습니다. [index.html](index.html)의 `#titlebar` 안에 브랜드 → 메뉴 막대 → **보기 탭**(`#tabbar`: 시작 / 평면도 F2 / 3D 보기 F3, 평면 탭에는 검사 오류·경고 개수 배지) → 문서 제목(`#doc-title`, 창 끌기 영역) → **검색 버튼**(`#title-search .search-btn`, 돋보기 아이콘 하나, 툴팁 "Search commands, rooms, furniture… (Ctrl+K)", 명령 팔레트를 엶) → `#title-right`(무작위 테마 + 테마 드롭다운, 언어 국기 토글, 설정, 정보)가 놓입니다. Windows/Linux에서는 Electron `titleBarOverlay`가 오른쪽에 OS 창 버튼을 그리고, `applyTheme()`이 `platform.setTitleBarTheme`으로 그 색을 테마에 맞춥니다.
 
@@ -388,7 +388,7 @@ sequenceDiagram
   R->>M: send "confirm-close"(allow)
 ```
 
-[electron/preload.cjs](electron/preload.cjs)가 `contextBridge`로 노출하는 `window.myarch`: `isElectron`, `platform`, `arch`, `versions`, `getVersion`, `loadSettings`/`saveSettings`, `openFile`, `readPath`, `saveFile`, `writeFile`, `print`, `printToPDF`, `openExternal`, `openManual`, `setZoom`, `onOpenPath`, `onRequestClose`/`confirmClose`, `setMinSize`, `windowSize`, `resizeWindow`, `onWindowState`, `setTitleBar`, `listSamples`/`readSample`, `pathForFile`(끌어 놓은 파일의 경로). 이진 데이터는 IPC에서 base64로 오갑니다.
+[electron/preload.cjs](electron/preload.cjs)가 `contextBridge`로 노출하는 `window.myarch`: `isElectron`, `platform`, `arch`, `versions`, `getVersion`, `loadSettings`/`saveSettings`, `openFile`, `readPath`, `saveFile`, `writeFile`, `print`, `printToPDF`, `listPrinters`, `printSheets`, `openExternal`, `openManual`, `setZoom`, `onOpenPath`, `onRequestClose`/`confirmClose`, `setMinSize`, `windowSize`, `resizeWindow`, `onWindowState`, `setTitleBar`, `listSamples`/`readSample`, `pathForFile`(끌어 놓은 파일의 경로). 이진 데이터는 IPC에서 base64로 오갑니다.
 
 [electron/main.cjs](electron/main.cjs):
 
@@ -397,8 +397,8 @@ sequenceDiagram
 - **창**: 1440×900(작업 영역보다 크지 않게), 최소 1024×700, `show: false` 후 `ready-to-show`. Windows/Linux는 `titleBarStyle: "hidden"` + **`titleBarOverlay`**(높이 38), macOS는 `hiddenInset` 신호등. `set-title-bar`가 오버레이 색을 테마에 맞춥니다.
 - **`set-min-size`**: 렌더러가 요구한 너비·높이를 `[1024×700, 2400×1600]`으로 제한하고 *창이 있는 화면의 작업 영역 − 16*을 넘지 않게 한 뒤, 창 테두리 두께를 더해 `setMinimumSize`. 현재 내용 영역이 더 작으면 키우고 **`keepOnScreen`** 으로 작업 영역 안으로 밀어 넣습니다(필요할 때만 줄임).
 - **파일 대화상자**: `open-file`(다중 선택 지원), `read-path`, `save-file`(텍스트 `content` 또는 `contentBase64`), `write-file`(경로가 있는 Ctrl+S, 대화상자 없음).
-- **`MYARCH_FAKE_DIALOGS`**: 폴더 경로가 설정되면 저장 대화상자는 그 폴더에 제안 이름으로 쓰고, 열기 대화상자는 `MYARCH_OPEN_FILE`을 읽고(없으면 취소), 인쇄는 그 폴더에 `print.pdf`를 씁니다. 자동 테스트가 창에 막히지 않습니다.
-- **인쇄/PDF**: 렌더러가 `.print-area`에 용지를 직접 배치하고, `print`는 시스템 인쇄 대화상자, `print-to-pdf`는 `printToPDF`(`preferCSSPageSize`)로 저장.
+- **`MYARCH_FAKE_DIALOGS`**: 폴더 경로가 설정되면 저장 대화상자는 그 폴더에 제안 이름으로 쓰고, 열기 대화상자는 `MYARCH_OPEN_FILE`을 읽고(없으면 취소), 인쇄는 그 폴더에 `print.pdf`(인쇄 창의 **인쇄**는 보낼 옵션을 담은 `print-job.json`도)를 씁니다 — 실제 프린터로는 가지 않습니다. 자동 테스트가 창에 막히지 않습니다.
+- **인쇄/PDF**: 렌더러가 `.print-area`에 용지를 직접 배치하고, `print-sheets`는 고른 프린터로 조용히(silent) 바로 인쇄, `list-printers`는 `getPrintersAsync()` + OS 기본 프린터(Windows 레지스트리 `Device`, CUPS `lpstat -d`), `print`는 시스템 인쇄 대화상자(이전 경로), `print-to-pdf`는 `printToPDF`(`preferCSSPageSize`)로 저장.
 - **매뉴얼 창**: `open-manual`이 `docs/USERSGUIDE.{ko,en}.html`을 별도 창(sandbox, 제목 고정)으로 엽니다.
 - **예제**: 개발 중에는 `sample/`, 패키지에서는 `resources/sample`. `read-sample`은 `^[\w.-]+\.myarch$`만 허용.
 - **닫기**: `close` 이벤트를 막고 `request-close`를 보내면 렌더러가 저장 여부를 묻고 `confirm-close(true)`로 답합니다.
@@ -436,7 +436,7 @@ sequenceDiagram
 ## 15. 확장 지점
 
 - **명령 추가**: `App.registerCommands()`에 `C("group.name", "English label", "icon", "Key", () => …, { enabled, checked })`. 메뉴에 넣으려면 `buildMenus()`의 `M`, 툴바면 `renderToolbar()`, 단축키가 Ctrl 조합이면 `bindKeys()`의 `map`에도. 라벨의 한국어를 `i18n-ko.js`에 추가하세요(모든 명령은 스모크 테스트의 "Every command"가 실행합니다).
-- **평면 도구 추가**: `PLAN_TOOLS`에 `{icon, label, key, hint}` → `plan.<id>` 명령과 단축키가 자동으로 생깁니다. `PlanEditor.pointer()`에서 기존 처리기(`pointerChain`, `pointerArea`, `pointerMeasure`, `pointerPlace` …)에 연결하거나 새로 만들고, 결과는 반드시 `store.edit`/`begin…commit`으로. 미리보기는 `renderOverlay`. Draw 메뉴와 툴바에 넣으세요.
+- **평면 도구 추가**: `PLAN_TOOLS`에 `{icon, label, key, hint}` → `plan.<id>` 명령과 단축키가 자동으로 생깁니다. `PlanEditor.pointer()`에서 기존 처리기(`pointerChain`, `pointerArea`, `pointerMeasure`, `pointerPlace` …)에 연결하거나 새로 만들고, 결과는 반드시 `store.edit`/`begin…commit`으로. 미리보기는 `renderOverlay`. 툴바에 넣으세요(Draw 메뉴는 없습니다).
 - **새 항목 종류(컬렉션)**: `project.js`의 `LEVEL_COLLECTIONS`(또는 `COLLECTIONS`), `newProject`, `normalizeProject`의 기본값 → `ops.hitTest`/`boxSelect`/`transformItems`/`copyItems` → `render.js`의 `drawPlan` → `build.js`의 `buildBuilding`(메시에 `userData`) → 필요하면 IFC·DXF.
 - **가구 추가**: [furniture.js](src/lib/furniture.js)의 `CATALOG`에 `{kind, cat, name, w, d, h, color, parts: (w, d, h) => [B(…), C(…), S(…)]}`. 평면 기호·3D·썸네일·검사가 모두 이 부품 목록을 씁니다. 의자류는 `check.js`의 `SEATS`도 고려.
 - **재질 추가**: [materials.js](src/lib/materials.js)의 `MATERIALS`(`pattern`은 `paintPattern`에 구현된 것 중 하나).

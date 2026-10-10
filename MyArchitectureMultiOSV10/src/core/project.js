@@ -7,6 +7,7 @@
 // of its level (storey); openings belong to a wall and take its level.
 
 import { uid } from "./geom.js";
+import { normalizeLight } from "../lib/furniture.js";
 
 export const FORMAT = "myarch";
 export const FORMAT_VERSION = 1;
@@ -160,6 +161,7 @@ export function normalizeProject(p) {
     f.d = Math.max(10, num(f.d, 600));
     f.h = Math.max(1, num(f.h, 750));
     f.elevation = num(f.elevation, 0);
+    normalizeLight(f); // lamps: on/off, lumens, colour, beam
   }
   for (const s of out.stairs) {
     s.rot = num(s.rot, 0);

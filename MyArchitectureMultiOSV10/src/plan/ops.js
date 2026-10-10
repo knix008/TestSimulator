@@ -4,7 +4,7 @@
 import { closestOnSegment, pointInPolygon, pointSegDist, dist, rotPt, uid, bounds, snapAngle } from "../core/geom.js";
 import { wallLength, COLLECTIONS, LEVEL_COLLECTIONS } from "../core/project.js";
 import { openingSpans, wallPoint, endsAt, wallFrame } from "../core/walls.js";
-import { furnitureCorners } from "../lib/furniture.js";
+import { furnitureCorners, isLight } from "../lib/furniture.js";
 import { roofModel } from "../core/roof.js";
 import { stairGeometry, dimensionGeometry, gridBubble } from "./render.js";
 
@@ -55,7 +55,11 @@ export function hitTest(p, level, x, y, tol, { selected = new Set(), layersHidde
     const g = dimensionGeometry(d);
     if (pointSegDist(x, y, ...g.a, ...g.b) <= tol * 1.2) return { kind: "dimensions", obj: d };
   }
-  for (const f of on(p.furniture, level).reverse()) if (pointInPolygon(x, y, furnitureCorners(f))) return { kind: "furniture", obj: f };
+  // Lamps first (a ceiling light hangs over the table it lights); a small
+  // lamp is also hit within the pick tolerance of its centre.
+  const furn = on(p.furniture, level).reverse();
+  for (const f of furn) if (isLight(f) && (pointInPolygon(x, y, furnitureCorners(f)) || dist(x, y, f.x, f.y) <= tol * 1.5)) return { kind: "furniture", obj: f };
+  for (const f of furn) if (pointInPolygon(x, y, furnitureCorners(f))) return { kind: "furniture", obj: f };
   for (const c of on(p.columns, level)) if (pointInPolygon(x, y, furnitureCorners(c)) || dist(x, y, c.x, c.y) <= tol) return { kind: "columns", obj: c };
   for (const s of on(p.stairs, level)) if (pointInPolygon(x, y, stairGeometry(s).outline)) return { kind: "stairs", obj: s };
   for (const s of on(p.solids || [], level).reverse()) if (pointInPolygon(x, y, s.pts)) return { kind: "solids", obj: s };

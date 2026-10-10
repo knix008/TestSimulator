@@ -50,7 +50,8 @@ SketchUp 식 매스 모델링(밀기/끌기, 페인트 통, 줄자, 장면)과 C
     이미지(따라 그리기 밑그림)
   - 내보내기: DXF(AutoCAD 표준 레이어, 층마다 한 파일), IFC 4 / 2x3, GLB, glTF, OBJ+MTL(zip), STL, PLY, DAE, 3MF, USDZ,
     평면 SVG / PNG, 축척과 표제란이 있는 인쇄 / PDF / SVG 도면, 일람표 CSV
-  - DWG · SKP · RVT · PLN · 3DM 은 공개되지 않은 형식이라 직접 열지 않고, 원래 프로그램에서 DXF · DAE · IFC 로 내보내는
+  - DWG(AutoCAD R13 ~ 2025), Sweet Home 3D(.sh3d), gbXML(Revit·ArchiCAD 내보내기), IFC ZIP 은 직접 가져옵니다.
+  - SKP · RVT · PLN · 3DM 은 공개되지 않은 형식이라 직접 열지 않고, 원래 프로그램에서 DXF · DAE · IFC 로 내보내는
     방법을 안내합니다.
 - **편의**: 제목 표시줄 안의 보기 탭(시작 · 평면도 · 3D 보기)과 검색 돋보기 버튼(또는 `Ctrl+K` — 명령·방·층·가구 검색;
   제목 표시줄의 메뉴·탭·버튼은 창을 줄여도 가려지지 않음), 도구 모음의
@@ -74,6 +75,12 @@ SketchUp 식 매스 모델링(밀기/끌기, 페인트 통, 줄자, 장면)과 C
 | `07-massing-study.myarch` | 매스 스터디: 포디움·타워·원형 건물·테이퍼 지붕, 그룹, 장면 애니메이션 |
 | `08-apartment-block.myarch` | 3층 공동주택: 계단실 중심 2세대 × 3개 층, 구조 그리드 위 기둥, 실 번호 |
 | `09-cad-tracing.myarch` | DXF 도면 따라 그리기: CAD 레이어로 가져온 AutoCAD 도면을 벽으로 따라 그림 |
+| `10-office-tower.myarch` | 업무용 빌딩: 8개 층, 코어(계단·엘리베이터·화장실), 커튼월, 기둥 그리드, 가구 600여 개 |
+| `11-mixed-use.myarch` | 주상복합: 1층 상가(슈퍼마켓·카페·옷가게) + 아파트 4개 층 |
+| `12-hospital.myarch` | 지역 병원: 진료실·영상실·약국·병실·간호사실, 중복도 2개 층 |
+| `13-school.myarch` | 초등학교: 교실 2개 층, 도서관, 급식실, 체육관 |
+| `14-courtyard-house.myarch` | 중정형 주택: 수영장·퍼걸러가 있는 ㄷ자 평면, 동마다 모임지붕 |
+| `15-sketchup-complex.myarch` | 문화 단지(스케치업 스타일): 그룹으로 묶은 대형 매스 모델과 장면 9개 |
 
 `npm run build:samples` 가 `scripts/create-samples.mjs` 로 예제를 다시 만들고, 각 예제가 모델 검사 오류·경고 0 개이며
 DXF·IFC 로 내보낼 수 있는지 확인합니다.
@@ -195,6 +202,6 @@ test/smoke/           GUI 스모크 테스트 (CDP) 와 드라이버
 platform.js 가 브라우저 대체 동작(파일 선택/다운로드, `window.print()`, `localStorage`)을 씁니다.
 
 `getVersion`, `loadSettings`, `saveSettings`, `openFile`, `readPath`, `saveFile`, `writeFile`, `print`, `printToPDF`,
-`openExternal`, `openManual`, `setZoom`, `onOpenPath`, `onRequestClose` / `confirmClose`, `setMinSize`,
+`listPrinters` / `printSheets` (인쇄 창의 프린터 목록과 바로 인쇄), `openExternal`, `openManual`, `setZoom`, `onOpenPath`, `onRequestClose` / `confirmClose`, `setMinSize`,
 `windowSize` / `resizeWindow` / `onWindowState` (상태 표시줄의 창 크기 조절), `setTitleBar`, `listSamples`, `readSample`,
 `pathForFile`.

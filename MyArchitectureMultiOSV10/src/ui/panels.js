@@ -7,7 +7,8 @@
 import { t, getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h, panelHead, input, select, checkbox, stepper, toast } from "./widgets.js";
-import { allFurniture, furnitureDef, drawFurniturePlan, FURNITURE_CATEGORIES } from "../lib/furniture.js";
+import { allFurniture, furnitureDef, drawFurniturePlan, drawLightSymbol, isLight, lightOf, FURNITURE_CATEGORIES } from "../lib/furniture.js";
+import { switchLamps, temperatureOptions, temperatureOf, lampSummary } from "./lights.js";
 import { materialsFor } from "../lib/materials.js";
 import { levelById, wallLength, wallHeight, openingTags, levelAbove } from "../core/project.js";
 import { roomArea, roomPerimeter } from "../core/rooms.js";
@@ -37,6 +38,7 @@ export function furnitureThumb(kind, w = 44, hgt = 36, themeName = "dark") {
   ctx.setTransform(s, 0, 0, s, (w * dpr) / 2, (hgt * dpr) / 2);
   const th = { ...(PLAN_THEMES[themeName] || PLAN_THEMES.dark) };
   drawFurniturePlan(ctx, item, th, 1.2 / s);
+  if (isLight(item)) drawLightSymbol(ctx, item, th, 1.2 / s);
   const copy = document.createElement("canvas");
   copy.width = canvas.width;
   copy.height = canvas.height;
@@ -214,6 +216,23 @@ const mmS = (step, min = 0) => ({ type: "number", step: String(step), min, forma
 const deg = { type: "number", step: "15", format: (v) => `${Math.round(v * 10) / 10}°` };
 const matOpts = (use) => materialsFor(use).map((m) => [m.id, t(m.name)]);
 
+// Light settings of a lamp: on/off, brightness, colour temperature or colour,
+// beam angle for spots.
+function lightFields(app, obj, grid, act) {
+  const l = lightOf(obj);
+  const L = () => { if (!obj.light) obj.light = { on: l.on, lumens: l.lumens, color: l.color, ...(l.type === "spot" ? { beam: l.beam } : {}) }; return obj.light; };
+  grid.append(h("span", { class: "prop-section" }, t("Lighting")), h("span", { class: "prop-sub" }, lampSummary(obj)));
+  const sw = checkbox(l.on, t("Light on"), { onChange: (v) => switchLamps(app, [obj.id], v) });
+  sw.dataset.lampOn = obj.id;
+  grid.append(h("span", {}, t("Switch")), sw,
+    ...bindField(app, t("Brightness (lm)"), () => l.lumens, (v) => { L().lumens = Math.max(0, Math.min(100000, Math.round(v))); }, { type: "number", step: "100", min: 0, max: 100000, format: (v) => `${Math.round(v)} lm` }),
+    ...bindField(app, t("Colour temperature"), () => temperatureOf(l.color), (v) => { if (v) L().color = v; }, { options: temperatureOptions() }),
+    ...bindField(app, t("Light colour"), () => l.color, (v) => { L().color = v; }, { type: "color" }));
+  if (l.type === "spot") grid.append(...bindField(app, t("Beam angle"), () => l.beam, (v) => { L().beam = Math.max(5, Math.min(170, v)); }, { type: "number", step: "5", min: 5, max: 170, format: (v) => `${Math.round(v)}°` }));
+  act(l.on ? t("Switch light off") : t("Switch light on"), l.on ? "bulbOff" : "bulb", () => switchLamps(app, [obj.id]), l.on ? "" : "primary");
+  act(t("All lights on / off"), "bulbRays", () => app.run("light.all"));
+}
+
 function inspector(app, body) {
   const p = app.store.project;
   const items = app.plan.selectedItems();
@@ -297,6 +316,7 @@ function inspector(app, body) {
       ...bindField(app, t("Height"), () => obj.h, (v) => { obj.h = Math.max(1, v); }, mmS(10, 1)),
       ...bindField(app, t("Elevation"), () => obj.elevation || 0, (v) => { obj.elevation = v; }, mmS(10, -1e5)),
       ...(obj.kind !== "model" ? bindField(app, t("Colour"), () => obj.color || "#8a9bb0", (v) => { obj.color = v; }, { type: "color" }) : []));
+    if (isLight(obj)) lightFields(app, obj, grid, act);
     act(t("Show in 3D"), "cube", () => app.crossProbe([obj.id], "3d"));
   } else if (kind === "columns") {
     title("column", t("Column"), `${obj.w} × ${obj.d} mm`);

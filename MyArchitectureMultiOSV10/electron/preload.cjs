@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('myarch', {
   writeFile: (filePath, content) => ipcRenderer.invoke('write-file', { filePath, content }),
   print: () => ipcRenderer.invoke('print'),
   printToPDF: (opts) => ipcRenderer.invoke('print-to-pdf', opts || {}),
+  listPrinters: () => ipcRenderer.invoke('list-printers'),
+  printSheets: (opts) => ipcRenderer.invoke('print-sheets', opts || {}),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openManual: (lang) => ipcRenderer.invoke('open-manual', lang),
   setZoom: (factor) => ipcRenderer.invoke('set-zoom', factor),

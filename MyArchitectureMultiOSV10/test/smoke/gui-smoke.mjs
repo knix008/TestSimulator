@@ -88,7 +88,7 @@ try {
   await app(`app.settings.onboarded = true; app.setSetting("lang", "en"); return 1`);
   await step("start page lists every sample with a card", async () => { await sleep(400); const n = await app(`return document.querySelectorAll(".sample-card").length`); const idx = JSON.parse(fs.readFileSync(path.join(root, "sample/index.json"), "utf8")); return n === idx.length || fail(`${n} cards for ${idx.length} samples`); });
   await step("program icon and favicon load", async () => app(`const img = document.querySelector(".brand img"); return img.complete && img.naturalWidth >= 256`));
-  await step("menu bar has File, Edit, View, Draw, Build, BIM, 3D and Help", async () => app(`return ["File","Edit","View","Draw","Build","BIM","3D","Help"].every(m => document.querySelector('.menu-root[data-menu="' + m + '"]'))`));
+  await step("menu bar has File, Edit, View, Build, BIM and Help — no Draw or 3D menu repeating the toolbar", async () => app(`return ["File","Edit","View","Build","BIM","Help"].every(m => document.querySelector('.menu-root[data-menu="' + m + '"]')) && !document.querySelector('.menu-root[data-menu="Draw"], .menu-root[data-menu="3D"]')`));
   await step("every menu opens and lists its items", async () => {
     const menus = await app(`return [...document.querySelectorAll(".menu-root")].map(b => b.dataset.menu)`);
     for (const m of menus) {
@@ -126,6 +126,176 @@ try {
     await sleep(500);
     return app(`return app.tab === "plan" && !!app.store.fileName`);
   });
+
+  // ---------------------------------------------------------------- document tabs
+  sectionStart("Document tabs");
+  const tabs = () => app(`return app.docTabs.docs.list()`);
+  const tabXY = (i, sel = "") => a.ev(`const el = document.querySelectorAll("#doctabs .doctab")[${i}]; if (!el) return null; el.scrollIntoView({ block: "nearest", inline: "nearest" }); const t = ${sel ? `el.querySelector(${JSON.stringify(sel)})` : "el"}; const b = t.getBoundingClientRect(); return [b.left + Math.min(b.width / 2, 40), b.top + b.height / 2]`);
+  const clickTab = async (i, opts) => { const r = await tabXY(i); if (!r) fail(`no tab ${i}`); await a.click(r[0], r[1], opts); await sleep(250); };
+  const closeAllTabs = () => app(`const dt = app.docTabs; for (const d of dt.docs.docs) dt.docs.stateOf(d).dirty = false; await dt.closeMany(dt.docs.docs.map(d => d.id)); return dt.docs.count`);
+  await step("every opened sample got its own tab; closing them all leaves one empty Untitled tab", async () => {
+    const n = (await tabs()).length;
+    if (n < samples.length) fail(`${n} tabs for ${samples.length} samples`);
+    const left = await closeAllTabs();
+    return (left === 1 && (await app(`return app.docTabs.docs.isUntouched() && app.tab === "start"`))) || fail(`${left} left`);
+  });
+  await step("three samples open as three tabs (the empty Untitled tab is reused)", async () => {
+    for (const f of ["01-studio.myarch", "02-two-bedroom.myarch", "03-two-storey-house.myarch"]) await openSample(f);
+    const t = await tabs();
+    const shown = await app(`return [...document.querySelectorAll("#doctabs .doctab .doctab-name")].map(e => e.textContent)`);
+    return (t.length === 3 && t[2].active && shown.join() === "01-studio.myarch,02-two-bedroom.myarch,03-two-storey-house.myarch") || fail({ t, shown });
+  });
+  const STRIP_LAYOUT = `(() => { const r = (id) => document.getElementById(id).getBoundingClientRect(); const tb = r("toolbar"), l = r("left-panel"), rp = r("right-panel"), s = r("doctabs"), c = r("center");
+    const view = document.querySelector("#center > .view.on"); const v = view.getBoundingClientRect(); const cv = view.querySelector("canvas"); const cr = cv ? cv.getBoundingClientRect() : v;
+    const ws = document.getElementById("workspace").classList; const leftOn = l.width > 0 && !ws.contains("no-left"), rightOn = rp.width > 0 && !ws.contains("no-right");
+    return { leftTouches: !leftOn || Math.abs(l.top - tb.bottom) < 1, rightTouches: !rightOn || Math.abs(rp.top - tb.bottom) < 1, inCentre: s.left >= (leftOn ? l.right : 0) - 0.5 && s.right <= (rightOn ? rp.left : innerWidth) + 0.5 && Math.abs(s.left - c.left) < 1 && Math.abs(s.right - c.right) < 1,
+      onTop: Math.abs(s.top - tb.bottom) < 1, notCovering: v.top >= s.bottom - 0.5 && cr.top >= s.bottom - 0.5, stripH: s.height }; })()`;
+  const layoutOk = (r) => r.leftTouches && r.rightTouches && r.inCentre && r.onTop && r.notCovering && r.stripH >= 30;
+  await step("the strip sits above the canvas only: both side panels touch the tool bar; no ruler, 3D canvas or start page under it", async () => {
+    const res = {};
+    for (const tab of ["plan", "3d", "start"]) {
+      await app(`app.setTab("${tab}"); return 1`);
+      if (tab === "3d") await waitFor(`app.v3d.viewer`, 10000);
+      await sleep(400);
+      res[tab] = await app(`return ${STRIP_LAYOUT}`);
+    }
+    await app(`app.setTab("plan"); return 1`);
+    return Object.values(res).every(layoutOk) || fail(res);
+  });
+  await step("an edit marks only its own tab dirty (●), and the window title follows the active tab", async () => {
+    await app(`app.store.edit("Delete", (p) => { p.walls.pop(); }); return 1`);
+    await sleep(150);
+    const r = await app(`return { dirty: [...document.querySelectorAll("#doctabs .doctab")].map(e => e.classList.contains("dirty") && getComputedStyle(e.querySelector(".doctab-dirty")).display !== "none"), title: document.title }`);
+    return (r.dirty.join() === "false,false,true" && r.title.includes("● 03-two-storey-house")) || fail(r);
+  });
+  await step("clicking a tab switches the whole document: project, undo stack, file name, level and zoom", async () => {
+    await clickTab(0);
+    await app(`app.store.edit("Delete", (p) => { p.furniture.pop(); }); app.store.edit("Delete", (p) => { p.furniture.pop(); }); app.plan.vp.zoomBy(1.5); return 1`);
+    const zoomA = await app(`return app.plan.vp.scale`);
+    const a1 = await app(`return { f: app.store.fileName, u: app.store.undoStack.length, fur: app.store.project.furniture.length }`);
+    await clickTab(2);
+    const c = await app(`return { f: app.store.fileName, u: app.store.undoStack.length, levels: app.store.project.levels.length, title: document.title }`);
+    await app(`app.plan.setLevel(app.store.project.levels[1].id); return 1`);
+    await clickTab(1);
+    const b = await app(`return { f: app.store.fileName, u: app.store.undoStack.length, dirty: app.store.dirty }`);
+    await clickTab(0);
+    const a2 = await app(`return { f: app.store.fileName, u: app.store.undoStack.length, fur: app.store.project.furniture.length, zoom: app.plan.vp.scale, sel: app.plan.sel.size }`);
+    await app(`app.run("edit.undo"); return 1`);
+    const a3 = await app(`return app.store.project.furniture.length`);
+    await clickTab(2);
+    const lv = await app(`return app.plan.level === app.store.project.levels[1].id`);
+    const ok = a1.u === 2 && c.f === "03-two-storey-house.myarch" && c.u === 1 && c.levels === 2 && b.f === "02-two-bedroom.myarch" && b.u === 0 && !b.dirty
+      && a2.f === "01-studio.myarch" && a2.u === 2 && a2.fur === a1.fur && Math.abs(a2.zoom - zoomA) < 1e-9 && a2.sel === 0 && a3 === a1.fur + 1 && lv;
+    return ok || fail({ a1, c, b, a2, a3, lv, zoomA });
+  });
+  await step("each tab keeps its own 3D camera (one 3D viewer, resynced)", async () => {
+    await clickTab(0);
+    await a.key("F3"); await waitFor(`app.v3d.viewer`, 10000); await sleep(400);
+    await app(`app.v3d.setView("top"); return 1`); await sleep(600);
+    // Wait for the camera animation to settle.
+    let camA = null;
+    for (let i = 0; i < 40; i++) { const c = await app(`return JSON.stringify(app.v3d.viewer.getCamera())`); if (c === camA) break; camA = c; await sleep(200); }
+    camA = JSON.parse(camA);
+    const viewer = await app(`window.__v = app.v3d.viewer; return 1`);
+    await clickTab(1); await sleep(800);
+    const b = await app(`return { tab: app.tab, same: window.__v === app.v3d.viewer, title: app.store.project.meta.title }`);
+    await clickTab(0); await sleep(800);
+    const camA2 = await app(`return app.v3d.viewer.getCamera()`);
+    const d = Math.hypot(...camA.pos.map((v, i) => v - camA2.pos[i]));
+    await a.key("F2");
+    void viewer;
+    return (b.tab === "3d" && b.same && d < 0.05) || fail({ b, camA, camA2 });
+  });
+  await step("Ctrl+Tab / Ctrl+Shift+Tab move to the next / previous tab (wrapping)", async () => {
+    const i0 = await app(`return app.docTabs.docs.indexOf(app.docTabs.docs.activeId)`);
+    await a.key("Tab", 2); await sleep(200);
+    const i1 = await app(`return app.docTabs.docs.indexOf(app.docTabs.docs.activeId)`);
+    await a.key("Tab", 2 | 8); await sleep(200); await a.key("Tab", 2 | 8); await sleep(200);
+    const i2 = await app(`return app.docTabs.docs.indexOf(app.docTabs.docs.activeId)`);
+    return (i1 === (i0 + 1) % 3 && i2 === (i0 + 2) % 3) || fail({ i0, i1, i2 });
+  });
+  await step("dragging a tab sideways reorders the tabs", async () => {
+    const p0 = await tabXY(0), p2 = await tabXY(2);
+    const r2 = await a.ev(`return document.querySelectorAll("#doctabs .doctab")[2].getBoundingClientRect().right`);
+    await a.drag(p0[0], p0[1], r2 - 8, p2[1], 12);
+    await sleep(200);
+    const names = await app(`return app.docTabs.docs.list().map(d => d.fileName)`);
+    const dom = await app(`return [...document.querySelectorAll("#doctabs .doctab .doctab-name")].map(e => e.textContent)`);
+    return (names[2] === "01-studio.myarch" && dom.join() === names.join()) || fail({ names, dom });
+  });
+  await step("× on a tab with unsaved changes asks first (Cancel keeps it, Don't save closes it)", async () => {
+    const i = await app(`return app.docTabs.docs.list().findIndex(d => d.fileName === "03-two-storey-house.myarch")`);
+    const x = await tabXY(i, ".doctab-close");
+    await a.click(x[0], x[1]);
+    await waitFor(`document.querySelector(".modal")`);
+    await dialogButton("Cancel");
+    const kept = (await tabs()).length === 3;
+    const x2 = await tabXY(i, ".doctab-close");
+    await a.click(x2[0], x2[1]);
+    await waitFor(`document.querySelector(".modal")`);
+    await dialogButton("Don't save");
+    await sleep(200);
+    const t = await tabs();
+    return (kept && t.length === 2 && !t.some((d) => d.fileName === "03-two-storey-house.myarch")) || fail(t);
+  });
+  await step("middle click closes a tab; Ctrl+W closes the active one", async () => {
+    await app(`for (const d of app.docTabs.docs.docs) app.docTabs.docs.stateOf(d).dirty = false; return 1`);
+    const r = await tabXY(0);
+    await a.click(r[0], r[1], { button: "middle" });
+    await sleep(250);
+    const n1 = (await tabs()).length;
+    await a.key("w", 2); await sleep(250);
+    const t = await tabs();
+    return (n1 === 1 && t.length === 1 && (await app(`return app.docTabs.docs.isUntouched()`))) || fail({ n1, t });
+  });
+  await step("15 more tabs overflow the strip: \"<\" / \">\" at its right end scroll it and are disabled at the ends", async () => {
+    for (const s of samples) await openSample(s.file);
+    await sleep(300);
+    const st = () => app(`const dt = app.docTabs, s = dt.scroller, b = s.getBoundingClientRect(), act = document.querySelector("#doctabs .doctab.on").getBoundingClientRect(); return { n: dt.docs.count, left: s.scrollLeft, max: s.scrollWidth - s.clientWidth, prev: dt.btnPrev.disabled, next: dt.btnNext.disabled, activeShown: act.left >= b.left - 1 && act.right <= b.right + 1 }`);
+    const s0 = await st();
+    if (!(s0.n === samples.length && s0.max > 0 && s0.activeShown && !s0.prev && s0.next)) fail({ s0 });
+    const prev = await a.ev(`const b = document.querySelector('#doctabs [data-act="prev"]').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2, b.right]`);
+    await a.click(prev[0], prev[1]); await sleep(120);
+    const s1 = await st();
+    for (let i = 0; i < 40 && !(await st()).prev; i++) { await a.click(prev[0], prev[1]); await sleep(30); }
+    const s2 = await st();
+    const next = await a.ev(`const b = document.querySelector('#doctabs [data-act="next"]').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]`);
+    await a.click(next[0], next[1]); await sleep(120);
+    const s3 = await st();
+    const ok = s1.left < s0.left && !s1.next && s2.left === 0 && s2.prev && !s2.next && s3.left > 0 && !s3.prev && prev[2] > (await a.ev(`return document.getElementById("doctabs").getBoundingClientRect().right`)) - 120;
+    return ok || fail({ s0, s1, s2, s3 });
+  });
+  await step("\"▾\" lists every open drawing and switches to the one picked", async () => {
+    await clickSel('#doctabs [data-act="list"]');
+    const n = await app(`return document.querySelectorAll(".ctx-menu.doctabs-list .menu-item").length`);
+    const r = await a.ev(`const it = document.querySelectorAll(".ctx-menu.doctabs-list .menu-item")[1]; const b = it.getBoundingClientRect(); return [b.left + 30, b.top + b.height / 2]`);
+    await a.click(r[0], r[1]); await sleep(300);
+    const t = await tabs();
+    return (n === samples.length && t[1].active) || fail({ n, active: t.findIndex((d) => d.active) });
+  });
+  await step("at the window's minimum width (both side panels open) the narrow strip still scrolls and nothing is cut off", async () => {
+    const before = await a.ev(`return await window.myarch.windowSize()`);
+    await app(`app.settings.showLeft = true; app.settings.showRight = true; app.applyPanels(); return 1`);
+    await a.ev(`window.myarch.resizeWindow(600, 700); return 1`); await sleep(600);
+    const r = await app(`const W = innerWidth; const s = document.getElementById("doctabs").getBoundingClientRect(); const els = [...document.querySelectorAll("#doctabs .doctabs-nav .icon-btn")].map(e => e.getBoundingClientRect());
+      return { W, layout: ${STRIP_LAYOUT}, nav: els.every(b => b.width > 20 && b.right <= s.right + 0.5 && b.left >= s.left), page: document.documentElement.scrollWidth <= W + 1 }`);
+    // Scroll to the start, then step right with ">" (real clicks) until it disables.
+    await app(`app.docTabs.scroller.scrollLeft = 0; app.docTabs.updateNav(); return 1`);
+    const nx = await a.ev(`const b = document.querySelector('#doctabs [data-act="next"]').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]`);
+    let steps = 0;
+    while (steps < 60 && !(await app(`return app.docTabs.btnNext.disabled`))) { await a.click(nx[0], nx[1]); steps++; }
+    const end = await app(`const s = app.docTabs.scroller; return { at: Math.round(s.scrollLeft), max: Math.round(s.scrollWidth - s.clientWidth), prev: app.docTabs.btnPrev.disabled }`);
+    await a.ev(`window.myarch.resizeWindow(${before.width}, ${before.height}); return 1`); await sleep(400);
+    return (layoutOk(r.layout) && r.nav && r.page && steps > 1 && end.at === end.max && !end.prev) || fail({ r, steps, end });
+  });
+  await step("light and dark themes style the strip", async () => {
+    const col = async (theme) => { await app(`app.setSetting("theme", "${theme}"); return 1`); await sleep(150); return app(`return [getComputedStyle(document.getElementById("doctabs")).backgroundColor, getComputedStyle(document.querySelector("#doctabs .doctab.on")).backgroundColor, getComputedStyle(document.querySelector("#doctabs .doctab.on .doctab-name")).color]`); };
+    const t0 = await app(`return app.settings.theme`);
+    const light = await col("daylight"), dark = await col("midnight");
+    await app(`app.setSetting("theme", ${JSON.stringify(t0)}); return 1`);
+    return (light.join() !== dark.join() && light[0] !== light[1]) || fail({ light, dark });
+  });
+  await step("tabs are closed back to one (the rest of the run starts from a single tab)", async () => (await closeAllTabs()) === 1);
 
   // ---------------------------------------------------------------- drawing with the mouse
   sectionStart("Drawing");
@@ -406,6 +576,29 @@ try {
     await a.key("g"); await a.key("g");
     return sec;
   });
+  await step("3D numbers hide behind the building; only X-ray shows them through", async () => {
+    const depth = () => app(`const s = []; app.v3d.viewer.three.scene.traverse(o => { if (o.isSprite && o.userData.label3d) s.push(o.material.depthTest); }); return s`);
+    await app(`app.v3d.setOpt("dimensions", true); return 1`);
+    const solid = await depth();
+    await app(`app.v3d.setOpt("style", "xray"); return 1`);
+    const xray = await depth();
+    await app(`app.v3d.setOpt("style", "realistic"); app.v3d.setOpt("dimensions", false); return 1`);
+    const back = await depth();
+    if (!solid.length) fail("no labels");
+    if (!solid.every(Boolean)) fail("labels drawn over the building in the solid style");
+    if (xray.some(Boolean)) fail("labels hidden in X-ray");
+    return back.every(Boolean) || fail("labels still see-through after leaving X-ray");
+  });
+  await step("3D toolbar carries the 3D menu's commands (front elevation, fog)", async () => app(`return !!document.querySelector('#toolbar [data-cmd="v3d.front"]') && [...document.querySelectorAll("#toolbar .icon-btn")].some(b => b.title === "Fog")`));
+  await step("no toolbar repeats the view tabs (Floor plan / 3D view live only in the title bar and View menu)", async () => {
+    const bad = [];
+    for (const tab of ["start", "plan", "3d"]) {
+      const n = await app(`app.setTab("${tab}"); await new Promise(r => setTimeout(r, 150)); return document.querySelectorAll('#toolbar [data-cmd="view.plan"], #toolbar [data-cmd="view.3d"], #toolbar [data-cmd="view.start"]').length`);
+      if (n) bad.push(`${tab}: ${n}`);
+    }
+    await app(`app.setTab("3d"); return 1`);
+    return !bad.length || fail(bad.join(", "));
+  });
   await step("3D grid keeps 5×5 blocks at an even on-screen size while zooming (like the plan)", async () => {
     await a.key("1"); await sleep(500);
     const [cx, cy] = await app(`const r = app.v3d.viewer.three.renderer.domElement.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]`);
@@ -575,6 +768,58 @@ try {
     const pdf = fs.readdirSync(out).find((f) => f.endsWith(".pdf"));
     return (tb && pdf && head(pdf, 4).toString("latin1") === "%PDF") || fail(`title ${tb}, pdf ${pdf}`);
   });
+  // The print window: title bar with the program icon, settings on the left,
+  // live preview on the right, and a Print button that prints at once.
+  const pageBox = () => app(`const pg = document.querySelector(".print-stage .page"); if (!pg) return null; const b = pg.getBoundingClientRect(); return { w: b.width, h: b.height, sw: +pg.dataset.w, sh: +pg.dataset.h, svg: pg.querySelector("svg").outerHTML.length, text: pg.querySelector("svg").innerHTML }`);
+  const pwChange = (sel, value) => app(`const el = document.querySelector(${JSON.stringify(sel)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event("change", { bubbles: true })); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); return 1`);
+  const settle = () => app(`await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); return 1`);
+  await step("print window: title bar with icon and name, settings on the left, preview on the right", async () => {
+    await closeModals();
+    await app(`delete app.settings.print; app.run("file.print"); return 1`);
+    await waitFor(`document.querySelector(".print-window .print-stage .page svg")`);
+    await waitFor(`document.querySelector(".pw-printer option") && !document.querySelector(".pw-printer").textContent.includes("Loading")`);
+    const r = await app(`const box = document.querySelector(".modal.print-window"); const icon = box.querySelector(".modal-head .modal-appicon"); const left = box.querySelector(".pw-settings").getBoundingClientRect(); const right = box.querySelector(".print-stage").getBoundingClientRect(); const b = box.getBoundingClientRect();
+      return { icon: icon && icon.complete && icon.naturalWidth > 0, title: box.querySelector(".modal-title").textContent.trim(), sections: box.querySelectorAll(".pw-section").length, leftOfPreview: left.right <= right.left + 1, big: b.width > innerWidth * 0.6 && b.height > innerHeight * 0.6, printers: box.querySelectorAll(".pw-printer option").length, inside: b.right <= innerWidth && b.bottom <= innerHeight, buttons: [...box.querySelectorAll(".modal-foot .btn")].map(x => x.textContent.trim()) }`);
+    return (r.icon && r.title === "Print" && r.sections >= 5 && r.leftOfPreview && r.big && r.printers >= 1 && r.inside && r.buttons.includes("Print") && !r.buttons.includes("Print…")) || fail(r);
+  });
+  await step("print window: orientation, paper, margins and sheet options change the preview", async () => {
+    const land = await pageBox();
+    await clickSel('.pw-orient [data-value="p"]'); await settle();
+    const port = await pageBox();
+    await pwChange(".pw-paper", "A4");
+    const a4 = await pageBox();
+    const m0 = await app(`return document.querySelector(".pw-margins").style.left`);
+    await pwChange(".pw-margin-preset", "wide");
+    const m1 = await app(`return document.querySelector(".pw-margins").style.left`);
+    const tbOn = (await pageBox()).text.includes("Drawn by");
+    await app(`document.querySelector('[data-section="sheet"]').open = true; return 1`);
+    const tbCheck = await app(`const l = [...document.querySelectorAll('[data-section="sheet"] .check')].find(c => c.textContent.includes("Title block")); l.querySelector("input").click(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); return document.querySelector(".print-stage .page svg").innerHTML.includes("Drawn by")`);
+    await app(`const l = [...document.querySelectorAll('[data-section="sheet"] .check')].find(c => c.textContent.includes("Title block")); l.querySelector("input").click(); return 1`);
+    await pwChange(".pw-scale", "50"); await settle();
+    const info = await app(`return document.querySelector(".pw-status").textContent`);
+    const ok = land.w > land.h && port.h > port.w && a4.sw === 210 && a4.sh === 297 && m0 !== m1 && tbOn && tbCheck === false && info.includes("1:50") && info.includes("A4") && info.includes("Portrait");
+    return ok || fail({ land, port: [port.w, port.h], a4: [a4.sw, a4.sh], m0, m1, tbOn, tbCheck, info });
+  });
+  await step("print window: Print sends the sheets straight to the printer — no second dialog (fake: PDF + job)", async () => {
+    for (const f of ["print.pdf", "print-job.json"]) if (fs.existsSync(outFile(f))) fs.rmSync(outFile(f));
+    await app(`const el = document.querySelector('[data-section="printer"] input[type=number]'); el.value = "2"; el.dispatchEvent(new Event("change")); return 1`);
+    const printer = await app(`return document.querySelector(".pw-printer").value`);
+    // Enter in a settings box commits the value; it must not print.
+    await app(`document.querySelector('[data-section="printer"] input[type=number]').focus(); return 1`);
+    await a.key("Enter"); await sleep(300);
+    if (exists("print-job.json") || !(await app(`return !!document.querySelector(".print-window")`))) fail("Enter in a settings box printed");
+    await dialogButton("Print");
+    const t0 = Date.now();
+    while (!exists("print-job.json") && Date.now() - t0 < 8000) await sleep(100);
+    await sleep(200);
+    const job = exists("print-job.json") ? JSON.parse(fs.readFileSync(outFile("print-job.json"), "utf8")) : null;
+    const pdfOk = exists("print.pdf") && head("print.pdf", 4).toString("latin1") === "%PDF";
+    const noDialog = await app(`return !document.querySelector(".modal-backdrop")`);
+    const saved = await app(`return app.settings.print && app.settings.print.paper === "A4" && app.settings.print.landscape === false && app.settings.print.marginPreset === "wide"`);
+    await app(`delete app.settings.print; app.settings.defaultPaper = "A3"; app.saveSettings(); return 1`);
+    const ok = job && pdfOk && noDialog && saved && job.silent === true && job.copies === 2 && job.landscape === false && job.pageSize === "A4" && job.margins.marginType === "none" && (job.deviceName || "") === printer && job.sheet[0] === 210;
+    return ok || fail({ job, pdfOk, noDialog, saved, printer });
+  });
   await step("3D screenshot (PNG)", async () => {
     await a.key("F3"); await sleep(300);
     await app(`await app.v3d.screenshot(); return 1`);
@@ -595,12 +840,82 @@ try {
     return app(`const p = app.store.project; return p.openings.length >= 3 && p.rooms.length >= 3 && p.walls.some(w => w.type === "ext-brick-300") && p.solids.length === 3 && p.grids.length === 1`);
   });
   await step("IFC2X3 imports too", async () => { await importFile("smoke-IFC2X3.ifc"); await waitFor(`app.store.project.walls.length >= 5`, 8000); await closeModals(); return true; });
+  // Other programs' files: generated here from the unit-test fixtures.
+  const fx = await import(`file://${path.join(root, "test/unit/interop-fixtures.mjs").replace(/\\/g, "/")}`);
+  const projectCounts = `const p = app.store.project; return { levels: p.levels.length, walls: p.walls.length, openings: p.openings.length, rooms: p.rooms.length, furniture: p.furniture.length, stairs: p.stairs.length, roofs: p.roofs.length, tab: app.tab, notes: !!document.querySelector(".import-report") }`;
+  await step("Sweet Home 3D (.sh3d) imports levels, walls, doors/windows, rooms, furniture and stairs", async () => {
+    fs.writeFileSync(outFile("smoke-home.sh3d"), fx.deflateZip([{ name: "Home", data: new Uint8Array([0xac, 0xed, 0, 5]) }, { name: "Home.xml", data: fx.HOME_XML }]));
+    await importFile("smoke-home.sh3d");
+    await waitFor(`app.store.project.stairs.length === 1`, 8000);
+    const c = await app(projectCounts);
+    await closeModals();
+    return (c.levels === 2 && c.walls === 14 && c.openings === 3 && c.rooms === 3 && c.furniture === 7 && c.tab === "plan" && c.notes) || fail(c);
+  });
+  await step("the imported Sweet Home 3D home builds in 3D", async () => {
+    await a.key("F3"); await waitFor(`app.v3d.viewer`, 10000); await app(`app.v3d.syncModel(); return 1`); await sleep(800);
+    const st = await app(`return app.v3d.viewer.stats()`);
+    await a.key("F2");
+    return st.meshes > 30 || fail(st);
+  });
+  await step("gbXML (UTF-16, as Revit writes it) imports storeys, walls, openings, rooms and the roof", async () => {
+    const text = fx.gbxmlFixture();
+    fs.writeFileSync(outFile("smoke-gbxml.xml"), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, "utf16le")]));
+    await importFile("smoke-gbxml.xml");
+    await waitFor(`app.store.project.roofs.length === 1`, 8000);
+    const c = await app(projectCounts);
+    await closeModals();
+    return (c.levels === 2 && c.walls === 9 && c.openings === 5 && c.rooms === 3 && c.notes) || fail(c);
+  });
+  await step("IFC ZIP (.ifczip) imports like the IFC inside it", async () => {
+    fs.writeFileSync(outFile("smoke.ifczip"), fx.deflateZip([{ name: "smoke.ifc", data: fs.readFileSync(outFile("smoke-IFC4.ifc")) }]));
+    await importFile("smoke.ifczip");
+    await waitFor(`app.store.project.walls.length >= 5 && app.store.project.grids.length === 1`, 8000);
+    await closeModals();
+    return true;
+  });
+  await step("an old .sh3d and an ifcXML file explain what to do", async () => {
+    fs.writeFileSync(outFile("smoke-old.sh3d"), fx.deflateZip([{ name: "Home", data: new Uint8Array([0xac, 0xed, 0, 5]) }]));
+    await importFile("smoke-old.sh3d");
+    await waitFor(`[...document.querySelectorAll(".toast")].some(t => /5\\.3/.test(t.textContent))`, 5000);
+    await app(`app.openFileObject({ name: "x.ifcxml", bytes: new Uint8Array(4), text: "" }); return 1`);
+    await waitFor(`document.querySelector(".modal") && /ifcXML/.test(document.querySelector(".modal").textContent)`);
+    await closeModals();
+    return true;
+  });
   const dxf = fs.readdirSync(out).find((f) => f.endsWith(".dxf"));
   await step("DXF imports as CAD layers", async () => {
     const n = await app(`return app.store.project.drawings.length`);
     await importFile(dxf);
     await primary(); await sleep(400);
     return app(`return app.store.project.drawings.length > ${n} + 10 && app.store.project.layers.some(l => l.name === "A-WALL")`);
+  });
+  await step("DWG (R2000, written by the test) imports as CAD layers", async () => {
+    const dwgFx = await import(`file://${path.join(root, "test/unit/dwg-fixtures.mjs").replace(/\\/g, "/")}`);
+    fs.writeFileSync(outFile("smoke.dwg"), dwgFx.sampleDwg());
+    const n = await app(`return app.store.project.drawings.length`);
+    const nt = await app(`return app.store.project.texts.length`);
+    await importFile("smoke.dwg");
+    await waitFor(`document.querySelector(".modal") && /DWG/.test(document.querySelector(".modal").textContent)`);
+    await primary(); await sleep(400);
+    await closeModals();
+    return app(`const p = app.store.project; return p.drawings.length === ${n} + 4 && p.texts.length === ${nt} + 1 && p.layers.some(l => l.name === "Walls") && p.layers.some(l => l.name === "Hidden" && !l.visible)`);
+  });
+  await step("DWG from the corpus imports (MYARCH_DWG_CORPUS)", async () => {
+    const dir = process.env.MYARCH_DWG_CORPUS;
+    if (!dir || !fs.existsSync(dir)) return "skipped: MYARCH_DWG_CORPUS is not set";
+    const pick = fs.readdirSync(dir).filter((f) => /\.dwg$/i.test(f)).map((f) => [f, fs.statSync(path.join(dir, f)).size]).sort((x, y) => x[1] - y[1])[0];
+    if (!pick) return "skipped: no .dwg in MYARCH_DWG_CORPUS";
+    fs.copyFileSync(path.join(dir, pick[0]), outFile(`corpus-${pick[0]}`));
+    const n = await app(`return app.store.project.drawings.length + app.store.project.texts.length`);
+    await importFile(`corpus-${pick[0]}`);
+    await primary(); await sleep(600);
+    await closeModals();
+    return (await app(`return app.store.project.drawings.length + app.store.project.texts.length > ${n}`)) ? pick[0] : false;
+  });
+  await step("a file that only claims to be DWG is refused with a note", async () => {
+    await app(`app.openFileObject({ name: "x.dwg", bytes: new Uint8Array(16), text: "" }); return 1`);
+    await waitFor(`[...document.querySelectorAll(".toast")].some(t => /DWG/.test(t.textContent))`, 5000);
+    return app(`return !document.querySelector(".modal")`);
   });
   await step("SVG imports as drawing lines", async () => {
     const svg = fs.readdirSync(out).find((f) => f.endsWith(".svg"));
@@ -635,8 +950,8 @@ try {
     await a.key("F2");
     return st.meshes > 10;
   });
-  await step("closed formats (DWG, SKP, RVT) explain the alternatives", async () => {
-    for (const ext of ["dwg", "skp", "rvt"]) {
+  await step("closed formats (SKP, RVT, PLN) explain the alternatives", async () => {
+    for (const ext of ["skp", "rvt", "pln"]) {
       await app(`app.openFileObject({ name: "x.${ext}", bytes: new Uint8Array(4), text: "" }); return 1`);
       await waitFor(`document.querySelector(".modal")`);
       await closeModals();
@@ -787,6 +1102,112 @@ try {
     }
     for (const id of ["edit.find", "palette", "file.samples"]) { await app(`app.run("${id}"); return 1`); await waitFor(`document.querySelector(".quickpick")`); await closeModals(); }
     return true;
+  });
+
+  // ---------------------------------------------------------------- lighting
+  sectionStart("Lighting");
+  const lampAt = (id) => app(`const f = app.store.project.furniture.find(q => q.id === ${JSON.stringify(id)}); return f ? { x: f.x, y: f.y, on: f.light && f.light.on, elevation: f.elevation } : null`);
+  // Screen point of a lamp's bulb in the 3D view.
+  const lampScreen = (id) => app(`const v = app.v3d.viewer; const { camera, renderer, THREE, building } = v.three; let a = null; building.traverse(o => { if (o.userData.lamp && o.userData.lamp.id === ${JSON.stringify(id)}) a = o; }); if (!a) return null; building.updateMatrixWorld(true); const q = new THREE.Vector3().setFromMatrixPosition(a.matrixWorld).project(camera); const r = renderer.domElement.getBoundingClientRect(); return [r.left + (q.x + 1) / 2 * r.width, r.top + (1 - q.y) / 2 * r.height];`);
+  let lamp1 = null;
+  await step("library Lighting category: click Ceiling light, click the plan — the lamp hangs under the ceiling, switched on", async () => {
+    await closeModals();
+    await app(`app.setTab("plan"); return 1`);
+    await newProject();
+    await fitView({ x1: -1000, y1: -1000, x2: 8000, y2: 6000 });
+    const chip = await a.ev(`const c = [...document.querySelectorAll(".chip")].find(b => b.textContent === "Lighting"); if (!c) return null; const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]`);
+    if (!chip) fail("no Lighting category chip");
+    await a.click(chip[0], chip[1]);
+    const cat = await app(`return document.querySelector(".chip.on").textContent`);
+    await clickSel('.lib-item[data-kind="ceilingLight"]');
+    await clickW(3000, 2000);
+    lamp1 = await app(`const f = app.store.project.furniture.find(q => q.kind === "ceilingLight"); return f && f.id`);
+    const l = await lampAt(lamp1);
+    await app(`const c = [...document.querySelectorAll(".chip")].find(b => b.textContent === "All"); if (c) c.click(); return 1`);
+    if (cat !== "Lighting") fail(`category chip "${cat}"`);
+    return (l && l.on === true && l.elevation === 2800 - 120 && Math.abs(l.x - 3000) <= 50 && Math.abs(l.y - 2000) <= 50) || fail(l);
+  });
+  await step("plan: the lamp drags with the mouse (and snaps), its symbol shows on/off", async () => {
+    const [x1, y1] = await scr(3000, 2000);
+    const [x2, y2] = await scr(4500, 3200);
+    await a.drag(x1, y1, x2, y2, 10);
+    const l = await lampAt(lamp1);
+    return (Math.abs(l.x - 4500) <= 60 && Math.abs(l.y - 3200) <= 60 && l.x % 50 === 0) || fail(l);
+  });
+  await step("plan right-click on the lamp: Switch light off; the properties switch turns it back on", async () => {
+    const l0 = await lampAt(lamp1);
+    const [x, y] = await scr(l0.x, l0.y);
+    await a.click(x, y, { button: "right" });
+    const r = await a.ev(`const it = [...document.querySelectorAll(".ctx-menu .menu-item")].find(m => m.textContent.includes("Switch light off")); if (!it) return null; const b = it.getBoundingClientRect(); return [b.left + 20, b.top + b.height / 2]`);
+    if (!r) fail("no Switch light off item");
+    await a.click(r[0], r[1]);
+    const off = (await lampAt(lamp1)).on;
+    await sleep(150);
+    await clickSel(`[data-lamp-on="${lamp1}"] input`);
+    const on = (await lampAt(lamp1)).on;
+    return (off === false && on === true) || fail({ off, on });
+  });
+  await step("the properties show brightness, colour temperature and colour; edits are undoable", async () => {
+    await app(`app.plan.select([${JSON.stringify(lamp1)}]); return 1`);
+    const fields = await app(`await new Promise(r => setTimeout(r, 120)); return ["Brightness (lm)", "Colour temperature", "Light colour"].map(f => !!document.querySelector('[data-field="' + f + '"]'))`);
+    if (!fields.every(Boolean)) fail(`fields ${fields}`);
+    await app(`app.store.edit("x", (p) => { const f = p.furniture.find(q => q.id === ${JSON.stringify(lamp1)}); f.light.lumens = 3000; f.light.color = "#eef3ff"; }); return 1`);
+    const l = await app(`return app.store.project.furniture.find(q => q.id === ${JSON.stringify(lamp1)}).light`);
+    await app(`app.run("edit.undo"); return 1`);
+    const back = await app(`return app.store.project.furniture.find(q => q.id === ${JSON.stringify(lamp1)}).light.lumens`);
+    return (l.lumens === 3000 && back === 2000) || fail({ l, back });
+  });
+  await step("3D: lit lamps become lights; the toolbar's All lights button switches them off and on without a rebuild", async () => {
+    await app(`app.plan.setTool("furniture", { kind: "downlight" }); return 1`);
+    await clickW(1500, 1500);
+    await a.key("F3");
+    await waitFor(`app.v3d.viewer`, 10000);
+    await app(`app.v3d.syncModel(); return 1`);
+    await sleep(300);
+    const info = () => app(`return app.v3d.viewer.lampInfo()`);
+    const i0 = await info();
+    if (!(await app(`return !!document.querySelector('#toolbar [data-cmd="light.all"]') && !!document.querySelector('#toolbar [data-cmd="v3d.night"]')`))) fail("no lighting buttons on the 3D toolbar");
+    const built = await app(`return app.v3d.viewer.three.building.uuid`);
+    await clickSel('#toolbar [data-cmd="light.all"]');
+    await sleep(150);
+    const i1 = await info();
+    const offs = await app(`return app.store.project.furniture.filter(f => f.light).map(f => f.light.on)`);
+    await clickSel('#toolbar [data-cmd="light.all"]');
+    await sleep(150);
+    const i2 = await info();
+    const same = await app(`return app.v3d.viewer.three.building.uuid`);
+    if (built !== same) fail("the switch rebuilt the model");
+    return (i0.lamps === 2 && i0.active === 2 && i1.active === 0 && offs.every((v) => v === false) && i2.active === 2) || fail({ i0, i1, i2, offs });
+  });
+  await step("3D night view dims the sun so only the lamps light the room", async () => {
+    await clickSel('#toolbar [data-cmd="v3d.night"]');
+    await sleep(200);
+    const n = await app(`const { scene } = app.v3d.viewer.three; let sun = 0; scene.traverse(o => { if (o.isDirectionalLight && o.castShadow !== undefined && o.parent === scene) sun = Math.max(sun, o.intensity); }); return { sun, env: scene.environmentIntensity, night: app.v3d.opts.night }`);
+    return (n.night && n.sun === 0 && n.env < 0.1) || fail(n);
+  });
+  await step("3D: double-click a lamp switches it; right-click offers Switch light; a selected lamp drags with the mouse", async () => {
+    await a.key("2"); await sleep(700);
+    let pt = await lampScreen(lamp1);
+    if (!pt) fail("no lamp anchor");
+    await a.dblclick(pt[0], pt[1]);
+    await sleep(200);
+    const afterDbl = (await lampAt(lamp1)).on;
+    const i1 = await app(`return app.v3d.viewer.lampInfo()`);
+    await a.click(pt[0], pt[1], { button: "right" });
+    const items = await app(`return [...document.querySelectorAll(".ctx-menu .menu-item")].map(m => m.textContent).join("|")`);
+    await a.key("Escape"); await closeModals();
+    if (afterDbl !== false || i1.active !== 1) fail({ afterDbl, i1 });
+    if (!/Switch light on/.test(items)) fail(`menu: ${items}`);
+    // Select it (click), then drag it 100 px to the right.
+    const x0 = (await lampAt(lamp1)).x;
+    await a.click(pt[0], pt[1]);
+    await sleep(100);
+    pt = await lampScreen(lamp1);
+    await a.drag(pt[0], pt[1], pt[0] + 150, pt[1], 10);
+    await sleep(400);
+    const x1 = (await lampAt(lamp1)).x;
+    await app(`app.v3d.setOpt("night", false); app.setTab("plan"); return 1`);
+    return x1 > x0 + 50 || fail(`x ${x0} → ${x1}`);
   });
 
   // ---------------------------------------------------------------- every command
