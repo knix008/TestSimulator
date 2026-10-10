@@ -99,6 +99,17 @@ export function footprintThumb(name, w = 220, hgt = 140, themeName = "dark") {
 // ---------------------------------------------------------------- left panel
 let libState = { query: "", category: "" };
 
+// Scan order for the library filters. Anything not listed (a custom category)
+// is appended after these.
+const LIB_CATS = ["Passive", "Diode", "Transistor", "Power", "Switch", "Simulation", "Connector", "Mechanical", "Misc", "IC", "MCU", "Logic", "Interface"];
+
+function libraryCategories() {
+  const present = new Set(symbolCategories());
+  const ordered = LIB_CATS.filter((c) => present.has(c));
+  for (const c of symbolCategories()) if (!ordered.includes(c)) ordered.push(c);
+  return ordered;
+}
+
 export function renderLeft(app, host) {
   host.innerHTML = "";
   if (app.tab === "sch") return renderLibrary(app, host);
@@ -115,10 +126,10 @@ function renderLibrary(app, host) {
     h("button", { class: "icon-btn", title: t("Power port"), html: icon("ground", 15), onclick: () => app.run("sch.power") })));
   const search = h("input", { placeholder: t("Search parts (e.g. 10k, led, 555)"), value: libState.query });
   panel.append(h("div", { class: "search" }, h("span", { html: icon("search", 15) }), search));
-  const chips = h("div", { class: "chips" });
-  const cats = ["", ...symbolCategories()];
-  for (const c of cats) {
-    chips.append(h("button", { class: `chip ${libState.category === c ? "on" : ""}`, onclick: () => { libState.category = c; renderLeft(app, host); } }, c ? t(c) : t("All")));
+  const chips = h("div", { class: "lib-cats" });
+  for (const c of ["", ...libraryCategories()]) {
+    const label = c ? t(c) : t("All");
+    chips.append(h("button", { class: `chip ${libState.category === c ? "on" : ""}`, title: label, onclick: () => { libState.category = c; renderLeft(app, host); } }, label));
   }
   panel.append(chips);
   const preview = h("div", { class: "lib-preview" });
