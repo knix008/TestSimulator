@@ -15,6 +15,17 @@ import { getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h } from "./widgets.js";
 import { LESSONS } from "./tutorial-lessons.js";
+import { SETTING_DEFAULTS } from "./dialogs.js";
+
+// Drawing settings the lessons are written for. While the tutorial is open
+// they replace the user's own (grid, snap, units, phase filter, panels …) so
+// every step behaves as described; closing the tutorial puts them back.
+// Appearance (theme, language, UI scale, animations, hints) is left alone.
+const KEEP_OWN = new Set(["uiScale", "animations", "showHints", "hintSeconds", "autosave", "autosaveSeconds", "recentLimit", "startup", "showWelcome"]);
+const BASELINE = {
+  ...Object.fromEntries(Object.entries(SETTING_DEFAULTS).filter(([k]) => !KEEP_OWN.has(k))),
+  phaseView: "all", drawPhase: "new", sunStudy: false, showLeft: true, showRight: true,
+};
 
 // A macrotask yield that is not throttled when the window is in the background.
 const yieldNow = () => new Promise((r) => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
@@ -73,6 +84,7 @@ export class TutorialPlayer {
   // ---------------------------------------------------------------- lifecycle
   async open({ lesson = 0, autoplay = false, mode = null } = {}) {
     if (!this.panel) this.build();
+    this.useBaseline();
     this.panel.style.display = "";
     this.li = Math.max(0, Math.min(this.lessons.length - 1, lesson));
     this.si = 0;
@@ -89,6 +101,34 @@ export class TutorialPlayer {
     if (this.panel) this.panel.style.display = "none";
     this.hideCursor();
     this.spot(null);
+    this.restoreSettings();
+  }
+
+  useBaseline() {
+    const app = this.app;
+    if (!this.savedSettings) this.savedSettings = Object.fromEntries(Object.keys(BASELINE).map((k) => [k, app.settings[k]]));
+    Object.assign(app.settings, BASELINE);
+    this.applySettings();
+    if (app.v3d && app.v3d.resetView) app.v3d.resetView();
+    // A drawing tool left on (e.g. from an earlier run) would turn drags into walls.
+    if (app.plan && app.plan.tool !== "select") { app.plan.finishChain(); app.plan.setTool("select"); }
+  }
+
+  restoreSettings() {
+    if (!this.savedSettings) return;
+    for (const [k, v] of Object.entries(this.savedSettings)) { if (v === undefined) delete this.app.settings[k]; else this.app.settings[k] = v; }
+    this.savedSettings = null;
+    this.applySettings();
+  }
+
+  applySettings() {
+    const app = this.app;
+    app.saveSettings();
+    app.applyPanels();
+    if (app.v3d) app.v3d.applySettings();
+    app.plan.request();
+    app.renderToolbar();
+    app.updateStatus();
   }
 
   get lesson() { return this.lessons[this.li]; }
@@ -99,6 +139,7 @@ export class TutorialPlayer {
     this.instant = true;
     this.report = [];
     if (!this.panel) this.build();
+    this.useBaseline();
     for (let li = from; li <= to; li++) {
       this.li = li;
       for (let si = 0; si < this.lessons[li].steps.length; si++) {
@@ -118,6 +159,7 @@ export class TutorialPlayer {
     const report = [];
     this.instant = true;
     if (!this.panel) this.build();
+    this.useBaseline();
     const ctx = this.ctx();
     for (let li = 0; li < this.lessons.length; li++) {
       this.li = li;

@@ -1,0 +1,14 @@
+{
+  "generator": "scripts/create-installer.mjs",
+  "types": [
+    {
+      "ext": "myarch",
+      "name": "MyArchitecture.Project",
+      "ko": "MyArchitecture 프로젝트",
+      "en": "MyArchitecture project",
+      "role": "Editor",
+      "default": true,
+      "builtin": true
+    }
+  ]
+}

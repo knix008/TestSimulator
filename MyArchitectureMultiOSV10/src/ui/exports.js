@@ -360,7 +360,7 @@ export function sheetSvg(app, level, cfg, index = 1, count = 1) {
   label(p.meta.title || t("Untitled"), tx + 3, ty + 6.2, 4.2, true);
   small([p.meta.client, p.meta.address].filter(Boolean).join(" · "), tx + 3, ty + 9);
   small(t("Drawing"), tx + 2, ty + 12.4); label(`${t("Floor plan")} — ${lv ? lv.name : ""}`, tx + 2, ty + 17, 3.2, true);
-  small(t("Scale"), tx + tbW * 0.55 + 2, ty + 12.4); label(`1:${scale}`, tx + tbW * 0.55 + 2, ty + 17, 3.2);
+  small(t("Drawing scale"), tx + tbW * 0.55 + 2, ty + 12.4); label(`1:${scale}`, tx + tbW * 0.55 + 2, ty + 17, 3.2);
   small(t("Sheet"), tx + tbW * 0.78 + 2, ty + 12.4); label(`${index} / ${count}`, tx + tbW * 0.78 + 2, ty + 17, 3.2);
   small(t("Drawn by"), tx + 2, ty + 21.4); label(p.meta.author || "—", tx + 2, ty + 26, 2.8);
   small(t("Date"), tx + tbW * 0.55 + 2, ty + 21.4); label(p.meta.date || "", tx + tbW * 0.55 + 2, ty + 26, 2.8);
@@ -428,7 +428,7 @@ export async function printDialog(app, { pdf = false } = {}) {
   const pageTab = h("div", { class: "print-options" },
     field(t("Paper"), select(cfg.paper, Object.keys(PAPER).map((x) => [x, x]), { onChange: (v) => { cfg.paper = v; draw(); } })),
     field(t("Orientation"), select("l", [["l", t("Landscape")], ["p", t("Portrait")]], { onChange: (v) => { cfg.landscape = v === "l"; draw(); } })),
-    field(t("Scale"), select(cfg.scale, [["fit", t("Fit to page")], ...SCALES.map((s) => [String(s), `1:${s}`])], { onChange: (v) => { cfg.scale = v; draw(); } })),
+    field(t("Drawing scale"), select(cfg.scale, [["fit", t("Fit to page")], ...SCALES.map((s) => [String(s), `1:${s}`])], { onChange: (v) => { cfg.scale = v; draw(); } })),
     h("p", { class: "field-hint" }, t("Title block from File → Project properties.")));
   const opts = tabs([{ id: "c", label: t("Contents"), body: contentsTab }, { id: "p", label: t("Page"), body: pageTab }]);
   const body = h("div", { class: "print-preview" }, opts, h("div", { style: { display: "flex", flexDirection: "column", gap: "6px", minHeight: 0 } }, stage, nav));

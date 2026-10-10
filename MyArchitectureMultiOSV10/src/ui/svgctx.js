@@ -1,9 +1,9 @@
 // A small stand-in for CanvasRenderingContext2D that records SVG.
 //
-// The schematic and PCB renderers draw through the canvas API; handing them
+// The plan renderer draws through the canvas API; handing it
 // this object instead turns the very same drawing code into vector output for
 // printing, SVG export and PDF (via the browser's print-to-PDF). Only the
-// subset those renderers use is implemented. Arcs are flattened to polylines
+// subset that renderer uses is implemented. Arcs are flattened to polylines
 // so any transform (including mirroring) stays exact.
 
 function mul(a, b) {

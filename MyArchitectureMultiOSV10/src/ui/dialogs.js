@@ -300,7 +300,7 @@ export async function wallTypesDialog(app) {
     left.innerHTML = "";
     types.forEach((wt, i) => left.append(h("button", { class: `wt-row ${i === cur ? "on" : ""}`, onclick: () => { cur = i; draw(); } }, h("b", {}, wt.name), h("small", {}, `${wt.layers.reduce((s, l) => s + l.thickness, 0)} mm · ${t("{n} layers", { n: wt.layers.length })} · ${p.walls.filter((w) => w.type === wt.id).length} ${t("walls")}`))));
     left.append(h("div", { class: "prop-actions" },
-      h("button", { class: "btn small", onclick: () => { types.push({ id: uid("wt"), name: `${t("Wall type")} ${types.length + 1}`, exterior: false, layers: [{ material: "concrete", thickness: 200, function: "structure" }] }); cur = types.length - 1; draw(); } }, h("span", { html: icon("plus", 12) }), t("New")),
+      h("button", { class: "btn small", onclick: () => { types.push({ id: uid("wt"), name: `${t("Wall type")} ${types.length + 1}`, exterior: false, layers: [{ material: "concrete", thickness: 200, function: "structure" }] }); cur = types.length - 1; draw(); } }, h("span", { html: icon("plus", 12) }), t("New type")),
       h("button", { class: "btn small", onclick: () => { const c = JSON.parse(JSON.stringify(types[cur])); c.id = uid("wt"); c.name += ` (${t("copy")})`; types.push(c); cur = types.length - 1; draw(); } }, t("Duplicate")),
       h("button", { class: "btn small danger", disabled: types.length < 2 || p.walls.some((w) => w.type === types[cur].id), onclick: () => { types.splice(cur, 1); cur = 0; draw(); } }, t("Delete"))));
     right.innerHTML = "";
@@ -499,7 +499,8 @@ export async function settingsDialog(app) {
 }
 
 // ---------------------------------------------------------------- schedules
-export async function schedulesDialog(app) {
+// opts.tab: the tab to open on ("r" rooms, "o" openings, "w" wall types, "l" levels, "c" cost).
+export async function schedulesDialog(app, opts = {}) {
   const p = app.store.project;
   const rooms = roomSchedule(p);
   const openings = openingSchedule(p);
@@ -521,12 +522,12 @@ export async function schedulesDialog(app) {
   const costs = { ...p.costs };
   const costHost = h("div", {});
   const money = (v) => Math.round(v).toLocaleString();
-  const costCols = [["item", t("Item"), (v) => t(v)], ["qty", t("Quantity"), (v) => (+v).toFixed(2)], ["unit", t("Unit")], ["price", t("Unit price"), money], ["total", t("Amount"), money]];
+  const costCols = [["item", t("Item"), (v) => t(v)], ["qty", t("Quantity"), (v) => (+v).toFixed(2)], ["unit", t("Unit"), (v) => t(v)], ["price", t("Unit price"), money], ["total", t("Amount"), money]];
   const drawCost = () => {
     costHost.innerHTML = "";
     const est = costEstimate({ ...p, costs });
     const priceField = (k, label) => field(label, stepper(costs[k] || 0, { min: 0, max: 1e9, step: 10000, editable: true, format: money, onChange: (v) => { costs[k] = v; drawCost(); } }));
-    costHost.append(h("div", { class: "form-grid three" }, priceField("wall", t("Wall per m²")), priceField("floor", t("Floor per m²")), priceField("roof", t("Roof per m²")), priceField("door", t("Door each")), priceField("window", t("Window each")), priceField("stair", t("Stair each"))),
+    costHost.append(h("div", { class: "form-grid three" }, priceField("wall", t("Wall per m²")), priceField("floor", t("Floor per m²")), priceField("roof", t("Roof per m²")), priceField("door", t("Door each")), priceField("window", t("Window each")), priceField("opening", t("Opening each")), priceField("stair", t("Stair each")), priceField("column", t("Column each"))),
       tbl(costCols, est.lines), h("p", { class: "cost-total" }, t("Estimated total: {v} {c}", { v: money(est.total), c: est.currency })));
   };
   drawCost();
@@ -537,6 +538,7 @@ export async function schedulesDialog(app) {
     { id: "l", label: t("Levels"), body: tbl(levelCols, levels) },
     { id: "c", label: t("Cost estimate"), body: costHost },
   ]), totalRow);
+  if (opts.tab) setTimeout(() => { const b = body.querySelector(`.tab[data-id="${opts.tab}"]`); if (b) b.click(); }, 0);
   const r = await modal({ title: t("Schedules and quantities"), width: 920, body, buttons: [{ label: t("Rooms CSV…"), value: "r", left: true }, { label: t("Doors & windows CSV…"), value: "o" }, { label: t("Wall types CSV…"), value: "w" }, { label: t("Cost CSV…"), value: "c" }, { label: t("Levels CSV…"), value: "l" }, { label: t("Close"), value: null, primary: true }] });
   if (JSON.stringify(costs) !== JSON.stringify(p.costs)) app.store.edit(t("Unit prices"), (pr) => { pr.costs = costs; });
   if (!r) return;
@@ -681,7 +683,7 @@ export const FORMATS = [
   ["SVG", ".svg", "✓", "✓", "2D vector drawing"],
   ["PDF", ".pdf", "—", "✓", "Drawing sheets with title block (print)"],
   ["PNG / JPG / WebP", ".png .jpg .webp", "✓", "✓", "Images: import as tracing underlay; export plan or 3D image"],
-  ["CSV", ".csv", "—", "✓", "Room, door/window and level schedules"],
+  ["CSV", ".csv", "—", "✓", "Room, door/window, wall type, cost and level schedules"],
   ["DWG / SKP / RVT / PLN", "", "—", "—", "Closed formats: use DXF, DAE/OBJ or IFC exported from those programs"],
 ];
 
@@ -735,10 +737,10 @@ export async function about(app, version) {
 }
 
 const SHORTCUTS = [
-  ["General", [["Ctrl+K", "Command palette — search every command, room and level"], ["Ctrl+N / Ctrl+O / Ctrl+S", "New / open / save"], ["Ctrl+I", "Import (DXF, IFC, 3D models, images…)"], ["Ctrl+Z / Ctrl+Y", "Undo / redo"], ["Ctrl+F", "Find"], ["Ctrl+P", "Print / PDF"], ["F1", "User manual"], ["F2 / F3", "Floor plan / 3D view"], ["F5", "Model check"], ["F8 / F9", "Orthogonal drawing / snapping"], ["Home", "Zoom to fit"], ["Ctrl+1 / Ctrl+2", "Toggle side panels"]]],
-  ["Floor plan", [["W", "Wall (click corners; type a length and Enter)"], ["A", "Room (click inside walls)"], ["D / N", "Door / window"], ["C", "Column"], ["S", "Stair"], ["F", "Furniture"], ["O", "Roof"], ["K", "Dimension"], ["T", "Text"], ["L", "Line"], ["M", "Measure"], ["R / Shift+R", "Rotate 90° / 15°"], ["X / Y", "Mirror (X also flips a door)"], ["H", "Swap door hinge"], ["E or double-click", "Edit properties"], ["Ctrl+C / Ctrl+V / Ctrl+D", "Copy / paste / duplicate"], ["Del", "Delete"], ["Arrows / Shift+arrows", "Nudge by one / ten grid steps"], ["Backspace", "While drawing: undo the last corner"], ["Shift", "While drawing: any angle"], ["Alt+drag", "Move without stretching joined walls"]]],
-  ["Navigation", [["Wheel / Ctrl+wheel", "Zoom"], ["Drag empty canvas, middle/right-drag, Space+drag", "Move the view (pan)"], ["Shift+drag", "Box selection (right-to-left: crossing)"], ["Esc", "Leave a tool / hand mode"]]],
-  ["3D", [["Left-drag", "Orbit"], ["Right-drag", "Pan"], ["Wheel", "Zoom"], ["1–7", "Iso / top / front / back / left / right / bird's eye"], ["P", "Pan mode"], ["V", "Walk through (WASD, Q/E up/down, drag to look)"], ["O", "Orthographic projection"], ["X", "Section cut"], ["G", "Grid"]]],
+  ["General", [["Ctrl+K", "Command palette — search every command, room and level"], ["Ctrl+N / Ctrl+O / Ctrl+S", "New / open / save"], ["Ctrl+I", "Import (DXF, IFC, 3D models, images…)"], ["Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z)", "Undo / redo"], ["Ctrl+X / Ctrl+A", "Cut / select all"], ["Ctrl+F", "Find"], ["Ctrl+P", "Print / PDF"], ["Ctrl+,", "Settings"], ["Ctrl+/", "Keyboard shortcuts"], ["F1", "User manual"], ["F2 / F3 (F4)", "Floor plan / 3D view"], ["F5", "Model check"], ["F8 / F9", "Orthogonal drawing / snapping"], ["Home", "Zoom to fit"], ["Ctrl+1 / Ctrl+2", "Toggle side panels"]]],
+  ["Floor plan", [["W", "Wall (click corners; type a length and Enter)"], ["A", "Room (click inside walls)"], ["D / N", "Door / window"], ["C", "Column"], ["S", "Stair"], ["F", "Furniture"], ["O", "Roof"], ["B / U", "Mass box / cylinder"], ["G", "Structural grid line"], ["K", "Dimension"], ["T", "Text"], ["L", "Line"], ["M", "Measure"], ["Ctrl+G / Ctrl+Shift+G", "Group / ungroup"], ["R / Shift+R", "Rotate 90° / back 15°"], ["X / Y", "Mirror (X also flips a door)"], ["H", "Swap door hinge"], ["E or double-click", "Edit properties"], ["Ctrl+C / Ctrl+V / Ctrl+D", "Copy / paste / duplicate"], ["Del", "Delete"], ["Arrows / Shift+arrows", "Nudge by one / ten grid steps"], ["Backspace", "While drawing: undo the last corner"], ["Shift", "While drawing: any angle"], ["Alt+drag", "Move without stretching joined walls"]]],
+  ["Navigation", [["Wheel / Ctrl+wheel", "Zoom"], ["Shift+wheel", "Pan sideways"], ["Drag empty canvas, middle/right-drag, Space+drag", "Move the view (pan)"], ["Shift+drag", "Box selection (right-to-left: crossing)"], ["Esc", "Leave a tool / hand mode"]]],
+  ["3D", [["Left-drag", "Orbit"], ["Right-drag", "Pan"], ["Wheel", "Zoom"], ["Double-click", "Zoom in on that point"], ["Arrows / Shift+arrows", "Orbit / pan"], ["1–7", "Iso / top / front / rear / left / right side / bird's eye"], ["P", "Pan mode"], ["V", "Walk through (WASD, Q/E up/down, drag to look)"], ["Q / E, PageDown / PageUp", "While walking: down / up"], ["O", "Orthographic projection"], ["X", "Section cut"], ["G", "Grid"], ["Esc", "Leave the tool or walk mode"]]],
 ];
 
 export function shortcuts() {
@@ -761,7 +763,7 @@ export function manual() {
 export function showWelcome(app) {
   const steps = [
     ["wall", t("1. Draw the walls"), t("Press W and click the corners (or type lengths like 4200 and Enter). Doors (D) and windows (N) snap onto the walls.")],
-    ["room", t("2. Rooms, stairs, roof"), t("Press A and click inside walls: the room and its area appear. Add levels with the + on the left, stairs with S, the roof with Build → Roof.")],
+    ["room", t("2. Rooms, stairs, roof"), t("Press A and click inside walls: the room and its area appear. Add levels with the + on the left, stairs with S, the roof with Build → Roof over the top level.")],
     ["sofa", t("3. Furnish it"), t("Drag furniture from the library on the left, or import your own 3D models (OBJ, FBX, GLB, STL, DAE…).")],
     ["cube", t("4. See it in 3D and share it"), t("F3 shows the building in 3D with sun and shadows; walk through it. Export DXF, IFC, GLB, OBJ, PDF sheets and schedules.")],
   ];

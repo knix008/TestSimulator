@@ -20,7 +20,7 @@ const filters = args;
 // Which category each test file belongs to (order = display order).
 export const CATEGORIES = [
   ["Core model & geometry", "핵심 모델·기하", ["core", "walls", "rooms"]],
-  ["Plan editing", "평면 편집", ["plan", "editor"]],
+  ["Plan editing", "평면 편집", ["plan", "editor", "store"]],
   ["Checks & schedules", "검사·집계", ["check", "schedule"]],
   ["3D model", "3D 모델", ["view3d"]],
   ["CAD exchange (DXF, SVG)", "CAD 교환 (DXF, SVG)", ["dxf"]],

@@ -25,7 +25,6 @@
   --input: #12151a;
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   --titlebar-h: 38px;
-  --tabbar-h: 36px;
   --toolbar-h: 42px;
   --status-h: 26px;
   --left-w: 280px;
@@ -64,7 +63,8 @@ kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border-radius
 
 .app {
   display: grid;
-  grid-template-rows: var(--titlebar-h) var(--tabbar-h) var(--toolbar-h) 1fr var(--status-h);
+  /* The view tabs and the search box live in the title bar (no tab row). */
+  grid-template-rows: var(--titlebar-h) var(--toolbar-h) minmax(0, 1fr) var(--status-h);
   height: 100vh;
   min-width: 960px;
 }
@@ -107,24 +107,25 @@ body.mac .titlebar { padding-left: 80px; }
 .select-btn { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 8px; border-radius: 5px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; }
 .select-btn:hover { border-color: var(--line2); }
 
-/* ------------------------------------------------------------ tab bar */
-.tabbar { display: flex; align-items: stretch; gap: 2px; padding: 0 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+/* ------------------------------------------------------------ view tabs (in the title bar) */
+.tabbar { display: flex; align-items: stretch; gap: 1px; height: 100%; margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--line); -webkit-app-region: no-drag; flex: none; }
 .doc-tab {
-  display: flex; align-items: center; gap: 7px; padding: 0 14px; border: 0; background: transparent; color: var(--muted);
-  border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600;
+  display: flex; align-items: center; gap: 6px; padding: 0 11px; border: 0; background: transparent; color: var(--muted);
+  border-bottom: 2px solid transparent; border-top: 2px solid transparent; cursor: pointer; font-weight: 600; white-space: nowrap;
 }
+/* Nothing in the title bar is ever hidden: the window's minimum width covers
+   it all (App.fitToolbar); only the document title may shorten, last. */
+.title-search { display: flex; align-items: center; height: 100%; -webkit-app-region: no-drag; flex: none; }
+.title-search .search-btn { width: 30px; }
+.titlebar > .brand, .titlebar > .menubar, .titlebar > .title-right { flex: none; }
+html.titlebar-wrap .app { grid-template-rows: auto var(--toolbar-h) minmax(0, 1fr) var(--status-h); }
+html.titlebar-wrap .titlebar { flex-wrap: wrap; row-gap: 0; }
+html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .doc-tab:hover { color: var(--text); background: var(--hover); }
 .doc-tab.on { color: var(--text); border-bottom-color: var(--accent); }
 .doc-tab .badge { font-size: 10px; padding: 0 5px; border-radius: 8px; background: var(--danger); color: #fff; font-weight: 700; }
 .doc-tab .badge.warn { background: var(--warn); color: #222; }
 .doc-tab .badge.ok { background: var(--ok); color: #fff; }
-.tab-spacer { flex: 1; }
-.palette-btn {
-  align-self: center; display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px; min-width: 260px;
-  border: 1px solid var(--line); border-radius: 6px; background: var(--input); color: var(--faint); cursor: text;
-}
-.palette-btn:hover { border-color: var(--line2); color: var(--muted); }
-.palette-btn kbd { margin-left: auto; }
 
 /* ------------------------------------------------------------ tool bar */
 .toolbar { display: flex; align-items: center; gap: 2px; padding: 0 8px; background: var(--panel2); border-bottom: 1px solid var(--line); overflow: hidden; }
@@ -232,6 +233,21 @@ body.mac .titlebar { padding-left: 80px; }
 .statusbar { display: flex; align-items: center; gap: 0; padding: 0 6px; background: var(--panel); border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; }
 .statusbar .cell { padding: 0 10px; border-right: 1px solid var(--line); height: 100%; display: flex; align-items: center; gap: 5px; }
 .statusbar .cell:last-child { border-right: 0; }
+.statusbar { padding-right: 0; }
+.status-cells { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; overflow: hidden; }
+.status-cells .cell .ico, .status-cells .cell svg { flex: none; }
+/* Resize grip: six dots in a triangle at the bottom-right corner. */
+.size-grip { display: none; flex: none; align-self: stretch; width: 18px; margin-left: 2px; cursor: nwse-resize; touch-action: none; opacity: .75;
+  background:
+    radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 3px bottom 3px / 4px 4px no-repeat,
+    radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 7px bottom 3px / 4px 4px no-repeat,
+    radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 11px bottom 3px / 4px 4px no-repeat,
+    radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 3px bottom 7px / 4px 4px no-repeat,
+    radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 7px bottom 7px / 4px 4px no-repeat,
+    radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 3px bottom 11px / 4px 4px no-repeat; }
+.size-grip:hover, .size-grip.dragging { opacity: 1; background-color: var(--hover); }
+html.can-resize .size-grip { display: block; }
+html.win-maximized .size-grip { display: none; }
 .statusbar .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .statusbar .mono { font-family: var(--mono); font-size: 11.5px; }
 .statusbar button.cell { background: transparent; border: 0; border-right: 1px solid var(--line); cursor: pointer; color: inherit; }

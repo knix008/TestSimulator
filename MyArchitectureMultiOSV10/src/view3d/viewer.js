@@ -304,34 +304,90 @@ export function createViewer(container, options = {}) {
     helpers.add(ground);
   }
 
+  // Ground grid like the plan's: a bold line every 5 cells (5×5 blocks), and
+  // the cell steps ×5 / ÷5 with the zoom (… 0.2 m, 1 m, 5 m, 25 m …) so the
+  // blocks keep an even size on screen. It is centred where the camera looks.
+  const GRID_HALF = 60; // cells each side of the centre (a multiple of 5)
+  const GRID_MAJOR_PX = 1.5; // on-screen width of the block lines
+  function gridPxPerUnit() {
+    const h = renderer.domElement.clientHeight || 600;
+    if (camera === ortho) return h / Math.max(1e-6, (ortho.top - ortho.bottom) / (ortho.zoom || 1));
+    let dist;
+    if (opts.navMode === "walk") dist = Math.max(2, camera.position.y * 4);
+    else dist = Math.max(0.1, camera.position.distanceTo(controls.target));
+    return h / (2 * dist * Math.tan((persp.fov * DEG) / 2));
+  }
+  function gridCellFor(px) {
+    let cell = unitM().k; // 1 m (or 1 ft)
+    for (let i = 0; i < 12 && cell * px < 12; i++) cell *= 5;
+    for (let i = 0; i < 12 && cell * px >= 60; i++) cell /= 5;
+    return cell;
+  }
+  function gridCentre() {
+    const p = opts.navMode === "walk" ? camera.position : controls.target;
+    return [p.x, p.z];
+  }
+  // Called before each frame: rebuilds the grid only when the cell size
+  // changes or the view has moved well away from the grid's centre.
+  function fitGrid() {
+    if (!opts.grid || !grid) return;
+    const cell = gridCellFor(gridPxPerUnit());
+    const [cx, cz] = gridCentre();
+    const g = grid.userData;
+    const far = Math.max(Math.abs(cx - g.cx), Math.abs(cz - g.cz)) > g.major * 4;
+    // Block lines keep their on-screen width: rebuild when the zoom drifts.
+    const drift = Math.abs(gridPxPerUnit() / g.px - 1) > 0.2;
+    if (Math.abs(cell - g.cell) > g.cell * 1e-6 || far || drift) buildGrid();
+  }
+
+  // Flat strips on the ground for the block lines: WebGL draws ordinary lines
+  // 1 px wide whatever the requested width, so these are quads of a given width.
+  function ribbons(segs, w, color, opacity) {
+    const pos = [];
+    for (const [x1, z1, x2, z2] of segs) {
+      const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz) || 1;
+      const nx = (-dz / len) * (w / 2), nz = (dx / len) * (w / 2);
+      pos.push(x1 + nx, 0, z1 + nz, x2 + nx, 0, z2 + nz, x2 - nx, 0, z2 - nz, x1 + nx, 0, z1 + nz, x2 - nx, 0, z2 - nz, x1 - nx, 0, z1 - nz);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+    mesh.position.y = 0.001;
+    mesh.renderOrder = 1;
+    return mesh;
+  }
+
   function buildGrid() {
     if (grid) { helpers.remove(grid); disposeGroup(grid); grid = null; }
     if (!opts.grid) return;
-    const u = unitM().k;
-    const [cx, cz] = centreXZ();
-    const span = Math.max(20, Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1) * M * 1.6);
-    const cell = u; // 1 m (or 1 ft)
+    const px = gridPxPerUnit();
+    const cell = gridCellFor(px);
+    const [cx, cz] = gridCentre();
     const major = cell * 5;
-    const n = Math.min(400, Math.ceil(span / 2 / major) * 5);
+    const n = GRID_HALF;
     const ox = Math.round(cx / major) * major, oz = Math.round(cz / major) * major;
+    // Cell lines: thin and faint. Every 5th line (5×5 blocks): a little wider
+    // (1.5 px) and a little stronger — a light accent, never heavy.
     const minor = [], maj = [];
     for (let i = -n; i <= n; i++) {
-      const arr = i % 5 === 0 ? maj : minor;
       const x = ox + i * cell, z = oz + i * cell;
-      arr.push(x, 0, oz - n * cell, x, 0, oz + n * cell, ox - n * cell, 0, z, ox + n * cell, 0, z);
+      if (i % 5 === 0) maj.push([x, oz - n * cell, x, oz + n * cell], [ox - n * cell, z, ox + n * cell, z]);
+      else minor.push(x, 0, oz - n * cell, x, 0, oz + n * cell, ox - n * cell, 0, z, ox + n * cell, 0, z);
     }
+    const dark = opts.ground === false;
     grid = new THREE.Group();
     grid.name = "grid";
-    grid.add(lineSegs(minor, 0x56606e, 0.35), lineSegs(maj, 0x8f99a8, 0.7));
+    grid.add(lineSegs(minor, dark ? 0x8a93a3 : 0x5a6472, dark ? 0.18 : 0.16));
+    grid.add(ribbons(maj, GRID_MAJOR_PX / px, dark ? 0xaeb6c2 : 0x4d5765, dark ? 0.4 : 0.34));
     grid.position.y = 0.002;
     const h0 = major * 0.18;
     for (let k = -n / 5; k <= n / 5; k += Math.max(1, Math.ceil(n / 5 / 6))) {
       const v = k * major;
       const lx = labelSprite(fmt(ox + v), "#ffb4a8", h0);
-      lx.position.set(ox + v, 0.05, oz + n * cell + h0);
+      lx.position.set(ox + v, 0.05, oz + major * 4 + h0); // a row of labels in view, 4 blocks from the centre
       grid.add(lx);
     }
-    grid.userData = { cell, major, unit: unitM().name };
+    grid.userData = { cell, major, unit: unitM().name, cx, cz, half: n, px, majorWidth: GRID_MAJOR_PX / px };
     helpers.add(grid);
   }
 
@@ -774,6 +830,7 @@ export function createViewer(container, options = {}) {
     const changed = opts.navMode !== "walk" && controls.update();
     if (changed && camera === ortho) syncOrtho();
     if (changed || dirty || anim || walk.keys.size) {
+      fitGrid();
       renderer.render(scene, camera);
       renderGizmo();
       dirty = false;
@@ -803,7 +860,7 @@ export function createViewer(container, options = {}) {
     if (["openDoors", "furniture", "roofs", "levels", "phase"].some(changed)) rebuild();
     else if (changed("style")) applyStyle();
     if (changed("section")) applyClipping();
-    if (["grid", "units3d"].some(changed)) buildGrid();
+    if (["grid", "units3d", "ground"].some(changed)) buildGrid();
     if (changed("axes")) buildAxes();
     if (["dimensions", "units3d"].some(changed)) buildDims();
     if (changed("ground")) buildGround();

@@ -493,6 +493,23 @@ export function renderStatus(app, bar) {
     const scale = Math.round(1 / (ed.vp.scale * (25.4 / 96)) || 0);
     bar.append(cell(`1:${scale}`, "mono"));
     bar.append(h("button", { class: "cell", title: t("Switch units"), onclick: () => app.setSetting("units", { mm: "cm", cm: "m", m: "ft", ft: "mm" }[units] || "mm") }, units));
+    if (ed.sel.size) bar.append(cell(t("{n} selected", { n: ed.sel.size })));
+  } else if (app.tab === "3d") {
+    const v = app.v3d;
+    const o = v.opts;
+    const nav = { orbit: t("Orbit"), pan: t("Pan"), walk: t("Walk") }[o.navMode] || t("Orbit");
+    bar.append(h("button", { class: "cell", title: t("Walk through (first person)"), onclick: () => app.run("v3d.walk") }, h("span", { html: icon(o.navMode === "walk" ? "walk" : "orbit", 13) }), nav));
+    bar.append(h("button", { class: `cell ${o.ortho ? "on" : ""}`, title: t("Orthographic projection"), onclick: () => app.run("v3d.ortho") }, o.ortho ? t("Orthographic") : t("Perspective")));
+    bar.append(h("button", { class: `cell ${o.section !== null ? "on" : ""}`, title: t("Section cut at the current level"), onclick: () => app.run("v3d.section") }, `${t("Section")} ${o.section !== null ? "✓" : "—"}`));
+    const style = { realistic: t("Realistic"), white: t("White model"), lines: t("Line drawing"), xray: t("X-ray") }[o.style] || t("Realistic");
+    bar.append(cell(style));
+    if (v.viewer) { const s = v.viewer.stats(); bar.append(cell(t("{n} triangles", { n: s.triangles.toLocaleString() }), "mono")); }
+    if (app.plan.sel.size) bar.append(cell(t("{n} selected", { n: app.plan.sel.size })));
+  } else {
+    const p = app.store.project;
+    bar.append(cell(t("{n} recent files", { n: (app.settings.recent || []).length })));
+    bar.append(cell(`${t("Theme")}: ${app.themeLabel ? app.themeLabel() : app.settings.theme}`));
+    bar.append(cell(p.walls.length ? t("{n} walls", { n: p.walls.length }) : t("Empty project")));
   }
   const e = app.checkIssues.filter((i) => i.severity === "error").length;
   const w = app.checkIssues.length - e;

@@ -3,7 +3,16 @@
     "allow": [
       "Bash(node __TRACKED_VAR__/compare.mjs __TRACKED_VAR__/gen.dxf __TRACKED_VAR__/ref.json)",
       "Bash(ELECTRON_RUN_AS_NODE=1 node --test test/unit/dxf.test.mjs)",
-      "Bash(node scripts/test.mjs dxf)"
+      "Bash(node scripts/test.mjs dxf)",
+      "PowerShell($env:ELECTRON_RUN_AS_NODE=$null; node test/smoke/gui-smoke.mjs --only \"drawing,3d view,tutorial\" 2>&1 | Select-String -Pattern \"✖|SMOKE|PASSED\" | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(500, $_.Line.Length\\)\\) })",
+      "PowerShell($env:ELECTRON_RUN_AS_NODE=$null; node \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Home-Projects-TestSimulator-MyArchitectureMultiOSV10\\\\e48c1806-902f-47da-ba1c-349515b99d39\\\\scratchpad\\\\dbg-pan.mjs\")",
+      "PowerShell($env:ELECTRON_RUN_AS_NODE=$null; node \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Home-Projects-TestSimulator-MyArchitectureMultiOSV10\\\\e48c1806-902f-47da-ba1c-349515b99d39\\\\scratchpad\\\\dbg-grip2.mjs\")",
+      "PowerShell($env:ELECTRON_RUN_AS_NODE=$null; node \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Home-Projects-TestSimulator-MyArchitectureMultiOSV10\\\\e48c1806-902f-47da-ba1c-349515b99d39\\\\scratchpad\\\\dbg-grip2.mjs\" 2>&1 | Select-Object -First 8)",
+      "PowerShell($env:ELECTRON_RUN_AS_NODE=$null; node \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Home-Projects-TestSimulator-MyArchitectureMultiOSV10\\\\e48c1806-902f-47da-ba1c-349515b99d39\\\\scratchpad\\\\dbg-grip2.mjs\" 2>&1)",
+      "PowerShell($env:ELECTRON_RUN_AS_NODE=$null; node \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Home-Projects-TestSimulator-MyArchitectureMultiOSV10\\\\e48c1806-902f-47da-ba1c-349515b99d39\\\\scratchpad\\\\dbg-grip2.mjs\" 2>&1 | Select-String \"width|events|pointer\")",
+      "PowerShell($env:ELECTRON_RUN_AS_NODE=$null; node \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Home-Projects-TestSimulator-MyArchitectureMultiOSV10\\\\e48c1806-902f-47da-ba1c-349515b99d39\\\\scratchpad\\\\dbg-grip2.mjs\" 2>&1 | Select-String \"width:|height:\")",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Home-Projects-TestSimulator-MyArchitectureMultiOSV10\\\\e48c1806-902f-47da-ba1c-349515b99d39\\\\scratchpad\\\\smoke.log\" -Encoding utf8 | Select-String -Pattern \"checks  |SMOKE|PASSED|3D grid|grip|tutorial|narrow\" | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(300, $_.Line.Length\\)\\) })",
+      "PowerShell($d=\"C:\\\\Users\\\\shkwon\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Home-Projects-TestSimulator-MyArchitectureMultiOSV10\\\\e48c1806-902f-47da-ba1c-349515b99d39\\\\scratchpad\"; ffmpeg -v error -y -i MyArchitecture-Tutorial.mp4 -vf \"fps=1/30,scale=480:-2,tile=4x3\" -frames:v 1 \"$d\\\\rec-sheet.png\"; ffprobe -v error -show_entries format=duration:stream=width,height,r_frame_rate,codec_name -of compact MyArchitecture-Tutorial.mp4)"
     ]
   }
 }

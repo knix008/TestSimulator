@@ -1,0 +1,258 @@
+{
+ "start-page": {
+  "file": "docs/images/en/start-page.webp",
+  "caption": "Start page: tutorial, new project, open, import, sample cards and recent files"
+ },
+ "overview-plan": {
+  "file": "docs/images/en/overview-plan.webp",
+  "caption": "Floor plan: menus, tabs and toolbar, furniture library on the left, drawing in the middle, properties on the right, status bar below"
+ },
+ "overview-3d": {
+  "file": "docs/images/en/overview-3d.webp",
+  "caption": "3D view: scenes, levels, display, section and sun on the left, the picked element on the right"
+ },
+ "walls-chain": {
+  "file": "docs/images/en/walls-chain.webp",
+  "caption": "Wall tool (W): each click continues the chain, the length and angle are shown"
+ },
+ "walls-typed-length": {
+  "file": "docs/images/en/walls-typed-length.webp",
+  "caption": "Typed length: type a number while drawing for an exact length (4500, 3.6m, 3600<90)"
+ },
+ "walls-joints": {
+  "file": "docs/images/en/walls-joints.webp",
+  "caption": "Wall joints: corners mitre automatically, T and cross joints are drawn cleanly"
+ },
+ "walls-inspector": {
+  "file": "docs/images/en/walls-inspector.webp",
+  "caption": "Select a wall to edit its thickness, height, wall type, materials and phase on the right"
+ },
+ "rooms": {
+  "file": "docs/images/en/rooms.webp",
+  "caption": "Rooms (A): click inside walls for a room with its name and area"
+ },
+ "doors-windows": {
+  "file": "docs/images/en/doors-windows.webp",
+  "caption": "Doors (D) and windows (N): click on a wall; X flips the swing, H swaps the hinge"
+ },
+ "furniture-library": {
+  "file": "docs/images/en/furniture-library.webp",
+  "caption": "Furniture library: filter or search, then drag onto the plan or click to place"
+ },
+ "furniture-picker": {
+  "file": "docs/images/en/furniture-picker.webp",
+  "caption": "F: find furniture by name and place it"
+ },
+ "stairs-columns": {
+  "file": "docs/images/en/stairs-columns.webp",
+  "caption": "Stairs (S) and columns (C): stairs from two points, a column with one click"
+ },
+ "roof-plan": {
+  "file": "docs/images/en/roof-plan.webp",
+  "caption": "Roofs (O): gable, hip, shed or flat over the top level"
+ },
+ "roof-3d": {
+  "file": "docs/images/en/roof-3d.webp",
+  "caption": "Roofs and storeys appear in 3D straight away"
+ },
+ "levels": {
+  "file": "docs/images/en/levels.webp",
+  "caption": "Level tabs: pick a storey (+ adds one); the level below shows faintly"
+ },
+ "dimensions-text": {
+  "file": "docs/images/en/dimensions-text.webp",
+  "caption": "Dimensions (K), text (T), lines (L) and measure (M); auto dimensions measure the outside walls at once"
+ },
+ "grids": {
+  "file": "docs/images/en/grids.webp",
+  "caption": "Structural grids (G): grid lines with A, B, C … and 1, 2, 3 … bubbles"
+ },
+ "select-box": {
+  "file": "docs/images/en/select-box.webp",
+  "caption": "Box select: Shift+drag (left to right = fully inside, right to left = crossing)"
+ },
+ "context-menu": {
+  "file": "docs/images/en/context-menu.webp",
+  "caption": "Right-click menu: Undo / Redo at the top, then commands for the element"
+ },
+ "properties-dialog": {
+  "file": "docs/images/en/properties-dialog.webp",
+  "caption": "Double-click (or E): every property of an element in one window"
+ },
+ "undo-history": {
+  "file": "docs/images/en/undo-history.webp",
+  "caption": "Undo history: go back to any earlier step"
+ },
+ "command-palette": {
+  "file": "docs/images/en/command-palette.webp",
+  "caption": "Command palette (Ctrl+K): search every command, room, level and furniture"
+ },
+ "massing-plan": {
+  "file": "docs/images/en/massing-plan.webp",
+  "caption": "Masses (B box, U cylinder, polygon): draw in plan, set height and taper"
+ },
+ "massing-3d": {
+  "file": "docs/images/en/massing-3d.webp",
+  "caption": "The massing study in 3D"
+ },
+ "pushpull": {
+  "file": "docs/images/en/pushpull.webp",
+  "caption": "Push/Pull: drag the top of a mass or wall up or down"
+ },
+ "paint-bucket": {
+  "file": "docs/images/en/paint-bucket.webp",
+  "caption": "Paint bucket: pick a material on the left and click walls, floors, roofs or masses"
+ },
+ "tape-measure": {
+  "file": "docs/images/en/tape-measure.webp",
+  "caption": "Tape measure: the distance between two points on the model"
+ },
+ "scenes": {
+  "file": "docs/images/en/scenes.webp",
+  "caption": "Scenes: save the current view (+), click to fly there, ▶ plays them in turn"
+ },
+ "section-cut": {
+  "file": "docs/images/en/section-cut.webp",
+  "caption": "Section (X): cuts the current level 1.2 m above the floor"
+ },
+ "style-white": {
+  "file": "docs/images/en/style-white.webp",
+  "caption": "Display style: White model"
+ },
+ "style-lines": {
+  "file": "docs/images/en/style-lines.webp",
+  "caption": "Display style: Line drawing"
+ },
+ "style-xray": {
+  "file": "docs/images/en/style-xray.webp",
+  "caption": "Display style: X-ray"
+ },
+ "walk-mode": {
+  "file": "docs/images/en/walk-mode.webp",
+  "caption": "Walk (V): walk around at eye height with W/A/S/D"
+ },
+ "elevation-ortho": {
+  "file": "docs/images/en/elevation-ortho.webp",
+  "caption": "Front elevation in orthographic projection (O)"
+ },
+ "sun-study": {
+  "file": "docs/images/en/sun-study.webp",
+  "caption": "Sun study: real shadows from the site, date and time"
+ },
+ "grid-3d": {
+  "file": "docs/images/en/grid-3d.webp",
+  "caption": "3D grid: a slightly stronger line every 5 cells (5×5) like the plan, the same spacing at any zoom"
+ },
+ "context-menu-3d": {
+  "file": "docs/images/en/context-menu-3d.webp",
+  "caption": "3D right-click menu: Undo / Redo, views and tools"
+ },
+ "bim-renovation": {
+  "file": "docs/images/en/bim-renovation.webp",
+  "caption": "Phases: existing (grey), demolished (red dashed) and new walls; compare with View → Phases"
+ },
+ "bim-inspector": {
+  "file": "docs/images/en/bim-inspector.webp",
+  "caption": "BIM data: phase, classification, IFC class, GlobalId and custom properties"
+ },
+ "wall-types": {
+  "file": "docs/images/en/wall-types.webp",
+  "caption": "Wall types: layers (structure, insulation, finish) define the thickness"
+ },
+ "bim-properties": {
+  "file": "docs/images/en/bim-properties.webp",
+  "caption": "BIM properties: add properties such as a fire rating to the selection"
+ },
+ "schedules": {
+  "file": "docs/images/en/schedules.webp",
+  "caption": "Schedules: rooms, doors & windows, wall types, costs and levels — export as CSV"
+ },
+ "schedules-cost": {
+  "file": "docs/images/en/schedules-cost.webp",
+  "caption": "Cost tab: a rough estimate from unit prices × quantities"
+ },
+ "model-check": {
+  "file": "docs/images/en/model-check.webp",
+  "caption": "Model check (F5): overlapping walls, blocked doors, clashes … click an issue to go there"
+ },
+ "project-properties": {
+  "file": "docs/images/en/project-properties.webp",
+  "caption": "Project properties: title, address, site latitude / longitude, time zone and classification system"
+ },
+ "formats": {
+  "file": "docs/images/en/formats.webp",
+  "caption": "Supported formats for opening, import and export"
+ },
+ "import-picker": {
+  "file": "docs/images/en/import-picker.webp",
+  "caption": "Import: DXF, SVG, IFC, 3D models and images"
+ },
+ "cad-tracing": {
+  "file": "docs/images/en/cad-tracing.webp",
+  "caption": "Tracing a DXF: imported CAD layers shown under the walls you draw"
+ },
+ "cad-layers": {
+  "file": "docs/images/en/cad-layers.webp",
+  "caption": "CAD layers: visibility, colour and lock per layer"
+ },
+ "export-3d": {
+  "file": "docs/images/en/export-3d.webp",
+  "caption": "3D export: GLB, glTF, OBJ, STL, DAE, 3MF, USDZ or PLY with units"
+ },
+ "export-ifc": {
+  "file": "docs/images/en/export-ifc.webp",
+  "caption": "IFC export: IFC4 or IFC2X3"
+ },
+ "print-preview": {
+  "file": "docs/images/en/print-preview.webp",
+  "caption": "Print preview: paper, scale, title block and north arrow; save as PDF or SVG"
+ },
+ "recent-files": {
+  "file": "docs/images/en/recent-files.webp",
+  "caption": "Recent files: up to 10, remove one or clear the list"
+ },
+ "settings": {
+  "file": "docs/images/en/settings.webp",
+  "caption": "Settings (Ctrl+,): tabs for general, plan, walls, 3D, output …; numbers use − / +"
+ },
+ "themes": {
+  "file": "docs/images/en/themes.webp",
+  "caption": "Themes: 40 dark and light themes plus your own"
+ },
+ "light-theme": {
+  "file": "docs/images/en/light-theme.webp",
+  "caption": "The plan in a light theme"
+ },
+ "panels-collapsed": {
+  "file": "docs/images/en/panels-collapsed.webp",
+  "caption": "Collapsed panels (Ctrl+1 / Ctrl+2) stay as an icon and title"
+ },
+ "status-bar": {
+  "file": "docs/images/en/status-bar.webp",
+  "caption": "Status bar: position, level, grid, snap, ortho, scale, units, selection and check; the grip resizes the window"
+ },
+ "tutorial-watch": {
+  "file": "docs/images/en/tutorial-watch.webp",
+  "caption": "Tutorial, watch mode: the program performs each step"
+ },
+ "tutorial-practice": {
+  "file": "docs/images/en/tutorial-practice.webp",
+  "caption": "Tutorial, practice mode: the place to act is marked and your result is checked"
+ },
+ "shortcuts": {
+  "file": "docs/images/en/shortcuts.webp",
+  "caption": "Keyboard shortcuts (Ctrl+/ or Help → Keyboard shortcuts)"
+ },
+ "about": {
+  "file": "docs/images/en/about.webp",
+  "caption": "About: version and build"
+ },
+ "menu-bim": {
+  "file": "docs/images/en/menu-bim.webp",
+  "caption": "The BIM menu"
+ },
+ "menu-3d": {
+  "file": "docs/images/en/menu-3d.webp",
+  "caption": "The 3D menu"
+ }
+}

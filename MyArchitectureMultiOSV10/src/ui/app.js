@@ -82,6 +82,7 @@ class App {
     window.addEventListener("resize", () => this.layout());
 
     this.applyPanels();
+    this.initSizeGrip();
     this.setTab("start");
     this.refreshAll();
     this.checkAutosave();
@@ -191,11 +192,13 @@ class App {
     ];
     for (const [id, ic, label, badge] of defs) {
       const keyHint = { plan: "F2", "3d": "F3" }[id];
-      bar.append(h("button", { class: `doc-tab ${this.tab === id ? "on" : ""}`, "data-tab": id, title: keyHint ? `${label} (${keyHint})` : label, onclick: () => this.setTab(id) }, h("span", { html: icon(ic, 16) }), label,
+      bar.append(h("button", { class: `doc-tab ${this.tab === id ? "on" : ""}`, "data-tab": id, title: keyHint ? `${label} (${keyHint})` : label, role: "tab", onclick: () => this.setTab(id) }, h("span", { html: icon(ic, 16) }), h("span", { class: "tab-label" }, label),
         badge ? h("span", { class: `badge ${badge[1]}` }, String(badge[0])) : null));
     }
-    bar.append(h("div", { class: "tab-spacer" }));
-    bar.append(h("button", { class: "palette-btn", onclick: () => this.openPalette() }, h("span", { html: icon("search", 14) }), t("Search commands, rooms, furniture…"), h("kbd", {}, "Ctrl+K")));
+    // Search (command palette) is a magnifier button in the title bar; Ctrl+K opens it too.
+    const search = this.$("title-search");
+    search.innerHTML = "";
+    search.append(h("button", { class: "icon-btn search-btn", title: `${t("Search commands, rooms, furniture…")}  (Ctrl+K)`, "aria-label": t("Search"), onclick: () => this.openPalette() }, h("span", { html: icon("search", 17) })));
   }
 
   // ---------------------------------------------------------------- panels
@@ -264,6 +267,7 @@ class App {
     this.plan.renderLevelBar();
     this.v3d.markDirty();
     this.updateTitle();
+    this.updateUndoButtons();
     this.scheduleChecks();
     clearTimeout(this.inspectorTimer);
     this.inspectorTimer = setTimeout(() => { this.refreshInspector(); this.renderLeft(); this.renderTabs(); this.updateStatus(); }, 60);
@@ -317,7 +321,53 @@ class App {
     this.updateStatus();
   }
 
-  updateStatus() { panels.renderStatus(this, this.$("statusbar")); }
+  updateStatus() { panels.renderStatus(this, this.$("status-cells")); }
+
+  // Resize grip at the right end of the status bar (desktop window). Hidden in
+  // the browser and while the window is maximized or full screen.
+  initSizeGrip() {
+    const grip = this.$("size-grip");
+    const root = document.documentElement;
+    root.classList.toggle("can-resize", platform.canResizeWindow);
+    if (!platform.canResizeWindow) return;
+    grip.title = t("Drag to resize the window");
+    const setMax = (m) => root.classList.toggle("win-maximized", !!m);
+    platform.windowSize().then((s) => s && setMax(s.maximized));
+    platform.onWindowState((s) => setMax(s && s.maximized));
+    grip.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      grip.setPointerCapture(e.pointerId);
+      grip.classList.add("dragging");
+      const z = +this.settings.uiScale || 1; // page pixels → window pixels
+      const sx = e.screenX, sy = e.screenY;
+      // Listen at once (a quick flick may end before the size arrives).
+      let start = null, pos = null, raf = 0;
+      const sizeReady = platform.windowSize().then((s) => { start = s; });
+      const apply = () => {
+        if (!start || start.maximized || !pos) return;
+        platform.resizeWindow(start.width + (pos[0] - sx) * z, start.height + (pos[1] - sy) * z);
+      };
+      const move = (ev) => {
+        if (ev.buttons === 0) { up(ev); return; } // button released outside the window
+        pos = [ev.screenX, ev.screenY];
+        if (!raf) raf = requestAnimationFrame(() => { raf = 0; apply(); });
+      };
+      // Resizing the window cancels pointer capture, so follow the pointer on
+      // the whole window and stop only when the button is released.
+      const up = (ev) => {
+        window.removeEventListener("pointermove", move, true);
+        window.removeEventListener("pointerup", up, true);
+        window.removeEventListener("blur", up);
+        grip.classList.remove("dragging");
+        if (ev && ev.type === "pointerup") pos = [ev.screenX, ev.screenY];
+        sizeReady.then(apply);
+      };
+      window.addEventListener("pointermove", move, true);
+      window.addEventListener("pointerup", up, true);
+      window.addEventListener("blur", up);
+    });
+  }
   onToolChanged() { this.renderToolbar(); }
 
   onLevelChanged() {
@@ -697,7 +747,7 @@ class App {
     C("build.wallTypes", "Wall types…", "wall", "", () => dialogs.wallTypesDialog(this));
     C("build.bimProps", "BIM properties of the selection…", "bim", "", () => dialogs.bimPropertiesDialog(this));
     C("build.selectSimilar", "Select similar", "select", "", () => { toPlan(); this.plan.selectSimilar(); }, { enabled: () => this.tab === "plan" && this.plan.sel.size > 0 });
-    C("build.costs", "Cost estimate…", "schedule", "", () => dialogs.schedulesDialog(this));
+    C("build.costs", "Cost estimate…", "schedule", "", () => dialogs.schedulesDialog(this, { tab: "c" }));
     C("build.site", "Site location (sun study)…", "sunlight", "", () => dialogs.projectProperties(this));
     C("view.phaseAll", "Phases: show all", "levels", "", () => this.setPhaseView("all"), { checked: () => (this.settings.phaseView || "all") === "all" });
     C("view.phaseNew", "Phases: new design", "building", "", () => this.setPhaseView("new"), { checked: () => this.settings.phaseView === "new" });
@@ -735,7 +785,7 @@ class App {
     const M = {
       File: ["file.new", "file.open", "file.samples", "file.recent", "file.clearRecent", "-", "file.save", "file.saveAs", "-", "file.import", "@import", "@export", "-", "file.print", "file.props", "-", "file.exit"],
       Edit: ["edit.undo", "edit.redo", "edit.history", "-", "edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete", "-", "edit.selectAll", "edit.find", "-", "edit.rotate", "edit.mirror", "edit.mirrorV", "edit.scale", "edit.offset", "-", "edit.group", "edit.ungroup", "edit.properties"],
-      View: ["view.start", "view.plan", "view.3d", "-", "view.zoomIn", "view.zoomOut", "view.fit", "view.pan", "-", "view.grid", "view.rulers", "view.snap", "view.ortho", "-", "view.dims", "view.furniture", "view.areas", "view.ghost", "view.underlays", "-", "view.phaseAll", "view.phaseNew", "view.phaseExisting", "-", "view.left", "view.right"],
+      View: ["view.start", "view.plan", "view.3d", "-", "view.zoomIn", "view.zoomOut", "view.fit", "view.pan", "-", "view.grid", "view.rulers", "view.snap", "view.ortho", "-", "view.dims", "view.furniture", "view.areas", "view.ghost", "view.underlays", "-", "view.phaseAll", "view.phaseNew", "view.phaseExisting", "-", "view.left", "view.right", "-", "view.themes", "view.themeDark", "view.themeLight", "view.themeSystem", "-", "view.langKo", "view.langEn"],
       Draw: ["plan.select", "plan.wall", "plan.room", "plan.door", "plan.window", "plan.column", "plan.stair", "plan.furniture", "plan.roof", "-", "plan.massRect", "plan.massCircle", "plan.massPoly", "-", "plan.grid", "plan.dimension", "plan.text", "plan.line", "plan.measure"],
       Build: ["build.detectRooms", "build.autoRoof", "build.autoDims", "-", "build.addLevel", "build.levelProps", "build.defaults", "build.layers", "-", "build.check", "build.schedules"],
       BIM: ["build.wallTypes", "build.bimProps", "build.selectSimilar", "-", "build.costs", "build.site", "-", "file.exportIfc", "file.importIfc"],
@@ -797,6 +847,45 @@ class App {
   // ---------------------------------------------------------------- toolbar
   // Every toolbar button stays visible: the window may not become narrower
   // than the widest toolbar seen so far (same rule as MyCircuit).
+  // Undo / redo buttons follow every edit without rebuilding the toolbar; the
+  // tooltip names the step that would be undone or redone.
+  updateUndoButtons() {
+    for (const [id, can, label] of [["edit.undo", this.store.canUndo(), this.store.undoLabel()], ["edit.redo", this.store.canRedo(), this.store.redoLabel()]]) {
+      const b = document.querySelector(`#toolbar [data-cmd="${id}"]`);
+      if (!b) continue;
+      const c = this.commands.get(id);
+      b.disabled = !can;
+      b.title = `${t(c.label)}${label ? `: ${t(label)}` : ""}  (${c.key})`;
+    }
+  }
+
+  // Undo / redo entries shared by the plan and 3D context menus.
+  undoMenuItems() {
+    return [
+      { label: t("Undo"), icon: "undo", shortcut: "Ctrl+Z", disabled: !this.store.canUndo(), action: () => this.run("edit.undo") },
+      { label: t("Redo"), icon: "redo", shortcut: "Ctrl+Y", disabled: !this.store.canRedo(), action: () => this.run("edit.redo") },
+    ];
+  }
+
+  // Width the title bar needs to show every item in full: each child at its
+  // natural width (the document title up to 360 px), the gaps, and the padding
+  // that keeps clear of the window buttons the OS draws over the bar.
+  titleBarNeed() {
+    const bar = this.$("titlebar");
+    if (!bar) return 0;
+    const cs = getComputedStyle(bar);
+    const kids = [...bar.children];
+    let need = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + (parseFloat(cs.columnGap) || 0) * Math.max(0, kids.length - 1) + 8;
+    for (const k of kids) {
+      const st = getComputedStyle(k);
+      let w;
+      if (k.id === "doc-title") { const r = document.createRange(); r.selectNodeContents(k); w = Math.min(360, Math.max(40, r.getBoundingClientRect().width + 8)); }
+      else w = Math.max(k.scrollWidth, k.getBoundingClientRect().width);
+      need += w + parseFloat(st.marginLeft) + parseFloat(st.marginRight);
+    }
+    return Math.ceil(need);
+  }
+
   fitToolbar(bar) {
     requestAnimationFrame(() => {
       const measure = () => {
@@ -818,6 +907,11 @@ class App {
       if (need > screenW || (need > bar.clientWidth + 1 && !platform.isDesktop)) { bar.classList.add("compact"); need = measure(); }
       if (need > screenW) { bar.classList.add("wrap"); document.documentElement.classList.add("toolbar-wrap"); need = Math.min(need, screenW); }
       bar.dataset.need = String(need);
+      // The title bar (menus, view tabs, search, buttons) must fit too; on a
+      // screen too narrow for one row it wraps onto two — nothing is hidden.
+      const tneed = this.titleBarNeed();
+      document.documentElement.classList.toggle("titlebar-wrap", tneed > screenW);
+      need = Math.max(need, Math.min(screenW, tneed));
       const w = Math.ceil(need * z);
       if (w > (this.toolbarMinWidth || 0)) { this.toolbarMinWidth = w; platform.setMinSize(w, 700); }
     });
@@ -849,6 +943,7 @@ class App {
       this.v3d.renderToolbar(bar, btn, sep);
     }
     add(h("div", { class: "grow" }), btn("help.tutorial"), btn("help.keys"), btn("help.about"));
+    this.updateUndoButtons();
     this.fitToolbar(bar);
   }
 

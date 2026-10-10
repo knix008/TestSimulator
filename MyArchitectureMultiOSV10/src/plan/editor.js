@@ -122,6 +122,7 @@ export class PlanEditor {
       b.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         contextMenu([
+          ...this.app.undoMenuItems(), "-",
           { label: t("Rename level…"), icon: "text", action: () => this.renameLevel(lv.id) },
           { label: t("Level properties…"), icon: "settings", action: () => this.app.levelProperties(lv) },
           { label: t("Duplicate level (walls, doors, windows)"), icon: "copy", action: () => this.addLevel({ copyFrom: lv.id }) },
@@ -473,7 +474,7 @@ export class PlanEditor {
     if (!c || !c.pts.length) return;
     const m = this.vp.mouse;
     popupInput({
-      x: m.x + this.canvas.getBoundingClientRect().left + 16, y: m.y + this.canvas.getBoundingClientRect().top + 16, value: initial, placeholder: t("Length (mm, 3.6m, 3600<90)"),
+      x: m.x + this.canvas.getBoundingClientRect().left + 16, y: m.y + this.canvas.getBoundingClientRect().top + 16, value: initial, selectAll: !initial, placeholder: t("Length (mm, 3.6m, 3600<90)"),
       onDone: (v) => {
         const r = parseLength(v);
         if (!r || r.len <= 0) return;
@@ -913,7 +914,7 @@ export class PlanEditor {
     if (this.chain) { this.finishChain(); return; }
     if (this.tool !== "select") { this.setTool("select"); return; }
     const h = ops.hitTest(this.p, this.level, x, y, this.tol(), { selected: this.sel });
-    const items = [];
+    const items = [...this.app.undoMenuItems(), "-"];
     if (h) {
       if (!this.sel.has(h.obj.id)) this.select([h.obj.id]);
       items.push({ label: t("Properties…"), icon: "settings", shortcut: "E", action: () => this.app.editProperties(h.kind, h.obj) });

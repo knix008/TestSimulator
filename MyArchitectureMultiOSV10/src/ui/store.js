@@ -8,7 +8,9 @@
 //
 // Imported 3D model assets (project.models, base64 GLB) can be large and never
 // change once imported, so they are kept out of the snapshots: undo restores
-// everything else and keeps the current asset list.
+// everything else and keeps the current asset list. Tracing images (underlay
+// src data URLs) are stored once in an image pool and referenced from the
+// snapshots, so moving an underlay does not copy its picture into every step.
 
 import { normalizeProject, newProject, serializeProject } from "../core/project.js";
 
@@ -25,6 +27,8 @@ export class Store {
     this.fileName = null;
     this.pending = null;
     this.revision = 0;
+    this.images = new Map(); // pool key → image data URL
+    this.imageKeys = new Map(); // image data URL → pool key
   }
 
   on(type, fn) {
@@ -43,6 +47,8 @@ export class Store {
     this.project = normalizeProject(project);
     this.undoStack = [];
     this.redoStack = [];
+    this.images.clear();
+    this.imageKeys.clear();
     this.dirty = false;
     this.fileName = fileName;
     this.filePath = filePath;
@@ -53,7 +59,12 @@ export class Store {
   }
 
   snapshot() {
-    return JSON.stringify({ ...this.project, models: undefined });
+    return JSON.stringify({ ...this.project, models: undefined }, (k, v) => {
+      if (k !== "src" || typeof v !== "string" || v.length < 2048) return v;
+      let key = this.imageKeys.get(v);
+      if (!key) { key = `@img:${this.images.size + 1}`; this.images.set(key, v); this.imageKeys.set(v, key); }
+      return key;
+    });
   }
 
   // One-shot edit. Returns whatever fn returns.
@@ -89,7 +100,7 @@ export class Store {
   }
 
   parse(json) {
-    const p = JSON.parse(json);
+    const p = JSON.parse(json, (k, v) => (k === "src" && typeof v === "string" && v.startsWith("@img:") && this.images.has(v) ? this.images.get(v) : v));
     p.models = this.project.models || [];
     return p;
   }
@@ -114,6 +125,8 @@ export class Store {
 
   canUndo() { return this.undoStack.length > 0; }
   canRedo() { return this.redoStack.length > 0; }
+  undoLabel() { return this.undoStack.at(-1)?.label || ""; }
+  redoLabel() { return this.redoStack.at(-1)?.label || ""; }
 
   undo() {
     const step = this.undoStack.pop();

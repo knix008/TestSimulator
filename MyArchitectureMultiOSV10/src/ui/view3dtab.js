@@ -4,7 +4,7 @@
 
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
-import { h, panelHead, toast, checkbox, select, field, stepper } from "./widgets.js";
+import { h, panelHead, toast, checkbox, select, field, stepper, contextMenu } from "./widgets.js";
 import * as platform from "./platform.js";
 import { levelById, findItem, wallHeight } from "../core/project.js";
 import { materialsFor, materialColor } from "../lib/materials.js";
@@ -12,7 +12,7 @@ import { uid } from "../core/geom.js";
 import { furnitureDef } from "../lib/furniture.js";
 import { sunPosition, daylight } from "../core/sun.js";
 
-const VIEWS = [["iso", "Isometric", "1"], ["top", "Top", "2"], ["front", "Front", "3"], ["back", "Back", "4"], ["left", "Left", "5"], ["right", "Right", "6"], ["bird", "Bird's eye", "7"]];
+const VIEWS = [["iso", "Isometric", "1"], ["top", "Top", "2"], ["front", "Front", "3"], ["back", "Rear", "4"], ["left", "Left side", "5"], ["right", "Right side", "6"], ["bird", "Bird's eye", "7"]];
 const STYLES = [["realistic", "Realistic"], ["white", "White model"], ["lines", "Line drawing"], ["xray", "X-ray"]];
 
 export class View3DTab {
@@ -56,7 +56,7 @@ export class View3DTab {
       const it = findItem(app.store.project, this.push.id);
       if (!it) return;
       const hgt = Math.max(ev.kind === "solids" ? 100 : 300, Math.round((this.push.h0 + ev.dy) / 50) * 50);
-      if (this.push.kind === "solids") it.obj.height = hgt; else it.obj.height = hgt;
+      it.obj.height = hgt; // a mass or a wall: both keep their height in .height
       app.store.preview();
       app.setHint(`${t("Height")}: ${(hgt / 1000).toFixed(2)} m`);
       clearTimeout(this.pushTimer);
@@ -141,6 +141,7 @@ export class View3DTab {
           if (info && info.id) this.app.onSelection("3d", [info.id]);
           this.app.refreshInspector();
         });
+        this.bindContextMenu(this.viewer.three.renderer.domElement);
       } catch (e) {
         console.error(e);
         wrap.append(h("div", { class: "empty-note", style: { padding: "30px" } }, t("3D view is not available: {m}", { m: e.message })));
@@ -148,6 +149,20 @@ export class View3DTab {
       return this.viewer;
     })();
     return this.loading;
+  }
+
+  // Right-click without dragging opens a menu (right-drag still pans).
+  bindContextMenu(canvas) {
+    let down = null;
+    canvas.addEventListener("pointerdown", (e) => { if (e.button === 2) down = [e.clientX, e.clientY]; });
+    canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
+      down = null;
+      const items = [...this.app.undoMenuItems(), "-", ...this.app.menuItems(["v3d.iso", "v3d.top", "v3d.front", "-", "v3d.walk", "v3d.section", "v3d.ortho", "v3d.openDoors", "-", "v3d.pushpull", "v3d.paint", "v3d.tape", "-", "v3d.addScene", "v3d.screenshot"])];
+      if (this.picked && this.picked.id) items.unshift({ label: t("Show in plan"), icon: "floorplan", action: () => this.app.crossProbe([this.picked.id], "plan") }, "-");
+      contextMenu(items, e.clientX, e.clientY);
+    });
   }
 
   settingOpts() {
@@ -188,6 +203,7 @@ export class View3DTab {
     this.viewer.setProject(this.app.store.project);
     this.dirty = false;
     if (this.highlighted.length) this.viewer.highlight(this.highlighted);
+    if (this.app.tab === "3d") this.app.updateStatus();
   }
 
   async activate() {
@@ -244,6 +260,7 @@ export class View3DTab {
     if (this.viewer) this.viewer.setOptions({ [k]: v });
     this.app.renderToolbar();
     this.app.renderLeft();
+    this.app.updateStatus();
   }
 
   setNav(mode) {
@@ -256,6 +273,21 @@ export class View3DTab {
     if (this.opts.section !== null) { this.setOpt("section", null); return; }
     const lv = levelById(this.app.store.project, this.app.plan.level) || this.app.store.project.levels[0];
     this.setOpt("section", lv.elevation + 1200);
+  }
+
+  // Back to the default 3D view state (no tool, orbit, no section, every
+  // level shown …) — the tutorial starts from here.
+  resetView() {
+    const def = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, ground: true, tool: "none", fog: false, solids: true };
+    if (this.opts.navMode === "walk") this.setNav("orbit");
+    if (this.viewer) this.viewer.clearMeasures();
+    this.playing = false;
+    Object.assign(this.opts, def);
+    this.hiddenLevels.clear();
+    if (this.viewer) this.viewer.setOptions({ ...def, levels: this.levelSet() });
+    this.app.renderToolbar();
+    this.app.renderLeft();
+    this.app.updateStatus();
   }
 
   setLevelVisible(id, on) {

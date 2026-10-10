@@ -30,6 +30,7 @@ async function closeAll(ctx) {
 }
 
 const walls = (ctx) => ctx.on("walls");
+let undoButtonsStart = 0; // store revision when the undo/redo button practice starts
 const wallAtPt = (ctx, x, y) => walls(ctx).find((w) => Math.abs((w.x2 - w.x1) * (y - w.y1) - (w.y2 - w.y1) * (x - w.x1)) / (Math.hypot(w.x2 - w.x1, w.y2 - w.y1) || 1) < 5 && x >= Math.min(w.x1, w.x2) - 5 && x <= Math.max(w.x1, w.x2) + 5 && y >= Math.min(w.y1, w.y2) - 5 && y <= Math.max(w.y1, w.y2) + 5);
 const plusOf = (field) => () => { const st = [...document.querySelectorAll("#right-panel .stepper")].find((s) => s.dataset.field === field); return st ? st.querySelector('[data-step="1"]') : null; };
 const fieldEl = (ctx, key) => () => document.querySelector(`#right-panel [data-field="${ctx.app.t(key)}"]`);
@@ -54,7 +55,15 @@ export const LESSONS = [
         run: async (ctx) => { await ctx.key("Home"); ctx.expect(ctx.app.plan.vp.scale > 0, "no view"); },
         practice: { todo: T("Home 키를 누르세요.", "Press Home."), check: () => true } },
       { title: T("화면 이동", "Pan the view"), text: T("빈 곳을 왼쪽 버튼으로 끌면 도면이 따라 움직입니다 (Shift+끌기는 영역 선택).", "Drag empty space with the left button to move the drawing (Shift+drag selects a box)."),
-        run: async (ctx) => { const ox = ctx.app.plan.vp.ox; await ctx.drag([-4000, -3000], [-2500, -2000]); ctx.expect(ctx.app.plan.vp.ox !== ox, "view did not move"); },
+        run: async (ctx) => {
+          // Start in the empty top-left of the canvas (inside the rulers), whatever the window size.
+          await toSelect(ctx);
+          const vp = ctx.app.plan.vp;
+          const ox = vp.ox;
+          const a = vp.toWorld(70, 70), b = vp.toWorld(170, 130);
+          await ctx.drag(a, b);
+          ctx.expect(vp.ox !== ox, "view did not move");
+        },
         practice: { todo: T("빈 곳을 끌어 화면을 옮기세요.", "Drag empty space to move the view."), setup: (ctx) => { ctx.app.plan.mem0 = ctx.app.plan.vp.ox; }, check: (ctx) => Math.abs(ctx.app.plan.vp.ox - (ctx.app.plan.mem0 ?? ctx.app.plan.vp.ox)) > 20 } },
       { title: T("층 바꾸기", "Switch levels"), text: T("왼쪽 아래의 층 탭으로 편집할 층을 고릅니다. 아래층은 흐리게 보입니다.", "The level tabs at the bottom left choose the storey you edit; the one below shows faintly."),
         run: async (ctx) => { await ctx.click(`.page-tab[data-level="${ctx.level("2F").id}"]`); ctx.expect(ctx.app.plan.level === ctx.level("2F").id, "level not changed"); },
@@ -89,6 +98,19 @@ export const LESSONS = [
       { title: T("벽 옮기기와 되돌리기", "Move a wall, then undo"), text: T("벽을 끌면 이어진 벽이 따라 늘어납니다. Ctrl+Z 로 되돌리고 Ctrl+Y 로 다시 합니다.", "Dragging a wall stretches the walls joined to it. Ctrl+Z undoes, Ctrl+Y redoes."),
         run: async (ctx) => { await toSelect(ctx); await ctx.drag([5000, 1500], [5600, 1500]); ctx.expect(walls(ctx).some((w) => Math.abs(w.x1 - 5600) < 2 && Math.abs(w.x2 - 5600) < 2), "wall not moved"); await ctx.key("z", { ctrl: true }); ctx.expect(walls(ctx).some((w) => w.x1 === 5000 && w.x2 === 5000), "undo failed"); },
         practice: { todo: T("가운데 벽을 오른쪽으로 끌었다가 Ctrl+Z 로 되돌리세요.", "Drag the middle wall to the right, then press Ctrl+Z."), check: (ctx) => ctx.app.store.redoStack.length > 0 && walls(ctx).some((w) => w.x1 === 5000 && w.x2 === 5000), targets: () => [{ x: 5000, y: 1500 }] } },
+      { title: T("되돌리기·다시 실행 단추", "Undo and redo buttons"), text: T("도구 모음의 ↶ 되돌리기 · ↷ 다시 실행 단추도 같은 일을 합니다. 단추에 마우스를 올리면 무엇을 되돌릴지 보여 주고, 도면이나 3D 화면을 오른쪽 클릭한 메뉴 맨 위에도 있습니다.", "The ↶ Undo and ↷ Redo buttons on the toolbar do the same; their tooltip names the step, and they are also at the top of the right-click menu in the plan and in 3D."),
+        run: async (ctx) => {
+          await ctx.click('#toolbar [data-cmd="edit.redo"]');
+          ctx.expect(walls(ctx).some((w) => Math.abs(w.x1 - 5600) < 2 && Math.abs(w.x2 - 5600) < 2), "redo button did nothing");
+          await ctx.click('#toolbar [data-cmd="edit.undo"]');
+          ctx.expect(walls(ctx).some((w) => w.x1 === 5000 && w.x2 === 5000), "undo button did nothing");
+        },
+        practice: {
+          todo: T("도구 모음의 ↷ 다시 실행을 누른 다음 ↶ 되돌리기를 누르세요.", "Press ↷ Redo on the toolbar, then ↶ Undo."),
+          setup: (ctx) => { undoButtonsStart = ctx.app.store.revision; },
+          check: (ctx) => ctx.app.store.revision >= undoButtonsStart + 2 && walls(ctx).some((w) => w.x1 === 5000 && w.x2 === 5000),
+          targets: () => [{ el: '#toolbar [data-cmd="edit.redo"]' }, { el: '#toolbar [data-cmd="edit.undo"]' }],
+        } },
     ],
   },
   // ---------------------------------------------------------------- 3
@@ -218,7 +240,7 @@ export const LESSONS = [
       { title: T("계단", "A stair"), text: T("S 를 누르고 계단의 아래쪽과 위쪽을 클릭합니다. 단 수는 층 높이에 맞춰집니다.", "Press S and click the bottom and the top of the stair. The number of steps follows the level height."),
         run: async (ctx) => { await ctx.key("s"); await ctx.clickAt(5600, 5350); await ctx.clickAt(8600, 5350); await ctx.key("Escape"); ctx.expect(ctx.on("stairs").length === 1, "no stair"); },
         practice: { todo: T("S, 그리고 거실 아래쪽의 두 점을 클릭하세요.", "S, then the two marks at the bottom of the living room."), check: (ctx) => ctx.on("stairs").length >= 1, targets: () => [{ x: 5600, y: 5350 }, { x: 8600, y: 5350 }] } },
-      { title: T("위층 추가", "Add a level"), text: T("층 탭의 + 는 위에 새 층을 만들고 외벽(과 창문)을 복사합니다.", "The + on the level tabs adds a storey on top and copies the walls (and windows)."),
+      { title: T("위층 추가", "Add a level"), text: T("층 탭의 + 는 위에 새 층을 만들고 맨 위층의 벽(안쪽 벽 포함)과 창문을 복사합니다. 문은 복사하지 않습니다.", "The + on the level tabs adds a storey on top and copies the top level's walls (inside walls too) and windows — not the doors."),
         run: async (ctx) => { await ctx.click("#view-plan .page-tab.add"); ctx.expect(ctx.p.levels.length === 2, "level not added"); ctx.expect(ctx.p.walls.filter((w) => w.level === ctx.app.plan.level).length >= 4, "walls not copied"); },
         practice: { todo: T("왼쪽 아래 층 탭의 + 를 누르세요.", "Press + on the level tabs at the bottom left."), check: (ctx) => ctx.p.levels.length >= 2, targets: () => [{ el: "#view-plan .page-tab.add" }] } },
       { title: T("층 속성", "Level properties"), text: T("층의 이름, 높이(FL), 층고와 슬래브 두께를 바꿉니다.", "Rename a level and set its elevation, storey height and slab."),
@@ -364,10 +386,10 @@ export const LESSONS = [
   {
     title: T("3D 보기 자세히", "The 3D view in depth"),
     steps: [
-      { title: T("시점", "Views"), text: T("등각, 위, 정면, 뒤, 왼쪽, 오른쪽, 조감 버튼(또는 1–7 키)으로 시점을 바꿉니다.", "Isometric, Top, Front, Back, Left, Right and Bird's eye (keys 1–7) switch the view."),
+      { title: T("시점", "Views"), text: T("등각, 위, 정면, 배면, 좌측면, 우측면, 조감도 버튼(또는 1–7 키)으로 시점을 바꿉니다.", "Isometric, Top, Front, Rear, Left side, Right side and Bird's eye (keys 1–7) switch the view."),
         run: async (ctx) => { await ctx.key("F3"); await ctx.waitFor(() => ctx.app.v3d.viewer, 8000); await ctx.key("2"); await ctx.wait(500); await ctx.key("1"); await ctx.wait(500); },
         practice: { todo: T("툴바의 '위'와 '등각'을 눌러 보세요.", "Click Top and then Isometric in the toolbar."), check: (ctx) => ctx.app.tab === "3d" } },
-      { title: T("표현 스타일", "Render styles"), text: T("사실적, 흰색 모델, 선 그림(입면도 느낌), 투시(X-ray) 스타일이 있습니다.", "Realistic, white model, line drawing (like an elevation) and x-ray."),
+      { title: T("표현 스타일", "Render styles"), text: T("사실적, 흰색 모형, 선 그림(입면도 느낌), X-레이 스타일이 있습니다.", "Realistic, white model, line drawing (like an elevation) and x-ray."),
         run: async (ctx) => { const sel = document.querySelector("#toolbar select"); await ctx.select(sel, "lines"); ctx.expect(ctx.app.v3d.opts.style === "lines", "style unchanged"); await ctx.select(document.querySelector("#toolbar select"), "realistic"); },
         practice: { todo: T("툴바의 스타일을 '선 그림'으로 바꿔 보세요.", "Set the toolbar Style to Line drawing."), check: (ctx) => ctx.app.v3d.opts.style !== "realistic", targets: () => [{ el: "#toolbar select" }] } },
       { title: T("단면", "Section cut"), text: T("단면 버튼(X)은 현재 층 바닥 1.2 m 위를 잘라 3D 평면을 보여 줍니다. 높이는 왼쪽에서 바꿉니다.", "The section button (X) cuts 1.2 m above the current floor for a 3D plan; set the height on the left."),
@@ -459,6 +481,15 @@ export const LESSONS = [
       { title: T("단위", "Units"), text: T("상태 표시줄의 단위 단추는 mm → cm → m → ft 로 바뀝니다.", "The units button in the status bar cycles mm → cm → m → ft."),
         run: async (ctx) => { const u = ctx.app.settings.units || "mm"; const btn = [...document.querySelectorAll("#statusbar button.cell")].find((b) => b.textContent.trim() === u); await ctx.click(btn); ctx.expect((ctx.app.settings.units || "mm") !== u, "units unchanged"); ctx.app.setSetting("units", u); },
         practice: { todo: T("상태 표시줄 오른쪽의 'mm' 를 눌러 보세요.", "Click 'mm' at the right of the status bar."), check: (ctx) => true } },
+      { title: T("상태 표시줄과 창 크기", "Status bar and window size"), text: T("아래쪽 상태 표시줄은 커서 좌표, 레벨, 격자, 스냅, 직교, 축척, 단위, 선택 개수와 검사 결과를 보여 주고(3D 에서는 탐색 방식·투영·단면·스타일·삼각형 수), 대부분 눌러서 바꿀 수 있습니다. 오른쪽 아래 모서리의 점 표시를 끌면 창 크기가 바뀝니다.", "The status bar along the bottom shows the cursor position, level, grid, snap, ortho, scale, units, selection and the model check (in 3D: navigation, projection, section, style and triangle count); most cells can be clicked. Drag the dotted grip in the bottom-right corner to resize the window."),
+        run: async (ctx) => {
+          await ctx.key("F2");
+          ctx.spot("#statusbar"); await ctx.wait(900);
+          ctx.expect(document.querySelectorAll("#status-cells .cell").length >= 5, "status bar is empty");
+          const grip = document.getElementById("size-grip");
+          if (grip && getComputedStyle(grip).display !== "none") { ctx.spot("#size-grip"); await ctx.wait(900); }
+        },
+        practice: { todo: T("상태 표시줄을 살펴보고 오른쪽 아래 모서리를 끌어 창 크기를 바꿔 보세요.", "Look along the status bar and drag the bottom-right corner to resize the window."), check: () => true, targets: () => [{ el: "#size-grip" }] } },
       { title: T("패널 접기", "Collapse the side panels"), text: T("Ctrl+1 / Ctrl+2(또는 패널 제목의 < > 단추)로 좌우 패널을 접습니다. 접힌 패널은 아이콘과 제목으로 남아 다시 누르면 펼쳐집니다.", "Ctrl+1 / Ctrl+2 (or the < > on a panel title) collapse the side panels; a collapsed panel stays as an icon and title you click to open again."),
         run: async (ctx) => { await ctx.key("1", { ctrl: true }); ctx.expect(document.querySelector('#left-panel .side-rail'), "no rail"); await ctx.click('#left-panel .side-rail'); ctx.expect(ctx.app.settings.showLeft, "panel not reopened"); },
         practice: { todo: T("Ctrl+1 로 왼쪽 패널을 접었다가 레일을 눌러 펼치세요.", "Press Ctrl+1, then click the rail to open the panel again."), check: (ctx) => !!document.querySelector('#left-panel .side-rail') || ctx.app.settings.showLeft } },

@@ -1,6 +1,6 @@
-// A pan/zoom canvas shared by the schematic and PCB editors.
+// The pan/zoom canvas of the floor-plan editor.
 //
-// World units are whatever the editor uses (mils or mm). screen = world *
+// World units are millimetres (plan y-down). screen = world *
 // scale + offset. The viewport owns device-pixel-ratio handling, the grid,
 // wheel zoom about the cursor, middle/right-drag panning and touch pinch.
 // Editors hook in through callbacks and draw in world space.

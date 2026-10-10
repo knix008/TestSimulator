@@ -1,6 +1,6 @@
 // Minimal ZIP writer: STORE (no compression), CRC-32, DOS timestamps, UTF-8
-// file names (general purpose flag bit 11). Fab houses only need the archive
-// to open; Gerbers compress well but storing keeps this dependency-free.
+// file names (general purpose flag bit 11). Used for OBJ+MTL bundles, 3MF and
+// USDZ; storing without compression keeps this dependency-free.
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);

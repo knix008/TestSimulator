@@ -27,6 +27,7 @@
     "build:all": "node scripts/build-info.mjs && npm run build:clean && npm run build:web && npm run build:installer && node scripts/package.mjs -mwl && node scripts/copy-installers.cjs",
     "dist:all": "npm run build:all",
     "smoke": "node test/smoke/gui-smoke.mjs",
+    "record:tutorial": "node scripts/record-tutorial.mjs",
     "i18n:check": "node scripts/i18n-keys.mjs",
     "build:art": "node scripts/render-art.mjs"
   },

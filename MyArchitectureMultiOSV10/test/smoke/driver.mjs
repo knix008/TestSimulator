@@ -12,17 +12,18 @@ import { fileURLToPath } from "node:url";
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function launch({ width = 1500, height = 950, args = [] } = {}) {
+export async function launch({ width = 1500, height = 950, args = [], env: extraEnv = {} } = {}) {
   const port = 9581 + Math.floor(Math.random() * 300);
   const exe = process.platform === "win32" ? path.join(root, "node_modules/electron/dist/electron.exe")
     : process.platform === "darwin" ? path.join(root, "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron")
     : path.join(root, "node_modules/electron/dist/electron");
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "myarch-smoke-"));
-  const env = { ...process.env };
+  const env = { ...process.env, ...extraEnv };
   delete env.ELECTRON_RUN_AS_NODE;
   const child = spawn(exe, [root, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, ...args], { env, stdio: "ignore" });
   const errors = [];
   const pending = new Map();
+  const listeners = new Map(); // CDP event name → callbacks (api.on)
   let ws;
   let msgId = 0;
   const send = (method, params = {}) => new Promise((res) => { const i = ++msgId; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
@@ -38,6 +39,7 @@ export async function launch({ width = 1500, height = 950, args = [] } = {}) {
           if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
           if (msg.method === "Runtime.exceptionThrown") errors.push(msg.params.exceptionDetails.exception?.description || msg.params.exceptionDetails.text);
           if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error") errors.push("console.error: " + msg.params.args.map((a) => a.value ?? a.description).join(" "));
+          if (msg.method && listeners.has(msg.method)) for (const cb of listeners.get(msg.method)) cb(msg.params);
         };
         await send("Runtime.enable");
         await send("Page.enable");
@@ -52,11 +54,17 @@ export async function launch({ width = 1500, height = 950, args = [] } = {}) {
     if (r.result.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || r.result.exceptionDetails.text);
     return r.result.result.value;
   };
-  await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+  // Size the REAL window (the page always matches what is on screen). Viewport
+  // emulation is only a fallback: it draws the page larger or smaller than the
+  // window, which looks broken to anyone watching the run.
+  const sized = await ev(`if (!window.myarch || !window.myarch.resizeWindow) return false; window.myarch.resizeWindow(${width}, ${height}); return true`).catch(() => false);
+  if (sized) { for (let i = 0; i < 30; i++) { const s = await ev(`return [innerWidth, innerHeight]`).catch(() => [0, 0]); if (s[0] >= width && s[1] >= height) break; await sleep(100); } }
+  else await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
   const mouse = (type, x, y, button = "left", clickCount = 1, modifiers = 0) => send("Input.dispatchMouseEvent", { type, x, y, button, clickCount, modifiers, buttons: type === "mouseReleased" ? 0 : button === "left" ? 1 : button === "right" ? 2 : 4 });
   const VK = { Escape: 27, Enter: 13, Delete: 46, Backspace: 8, Home: 36, F1: 112, F2: 113, F3: 114, F4: 115, F5: 116, F8: 119, F9: 120, PageDown: 34, PageUp: 33, ArrowLeft: 37, ArrowRight: 39, ArrowUp: 38, ArrowDown: 40, " ": 32 };
   const api = {
     child, port, profile, errors, send, ev,
+    on(method, cb) { if (!listeners.has(method)) listeners.set(method, new Set()); listeners.get(method).add(cb); return () => listeners.get(method).delete(cb); },
     async click(x, y, opts = {}) {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, buttons: 0 });
       await mouse("mousePressed", x, y, opts.button || "left", opts.count || 1, opts.modifiers || 0);

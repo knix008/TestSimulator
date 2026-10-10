@@ -210,3 +210,9 @@ export function setWindowTitle(title) {
 export function setMinSize(w, h) {
   if (desktop && desktop.setMinSize) desktop.setMinSize(w, h);
 }
+
+// Window size for the status bar's resize grip (desktop only).
+export const canResizeWindow = !!(desktop && desktop.resizeWindow);
+export async function windowSize() { return desktop && desktop.windowSize ? desktop.windowSize() : null; }
+export function resizeWindow(w, h) { if (desktop && desktop.resizeWindow) desktop.resizeWindow(w, h); }
+export function onWindowState(fn) { if (desktop && desktop.onWindowState) desktop.onWindowState(fn); }

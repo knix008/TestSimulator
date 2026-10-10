@@ -31,7 +31,7 @@ export class StartPage {
     const ko = getLanguage() === "ko";
     this.host.innerHTML = "";
     const action = (ic, title, desc, fn) => h("button", { class: "action-card", onclick: fn }, h("span", { class: "ai", html: icon(ic, 18) }), h("div", {}, h("b", {}, title), h("small", {}, desc)));
-    const recent = (app.settings.recent || []).slice(0, 10);
+    const recent = (app.settings.recent || []).slice(0, +app.settings.recentLimit || 10);
     const left = h("div", {},
       h("h2", {}, t("Start")),
       h("div", { class: "start-actions" },

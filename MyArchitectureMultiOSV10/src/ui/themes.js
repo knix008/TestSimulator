@@ -1,10 +1,11 @@
 // 40 colour themes — 20 dark, 20 light.
 //
 // A theme only names a few key colours (background, panel, text, accent and
-// optional canvas tints); the full set of UI tokens and the schematic / PCB
-// canvas palettes are derived from them, so every theme stays consistent and
+// optional canvas tints); the full set of UI tokens and the plan canvas
+// palette are derived from them, so every theme stays consistent and
 // readable. Each theme: { id, name: {ko, en}, mode, bg, panel, text, accent,
-// sch?, pcb? } where sch/pcb are optional canvas background colours.
+// sch?, pcb? } where sch/pcb are optional canvas tints (the names are kept
+// from the theme set shared with MyCircuit).
 
 const D = (id, ko, en, bg, panel, text, accent, sch, pcb) => ({ id, name: { ko, en }, mode: "dark", bg, panel, text, accent, sch, pcb });
 const Lt = (id, ko, en, bg, panel, text, accent, sch, pcb) => ({ id, name: { ko, en }, mode: "light", bg, panel, text, accent, sch, pcb });

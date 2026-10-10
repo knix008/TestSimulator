@@ -90,7 +90,9 @@ export async function promptDialog(message, value = "", { title = t("Input"), pl
 }
 
 // A tiny inline text box floating at screen coords (label names, values).
-export function popupInput({ x, y, value = "", placeholder = "", onDone }) {
+// selectAll: false keeps the caret after `value` — used when the first typed
+// character opened the box, so the following keys continue it.
+export function popupInput({ x, y, value = "", placeholder = "", onDone, selectAll = true }) {
   const input = h("input", { class: "popup-input", value, placeholder, style: { left: `${x}px`, top: `${y}px` } });
   let done = false;
   const finish = (ok) => {
@@ -105,9 +107,17 @@ export function popupInput({ x, y, value = "", placeholder = "", onDone }) {
     if (e.key === "Enter") finish(true);
     if (e.key === "Escape") finish(false);
   });
-  input.addEventListener("blur", () => finish(input.value.trim() !== "" && input.value !== value ? true : false));
+  // Focus at once, so keys typed right after the one that opened the box land in it.
+  const place = () => { input.focus(); if (selectAll) input.select(); else input.setSelectionRange(input.value.length, input.value.length); };
+  const born = performance.now();
+  input.addEventListener("blur", () => {
+    // A box opened by a mouse click loses focus to the canvas when the click's
+    // default action runs; take it back instead of closing.
+    if (!done && performance.now() - born < 400) { setTimeout(() => { if (!done) place(); }, 0); return; }
+    finish(input.value.trim() !== "" && input.value !== value ? true : false);
+  });
   document.body.append(input);
-  setTimeout(() => { input.focus(); input.select(); }, 10);
+  place();
 }
 
 let toastHost = null;
@@ -144,6 +154,8 @@ export function contextMenu(items, x, y) {
   menu.style.top = `${Math.min(y, window.innerHeight - r.height - 6)}px`;
   setTimeout(() => document.addEventListener("pointerdown", outside, true), 0);
   function outside(e) {
+    // A menu removed some other way must not close the next one.
+    if (!menu.isConnected) { document.removeEventListener("pointerdown", outside, true); return; }
     if (!menu.contains(e.target)) closeMenus();
   }
   menu._outside = outside;
