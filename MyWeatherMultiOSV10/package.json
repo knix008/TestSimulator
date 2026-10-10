@@ -15,7 +15,7 @@
     "start": "electron .",
     "start:web": "python -m http.server 4173",
     "build": "electron-builder",
-    "build:win": "electron-builder --win nsis && node scripts/copy-installer.js",
+    "build:win": "node scripts/build-win.js",
     "build:linux": "electron-builder --linux",
     "build:mac": "electron-builder --mac"
   },
