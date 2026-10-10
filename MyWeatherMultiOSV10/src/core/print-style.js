@@ -14,11 +14,11 @@ export const PRINT_CSS = `
 .print-doc .empty { font-size: 12px; color: #5b6b7a; }
 
 .print-doc .hour-board { display: flex; flex-direction: column; gap: 8px; }
-.print-doc .hour-band { display: grid; grid-template-columns: 54px repeat(6, 1fr); align-items: center; gap: 4px; }
-.print-doc .band-name { font-size: 11px; font-weight: 700; color: #1f4f82; }
+.print-doc .hour-band { display: grid; grid-template-columns: 54px repeat(6, 1fr); grid-template-rows: 22px 14px 14px; align-items: center; column-gap: 4px; row-gap: 2px; }
+.print-doc .band-name { grid-column: 1; grid-row: 2; align-self: center; font-size: 11px; font-weight: 700; color: #1f4f82; }
 .print-doc .hour {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  border: 1px solid #d7e1ea; border-radius: 6px; background: #f7fafd; padding: 4px 2px;
+  grid-row: 1 / span 3; display: grid; grid-template-rows: subgrid; justify-items: center; align-items: center;
+  border: 1px solid #d7e1ea; border-radius: 6px; background: #f7fafd; padding: 0;
   font-size: 10px; font-weight: 600; color: #10212f;
 }
 .print-doc .hour.is-empty { color: #9aa8b5; background: #fff; }
@@ -32,6 +32,7 @@ export const PRINT_CSS = `
   border: 1px solid #d7e1ea; border-radius: 6px; background: #f7fafd; padding: 5px 2px;
   font-size: 10px; color: #10212f;
 }
+.print-doc .month-cal .day { display: grid; grid-template-rows: 16px 24px 14px; align-content: start; justify-items: center; }
 .print-doc .day.is-outside { background: #fff; border-style: dashed; color: #b6c2cd; }
 .print-doc .day.is-today { border-color: #1f4f82; border-width: 2px; background: #eaf2fb; }
 .print-doc .day.is-alert { border-color: #c0392b; }

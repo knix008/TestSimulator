@@ -38,7 +38,7 @@ export function forecastFitHeight(range, hasWeather) {
   if (!hasWeather) return 72;
   if (range === "weekly") return 96;
   if (range === "monthly") return 500;
-  return 300;
+  return 288;
 }
 
 export function forecastWhen({ range, tab, language, today, priority = "average", dateFormat = "long", t, anchor = "" }) {
@@ -115,12 +115,12 @@ function hoursHtml(day, tab, language, units, t) {
       const hour = byHour.get(hourIndex);
       const label = hourLabel(hourIndex, language);
       if (!hour) {
-        cells.push(`<div class="hour is-empty"><span>${esc(label)}</span><span>—</span></div>`);
+        cells.push(`<div class="hour is-empty"><span class="hour-icon"></span><span class="hour-time">${esc(label)}</span><span class="hour-temp">—</span></div>`);
         continue;
       }
       const title = `${label} ${conditionText(hour.code, language)} ${formatTemp(hour.temp, units)}`;
       cells.push(
-        `<button type="button" class="hour" data-gui="hour" data-hour="${esc(hour.time)}" title="${esc(title)}">${sceneArt(conditionIcon(hour.code), 22)}<span>${esc(label)}</span><span>${esc(formatTemp(hour.temp, units))}</span></button>`,
+        `<button type="button" class="hour" data-gui="hour" data-hour="${esc(hour.time)}" title="${esc(title)}">${sceneArt(conditionIcon(hour.code), 22)}<span class="hour-time">${esc(label)}</span><span class="hour-temp">${esc(formatTemp(hour.temp, units))}</span></button>`,
       );
     }
     return `<div class="hour-band" data-band="${id}"><span class="band-name">${esc(t(`period.${id}`))}</span>${cells.join("")}</div>`;
@@ -185,15 +185,20 @@ function dayCell({ dateKey, day, tab, language, units, today, name, iconSize }) 
   const selected = dateKey === tab.selectedDate ? " is-selected" : "";
   const alert = day && isAlert(day, tab) ? " is-alert" : "";
   const todayMark = dateKey === isoDate(today) ? " is-today" : "";
-  const art = day ? sceneArt(conditionIcon(day.code), iconSize) : `<span class="hour-gap">—</span>`;
+  const art = day ? sceneArt(conditionIcon(day.code), iconSize) : `<span class="hour-gap">--</span>`;
+  const blank = missingTemp(units);
   const temps = day
     ? `<span class="temps"><span>${esc(formatTemp(day.tempMin, units))}</span><span>${esc(formatTemp(day.tempMax, units))}</span></span>`
-    : "";
+    : `<span class="temps"><span>${esc(blank)}</span></span>`;
   const condition = day ? `${conditionText(day.code, language)} ` : "";
   const range = day ? `${formatTemp(day.tempMin, units)} – ${formatTemp(day.tempMax, units)}` : "";
   const title = `${name ? `${name} ` : ""}${dateKey} ${condition}${range}`.trim();
   const head = name ? `<span class="weekday">${esc(name)}</span>` : "";
   return `<button type="button" class="day${selected}${alert}${todayMark}" data-gui="day" data-date="${esc(dateKey)}" title="${esc(title)}">${head}<span class="day-num">${Number(dateKey.slice(8))}</span>${art}${temps}</button>`;
+}
+
+function missingTemp(units) {
+  return units === "F" ? "--°F" : "--°C";
 }
 
 function hourLabel(hour, language) {

@@ -1164,7 +1164,15 @@ export function registerGui(h) {
       assert.match(daily.popup.querySelector('[data-hour="2026-10-07T00:00"]').textContent, /0시/);
       assert.match(daily.popup.querySelector('[data-hour="2026-10-07T12:00"]').textContent, /12시/);
       assert.equal(getComputedStyle(daily.popup.querySelector(".hour-band")).display, "grid");
+      const bandNameRule = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".band-name");
+      assert.match(bandNameRule.cssText, /grid-row:\s*2/);
       const hour = daily.popup.querySelector(".hour");
+      assert.equal(getComputedStyle(hour).display, "grid");
+      assert.equal(getComputedStyle(hour).justifyItems, "center");
+      assert.equal(daily.popup.querySelectorAll(".hour-time").length, 24);
+      const forecastRule = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === '.popup[data-popup="forecast"]');
+      assert.match(forecastRule.cssText, /var\(--bg-top\)/);
+      assert.match(forecastRule.cssText, /var\(--bg\)/);
       assert.equal(getComputedStyle(hour).borderTopWidth, "0px");
       assert.equal(getComputedStyle(hour).borderLeftWidth, "0px");
       const raised = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".hour:hover, .day:hover, .hour:focus-visible, .day:focus-visible");
@@ -1198,9 +1206,15 @@ export function registerGui(h) {
       assert.equal(cells[0].dataset.date, undefined);
       assert.equal(cells[0].textContent, "27");
       assert.equal(cells[0].classList.contains("is-outside"), true);
+      const inside = month.querySelector('[data-date="2026-10-01"]');
+      assert.equal(getComputedStyle(cells[0]).alignContent, "start");
+      assert.equal(getComputedStyle(inside).alignContent, "start");
+      assert.equal(getComputedStyle(cells[0]).gridTemplateRows, getComputedStyle(inside).gridTemplateRows);
       assert.equal(getComputedStyle(cells[0]).borderTopWidth, "0px");
       assert.equal(month.querySelector('[data-date="2026-10-01"]').classList.contains("is-outside"), false);
-      assert.ok(month.querySelector('[data-date="2026-10-31"]'));
+      const uncovered = month.querySelector('[data-date="2026-10-31"]');
+      assert.equal(uncovered.querySelector(".hour-gap").textContent, "--");
+      assert.equal(uncovered.querySelector(".temps").textContent, "--°C");
       assert.equal(month.querySelector('[data-date="2026-10-07"]').classList.contains("is-today"), true);
       assert.match(monthly.popup.textContent, /2026년 10월/);
       await monthly.close();
@@ -1748,8 +1762,16 @@ export function registerGui(h) {
       const root = document.documentElement;
       await app.setTransparency(0);
       assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 1)");
+      const ranges = ["daily", "weekly", "monthly"].map((range) => app.showForecast(range));
+      await settle();
       await app.setTransparency(100);
       assert.equal(root.style.getPropertyValue("--bg"), "rgba(20, 24, 31, 0.25)");
+      for (const range of ["daily", "weekly", "monthly"]) {
+        const popup = document.querySelector(`[data-range="${range}"]`)?.closest("[data-popup]");
+        assert.equal(popup.style.getPropertyValue("--bg"), root.style.getPropertyValue("--bg"), range);
+      }
+      for (const popup of [...document.querySelectorAll('[data-popup="forecast"]')]) popup.querySelector('[data-action="close"]').click();
+      await Promise.all(ranges);
       assert.equal(root.style.getPropertyValue("--fg"), "#eef2f8");
       assert.equal(app.frame.style.opacity, "");
       assert.equal(app.shell.style.opacity, "");
