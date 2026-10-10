@@ -1,0 +1,113 @@
+[
+  {
+    "file": "01-studio.myarch",
+    "title": "Studio apartment",
+    "titleKo": "원룸",
+    "description": "One room with a kitchen line and a shower room, fully furnished.",
+    "descriptionKo": "주방 라인과 샤워실이 있는 원룸, 가구 배치 포함.",
+    "tags": [
+      "1 level",
+      "furniture",
+      "flat roof"
+    ]
+  },
+  {
+    "file": "02-two-bedroom.myarch",
+    "title": "Two-bedroom apartment",
+    "titleKo": "방 두 개 아파트",
+    "description": "Two bedrooms, living/dining/kitchen, bathroom and hall.",
+    "descriptionKo": "침실 2, 거실·식당·주방, 욕실, 현관.",
+    "tags": [
+      "1 level",
+      "apartment",
+      "schedules"
+    ]
+  },
+  {
+    "file": "03-two-storey-house.myarch",
+    "title": "Two-storey house",
+    "titleKo": "2층 주택",
+    "description": "Two levels joined by a stair, gable roof, garden with trees and a car.",
+    "descriptionKo": "계단으로 연결된 2개 층, 박공지붕, 나무와 자동차가 있는 마당.",
+    "tags": [
+      "2 levels",
+      "stairs",
+      "gable roof"
+    ],
+    "hero": true
+  },
+  {
+    "file": "04-small-office.myarch",
+    "title": "Small office",
+    "titleKo": "소규모 사무실",
+    "description": "Open office, glass meeting room, columns and a reception.",
+    "descriptionKo": "오픈 오피스, 유리 회의실, 기둥, 로비.",
+    "tags": [
+      "office",
+      "columns",
+      "glass walls"
+    ]
+  },
+  {
+    "file": "05-wooden-cabin.myarch",
+    "title": "Wooden cabin",
+    "titleKo": "목조 오두막",
+    "description": "A small cabin with wood cladding and a shed roof.",
+    "descriptionKo": "목재 외장과 외쪽지붕의 작은 오두막.",
+    "tags": [
+      "shed roof",
+      "materials"
+    ]
+  },
+  {
+    "file": "06-renovation-bim.myarch",
+    "title": "Renovation (BIM phases)",
+    "titleKo": "리모델링 (BIM 단계)",
+    "description": "Existing, demolished and new work with layered wall types, grids, room numbers, properties and a cost estimate.",
+    "descriptionKo": "기존·철거·신축 단계, 다층 벽 타입, 그리드, 실 번호, 속성과 공사비.",
+    "tags": [
+      "BIM",
+      "phases",
+      "wall types",
+      "grid"
+    ]
+  },
+  {
+    "file": "07-massing-study.myarch",
+    "title": "Massing study",
+    "titleKo": "매스 스터디",
+    "description": "SketchUp-style mass models: podium, towers, a rotunda and a tapered crown, with scenes to play.",
+    "descriptionKo": "스케치업식 매스 모델: 포디움, 타워, 원형 건물, 테이퍼 지붕과 장면 애니메이션.",
+    "tags": [
+      "mass",
+      "scenes",
+      "push/pull",
+      "groups"
+    ]
+  },
+  {
+    "file": "08-apartment-block.myarch",
+    "title": "Apartment block",
+    "titleKo": "3층 공동주택",
+    "description": "Three storeys of two units around a stair core, with columns on a structural grid and numbered rooms.",
+    "descriptionKo": "계단실을 중심으로 한 2세대 × 3개 층, 구조 그리드 위 기둥, 실 번호.",
+    "tags": [
+      "3 levels",
+      "grid",
+      "columns",
+      "BIM"
+    ]
+  },
+  {
+    "file": "09-cad-tracing.myarch",
+    "title": "Tracing a DXF drawing",
+    "titleKo": "DXF 도면 따라 그리기",
+    "description": "An imported AutoCAD drawing on its own CAD layers, partly traced into walls.",
+    "descriptionKo": "CAD 레이어로 가져온 AutoCAD 도면을 벽으로 일부 따라 그린 예제.",
+    "tags": [
+      "DXF",
+      "CAD layers",
+      "tracing"
+    ]
+  }
+]

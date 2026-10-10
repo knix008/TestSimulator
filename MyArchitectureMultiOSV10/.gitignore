@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# build output (npm run build:web / dist:*)
+dist/
+release/
+*.blockmap
+*-setup.exe
+# installers copied to the project root by scripts/copy-installers.cjs
+/MyArchitecture-*.exe
+/MyArchitecture-*.dmg
+/MyArchitecture-*.zip
+/MyArchitecture-*.AppImage
+/MyArchitecture-*.deb
+/MyArchitecture-*.tar.gz
+
+# generated at build time by scripts/build-info.mjs (version, commit, date)
+src/buildinfo.js
+
+# test output (npm test --json, npm run smoke -- --shots <dir>)
+test-results/
+smoke-shots/
+coverage/
+*.log
+npm-debug.log*
+
+# editors and operating systems
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

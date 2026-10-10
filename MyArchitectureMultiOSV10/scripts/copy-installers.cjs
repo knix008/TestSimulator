@@ -1,0 +1,14 @@
+// Copies the finished installers from release/ to the project root, where they
+// are easy to find (MyArchitecture-Setup-10.0.0.exe, .dmg, .AppImage, .deb, ...).
+const fs = require('fs')
+const path = require('path')
+
+const root = path.resolve(__dirname, '..')
+const release = path.join(root, 'release')
+if (!fs.existsSync(release)) process.exit(0)
+for (const name of fs.readdirSync(release)) {
+  if (/\.(exe|dmg|AppImage|deb|rpm|tar\.gz|zip)$/i.test(name) && !/\.blockmap$/i.test(name)) {
+    fs.copyFileSync(path.join(release, name), path.join(root, name))
+    console.log('copied', name)
+  }
+}

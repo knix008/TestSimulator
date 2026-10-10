@@ -1,0 +1,5140 @@
+{
+ "format": "myarch",
+ "version": 1,
+ "meta": {
+  "title": "Tracing a DXF drawing",
+  "author": "SHKWON",
+  "company": "MyArchitecture",
+  "client": "Sample",
+  "address": "Ulsan",
+  "rev": "A",
+  "date": "2026-10-10",
+  "comment": "",
+  "scale": 100,
+  "north": 0,
+  "latitude": 37.57,
+  "longitude": 126.98,
+  "timezone": 9
+ },
+ "defaults": {
+  "wallThickness": 200,
+  "wallHeight": 2800,
+  "doorWidth": 900,
+  "doorHeight": 2100,
+  "windowWidth": 1200,
+  "windowHeight": 1200,
+  "windowSill": 900,
+  "slab": 200,
+  "columnSize": 400,
+  "stairWidth": 1000,
+  "textSize": 300
+ },
+ "levels": [
+  {
+   "id": "lv0hy9t00d3ds",
+   "name": "1F",
+   "elevation": 0,
+   "height": 2800,
+   "slab": 200
+  }
+ ],
+ "wallTypes": [
+  {
+   "id": "ext-brick-300",
+   "name": "Exterior brick cavity 300",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "brick",
+     "thickness": 100,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 80,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 100,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-render-250",
+   "name": "Exterior rendered 250",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 60,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-wood-200",
+   "name": "Exterior timber frame 200",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "wood-cladding",
+     "thickness": 25,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 25,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-block-150",
+   "name": "Interior block 150",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    },
+    {
+     "material": "concrete",
+     "thickness": 120,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-drywall-100",
+   "name": "Interior drywall 100",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 74,
+     "function": "structure"
+    },
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "concrete-200",
+   "name": "Concrete 200",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "concrete",
+     "thickness": 200,
+     "function": "structure"
+    }
+   ]
+  }
+ ],
+ "grids": [],
+ "costs": {
+  "currency": "KRW",
+  "wall": 120000,
+  "floor": 80000,
+  "roof": 150000,
+  "door": 450000,
+  "window": 380000,
+  "opening": 100000,
+  "stair": 2500000,
+  "column": 300000,
+  "furniture": 0
+ },
+ "layers": [
+  {
+   "id": "0",
+   "name": "0",
+   "color": "#9aa4b5",
+   "visible": true
+  },
+  {
+   "id": "A-WALL",
+   "name": "A-WALL",
+   "color": "#9aa4b5",
+   "visible": true
+  },
+  {
+   "id": "A-GLAZ",
+   "name": "A-GLAZ",
+   "color": "#00ffff",
+   "visible": true
+  },
+  {
+   "id": "A-DOOR",
+   "name": "A-DOOR",
+   "color": "#ff8000",
+   "visible": true
+  },
+  {
+   "id": "A-AREA",
+   "name": "A-AREA",
+   "color": "#808080",
+   "visible": true
+  },
+  {
+   "id": "A-AREA-IDEN",
+   "name": "A-AREA-IDEN",
+   "color": "#9aa4b5",
+   "visible": true
+  },
+  {
+   "id": "A-FURN",
+   "name": "A-FURN",
+   "color": "#c0c0c0",
+   "visible": false
+  },
+  {
+   "id": "A-ANNO-DIMS",
+   "name": "A-ANNO-DIMS",
+   "color": "#ff0000",
+   "visible": false
+  }
+ ],
+ "walls": [
+  {
+   "id": "w0hya300iopr",
+   "level": "lv0hy9t00d3ds",
+   "x1": 14000,
+   "y1": 0,
+   "x2": 25400,
+   "y2": 0,
+   "thickness": 250,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "w0hya300ip3b",
+   "level": "lv0hy9t00d3ds",
+   "x1": 25400,
+   "y1": 0,
+   "x2": 25400,
+   "y2": 8400,
+   "thickness": 250,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "w0hya300iqk3",
+   "level": "lv0hy9t00d3ds",
+   "x1": 25400,
+   "y1": 8400,
+   "x2": 14000,
+   "y2": 8400,
+   "thickness": 250,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "w0hya300irba",
+   "level": "lv0hy9t00d3ds",
+   "x1": 14000,
+   "y1": 8400,
+   "x2": 14000,
+   "y2": 0,
+   "thickness": 250,
+   "height": null,
+   "phase": "new"
+  }
+ ],
+ "openings": [
+  {
+   "id": "o0hya300is5c",
+   "wall": "w0hya300iopr",
+   "kind": "window",
+   "type": "casement",
+   "at": 1800,
+   "width": 1500,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hya300ithg",
+   "wall": "w0hya300iopr",
+   "kind": "window",
+   "type": "casement",
+   "at": 5100,
+   "width": 1500,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hya300iu2m",
+   "wall": "w0hya300ip3b",
+   "kind": "window",
+   "type": "casement",
+   "at": 4200,
+   "width": 1500,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  }
+ ],
+ "rooms": [],
+ "columns": [],
+ "stairs": [],
+ "furniture": [],
+ "roofs": [],
+ "dimensions": [],
+ "texts": [
+  {
+   "id": "t0hy9z00dsiv",
+   "level": "lv0hy9t00d3ds",
+   "x": 15800,
+   "y": -425,
+   "text": "W01",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-GLAZ",
+   "phase": "new"
+  },
+  {
+   "id": "t0hy9z00dxvq",
+   "level": "lv0hy9t00d3ds",
+   "x": 19100,
+   "y": -425,
+   "text": "W02",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-GLAZ",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000e3vf",
+   "level": "lv0hy9t00d3ds",
+   "x": 23000,
+   "y": -425,
+   "text": "W03",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-GLAZ",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000e8jp",
+   "level": "lv0hy9t00d3ds",
+   "x": 25745,
+   "y": 4120,
+   "text": "W05",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-GLAZ",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000edtr",
+   "level": "lv0hy9t00d3ds",
+   "x": 22900,
+   "y": 8665,
+   "text": "W07",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-GLAZ",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000egk7",
+   "level": "lv0hy9t00d3ds",
+   "x": 20300,
+   "y": 8665,
+   "text": "D04",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-DOOR",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000ellr",
+   "level": "lv0hy9t00d3ds",
+   "x": 16400,
+   "y": 8665,
+   "text": "W06",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-GLAZ",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000eqqe",
+   "level": "lv0hy9t00d3ds",
+   "x": 13655,
+   "y": 2020,
+   "text": "W04",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-GLAZ",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000etkk",
+   "level": "lv0hy9t00d3ds",
+   "x": 15800,
+   "y": 4415,
+   "text": "D01",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-DOOR",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000ewu2",
+   "level": "lv0hy9t00d3ds",
+   "x": 19100,
+   "y": 4415,
+   "text": "D02",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-DOOR",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000eznx",
+   "level": "lv0hy9t00d3ds",
+   "x": 20895,
+   "y": 6220,
+   "text": "O01",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-DOOR",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000f2ew",
+   "level": "lv0hy9t00d3ds",
+   "x": 17880,
+   "y": 5620,
+   "text": "D03",
+   "size": 160,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-DOOR",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000f4lq",
+   "level": "lv0hy9t00d3ds",
+   "x": 15825,
+   "y": 1887.5,
+   "text": "Bedroom",
+   "size": 250,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000f5cx",
+   "level": "lv0hy9t00d3ds",
+   "x": 15825,
+   "y": 2185,
+   "text": "13.60 m²",
+   "size": 180,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000f79c",
+   "level": "lv0hy9t00d3ds",
+   "x": 19100,
+   "y": 1887.5,
+   "text": "Bedroom",
+   "size": 250,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000f8yn",
+   "level": "lv0hy9t00d3ds",
+   "x": 19100,
+   "y": 2185,
+   "text": "11.40 m²",
+   "size": 180,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000fasd",
+   "level": "lv0hy9t00d3ds",
+   "x": 22975,
+   "y": 3962.5,
+   "text": "Living room",
+   "size": 250,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000fbo9",
+   "level": "lv0hy9t00d3ds",
+   "x": 22975,
+   "y": 4260,
+   "text": "37.49 m²",
+   "size": 180,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000fdwx",
+   "level": "lv0hy9t00d3ds",
+   "x": 19092.5,
+   "y": 6037.5,
+   "text": "Hall",
+   "size": 250,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000feyv",
+   "level": "lv0hy9t00d3ds",
+   "x": 19092.5,
+   "y": 6335,
+   "text": "11.46 m²",
+   "size": 180,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000fgtw",
+   "level": "lv0hy9t00d3ds",
+   "x": 15832.5,
+   "y": 6037.5,
+   "text": "Bathroom",
+   "size": 250,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya000fhnv",
+   "level": "lv0hy9t00d3ds",
+   "x": 15832.5,
+   "y": 6335,
+   "text": "13.66 m²",
+   "size": 180,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-AREA-IDEN",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya200ihrl",
+   "level": "lv0hy9t00d3ds",
+   "x": 19700,
+   "y": -1425,
+   "text": "11400",
+   "size": 180,
+   "rot": 0,
+   "align": "center",
+   "layer": "A-ANNO-DIMS",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya200inlc",
+   "level": "lv0hy9t00d3ds",
+   "x": 12755,
+   "y": 4200,
+   "text": "8400",
+   "size": 180,
+   "rot": 90,
+   "align": "center",
+   "layer": "A-ANNO-DIMS",
+   "phase": "new"
+  },
+  {
+   "id": "t0hya300ivi8",
+   "level": "lv0hy9t00d3ds",
+   "x": 14000,
+   "y": -2200,
+   "text": "Continue tracing: W on the CAD lines, then A inside the walls",
+   "size": 400,
+   "rot": 0,
+   "phase": "new"
+  }
+ ],
+ "drawings": [
+  {
+   "id": "g0hy9z00d4ig",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     14125,
+     125
+    ],
+    [
+     15050,
+     125
+    ],
+    [
+     15050,
+     -125
+    ],
+    [
+     13875,
+     -125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00d5d2",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     16550,
+     125
+    ],
+    [
+     18350,
+     125
+    ],
+    [
+     18350,
+     -125
+    ],
+    [
+     16550,
+     -125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00d6oj",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     19850,
+     125
+    ],
+    [
+     21800,
+     125
+    ],
+    [
+     21800,
+     -125
+    ],
+    [
+     19850,
+     -125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00d7ng",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     24200,
+     125
+    ],
+    [
+     25275,
+     125
+    ],
+    [
+     25525,
+     -125
+    ],
+    [
+     24200,
+     -125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00d87f",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     25275,
+     125
+    ],
+    [
+     25275,
+     3450
+    ],
+    [
+     25525,
+     3450
+    ],
+    [
+     25525,
+     -125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00d9b2",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     25275,
+     4950
+    ],
+    [
+     25275,
+     8275
+    ],
+    [
+     25525,
+     8525
+    ],
+    [
+     25525,
+     4950
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00danx",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     25275,
+     8275
+    ],
+    [
+     23650,
+     8275
+    ],
+    [
+     23650,
+     8525
+    ],
+    [
+     25525,
+     8525
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dbz8",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     22150,
+     8275
+    ],
+    [
+     20800,
+     8275
+    ],
+    [
+     20800,
+     8525
+    ],
+    [
+     22150,
+     8525
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dcwy",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     19800,
+     8275
+    ],
+    [
+     17300,
+     8275
+    ],
+    [
+     17300,
+     8525
+    ],
+    [
+     19800,
+     8525
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00ddfd",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     15500,
+     8275
+    ],
+    [
+     14125,
+     8275
+    ],
+    [
+     13875,
+     8525
+    ],
+    [
+     15500,
+     8525
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00deov",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     14125,
+     8275
+    ],
+    [
+     14125,
+     2550
+    ],
+    [
+     13875,
+     2550
+    ],
+    [
+     13875,
+     8525
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dffv",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     14125,
+     1650
+    ],
+    [
+     14125,
+     125
+    ],
+    [
+     13875,
+     -125
+    ],
+    [
+     13875,
+     1650
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dgbq",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     14125,
+     4275
+    ],
+    [
+     15350,
+     4275
+    ],
+    [
+     15350,
+     4125
+    ],
+    [
+     14125,
+     4125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dho4",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     16250,
+     4275
+    ],
+    [
+     18650,
+     4275
+    ],
+    [
+     18650,
+     4125
+    ],
+    [
+     16250,
+     4125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00di66",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     19550,
+     4275
+    ],
+    [
+     20525,
+     4275
+    ],
+    [
+     20525,
+     4125
+    ],
+    [
+     19550,
+     4125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00djxu",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     17525,
+     125
+    ],
+    [
+     17525,
+     4125
+    ],
+    [
+     17675,
+     4125
+    ],
+    [
+     17675,
+     125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dke7",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     20525,
+     125
+    ],
+    [
+     20525,
+     5500
+    ],
+    [
+     20675,
+     5500
+    ],
+    [
+     20675,
+     125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dlbi",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     20525,
+     7100
+    ],
+    [
+     20525,
+     8275
+    ],
+    [
+     20675,
+     8275
+    ],
+    [
+     20675,
+     7100
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dm0h",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     17540,
+     4275
+    ],
+    [
+     17540,
+     5300
+    ],
+    [
+     17660,
+     5300
+    ],
+    [
+     17660,
+     4275
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dnfd",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     17540,
+     6100
+    ],
+    [
+     17540,
+     8275
+    ],
+    [
+     17660,
+     8275
+    ],
+    [
+     17660,
+     6100
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00do93",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     15050,
+     125
+    ],
+    [
+     16550,
+     125
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dp3g",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     15050,
+     -125
+    ],
+    [
+     16550,
+     -125
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dq34",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     15050,
+     30
+    ],
+    [
+     16550,
+     30
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00drjn",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     15050,
+     -30
+    ],
+    [
+     16550,
+     -30
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dt9p",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     18350,
+     125
+    ],
+    [
+     19850,
+     125
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00duy0",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     18350,
+     -125
+    ],
+    [
+     19850,
+     -125
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dv88",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     18350,
+     30
+    ],
+    [
+     19850,
+     30
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hy9z00dwmf",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     18350,
+     -30
+    ],
+    [
+     19850,
+     -30
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000dyk3",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     21800,
+     125
+    ],
+    [
+     24200,
+     125
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000dzc9",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     21800,
+     -125
+    ],
+    [
+     24200,
+     -125
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000e0fi",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     21800,
+     30
+    ],
+    [
+     24200,
+     30
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000e1k6",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     21800,
+     -30
+    ],
+    [
+     24200,
+     -30
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000e2vz",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     21800,
+     0
+    ],
+    [
+     23040,
+     0
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000e4rl",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     25275,
+     3450
+    ],
+    [
+     25275,
+     4950
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000e5lj",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     25525,
+     3450
+    ],
+    [
+     25525,
+     4950
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000e68v",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     25370,
+     3450
+    ],
+    [
+     25370,
+     4950
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000e7gt",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     25430,
+     3450
+    ],
+    [
+     25430,
+     4950
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000e9zv",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     23650,
+     8275
+    ],
+    [
+     22150,
+     8275
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eae3",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     23650,
+     8525
+    ],
+    [
+     22150,
+     8525
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000ebp1",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     23650,
+     8370
+    ],
+    [
+     22150,
+     8370
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eczw",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     23650,
+     8430
+    ],
+    [
+     22150,
+     8430
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eev5",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-DOOR",
+   "kind": "polyline",
+   "pts": [
+    [
+     20800,
+     8275
+    ],
+    [
+     20800,
+     7275
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eflv",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-DOOR",
+   "kind": "arc",
+   "cx": 20800,
+   "cy": 8275,
+   "r": 1000,
+   "a1": -90,
+   "a2": -180,
+   "ccw": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000ehyu",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     17300,
+     8275
+    ],
+    [
+     15500,
+     8275
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eigw",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     17300,
+     8525
+    ],
+    [
+     15500,
+     8525
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000ejek",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     17300,
+     8370
+    ],
+    [
+     15500,
+     8370
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000ekrq",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     17300,
+     8430
+    ],
+    [
+     15500,
+     8430
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000emkp",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     14125,
+     2550
+    ],
+    [
+     14125,
+     1650
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000enl1",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     13875,
+     2550
+    ],
+    [
+     13875,
+     1650
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eox5",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     14030,
+     2550
+    ],
+    [
+     14030,
+     1650
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eppn",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-GLAZ",
+   "kind": "polyline",
+   "pts": [
+    [
+     13970,
+     2550
+    ],
+    [
+     13970,
+     1650
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000er0y",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-DOOR",
+   "kind": "polyline",
+   "pts": [
+    [
+     15350,
+     4125
+    ],
+    [
+     15350,
+     3225
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000esud",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-DOOR",
+   "kind": "arc",
+   "cx": 15350,
+   "cy": 4125,
+   "r": 900,
+   "a1": 0,
+   "a2": -90,
+   "ccw": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eu6y",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-DOOR",
+   "kind": "polyline",
+   "pts": [
+    [
+     19550,
+     4125
+    ],
+    [
+     19550,
+     3225
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000evwb",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-DOOR",
+   "kind": "arc",
+   "cx": 19550,
+   "cy": 4125,
+   "r": 900,
+   "a1": -90,
+   "a2": -180,
+   "ccw": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000ex8v",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     20525,
+     5500
+    ],
+    [
+     20525,
+     7100
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000eygz",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-WALL",
+   "kind": "polyline",
+   "pts": [
+    [
+     20675,
+     5500
+    ],
+    [
+     20675,
+     7100
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000f04j",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-DOOR",
+   "kind": "polyline",
+   "pts": [
+    [
+     17540,
+     5300
+    ],
+    [
+     16740,
+     5300
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000f1v3",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-DOOR",
+   "kind": "arc",
+   "cx": 17540,
+   "cy": 5300,
+   "r": 800,
+   "a1": -180,
+   "a2": -270,
+   "ccw": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000f3l3",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-AREA",
+   "kind": "polyline",
+   "pts": [
+    [
+     14125,
+     125
+    ],
+    [
+     17525,
+     125
+    ],
+    [
+     17525,
+     4125
+    ],
+    [
+     14125,
+     4125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000f61j",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-AREA",
+   "kind": "polyline",
+   "pts": [
+    [
+     17675,
+     125
+    ],
+    [
+     20525,
+     125
+    ],
+    [
+     20525,
+     4125
+    ],
+    [
+     17675,
+     4125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000f9jv",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-AREA",
+   "kind": "polyline",
+   "pts": [
+    [
+     20675,
+     125
+    ],
+    [
+     25275,
+     125
+    ],
+    [
+     25275,
+     8275
+    ],
+    [
+     20675,
+     8275
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000fcqv",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-AREA",
+   "kind": "polyline",
+   "pts": [
+    [
+     20525,
+     8275
+    ],
+    [
+     17660,
+     8275
+    ],
+    [
+     17660,
+     4275
+    ],
+    [
+     20525,
+     4275
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000ffdu",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-AREA",
+   "kind": "polyline",
+   "pts": [
+    [
+     17540,
+     8275
+    ],
+    [
+     14125,
+     8275
+    ],
+    [
+     14125,
+     4275
+    ],
+    [
+     17540,
+     4275
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000figf",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     15000,
+     284
+    ],
+    [
+     16600,
+     284
+    ],
+    [
+     16600,
+     2300
+    ],
+    [
+     15000,
+     2300
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000fjy0",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     15020,
+     410
+    ],
+    [
+     16580,
+     410
+    ],
+    [
+     16580,
+     2300
+    ],
+    [
+     15020,
+     2300
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000fk4s",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     15000,
+     200
+    ],
+    [
+     16600,
+     200
+    ],
+    [
+     16600,
+     284
+    ],
+    [
+     15000,
+     284
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000flwu",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     15099.0476,
+     315.5
+    ],
+    [
+     15739.0476,
+     315.5
+    ],
+    [
+     15739.0476,
+     588.5
+    ],
+    [
+     15099.0476,
+     588.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000fm2n",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     15860.9524,
+     315.5
+    ],
+    [
+     16500.952400000002,
+     315.5
+    ],
+    [
+     16500.952400000002,
+     588.5
+    ],
+    [
+     15860.9524,
+     588.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000fn63",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     15015,
+     1134.5
+    ],
+    [
+     16585,
+     1134.5
+    ],
+    [
+     16585,
+     2289.5
+    ],
+    [
+     15015,
+     2289.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya000fo0i",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     14455,
+     100
+    ],
+    [
+     14905,
+     100
+    ],
+    [
+     14905,
+     500
+    ],
+    [
+     14455,
+     500
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fpw4",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 14680,
+   "cy": 300,
+   "r": 81,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fqju",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     14725,
+     1800
+    ],
+    [
+     14725,
+     3400
+    ],
+    [
+     14125,
+     3400
+    ],
+    [
+     14125,
+     1800
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fr2f",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     14128,
+     2590
+    ],
+    [
+     14128,
+     2610
+    ],
+    [
+     14122,
+     2610
+    ],
+    [
+     14122,
+     2590
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fs1g",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     17800,
+     530
+    ],
+    [
+     18800,
+     530
+    ],
+    [
+     18800,
+     2450
+    ],
+    [
+     17800,
+     2450
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100ft8y",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     17820,
+     650
+    ],
+    [
+     18780,
+     650
+    ],
+    [
+     18780,
+     2450
+    ],
+    [
+     17820,
+     2450
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fur5",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     17800,
+     450
+    ],
+    [
+     18800,
+     450
+    ],
+    [
+     18800,
+     530
+    ],
+    [
+     17800,
+     530
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fv3q",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     17925,
+     560
+    ],
+    [
+     18675,
+     560
+    ],
+    [
+     18675,
+     820
+    ],
+    [
+     17925,
+     820
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fw66",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     17815,
+     1340
+    ],
+    [
+     18785,
+     1340
+    ],
+    [
+     18785,
+     2440
+    ],
+    [
+     17815,
+     2440
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fxlh",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     19925,
+     2100
+    ],
+    [
+     19925,
+     900
+    ],
+    [
+     20525,
+     900
+    ],
+    [
+     20525,
+     2100
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fyvz",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     19935,
+     2090
+    ],
+    [
+     19935,
+     2050
+    ],
+    [
+     19975,
+     2050
+    ],
+    [
+     19975,
+     2090
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100fz68",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     19935,
+     950
+    ],
+    [
+     19935,
+     910
+    ],
+    [
+     19975,
+     910
+    ],
+    [
+     19975,
+     950
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g0vr",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     20475,
+     2090
+    ],
+    [
+     20475,
+     2050
+    ],
+    [
+     20515,
+     2050
+    ],
+    [
+     20515,
+     2090
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g1ub",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     20475,
+     950
+    ],
+    [
+     20475,
+     910
+    ],
+    [
+     20515,
+     910
+    ],
+    [
+     20515,
+     950
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g24x",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     20027,
+     1740
+    ],
+    [
+     20027,
+     1260
+    ],
+    [
+     20063,
+     1260
+    ],
+    [
+     20063,
+     1740
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g3ws",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 19600,
+   "cy": 1500,
+   "r": 300,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g4un",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 19600,
+   "cy": 1500,
+   "r": 25,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g533",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     19795,
+     1260
+    ],
+    [
+     19795,
+     1740
+    ],
+    [
+     19345,
+     1740
+    ],
+    [
+     19345,
+     1260
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g61c",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     19858,
+     1275
+    ],
+    [
+     19858,
+     1725
+    ],
+    [
+     19798,
+     1725
+    ],
+    [
+     19798,
+     1275
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g7ap",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     24050,
+     7670
+    ],
+    [
+     21950,
+     7670
+    ],
+    [
+     21950,
+     6950
+    ],
+    [
+     24050,
+     6950
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g85a",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     24050,
+     7850
+    ],
+    [
+     21950,
+     7850
+    ],
+    [
+     21950,
+     7670
+    ],
+    [
+     24050,
+     7670
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100g9oz",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23991.2,
+     7760
+    ],
+    [
+     23814.8,
+     7760
+    ],
+    [
+     23814.8,
+     6950
+    ],
+    [
+     23991.2,
+     6950
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gaj7",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22185.2,
+     7760
+    ],
+    [
+     22008.8,
+     7760
+    ],
+    [
+     22008.8,
+     6950
+    ],
+    [
+     22185.2,
+     6950
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gb00",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23928.0303,
+     7571
+    ],
+    [
+     23344.697,
+     7571
+    ],
+    [
+     23344.697,
+     7013
+    ],
+    [
+     23928.0303,
+     7013
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gcn4",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23291.6667,
+     7571
+    ],
+    [
+     22708.3333,
+     7571
+    ],
+    [
+     22708.3333,
+     7013
+    ],
+    [
+     23291.6667,
+     7013
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gd50",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22655.303,
+     7571
+    ],
+    [
+     22071.9697,
+     7571
+    ],
+    [
+     22071.9697,
+     7013
+    ],
+    [
+     22655.303,
+     7013
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100geos",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22450,
+     6000
+    ],
+    [
+     23550,
+     6000
+    ],
+    [
+     23550,
+     6600
+    ],
+    [
+     22450,
+     6600
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gfz4",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22460,
+     6010
+    ],
+    [
+     22500,
+     6010
+    ],
+    [
+     22500,
+     6050
+    ],
+    [
+     22460,
+     6050
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100ggmf",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23500,
+     6010
+    ],
+    [
+     23540,
+     6010
+    ],
+    [
+     23540,
+     6050
+    ],
+    [
+     23500,
+     6050
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100ghi7",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22460,
+     6550
+    ],
+    [
+     22500,
+     6550
+    ],
+    [
+     22500,
+     6590
+    ],
+    [
+     22460,
+     6590
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gio2",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23500,
+     6550
+    ],
+    [
+     23540,
+     6550
+    ],
+    [
+     23540,
+     6590
+    ],
+    [
+     23500,
+     6590
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gjk9",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22490,
+     6040
+    ],
+    [
+     23510,
+     6040
+    ],
+    [
+     23510,
+     6560
+    ],
+    [
+     22490,
+     6560
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gk6o",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22100,
+     4675
+    ],
+    [
+     23900,
+     4675
+    ],
+    [
+     23900,
+     5125
+    ],
+    [
+     22100,
+     5125
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100glt5",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22370,
+     4828
+    ],
+    [
+     23630,
+     4828
+    ],
+    [
+     23630,
+     4882
+    ],
+    [
+     22370,
+     4882
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gm8d",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22442,
+     4841.5
+    ],
+    [
+     23558,
+     4841.5
+    ],
+    [
+     23558,
+     4868.5
+    ],
+    [
+     22442,
+     4868.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gns8",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     20750,
+     174
+    ],
+    [
+     23450,
+     174
+    ],
+    [
+     23450,
+     750
+    ],
+    [
+     20750,
+     750
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gown",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     20750,
+     150
+    ],
+    [
+     23450,
+     150
+    ],
+    [
+     23450,
+     750
+    ],
+    [
+     20750,
+     750
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gp99",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     20750,
+     150
+    ],
+    [
+     23450,
+     150
+    ],
+    [
+     23450,
+     330
+    ],
+    [
+     20750,
+     330
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gq9i",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23800,
+     150
+    ],
+    [
+     24400,
+     150
+    ],
+    [
+     24400,
+     750
+    ],
+    [
+     23800,
+     750
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gryv",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23800,
+     150
+    ],
+    [
+     24400,
+     150
+    ],
+    [
+     24400,
+     750
+    ],
+    [
+     23800,
+     750
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gsx0",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 23968,
+   "cy": 318,
+   "r": 78,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gtkz",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 24232,
+   "cy": 318,
+   "r": 78,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gu3e",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 23968,
+   "cy": 582,
+   "r": 78,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gvmf",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 24232,
+   "cy": 582,
+   "r": 78,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gw4w",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     24450,
+     1650
+    ],
+    [
+     24450,
+     950
+    ],
+    [
+     25150,
+     950
+    ],
+    [
+     25150,
+     1650
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gxw6",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     25147,
+     1636
+    ],
+    [
+     25147,
+     964
+    ],
+    [
+     25153,
+     964
+    ],
+    [
+     25153,
+     1636
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gywj",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     25145,
+     1044
+    ],
+    [
+     25145,
+     1024
+    ],
+    [
+     25155,
+     1024
+    ],
+    [
+     25155,
+     1044
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100gzst",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22100,
+     2100
+    ],
+    [
+     23500,
+     2100
+    ],
+    [
+     23500,
+     2900
+    ],
+    [
+     22100,
+     2900
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100h032",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22110,
+     2110
+    ],
+    [
+     22170,
+     2110
+    ],
+    [
+     22170,
+     2170
+    ],
+    [
+     22110,
+     2170
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100h12x",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23430,
+     2110
+    ],
+    [
+     23490,
+     2110
+    ],
+    [
+     23490,
+     2170
+    ],
+    [
+     23430,
+     2170
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100h2e6",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22110,
+     2830
+    ],
+    [
+     22170,
+     2830
+    ],
+    [
+     22170,
+     2890
+    ],
+    [
+     22110,
+     2890
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100h3r0",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23430,
+     2830
+    ],
+    [
+     23490,
+     2830
+    ],
+    [
+     23490,
+     2890
+    ],
+    [
+     23430,
+     2890
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100h4z5",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22175,
+     1700
+    ],
+    [
+     22625,
+     1700
+    ],
+    [
+     22625,
+     2150
+    ],
+    [
+     22175,
+     2150
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100h54h",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22207.5,
+     1722.5
+    ],
+    [
+     22242.5,
+     1722.5
+    ],
+    [
+     22242.5,
+     1757.5
+    ],
+    [
+     22207.5,
+     1757.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100h6c6",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22557.5,
+     1722.5
+    ],
+    [
+     22592.5,
+     1722.5
+    ],
+    [
+     22592.5,
+     1757.5
+    ],
+    [
+     22557.5,
+     1757.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya100h7a9",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22207.5,
+     2092.5
+    ],
+    [
+     22242.5,
+     2092.5
+    ],
+    [
+     22242.5,
+     2127.5
+    ],
+    [
+     22207.5,
+     2127.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200h8wa",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22557.5,
+     2092.5
+    ],
+    [
+     22592.5,
+     2092.5
+    ],
+    [
+     22592.5,
+     2127.5
+    ],
+    [
+     22557.5,
+     2127.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200h9va",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22175,
+     1655
+    ],
+    [
+     22625,
+     1655
+    ],
+    [
+     22625,
+     1695
+    ],
+    [
+     22175,
+     1695
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hams",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22975,
+     1700
+    ],
+    [
+     23425,
+     1700
+    ],
+    [
+     23425,
+     2150
+    ],
+    [
+     22975,
+     2150
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hb9k",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23007.5,
+     1722.5
+    ],
+    [
+     23042.5,
+     1722.5
+    ],
+    [
+     23042.5,
+     1757.5
+    ],
+    [
+     23007.5,
+     1757.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hcic",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23357.5,
+     1722.5
+    ],
+    [
+     23392.5,
+     1722.5
+    ],
+    [
+     23392.5,
+     1757.5
+    ],
+    [
+     23357.5,
+     1757.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hdu7",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23007.5,
+     2092.5
+    ],
+    [
+     23042.5,
+     2092.5
+    ],
+    [
+     23042.5,
+     2127.5
+    ],
+    [
+     23007.5,
+     2127.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hea9",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23357.5,
+     2092.5
+    ],
+    [
+     23392.5,
+     2092.5
+    ],
+    [
+     23392.5,
+     2127.5
+    ],
+    [
+     23357.5,
+     2127.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hflx",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22975,
+     1655
+    ],
+    [
+     23425,
+     1655
+    ],
+    [
+     23425,
+     1695
+    ],
+    [
+     22975,
+     1695
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hgty",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22625,
+     3300
+    ],
+    [
+     22175,
+     3300
+    ],
+    [
+     22175,
+     2850
+    ],
+    [
+     22625,
+     2850
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hh2b",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22592.5,
+     3277.5
+    ],
+    [
+     22557.5,
+     3277.5
+    ],
+    [
+     22557.5,
+     3242.5
+    ],
+    [
+     22592.5,
+     3242.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hinc",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22242.5,
+     3277.5
+    ],
+    [
+     22207.5,
+     3277.5
+    ],
+    [
+     22207.5,
+     3242.5
+    ],
+    [
+     22242.5,
+     3242.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hj67",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22592.5,
+     2907.5
+    ],
+    [
+     22557.5,
+     2907.5
+    ],
+    [
+     22557.5,
+     2872.5
+    ],
+    [
+     22592.5,
+     2872.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hkvy",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22242.5,
+     2907.5
+    ],
+    [
+     22207.5,
+     2907.5
+    ],
+    [
+     22207.5,
+     2872.5
+    ],
+    [
+     22242.5,
+     2872.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hlac",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     22625,
+     3345
+    ],
+    [
+     22175,
+     3345
+    ],
+    [
+     22175,
+     3305
+    ],
+    [
+     22625,
+     3305
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hmzp",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23425,
+     3300
+    ],
+    [
+     22975,
+     3300
+    ],
+    [
+     22975,
+     2850
+    ],
+    [
+     23425,
+     2850
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hn4g",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23392.5,
+     3277.5
+    ],
+    [
+     23357.5,
+     3277.5
+    ],
+    [
+     23357.5,
+     3242.5
+    ],
+    [
+     23392.5,
+     3242.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hord",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23042.5,
+     3277.5
+    ],
+    [
+     23007.5,
+     3277.5
+    ],
+    [
+     23007.5,
+     3242.5
+    ],
+    [
+     23042.5,
+     3242.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hpo5",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23392.5,
+     2907.5
+    ],
+    [
+     23357.5,
+     2907.5
+    ],
+    [
+     23357.5,
+     2872.5
+    ],
+    [
+     23392.5,
+     2872.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hqz7",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23042.5,
+     2907.5
+    ],
+    [
+     23007.5,
+     2907.5
+    ],
+    [
+     23007.5,
+     2872.5
+    ],
+    [
+     23042.5,
+     2872.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hrgi",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     23425,
+     3345
+    ],
+    [
+     22975,
+     3345
+    ],
+    [
+     22975,
+     3305
+    ],
+    [
+     23425,
+     3305
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hsv8",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     14950,
+     7545
+    ],
+    [
+     16650,
+     7545
+    ],
+    [
+     16650,
+     8295
+    ],
+    [
+     14950,
+     8295
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ht8k",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     15154,
+     7642.5
+    ],
+    [
+     16582,
+     7642.5
+    ],
+    [
+     16582,
+     8197.5
+    ],
+    [
+     15154,
+     8197.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hu8g",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     16807,
+     7800
+    ],
+    [
+     16807,
+     7400
+    ],
+    [
+     16961,
+     7400
+    ],
+    [
+     16961,
+     7800
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hvrs",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     17234,
+     7416
+    ],
+    [
+     17265.0652,
+     7417.5741
+    ],
+    [
+     17295.5989,
+     7422.2696
+    ],
+    [
+     17325.0787,
+     7430.0062
+    ],
+    [
+     17353,
+     7440.6513
+    ],
+    [
+     17378.8852,
+     7454.023
+    ],
+    [
+     17402.291400000002,
+     7469.8924
+    ],
+    [
+     17422.8181,
+     7487.9879
+    ],
+    [
+     17440.114,
+     7508
+    ],
+    [
+     17453.8833,
+     7529.5862
+    ],
+    [
+     17463.8903,
+     7552.3773
+    ],
+    [
+     17469.9639,
+     7575.9832
+    ],
+    [
+     17472,
+     7600
+    ],
+    [
+     17469.9639,
+     7624.0168
+    ],
+    [
+     17463.8903,
+     7647.6227
+    ],
+    [
+     17453.8833,
+     7670.4138
+    ],
+    [
+     17440.114,
+     7692
+    ],
+    [
+     17422.8181,
+     7712.0121
+    ],
+    [
+     17402.291400000002,
+     7730.1076
+    ],
+    [
+     17378.8852,
+     7745.977
+    ],
+    [
+     17353,
+     7759.3487
+    ],
+    [
+     17325.0787,
+     7769.9938
+    ],
+    [
+     17295.5989,
+     7777.7304
+    ],
+    [
+     17265.0652,
+     7782.4259
+    ],
+    [
+     17234,
+     7784
+    ],
+    [
+     17202.9348,
+     7782.4259
+    ],
+    [
+     17172.4011,
+     7777.7304
+    ],
+    [
+     17142.9213,
+     7769.9938
+    ],
+    [
+     17115,
+     7759.3487
+    ],
+    [
+     17089.1148,
+     7745.977
+    ],
+    [
+     17065.708599999998,
+     7730.1076
+    ],
+    [
+     17045.1819,
+     7712.0121
+    ],
+    [
+     17027.886,
+     7692
+    ],
+    [
+     17014.1167,
+     7670.4138
+    ],
+    [
+     17004.1097,
+     7647.6227
+    ],
+    [
+     16998.0361,
+     7624.0168
+    ],
+    [
+     16996,
+     7600
+    ],
+    [
+     16998.0361,
+     7575.9832
+    ],
+    [
+     17004.1097,
+     7552.3773
+    ],
+    [
+     17014.1167,
+     7529.5862
+    ],
+    [
+     17027.886,
+     7508
+    ],
+    [
+     17045.1819,
+     7487.9879
+    ],
+    [
+     17065.708599999998,
+     7469.8924
+    ],
+    [
+     17089.1148,
+     7454.023
+    ],
+    [
+     17115,
+     7440.6513
+    ],
+    [
+     17142.9213,
+     7430.0062
+    ],
+    [
+     17172.4011,
+     7422.2696
+    ],
+    [
+     17202.9348,
+     7417.5741
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hweu",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     17248,
+     7440
+    ],
+    [
+     17274.4968,
+     7441.3688
+    ],
+    [
+     17300.5403,
+     7445.4519
+    ],
+    [
+     17325.684699999998,
+     7452.1793
+    ],
+    [
+     17349.5,
+     7461.4359
+    ],
+    [
+     17371.5786,
+     7473.0635
+    ],
+    [
+     17391.542699999998,
+     7486.8629
+    ],
+    [
+     17409.0507,
+     7502.5982
+    ],
+    [
+     17423.8032,
+     7520
+    ],
+    [
+     17435.5475,
+     7538.7707
+    ],
+    [
+     17444.0829,
+     7558.589
+    ],
+    [
+     17449.2633,
+     7579.1158
+    ],
+    [
+     17451,
+     7600
+    ],
+    [
+     17449.2633,
+     7620.8842
+    ],
+    [
+     17444.0829,
+     7641.411
+    ],
+    [
+     17435.5475,
+     7661.2293
+    ],
+    [
+     17423.8032,
+     7680
+    ],
+    [
+     17409.0507,
+     7697.4018
+    ],
+    [
+     17391.542699999998,
+     7713.1371
+    ],
+    [
+     17371.5786,
+     7726.9365
+    ],
+    [
+     17349.5,
+     7738.5641
+    ],
+    [
+     17325.684699999998,
+     7747.8207
+    ],
+    [
+     17300.5403,
+     7754.5481
+    ],
+    [
+     17274.4968,
+     7758.6312
+    ],
+    [
+     17248,
+     7760
+    ],
+    [
+     17221.5032,
+     7758.6312
+    ],
+    [
+     17195.4597,
+     7754.5481
+    ],
+    [
+     17170.315300000002,
+     7747.8207
+    ],
+    [
+     17146.5,
+     7738.5641
+    ],
+    [
+     17124.4214,
+     7726.9365
+    ],
+    [
+     17104.457300000002,
+     7713.1371
+    ],
+    [
+     17086.9493,
+     7697.4018
+    ],
+    [
+     17072.1968,
+     7680
+    ],
+    [
+     17060.4525,
+     7661.2293
+    ],
+    [
+     17051.9171,
+     7641.411
+    ],
+    [
+     17046.7367,
+     7620.8842
+    ],
+    [
+     17045,
+     7600
+    ],
+    [
+     17046.7367,
+     7579.1158
+    ],
+    [
+     17051.9171,
+     7558.589
+    ],
+    [
+     17060.4525,
+     7538.7707
+    ],
+    [
+     17072.1968,
+     7520
+    ],
+    [
+     17086.9493,
+     7502.5982
+    ],
+    [
+     17104.457300000002,
+     7486.8629
+    ],
+    [
+     17124.4214,
+     7473.0635
+    ],
+    [
+     17146.5,
+     7461.4359
+    ],
+    [
+     17170.315300000002,
+     7452.1793
+    ],
+    [
+     17195.4597,
+     7445.4519
+    ],
+    [
+     17221.5032,
+     7441.3688
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hxd0",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     14675,
+     5400
+    ],
+    [
+     14675,
+     6000
+    ],
+    [
+     14225,
+     6000
+    ],
+    [
+     14225,
+     5400
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hydm",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     14427.5,
+     5916
+    ],
+    [
+     14409.879,
+     5914.1521
+    ],
+    [
+     14392.5594,
+     5908.64
+    ],
+    [
+     14375.8377,
+     5899.558
+    ],
+    [
+     14360,
+     5887.0615
+    ],
+    [
+     14345.3172,
+     5871.3643
+    ],
+    [
+     14332.0406,
+     5852.7351
+    ],
+    [
+     14320.3973,
+     5831.4925
+    ],
+    [
+     14310.5866,
+     5808
+    ],
+    [
+     14302.7763,
+     5782.6596
+    ],
+    [
+     14297.1,
+     5755.9049
+    ],
+    [
+     14293.6549,
+     5728.1937
+    ],
+    [
+     14292.5,
+     5700
+    ],
+    [
+     14293.6549,
+     5671.8063
+    ],
+    [
+     14297.1,
+     5644.0951
+    ],
+    [
+     14302.7763,
+     5617.3404
+    ],
+    [
+     14310.5866,
+     5592
+    ],
+    [
+     14320.3973,
+     5568.5075
+    ],
+    [
+     14332.0406,
+     5547.2649
+    ],
+    [
+     14345.3172,
+     5528.6357
+    ],
+    [
+     14360,
+     5512.9385
+    ],
+    [
+     14375.8377,
+     5500.442
+    ],
+    [
+     14392.5594,
+     5491.36
+    ],
+    [
+     14409.879,
+     5485.8479
+    ],
+    [
+     14427.5,
+     5484
+    ],
+    [
+     14445.121,
+     5485.8479
+    ],
+    [
+     14462.4406,
+     5491.36
+    ],
+    [
+     14479.1623,
+     5500.442
+    ],
+    [
+     14495,
+     5512.9385
+    ],
+    [
+     14509.6828,
+     5528.6357
+    ],
+    [
+     14522.9594,
+     5547.2649
+    ],
+    [
+     14534.6027,
+     5568.5075
+    ],
+    [
+     14544.4134,
+     5592
+    ],
+    [
+     14552.2237,
+     5617.3404
+    ],
+    [
+     14557.9,
+     5644.0951
+    ],
+    [
+     14561.3451,
+     5671.8063
+    ],
+    [
+     14562.5,
+     5700
+    ],
+    [
+     14561.3451,
+     5728.1937
+    ],
+    [
+     14557.9,
+     5755.9049
+    ],
+    [
+     14552.2237,
+     5782.6596
+    ],
+    [
+     14544.4134,
+     5808
+    ],
+    [
+     14534.6027,
+     5831.4925
+    ],
+    [
+     14522.9594,
+     5852.7351
+    ],
+    [
+     14509.6828,
+     5871.3643
+    ],
+    [
+     14495,
+     5887.0615
+    ],
+    [
+     14479.1623,
+     5899.558
+    ],
+    [
+     14462.4406,
+     5908.64
+    ],
+    [
+     14445.121,
+     5914.1521
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200hz9q",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 14630,
+   "cy": 5700,
+   "r": 15,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i0wv",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     14652.5,
+     5520
+    ],
+    [
+     14652.5,
+     5880
+    ],
+    [
+     14427.5,
+     5880
+    ],
+    [
+     14427.5,
+     5520
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i103",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     14750,
+     4500
+    ],
+    [
+     14750,
+     5100
+    ],
+    [
+     14150,
+     5100
+    ],
+    [
+     14150,
+     4500
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i2ua",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 14150,
+   "cy": 4800,
+   "r": 180,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i303",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 24900,
+   "cy": 7900,
+   "r": 160,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i4vr",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 24900,
+   "cy": 7900,
+   "r": 250,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i5p9",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "circle",
+   "cx": 24975,
+   "cy": 7850,
+   "r": 180,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i68c",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     21689,
+     5875
+    ],
+    [
+     21689,
+     6725
+    ],
+    [
+     20975,
+     6725
+    ],
+    [
+     20975,
+     5875
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i703",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     21825,
+     5875
+    ],
+    [
+     21825,
+     6725
+    ],
+    [
+     21655,
+     6725
+    ],
+    [
+     21655,
+     5875
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i8k8",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     21740,
+     5875
+    ],
+    [
+     21740,
+     6011
+    ],
+    [
+     20975,
+     6011
+    ],
+    [
+     20975,
+     5875
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200i92m",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     21740,
+     6589
+    ],
+    [
+     21740,
+     6725
+    ],
+    [
+     20975,
+     6725
+    ],
+    [
+     20975,
+     6589
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200iat2",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     21578.5,
+     6019.5
+    ],
+    [
+     21578.5,
+     6580.5
+    ],
+    [
+     21051.5,
+     6580.5
+    ],
+    [
+     21051.5,
+     6019.5
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ibsr",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-FURN",
+   "kind": "polyline",
+   "pts": [
+    [
+     21800,
+     5500
+    ],
+    [
+     24200,
+     5500
+    ],
+    [
+     24200,
+     7100
+    ],
+    [
+     21800,
+     7100
+    ]
+   ],
+   "closed": true,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ic86",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     14000,
+     -60
+    ],
+    [
+     14000,
+     -1320
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200idrh",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     25400,
+     -60
+    ],
+    [
+     25400,
+     -1320
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ieem",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     13880,
+     -1200
+    ],
+    [
+     25520,
+     -1200
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ifex",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     13910,
+     -1290
+    ],
+    [
+     14090,
+     -1110
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200igu1",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     25310,
+     -1290
+    ],
+    [
+     25490,
+     -1110
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ii4p",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     13940,
+     8400
+    ],
+    [
+     12680,
+     8400
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ijes",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     13940,
+     0
+    ],
+    [
+     12680,
+     0
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ikl5",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     12800,
+     8520
+    ],
+    [
+     12800,
+     -120
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200ilky",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     12710,
+     8490
+    ],
+    [
+     12890,
+     8310
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  },
+  {
+   "id": "g0hya200imnl",
+   "level": "lv0hy9t00d3ds",
+   "layer": "A-ANNO-DIMS",
+   "kind": "polyline",
+   "pts": [
+    [
+     12710,
+     90
+    ],
+    [
+     12890,
+     -90
+    ]
+   ],
+   "closed": false,
+   "phase": "new"
+  }
+ ],
+ "underlays": [],
+ "models": [],
+ "solids": [],
+ "scenes": [],
+ "view": {
+  "level": "lv0hy9t00d3ds"
+ }
+}

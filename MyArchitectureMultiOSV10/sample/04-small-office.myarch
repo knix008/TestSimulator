@@ -1,0 +1,981 @@
+{
+ "format": "myarch",
+ "version": 1,
+ "meta": {
+  "title": "Small office",
+  "author": "SHKWON",
+  "company": "MyArchitecture",
+  "client": "Sample",
+  "address": "Daejeon",
+  "rev": "A",
+  "date": "2026-10-10",
+  "comment": "",
+  "scale": 100,
+  "north": 0,
+  "latitude": 37.57,
+  "longitude": 126.98,
+  "timezone": 9
+ },
+ "defaults": {
+  "wallThickness": 200,
+  "wallHeight": 2800,
+  "doorWidth": 900,
+  "doorHeight": 2100,
+  "windowWidth": 1200,
+  "windowHeight": 1200,
+  "windowSill": 900,
+  "slab": 200,
+  "columnSize": 400,
+  "stairWidth": 1000,
+  "textSize": 300
+ },
+ "levels": [
+  {
+   "id": "lv0hy9b004g2e",
+   "name": "1F",
+   "elevation": 0,
+   "height": 3200,
+   "slab": 200
+  }
+ ],
+ "wallTypes": [
+  {
+   "id": "ext-brick-300",
+   "name": "Exterior brick cavity 300",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "brick",
+     "thickness": 100,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 80,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 100,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-render-250",
+   "name": "Exterior rendered 250",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 60,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-wood-200",
+   "name": "Exterior timber frame 200",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "wood-cladding",
+     "thickness": 25,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 25,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-block-150",
+   "name": "Interior block 150",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    },
+    {
+     "material": "concrete",
+     "thickness": 120,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-drywall-100",
+   "name": "Interior drywall 100",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 74,
+     "function": "structure"
+    },
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "concrete-200",
+   "name": "Concrete 200",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "concrete",
+     "thickness": 200,
+     "function": "structure"
+    }
+   ]
+  }
+ ],
+ "grids": [],
+ "costs": {
+  "currency": "KRW",
+  "wall": 120000,
+  "floor": 80000,
+  "roof": 150000,
+  "door": 450000,
+  "window": 380000,
+  "opening": 100000,
+  "stair": 2500000,
+  "column": 300000,
+  "furniture": 0
+ },
+ "layers": [
+  {
+   "id": "0",
+   "name": "0",
+   "color": "#9aa4b5",
+   "visible": true
+  }
+ ],
+ "walls": [
+  {
+   "id": "w0hy9b004hi5",
+   "level": "lv0hy9b004g2e",
+   "x1": 0,
+   "y1": 0,
+   "x2": 14000,
+   "y2": 0,
+   "thickness": 300,
+   "height": null,
+   "material": "concrete",
+   "phase": "new"
+  },
+  {
+   "id": "w0hy9b004ifb",
+   "level": "lv0hy9b004g2e",
+   "x1": 14000,
+   "y1": 0,
+   "x2": 14000,
+   "y2": 9000,
+   "thickness": 300,
+   "height": null,
+   "material": "concrete",
+   "phase": "new"
+  },
+  {
+   "id": "w0hy9b004ju9",
+   "level": "lv0hy9b004g2e",
+   "x1": 14000,
+   "y1": 9000,
+   "x2": 0,
+   "y2": 9000,
+   "thickness": 300,
+   "height": null,
+   "material": "concrete",
+   "phase": "new"
+  },
+  {
+   "id": "w0hy9b004kzu",
+   "level": "lv0hy9b004g2e",
+   "x1": 0,
+   "y1": 9000,
+   "x2": 0,
+   "y2": 0,
+   "thickness": 300,
+   "height": null,
+   "material": "concrete",
+   "phase": "new"
+  },
+  {
+   "id": "w0hy9b004lh9",
+   "level": "lv0hy9b004g2e",
+   "x1": 9600,
+   "y1": 0,
+   "x2": 9600,
+   "y2": 5000,
+   "thickness": 120,
+   "height": null,
+   "material": "glass",
+   "phase": "new"
+  },
+  {
+   "id": "w0hy9b004m4z",
+   "level": "lv0hy9b004g2e",
+   "x1": 9600,
+   "y1": 5000,
+   "x2": 14000,
+   "y2": 5000,
+   "thickness": 120,
+   "height": null,
+   "material": "glass",
+   "phase": "new"
+  },
+  {
+   "id": "w0hy9b004nnz",
+   "level": "lv0hy9b004g2e",
+   "x1": 0,
+   "y1": 6200,
+   "x2": 4200,
+   "y2": 6200,
+   "thickness": 150,
+   "height": null,
+   "phase": "new"
+  },
+  {
+   "id": "w0hy9b004ovd",
+   "level": "lv0hy9b004g2e",
+   "x1": 4200,
+   "y1": 6200,
+   "x2": 4200,
+   "y2": 9000,
+   "thickness": 150,
+   "height": null,
+   "phase": "new"
+  }
+ ],
+ "openings": [
+  {
+   "id": "o0hy9b004pnz",
+   "wall": "w0hy9b004hi5",
+   "kind": "window",
+   "type": "casement",
+   "at": 2000,
+   "width": 1800,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004qyb",
+   "wall": "w0hy9b004hi5",
+   "kind": "window",
+   "type": "casement",
+   "at": 4600,
+   "width": 1800,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004rto",
+   "wall": "w0hy9b004hi5",
+   "kind": "window",
+   "type": "casement",
+   "at": 7200,
+   "width": 1800,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004sex",
+   "wall": "w0hy9b004hi5",
+   "kind": "window",
+   "type": "casement",
+   "at": 11800,
+   "width": 2400,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004txw",
+   "wall": "w0hy9b004ifb",
+   "kind": "window",
+   "type": "casement",
+   "at": 2500,
+   "width": 1800,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004u46",
+   "wall": "w0hy9b004ifb",
+   "kind": "window",
+   "type": "casement",
+   "at": 7000,
+   "width": 1200,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004vei",
+   "wall": "w0hy9b004kzu",
+   "kind": "window",
+   "type": "casement",
+   "at": 3000,
+   "width": 1800,
+   "height": 1200,
+   "sill": 900,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004wdy",
+   "wall": "w0hy9b004ju9",
+   "kind": "door",
+   "type": "double",
+   "at": 7600,
+   "width": 1800,
+   "height": 2100,
+   "sill": 0,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004xzy",
+   "wall": "w0hy9b004m4z",
+   "kind": "door",
+   "type": "sliding",
+   "at": 1400,
+   "width": 1000,
+   "height": 2100,
+   "sill": 0,
+   "side": -1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004yff",
+   "wall": "w0hy9b004nnz",
+   "kind": "door",
+   "type": "single",
+   "at": 2400,
+   "width": 900,
+   "height": 2100,
+   "sill": 0,
+   "side": -1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "o0hy9b004z3b",
+   "wall": "w0hy9b004ovd",
+   "kind": "door",
+   "type": "single",
+   "at": 1500,
+   "width": 800,
+   "height": 2100,
+   "sill": 0,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  }
+ ],
+ "rooms": [
+  {
+   "id": "r0hy9b0050bb",
+   "level": "lv0hy9b004g2e",
+   "name": "Office",
+   "pts": [
+    [
+     150,
+     150
+    ],
+    [
+     9540,
+     150
+    ],
+    [
+     9540,
+     5060
+    ],
+    [
+     13850,
+     5060
+    ],
+    [
+     13850,
+     8850
+    ],
+    [
+     4275,
+     8850
+    ],
+    [
+     4275,
+     6125
+    ],
+    [
+     150,
+     6125
+    ]
+   ],
+   "floor": "carpet",
+   "phase": "new"
+  },
+  {
+   "id": "r0hy9b0051ml",
+   "level": "lv0hy9b004g2e",
+   "name": "Meeting room",
+   "pts": [
+    [
+     9660,
+     150
+    ],
+    [
+     13850,
+     150
+    ],
+    [
+     13850,
+     4940
+    ],
+    [
+     9660,
+     4940
+    ]
+   ],
+   "floor": "carpet",
+   "phase": "new"
+  },
+  {
+   "id": "r0hy9b0052mh",
+   "level": "lv0hy9b004g2e",
+   "name": "Toilet",
+   "pts": [
+    [
+     4125,
+     8850
+    ],
+    [
+     150,
+     8850
+    ],
+    [
+     150,
+     6275
+    ],
+    [
+     4125,
+     6275
+    ]
+   ],
+   "floor": "tile-white",
+   "phase": "new"
+  }
+ ],
+ "columns": [
+  {
+   "id": "c0hy9b00536y",
+   "level": "lv0hy9b004g2e",
+   "x": 4800,
+   "y": 4500,
+   "w": 400,
+   "d": 400,
+   "rot": 0,
+   "shape": "rect",
+   "phase": "new"
+  },
+  {
+   "id": "c0hy9b0054om",
+   "level": "lv0hy9b004g2e",
+   "x": 9600,
+   "y": 4500,
+   "w": 400,
+   "d": 400,
+   "rot": 0,
+   "shape": "rect",
+   "phase": "new"
+  },
+  {
+   "id": "c0hy9b00553n",
+   "level": "lv0hy9b004g2e",
+   "x": 4800,
+   "y": 4500,
+   "w": 400,
+   "d": 400,
+   "rot": 0,
+   "shape": "round",
+   "phase": "new"
+  }
+ ],
+ "stairs": [],
+ "furniture": [
+  {
+   "id": "u0hy9b0056kh",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeDesk",
+   "x": 1700,
+   "y": 1300,
+   "rot": 0,
+   "w": 1600,
+   "d": 800,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b0057lf",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeChair",
+   "x": 1700,
+   "y": 2050,
+   "rot": 180,
+   "w": 600,
+   "d": 600,
+   "h": 1000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b0058ig",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeDesk",
+   "x": 4300,
+   "y": 1300,
+   "rot": 0,
+   "w": 1600,
+   "d": 800,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b0059jy",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeChair",
+   "x": 4300,
+   "y": 2050,
+   "rot": 180,
+   "w": 600,
+   "d": 600,
+   "h": 1000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005ank",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeDesk",
+   "x": 6900,
+   "y": 1300,
+   "rot": 0,
+   "w": 1600,
+   "d": 800,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005beg",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeChair",
+   "x": 6900,
+   "y": 2050,
+   "rot": 180,
+   "w": 600,
+   "d": 600,
+   "h": 1000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005cby",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeDesk",
+   "x": 1700,
+   "y": 3600,
+   "rot": 0,
+   "w": 1600,
+   "d": 800,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005dbe",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeChair",
+   "x": 1700,
+   "y": 4350,
+   "rot": 180,
+   "w": 600,
+   "d": 600,
+   "h": 1000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005eb9",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeDesk",
+   "x": 4300,
+   "y": 3600,
+   "rot": 0,
+   "w": 1600,
+   "d": 800,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005fwu",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeChair",
+   "x": 4300,
+   "y": 4350,
+   "rot": 180,
+   "w": 600,
+   "d": 600,
+   "h": 1000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005g4w",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeDesk",
+   "x": 6900,
+   "y": 3600,
+   "rot": 0,
+   "w": 1600,
+   "d": 800,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005hk7",
+   "level": "lv0hy9b004g2e",
+   "kind": "officeChair",
+   "x": 6900,
+   "y": 4350,
+   "rot": 180,
+   "w": 600,
+   "d": 600,
+   "h": 1000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005i8b",
+   "level": "lv0hy9b004g2e",
+   "kind": "meetingTable",
+   "x": 11800,
+   "y": 2500,
+   "rot": 0,
+   "w": 2400,
+   "d": 1200,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005jx6",
+   "level": "lv0hy9b004g2e",
+   "kind": "chair",
+   "x": 11000,
+   "y": 1650,
+   "rot": 0,
+   "w": 450,
+   "d": 500,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005krq",
+   "level": "lv0hy9b004g2e",
+   "kind": "chair",
+   "x": 11000,
+   "y": 3350,
+   "rot": 180,
+   "w": 450,
+   "d": 500,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005l7s",
+   "level": "lv0hy9b004g2e",
+   "kind": "chair",
+   "x": 11800,
+   "y": 1650,
+   "rot": 0,
+   "w": 450,
+   "d": 500,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005mrl",
+   "level": "lv0hy9b004g2e",
+   "kind": "chair",
+   "x": 11800,
+   "y": 3350,
+   "rot": 180,
+   "w": 450,
+   "d": 500,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005nyb",
+   "level": "lv0hy9b004g2e",
+   "kind": "chair",
+   "x": 12600,
+   "y": 1650,
+   "rot": 0,
+   "w": 450,
+   "d": 500,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005ote",
+   "level": "lv0hy9b004g2e",
+   "kind": "chair",
+   "x": 12600,
+   "y": 3350,
+   "rot": 180,
+   "w": 450,
+   "d": 500,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005phd",
+   "level": "lv0hy9b004g2e",
+   "kind": "filing",
+   "x": 9150,
+   "y": 1000,
+   "rot": 270,
+   "w": 500,
+   "d": 600,
+   "h": 1300,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005qbu",
+   "level": "lv0hy9b004g2e",
+   "kind": "filing",
+   "x": 9150,
+   "y": 1600,
+   "rot": 270,
+   "w": 500,
+   "d": 600,
+   "h": 1300,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005r8y",
+   "level": "lv0hy9b004g2e",
+   "kind": "plant",
+   "x": 13500,
+   "y": 8500,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 1200,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005smh",
+   "level": "lv0hy9b004g2e",
+   "kind": "sofa2",
+   "x": 11800,
+   "y": 8400,
+   "rot": 180,
+   "w": 1600,
+   "d": 900,
+   "h": 800,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005tj3",
+   "level": "lv0hy9b004g2e",
+   "kind": "toilet",
+   "x": 3700,
+   "y": 8500,
+   "rot": 270,
+   "w": 400,
+   "d": 700,
+   "h": 800,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9b005u19",
+   "level": "lv0hy9b004g2e",
+   "kind": "washbasin",
+   "x": 600,
+   "y": 8550,
+   "rot": 0,
+   "w": 600,
+   "d": 450,
+   "h": 850,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  }
+ ],
+ "roofs": [
+  {
+   "id": "f0hy9b005xn5",
+   "level": "lv0hy9b004g2e",
+   "pts": [
+    [
+     -150,
+     -150
+    ],
+    [
+     -150,
+     9150
+    ],
+    [
+     14150,
+     9150
+    ],
+    [
+     14150,
+     -150
+    ]
+   ],
+   "kind": "flat",
+   "pitch": 0,
+   "overhang": 300,
+   "thickness": 200,
+   "material": "concrete",
+   "phase": "new"
+  }
+ ],
+ "dimensions": [
+  {
+   "id": "k0hy9b005vd6",
+   "level": "lv0hy9b004g2e",
+   "x1": 0,
+   "y1": 0,
+   "x2": 14000,
+   "y2": 0,
+   "offset": -1200,
+   "auto": true,
+   "phase": "new"
+  },
+  {
+   "id": "k0hy9b005wwb",
+   "level": "lv0hy9b004g2e",
+   "x1": 0,
+   "y1": 9000,
+   "x2": 0,
+   "y2": 0,
+   "offset": -1200,
+   "auto": true,
+   "phase": "new"
+  }
+ ],
+ "texts": [],
+ "drawings": [],
+ "underlays": [],
+ "models": [],
+ "solids": [],
+ "scenes": [],
+ "view": {
+  "level": "lv0hy9b004g2e"
+ }
+}

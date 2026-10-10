@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node __TRACKED_VAR__/compare.mjs __TRACKED_VAR__/gen.dxf __TRACKED_VAR__/ref.json)",
+      "Bash(ELECTRON_RUN_AS_NODE=1 node --test test/unit/dxf.test.mjs)",
+      "Bash(node scripts/test.mjs dxf)"
+    ]
+  }
+}

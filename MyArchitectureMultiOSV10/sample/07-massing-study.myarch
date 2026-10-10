@@ -1,0 +1,782 @@
+{
+ "format": "myarch",
+ "version": 1,
+ "meta": {
+  "title": "Massing study",
+  "author": "SHKWON",
+  "company": "MyArchitecture",
+  "client": "Sample",
+  "address": "Incheon",
+  "rev": "A",
+  "date": "2026-10-10",
+  "comment": "",
+  "scale": 100,
+  "north": 0,
+  "latitude": 37.57,
+  "longitude": 126.98,
+  "timezone": 9
+ },
+ "defaults": {
+  "wallThickness": 200,
+  "wallHeight": 2800,
+  "doorWidth": 900,
+  "doorHeight": 2100,
+  "windowWidth": 1200,
+  "windowHeight": 1200,
+  "windowSill": 900,
+  "slab": 200,
+  "columnSize": 400,
+  "stairWidth": 1000,
+  "textSize": 300
+ },
+ "levels": [
+  {
+   "id": "lv0hy9d007wx0",
+   "name": "1F",
+   "elevation": 0,
+   "height": 2800,
+   "slab": 200
+  }
+ ],
+ "wallTypes": [
+  {
+   "id": "ext-brick-300",
+   "name": "Exterior brick cavity 300",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "brick",
+     "thickness": 100,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 80,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 100,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-render-250",
+   "name": "Exterior rendered 250",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 60,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-wood-200",
+   "name": "Exterior timber frame 200",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "wood-cladding",
+     "thickness": 25,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 25,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-block-150",
+   "name": "Interior block 150",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    },
+    {
+     "material": "concrete",
+     "thickness": 120,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-drywall-100",
+   "name": "Interior drywall 100",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 74,
+     "function": "structure"
+    },
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "concrete-200",
+   "name": "Concrete 200",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "concrete",
+     "thickness": 200,
+     "function": "structure"
+    }
+   ]
+  }
+ ],
+ "grids": [
+  {
+   "id": "g0hy9d008dur",
+   "x1": 0,
+   "y1": -11000,
+   "x2": 0,
+   "y2": 22000,
+   "label": "1"
+  },
+  {
+   "id": "g0hy9d008ei6",
+   "x1": 6000,
+   "y1": -11000,
+   "x2": 6000,
+   "y2": 22000,
+   "label": "2"
+  },
+  {
+   "id": "g0hy9d008fof",
+   "x1": 12000,
+   "y1": -11000,
+   "x2": 12000,
+   "y2": 22000,
+   "label": "3"
+  },
+  {
+   "id": "g0hy9d008gyq",
+   "x1": 18000,
+   "y1": -11000,
+   "x2": 18000,
+   "y2": 22000,
+   "label": "4"
+  },
+  {
+   "id": "g0hy9d008hu8",
+   "x1": 24000,
+   "y1": -11000,
+   "x2": 24000,
+   "y2": 22000,
+   "label": "5"
+  },
+  {
+   "id": "g0hy9d008id7",
+   "x1": 30000,
+   "y1": -11000,
+   "x2": 30000,
+   "y2": 22000,
+   "label": "6"
+  },
+  {
+   "id": "g0hy9d008j3b",
+   "x1": -3000,
+   "y1": 1000,
+   "x2": 33000,
+   "y2": 1000,
+   "label": "A"
+  },
+  {
+   "id": "g0hy9d008kym",
+   "x1": -3000,
+   "y1": 7000,
+   "x2": 33000,
+   "y2": 7000,
+   "label": "B"
+  },
+  {
+   "id": "g0hy9d008l00",
+   "x1": -3000,
+   "y1": 13000,
+   "x2": 33000,
+   "y2": 13000,
+   "label": "C"
+  },
+  {
+   "id": "g0hy9d008mac",
+   "x1": -3000,
+   "y1": 19000,
+   "x2": 33000,
+   "y2": 19000,
+   "label": "D"
+  }
+ ],
+ "costs": {
+  "currency": "KRW",
+  "wall": 120000,
+  "floor": 80000,
+  "roof": 150000,
+  "door": 450000,
+  "window": 380000,
+  "opening": 100000,
+  "stair": 2500000,
+  "column": 300000,
+  "furniture": 0
+ },
+ "layers": [
+  {
+   "id": "0",
+   "name": "0",
+   "color": "#9aa4b5",
+   "visible": true
+  }
+ ],
+ "walls": [],
+ "openings": [],
+ "rooms": [],
+ "columns": [],
+ "stairs": [],
+ "furniture": [
+  {
+   "id": "u0hy9d0083v3",
+   "level": "lv0hy9d007wx0",
+   "kind": "tree",
+   "x": -6000,
+   "y": 24000,
+   "rot": 0,
+   "w": 4000,
+   "d": 4000,
+   "h": 7000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d0084xo",
+   "level": "lv0hy9d007wx0",
+   "kind": "tree",
+   "x": 0,
+   "y": 24000,
+   "rot": 0,
+   "w": 4000,
+   "d": 4000,
+   "h": 7000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d00853v",
+   "level": "lv0hy9d007wx0",
+   "kind": "tree",
+   "x": 6000,
+   "y": 24000,
+   "rot": 0,
+   "w": 4000,
+   "d": 4000,
+   "h": 7000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d008637",
+   "level": "lv0hy9d007wx0",
+   "kind": "tree",
+   "x": 12000,
+   "y": 24000,
+   "rot": 0,
+   "w": 4000,
+   "d": 4000,
+   "h": 7000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d008791",
+   "level": "lv0hy9d007wx0",
+   "kind": "tree",
+   "x": 18000,
+   "y": 24000,
+   "rot": 0,
+   "w": 4000,
+   "d": 4000,
+   "h": 7000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d00888f",
+   "level": "lv0hy9d007wx0",
+   "kind": "tree",
+   "x": 24000,
+   "y": 24000,
+   "rot": 0,
+   "w": 4000,
+   "d": 4000,
+   "h": 7000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d0089o6",
+   "level": "lv0hy9d007wx0",
+   "kind": "tree",
+   "x": 32000,
+   "y": 10000,
+   "rot": 0,
+   "w": 4000,
+   "d": 4000,
+   "h": 7000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d008ayw",
+   "level": "lv0hy9d007wx0",
+   "kind": "tree",
+   "x": -5000,
+   "y": 6000,
+   "rot": 0,
+   "w": 4000,
+   "d": 4000,
+   "h": 7000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d008bgz",
+   "level": "lv0hy9d007wx0",
+   "kind": "car",
+   "x": 34000,
+   "y": 18000,
+   "rot": 90,
+   "w": 1800,
+   "d": 4500,
+   "h": 1500,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "u0hy9d008c4w",
+   "level": "lv0hy9d007wx0",
+   "kind": "car",
+   "x": 34000,
+   "y": 21000,
+   "rot": 90,
+   "w": 1800,
+   "d": 4500,
+   "h": 1500,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  }
+ ],
+ "roofs": [],
+ "dimensions": [],
+ "texts": [
+  {
+   "id": "t0hy9d008nq0",
+   "level": "lv0hy9d007wx0",
+   "x": -2000,
+   "y": 27000,
+   "text": "Massing options — heights are pushed/pulled in 3D",
+   "size": 600,
+   "rot": 0,
+   "phase": "new"
+  }
+ ],
+ "drawings": [],
+ "underlays": [],
+ "models": [],
+ "solids": [
+  {
+   "id": "v0hy9d007xoo",
+   "level": "lv0hy9d007wx0",
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     30000,
+     0
+    ],
+    [
+     30000,
+     20000
+    ],
+    [
+     0,
+     20000
+    ]
+   ],
+   "z0": 0,
+   "height": 6000,
+   "taper": 1,
+   "material": "stone",
+   "name": "Podium",
+   "phase": "new"
+  },
+  {
+   "id": "v0hy9d007ydd",
+   "level": "lv0hy9d007wx0",
+   "pts": [
+    [
+     3000,
+     3000
+    ],
+    [
+     13000,
+     3000
+    ],
+    [
+     13000,
+     13000
+    ],
+    [
+     3000,
+     13000
+    ]
+   ],
+   "z0": 6000,
+   "height": 36000,
+   "taper": 1,
+   "material": "glass",
+   "name": "Tower A",
+   "group": "grp0hy9d008230",
+   "phase": "new"
+  },
+  {
+   "id": "v0hy9d007zzh",
+   "level": "lv0hy9d007wx0",
+   "pts": [
+    [
+     17000,
+     4000
+    ],
+    [
+     26000,
+     4000
+    ],
+    [
+     26000,
+     16000
+    ],
+    [
+     17000,
+     16000
+    ]
+   ],
+   "z0": 6000,
+   "height": 24000,
+   "taper": 1,
+   "material": "plaster",
+   "name": "Tower B",
+   "phase": "new"
+  },
+  {
+   "id": "v0hy9d0080rc",
+   "level": "lv0hy9d007wx0",
+   "name": "Rotunda",
+   "pts": [
+    [
+     27500,
+     -6000
+    ],
+    [
+     27432.748481411305,
+     -5317.183872943551
+    ],
+    [
+     27233.578363789504,
+     -4660.607986722186
+    ],
+    [
+     26910.14364305891,
+     -4055.5041844313923
+    ],
+    [
+     26474.873734152916,
+     -3525.1262658470837
+    ],
+    [
+     25944.495815568607,
+     -3089.8563569410917
+    ],
+    [
+     25339.392013277815,
+     -2766.421636210496
+    ],
+    [
+     24682.81612705645,
+     -2567.2515185886937
+    ],
+    [
+     24000,
+     -2500
+    ],
+    [
+     23317.18387294355,
+     -2567.2515185886937
+    ],
+    [
+     22660.607986722185,
+     -2766.421636210496
+    ],
+    [
+     22055.504184431393,
+     -3089.8563569410912
+    ],
+    [
+     21525.126265847084,
+     -3525.1262658470837
+    ],
+    [
+     21089.85635694109,
+     -4055.5041844313923
+    ],
+    [
+     20766.421636210496,
+     -4660.607986722185
+    ],
+    [
+     20567.251518588695,
+     -5317.183872943549
+    ],
+    [
+     20500,
+     -6000
+    ],
+    [
+     20567.251518588695,
+     -6682.816127056449
+    ],
+    [
+     20766.421636210496,
+     -7339.392013277814
+    ],
+    [
+     21089.85635694109,
+     -7944.495815568607
+    ],
+    [
+     21525.126265847084,
+     -8474.873734152916
+    ],
+    [
+     22055.504184431393,
+     -8910.14364305891
+    ],
+    [
+     22660.607986722185,
+     -9233.578363789504
+    ],
+    [
+     23317.18387294355,
+     -9432.748481411307
+    ],
+    [
+     24000,
+     -9500
+    ],
+    [
+     24682.81612705645,
+     -9432.748481411307
+    ],
+    [
+     25339.392013277815,
+     -9233.578363789504
+    ],
+    [
+     25944.495815568607,
+     -8910.14364305891
+    ],
+    [
+     26474.873734152916,
+     -8474.873734152916
+    ],
+    [
+     26910.14364305891,
+     -7944.495815568607
+    ],
+    [
+     27233.578363789504,
+     -7339.392013277817
+    ],
+    [
+     27432.748481411305,
+     -6682.816127056451
+    ]
+   ],
+   "z0": 0,
+   "height": 9000,
+   "taper": 1,
+   "material": "brick",
+   "phase": "new"
+  },
+  {
+   "id": "v0hy9d00817p",
+   "level": "lv0hy9d007wx0",
+   "name": "Crown",
+   "pts": [
+    [
+     3000,
+     3000
+    ],
+    [
+     13000,
+     3000
+    ],
+    [
+     13000,
+     13000
+    ],
+    [
+     3000,
+     13000
+    ]
+   ],
+   "z0": 42000,
+   "height": 6000,
+   "taper": 0.3,
+   "material": "roof-metal",
+   "group": "grp0hy9d008230",
+   "phase": "new"
+  }
+ ],
+ "scenes": [
+  {
+   "id": "sc0hy9d008oz8",
+   "name": "Aerial",
+   "camera": {
+    "pos": [
+     43.35670227834267,
+     31.192372506176937,
+     42.113712961845465
+    ],
+    "target": [
+     15,
+     2,
+     5.25
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "sc0hy9d008phs",
+   "name": "Street view",
+   "camera": {
+    "pos": [
+     25.865596001627715,
+     8.149197001220786,
+     59.57798000813858
+    ],
+    "target": [
+     15,
+     2,
+     5.25
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "sc0hy9d008qbp",
+   "name": "White model",
+   "camera": {
+    "pos": [
+     -18.40679923122604,
+     30.06611930810344,
+     38.65679923122604
+    ],
+    "target": [
+     15,
+     2,
+     5.25
+    ],
+    "ortho": false
+   },
+   "style": "white",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "sc0hy9d008rzq",
+   "name": "Elevation",
+   "camera": {
+    "pos": [
+     15,
+     0.005599999972,
+     61.249999720000005
+    ],
+    "target": [
+     15,
+     2,
+     5.25
+    ],
+    "ortho": true
+   },
+   "style": "lines",
+   "section": null,
+   "phase": "all"
+  }
+ ],
+ "view": {
+  "level": "lv0hy9d007wx0"
+ }
+}
