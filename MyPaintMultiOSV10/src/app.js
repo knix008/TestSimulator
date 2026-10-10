@@ -507,14 +507,14 @@
 
   const WIDTHS = [1, 2, 4, 8, 12, 20];
 
-  function panelBar(side, titleKey) {
+  function panelBar(side, titleKey, iconName) {
     const open = side === "left" ? settings.showLeft : settings.showRight;
     const action = side === "left" ? "toggleLeft" : "toggleRight";
     const label = open ? t("panel.fold") : t("panel.unfold");
     const points = side === "left"
       ? (open ? "14 6 8 12 14 18" : "10 6 16 12 10 18")
       : (open ? "10 6 16 12 10 18" : "14 6 8 12 14 18");
-    return '<div class="panel-bar"><span>' + esc(t(titleKey)) + "</span>" +
+    return '<div class="panel-bar">' + Icons.icon(iconName) + "<span>" + esc(t(titleKey)) + "</span>" +
       '<button type="button" class="panel-fold" data-action="' + action + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" aria-expanded="' + (open ? "true" : "false") + '">' +
       '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M' + points + '"/></svg></button></div>';
   }
@@ -583,7 +583,7 @@
       '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button></div>'
     )).join("") || '<div class="line" style="padding:0 8px">' + esc(t("status.none")) + "</div>";
     $("leftPanel").innerHTML = [
-      panelBar("left", "left.tools"),
+      panelBar("left", "left.tools", "wrench"),
       '<div class="tool-grid">' + tools + "</div>",
       "<h2>" + esc(t("left.colors")) + "</h2>",
       '<div class="swatches">' + swatches + "</div>",
@@ -592,7 +592,7 @@
       '<label class="color-row"><span>' + esc(t("palette.none")) + '</span><input type="checkbox" data-pick="noFill"' + (settings.fillColor ? "" : " checked") + ' title="' + esc(t("palette.none")) + '"></label>',
       widthPicks(),
       widthStep(),
-      settings.showShapes === false ? "" : "<h2>" + esc(t("left.shapes")) + "</h2>" + '<div class="shape-list">' + shapeRows + "</div>",
+      settings.showShapes === false ? "" : "<h2>" + Icons.icon("shapes") + "<span>" + esc(t("left.shapes")) + "</span></h2>" + '<div class="shape-list">' + shapeRows + "</div>",
     ].join("");
   }
 
@@ -756,7 +756,7 @@
         rows.push('<div class="line"><span>' + esc(t("status.selection")) + '</span><b class="grow">' + esc(t("status.none")) + "</b></div>");
       }
     }
-    $("rightPanel").innerHTML = panelBar("right", "right.props") + '<div class="props">' + rows.join("") + "</div>" +
+    $("rightPanel").innerHTML = panelBar("right", "right.props", "properties") + '<div class="props">' + rows.join("") + "</div>" +
       pictureSection(doc) + dicomSection(doc);
     const shapeNode = firstSelected();
     if (shapeNode && shapeNode.kind === "text") {

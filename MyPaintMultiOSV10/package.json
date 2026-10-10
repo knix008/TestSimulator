@@ -90,6 +90,8 @@
         "ko_KR",
         "en_US"
       ],
+      "multiLanguageInstaller": true,
+      "displayLanguageSelector": true,
       "language": "1042",
       "include": "build/installer.nsh",
       "license": "build/license.txt",

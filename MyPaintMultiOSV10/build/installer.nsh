@@ -1,74 +1,90 @@
 ; MyPaint installer
-; - If a previous install exists, remove that program completely and install again.
-; - If saved data exists, ask the user whether to delete it.
-; - Register the .mpaint document icon.
-; Korean (1042) and English.
+; - The user picks the installer language (Korean or English) on the first screen.
+; - An existing program is removed completely, then the new one is installed.
+; - Saved user data is deleted only when the user says so.
 
-!include "nsDialogs.nsh"
+!define MUI_LANGDLL_ALLLANGUAGES
+!define MUI_LANGDLL_ALWAYSSHOW
+
 !include "LogicLib.nsh"
-!include "WinMessages.nsh"
 
 !ifndef BUILD_UNINSTALLER
 
-Var PrevInstallDir
-Var HasPrevInstall
 Var HasSavedData
-Var DeleteDataCheckbox
 Var DoDeleteData
+
+!macro MP_WipeIfApp DIR
+  Push $R1
+  Push $R2
+  StrCpy $R1 "${DIR}"
+  StrLen $R2 $R1
+  ${If} $R2 > 8
+  ${AndIf} $R1 != $PROGRAMFILES
+  ${AndIf} $R1 != $PROGRAMFILES64
+  ${AndIf} $R1 != $LOCALAPPDATA
+  ${AndIf} $R1 != "$LOCALAPPDATA\Programs"
+  ${AndIf} $R1 != $APPDATA
+  ${AndIf} $R1 != $PROFILE
+  ${AndIf} $R1 != $DESKTOP
+  ${AndIf} $R1 != $TEMP
+    ${If} ${FileExists} "$R1\${APP_EXECUTABLE_FILENAME}"
+    ${OrIf} ${FileExists} "$R1\${UNINSTALL_FILENAME}"
+    ${OrIf} ${FileExists} "$R1\resources\document.ico"
+      ${If} ${FileExists} "$R1\${UNINSTALL_FILENAME}"
+        ExecWait '"$R1\${UNINSTALL_FILENAME}" /S --updated _?=$R1'
+      ${EndIf}
+      RMDir /r "$R1"
+      ${If} ${FileExists} "$R1\${APP_EXECUTABLE_FILENAME}"
+        ExecWait "taskkill /F /IM ${APP_EXECUTABLE_FILENAME}"
+        Sleep 400
+        RMDir /r "$R1"
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
+  Pop $R2
+  Pop $R1
+!macroend
+
+!macro MP_RemoveHive ROOT
+  Push $R8
+  ReadRegStr $R8 ${ROOT} "${INSTALL_REGISTRY_KEY}" "InstallLocation"
+  !insertmacro MP_WipeIfApp $R8
+  DeleteRegKey ${ROOT} "${UNINSTALL_REGISTRY_KEY}"
+  DeleteRegKey ${ROOT} "${INSTALL_REGISTRY_KEY}"
+  Pop $R8
+!macroend
 
 !macro customInit
   StrCpy $DoDeleteData "0"
-  StrCpy $HasPrevInstall "0"
   StrCpy $HasSavedData "0"
-  StrCpy $PrevInstallDir ""
-
-  ReadRegStr $0 HKCU "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
-  ${If} $0 == ""
-    ReadRegStr $0 HKLM "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
-  ${EndIf}
-  ${If} $0 != ""
-    StrCpy $PrevInstallDir $0
-    StrCpy $HasPrevInstall "1"
-  ${EndIf}
-
-  ${If} ${FileExists} "$APPDATA\MyPaint\Local Storage\*.*"
-  ${OrIf} ${FileExists} "$APPDATA\MyPaint\IndexedDB\*.*"
-  ${OrIf} ${FileExists} "$APPDATA\MyPaint\Preferences"
+  ${If} ${FileExists} "$APPDATA\MyPaint\*.*"
+  ${OrIf} ${FileExists} "$LOCALAPPDATA\MyPaint\*.*"
     StrCpy $HasSavedData "1"
-    StrCpy $HasPrevInstall "1"
   ${EndIf}
+!macroend
 
-  ; Remove the installed program completely before copying the new files.
+; Runs when installation actually starts, before the new files are copied.
+!macro customCheckAppRunning
   ExecWait "taskkill /F /IM ${APP_EXECUTABLE_FILENAME}"
-  ReadRegStr $1 HKCU "${UNINSTALL_REGISTRY_KEY}" "QuietUninstallString"
-  ${If} $1 == ""
-    ReadRegStr $1 HKLM "${UNINSTALL_REGISTRY_KEY}" "QuietUninstallString"
-  ${EndIf}
-  ${If} $1 != ""
-    ; the data question is asked on the custom page, so the old uninstaller must not touch it
-    ExecWait '$1'
-  ${EndIf}
-  ${If} $PrevInstallDir != ""
-  ${AndIf} $PrevInstallDir != $PROGRAMFILES
-  ${AndIf} $PrevInstallDir != $PROGRAMFILES64
-    RMDir /r "$PrevInstallDir"
-  ${EndIf}
-  DeleteRegKey HKCU "${UNINSTALL_REGISTRY_KEY}"
-  DeleteRegKey HKLM "${UNINSTALL_REGISTRY_KEY}"
-  Delete "$DESKTOP\MyPaint 10.0.lnk"
-  Delete "$SMPROGRAMS\MyPaint 10.0.lnk"
-  RMDir /r "$SMPROGRAMS\MyPaint"
+  Sleep 300
+  SetOutPath $TEMP
+  !insertmacro MP_RemoveHive HKCU
+  !insertmacro MP_RemoveHive HKLM
+  !insertmacro MP_WipeIfApp $INSTDIR
+  !insertmacro MP_WipeIfApp $LOCALAPPDATA\Programs\${APP_FILENAME}
+  !insertmacro MP_WipeIfApp $PROGRAMFILES64\${APP_FILENAME}
+  !insertmacro MP_WipeIfApp $PROGRAMFILES\${APP_FILENAME}
+  Delete "$DESKTOP\${SHORTCUT_NAME}.lnk"
+  Delete "$SMPROGRAMS\${SHORTCUT_NAME}.lnk"
+  RMDir "$SMPROGRAMS\MyPaint"
+  DeleteRegKey HKCU "Software\Classes\.mpaint"
+  DeleteRegKey HKCU "Software\Classes\MyPaint.Drawing"
+  DeleteRegKey HKLM "Software\Classes\.mpaint"
+  DeleteRegKey HKLM "Software\Classes\MyPaint.Drawing"
 !macroend
 
 !macro customPageAfterChangeDir
-  Page custom DataPageCreate DataPageLeave
-!macroend
-
-!macro MP_SetHeader title subtitle
-  GetDlgItem $0 $HWNDPARENT 1037
-  SendMessage $0 ${WM_SETTEXT} 0 "STR:${title}"
-  GetDlgItem $0 $HWNDPARENT 1038
-  SendMessage $0 ${WM_SETTEXT} 0 "STR:${subtitle}"
+  Page custom DataPageCreate
 !macroend
 
 Function DataPageCreate
@@ -76,41 +92,23 @@ Function DataPageCreate
     Abort
   ${EndIf}
 
-  nsDialogs::Create 1018
-  Pop $0
-  ${If} $0 == error
-    Abort
-  ${EndIf}
-
   ${If} $LANGUAGE == 1042
-    !insertmacro MP_SetHeader "저장된 데이터" "이미 설치된 프로그램의 저장 데이터를 지울지 선택하세요."
-    ${NSD_CreateLabel} 0 0u 100% 32u "저장된 데이터가 있습니다. 삭제하시겠습니까?$\r$\n프로그램 파일은 완전히 삭제한 뒤 다시 설치합니다."
-    Pop $0
-    ${NSD_CreateCheckbox} 0 40u 100% 12u "저장된 데이터를 삭제"
-    Pop $DeleteDataCheckbox
+    MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "이미 설치된 프로그램은 완전히 삭제한 뒤 다시 설치합니다.$\r$\n$\r$\n저장된 데이터가 있습니다. 삭제하시겠습니까?" /SD IDNO IDYES dataYes
   ${Else}
-    !insertmacro MP_SetHeader "Saved data" "Choose whether to delete data from the installed program."
-    ${NSD_CreateLabel} 0 0u 100% 32u "Saved data was found. Do you want to delete it?$\r$\nThe installed program is removed completely and installed again."
-    Pop $0
-    ${NSD_CreateCheckbox} 0 40u 100% 12u "Delete saved data"
-    Pop $DeleteDataCheckbox
+    MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "The installed program is removed completely and installed again.$\r$\n$\r$\nSaved data was found. Do you want to delete it?" /SD IDNO IDYES dataYes
   ${EndIf}
+  StrCpy $DoDeleteData "0"
+  Abort
 
-  nsDialogs::Show
-FunctionEnd
-
-Function DataPageLeave
-  ${NSD_GetState} $DeleteDataCheckbox $0
-  ${If} $0 == 1
+  dataYes:
     StrCpy $DoDeleteData "1"
-  ${Else}
-    StrCpy $DoDeleteData "0"
-  ${EndIf}
+    Abort
 FunctionEnd
 
 !macro customInstall
   ${If} $DoDeleteData == "1"
     RMDir /r "$APPDATA\MyPaint"
+    RMDir /r "$LOCALAPPDATA\MyPaint"
   ${EndIf}
 
   WriteRegStr HKCU "Software\Classes\.mpaint" "" "MyPaint.Drawing"

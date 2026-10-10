@@ -1,11 +1,45 @@
 #!/bin/sh
+# The user picks the installer language. An existing MyPaint is removed
+# completely, and saved data is deleted only when the user says so.
+
+CONSOLE_USER=$(stat -f %Su /dev/console 2>/dev/null || true)
+if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
+  USER_HOME=$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+  [ -n "$USER_HOME" ] || USER_HOME=$(eval echo "~$CONSOLE_USER")
+  RUN_USER=$CONSOLE_USER
+else
+  USER_HOME=$HOME
+  RUN_USER=""
+fi
+
+ask() {
+  if [ -n "$RUN_USER" ]; then
+    sudo -u "$RUN_USER" /usr/bin/osascript "$@"
+  else
+    /usr/bin/osascript "$@"
+  fi
+}
+
+CHOICE=$(ask -e 'button returned of (display dialog "설치에 사용할 언어를 선택하세요." & return & "Choose the installation language." buttons {"한국어", "English"} default button "한국어" with title "MyPaint")' 2>/dev/null || true)
+case "$CHOICE" in
+  English) LANG_CHOICE=en ;;
+  *) LANG_CHOICE=ko ;;
+esac
+
+DATA="$USER_HOME/Library/Application Support/MyPaint"
+BUTTON=""
+if [ -d "$DATA" ]; then
+  if [ "$LANG_CHOICE" = "en" ]; then
+    BUTTON=$(ask -e 'button returned of (display dialog "Saved data was found. Do you want to delete it?" buttons {"Keep", "Delete"} default button "Keep" with title "MyPaint")' 2>/dev/null || true)
+  else
+    BUTTON=$(ask -e 'button returned of (display dialog "저장된 데이터가 있습니다. 삭제하시겠습니까?" buttons {"Keep", "Delete"} default button "Keep" with title "MyPaint")' 2>/dev/null || true)
+  fi
+fi
+
 if [ -d "/Applications/MyPaint.app" ]; then
   rm -rf "/Applications/MyPaint.app"
 fi
-DATA="$HOME/Library/Application Support/MyPaint"
-if [ -d "$DATA" ]; then
-  BUTTON=$(/usr/bin/osascript -e 'button returned of (display dialog "저장된 데이터가 있습니다. 삭제하시겠습니까?" & return & "Saved data was found. Do you want to delete it?" buttons {"Keep", "Delete"} default button "Keep")')
-  if [ "$BUTTON" = "Delete" ]; then
-    rm -rf "$DATA"
-  fi
+
+if [ "$BUTTON" = "Delete" ]; then
+  rm -rf "$DATA"
 fi

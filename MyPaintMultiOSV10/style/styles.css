@@ -330,6 +330,18 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
   white-space: nowrap;
 }
 
+.panel-bar > svg, .panel h2 > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--accent);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .panel-fold {
   width: 22px;
   height: 22px;

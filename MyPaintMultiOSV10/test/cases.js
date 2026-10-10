@@ -2691,14 +2691,19 @@
         assert(script.indexOf(".mpaint") >= 0);
         assert(script.indexOf("MyPaint.Drawing") >= 0);
         assert(script.indexOf("1042") >= 0);
+        assert(script.indexOf("MUI_LANGDLL_ALWAYSSHOW") >= 0);
+        assert(script.indexOf("INSTALL_REGISTRY_KEY") >= 0);
+        assert(script.indexOf("$APPDATA\\MyPaint") >= 0);
       }),
       test("Linux and macOS installers ask before deleting saved data", async () => {
         const linux = await text("/build/linux-before-install.sh");
         const mac = await text("/build/pkg-scripts/preinstall");
         assert(linux.indexOf("/opt/MyPaint") >= 0);
         assert(linux.indexOf("저장된 데이터") >= 0 && linux.indexOf("Saved data") >= 0);
+        assert(linux.indexOf("Choose the installation language") >= 0);
         assert(mac.indexOf("MyPaint.app") >= 0);
         assert(mac.indexOf("삭제하시겠습니까") >= 0);
+        assert(mac.indexOf("Choose the installation language") >= 0);
       }),
       test("every build option is one electron-builder still accepts", async () => {
         const pkg = JSON.parse(await text("/package.json"));
@@ -2731,6 +2736,8 @@
         assert(pkg.build.nsis.uninstallerIcon === "assets/icon.ico");
         assert(pkg.build.nsis.installerLanguages.indexOf("ko_KR") >= 0);
         assert(pkg.build.nsis.installerLanguages.indexOf("en_US") >= 0);
+        assert(pkg.build.nsis.displayLanguageSelector === true);
+        assert(pkg.build.nsis.multiLanguageInstaller === true);
         assert(pkg.build.fileAssociations[0].ext === "mpaint");
         assert(pkg.build.fileAssociations[0].icon === "assets/document.ico");
         assert(pkg.author.email === "knix008@naver.com");
@@ -3030,6 +3037,17 @@
         assert(doc.getElementById("leftPanel").offsetWidth === leftBefore, "the tool panel moved");
         assert(doc.getElementById("rightPanel").offsetWidth === rightBefore, "the property panel moved");
         assert(!doc.getElementById("splitLeft") && !doc.getElementById("splitRight"));
+      }),
+      test("the tools, shape list and properties titles carry an icon", (api, doc) => {
+        const tools = doc.querySelector("#leftPanel .panel-bar");
+        const props = doc.querySelector("#rightPanel .panel-bar");
+        const shapes = [...doc.querySelectorAll("#leftPanel h2")].find((item) => item.textContent.indexOf(api.t("left.shapes")) >= 0);
+        [["tools", tools], ["properties", props], ["shapes", shapes]].forEach(([name, bar]) => {
+          assert(bar, name + " title is missing");
+          const svg = bar.querySelector(":scope > svg");
+          assert(svg, name + " title has no icon");
+          assert(svg.getBoundingClientRect().width >= 14, name + " icon is not visible");
+        });
       }),
       test("at the smallest width every row still fits and works", async (api, doc) => {
         const check = (where) => {
