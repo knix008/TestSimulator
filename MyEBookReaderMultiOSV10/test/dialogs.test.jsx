@@ -97,6 +97,21 @@ describe('Settings dialog', () => {
     }
   });
 
+  it('sets an ebook page from five sizes, or from a side', () => {
+    const { onResult } = renderBody('settings');
+    fireEvent.click(document.querySelectorAll('.tabs .tab')[1]);
+    fireEvent.change(screen.getByLabelText(t('reading.page')), { target: { value: 'sm' } });
+    expect(onResult).toHaveBeenCalledWith({
+      action: 'settings',
+      settings: expect.objectContaining({ pagePreset: 'sm', pageWidth: 620, pageHeight: 670 }),
+    });
+    fireEvent.click(screen.getByLabelText(`${t('reading.pageHeight')} +`));
+    expect(onResult).toHaveBeenCalledWith({
+      action: 'settings',
+      settings: expect.objectContaining({ pagePreset: 'custom', pageWidth: 720, pageHeight: 790 }),
+    });
+  });
+
   it('sets the margin around a page of text', () => {
     const { onResult } = renderBody('settings');
     fireEvent.click(document.querySelectorAll('.tabs .tab')[2]);

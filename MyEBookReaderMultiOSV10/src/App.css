@@ -958,7 +958,43 @@ button, input, select, textarea { font: inherit; color: inherit; }
   white-space: nowrap;
   font-size: 0.88em;
 }
-.prop-value .input, .prop-value .range { width: 100%; }
+.prop-value .input, .prop-value .range { width: 100%; max-width: 100%; box-sizing: border-box; }
+/* A checkbox sits beside its label. The label takes the room that is left
+   and stops there, so a long name cannot push the box off the right edge. */
+.prop-row.fit .prop-label {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prop-row.fit .prop-value { flex: 0 0 auto; overflow: visible; }
+/* Reading settings stack: the label on its own line, the control under it
+   at the panel's width. Side by side, a stepper or three buttons was wider
+   than the minimum panel and the right-hand end was cut off. */
+.prop-row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.prop-row.stack .prop-label { width: auto; max-width: 100%; }
+.prop-row.stack .prop-value { width: 100%; white-space: normal; overflow: hidden; }
+.prop-row.stack .seg-row { display: flex; width: 100%; min-width: 0; gap: 3px; }
+.prop-row.stack .seg-row .btn.seg {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 4px 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prop-row.stack .seg-row.compact .btn.seg { flex: 0 0 auto; }
+.prop-row.stack select.input {
+  display: block;
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
+}
 /* A number with a step either side of it. The buttons are the same size at any
    UI font, so the boxes down the panel line up with each other. */
 .stepper { display: flex; align-items: center; gap: 4px; width: 100%; }
@@ -1061,6 +1097,92 @@ button, input, select, textarea { font: inherit; color: inherit; }
   color: var(--page-ink);
   border-radius: 8px;
   border: 1px solid var(--border);
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+/* The panel's title: the tool that is open, named, with its icon. Folding
+   leaves the same icon and name on the strip, written down the edge. */
+.panel-foldbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 6px;
+  min-width: 0;
+}
+.side-panel.left .panel-foldbar .panel-fold { margin-left: auto; }
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 650;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: start;
+}
+.panel-title svg { flex: none; }
+.panel-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel-fold {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.panel-fold:hover { background: var(--bg-3); color: var(--text); }
+.panel-fold .chev.point-left { transform: rotate(180deg); }
+.panel-column {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.side-panel.collapsed {
+  width: 40px !important;
+  min-width: 40px !important;
+  flex-direction: column !important;
+  align-items: stretch;
+}
+.side-panel.collapsed .panel-foldbar {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  height: auto;
+  padding: 6px 2px;
+  gap: 8px;
+}
+.side-panel.collapsed .panel-fold { margin-left: 0; }
+.side-panel.collapsed .panel-title {
+  flex-direction: column;
+  gap: 8px;
+  max-width: 100%;
+  cursor: pointer;
+}
+.side-panel.collapsed .panel-title-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  max-height: 70vh;
+  letter-spacing: 0.08em;
 }
 
 /* ── The reading pane ────────────────────────────────── */
@@ -1394,10 +1516,10 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 
 /* ── The page-turning effects ──────────────────────────
    One mechanism for every format. The page that has arrived never moves: it is
-   uncovered, not brought in. What moves is a copy of the page being left, on a
-   sheet of paper cut to the page (.leaf-face), and it slides off or turns over
-   on the binding. A picture's copy is a snapshot; a chapter's is the markup
-   again, pinned over the column that has already been scrolled to. */
+   uncovered, not brought in. What moves is the page being left, on a sheet of
+   paper cut to the page (.leaf-face), and it slides off or turns over on the
+   binding. A picture's copy is a snapshot. A chapter's is the lines already
+   painted on that page (.frozen-page), not the chapter poured out again. */
 .turn-page {
   position: absolute;
   inset: 0;
@@ -1431,13 +1553,42 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 }
 .turn-sheet > .chapter.leaving,
 .turn-sheet .leaf-face > .chapter.leaving,
-.turn-stay > .chapter.leaving {
+.turn-stay > .chapter.leaving,
+.turn-base > .chapter.leaving {
   position: absolute;
   top: 0;
   left: 0;
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
+}
+/* The page already on screen, held still while it turns. The lines are where
+   they were painted. They are not a chapter, so they are not poured into
+   columns again — that is what redrew the page before it had turned. */
+.frozen-page {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.frozen-bit {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+}
+.leaf-face .frozen-page img,
+.turn-stay .frozen-page img {
+  position: absolute;
+  display: block;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  min-width: 0;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
 }
 /* A fixed-layout page turns as a leaf cut to the shape of the page, in an
    overlay that does not clip it. Ported from MyPDFViewer, where this reads
@@ -1541,9 +1692,6 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 .turn-sheet.turn-slide.turn-forward { animation: page-away-forward var(--turn-ms, 0.64s) cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .turn-leaf.turn-slide.back,
 .turn-sheet.turn-slide.turn-back { animation: page-away-back var(--turn-ms, 0.64s) cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-/* Two facing pages of a chapter move one page, which is half the sheet. */
-.turn-sheet.turn-half.turn-slide.turn-forward { animation-name: page-away-forward-half; }
-.turn-sheet.turn-half.turn-slide.turn-back { animation-name: page-away-back-half; }
 @keyframes page-away-forward {
   from { transform: translateX(0); }
   to   { transform: translateX(-108%); }
@@ -1551,19 +1699,6 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
 @keyframes page-away-back {
   from { transform: translateX(0); }
   to   { transform: translateX(108%); }
-}
-/* Exactly one page, not a little more. The spread being left travels the width
-   of one of its two pages, which lands the page that was on the right in the
-   left-hand slot — where the page that has arrived underneath already is. The
-   old 54% overshot, so the page slid past the slot it was meant to land in and
-   the last frames of the turn were a jolt. */
-@keyframes page-away-forward-half {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-@keyframes page-away-back-half {
-  from { transform: translateX(0); }
-  to   { transform: translateX(50%); }
 }
 /* Turned over on the binding, about the upright axis — a leaf of paper, not a
    card being flipped end over end and not a page rising from the foot. Half way
@@ -1653,6 +1788,17 @@ mark.find-hit.current { background: var(--accent); color: var(--accent-fg); }
   background: var(--page-paper);
   color: var(--page-ink);
   z-index: 4;
+}
+/* The page being landed on, drawn as part of the turn. The live chapter
+   stays on the page being left until the turn ends, so this is what the
+   leaf uncovers — not a page that was already swapped in underneath. */
+.turn-page .turn-base {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  background: var(--page-paper);
+  color: var(--page-ink);
 }
 
 /* The page that has arrived never moves: it is uncovered, not brought in. */

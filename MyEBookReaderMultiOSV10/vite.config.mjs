@@ -17,7 +17,7 @@ export default defineConfig({
   // pdf.js ships as pre-bundled ESM; letting Vite pre-optimize it breaks the
   // worker's own module resolution.
   optimizeDeps: {
-    exclude: ['pdfjs-dist'],
+    exclude: ['pdfjs-dist', 'djvu-rs'],
   },
   worker: {
     format: 'es',

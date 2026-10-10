@@ -88,6 +88,16 @@ if (typeof HTMLCanvasElement.prototype.getContext !== 'function') {
   HTMLCanvasElement.prototype.getContext = () => null;
 }
 
+if (typeof globalThis.ImageData !== 'function') {
+  globalThis.ImageData = class ImageData {
+    constructor(data, width, height) {
+      this.data = data;
+      this.width = width;
+      this.height = height ?? Math.floor(data.length / 4 / width);
+    }
+  };
+}
+
 afterEach(() => {
   cleanup();
 });

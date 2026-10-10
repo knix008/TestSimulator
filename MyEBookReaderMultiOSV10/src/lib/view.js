@@ -45,18 +45,108 @@ export const FIT_TO_WINDOW = Object.freeze({ zoomMode: 'fit-page', zoom: 1, rota
  * The window scales this page. It does not stretch it: a wider window used to
  * make the page wider and a taller one make it taller, so the same chapter
  * became a different shape in every window.
+ *
+ * The page stays taller than it is wide, and wide enough that fitting it to
+ * the window does not leave a narrow strip. 520 across read as a column.
+ *
+ * Two facing pages share that width, but each one is a taller page. A spread
+ * of two squat pages filled the window sideways, so each page came out wide
+ * and short. A facing page is two thirds as wide as it is tall.
  */
-export const EBOOK_PAGE_WIDTH = 520;
+export const EBOOK_PAGE_WIDTH = 720;
 export const EBOOK_PAGE_HEIGHT = 780;
+/** One page of a two-page spread at the ordinary size. Taller than the single page. */
+export const EBOOK_SPREAD_PAGE_HEIGHT = 1080;
 
-/** The sheet a layout draws: one page, or two facing pages of that same page. */
-export function ebookSheet(layout) {
+/** How far a reader may take one side of a page, in CSS pixels. */
+export const PAGE_WIDTH_MIN = 400;
+export const PAGE_WIDTH_MAX = 1400;
+export const PAGE_HEIGHT_MIN = 480;
+export const PAGE_HEIGHT_MAX = 1800;
+
+/**
+ * Five page sizes for a reflowable book, smallest to largest.
+ *
+ * Ordinary is the page the reader had before this was a setting. The other
+ * four step away from it. A custom size, typed in the detailed settings, is
+ * not one of these.
+ */
+export const PAGE_PRESETS = [
+  { id: 'xs', width: 520, height: 560 },
+  { id: 'sm', width: 620, height: 670 },
+  { id: 'md', width: 720, height: 780 },
+  { id: 'lg', width: 840, height: 910 },
+  { id: 'xl', width: 960, height: 1040 },
+];
+
+export function clampPageWidth(n) {
+  const value = Number(n);
+  if (!Number.isFinite(value)) return EBOOK_PAGE_WIDTH;
+  return Math.min(PAGE_WIDTH_MAX, Math.max(PAGE_WIDTH_MIN, Math.round(value)));
+}
+
+export function clampPageHeight(n) {
+  const value = Number(n);
+  if (!Number.isFinite(value)) return EBOOK_PAGE_HEIGHT;
+  return Math.min(PAGE_HEIGHT_MAX, Math.max(PAGE_HEIGHT_MIN, Math.round(value)));
+}
+
+/** The page choice stored in settings: a preset id, or a custom size. */
+export function pageChoiceOf(settings) {
+  return {
+    preset: settings?.pagePreset || 'md',
+    width: settings?.pageWidth,
+    height: settings?.pageHeight,
+  };
+}
+
+/**
+ * One page, in CSS pixels.
+ *
+ * A preset keeps the usual shape. Two facing pages of a preset are a taller
+ * page — two thirds as wide as they are tall — so a spread is not a short
+ * wide band. A custom size is used as the reader typed it, in either view.
+ */
+export function ebookPageOf(layout, page) {
+  const presetId = page?.preset || 'md';
+  const preset = presetId === 'custom' ? null : PAGE_PRESETS.find((item) => item.id === presetId);
+  if (preset) {
+    const height = layout === 'double' ? Math.round(preset.width * 3 / 2) : preset.height;
+    return { width: preset.width, height };
+  }
+  return {
+    width: clampPageWidth(page?.width ?? EBOOK_PAGE_WIDTH),
+    height: clampPageHeight(page?.height ?? (layout === 'double' ? EBOOK_SPREAD_PAGE_HEIGHT : EBOOK_PAGE_HEIGHT)),
+  };
+}
+
+/** Settings written when one of the five sizes is chosen. */
+export function pagePresetSettings(id) {
+  const preset = PAGE_PRESETS.find((item) => item.id === id) || PAGE_PRESETS[2];
+  return { pagePreset: preset.id, pageWidth: preset.width, pageHeight: preset.height };
+}
+
+/**
+ * Settings written when a side is typed. The size is then the reader's own,
+ * and the other side stays whatever page is on screen.
+ */
+export function pageCustomSettings(shown, patch = {}) {
+  return {
+    pagePreset: 'custom',
+    pageWidth: clampPageWidth(patch.width ?? shown?.width),
+    pageHeight: clampPageHeight(patch.height ?? shown?.height),
+  };
+}
+
+/** The sheet a layout draws: one page, or two facing pages of that page. */
+export function ebookSheet(layout, page) {
+  const one = ebookPageOf(layout, page);
   const across = layout === 'double' ? 2 : 1;
   return {
-    pageWidth: EBOOK_PAGE_WIDTH,
-    pageHeight: EBOOK_PAGE_HEIGHT,
-    width: EBOOK_PAGE_WIDTH * across,
-    height: EBOOK_PAGE_HEIGHT,
+    pageWidth: one.width,
+    pageHeight: one.height,
+    width: one.width * across,
+    height: one.height,
   };
 }
 
@@ -351,7 +441,7 @@ export function nextPanel(panel, fallback = 'contents') {
  * and went to the following chapter with part of this one unread.
  *
  * `step`, when it is narrower than the screen, is one facing page of a
- * two-page view. The screen still shows two pages; each turn moves one of them.
+ * two-page view. The screen shows two of them, and a turn moves both.
  */
 export function columnPageCount(scrollWidth, clientWidth, step) {
   const view = Number(clientWidth) || 0;
@@ -386,6 +476,37 @@ export function columnPageAt(scrollLeft, clientWidth, scrollWidth = 0, step) {
   // makes of an offset that stops short of a whole page.
   if (total > view && left >= total - view - 1) return pages - 1;
   return Math.max(0, Math.min(pages - 1, at));
+}
+
+/**
+ * The column a page turn lands on.
+ *
+ * One page moves one column. Two facing pages move together, the way one leaf
+ * of a book does: the spread on screen is replaced by the next two pages.
+ * A short last page is still visited, so the end of a chapter is not skipped.
+ * Returns null when the turn leaves the chapter.
+ */
+export function spreadTurnTarget(here, pageCount, dir, layout) {
+  const count = Math.max(1, Number(pageCount) || 1);
+  const last = count - 1;
+  const page = Math.max(0, Math.min(last, Number(here) || 0));
+  const forward = !(dir < 0);
+  if (layout !== 'double') {
+    const next = page + (forward ? 1 : -1);
+    return next < 0 || next > last ? null : next;
+  }
+  const start = page - (page % 2);
+  if (!forward) {
+    if (page <= 0) return null;
+    // The short last page sits to the right of its spread. Going back from
+    // it returns to that spread, rather than skipping it.
+    if (page !== start) return start;
+    return start - 2;
+  }
+  const next = start + 2;
+  if (next <= last) return next;
+  if (page >= last) return null;
+  return last;
 }
 
 /** Reading progress over the whole book, 0..1. */

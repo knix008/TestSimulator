@@ -12,6 +12,8 @@ import {
   READING_WIDTHS, errorReport, pagesForScope, clampPreviewIndex,
   viewLayoutOf, viewLayoutSettings, textColumnsOf, columnChoice,
   fontPixels, fontScaleOf, FONT_SCALE_MIN, FONT_SCALE_MAX, READ_FONT_PX,
+  PAGE_PRESETS, PAGE_WIDTH_MIN, PAGE_WIDTH_MAX, PAGE_HEIGHT_MIN, PAGE_HEIGHT_MAX,
+  ebookPageOf, pageChoiceOf, pagePresetSettings, pageCustomSettings,
 } from '../lib/view.js';
 import {
   PAPER_SIZES, paperSizeMm, MARGIN_SIDES, MARGIN_MIN, MARGIN_MAX, MARGIN_DEFAULT,
@@ -132,6 +134,14 @@ function Field({ label, children, hint }) {
 // What was only there, the storage path and the shortcut list, moved across.
 const SETTINGS_TABS = ['appearance', 'reading', 'view'];
 
+const PAGE_LABEL = {
+  xs: 'reading.pageXs',
+  sm: 'reading.pageSm',
+  md: 'reading.pageMd',
+  lg: 'reading.pageLg',
+  xl: 'reading.pageXl',
+};
+
 function SettingsBody({ t, payload, onResult }) {
   const [tab, setTab] = useState('appearance');
   const [fonts, setFonts] = useState([]);
@@ -140,6 +150,7 @@ function SettingsBody({ t, payload, onResult }) {
   useEffect(() => { getSystemFonts().then(setFonts).catch(() => setFonts([])); }, []);
 
   const set = (patch) => onResult({ action: 'settings', settings: { ...settings, ...patch } });
+  const pageShown = ebookPageOf(viewLayoutOf(settings), pageChoiceOf(settings));
 
   const previewStyle = useMemo(() => ({
     fontFamily: settings.fontFamily ? `'${settings.fontFamily}'` : undefined,
@@ -318,6 +329,42 @@ function SettingsBody({ t, payload, onResult }) {
                   ))}
                 </select>
               </Field>
+              <Field label={t('reading.page')}>
+                <select
+                  className="input"
+                  value={settings.pagePreset || 'md'}
+                  title={t('reading.pageHint')}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    set(id === 'custom' ? pageCustomSettings(pageShown) : pagePresetSettings(id));
+                  }}
+                >
+                  {PAGE_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>{t(PAGE_LABEL[preset.id])}</option>
+                  ))}
+                  <option value="custom">{t('reading.pageCustom')}</option>
+                </select>
+              </Field>
+              <Stepper
+                label={t('reading.pageWidth')}
+                value={pageShown.width}
+                onChange={(n) => set(pageCustomSettings(pageShown, { width: n }))}
+                min={PAGE_WIDTH_MIN}
+                max={PAGE_WIDTH_MAX}
+                step={10}
+                standard={720}
+                format={(n) => `${n}px`}
+              />
+              <Stepper
+                label={t('reading.pageHeight')}
+                value={pageShown.height}
+                onChange={(n) => set(pageCustomSettings(pageShown, { height: n }))}
+                min={PAGE_HEIGHT_MIN}
+                max={PAGE_HEIGHT_MAX}
+                step={10}
+                standard={viewLayoutOf(settings) === 'double' ? 1080 : 780}
+                format={(n) => `${n}px`}
+              />
             </section>
 
             <section className="sgroup">
@@ -528,7 +575,7 @@ function AboutBody({ t, payload, onResult }) {
       ? `Electron ${info.electron} · Chromium ${info.chrome} · Node ${info.node}`
       : `Chromium ${info.chrome || '—'}`],
     [t('about.docType'), '.ebkr — MyEBookReader Reading File'],
-    [t('about.formats'), 'EPUB · PDF · MOBI/AZW · FB2 · CBZ · Markdown · HTML · TXT'],
+    [t('about.formats'), 'EPUB · PDF · MOBI/AZW · FB2 · CBZ · Markdown · HTML · TXT · DJVU'],
     [t('about.license'), build.license || 'MIT'],
     [t('about.author'), 'SHKWON(knix008@naver.com)'],
   ];

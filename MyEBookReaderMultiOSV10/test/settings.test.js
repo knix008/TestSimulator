@@ -68,6 +68,11 @@ describe('normalize', () => {
 
   it('accepts a reading width that is not one of the presets', () => {
     expect(normalize({ readingWidth: 812 }).readingWidth).toBe(812);
+    expect(normalize({ pagePreset: 'sideways' }).pagePreset).toBe('md');
+    expect(normalize({ pageWidth: 20, pageHeight: 9000 })).toMatchObject({ pageWidth: 400, pageHeight: 1800 });
+    expect(normalize({ pagePreset: 'lg', pageWidth: 840, pageHeight: 910 })).toMatchObject({
+      pagePreset: 'lg', pageWidth: 840, pageHeight: 910,
+    });
   });
 });
 
@@ -170,6 +175,9 @@ describe('helpers', () => {
     expect(Object.keys(view)).toContain('pageMode');
     expect(Object.keys(view)).toContain('spread');
     expect(Object.keys(view)).toContain('pageTurn');
+    expect(Object.keys(view)).toContain('pagePreset');
+    expect(view.pageWidth).toBe(720);
+    expect(view.pageHeight).toBe(780);
     expect(Object.keys(view)).not.toContain('recentFiles');
   });
 });

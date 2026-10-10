@@ -7,7 +7,9 @@ import {
   FIT_TO_WINDOW, pageModeKey, pageModeOf, bookPageEdge,
   viewLayoutOf, viewLayoutSettings, effectiveZoomMode,
   textColumnsOf, columnSettings, columnChoice, screenColumnsOf,
-  ebookSheet, ebookFitScale, EBOOK_PAGE_WIDTH, EBOOK_PAGE_HEIGHT,
+  ebookSheet, ebookFitScale, EBOOK_PAGE_WIDTH, EBOOK_PAGE_HEIGHT, EBOOK_SPREAD_PAGE_HEIGHT,
+  PAGE_PRESETS, pagePresetSettings, pageCustomSettings, ebookPageOf,
+  spreadTurnTarget,
 } from '../src/lib/view.js';
 
 describe('an ebook page fitted to the window', () => {
@@ -18,18 +20,52 @@ describe('an ebook page fitted to the window', () => {
       width: EBOOK_PAGE_WIDTH,
       height: EBOOK_PAGE_HEIGHT,
     });
-    expect(ebookSheet('double').width).toBe(EBOOK_PAGE_WIDTH * 2);
-    expect(ebookSheet('double').height).toBe(EBOOK_PAGE_HEIGHT);
+    const spread = ebookSheet('double');
+    expect(spread.pageWidth).toBe(EBOOK_PAGE_WIDTH);
+    expect(spread.width).toBe(EBOOK_PAGE_WIDTH * 2);
+    // Facing pages are the same width and a taller page, so the spread is not
+    // a short wide band.
+    expect(spread.pageHeight).toBe(EBOOK_SPREAD_PAGE_HEIGHT);
+    expect(spread.height).toBe(EBOOK_SPREAD_PAGE_HEIGHT);
+    expect(spread.pageHeight).toBeGreaterThan(spread.pageWidth);
   });
 
   it('enlarges the page to the window without stretching it', () => {
     const page = ebookSheet('single');
     // A wide window is limited by the page's height, so the page stays tall.
-    expect(ebookFitScale(page, { width: 2000, height: 780 })).toBe(1);
+    expect(ebookFitScale(page, { width: 2000, height: EBOOK_PAGE_HEIGHT })).toBe(1);
     // A tall window is limited by the page's width.
-    expect(ebookFitScale(page, { width: 520, height: 2000 })).toBe(1);
-    expect(ebookFitScale(page, { width: 1040, height: 1560 })).toBe(2);
-    expect(ebookFitScale(ebookSheet('double'), { width: 1040, height: 1560 })).toBe(1);
+    expect(ebookFitScale(page, { width: EBOOK_PAGE_WIDTH, height: 2000 })).toBe(1);
+    expect(ebookFitScale(page, { width: EBOOK_PAGE_WIDTH * 2, height: EBOOK_PAGE_HEIGHT * 2 })).toBe(2);
+    expect(ebookFitScale(ebookSheet('double'), { width: EBOOK_PAGE_WIDTH * 2, height: EBOOK_PAGE_HEIGHT * 2 })).toBe(1);
+  });
+
+  it('offers five page sizes, and a size the reader types', () => {
+    expect(PAGE_PRESETS.map((item) => item.id)).toEqual(['xs', 'sm', 'md', 'lg', 'xl']);
+    const widths = PAGE_PRESETS.map((item) => item.width);
+    expect([...widths].sort((a, b) => a - b)).toEqual(widths);
+    // Ordinary is the page a book already had.
+    expect(ebookPageOf('single', { preset: 'md' })).toEqual({
+      width: EBOOK_PAGE_WIDTH, height: EBOOK_PAGE_HEIGHT,
+    });
+    // Two facing pages of a preset stay a tall page.
+    expect(ebookPageOf('double', { preset: 'md' })).toEqual({
+      width: EBOOK_PAGE_WIDTH, height: EBOOK_SPREAD_PAGE_HEIGHT,
+    });
+    expect(ebookPageOf('single', { preset: 'lg' }).width).toBeGreaterThan(EBOOK_PAGE_WIDTH);
+    expect(ebookPageOf('single', { preset: 'xs' }).width).toBeLessThan(EBOOK_PAGE_WIDTH);
+
+    const typed = ebookPageOf('double', { preset: 'custom', width: 640, height: 900 });
+    expect(typed).toEqual({ width: 640, height: 900 });
+    // A typed size stays inside the range a page can be.
+    expect(ebookPageOf('single', { preset: 'custom', width: 10, height: 9000 })).toEqual({
+      width: 400, height: 1800,
+    });
+
+    expect(pagePresetSettings('lg')).toEqual({ pagePreset: 'lg', pageWidth: 840, pageHeight: 910 });
+    expect(pageCustomSettings({ width: 720, height: 780 }, { width: 800 })).toEqual({
+      pagePreset: 'custom', pageWidth: 800, pageHeight: 780,
+    });
   });
 });
 
@@ -383,11 +419,28 @@ describe('reading a chapter a page at a time', () => {
 
   it('counts one facing page when two are on the screen', () => {
     // A sheet of 1000 shows two pages of 500. 2400px of text stops 1400 along,
-    // which is four pages to turn, not two spreads.
+    // which is four facing pages, read two at a time.
     expect(columnPageCount(2400, 1000, 500)).toBe(4);
     expect(columnPageAt(0, 1000, 2400, 500)).toBe(0);
     expect(columnPageAt(500, 1000, 2400, 500)).toBe(1);
     expect(columnPageAt(1400, 1000, 2400, 500)).toBe(3);
+  });
+
+  it('turns both facing pages, and still reaches a short last page', () => {
+    // Four facing pages: the first turn replaces the spread, the next one
+    // lands on the short page that is left, and only then is the chapter over.
+    expect(spreadTurnTarget(0, 4, 1, 'double')).toBe(2);
+    expect(spreadTurnTarget(2, 4, 1, 'double')).toBe(3);
+    expect(spreadTurnTarget(3, 4, 1, 'double')).toBeNull();
+    expect(spreadTurnTarget(3, 4, -1, 'double')).toBe(2);
+    expect(spreadTurnTarget(2, 4, -1, 'double')).toBe(0);
+    expect(spreadTurnTarget(0, 4, -1, 'double')).toBeNull();
+    // An exact number of spreads never stops between them.
+    expect(spreadTurnTarget(0, 3, 1, 'double')).toBe(2);
+    expect(spreadTurnTarget(2, 3, 1, 'double')).toBeNull();
+    // One page still moves one column.
+    expect(spreadTurnTarget(0, 3, 1, 'single')).toBe(1);
+    expect(spreadTurnTarget(2, 3, 1, 'single')).toBeNull();
   });
 
   it('calls the far end of a chapter its last page', () => {

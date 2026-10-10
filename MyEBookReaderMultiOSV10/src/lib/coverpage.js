@@ -29,6 +29,7 @@ export function coverPageOf(book) {
 
   if (first.src) return { source: 'first', kind: 'image', src: first.src };
   if (first.kind === 'pdf' && book.pdf) return { source: 'first', kind: 'pdf', page: first.page || 1 };
+  if (first.kind === 'djvu' && book.djvu) return { source: 'first', kind: 'djvu', page: first.page || 1 };
   // The whole first page, picture and words together. Taking only the picture
   // out of it showed a logo where the reading screen shows a page.
   if (first.html) return { source: 'first', kind: 'html', html: first.html };

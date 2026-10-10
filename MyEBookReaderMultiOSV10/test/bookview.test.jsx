@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS } from '../src/lib/settings.js';
 // reader would see rather than the keys behind them.
 import '../src/i18n.js';
 import { highlightCss } from '../src/lib/library.js';
+import { EBOOK_PAGE_WIDTH, EBOOK_PAGE_HEIGHT, EBOOK_SPREAD_PAGE_HEIGHT } from '../src/lib/view.js';
 
 const reflowBook = {
   reflowable: true,
@@ -164,18 +165,29 @@ describe('BookView — reflowable text', () => {
   it('keeps an ebook page one shape and scales it to the window', () => {
     renderView({ settings: { ...DEFAULT_SETTINGS, viewLayout: 'single' } });
     const pane = screen.getByTestId('bookview');
-    expect(pane.style.width).toBe('520px');
-    expect(pane.style.height).toBe('780px');
-    expect(pane.style.getPropertyValue('--col-slot')).toBe('520px');
+    expect(pane.style.width).toBe(`${EBOOK_PAGE_WIDTH}px`);
+    expect(pane.style.height).toBe(`${EBOOK_PAGE_HEIGHT}px`);
+    expect(pane.style.getPropertyValue('--col-slot')).toBe(`${EBOOK_PAGE_WIDTH}px`);
     expect(pane.parentElement.className).toContain('reflow-fit');
   });
 
   it('scales two facing pages as two of that same page', () => {
     renderView({ settings: { ...DEFAULT_SETTINGS, viewLayout: 'double' } });
     const pane = screen.getByTestId('bookview');
-    expect(pane.style.width).toBe('1040px');
-    expect(pane.style.height).toBe('780px');
-    expect(pane.style.getPropertyValue('--col-slot')).toBe('520px');
+    expect(pane.style.width).toBe(`${EBOOK_PAGE_WIDTH * 2}px`);
+    expect(pane.style.height).toBe(`${EBOOK_SPREAD_PAGE_HEIGHT}px`);
+    expect(pane.style.getPropertyValue('--col-slot')).toBe(`${EBOOK_PAGE_WIDTH}px`);
+  });
+
+  it('draws the page size the reader chose', () => {
+    renderView({
+      settings: {
+        ...DEFAULT_SETTINGS, viewLayout: 'single', pagePreset: 'custom', pageWidth: 640, pageHeight: 900,
+      },
+    });
+    const pane = screen.getByTestId('bookview');
+    expect(pane.style.width).toBe('640px');
+    expect(pane.style.height).toBe('900px');
   });
 
   it('puts two columns on one page, and on a continuous run, without becoming two pages', () => {
@@ -513,9 +525,16 @@ describe('BookView — turning a page', () => {
         content={{ ...htmlContent, index: 1 }}
       />
     );
-    await waitFor(() => expect(document.querySelector('.chapter.turning')).toBeTruthy());
-    expect(document.querySelector('.chapter').className).toContain('turn-slide');
-    expect(document.querySelector('.chapter').className).toContain('turn-forward');
+    const turning = await waitFor(() => {
+      const found = document.querySelector('[data-testid=turn-page]');
+      expect(found).toBeTruthy();
+      return found;
+    });
+    // The leaf carries the effect. The chapter on screen is not marked, and
+    // it is not drawn again, while that leaf is still going over.
+    expect(turning.className).toContain('turn-slide');
+    expect(turning.className).toContain('turn-forward');
+    expect(screen.getByTestId('chapter').className).not.toContain('turning');
   });
 
   // A book turns the page that is being *left*, over the page that has arrived,
@@ -565,10 +584,16 @@ describe('BookView — turning a page', () => {
     rerender(
       <BookView {...props} settings={paged} section={1} content={{ ...htmlContent, index: 1 }} />
     );
-    await waitFor(() => expect(document.querySelector('.chapter.turning')).toBeTruthy());
+    const turning = await waitFor(() => {
+      const found = document.querySelector('[data-testid=turn-page]');
+      expect(found).toBeTruthy();
+      return found;
+    });
     // A new chapter is put in place of the old one — nothing moves by itself,
-    // so the effect stands in for the page going away.
-    expect(document.querySelector('.chapter').className).toContain('turn-chapter');
+    // so the effect stands in for the page going away. The chapter on screen
+    // is left as it was drawn.
+    expect(turning.className).toContain('turn-chapter');
+    expect(screen.getByTestId('chapter').className).not.toContain('turning');
   });
 
   it('turns the chapter being left away over the one that has arrived', async () => {
@@ -622,8 +647,9 @@ describe('BookView — turning a page', () => {
     let went;
     act(() => { went = ref.current.turnPage(1); });
     expect(went).toBe(true);
-    // The pane is already on the column being landed on. The copy covers it.
-    expect(pane.scrollLeft).toBe(800);
+    // The page on screen has not moved. The leaf is that page, and the one
+    // being landed on is drawn inside the turn, not by scrolling first.
+    expect(pane.scrollLeft).toBe(0);
 
     const leaving = await waitFor(() => {
       const found = document.querySelector('[data-testid=turn-page]');
@@ -636,9 +662,9 @@ describe('BookView — turning a page', () => {
     // As a PDF page turns: the leaf is the column just left, on its own sheet
     // of paper, and it goes over on the binding. The column being landed on
     // is the live pane underneath, and nothing is held over it.
-    expect(leaving.querySelector('.turn-base')).toBeNull();
+    expect(leaving.querySelector('.turn-base .chapter.leaving').style.transform).toContain('translate(-800px');
     expect(leaving.querySelector('.turn-sheet .leaf-face .chapter.leaving').style.transform).toContain('translate(0px');
-    expect(leaving.style.left).toBe('800px');
+    expect(leaving.style.left).toBe('0px');
     expect(leaving.style.width).toBe('800px');
 
     // Another turn before the first has finished starts again from where the
@@ -646,14 +672,14 @@ describe('BookView — turning a page', () => {
     let again;
     act(() => { again = ref.current.turnPage(1); });
     expect(again).toBe(true);
-    expect(pane.scrollLeft).toBe(1600);
+    expect(pane.scrollLeft).toBe(0);
     const next = await waitFor(() => {
       const found = document.querySelector('[data-testid=turn-page]');
       expect(found?.querySelector('.turn-sheet .leaf-face .chapter.leaving')?.style.transform)
         .toContain('translate(-800px');
       return found;
     });
-    expect(next.style.left).toBe('1600px');
+    expect(next.style.left).toBe('0px');
   });
 
   it('prints the page being landed on the back of a spread leaf', async () => {
@@ -997,13 +1023,13 @@ describe('BookView — turning several pages in a row', () => {
           content={{ ...htmlContent, index: section }}
         />
       );
-      await waitFor(() => expect(document.querySelector('.chapter.turning')).toBeTruthy());
+      await waitFor(() => expect(document.querySelector('[data-testid=turn-page]')).toBeTruthy());
     };
     await turnTo(1);
     // Straight on to the next one: the second turn used to be swallowed by the
     // window that kept one chapter change from counting as two turns.
     await turnTo(2);
-    expect(document.querySelector('.chapter').className).toContain('turn-forward');
+    expect(document.querySelector('[data-testid=turn-page]').className).toContain('turn-forward');
   });
 });
 
@@ -1158,7 +1184,7 @@ describe('BookView — one page at a time, to the last page', () => {
     expect(press(1)).toBe(false);
   });
 
-  it('turns one facing page when two are showing', async () => {
+  it('turns both facing pages when two are showing', async () => {
     const { ref, props } = renderView({
       settings: { ...DEFAULT_SETTINGS, viewLayout: 'double', pageMode: 'paged', pageTurn: 'slide' },
     });
@@ -1168,16 +1194,18 @@ describe('BookView — one page at a time, to the last page', () => {
     let went;
     act(() => { went = ref.current.turnPage(1); });
     expect(went).toBe(true);
-    // Already the next facing page. The copy is the spread that was just left.
-    expect(pane.scrollLeft).toBe(500);
+    // The page on screen stays. The copy is the spread being left, and it
+    // slides off whole. The spread being landed on is inside the turn.
+    expect(pane.scrollLeft).toBe(0);
     const sheet = await waitFor(() => {
       const found = document.querySelector('.turn-sheet');
       expect(found).toBeTruthy();
       return found;
     });
-    expect(sheet.className).toContain('turn-half');
+    expect(sheet.className).not.toContain('turn-half');
     expect(sheet.className).toContain('turn-forward');
     expect(sheet.querySelector('.chapter.leaving').style.transform).toContain('translate(0px');
+    expect(document.querySelector('.turn-base .chapter.leaving').style.transform).toContain('translate(-1000px');
   });
 
   it('turns the right-hand page of a spread over to the left', async () => {
@@ -1190,7 +1218,8 @@ describe('BookView — one page at a time, to the last page', () => {
     let went;
     act(() => { went = ref.current.turnPage(1); });
     expect(went).toBe(true);
-    expect(pane.scrollLeft).toBe(500);
+    // The live spread has not moved. The one two pages on is inside the turn.
+    expect(pane.scrollLeft).toBe(0);
 
     const layer = await waitFor(() => {
       const found = document.querySelector('[data-testid=turn-page]');
@@ -1202,16 +1231,17 @@ describe('BookView — one page at a time, to the last page', () => {
     expect(sheet.className).toContain('turn-forward');
     // The leaf is the page the reader is looking at — the right-hand page of
     // the spread being left, which is one page along from its left edge. It
-    // turns away over the gutter, and what it uncovers is the spread that has
-    // already arrived underneath, so there is no held ground at all.
-    expect(layer.querySelector('.turn-base')).toBeNull();
+    // turns away over the gutter. What it uncovers is the spread two pages
+    // on, drawn in the turn itself — the live page has not been replaced.
+    expect(layer.querySelector('.turn-base .chapter.leaving').style.transform).toContain('translate(-1000px');
     const leaf = sheet.querySelector('.leaf-face.front .chapter.leaving');
     expect(leaf.style.transform).toContain('translate(-500px');
     expect(leaf.textContent).toContain('The page being left');
     // A leaf of a spread has a back, so it goes the whole way over instead of
-    // disappearing as it stands upright. It carries the same page across.
+    // disappearing as it stands upright. The page it comes down showing is the
+    // left-hand page of the spread that has arrived, two pages on.
     const back = sheet.querySelector('.leaf-face.back .chapter.leaving');
-    expect(back.style.transform).toContain('translate(-500px');
+    expect(back.style.transform).toContain('translate(-1000px');
     // And the page that is *not* turning is held where it was, so the spread
     // does not change under the reader before the leaf has come down.
     const stay = layer.querySelector('.turn-stay.left .chapter.leaving');
@@ -1219,20 +1249,151 @@ describe('BookView — one page at a time, to the last page', () => {
     expect(layer.querySelector('.turn-stay.right')).toBeNull();
   });
 
-  it('turns one facing page for each click, even when the clicks land together', async () => {
+  it('turns the page already on screen, instead of drawing that page again', async () => {
+    const { ref } = renderView({
+      settings: { ...DEFAULT_SETTINGS, viewLayout: 'double', pageMode: 'paged', pageTurn: 'flip' },
+      content: { ...htmlContent, html: '<p>The page being left</p>' },
+    });
+    columns(screen.getByTestId('bookview'), { width: 1000, content: 2400 });
+    fireEvent(window, new Event('resize'));
+    // Something only the rendered page has. The markup the chapter was poured
+    // from does not have it, so a leaf built by drawing the chapter again
+    // would not have it either.
+    screen.getByTestId('chapter').querySelector('p').setAttribute('data-kept', 'yes');
+    act(() => { ref.current.turnPage(1); });
+    const leaf = await waitFor(() => {
+      const found = document.querySelector('.leaf-face.front .chapter.leaving [data-kept="yes"]');
+      expect(found).toBeTruthy();
+      return found;
+    });
+    expect(leaf.textContent).toContain('The page being left');
+    const stay = document.querySelector('.turn-stay [data-kept="yes"]');
+    expect(stay).toBeTruthy();
+  });
+
+  it('covers the page being left before the one being landed on is shown', () => {
     const { ref } = renderView({
       settings: { ...DEFAULT_SETTINGS, viewLayout: 'double', pageMode: 'paged', pageTurn: 'flip' },
       content: { ...htmlContent, html: '<p>The page being left</p>' },
     });
     const pane = columns(screen.getByTestId('bookview'), { width: 1000, content: 2400 });
     fireEvent(window, new Event('resize'));
+    const order = [];
+    pane.scrollTo = vi.fn(({ left }) => {
+      order.push(document.querySelector('[data-testid=turn-page]') ? 'covered' : 'bare');
+      pane.scrollLeft = left;
+    });
+    act(() => { ref.current.turnPage(1); });
+    // Nothing is scrolled while the leaf is up, so the page on screen is
+    // not drawn again before the effect. The destination is in the turn.
+    expect(order).toEqual([]);
+    expect(pane.scrollLeft).toBe(0);
+    expect(document.querySelector('.turn-base .chapter.leaving').style.transform).toContain('translate(-1000px');
+    fireEvent.animationEnd(document.querySelector('.turn-sheet'));
+    expect(order).toEqual(['covered']);
+    expect(pane.scrollLeft).toBe(1000);
+  });
+
+  it('does not turn the page when the text only changes size', () => {
+    const settings = { ...DEFAULT_SETTINGS, viewLayout: 'double', pageMode: 'paged', pageTurn: 'flip' };
+    const { rerender, props } = renderView({
+      settings,
+      content: { ...htmlContent, html: '<p>The page being left</p>' },
+    });
+    const pane = columns(screen.getByTestId('bookview'), { width: 1000, content: 2400 });
+    fireEvent(window, new Event('resize'));
+    rerender(
+      <BookView
+        {...props}
+        settings={{ ...settings, fontScale: 1.6 }}
+      />
+    );
+    expect(document.querySelector('[data-testid=turn-page]')).toBeNull();
+    expect(pane.scrollLeft).toBe(0);
+  });
+
+  it('keeps the page still when the text size changes during a turn', () => {
+    const settings = { ...DEFAULT_SETTINGS, viewLayout: 'single', pageMode: 'paged', pageTurn: 'flip' };
+    const { ref, rerender, props } = renderView({
+      settings,
+      content: { ...htmlContent, html: '<p>The page being left</p>' },
+    });
+    const pane = columns(screen.getByTestId('bookview'), { width: 800, content: 2400 });
+    fireEvent(window, new Event('resize'));
+    act(() => { ref.current.turnPage(1); });
+    const leaf = document.querySelector('.leaf-face.front .chapter.leaving');
+    expect(leaf.textContent).toContain('The page being left');
+    rerender(<BookView {...props} settings={{ ...settings, fontScale: 1.8 }} />);
+    // A zoom does not draw the page again and then turn it. The leaf stays
+    // the page that was already there, and the pane has not moved.
+    expect(pane.scrollLeft).toBe(0);
+    expect(document.querySelector('.leaf-face.front .chapter.leaving').textContent).toContain('The page being left');
+    expect(document.querySelector('[data-testid=turn-page]')).toBeTruthy();
+  });
+
+  it('turns the lines already painted, and draws the next page under them', () => {
+    const { ref } = renderView({
+      settings: { ...DEFAULT_SETTINGS, viewLayout: 'double', pageMode: 'paged', pageTurn: 'flip' },
+      content: { ...htmlContent, html: '<p>The page being left</p>' },
+    });
+    const pane = columns(screen.getByTestId('bookview'), { width: 1000, content: 2400 });
+    Object.defineProperty(pane, 'clientHeight', { value: 600, configurable: true });
+    fireEvent(window, new Event('resize'));
+    const chapter = screen.getByTestId('chapter');
+    const before = chapter.innerHTML;
+    if (typeof Range.prototype.getClientRects !== 'function') Range.prototype.getClientRects = () => [];
+    if (typeof Range.prototype.getBoundingClientRect !== 'function') {
+      Range.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 });
+    }
+    const line = { left: 16, top: 40, width: 180, height: 22, right: 196, bottom: 62 };
+    const rects = vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(function mockRects() {
+      if (String(this.startContainer?.textContent || '').includes('The page being left')) return [line];
+      return [];
+    });
+    const box = vi.spyOn(Range.prototype, 'getBoundingClientRect').mockImplementation(function mockBox() {
+      const list = this.getClientRects();
+      return list[0] || { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 };
+    });
+    try {
+      act(() => { ref.current.turnPage(1); });
+      // The leaf and the half that stays are the lines already on the page.
+      // They are not the chapter poured into columns again.
+      const front = document.querySelector('.leaf-face.front .frozen-page');
+      const stay = document.querySelector('.turn-stay .frozen-page');
+      expect(front.textContent).toContain('The page being left');
+      expect(stay.textContent).toContain('The page being left');
+      expect(front.style.transform).toContain('translate(-500px');
+      expect(stay.style.transform).toBe('');
+      expect(document.querySelector('.leaf-face.front .chapter.leaving')).toBeNull();
+      expect(document.querySelector('.turn-stay .chapter.leaving')).toBeNull();
+      // The page being landed on is drawn in the turn, on the back and underneath.
+      expect(document.querySelector('.leaf-face.back .chapter.leaving')).toBeTruthy();
+      expect(document.querySelector('.turn-base .chapter.leaving').style.transform).toContain('translate(-1000px');
+      // The chapter on screen is still the one that was drawn.
+      expect(chapter.innerHTML).toBe(before);
+      expect(chapter.className).not.toContain('turning');
+      expect(pane.scrollLeft).toBe(0);
+    } finally {
+      rects.mockRestore();
+      box.mockRestore();
+    }
+  });
+
+  it('turns both facing pages for each click, even when the clicks land together', async () => {
+    const { ref } = renderView({
+      settings: { ...DEFAULT_SETTINGS, viewLayout: 'double', pageMode: 'paged', pageTurn: 'flip' },
+      content: { ...htmlContent, html: '<p>The page being left</p>' },
+    });
+    const pane = columns(screen.getByTestId('bookview'), { width: 1000, content: 4000 });
+    fireEvent(window, new Event('resize'));
     act(() => {
       ref.current.turnPage(1);
       ref.current.turnPage(1);
     });
-    // Two clicks, two facing pages. A click that arrived before the first had
-    // been drawn used to leave both of them on the same page.
-    expect(pane.scrollLeft).toBe(1000);
+    // Two clicks, two spreads. The live page stays; the leaf is the second
+    // spread being left. A click that arrived before the first had been
+    // drawn used to leave both of them on the same page.
+    expect(pane.scrollLeft).toBe(0);
     const layer = await waitFor(() => {
       const found = document.querySelector('[data-testid=turn-page]');
       expect(found).toBeTruthy();
@@ -1242,12 +1403,12 @@ describe('BookView — one page at a time, to the last page', () => {
     expect(sheet.className).toContain('turn-half');
     expect(sheet.className).toContain('turn-forward');
     // The leaf is the right-hand page of the spread the second click left,
-    // which stood at 500 — so the page that turns is the one at 1000.
-    expect(layer.querySelector('.turn-base')).toBeNull();
-    expect(sheet.querySelector('.leaf-face.front .chapter.leaving').style.transform).toContain('translate(-1000px');
+    // which stood at 1000 — so the page that turns is the one at 1500.
+    expect(layer.querySelector('.turn-base .chapter.leaving').style.transform).toContain('translate(-2000px');
+    expect(sheet.querySelector('.leaf-face.front .chapter.leaving').style.transform).toContain('translate(-1500px');
   });
 
-  it('turns one facing page when the stored page count is still the empty pane', () => {
+  it('turns both facing pages when the stored page count is still the empty pane', () => {
     const { ref } = renderView({
       settings: { ...DEFAULT_SETTINGS, viewLayout: 'double', pageMode: 'paged', pageTurn: 'flip' },
     });
@@ -1260,7 +1421,9 @@ describe('BookView — one page at a time, to the last page', () => {
     let went;
     act(() => { went = ref.current.turnPage(1); });
     expect(went).toBe(true);
-    expect(pane.scrollLeft).toBe(500);
+    expect(pane.scrollLeft).toBe(0);
+    fireEvent.animationEnd(document.querySelector('.turn-sheet'));
+    expect(pane.scrollLeft).toBe(1000);
   });
 
   it('turns one page of the spread when the next chapter opens', async () => {
@@ -1292,11 +1455,16 @@ describe('BookView — one page at a time, to the last page', () => {
     expect(sheet.className).toContain('turn-forward');
     // The leaf is the right-hand page of the spread being left, at the place
     // the turn saved — 400, plus one page. The chapter that has arrived is
-    // the live pane underneath, uncovered as the leaf goes over.
-    expect(layer.querySelector('.turn-base')).toBeNull();
+    // part of the turn, not a page drawn in the pane before the leaf moves.
+    expect(layer.querySelector('.turn-base').textContent).toContain('The chapter arriving');
     const leaf = sheet.querySelector('.leaf-face.front .chapter.leaving');
     expect(leaf.style.transform).toContain('translate(-900px');
     expect(leaf.textContent).toContain('The spread being left');
+    // The back of that leaf is the first page of the chapter that has arrived,
+    // which is where the live spread underneath already is.
+    const back = sheet.querySelector('.leaf-face.back .chapter.leaving');
+    expect(back.style.transform).toContain('translate(0px');
+    expect(back.textContent).toContain('The chapter arriving');
   });
 
   it('calls the far end of the chapter the last page as the reader scrolls', () => {

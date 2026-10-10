@@ -1,7 +1,7 @@
 {
   "name": "myebookreader",
   "version": "1.0.0",
-  "description": "Cross-platform (Web / Windows / macOS / Linux) e-book reader for EPUB, PDF, MOBI, FB2, CBZ, Markdown, HTML and plain text.",
+  "description": "Cross-platform (Web / Windows / macOS / Linux) e-book reader for EPUB, PDF, DJVU, MOBI, FB2, CBZ, Markdown, HTML and plain text.",
   "author": {
     "name": "SHKWON",
     "email": "knix008@naver.com"
@@ -157,7 +157,7 @@
       "icon": "build/icons/png",
       "category": "Office;Viewer;Literature",
       "desktop": {
-        "MimeType": "application/x-myebookreader-library;application/epub+zip;application/pdf;application/x-mobipocket-ebook;application/x-fictionbook+xml;application/vnd.comicbook+zip"
+        "MimeType": "application/x-myebookreader-library;application/epub+zip;application/pdf;image/vnd.djvu;image/x-djvu;application/x-mobipocket-ebook;application/x-fictionbook+xml;application/vnd.comicbook+zip"
       },
       "target": [
         {
@@ -179,5 +179,8 @@
     "electron@31.7.7": true,
     "sharp@0.33.5": true,
     "esbuild@0.21.5": true
+  },
+  "dependencies": {
+    "djvu-rs": "^0.42.0"
   }
 }

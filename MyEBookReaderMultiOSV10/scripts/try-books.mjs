@@ -26,7 +26,7 @@ if (!fs.existsSync(where)) {
   process.exit(1);
 }
 
-const BOOKS = /\.(epub|mobi|azw3?|prc|fb2|cbz|pdf)$/i;
+const BOOKS = /\.(epub|mobi|azw3?|prc|fb2|cbz|pdf|djvu|djv)$/i;
 const found = fs.readdirSync(where)
   .filter((name) => BOOKS.test(name))
   .map((name) => path.join(where, name));

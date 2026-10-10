@@ -7,8 +7,9 @@ import { highlightCss } from '../lib/library.js';
 import {
   computePageScale, readingStyle, columnPageAt, columnPageCount, normalizeRotation,
   viewLayoutOf, effectiveZoomMode, textColumnsOf, screenColumnsOf,
-  ebookSheet, ebookFitScale,
+  ebookSheet, ebookFitScale, spreadTurnTarget, pageChoiceOf,
 } from '../lib/view.js';
+import { chapterFrame, freezePage, visibleClip } from '../lib/freezePage.js';
 
 // The reading pane.
 //
@@ -33,6 +34,101 @@ const HIGHLIGHT_ATTR = 'data-highlight';
 // rather than as a page turning. The same length as MyPDFViewer's leaf, and
 // kept in step with --turn-ms in the CSS.
 const TURN_MS = 640;
+
+/**
+ * The page already on screen, held as the lines that were painted there.
+ *
+ * The leaf is those lines. It is not the chapter poured out again: that
+ * breaks the lines again, and the page the reader is looking at changes
+ * before it has turned. A page that could not be measured falls back to the
+ * chapter node itself.
+ */
+function FrozenPaint({ frozen, shift = 0 }) {
+  if (!frozen?.pieces?.length) return null;
+  return (
+    <div
+      className="frozen-page"
+      data-testid="frozen-page"
+      style={shift ? { transform: `translate(${-shift}px, 0)` } : undefined}
+    >
+      {frozen.pieces.map((piece, i) => (
+        piece.kind === 'img'
+          ? (
+            <img
+              // eslint-disable-next-line react/no-array-index-key
+              key={i}
+              alt=""
+              src={piece.src}
+              draggable={false}
+              style={{
+                left: piece.left,
+                top: piece.top,
+                width: piece.width,
+                height: piece.height,
+              }}
+            />
+          )
+          : (
+            <span
+              // eslint-disable-next-line react/no-array-index-key
+              key={i}
+              className="frozen-bit"
+              style={{
+                left: piece.left,
+                top: piece.top,
+                height: piece.height,
+                color: piece.color,
+                font: piece.font,
+                letterSpacing: piece.letterSpacing,
+                background: piece.background,
+                lineHeight: `${piece.height}px`,
+              }}
+            >
+              {piece.text}
+            </span>
+          )
+      ))}
+    </div>
+  );
+}
+
+/** The column box the page underneath is poured into, the same one the chapter already has. */
+function framedStyle(frame, fallbackWidth) {
+  if (!frame) return { width: fallbackWidth ? `${fallbackWidth}px` : undefined };
+  const columnWidth = frame.columnWidth
+    && frame.columnWidth !== 'auto'
+    && frame.columnWidth !== '0px'
+    ? frame.columnWidth
+    : undefined;
+  return {
+    width: `${frame.width}px`,
+    height: `${frame.height}px`,
+    boxSizing: 'border-box',
+    ...(columnWidth ? { columnWidth } : {}),
+    ...(frame.columnGap ? { columnGap: frame.columnGap } : {}),
+    ...(frame.columnFill ? { columnFill: frame.columnFill } : {}),
+  };
+}
+
+/**
+ * The page being landed on. It is drawn under the leaf, and only there: the
+ * page being left is the paint already on screen, not this.
+ */
+function LeavingChapter({ node, markup, style }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const host = ref.current;
+    if (!host) return;
+    if (node) {
+      const copy = node.cloneNode(true);
+      const kids = copy.nodeName === 'ARTICLE' ? [...copy.childNodes] : [copy];
+      host.replaceChildren(...kids);
+      return;
+    }
+    host.innerHTML = markup || '';
+  }, [node, markup]);
+  return <article ref={ref} className="chapter leaving" style={style} />;
+}
 // How long after the animation *should* have finished the turn is torn down
 // anyway. Only a browser that never reports the end of an animation — or one
 // that never started it — ever gets this far.
@@ -86,10 +182,11 @@ export function columnLeft(el, page, step) {
   return Math.max(0, Math.min(page * width, limit));
 }
 
-/** How far one page turn moves a reflowable chapter.
+/** How wide one column of a reflowable chapter is.
  *
- * Two facing pages share the sheet, and a turn moves one of them. One page —
- * including a page split into two columns — turns the whole sheet. */
+ * Two facing pages share the sheet, so each of them is half of it. One page —
+ * including a page split into two columns — is the whole sheet. A turn in
+ * two-page view moves two of these columns; see {@link spreadTurnTarget}. */
 export function pageStep(el, layout) {
   const sheet = sheetWidth(el);
   if (layout === 'double' && sheet > 0) return sheet / 2;
@@ -247,6 +344,9 @@ export function PdfPage({ doc, page, zoomMode, zoom, rotation, room, onScale, on
   // to select. Cancelling the paint in flight and *waiting for it to let go*
   // before starting the next one is what makes repainting one canvas safe.
   const paintRef = useRef(null);
+  // Where the next zoom or the next page is drawn, so the canvas on screen
+  // is not cleared while that paint is still going.
+  const scratchRef = useRef(null);
 
   useEffect(() => {
     if (!doc || !canvasRef.current) return undefined;
@@ -278,17 +378,34 @@ export function PdfPage({ doc, page, zoomMode, zoom, rotation, room, onScale, on
           padX: 0,
           padY: 0,
         });
-        const painted = await renderPage({ page: pdfPage, canvas: canvasRef.current, scale: wanted, rotation });
+        // Painted off the page the reader is looking at. Putting the next
+        // zoom or the next page straight onto that canvas clears it first,
+        // so the page went blank and was drawn again before a turn had
+        // anything to cover — the refresh, and then the effect. The canvas
+        // on screen keeps the page already there until the new one is
+        // finished, and then takes it in one step.
+        if (!scratchRef.current) scratchRef.current = document.createElement('canvas');
+        const scratch = scratchRef.current;
+        const painted = await renderPage({ page: pdfPage, canvas: scratch, scale: wanted, rotation });
         paintRef.current = painted.task;
         try {
           await painted.task.promise;
         } finally {
           if (paintRef.current === painted.task) paintRef.current = null;
         }
-        // Recorded before the cancellation is checked: the pixels are on the
-        // canvas either way, and this is what they were painted with.
+        if (cancelled || !canvasRef.current) return;
+        const live = canvasRef.current;
+        live.width = scratch.width;
+        live.height = scratch.height;
+        live.style.width = scratch.style.width;
+        live.style.height = scratch.style.height;
+        try {
+          live.getContext('2d', { alpha: false })?.drawImage(scratch, 0, 0);
+        } catch { /* a canvas that cannot be copied keeps what it had */ }
+        // What the page on screen was just painted with. A paint that was
+        // overtaken never gets this far, so the text layer is not built for
+        // a picture the reader never saw.
         paintedRef.current = painted.viewport;
-        if (cancelled) return;
         if (onPainted) {
           let shot = '';
           try { shot = canvasRef.current.toDataURL('image/png'); } catch { shot = ''; }
@@ -408,6 +525,85 @@ export function PdfPage({ doc, page, zoomMode, zoom, rotation, room, onScale, on
 }
 
 /**
+ * One DjVu page: the decoded picture, and the file's own text layer over it
+ * when the page was scanned with words. It paints the same way a PDF page
+ * does — off to the side, then onto the canvas in one step — so a turn does
+ * not blank the page that is already there.
+ */
+export function DjvuPage({ doc, page, zoomMode, zoom, rotation, room, onScale, onSize, onPainted, onError }) {
+  const canvasRef = useRef(null);
+  const textLayerRef = useRef(null);
+  const scratchRef = useRef(null);
+
+  useEffect(() => {
+    if (!doc || !canvasRef.current) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { djvuPageSize, djvuFitScale, paintDjvuPage } = await import('../lib/djvu.js');
+        if (cancelled) return;
+        const size = djvuPageSize(doc, page);
+        const wanted = djvuFitScale(size, { room, zoomMode, zoom, rotation });
+        if (!scratchRef.current) scratchRef.current = document.createElement('canvas');
+        const painted = await paintDjvuPage({
+          doc,
+          pageNumber: page,
+          canvas: scratchRef.current,
+          scale: wanted,
+          rotation,
+          dpr: (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1,
+        });
+        if (cancelled || !canvasRef.current) return;
+        const live = canvasRef.current;
+        const scratch = scratchRef.current;
+        live.width = scratch.width;
+        live.height = scratch.height;
+        live.style.width = scratch.style.width;
+        live.style.height = scratch.style.height;
+        try {
+          live.getContext('2d', { alpha: false })?.drawImage(scratch, 0, 0);
+        } catch { /* a canvas that cannot be copied keeps what it had */ }
+        const layer = textLayerRef.current;
+        if (layer) {
+          layer.replaceChildren();
+          for (const zone of painted.zones) {
+            const word = zone.t || '';
+            if (!word) continue;
+            const span = document.createElement('span');
+            span.textContent = word;
+            span.style.left = `${zone.x}px`;
+            span.style.top = `${zone.y}px`;
+            span.style.fontSize = `${Math.max(1, Math.round(zone.h || 0))}px`;
+            layer.appendChild(span);
+          }
+        }
+        onScale?.(wanted);
+        onSize?.({ width: painted.width, height: painted.height });
+        if (onPainted) {
+          let shot = '';
+          try { shot = live.toDataURL('image/png'); } catch { shot = ''; }
+          if (shot) onPainted(shot);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        // eslint-disable-next-line no-console
+        console.warn(`[djvu] page ${page} was not painted: ${err?.name || 'Error'}: ${err?.message || err}`);
+        onError?.(err, 'render');
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, page, zoomMode, zoom, rotation, room.width, room.height]);
+
+  return (
+    <div className="pdf-page djvu-page" data-page={page}>
+      <canvas ref={canvasRef} className="pdf-canvas djvu-canvas" />
+      <div ref={textLayerRef} className="textLayer" />
+    </div>
+  );
+}
+
+/**
  * What is worth saying about a picture that has just been picked: its own pixel
  * size, and what it is — a page of a comic, a PDF page, or a picture inside the
  * text. The reading pane hands this up so the status bar can say plainly that a
@@ -416,9 +612,10 @@ export function PdfPage({ doc, page, zoomMode, zoom, rotation, room, onScale, on
 export function describeImage(node) {
   if (!node) return null;
   if (node.tagName === 'CANVAS') {
-    const page = node.closest?.('.pdf-page')?.getAttribute?.('data-page') || '';
+    const host = node.closest?.('.djvu-page') || node.closest?.('.pdf-page');
+    const page = host?.getAttribute?.('data-page') || '';
     return {
-      kind: 'pdf',
+      kind: host?.classList?.contains('djvu-page') ? 'djvu' : 'pdf',
       page: Number(page) || 0,
       name: page ? `${page}` : '',
       width: node.width || 0,
@@ -537,6 +734,23 @@ const BookView = forwardRef(function BookView({
   // changes the column too, and that is scrolling, not a page being turned —
   // so only a turn that came through here gets a leaf.
   const pageTurnIntent = useRef(null);
+  // Where an animated turn will put the live chapter, once the leaf that
+  // covers it is actually in the document. Scrolling first is the refresh
+  // the reader sees before the page has started to turn — and the same
+  // thing at any zoom, because the enlarged page is the one that jumps.
+  const revealLeft = useRef(null);
+  // A leaf is on the book. A zoom that arrives while it is must not scroll
+  // the live page out from under it.
+  const leafOn = useRef(false);
+  // The text size and the page zoom last seen by the turn. A change of
+  // either one reflows the page; it must not be taken for a page turn.
+  const layoutSeen = useRef(null);
+  // The reading style last painted. A turn keeps it on the page being left,
+  // so a zoom that arrives with the turn does not redraw that page first.
+  const readStyle = useRef(null);
+  // The whole pane's style, for the same reason: until the leaf is up, the
+  // page on screen stays the one the reader is looking at.
+  const shownStyle = useRef(null);
   // The copy that turns. It has to be pinned to the page on screen: the pane
   // scrolls, and a layer glued to its corner sits at the start of the chapter.
   const turnLayerRef = useRef(null);
@@ -596,7 +810,7 @@ const BookView = forwardRef(function BookView({
           width: Math.max(0, stage.clientWidth - pad('padding-left') - pad('padding-right')),
           height: Math.max(0, stage.clientHeight - pad('padding-top') - pad('padding-bottom')),
         };
-        const next = ebookFitScale(ebookSheet(layout), room);
+        const next = ebookFitScale(ebookSheet(layout, pageChoiceOf(settings)), room);
         setFitScale((was) => (Math.abs(was - next) < 0.002 ? was : next));
       }
       // The sheet is the page. The pane's own padding is the margin around it,
@@ -626,7 +840,7 @@ const BookView = forwardRef(function BookView({
     // Paged and continuous are different elements. The observer has to be put
     // on the one that is on screen, or a resized window leaves the page at the
     // size it had in the other view.
-  }, [book, paged, layout]);
+  }, [book, paged, layout, settings.pagePreset, settings.pageWidth, settings.pageHeight]);
 
   // ── Fitting a fixed-layout page to the window ───────────
   //
@@ -732,12 +946,29 @@ const BookView = forwardRef(function BookView({
    * before the last one, which is why every turn after the first showed the wrong
    * page or none at all.
    */
-  /** The turn is over: the copy that was turning comes off the book. */
+  // Puts the live chapter on the page the turn is landing on. Not while the
+  // leaf is still on its way: moving it then draws the new page first and
+  // turns afterwards. It moves when the turn ends, or at once when no leaf
+  // is going to be drawn.
+  const flushReveal = useCallback(() => {
+    if (revealLeft.current == null) return;
+    const dest = revealLeft.current;
+    revealLeft.current = null;
+    leafOn.current = false;
+    const el = scrollRef.current;
+    if (!el) return;
+    ownColumnScroll.current = true;
+    el.scrollTo({ left: dest, behavior: 'auto' });
+    ownColumnScroll.current = false;
+  }, []);
+
+  /** The turn is over: the page being landed on takes the pane, and the copy comes off. */
   const endTurn = useCallback(() => {
     clearTimeout(turnTimer.current);
+    flushReveal();
     setTurn(null);
     setHold(null);
-  }, []);
+  }, [flushReveal]);
 
   // What actually ends a turn. The sheet and the leaf carry the animation, so
   // when theirs finishes the page has arrived — however long the browser took
@@ -754,7 +985,7 @@ const BookView = forwardRef(function BookView({
     // leaf the size of the whole pane is not a page: it is the reading area
     // being swept aside, and that is what it looked like.
     const box = shownBox.current;
-    if (kind !== 'pdf') return { ...shown.current, box };
+    if (kind !== 'pdf' && kind !== 'djvu') return { ...shown.current, box };
     const canvases = [...(scrollRef.current?.querySelectorAll('canvas.pdf-canvas') || [])];
     const snap = (node) => {
       try { return node ? node.toDataURL('image/png') : ''; } catch { return ''; }
@@ -782,11 +1013,24 @@ const BookView = forwardRef(function BookView({
     previousPlace.current = section === wasSection ? place : `${section}:0`;
     const intent = pageTurnIntent.current;
     pageTurnIntent.current = null;
-    if (!moved || settings.pageTurn === 'none') return undefined;
+    // A resize of the type, or of a fixed page, reflows the chapter and the
+    // column can change with it. That is not a page being turned. Playing the
+    // turn after the letters have already been drawn again is the refresh
+    // the reader sees when they zoom.
+    const layoutKey = `${settings.fontScale}:${settings.zoom}:${settings.zoomMode}:${settings.pageWidth}:${settings.pageHeight}:${fitScale}`;
+    const layoutChanged = layoutSeen.current != null && layoutSeen.current !== layoutKey;
+    layoutSeen.current = layoutKey;
+    if (!moved || settings.pageTurn === 'none' || (layoutChanged && !intent)) {
+      if (!leafOn.current) flushReveal();
+      return undefined;
+    }
     // Coming one screen at a time is what makes a turn a turn. Read as one
     // continuous thing — a run of pages, or a chapter poured into one column —
     // the reader is scrolling, and there is no page going away to animate.
-    if (!onePage) return undefined;
+    if (!onePage) {
+      if (!leafOn.current) flushReveal();
+      return undefined;
+    }
     // A column that moved because the reader dragged the scrollbar is still
     // scrolling. A leaf is for a turn: the next-page key, the arrows, the wheel.
     // `chapter` marks a turn that already ran out of columns. It is waiting for
@@ -795,11 +1039,14 @@ const BookView = forwardRef(function BookView({
     // turned.
     // Several clicks can land in one commit. The intent is the last of them, so
     // its column is the one just left, which may be further along than the
-    // column React had last committed. It is still one turn of one page.
+    // column React had last committed. It is still one turn.
     const columnTurn = kind === 'html' && section === wasSection
       && intent && !intent.chapter
       && intent.section === wasSection;
-    if (kind === 'html' && section === wasSection && !columnTurn) return undefined;
+    if (kind === 'html' && section === wasSection && !columnTurn) {
+      if (!leafOn.current) flushReveal();
+      return undefined;
+    }
 
     const now = Date.now();
     const faces = facesNow();
@@ -841,14 +1088,28 @@ const BookView = forwardRef(function BookView({
       const chapterChange = section !== wasSection;
       const fromHere = intent?.section === wasSection;
       const sheet = sheetWidth(el);
-      // Two facing pages always turn one of them, including the turn that
-      // opens the next chapter. Treating that turn as the whole sheet is what
-      // made a chapter boundary flip both pages at once.
-      const half = layout === 'double';
+      // A flip turns the one leaf the reader is holding. Going forward that is
+      // the right-hand page, and its back is the left-hand page of the spread
+      // being landed on — two pages on, the way a printed leaf reads. A slide
+      // takes the whole spread with it, both pages at once.
+      const half = layout === 'double' && settings.pageTurn === 'flip';
+      const arrivedLeft = el ? el.scrollLeft : 0;
       // Where the chapter being left was. A turn that ran out of columns saved
       // it before the new chapter replaced the pane; the pane's own scroll by
-      // then belongs to the chapter that has arrived.
+      // then still belongs to the chapter that was left. The new chapter is
+      // put at its first column after this, or at its last when turning back.
       const carried = (columnTurn || (chapterChange && fromHere)) ? intent : null;
+      let toLeft = columnTurn && Number.isFinite(carried?.toLeft) ? carried.toLeft : arrivedLeft;
+      if (chapterChange) {
+        toLeft = 0;
+        if (!forward && landing.current === 'end' && el) {
+          const step = pageStep(el, layout);
+          const span = sheetWidth(el);
+          const pages = span > 0 ? columnPageCount(el.scrollWidth, span, step) : 1;
+          toLeft = columnLeft(el, Math.max(0, pages - 1), step);
+        }
+      }
+      leafOn.current = true;
       setHold({
         id: `${place}-${now}`,
         dir: forward ? 'forward' : 'back',
@@ -860,15 +1121,43 @@ const BookView = forwardRef(function BookView({
         // nowhere rather than as the page in front of the reader being turned.
         html: shownChapter.current.html,
         width: shownChapter.current.width,
-        // A column turn has already jumped, so the pane is on the new column.
-        // The place that was saved is the column being left. A new chapter is
-        // still showing the old scroll: the effect that follows puts it back
-        // to its first column.
-        left: carried ? carried.left : (el ? el.scrollLeft : 0),
+        // The pane is still on the column being left. It moves to the one
+        // being landed on only after this leaf is in the document, so the
+        // reader never sees that page drawn before the turn. A new chapter
+        // is still showing the old scroll: the effect that follows puts it
+        // at its first column, or its last when turning back.
+        left: carried ? carried.left : arrivedLeft,
         top: carried ? carried.top : (el ? el.scrollTop : 0),
+        // Where the spread being landed on starts. Inside a chapter that was
+        // saved with the turn. A new chapter opens at its first column, or at
+        // its last when the reader turned back into it.
+        toLeft,
+        // The back of a flipped leaf is the page it comes down on. Inside a
+        // chapter that page is further along the same text, so it is the same
+        // chapter that was already on screen. A new chapter brings its own
+        // first spread, which is the one just put in the pane — taken from
+        // that node, not poured out of the markup a second time.
+        backHtml: chapterChange ? html : shownChapter.current.html,
+        shot: carried?.shot || null,
+        backShot: chapterChange
+          ? (contentRef.current?.cloneNode(true) || null)
+          : (carried?.shot || null),
+        // The type the page being left was drawn with. The page underneath
+        // takes whatever the settings are now, including a zoom that arrived
+        // with the turn, and the leaf does not.
+        read: carried?.read || readStyle.current || null,
         half,
         sheet,
+        // The lines that were already on the page. The leaf and the half
+        // that stays are these, so neither page is drawn again as the turn
+        // begins. The page being landed on is drawn under them.
+        frozen: carried?.frozen || null,
+        frame: carried?.frame || null,
       });
+    } else if (!leafOn.current) {
+      // No leaf is going to cover the chapter, so the page it is heading
+      // for has to be shown now rather than left waiting.
+      flushReveal();
     }
 
     // A backstop, and only that: the turn ends when its animation does — see
@@ -888,7 +1177,7 @@ const BookView = forwardRef(function BookView({
     clearTimeout(turnTimer.current);
     turnTimer.current = setTimeout(endTurn, TURN_MS + TURN_GRACE);
     return undefined;
-  }, [place, section, columnPage, settings.pageTurn, onePage, facesNow, kind, layout, content, endTurn]);
+  }, [place, section, columnPage, settings.pageTurn, settings.fontScale, settings.zoom, settings.zoomMode, settings.pageWidth, settings.pageHeight, fitScale, onePage, facesNow, kind, layout, content, endTurn, flushReveal]);
 
   // Nothing is left running when the pane goes away.
   useEffect(() => () => clearTimeout(turnTimer.current), []);
@@ -1107,7 +1396,7 @@ const BookView = forwardRef(function BookView({
   // fraction of the pane.
   const pageSize = content?.pageSize || natural;
   useEffect(() => {
-    if (reflowable || kind === 'pdf' || !pageSize) return;
+    if (reflowable || kind === 'pdf' || kind === 'djvu' || !pageSize) return;
     setScale(factorFor(pageSize));
   }, [reflowable, kind, pageSize, factorFor]);
 
@@ -1570,7 +1859,7 @@ const BookView = forwardRef(function BookView({
     settings.readingWidth, settings.pageMarginX, settings.pageMarginY, html]);
 
   useEffect(() => {
-    if (kind !== 'pdf' || cropRef.current) return;
+    if ((kind !== 'pdf' && kind !== 'djvu') || cropRef.current) return;
     import('../lib/pdf.js').then((m) => { cropRef.current = m.cropCanvas; }).catch(() => {});
   }, [kind]);
 
@@ -1735,6 +2024,19 @@ const BookView = forwardRef(function BookView({
     return Math.min(1, Math.max(0, el.scrollTop / max));
   }, [paged, flow, columnPage, columnPages, rowOf, section]);
 
+  // The page on screen, taken before anything about the turn touches it.
+  // The leaf turns this paint. The chapter is not poured out again over it.
+  const pagePaint = () => {
+    const el = scrollRef.current;
+    const chapter = contentRef.current;
+    const clip = el ? visibleClip(el) : null;
+    return {
+      shot: chapter?.cloneNode(true) || null,
+      frozen: clip ? freezePage(chapter, clip) : null,
+      frame: chapterFrame(chapter),
+    };
+  };
+
   useImperativeHandle(ref, () => ({
     /** The reading position inside the current section, 0..1. */
     getFracY: fracY,
@@ -1743,7 +2045,8 @@ const BookView = forwardRef(function BookView({
       if (!el) return;
       if (paged) {
         const step = pageStep(el, layout);
-        const page = Math.round(frac * Math.max(0, columnPages - 1));
+        let page = Math.round(frac * Math.max(0, columnPages - 1));
+        if (layout === 'double') page -= page % 2;
         el.scrollTo({ left: columnLeft(el, page, step) });
         pendingColumn.current = page;
         setColumnPage(page);
@@ -1776,7 +2079,8 @@ const BookView = forwardRef(function BookView({
             const paneRect = pane.getBoundingClientRect();
             const x = first.left - paneRect.left + pane.scrollLeft;
             const pages = columnPageCount(pane.scrollWidth, span, step);
-            const page = Math.max(0, Math.min(pages - 1, Math.floor(x / step)));
+            let page = Math.max(0, Math.min(pages - 1, Math.floor(x / step)));
+            if (layout === 'double') page -= page % 2;
             pane.scrollTo({ left: columnLeft(pane, page, step), behavior: 'auto' });
             pendingColumn.current = page;
             setColumnPage(page);
@@ -1786,9 +2090,9 @@ const BookView = forwardRef(function BookView({
       el.scrollIntoView({ block: 'start', behavior: 'smooth' });
     },
     /**
-     * Moves one page. In two-page view that is one of the two facing pages,
-     * not both of them. Returns false when there is nowhere left to go inside
-     * the section, which is what tells the caller to turn to the next one.
+     * Moves one page. In two-page view that is both facing pages, the way one
+     * leaf of a book turns. Returns false when there is nowhere left to go
+     * inside the section, which is what tells the caller to turn to the next one.
      */
     turnPage(dir) {
       const el = scrollRef.current;
@@ -1799,42 +2103,73 @@ const BookView = forwardRef(function BookView({
         // The stored count is whatever the last layout pass saw. A chapter
         // that has since grown — a picture finishing, a font arriving — is
         // still wider than that, and trusting the stored count left the rest
-        // of the chapter unread: the turn went to the next chapter and both
-        // pages of the spread flipped at once.
+        // of the chapter unread.
         const measured = span > 0 ? columnPageCount(el.scrollWidth, span, step) : columnPages;
         // Where the last click was heading, when this one arrives before that
-        // has been committed. Two quick clicks are two pages, each one column
-        // of a two-page spread.
+        // has been committed. Two quick clicks are two spreads.
         const here = pendingColumn.current == null ? columnPage : pendingColumn.current;
-        const next = here + (dir < 0 ? -1 : 1);
-        if (next < 0 || next >= measured) {
+        const next = spreadTurnTarget(here, measured, dir, layout);
+        if (next == null) {
           if (settings.pageTurn !== 'none') {
+            const paint = pagePaint();
             pageTurnIntent.current = {
               section,
               fromColumn: here,
-              left: el.scrollLeft,
+              left: revealLeft.current != null ? revealLeft.current : el.scrollLeft,
               top: el.scrollTop,
               chapter: true,
+              read: readStyle.current,
+              // The chapter node itself, taken before it is replaced. The turn
+              // moves this page; it does not build another one from the markup.
+              shot: paint.shot,
+              // The lines already on screen. The leaf turns these. Pouring the
+              // chapter again would draw them over before the page has gone.
+              frozen: paint.frozen,
+              frame: paint.frame,
             };
           }
           return false;
         }
-        // As a PDF page does: the page underneath is replaced at once, and a
-        // copy of the page being left covers it and turns away. A glide would
-        // move both at once, and the reader would see the journey twice.
+        // The page being left stays where it is until the leaf covers it.
+        // Scrolling now would draw the page being landed on first and turn
+        // afterwards — and a zoomed page does the same, only larger. The
+        // scroll waits for that leaf. With no effect chosen, the page just
+        // goes.
         const animate = settings.pageTurn !== 'none';
+        const dest = columnLeft(el, next, step);
+        const origin = revealLeft.current != null ? revealLeft.current : el.scrollLeft;
         if (animate) {
+          const paint = pagePaint();
           pageTurnIntent.current = {
             section,
             fromColumn: here,
-            left: el.scrollLeft,
+            left: origin,
             top: el.scrollTop,
+            toLeft: dest,
+            read: readStyle.current,
+            shot: paint.shot,
+            frozen: paint.frozen,
+            frame: paint.frame,
           };
+          revealLeft.current = dest;
         }
         pendingColumn.current = next;
-        ownColumnScroll.current = true;
-        el.scrollTo({ left: columnLeft(el, next, step), behavior: animate ? 'auto' : 'smooth' });
-        ownColumnScroll.current = false;
+        if (!animate) {
+          ownColumnScroll.current = true;
+          el.scrollTo({ left: dest, behavior: 'smooth' });
+          ownColumnScroll.current = false;
+        } else {
+          // The page number moves with the turn. The words on screen do not:
+          // they stay until the leaf has gone, which is what keeps the page
+          // from being drawn again before the effect.
+          onPageInfo?.({
+            pages: measured,
+            page: next,
+            atStart: next <= 0,
+            atEnd: next >= measured - 1,
+          });
+          onProgress?.(measured > 1 ? next / Math.max(1, measured - 1) : 0);
+        }
         setColumnPage(next);
         if (measured !== columnPages) setColumnPages(measured);
         return true;
@@ -1904,8 +2239,9 @@ const BookView = forwardRef(function BookView({
      */
     selectAll() {
       if (typeof window.getSelection !== 'function') return false;
-      const layers = kind === 'pdf' ? [...(scrollRef.current?.querySelectorAll('.textLayer') || [])] : [];
-      const targets = kind === 'pdf' ? layers : [contentRef.current].filter(Boolean);
+      const pageText = kind === 'pdf' || kind === 'djvu';
+      const layers = pageText ? [...(scrollRef.current?.querySelectorAll('.textLayer') || [])] : [];
+      const targets = pageText ? layers : [contentRef.current].filter(Boolean);
       if (!targets.length || !targets.some((el) => (el.textContent || '').trim())) return false;
       const selection = window.getSelection();
       selection.removeAllRanges();
@@ -1939,7 +2275,7 @@ const BookView = forwardRef(function BookView({
 
     /** Whether this book has text a reader could select at all. */
     hasText() {
-      if (kind === 'pdf') {
+      if (kind === 'pdf' || kind === 'djvu') {
         return [...(scrollRef.current?.querySelectorAll('.textLayer') || [])]
           .some((el) => (el.textContent || '').trim());
       }
@@ -2051,7 +2387,7 @@ const BookView = forwardRef(function BookView({
     scale,
   }), [paged, flow, kind, section, rowOf, columnPage, columnPages, scale, fracY, spotHost,
     onSelectionChange, currentImageNode, pickedImage, pickedFigure, region, boxOf,
-    settings.pageTurn, layout]);
+    settings.pageTurn, layout, onPageInfo, onProgress]);
 
   // The back of a spread's leaf, once the PDF page it lands on has been painted.
   // Until then the leaf shows blank paper rather than the page before last —
@@ -2075,7 +2411,7 @@ const BookView = forwardRef(function BookView({
   useEffect(() => {
     // A PDF page says for itself when it has been painted; see `onPainted`
     // below. A picture is simply its own source, which is known at once.
-    if (kind === 'pdf') return;
+    if (kind === 'pdf' || kind === 'djvu') return;
     shown.current = { src: content?.src || '', facing: facing?.src || '' };
   }, [content, facing, kind]);
 
@@ -2118,10 +2454,10 @@ const BookView = forwardRef(function BookView({
     if (!turn && !hold) return;
     const root = scrollRef.current;
     if (!root) return;
-    const nodes = [
-      root.querySelector(':scope > .chapter, :scope > .page-spread, :scope .page-spread'),
-      ...root.querySelectorAll('.turn-sheet, .turn-leaf, .turn-stay'),
-    ].filter(Boolean);
+    // The live chapter is not among these. Reading its size here lays it out
+    // again, and the page the reader is still looking at changes before the
+    // leaf has gone. Only the leaf itself is restarted.
+    const nodes = [...root.querySelectorAll('.turn-sheet, .turn-leaf, .turn-stay')];
     for (const el of nodes) {
       el.style.animation = 'none';
       void el.offsetWidth;
@@ -2213,7 +2549,7 @@ const BookView = forwardRef(function BookView({
     </div>
   ) : null;
 
-  const sheet = reflowable && paged ? ebookSheet(layout) : null;
+  const sheet = reflowable && paged ? ebookSheet(layout, pageChoiceOf(settings)) : null;
   const style = {
     // A continuous chapter keeps the column width the reader chose. A page
     // has its own size — see `sheet` — and the window only scales it.
@@ -2241,6 +2577,16 @@ const BookView = forwardRef(function BookView({
       transform: `scale(${fitScale})`,
     } : {}),
   };
+  // Until the leaf has gone, keep painting the page the reader is already
+  // looking at. A zoom, or a new column width, that arrives while the leaf
+  // is up would otherwise redraw that page — larger or smaller, the lines
+  // broken again — and only then finish turning it.
+  const leafing = !!pageTurnIntent.current || !!hold;
+  if (!leafing) {
+    shownStyle.current = style;
+    readStyle.current = readingStyle(settings);
+  }
+  const paneStyle = (leafing && shownStyle.current) ? shownStyle.current : style;
 
   const classes = [
     `select-${selectMode}`,
@@ -2273,7 +2619,22 @@ const BookView = forwardRef(function BookView({
 
     return (
       <div className={rowClass}>
-        {kind === 'pdf' ? pages.map((index, i) => (
+        {kind === 'djvu' ? pages.map((index, i) => (
+          <DjvuPage
+            // eslint-disable-next-line react/no-array-index-key
+            key={i}
+            doc={book.djvu}
+            page={index + 1}
+            zoomMode={zoomMode}
+            zoom={settings.zoom}
+            rotation={settings.rotation}
+            room={room}
+            onScale={primary && i === 0 ? setScale : undefined}
+            onSize={primary && i === 0 ? setSlotSize : undefined}
+            onPainted={primary ? (shot) => onPagePainted(index, shot) : undefined}
+            onError={onError}
+          />
+        )) : kind === 'pdf' ? pages.map((index, i) => (
           <PdfPage
             // Keyed by its place in the row, not by which page it holds: the
             // canvas then stays where it is and is repainted, instead of being
@@ -2315,7 +2676,7 @@ const BookView = forwardRef(function BookView({
   const pane = (
     <div
       className={classes}
-      style={style}
+      style={paneStyle}
       ref={scrollRef}
       onScroll={onScroll}
       onPointerDown={onPointerDown}
@@ -2342,7 +2703,7 @@ const BookView = forwardRef(function BookView({
 
       {kind === 'html' ? (
         <article
-          className={`chapter${turnClass}`}
+          className="chapter"
           ref={contentRef}
           data-testid="chapter"
           // The markup has already been through sanitizeChapter: scripts, event
@@ -2352,14 +2713,13 @@ const BookView = forwardRef(function BookView({
         />
       ) : null}
 
-      {/* A chapter of text turns exactly as a PDF page does. The copy is a
+      {/* A chapter of text turns exactly as a PDF page does. The leaf is a
           sheet of paper cut to the page (.leaf-face, the same one a PDF page
-          is drawn on), it holds the page being *left*, and it is what moves —
-          slid off, or turned over on the binding. The page that has arrived
-          never moves: it is already underneath, and the leaf uncovers it.
-          It is a copy rather than the live chapter, which is as wide as all
-          its columns together. Nothing in the copy can be clicked, selected
-          or reached by the keyboard. */}
+          is drawn on). It holds the page being *left* — the lines already
+          painted there, not the chapter poured out again — and it is what
+          moves. The page that has arrived is drawn underneath, and the leaf
+          uncovers it. Nothing in the leaf can be clicked, selected or reached
+          by the keyboard. */}
       {kind === 'html' && hold ? (() => {
         // Two facing pages turn one of them over, and it is the page the
         // reader is looking at: forward the right-hand page of the spread
@@ -2374,24 +2734,38 @@ const BookView = forwardRef(function BookView({
         // half the book is covered while a leaf goes over, so without this the
         // live spread shows through beside it and that page changes the
         // instant the turn begins: the reader sees the new page first and the
-        // turn afterwards. A copy of it is held where it was until the leaf
-        // has come down, which is what a picture's spread already does.
+        // turn afterwards. It is the same paint, held where it was, until the
+        // leaf has come down.
         const stayShift = hold.dir === 'forward' ? hold.left : hold.left + pageW;
-        const heldChapter = (shift, markup) => (
-          <article
-            className="chapter leaving"
+        // The back of the leaf is the page it lands on: going forward, the
+        // left-hand page of the spread that has arrived (two pages on); going
+        // back, that spread's right-hand page.
+        const backShift = hold.dir === 'forward' ? hold.toLeft : hold.toLeft + pageW;
+        const box = framedStyle(hold.frame, hold.width);
+        const heldChapter = (shift, markup, node, read) => (
+          <LeavingChapter
+            node={node || null}
+            markup={node ? '' : markup}
             style={{
-              ...readingStyle(settings),
-              width: hold.width ? `${hold.width}px` : undefined,
+              ...(read || readingStyle(settings)),
+              ...box,
               transform: `translate(${-shift}px, ${-hold.top}px)`,
             }}
-            dangerouslySetInnerHTML={{ __html: markup }}
           />
+        );
+        // The page already on screen. Its lines stay where they were painted.
+        // A spread's leaf is one half of that paint; the other half stays.
+        const painted = hold.frozen?.pieces?.length ? hold.frozen : null;
+        const halfW = (painted?.width || hold.sheet) / 2;
+        const oldPage = (columnShift, paintShift) => (
+          painted
+            ? <FrozenPaint frozen={painted} shift={paintShift} />
+            : heldChapter(columnShift, hold.html, hold.shot, hold.read)
         );
         return (
           <div
             ref={turnLayerRef}
-            className={`turn-page turn-${settings.pageTurn} turn-${hold.dir}`}
+            className={`turn-page turn-${settings.pageTurn} turn-${hold.dir}${turn?.chapter ? ' turn-chapter' : ''}`}
             aria-hidden="true"
             data-testid="turn-page"
           >
@@ -2400,10 +2774,15 @@ const BookView = forwardRef(function BookView({
                 transform, and a transform counts as something to scroll to: the
                 pane grows a scrollbar, the columns reflow into it, and the page
                 looks torn — which is what choosing a chapter from the contents
-                did. */}
+                did. The live chapter is still the page being left. The page
+                being landed on is this layer, uncovered as the sheet moves,
+                and the live chapter catches up only when the turn ends. */}
+            <div className="turn-base">
+              {heldChapter(hold.toLeft, hold.backHtml || hold.html, hold.backShot || hold.shot)}
+            </div>
             {flipHalf ? (
               <div className={`turn-stay ${hold.dir === 'forward' ? 'left' : 'right'}`}>
-                {heldChapter(stayShift, hold.html)}
+                {oldPage(stayShift, hold.dir === 'forward' ? 0 : halfW)}
               </div>
             ) : null}
             <div
@@ -2411,17 +2790,14 @@ const BookView = forwardRef(function BookView({
               className={`turn-sheet turn-${settings.pageTurn} turn-${hold.dir}${hold.half ? ' turn-half' : ''}`}
               onAnimationEnd={onTurnEnd}
             >
-              <div className="leaf-face front">{heldChapter(leafShift, hold.html)}</div>
-              {/* The back of the leaf, so that a page of a spread goes the
-                  whole way over instead of vanishing as it stands upright.
-                  Turned 180° on the gutter the leaf lies on the page beside
-                  it, and the page it comes down showing is the one it carried
-                  across: the right-hand page the reader was on is now the
-                  left-hand page, which is what the live spread underneath has
-                  put there. Same page, same offset — so when the leaf is taken
-                  away nothing moves. */}
+              <div className="leaf-face front">
+                {oldPage(leafShift, flipHalf && hold.dir === 'forward' ? halfW : 0)}
+              </div>
+              {/* The back of the leaf is the page being landed on, drawn for
+                  the turn. The front stays the page that was already there, so
+                  both are on the leaf as it goes over. */}
               {flipHalf ? (
-                <div className="leaf-face back">{heldChapter(leafShift, hold.html)}</div>
+                <div className="leaf-face back">{heldChapter(backShift, hold.backHtml || hold.html, hold.backShot)}</div>
               ) : null}
             </div>
           </div>
@@ -2431,8 +2807,8 @@ const BookView = forwardRef(function BookView({
       {/* A fixed-layout book, one page (or spread) at a time, with the page
           being turned away drawn over it — beside the live one rather than
           inside it, because the live one must not move. */}
-      {!flow && (kind === 'image' || kind === 'pdf') ? (
-        <div className={kind === 'pdf' ? 'pdf-wrap' : 'comic-wrap'}>
+      {!flow && (kind === 'image' || kind === 'pdf' || kind === 'djvu') ? (
+        <div className={kind === 'image' ? 'comic-wrap' : 'pdf-wrap'}>
           {renderRow(section, true)}
         </div>
       ) : null}
@@ -2444,7 +2820,7 @@ const BookView = forwardRef(function BookView({
       {/* The same book as a continuous run. Every page keeps its place in the
           run; only the pages near the one being read are painted. */}
       {flow ? (
-        <div className={`page-run ${kind === 'pdf' ? 'pdf-wrap' : 'comic-wrap'}`}>
+        <div className={`page-run ${kind === 'image' ? 'comic-wrap' : 'pdf-wrap'}`}>
           {rows.map((pages, r) => (
             <div
               key={pages[0]}

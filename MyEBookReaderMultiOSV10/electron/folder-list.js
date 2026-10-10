@@ -7,13 +7,23 @@
 // unknown type, which would hide perfectly good books.
 
 const OPENABLE_EXTENSIONS = new Set([
-  'epub', 'pdf', 'mobi', 'prc', 'azw', 'azw3', 'fb2', 'cbz', 'cbr',
+  'epub', 'pdf', 'djvu', 'djv', 'mobi', 'prc', 'azw', 'azw3', 'fb2', 'cbz', 'cbr',
   'md', 'markdown', 'mdown', 'html', 'htm', 'xhtml', 'txt', 'text', 'log',
   'ebkr',
   // Pictures, shown one per page: what the reader can also display.
   'jpg', 'jpeg', 'jpe', 'png', 'gif', 'webp', 'bmp', 'avif', 'svg',
   'tif', 'tiff', 'heic', 'heif', 'dcm', 'dicom', 'ico',
 ]);
+
+// ZIP, tar and gzip. Listed as folders of the books inside, not as books.
+// Keep this in step with ARCHIVE_EXTENSIONS in src/lib/folders.js.
+const ARCHIVE_EXTENSIONS = new Set(['zip', 'tar', 'gz', 'gzip', 'tgz']);
+
+function isArchiveName(name) {
+  const lower = String(name || '').trim().toLowerCase();
+  if (lower.endsWith('.tar.gz')) return true;
+  return ARCHIVE_EXTENSIONS.has(extensionOf(name));
+}
 
 function extensionOf(name) {
   const clean = String(name || '').trim();
@@ -28,10 +38,10 @@ function isBookName(name) {
 }
 
 function sortEntries(entries) {
+  const group = (kind) => (kind === 'dir' || kind === 'archive' ? 0 : 1);
   return [...entries].sort((a, b) => (
-    a.kind === b.kind
-      ? String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' })
-      : (a.kind === 'dir' ? -1 : 1)
+    group(a.kind) - group(b.kind)
+    || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' })
   ));
 }
 
@@ -62,6 +72,8 @@ function readLevel(fs, pathMod, dirPath) {
       try { st = fs.statSync(full); } catch { continue; }
       if (isDirStat(st)) {
         out.push({ path: full, name, kind: 'dir' });
+      } else if (isFileStat(st) && isArchiveName(name)) {
+        out.push({ path: full, name, kind: 'archive', size: Number(st.size) || 0, format: extensionOf(name) });
       } else if (isFileStat(st) && isBookName(name)) {
         out.push({ path: full, name, kind: 'book', size: Number(st.size) || 0, format: extensionOf(name) });
       }

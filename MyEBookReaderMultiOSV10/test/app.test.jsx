@@ -282,18 +282,25 @@ describe('searching', () => {
 });
 
 describe('the panels and the view', () => {
-  it('hides and shows the left panel with F9', async () => {
+  it('folds and opens the left panel with F9', async () => {
     await openSample();
     fireEvent.keyDown(window, { key: 'F9' });
-    await waitFor(() => expect(document.querySelector('.side-panel.left')).toBeNull());
+    await waitFor(() => expect(document.querySelector('.side-panel.left.collapsed')).toBeTruthy());
+    // Folded, not removed: the strip that opens it again stays.
+    expect(document.querySelector('.side-panel.left .panel-body, .side-panel.left .panel-tabs')).toBeNull();
     fireEvent.keyDown(window, { key: 'F9' });
-    await waitFor(() => expect(document.querySelector('.side-panel.left')).toBeTruthy());
+    await waitFor(() => expect(document.querySelector('.side-panel.left.collapsed')).toBeNull());
+    expect(document.querySelector('.side-panel.left')).toBeTruthy();
   });
 
-  it('hides and shows the right panel with F10', async () => {
+  it('folds and opens the right panel with F10', async () => {
     await openSample();
     fireEvent.keyDown(window, { key: 'F10' });
-    await waitFor(() => expect(document.querySelector('.side-panel.right')).toBeNull());
+    await waitFor(() => expect(document.querySelector('.side-panel.right.collapsed')).toBeTruthy());
+    expect(document.querySelector('.side-panel.right .panel-body')).toBeNull();
+    fireEvent.keyDown(window, { key: 'F10' });
+    await waitFor(() => expect(document.querySelector('.side-panel.right.collapsed')).toBeNull());
+    expect(document.querySelector('.side-panel.right')).toBeTruthy();
   });
 
   it('changes the reading layout from the right panel', async () => {

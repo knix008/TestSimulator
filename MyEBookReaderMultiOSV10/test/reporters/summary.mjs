@@ -1,6 +1,7 @@
-// Vitest reporter: no live "..." progress. After the run, every test is printed
-// under its file, the files are grouped by the kind of thing they test, and each
-// category gets its own totals before the overall summary.
+// Vitest reporter. Each test is printed as it finishes, so the run is visible
+// while it is happening. After the run, the files are grouped by the kind of
+// thing they test, and each category gets its own totals before the overall
+// summary.
 //
 // The categories are what the task asked for — results sorted by kind with a
 // summary — and they also make a regression obvious at a glance: a failure in
@@ -26,7 +27,7 @@ export const MARK = { pass: '✓', fail: '✗', skip: '○' };
 
 /** Which category a test file belongs to. The order is the printing order. */
 export const CATEGORIES = [
-  { id: 'formats', label: '책 형식 (Formats)', files: ['epub', 'mobi', 'fb2', 'cbz', 'plaintext', 'book', 'pdfbook', 'image', 'kf8', 'indx', 'huffcdic'] },
+  { id: 'formats', label: '책 형식 (Formats)', files: ['epub', 'mobi', 'fb2', 'cbz', 'plaintext', 'book', 'pdfbook', 'djvu', 'archive', 'image', 'kf8', 'indx', 'huffcdic'] },
   { id: 'engine', label: '핵심 엔진 (Engine)', files: ['inflate', 'zip', 'html', 'markdown', 'search', 'library', 'view', 'print', 'pages'] },
   { id: 'state', label: '설정·상태 (Settings & state)', files: ['settings', 'themes', 'menus', 'tabs', 'folders', 'history', 'platform', 'gallery', 'gallery-store'] },
   { id: 'gui', label: 'GUI 동작 (User interface)', files: ['app', 'components', 'bookview', 'dialogs', 'menuhost', 'dialoghost', 'panels', 'toolbar', 'gallery-view', 'printpreview', 'selection'] },
@@ -190,6 +191,29 @@ function countsLine(row, color) {
   return bits.join(paint('dim', '  ·  ', color));
 }
 
+/**
+ * One test, printed the moment it finishes. The file name is on the line
+ * because files run together, and a heading printed earlier would have
+ * drifted away from its own tests.
+ */
+export function formatProgressLine({ index, total, file, item }, { color = false } = {}) {
+  const mark = paint(markTint(item.state), MARK[item.state] || '·', color);
+  const width = String(total || index || 0).length;
+  const count = total
+    ? paint('dim', `${padDisplay(String(index), width, 'right')}/${total}`, color)
+    : '';
+  const fileText = file ? paint('cyan', file, color) : '';
+  const { group, title } = splitItemName(item.name);
+  const groupText = group ? `${paint('dim', `${group} › `, color)}` : '';
+  const time = item.ms ? paint('dim', `  ${formatDuration(item.ms)}`, color) : '';
+  const head = [count, mark, fileText].filter(Boolean).join('  ');
+  const lines = [`${head}  ${groupText}${title}${time}`];
+  if (item.state === 'fail' && item.error) {
+    lines.push(`       ${paint('red', item.error, color)}`);
+  }
+  return lines.join('\n');
+}
+
 export function formatFileBlock(row, { color = false } = {}) {
   const title = paint('bold', paint('green', row.name, color), color);
   const lines = [`  ${title}  ${countsLine(row, color)}`];
@@ -326,14 +350,81 @@ export function formatSummary(rows, { duration = 0, color = false } = {}) {
   return body.join('\n');
 }
 
+function fileBaseName(task) {
+  const file = task?.file || task;
+  const raw = file?.name || file?.filepath || '';
+  return String(raw).replace(/\\/g, '/').split('/').pop();
+}
+
 export default class SummaryReporter {
+  constructor() {
+    this.ctx = undefined;
+    this.seen = new Set();
+    this.done = 0;
+    this.total = 0;
+  }
+
+  onInit(ctx) {
+    this.ctx = ctx;
+    this.seen = new Set();
+    this.done = 0;
+    this.total = 0;
+  }
+
+  /** Straight to the terminal. A buffered log would hold every line until the run ended. */
+  write(text) {
+    process.stdout.write(`${text}\n`);
+  }
+
+  onCollected(files = []) {
+    this.total = (files || []).reduce((n, file) => n + collectTests(file.tasks).length, 0);
+    const color = useColor();
+    this.write(paint('bold', `테스트를 진행합니다 — ${this.total}개`, color));
+  }
+
+  onTaskUpdate(packs = []) {
+    const color = useColor();
+    for (const pack of packs) {
+      const task = this.ctx?.state?.idMap?.get(pack[0]);
+      if (!task || task.type !== 'test' || this.seen.has(task.id)) continue;
+      const state = testState(task);
+      if (state !== 'pass' && state !== 'fail' && state !== 'skip') continue;
+      this.seen.add(task.id);
+      this.done += 1;
+      const item = {
+        name: taskName(task),
+        state,
+        ms: Number(task.result?.duration) || 0,
+        error: state === 'fail' ? firstError(task) : '',
+      };
+      this.write(formatProgressLine({
+        index: this.done,
+        total: this.total,
+        file: fileBaseName(task),
+        item,
+      }, { color }));
+    }
+  }
+
   onFinished(files = [], errors = []) {
     const rows = (files || []).map(fileStats);
     const duration = rows.reduce((n, r) => n + r.ms, 0);
-    const text = formatSummary(rows, { duration, color: useColor() });
-    console.log(`\n${text}\n`);
+    const color = useColor();
+    // The tests were already printed as they finished. What remains is the
+    // grouping and the totals. A run that reported nothing live — collection
+    // failed before any test ended — still prints the full result.
+    const text = this.seen.size
+      ? `\n${formatSummaryTable(rows, { color })}\n\n${[
+        paint('cyan', `파일 ${rows.length}개`, color),
+        paint('dim', formatDuration(duration), color),
+        rows.some((row) => row.fail)
+          ? paint('brightRed', '전체 실패', color)
+          : paint('brightGreen', '전체 성공', color),
+      ].join(paint('dim', '  ·  ', color))}`
+      : formatSummary(rows, { duration, color });
+    this.write(`\n${text}\n`);
     if (errors?.length) {
-      console.log(paint('brightRed', `리포터 오류 ${errors.length}건`, useColor()) + '\n');
+      this.write(paint('brightRed', `리포터 오류 ${errors.length}건`, color));
     }
   }
 }

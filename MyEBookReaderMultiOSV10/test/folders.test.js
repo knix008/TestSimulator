@@ -1,17 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {
   isBookFileName, isHiddenName, folderLabel, sortFolderEntries, classifyEntry, toFolderEntries,
 } from '../src/lib/folders.js';
 import folderList from '../electron/folder-list.js';
 import { SAMPLES_DIR } from './helpers/samples.mjs';
+import { makeZip } from './helpers/zip.mjs';
 
 const { readLevel, OPENABLE_EXTENSIONS, isBookName, extensionOf } = folderList;
 
 describe('library file names', () => {
   it('accepts every format the reader opens', () => {
-    for (const name of ['a.epub', 'a.pdf', 'a.mobi', 'a.azw3', 'a.fb2', 'a.cbz', 'a.md', 'a.html', 'a.txt', 'a.ebkr']) {
+    for (const name of ['a.epub', 'a.pdf', 'a.djvu', 'a.djv', 'a.mobi', 'a.azw3', 'a.fb2', 'a.cbz', 'a.md', 'a.html', 'a.txt', 'a.ebkr']) {
       expect(isBookFileName(name), name).toBe(true);
     }
   });
@@ -26,6 +28,12 @@ describe('library file names', () => {
     for (const name of ['a.docx', 'a.zip', 'a.mp3', 'noextension', '']) {
       expect(isBookFileName(name), name).toBe(false);
     }
+  });
+
+  it('lists a compressed file as an archive, not as a book', () => {
+    expect(classifyEntry('pack.zip')).toBe('archive');
+    expect(classifyEntry('notes.tar.gz')).toBe('archive');
+    expect(classifyEntry('a.epub')).toBe('book');
   });
 
   it('spots a hidden name', () => {
@@ -87,8 +95,22 @@ describe('electron/folder-list (the main process listing)', () => {
     const names = rows.map((r) => r.name);
     expect(names).toContain('sample.epub');
     expect(names).toContain('sample.cbz');
-    expect(rows.every((r) => r.kind === 'book' || r.kind === 'dir')).toBe(true);
+    expect(rows.every((r) => r.kind === 'book' || r.kind === 'dir' || r.kind === 'archive')).toBe(true);
     expect(rows.find((r) => r.name === 'sample.epub').size).toBeGreaterThan(0);
+  });
+
+  it('shows a zip beside the books, so it can be opened in place', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ebk-archive-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'pack.zip'), makeZip([{ name: 'a.txt', data: 'hello' }]));
+      fs.writeFileSync(path.join(dir, 'note.txt'), 'hi');
+      const rows = readLevel(fs, path, dir);
+      expect(rows.map((r) => r.name)).toEqual(['pack.zip', 'note.txt']);
+      expect(rows[0].kind).toBe('archive');
+      expect(rows[1].kind).toBe('book');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('returns nothing for a path that is not a folder', () => {

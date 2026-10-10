@@ -70,9 +70,19 @@ function renderLeft(over = {}) {
 }
 
 describe('LeftPanel', () => {
-  it('shows nothing when it is closed', () => {
-    const { container } = renderLeft({ panel: 'none' });
-    expect(container.firstChild).toBeNull();
+  it('folds to a strip, and the strip opens the panel again', () => {
+    const open = renderLeft({ panel: 'bookmarks' });
+    const title = () => document.querySelector('.panel-foldbar .panel-title');
+    expect(title().textContent).toBe(i18n.t('panel.bookmarks'));
+    expect(title().querySelector('svg')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('panel.fold') }));
+    expect(open.props.onPanel).toHaveBeenCalledWith('none');
+    open.rerender(<LeftPanel {...open.props} panel="none" />);
+    expect(document.querySelector('.side-panel.left.collapsed')).toBeTruthy();
+    expect(title().textContent).toBe(i18n.t('panel.bookmarks'));
+    expect(title().querySelector('svg')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('panel.unfold') }));
+    expect(open.props.onPanel).toHaveBeenLastCalledWith('bookmarks');
   });
 
   it('offers a tab per tool, each with a tooltip', () => {
@@ -292,9 +302,19 @@ function renderRight(over = {}) {
 }
 
 describe('RightPanel', () => {
-  it('shows nothing when it is closed', () => {
-    const { container } = renderRight({ panel: 'none' });
-    expect(container.firstChild).toBeNull();
+  it('folds to a strip, and the strip opens the panel again', () => {
+    const open = renderRight({ panel: 'reading' });
+    const title = () => document.querySelector('.panel-foldbar .panel-title');
+    expect(title().textContent).toBe(i18n.t('panel.reading'));
+    expect(title().querySelector('svg')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('panel.fold') }));
+    expect(open.props.onPanel).toHaveBeenCalledWith('none');
+    open.rerender(<RightPanel {...open.props} panel="none" />);
+    expect(document.querySelector('.side-panel.right.collapsed')).toBeTruthy();
+    expect(title().textContent).toBe(i18n.t('panel.reading'));
+    expect(title().querySelector('svg')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('panel.unfold') }));
+    expect(open.props.onPanel).toHaveBeenLastCalledWith('reading');
   });
 
   it('lists the book properties, one per row', () => {
@@ -344,6 +364,26 @@ describe('RightPanel', () => {
     // The row and its checkbox share the tooltip, so the control is the input.
     fireEvent.click(screen.getAllByTitle(i18n.t('reading.justify')).find((el) => el.tagName === 'INPUT'));
     expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({ justify: true }));
+  });
+
+  it('sets an ebook page from five sizes, or from a side the reader types', () => {
+    const { props } = renderRight({ panel: 'reading' });
+    fireEvent.change(screen.getByLabelText(i18n.t('reading.page')), { target: { value: 'lg' } });
+    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({
+      pagePreset: 'lg', pageWidth: 840, pageHeight: 910,
+    }));
+
+    fireEvent.click(screen.getByLabelText(`${i18n.t('reading.pageWidth')} ${i18n.t('common.more')}`));
+    expect(props.onSettings).toHaveBeenCalledWith(expect.objectContaining({
+      pagePreset: 'custom', pageWidth: 730, pageHeight: 780,
+    }));
+  });
+
+  it('leaves the page size alone when the open file already has pages', () => {
+    renderRight({ panel: 'reading', book: { ...book, reflowable: false, formatLabel: 'PDF' } });
+    expect(screen.getByLabelText(i18n.t('reading.page'))).toBeDisabled();
+    expect(screen.getByLabelText(i18n.t('reading.pageWidth'))).toBeDisabled();
+    expect(screen.getByLabelText(i18n.t('reading.pageHeight'))).toBeDisabled();
   });
 
   it('previews the reading typography', () => {
@@ -464,9 +504,9 @@ describe('LeftPanel — a rail of tools with the chosen one beside it', () => {
       .filter((el) => !el.className.includes('panel-resizer'))
       // The measuring strip is laid out but hidden and out of the flow.
       .filter((el) => !el.className.includes('panel-measure'));
-    // Rail first, then the contents of the selected tool: one panel, two columns.
-    expect(kids.map((el) => el.className.split(' ')[0])).toEqual(['panel-tabs', 'panel-body']);
-    expect(kids[1].getAttribute('role')).toBe('tabpanel');
+    // Rail first, then the column that holds the selected tool: one panel, two columns.
+    expect(kids.map((el) => el.className.split(' ')[0])).toEqual(['panel-tabs', 'panel-column']);
+    expect(kids[1].querySelector('[role=tabpanel]')).toBeTruthy();
   });
 
   it('measures every row of buttons the tools show', () => {

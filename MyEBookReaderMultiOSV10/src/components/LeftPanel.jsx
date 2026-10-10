@@ -7,6 +7,7 @@ import {
 } from './Icons.jsx';
 import { flattenToc } from '../lib/book.js';
 import { folderLabel } from '../lib/folders.js';
+import { archiveFolderTitle, isArchiveDirPath } from '../lib/archive.js';
 import { galleryKey, sortGallery } from '../lib/gallery.js';
 import { formatBytes, listDrives } from '../lib/platform.js';
 import { PANEL_WIDTH_MAX } from '../lib/settings.js';
@@ -114,7 +115,7 @@ function FolderNode({ entry, depth, currentPath, onOpenFile, loadFolder }) {
     }
   };
 
-  if (entry.kind === 'dir') {
+  if (entry.kind === 'dir' || entry.kind === 'archive') {
     return (
       <li className="tree-item">
         <button type="button" className="tree-row" onClick={toggle} title={entry.path} style={{ paddingLeft: 6 + depth * 12 }}>
@@ -202,6 +203,10 @@ export default function LeftPanel({
   const tabsRef = useRef(null);
   const bodyRef = useRef(null);
   const measureRef = useRef(null);
+  // The tool to open again after the panel is folded. A panel that starts
+  // closed comes back on the contents.
+  const restore = useRef(panel && panel !== 'none' ? panel : 'contents');
+  if (panel && panel !== 'none') restore.current = panel;
   // The rail stands beside the tool it opens, so the panel needs room for both.
   // What the tool beside the rail needs, measured from its own buttons
   // rather than assumed — see usePanelBodyMin.
@@ -235,7 +240,7 @@ export default function LeftPanel({
   }, [panel, desktop, drives.length]);
 
   useEffect(() => {
-    if (panel !== 'library' || !folderRoot || !desktop) return;
+    if (panel !== 'library' || !folderRoot || (!desktop && !isArchiveDirPath(folderRoot))) return;
     let alive = true;
     setRootBusy(true);
     loadFolder(folderRoot)
@@ -249,7 +254,35 @@ export default function LeftPanel({
     onSearch(query);
   }, [onSearch, query]);
 
-  if (panel === 'none') return null;
+  const active = TABS.find((tab) => tab.id === (panel === 'none' ? restore.current : panel)) || TABS[0];
+  const ActiveIcon = active.icon;
+
+  if (panel === 'none') {
+    return (
+      <aside className="side-panel left collapsed" aria-label={t('panel.left')}>
+        <div className="panel-foldbar">
+          <button
+            type="button"
+            className="panel-fold"
+            onClick={() => onPanel(restore.current)}
+            title={t('panel.unfold')}
+            aria-label={t('panel.unfold')}
+          >
+            <IconChevron size={16} />
+          </button>
+          <button
+            type="button"
+            className="panel-title"
+            onClick={() => onPanel(restore.current)}
+            title={t(active.label)}
+          >
+            <ActiveIcon size={16} />
+            <span className="panel-title-text">{t(active.label)}</span>
+          </button>
+        </div>
+      </aside>
+    );
+  }
 
   const rows = flattenToc(toc || []);
   // The reader's own folder is offered as a place to start, but it is not one
@@ -297,6 +330,22 @@ export default function LeftPanel({
         ))}
       </div>
 
+      <div className="panel-column">
+      <div className="panel-foldbar">
+        <div className="panel-title">
+          <ActiveIcon size={16} />
+          <span className="panel-title-text">{t(active.label)}</span>
+        </div>
+        <button
+          type="button"
+          className="panel-fold"
+          onClick={() => onPanel('none')}
+          title={t('panel.fold')}
+          aria-label={t('panel.fold')}
+        >
+          <IconChevron className="point-left" size={16} />
+        </button>
+      </div>
       <div className="panel-body" role="tabpanel" ref={bodyRef} aria-label={t(TAB_LABEL[panel] || 'panel.left')}>
         {panel === 'contents' ? (
           !book ? <p className="panel-note">{t('panel.empty')}</p> : (
@@ -369,11 +418,11 @@ export default function LeftPanel({
                 </div>
               </>
             ) : null}
-            {!desktop ? <p className="panel-note">{t('panel.folderWeb')}</p> : null}
+            {!desktop && !isArchiveDirPath(folderRoot) ? <p className="panel-note">{t('panel.folderWeb')}</p> : null}
             {desktop && !folderRoot ? <p className="panel-note">{t('panel.noFolder')}</p> : null}
             {folderRoot ? (
               <>
-                <p className="panel-head" title={folderRoot}>{folderLabel(folderRoot)}</p>
+                <p className="panel-head" title={archiveFolderTitle(folderRoot) || folderRoot}>{archiveFolderTitle(folderRoot) || folderLabel(folderRoot)}</p>
                 <ul className="tree-list">
                   {rootBusy ? <li className="tree-note">…</li> : null}
                   {roots.map((entry) => (
@@ -652,6 +701,7 @@ export default function LeftPanel({
             ) : null}
           </>
         ) : null}
+      </div>
       </div>
 
       <Resizer width={shown} onResize={onResize} side="left" min={minWidth} />

@@ -110,6 +110,7 @@ describe('packaging', () => {
     const mime = pkg.build.linux.desktop.MimeType;
     expect(mime).toContain('application/epub+zip');
     expect(mime).toContain('application/pdf');
+    expect(mime).toContain('image/vnd.djvu');
     expect(mime).toContain('x-myebookreader-library');
   });
 });
@@ -141,7 +142,7 @@ describe('the NSIS installer script', () => {
     // The installer walks one list per kind, so a format that is readable but
     // missing from them is offered in neither "Open with" nor Default apps.
     const books = nsh.slice(nsh.indexOf('!macro EbkEachBookFormat'), nsh.indexOf('!macro EbkEachPictureFormat'));
-    for (const ext of ['.epub', '.pdf', '.mobi', '.prc', '.azw', '.azw3', '.fb2', '.cbz', '.cbr',
+    for (const ext of ['.epub', '.pdf', '.djvu', '.djv', '.mobi', '.prc', '.azw', '.azw3', '.fb2', '.cbz', '.cbr',
       '.md', '.markdown', '.mdown', '.html', '.htm', '.xhtml', '.txt', '.text', '.log']) {
       expect(books, ext).toContain(`"${ext}"`);
     }

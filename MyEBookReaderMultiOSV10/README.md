@@ -14,10 +14,12 @@
 | --- | --- | --- |
 | EPUB 2 / 3 | `.epub` | 자체 ZIP·DEFLATE 구현 + OPF·NCX·NAV 해석 (목차 · 표지 · 그림 · 내부 링크) |
 | PDF | `.pdf` | pdf.js — 쪽 단위 캔버스 렌더링, 선택 가능한 텍스트 층, 문서 목차 |
+| DjVu | `.djvu` `.djv` | djvu-rs(WebAssembly) — 쪽 단위 캔버스 렌더링, 텍스트 층이 있으면 검색·선택 |
 | MOBI / AZW | `.mobi` `.prc` `.azw` | Palm 데이터베이스, **압축 3종 모두**(무압축 · PalmDOC LZ77 · HUFF/CDIC), EXTH 메타데이터, 내장 그림 |
 | AZW3 / KF8 | `.azw3` (그리고 일부 `.azw`) | **KF8 자체 판독** — FDST 흐름 분리, 골격·조각(SKEL/FRAG) 인덱스로 XHTML 파트 재조립, `kindle:embed:`/`kindle:pos:` 해석, 내장 그림·글꼴. MOBI 6과 KF8이 함께 든 파일(EXTH 121)은 **KF8 쪽을 읽고**, 그쪽이 손상되면 옛 쪽으로 물러납니다 |
 | FictionBook | `.fb2` | XML 본문을 HTML로 변환, `<binary>` 그림 복원 |
 | 만화책 | `.cbz` | ZIP 안의 그림을 쪽 단위로 (자연 정렬: page2 → page10) |
+| 압축 파일 | `.zip` `.tar` `.gz` `.tgz` | 디스크에 풀지 않고, 여는 동안만 풀어서 안의 책과 그림을 서재에 보여 줍니다 |
 | Markdown | `.md` | 자체 렌더러 (제목 · 목록 · 표 · 코드 · 인용 · 링크 · 그림) |
 | HTML | `.html` `.htm` `.xhtml` | 제목 기준으로 장 분리 |
 | 텍스트 | `.txt` | 장 제목("제3장", "Chapter 3") 또는 크기로 분리, 인코딩 자동 판별 |
@@ -26,7 +28,7 @@
 | DICOM | `.dcm` | 자체 파서 — 태그·전송 구문 해석, 윈도 레벨 적용, 환자·검사 정보 표시 |
 | 독서 파일 | `.ebkr` | 이 프로그램의 **문서 형식** — 책갈피 · 형광펜 · 메모 · 읽던 위치 |
 
-> 외부 의존성은 PDF를 위한 `pdfjs-dist` 하나뿐입니다. ZIP · DEFLATE · MOBI ·
+> 외부 의존성은 PDF를 위한 `pdfjs-dist`와 DjVu를 위한 `djvu-rs`(MIT, WebAssembly)입니다. ZIP · DEFLATE · MOBI ·
 > **KF8(INDX/TAGX/CNCX · FDST · SKEL/FRAG)** · **HUFF/CDIC** · FB2 · Markdown
 > 해석기는 모두 이 저장소 안에 있습니다.
 >

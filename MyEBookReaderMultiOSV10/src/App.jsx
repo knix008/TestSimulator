@@ -29,6 +29,11 @@ import {
   win as platformWin,
 } from './lib/platform.js';
 import { openBook, isLibraryName, LIBRARY_EXT } from './lib/book.js';
+import { isArchiveFileName } from './lib/folders.js';
+import { looksLikeEpub } from './lib/epub.js';
+import {
+  adoptArchive, archiveDirPath, isArchiveMemberPath, listArchive, readArchiveFile, shouldBrowseArchive,
+} from './lib/archive.js';
 import {
   loadSettings, persistSettings, DEFAULT_SETTINGS, addRecentFile, removeRecentFile,
   updateRecentFile, addRecentDir, applyFontSettings, applyTheme, clampPanelWidth,
@@ -388,7 +393,8 @@ export default function App() {
 
   // ── Opening ────────────────────────────────────────────
   const rememberOpened = useCallback((opened) => {
-    const dir = opened.filePath ? dirName(opened.filePath) : '';
+    const onDisk = opened.filePath && !isArchiveMemberPath(opened.filePath) ? opened.filePath : '';
+    const dir = onDisk ? dirName(onDisk) : '';
     // The gallery keeps every book that was read; the recent list keeps the
     // last ten, for the File menu.
     const entry = galleryEntry(opened, { dir });
@@ -396,21 +402,49 @@ export default function App() {
     setSettings((s) => ({
       ...s,
       recentFiles: addRecentFile(s.recentFiles, {
-        path: opened.filePath || null,
+        path: onDisk || null,
         name: opened.fileName,
-        dir: opened.filePath ? dirName(opened.filePath) : '',
+        dir,
         size: opened.fileSize,
         format: opened.format,
         section: 0,
       }),
-      recentDirs: opened.filePath ? addRecentDir(s.recentDirs, dirName(opened.filePath)) : s.recentDirs,
-      lastDir: opened.filePath ? dirName(opened.filePath) : s.lastDir,
+      recentDirs: onDisk ? addRecentDir(s.recentDirs, dir) : s.recentDirs,
+      lastDir: onDisk ? dir : s.lastDir,
     }));
   }, [editShelf]);
+
+  const showArchive = useCallback((payload) => {
+    const id = adoptArchive({
+      data: payload.data,
+      name: payload.name || '',
+      path: payload.path || '',
+    });
+    const entries = listArchive(id, '');
+    const label = payload.name || payload.path || '';
+    setSettings((s) => ({
+      ...s,
+      folderRoot: archiveDirPath(id, ''),
+      leftPanel: 'library',
+      lastDir: payload.path ? dirName(payload.path) : s.lastDir,
+    }));
+    const message = entries.length
+      ? t('status.archiveOpened', { name: label })
+      : t('status.archiveEmpty', { name: label });
+    setStatusMessage(message);
+    toast(message, entries.length ? 'ok' : 'warn');
+  }, [t, toast]);
 
   const openPayload = useCallback(async (payload, { restore } = {}) => {
     const { data, name, path: filePath, size } = payload;
     try {
+      if (isArchiveFileName(name) && !looksLikeEpub(data, '')) {
+        if (!shouldBrowseArchive(data, name)) {
+          throw new Error(t('error.archive'));
+        }
+        showArchive({ data, name, path: filePath || '' });
+        return null;
+      }
       const opened = await withProgress('parsing', name, (onProgress) => openBook({
         data,
         name,
@@ -481,7 +515,7 @@ export default function App() {
       fail(err, 'open', { file: filePath || name });
       return null;
     }
-  }, [fail, history, openDialog, parkCurrentTab, rememberOpened, switchToTab, t, toast, withProgress]);
+  }, [fail, history, openDialog, parkCurrentTab, rememberOpened, showArchive, switchToTab, t, toast, withProgress]);
 
   /** Opens an .ebkr reading file: loads the book it names, then the marks. */
   const openLibraryFile = useCallback(async (text, ownPath) => {
@@ -504,6 +538,11 @@ export default function App() {
     try {
       if (isLibraryName(filePath)) {
         await openLibraryFile(await readTextPath(filePath), filePath);
+        return;
+      }
+      if (isArchiveMemberPath(filePath)) {
+        const member = readArchiveFile(filePath);
+        await openPayload({ data: member.data, name: member.name, path: filePath, size: member.size });
         return;
       }
       const payload = await withProgress('opening', baseName(filePath), (onProgress) =>
@@ -1049,6 +1088,13 @@ export default function App() {
       });
       return { previewImage: image, previewHtml: '', previewTitle: title };
     }
+    if (current.format === 'djvu' && current.djvu) {
+      const { renderDjvuPagesToImages } = await import('./lib/djvu.js');
+      const [image] = await renderDjvuPagesToImages({
+        doc: current.djvu, pages: [page], rotation: settingsRef.current.rotation, scale: 1.2, quality: 0.8,
+      });
+      return { previewImage: image, previewHtml: '', previewTitle: title };
+    }
     const loaded = current.loadSection(page - 1);
     if (loaded.kind === 'image') {
       return {
@@ -1089,6 +1135,21 @@ export default function App() {
         if (current.format === 'pdf' && current.pdf) {
           const images = await renderPdfPagesToImages({
             doc: current.pdf,
+            pages: request.pages,
+            rotation: settingsRef.current.rotation,
+            onProgress,
+          });
+          html = buildImagePrintHtml({
+            images,
+            title: current.meta.title || current.fileName,
+            paper: request.paper,
+            landscape: request.landscape,
+            marginMm: request.marginMm,
+          });
+        } else if (current.format === 'djvu' && current.djvu) {
+          const { renderDjvuPagesToImages } = await import('./lib/djvu.js');
+          const images = await renderDjvuPagesToImages({
+            doc: current.djvu,
             pages: request.pages,
             rotation: settingsRef.current.rotation,
             onProgress,
@@ -1350,6 +1411,10 @@ export default function App() {
   // ── Recent files ───────────────────────────────────────
   const openRecent = useCallback(async (entry) => {
     if (!entry?.path) { toast(t('recent.missing'), 'warn'); return; }
+    if (isArchiveMemberPath(entry.path)) {
+      openByPathRef.current(entry.path);
+      return;
+    }
     if (isElectron && !(await pathExists(entry.path))) {
       fail(new Error(`${t('recent.missing')}:\n${entry.path}`), 'read', { file: entry.path });
       setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, entry.path) }));

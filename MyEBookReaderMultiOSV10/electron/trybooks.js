@@ -88,7 +88,7 @@ async function readOne(win, file) {
 
   const format = await evaluate(win, `return (() => {
     const cells = [...document.querySelectorAll('.statusbar .st-cell')].map((c) => c.textContent.trim());
-    return cells.find((c) => /^(EPUB|PDF|MOBI|AZW3|FictionBook|Comic|Markdown|HTML|Text|Image)/i.test(c)) || '?';
+    return cells.find((c) => /^(EPUB|PDF|DJVU|DjVu|MOBI|AZW3|FictionBook|Comic|Markdown|HTML|Text|Image)/i.test(c)) || '?';
   })()`);
 
   // Turning a page, and turning it back.

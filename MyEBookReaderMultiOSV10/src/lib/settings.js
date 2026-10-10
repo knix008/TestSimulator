@@ -6,7 +6,7 @@
 // theme, the language, the reading typography, the panels, the gallery of books
 // that have been read, the folders that were open and where each book was left.
 import { loadPersistedState, writeLocalState, readLocalState } from './platform.js';
-import { READING_WIDTHS } from './view.js';
+import { READING_WIDTHS, clampPageWidth, clampPageHeight } from './view.js';
 import { GALLERY_VIEWS, GALLERY_SORTS, MAX_GALLERY } from './gallery.js';
 
 export const MAX_RECENT_FILES = 10;
@@ -68,6 +68,12 @@ export const DEFAULT_SETTINGS = {
   // pageMode / pageFlow / spread settings still say how the book opens.
   viewLayout: '',
   pageTurn: 'slide',         // none | slide | flip — the page-turning effect
+  // How big one page of a reflowable book is. One of the five sizes, or
+  // `custom` once the reader types a width and a height of their own.
+  // Ordinary (`md`) is 720×780; two facing pages of a preset are taller.
+  pagePreset: 'md',          // xs | sm | md | lg | xl | custom
+  pageWidth: 720,
+  pageHeight: 780,
 
   // ── Viewing (fixed-layout formats: PDF, comics) ──
   zoomMode: 'fit-page',      // fit-page | fit-width | fit-height | actual | custom
@@ -125,6 +131,7 @@ const ENUMS = {
   pageFlow: ['paged', 'scroll'],
   viewLayout: ['', 'single', 'double', 'continuous'],
   pageTurn: ['none', 'slide', 'flip'],
+  pagePreset: ['xs', 'sm', 'md', 'lg', 'xl', 'custom'],
   zoomMode: ['fit-width', 'fit-height', 'fit-page', 'actual', 'custom'],
   spread: ['single', 'double'],
   selectMode: ['text', 'picture', 'region'],
@@ -189,6 +196,8 @@ export function normalize(raw) {
   if (!READING_WIDTHS.includes(out.readingWidth)) {
     out.readingWidth = Math.min(1400, Math.max(0, Math.round(out.readingWidth)));
   }
+  out.pageWidth = clampPageWidth(out.pageWidth);
+  out.pageHeight = clampPageHeight(out.pageHeight);
   return out;
 }
 
@@ -263,6 +272,9 @@ export function viewSettingsOf(settings) {
     columns: settings.columns,
     twoColumns: settings.twoColumns,
     pageTurn: settings.pageTurn,
+    pagePreset: settings.pagePreset,
+    pageWidth: settings.pageWidth,
+    pageHeight: settings.pageHeight,
     zoomMode: settings.zoomMode,
     zoom: settings.zoom,
     rotation: settings.rotation,

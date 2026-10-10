@@ -43,7 +43,7 @@ describe('detectFormat', () => {
 
 describe('format catalogue', () => {
   it('offers every format the app claims to read', () => {
-    expect(FORMATS.map((f) => f.id)).toEqual(['epub', 'pdf', 'mobi', 'fb2', 'cbz', 'md', 'html', 'txt', 'image']);
+    expect(FORMATS.map((f) => f.id)).toEqual(['epub', 'pdf', 'djvu', 'mobi', 'fb2', 'cbz', 'md', 'html', 'txt', 'image']);
   });
 
   it('counts pictures as fixed-layout pages', () => {
@@ -55,11 +55,14 @@ describe('format catalogue', () => {
 
   it('marks PDF and comics as fixed-layout', () => {
     expect(formatById('pdf').reflowable).toBe(false);
+    expect(formatById('djvu').reflowable).toBe(false);
+    expect(formatById('djvu').ext).toEqual(['djvu', 'djv']);
     expect(formatById('cbz').reflowable).toBe(false);
     expect(formatById('epub').reflowable).toBe(true);
   });
 
   it('lists the extensions used by the open dialog', () => {
+    expect(BOOK_EXTENSIONS).toContain('djvu');
     expect(BOOK_EXTENSIONS).toContain('epub');
     expect(BOOK_EXTENSIONS).toContain('azw3');
     expect(BOOK_EXTENSIONS).not.toContain(LIBRARY_EXT);

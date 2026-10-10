@@ -1,14 +1,27 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  IconInfo, IconTextSize, IconCover,
+  IconInfo, IconTextSize, IconCover, IconChevron,
 } from './Icons.jsx';
-import { READING_WIDTHS, viewLayoutOf, viewLayoutSettings, textColumnsOf, columnChoice, readingStyle, fontPixels, fontScaleOf, FONT_SCALE_MIN, FONT_SCALE_MAX } from '../lib/view.js';
+import {
+  READING_WIDTHS, viewLayoutOf, viewLayoutSettings, textColumnsOf, columnChoice, readingStyle,
+  fontPixels, fontScaleOf, FONT_SCALE_MIN, FONT_SCALE_MAX,
+  PAGE_PRESETS, PAGE_WIDTH_MIN, PAGE_WIDTH_MAX, PAGE_HEIGHT_MIN, PAGE_HEIGHT_MAX,
+  ebookPageOf, pageChoiceOf, pagePresetSettings, pageCustomSettings,
+} from '../lib/view.js';
 import { PANEL_WIDTH_MAX } from '../lib/settings.js';
 import { usePanelMinWidth, usePanelBodyMin, clampToPanelMin } from './panelWidth.js';
 import { formatBytes } from '../lib/platform.js';
 import { getSystemFonts } from '../lib/fonts.js';
 import { coverPageOf } from '../lib/coverpage.js';
+
+const PAGE_LABEL = {
+  xs: 'reading.pageXs',
+  sm: 'reading.pageSm',
+  md: 'reading.pageMd',
+  lg: 'reading.pageLg',
+  xl: 'reading.pageXl',
+};
 
 // The right panel: the properties of what you are reading, and the knobs that
 // change how it looks. Everything here is one row per item, so the panel reads
@@ -64,7 +77,28 @@ function Cover({ book, show, settings }) {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || page?.kind !== 'pdf' || !book?.pdf) return undefined;
+    if (!canvas || (page?.kind !== 'pdf' && page?.kind !== 'djvu')) return undefined;
+    if (page.kind === 'djvu') {
+      if (!book?.djvu) return undefined;
+      let cancelled = false;
+      (async () => {
+        try {
+          const { paintDjvuPage, djvuPageSize } = await import('../lib/djvu.js');
+          if (cancelled) return;
+          const size = djvuPageSize(book.djvu, page.page || 1);
+          const scale = Math.min(1.5, 320 / Math.max(1, size.width));
+          await paintDjvuPage({
+            doc: book.djvu, pageNumber: page.page || 1, canvas, scale, dpr: 1,
+          });
+          canvas.style.width = '';
+          canvas.style.height = '';
+        } catch {
+          // A cover that will not paint is a cover the panel does without.
+        }
+      })();
+      return () => { cancelled = true; };
+    }
+    if (!book?.pdf) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -109,7 +143,7 @@ function Cover({ book, show, settings }) {
   return (
     <div className={`cover-wrap${page.source === 'first' ? ' first' : ''}`} title={label} ref={wrapRef}>
       {page.kind === 'image' ? <img className="cover-image" src={page.src} alt={label} /> : null}
-      {page.kind === 'pdf' ? <canvas className="cover-image" ref={canvasRef} aria-label={label} /> : null}
+      {page.kind === 'pdf' || page.kind === 'djvu' ? <canvas className="cover-image" ref={canvasRef} aria-label={label} /> : null}
       {page.kind === 'html' && fit ? (
         <div className="cover-page live" style={{ height: `${fit.pageH * fit.scale}px` }} aria-label={label}>
           {/* The reading screen's own page, at its own size, then scaled to the
@@ -180,7 +214,7 @@ function Resizer({ width, onResize, min }) {
  * left or Enter is pressed: clamping every keystroke makes "1" become the
  * minimum before the "2" of "12" has been typed.
  */
-function Stepper({ value, min, max, step = 1, unit = '', decimals = 0, onChange, label }) {
+function Stepper({ value, min, max, step = 1, unit = '', decimals = 0, onChange, label, disabled = false }) {
   const { t } = useTranslation();
   const [typing, setTyping] = useState(null);
   const shown = typing != null ? typing : value.toFixed(decimals);
@@ -205,7 +239,7 @@ function Stepper({ value, min, max, step = 1, unit = '', decimals = 0, onChange,
         type="button"
         className="stepper-btn"
         onClick={() => nudge(-1)}
-        disabled={value <= min}
+        disabled={disabled || value <= min}
         title={`${label} − ${step}${unit}`}
         aria-label={`${label} ${t('common.less')}`}
       >
@@ -227,12 +261,13 @@ function Stepper({ value, min, max, step = 1, unit = '', decimals = 0, onChange,
         }}
         title={`${label} (${min}${unit} – ${max}${unit})`}
         aria-label={label}
+        disabled={disabled}
       />
       <button
         type="button"
         className="stepper-btn"
         onClick={() => nudge(1)}
-        disabled={value >= max}
+        disabled={disabled || value >= max}
         title={`${label} + ${step}${unit}`}
         aria-label={`${label} ${t('common.more')}`}
       >
@@ -242,9 +277,10 @@ function Stepper({ value, min, max, step = 1, unit = '', decimals = 0, onChange,
   );
 }
 
-function Row({ label, children, title }) {
+function Row({ label, children, title, stack = false, fit = false }) {
+  const kind = stack ? ' stack' : (fit ? ' fit' : '');
   return (
-    <div className="prop-row" title={title || label}>
+    <div className={`prop-row${kind}`} title={title || label}>
       <span className="prop-label">{label}</span>
       <span className="prop-value">{children}</span>
     </div>
@@ -262,16 +298,52 @@ export default function RightPanel({
   const bodyMin = usePanelBodyMin(bodyRef, [i18n.language, panel]);
   const minWidth = Math.max(usePanelMinWidth(tabsRef, [i18n.language]), bodyMin);
   const [fonts, setFonts] = useState([]);
+  // The tab to open again after the panel is folded. A panel that starts
+  // closed comes back on the properties.
+  const restore = useRef(panel && panel !== 'none' ? panel : 'properties');
+  if (panel && panel !== 'none') restore.current = panel;
 
   useEffect(() => {
     if (panel !== 'reading') return;
     getSystemFonts().then(setFonts).catch(() => setFonts([]));
   }, [panel]);
 
-  if (panel === 'none') return null;
+  const active = TABS.find((tab) => tab.id === (panel === 'none' ? restore.current : panel)) || TABS[0];
+  const ActiveIcon = active.icon;
+
+  if (panel === 'none') {
+    return (
+      <aside className="side-panel right collapsed" aria-label={t('panel.right')}>
+        <div className="panel-foldbar">
+          <button
+            type="button"
+            className="panel-fold"
+            onClick={() => onPanel(restore.current)}
+            title={t('panel.unfold')}
+            aria-label={t('panel.unfold')}
+          >
+            <IconChevron className="point-left" size={16} />
+          </button>
+          <button
+            type="button"
+            className="panel-title"
+            onClick={() => onPanel(restore.current)}
+            title={t(active.label)}
+          >
+            <ActiveIcon size={16} />
+            <span className="panel-title-text">{t(active.label)}</span>
+          </button>
+        </div>
+      </aside>
+    );
+  }
 
   const set = (patch) => onSettings({ ...settings, ...patch });
   const meta = book?.meta || {};
+  // A PDF page already has a size. These controls are the page of a book
+  // whose text is poured — EPUB, MOBI and the other reflowable formats.
+  const pageFixed = !!book && book.reflowable === false;
+  const pageShown = ebookPageOf(viewLayoutOf(settings, book), pageChoiceOf(settings));
   const shown = Math.max(width, minWidth);
 
   return (
@@ -281,6 +353,22 @@ export default function RightPanel({
       aria-label={t('panel.right')}
     >
       <Resizer width={shown} onResize={onResize} min={minWidth} />
+
+      <div className="panel-foldbar">
+        <button
+          type="button"
+          className="panel-fold"
+          onClick={() => onPanel('none')}
+          title={t('panel.fold')}
+          aria-label={t('panel.fold')}
+        >
+          <IconChevron size={16} />
+        </button>
+        <div className="panel-title">
+          <ActiveIcon size={16} />
+          <span className="panel-title-text">{t(active.label)}</span>
+        </div>
+      </div>
 
       <div className="panel-tabs" role="tablist" aria-label={t('panel.right')} ref={tabsRef}>
         {TABS.map((tab) => (
@@ -336,7 +424,7 @@ export default function RightPanel({
 
         {panel === 'reading' ? (
           <>
-            <Row label={t('reading.font')}>
+            <Row stack label={t('reading.font')}>
               <select
                 className="input small"
                 value={settings.readerFont}
@@ -347,7 +435,7 @@ export default function RightPanel({
                 {fonts.map((font) => <option key={font} value={font}>{font}</option>)}
               </select>
             </Row>
-            <Row label={t('reading.size')}>
+            <Row stack label={t('reading.size')}>
               <Stepper
                 label={t('reading.size')}
                 value={fontPixels(settings.fontScale)}
@@ -358,7 +446,7 @@ export default function RightPanel({
                 onChange={(v) => set({ fontScale: fontScaleOf(v) })}
               />
             </Row>
-            <Row label={t('reading.lineHeight')}>
+            <Row stack label={t('reading.lineHeight')}>
               <Stepper
                 label={t('reading.lineHeight')}
                 value={settings.lineHeight}
@@ -369,7 +457,7 @@ export default function RightPanel({
                 onChange={(v) => set({ lineHeight: v })}
               />
             </Row>
-            <Row label={t('reading.width')}>
+            <Row stack label={t('reading.width')}>
               <select
                 className="input small"
                 value={String(settings.readingWidth)}
@@ -381,7 +469,7 @@ export default function RightPanel({
                 ))}
               </select>
             </Row>
-            <Row label={t('reading.gap')}>
+            <Row stack label={t('reading.gap')}>
               <Stepper
                 label={t('reading.gap')}
                 value={settings.paragraphGap}
@@ -393,7 +481,7 @@ export default function RightPanel({
                 onChange={(v) => set({ paragraphGap: v })}
               />
             </Row>
-            <Row label={t('reading.letter')}>
+            <Row stack label={t('reading.letter')}>
               <Stepper
                 label={t('reading.letter')}
                 value={settings.letterSpacing}
@@ -405,8 +493,8 @@ export default function RightPanel({
                 onChange={(v) => set({ letterSpacing: v })}
               />
             </Row>
-            <Row label={t('reading.style')}>
-              <span className="seg-row">
+            <Row stack label={t('reading.style')}>
+              <span className="seg-row compact">
                 <button
                   type="button"
                   className={`btn seg${settings.readerBold ? ' active' : ''}`}
@@ -430,7 +518,7 @@ export default function RightPanel({
                 >U</button>
               </span>
             </Row>
-            <Row label={t('reading.justify')}>
+            <Row fit label={t('reading.justify')}>
               <input
                 type="checkbox"
                 checked={settings.justify}
@@ -438,7 +526,7 @@ export default function RightPanel({
                 title={t('reading.justify')}
               />
             </Row>
-            <Row label={t('reading.indent')}>
+            <Row fit label={t('reading.indent')}>
               <input
                 type="checkbox"
                 checked={settings.paragraphIndent}
@@ -446,9 +534,55 @@ export default function RightPanel({
                 title={t('reading.indent')}
               />
             </Row>
-            <Row label={t('reading.layout')}>
+            <Row
+              stack
+              label={t('reading.page')}
+              title={pageFixed ? t('reading.pageFixed') : t('reading.pageHint')}
+            >
+              <select
+                className="input small"
+                value={settings.pagePreset || 'md'}
+                disabled={pageFixed}
+                aria-label={t('reading.page')}
+                title={pageFixed ? t('reading.pageFixed') : t('reading.pageHint')}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  set(id === 'custom' ? pageCustomSettings(pageShown) : pagePresetSettings(id));
+                }}
+              >
+                {PAGE_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>{t(PAGE_LABEL[preset.id])}</option>
+                ))}
+                <option value="custom">{t('reading.pageCustom')}</option>
+              </select>
+            </Row>
+            <Row stack label={t('reading.pageWidth')}>
+              <Stepper
+                label={t('reading.pageWidth')}
+                value={pageShown.width}
+                min={PAGE_WIDTH_MIN}
+                max={PAGE_WIDTH_MAX}
+                step={10}
+                unit="px"
+                disabled={pageFixed}
+                onChange={(n) => set(pageCustomSettings(pageShown, { width: n }))}
+              />
+            </Row>
+            <Row stack label={t('reading.pageHeight')}>
+              <Stepper
+                label={t('reading.pageHeight')}
+                value={pageShown.height}
+                min={PAGE_HEIGHT_MIN}
+                max={PAGE_HEIGHT_MAX}
+                step={10}
+                unit="px"
+                disabled={pageFixed}
+                onChange={(n) => set(pageCustomSettings(pageShown, { height: n }))}
+              />
+            </Row>
+            <Row stack label={t('reading.layout')}>
               <span className="seg-row">
-                {['single', 'double', 'continuous'].map((layout) => (
+                {[['single', 'reading.single'], ['double', 'reading.double'], ['continuous', 'reading.scroll']].map(([layout, label]) => (
                   <button
                     key={layout}
                     type="button"
@@ -456,11 +590,11 @@ export default function RightPanel({
                     aria-pressed={viewLayoutOf(settings, book) === layout}
                     onClick={() => set(viewLayoutSettings(layout))}
                     title={t(`cmd.view${layout[0].toUpperCase()}${layout.slice(1)}`)}
-                  >{t(`cmd.view${layout[0].toUpperCase()}${layout.slice(1)}`)}</button>
+                  >{t(label)}</button>
                 ))}
               </span>
             </Row>
-            <Row label={t('reading.columns')}>
+            <Row stack label={t('reading.columns')}>
               <span className="seg-row">
                 {[1, 2].map((count) => {
                   const layout = viewLayoutOf(settings, book);
@@ -480,7 +614,7 @@ export default function RightPanel({
                 })}
               </span>
             </Row>
-            <Row label={t('reading.turn')}>
+            <Row stack label={t('reading.turn')}>
               <select
                 className="input small"
                 value={settings.pageTurn}
@@ -493,7 +627,7 @@ export default function RightPanel({
                 <option value="flip">{t('reading.turnFlip')}</option>
               </select>
             </Row>
-            <Row label={t('reading.invert')}>
+            <Row fit label={t('reading.invert')}>
               <input
                 type="checkbox"
                 checked={settings.invertPages}

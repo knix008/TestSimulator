@@ -48,6 +48,8 @@
 !macro EbkEachBookFormat ACTION
   !insertmacro ${ACTION} ".epub"
   !insertmacro ${ACTION} ".pdf"
+  !insertmacro ${ACTION} ".djvu"
+  !insertmacro ${ACTION} ".djv"
   !insertmacro ${ACTION} ".mobi"
   !insertmacro ${ACTION} ".prc"
   !insertmacro ${ACTION} ".azw"
@@ -172,7 +174,7 @@ Function ShortcutsPageCreate
     Pop $DesktopShortcutCheckbox
     ${NSD_CreateCheckbox} 0 52u 100% 12u "시작 메뉴에 바로가기 만들기"
     Pop $StartMenuShortcutCheckbox
-    ${NSD_CreateCheckbox} 0 70u 100% 12u "책·문서 형식의 기본 프로그램으로 설정 (EPUB·PDF·MOBI·AZW·FB2·CBZ·CBR·Markdown·HTML·텍스트)"
+    ${NSD_CreateCheckbox} 0 70u 100% 12u "책·문서 형식의 기본 프로그램으로 설정 (EPUB·PDF·DJVU·MOBI·AZW·FB2·CBZ·CBR·Markdown·HTML·텍스트)"
     Pop $DefaultBooksCheckbox
     ${NSD_CreateCheckbox} 0 88u 100% 12u "그림 형식의 기본 프로그램으로 설정 (JPG·PNG·GIF·WEBP·BMP·AVIF·SVG·TIFF·HEIC·ICO·DICOM)"
     Pop $DefaultPicturesCheckbox
@@ -185,7 +187,7 @@ Function ShortcutsPageCreate
     Pop $DesktopShortcutCheckbox
     ${NSD_CreateCheckbox} 0 52u 100% 12u "Create Start Menu shortcut"
     Pop $StartMenuShortcutCheckbox
-    ${NSD_CreateCheckbox} 0 70u 100% 12u "Make it the default for books and documents (EPUB, PDF, MOBI, AZW, FB2, CBZ, CBR, Markdown, HTML, text)"
+    ${NSD_CreateCheckbox} 0 70u 100% 12u "Make it the default for books and documents (EPUB, PDF, DJVU, MOBI, AZW, FB2, CBZ, CBR, Markdown, HTML, text)"
     Pop $DefaultBooksCheckbox
     ${NSD_CreateCheckbox} 0 88u 100% 12u "Make it the default for pictures (JPG, PNG, GIF, WEBP, BMP, AVIF, SVG, TIFF, HEIC, ICO, DICOM)"
     Pop $DefaultPicturesCheckbox
@@ -335,6 +337,8 @@ FunctionEnd
     !insertmacro EbkEachBookFormat EbkMakeDefaultBook
     WriteRegStr HKCU "Software\Classes\.epub" "Content Type" "application/epub+zip"
     WriteRegStr HKCU "Software\Classes\.pdf" "Content Type" "application/pdf"
+    WriteRegStr HKCU "Software\Classes\.djvu" "Content Type" "image/vnd.djvu"
+    WriteRegStr HKCU "Software\Classes\.djv" "Content Type" "image/vnd.djvu"
   ${EndIf}
   ${If} $DoSetDefaultPictures == "1"
     !insertmacro EbkEachPictureFormat EbkMakeDefaultPicture

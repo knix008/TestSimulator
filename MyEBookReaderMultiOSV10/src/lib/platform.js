@@ -7,14 +7,15 @@
 //
 // Every long-running operation (open / save / download) reports progress so the
 // UI can put a progress dialog in front of the user.
-import { toFolderEntries } from './folders.js';
+import { toFolderEntries, isArchiveFileName, ARCHIVE_EXTENSIONS } from './folders.js';
 import { BOOK_EXTENSIONS, LIBRARY_EXT } from './book.js';
+import { adoptArchive, listArchive, listOpenArchive } from './archive.js';
 
 export const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
 export const isElectron = !!(api && api.isElectron);
 
 /** The accept list for the web file picker. */
-export const ACCEPT_BOOKS = [...BOOK_EXTENSIONS, LIBRARY_EXT].map((ext) => `.${ext}`).join(',');
+export const ACCEPT_BOOKS = [...BOOK_EXTENSIONS, LIBRARY_EXT, ...ARCHIVE_EXTENSIONS].map((ext) => `.${ext}`).join(',');
 
 // ── Progress plumbing ─────────────────────────────────────
 const progressHandlers = new Map();
@@ -191,7 +192,22 @@ export async function pickDirectory(defaultDir) {
 }
 
 export async function listDirectory(dirPath) {
-  if (!isElectron || !dirPath) return [];
+  if (!dirPath) return [];
+  try {
+    const opened = listOpenArchive(dirPath);
+    if (opened) return opened;
+  } catch { return []; }
+  if (isArchiveFileName(dirPath)) {
+    if (!isElectron) return [];
+    try {
+      const st = await statPath(dirPath);
+      if (!st || st.isDir) return [];
+      const payload = await readPath(dirPath);
+      const id = adoptArchive({ data: payload.data, name: payload.name || baseName(dirPath), path: dirPath });
+      return listArchive(id, '');
+    } catch { return []; }
+  }
+  if (!isElectron) return [];
   try { return toFolderEntries(await api.readDir(dirPath)); } catch { return []; }
 }
 

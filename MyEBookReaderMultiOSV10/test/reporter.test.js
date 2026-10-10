@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CATEGORIES, categoryOf, categoryLabel, fileStats, formatSummary, formatSummaryTable,
-  formatFileBlock, groupByCategory, totals, formatDuration, stripAnsi, paint, useColor,
+  formatFileBlock, formatProgressLine, groupByCategory, totals, formatDuration, stripAnsi, paint, useColor,
   testState, splitItemName, displayWidth, padDisplay,
 } from './reporters/summary.mjs';
 
@@ -107,6 +107,28 @@ describe('the summary', () => {
   it('says so plainly when everything passed', () => {
     const clean = [fileStats(file('zip.test.js', [{ name: 'a', state: 'pass' }]))];
     expect(stripAnsi(formatSummary(clean))).toContain('전체 성공');
+  });
+
+  it('prints a test on its own line while the run is still going', () => {
+    const line = stripAnsi(formatProgressLine({
+      index: 3,
+      total: 12,
+      file: 'epub.test.js',
+      item: { name: 'opening › opens a book', state: 'pass', ms: 4 },
+    }));
+    expect(line).toContain('3/12');
+    expect(line).toContain('✓');
+    expect(line).toContain('epub.test.js');
+    expect(line).toContain('opens a book');
+    expect(line).toContain('4ms');
+    const failed = stripAnsi(formatProgressLine({
+      index: 4,
+      total: 12,
+      file: 'view.test.js',
+      item: { name: 'layout › fits', state: 'fail', ms: 2, error: 'too wide' },
+    }));
+    expect(failed).toContain('✗');
+    expect(failed).toContain('too wide');
   });
 
   it('lists each test under its file, with the failure message', () => {

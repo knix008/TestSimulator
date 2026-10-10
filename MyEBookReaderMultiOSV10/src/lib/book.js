@@ -12,11 +12,13 @@ import { openFb2, looksLikeFb2 } from './fb2.js';
 import { openCbz, looksLikeCbz, isCbr } from './cbz.js';
 import { openTextBook } from './plaintext.js';
 import { openImageBook, IMAGE_EXTENSIONS, looksLikeImage, isImageName } from './imagebook.js';
+import { looksLikeDjvu } from './djvumagic.js';
 import { looksLikeZip } from './zip.js';
 
 export const FORMATS = [
   { id: 'epub', label: 'EPUB', ext: ['epub'], reflowable: true },
   { id: 'pdf', label: 'PDF', ext: ['pdf'], reflowable: false },
+  { id: 'djvu', label: 'DjVu', ext: ['djvu', 'djv'], reflowable: false },
   { id: 'mobi', label: 'MOBI', ext: ['mobi', 'prc', 'azw', 'azw3'], reflowable: true },
   { id: 'fb2', label: 'FictionBook', ext: ['fb2'], reflowable: true },
   { id: 'cbz', label: 'Comic book', ext: ['cbz', 'cbr'], reflowable: false },
@@ -63,6 +65,7 @@ export function detectFormat(data, name = '') {
   if (data && data.length > 4) {
     const head = new TextDecoder('latin1').decode(data.subarray(0, Math.min(2048, data.length)));
     if (head.includes('%PDF-')) return 'pdf';
+    if (looksLikeDjvu(data)) return 'djvu';
     if (looksLikeMobi(data, '')) return 'mobi';
     // A picture is recognised from its own magic, so a photo named .txt still
     // opens as a photo — except for SVG, which is XML and is named, not sniffed.
@@ -160,6 +163,8 @@ function wrap(source, { name, path, size }) {
     },
     /** The pdf.js document, for the fixed-layout renderer. Null otherwise. */
     pdf: source.pdf || null,
+    /** The DjVu document, for the fixed-layout renderer. Null otherwise. */
+    djvu: source.djvu || null,
     /** Pixel size of a picture, for the properties panel. Null otherwise. */
     imageInfo() { return source.imageInfo ? source.imageInfo() : null; },
     resourceUrl(p) {
@@ -214,6 +219,12 @@ export async function openBook({ data, name = '', path = '', size = 0, onProgres
       // the bundle, and a reader that only opens EPUBs should never pay for it.
       const { openPdfBook } = await import('./pdfbook.js');
       source = await openPdfBook(data, { name, onProgress, onPassword });
+      break;
+    }
+    case 'djvu': {
+      // The decoder is WebAssembly and is only fetched when a DjVu is opened.
+      const { openDjvuBook } = await import('./djvubook.js');
+      source = await openDjvuBook(data, { name });
       break;
     }
     case 'image':
