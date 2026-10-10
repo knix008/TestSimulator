@@ -42,6 +42,10 @@ export const MAIN_VIEW = { x1: 1000, y1: 300, x2: 4600, y2: 3200 };
 export const BENCH_VIEW = { x1: 1000, y1: 700, x2: 3400, y2: 2300 };
 
 async function searchLibrary(ctx, text) {
+  // A document edit rebuilds the library panel about 60ms later. Wait that out
+  // before taking the search box, or typed text lands on a detached input.
+  // Instant runs type in one shot, before that timer, so they must not wait.
+  if (!(ctx.app.tutorial && ctx.app.tutorial.instant)) await new Promise((r) => setTimeout(r, 90));
   const input = await ctx.waitFor(() => document.querySelector(".side.left .search input"));
   await ctx.type(input, text);
 }
@@ -139,7 +143,12 @@ function closeAllDialogs() {
 }
 
 async function openTab(ctx, tab) {
-  const btn = [...document.querySelectorAll("#tabbar .doc-tab")].find((b) => b.textContent.startsWith(ctx.app.t({ sch: "Schematic", pcb: "PCB", "3d": "3D View", sim: "Simulation", start: "Start" }[tab])));
+  const name = ctx.app.t({ sch: "Schematic", pcb: "PCB", "3d": "3D View", sim: "Simulation", start: "Start" }[tab]);
+  const tabs = [...document.querySelectorAll("#tabbar .doc-tab")];
+  // Several schematic sheets share the tab bar. Open the one already current
+  // so returning to the schematic view does not jump to another page.
+  const btn = tabs.find((b) => b.textContent.startsWith(name) && (tab !== "sch" || !b.dataset.page || b.dataset.page === ctx.app.sch.pageId))
+    || tabs.find((b) => b.textContent.startsWith(name));
   if (btn) await ctx.click(btn);
   else ctx.app.setTab(tab);
   await ctx.wait(300);

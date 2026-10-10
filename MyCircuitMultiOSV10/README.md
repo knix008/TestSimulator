@@ -31,7 +31,7 @@
 - 도구 모음 버튼은 숨겨지지 않습니다: 창 최소 폭이 가장 넓은 도구 모음을 따르고, 화면이 좁으면 글자 버튼이 아이콘으로
   줄어들며, 그래도 넘치면 두 줄로 나뉩니다.
 
-자세한 사용법은 [`USERSGUIDE.md`](USERSGUIDE.md) (요약) 와 [`docs/USERSGUIDE.ko.html`](docs/USERSGUIDE.ko.html) /
+자세한 사용법은 [`USERSGUIDE.md`](USERSGUIDE.md) (요약), [`docs/TUTORIAL.ko.html`](docs/TUTORIAL.ko.html) (기능별 튜토리얼, 실제 화면 그림), [`docs/USERSGUIDE.ko.html`](docs/USERSGUIDE.ko.html) /
 [`docs/USERSGUIDE.en.html`](docs/USERSGUIDE.en.html) (그림이 들어간 전체 설명서, 앱에서 `F1`) 을 보세요.
 
 ## 요구 사항

@@ -87,6 +87,16 @@ export class SchematicEditor {
     return this.store.edit(label, (p) => this.mutate(fn, p));
   }
   // ---------------------------------------------------------------- pages
+  pageActions(pg, i, pages) {
+    return [
+      { label: t("Rename page…"), icon: "text", action: () => this.renamePage(pg.id) },
+      { label: t("Move left"), disabled: i === 0, action: () => this.movePage(pg.id, -1) },
+      { label: t("Move right"), disabled: i === pages.length - 1, action: () => this.movePage(pg.id, 1) },
+      "-",
+      { label: t("Delete page"), icon: "trash", danger: true, disabled: pages.length < 2, action: () => this.deletePage(pg.id) },
+    ];
+  }
+
   renderPageBar() {
     const bar = this.pageBar;
     bar.innerHTML = "";
@@ -100,13 +110,7 @@ export class SchematicEditor {
       b.addEventListener("dblclick", () => this.renamePage(pg.id));
       b.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        contextMenu([
-          { label: t("Rename page…"), icon: "text", action: () => this.renamePage(pg.id) },
-          { label: t("Move left"), disabled: i === 0, action: () => this.movePage(pg.id, -1) },
-          { label: t("Move right"), disabled: i === pages.length - 1, action: () => this.movePage(pg.id, 1) },
-          "-",
-          { label: t("Delete page"), icon: "trash", danger: true, disabled: pages.length < 2, action: () => this.deletePage(pg.id) },
-        ], e.clientX, e.clientY);
+        contextMenu(this.pageActions(pg, i, pages), e.clientX, e.clientY);
       });
       bar.append(b);
     });
@@ -126,9 +130,10 @@ export class SchematicEditor {
     toast(t("Page added. Use global labels or power ports to connect nets between pages."), "info", 4500);
   }
 
-  renamePage(id) {
+  renamePage(id, anchor) {
     const pg = this.fullSch.pages.find((p) => p.id === id);
-    const btn = [...this.pageBar.children].find((b) => b.textContent.endsWith(pg.name));
+    if (!pg) return;
+    const btn = anchor || [...this.pageBar.children].find((b) => b.textContent.endsWith(pg.name));
     const r = (btn || this.pageBar).getBoundingClientRect();
     popupInput({ x: r.left, y: r.top - 36, value: pg.name, onDone: (v) => { if (v && v.trim()) this.store.edit(t("Rename page"), () => { pg.name = v.trim(); }); } });
   }
@@ -162,6 +167,8 @@ export class SchematicEditor {
   }
 
   setPage(id) {
+    const pages = this.fullSch.pages || [];
+    if (id && this.curPage === id && pages.some((p) => p.id === id)) return;
     if (this.wire) this.finishWire();
     this.curPage = id;
     this.viewCache = null;
@@ -169,6 +176,7 @@ export class SchematicEditor {
     this.renderPageBar();
     this.zoomFit();
     this.app.refreshInspector();
+    if (this.app.renderTabs) this.app.renderTabs();
   }
   get theme() { return this.app.schPalette ? this.app.schPalette() : SCH_THEMES.dark; }
   get grid() { return this.app.settings.schGrid || 50; }

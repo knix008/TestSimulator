@@ -1,6 +1,7 @@
 /* MyCircuit 10.0 — application styles. Colours are tokens so themes only
-   swap variables. Layout: title/menu bar, tab bar, tool bar, three-column
-   workspace (library | canvas | inspector) and a status bar. */
+   swap variables.    Layout: title/menu bar, tool bar, then a three-column workspace
+   (library | drawing tabs + canvas | inspector) and a status bar.
+   Side panels meet the toolbar; drawing tabs stay in the center column. */
 
 :root {
   --font: Inter, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
@@ -64,7 +65,7 @@ kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border-radius
 
 .app {
   display: grid;
-  grid-template-rows: var(--titlebar-h) var(--tabbar-h) var(--toolbar-h) 1fr var(--status-h);
+  grid-template-rows: var(--titlebar-h) var(--toolbar-h) 1fr var(--status-h);
   height: 100vh;
   min-width: 960px;
 }
@@ -108,20 +109,37 @@ body.mac .titlebar { padding-left: 80px; }
 .select-btn:hover { border-color: var(--line2); }
 
 /* ------------------------------------------------------------ tab bar */
-.tabbar { display: flex; align-items: stretch; gap: 2px; padding: 0 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.tabbar { display: flex; align-items: stretch; gap: 6px; height: var(--tabbar-h); flex: 0 0 var(--tabbar-h); padding: 0 8px; background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
+.tab-group { display: flex; align-items: stretch; flex: 1 1 auto; min-width: 0; gap: 2px; }
+.tab-scroll {
+  display: flex; align-items: stretch; gap: 2px; flex: 0 1 auto; min-width: 0; overflow-x: auto;
+  scrollbar-width: none; position: relative;
+}
+.tab-scroll::-webkit-scrollbar { display: none; height: 0; }
 .doc-tab {
   display: flex; align-items: center; gap: 7px; padding: 0 14px; border: 0; background: transparent; color: var(--muted);
   border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600;
+  flex: 0 0 auto; max-width: 240px; min-width: 0; white-space: nowrap;
 }
+.doc-tab .tab-ico { display: flex; flex: 0 0 auto; }
+.doc-tab .tab-label { overflow: hidden; text-overflow: ellipsis; }
 .doc-tab:hover { color: var(--text); background: var(--hover); }
 .doc-tab.on { color: var(--text); border-bottom-color: var(--accent); }
 .doc-tab .badge { font-size: 10px; padding: 0 5px; border-radius: 8px; background: var(--danger); color: #fff; font-weight: 700; }
 .doc-tab .badge.warn { background: var(--warn); color: #222; }
 .doc-tab .badge.ok { background: var(--ok); color: #fff; }
 .tab-spacer { flex: 1; }
+.tab-nav { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.tab-nav-btn {
+  width: 26px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 5px;
+  background: var(--panel2); color: var(--text); cursor: pointer; font-weight: 700; font-size: 15px; line-height: 1;
+}
+.tab-nav-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--hover); }
+.tab-nav-btn:disabled { opacity: 0.35; cursor: default; }
 .palette-btn {
-  align-self: center; display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px; min-width: 260px;
+  align-self: center; display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px; min-width: 180px; flex: 0 1 260px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--input); color: var(--faint); cursor: text;
+  white-space: nowrap; overflow: hidden;
 }
 .palette-btn:hover { border-color: var(--line2); color: var(--muted); }
 .palette-btn kbd { margin-left: auto; }
@@ -146,7 +164,8 @@ body.mac .titlebar { padding-left: 80px; }
 .side.right { border-left: 1px solid var(--line); }
 .splitter { cursor: col-resize; background: transparent; }
 .splitter:hover, .splitter.drag { background: var(--accent); }
-.center { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+.center { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+.stage { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .view { position: absolute; inset: 0; display: none; }
 .view.on { display: block; }
 .editor-canvas { position: absolute; inset: 0; outline: none; touch-action: none; }

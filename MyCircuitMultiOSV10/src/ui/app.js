@@ -183,6 +183,11 @@ class App {
   }
 
   // ---------------------------------------------------------------- tabs
+  openSchematicPage(id) {
+    if (this.tab !== "sch") this.setTab("sch");
+    if (id && this.sch.pageId !== id) this.sch.setPage(id);
+  }
+
   setTab(tab) {
     if (this.tab === "sch" && tab !== "sch" && this.sch.wire) this.sch.finishWire();
     if (this.tab === "pcb" && tab !== "pcb" && this.pcb.route) this.pcb.finishRoute();
@@ -204,25 +209,94 @@ class App {
   renderTabs() {
     const bar = this.$("tabbar");
     bar.innerHTML = "";
-    const erc = this.ercIssues.filter((i) => i.severity === "error").length;
-    const ercW = this.ercIssues.length - erc;
+    const pages = (this.store && this.store.project && this.store.project.schematic.pages) || [];
+    const pageId = this.sch ? this.sch.pageId : "";
+    const multi = pages.length > 1;
+    const known = new Set(pages.map((p) => p.id));
+    const ercAll = this.ercIssues.filter((i) => i.severity === "error").length;
+    const ercWarn = this.ercIssues.length - ercAll;
     const drc = this.drcIssues.filter((i) => i.severity === "error").length;
     const st = this.pcb ? this.pcb.stats() : null;
-    const defs = [
-      ["start", "home", t("Start")],
-      ["sch", "resistor", t("Schematic"), erc ? [erc, ""] : ercW ? [ercW, "warn"] : null],
-      ["pcb", "chip", t("PCB"), drc ? [drc, ""] : st && st.unrouted ? [st.unrouted, "warn"] : st && st.total ? ["✓", "ok"] : null],
-      ["3d", "cube", t("3D View")],
-      ["sim", "sim", t("Simulation")],
-    ];
-    for (const [id, ic, label, badge] of defs) {
-      const keyHint = { sch: "F2", pcb: "F3", "3d": "F4", sim: "F6" }[id];
-      const b = h("button", { class: `doc-tab ${this.tab === id ? "on" : ""}`, title: keyHint ? `${label} (${keyHint})` : label, onclick: () => this.setTab(id) }, h("span", { html: icon(ic, 16) }), label,
-        badge ? h("span", { class: `badge ${badge[1]}` }, String(badge[0])) : null);
-      bar.append(b);
+    const items = [];
+    const sheetBadge = (pg, index) => {
+      const list = this.ercIssues.filter((i) => !multi || i.page === pg.id || (index === 0 && !known.has(i.page)));
+      const errN = list.filter((i) => i.severity === "error").length;
+      const warnN = list.length - errN;
+      return errN ? [String(errN), ""] : warnN ? [String(warnN), "warn"] : null;
+    };
+    items.push({ icon: "home", label: t("Start"), title: t("Start"), on: this.tab === "start", go: () => this.setTab("start") });
+    if (!pages.length) {
+      items.push({
+        icon: "resistor", label: t("Schematic"), title: `${t("Schematic")} (F2)`,
+        badge: ercAll ? [String(ercAll), ""] : ercWarn ? [String(ercWarn), "warn"] : null,
+        on: this.tab === "sch", go: () => this.setTab("sch"),
+      });
     }
-    bar.append(h("div", { class: "tab-spacer" }));
+    pages.forEach((pg, i) => {
+      const name = `${i + 1}. ${pg.name}`;
+      items.push({
+        icon: "resistor",
+        label: multi ? `${t("Schematic")} · ${name}` : t("Schematic"),
+        title: multi ? `${t("Schematic")} — ${pg.name} (F2)` : `${t("Schematic")} (F2)`,
+        badge: sheetBadge(pg, i),
+        on: this.tab === "sch" && pg.id === pageId,
+        pageId: pg.id,
+        go: () => this.openSchematicPage(pg.id),
+        rename: (btn) => this.sch.renamePage(pg.id, btn),
+        menu: (e) => { e.preventDefault(); contextMenu(this.sch.pageActions(pg, i, pages), e.clientX, e.clientY); },
+      });
+    });
+    items.push({
+      icon: "chip", label: t("PCB"), title: `${t("PCB")} (F3)`,
+      badge: drc ? [String(drc), ""] : st && st.unrouted ? [String(st.unrouted), "warn"] : st && st.total ? ["✓", "ok"] : null,
+      on: this.tab === "pcb", go: () => this.setTab("pcb"),
+    });
+    items.push({ icon: "cube", label: t("3D View"), title: `${t("3D View")} (F4)`, on: this.tab === "3d", go: () => this.setTab("3d") });
+    items.push({ icon: "sim", label: t("Simulation"), title: `${t("Simulation")} (F6)`, on: this.tab === "sim", go: () => this.setTab("sim") });
+
+    const strip = h("div", { class: "tab-scroll" });
+    for (const it of items) {
+      const b = h("button", {
+        class: `doc-tab${it.on ? " on" : ""}`,
+        title: it.title,
+        "data-page": it.pageId || null,
+        onclick: () => it.go(),
+        ondblclick: it.rename ? () => it.rename(b) : null,
+        oncontextmenu: it.menu || null,
+      }, h("span", { class: "tab-ico", html: icon(it.icon, 16) }), h("span", { class: "tab-label" }, it.label),
+        it.badge ? h("span", { class: `badge ${it.badge[1]}` }, it.badge[0]) : null);
+      strip.append(b);
+    }
+    strip.addEventListener("wheel", (e) => {
+      if (strip.scrollWidth <= strip.clientWidth) return;
+      strip.scrollLeft += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      e.preventDefault();
+    }, { passive: false });
+
+    const active = items.findIndex((it) => it.on);
+    const step = (dir) => {
+      const i = items.findIndex((it) => it.on);
+      const n = (i < 0 ? 0 : i) + dir;
+      if (n < 0 || n >= items.length) return;
+      items[n].go();
+    };
+    const nav = h("div", { class: "tab-nav" },
+      h("button", { class: "tab-nav-btn", type: "button", title: t("Previous tab"), "aria-label": t("Previous tab"), disabled: active <= 0, onclick: () => step(-1) }, "<"),
+      h("button", { class: "tab-nav-btn", type: "button", title: t("Next tab"), "aria-label": t("Next tab"), disabled: active < 0 || active >= items.length - 1, onclick: () => step(1) }, ">"));
+    bar.append(h("div", { class: "tab-group" }, strip, nav));
     bar.append(h("button", { class: "palette-btn", onclick: () => this.openPalette() }, h("span", { html: icon("search", 14) }), t("Search commands, parts, nets…"), h("kbd", {}, "Ctrl+K")));
+
+    const reveal = () => {
+      const on = strip.querySelector(".doc-tab.on");
+      if (!on) return;
+      const left = on.offsetLeft;
+      const right = left + on.offsetWidth;
+      const viewRight = strip.scrollLeft + strip.clientWidth;
+      if (left < strip.scrollLeft) strip.scrollLeft = Math.max(0, left - 4);
+      else if (right > viewRight + 1) strip.scrollLeft = right - strip.clientWidth + 4;
+    };
+    reveal();
+    requestAnimationFrame(reveal);
   }
 
   // ---------------------------------------------------------------- panels

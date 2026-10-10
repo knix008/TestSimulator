@@ -220,7 +220,7 @@ export class TutorialPlayer {
       bar,
       h("div", { class: "tut-step" }, `${L(UI.step)} ${this.si + 1} / ${total}`, h("span", { class: "tut-state" }, this.busy ? L(UI.running) : practice && this.done ? "✓" : "")),
       h("div", { class: "tut-title" }, step ? L(step.title) : L(UI.done)),
-      h("div", { class: "tut-text" }, step ? L(step.text) : L(UI.ready)),
+      h("div", { class: "tut-text" }, step ? L(step.text) : (this.si >= total ? L(UI.allDone) : L(UI.ready))),
       practice && step ? h("div", { class: `tut-todo ${this.done ? "done" : ""}` }, h("b", {}, this.done ? `✓ ${L(UI.welldone)}` : pr ? L(UI.yourTurn) : L(UI.lookOnly)), " ", pr ? L(pr.todo) : L(UI.pressNext)) : "",
       this.errorBox || "",
       controls,
