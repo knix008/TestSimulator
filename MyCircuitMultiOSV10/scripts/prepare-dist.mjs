@@ -7,11 +7,31 @@
 // from this project folder) and removes the stale directories, with a few
 // retries because Windows releases handles asynchronously.
 import { execFileSync } from 'node:child_process'
-import { existsSync, rmSync, readdirSync } from 'node:fs'
+import { existsSync, rmSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const root = path.resolve(import.meta.dirname, '..')
 const release = path.join(root, 'release')
+const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
+
+// Installers left over from an earlier version would otherwise be copied to
+// the project root again by scripts/copy-installers.cjs.
+const INSTALLER = /^MyCircuit-(?:Setup-)?(\d+\.\d+\.\d+)(?:-.*)?\.(?:exe|dmg|AppImage|deb|rpm|tar\.gz|zip)(?:\.blockmap)?$/i
+function removeOldInstallers(dir) {
+  if (!existsSync(dir)) return []
+  const removed = []
+  for (const name of readdirSync(dir)) {
+    const m = INSTALLER.exec(name)
+    if (!m || m[1] === version) continue
+    try {
+      rmSync(path.join(dir, name), { force: true })
+      removed.push(name)
+    } catch {
+      console.warn(`prepare-dist: could not remove old installer ${name}`)
+    }
+  }
+  return removed
+}
 
 function stopOurProcesses() {
   if (process.platform === 'win32') {
@@ -50,6 +70,9 @@ function removeWithRetries(target) {
 }
 
 stopOurProcesses()
+
+const oldInstallers = [...removeOldInstallers(release), ...removeOldInstallers(root)]
+if (oldInstallers.length > 0) console.log(`prepare-dist: removed old installers ${oldInstallers.join(', ')}`)
 
 const stale = existsSync(release)
   ? readdirSync(release).filter((name) => name.endsWith('.tmp') || name.endsWith('-unpacked') || name === 'mac' || name === 'mac-arm64')
