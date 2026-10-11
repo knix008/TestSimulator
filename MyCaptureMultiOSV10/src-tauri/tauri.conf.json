@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyCapture",
+  "mainBinaryName": "MyCapture",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mycapture",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "shkwon",
+    "copyright": "Copyright (c) shkwon",
+    "category": "Utility",
+    "shortDescription": "Screen capture and recording",
+    "longDescription": "Capture monitors, windows and regions as JPG/PNG, and record the screen with system audio and microphone to MP4/WebM.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "12.3"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libpipewire-0.3-0"]
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3", "pipewire-libs"]
+      }
+    }
+  }
+}

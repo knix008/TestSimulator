@@ -1,0 +1,20 @@
+html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; user-select: none; }
+#app { height: 100%; }
+.recbar {
+  height: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px;
+  background: #15181d; color: #e6e9ee; border: 1px solid #2d333b; border-radius: 10px; cursor: move;
+  font: 13px 'Segoe UI', system-ui, -apple-system, 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+}
+.recbar-dot { width: 11px; height: 11px; border-radius: 50%; background: #f05454; box-shadow: 0 0 0 4px rgba(240, 84, 84, 0.25); animation: blink 1s steps(2, start) infinite; }
+.recbar-dot.paused { background: #f0b429; box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.25); animation: none; }
+.recbar-state { color: #9aa4b1; font-weight: 600; white-space: nowrap; }
+.recbar-time { font: 600 15px Consolas, 'SF Mono', monospace; min-width: 52px; }
+.recbar-button { flex: none; width: 34px; height: 34px; margin-left: auto; display: grid; place-items: center; border: 0; border-radius: 50%; background: #22272e; color: #e6e9ee; cursor: pointer; }
+.recbar-button + .recbar-button { margin-left: 0; }
+.recbar-button:hover:not(:disabled) { background: #2d333b; }
+.recbar-button.stop { background: #d93a3a; }
+.recbar-button.stop:hover:not(:disabled) { background: #f05454; }
+.recbar-button .icon { width: 16px; height: 16px; }
+.recbar-button.stop .icon { fill: currentColor; }
+.recbar-button:disabled { opacity: 0.45; cursor: default; }
+@keyframes blink { to { visibility: hidden; } }
