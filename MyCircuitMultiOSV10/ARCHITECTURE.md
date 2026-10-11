@@ -146,7 +146,7 @@ project = {
 
 ## 7. Desktop shell
 
-- `electron/main.cjs`: single-instance lock (per user-data dir), window 1440×900 (min 1024×700, raised by the renderer through `setMinSize` to the widest toolbar, capped by the screen) with a themed title-bar overlay, file dialogs, `settings.json` in `userData` (`%APPDATA%\MyCircuit`, `~/Library/Application Support/MyCircuit`, `~/.config/MyCircuit`; `--user-data-dir` overrides), print / printToPDF, sample listing, open-file from argv / `second-instance` / macOS `open-file`, close confirmation via the renderer.
+- `electron/main.cjs`: single-instance lock (per user-data dir), window 1440×900 (min 1024×700, raised by the renderer through `setMinSize` to the widest toolbar, capped by the screen) with a themed title-bar overlay, file dialogs, `settings.json` in `userData` (`%APPDATA%\MyCircuit`, `~/Library/Application Support/MyCircuit`, `~/.config/MyCircuit`; `--user-data-dir` overrides), print / printToPDF, sample listing, open-file from argv / `second-instance` / macOS `open-file`, close confirmation via the renderer. Titled dialogs open as owned frameless windows (`window.open` named `mycircuit-dialog-…`, parent is the main window) so they can sit outside the main window and close with it; the manual window is owned the same way. `--inline-dialogs` keeps dialogs in the main page for the smoke test.
 - `electron/preload.cjs` exposes `window.mycircuit`; `src/ui/platform.js` falls back to browser APIs when it is absent.
 
 ## 8. Build and packaging

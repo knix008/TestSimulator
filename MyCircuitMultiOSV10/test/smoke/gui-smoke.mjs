@@ -27,7 +27,7 @@ const exe = process.platform === "win32" ? path.join(root, "node_modules/electro
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "mycircuit-smoke-"));
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
-const child = spawn(exe, [root, `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`], { env, stdio: "ignore" });
+const child = spawn(exe, [root, `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, "--inline-dialogs"], { env, stdio: "ignore" });
 
 let ws;
 let msgId = 0;

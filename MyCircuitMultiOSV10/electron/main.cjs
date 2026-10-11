@@ -122,10 +122,8 @@ function createWindow() {
     event.preventDefault()
     if (isSafeUrl(url)) shell.openExternal(url)
   })
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isSafeUrl(url)) shell.openExternal(url)
-    return { action: 'deny' }
-  })
+  mainWindow.webContents.setWindowOpenHandler((details) => openHandler(mainWindow, details))
+  mainWindow.webContents.on('did-create-window', (child) => guardChildWindow(child))
 
   mainWindow.webContents.on('did-finish-load', () => {
     const initial = pendingOpenPath || fileFromArgv(process.argv)
@@ -141,7 +139,67 @@ function createWindow() {
   })
   mainWindow.on('closed', () => {
     mainWindow = null
+    // Owned dialogs close with the parent. Anything else (the manual) follows.
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.destroy()
+    }
   })
+}
+
+// A dialog asked for with window.open('', 'mycircuit-dialog-…') becomes its
+// own window, owned by the main window so it can sit outside that window and
+// closes when the main window closes.
+function isDialogOpen({ frameName }) {
+  // The url is not always about:blank (Electron may report the opener URL).
+  // The window name is the marker this page uses for a dialog.
+  return String(frameName || '').startsWith('mycircuit-dialog')
+}
+
+function openHandler(owner, details) {
+  if (isDialogOpen(details)) {
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        parent: owner,
+        width: 720,
+        height: 560,
+        minWidth: 280,
+        minHeight: 160,
+        frame: false,
+        resizable: true,
+        minimizable: false,
+        maximizable: false,
+        fullscreenable: false,
+        show: true,
+        autoHideMenuBar: true,
+        backgroundColor: DARK_BACKGROUND,
+        title: APP_TITLE,
+        icon: iconPath(),
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.cjs'),
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: false,
+          spellcheck: false
+        }
+      }
+    }
+  }
+  if (isSafeUrl(details.url)) shell.openExternal(details.url)
+  return { action: 'deny' }
+}
+
+function guardChildWindow(win) {
+  const icon = iconPath()
+  if (icon) win.setIcon(nativeImage.createFromPath(icon))
+  win.setMenuBarVisibility(false)
+  win.webContents.setWindowOpenHandler((details) => openHandler(mainWindow || win, details))
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url === win.webContents.getURL()) return
+    event.preventDefault()
+    if (isSafeUrl(url)) shell.openExternal(url)
+  })
+  win.webContents.on('did-create-window', (child) => guardChildWindow(child))
 }
 
 app.whenReady().then(createWindow)
@@ -299,6 +357,7 @@ ipcMain.handle('open-manual', async (_event, lang) => {
   }
   const icon = iconPath()
   manualWindow = new BrowserWindow({
+    parent: mainWindow || undefined,
     width: 1180, height: 860, minWidth: 720, minHeight: 520, title, icon, autoHideMenuBar: true,
     backgroundColor: '#ffffff',
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false }
@@ -375,6 +434,29 @@ ipcMain.handle('read-sample', async (_event, file) => {
   const name = String(file || '')
   if (!SAMPLE_NAME.test(name) || name.includes('..')) throw new Error(`invalid sample name: ${name}`)
   return fs.readFileSync(path.join(samplesDir(), name), 'utf8')
+})
+
+ipcMain.on('inline-dialogs', (event) => {
+  event.returnValue = app.commandLine.hasSwitch('inline-dialogs')
+})
+
+// Dialog windows ask to be sized and moved. Never the main window.
+ipcMain.handle('resize-window', (event, width, height) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win || win.isDestroyed() || win === mainWindow) return false
+  const area = screen.getDisplayMatching(win.getBounds()).workAreaSize
+  const w = Math.max(280, Math.min(area.width, Math.round(Number(width) || 280)))
+  const h = Math.max(160, Math.min(area.height, Math.round(Number(height) || 160)))
+  win.setContentSize(w, h)
+  return true
+})
+
+ipcMain.handle('place-window', (event, x, y) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win || win.isDestroyed() || win === mainWindow) return { ok: false, reason: !win ? "no-window" : "main" }
+  win.setPosition(Math.round(Number(x) || 0), Math.round(Number(y) || 0))
+  const [px, py] = win.getPosition()
+  return { ok: true, x: px, y: py }
 })
 
 ipcMain.on('confirm-close', (_event, allow) => {

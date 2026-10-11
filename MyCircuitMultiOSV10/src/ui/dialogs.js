@@ -539,7 +539,7 @@ export function historyDialog(app) {
   const list = h("div", { class: "issue-list" });
   hst.undo.slice().reverse().forEach((l, i) => {
     const row = h("div", { class: "issue" }, h("span", { html: icon("undo", 14) }), h("div", {}, t(l), h("small", {}, i === 0 ? t("latest") : "")));
-    row.addEventListener("click", () => { for (let k = 0; k <= i; k++) app.store.undo(); document.querySelector(".modal-backdrop")?.remove(); });
+    row.addEventListener("click", () => { for (let k = 0; k <= i; k++) app.store.undo(); row.closest(".modal")?._close?.(null); });
     list.append(row);
   });
   if (!hst.undo.length) list.append(h("div", { class: "empty-note" }, t("Nothing to undo yet.")));

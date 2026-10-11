@@ -153,6 +153,7 @@ class App {
     const root = document.documentElement;
     root.classList.toggle("no-anim", this.settings.animations === false);
     const z = +this.settings.uiScale || 1;
+    root.dataset.uiScale = String(z);
     if (platform.isDesktop && window.mycircuit.setZoom) window.mycircuit.setZoom(z);
     else root.style.zoom = z === 1 ? "" : String(z);
     clearInterval(this.autosaveTimer);
@@ -1050,14 +1051,14 @@ class App {
     };
     const sep = () => h("div", { class: "sep" });
     const add = (...els) => bar.append(...els.filter(Boolean));
-    add(btn("file.new"), btn("file.open"), btn("file.save"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
+    add(btn("file.new"), btn("file.open"), btn("file.save"), btn("file.print"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
     if (this.tab === "start") {
       add(btn("file.samples", { label: true }), btn("view.sch", { label: true }), btn("view.pcb", { label: true }), btn("help.manual", { label: true }));
     } else if (this.tab === "sch") {
       add(btn("sch.select"), btn("sch.place"), btn("sch.power"), btn("sch.wire"), btn("sch.bus"), btn("sch.label"), btn("sch.global"), btn("sch.noconnect"), btn("sch.junction"), btn("sch.text"), btn("sch.hlabel"), btn("sch.sheet"), btn("sch.measure"), btn("sch.dimension"), sep(),
         btn("edit.rotate"), btn("edit.mirror"), btn("edit.mirrorV"), btn("edit.delete"), sep(),
         btn("tools.annotate"), btn("inspect.erc"), btn("tools.footprints"), btn("tools.updatePcb", { label: true }), sep(), btn("sim.run"),
-        h("div", { class: "grow" }), btn("view.pan"), btn("view.grid"), btn("view.rulers"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
+        sep(), btn("view.pan"), btn("view.grid"), btn("view.rulers"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
     } else if (this.tab === "pcb") {
       const cu = copperLayers(this.store.project.pcb);
       const layerSel = h("select", { class: "input", title: t("Active layer (PgUp / PgDn)"), onchange: (e) => this.pcb.setActiveLayer(e.target.value) });
@@ -1070,13 +1071,13 @@ class App {
         h("span", { class: "group-label" }, t("Layer")), layerSel, sep(),
         btn("edit.rotate"), btn("edit.flip"), btn("edit.delete"), sep(),
         btn("inspect.drc"), btn("pcb.autoroute", { label: true }), btn("pcb.groundPour"), btn("tools.boardSetup"), btn("file.fab"), sep(), btn("view.contrast"), btn("view.ratsnest"),
-        h("div", { class: "grow" }), btn("view.pan"), btn("view.grid"), btn("view.rulers"), btn("view.boardSize"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
+        sep(), btn("view.pan"), btn("view.grid"), btn("view.rulers"), btn("view.boardSize"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
     } else if (this.tab === "3d") {
       this.v3d.renderToolbar(bar, btn, sep);
     } else if (this.tab === "sim") {
       this.simView.renderToolbar(bar, btn, sep);
     }
-    add(h("div", { class: "grow" }), btn("help.tutorial"), btn("help.keys"));
+    add(sep(), btn("help.tutorial"), btn("help.keys"));
     this.fitToolbar(bar);
   }
 

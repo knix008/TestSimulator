@@ -234,13 +234,14 @@ PORT=9000 npm run serve       # another port</code></pre>
 <thead><tr><th>Where</th><th>Area</th><th>Contents</th></tr></thead>
 <tbody>
 <tr><td>Top row</td><td>Title bar</td><td>Logo, menu bar (File, Edit, View, Place, Route, Inspect, Tools, Simulate, Help), document title, and on the right the palette (random theme) and ▾ (theme list), the language flag, Settings and About. Drag it to move the window (desktop).</td></tr>
-<tr><td>Second row</td><td>Toolbar</td><td>Tools for the current tab, across the full window width; hover for name and shortcut. Tutorial and shortcuts sit at the far right. About is on the title bar and in the Help menu. Toolbar buttons are never hidden (<a href="#ch2-4">2.4</a>).</td></tr>
+<tr><td>Second row</td><td>Toolbar</td><td>Tools for the current tab, in a full-width row packed from the left. New, Open, Save and Print come first; hover for name and shortcut. About is on the title bar and in the Help menu. Toolbar buttons are never hidden (<a href="#ch2-4">2.4</a>).</td></tr>
 <tr><td>Left</td><td>Left panel</td><td>Starts directly under the toolbar. Schematic: part library · PCB: routing progress, layers, nets · 3D: view options · Simulation: probes. The title has an icon and a collapse button; collapsed, the panel is an icon rail (<a href="#ch2-5">2.5</a>).</td></tr>
 <tr><td>Centre</td><td>Document tabs and canvas</td><td>The document tabs sit under the toolbar, between the side panels: Start, one tab per schematic page, PCB, 3D View, Simulation. <span class="ui">&lt;</span> and <span class="ui">&gt;</span> select the previous and next tab, and the search field is beside them (<a href="#ch2-3">2.3</a>, <a href="#ch2-8">2.8</a>). A hint for the current tool floats at the bottom of the canvas and fades after 7 seconds. On the Schematic tab the <b>page tabs</b> also sit at the bottom left (<a href="#ch4-21">4.21</a>).</td></tr>
 <tr><td>Right</td><td>Right panel</td><td>Starts directly under the toolbar. Properties of the selection and the ERC/DRC issue list. The title has an icon and a collapse button.</td></tr>
 <tr><td>Bottom</td><td>Status bar</td><td>Hint, cursor position, grid, zoom, active layer, routing progress, units, ERC/DRC</td></tr>
 </tbody>
 </table>
+<p>Titled dialogs such as Print, Settings and part properties are their own windows. Drag a dialog by its title to place it outside the main window. Closing the main window closes those windows and the user manual too. While the interactive tutorial is running, dialogs stay inside the main window so the guide cursor can point at them.</p>
 <p>Drag the splitters to resize the side panels (200–520 px, remembered). The collapse button on a panel title folds that panel to a 44 px icon rail; clicking a rail icon expands it again, and the folded state is saved. <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>Ctrl</kbd>+<kbd>2</kbd> (View menu) hide or show a panel completely, separate from collapse. The Start tab hides both; the Simulation tab hides the right one.</p>
 
 <h3 id="ch2-2"><span class="num">2.2</span>Menus</h3>
@@ -277,13 +278,13 @@ PORT=9000 npm run serve       # another port</code></pre>
 <p>When the tabs do not fit, only the tab strip scrolls. <span class="ui">&lt;</span> and <span class="ui">&gt;</span> immediately to the right select the previous and next tab. They are disabled at the ends and do not wrap, and the chosen tab scrolls into view. The page tabs at the bottom left of the canvas (rename, add, delete) stay. Switching tabs while drawing a wire or routing a track finishes it where it is.</p>
 
 <h3 id="ch2-4"><span class="num">2.4</span>Toolbar</h3>
-<p>New/Open/Save and Undo/Redo are always on the left, the tutorial and the shortcut sheet on the far right. In between:</p>
+<p>Every toolbar button is packed from the left. New, Open, Save and Print (<kbd>Ctrl</kbd>+<kbd>P</kbd>) always come first, then Undo and Redo, then the tab's tools, and the tutorial and shortcut sheet at the end of that row.</p>
 <table>
 <thead><tr><th>Tab</th><th>Buttons</th></tr></thead>
 <tbody>
 <tr><td>Start</td><td>Open sample · Schematic editor · PCB editor · User manual</td></tr>
-<tr><td>Schematic</td><td>Select · Add part · Power port · Wire · Bus · Net label · Global label · No-connect · Junction · Text · Hierarchical label · Hierarchical sheet · Measure · Dimension | Rotate · Mirror H · Mirror V · Delete | Annotate · ERC · Assign footprints · <b>Update PCB from schematic</b> | Run simulation | (right) Pan (hand) · Show grid · Show rulers | Zoom out · Zoom in · Fit</td></tr>
-<tr><td>PCB</td><td>Select · Route · Via · Zone · Outline · Text · Line · Dimension · Measure | <b>Layer</b> selector | Rotate · Flip · Delete | DRC · <b>Autoroute all</b> · Ground pour · Board setup · Fabrication outputs | High contrast · Ratsnest | (right) Pan (hand) · Show grid · Show rulers · Show board size | Zoom</td></tr>
+<tr><td>Schematic</td><td>Select · Add part · Power port · Wire · Bus · Net label · Global label · No-connect · Junction · Text · Hierarchical label · Hierarchical sheet · Measure · Dimension | Rotate · Mirror H · Mirror V · Delete | Annotate · ERC · Assign footprints · <b>Update PCB from schematic</b> | Run simulation | Pan (hand) · Show grid · Show rulers | Zoom out · Zoom in · Fit</td></tr>
+<tr><td>PCB</td><td>Select · Route · Via · Zone · Outline · Text · Line · Dimension · Measure | <b>Layer</b> selector | Rotate · Flip · Delete | DRC · <b>Autoroute all</b> · Ground pour · Board setup · Fabrication outputs | High contrast · Ratsnest | Pan (hand) · Show grid · Show rulers · Show board size | Zoom</td></tr>
 <tr><td>3D View</td><td>Rotate / Pan (P) navigation mode | Isometric · Top · Bottom · Front · Back · Left · Right | Components · Silkscreen · Solder mask · Copper zones · X-ray toggles | Grid (G) · Axes (A) · Orientation gizmo · Board dimensions · <b>cm/inch</b> unit button · Zoom to fit | Screenshot (PNG) · Export 3D | PCB editor</td></tr>
 <tr><td>Simulation</td><td>Run simulation | Operating point · Transient · AC · DC sweep | Show SPICE netlist · Export SPICE | Schematic editor · Clear overlay</td></tr>
 </tbody>
@@ -331,7 +332,7 @@ PORT=9000 npm run serve       # another port</code></pre>
 <tbody>
 <tr><td>Pan</td><td><b>Left-drag on empty canvas</b> (default), middle-drag, right-drag, <kbd>Space</kbd>+left-drag, <kbd>Shift</kbd>+wheel (horizontal), two-finger drag — middle, right and <kbd>Space</kbd> drags always pan, whatever the tool.</td></tr>
 <tr><td>Box selection</td><td><kbd>Shift</kbd>+drag or <kbd>Ctrl</kbd>+drag (left → right = window, right → left = crossing, <a href="#ch4-2">4.2</a>). Settings → Units &amp; grid → <span class="ui">Left-drag on empty canvas</span> = <span class="ui">Box select</span> restores box selection on a plain drag.</td></tr>
-<tr><td>Hand (pan) tool</td><td>The hand button on the right of the toolbar, <span class="ui">Pan (hand): left-drag moves the view</span> (<span class="menu">View → Pan (hand)</span>). While on, a left-drag pans even over items. <kbd>Esc</kbd> or the button leaves it.</td></tr>
+<tr><td>Hand (pan) tool</td><td>The hand button on the toolbar, <span class="ui">Pan (hand): left-drag moves the view</span> (<span class="menu">View → Pan (hand)</span>). While on, a left-drag pans even over items. <kbd>Esc</kbd> or the button leaves it.</td></tr>
 <tr><td>Zoom</td><td>Wheel (about the cursor), <kbd>Ctrl</kbd>+wheel / trackpad pinch, <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd>, toolbar, two-finger pinch. The step per wheel notch is Settings → Units &amp; grid → <span class="ui">Wheel zoom speed</span> (× 0.5 … × 3).</td></tr>
 <tr><td>Fit</td><td><kbd>Home</kbd> — schematic content (or the whole sheet), board plus all footprints</td></tr>
 <tr><td>Context menu</td><td>Right-click without moving</td></tr>
@@ -384,7 +385,7 @@ PORT=9000 npm run serve       # another port</code></pre>
 <figure><img width="1532" height="900" src="images/en-dlg-about.webp" alt="About" loading="lazy"><figcaption>Figure 2-8. About MyCircuit</figcaption></figure>
 
 <h3 id="ch2-16"><span class="num">2.16</span>Interactive tutorial</h3>
-<p><span class="menu">Help → Interactive tutorial</span> (flask button on the right of the toolbar) opens a guide at the bottom right that drives the real program. It replaces the open project, so unsaved work is offered for saving first.</p>
+<p><span class="menu">Help → Interactive tutorial</span> (flask button at the end of the toolbar) opens a guide at the bottom right that drives the real program. It replaces the open project, so unsaved work is offered for saving first.</p>
 <figure><img width="1532" height="900" src="images/en-tutorial.webp" alt="Tutorial" loading="lazy"><figcaption>Figure 2-9. The tutorial panel (watch mode)</figcaption></figure>
 <ul>
 <li><b>Watch</b>: the program performs every step — an animated cursor moves to toolbar buttons, library rows, canvas points and dialog buttons and really clicks and types. ▶ Play / Pause, ‹ previous step, › run next step, speed 0.5×–4×.</li>
@@ -1401,7 +1402,7 @@ PORT=9000 npm run serve       # another port</code></pre>
 
 <h2 id="ch13"><span class="num">13</span>Outputs</h2>
 <h3 id="ch13-1"><span class="num">13.1</span>Printing</h3>
-<p><span class="menu">File → Print…</span> (<kbd>Ctrl</kbd>+<kbd>P</kbd>) opens a preview. Along the top are what to print, paper, orientation and scale. The <span class="ui">Page</span> row under that sets the margins, the scale percentage and the number of copies. Checkboxes choose the PCB sheets, and the paper preview with its page navigator (◀ 1 / 3 — name ▶) sits below. Every number has <b>Decrease (−)</b> on the left and <b>Increase (+)</b> on the right, with the value centred. Click the value to type it.</p>
+<p>The Print button immediately to the right of Save, or <span class="menu">File → Print…</span> (<kbd>Ctrl</kbd>+<kbd>P</kbd>), opens a preview. Page setup is on the left: what to print, paper, orientation, scale, the <span class="ui">Page</span> margins, scale percentage and copies, and the PCB-sheet checkboxes. The paper preview, large enough to read the drawing, and its page navigator (◀ 1 / 3 — name ▶) are on the right. Every number has <b>Decrease (−)</b> on the left and <b>Increase (+)</b> on the right, with the value centred. Click the value to type it.</p>
 <figure><img width="1532" height="900" src="images/en-dlg-print.webp" alt="Print" loading="lazy"><figcaption>Figure 13-1. The print dialog. Margins, scale and copies are steppers on the Page row.</figcaption></figure>
 <table>
 <thead><tr><th>Option</th><th>Meaning</th></tr></thead>

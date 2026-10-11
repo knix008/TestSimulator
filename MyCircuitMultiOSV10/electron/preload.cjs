@@ -8,6 +8,10 @@ function subscribe(channel, cb) {
   return () => ipcRenderer.removeListener(channel, listener)
 }
 
+// Smoke tests pass --inline-dialogs so dialogs stay in the main page, where
+// the test can see them. Real sessions open each dialog as its own window.
+contextBridge.exposeInMainWorld('mycircuitInlineDialogs', ipcRenderer.sendSync('inline-dialogs') === true)
+
 contextBridge.exposeInMainWorld('mycircuit', {
   isElectron: true,
   platform: process.platform,
@@ -30,6 +34,9 @@ contextBridge.exposeInMainWorld('mycircuit', {
   confirmClose: (allow) => ipcRenderer.send('confirm-close', !!allow),
   setMinSize: (width, height) => ipcRenderer.invoke('set-min-size', width, height),
   setTitleBar: (colors) => ipcRenderer.invoke('set-title-bar', colors || {}),
+  // Dialog windows only. The main window ignores these.
+  resizeWindow: (width, height) => ipcRenderer.invoke('resize-window', width, height),
+  placeWindow: (x, y) => ipcRenderer.invoke('place-window', x, y),
   listSamples: () => ipcRenderer.invoke('list-samples'),
   readSample: (file) => ipcRenderer.invoke('read-sample', file),
   // Path of a File dropped onto the window (drag & drop from the file manager).

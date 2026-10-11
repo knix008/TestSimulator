@@ -309,30 +309,19 @@ export async function printDialog(app) {
     const w = paper.w;
     const hh = paper.h;
     const pad = margins(paper);
-    const view = stage.parentElement;
-    const preview = stage.closest(".print-preview");
-    let used = 0;
-    if (preview) {
-      for (const el of preview.children) {
-        if (el === view) { for (const c of view.children) if (c !== stage) used += c.offsetHeight; }
-        else used += el.offsetHeight;
-      }
-    } else used = 100;
-    const modal = stage.closest(".modal");
-    const head = modal?.querySelector(".modal-head")?.offsetHeight || 36;
-    const foot = modal?.querySelector(".modal-foot")?.offsetHeight || 42;
-    // 68px is the dialog inset from the window (max-height margin and borders). Leftover overflow is trimmed after layout.
-    const gaps = preview ? (preview.children.length - 1) * 8 + 4 + 20 + 68 : 92;
-    const maxW = view ? view.clientWidth : 900;
-    const maxH = Math.round(Math.max(100, Math.min(window.innerHeight - head - foot - used - gaps, 620)));
-    let boxW = Math.max(280, maxW);
+    // The sheet fills the preview column. Settings sit beside it, so they do not
+    // take height away from the page.
+    const availW = Math.max(320, stage.clientWidth - 20);
+    const availH = Math.max(280, stage.clientHeight - 20);
+    let boxW = availW;
     let boxH = boxW * hh / w;
-    if (boxH > maxH) { boxH = maxH; boxW = boxH * w / hh; }
-    stage.style.width = `${Math.floor(boxW)}px`;
-    stage.style.height = `${Math.floor(boxH)}px`;
+    if (boxH > availH) { boxH = availH; boxW = boxH * w / hh; }
     const page = h("div", { class: "page" });
-    const pageW = Math.max(1, Math.floor(boxW) - 12);
-    const pageH = Math.max(1, Math.floor(boxH) - 12);
+    page.style.flex = "0 0 auto";
+    page.style.width = `${Math.floor(boxW)}px`;
+    page.style.height = `${Math.floor(boxH)}px`;
+    const pageW = Math.max(1, Math.floor(boxW));
+    const pageH = Math.max(1, Math.floor(boxH));
     page.style.padding = `${pageH * pad.t / hh}px ${pageW * pad.r / w}px ${pageH * pad.b / hh}px ${pageW * pad.l / w}px`;
     const frame = h("div", { class: "print-frame" });
     if (ps[index]) {
@@ -364,19 +353,6 @@ export async function printDialog(app) {
     nav.append(h("button", { class: "icon-btn", disabled: index === 0, html: icon("chevronRight", 16), style: { transform: "rotate(180deg)" }, onclick: () => { index--; draw(); } }),
       h("span", {}, ps.length ? `${index + 1} / ${ps.length} — ${ps[index].title}` : t("Nothing selected to print")),
       h("button", { class: "icon-btn", disabled: index >= ps.length - 1, html: icon("chevronRight", 16), onclick: () => { index++; draw(); } }));
-    const body = stage.closest(".modal-body");
-    const trim = () => {
-      if (!body || body.scrollHeight <= body.clientHeight + 1) return;
-      const boxH2 = Math.max(100, stage.offsetHeight - (body.scrollHeight - body.clientHeight) - 8);
-      const boxW2 = boxH2 * w / hh;
-      stage.style.height = `${Math.floor(boxH2)}px`;
-      stage.style.width = `${Math.floor(boxW2)}px`;
-      const pageW2 = Math.max(1, Math.floor(boxW2) - 12);
-      const pageH2 = Math.max(1, Math.floor(boxH2) - 12);
-      page.style.padding = `${pageH2 * pad.t / hh}px ${pageW2 * pad.r / w}px ${pageH2 * pad.b / hh}px ${pageW2 * pad.l / w}px`;
-    };
-    trim();
-    trim();
   };
   const opts = h("div", { class: "print-options" },
     field(t("Print"), select(cfg.what, [["sch", t("Schematic")], ["pcb", t("PCB layers")], ["both", t("Schematic and PCB")]], { onChange: (v) => { cfg.what = v; draw(); } })),
@@ -406,18 +382,33 @@ export async function printDialog(app) {
     checkbox(false, t("Assembly drawing"), { onChange: (v) => { cfg.pcbSets.assembly = v; draw(); } }),
     checkbox(true, t("Mirror bottom layer"), { onChange: (v) => { cfg.mirrorBottom = v; draw(); } }),
     checkbox(cfg.mono, t("Black and white"), { onChange: (v) => { cfg.mono = v; draw(); } }));
-  const body = h("div", { class: "print-preview" }, opts, pageSetup, checks, h("div", { class: "print-view" }, stage, nav));
+  const body = h("div", { class: "print-preview" },
+    h("div", { class: "print-setup" }, opts, pageSetup, checks),
+    h("div", { class: "print-view" }, stage, nav));
   let onResize = null;
+  let resizeWin = null;
   const r = await modal({
-    title: t("Print"), width: "min(980px, 94vw)", body,
+    title: t("Print"), width: "min(1240px, 96vw)", body,
     buttons: [...(window.mycircuit && window.mycircuit.printToPDF ? [{ label: t("Save as PDF…"), value: "pdf", left: true }] : []), { label: t("Cancel"), value: null }, { label: t("Print…"), value: "print", primary: true }],
     onOpen: () => {
-      onResize = () => { draw(); requestAnimationFrame(draw); };
-      window.addEventListener("resize", onResize);
-      setTimeout(() => { draw(); requestAnimationFrame(draw); }, 10);
+      resizeWin = stage.ownerDocument.defaultView || window;
+      const settle = () => { draw(); requestAnimationFrame(draw); };
+      onResize = settle;
+      resizeWin.addEventListener("resize", onResize);
+      // A separate window can be larger than the main window. Size it so the
+      // sheet on the right is big enough to read.
+      if (resizeWin !== window && resizeWin.fitDialog) {
+        const sw = resizeWin.screen.availWidth || 1280;
+        const sh = resizeWin.screen.availHeight || 860;
+        const w = Math.min(1280, Math.max(1040, sw - 64));
+        const h = Math.min(860, Math.max(700, Math.round(sh * 0.82)));
+        const left = Math.round((resizeWin.screen.availLeft || 0) + (sw - w) / 2);
+        const top = Math.round((resizeWin.screen.availTop || 0) + Math.max(12, (sh - h) / 2));
+        Promise.resolve(resizeWin.fitDialog(w, h, left, top)).then(() => requestAnimationFrame(settle));
+      } else settle();
     },
   });
-  if (onResize) window.removeEventListener("resize", onResize);
+  if (onResize && resizeWin) resizeWin.removeEventListener("resize", onResize);
   if (!r) return;
   // Lay the pages out in the hidden print area and hand over to the system dialog.
   const area = document.getElementById("print-area");

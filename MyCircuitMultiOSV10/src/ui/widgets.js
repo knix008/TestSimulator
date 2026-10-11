@@ -23,6 +23,73 @@ export function h(tag, attrs = {}, ...children) {
 }
 
 const stack = [];
+const dialogWindows = new Set();
+
+// The interactive tutorial points at dialogs inside this page, and the smoke
+// test reads them here too. Everywhere else a dialog is its own window.
+function dialogsStayInline() {
+  if (window.mycircuitInlineDialogs) return true;
+  if (document.body.classList.contains("dialog-host")) return true;
+  const tut = document.querySelector(".tut-panel");
+  return !!(tut && tut.style.display !== "none");
+}
+
+// about:blank keeps the opener's origin, so this page can build the dialog
+// there. The name marks it for the desktop shell, which owns the window.
+function hostDialog(box) {
+  return new Promise((resolve) => {
+    const name = `mycircuit-dialog-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    let child = null;
+    try { child = window.open("", name, "popup=yes,width=720,height=560"); } catch { child = null; }
+    if (!child) { window.__dialogFail = "window.open returned null"; return resolve(null); }
+    const start = Date.now();
+    const tick = () => {
+      if (child.closed) return resolve(null);
+      let doc = null;
+      try { doc = child.document; } catch { doc = null; }
+      if (!doc || !doc.body) {
+        if (Date.now() - start > 2500) {
+          window.__dialogFail = "dialog document was not ready";
+          try { child.close(); } catch { /* ignore */ }
+          return resolve(null);
+        }
+        setTimeout(tick, 20);
+        return;
+      }
+      try {
+        if (!doc.getElementById("host")) {
+          const base = new URL(".", location.href).href;
+          doc.open();
+          doc.write(`<!doctype html><html><head><meta charset="utf-8"><base href="${base}"><title>MyCircuit</title><link rel="stylesheet" href="style/app.css"></head><body class="dialog-host"><div id="host"></div><script src="src/ui/dialog-host.js"></script></body></html>`);
+          doc.close();
+        }
+        if (!child.mycircuitDialogReady) {
+          if (Date.now() - start > 2500) {
+            window.__dialogFail = "dialog host script did not load";
+            try { child.close(); } catch { /* ignore */ }
+            return resolve(null);
+          }
+          setTimeout(tick, 20);
+          return;
+        }
+        child.syncDialogTheme(document.documentElement);
+        doc.getElementById("host").replaceChildren(doc.adoptNode(box));
+        dialogWindows.add(child);
+        resolve(child);
+      } catch (error) {
+        window.__dialogFail = String(error && error.stack || error);
+        try { child.close(); } catch { /* ignore */ }
+        resolve(null);
+      }
+    };
+    tick();
+  });
+}
+
+window.addEventListener("pagehide", () => {
+  for (const w of dialogWindows) { try { if (!w.closed) w.close(); } catch { /* ignore */ } }
+  dialogWindows.clear();
+});
 
 // modal({title, body: Node, buttons:[{label, value, primary, danger}], width, onOpen, className})
 // → Promise<value> (Escape / ✕ resolve null)
@@ -30,16 +97,27 @@ export function modal({ title, body, buttons = [{ label: t("Close"), value: null
   return new Promise((resolve) => {
     const backdrop = h("div", { class: "modal-backdrop" });
     const box = h("div", { class: `modal ${className}`, role: "dialog", "aria-modal": "true", style: { width: typeof width === "number" ? `${width}px` : width } });
+    let child = null;
+    let themeObs = null;
+    let settled = false;
+    let keyDoc = null;
     const close = (value) => {
+      if (settled) return;
       if (value !== null && validate) {
         const err = validate(value);
         if (err) { toast(err, "error"); return; }
       }
+      settled = true;
+      if (themeObs) themeObs.disconnect();
       backdrop.remove();
-      stack.splice(stack.indexOf(entry), 1);
-      document.removeEventListener("keydown", onKey, true);
+      const at = stack.indexOf(entry);
+      if (at >= 0) stack.splice(at, 1);
+      if (keyDoc) keyDoc.removeEventListener("keydown", onKey, true);
+      dialogWindows.delete(child);
+      try { if (child && !child.closed) child.close(); } catch { /* ignore */ }
       resolve(value);
     };
+    box._close = close;
     // Every popup title bar shows the program icon and the window name.
     const head = h("div", { class: "modal-head" },
       h("div", { class: "modal-title" }, h("img", { class: "modal-appicon", src: "assets/icon.png", alt: "", width: 18, height: 18 }), h("span", {}, title)),
@@ -51,8 +129,6 @@ export function modal({ title, body, buttons = [{ label: t("Close"), value: null
       foot.append(btn);
     }
     box.append(head, h("div", { class: "modal-body" }, body), foot);
-    backdrop.append(box);
-    backdrop.addEventListener("pointerdown", (e) => { if (e.target === backdrop && closeOnBackdrop) close(null); });
     const onKey = (e) => {
       if (stack[stack.length - 1] !== entry) return;
       if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); close(null); }
@@ -61,21 +137,71 @@ export function modal({ title, body, buttons = [{ label: t("Close"), value: null
         if (primary) { e.preventDefault(); e.stopPropagation(); close(typeof primary.value === "function" ? primary.value() : primary.value); }
       }
     };
-    const entry = { close, el: backdrop };
+    const bindKey = (doc) => {
+      if (keyDoc) keyDoc.removeEventListener("keydown", onKey, true);
+      keyDoc = doc;
+      doc.addEventListener("keydown", onKey, true);
+    };
+    const showInline = () => {
+      entry.pending = false;
+      backdrop.append(box);
+      backdrop.addEventListener("pointerdown", (e) => { if (e.target === backdrop && closeOnBackdrop) close(null); });
+      bindKey(document);
+      document.body.append(backdrop);
+      const first = box.querySelector("input, select, textarea");
+      if (first) setTimeout(() => { first.focus(); if (first.select) first.select(); }, 30);
+      if (onOpen) onOpen(box, close);
+    };
+    const entry = { close, el: backdrop, pending: true, get win() { return child; } };
     stack.push(entry);
-    document.addEventListener("keydown", onKey, true);
-    document.body.append(backdrop);
-    const first = box.querySelector("input, select, textarea");
-    if (first) setTimeout(() => { first.focus(); if (first.select) first.select(); }, 30);
-    if (onOpen) onOpen(box, close);
+    if (dialogsStayInline()) { showInline(); return; }
+    const probe = h("div", { style: { position: "fixed", left: "-10000px", top: "0", width: "100vw", visibility: "hidden", display: "flex" } });
+    probe.append(box);
+    document.body.append(probe);
+    const rect = box.getBoundingClientRect();
+    const pxW = Math.max(280, Math.ceil(rect.width));
+    const pxH = Math.max(160, Math.ceil(rect.height));
+    box.style.width = `${pxW}px`;
+    probe.remove();
+    hostDialog(box).then((opened) => {
+      if (settled) { try { if (opened && !opened.closed) opened.close(); } catch { /* ignore */ } return; }
+      if (!opened) { showInline(); return; }
+      child = opened;
+      child.addEventListener("pagehide", () => close(null));
+      themeObs = new MutationObserver(() => { try { if (!child.closed) child.syncDialogTheme(document.documentElement); } catch { /* gone */ } });
+      themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-theme", "data-theme-id", "data-ui-scale", "lang"] });
+      // The dimmed main window only brings the dialog forward. Closing it is
+      // the dialog's own close button, Escape, or closing the main window.
+      entry.pending = false;
+      backdrop.addEventListener("pointerdown", () => { try { child.focus(); } catch { /* ignore */ } });
+      document.body.append(backdrop);
+      bindKey(child.document);
+      const place = () => {
+        const left = Math.round(window.screenX + (window.outerWidth - pxW) / 2);
+        const top = Math.round(window.screenY + Math.max(24, (window.outerHeight - pxH) / 2));
+        return Promise.resolve(child.fitDialog(pxW, pxH, left, top));
+      };
+      child.requestAnimationFrame(() => child.requestAnimationFrame(() => {
+        place().then(() => {
+          try { child.focus(); } catch { /* ignore */ }
+          const first = box.querySelector("input, select, textarea");
+          if (first) { first.focus(); if (first.select) first.select(); }
+          if (onOpen) onOpen(box, close);
+        });
+      }));
+    });
   });
 }
 
 export function anyModalOpen() {
   // Ask the DOM, not the stack: a dialog removed some other way must never
   // leave the keyboard dead.
-  for (let i = stack.length - 1; i >= 0; i--) if (!stack[i].el || !stack[i].el.isConnected) stack.splice(i, 1);
-  return !!document.querySelector(".modal-backdrop, .quickpick, .popup-input");
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const entry = stack[i];
+    const alive = entry.pending || (entry.el && entry.el.isConnected) || (entry.win && !entry.win.closed);
+    if (!alive) stack.splice(i, 1);
+  }
+  return stack.length > 0 || !!document.querySelector(".modal-backdrop, .quickpick, .popup-input");
 }
 
 export async function confirmDialog(message, { title = t("Confirm"), ok = t("OK"), cancel = t("Cancel"), danger = false } = {}) {
