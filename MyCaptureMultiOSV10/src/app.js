@@ -59,6 +59,9 @@ let recordingPanel = false; // the floating "recbar" controls are up
 /** "MyCapture v1.0": name plus major.minor, shown in the title bar and the taskbar. */
 const APP_TITLE = `MyCapture v${packageVersion.split('.').slice(0, 2).join('.')}`;
 
+/** Long edge of preview images: sharp up to a full-HD-sized preview area. */
+const PREVIEW_EDGE = 1920;
+
 const s = () => state.settings;
 const ui = widgets(s);
 const locked = () => isActive(state.session) || Boolean(state.busy);
@@ -771,7 +774,8 @@ async function refreshPreview() {
   state.previewLoading = true;
   renderStage();
   try {
-    const url = await sourceThumbnail(source, 960);
+    // Big enough to stay sharp when the preview fills a large window.
+    const url = await sourceThumbnail(source, PREVIEW_EDGE);
     if (ticket !== previewTicket) return;
     const size = source.kind === 'window' ? selectedWindow()
       : source.kind === 'region' ? source

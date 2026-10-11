@@ -10,10 +10,10 @@ export const ZOOM_MIN = 0.05;
 export const ZOOM_MAX = 16;
 const ZOOM_STEP = 1.25;
 
-/** Scale that fits `content` inside `box`, never enlarging past 100 %. */
+/** Scale that makes `content` fill `box` (keeping its aspect ratio) — larger windows show it larger. */
 export function fitScale(content, box) {
   if (!content.width || !content.height || !box.width || !box.height) return 1;
-  return Math.min(1, box.width / content.width, box.height / content.height);
+  return Math.min(ZOOM_MAX, box.width / content.width, box.height / content.height);
 }
 
 /** Zooms by `factor` keeping the point (px, py) of the box fixed on screen. */

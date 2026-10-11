@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { centred, fitScale, zoomAround, ZOOM_MAX, ZOOM_MIN } from '../../src/viewer.js';
 
-test('fit shrinks large images and never enlarges small ones', () => {
+test('fit scales the image to the box both ways', () => {
   assert.equal(fitScale({ width: 3840, height: 2160 }, { width: 960, height: 540 }), 0.25);
   assert.equal(fitScale({ width: 1000, height: 2000 }, { width: 800, height: 500 }), 0.25, 'tall image fits by height');
-  assert.equal(fitScale({ width: 200, height: 100 }, { width: 800, height: 600 }), 1);
+  assert.equal(fitScale({ width: 200, height: 100 }, { width: 800, height: 600 }), 4, 'small images grow with the window');
   assert.equal(fitScale({ width: 0, height: 0 }, { width: 800, height: 600 }), 1);
 });
 

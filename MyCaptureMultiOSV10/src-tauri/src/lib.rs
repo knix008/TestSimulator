@@ -149,7 +149,8 @@ fn store_pending(state: &AppState, image: RgbaImage) -> Result<Grabbed, String> 
     let grabbed = Grabbed {
         width: image.width(),
         height: image.height(),
-        thumbnail: capture::thumbnail_data_url(&image, 960)?,
+        // Shown in the (resizable) preview area, so large enough to stay sharp.
+        thumbnail: capture::thumbnail_data_url(&image, 1920)?,
     };
     lock(state).pending = Some(image);
     Ok(grabbed)

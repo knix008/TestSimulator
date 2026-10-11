@@ -614,6 +614,45 @@ export const cases = [
     },
   },
   {
+    name: '창이 커지면 미리보기 · 보기 이미지도 계속 커짐',
+    run: async (app) => {
+      const win = (command, args = {}) => app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|${command}', ${JSON.stringify({ label: 'main', ...args })})`);
+      const monitor = await app.main.eval(`window.__mycapture.state.monitors.find((m) => m.primary) ?? window.__mycapture.state.monitors[0]`);
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: monitor.id, imageFormat: 'png' });
+      await app.main.waitFor(`document.querySelector('#preview-still img')?.naturalWidth > 0`);
+      const before = await win('inner_size');
+      // Displayed size of an object-fit: contain image, and the area it sits in.
+      const measure = (selector) => app.main.eval(`(() => {
+        const img = document.querySelector(${JSON.stringify(selector)});
+        const r = img.getBoundingClientRect();
+        const scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+        return JSON.stringify({ shown: [Math.round(img.naturalWidth * scale), Math.round(img.naturalHeight * scale)], box: [Math.round(r.width), Math.round(r.height)], natural: img.naturalWidth });
+      })()`);
+      try {
+        await win('set_size', { value: { Logical: { width: 860, height: 600 } } });
+        await sleep(500);
+        const small = JSON.parse(await measure('#preview-still img'));
+        await win('set_size', { value: { Physical: { width: monitor.width - 40, height: monitor.height - 80 } } });
+        await sleep(500);
+        const large = JSON.parse(await measure('#preview-still img'));
+        assert.ok(large.natural >= Math.min(1920, monitor.width), `preview is sharp enough (${large.natural}px)`);
+        assert.ok(large.shown[0] > small.shown[0] * 1.5, `preview grows with the window: ${small.shown} → ${large.shown}`);
+        assert.ok(Math.abs(large.shown[0] - large.box[0]) <= 2 || Math.abs(large.shown[1] - large.box[1]) <= 2, `fills the preview area ${large.shown} in ${large.box}`);
+        // A small capture shown in the viewer also grows past 100 %.
+        await app.reset({ mode: 'capture', target: 'region', imageFormat: 'png', region: { monitorId: monitor.id, x: 0, y: 0, width: 200, height: 120 } });
+        await app.clearNotice();
+        await app.main.click('[data-action="recapture-region"]');
+        await app.notice();
+        await app.main.click('#history .tile [data-action="gallery-open"]');
+        await app.main.waitFor(`document.querySelector('.viewer-image')?.naturalWidth > 0`);
+        await sleep(300);
+        assert.ok(await app.main.eval(`parseInt(document.querySelector('.viewer-zoom').textContent, 10)`) > 100, 'small image is enlarged to fit');
+      } finally {
+        await win('set_size', { value: { Physical: before } });
+      }
+    },
+  },
+  {
     name: '창 위치 · 크기 · 최대화를 기억했다가 다시 실행할 때 사용',
     run: async (app) => {
       const win = (command, args = {}) => app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|${command}', ${JSON.stringify({ label: 'main', ...args })})`);
