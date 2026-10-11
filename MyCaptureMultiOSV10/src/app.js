@@ -16,7 +16,7 @@ import { applyTheme, nextTheme, resolveTheme, SYSTEM, themeName } from './themes
 import { openPopup, SESSION_KEY } from './platform/popups.js';
 import { escapeHtml, widgets } from './ui.js';
 import {
-  beginRegionSelect, copyPending, defaultDirectories, errorText, grab, isDesktopShell, listSources,
+  beginRegionSelect, copyImageFile, copyPending, copyText, defaultDirectories, errorText, grab, isDesktopShell, listSources,
   monitorInfo, openPath, platformInfo, recordingAbort, recordingFinish, recordingOpen, revealPath,
   hideRecordingPanel, pathsExist, previewUrl, savePending, setBackendLanguage, showMain, showRecordingPanel, sourceThumbnail,
 } from './platform/native.js';
@@ -555,7 +555,11 @@ function renderGallery() {
       </button>`;
     return;
   }
-  const scroll = host.querySelector('.history-list')?.scrollTop ?? 0;
+  // A list that grows downward: oldest first, newest at the bottom. It follows new
+  // entries when the user is at the bottom, and stays put while they look further up.
+  const list = host.querySelector('.history-list');
+  const scroll = list?.scrollTop ?? 0;
+  const atBottom = !list || list.scrollTop + list.clientHeight >= list.scrollHeight - 8;
   host.innerHTML = `
     <div class="panel-head">
       <h2>${icon('images')}<span>${t('gallery.title')}</span><span class="gallery-count">${items.length}</span></h2>
@@ -564,8 +568,9 @@ function renderGallery() {
       </div>
     </div>
     <button class="text-button danger history-clear" data-action="gallery-clear" ${items.length ? '' : 'disabled'}>${icon('trash')}<span>${t('gallery.clear')}</span></button>
-    <div class="history-list">${items.length ? items.map(galleryTile).join('') : `<p class="gallery-empty">${t('gallery.empty')}</p>`}</div>`;
-  host.querySelector('.history-list').scrollTop = scroll;
+    <div class="history-list" role="list">${items.length ? [...items].reverse().map(galleryTile).join('') : `<p class="gallery-empty">${t('gallery.empty')}</p>`}</div>`;
+  const next = host.querySelector('.history-list');
+  next.scrollTop = atBottom ? next.scrollHeight : scroll;
 }
 
 function galleryTile(item) {
@@ -595,7 +600,7 @@ function galleryTile(item) {
 }
 
 /** Small JPEG for the history, so it stays light in storage. */
-async function smallThumbnail(dataUrl, maxWidth = 240) {
+async function smallThumbnail(dataUrl, maxWidth = 192) {
   if (!dataUrl) return null;
   try {
     const image = new Image();
@@ -617,7 +622,8 @@ async function addGalleryItem(item) {
   state.gallery = addToGallery(state.gallery, { ...item, thumbnail });
   storeGallery(globalThis.localStorage, state.gallery);
   renderGallery();
-  root.querySelector('.history-list')?.scrollTo({ top: 0 });
+  const list = root.querySelector('.history-list');
+  list?.scrollTo({ top: list.scrollHeight });
 }
 
 const galleryItem = (id) => state.gallery.find((item) => item.id === id);
@@ -1192,6 +1198,122 @@ root.addEventListener('input', (event) => {
   }
 });
 
+// ───────────────────────── context menus (own window, with icons)
+
+const menuItem = (command, glyph, labelKey, extra = {}) => ({ command, icon: glyph, label: t(labelKey), ...extra });
+const SEP = { separator: true };
+
+/** Items for whatever was right-clicked. */
+function contextItems(target) {
+  const tile = target.closest('#history .tile');
+  if (tile) {
+    const item = galleryItem(tile.dataset.id);
+    if (!item) return [];
+    const missing = state.missing.has(item.id);
+    return [
+      menuItem(`view:${item.id}`, 'eye', 'viewer.view', { disabled: missing }),
+      menuItem(`open:${item.id}`, 'open', 'viewer.openExternal', { disabled: missing }),
+      menuItem(`reveal:${item.id}`, 'folder', 'result.reveal', { disabled: missing }),
+      SEP,
+      ...(item.kind === 'image' ? [menuItem(`copy-image:${item.id}`, 'copy', 'menu.copyImage', { disabled: missing })] : []),
+      menuItem(`copy-path:${item.id}`, 'link', 'menu.copyPath'),
+      SEP,
+      menuItem(`delete:${item.id}`, 'trash', 'gallery.delete', { danger: true }),
+    ];
+  }
+  if (target.closest('#viewer') && viewer?.open) {
+    const video = viewer.item.kind === 'video';
+    return [
+      ...(video
+        ? [menuItem('viewer:play', 'play', 'viewer.play'), menuItem('viewer:pause', 'pause', 'viewer.pause'), menuItem('viewer:stop', 'stop', 'viewer.stop')]
+        : [menuItem('viewer:zoom-in', 'zoomIn', 'viewer.zoomIn'), menuItem('viewer:zoom-out', 'zoomOut', 'viewer.zoomOut'), menuItem('viewer:fit', 'fit', 'viewer.fit'), menuItem('viewer:actual', 'actual', 'viewer.actual')]),
+      SEP,
+      menuItem('viewer:external', 'open', 'viewer.openExternal'),
+      menuItem('viewer:reveal', 'folder', 'result.reveal'),
+      SEP,
+      menuItem('viewer:close', 'close', 'viewer.close'),
+    ];
+  }
+  const source = target.closest('.item[data-action="monitor"], .item[data-action="window"]');
+  if (source && !locked()) {
+    return [
+      menuItem(`capture-source:${source.dataset.action}:${source.dataset.value}`, 'camera', 'menu.captureThis'),
+      menuItem(`select-source:${source.dataset.action}:${source.dataset.value}`, 'eye', 'menu.previewThis'),
+    ];
+  }
+  if (target.closest('#stage, #sources')) {
+    const recordMode = s().mode === 'record';
+    const active = isActive(state.session);
+    return [
+      recordMode
+        ? (active ? menuItem('stop', 'stop', 'action.stop', { danger: true }) : menuItem('record', 'video', 'action.record'))
+        : menuItem('capture', 'camera', 'action.capture', { disabled: Boolean(state.busy) }),
+      menuItem('select-region', 'region', 'region.select', { disabled: locked() }),
+      ...(!recordMode && s().region ? [menuItem('recapture-region', 'repeat', 'action.recaptureRegion', { disabled: Boolean(state.busy) })] : []),
+      SEP,
+      menuItem('refresh', 'refresh', 'target.refresh', { disabled: locked() }),
+    ];
+  }
+  return [
+    menuItem('mode:capture', 'camera', 'mode.capture', { disabled: isActive(state.session) }),
+    menuItem('mode:record', 'video', 'mode.record', { disabled: isActive(state.session) }),
+    SEP,
+    menuItem('theme-next', 'palette', 'theme.next'),
+    menuItem('open-settings', 'gear', 'settings.title'),
+    menuItem('open-about', 'info', 'about.title'),
+  ];
+}
+
+function showContextMenu(event) {
+  const items = contextItems(event.target);
+  if (!items.length || !desktop) return;
+  // Place it at the pointer, kept on the screen (it may extend past the window).
+  const width = 250;
+  const height = items.reduce((sum, item) => sum + (item.separator ? 9 : 32), 10);
+  const screenArea = window.screen;
+  const left = screenArea.availLeft ?? 0;
+  const top = screenArea.availTop ?? 0;
+  let x = window.screenX + event.clientX;
+  let y = window.screenY + event.clientY;
+  if (x + width > left + screenArea.availWidth) x -= width;
+  if (y + height > top + screenArea.availHeight) y = Math.max(top, y - height);
+  openPopup('menu', { params: { items, origin: 'main' }, anchor: { x, y } }).catch(reportError);
+}
+
+/** A command chosen in a context menu. */
+function runMenuCommand(command) {
+  const [name, ...rest] = command.split(':');
+  const value = rest.join(':');
+  const item = galleryItem(value);
+  switch (name) {
+    case 'view': return openViewer(value);
+    case 'open': return item && openPath(item.path).catch(reportError);
+    case 'reveal': return item && revealPath(item.path).catch(reportError);
+    case 'copy-image': return item && copyImageFile(item.path).then(() => notify('success', t('notice.copied'))).catch(reportError);
+    case 'copy-path': return item && copyText(item.path).then(() => notify('success', t('menu.pathCopied'))).catch(reportError);
+    case 'delete': return deleteGalleryItems([value]);
+    case 'viewer': return viewer?.command(value);
+    case 'mode': return actions.mode(value);
+    case 'capture-source': {
+      const [action, id] = value.split(':');
+      actions[action](id);
+      return captureNow();
+    }
+    case 'select-source': {
+      const [action, id] = value.split(':');
+      return actions[action](id);
+    }
+    default: return actions[name]?.(value || undefined, { dataset: {} });
+  }
+}
+
+root.addEventListener('contextmenu', (event) => {
+  // Text fields keep the normal cut / copy / paste menu.
+  if (event.target.closest('input[type=text], input[type=search], textarea')) return;
+  event.preventDefault();
+  showContextMenu(event);
+});
+
 // Dragging the thin bars between the panels resizes them.
 root.addEventListener('pointerdown', (event) => {
   const splitter = event.target.closest?.('[data-split]');
@@ -1261,6 +1383,9 @@ async function initialize() {
   }
   await listen('region-selected', (event) => onRegionSelected(event.payload));
   await listen('mycapture-notice', ({ payload }) => notify(payload.kind, payload.text));
+  await listen('mycapture-menu', ({ payload }) => {
+    if (payload?.origin === 'main') runMenuCommand(String(payload.command ?? ''));
+  });
   await listen('recbar-command', ({ payload }) => {
     const command = payload?.command;
     if (command === 'ready') emit('recording-state', state.session).catch(() => {});

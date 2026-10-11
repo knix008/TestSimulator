@@ -31,6 +31,8 @@ function tick() {
   if (time) time.textContent = formatDuration(elapsedMs(session, Date.now()));
 }
 
+window.addEventListener('contextmenu', (event) => event.preventDefault());
+
 root.addEventListener('click', (event) => {
   const button = event.target.closest('[data-command]');
   if (button && !button.disabled) emit('recbar-command', { command: button.dataset.command });

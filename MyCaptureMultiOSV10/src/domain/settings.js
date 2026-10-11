@@ -5,7 +5,11 @@ export const STORAGE_KEY = 'mycapture.settings.v1';
 export const IMAGE_FORMATS = ['jpg', 'png', 'gif', 'tiff', 'bmp', 'webp'];
 export const VIDEO_FORMATS = ['mp4', 'webm'];
 
+/** Bumped when a default changes in a way existing settings should pick up. */
+export const SETTINGS_VERSION = 2;
+
 export const defaultSettings = Object.freeze({
+  settingsVersion: SETTINGS_VERSION,
   language: null, // null = follow the system (ko on Korean systems, otherwise en)
   theme: SYSTEM, // a theme id from themes.js, 'custom', or 'system' (OS light/dark)
   customTheme: defaultCustom(),
@@ -23,7 +27,7 @@ export const defaultSettings = Object.freeze({
   microphone: false,
   imageDirectory: null,
   videoDirectory: null,
-  askPath: true,
+  askPath: false, // false = save straight into the folder; true = ask every time
   copyToClipboard: false,
   micDeviceId: null, // null = system default input
   micGain: 100, // percent, 0–200
@@ -68,7 +72,9 @@ export function sanitizeSettings(raw) {
     microphone: bool(value.microphone, d.microphone),
     imageDirectory: typeof value.imageDirectory === 'string' && value.imageDirectory ? value.imageDirectory : null,
     videoDirectory: typeof value.videoDirectory === 'string' && value.videoDirectory ? value.videoDirectory : null,
-    askPath: bool(value.askPath, d.askPath),
+    // Version 2 made saving automatic; older settings start from that too.
+    askPath: value.settingsVersion >= 2 ? bool(value.askPath, d.askPath) : d.askPath,
+    settingsVersion: SETTINGS_VERSION,
     copyToClipboard: bool(value.copyToClipboard, d.copyToClipboard),
     micDeviceId: typeof value.micDeviceId === 'string' && value.micDeviceId ? value.micDeviceId : null,
     micGain: Number.isFinite(Number(value.micGain)) ? Math.min(200, Math.max(0, Math.round(Number(value.micGain)))) : d.micGain,

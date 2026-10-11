@@ -1,4 +1,4 @@
-// Popup windows: settings (tabs), about, confirmation, theme dropdown.
+// Popup windows: settings (tabs), about, confirmation, theme dropdown, context menu.
 // Each is its own OS window (label "popup-<kind>") running this page. Settings
 // live in localStorage, which the main window watches, so a change here shows
 // there at once — and changes made there show here.
@@ -67,6 +67,7 @@ const SETTINGS_TABS = [
 
 function render() {
   if (kind === 'theme-menu') return renderThemeMenu();
+  if (kind === 'menu') return renderContextMenu();
   const [glyph, title] = { settings: ['gear', t('settings.title')], about: ['info', t('about.title')], confirm: ['trash', t('gallery.clearTitle')] }[kind];
   const body = kind === 'settings' ? settingsBody() : kind === 'about' ? aboutBody() : confirmBody();
   const foot = kind === 'settings'
@@ -323,6 +324,24 @@ function renderThemeMenu() {
   ready();
 }
 
+// ───────────────────────── context menu
+// The opener passes ready-made items ({ command, icon, label, hint?, danger?, disabled? } or
+// { separator: true }); a click sends the command back over "mycapture-menu".
+
+function renderContextMenu() {
+  const items = Array.isArray(state.params.items) ? state.params.items : [];
+  root.innerHTML = `<div class="popup-menu context-menu" role="menu">
+    ${items.map((item) => (item.separator ? '<div class="menu-sep" role="separator"></div>' : `
+      <button class="menu-item ${item.danger ? 'danger' : ''}" role="menuitem" data-action="menu-run" data-value="${escapeHtml(item.command)}" ${item.disabled ? 'disabled' : ''}>
+        ${icon(item.icon ?? 'blank')}<span>${escapeHtml(item.label)}</span>${item.hint ? `<kbd>${escapeHtml(item.hint)}</kbd>` : ''}
+      </button>`)).join('')}
+  </div>`;
+  const height = Math.ceil(root.querySelector('.context-menu').getBoundingClientRect().height);
+  if (Math.abs(height - window.innerHeight) > 1) appWindow.setSize(new LogicalSize(window.innerWidth, height)).catch(() => {});
+  root.querySelector('.menu-item:not(:disabled)')?.focus();
+  ready();
+}
+
 // ───────────────────────── actions
 
 function applySettingsFromStorage() {
@@ -350,6 +369,10 @@ function close() {
 
 const actions = {
   close: () => close(),
+  'menu-run': async (command) => {
+    await emit('mycapture-menu', { command, origin: state.params.origin ?? 'main' }).catch(() => {});
+    close();
+  },
   'settings-tab': (value) => {
     state.tab = value;
     syncMicChain();
@@ -465,13 +488,26 @@ window.addEventListener('storage', (event) => {
   }
 });
 
-// A dropdown closes as soon as the user clicks anywhere else.
-if (kind === 'theme-menu') {
+// Menus close as soon as the user clicks anywhere else.
+if (kind === 'theme-menu' || kind === 'menu') {
   window.addEventListener('blur', () => {
-    try { globalThis.localStorage?.setItem('mycapture.popup.theme-menu.closedAt', String(Date.now())); } catch { /* ignore */ }
+    try { globalThis.localStorage?.setItem(`mycapture.popup.${kind}.closedAt`, String(Date.now())); } catch { /* ignore */ }
     close();
   });
+  // Up / down move between menu items.
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    const items = [...root.querySelectorAll('.menu-item:not(:disabled), .theme-row')];
+    const index = items.indexOf(document.activeElement);
+    items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+    event.preventDefault();
+  });
 }
+
+// No browser context menu (Back, Reload, Inspect…) in popups; text fields keep theirs.
+window.addEventListener('contextmenu', (event) => {
+  if (!event.target.closest('input[type=text], input[type=search], textarea')) event.preventDefault();
+});
 
 async function initialize() {
   applyTheme(currentTheme());

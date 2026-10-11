@@ -244,6 +244,11 @@ export const messages = {
     'theme.field.accent': '강조',
     'theme.field.danger': '경고 · 정지',
     'theme.changed': '테마: {name}',
+    'menu.copyImage': '이미지 복사',
+    'menu.copyPath': '파일 경로 복사',
+    'menu.pathCopied': '파일 경로를 복사했습니다.',
+    'menu.captureThis': '이 대상 캡처',
+    'menu.previewThis': '이 대상 미리보기',
     'overlay.hint': '드래그해서 영역 선택 · 클릭하면 이 화면 전체 · <kbd>Esc</kbd> 취소',
   },
   en: {
@@ -486,6 +491,11 @@ export const messages = {
     'theme.field.accent': 'Accent',
     'theme.field.danger': 'Warning · stop',
     'theme.changed': 'Theme: {name}',
+    'menu.copyImage': 'Copy image',
+    'menu.copyPath': 'Copy file path',
+    'menu.pathCopied': 'Copied the file path.',
+    'menu.captureThis': 'Capture this',
+    'menu.previewThis': 'Preview this',
     'overlay.hint': 'Drag to select a region · click for this whole screen · <kbd>Esc</kbd> to cancel',
   },
 };

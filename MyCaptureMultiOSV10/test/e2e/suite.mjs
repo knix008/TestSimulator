@@ -386,9 +386,9 @@ export const cases = [
         left: Math.round(tile.getBoundingClientRect().left),
         inPanel: Boolean(tile.closest('#history .history-list')),
       })))`));
-      assert.equal(tiles[0].kind, 'video', 'newest first');
-      assert.match(tiles[0].badge, /^동영상/, 'video marker over the thumbnail');
-      assert.equal(tiles[1].badge, null, 'no video marker on images');
+      assert.equal(tiles[1].kind, 'video', 'newest at the bottom of the list');
+      assert.match(tiles[1].badge, /^동영상/, 'video marker over the thumbnail');
+      assert.equal(tiles[0].badge, null, 'no video marker on images');
       assert.ok(tiles.every((tile) => tile.thumb), 'thumbnails');
       assert.ok(tiles.every((tile) => tile.inPanel), 'listed in the right panel');
       assert.ok(tiles[0].top < tiles[1].top && tiles[0].left === tiles[1].left, 'laid out vertically');
@@ -650,6 +650,82 @@ export const cases = [
       } finally {
         await win('set_size', { value: { Physical: before } });
       }
+    },
+  },
+  {
+    name: '자동 저장 · 전체 화면 · 창 · 영역 캡처가 모두 캡처 기록에 (아래로 쌓임)',
+    run: async (app) => {
+      const monitor = await app.main.eval(`window.__mycapture.state.monitors[0]`);
+      // Settings from before auto-save existed ("ask every time" on, no version): they switch to auto-save.
+      await app.reset({ askPath: true, mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      assert.equal(await app.main.eval(`window.__mycapture.state.settings.askPath`), false, 'saving is automatic');
+      await capture(app);
+      await app.main.click('[data-action="target"][data-value="window"]');
+      await app.main.waitFor(`document.querySelectorAll('.item[data-action="window"]').length > 0`);
+      await app.main.click('.item[data-action="window"]');
+      await capture(app);
+      await app.main.click('[data-action="target"][data-value="region"]');
+      await app.main.click('[data-action="capture"]');
+      await dragOverlay(app, { x: 100, y: 100 }, { x: 300, y: 220 });
+      assert.equal((await app.notice()).kind, 'success');
+      await app.main.waitFor(`document.querySelectorAll('#history .tile').length === 3`, { message: 'all three captures are in the history' });
+      const rows = JSON.parse(await app.main.eval(`JSON.stringify([...document.querySelectorAll('#history .tile')].map((tile) => ({
+        name: tile.querySelector('.tile-caption strong').textContent, top: tile.getBoundingClientRect().top,
+        size: tile.querySelector('.tile-caption small').textContent })))`));
+      assert.ok(rows[0].top < rows[1].top && rows[1].top < rows[2].top, 'a list growing downward');
+      const [regionWidth] = rows[2].size.split(' × ').map((part) => parseInt(part, 10));
+      assert.ok(regionWidth > 0 && regionWidth < monitor.width / 2, `newest (the region) is the last row: ${rows[2].size}`);
+      assert.equal(new Set(rows.map((row) => row.name)).size, 3, 'three separate files');
+      for (const row of rows) assert.ok(fs.existsSync(`${app.output}/${row.name}`), `${row.name} saved`);
+    },
+  },
+  {
+    name: '컨텍스트 메뉴 · 아이콘 있는 메뉴 창, 브라우저 메뉴 대신',
+    run: async (app) => {
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      await capture(app);
+      const { file } = checkFile(app, 'png');
+      await app.main.eval(`window.__menuEvents = []; document.addEventListener('contextmenu', (e) => setTimeout(() => window.__menuEvents.push(e.defaultPrevented)), true); 1`);
+      const rightClick = async (selector) => {
+        const box = JSON.parse(await app.main.eval(`JSON.stringify(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect())`));
+        const x = box.left + box.width / 2;
+        const y = box.top + box.height / 2;
+        await app.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 });
+        await app.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
+      };
+      await rightClick('#history .tile');
+      let menu = await app.popup('menu');
+      const items = JSON.parse(await menu.eval(`JSON.stringify([...document.querySelectorAll('.menu-item')].map((item) => ({ command: item.dataset.value, icon: Boolean(item.querySelector('svg path, svg rect, svg circle')), label: item.textContent.trim() })))`));
+      assert.ok(items.length >= 6, `history menu items: ${items.map((i) => i.label)}`);
+      assert.ok(items.every((item) => item.icon), 'every menu item has an icon');
+      assert.ok(await app.main.eval(`window.__menuEvents.every(Boolean)`), 'the browser menu is suppressed');
+      await app.clearNotice();
+      await menu.click('[data-value^="copy-path:"]');
+      menu.close();
+      await app.main.waitFor(`window.__mycapture.state.notice?.kind === 'success'`, { message: 'path copied' });
+      const clipboard = execFileSync('powershell.exe', ['-NoProfile', '-Command', 'Get-Clipboard']).toString().trim();
+      assert.equal(clipboard, file, 'the file path is on the clipboard');
+      // General menu elsewhere.
+      await rightClick('#toolbar');
+      menu = await app.popup('menu');
+      assert.ok(await menu.eval(`document.querySelector('[data-value="open-settings"] svg') !== null`), 'settings entry with icon');
+      await menu.key('Escape');
+      menu.close();
+      await sleep(300);
+      // Delete through the menu: removed from the history, file kept.
+      await rightClick('#history .tile');
+      menu = await app.popup('menu');
+      await menu.click('[data-value^="delete:"]');
+      menu.close();
+      await app.main.waitFor(`document.querySelectorAll('#history .tile').length === 0`);
+      assert.ok(fs.existsSync(file), 'file kept');
+      // Text fields keep their own cut / copy / paste menu.
+      await app.main.click('[data-action="target"][data-value="window"]');
+      await app.main.eval(`window.__menuEvents = []; 1`);
+      await rightClick('[data-input="windowFilter"]');
+      await sleep(300);
+      assert.deepEqual(JSON.parse(await app.main.eval(`JSON.stringify(window.__menuEvents)`)), [false], 'search box: native menu');
+      await app.main.key('Escape');
     },
   },
   {

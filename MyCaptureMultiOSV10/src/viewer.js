@@ -213,7 +213,8 @@ export class MediaViewer {
   }
 
   onClick(event) {
-    const button = event.target.closest('[data-viewer]');
+    const button = event.target.closest?.('[data-viewer]') ?? event.target;
+    if (!button?.dataset?.viewer) return;
     if (!button || button.disabled || !this.item) return;
     const video = this.host.querySelector('video');
     switch (button.dataset.viewer) {
@@ -229,6 +230,13 @@ export class MediaViewer {
       case 'close': this.handlers.onClose(); break;
       default:
     }
+  }
+
+  /** Runs a viewer command from the context menu (same names as its buttons). */
+  command(name) {
+    const button = document.createElement('button');
+    button.dataset.viewer = name;
+    this.onClick({ target: button });
   }
 
   /** Keyboard while the viewer is open: space = play/pause, +/-/0 = zoom. Returns true if handled. */

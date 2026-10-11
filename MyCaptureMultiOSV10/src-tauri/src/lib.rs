@@ -218,6 +218,37 @@ async fn save_pending(
     .await
 }
 
+/// Puts text on the clipboard. Done here because the webview's clipboard API
+/// refuses while focus is in another window (a context menu that just closed).
+#[tauri::command]
+async fn copy_text(text: String) -> Result<(), String> {
+    blocking(move || {
+        arboard::Clipboard::new()
+            .and_then(|mut clipboard| clipboard.set_text(text))
+            .map_err(|error| tr!("클립보드 복사 실패: {error}", "Copying to the clipboard failed: {error}"))
+    })
+    .await
+}
+
+/// Puts a saved image file on the clipboard (context menu of the capture history).
+#[tauri::command]
+async fn copy_image_file(path: PathBuf) -> Result<(), String> {
+    blocking(move || {
+        let image = image::open(&path)
+            .map_err(|error| tr!("이미지를 열 수 없습니다: {error}", "Could not open the image: {error}"))?
+            .into_rgba8();
+        let mut clipboard = arboard::Clipboard::new().map_err(|error| tr!("클립보드를 열 수 없습니다: {error}", "Could not open the clipboard: {error}"))?;
+        clipboard
+            .set_image(arboard::ImageData {
+                width: image.width() as usize,
+                height: image.height() as usize,
+                bytes: image.into_raw().into(),
+            })
+            .map_err(|error| tr!("클립보드 복사 실패: {error}", "Copying to the clipboard failed: {error}"))
+    })
+    .await
+}
+
 #[tauri::command]
 async fn copy_pending(state: State<'_, AppState>) -> Result<(), String> {
     let image = lock(&state).pending.clone().ok_or_else(|| tr!("복사할 캡처가 없습니다.", "There is no capture to copy."))?;
@@ -522,7 +553,7 @@ fn app_title(info: &tauri::PackageInfo) -> String {
     format!("MyCapture v{}.{}", info.version.major, info.version.minor)
 }
 
-const POPUP_KINDS: [&str; 4] = ["settings", "about", "confirm", "theme-menu"];
+const POPUP_KINDS: [&str; 5] = ["settings", "about", "confirm", "theme-menu", "menu"];
 
 /// Opens a popup (settings, about, confirmation, theme dropdown) as its own OS
 /// window at screen position (x, y) in logical pixels, or brings it back. It is
@@ -673,6 +704,8 @@ pub fn run() {
             grab,
             save_pending,
             copy_pending,
+            copy_image_file,
+            copy_text,
             begin_region_select,
             overlay_frame,
             overlay_ready,

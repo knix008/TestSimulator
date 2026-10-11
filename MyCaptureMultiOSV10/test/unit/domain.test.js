@@ -81,7 +81,11 @@ test('settings: sanitize anything, round-trip through storage', () => {
   assert.equal(odd.fps, 60);
   assert.equal(odd.jpegQuality, 40);
   assert.equal(odd.region, null);
-  assert.equal(odd.askPath, true);
+  assert.equal(odd.askPath, false, 'invalid value → default (save automatically)');
+  // Version 2 made saving automatic: older settings switch over once, newer ones keep the choice.
+  assert.equal(sanitizeSettings({ askPath: true }).askPath, false);
+  assert.equal(sanitizeSettings({ askPath: true, settingsVersion: 2 }).askPath, true);
+  assert.equal(sanitizeSettings({}).settingsVersion, 2);
 
   const memory = new Map();
   const storage = { getItem: (key) => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value) };

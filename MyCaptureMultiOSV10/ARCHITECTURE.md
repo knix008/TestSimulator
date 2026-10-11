@@ -107,7 +107,7 @@ main ◀── emit("recbar-command", {command}) ── recbar (pause · resume 
 
 ## 5. 캡처 기록
 
-- `domain/gallery.js`: 최신 순 목록(최대 60개, 같은 경로는 교체), localStorage `mycapture.gallery.v1` 에 240px JPEG 썸네일과 함께 저장. 불러올 때 깨진 항목 · 중복 · `data:image/` 가 아닌 썸네일을 버린다.
+- `domain/gallery.js`: 최신 순으로 저장(최대 300개, 같은 경로는 교체)하고, 패널은 거꾸로(오래된 것 위 → 새것 아래) 그린다, localStorage `mycapture.gallery.v1` 에 240px JPEG 썸네일과 함께 저장. 불러올 때 깨진 항목 · 중복 · `data:image/` 가 아닌 썸네일을 버린다.
 - 이미지는 `save_pending` 성공 뒤, 동영상은 `recording_finish` 성공 뒤(정지 직전 미리보기 프레임을 썸네일로) 추가된다.
 - 삭제(개별 · 전체)는 목록에서만 지운다. 저장된 파일은 절대 건드리지 않는다(E2E 가 파일이 남아 있는지 확인).
 - 시작할 때 `paths_exist` 로 사라진 파일을 표시한다.
@@ -123,6 +123,7 @@ main ◀── emit("recbar-command", {command}) ── recbar (pause · resume 
 - **팝업 창**: 설정 · 프로그램 정보 · 확인 · 테마 목록은 각각 OS 창(`popup-<kind>`, `src/popup.js`)이다. `open_popup` 이 메인 창을 owner(`parent`)로 만들어 메인 위에 있고 함께 최소화되며, 메인 창 밖으로 나가거나 옮겨질 수 있다. 캡처 제외(content protection)도 메인과 같다. 페이지가 그려지면 `popup_ready` 로 보여 깜박임이 없다.
 - 창 사이 통신은 localStorage: 설정(`mycapture.settings.v1`) · 캡처 기록 · 녹화 상태(`mycapture.session`) · 팝업 여는 값(`mycapture.popup.<kind>`)을 쓰면 다른 창이 `storage` 이벤트로 받아 다시 그린다. 상태 바 알림만 Tauri 이벤트(`mycapture-notice`).
 - 설정 창은 720 × 650 고정(크기 조절 불가), 6개 탭 모두 스크롤 없이 들어간다(E2E 가 두 언어로 확인). 마이크 탭이 보일 때만 마이크를 연다. 프로그램 정보 창은 내용 높이에 맞춰 줄어든다. 테마 목록은 포커스를 잃으면 닫힌다.
+- **오른쪽 클릭 메뉴**도 팝업 창(`menu`)이다. 메인이 클릭한 곳에 맞는 항목(`{ command, icon, label }`)을 만들어 `mycapture.popup.menu` 로 넘기고, 메뉴는 고른 명령을 `mycapture-menu` 이벤트로 돌려준다. 화면 가장자리에서는 위 · 왼쪽으로 펼친다. 브라우저 기본 메뉴는 모든 창에서 막고(검색 칸 제외), 경로 복사는 포커스가 다른 창에 있어도 되도록 Rust(`copy_text`, arboard)로 한다.
 - 메인 창이 없어지면(`WindowEvent::Destroyed`) `app.exit(0)` — 팝업 · 오버레이 · 녹화 제어판이 남아 프로세스를 붙잡지 않는다.
 
 ## 7. 다국어

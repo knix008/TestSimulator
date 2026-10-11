@@ -24,6 +24,8 @@ export const monitorInfo = (id) => call('monitor_info', { id });
 export const grab = (source) => call('grab', { source });
 export const savePending = (output, format, jpegQuality) => call('save_pending', { output, format, jpegQuality });
 export const copyPending = () => call('copy_pending');
+export const copyImageFile = (path) => call('copy_image_file', { path });
+export const copyText = (text) => call('copy_text', { text });
 
 export const beginRegionSelect = () => call('begin_region_select');
 export const overlayReady = () => call('overlay_ready');

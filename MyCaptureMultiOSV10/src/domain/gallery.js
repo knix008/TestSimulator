@@ -1,8 +1,8 @@
-// Capture history shown as a strip at the bottom of the window.
-// Newest first, persisted (with small thumbnails) across runs.
+// Capture history (right panel). Stored newest first — the panel lists it the
+// other way round, growing downward — and persisted with small thumbnails.
 
 export const GALLERY_KEY = 'mycapture.gallery.v1';
-export const GALLERY_LIMIT = 60;
+export const GALLERY_LIMIT = 300;
 
 let nextId = 0;
 

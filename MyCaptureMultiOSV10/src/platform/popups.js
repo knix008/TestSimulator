@@ -13,6 +13,7 @@ export const POPUPS = {
   about: { width: 480, height: 470 }, // then fitted to its content
   confirm: { width: 440, height: 230 },
   'theme-menu': { width: 460, height: 640 },
+  menu: { width: 250, height: 300 }, // context menu; fitted to its items
 };
 
 export const popupKey = (kind) => `mycapture.popup.${kind}`;
