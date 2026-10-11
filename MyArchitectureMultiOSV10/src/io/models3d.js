@@ -9,7 +9,8 @@
 // Units ("auto"): formats that declare a unit use it — glTF/GLB are metres by
 // spec, COLLADA's <unit meter> and AMF's unit are applied by their loaders,
 // 3MF's model@unit is read from the package, FBX uses its UnitScaleFactor
-// (centimetres when absent). Everything else (OBJ, STL, PLY, 3DS, VRML) is
+// (centimetres when absent), Rhino 3DM its model unit system (rhino3dm.js).
+// Everything else (OBJ, STL, PLY, 3DS, VRML) is
 // guessed from the largest bounding-box extent L of the raw numbers:
 // L > 300 → mm, L > 30 → cm, otherwise m. Furniture and fixtures are 0.3…30 m,
 // so a chair (≈ 0.9 m) reads as 900 mm or 90 cm or 0.9 m in the respective
@@ -36,6 +37,7 @@ export const MODEL_FORMATS = [
   { ext: "3ds", name: "3D Studio", binary: true, upAxis: "z" },
   { ext: "wrl", name: "VRML 2.0", binary: false, upAxis: "y" },
   { ext: "amf", name: "Additive Manufacturing Format", binary: true, upAxis: "z" },
+  { ext: "3dm", name: "Rhino 3DM", binary: true, upAxis: "z" },
 ];
 
 // For <input type="file" accept="...">.
@@ -367,6 +369,15 @@ const PARSERS = {
     // The loader scales everything to millimetres.
     return { root, declared: 0.001, rawPerLoaded: 0.001 / fileUnit };
   },
+
+  // Rhino: rhino3dm (WebAssembly) in a worker, see rhino3dm.js.
+  async "3dm"(bytes, opts, warnings) {
+    const { read3dm, rhinoModelRoot } = await import("./rhino3dm.js");
+    const data = await read3dm(bytes, { mode: "model" });
+    warnings.push(...data.warnings);
+    if (!data.meshes.length) throw importError("The Rhino file has no surfaces, polysurfaces, meshes or SubDs to show in 3D. Import it as a plan drawing to get its curves.");
+    return { root: rhinoModelRoot(data), declared: data.metresPerUnit || null };
+  },
 };
 
 // Wait (bounded) for textures whose images are still decoding in the browser.
@@ -472,7 +483,14 @@ const triangleCount = (geo) => Math.floor((geo.index ? geo.index.count : geo.att
 
 // loadModelFile({ name, bytes }, { units, upAxis, mtlText, glb }) →
 // { object, name, format, size: [w, d, h] mm, outline, data (base64 GLB | null), units, warnings }
-export async function loadModelFile({ name, bytes }, { units = "auto", upAxis = "auto", mtlText = null, glb = true } = {}) {
+// Extra options for readers of other programs' packages (Sweet Home 3D):
+//   pre: Matrix4 applied to the model after the up-axis turn (rotation, mirroring),
+//   fit: [w, d, h] mm — scale each axis so the model is exactly that size (units are then moot),
+//   materialHook(material) → material — replace / adjust a source material
+//     (e.g. to give it a texture decoded from the package),
+//   maxTextureSize: pixels for textures baked into the GLB,
+//   weld: merge identical vertices (smaller GLB).
+export async function loadModelFile({ name, bytes }, { units = "auto", upAxis = "auto", mtlText = null, glb = true, pre: preMatrix = null, fit = null, materialHook = null, maxTextureSize = Infinity, weld = false } = {}) {
   const ext = fileExt(name);
   const format = MODEL_FORMATS.find((f) => f.ext === ext);
   if (!format) {
@@ -498,13 +516,23 @@ export async function loadModelFile({ name, bytes }, { units = "auto", upAxis = 
   const zUp = upAxis === "auto" ? format.upAxis === "z" : upAxis === "z";
   const pre = new THREE.Matrix4();
   if (zUp) pre.makeRotationX(-Math.PI / 2);
+  if (preMatrix) pre.premultiply(preMatrix);
 
   // Bake every visible triangle mesh into world space.
   const softWarnings = new Set();
   const matCache = new Map();
+  const hooked = new Map();
+  const srcMat = (mm) => {
+    if (!materialHook) return mm;
+    if (!hooked.has(mm)) hooked.set(mm, materialHook(mm) || mm);
+    return hooked.get(mm);
+  };
   const srcMaterials = [];
-  loaded.traverseVisible((o) => { if (o.isMesh) srcMaterials.push(...(Array.isArray(o.material) ? o.material : [o.material])); });
+  loaded.traverseVisible((o) => { if (o.isMesh) srcMaterials.push(...(Array.isArray(o.material) ? o.material : [o.material]).map(srcMat)); });
   await settleTextures(srcMaterials);
+  // weld: share identical vertices (OBJ files list every triangle corner on
+  // its own) — the baked GLB gets several times smaller.
+  const welder = weld ? (await import("../vendor/three/addons/BufferGeometryUtils.js")).mergeVertices : null;
 
   const baked = [];
   let skipped = 0;
@@ -518,13 +546,14 @@ export async function loadModelFile({ name, bytes }, { units = "auto", upAxis = 
     const flat = mats.some((mm) => mm && mm.flatShading);
     const count = o.isInstancedMesh ? o.count : 1;
     for (let i = 0; i < count; i++) {
-      const geo = sanitizeGeometry(o.geometry, flat);
+      let geo = sanitizeGeometry(o.geometry, flat);
       if (!triangleCount(geo)) { geo.dispose(); continue; }
+      if (welder && !flat) { const w = welder(geo, 1e-5); if (w !== geo) { geo.dispose(); geo = w; } }
       m4.multiplyMatrices(pre, o.matrixWorld);
       if (o.isInstancedMesh) { o.getMatrixAt(i, inst); m4.multiply(inst); }
       geo.applyMatrix4(m4);
       if (m4.determinant() < 0) flipWinding(geo);
-      const out = mats.map((mm) => exportableMaterial(mm, matCache, softWarnings));
+      const out = mats.map((mm) => exportableMaterial(srcMat(mm), matCache, softWarnings));
       if (!geo.attributes.color) for (let k = 0; k < out.length; k++) if (out[k].vertexColors) { out[k] = out[k].clone(); out[k].vertexColors = false; }
       const mesh = new THREE.Mesh(geo, Array.isArray(o.material) ? out : out[0]);
       mesh.name = o.name || (o.parent && o.parent.name) || "";
@@ -541,7 +570,10 @@ export async function loadModelFile({ name, bytes }, { units = "auto", upAxis = 
   const extent = Math.max(ext3.x, ext3.y, ext3.z);
   if (!(extent > 0) || !Number.isFinite(extent)) throw new Error(`"${name}" has no extent (all vertices coincide).`);
   let factor, unitLabel;
-  if (units !== "auto") {
+  if (fit) {
+    factor = 1;
+    unitLabel = "fit";
+  } else if (units !== "auto") {
     factor = UNIT_METRES[units] * (parsed.rawPerLoaded || 1);
     unitLabel = units;
   } else if (parsed.declared) {
@@ -554,8 +586,10 @@ export async function loadModelFile({ name, bytes }, { units = "auto", upAxis = 
   }
 
   // Scale to metres, centre on X/Z, stand on Y = 0.
-  const centre = box.getCenter(new THREE.Vector3()).multiplyScalar(factor);
-  const norm = new THREE.Matrix4().makeTranslation(-centre.x, -box.min.y * factor, -centre.z).multiply(new THREE.Matrix4().makeScale(factor, factor, factor));
+  // With `fit` each axis gets its own factor so the model fills [w, d, h] mm.
+  const k3 = fit ? new THREE.Vector3(...[fit[0] / ext3.x, fit[2] / ext3.y, fit[1] / ext3.z].map((v) => (Number.isFinite(v) && v > 0 ? v / 1000 : 0.001))) : new THREE.Vector3(factor, factor, factor);
+  const centre = box.getCenter(new THREE.Vector3()).multiply(k3);
+  const norm = new THREE.Matrix4().makeTranslation(-centre.x, -box.min.y * k3.y, -centre.z).multiply(new THREE.Matrix4().makeScale(k3.x, k3.y, k3.z));
   const object = new THREE.Group();
   object.name = baseName(name);
   for (const m of baked) {
@@ -567,7 +601,7 @@ export async function loadModelFile({ name, bytes }, { units = "auto", upAxis = 
   }
   object.updateMatrixWorld(true);
 
-  const wM = ext3.x * factor, hM = ext3.y * factor, dM = ext3.z * factor;
+  const wM = ext3.x * k3.x, hM = ext3.y * k3.y, dM = ext3.z * k3.z;
   const mm = (v) => Math.max(1, Math.round(v * 10000) / 10);
   const size = [mm(wM), mm(dM), mm(hM)];
   const outline = footprintOutline(baked, wM, dM);
@@ -576,7 +610,7 @@ export async function loadModelFile({ name, bytes }, { units = "auto", upAxis = 
   let glbData = null;
   if (glb) {
     const { GLTFExporter } = await import("../vendor/three/addons/GLTFExporter.js");
-    const ab = await new GLTFExporter().parseAsync(object, { binary: true, onlyVisible: true });
+    const ab = await new GLTFExporter().parseAsync(object, { binary: true, onlyVisible: true, maxTextureSize });
     glbData = bytesToBase64(new Uint8Array(ab));
   }
   return { object, name: object.name, format: ext, size, outline, data: glbData, units: unitLabel, warnings };

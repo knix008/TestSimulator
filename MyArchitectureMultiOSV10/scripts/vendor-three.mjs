@@ -22,6 +22,7 @@ const ADDONS = [
   "loaders/AMFLoader.js", "loaders/TGALoader.js",
   "curves/NURBSCurve.js", "curves/NURBSUtils.js",
   "utils/BufferGeometryUtils.js", "utils/SkeletonUtils.js",
+  "lines/LineSegments2.js", "lines/LineSegmentsGeometry.js", "lines/LineMaterial.js", // thick profile lines (SketchUp styles)
 ];
 const SUBDIRS = { "loaders/collada": "collada" };
 const LIBS = ["libs/fflate.module.js", "libs/chevrotain.module.min.js"];

@@ -15,6 +15,9 @@ import { roofModel, roofBase } from "../core/roof.js";
 import { drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight } from "../lib/furniture.js";
 import { materialColor } from "../lib/materials.js";
 import { fmtLen, fmtArea, rotPt, labelPoint as labelPointOf } from "../core/geom.js";
+import { drawElementsUnder, drawElementsOver, drawShapedStair, highlightElements, elementBoundsPoints, shapedStairOutline } from "./elements.js";
+import { isCurtainWall } from "../core/elements/geometry.js";
+import { syncOptions, optionHidden } from "../core/elements/model.js";
 
 export const PLAN_THEMES = {
   dark: {
@@ -97,6 +100,7 @@ export function phaseVisible(it, filter = "all") {
 
 // ---------------------------------------------------------------- walls
 export function drawWalls(ctx, p, walls, th, o) {
+  walls = walls.filter((w) => !isCurtainWall(p, w)); // curtain walls: drawElementsOver
   const outlines = wallOutlines(walls, { draw: true });
   const pieces = [];
   for (const w of walls) {
@@ -245,10 +249,12 @@ function drawOpening(ctx, w, s, th, lw, tag, o) {
 export function stairGeometry(s) {
   const L = s.length, W = s.width;
   const P = (u, v) => { const [x, y] = rotPt(u, v, s.rot || 0); return [s.x + x, s.y + y]; };
+  if (s.shape) return { L, W, P, outline: shapedStairOutline(s) }; // L, U, spiral (elements.js)
   return { L, W, P, outline: [P(-L / 2, -W / 2), P(L / 2, -W / 2), P(L / 2, W / 2), P(-L / 2, W / 2)] };
 }
 
 function drawStair(ctx, s, th, lw, o) {
+  if (s.shape) return drawShapedStair(ctx, o.project, s, th, lw, o);
   const g = stairGeometry(s);
   ctx.strokeStyle = th.stair;
   ctx.lineWidth = lw * 1.5;
@@ -366,10 +372,11 @@ export function drawPlan(ctx, p, th, opts) {
   const lw = o.lw;
   const L = o.level;
   const sel = o.selected || new Set();
-  const on = (list) => list.filter((it) => it.level === L && phaseVisible(it, o.phase));
+  syncOptions(p); // design options: the other options of a set are hidden
+  const on = (list) => list.filter((it) => it.level === L && phaseVisible(it, o.phase) && !optionHidden(it));
   const walls = on(p.walls);
   o.tags = show.tags;
-  const openingOk = (op) => phaseVisible(op, o.phase);
+  const openingOk = (op) => phaseVisible(op, o.phase) && !optionHidden(op);
 
   // Underlay images.
   if (show.underlays) {
@@ -411,6 +418,9 @@ export function drawPlan(ctx, p, th, opts) {
       ctx.fill();
     }
   }
+
+  // Floor slabs, foundations and shafts (elements.js).
+  drawElementsUnder(ctx, p, th, { ...o, show }, on);
 
   // Mass models: tinted footprint, the tapered top dashed, and the height.
   if (show.solids !== false) {
@@ -461,10 +471,11 @@ export function drawPlan(ctx, p, th, opts) {
       ctx.save();
       ctx.translate(f.x, f.y);
       if (f.rot) ctx.rotate((f.rot * Math.PI) / 180);
-      if (f.kind === "model") {
-        const asset = o.models && o.models.get(f.model);
+      if (f.kind === "model" || f.kind === "component") {
+        // A SketchUp-style component instance draws its definition's outline (src/core/skmodel.js).
+        const asset = f.kind === "component" ? (p.components || []).find((c) => c.id === f.comp) : o.models && o.models.get(f.model);
         const outline = asset && asset.outline && asset.outline.length >= 3 ? asset.outline : [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];
-        poly(ctx, outline.map(([x, y]) => [x * f.w, y * f.d]));
+        poly(ctx, outline.map(([x, y]) => [(f.mirrored ? -x : x) * f.w, y * f.d])); // mirrored: flipped along its width
         ctx.fillStyle = th.furnitureFill;
         ctx.fill();
         ctx.strokeStyle = th.furniture;
@@ -481,7 +492,7 @@ export function drawPlan(ctx, p, th, opts) {
       ctx.restore();
     }
   }
-  if (show.stairs) for (const s of on(p.stairs)) drawStair(ctx, s, th, lw, { px: o.px, upLabel: o.labels && o.labels.up });
+  if (show.stairs) for (const s of on(p.stairs)) drawStair(ctx, s, th, lw, { px: o.px, upLabel: o.labels && o.labels.up, project: p });
 
   // Walls and openings.
   const { outlines } = drawWalls(ctx, p, walls, th, { ...o, lw });
@@ -506,6 +517,9 @@ export function drawPlan(ctx, p, th, opts) {
     }
   }
 
+  // Curtain walls, beams, railings, ramps, ceilings (elements.js).
+  drawElementsOver(ctx, p, th, { ...o, show }, on, walls);
+
   // Roofs above, dashed (outline, ridges and hips).
   if (show.roofs) {
     for (const r of on(p.roofs)) {
@@ -519,6 +533,8 @@ export function drawPlan(ctx, p, th, opts) {
       ctx.beginPath();
       for (const [x1, y1, x2, y2] of m.lines) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
       ctx.stroke();
+      // Roof openings (skylights, dormer holes).
+      for (const h of r.holes || []) { poly(ctx, h); ctx.stroke(); }
       ctx.setLineDash([]);
     }
   }
@@ -550,6 +566,7 @@ export function drawPlan(ctx, p, th, opts) {
     for (const s of on(p.stairs)) if (ids.has(s.id)) { poly(ctx, stairGeometry(s).outline); ctx.stroke(); }
     for (const r of on(p.roofs)) if (ids.has(r.id)) { poly(ctx, r.pts); ctx.stroke(); }
     for (const s of on(p.solids || [])) if (ids.has(s.id)) { poly(ctx, s.pts); ctx.stroke(); }
+    highlightElements(ctx, p, ids, on, walls);
     for (const u of on(p.underlays)) if (ids.has(u.id)) { ctx.save(); ctx.translate(u.x, u.y); if (u.rot) ctx.rotate((u.rot * Math.PI) / 180); ctx.strokeRect(0, 0, u.w, u.h); ctx.restore(); }
     for (const d of on(p.drawings)) if (ids.has(d.id)) {
       ctx.beginPath();
@@ -604,6 +621,7 @@ export function planBounds(p, level = null) {
     if (d.kind === "circle" || d.kind === "arc") { add(d.cx - d.r, d.cy - d.r); add(d.cx + d.r, d.cy + d.r); } else for (const [x, y] of d.pts || []) add(x, y);
   }
   for (const u of p.underlays) if (on(u.level)) { add(u.x, u.y); add(u.x + u.w, u.y + u.h); }
+  for (const [x, y] of elementBoundsPoints(p, level)) add(x, y);
   return b;
 }
 

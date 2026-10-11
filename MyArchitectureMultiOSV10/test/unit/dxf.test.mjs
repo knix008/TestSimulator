@@ -629,11 +629,12 @@ test("SOLID and 3DFACE become outlines and POINT is only counted", () => {
 });
 
 test("Unknown entities are counted with one warning per type", () => {
-  const w = ["WIPEOUT", [[8, "0"], [10, 0], [20, 0]]];
+  // (a type without a reader and without proxy graphics)
+  const w = ["ACME_WIDGET", [[8, "0"], [10, 0], [20, 0]]];
   const r = importDxf(dxfDoc({ entities: [w, w, line(0, 0, 1, 0)] }), { units: "mm" });
-  assert.equal(r.counts.WIPEOUT, 2);
+  assert.equal(r.counts.ACME_WIDGET, 2);
   assert.equal(r.counts.LINE, 1);
-  assert.equal(r.warnings.filter((s) => s.includes("WIPEOUT")).length, 1);
+  assert.equal(r.warnings.filter((s) => s.includes("ACME_WIDGET")).length, 1);
 });
 
 test("Paper space entities are skipped", () => {
@@ -774,7 +775,9 @@ test("SVG hidden content, defs, use references and unsupported elements are hand
     <sodipodi:namedview/>`), { mmPerUnit: 1 });
   assert.equal(r.drawings.length, 1);
   assert.deepEqual(r.drawings[0].pts, [[5, 5], [6, 5]]);
-  assert.ok(r.warnings.some((w) => /images/.test(w)));
+  // A linked image waits for resolveSvgImages (svgimport.test.mjs) and does not count yet.
+  assert.equal(r.underlays.length, 1);
+  assert.ok(r.underlays[0].pending && r.underlays[0].href === "a.png");
   assert.deepEqual(r.bounds, { x1: 5, y1: 5, x2: 6, y2: 5 });
   assert.throws(() => importSvg("<html></html>"), /Not an SVG/);
 });

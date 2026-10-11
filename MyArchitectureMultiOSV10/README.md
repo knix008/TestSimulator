@@ -51,7 +51,8 @@ SketchUp 식 매스 모델링(밀기/끌기, 페인트 통, 줄자, 장면)과 C
   - 내보내기: DXF(AutoCAD 표준 레이어, 층마다 한 파일), IFC 4 / 2x3, GLB, glTF, OBJ+MTL(zip), STL, PLY, DAE, 3MF, USDZ,
     평면 SVG / PNG, 축척과 표제란이 있는 인쇄 / PDF / SVG 도면, 일람표 CSV
   - DWG(AutoCAD R13 ~ 2025), Sweet Home 3D(.sh3d), gbXML(Revit·ArchiCAD 내보내기), IFC ZIP 은 직접 가져옵니다.
-  - SKP · RVT · PLN · 3DM 은 공개되지 않은 형식이라 직접 열지 않고, 원래 프로그램에서 DXF · DAE · IFC 로 내보내는
+  - Rhino 3DM(openNURBS)은 3D 모델(가구)로, 또는 위에서 본 모습을 CAD 레이어로 직접 가져옵니다.
+  - SKP · RVT · PLN 은 공개되지 않은 형식이라 직접 열지 않고, 원래 프로그램에서 DXF · DAE · IFC 로 내보내는
     방법을 안내합니다.
 - **편의**: 제목 표시줄 안의 보기 탭(시작 · 평면도 · 3D 보기)과 검색 돋보기 버튼(또는 `Ctrl+K` — 명령·방·층·가구 검색;
   제목 표시줄의 메뉴·탭·버튼은 창을 줄여도 가려지지 않음), 도구 모음의
@@ -81,6 +82,11 @@ SketchUp 식 매스 모델링(밀기/끌기, 페인트 통, 줄자, 장면)과 C
 | `13-school.myarch` | 초등학교: 교실 2개 층, 도서관, 급식실, 체육관 |
 | `14-courtyard-house.myarch` | 중정형 주택: 수영장·퍼걸러가 있는 ㄷ자 평면, 동마다 모임지붕 |
 | `15-sketchup-complex.myarch` | 문화 단지(스케치업 스타일): 그룹으로 묶은 대형 매스 모델과 장면 9개 |
+| `16-modern-villa.myarch` | 모던 빌라: 커튼월, 캔틸레버 2층, 평지붕, 수영장 |
+| `17-townhouse.myarch` | 타운하우스: 좁은 3층 연립주택 + 옥상 테라스 |
+| `18-modern-farmhouse.myarch` | 모던 팜하우스: 어두운 목재 외장, 박공 금속 지붕 |
+| `19-duplex.myarch` | 듀플렉스: 경계벽을 공유하는 대칭 2층 주택 두 채 |
+| `20-compact-house.myarch` | 콤팩트 하우스: 45 m² 단층, 외쪽지붕 |
 
 `npm run build:samples` 가 `scripts/create-samples.mjs` 로 예제를 다시 만들고, 각 예제가 모델 검사 오류·경고 0 개이며
 DXF·IFC 로 내보낼 수 있는지 확인합니다.

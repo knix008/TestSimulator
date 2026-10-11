@@ -8,12 +8,15 @@
 
 import { uid } from "./geom.js";
 import { normalizeLight } from "../lib/furniture.js";
+import { normalizeElements } from "./elements/model.js";
+import { normalizeViews } from "../views/model.js";
+import { normalizeSketchup, syncMeshSolid } from "./skmodel.js";
 
 export const FORMAT = "myarch";
 export const FORMAT_VERSION = 1;
 
 // Item collections that live on a level (openings ride on their wall).
-export const LEVEL_COLLECTIONS = ["walls", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "dimensions", "texts", "drawings", "underlays"];
+export const LEVEL_COLLECTIONS = ["walls", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "dimensions", "texts", "drawings", "underlays", "slabs", "ceilings", "beams", "railings", "ramps", "shafts"];
 export const COLLECTIONS = [...LEVEL_COLLECTIONS.slice(0, 1), "openings", ...LEVEL_COLLECTIONS.slice(1)];
 
 export const DEFAULTS = {
@@ -46,6 +49,7 @@ export const PHASES = ["existing", "new", "demolish"];
 // Unit prices for the cost estimate (per m² of wall face or floor, per item).
 export const DEFAULT_COSTS = {
   currency: "KRW", wall: 120000, floor: 80000, roof: 150000, door: 450000, window: 380000, opening: 100000, stair: 2500000, column: 300000, furniture: 0,
+  slab: 90000, ceiling: 45000, beam: 180000, railing: 150000, ramp: 2000000, curtainWall: 650000,
 };
 
 export function newLevel(name = "1F", elevation = 0, height = DEFAULTS.wallHeight) {
@@ -75,6 +79,12 @@ export function newProject(title = "Untitled") {
     texts: [],
     drawings: [],
     underlays: [],
+    slabs: [],
+    ceilings: [],
+    beams: [],
+    railings: [],
+    ramps: [],
+    shafts: [],
     models: [],
     solids: [],
     scenes: [],
@@ -172,7 +182,7 @@ export function normalizeProject(p) {
   for (const c of out.columns) { c.w = Math.max(20, num(c.w, out.defaults.columnSize)); c.d = Math.max(20, num(c.d, c.w)); c.rot = num(c.rot, 0); c.shape = c.shape === "round" ? "round" : "rect"; }
   for (const r of out.roofs) {
     r.pts = Array.isArray(r.pts) ? r.pts.map((q) => [num(q[0], 0), num(q[1], 0)]) : [];
-    r.kind = ["flat", "gable", "hip", "shed"].includes(r.kind) ? r.kind : "gable";
+    r.kind = ["flat", "gable", "hip", "shed", "edges"].includes(r.kind) ? r.kind : "gable";
     r.pitch = Math.max(0, Math.min(75, num(r.pitch, 30)));
     r.overhang = Math.max(0, num(r.overhang, 400));
     r.thickness = Math.max(20, num(r.thickness, 200));
@@ -181,6 +191,7 @@ export function normalizeProject(p) {
   // Mass models (SketchUp-style push/pull solids): a plan shape extruded
   // from z0 by height above the level floor, optionally tapered to the top.
   for (const s of out.solids) {
+    if (s.mesh) syncMeshSolid(s); // reshaped in 3D: footprint, base and height follow the mesh
     s.pts = Array.isArray(s.pts) ? s.pts.map((q) => [num(q[0], 0), num(q[1], 0)]) : [];
     s.z0 = num(s.z0, 0);
     s.height = Math.max(1, num(s.height, 3000));
@@ -193,8 +204,11 @@ export function normalizeProject(p) {
   for (const tx of out.texts) { tx.size = Math.max(10, num(tx.size, out.defaults.textSize)); tx.rot = num(tx.rot, 0); tx.text = String(tx.text ?? ""); }
   const layerIds = new Set(out.layers.map((l) => l.id));
   for (const d of out.drawings) if (!layerIds.has(d.layer)) { out.layers.push({ id: d.layer, name: d.layer, color: "#9aa4b5", visible: true }); layerIds.add(d.layer); }
+  normalizeElements(out); // slabs, ceilings, beams, railings, ramps, shafts, types, design options
   out.view = { ...(out.view || {}) };
   if (!levelIds.has(out.view.level)) out.view.level = first;
+  normalizeViews(out); // views, sheets, annotations, templates, revisions (src/views/model.js)
+  normalizeSketchup(out); // components, tags, materials, section planes, guides, 3D notes, style (src/core/skmodel.js)
   return out;
 }
 

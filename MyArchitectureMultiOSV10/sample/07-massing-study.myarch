@@ -8,7 +8,7 @@
   "client": "Sample",
   "address": "Incheon",
   "rev": "A",
-  "date": "2026-10-10",
+  "date": "2026-10-11",
   "comment": "",
   "scale": 100,
   "north": 0,
@@ -31,7 +31,7 @@
  },
  "levels": [
   {
-   "id": "lvl5okf008c93",
+   "id": "lvbsc6r00ai3m",
    "name": "1F",
    "elevation": 0,
    "height": 2800,
@@ -174,7 +174,7 @@
  ],
  "grids": [
   {
-   "id": "gl5okf008t8w",
+   "id": "gbsc6r00azts",
    "x1": 0,
    "y1": -11000,
    "x2": 0,
@@ -182,7 +182,7 @@
    "label": "1"
   },
   {
-   "id": "gl5okf008ujs",
+   "id": "gbsc6r00b0ng",
    "x1": 6000,
    "y1": -11000,
    "x2": 6000,
@@ -190,7 +190,7 @@
    "label": "2"
   },
   {
-   "id": "gl5okf008vxe",
+   "id": "gbsc6r00b1rh",
    "x1": 12000,
    "y1": -11000,
    "x2": 12000,
@@ -198,7 +198,7 @@
    "label": "3"
   },
   {
-   "id": "gl5okf008w6f",
+   "id": "gbsc6r00b2h7",
    "x1": 18000,
    "y1": -11000,
    "x2": 18000,
@@ -206,7 +206,7 @@
    "label": "4"
   },
   {
-   "id": "gl5okf008xij",
+   "id": "gbsc6r00b3sh",
    "x1": 24000,
    "y1": -11000,
    "x2": 24000,
@@ -214,7 +214,7 @@
    "label": "5"
   },
   {
-   "id": "gl5okf008yz7",
+   "id": "gbsc6r00b40y",
    "x1": 30000,
    "y1": -11000,
    "x2": 30000,
@@ -222,7 +222,7 @@
    "label": "6"
   },
   {
-   "id": "gl5okf008z2t",
+   "id": "gbsc6r00b5o6",
    "x1": -3000,
    "y1": 1000,
    "x2": 33000,
@@ -230,7 +230,7 @@
    "label": "A"
   },
   {
-   "id": "gl5okf0090lz",
+   "id": "gbsc6r00b6jf",
    "x1": -3000,
    "y1": 7000,
    "x2": 33000,
@@ -238,7 +238,7 @@
    "label": "B"
   },
   {
-   "id": "gl5okf0091i3",
+   "id": "gbsc6r00b7h7",
    "x1": -3000,
    "y1": 13000,
    "x2": 33000,
@@ -246,7 +246,7 @@
    "label": "C"
   },
   {
-   "id": "gl5okf009294",
+   "id": "gbsc6r00b8se",
    "x1": -3000,
    "y1": 19000,
    "x2": 33000,
@@ -264,7 +264,13 @@
   "opening": 100000,
   "stair": 2500000,
   "column": 300000,
-  "furniture": 0
+  "furniture": 0,
+  "slab": 90000,
+  "ceiling": 45000,
+  "beam": 180000,
+  "railing": 150000,
+  "ramp": 2000000,
+  "curtainWall": 650000
  },
  "layers": [
   {
@@ -281,8 +287,8 @@
  "stairs": [],
  "furniture": [
   {
-   "id": "ul5okf008jnz",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00apc3",
+   "level": "lvbsc6r00ai3m",
    "kind": "tree",
    "x": -6000,
    "y": 24000,
@@ -295,8 +301,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008k6z",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00aqxj",
+   "level": "lvbsc6r00ai3m",
    "kind": "tree",
    "x": 0,
    "y": 24000,
@@ -309,8 +315,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008lvt",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00arcd",
+   "level": "lvbsc6r00ai3m",
    "kind": "tree",
    "x": 6000,
    "y": 24000,
@@ -323,8 +329,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008mb7",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00asgw",
+   "level": "lvbsc6r00ai3m",
    "kind": "tree",
    "x": 12000,
    "y": 24000,
@@ -337,8 +343,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008nzu",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00at2u",
+   "level": "lvbsc6r00ai3m",
    "kind": "tree",
    "x": 18000,
    "y": 24000,
@@ -351,8 +357,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008oo8",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00aue8",
+   "level": "lvbsc6r00ai3m",
    "kind": "tree",
    "x": 24000,
    "y": 24000,
@@ -365,8 +371,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008paw",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00avz5",
+   "level": "lvbsc6r00ai3m",
    "kind": "tree",
    "x": 32000,
    "y": 10000,
@@ -379,8 +385,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008qss",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00aw04",
+   "level": "lvbsc6r00ai3m",
    "kind": "tree",
    "x": -5000,
    "y": 6000,
@@ -393,8 +399,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008rk3",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00axmc",
+   "level": "lvbsc6r00ai3m",
    "kind": "car",
    "x": 34000,
    "y": 18000,
@@ -407,8 +413,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5okf008sdk",
-   "level": "lvl5okf008c93",
+   "id": "ubsc6r00aykl",
+   "level": "lvbsc6r00ai3m",
    "kind": "car",
    "x": 34000,
    "y": 21000,
@@ -425,8 +431,8 @@
  "dimensions": [],
  "texts": [
   {
-   "id": "tl5okf0093z1",
-   "level": "lvl5okf008c93",
+   "id": "tbsc6r00b9e4",
+   "level": "lvbsc6r00ai3m",
    "x": -2000,
    "y": 27000,
    "text": "Massing options — heights are pushed/pulled in 3D",
@@ -437,11 +443,17 @@
  ],
  "drawings": [],
  "underlays": [],
+ "slabs": [],
+ "ceilings": [],
+ "beams": [],
+ "railings": [],
+ "ramps": [],
+ "shafts": [],
  "models": [],
  "solids": [
   {
-   "id": "vl5okf008dfy",
-   "level": "lvl5okf008c93",
+   "id": "vbsc6r00ajmw",
+   "level": "lvbsc6r00ai3m",
    "pts": [
     [
      0,
@@ -468,8 +480,8 @@
    "phase": "new"
   },
   {
-   "id": "vl5okf008efr",
-   "level": "lvl5okf008c93",
+   "id": "vbsc6r00akti",
+   "level": "lvbsc6r00ai3m",
    "pts": [
     [
      3000,
@@ -493,12 +505,12 @@
    "taper": 1,
    "material": "glass",
    "name": "Tower A",
-   "group": "grpl5okf008i0p",
+   "group": "grpbsc6r00aoi2",
    "phase": "new"
   },
   {
-   "id": "vl5okf008fpx",
-   "level": "lvl5okf008c93",
+   "id": "vbsc6r00alls",
+   "level": "lvbsc6r00ai3m",
    "pts": [
     [
      17000,
@@ -525,8 +537,8 @@
    "phase": "new"
   },
   {
-   "id": "vl5okf008ggq",
-   "level": "lvl5okf008c93",
+   "id": "vbsc6r00amdw",
+   "level": "lvbsc6r00ai3m",
    "name": "Rotunda",
    "pts": [
     [
@@ -665,8 +677,8 @@
    "phase": "new"
   },
   {
-   "id": "vl5okf008hto",
-   "level": "lvl5okf008c93",
+   "id": "vbsc6r00anwl",
+   "level": "lvbsc6r00ai3m",
    "name": "Crown",
    "pts": [
     [
@@ -690,13 +702,13 @@
    "height": 6000,
    "taper": 0.3,
    "material": "roof-metal",
-   "group": "grpl5okf008i0p",
+   "group": "grpbsc6r00aoi2",
    "phase": "new"
   }
  ],
  "scenes": [
   {
-   "id": "scl5okf0094dc",
+   "id": "scbsc6r00bazv",
    "name": "Aerial",
    "camera": {
     "pos": [
@@ -716,7 +728,7 @@
    "phase": "all"
   },
   {
-   "id": "scl5okf00953y",
+   "id": "scbsc6r00bb7m",
    "name": "Street view",
    "camera": {
     "pos": [
@@ -736,7 +748,7 @@
    "phase": "all"
   },
   {
-   "id": "scl5okf0096jv",
+   "id": "scbsc6r00bchk",
    "name": "White model",
    "camera": {
     "pos": [
@@ -756,7 +768,7 @@
    "phase": "all"
   },
   {
-   "id": "scl5okf0097i9",
+   "id": "scbsc6r00bd0u",
    "name": "Elevation",
    "camera": {
     "pos": [
@@ -777,6 +789,174 @@
   }
  ],
  "view": {
-  "level": "lvl5okf008c93"
+  "level": "lvbsc6r00ai3m"
+ },
+ "slabTypes": [],
+ "types": [],
+ "designOptions": [],
+ "views": [],
+ "sheets": [
+  {
+   "id": "shbsc6r00bjq9",
+   "number": "A101",
+   "name": "Floor plan — 1F",
+   "paper": "A3",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "",
+    "status": ""
+   },
+   "viewports": [
+    {
+     "id": "vpbsc6r00bkgs",
+     "view": "pl-lvbsc6r00ai3m",
+     "x": 0,
+     "y": 0,
+     "fit": true
+    }
+   ],
+   "revisions": [],
+   "auto": true
+  }
+ ],
+ "annotations": [],
+ "revisions": [],
+ "publishSets": [],
+ "viewTemplates": [
+  {
+   "id": "vt-plan-100",
+   "name": "Architectural plan 1:100",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": []
+  },
+  {
+   "id": "vt-furn-50",
+   "name": "Furniture plan 1:50",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "new",
+   "hidden": [
+    "dimensions"
+   ]
+  },
+  {
+   "id": "vt-section-50",
+   "name": "Construction section 1:50",
+   "kinds": [
+    "section",
+    "detail"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [
+    "furniture",
+    "lights"
+   ]
+  },
+  {
+   "id": "vt-elev-100",
+   "name": "Presentation elevation 1:100",
+   "kinds": [
+    "elevation"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "new",
+   "hidden": [
+    "furniture"
+   ]
+  }
+ ],
+ "lineStyles": [
+  {
+   "id": "thin",
+   "name": "Thin lines",
+   "weight": 0.13,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "medium",
+   "name": "Medium lines",
+   "weight": 0.25,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "wide",
+   "name": "Wide lines",
+   "weight": 0.5,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "hidden",
+   "name": "Hidden lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dash"
+  },
+  {
+   "id": "centre",
+   "name": "Centre lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dashdot"
+  },
+  {
+   "id": "overhead",
+   "name": "Overhead lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dot"
+  },
+  {
+   "id": "demolished",
+   "name": "Demolished",
+   "weight": 0.25,
+   "color": "#c62828",
+   "pattern": "dash"
+  },
+  {
+   "id": "red",
+   "name": "Red lines",
+   "weight": 0.25,
+   "color": "#d32f2f",
+   "pattern": "solid"
+  }
+ ],
+ "components": [],
+ "materials": [],
+ "sections": [],
+ "guides": [],
+ "dims3d": [],
+ "texts3d": [],
+ "style3d": {
+  "edges": false,
+  "edgeColor": "#1d2128",
+  "profiles": false,
+  "profileWidth": 3,
+  "colorByTag": false,
+  "background": "",
+  "sky": "",
+  "horizon": "",
+  "ground": "",
+  "groundOn": true,
+  "watermark": "",
+  "watermarkPos": "br",
+  "sectionFill": "#3b4250",
+  "fogDensity": 1
  }
 }

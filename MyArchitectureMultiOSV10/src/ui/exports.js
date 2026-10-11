@@ -25,32 +25,47 @@ export async function importDrawing(app, f, kind) {
     if (!v.supported) { toast(t("DWG {release} files are too old to read. Save the drawing as DXF, or as DWG R13 or newer.", { release: v.release }), "warn", 8000); return; }
   }
   const p = app.store.project;
-  const opts = { units: "auto", level: app.plan.level, origin: false };
+  const opts = { units: "auto", level: app.plan.level, origin: false, space: "model" };
   const levelOpts = p.levels.map((l) => [l.id, l.name]);
+  // DXF / DWG: read once up front for the layouts and external references.
+  const cad = kind === "dxf" || kind === "dwg" ? await (await import("./cadimport.js")).prepareCad(f, kind) : null;
+  const spaceOpts = cad && cad.layouts.length ? [["model", t("Model space")], ...cad.layouts.map((n) => [`layout:${n}`, t("Layout: {name}", { name: n })]), ["all", t("All layouts side by side")]] : null;
   const body = h("div", { class: "form-grid" },
     field(t("Units in the file"), select(opts.units, [["auto", t("Detect automatically")], ["mm", "mm"], ["cm", "cm"], ["m", "m"], ["in", t("inches")], ["ft", t("feet")]], { onChange: (v) => { opts.units = v; } })),
     field(t("Level"), select(opts.level, levelOpts, { onChange: (v) => { opts.level = v; } })),
+    spaceOpts ? field(t("Space"), select(opts.space, spaceOpts, { onChange: (v) => { opts.space = v; } })) : null,
     h("div", { class: "span2" }, checkbox(false, t("Move the drawing to the plan origin"), { onChange: (v) => { opts.origin = v; } })),
-    h("p", { class: "field-hint span2" }, kind === "dxf" || kind === "dwg"
-      ? t("Lines, polylines, arcs, circles, splines, texts, blocks and hatch outlines come in on their own CAD layers. Trace walls over them with W, then hide the layers.")
-      : t("Paths, shapes and texts come in on the layer SVG.")));
-  const title = { dxf: t("Import DXF drawing"), dwg: t("Import DWG drawing") }[kind] || t("Import SVG drawing");
+    kind === "3dm" ? h("div", { class: "span2" }, checkbox(true, t("Include the edges of surfaces, polysurfaces and meshes (not only curves)"), { onChange: (v) => { opts.edges = v; } })) : null,
+    h("p", { class: "field-hint span2" }, kind === "3dm"
+      ? t("The top view of the Rhino model — curves, edges, points and texts — comes in on one CAD layer per Rhino layer. Trace walls over it with W, then hide the layers.")
+      : kind === "dxf" || kind === "dwg"
+      ? t("Lines, polylines, arcs, circles, splines, texts, blocks, hatch outlines, multileaders, tables, solid and region edges and external references come in on their own CAD layers; raster images found next to the drawing become tracing underlays. Trace walls over them with W, then hide the layers.")
+      : t("Paths, shapes and texts come in on the layer SVG; embedded images become tracing underlays.")));
+  const title = { dxf: t("Import DXF drawing"), dwg: t("Import DWG drawing"), "3dm": t("Import Rhino 3DM as a plan drawing") }[kind] || t("Import SVG drawing");
   const ok = await modal({ title, width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
   if (!ok) return;
   let res;
-  if (kind === "dxf") {
-    const { importDxf } = await import("../io/dxf.js");
-    res = importDxf(f.text, { level: opts.level, units: opts.units });
-  } else if (kind === "dwg") {
-    const { importDwg } = await import("../io/dwg.js");
-    res = importDwg(f.bytes, { level: opts.level, units: opts.units });
+  if (cad) {
+    // DXF and DWG (records read above: bytes keep binary DXF and $DWGCODEPAGE).
+    const { importCad, resolveCadImages } = await import("./cadimport.js");
+    res = await importCad(cad, { level: opts.level, units: opts.units, space: opts.space });
+    await resolveCadImages(res, f.path || "", opts.level); // raster images → tracing underlays
+  } else if (kind === "3dm") {
+    const note = toast(t("Reading Rhino model…"), "info", 60000);
+    try {
+      const { import3dmPlan } = await import("../io/rhino3dm.js");
+      res = await import3dmPlan(f.bytes, { level: opts.level, units: opts.units, edges: opts.edges !== false });
+    } finally { note.remove(); }
   } else {
-    const { importSvg } = await import("../io/svgimport.js");
+    const { importSvg, resolveSvgImages } = await import("../io/svgimport.js");
     res = importSvg(f.text, { level: opts.level, mmPerUnit: opts.units === "auto" ? "auto" : { mm: 1, cm: 10, m: 1000, in: 25.4, ft: 304.8 }[opts.units] });
+    // Images linked by a relative path are read next to the SVG (desktop).
+    await resolveSvgImages(res, { basePath: f.path || "", level: opts.level, readFile: platform.isDesktop && f.path ? (path) => platform.readPath(path) : null });
   }
   const drawings = res.drawings || [];
   const texts = res.texts || [];
-  if (!drawings.length && !texts.length) { toast(t("Nothing to import was found in {name}.", { name: f.name }), "warn", 5000); return; }
+  const underlays = res.underlays || [];
+  if (!drawings.length && !texts.length && !underlays.length) { toast(t("Nothing to import was found in {name}.", { name: f.name }), "warn", 5000); return; }
   let dx = 0, dy = 0;
   if (opts.origin && res.bounds) { dx = -res.bounds.x1; dy = -res.bounds.y1; }
   app.store.edit(t("Import drawing"), (pr) => {
@@ -60,11 +75,14 @@ export async function importDrawing(app, f, kind) {
       pr.drawings.push({ ...d, level: opts.level });
     }
     for (const tx of texts) pr.texts.push({ ...tx, x: tx.x + dx, y: tx.y + dy, level: opts.level });
+    for (const u of underlays) pr.underlays.push({ ...u, x: u.x + dx, y: u.y + dy, level: opts.level }); // SVG <image>s, for tracing
   });
   app.setTab("plan");
   if (opts.level !== app.plan.level) app.plan.setLevel(opts.level);
   app.plan.zoomFit();
-  toast(t("Imported {name}: {d} drawing items, {t} texts ({u}).", { name: f.name, d: drawings.length, t: texts.length, u: res.units || opts.units }), "ok", 6000);
+  toast(underlays.length
+    ? t("Imported {name}: {d} drawing items, {t} texts and {i} images as tracing underlays ({u}).", { name: f.name, d: drawings.length, t: texts.length, i: underlays.length, u: res.units || "mm" })
+    : t("Imported {name}: {d} drawing items, {t} texts ({u}).", { name: f.name, d: drawings.length, t: texts.length, u: res.units || opts.units }), "ok", 6000);
   if (res.warnings && res.warnings.length) importReport(app, t("Import notes"), res.warnings);
 }
 
@@ -214,34 +232,71 @@ export async function exportPlanPng(app) {
 // ---------------------------------------------------------------- DXF / IFC export
 export async function exportDxfFile(app) {
   const p = app.store.project;
-  const opts = { level: app.plan.level, all: false };
+  const { exportDxf, DXF_VERSIONS } = await import("../io/dxf.js");
+  const opts = { level: app.plan.level, all: false, version: DXF_VERSIONS.some((v) => v.id === app.settings.dxfVersion) ? app.settings.dxfVersion : "R12" };
+  const hintText = (v) => (v === "R12"
+    ? t("AutoCAD R12 DXF in millimetres with standard layers (A-WALL, A-DOOR, A-GLAZ, A-AREA, A-FURN, A-ANNO-DIMS …). Every CAD program opens it.")
+    : t("{version} DXF in millimetres: the same standard layers with lineweights and descriptions, LWPOLYLINE, MTEXT, furniture as blocks and true colours. For AutoCAD, BricsCAD, DraftSight and other current CAD programs.", { version: (DXF_VERSIONS.find((x) => x.id === v) || {}).label || v }));
+  const hint = h("p", { class: "field-hint span2" }, hintText(opts.version));
   const body = h("div", { class: "form-grid" },
     field(t("Level"), select(opts.level, p.levels.map((l) => [l.id, l.name]), { onChange: (v) => { opts.level = v; } })),
     field(t("Levels"), checkbox(false, t("One file per level"), { onChange: (v) => { opts.all = v; } })),
-    h("p", { class: "field-hint span2" }, t("AutoCAD R12 DXF in millimetres with standard layers (A-WALL, A-DOOR, A-GLAZ, A-AREA, A-FURN, A-ANNO-DIMS …). Every CAD program opens it.")));
+    field(t("DXF version"), select(opts.version, DXF_VERSIONS.map((v) => [v.id, v.id === "R12" ? `${v.label} — ${t("maximum compatibility")}` : v.label]), { onChange: (v) => { opts.version = v; hint.textContent = hintText(v); } })),
+    hint);
   const ok = await modal({ title: t("Export DXF (AutoCAD)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
-  const { exportDxf } = await import("../io/dxf.js");
+  if (app.setSetting && opts.version !== app.settings.dxfVersion) app.setSetting("dxfVersion", opts.version);
   const levels = opts.all ? p.levels : [levelById(p, opts.level)];
   for (const lv of levels) {
-    const text = exportDxf(p, { level: lv.id });
+    const text = exportDxf(p, { level: lv.id, version: opts.version });
     const r = await platform.saveTextFile({ name: `${baseName(app)}-${lv.name}.dxf`, text, filters: [{ name: "DXF", extensions: ["dxf"] }] });
     if (!r) return;
     toast(t("Saved {name}", { name: r.name }), "ok");
   }
 }
 
+// DWG (AutoCAD 2000, AC1015): the same content as the DXF export.
+export async function exportDwgFile(app) {
+  const p = app.store.project;
+  const opts = { level: app.plan.level, all: false };
+  const body = h("div", { class: "form-grid" },
+    field(t("Level"), select(opts.level, p.levels.map((l) => [l.id, l.name]), { onChange: (v) => { opts.level = v; } })),
+    field(t("Levels"), checkbox(false, t("One file per level"), { onChange: (v) => { opts.all = v; } })),
+    h("p", { class: "field-hint span2" }, t("AutoCAD 2000 DWG (AC1015) in millimetres with the same standard layers as the DXF export (A-WALL, A-DOOR, A-GLAZ, A-AREA, A-FURN, A-ANNO-DIMS …). AutoCAD, BricsCAD, DraftSight and every program that reads DWG open it.")));
+  const ok = await modal({ title: t("Export DWG (AutoCAD)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
+  if (!ok) return;
+  const { exportDwg } = await import("../io/dwgwrite.js");
+  const levels = opts.all ? p.levels : [levelById(p, opts.level)];
+  for (const lv of levels) {
+    const bytes = exportDwg(p, { level: lv.id });
+    const r = await platform.saveBinaryFile({ name: `${baseName(app)}-${lv.name}.dwg`, bytes, filters: [{ name: "DWG", extensions: ["dwg"] }] });
+    if (!r) return;
+    toast(t("Saved {name}", { name: r.name }), "ok");
+  }
+}
+
 export async function exportIfcFile(app) {
-  const opts = { schema: "IFC4" };
+  const opts = { schema: "IFC4", format: "ifc" };
   const body = h("div", { class: "form-grid" },
     field(t("IFC version"), select(opts.schema, [["IFC4", "IFC4 (Reference View)"], ["IFC2X3", "IFC2X3 (Coordination View 2.0)"]], { onChange: (v) => { opts.schema = v; } })),
+    field(t("File format"), select(opts.format, [["ifc", t("IFC (STEP text, .ifc)")], ["ifcxml", t("ifcXML (.ifcxml)")], ["ifczip", t("IFC ZIP (.ifczip, compressed .ifc)")]], { onChange: (v) => { opts.format = v; } })),
     h("p", { class: "field-hint span2" }, t("Storeys, walls with openings, doors, windows, spaces, floor slabs, roofs, stairs, columns and furniture, for Revit, ArchiCAD, BIMcollab, Solibri and any IFC viewer.")));
   const ok = await modal({ title: t("Export IFC (BIM)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
   const { exportIfc } = await import("../io/ifc.js");
   const p = app.store.project;
-  const text = exportIfc(p, { schema: opts.schema, author: p.meta.author, organization: p.meta.company });
-  const r = await platform.saveTextFile({ name: `${baseName(app)}.ifc`, text, filters: [{ name: "IFC", extensions: ["ifc"] }] });
+  const ifcOpts = { schema: opts.schema, author: p.meta.author, organization: p.meta.company };
+  let r;
+  if (opts.format === "ifcxml") {
+    const { exportIfcXml } = await import("../io/ifcxml.js");
+    r = await platform.saveTextFile({ name: `${baseName(app)}.ifcxml`, text: exportIfcXml(p, ifcOpts), filters: [{ name: "ifcXML", extensions: ["ifcxml"] }] });
+  } else if (opts.format === "ifczip") {
+    const { exportIfcZip } = await import("../io/ifczip.js");
+    const bytes = await exportIfcZip(p, { ...ifcOpts, name: baseName(app) });
+    r = await platform.saveBinaryFile({ name: `${baseName(app)}.ifczip`, bytes, filters: [{ name: "IFC ZIP", extensions: ["ifczip"] }] });
+  } else {
+    r = await platform.saveTextFile({ name: `${baseName(app)}.ifc`, text: exportIfc(p, ifcOpts), filters: [{ name: "IFC", extensions: ["ifc"] }] });
+  }
   if (r) toast(t("Saved {name}", { name: r.name }), "ok");
 }
 

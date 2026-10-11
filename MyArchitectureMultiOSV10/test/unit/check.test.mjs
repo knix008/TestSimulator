@@ -6,6 +6,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { CHECKS, runCheck } from "../../src/core/check.js";
 import { newProject, normalizeProject, newLevel } from "../../src/core/project.js";
+import { elementFixtures } from "./elements-fixtures.mjs";
 
 // ---------------------------------------------------------------- helpers
 
@@ -85,6 +86,8 @@ const FIXTURES = {
     project({ walls: [wall("a", 0, 0, 4000, 0)], openings: [door("d", "a", 2000)], columns: [{ id: "c", x: 500, y: 0, w: 300, d: 300 }] }),
   ],
 };
+
+Object.assign(FIXTURES, elementFixtures(project)); // slabs, beams, railings, ramps, stairs by type, shafts
 
 // ================================================================ coverage
 describe("check list", () => {

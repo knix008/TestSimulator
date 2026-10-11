@@ -19,14 +19,17 @@ const filters = args;
 
 // Which category each test file belongs to (order = display order).
 export const CATEGORIES = [
-  ["Core model & geometry", "핵심 모델·기하", ["core", "walls", "rooms"]],
+  ["Core model & geometry", "핵심 모델·기하", ["core", "walls", "rooms", "elements"]],
   ["Plan editing", "평면 편집", ["plan", "editor", "store", "docs"]],
   ["Checks & schedules", "검사·집계", ["check", "schedule"]],
+  ["Views, sheets & annotation", "뷰·시트·주석", ["views"]],
   ["3D model", "3D 모델", ["view3d", "lights"]],
-  ["CAD exchange (DXF, DWG, SVG)", "CAD 교환 (DXF, DWG, SVG)", ["dxf", "dwg"]],
-  ["BIM exchange (IFC)", "BIM 교환 (IFC)", ["ifc"]],
-  ["Other BIM (SH3D, gbXML, IFCZIP)", "다른 BIM (SH3D, gbXML, IFCZIP)", ["interop"]],
-  ["3D exchange", "3D 교환", ["export3d", "models"]],
+  ["SketchUp modelling (meshes, solid tools, components)", "스케치업 모델링 (메시, 솔리드 도구, 컴포넌트)", ["mesh", "sketchup"]],
+  ["CAD exchange (DXF, DWG, SVG)", "CAD 교환 (DXF, DWG, SVG)", ["dxf", "dwg", "dwgwrite", "cadextra", "dxfbin", "svgimport"]],
+  ["Printing & PDF", "인쇄·PDF", ["pdf"]],
+  ["BIM exchange (IFC, ifcXML, IFCZIP)", "BIM 교환 (IFC, ifcXML, IFCZIP)", ["ifc", "ifcxml"]],
+  ["Other BIM (SH3D, gbXML, IFCZIP)", "다른 BIM (SH3D, gbXML, IFCZIP)", ["interop", "gbxml", "sh3d"]],
+  ["3D exchange", "3D 교환", ["export3d", "models", "rhino3dm"]],
   ["Samples", "예제", ["samples"]],
   ["Localization", "다국어", ["i18n"]],
 ];

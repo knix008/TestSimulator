@@ -10,6 +10,7 @@ import * as THREE from "../vendor/three/three.module.js";
 import { OrbitControls } from "../vendor/three/addons/OrbitControls.js";
 import { buildBuilding, makeMaterials, modelExtent, glowMaterial, M } from "./build.js";
 import { createLampRig, collectLamps } from "./lamps.js";
+import { createSketchupLayer } from "./sklayer.js";
 
 const DEG = Math.PI / 180;
 
@@ -90,14 +91,14 @@ function base64ToBytes(b64) {
 
 export function createViewer(container, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: false });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: false, stencil: true }); // stencil: filled section cuts (sklayer.js)
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.localClippingEnabled = false;
+  renderer.localClippingEnabled = true; // section planes clip the model only, not the ground (sklayer.js)
   const canvas = renderer.domElement;
   Object.assign(canvas.style, { display: "block", width: "100%", height: "100%", outline: "none" });
   canvas.tabIndex = 0;
@@ -114,9 +115,22 @@ export function createViewer(container, options = {}) {
 
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
-  controls.dampingFactor = 0.12;
+  controls.dampingFactor = 0.08; // orbit and pan glide to a stop
   controls.screenSpacePanning = true;
   controls.zoomToCursor = true;
+  // Smooth wheel zoom: a wheel notch is spread over the next frames instead
+  // of jumping at once (the zoom scale is exponential in the wheel delta, so
+  // the slices add up to exactly the same zoom, still towards the cursor).
+  const smoothZoom = { pending: 0, x: 0, y: 0 };
+  const wheelZoom = controls._handleMouseWheel.bind(controls);
+  controls._handleMouseWheel = (e) => { smoothZoom.pending += e.deltaY; smoothZoom.x = e.clientX; smoothZoom.y = e.clientY; };
+  function stepSmoothZoom() {
+    if (Math.abs(smoothZoom.pending) < 0.5) { smoothZoom.pending = 0; return false; }
+    const d = Math.abs(smoothZoom.pending) < 2 ? smoothZoom.pending : smoothZoom.pending * 0.25;
+    smoothZoom.pending -= d;
+    wheelZoom({ clientX: smoothZoom.x, clientY: smoothZoom.y, deltaY: d });
+    return true;
+  }
   controls.maxPolarAngle = Math.PI * 0.98;
 
   // Lights: sky fill, the sun (shadows) and a soft headlight on the camera.
@@ -145,6 +159,7 @@ export function createViewer(container, options = {}) {
   content.add(building);
   const mats = makeMaterials(THREE, { textures: true });
   const modelCache = new Map(); // asset id → Promise<Object3D>
+  let sk = null; // the SketchUp-style tools and helpers (sklayer.js), made below
 
   let project = null;
   let extent = { x1: -5000, y1: -5000, x2: 5000, y2: 5000, top: 3000 };
@@ -192,7 +207,7 @@ export function createViewer(container, options = {}) {
     if (edges) { helpers.remove(edges); disposeObject(edges); edges = null; }
     if (!project) { building = new THREE.Group(); content.add(building); lampRig.setLamps([]); dirty = true; return; }
     building = buildBuilding(THREE, project, mats, {
-      openDoors: opts.openDoors, furniture: opts.furniture, roofs: opts.roofs, levels: opts.levels, phase: opts.phase, solids: opts.solids,
+      openDoors: opts.openDoors, furniture: opts.furniture, roofs: opts.roofs, levels: opts.levels, phase: opts.phase, solids: opts.solids, hiddenTags: opts.hiddenTags,
       loadModel, onAsync: () => { applyStyle(); applyHighlight(); dirty = true; },
     });
     content.add(building);
@@ -203,6 +218,7 @@ export function createViewer(container, options = {}) {
     applyStyle();
     applyHighlight();
     updateHelpers();
+    if (sk) sk.afterRebuild();
     dirty = true;
   }
 
@@ -218,10 +234,11 @@ export function createViewer(container, options = {}) {
       else o.material = styleMats[style] || base;
     });
     if (edges) { helpers.remove(edges); disposeObject(edges); edges = null; }
-    if (style === "lines") {
+    // Edges: the line drawing, or any style with the style editor's edges on.
+    if (style === "lines" || opts.edges) {
       edges = new THREE.Group();
       edges.name = "edges";
-      const mat = new THREE.LineBasicMaterial({ color: 0x1d2128 });
+      const mat = new THREE.LineBasicMaterial({ color: opts.edgeColor || 0x1d2128 });
       building.updateMatrixWorld(true);
       building.traverseVisible((o) => {
         if (!o.isMesh) return;
@@ -232,6 +249,7 @@ export function createViewer(container, options = {}) {
       });
       helpers.add(edges);
     }
+    if (sk) sk.applyStyleExtras(); // colour by tag, profiles, watermark
     applyLighting();
     syncLabelDepth();
     applyClipping();
@@ -309,7 +327,9 @@ export function createViewer(container, options = {}) {
   function applyClipping() {
     const on = opts.section !== null && opts.section !== undefined && Number.isFinite(+opts.section);
     clipPlane.constant = on ? +opts.section * M : 1e6;
+    // The horizontal cut and the active section plane (sklayer.js).
     renderer.clippingPlanes = on ? [clipPlane] : [];
+    if (sk) sk.afterClipping();
     dirty = true;
   }
 
@@ -344,7 +364,7 @@ export function createViewer(container, options = {}) {
   function labelsSeeThrough() { return opts.style === "xray"; }
   function syncLabelDepth() {
     const on = !labelsSeeThrough();
-    scene.traverse((o) => { if (o.isSprite && o.userData.label3d) o.material.depthTest = on; });
+    scene.traverse((o) => { if ((o.isSprite || o.isLineSegments) && o.userData.label3d) o.material.depthTest = on; });
   }
 
   function disposeGroup(gr) {
@@ -374,7 +394,7 @@ export function createViewer(container, options = {}) {
     if (opts.ground === false) return;
     const [cx, cz] = centreXZ();
     const size = Math.max(60, Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1) * M * 4);
-    const g = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64), new THREE.MeshStandardMaterial({ color: 0x9aa68a, roughness: 1, name: "ground" }));
+    const g = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64), new THREE.MeshStandardMaterial({ color: opts.groundColor || 0x9aa68a, roughness: 1, name: "ground" }));
     g.rotation.x = -Math.PI / 2;
     g.position.set(cx, -0.02, cz);
     g.receiveShadow = true;
@@ -472,25 +492,58 @@ export function createViewer(container, options = {}) {
     helpers.add(grid);
   }
 
+  // X / Y / Z axes from the origin with tick marks and numbers. The tick
+  // spacing follows the zoom like the grid (ticks 12–60 px apart, a number on
+  // every tick or every fifth), and the axes rebuild when the zoom changes.
   function buildAxes() {
     if (axes) { helpers.remove(axes); disposeGroup(axes); axes = null; }
     if (!opts.axes) return;
-    const L = Math.max(5, (extent.x2 - extent.x1) * M * 0.6);
+    const px = gridPxPerUnit();
+    const tick = gridCellFor(px);
+    const every = tick * px >= 45 ? 1 : 5; // a number on every tick, or every fifth
+    const step = tick * every;
+    const h = renderer.domElement.clientHeight || 600;
+    const model = Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1, extent.top) * M;
+    const L = Math.min(step * 200, Math.ceil(Math.max(model * 0.6, (h / px) * 0.45, step) / step) * step);
+    const minor = 5 / px, major = 10 / px, gap = 16 / px, size = 13 / px;
     axes = new THREE.Group();
     axes.name = "axes";
-    const add = (dir, color, name) => {
-      const l = lineSegs([0, 0, 0, dir[0] * L, dir[1] * L, dir[2] * L], color);
-      l.material.depthTest = false;
+    const add = (dir, side, color, name) => {
+      const hex = `#${new THREE.Color(color).getHexString()}`;
+      const pts = [0, 0, 0, dir[0] * L, dir[1] * L, dir[2] * L];
+      const n = Math.round(L / tick);
+      for (let i = 1; i <= n; i++) {
+        const v = i * tick, len = i % every === 0 ? major : minor;
+        const p = [dir[0] * v, dir[1] * v, dir[2] * v];
+        pts.push(p[0] - side[0] * len, p[1] - side[1] * len, p[2] - side[2] * len, p[0] + side[0] * len, p[1] + side[1] * len, p[2] + side[2] * len);
+        if (i % every === 0 && i < n) {
+          const s2 = labelSprite(fmt(v), hex, size);
+          s2.position.set(p[0] + side[0] * gap, p[1] + side[1] * gap, p[2] + side[2] * gap);
+          axes.add(s2);
+        }
+      }
+      const l = lineSegs(pts, color);
+      // Like the numbers: hidden behind the building, seen through it in X-ray.
+      l.material.depthTest = !labelsSeeThrough();
+      l.userData.label3d = true;
+      l.position.y = 0.006; // just above the ground, no flicker
       l.renderOrder = 9;
       axes.add(l);
-      const s = labelSprite(name, `#${new THREE.Color(color).getHexString()}`, L * 0.06);
-      s.position.set(dir[0] * L * 1.06, dir[1] * L * 1.06, dir[2] * L * 1.06);
+      const s = labelSprite(name, hex, size * 1.6);
+      s.position.set(dir[0] * (L + gap * 1.5), dir[1] * (L + gap * 1.5), dir[2] * (L + gap * 1.5));
       axes.add(s);
     };
-    add([1, 0, 0], 0xff5252, "X");
-    add([0, 0, 1], 0x448aff, "Y");
-    add([0, 1, 0], 0x69f0ae, "Z");
+    add([1, 0, 0], [0, 0, 1], 0xff5252, "X");
+    add([0, 0, 1], [1, 0, 0], 0x448aff, "Y");
+    add([0, 1, 0], [1, 0, 0], 0x69f0ae, "Z");
+    axes.userData = { px, tick, every, length: L };
     helpers.add(axes);
+  }
+  // Before each frame: rebuild the axes when the tick spacing or zoom drifts.
+  function fitAxes() {
+    if (!opts.axes || !axes) return;
+    const px = gridPxPerUnit(), u = axes.userData;
+    if (Math.abs(gridCellFor(px) - u.tick) > u.tick * 1e-6 || Math.abs(px / u.px - 1) > 0.15) buildAxes();
   }
 
   function buildDims() {
@@ -697,7 +750,7 @@ export function createViewer(container, options = {}) {
       if (!h.object.visible) return false;
       for (let o = h.object; o; o = o.parent) if (!o.visible) return false;
       // Ignore what the section cut removes.
-      if (renderer.clippingPlanes.length && clipPlane.distanceToPoint(h.point) < 0) return false;
+      if ([...renderer.clippingPlanes, ...(sk ? sk.clipPlanes() : [])].some((pl) => pl.distanceToPoint(h.point) < 0)) return false;
       return true;
     });
     return hits[0] || null;
@@ -808,6 +861,7 @@ export function createViewer(container, options = {}) {
   let down = null;
   function onPointerDown(e) {
     down = { x: e.clientX, y: e.clientY, button: e.button };
+    if (sk && sk.pointerDown(e)) { down.tool = true; return; }
     if (e.button === 0 && opts.tool && opts.tool !== "none" && opts.navMode !== "walk") {
       if (toolDown(e)) { down.tool = true; return; }
     }
@@ -815,6 +869,7 @@ export function createViewer(container, options = {}) {
     if (opts.navMode === "walk") { walk.drag = { x: e.clientX, y: e.clientY, yaw: walk.yaw, pitch: walk.pitch }; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); }
   }
   function onPointerMove(e) {
+    if (sk && sk.pointerMove(e)) return;
     if (lampDrag) { lampMove(e); return; }
     if (push) {
       const y = heightAt(push.point, e.clientX, e.clientY);
@@ -829,6 +884,7 @@ export function createViewer(container, options = {}) {
   }
   function onPointerUp(e) {
     walk.drag = null;
+    if (sk && sk.pointerUp(e)) { down = null; return; }
     if (lampDrag) {
       const d = lampDrag;
       lampDrag = null;
@@ -851,7 +907,7 @@ export function createViewer(container, options = {}) {
     down = null;
     if (moved > 4 || !pickCallbacks.size) return;
     const hit = raycastAt(e.clientX, e.clientY);
-    const info = hit ? { id: hit.object.userData.id || null, kind: hit.object.userData.kind || null, level: hit.object.userData.level || null, point: hit.point } : null;
+    const info = hit ? { id: hit.object.userData.id || null, kind: hit.object.userData.kind || null, level: hit.object.userData.level || null, point: hit.point, comp: hit.object.userData.comp || null, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey } : null;
     lastPickId = info ? info.id : null;
     for (const cb of pickCallbacks) { try { cb(info); } catch (err) { console.error(err); } }
   }
@@ -867,6 +923,7 @@ export function createViewer(container, options = {}) {
   const dblCallbacks = new Set();
   function onDblClick(e) {
     if (opts.navMode === "walk") return;
+    if (sk && sk.dblClick(e)) return;
     if (dblCallbacks.size) {
       const info = pickAt(e.clientX, e.clientY);
       for (const cb of dblCallbacks) { try { if (cb(info)) return; } catch (err) { console.error(err); } }
@@ -886,6 +943,15 @@ export function createViewer(container, options = {}) {
     camera.position.addScaledVector(fwd, -Math.sign(e.deltaY) * 0.5);
     applyWalkLook();
   }
+  sk = createSketchupLayer({
+    THREE, scene, canvas, renderer, controls, opts,
+    get camera() { return camera; }, get building() { return building; }, get project() { return project; },
+    raycastAt, rayFrom, emitTool, labelSprite, fmt, addMeasure, markDirty: () => { dirty = true; },
+    getHighlighted: () => highlighted,
+    extentSize: () => Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1, extent.top) * M,
+    t: (s) => (opts.translate ? opts.translate(s) : s),
+    positionCamera: (pt) => { setNavMode("walk"); camera.position.set(pt.x, pt.y + walk.eye, pt.z); walk.base = pt.y; applyWalkLook(); },
+  });
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
@@ -973,10 +1039,13 @@ export function createViewer(container, options = {}) {
     lastT = now;
     if (anim) stepAnim(now);
     walkStep(dt);
-    const changed = opts.navMode !== "walk" && controls.update();
+    const zoomed = opts.navMode !== "walk" && stepSmoothZoom();
+    const changed = (opts.navMode !== "walk" && controls.update()) || zoomed;
     if (changed && camera === ortho) syncOrtho();
     if (changed || dirty || anim || walk.keys.size) {
+      sk.beforeRender(); // two-point perspective, profiles
       fitGrid();
+      fitAxes();
       lampRig.update(camera.position, { clip: renderer.clippingPlanes.length ? clipPlane : null });
       renderer.render(scene, camera);
       renderGizmo();
@@ -1006,8 +1075,8 @@ export function createViewer(container, options = {}) {
     const prev = { ...opts };
     Object.assign(opts, o);
     const changed = (k) => k in o && JSON.stringify(o[k]) !== JSON.stringify(prev[k]);
-    if (["openDoors", "furniture", "roofs", "levels", "phase"].some(changed)) rebuild();
-    else if (changed("style")) applyStyle();
+    if (["openDoors", "furniture", "roofs", "levels", "phase", "hiddenTags"].some(changed)) rebuild();
+    else if (["style", "edges", "edgeColor", "profiles", "profileWidth", "colorByTag"].some(changed)) applyStyle();
     if (changed("section")) applyClipping();
     if (["grid", "units3d", "ground"].some(changed)) buildGrid();
     if (changed("axes")) buildAxes();
@@ -1022,7 +1091,11 @@ export function createViewer(container, options = {}) {
     if (changed("rotateSpeed")) controls.rotateSpeed = opts.rotateSpeed || 1;
     if (changed("background")) applyBackground();
     if (changed("tool")) { tapeA = null; canvas.style.cursor = opts.tool === "none" ? "" : "crosshair"; }
-    if (["fog", "background"].some(changed)) applyFog();
+    if (["fog", "background", "fogDensity"].some(changed)) applyFog();
+    if (changed("groundColor")) buildGround();
+    if (["sectionCuts", "sectionFill"].some(changed)) applyClipping();
+    if (changed("twoPoint") && !opts.twoPoint) { persp.updateProjectionMatrix(); camera.lookAt(controls.target); }
+    sk.setOptions(o, changed);
     dirty = true;
   }
 
@@ -1030,7 +1103,8 @@ export function createViewer(container, options = {}) {
     if (!opts.fog) { scene.fog = null; dirty = true; return; }
     const span = Math.max(20, Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1) * M);
     const col = scene.background && scene.background.isColor ? scene.background : new THREE.Color(0xdde6ee);
-    scene.fog = new THREE.Fog(col, span * 1.2, span * 6);
+    const k = Math.max(0.1, +opts.fogDensity || 1); // the style editor's fog density
+    scene.fog = new THREE.Fog(col, (span * 1.2) / k, (span * 6) / k);
     dirty = true;
   }
 
@@ -1059,8 +1133,9 @@ export function createViewer(container, options = {}) {
   function onPick(cb) { pickCallbacks.add(cb); return () => pickCallbacks.delete(cb); }
 
   function screenshot() {
+    sk.beforeRender();
     renderer.render(scene, camera);
-    return canvas.toDataURL("image/png");
+    return sk.composite(canvas); // with the style's watermark
   }
 
   // Visible building meshes baked to world transforms (export, measurements).
@@ -1177,7 +1252,8 @@ export function createViewer(container, options = {}) {
     exportFile, exportRoot, resize, dispose, stats, rebuild,
     pickAt, onDblPick: (cb) => { dblCallbacks.add(cb); return () => dblCallbacks.delete(cb); }, setLampState: (id, light) => { const ok = setLampState(id, light); refreshMaterials(); return ok; }, updateLamps: (p) => updateLamps(p || project), lampInfo: () => { lampRig.update(camera.position, { clip: renderer.clippingPlanes.length ? clipPlane : null }); return lampRig.info(); },
     getOptions: () => ({ ...opts }),
-    helperInfo: () => ({ grid: grid ? { ...grid.userData } : null, dimensions: dims ? { ...dims.userData } : null, axes: !!axes, edges: !!edges, ortho: camera === ortho, walk: opts.navMode === "walk", section: renderer.clippingPlanes.length > 0 }),
+    skKey: (e, isDown) => sk.key(e, isDown), ...sk.api,
+    helperInfo: () => ({ grid: grid ? { ...grid.userData } : null, dimensions: dims ? { ...dims.userData } : null, axes: axes ? { ...axes.userData } : null, edges: !!edges, ortho: camera === ortho, walk: opts.navMode === "walk", section: renderer.clippingPlanes.length > 0 }),
     get three() { return { THREE, scene, camera, renderer, controls, content, building }; },
   };
 }

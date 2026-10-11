@@ -549,7 +549,7 @@ test("import: errors", async () => {
   await assert.rejects(loadModelFile(file("a.obj", CUBE_OBJ_CM), { glb: false, units: "furlong" }), /Unknown unit/);
   await assert.rejects(loadModelFile({ name: "a.stl", bytes: new Uint8Array(0) }, { glb: false }), /empty/);
   await assert.rejects(loadModelFile(file("ext.gltf", JSON.stringify({ asset: { version: "2.0" }, buffers: [{ uri: "ext.bin", byteLength: 8 }] })), { glb: false }), /external buffers \(ext\.bin\)/);
-  assert.deepEqual(MODEL_FORMATS.map((f) => f.ext), ["obj", "stl", "ply", "glb", "gltf", "fbx", "dae", "3mf", "3ds", "wrl", "amf"]);
+  assert.deepEqual(MODEL_FORMATS.map((f) => f.ext), ["obj", "stl", "ply", "glb", "gltf", "fbx", "dae", "3mf", "3ds", "wrl", "amf", "3dm"]);
 });
 
 test("import GLB / glTF round trip through GLTFExporter (glb: true)", async () => {

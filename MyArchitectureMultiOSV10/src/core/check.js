@@ -7,6 +7,8 @@ import { wallFrame, wallPoint, openingSpans, wallOutlines } from "./walls.js";
 import { roomArea } from "./rooms.js";
 import { furnitureCorners, furnitureDef } from "../lib/furniture.js";
 import { pointInPolygon, polygonCentroid, pointSegDist, segIntersect } from "./geom.js";
+import { checkElements, ELEMENT_CHECKS } from "./elements/check.js";
+import { activeModel } from "./elements/model.js";
 
 export const CHECKS = [
   ["wall-short", "Walls shorter than their thickness"],
@@ -24,6 +26,7 @@ export const CHECKS = [
   ["clash-stair", "Clash: stair with a wall"],
   ["clash-column", "Clash: column in a door or window"],
 ];
+CHECKS.push(...ELEMENT_CHECKS); // slabs, beams, railings, ramps, stairs by type, shafts
 
 const SEATS = new Set(["chair", "barStool", "officeChair", "studentChair"]);
 
@@ -41,6 +44,7 @@ function polysOverlap(a, b) {
 }
 
 export function runCheck(p) {
+  p = activeModel(p); // design options: check the model as built with the active options
   const issues = [];
   const add = (severity, code, key, vars, x, y, ids, level) => issues.push({ severity, code, key, vars, message: key.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? ""), x, y, ids, level });
   const tags = openingTags(p);
@@ -210,5 +214,6 @@ export function runCheck(p) {
       for (const s of p.stairs.filter((x) => x.level === lv.id)) add("warning", "stair-top", "A stair on the top level leads nowhere.", {}, s.x, s.y, [s.id], lv.id);
     }
   }
+  checkElements(p, add);
   return issues;
 }

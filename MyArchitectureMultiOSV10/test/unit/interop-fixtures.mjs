@@ -43,7 +43,7 @@ export const HOME_XML = `<?xml version='1.0'?>
 <home version='6400' name='C:\\Users\\me\\TestHome.sh3d' camera='topCamera' wallHeight='250.0'>
   <property name='com.eteks.sweethome3d.SweetHome3D.PlanScale' value='0.5'/>
   <environment groundColor='FF336633'/>
-  <compass x='-100' y='50' diameter='100' northDirection='30.0' longitude='2.2165682' latitude='0.6544985' timeZone='Asia/Seoul' visible='true'/>
+  <compass x='-100' y='50' diameter='100' northDirection='0.5235988' longitude='2.2165682' latitude='0.6544985' timeZone='Asia/Seoul' visible='true'/>
   <level id='level0' name='Ground' elevation='0.0' floorThickness='12.0' height='250.0' elevationIndex='0'/>
   <level id='level1' name='Upstairs' elevation='262.0' floorThickness='12.0' height='250.0' elevationIndex='0'/>
   <level id='level2' name='Upstairs layer' elevation='262.0' floorThickness='12.0' height='250.0' elevationIndex='1'/>
@@ -146,4 +146,26 @@ export function gbxmlFixture(unit = "Meters") {
  <Material id="m-ins"><Name>Insulation</Name><Thickness unit="Centimeters">6</Thickness></Material>
  <DocumentHistory><ProgramInfo id="pi"><ProductName>Hand written</ProductName><Version>1</Version></ProgramInfo></DocumentHistory>
 </gbXML>`;
+}
+
+// A .sh3d whose pieces carry their own 3D models (OBJ + MTL + a PNG texture),
+// a colour override and a wall texture: for the GUI smoke test.
+export function sh3dModelZip() {
+  const png = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
+  const box = ["mtllib box.mtl", "v 0 0 0", "v 50 0 0", "v 50 0 40", "v 0 0 40", "v 0 30 0", "v 50 30 0", "v 50 30 40", "v 0 30 40", "vt 0 0", "vt 1 0", "vt 1 1", "vt 0 1",
+    "usemtl top", "f 5/1 8/2 7/3 6/4", "usemtl side", "f 1/1 2/2 6/3 5/4", "f 2/1 3/2 7/3 6/4", "f 3/1 4/2 8/3 7/4", "f 4/1 1/2 5/3 8/4", "f 1/1 4/2 3/3 2/4", ""].join("\n");
+  const home = `<?xml version='1.0'?>
+<home version='7200' name='ModelHome.sh3d' wallHeight='250'>
+  <pieceOfFurniture name='Packed box' model='1/box.obj' x='200' y='150' width='100' depth='80' height='60'/>
+  <pieceOfFurniture name='Packed box' model='1/box.obj' x='450' y='150' width='100' depth='80' height='60' modelMirrored='true' color='FF336699'/>
+  <pieceOfFurniture name='Wedge' model='2' x='300' y='300' width='60' depth='40' height='40'/>
+  <wall id='w0' xStart='0' yStart='0' xEnd='600' yEnd='0' thickness='20' height='250'><texture attribute='leftSideTexture' name='Red bricks' width='60' height='60' image='3'/></wall>
+  <wall id='w1' xStart='600' yStart='0' xEnd='600' yEnd='400' thickness='20' height='250'/>
+  <room name='Hall'><texture attribute='floorTexture' name='Parquet' width='40' height='40' image='3'/><point x='10' y='10'/><point x='590' y='10'/><point x='590' y='390'/><point x='10' y='390'/></room>
+</home>`;
+  return deflateZip([
+    { name: "Home.xml", data: home }, { name: "1/", data: new Uint8Array(0) }, { name: "1/box.obj", data: box },
+    { name: "1/box.mtl", data: "newmtl top\nKd 1 1 1\nmap_Kd tex.png\n\nnewmtl side\nKd 0.2 0.5 0.8\n" }, { name: "1/tex.png", data: png },
+    { name: "2", data: "v 0 0 0\nv 1 0 0\nv 0 0 1\nv 0 1 0\nusemtl flyellow\nf 1 2 3\nf 1 4 2\nf 1 3 4\nf 2 4 3\n" }, { name: "3", data: png },
+  ]);
 }

@@ -163,7 +163,8 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .toolbar { display: flex; align-items: center; gap: 2px; padding: 0 8px; background: var(--panel2); border-bottom: 1px solid var(--line); overflow: hidden; }
 .toolbar .sep { width: 1px; height: 22px; background: var(--line2); margin: 0 6px; flex: 0 0 auto; }
 .toolbar .icon-btn { height: 32px; min-width: 32px; flex: 0 0 auto; white-space: nowrap; }
-.toolbar.compact .icon-btn .lbl { display: none; }
+/* The toolbar shows icons only; names are in the tooltips. */
+.toolbar .icon-btn .lbl, .toolbar .group-label { display: none; }
 .toolbar .grow { flex: 1; }
 .toolbar .group-label { font-size: 11px; color: var(--faint); margin: 0 4px 0 2px; white-space: nowrap; }
 .toolbar select.input { height: 28px; padding: 0 6px; }
@@ -174,7 +175,10 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .workspace.no-left { grid-template-columns: 0 0 1fr 4px var(--right-w); }
 .workspace.no-right { grid-template-columns: var(--left-w) 4px 1fr 0 0; }
 .workspace.no-left.no-right { grid-template-columns: 0 0 1fr 0 0; }
-.side { background: var(--panel); min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+/* The side column scrolls as a whole: panels keep their natural height and are
+   never squashed or clipped; only the "grow" panel (library) shrinks, down to a
+   usable minimum, and scrolls its own list. */
+.side { background: var(--panel); min-height: 0; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; }
 .side.left { border-right: 1px solid var(--line); }
 .side.right { border-left: 1px solid var(--line); }
 .splitter { cursor: col-resize; background: transparent; }
@@ -192,8 +196,13 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 :root[data-theme="light"] .floating-hint { background: rgba(255, 255, 255, 0.92); color: #1d2330; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
 
 /* panels */
-.panel { display: flex; flex-direction: column; min-height: 0; border-bottom: 1px solid var(--line); }
-.panel.grow { flex: 1; }
+.panel { display: flex; flex-direction: column; flex: 0 0 auto; min-height: auto; border-bottom: 1px solid var(--line); }
+.panel.grow { flex: 1 1 360px; min-height: 360px; }
+/* SketchUp panels in the 3D tab fold to their title (src/ui/skui.js) */
+.panel.folded > :not(.panel-head) { display: none; }
+.panel-head.foldable { cursor: pointer; }
+.panel-head.foldable .fold-ico { display: flex; color: var(--muted); }
+.net-row > .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; } /* the name takes the room; the row buttons sit at the right */
 .panel-head { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); flex: 0 0 auto; }
 .panel-head .grow { flex: 1; }
 .panel-head .icon-btn { height: 24px; min-width: 24px; }
@@ -206,8 +215,9 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .search input { flex: 1; border: 0; outline: 0; background: transparent; min-width: 0; }
 .search:focus-within { border-color: var(--accent); }
 
-.chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 6px; }
-.chip { border: 1px solid var(--line); background: var(--panel2); border-radius: 12px; padding: 1px 9px; font-size: 11.5px; color: var(--muted); cursor: pointer; }
+/* Category chips on an even grid; --chip-w is the widest label (set in panels.js) so no label is cut. */
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--chip-w, 64px), 1fr)); gap: 4px; padding: 0 10px 6px; }
+.chip { border: 1px solid var(--line); background: var(--panel2); border-radius: 12px; padding: 2px 6px; font-size: 11.5px; line-height: 16px; color: var(--muted); cursor: pointer; text-align: center; white-space: nowrap; }
 .chip:hover { color: var(--text); border-color: var(--line2); }
 .chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 
@@ -647,3 +657,10 @@ html.toolbar-wrap { --toolbar-h: auto; }
 .swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .net-row .ri-del { opacity: .5; display: flex; }
 .net-row .ri-del:hover { opacity: 1; color: var(--danger); }
+/* Row break the wrapped toolbar inserts at the divider nearest its middle. */
+.toolbar .tb-break { flex-basis: 100%; height: 0; }
+/* Icons on the rows of the side panels (src/ui/itemicons.js). */
+.item-ico { display: inline-flex; flex: 0 0 auto; align-items: center; color: var(--accent); opacity: .8; margin-right: 6px; vertical-align: -2px; }
+.check .item-ico { margin: 0 0 0 1px; }
+.field-label .item-ico, .prop-grid > span .item-ico { margin-right: 5px; }
+.prop-grid { grid-template-columns: minmax(92px, max-content) 1fr; }

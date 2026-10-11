@@ -41,7 +41,7 @@ const settingsFile = path.join(app.getPath('userData'), 'settings.json')
 
 // Every extension the installer can associate with MyArchitecture; keep in sync
 // with FILE_TYPES in scripts/create-installer.mjs.
-const SUPPORTED_EXTENSIONS = ['myarch', 'dxf', 'dwg', 'ifc', 'svg', 'obj', 'stl', 'ply', 'glb', 'gltf', 'fbx', 'dae', '3mf', '3ds', 'wrl', 'amf']
+const SUPPORTED_EXTENSIONS = ['myarch', 'dxf', 'dwg', 'ifc', 'svg', 'obj', 'stl', 'ply', 'glb', 'gltf', 'fbx', 'dae', '3mf', '3ds', 'wrl', 'amf', '3dm']
 
 let mainWindow = null
 let allowClose = false
@@ -165,7 +165,10 @@ ipcMain.on('window-resize', (event, width, height) => {
   const w = Math.round(Number(width)), h = Math.round(Number(height))
   if (!Number.isFinite(w) || !Number.isFinite(h)) return
   const [minW, minH] = win.getMinimumSize()
-  win.setSize(Math.max(minW, w), Math.max(minH, h))
+  // setBounds rather than setSize: with the hidden title bar on Windows,
+  // growing the window by setSize left the page at its old size.
+  const b = win.getBounds()
+  win.setBounds({ x: b.x, y: b.y, width: Math.max(minW, w), height: Math.max(minH, h) })
 })
 
 app.whenReady().then(createWindow)

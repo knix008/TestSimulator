@@ -3,7 +3,8 @@
 // name, ✕): detailed page settings on the left, a live preview of the real
 // sheets on the right. Print sends the sheets straight to the chosen printer
 // (desktop: webContents.print, silent) — no second system dialog. The web
-// build has no printer access and hands over to the browser's print dialog.
+// build has no printer access and hands over to the browser's print dialog;
+// its Save as PDF… writes the PDF itself (saveSheetsPdf, io/pdfwrite.js).
 
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
@@ -13,6 +14,7 @@ import { SvgContext } from "./svgctx.js";
 import { printTheme } from "./exports.js";
 import { drawPlan, planBounds } from "../plan/render.js";
 import { levelById } from "../core/project.js";
+import { printableSheets, sheetPrintPage, prepareSheets, sheetLabel } from "../views/printpages.js";
 
 // Paper sizes in mm, long side first.
 export const PAPER = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], A0: [1189, 841], A5: [210, 148], Letter: [279.4, 215.9], Legal: [355.6, 215.9], Tabloid: [431.8, 279.4] };
@@ -237,9 +239,12 @@ function section(id, title, ic, open, ...children) {
 const pageIcon = (land) => `<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="${land ? 1.5 : 3.5}" y="${land ? 3.5 : 1.5}" width="${land ? 13 : 9}" height="${land ? 9 : 13}" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`;
 
 // ---------------------------------------------------------------- the window
-export async function printWindow(app, { pdf = false } = {}) {
+export async function printWindow(app, { pdf = false, sheets = null } = {}) {
   const p = app.store.project;
   const cfg = initialConfig(app);
+  // What prints: the level plans (one page each) or the project's sheets (src/views).
+  cfg.source = sheets ? "sheets" : "levels";
+  cfg.sheetIds = new Set(sheets || printableSheets(p).map((s) => s.id));
   const desktop = platform.isDesktop;
   let index = 0;
   let zoom = "fit";
@@ -247,11 +252,17 @@ export async function printWindow(app, { pdf = false } = {}) {
   const sheetLevels = () => p.levels.filter((l) => cfg.levels.has(l.id)).map((l) => l.id);
   // The sheets that will print, in order: [{level, n (1-based of all)}].
   const jobPages = () => {
+    if (cfg.source === "sheets") {
+      const list = printableSheets(p).filter((s) => cfg.sheetIds.has(s.id)).map((s) => s.id);
+      const pick = cfg.range === "custom" ? parseRange(cfg.rangeText, list.length) : list.map((_, i) => i);
+      return (pick || []).map((i) => ({ sheet: list[i], n: i + 1, of: list.length }));
+    }
     const all = sheetLevels();
     const pick = cfg.range === "custom" ? parseRange(cfg.rangeText, all.length) : all.map((_, i) => i);
     return (pick || []).map((i) => ({ level: all[i], n: i + 1, of: all.length }));
   };
-  const renderPages = () => jobPages().map((pg) => ({ ...pg, title: `${t("Floor plan")} — ${levelById(p, pg.level).name}`, ...renderSheet(app, pg.level, cfg, pg.n, pg.of) }));
+  const renderPage = (pg) => (pg.sheet ? sheetPrintPage(app, pg.sheet, cfg) : renderSheet(app, pg.level, cfg, pg.n, pg.of));
+  const renderPages = () => jobPages().map((pg) => { const r = renderPage(pg); return { ...pg, title: r.title || `${t("Floor plan")} — ${levelById(p, pg.level).name}`, ...r }; });
 
   // ---- right: preview
   const stage = h("div", { class: "print-stage pw-stage" });
@@ -303,20 +314,20 @@ export async function printWindow(app, { pdf = false } = {}) {
       pageInfo.textContent = "0 / 0";
     } else {
       const pg = pages[index];
-      current = renderSheet(app, pg.level, cfg, pg.n, pg.of);
+      current = renderPage(pg);
       const page = h("div", { class: "page", "data-w": String(current.W), "data-h": String(current.H) });
       page.innerHTML = current.svg.replace(/width="[\d.]+" height="[\d.]+"/, 'width="100%" height="100%" preserveAspectRatio="none"');
       // Margin guides — preview only, never printed.
       const M = sheetMargins(cfg);
-      if (M.top + M.right + M.bottom + M.left > 0) page.append(h("div", { class: "pw-margins", style: { left: `${(M.left / W) * 100}%`, top: `${(M.top / H) * 100}%`, right: `${(M.right / W) * 100}%`, bottom: `${(M.bottom / H) * 100}%` } }));
+      if (!pg.sheet && M.top + M.right + M.bottom + M.left > 0) page.append(h("div", { class: "pw-margins", style: { left: `${(M.left / W) * 100}%`, top: `${(M.top / H) * 100}%`, right: `${(M.right / W) * 100}%`, bottom: `${(M.bottom / H) * 100}%` } }));
       stage.append(page);
       pageInfo.textContent = t("Page {i} of {n}", { i: index + 1, n: pages.length });
       if (!current.fits) warnLine.textContent = t("The drawing does not fit on the page at 1:{s}.", { s: current.scale });
     }
     prevBtn.disabled = index <= 0;
     nextBtn.disabled = index >= pages.length - 1;
-    const paperName = cfg.paper === "custom" ? `${Math.round(W)} × ${Math.round(H)} mm` : `${cfg.paper} (${Math.round(W)} × ${Math.round(H)} mm)`;
-    status.textContent = [t("Sheets: {n}", { n: pages.length }), paperName, cfg.landscape ? t("Landscape") : t("Portrait"), current ? `1:${current.scale}` : null, cfg.mono ? t("Black and white") : t("Colour"), desktop && cfg.copies > 1 ? t("{n} copies", { n: cfg.copies }) : null].filter(Boolean).join(" · ");
+    const paperName = current && current.paperName ? current.paperName : cfg.paper === "custom" ? `${Math.round(W)} × ${Math.round(H)} mm` : `${cfg.paper} (${Math.round(W)} × ${Math.round(H)} mm)`;
+    status.textContent = [t("Sheets: {n}", { n: pages.length }), paperName, cfg.landscape ? t("Landscape") : t("Portrait"), current && current.scale ? `1:${current.scale}` : null, cfg.mono ? t("Black and white") : t("Colour"), desktop && cfg.copies > 1 ? t("{n} copies", { n: cfg.copies }) : null].filter(Boolean).join(" · ");
     placePage();
   }
   let pending = 0;
@@ -386,7 +397,13 @@ export async function printWindow(app, { pdf = false } = {}) {
   rangeInput.addEventListener("keydown", (e) => e.stopPropagation());
   rangeInput.hidden = cfg.range !== "custom";
   const rangeSeg = segmented(cfg.range, [["all", t("All pages")], ["custom", t("Pages")]], (v) => { cfg.range = v; rangeInput.hidden = v !== "custom"; if (v === "custom") rangeInput.focus(); redraw(); });
+  const sheetChecks = h("div", { class: "check-col pw-sheets" }, ...printableSheets(p).map((s) => checkbox(cfg.sheetIds.has(s.id), sheetLabel(s), { onChange: (v) => { if (v) cfg.sheetIds.add(s.id); else cfg.sheetIds.delete(s.id); prepareSheets(app, [s.id]).then(redraw); redraw(); } })));
+  const sheetRow = row(t("Sheets"), sheetChecks, "pw-wide");
+  sheetRow.hidden = cfg.source !== "sheets";
+  const sourceSeg = segmented(cfg.source, [["levels", t("Level plans")], ["sheets", t("Sheets")]], (v) => { cfg.source = v; index = 0; sheetRow.hidden = v !== "sheets"; if (v === "sheets") prepareSheets(app, [...cfg.sheetIds]).then(redraw); redraw(); });
+  sourceSeg.classList.add("pw-source");
   const drawingSection = section("drawing", t("Drawing"), "floorplan", true,
+    row(t("Print"), sourceSeg, "pw-wide"), sheetRow,
     row(t("Drawing scale"), scaleSel, "pw-wide"), customScaleRow,
     h("div", { class: "pw-row" }, checkbox(cfg.centre, t("Centre on page"), { onChange: (v) => set("centre", v) })),
     row(t("Levels (one sheet each)"), h("div", { class: "pw-levels-wrap" }, levelChecks, p.levels.length > 1 ? allLevels : null), "pw-wide"),
@@ -413,12 +430,12 @@ export async function printWindow(app, { pdf = false } = {}) {
   const r = await modal({
     title: pdf ? t("Export plan as PDF…") : t("Print"), width: "min(1400px, calc(100vw - 40px))", className: "print-window", body,
     buttons: [
-      ...(desktop ? [{ label: t("Save as PDF…"), value: "pdf", left: true, primary: pdf }] : []),
-      { label: t("Save as SVG…"), value: "svg", left: !desktop },
+      { label: t("Save as PDF…"), value: "pdf", left: true, primary: pdf },
+      { label: t("Save as SVG…"), value: "svg", left: true },
       { label: t("Cancel"), value: null },
       { label: desktop ? t("Print") : t("Print…"), value: "print", primary: !pdf || !desktop },
     ],
-    validate: (v) => (v && !jobPages().length ? (cfg.levels.size ? t("No pages in this range") : t("Tick at least one level")) : null),
+    validate: (v) => (v && !jobPages().length ? (cfg.source === "sheets" ? t("Tick at least one sheet.") : cfg.levels.size ? t("No pages in this range") : t("Tick at least one level")) : null),
     onOpen: (box) => {
       box.querySelector(".modal-foot")?.classList.add("pw-foot");
       ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => { if (zoom === "fit") placePage(); }) : null;
@@ -442,7 +459,11 @@ export async function printWindow(app, { pdf = false } = {}) {
     toast(t("Saved {name}", { name: `${pages.length} SVG` }), "ok");
     return;
   }
-  const [W, H] = sheetSize(cfg);
+  // The web build writes the PDF itself; the desktop build prints it with Chromium.
+  if (r === "pdf" && !desktop) { await saveSheetsPdf(app, pages); return; }
+  // Sheets print on their own paper (the first sheet's size when they differ).
+  const fromSheets = cfg.source === "sheets";
+  const [W, H] = fromSheets ? [pages[0].W, pages[0].H] : sheetSize(cfg);
   const cleanup = layoutForPrint(pages, W, H);
   try {
     if (r === "pdf") {
@@ -454,22 +475,41 @@ export async function printWindow(app, { pdf = false } = {}) {
     if (!desktop) { await platform.printPage(); return; }
     const printerName = cfg.printer || t("Default printer");
     toast(t("Printing {n} pages on {printer}…", { n: pages.length, printer: printerName }), "info", 2500);
-    const named = cfg.paper !== "custom" && NAMED_PAGES.has(cfg.paper);
+    const paper = fromSheets ? pages[0].paper : cfg.paper;
+    const landscape = fromSheets ? W > H : cfg.landscape;
+    const named = paper !== "custom" && NAMED_PAGES.has(paper);
     const res = await platform.printSheets({
       deviceName: cfg.printer || undefined,
       copies: cfg.copies,
-      landscape: cfg.landscape,
+      landscape,
       // Named sizes go by name with the orientation flag; others in microns, already oriented.
-      pageSize: named ? cfg.paper : { width: Math.round(W * 1000), height: Math.round(H * 1000) },
+      pageSize: named ? paper : { width: Math.round(W * 1000), height: Math.round(H * 1000) },
       color: !cfg.mono,
       pages: pages.length,
-      paper: cfg.paper,
+      paper,
       sheet: [W, H],
     });
     if (res && res.ok) toast(t("Sent {n} pages to {printer}.", { n: pages.length, printer: printerName }), "ok", 4000);
     else toast(t("Printing failed: {error}", { error: (res && res.error) || "?" }), "error", 6000);
   } finally {
     setTimeout(cleanup, 1000);
+  }
+}
+
+// The sheets as one vector PDF written in JavaScript (io/pdfwrite.js): the
+// web build's "Save as PDF…" (any build can call it). pages: renderSheet()
+// results ({svg, W, H}). → the saved file {name, path?} or null.
+export async function saveSheetsPdf(app, pages) {
+  const note = toast(t("Writing PDF…"), "info", 60000);
+  try {
+    const { svgToPdf } = await import("../io/pdfwrite.js");
+    const p = app.store.project;
+    const r = await svgToPdf(pages.map((pg) => ({ svg: pg.svg, width: pg.W, height: pg.H })), { title: p.meta.title || "", author: p.meta.author || "", subject: t("Floor plan") });
+    const out = await platform.saveBinaryFile({ name: `${baseName(app)}.pdf`, bytes: r.bytes, title: t("Save as PDF…"), filters: [{ name: "PDF", extensions: ["pdf"] }] });
+    if (out) toast(t("Saved {name}", { name: out.name }), "ok");
+    return out;
+  } finally {
+    note.remove();
   }
 }
 

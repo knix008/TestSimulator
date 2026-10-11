@@ -9,8 +9,12 @@
 //                                  per storey when it runs through several;
 //                                  thickness from its construction layers
 //   Opening in a wall            → door / window / opening (at, width, sill, height)
-//   Roof Surface                 → flat roof slab, or one pitched roof (gable /
-//                                  hip / shed) per storey over the sloped faces
+//   Roof Surface                 → flat roof slab (pieces of one roof joined);
+//                                  sloped faces grouped per connected roof and
+//                                  fitted to a gable / hip / shed roof with its
+//                                  pitch, outline, overhang and height
+//                                  (roofrebuild.js), else a mass solid made of
+//                                  the faces themselves
 //
 // Coordinates: x east, y north, z up in the file's lengthUnit; our plan has y
 // down, so y is negated. Floors, ceilings, slabs, shading and air surfaces
@@ -18,7 +22,8 @@
 
 import { parseXml, kids, kid, kidText, textOf, descendants, localName, rootElement, r1, alongWall, fitOpeningToWall, dropOverlappingOpenings, resolveWallOverlaps } from "./bimkit.js";
 import { newProject, normalizeProject, DEFAULTS } from "../core/project.js";
-import { uid, polygonArea, convexHull, orientedRect } from "../core/geom.js";
+import { uid, polygonArea, pointInPolygon } from "../core/geom.js";
+import { rebuildRoofs, groupFaces } from "./roofrebuild.js";
 
 const UNITS = { meters: 1000, meter: 1000, centimeters: 10, centimeter: 10, millimeters: 1, millimeter: 1, kilometers: 1e6, feet: 304.8, foot: 304.8, inches: 25.4, inch: 25.4, yards: 914.4, miles: 1609344 };
 
@@ -151,6 +156,7 @@ class GbxmlReader {
     this.openings = [];
     this.rooms = [];
     this.roofs = [];
+    this.solids = [];
     const unit = String(root.attrs.lengthUnit || "").toLowerCase();
     this.u = UNITS[unit] || 1000;
     this.dz = 0;
@@ -177,7 +183,9 @@ class GbxmlReader {
     if (!this.surfaces.length) this.surfaces = descendants(campus, "Surface");
     this.readConstructions();
     this.readStoreys();
+    this.roofEdges();
     this.readWalls();
+    this.mergeWallPieces();
     this.readSpaces();
     this.readRoofs();
     const fix = resolveWallOverlaps(this.walls, this.openings, (id) => (this.levels.find((l) => l.id === id) || {}).height);
@@ -194,8 +202,11 @@ class GbxmlReader {
     const title = (b && kidText(b, "Name")) || kidText(campus, "Name") || this.name.replace(/\.(gb)?xml$/i, "") || "gbXML model";
     const p = newProject(title);
     p.levels = this.levels.map(({ id, name, elevation, height, slab }) => ({ id, name, elevation, height, slab }));
-    Object.assign(p, { walls: this.walls, openings: this.openings, rooms: this.rooms, roofs: this.roofs });
+    for (const w of this.walls) delete w._cad;
+    Object.assign(p, { walls: this.walls, openings: this.openings, rooms: this.rooms, roofs: this.roofs, solids: this.solids });
     const loc = kid(campus, "Location");
+    const az = loc ? kidText(loc, "CADModelAzimuth") : "";
+    if (az !== "" && Number.isFinite(+az) && Math.abs(+az) > 1e-6) p.meta.north = Math.round((((360 - +az) % 360) + 360) % 360 * 1000) / 1000;
     if (loc) {
       const lat = +kidText(loc, "Latitude"), lon = +kidText(loc, "Longitude");
       if (kidText(loc, "Latitude") && Number.isFinite(lat) && Math.abs(lat) <= 90) p.meta.latitude = lat;
@@ -228,7 +239,11 @@ class GbxmlReader {
       stacked: (n) => `${n} openings stacked above another were joined into one`,
       skylights: (n) => `${n} skylights and roof openings were skipped`,
       spaceNoFloor: (n) => `${n} spaces had no usable floor outline and were skipped`,
-      pitched: (n) => `${n} sloped roof surfaces were rebuilt as pitched roofs over their outline (approximate)`,
+      pitched: (n) => `${n} pitched roofs (gable, hip or shed) were rebuilt from their sloped faces`,
+      roofMass: (n) => `${n} roofs that are not a simple gable, hip or shed were imported as mass solids with their sloped faces`,
+      flatJoined: (n) => `${n} flat roof surfaces were joined with the roof surfaces next to them`,
+      gableEnds: (n) => `${n} triangular gable surfaces under pitched roofs were left to the roofs`,
+      cadPieces: (n) => `${n} wall surfaces that are pieces of one wall (same CADObjectId) were joined`,
       shade: (n) => `${n} shading surfaces were skipped`,
       columns: (n) => `${n} column surfaces were skipped`,
     };
@@ -285,7 +300,13 @@ class GbxmlReader {
     }
     // Height: to the next storey; the top one from its tallest wall.
     let top = -Infinity;
-    for (const s of this.surfaces) if (/Wall/i.test(s.attrs.surfaceType || "")) for (const q of this.planar(s)) if (q[2] > top) top = q[2];
+    this.roofEdges(); // gable triangles above the walls do not count
+    for (const s of this.surfaces) {
+      if (!/Wall/i.test(s.attrs.surfaceType || "")) continue;
+      const pts = this.planar(s);
+      if (this.isGableEnd(pts)) continue;
+      for (const q of pts) if (q[2] > top) top = q[2];
+    }
     for (let i = 0; i < this.levels.length; i++) {
       const lv = this.levels[i], next = this.levels[i + 1];
       const h = next ? next.elevation - lv.elevation : top - lv.elevation;
@@ -319,6 +340,7 @@ class GbxmlReader {
       if (pts.length < 3) { this.count("wallThin"); continue; }
       const n = newell(pts);
       if (Math.abs(n[2]) > 0.2) { this.count("wallTilted"); continue; }
+      if (this.isGableEnd(pts)) { this.count("gableEnds"); continue; }
       // Wall line: the two plan points farthest apart.
       const pl = pts.map((q) => [q[0], -q[1]]);
       let a = pl[0], b = pl[0], best = -1;
@@ -346,6 +368,8 @@ class GbxmlReader {
         const height = hi - lv.elevation;
         const w = { id: uid("w"), level: lv.id, x1: r1(a[0]), y1: r1(a[1]), x2: r1(b[0]), y2: r1(b[1]), thickness, height: Math.abs(height - lv.height) < 30 ? null : r1(Math.max(100, height)) };
         if (/Exterior|Underground/i.test(type) || kids(s, "AdjacentSpaceId").length === 1) w.props = { gbxmlType: type };
+        const cad = kidText(s, "CADObjectId");
+        if (cad) w._cad = cad;
         this.walls.push(w);
         pc.wall = w;
       }
@@ -451,8 +475,104 @@ class GbxmlReader {
   }
 
   // -------------------------------------------------------------- roofs
+  // Edges of the sloped roof surfaces (file coordinates, mm), to tell gable
+  // triangles from walls.
+  roofEdges() {
+    this.roofSegs = [];
+    this.roofPolys = [];
+    for (const s of this.surfaces) {
+      if (!/Roof/i.test(s.attrs.surfaceType || "")) continue;
+      const pts = this.planar(s);
+      if (pts.length < 3) continue;
+      const n = newell(pts);
+      if (Math.abs(n[2]) < 0.2 || Math.abs(n[2]) > 0.995) continue;
+      for (let i = 0; i < pts.length; i++) this.roofSegs.push([pts[i], pts[(i + 1) % pts.length]]);
+      const l = Math.hypot(...n);
+      this.roofPolys.push({ pts, n: n.map((v) => v / l) });
+    }
+  }
+
+  // A vertical triangle with a level bottom edge whose apex touches a sloped
+  // roof: the gable end of a pitched roof (the rebuilt roof draws it).
+  isGableEnd(pts) {
+    if (!this.roofSegs.length) return false;
+    const q = [];
+    for (const p of pts) if (!q.some((x) => Math.hypot(x[0] - p[0], x[1] - p[1], x[2] - p[2]) < 20)) q.push(p);
+    if (q.length !== 3) return false;
+    q.sort((a, b) => b[2] - a[2]);
+    const [apex, a, b] = q;
+    if (Math.abs(a[2] - b[2]) > 30 || apex[2] - a[2] < 200) return false;
+    const near = (p) => this.roofSegs.some(([s, e]) => {
+      const d = [e[0] - s[0], e[1] - s[1], e[2] - s[2]];
+      const L2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2] || 1;
+      const t = Math.max(0, Math.min(1, ((p[0] - s[0]) * d[0] + (p[1] - s[1]) * d[1] + (p[2] - s[2]) * d[2]) / L2));
+      return Math.hypot(s[0] + d[0] * t - p[0], s[1] + d[1] * t - p[1], s[2] + d[2] * t - p[2]) < 300;
+    });
+    // …or lies under a sloped roof face (the high end of a shed).
+    const under = (p) => this.roofPolys.some(({ pts: rp, n }) => {
+      if (!pointInPolygon(p[0], p[1], rp)) return false;
+      const z = rp[0][2] - (n[0] * (p[0] - rp[0][0]) + n[1] * (p[1] - rp[0][1])) / n[2];
+      return Math.abs(z - p[2]) < 400;
+    });
+    return near(apex) || under(apex);
+  }
+
+  // Wall surfaces of one element (the same CADObjectId — Revit and our own
+  // export split a wall where the room beside it changes) become one wall
+  // again when they are collinear and touch.
+  mergeWallPieces() {
+    const groups = new Map();
+    for (const w of this.walls) {
+      if (!w._cad) continue;
+      const k = `${w.level}|${w._cad}`;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(w);
+    }
+    const gone = new Set();
+    let joined = 0;
+    for (const list of groups.values()) {
+      if (list.length < 2) continue;
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (let i = 0; i < list.length && !changed; i++) {
+          for (let j = i + 1; j < list.length && !changed; j++) {
+            const a = list[i], b = list[j];
+            if (gone.has(a) || gone.has(b) || Math.abs(a.thickness - b.thickness) > 1) continue;
+            const La = Math.hypot(a.x2 - a.x1, a.y2 - a.y1) || 1;
+            const d = [(a.x2 - a.x1) / La, (a.y2 - a.y1) / La];
+            const Lb = Math.hypot(b.x2 - b.x1, b.y2 - b.y1) || 1;
+            if (Math.abs(d[0] * (b.y2 - b.y1) / Lb - d[1] * (b.x2 - b.x1) / Lb) > 0.01) continue;
+            const off = (x, y) => Math.abs((x - a.x1) * -d[1] + (y - a.y1) * d[0]);
+            if (off(b.x1, b.y1) > 10 || off(b.x2, b.y2) > 10) continue;
+            const u = (x, y) => (x - a.x1) * d[0] + (y - a.y1) * d[1];
+            const ub = [u(b.x1, b.y1), u(b.x2, b.y2)];
+            if (Math.min(...ub) > La + 60 || Math.max(...ub) < -60) continue;
+            // Openings keep their place in the world.
+            const moved = this.openings.filter((o) => o.wall === a.id || o.wall === b.id).map((o) => {
+              const w = o.wall === a.id ? a : b;
+              const L = Math.hypot(w.x2 - w.x1, w.y2 - w.y1) || 1;
+              return { o, x: w.x1 + ((w.x2 - w.x1) / L) * o.at, y: w.y1 + ((w.y2 - w.y1) / L) * o.at };
+            });
+            const lo = Math.min(0, ...ub), hi = Math.max(La, ...ub);
+            [a.x1, a.y1, a.x2, a.y2] = [r1(a.x1 + d[0] * lo), r1(a.y1 + d[1] * lo), r1(a.x1 + d[0] * hi), r1(a.y1 + d[1] * hi)];
+            a.height = a.height === null && b.height === null ? null : Math.max(a.height ?? 0, b.height ?? 0) || null;
+            if (b.props && !a.props) a.props = b.props;
+            for (const m of moved) { m.o.wall = a.id; m.o.at = alongWall(a, m.x, m.y); }
+            gone.add(b);
+            joined++;
+            changed = true;
+          }
+        }
+      }
+    }
+    if (gone.size) this.walls = this.walls.filter((w) => !gone.has(w));
+    this.count("cadPieces", joined);
+  }
+
   readRoofs() {
-    const sloped = new Map(); // level id → [{pts, n, z1}]
+    const sloped = new Map(); // level id → [{pts (plan, absolute z), th}]
+    const flat = new Map(); // level id → [{plan, z, th}]
     for (const s of this.surfaces) {
       if (!/Roof/i.test(s.attrs.surfaceType || "")) continue;
       for (const op of kids(s, "Opening")) { void op; this.count("skylights"); }
@@ -462,43 +582,56 @@ class GbxmlReader {
       if (Math.abs(n[2]) < 0.2) continue; // a vertical "roof" is a parapet face
       const [z1, z2] = ext(pts.map((q) => q[2]));
       const lv = this.levelAt(z1 - 200);
-      const top = lv.elevation + lv.height;
       const th = this.thickness.get(s.attrs.constructionIdRef) || 200;
       const plan = dedupe2(pts.map((q) => this.plan(q)));
       if (plan.length < 3) continue;
       if (Math.abs(n[2]) > 0.995 || z2 - z1 < 50) {
-        const r = { id: uid("rf"), level: lv.id, kind: "flat", pts: plan, pitch: 0, overhang: 0, thickness: r1(th), material: "concrete" };
-        if (Math.abs(z1 - top) > 50) r.offset = r1(z1 - top - th);
-        this.roofs.push(r);
+        if (!flat.has(lv.id)) flat.set(lv.id, []);
+        flat.get(lv.id).push({ plan, z: (z1 + z2) / 2, th, pts: plan.map(([x, y]) => [x, y, (z1 + z2) / 2]) });
       } else {
         if (!sloped.has(lv.id)) sloped.set(lv.id, []);
-        sloped.get(lv.id).push({ plan, n, z1, th });
-        this.count("pitched");
+        sloped.get(lv.id).push({ pts: pts.map((q) => [r1(q[0]), r1(-q[1]), q[2]]), th });
       }
     }
+    // Flat: pieces at one height that tile a region (one roof split per
+    // space) are joined into one roof.
+    for (const [levelId, faces] of flat) {
+      const lv = this.levels.find((l) => l.id === levelId);
+      const top = lv.elevation + lv.height;
+      for (const group of groupFaces(faces, { flat: true })) {
+        const byZ = [];
+        for (const f of group) { const g = byZ.find((x) => Math.abs(x[0].z - f.z) < 30); if (g) g.push(f); else byZ.push([f]); }
+        for (const set of byZ) {
+          let outlines = set.map((f) => f.plan);
+          if (set.length > 1) {
+            const joined = joinFaces(set.map((f) => f.plan));
+            const sum = set.reduce((s, f) => s + Math.abs(polygonArea(f.plan)), 0);
+            if (joined && Math.abs(Math.abs(polygonArea(joined)) - sum) < 0.02 * sum) {
+              const q = dedupe2(joined);
+              if (q.length >= 3) { outlines = [q]; this.count("flatJoined", set.length); }
+            }
+          }
+          for (const plan of outlines) {
+            const th = set[0].th;
+            const r = { id: uid("rf"), level: lv.id, kind: "flat", pts: plan.map(([x, y]) => [r1(x), r1(y)]), pitch: 0, overhang: 0, thickness: r1(th), material: "concrete" };
+            if (Math.abs(set[0].z - top) > 50) r.offset = r1(set[0].z - top - th);
+            this.roofs.push(r);
+          }
+        }
+      }
+    }
+    // Sloped: fitted to gable / hip / shed, or kept as faces of a mass solid.
     for (const [levelId, faces] of sloped) {
       const lv = this.levels.find((l) => l.id === levelId);
-      const hull = convexHull(faces.flatMap((f) => f.plan));
-      if (hull.length < 3) continue;
-      const pitch = faces.reduce((s, f) => s + (Math.acos(Math.min(1, Math.abs(f.n[2]))) * 180) / Math.PI, 0) / faces.length;
-      // Downhill directions of the faces (plan, y down).
-      const dirs = faces.map((f) => { const l = Math.hypot(f.n[0], f.n[1]) || 1; return [f.n[0] / l, -f.n[1] / l]; });
-      const r = orientedRect(hull);
-      const along = [Math.cos((r.angle * Math.PI) / 180), Math.sin((r.angle * Math.PI) / 180)];
-      const aligned = dirs.map((d) => d[0] * along[0] + d[1] * along[1]);
-      const across = dirs.every((d, i) => Math.abs(aligned[i]) < 0.3);
-      const lengthwise = dirs.every((d, i) => Math.abs(aligned[i]) > 0.95);
-      const oneWay = dirs.every((d) => d[0] * dirs[0][0] + d[1] * dirs[0][1] > 0.95);
-      let kind = "hip", rot = 0;
-      if (oneWay) kind = "shed";
-      else if (across) kind = "gable";
-      else if (lengthwise) { kind = "gable"; rot = 90; }
-      const z1 = Math.min(...faces.map((f) => f.z1));
-      const roof = { id: uid("rf"), level: levelId, kind, pts: hull.map(([x, y]) => [r1(x), r1(y)]), pitch: r1(Math.min(75, pitch)), overhang: 0, thickness: r1(faces[0].th), material: "roof-tiles" };
-      if (rot) roof.rot = rot;
-      const top = lv.elevation + lv.height;
-      if (Math.abs(z1 - top) > 50) roof.offset = r1(z1 - top);
-      this.roofs.push(roof);
+      const { roofs, solids } = rebuildRoofs(faces, lv, this.walls.filter((w) => w.level === levelId));
+      for (const r of roofs) {
+        const { faces: nFaces, ...rest } = r;
+        void nFaces;
+        this.roofs.push({ id: uid("rf"), level: levelId, ...rest, material: "roof-tiles" });
+      }
+      for (const s of solids) this.solids.push({ id: uid("m"), level: levelId, name: "Roof", ...s });
+      this.count("pitched", roofs.length);
+      this.count("roofMass", solids.length);
     }
   }
 }

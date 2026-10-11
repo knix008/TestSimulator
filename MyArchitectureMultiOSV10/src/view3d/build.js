@@ -15,6 +15,11 @@ import { roofModel, roofBase } from "../core/roof.js";
 import { furnitureParts, lightOf } from "../lib/furniture.js";
 import { materialById, materialColor, paintPattern, DEFAULT_MATERIAL } from "../lib/materials.js";
 import { phaseVisible } from "../plan/render.js";
+import { buildSolid, buildComponent, buildOpeningComponent, skVisible } from "./skbuild.js";
+import { setProjectMaterials } from "../lib/materials.js";
+import { buildLevelElements, specialWallBody, roofFacesCut } from "./elements.js";
+import { syncOptions, optionHidden } from "../core/elements/model.js";
+import { roomOnSlab } from "../core/elements/geometry.js";
 
 export const M = 0.001;
 
@@ -142,18 +147,27 @@ export function makeMaterials(THREE, { textures = true } = {}) {
   const cache = new Map();
   const texCache = new Map();
   const texture = (m) => {
-    if (!textures || !m || !m.pattern || typeof document === "undefined") return null;
-    if (texCache.has(m.id)) return texCache.get(m.id);
-    const c = document.createElement("canvas");
-    c.width = c.height = 256;
-    paintPattern(c.getContext("2d"), m, 256);
-    const tx = new THREE.CanvasTexture(c);
+    if (!textures || !m || (!m.pattern && !m.src) || typeof document === "undefined") return null;
+    // Keyed by everything that changes the picture (an edited material repaints).
+    const key = `${m.id}:${m.color}:${m.tile || ""}:${m.src ? `${m.src.length}:${m.src.slice(-32)}` : ""}`;
+    if (texCache.has(key)) return texCache.get(key);
+    let tx;
+    if (m.src) {
+      // The project's own texture image (src/core/skmodel.js) loads
+      // asynchronously; the viewer redraws when it is there.
+      tx = new THREE.TextureLoader().load(m.src, () => { if (typeof window !== "undefined") window.dispatchEvent(new Event("myarch-texture")); });
+    } else {
+      const c = document.createElement("canvas");
+      c.width = c.height = 256;
+      paintPattern(c.getContext("2d"), m, 256);
+      tx = new THREE.CanvasTexture(c);
+    }
     tx.colorSpace = THREE.SRGBColorSpace;
     tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
     // UVs are in metres; one tile covers m.tile millimetres.
     tx.repeat.set(1000 / (m.tile || 1000), 1000 / (m.tile || 1000));
     tx.anisotropy = 4;
-    texCache.set(m.id, tx);
+    texCache.set(key, tx);
     return tx;
   };
   const get = (key, make) => {
@@ -164,9 +178,12 @@ export function makeMaterials(THREE, { textures = true } = {}) {
     surface(id, fallback) {
       const m = materialById(id);
       const color = materialColor(id, fallback);
-      return get(`s:${id}:${color}`, () => {
-        if (id === "glass") return new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.35, side: THREE.DoubleSide, name: "glass" });
+      const op = m && Number.isFinite(+m.opacity) ? Math.max(0.05, Math.min(1, +m.opacity)) : 1;
+      return get(`s:${id}:${color}:${m ? `${m.tile || ""}:${op}:${m.src ? m.src.length : ""}` : ""}`, () => {
+        if (id === "glass") return new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.1, transparent: true, opacity: op < 1 ? op : 0.35, side: THREE.DoubleSide, name: "glass" });
         const mat = new THREE.MeshStandardMaterial({ color: texture(m) ? 0xffffff : color, map: texture(m), roughness: m && m.pattern === "seams" ? 0.45 : 0.85, metalness: m && m.pattern === "seams" ? 0.4 : 0, side: THREE.DoubleSide, name: id || color });
+        // Opacity of an own / edited material (SketchUp's material opacity).
+        if (op < 1) { mat.transparent = true; mat.opacity = op; mat.depthWrite = false; }
         return mat;
       });
     },
@@ -186,6 +203,24 @@ export function makeMaterials(THREE, { textures = true } = {}) {
   };
 }
 
+// A model furniture item's colour overrides (imported Sweet Home 3D pieces):
+// {"": "#rrggbb"} paints the whole model, {materialName: "#rrggbb"} one of
+// its materials; the shared model asset keeps its own colours.
+export function recolorModel(root, colors) {
+  const all = colors[""];
+  const done = new Map();
+  root.traverse((c) => {
+    if (!c.isMesh) return;
+    const one = (m) => {
+      const hex = all || (m && colors[m.name]);
+      if (!hex || !m) return m;
+      if (!done.has(m)) { const n = m.clone(); n.color.set(hex); n.map = null; n.needsUpdate = true; done.set(m, n); }
+      return done.get(m);
+    };
+    c.material = Array.isArray(c.material) ? c.material.map(one) : one(c.material);
+  });
+}
+
 // ---------------------------------------------------------------- pieces
 function boxInWall(THREE, w, mat, u, v, z, su, sv, sz) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1e-4, su * M), Math.max(1e-4, sz * M), Math.max(1e-4, sv * M)), mat);
@@ -201,7 +236,7 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
   const o = s.o;
   const g = new THREE.Group();
   const t = w.thickness;
-  const fw = 60; // frame member width
+  const fw = o.frameWidth || 60; // frame member width (a type parameter)
   const z0 = base + o.sill;
   const z1 = z0 + o.height;
   const uc = (s.u1 + s.u2) / 2;
@@ -209,7 +244,7 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
   const frame = mats.frame();
   if (o.kind === "opening") return g;
   // Frame: jambs and head (and a sill for windows).
-  const depth = Math.min(t, o.kind === "window" ? 90 : t);
+  const depth = Math.min(t, o.frameDepth || (o.kind === "window" ? 90 : t));
   g.add(boxInWall(THREE, w, frame, s.u1 + fw / 2, 0, z0, fw, depth, o.height));
   g.add(boxInWall(THREE, w, frame, s.u2 - fw / 2, 0, z0, fw, depth, o.height));
   g.add(boxInWall(THREE, w, frame, uc, 0, z1 - fw, width, depth, fw));
@@ -324,7 +359,10 @@ function furnitureGroup(THREE, mats, f) {
 // opts: {openDoors, furniture, roofs, levels: Set|null (visible), phase:
 // "all"|"new"|"existing", loadModel(asset) → Promise<Object3D>}
 export function buildBuilding(THREE, p, mats, opts = {}) {
-  const vis = (it) => phaseVisible(it, opts.phase || "all");
+  syncOptions(p); // design options: only the active option of each set is built
+  setProjectMaterials(p.materials); // the project's own / edited materials (src/core/skmodel.js)
+  // Hidden items and switched-off tags (SketchUp) are left out too: opts.hiddenTags.
+  const vis = (it) => phaseVisible(it, opts.phase || "all") && !optionHidden(it) && skVisible(it, opts);
   // Demolished elements in the "all" view: translucent red.
   const demolish = mats.color("#e0524a", { opacity: 0.35, rough: 0.8 });
   const phaseMat = (it, m) => (it.phase === "demolish" && (opts.phase || "all") === "all" ? demolish : m);
@@ -347,8 +385,11 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
       const H = wallHeight(p, w);
       const geo = new Geo();
       const spans = openingSpans(p, w);
+      // Curtain walls and walls with a sloped / attached top (elements.js).
+      const special = specialWallBody(THREE, p, w, ol.poly, spans, base, H, mats, (m) => phaseMat(w, m));
+      if (special) { special.name = `wall ${w.id}`; lg.add(tag(special, w.id, "walls", lv.id)); }
       let from = -1e9;
-      for (const s of spans) {
+      for (const s of special ? [] : spans) {
         prism(geo, slicePoly(w, ol.poly, from, s.u1), base, base + H);
         const piece = slicePoly(w, ol.poly, s.u1, s.u2);
         if (s.o.sill > 0) prism(geo, piece, base, base + Math.min(H, s.o.sill));
@@ -356,17 +397,20 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
         if (head < H) prism(geo, piece, base + head, base + H);
         from = s.u2;
       }
-      prism(geo, slicePoly(w, ol.poly, from, 1e9), base, base + H);
-      if (geo.empty) continue;
+      if (!special) prism(geo, slicePoly(w, ol.poly, from, 1e9), base, base + H);
+      if (geo.empty && !special) continue;
       // A typed wall shows its outside finish (the first layer) unless painted over.
       const wt = w.type ? (p.wallTypes || []).find((x) => x.id === w.type) : null;
       const mat = w.material || (wt ? wt.layers[0].material : DEFAULT_MATERIAL.wall);
-      const mesh = shadow(new THREE.Mesh(geo.build(THREE), phaseMat(w, mats.surface(mat, "#ece8e1"))));
-      mesh.name = `wall ${w.id}`;
-      lg.add(tag(mesh, w.id, "walls", lv.id));
+      if (!special) {
+        const mesh = shadow(new THREE.Mesh(geo.build(THREE), phaseMat(w, mats.surface(mat, "#ece8e1"))));
+        mesh.name = `wall ${w.id}`;
+        lg.add(tag(mesh, w.id, "walls", lv.id));
+      }
       for (const s of spans) {
         if (!vis(s.o)) continue;
         const og = openingMeshes(THREE, mats, w, s, base, opts);
+        if (s.o.comp) og.add(buildOpeningComponent(THREE, mats, p, w, s, base)); // a component glued into the wall
         og.name = `${s.o.kind} ${s.o.id}`;
         og.traverse((c) => { if (c.isMesh && !c.userData.glass) { c.castShadow = true; c.receiveShadow = true; } });
         lg.add(tag(og, s.o.id, "openings", lv.id));
@@ -375,7 +419,8 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
     // ---- floors under rooms
     for (const r of p.rooms.filter((x) => x.level === lv.id && vis(x))) {
       const geo = new Geo();
-      prism(geo, r.pts, base - Math.max(20, lv.slab || 0), base);
+      // On a floor slab the room keeps only its finish (the slab is the structure).
+      if (roomOnSlab(p, r)) prism(geo, r.pts, base - 20, base + 1); else prism(geo, r.pts, base - Math.max(20, lv.slab || 0), base);
       const mesh = new THREE.Mesh(geo.build(THREE), mats.surface(r.floor || DEFAULT_MATERIAL.floor, "#c49a6c"));
       mesh.receiveShadow = true;
       mesh.name = `floor ${r.name || r.id}`;
@@ -398,7 +443,7 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
       lg.add(tag(shadow(mesh), c.id, "columns", lv.id));
     }
     // ---- stairs
-    for (const s of p.stairs.filter((x) => x.level === lv.id && vis(x))) {
+    for (const s of p.stairs.filter((x) => x.level === lv.id && vis(x) && !x.shape)) { // L, U and spiral stairs: elements.js
       const above = levelAbove(p, lv.id);
       const rise = above ? above.elevation - lv.elevation : lv.height;
       const geo = new Geo();
@@ -413,8 +458,9 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
       lg.add(tag(mesh, s.id, "stairs", lv.id));
     }
     // ---- furniture
-    if (opts.furniture !== false) {
-      for (const f of p.furniture.filter((x) => x.level === lv.id && vis(x))) {
+    {
+      // Component instances are model, not furniture: they stay when furniture is hidden.
+      for (const f of p.furniture.filter((x) => x.level === lv.id && vis(x) && (opts.furniture !== false || x.kind === "component"))) {
         let g;
         if (f.kind === "model") {
           g = new THREE.Group();
@@ -426,8 +472,9 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
             opts.loadModel(asset).then((obj) => {
               if (!obj) return;
               const inst = obj.clone();
+              if (f.modelColors) recolorModel(inst, f.modelColors);
               const sz = asset.size || [1000, 1000, 1000];
-              inst.scale.set(f.w / sz[0], f.h / sz[2], f.d / sz[1]);
+              inst.scale.set((f.mirrored ? -1 : 1) * (f.w / sz[0]), f.h / sz[2], f.d / sz[1]);
               g.remove(ph);
               ph.geometry.dispose();
               g.add(inst);
@@ -436,7 +483,8 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
               if (opts.onAsync) opts.onAsync();
             }).catch(() => {});
           }
-        } else g = furnitureGroup(THREE, mats, f);
+        } else if (f.kind === "component") g = buildComponent(THREE, mats, p, f); // a component instance (skbuild.js)
+        else g = furnitureGroup(THREE, mats, f);
         const lamp = g.getObjectByName("lamp");
         if (lamp) lamp.userData.lamp.floor = base * M; // the section cut keeps lamps whose floor is below it
         g.position.set(f.x * M, (base + (f.elevation || 0)) * M, f.y * M);
@@ -445,11 +493,17 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
         lg.add(tag(g, f.id, "furniture", lv.id));
       }
     }
+    // ---- slabs, ceilings, beams, railings, ramps, stairs by type (elements.js)
+    buildLevelElements(THREE, p, mats, lg, lv, { vis, phaseMat, tag, shadow, opts });
     // ---- mass models (solids)
     if (opts.solids !== false) {
       for (const s of (p.solids || []).filter((x) => x.level === lv.id && vis(x))) {
+        // Prisms and meshes, with a face map for the SketchUp-style tools (skbuild.js).
+        if (!(Array.isArray(s.faces) && s.faces.length)) { lg.add(tag(buildSolid(THREE, mats, s, base, phaseMat), s.id, "solids", lv.id)); continue; }
         const geo = new Geo();
-        taperedPrism(geo, s.pts, base + (s.z0 || 0), base + (s.z0 || 0) + s.height, s.taper ?? 1);
+        // A roof read as loose sloped faces (gbXML): each face a slab of the roof's thickness.
+        if (Array.isArray(s.faces) && s.faces.length) for (const f of s.faces) slab3d(geo, f.map(([x, y, z]) => [x, y, base + z]), s.thickness || 200);
+        else taperedPrism(geo, s.pts, base + (s.z0 || 0), base + (s.z0 || 0) + s.height, s.taper ?? 1);
         const mesh = shadow(new THREE.Mesh(geo.build(THREE), phaseMat(s, mats.surface(s.material || "concrete", "#a7a7a2"))));
         mesh.name = `mass ${s.name || s.id}`;
         lg.add(tag(mesh, s.id, "solids", lv.id));
@@ -460,7 +514,7 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
       for (const r of p.roofs.filter((x) => x.level === lv.id && vis(x))) {
         const m = roofModel(r, roofBase(p, r));
         const geo = new Geo();
-        for (const f of m.faces) slab3d(geo, f.pts, r.thickness || 200);
+        if (!roofFacesCut(THREE, p, r, m, geo, r.thickness || 200)) for (const f of m.faces) slab3d(geo, f.pts, r.thickness || 200);
         const mesh = shadow(new THREE.Mesh(geo.build(THREE), mats.surface(r.material || DEFAULT_MATERIAL.roof, "#9b4a3a")));
         mesh.name = `roof ${r.id}`;
         lg.add(tag(mesh, r.id, "roofs", lv.id));
@@ -498,6 +552,10 @@ export function modelExtent(p) {
     const lv = levelById(p, s.level);
     top = Math.max(top, (lv ? lv.elevation : 0) + (s.z0 || 0) + s.height);
   }
+  // Railings, beams and ramps (they may stand on a roof terrace).
+  for (const r of p.railings || []) { const lv = levelById(p, r.level); for (const [x, y] of r.pts) add(x, y); top = Math.max(top, (lv ? lv.elevation : 0) + (r.z || 0) + r.height); }
+  for (const b of p.beams || []) { const lv = levelById(p, b.level); add(b.x1, b.y1); add(b.x2, b.y2); top = Math.max(top, (lv ? lv.elevation : 0) + Math.max(b.z1 ?? (lv ? lv.height : 0), b.z2 ?? b.z1 ?? (lv ? lv.height : 0))); }
+  for (const r of p.ramps || []) for (const [x, y] of r.pts) add(x, y);
   if (!Number.isFinite(x1)) return { x1: -5000, y1: -5000, x2: 5000, y2: 5000, top: 3000 };
   return { x1, y1, x2, y2, top };
 }

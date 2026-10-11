@@ -23,6 +23,10 @@ import { StartPage } from "./start.js";
 import { View3DTab } from "./view3dtab.js";
 import { DocTabs } from "./doctabs.js";
 import * as lights from "./lights.js";
+import { registerSketchupCommands } from "./skui.js";
+import * as elementsUI from "./elements.js"; // slabs, beams, railings, stairs by type, types, design options …
+import { install as installViews } from "../views/index.js"; // views, sheets, schedules, annotation
+import { watchItemIcons } from "./itemicons.js"; // an icon on every row of the side panels
 
 const VERSION = "10.0.0";
 
@@ -36,8 +40,9 @@ export const IMPORT_TYPES = {
   myarch: "project", json: "project", dxf: "dxf", dwg: "dwg", svg: "svg", ifc: "ifc",
   obj: "model", stl: "model", ply: "model", glb: "model", gltf: "model", fbx: "model", dae: "model", "3mf": "model", "3ds": "model", wrl: "model", amf: "model",
   png: "image", jpg: "image", jpeg: "image", webp: "image", gif: "image", bmp: "image",
-  sh3d: "bim", gbxml: "bim", xml: "bim", ifczip: "bim", ifcxml: "closed",
-  skp: "closed", rvt: "closed", pln: "closed", "3dm": "closed",
+  sh3d: "bim", gbxml: "bim", xml: "bim", ifczip: "bim", ifcxml: "bim",
+  "3dm": "rhino", // asks: 3D model or plan drawing (rhinoimport.js)
+  skp: "closed", rvt: "closed", pln: "closed",
 };
 
 class App {
@@ -69,6 +74,8 @@ class App {
     this.docTabs = new DocTabs(this, this.$("doctabs"));
 
     this.registerCommands();
+    this.views = installViews(this); // Project Browser, sections, elevations, sheets … (src/views)
+    watchItemIcons(this.$("left-panel"), this.$("right-panel"));
     this.buildMenus();
     this.buildTitleRight();
     this.bindKeys();
@@ -84,7 +91,7 @@ class App {
     window.addEventListener("beforeunload", (e) => {
       if (this.docTabs.anyDirty() && !platform.isDesktop) { e.preventDefault(); e.returnValue = ""; }
     });
-    window.addEventListener("resize", () => this.layout());
+    window.addEventListener("resize", () => { this.wrapToolbar(); this.layout(); });
 
     this.applyPanels();
     this.initSizeGrip();
@@ -171,10 +178,12 @@ class App {
   setTab(tab) {
     if (this.tab === "plan" && tab !== "plan") this.plan.finishChain();
     if (this.tab === "3d" && tab !== "3d") this.v3d.deactivate();
+    if (this.tab === "views" && tab !== "views" && this.views) this.views.deactivate();
     this.tab = tab;
-    for (const id of ["start", "plan", "3d"]) this.$(`view-${id}`).classList.toggle("on", id === tab);
+    for (const id of ["start", "plan", "3d", "views"]) this.$(`view-${id}`).classList.toggle("on", id === tab);
     if (tab === "plan") this.plan.activate();
     if (tab === "3d") this.v3d.activate();
+    if (tab === "views" && this.views) this.views.activate();
     if (tab === "start") { this.start.render(); this.setHint(""); }
     else this.start.stopBackground();
     this.applyPanels();
@@ -194,9 +203,10 @@ class App {
       ["start", "home", t("Start")],
       ["plan", "floorplan", t("Floor plan"), err ? [err, ""] : warn ? [warn, "warn"] : null],
       ["3d", "cube", t("3D View")],
+      ["views", "sheet", t("Views & sheets")],
     ];
     for (const [id, ic, label, badge] of defs) {
-      const keyHint = { plan: "F2", "3d": "F3" }[id];
+      const keyHint = { plan: "F2", "3d": "F3", views: "F6" }[id];
       bar.append(h("button", { class: `doc-tab ${this.tab === id ? "on" : ""}`, "data-tab": id, title: keyHint ? `${label} (${keyHint})` : label, role: "tab", onclick: () => this.setTab(id) }, h("span", { html: icon(ic, 16) }), h("span", { class: "tab-label" }, label),
         badge ? h("span", { class: `badge ${badge[1]}` }, String(badge[0])) : null));
     }
@@ -227,6 +237,7 @@ class App {
   layout() {
     if (this.tab === "plan") this.plan.vp.resize();
     if (this.tab === "3d") this.v3d.resize();
+    if (this.tab === "views" && this.views) this.views.resize();
   }
 
   bindSplitters() {
@@ -271,6 +282,7 @@ class App {
     this.plan.request();
     this.plan.renderLevelBar();
     this.v3d.markDirty();
+    if (this.views) this.views.onDocChange(info);
     this.updateTitle();
     this.updateUndoButtons();
     this.scheduleChecks();
@@ -459,9 +471,10 @@ class App {
     return [
       { name: t("All supported files"), extensions: Object.keys(IMPORT_TYPES).filter((e) => IMPORT_TYPES[e] !== "closed") },
       { name: "AutoCAD DXF / DWG", extensions: ["dxf", "dwg"] },
-      { name: "IFC (BIM)", extensions: ["ifc"] },
+      { name: "IFC (BIM)", extensions: ["ifc", "ifcxml", "ifczip"] },
       { name: t("Other BIM programs (Sweet Home 3D, gbXML, IFC ZIP)"), extensions: ["sh3d", "gbxml", "xml", "ifczip"] },
-      { name: t("3D models"), extensions: ["obj", "stl", "ply", "glb", "gltf", "fbx", "dae", "3mf", "3ds", "wrl", "amf"] },
+      { name: t("3D models"), extensions: ["obj", "stl", "ply", "glb", "gltf", "fbx", "dae", "3mf", "3ds", "wrl", "amf", "3dm"] },
+      { name: "Rhino 3DM", extensions: ["3dm"] },
       { name: "SVG", extensions: ["svg"] },
       { name: t("Images (tracing underlay)"), extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp"] },
     ];
@@ -487,6 +500,7 @@ class App {
       else if (kind === "ifc") await exports.importIfcFile(this, f, confirmed);
       else if (kind === "bim") await (await import("./bimimport.js")).importBimFile(this, f, confirmed);
       else if (kind === "model") await exports.importModel(this, f);
+      else if (kind === "rhino") await (await import("./rhinoimport.js")).importRhinoFile(this, f);
       else if (kind === "image") await exports.importUnderlay(this, f);
       else if (kind === "closed") dialogs.closedFormat(this, ext);
       else toast(t("This file type is not supported: .{ext}", { ext }), "warn", 5000);
@@ -688,7 +702,10 @@ class App {
     C("file.exportPng", "Export plan as PNG image", "image", "", () => exports.exportPlanPng(this));
     C("file.exportPdf", "Export plan as PDF…", "print", "", () => exports.printDialog(this, { pdf: true }));
     C("file.exportDxf", "Export DXF (AutoCAD)…", "dxf", "", () => exports.exportDxfFile(this));
+    C("file.exportDwg", "Export DWG (AutoCAD 2000)…", "dxf", "", () => exports.exportDwgFile(this));
     C("file.exportIfc", "Export IFC (BIM)…", "bim", "", () => exports.exportIfcFile(this));
+    C("file.exportGbxml", "Export gbXML (energy analysis)…", "bim", "", () => import("./bimexport.js").then((m) => m.exportGbxmlFile(this)));
+    C("file.exportSh3d", "Export Sweet Home 3D (.sh3d)…", "bim", "", () => import("./sh3dexport.js").then((m) => m.exportSh3dFile(this)));
     C("file.export3d", "Export 3D model (GLB, glTF, OBJ, STL, DAE, 3MF, USDZ, PLY)…", "model3d", "", () => exports.export3dDialog(this));
     C("file.exportCsv", "Export schedules (CSV)…", "schedule", "", () => dialogs.schedulesDialog(this));
     C("file.exit", "Exit", "close", "Alt+F4", () => window.close(), { enabled: () => platform.isDesktop });
@@ -717,7 +734,7 @@ class App {
     C("view.3d", "3D view", "cube", "F3", () => this.setTab("3d"));
     C("view.zoomIn", "Zoom in", "zoomIn", "Ctrl+=", () => this.plan.vp.zoomBy(1.25), { enabled: inPlan });
     C("view.zoomOut", "Zoom out", "zoomOut", "Ctrl+-", () => this.plan.vp.zoomBy(0.8), { enabled: inPlan });
-    C("view.fit", "Zoom to fit", "zoomFit", "Home", () => { if (this.tab === "plan") this.plan.zoomFit(); else if (this.tab === "3d") this.v3d.zoomToFit(); });
+    C("view.fit", "Zoom to fit", "zoomFit", "Home", () => { if (this.tab === "plan") this.plan.zoomFit(); else if (this.tab === "3d") this.v3d.zoomToFit(); else if (this.tab === "views") this.views.tab.zoomFit(); });
     C("view.grid", "Show grid", "grid", "", () => this.setSetting("showGrid", this.settings.showGrid === false), { checked: () => this.settings.showGrid !== false });
     C("view.rulers", "Show rulers", "ruler", "", () => this.setSetting("showRulers", this.settings.showRulers === false), { checked: () => this.settings.showRulers !== false });
     C("view.snap", "Snap to grid and walls", "snap", "F9", () => this.setSetting("snap", this.settings.snap === false), { checked: () => this.settings.snap !== false });
@@ -794,7 +811,9 @@ class App {
     C("help.formats", "Supported file formats…", "file", "", () => dialogs.formatsDialog(this));
     C("help.tour", "Quick tour", "info", "", () => dialogs.showWelcome(this));
     C("help.about", "About MyArchitecture", "info", "", () => dialogs.about(this, VERSION));
+    elementsUI.registerElementCommands(this, C);
     C("palette", "Command palette", "command", "Ctrl+K", () => this.openPalette());
+    registerSketchupCommands(this); // SketchUp-style 3D tools (src/ui/skui.js)
     void in3d;
   }
 
@@ -806,9 +825,11 @@ class App {
       Edit: ["edit.undo", "edit.redo", "edit.history", "-", "edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete", "-", "edit.selectAll", "edit.find", "-", "edit.rotate", "edit.mirror", "edit.mirrorV", "edit.scale", "edit.offset", "-", "edit.group", "edit.ungroup", "edit.properties"],
       View: ["view.start", "view.plan", "view.3d", "-", "view.zoomIn", "view.zoomOut", "view.fit", "view.pan", "-", "view.grid", "view.rulers", "view.snap", "view.ortho", "-", "view.dims", "view.furniture", "view.areas", "view.ghost", "view.underlays", "-", "view.phaseAll", "view.phaseNew", "view.phaseExisting", "-", "view.left", "view.right", "-", "view.themes", "view.themeDark", "view.themeLight", "view.themeSystem", "-", "view.langKo", "view.langEn"],
       Build: ["build.detectRooms", "build.autoRoof", "build.autoDims", "-", "build.addLevel", "build.levelProps", "build.defaults", "build.layers", "-", "build.check", "build.schedules"],
-      BIM: ["build.wallTypes", "build.bimProps", "build.selectSimilar", "-", "build.costs", "build.site", "-", "file.exportIfc", "file.importIfc", "file.importBim"],
+      BIM: ["build.wallTypes", "build.bimProps", "build.selectSimilar", "-", "build.costs", "build.site", "-", "file.exportIfc", "file.exportGbxml", "file.exportSh3d", "file.importIfc", "file.importBim"],
+      Drawings: ["views.tab", "views.browser", "-", "views.section", "views.elevation", "views.extElevations", "views.intElevations", "views.ceilingPlan", "views.callout", "views.drafting", "views.legend", "views.schedule", "-", "views.sheet", "views.placeView", "views.sheetList", "views.revisions", "-", "views.properties", "views.visibility", "views.templates", "views.lineStyles", "views.tagAll", "-", "views.publish", "views.exportDxf"],
       Help: ["help.tutorial", "help.manual", "help.keys", "help.formats", "help.tour", "-", "tools.settings", "help.about"],
     };
+    for (const [k, ids] of Object.entries(elementsUI.ELEMENT_MENU)) if (M[k]) M[k].push("-", ...ids);
     this.menuMap = M;
     const bar = this.$("menubar");
     bar.innerHTML = "";
@@ -920,18 +941,41 @@ class App {
       const screenW = Math.floor(((window.screen && window.screen.availWidth) || 1920) / z) - 16;
       bar.classList.remove("compact", "wrap");
       document.documentElement.classList.remove("toolbar-wrap");
-      let need = measure();
-      if (need > screenW || (need > bar.clientWidth + 1 && !platform.isDesktop)) { bar.classList.add("compact"); need = measure(); }
-      if (need > screenW) { bar.classList.add("wrap"); document.documentElement.classList.add("toolbar-wrap"); need = Math.min(need, screenW); }
+      const need = measure();
       bar.dataset.need = String(need);
-      // The title bar (menus, view tabs, search, buttons) must fit too; on a
-      // screen too narrow for one row it wraps onto two — nothing is hidden.
+      this.toolbarNeed = need;
+      this.wrapToolbar();
+      // The window may get narrower than one toolbar row — the toolbar then
+      // wraps onto a second row — but never so narrow that two rows are not
+      // enough. Labels are never dropped and no button is hidden.
       const tneed = this.titleBarNeed();
       document.documentElement.classList.toggle("titlebar-wrap", tneed > screenW);
-      need = Math.max(need, Math.min(screenW, tneed));
-      const w = Math.ceil(need * z);
+      const widest = Math.max(0, ...[...bar.children].map((k) => k.getBoundingClientRect().width));
+      const two = Math.ceil(need / 2 + widest + 24);
+      const w = Math.ceil(Math.max(Math.min(screenW, two), Math.min(screenW, tneed)) * z);
       if (w > (this.toolbarMinWidth || 0)) { this.toolbarMinWidth = w; platform.setMinSize(w, 700); }
     });
+  }
+
+  // One row when it fits the window, otherwise two (re-checked on resize).
+  wrapToolbar() {
+    const bar = this.$("toolbar");
+    if (!bar || !this.toolbarNeed) return;
+    const wrap = this.toolbarNeed > bar.clientWidth + 1;
+    if (wrap === bar.classList.contains("wrap") && (!wrap || bar.querySelector(".tb-break"))) return;
+    if (!wrap && bar.querySelector(".tb-break")) { this.renderToolbar(); return; } // gets its divider back
+    bar.classList.toggle("wrap", wrap);
+    document.documentElement.classList.toggle("toolbar-wrap", wrap);
+    if (wrap) {
+      // Two balanced rows: break at the group divider nearest the middle.
+      const kids = [...bar.children];
+      const widths = kids.map((k) => (k.classList.contains("grow") ? 0 : k.getBoundingClientRect().width + 2));
+      const total = widths.reduce((s, w) => s + w, 0);
+      let x = 0, best = null, bestD = Infinity;
+      kids.forEach((k, i) => { if (k.classList.contains("sep") && Math.abs(x - total / 2) < bestD) { bestD = Math.abs(x - total / 2); best = k; } x += widths[i]; });
+      if (best) best.replaceWith(h("div", { class: "tb-break" }));
+    }
+    requestAnimationFrame(() => this.layout());
   }
 
   renderToolbar() {
@@ -942,7 +986,7 @@ class App {
       if (!c) return null;
       const on = c.checked ? c.checked() : false;
       return h("button", { class: `icon-btn ${on ? "on" : ""}`, "data-cmd": id, title: `${t(c.label)}${c.key ? `  (${c.key})` : ""}`, disabled: c.enabled ? !c.enabled() : false, onclick: () => this.run(id) },
-        h("span", { html: icon(c.icon, 18) }), label ? h("span", { class: "lbl" }, t(c.label)) : null);
+        h("span", { html: icon(c.icon, 18) })); // icons only — the name is in the tooltip
     };
     const sep = () => h("div", { class: "sep" });
     const add = (...els) => bar.append(...els.filter(Boolean));
@@ -950,14 +994,17 @@ class App {
     if (this.tab === "start") {
       add(btn("help.tutorial", { label: true }), btn("file.samples", { label: true }), btn("file.import", { label: true }), btn("help.manual", { label: true }));
     } else if (this.tab === "plan") {
-      add(btn("plan.select"), btn("plan.wall"), btn("plan.room"), btn("plan.door"), btn("plan.window"), btn("plan.column"), btn("plan.stair"), btn("plan.furniture"), btn("plan.light"), btn("light.all"), btn("plan.roof"), sep(),
+      const split = (g) => elementsUI.splitButton(this, g, btn); // grouped tools: a button + a dropdown
+      add(btn("plan.select"), split("wall"), btn("plan.room"), btn("plan.door"), btn("plan.window"), split("column"), split("stair"), split("slab"), btn("plan.furniture"), btn("plan.light"), btn("light.all"), btn("plan.roof"), sep(),
         btn("plan.massRect"), btn("plan.massCircle"), btn("plan.massPoly"), sep(),
-        btn("plan.grid"), btn("plan.dimension"), btn("plan.text"), btn("plan.line"), btn("plan.measure"), sep(),
+        btn("plan.grid"), btn("plan.dimension"), btn("plan.text"), btn("plan.line"), btn("plan.measure"), ...this.views.planButtons(btn), sep(),
         btn("edit.rotate"), btn("edit.mirror"), btn("edit.delete"), sep(),
-        btn("build.detectRooms"), btn("build.wallTypes"), btn("build.bimProps"), btn("build.check"), btn("build.schedules"),
+        btn("build.detectRooms"), btn("build.wallTypes"), split("types"), btn("build.bimProps"), btn("build.check"), btn("build.schedules"),
         h("div", { class: "grow" }), btn("view.snap"), btn("view.ortho"), btn("view.pan"), btn("view.grid"), btn("view.rulers"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
     } else if (this.tab === "3d") {
       this.v3d.renderToolbar(bar, btn, sep);
+    } else if (this.tab === "views") {
+      this.views.renderToolbar(bar, btn, sep);
     }
     add(h("div", { class: "grow" }), btn("help.tutorial"), btn("help.keys"), btn("help.about"));
     this.updateUndoButtons();
@@ -984,12 +1031,13 @@ class App {
         if (!typing && (lk === "=" || lk === "+")) { e.preventDefault(); this.run("view.zoomIn"); return; }
         if (!typing && lk === "-") { e.preventDefault(); this.run("view.zoomOut"); return; }
       }
-      const fkeys = { F1: "help.manual", F2: "view.plan", F3: "view.3d", F4: "view.3d", F5: "build.check", F8: "view.ortho", F9: "view.snap" };
+      const fkeys = { F1: "help.manual", F2: "view.plan", F3: "view.3d", F4: "view.3d", F5: "build.check", F6: "views.tab", F8: "view.ortho", F9: "view.snap" };
       if (fkeys[k]) { e.preventDefault(); this.run(fkeys[k]); return; }
       if (typing) return;
       if (k === "Home") { e.preventDefault(); this.run("view.fit"); return; }
       if (this.tab === "plan" && this.plan.onKey(e)) { e.preventDefault(); return; }
       if (this.tab === "3d" && this.v3d.onKey(e, true)) { e.preventDefault(); return; }
+      if (this.tab === "views" && this.views.onKey(e)) { e.preventDefault(); return; }
       if (k === "Escape") closeMenus();
       if (k === " " && this.tab === "plan") { this.plan.vp.spaceDown = true; e.preventDefault(); }
     });

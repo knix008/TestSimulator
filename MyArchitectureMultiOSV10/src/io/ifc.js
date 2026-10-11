@@ -19,6 +19,10 @@ import { wallOutlines, wallFrame } from "../core/walls.js";
 import { roofModel, roofBase } from "../core/roof.js";
 import { graphFaces } from "../core/rooms.js";
 import { furnitureDef } from "../lib/furniture.js";
+import { exportElements, exportRoofExtras, exportWallExtras, readElements, importElementsInto } from "./ifc-elements.js";
+import { isCurtainWall, roomOnSlab } from "../core/elements/geometry.js";
+import { activeModel } from "../core/elements/model.js";
+import { triangulateFace, isClosed as meshClosed } from "../core/mesh.js";
 
 const DOOR_TYPES = ["single", "double", "sliding", "garage"];
 const WINDOW_TYPES = ["casement", "fixed", "sliding"];
@@ -506,6 +510,7 @@ class IfcExporter {
       this.roofs(lv);
       this.furniture(lv);
       this.solids(lv);
+      exportElements(this, lv); // slabs, ceilings, beams, railings, ramps, stairs by type, curtain walls, shafts (ifc-elements.js)
     }
     this.grids();
     this.flushWallMaterials();
@@ -588,6 +593,7 @@ class IfcExporter {
     for (const f of graphFaces(walls)) if (f.area < 0) for (const w of f.walls) external.add(w.id);
     const tags = openingTags(p);
     for (const wl of walls) {
+      if (isCurtainWall(p, wl)) continue; // IfcCurtainWall: ifc-elements.js
       const f = wallFrame(wl);
       const H = wallHeight(p, wl);
       // Wall frame in IFC: origin (x1, −y1), x along the wall, y to its left.
@@ -613,6 +619,7 @@ class IfcExporter {
         this.untyped.get(tk).walls.push(ref);
       }
       this.bim(ref, wl, "Pset_WallCommon", [["IsExternal", ifcBool(external.has(wl.id))]]);
+      exportWallExtras(this, ref, wl);
       for (const o of p.openings.filter((x) => x.wall === wl.id)) this.opening(lv, wl, o, plc, ref, tags.get(o.id));
     }
   }
@@ -649,6 +656,7 @@ class IfcExporter {
       const space = this.add("IFCSPACE", [this.guid(r.id), this.oh, r.number ? String(r.number) : name, null, null, this.local(this.storeyPlc.get(lv.id)), this.shape([this.body([solid])]), r.name || null, E("ELEMENT"), v4 ? E("SPACE") : E("INTERNAL"), null]);
       spaces.push(space);
       this.bim(space, r, "Pset_SpaceCommon", [["IsExternal", ifcBool(false)]]);
+      if (roomOnSlab(p, r)) continue; // the floor slab element is the floor
       const slabSolid = this.style(this.extrude(this.polyProfile(ring), slabT, this.place3([0, 0, -slabT])), "slab");
       const slab = this.product("IFCSLAB", `${r.id}:floor`, { name: `Floor ${name}`, placement: this.local(this.storeyPlc.get(lv.id)), shape: this.shape([this.body([slabSolid])]), tag: r.id }, [E("FLOOR")]);
       this.contain(lv.id, slab);
@@ -675,7 +683,7 @@ class IfcExporter {
   // -------------------------------------------------------------- stairs
   stairs(lv) {
     const { p, v4 } = this;
-    for (const s of p.stairs.filter((x) => x.level === lv.id)) {
+    for (const s of p.stairs.filter((x) => x.level === lv.id && !x.shape)) { // L, U, spiral: ifc-elements.js
       const above = levelAbove(p, lv.id);
       const rise = above ? above.elevation - lv.elevation : lv.height;
       const n = s.steps;
@@ -738,6 +746,7 @@ class IfcExporter {
       this.contain(lv.id, roof);
       // The parameters behind the faces, so this program can rebuild the roof.
       this.bim(roof, r, "Pset_RoofCommon");
+      exportRoofExtras(this, roof, r);
       this.addPset(roof, "MyArchitecture_Roof", [
         ["Kind", typed("IFCLABEL", r.kind)],
         ["Pitch", typed("IFCREAL", r.pitch)],
@@ -757,7 +766,33 @@ class IfcExporter {
       const ring = ccw(m.pts.map(toIfc2));
       const taper = Math.max(0, Math.min(1, m.taper ?? 1));
       let item;
-      if (taper >= 1) item = this.extrude(this.polyProfile(ring), m.height, this.place3([0, 0, m.z0 || 0]));
+      let meshShape = null;
+      if (m.mesh) {
+        // A mass reshaped in 3D (src/core/mesh.js): its faces as a faceted
+        // Brep (an open surface as a face-based surface model). The plan's y
+        // flips in IFC, so every loop is reversed to keep facing outwards.
+        if (!m.mesh.f.length) continue;
+        const faces = [];
+        const P = (i) => { const [x, y, z] = m.mesh.v[i]; return [x, -y, z]; };
+        m.mesh.f.forEach((f, fi) => {
+          if (f.h && f.h.length) for (const t of triangulateFace(m.mesh, fi)) faces.push(this.face(t.map(P).reverse()));
+          else faces.push(this.face(f.l.map(P).reverse()));
+        });
+        meshShape = meshClosed(m.mesh) ? "Brep" : "SurfaceModel";
+        item = meshShape === "Brep" ? this.add("IFCFACETEDBREP", [this.add("IFCCLOSEDSHELL", [faces])]) : this.add("IFCFACEBASEDSURFACEMODEL", [[this.add("IFCCONNECTEDFACESET", [faces])]]);
+      } else if (Array.isArray(m.faces) && m.faces.length) {
+        // A roof read as loose sloped faces (gbXML import): one slab per face.
+        const th = m.thickness || 200;
+        const faces = [];
+        for (const f of m.faces) {
+          let top = f.map(([x, y, z]) => [...toIfc2([x, y]), z]);
+          if (polygonArea(top.map((q) => [q[0], q[1]])) < 0) top = top.reverse();
+          const bot = top.map(([x, y, z]) => [x, y, z - th]);
+          faces.push(this.face(top), this.face(bot.slice().reverse()));
+          for (let i = 0; i < top.length; i++) { const j = (i + 1) % top.length; faces.push(this.face([bot[i], bot[j], top[j], top[i]])); }
+        }
+        item = this.add("IFCFACETEDBREP", [this.add("IFCCLOSEDSHELL", [faces])]);
+      } else if (taper >= 1) item = this.extrude(this.polyProfile(ring), m.height, this.place3([0, 0, m.z0 || 0]));
       else {
         const [cx, cy] = polygonCentroid(ring);
         const z0 = m.z0 || 0, z1 = z0 + m.height;
@@ -777,7 +812,7 @@ class IfcExporter {
         item = this.add("IFCFACETEDBREP", [this.add("IFCCLOSEDSHELL", [faces])]);
       }
       this.style(item, "mass");
-      const attrs = { name: m.name || "Mass", objectType: "Mass", placement: this.local(this.storeyPlc.get(lv.id)), shape: this.shape([this.body([item], taper >= 1 ? "SweptSolid" : "Brep")]), tag: m.id };
+      const attrs = { name: m.name || "Mass", objectType: "Mass", placement: this.local(this.storeyPlc.get(lv.id)), shape: this.shape([this.body([item], meshShape || (taper >= 1 && !(m.faces && m.faces.length) ? "SweptSolid" : "Brep"))]), tag: m.id };
       const ref = this.product("IFCBUILDINGELEMENTPROXY", m.id, attrs, [E(v4 ? "USERDEFINED" : "ELEMENT")]);
       this.contain(lv.id, ref);
       this.bim(ref, m, v4 ? "Pset_BuildingElementProxyCommon" : null);
@@ -787,6 +822,8 @@ class IfcExporter {
         ["Height", typed("IFCPOSITIVELENGTHMEASURE", m.height)],
         ["Taper", typed("IFCREAL", taper)],
         ["Material", typed("IFCLABEL", m.material || "concrete")],
+        // A mesh mass comes back exactly (faces, holes and their materials).
+        ...(m.mesh ? [["Mesh", typed("IFCTEXT", JSON.stringify(m.mesh))]] : []),
       ]);
     }
   }
@@ -809,7 +846,7 @@ class IfcExporter {
 
 // `project` → IFC STEP text. schema: "IFC4" (default) or "IFC2X3".
 export function exportIfc(project, { schema = "IFC4", author = "", organization = "", application = "MyArchitecture", timestamp } = {}) {
-  const p = normalizeProject(structuredClone(project));
+  const p = activeModel(normalizeProject(structuredClone(project))); // design options: the active ones
   const s = String(schema).toUpperCase().replace(/\s/g, "") === "IFC2X3" ? "IFC2X3" : "IFC4";
   return new IfcExporter(p, { schema: s, author, organization, application, timestamp }).run();
 }
@@ -1891,7 +1928,7 @@ class IfcReader {
     for (const rid of this.byType.get("IFCRELVOIDSELEMENT") || []) {
       const a = this.ents.get(rid).args;
       const host = refId(a[4]), op = refId(a[5]);
-      if (!this.ents.get(op)) continue;
+      if (!this.ents.get(op) || (this.consumed.has(op) && !this.wallsOf.has(host))) continue; // shafts: ifc-elements.js
       this.consumed.add(op);
       const filler = fills.get(op) ?? null;
       if (filler !== null) { placed.add(filler); this.consumed.add(filler); }
@@ -1998,6 +2035,7 @@ class IfcReader {
 
   readSlabs() {
     for (const id of this.all(SLAB_TYPES)) {
+      if (this.consumed.has(id)) continue; // slab elements and landings: ifc-elements.js
       const parent = this.ents.get(this.parent.get(id));
       if (parent && parent.type === "IFCROOF") continue; // read with the roof
       this.consumed.add(id);
@@ -2080,13 +2118,13 @@ class IfcReader {
   // -------------------------------------------------------------- stairs
   readStairs() {
     const flights = new Set(this.byType.get("IFCSTAIRFLIGHT") || []);
-    const stairs = (this.byType.get("IFCSTAIR") || []).map((id) => {
+    const stairs = (this.byType.get("IFCSTAIR") || []).filter((id) => !this.consumed.has(id)).map((id) => {
       const kids = this.children.get(id) || [];
       for (const k of kids) { this.consumed.add(k); flights.delete(k); }
       const useful = kids.filter((k) => ["IFCSTAIRFLIGHT", ...SLAB_TYPES].includes(this.ents.get(k).type));
       return [id, [id, ...(useful.length ? useful : kids)]];
     });
-    for (const id of flights) stairs.push([id, [id]]);
+    for (const id of flights) if (!this.consumed.has(id)) stairs.push([id, [id]]);
     for (const [id, parts] of stairs) {
       this.consumed.add(id);
       const e = this.ents.get(id);
@@ -2135,6 +2173,7 @@ class IfcReader {
             pts: dedupe(fp.map((q) => this.plan(q))), z0: r3(num(pset("Z0"), 0) * this.lu), height: r3(num(pset("Height"), 0) * this.lu),
             taper: Math.max(0, Math.min(1, num(pset("Taper"), 1))), material: str(pset("Material")) || "concrete",
           };
+          if (pset("Mesh")) { try { solid.mesh = JSON.parse(str(pset("Mesh"))); } catch { /* a broken mesh: the prism stays */ } }
         }
       } else if (g.ext && g.ext.vertical && g.leaves.length === 1) {
         solid = { pts: dedupe(g.ext.bottom.map((q) => this.plan(q))), z0: r3(g.ext.base * this.lu - lv.elevation), height: r3(g.ext.height * this.lu), taper: 1, material: "concrete" };
@@ -2265,6 +2304,7 @@ class IfcReader {
     this.readStoreys();
     this.readWallTypes();
     this.readWalls();
+    readElements(this); // own slabs, beams, railings … and curtain walls (ifc-elements.js)
     this.readOpenings();
     this.readSpaces();
     this.readColumns();
@@ -2300,6 +2340,7 @@ class IfcReader {
       const north = r3((Math.atan2(tn[0], tn[1]) * 180) / Math.PI);
       if (Math.abs(north) > 0.01) p.meta.north = north;
     }
+    importElementsInto(this, p); // slabs, ceilings, beams, railings, ramps, shafts, stairs by type
     normalizeProject(p);
     p.view.level = p.levels[0].id;
     return { project: p, warnings: this.warnings, stats };
@@ -2340,4 +2381,10 @@ function boxFaces(M, a, b) {
 // IFC STEP text → {project, warnings, stats}.
 export function importIfc(text) {
   return new IfcReader(parseStepFile(text)).run();
+}
+
+// An entity graph read elsewhere (ifcXML, see ifcxml.js) → {project, warnings, stats}.
+// {entities: Map(id → {type, args}), header: {FILE_SCHEMA: [[name]]}, errors}.
+export function importIfcEntities({ entities, header = {}, errors = 0 }) {
+  return new IfcReader({ entities, header, errors }).run();
 }

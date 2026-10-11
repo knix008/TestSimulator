@@ -73,6 +73,8 @@ export async function launch({ width = 1500, height = 950, args = [], env: extra
     },
     async dblclick(x, y) { await api.click(x, y); await mouse("mousePressed", x, y, "left", 2); await mouse("mouseReleased", x, y, "left", 2); await sleep(60); },
     async move(x, y, buttons = 0) { await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, buttons }); await sleep(16); },
+    // A real mouse-wheel notch at (x, y): deltaY < 0 zooms in.
+    async wheel(x, y, deltaY = -100) { await send("Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX: 0, deltaY }); await sleep(16); },
     async drag(x1, y1, x2, y2, steps = 8, modifiers = 0) {
       await api.move(x1, y1);
       await mouse("mousePressed", x1, y1, "left", 1, modifiers);

@@ -96,7 +96,10 @@ for (const entry of index) {
         if (w.material && !/^#/.test(w.material)) assert.ok(materialById(w.material), `wall material ${w.material}`);
       }
       for (const r of p.rooms) if (r.floor) assert.ok(materialById(r.floor), `floor ${r.floor}`);
-      for (const f of p.furniture) if (f.kind !== "model") assert.ok(furnitureDef(f.kind), `furniture kind ${f.kind}`);
+      for (const f of p.furniture) {
+        if (f.kind === "component") assert.ok((p.components || []).some((c) => c.id === f.comp), `component ${f.comp} is defined`);
+        else if (f.kind !== "model") assert.ok(furnitureDef(f.kind), `furniture kind ${f.kind}`);
+      }
       assert.ok(levels.has(p.view.level));
     });
 

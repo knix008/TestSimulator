@@ -1,6 +1,7 @@
-// DXF exchange: import of ASCII DXF (R12 … R2018) into CAD layer geometry and
-// export of a level's plan as AutoCAD R12 (AC1009), which every CAD program
-// reads.
+// DXF exchange: import of ASCII and binary DXF (R12 … R2018, binary via
+// dxfbin.js) into CAD layer geometry and export of a level's plan as AutoCAD
+// R12 (AC1009), which every CAD program reads, or as AutoCAD 2000 … 2018
+// (dxfmodern.js).
 //
 // Import walks the model space with a 2D affine matrix [a, b, c, d, e, f]
 // (x' = a·x + c·y + e, y' = b·x + d·y + f) that maps an entity's own frame
@@ -16,12 +17,18 @@
 // after the flip is a1 = −s, a2 = −e, ccw = true.
 
 import { uid, rotPt, toWorld, fmtLen, fmtArea, polygonCentroid } from "../core/geom.js";
+import { exportElementsDxf, ELEMENT_DXF_LAYERS } from "./dxf-elements.js";
+import { isCurtainWall } from "../core/elements/geometry.js";
 import { openingTags, wallTypeOf } from "../core/project.js";
 import { wallOutlines, wallPieces, openingSpans, wallFrame, wallPoint, wallUV } from "../core/walls.js";
 import { roofModel, roofBase } from "../core/roof.js";
 import { roomArea, roomLabelPoint } from "../core/rooms.js";
 import { furnitureParts } from "../lib/furniture.js";
 import { stairGeometry, dimensionGeometry } from "../plan/render.js";
+import { isBinaryDxf, readBinaryDxf } from "./dxfbin.js";
+import { proxyRecords, dxfProxyBytes, styleTags, mleaderRecords, tableGridRecords, imageGeometry, mlineRecords, acisRecords, dxfSatText, dxfAcdsBlobs, clipItems, clipLine, graphicsOffset } from "./cadextra.js";
+import { ModernDxfWriter, LAYER_LINEWEIGHTS } from "./dxfmodern.js";
+export { DXF_VERSIONS } from "./dxfmodern.js";
 
 // ================================================================ colours
 
@@ -135,14 +142,13 @@ const DECODER_LABELS = { 874: "windows-874", 932: "shift_jis", 936: "gbk", 949: 
 
 // Bytes → text: DXF 2007+ is UTF-8; older files use $DWGCODEPAGE.
 function decodeBytes(bytes) {
-  const head = new TextDecoder("latin1").decode(bytes.subarray(0, 22));
-  if (head.startsWith("AutoCAD Binary DXF")) throw new Error("Binary DXF is not supported: save the drawing as ASCII DXF");
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
     const probe = new TextDecoder("latin1").decode(bytes.subarray(0, 64 * 1024));
     const m = /\$DWGCODEPAGE\s*\r?\n\s*3\s*\r?\n\s*ANSI_(\d+)/i.exec(probe);
-    const label = (m && DECODER_LABELS[m[1]]) || "windows-1252";
+    // No code page and not UTF-8: Korean (CP949) like the rest of the app's text files.
+    const label = (m && DECODER_LABELS[m[1]]) || "euc-kr";
     try { return new TextDecoder(label).decode(bytes); } catch { return new TextDecoder("windows-1252").decode(bytes); }
   }
 }
@@ -150,10 +156,16 @@ function decodeBytes(bytes) {
 // Text → [[code, value]] pairs.
 function tokenize(input) {
   let text = input;
-  if (input instanceof ArrayBuffer) text = decodeBytes(new Uint8Array(input));
-  else if (ArrayBuffer.isView(input)) text = decodeBytes(new Uint8Array(input.buffer, input.byteOffset, input.byteLength));
+  const bytes = input instanceof ArrayBuffer ? new Uint8Array(input) : ArrayBuffer.isView(input) ? new Uint8Array(input.buffer, input.byteOffset, input.byteLength) : null;
+  if (bytes && isBinaryDxf(bytes)) {
+    const pairs = readBinaryDxf(bytes);
+    if (!pairs.some(([c, v]) => c === 0 && v === "SECTION")) throw new Error("Not a DXF file: no SECTION found");
+    return pairs;
+  }
+  if (bytes) text = decodeBytes(bytes);
   text = String(text ?? "");
-  if (text.startsWith("AutoCAD Binary DXF")) throw new Error("Binary DXF is not supported: save the drawing as ASCII DXF");
+  // A binary DXF already decoded as text has lost its bytes.
+  if (text.startsWith("AutoCAD Binary DXF")) throw new Error("Binary DXF must be read as bytes (pass the file's ArrayBuffer / Uint8Array)");
   const lines = text.replace(/^﻿/, "").split(/\r\n|\r|\n/);
   const pairs = [];
   for (let i = 0; i + 1 < lines.length; i += 2) {
@@ -432,9 +444,26 @@ class Importer {
     this.texts = [];
     this.used = new Set();
     this.warnings = new Set();
+    this.rays = [];
+    this.images = [];
+    this.layerInfo = new Map(); // layers not in the layer table (xrefs, layouts): name → table entry
+    this.fromGraphics = new Map();
+    this.acisMissing = new Map();
+    this.acisChords = 0;
+    this.missingXrefs = [];
+    this.loadedXrefs = new Set();
+    if (!this.objects) this.objects = new Map();
+    if (!this.blockNames) this.blockNames = new Map();
   }
 
   warn(s) { this.warnings.add(s); }
+
+  // Run fn with fresh output lists → {drawings, texts} it produced.
+  capture(fn) {
+    const d = this.drawings, t = this.texts, ni = this.noImages;
+    this.drawings = []; this.texts = []; this.noImages = true;
+    try { fn(); return { drawings: this.drawings, texts: this.texts }; } finally { this.drawings = d; this.texts = t; this.noImages = ni; }
+  }
 
   // Layer and colour of an entity, honouring layer 0 and BYBLOCK in blocks.
   style(e, ctx) {
@@ -442,6 +471,11 @@ class Importer {
     const known = this.layerTable.get(layer.toUpperCase());
     if (known) layer = known.name;
     if (layer === "0" && ctx.layer) layer = ctx.layer;
+    else if (this.prefix) {
+      // An external reference's layers: "XREF|LAYER", as AutoCAD names them.
+      layer = this.prefix + layer;
+      if (!this.layerInfo.has(layer.toUpperCase())) this.layerInfo.set(layer.toUpperCase(), known || null);
+    }
     let color;
     const tc = raw(e, 420);
     const aci = intOf(e, 62, 256);
@@ -455,12 +489,13 @@ class Importer {
   blockColor(e, ctx) {
     const s = this.style(e, ctx);
     if (s.color) return s;
-    const l = this.layerTable.get(s.layer.toUpperCase());
+    const l = this.layerTable.get(s.layer.toUpperCase()) || this.layerInfo.get(s.layer.toUpperCase());
     return { layer: s.layer, color: l ? l.color : undefined };
   }
 
   push(e, ctx, item) {
     const { layer, color } = this.style(e, ctx);
+    if (ctx.skip && ctx.skip.has(layer.toUpperCase())) return; // frozen in this viewport
     this.used.add(layer);
     const d = { id: uid("g"), level: this.level, layer, ...item };
     if (color) d.color = color;
@@ -521,6 +556,7 @@ class Importer {
     if (rot <= -180) rot += 360;
     const up = applyVec(m, -Math.sin(ang * DEG), Math.cos(ang * DEG));
     const { layer, color } = this.style(e, ctx);
+    if (ctx.skip && ctx.skip.has(layer.toUpperCase())) return;
     this.used.add(layer);
     const t = { id: uid("t"), level: this.level, x: px, y: py, text: str, size: h * Math.hypot(...up), rot, align, layer };
     if (color) t.color = color;
@@ -560,9 +596,129 @@ class Importer {
       }
       case "LEADER":
         return this.polyline(e, ctx, m, pointsOf(e, 10), false);
-      default:
-        if (!SILENT.has(e.type)) this.warn(`${e.type} entities are not supported and were skipped`);
+      case "RAY": case "XLINE":
+        // Unbounded: drawn once the extent of the drawing is known.
+        this.rays.push({ e, ctx, m });
+        return;
+      case "IMAGE": case "WIPEOUT": return this.image(e, ctx);
+      case "MULTILEADER": case "MLEADER": return this.mleader(e, ctx);
+      case "ACAD_TABLE": return this.table(e, ctx, m);
+      case "MLINE": return this.records(e, ctx, mlineRecords(e));
+      case "HELIX": { // a spline, followed by the helix parameters (same codes)
+        const k = e.tags.findIndex(([c, v]) => c === 100 && String(v).trim() === "AcDbHelix");
+        return this.spline(k < 0 ? e : { ...e, tags: e.tags.slice(0, k) }, ctx, m);
+      }
+      case "ARC_DIMENSION": case "LARGE_RADIAL_DIMENSION": return this.dimension(e, ctx, m);
+      case "REGION": case "3DSOLID": case "BODY": return this.acis(e, ctx);
+      case "TOLERANCE": return this.tolerance(e, ctx, m);
+      default: {
+        if (SILENT.has(e.type)) return;
+        // Anything else is drawn from its proxy graphics when it has them.
+        const g = e.graphics || dxfProxyBytes(e);
+        const recs = g ? proxyRecords(g, styleTags(e)) : [];
+        if (recs.length) { this.records(e, ctx, recs); this.fromGraphics.set(e.type, (this.fromGraphics.get(e.type) || 0) + 1); return; }
+        this.warn(`${e.type} entities are not supported and were skipped`);
+      }
     }
+  }
+
+  // Generated records (world coordinates, cadextra.js) drawn in e's context.
+  records(e, ctx, list) {
+    for (const r of list || []) if (r) this.entity(r, ctx);
+  }
+
+  // Rays and construction lines, clipped to `box` (plan coordinates).
+  flushRays(box) {
+    const rays = this.rays;
+    this.rays = [];
+    if (!box) return;
+    for (const { e, ctx, m } of rays) {
+      const p = apply(m, numOf(e, 10), numOf(e, 20));
+      const d = applyVec(m, numOf(e, 11, 1), numOf(e, 21));
+      if (!(Math.hypot(d[0], d[1]) > 1e-12)) continue;
+      const seg = clipLine(p, d, box, e.type === "RAY" ? [0, Infinity] : [-Infinity, Infinity]);
+      if (seg) this.push(e, ctx, { kind: "polyline", pts: seg, closed: false });
+    }
+  }
+
+  // Raster image or wipeout: the frame (or clip boundary) outline; an image
+  // also notes its file so that the caller can lay it under the plan.
+  image(e, ctx) {
+    const g = imageGeometry(e);
+    const pts = g.outline.map((q) => apply(ctx.m, q[0], q[1]));
+    const n = this.drawings.length;
+    this.polyline(e, ctx, ctx.m, g.outline.map((q) => [q[0], q[1]]), true);
+    if (e.type !== "IMAGE" || this.drawings.length === n || this.noImages) return;
+    let file = e.imageFile;
+    if (file === undefined) {
+      const def = this.objects.get(strOf(e, 340).toUpperCase());
+      file = def ? decodeDxfText(strOf(def, 1)) : "";
+    }
+    // Picture corners in plan coordinates (top left, top right, bottom left).
+    const P = (q) => apply(ctx.m, q[0], q[1]);
+    const tl = P([g.corner[0] + g.V[0], g.corner[1] + g.V[1]]), tr = P([g.corner[0] + g.V[0] + g.U[0], g.corner[1] + g.V[1] + g.U[1]]), bl = P(g.corner);
+    this.images.push({ file, drawing: this.drawings[n].id, tl, tr, bl, outline: pts, layer: this.drawings[n].layer });
+  }
+
+  mleader(e, ctx) {
+    const recs = mleaderRecords(e, (h) => this.blockNames.get(String(h).toUpperCase()));
+    if (recs && recs.length) return this.records(e, ctx, recs);
+    const g = e.graphics || dxfProxyBytes(e);
+    if (g) return this.records(e, ctx, proxyRecords(g, styleTags(e)));
+    this.warn("MULTILEADER entities without data were skipped");
+  }
+
+  // A table shows its anonymous block (*T…), else its graphics, else a grid
+  // built from its row heights and column widths.
+  table(e, ctx, m) {
+    const name = strOf(e, 2);
+    const b = name && this.blocks.get(name.toUpperCase());
+    const g = e.graphics || dxfProxyBytes(e);
+    if (b && raw(e, 10) !== undefined) {
+      const rot = raw(e, 50) !== undefined ? numOf(e, 50) : Math.atan2(numOf(e, 21), numOf(e, 11, 1)) / DEG;
+      const tags = e.tags.filter(([c]) => [8, 62, 420, 2, 10, 20, 30, 41, 42, 43, 210, 220, 230].includes(c));
+      return this.insert({ type: "INSERT", tags: [...tags, [50, rot]] }, ctx, m);
+    }
+    if (b && g && raw(e, 10) === undefined) {
+      // R2010+ DWG: no insertion point; place the block where its graphics are.
+      const off = graphicsOffset(proxyRecords(g, []), b.entities);
+      if (off) return this.insert({ type: "INSERT", tags: [...styleTags(e), [2, b.name], [10, off[0]], [20, off[1]]] }, ctx, m);
+    }
+    if (g) { const recs = proxyRecords(g, styleTags(e)); if (recs.length) return this.records(e, ctx, recs); }
+    this.records(e, ctx, tableGridRecords(e));
+  }
+
+  // REGION / 3DSOLID / BODY: the edges of the ACIS model.
+  acis(e, ctx) {
+    let data = e.acis;
+    if (data === undefined) data = dxfSatText(e);
+    if (!data && this.acds) data = this.acds.get(strOf(e, 5).toUpperCase());
+    let recs = [];
+    if (data) {
+      try {
+        const r = acisRecords(data, styleTags(e));
+        recs = r.records;
+        if (r.chords) this.acisChords += r.chords;
+      } catch { recs = []; }
+    }
+    if (!recs.length) {
+      const g = e.graphics || dxfProxyBytes(e);
+      if (g) recs = proxyRecords(g, styleTags(e));
+    }
+    if (!recs.length) { this.acisMissing.set(e.type, (this.acisMissing.get(e.type) || 0) + 1); return; }
+    this.records(e, ctx, recs);
+  }
+
+  // Feature control frame: its text (GD&T symbols as plain characters).
+  tolerance(e, ctx, m) {
+    const s = String(raw(e, 1) ?? "").replace(/%%v/gi, " | ").replace(/\^J/g, "\n");
+    const ang = Math.atan2(numOf(e, 21), numOf(e, 11, 1)) / DEG;
+    const h = this.dimText || 2.5;
+    const text = stripMtext(s);
+    text.split("\n").forEach((ln, i) => {
+      const off = -i * h * 1.6;
+      this.text(e, ctx, m, { x: numOf(e, 10) - Math.sin(ang * DEG) * off, y: numOf(e, 20) + Math.cos(ang * DEG) * off, h, ang, align: "left", text: ln });
+    });
   }
 
   lwpolyline(e, ctx, m) {
@@ -640,6 +796,11 @@ class Importer {
 
   dxfText(e, ctx, m) {
     if (e.type === "ATTRIB" && intOf(e, 70) & 1) return;
+    if (e.type === "ATTRIB") {
+      // R2018 multi-line attribute: an MTEXT embedded after "101 Embedded Object".
+      const k = e.tags.findIndex(([c]) => c === 101);
+      if (k >= 0 && e.tags.slice(k + 1).some(([c]) => c === 1)) return this.mtext({ type: "MTEXT", tags: [...styleTags(e), ...e.tags.slice(k + 1)] }, ctx, ctx.m);
+    }
     const h = numOf(e, 40, 1);
     let ang = numOf(e, 50, 0);
     const hj = intOf(e, 72, 0);
@@ -687,11 +848,42 @@ class Importer {
   block(name, e, ctx, bm) {
     const b = this.blocks.get(String(name).toUpperCase());
     if (!b) { this.warn(`Block "${name}" is missing`); return false; }
-    if (b.xref) { this.warn(`External reference "${b.name}" was not loaded`); return true; }
     if (ctx.stack.includes(b.key) || ctx.stack.length >= MAX_DEPTH) { this.warn(`Block "${b.name}" refers to itself or nests too deeply`); return true; }
     const { layer, color } = this.blockColor(e, ctx);
-    const child = { m: bm, layer, color, stack: [...ctx.stack, b.key] };
+    const child = { m: bm, layer, color, stack: [...ctx.stack, b.key], skip: ctx.skip };
+    if (b.xref) return this.xref(b, child);
     for (const it of b.entities) this.entity(it, child);
+    return true;
+  }
+
+  // External reference: the model space of the referenced drawing (given
+  // by the caller in `xrefs`, keyed by block name), on "XREF|layer" layers.
+  xref(b, ctx) {
+    const x = this.xrefs && (this.xrefs.get(b.key) || (b.path && this.xrefs.get(b.path.toUpperCase())));
+    if (!x) {
+      this.warn(`External reference "${b.name}"${b.path ? ` (${b.path})` : ""} was not loaded`);
+      if (!this.missingXrefs.some((m) => m.name === b.name)) this.missingXrefs.push({ name: b.name, path: b.path || "" });
+      return true;
+    }
+    if (!x.importer) {
+      const sub = new Importer({ level: this.level, layerTable: readLayers(x.tables || []), blocks: readBlocks(x.blocks || []), dimText: this.dimText, objects: handleMap(x.objects), blockNames: blockRecordNames(x.tables), acds: x.acdsMap || dxfAcdsBlobs(x.acds), xrefs: x.xrefs || null });
+      // Everything the external drawing draws lands in this import.
+      for (const k of ["drawings", "texts", "used", "warnings", "layerInfo", "images", "fromGraphics", "acisMissing", "missingXrefs"]) sub[k] = this[k];
+      sub.noImages = true;
+      sub.prefix = `${b.name}|`;
+      sub.entities = nest(x.entities || []).filter((it) => intOf(it, 67) !== 1);
+      // Drawing units of the external file relative to this one.
+      const u0 = INSUNITS[parseInt(this.vars.$INSUNITS ? this.vars.$INSUNITS[70] : 0, 10)], u1 = INSUNITS[parseInt(x.vars && x.vars.$INSUNITS ? x.vars.$INSUNITS[70] : 0, 10)];
+      sub.unitScale = u0 && u1 ? UNIT_MM[u1] / UNIT_MM[u0] : 1;
+      x.importer = sub;
+      this.loadedXrefs.add(b.name);
+    }
+    const sub = x.importer;
+    sub.drawings = this.drawings; sub.texts = this.texts; // (may be a viewport capture)
+    const m = sub.unitScale !== 1 ? mul(ctx.m, scaling(sub.unitScale, sub.unitScale)) : ctx.m;
+    const child = { ...ctx, m };
+    for (const it of sub.entities) sub.entity(it, child);
+    sub.rays = [];
     return true;
   }
 
@@ -847,7 +1039,7 @@ function readBlocks(recs) {
   for (const r of recs) {
     if (r.type === "BLOCK") {
       const name = strOf(r, 2) || strOf(r, 3);
-      cur = { name, key: name.toUpperCase(), base: [numOf(r, 10), numOf(r, 20)], xref: (intOf(r, 70) & 4) !== 0, recs: [] };
+      cur = { name, key: name.toUpperCase(), base: [numOf(r, 10), numOf(r, 20)], xref: (intOf(r, 70) & 12) !== 0, path: (intOf(r, 70) & 12) !== 0 ? decodeDxfText(strOf(r, 1)) : "", recs: [] };
       blocks.set(cur.key, cur);
     } else if (r.type === "ENDBLK") cur = null;
     else if (cur) cur.recs.push(r);
@@ -879,18 +1071,90 @@ function itemBounds(drawings, texts) {
 }
 
 /**
- * Parse an ASCII DXF drawing into CAD layer geometry (plan millimetres).
- * `text` may also be an ArrayBuffer / Uint8Array (decoded per $DWGCODEPAGE).
- * Returns {drawings, texts, layers, units, scale, bounds, warnings, counts}.
+ * Parse a DXF drawing into CAD layer geometry (plan millimetres).
+ * `text` may also be an ArrayBuffer / Uint8Array: an ASCII file (decoded
+ * per $DWGCODEPAGE) or a binary DXF (dxfbin.js).
+ * Returns {drawings, texts, layers, units, scale, bounds, warnings, counts,
+ * layouts, images, xrefs}; `opts` as for importCadRecords.
  */
 export function importDxf(text, opts = {}) {
+  return importCadRecords(dxfRecords(text), opts);
+}
+
+/**
+ * A DXF file → the records importCadRecords takes: {vars, tables, blocks,
+ * entities, objects, acds} (each a list of {type, tags}).
+ */
+export function dxfRecords(text) {
   const sections = splitSections(tokenize(text));
-  return importCadRecords({
+  return {
     vars: headerVars(sections.HEADER),
     tables: toRecords(sections.TABLES),
     blocks: toRecords(sections.BLOCKS),
     entities: sections.ENTITIES ? toRecords(sections.ENTITIES) : null,
-  }, opts);
+    objects: toRecords(sections.OBJECTS),
+    acds: toRecords(sections.ACDSDATA),
+  };
+}
+
+// Objects by handle (group 5, upper-case hex).
+function handleMap(objects) {
+  const m = new Map();
+  for (const o of objects || []) { const h = strOf(o, 5); if (h) m.set(h.toUpperCase(), o); }
+  return m;
+}
+// Block record handle → block name (TABLES BLOCK_RECORD entries).
+function blockRecordNames(tables) {
+  const m = new Map();
+  for (const t of tables || []) if (t.type === "BLOCK_RECORD") { const h = strOf(t, 5); if (h) m.set(h.toUpperCase(), strOf(t, 2)); }
+  return m;
+}
+
+/**
+ * Paper space layouts of a drawing (records from dxfRecords or
+ * dwgRecords) in tab order: [{name, key}] — key is the upper-case name of
+ * the layout's paper space block. Layouts with nothing on them are left out.
+ */
+export function cadLayouts(recs) {
+  const objects = handleMap(recs.objects);
+  const brNames = blockRecordNames(recs.tables);
+  const layoutOf = new Map(); // block key → LAYOUT object
+  for (const t of recs.tables || []) {
+    if (t.type !== "BLOCK_RECORD") continue;
+    const lo = objects.get(strOf(t, 340).toUpperCase());
+    if (lo && lo.type === "LAYOUT") layoutOf.set(strOf(t, 2).toUpperCase(), lo);
+  }
+  for (const lo of recs.objects || []) {
+    if (lo.type !== "LAYOUT") continue;
+    for (const [c, v] of lo.tags) {
+      if (c !== 330) continue;
+      const n = brNames.get(String(v).trim().toUpperCase());
+      if (n && !layoutOf.has(n.toUpperCase())) layoutOf.set(n.toUpperCase(), lo);
+    }
+  }
+  // Content of every paper space block: entities, and viewports beyond the
+  // layout's own (the first one).
+  const content = new Map();
+  const count = (key, e) => { const c = content.get(key) || { n: 0, vp: 0 }; if (e.type === "VIEWPORT") c.vp++; else if (e.type !== "SEQEND" && e.type !== "VERTEX" && e.type !== "ATTRIB") c.n++; content.set(key, c); };
+  let cur = null;
+  for (const r of recs.blocks || []) {
+    if (r.type === "BLOCK") { cur = (strOf(r, 2) || strOf(r, 3)).toUpperCase(); if (!/^\*PAPER_SPACE/.test(cur)) cur = null; else if (!content.has(cur)) content.set(cur, { n: 0, vp: 0 }); } else if (r.type === "ENDBLK") cur = null;
+    else if (cur) count(cur, r);
+  }
+  for (const e of recs.entities || []) if (intOf(e, 67) === 1) count("*PAPER_SPACE", e);
+  const out = [];
+  let i = 0;
+  for (const [key, c] of content) {
+    i++;
+    if (!c.n && c.vp < 2) continue;
+    const lo = layoutOf.get(key);
+    const name = lo ? decodeDxfText(strOf(lo, 1)) || key : key === "*PAPER_SPACE" ? "Paper space" : key;
+    out.push({ name, key, order: lo ? intOf(lo, 71, i) : 1000 + i });
+  }
+  out.sort((a, b) => a.order - b.order);
+  const seen = new Set();
+  for (const l of out) { let n = l.name, k = 2; while (seen.has(n.toUpperCase())) n = `${l.name} (${k++})`; l.name = n; seen.add(n.toUpperCase()); }
+  return out.map(({ name, key }) => ({ name, key }));
 }
 
 /**
@@ -898,25 +1162,133 @@ export function importDxf(text, opts = {}) {
  * ({type, tags: [[code, value]]}, in DXF section order) — the DWG reader
  * (dwg.js) translates its objects into these. `vars` maps "$NAME" → {code:
  * value}; `entities` null means the file had no ENTITIES section.
+ *
+ * Options: `space` — "model" (default), "layout:<name>" (that paper space
+ * layout: its own entities and, through its viewports, the model clipped
+ * and scaled) or "all" (the model, then every layout to the right of it,
+ * on "<layout>|<layer>" layers); `xrefs` — external drawings ({name or
+ * path: records}, from dxfRecords / dwgRecords) for XREF blocks.
  */
-export function importCadRecords({ vars = {}, tables = [], blocks: blockRecs = [], entities: entityRecs = null }, { level = null, units = "auto" } = {}) {
+export function importCadRecords(recs, { level = null, units = "auto", space = "model", xrefs = null } = {}) {
+  const { vars = {}, tables = [], blocks: blockRecs = [], entities: entityRecs = null } = recs;
   const layerTable = readLayers(tables);
   const blocks = readBlocks(blockRecs);
   const entities = nest(entityRecs || []);
   const dimStyleText = vars.$DIMTXT ? parseFloat(vars.$DIMTXT[40]) : NaN;
-
-  const imp = new Importer({ level, layerTable, blocks, dimText: Number.isFinite(dimStyleText) && dimStyleText > 0 ? dimStyleText : 2.5 });
-  const counts = {};
-  const ctx = { m: [1, 0, 0, -1, 0, 0], layer: null, color: undefined, stack: [] };
-  let paper = 0;
-  for (const e of entities) {
-    if (e.type === "ENDBLK" || e.type === "BLOCK") continue;
-    if (intOf(e, 67) === 1) { paper++; continue; }
-    counts[e.type] = (counts[e.type] || 0) + 1;
-    imp.entity(e, ctx);
+  let xmap = null;
+  if (xrefs) {
+    xmap = new Map();
+    for (const [k, v] of xrefs instanceof Map ? xrefs : Object.entries(xrefs)) if (v) xmap.set(String(k).toUpperCase(), v);
   }
-  if (paper) imp.warn(`${paper} paper space entit${paper === 1 ? "y was" : "ies were"} skipped`);
+  const imp = new Importer({
+    level, layerTable, blocks, vars,
+    dimText: Number.isFinite(dimStyleText) && dimStyleText > 0 ? dimStyleText : 2.5,
+    objects: handleMap(recs.objects), blockNames: blockRecordNames(tables), acds: recs.acdsMap || dxfAcdsBlobs(recs.acds), xrefs: xmap,
+  });
+  const flip = [1, 0, 0, -1, 0, 0];
+  const counts = {};
+  const layouts = cadLayouts(recs);
+  const layerByHandle = new Map();
+  for (const t of tables) if (t.type === "LAYER") { const h = strOf(t, 5); if (h) layerByHandle.set(h.toUpperCase(), decodeDxfText(strOf(t, 2))); }
+  const model = entities.filter((e) => e.type !== "ENDBLK" && e.type !== "BLOCK" && intOf(e, 67) !== 1);
+  const paper = entities.filter((e) => intOf(e, 67) === 1).length;
+
+  // Twice the extent of what was drawn since `from` (rays and xlines end there).
+  const headerBox = () => {
+    if (!vars.$EXTMIN || !vars.$EXTMAX) return null;
+    const x1 = parseFloat(vars.$EXTMIN[10]), y1 = parseFloat(vars.$EXTMIN[20]), x2 = parseFloat(vars.$EXTMAX[10]), y2 = parseFloat(vars.$EXTMAX[20]);
+    return [x1, y1, x2, y2].every(Number.isFinite) && x2 >= x1 && y2 >= y1 && x2 - x1 < 1e15 ? { x1, y1: -y2, x2, y2: -y1 } : null;
+  };
+  const rayBox = (from) => {
+    let b = itemBounds(imp.drawings.slice(from.d), imp.texts.slice(from.t)) || headerBox();
+    if (!b && imp.rays.length) { const r0 = imp.rays[0]; const [x, y] = apply(r0.m, numOf(r0.e, 10), numOf(r0.e, 20)); b = { x1: x - 500, y1: y - 500, x2: x + 500, y2: y + 500 }; }
+    if (!b) return null;
+    const cx = (b.x1 + b.x2) / 2, cy = (b.y1 + b.y2) / 2, w = Math.max(b.x2 - b.x1, b.y2 - b.y1, 1e-6), h = Math.max(b.y2 - b.y1, 1e-6);
+    return { x1: cx - w, x2: cx + w, y1: cy - Math.max(h, w * 0.5), y2: cy + Math.max(h, w * 0.5) };
+  };
+
+  const drawLayout = (L) => {
+    const own = (blocks.get(L.key) || {}).entities || [];
+    const ents = L.key === "*PAPER_SPACE" ? [...entities.filter((e) => intOf(e, 67) === 1), ...own] : own;
+    const ctx = { m: flip, layer: null, color: undefined, stack: [] };
+    const from = { d: imp.drawings.length, t: imp.texts.length };
+    const vps = ents.filter((e) => e.type === "VIEWPORT");
+    const main = vps.some((v) => raw(v, 69) !== undefined) ? vps.find((v) => intOf(v, 69) === 1) : vps[0];
+    for (const e of ents) if (e.type !== "VIEWPORT") imp.entity(e, ctx);
+    for (const vp of vps) {
+      if (vp === main || intOf(vp, 60) === 1) continue;
+      if ((raw(vp, 68) !== undefined && intOf(vp, 68) === 0) || intOf(vp, 90) & 0x20000) continue; // off
+      const cx = numOf(vp, 10), cy = numOf(vp, 20), w = numOf(vp, 40), h = numOf(vp, 41), vh = numOf(vp, 45);
+      if (!(w > 0 && h > 0)) continue;
+      imp.polyline(vp, ctx, flip, [[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]], true);
+      if (!(vh > 0)) continue;
+      const dir = [numOf(vp, 16), numOf(vp, 26), numOf(vp, 36, 1)];
+      if (Math.hypot(dir[0], dir[1]) > 1e-9 * Math.hypot(...dir)) imp.warn("A layout viewport shows a 3D view; its contents are drawn in plan");
+      const s = h / vh;
+      const A = mul(translation(cx, cy), mul(scaling(s, s), mul(translation(-numOf(vp, 12), -numOf(vp, 22)), mul(rotation(-numOf(vp, 51)), translation(-numOf(vp, 17), -numOf(vp, 27))))));
+      const skip = new Set();
+      for (const [c, v] of vp.tags) if (c === 341 || c === 331) { const n = layerByHandle.get(String(v).trim().toUpperCase()); if (n) skip.add(n.toUpperCase()); }
+      for (const n of vp.frozenLayerNames || []) skip.add(String(n).toUpperCase());
+      const rect = { x1: cx - w / 2, x2: cx + w / 2, y1: -(cy + h / 2), y2: -(cy - h / 2) };
+      const pending = imp.rays;
+      imp.rays = [];
+      const got = imp.capture(() => {
+        const vctx = { m: mul(flip, A), layer: null, color: undefined, stack: [], skip };
+        for (const e of model) imp.entity(e, vctx);
+        imp.flushRays(rect);
+      });
+      imp.rays = pending;
+      const c = clipItems(got.drawings, got.texts, rect);
+      for (const d of c.drawings) imp.drawings.push(d);
+      for (const t of c.texts) imp.texts.push(t);
+    }
+    imp.flushRays(rayBox(from));
+  };
+
+  let wanted = [null];
+  if (space === "all") wanted = [null, ...layouts];
+  else if (space && space !== "model") {
+    const name = String(space).replace(/^layout:/, "");
+    const L = layouts.find((l) => l.name === name) || layouts.find((l) => l.name.toUpperCase() === name.toUpperCase());
+    if (!L) imp.warn(`The layout "${name}" was not found; the model space was imported`);
+    wanted = [L || null];
+  }
+  let right = null;
+  for (const L of wanted) {
+    const from = { d: imp.drawings.length, t: imp.texts.length, i: imp.images.length };
+    if (!L) {
+      const ctx = { m: flip, layer: null, color: undefined, stack: [] };
+      for (const e of model) { counts[e.type] = (counts[e.type] || 0) + 1; imp.entity(e, ctx); }
+      imp.flushRays(rayBox(from));
+    } else drawLayout(L);
+    if (space !== "all") continue;
+    const ds = imp.drawings.slice(from.d), ts = imp.texts.slice(from.t);
+    const b = itemBounds(ds, ts);
+    if (!b) continue;
+    let dx = 0;
+    if (L) {
+      // Side by side: each layout to the right of everything before it,
+      // on its own "<layout>|<layer>" layers.
+      dx = right === null ? 0 : right + 0.1 * Math.max(b.x2 - b.x1, 1) - b.x1;
+      for (const d of ds) {
+        if (d.pts) d.pts = d.pts.map(([x, y]) => [x + dx, y]);
+        if (d.cx !== undefined) d.cx += dx;
+      }
+      for (const t of ts) t.x += dx;
+      for (const it of [...ds, ...ts]) {
+        const n = `${L.name}|${it.layer}`;
+        if (!imp.layerInfo.has(n.toUpperCase())) imp.layerInfo.set(n.toUpperCase(), layerTable.get(it.layer.toUpperCase()) || imp.layerInfo.get(it.layer.toUpperCase()) || null);
+        it.layer = n;
+      }
+      for (const im of imp.images.slice(from.i)) { for (const k of ["tl", "tr", "bl"]) im[k] = [im[k][0] + dx, im[k][1]]; im.layer = `${L.name}|${im.layer}`; }
+    }
+    right = Math.max(right ?? -Infinity, b.x2 + dx);
+  }
+  if (paper && wanted.every((L) => L === null)) imp.warn(`${paper} paper space entit${paper === 1 ? "y was" : "ies were"} skipped${layouts.length ? ` (import a layout to see ${paper === 1 ? "it" : "them"})` : ""}`);
   if (!entityRecs) imp.warn("The file has no ENTITIES section");
+  for (const [type, n] of imp.fromGraphics) imp.warn(`${n} ${type} entit${n === 1 ? "y was" : "ies were"} drawn from ${n === 1 ? "its" : "their"} stored graphics`);
+  for (const [type, n] of imp.acisMissing) imp.warn(`${n} ${type} entit${n === 1 ? "y has" : "ies have"} no ACIS edges that can be drawn (or no readable ACIS data) and ${n === 1 ? "was" : "were"} skipped`);
+  if (imp.acisChords) imp.warn(`${imp.acisChords} curved edge${imp.acisChords === 1 ? "" : "s"} of solids or regions (splines) ${imp.acisChords === 1 ? "is" : "are"} drawn as straight lines`);
 
   // Units → millimetres.
   let unit;
@@ -939,9 +1311,20 @@ export function importCadRecords({ vars = {}, tables = [], blocks: blockRecs = [
   }
   for (const t of imp.texts) { t.x = toMm(t.x); t.y = toMm(t.y); t.size = toMm(t.size); }
 
+  // Raster images: where each picture lies in the plan, for an underlay.
+  const ids = new Set(imp.drawings.map((d) => d.id));
+  const images = imp.images.filter((im) => ids.has(im.drawing)).map((im) => {
+    const tl = im.tl.map(toMm), tr = im.tr.map(toMm), bl = im.bl.map(toMm);
+    return { file: im.file, drawing: im.drawing, layer: im.layer, x: tl[0], y: tl[1], w: Math.hypot(tr[0] - tl[0], tr[1] - tl[1]), h: Math.hypot(bl[0] - tl[0], bl[1] - tl[1]), rot: (Math.atan2(tr[1] - tl[1], tr[0] - tl[0]) * 180) / Math.PI };
+  });
+
   const layers = [];
-  for (const name of imp.used) {
-    const l = layerTable.get(name.toUpperCase());
+  const listed = new Set();
+  for (const it of [...imp.drawings, ...imp.texts]) {
+    const name = it.layer;
+    if (listed.has(name)) continue;
+    listed.add(name);
+    const l = layerTable.get(name.toUpperCase()) || imp.layerInfo.get(name.toUpperCase());
     layers.push({ id: name, name, color: l ? l.color : FOREGROUND, visible: l ? l.visible : true });
   }
   return {
@@ -953,6 +1336,9 @@ export function importCadRecords({ vars = {}, tables = [], blocks: blockRecs = [
     bounds: itemBounds(imp.drawings, imp.texts),
     warnings: [...imp.warnings],
     counts,
+    layouts: layouts.map((l) => l.name),
+    images,
+    xrefs: { missing: imp.missingXrefs, loaded: [...imp.loadedXrefs] },
   };
 }
 
@@ -980,6 +1366,7 @@ export const DXF_LAYERS = [
   { name: "A-ANNO-DIMS", color: 1, linetype: "CONTINUOUS", description: "Dimensions" },
   { name: "A-ANNO-TEXT", color: 7, linetype: "CONTINUOUS", description: "Notes and labels" },
 ];
+DXF_LAYERS.push(...ELEMENT_DXF_LAYERS); // slabs, ceilings, beams, railings, ramps, shafts, curtain walls
 
 const LINETYPES = [
   { name: "CONTINUOUS", desc: "Solid line", dashes: [] },
@@ -1192,8 +1579,19 @@ function ellipsePoly(item, cx, cy, rx, ry, n = 48) {
   return pts;
 }
 
+// Furniture: a block per distinct piece (kind and size) and an INSERT for
+// each placement where the writer has blocks (2000+), loose lines in R12.
 function exportFurniture(W, f) {
-  const L = "A-FURN";
+  if (!W.defineBlock) return drawFurniture(W, f, "A-FURN");
+  const local = { ...f, x: 0, y: 0, rot: 0 };
+  const r = (v) => Math.round((+v || 0) * 100) / 100;
+  const key = `${f.kind}|${r(f.w)}|${r(f.d)}|${r(f.h)}|${f.kind === "model" ? f.model || "" : ""}`;
+  const name = W.defineBlock(key, layerName(`FURN_${String(f.kind || "item").toUpperCase()}_${Math.round(f.w)}x${Math.round(f.d)}`), (B) => drawFurniture(B, local, "0"));
+  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => toWorld(f, (a * f.w) / 2, (b * f.d) / 2));
+  W.insert("A-FURN", name, f.x, f.y, f.rot || 0, undefined, corners);
+}
+
+function drawFurniture(W, f, L) {
   const rect = (cx, cy, w, d) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => toWorld(f, cx + (a * w) / 2, cy + (b * d) / 2));
   if (f.kind === "model") { W.poly(L, rect(0, 0, f.w, f.d)); return; }
   for (const p of furnitureParts(f)) {
@@ -1243,21 +1641,26 @@ function exportDimension(W, d) {
 }
 
 /**
- * Export one level of a project as an AutoCAD R12 DXF (millimetres).
+ * Export one level of a project as a DXF in millimetres: AutoCAD R12
+ * (AC1009, the default, which every CAD program reads) or, with `version`
+ * "2000" | "2004" | "2007" | "2010" | "2013" | "2018", the newer format
+ * written by dxfmodern.js (handles, LWPOLYLINE, MTEXT, furniture blocks,
+ * true colour, lineweights, layer descriptions).
  * Defaults to the level shown in the plan (project.view.level).
  */
-export function exportDxf(project, { level } = {}) {
+export function exportDxf(project, { level, version = "R12" } = {}) {
   const p = project;
   const L = level ?? (p.view && p.view.level) ?? (p.levels[0] && p.levels[0].id);
   const on = (list) => (list || []).filter((it) => it.level === L);
-  const W = new DxfWriter();
+  const modern = String(version).toUpperCase() !== "R12";
+  const W = modern ? new ModernDxfWriter(version, { encodeText: encodeDxfText }) : new DxfWriter();
 
   // Walls: one closed polyline per solid piece.
   const walls = on(p.walls);
   const outlines = wallOutlines(walls, { draw: false });
   for (const w of walls) {
     const ol = outlines.get(w.id);
-    if (!ol) continue;
+    if (!ol || isCurtainWall(p, w)) continue; // curtain walls: dxf-elements.js
     const wt = wallTypeOf(p, w);
     for (const pc of wallPieces(p, w, ol.poly)) {
       W.poly(WALL_PHASE_LAYER[w.phase] || "A-WALL", pc);
@@ -1277,7 +1680,7 @@ export function exportDxf(project, { level } = {}) {
   }
 
   for (const f of on(p.furniture)) exportFurniture(W, f);
-  for (const s of on(p.stairs)) exportStair(W, s);
+  for (const s of on(p.stairs).filter((x) => !x.shape)) exportStair(W, s); // L, U, spiral: dxf-elements.js
 
   for (const c of on(p.columns)) {
     if (c.shape === "round") {
@@ -1301,12 +1704,16 @@ export function exportDxf(project, { level } = {}) {
     for (const [x1, y1, x2, y2] of m.lines) W.line("A-ROOF", [x1, y1], [x2, y2]);
   }
 
+  exportElementsDxf(W, p, L); // slabs, ceilings, beams, railings, ramps, shafts, curtain walls, stairs by type
+
   for (const d of on(p.dimensions)) exportDimension(W, d);
 
   for (const tx of on(p.texts)) {
     const size = tx.size || 300;
     const down = rotPt(0, size * 1.25, tx.rot || 0);
-    String(tx.text ?? "").split("\n").forEach((ln, i) => {
+    const lines = String(tx.text ?? "").split("\n");
+    if (W.mtextBlock && lines.length > 1) { W.mtextBlock("A-ANNO-TEXT", lines, tx.x, tx.y, size, { rot: tx.rot || 0, align: tx.align || "left" }); continue; }
+    lines.forEach((ln, i) => {
       W.text("A-ANNO-TEXT", ln, tx.x + down[0] * i, tx.y + down[1] * i, size, { rot: tx.rot || 0, align: tx.align || "left", valign: "top" });
     });
   }
@@ -1317,12 +1724,12 @@ export function exportDxf(project, { level } = {}) {
   const userLayer = (id) => {
     const l = layerById.get(id) || { id, name: id, color: FOREGROUND, visible: true };
     const name = layerName(l.name || l.id);
-    if (!userLayers.has(name)) userLayers.set(name, { name, color: hexToAci(l.color), visible: l.visible !== false });
+    if (!userLayers.has(name)) userLayers.set(name, { name, color: hexToAci(l.color), trueColor: l.color, visible: l.visible !== false });
     return name;
   };
   for (const d of on(p.drawings)) {
     const name = userLayer(d.layer || "0");
-    const o = d.color ? { color: hexToAci(d.color) } : {};
+    const o = d.color ? { color: hexToAci(d.color), trueColor: d.color } : {};
     if (d.kind === "circle") W.circle(name, d.cx, d.cy, d.r, o);
     else if (d.kind === "arc") W.arc(name, d.cx, d.cy, d.r, d.a1, d.a2, !!d.ccw, o);
     else {
@@ -1333,6 +1740,15 @@ export function exportDxf(project, { level } = {}) {
   }
 
   // ---------------------------------------------------------------- assemble
+  if (modern) {
+    const layers = [{ name: "0", color: 7, linetype: "CONTINUOUS", visible: true }, ...DXF_LAYERS.map((l) => ({ ...l, visible: true, lineweight: LAYER_LINEWEIGHTS[l.name] }))];
+    for (const l of userLayers.values()) {
+      const i = layers.findIndex((a) => a.name.toUpperCase() === l.name.toUpperCase());
+      if (i >= 0) layers[i] = { ...layers[i], color: l.color, trueColor: l.trueColor, visible: l.visible };
+      else layers.push({ ...l, linetype: "CONTINUOUS" });
+    }
+    return W.document({ layers, linetypes: LINETYPES, ltscale: 20, title: (p.meta && p.meta.title) || "" });
+  }
   const H = new DxfWriter();
   const ext = W.ext || { x1: 0, y1: 0, x2: 0, y2: 0 };
   H.g(0, "SECTION"); H.g(2, "HEADER");

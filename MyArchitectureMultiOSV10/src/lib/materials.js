@@ -24,12 +24,53 @@ export const MATERIALS = [
   { id: "roof-tiles", name: "Roof tiles", color: "#9b4a3a", pattern: "rooftiles", tile: 900, use: ["roof"] },
   { id: "roof-slate", name: "Slate", color: "#4f5761", pattern: "rooftiles", tile: 900, use: ["roof"] },
   { id: "roof-metal", name: "Metal roof", color: "#7d8790", pattern: "seams", tile: 1000, use: ["roof"] },
+  // Structure, ceilings and frames (slabs, beams, curtain walls, railings).
+  { id: "screed", name: "Screed", color: "#c9c4b8", pattern: "noise", tile: 1200, use: ["floor", "layer"] },
+  { id: "gypsum", name: "Gypsum board", color: "#f1efe9", pattern: null, use: ["wall", "ceiling", "layer"] },
+  { id: "acoustic-tile", name: "Acoustic ceiling tiles", color: "#ecebe6", pattern: "tiles", tile: 600, use: ["ceiling"] },
+  { id: "aluminium", name: "Aluminium", color: "#8d949b", pattern: null, use: ["frame", "wall"] },
+  { id: "steel", name: "Steel", color: "#6f767e", pattern: null, use: ["frame", "structure", "wall"] },
+  { id: "timber", name: "Structural timber", color: "#c8a06a", pattern: "planks", tile: 1200, use: ["structure", "layer", "floor"] },
 ];
+
+// Physical and thermal properties (for U-values in schedules, gbXML and IFC):
+// lambda = thermal conductivity W/(m·K), density kg/m³, cp = specific heat J/(kg·K).
+const THERMAL = {
+  plaster: [0.57, 1300, 1000], "paint-white": [0.57, 1300, 1000], "paint-sage": [0.57, 1300, 1000], "paint-sky": [0.57, 1300, 1000],
+  brick: [0.77, 1800, 840], concrete: [1.95, 2400, 880], stone: [2.3, 2600, 900], "wood-cladding": [0.13, 500, 1600], glass: [1.0, 2500, 750],
+  oak: [0.18, 700, 1600], walnut: [0.16, 650, 1600], "tile-white": [1.3, 2300, 840], "tile-grey": [1.3, 2300, 840], marble: [2.8, 2700, 880],
+  carpet: [0.06, 200, 1300], grass: [1.5, 1800, 1200], insulation: [0.035, 30, 1030], air: [0.17, 1.2, 1006],
+  "roof-tiles": [1.0, 2000, 800], "roof-slate": [2.0, 2700, 750], "roof-metal": [50, 7800, 450],
+  screed: [1.4, 2000, 840], gypsum: [0.25, 900, 1000], "acoustic-tile": [0.06, 300, 1000], aluminium: [160, 2700, 880], steel: [50, 7800, 450], timber: [0.13, 500, 1600],
+};
+for (const m of MATERIALS) { const th = THERMAL[m.id]; if (th) [m.lambda, m.density, m.cp] = th; }
+
+// Thermal transmittance (U, W/(m²·K)) of a layer build-up [{material, thickness mm}],
+// with the usual surface resistances (inside 0.13, outside 0.04 m²K/W).
+export function uValue(layers, { rsi = 0.13, rse = 0.04 } = {}) {
+  let R = rsi + rse;
+  for (const l of layers || []) { const m = BY_ID_LATE().get(l.material); R += (l.thickness / 1000) / ((m && m.lambda) || 1); }
+  return 1 / R;
+}
+const BY_ID_LATE = () => BY_ID;
 
 const BY_ID = new Map(MATERIALS.map((m) => [m.id, m]));
 
+// The open project's own and edited materials (project.materials: colour,
+// texture image `src`, tile size, opacity), looked up before the library; an
+// entry with a library id edits that material (src/core/skmodel.js).
+let PROJECT = new Map();
+export function setProjectMaterials(list) {
+  PROJECT = new Map();
+  for (const m of list || []) {
+    const lib = BY_ID.get(m.id);
+    PROJECT.set(m.id, { use: ["wall", "floor", "roof"], pattern: null, ...(lib || {}), ...m, custom: !lib });
+  }
+}
+export const projectMaterials = () => [...PROJECT.values()];
+
 export function materialById(id) {
-  return BY_ID.get(id) || null;
+  return PROJECT.get(id) || BY_ID.get(id) || null;
 }
 
 export function materialsFor(use) {

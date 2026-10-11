@@ -11,6 +11,9 @@ import { roomAtPoint, detectRooms, buildingOutlines, suggestRoomName } from "../
 import { furnitureDef, makeFurniture, drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight, mountElevation } from "../lib/furniture.js";
 import { PLAN_THEMES, drawPlan, planBounds, stairGeometry, roomColor } from "./render.js";
 import * as ops from "./ops.js";
+import { ELEMENT_TOOLS, OPEN_CHAIN_TOOLS, pointerElement, finishElementChain, renderElementOverlay, stairFromClicks, ensureCurtainType } from "./element-tools.js";
+import { dragElementHandle, elementHandles, PTS_KINDS } from "./elements.js";
+import { elementMenuItems } from "../ui/elements.js";
 
 export const PLAN_TOOLS = {
   select: { icon: "select", label: "Select", key: "Esc", hint: "Click to select, drag to move (joined walls follow), drag a wall end or room corner to reshape. Drag empty space to pan, Shift+drag to box-select. Double-click to edit." },
@@ -30,6 +33,14 @@ export const PLAN_TOOLS = {
   massCircle: { icon: "cylinder", label: "Mass cylinder", key: "U", hint: "Click the centre, then a point on the circle." },
   massPoly: { icon: "massShape", label: "Mass shape", key: "", hint: "Click the corners of any shape; Enter or clicking the first point extrudes it into a mass." },
   grid: { icon: "gridline", label: "Grid line", key: "G", hint: "Click the two ends of a structural grid line. Lines are numbered 1, 2, 3 … (vertical) and A, B, C … (horizontal) and show on every level." },
+  // BIM elements (src/plan/element-tools.js)
+  slab: { icon: "slab", label: "Floor slab", key: "P", hint: "Click inside the walls for a floor slab under the building outline, or Shift+click to draw its outline (Enter or the first point finishes). Holes, slope and type are on the right." },
+  ceiling: { icon: "ceiling", label: "Ceiling", key: "", hint: "Click inside a room for a ceiling over it, or Shift+click to draw its outline. Its height above the floor is on the right." },
+  shaft: { icon: "shaft", label: "Shaft opening", key: "", hint: "Click two opposite corners of a vertical shaft. It cuts the slabs, ceilings and roofs of every level it passes through." },
+  beam: { icon: "beam", label: "Beam", key: "J", hint: "Click the two ends of a beam (it snaps to columns and wall ends). Its top sits at the top of the storey; set a different height at each end for a brace." },
+  railing: { icon: "railing", label: "Railing", key: "I", hint: "Click the points of a railing; Enter or double-click ends it. Stairs get their own railings (see the stair's properties)." },
+  ramp: { icon: "ramp", label: "Ramp", key: "", hint: "Click the points of the ramp's centre line from the bottom up; Enter or double-click ends. It rises to the level above." },
+  curtainWall: { icon: "curtainwall", label: "Curtain wall", key: "V", hint: "Click the corners of a curtain wall like a wall. Its grid, mullions and panels come from its curtain-wall type; doors and windows replace panels." },
 };
 
 // "3600", "3.6m", "360cm", "12'6\"", "3600<90" → {len (mm), ang (deg) | null}
@@ -290,13 +301,15 @@ export class PlanEditor {
   pointer(type, e, m) {
     const x = m.wx;
     const y = m.wy;
+    if (this.ext && this.ext.pointer(type, e, x, y)) return; // markers, annotations, view tools (src/views/planext.js)
     if (type === "leave") { this.hover = null; this.request(); return; }
     if (type === "context") return this.contextMenuAt(e, x, y);
     if (type === "dblclick") return this.dblclick(x, y, e);
     if (type === "move") this.app.updateStatus();
     const tool = this.tool;
     if (tool === "select") return this.pointerSelect(type, e, x, y);
-    if (tool === "wall" || tool === "line") return this.pointerChain(type, e, x, y);
+    if (tool === "wall" || tool === "line" || tool === "curtainWall") return this.pointerChain(type, e, x, y);
+    if (ELEMENT_TOOLS.has(tool)) return pointerElement(this, type, e, x, y);
     if (tool === "room" || tool === "roof" || tool === "massPoly") return this.pointerArea(type, e, x, y);
     if (tool === "massRect" || tool === "massCircle") return this.pointerMeasure(type, e, x, y);
     if (tool === "door" || tool === "window") return this.pointerOpening(type, e, x, y);
@@ -378,6 +391,10 @@ export class PlanEditor {
       } else if (h.kind === "dimensions" || h.kind === "grids") {
         const s = this.snapAt(x, y, { onWall: false });
         if (h.handle) { obj.x2 = s.x; obj.y2 = s.y; } else { obj.x1 = s.x; obj.y1 = s.y; }
+      } else if (PTS_KINDS.includes(h.kind) || h.kind === "beams") {
+        const s = this.snapAt(x, y, { exclude: new Set([obj.id]), onWall: h.kind === "beams" });
+        dragElementHandle(h.kind, obj, h.handle, s.x, s.y);
+        this.cursor = s;
       }
       this.store.preview();
       this.request();
@@ -425,6 +442,15 @@ export class PlanEditor {
     const last = c.pts[c.pts.length - 1];
     if (dist(...last, ...pt) < 1) { this.finishChain(); return; }
     const closing = c.pts.length >= 2 && dist(...pt, ...c.pts[0]) < 1;
+    if (tool === "curtainWall") {
+      const id = uid("w");
+      this.store.edit(t("Add curtain wall"), (p) => {
+        const type = ensureCurtainType(p, this.app.settings.curtainType);
+        const wt = p.wallTypes.find((x) => x.id === type);
+        p.walls.push({ id, level: this.level, x1: last[0], y1: last[1], x2: pt[0], y2: pt[1], thickness: wt.layers.reduce((s, l) => s + l.thickness, 0), height: null, material: null, type, phase: this.app.settings.drawPhase || "new" });
+      });
+      c.ids.push(id);
+    }
     if (tool === "wall") {
       const id = uid("w");
       const d = this.p.defaults;
@@ -450,6 +476,8 @@ export class PlanEditor {
     }
     if ((c.tool === "room" || c.tool === "roof") && c.pts.length >= 3) this.createArea(c.tool, c.pts);
     if (c.tool === "massPoly" && c.pts.length >= 3) this.createSolid(c.pts);
+    finishElementChain(this, c); // slabs, ceilings, railings, ramps
+    if (c.tool === "curtainWall" && c.ids.length) this.select(c.ids);
     if (c.tool === "wall" && c.ids.length) {
       this.select(c.ids);
       this.app.setHint(t("{n} walls drawn. Press A and click inside them to make a room.", { n: c.ids.length }));
@@ -460,7 +488,7 @@ export class PlanEditor {
   undoChainPoint() {
     const c = this.chain;
     if (!c || c.pts.length < 2) { this.chain = null; this.request(); return; }
-    if (c.tool === "wall" && c.ids.length) {
+    if ((c.tool === "wall" || c.tool === "curtainWall") && c.ids.length) {
       const id = c.ids.pop();
       this.store.edit(t("Remove wall"), (p) => { p.walls = p.walls.filter((w) => w.id !== id); p.openings = p.openings.filter((o) => o.wall !== id); });
     }
@@ -649,7 +677,8 @@ export class PlanEditor {
     const id = uid("s");
     const width = +this.app.settings.stairWidth || this.p.defaults.stairWidth;
     const rot = (Math.atan2(s.y - a[1], s.x - a[0]) * 180) / Math.PI;
-    this.store.edit(t("Add stair"), (p) => { p.stairs.push({ id, level: this.level, x: (a[0] + s.x) / 2, y: (a[1] + s.y) / 2, rot, length: len, width, steps }); });
+    const stair = stairFromClicks(this, a, [s.x, s.y], { id, level: this.level, x: (a[0] + s.x) / 2, y: (a[1] + s.y) / 2, rot, length: len, width, steps }); // shape: straight, L, U, spiral
+    this.store.edit(t("Add stair"), (p) => { p.stairs.push(stair); });
     this.select([id]);
   }
 
@@ -730,6 +759,7 @@ export class PlanEditor {
         const copy = JSON.parse(JSON.stringify(obj));
         copy.id = uid(kind[0]);
         copy.pts = offsetPolygon(obj.pts, -d).map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10]);
+        delete copy.mesh; // the offset of a reshaped mass is a plain mass of its outline
         delete copy.label;
         delete copy.group;
         p[kind].push(copy);
@@ -877,6 +907,7 @@ export class PlanEditor {
 
   // ---------------------------------------------------------------- keys
   onKey(e) {
+    if (this.ext && this.ext.key(e)) return true;
     const k = e.key;
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl) {
@@ -939,6 +970,7 @@ export class PlanEditor {
       }
       if (h.kind === "openings") items.push({ label: t("Flip swing side"), icon: "flip", shortcut: "X", action: () => this.flipSelected("side") }, { label: t("Swap hinge"), icon: "mirror", shortcut: "H", action: () => this.flipSelected("hinge") });
       items.push({ label: t("Select similar"), icon: "select", action: () => this.selectSimilar() }, { label: t("BIM properties…"), icon: "bim", action: () => this.app.run("build.bimProps") });
+      items.push(...elementMenuItems(this.app, h)); // types, openings, beam systems, arrays …
       items.push("-", { label: t("Rotate"), icon: "rotate", shortcut: "R", action: () => this.rotate(90) },
         { label: t("Duplicate"), icon: "copy", shortcut: "Ctrl+D", action: () => this.duplicate() },
         { label: t("Copy"), icon: "copy", shortcut: "Ctrl+C", action: () => this.copy() },
@@ -965,12 +997,13 @@ export class PlanEditor {
     vp.worldTransform(ctx);
     const px = 1 / vp.scale;
     const s = this.app.settings;
-    drawPlan(ctx, this.p, th, {
+    drawPlan(ctx, this.ext ? this.ext.planProject(this.p) : this.p, th, {
       level: this.level, lw: px, px, selected: this.sel, hover: this.hover && this.tool === "select" ? this.hover.obj.id : null,
       wallStyle: s.wallStyle || "solid", units: s.units || "mm", phase: s.phaseView || "all", images: this.underlayImages(), models: new Map(this.p.models.map((m) => [m.id, m])),
       issues: s.showIssues === false ? [] : this.app.checkIssues, view: vp.visibleWorld(), labels: { up: t("UP") },
-      show: { ghost: s.showGhost !== false, dims: s.showDims !== false, furniture: s.showFurniture !== false, roofs: s.showRoofs !== false, tags: s.showTags !== false, areas: s.showAreas !== false, underlays: s.showUnderlays !== false, drawings: s.showDrawings !== false },
+      show: (this.ext ? (o) => this.ext.planShow(o) : (o) => o)({ ghost: s.showGhost !== false, dims: s.showDims !== false, furniture: s.showFurniture !== false, roofs: s.showRoofs !== false, tags: s.showTags !== false, areas: s.showAreas !== false, underlays: s.showUnderlays !== false, drawings: s.showDrawings !== false }),
     });
+    if (this.ext) this.ext.render(ctx, vp, th, px); // the plan view's annotations and markers
     this.renderOverlay(ctx, vp, th, px);
   }
 
@@ -1010,6 +1043,7 @@ export class PlanEditor {
       if (it.kind === "walls") { handle(it.obj.x1, it.obj.y1); handle(it.obj.x2, it.obj.y2); }
       if ((it.kind === "rooms" || it.kind === "roofs") && this.sel.size === 1) for (const [x, y] of it.obj.pts) handle(x, y);
       if (it.kind === "dimensions" || it.kind === "grids") { handle(it.obj.x1, it.obj.y1); handle(it.obj.x2, it.obj.y2); }
+      if ((PTS_KINDS.includes(it.kind) && this.sel.size === 1) || it.kind === "beams") for (const [hx, hy] of elementHandles(it.kind, it.obj)) handle(hx, hy);
     }
     // Drawing chain (walls / lines / rooms / roofs).
     const c = this.chain;
@@ -1017,7 +1051,7 @@ export class PlanEditor {
     if (c) {
       const pts = [...c.pts];
       if (cur) pts.push([cur.x, cur.y]);
-      if (c.tool === "wall" && cur) {
+      if ((c.tool === "wall" || c.tool === "curtainWall") && cur) {
         const last = c.pts[c.pts.length - 1];
         const tw = +this.app.settings.wallThickness || this.p.defaults.wallThickness;
         const L = dist(...last, cur.x, cur.y);
@@ -1038,7 +1072,7 @@ export class PlanEditor {
         ctx.setLineDash(c.tool === "roof" ? [8 * px, 4 * px] : []);
         ctx.beginPath();
         pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-        if (c.tool !== "line" && pts.length > 2) ctx.closePath();
+        if (c.tool !== "line" && !OPEN_CHAIN_TOOLS.has(c.tool) && pts.length > 2) ctx.closePath();
         ctx.stroke();
         ctx.setLineDash([]);
         if (c.tool === "room" && pts.length > 2) { ctx.fillStyle = "rgba(79,157,255,0.15)"; ctx.fill(); label(`${(Math.abs(polygonArea(pts)) / 1e6).toFixed(2)} m²`, cur ? cur.x : pts[0][0], cur ? cur.y : pts[0][1]); }
@@ -1094,7 +1128,7 @@ export class PlanEditor {
       const a = this.stairStart;
       const len = dist(...a, cur.x, cur.y);
       if (len > 10) {
-        const g = stairGeometry({ x: (a[0] + cur.x) / 2, y: (a[1] + cur.y) / 2, rot: (Math.atan2(cur.y - a[1], cur.x - a[0]) * 180) / Math.PI, length: len, width: +this.app.settings.stairWidth || this.p.defaults.stairWidth });
+        const g = stairGeometry(stairFromClicks(this, a, [cur.x, cur.y], { x: (a[0] + cur.x) / 2, y: (a[1] + cur.y) / 2, rot: (Math.atan2(cur.y - a[1], cur.x - a[0]) * 180) / Math.PI, length: len, width: +this.app.settings.stairWidth || this.p.defaults.stairWidth, steps: 16 }));
         ctx.strokeStyle = acc;
         ctx.lineWidth = 1.5 * px;
         ctx.beginPath();
@@ -1147,6 +1181,7 @@ export class PlanEditor {
         ctx.setLineDash([]);
       }
     }
+    renderElementOverlay(this, ctx, px, th); // beam / shaft previews
     // Box selection.
     if (this.box) {
       const b = this.box;

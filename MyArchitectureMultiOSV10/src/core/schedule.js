@@ -5,6 +5,9 @@ import { wallLength, wallHeight, openingTags, levelById } from "./project.js";
 import { openingSpans } from "./walls.js";
 import { roomArea, roomPerimeter, buildingOutlines } from "./rooms.js";
 import { polygonArea } from "./geom.js";
+import { elementCostLines } from "./elements/schedule.js";
+import { isCurtainWall } from "./elements/geometry.js";
+import { uValue } from "../lib/materials.js";
 
 export function roomSchedule(p) {
   const rows = [];
@@ -68,7 +71,7 @@ export function wallTypeSchedule(p) {
   for (const w of p.walls) {
     const wt = w.type ? p.wallTypes.find((x) => x.id === w.type) : null;
     const key = wt ? wt.id : `t${w.thickness}`;
-    if (!rows.has(key)) rows.set(key, { type: wt ? wt.name : `${w.thickness} mm`, thickness: w.thickness, layers: wt ? wt.layers.map((l) => `${l.material} ${l.thickness}`).join(" / ") : "", count: 0, length: 0, area: 0 });
+    if (!rows.has(key)) rows.set(key, { type: wt ? wt.name : `${w.thickness} mm`, thickness: w.thickness, layers: wt ? wt.layers.map((l) => `${l.material} ${l.thickness}`).join(" / ") : "", count: 0, length: 0, area: 0, uValue: wt && wt.kind !== "curtain" ? Math.round(uValue(wt.layers) * 1000) / 1000 : null });
     const r = rows.get(key);
     const L = wallLength(w);
     const H = wallHeight(p, w);
@@ -89,7 +92,7 @@ export function costEstimate(p) {
   const lines = [];
   const add = (item, qty, unit, price) => { if (qty > 0) lines.push({ item, qty, unit, price, total: qty * price }); };
   let wallArea = 0;
-  for (const w of p.walls.filter(live)) {
+  for (const w of p.walls.filter((x) => live(x) && !isCurtainWall(p, x))) { // curtain walls: their own line
     const H = wallHeight(p, w);
     wallArea += (wallLength(w) * H - openingSpans(p, w).reduce((s, sp) => s + (sp.u2 - sp.u1) * Math.min(sp.o.height, Math.max(0, H - sp.o.sill)), 0)) / 1e6;
   }
@@ -99,6 +102,7 @@ export function costEstimate(p) {
   for (const k of ["door", "window", "opening"]) add(k === "door" ? "Doors" : k === "window" ? "Windows" : "Openings", p.openings.filter((o) => o.kind === k && live(o)).length, "pcs", +c[k] || 0);
   add("Stairs", p.stairs.filter(live).length, "pcs", +c.stair || 0);
   add("Columns", p.columns.filter(live).length, "pcs", +c.column || 0);
+  elementCostLines(p, add, c, live); // slabs, ceilings, beams, railings, ramps, curtain walls
   const furnTotal = p.furniture.filter(live).reduce((s, f) => s + (+((f.props || {}).price) || +c.furniture || 0), 0);
   if (furnTotal > 0) lines.push({ item: "Furniture", qty: p.furniture.filter(live).length, unit: "pcs", price: furnTotal / Math.max(1, p.furniture.filter(live).length), total: furnTotal });
   const total = lines.reduce((s, l) => s + l.total, 0);

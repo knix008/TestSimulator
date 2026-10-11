@@ -12,6 +12,7 @@ import { uid } from "../core/geom.js";
 import { furnitureDef, isLight } from "../lib/furniture.js";
 import { sunPosition, daylight } from "../core/sun.js";
 import { switchLamps, lampSummary } from "./lights.js";
+import { SketchupUI } from "./skui.js";
 
 const VIEWS = [["iso", "Isometric", "1"], ["top", "Top", "2"], ["front", "Front", "3"], ["back", "Rear", "4"], ["left", "Left side", "5"], ["right", "Right side", "6"], ["bird", "Bird's eye", "7"]];
 const STYLES = [["realistic", "Realistic"], ["white", "White model"], ["lines", "Line drawing"], ["xray", "X-ray"]];
@@ -26,8 +27,12 @@ export class View3DTab {
     this.highlighted = [];
     this.picked = null;
     this.hiddenLevels = new Set();
-    this.opts = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, axes: false, gizmo: true, dimensions: false, ground: true, tool: "none", fog: false, solids: true, night: false };
+    this.opts = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, axes: true, gizmo: true, dimensions: false, ground: true, tool: "none", fog: false, solids: true, night: false };
     this.paintMaterial = "brick";
+    // SketchUp-style tools, panels and edits (src/ui/skui.js); tags hidden in 3D.
+    this.hiddenTags = new Set();
+    Object.assign(this.opts, { guides: true, showSections: true, sectionCuts: true, sectionFill: true, twoPoint: false, tapeGuides: false, placeComp: null });
+    this.sk = new SketchupUI(this);
   }
 
   // ---------------------------------------------------------------- SketchUp-style tools
@@ -40,10 +45,11 @@ export class View3DTab {
       paint: t("Paint bucket: pick a material on the left, then click walls, floors, roofs, masses or furniture."),
       tape: t("Tape measure: click two points on the model. Esc clears the measurements."),
     };
-    this.app.setHint(hints[this.opts.tool] || this.hintText());
+    this.app.setHint(hints[this.opts.tool] || this.sk.hint(this.opts.tool) || this.hintText());
   }
 
   onTool(ev) {
+    if (ev.type === "sk") { this.sk.handle(ev); return; }
     const app = this.app;
     const p = app.store.project;
     if (ev.type === "pushStart") {
@@ -112,7 +118,7 @@ export class View3DTab {
     const v = this.viewer;
     if (!v) return null;
     const p = this.app.store.project;
-    const sc = { id: uid("sc"), name: `${t("Scene")} ${p.scenes.length + 1}`, camera: v.getCamera(), style: this.opts.style, section: this.opts.section, phase: this.app.settings.phaseView || "all" };
+    const sc = { id: uid("sc"), name: `${t("Scene")} ${p.scenes.length + 1}`, camera: v.getCamera(), style: this.opts.style, section: this.opts.section, phase: this.app.settings.phaseView || "all", ...this.sk.sceneState() };
     this.app.store.edit(t("Add scene"), (pr) => { pr.scenes.push(sc); });
     this.app.renderLeft();
     return sc;
@@ -124,19 +130,21 @@ export class View3DTab {
     if ((sc.section ?? null) !== this.opts.section) this.setOpt("section", sc.section ?? null);
     if (sc.phase && sc.phase !== (this.app.settings.phaseView || "all")) { this.app.settings.phaseView = sc.phase; this.applySettings(); }
     this.opts.ortho = !!sc.camera.ortho;
+    this.sk.applyScene(sc); // tags, section plane, style, shadows, sun, field of view
     this.viewer.setCamera(sc.camera, duration);
     this.currentScene = sc.id;
   }
 
   // Tour every scene in turn (SketchUp's scene animation).
-  async playScenes(dwell = 2500) {
+  async playScenes(dwell = null) {
     const list = this.app.store.project.scenes;
     if (!list.length) { toast(t("Add scenes first: set up a view and press Add scene."), "warn"); return; }
     this.playing = !this.playing;
     this.app.renderLeft();
     for (let i = 0; this.playing && this.app.tab === "3d"; i = (i + 1) % list.length) {
-      this.goScene(list[i], 1400);
-      await new Promise((r) => setTimeout(r, dwell));
+      const sc = list[i];
+      this.goScene(sc, (sc.transition ?? 1.4) * 1000);
+      await new Promise((r) => setTimeout(r, dwell ?? ((sc.transition ?? 1.4) + (sc.delay ?? 1.1)) * 1000));
       if (i === list.length - 1 && this.playOnce) break;
     }
     this.playing = false;
@@ -154,17 +162,20 @@ export class View3DTab {
         const st = this.app.settings;
         this.opts.grid = st.grid3d !== false;
         this.opts.ground = st.ground3d !== false;
-        this.viewer = createViewer(wrap, { ...this.opts, ...this.settingOpts(), levels: this.levelSet() });
+        this.viewer = createViewer(wrap, { ...this.opts, ...this.settingOpts(), ...this.sk.viewerOpts(), levels: this.levelSet(), translate: t });
         this.viewer.onTool((ev) => this.onTool(ev));
         this.viewer.onPick((info) => {
           this.picked = info;
-          if (info && info.id) this.app.onSelection("3d", [info.id]);
+          // Shift+click adds to the selection (and takes away), as in SketchUp.
+          if (info && info.id && info.shift) { const cur = [...this.app.plan.sel]; const next = cur.includes(info.id) ? cur.filter((x) => x !== info.id) : [...cur, info.id]; this.app.onSelection("3d", next); this.highlight(next); }
+          else if (info && info.id) this.app.onSelection("3d", [info.id]);
           // A picked lamp lights up as selected: drag it to move it.
           if (info && info.id && this.isLamp(info.id)) { this.highlight([info.id]); this.app.setHint(t("Light selected: drag it to move it, double-click to switch it on or off.")); }
           this.app.refreshInspector();
         });
         // Double-click on a lamp switches it (elsewhere it zooms in).
         this.viewer.onDblPick((info) => {
+          if (info && info.id && this.sk.editComponent(info.id)) return true; // a component: edit it in place
           if (!info || !info.lamp) return false;
           switchLamps(this.app, [info.id]);
           return true;
@@ -187,7 +198,7 @@ export class View3DTab {
       e.preventDefault();
       if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
       down = null;
-      const items = [...this.app.undoMenuItems(), "-", ...this.app.menuItems(["v3d.iso", "v3d.top", "v3d.front", "-", "v3d.walk", "v3d.section", "v3d.ortho", "v3d.openDoors", "-", "v3d.pushpull", "v3d.paint", "v3d.tape", "-", "light.all", "v3d.night", "-", "v3d.addScene", "v3d.screenshot"])];
+      const items = [...this.app.undoMenuItems(), "-", ...this.app.menuItems(["v3d.iso", "v3d.top", "v3d.front", "-", "v3d.walk", "v3d.section", "v3d.ortho", "v3d.openDoors", "-", "v3d.pushpull", "v3d.paint", "v3d.tape", "sk.line", "sk.rect", "sk.move", "sk.rotate", "sk.offset", "sk.sectionplane", "-", "sk.union", "sk.subtract", "sk.makeComponent", "sk.makeUnique", "sk.explode", "sk.hide", "sk.unhideAll", "-", "light.all", "v3d.night", "-", "v3d.addScene", "v3d.screenshot"])];
       if (this.picked && this.picked.id) items.unshift({ label: t("Show in plan"), icon: "floorplan", action: () => this.app.crossProbe([this.picked.id], "plan") }, "-");
       // Right-click on a lamp: switch it.
       const under = this.viewer ? this.viewer.pickAt(e.clientX, e.clientY) : null;
@@ -220,6 +231,8 @@ export class View3DTab {
   }
 
   background() {
+    const own = this.sk ? this.sk.background() : null; // the style editor's sky / background
+    if (own) return own;
     const th = this.app.currentTheme();
     if (this.app.settings.background3d === "solid") return th.mode === "light" ? "#e8ebf0" : th.bg;
     return th.mode === "light" ? { top: "#a9c9ea", bottom: "#f1f4f6" } : "gradient";
@@ -233,7 +246,7 @@ export class View3DTab {
   // Push the current project into the viewer if it changed.
   syncModel() {
     if (!this.viewer || !this.dirty) return;
-    this.viewer.setOptions({ levels: this.levelSet(), north: this.app.store.project.meta.north || 0 });
+    this.viewer.setOptions({ levels: this.levelSet(), north: this.app.store.project.meta.north || 0, ...this.sk.viewerOpts() });
     this.viewer.setProject(this.app.store.project);
     this.dirty = false;
     if (this.highlighted.length) this.viewer.highlight(this.highlighted);
@@ -286,6 +299,7 @@ export class View3DTab {
   zoomToFit() { if (this.viewer) this.viewer.zoomToFit(); }
 
   setView(name) {
+    if (VIEWS.some((v) => v[0] === name) && this.lastView !== name) { this.lastView = name; if (this.app.tab === "3d") this.app.renderToolbar(); }
     this.ensure().then((v) => { if (!v) return; if (this.opts.navMode === "walk") this.setNav("orbit"); v.setView(name); });
   }
 
@@ -319,7 +333,8 @@ export class View3DTab {
   // Back to the default 3D view state (no tool, orbit, no section, every
   // level shown …) — the tutorial starts from here.
   resetView() {
-    const def = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, ground: true, tool: "none", fog: false, solids: true, night: false };
+    const def = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, ground: true, tool: "none", fog: false, solids: true, night: false, twoPoint: false };
+    if (this.viewer) this.viewer.skSetEditing(null);
     if (this.opts.navMode === "walk") this.setNav("orbit");
     if (this.viewer) this.viewer.clearMeasures();
     this.playing = false;
@@ -340,6 +355,7 @@ export class View3DTab {
   onKey(e, down) {
     if (!this.viewer) return false;
     if (this.viewer.walkKey(e, down)) return true;
+    if (this.sk.onKey(e, down)) return true; // the SketchUp tools: measurements box, locks, L R C A M Q S F E T B
     if (!down || e.ctrlKey || e.metaKey) return false;
     const v = VIEWS.find((x) => x[2] === e.key);
     if (v) { this.setView(v[0]); return true; }
@@ -361,18 +377,36 @@ export class View3DTab {
     const nav = (mode, ic, label) => h("button", { class: `icon-btn ${this.opts.navMode === mode ? "on" : ""}`, title: t(label), "data-nav": mode, onclick: () => this.setNav(mode), html: icon(ic, 18) });
     const tool = (id, ic, label) => h("button", { class: `icon-btn ${this.opts.tool === id ? "on" : ""}`, title: t(label), "data-tool3d": id, onclick: () => this.setTool(id), html: icon(ic, 18) });
     bar.append(nav("orbit", "orbit", "Orbit: left-drag turns the view"), nav("pan", "hand", "Pan (P): left-drag moves the view"), nav("walk", "walk", "Walk through (V)"), sep(),
-      tool("pushpull", "pushpull", "Push/Pull"), tool("paint", "bucket", "Paint bucket"), tool("tape", "tape", "Tape measure"), sep());
-    const vb = (id, label, key) => h("button", { class: "icon-btn", title: `${t(label)} (${key})`, onclick: () => this.setView(id) }, h("span", { class: "lbl" }, t(label)));
+      tool("pushpull", "pushpull", "Push/Pull"), tool("paint", "bucket", "Paint bucket"), tool("tape", "tape", "Tape measure"));
+    this.sk.toolbar(bar, sep); // draw, modify, construction, camera, sandbox, solid tools (split buttons)
+    // Icons only on the toolbar: the seven standard views and the render
+    // styles are split buttons (the button repeats the last choice, ▾ lists all).
+    const menuSplit = (attr, ic, title, onMain, items) => {
+      const main = h("button", { class: "icon-btn", title, [`data-${attr}`]: "main", html: icon(ic, 18), onclick: onMain });
+      const caret = h("button", { class: "icon-btn caret", title, [`data-${attr}`]: "menu", html: icon("chevronDown", 12), onclick: (e) => {
+        const r = e.currentTarget.parentElement.getBoundingClientRect();
+        contextMenu(items(), r.left, r.bottom + 2);
+      } });
+      return h("div", { class: "split-btn", [`data-${attr}-split`]: "1" }, main, caret);
+    };
+    const lastView = VIEWS.find((v) => v[0] === this.lastView) || VIEWS[0];
+    const views = menuSplit("view", "box3d", `${t("Standard views")}: ${t(lastView[1])} (${lastView[2]})`, () => this.setView(lastView[0]),
+      () => VIEWS.map(([id, label, key]) => ({ label: t(label), icon: "box3d", shortcut: key, checked: id === lastView[0], action: () => { this.lastView = id; this.setView(id); this.app.renderToolbar(); } })));
+    const STYLE_ICONS = { realistic: "image", white: "box3d", lines: "line", xray: "eyeOff" };
+    const curStyle = STYLES.find(([id]) => id === this.opts.style) || STYLES[0];
+    const styleMenu = () => STYLES.map(([id, label]) => ({ label: t(label), icon: STYLE_ICONS[id] || "palette", checked: id === this.opts.style, action: () => this.setOpt("style", id) }));
+    const styles = menuSplit("style", STYLE_ICONS[curStyle[0]] || "palette", `${t("Render style")}: ${t(curStyle[1])}`, (e) => {
+      const r = e.currentTarget.parentElement.getBoundingClientRect();
+      contextMenu(styleMenu(), r.left, r.bottom + 2);
+    }, styleMenu);
     const tog = (k, ic, label) => h("button", { class: `icon-btn ${this.opts[k] ? "on" : ""}`, title: t(label), onclick: () => this.setOpt(k, !this.opts[k]), html: icon(ic, 18) });
-    const styleSel = select(this.opts.style, STYLES.map(([id, label]) => [id, t(label)]), { onChange: (v) => this.setOpt("style", v) });
-    styleSel.title = t("Render style");
-    bar.append(...VIEWS.map(([id, label, key]) => vb(id, label, key)), sep(),
+    bar.append(views, sep(),
       tog("ortho", "ortho", "Orthographic projection (O)"), btn("v3d.front"),
       h("button", { class: `icon-btn ${this.opts.section !== null ? "on" : ""}`, title: t("Section cut at the current level (X)"), onclick: () => this.toggleSection(), html: icon("section", 18) }),
       tog("openDoors", "door", "Open doors"), tog("furniture", "sofa", "Furniture"), tog("roofs", "roof", "Roofs"), tog("fog", "eye", "Fog"), sep(),
       btn("light.all"), btn("v3d.night"), sep(),
-      h("span", { class: "group-label" }, t("Style")), styleSel, sep(),
-      tog("grid", "grid", "Grid (G)"), tog("dimensions", "dimension", "Building dimensions"),
+      styles, sep(),
+      tog("grid", "grid", "Grid (G)"), tog("axes", "axes", "Axes with scale (X, Y, Z)"), tog("dimensions", "dimension", "Building dimensions"),
       h("button", { class: "icon-btn", title: t("Zoom to fit"), html: icon("zoomFit", 18), onclick: () => this.zoomToFit() }), sep(),
       h("button", { class: "icon-btn", title: t("Save 3D image (PNG)…"), html: icon("camera", 18), onclick: () => this.screenshot() }),
       btn("file.export3d"));
@@ -390,6 +424,7 @@ export class View3DTab {
       pal.append(sw, h("div", { class: "panel-body field-hint" }, t("Material: {m}", { m: t((materialsFor("wall").concat(materialsFor("floor"), materialsFor("roof")).find((m) => m.id === this.paintMaterial) || { name: this.paintMaterial }).name) })));
       host.append(pal);
     }
+    this.sk.renderToolPanel(host); // own materials, sides, radius, components to place, component being edited
     // Scenes: saved views to return to and to play as an animation.
     const scenes = h("div", { class: "panel" }, panelHead("scenes", t("Scenes"), h("div", { class: "grow" }),
       h("button", { class: "icon-btn", title: this.playing ? t("Stop") : t("Play the scenes"), "data-scene-play": "1", html: icon(this.playing ? "stop" : "play", 14), onclick: () => this.playScenes() }),
@@ -452,6 +487,7 @@ export class View3DTab {
     cut.append(cb);
     host.append(cut, h("div", { class: "panel" }, panelHead("sunlight", t("Sun study")), sunBody));
     const stats = this.viewer ? this.viewer.stats() : null;
+    this.sk.renderPanels(host); // tags, components, outliner, section planes, style, camera and sandbox, animation
     if (stats) host.append(h("div", { class: "panel" }, h("div", { class: "panel-body" }, h("div", { class: "field-hint" }, t("{m} meshes · {k}k triangles", { m: stats.meshes, k: Math.round(stats.triangles / 1000) })))));
   }
 
@@ -477,6 +513,7 @@ export class View3DTab {
     } else body.append(h("div", { class: "empty-note" }, t("Click a wall, door, window, room floor or piece of furniture in the 3D view to see it here.")));
     p.append(body);
     host.append(p);
+    if (item) this.sk.renderEntityInfo(host, item, info); // tag, hidden, volume, components
   }
 
   async screenshot() {

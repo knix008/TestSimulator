@@ -10,7 +10,14 @@
 // with adaptive subdivision, so the result is exact under any transform;
 // circles stay circles only while the matrix is a similarity.
 
+//
+// Raster <image>s become tracing underlays (the plan's image underlays):
+// data: URIs straight away, files referenced by a relative path once
+// resolveSvgImages() has read them (desktop). An underlay is a rotated
+// rectangle, so a skewed or mirrored image is placed by its first edges.
+
 import { uid } from "../core/geom.js";
+import { imageInfo, parseDataUri, bytesToDataUri, MIME_BY_EXT } from "./imageinfo.js";
 
 const PX = 25.4 / 96; // one CSS pixel (= one SVG user unit by default) in mm
 const LAYER = { id: "SVG", name: "SVG", color: "#9aa4b5", visible: true };
@@ -459,6 +466,43 @@ class SvgImporter {
     this.drawings = [];
     this.texts = [];
     this.warnings = new Set();
+    this.underlays = [];
+  }
+
+  // <image> → a tracing underlay (pending when it names a file).
+  image(el, m, st) {
+    const href = String(el.attrs.href || el.attrs["xlink:href"] || "").trim();
+    if (!href) return;
+    const a = (k) => { const v = parseFloat(el.attrs[k]); return Number.isFinite(v) ? v : NaN; };
+    const op = parseFloat(el.attrs.opacity ?? parseDecls(el.attrs.style).opacity);
+    const item = {
+      box: { x: a("x") || 0, y: a("y") || 0, w: a("width"), h: a("height"), par: el.attrs.preserveAspectRatio },
+      m, opacity: Number.isFinite(op) ? Math.max(0.05, Math.min(1, op)) : 0.5,
+      name: el.attrs.id || (/^data:/i.test(href) ? "SVG image" : href.split(/[\\/]/).pop().slice(0, 80)) || "SVG image",
+    };
+    if (/^data:/i.test(href)) {
+      let d = null;
+      try { d = parseDataUri(href); } catch { d = null; }
+      const info = d && imageInfo(d.bytes);
+      if (!info) { this.warnings.add("An embedded image could not be read and was skipped"); return; }
+      const src = /;base64,/i.test(href) && info.mime === d.mime ? href.replace(/\s+/g, "") : bytesToDataUri(d.bytes, info.mime);
+      this.underlays.push(placeImage(item, src, info, this.warnings));
+    } else if (/^(https?:|blob:|\/\/)/i.test(href)) this.warnings.add(`Linked web images are not imported (${href.slice(0, 60)})`);
+    else this.underlays.push({ ...item, href, pending: true });
+  }
+
+  // Start point and direction (radians) of the path a <textPath> follows.
+  pathStart(tp) {
+    const ref = String(tp.attrs.href || tp.attrs["xlink:href"] || "").replace(/^#/, "");
+    const target = ref ? this.ids.get(ref) : null;
+    const d = target ? target.attrs.d : tp.attrs.path;
+    const sp = parsePathData(d)[0];
+    if (!sp) return null;
+    const pm = target && target.attrs.transform ? parseTransform(target.attrs.transform) : IDENTITY;
+    const s0 = sp.segs[0];
+    const toward = s0 ? (s0.c1 && (s0.c1[0] !== sp.start[0] || s0.c1[1] !== sp.start[1]) ? s0.c1 : s0.p) : [sp.start[0] + 1, sp.start[1]];
+    const p = apply(pm, sp.start), q = apply(pm, toward);
+    return { p, angle: Math.atan2(q[1] - p[1], q[0] - p[0]) };
   }
 
   // Outline colour: the stroke, else the fill (SVG fills default to black);
@@ -502,6 +546,8 @@ class SvgImporter {
     const own = el.attrs.transform ? mul(m, parseTransform(el.attrs.transform)) : m;
     const a = (k, d = 0) => { const v = parseFloat(el.attrs[k]); return Number.isFinite(v) ? v : d; };
     const hidden = st.visibility === "hidden" || st.visibility === "collapse";
+    const clipped = (k) => el.attrs[k] && el.attrs[k].trim() !== "none";
+    if (clipped("clip-path") || clipped("mask") || /(?:^|;)\s*(?:clip-path|mask)\s*:\s*url/.test(el.attrs.style || "")) this.warnings.add("Clipping paths and masks are ignored: clipped shapes come in whole");
     switch (name) {
       case "g": case "a": case "switch":
         for (const c of el.children) this.walk(c, own, st, depth);
@@ -546,7 +592,7 @@ class SvgImporter {
       }
       case "circle": return this.ellipse(a("cx"), a("cy"), a("r"), a("r"), own, st);
       case "ellipse": return this.ellipse(a("cx"), a("cy"), a("rx"), a("ry"), own, st);
-      case "image": this.warnings.add("Embedded images are not imported"); return;
+      case "image": return this.image(el, own, st);
       default:
         if (!GROUPS.has(name)) this.warnings.add(`<${name}> elements are not supported and were skipped`);
     }
@@ -572,6 +618,11 @@ class SvgImporter {
         const cs = computeStyle(c, s, this.rules);
         if (cs.display === "none") continue;
         const x = first(c.attrs.x), y = first(c.attrs.y), dx = first(c.attrs.dx), dy = first(c.attrs.dy);
+        if (nm === "textPath") {
+          // Text on a path: one straight text from the path's start, along its first segment.
+          const at = this.pathStart(c);
+          if (at) { startRun(at.p, cs); run.angle = at.angle; this.warnings.add("Text on a path comes in as straight text along the start of the path"); visit(c, cs); run = null; continue; }
+        }
         if (x !== undefined || y !== undefined || dx !== undefined || dy !== undefined) {
           pos = [(x ?? (run ? run.x : pos[0])) + (dx ?? 0), (y ?? pos[1]) + (dy ?? 0)];
           startRun(pos, cs);
@@ -586,8 +637,10 @@ class SvgImporter {
       if (!text) continue;
       const fs = r.st["font-size"] || 16;
       // Baseline → top of the em box (the plan draws texts from the top).
-      const [x, y] = apply(m, [r.x, r.y - fs * 0.8]);
-      const ux = [m[0], m[1]], uy = [m[2], m[3]];
+      const a = r.angle || 0;
+      const [x, y] = apply(m, [r.x + Math.sin(a) * fs * 0.8, r.y - Math.cos(a) * fs * 0.8]);
+      const ux = [m[0] * Math.cos(a) + m[2] * Math.sin(a), m[1] * Math.cos(a) + m[3] * Math.sin(a)];
+      const uy = [-m[0] * Math.sin(a) + m[2] * Math.cos(a), -m[1] * Math.sin(a) + m[3] * Math.cos(a)];
       const t = {
         id: uid("t"), level: this.level, x: round(x), y: round(y), text,
         size: round(fs * Math.hypot(...uy)), rot: round(Math.atan2(ux[1], ux[0]) / DEG) + 0,
@@ -673,11 +726,95 @@ export function importSvg(text, { level = null, mmPerUnit = "auto" } = {}) {
   const st = computeStyle(svg, base, rules);
   const m = mul(rootMatrix(svg, mmPerUnit), svg.attrs.transform ? parseTransform(svg.attrs.transform) : IDENTITY);
   for (const c of svg.children) imp.walk(c, m, st);
-  return {
+  const res = {
     drawings: imp.drawings,
     texts: imp.texts,
     layers: [{ ...LAYER }],
-    bounds: itemBounds(imp.drawings, imp.texts),
+    underlays: imp.underlays.map((u) => (u.pending ? u : finishUnderlay(u, level))),
+    bounds: null,
     warnings: [...imp.warnings],
   };
+  res.bounds = svgBounds(res);
+  return res;
+}
+
+// ================================================================ images
+
+// The rectangle an image of nw × nh pixels fills in its box (user units).
+function imageBox({ x, y, w, h, par }, nw, nh) {
+  if (!(w > 0) && !(h > 0)) { w = nw; h = nh; } else if (!(w > 0)) w = nh > 0 ? (h * nw) / nh : h;
+  else if (!(h > 0)) h = nw > 0 ? (w * nh) / nw : w;
+  const p = String(par || "xMidYMid meet").trim().split(/\s+/);
+  if (p[0] === "none" || !(nw > 0 && nh > 0)) return { x, y, w, h, slice: false };
+  const slice = p[1] === "slice";
+  const s = slice ? Math.max(w / nw, h / nh) : Math.min(w / nw, h / nh);
+  const iw = nw * s, ih = nh * s;
+  const fx = /xMid/.test(p[0]) ? 0.5 : /xMax/.test(p[0]) ? 1 : 0;
+  const fy = /YMid/.test(p[0]) ? 0.5 : /YMax/.test(p[0]) ? 1 : 0;
+  return { x: x + (w - iw) * fx, y: y + (h - ih) * fy, w: iw, h: ih, slice: slice && (Math.abs(iw - w) > 1e-9 || Math.abs(ih - h) > 1e-9) };
+}
+
+// A pending image with its pixels known → underlay geometry (plan mm).
+function placeImage(item, src, info, warnings) {
+  const box = imageBox(item.box, info.width, info.height);
+  if (box.slice) warnings.add("Images cropped with preserveAspectRatio \"slice\" come in uncropped");
+  const m = item.m;
+  const o = apply(m, [box.x, box.y]), px = apply(m, [box.x + box.w, box.y]), py = apply(m, [box.x, box.y + box.h]);
+  const u = [px[0] - o[0], px[1] - o[1]], v = [py[0] - o[0], py[1] - o[1]];
+  const w = Math.hypot(...u), h = Math.hypot(...v);
+  if (u[0] * v[1] - u[1] * v[0] < 0) warnings.add("A mirrored image comes in unmirrored");
+  else if (w > 0 && h > 0 && Math.abs(u[0] * v[0] + u[1] * v[1]) > 1e-6 * w * h) warnings.add("A skewed image comes in as a rotated rectangle");
+  return { src, name: item.name, opacity: item.opacity, x: o[0], y: o[1], w, h, rot: Math.atan2(u[1], u[0]) / DEG };
+}
+
+function finishUnderlay(u, level) {
+  return { id: uid("i"), level, src: u.src, x: round(u.x), y: round(u.y), w: round(u.w), h: round(u.h), rot: round(u.rot) + 0, opacity: u.opacity, name: u.name };
+}
+
+function svgBounds(res) {
+  const b = itemBounds(res.drawings, res.texts);
+  let out = b ? { ...b } : null;
+  for (const u of res.underlays || []) {
+    if (u.pending) continue;
+    const c = Math.cos(u.rot * DEG), s = Math.sin(u.rot * DEG);
+    for (const [lx, ly] of [[0, 0], [u.w, 0], [u.w, u.h], [0, u.h]]) {
+      const x = u.x + lx * c - ly * s, y = u.y + lx * s + ly * c;
+      if (!out) out = { x1: x, y1: y, x2: x, y2: y };
+      else { out.x1 = Math.min(out.x1, x); out.y1 = Math.min(out.y1, y); out.x2 = Math.max(out.x2, x); out.y2 = Math.max(out.y2, y); }
+    }
+  }
+  return out;
+}
+
+/**
+ * Read the image files an SVG links by relative path (desktop builds).
+ * `readFile(path)` → Uint8Array | {bytes} | null; `basePath` is the SVG
+ * file's own path. Fills res.underlays in place (unreadable ones are
+ * dropped with a warning) and returns res.
+ */
+export async function resolveSvgImages(res, { basePath = "", readFile = null, level = null } = {}) {
+  const pending = (res.underlays || []).filter((u) => u.pending);
+  if (!pending.length) return res;
+  const warnings = new Set(res.warnings);
+  const dir = String(basePath).replace(/[^\\/]*$/, "");
+  const done = [];
+  for (const u of res.underlays) {
+    if (!u.pending) { done.push(u); continue; }
+    let href = u.href;
+    try { href = decodeURIComponent(href); } catch { /* keep as written */ }
+    href = href.replace(/^file:\/\/\/?/i, "");
+    const abs = /^([a-z]:[\\/]|[\\/])/i.test(href) ? href : dir + href.replace(/^\.\//, "");
+    let bytes = null;
+    if (readFile && dir) {
+      try { const r = await readFile(abs); bytes = r instanceof Uint8Array ? r : r && r.bytes ? r.bytes : null; } catch { bytes = null; }
+    }
+    const info = bytes && imageInfo(bytes);
+    if (!info) { warnings.add(readFile && dir ? `The linked image "${u.href.slice(0, 80)}" could not be read` : `Linked image files are only read by the desktop app ("${u.href.slice(0, 60)}")`); continue; }
+    const mime = info.mime || MIME_BY_EXT[(abs.split(".").pop() || "").toLowerCase()] || "image/png";
+    done.push(finishUnderlay(placeImage({ ...u, name: abs.split(/[\\/]/).pop() }, bytesToDataUri(bytes, mime), info, warnings), level ?? (res.underlays.find((x) => x.level) || {}).level ?? null));
+  }
+  res.underlays = done;
+  res.warnings = [...warnings];
+  res.bounds = svgBounds(res);
+  return res;
 }

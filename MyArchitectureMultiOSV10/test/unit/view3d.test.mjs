@@ -456,7 +456,7 @@ describe("buildBuilding — levels and extent", () => {
       const ms = meshes(g);
       for (const m of ms) {
         assert.ok(m.userData.id, `${m.name} has an id`);
-        assert.ok(["walls", "openings", "rooms", "columns", "stairs", "furniture", "roofs", "solids"].includes(m.userData.kind), m.userData.kind);
+        assert.ok(["walls", "openings", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "slabs", "ceilings", "beams", "railings", "ramps"].includes(m.userData.kind), m.userData.kind);
         assert.ok(p.levels.some((l) => l.id === m.userData.level));
         const pos = m.geometry.getAttribute("position");
         for (let i = 0; i < pos.array.length; i++) assert.ok(Number.isFinite(pos.array[i]), `${m.name}: finite positions`);
@@ -680,7 +680,8 @@ describe("lib/materials.js", () => {
     assert.ok(materialsFor("wall").some((m) => m.id === "brick"));
     assert.ok(materialsFor("floor").some((m) => m.id === "oak"));
     assert.ok(materialsFor("roof").some((m) => m.id === "roof-tiles"));
-    assert.deepEqual(materialsFor("ceiling"), []);
+    assert.deepEqual(materialsFor("no-such-use"), []);
+    assert.ok(materialsFor("ceiling").some((m) => m.id === "gypsum"), "ceiling materials (BIM elements)");
   });
 
   test("the default materials exist with the right use", () => {

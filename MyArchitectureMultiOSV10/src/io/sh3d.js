@@ -1,22 +1,27 @@
 // Sweet Home 3D reader (.sh3d). A .sh3d file is a ZIP archive; since version
 // 5.3 it carries Home.xml next to the Java-serialized "Home" entry, and that
-// XML is what is read here (the Java stream is not). Sweet Home 3D works in
+// XML is read when it is there. Older files only have the Java stream, which
+// src/io/sh3d-java.js turns into the same element tree. Sweet Home 3D works in
 // centimetres with x to the right and y down the screen, like our plan, and
 // angles in radians clockwise on screen, so the conversion is a ×10 scale.
 //
 // Brought in: levels (elevation, height, floor thickness; levels at the same
 // elevation are merged), walls (thickness, height, sloping tops as the higher
-// end, round walls as short straight pieces, side colour), rooms (outline,
-// name, floor texture or colour → floor material), doors and windows (as
-// openings in the wall they sit in), furniture and lights (matched to our
-// catalog by name / catalog id, otherwise a box of the item's size and
-// colour), staircases (as stairs), furniture groups, dimension lines, labels,
-// polylines and the compass (north, latitude, longitude).
+// end, round walls as short straight pieces, side colour or texture → wall
+// material), rooms (outline, name, floor texture or colour → floor material),
+// doors and windows (as openings in the wall they sit in), furniture, lights,
+// staircases and roofs — by default as the 3D models packed in the file
+// (src/io/sh3d-models.js), or, when asked, matched to our catalog by name /
+// catalog id (otherwise a box of the item's size and colour), staircases as
+// stairs and roofs generated from their outline — furniture groups,
+// dimension lines, labels, polylines and the compass (north, latitude,
+// longitude).
 
 import { isZip, zipEntries, zipEntryData } from "./unzip.js";
 import { parseXml, kids, kid, textOf, localName, rootElement, numAttr, r1, furnitureKindFor, plainWords, argbToHex, floorMaterialFor, hostWall, alongWall, fitOpeningToWall, dropOverlappingOpenings, resolveWallOverlaps } from "./bimkit.js";
 import { newProject, normalizeProject } from "../core/project.js";
-import { uid } from "../core/geom.js";
+import { uid, pointInPolygon } from "../core/geom.js";
+import { materialColor } from "../lib/materials.js";
 
 const CM = 10; // mm per Sweet Home 3D unit
 const DEG = 180 / Math.PI;
@@ -32,32 +37,72 @@ function decodeText(bytes) {
 }
 
 // .sh3d bytes (or the bytes of a bare Home.xml) → {project, warnings, stats}.
-export async function importSh3d(bytes, { name = "" } = {}) {
+// models: "file" (default) brings furniture in as the 3D models packed in the
+// file; "catalog" uses our own furniture shapes instead. glb / textures are
+// for tests (Node can neither bake GLBs nor decode images).
+export async function importSh3d(bytes, { name = "", models = "file", glb = true, textures } = {}) {
   if (!isZip(bytes)) {
     const text = decodeText(bytes);
-    if (/<home[\s>]/.test(text.slice(0, 4096))) return importSweetHomeXml(text, { name });
+    if (/<home[\s>]/.test(text.slice(0, 4096))) return importSweetHomeXml(text, { name, models });
     throw codedError("sh3d-not", "This is not a Sweet Home 3D file (no ZIP archive and no Home.xml).");
   }
   const entries = zipEntries(bytes);
   const xml = entries.find((e) => e.name === "Home.xml");
-  if (!xml) {
-    if (entries.some((e) => e.name === "Home")) throw codedError("sh3d-old", "This Sweet Home 3D file was saved by a version older than 5.3 and has no Home.xml. Open it in Sweet Home 3D 5.3 or later and save it again.");
-    throw codedError("sh3d-not", "This ZIP archive is not a Sweet Home 3D file (no Home.xml).");
+  let home;
+  let from = "xml";
+  if (xml) home = homeElement(decodeText(await zipEntryData(bytes, xml)));
+  else {
+    const ser = entries.find((e) => e.name === "Home");
+    if (!ser) throw codedError("sh3d-not", "This ZIP archive is not a Sweet Home 3D file (no Home.xml).");
+    // Saved before 5.3: only the Java-serialized Home.
+    const { sh3dJavaHome } = await import("./sh3d-java.js");
+    try {
+      home = sh3dJavaHome(await zipEntryData(bytes, ser));
+    } catch (e) {
+      throw codedError("sh3d-old", `This Sweet Home 3D file was saved by a version older than 5.3 and its home could not be read (${e && e.message ? e.message : e}). Open it in Sweet Home 3D 5.3 or later and save it again.`);
+    }
+    from = "java";
   }
-  return importSweetHomeXml(decodeText(await zipEntryData(bytes, xml)), { name });
+  const reader = new Sh3dReader(home, name, { models });
+  const { Sh3dArchive, Sh3dModels, pieceModelColors } = await import("./sh3d-models.js");
+  reader.pieceModelColors = pieceModelColors;
+  reader.archive = new Sh3dArchive(bytes);
+  reader.textures = new Sh3dModels(reader.archive, { glb, textures });
+  if (models === "file") reader.loader = reader.textures;
+  reader.from = from;
+  reader.read();
+  await reader.loadModels();
+  await reader.loadTextures();
+  return reader.finish();
 }
 
-// Home.xml text → {project, warnings, stats}.
-export function importSweetHomeXml(text, { name = "" } = {}) {
+function homeElement(text) {
   const home = rootElement(parseXml(text));
   if (!home || localName(home.name) !== "home") throw codedError("sh3d-not", "This is not a Sweet Home 3D Home.xml (no <home> element).");
-  return new Sh3dReader(home, name).run();
+  return home;
 }
 
+// Home.xml text → {project, warnings, stats} (no archive, so catalog shapes).
+export function importSweetHomeXml(text, { name = "", models = "catalog" } = {}) {
+  const reader = new Sh3dReader(homeElement(text), name, { models });
+  reader.read();
+  return reader.finish();
+}
+
+const ROOF_WORDS = /\broof|\btoit|toiture|\bdach|\btetto|tejado|telhado|\bdak\b|\btak\b|dachgaube|지붕|屋根|屋顶/;
+
 class Sh3dReader {
-  constructor(home, name) {
+  constructor(home, name, { models = "file" } = {}) {
     this.home = home;
     this.name = name;
+    this.mode = models === "catalog" ? "catalog" : "file";
+    this.loader = null;
+    this.archive = null;
+    this.textures = null;
+    this.texMats = new Map();
+    this.pending = [];
+    this.models = [];
+    this.roofs = [];
     this.warnings = [];
     this.counts = {};
     this.walls = [];
@@ -73,26 +118,64 @@ class Sh3dReader {
 
   count(k, n = 1) { this.counts[k] = (this.counts[k] || 0) + n; }
 
-  run() {
+  read() {
     const { home } = this;
     this.readLevels();
+    // Rooms first: they tell which side of a wall is indoors.
+    for (const el of kids(home, "room")) this.readRoom(el);
     for (const el of kids(home, "wall")) this.readWall(el);
     const fix = resolveWallOverlaps(this.walls, []);
     this.count("wallOverlaps", fix.removed + fix.trimmed);
-    for (const el of kids(home, "room")) this.readRoom(el);
     this.readPieces(kids(home), null);
     this.placeDoorWindows();
     for (const el of kids(home, "dimensionLine")) this.readDimension(el);
     for (const el of kids(home, "label")) this.readLabel(el);
     for (const el of kids(home, "polyline")) this.readPolyline(el);
+  }
 
+  // The packed 3D models of the pieces waiting for them (one at a time, so a
+  // big home does not decode every texture at once).
+  async loadModels() {
+    const list = this.pending;
+    this.pending = [];
+    const seen = new Set();
+    for (const it of list) {
+      let asset = null;
+      try {
+        asset = await this.loader.assetFor(it.el, { name: it.el.attrs.name });
+      } catch (e) {
+        const msg = String((e && e.message) || e);
+        // Light sources and markers whose model has nothing to show.
+        if (/no surfaces|no extent/.test(msg)) { this.count("emptyModels"); continue; }
+        this.count("modelFailed");
+        this.failure = this.failure || msg;
+      }
+      if (!asset) { this.catalogFurniture(it); continue; }
+      if (!seen.has(asset.id)) { seen.add(asset.id); this.models.push(asset); }
+      const item = { id: uid("f"), level: it.lv.id, kind: "model", model: asset.id, x: r1(it.x), y: r1(it.y), rot: r1(normDeg(it.angle * DEG)), w: r1(Math.max(1, it.w)), d: r1(Math.max(1, it.d)), h: r1(Math.max(1, it.h)), elevation: r1(it.elevation) };
+      const name = (it.el.attrs.name || "").trim();
+      item.name = name || asset.name;
+      const colors = this.pieceModelColors(it.el);
+      if (colors) item.modelColors = colors;
+      if (it.el.attrs.modelMirrored === "true") item.mirrored = true;
+      this.furniture.push(item);
+      this.count("asModels");
+      if (it.roof) this.count("roofModels");
+      if (it.tag === "light") this.count("lightModels");
+    }
+    if (this.loader) for (const w of this.loader.warnings) this.warnings.push(w);
+  }
+
+  finish() {
+    const { home } = this;
     const p = newProject(this.title());
     p.levels = this.levels.map(({ id, name, elevation, height, slab }) => ({ id, name, elevation, height, slab }));
-    Object.assign(p, { walls: this.walls, openings: this.openings, rooms: this.rooms, furniture: this.furniture, stairs: this.stairs, dimensions: this.dimensions, texts: this.texts, drawings: this.drawings });
+    Object.assign(p, { walls: this.walls, openings: this.openings, rooms: this.rooms, furniture: this.furniture, stairs: this.stairs, roofs: this.roofs, dimensions: this.dimensions, texts: this.texts, drawings: this.drawings, models: this.models });
+    if (this.texMats.size) p.materials = [...(p.materials || []), ...this.texMats.values()];
     if (this.drawings.length) p.layers.push({ id: "SH3D", name: "Sweet Home 3D", color: "#9aa4b5", visible: true });
     const compass = kid(home, "compass");
     if (compass) {
-      const north = numAttr(compass, "northDirection", 0);
+      const north = numAttr(compass, "northDirection", 0) * DEG; // radians, clockwise
       if (Math.abs(north) > 0.01) p.meta.north = r1(((north % 360) + 360) % 360);
       const lat = numAttr(compass, "latitude"), lon = numAttr(compass, "longitude");
       if (lat !== null && Math.abs(lat) <= Math.PI / 2) p.meta.latitude = Math.round(lat * DEG * 1e4) / 1e4;
@@ -102,7 +185,7 @@ class Sh3dReader {
     normalizeProject(p);
     p.view.level = p.levels[0].id;
     this.report();
-    const stats = { levels: p.levels.length, walls: p.walls.length, openings: p.openings.length, rooms: p.rooms.length, furniture: p.furniture.length, stairs: p.stairs.length, dimensions: p.dimensions.length, texts: p.texts.length };
+    const stats = { levels: p.levels.length, walls: p.walls.length, openings: p.openings.length, rooms: p.rooms.length, furniture: p.furniture.length, models: p.models.length, roofs: p.roofs.length, stairs: p.stairs.length, dimensions: p.dimensions.length, texts: p.texts.length };
     return { project: p, warnings: this.warnings, stats };
   }
 
@@ -126,10 +209,22 @@ class Sh3dReader {
       small: (n) => `${n} small accessories (under 15 cm, e.g. cups, switches) were skipped`,
       hidden: (n) => `${n} hidden items were skipped`,
       tinyRooms: (n) => `${n} rooms without a usable outline were skipped`,
-      models: () => "Furniture shapes come from our catalog; the 3D models and textures inside the .sh3d are not imported",
+      asModels: (n) => `${n} furniture items came in as the 3D models packed in the file (${this.models.length} distinct models, stored in the project)`,
+      modelFailed: (n) => `${n} furniture items whose 3D model could not be read came in as catalog shapes${this.failure ? ` (${this.failure})` : ""}`,
+      textureMaterials: (n) => `${n} textures of walls and floors came in as project materials (with their images)`,
+      emptyModels: (n) => `${n} items whose 3D model shows nothing (e.g. invisible light sources) were skipped`,
+      roofModels: (n) => `${n} roofs came in as 3D models (Sweet Home 3D roofs are furniture); draw a roof with the Roof tool to get an editable one`,
+      roofsMade: (n) => `${n} roof models were replaced by roofs generated from their outline`,
+      lightModels: (n) => `${n} lights came in as their 3D models and do not light the 3D view; use a lamp from the catalog for light`,
+      tilted: (n) => `${n} tilted (pitch / roll) items were stood upright`,
+      sideMaterials: (n) => `${n} walls have different finishes on their two sides; the outside one was kept`,
+      catalogShapes: () => "Furniture shapes come from our catalog (as chosen); the 3D models inside the .sh3d were not used",
+      openingShapes: () => "Doors and windows are drawn with our own door and window shapes; their 3D models are not used",
     };
     for (const [k, n] of Object.entries(this.counts)) if (n && W[k]) this.warnings.push(W[k](n));
-    if (this.furniture.length) this.warnings.push(W.models());
+    if (this.mode === "catalog" && this.furniture.length) this.warnings.push(W.catalogShapes());
+    if (this.mode === "file" && this.loader && this.openings.length) this.warnings.push(W.openingShapes());
+    if (this.from === "java") this.warnings.push("Read from the Java-serialized home of a file saved before Sweet Home 3D 5.3");
   }
 
   // -------------------------------------------------------------- levels
@@ -180,14 +275,69 @@ class Sh3dReader {
     if (hEnd !== null && Math.abs(hEnd * CM - height) > 1) { height = Math.max(height, hEnd * CM); this.count("slopedWalls"); }
     const full = Math.abs(height - lv.height) < 1 || Math.abs(height - lv.wallHeight) < 1;
     const base = { level: lv.id, thickness: r1(thickness), height: full ? null : r1(height) };
-    const color = argbToHex(el.attrs.leftSideColor) || argbToHex(el.attrs.rightSideColor);
-    if (color) base.material = color;
+    const material = this.wallFinish(el, lv, x1, y1, x2, y2, thickness);
+    if (material) base.material = material;
     const arc = numAttr(el, "arcExtent", 0);
     const pts = Math.abs(arc) > 1e-3 ? arcPoints(x1, y1, x2, y2, arc) : [[x1, y1], [x2, y2]];
     if (pts.length > 2) this.count("roundWalls");
     for (let i = 0; i + 1 < pts.length; i++) {
       this.walls.push({ id: uid("w"), ...base, x1: r1(pts[i][0]), y1: r1(pts[i][1]), x2: r1(pts[i + 1][0]), y2: r1(pts[i + 1][1]) });
     }
+  }
+
+  // Our walls have one finish: the side's texture (matched by name to our
+  // materials) or colour. When the two sides differ, the one facing out of
+  // the rooms is kept — that is the face seen from outside in 3D.
+  wallFinish(el, lv, x1, y1, x2, y2, thickness) {
+    const side = (s) => {
+      const tex = kids(el, "texture").find((t) => t.attrs.attribute === `${s}SideTexture`);
+      const hex = argbToHex(el.attrs[`${s}SideColor`]);
+      const named = wallMaterialFor(tex ? `${tex.attrs.name || ""} ${tex.attrs.catalogId || ""}` : "", hex);
+      return (tex && this.textureMaterial(tex, named)) || named;
+    };
+    const left = side("left"), right = side("right");
+    if (!left || !right || left === right) return left || right;
+    this.count("sideMaterials");
+    const L = Math.hypot(x2 - x1, y2 - y1) || 1;
+    const nx = (y2 - y1) / L, ny = -(x2 - x1) / L; // left of start → end on screen (y down)
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, off = thickness / 2 + 150;
+    const rooms = this.rooms.filter((r) => r.level === lv.id);
+    const indoors = (x, y) => rooms.some((r) => pointInPolygon(x, y, r.pts));
+    const leftIn = indoors(mx + nx * off, my + ny * off), rightIn = indoors(mx - nx * off, my - ny * off);
+    return leftIn && !rightIn ? right : left;
+  }
+
+  // A project material of our own for a texture packed in the file (its
+  // image, tile size and colour), so walls and floors keep Sweet Home 3D's
+  // look; `fallback` (the nearest built-in material) gives the colour until
+  // the image's average colour is known. null when there is no image.
+  textureMaterial(tex, fallback) {
+    const image = tex.attrs.image;
+    if (!this.archive || !image || !this.archive.has(image)) return null;
+    let m = this.texMats.get(image);
+    if (!m) {
+      const name = (tex.attrs.name || "Texture").trim();
+      const slug = plainWords(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "texture";
+      m = { id: `sh3d-${slug}-${this.texMats.size + 1}`, name: `${name} (Sweet Home 3D)`, color: materialColor(fallback, "#cccccc"), tile: Math.max(10, r1((numAttr(tex, "width", 100) || 100) * CM)), image };
+      this.texMats.set(image, m);
+    }
+    return m.id;
+  }
+
+  // The texture images as data URLs (and their average colour where images decode).
+  async loadTextures() {
+    if (!this.texMats.size) return;
+    const { bytesToBase64 } = await import("./models3d.js");
+    for (const m of this.texMats.values()) {
+      const bytes = await this.archive.read(m.image);
+      delete m.image;
+      if (!bytes) continue;
+      const type = bytes[0] === 0x89 ? "image/png" : bytes[0] === 0xff ? "image/jpeg" : bytes[0] === 0x47 ? "image/gif" : bytes[0] === 0x42 ? "image/bmp" : "image/png";
+      m.src = `data:${type};base64,${bytesToBase64(bytes)}`;
+      const avg = this.textures ? await this.textures.averageColor(bytes, type) : null;
+      if (avg) m.color = avg;
+    }
+    this.count("textureMaterials", this.texMats.size);
   }
 
   // -------------------------------------------------------------- rooms
@@ -198,7 +348,8 @@ class Sh3dReader {
     if (clean.length < 3) { this.count("tinyRooms"); return; }
     const room = { id: uid("r"), level: lv.id, name: (el.attrs.name || "").trim(), pts: clean };
     const tex = kids(el, "texture").find((t) => t.attrs.attribute === "floorTexture");
-    const floor = floorMaterialFor(tex ? `${tex.attrs.name || ""} ${tex.attrs.catalogId || ""}` : "", argbToHex(el.attrs.floorColor));
+    const named = floorMaterialFor(tex ? `${tex.attrs.name || ""} ${tex.attrs.catalogId || ""}` : "", argbToHex(el.attrs.floorColor));
+    const floor = (tex && this.textureMaterial(tex, named)) || named;
     if (floor) room.floor = floor;
     this.rooms.push(room);
   }
@@ -208,11 +359,11 @@ class Sh3dReader {
     for (const el of list) {
       const tag = localName(el.name);
       if (tag === "furnitureGroup") { this.readPieces(kids(el), this.level(el, inherited)); continue; }
-      if (tag !== "pieceOfFurniture" && tag !== "doorOrWindow" && tag !== "light") continue;
+      if (tag !== "pieceOfFurniture" && tag !== "doorOrWindow" && tag !== "light" && tag !== "shelfUnit") continue;
       if (el.attrs.visible === "false") { this.count("hidden"); continue; }
       const lv = this.level(el, inherited);
       const item = {
-        el, lv, x: numAttr(el, "x", 0) * CM, y: numAttr(el, "y", 0) * CM, angle: numAttr(el, "angle", 0),
+        el, lv, tag, x: numAttr(el, "x", 0) * CM, y: numAttr(el, "y", 0) * CM, angle: numAttr(el, "angle", 0),
         w: numAttr(el, "width", 50) * CM, d: numAttr(el, "depth", 50) * CM, h: numAttr(el, "height", 50) * CM,
         elevation: numAttr(el, "elevation", 0) * CM, names: [el.attrs.catalogId, el.attrs.name],
       };
@@ -222,7 +373,51 @@ class Sh3dReader {
   }
 
   readFurniture(it) {
+    it.roof = this.isRoof(it);
+    if (this.loader && it.el.attrs.model && this.loader.archive.has(it.el.attrs.model)) {
+      if (Math.abs(numAttr(it.el, "pitch", 0)) > 1e-3 || Math.abs(numAttr(it.el, "roll", 0)) > 1e-3) this.count("tilted");
+      this.pending.push(it);
+      return;
+    }
+    this.catalogFurniture(it);
+  }
+
+  // A roof piece: named so, or a big piece on a level named "roof" / on the
+  // top level when that level has no walls of its own.
+  isRoof(it) {
+    const words = [it.el.attrs.catalogId, it.el.attrs.name].filter(Boolean).map(plainWords).join(" ");
+    if (ROOF_WORDS.test(words)) return true;
+    const big = it.w * it.d >= 6e6 && Math.min(it.w, it.d) >= 2000;
+    if (!big) return false;
+    const lvName = plainWords(it.lv.name || "");
+    if (ROOF_WORDS.test(lvName)) return true;
+    const top = this.levels[this.levels.length - 1];
+    return this.levels.length > 1 && it.lv === top && !this.walls.some((w) => w.level === top.id);
+  }
+
+  // A roof of ours over the piece's footprint: hip / shed / flat / gable from
+  // its name, the pitch from its height over half its width.
+  makeRoof(it) {
+    const words = it.names.filter(Boolean).map(plainWords).join(" ");
+    // Sweet Home 3D's roof catalog is mostly single slopes put side by side.
+    const kind = /\bhip|pavillon|\bwalm|padiglione|4 pans|quatre pans|four|pyramid/.test(words) ? "hip" : /gable|pignon|sattel|2 pans|deux pans|double|a capanna|dos aguas/.test(words) ? "gable" : /\bflat|\bplat\b|terrasse|flach|piano/.test(words) ? "flat" : "shed";
+    const half = (kind === "shed" ? Math.min(it.w, it.d) : Math.min(it.w, it.d) / 2) || 1;
+    const pitch = kind === "flat" ? 0 : Math.max(5, Math.min(60, Math.round(Math.atan(it.h / half) * DEG)));
+    const a = it.angle, c = Math.cos(a), s = Math.sin(a);
+    const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => [r1(it.x + (u * it.w / 2) * c - (v * it.d / 2) * s), r1(it.y + (u * it.w / 2) * s + (v * it.d / 2) * c)]);
+    const roof = { id: uid("rf"), level: it.lv.id, kind, pitch, overhang: 0, thickness: 150, pts, offset: r1(it.elevation - it.lv.height) };
+    const material = /slate|ardoise|schiefer|ardesia|pizarra/.test(words) ? "roof-slate" : /metal|zinc|steel|acier|tole|blech|lamiera|chapa/.test(words) ? "roof-metal" : /tile|tuile|ziegel|tegol|teja/.test(words) ? "roof-tiles" : null;
+    if (material) roof.material = material;
+    const name = (it.el.attrs.name || "").trim();
+    if (name) roof.name = name;
+    this.roofs.push(roof);
+    this.count("roofsMade");
+    return true;
+  }
+
+  catalogFurniture(it) {
     const { lv, w, d, h } = it;
+    if (it.roof && this.makeRoof(it)) return;
     if (Math.max(w, d) < 150 && h < 150) { this.count("small"); return; }
     const rot = r1(normDeg(it.angle * DEG));
     const kind = furnitureKindFor(it.names, { w, d, h });
@@ -310,6 +505,22 @@ class Sh3dReader {
     if (color) d.color = color;
     this.drawings.push(d);
   }
+}
+
+// Wall material id for a Sweet Home 3D texture name, else the side's colour
+// ("#rrggbb", which walls take as is), else null.
+export function wallMaterialFor(name, hex) {
+  const n = plainWords(name);
+  if (n) {
+    if (/brick|brique|mattone|ladrillo|ziegel|klinker|벽돌/.test(n)) return "brick";
+    if (/stone|pierre|pietra|piedra|\bstein|moellon|granit|slate|ardoise|돌/.test(n)) return "stone";
+    if (/wood|\bbois|legno|madera|\bholz|clad|bardage|lambris|plank|\blame|timber|panel|목재/.test(n)) return "wood-cladding";
+    if (/concrete|beton|cemento|hormigon|parpaing|block|콘크리트/.test(n)) return "concrete";
+    if (/tile|carrel|faience|piastrell|azulejo|fliese|mosaic|타일/.test(n)) return "tile-white";
+    if (/glass|verre|vetro|vidrio|\bglas/.test(n)) return "glass";
+    if (/roughcast|crepi|plaster|platre|enduit|render|stucco|intonaco|putz|paint|peinture|wallpaper|papier/.test(n)) return hex || "plaster";
+  }
+  return hex || null;
 }
 
 function normDeg(a) {

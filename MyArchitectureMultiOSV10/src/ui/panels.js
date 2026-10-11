@@ -17,8 +17,9 @@ import { fmtArea, fmtLen, dist } from "../core/geom.js";
 import { PLAN_THEMES } from "../plan/render.js";
 import { levelSummary } from "../core/schedule.js";
 import { ifcGuid } from "../io/ifc.js";
+import { elementPanel } from "./elements.js";
 
-const IFC_CLASS = { walls: "IfcWall", openings: "IfcDoor / IfcWindow", rooms: "IfcSpace", columns: "IfcColumn", stairs: "IfcStair", furniture: "IfcFurniture", roofs: "IfcRoof", grids: "IfcGrid", solids: "IfcBuildingElementProxy" };
+const IFC_CLASS = { walls: "IfcWall", openings: "IfcDoor / IfcWindow", rooms: "IfcSpace", columns: "IfcColumn", stairs: "IfcStair", furniture: "IfcFurniture", roofs: "IfcRoof", grids: "IfcGrid", solids: "IfcBuildingElementProxy", slabs: "IfcSlab", ceilings: "IfcCovering", beams: "IfcBeam", railings: "IfcRailing", ramps: "IfcRamp", shafts: "IfcOpeningElement" };
 
 // ---------------------------------------------------------------- previews
 const thumbCache = new Map();
@@ -53,7 +54,9 @@ const libState = { query: "", category: "" };
 export function renderLeft(app, host) {
   host.innerHTML = "";
   if (app.tab === "start") return undefined;
-  if (!app.settings.showLeft) return rail(app, host, "left", app.tab === "3d" ? "cube" : "sofa", app.tab === "3d" ? t("3D view options") : t("Furniture library"));
+  if (!app.settings.showLeft) return rail(app, host, "left", app.tab === "3d" ? "cube" : app.tab === "views" ? "tree" : "sofa", app.tab === "3d" ? t("3D view options") : app.tab === "views" ? t("Project Browser") : t("Furniture library"));
+  // Project Browser (src/views/browser.js): on top in the plan and 3D, the whole panel in Views & sheets.
+  if (app.views && (app.tab === "plan" || app.tab === "3d" || app.tab === "views")) app.views.renderLeft(host);
   if (app.tab === "plan") renderLibrary(app, host);
   if (app.tab === "3d") app.v3d.renderPanel(host);
   addCollapse(app, host, "left");
@@ -87,6 +90,11 @@ function renderLibrary(app, host) {
     chips.append(h("button", { class: `chip ${libState.category === c ? "on" : ""}`, onclick: () => { libState.category = c; renderLeft(app, host); } }, c ? t(c) : t("All")));
   }
   panel.append(chips);
+  // Even grid columns as wide as the longest category name (either language).
+  requestAnimationFrame(() => {
+    const w = Math.max(0, ...[...chips.children].map((b) => b.scrollWidth));
+    if (w) chips.style.setProperty("--chip-w", `${Math.ceil(w) + 2}px`);
+  });
   const list = h("div", { class: "lib-list" });
   panel.append(list);
   host.append(panel);
@@ -181,6 +189,7 @@ export function renderRight(app, host) {
     return;
   }
   if (app.tab === "3d") { app.v3d.renderInspector(host); addCollapse(app, host, "right"); return; }
+  if (app.views && app.views.renderRight(host)) { if (app.tab === "plan") host.append(issuesPanel(app)); addCollapse(app, host, "right"); return; }
   const insp = h("div", { class: "panel" });
   insp.append(panelHead("list", t("Properties")));
   const body = h("div", { class: "panel-body" });
@@ -390,6 +399,8 @@ function inspector(app, body) {
       ...bindField(app, t("Opacity"), () => Math.round((obj.opacity ?? 0.5) * 100), (v) => { obj.opacity = Math.max(0.05, Math.min(1, v / 100)); }, { type: "number", step: "5", min: 5, max: 100, format: (v) => `${v}%` }));
     body.append(h("div", { class: "empty-note" }, t("Tip: measure a known length on the image with M, then set the width so it matches.")));
   }
+  // Slabs, ceilings, beams, railings, ramps, shafts; types, profiles and stair shapes (elements.js).
+  elementPanel(app, kind, obj, { title, grid, act, body, bindField, mmS, deg, matOpts });
   body.append(grid);
   if (obj.group) {
     body.append(h("div", { class: "empty-note" }, t("Part of a group ({n} items). Alt+click selects a single item.", { n: app.store.project[kind].filter((x) => x.group === obj.group).length })));
@@ -525,6 +536,8 @@ export function renderStatus(app, bar) {
     bar.append(cell(style));
     if (v.viewer) { const s = v.viewer.stats(); bar.append(cell(t("{n} triangles", { n: s.triangles.toLocaleString() }), "mono")); }
     if (app.plan.sel.size) bar.append(cell(t("{n} selected", { n: app.plan.sel.size })));
+  } else if (app.tab === "views" && app.views) {
+    app.views.renderStatus(bar, cell);
   } else {
     const p = app.store.project;
     bar.append(cell(t("{n} recent files", { n: (app.settings.recent || []).length })));

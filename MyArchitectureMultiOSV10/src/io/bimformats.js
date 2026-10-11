@@ -1,6 +1,6 @@
 // Which of the other programs' building formats a file is, and reading it:
-// Sweet Home 3D (.sh3d / Home.xml), gbXML (.gbxml / .xml) and IFC in a ZIP
-// (.ifczip). The UI (src/ui/bimimport.js) asks and reports; this does the work.
+// Sweet Home 3D (.sh3d / Home.xml), gbXML (.gbxml / .xml), ifcXML (.ifcxml)
+// and IFC in a ZIP (.ifczip, holding .ifc or .ifcxml). The UI (src/ui/bimimport.js) asks and reports; this does the work.
 
 // What a file is, from its extension and (for .xml) its root element.
 export function bimKind(name, bytes) {
@@ -8,6 +8,7 @@ export function bimKind(name, bytes) {
   if (ext === "sh3d") return "sh3d";
   if (ext === "gbxml") return "gbxml";
   if (ext === "ifczip") return "ifczip";
+  if (ext === "ifcxml") return "ifcxml";
   if (ext === "xml") {
     const head = sniffText(bytes);
     if (/<(?:\w+:)?gbXML[\s>]/.test(head)) return "gbxml";
@@ -27,28 +28,36 @@ function sniffText(bytes) {
 }
 
 // → {project, warnings} for a .sh3d / .gbxml / .xml / .ifczip file object.
-export async function readBimFile(f) {
+export async function readBimFile(f, opts = {}) {
   const kind = bimKind(f.name, f.bytes);
   if (kind === "sh3d") {
     const { importSh3d } = await import("./sh3d.js");
-    return { kind, ...(await importSh3d(f.bytes, { name: f.name })) };
+    return { kind, ...(await importSh3d(f.bytes, { name: f.name, ...(opts.sh3d || {}) })) };
   }
   if (kind === "gbxml") {
     const { importGbxml } = await import("./gbxml.js");
     return { kind, ...importGbxml(f.bytes, { name: f.name }) };
   }
+  if (kind === "ifcxml") {
+    const { importIfcXml } = await import("./ifcxml.js");
+    return { kind, ...importIfcXml(f.bytes) };
+  }
   if (kind === "ifczip") {
     const { zipEntries, zipEntryData } = await import("./unzip.js");
-    const entries = zipEntries(f.bytes);
-    const e = entries.find((x) => /\.ifc$/i.test(x.name));
+    const entries = zipEntries(f.bytes).filter((x) => !/(^|\/)(__MACOSX|\.)/.test(x.name));
+    const e = entries.find((x) => /\.ifc$/i.test(x.name)) || entries.find((x) => /\.ifcxml$/i.test(x.name));
     if (!e) {
-      const err = new Error(entries.some((x) => /\.ifcxml$/i.test(x.name)) ? "This IFC ZIP holds ifcXML, which is not read." : "This ZIP archive holds no .ifc file.");
+      const err = new Error("This ZIP archive holds no .ifc or .ifcxml file.");
       err.code = "ifczip-empty";
       throw err;
     }
+    const data = await zipEntryData(f.bytes, e);
+    if (/\.ifcxml$/i.test(e.name)) {
+      const { importIfcXml } = await import("./ifcxml.js");
+      return { kind, ...importIfcXml(data) };
+    }
     const { importIfc } = await import("./ifc.js");
-    const text = new TextDecoder().decode(await zipEntryData(f.bytes, e));
-    return { kind, ...importIfc(text) };
+    return { kind, ...importIfc(new TextDecoder().decode(data)) };
   }
   return { kind };
 }

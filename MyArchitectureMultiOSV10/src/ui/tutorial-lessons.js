@@ -386,12 +386,15 @@ export const LESSONS = [
   {
     title: T("3D 보기 자세히", "The 3D view in depth"),
     steps: [
-      { title: T("시점", "Views"), text: T("등각, 위, 정면, 배면, 좌측면, 우측면, 조감도 버튼(또는 1–7 키)으로 시점을 바꿉니다.", "Isometric, Top, Front, Rear, Left side, Right side and Bird's eye (keys 1–7) switch the view."),
+      { title: T("시점", "Views"), text: T("도구 모음의 표준 시점 단추 ▾ 에서 등각, 위, 정면, 배면, 좌측면, 우측면, 조감도를 고릅니다(또는 1–7 키). 단추를 누르면 마지막에 고른 시점으로 갑니다.", "The Standard views button ▾ on the toolbar lists Isometric, Top, Front, Rear, Left side, Right side and Bird's eye (or keys 1–7); the button itself goes to the last one chosen."),
         run: async (ctx) => { await ctx.key("F3"); await ctx.waitFor(() => ctx.app.v3d.viewer, 8000); await ctx.key("2"); await ctx.wait(500); await ctx.key("1"); await ctx.wait(500); },
-        practice: { todo: T("툴바의 '위'와 '등각'을 눌러 보세요.", "Click Top and then Isometric in the toolbar."), check: (ctx) => ctx.app.tab === "3d" } },
+        practice: { todo: T("표준 시점 ▾ 에서 '위'를 고른 다음 '등각'을 고르세요.", "From Standard views ▾ choose Top, then Isometric."), check: (ctx) => ctx.app.tab === "3d", targets: () => [{ el: '#toolbar [data-view="menu"]' }] } },
       { title: T("표현 스타일", "Render styles"), text: T("사실적, 흰색 모형, 선 그림(입면도 느낌), X-레이 스타일이 있습니다.", "Realistic, white model, line drawing (like an elevation) and x-ray."),
-        run: async (ctx) => { const sel = document.querySelector("#toolbar select"); await ctx.select(sel, "lines"); ctx.expect(ctx.app.v3d.opts.style === "lines", "style unchanged"); await ctx.select(document.querySelector("#toolbar select"), "realistic"); },
-        practice: { todo: T("툴바의 스타일을 '선 그림'으로 바꿔 보세요.", "Set the toolbar Style to Line drawing."), check: (ctx) => ctx.app.v3d.opts.style !== "realistic", targets: () => [{ el: "#toolbar select" }] } },
+        run: async (ctx) => {
+          const pick = async (label) => { await ctx.click('#toolbar [data-style="menu"]'); const it = await ctx.waitFor(() => [...document.querySelectorAll(".ctx-menu .menu-item")].find((m) => m.textContent.includes(label)), 3000); await ctx.click(it); };
+          await pick(T("선 그림", "Line drawing")); ctx.expect(ctx.app.v3d.opts.style === "lines", "style unchanged"); await ctx.wait(400); await pick(T("사실적", "Realistic"));
+        },
+        practice: { todo: T("도구 모음의 렌더 스타일 ▾ 에서 '선 그림'을 고르세요.", "From Render style ▾ on the toolbar choose Line drawing."), check: (ctx) => ctx.app.v3d.opts.style !== "realistic", targets: () => [{ el: '#toolbar [data-style="menu"]' }] } },
       { title: T("단면", "Section cut"), text: T("단면 버튼(X)은 현재 층 바닥 1.2 m 위를 잘라 3D 평면을 보여 줍니다. 높이는 왼쪽에서 바꿉니다.", "The section button (X) cuts 1.2 m above the current floor for a 3D plan; set the height on the left."),
         run: async (ctx) => { await ctx.key("x"); ctx.expect(ctx.app.v3d.opts.section !== null, "no section"); await ctx.wait(400); await ctx.key("x"); },
         practice: { todo: T("X 를 눌러 단면을 켜고 다시 끄세요.", "Press X to cut and again to remove it."), check: (ctx) => ctx.app.store && true } },
@@ -511,6 +514,134 @@ export const LESSONS = [
       { title: T("DXF 따라 그리기", "Tracing a DXF"), text: T("CAD 따라 그리기 예제는 가져온 AutoCAD 도면의 레이어를 보여 줍니다. 왼쪽 CAD 레이어 목록에서 눈 아이콘으로 켜고 끕니다.", "The tracing sample shows the layers of an imported AutoCAD drawing; the eye icons in the CAD layers list turn them on and off."),
         run: async (ctx) => { await ctx.key("F2"); await sampleOpen(ctx, "09-cad-tracing.myarch", "DXF"); const eye = await ctx.waitFor(() => document.querySelector("#left-panel .layer-row .eye")); await ctx.click(eye); ctx.expect(ctx.p.layers.some((l) => l.visible === false), "layer not hidden"); },
         practice: { todo: T("DXF 따라 그리기 예제를 열고 CAD 레이어 하나를 숨겨 보세요.", "Open the DXF tracing sample and hide a CAD layer."), check: (ctx) => ctx.app.store.fileName === "09-cad-tracing.myarch" } },
+    ],
+  },
+  // ---------------------------------------------------------------- 17
+  {
+    title: T("단면도·입면도·시트", "Sections, elevations and sheets"), fresh: true,
+    steps: [
+      { title: T("단면선 그리기", "Draw a section line"), text: T("평면 도구 모음의 뷰 ▾ → 단면도(또는 도면 메뉴)를 고르고 단면선의 시작과 끝을 클릭합니다. 그린 방향의 왼쪽을 바라보는 단면 기호가 생기고, 단면도는 모델에서 바로 만들어집니다.", "Pick views ▾ → Section on the plan tool bar (or the Drawings menu) and click the start and the end of the section line. A section marker looking to the left of the line appears; the section is generated from the model."),
+        run: async (ctx) => {
+          await sampleOpen(ctx, "03-two-storey-house.myarch", ctx.L(T("2층 주택", "Two-storey house")));
+          await ctx.key("F2");
+          const before = ctx.p.views.filter((v) => v.kind === "section").length;
+          await ctx.command("views.section");
+          await ctx.clickAt(-1500, 2500);
+          await ctx.clickAt(11500, 2500);
+          ctx.expect(ctx.p.views.filter((v) => v.kind === "section").length === before + 1, "no section made");
+        },
+        practice: { todo: T("단면도 도구로 건물을 가로지르는 선을 그려 보세요.", "Draw a section line across the building with the Section tool."), check: (ctx, mem) => ctx.p.views.filter((v) => v.kind === "section").length > (mem.sections ?? (mem.sections = ctx.p.views.filter((v) => v.kind === "section").length)) } },
+      { title: T("단면도 열기", "Open the section"), text: T("단면 기호의 머리를 더블클릭하면 뷰와 시트 탭(F6)에 단면도가 열립니다. 잘린 벽·슬래브는 재료 해치로 채워지고, 그 너머는 숨은선을 지운 투영선, 레벨선과 그리드 번호가 자동으로 붙습니다.", "Double-click the head of the section marker: the section opens in the Views & sheets tab (F6). Cut walls and slabs are filled with their material hatch, what lies beyond is drawn with hidden lines removed, and levels and grid heads are added."),
+        run: async (ctx) => {
+          const v = ctx.p.views.filter((x) => x.kind === "section").at(-1);
+          const S = ctx.app.views.ext.scale();
+          await ctx.clickAt(v.line.x2 + 4 * S, v.line.y2, { dbl: true });
+          await ctx.waitFor(() => ctx.app.tab === "views" && ctx.app.views.tab.current === v.id, 4000);
+          await ctx.wait(800);
+        },
+        practice: { todo: T("단면 기호 머리를 더블클릭하세요 (또는 프로젝트 탐색기에서 누르세요).", "Double-click the section head (or click it in the Project Browser)."), check: (ctx) => ctx.app.tab === "views" && !!ctx.app.views.tab.current } },
+      { title: T("외부 입면도", "Exterior elevations"), text: T("도면 → 외부 입면도는 북·남·동·서 입면도를 한 번에 만듭니다. 모두 프로젝트 탐색기의 입면도 아래에 있습니다.", "Drawings → Exterior elevations makes the north, south, east and west elevations at once; they are listed under Elevations in the Project Browser."),
+        run: async (ctx) => { await ctx.command("views.extElevations"); await ctx.wait(500); ctx.expect(ctx.p.views.filter((v) => v.kind === "elevation").length >= 4, "no elevations"); },
+        practice: { todo: T("도면 → 외부 입면도를 실행하세요.", "Run Drawings → Exterior elevations."), check: (ctx) => ctx.p.views.filter((v) => v.kind === "elevation").length >= 4 } },
+      { title: T("시트에 배치", "Place it on a sheet"), text: T("도면 → 새 시트로 표제란이 있는 시트를 만들고, 뷰 배치…(또는 탐색기에서 끌어 놓기)로 단면도를 그 축척으로 놓습니다. 뷰포트를 끌어 옮기고, 표제란 필드는 시트 속성에서 고칩니다.", "Drawings → New sheet makes a sheet with a title block; Place view… (or dragging from the Project Browser) puts the section on it at its scale. Drag the viewport to move it; the title block fields are in the sheet properties."),
+        run: async (ctx) => {
+          const v = ctx.p.views.filter((x) => x.kind === "section").at(-1);
+          await ctx.command("views.sheet");
+          await ctx.waitFor(() => ctx.app.views.tab.isSheet(), 3000);
+          await ctx.command("views.placeView");
+          await ctx.pick(ctx.app.views.displayName(v.name), ctx.app.views.displayName(v.name));
+          await ctx.waitFor(() => ctx.p.sheets.some((s) => s.viewports.some((vp) => vp.view === v.id)), 6000);
+          await ctx.wait(600);
+        },
+        practice: { todo: T("새 시트를 만들고 단면도를 배치해 보세요.", "Make a new sheet and place the section on it."), check: (ctx) => ctx.p.sheets.some((s) => s.viewports.some((vp) => (ctx.p.views.find((x) => x.id === vp.view) || {}).kind === "section")) } },
+      { title: T("일람표 뷰", "Schedule views"), text: T("도면 → 새 일람표…에서 범주(실, 문, 창 …)를 고르면 필드·필터·정렬·그룹·합계·계산 값이 있는 표가 뷰로 열립니다. 셀을 더블클릭해 고치면 모델이 바뀌고, 시트에 표로 놓을 수 있습니다.", "Drawings → New schedule… asks for a category (rooms, doors, windows …) and opens a table with fields, filters, sorting, grouping, totals and calculated values. Editing a cell changes the model; the table can go on a sheet."),
+        run: async (ctx) => { const n = ctx.p.views.filter((v) => v.kind === "schedule").length; await ctx.command("views.schedule"); await ctx.pick(ctx.app.t("Doors"), ctx.app.t("Doors")); await ctx.waitFor(() => ctx.p.views.filter((v) => v.kind === "schedule").length > n, 3000); await ctx.waitFor(() => document.querySelector(".vt-sched"), 3000); },
+        practice: { todo: T("새 일람표를 하나 만들어 보세요.", "Make a new schedule."), check: (ctx, mem) => ctx.p.views.filter((v) => v.kind === "schedule").length > (mem.schedules ?? (mem.schedules = ctx.p.views.filter((v) => v.kind === "schedule").length)) } },
+      { title: T("출판", "Publish"), text: T("도면 → 시트 출판에서 시트(또는 저장한 출판 세트)를 골라 인쇄·PDF·SVG·DXF로 한꺼번에 내보냅니다. 인쇄 창은 시트마다 자기 용지 크기로 인쇄합니다.", "Drawings → Publish sheets prints or saves chosen sheets (or a saved publish set) as print, PDF, SVG or DXF in one go; the print window prints each sheet on its own paper size."),
+        run: async (ctx) => { await ctx.command("views.publish"); await ctx.waitFor(() => ctx.modal(), 3000); await ctx.wait(400); await closeAll(ctx); },
+        practice: { todo: T("도면 → 시트 출판 창을 열어 보세요.", "Open Drawings → Publish sheets."), check: (ctx, mem) => [...mem.modals].some((m) => m.includes(ctx.app.t("Publish sheets"))) } },
+    ],
+  },
+  // ---------------------------------------------------------------- SketchUp tools
+  {
+    title: T("스케치업 도구: 면 그리기, 밀기/끌기, 컴포넌트, 태그, 단면", "SketchUp tools: draw on faces, push/pull, components, tags, sections"), fresh: true,
+    steps: [
+      { title: T("면 위에 사각형", "A rectangle on a face"), text: T("3D 도구 모음의 그리기 ▾ 에서 사각형(R)을 고르고 포디움 윗면에 두 모서리를 클릭합니다. 면 위에 그린 도형은 그 면의 일부가 되어 따로 밀고 당길 수 있습니다. 포인터는 끝점·중점·모서리·면·축에 붙습니다.", "Pick Rectangle (R) from Draw ▾ on the 3D toolbar and click two corners on the podium's top. A shape drawn on a face becomes a face of its own that can be pushed or pulled. The pointer snaps to endpoints, midpoints, edges, faces and the axes."),
+        run: async (ctx) => {
+          await sampleOpen(ctx, "07-massing-study.myarch", ctx.L(T("매스", "Massing")));
+          await ctx.key("F3");
+          const v = await ctx.waitFor(() => ctx.app.v3d.viewer, 8000);
+          ctx.app.v3d.resetView(); // no cut or style left over from a scene
+          ctx.app.v3d.syncModel();
+          ctx.app.v3d.setOpt("furniture", false); // the trees would stand in front of the podium
+          v.setCamera({ pos: [45, 38, 52], target: [21, 6, 16], ortho: false }, 1);
+          await ctx.wait(900);
+          v.three.controls.update();
+          ctx.app.v3d.setTool("rect");
+          // Corners well clear of the tower's edge, so they snap to the podium's top face only.
+          await ctx.click3d(19800, 17300, 6000);
+          await ctx.click3d(25000, 19300, 6000);
+          const pod = ctx.p.solids.find((s) => s.name === "Podium");
+          ctx.expect(pod.mesh && pod.mesh.f.length === 7, "the rectangle did not become a face of the podium");
+        },
+        practice: { todo: T("사각형 도구로 포디움 윗면에 사각형을 그리세요.", "Draw a rectangle on the podium's top with the Rectangle tool."), check: (ctx) => ctx.app.store.project.solids.some((s) => s.name === "Podium" && s.mesh && s.mesh.f.length > 6), targets: () => [{ el: '[data-skgroup-split="draw"]' }] } },
+      { title: T("그 면을 끌어 올리기", "Pull that face up"), text: T("밀기/끌기로 새 면을 위로 끌면 탑이 솟습니다. 클릭-이동-클릭으로도 되고, 숫자(예: 9000)를 치고 Enter 하면 그 높이만큼 정확히 끕니다.", "Pull the new face up with Push/Pull: a tower rises. Click-move-click works too, and typing a number (say 9000) and Enter pulls exactly that far."),
+        run: async (ctx) => {
+          const v = ctx.app.v3d.viewer;
+          await ctx.click('[data-tool3d="pushpull"]');
+          const [x, y] = ctx.screenOf3d(22400, 18300, 6000);
+          const c = v.three.renderer.domElement;
+          const ev = (type, yy) => c.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: yy, pointerId: 1, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true }));
+          await ctx.moveTo(x, y);
+          ev("pointerdown", y);
+          for (let k = 1; k <= 8; k++) { ev("pointermove", y - k * 12); await ctx.wait(40); }
+          ev("pointerup", y - 96);
+          await ctx.wait(300);
+          ctx.expect(ctx.p.solids.find((s) => s.name === "Podium").height > 6000, "the face was not pulled up");
+        },
+        practice: { todo: T("밀기/끌기로 새 면을 위로 끄세요.", "Pull the new face up with Push/Pull."), setup: (ctx) => { ctx.app.tutH = (ctx.app.store.project.solids.find((s) => s.name === "Podium") || {}).height; }, check: (ctx) => ((ctx.app.store.project.solids.find((s) => s.name === "Podium") || {}).height || 0) > (ctx.app.tutH || 6000), targets: () => [{ el: '[data-tool3d="pushpull"]' }] } },
+      { title: T("컴포넌트로 만들기", "Make a component"), text: T("원형 매스를 고르고 솔리드 도구 ▾ → 컴포넌트 만들기… 를 누릅니다. 컴포넌트 패널의 + 로 복사본을 놓고, 하나를 두 번 클릭해 편집하면 모든 복사본이 함께 바뀝니다.", "Select the rotunda and press Solid tools ▾ → Make component…. Place copies with + on the Components panel; double-click one to edit it and every copy changes too."),
+        run: async (ctx) => {
+          const s = ctx.p.solids.find((x) => x.name === "Rotunda");
+          ctx.app.plan.select([s.id]);
+          await ctx.command("sk.makeComponent");
+          const ok = await ctx.waitFor(() => document.querySelector(".modal-foot .btn.primary"), 3000);
+          await ctx.click(ok);
+          await ctx.wait(300);
+          ctx.expect(ctx.p.components.length === 1 && ctx.p.furniture.some((f) => f.kind === "component"), "no component");
+        },
+        practice: { todo: T("원형 매스를 컴포넌트로 만드세요.", "Make the rotunda a component."), check: (ctx) => (ctx.app.store.project.components || []).length >= 1, targets: () => [{ el: '[data-skgroup-split="solid"]' }] } },
+      { title: T("태그로 숨기기", "Hide with tags"), text: T("태그 패널의 + 로 태그를 만들고, 항목을 골라 행의 태그 아이콘으로 지정한 뒤 체크를 끄면 3D 에서 사라집니다. 장면은 어떤 태그가 보이는지 기억합니다.", "Make a tag with + on the Tags panel, select items and assign them with the tag icon on its row; untick it and they leave the 3D view. Scenes remember which tags are shown."),
+        run: async (ctx) => {
+          ctx.app.settings.skFold = { ...(ctx.app.settings.skFold || {}), tags: true };
+          const s = ctx.p.solids.find((x) => x.name === "Tower A");
+          const id = "tag-tut";
+          ctx.app.store.edit("New tag", (p) => { if (!p.layers.some((l) => l.id === id)) p.layers.push({ id, name: ctx.L(T("타워", "Towers")), color: "#4e8ec8", visible: true }); });
+          ctx.app.plan.select([s.id]);
+          ctx.app.renderLeft();
+          await ctx.click(await ctx.waitFor(() => document.querySelector(`[data-sk-tag-assign="${id}"]`), 3000));
+          await ctx.click(await ctx.waitFor(() => document.querySelector(`[data-sk-tag="${id}"] input`), 3000));
+          await ctx.wait(300);
+          ctx.expect(ctx.app.v3d.hiddenTags.has(id) && ctx.p.solids.find((x) => x.name === "Tower A").layer === id, "tag not hidden");
+          await ctx.click(document.querySelector(`[data-sk-tag="${id}"] input`));
+        },
+        practice: { todo: T("태그를 하나 만들어 항목을 지정하고 체크를 꺼 보세요.", "Make a tag, assign something to it and untick it."), check: (ctx) => ctx.app.v3d.hiddenTags.size > 0, targets: () => [{ el: '[data-sk-panel="tags"]' }] } },
+      { title: T("단면 평면", "A section plane"), text: T("보조 도구 ▾ → 단면을 고르고 면을 클릭하면 그 면에서 모델이 잘리고 잘린 면이 채워집니다. 단면 패널에서 켜고 끄고, 옮기고, 뒤집습니다.", "Pick Construction ▾ → Section plane and click a face: the model is cut there and the cut is filled. The Section planes panel switches, moves and flips them."),
+        run: async (ctx) => {
+          const v = ctx.app.v3d.viewer;
+          v.setCamera({ pos: [60, 45, 45], target: [15, 6, 10], ortho: false }, 1);
+          await ctx.wait(500);
+          v.three.controls.update();
+          ctx.app.v3d.setTool("sectionplane");
+          await ctx.click3d(30000, 10000, 3000);
+          ctx.expect(ctx.p.sections.length === 1 && ctx.p.sections[0].active, "no section plane");
+          await ctx.wait(600);
+          ctx.app.store.edit("Section plane", (p) => { for (const s of p.sections) s.active = false; });
+          ctx.app.v3d.setTool("sectionplane");
+          ctx.app.v3d.setOpt("furniture", true);
+          v.rebuild();
+        },
+        practice: { todo: T("단면 도구로 면을 클릭하세요.", "Click a face with the Section plane tool."), check: (ctx) => (ctx.app.store.project.sections || []).length >= 1, targets: () => [{ el: '[data-skgroup-split="construct"]' }] } },
     ],
   },
 ];

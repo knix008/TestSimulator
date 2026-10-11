@@ -189,7 +189,7 @@ describe("Sweet Home 3D (.sh3d)", async () => {
     assert.equal(bimKind("Home.xml", bytes), "sh3d");
     assert.equal(bimKind("house.sh3d", sh3d), "sh3d");
     assert.equal(bimKind("other.xml", new TextEncoder().encode("<?xml version='1.0'?><svg/>")), "xml");
-    assert.equal(bimKind("m.ifcxml", new Uint8Array(0)), null);
+    assert.equal(bimKind("m.ifcxml", new Uint8Array(0)), "ifcxml");
     assert.equal(bimKind("model.xml", new TextEncoder().encode('<?xml version="1.0"?>\n<ifcXML xmlns="http://www.iai-tech.org/ifcXML/IFC2x3/FINAL">')), "ifcxml");
   });
 

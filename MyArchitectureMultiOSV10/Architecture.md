@@ -79,6 +79,7 @@ flowchart TB
 | [src/core](src/core) | 데이터 모델과 순수 기하·검사·집계 엔진 |
 | [src/plan](src/plan) | 2D 평면 편집기(도구, 스냅, 변환, 그리기) |
 | [src/view3d](src/view3d) | three.js 건물 생성과 뷰어 |
+| [src/views](src/views) | 도면화: 뷰·시트·주석 데이터 모델(`model.js`, `normalizeViews`), 3D 빌드 삼각형에서 단면/입면/천장도/액소를 만드는 생성기(`section.js`: 절단 포셰 + 깊이 버퍼 숨은선), 그리기(`viewdraw.js`, `hatch.js`, `annot.js`), 시트(`sheets.js`), 일람표 뷰(`schedules.js`), DXF(`dxfview.js`), UI(`viewtab.js` 뷰와 시트 탭, `browser.js` 프로젝트 탐색기, `planext.js` 평면 기호·주석, `vdialogs.js`, `index.js`) |
 | [src/io](src/io) | 파일 형식 입출력(DXF, SVG, IFC, 3D 모델, OBJ/MTL, DAE, 3MF, ZIP) |
 | [src/lib](src/lib) | 가구 카탈로그(44종, 8개 범주)와 재질(21종, 절차적 패턴) |
 | [src/ui](src/ui) | 애플리케이션 셸: 명령, 메뉴, 패널, 대화상자, 3D 탭, 튜토리얼, 다국어, 테마 |
@@ -295,13 +296,18 @@ flowchart LR
   O -- ifc --> II["exports.importIfcFile → io/ifc.importIfc → 새 프로젝트 + 경고"]
   O -- model --> IM["exports.importModel → io/models3d.loadModelFile → models + furniture(kind model)"]
   O -- image --> IU["exports.importUnderlay → underlays"]
-  O -- closed --> X["dialogs.closedFormat (SKP, RVT, PLN, 3DM 안내)"]
+  O -- rhino --> IR["ui/rhinoimport (3D 모델 / 평면 도면) → io/rhino3dm (rhino3dm wasm, 모듈 워커) → importModel / importDrawing"]
+  O -- closed --> X["dialogs.closedFormat (SKP, RVT, PLN 안내)"]
 ```
 
 | 모듈 | 역할 |
 | --- | --- |
 | [src/io/dxf.js](src/io/dxf.js) | ASCII DXF R12–R2018 가져오기: 모델 공간을 2D 아핀 행렬로 훑으며 블록 삽입·OCS·y 반전을 합성, 상사 변환이면 원·호 유지(아니면 폴리라인), 단위는 헤더 또는 범위로 추정(`guessUnits`), CP949 텍스트 디코딩. 내보내기: 한 층의 평면을 AutoCAD R12(AC1009)로, `DXF_LAYERS` 규칙, ACI 색 |
-| [src/io/svgimport.js](src/io/svgimport.js) | DOM 없는 작은 XML 토크나이저 + 변환 행렬 누적, 베지어를 변환 후 적응 분할, "SVG" 레이어로 |
+| [src/io/dxfbin.js](src/io/dxfbin.js) | 바이너리 DXF 읽기(센티널 뒤 1·2바이트 그룹 코드, 코드 범위별 형식 값 → ASCII 와 같은 코드/값 쌍; `$DWGCODEPAGE`/UTF-8). 테스트용 쓰기도 |
+| [src/io/dxfmodern.js](src/io/dxfmodern.js) | AutoCAD 2000–2018 DXF 쓰기: 핸들·소유자, 9개 심볼 테이블과 BLOCK_RECORD, OBJECTS(사전·배치·플롯 스타일), LWPOLYLINE·MTEXT·가구 블록·트루 컬러·선 두께·레이어 설명 |
+| [src/io/svgimport.js](src/io/svgimport.js) | DOM 없는 작은 XML 토크나이저 + 변환 행렬 누적, 베지어를 변환 후 적응 분할, "SVG" 레이어로. `<image>` 는 밑그림(`resolveSvgImages` 로 상대 경로 파일), `<textPath>` 는 직선 텍스트 |
+| [src/io/imageinfo.js](src/io/imageinfo.js) | 이미지 헤더만 읽어 형식·픽셀 크기(PNG/JPEG/GIF/WebP/BMP/SVG), data: URI |
+| [src/io/pdfwrite.js](src/io/pdfwrite.js) | SVG 시트 → 벡터 PDF(웹판 PDF로 저장): 경로·채움·점선·투명도·클립·변환·텍스트(Helvetica + 비내장 Adobe-Korea1 한글 CID 글꼴)·JPEG/PNG, xref 직접 작성, Flate 압축 |
 | [src/io/ifc.js](src/io/ifc.js) | **IFC4 / IFC2X3 왕복**. `exportIfc(project, {schema})`: 사이트·건물·층, 벽(`IfcWallStandardCase`/`IfcWall` + `IfcMaterialLayerSetUsage`), 개구부(`IfcOpeningElement` + `IfcRelVoidsElement`/`IfcRelFillsElement`로 문·창), 공간, 슬래브, 지붕, 계단, 기둥, 가구, 그리드, 속성 세트·분류·단계. `parseStep` + `importIfc`: 아무 STEP 텍스트를 엔티티 맵으로 읽고 `IfcLocalPlacement`/매핑 항목을 3×4 행렬로 풀어, 아는 요소는 평면 항목으로 바꾸고 나머지는 `warnings`·`stats`로 요약. `ifcGuid`는 22자 압축 GUID |
 | [src/io/models3d.js](src/io/models3d.js) | OBJ(+MTL), STL, PLY, glTF/GLB, FBX, DAE, 3MF, 3DS, VRML, AMF를 three.js 로더로 읽어 미터·Y-up·XZ 중심·바닥 Y=0으로 정규화, 크기(mm)·윗면 윤곽·GLB로 구운 base64 자산을 만듦. 단위가 없는 형식은 범위로 추정(>300 → mm, >30 → cm, 그 외 m). 익스포터 공용 도우미(`collectMeshes`, 재질 색·이름) |
 | [src/io/objmtl.js](src/io/objmtl.js) | OBJ + MTL 쓰기(월드 좌표로 구움, 축척 1 = m, 1000 = mm) |

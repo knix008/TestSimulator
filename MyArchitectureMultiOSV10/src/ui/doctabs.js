@@ -207,6 +207,7 @@ export class DocTabs {
       framed: !!v3d.framed, camera: v3d.viewer && v3d.framed ? v3d.viewer.getCamera() : null,
       hiddenLevels: new Set(v3d.hiddenLevels),
       checkIssues: app.checkIssues,
+      views: app.views ? app.views.saveState() : null, // open views / sheets (src/views)
     };
   }
 
@@ -229,6 +230,7 @@ export class DocTabs {
     v3d.framed = !!v.framed;
     v3d.pendingCamera = v.camera || null;
     app.checkIssues = v.checkIssues || [];
+    if (app.views) app.views.restoreState(v.views);
     if (v3d.viewer) v3d.viewer.setOptions({ levels: v3d.levelSet() });
     v3d.markDirty();
   }
@@ -253,7 +255,7 @@ export class DocTabs {
     app.plan.renderLevelBar();
     // The plan / 3D view stays as it is; from the start page the tab returns
     // to the view it was left in.
-    const tab = app.tab === "plan" || app.tab === "3d" ? app.tab : (doc.view && doc.view.tab) || (this.docs.isUntouched(doc) ? "start" : "plan");
+    const tab = app.tab === "plan" || app.tab === "3d" || app.tab === "views" ? app.tab : (doc.view && doc.view.tab) || (this.docs.isUntouched(doc) ? "start" : "plan");
     app.tab = null; // re-enter the view so it re-fits / re-syncs for this document
     app.setTab(tab);
     app.updateTitle();

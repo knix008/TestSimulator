@@ -7,12 +7,16 @@ import { openingSpans, wallPoint, endsAt, wallFrame } from "../core/walls.js";
 import { furnitureCorners, isLight } from "../lib/furniture.js";
 import { roofModel } from "../core/roof.js";
 import { stairGeometry, dimensionGeometry, gridBubble } from "./render.js";
+import { hitElementHandles, hitElements, hitElementAreas, boxSelectElements, transformElements, elementCentrePoints, scaleElements, shiftElement, PTS_KINDS } from "./elements.js";
+import { syncOptions, optionHidden } from "../core/elements/model.js";
 
-const on = (list, level) => list.filter((it) => it.level === level);
+// Items of a level (design options: items of an inactive option are left out).
+const on = (list, level) => list.filter((it) => it.level === level && !optionHidden(it));
 
 // ---------------------------------------------------------------- hit test
 // → {kind, obj, handle?} for the topmost item under (x, y); tol in mm.
 export function hitTest(p, level, x, y, tol, { selected = new Set(), layersHidden = new Set() } = {}) {
+  syncOptions(p);
   const walls = on(p.walls, level);
   // Handles of selected walls / rooms / dimensions come first.
   for (const w of walls) {
@@ -20,11 +24,13 @@ export function hitTest(p, level, x, y, tol, { selected = new Set(), layersHidde
     if (dist(x, y, w.x1, w.y1) <= tol * 1.5) return { kind: "walls", obj: w, handle: 0 };
     if (dist(x, y, w.x2, w.y2) <= tol * 1.5) return { kind: "walls", obj: w, handle: 1 };
   }
-  for (const r of [...on(p.rooms, level), ...on(p.roofs, level), ...on(p.solids || [], level)]) {
+  for (const r of [...on(p.rooms, level), ...on(p.roofs, level), ...on(p.solids || [], level).filter((s) => !s.mesh)]) { // a mesh mass is reshaped in 3D, not by its corners
     if (!selected.has(r.id)) continue;
     const i = r.pts.findIndex(([px, py]) => dist(x, y, px, py) <= tol * 1.5);
     if (i >= 0) return { kind: p.rooms.includes(r) ? "rooms" : p.roofs.includes(r) ? "roofs" : "solids", obj: r, handle: i };
   }
+  const eh = hitElementHandles(p, level, x, y, tol, selected); // slabs, beams, railings … (elements.js)
+  if (eh) return eh;
   for (const d of on(p.dimensions, level)) {
     if (!selected.has(d.id)) continue;
     if (dist(x, y, d.x1, d.y1) <= tol * 1.5) return { kind: "dimensions", obj: d, handle: 0 };
@@ -63,6 +69,8 @@ export function hitTest(p, level, x, y, tol, { selected = new Set(), layersHidde
   for (const c of on(p.columns, level)) if (pointInPolygon(x, y, furnitureCorners(c)) || dist(x, y, c.x, c.y) <= tol) return { kind: "columns", obj: c };
   for (const s of on(p.stairs, level)) if (pointInPolygon(x, y, stairGeometry(s).outline)) return { kind: "stairs", obj: s };
   for (const s of on(p.solids || [], level).reverse()) if (pointInPolygon(x, y, s.pts)) return { kind: "solids", obj: s };
+  const he = hitElements(p, level, x, y, tol);
+  if (he) return he;
   let bestWall = null;
   for (const w of walls) {
     const d = pointSegDist(x, y, w.x1, w.y1, w.x2, w.y2);
@@ -78,6 +86,8 @@ export function hitTest(p, level, x, y, tol, { selected = new Set(), layersHidde
     rooms.sort((a, b) => Math.abs(areaOf(a.pts)) - Math.abs(areaOf(b.pts)));
     return { kind: "rooms", obj: rooms[0] };
   }
+  const ha = hitElementAreas(p, level, x, y);
+  if (ha) return ha;
   for (const r of on(p.roofs, level)) if (pointInPolygon(x, y, roofModel(r).outline)) return { kind: "roofs", obj: r };
   for (const g of p.grids || []) if (pointSegDist(x, y, g.x1, g.y1, g.x2, g.y2) <= tol) return { kind: "grids", obj: g };
   for (const u of on(p.underlays, level).reverse()) {
@@ -122,6 +132,7 @@ function hitDrawing(d, x, y, tol) {
 
 // Items fully inside a rectangle (window) or touching it (crossing).
 export function boxSelect(p, level, r, crossing = false) {
+  syncOptions(p);
   const inside = ([x, y]) => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2;
   const test = (pts) => (crossing ? pts.some(inside) : pts.every(inside));
   const ids = [];
@@ -141,6 +152,7 @@ export function boxSelect(p, level, r, crossing = false) {
   }
   for (const u of on(p.underlays, level)) if (test([[u.x, u.y], [u.x + u.w, u.y + u.h]])) ids.push(u.id);
   for (const g of p.grids || []) if (test([[g.x1, g.y1], [g.x2, g.y2]])) ids.push(g.id);
+  ids.push(...boxSelectElements(p, level, test));
   return ids;
 }
 
@@ -160,6 +172,8 @@ export function snapPoint(p, level, x, y, { grid = 100, tol = 150, from = null, 
       consider(w.x2, w.y2, "end");
     }
     for (const r of on(p.rooms, level)) if (!exclude.has(r.id)) for (const [px, py] of r.pts) consider(px, py, "vertex");
+    for (const k of PTS_KINDS) for (const r of on(p[k] || [], level)) if (!exclude.has(r.id)) for (const [px, py] of r.pts) consider(px, py, "vertex");
+    for (const b of on(p.beams || [], level)) if (!exclude.has(b.id)) { consider(b.x1, b.y1, "end"); consider(b.x2, b.y2, "end"); }
     for (const c of on(p.columns, level)) if (!exclude.has(c.id)) consider(c.x, c.y, "centre");
     for (const d of on(p.drawings, level)) if (!exclude.has(d.id)) for (const [px, py] of d.pts || []) consider(px, py, "vertex");
     if (best) return best;
@@ -216,6 +230,13 @@ export function snapPoint(p, level, x, y, { grid = 100, tol = 150, from = null, 
 }
 
 // ---------------------------------------------------------------- transforms
+// A mass model's mesh (src/core/mesh.js) moves with its plan points; a
+// mirror turns its faces round so they keep facing outwards.
+function meshXY(m, fn, mirror) {
+  m.v = m.v.map(([x, y, z]) => [...fn(x, y), z]);
+  if (mirror) for (const f of m.f) { f.l.reverse(); if (f.h) f.h.forEach((h) => h.reverse()); }
+}
+
 // Every movable point of the selection, applied through fn(x, y) → [x, y].
 function transformItems(p, ids, fn, { stretch = true, rotate = 0, mirror = false } = {}) {
   const set = new Set(ids);
@@ -248,7 +269,7 @@ function transformItems(p, ids, fn, { stretch = true, rotate = 0, mirror = false
       o.at = Math.max(o.width / 2, Math.min(L - o.width / 2, o.at));
     }
   }
-  for (const k of ["rooms", "roofs", "solids"]) for (const r of p[k] || []) if (set.has(r.id)) { r.pts = r.pts.map(([x, y]) => fn(x, y)); if (r.label) r.label = fn(...r.label); if (mirror) r.pts.reverse(); }
+  for (const k of ["rooms", "roofs", "solids"]) for (const r of p[k] || []) if (set.has(r.id)) { r.pts = r.pts.map(([x, y]) => fn(x, y)); if (r.label) r.label = fn(...r.label); if (mirror) r.pts.reverse(); if (r.mesh) meshXY(r.mesh, fn, mirror); if (r.faces) r.faces = r.faces.map((f) => f.map(([x, y, z]) => [...fn(x, y), z])); }
   for (const k of ["furniture", "columns", "stairs", "texts"]) {
     for (const f of p[k]) {
       if (!set.has(f.id)) continue;
@@ -271,6 +292,7 @@ function transformItems(p, ids, fn, { stretch = true, rotate = 0, mirror = false
     }
   }
   for (const u of p.underlays) if (set.has(u.id)) { [u.x, u.y] = fn(u.x, u.y); if (rotate) u.rot = ((u.rot || 0) + rotate) % 360; }
+  transformElements(p, set, fn, { mirror }); // slabs, ceilings, beams, railings, ramps, shafts
   // Openings selected on their own slide along their wall.
 }
 
@@ -296,6 +318,7 @@ export function selectionCentre(p, ids) {
   for (const d of [...p.dimensions, ...(p.grids || [])]) if (set.has(d.id)) pts.push([d.x1, d.y1], [d.x2, d.y2]);
   for (const d of p.drawings) if (set.has(d.id)) pts.push(...(d.pts || [[d.cx, d.cy]]));
   for (const u of p.underlays) if (set.has(u.id)) pts.push([u.x + u.w / 2, u.y + u.h / 2]);
+  pts.push(...elementCentrePoints(p, set));
   if (!pts.length) return null;
   const b = bounds(pts);
   return [(b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2];
@@ -345,6 +368,8 @@ export function copyItems(p, ids) {
   out.openings = out.openings.filter((o) => wallIds.has(o.wall) || p.walls.some((w) => w.id === o.wall));
   const c = selectionCentre(p, ids);
   out.centre = c || [0, 0];
+  // Component definitions of copied instances come along (another drawing may not have them).
+  out.components = (p.components || []).filter((d) => out.furniture.some((f) => f.comp === d.id) || out.openings.some((o) => o.comp === d.id)).map((d) => JSON.parse(JSON.stringify(d)));
   return out;
 }
 
@@ -362,14 +387,18 @@ export function pasteItems(p, clip, level, x, y) {
       it.level = level;
       if (k === "walls") { it.x1 += dx; it.y1 += dy; it.x2 += dx; it.y2 += dy; }
       else if (it.pts) it.pts = it.pts.map(([a, b]) => [a + dx, b + dy]);
+      if (it.mesh) it.mesh.v = it.mesh.v.map(([a, b, c]) => [a + dx, b + dy, c]);
+      if (it.faces) it.faces = it.faces.map((f) => f.map(([a, b, c]) => [a + dx, b + dy, c])); // a roof read as faces (gbXML)
       if (it.label) it.label = [it.label[0] + dx, it.label[1] + dy];
       if (it.x !== undefined && k !== "walls") { it.x += dx; it.y += dy; }
       if (k === "dimensions") { it.x1 += dx; it.y1 += dy; it.x2 += dx; it.y2 += dy; }
       if (it.cx !== undefined) { it.cx += dx; it.cy += dy; }
+      shiftElement(k, it, dx, dy); // holes, beam ends
       p[k].push(it);
       added.push(it.id);
     }
   }
+  if (p.components) for (const d of clip.components || []) if (!p.components.some((x) => x.id === d.id)) p.components.push(JSON.parse(JSON.stringify(d)));
   for (const src of clip.openings || []) {
     const wall = idMap.get(src.wall);
     if (!wall) continue; // an opening copied without its wall stays where it was
@@ -397,20 +426,22 @@ export function scaleItems(p, ids, k) {
   const set = new Set(ids);
   transformItems(p, ids, (x, y) => [c[0] + (x - c[0]) * k, c[1] + (y - c[1]) * k], { stretch: true });
   for (const f of [...p.furniture, ...p.columns]) if (set.has(f.id)) { f.w *= k; f.d *= k; if (f.h) f.h *= k; }
-  for (const s of p.solids || []) if (set.has(s.id)) { s.height *= k; s.z0 *= k; }
+  for (const s of p.solids || []) if (set.has(s.id)) { s.height *= k; s.z0 *= k; if (s.mesh) s.mesh.v = s.mesh.v.map(([x, y, z]) => [x, y, z * k]); if (s.faces) s.faces = s.faces.map((f) => f.map(([x, y, z]) => [x, y, z * k])); }
   for (const w of p.walls) if (set.has(w.id)) w.thickness = Math.max(10, w.thickness * k);
   for (const s of p.stairs) if (set.has(s.id)) { s.length *= k; s.width *= k; }
   for (const t of p.texts) if (set.has(t.id)) t.size *= k;
   for (const d of p.drawings) if (set.has(d.id) && d.r) d.r *= k;
   for (const u of p.underlays) if (set.has(u.id)) { u.w *= k; u.h *= k; }
+  scaleElements(p, set, k);
 }
 
 // Groups (SketchUp-style): the members are selected and moved together.
 export function groupMembers(p, id) {
-  const it = [...p.walls, ...p.rooms, ...p.columns, ...p.stairs, ...p.furniture, ...p.roofs, ...(p.solids || []), ...p.dimensions, ...p.texts, ...p.drawings].find((x) => x.id === id);
+  const KINDS = ["walls", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "dimensions", "texts", "drawings", "beams", ...PTS_KINDS];
+  const it = KINDS.flatMap((k) => p[k] || []).find((x) => x.id === id);
   if (!it || !it.group) return [id];
   const out = [];
-  for (const k of ["walls", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "dimensions", "texts", "drawings"]) for (const x of p[k] || []) if (x.group === it.group) out.push(x.id);
+  for (const k of KINDS) for (const x of p[k] || []) if (x.group === it.group) out.push(x.id);
   // Openings in grouped walls come along.
   const walls = new Set(p.walls.filter((w) => out.includes(w.id)).map((w) => w.id));
   for (const o of p.openings) if (walls.has(o.wall)) out.push(o.id);

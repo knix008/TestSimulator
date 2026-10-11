@@ -181,13 +181,80 @@
     "file": "15-sketchup-complex.myarch",
     "title": "Cultural complex (SketchUp style)",
     "titleKo": "문화 단지 (스케치업 스타일)",
-    "description": "A large push/pull massing model in groups: a museum with a cantilevered gallery and skylight pyramid, a round concert hall with an amphitheatre, a 24-floor twisting tower, a canopy on columns and terraced housing — with nine scenes in every style.",
-    "descriptionKo": "그룹으로 묶은 대형 밀기/끌기 매스 모델: 캔틸레버 전시동과 피라미드 천창의 미술관, 원형 공연장과 계단식 야외극장, 24층 비틀린 타워, 기둥 위 캐노피, 계단식 주거 — 모든 스타일의 장면 9개.",
+    "description": "A large SketchUp-style model: push/pull masses in groups and tags (museum, concert hall, 24-floor twisting tower, canopy, terraced housing), kiosk and bollard components, textured materials, guides, 3D dimensions and text, two section planes, a sandbox terrain and thirteen scenes in every style.",
+    "descriptionKo": "대형 스케치업 스타일 모델: 그룹과 태그로 나눈 밀기/끌기 매스(미술관, 공연장, 24층 비틀린 타워, 캐노피, 계단식 주거), 키오스크·볼라드 컴포넌트, 질감 재료, 보조선, 3D 치수와 문자, 단면 2개, 샌드박스 지형, 모든 스타일의 장면 13개.",
     "tags": [
       "SketchUp",
-      "massing",
-      "groups",
+      "components",
+      "tags",
+      "sections",
+      "terrain",
       "scenes"
+    ]
+  },
+  {
+    "file": "16-modern-villa.myarch",
+    "title": "Modern villa",
+    "titleKo": "모던 빌라",
+    "description": "A two-storey modern house: an open living, kitchen and dining space behind a glass curtain wall, an upper floor cantilevered over the carport, master suite, flat roofs, a pool and garden.",
+    "descriptionKo": "유리 커튼월 뒤의 거실·주방·식당, 차고 위로 내민 2층, 안방 욕실이 딸린 마스터 침실, 평지붕, 수영장과 정원이 있는 2층 모던 주택.",
+    "tags": [
+      "2 levels",
+      "modern",
+      "curtain wall",
+      "pool"
+    ]
+  },
+  {
+    "file": "17-townhouse.myarch",
+    "title": "Townhouse",
+    "titleKo": "타운하우스",
+    "description": "A narrow three-storey row house between concrete party walls: kitchen to the garden, living room to the street, bedrooms, a study and a roof terrace with a stair pavilion.",
+    "descriptionKo": "콘크리트 경계벽 사이의 좁은 3층 연립주택: 정원 쪽 주방, 거리 쪽 거실, 침실과 서재, 계단실이 있는 옥상 테라스.",
+    "tags": [
+      "4 levels",
+      "modern",
+      "row house",
+      "roof terrace"
+    ]
+  },
+  {
+    "file": "18-modern-farmhouse.myarch",
+    "title": "Modern farmhouse",
+    "titleKo": "모던 팜하우스",
+    "description": "A long gabled house clad in dark timber: an open living hall with a kitchen island, a guest bedroom and mudroom, two bedrooms and a bathroom under the roof, a pergola in the garden.",
+    "descriptionKo": "어두운 목재로 감싼 긴 박공 주택: 아일랜드 주방이 있는 거실 홀, 손님방과 현관 수납실, 지붕 아래 침실 2개와 욕실, 정원의 퍼걸러.",
+    "tags": [
+      "2 levels",
+      "modern",
+      "gable roof",
+      "timber"
+    ]
+  },
+  {
+    "file": "19-duplex.myarch",
+    "title": "Duplex",
+    "titleKo": "듀플렉스 주택",
+    "description": "Two mirror-image two-storey homes sharing a concrete party wall, each with a kitchen to the garden, living room, three bedrooms and a hip roof over both.",
+    "descriptionKo": "콘크리트 경계벽을 공유하는 좌우 대칭 2층 주택 두 채: 정원 쪽 주방, 거실, 침실 3개, 두 집을 덮는 모임지붕.",
+    "tags": [
+      "2 levels",
+      "modern",
+      "semi-detached",
+      "mirror"
+    ]
+  },
+  {
+    "file": "20-compact-house.myarch",
+    "title": "Compact house",
+    "titleKo": "콤팩트 하우스",
+    "description": "A 45 m² single-storey home under one shed roof: living room and kitchen, a bedroom and a shower room, timber cladding and a big sliding window to the garden.",
+    "descriptionKo": "외쪽지붕 하나 아래 45 m² 단층 주택: 거실·주방, 침실, 샤워실, 목재 외장과 정원 쪽 큰 미닫이 창.",
+    "tags": [
+      "1 level",
+      "modern",
+      "small",
+      "shed roof"
     ]
   }
 ]

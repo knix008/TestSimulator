@@ -23,7 +23,7 @@ const unq = (s) => JSON.parse(`"${s}"`);
 
 export async function collectKeys() {
   const keys = new Set();
-  const re = /\bt\(\s*"((?:[^"\\]|\\.)*)"/g;
+  const re = /\b_?t\(\s*"((?:[^"\\]|\\.)*)"/g; // _t("…") marks a string translated later (src/ui/skui.js)
   for (const file of walk(path.join(root, "src"))) {
     const text = fs.readFileSync(file, "utf8");
     for (const m of text.matchAll(re)) keys.add(unq(m[1]));

@@ -3,6 +3,7 @@
 // and printing live in exports.js.
 
 import { t, getLanguage } from "./i18n.js";
+import { elementScheduleTabs } from "./elements.js";
 import { icon } from "./icons.js";
 import { h, modal, toast, quickPick, field, input, select, checkbox, tabs, confirmDialog, pager, stepper } from "./widgets.js";
 import * as platform from "./platform.js";
@@ -207,7 +208,7 @@ export async function itemProperties(app, kind, obj) {
     title = def ? t(def.name) : obj.name || t("Furniture");
     body = h("div", { class: "form-grid" },
       field(t("Name"), input(draft.name || "", { placeholder: def ? t(def.name) : "", onInput: (v) => { draft.name = v || undefined; } })),
-      field(t("Kind"), select(draft.kind, [...allFurniture().map((d) => [d.kind, t(d.name)]), ...(obj.kind === "model" ? [["model", t("Imported 3D model")]] : [])], { onChange: (v) => { draft.kind = v; const d = furnitureDef(v); if (d) { draft.w = d.w; draft.d = d.d; draft.h = d.h; } } })),
+      field(t("Kind"), select(draft.kind, [...allFurniture().map((d) => [d.kind, t(d.name)]), ...(obj.kind === "model" ? [["model", t("Imported 3D model")]] : []), ...(obj.kind === "component" ? [["component", t("Component")]] : [])], { onChange: (v) => { draft.kind = v; const d = furnitureDef(v); if (d) { draft.w = d.w; draft.d = d.d; draft.h = d.h; } } })),
       numField(t("Width"), draft, "w", { min: 10 }), numField(t("Depth"), draft, "d", { min: 10 }), numField(t("Height"), draft, "h", { min: 1 }),
       numField(t("Elevation"), draft, "elevation", { min: -100000 }), numField(t("Rotation"), draft, "rot", { step: 15, min: -360, max: 360, unit: "°" }),
       field(t("Colour"), h("input", { type: "color", class: "input", value: draft.color || "#8a9bb0", oninput: (e) => { draft.color = e.target.value; } })));
@@ -517,7 +518,7 @@ export async function schedulesDialog(app, opts = {}) {
   const levelCols = [["level", t("Level")], ["elevation", t("Elevation")], ["walls", t("Walls")], ["wallLength", t("Wall length (m)"), f2], ["wallAreaNet", t("Wall area (m²)"), f2], ["rooms", t("Rooms")], ["roomArea", t("Room area (m²)"), f2], ["grossArea", t("Gross area (m²)"), f2], ["doors", t("Doors")], ["windows", t("Windows")]];
   const totalRow = h("p", { class: "field-hint" }, t("Total: {r} m² rooms, {g} m² gross floor area, {d} doors, {w} windows, {l} m of walls ({v} m³).", { r: tot.roomArea.toFixed(2), g: tot.grossArea.toFixed(2), d: tot.doors, w: tot.windows, l: tot.wallLength.toFixed(1), v: tot.wallVolume.toFixed(2) }));
   const wtypes = wallTypeSchedule(p);
-  const wtCols = [["type", t("Wall type")], ["thickness", t("Thickness")], ["layers", t("Layers")], ["count", t("Walls")], ["length", t("Length (m)"), f2], ["area", t("Wall area (m²)"), f2]];
+  const wtCols = [["type", t("Wall type")], ["thickness", t("Thickness")], ["layers", t("Layers")], ["count", t("Walls")], ["length", t("Length (m)"), f2], ["area", t("Wall area (m²)"), f2], ["uValue", "U (W/m²K)", (v) => (v === null || v === undefined ? "" : (+v).toFixed(2))]];
   // Cost estimate with editable unit prices (saved in the project).
   const costs = { ...p.costs };
   const costHost = h("div", {});
@@ -535,6 +536,7 @@ export async function schedulesDialog(app, opts = {}) {
     { id: "r", label: t("Rooms"), body: rooms.length ? pager(rooms, 12, (s) => tbl(roomCols, s)) : h("div", { class: "empty-note" }, t("No rooms yet: press A and click inside walls.")) },
     { id: "o", label: t("Doors and windows"), body: openings.length ? pager(openings, 12, (s) => tbl(openCols, s)) : h("div", { class: "empty-note" }, t("No doors or windows yet.")) },
     { id: "w", label: t("Wall types"), body: tbl(wtCols, wtypes) },
+    ...elementScheduleTabs(app, tbl, f2), // slabs, ceilings, beams, railings, ramps, shafts, curtain walls; types
     { id: "l", label: t("Levels"), body: tbl(levelCols, levels) },
     { id: "c", label: t("Cost estimate"), body: costHost },
   ]), totalRow);
@@ -607,7 +609,7 @@ export function importPicker(app) {
 }
 
 export function exportPicker(app) {
-  const ids = ["file.exportDxf", "file.exportIfc", "file.export3d", "file.exportPdf", "file.exportSvg", "file.exportPng", "file.exportCsv"];
+  const ids = ["file.exportDxf", "file.exportDwg", "file.exportIfc", "file.exportGbxml", "file.exportSh3d", "file.export3d", "file.exportPdf", "file.exportSvg", "file.exportPng", "file.exportCsv"];
   quickPick({ items: ids.map((id) => { const c = app.commands.get(id); return { label: t(c.label), icon: c.icon, id }; }), title: t("Export ▸"), placeholder: t("Export…"), onPick: (it) => app.run(it.id) });
 }
 
@@ -654,8 +656,6 @@ export function closedFormat(app, ext) {
     skp: t("SketchUp files (.skp) are a closed format. In SketchUp use File → Export → 3D Model and choose Collada (.dae), OBJ or glTF, then import that."),
     rvt: t("Revit files (.rvt) are a closed format. Export IFC from Revit (File → Export → IFC) and import the IFC file — or export gbXML (File → Export → gbXML) for walls, openings and rooms."),
     pln: t("ArchiCAD files (.pln) are a closed format. Save as IFC in ArchiCAD and import the IFC file — gbXML exported by ArchiCAD can be imported too."),
-    ifcxml: t("ifcXML (.ifcxml) is not read. Save or export the model as IFC (.ifc, STEP) or as a zipped .ifczip and import that."),
-    "3dm": t("Rhino files (.3dm): export OBJ, STL or glTF from Rhino and import that."),
   }[ext];
   modal({ title: t("Format not supported"), width: 520, body: h("p", { class: "confirm-text" }, msg || t("This file type is not supported: .{ext}", { ext })), buttons: [{ label: t("Supported file formats…"), value: "f", left: true }, { label: t("OK"), value: null, primary: true }] })
     .then((r) => { if (r === "f") formatsDialog(app); });
@@ -668,12 +668,13 @@ export function phaseMenu(app, anchor) {
 // ---------------------------------------------------------------- help
 export const FORMATS = [
   ["MyArchitecture project", ".myarch", "✓", "✓", "Everything (JSON)"],
-  ["AutoCAD DXF", ".dxf", "✓", "✓", "2D drawing; import as CAD layers, export with A-WALL/A-DOOR… layers (R12)"],
-  ["AutoCAD DWG", ".dwg", "✓", "—", "2D drawing from AutoCAD R13 to 2025 (DWG R13–R2018); import as CAD layers like DXF"],
+  ["AutoCAD DXF", ".dxf", "✓", "✓", "2D drawing, ASCII or binary; import as CAD layers, export with A-WALL/A-DOOR… layers as R12 or AutoCAD 2000–2018"],
+  ["AutoCAD DWG", ".dwg", "✓", "✓", "2D drawing from AutoCAD R13 to 2025 (DWG R13–R2018): import as CAD layers like DXF (layouts, external references, multileaders, tables, images, solids); export as AutoCAD 2000 DWG with the same layers as DXF"],
   ["IFC (BIM)", ".ifc", "✓", "✓", "IFC4 / IFC2X3: storeys, walls, doors, windows, spaces, slabs, roofs, stairs, columns, furniture"],
-  ["IFC ZIP", ".ifczip", "✓", "—", "A zipped IFC file: read like .ifc (ifcXML is not read)"],
-  ["Sweet Home 3D", ".sh3d", "✓", "—", "Sweet Home 3D 5.3+: levels, walls, doors, windows, rooms, furniture, stairs, dimensions, labels"],
-  ["gbXML", ".gbxml .xml", "✓", "—", "Energy-model export of Revit, ArchiCAD, Vectorworks…: storeys, walls, doors, windows, spaces as rooms, roofs"],
+  ["ifcXML", ".ifcxml", "✓", "✓", "IFC written as XML (IFC4 and IFC2x3 ifcXML): read and written like .ifc"],
+  ["IFC ZIP", ".ifczip", "✓", "✓", "A zipped IFC file holding .ifc or .ifcxml: read and written like .ifc"],
+  ["Sweet Home 3D", ".sh3d", "✓", "✓", "Import: every version (Home.xml since 5.3, the Java-serialized home before): levels, walls with their colours / textures, doors, windows, rooms with floor textures, furniture, lights and roofs as their own 3D models (or our catalog shapes), stairs, dimensions, labels, compass. Export: Home.xml with OBJ models of the furniture, doors, windows, stairs and roofs"],
+  ["gbXML", ".gbxml .xml", "✓", "✓", "Energy-analysis model (Revit, ArchiCAD, OpenStudio, DesignBuilder…): storeys, spaces with their surfaces, walls, roofs, floors, doors and windows, constructions"],
   ["glTF / GLB", ".gltf .glb", "✓", "✓", "3D with materials (Blender, Unity, web)"],
   ["Wavefront OBJ (+MTL)", ".obj", "✓", "✓", "3D with materials (OBJ + MTL in a ZIP)"],
   ["STL", ".stl", "✓", "✓", "3D printing (geometry only)"],
@@ -684,8 +685,9 @@ export const FORMATS = [
   ["FBX", ".fbx", "✓", "—", "Autodesk models (furniture)"],
   ["3DS", ".3ds", "✓", "—", "3ds Max models"],
   ["VRML / AMF", ".wrl .amf", "✓", "—", "Older 3D formats"],
-  ["SVG", ".svg", "✓", "✓", "2D vector drawing"],
-  ["PDF", ".pdf", "—", "✓", "Drawing sheets with title block (print)"],
+  ["Rhino 3DM", ".3dm", "✓", "—", "Rhino models (openNURBS, Rhino 2–8): as a 3D model with layer colours and blocks, or the top view as CAD layers to trace"],
+  ["SVG", ".svg", "✓", "✓", "2D vector drawing; embedded images become tracing underlays"],
+  ["PDF", ".pdf", "—", "✓", "Vector drawing sheets with title block (print window, desktop and web)"],
   ["PNG / JPG / WebP", ".png .jpg .webp", "✓", "✓", "Images: import as tracing underlay; export plan or 3D image"],
   ["CSV", ".csv", "—", "✓", "Room, door/window, wall type, cost and level schedules"],
   ["SKP / RVT / PLN", "", "—", "—", "Closed formats, not read directly: export IFC or gbXML from Revit / ArchiCAD, DAE or OBJ from SketchUp, DXF from CAD programs, and import that"],
@@ -741,7 +743,7 @@ export async function about(app, version) {
 }
 
 const SHORTCUTS = [
-  ["General", [["Ctrl+K", "Command palette — search every command, room and level"], ["Ctrl+N / Ctrl+O / Ctrl+S", "New / open / save"], ["Ctrl+Tab / Ctrl+Shift+Tab", "Next / previous document tab"], ["Ctrl+W", "Close the document tab"],["Ctrl+I", "Import (DXF, IFC, 3D models, images…)"], ["Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z)", "Undo / redo"], ["Ctrl+X / Ctrl+A", "Cut / select all"], ["Ctrl+F", "Find"], ["Ctrl+P", "Print / PDF"], ["Ctrl+,", "Settings"], ["Ctrl+/", "Keyboard shortcuts"], ["F1", "User manual"], ["F2 / F3 (F4)", "Floor plan / 3D view"], ["F5", "Model check"], ["F8 / F9", "Orthogonal drawing / snapping"], ["Home", "Zoom to fit"], ["Ctrl+1 / Ctrl+2", "Toggle side panels"]]],
+  ["General", [["Ctrl+K", "Command palette — search every command, room and level"], ["Ctrl+N / Ctrl+O / Ctrl+S", "New / open / save"], ["Ctrl+Tab / Ctrl+Shift+Tab", "Next / previous document tab"], ["Ctrl+W", "Close the document tab"],["Ctrl+I", "Import (DXF, IFC, 3D models, images…)"], ["Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z)", "Undo / redo"], ["Ctrl+X / Ctrl+A", "Cut / select all"], ["Ctrl+F", "Find"], ["Ctrl+P", "Print / PDF"], ["Ctrl+,", "Settings"], ["Ctrl+/", "Keyboard shortcuts"], ["F1", "User manual"], ["F2 / F3 (F4)", "Floor plan / 3D view"], ["F5", "Model check"], ["F6", "Views & sheets (sections, elevations, sheets, schedules)"], ["F8 / F9", "Orthogonal drawing / snapping"], ["Home", "Zoom to fit"], ["Ctrl+1 / Ctrl+2", "Toggle side panels"]]],
   ["Floor plan", [["W", "Wall (click corners; type a length and Enter)"], ["A", "Room (click inside walls)"], ["D / N", "Door / window"], ["C", "Column"], ["S", "Stair"], ["F", "Furniture"], ["O", "Roof"], ["B / U", "Mass box / cylinder"], ["G", "Structural grid line"], ["K", "Dimension"], ["T", "Text"], ["L", "Line"], ["M", "Measure"], ["Ctrl+G / Ctrl+Shift+G", "Group / ungroup"], ["R / Shift+R", "Rotate 90° / back 15°"], ["X / Y", "Mirror (X also flips a door)"], ["H", "Swap door hinge"], ["E or double-click", "Edit properties"], ["Ctrl+C / Ctrl+V / Ctrl+D", "Copy / paste / duplicate"], ["Del", "Delete"], ["Arrows / Shift+arrows", "Nudge by one / ten grid steps"], ["Backspace", "While drawing: undo the last corner"], ["Shift", "While drawing: any angle"], ["Alt+drag", "Move without stretching joined walls"]]],
   ["Navigation", [["Wheel / Ctrl+wheel", "Zoom"], ["Shift+wheel", "Pan sideways"], ["Drag empty canvas, middle/right-drag, Space+drag", "Move the view (pan)"], ["Shift+drag", "Box selection (right-to-left: crossing)"], ["Esc", "Leave a tool / hand mode"]]],
   ["3D", [["Left-drag", "Orbit"], ["Right-drag", "Pan"], ["Wheel", "Zoom"], ["Double-click", "Zoom in on that point"], ["Arrows / Shift+arrows", "Orbit / pan"], ["1–7", "Iso / top / front / rear / left / right side / bird's eye"], ["P", "Pan mode"], ["V", "Walk through (WASD, Q/E up/down, drag to look)"], ["Q / E, PageDown / PageUp", "While walking: down / up"], ["O", "Orthographic projection"], ["X", "Section cut"], ["G", "Grid"], ["Esc", "Leave the tool or walk mode"]]],

@@ -25,6 +25,7 @@
 // Angles in DWG are radians (DXF: degrees) — converted on translation.
 
 import { importCadRecords } from "./dxf.js";
+import { decodeSatChars, acdsBlobs } from "./cadextra.js";
 
 // ================================================================ versions
 
@@ -449,7 +450,9 @@ function containerR2004(buf, ver, warn) {
     }
     return out;
   };
-  return { ver, codepage: u16(buf, 0x13), header: read("AcDb:Header"), classes: read("AcDb:Classes"), handles: read("AcDb:Handles"), objects: read("AcDb:AcDbObjects"), objectsBase: 0 };
+  let acds = null;
+  try { acds = read("AcDb:AcDsPrototype_1b", false); } catch { warn("The DWG data storage (ACIS solids) could not be read"); }
+  return { ver, codepage: u16(buf, 0x13), header: read("AcDb:Header"), classes: read("AcDb:Classes"), handles: read("AcDb:Handles"), objects: read("AcDb:AcDbObjects"), objectsBase: 0, acds };
 }
 
 // R2007: Reed-Solomon coded pages, R2007 LZ77.
@@ -745,6 +748,9 @@ const ENTITY_NAMES = {
 const T_BLOCK_HEADER = 0x31, T_LAYER = 0x33;
 // Class names decoded like the fixed types they stand for.
 const CLASS_TYPES = { LWPOLYLINE: 77, HATCH: 78 };
+// Class entities with a reader of their own (see classRecord); any other
+// class entity is drawn from its graphics when it has them.
+const CLASS_READERS = new Set(["IMAGE", "WIPEOUT", "MULTILEADER", "ACAD_TABLE", "HELIX", "ARC_DIMENSION", "LARGE_RADIAL_DIMENSION"]);
 
 const DEG = 180 / Math.PI;
 
@@ -796,7 +802,9 @@ class DwgReader {
       r.skip(n * 8);
     }
     if (entity) {
-      if (r.B()) { const n = v >= R2010 ? r.BLL() : r.RL(); r.skip(n * 8); }
+      // Graphics (proxy primitives of complex and custom entities): kept
+      // as a position, read only when the entity needs them.
+      if (r.B()) { const n = v >= R2010 ? r.BLL() : r.RL(); o.graphics = { bit: r.p, n }; r.skip(n * 8); }
     }
     if (v <= R14) o.bitsize = r.RL();
     o.hdlStart = o.start + o.bitsize;
@@ -804,9 +812,10 @@ class DwgReader {
     if (v >= R2007) {
       const s = stringStream(new BitReader(r.b, 0, r.b.length * 8), o.start, o.hdlStart);
       if (s) s.cp = this.cp;
+      o.dataEnd = s ? s.p : o.hdlStart;
       o.T = s ? () => s.TU() : () => "";
       r.end = Math.min(r.end, o.hdlStart);
-    } else o.T = () => r.TV();
+    } else { o.T = () => r.TV(); o.dataEnd = o.hdlStart; }
     const hdl = new BitReader(r.b, o.hdlStart, o.end);
     o.hdl = hdl;
     const ref = () => {
@@ -824,7 +833,7 @@ class DwgReader {
       o.entmode = r.BB();
       o.nreact = r.BL();
       o.xdicMissing = v >= R2004 ? r.B() : 0;
-      if (v >= R2013) r.B();
+      if (v >= R2013) o.hasDs = r.B(); // data in the AcDs data storage (ACIS)
       o.bylayerLt = v <= R14 ? r.B() : 1;
       o.nolinks = v <= R2000 ? r.B() : 1;
       o.color = readENC(r, v);
@@ -845,6 +854,8 @@ class DwgReader {
   // Common handles: owner, reactors, xdictionary, layer, links.
   commonHandles(o, entity) {
     const v = this.v;
+    if (o.handlesRead) return; // the handle stream is read once, in order
+    o.handlesRead = true;
     if (!entity || o.entmode === 0) o.owner = o.ref(); else o.owner = null;
     if (o.nreact > 10000) throw new Error("bad reactor count");
     for (let i = 0; i < o.nreact; i++) o.ref();
@@ -893,10 +904,69 @@ class DwgReader {
     r.B(); // has attributes
     const xref = r.B();
     const overlaid = r.B();
-    if (v >= R2000) r.B();
-    if (v >= R2004) r.BL();
+    if (v >= R2000) r.B(); // xref loaded
+    const isXref = !!(xref || overlaid);
+    const owned = v >= R2004 && !isXref ? r.BL() : 0; // (an xref block owns no entities)
     const base = r.BD3();
-    return { name, anonymous: !!anonymous, xref: !!(xref || overlaid), base };
+    const b = { name, anonymous: !!anonymous, xref: isXref, base, path: "", inserts: [], layout: 0 };
+    // The rest is optional: the xref path, the inserts (tables find their
+    // block through it) and the layout of a paper space block.
+    try {
+      b.path = o.T();
+      let nIns = 0;
+      if (v >= R2000) {
+        while (r.RC() !== 0) nIns++;
+        o.T(); // description
+        const pv = r.BL();
+        if (pv > r.left / 8) throw truncated();
+        r.skip(pv * 8);
+      }
+      this.commonHandles(o, false);
+      o.ref(); // xref block of a dependent symbol
+      o.ref(); // BLOCK entity
+      if (v <= R2000 && !isXref) { b.first = o.ref(); b.last = o.ref(); } else if (v >= R2004) { b.owned = []; for (let i = 0; i < Math.min(owned, 1e6); i++) b.owned.push(o.ref()); }
+      o.ref(); // ENDBLK
+      if (v >= R2000) {
+        for (let i = 0; i < Math.min(nIns, 1e5); i++) b.inserts.push(o.ref());
+        b.layout = o.ref();
+      }
+    } catch { /* keep what was read */ }
+    return b;
+  }
+
+  // LAYOUT object (plot settings, then the layout): name, tab order and
+  // the paper space block record it shows.
+  layoutObject(o) {
+    const { r } = o, v = this.v, T = o.T;
+    T(); T(); // page setup name, printer
+    r.BS(); r.BD(); r.BD(); r.BD(); r.BD(); r.BD(); r.BD(); // flags, margins, paper size
+    T(); // paper size name
+    r.BD2(); r.BS(); r.BS(); r.BS(); r.BD2(); r.BD2(); // origin, units, rotation, plot type, window
+    if (v < R2004) T(); // plot view name
+    r.BD(); r.BD(); T(); r.BS(); r.BD(); r.BD2(); // scales, style sheet, scale type
+    if (v >= R2004) { r.BS(); r.BS(); r.BS(); }
+    const name = T();
+    const order = r.BS();
+    this.commonHandles(o, false);
+    if (v >= R2004) o.ref(); // plot view
+    if (v >= R2007) o.ref(); // shade plot
+    const block = o.ref();
+    return { name, order, block };
+  }
+
+  imageDef(o) {
+    const { r } = o;
+    r.BL(); r.RD2();
+    return { path: o.T() };
+  }
+
+  // Graphics bytes of an entity (proxy primitives), or null.
+  graphics(o) {
+    if (!o.graphics || !(o.graphics.n > 0) || o.graphics.n > 1 << 26) return null;
+    const g = new BitReader(this.c.objects, o.graphics.bit, o.graphics.bit + o.graphics.n * 8);
+    const out = new Uint8Array(o.graphics.n);
+    for (let i = 0; i < out.length; i++) out[i] = g.RC();
+    return out;
   }
 }
 
@@ -987,16 +1057,20 @@ function entityRecord(d, o, kind) {
       if (kind === 1) add(73, vj);
       else {
         add(74, vj);
-        if (v >= R2010) r.RC(); // version
-        if (v >= R2018) {
-          const t2 = r.RC();
-          if (t2 > 1) { rec.skipAttr = true; } // multi-line attribute: text only
+        if (v >= R2010) r.RC(); // locked in block
+        let mt = null;
+        if (v >= R2018 && r.RC() > 1) {
+          // Multi-line attribute: an embedded MTEXT follows. When it cannot
+          // be read the single-line part (above) still shows the text.
+          const p0 = r.p;
+          try { mt = embeddedMtext(r, v, T); } catch { mt = null; r.p = p0; }
         }
-        if (!rec.skipAttr) {
+        try {
           add(2, T());
           r.BS(); // field length
           add(70, r.RC());
-        }
+        } catch { if (!mt) throw truncated(); }
+        if (mt) { add(101, "Embedded Object"); for (const tg of mt) tags.push(tg); }
       }
       break;
     }
@@ -1099,20 +1173,7 @@ function entityRecord(d, o, kind) {
       break;
     }
     case 20: case 21: case 22: case 23: case 24: case 25: case 26: { // DIMENSION
-      if (v >= R2010) r.RC();
-      const e3 = r.BD3();
-      const mid = r.RD2();
-      const el = r.BD();
-      r.RC();
-      const txt = T();
-      const trot = r.BD();
-      r.BD(); r.BD3(); r.BD();
-      let meas;
-      if (v >= R2000) { r.BS(); r.BS(); r.BD(); meas = r.BD(); }
-      if (v >= R2007) { r.B(); r.B(); r.B(); }
-      r.RD2(); // clone insertion point (12)
-      add(1, txt); add3(11, [mid[0], mid[1], el]); add(53, trot * DEG); ext(e3);
-      if (meas !== undefined) add(42, meas);
+      dimensionCommon(r, v, T, add, add3, ext);
       const P = (c) => add3(c, r.BD3());
       add(70, { 20: 6, 21: 0, 22: 1, 23: 5, 24: 2, 25: 4, 26: 3 }[kind]);
       if (kind === 20) { P(10); P(13); P(14); }
@@ -1170,6 +1231,53 @@ function entityRecord(d, o, kind) {
       break;
     }
     case 78: hatchTags(r, v, T, add, ext); break;
+    case 40: case 41: { // RAY, XLINE
+      add3(10, r.BD3()); add3(11, r.BD3());
+      break;
+    }
+    case 46: { // TOLERANCE
+      if (v <= R14) { r.BS(); r.BD(); r.BD(); }
+      add3(10, r.BD3()); add3(11, r.BD3()); ext(r.BD3()); add(1, T());
+      break;
+    }
+    case 47: { // MLINE
+      add(40, r.BD()); add(70, r.RC()); add3(10, r.BD3()); ext(r.BD3()); add(71, r.BS());
+      const nl = r.RC(), nv = r.BS();
+      if (nv > 1e5) throw new Error("bad mline");
+      add(73, nl); add(72, nv);
+      for (let i = 0; i < nv; i++) {
+        add3(11, r.BD3()); add3(12, r.BD3()); add3(13, r.BD3());
+        for (let k = 0; k < nl; k++) {
+          const ns = r.BS();
+          if (ns > 1e4) throw new Error("bad mline");
+          add(74, ns); for (let q = 0; q < ns; q++) add(41, r.BD());
+          const na = r.BS();
+          if (na > 1e4) throw new Error("bad mline");
+          add(75, na); for (let q = 0; q < na; q++) add(42, r.BD());
+        }
+      }
+      break;
+    }
+    case 34: { // VIEWPORT
+      add3(10, r.BD3()); add(40, r.BD()); add(41, r.BD());
+      let status = 0;
+      if (v >= R2000) {
+        add3(17, r.BD3()); add3(16, r.BD3()); add(51, r.BD() * DEG); add(45, r.BD());
+        r.BD(); r.BD(); r.BD(); r.BD(); // lens, front and back clip, snap angle
+        const vc = r.RD2(); add(12, vc[0]); add(22, vc[1]);
+        r.RD2(); r.RD2(); r.RD2(); r.BS();
+        if (v >= R2007) r.BS();
+        rec.frozen = r.BL();
+        status = r.BL();
+        add(90, status);
+      }
+      add(68, status & 0x20000 ? 0 : 1);
+      break;
+    }
+    case 37: case 38: case 39: { // REGION, 3DSOLID, BODY: ACIS model
+      rec.acis = acisData(r, o, d);
+      break;
+    }
     default:
       break; // unsupported: the type name alone (the importer reports it)
   }
@@ -1188,8 +1296,247 @@ function entityRecord(d, o, kind) {
   } else if (kind >= 20 && kind <= 26) {
     o.ref(); // dimension style
     rec.block = o.ref();
+  } else if (kind === 34 && v >= R2000) {
+    if (v <= R14) o.ref();
+    rec.frozenLayers = [];
+    for (let i = 0; i < Math.min(rec.frozen || 0, 1e4); i++) rec.frozenLayers.push(o.ref());
   }
   return rec;
+}
+
+// The fields every dimension starts with (DIMENSION types and the
+// ARC_DIMENSION / LARGE_RADIAL_DIMENSION classes).
+function dimensionCommon(r, v, T, add, add3, ext) {
+  if (v >= R2010) r.RC();
+  const e3 = r.BD3();
+  const mid = r.RD2();
+  const el = r.BD();
+  r.RC();
+  const txt = T();
+  const trot = r.BD();
+  r.BD(); r.BD3(); r.BD();
+  let meas;
+  if (v >= R2000) { r.BS(); r.BS(); r.BD(); meas = r.BD(); }
+  if (v >= R2007) { r.B(); r.B(); r.B(); }
+  r.RD2(); // clone insertion point (12)
+  add(1, txt); add3(11, [mid[0], mid[1], el]); add(53, trot * DEG); ext(e3);
+  if (meas !== undefined) add(42, meas);
+}
+
+// ACIS data of a REGION / 3DSOLID / BODY: SAT text (version 1, R13–R2000,
+// stored in obfuscated blocks) or SAB bytes (version 2, R2004+). R2013+
+// keep the SAB in the AcDs data storage instead (see acdsBlobs).
+function acisData(r, o, d) {
+  if (o.hasDs && d.acds && d.acds.has(o.handle)) return d.acds.get(o.handle);
+  if (r.B()) return null; // empty
+  r.B();
+  const ver = r.BS();
+  if (ver === 1) {
+    let s = "";
+    for (let guard = 0; guard < 1e5; guard++) {
+      const n = r.BL();
+      if (!n) break;
+      if (n > r.left / 8) throw truncated();
+      let chunk = "";
+      for (let i = 0; i < n; i++) chunk += String.fromCharCode(r.RC());
+      s += chunk;
+    }
+    return decodeSatChars(s);
+  }
+  if (ver === 2) {
+    // SAB up to its end marker ("End-of-ACIS-data" / "End-of-ASM-data").
+    const n = Math.floor(r.left / 8);
+    const b = new Uint8Array(n);
+    for (let i = 0; i < n; i++) b[i] = r.RC();
+    return /^(ACIS|ASM) BinaryFile/.test(String.fromCharCode(...b.subarray(0, 15))) ? b : null;
+  }
+  return null;
+}
+
+// MTEXT data embedded in an R2018 multi-line ATTRIB → MTEXT tags.
+function embeddedMtext(r, v, T) {
+  const tags = [];
+  const p3 = (c, p) => tags.push([c, p[0]], [c + 10, p[1]], [c + 20, p[2]]);
+  p3(10, r.BD3());
+  const e = r.BD3();
+  if (e[0] || e[1] || e[2] !== 1) tags.push([210, e[0]], [220, e[1]], [230, e[2]]);
+  p3(11, r.BD3());
+  tags.push([41, r.BD()]);
+  r.BD(); // rectangle height
+  const h = r.BD();
+  tags.push([40, h], [71, r.BS()], [72, r.BS()]);
+  r.BD(); r.BD();
+  const txt = T();
+  if (!(h > 0 && h < 1e9) || !txt) throw new Error("bad embedded mtext");
+  tags.push([1, txt]);
+  return tags;
+}
+
+// ---------------------------------------------------------------- class entities
+// Entities defined by a class (type ≥ 500): their own data after the common
+// part. The handle stream continues after the common handles.
+
+function classRecord(d, o, name) {
+  const { r } = o, v = d.v, T = o.T;
+  const tags = [];
+  const add = (c, x) => tags.push([c, x]);
+  const add3 = (c, p) => { add(c, p[0]); add(c + 10, p[1]); add(c + 20, p[2] || 0); };
+  const ext = (e) => { if (e && (e[0] || e[1] || e[2] !== 1)) { add(210, e[0]); add(220, e[1]); add(230, e[2]); } };
+  const rec = { type: name, tags };
+  d.commonHandles(o, true);
+  switch (name) {
+    case "IMAGE": case "WIPEOUT": {
+      r.BL();
+      add3(10, r.BD3()); add3(11, r.BD3()); add3(12, r.BD3());
+      const sz = r.RD2(); add(13, sz[0]); add(23, sz[1]);
+      add(70, r.BS()); add(280, r.B()); r.RC(); r.RC(); r.RC();
+      if (v >= R2010) r.B();
+      const ct = r.BS();
+      add(71, ct);
+      const n = ct === 1 ? 2 : r.BL();
+      if (n > 1e5) throw new Error("bad image");
+      add(91, n);
+      for (let i = 0; i < n; i++) { const q = r.RD2(); add(14, q[0]); add(24, q[1]); }
+      rec.imageDef = o.ref();
+      break;
+    }
+    case "MULTILEADER": {
+      const p0 = r.p, h0 = o.hdl.p;
+      let res = null;
+      // The leader's optional points are read always (ODA) or only when
+      // flagged (LibreDWG): keep the reading that ends where the data ends.
+      for (const always of [true, false]) {
+        r.p = p0; o.hdl.p = h0;
+        try {
+          const t = mleaderTags(r, v, T, o, always);
+          const slack = Math.abs(o.dataEnd - r.p);
+          if (!res || slack < res.slack) res = { t, slack, hp: o.hdl.p };
+          if (slack < 8) break;
+        } catch { /* try the other reading */ }
+      }
+      if (!res) throw new Error("bad multileader");
+      tags.push(...res.t);
+      break;
+    }
+    case "ACAD_TABLE": {
+      if (v < R2010) {
+        add3(10, r.BD3());
+        let sc;
+        if (v >= R2000) {
+          const f = r.BB();
+          if (f === 3) sc = [1, 1, 1];
+          else if (f === 1) { const y = r.DD(1); sc = [1, y, r.DD(1)]; } else if (f === 2) { const x = r.RD(); sc = [x, x, x]; } else { const x = r.RD(); const y = r.DD(x); sc = [x, y, r.DD(x)]; }
+        } else sc = r.BD3();
+        add(41, sc[0]); add(42, sc[1]); add(43, sc[2]);
+        add(50, r.BD() * DEG); ext(r.BD3());
+        r.B(); // has attributes (never)
+        if (v >= R2004) r.BL();
+        rec.block = o.ref();
+      } else rec.tableR2010 = true; // placed from its block and graphics (see below)
+      break;
+    }
+    case "HELIX": {
+      const sub = entityRecord(d, o, 36);
+      rec.tags = sub.tags;
+      break;
+    }
+    case "ARC_DIMENSION": case "LARGE_RADIAL_DIMENSION": {
+      try { dimensionCommon(r, v, T, add, add3, ext); } catch { /* the block is enough */ }
+      o.ref(); // dimension style
+      rec.block = o.ref();
+      break;
+    }
+    default:
+      break;
+  }
+  return rec;
+}
+
+// MULTILEADER data → the DXF tags parseMleader (cadextra.js) reads.
+function mleaderTags(r, v, T, o, always) {
+  const tags = [];
+  const add = (c, x) => tags.push([c, x]);
+  const add3 = (c, p) => { add(c, p[0]); add(c + 10, p[1]); add(c + 20, p[2]); };
+  const CMC = () => readCMC(r, v, T);
+  if (v >= R2010) r.BS(); // class version
+  const nl = r.BL();
+  if (nl > 5000) throw new Error("bad multileader");
+  const leaders = [];
+  for (let i = 0; i < nl; i++) {
+    const L = { lines: [] };
+    const hasLast = r.B(), hasDog = r.B();
+    if (always || hasLast) L.last = r.BD3();
+    if (always || hasDog) L.dog = r.BD3();
+    if (!hasLast) L.last = null;
+    const nb = r.BL();
+    if (nb > 5000) throw new Error("bad multileader");
+    for (let k = 0; k < nb; k++) { r.BD3(); r.BD3(); }
+    L.branch = r.BL();
+    L.len = r.BD();
+    const nln = r.BL();
+    if (nln > 5000) throw new Error("bad multileader");
+    for (let k = 0; k < nln; k++) {
+      const np = r.BL();
+      if (np > 1e5) throw new Error("bad multileader");
+      const pts = [];
+      for (let q = 0; q < np; q++) pts.push(r.BD3());
+      const nbr = r.BL();
+      if (nbr > 5000) throw new Error("bad multileader");
+      for (let q = 0; q < nbr; q++) { r.BD3(); r.BD3(); }
+      r.BL(); // line index
+      if (v >= R2010) { r.BS(); CMC(); o.ref(); r.BL(); r.BD(); o.ref(); r.BL(); }
+      L.lines.push(pts);
+    }
+    if (v >= R2010) r.BS();
+    leaders.push(L);
+  }
+  add(300, "CONTEXT_DATA{");
+  add(40, r.BD()); add3(10, r.BD3()); add(41, r.BD()); add(140, r.BD()); add(145, r.BD());
+  r.BS(); r.BS(); r.BS(); r.BS();
+  const hasText = r.B();
+  add(290, hasText ? 1 : 0);
+  if (hasText) {
+    add(304, T()); add3(11, r.BD3()); o.ref(); add3(12, r.BD3()); add3(13, r.BD3());
+    r.BD(); r.BD(); r.BD(); r.BD(); r.BS(); CMC();
+    add(171, r.BS()); r.BS(); CMC(); r.BD(); r.BL(); r.B(); r.B(); r.BS(); r.B(); r.BD(); r.BD(); r.B();
+    const nc = r.BL();
+    if (nc > 5000) throw new Error("bad multileader");
+    for (let k = 0; k < nc; k++) r.BD();
+    r.B(); r.B();
+  } else {
+    const hasBlock = r.B();
+    add(296, hasBlock ? 1 : 0);
+    if (hasBlock) {
+      add(341, o.ref().toString(16).toUpperCase()); r.BD3(); add3(15, r.BD3()); add3(16, r.BD3()); add(46, r.BD()); CMC();
+      for (let k = 0; k < 16; k++) r.BD();
+    }
+  }
+  r.BD3(); r.BD3(); r.BD3(); r.B();
+  if (v >= R2010) { r.BS(); r.BS(); }
+  for (const L of leaders) {
+    add(302, "LEADER{");
+    if (L.last) add3(10, L.last);
+    if (L.dog) add3(11, L.dog);
+    add(90, L.branch); add(40, L.len);
+    for (const pts of L.lines) { add(304, "LEADER_LINE{"); for (const p of pts) add3(10, p); add(305, "}"); }
+    add(303, "}");
+  }
+  add(301, "}");
+  // The entity's own (style override) fields.
+  o.ref(); r.BL(); add(170, r.BS()); CMC(); o.ref(); r.BL(); r.B(); add(291, r.B() ? 1 : 0); r.BD(); o.ref(); add(42, r.BD());
+  add(172, r.BS()); o.ref(); r.BS(); r.BS(); r.BS(); r.BS(); CMC(); r.B(); o.ref(); CMC(); r.BD3(); r.BD(); r.BS(); r.B();
+  if (v <= R2007) {
+    const na = r.BL();
+    if (na > 5000) throw new Error("bad multileader");
+    for (let k = 0; k < na; k++) { r.B(); o.ref(); }
+    const nb = r.BL();
+    if (nb > 5000) throw new Error("bad multileader");
+    for (let k = 0; k < nb; k++) { o.ref(); T(); r.BS(); r.BD(); }
+    r.B(); r.BS(); r.BS(); r.BD();
+  }
+  if (v >= R2010) { r.BS(); r.BS(); r.BS(); }
+  if (v >= R2013) r.B();
+  return tags;
 }
 
 /**
@@ -1327,13 +1674,15 @@ function hatchTags(r, v, T, add, ext) {
 
 // Emitted with their owner (or implied by the block structure), never alone.
 const SKIP_SILENT = new Set(["BLOCK", "ENDBLK", "SEQEND", "VERTEX", "ATTRIB"]);
+const hex = (h) => (h || 0).toString(16).toUpperCase();
 
 /**
- * Read a DWG drawing (bytes) into CAD layer geometry, exactly like
- * importDxf: {drawings, texts, layers, units, scale, bounds, warnings,
- * counts, version}.
+ * Read a DWG drawing (bytes) into the DXF-style records importCadRecords
+ * takes: {vars, tables, blocks, entities, objects, acdsMap, version,
+ * notes, emitted, topCounts}. Paper space entities carry group 67 = 1;
+ * BLOCK_RECORD table entries link paper space blocks to LAYOUT objects.
  */
-export function importDwg(input, { level = null, units = "auto" } = {}) {
+export function dwgRecords(input) {
   const buf = toBytes(input);
   const ver = detectDwgVersion(buf);
   if (!ver) throw new Error("Not a DWG file (unknown signature)");
@@ -1350,6 +1699,7 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
   }
   const d = new DwgReader(c, warn);
   const cp = c.codepage;
+  if (c.acds) { try { d.acds = acdsBlobs(c.acds); } catch { warn("The DWG data storage (ACIS solids) could not be read"); } }
 
   // Header variables (units). A damaged header only costs the units.
   const vars = {};
@@ -1357,6 +1707,10 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
     const hv = headerVars(c.header, v, cp);
     if (hv.INSUNITS >= 0 && hv.INSUNITS <= 20) vars.$INSUNITS = { 70: hv.INSUNITS };
     if (hv.DIMTXT > 0 && hv.DIMTXT < 1e6) vars.$DIMTXT = { 40: hv.DIMTXT };
+    if (hv.EXTMIN && hv.EXTMAX && hv.EXTMIN.every(Number.isFinite) && hv.EXTMAX.every(Number.isFinite) && hv.EXTMAX[0] >= hv.EXTMIN[0]) {
+      vars.$EXTMIN = { 10: hv.EXTMIN[0], 20: hv.EXTMIN[1] };
+      vars.$EXTMAX = { 10: hv.EXTMAX[0], 20: hv.EXTMAX[1] };
+    }
     d.headerVars = hv;
   } catch { warn("The DWG header could not be read; the units are guessed"); }
 
@@ -1368,6 +1722,8 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
   const layers = new Map(); // handle → layer
   const blocks = new Map(); // handle → block header
   const ents = new Map(); // handle → {kind, o}
+  const layouts = new Map(); // handle → layout
+  const imageDefs = new Map(); // handle → {path}
   let failed = 0;
   for (const [handle, off] of map) {
     let o;
@@ -1379,7 +1735,7 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
         if (!cl) continue;
         if (CLASS_TYPES[cl.dxf]) kind = CLASS_TYPES[cl.dxf];
         else {
-          if (cl.entity) { d.common(o, true); d.commonHandles(o, true); ents.set(handle, { kind: cl.dxf, o }); }
+          if (cl.entity) { d.common(o, true); d.commonHandles(o, true); ents.set(handle, { kind: cl.dxf, o }); } else if (cl.dxf === "LAYOUT") { d.common(o, false); layouts.set(handle, d.layoutObject(o)); } else if (cl.dxf === "IMAGEDEF") { d.common(o, false); imageDefs.set(handle, d.imageDef(o)); }
           continue;
         }
       }
@@ -1404,13 +1760,28 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
     }
     seenNames.add(key);
   }
+  // Which block an R2010+ table shows (the table is among its inserts).
+  const blockOfInsert = new Map();
+  for (const [h, b] of blocks) for (const i of b.inserts) blockOfInsert.set(i, h);
 
   // Pass 2: entity data → DXF records.
   const recs = new Map();
+  let graphicsOnly = 0;
   for (const [handle, it] of ents) {
     try {
       let rec;
-      if (typeof it.kind === "string") { rec = { type: it.kind, tags: [] }; } else rec = entityRecord(d, it.o, it.kind);
+      if (typeof it.kind === "string") rec = classRecord(d, it.o, it.kind);
+      else rec = entityRecord(d, it.o, it.kind);
+      // Types the importer has no reader for are drawn from their graphics.
+      if (typeof it.kind === "string" && !CLASS_READERS.has(it.kind) || rec.tableR2010 || rec.type === "OLE2FRAME") {
+        const g = d.graphics(it.o);
+        if (g) { rec.graphics = g; graphicsOnly++; }
+      } else if (it.kind === "MULTILEADER" || (it.kind >= 37 && it.kind <= 39)) {
+        const g = d.graphics(it.o);
+        if (g) rec.graphics = g; // a fallback if the data cannot be drawn
+      }
+      if (rec.tableR2010 && blockOfInsert.has(handle)) rec.block = blockOfInsert.get(handle); // placed by its graphics
+      if (rec.imageDef !== undefined) { const def = imageDefs.get(rec.imageDef); if (def) rec.imageFile = def.path; }
       rec.handle = handle;
       rec.owner = it.o.owner;
       rec.entmode = it.o.entmode;
@@ -1441,6 +1812,8 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
     }
     if (idx !== 256) t.push([62, idx]);
     if (rec.invisible & 1) t.push([60, 1]);
+    t.push([5, hex(rec.handle)]);
+    if (rec.frozenLayers) rec.frozenLayerNames = rec.frozenLayers.map(layerName);
     return rec;
   };
 
@@ -1476,18 +1849,18 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
   const emitted = new Map(); // type → objects in the file (model space and blocks)
   const emit = (rec, out, paper = false) => {
     if (SKIP_SILENT.has(rec.type)) return;
-    if (paper) { out.push({ type: rec.type, tags: [[67, 1]] }); return; }
-    emitted.set(rec.type, (emitted.get(rec.type) || 0) + 1);
+    if (!paper) emitted.set(rec.type, (emitted.get(rec.type) || 0) + 1);
     if (rec.block !== undefined) {
       const b = blocks.get(rec.block);
       if (b) rec.tags.unshift([2, b.name]);
     }
     out.push(styled(rec));
+    if (paper) rec.tags.push([67, 1]);
     if (rec.type === "POLYLINE") {
       for (const vx of childrenOf(rec, "VERTEX")) out.push(styled(vx));
       out.push({ type: "SEQEND", tags: [] });
     } else if (rec.type === "INSERT" && rec.hasAttribs) {
-      for (const a of childrenOf(rec, "ATTRIB")) if (!a.skipAttr) out.push(styled(a));
+      for (const a of childrenOf(rec, "ATTRIB")) out.push(styled(a));
       out.push({ type: "SEQEND", tags: [] });
     }
   };
@@ -1498,20 +1871,36 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
     if (n === "*MODEL_SPACE") modelH = h;
     else if (n === "*PAPER_SPACE") paperH = h;
   }
+  // The blocks' own entity lists say where an entity lives (entmode 1 only
+  // says "paper space", not which layout).
+  const ownerOf = new Map();
+  for (const [h, b] of blocks) {
+    if (b.owned) for (const e of b.owned) ownerOf.set(e, h);
+    else if (b.first && recs.has(b.first)) {
+      const seen = new Set();
+      for (let cur = recs.get(b.first); cur && !seen.has(cur.handle) && seen.size < 1e6; cur = recs.get(cur.next)) {
+        seen.add(cur.handle);
+        ownerOf.set(cur.handle, h);
+        if (cur.handle === b.last || !cur.next) break;
+      }
+    }
+  }
   const entities = [];
   const blockLists = new Map([...blocks.keys()].map((h) => [h, []]));
   const sorted = [...recs.values()].sort((a, b) => a.handle - b.handle);
   for (const rec of sorted) {
+    const own = ownerOf.get(rec.handle);
+    if (own !== undefined && rec.entmode !== 0 && own !== modelH && own !== paperH && blockLists.has(own)) { emit(rec, blockLists.get(own)); continue; }
     if (rec.entmode === 2 || (rec.entmode === 0 && rec.owner === modelH && modelH !== null)) emit(rec, entities);
     else if (rec.entmode === 1 || (rec.entmode === 0 && rec.owner === paperH && paperH !== null)) emit(rec, entities, true);
     else if (rec.entmode === 0 && blockLists.has(rec.owner)) emit(rec, blockLists.get(rec.owner));
   }
   // Top-level model space entities per type (like importDxf's counts).
   const topCounts = {};
-  for (const r of entities) if (!(r.tags.length === 1 && r.tags[0][0] === 67) && r.type !== "VERTEX" && r.type !== "SEQEND" && r.type !== "ATTRIB") topCounts[r.type] = (topCounts[r.type] || 0) + 1;
+  for (const r of entities) if (!r.tags.some((t) => t[0] === 67) && r.type !== "VERTEX" && r.type !== "SEQEND" && r.type !== "ATTRIB") topCounts[r.type] = (topCounts[r.type] || 0) + 1;
 
-  const tables = [...layers.values()].filter((l) => l.name).map((l) => {
-    const tags = [[2, l.name]];
+  const tables = [...layers.entries()].filter(([, l]) => l.name).map(([h, l]) => {
+    const tags = [[2, l.name], [5, hex(h)]];
     let idx = l.color.index;
     if (l.color.rgb !== undefined && l.color.rgb >>> 24 === 0xc3) idx = l.color.rgb & 0xff;
     if (!l.on && idx > 0) idx = -idx;
@@ -1519,21 +1908,47 @@ export function importDwg(input, { level = null, units = "auto" } = {}) {
     if (l.color.rgb !== undefined && l.color.rgb >>> 24 === 0xc2) tags.push([420, l.color.rgb & 0xffffff]);
     return { type: "LAYER", tags };
   });
+  for (const [h, b] of blocks) {
+    const tags = [[2, b.name], [5, hex(h)]];
+    if (b.layout) tags.push([340, hex(b.layout)]);
+    tables.push({ type: "BLOCK_RECORD", tags });
+  }
+  const objects = [];
+  for (const [h, l] of layouts) objects.push({ type: "LAYOUT", tags: [[5, hex(h)], [1, l.name], [71, l.order], [330, hex(l.block)]] });
+  for (const [h, def] of imageDefs) objects.push({ type: "IMAGEDEF", tags: [[5, hex(h)], [1, def.path]] });
+
   const blockRecs = [];
   for (const [h, b] of blocks) {
     if (h === modelH || h === paperH) continue;
-    blockRecs.push({ type: "BLOCK", tags: [[2, b.name], [10, b.base[0]], [20, b.base[1]], [30, b.base[2]], [70, (b.anonymous ? 1 : 0) | (b.xref ? 4 : 0)]] });
+    const tags = [[2, b.name], [10, b.base[0]], [20, b.base[1]], [30, b.base[2]], [70, (b.anonymous ? 1 : 0) | (b.xref ? 4 : 0)], [330, hex(h)]];
+    if (b.xref && b.path) tags.push([1, b.path]);
+    blockRecs.push({ type: "BLOCK", tags });
     blockRecs.push(...blockLists.get(h));
     blockRecs.push({ type: "ENDBLK", tags: [] });
   }
+  return { vars, tables, blocks: blockRecs, entities, objects, acdsMap: null, version: ver.release, notes: [...notes], emitted, topCounts };
+}
 
-  const res = importCadRecords({ vars, tables, blocks: blockRecs, entities }, { level, units });
-  res.warnings = [...notes, ...res.warnings.map((w) => {
+/**
+ * Read a DWG drawing (bytes) into CAD layer geometry, exactly like
+ * importDxf: {drawings, texts, layers, units, scale, bounds, warnings,
+ * counts, version, layouts, images, xrefs}. `space`: "model" (default),
+ * "layout:<name>" or "all"; `xrefs`: external drawings by block name
+ * (records from dwgRecords / dxfRecords).
+ */
+export function importDwg(input, opts = {}) {
+  return importDwgRecords(dwgRecords(input), opts);
+}
+
+/** importDwg for records already read with dwgRecords. */
+export function importDwgRecords(recs, { level = null, units = "auto", space = "model", xrefs = null } = {}) {
+  const res = importCadRecords(recs, { level, units, space, xrefs });
+  res.warnings = [...recs.notes, ...res.warnings.map((w) => {
     const m = /^(\S+) entities are not supported and were skipped$/.exec(w);
-    return m && emitted.get(m[1]) ? `${w} (${emitted.get(m[1])})` : w;
+    return m && recs.emitted.get(m[1]) ? `${w} (${recs.emitted.get(m[1])})` : w;
   })];
-  res.counts = topCounts;
-  res.version = ver.release;
+  res.counts = recs.topCounts;
+  res.version = recs.version;
   return res;
 }
 

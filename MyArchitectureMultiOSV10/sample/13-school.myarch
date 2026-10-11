@@ -8,7 +8,7 @@
   "client": "Sample",
   "address": "Gwangju",
   "rev": "A",
-  "date": "2026-10-10",
+  "date": "2026-10-11",
   "comment": "",
   "scale": 200,
   "north": 0,
@@ -31,14 +31,14 @@
  },
  "levels": [
   {
-   "id": "lvl5olp03yqj9",
+   "id": "lvbsc9c0477zv",
    "name": "1F",
    "elevation": 0,
    "height": 3800,
    "slab": 200
   },
   {
-   "id": "lvl5olp03yrld",
+   "id": "lvbsc9c0478af",
    "name": "2F",
    "elevation": 3800,
    "height": 3800,
@@ -190,7 +190,13 @@
   "opening": 100000,
   "stair": 2500000,
   "column": 300000,
-  "furniture": 0
+  "furniture": 0,
+  "slab": 90000,
+  "ceiling": 45000,
+  "beam": 180000,
+  "railing": 150000,
+  "ramp": 2000000,
+  "curtainWall": 650000
  },
  "layers": [
   {
@@ -202,8 +208,8 @@
  ],
  "walls": [
   {
-   "id": "wl5olp03ys85",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c0479w0",
+   "level": "lvbsc9c0477zv",
    "x1": 0,
    "y1": 0,
    "x2": 45000,
@@ -214,8 +220,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olp03ytrk",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c047az6",
+   "level": "lvbsc9c0477zv",
    "x1": 45000,
    "y1": 0,
    "x2": 45000,
@@ -226,8 +232,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olp03yu1k",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c047bbl",
+   "level": "lvbsc9c0477zv",
    "x1": 45000,
    "y1": 19000,
    "x2": 0,
@@ -238,8 +244,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olp03yvdy",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c047cpt",
+   "level": "lvbsc9c0477zv",
    "x1": 0,
    "y1": 19000,
    "x2": 0,
@@ -250,8 +256,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olp03ywmm",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c047duk",
+   "level": "lvbsc9c0477zv",
    "x1": 0,
    "y1": 8000,
    "x2": 45000,
@@ -262,8 +268,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olp03yx8r",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c047ejl",
+   "level": "lvbsc9c0477zv",
    "x1": 0,
    "y1": 11000,
    "x2": 45000,
@@ -274,8 +280,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olp03z03j",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c047hxl",
+   "level": "lvbsc9c0477zv",
    "x1": 6000,
    "y1": 0,
    "x2": 6000,
@@ -286,8 +292,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq03z4g8",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c047l00",
+   "level": "lvbsc9c0477zv",
    "x1": 15000,
    "y1": 0,
    "x2": 15000,
@@ -298,8 +304,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq040gci",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c048xz1",
+   "level": "lvbsc9c0477zv",
    "x1": 24000,
    "y1": 0,
    "x2": 24000,
@@ -310,8 +316,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq041s6f",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c04a9kp",
+   "level": "lvbsc9c0477zv",
    "x1": 33000,
    "y1": 0,
    "x2": 33000,
@@ -322,8 +328,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq044b2h",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c04csow",
+   "level": "lvbsc9c0477zv",
    "x1": 5000,
    "y1": 11000,
    "x2": 5000,
@@ -334,8 +340,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq044i43",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c04czy2",
+   "level": "lvbsc9c0477zv",
    "x1": 14000,
    "y1": 11000,
    "x2": 14000,
@@ -346,8 +352,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq044y0m",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c04dfjs",
+   "level": "lvbsc9c0477zv",
    "x1": 23000,
    "y1": 11000,
    "x2": 23000,
@@ -358,8 +364,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq046avq",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c04erw4",
+   "level": "lvbsc9c0477zv",
    "x1": 32000,
    "y1": 11000,
    "x2": 32000,
@@ -370,8 +376,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq047m65",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9c04g3ac",
+   "level": "lvbsc9c0477zv",
    "x1": 38000,
    "y1": 11000,
    "x2": 38000,
@@ -382,8 +388,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq048nca",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04h4l4",
+   "level": "lvbsc9c0478af",
    "x1": 0,
    "y1": 0,
    "x2": 45000,
@@ -394,8 +400,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq048oof",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04h5jy",
+   "level": "lvbsc9c0478af",
    "x1": 45000,
    "y1": 0,
    "x2": 45000,
@@ -406,8 +412,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq048pry",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04h6le",
+   "level": "lvbsc9c0478af",
    "x1": 45000,
    "y1": 19000,
    "x2": 0,
@@ -418,8 +424,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq048qad",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04h70j",
+   "level": "lvbsc9c0478af",
    "x1": 0,
    "y1": 19000,
    "x2": 0,
@@ -430,8 +436,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq048rqm",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04h8zx",
+   "level": "lvbsc9c0478af",
    "x1": 0,
    "y1": 8000,
    "x2": 45000,
@@ -442,8 +448,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq048sgh",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04h9jz",
+   "level": "lvbsc9c0478af",
    "x1": 0,
    "y1": 11000,
    "x2": 45000,
@@ -454,8 +460,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq048t9p",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04had8",
+   "level": "lvbsc9c0478af",
    "x1": 6000,
    "y1": 0,
    "x2": 6000,
@@ -466,8 +472,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olq048w70",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04hdze",
+   "level": "lvbsc9c0478af",
    "x1": 15000,
    "y1": 0,
    "x2": 15000,
@@ -478,8 +484,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04a8h2",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04ipo7",
+   "level": "lvbsc9c0478af",
    "x1": 24000,
    "y1": 0,
    "x2": 24000,
@@ -490,8 +496,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04bkrv",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04k1fo",
+   "level": "lvbsc9c0478af",
    "x1": 33000,
    "y1": 0,
    "x2": 33000,
@@ -502,8 +508,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04cwqd",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04ldx8",
+   "level": "lvbsc9c0478af",
    "x1": 42000,
    "y1": 0,
    "x2": 42000,
@@ -514,8 +520,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04e91v",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04mqc5",
+   "level": "lvbsc9c0478af",
    "x1": 5000,
    "y1": 11000,
    "x2": 5000,
@@ -526,8 +532,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04egis",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04mx8b",
+   "level": "lvbsc9c0478af",
    "x1": 14000,
    "y1": 11000,
    "x2": 14000,
@@ -538,8 +544,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04fs5d",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04o9j1",
+   "level": "lvbsc9c0478af",
    "x1": 23000,
    "y1": 11000,
    "x2": 23000,
@@ -550,8 +556,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04h4lu",
-   "level": "lvl5olp03yrld",
+   "id": "wbsc9d04plrc",
+   "level": "lvbsc9c0478af",
    "x1": 32000,
    "y1": 11000,
    "x2": 32000,
@@ -562,8 +568,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04jcnh",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9e04rtua",
+   "level": "lvbsc9c0477zv",
    "x1": 45000,
    "y1": 0,
    "x2": 65000,
@@ -574,8 +580,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04jd6x",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9e04ruyn",
+   "level": "lvbsc9c0477zv",
    "x1": 65000,
    "y1": 0,
    "x2": 65000,
@@ -586,8 +592,8 @@
    "phase": "new"
   },
   {
-   "id": "wl5olr04jeyu",
-   "level": "lvl5olp03yqj9",
+   "id": "wbsc9e04rv22",
+   "level": "lvbsc9c0477zv",
    "x1": 65000,
    "y1": 19000,
    "x2": 45000,
@@ -600,8 +606,8 @@
  ],
  "openings": [
   {
-   "id": "ol5olp03yysn",
-   "wall": "wl5olp03yvdy",
+   "id": "obsc9c047fd0",
+   "wall": "wbsc9c047cpt",
    "kind": "door",
    "type": "double",
    "at": 9500,
@@ -613,8 +619,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olp03yz5d",
-   "wall": "wl5olp03ytrk",
+   "id": "obsc9c047g8i",
+   "wall": "wbsc9c047az6",
    "kind": "door",
    "type": "double",
    "at": 9500,
@@ -626,8 +632,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olp03z135",
-   "wall": "wl5olp03ywmm",
+   "id": "obsc9c047iuz",
+   "wall": "wbsc9c047duk",
    "kind": "door",
    "type": "sliding",
    "at": 3000,
@@ -639,8 +645,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olp03z20s",
-   "wall": "wl5olp03ys85",
+   "id": "obsc9c047j1j",
+   "wall": "wbsc9c0479w0",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -652,8 +658,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq03z5ch",
-   "wall": "wl5olp03ywmm",
+   "id": "obsc9c047mf5",
+   "wall": "wbsc9c047duk",
    "kind": "door",
    "type": "sliding",
    "at": 14000,
@@ -665,8 +671,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq03z6la",
-   "wall": "wl5olp03ys85",
+   "id": "obsc9c047n7v",
+   "wall": "wbsc9c0479w0",
    "kind": "window",
    "type": "casement",
    "at": 10500,
@@ -678,8 +684,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq040hee",
-   "wall": "wl5olp03ywmm",
+   "id": "obsc9c048y2c",
+   "wall": "wbsc9c047duk",
    "kind": "door",
    "type": "sliding",
    "at": 23000,
@@ -691,8 +697,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq040iv7",
-   "wall": "wl5olp03ys85",
+   "id": "obsc9c048z0b",
+   "wall": "wbsc9c0479w0",
    "kind": "window",
    "type": "casement",
    "at": 19500,
@@ -704,8 +710,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq041tzl",
-   "wall": "wl5olp03ywmm",
+   "id": "obsc9c04aaho",
+   "wall": "wbsc9c047duk",
    "kind": "door",
    "type": "sliding",
    "at": 32000,
@@ -717,8 +723,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq041u3q",
-   "wall": "wl5olp03ys85",
+   "id": "obsc9c04abis",
+   "wall": "wbsc9c0479w0",
    "kind": "window",
    "type": "casement",
    "at": 28500,
@@ -730,8 +736,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq0434hk",
-   "wall": "wl5olp03ywmm",
+   "id": "obsc9c04bli3",
+   "wall": "wbsc9c047duk",
    "kind": "door",
    "type": "sliding",
    "at": 39000,
@@ -743,8 +749,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq0435pu",
-   "wall": "wl5olp03ys85",
+   "id": "obsc9c04bm9s",
+   "wall": "wbsc9c0479w0",
    "kind": "window",
    "type": "casement",
    "at": 39000,
@@ -756,8 +762,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq044cxv",
-   "wall": "wl5olp03yx8r",
+   "id": "obsc9c04ctwo",
+   "wall": "wbsc9c047ejl",
    "kind": "door",
    "type": "sliding",
    "at": 4000,
@@ -769,8 +775,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq044dtj",
-   "wall": "wl5olp03yu1k",
+   "id": "obsc9c04cuk3",
+   "wall": "wbsc9c047bbl",
    "kind": "window",
    "type": "casement",
    "at": 42500,
@@ -782,8 +788,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq044j95",
-   "wall": "wl5olp03yx8r",
+   "id": "obsc9c04d00l",
+   "wall": "wbsc9c047ejl",
    "kind": "door",
    "type": "sliding",
    "at": 13000,
@@ -795,8 +801,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq044kry",
-   "wall": "wl5olp03yu1k",
+   "id": "obsc9c04d1gr",
+   "wall": "wbsc9c047bbl",
    "kind": "window",
    "type": "casement",
    "at": 35500,
@@ -808,8 +814,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq044zwu",
-   "wall": "wl5olp03yx8r",
+   "id": "obsc9c04dgzb",
+   "wall": "wbsc9c047ejl",
    "kind": "door",
    "type": "sliding",
    "at": 22000,
@@ -821,8 +827,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq0450ch",
-   "wall": "wl5olp03yu1k",
+   "id": "obsc9c04dhng",
+   "wall": "wbsc9c047bbl",
    "kind": "window",
    "type": "casement",
    "at": 26500,
@@ -834,8 +840,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq046b3m",
-   "wall": "wl5olp03yx8r",
+   "id": "obsc9c04esbw",
+   "wall": "wbsc9c047ejl",
    "kind": "door",
    "type": "sliding",
    "at": 31000,
@@ -847,8 +853,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq046cpz",
-   "wall": "wl5olp03yu1k",
+   "id": "obsc9c04ets5",
+   "wall": "wbsc9c047bbl",
    "kind": "window",
    "type": "casement",
    "at": 17500,
@@ -860,8 +866,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq047ndf",
-   "wall": "wl5olp03yx8r",
+   "id": "obsc9c04g4mu",
+   "wall": "wbsc9c047ejl",
    "kind": "door",
    "type": "sliding",
    "at": 37000,
@@ -873,8 +879,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq047o00",
-   "wall": "wl5olp03yu1k",
+   "id": "obsc9c04g5bm",
+   "wall": "wbsc9c047bbl",
    "kind": "window",
    "type": "casement",
    "at": 10000,
@@ -886,8 +892,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq047urz",
-   "wall": "wl5olp03yx8r",
+   "id": "obsc9c04gbi0",
+   "wall": "wbsc9c047ejl",
    "kind": "door",
    "type": "sliding",
    "at": 44000,
@@ -899,8 +905,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq047vak",
-   "wall": "wl5olp03yu1k",
+   "id": "obsc9c04gc35",
+   "wall": "wbsc9c047bbl",
    "kind": "window",
    "type": "casement",
    "at": 3500,
@@ -912,8 +918,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq048uvb",
-   "wall": "wl5olq048rqm",
+   "id": "obsc9d04hbv2",
+   "wall": "wbsc9d04h8zx",
    "kind": "door",
    "type": "sliding",
    "at": 3000,
@@ -925,8 +931,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq048v53",
-   "wall": "wl5olq048nca",
+   "id": "obsc9d04hc9n",
+   "wall": "wbsc9d04h4l4",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -938,8 +944,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq048xg5",
-   "wall": "wl5olq048rqm",
+   "id": "obsc9d04he8s",
+   "wall": "wbsc9d04h8zx",
    "kind": "door",
    "type": "sliding",
    "at": 14000,
@@ -951,8 +957,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olq048yjl",
-   "wall": "wl5olq048nca",
+   "id": "obsc9d04hfs0",
+   "wall": "wbsc9d04h4l4",
    "kind": "window",
    "type": "casement",
    "at": 10500,
@@ -964,8 +970,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04a9x6",
-   "wall": "wl5olq048rqm",
+   "id": "obsc9d04iqs4",
+   "wall": "wbsc9d04h8zx",
    "kind": "door",
    "type": "sliding",
    "at": 23000,
@@ -977,8 +983,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04aaim",
-   "wall": "wl5olq048nca",
+   "id": "obsc9d04irxx",
+   "wall": "wbsc9d04h4l4",
    "kind": "window",
    "type": "casement",
    "at": 19500,
@@ -990,8 +996,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04blms",
-   "wall": "wl5olq048rqm",
+   "id": "obsc9d04k2tn",
+   "wall": "wbsc9d04h8zx",
    "kind": "door",
    "type": "sliding",
    "at": 32000,
@@ -1003,8 +1009,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04bm7l",
-   "wall": "wl5olq048nca",
+   "id": "obsc9d04k3pl",
+   "wall": "wbsc9d04h4l4",
    "kind": "window",
    "type": "casement",
    "at": 28500,
@@ -1016,8 +1022,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04cxq1",
-   "wall": "wl5olq048rqm",
+   "id": "obsc9d04lecu",
+   "wall": "wbsc9d04h8zx",
    "kind": "door",
    "type": "sliding",
    "at": 41000,
@@ -1029,8 +1035,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04cyta",
-   "wall": "wl5olq048nca",
+   "id": "obsc9d04lfjs",
+   "wall": "wbsc9d04h4l4",
    "kind": "window",
    "type": "casement",
    "at": 37500,
@@ -1042,8 +1048,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04e85v",
-   "wall": "wl5olq048rqm",
+   "id": "obsc9d04mpgt",
+   "wall": "wbsc9d04h8zx",
    "kind": "door",
    "type": "sliding",
    "at": 43500,
@@ -1055,8 +1061,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04eaq5",
-   "wall": "wl5olq048sgh",
+   "id": "obsc9d04mryv",
+   "wall": "wbsc9d04h9jz",
    "kind": "door",
    "type": "sliding",
    "at": 4000,
@@ -1068,8 +1074,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04ebxs",
-   "wall": "wl5olq048pry",
+   "id": "obsc9d04mssj",
+   "wall": "wbsc9d04h6le",
    "kind": "window",
    "type": "casement",
    "at": 42500,
@@ -1081,8 +1087,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04ehmu",
-   "wall": "wl5olq048sgh",
+   "id": "obsc9d04my6v",
+   "wall": "wbsc9d04h9jz",
    "kind": "door",
    "type": "sliding",
    "at": 13000,
@@ -1094,8 +1100,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04eilm",
-   "wall": "wl5olq048pry",
+   "id": "obsc9d04mz9u",
+   "wall": "wbsc9d04h6le",
    "kind": "window",
    "type": "casement",
    "at": 35500,
@@ -1107,8 +1113,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04ftfc",
-   "wall": "wl5olq048sgh",
+   "id": "obsc9d04oaiz",
+   "wall": "wbsc9d04h9jz",
    "kind": "door",
    "type": "sliding",
    "at": 22000,
@@ -1120,8 +1126,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04fush",
-   "wall": "wl5olq048pry",
+   "id": "obsc9d04obf3",
+   "wall": "wbsc9d04h6le",
    "kind": "window",
    "type": "casement",
    "at": 26500,
@@ -1133,8 +1139,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04h50o",
-   "wall": "wl5olq048sgh",
+   "id": "obsc9d04pmuu",
+   "wall": "wbsc9d04h9jz",
    "kind": "door",
    "type": "sliding",
    "at": 31000,
@@ -1146,8 +1152,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04h6lt",
-   "wall": "wl5olq048pry",
+   "id": "obsc9d04pn74",
+   "wall": "wbsc9d04h6le",
    "kind": "window",
    "type": "casement",
    "at": 17500,
@@ -1159,8 +1165,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04igcp",
-   "wall": "wl5olq048sgh",
+   "id": "obsc9d04qxob",
+   "wall": "wbsc9d04h9jz",
    "kind": "door",
    "type": "sliding",
    "at": 44000,
@@ -1172,8 +1178,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04ih7y",
-   "wall": "wl5olq048pry",
+   "id": "obsc9d04qyjm",
+   "wall": "wbsc9d04h6le",
    "kind": "window",
    "type": "casement",
    "at": 6500,
@@ -1185,8 +1191,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jf5g",
-   "wall": "wl5olr04jcnh",
+   "id": "obsc9e04rw8f",
+   "wall": "wbsc9e04rtua",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -1198,8 +1204,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jgf5",
-   "wall": "wl5olr04jcnh",
+   "id": "obsc9e04rxw6",
+   "wall": "wbsc9e04rtua",
    "kind": "window",
    "type": "casement",
    "at": 8000,
@@ -1211,8 +1217,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jh07",
-   "wall": "wl5olr04jcnh",
+   "id": "obsc9e04rybd",
+   "wall": "wbsc9e04rtua",
    "kind": "window",
    "type": "casement",
    "at": 13000,
@@ -1224,8 +1230,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jim9",
-   "wall": "wl5olr04jcnh",
+   "id": "obsc9e04rzz3",
+   "wall": "wbsc9e04rtua",
    "kind": "window",
    "type": "casement",
    "at": 18000,
@@ -1237,8 +1243,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jjl2",
-   "wall": "wl5olr04jeyu",
+   "id": "obsc9e04s0il",
+   "wall": "wbsc9e04rv22",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -1250,8 +1256,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jkgf",
-   "wall": "wl5olr04jeyu",
+   "id": "obsc9e04s1do",
+   "wall": "wbsc9e04rv22",
    "kind": "window",
    "type": "casement",
    "at": 8000,
@@ -1263,8 +1269,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jl77",
-   "wall": "wl5olr04jeyu",
+   "id": "obsc9e04s2p9",
+   "wall": "wbsc9e04rv22",
    "kind": "window",
    "type": "casement",
    "at": 13000,
@@ -1276,8 +1282,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jmwe",
-   "wall": "wl5olr04jeyu",
+   "id": "obsc9e04s3mt",
+   "wall": "wbsc9e04rv22",
    "kind": "window",
    "type": "casement",
    "at": 18000,
@@ -1289,8 +1295,8 @@
    "phase": "new"
   },
   {
-   "id": "ol5olr04jnix",
-   "wall": "wl5olr04jd6x",
+   "id": "obsc9e04s4q0",
+   "wall": "wbsc9e04ruyn",
    "kind": "door",
    "type": "double",
    "at": 14000,
@@ -1304,8 +1310,8 @@
  ],
  "rooms": [
   {
-   "id": "rl5olq048bkk",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04gsf3",
+   "level": "lvbsc9c0477zv",
    "name": "Stairs",
    "pts": [
     [
@@ -1330,8 +1336,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048cr9",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04gtc7",
+   "level": "lvbsc9c0477zv",
    "name": "Classroom",
    "pts": [
     [
@@ -1356,8 +1362,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048dtl",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04gu58",
+   "level": "lvbsc9c0477zv",
    "name": "Classroom",
    "pts": [
     [
@@ -1382,8 +1388,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048es5",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04gvvv",
+   "level": "lvbsc9c0477zv",
    "name": "Classroom",
    "pts": [
     [
@@ -1408,8 +1414,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048fen",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04gwqg",
+   "level": "lvbsc9c0477zv",
    "name": "Canteen",
    "pts": [
     [
@@ -1434,8 +1440,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048gap",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04gxj5",
+   "level": "lvbsc9c0477zv",
    "name": "Corridor",
    "pts": [
     [
@@ -1460,8 +1466,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048hcq",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04gy8i",
+   "level": "lvbsc9c0477zv",
    "name": "Library",
    "pts": [
     [
@@ -1486,8 +1492,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048ikz",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04gzsx",
+   "level": "lvbsc9c0477zv",
    "name": "School kitchen",
    "pts": [
     [
@@ -1512,8 +1518,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048j1l",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04h06n",
+   "level": "lvbsc9c0477zv",
    "name": "Classroom",
    "pts": [
     [
@@ -1538,8 +1544,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048kqn",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04h1yl",
+   "level": "lvbsc9c0477zv",
    "name": "Classroom",
    "pts": [
     [
@@ -1564,8 +1570,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048lyu",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04h28t",
+   "level": "lvbsc9c0477zv",
    "name": "Staff office",
    "pts": [
     [
@@ -1590,8 +1596,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olq048m30",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9d04h3ap",
+   "level": "lvbsc9c0477zv",
    "name": "Toilets",
    "pts": [
     [
@@ -1616,8 +1622,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j0ki",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rhlj",
+   "level": "lvbsc9c0478af",
    "name": "Stairs",
    "pts": [
     [
@@ -1642,8 +1648,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j164",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04ri5m",
+   "level": "lvbsc9c0478af",
    "name": "Classroom",
    "pts": [
     [
@@ -1668,8 +1674,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j2m9",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rjt6",
+   "level": "lvbsc9c0478af",
    "name": "Classroom",
    "pts": [
     [
@@ -1694,8 +1700,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j3nd",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rkok",
+   "level": "lvbsc9c0478af",
    "name": "Classroom",
    "pts": [
     [
@@ -1720,8 +1726,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j4ao",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rlg7",
+   "level": "lvbsc9c0478af",
    "name": "Classroom",
    "pts": [
     [
@@ -1746,8 +1752,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j5ky",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rmj6",
+   "level": "lvbsc9c0478af",
    "name": "Store",
    "pts": [
     [
@@ -1772,8 +1778,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j6ca",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rn4r",
+   "level": "lvbsc9c0478af",
    "name": "Corridor",
    "pts": [
     [
@@ -1798,8 +1804,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j7op",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rorg",
+   "level": "lvbsc9c0478af",
    "name": "Library",
    "pts": [
     [
@@ -1824,8 +1830,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j8kv",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rpaa",
+   "level": "lvbsc9c0478af",
    "name": "Classroom",
    "pts": [
     [
@@ -1850,8 +1856,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04j9us",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rqjo",
+   "level": "lvbsc9c0478af",
    "name": "Classroom",
    "pts": [
     [
@@ -1876,8 +1882,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04ja2q",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rrwj",
+   "level": "lvbsc9c0478af",
    "name": "Classroom",
    "pts": [
     [
@@ -1902,8 +1908,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04jbmo",
-   "level": "lvl5olp03yrld",
+   "id": "rbsc9e04rswi",
+   "level": "lvbsc9c0478af",
    "name": "Toilets",
    "pts": [
     [
@@ -1928,8 +1934,8 @@
    "phase": "new"
   },
   {
-   "id": "rl5olr04jojz",
-   "level": "lvl5olp03yqj9",
+   "id": "rbsc9e04s50f",
+   "level": "lvbsc9c0477zv",
    "name": "Sports hall",
    "pts": [
     [
@@ -1957,21 +1963,22 @@
  "columns": [],
  "stairs": [
   {
-   "id": "sl5olq03z3d2",
-   "level": "lvl5olp03yqj9",
+   "id": "sbsc9c047kpj",
+   "level": "lvbsc9c0477zv",
    "x": 3000,
    "y": 4000,
    "rot": 90,
    "length": 5200,
    "width": 1500,
    "steps": 24,
+   "railing": "both",
    "phase": "new"
   }
  ],
  "furniture": [
   {
-   "id": "ul5olq03z7dm",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047ol2",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 7500,
    "y": 1250,
@@ -1984,8 +1991,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03z8xf",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047p09",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 7500,
    "y": 830,
@@ -1998,8 +2005,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03z9jj",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047q6c",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 7500,
    "y": 2550,
@@ -2012,8 +2019,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zan1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047rdb",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 7500,
    "y": 2130,
@@ -2026,8 +2033,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zb9r",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047sbt",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 7500,
    "y": 3850,
@@ -2040,8 +2047,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zci4",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047tvr",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 7500,
    "y": 3430,
@@ -2054,8 +2061,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zdtn",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047uku",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 7500,
    "y": 5150,
@@ -2068,8 +2075,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zea1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047vc2",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 7500,
    "y": 4730,
@@ -2082,8 +2089,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zffd",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047wes",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 9000,
    "y": 1250,
@@ -2096,8 +2103,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zgi7",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047xm9",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 9000,
    "y": 830,
@@ -2110,8 +2117,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zhi5",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047ysc",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 9000,
    "y": 2550,
@@ -2124,8 +2131,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zi87",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c047zyz",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 9000,
    "y": 2130,
@@ -2138,8 +2145,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zjsy",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0480g9",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 9000,
    "y": 3850,
@@ -2152,8 +2159,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zkhi",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0481ex",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 9000,
    "y": 3430,
@@ -2166,8 +2173,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zlad",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0482lk",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 9000,
    "y": 5150,
@@ -2180,8 +2187,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zmd2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0483ni",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 9000,
    "y": 4730,
@@ -2194,8 +2201,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zni4",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0484nv",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 10500,
    "y": 1250,
@@ -2208,8 +2215,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zo0u",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04857c",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 10500,
    "y": 830,
@@ -2222,8 +2229,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zp6v",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04866l",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 10500,
    "y": 2550,
@@ -2236,8 +2243,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zquq",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0487wx",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 10500,
    "y": 2130,
@@ -2250,8 +2257,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zrsf",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0488yx",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 10500,
    "y": 3850,
@@ -2264,8 +2271,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zsbz",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0489wi",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 10500,
    "y": 3430,
@@ -2278,8 +2285,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03ztg0",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048atj",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 10500,
    "y": 5150,
@@ -2292,8 +2299,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zukq",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048b3g",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 10500,
    "y": 4730,
@@ -2306,8 +2313,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zvhx",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048c1q",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 12000,
    "y": 1250,
@@ -2320,8 +2327,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zwlq",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048d46",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 12000,
    "y": 830,
@@ -2334,8 +2341,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zxzz",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048eq5",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 12000,
    "y": 2550,
@@ -2348,8 +2355,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zywl",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048f4s",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 12000,
    "y": 2130,
@@ -2362,8 +2369,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq03zz9z",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048g5u",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 12000,
    "y": 3850,
@@ -2376,8 +2383,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0400ka",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048hqx",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 12000,
    "y": 3430,
@@ -2390,8 +2397,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0401xw",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048ijq",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 12000,
    "y": 5150,
@@ -2404,8 +2411,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0402oy",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048jyl",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 12000,
    "y": 4730,
@@ -2418,8 +2425,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0403hi",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048knj",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 13500,
    "y": 1250,
@@ -2432,8 +2439,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0404ep",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048lio",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 13500,
    "y": 830,
@@ -2446,8 +2453,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0405ur",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048mmk",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 13500,
    "y": 2550,
@@ -2460,8 +2467,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0406kf",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048njt",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 13500,
    "y": 2130,
@@ -2474,8 +2481,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0407wp",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048osv",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 13500,
    "y": 3850,
@@ -2488,8 +2495,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0408m7",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048pvt",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 13500,
    "y": 3430,
@@ -2502,8 +2509,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04091w",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048qa1",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 13500,
    "y": 5150,
@@ -2516,8 +2523,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040abk",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048reb",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 13500,
    "y": 4730,
@@ -2530,8 +2537,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040bsh",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048slf",
+   "level": "lvbsc9c0477zv",
    "kind": "teacherDesk",
    "x": 10500,
    "y": 6450,
@@ -2544,8 +2551,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040c1g",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048tti",
+   "level": "lvbsc9c0477zv",
    "kind": "officeChair",
    "x": 10500,
    "y": 7050,
@@ -2558,8 +2565,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040d41",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048ui6",
+   "level": "lvbsc9c0477zv",
    "kind": "whiteboard",
    "x": 8500,
    "y": 7700,
@@ -2572,8 +2579,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040em7",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048v5r",
+   "level": "lvbsc9c0477zv",
    "kind": "bookshelf",
    "x": 14300,
    "y": 500,
@@ -2586,8 +2593,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040fy1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c048wkp",
+   "level": "lvbsc9c0477zv",
    "kind": "lockers",
    "x": 6700,
    "y": 550,
@@ -2600,8 +2607,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040jjs",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0490xk",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 16500,
    "y": 1250,
@@ -2614,8 +2621,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040k1a",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0491lh",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 16500,
    "y": 830,
@@ -2628,8 +2635,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040lmc",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0492d7",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 16500,
    "y": 2550,
@@ -2642,8 +2649,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040m2q",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0493v2",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 16500,
    "y": 2130,
@@ -2656,8 +2663,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040nxy",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04940x",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 16500,
    "y": 3850,
@@ -2670,8 +2677,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040oh7",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0495ex",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 16500,
    "y": 3430,
@@ -2684,8 +2691,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040pg3",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0496eh",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 16500,
    "y": 5150,
@@ -2698,8 +2705,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040qwa",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0497hv",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 16500,
    "y": 4730,
@@ -2712,8 +2719,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040rre",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0498ck",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 18000,
    "y": 1250,
@@ -2726,8 +2733,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040sfo",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c0499m3",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 18000,
    "y": 830,
@@ -2740,8 +2747,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040t26",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049a7v",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 18000,
    "y": 2550,
@@ -2754,8 +2761,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040ud7",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049bpk",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 18000,
    "y": 2130,
@@ -2768,8 +2775,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040vh6",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049cef",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 18000,
    "y": 3850,
@@ -2782,8 +2789,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040wgf",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049dw1",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 18000,
    "y": 3430,
@@ -2796,8 +2803,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040xlm",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049exd",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 18000,
    "y": 5150,
@@ -2810,8 +2817,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040y3r",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049f05",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 18000,
    "y": 4730,
@@ -2824,8 +2831,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq040zrb",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049g9x",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 19500,
    "y": 1250,
@@ -2838,8 +2845,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04102v",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049hmt",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 19500,
    "y": 830,
@@ -2852,8 +2859,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0411b5",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049ix4",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 19500,
    "y": 2550,
@@ -2866,8 +2873,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0412ko",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049jiq",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 19500,
    "y": 2130,
@@ -2880,8 +2887,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04133q",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049kv3",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 19500,
    "y": 3850,
@@ -2894,8 +2901,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041438",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049l1n",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 19500,
    "y": 3430,
@@ -2908,8 +2915,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0415i8",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049me9",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 19500,
    "y": 5150,
@@ -2922,8 +2929,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0416nm",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049nxq",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 19500,
    "y": 4730,
@@ -2936,8 +2943,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04174n",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049o0r",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 21000,
    "y": 1250,
@@ -2950,8 +2957,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04183n",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049pdp",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 21000,
    "y": 830,
@@ -2964,8 +2971,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041998",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049qfr",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 21000,
    "y": 2550,
@@ -2978,8 +2985,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041alj",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049rr7",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 21000,
    "y": 2130,
@@ -2992,8 +2999,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041bfn",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049s6m",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 21000,
    "y": 3850,
@@ -3006,8 +3013,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041c6f",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049tyv",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 21000,
    "y": 3430,
@@ -3020,8 +3027,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041dz1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049usl",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 21000,
    "y": 5150,
@@ -3034,8 +3041,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041eey",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049vmf",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 21000,
    "y": 4730,
@@ -3048,8 +3055,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041f1n",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049wqq",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 22500,
    "y": 1250,
@@ -3062,8 +3069,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041g6w",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049xwa",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 22500,
    "y": 830,
@@ -3076,8 +3083,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041ho2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049y8i",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 22500,
    "y": 2550,
@@ -3090,8 +3097,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041irh",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c049zk9",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 22500,
    "y": 2130,
@@ -3104,8 +3111,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041jd2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a0c4",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 22500,
    "y": 3850,
@@ -3118,8 +3125,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041khx",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a12i",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 22500,
    "y": 3430,
@@ -3132,8 +3139,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041l25",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a2g2",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 22500,
    "y": 5150,
@@ -3146,8 +3153,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041m9j",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a3d2",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 22500,
    "y": 4730,
@@ -3160,8 +3167,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041nx9",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a4sr",
+   "level": "lvbsc9c0477zv",
    "kind": "teacherDesk",
    "x": 19500,
    "y": 6450,
@@ -3174,8 +3181,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041ost",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a5oi",
+   "level": "lvbsc9c0477zv",
    "kind": "officeChair",
    "x": 19500,
    "y": 7050,
@@ -3188,8 +3195,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041phe",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a6qz",
+   "level": "lvbsc9c0477zv",
    "kind": "whiteboard",
    "x": 17500,
    "y": 7700,
@@ -3202,8 +3209,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041qul",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a7k9",
+   "level": "lvbsc9c0477zv",
    "kind": "bookshelf",
    "x": 23300,
    "y": 500,
@@ -3216,8 +3223,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041r7t",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04a85f",
+   "level": "lvbsc9c0477zv",
    "kind": "lockers",
    "x": 15700,
    "y": 550,
@@ -3230,8 +3237,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041vtb",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04acil",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 25500,
    "y": 1250,
@@ -3244,8 +3251,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041wrv",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04adh8",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 25500,
    "y": 830,
@@ -3258,8 +3265,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041xbp",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04aeft",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 25500,
    "y": 2550,
@@ -3272,8 +3279,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041y9d",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04afca",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 25500,
    "y": 2130,
@@ -3286,8 +3293,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq041zc0",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ag2w",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 25500,
    "y": 3850,
@@ -3300,8 +3307,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0420wk",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ah3d",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 25500,
    "y": 3430,
@@ -3314,8 +3321,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0421ng",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04aigd",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 25500,
    "y": 5150,
@@ -3328,8 +3335,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0422yh",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ajia",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 25500,
    "y": 4730,
@@ -3342,8 +3349,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0423co",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04akjl",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 27000,
    "y": 1250,
@@ -3356,8 +3363,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0424bc",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04allf",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 27000,
    "y": 830,
@@ -3370,8 +3377,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04254f",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04amgf",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 27000,
    "y": 2550,
@@ -3384,8 +3391,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0426w0",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04an5k",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 27000,
    "y": 2130,
@@ -3398,8 +3405,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0427ib",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04aog7",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 27000,
    "y": 3850,
@@ -3412,8 +3419,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0428dd",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ap9o",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 27000,
    "y": 3430,
@@ -3426,8 +3433,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0429ay",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04aqec",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 27000,
    "y": 5150,
@@ -3440,8 +3447,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042at2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04arfn",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 27000,
    "y": 4730,
@@ -3454,8 +3461,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042bls",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04as57",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 28500,
    "y": 1250,
@@ -3468,8 +3475,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042c9m",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ateq",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 28500,
    "y": 830,
@@ -3482,8 +3489,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042dbr",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04aucr",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 28500,
    "y": 2550,
@@ -3496,8 +3503,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042erq",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04avza",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 28500,
    "y": 2130,
@@ -3510,8 +3517,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042f2n",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04awxi",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 28500,
    "y": 3850,
@@ -3524,8 +3531,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042g8m",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ax0u",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 28500,
    "y": 3430,
@@ -3538,8 +3545,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042h47",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04aye7",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 28500,
    "y": 5150,
@@ -3552,8 +3559,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042iy2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04azrp",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 28500,
    "y": 4730,
@@ -3566,8 +3573,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042jz6",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b0br",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 30000,
    "y": 1250,
@@ -3580,8 +3587,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042kml",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b1bw",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 30000,
    "y": 830,
@@ -3594,8 +3601,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042lef",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b2ui",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 30000,
    "y": 2550,
@@ -3608,8 +3615,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042m3l",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b3kv",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 30000,
    "y": 2130,
@@ -3622,8 +3629,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042nob",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b4s4",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 30000,
    "y": 3850,
@@ -3636,8 +3643,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042ob2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b5l6",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 30000,
    "y": 3430,
@@ -3650,8 +3657,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042p53",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b62v",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 30000,
    "y": 5150,
@@ -3664,8 +3671,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042qms",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b7xp",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 30000,
    "y": 4730,
@@ -3678,8 +3685,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042rgp",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b8nt",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 31500,
    "y": 1250,
@@ -3692,8 +3699,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042sih",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04b9m6",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 31500,
    "y": 830,
@@ -3706,8 +3713,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042tec",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04baik",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 31500,
    "y": 2550,
@@ -3720,8 +3727,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042uwn",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bbf4",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 31500,
    "y": 2130,
@@ -3734,8 +3741,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042vho",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bcxn",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 31500,
    "y": 3850,
@@ -3748,8 +3755,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042wru",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bdrk",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 31500,
    "y": 3430,
@@ -3762,8 +3769,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042xrt",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bext",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 31500,
    "y": 5150,
@@ -3776,8 +3783,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042yda",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bfxf",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 31500,
    "y": 4730,
@@ -3790,8 +3797,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq042zpm",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bg9x",
+   "level": "lvbsc9c0477zv",
    "kind": "teacherDesk",
    "x": 28500,
    "y": 6450,
@@ -3804,8 +3811,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0430yt",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bhul",
+   "level": "lvbsc9c0477zv",
    "kind": "officeChair",
    "x": 28500,
    "y": 7050,
@@ -3818,8 +3825,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0431xr",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bidp",
+   "level": "lvbsc9c0477zv",
    "kind": "whiteboard",
    "x": 26500,
    "y": 7700,
@@ -3832,8 +3839,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04321h",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bj0w",
+   "level": "lvbsc9c0477zv",
    "kind": "bookshelf",
    "x": 32300,
    "y": 500,
@@ -3846,8 +3853,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0433m5",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bk6h",
+   "level": "lvbsc9c0477zv",
    "kind": "lockers",
    "x": 24700,
    "y": 550,
@@ -3860,8 +3867,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0436sw",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bn5u",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 34900,
    "y": 1750,
@@ -3874,8 +3881,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0437fk",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bodq",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 34450,
    "y": 1150,
@@ -3888,8 +3895,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043828",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bp8g",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 34450,
    "y": 2350,
@@ -3902,8 +3909,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0439sa",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bq4f",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 35350,
    "y": 1150,
@@ -3916,8 +3923,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043ac3",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04br3h",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 35350,
    "y": 2350,
@@ -3930,8 +3937,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043b4g",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bs9y",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 34900,
    "y": 4750,
@@ -3944,8 +3951,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043c9b",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bt10",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 34450,
    "y": 4150,
@@ -3958,8 +3965,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043dzp",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bukc",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 34450,
    "y": 5350,
@@ -3972,8 +3979,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043e1d",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bv84",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 35350,
    "y": 4150,
@@ -3986,8 +3993,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043fiz",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bw85",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 35350,
    "y": 5350,
@@ -4000,8 +4007,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043gfl",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bxg7",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 37900,
    "y": 1750,
@@ -4014,8 +4021,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043hpm",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04by48",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 37450,
    "y": 1150,
@@ -4028,8 +4035,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043i8n",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04bz8c",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 37450,
    "y": 2350,
@@ -4042,8 +4049,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043jz4",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c0t3",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 38350,
    "y": 1150,
@@ -4056,8 +4063,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043kla",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c1as",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 38350,
    "y": 2350,
@@ -4070,8 +4077,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043l36",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c25n",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 37900,
    "y": 4750,
@@ -4084,8 +4091,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043m4d",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c347",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 37450,
    "y": 4150,
@@ -4098,8 +4105,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043nxs",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c412",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 37450,
    "y": 5350,
@@ -4112,8 +4119,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043o7e",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c5na",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 38350,
    "y": 4150,
@@ -4126,8 +4133,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043pld",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c69f",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 38350,
    "y": 5350,
@@ -4140,8 +4147,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043q5h",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c73v",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 40900,
    "y": 1750,
@@ -4154,8 +4161,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043r36",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c8lm",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 40450,
    "y": 1150,
@@ -4168,8 +4175,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043s24",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04c9u2",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 40450,
    "y": 2350,
@@ -4182,8 +4189,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043tot",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ca23",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 41350,
    "y": 1150,
@@ -4196,8 +4203,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043u7f",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cbb1",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 41350,
    "y": 2350,
@@ -4210,8 +4217,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043vzi",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cck2",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 40900,
    "y": 4750,
@@ -4224,8 +4231,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043wr9",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cdgt",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 40450,
    "y": 4150,
@@ -4238,8 +4245,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043xjo",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cewp",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 40450,
    "y": 5350,
@@ -4252,8 +4259,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043ynb",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cf7l",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 41350,
    "y": 4150,
@@ -4266,8 +4273,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq043zch",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cg8h",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 41350,
    "y": 5350,
@@ -4280,8 +4287,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0440r1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04chli",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 43900,
    "y": 1750,
@@ -4294,8 +4301,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0441y2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cip5",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 43450,
    "y": 1150,
@@ -4308,8 +4315,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0442ty",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cjal",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 43450,
    "y": 2350,
@@ -4322,8 +4329,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0443la",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ck1t",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 44350,
    "y": 1150,
@@ -4336,8 +4343,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0444n4",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04clf1",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 44350,
    "y": 2350,
@@ -4350,8 +4357,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0445hw",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cmyl",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 43900,
    "y": 4750,
@@ -4364,8 +4371,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04468p",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cnzv",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 43450,
    "y": 4150,
@@ -4378,8 +4385,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0447v7",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04coed",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 43450,
    "y": 5350,
@@ -4392,8 +4399,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0448vi",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cphu",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 44350,
    "y": 4150,
@@ -4406,8 +4413,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0449bz",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cqbo",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 44350,
    "y": 5350,
@@ -4420,8 +4427,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044a4m",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04crmv",
+   "level": "lvbsc9c0477zv",
    "kind": "prepTable",
    "x": 43300,
    "y": 650,
@@ -4434,8 +4441,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044eqb",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cv25",
+   "level": "lvbsc9c0477zv",
    "kind": "toiletCubicle",
    "x": 800,
    "y": 17850,
@@ -4448,8 +4455,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044f29",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cwkt",
+   "level": "lvbsc9c0477zv",
    "kind": "toiletCubicle",
    "x": 1850,
    "y": 17850,
@@ -4462,8 +4469,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044gua",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cxtj",
+   "level": "lvbsc9c0477zv",
    "kind": "toiletCubicle",
    "x": 2900,
    "y": 17850,
@@ -4476,8 +4483,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044h87",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04cycd",
+   "level": "lvbsc9c0477zv",
    "kind": "vanity2",
    "x": 2500,
    "y": 11650,
@@ -4490,8 +4497,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044llc",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04d2c2",
+   "level": "lvbsc9c0477zv",
    "kind": "officeDesk",
    "x": 6400,
    "y": 18250,
@@ -4504,8 +4511,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044mno",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04d30i",
+   "level": "lvbsc9c0477zv",
    "kind": "officeChair",
    "x": 6400,
    "y": 17500,
@@ -4518,8 +4525,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044nbv",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04d4is",
+   "level": "lvbsc9c0477zv",
    "kind": "officeDesk",
    "x": 8600,
    "y": 18250,
@@ -4532,8 +4539,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044o5v",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04d5cl",
+   "level": "lvbsc9c0477zv",
    "kind": "officeChair",
    "x": 8600,
    "y": 17500,
@@ -4546,8 +4553,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044pu8",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04d6gy",
+   "level": "lvbsc9c0477zv",
    "kind": "meetingTable",
    "x": 7500,
    "y": 14250,
@@ -4560,8 +4567,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044qhe",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04d7wp",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 6700,
    "y": 13600,
@@ -4574,8 +4581,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044rho",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04d83z",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 6700,
    "y": 14900,
@@ -4588,8 +4595,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044sg5",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04d9cn",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 7500,
    "y": 13600,
@@ -4602,8 +4609,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044tff",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dady",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 7500,
    "y": 14900,
@@ -4616,8 +4623,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044u7r",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04db93",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 8300,
    "y": 13600,
@@ -4630,8 +4637,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044vrz",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dcjp",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 8300,
    "y": 14900,
@@ -4644,8 +4651,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044w0j",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ddfr",
+   "level": "lvbsc9c0477zv",
    "kind": "printer",
    "x": 13400,
    "y": 18350,
@@ -4658,8 +4665,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq044xez",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04de8e",
+   "level": "lvbsc9c0477zv",
    "kind": "filing",
    "x": 13400,
    "y": 17450,
@@ -4672,8 +4679,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0451mz",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04died",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 15500,
    "y": 17750,
@@ -4686,8 +4693,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0452x6",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04djig",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 15500,
    "y": 18170,
@@ -4700,8 +4707,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0453i4",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dktx",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 15500,
    "y": 16450,
@@ -4714,8 +4721,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04545m",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dlzh",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 15500,
    "y": 16870,
@@ -4728,8 +4735,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0455dv",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dmfc",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 15500,
    "y": 15150,
@@ -4742,8 +4749,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0456s2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dnze",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 15500,
    "y": 15570,
@@ -4756,8 +4763,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0457lf",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dogp",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 15500,
    "y": 13850,
@@ -4770,8 +4777,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045889",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dp89",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 15500,
    "y": 14270,
@@ -4784,8 +4791,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04594x",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dqyw",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 17000,
    "y": 17750,
@@ -4798,8 +4805,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045aox",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dryo",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 17000,
    "y": 18170,
@@ -4812,8 +4819,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045bg5",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dsx6",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 17000,
    "y": 16450,
@@ -4826,8 +4833,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045c98",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dtka",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 17000,
    "y": 16870,
@@ -4840,8 +4847,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045df3",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dujn",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 17000,
    "y": 15150,
@@ -4854,8 +4861,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045etc",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dvfi",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 17000,
    "y": 15570,
@@ -4868,8 +4875,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045fka",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dwg7",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 17000,
    "y": 13850,
@@ -4882,8 +4889,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045gdk",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dxrb",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 17000,
    "y": 14270,
@@ -4896,8 +4903,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045hvw",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dyjm",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 18500,
    "y": 17750,
@@ -4910,8 +4917,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045iwu",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04dzrg",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 18500,
    "y": 18170,
@@ -4924,8 +4931,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045jgg",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e067",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 18500,
    "y": 16450,
@@ -4938,8 +4945,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045ktt",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e1hf",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 18500,
    "y": 16870,
@@ -4952,8 +4959,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045lqx",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e29i",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 18500,
    "y": 15150,
@@ -4966,8 +4973,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045my3",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e3zf",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 18500,
    "y": 15570,
@@ -4980,8 +4987,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045nr5",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e4ti",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 18500,
    "y": 13850,
@@ -4994,8 +5001,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045oe9",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e5wr",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 18500,
    "y": 14270,
@@ -5008,8 +5015,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045p40",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e6bf",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 20000,
    "y": 17750,
@@ -5022,8 +5029,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045qkb",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e7jm",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 20000,
    "y": 18170,
@@ -5036,8 +5043,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045rv6",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e87t",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 20000,
    "y": 16450,
@@ -5050,8 +5057,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045si3",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04e91b",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 20000,
    "y": 16870,
@@ -5064,8 +5071,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045t04",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ea7p",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 20000,
    "y": 15150,
@@ -5078,8 +5085,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045u19",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ebgn",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 20000,
    "y": 15570,
@@ -5092,8 +5099,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045v3y",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04eckc",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 20000,
    "y": 13850,
@@ -5106,8 +5113,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045wd0",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04edwk",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 20000,
    "y": 14270,
@@ -5120,8 +5127,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045xn3",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04eexq",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 21500,
    "y": 17750,
@@ -5134,8 +5141,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045yak",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04efs0",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 21500,
    "y": 18170,
@@ -5148,8 +5155,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq045zci",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04eg8s",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 21500,
    "y": 16450,
@@ -5162,8 +5169,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0460bd",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ehr1",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 21500,
    "y": 16870,
@@ -5176,8 +5183,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0461wi",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04eitf",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 21500,
    "y": 15150,
@@ -5190,8 +5197,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0462xu",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ej6d",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 21500,
    "y": 15570,
@@ -5204,8 +5211,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0463rp",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ek1t",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 21500,
    "y": 13850,
@@ -5218,8 +5225,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0464l2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ells",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 21500,
    "y": 14270,
@@ -5232,8 +5239,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0465bf",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04em9y",
+   "level": "lvbsc9c0477zv",
    "kind": "teacherDesk",
    "x": 18500,
    "y": 12550,
@@ -5246,8 +5253,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046636",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ensl",
+   "level": "lvbsc9c0477zv",
    "kind": "officeChair",
    "x": 18500,
    "y": 11950,
@@ -5260,8 +5267,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0467g9",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04eohv",
+   "level": "lvbsc9c0477zv",
    "kind": "whiteboard",
    "x": 16500,
    "y": 11300,
@@ -5274,8 +5281,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0468os",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04epbs",
+   "level": "lvbsc9c0477zv",
    "kind": "bookshelf",
    "x": 22300,
    "y": 18500,
@@ -5288,8 +5295,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0469cg",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04eqin",
+   "level": "lvbsc9c0477zv",
    "kind": "lockers",
    "x": 14700,
    "y": 18450,
@@ -5302,8 +5309,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046dhc",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04eu10",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 24500,
    "y": 17750,
@@ -5316,8 +5323,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046e4a",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ev5h",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 24500,
    "y": 18170,
@@ -5330,8 +5337,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046f1w",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ewv9",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 24500,
    "y": 16450,
@@ -5344,8 +5351,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046g9e",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04exlu",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 24500,
    "y": 16870,
@@ -5358,8 +5365,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046hq2",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04eyo8",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 24500,
    "y": 15150,
@@ -5372,8 +5379,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046iqy",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ezy9",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 24500,
    "y": 15570,
@@ -5386,8 +5393,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046jjl",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f00c",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 24500,
    "y": 13850,
@@ -5400,8 +5407,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046kcv",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f14w",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 24500,
    "y": 14270,
@@ -5414,8 +5421,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046lt1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f2yq",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 26000,
    "y": 17750,
@@ -5428,8 +5435,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046mc1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f3qu",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 26000,
    "y": 18170,
@@ -5442,8 +5449,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046nmn",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f46i",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 26000,
    "y": 16450,
@@ -5456,8 +5463,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046ojl",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f5at",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 26000,
    "y": 16870,
@@ -5470,8 +5477,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046p1e",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f65w",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 26000,
    "y": 15150,
@@ -5484,8 +5491,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046qd1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f7ap",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 26000,
    "y": 15570,
@@ -5498,8 +5505,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046rlj",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f8pz",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 26000,
    "y": 13850,
@@ -5512,8 +5519,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046sug",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04f9nv",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 26000,
    "y": 14270,
@@ -5526,8 +5533,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046tes",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fawg",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 27500,
    "y": 17750,
@@ -5540,8 +5547,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046u3v",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fbg6",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 27500,
    "y": 18170,
@@ -5554,8 +5561,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046vwo",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fcdc",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 27500,
    "y": 16450,
@@ -5568,8 +5575,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046w3i",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fdjy",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 27500,
    "y": 16870,
@@ -5582,8 +5589,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046x8e",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fex2",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 27500,
    "y": 15150,
@@ -5596,8 +5603,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046y4h",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ff6p",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 27500,
    "y": 15570,
@@ -5610,8 +5617,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq046zim",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fgck",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 27500,
    "y": 13850,
@@ -5624,8 +5631,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0470ht",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fheh",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 27500,
    "y": 14270,
@@ -5638,8 +5645,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0471fd",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fi6x",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 29000,
    "y": 17750,
@@ -5652,8 +5659,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0472z8",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fj4c",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 29000,
    "y": 18170,
@@ -5666,8 +5673,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04733g",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fk9f",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 29000,
    "y": 16450,
@@ -5680,8 +5687,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04742l",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04flho",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 29000,
    "y": 16870,
@@ -5694,8 +5701,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04750d",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fmiv",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 29000,
    "y": 15150,
@@ -5708,8 +5715,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04766e",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fnww",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 29000,
    "y": 15570,
@@ -5722,8 +5729,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04772o",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fo4c",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 29000,
    "y": 13850,
@@ -5736,8 +5743,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0478ru",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fpi9",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 29000,
    "y": 14270,
@@ -5750,8 +5757,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0479mn",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fq6m",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 30500,
    "y": 17750,
@@ -5764,8 +5771,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047azv",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04frx6",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 30500,
    "y": 18170,
@@ -5778,8 +5785,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047boy",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fsa1",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 30500,
    "y": 16450,
@@ -5792,8 +5799,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047c5t",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ftbk",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 30500,
    "y": 16870,
@@ -5806,8 +5813,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047d0l",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fudl",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 30500,
    "y": 15150,
@@ -5820,8 +5827,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047ewg",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fvvv",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 30500,
    "y": 15570,
@@ -5834,8 +5841,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047fd1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fwhd",
+   "level": "lvbsc9c0477zv",
    "kind": "studentDesk",
    "x": 30500,
    "y": 13850,
@@ -5848,8 +5855,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047gyi",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fxy6",
+   "level": "lvbsc9c0477zv",
    "kind": "studentChair",
    "x": 30500,
    "y": 14270,
@@ -5862,8 +5869,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047hlu",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fyw1",
+   "level": "lvbsc9c0477zv",
    "kind": "teacherDesk",
    "x": 27500,
    "y": 12550,
@@ -5876,8 +5883,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047i0q",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04fz12",
+   "level": "lvbsc9c0477zv",
    "kind": "officeChair",
    "x": 27500,
    "y": 11950,
@@ -5890,8 +5897,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047jfd",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04g0z5",
+   "level": "lvbsc9c0477zv",
    "kind": "whiteboard",
    "x": 25500,
    "y": 11300,
@@ -5904,8 +5911,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047kiv",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04g1of",
+   "level": "lvbsc9c0477zv",
    "kind": "bookshelf",
    "x": 31300,
    "y": 18500,
@@ -5918,8 +5925,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047lpo",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04g2f5",
+   "level": "lvbsc9c0477zv",
    "kind": "lockers",
    "x": 23700,
    "y": 18450,
@@ -5932,8 +5939,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047p4g",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04g6kk",
+   "level": "lvbsc9c0477zv",
    "kind": "coldRoom",
    "x": 36800,
    "y": 17750,
@@ -5946,8 +5953,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047qpp",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04g760",
+   "level": "lvbsc9c0477zv",
    "kind": "range",
    "x": 32800,
    "y": 18350,
@@ -5960,8 +5967,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047rwl",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04g8f1",
+   "level": "lvbsc9c0477zv",
    "kind": "prepTable",
    "x": 34500,
    "y": 18400,
@@ -5974,8 +5981,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047sg0",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04g9tk",
+   "level": "lvbsc9c0477zv",
    "kind": "sinkCounter",
    "x": 32500,
    "y": 15000,
@@ -5988,8 +5995,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047tyx",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ga2c",
+   "level": "lvbsc9c0477zv",
    "kind": "prepTable",
    "x": 35000,
    "y": 15000,
@@ -6002,8 +6009,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047wq1",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gd0d",
+   "level": "lvbsc9c0477zv",
    "kind": "libraryShelf",
    "x": 39600,
    "y": 17450,
@@ -6016,8 +6023,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047xjz",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ge9g",
+   "level": "lvbsc9c0477zv",
    "kind": "libraryShelf",
    "x": 39600,
    "y": 15950,
@@ -6030,8 +6037,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047yn4",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gf2c",
+   "level": "lvbsc9c0477zv",
    "kind": "libraryShelf",
    "x": 39600,
    "y": 14450,
@@ -6044,8 +6051,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq047z5w",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04ggno",
+   "level": "lvbsc9c0477zv",
    "kind": "libraryShelf",
    "x": 39600,
    "y": 12950,
@@ -6058,8 +6065,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04801q",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gh20",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 42800,
    "y": 16950,
@@ -6072,8 +6079,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0481hj",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gias",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 42350,
    "y": 16350,
@@ -6086,8 +6093,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0482m7",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gj26",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 42350,
    "y": 17550,
@@ -6100,8 +6107,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04837q",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gkhx",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 43250,
    "y": 16350,
@@ -6114,8 +6121,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0484yz",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04glvd",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 43250,
    "y": 17550,
@@ -6128,8 +6135,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0485cc",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gmi0",
+   "level": "lvbsc9c0477zv",
    "kind": "diningTable6",
    "x": 42800,
    "y": 13950,
@@ -6142,8 +6149,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04868p",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gnmv",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 42350,
    "y": 13350,
@@ -6156,8 +6163,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0487in",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gopb",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 42350,
    "y": 14550,
@@ -6170,8 +6177,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0488jo",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gp8h",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 43250,
    "y": 13350,
@@ -6184,8 +6191,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04894k",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04gq7a",
+   "level": "lvbsc9c0477zv",
    "kind": "chair",
    "x": 43250,
    "y": 14550,
@@ -6198,8 +6205,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq048arv",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9c04grmh",
+   "level": "lvbsc9c0477zv",
    "kind": "checkout",
    "x": 43800,
    "y": 12150,
@@ -6212,8 +6219,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq048z7m",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hgrc",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 7500,
    "y": 1250,
@@ -6226,8 +6233,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0490qo",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hhd5",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 7500,
    "y": 830,
@@ -6240,8 +6247,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0491xk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hit7",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 7500,
    "y": 2550,
@@ -6254,8 +6261,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04925x",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hjz1",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 7500,
    "y": 2130,
@@ -6268,8 +6275,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0493kq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hkxb",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 7500,
    "y": 3850,
@@ -6282,8 +6289,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0494ve",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hl5v",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 7500,
    "y": 3430,
@@ -6296,8 +6303,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049596",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hmw7",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 7500,
    "y": 5150,
@@ -6310,8 +6317,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq0496kh",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hng9",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 7500,
    "y": 4730,
@@ -6324,8 +6331,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04975m",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04howh",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 9000,
    "y": 1250,
@@ -6338,8 +6345,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04983t",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hp8s",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 9000,
    "y": 830,
@@ -6352,8 +6359,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04991d",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hq4p",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 9000,
    "y": 2550,
@@ -6366,8 +6373,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049aes",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hrxb",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 9000,
    "y": 2130,
@@ -6380,8 +6387,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049b26",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hsr9",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 9000,
    "y": 3850,
@@ -6394,8 +6401,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049cid",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04htxc",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 9000,
    "y": 3430,
@@ -6408,8 +6415,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049djm",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hu0j",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 9000,
    "y": 5150,
@@ -6422,8 +6429,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049emu",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hvj6",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 9000,
    "y": 4730,
@@ -6436,8 +6443,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049fes",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hwyy",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 10500,
    "y": 1250,
@@ -6450,8 +6457,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049gaq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hx7c",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 10500,
    "y": 830,
@@ -6464,8 +6471,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049h78",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hytp",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 10500,
    "y": 2550,
@@ -6478,8 +6485,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049i4t",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04hznj",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 10500,
    "y": 2130,
@@ -6492,8 +6499,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049j3y",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i0f1",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 10500,
    "y": 3850,
@@ -6506,8 +6513,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049kib",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i1le",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 10500,
    "y": 3430,
@@ -6520,8 +6527,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049lwm",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i2l6",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 10500,
    "y": 5150,
@@ -6534,8 +6541,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049mb9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i3cl",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 10500,
    "y": 4730,
@@ -6548,8 +6555,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049njq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i4dh",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 12000,
    "y": 1250,
@@ -6562,8 +6569,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049opp",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i5ir",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 12000,
    "y": 830,
@@ -6576,8 +6583,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049p8w",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i6vk",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 12000,
    "y": 2550,
@@ -6590,8 +6597,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049qev",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i78m",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 12000,
    "y": 2130,
@@ -6604,8 +6611,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049ry0",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i8ke",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 12000,
    "y": 3850,
@@ -6618,8 +6625,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049srf",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04i9ts",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 12000,
    "y": 3430,
@@ -6632,8 +6639,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049tme",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ia1k",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 12000,
    "y": 5150,
@@ -6646,8 +6653,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049udt",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ibly",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 12000,
    "y": 4730,
@@ -6660,8 +6667,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049v0c",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ic54",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 13500,
    "y": 1250,
@@ -6674,8 +6681,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049wkg",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04idzg",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 13500,
    "y": 830,
@@ -6688,8 +6695,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049xk4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04iegc",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 13500,
    "y": 2550,
@@ -6702,8 +6709,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049ywk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ifb1",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 13500,
    "y": 2130,
@@ -6716,8 +6723,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq049zz8",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04igqo",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 13500,
    "y": 3850,
@@ -6730,8 +6737,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olq04a037",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ihmu",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 13500,
    "y": 3430,
@@ -6744,8 +6751,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04a12f",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04iitr",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 13500,
    "y": 5150,
@@ -6758,8 +6765,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04a2bg",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ijvf",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 13500,
    "y": 4730,
@@ -6772,8 +6779,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04a3sr",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04iknd",
+   "level": "lvbsc9c0478af",
    "kind": "teacherDesk",
    "x": 10500,
    "y": 6450,
@@ -6786,8 +6793,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04a40k",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ilg2",
+   "level": "lvbsc9c0478af",
    "kind": "officeChair",
    "x": 10500,
    "y": 7050,
@@ -6800,8 +6807,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04a5yx",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04im26",
+   "level": "lvbsc9c0478af",
    "kind": "whiteboard",
    "x": 8500,
    "y": 7700,
@@ -6814,8 +6821,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04a6i4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04inq2",
+   "level": "lvbsc9c0478af",
    "kind": "bookshelf",
    "x": 14300,
    "y": 500,
@@ -6828,8 +6835,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04a7gk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04io66",
+   "level": "lvbsc9c0478af",
    "kind": "lockers",
    "x": 6700,
    "y": 550,
@@ -6842,8 +6849,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ablk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04isdo",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 16500,
    "y": 1250,
@@ -6856,8 +6863,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04acp7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04itmb",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 16500,
    "y": 830,
@@ -6870,8 +6877,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04aduv",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04iuvh",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 16500,
    "y": 2550,
@@ -6884,8 +6891,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ae8c",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ivxf",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 16500,
    "y": 2130,
@@ -6898,8 +6905,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04afnp",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04iwv4",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 16500,
    "y": 3850,
@@ -6912,8 +6919,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04agz9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ix7g",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 16500,
    "y": 3430,
@@ -6926,8 +6933,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ahvy",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04iyla",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 16500,
    "y": 5150,
@@ -6940,8 +6947,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ai1i",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04izwe",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 16500,
    "y": 4730,
@@ -6954,8 +6961,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04aj38",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j0w7",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 18000,
    "y": 1250,
@@ -6968,8 +6975,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04akdo",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j1pn",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 18000,
    "y": 830,
@@ -6982,8 +6989,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04almn",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j2k2",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 18000,
    "y": 2550,
@@ -6996,8 +7003,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04am2m",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j31v",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 18000,
    "y": 2130,
@@ -7010,8 +7017,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04an7m",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j4p6",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 18000,
    "y": 3850,
@@ -7024,8 +7031,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04aofo",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j55a",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 18000,
    "y": 3430,
@@ -7038,8 +7045,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04apu4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j6zp",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 18000,
    "y": 5150,
@@ -7052,8 +7059,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04aqkv",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j7ak",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 18000,
    "y": 4730,
@@ -7066,8 +7073,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04arlw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j8qf",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 19500,
    "y": 1250,
@@ -7080,8 +7087,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04as64",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04j9jf",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 19500,
    "y": 830,
@@ -7094,8 +7101,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04at94",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ja1i",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 19500,
    "y": 2550,
@@ -7108,8 +7115,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04aud0",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jbsi",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 19500,
    "y": 2130,
@@ -7122,8 +7129,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04avhs",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jc82",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 19500,
    "y": 3850,
@@ -7136,8 +7143,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04awjz",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jd7m",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 19500,
    "y": 3430,
@@ -7150,8 +7157,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ax6c",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jeg5",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 19500,
    "y": 5150,
@@ -7164,8 +7171,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04aygl",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jfa1",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 19500,
    "y": 4730,
@@ -7178,8 +7185,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04azk4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jgiz",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 21000,
    "y": 1250,
@@ -7192,8 +7199,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b0zw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jhrd",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 21000,
    "y": 830,
@@ -7206,8 +7213,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b12h",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jiwc",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 21000,
    "y": 2550,
@@ -7220,8 +7227,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b208",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jjny",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 21000,
    "y": 2130,
@@ -7234,8 +7241,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b3us",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jk6j",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 21000,
    "y": 3850,
@@ -7248,8 +7255,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b4an",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jle3",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 21000,
    "y": 3430,
@@ -7262,8 +7269,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b5be",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jmw4",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 21000,
    "y": 5150,
@@ -7276,8 +7283,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b6kz",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jneb",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 21000,
    "y": 4730,
@@ -7290,8 +7297,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b7eh",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04joqm",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 22500,
    "y": 1250,
@@ -7304,8 +7311,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b88d",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jp14",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 22500,
    "y": 830,
@@ -7318,8 +7325,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04b9cq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jqe4",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 22500,
    "y": 2550,
@@ -7332,8 +7339,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bajp",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jr4w",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 22500,
    "y": 2130,
@@ -7346,8 +7353,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bbna",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04js90",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 22500,
    "y": 3850,
@@ -7360,8 +7367,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bc20",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jt2f",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 22500,
    "y": 3430,
@@ -7374,8 +7381,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bdzz",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ju4r",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 22500,
    "y": 5150,
@@ -7388,8 +7395,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04benm",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jvl1",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 22500,
    "y": 4730,
@@ -7402,8 +7409,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bfvh",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jwsa",
+   "level": "lvbsc9c0478af",
    "kind": "teacherDesk",
    "x": 19500,
    "y": 6450,
@@ -7416,8 +7423,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bgfw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jx9d",
+   "level": "lvbsc9c0478af",
    "kind": "officeChair",
    "x": 19500,
    "y": 7050,
@@ -7430,8 +7437,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bh4e",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jyqb",
+   "level": "lvbsc9c0478af",
    "kind": "whiteboard",
    "x": 17500,
    "y": 7700,
@@ -7444,8 +7451,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04biyr",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04jz6s",
+   "level": "lvbsc9c0478af",
    "kind": "bookshelf",
    "x": 23300,
    "y": 500,
@@ -7458,8 +7465,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bj51",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04k0mf",
+   "level": "lvbsc9c0478af",
    "kind": "lockers",
    "x": 15700,
    "y": 550,
@@ -7472,8 +7479,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bn85",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04k4qo",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 25500,
    "y": 1250,
@@ -7486,8 +7493,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bovr",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04k58i",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 25500,
    "y": 830,
@@ -7500,8 +7507,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bpyj",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04k68e",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 25500,
    "y": 2550,
@@ -7514,8 +7521,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bqim",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04k7n9",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 25500,
    "y": 2130,
@@ -7528,8 +7535,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04brvu",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04k8gx",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 25500,
    "y": 3850,
@@ -7542,8 +7549,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bs7k",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04k9vv",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 25500,
    "y": 3430,
@@ -7556,8 +7563,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04btr8",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kafd",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 25500,
    "y": 5150,
@@ -7570,8 +7577,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bu73",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kbpl",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 25500,
    "y": 4730,
@@ -7584,8 +7591,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bvz5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kcjo",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 27000,
    "y": 1250,
@@ -7598,8 +7605,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bw8l",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kd7n",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 27000,
    "y": 830,
@@ -7612,8 +7619,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bxmg",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kel4",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 27000,
    "y": 2550,
@@ -7626,8 +7633,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bynn",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kfyv",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 27000,
    "y": 2130,
@@ -7640,8 +7647,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04bzf7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kggv",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 27000,
    "y": 3850,
@@ -7654,8 +7661,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c072",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kh2m",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 27000,
    "y": 3430,
@@ -7668,8 +7675,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c1s7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ki11",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 27000,
    "y": 5150,
@@ -7682,8 +7689,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c2f6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kj4m",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 27000,
    "y": 4730,
@@ -7696,8 +7703,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c3b2",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kkpk",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 28500,
    "y": 1250,
@@ -7710,8 +7717,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c4vd",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kljv",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 28500,
    "y": 830,
@@ -7724,8 +7731,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c5g6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04km2a",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 28500,
    "y": 2550,
@@ -7738,8 +7745,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c6g6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04knka",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 28500,
    "y": 2130,
@@ -7752,8 +7759,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c7yo",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kost",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 28500,
    "y": 3850,
@@ -7766,8 +7773,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c83z",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kp7a",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 28500,
    "y": 3430,
@@ -7780,8 +7787,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04c9ab",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kqpj",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 28500,
    "y": 5150,
@@ -7794,8 +7801,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cayb",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kr9g",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 28500,
    "y": 4730,
@@ -7808,8 +7815,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cb6p",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ksgz",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 30000,
    "y": 1250,
@@ -7822,8 +7829,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ccm6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ktth",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 30000,
    "y": 830,
@@ -7836,8 +7843,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cdgg",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kus1",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 30000,
    "y": 2550,
@@ -7850,8 +7857,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cep7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kvhf",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 30000,
    "y": 2130,
@@ -7864,8 +7871,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cfoa",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kwrb",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 30000,
    "y": 3850,
@@ -7878,8 +7885,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cgy7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kx16",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 30000,
    "y": 3430,
@@ -7892,8 +7899,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04chm4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ky9b",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 30000,
    "y": 5150,
@@ -7906,8 +7913,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ci8b",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04kz1j",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 30000,
    "y": 4730,
@@ -7920,8 +7927,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cjfe",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l0lp",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 31500,
    "y": 1250,
@@ -7934,8 +7941,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ckg7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l1nu",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 31500,
    "y": 830,
@@ -7948,8 +7955,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cl46",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l2kj",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 31500,
    "y": 2550,
@@ -7962,8 +7969,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cmtb",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l3g3",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 31500,
    "y": 2130,
@@ -7976,8 +7983,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cngb",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l42h",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 31500,
    "y": 3850,
@@ -7990,8 +7997,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cobb",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l5tq",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 31500,
    "y": 3430,
@@ -8004,8 +8011,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cp9y",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l6dg",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 31500,
    "y": 5150,
@@ -8018,8 +8025,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cqft",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l7p3",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 31500,
    "y": 4730,
@@ -8032,8 +8039,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cr40",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l8sw",
+   "level": "lvbsc9c0478af",
    "kind": "teacherDesk",
    "x": 28500,
    "y": 6450,
@@ -8046,8 +8053,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cshz",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04l9zc",
+   "level": "lvbsc9c0478af",
    "kind": "officeChair",
    "x": 28500,
    "y": 7050,
@@ -8060,8 +8067,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ct2b",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04la1p",
+   "level": "lvbsc9c0478af",
    "kind": "whiteboard",
    "x": 26500,
    "y": 7700,
@@ -8074,8 +8081,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cum6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lbye",
+   "level": "lvbsc9c0478af",
    "kind": "bookshelf",
    "x": 32300,
    "y": 500,
@@ -8088,8 +8095,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04cvaa",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lcht",
+   "level": "lvbsc9c0478af",
    "kind": "lockers",
    "x": 24700,
    "y": 550,
@@ -8102,8 +8109,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04czbc",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lgbo",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 34500,
    "y": 1250,
@@ -8116,8 +8123,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d0rt",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lh1l",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 34500,
    "y": 830,
@@ -8130,8 +8137,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d1bl",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04liz2",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 34500,
    "y": 2550,
@@ -8144,8 +8151,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d2o2",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ljan",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 34500,
    "y": 2130,
@@ -8158,8 +8165,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d3p1",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lkk2",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 34500,
    "y": 3850,
@@ -8172,8 +8179,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d4h8",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04llk6",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 34500,
    "y": 3430,
@@ -8186,8 +8193,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d5d6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lm5v",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 34500,
    "y": 5150,
@@ -8200,8 +8207,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d61v",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ln6u",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 34500,
    "y": 4730,
@@ -8214,8 +8221,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d7sp",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lofn",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 36000,
    "y": 1250,
@@ -8228,8 +8235,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d84b",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lpyg",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 36000,
    "y": 830,
@@ -8242,8 +8249,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04d9pw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lqaa",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 36000,
    "y": 2550,
@@ -8256,8 +8263,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04daf9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lr29",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 36000,
    "y": 2130,
@@ -8270,8 +8277,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dbh9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lswe",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 36000,
    "y": 3850,
@@ -8284,8 +8291,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dcr5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ltlg",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 36000,
    "y": 3430,
@@ -8298,8 +8305,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ddjq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lu0k",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 36000,
    "y": 5150,
@@ -8312,8 +8319,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dejf",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lvw3",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 36000,
    "y": 4730,
@@ -8326,8 +8333,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dfv7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lw5i",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 37500,
    "y": 1250,
@@ -8340,8 +8347,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dg5y",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lx01",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 37500,
    "y": 830,
@@ -8354,8 +8361,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dhcf",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lyxv",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 37500,
    "y": 2550,
@@ -8368,8 +8375,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04di5q",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04lzzf",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 37500,
    "y": 2130,
@@ -8382,8 +8389,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04djf3",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m0f3",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 37500,
    "y": 3850,
@@ -8396,8 +8403,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dkkd",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m1kr",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 37500,
    "y": 3430,
@@ -8410,8 +8417,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dlql",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m2dt",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 37500,
    "y": 5150,
@@ -8424,8 +8431,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dmtj",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m3ur",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 37500,
    "y": 4730,
@@ -8438,8 +8445,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dnwm",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m4l8",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 39000,
    "y": 1250,
@@ -8452,8 +8459,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04doir",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m5hp",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 39000,
    "y": 830,
@@ -8466,8 +8473,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dpvo",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m6ka",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 39000,
    "y": 2550,
@@ -8480,8 +8487,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dq68",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m7mu",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 39000,
    "y": 2130,
@@ -8494,8 +8501,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04drnc",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m89p",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 39000,
    "y": 3850,
@@ -8508,8 +8515,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dsf9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04m98f",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 39000,
    "y": 3430,
@@ -8522,8 +8529,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dtb4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mau6",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 39000,
    "y": 5150,
@@ -8536,8 +8543,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04du9g",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mbe9",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 39000,
    "y": 4730,
@@ -8550,8 +8557,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dvpw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mcso",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 40500,
    "y": 1250,
@@ -8564,8 +8571,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dwph",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mdaq",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 40500,
    "y": 830,
@@ -8578,8 +8585,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dxvw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04met9",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 40500,
    "y": 2550,
@@ -8592,8 +8599,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dy1l",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mfh5",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 40500,
    "y": 2130,
@@ -8606,8 +8613,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04dzrq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mg1f",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 40500,
    "y": 3850,
@@ -8620,8 +8627,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04e0wv",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mhir",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 40500,
    "y": 3430,
@@ -8634,8 +8641,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04e1at",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mits",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 40500,
    "y": 5150,
@@ -8648,8 +8655,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04e2c5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mjnr",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 40500,
    "y": 4730,
@@ -8662,8 +8669,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04e3db",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mk8b",
+   "level": "lvbsc9c0478af",
    "kind": "teacherDesk",
    "x": 37500,
    "y": 6450,
@@ -8676,8 +8683,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04e4wd",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ml70",
+   "level": "lvbsc9c0478af",
    "kind": "officeChair",
    "x": 37500,
    "y": 7050,
@@ -8690,8 +8697,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04e5lv",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mm1u",
+   "level": "lvbsc9c0478af",
    "kind": "whiteboard",
    "x": 35500,
    "y": 7700,
@@ -8704,8 +8711,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04e6nf",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mnw6",
+   "level": "lvbsc9c0478af",
    "kind": "bookshelf",
    "x": 41300,
    "y": 500,
@@ -8718,8 +8725,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04e7gw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04moqb",
+   "level": "lvbsc9c0478af",
    "kind": "lockers",
    "x": 33700,
    "y": 550,
@@ -8732,8 +8739,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ecxy",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mtl7",
+   "level": "lvbsc9c0478af",
    "kind": "toiletCubicle",
    "x": 800,
    "y": 17850,
@@ -8746,8 +8753,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ed6k",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04muad",
+   "level": "lvbsc9c0478af",
    "kind": "toiletCubicle",
    "x": 1850,
    "y": 17850,
@@ -8760,8 +8767,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04eerj",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mvml",
+   "level": "lvbsc9c0478af",
    "kind": "toiletCubicle",
    "x": 2900,
    "y": 17850,
@@ -8774,8 +8781,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04efop",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04mw7f",
+   "level": "lvbsc9c0478af",
    "kind": "vanity2",
    "x": 2500,
    "y": 11650,
@@ -8788,8 +8795,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ejc0",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n06y",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 6500,
    "y": 17750,
@@ -8802,8 +8809,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ekyi",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n1te",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 6500,
    "y": 18170,
@@ -8816,8 +8823,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04elwn",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n22r",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 6500,
    "y": 16450,
@@ -8830,8 +8837,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04emsn",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n3af",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 6500,
    "y": 16870,
@@ -8844,8 +8851,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04en58",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n4ew",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 6500,
    "y": 15150,
@@ -8858,8 +8865,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04eon9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n5uw",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 6500,
    "y": 15570,
@@ -8872,8 +8879,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04epv5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n6af",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 6500,
    "y": 13850,
@@ -8886,8 +8893,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04eqxz",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n7b2",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 6500,
    "y": 14270,
@@ -8900,8 +8907,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04erkl",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n8ut",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 8000,
    "y": 17750,
@@ -8914,8 +8921,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04esn5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04n9nj",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 8000,
    "y": 18170,
@@ -8928,8 +8935,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04etot",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nazj",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 8000,
    "y": 16450,
@@ -8942,8 +8949,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04euy5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nb6e",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 8000,
    "y": 16870,
@@ -8956,8 +8963,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ev6i",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nc2r",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 8000,
    "y": 15150,
@@ -8970,8 +8977,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ewz0",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ndpp",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 8000,
    "y": 15570,
@@ -8984,8 +8991,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ex72",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nebd",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 8000,
    "y": 13850,
@@ -8998,8 +9005,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04eyrg",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nf8b",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 8000,
    "y": 14270,
@@ -9012,8 +9019,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04eza6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ngzv",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 9500,
    "y": 17750,
@@ -9026,8 +9033,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f0i9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nhr9",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 9500,
    "y": 18170,
@@ -9040,8 +9047,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f1ey",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nif5",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 9500,
    "y": 16450,
@@ -9054,8 +9061,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f21v",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04njtw",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 9500,
    "y": 16870,
@@ -9068,8 +9075,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f368",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nk6i",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 9500,
    "y": 15150,
@@ -9082,8 +9089,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f490",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nlw2",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 9500,
    "y": 15570,
@@ -9096,8 +9103,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f5m6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nmtq",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 9500,
    "y": 13850,
@@ -9110,8 +9117,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f6tn",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nn48",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 9500,
    "y": 14270,
@@ -9124,8 +9131,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f7e3",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nott",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 11000,
    "y": 17750,
@@ -9138,8 +9145,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f83h",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04npf5",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 11000,
    "y": 18170,
@@ -9152,8 +9159,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04f947",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nq2b",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 11000,
    "y": 16450,
@@ -9166,8 +9173,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04faco",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nr2g",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 11000,
    "y": 16870,
@@ -9180,8 +9187,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fb13",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nsyl",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 11000,
    "y": 15150,
@@ -9194,8 +9201,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fcf0",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nt4e",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 11000,
    "y": 15570,
@@ -9208,8 +9215,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fdxi",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nubm",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 11000,
    "y": 13850,
@@ -9222,8 +9229,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fe4y",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nvuz",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 11000,
    "y": 14270,
@@ -9236,8 +9243,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ffx7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nwil",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 12500,
    "y": 17750,
@@ -9250,8 +9257,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fg1h",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nxgz",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 12500,
    "y": 18170,
@@ -9264,8 +9271,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fhkx",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nyq4",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 12500,
    "y": 16450,
@@ -9278,8 +9285,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fiqk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04nzpi",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 12500,
    "y": 16870,
@@ -9292,8 +9299,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fj6c",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o01a",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 12500,
    "y": 15150,
@@ -9306,8 +9313,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fkcs",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o19z",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 12500,
    "y": 15570,
@@ -9320,8 +9327,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fl7x",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o2mb",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 12500,
    "y": 13850,
@@ -9334,8 +9341,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fmsk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o3kz",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 12500,
    "y": 14270,
@@ -9348,8 +9355,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fnzk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o4ex",
+   "level": "lvbsc9c0478af",
    "kind": "teacherDesk",
    "x": 9500,
    "y": 12550,
@@ -9362,8 +9369,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04foa1",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o5oz",
+   "level": "lvbsc9c0478af",
    "kind": "officeChair",
    "x": 9500,
    "y": 11950,
@@ -9376,8 +9383,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fpdi",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o6r6",
+   "level": "lvbsc9c0478af",
    "kind": "whiteboard",
    "x": 7500,
    "y": 11300,
@@ -9390,8 +9397,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fql4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o7ja",
+   "level": "lvbsc9c0478af",
    "kind": "bookshelf",
    "x": 13300,
    "y": 18500,
@@ -9404,8 +9411,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04frtp",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04o80e",
+   "level": "lvbsc9c0478af",
    "kind": "lockers",
    "x": 5700,
    "y": 18450,
@@ -9418,8 +9425,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fval",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04octl",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 15500,
    "y": 17750,
@@ -9432,8 +9439,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fwl5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04odoq",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 15500,
    "y": 18170,
@@ -9446,8 +9453,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fx5s",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04oeok",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 15500,
    "y": 16450,
@@ -9460,8 +9467,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fy3j",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04oftj",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 15500,
    "y": 16870,
@@ -9474,8 +9481,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04fzvp",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04og7z",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 15500,
    "y": 15150,
@@ -9488,8 +9495,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g0h9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04oh1x",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 15500,
    "y": 15570,
@@ -9502,8 +9509,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g1d7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04oi58",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 15500,
    "y": 13850,
@@ -9516,8 +9523,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g2zp",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ojsq",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 15500,
    "y": 14270,
@@ -9530,8 +9537,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g37b",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04okj2",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 17000,
    "y": 17750,
@@ -9544,8 +9551,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g4o7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04olvt",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 17000,
    "y": 18170,
@@ -9558,8 +9565,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g5gh",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04omp4",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 17000,
    "y": 16450,
@@ -9572,8 +9579,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g6bq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04on2o",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 17000,
    "y": 16870,
@@ -9586,8 +9593,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g7hw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04oouq",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 17000,
    "y": 15150,
@@ -9600,8 +9607,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g8xf",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04opeo",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 17000,
    "y": 15570,
@@ -9614,8 +9621,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04g9to",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04oq96",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 17000,
    "y": 13850,
@@ -9628,8 +9635,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gap3",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04or39",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 17000,
    "y": 14270,
@@ -9642,8 +9649,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gb4e",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ospr",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 18500,
    "y": 17750,
@@ -9656,8 +9663,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gc66",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ott0",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 18500,
    "y": 18170,
@@ -9670,8 +9677,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gdm4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ou1n",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 18500,
    "y": 16450,
@@ -9684,8 +9691,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04geu6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ovyf",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 18500,
    "y": 16870,
@@ -9698,8 +9705,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gfp8",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04owrw",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 18500,
    "y": 15150,
@@ -9712,8 +9719,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ggls",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04oxus",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 18500,
    "y": 15570,
@@ -9726,8 +9733,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gh46",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04oyc4",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 18500,
    "y": 13850,
@@ -9740,8 +9747,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gi5k",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ozae",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 18500,
    "y": 14270,
@@ -9754,8 +9761,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gjjv",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p0wa",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 20000,
    "y": 17750,
@@ -9768,8 +9775,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gkjo",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p1hy",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 20000,
    "y": 18170,
@@ -9782,8 +9789,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gly3",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p2pq",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 20000,
    "y": 16450,
@@ -9796,8 +9803,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gmy0",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p3hg",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 20000,
    "y": 16870,
@@ -9810,8 +9817,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gnn7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p4bj",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 20000,
    "y": 15150,
@@ -9824,8 +9831,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04goot",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p5om",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 20000,
    "y": 15570,
@@ -9838,8 +9845,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gpgj",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p6yx",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 20000,
    "y": 13850,
@@ -9852,8 +9859,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gqkj",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p7rv",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 20000,
    "y": 14270,
@@ -9866,8 +9873,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04grwk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p8as",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 21500,
    "y": 17750,
@@ -9880,8 +9887,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gsqd",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04p9va",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 21500,
    "y": 18170,
@@ -9894,8 +9901,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gtj1",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04papv",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 21500,
    "y": 16450,
@@ -9908,8 +9915,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04guni",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pb83",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 21500,
    "y": 16870,
@@ -9922,8 +9929,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gv4h",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pcbu",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 21500,
    "y": 15150,
@@ -9936,8 +9943,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gwhv",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pd7j",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 21500,
    "y": 15570,
@@ -9950,8 +9957,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gxsq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pe5f",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 21500,
    "y": 13850,
@@ -9964,8 +9971,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gym8",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pftn",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 21500,
    "y": 14270,
@@ -9978,8 +9985,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04gzv6",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pgye",
+   "level": "lvbsc9c0478af",
    "kind": "teacherDesk",
    "x": 18500,
    "y": 12550,
@@ -9992,8 +9999,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04h0ri",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ph51",
+   "level": "lvbsc9c0478af",
    "kind": "officeChair",
    "x": 18500,
    "y": 11950,
@@ -10006,8 +10013,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04h1sh",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pi0l",
+   "level": "lvbsc9c0478af",
    "kind": "whiteboard",
    "x": 16500,
    "y": 11300,
@@ -10020,8 +10027,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04h2i9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pjy1",
+   "level": "lvbsc9c0478af",
    "kind": "bookshelf",
    "x": 22300,
    "y": 18500,
@@ -10034,8 +10041,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04h39m",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pkgg",
+   "level": "lvbsc9c0478af",
    "kind": "lockers",
    "x": 14700,
    "y": 18450,
@@ -10048,8 +10055,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04h7v5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04porg",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 24500,
    "y": 17750,
@@ -10062,8 +10069,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04h8xs",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ppki",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 24500,
    "y": 18170,
@@ -10076,8 +10083,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04h9w7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pqm7",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 24500,
    "y": 16450,
@@ -10090,8 +10097,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hazi",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pr1b",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 24500,
    "y": 16870,
@@ -10104,8 +10111,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hbjl",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04psqw",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 24500,
    "y": 15150,
@@ -10118,8 +10125,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hcg3",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04ptc7",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 24500,
    "y": 15570,
@@ -10132,8 +10139,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hdny",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04puu2",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 24500,
    "y": 13850,
@@ -10146,8 +10153,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hep3",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pv1v",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 24500,
    "y": 14270,
@@ -10160,8 +10167,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hf02",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pwmq",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 26000,
    "y": 17750,
@@ -10174,8 +10181,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hg0o",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pxd6",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 26000,
    "y": 18170,
@@ -10188,8 +10195,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hhp8",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pyrc",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 26000,
    "y": 16450,
@@ -10202,8 +10209,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hi8h",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04pzif",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 26000,
    "y": 16870,
@@ -10216,8 +10223,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hjgu",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q0vm",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 26000,
    "y": 15150,
@@ -10230,8 +10237,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hkqi",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q1p6",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 26000,
    "y": 15570,
@@ -10244,8 +10251,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hlx1",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q2zz",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 26000,
    "y": 13850,
@@ -10258,8 +10265,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hm9l",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q3rd",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 26000,
    "y": 14270,
@@ -10272,8 +10279,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hnch",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q45c",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 27500,
    "y": 17750,
@@ -10286,8 +10293,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hotn",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q5sp",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 27500,
    "y": 18170,
@@ -10300,8 +10307,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hpx5",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q67k",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 27500,
    "y": 16450,
@@ -10314,8 +10321,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hqny",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q725",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 27500,
    "y": 16870,
@@ -10328,8 +10335,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hroq",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q8mm",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 27500,
    "y": 15150,
@@ -10342,8 +10349,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hsli",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04q99t",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 27500,
    "y": 15570,
@@ -10356,8 +10363,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04htv3",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qafd",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 27500,
    "y": 13850,
@@ -10370,8 +10377,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hu1b",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qbww",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 27500,
    "y": 14270,
@@ -10384,8 +10391,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hv82",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qchs",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 29000,
    "y": 17750,
@@ -10398,8 +10405,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hw3u",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qdzg",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 29000,
    "y": 18170,
@@ -10412,8 +10419,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hxlo",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qevn",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 29000,
    "y": 16450,
@@ -10426,8 +10433,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hy8y",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qf0c",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 29000,
    "y": 16870,
@@ -10440,8 +10447,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04hzk3",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qgy6",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 29000,
    "y": 15150,
@@ -10454,8 +10461,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i0bu",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qh5g",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 29000,
    "y": 15570,
@@ -10468,8 +10475,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i1ey",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qibu",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 29000,
    "y": 13850,
@@ -10482,8 +10489,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i2nh",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qjqo",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 29000,
    "y": 14270,
@@ -10496,8 +10503,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i3mk",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qkxr",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 30500,
    "y": 17750,
@@ -10510,8 +10517,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i4kp",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qlz3",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 30500,
    "y": 18170,
@@ -10524,8 +10531,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i51p",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qmg0",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 30500,
    "y": 16450,
@@ -10538,8 +10545,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i6ae",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qnaj",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 30500,
    "y": 16870,
@@ -10552,8 +10559,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i75z",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qoti",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 30500,
    "y": 15150,
@@ -10566,8 +10573,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i87c",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qpcr",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 30500,
    "y": 15570,
@@ -10580,8 +10587,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04i9uf",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qq3e",
+   "level": "lvbsc9c0478af",
    "kind": "studentDesk",
    "x": 30500,
    "y": 13850,
@@ -10594,8 +10601,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04iagi",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qrl9",
+   "level": "lvbsc9c0478af",
    "kind": "studentChair",
    "x": 30500,
    "y": 14270,
@@ -10608,8 +10615,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ibh4",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qsrv",
+   "level": "lvbsc9c0478af",
    "kind": "teacherDesk",
    "x": 27500,
    "y": 12550,
@@ -10622,8 +10629,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ic8u",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qtcc",
+   "level": "lvbsc9c0478af",
    "kind": "officeChair",
    "x": 27500,
    "y": 11950,
@@ -10636,8 +10643,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04idb1",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qu0z",
+   "level": "lvbsc9c0478af",
    "kind": "whiteboard",
    "x": 25500,
    "y": 11300,
@@ -10650,8 +10657,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04iews",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qv3a",
+   "level": "lvbsc9c0478af",
    "kind": "bookshelf",
    "x": 31300,
    "y": 18500,
@@ -10664,8 +10671,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04if6e",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qwil",
+   "level": "lvbsc9c0478af",
    "kind": "lockers",
    "x": 23700,
    "y": 18450,
@@ -10678,8 +10685,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ii6e",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04qz8h",
+   "level": "lvbsc9c0478af",
    "kind": "libraryShelf",
    "x": 33600,
    "y": 17450,
@@ -10692,8 +10699,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ij04",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r0fm",
+   "level": "lvbsc9c0478af",
    "kind": "libraryShelf",
    "x": 33600,
    "y": 15950,
@@ -10706,8 +10713,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ikc9",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r1ky",
+   "level": "lvbsc9c0478af",
    "kind": "libraryShelf",
    "x": 33600,
    "y": 14450,
@@ -10720,8 +10727,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ilpu",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r20u",
+   "level": "lvbsc9c0478af",
    "kind": "libraryShelf",
    "x": 33600,
    "y": 12950,
@@ -10734,8 +10741,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04imvt",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r38a",
+   "level": "lvbsc9c0478af",
    "kind": "diningTable6",
    "x": 36800,
    "y": 16950,
@@ -10748,8 +10755,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04inrv",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r4mg",
+   "level": "lvbsc9c0478af",
    "kind": "chair",
    "x": 36350,
    "y": 16350,
@@ -10762,8 +10769,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04io9v",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r5rd",
+   "level": "lvbsc9c0478af",
    "kind": "chair",
    "x": 36350,
    "y": 17550,
@@ -10776,8 +10783,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ipug",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r6kz",
+   "level": "lvbsc9c0478af",
    "kind": "chair",
    "x": 37250,
    "y": 16350,
@@ -10790,8 +10797,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04iqbg",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r72c",
+   "level": "lvbsc9c0478af",
    "kind": "chair",
    "x": 37250,
    "y": 17550,
@@ -10804,8 +10811,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04irr7",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r8je",
+   "level": "lvbsc9c0478af",
    "kind": "diningTable6",
    "x": 36800,
    "y": 13950,
@@ -10818,8 +10825,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04is2i",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04r9s3",
+   "level": "lvbsc9c0478af",
    "kind": "chair",
    "x": 36350,
    "y": 13350,
@@ -10832,8 +10839,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04itrm",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04raqp",
+   "level": "lvbsc9c0478af",
    "kind": "chair",
    "x": 36350,
    "y": 14550,
@@ -10846,8 +10853,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04iuug",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04rbcz",
+   "level": "lvbsc9c0478af",
    "kind": "chair",
    "x": 37250,
    "y": 13350,
@@ -10860,8 +10867,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ivsu",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04rcb6",
+   "level": "lvbsc9c0478af",
    "kind": "chair",
    "x": 37250,
    "y": 14550,
@@ -10874,8 +10881,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04iwer",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04rdrl",
+   "level": "lvbsc9c0478af",
    "kind": "checkout",
    "x": 43800,
    "y": 12150,
@@ -10888,8 +10895,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04ixvw",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04remz",
+   "level": "lvbsc9c0478af",
    "kind": "sectional",
    "x": 43200,
    "y": 17550,
@@ -10902,8 +10909,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04iyhg",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04rfks",
+   "level": "lvbsc9c0478af",
    "kind": "libraryShelf",
    "x": 39800,
    "y": 17450,
@@ -10916,8 +10923,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04izyc",
-   "level": "lvl5olp03yrld",
+   "id": "ubsc9d04rgyq",
+   "level": "lvbsc9c0478af",
    "kind": "libraryShelf",
    "x": 39800,
    "y": 15450,
@@ -10930,8 +10937,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jpt0",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04s6eb",
+   "level": "lvbsc9c0477zv",
    "kind": "box",
    "x": 47000,
    "y": 9500,
@@ -10944,8 +10951,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jqbj",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04s7tm",
+   "level": "lvbsc9c0477zv",
    "kind": "box",
    "x": 63000,
    "y": 9500,
@@ -10958,8 +10965,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jrn8",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04s889",
+   "level": "lvbsc9c0477zv",
    "kind": "bench",
    "x": 51000,
    "y": 1800,
@@ -10972,8 +10979,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04js55",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04s9db",
+   "level": "lvbsc9c0477zv",
    "kind": "bench",
    "x": 55000,
    "y": 1800,
@@ -10986,8 +10993,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jt8b",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sa4n",
+   "level": "lvbsc9c0477zv",
    "kind": "bench",
    "x": 59000,
    "y": 1800,
@@ -11000,8 +11007,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04juks",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sbzf",
+   "level": "lvbsc9c0477zv",
    "kind": "treadmill",
    "x": 48000,
    "y": 17400,
@@ -11014,8 +11021,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jvz6",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sc8w",
+   "level": "lvbsc9c0477zv",
    "kind": "treadmill",
    "x": 49200,
    "y": 17400,
@@ -11028,8 +11035,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jwvj",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sdp9",
+   "level": "lvbsc9c0477zv",
    "kind": "treadmill",
    "x": 50400,
    "y": 17400,
@@ -11042,8 +11049,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jxvx",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sel6",
+   "level": "lvbsc9c0477zv",
    "kind": "spinBike",
    "x": 53000,
    "y": 17700,
@@ -11056,8 +11063,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jym7",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sfc4",
+   "level": "lvbsc9c0477zv",
    "kind": "spinBike",
    "x": 54000,
    "y": 17700,
@@ -11070,8 +11077,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04jzy0",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sgah",
+   "level": "lvbsc9c0477zv",
    "kind": "spinBike",
    "x": 55000,
    "y": 17700,
@@ -11084,8 +11091,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04k0ll",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sher",
+   "level": "lvbsc9c0477zv",
    "kind": "weightBench",
    "x": 59000,
    "y": 17500,
@@ -11098,8 +11105,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5olr04k18v",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9e04sixm",
+   "level": "lvbsc9c0477zv",
    "kind": "poolTable",
    "x": 62500,
    "y": 16600,
@@ -11112,8 +11119,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04k4sg",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04t3df",
+   "level": "lvbsc9c0477zv",
    "kind": "tree",
    "x": -2000,
    "y": 31000,
@@ -11126,8 +11133,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04k59r",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04t4e6",
+   "level": "lvbsc9c0477zv",
    "kind": "tree",
    "x": 7000,
    "y": 31000,
@@ -11140,8 +11147,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04k63t",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04t56n",
+   "level": "lvbsc9c0477zv",
    "kind": "tree",
    "x": 16000,
    "y": 31000,
@@ -11154,8 +11161,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04k7bc",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04t6r6",
+   "level": "lvbsc9c0477zv",
    "kind": "tree",
    "x": 25000,
    "y": 31000,
@@ -11168,8 +11175,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04k81g",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04t71w",
+   "level": "lvbsc9c0477zv",
    "kind": "tree",
    "x": 34000,
    "y": 31000,
@@ -11182,8 +11189,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04k9hu",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04t80f",
+   "level": "lvbsc9c0477zv",
    "kind": "tree",
    "x": 43000,
    "y": 31000,
@@ -11196,8 +11203,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04ka1g",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04t93h",
+   "level": "lvbsc9c0477zv",
    "kind": "bench",
    "x": 5000,
    "y": 22500,
@@ -11210,8 +11217,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04kb55",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04tal6",
+   "level": "lvbsc9c0477zv",
    "kind": "bench",
    "x": 15000,
    "y": 22500,
@@ -11224,8 +11231,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04kcq8",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04tb3e",
+   "level": "lvbsc9c0477zv",
    "kind": "bench",
    "x": 25000,
    "y": 22500,
@@ -11238,8 +11245,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04kdjx",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04tczg",
+   "level": "lvbsc9c0477zv",
    "kind": "bench",
    "x": 35000,
    "y": 22500,
@@ -11252,8 +11259,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04ked4",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04tdc1",
+   "level": "lvbsc9c0477zv",
    "kind": "box",
    "x": 20000,
    "y": 27000,
@@ -11266,8 +11273,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04kfbh",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04te2s",
+   "level": "lvbsc9c0477zv",
    "kind": "bikeRack",
    "x": 2000,
    "y": 25000,
@@ -11280,8 +11287,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04kgac",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04tfjf",
+   "level": "lvbsc9c0477zv",
    "kind": "bikeRack",
    "x": 4000,
    "y": 25000,
@@ -11294,8 +11301,8 @@
    "phase": "new"
   },
   {
-   "id": "ul5ols04khe8",
-   "level": "lvl5olp03yqj9",
+   "id": "ubsc9f04tgnp",
+   "level": "lvbsc9c0477zv",
    "kind": "pergola",
    "x": 32000,
    "y": 27000,
@@ -11310,8 +11317,8 @@
  ],
  "roofs": [
   {
-   "id": "fl5olr04k2s4",
-   "level": "lvl5olp03yqj9",
+   "id": "fbsc9e04sjr5",
+   "level": "lvbsc9c0477zv",
    "pts": [
     [
      45000,
@@ -11338,8 +11345,8 @@
    "phase": "new"
   },
   {
-   "id": "fl5ols04k3q5",
-   "level": "lvl5olp03yrld",
+   "id": "fbsc9e04sk4u",
+   "level": "lvbsc9c0478af",
    "pts": [
     [
      -150,
@@ -11368,8 +11375,8 @@
  ],
  "dimensions": [
   {
-   "id": "kl5ols04ki8c",
-   "level": "lvl5olp03yqj9",
+   "id": "kbsc9f04th7j",
+   "level": "lvbsc9c0477zv",
    "x1": 0,
    "y1": 0,
    "x2": 65000,
@@ -11379,8 +11386,8 @@
    "phase": "new"
   },
   {
-   "id": "kl5ols04kj3j",
-   "level": "lvl5olp03yqj9",
+   "id": "kbsc9f04tijb",
+   "level": "lvbsc9c0477zv",
    "x1": 0,
    "y1": 19000,
    "x2": 0,
@@ -11390,8 +11397,8 @@
    "phase": "new"
   },
   {
-   "id": "kl5ols04kkrc",
-   "level": "lvl5olp03yrld",
+   "id": "kbsc9f04tjwb",
+   "level": "lvbsc9c0478af",
    "x1": 0,
    "y1": 0,
    "x2": 45000,
@@ -11401,8 +11408,8 @@
    "phase": "new"
   },
   {
-   "id": "kl5ols04klef",
-   "level": "lvl5olp03yrld",
+   "id": "kbsc9f04tkna",
+   "level": "lvbsc9c0478af",
    "x1": 0,
    "y1": 19000,
    "x2": 0,
@@ -11415,11 +11422,530 @@
  "texts": [],
  "drawings": [],
  "underlays": [],
+ "slabs": [
+  {
+   "id": "slbsc9f04sl4y",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     -150,
+     -150
+    ],
+    [
+     -150,
+     19150
+    ],
+    [
+     65150,
+     19150
+    ],
+    [
+     65150,
+     -150
+    ]
+   ],
+   "holes": [],
+   "type": "floor-insulated-300",
+   "offset": 0,
+   "slope": 0,
+   "slopeDir": 0,
+   "phase": "new",
+   "thickness": 300,
+   "kind": "floor"
+  },
+  {
+   "id": "slbsc9f04sman",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     -150,
+     -150
+    ],
+    [
+     -150,
+     19150
+    ],
+    [
+     45150,
+     19150
+    ],
+    [
+     45150,
+     -150
+    ]
+   ],
+   "holes": [
+    [
+     [
+      2200,
+      1350
+     ],
+     [
+      3800,
+      1350
+     ],
+     [
+      3800,
+      6650
+     ],
+     [
+      2200,
+      6650
+     ]
+    ]
+   ],
+   "type": "floor-concrete-250",
+   "offset": 0,
+   "slope": 0,
+   "slopeDir": 0,
+   "phase": "new",
+   "thickness": 250,
+   "kind": "floor"
+  }
+ ],
+ "ceilings": [
+  {
+   "id": "clbsc9f04sn74",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     6075,
+     150
+    ],
+    [
+     14925,
+     150
+    ],
+    [
+     14925,
+     7925
+    ],
+    [
+     6075,
+     7925
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04sotu",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     15075,
+     150
+    ],
+    [
+     23925,
+     150
+    ],
+    [
+     23925,
+     7925
+    ],
+    [
+     15075,
+     7925
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04sp3i",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     24075,
+     150
+    ],
+    [
+     32925,
+     150
+    ],
+    [
+     32925,
+     7925
+    ],
+    [
+     24075,
+     7925
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04sqv4",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     33075,
+     150
+    ],
+    [
+     44850,
+     150
+    ],
+    [
+     44850,
+     7925
+    ],
+    [
+     33075,
+     7925
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04srk2",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     44850,
+     11075
+    ],
+    [
+     44850,
+     18850
+    ],
+    [
+     38075,
+     18850
+    ],
+    [
+     38075,
+     11075
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04ss3i",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     31925,
+     18850
+    ],
+    [
+     23075,
+     18850
+    ],
+    [
+     23075,
+     11075
+    ],
+    [
+     31925,
+     11075
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04st7b",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     22925,
+     18850
+    ],
+    [
+     14075,
+     18850
+    ],
+    [
+     14075,
+     11075
+    ],
+    [
+     22925,
+     11075
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04suey",
+   "level": "lvbsc9c0477zv",
+   "pts": [
+    [
+     13925,
+     18850
+    ],
+    [
+     5075,
+     18850
+    ],
+    [
+     5075,
+     11075
+    ],
+    [
+     13925,
+     11075
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04svwu",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     6075,
+     150
+    ],
+    [
+     14925,
+     150
+    ],
+    [
+     14925,
+     7925
+    ],
+    [
+     6075,
+     7925
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04swqx",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     15075,
+     150
+    ],
+    [
+     23925,
+     150
+    ],
+    [
+     23925,
+     7925
+    ],
+    [
+     15075,
+     7925
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04sx4a",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     24075,
+     150
+    ],
+    [
+     32925,
+     150
+    ],
+    [
+     32925,
+     7925
+    ],
+    [
+     24075,
+     7925
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04sy8s",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     33075,
+     150
+    ],
+    [
+     41925,
+     150
+    ],
+    [
+     41925,
+     7925
+    ],
+    [
+     33075,
+     7925
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04szp7",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     44850,
+     11075
+    ],
+    [
+     44850,
+     18850
+    ],
+    [
+     32075,
+     18850
+    ],
+    [
+     32075,
+     11075
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04t0cq",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     31925,
+     18850
+    ],
+    [
+     23075,
+     18850
+    ],
+    [
+     23075,
+     11075
+    ],
+    [
+     31925,
+     11075
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04t1xe",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     22925,
+     18850
+    ],
+    [
+     14075,
+     18850
+    ],
+    [
+     14075,
+     11075
+    ],
+    [
+     22925,
+     11075
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  },
+  {
+   "id": "clbsc9f04t2le",
+   "level": "lvbsc9c0478af",
+   "pts": [
+    [
+     13925,
+     18850
+    ],
+    [
+     5075,
+     18850
+    ],
+    [
+     5075,
+     11075
+    ],
+    [
+     13925,
+     11075
+    ]
+   ],
+   "holes": [],
+   "type": "ceil-acoustic-20",
+   "height": null,
+   "phase": "new",
+   "thickness": 20
+  }
+ ],
+ "beams": [],
+ "railings": [],
+ "ramps": [],
+ "shafts": [],
  "models": [],
  "solids": [],
  "scenes": [
   {
-   "id": "scl5ols04kmv6",
+   "id": "scbsc9f04tl6m",
    "name": "Playground side",
    "camera": {
     "pos": [
@@ -11439,7 +11965,7 @@
    "phase": "all"
   },
   {
-   "id": "scl5ols04knrq",
+   "id": "scbsc9f04tmxz",
    "name": "Classrooms cut",
    "camera": {
     "pos": [
@@ -11459,7 +11985,7 @@
    "phase": "all"
   },
   {
-   "id": "scl5ols04kot1",
+   "id": "scbsc9f04tnie",
    "name": "Ground floor cut",
    "camera": {
     "pos": [
@@ -11479,7 +12005,7 @@
    "phase": "all"
   },
   {
-   "id": "scl5ols04kpgi",
+   "id": "scbsc9f04to0i",
    "name": "Line drawing",
    "camera": {
     "pos": [
@@ -11500,6 +12026,793 @@
   }
  ],
  "view": {
-  "level": "lvl5olp03yqj9"
+  "level": "lvbsc9c0477zv"
+ },
+ "slabTypes": [],
+ "types": [],
+ "designOptions": [],
+ "views": [
+  {
+   "id": "vbsc9i04u231",
+   "kind": "section",
+   "name": "Section A-A",
+   "scale": 200,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": 0,
+    "y1": -9300,
+    "x2": 70000,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "S1",
+   "line": {
+    "x1": -3500,
+    "y1": 15425,
+    "x2": 66500,
+    "y2": 15425
+   }
+  },
+  {
+   "id": "vbsc9i04u3yz",
+   "kind": "section",
+   "name": "Section B-B",
+   "scale": 200,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": 0,
+    "y1": -9300,
+    "x2": 34150,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "S2",
+   "line": {
+    "x1": 31500,
+    "y1": 32500,
+    "x2": 31500,
+    "y2": -1650
+   }
+  },
+  {
+   "id": "vbsc9i04u4xt",
+   "kind": "elevation",
+   "name": "South elevation",
+   "scale": 200,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [
+    "furniture"
+   ],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": -35000,
+    "y1": -9300,
+    "x2": 35000,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "E1",
+   "x": 31500,
+   "y": 39000,
+   "angle": -90
+  },
+  {
+   "id": "vbsc9i04u509",
+   "kind": "elevation",
+   "name": "North elevation",
+   "scale": 200,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [
+    "furniture"
+   ],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": -35000,
+    "y1": -9300,
+    "x2": 35000,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "E2",
+   "x": 31500,
+   "y": -8150,
+   "angle": 90
+  },
+  {
+   "id": "vbsc9i04u6yv",
+   "kind": "elevation",
+   "name": "East elevation",
+   "scale": 200,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [
+    "furniture"
+   ],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": -17075,
+    "y1": -9300,
+    "x2": 17075.000000000007,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "E3",
+   "x": 73000,
+   "y": 15425,
+   "angle": 180
+  },
+  {
+   "id": "vbsc9i04u7sj",
+   "kind": "elevation",
+   "name": "West elevation",
+   "scale": 200,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [
+    "furniture"
+   ],
+   "overrides": {},
+   "template": null,
+   "crop": {
+    "x1": -17075,
+    "y1": -9300,
+    "x2": 17075,
+    "y2": 1500
+   },
+   "cropOn": true,
+   "cropShow": true,
+   "ref": "E4",
+   "x": -10000,
+   "y": 15425,
+   "angle": 0
+  },
+  {
+   "id": "vbsc9i04u8o2",
+   "kind": "schedule",
+   "name": "Room schedule",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": null,
+   "cropOn": false,
+   "cropShow": true,
+   "category": "rooms",
+   "fields": [
+    "level",
+    "name",
+    "area",
+    "floor"
+   ],
+   "filters": [],
+   "sort": [
+    {
+     "field": "name"
+    }
+   ],
+   "group": "level",
+   "totals": true,
+   "calc": []
+  },
+  {
+   "id": "vbsc9i04u9bq",
+   "kind": "schedule",
+   "name": "Door schedule",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": null,
+   "cropOn": false,
+   "cropShow": true,
+   "category": "doors",
+   "fields": [
+    "mark",
+    "level",
+    "type",
+    "width",
+    "height"
+   ],
+   "filters": [],
+   "sort": [
+    {
+     "field": "mark"
+    }
+   ],
+   "group": null,
+   "totals": true,
+   "calc": []
+  },
+  {
+   "id": "vbsc9i04uamd",
+   "kind": "schedule",
+   "name": "Sheet list",
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": null,
+   "cropOn": false,
+   "cropShow": true,
+   "category": "sheets",
+   "fields": [
+    "number",
+    "name",
+    "revision",
+    "date"
+   ],
+   "filters": [],
+   "sort": [
+    {
+     "field": "number"
+    }
+   ],
+   "group": null,
+   "totals": false,
+   "calc": []
+  },
+  {
+   "id": "vbsc9i04ubku",
+   "kind": "legend",
+   "name": "Wall types legend",
+   "scale": 20,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": [],
+   "overrides": {},
+   "template": null,
+   "crop": null,
+   "cropOn": false,
+   "cropShow": true,
+   "legend": "walltypes"
+  }
+ ],
+ "sheets": [
+  {
+   "id": "shbsc9i04tyv5",
+   "number": "A101",
+   "name": "Floor plan — 1F",
+   "paper": "A3",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "",
+    "status": ""
+   },
+   "viewports": [
+    {
+     "id": "vpbsc9i04tzii",
+     "view": "pl-lvbsc9c0477zv",
+     "x": 0,
+     "y": 0,
+     "fit": true
+    }
+   ],
+   "revisions": [],
+   "auto": true
+  },
+  {
+   "id": "shbsc9i04u05v",
+   "number": "A102",
+   "name": "Floor plan — 2F",
+   "paper": "A3",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "",
+    "status": ""
+   },
+   "viewports": [
+    {
+     "id": "vpbsc9i04u1xn",
+     "view": "pl-lvbsc9c0478af",
+     "x": 0,
+     "y": 0,
+     "fit": true
+    }
+   ],
+   "revisions": [],
+   "auto": true
+  },
+  {
+   "id": "shbsc9i04ut0g",
+   "number": "A001",
+   "name": "Cover and drawing list",
+   "paper": "A1",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "SHKWON",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "2026-10-11",
+    "status": "For planning"
+   },
+   "viewports": [
+    {
+     "id": "vpbsc9i04uun0",
+     "view": "vbsc9i04uamd",
+     "x": 67,
+     "y": 33
+    },
+    {
+     "id": "vpbsc9j04uzsi",
+     "view": "3d-default",
+     "x": 166,
+     "y": 53
+    }
+   ],
+   "revisions": [
+    "rv-a"
+   ]
+  },
+  {
+   "id": "shbsc9j04v092",
+   "number": "A201",
+   "name": "Sections",
+   "paper": "A1",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "SHKWON",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "2026-10-11",
+    "status": "For planning"
+   },
+   "viewports": [
+    {
+     "id": "vpbsc9j04v1rg",
+     "view": "vbsc9i04u231",
+     "x": 203,
+     "y": 45
+    },
+    {
+     "id": "vpbsc9j04v2mj",
+     "view": "vbsc9i04u3yz",
+     "x": 473,
+     "y": 45
+    }
+   ],
+   "revisions": [
+    "rv-a"
+   ]
+  },
+  {
+   "id": "shbsc9j04v3r0",
+   "number": "A301",
+   "name": "Elevations",
+   "paper": "A1",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "SHKWON",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "2026-10-11",
+    "status": "For planning"
+   },
+   "viewports": [
+    {
+     "id": "vpbsc9j04v4mi",
+     "view": "vbsc9i04u4xt",
+     "x": 203,
+     "y": 45
+    },
+    {
+     "id": "vpbsc9j04v55z",
+     "view": "vbsc9i04u509",
+     "x": 203,
+     "y": 117
+    },
+    {
+     "id": "vpbsc9j04v6kr",
+     "view": "vbsc9i04u6yv",
+     "x": 473,
+     "y": 45
+    },
+    {
+     "id": "vpbsc9j04v7oo",
+     "view": "vbsc9i04u7sj",
+     "x": 473,
+     "y": 117
+    }
+   ],
+   "revisions": [
+    "rv-a"
+   ]
+  },
+  {
+   "id": "shbsc9j04v8f5",
+   "number": "A601",
+   "name": "Schedules and legend",
+   "paper": "A1",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "SHKWON",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "2026-10-11",
+    "status": "For planning"
+   },
+   "viewports": [
+    {
+     "id": "vpbsc9l04v9ak",
+     "view": "vbsc9i04u8o2",
+     "x": 66,
+     "y": 114
+    },
+    {
+     "id": "vpbsc9m04va82",
+     "view": "vbsc9i04u9bq",
+     "x": 161,
+     "y": 102
+    },
+    {
+     "id": "vpbsc9o04vblg",
+     "view": "vbsc9i04ubku",
+     "x": 291,
+     "y": 62
+    }
+   ],
+   "revisions": [
+    "rv-a"
+   ]
+  }
+ ],
+ "annotations": [
+  {
+   "id": "anbsc9i04ucv4",
+   "view": "vbsc9i04u231",
+   "kind": "dim",
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     -7800
+    ]
+   ],
+   "offset": -1200
+  },
+  {
+   "id": "anbsc9i04udnj",
+   "view": "vbsc9i04u231",
+   "kind": "spot",
+   "x": 35000,
+   "y": 0,
+   "dx": 1600,
+   "dy": -1200
+  },
+  {
+   "id": "anbsc9i04uebo",
+   "view": "vbsc9i04u231",
+   "kind": "note",
+   "x": 49000,
+   "y": -8400,
+   "text": "Roof: see detail",
+   "size": 2.5,
+   "leader": [
+    [
+     42000,
+     -7600
+    ]
+   ]
+  },
+  {
+   "id": "anbsc9i04ufiz",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04gsf3",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04ugof",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04gtc7",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04uht8",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04gu58",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04ui87",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04gvvv",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04ujv7",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04gwqg",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04ukzn",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04gxj5",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04ula3",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04gy8i",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04umny",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04gzsx",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04unyr",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04h06n",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04uocz",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04h1yl",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04upyy",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04h28t",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04uq31",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9d04h3ap",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04uror",
+   "view": "pl-lvbsc9c0477zv",
+   "kind": "tag",
+   "target": "rbsc9e04s50f",
+   "dx": 0,
+   "dy": 0
+  },
+  {
+   "id": "anbsc9i04usw8",
+   "view": "vbsc9i04u231",
+   "kind": "cloud",
+   "pts": [
+    [
+     21000,
+     -9000
+    ],
+    [
+     49000,
+     -9000
+    ],
+    [
+     49000,
+     -6900
+    ],
+    [
+     21000,
+     -6900
+    ]
+   ],
+   "rev": "rv-a"
+  }
+ ],
+ "revisions": [
+  {
+   "id": "rv-a",
+   "seq": 1,
+   "name": "A",
+   "date": "2026-10-11",
+   "description": "Issued for planning",
+   "issuedTo": "Sample",
+   "issuedBy": "SHKWON",
+   "issued": true
+  }
+ ],
+ "publishSets": [
+  {
+   "id": "ps-all",
+   "name": "Planning set",
+   "sheets": [
+    "shbsc9i04tyv5",
+    "shbsc9i04u05v",
+    "shbsc9i04ut0g",
+    "shbsc9j04v092",
+    "shbsc9j04v3r0",
+    "shbsc9j04v8f5"
+   ]
+  }
+ ],
+ "viewTemplates": [
+  {
+   "id": "vt-plan-100",
+   "name": "Architectural plan 1:100",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": []
+  },
+  {
+   "id": "vt-furn-50",
+   "name": "Furniture plan 1:50",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "new",
+   "hidden": [
+    "dimensions"
+   ]
+  },
+  {
+   "id": "vt-section-50",
+   "name": "Construction section 1:50",
+   "kinds": [
+    "section",
+    "detail"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [
+    "furniture",
+    "lights"
+   ]
+  },
+  {
+   "id": "vt-elev-100",
+   "name": "Presentation elevation 1:100",
+   "kinds": [
+    "elevation"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "new",
+   "hidden": [
+    "furniture"
+   ]
+  }
+ ],
+ "lineStyles": [
+  {
+   "id": "thin",
+   "name": "Thin lines",
+   "weight": 0.13,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "medium",
+   "name": "Medium lines",
+   "weight": 0.25,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "wide",
+   "name": "Wide lines",
+   "weight": 0.5,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "hidden",
+   "name": "Hidden lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dash"
+  },
+  {
+   "id": "centre",
+   "name": "Centre lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dashdot"
+  },
+  {
+   "id": "overhead",
+   "name": "Overhead lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dot"
+  },
+  {
+   "id": "demolished",
+   "name": "Demolished",
+   "weight": 0.25,
+   "color": "#c62828",
+   "pattern": "dash"
+  },
+  {
+   "id": "red",
+   "name": "Red lines",
+   "weight": 0.25,
+   "color": "#d32f2f",
+   "pattern": "solid"
+  }
+ ],
+ "components": [],
+ "materials": [],
+ "sections": [],
+ "guides": [],
+ "dims3d": [],
+ "texts3d": [],
+ "style3d": {
+  "edges": false,
+  "edgeColor": "#1d2128",
+  "profiles": false,
+  "profileWidth": 3,
+  "colorByTag": false,
+  "background": "",
+  "sky": "",
+  "horizon": "",
+  "ground": "",
+  "groundOn": true,
+  "watermark": "",
+  "watermarkPos": "br",
+  "sectionFill": "#3b4250",
+  "fogDensity": 1
  }
 }

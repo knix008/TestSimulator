@@ -8,6 +8,7 @@
 
 import { orientedRect, offsetPolygon, rotPt, polygonArea } from "./geom.js";
 import { levelById } from "./project.js";
+import { edgeRoofModel } from "./elements/roofedges.js";
 
 export function roofBase(p, roof) {
   const lv = levelById(p, roof.level);
@@ -15,6 +16,7 @@ export function roofBase(p, roof) {
 }
 
 export function roofModel(roof, base = 0) {
+  if (roof.kind === "edges") return edgeRoofModel(roof, base); // a slope or a gable per edge
   const o = roof.overhang || 0;
   const tan = Math.tan(((roof.pitch || 0) * Math.PI) / 180);
   if (roof.kind === "flat" || !(tan > 0)) {

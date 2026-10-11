@@ -115,6 +115,11 @@ Open them with **File → Open sample…** or from the start page cards. Samples
 | 13 | **Primary school** (`13-school.myarch`) | Two floors of classrooms, library, canteen and kitchen, staff office, a sports hall with a gable roof | School and fitness furniture, separate roofs, scenes in several styles |
 | 14 | **Courtyard house** (`14-courtyard-house.myarch`) | A U-shaped house around a courtyard with a pool and pergola, three bedrooms, dressing room, two-car garage | Irregular outline, a hip roof per wing, many kinds of home furniture |
 | 15 | **Cultural complex (SketchUp style)** (`15-sketchup-complex.myarch`) | A large massing model in groups: a cantilevered museum, a round concert hall with an amphitheatre, a 24-floor twisting tower, a canopy and terraced housing | 60+ push/pull masses, groups, taper, nine scenes in every style |
+| 16 | **Modern villa** (`16-modern-villa.myarch`) | Open living, kitchen and dining behind a glass curtain wall, an upper floor cantilevered 2 m over the carport, master suite, flat roofs, pool | Curtain wall, cantilever, lighting, sections, elevations, sheets |
+| 17 | **Townhouse** (`17-townhouse.myarch`) | A narrow three-storey row house between party walls with a roof terrace and stair pavilion | Stacked stairs, parapet-height walls, roof terrace |
+| 18 | **Modern farmhouse** (`18-modern-farmhouse.myarch`) | A long gabled house in dark timber: living hall, guest room, bedrooms under the roof | Gabled metal roof, coloured cladding, pergola |
+| 19 | **Duplex** (`19-duplex.myarch`) | Two mirror-image two-storey homes sharing a party wall | Mirrored plans, party-wall type, hip roof |
+| 20 | **Compact house** (`20-compact-house.myarch`) | A 45 m² single-storey home under one shed roof | Furnishing a small plan, shed roof |
 
 ---
 
@@ -564,6 +569,54 @@ The **Push/Pull in 3D** button switches to the 3D tab and turns on the Push/Pull
 
 The CAD layers window: per layer a visibility tick, colour, item count and **Delete** (only for layers with no items; layer `0` cannot be deleted). It is split into pages of 10.
 
+### 3.15 Building elements (slabs, ceilings, beams, railings, ramps, shafts, curtain walls)
+
+The model holds the same building elements as Revit and ArchiCAD models, so a design does not need those programs. The tools are on the plan toolbar; related tools share a **split button** — the button runs the first tool, the small ▾ next to it lists the others (nothing is hidden, every tool is one click away):
+
+| Split button | Tools |
+|---|---|
+| Wall ▾ | **Wall** (<kbd>W</kbd>), **Curtain wall** (<kbd>V</kbd>) |
+| Column ▾ | **Column** (<kbd>C</kbd>), **Beam** (<kbd>J</kbd>), **Beam system in the selected slab or room…** |
+| Stair ▾ | **Stair** (<kbd>S</kbd>) and its shapes **Straight**, **L-shaped (quarter landing)**, **U-shaped (half landing)**, **Spiral**; **Ramp**; **Railing** (<kbd>I</kbd>) |
+| Floor slab ▾ | **Floor slab** (<kbd>P</kbd>), **Ceiling**, **Shaft opening**, **Opening in a slab, ceiling or roof**, **Floor slabs under every level**, **Ceilings in every room of this level** |
+| Type catalogue ▾ | **Type catalogue (families)…**, **Design options…**, **Array (linear / radial)…**, **Materials and thermal properties…** |
+
+**Floor slabs and foundations.** Click inside the walls for a slab under the building outline, or Shift+click to draw any outline (Enter or the first point finishes). On the right: **Slab type** (layered types such as *Concrete floor 250*, *Insulated floor 300*, *Raft foundation 400*; the thickness and the U-value follow from the layers), **Top offset** (a raised or sunken floor), **Slope** and **Slope direction** (a sloped slab rises from its lowest corner), **Finish**. **Add opening** draws a hole (two corners); openings are cut in the plan, the 3D model and the IFC file. A room on a slab keeps only its floor finish.
+
+**Ceilings.** Click inside a room for a ceiling over it (or Shift+click an outline). The height above the floor defaults to 300 mm under the floor above; ceiling types are *Gypsum board* and *Acoustic tile 600×600*. In the plan a ceiling is a dash-dot outline with its height ("CLG +2.50").
+
+**Beams and braces.** Click the two ends; they snap to columns and wall ends. The top sits at the top of the storey; set **Top at start** / **Top at end** for a sloped beam (a brace). Profiles: rectangle, I-section, T-section, round. Beams are drawn dashed (they are above the cut). **Beam system…** fills the selected slab or room with parallel beams at a spacing and direction you type (e.g. `1200 90`).
+
+**Railings.** Click the points of a path; Enter ends. Height, base height, style (balusters, glass panels, solid panels), baluster spacing and material — or a railing type. Stairs carry their own railings: the stair's **Railings** field (none, left, right, both sides); new stairs get both.
+
+**Stairs by type.** The stair's **Shape**: straight, L (quarter landing; *Second flight* length), U (half landing; *Landing depth*, *Well gap*), spiral (*Inner radius*, *Sweep angle*; draw it by clicking the centre and then the outside edge). Every riser is equal and the last tread is level with the floor above; the properties show "8 + 8 steps, riser 175 mm". Older straight stairs open unchanged.
+
+**Ramps.** Click the centre line from the bottom up. The rise is to the level above unless you set one; the plan shows the slope ("8.3% 1:12") and the model check warns about ramps steeper than 1:12.
+
+**Shafts.** Two corners of a vertical opening; it cuts the slabs, ceilings and roofs of every level from its **Base level** to its **Top level** and is drawn with both diagonals on each of them.
+
+**Curtain walls.** Drawn like walls with a curtain-wall type: grid spacing along and up (equal cells or fixed spacing), mullion width and depth, panel and frame material, optional spandrel panels. A curtain wall can override the spacing. Doors and windows placed in a curtain wall replace the panels they cover.
+
+**Walls: profiles and attachment.** A wall's **Height at end** gives it a sloped top, **Base offset** lifts its bottom, **Attach top** makes it reach up to the roof (or a slab) above — under a gable it follows the roof. Build → *Attach the selected walls to the roof or slab above* does it for a selection.
+
+**Roofs per edge.** Tick **Slope per edge (footprint roof)**: every edge gets *Sloped* on/off, its own pitch and overhang (all edges sloped = hip, two opposite gables = gable roof, one = lean-to). **Add opening** cuts skylights and dormer holes.
+
+**Types (families).** The **Type catalogue** holds door, window, column, beam, furniture and railing types with their type parameters (sizes, operation, frame width and depth, profile, material, default sill height …), the curtain-wall and floor/ceiling types, and a **Materials** page with every material's thermal conductivity λ, density and specific heat and the U-values of the layered types. An instance with a **Catalogue type** takes its type parameters (they are greyed out on the instance); edit the type and every instance follows. **Select all instances**, **Create a type from the selection** and **Apply to the selection** are in the catalogue, the properties and the right-click menu. The built-in types are always there; only types you make or change are saved in the file.
+
+**Design options.** Design options… makes option sets (e.g. "Lobby" with options A and B). Put the selection into an option; only the active option of each set is drawn, built in 3D, checked, scheduled and exported. **Accept the active option** makes it part of the main model and deletes the others.
+
+**Arrays and groups.** Array… repeats the selection linearly (spacing X / Y) or radially (total angle, centre), optionally grouping each copy (groups: section 4.7).
+
+**Schedules and exchange.** Schedules and quantities has the pages **Building elements** (every slab, ceiling, beam, brace, railing, ramp, shaft and curtain wall with length, area, volume and U-value, plus totals) and **Types** (every type with its instance count); the wall-type page shows U-values and the cost estimate prices slabs, ceilings, beams, railings, ramps and curtain walls. IFC export writes IfcSlab, IfcCovering, IfcBeam/IfcMember, IfcRailing, IfcRamp, IfcStair with flights and landings, IfcCurtainWall with IfcMember and IfcPlate, and IfcOpeningElement for shafts; DXF puts them on the layers A-FLOR-SLAB, A-CLNG, S-BEAM, A-FLOR-HRAL, A-FLOR-RAMP, A-SHFT and A-GLAZ-CWMG.
+
+![Building elements in the plan: slab with openings, shaft, curtain wall, beams, railings, ramp, L / U / spiral stairs](docs/images/en/bim-elements-plan.webp)
+*Building elements in the plan: slab with openings, shaft, curtain wall, beams, railings, ramp, L / U / spiral stairs*
+
+![The same elements in 3D, with a per-edge roof, a sloped slab and walls attached to the roof](docs/images/en/bim-elements-3d.webp)
+*The same elements in 3D, with a per-edge roof, a sloped slab and walls attached to the roof*
+
+Linked models (Revit links, ArchiCAD hotlinks and modules) are not supported: bring the other model's elements into this project with IFC import instead.
+
 ---
 
 ## 4. Editing
@@ -688,15 +741,19 @@ The **3D View** tab (<kbd>F3</kbd>; <kbd>F4</kbd> does the same) shows what you 
 
 ### 5.1 The 3D toolbar
 
+The toolbar shows **icons only**; hover a button for its name and shortcut. When the window is too narrow for one row the toolbar wraps onto **two rows** — no button is ever hidden.
+
 | Group | Buttons |
 | --- | --- |
 | Navigation | Orbit · Pan (P) · Walk (V) |
 | Tools | Push/Pull · Paint bucket · Tape measure |
-| Views | Isometric · Top · Front · Rear · Left side · Right side · Bird's eye (keys <kbd>1</kbd> to <kbd>7</kbd>) |
+| Views | **Standard views** button: goes to the last view chosen; ▾ lists Isometric · Top · Front · Rear · Left side · Right side · Bird's eye (keys <kbd>1</kbd> to <kbd>7</kbd>) |
 | Display | Orthographic projection (O) · Front elevation · Section cut at the current level (X) · Open doors · Furniture · Roofs · Fog |
-| Style | The render style list (Realistic / White model / Line drawing / X-ray) |
-| Aids | Grid (G) · Building dimensions · Zoom to fit |
+| Style | **Render style** button and ▾: Realistic / White model / Line drawing / X-ray |
+| Aids | Grid (G) · **Axes with scale (X, Y, Z)** · Building dimensions · Zoom to fit |
 | Output | Save 3D image (PNG)… · Export 3D model… |
+
+The **Axes with scale (X, Y, Z)** button (on by default, the same as **Show → Axes** on the left) draws red X, blue Y and green Z axes from the origin with ticks and numbers. The tick spacing follows the zoom like the grid (5 m or 1 m from far away, 0.2 m close up …). Like other numbers, the axes are hidden behind the building and show through it only in the X-ray style.
 
 Switching between the floor plan and the 3D view is done with the view tabs in the title bar and the **View** menu (<kbd>F2</kbd> / <kbd>F3</kbd>), not the toolbar.
 
@@ -706,7 +763,7 @@ Switching between the floor plan and the 3D view is done with the view tabs in t
 | --- | --- | --- |
 | Left-drag | Rotate | Pan |
 | Right-drag | Pan | Rotate |
-| Wheel / middle-drag | Zoom | Zoom |
+| Wheel / middle-drag | Zoom (smoothly, towards the mouse) | Zoom |
 
 - Arrow keys: rotate (7.5° per press); <kbd>Shift</kbd>+arrow keys: pan.
 - **Double-click** the model to move in closer around that point.
@@ -876,6 +933,105 @@ Releasing the right button without moving opens the menu: (**Show in plan** at t
 - **Save 3D image (PNG)…**: saves the current 3D view as it is, as `title-3d.png`.
 - **Export 3D model…**: section 7.5.
 
+### 5.16 SketchUp tools (draw, modify, components, tags, sections, styles, sandbox)
+
+SketchUp files (.skp) are a closed format and cannot be read, but what a SketchUp model holds and what SketchUp does can be done in the 3D tab. A mass starts as a plan shape extruded to a height (push/pull); once you draw on it or push and pull its faces in 3D it becomes a **mesh** of faces and edges. The plan shows the mesh's outline, and move, rotate, mirror, scale and copy carry the mesh along. Older files open unchanged.
+
+The toolbar: after **Push/Pull · Paint bucket · Tape measure** come six split buttons. The button runs the tool used last; ▾ lists every tool of the group.
+
+| Group | Tools (keys) |
+|---|---|
+| Draw | Line (<kbd>L</kbd>), Rectangle (<kbd>R</kbd>), Circle (<kbd>C</kbd>), Polygon, Arc (<kbd>A</kbd>) |
+| Modify | Move/copy (<kbd>M</kbd>), Rotate (<kbd>Q</kbd>), Scale (<kbd>S</kbd>), Offset (<kbd>F</kbd>), Follow me, Eraser (<kbd>E</kbd>) |
+| Construction | Protractor, 3D dimension, 3D text, Drawing axes, Section plane |
+| Camera | Position camera, Look around, Two-point perspective |
+| Sandbox | Smoove, Terrain from scratch, Terrain from contours |
+| Solid tools | Union, Subtract, Trim, Intersect, Split, Outer shell, Intersect faces, Make component |
+
+<kbd>T</kbd> (tape) and <kbd>B</kbd> (paint) pick those tools in 3D too. Every command is also in the command palette (<kbd>Ctrl+K</kbd>) and the 3D right-click menu.
+
+#### Inference
+
+The tools work click-move-click (a left drag still orbits). The pointer snaps to **endpoints** (green), **midpoints** (cyan), **on edge** (red), **on face** (blue) and **guides** (orange), and along the **red / green / blue axes** from the last point. Holding <kbd>Shift</kbd> locks the current direction; the arrow keys lock an axis (→ red, ← green, ↑ ↓ blue). A tip next to the cursor says what it snapped to.
+
+**The measurements box**: while a tool runs, type a value and press <kbd>Enter</kbd>: `3000` (mm), `3m`, `30cm`; a rectangle takes `4000,3000`, a circle or polygon a radius or `32s` (sides), rotate an angle, scale `2` or `1,1,2`, and after a copy `5x` (an array) or `/5` (divide). What you type shows in the status bar.
+
+#### Drawing and push/pull
+
+- **Line**: click points; click the start again to close a face. A closed shape drawn on a face of a mass becomes a face of its own (to push or pull separately); a line from one edge of a face to another splits it in two. A closed shape drawn in empty space is a new face with no thickness; an open line stays as **edges** — something to snap to, or a path for Follow me. <kbd>Esc</kbd> or a double-click ends it.
+- **Rectangle / Circle / Polygon / Arc**: started on a face they are drawn on it, otherwise on the current level's floor.
+- **Push/Pull**: drag any face, or click-move-click. When every neighbouring face is perpendicular the face just moves (the top or a side of a box); otherwise new side faces appear. Pushed into a closed mass it carves a recess, pushed right through it makes a hole. <kbd>Ctrl</kbd> always starts a new extrusion. The top of a mass made in the plan still just changes its height.
+- **Offset**: click a face and move inwards: a loop inside its edge (a window frame, a parapet band). Push the inner face in for a recess or pull it out.
+- **Follow me**: click the profile face (drawn upright at the start of the path), then the path — a drawn line, or a face (its edge all the way round). Cornices, skirtings, railings and turned columns; corners are mitred.
+
+#### Move, copy, arrays, rotate, scale
+
+- **Move**: click a point on the selection (or on what you click), then where it goes — upwards too for masses and furniture. <kbd>Ctrl</kbd> copies; right after a copy type `4x` for four at the same spacing or `/4` for four between.
+- **Rotate**: click the centre (on a face its normal is the axis), a start direction and the angle; it snaps every 15°. About a vertical axis everything turns; about any other axis masses tip. After a <kbd>Ctrl</kbd> copy `6x` makes a polar array.
+- **Scale**: the fixed point, a reference point, then the factor. A reference along an axis stretches along that axis only. Walls, rooms and other plan items scale evenly only.
+- <kbd>Shift</kbd>+click adds to the selection in 3D.
+
+#### Solid tools
+
+Select two closed masses (or components) in order, then **Solid tools** ▾: **Union**, **Subtract** (the second is cut out of the first and goes), **Trim** (the same, but the cutter stays), **Intersect** (only the overlap), **Split** (three parts) and **Outer shell** (all of them united). **Intersect faces** only adds edges where masses meet, so the parts can be painted or pushed on their own. Faces touching in one plane, overlapping and identical masses all merge into clean faces; every face keeps its material.
+
+#### Components
+
+- **Make component**: select masses, **Solid tools ▾ → Make component…** (or + on the Components panel); give it a name and choose **Cuts an opening** (glues into walls, like a window). The masses become one definition and an instance where they were.
+- **Place**: + next to a definition on the Components panel, then click in 3D. A cutting component glues into the wall you click: the wall gets the hole and the component fills it (in the plan it is an opening that slides along the wall).
+- **Edit in place**: double-click an instance; a blue box shows it is open. Push/pull, paint, drawing and offset now change the definition, and **every copy** changes with it. <kbd>Esc</kbd> closes it.
+- **Make unique** gives the selected instances their own copy of the definition; **Explode** turns an instance back into a plain mass; **Replace with** (Entity info) swaps the definition.
+- Imported 3D models and the built-in furniture behave like definitions too: the same model or kind are instances of one definition; the Components panel counts them and **Select instances**, and for furniture **Apply to all instances** gives every instance this one's size and colour.
+
+#### Tags, outliner, hiding
+
+- **Tags** panel: each tag (SketchUp's layers) with a visibility tick, its colour and how many items use it. **+** adds a tag; the tag icon on a row assigns the selection to it (so does the **Tag** box in Entity info). Untick a tag and its items leave the 3D view — **scenes** remember which tags are shown. The style's **Colour by tag** paints items in their tag colour.
+- **Outliner**: levels → groups → items, filtered by name; click to select, the eye hides / shows in 3D. Commands **Hide the selection in 3D / Unhide all**.
+
+#### Materials
+
+With the paint bucket the left panel shows the library and a **Materials** panel. **+** makes a material: name, colour, **texture image** (PNG/JPG), **texture size** (mm one tile covers) and **opacity**; ⚙ edits the chosen one (library materials too). A reshaped (mesh) mass is painted face by face; <kbd>Ctrl</kbd>+click paints the whole mass. <kbd>Alt</kbd>+click samples the material of the face clicked. Textures and materials are stored in the project.
+
+#### Section planes
+
+With **Section plane**, click a face: a plane is placed on it (the arrows point at the part that stays) and the model is cut there, the cut filled with the **section fill** colour. The **Section planes** panel: names (double-click to rename), click to make one the active cut (again: none), move by 100 mm, flip, delete, and **Show section planes / Show section cuts / Section fill**. Keep several and use a different one per scene. The ground and grid are never cut.
+
+#### Styles
+
+The **Style** panel: faces (realistic, white model, line drawing, X-ray), **edges** and **edge colour**, **profiles** (thick silhouettes, with a width), **colour by tag**, sky, horizon, background and ground colours, the section fill, fog density and a **watermark** (text and position — on screen and in saved images and animations). The style is saved with the project and can differ per scene.
+
+#### Shadows and the camera
+
+- Shadows on/off and the date and time (sun study, 5.12) are saved in scenes.
+- **Position camera**: click where to stand — you are at eye height in walk mode. **Look around**: drag to look round from where you stand. **Two-point perspective**: verticals stay vertical, as in architectural perspectives. The **field of view** is on the Camera panel.
+
+#### Guides, protractor, 3D dimensions and text, axes
+
+- The **tape measure** with <kbd>Ctrl</kbd> (or **Create guides** on the panel) leaves a guide line through the two points; a typed length leaves a guide point at that distance. The **protractor** makes an angled guide from a vertex, a base line and an angle. Guides are snapped to. Command **Delete all guides**.
+- **3D dimension**: two points, then where the dimension line goes. **3D text**: click a point and type; the text sits on a leader.
+- **Drawing axes**: click the origin and the red direction; inference and rectangles follow them.
+- The **eraser** deletes what you click: items, guides, 3D dimensions and text, section planes.
+
+#### Sandbox (terrain)
+
+- **Terrain from scratch…**: width, depth and grid cell — a triangulated terrain under the model.
+- **Terrain from contours**: select contour lines (polylines) in the plan — with a height (`z` / `elevation` from DXF) or 1 m apart — and run it: the terrain is interpolated between them.
+- **Smoove**: drag the terrain up or down into hills and hollows (the radius is on the left).
+
+#### Scenes and animation
+
+Besides the camera and style a scene stores **the tags shown, the active section plane, the style settings, shadows, date and time, the field of view and two-point perspective**. On the **Animation** panel set the transition and delay times; **Export animation…** saves the scene tour as a **WebM video** or as **PNG frames (ZIP)**.
+
+#### Entity info
+
+Click an item in 3D: **Entity info** on the right shows its tag, hidden, a mass's volume and surface area (and whether it is a closed solid), the area of the face clicked, a component's definition and instance count with Edit / Make unique / Explode / Replace. The model info (units, site location) is in **File → Project properties** and the settings.
+
+#### Export
+
+Mesh masses, components and terrains go out as they are to glTF/GLB, OBJ, STL, PLY, USDZ, COLLADA and 3MF (7.5), to IFC as faceted Breps (open surfaces as face models) and to plan DXF as outlines. A mesh mass exported to IFC comes back exactly when imported again.
+
+Sample **15 Cultural complex (SketchUp style)** has components, tags, textured materials, guides, 3D dimensions and text, two section planes, a terrain and scenes that use them.
+
 ---
 
 ## 6. BIM
@@ -1027,6 +1183,79 @@ All the rules (with the messages exactly as shown on screen) are in section 12.2
 | Classification system | The IFC classification reference name (Uniclass 2015 by default) |
 | Comment | Notes |
 
+### 6.9 Documentation: views, sheets and schedules
+
+Like Revit's Project Browser or ArchiCAD's Navigator, one project holds its **views** (floor plans, ceiling plans, sections, elevations, details, drafting views, legends, 3D views, schedules) and its **sheets** (drawing sheets with a title block). Every view is generated from the model, so when a wall changes, its sections, elevations and sheets change with it.
+
+![The Views & sheets tab: Project Browser on the left, a section generated from the model, the view control bar below](docs/images/en/views-section.webp)
+*The Views & sheets tab: Project Browser on the left, a section generated from the model, the view control bar below*
+
+- **Project Browser**: at the top of the left panel in the plan and 3D tabs, and the whole left panel in the **Views & sheets** tab (F6). It lists floor plans, ceiling plans, sections, elevations, detail views, drafting views, legends, 3D views, schedules, sheets (with the views placed on them), view templates, revisions and publish sets. Click to open; right-click for properties, visibility, rename, duplicate, place on a sheet, DXF and delete. Drag a view onto an open sheet to place it.
+- **Where views open**: floor plans in the Floor plan tab, 3D views (scenes) in the 3D tab, everything else in **Views & sheets**. Open views stay as tabs in the strip at the top of that tab, remembered per document tab.
+- **Menus**: the **Drawings** menu holds every command; the plan tool bar has a **views** split button (section, elevation, callout, exterior / interior elevations, ceiling plan) and an **annotate** split button.
+- Older files get a floor plan and a ceiling plan per level and one sheet per level with its plan (A101, A102 …) — what printing did before.
+
+### 6.10 Sections and elevations
+
+- **Section**: plan tool bar **views ▾ → Section**, or **Drawings → Section**. Click the start and the end of the section line. It looks to the **left** of the direction you draw (drawn eastwards it looks north); right-click the marker → **Flip the look direction**. The plan shows a section marker (head: detail number on its sheet above, sheet number below); **double-click it to open the view**. Drag the marker's ends to move the line — the view regenerates at once.
+- **Elevation**: **views ▾ → Elevation**, then click where the marker goes; it looks towards the building (in 90° steps). **Exterior elevations (N, S, E, W)** makes all four; **Interior elevations of a room** makes four (A–D) looking at the walls of the selected room.
+- **What is drawn**: everything the cut plane passes through is filled as **poché** with its material hatch (concrete dots, brick diagonals, insulation zigzag, timber grain …); what lies beyond is drawn as **projected lines with hidden lines removed**. **Level lines with heads** (name, ±0.000 elevation) and **grid lines with bubbles** where grids cross the view are added automatically. Walls, slabs, roofs, stairs, columns, furniture — and every element kind added to the model later — are cut and projected exactly as the 3D model shows them.
+- **Detail level**: coarse = solid black poché, medium = one hatch of the wall's structure material, fine = one strip per **wall-type layer** with its hatch and boundary lines.
+- The **crop region** (dashed rectangle, drag its corners) and the **far clip depth** (view properties) limit what is shown.
+
+### 6.11 Ceiling plans, callouts, drafting views, legends
+
+- **Ceiling plans**: one per level (Project Browser → Ceiling plans, or **Ceiling plan of the current level**). Cut at the cut height (2300 mm by default) looking up, drawn the way the plan is, with room names, ceiling heights (CH) and light symbols.
+- **Callout (detail view)**: drag an area on a plan or section with the **Callout** tool: a detail view of that part at a larger scale (1:20, fine) is made, and the parent view shows the callout marker.
+- **Drafting views**: empty views for lines, regions and text only (standard details).
+- **Legends**: wall types (layer strips and thicknesses) or wall materials.
+
+### 6.12 View properties, visibility / graphics, view templates
+
+- **View control bar** (under the view): scale, detail level, crop on / shown, visibility / graphics, the template in use and the generation state.
+- **View properties…**: name, reference, scale, detail level, **phase filter** (all / new / existing), view template, cut height (plans and ceiling plans — in a plan, windows above the cut are left out and furniture above it is dashed), far clip depth, flip (sections), crop.
+- **Visibility / graphics…**: show or hide each category (walls, doors, windows, rooms, columns, stairs, furniture, light fixtures, roofs, masses, slabs … and dimensions, texts, tags, grids, levels, view markers, detail lines, filled regions, revision clouds, symbols); in sections and elevations a **cut fill colour** per category.
+- **View templates…**: bundle scale, detail level, phase and hidden categories and apply them to many views at once ("Apply to views"). A view with a template takes the template's values. Four come with every project: Architectural plan 1:100, Furniture plan 1:50, Construction section 1:50, Presentation elevation 1:100.
+
+### 6.13 Annotation
+
+The plan tool bar's **annotate ▾** and the Views & sheets tool bar's **dimension ▾ / text ▾ / detail ▾** split buttons. Annotations belong to one view; text sizes are paper millimetres, so they print at the same size at any scale.
+
+| Tool | How |
+| --- | --- |
+| Aligned / linear dimension | Two points, then click the line position (linear: the direction you move picks horizontal or vertical) |
+| Chained dimension | Click the points, Enter, then the line position |
+| Angular / radial / arc length | Vertex and two legs / centre and a point on the arc (Shift = diameter) / centre, start, end |
+| Spot elevation | One point — its height in sections and elevations, the level elevation in plans |
+| Text with leader, keynote | Arrow point → text position → type |
+| Tag | Click a room, door, window, wall or furniture. **Tags read parameters**: room = name and area, door / window = mark (D01 …), wall = type name, furniture = name. Change the label in its properties, e.g. `{name} {area} {width}×{height} {department}`. **Tag all not tagged…** tags everything at once |
+| Symbol | North arrow, arrow, break line, centre mark, cross |
+| Revision cloud | Click the corners, Enter closes — tied to the latest revision, it puts that revision on the sheet's revision table |
+| Filled / masking region | Click the corners — pattern (hatch, crosshatch, concrete, brick, insulation, earth, wood, glass, solid) and border line |
+| Detail line | Drawn in a line style (thin, medium, wide, hidden, centre, overhead, demolished …); edit weights, colours and patterns in **Drawings → Line styles…** |
+
+Click an annotation to select it, drag to move, drag its handles to reshape, double-click to edit its text, Delete removes it.
+
+### 6.14 Sheets and publishing
+
+![A sheet: two sections on an A1 sheet with the title block and revision table](docs/images/en/views-sheet.webp)
+*A sheet: two sections on an A1 sheet with the title block and revision table*
+
+- **New sheet**: numbers follow on (A101, A102 …). **Place view…** picks a view, or drag one from the Project Browser: it lands in a free spot at its own scale. Drag viewports to move them; double-click one to open its view. Plans, ceiling plans, sections, elevations, details, legends, **3D (hidden-line axonometric)** and **schedules** can be placed; a view goes on one sheet only (duplicate it for another).
+- Under each viewport goes its title (detail number, view name, scale); on the right the **title block** (company, project, client and address, revision table, drawn / checked / approved by, date, scale — "As indicated" when they differ —, status, sheet name, sheet number, current revision). Edit the fields in **Sheet properties…**, the project data in File → Project properties.
+- **Revisions…**: sequence, name, date, description, issued to / by, issued. A revision shows on a sheet when it is ticked in the sheet's properties or a revision cloud of it is in one of the sheet's views.
+- **Sheet list (drawing list)**: a schedule of sheet numbers, names, current revisions and dates — place it on the cover sheet.
+- **Publish…**: choose sheets (or a saved **publish set**) and **Print / PDF** (the print window opens in sheet mode and prints every sheet on its own paper size), **SVG** or **DXF** (one file per sheet). The print window itself also offers **Print: Level plans / Sheets**.
+- **Export DXF of the view or sheet…**: views at 1:1 building millimetres, sheets in paper millimetres (AutoCAD R12), layers by line weight A-HEAVY / A-MEDIUM / A-THIN and A-TEXT for text.
+
+### 6.15 Schedule views
+
+**New schedule…** asks for a category (rooms, doors, windows, walls, furniture, columns, levels, sheets, views) and opens the table as a view.
+
+- **Fields, filters and sorting…**: pick and order the fields, filters (=, ≠, >, <, ≥, ≤, contains), two sort keys, **grouping with subtotals**, grand totals and **calculated values** (e.g. `area * 1.1` — field keys with + − * / and brackets).
+- Click a column header to sort; editable cells (names, numbers, door sizes, sills, level heights, custom properties …) **change the model when you double-click and edit them**.
+- **Export CSV…** (UTF-8 for Excel), or place the table on a sheet.
+
 ---
 
 ## 7. Files
@@ -1070,25 +1299,30 @@ All the rules (with the messages exactly as shown on screen) are in section 12.2
 
 | Format | How it is imported |
 | --- | --- |
-| **DXF** (.dxf) | The **Import DXF drawing** window: **Units in the file** (Detect automatically / mm / cm / m / inches / feet), **Level** (the level to put it on), **Move the drawing to the plan origin**. Lines, polylines, arcs, circles, splines, texts, blocks and hatch outlines come in on their own CAD layers. Afterwards: “Imported …: n drawing items, n texts (units)”, plus an **Import notes** window if there is anything to watch out for |
-| **DWG** (.dwg) | The **Import DWG drawing** window, the same as for DXF. Files saved by AutoCAD R13 to 2025 (the DWG formats R13, R14, 2000, 2004, 2007, 2010, 2013 and 2018) are read directly. Lines, polylines, arcs, circles, ellipses, splines, texts and MTEXT, blocks (nested, scaled, rotated), dimensions, hatch outlines and leaders in model space come in on their original layers (colour and on/off included). Paper space (layouts), external references and objects such as 3D solids, tables and images are skipped and counted in the **Import notes**. Files older than R13 and password-protected drawings cannot be opened |
-| **SVG** (.svg) | The **Import SVG drawing** window (the same fields as above). Paths, shapes and texts come in on the layer `SVG` |
+| **DXF** (.dxf) | The **Import DXF drawing** window: **Units in the file** (Detect automatically / mm / cm / m / inches / feet), **Level** (the level to put it on), **Move the drawing to the plan origin**. Lines, polylines, arcs, circles, splines, texts, blocks and hatch outlines come in on their own CAD layers. Both text (ASCII) DXF and **binary DXF** (AutoCAD's DXFOUT binary option, R12 … 2018) are read. Afterwards: “Imported …: n drawing items, n texts (units)”, plus an **Import notes** window if there is anything to watch out for |
+| **DWG** (.dwg) | The **Import DWG drawing** window, the same as for DXF. Files saved by AutoCAD R13 to 2025 (the DWG formats R13, R14, 2000, 2004, 2007, 2010, 2013 and 2018) are read directly. Lines, polylines, arcs, circles, ellipses, splines, texts and MTEXT, blocks (nested, scaled, rotated), dimensions, hatch outlines and leaders in model space come in on their original layers (colour and on/off included). Also: **multileaders** (leader lines, arrowheads, doglegs and text), **tables** (the table's anonymous block; without one, the cell grid and cell texts), **multilines**, **helixes**, arc length dimensions and tolerances, **construction lines and rays** (cut at twice the drawing extents), **wipeouts** (outline), **raster images** (a tracing underlay when the picture file sits next to the drawing, otherwise the frame), **regions, 3D solids and bodies** (the edges of the ACIS model: lines, circles, arcs and ellipses; spline edges as straight lines), R2018 **multi-line attributes**, and objects without a reader of their own (meshes, surfaces, proxy and third-party objects …) are drawn from the **proxy graphics** stored in the file. When the file has **layouts** (paper space) the window shows **Space**: **Model space** (the default) / **Layout: name** (that layout's objects and, in each viewport, the model scaled and cut to it, without the layers frozen in that viewport) / **All layouts side by side** (the layouts to the right of the model, on `layout|layer` layers). **External references** (XREFs) are read when the referenced .dwg/.dxf sits in the same folder as the drawing (desktop) and placed on `XREF|layer` layers; otherwise the Import notes say so. Only objects with nothing to draw (lights, OLE objects, PDF underlays) are skipped and counted in the **Import notes**. Files older than R13 and password-protected drawings cannot be opened |
+| **SVG** (.svg) | The **Import SVG drawing** window (the same fields as above). Paths, shapes and texts come in on the layer `SVG`. `<use>` and `<symbol>` are expanded; text on a path (`<textPath>`) becomes one straight text from the start of the path, along it. **Embedded images** (`<image>`) become **tracing underlays** (as when importing an image) at the SVG's position, size and rotation — `data:` images everywhere, image files next to the SVG (relative paths) in the desktop edition. Images linked from the web, and clip paths and masks (the shapes come in unclipped), are listed in the **Import notes** |
 | **IFC** (.ifc) | **Replaces the current project** (after asking to save). Reads levels, walls, doors and windows, rooms, slabs, roofs, stairs, columns and furniture and opens them as a new project (named `filename.myarch`, unsaved). “Imported …: n levels, n walls, n doors/windows, n rooms.” |
-| **Sweet Home 3D** (.sh3d) | **Replaces the current project**, like IFC. Reads levels, walls (curved walls as short straight pieces), doors and windows, rooms with their floor materials, stairs, dimension lines, labels, furniture and lights from files of version 5.3 and later. Furniture is matched by name to the closest library item; anything without a match comes in as a box of the same size and colour. 3D models and textures inside the file are not imported. For files older than 5.3 you are asked to save them again in Sweet Home 3D |
-| **gbXML** (.gbxml, .xml) | The energy-analysis export of Revit, ArchiCAD and Vectorworks. **Replaces the current project**, like IFC. Reads storeys, walls, doors and windows, spaces (as rooms), flat roofs and approximate sloped roofs. Wall thickness comes from the construction layers, else 200 mm. UTF-16 files are read too |
-| **IFC ZIP** (.ifczip) | Unzipped, and the .ifc inside is imported exactly like IFC. ifcXML (.ifcxml) is not read |
+| **Sweet Home 3D** (.sh3d) | **Replaces the current project**, like IFC. Files of **every version** are read: Home.xml (5.3 and later) or, in older files, the Java-serialized home. Levels, walls (curved walls as short straight pieces; the colour or texture of their outside face), doors and windows (as our openings), rooms with their floor texture or colour, dimension lines, labels, polylines and the compass. A dialog asks how to bring in **furniture, lights and roofs**: **Use the file's 3D models** (the default) — each piece comes in as **model furniture** with the OBJ / DAE / 3DS model packed in the file, its textures, model rotation, mirroring, size, elevation and colour / material overrides; pieces showing the same model share one model asset stored in the project (see **Imported 3D models** in the library), and Sweet Home 3D roofs (which are furniture) come in as their models — or **Use MyArchitecture furniture shapes**: pieces are matched by name to the closest library item (otherwise a box of their size and colour), staircases become stairs and roof pieces **roofs of ours generated from their outline**. Wall and floor textures become **project materials** with their image (or the closest built-in material when the image is missing). Lights come in without their light (use a catalog lamp for that), ceilings keep no texture, and a wall shows one finish on both sides |
+| **gbXML** (.gbxml, .xml) | The energy-analysis model of Revit, ArchiCAD, Vectorworks and OpenStudio. **Replaces the current project**, like IFC. Reads storeys, walls, doors and windows, spaces (as rooms) and roofs. Wall thickness comes from the construction layers, else 200 mm. A wall split into several surfaces per space (the same CADObjectId) becomes one wall again. Flat roof pieces split per space are joined into one roof; **sloped roofs** are grouped into connected roofs, the slope and direction of each face measured, and rebuilt as **gable, hip or shed roofs** (pitch, outline, overhang, height, orientation). A roof that fits none of them (L-shaped and valley roofs, unequal pitches…) becomes a **mass made of its sloped faces**, so it still looks right in 3D. Triangular gable-end surfaces are left to the roof. UTF-16 files are read too |
+| **ifcXML** (.ifcxml, .xml) | IFC written as XML. Both **IFC4 ifcXML** (`<ifcXML>`) and **IFC2x3 ifcXML** (`<iso_10303_28>`) are read and imported exactly like .ifc (storeys, walls, doors and windows, rooms, slabs, roofs, stairs, columns, furniture, wall types, properties) |
+| **IFC ZIP** (.ifczip) | Unzipped, and the .ifc or .ifcxml inside is imported exactly like IFC |
 | **3D models** (.obj .fbx .glb .gltf .stl .dae .3mf .3ds .ply .wrl .amf) | The **Import 3D model — name** window: **Units in the file** (Detect automatically …), **Up axis** (Automatic / Y is up / Z is up). The model becomes **a piece of furniture**, placed in the centre of the view on the current level (or where you dropped it), and is stored inside the project file. You can place it again as often as you like from “Imported 3D models” in the furniture library. OBJ files also read the `.mtl` materials file of the same name in the same folder |
+| **Rhino 3DM** (.3dm) | First the **Import Rhino 3DM** window asks how. **3D model**: becomes a piece of furniture like the 3D models above, in the file's units (its ModelUnitSystem); surfaces, polysurfaces, extrusions, meshes and SubDs come in with their layer and material colours, and blocks (instance definitions) are expanded with their transforms. Render meshes saved in the file are used as they are; where there are none ("Save small", files written by scripts) flat faces are triangulated exactly and curved faces approximately. Hidden layers and objects, curves, points, texts, dimensions, hatches and lights are left out and counted in the **Import notes**. **Plan drawing**: the same window as DXF (units, level, move to the origin, **Include the edges of surfaces, polysurfaces and meshes**); the top view — curves, surface and mesh edges and outlines, points (a small ×), texts and text dots — comes in on one CAD layer per Rhino layer (layer colour and visibility kept), to trace walls over. Circles and arcs stay circles and arcs, and edges that lie on top of each other seen from above are merged. Files from Rhino 2 to 8 are read; the reader (McNeel's openNURBS / rhino3dm, about 2.7 MB of WebAssembly) is loaded only when a .3dm is imported |
 | **Images** (.png .jpg .jpeg .webp .gif .bmp) | The **Import image as tracing underlay** window: **Width of the image in the plan** (mm), **Opacity** (10 to 100%). It is laid under the current level as an underlay |
 | **Projects** (.myarch, .json) | Same as Open |
 
 ### 7.5 Export
 
-**File → Export ▸**: Export DXF (AutoCAD)… · Export IFC (BIM)… · Export 3D model… · Export plan as PDF… · Export plan as SVG · Export plan as PNG image · Export schedules (CSV)…. File names are suggested from the project title.
+**File → Export ▸**: Export DXF (AutoCAD)… · Export DWG (AutoCAD 2000)… · Export IFC (BIM)… · Export gbXML (energy analysis)… · Export Sweet Home 3D (.sh3d)… · Export 3D model… · Export plan as PDF… · Export plan as SVG · Export plan as PNG image · Export schedules (CSV)…. File names are suggested from the project title.
 
 | Export | Options and result |
 | --- | --- |
-| **DXF** | Choose the **Level**; **One file per level** (when ticked, `title-level.dxf` for each level). AutoCAD R12 DXF in millimetres with standard layers (A-WALL, A-DOOR, A-GLAZ, A-AREA, A-FURN, A-ANNO-DIMS …). Every CAD program opens it |
-| **IFC** | **IFC version**: IFC4 (Reference View) / IFC2X3 (Coordination View 2.0). Storeys, walls with openings, doors, windows, spaces, floor slabs, roofs, stairs, columns and furniture + wall types, phases, classifications, grids and custom properties. For Revit, ArchiCAD, BIMcollab, Solibri and any IFC viewer |
+| **DXF** | Choose the **Level**; **One file per level** (when ticked, `title-level.dxf` for each level); **DXF version**. Millimetres with standard layers (A-WALL, A-DOOR, A-GLAZ, A-AREA, A-FURN, A-ANNO-DIMS …). **AutoCAD R12 — maximum compatibility** (the default) opens in every CAD program. **AutoCAD 2000 / 2004 / 2007 / 2010 / 2013 / 2018** write the current format: handles and an OBJECTS section (layouts, groups, plot styles), LWPOLYLINE, multi-line notes as one MTEXT, furniture as one **block** per kind and size with an INSERT for each piece, a lineweight and description on every layer, `$INSUNITS` = mm, **true colours** from 2004, UTF-8 text from 2007 (`\U+XXXX` before). The version you pick is remembered |
+| **DWG** | Choose the **Level**; **One file per level**. The same content as the DXF export (the same standard layers, walls, openings, rooms, furniture blocks, dimensions, texts and CAD drawings) as an **AutoCAD 2000 DWG** (AC1015, the most widely read DWG format): millimetres (`$INSUNITS` = mm), layer, linetype, text style and block tables, LINE, LWPOLYLINE, ARC, CIRCLE, TEXT, MTEXT, INSERT and HATCH. Opens in AutoCAD, BricsCAD, DraftSight and other programs that read DWG. DWG 2000 has no true colours, so the nearest colour number (ACI) is written |
+| **IFC** | **IFC version**: IFC4 (Reference View) / IFC2X3 (Coordination View 2.0). **File format**: **IFC (STEP text, .ifc)** / **ifcXML (.ifcxml)** — the same content as ISO 10303-28 XML (IFC4 ifcXML or IFC2x3 ifcXML) / **IFC ZIP (.ifczip, compressed .ifc)**. Storeys, walls with openings, doors, windows, spaces, floor slabs, roofs, stairs, columns and furniture + wall types, phases, classifications, grids and custom properties. For Revit, ArchiCAD, BIMcollab, Solibri and any IFC viewer |
+| **gbXML** | **gbXML version**: gbXML 7.03 / 6.01 (older tools), **File extension** .xml / .gbxml, **Building type**. For energy-analysis programs such as OpenStudio, DesignBuilder, IES VE and Revit Systems Analysis. Every room becomes a **Space** (area, volume, closed shell); walls become **Surfaces** on the wall centre line, split where the room on either side changes, with the spaces on both sides (exterior / interior / underground wall). Floors are slabs on grade on the lowest level, an **interior floor** shared with the ceiling of the room below, or an exposed floor; rooms under a roof get its roof faces, rooms with nothing above a flat roof. Doors and windows become **Openings** (operable / fixed window, sliding / non-sliding door), wall types **Constructions** with the thickness and conductivity of each layer. Polygons are counter-clockwise seen from outside (normals point away from the first space). The site (address, latitude, longitude, north) comes from the project properties. Demolished elements are left out; mass models become shading surfaces. **Draw rooms first**: without rooms there are no spaces |
+| **Sweet Home 3D** | A **.sh3d** home that Sweet Home 3D 5.3 and later opens: levels, walls (joined at their corners, coloured by their material or with its texture image), rooms with their floor colour or texture, doors and windows, furniture, lights, stairs, columns, roofs and mass models — every piece with an **OBJ model**: catalog furniture as the shape the 3D view draws, imported models from their stored model (with textures), doors / windows / stairs / roofs as models of their geometry — plus dimension lines, labels, plan polylines and the compass. Re-importing the file gives the home back |
 | **3D model** | See 7.5.1 |
 | **PDF** | Opens the print window (section 7.6) for saving a PDF |
 | **SVG** | The plan of the current level as an SVG at true scale (the drawing scale) in mm, `title-level.svg` |
@@ -1152,23 +1386,24 @@ Buttons:
 
 | Button | Result |
 | --- | --- |
-| Save as PDF… | (Desktop edition) the chosen sheets in one PDF file — at paper size, no extra margin |
+| Save as PDF… | The chosen sheets in one PDF file — at paper size, no extra margin. The desktop edition prints it with Chromium; the **web edition** writes a **vector PDF** itself: lines, fills, dashes, transparency and texts stay vectors, and the texts can be selected and searched. Latin text uses Helvetica, Korean the standard PDF Korean font (HYGoThic-Medium, Adobe-Korea1); no font files are embedded, so the PDF viewer shows them with a system font (Malgun Gothic and the like) |
 | Save as SVG… | One SVG file in mm per sheet |
 | Cancel | Close without printing |
 | **Print** | (Desktop edition) **prints straight away** on the chosen printer — no operating-system print dialog follows. “Sent n pages to …” confirms it. The web edition has **Print…** instead, which opens the browser's print dialog |
 
 Paper, orientation, margins, printer, colour and the sheet layout are remembered for next time (the paper also becomes Settings → Output → Default paper).
 
-### 7.7 Closed formats (SKP, RVT, PLN, 3DM)
+### 7.7 Closed formats (SKP, RVT, PLN)
 
-These are proprietary, closed formats that cannot be read directly. If you try to open one, a **Format not supported** window explains what to do and offers a **Supported file formats…** button.
+These are proprietary, closed formats that cannot be read directly. If you try to open one, a **Format not supported** window explains what to do and offers a **Supported file formats…** button. Rhino's .3dm is an open format (openNURBS) and is imported directly (7.4).
 
 | File | What to do |
 | --- | --- |
 | SKP (SketchUp) | In SketchUp use File → Export → 3D Model and export as **Collada (.dae), OBJ or glTF**, then import that |
 | RVT (Revit) | In Revit use File → Export → **IFC**, then import the IFC file. If walls, openings and rooms are enough, File → Export → **gbXML** works too |
 | PLN (ArchiCAD) | **Save as IFC** in ArchiCAD, then import it (its gbXML export can be imported as well) |
-| 3DM (Rhino) | Export **OBJ, STL or glTF** from Rhino, then import it |
+
+ifcXML (.ifcxml) and IFC ZIP (.ifczip) are not closed formats: they are imported like IFC and written by the IFC export (**File format**) — sections 7.4 and 7.5.
 
 ![Supported formats for opening, import and export](docs/images/en/formats.webp)
 *Supported formats for opening, import and export*
@@ -1369,6 +1604,7 @@ While the tutorial is open, it **temporarily resets** the drawing settings (grid
 | <kbd>F2</kbd> | Floor plan |
 | <kbd>F3</kbd> (or <kbd>F4</kbd>) | 3D view |
 | <kbd>F5</kbd> | Model check |
+| <kbd>F6</kbd> | Views & sheets (sections, elevations, sheets, schedules) |
 | <kbd>F8</kbd> | Orthogonal drawing on/off |
 | <kbd>F9</kbd> | Snap on/off |
 | <kbd>Home</kbd> | Zoom to fit (plan and 3D) |
@@ -1496,13 +1732,19 @@ In the import window choose the **Units in the file** yourself and tick **Move t
 Change **Units in the file** and **Up axis** (Y is up / Z is up) in the import window and import it again. After import you can still change its width, depth and height in the right panel or use Scale….
 
 **I want to open DWG files.**
-Import them directly with **File → Import…** (files saved by AutoCAD R13 to 2025). If one does not open, save it as DXF in AutoCAD and import that.
+Import them directly with **File → Import…** (files saved by AutoCAD R13 to 2025). Pick a layout under **Space** in the import window; external references and images in the same folder come in too. To write DWG, use **File → Export ▸ → Export DWG (AutoCAD 2000)…**. Files older than R13: save them as DXF in AutoCAD and import that.
 
 **I want to open SKP / RVT / PLN files.**
 They cannot be read directly. Convert them to DAE, OBJ or glTF / IFC or gbXML as described in section 7.7 and import those.
 
-**There is no Save as PDF button.**
-Not in the web edition. Press **Print…** and choose “Save as PDF” in the browser's print dialog, or use **Save as SVG…**.
+**How do I send the model to an energy-analysis program (OpenStudio, DesignBuilder, IES VE…)?**
+Draw the rooms (or use **Detect rooms**), then **File → Export ▸ → Export gbXML (energy analysis)…** (section 7.5). Rooms become spaces, walls, floors and roofs surfaces with the spaces on either side, doors and windows openings. If an older program cannot read 7.03, choose **gbXML version** 6.01.
+
+**A sloped roof imported from gbXML came in as a mass.**
+Roofs that are no gable, hip or shed roof (L-shaped roofs, valleys, unequal pitches) are imported as a mass of their sloped faces, so the 3D shape stays right. Delete the mass and draw the roof with the roof tool if you need a roof of ours.
+
+**How do I save a PDF in the web edition?**
+Press **Save as PDF…** in the print window: the web edition downloads the sheets as one vector PDF too (section 7.6). If Korean text shows as boxes, the PDF viewer has no Korean font — open the file in another viewer (a browser, Acrobat Reader) or use **Save as SVG…**.
 
 **The program closed before I saved.**
 If autosave was on, press **Restore** in the **Recover work** window at the next start (section 7.2).
@@ -1528,12 +1770,13 @@ Settings → **Reset to defaults**. To wipe them completely, quit the program an
 | Format | Extension | Import | Export | Use |
 | --- | --- | :---: | :---: | --- |
 | MyArchitecture project | .myarch | ✓ | ✓ | Everything (JSON) |
-| AutoCAD DXF | .dxf | ✓ | ✓ | 2D drawing; import as CAD layers, export with A-WALL/A-DOOR… layers (R12) |
-| AutoCAD DWG | .dwg | ✓ | — | 2D drawings from AutoCAD R13 to 2025 (DWG formats R13 to 2018); imported as CAD layers like DXF |
+| AutoCAD DXF | .dxf | ✓ | ✓ | 2D drawing, ASCII or binary; import as CAD layers, export with A-WALL/A-DOOR… layers as R12 or AutoCAD 2000–2018 |
+| AutoCAD DWG | .dwg | ✓ | ✓ | 2D drawings from AutoCAD R13 to 2025 (DWG formats R13 to 2018); imported as CAD layers like DXF (layouts, external references, multileaders, tables, images and solid edges included); exported as AutoCAD 2000 DWG with the same layers as DXF |
 | IFC (BIM) | .ifc | ✓ | ✓ | IFC4 / IFC2X3: storeys, walls, doors, windows, spaces, slabs, roofs, stairs, columns, furniture |
-| IFC ZIP | .ifczip | ✓ | — | Zipped IFC (read like .ifc; ifcXML is not read) |
-| Sweet Home 3D | .sh3d | ✓ | — | 5.3 and later: levels, walls, doors, windows, rooms, furniture, stairs, dimensions, labels |
-| gbXML | .gbxml .xml | ✓ | — | Energy-model export of Revit, ArchiCAD, Vectorworks: storeys, walls, doors, windows, spaces (rooms), roofs |
+| ifcXML | .ifcxml | ✓ | ✓ | IFC written as XML (IFC4 and IFC2x3 ifcXML): read and written like .ifc |
+| IFC ZIP | .ifczip | ✓ | ✓ | A ZIP holding .ifc or .ifcxml: read and written like .ifc |
+| Sweet Home 3D | .sh3d | ✓ | ✓ | Import: every version (Home.xml since 5.3, the Java-serialized home before): levels, walls with colours / textures, doors, windows, rooms with floor textures, furniture, lights and roofs as their own 3D models (or catalog shapes), stairs, dimensions, labels, compass. Export: Home.xml with OBJ models of furniture, doors, windows, stairs and roofs |
+| gbXML | .gbxml .xml | ✓ | ✓ | Energy-analysis model (Revit, ArchiCAD, OpenStudio, DesignBuilder…): storeys, spaces with their surfaces, walls, roofs (rebuilt as gable / hip / shed), floors, doors, windows, constructions — 7.03 / 6.01 |
 | glTF / GLB | .gltf .glb | ✓ | ✓ | 3D with materials (Blender, Unity, web) |
 | Wavefront OBJ (+MTL) | .obj | ✓ | ✓ | 3D with materials (OBJ + MTL in a ZIP) |
 | STL | .stl | ✓ | ✓ | 3D printing (geometry only) |
@@ -1544,11 +1787,12 @@ Settings → **Reset to defaults**. To wipe them completely, quit the program an
 | FBX | .fbx | ✓ | — | Autodesk models (furniture) |
 | 3DS | .3ds | ✓ | — | 3ds Max models |
 | VRML / AMF | .wrl .amf | ✓ | — | Older 3D formats |
-| SVG | .svg | ✓ | ✓ | 2D vector drawing |
-| PDF | .pdf | — | ✓ | Drawing sheets with title block (print) |
+| Rhino 3DM | .3dm | ✓ | — | Rhino 2 to 8 models (openNURBS): as a 3D model with layer colours and blocks, or the top view as CAD layers to trace |
+| SVG | .svg | ✓ | ✓ | 2D vector drawing; embedded images become tracing underlays |
+| PDF | .pdf | — | ✓ | Vector drawing sheets with title block (print window, desktop and web) |
 | PNG / JPG / WebP | .png .jpg .webp (import also .jpeg .gif .bmp) | ✓ | ✓ | Images: import as tracing underlay; export plan or 3D image |
 | CSV | .csv | — | ✓ | Room, door/window, wall type, cost and level schedules |
-| SKP / RVT / PLN (/ 3DM) | | — | — | Closed formats: use DAE/OBJ, IFC or gbXML exported from those programs |
+| SKP / RVT / PLN | | — | — | Closed formats: use DAE/OBJ, IFC or gbXML exported from those programs |
 
 The Windows installation can associate DXF, IFC, SVG, OBJ, STL, PLY, GLB, glTF, FBX, DAE, 3MF, 3DS, WRL and AMF files with MyArchitecture, along with `.myarch`.
 

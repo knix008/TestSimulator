@@ -15,6 +15,46 @@ const { pointInPolygon, uid } = await imp("src/core/geom.js");
 const { makeFurniture, furnitureDef, mountElevation } = await imp("src/lib/furniture.js");
 const { runCheck } = await imp("src/core/check.js");
 const { buildingOutlines } = await imp("src/core/rooms.js");
+const { DEFAULT_CURTAIN_TYPES } = await imp("src/core/elements/model.js");
+const { stairLayout } = await imp("src/core/elements/geometry.js");
+const sk = await imp("src/core/skops.js");
+const { terrainGrid } = await imp("src/core/mesh.js");
+const zlib = await import("node:zlib");
+
+// A small PNG (RGBA rows from fn(x, y) → [r, g, b]) as a data URL: texture
+// images for the samples' own materials, made without a canvas.
+function pngDataUrl(w, h, fn) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (buf) => { let c = 0xffffffff; for (const b of buf) c = crcTable[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type, "latin1"), data]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([len, td, c]); };
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) { raw[y * (w * 3 + 1)] = 0; for (let x = 0; x < w; x++) { const [r, g, b] = fn(x, y); raw.set([r, g, b], y * (w * 3 + 1) + 1 + x * 3); } }
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+  return `data:image/png;base64,${png.toString("base64")}`;
+}
+
+// BIM elements on a finished building (see src/core/elements): a floor slab
+// under every level (stair openings cut into the slab above), railings on
+// every stair, ceilings in the rooms whose names match, optional beams.
+function bimElements(b, { slabType = "floor-concrete-250", groundType = "floor-insulated-300", ceilings = null, ceilingType = "ceil-acoustic-20", railings = true } = {}) {
+  const p = b.p;
+  p.levels.forEach((lv, i) => {
+    for (const pts of buildingOutlines(p.walls.filter((w) => w.level === lv.id))) {
+      const holes = [];
+      const below = p.levels[i - 1];
+      if (below) for (const st of p.stairs.filter((x) => x.level === below.id)) {
+        const out = stairLayout(st, 3000).outline;
+        const xs = out.map((q) => q[0]), ys = out.map((q) => q[1]);
+        holes.push([[Math.min(...xs) - 50, Math.min(...ys) - 50], [Math.max(...xs) + 50, Math.min(...ys) - 50], [Math.max(...xs) + 50, Math.max(...ys) + 50], [Math.min(...xs) - 50, Math.max(...ys) + 50]].map((q) => q.map(Math.round)));
+      }
+      p.slabs.push({ id: uid("sl"), level: lv.id, pts: pts.map((q) => q.map(Math.round)), holes, type: i === 0 ? groundType : slabType, offset: 0, slope: 0, slopeDir: 0 });
+    }
+  });
+  if (railings) for (const st of p.stairs) st.railing = "both";
+  if (ceilings) for (const r of p.rooms) if (ceilings.test(r.name)) p.ceilings.push({ id: uid("cl"), level: r.level, pts: r.pts.map((q) => q.slice()), holes: [], type: ceilingType, height: null });
+}
+const curtainTypes = (p) => { for (const wt of DEFAULT_CURTAIN_TYPES) if (!p.wallTypes.some((x) => x.id === wt.id)) p.wallTypes.push(JSON.parse(JSON.stringify(wt))); };
 
 // ---------------------------------------------------------------- builder
 function builder(title, meta = {}) {
@@ -63,7 +103,65 @@ const samples = [];
 function add(file, b, info) {
   const p = normalizeProject(b.p);
   p.view.level = p.levels[0].id;
-  samples.push({ file, project: p, ...info });
+  const { docs, ...rest } = info;
+  if (docs) documentation(p, docs);
+  samples.push({ file, project: p, ...rest });
+}
+
+// ---------------------------------------------------------------- documentation (src/views)
+// Sections through the middle both ways, four exterior elevations, room and
+// door schedules, a drawing list and sheets that hold them (Revit-style
+// project documentation), plus a revision with its cloud.
+const V = await imp("src/views/model.js");
+const SH = await imp("src/views/sheets.js");
+const SC = await imp("src/views/schedules.js");
+const { modelExtent } = await imp("src/view3d/build.js");
+function documentation(p, { scale = 100, elevScale = scale, paper = "A1", tagRooms = true } = {}) {
+  const e = modelExtent(p);
+  const cx = Math.round((e.x1 + e.x2) / 2), cy = Math.round((e.y1 + e.y2) / 2);
+  const top = e.top + 1500;
+  const sec = (name, ref, a, b) => V.newView("section", { name, ref, line: { x1: a[0], y1: a[1], x2: b[0], y2: b[1] }, scale, detail: "fine", cropOn: true, crop: { x1: 0, y1: -top, x2: Math.hypot(b[0] - a[0], b[1] - a[1]), y2: 1500 } });
+  const s1 = sec("Section A-A", "S1", [e.x1 - 1500, cy], [e.x2 + 1500, cy]);
+  const s2 = sec("Section B-B", "S2", [cx, e.y2 + 1500], [cx, e.y1 - 1500]);
+  const m = 8000;
+  const elev = (name, ref, x, y, angle) => {
+    const r = (angle * Math.PI) / 180, R = [-Math.sin(r), Math.cos(r)];
+    const xs = [[e.x1, e.y1], [e.x2, e.y1], [e.x2, e.y2], [e.x1, e.y2]].map(([px, py]) => (px - x) * R[0] + (py - y) * R[1]);
+    return V.newView("elevation", { name, ref, x, y, angle, scale: elevScale, detail: "medium", hidden: ["furniture"], cropOn: true, crop: { x1: Math.min(...xs) - 1500, y1: -top, x2: Math.max(...xs) + 1500, y2: 1500 } });
+  };
+  const els = [elev("South elevation", "E1", cx, e.y2 + m, -90), elev("North elevation", "E2", cx, e.y1 - m, 90), elev("East elevation", "E3", e.x2 + m, cy, 180), elev("West elevation", "E4", e.x1 - m, cy, 0)];
+  const rooms = V.newView("schedule", { name: "Room schedule", ...SC.defaultSchedule("rooms"), fields: ["level", "name", "area", "floor"], group: "level", sort: [{ field: "name" }], totals: true });
+  const doors = V.newView("schedule", { name: "Door schedule", ...SC.defaultSchedule("doors"), fields: ["mark", "level", "type", "width", "height"], sort: [{ field: "mark" }] });
+  const list = V.newView("schedule", { name: "Sheet list", ...SC.defaultSchedule("sheets"), fields: ["number", "name", "revision", "date"], sort: [{ field: "number" }], totals: false });
+  const legend = V.newView("legend", { name: "Wall types legend", legend: "walltypes", scale: 20 });
+  p.views.push(s1, s2, ...els, rooms, doors, list, legend);
+  // Annotation in the section: overall height, a level spot, a note with leader.
+  p.annotations.push(
+    V.newAnnotation(s1.id, "dim", { pts: [[0, 0], [0, -Math.round(e.top)]], offset: -6 * scale }),
+    V.newAnnotation(s1.id, "spot", { x: Math.round(s1.crop.x2 / 2), y: 0, dx: 8 * scale, dy: -6 * scale }),
+    V.newAnnotation(s1.id, "note", { x: Math.round(s1.crop.x2 * 0.7), y: -Math.round(e.top + 600), text: "Roof: see detail", size: 2.5, leader: [[Math.round(s1.crop.x2 * 0.6), -Math.round(e.top - 200)]] }));
+  if (tagRooms) for (const r of p.rooms.filter((x) => x.level === p.levels[0].id)) p.annotations.push(V.newAnnotation(V.planViewId(p.levels[0].id), "tag", { target: r.id, dx: 0, dy: 0 }));
+  const rev = { id: "rv-a", seq: 1, name: "A", date: p.meta.date || "2026-10-01", description: "Issued for planning", issuedTo: p.meta.client || "", issuedBy: p.meta.author || "", issued: true };
+  p.revisions.push(rev);
+  p.annotations.push(V.newAnnotation(s1.id, "cloud", { pts: [[Math.round(s1.crop.x2 * 0.3), -Math.round(e.top + 1200)], [Math.round(s1.crop.x2 * 0.7), -Math.round(e.top + 1200)], [Math.round(s1.crop.x2 * 0.7), -Math.round(e.top - 900)], [Math.round(s1.crop.x2 * 0.3), -Math.round(e.top - 900)]], rev: rev.id }));
+  const sheet = (number, name, ids) => {
+    const s = V.newSheet(p, { number, name, paper, fields: { drawnBy: p.meta.author || "", checkedBy: "", approvedBy: "", issueDate: rev.date, status: "For planning" }, revisions: [rev.id] });
+    p.sheets.push(s);
+    for (const id of ids) {
+      const v = V.viewById(p, id);
+      let w, h;
+      if (v.kind === "schedule") ({ w, h } = SC.tableSize(p, v));
+      else { const ext = SH.viewExtent(p, v); w = (ext.x2 - ext.x1) / v.scale; h = (ext.y2 - ext.y1) / v.scale; }
+      const [x, y] = SH.placeFree(p, s, w, h);
+      s.viewports.push({ id: uid("vp"), view: id, x: Math.round(x), y: Math.round(y) });
+    }
+    return s;
+  };
+  sheet("A001", "Cover and drawing list", [list.id, V.DEFAULT_3D]);
+  sheet("A201", "Sections", [s1.id, s2.id]);
+  sheet("A301", "Elevations", els.map((v) => v.id));
+  sheet("A601", "Schedules and legend", [rooms.id, doors.id, legend.id]);
+  p.publishSets.push({ id: "ps-all", name: "Planning set", sheets: p.sheets.map((s) => s.id) });
 }
 
 // ---------------------------------------------------------------- 1. studio
@@ -169,7 +267,7 @@ function add(file, b, info) {
   b.lamp(U, "ceilingLight", 2500, 2800); b.lamp(U, "ceilingLight", 7500, 2800); b.lamp(U, "downlight", 8800, 6800); b.lamp(U, "pendantLamp", 2500, 6800); b.lamp(U, "tableLamp", 5800, 400, 0, { elevation: 750 });
   b.roof(U, "gable", 32, 600);
   b.dims(G); b.dims(U);
-  add("03-two-storey-house.myarch", b, { title: "Two-storey house", titleKo: "2층 주택", description: "Two levels joined by a stair, gable roof, garden with trees and a car.", descriptionKo: "계단으로 연결된 2개 층, 박공지붕, 나무와 자동차가 있는 마당.", tags: ["2 levels", "stairs", "gable roof"], hero: true });
+  add("03-two-storey-house.myarch", b, { docs: { scale: 50, elevScale: 100 },  title: "Two-storey house", titleKo: "2층 주택", description: "Two levels joined by a stair, gable roof, garden with trees and a car.", descriptionKo: "계단으로 연결된 2개 층, 박공지붕, 나무와 자동차가 있는 마당.", tags: ["2 levels", "stairs", "gable roof"], hero: true });
 }
 
 // ---------------------------------------------------------------- 4. small office
@@ -389,9 +487,11 @@ function table4(b, L, kind, x, y, w = 1400, d = 800) {
   const levels = [G];
   for (let i = 2; i <= 8; i++) levels.push(b.addLevel(`${i}F`, 3800));
   const cx1 = 13500, cx2 = 22500, cy1 = 9000, cy2 = 15000; // the core
+  curtainTypes(p);
   levels.forEach((L, li) => {
     const top = li === levels.length - 1;
-    const [n, e, s, w] = box4(b, L, 0, 0, W, D, 250, { material: "glass" });
+    // Curtain walls all round: a real curtain-wall type (mullions, transoms, glass; the lobby doors are panels).
+    const [n, e, s, w] = box4(b, L, 0, 0, W, D, 150, { type: li === 0 ? "curtain-storefront" : "curtain-1500" });
     // Core: stair, lift lobby with two lifts, two toilets.
     const [kn, ke, ks] = box4(b, L, cx1, cy1, cx2, cy2, 250, { type: "concrete-200" });
     const k1 = b.wall(L, [16500, cy1], [16500, cy2], 200, { type: "concrete-200" });
@@ -419,7 +519,7 @@ function table4(b, L, kind, x, y, w = 1400, d = 800) {
       [15000, 12000, "Stairs", "concrete"], [18250, 10500, "Lift lobby", "marble"], [17375, 13750, "Lift", "concrete"], [19125, 13750, "Lift", "concrete"],
       [21250, 10500, "Toilet (men)", "tile-white"], [21250, 13500, "Toilet (women)", "tile-white"], [31500, 21000, li === 0 ? "Management office" : "Meeting room", "carpet"]]);
     p.rooms.filter((r) => r.level === L).forEach((r, i) => { r.number = `${li + 1}${String(i + 1).padStart(2, "0")}`; r.department = /Lift|Stairs|Toilet/.test(r.name) ? "Core" : li === 0 ? "Ground floor" : "Tenant"; });
-    if (!top) b.stair(L, 14400, 12000, 90, 4200, 1200, li === 0 ? 26 : 22);
+    if (!top) { b.stair(L, 14400, 12000, 90, 4200, 1200, li === 0 ? 26 : 22); Object.assign(p.stairs[p.stairs.length - 1], { shape: "U", turn: -1, landing: 1200, gap: 100 }); } // U-shaped with a half landing
     // Structure: 9 × 8 m column grid; perimeter columns sit in the curtain wall line.
     for (let gx = 0; gx <= W; gx += 9000) for (let gy = 0; gy <= D; gy += 8000) {
       if (gx > cx1 - 400 && gx < cx2 + 400 && gy > cy1 - 400 && gy < cy2 + 400) continue;
@@ -475,11 +575,17 @@ function table4(b, L, kind, x, y, w = 1400, d = 800) {
     void e; void w;
   });
   b.roof(levels[levels.length - 1], "flat", 0, 300);
+  bimElements(b, { ceilings: /Meeting|Café|Management/, ceilingType: "ceil-acoustic-20" });
+  // Lift shaft through every floor, beams along the grid, a glass balustrade on the roof.
+  p.shafts.push({ id: uid("sh"), level: levels[0], top: levels[levels.length - 1], pts: [[16650, 12650], [19850, 12650], [19850, 14850], [16650, 14850]], name: "Lift shaft" });
+  for (const L of levels) for (const x of [9000, 27000]) p.beams.push({ id: uid("bm"), level: L, x1: x, y1: 0, x2: x, y2: D, typeId: "beam-concrete-300x600", w: 300, h: 600, profile: "rect", z1: null, z2: null, material: "concrete" });
+  const topLv = p.levels.find((l) => l.id === levels[levels.length - 1]);
+  p.railings.push({ id: uid("rl"), level: topLv.id, pts: [[300, 300], [W - 300, 300], [W - 300, D - 300], [300, D - 300], [300, 300]], typeId: "rail-glass-1100", height: 1100, z: topLv.height + 300, spacing: 1200, baluster: 40, rail: 60, style: "glass", material: "steel" });
   for (const L of [levels[0], levels[1]]) b.dims(L);
   for (const [i, x] of [0, 9000, 18000, 27000, 36000].entries()) p.grids.push({ id: uid("g"), x1: x, y1: -2500, x2: x, y2: D + 2500, label: String(i + 1) });
   for (const [j, y] of [0, 8000, 16000, 24000].entries()) p.grids.push({ id: uid("g"), x1: -2500, y1: y, x2: W + 2500, y2: y, label: String.fromCharCode(65 + j) });
   p.scenes.push(sceneFor(p, "Aerial", [1, 1.1, 1.3]), sceneFor(p, "Street", [0.25, 0.12, 1]), sceneFor(p, "Typical floor cut", [0.7, 1.5, 0.9], { section: 9500 }), sceneFor(p, "Lobby cut", [0.4, 1.2, 1], { section: 2000 }), sceneFor(p, "X-ray core", [1, 0.8, 1], { style: "xray" }));
-  add("10-office-tower.myarch", b, { title: "Office tower (8 storeys)", titleKo: "업무용 빌딩 (8개 층)", description: "A building-scale model: lobby and café, seven office floors with a concrete core (stairs, two lifts, toilets), curtain walls, a 9 × 8 m column grid, meeting rooms, 600+ furniture items and parking.", descriptionKo: "빌딩 규모 예제: 로비·카페, 코어(계단·엘리베이터 2대·화장실)가 있는 7개 사무 층, 커튼월, 9 × 8 m 기둥 그리드, 회의실, 가구 600여 개, 주차장.", tags: ["8 levels", "building", "core", "curtain wall", "column grid"] });
+  add("10-office-tower.myarch", b, { docs: { scale: 200, elevScale: 200, tagRooms: false },  title: "Office tower (8 storeys)", titleKo: "업무용 빌딩 (8개 층)", description: "A building-scale model: lobby and café, seven office floors with a concrete core (stairs, two lifts, toilets), curtain walls, a 9 × 8 m column grid, meeting rooms, 600+ furniture items and parking.", descriptionKo: "빌딩 규모 예제: 로비·카페, 코어(계단·엘리베이터 2대·화장실)가 있는 7개 사무 층, 커튼월, 9 × 8 m 기둥 그리드, 회의실, 가구 600여 개, 주차장.", tags: ["8 levels", "building", "core", "curtain wall", "column grid"] });
 }
 
 // ---------------------------------------------------------------- 11. mixed-use block
@@ -649,6 +755,12 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
   for (const x of [-4000, 46000]) for (const y of [2000, 14000]) b.furn(G, "tree", x, y, 0, { w: 3500, d: 3500, h: 6000 });
   for (const x of [3000, 12000, 21000, 30000]) b.furn(G, "bench", x, 18000, 0);
   b.roof(U, "hip", 22, 600);
+  bimElements(b, { ceilings: /Exam|Ward|Waiting|Reception|Pharmacy|Nurse|Imaging|Office/ });
+  { // An accessible ramp with railings along the south front (1:12).
+    const ys = p.walls.flatMap((w) => [w.y1, w.y2]), xs = p.walls.flatMap((w) => [w.x1, w.x2]);
+    const y = Math.max(...ys) + 2500, x = Math.min(...xs) + 2000;
+    p.ramps.push({ id: uid("rp"), level: G, pts: [[x, y], [x + 6000, y]], width: 1500, rise: 450, thickness: 150, material: "concrete", railing: "both" });
+  }
   b.dims(G); b.dims(U);
   p.scenes.push(sceneFor(p, "Entrance", [1, 0.6, -1.2]), sceneFor(p, "Wards cut", [0.4, 1.4, 1], { section: 5200 }), sceneFor(p, "Outpatients cut", [0.4, 1.4, 1], { section: 1500 }));
   add("12-hospital.myarch", b, { title: "Community hospital", titleKo: "지역 병원", description: "Two floors on a double-loaded corridor: reception, waiting area, exam rooms, imaging and pharmacy below, wards with hospital beds and a nurse station above.", descriptionKo: "중복도형 2개 층: 1층 접수·대기실·진료실·영상실·약국, 2층 병상이 있는 병실과 간호사실.", tags: ["2 levels", "healthcare", "corridor", "hip roof"] });
@@ -710,6 +822,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
   b.furn(G, "weightBench", len + 14000, D - 1500, 180); b.furn(G, "poolTable", len + 17500, D - 2400, 90);
   p.roofs.push({ id: uid("f"), level: G, pts: [[len, 0], [len + H, 0], [len + H, D], [len, D]], kind: "gable", pitch: 12, overhang: 500, thickness: 250, material: "roof-metal" });
   b.roof(U, "flat", 0, 400);
+  bimElements(b, { ceilings: /Classroom|Library|Office|Staff|Canteen|Music|Art/ }); // slabs, stair railings, ceilings
   // Playground.
   for (let i = 0; i < 6; i++) b.furn(G, "tree", -2000 + i * 9000, D + 12000, 0, { w: 4500, d: 4500, h: 7500 });
   for (const x of [5000, 15000, 25000, 35000]) b.furn(G, "bench", x, D + 3500, 0);
@@ -718,7 +831,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
   b.dims(G); b.dims(U);
   for (const L of [G, U]) p.rooms.filter((r) => r.level === L).forEach((r, i) => { r.number = `${L === G ? 1 : 2}${String(i + 1).padStart(2, "0")}`; });
   p.scenes.push(sceneFor(p, "Playground side", [0.6, 0.7, 1.3]), sceneFor(p, "Classrooms cut", [0.3, 1.5, 1], { section: 5400 }), sceneFor(p, "Ground floor cut", [0.3, 1.5, 1], { section: 1500 }), sceneFor(p, "Line drawing", [-1, 0.8, 1], { style: "lines" }));
-  add("13-school.myarch", b, { title: "Primary school", titleKo: "초등학교", description: "Two floors of classrooms with student desks, a library, canteen and school kitchen, staff office, and a tall sports hall with its own gable roof.", descriptionKo: "학생 책상이 놓인 교실 2개 층, 도서관, 급식실과 조리실, 교무실, 박공지붕의 높은 체육관.", tags: ["2 levels", "education", "corridor", "furniture"] });
+  add("13-school.myarch", b, { docs: { scale: 200, elevScale: 200 },  title: "Primary school", titleKo: "초등학교", description: "Two floors of classrooms with student desks, a library, canteen and school kitchen, staff office, and a tall sports hall with its own gable roof.", descriptionKo: "학생 책상이 놓인 교실 2개 층, 도서관, 급식실과 조리실, 교무실, 박공지붕의 높은 체육관.", tags: ["2 levels", "education", "corridor", "furniture"] });
 }
 
 // ---------------------------------------------------------------- 14. courtyard house
@@ -847,11 +960,354 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
   for (let j = 0; j < 5; j++) p.grids.push({ id: uid("g"), x1: -10000, y1: j * 14000, x2: 106000, y2: j * 14000, label: String.fromCharCode(65 + j) });
   b.text(L, -6000, 60000, "Push/pull the masses in 3D (Tool: Push/Pull) — each building is a group", 900);
   b.text(L, 6000, -11000, "Museum", 900); b.text(L, 56000, -11000, "Concert hall", 900); b.text(L, 84000, 21000, "Twisting tower (24 floors)", 900); b.text(L, 0, 55000, "Terraced housing", 900);
+  // SketchUp features: tags (layers) per building, components (kiosks and
+  // bollards — every copy one definition), own textured materials, guides,
+  // 3D dimensions and text, section planes and a sandbox terrain round the site.
+  for (const k of ["materials", "components", "sections", "guides", "dims3d", "texts3d"]) p[k] = p[k] || [];
+  const tagOf = { Museum: "tag-museum", "Concert hall": "tag-hall", "Twisting tower": "tag-tower", Canopy: "tag-canopy", "Terraced housing": "tag-housing" };
+  p.layers.push({ id: "tag-museum", name: "Museum", color: "#c8a46b", visible: true }, { id: "tag-hall", name: "Concert hall", color: "#b5483e", visible: true }, { id: "tag-tower", name: "Tower", color: "#4e8ec8", visible: true },
+    { id: "tag-canopy", name: "Canopy", color: "#8d6e63", visible: true }, { id: "tag-housing", name: "Housing", color: "#7cb342", visible: true }, { id: "tag-site", name: "Site and landscape", color: "#9ccc65", visible: true }, { id: "tag-street", name: "Street furniture", color: "#ffb74d", visible: true });
+  for (const sd of p.solids) sd.layer = tagOf[sd.groupName] || "tag-site";
+  for (const f of p.furniture) f.layer = "tag-street";
+  p.materials.push(
+    { id: "mat-corten", name: "Corten steel", color: "#8a4b2a", tile: 1500, opacity: 1, src: pngDataUrl(64, 64, (x, y) => { const n = ((x * 7919 + y * 104729) % 97) / 97; const v = 0.75 + 0.25 * n; return [Math.round(150 * v), Math.round(78 * v), Math.round(40 * v)]; }) },
+    { id: "mat-deck", name: "Timber deck", color: "#b0875a", tile: 900, opacity: 1, src: pngDataUrl(64, 64, (x, y) => { const plank = Math.floor(y / 8) % 2; const grain = ((x * 13 + y * 7) % 11) / 11; const k = (plank ? 0.92 : 1) * (0.88 + 0.12 * grain) * (y % 8 === 0 ? 0.6 : 1); return [Math.round(196 * k), Math.round(150 * k), Math.round(100 * k)]; }) },
+    { id: "mat-frosted", name: "Frosted glass", color: "#d6e6ee", tile: 1000, opacity: 0.55 },
+  );
+  // Kiosk component: a deck, a corten box and a frosted lantern — five copies.
+  const kParts = [solid("Kiosk deck", rect(-2000, -1500, 4000, 3000), 30, 150, "mat-deck"), solid("Kiosk body", rect(-1500, -1000, 3000, 2000), 180, 2400, "mat-corten"), solid("Kiosk lantern", rect(-1200, -700, 2400, 1400), 2580, 600, "mat-frosted")];
+  const kiosk = sk.makeComponent(p, kParts.map((x) => x.id), { name: "Kiosk" });
+  kiosk.inst.x = 8000; kiosk.inst.y = 30000; kiosk.inst.layer = "tag-street";
+  for (const [x, y, rot] of [[14000, 30000, 0], [56000, 48000, 90], [72000, 2000, 0], [100000, 20000, 90]]) Object.assign(sk.placeComponent(p, kiosk.def.id, L, x, y, { rot }), { layer: "tag-street" });
+  const bollard = sk.makeComponent(p, [solid("Bollard", circle(0, 0, 150, 12), 0, 900, "mat-corten").id], { name: "Bollard" });
+  bollard.inst.x = 42000; bollard.inst.y = -7000; bollard.inst.layer = "tag-street";
+  for (let i = 1; i < 10; i++) Object.assign(sk.placeComponent(p, bollard.def.id, L, 42000 + i * 1800, -7000), { layer: "tag-street" });
+  // Paint some faces of a reshaped mass: the rooftop pavilion gets a corten roof.
+  const pav = p.solids.find((x) => x.name === "Rooftop pavilion");
+  sk.toMeshSolid(pav);
+  for (const f of pav.mesh.f) if (pav.mesh.v[f.l[0]][2] > 5000 + 3100) f.m = "mat-corten";
+  // Guides, a 3D dimension and a 3D note.
+  sk.addGuide(p, [0, 30000, 0], [42000, 30000, 0]);
+  sk.addGuide(p, [42000, 0, 0], [42000, 30000, 0]);
+  sk.addDim3d(p, [62000, 12000, 0], [62000, 12000, 17500], [13000, 0, 0]);
+  sk.addText3d(p, [90000, 34000, 24 * 3600 + 11000], "Twisting tower — 24 floors", [90000, 34000, 24 * 3600 + 10000]);
+  // Section planes: a long cut through the museum and a plan cut through the tower.
+  const cutMuseum = sk.addSection(p, [0, 9000, 0], [0, -1, 0], "Museum long section");
+  const cutTower = sk.addSection(p, [90000, 34000, 40000], [0, 0, -1], "Tower plan cut");
+  for (const sp of p.sections) sp.active = false;
   p.scenes.push(
     sceneFor(p, "Aerial", [1, 1.1, 1.3]), sceneFor(p, "Plaza view", [0.15, 0.12, -1]), sceneFor(p, "Tower from the park", [1, 0.35, 0.5]),
     sceneFor(p, "White model", [-1, 0.9, 1], { style: "white" }), sceneFor(p, "Hidden line", [1, 0.7, -1], { style: "lines" }),
     sceneFor(p, "X-ray", [-0.8, 1, -1], { style: "xray" }), sceneFor(p, "Section at 10 m", [0.5, 1.3, 1], { section: 10000 }), sceneFor(p, "Site plan", [0, 1, 0.0001], { ortho: true }), sceneFor(p, "South elevation", [0, 0.0001, -1], { ortho: true, style: "lines" }));
-  add("15-sketchup-complex.myarch", b, { title: "Cultural complex (SketchUp style)", titleKo: "문화 단지 (스케치업 스타일)", description: "A large push/pull massing model in groups: a museum with a cantilevered gallery and skylight pyramid, a round concert hall with an amphitheatre, a 24-floor twisting tower, a canopy on columns and terraced housing — with nine scenes in every style.", descriptionKo: "그룹으로 묶은 대형 밀기/끌기 매스 모델: 캔틸레버 전시동과 피라미드 천창의 미술관, 원형 공연장과 계단식 야외극장, 24층 비틀린 타워, 기둥 위 캐노피, 계단식 주거 — 모든 스타일의 장면 9개.", tags: ["SketchUp", "massing", "groups", "scenes"] });
+  // Scenes that use the SketchUp features: tags off, a section plane, a style.
+  p.scenes.push(
+    { ...sceneFor(p, "Museum section", [0.2, 0.6, 1]), sectionPlane: cutMuseum.id, hiddenTags: ["tag-street"] },
+    { ...sceneFor(p, "Tower plan cut", [0.3, 1.4, 0.4]), sectionPlane: cutTower.id },
+    { ...sceneFor(p, "Massing only (tags off)", [1, 0.9, -1]), hiddenTags: ["tag-street", "tag-site"], style: "white" },
+    { ...sceneFor(p, "Sketch style", [-1, 0.8, 1.2]), style3d: { edges: true, profiles: true, profileWidth: 3, edgeColor: "#202124", sky: "#f4f1ea", horizon: "#ffffff", ground: "#e9e4d8", watermark: "Cultural complex — concept", watermarkPos: "br" } },
+  );
+  // Sandbox terrain round the site: flat under the plaza, rising to the hills.
+  const terr = sk.addTerrain(p, L, terrainGrid({ x0: -40000, y0: -40000, w: 184000, d: 136000, nx: 46, ny: 34, z: (x, y) => {
+    const dx = Math.max(0, -8000 - x, x - 104000), dy = Math.max(0, -8000 - y, y - 56000);
+    const d = Math.hypot(dx, dy);
+    return d <= 0 ? -20 : Math.round(-20 + 9000 * (1 - Math.cos(Math.min(1, d / 30000) * Math.PI)) / 2 + 900 * Math.sin(x / 9000) * Math.min(1, d / 10000));
+  } }), { name: "Terrain" });
+  terr.layer = "tag-site";
+  add("15-sketchup-complex.myarch", b, { title: "Cultural complex (SketchUp style)", titleKo: "문화 단지 (스케치업 스타일)", description: "A large SketchUp-style model: push/pull masses in groups and tags (museum, concert hall, 24-floor twisting tower, canopy, terraced housing), kiosk and bollard components, textured materials, guides, 3D dimensions and text, two section planes, a sandbox terrain and thirteen scenes in every style.", descriptionKo: "대형 스케치업 스타일 모델: 그룹과 태그로 나눈 밀기/끌기 매스(미술관, 공연장, 24층 비틀린 타워, 캐노피, 계단식 주거), 키오스크·볼라드 컴포넌트, 질감 재료, 보조선, 3D 치수와 문자, 단면 2개, 샌드박스 지형, 모든 스타일의 장면 13개.", tags: ["SketchUp", "components", "tags", "sections", "terrain", "scenes"] });
+}
+
+// ---------------------------------------------------------------- modern houses
+// 16. Modern villa: open ground floor behind a glass wall, an upper floor that
+// cantilevers 2 m over the entrance (a carport), flat roofs, pool and garden.
+{
+  const b = builder("Modern villa", { client: "Sample", address: "Seongnam, Pangyo" });
+  const p = b.p;
+  curtainTypes(p);
+  const G = b.level(0);
+  p.levels[0].name = "1F"; p.levels[0].height = 3200;
+  const U = b.addLevel("2F", 3000);
+  const ext = { material: "plaster" };
+  // Ground floor: a glass south wall in front of the living space.
+  const n = b.wall(G, [0, 0], [16000, 0], 250, ext);
+  const e = b.wall(G, [16000, 0], [16000, 10000], 250, ext);
+  const s1 = b.wall(G, [16000, 10000], [10000, 10000], 250, ext);
+  b.wall(G, [10000, 10000], [0, 10000], 150, { type: "curtain-1500" });
+  const w = b.wall(G, [0, 10000], [0, 0], 250, ext);
+  const pv = b.wall(G, [10000, 0], [10000, 10000], 150);
+  const ps = b.wall(G, [10000, 4500], [16000, 4500], 120);
+  const pw = b.wall(G, [13500, 4500], [13500, 7000], 120);
+  b.wall(G, [13500, 7000], [16000, 7000], 120);
+  b.window(n, 2500, 2400, { type: "fixed", sill: 600, height: 1800 }); b.window(n, 7000, 1800); b.window(n, 12500, 1800);
+  b.window(w, 5000, 2000, { type: "fixed", sill: 300, height: 2200 }); b.window(e, 5750, 600, { sill: 1500, height: 600 });
+  b.window(s1, 3000, 2400, { type: "sliding", sill: 0, height: 2400 });
+  b.door(e, 8500, 1100, { side: -1, hinge: "end", height: 2400 });
+  b.door(pv, 7500, 2000, { kind: "opening", type: "none", height: 2400 });
+  b.door(ps, 1500, 900, { type: "sliding" });
+  b.door(pw, 1250, 800, { type: "sliding" });
+  b.rooms(G, [[5000, 5000, "Living, kitchen and dining", "oak"], [13000, 2200, "Study", "walnut"], [14700, 5700, "WC", "tile-white"], [12000, 8500, "Hall", "stone"]]);
+  b.stair(G, 11200, 7200, 90, 4000, 1100, 18);
+  // Living, kitchen, dining.
+  b.furn(G, "sectional", 2600, 7200, 0); b.furn(G, "coffeeTable", 2600, 8900); b.furn(G, "rug", 2600, 8200, 0, { w: 3000, d: 2200 });
+  b.furn(G, "loungeChair", 4900, 8600, 270); b.furn(G, "floorLamp", 500, 9400); b.furn(G, "plant", 9400, 9400);
+  b.furn(G, "counter", 7000, 450, 0, { w: 3400 }); b.furn(G, "fridge", 9400, 475, 0); b.furn(G, "pantry", 4900, 425, 0);
+  b.furn(G, "island", 7000, 3000, 0); b.furn(G, "barStool", 6500, 3800, 180); b.furn(G, "barStool", 7500, 3800, 180);
+  table4(b, G, "diningTable6", 7000, 7300, 1800, 900);
+  b.furn(G, "bookshelf", 425, 2600, 90, { w: 1800 });
+  // Study, WC, hall.
+  b.furn(G, "desk", 12000, 450, 0, { w: 1400 }); b.furn(G, "officeChair", 12000, 1150, 180); b.furn(G, "bookshelf", 10300, 2200, 90);
+  b.furn(G, "armchair", 14900, 3300, 270); b.furn(G, "sideTable", 14800, 2300);
+  b.furn(G, "toilet", 15500, 5750, 270); b.furn(G, "washbasin", 14000, 4800, 0);
+  b.furn(G, "wardrobe", 12500, 9575, 180, { w: 1200 }); b.furn(G, "bench", 14500, 9650, 180, { w: 1200 }); b.furn(G, "plant", 13100, 5100);
+  for (const [k, x, y] of [["pendantLamp", 6500, 3000], ["pendantLamp", 7500, 3000], ["pendantLamp", 7000, 7300], ["ceilingLight", 2600, 6200], ["downlight", 1500, 2000], ["downlight", 4000, 2000], ["ceilingLight", 13000, 2200], ["downlight", 14700, 5700], ["ceilingLight", 12000, 8500]]) b.lamp(G, k, x, y);
+  b.lamp(G, "wallSconce", 15850, 8500, 270);
+  // Upper floor: 2 m further east (the cantilever), master suite, bathroom, two bedrooms.
+  const [n2, , s2, w2] = b.loop(U, [[2000, 0], [18000, 0], [18000, 10000], [2000, 10000]], 250, { material: "wood-cladding" });
+  const u1 = b.wall(U, [9000, 0], [9000, 10000], 150);
+  const u2 = b.wall(U, [2000, 3500], [5500, 3500], 120);
+  b.wall(U, [5500, 0], [5500, 3500], 120);
+  const u4 = b.wall(U, [9000, 3500], [13000, 3500], 120);
+  const u5 = b.wall(U, [13000, 0], [13000, 10000], 150);
+  b.wall(U, [13000, 5000], [18000, 5000], 120);
+  b.window(s2, 12500, 3000, { type: "sliding", sill: 0, height: 2200 }); b.window(w2, 5000, 1500);
+  b.window(n2, 1750, 900, { sill: 1400, height: 800 }); b.window(n2, 9000, 900, { sill: 1400, height: 800 }); b.window(n2, 13500, 1800);
+  b.window(s2, 2500, 1800); b.window(s2, 7000, 1500);
+  b.door(u1, 8500, 900, { type: "sliding" }); b.door(u2, 2500, 800, { type: "sliding" }); b.door(u4, 2000, 800, { type: "sliding" });
+  b.door(u5, 4000, 900, { type: "sliding" }); b.door(u5, 6000, 900, { type: "sliding" });
+  b.rooms(U, [[4000, 7000, "Master bedroom", "oak"], [3700, 1700, "Ensuite", "marble"], [11000, 1700, "Bathroom", "tile-white"], [11000, 7000, "Landing", "oak"], [15500, 2500, "Bedroom", "oak"], [15500, 7500, "Bedroom", "oak"]]);
+  b.furn(U, "kingBed", 7850, 6000, 270); b.furn(U, "nightstand", 8700, 4800, 270); b.furn(U, "nightstand", 8700, 7200, 270);
+  b.furn(U, "wardrobe", 2425, 6000, 90, { w: 2000 }); b.furn(U, "loungeChair", 4300, 4600, 90); b.furn(U, "rug", 6200, 6000, 0, { w: 2000, d: 3000 });
+  b.furn(U, "bathtub", 3200, 500, 0); b.furn(U, "vanity2", 3750, 3165, 180, { w: 1400 }); b.furn(U, "toilet", 5090, 2200, 270);
+  b.furn(U, "bathtub", 10500, 500, 0); b.furn(U, "toilet", 12500, 2400, 270); b.furn(U, "washbasin", 10200, 3200, 180); b.furn(U, "shower", 12400, 900);
+  b.furn(U, "doubleBed", 15500, 1175, 0); b.furn(U, "nightstand", 14400, 325, 0); b.furn(U, "nightstand", 16600, 325, 0); b.furn(U, "desk", 17575, 3800, 270); b.furn(U, "officeChair", 16900, 3800, 90);
+  b.furn(U, "singleBed", 15500, 8875, 180); b.furn(U, "desk", 16500, 5360, 0); b.furn(U, "chair", 16500, 6000, 180); b.furn(U, "wardrobe", 17575, 7500, 270, { w: 1200 });
+  b.furn(U, "plant", 12600, 9500); b.furn(U, "sideTable", 9500, 9500);
+  for (const [k, x, y] of [["ceilingLight", 5500, 6500], ["downlight", 3700, 1700], ["downlight", 11000, 1700], ["pendantLamp", 11000, 6000], ["ceilingLight", 15500, 2500], ["ceilingLight", 15500, 7500]]) b.lamp(U, k, x, y);
+  b.lamp(U, "tableLamp", 8700, 4800, 0, { elevation: 500 });
+  // Roofs: the upper floor, and the strip of ground floor it does not cover.
+  b.roof(U, "flat", 0, 300);
+  p.roofs.push({ id: uid("f"), level: G, pts: [[0, 0], [2000, 0], [2000, 10000], [0, 10000]], kind: "flat", pitch: 0, overhang: 200, thickness: 250, material: "concrete" });
+  // Garden: pool and terrace in front of the glass, a car under the cantilever.
+  b.furn(G, "pool", 5000, 14000, 0, { w: 8000, d: 3500 });
+  b.furn(G, "loungeChair", 1200, 11600, 0); b.furn(G, "loungeChair", 2400, 11600, 0); b.furn(G, "patioUmbrella", 11500, 13000);
+  b.furn(G, "car", 17200, 5000, 0, { color: "#3b4048" });
+  for (const [x, y] of [[-3500, 2000], [-3500, 9000], [21000, 12000], [12000, 18500], [2000, 18500]]) b.furn(G, "tree", x, y, 0, { w: 3600, d: 3600, h: 6500 });
+  for (let i = 0; i < 5; i++) b.furn(G, "shrub", 10600 + i * 1100, 11200);
+  bimElements(b, { ceilings: /Living|Study|Hall|bedroom|Bedroom|Landing/, ceilingType: "ceil-gypsum-15" });
+  b.dims(G); b.dims(U);
+  p.scenes.push(sceneFor(p, "Garden", [-0.3, 0.45, 1]), sceneFor(p, "Entrance and carport", [1, 0.5, 0.4]), sceneFor(p, "Ground floor cut", [0.3, 1.4, 1], { section: 1300 }), sceneFor(p, "Upper floor cut", [0.3, 1.4, 1], { section: 4500 }));
+  add("16-modern-villa.myarch", b, { docs: { scale: 100, elevScale: 100 }, title: "Modern villa", titleKo: "모던 빌라", description: "A two-storey modern house: an open living, kitchen and dining space behind a glass curtain wall, an upper floor cantilevered over the carport, master suite, flat roofs, a pool and garden.", descriptionKo: "유리 커튼월 뒤의 거실·주방·식당, 차고 위로 내민 2층, 안방 욕실이 딸린 마스터 침실, 평지붕, 수영장과 정원이 있는 2층 모던 주택.", tags: ["2 levels", "modern", "curtain wall", "pool"] });
+}
+
+// 17. Townhouse: a narrow three-storey row house between party walls, one
+// stair stacked through every floor, and a roof terrace with a stair pavilion.
+{
+  const b = builder("Townhouse", { client: "Sample", address: "Seoul, Seongsu-dong" });
+  const p = b.p;
+  const G = b.level(0);
+  p.levels[0].name = "1F"; p.levels[0].height = 3000;
+  const L2 = b.addLevel("2F", 3000), L3 = b.addLevel("3F", 3000), R = b.addLevel("Roof", 2600);
+  const party = { type: "concrete-200" };
+  const shell = (L) => {
+    const n = b.wall(L, [0, 0], [6000, 0], 250, { material: "brick" });
+    const e = b.wall(L, [6000, 0], [6000, 14000], 250, party);
+    const s = b.wall(L, [6000, 14000], [0, 14000], 250, { material: "brick" });
+    const w = b.wall(L, [0, 14000], [0, 0], 250, party);
+    return { n, e, s, w };
+  };
+  // 1F: kitchen and dining at the back (garden), living room at the front, WC.
+  {
+    const { n, s } = shell(G);
+    const k = b.wall(G, [0, 9000], [6000, 9000], 120);
+    const wc1 = b.wall(G, [3000, 9000], [3000, 11000], 120);
+    b.wall(G, [0, 11000], [3000, 11000], 120);
+    b.door(k, 1700, 2200, { kind: "opening", type: "none", height: 2400 }); b.door(wc1, 1000, 800, { type: "sliding" });
+    b.door(s, 1500, 1000, { side: -1, hinge: "end" });
+    b.window(n, 3000, 3600, { type: "sliding", sill: 0, height: 2400 }); b.window(s, 4200, 2000, { type: "fixed", sill: 500, height: 1900 });
+    b.rooms(G, [[2500, 4500, "Kitchen and dining", "tile-grey"], [3500, 12500, "Living room", "oak"], [1500, 10000, "WC", "tile-white"]]);
+    b.stair(G, 5000, 6200, 90, 4000, 1100, 17);
+    b.furn(G, "counter", 1500, 450, 0, { w: 2400 }); b.furn(G, "fridge", 3200, 475, 0); b.furn(G, "sinkCounter", 425, 2700, 90, { w: 1200 });
+    b.furn(G, "diningTable4", 2000, 5200, 90, { w: 1400, d: 800 }); for (const [x, y, r] of [[1250, 4800, 90], [1250, 5600, 90], [2750, 4800, 270], [2750, 5600, 270]]) b.furn(G, "chair", x, y, r);
+    b.furn(G, "sofa3", 1500, 12900, 90, { w: 2000 }); b.furn(G, "coffeeTable", 2700, 12900, 90); b.furn(G, "tvUnit", 4500, 9360, 0, { w: 1500 });
+    b.furn(G, "toilet", 2600, 10400, 270); b.furn(G, "washbasin", 425, 10000, 90);
+    for (const [kd, x, y] of [["pendantLamp", 2000, 5200], ["downlight", 1500, 1500], ["ceilingLight", 3000, 12300], ["downlight", 1500, 10000]]) b.lamp(G, kd, x, y);
+  }
+  // 2F and 3F: a bedroom front and back, a big bathroom (2F) or study (3F) beside the stair.
+  for (const [L, mid, front, back] of [[L2, "Bathroom", "Bedroom", "Bedroom"], [L3, "Study", "Studio", "Bedroom"]]) {
+    const { n, s } = shell(L);
+    const a = b.wall(L, [0, 4000], [6000, 4000], 120);
+    const c = b.wall(L, [0, 8500], [6000, 8500], 120);
+    const m = b.wall(L, [4000, 4000], [4000, 8500], 120);
+    b.door(a, 5000, 800, { type: "sliding" }); b.door(c, 5000, 800, { type: "sliding" }); b.door(m, 2500, 800, { type: "sliding" });
+    b.window(n, 3000, 2400); b.window(s, 3000, 3000, { type: "sliding", sill: 0, height: 2200 });
+    b.rooms(L, [[3000, 2000, back, "oak"], [2000, 6250, mid, mid === "Bathroom" ? "tile-white" : "walnut"], [5000, 6250, "Landing", "oak"], [3000, 11250, front, "oak"]]);
+    b.stair(L, 5000, 6200, 90, 4000, 1100, 17);
+    b.furn(L, "doubleBed", 2500, 1175, 0, { w: 1500, d: 2000 }); b.furn(L, "nightstand", 1250, 325, 0); b.furn(L, "wardrobe", 5575, 2000, 270, { w: 1600 });
+    if (mid === "Bathroom") { b.furn(L, "bathtub", 1100, 7900, 0, { w: 1500, d: 750 }); b.furn(L, "toilet", 3500, 4700, 270); b.furn(L, "vanity2", 1800, 4370, 0, { w: 1400 }); b.furn(L, "washer", 3500, 6500, 270); }
+    else { b.furn(L, "desk", 425, 6250, 90, { w: 1400 }); b.furn(L, "officeChair", 1100, 6250, 270); b.furn(L, "bookshelf", 3700, 6250, 270, { w: 1600 }); }
+    if (front === "Bedroom") { b.furn(L, "doubleBed", 3000, 12625, 180, { w: 1500, d: 2000 }); b.furn(L, "dresser", 1000, 8810, 0); }
+    else { b.furn(L, "sofa2", 3000, 13300, 180); b.furn(L, "desk", 1000, 9000, 0, { w: 1200 }); b.furn(L, "chair", 1000, 9550, 180); b.furn(L, "plant", 5500, 13500); }
+    for (const [kd, x, y] of [["ceilingLight", 3000, 2000], ["downlight", 2000, 6250], ["downlight", 5000, 6250], ["ceilingLight", 3000, 11250]]) b.lamp(L, kd, x, y);
+  }
+  // Roof terrace: parapet walls, a stair pavilion with a door to the terrace.
+  {
+    const para = { height: 1100, material: "brick" };
+    b.loop(R, [[0, 0], [6000, 0], [6000, 14000], [0, 14000]], 250, para);
+    const pw = b.wall(R, [3800, 3800], [3800, 8700], 150, { material: "plaster" });
+    b.wall(R, [3800, 3800], [6000, 3800], 150, { material: "plaster" }); b.wall(R, [3800, 8700], [6000, 8700], 150, { material: "plaster" });
+    b.door(pw, 3900, 900, { side: -1 });
+    b.rooms(R, [[2000, 10000, "Roof terrace", "oak"], [4900, 6250, "Stair pavilion", "oak"]]);
+    b.furn(R, "patioUmbrella", 2400, 11500); b.furn(R, "loungeChair", 1000, 2000, 0); b.furn(R, "loungeChair", 2400, 2000, 0);
+    for (const y of [5000, 7000]) b.furn(R, "planter", 450, y, 90, { w: 1600 }); b.furn(R, "bench", 3000, 13500, 180, { w: 1800 });
+    p.roofs.push({ id: uid("f"), level: R, pts: [[3800, 3800], [6000, 3800], [6000, 8700], [3800, 8700]], kind: "flat", pitch: 0, overhang: 300, thickness: 200, material: "concrete" });
+    b.lamp(R, "ceilingLight", 4900, 6250); b.lamp(R, "wallSconce", 3720, 4800, 90);
+  }
+  for (const x of [-3500, 9500]) b.furn(G, "tree", x, 7000, 0, { w: 3000, d: 3000, h: 6000 });
+  b.furn(G, "bikeRack", 1500, 15400, 0, { w: 1400 }); b.furn(G, "streetLamp", 5200, 15600, 180);
+  bimElements(b, { ceilings: /Living|Bedroom|Study|Studio|Kitchen/, ceilingType: "ceil-gypsum-15" });
+  for (const L of [G, L2]) b.dims(L);
+  p.scenes.push(sceneFor(p, "Street front", [0.2, 0.35, 1]), sceneFor(p, "Garden side", [-0.2, 0.5, -1]), sceneFor(p, "Section through the stair", [1, 0.3, 0.2], { section: 5000 }));
+  add("17-townhouse.myarch", b, { docs: { scale: 100, elevScale: 100 }, title: "Townhouse", titleKo: "타운하우스", description: "A narrow three-storey row house between concrete party walls: kitchen to the garden, living room to the street, bedrooms, a study and a roof terrace with a stair pavilion.", descriptionKo: "콘크리트 경계벽 사이의 좁은 3층 연립주택: 정원 쪽 주방, 거리 쪽 거실, 침실과 서재, 계단실이 있는 옥상 테라스.", tags: ["4 levels", "modern", "row house", "roof terrace"] });
+}
+
+// 18. Modern farmhouse: a long gabled volume clad in dark timber, an open
+// living hall with a kitchen island, a guest suite, two bedrooms in the roof.
+{
+  const b = builder("Modern farmhouse", { client: "Sample", address: "Yangpyeong" });
+  const p = b.p;
+  const G = b.level(0);
+  p.levels[0].name = "1F"; p.levels[0].height = 3000;
+  const U = b.addLevel("2F", 2600);
+  const clad = { material: "#2f3134" };
+  const [n, e, s, w] = b.loop(G, [[0, 0], [15000, 0], [15000, 8000], [0, 8000]], 300, clad);
+  const a = b.wall(G, [9500, 0], [9500, 8000], 150);
+  const c = b.wall(G, [9500, 3000], [15000, 3000], 120);
+  const d = b.wall(G, [12500, 3000], [12500, 8000], 120);
+  b.door(a, 1500, 1200, { kind: "opening", type: "none", height: 2400 }); b.door(c, 1500, 800, { type: "sliding" }); b.door(d, 2500, 800, { type: "sliding" });
+  b.door(e, 1500, 1000, { side: -1 }); // the entrance, into the mudroom
+  // "at" on the south wall runs from its east end (x = 15000 − at).
+  b.window(s, 10500, 4000, { type: "sliding", sill: 0, height: 2400 }); b.window(n, 2500, 1800); b.window(n, 6500, 1800);
+  b.window(w, 4000, 2400, { type: "fixed", sill: 300, height: 2200 }); b.window(s, 13500, 1200); b.window(s, 4000, 1500); b.window(n, 12000, 1200);
+  b.rooms(G, [[4500, 4000, "Living hall", "oak"], [12200, 1500, "Mudroom", "stone"], [11000, 5500, "Guest bedroom", "oak"], [13700, 5500, "Shower room", "tile-white"]]);
+  b.stair(G, 8400, 2500, 90, 4200, 1000, 17);
+  b.furn(G, "sofa3", 3000, 5500, 180); b.furn(G, "coffeeTable", 3000, 4400); b.furn(G, "armchair", 1200, 4400, 90); b.furn(G, "rug", 3000, 4600, 0, { w: 3000, d: 2200 });
+  b.furn(G, "tvUnit", 3000, 3000, 0, { w: 1800 }); b.furn(G, "bookshelf", 375, 1800, 90);
+  b.furn(G, "counter", 4800, 475, 0, { w: 3600 }); b.furn(G, "fridge", 7000, 500, 0); b.furn(G, "island", 5200, 2000, 0, { w: 2000 });
+  table4(b, G, "diningTable6", 6600, 6000, 1800, 900);
+  b.furn(G, "lockers", 14400, 550, 0); b.furn(G, "washer", 13300, 550, 0); b.furn(G, "bench", 11000, 2700, 180, { w: 1500 });
+  b.furn(G, "doubleBed", 10900, 6800, 180, { w: 1500, d: 2000 }); b.furn(G, "nightstand", 9900, 7600, 180); b.furn(G, "wardrobe", 9875, 4200, 90, { w: 1200 });
+  b.furn(G, "shower", 14325, 7225); b.furn(G, "toilet", 14450, 4200, 270); b.furn(G, "washbasin", 13000, 3375, 0);
+  for (const [k, x, y] of [["pendantLamp", 4700, 2000], ["pendantLamp", 5700, 2000], ["pendantLamp", 6600, 6000], ["ceilingLight", 3000, 4500], ["ceilingLight", 12200, 1500], ["ceilingLight", 11000, 5500], ["downlight", 13700, 5500]]) b.lamp(G, k, x, y);
+  b.lamp(G, "floorLamp", 600, 6800);
+  const [n2, , s2, w2] = b.loop(U, [[0, 0], [15000, 0], [15000, 8000], [0, 8000]], 300, clad);
+  const u1 = b.wall(U, [5500, 0], [5500, 8000], 150);
+  const u2 = b.wall(U, [9500, 0], [9500, 8000], 150);
+  const u3 = b.wall(U, [5500, 4500], [9500, 4500], 120);
+  b.door(u1, 6000, 900, { type: "sliding" }); b.door(u2, 6000, 900, { type: "sliding" }); b.door(u3, 2000, 800, { type: "sliding" });
+  b.window(w2, 4000, 1500); b.window(n2, 12000, 1500); b.window(s2, 2500, 1500); b.window(s2, 12500, 1500);
+  b.rooms(U, [[2700, 4000, "Bedroom", "oak"], [7500, 2200, "Landing", "oak"], [7500, 6300, "Bathroom", "tile-white"], [12200, 4000, "Bedroom", "oak"]]);
+  b.furn(U, "doubleBed", 2700, 1350, 0, { w: 1600 }); b.furn(U, "wardrobe", 4975, 5800, 270, { w: 1400 }); b.furn(U, "desk", 1000, 7400, 180);
+  b.furn(U, "doubleBed", 12200, 1350, 0, { w: 1600 }); b.furn(U, "crib", 14150, 6900, 270); b.furn(U, "dresser", 10600, 7400, 180);
+  b.furn(U, "bathtub", 7500, 7400, 180, { w: 1600 }); b.furn(U, "toilet", 9050, 5200, 270); b.furn(U, "washbasin", 6000, 4880, 0);
+  for (const [k, x, y] of [["ceilingLight", 2700, 4000], ["ceilingLight", 12200, 4000], ["downlight", 7500, 6300], ["pendantLamp", 7500, 2200]]) b.lamp(U, k, x, y);
+  b.roof(U, "gable", 40, 300);
+  for (const r of p.roofs) if (r.level === U) r.material = "roof-metal"; // standing-seam metal, not tiles
+  b.furn(G, "pergola", 4000, 10200, 0, { w: 6000, d: 3000 }); b.furn(G, "loungeChair", 8200, 9300, 0);
+  for (const [x, y] of [[-3500, 3000], [20500, 1000], [18000, 11500], [9000, 12500]]) b.furn(G, "tree", x, y, 0, { w: 4000, d: 4000, h: 7000 });
+  b.furn(G, "car", 17500, 5000, 0, { color: "#4e6e8e" });
+  bimElements(b, { slabType: "floor-timber-220", ceilings: /Living|Bedroom|Mudroom/, ceilingType: "ceil-gypsum-15" });
+  b.dims(G); b.dims(U);
+  p.scenes.push(sceneFor(p, "Approach", [0.8, 0.4, 1]), sceneFor(p, "Garden", [-0.5, 0.45, 1]), sceneFor(p, "Roof cut", [0.4, 1.3, 1], { section: 4200 }));
+  add("18-modern-farmhouse.myarch", b, { docs: { scale: 100, elevScale: 100 }, title: "Modern farmhouse", titleKo: "모던 팜하우스", description: "A long gabled house clad in dark timber: an open living hall with a kitchen island, a guest bedroom and mudroom, two bedrooms and a bathroom under the roof, a pergola in the garden.", descriptionKo: "어두운 목재로 감싼 긴 박공 주택: 아일랜드 주방이 있는 거실 홀, 손님방과 현관 수납실, 지붕 아래 침실 2개와 욕실, 정원의 퍼걸러.", tags: ["2 levels", "modern", "gable roof", "timber"] });
+}
+
+// 19. Duplex: two mirror-image two-storey homes sharing a party wall.
+{
+  const b = builder("Duplex", { client: "Sample", address: "Sejong" });
+  const p = b.p;
+  const G = b.level(0);
+  p.levels[0].name = "1F"; p.levels[0].height = 2900;
+  const U = b.addLevel("2F", 2800);
+  const names = [];
+  for (const side of [0, 1]) {
+    // x maps the left unit onto the right one as its mirror image.
+    const X = (x) => (side ? 14000 - x : x);
+    const wall = (L, a, c, t, extra) => b.wall(L, [X(a[0]), a[1]], [X(c[0]), c[1]], t, extra);
+    const at = (len, v) => (side ? len - v : v); // "at" on a wall that runs along x
+    const f = (L, kind, x, y, rot = 0, extra) => b.furn(L, kind, X(x), y, side ? (360 - rot) % 360 : rot, extra);
+    const lamp = (L, kind, x, y) => b.lamp(L, kind, X(x), y);
+    // Ground floor.
+    const n = wall(G, [0, 0], [7000, 0], 250, { material: "brick" });
+    const s = wall(G, [7000, 10000], [0, 10000], 250, { material: "brick" });
+    wall(G, [0, 10000], [0, 0], 250, { material: "brick" });
+    if (!side) b.wall(G, [7000, 0], [7000, 10000], 250, { type: "concrete-200" });
+    const k = wall(G, [0, 4500], [7000, 4500], 120);
+    const h1 = wall(G, [4500, 4500], [4500, 10000], 120);
+    const wc = wall(G, [4500, 7500], [7000, 7500], 120);
+    b.door(k, at(7000, 2200), 2000, { kind: "opening", type: "none", height: 2300 }); b.door(h1, 1500, 900, { kind: "opening", type: "none", height: 2300 }); b.door(wc, at(2500, 1250), 800, { type: "sliding" });
+    b.door(s, at(7000, side ? 1250 : 5750), 1000, { side: -1, hinge: side ? "start" : "end" });
+    b.window(n, at(7000, 3500), 3000, { type: "sliding", sill: 0, height: 2200 }); b.window(s, at(7000, side ? 4750 : 2250), 2400);
+    names.push([X(3500), 2200, "Kitchen and dining", "oak"], [X(2200), 7200, "Living room", "oak"], [X(5750), 6000, "Hall", "tile-grey"], [X(5750), 8750, "WC", "tile-white"]);
+    b.stair(G, X(5750), 5700, 0, 2200, 1000, 16);
+    b.p.stairs[b.p.stairs.length - 1].rot = side ? 180 : 0;
+    f(G, "counter", 2500, 450, 0, { w: 3600 }); f(G, "fridge", 5000, 475, 0); f(G, "diningTable4", 3500, 2700, 0, { w: 1400, d: 800 });
+    for (const [x, y, r] of [[3150, 2150, 0], [3850, 2150, 0], [3150, 3250, 180], [3850, 3250, 180]]) f(G, "chair", x, y, r);
+    f(G, "sofa3", 425 + 450, 7200, 90, { w: 2100 }); f(G, "coffeeTable", 2200, 7200, 90); f(G, "tvUnit", 4200, 7200, 270, { w: 1600 });
+    f(G, "toilet", 6550, 8750, 270); f(G, "washbasin", 5000, 9575, 180);
+    lamp(G, "pendantLamp", 3500, 2700); lamp(G, "ceilingLight", 2200, 7200); lamp(G, "downlight", 5750, 6000); lamp(G, "downlight", 5750, 8750);
+    // Upper floor.
+    const n2 = wall(U, [0, 0], [7000, 0], 250, { material: "plaster" });
+    const s2 = wall(U, [7000, 10000], [0, 10000], 250, { material: "plaster" });
+    wall(U, [0, 10000], [0, 0], 250, { material: "plaster" });
+    if (!side) b.wall(U, [7000, 0], [7000, 10000], 250, { type: "concrete-200" });
+    const a = wall(U, [0, 4500], [7000, 4500], 120);
+    const c = wall(U, [4500, 4500], [4500, 10000], 120);
+    const bt = wall(U, [4500, 7500], [7000, 7500], 120);
+    b.door(a, at(7000, 1500), 800, { type: "sliding" }); b.door(c, 1000, 800, { type: "sliding" }); b.door(bt, at(2500, 1250), 800, { type: "sliding" });
+    b.window(n2, at(7000, 1800), 1500); b.window(n2, at(7000, 5200), 1500); b.window(s2, at(7000, side ? 4750 : 2250), 1800);
+    names.push([X(2000), 2200, "Bedroom", "oak"], [X(5500), 2200, "Bedroom", "oak"], [X(2200), 7200, "Master bedroom", "oak"], [X(5750), 6000, "Landing", "oak"], [X(5750), 8750, "Bathroom", "tile-white"]);
+    wall(U, [3500, 0], [3500, 4500], 120);
+    const d2 = b.p.walls[b.p.walls.length - 1];
+    b.door(d2, 3500, 800, { type: "sliding" });
+    f(U, "singleBed", 1600, 1125, 0); f(U, "desk", 2900, 425, 0, { w: 1000 });
+    f(U, "singleBed", 5300, 1125, 0); f(U, "wardrobe", 6550, 3200, 270, { w: 1200 });
+    f(U, "doubleBed", 1375 + 600, 7200, 90, { w: 1600, d: 2000 }); f(U, "wardrobe", 2200, 9575, 180, { w: 1800 });
+    f(U, "bathtub", 5750, 9375, 180, { w: 1500, d: 750 }); f(U, "toilet", 6550, 8000, 270); f(U, "washbasin", 4900, 8100, 90);
+    lamp(U, "ceilingLight", 2000, 2200); lamp(U, "ceilingLight", 5500, 2200); lamp(U, "ceilingLight", 2200, 7200); lamp(U, "downlight", 5750, 8750);
+    f(G, "car", 3500, 13500, 0, { color: side ? "#b5483e" : "#f3f2ee" }); f(G, "tree", 1500, -3000, 0, { w: 3000, d: 3000, h: 5500 });
+  }
+  b.rooms(G, names.filter((x) => !/Bedroom|bedroom|Landing|Bathroom/.test(x[2])));
+  b.rooms(U, names.filter((x) => /Bedroom|bedroom|Landing|Bathroom/.test(x[2])));
+  b.roof(U, "hip", 28, 500);
+  bimElements(b, { ceilings: /Living|Bedroom|bedroom|Kitchen/, ceilingType: "ceil-gypsum-15" });
+  b.dims(G); b.dims(U);
+  p.scenes.push(sceneFor(p, "Street", [0.2, 0.4, 1]), sceneFor(p, "Gardens", [0, 0.6, -1]), sceneFor(p, "Both upper floors", [0.3, 1.4, 1], { section: 4300 }));
+  add("19-duplex.myarch", b, { docs: { scale: 100, elevScale: 100 }, title: "Duplex", titleKo: "듀플렉스 주택", description: "Two mirror-image two-storey homes sharing a concrete party wall, each with a kitchen to the garden, living room, three bedrooms and a hip roof over both.", descriptionKo: "콘크리트 경계벽을 공유하는 좌우 대칭 2층 주택 두 채: 정원 쪽 주방, 거실, 침실 3개, 두 집을 덮는 모임지붕.", tags: ["2 levels", "modern", "semi-detached", "mirror"] });
+}
+
+// 20. Compact house: everything in 45 m² under a single shed roof.
+{
+  const b = builder("Compact house", { client: "Sample", address: "Gangneung" });
+  const p = b.p;
+  const L = b.level(0);
+  p.levels[0].height = 3200;
+  const [n, e, s, w] = b.loop(L, [[0, 0], [9000, 0], [9000, 5000], [0, 5000]], 250, { material: "wood-cladding" });
+  const a = b.wall(L, [6000, 0], [6000, 5000], 120);
+  const c = b.wall(L, [6000, 2600], [9000, 2600], 100);
+  b.door(a, 3800, 800, { type: "sliding" }); b.door(c, 1500, 700, { type: "sliding" });
+  b.door(s, 6500, 1000, { side: -1 });
+  b.window(s, 3500, 3000, { type: "sliding", sill: 0, height: 2400 }); b.window(w, 2500, 1500); b.window(n, 7500, 1200); b.window(n, 2000, 2400, { sill: 1100 });
+  b.rooms(L, [[3000, 2500, "Living and kitchen", "oak"], [7500, 1300, "Bedroom", "oak"], [7500, 3800, "Shower room", "tile-white"]]);
+  b.furn(L, "counter", 2000, 450, 0, { w: 2600 }); b.furn(L, "fridge", 3700, 475, 0); b.furn(L, "sofa2", 1500, 4300, 180); b.furn(L, "coffeeTable", 1500, 3300);
+  b.furn(L, "roundTable", 4600, 2400, 0, { w: 800, d: 800 }); b.furn(L, "chair", 4600, 1850, 0); b.furn(L, "chair", 4600, 2950, 180);
+  b.furn(L, "doubleBed", 7500, 1175, 0, { w: 1400, d: 2000 }); b.furn(L, "shower", 8425, 4225); b.furn(L, "toilet", 6450, 4300, 90); b.furn(L, "washbasin", 7400, 4550, 180);
+  for (const [k, x, y] of [["pendantLamp", 4600, 2400], ["ceilingLight", 2000, 3000], ["downlight", 7500, 1300], ["downlight", 7500, 3800]]) b.lamp(L, k, x, y);
+  b.lamp(L, "wallSconce", 6070, 1300, 90);
+  b.roof(L, "shed", 12, 600);
+  b.furn(L, "bench", 2000, 6200, 0); b.furn(L, "tree", 12000, 2500, 0, { w: 3500, d: 3500, h: 6000 }); b.furn(L, "bikeRack", 7500, 6400, 0, { w: 1200 });
+  bimElements(b, { slabType: "floor-timber-220", groundType: "floor-insulated-300", ceilings: null });
+  b.dims(L);
+  p.scenes.push(sceneFor(p, "Garden", [0.4, 0.4, 1]), sceneFor(p, "Plan cut", [0, 1, 0.0001], { section: 1300 }));
+  add("20-compact-house.myarch", b, { docs: { scale: 50, elevScale: 50 }, title: "Compact house", titleKo: "콤팩트 하우스", description: "A 45 m² single-storey home under one shed roof: living room and kitchen, a bedroom and a shower room, timber cladding and a big sliding window to the garden.", descriptionKo: "외쪽지붕 하나 아래 45 m² 단층 주택: 거실·주방, 침실, 샤워실, 목재 외장과 정원 쪽 큰 미닫이 창.", tags: ["1 level", "modern", "small", "shed roof"] });
 }
 
 // ---------------------------------------------------------------- verify and write
@@ -877,7 +1333,7 @@ for (const s of samples) {
   const { project, ...info } = s;
   index.push(info);
   const w = issues.length - errors.length;
-  for (const i of issues.filter((x) => x.severity !== "error")) console.log(`    · ${i.code}: ${i.message} @ ${Math.round(i.x)},${Math.round(i.y)} ${(s.project.levels.find((l) => l.id === i.level) || {}).name || ""}`);
+  for (const i of issues) console.log(`    · ${i.code}: ${i.message} @ ${Math.round(i.x)},${Math.round(i.y)} ${(s.project.levels.find((l) => l.id === i.level) || {}).name || ""}`);
   console.log(`${errors.length || notes.length ? "✖" : "✔"} ${s.file}: ${project.levels.length} levels, ${project.walls.length} walls, ${project.openings.length} openings, ${project.rooms.length} rooms (${project.rooms.map((r) => r.name).join(", ")}), ${project.furniture.length} furniture${w ? `, ${w} warnings` : ""}${notes.length ? `\n    ${notes.join("\n    ")}` : ""}`);
 }
 fs.writeFileSync(path.join(out, "index.json"), `${JSON.stringify(index, null, 2)}\n`);
