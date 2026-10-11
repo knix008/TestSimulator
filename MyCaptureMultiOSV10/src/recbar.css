@@ -12,8 +12,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: transparent;
 .recbar-button { flex: none; width: 34px; height: 34px; margin-left: auto; display: grid; place-items: center; border: 0; border-radius: 50%; background: #22272e; color: #e6e9ee; cursor: pointer; }
 .recbar-button + .recbar-button { margin-left: 0; }
 .recbar-button:hover:not(:disabled) { background: #2d333b; }
-.recbar-button.stop { background: #d93a3a; }
+.recbar-button.stop { background: #e5383b; color: #fff; }
 .recbar-button.stop:hover:not(:disabled) { background: #f05454; }
+.recbar-button.pause { background: #f0a020; color: #1d1405; }
+.recbar-button.pause:hover:not(:disabled) { background: #f5b43d; }
+.recbar-button.pause .icon { stroke-width: 3; }
+.recbar-button.resume { background: #22a35a; color: #fff; }
+.recbar-button.resume:hover:not(:disabled) { background: #2bb868; }
+.recbar-button.resume .icon { fill: currentColor; }
 .recbar-button .icon { width: 16px; height: 16px; }
 .recbar-button.stop .icon { fill: currentColor; }
 .recbar-button:disabled { opacity: 0.45; cursor: default; }

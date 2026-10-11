@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window, region-selection overlays and the recording controls",
-  "windows": ["main", "overlay-*", "recbar"],
+  "description": "Main window, region-selection overlays, recording controls and popup windows",
+  "windows": ["main", "overlay-*", "recbar", "popup-*"],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
@@ -16,6 +16,9 @@
     "core:window:allow-start-dragging",
     "core:window:allow-start-resize-dragging",
     "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
     "dialog:allow-open",
     "dialog:allow-save"
   ]

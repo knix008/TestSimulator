@@ -1,21 +1,26 @@
 import './styles.css';
 import appIcon from '../assets/icon.svg';
+import { version as packageVersion } from '../package.json';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { baseName, formatBytes, formatDuration, joinPath, timestampStem } from './domain/naming.js';
 import { elapsedMs, initialSession, isActive, sessionReducer } from './domain/session.js';
-import { captureSource, defaultSettings, IMAGE_FORMATS, loadSettings, storeSettings } from './domain/settings.js';
+import { captureSource, loadSettings, STORAGE_KEY, storeSettings } from './domain/settings.js';
+import { addToGallery, GALLERY_KEY, loadGallery, removeFromGallery, storeGallery } from './domain/gallery.js';
 import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
-import { listMicrophones, meterPosition, MicrophoneChain } from './platform/microphone.js';
+import { MediaViewer } from './viewer.js';
+import { applyTheme, nextTheme, resolveTheme, SYSTEM, themeName } from './themes.js';
+import { openPopup, SESSION_KEY } from './platform/popups.js';
+import { escapeHtml, widgets } from './ui.js';
 import {
   beginRegionSelect, copyPending, defaultDirectories, errorText, grab, isDesktopShell, listSources,
   monitorInfo, openPath, platformInfo, recordingAbort, recordingFinish, recordingOpen, revealPath,
-  hideRecordingPanel, savePending, setBackendLanguage, showMain, showRecordingPanel, sourceThumbnail,
+  hideRecordingPanel, pathsExist, previewUrl, savePending, setBackendLanguage, showMain, showRecordingPanel, sourceThumbnail,
 } from './platform/native.js';
-import { recordingSupport, ScreenRecorder, warmUpEncoder } from './platform/recorder.js';
+import { encoderWarm, recordingSupport, ScreenRecorder, warmUpEncoder } from './platform/recorder.js';
 
 const root = document.querySelector('#app');
 const desktop = isDesktopShell();
@@ -38,9 +43,9 @@ const state = {
   notice: null,
   support: recordingSupport(),
   maximized: false,
-  modal: null, // 'settings' | 'about'
-  settingsTab: 'general',
-  mic: { devices: [], error: null, opening: false, testing: 0, testUrl: null },
+  viewing: null, // id of the history item shown in the viewer
+  gallery: loadGallery(globalThis.localStorage),
+  missing: new Set(), // gallery ids whose file is gone
 };
 
 let recorder = null;
@@ -48,13 +53,14 @@ let recordingId = null;
 let regionPurpose = null;
 let clock = null;
 let previewTicket = 0;
-let micChain = null;
+let viewer = null; // MediaViewer showing a capture from the history
 let recordingPanel = false; // the floating "recbar" controls are up
-let meterFrame = 0;
+
+/** "MyCapture v1.0": name plus major.minor, shown in the title bar and the taskbar. */
+const APP_TITLE = `MyCapture v${packageVersion.split('.').slice(0, 2).join('.')}`;
 
 const s = () => state.settings;
-const escapeHtml = (value) =>
-  String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const ui = widgets(s);
 const locked = () => isActive(state.session) || Boolean(state.busy);
 
 // ───────────────────────── state helpers
@@ -71,6 +77,7 @@ function notify(kind, text) {
 
 function dispatch(action) {
   state.session = sessionReducer(state.session, action);
+  try { globalThis.localStorage?.setItem(SESSION_KEY, state.session.phase); } catch { /* popups just won't lock */ }
   if (recordingPanel) emit('recording-state', state.session).catch(() => {});
   render();
 }
@@ -151,29 +158,107 @@ function render() {
         <div class="toolbar" id="toolbar" role="toolbar"></div>
         <div class="body" id="body">
           <aside class="panel sources" id="sources"></aside>
+          <div class="splitter" data-split="left" role="separator" aria-orientation="vertical"></div>
           <main class="stage" id="stage"></main>
+          <div class="splitter" data-split="right" role="separator" aria-orientation="vertical"></div>
+          <aside class="panel history" id="history"></aside>
         </div>
         <footer class="status" id="status" role="status" aria-live="polite"></footer>
-        <div id="modal"></div>
       </div>`;
   }
-  root.querySelector('#body').classList.toggle('collapsed', s().sidebarCollapsed);
+  const body = root.querySelector('#body');
+  body.classList.toggle('left-collapsed', s().sidebarCollapsed);
+  body.classList.toggle('right-collapsed', s().historyCollapsed);
   root.querySelector('#toolbar').setAttribute('aria-label', t('tool.settings'));
   renderBar();
   renderSources();
   renderToolbar();
   renderStage();
+  renderGallery();
   renderStatus();
+  applyPanelWidths();
+}
+
+// ───────────────────────── themes
+
+const prefersDark = () => Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
+const currentTheme = () => resolveTheme(s().theme, s().customTheme, prefersDark());
+
+function setTheme(id) {
+  update({ theme: id });
+  applyTheme(currentTheme());
+  render();
+}
+
+/** Opens the theme dropdown window under the ▾ button (it may extend past the main window). */
+function toggleThemeMenu() {
+  // The dropdown closes itself when it loses focus — which is what clicking ▾ again does.
+  const closedAt = Number(globalThis.localStorage?.getItem('mycapture.popup.theme-menu.closedAt') ?? 0);
+  if (Date.now() - closedAt < 400) return;
+  const caret = root.querySelector('[data-action="theme-menu"]').getBoundingClientRect();
+  const width = 460;
+  openPopup('theme-menu', { anchor: { x: window.screenX + caret.right - width, y: window.screenY + caret.bottom + 4 } }).catch(reportError);
+}
+
+// ───────────────────────── side panels: widths and splitters
+
+const RIGHT_MIN = 200;
+const PANEL_MAX = 480;
+
+/** The left panel is never narrower than its tab row with every label on one line. */
+function leftMinWidth() {
+  const tabs = root.querySelector('#sources .targets');
+  if (!tabs) return 220;
+  const style = getComputedStyle(tabs);
+  const gap = parseFloat(style.columnGap) || 0;
+  const segments = [...tabs.children];
+  const content = segments.reduce((sum, segment) => sum + segment.scrollWidth, 0) + gap * (segments.length - 1);
+  const frame = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+  const panel = getComputedStyle(root.querySelector('#sources'));
+  return Math.ceil(content + frame + parseFloat(panel.paddingLeft) + parseFloat(panel.paddingRight) + 1);
+}
+
+function applyPanelWidths() {
+  const body = root.querySelector('#body');
+  if (!body) return;
+  const leftMin = leftMinWidth();
+  state.leftMin = leftMin;
+  const left = Math.min(PANEL_MAX, Math.max(leftMin, s().leftWidth ?? 300));
+  const right = Math.min(PANEL_MAX, Math.max(RIGHT_MIN, s().rightWidth ?? 260));
+  body.style.setProperty('--left-width', `${left}px`);
+  body.style.setProperty('--right-width', `${right}px`);
+}
+
+function startSplitDrag(event, side) {
+  const body = root.querySelector('#body');
+  const startX = event.clientX;
+  const startWidth = root.querySelector(side === 'left' ? '#sources' : '#history').getBoundingClientRect().width;
+  const min = side === 'left' ? state.leftMin ?? 220 : RIGHT_MIN;
+  let width = startWidth;
+  const move = (moveEvent) => {
+    const delta = moveEvent.clientX - startX;
+    width = Math.min(PANEL_MAX, Math.max(min, startWidth + (side === 'left' ? delta : -delta)));
+    body.style.setProperty(side === 'left' ? '--left-width' : '--right-width', `${Math.round(width)}px`);
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    body.classList.remove('resizing');
+    update(side === 'left' ? { leftWidth: Math.round(width) } : { rightWidth: Math.round(width) });
+  };
+  body.classList.add('resizing');
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
 }
 
 function renderBar() {
   const settings = s();
-  const platform = state.platform ? `${state.platform}${state.version ? ` · v${state.version}` : ''}` : t('app.browser');
+  const platform = state.platform ?? t('app.browser');
   const bar = root.querySelector('#bar');
   // The whole bar drags the frameless window; buttons inside stay clickable.
   bar.setAttribute('data-tauri-drag-region', '');
   bar.innerHTML = `
-    <div class="brand" data-tauri-drag-region><img class="brand-icon" src="${appIcon}" alt="" data-tauri-drag-region /><span data-tauri-drag-region>MyCapture</span></div>
+    <div class="brand" data-tauri-drag-region><img class="brand-icon" src="${appIcon}" alt="" data-tauri-drag-region /><span data-tauri-drag-region>MyCapture</span><span class="brand-version" data-tauri-drag-region>${APP_TITLE.slice('MyCapture '.length)}</span></div>
     <nav class="modes" role="tablist" aria-label="${t('mode.label')}">
       ${['capture', 'record'].map((mode) => `
         <button role="tab" class="mode ${settings.mode === mode ? 'active' : ''}" aria-selected="${settings.mode === mode}"
@@ -184,6 +269,10 @@ function renderBar() {
     <div class="bar-end" data-tauri-drag-region>
       <span class="pill" title="${t('app.platform')}" data-tauri-drag-region>${escapeHtml(platform)}</span>
       <button class="bar-button flag-button" data-action="language" title="${t('lang.switch')}" aria-label="${t('lang.switch')}">${switchFlag(getLanguage())}</button>
+      <span class="theme-split">
+        <button class="bar-button" data-action="theme-next" title="${escapeHtml(`${t('theme.next')} — ${themeName(currentTheme(), getLanguage())}`)}" aria-label="${t('theme.next')}">${icon('palette')}</button>
+        <button class="bar-button caret" data-action="theme-menu" title="${t('theme.choose')}" aria-label="${t('theme.choose')}" aria-haspopup="menu">${icon('chevronDown')}</button>
+      </span>
       <button class="bar-button" data-action="open-settings" title="${t('settings.title')}" aria-label="${t('settings.title')}">${icon('gear')}</button>
       <button class="bar-button" data-action="open-about" title="${t('about.title')}" aria-label="${t('about.title')}">${icon('info')}</button>
       ${desktop ? `<div class="window-controls">
@@ -282,8 +371,7 @@ function renderSources() {
     </div>
     ${targetTabs()}
     ${picker ? `<p class="hint">${t(settings.target === 'window' ? 'picker.hintWindow' : 'picker.hintMonitor')}</p>` : ''}
-    <div class="source-body ${picker ? 'dimmed' : ''}">${body}</div>
-    ${saveLocation()}`;
+    <div class="source-body ${picker ? 'dimmed' : ''}">${body}</div>`;
   if (settings.target === 'window') loadWindowThumbs();
 }
 
@@ -297,26 +385,6 @@ function sourceItem({ action, value, selected, glyph, thumb, title, detail, badg
 
 const emptyList = (text) => `<p class="empty-line">${escapeHtml(text)}</p>`;
 
-/** Bottom of the left panel: where files of the current mode go. */
-function saveLocation() {
-  const kind = s().mode === 'capture' ? 'image' : 'video';
-  const directory = directoryFor(kind);
-  return `<section class="save-location" aria-label="${t('save.label')}">
-    <div class="panel-head"><h2>${icon('folder')}<span>${t(kind === 'image' ? 'save.imageTitle' : 'save.videoTitle')}</span></h2></div>
-    ${folderRow(kind, directory)}
-    <div class="toggles">
-      ${toggle('askPath', t('save.ask'), t('save.askDetail'), isActive(state.session))}
-    </div>
-  </section>`;
-}
-
-function folderRow(kind, directory) {
-  return `<div class="folder">
-    <span class="folder-path" title="${escapeHtml(directory ?? '')}">${escapeHtml(directory ?? t('save.none'))}</span>
-    <button class="button small" data-action="choose-folder" data-value="${kind}" ${isActive(state.session) ? 'disabled' : ''}>${icon('folder')}<span>${t('save.change')}</span></button>
-  </div>`;
-}
-
 function renderStage() {
   const settings = s();
   const session = state.session;
@@ -328,11 +396,17 @@ function renderStage() {
       <div class="preview" id="preview">
         <video id="live" muted playsinline hidden></video>
         <div id="preview-still"></div>
+        <div class="viewer" id="viewer" hidden></div>
         <div class="rec-badge" id="rec-badge" hidden><i></i><span id="rec-time">00:00</span></div>
       </div>
       <div class="preview-caption" id="preview-caption"></div>
       <div class="actions" id="actions"></div>
       <div id="result"></div>`;
+    viewer = new MediaViewer(stage.querySelector('#viewer'), {
+      onClose: () => closeViewer(),
+      onOpenExternal: (item) => openPath(item.path).catch(reportError),
+      onReveal: (item) => revealPath(item.path).catch(reportError),
+    });
   }
 
   const live = stage.querySelector('#live');
@@ -343,9 +417,10 @@ function renderStage() {
   }
   if (!recordingLive && live.srcObject) live.srcObject = null;
 
+  const viewing = Boolean(viewer?.open) && !recordingLive;
   const still = stage.querySelector('#preview-still');
-  still.hidden = recordingLive;
-  if (!recordingLive) {
+  still.hidden = recordingLive || viewing;
+  if (!recordingLive && !viewing) {
     if (usesPicker() && settings.target !== 'region') {
       still.innerHTML = placeholder('video', t('preview.pickerTitle'), t('preview.pickerDetail'));
     } else if (state.preview?.url) {
@@ -362,9 +437,12 @@ function renderStage() {
   badge.classList.toggle('paused', session.phase === 'paused');
   updateClock();
 
-  stage.querySelector('#preview-caption').innerHTML = `
-    <span>${icon(settings.target)}<b>${escapeHtml(usesPicker() && settings.target !== 'region' ? t('picker.name') : sourceLabel())}</b></span>
-    <span>${recordingLive ? escapeHtml(baseName(session.outputPath)) : state.preview?.caption ?? ''}</span>`;
+  const shown = viewing ? galleryItem(state.viewing) : null;
+  stage.querySelector('#preview-caption').innerHTML = shown
+    ? `<span>${icon('images')}<b>${t('gallery.title')}</b></span>
+      <span>${escapeHtml([shown.width ? `${shown.width} × ${shown.height}` : '', shown.durationMs != null ? formatDuration(shown.durationMs) : '', shown.bytes ? formatBytes(shown.bytes) : ''].filter(Boolean).join(' · '))}</span>`
+    : `<span>${icon(settings.target)}<b>${escapeHtml(usesPicker() && settings.target !== 'region' ? t('picker.name') : sourceLabel())}</b></span>
+      <span>${recordingLive ? escapeHtml(baseName(session.outputPath)) : state.preview?.caption ?? ''}</span>`;
 
   stage.querySelector('#actions').innerHTML = settings.mode === 'capture' ? captureActions() : recordActions();
   stage.querySelector('#result').innerHTML = resultCard();
@@ -413,7 +491,7 @@ function recordActions() {
   if (phase === 'recording' || phase === 'paused') {
     const pauseKey = phase === 'recording' ? 'action.pause' : 'action.resume';
     return actionRow(
-      `<button class="round-button" data-action="${phase === 'recording' ? 'pause' : 'resume'}" title="${t(pauseKey)}" aria-label="${t(pauseKey)}">${icon(phase === 'recording' ? 'pause' : 'play')}</button>`,
+      `<button class="round-button ${phase === 'recording' ? 'pause' : 'resume'}" data-action="${phase === 'recording' ? 'pause' : 'resume'}" title="${t(pauseKey)}" aria-label="${t(pauseKey)}">${icon(phase === 'recording' ? 'pause' : 'play')}</button>`,
       shutter('stop', 'stop', t('action.stop'), 'stop', false),
       '',
     );
@@ -431,9 +509,10 @@ function recordActions() {
     unsupported ? `<p class="hint warn action-note">${escapeHtml(unsupported)}</p>` : '');
 }
 
+/** Shown only for a capture whose save dialog was cancelled; saved ones live in the gallery. */
 function resultCard() {
   const result = state.result;
-  if (!result) return '';
+  if (!result || result.path) return '';
   const saved = Boolean(result.path);
   const meta = [
     result.width ? `${result.width} × ${result.height}` : '',
@@ -456,6 +535,146 @@ function resultCard() {
   </section>`;
 }
 
+// ───────────────────────── capture history (right panel)
+
+function renderGallery() {
+  const host = root.querySelector('#history');
+  if (!host) return;
+  const items = state.gallery;
+  host.setAttribute('aria-label', t('gallery.title'));
+  if (s().historyCollapsed) {
+    host.innerHTML = `
+      <button class="rail" data-action="history-panel" title="${t('history.expand')}" aria-label="${t('history.expand')}" aria-expanded="false">
+        ${icon('chevronLeft', 'icon rail-chevron')}
+        ${icon('images', 'icon rail-icon')}
+        <span class="rail-title">${t('gallery.title')}</span>
+        <span class="gallery-count">${items.length}</span>
+      </button>`;
+    return;
+  }
+  const scroll = host.querySelector('.history-list')?.scrollTop ?? 0;
+  host.innerHTML = `
+    <div class="panel-head">
+      <h2>${icon('images')}<span>${t('gallery.title')}</span><span class="gallery-count">${items.length}</span></h2>
+      <div class="panel-head-actions">
+        <button class="icon-button" data-action="history-panel" title="${t('history.collapse')}" aria-label="${t('history.collapse')}" aria-expanded="true">${icon('chevronRight')}</button>
+      </div>
+    </div>
+    <button class="text-button danger history-clear" data-action="gallery-clear" ${items.length ? '' : 'disabled'}>${icon('trash')}<span>${t('gallery.clear')}</span></button>
+    <div class="history-list">${items.length ? items.map(galleryTile).join('') : `<p class="gallery-empty">${t('gallery.empty')}</p>`}</div>`;
+  host.querySelector('.history-list').scrollTop = scroll;
+}
+
+function galleryTile(item) {
+  const name = baseName(item.path);
+  const missing = state.missing.has(item.id);
+  const meta = [
+    item.width ? `${item.width} × ${item.height}` : '',
+    item.durationMs != null ? formatDuration(item.durationMs) : '',
+    item.bytes ? formatBytes(item.bytes) : '',
+  ].filter(Boolean).join(' · ');
+  const extension = (name.split('.').pop() ?? '').toUpperCase();
+  const title = `${name}${meta ? `\n${meta}` : ''}${missing ? `\n${t('gallery.missing')}` : ''}`;
+  const selected = state.viewing === item.id;
+  return `<div class="tile ${item.kind} ${missing ? 'missing' : ''} ${selected ? 'selected' : ''}" data-id="${item.id}">
+    <button class="tile-open" data-action="gallery-open" data-value="${item.id}" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${t('viewer.view')}: ${name}`)}" aria-pressed="${selected}">
+      <span class="tile-image">
+        ${item.thumbnail ? `<img src="${item.thumbnail}" alt="" loading="lazy" />` : `<span class="tile-placeholder">${icon(item.kind === 'video' ? 'video' : 'camera')}</span>`}
+        ${item.kind === 'video' ? `<span class="tile-play" aria-hidden="true">${icon('play')}</span>
+          <span class="tile-video">${icon('video')}<span>${t('gallery.video')}${item.durationMs != null ? ` · ${formatDuration(item.durationMs)}` : ''}</span></span>` : ''}
+        <span class="tile-format">${missing ? t('gallery.missingShort') : escapeHtml(extension)}</span>
+      </span>
+      <span class="tile-caption"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(meta)}</small></span>
+    </button>
+    <button class="tile-action reveal" data-action="gallery-reveal" data-value="${item.id}" title="${t('result.reveal')}" aria-label="${t('result.reveal')}" ${missing ? 'disabled' : ''}>${icon('folder')}</button>
+    <button class="tile-action delete" data-action="gallery-delete" data-value="${item.id}" title="${t('gallery.delete')}" aria-label="${escapeHtml(`${t('gallery.delete')}: ${name}`)}">${icon('trash')}</button>
+  </div>`;
+}
+
+/** Small JPEG for the history, so it stays light in storage. */
+async function smallThumbnail(dataUrl, maxWidth = 240) {
+  if (!dataUrl) return null;
+  try {
+    const image = new Image();
+    image.src = dataUrl;
+    await image.decode();
+    const scale = Math.min(1, maxWidth / image.naturalWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.78);
+  } catch {
+    return null;
+  }
+}
+
+async function addGalleryItem(item) {
+  const thumbnail = await smallThumbnail(item.thumbnail);
+  state.gallery = addToGallery(state.gallery, { ...item, thumbnail });
+  storeGallery(globalThis.localStorage, state.gallery);
+  renderGallery();
+  root.querySelector('.history-list')?.scrollTo({ top: 0 });
+}
+
+const galleryItem = (id) => state.gallery.find((item) => item.id === id);
+
+/** Shows a capture from the history in the preview area (zoom for images, playback for videos). */
+async function openViewer(id) {
+  const item = galleryItem(id);
+  if (!item) return;
+  if (isActive(state.session)) {
+    notify('warn', t('viewer.busyRecording'));
+    return;
+  }
+  if (state.viewing === id && viewer?.open) return;
+  try {
+    const url = await previewUrl(item.path);
+    if (!url) {
+      state.missing.add(id);
+      renderGallery();
+      notify('error', t('viewer.error'));
+      return;
+    }
+    viewer.show(item, url);
+    state.viewing = id;
+    renderGallery();
+    renderStage();
+  } catch (error) {
+    reportError(error);
+  }
+}
+
+function closeViewer() {
+  if (!state.viewing && !viewer?.open) return;
+  viewer?.close();
+  state.viewing = null;
+  renderGallery();
+  renderStage();
+}
+
+/** Removes entries from the history. The files themselves are never touched. */
+function deleteGalleryItems(ids) {
+  const items = state.gallery.filter((item) => ids.includes(item.id));
+  if (!items.length) return;
+  if (ids.includes(state.viewing)) closeViewer();
+  state.gallery = removeFromGallery(state.gallery, ids);
+  for (const id of ids) state.missing.delete(id);
+  storeGallery(globalThis.localStorage, state.gallery);
+  renderGallery();
+  notify('success', ids.length === 1 ? t('gallery.deleted', { name: baseName(items[0].path) }) : t('gallery.cleared', { count: items.length }));
+}
+
+/** Marks history entries whose file was moved or deleted outside MyCapture. */
+async function checkGalleryFiles() {
+  if (!desktop || !state.gallery.length) return;
+  try {
+    const exists = await pathsExist(state.gallery.map((item) => item.path));
+    state.missing = new Set(state.gallery.filter((_, index) => !exists[index]).map((item) => item.id));
+    renderGallery();
+  } catch { /* the strip still works without the marks */ }
+}
+
 // ───────────────────────── toolbar
 
 /** The quick options of the current mode, in one wrapping row under the title bar. */
@@ -467,17 +686,17 @@ function renderToolbar() {
 
   const groups = settings.mode === 'capture'
     ? [
-      tool(t('tool.format'), imageFormatSelect()),
+      tool(t('tool.format'), ui.imageFormatSelect()),
       settings.imageFormat === 'jpg'
-        ? tool(t('tool.quality'), qualitySlider())
-        : tool('', `<span class="tool-note">${escapeHtml(formatNote(settings.imageFormat))}</span>`),
+        ? tool(t('tool.quality'), ui.qualitySlider())
+        : tool('', `<span class="tool-note">${escapeHtml(t(`format.note.${settings.imageFormat}`))}</span>`),
       `<div class="tool-chips">${chip('copyToClipboard', 'copy', t('tool.clipboard'), t('tool.clipboardTip'))}</div>`,
     ]
     : [
-      tool(t('tool.engine'), segmented('engine', [['display', t('tool.engineDisplay')], ['native', t('tool.engineNative')]], settings.engine, active,
+      tool(t('tool.engine'), ui.segmented('engine', [['display', t('tool.engineDisplay')], ['native', t('tool.engineNative')]], settings.engine, active,
         { display: t('tool.engineDisplayTip'), native: t('tool.engineNativeTip') })),
-      tool(t('tool.format'), segmented('videoFormat', [['mp4', `MP4${support.formats.mp4 ? '' : ' ✕'}`], ['webm', `WebM${support.formats.webm ? '' : ' ✕'}`]], settings.videoFormat, active)),
-      tool('FPS', segmented('fps', [[15, '15'], [30, '30'], [60, '60']], settings.fps, active)),
+      tool(t('tool.format'), ui.segmented('videoFormat', [['mp4', `MP4${support.formats.mp4 ? '' : ' ✕'}`], ['webm', `WebM${support.formats.webm ? '' : ' ✕'}`]], settings.videoFormat, active)),
+      tool('FPS', ui.segmented('fps', [[15, '15'], [30, '30'], [60, '60']], settings.fps, active)),
       `<div class="tool-chips">
         ${chip('systemAudio', 'speaker', t('tool.systemAudio'), t(native ? 'tool.systemAudioNativeTip' : 'tool.systemAudioTip'), active || native)}
         <span class="chip-group">
@@ -490,21 +709,6 @@ function renderToolbar() {
   root.querySelector('#toolbar').innerHTML = groups.join('<span class="tool-divider" aria-hidden="true"></span>');
 }
 
-const formatNote = (format) => t(`format.note.${format}`);
-
-function imageFormatSelect() {
-  return `<select class="select" data-select="imageFormat" aria-label="${t('tool.format')}">
-    ${IMAGE_FORMATS.map((format) => `<option value="${format}" ${s().imageFormat === format ? 'selected' : ''}>${format.toUpperCase()}</option>`).join('')}
-  </select>`;
-}
-
-function qualitySlider() {
-  return `<span class="quality">
-    <input type="range" min="40" max="100" step="1" value="${s().jpegQuality}" data-input="jpegQuality" aria-label="${t('tool.jpgQuality')}" />
-    <output data-output="jpegQuality">${s().jpegQuality}</output>
-  </span>`;
-}
-
 function tool(label, control) {
   return `<div class="tool">${label ? `<span class="tool-label">${label}</span>` : ''}${control}</div>`;
 }
@@ -513,22 +717,6 @@ function chip(key, glyph, label, title, disabled = false) {
   const on = Boolean(s()[key]) && !disabled;
   return `<button class="chip ${on ? 'on' : ''}" data-action="toggle" data-key="${key}" aria-pressed="${on}"
     title="${escapeHtml(title)}" ${disabled ? 'disabled' : ''}>${icon(glyph)}<span>${label}</span></button>`;
-}
-
-function segmented(key, options, current, disabled = false, titles = {}) {
-  return `<div class="segmented" role="radiogroup">
-    ${options.map(([value, label]) => `
-      <button role="radio" class="segment ${current === value ? 'active' : ''}" aria-checked="${current === value}"
-        data-action="setting" data-key="${key}" data-value="${value}" ${titles[value] ? `title="${escapeHtml(titles[value])}"` : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(label)}</button>`).join('')}
-  </div>`;
-}
-
-function toggle(key, title, detail, disabled = false, glyph = '') {
-  return `<label class="toggle ${disabled ? 'disabled' : ''}">
-    <span class="toggle-text">${glyph ? icon(glyph) : ''}<span><strong>${title}</strong><small>${escapeHtml(detail)}</small></span></span>
-    <input type="checkbox" data-toggle="${key}" ${s()[key] ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
-    <span class="switch" aria-hidden="true"></span>
-  </label>`;
 }
 
 function renderStatus() {
@@ -550,229 +738,12 @@ function updateClock() {
   if (time) time.textContent = formatDuration(ms);
   if (desktop) {
     const phase = state.session.phase;
-    const title = phase === 'recording' ? t('title.recording', { time: formatDuration(ms) })
-      : phase === 'paused' ? t('title.paused', { time: formatDuration(ms) }) : 'MyCapture';
+    const title = phase === 'recording' ? t('title.recording', { time: formatDuration(ms), app: APP_TITLE })
+      : phase === 'paused' ? t('title.paused', { time: formatDuration(ms), app: APP_TITLE }) : APP_TITLE;
     if (document.title !== title) {
       document.title = title;
       getCurrentWindow().setTitle(title).catch(() => {});
     }
-  }
-}
-
-// ───────────────────────── dialogs (settings with tabs, about)
-
-const SETTINGS_TABS = [
-  ['general', 'globe', 'settings.general'],
-  ['capture', 'camera', 'mode.capture'],
-  ['record', 'video', 'mode.record'],
-  ['mic', 'mic', 'mic.name'],
-  ['save', 'folder', 'save.label'],
-];
-
-function renderModal() {
-  const host = root.querySelector('#modal');
-  if (!host) return;
-  if (!state.modal) {
-    host.innerHTML = '';
-    return;
-  }
-  const settings = state.modal === 'settings';
-  const [glyph, title, body] = settings ? ['gear', t('settings.title'), settingsBody()] : ['info', t('about.title'), aboutBody()];
-  host.innerHTML = `
-    <div class="modal-backdrop" data-backdrop>
-      <section class="modal modal-${state.modal}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <header class="modal-head">
-          <h2 id="modal-title">${icon(glyph)}<span>${title}</span></h2>
-          <button class="icon-button" data-action="close-modal" title="${t('modal.close')}" aria-label="${t('modal.close')}">${icon('close')}</button>
-        </header>
-        ${settings ? `<nav class="tabs" role="tablist" aria-label="${t('settings.title')}">
-          ${SETTINGS_TABS.map(([tab, tabIcon, key]) => `
-            <button role="tab" class="tab ${state.settingsTab === tab ? 'active' : ''}" aria-selected="${state.settingsTab === tab}"
-              data-action="settings-tab" data-value="${tab}">${icon(tabIcon)}<span>${t(key)}</span></button>`).join('')}
-        </nav>` : ''}
-        <div class="modal-body">${body}</div>
-        <footer class="modal-foot">
-          ${settings ? `<button class="button" data-action="reset-settings" ${isActive(state.session) ? 'disabled' : ''}>${icon('refresh')}<span>${t('settings.reset')}</span></button>` : '<span class="about-copy">© shkwon · MyCapture</span>'}
-          <button class="primary small" data-action="close-modal">${t('modal.done')}</button>
-        </footer>
-      </section>
-    </div>`;
-}
-
-function settingRow(label, control) {
-  return `<div class="setting-row"><span class="setting-label">${label}</span><div class="setting-control">${control}</div></div>`;
-}
-
-function settingsBody() {
-  const settings = s();
-  const active = isActive(state.session);
-  const support = state.support;
-  switch (state.settingsTab) {
-    case 'capture':
-      return `
-        ${settingRow(t('tool.format'), imageFormatSelect())}
-        ${settingRow(t('tool.jpgQuality'), qualitySlider())}
-        <p class="hint">${escapeHtml(formatNote(settings.imageFormat))}</p>
-        <div class="toggles">${toggle('copyToClipboard', t('tool.clipboard'), t('tool.clipboardTip'))}</div>`;
-    case 'record':
-      return `
-        ${settingRow(t('tool.engine'), segmented('engine', [['display', t('tool.engineDisplay')], ['native', t('tool.engineNative')]], settings.engine, active))}
-        <p class="hint">${t(settings.engine === 'native' ? 'tool.engineNativeTip' : 'tool.engineDisplayTip')}</p>
-        ${settingRow(t('tool.format'), segmented('videoFormat', [['mp4', 'MP4'], ['webm', 'WebM']], settings.videoFormat, active))}
-        ${settingRow('FPS', segmented('fps', [[15, '15'], [30, '30'], [60, '60']], settings.fps, active))}
-        <div class="toggles">
-          ${toggle('systemAudio', t('tool.systemAudio'), t(settings.engine === 'native' ? 'tool.systemAudioNativeTip' : 'tool.systemAudioTip'), active || settings.engine === 'native', 'speaker')}
-          ${toggle('microphone', t('tool.microphone'), t('tool.microphoneTip'), active || !support.microphone, 'mic')}
-        </div>`;
-    case 'mic':
-      return micBody();
-    case 'save':
-      return `
-        ${settingRow(t('settings.imageFolder'), folderRow('image', directoryFor('image')))}
-        ${settingRow(t('settings.videoFolder'), folderRow('video', directoryFor('video')))}
-        <div class="toggles">${toggle('askPath', t('save.ask'), t('save.askDetail'), active)}</div>`;
-    default:
-      return `
-        ${settingRow(t('settings.language'), segmented('language', [['ko', '한국어'], ['en', 'English']], getLanguage()))}
-        <p class="hint">${t('settings.languageHint')}</p>
-        ${settingRow(t('settings.panel'), segmented('sidebarCollapsed', [['false', t('settings.panelOpen')], ['true', t('settings.panelClosed')]], String(settings.sidebarCollapsed)))}`;
-  }
-}
-
-function aboutBody() {
-  const rows = [
-    [t('about.version'), state.version || '—'],
-    [t('about.platform'), state.platform || t('app.browser')],
-    [t('about.engine'), 'Tauri 2 · Rust (xcap, image) · WebView'],
-    [t('about.formats'), `${IMAGE_FORMATS.map((f) => f.toUpperCase()).join(' · ')} / MP4 · WebM`],
-    [t('about.data'), t('about.dataValue')],
-  ];
-  return `
-    <div class="about-hero">
-      <img src="${appIcon}" alt="" width="72" height="72" />
-      <div><strong>MyCapture</strong><span>${t('about.tagline')}</span></div>
-    </div>
-    <dl class="about-list">${rows.map(([key, value]) => `<div><dt>${key}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>
-    <ul class="about-features">${['about.f1', 'about.f2', 'about.f3', 'about.f4'].map((key) => `<li>${t(key)}</li>`).join('')}</ul>`;
-}
-
-function micBody() {
-  const settings = s();
-  const mic = state.mic;
-  const options = [`<option value="">${t('mic.default')}</option>`]
-    .concat(mic.devices.map((device) => `<option value="${escapeHtml(device.id)}" ${settings.micDeviceId === device.id ? 'selected' : ''}>${escapeHtml(device.label)}</option>`));
-  return `
-    ${settingRow(t('mic.device'), `<select class="select wide" data-select="micDeviceId" aria-label="${t('mic.device')}">${options.join('')}</select>`)}
-    ${settingRow(t('mic.gain'), `<span class="quality">
-      <input type="range" min="0" max="200" step="5" value="${settings.micGain}" data-input="micGain" aria-label="${t('mic.gain')}" />
-      <output data-output="micGain">${settings.micGain}%</output>
-    </span>`)}
-    <div class="meter-block">
-      <div class="setting-label">${t('mic.level')} <output id="meter-db">-∞ dB</output></div>
-      <div class="meter" role="meter" aria-label="${t('mic.level')}" aria-valuemin="-60" aria-valuemax="0">
-        <div class="meter-fill" id="meter-fill"></div><div class="meter-peak" id="meter-peak"></div>
-      </div>
-      <div class="meter-scale">${[-60, -40, -20, -10, 0].map((db) => `<span style="left:${((db + 60) / 60) * 100}%">${db === 0 ? '0 dB' : db}</span>`).join('')}</div>
-      <p class="hint">${mic.opening ? t('mic.opening') : escapeHtml(mic.error ?? t('mic.levelHint'))}</p>
-    </div>
-    <div class="mic-test">
-      <button class="button" data-action="mic-test" ${mic.testing || !micChain ? 'disabled' : ''}>${icon('record')}<span>${mic.testing ? t('mic.testing', { s: mic.testing }) : t('mic.test')}</span></button>
-      <audio id="mic-playback" controls ${mic.testUrl ? `src="${mic.testUrl}"` : 'hidden'}></audio>
-    </div>`;
-}
-
-/** Opens a dialog; settings can open straight on a tab. The mic tab holds the microphone open. */
-async function openModal(name, tab = null) {
-  if (tab) state.settingsTab = tab;
-  state.modal = name;
-  await syncMicChain();
-}
-
-async function selectSettingsTab(tab) {
-  state.settingsTab = tab;
-  await syncMicChain();
-}
-
-function closeModal() {
-  state.modal = null;
-  closeMicChain();
-  renderModal();
-}
-
-/** Runs the microphone exactly while the Microphone tab is on screen. */
-async function syncMicChain() {
-  const wanted = state.modal === 'settings' && state.settingsTab === 'mic' && !isActive(state.session);
-  if (!wanted) closeMicChain();
-  renderModal();
-  if (wanted && !micChain && !state.mic.opening) await startMicChain();
-}
-
-const micTabOpen = () => state.modal === 'settings' && state.settingsTab === 'mic';
-
-async function startMicChain() {
-  closeMicChain();
-  state.mic = { ...state.mic, opening: true, error: null };
-  renderModal();
-  try {
-    micChain = await MicrophoneChain.open(s().micDeviceId, s().micGain);
-    // Labels only appear once permission is granted, so list after opening.
-    state.mic.devices = await listMicrophones().catch(() => []);
-  } catch (error) {
-    micChain = null;
-    state.mic.error = errorText(error);
-  }
-  state.mic.opening = false;
-  if (!micTabOpen()) {
-    closeMicChain();
-    return;
-  }
-  renderModal();
-  let peakHold = 0;
-  const tick = () => {
-    if (!micChain || !micTabOpen()) return;
-    const { db } = micChain.level();
-    const position = meterPosition(db);
-    peakHold = Math.max(position, peakHold - 0.008);
-    const fill = root.querySelector('#meter-fill');
-    if (fill) {
-      fill.style.setProperty('--meter-width', `${fill.parentElement.clientWidth}px`);
-      fill.style.width = `${(position * 100).toFixed(1)}%`;
-      root.querySelector('#meter-peak').style.left = `${(peakHold * 100).toFixed(1)}%`;
-      root.querySelector('#meter-db').textContent = Number.isFinite(db) ? `${db.toFixed(1)} dB` : '-∞ dB';
-    }
-    meterFrame = requestAnimationFrame(tick);
-  };
-  meterFrame = requestAnimationFrame(tick);
-}
-
-function closeMicChain() {
-  cancelAnimationFrame(meterFrame);
-  micChain?.close();
-  micChain = null;
-  if (state.mic.testUrl) URL.revokeObjectURL(state.mic.testUrl);
-  state.mic = { ...state.mic, testing: 0, testUrl: null };
-}
-
-async function testMicrophone() {
-  if (!micChain || state.mic.testing) return;
-  if (state.mic.testUrl) URL.revokeObjectURL(state.mic.testUrl);
-  state.mic.testUrl = null;
-  state.mic.testing = 3;
-  renderModal();
-  const countdown = setInterval(() => {
-    state.mic.testing = Math.max(1, state.mic.testing - 1);
-    renderModal();
-  }, 1000);
-  try {
-    state.mic.testUrl = await micChain.testRecording(3000);
-    notify('info', t('mic.testDone'));
-  } catch (error) {
-    notify('error', errorText(error));
-  } finally {
-    clearInterval(countdown);
-    state.mic.testing = 0;
-    renderModal();
-    root.querySelector('#mic-playback')?.play().catch(() => {});
   }
 }
 
@@ -907,12 +878,14 @@ async function saveResult(copied = false) {
   const saved = await savePending(output, s().imageFormat, s().jpegQuality);
   rememberDirectory('image', output, saved.path);
   state.result = { ...state.result, path: saved.path, bytes: saved.bytes };
+  await addGalleryItem({ kind: 'image', path: saved.path, thumbnail: state.result.thumbnail, width: state.result.width, height: state.result.height, bytes: saved.bytes });
   notify('success', t(copied ? 'notice.savedCopied' : 'notice.saved', { name: baseName(saved.path) }));
 }
 
 // ───────────────────────── capture
 
 function captureNow() {
+  closeViewer();
   const settings = s();
   if (settings.target === 'region') return startRegionSelect('capture');
   const source = captureSource(settings);
@@ -921,6 +894,7 @@ function captureNow() {
 }
 
 function recaptureRegion() {
+  closeViewer();
   const source = captureSource({ ...s(), target: 'region' });
   if (!source) return undefined;
   return task(t('busy.capturing'), async () => {
@@ -932,6 +906,7 @@ function recaptureRegion() {
 
 async function startRegionSelect(purpose) {
   if (state.busy || !desktop) return;
+  closeViewer();
   regionPurpose = purpose;
   state.busy = t('busy.dragRegion');
   render();
@@ -963,7 +938,7 @@ async function onRegionSelected(payload) {
 async function startRecording() {
   const settings = s();
   if (recorder || state.session.phase !== 'idle') return;
-  if (state.modal) closeModal(); // releases the microphone the test panel holds
+  closeViewer();
   let crop = null;
   const native = settings.engine === 'native';
   const source = native ? recordSource() : null;
@@ -992,6 +967,8 @@ async function startRecording() {
   let opened = null;
   try {
     const info = await candidate.prepare();
+    // An MP4 started while the encoder is still warming up would come out empty.
+    if (settings.videoFormat === 'mp4') await Promise.race([encoderWarm(), new Promise((resolve) => setTimeout(resolve, 15000))]);
     const output = await chooseOutput('video');
     if (!output) {
       candidate.dispose();
@@ -1065,6 +1042,7 @@ async function stopRecording(reason = null) {
     const saved = await recordingFinish(id, durationMs);
     state.result = { kind: 'video', path: saved.path, bytes: saved.bytes, durationMs, width: size?.width, height: size?.height, thumbnail };
     dispatch({ type: 'FINISHED' });
+    await addGalleryItem({ ...state.result });
     const message = t('notice.recordSaved', { name: baseName(saved.path), duration: formatDuration(durationMs) });
     notify('success', reason ? `${reason} ${message}` : message);
   } catch (error) {
@@ -1087,27 +1065,20 @@ async function stopRecording(reason = null) {
 
 // ───────────────────────── events
 
-async function chooseFolder(kind) {
-  const directory = await openDialog({ directory: true, multiple: false, title: t('save.chooseFolder'), defaultPath: directoryFor(kind) ?? undefined });
-  if (typeof directory === 'string') update(kind === 'image' ? { imageDirectory: directory } : { videoDirectory: directory });
-}
-
 function switchLanguage(language) {
   const next = language ?? (getLanguage() === 'ko' ? 'en' : 'ko');
   update({ language: next });
   setLanguage(next);
   setBackendLanguage(next).catch(() => {});
   render();
-  renderModal();
+  viewer?.relabel();
 }
 
 function applySetting(key, value) {
   if (key === 'language') return switchLanguage(value);
-  if (key === 'sidebarCollapsed') value = value === 'true';
   update({ [key]: key === 'fps' ? Number(value) : value });
   if (key === 'engine' && value === 'native' && s().systemAudio) update({ systemAudio: false });
   render();
-  renderModal();
   if (key === 'engine') refreshPreview();
   return undefined;
 }
@@ -1117,22 +1088,26 @@ const reportError = (error) => notify('error', errorText(error));
 const actions = {
   mode: (value) => {
     if (isActive(state.session)) return;
+    closeViewer();
     update({ mode: value });
     render();
     refreshPreview();
   },
   target: (value) => {
+    closeViewer();
     update({ target: value });
     render();
     refreshPreview();
     if (value === 'window') refreshSources({ keepThumbs: true });
   },
   monitor: (value) => {
+    closeViewer();
     update({ monitorId: value === 'all' ? null : Number(value) });
     render();
     refreshPreview();
   },
   window: (value) => {
+    closeViewer();
     update({ windowId: Number(value) });
     render();
     refreshPreview();
@@ -1146,22 +1121,23 @@ const actions = {
     update({ sidebarCollapsed: !s().sidebarCollapsed });
     render();
   },
-  language: () => switchLanguage(),
-  'open-settings': () => openModal('settings'),
-  'open-about': () => openModal('about'),
-  'open-mic': () => openModal('settings', 'mic'),
-  'settings-tab': (value) => selectSettingsTab(value),
-  'close-modal': () => closeModal(),
-  'reset-settings': () => {
-    // Keep where files go and the language; everything else back to defaults.
-    const { imageDirectory, videoDirectory, language } = s();
-    state.settings = { ...defaultSettings, imageDirectory, videoDirectory, language };
-    storeSettings(globalThis.localStorage, state.settings);
+  'history-panel': () => {
+    update({ historyCollapsed: !s().historyCollapsed });
     render();
-    renderModal();
-    refreshPreview();
   },
-  'mic-test': () => testMicrophone(),
+  language: () => switchLanguage(),
+  'open-settings': () => openPopup('settings', { params: { tab: 'general' } }).catch(reportError),
+  'open-about': () => openPopup('about').catch(reportError),
+  'open-mic': () => openPopup('settings', { params: { tab: 'mic' } }).catch(reportError),
+  'theme-next': () => {
+    setTheme(nextTheme(s().theme, prefersDark()));
+    notify('info', t('theme.changed', { name: themeName(currentTheme(), getLanguage()) }));
+  },
+  'theme-menu': () => toggleThemeMenu(),
+  'gallery-open': (id) => openViewer(id),
+  'gallery-reveal': (id) => revealPath(galleryItem(id)?.path).catch((error) => { reportError(error); checkGalleryFiles(); }),
+  'gallery-delete': (id) => deleteGalleryItems([id]),
+  'gallery-clear': () => openPopup('confirm').catch(reportError),
   refresh: () => refreshSources(),
   capture: () => captureNow(),
   'recapture-region': () => recaptureRegion(),
@@ -1170,7 +1146,6 @@ const actions = {
   pause: () => pauseRecording(),
   resume: () => resumeRecording(),
   stop: () => stopRecording(),
-  'choose-folder': (value) => chooseFolder(value === 'video' ? 'video' : 'image').then(() => { render(); renderModal(); }).catch(reportError),
   'save-result': () => task(t('busy.saving'), () => saveResult()),
   'copy-result': () => copyPending().then(() => notify('success', t('notice.copied'))).catch(reportError),
   'open-result': () => openPath(state.result.path).catch(reportError),
@@ -1182,10 +1157,9 @@ const actions = {
 };
 
 root.addEventListener('click', (event) => {
-  if (event.target.matches?.('[data-backdrop]')) return closeModal();
   const button = event.target.closest('[data-action]');
-  if (!button || button.disabled) return undefined;
-  return actions[button.dataset.action]?.(button.dataset.value, button);
+  if (!button || button.disabled) return;
+  actions[button.dataset.action]?.(button.dataset.value, button);
 });
 
 root.addEventListener('change', (event) => {
@@ -1193,24 +1167,17 @@ root.addEventListener('change', (event) => {
   if (input.dataset.toggle) {
     update({ [input.dataset.toggle]: input.checked });
     render();
-    renderModal();
   } else if (input.dataset.select === 'imageFormat') {
     applySetting('imageFormat', input.value);
-  } else if (input.dataset.select === 'micDeviceId') {
-    update({ micDeviceId: input.value || null });
-    closeMicChain();
-    syncMicChain();
-  } else if (input.dataset.input === 'jpegQuality' || input.dataset.input === 'micGain') {
-    update({ [input.dataset.input]: Number(input.value) });
+  } else if (input.dataset.input === 'jpegQuality') {
+    update({ jpegQuality: Number(input.value) });
   }
 });
 
 root.addEventListener('input', (event) => {
   const input = event.target;
-  if (input.dataset.input === 'jpegQuality' || input.dataset.input === 'micGain') {
-    const suffix = input.dataset.input === 'micGain' ? '%' : '';
-    root.querySelectorAll(`[data-output="${input.dataset.input}"]`).forEach((output) => { output.textContent = `${input.value}${suffix}`; });
-    if (input.dataset.input === 'micGain') micChain?.setGain(Number(input.value));
+  if (input.dataset.input === 'jpegQuality') {
+    root.querySelectorAll('[data-output="jpegQuality"]').forEach((output) => { output.textContent = input.value; });
   } else if (input.dataset.input === 'windowFilter') {
     state.windowFilter = input.value;
     const caret = input.selectionStart;
@@ -1218,6 +1185,15 @@ root.addEventListener('input', (event) => {
     const search = root.querySelector('[data-input="windowFilter"]');
     search?.focus();
     search?.setSelectionRange(caret, caret);
+  }
+});
+
+// Dragging the thin bars between the panels resizes them.
+root.addEventListener('pointerdown', (event) => {
+  const splitter = event.target.closest?.('[data-split]');
+  if (splitter && event.button === 0) {
+    event.preventDefault();
+    startSplitDrag(event, splitter.dataset.split);
   }
 });
 
@@ -1230,7 +1206,29 @@ root.addEventListener('mousedown', (event) => {
 });
 
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && state.modal) closeModal();
+  if (event.target.closest?.('input, select, textarea')) return;
+  if (event.key === 'Escape' && viewer?.open) closeViewer();
+  else if (viewer?.key(event)) event.preventDefault();
+});
+
+/** Settings or the capture history changed in another window (a popup): follow it. */
+window.addEventListener('storage', (event) => {
+  if (event.key === STORAGE_KEY) {
+    const before = state.settings;
+    state.settings = loadSettings(globalThis.localStorage);
+    if (before.language !== state.settings.language) {
+      setLanguage(state.settings.language);
+      setBackendLanguage(getLanguage()).catch(() => {});
+      viewer?.relabel();
+    }
+    applyTheme(currentTheme());
+    render();
+    if (['engine', 'mode', 'target', 'monitorId', 'windowId'].some((key) => before[key] !== state.settings[key])) refreshPreview();
+  } else if (event.key === GALLERY_KEY) {
+    state.gallery = loadGallery(globalThis.localStorage);
+    if (state.viewing && !galleryItem(state.viewing)) closeViewer();
+    renderGallery();
+  }
 });
 
 window.addEventListener('focus', () => {
@@ -1242,6 +1240,13 @@ async function initialize() {
   render();
   if (!desktop) return;
   setBackendLanguage(getLanguage()).catch(() => {});
+  // "Follow the system" reacts when Windows switches between light and dark.
+  globalThis.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (s().theme === SYSTEM) {
+      applyTheme(currentTheme());
+      render();
+    }
+  });
   try {
     const [info, dirs] = await Promise.all([platformInfo(), defaultDirectories()]);
     state.platform = info.platform;
@@ -1251,6 +1256,7 @@ async function initialize() {
     reportError(error);
   }
   await listen('region-selected', (event) => onRegionSelected(event.payload));
+  await listen('mycapture-notice', ({ payload }) => notify(payload.kind, payload.text));
   await listen('recbar-command', ({ payload }) => {
     const command = payload?.command;
     if (command === 'ready') emit('recording-state', state.session).catch(() => {});
@@ -1284,8 +1290,9 @@ async function initialize() {
     await appWindow.destroy();
   });
   await refreshSources();
+  checkGalleryFiles();
   // The first H.264 encode in a process starts slowly; get that out of the way now.
-  if (state.support.formats.mp4) setTimeout(() => warmUpEncoder('mp4'), 1500);
+  if (state.support.formats.mp4) warmUpEncoder('mp4');
 }
 
 // Test hook for the end-to-end suite (test/e2e): read-only state and a few entry points.

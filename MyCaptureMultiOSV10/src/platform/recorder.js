@@ -23,13 +23,24 @@ const MIME_CANDIDATES = {
 };
 
 const MAX_FRAMES_IN_FLIGHT = 4;
-const ENCODER_START_TIMEOUT = 15000;
+const WARM_UP_TIMEOUT = 15000;
+
+let warmUp = null;
 
 /**
- * Encodes one second of a tiny canvas so the platform video encoder is already
- * initialized when the user starts a real recording. Errors are irrelevant here.
+ * Chromium's H.264 encoder takes ~5 s to come up the first time in a process,
+ * and an MP4 recording stopped before that comes out empty. Encoding a tiny
+ * canvas once at start-up gets this out of the way; MP4 recordings wait for it.
  */
-export async function warmUpEncoder(format = 'mp4') {
+export function warmUpEncoder(format = 'mp4') {
+  warmUp ??= runWarmUp(format);
+  return warmUp;
+}
+
+/** Resolves once the warm-up (if any) has finished. */
+export const encoderWarm = () => warmUp ?? Promise.resolve();
+
+async function runWarmUp(format) {
   const mimeType = pickMimeType(format, false);
   if (!mimeType || typeof HTMLCanvasElement.prototype.captureStream !== 'function') return;
   const canvas = document.createElement('canvas');
@@ -45,7 +56,7 @@ export async function warmUpEncoder(format = 'mp4') {
     recorder.start(500);
     await new Promise((resolve) => {
       recorder.addEventListener('dataavailable', (event) => event.data.size && resolve());
-      setTimeout(resolve, ENCODER_START_TIMEOUT);
+      setTimeout(resolve, WARM_UP_TIMEOUT);
     });
     recorder.stop();
     await done;
@@ -278,11 +289,9 @@ export class ScreenRecorder {
       audioBitsPerSecond: 160_000,
     });
     this.stopped = new Promise((resolve) => this.recorder.addEventListener('stop', resolve, { once: true }));
-    this.encoderReady = new Promise((resolve) => { this.markEncoderReady = resolve; });
     this.recorder.addEventListener('dataavailable', (event) => {
       if (this.stopRequested) this.lastChunk?.();
       if (!event.data?.size) return;
-      this.markEncoderReady();
       const blob = event.data;
       this.writeChain = this.writeChain.then(async () => {
         if (this.writeError) return;
@@ -295,7 +304,9 @@ export class ScreenRecorder {
       });
     });
     this.recorder.addEventListener('error', (event) => this.handleEnded(t('rec.encoderError', { error: event.error?.message ?? '?' })));
-    this.recorder.start(1000);
+    // WebM streams to disk every second. Chromium's MP4 muxer writes the file only
+    // when stopped anyway, and time slices make its encoder start unreliably.
+    this.recorder.start(this.options.format === 'mp4' ? undefined : 1000);
     this.segmentStart = performance.now();
   }
 
@@ -319,10 +330,6 @@ export class ScreenRecorder {
     if (this.segmentStart != null) this.activeMs += performance.now() - this.segmentStart;
     this.segmentStart = null;
     if (this.recorder && this.recorder.state !== 'inactive') {
-      // Chromium's H.264 encoder can take seconds to start (about 5 s the first
-      // time in a process). Frames are buffered meanwhile, but stopping before it
-      // has produced anything throws them all away, so wait for it first.
-      await Promise.race([this.encoderReady, new Promise((resolve) => setTimeout(resolve, ENCODER_START_TIMEOUT))]);
       // The MP4 muxer hands over its whole file only when stopped, and that
       // last chunk can arrive just after the stop event; wait for it.
       const lastChunk = new Promise((resolve) => { this.lastChunk = resolve; });

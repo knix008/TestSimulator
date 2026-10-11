@@ -1,3 +1,5 @@
+import { defaultCustom, isThemeId, sanitizeCustom, SYSTEM } from '../themes.js';
+
 export const STORAGE_KEY = 'mycapture.settings.v1';
 
 export const IMAGE_FORMATS = ['jpg', 'png', 'gif', 'tiff', 'bmp', 'webp'];
@@ -5,6 +7,8 @@ export const VIDEO_FORMATS = ['mp4', 'webm'];
 
 export const defaultSettings = Object.freeze({
   language: null, // null = follow the system (ko on Korean systems, otherwise en)
+  theme: SYSTEM, // a theme id from themes.js, 'custom', or 'system' (OS light/dark)
+  customTheme: defaultCustom(),
   mode: 'capture', // capture | record
   target: 'monitor', // monitor | window | region
   monitorId: null, // null = all monitors (capture only)
@@ -24,11 +28,15 @@ export const defaultSettings = Object.freeze({
   micDeviceId: null, // null = system default input
   micGain: 100, // percent, 0–200
   sidebarCollapsed: false,
+  historyCollapsed: false,
+  leftWidth: null, // px; null = default
+  rightWidth: null,
 });
 
 const oneOf = (value, options, fallback) => (options.includes(value) ? value : fallback);
 const bool = (value, fallback) => (typeof value === 'boolean' ? value : fallback);
 const uint = (value) => Number.isInteger(value) && value >= 0;
+const width = (value) => (Number.isFinite(value) && value >= 120 && value <= 2000 ? Math.round(value) : null);
 
 function sanitizeRegion(region) {
   if (!region || typeof region !== 'object') return null;
@@ -44,6 +52,8 @@ export function sanitizeSettings(raw) {
   const quality = Number(value.jpegQuality);
   return {
     language: oneOf(value.language, ['ko', 'en'], null),
+    theme: isThemeId(value.theme) ? value.theme : SYSTEM,
+    customTheme: sanitizeCustom(value.customTheme),
     mode: oneOf(value.mode, ['capture', 'record'], d.mode),
     target: oneOf(value.target, ['monitor', 'window', 'region'], d.target),
     monitorId: uint(value.monitorId) ? value.monitorId : null,
@@ -63,6 +73,9 @@ export function sanitizeSettings(raw) {
     micDeviceId: typeof value.micDeviceId === 'string' && value.micDeviceId ? value.micDeviceId : null,
     micGain: Number.isFinite(Number(value.micGain)) ? Math.min(200, Math.max(0, Math.round(Number(value.micGain)))) : d.micGain,
     sidebarCollapsed: bool(value.sidebarCollapsed, d.sidebarCollapsed),
+    historyCollapsed: bool(value.historyCollapsed, d.historyCollapsed),
+    leftWidth: width(value.leftWidth),
+    rightWidth: width(value.rightWidth),
   };
 }
 

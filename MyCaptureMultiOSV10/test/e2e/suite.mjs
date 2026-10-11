@@ -89,6 +89,26 @@ async function dragOverlay(app, from, to) {
   page.close();
 }
 
+/** Controls that lie outside the window or are covered (scrolling lists only need to be reachable). */
+const AUDIT = `(() => {
+  const bad = [];
+  for (const el of document.querySelectorAll('button, select, input[type=range], input[type=search], input[type=color], [data-resize]')) {
+    if (el.closest('[hidden]')) continue;
+    const scroller = el.closest('.source-body, .history-list');
+    if (scroller && el !== scroller) continue;
+    if (getComputedStyle(el).visibility === 'hidden') continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
+    const name = el.dataset.action ?? el.dataset.select ?? el.dataset.input ?? el.dataset.custom ?? el.className;
+    if (r.left < 0 || r.top < 0 || r.right > innerWidth + 0.5 || r.bottom > innerHeight + 0.5) { bad.push('outside ' + name); continue; }
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    if (!hit || !(el === hit || el.contains(hit) || hit.closest('label')?.contains(el))) bad.push('covered ' + name);
+  }
+  return bad;
+})()`;
+
+const SETTINGS_TABS = ['general', 'capture', 'record', 'mic', 'save', 'theme'];
+
 export const cases = [
   {
     name: '앱 시작 · 디스플레이 목록과 미리보기',
@@ -97,6 +117,8 @@ export const cases = [
       const monitors = await app.main.eval(`document.querySelectorAll('.item[data-action="monitor"]').length`);
       assert.ok(monitors >= 2, `expected "all screens" + at least one display, got ${monitors}`);
       await app.main.waitFor(`document.querySelector('#preview-still img')?.naturalWidth > 0`, { message: 'preview image' });
+      assert.deepEqual(JSON.parse(await app.main.eval(`JSON.stringify([...document.querySelectorAll('.brand span')].map((span) => span.textContent.trim()))`)), ['MyCapture', 'v1.0'], 'name and version in the title bar');
+      assert.equal(await app.main.eval(`document.title`), 'MyCapture v1.0');
     },
   },
   {
@@ -248,30 +270,42 @@ export const cases = [
     },
   },
   {
-    name: '마이크 탭 · 레벨 미터 · 테스트 녹음',
+    name: '마이크 탭 · 레벨 미터 · 테스트 녹음 (설정 창)',
     run: async (app) => {
       await app.reset({ mode: 'record' });
       await app.main.click('[data-action="open-mic"]');
-      await app.main.waitFor(`document.querySelector('.tab.active')?.dataset.value === 'mic'`);
-      await app.main.waitFor(`document.querySelector('[data-select="micDeviceId"]').options.length >= 1 && !window.__mycapture.state.mic.opening`);
-      await app.main.waitFor(`parseFloat(document.querySelector('#meter-fill').style.width) > 0`, { message: 'meter moves with the (fake) microphone' });
-      await app.main.click('[data-action="mic-test"]');
-      await app.main.waitFor(`document.querySelector('#mic-playback')?.src.startsWith('blob:')`, { timeout: 10000, message: 'test recording ready' });
-      await app.main.click('[data-action="close-modal"]');
+      const settings = await app.popup('settings');
+      await settings.waitFor(`document.querySelector('.tab.active')?.dataset.value === 'mic'`);
+      await settings.waitFor(`document.querySelector('[data-select="micDeviceId"]')?.options.length >= 1 && !document.querySelector('.meter-block .hint')?.textContent.includes('…')`);
+      await settings.waitFor(`parseFloat(document.querySelector('#meter-fill').style.width) > 0`, { message: 'meter moves with the (fake) microphone' });
+      await settings.click('[data-action="mic-test"]');
+      await settings.waitFor(`document.querySelector('#mic-playback')?.src.startsWith('blob:')`, { timeout: 10000, message: 'test recording ready' });
+      await settings.click('[data-action="close"]');
+      settings.close();
     },
   },
   {
-    name: '설정 · 탭 전환 · 스크롤 없음',
+    name: '설정 창 · 고정 크기, 모든 탭이 스크롤 없이 다 보임',
     run: async (app) => {
       await app.reset();
       await app.main.click('[data-action="open-settings"]');
-      for (const tab of ['general', 'capture', 'record', 'mic', 'save']) {
-        await app.main.click(`[data-action="settings-tab"][data-value="${tab}"]`);
-        await sleep(tab === 'mic' ? 600 : 150);
-        const fits = await app.main.eval(`(() => { const b = document.querySelector('.modal-body'); return b.scrollHeight <= b.clientHeight; })()`);
-        assert.ok(fits, `settings tab ${tab} overflows`);
+      const settings = await app.popup('settings');
+      const size = JSON.parse(await settings.eval(`JSON.stringify([innerWidth, innerHeight])`));
+      assert.equal(await settings.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|is_resizable', { label: 'popup-settings' })`), false, 'fixed size');
+      for (const language of ['ko', 'en']) {
+        for (const tab of SETTINGS_TABS) {
+          await settings.click(`[data-action="settings-tab"][data-value="${tab}"]`);
+          await sleep(tab === 'mic' ? 500 : 150);
+          const fits = await settings.eval(`(() => { const b = document.querySelector('.modal-body'); return b.scrollHeight <= b.clientHeight && [...b.children].every((child) => child.getBoundingClientRect().bottom <= b.getBoundingClientRect().bottom + 0.5); })()`);
+          assert.ok(fits, `${language}/${tab} overflows`);
+          assert.deepEqual(await settings.eval(AUDIT), [], `${language}/${tab}`);
+          assert.deepEqual(JSON.parse(await settings.eval(`JSON.stringify([innerWidth, innerHeight])`)), size, 'size never changes');
+        }
+        await settings.click('[data-action="settings-tab"][data-value="general"]');
+        await settings.click(`[data-action="setting"][data-key="language"][data-value="${language === 'ko' ? 'en' : 'ko'}"]`);
       }
-      await app.main.click('[data-action="close-modal"]');
+      await settings.click('[data-action="close"]');
+      settings.close();
     },
   },
   {
@@ -293,9 +327,9 @@ export const cases = [
     run: async (app) => {
       await app.reset({ sidebarCollapsed: false });
       await app.main.click('#sources [data-action="sidebar"]');
-      assert.ok(await app.main.eval(`document.querySelector('#body').classList.contains('collapsed') && document.querySelector('.rail .rail-icon') && document.querySelector('.rail-title').textContent.length > 0`));
-      await app.main.click('.rail');
-      assert.ok(await app.main.eval(`!document.querySelector('#body').classList.contains('collapsed') && document.querySelector('#sources h2 svg')`));
+      assert.ok(await app.main.eval(`document.querySelector('#body').classList.contains('left-collapsed') && document.querySelector('#sources .rail .rail-icon') && document.querySelector('.rail-title').textContent.length > 0`));
+      await app.main.click('#sources .rail');
+      assert.ok(await app.main.eval(`!document.querySelector('#body').classList.contains('left-collapsed') && document.querySelector('#sources h2 svg')`));
     },
   },
   {
@@ -305,22 +339,7 @@ export const cases = [
       const before = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|inner_size', { label: 'main' })`);
       await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 860, height: 600 } } })`);
       await sleep(600);
-      const audit = () => app.main.eval(`(() => {
-        const bad = [];
-        const modal = document.querySelector('.modal');
-        for (const el of (modal ?? document).querySelectorAll('button, select, input[type=range], input[type=search], [data-resize]')) {
-          if (el.closest('[hidden]')) continue;
-          const scroller = el.closest('.source-body');
-          if (scroller && el !== scroller) continue;
-          const r = el.getBoundingClientRect();
-          if (!r.width || !r.height) continue;
-          const name = el.dataset.action ?? el.dataset.select ?? el.dataset.input ?? el.className;
-          if (r.left < 0 || r.top < 0 || r.right > innerWidth + 0.5 || r.bottom > innerHeight + 0.5) { bad.push('outside ' + name); continue; }
-          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-          if (!hit || !(el === hit || el.contains(hit))) bad.push('covered ' + name);
-        }
-        return bad;
-      })()`);
+      const audit = () => app.main.eval(AUDIT);
       try {
         for (const mode of ['capture', 'record']) {
           await app.main.click(`[data-action="mode"][data-value="${mode}"]`);
@@ -330,28 +349,328 @@ export const cases = [
             assert.deepEqual(await audit(), [], `${mode}/${target}`);
           }
         }
-        await app.main.click('[data-action="open-settings"]');
-        for (const tab of ['general', 'capture', 'record', 'mic', 'save']) {
-          await app.main.click(`[data-action="settings-tab"][data-value="${tab}"]`);
-          await sleep(150);
-          assert.deepEqual(await audit(), [], `settings/${tab}`);
-        }
-        await app.main.click('[data-action="close-modal"]');
       } finally {
         await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Physical: ${JSON.stringify(before)} } })`);
       }
     },
   },
   {
-    name: '프로그램 정보 대화상자',
+    name: '프로그램 정보 창',
     run: async (app) => {
       await app.reset();
       await app.main.click('[data-action="open-about"]');
-      const text = await app.main.eval(`document.querySelector('.modal').textContent`);
-      assert.match(text, /MyCapture/);
-      assert.match(text, /1\.\d+\.\d+/);
+      const about = await app.popup('about');
+      await about.waitFor(`/1\\.\\d+\\.\\d+/.test(document.querySelector('.about-list').textContent)`, { message: 'version shown' });
+      assert.match(await about.eval(`document.body.textContent`), /MyCapture/);
+      assert.deepEqual(await about.eval(AUDIT), []);
+      await about.key('Escape');
+      about.close();
+      await app.main.waitFor(`(async () => !(await fetch('http://127.0.0.1:${app.port}/json/list').then((r) => r.json())).some((t) => t.title === 'popup-about'))()`, { message: 'Esc closes the window' }).catch(async () => assert.equal(await app.hasPopup('about'), false));
+    },
+  },
+  {
+    name: '캡처 기록 · 우측 패널에 이미지와 동영상(동영상 표시)',
+    run: async (app) => {
+      const monitor = await app.main.eval(`window.__mycapture.state.monitors[0]`);
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: monitor.id, imageFormat: 'png' });
+      assert.ok(await app.main.eval(`document.querySelector('.gallery-empty') !== null`), 'empty message first');
+      await capture(app);
+      await app.reset({ mode: 'record', engine: 'native', target: 'region', videoFormat: 'webm', region: { monitorId: monitor.id, x: 0, y: 0, width: 320, height: 200 } }, { keepGallery: true });
+      await record(app, 'webm', 1);
+      await app.main.waitFor(`document.querySelectorAll('.tile').length === 2`);
+      const tiles = JSON.parse(await app.main.eval(`JSON.stringify([...document.querySelectorAll('.tile')].map((tile) => ({
+        kind: tile.classList.contains('video') ? 'video' : 'image',
+        badge: tile.querySelector('.tile-video')?.textContent.trim() ?? null,
+        thumb: Boolean(tile.querySelector('img')),
+        top: Math.round(tile.getBoundingClientRect().top),
+        left: Math.round(tile.getBoundingClientRect().left),
+        inPanel: Boolean(tile.closest('#history .history-list')),
+      })))`));
+      assert.equal(tiles[0].kind, 'video', 'newest first');
+      assert.match(tiles[0].badge, /^동영상/, 'video marker over the thumbnail');
+      assert.equal(tiles[1].badge, null, 'no video marker on images');
+      assert.ok(tiles.every((tile) => tile.thumb), 'thumbnails');
+      assert.ok(tiles.every((tile) => tile.inPanel), 'listed in the right panel');
+      assert.ok(tiles[0].top < tiles[1].top && tiles[0].left === tiles[1].left, 'laid out vertically');
+      const right = await app.main.eval(`document.querySelector('#history').getBoundingClientRect().left >= document.querySelector('#stage').getBoundingClientRect().right`);
+      assert.ok(right, 'history panel is right of the preview');
+    },
+  },
+  {
+    name: '캡처 기록 · 많으면 상하 스크롤, 우측 패널 접기 · 펼치기',
+    run: async (app) => {
+      const file = checkFile(app, 'png').file;
+      const items = Array.from({ length: 30 }, (_, index) => ({ id: `t${index}`, kind: index % 3 ? 'image' : 'video', path: `${file}?${index}`, width: 10, height: 10, durationMs: 1000 }));
+      await app.main.eval(`localStorage.setItem('mycapture.gallery.v1', ${JSON.stringify(JSON.stringify(items))}); 1`);
+      await app.reset({ mode: 'capture', historyCollapsed: false }, { keepGallery: true });
+      await app.main.waitFor(`document.querySelectorAll('#history .tile').length === 30`);
+      const scroll = JSON.parse(await app.main.eval(`(() => { const list = document.querySelector('.history-list'); list.scrollTop = 400; return JSON.stringify({ overflow: list.scrollHeight > list.clientHeight, top: list.scrollTop, clear: document.querySelector('[data-action="gallery-clear"]').getBoundingClientRect().bottom <= list.getBoundingClientRect().top + 1 }); })()`));
+      assert.deepEqual(scroll, { overflow: true, top: 400, clear: true }, 'list scrolls, "delete all" stays above it');
+      await app.main.click('#history [data-action="history-panel"]');
+      const rail = JSON.parse(await app.main.eval(`JSON.stringify({ collapsed: document.querySelector('#body').classList.contains('right-collapsed'), width: Math.round(document.querySelector('#history').getBoundingClientRect().width), icon: Boolean(document.querySelector('#history .rail .rail-icon')), title: document.querySelector('#history .rail-title')?.textContent ?? '' })`));
+      assert.equal(rail.collapsed, true);
+      assert.ok(rail.width <= 60, `collapsed width ${rail.width}`);
+      assert.ok(rail.icon && rail.title.length > 0, 'icon and title stay visible');
+      await app.main.click('#history .rail');
+      assert.equal(await app.main.eval(`document.querySelectorAll('#history .tile').length`), 30);
+      await app.reset({ mode: 'capture' });
+    },
+  },
+  {
+    name: '좌측 패널 · 저장 위치는 설정 창에만, 최소 폭은 탭 레이블 한 줄',
+    run: async (app) => {
+      await app.reset({ mode: 'record', target: 'monitor', leftWidth: 120 });
+      assert.equal(await app.main.eval(`document.querySelector('#sources .folder, #sources .save-location')`), null, 'no save location in the left panel');
+      await app.main.click('[data-action="open-settings"]');
+      const settings = await app.popup('settings');
+      await settings.click('[data-action="settings-tab"][data-value="save"]');
+      assert.equal(await settings.eval(`document.querySelectorAll('[data-action="choose-folder"]').length`), 2, 'image and video folders in Settings');
+      await settings.click('[data-action="close"]');
+      settings.close();
+      const oneLine = () => app.main.eval(`(() => [...document.querySelectorAll('#sources .targets .segment')].every((segment) => {
+        const label = segment.querySelector('span');
+        const r = segment.getBoundingClientRect();
+        return label.scrollWidth <= label.clientWidth + 1 && segment.scrollWidth <= segment.clientWidth + 1 && r.height < 40
+          && r.right <= document.querySelector('#sources').getBoundingClientRect().right;
+      }))()`);
+      assert.ok(await oneLine(), 'Korean labels on one line at the minimum width');
+      // Drag the splitter far to the left: it stops at the minimum.
+      const bar = JSON.parse(await app.main.eval(`JSON.stringify(document.querySelector('[data-split="left"]').getBoundingClientRect())`));
+      const y = bar.top + bar.height / 2;
+      await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: bar.left + 2, y });
+      await app.main.mouse('mousePressed', bar.left + 2, y);
+      await app.main.mouse('mouseMoved', 20, y);
+      await app.main.mouse('mouseReleased', 20, y);
+      assert.ok(await oneLine(), 'dragging cannot go below the one-line width');
+      const stored = await app.main.eval(`window.__mycapture.state.settings.leftWidth`);
+      assert.ok(stored >= 150, `stored width ${stored}`);
+      await app.main.click('[data-action="language"]');
+      assert.ok(await oneLine(), 'English labels on one line too');
+      await app.main.click('[data-action="language"]');
+      await app.reset({ mode: 'capture' });
+    },
+  },
+  {
+    name: '캡처 기록 · 개별 삭제 → 목록에서만, 파일은 그대로',
+    run: async (app) => {
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'bmp' });
+      await capture(app);
+      const { file } = checkFile(app, 'bmp');
+      await app.clearNotice();
+      await app.main.click('.tile [data-action="gallery-delete"]');
+      const notice = await app.notice();
+      assert.equal(notice.kind, 'success', notice.text);
+      assert.ok(fs.existsSync(file), 'the saved file is not deleted');
+      assert.equal(await app.main.eval(`document.querySelectorAll('.tile').length`), 0);
+    },
+  },
+  {
+    name: '캡처 기록 · 전체 삭제 (확인 창 · 취소 가능)',
+    run: async (app) => {
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'gif' });
+      await capture(app);
+      await capture(app);
+      await app.main.waitFor(`document.querySelectorAll('.tile').length === 2`);
+      await app.main.click('[data-action="gallery-clear"]');
+      let confirm = await app.popup('confirm');
+      assert.match(await confirm.eval(`document.querySelector('.confirm-text').textContent`), /2/);
+      await confirm.click('[data-action="close"]');
+      confirm.close();
+      await sleep(300);
+      assert.equal(await app.main.eval(`document.querySelectorAll('.tile').length`), 2, 'cancel keeps everything');
+      const files = fs.readdirSync(app.output).filter((name) => name.endsWith('.gif'));
+      await app.main.click('[data-action="gallery-clear"]');
+      confirm = await app.popup('confirm');
+      await confirm.click('[data-action="gallery-clear-confirm"]');
+      confirm.close();
+      await app.main.waitFor(`document.querySelectorAll('.tile').length === 0 && document.querySelector('.gallery-empty')`);
+      assert.ok(files.length >= 2 && files.every((name) => fs.existsSync(`${app.output}/${name}`)), 'saved files are not deleted');
+    },
+  },
+  {
+    name: '캡처 기록 · 다시 열어도 유지, 사라진 파일은 표시',
+    run: async (app) => {
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      await capture(app);
+      const { file } = checkFile(app, 'png');
+      await app.reset({ mode: 'capture' }, { keepGallery: true });
+      await app.main.waitFor(`document.querySelectorAll('.tile').length === 1`, { message: 'history survives a restart' });
+      fs.rmSync(file);
+      await app.reset({ mode: 'capture' }, { keepGallery: true });
+      await app.main.waitFor(`document.querySelector('.tile.missing')`, { message: 'missing file is marked' });
+      await app.main.click('.tile [data-action="gallery-delete"]');
+      await app.main.waitFor(`document.querySelectorAll('.tile').length === 0`);
+    },
+  },
+  {
+    name: '캡처 기록 보기 · 이미지 확대 · 축소 · 맞춤 · 100%',
+    run: async (app) => {
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      await capture(app);
+      await app.main.click('#history .tile [data-action="gallery-open"]');
+      await app.main.waitFor(`document.querySelector('#viewer:not([hidden]) .viewer-image')?.naturalWidth > 0`, { message: 'image shown in the viewer' });
+      await sleep(200);
+      const zoom = () => app.main.eval(`parseInt(document.querySelector('.viewer-zoom').textContent, 10)`);
+      const fitted = await zoom();
+      assert.ok(fitted > 0 && fitted <= 100, `fit ${fitted}%`);
+      assert.ok(await app.main.eval(`document.querySelector('#history .tile.selected') !== null`), 'selected item is highlighted');
+      await app.main.click('[data-viewer="zoom-in"]');
+      assert.ok(await zoom() > fitted, 'zoom in');
+      await app.main.click('[data-viewer="zoom-out"]');
+      await app.main.click('[data-viewer="zoom-out"]');
+      assert.ok(await zoom() < fitted, 'zoom out');
+      await app.main.click('[data-viewer="actual"]');
+      assert.equal(await zoom(), 100);
+      await app.main.click('[data-viewer="fit"]');
+      assert.equal(await zoom(), fitted);
+      // wheel zoom over the image
+      const box = JSON.parse(await app.main.eval(`JSON.stringify(document.querySelector('.viewer-canvas').getBoundingClientRect())`));
+      await app.main.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: box.left + box.width / 2, y: box.top + box.height / 2, deltaX: 0, deltaY: -120 });
+      await app.main.waitFor(`parseInt(document.querySelector('.viewer-zoom').textContent, 10) > ${fitted}`, { message: 'wheel zoom' });
       await app.main.key('Escape');
-      await app.main.waitFor(`!document.querySelector('.modal')`);
+      await app.main.waitFor(`document.querySelector('#viewer').hidden && !document.querySelector('#preview-still').hidden`, { message: 'Esc closes the viewer' });
+    },
+  },
+  {
+    name: '캡처 기록 보기 · 동영상 재생 · 일시정지 · 정지',
+    run: async (app) => {
+      const monitor = await app.main.eval(`window.__mycapture.state.monitors[0]`);
+      await app.reset({ mode: 'record', engine: 'native', target: 'region', videoFormat: 'webm', region: { monitorId: monitor.id, x: 0, y: 0, width: 320, height: 200 } });
+      await record(app, 'webm', 3);
+      await app.main.click('#history .tile.video [data-action="gallery-open"]');
+      await app.main.waitFor(`document.querySelector('#viewer:not([hidden]) video')?.readyState >= 1`, { message: 'video loaded' });
+      const video = (expression) => app.main.eval(`(() => { const v = document.querySelector('.viewer-video'); return ${expression}; })()`);
+      assert.ok(await video('v.paused'), 'starts paused');
+      await app.main.click('[data-viewer="play"]');
+      await app.main.waitFor(`document.querySelector('.viewer-video').currentTime > 0.5`, { message: 'plays' });
+      assert.ok(await app.main.eval(`document.querySelector('[data-viewer="pause"]') !== null`), 'button turns into pause');
+      await app.main.click('[data-viewer="pause"]');
+      const pausedAt = await video('v.currentTime');
+      await sleep(600);
+      assert.ok(await video('v.paused'), 'paused');
+      assert.equal(await video('v.currentTime'), pausedAt, 'stays put while paused');
+      await app.main.click('[data-viewer="play"]');
+      await sleep(400);
+      await app.main.click('[data-viewer="stop"]');
+      assert.ok(await video('v.paused && v.currentTime === 0'), 'stop = pause + back to the start');
+      assert.match(await app.main.eval(`document.querySelector('.viewer-time').textContent`), /^00:00 \/ 00:0[2-4]$/);
+      await app.main.click('[data-viewer="close"]');
+      await app.main.waitFor(`document.querySelector('#viewer').hidden`);
+    },
+  },
+  {
+    name: '테마 · 버튼을 누르면 다음 테마, 드롭다운 창에 어두운 20 · 밝은 20',
+    run: async (app) => {
+      await app.reset({ theme: 'dark-midnight' });
+      const theme = () => app.main.eval(`document.documentElement.dataset.theme`);
+      const bg = () => app.main.eval(`getComputedStyle(document.body).backgroundColor`);
+      const order = JSON.parse(await app.main.eval(`JSON.stringify([...document.querySelectorAll('#bar .bar-end > *')].map((el) => el.dataset.action ?? el.className))`));
+      assert.ok(order.indexOf('theme-split') >= 0 && order.indexOf('theme-split') === order.indexOf('open-settings') - 1, `theme button sits left of settings: ${order}`);
+      const before = await bg();
+      await app.main.click('[data-action="theme-next"]');
+      assert.equal(await theme(), 'dark-ink', 'next theme');
+      assert.notEqual(await bg(), before, 'colours actually change');
+      await app.main.click('[data-action="theme-menu"]');
+      const menu = await app.popup('theme-menu');
+      const info = JSON.parse(await menu.eval(`JSON.stringify({
+        cols: [...document.querySelectorAll('.theme-col')].map((col) => col.querySelectorAll('.theme-row').length),
+        current: document.querySelector('.theme-row.current')?.dataset.value,
+      })`));
+      assert.deepEqual(info, { cols: [20, 20], current: 'dark-ink' });
+      await menu.click('[data-value="light-mint"]');
+      menu.close();
+      await app.main.waitFor(`document.documentElement.dataset.theme === 'light-mint'`, { message: 'the main window follows the dropdown' });
+      assert.equal(await app.main.eval(`document.documentElement.style.colorScheme`), 'light');
+      await sleep(400);
+      assert.equal(await app.hasPopup('theme-menu'), false, 'dropdown closes after choosing');
+      await app.reset({ theme: 'light-mint' }, { keepGallery: true });
+      assert.equal(await theme(), 'light-mint', 'remembered');
+    },
+  },
+  {
+    name: '테마 · 사용자 정의 색과 설정 창의 테마 탭',
+    run: async (app) => {
+      await app.reset({ theme: 'light-classic' });
+      await app.main.click('[data-action="theme-menu"]');
+      const menu = await app.popup('theme-menu');
+      await menu.click('[data-action="theme-custom"]');
+      menu.close();
+      const settings = await app.popup('settings');
+      await settings.waitFor(`document.querySelector('.tab.active')?.dataset.value === 'theme'`, { message: 'custom… opens the theme tab' });
+      assert.equal(await settings.eval(`document.querySelectorAll('.theme-chip').length`), 40);
+      const bar = JSON.parse(await settings.eval(`JSON.stringify(document.querySelector('.theme-chip .theme-swatch').getBoundingClientRect())`));
+      assert.ok(bar.width > bar.height * 4, `colours shown as a long horizontal bar (${bar.width}×${bar.height})`);
+      await settings.click('.theme-chip[data-value="dark-ice"]');
+      await app.main.waitFor(`document.documentElement.dataset.theme === 'dark-ice'`);
+      await settings.eval(`(() => { const input = document.querySelector('[data-custom="accent"]'); input.value = '#ff00aa'; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`document.documentElement.dataset.theme === 'custom' && getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() === '#ff00aa'`, { message: 'editing a colour switches the main window to the custom theme' });
+      await settings.click('[data-action="setting"][data-key="customMode"][data-value="light"]');
+      await app.main.waitFor(`document.documentElement.dataset.themeMode === 'light'`);
+      await settings.click('[data-action="close"]');
+      settings.close();
+      await app.reset({ theme: 'custom', customTheme: { mode: 'dark', accent: '#00aa55' } }, { keepGallery: true });
+      assert.equal(await app.main.eval(`getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()`), '#00aa55', 'custom colours survive a restart');
+      await app.reset({ theme: 'system' });
+    },
+  },
+  {
+    name: '창 위치 · 크기 · 최대화를 기억했다가 다시 실행할 때 사용',
+    run: async (app) => {
+      const win = (command, args = {}) => app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|${command}', ${JSON.stringify({ label: 'main', ...args })})`);
+      const monitor = await app.main.eval(`window.__mycapture.state.monitors.find((m) => m.primary) ?? window.__mycapture.state.monitors[0]`);
+      const target = { x: monitor.x + 137, y: monitor.y + 91, width: Math.min(1004, monitor.width - 200), height: Math.min(688, monitor.height - 150) };
+      if (await win('is_maximized')) await win('unmaximize');
+      await win('set_position', { value: { Physical: { x: target.x, y: target.y } } });
+      await win('set_size', { value: { Physical: { width: target.width, height: target.height } } });
+      await sleep(1200); // saved half a second after the last change
+
+      const errors = app.main.errors;
+      await app.restart();
+      app.main.errors.push(...errors);
+      const position = await win('outer_position');
+      const size = await win('inner_size');
+      assert.deepEqual({ x: position.x, y: position.y, width: size.width, height: size.height }, target, 'same place and size after a restart');
+
+      await win('maximize');
+      await sleep(1200);
+      await app.restart();
+      assert.equal(await win('is_maximized'), true, 'maximized again after a restart');
+      await win('unmaximize');
+      await sleep(400);
+      const restored = await win('inner_size');
+      assert.deepEqual([restored.width, restored.height], [target.width, target.height], 'un-maximizing returns to the remembered size');
+    },
+  },
+  {
+    name: '팝업은 메인 창 밖으로 표시 · 이동되고, 메인 창을 닫으면 함께 종료',
+    run: async (app) => {
+      await app.reset({ theme: 'dark-midnight' });
+      const win = (label, command, args = {}) => app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|${command}', ${JSON.stringify({ label, ...args })})`);
+      if (await win('main', 'is_maximized')) await win('main', 'unmaximize');
+      await win('main', 'set_size', { value: { Logical: { width: 860, height: 600 } } });
+      await sleep(500);
+      const main = { ...(await win('main', 'outer_position')), ...(await win('main', 'outer_size')) };
+      // The theme dropdown hangs below the small main window.
+      await app.main.click('[data-action="theme-menu"]');
+      const menu = await app.popup('theme-menu');
+      const menuPos = await win('popup-theme-menu', 'outer_position');
+      const menuSize = await win('popup-theme-menu', 'outer_size');
+      assert.ok(menuPos.y + menuSize.height > main.y + main.height, 'dropdown extends past the bottom of the main window');
+      await menu.key('Escape');
+      menu.close();
+      // A popup can be moved anywhere, independent of the main window.
+      await app.main.click('[data-action="open-settings"]');
+      const settings = await app.popup('settings');
+      await win('popup-settings', 'set_position', { value: { Physical: { x: main.x + main.width + 40, y: main.y } } });
+      await sleep(300);
+      const moved = await win('popup-settings', 'outer_position');
+      assert.ok(moved.x >= main.x + main.width, 'settings window sits outside the main window');
+      assert.ok(await settings.eval(`document.querySelectorAll('.tab').length === 6`), 'and still works there');
+      await app.main.click('[data-action="open-about"]');
+      await app.popup('about');
+      await app.main.eval(`window.__mycapture.actions['win-close'](); 1`);
+      const exited = await Promise.race([new Promise((resolve) => app.process.once('exit', () => resolve(true))), sleep(8000).then(() => false)]);
+      assert.ok(exited, 'closing the main window ends the app and its popups');
     },
   },
   {

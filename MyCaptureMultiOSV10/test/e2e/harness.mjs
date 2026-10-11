@@ -46,6 +46,11 @@ export class Page {
   async open() {
     this.ws = new WebSocket(this.target.webSocketDebuggerUrl);
     await new Promise((resolve, reject) => { this.ws.onopen = resolve; this.ws.onerror = reject; });
+    // A window that closes (Esc, close button) never answers; fail fast instead of hanging.
+    this.ws.onclose = () => {
+      for (const resolve of this.pending.values()) resolve({ error: { message: 'window closed' } });
+      this.pending.clear();
+    };
     this.ws.onmessage = (message) => {
       const data = JSON.parse(message.data);
       if (data.id && this.pending.has(data.id)) {
@@ -60,16 +65,23 @@ export class Page {
     return this;
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, timeout = 15000) {
     return new Promise((resolve) => {
+      if (this.ws.readyState !== WebSocket.OPEN) return resolve({ error: { message: 'window closed' } });
       const id = ++this.id;
-      this.pending.set(id, resolve);
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        resolve({ error: { message: `${method} timed out` } });
+      }, timeout);
+      this.pending.set(id, (response) => { clearTimeout(timer); resolve(response); });
       this.ws.send(JSON.stringify({ id, method, params }));
+      return undefined;
     });
   }
 
   async eval(expression) {
     const response = await this.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+    if (response.error) throw new Error(response.error.message);
     const details = response.result?.exceptionDetails;
     if (details) throw new Error(details.exception?.description ?? details.text);
     return response.result?.result?.value;
@@ -122,6 +134,8 @@ export class App {
     if (!fs.existsSync(exe)) throw new Error(`${path.relative(root, exe)} 가 없습니다. cargo build 를 먼저 실행하세요.`);
     this.output = fs.mkdtempSync(path.join(os.tmpdir(), 'mycapture-e2e-out-'));
     this.profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mycapture-e2e-profile-'));
+    // Saved window place/size; the user's own window-state.json stays untouched.
+    this.config = fs.mkdtempSync(path.join(os.tmpdir(), 'mycapture-e2e-config-'));
 
     if (!(await portOpen(1420))) {
       const vite = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
@@ -129,10 +143,17 @@ export class App {
       for (let i = 0; i < 100 && !(await portOpen(1420)); i++) await sleep(100);
     }
 
+    await this.launch();
+    return this;
+  }
+
+  /** Starts the app process (again) with this run's folders and attaches to its main page. */
+  async launch() {
     this.port = await freePort();
     const env = {
       ...process.env,
       WEBVIEW2_USER_DATA_FOLDER: this.profile,
+      MYCAPTURE_CONFIG_DIR: this.config,
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: [
         `--remote-debugging-port=${this.port}`,
         '--use-fake-ui-for-media-stream',
@@ -143,7 +164,22 @@ export class App {
     this.process = spawn(exe, [], { cwd: root, env, stdio: 'ignore' });
     this.main = await (await this.page((target) => !this.isOverlay(target), 30000)).open();
     await this.main.waitFor(`document.querySelector('#bar .brand') && window.__mycapture`, { timeout: 30000 });
-    return this;
+  }
+
+  /** Kills the app the hard way (like a crash) and starts it again with the same profile and settings. */
+  async restart() {
+    this.main?.close();
+    await this.kill();
+    await this.launch();
+  }
+
+  async kill() {
+    if (!this.process || this.process.exitCode != null) return;
+    const exited = new Promise((resolve) => this.process.once('exit', resolve));
+    if (process.platform === 'win32') spawn('taskkill', ['/PID', String(this.process.pid), '/T', '/F'], { stdio: 'ignore' });
+    else this.process.kill('SIGKILL');
+    await Promise.race([exited, sleep(5000)]);
+    await sleep(500);
   }
 
   async targets() {
@@ -173,10 +209,23 @@ export class App {
     return (await this.targets()).filter((target) => target.id !== this.main.target.id);
   }
 
+  /** Attaches to a popup window ("settings", "about", "confirm", "theme-menu") once it is up. */
+  async popup(kind, timeout = 15000) {
+    const page = await (await this.page((target) => target.title === `popup-${kind}`, timeout)).open();
+    await page.waitFor(`document.querySelector('.popup, .popup-menu')`, { timeout });
+    return page;
+  }
+
+  /** True while a popup window of that kind exists. */
+  async hasPopup(kind) {
+    return (await this.targets()).some((target) => target.title === `popup-${kind}`);
+  }
+
   /** Reloads the main page with the given settings (and an output folder for auto-save). */
-  async reset(settings = {}) {
+  async reset(settings = {}, { keepGallery = false } = {}) {
+    await this.main.eval(`Promise.all(['settings', 'about', 'confirm', 'theme-menu'].map((kind) => window.__TAURI_INTERNALS__.invoke('close_popup', { kind }))).then(() => 1)`);
     const merged = { askPath: false, imageDirectory: this.output, videoDirectory: this.output, language: 'ko', ...settings };
-    await this.main.eval(`localStorage.setItem('mycapture.settings.v1', ${JSON.stringify(JSON.stringify(merged))}); location.reload(); 1`);
+    await this.main.eval(`localStorage.setItem('mycapture.settings.v1', ${JSON.stringify(JSON.stringify(merged))}); ${keepGallery ? '' : "localStorage.removeItem('mycapture.gallery.v1');"} location.reload(); 1`);
     await sleep(400);
     await this.main.waitFor(`document.querySelector('#bar .brand') && window.__mycapture && window.__mycapture.state.monitors.length > 0`, { timeout: 20000 });
   }
@@ -201,13 +250,10 @@ export class App {
 
   async stop() {
     this.main?.close();
-    if (this.process && this.process.exitCode == null) {
-      if (process.platform === 'win32') spawn('taskkill', ['/PID', String(this.process.pid), '/T', '/F'], { stdio: 'ignore' });
-      else this.process.kill();
-    }
+    await this.kill();
     this.vite?.kill();
-    await sleep(800);
-    for (const dir of [this.output, this.profile]) {
+    await sleep(300);
+    for (const dir of [this.output, this.profile, this.config]) {
       try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* WebView2 may still hold the profile briefly */ }
     }
   }

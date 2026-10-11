@@ -6,7 +6,7 @@
   "description": "Screen capture and recording for Windows, macOS and Linux (Tauri)",
   "type": "module",
   "scripts": {
-    "start": "tauri dev",
+    "start": "node scripts/start.mjs",
     "dev": "vite",
     "build:web": "vite build",
     "preview": "vite preview",

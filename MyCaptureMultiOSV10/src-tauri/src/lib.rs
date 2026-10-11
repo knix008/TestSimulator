@@ -3,6 +3,7 @@ pub mod capture;
 pub mod files;
 mod permissions;
 pub mod webm;
+pub mod window_state;
 
 use capture::{ImageKind, MonitorInfo, Rect, Source, WindowInfo};
 use image::RgbaImage;
@@ -489,6 +490,22 @@ fn reveal_path(path: PathBuf) -> Result<(), String> {
     files::reveal(&path)
 }
 
+/// Lets the viewer load one saved capture through the asset protocol. The scope
+/// starts empty; only files the user opens from the capture history are allowed.
+#[tauri::command]
+fn allow_preview(app: AppHandle, path: PathBuf) -> Result<bool, String> {
+    if !path.is_file() {
+        return Ok(false);
+    }
+    app.asset_protocol_scope().allow_file(&path).map_err(|error| error.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn paths_exist(paths: Vec<PathBuf>) -> Vec<bool> {
+    paths.iter().map(|path| path.is_file()).collect()
+}
+
 #[tauri::command]
 fn open_path(path: PathBuf) -> Result<(), String> {
     files::open(&path)
@@ -497,6 +514,64 @@ fn open_path(path: PathBuf) -> Result<(), String> {
 #[tauri::command]
 fn show_main(app: AppHandle) {
     set_main_visible(&app, true);
+}
+
+/// "MyCapture v1.0" — the name with the major.minor version.
+fn app_title(info: &tauri::PackageInfo) -> String {
+    format!("MyCapture v{}.{}", info.version.major, info.version.minor)
+}
+
+const POPUP_KINDS: [&str; 4] = ["settings", "about", "confirm", "theme-menu"];
+
+/// Opens a popup (settings, about, confirmation, theme dropdown) as its own OS
+/// window at screen position (x, y) in logical pixels, or brings it back. It is
+/// owned by the main window — it stays above it and closes with it — and, like
+/// the main window, is excluded from captures. Shown by `popup_ready` once drawn.
+/// Async: creating a window from a synchronous command deadlocks on Windows.
+#[tauri::command]
+async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, height: f64) -> Result<(), String> {
+    if !POPUP_KINDS.contains(&kind.as_str()) {
+        return Err(format!("unknown popup {kind}"));
+    }
+    let label = format!("popup-{kind}");
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.set_position(tauri::LogicalPosition::new(x, y));
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
+        .title(app_title(app.package_info()))
+        .decorations(false)
+        .resizable(false)
+        .skip_taskbar(true)
+        .shadow(true)
+        .visible(false)
+        .focused(true)
+        .content_protected(true)
+        .position(x, y)
+        .inner_size(width, height)
+        .additional_browser_args(BROWSER_ARGS);
+    if let Some(main) = app.get_webview_window("main") {
+        builder = builder.parent(&main).map_err(|error| error.to_string())?;
+    }
+    builder.build().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// Called by a popup page once it has drawn itself, so it never flashes empty.
+#[tauri::command]
+fn popup_ready(window: WebviewWindow) {
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+#[tauri::command]
+fn close_popup(app: AppHandle, kind: String) {
+    if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
+        let _ = window.destroy();
+    }
 }
 
 const RECORDING_PANEL: &str = "recbar";
@@ -551,11 +626,20 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {
-            let main = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .title("MyCapture")
-                .inner_size(1120.0, 760.0)
-                .min_inner_size(860.0, 600.0)
-                .center()
+            // Last session's place and size, if that spot is still on a connected monitor.
+            let state_path = window_state::state_file(app.handle());
+            let placement = state_path.as_deref().and_then(window_state::saved_placement);
+            let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                .title(app_title(app.package_info()))
+                .min_inner_size(860.0, 600.0);
+            let builder = match placement {
+                Some((state, scale)) => builder
+                    .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
+                    .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
+                    .maximized(state.maximized),
+                None => builder.inner_size(1120.0, 760.0).center(),
+            };
+            let main = builder
                 // No OS title bar: the app's own top bar is the drag area and carries
                 // the minimize / maximize / close buttons (src/app.js renderBar).
                 .decorations(false)
@@ -566,6 +650,17 @@ pub fn run() {
                 .additional_browser_args(BROWSER_ARGS)
                 .build()?;
             permissions::allow_microphone(&main);
+            if let Some(path) = state_path {
+                window_state::track(&main, path);
+            }
+            // Closing the main window ends the app: popups, overlays and the
+            // recording controls go with it instead of keeping the process alive.
+            let handle = app.handle().clone();
+            main.on_window_event(move |event| {
+                if let tauri::WindowEvent::Destroyed = event {
+                    handle.exit(0);
+                }
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -588,9 +683,14 @@ pub fn run() {
             recording_finish,
             recording_abort,
             reveal_path,
+            paths_exist,
+            allow_preview,
             open_path,
             show_main,
             show_recording_panel,
+            open_popup,
+            popup_ready,
+            close_popup,
             hide_recording_panel
         ])
         .run(tauri::generate_context!())

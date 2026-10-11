@@ -1,5 +1,5 @@
 // JavaScript ↔ Rust boundary. Every call goes through here.
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { t } from '../i18n.js';
 
 export const isDesktopShell = () => Boolean(window.__TAURI_INTERNALS__);
@@ -51,4 +51,9 @@ export const recordingFinish = (id, durationMs) => call('recording_finish', { id
 export const recordingAbort = (id) => call('recording_abort', { id });
 
 export const revealPath = (path) => call('reveal_path', { path });
+export const pathsExist = (paths) => call('paths_exist', { paths });
+/** Allows the file for the viewer and returns its asset URL, or null when the file is gone. */
+export async function previewUrl(path) {
+  return (await call('allow_preview', { path })) ? convertFileSrc(path) : null;
+}
 export const openPath = (path) => call('open_path', { path });
