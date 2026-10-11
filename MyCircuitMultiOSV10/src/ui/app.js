@@ -24,7 +24,7 @@ import { StartPage } from "./start.js";
 import { SimView } from "./simview.js";
 import { View3DTab } from "./view3dtab.js";
 
-const VERSION = "10.0.0";
+const VERSION = "1.0.0";
 
 const DEFAULT_SETTINGS = {
   theme: "midnight", lang: "ko", systemDark: "midnight", systemLight: "daylight", showWelcome: false, schGrid: 50, pcbGrid: 0.635, gridStyle: "lines", showGrid: true,
@@ -427,7 +427,7 @@ class App {
     const el = this.$("doc-title");
     el.innerHTML = "";
     el.append(h("span", {}, `${this.store.project.meta.title || name}`), h("span", { class: "dirty" }, this.store.dirty ? " ●" : ""), h("span", {}, `  —  ${name}`));
-    platform.setWindowTitle(`${this.store.dirty ? "● " : ""}${name} — MyCircuit 10.0`);
+    platform.setWindowTitle(`${this.store.dirty ? "● " : ""}${name} — MyCircuit V1.0`);
   }
 
   // ---------------------------------------------------------------- hint & status

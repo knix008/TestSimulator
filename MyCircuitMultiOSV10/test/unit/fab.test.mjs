@@ -60,7 +60,7 @@ test("every Gerber layer parses back and ends with M02", () => {
     const g = gerberLayer(p, layer, { date: DATE });
     assert.match(g, /%FSLAX46Y46\*%/);
     assert.match(g, /%MOMM\*%/);
-    assert.match(g, /%TF\.GenerationSoftware,MyCircuit,10\.0\*%/);
+    assert.match(g, /%TF\.GenerationSoftware,MyCircuit,1\.0\.0\*%/);
     assert.match(g, /%TF\.FileFunction,[^*]+\*%/);
     assert.ok(g.trimEnd().endsWith("M02*"), `${layer} ends with M02`);
     const parsed = parseGerber(g);

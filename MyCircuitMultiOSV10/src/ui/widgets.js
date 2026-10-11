@@ -86,10 +86,13 @@ function hostDialog(box) {
   });
 }
 
-window.addEventListener("pagehide", () => {
-  for (const w of dialogWindows) { try { if (!w.closed) w.close(); } catch { /* ignore */ } }
-  dialogWindows.clear();
-});
+// Guarded so the module can be imported by the Node unit tests.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    for (const w of dialogWindows) { try { if (!w.closed) w.close(); } catch { /* ignore */ } }
+    dialogWindows.clear();
+  });
+}
 
 // modal({title, body: Node, buttons:[{label, value, primary, danger}], width, onOpen, className})
 // → Promise<value> (Escape / ✕ resolve null)

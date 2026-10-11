@@ -54,7 +54,7 @@ export class StartPage {
     this.host.append(this.bgHost);
     this.startBackground();
     this.host.append(h("div", { class: "start" },
-      h("h1", {}, "MyCircuit 10.0"),
+      h("h1", {}, "MyCircuit V1.0"),
       h("p", { class: "lead" }, t("Schematic → PCB → 3D → simulation → manufacturing, in one window.")),
       h("div", { class: "start-grid" }, left, right)));
 

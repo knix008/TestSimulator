@@ -1,7 +1,7 @@
 # Architecture
 
-**MyCircuit 10.0** — schematic, PCB, 3D and simulation electronics design for Web, Windows, macOS and Linux
-Author: shkwon (`knix008@naver.com`) · Version 10.0.0
+**MyCircuit V1.0** — schematic, PCB, 3D and simulation electronics design for Web, Windows, macOS and Linux
+Author: shkwon (`knix008@naver.com`) · Version 1.0.0
 
 ## 1. Goals
 

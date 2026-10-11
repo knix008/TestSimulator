@@ -11,7 +11,7 @@ const path = require('path')
 
 const APP_NAME = 'MyCircuit'
 const APP_VERSION = (() => {
-  try { return require(path.join(__dirname, '..', 'package.json')).version } catch { return '10.0.0' }
+  try { return require(path.join(__dirname, '..', 'package.json')).version } catch { return '1.0.0' }
 })()
 const APP_TITLE = `${APP_NAME} ${APP_VERSION.replace(/\.0$/, '')}`
 const MIN_WIDTH = 1024
@@ -348,7 +348,7 @@ ipcMain.handle('set-zoom', (event, factor) => {
 let manualWindow = null
 ipcMain.handle('open-manual', async (_event, lang) => {
   const file = path.join(__dirname, '..', 'docs', lang === 'en' ? 'USERSGUIDE.en.html' : 'USERSGUIDE.ko.html')
-  const title = lang === 'en' ? 'User manual — MyCircuit 10.0' : '사용자 매뉴얼 — MyCircuit 10.0'
+  const title = lang === 'en' ? 'User manual — MyCircuit V1.0' : '사용자 매뉴얼 — MyCircuit V1.0'
   if (manualWindow && !manualWindow.isDestroyed()) {
     manualWindow.loadFile(file)
     manualWindow.setTitle(title)

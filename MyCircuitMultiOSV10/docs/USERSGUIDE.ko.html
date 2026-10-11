@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MyCircuit 10.0 사용 설명서</title>
+<title>MyCircuit V1.0 사용 설명서</title>
 <style>
 :root {
   --bg: #fbfbf8; --paper: #ffffff; --text: #1f2328; --muted: #5b636e; --line: #e3e5e8; --line2: #d0d4da;
@@ -107,14 +107,14 @@ footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px
 <body>
 <div class="layout">
 <nav class="toc" id="toc">
-  <div class="brand"><span class="logo">MC</span>MyCircuit 10.0</div>
+  <div class="brand"><span class="logo">MC</span>MyCircuit V1.0</div>
   <div class="sub">사용 설명서</div>
   <input id="toc-filter" type="search" placeholder="목차 검색…" autocomplete="off">
   <ol><li class="ch"><a href="#ch1">1 소개와 설치</a><ol><li class="sec"><a href="#ch1-1">1.1 MyCircuit이란</a></li><li class="sec"><a href="#ch1-2">1.2 시스템 요구 사항</a></li><li class="sec"><a href="#ch1-3">1.3 Windows 설치</a></li><li class="sec"><a href="#ch1-4">1.4 macOS 설치</a></li><li class="sec"><a href="#ch1-5">1.5 Linux 설치</a></li><li class="sec"><a href="#ch1-6">1.6 웹 버전 실행</a></li><li class="sec"><a href="#ch1-7">1.7 소스에서 실행하고 빌드하기</a></li><li class="sec"><a href="#ch1-8">1.8 설정과 데이터가 저장되는 곳</a></li><li class="sec"><a href="#ch1-9">1.9 처음 실행</a></li></ol></li><li class="ch"><a href="#ch2">2 화면 구성</a><ol><li class="sec"><a href="#ch2-1">2.1 전체 모습</a></li><li class="sec"><a href="#ch2-2">2.2 메뉴 막대</a></li><li class="sec"><a href="#ch2-3">2.3 문서 탭과 배지</a></li><li class="sec"><a href="#ch2-4">2.4 도구 모음</a></li><li class="sec"><a href="#ch2-5">2.5 왼쪽 패널</a></li><li class="sec"><a href="#ch2-6">2.6 오른쪽 패널 (속성과 문제 목록)</a></li><li class="sec"><a href="#ch2-7">2.7 상태 표시줄</a></li><li class="sec"><a href="#ch2-8">2.8 명령 팔레트와 찾기</a></li><li class="sec"><a href="#ch2-9">2.9 캔버스 조작 (확대·이동)</a></li><li class="sec"><a href="#ch2-10">2.10 테마와 언어</a></li><li class="sec"><a href="#ch2-11">2.11 시작 페이지</a></li><li class="sec"><a href="#ch2-12">2.12 파일 다루기, 실행 취소, 자동 저장</a></li><li class="sec"><a href="#ch2-13">2.13 그리드와 눈금자</a></li><li class="sec"><a href="#ch2-14">2.14 테마</a></li><li class="sec"><a href="#ch2-15">2.15 정보 창</a></li><li class="sec"><a href="#ch2-16">2.16 대화형 튜토리얼</a></li></ol></li><li class="ch"><a href="#ch3">3 빠른 시작 튜토리얼 — LED 회로를 처음부터</a><ol><li class="sec"><a href="#ch3-1">3.1 새 프로젝트 만들기</a></li><li class="sec"><a href="#ch3-2">3.2 부품 배치</a></li><li class="sec"><a href="#ch3-3">3.3 배선</a></li><li class="sec"><a href="#ch3-4">3.4 참조 번호와 ERC</a></li><li class="sec"><a href="#ch3-5">3.5 풋프린트 지정</a></li><li class="sec"><a href="#ch3-6">3.6 PCB 업데이트</a></li><li class="sec"><a href="#ch3-7">3.7 기판 외곽선과 부품 배치</a></li><li class="sec"><a href="#ch3-8">3.8 배선 — 손으로, 그리고 자동으로</a></li><li class="sec"><a href="#ch3-9">3.9 그라운드 영역(구리 붓기)</a></li><li class="sec"><a href="#ch3-10">3.10 DRC</a></li><li class="sec"><a href="#ch3-11">3.11 3D로 확인</a></li><li class="sec"><a href="#ch3-12">3.12 시뮬레이션</a></li><li class="sec"><a href="#ch3-13">3.13 거버와 드릴 파일 출력</a></li></ol></li><li class="ch"><a href="#ch4">4 회로도 편집기</a><ol><li class="sec"><a href="#ch4-1">4.1 좌표, 그리드, 시트</a></li><li class="sec"><a href="#ch4-2">4.2 선택</a></li><li class="sec"><a href="#ch4-3">4.3 이동과 고무줄 드래그</a></li><li class="sec"><a href="#ch4-4">4.4 회전과 대칭</a></li><li class="sec"><a href="#ch4-5">4.5 복사, 잘라내기, 붙여넣기, 복제</a></li><li class="sec"><a href="#ch4-6">4.6 삭제</a></li><li class="sec"><a href="#ch4-7">4.7 부품 배치</a></li><li class="sec"><a href="#ch4-8">4.8 전원 포트</a></li><li class="sec"><a href="#ch4-9">4.9 배선</a></li><li class="sec"><a href="#ch4-10">4.10 정션</a></li><li class="sec"><a href="#ch4-11">4.11 넷 레이블과 글로벌 레이블</a></li><li class="sec"><a href="#ch4-12">4.12 버스</a></li><li class="sec"><a href="#ch4-13">4.13 연결 없음 플래그</a></li><li class="sec"><a href="#ch4-14">4.14 텍스트</a></li><li class="sec"><a href="#ch4-15">4.15 속성 편집</a></li><li class="sec"><a href="#ch4-16">4.16 참조 번호 부여</a></li><li class="sec"><a href="#ch4-17">4.17 넷 강조와 교차 탐색</a></li><li class="sec"><a href="#ch4-18">4.18 오른쪽 클릭 메뉴</a></li><li class="sec"><a href="#ch4-19">4.19 시트 크기와 표제란</a></li><li class="sec"><a href="#ch4-20">4.20 캔버스 위의 표시</a></li><li class="sec"><a href="#ch4-21">4.21 여러 페이지 회로도</a></li><li class="sec"><a href="#ch4-22">4.22 측정과 치수</a></li><li class="sec"><a href="#ch4-23">4.23 계층 시트</a></li><li class="sec"><a href="#ch4-24">4.24 벡터(버스) 레이블</a></li><li class="sec"><a href="#ch4-25">4.25 다중 유닛 부품</a></li></ol></li><li class="ch"><a href="#ch5">5 연결 규칙과 ERC</a><ol><li class="sec"><a href="#ch5-1">5.1 연결 규칙</a></li><li class="sec"><a href="#ch5-2">5.2 넷 이름 정하기</a></li><li class="sec"><a href="#ch5-3">5.3 ERC 실행</a></li><li class="sec"><a href="#ch5-4">5.4 ERC 검사 항목</a></li></ol></li><li class="ch"><a href="#ch6">6 부품 라이브러리</a><ol><li class="sec"><a href="#ch6-1">6.1 라이브러리 패널 사용법</a></li><li class="sec"><a href="#ch6-2">6.2 내장 심볼 목록</a></li><li class="sec"><a href="#ch6-3">6.3 내장 풋프린트 목록</a></li><li class="sec"><a href="#ch6-4">6.4 핀 번호와 패드의 대응</a></li><li class="sec"><a href="#ch6-5">6.5 심볼 편집기</a></li><li class="sec"><a href="#ch6-6">6.6 풋프린트 마법사</a></li><li class="sec"><a href="#ch6-7">6.7 프로젝트 로컬 라이브러리</a></li><li class="sec"><a href="#ch6-8">6.8 풋프린트 지정 대화상자</a></li></ol></li><li class="ch"><a href="#ch7">7 PCB 편집기</a><ol><li class="sec"><a href="#ch7-1">7.1 단위, 좌표, 그리드</a></li><li class="sec"><a href="#ch7-2">7.2 회로도에서 PCB 업데이트 (F8)</a></li><li class="sec"><a href="#ch7-3">7.3 레이어</a></li><li class="sec"><a href="#ch7-4">7.4 풋프린트 배치</a></li><li class="sec"><a href="#ch7-5">7.5 선택</a></li><li class="sec"><a href="#ch7-6">7.6 대화형 배선</a></li><li class="sec"><a href="#ch7-7">7.7 비아</a></li><li class="sec"><a href="#ch7-8">7.8 트랙 폭과 넷 클래스</a></li><li class="sec"><a href="#ch7-9">7.9 구리 영역 (Zone)</a></li><li class="sec"><a href="#ch7-10">7.10 기판 외곽선</a></li><li class="sec"><a href="#ch7-11">7.11 텍스트와 그래픽 선</a></li><li class="sec"><a href="#ch7-12">7.12 측정과 치수</a></li><li class="sec"><a href="#ch7-13">7.13 래츠네스트와 넷 패널</a></li><li class="sec"><a href="#ch7-14">7.14 정리와 보고서</a></li><li class="sec"><a href="#ch7-15">7.15 속성 패널 (PCB)</a></li><li class="sec"><a href="#ch7-16">7.16 오른쪽 클릭 메뉴 (PCB)</a></li><li class="sec"><a href="#ch7-17">7.17 다층 기판</a></li><li class="sec"><a href="#ch7-18">7.18 보드 크기 표시와 눈금자</a></li><li class="sec"><a href="#ch7-19">7.19 길이 맞춤</a></li><li class="sec"><a href="#ch7-20">7.20 차동 쌍 배선</a></li></ol></li><li class="ch"><a href="#ch8">8 자동 배선기</a><ol><li class="sec"><a href="#ch8-1">8.1 실행 방법</a></li><li class="sec"><a href="#ch8-2">8.2 동작 원리</a></li><li class="sec"><a href="#ch8-3">8.3 제약 사항</a></li><li class="sec"><a href="#ch8-4">8.4 잘 배선하는 요령</a></li></ol></li><li class="ch"><a href="#ch9">9 DRC (설계 규칙 검사)</a><ol><li class="sec"><a href="#ch9-1">9.1 DRC 실행</a></li><li class="sec"><a href="#ch9-2">9.2 DRC 검사 항목</a></li></ol></li><li class="ch"><a href="#ch10">10 기판 설정</a><ol><li class="sec"><a href="#ch10-1">10.1 적층 구조 및 표면 처리</a></li><li class="sec"><a href="#ch10-2">10.2 외곽선</a></li><li class="sec"><a href="#ch10-3">10.3 설계 규칙</a></li><li class="sec"><a href="#ch10-4">10.4 속성 패널의 빠른 규칙</a></li><li class="sec"><a href="#ch10-5">10.5 넷 클래스</a></li></ol></li><li class="ch"><a href="#ch11">11 3D 보기</a><ol><li class="sec"><a href="#ch11-1">11.1 조작</a></li><li class="sec"><a href="#ch11-2">11.2 표시 옵션, 그리드, 좌표축, 치수</a></li><li class="sec"><a href="#ch11-3">11.3 스크린샷과 3D 내보내기</a></li></ol></li><li class="ch"><a href="#ch12">12 시뮬레이션</a><ol><li class="sec"><a href="#ch12-1">12.1 시뮬레이션 탭</a></li><li class="sec"><a href="#ch12-2">12.2 해석 종류와 설정</a></li><li class="sec"><a href="#ch12-3">12.3 공학 표기법 (값 입력)</a></li><li class="sec"><a href="#ch12-4">12.4 소자 모델</a></li><li class="sec"><a href="#ch12-5">12.5 기준 전위와 연결 확인</a></li><li class="sec"><a href="#ch12-6">12.6 부호 규칙</a></li><li class="sec"><a href="#ch12-7">12.7 프로브</a></li><li class="sec"><a href="#ch12-8">12.8 회로도 전압 오버레이</a></li><li class="sec"><a href="#ch12-9">12.9 SPICE 넷리스트</a></li><li class="sec"><a href="#ch12-10">12.10 제약 사항</a></li></ol></li><li class="ch"><a href="#ch13">13 출력</a><ol><li class="sec"><a href="#ch13-1">13.1 인쇄</a></li><li class="sec"><a href="#ch13-2">13.2 그림 내보내기 (SVG / PNG)</a></li><li class="sec"><a href="#ch13-3">13.3 넷리스트와 SPICE</a></li><li class="sec"><a href="#ch13-4">13.4 BOM (부품표)</a></li><li class="sec"><a href="#ch13-5">13.5 픽앤플레이스 (부품 좌표)</a></li><li class="sec"><a href="#ch13-6">13.6 제조 출력 (거버/드릴 패키지)</a></li><li class="sec"><a href="#ch13-7">13.7 3D 모델 (STL / GLB)</a></li><li class="sec"><a href="#ch13-8">13.8 거버 뷰어</a></li><li class="sec"><a href="#ch13-9">13.9 KiCad 프로젝트 가져오기</a></li></ol></li><li class="ch"><a href="#ch14">14 계산기</a><ol></ol></li><li class="ch"><a href="#ch15">15 예제 프로젝트</a><ol></ol></li><li class="ch"><a href="#ch16">16 단축키 전체 표</a><ol><li class="sec"><a href="#ch16-1">16.1 공통</a></li><li class="sec"><a href="#ch16-2">16.2 회로도</a></li><li class="sec"><a href="#ch16-3">16.3 PCB</a></li><li class="sec"><a href="#ch16-4">16.4 3D</a></li><li class="sec"><a href="#ch16-5">16.5 목록과 대화상자</a></li></ol></li><li class="ch"><a href="#ch17">17 설정</a><ol></ol></li><li class="ch"><a href="#ch18">18 파일 형식 (.mycircuit)</a><ol></ol></li><li class="ch"><a href="#ch19">19 문제 해결 (FAQ)</a><ol><li class="sec"><a href="#ch19-1">19.1 자주 묻는 질문</a></li><li class="sec"><a href="#ch19-2">19.2 개발과 테스트</a></li></ol></li><li class="ch"><a href="#ch20">20 용어집</a><ol></ol></li></ol>
 </nav>
 <main id="top">
 <header class="cover">
-  <h1>MyCircuit 10.0 사용 설명서</h1>
+  <h1>MyCircuit V1.0 사용 설명서</h1>
   <p>회로도 작성 · PCB 레이아웃 · 자동 배선 · 3D 보기 · 회로 시뮬레이션 · 거버/드릴/BOM 제조 출력을 한 창에서 처리하는 전자 회로 설계 프로그램</p>
   <p>Windows · macOS · Linux 데스크톱 앱과 웹 브라우저에서 똑같이 동작합니다. 이 설명서는 프로그램 안에서 <span class="menu">도움말 → 사용 설명서</span>(<kbd>F1</kbd>)로 열 수 있고, 브라우저에서 직접 열어도 됩니다(웹 버전의 설명서 창에는 <span class="ui">브라우저에서 열기</span> 버튼이 있습니다. 데스크톱 앱에서는 설명서가 앱 안에 들어 있어 이 버튼이 없습니다).</p>
 </header>
@@ -150,7 +150,7 @@ footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px
 </ul>
 
 <h3 id="ch1-3"><span class="num">1.3</span>Windows 설치</h3>
-<p>Windows용 설치 프로그램은 <code>MyCircuit-Setup-10.0.0.exe</code>(NSIS, 64비트)입니다. 실행하면 다음 순서로 진행됩니다.</p>
+<p>Windows용 설치 프로그램은 <code>MyCircuit-Setup-1.0.0.exe</code>(NSIS, 64비트)입니다. 실행하면 다음 순서로 진행됩니다.</p>
 <ol class="steps">
 <li><b>언어 선택</b> — 설치 마법사의 언어를 한국어 또는 English 중에서 고릅니다. 아래 질문 상자들도 이 언어로 표시됩니다.</li>
 <li><b>기존 설치 제거</b> — 이미 MyCircuit이 설치되어 있으면 “이미 설치된 MyCircuit 가 있습니다. 이 버전을 설치하기 전에 기존 프로그램을 완전히 삭제합니다.”라는 안내가 나옵니다. <b>확인</b>을 누르면 기존 프로그램의 제거 프로그램을 조용히 실행해 완전히 지운 뒤 새로 설치합니다(같은 버전을 다시 설치해도 모든 파일이 확실히 바뀝니다). <b>취소</b>를 누르면 설치를 그만둡니다. 사용자 데이터를 지울지는 다음 단계에서 따로 묻습니다.</li>
@@ -162,7 +162,7 @@ footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px
 <p><b>제거</b>: <span class="menu">설정 → 앱</span> 또는 제어판에서 MyCircuit을 제거합니다. 제거해도 <code>%APPDATA%\MyCircuit</code>의 설정은 남습니다(다음 설치 때 지울지 물어봅니다).</p>
 
 <h3 id="ch1-4"><span class="num">1.4</span>macOS 설치</h3>
-<p>macOS용으로는 <code>MyCircuit-10.0.0-&lt;arch&gt;.dmg</code>와 <code>.zip</code>이 만들어집니다. dmg를 열고 MyCircuit을 응용 프로그램 폴더로 끌어 놓으세요.</p>
+<p>macOS용으로는 <code>MyCircuit-1.0.0-&lt;arch&gt;.dmg</code>와 <code>.zip</code>이 만들어집니다. dmg를 열고 MyCircuit을 응용 프로그램 폴더로 끌어 놓으세요.</p>
 <div class="callout warn"><p>macOS 빌드는 코드 서명이 되어 있지 않습니다. 처음 실행할 때 “확인되지 않은 개발자” 경고가 나오면 Finder에서 앱을 <b>Control-클릭 → 열기</b>로 한 번 열면 다음부터는 바로 실행됩니다.</p></div>
 <p>macOS에서는 창 왼쪽 위에 신호등 버튼이 그대로 표시되고, 단축키의 <kbd>Ctrl</kbd>은 <kbd>⌘ Cmd</kbd>로도 동작합니다(앱이 <code>ctrlKey</code>와 <code>metaKey</code>를 똑같이 취급합니다). Finder에서 <code>.mycircuit</code> 파일을 앱 아이콘으로 끌어 놓거나 더블클릭해도 열립니다.</p>
 
@@ -170,8 +170,8 @@ footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px
 <table>
 <thead><tr><th>패키지</th><th>설치 방법</th></tr></thead>
 <tbody>
-<tr><td><code>MyCircuit-10.0.0-x86_64.AppImage</code></td><td>설치가 필요 없습니다. <code>chmod +x MyCircuit-*.AppImage</code> 후 실행합니다.</td></tr>
-<tr><td><code>.deb</code> (Debian/Ubuntu)</td><td><code>sudo apt install ./MyCircuit-10.0.0-amd64.deb</code> — 메뉴의 “Development / Electronics” 분류에 등록되고 <code>application/x-mycircuit</code> 형식이 연결됩니다.</td></tr>
+<tr><td><code>MyCircuit-1.0.0-x86_64.AppImage</code></td><td>설치가 필요 없습니다. <code>chmod +x MyCircuit-*.AppImage</code> 후 실행합니다.</td></tr>
+<tr><td><code>.deb</code> (Debian/Ubuntu)</td><td><code>sudo apt install ./MyCircuit-1.0.0-amd64.deb</code> — 메뉴의 “Development / Electronics” 분류에 등록되고 <code>application/x-mycircuit</code> 형식이 연결됩니다.</td></tr>
 <tr><td><code>.tar.gz</code></td><td>원하는 곳에 압축을 풀고 <code>MyCircuit</code> 실행 파일을 실행합니다.</td></tr>
 </tbody>
 </table>
@@ -224,7 +224,7 @@ PORT=9000 npm run serve       # 다른 포트 사용</code></pre>
 <p>명령줄에 <code>--user-data-dir=&lt;폴더&gt;</code>를 주면 그 폴더를 사용자 데이터 폴더로 씁니다(테스트용으로 설정을 분리할 때 유용합니다). 설정 파일에 저장되는 항목은 <a href="#ch17">17장</a>에 정리되어 있습니다.</p>
 
 <h3 id="ch1-9"><span class="num">1.9</span>처음 실행</h3>
-<p>처음 실행하면 운영체제 언어가 한국어이면 한국어, 그 밖에는 영어로 시작하고, 잠시 뒤 <span class="ui">MyCircuit 10.0에 오신 것을 환영합니다</span> 대화상자가 나타납니다. 네 단계(회로도 그리기 → 기판으로 보내기 → 배치 및 배선 → 3D 확인·시뮬레이션·제조)를 요약해 보여 주며, 세 개의 버튼이 있습니다.</p>
+<p>처음 실행하면 운영체제 언어가 한국어이면 한국어, 그 밖에는 영어로 시작하고, 잠시 뒤 <span class="ui">MyCircuit V1.0에 오신 것을 환영합니다</span> 대화상자가 나타납니다. 네 단계(회로도 그리기 → 기판으로 보내기 → 배치 및 배선 → 3D 확인·시뮬레이션·제조)를 요약해 보여 주며, 세 개의 버튼이 있습니다.</p>
 <ul>
 <li><span class="ui">예제 열기</span> — 예제 프로젝트 선택 창을 엽니다.</li>
 <li><span class="ui">새 프로젝트 시작</span> — 빈 프로젝트를 만들고 회로도 탭으로 갑니다.</li>
@@ -2075,7 +2075,7 @@ PORT=9000 npm run serve       # 다른 포트 사용</code></pre>
 </tbody>
 </table>
 
-<footer>MyCircuit 10.0 사용 설명서 · 이 문서는 프로그램의 실제 동작(소스 코드)을 기준으로 작성되었습니다. 그림은 실제 실행 화면입니다.</footer>
+<footer>MyCircuit V1.0 사용 설명서 · 이 문서는 프로그램의 실제 동작(소스 코드)을 기준으로 작성되었습니다. 그림은 실제 실행 화면입니다.</footer>
 </main>
 </div>
 <div class="lightbox" id="lightbox"><img alt=""></div>

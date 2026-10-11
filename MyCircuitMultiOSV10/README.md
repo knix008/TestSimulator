@@ -1,4 +1,4 @@
-# MyCircuit 10.0
+# MyCircuit V1.0
 
 회로도(Schematic) · PCB · 3D · 시뮬레이션을 하나로 묶은 KiCad 스타일의 전자 회로 설계 프로그램입니다.
 같은 코드가 **웹 브라우저**와 **Windows / macOS / Linux 데스크톱 앱(Electron)** 에서 그대로 돌아갑니다.
@@ -78,7 +78,7 @@ npm run i18n:check     # 한국어 사전(src/ui/i18n-ko.js)에 없는 t("…") 
 | `npm run build:installer` | `build/installer-associations.nsh`, `build/file-types.json` 생성 (NSIS 파일 연결) |
 | `npm run build:web` | `dist/web/` 에 웹 버전 (index.html, style, src, assets, sample, docs 를 그대로 복사) |
 | `npm run build:clean` | `release/` 의 오래된 `*-unpacked`, `*.tmp` 폴더 정리, 이 폴더에서 띄운 MyCircuit 프로세스 종료 |
-| `npm run dist:win` | Windows NSIS 설치 프로그램 (x64) → `release/MyCircuit-Setup-10.0.0.exe` |
+| `npm run dist:win` | Windows NSIS 설치 프로그램 (x64) → `release/MyCircuit-Setup-1.0.0.exe` |
 | `npm run dist:mac` | macOS dmg + zip (서명 없음, `identity: null`) — macOS 에서 실행 |
 | `npm run dist:linux` | Linux AppImage + deb + tar.gz — Linux 에서 실행 |
 | `npm run build:all` | 웹 빌드 + 세 OS 패키지 한 번에 (`-mwl`) |

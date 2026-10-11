@@ -30,11 +30,11 @@ export function excellon(project, opts = {}) {
   const kind = plated === true ? "Plated,1," + layers + ",PTH" : plated === false ? "NonPlated,1," + layers + ",NPTH" : "MixedPlating,1," + layers;
   const out = [
     "M48",
-    `; DRILL file {MyCircuit 10.0} date ${isoDate(opts.date)}`,
+    `; DRILL file {MyCircuit V1.0} date ${isoDate(opts.date)}`,
     "; FORMAT={-:-/ absolute / " + (inch ? "inch" : "metric") + " / decimal}",
     inch ? ";FILE_FORMAT=2:4" : ";FILE_FORMAT=3:3",
     "; Coordinates: Y = -Y(board), same origin as the Gerber files",
-    "; #@! TF.GenerationSoftware,MyCircuit,10.0",
+    "; #@! TF.GenerationSoftware,MyCircuit,1.0.0",
     `; #@! TF.CreationDate,${isoDate(opts.date)}`,
     `; #@! TF.FileFunction,${kind}`,
     "FMAT,2",

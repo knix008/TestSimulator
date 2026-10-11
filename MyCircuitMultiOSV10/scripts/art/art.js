@@ -272,7 +272,7 @@ async function sidebarArt(boardUrl) {
   g.fillText("MyCircuit", 26, 76);
   g.fillStyle = "#7fb8ff";
   g.font = "600 28px 'Segoe UI', sans-serif";
-  g.fillText("10.0", 26, 112);
+  g.fillText("V1.0", 26, 112);
   g.fillStyle = "rgba(255,255,255,0.75)";
   g.font = "20px 'Segoe UI', 'Malgun Gothic', sans-serif";
   g.fillText("Schematic · PCB · 3D", 26, 580);

@@ -1,5 +1,5 @@
 // Copies the finished installers from release/ to the project root, where they
-// are easy to find (MyCircuit-Setup-10.0.0.exe, .dmg, .AppImage, .deb, ...).
+// are easy to find (MyCircuit-Setup-1.0.0.exe, .dmg, .AppImage, .deb, ...).
 const fs = require('fs')
 const path = require('path')
 

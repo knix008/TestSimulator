@@ -841,7 +841,7 @@ export function showWelcome(app) {
     h("p", { style: { marginTop: 0, lineHeight: 1.6 } }, t("MyCircuit takes you from idea to manufacturable board. Everything is searchable with Ctrl+K, and every tool shows a hint at the bottom of the canvas.")),
     ...steps.map(([ic, title, text]) => h("div", { class: "action-card", style: { cursor: "default", marginBottom: "8px" } }, h("span", { class: "ai", html: icon(ic, 18) }), h("div", {}, h("b", {}, title), h("small", {}, text)))));
   modal({
-    title: t("Welcome to MyCircuit 10.0"), width: 640, body,
+    title: t("Welcome to MyCircuit V1.0"), width: 640, body,
     buttons: [{ label: t("Open a sample"), value: "sample" }, { label: t("Start a new project"), value: "new" }, { label: t("Watch the tutorial"), value: "tutorial" }, { label: t("Got it"), value: "ok", primary: true }],
   }).then((r) => {
     app.settings.onboarded = true;

@@ -1,6 +1,6 @@
-# MyCircuit 10.0 사용자 가이드
+# MyCircuit V1.0 사용자 가이드
 
-**MyCircuit** v10.0.0 · 저작자: **shkwon** (`knix008@naver.com`)
+**MyCircuit** V1.0 (1.0.0) · 저작자: **shkwon** (`knix008@naver.com`)
 
 회로도 작성 · PCB 레이아웃 · 자동 배선 · 3D 보기 · 회로 시뮬레이션 · 거버/드릴/BOM 제조 출력을 한 창에서 처리하는 전자 회로 설계 프로그램입니다.
 
@@ -15,7 +15,7 @@
 
 | 환경 | 방법 |
 | --- | --- |
-| Windows | `MyCircuit-Setup-10.0.0.exe` 실행 → 언어(한국어/English) 선택 → (이미 설치되어 있으면) “설치된 MyCircuit을 찾았습니다… 완전히 제거합니다” — **확인**이면 이전 설치를 조용히 완전히 제거, **취소**면 설치 중단 → (`%APPDATA%\MyCircuit`가 있으면) 이전 설정·자동 저장 삭제 여부(예/아니요) → 설치 폴더 선택. 바탕 화면/시작 메뉴 바로 가기와 `.mycircuit` 파일 연결이 만들어집니다. |
+| Windows | `MyCircuit-Setup-1.0.0.exe` 실행 → 언어(한국어/English) 선택 → (이미 설치되어 있으면) “설치된 MyCircuit을 찾았습니다… 완전히 제거합니다” — **확인**이면 이전 설치를 조용히 완전히 제거, **취소**면 설치 중단 → (`%APPDATA%\MyCircuit`가 있으면) 이전 설정·자동 저장 삭제 여부(예/아니요) → 설치 폴더 선택. 바탕 화면/시작 메뉴 바로 가기와 `.mycircuit` 파일 연결이 만들어집니다. |
 | macOS | dmg를 열고 응용 프로그램 폴더로 끌어 놓기. 서명이 없으므로 처음 한 번은 Control-클릭 → 열기 |
 | Linux | AppImage(`chmod +x` 후 실행), `.deb`(`sudo apt install ./…deb`), `.tar.gz` |
 | 웹 | `npm run serve` 후 http://localhost:8642 (반드시 HTTP로. `file://`은 동작하지 않음) |

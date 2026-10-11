@@ -393,7 +393,7 @@ export function drawSheet(ctx, sch, meta, theme, scale, info = { index: 1, count
   ctx.stroke();
   const c = theme.sheetText;
   text(ctx, meta.company || "", x0 + 60, y0 + 160, 70, c);
-  text(ctx, "MyCircuit 10.0", x0 + 2660, y0 + 160, 60, c);
+  text(ctx, "MyCircuit V1.0", x0 + 2660, y0 + 160, 60, c);
   text(ctx, "Title:", x0 + 60, y0 + 330, 45, c);
   text(ctx, meta.title || "", x0 + 60, y0 + 480, 110, theme.text, { bold: true });
   text(ctx, `Date: ${meta.date || ""}`, x0 + 60, y0 + 700, 55, c);

@@ -255,9 +255,9 @@ export function gerberLayer(project, layerName, opts = {}) {
 
   const meta = project.meta || {};
   const head = [
-    `G04 MyCircuit 10.0 - ${attr(meta.title || "Untitled")} - layer ${layerName}*`,
+    `G04 MyCircuit V1.0 - ${attr(meta.title || "Untitled")} - layer ${layerName}*`,
     "G04 Coordinates: mm, Y = -Y(board) (board y grows down, Gerber y grows up)*",
-    "%TF.GenerationSoftware,MyCircuit,10.0*%",
+    "%TF.GenerationSoftware,MyCircuit,1.0.0*%",
     `%TF.CreationDate,${isoDate(opts.date)}*%`,
     `%TF.ProjectId,${attr(meta.title || "Untitled")},${projectGuid(project)},${attr(meta.rev || "1.0")}*%`,
     "%TF.SameCoordinates,Original*%",

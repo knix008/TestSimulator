@@ -708,7 +708,7 @@ export const KO = {
   "Voltages": "전압",
   "Wanted Vout": "목표 Vout",
   "Web": "웹",
-  "Welcome to MyCircuit 10.0": "MyCircuit 10.0에 오신 것을 환영합니다",
+  "Welcome to MyCircuit V1.0": "MyCircuit V1.0에 오신 것을 환영합니다",
   "While routing: switch 45° corner style": "배선 중: 45° 꺾임 방식 전환",
   "While routing: wider / narrower track": "배선 중: 트랙 넓게 / 좁게",
   "While wiring: switch corner direction": "배선 중: 꺾임 방향 전환",
