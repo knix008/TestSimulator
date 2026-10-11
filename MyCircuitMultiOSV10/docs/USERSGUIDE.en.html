@@ -135,9 +135,9 @@ footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px
 <tr><td>Checks</td><td>12 ERC checks, 18 DRC checks (clearance, shorts, board edge, hole spacing, annular ring, courtyards, unrouted …)</td></tr>
 <tr><td>3D view</td><td>Real-time three.js board with component models, seven views, 5×5 grid, X/Y/Z axes with tick values, orientation gizmo and board dimensions in cm or inch, X-ray, PNG screenshot, STL/GLB export</td></tr>
 <tr><td>Simulation</td><td>SPICE-style MNA + Newton-Raphson engine: operating point, transient, AC (Bode), DC sweep, voltages on the schematic, SPICE netlist export</td></tr>
-<tr><td>Outputs</td><td>Printing (preview, 1:1, black &amp; white, PDF), schematic SVG/PNG, PCB SVG, KiCad netlist, SPICE, BOM, pick &amp; place, Gerber X2 + Excellon + IPC-356 + job file ZIP, built-in Gerber viewer</td></tr>
+<tr><td>Outputs</td><td>Printing (preview, four margins, custom scale and 1:1, black &amp; white, PDF), schematic SVG/PNG, PCB SVG, KiCad netlist, SPICE, BOM, pick &amp; place, Gerber X2 + Excellon + IPC-356 + job file ZIP, built-in Gerber viewer</td></tr>
 <tr><td>Tools</td><td>Symbol editor, footprint wizard, footprint assignment, calculators (colour code, LED/Ohm, divider, track width, 555/RC, units), <b>KiCad project import</b></td></tr>
-<tr><td>Comfort</td><td>40 themes (20 dark + 20 light) plus custom themes, Korean/English, a 9-tab settings window, a 14-lesson interactive tutorial (watch and practice)</td></tr>
+<tr><td>Comfort</td><td>40 themes (20 dark + 20 light) plus custom themes, Korean/English, a 9-tab settings window, collapsible side panels, a document tab per schematic page, a 14-lesson interactive tutorial (watch and practice)</td></tr>
 </tbody>
 </table>
 
@@ -234,15 +234,14 @@ PORT=9000 npm run serve       # another port</code></pre>
 <thead><tr><th>Where</th><th>Area</th><th>Contents</th></tr></thead>
 <tbody>
 <tr><td>Top row</td><td>Title bar</td><td>Logo, menu bar (File, Edit, View, Place, Route, Inspect, Tools, Simulate, Help), document title, and on the right the palette (random theme) and ▾ (theme list), the language flag, Settings and About. Drag it to move the window (desktop).</td></tr>
-<tr><td>Second row</td><td>Document tabs</td><td>Start · Schematic · PCB · 3D View · Simulation, plus the command-palette search box on the right</td></tr>
-<tr><td>Third row</td><td>Toolbar</td><td>Tools for the current tab; hover for name and shortcut. Tutorial, shortcuts and About sit at the far right. Toolbar buttons are never hidden (<a href="#ch2-4">2.4</a>).</td></tr>
-<tr><td>Left</td><td>Left panel</td><td>Schematic: part library · PCB: routing progress, layers, nets · 3D: view options · Simulation: probes</td></tr>
-<tr><td>Centre</td><td>Canvas</td><td>The editing area. A hint for the current tool floats at the bottom and fades after 7 seconds (it stays in the status bar). On the Schematic tab the <b>page tabs</b> sit at the bottom left (<a href="#ch4-21">4.21</a>).</td></tr>
-<tr><td>Right</td><td>Right panel</td><td>Properties of the selection and the ERC/DRC issue list</td></tr>
+<tr><td>Second row</td><td>Toolbar</td><td>Tools for the current tab, across the full window width; hover for name and shortcut. Tutorial and shortcuts sit at the far right. About is on the title bar and in the Help menu. Toolbar buttons are never hidden (<a href="#ch2-4">2.4</a>).</td></tr>
+<tr><td>Left</td><td>Left panel</td><td>Starts directly under the toolbar. Schematic: part library · PCB: routing progress, layers, nets · 3D: view options · Simulation: probes. The title has an icon and a collapse button; collapsed, the panel is an icon rail (<a href="#ch2-5">2.5</a>).</td></tr>
+<tr><td>Centre</td><td>Document tabs and canvas</td><td>The document tabs sit under the toolbar, between the side panels: Start, one tab per schematic page, PCB, 3D View, Simulation. <span class="ui">&lt;</span> and <span class="ui">&gt;</span> select the previous and next tab, and the search field is beside them (<a href="#ch2-3">2.3</a>, <a href="#ch2-8">2.8</a>). A hint for the current tool floats at the bottom of the canvas and fades after 7 seconds. On the Schematic tab the <b>page tabs</b> also sit at the bottom left (<a href="#ch4-21">4.21</a>).</td></tr>
+<tr><td>Right</td><td>Right panel</td><td>Starts directly under the toolbar. Properties of the selection and the ERC/DRC issue list. The title has an icon and a collapse button.</td></tr>
 <tr><td>Bottom</td><td>Status bar</td><td>Hint, cursor position, grid, zoom, active layer, routing progress, units, ERC/DRC</td></tr>
 </tbody>
 </table>
-<p>Drag the splitters to resize the side panels (200–520 px, remembered). <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>Ctrl</kbd>+<kbd>2</kbd> toggle the left / right panel. The Start tab hides both; the Simulation tab hides the right one.</p>
+<p>Drag the splitters to resize the side panels (200–520 px, remembered). The collapse button on a panel title folds that panel to a 44 px icon rail; clicking a rail icon expands it again, and the folded state is saved. <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>Ctrl</kbd>+<kbd>2</kbd> (View menu) hide or show a panel completely, separate from collapse. The Start tab hides both; the Simulation tab hides the right one.</p>
 
 <h3 id="ch2-2"><span class="num">2.2</span>Menus</h3>
 <p>Click a menu name to open it; while a menu is open, hovering another name switches to it. Shortcuts are shown on the right, unavailable items are greyed out, ticked items are toggles.</p>
@@ -264,20 +263,21 @@ PORT=9000 npm run serve       # another port</code></pre>
 <p><span class="menu">File → Export ▸</span> opens a searchable list: schematic as SVG / PNG, PCB as SVG, netlist (KiCad), SPICE netlist, BOM (CSV), pick &amp; place (CSV), fabrication outputs, 3D model (STL / GLB) — see <a href="#ch13">chapter 13</a>.</p>
 
 <h3 id="ch2-3"><span class="num">2.3</span>Document tabs and badges</h3>
+<p>Document tabs are in the centre column, directly under the toolbar. They do not sit above the side panels. Start, PCB, 3D View and Simulation are one tab each, and <b>every schematic page has its own tab</b>. With more than one page the label reads “Schematic · 2. Power”. Switching tabs keeps the same project: schematic edits reach the board after Update PCB (<kbd>F8</kbd>), and board edits show in 3D immediately.</p>
 <table>
 <thead><tr><th>Tab</th><th>Key</th><th>Badge</th></tr></thead>
 <tbody>
 <tr><td>Start</td><td>—</td><td>—</td></tr>
-<tr><td>Schematic</td><td><kbd>F2</kbd></td><td>red = ERC errors; yellow = ERC warnings (when no errors)</td></tr>
+<tr><td>Schematic (one per page)</td><td><kbd>F2</kbd></td><td>red = ERC errors; yellow = ERC warnings (when no errors). With several pages the badge is that page's count</td></tr>
 <tr><td>PCB</td><td><kbd>F3</kbd></td><td>red = DRC errors; yellow = unrouted connections; green ✓ = fully routed</td></tr>
 <tr><td>3D View</td><td><kbd>F4</kbd></td><td>—</td></tr>
 <tr><td>Simulation</td><td><kbd>F6</kbd></td><td>—</td></tr>
 </tbody>
 </table>
-<p>Switching tabs while drawing a wire or routing a track finishes it where it is.</p>
+<p>When the tabs do not fit, only the tab strip scrolls. <span class="ui">&lt;</span> and <span class="ui">&gt;</span> immediately to the right select the previous and next tab. They are disabled at the ends and do not wrap, and the chosen tab scrolls into view. The page tabs at the bottom left of the canvas (rename, add, delete) stay. Switching tabs while drawing a wire or routing a track finishes it where it is.</p>
 
 <h3 id="ch2-4"><span class="num">2.4</span>Toolbar</h3>
-<p>New/Open/Save and Undo/Redo are always on the left, the shortcut sheet on the far right. In between:</p>
+<p>New/Open/Save and Undo/Redo are always on the left, the tutorial and the shortcut sheet on the far right. In between:</p>
 <table>
 <thead><tr><th>Tab</th><th>Buttons</th></tr></thead>
 <tbody>
@@ -292,14 +292,14 @@ PORT=9000 npm run serve       # another port</code></pre>
 
 <h3 id="ch2-5"><span class="num">2.5</span>Left panel</h3>
 <ul>
-<li><b>Schematic — Part library</b>: search, category chips, recently used parts, grouped list and a preview (<a href="#ch6-1">6.1</a>).</li>
-<li><b>PCB</b>: <span class="ui">Routing</span> (routed/total, progress bar, Autoroute and Update from schematic buttons), <span class="ui">Layers</span> (eye = show/hide, click = make active, high-contrast button), <span class="ui">Nets</span> (filter, unrouted count per net) — <a href="#ch7-3">7.3</a>, <a href="#ch7-13">7.13</a>.</li>
-<li><b>3D</b>: display options, board appearance, statistics — <a href="#ch11">chapter 11</a>.</li>
-<li><b>Simulation — Probes</b>: voltages and currents to plot — <a href="#ch12-7">12.7</a>.</li>
+<li><b>Schematic — Part library</b>: an icon in the title, search, category chips in a three-column grid (All, Passive, Diode, Transistor, Power, Switch, Simulation, Connector, Mechanical, Misc, IC, MCU, Logic, Interface, each with an icon), recently used parts, a grouped list and a preview (<a href="#ch6-1">6.1</a>).</li>
+<li><b>PCB</b>: <span class="ui">Routing</span> (routed/total, progress bar, Autoroute and Update from schematic buttons), <span class="ui">Layers</span> (eye = show/hide, a kind icon, click = make active, a short description beside the name, high-contrast button), <span class="ui">Nets</span> (filter, a kind icon, unrouted count per net) — <a href="#ch7-3">7.3</a>, <a href="#ch7-13">7.13</a>.</li>
+<li><b>3D</b>: display options with icons, board appearance, statistics — <a href="#ch11">chapter 11</a>.</li>
+<li><b>Simulation — Probes</b>: voltages and currents to plot, with power, probe and current icons — <a href="#ch12-7">12.7</a>.</li>
 </ul>
 
 <h3 id="ch2-6"><span class="num">2.6</span>Right panel</h3>
-<p><span class="ui">Properties</span> edits the selection directly: change a value and press <kbd>Enter</kbd> or click elsewhere; each change is one undo step. With nothing selected it shows the project (schematic: title, counts, sheet size; PCB: board size, layers, default track width, clearance, via size/drill, mask colour, finish). With several items selected it shows counts and Rotate/Mirror (or Flip)/Duplicate/Delete buttons; several tracks can get a new width at once.</p>
+<p><span class="ui">Properties</span> edits the selection directly. The title starts with a list icon, and the collapse button on the right folds the panel to an icon rail. Change a value and press <kbd>Enter</kbd> or click elsewhere; each change is one undo step. With nothing selected it shows the project (schematic: title, counts, sheet size; PCB: board size, layers, default track width, clearance, via size/drill, mask colour, finish). With several items selected it shows counts and Rotate/Mirror (or Flip)/Duplicate/Delete buttons; several tracks can get a new width at once.</p>
 <p><b>Every numeric field is a stepper</b> — board rules (default track width, clearance, via size/drill), footprint X/Y/rotation, track width, via diameter/drill, zone clearance/priority, text size and so on: <b>−</b> on the left, <b>+</b> on the right, the value centred. Each click changes the value by the field's step and is one undo step; hold a button to repeat. The value stays typeable: click it, type a number and press <kbd>Enter</kbd> (or click elsewhere).</p>
 <p>Below is the <span class="ui">ERC issues</span> (schematic) or <span class="ui">DRC issues</span> (PCB) list with error/warning counts. Clicking an issue switches to its schematic page if needed, centres and zooms to it, selects the items involved and marks the spot with an expanding ring. The refresh button reruns the check. Up to 400 issues are listed.</p>
 
@@ -320,7 +320,7 @@ PORT=9000 npm run serve       # another port</code></pre>
 </table>
 
 <h3 id="ch2-8"><span class="num">2.8</span>Command palette and Find</h3>
-<p><kbd>Ctrl</kbd>+<kbd>K</kbd> (or the search box on the tab bar) opens the <b>command palette</b>: every command, every schematic part (reference, value, symbol, footprint) and every net in one list. Several words must all match; names starting with your first word rank first. <kbd>↑</kbd>/<kbd>↓</kbd>, <kbd>Enter</kbd>, <kbd>Esc</kbd>. Picking a part selects and centres it (on the board when the PCB tab is active), picking a net highlights it in schematic and PCB.</p>
+<p><kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Enter</kbd> in the search field on the document-tab bar, or the magnifying-glass button opens the <b>command palette</b> already filled with whatever you typed. It lists every command, every schematic part (reference, value, symbol, footprint) and every net. Several words must all match; names starting with your first word rank first. <kbd>↑</kbd>/<kbd>↓</kbd>, <kbd>Enter</kbd>, <kbd>Esc</kbd>. Picking a part selects and centres it (on the board when the PCB tab is active), picking a net highlights it in schematic and PCB.</p>
 <figure><img width="1532" height="900" src="images/en-palette.webp" alt="Command palette" loading="lazy"><figcaption>Figure 2-3. Command palette searching “rout”</figcaption></figure>
 <p><kbd>Ctrl</kbd>+<kbd>F</kbd> (<span class="menu">Edit → Find…</span>) searches parts, net labels, texts and nets (showing the pins of each net).</p>
 
@@ -380,7 +380,7 @@ PORT=9000 npm run serve       # another port</code></pre>
 </ul>
 
 <h3 id="ch2-15"><span class="num">2.15</span>About window</h3>
-<p><span class="menu">Help → About MyCircuit</span> (or the ⓘ buttons) shows the program icon on the left — a straight top-down view of a circuit board — and a detailed description on the right: the tagline “Electronic circuit design and 3D tool” and four feature lines (schematic, PCB, 3D and simulation, output). Below are category/value rows: Program, Build (commit · branch, “(+)” when modified), Build date, Author (<b>SHKWON (knix008@naver.com)</b>), Edition, Operating system, Runtime (Electron · Chromium · Node.js), 3D engine (three.js), Library (symbol/footprint counts), File format, Language / theme, License. <span class="ui">Copy information</span> copies the rows.</p>
+<p><span class="menu">Help → About MyCircuit</span> (or the ⓘ button on the title bar) shows the program icon on the left — a straight top-down view of a circuit board — and a detailed description on the right: the tagline “Electronic circuit design and 3D tool” and four feature lines (schematic, PCB, 3D and simulation, output). Below are category/value rows: Program, Build (commit · branch, “(+)” when modified), Build date, Author (<b>SHKWON (knix008@naver.com)</b>), Edition, Operating system, Runtime (Electron · Chromium · Node.js), 3D engine (three.js), Library (symbol/footprint counts), File format, Language / theme, License. <span class="ui">Copy information</span> copies the rows.</p>
 <figure><img width="1532" height="900" src="images/en-dlg-about.webp" alt="About" loading="lazy"><figcaption>Figure 2-8. About MyCircuit</figcaption></figure>
 
 <h3 id="ch2-16"><span class="num">2.16</span>Interactive tutorial</h3>
@@ -1401,19 +1401,21 @@ PORT=9000 npm run serve       # another port</code></pre>
 
 <h2 id="ch13"><span class="num">13</span>Outputs</h2>
 <h3 id="ch13-1"><span class="num">13.1</span>Printing</h3>
-<figure><img width="1532" height="900" src="images/en-dlg-print.webp" alt="Print" loading="lazy"><figcaption>Figure 13-1. The print dialog</figcaption></figure>
+<p><span class="menu">File → Print…</span> (<kbd>Ctrl</kbd>+<kbd>P</kbd>) opens a preview. Along the top are what to print, paper, orientation and scale. The <span class="ui">Page</span> row under that sets the margins, the scale percentage and the number of copies. Checkboxes choose the PCB sheets, and the paper preview with its page navigator (◀ 1 / 3 — name ▶) sits below. Every number has <b>Decrease (−)</b> on the left and <b>Increase (+)</b> on the right, with the value centred. Click the value to type it.</p>
+<figure><img width="1532" height="900" src="images/en-dlg-print.webp" alt="Print" loading="lazy"><figcaption>Figure 13-1. The print dialog. Margins, scale and copies are steppers on the Page row.</figcaption></figure>
 <table>
 <thead><tr><th>Option</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td>Print</td><td>Schematic / PCB layers / Schematic and PCB</td></tr>
-<tr><td>Paper, Orientation</td><td>A4, A3, A5, Letter, Legal, Tabloid; landscape/portrait</td></tr>
-<tr><td>Colour</td><td>Black and white</td></tr>
-<tr><td>PCB pages</td><td>Top (F.Cu + F.SilkS + outline), Bottom, Inner layers, Assembly drawing (F.SilkS + F.Fab), Mirror bottom layer</td></tr>
-<tr><td>PCB scale</td><td>Fit to page / <b>Actual size 1:1 (toner transfer)</b></td></tr>
+<tr><td>Print</td><td>Schematic / PCB layers / Schematic and PCB (PCB when opened from the PCB tab)</td></tr>
+<tr><td>Paper, Orientation</td><td>A4, A3, A5, Letter, Legal, Tabloid (A3 when the schematic sheet is A3); landscape or portrait</td></tr>
+<tr><td>Scale</td><td><b>Fit to page</b> / <b>Custom scale</b> (10–400%, steps of 5%) / <b>Actual size 1:1 (toner transfer)</b>. The scale (%) stepper is dimmed unless Custom scale is selected. 1:1 prints real millimetres for toner-transfer boards and placement checks.</td></tr>
+<tr><td>Page margins</td><td>Top, right, bottom and left, each 0–40 mm. The preview and the printed page use the same margins.</td></tr>
 <tr><td>Copies</td><td>1–99</td></tr>
+<tr><td>Colour</td><td>Black and white — mono schematic theme, every PCB layer in black</td></tr>
+<tr><td>PCB pages</td><td>Top (F.Cu + F.SilkS + outline), Bottom, Inner layers (one sheet each), Assembly drawing (F.SilkS + F.Fab), Mirror bottom layer (flipped so it reads from the top, not as seen from below)</td></tr>
 </tbody>
 </table>
-<p>The schematic prints one sheet per page (“Sheet: i/N name”). <span class="ui">Print…</span> opens the system/browser dialog; desktop also offers <span class="ui">Save as PDF…</span> (suggesting <code>&lt;project&gt;.pdf</code>). For 1:1 prints disable “fit to page” scaling in the printer dialog and check the size with a ruler.</p>
+<p>The schematic prints one sheet per page (“Sheet: i/N name”). A scale above 100% is clipped to the printable area; larger margins pull the drawing inward. <span class="ui">Print…</span> opens the system/browser dialog; desktop also offers <span class="ui">Save as PDF…</span> (suggesting <code>&lt;project&gt;.pdf</code>). For 1:1 prints disable “fit to page” scaling in the printer dialog and check the size with a ruler.</p>
 <h3 id="ch13-2"><span class="num">13.2</span>SVG / PNG</h3>
 <ul>
 <li><b>Schematic as SVG</b>: the <b>current page</b> as vector SVG at sheet size.</li>
@@ -1514,6 +1516,9 @@ PORT=9000 npm run serve       # another port</code></pre>
 <tr><td>10</td><td><b>74HC595 LED bar</b><br><small>logic · SMD · 2-layer</small></td><td>Shift register driving 8 LEDs, QA–QH labels with a bus line, ~OE~/~SRCLR~ pull resistors</td><td>Inspect bus and labels; Find “QA”; grouped BOM</td></tr>
 <tr><td>11</td><td><b>ATtiny85 on a 4-layer board</b><br><small>MCU · 4-layer · SMD</small></td><td>ATtiny85 (SOIC-8), AMS1117-3.3, button, LED, ISP; In1.Cu GND plane, In2.Cu +3V3 plane, supply pads via-stitched to the planes</td><td>Show In1/In2 one at a time; operating point (+5V/+3V3); inner-layer Gerbers g2/g3</td></tr>
 <tr><td>12</td><td><b>Custom symbol and footprint</b><br><small>library · sensor · I2C</small></td><td>Project-local <code>BME280_Module</code> symbol and <code>BME280_Module_P2.54</code> footprint, I2C 4k7 pull-ups, purple mask</td><td>Symbol editor → Open existing…; the custom library category; find the footprint in Assign footprints</td></tr>
+<tr><td>13</td><td><b>74HC00 NAND SR latch</b><br><small>logic · multi-unit · THT</small></td><td>One 74HC00 (four gates plus a power unit) as an active-low SR latch. The third gate lights an LED from Q; the fourth has its inputs tied low. Set and reset are push buttons with pull-ups. All gates share one footprint</td><td>See the split units on the schematic; after <kbd>F8</kbd> confirm a single DIP-14 on the board</td></tr>
+<tr><td>14</td><td><b>Two-stage op-amp amplifier</b><br><small>analog · simulation · op-amp</small></td><td>Two op-amps from ±12 V. Non-inverting gain of 2, then inverting gain of 2, so a 0.5 V sine comes out as −2 V. White mask, ENIG</td><td>Transient of IN, MID and OUT; toggle the three nets in the probe panel</td></tr>
+<tr><td>15</td><td><b>Regulated 555 blinker</b><br><small>power · classic · THT</small></td><td>12 V through a fuse and a reverse-polarity diode into an LM7805. The 5 V rail runs an NE555 astable that blinks an LED, with its own decoupling capacitor. Two chips on one board, black mask, ENIG</td><td>Operating point on the 5 V rail; look at the 7805 and the 555 in 3D (the NE555 has no simulation model)</td></tr>
 </tbody>
 </table>
 <figure><img width="1532" height="900" src="images/en-pcb-arduino.webp" alt="Arduino sample" loading="lazy"><figcaption>Figure 15-1. Sample 08 “Minimal Arduino”</figcaption></figure>
@@ -1524,7 +1529,7 @@ PORT=9000 npm run serve       # another port</code></pre>
 <h3 id="ch16-1"><span class="num">16.1</span>General</h3>
 <table>
 <tbody>
-<tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Command palette</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Command palette. <kbd>Enter</kbd> or the magnifying glass in the document-tab search field opens the same search</td></tr>
 <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd> / <kbd>O</kbd> / <kbd>S</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>New / open / save, save as</td></tr>
 <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>)</td><td>Undo / redo</td></tr>
 <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd>, <kbd>Ctrl</kbd>+<kbd>P</kbd>, <kbd>Ctrl</kbd>+<kbd>,</kbd>, <kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>Find, print, settings, shortcuts</td></tr>

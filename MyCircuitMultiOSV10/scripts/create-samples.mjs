@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import { newProject, serializeProject, parseProject, copperLayers } from "../src/core/project.js";
 import { annotate, runERC, buildNetlist, boardNetlist, partPins } from "../src/core/netlist.js";
 import { round, pointPolygonEdgeDist, pointSegDist, rotatePoint, pointInPolygon, polygonBounds } from "../src/core/geom.js";
-import { getSymbol, symbolBounds, makeBoxSymbol, registerUserSymbols } from "../src/lib/symbols.js";
+import { getSymbol, partSymbol, symbolBounds, makeBoxSymbol, registerUserSymbols } from "../src/lib/symbols.js";
 import { makeFootprint, registerUserFootprints } from "../src/lib/footprints.js";
 import { newPart, addWire, cleanup } from "../src/sch/ops.js";
 import { fieldPositions } from "../src/sch/render.js";
@@ -128,7 +128,7 @@ const at = (pt, dx = 0, dy = 0) => [pt[0] + dx, pt[1] + dy];
 
 // ---------------------------------------------------------------------- schematic lint
 function bodyBox(part) {
-  const sym = getSymbol(part.lib);
+  const sym = partSymbol(part) || getSymbol(part.lib);
   const b = symbolBounds({ ...sym, pins: [] });
   const pts = [[b.x1, b.y1], [b.x2, b.y1], [b.x2, b.y2], [b.x1, b.y2]].map(([x, y]) => {
     const lx = part.mirror ? -x : x;
@@ -158,7 +158,7 @@ const rectHit = (a, b) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.
 
 // Approximate text boxes of the reference / value fields (50-mil font).
 function fieldBoxes(part) {
-  const sym = getSymbol(part.lib);
+  const sym = partSymbol(part) || getSymbol(part.lib);
   if (!sym || sym.power || sym.flag) return [];
   const f = fieldPositions(part, sym);
   const out = [];
@@ -1466,6 +1466,289 @@ sample({
     silk(p, "BME280 BREAKOUT", 10.5, 20, 1.1);
     p.pcb.maskColor = "purple"; p.pcb.silkColor = "white"; p.pcb.finish = "ENIG";
     p.sim = { mode: "op", tStop: "10m", tStep: "10u", fStart: "10", fStop: "1Meg", points: 50, probes: [] };
+    return { p, ...sch };
+  },
+});
+
+// ---------------------------------------------------------------------- 13
+sample({
+  file: "13-nand-sr-latch",
+  title: "74HC00 NAND SR latch",
+  titleKo: "74HC00 낸드 SR 래치",
+  description: "One 74HC00 drawn as four gates plus a power unit: two gates form an active-low SR latch, the third lights an LED from Q, and the fourth has its inputs tied low. Set and reset are push buttons with pull-ups.",
+  descriptionKo: "74HC00 하나를 게이트 넷과 전원 유닛으로 나눠 그렸습니다. 게이트 두 개는 액티브 로우 SR 래치이고, 세 번째는 Q로 LED를 켜며, 네 번째는 입력을 접지에 묶어둡니다. 셋과 리셋은 풀업이 달린 누름 버튼입니다.",
+  tags: ["logic", "multi-unit", "THT"],
+  features: ["multi-unit symbol", "one footprint for every gate", "SR latch", "pull-up resistors", "net labels", "green mask / HASL"],
+  sim: [],
+  build(name) {
+    const p = start("74HC00 NAND SR latch");
+    const S = new Sch(p);
+    const fp = "DIP-14_W7.62mm";
+    const ug = "nand1";
+    const opt = (unit) => ({ unit, unitGroup: ug, footprint: fp });
+    const a = S.add("74HC00", 2800, 2200, opt(1));
+    const b = S.add("74HC00", 2800, 3400, opt(2));
+    const c = S.add("74HC00", 5400, 2600, opt(3));
+    const d = S.add("74HC00", 5400, 4400, opt(4));
+    const pw = S.add("74HC00", 1800, 5200, opt(5));
+    const rset = S.add("R", 1600, 1600, { value: "10k", footprint: "R_Axial_P7.62mm" });
+    const rrst = S.add("R", 1600, 2800, { value: "10k", footprint: "R_Axial_P7.62mm" });
+    const sws = S.add("SW_PUSH", 900, 2100, { value: "SET" });
+    const swr = S.add("SW_PUSH", 900, 3300, { value: "RESET" });
+    const rl = S.add("R", 6400, 2600, { rot: 90, value: "330", footprint: "R_Axial_P7.62mm" });
+    const led = S.add("LED", 7200, 3000, { value: "Red", footprint: "LED_D5.0mm" });
+    const cdec = S.add("C", 3000, 5200, { value: "100n", footprint: "C_Disc_D5.0mm_P5.00mm" });
+    const j = S.add("Conn_01x02", 800, 5000, { mirror: true, value: "5V" });
+
+    S.power("+5V", S.pin(rset, 1));
+    S.power("+5V", S.pin(rrst, 1));
+    S.power("GND", S.pin(sws, 1));
+    S.power("GND", S.pin(swr, 1));
+    S.power("GND", S.pin(led, 1));
+    S.power("+5V", S.pin(pw, "14"));
+    S.power("GND", S.pin(pw, "7"));
+    S.power("+5V", S.pin(cdec, 1));
+    S.power("GND", S.pin(cdec, 2));
+    S.flagged("+5V", S.pin(j, 1));
+    S.flagged("GND", S.pin(j, 2));
+
+    // Active-low set / reset, each pulled high and grounded by its button.
+    S.wire(S.pin(rset, 2), [1600, 2100], S.pin(sws, 2));
+    S.wire([1600, 2100], S.pin(a, "1"));
+    S.wire(S.pin(rrst, 2), [1600, 3300], S.pin(swr, 2));
+    S.wire([1600, 3300], S.pin(b, "4"));
+    // Cross-coupled feedback. Q runs down the right and back under the gates;
+    // ~Q~ stays inside that loop and comes into the upper gate from the left,
+    // so the two wires never cross.
+    const q = S.pin(a, "3");
+    const qn = S.pin(b, "6");
+    S.wire(q, [5000, q[1]], [5000, 4600], [1200, 4600], [1200, 3500], S.pin(b, "5"));
+    S.wire(qn, [4200, qn[1]], [4200, 2500], [1400, 2500], [1400, 2300], S.pin(a, "2"));
+    S.label("Q", [3800, q[1]]);
+    S.label("~Q~", [3600, qn[1]]);
+    // Gate C inverts Q onto the LED. Gate D is unused: inputs held low.
+    S.wire([3800, q[1]], [5100, q[1]], S.pin(c, "9"));
+    S.wire(S.pin(c, "9"), S.pin(c, "10"));
+    S.wire(S.pin(c, "8"), S.pin(rl, 1));
+    const ledA = S.pin(led, 2);
+    const rOut = S.pin(rl, 2);
+    S.wire(rOut, [ledA[0], rOut[1]], ledA);
+    S.wire(S.pin(d, "12"), S.pin(d, "13"), [5100, 4800]);
+    S.power("GND", [5100, 4800]);
+    S.nc(S.pin(d, "11"));
+
+    S.text("NAND SR latch", 800, 900, 90);
+    S.text("Press SET or RESET (active low). Releasing both holds Q.\nGates A and B are the latch, C drives the LED, D is tied off.\nAll five units are one 74HC00 and one DIP-14 on the board.", 800, 5800, 50);
+    const sch = finishSchematic(name, p);
+
+    board(p, 62, 42, 2);
+    syncBoard(name, p);
+    place(p, j, 5, 10, 0);
+    place(p, sws, 14, 8, 0);
+    place(p, swr, 14, 18, 0);
+    place(p, rset, 22, 8, 90);
+    place(p, rrst, 22, 18, 90);
+    place(p, a, 36, 20, 0);
+    place(p, cdec, 36, 36, 0);
+    place(p, rl, 50, 16, 0);
+    place(p, led, 56, 26, 90);
+    addZone(p, "B.Cu", "GND");
+    routeBoard(name, p);
+    silk(p, "SR LATCH", 8, 32, 1.3);
+    p.pcb.maskColor = "green"; p.pcb.silkColor = "white"; p.pcb.finish = "HASL";
+    p.sim = { mode: "op", tStop: "10m", tStep: "10u", fStart: "10", fStop: "1Meg", points: 50, probes: [] };
+    return { p, ...sch };
+  },
+});
+
+// ---------------------------------------------------------------------- 14
+sample({
+  file: "14-two-stage-opamp",
+  title: "Two-stage op-amp amplifier",
+  titleKo: "2단 연산증폭기 증폭기",
+  description: "Two op-amps in series from a ±12 V supply. The first is a non-inverting gain of 2; the second inverts with a gain of 2. A 0.5 V sine comes out as −2 V. The transient shows IN, MID and OUT.",
+  descriptionKo: "±12V 전원에서 연산증폭기 두 개를 직렬로 씁니다. 첫 단은 비반전 이득 2, 둘째 단은 반전 이득 2입니다. 0.5V 사인파는 −2V로 나옵니다. 과도 해석으로 IN, MID, OUT을 비교하세요.",
+  tags: ["analog", "simulation", "op-amp"],
+  features: ["two op-amp chips", "non-inverting then inverting", "split supply", "three probes", "transient analysis", "white mask / ENIG"],
+  sim: ["tran"],
+  build(name) {
+    const p = start("Two-stage amplifier (gain -4)");
+    const S = new Sch(p);
+    const v2 = S.add("VSOURCE", 1400, 1800, { value: "12V" });
+    const v3 = S.add("VSOURCE", 1400, 2600, { value: "12V" });
+    const v1 = S.add("VSOURCE", 2600, 2600, { value: "SIN 0.5V 1kHz", fields: { wave: "sine", amplitude: "0.5", freq: "1k", offset: "0" } });
+    const u1 = S.add("OPAMP", 4200, 2400, { value: "OPAMP", refOffset: { x: 80, y: -190 }, valueOffset: { x: 80, y: 190 } });
+    const rg = S.add("R", 3600, 3400, { value: "10k", footprint: "R_0805" });
+    const rf = S.add("R", 4300, 3200, { rot: 90, value: "10k", footprint: "R_0805" });
+    const rin = S.add("R", 5600, 2500, { rot: 90, value: "10k", footprint: "R_0805" });
+    const u2 = S.add("OPAMP", 7000, 2400, { value: "OPAMP", refOffset: { x: 80, y: -190 }, valueOffset: { x: 80, y: 190 } });
+    const rf2 = S.add("R", 7600, 2200, { value: "20k", footprint: "R_0805" });
+    const rl = S.add("R", 8400, 3000, { value: "10k", footprint: "R_0805" });
+
+    S.power("+12V", S.pin(v2, 1));
+    S.power("-12V", S.pin(v3, 2));
+    S.wire(S.pin(v2, 2), S.pin(v3, 1));
+    S.wire([1400, 2200], [1100, 2200]);
+    S.power("GND", [1100, 2200]);
+    S.power("GND", S.pin(v1, 2));
+    S.power("+12V", S.pin(u1, "7"));
+    S.power("-12V", S.pin(u1, "4"));
+    S.power("+12V", S.pin(u2, "7"));
+    S.power("-12V", S.pin(u2, "4"));
+    S.power("GND", S.pin(rg, 2));
+    S.power("GND", S.pin(rl, 2));
+
+    S.wire(S.pin(v1, 1), [3900, 2400], S.pin(u1, "3"));
+    S.label("IN", [3200, 2400]);
+    S.wire(S.pin(u1, "2"), [3900, 3200]);
+    S.wire([3900, 3200], S.pin(rg, 1));
+    S.wire([3900, 3200], S.pin(rf, 1));
+    S.wire(S.pin(rf, 2), [4500, 3200], S.pin(u1, "1"));
+    S.label("MID", [5000, 2400]);
+    S.wire(S.pin(u1, "1"), [5400, 2400], S.pin(rin, 1));
+    S.wire(S.pin(rin, 2), S.pin(u2, "2"));
+    S.wire(S.pin(u2, "3"), [6500, 2300]);
+    S.power("GND", [6500, 2300]);
+    // Feedback around the right side so it does not short the + input.
+    S.wire(S.pin(u2, "2"), [6700, 2800], [7600, 2800], S.pin(rf2, 2));
+    S.wire(S.pin(rf2, 1), [7600, 1600], [7300, 1600], S.pin(u2, "1"));
+    S.wire(S.pin(u2, "1"), [8400, 2400], S.pin(rl, 1));
+    S.label("OUT", [8000, 2400]);
+    S.text("Two-stage amplifier", 1100, 1000, 90);
+    S.text("Stage 1: gain 1 + 10k/10k = 2 (non-inverting).\nStage 2: gain -20k/10k = -2 (inverting).\nOverall -4: 0.5 V in becomes -2 V out. Probe IN, MID and OUT.", 1100, 4200, 50);
+    const sch = finishSchematic(name, p);
+
+    board(p, 72, 36, 2);
+    syncBoard(name, p);
+    place(p, v2, 4, 8, 0);
+    place(p, v3, 4, 24, 0);
+    place(p, v1, 12, 16, 0);
+    place(p, u1, 26, 16, 0);
+    place(p, rg, 20, 28, 90);
+    place(p, rf, 28, 28, 0);
+    place(p, rin, 40, 16, 90);
+    place(p, u2, 52, 16, 0);
+    place(p, rf2, 60, 26, 90);
+    place(p, rl, 66, 10, 90);
+    addZone(p, "B.Cu", "GND");
+    addZone(p, "F.Cu", "GND");
+    for (const part of [rg, rl]) stitch(p, part, 2);
+    routeBoard(name, p);
+    silk(p, "GAIN -4", 60, 6, 1.6);
+    p.pcb.maskColor = "white"; p.pcb.silkColor = "black"; p.pcb.finish = "ENIG";
+    p.sim = { mode: "tran", tStop: "3m", tStep: "2u", fStart: "10", fStop: "1Meg", points: 20, probes: ["IN", "MID", "OUT"] };
+    return { p, ...sch };
+  },
+});
+
+// ---------------------------------------------------------------------- 15
+sample({
+  file: "15-regulated-555",
+  title: "Regulated 555 blinker",
+  titleKo: "정전압 555 점멸기",
+  description: "A 12 V plug feeds a fuse, a reverse-polarity diode and an LM7805. The regulated 5 V rail runs an NE555 astable that blinks an LED, with its own decoupling capacitor. The operating point shows the 5 V rail.",
+  descriptionKo: "12V 입력이 퓨즈와 역전압 다이오드, LM7805를 거칩니다. 안정된 5V로 NE555 비안정 회로가 LED를 깜빡이고, 555 옆에 디커플링 커패시터가 있습니다. 동작점 해석으로 5V 레일을 확인합니다.",
+  tags: ["power", "classic", "THT"],
+  features: ["two chips on one board", "7805 regulator", "555 astable", "shared +5V rail", "power net class", "black mask / ENIG"],
+  sim: ["op"],
+  build(name) {
+    const p = start("Regulated 555 blinker");
+    const S = new Sch(p);
+    const v = S.add("VSOURCE", 1500, 2600, { value: "12V", footprint: "PinHeader_1x02_P2.54mm" });
+    const f = S.add("FUSE", 2100, 2000, { rot: 90, value: "500mA", footprint: "Fuse_1206" });
+    const d1 = S.add("D", 2900, 2000, { rot: 90, value: "1N4007", footprint: "D_DO-41_P10.16mm" });
+    const c1 = S.add("C_POL", 3500, 2600, { value: "100u", footprint: "CP_Radial_D8.0mm_P3.50mm" });
+    const u7805 = S.add("LM7805", 4600, 2000, { footprint: "TO-220-3_Vertical", valueOffset: { x: 30, y: 170 } });
+    const c2 = S.add("C_POL", 5400, 2600, { value: "10u", footprint: "CP_Radial_D5.0mm_P2.00mm" });
+    const c3 = S.add("C", 5900, 2600, { value: "100n", footprint: "C_0805" });
+    const rled = S.add("R", 6400, 2400, { value: "1k", footprint: "R_0805" });
+    const dled = S.add("LED", 6400, 3100, { value: "Green", footprint: "LED_0805" });
+    const ox = 5200;
+    const u = S.add("NE555", 4000 + ox, 2500, { footprint: "DIP-8_W7.62mm" });
+    const c555 = S.add("C", 1800 + ox, 2300, { value: "100n", footprint: "C_Disc_D5.0mm_P5.00mm" });
+    const ra = S.add("R", 2400 + ox, 1500, { value: "1k", footprint: "R_Axial_P10.16mm" });
+    const rb = S.add("R", 2400 + ox, 2100, { value: "47k", footprint: "R_Axial_P10.16mm" });
+    const ct = S.add("C_POL", 2400 + ox, 2700, { value: "10u", footprint: "CP_Radial_D5.0mm_P2.00mm" });
+    const cv = S.add("C", 3300 + ox, 3200, { value: "10n", footprint: "C_Disc_D5.0mm_P5.00mm" });
+    const rl = S.add("R", 5400 + ox, 2300, { rot: 90, value: "470", footprint: "R_Axial_P10.16mm" });
+    const blink = S.add("LED", 6000 + ox, 2700, { value: "Red", footprint: "LED_D5.0mm" });
+
+    S.power("GND", S.pin(v, 2));
+    S.power("GND", S.pin(c1, 2));
+    S.power("GND", S.pin(u7805, "GND"));
+    S.power("GND", S.pin(c2, 2));
+    S.power("GND", S.pin(c3, 2));
+    S.power("GND", S.pin(dled, 1));
+    S.wire(S.pin(v, 1), [1500, 2000], S.pin(f, 1));
+    S.wire(S.pin(f, 2), S.pin(d1, 2));
+    S.wire(S.pin(d1, 1), S.pin(u7805, "VI"));
+    S.wire([3500, 2000], S.pin(c1, 1));
+    S.wire([3300, 2000], [3300, 1700]);
+    S.add("PWR_FLAG", 3300, 1700);
+    S.wire(S.pin(u7805, "VO"), [6900, 2000]);
+    S.power("+5V", [6900, 1800]);
+    S.wire([6900, 2000], [6900, 1800]);
+    S.wire([5400, 2000], S.pin(c2, 1));
+    S.wire([5900, 2000], S.pin(c3, 1));
+    S.wire([6400, 2000], S.pin(rled, 1));
+    S.wire(S.pin(rled, 2), S.pin(dled, 2));
+    S.label("VRAW", [1700, 2000]);
+    S.label("VIN", [3800, 2000]);
+
+    S.power("+5V", S.pin(c555, 1));
+    S.power("GND", S.pin(c555, 2));
+    S.power("+5V", S.pin(ra, 1));
+    S.power("GND", S.pin(ct, 2));
+    S.power("GND", S.pin(cv, 2));
+    S.power("GND", S.pin(u, "1"));
+    S.power("GND", S.pin(blink, 1));
+    S.wire(S.pin(ra, 2), S.pin(rb, 1));
+    S.wire([2400 + ox, 1800], [2800 + ox, 1800]);
+    S.label("DIS", [2800 + ox, 1800]);
+    S.wire(S.pin(u, "2"), S.pin(rb, 2));
+    S.wire(S.pin(u, "6"), [2400 + ox, 2400]);
+    S.wire(S.pin(rb, 2), [2400 + ox, 2400], S.pin(ct, 1));
+    S.wire(S.pin(u, "5"), [3300 + ox, 2500], S.pin(cv, 1));
+    S.wire(S.pin(u, "4"), [3500 + ox, 2600], [3500 + ox, 2900], [4900 + ox, 2900]);
+    S.wire(S.pin(u, "8"), [4600 + ox, 2500], [4600 + ox, 2900]);
+    S.power("+5V", [4900 + ox, 2900]);
+    S.wire(S.pin(u, "7"), [4800 + ox, 2400]);
+    S.label("DIS", [4800 + ox, 2400]);
+    S.wire(S.pin(u, "3"), S.pin(rl, 1));
+    S.wire(S.pin(rl, 2), [6000 + ox, 2300], S.pin(blink, 2));
+    S.flagged("+5V", [1500, 4200]);
+    S.flagged("GND", [2200, 4200]);
+    S.text("12 V in, 5 V 555 blinker", 1400, 1000, 90);
+    S.text("The LM7805 feeds every +5V port, including the 555.\nBlink rate is about 1.5 Hz with 1k, 47k and 10u.", 1400, 4800, 50);
+    const sch = finishSchematic(name, p);
+    powerNets(p, "VRAW", "VIN", "+5V");
+
+    board(p, 92, 40, 2);
+    syncBoard(name, p);
+    place(p, v, 4, 18, 0);
+    place(p, f, 12, 10, 0);
+    place(p, d1, 18, 16, 180);
+    place(p, c1, 20, 30, 0);
+    place(p, u7805, 30, 12, 0);
+    place(p, c2, 36, 28, 0);
+    place(p, c3, 42, 28, 90);
+    place(p, rled, 46, 14, 90);
+    place(p, dled, 46, 22, 90);
+    place(p, c555, 56, 12, 0);
+    place(p, u, 66, 20, 0);
+    place(p, ra, 52, 22, 90);
+    place(p, rb, 56, 22, 90);
+    place(p, ct, 56, 34, 0);
+    place(p, cv, 66, 34, 0);
+    place(p, rl, 80, 14, 0);
+    place(p, blink, 86, 22, 90);
+    addZone(p, "B.Cu", "GND");
+    for (const part of [c3, dled]) stitch(p, part, 2);
+    routeBoard(name, p);
+    silk(p, "7805 + 555", 70, 6, 1.8);
+    silk(p, "12V", 6, 4, 1.2);
+    p.pcb.maskColor = "black"; p.pcb.silkColor = "white"; p.pcb.finish = "ENIG";
+    p.sim = { mode: "op", tStop: "10m", tStep: "10u", fStart: "10", fStop: "1Meg", points: 50, probes: ["VRAW", "VIN", "+5V"] };
     return { p, ...sch };
   },
 });

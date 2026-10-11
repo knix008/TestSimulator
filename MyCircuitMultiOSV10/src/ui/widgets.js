@@ -333,11 +333,11 @@ export function stepper(value, { min = -Infinity, max = Infinity, step = 1, valu
   return el;
 }
 
-export function checkbox(checked, label, { onChange } = {}) {
+export function checkbox(checked, label, { onChange, icon: iconName } = {}) {
   const box = h("input", { type: "checkbox" });
   box.checked = !!checked;
   if (onChange) box.addEventListener("change", () => onChange(box.checked, box));
-  return h("label", { class: "check" }, box, h("span", {}, label));
+  return h("label", { class: "check" }, box, iconName ? h("span", { class: "check-ico", html: icon(iconName, 14) }) : null, h("span", {}, label));
 }
 
 export function tabs(defs) {
@@ -346,8 +346,8 @@ export function tabs(defs) {
   const host = h("div", { class: "tab-bodies" });
   const show = (id) => {
     for (const b of bar.children) b.classList.toggle("on", b.dataset.id === id);
-    // All pages share one grid cell, so the dialog keeps the size of the
-    // largest page on every tab; inactive pages are only made invisible.
+    // Hidden pages leave the layout, so the dialog is only as tall as the
+    // page that is open.
     for (const d of defs) {
       const off = d.id !== id;
       d.body.classList.toggle("tab-hidden", off);

@@ -2,7 +2,7 @@
 
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
-import { h, modal, toast, field, input, select, checkbox, pager, tabs } from "./widgets.js";
+import { h, modal, toast, field, input, select, checkbox, pager, tabs, stepper } from "./widgets.js";
 import * as platform from "./platform.js";
 import { SvgContext } from "./svgctx.js";
 import { SCH_THEMES, SHEETS, drawSchematic } from "../sch/render.js";
@@ -166,7 +166,7 @@ export async function gerberViewer(app, preset) {
   };
   if (preset) for (const f of preset) if (f.kind === "gerber" || f.kind === "drill") addFile(f.name, typeof f.data === "string" ? f.data : new TextDecoder().decode(f.data));
 
-  const canvasHost = h("div", { style: { position: "relative", height: "62vh", borderRadius: "8px", overflow: "hidden", background: "#0b0f14" } });
+  const canvasHost = h("div", { style: { position: "relative", height: "min(48vh, 520px)", borderRadius: "8px", overflow: "hidden", background: "#0b0f14" } });
   const canvas = h("canvas", { class: "editor-canvas" });
   canvasHost.append(canvas);
   const side = h("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } });
@@ -239,7 +239,7 @@ export async function gerberViewer(app, preset) {
   });
   modal({
     title: t("Gerber viewer"), width: "min(1200px, 95vw)",
-    body: h("div", { style: { display: "grid", gridTemplateColumns: "250px 1fr", gap: "12px" } }, h("div", {}, side, fileInput), canvasHost),
+    body: h("div", { style: { display: "grid", gridTemplateColumns: "220px 1fr", gap: "10px", alignItems: "start" } }, h("div", {}, side, fileInput), canvasHost),
     buttons: [{ label: t("Close"), value: null, primary: true }],
     onOpen: () => {
       vp = new Viewport(canvas, { minScale: 0.2, maxScale: 600, onRender: render, onPointer: () => {} });
@@ -258,8 +258,29 @@ export async function printDialog(app) {
   const pcb = project.pcb;
   const cfg = {
     what: app.tab === "pcb" ? "pcb" : "sch", paper: project.schematic.sheet === "A3" ? "A3" : app.settings.defaultPaper || "A4", landscape: true, mono: false, frame: true,
-    pcbSets: { top: true, bottom: true, assembly: false, inner: false }, scale: "fit", copies: 1, mirrorBottom: true,
+    pcbSets: { top: true, bottom: true, assembly: false, inner: false }, scale: "fit", scalePercent: 100, copies: 1, mirrorBottom: true,
+    marginTop: 8, marginRight: 8, marginBottom: 8, marginLeft: 8,
   };
+  // Drawing size in millimetres. Schematic sheets are stored in mils; PCB plots are already in mm.
+  const drawingMm = (svg) => {
+    const m = /width="([\d.]+)(mm)?"\s+height="([\d.]+)(mm)?"/.exec(svg);
+    if (!m) return null;
+    const w = +m[1], h = +m[3];
+    return m[2] === "mm" ? { w, h } : { w: w * 0.0254, h: h * 0.0254 };
+  };
+  const paperSize = () => {
+    const [pw, ph] = PAPER[cfg.paper];
+    return cfg.landscape ? { w: pw, h: ph } : { w: ph, h: pw };
+  };
+  // Keep a printable area of at least 10 mm when the margins are larger than the sheet.
+  const margins = (paper) => {
+    let t = cfg.marginTop, r = cfg.marginRight, b = cfg.marginBottom, l = cfg.marginLeft;
+    const maxV = Math.max(0, paper.h - 10), maxH = Math.max(0, paper.w - 10);
+    if (t + b > maxV && t + b > 0) { const k = maxV / (t + b); t *= k; b *= k; }
+    if (l + r > maxH && l + r > 0) { const k = maxH / (l + r); l *= k; r *= k; }
+    return { t, r, b, l };
+  };
+  const scaleFactor = () => (cfg.scale === "1:1" ? 1 : cfg.scalePercent / 100);
   const pages = () => {
     const out = [];
     if (cfg.what === "sch" || cfg.what === "both") {
@@ -268,9 +289,8 @@ export async function printDialog(app) {
       }
     }
     if (cfg.what === "pcb" || cfg.what === "both") {
-      const real = cfg.scale === "1:1";
       const colors = cfg.mono ? Object.fromEntries([...copperLayers(pcb), "F.SilkS", "B.SilkS", "Edge.Cuts", "F.Fab", "F.Mask", "B.Mask"].map((l) => [l, "#000"])) : undefined;
-      const mk = (label, layers, mirror) => out.push({ title: label, svg: pcbLayerSvg(project, layers, { background: "#ffffff", fit: !real, mirror, colors, margin: 3 }), real });
+      const mk = (label, layers, mirror) => out.push({ title: label, svg: pcbLayerSvg(project, layers, { background: "#ffffff", fit: false, mirror, colors, margin: 3 }) });
       if (cfg.pcbSets.top) mk(t("Top layer (F.Cu + F.SilkS)"), ["F.Cu", "F.SilkS", "Edge.Cuts"], false);
       if (cfg.pcbSets.bottom) mk(t("Bottom layer (B.Cu + B.SilkS)"), ["B.Cu", "B.SilkS", "Edge.Cuts"], cfg.mirrorBottom);
       if (cfg.pcbSets.inner) for (const l of copperLayers(pcb).filter((x) => x.startsWith("In"))) mk(l, [l, "Edge.Cuts"], false);
@@ -285,53 +305,141 @@ export async function printDialog(app) {
     const ps = pages();
     index = Math.min(index, Math.max(0, ps.length - 1));
     stage.innerHTML = "";
-    const [pw, ph] = PAPER[cfg.paper];
-    const w = cfg.landscape ? pw : ph;
-    const hh = cfg.landscape ? ph : pw;
-    const page = h("div", { class: "page", style: { aspectRatio: `${w} / ${hh}`, height: "100%", padding: "4%", boxSizing: "border-box" } });
-    if (ps[index]) page.innerHTML = ps[index].svg.replace(/^<\?xml[^>]*>/, "").replace(/width="[\d.]+mm" height="[\d.]+mm"/, 'width="100%" height="100%"');
+    const paper = paperSize();
+    const w = paper.w;
+    const hh = paper.h;
+    const pad = margins(paper);
+    const view = stage.parentElement;
+    const preview = stage.closest(".print-preview");
+    let used = 0;
+    if (preview) {
+      for (const el of preview.children) {
+        if (el === view) { for (const c of view.children) if (c !== stage) used += c.offsetHeight; }
+        else used += el.offsetHeight;
+      }
+    } else used = 100;
+    const modal = stage.closest(".modal");
+    const head = modal?.querySelector(".modal-head")?.offsetHeight || 36;
+    const foot = modal?.querySelector(".modal-foot")?.offsetHeight || 42;
+    // 68px is the dialog inset from the window (max-height margin and borders). Leftover overflow is trimmed after layout.
+    const gaps = preview ? (preview.children.length - 1) * 8 + 4 + 20 + 68 : 92;
+    const maxW = view ? view.clientWidth : 900;
+    const maxH = Math.round(Math.max(100, Math.min(window.innerHeight - head - foot - used - gaps, 620)));
+    let boxW = Math.max(280, maxW);
+    let boxH = boxW * hh / w;
+    if (boxH > maxH) { boxH = maxH; boxW = boxH * w / hh; }
+    stage.style.width = `${Math.floor(boxW)}px`;
+    stage.style.height = `${Math.floor(boxH)}px`;
+    const page = h("div", { class: "page" });
+    const pageW = Math.max(1, Math.floor(boxW) - 12);
+    const pageH = Math.max(1, Math.floor(boxH) - 12);
+    page.style.padding = `${pageH * pad.t / hh}px ${pageW * pad.r / w}px ${pageH * pad.b / hh}px ${pageW * pad.l / w}px`;
+    const frame = h("div", { class: "print-frame" });
+    if (ps[index]) {
+      const raw = ps[index].svg.replace(/^<\?xml[^>]*>/, "");
+      const native = drawingMm(raw);
+      frame.innerHTML = raw.replace(/width="[\d.]+(?:mm)?"\s+height="[\d.]+(?:mm)?"/, 'width="100%" height="100%"');
+      const svg = frame.querySelector("svg");
+      if (svg) {
+        if (cfg.scale === "fit" || !native) {
+          svg.style.width = "100%";
+          svg.style.height = "100%";
+          svg.style.maxWidth = "100%";
+          svg.style.maxHeight = "100%";
+        } else {
+          const k = scaleFactor();
+          const innerW = Math.max(1, w - pad.l - pad.r);
+          const innerH = Math.max(1, hh - pad.t - pad.b);
+          svg.style.width = `${(native.w * k / innerW) * 100}%`;
+          svg.style.height = `${(native.h * k / innerH) * 100}%`;
+          svg.style.maxWidth = "none";
+          svg.style.maxHeight = "none";
+        }
+      }
+    }
+    page.append(frame);
     stage.append(page);
+    scaleStep.classList.toggle("is-off", cfg.scale !== "percent");
     nav.innerHTML = "";
     nav.append(h("button", { class: "icon-btn", disabled: index === 0, html: icon("chevronRight", 16), style: { transform: "rotate(180deg)" }, onclick: () => { index--; draw(); } }),
       h("span", {}, ps.length ? `${index + 1} / ${ps.length} — ${ps[index].title}` : t("Nothing selected to print")),
       h("button", { class: "icon-btn", disabled: index >= ps.length - 1, html: icon("chevronRight", 16), onclick: () => { index++; draw(); } }));
+    const body = stage.closest(".modal-body");
+    const trim = () => {
+      if (!body || body.scrollHeight <= body.clientHeight + 1) return;
+      const boxH2 = Math.max(100, stage.offsetHeight - (body.scrollHeight - body.clientHeight) - 8);
+      const boxW2 = boxH2 * w / hh;
+      stage.style.height = `${Math.floor(boxH2)}px`;
+      stage.style.width = `${Math.floor(boxW2)}px`;
+      const pageW2 = Math.max(1, Math.floor(boxW2) - 12);
+      const pageH2 = Math.max(1, Math.floor(boxH2) - 12);
+      page.style.padding = `${pageH2 * pad.t / hh}px ${pageW2 * pad.r / w}px ${pageH2 * pad.b / hh}px ${pageW2 * pad.l / w}px`;
+    };
+    trim();
+    trim();
   };
-  // Two tabs keep the options column short enough to never need a scrollbar.
-  const contentsTab = h("div", { class: "print-options" },
+  const opts = h("div", { class: "print-options" },
     field(t("Print"), select(cfg.what, [["sch", t("Schematic")], ["pcb", t("PCB layers")], ["both", t("Schematic and PCB")]], { onChange: (v) => { cfg.what = v; draw(); } })),
-    field(t("PCB pages"), h("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } },
-      checkbox(true, t("Top"), { onChange: (v) => { cfg.pcbSets.top = v; draw(); } }),
-      checkbox(true, t("Bottom"), { onChange: (v) => { cfg.pcbSets.bottom = v; draw(); } }),
-      checkbox(false, t("Inner layers"), { onChange: (v) => { cfg.pcbSets.inner = v; draw(); } }),
-      checkbox(false, t("Assembly drawing"), { onChange: (v) => { cfg.pcbSets.assembly = v; draw(); } }),
-      checkbox(true, t("Mirror bottom layer"), { onChange: (v) => { cfg.mirrorBottom = v; draw(); } }))),
-    field(t("Colour"), checkbox(cfg.mono, t("Black and white"), { onChange: (v) => { cfg.mono = v; draw(); } })));
-  const pageTab = h("div", { class: "print-options" },
     field(t("Paper"), select(cfg.paper, Object.keys(PAPER).map((p) => [p, p]), { onChange: (v) => { cfg.paper = v; draw(); } })),
     field(t("Orientation"), select(cfg.landscape ? "l" : "p", [["l", t("Landscape")], ["p", t("Portrait")]], { onChange: (v) => { cfg.landscape = v === "l"; draw(); } })),
-    field(t("PCB scale"), select(cfg.scale, [["fit", t("Fit to page")], ["1:1", t("Actual size 1:1 (toner transfer)")]], { onChange: (v) => { cfg.scale = v; draw(); } })),
-    field(t("Copies"), input(cfg.copies, { type: "number", min: 1, max: 99, onInput: (v) => { cfg.copies = Math.max(1, Math.min(99, parseInt(v, 10) || 1)); } })));
-  const opts = tabs([{ id: "c", label: t("Contents"), body: contentsTab }, { id: "p", label: t("Page"), body: pageTab }]);
-  const body = h("div", { class: "print-preview" }, opts, h("div", { style: { display: "flex", flexDirection: "column", gap: "6px", minHeight: 0 } }, stage, nav));
-  const r = await modal({
-    title: t("Print"), width: "min(1100px, 95vw)", body,
-    buttons: [...(window.mycircuit && window.mycircuit.printToPDF ? [{ label: t("Save as PDF…"), value: "pdf", left: true }] : []), { label: t("Cancel"), value: null }, { label: t("Print…"), value: "print", primary: true }],
-    onOpen: () => setTimeout(draw, 10),
+    field(t("Scale"), select(cfg.scale, [["fit", t("Fit to page")], ["percent", t("Custom scale")], ["1:1", t("Actual size 1:1 (toner transfer)")]], { onChange: (v) => { cfg.scale = v; draw(); } })));
+  const mmStep = (label, key) => field(label, stepper(cfg[key], {
+    min: 0, max: 40, step: 1, editable: true,
+    onChange: (v) => { cfg[key] = v; draw(); },
+  }));
+  const scaleStep = stepper(cfg.scalePercent, {
+    min: 10, max: 400, step: 5, editable: true, format: (v) => `${v}%`,
+    onChange: (v) => { cfg.scalePercent = v; if (cfg.scale === "percent") draw(); },
   });
+  const pageSetup = h("div", { class: "print-page" },
+    h("div", { class: "print-section span-all" }, t("Page")),
+    mmStep(t("Top margin (mm)"), "marginTop"),
+    mmStep(t("Right margin (mm)"), "marginRight"),
+    mmStep(t("Bottom margin (mm)"), "marginBottom"),
+    mmStep(t("Left margin (mm)"), "marginLeft"),
+    field(t("Scale (%)"), scaleStep),
+    field(t("Copies"), stepper(cfg.copies, { min: 1, max: 99, step: 1, editable: true, onChange: (v) => { cfg.copies = v; } })));
+  const checks = h("div", { class: "print-checks" },
+    checkbox(true, t("Top"), { onChange: (v) => { cfg.pcbSets.top = v; draw(); } }),
+    checkbox(true, t("Bottom"), { onChange: (v) => { cfg.pcbSets.bottom = v; draw(); } }),
+    checkbox(false, t("Inner layers"), { onChange: (v) => { cfg.pcbSets.inner = v; draw(); } }),
+    checkbox(false, t("Assembly drawing"), { onChange: (v) => { cfg.pcbSets.assembly = v; draw(); } }),
+    checkbox(true, t("Mirror bottom layer"), { onChange: (v) => { cfg.mirrorBottom = v; draw(); } }),
+    checkbox(cfg.mono, t("Black and white"), { onChange: (v) => { cfg.mono = v; draw(); } }));
+  const body = h("div", { class: "print-preview" }, opts, pageSetup, checks, h("div", { class: "print-view" }, stage, nav));
+  let onResize = null;
+  const r = await modal({
+    title: t("Print"), width: "min(980px, 94vw)", body,
+    buttons: [...(window.mycircuit && window.mycircuit.printToPDF ? [{ label: t("Save as PDF…"), value: "pdf", left: true }] : []), { label: t("Cancel"), value: null }, { label: t("Print…"), value: "print", primary: true }],
+    onOpen: () => {
+      onResize = () => { draw(); requestAnimationFrame(draw); };
+      window.addEventListener("resize", onResize);
+      setTimeout(() => { draw(); requestAnimationFrame(draw); }, 10);
+    },
+  });
+  if (onResize) window.removeEventListener("resize", onResize);
   if (!r) return;
   // Lay the pages out in the hidden print area and hand over to the system dialog.
   const area = document.getElementById("print-area");
   const ps = pages();
   area.innerHTML = "";
-  const [pw, ph] = PAPER[cfg.paper];
+  const paper = paperSize();
+  const pad = margins(paper);
   let style = document.getElementById("print-page-style");
   if (!style) { style = document.createElement("style"); style.id = "print-page-style"; document.head.append(style); }
-  style.textContent = `@page { size: ${cfg.landscape ? pw : ph}mm ${cfg.landscape ? ph : pw}mm; margin: 8mm; }`;
+  style.textContent = `@page { size: ${paper.w}mm ${paper.h}mm; margin: ${pad.t}mm ${pad.r}mm ${pad.b}mm ${pad.l}mm; }`;
+  const placeSvg = (svg) => {
+    const bare = svg.replace(/^<\?xml[^>]*>/, "");
+    if (cfg.scale === "fit") return bare.replace(/width="[\d.]+(?:mm)?"\s+height="[\d.]+(?:mm)?"/, 'width="100%" height="100%"');
+    const native = drawingMm(bare);
+    if (!native) return bare;
+    const k = scaleFactor();
+    return bare.replace(/width="[\d.]+(?:mm)?"\s+height="[\d.]+(?:mm)?"/, `width="${(native.w * k).toFixed(2)}mm" height="${(native.h * k).toFixed(2)}mm"`);
+  };
   for (let c = 0; c < cfg.copies; c++) {
     for (const p of ps) {
       const sheet = h("section", { class: "print-sheet" });
-      sheet.innerHTML = p.real ? p.svg.replace(/^<\?xml[^>]*>/, "") : p.svg.replace(/^<\?xml[^>]*>/, "").replace(/width="[\d.]+mm" height="[\d.]+mm"/, 'width="100%" height="100%"');
-      if (p.real) sheet.style.alignItems = "flex-start";
+      sheet.innerHTML = placeSvg(p.svg);
       area.append(sheet);
     }
   }

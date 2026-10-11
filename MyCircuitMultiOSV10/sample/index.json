@@ -235,5 +235,65 @@
       "net labels",
       "purple mask / ENIG"
     ]
+  },
+  {
+    "file": "13-nand-sr-latch.mycircuit",
+    "title": "74HC00 NAND SR latch",
+    "titleKo": "74HC00 낸드 SR 래치",
+    "description": "One 74HC00 drawn as four gates plus a power unit: two gates form an active-low SR latch, the third lights an LED from Q, and the fourth has its inputs tied low. Set and reset are push buttons with pull-ups.",
+    "descriptionKo": "74HC00 하나를 게이트 넷과 전원 유닛으로 나눠 그렸습니다. 게이트 두 개는 액티브 로우 SR 래치이고, 세 번째는 Q로 LED를 켜며, 네 번째는 입력을 접지에 묶어둡니다. 셋과 리셋은 풀업이 달린 누름 버튼입니다.",
+    "tags": [
+      "logic",
+      "multi-unit",
+      "THT"
+    ],
+    "features": [
+      "multi-unit symbol",
+      "one footprint for every gate",
+      "SR latch",
+      "pull-up resistors",
+      "net labels",
+      "green mask / HASL"
+    ]
+  },
+  {
+    "file": "14-two-stage-opamp.mycircuit",
+    "title": "Two-stage op-amp amplifier",
+    "titleKo": "2단 연산증폭기 증폭기",
+    "description": "Two op-amps in series from a ±12 V supply. The first is a non-inverting gain of 2; the second inverts with a gain of 2. A 0.5 V sine comes out as −2 V. The transient shows IN, MID and OUT.",
+    "descriptionKo": "±12V 전원에서 연산증폭기 두 개를 직렬로 씁니다. 첫 단은 비반전 이득 2, 둘째 단은 반전 이득 2입니다. 0.5V 사인파는 −2V로 나옵니다. 과도 해석으로 IN, MID, OUT을 비교하세요.",
+    "tags": [
+      "analog",
+      "simulation",
+      "op-amp"
+    ],
+    "features": [
+      "two op-amp chips",
+      "non-inverting then inverting",
+      "split supply",
+      "three probes",
+      "transient analysis",
+      "white mask / ENIG"
+    ]
+  },
+  {
+    "file": "15-regulated-555.mycircuit",
+    "title": "Regulated 555 blinker",
+    "titleKo": "정전압 555 점멸기",
+    "description": "A 12 V plug feeds a fuse, a reverse-polarity diode and an LM7805. The regulated 5 V rail runs an NE555 astable that blinks an LED, with its own decoupling capacitor. The operating point shows the 5 V rail.",
+    "descriptionKo": "12V 입력이 퓨즈와 역전압 다이오드, LM7805를 거칩니다. 안정된 5V로 NE555 비안정 회로가 LED를 깜빡이고, 555 옆에 디커플링 커패시터가 있습니다. 동작점 해석으로 5V 레일을 확인합니다.",
+    "tags": [
+      "power",
+      "classic",
+      "THT"
+    ],
+    "features": [
+      "two chips on one board",
+      "7805 regulator",
+      "555 astable",
+      "shared +5V rail",
+      "power net class",
+      "black mask / ENIG"
+    ]
   }
 ]

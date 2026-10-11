@@ -5,6 +5,7 @@
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h, toast, input, select, checkbox } from "./widgets.js";
+import { panelHead } from "./panels.js";
 import { buildNetlist } from "../core/netlist.js";
 import { parseValue, formatValue } from "../core/project.js";
 import { getSymbol } from "../lib/symbols.js";
@@ -322,8 +323,8 @@ export class SimView {
     const sim = this.sim;
     const nl = buildNetlist(this.app.store.project.schematic);
     const panel = h("div", { class: "panel grow" });
-    panel.append(h("div", { class: "panel-head" }, h("span", {}, t("Probes")), h("div", { class: "grow" }),
-      h("button", { class: "icon-btn", title: t("Clear probes"), html: icon("trash", 14), onclick: () => { this.app.store.edit(t("Clear probes"), () => { sim.probes = []; }); this.render(); this.app.renderLeft(); } })));
+    panel.append(panelHead(this.app, "left", "probe", t("Probes"), [
+      h("button", { class: "icon-btn", title: t("Clear probes"), html: icon("trash", 14), onclick: () => { this.app.store.edit(t("Clear probes"), () => { sim.probes = []; }); this.render(); this.app.renderLeft(); } })]));
     const body = h("div", { class: "panel-body" });
     body.append(h("div", { class: "empty-note" }, t("Tick the nets (voltages) and parts (currents) to plot.")));
     const probes = new Set(sim.probes || []);
@@ -335,17 +336,18 @@ export class SimView {
       });
       this.render();
     };
-    body.append(h("div", { class: "prop-section" }, t("Voltages")));
+    body.append(h("div", { class: "prop-section" }, h("span", { html: icon("probe", 12) }), t("Voltages")));
     for (const n of nl.nets) {
       if (/^(GND|0|AGND)$/i.test(n.name)) continue;
-      body.append(h("div", {}, checkbox(probes.has(n.name), n.name, { onChange: (v) => toggle(n.name, v) })));
+      const vIcon = /vcc|vdd|vbat|vbatt|3v3|\d+(\.\d+)?v/i.test(n.name) || n.name.startsWith("+") ? "power" : "probe";
+      body.append(h("div", {}, checkbox(probes.has(n.name), n.name, { icon: vIcon, onChange: (v) => toggle(n.name, v) })));
     }
-    body.append(h("div", { class: "prop-section" }, t("Currents")));
+    body.append(h("div", { class: "prop-section" }, h("span", { html: icon("current", 12) }), t("Currents")));
     for (const p of this.app.store.project.schematic.parts) {
       const s = getSymbol(p.lib);
       if (!s || !s.sim) continue;
       const key = `I(${p.ref})`;
-      body.append(h("div", {}, checkbox(probes.has(key), `${p.ref} (${p.value})`, { onChange: (v) => toggle(key, v) })));
+      body.append(h("div", {}, checkbox(probes.has(key), `${p.ref} (${p.value})`, { icon: "current", onChange: (v) => toggle(key, v) })));
     }
     if (!nl.nets.length) body.append(h("div", { class: "empty-note" }, t("No nets yet.")));
     panel.append(body);

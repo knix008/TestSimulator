@@ -103,6 +103,33 @@ let libState = { query: "", category: "" };
 // is appended after these.
 const LIB_CATS = ["Passive", "Diode", "Transistor", "Power", "Switch", "Simulation", "Connector", "Mechanical", "Misc", "IC", "MCU", "Logic", "Interface"];
 
+const CAT_ICON = {
+  Passive: "resistor", Diode: "diode", Transistor: "transistor", Power: "power", Switch: "switch",
+  Simulation: "sim", Connector: "connector", Mechanical: "ruler", Misc: "dots", IC: "chip",
+  MCU: "mcu", Logic: "logic", Interface: "bus",
+};
+
+function catIcon(category) {
+  return CAT_ICON[category] || "library";
+}
+
+function layerKindIcon(layer) {
+  if (layer === "zones") return "zone";
+  if (layer === "vias") return "via";
+  if (layer === "Edge.Cuts") return "outline";
+  if (String(layer).includes("Silk")) return "text";
+  if (String(layer).includes("CrtYd")) return "zone";
+  if (String(layer).includes("Fab")) return "file";
+  if (layer === "Dwgs.User") return "image";
+  return "route";
+}
+
+function netKindIcon(name) {
+  if (/gnd|vss/i.test(name) || name === "0") return "ground";
+  if (/vcc|vdd|vbat|vbatt|3v3|\d+(\.\d+)?v/i.test(name) || name.startsWith("+")) return "power";
+  return "wire";
+}
+
 function libraryCategories() {
   const present = new Set(symbolCategories());
   const ordered = LIB_CATS.filter((c) => present.has(c));
@@ -110,8 +137,60 @@ function libraryCategories() {
   return ordered;
 }
 
+function foldIcon(side, collapsed) {
+  if (side === "left") return collapsed ? "chevronRight" : "chevronLeft";
+  return collapsed ? "chevronLeft" : "chevronRight";
+}
+
+export function panelHead(app, side, iconName, title, extras = []) {
+  return h("div", { class: "panel-head" },
+    h("span", { class: "panel-ico", html: icon(iconName, 14) }),
+    h("span", { class: "panel-title" }, title),
+    h("div", { class: "grow" }),
+    ...extras,
+    h("button", {
+      class: "icon-btn panel-collapse", type: "button", title: t("Collapse panel"), "aria-label": t("Collapse panel"),
+      html: icon(foldIcon(side, false), 14),
+      onclick: (e) => { e.stopPropagation(); app.togglePanel(side); },
+    }));
+}
+
+function renderRail(app, host, side, items) {
+  const rail = h("div", { class: "side-rail" });
+  rail.append(h("button", {
+    class: "icon-btn panel-collapse", type: "button", title: t("Expand panel"), "aria-label": t("Expand panel"),
+    html: icon(foldIcon(side, true), 16),
+    onclick: () => app.togglePanel(side),
+  }));
+  for (const it of items) {
+    rail.append(h("button", {
+      class: "icon-btn", type: "button", title: it.title, "aria-label": it.title,
+      html: icon(it.icon, 16),
+      onclick: () => app.togglePanel(side),
+    }));
+  }
+  host.append(rail);
+}
+
+function leftSections(app) {
+  if (app.tab === "pcb") return [{ icon: "route", title: t("Routing") }, { icon: "layers", title: t("Layers") }, { icon: "netlist", title: t("Nets") }];
+  if (app.tab === "3d") return [{ icon: "cube", title: t("3D view") }];
+  if (app.tab === "sim") return [{ icon: "probe", title: t("Probes") }];
+  return [{ icon: "library", title: t("Part library") }];
+}
+
+function rightSections(app) {
+  if (app.tab === "3d") return [{ icon: "list", title: t("Properties") }];
+  const kind = app.tab === "sch" ? "ERC" : "DRC";
+  return [{ icon: "list", title: t("Properties") }, { icon: kind === "ERC" ? "erc" : "drc", title: t("{k} issues", { k: kind }) }];
+}
+
 export function renderLeft(app, host) {
   host.innerHTML = "";
+  if (app.settings.leftCollapsed && app.tab !== "start") {
+    renderRail(app, host, "left", leftSections(app));
+    return;
+  }
   if (app.tab === "sch") return renderLibrary(app, host);
   if (app.tab === "pcb") return renderLayers(app, host);
   if (app.tab === "3d") return app.v3d.renderPanel(host);
@@ -121,15 +200,16 @@ export function renderLeft(app, host) {
 
 function renderLibrary(app, host) {
   const panel = h("div", { class: "panel grow" });
-  panel.append(h("div", { class: "panel-head" }, h("span", {}, t("Part library")), h("div", { class: "grow" }),
+  panel.append(panelHead(app, "left", "library", t("Part library"), [
     h("button", { class: "icon-btn", title: t("Symbol editor…"), html: icon("symbolEdit", 15), onclick: () => app.run("tools.symbolEditor") }),
-    h("button", { class: "icon-btn", title: t("Power port"), html: icon("ground", 15), onclick: () => app.run("sch.power") })));
+    h("button", { class: "icon-btn", title: t("Power port"), html: icon("ground", 15), onclick: () => app.run("sch.power") })]));
   const search = h("input", { placeholder: t("Search parts (e.g. 10k, led, 555)"), value: libState.query });
   panel.append(h("div", { class: "search" }, h("span", { html: icon("search", 15) }), search));
   const chips = h("div", { class: "lib-cats" });
   for (const c of ["", ...libraryCategories()]) {
     const label = c ? t(c) : t("All");
-    chips.append(h("button", { class: `chip ${libState.category === c ? "on" : ""}`, title: label, onclick: () => { libState.category = c; renderLeft(app, host); } }, label));
+    chips.append(h("button", { class: `chip ${libState.category === c ? "on" : ""}`, title: label, onclick: () => { libState.category = c; renderLeft(app, host); } },
+      h("span", { html: icon(c ? catIcon(c) : "list", 13) }), h("span", {}, label)));
   }
   panel.append(chips);
   const preview = h("div", { class: "lib-preview" });
@@ -140,7 +220,7 @@ function renderLibrary(app, host) {
   const showPreview = (sym) => {
     preview.innerHTML = "";
     if (!sym) { preview.append(h("div", { class: "cap" }, t("Hover a part to preview. Drag it onto the sheet, or click and then click on the sheet."))); return; }
-    const c = symbolThumb(sym.name, Math.max(200, (host.clientWidth || 280) - 22), 150, app.themeName());
+    const c = symbolThumb(sym.name, Math.max(200, (host.clientWidth || 280) - 22), 112, app.themeName());
     preview.append(c, h("div", { class: "cap" }, `${sym.title} · ${sym.footprints && sym.footprints[0] ? sym.footprints[0] : t("no footprint")}`));
   };
   const fill = () => {
@@ -156,14 +236,15 @@ function renderLibrary(app, host) {
     }
     const recent = !q && !libState.category ? app.settings.recentSymbols.map(getSymbol).filter(Boolean) : [];
     const groups = new Map();
-    if (recent.length) groups.set(t("Recently used"), recent);
+    if (recent.length) groups.set(t("Recently used"), { icon: "history", items: recent });
     for (const s of syms) {
       const g = t(s.category);
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g).push(s);
+      if (!groups.has(g)) groups.set(g, { icon: catIcon(s.category), items: [] });
+      groups.get(g).items.push(s);
     }
-    for (const [g, items] of groups) {
-      list.append(h("div", { class: "lib-group" }, g));
+    for (const [g, group] of groups) {
+      list.append(h("div", { class: "lib-group" }, h("span", { html: icon(group.icon, 13) }), h("span", {}, g)));
+      const items = group.items;
       for (const s of items) {
         const row = h("div", { class: "lib-item", draggable: "true", title: `${s.title}\n${s.keywords || ""}` }, symbolThumb(s.name, 44, 36, app.themeName()),
           h("div", {}, h("div", { class: "nm" }, s.name), h("div", { class: "ds" }, `${t(s.title)}${s.value ? " · " + s.value : ""}`)));
@@ -228,7 +309,7 @@ function renderLayers(app, host) {
 
   const prog = h("div", { class: "panel" });
   const pct = st.total ? Math.round((st.routed / st.total) * 100) : 100;
-  prog.append(h("div", { class: "panel-head" }, h("span", {}, t("Routing"))),
+  prog.append(panelHead(app, "left", "route", t("Routing")),
     h("div", { class: "panel-body" },
       h("div", { class: "summary-row" }, h("span", { class: `pill ${st.unrouted ? "warn" : "ok"}` }, `${st.routed} / ${st.total}`), t("connections routed"), h("b", {}, `${pct}%`)),
       h("div", { class: "progress" }, h("div", { style: { width: `${pct}%` } })),
@@ -238,8 +319,8 @@ function renderLayers(app, host) {
   host.append(prog);
 
   const layers = h("div", { class: "panel" });
-  layers.append(h("div", { class: "panel-head" }, h("span", {}, t("Layers")), h("div", { class: "grow" }),
-    h("button", { class: `icon-btn ${ed.highContrast ? "on" : ""}`, title: t("High-contrast layers"), html: icon("layers", 15), onclick: () => app.run("view.contrast") })));
+  layers.append(panelHead(app, "left", "layers", t("Layers"), [
+    h("button", { class: `icon-btn ${ed.highContrast ? "on" : ""}`, title: t("High-contrast layers"), html: icon("layers", 15), onclick: () => app.run("view.contrast") })]));
   const body = h("div", { class: "panel-body flush", style: { padding: "0 6px 8px" } });
   const row = (layer, label, desc, selectable) => {
     const visible = ed.visible[layer] !== false;
@@ -251,7 +332,9 @@ function renderLayers(app, host) {
       renderLeft(app, host);
     });
     const r = h("div", { class: `layer-row ${ed.activeLayer === layer ? "active" : ""}`, title: selectable ? t("Click to make active") : "" }, eye,
-      h("span", { class: "sw", style: { background: th[layer] || th.text } }), h("span", {}, label), h("small", {}, desc || ""));
+      h("span", { class: "sw", style: { background: th[layer] || th.text } }),
+      h("span", { class: "layer-ico", html: icon(layerKindIcon(layer), 14) }),
+      h("span", {}, label), h("small", {}, desc || ""));
     if (selectable) r.addEventListener("click", () => ed.setActiveLayer(layer));
     body.append(r);
   };
@@ -271,7 +354,7 @@ function renderLayers(app, host) {
   const nets = boardNets(pcb);
   const q = h("input", { placeholder: t("Filter nets") });
   const list = h("div", { class: "panel-body flush", style: { padding: "0 6px 8px" } });
-  netsP.append(h("div", { class: "panel-head" }, h("span", {}, t("Nets")), h("small", {}, String(nets.length))), h("div", { class: "search" }, h("span", { html: icon("search", 14) }), q), list);
+  netsP.append(panelHead(app, "left", "netlist", t("Nets"), [h("small", {}, String(nets.length))]), h("div", { class: "search" }, h("span", { html: icon("search", 14) }), q), list);
   const unroutedByNet = new Map();
   for (const r of st.rats) unroutedByNet.set(r.net, (unroutedByNet.get(r.net) || 0) + 1);
   const fill = () => {
@@ -281,7 +364,7 @@ function renderLayers(app, host) {
       if (f && !n.toLowerCase().includes(f)) continue;
       const un = unroutedByNet.get(n) || 0;
       const r = h("div", { class: `net-row ${ed.highlightNet === n ? "on" : ""}`, title: t("Click to highlight, double-click to autoroute this net") },
-        h("span", {}, n), h("small", {}, un ? `${un} ${t("open")}` : "✓"));
+        h("span", { class: "net-name" }, h("span", { html: icon(netKindIcon(n), 14) }), n), h("small", {}, un ? `${un} ${t("open")}` : "✓"));
       r.addEventListener("click", () => { ed.highlightNet = ed.highlightNet === n ? null : n; app.highlightNet = ed.highlightNet; ed.request(); app.sch.request(); fill(); });
       r.addEventListener("dblclick", () => app.autoroute([n]));
       list.append(r);
@@ -298,9 +381,13 @@ function renderLayers(app, host) {
 export function renderRight(app, host) {
   host.innerHTML = "";
   if (app.tab === "start" || app.tab === "sim") return;
+  if (app.settings.rightCollapsed) {
+    renderRail(app, host, "right", rightSections(app));
+    return;
+  }
   if (app.tab === "3d") return app.v3d.renderInspector(host);
   const insp = h("div", { class: "panel" });
-  insp.append(h("div", { class: "panel-head" }, h("span", {}, t("Properties"))));
+  insp.append(panelHead(app, "right", "list", t("Properties")));
   const body = h("div", { class: "panel-body" });
   insp.append(body);
   if (app.tab === "sch") schInspector(app, body);
@@ -557,8 +644,8 @@ function issuesPanel(app) {
   const kind = app.tab === "sch" ? "ERC" : "DRC";
   const p = h("div", { class: "panel grow" });
   const errs = issues.filter((i) => i.severity === "error").length;
-  p.append(h("div", { class: "panel-head" }, h("span", {}, t("{k} issues", { k: kind })), h("div", { class: "grow" }),
-    h("button", { class: "icon-btn", title: t("Run {k} again", { k: kind }), html: icon("refresh", 15), onclick: () => (app.tab === "sch" ? app.runErc(true) : app.runDrc(true)) })));
+  p.append(panelHead(app, "right", kind === "ERC" ? "erc" : "drc", t("{k} issues", { k: kind }), [
+    h("button", { class: "icon-btn", title: t("Run {k} again", { k: kind }), html: icon("refresh", 15), onclick: () => (app.tab === "sch" ? app.runErc(true) : app.runDrc(true)) })]));
   const body = h("div", { class: "panel-body" });
   body.append(h("div", { class: "summary-row" },
     h("span", { class: `pill ${errs ? "err" : "ok"}` }, h("span", { html: icon(errs ? "error" : "check", 12) }), `${errs} ${t("errors")}`),

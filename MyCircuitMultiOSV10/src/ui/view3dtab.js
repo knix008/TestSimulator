@@ -4,6 +4,7 @@
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h, toast, modal, checkbox, select, field } from "./widgets.js";
+import { panelHead } from "./panels.js";
 import * as platform from "./platform.js";
 import { getFootprint } from "../lib/footprints.js";
 
@@ -139,12 +140,13 @@ export class View3DTab {
   renderPanel(host) {
     const pcb = this.app.store.project.pcb;
     const p = h("div", { class: "panel" });
-    p.append(h("div", { class: "panel-head" }, h("span", {}, t("3D view"))));
+    p.append(panelHead(this.app, "left", "cube", t("3D view")));
     const body = h("div", { class: "panel-body" });
+    const optIcon = { components: "chip", silkscreen: "text", soldermask: "zone", copper: "route", zones: "zone", boardBody: "cube", transparentBoard: "eye", axes: "axes", grid: "grid", gizmo: "orbit", dimensions: "dimension" };
     for (const [k, label] of [["components", "Components"], ["silkscreen", "Silkscreen"], ["soldermask", "Solder mask"], ["copper", "Copper"], ["zones", "Copper zones"], ["boardBody", "Board body"], ["transparentBoard", "X-ray board"], ["axes", "Axes"], ["grid", "Grid"], ["gizmo", "Orientation gizmo"], ["dimensions", "Board dimensions (W × D × H)"]]) {
-      body.append(h("div", {}, checkbox(this.opts[k], t(label), { onChange: (v) => this.setOpt(k, v) })));
+      body.append(h("div", {}, checkbox(this.opts[k], t(label), { icon: optIcon[k], onChange: (v) => this.setOpt(k, v) })));
     }
-    body.append(h("div", { class: "prop-section" }, t("Board appearance")));
+    body.append(h("div", { class: "prop-section" }, h("span", { html: icon("palette", 12) }), t("Board appearance")));
     const edit = (key, label, options) => field(t(label), select(pcb[key], options, { onChange: (v) => { this.app.store.edit(t("Board appearance"), (pr) => { pr.pcb[key] = key === "thickness" ? parseFloat(v) : v; }); } }));
     body.append(
       edit("maskColor", "Solder mask", ["green", "red", "blue", "black", "white", "purple", "yellow"].map((c) => [c, t(c)])),
@@ -159,7 +161,7 @@ export class View3DTab {
 
   renderInspector(host) {
     const p = h("div", { class: "panel" });
-    p.append(h("div", { class: "panel-head" }, h("span", {}, t("Properties"))));
+    p.append(panelHead(this.app, "right", "list", t("Properties")));
     const body = h("div", { class: "panel-body" });
     const fp = this.picked ? this.app.store.project.pcb.footprints.find((f) => f.ref === this.picked) : null;
     if (fp) {

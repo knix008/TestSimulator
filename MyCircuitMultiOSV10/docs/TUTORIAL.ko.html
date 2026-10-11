@@ -145,14 +145,14 @@ footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px
 
 <h2 id="l2"><span class="num">2</span>화면을 움직이는 법</h2>
 <h3 id="l2a"><span class="num">2.1</span>메뉴, 팔레트, 패널</h3>
-<p>위쪽 문서 탭이 작업 공간입니다. <kbd>F2</kbd> 회로도, <kbd>F3</kbd> PCB, <kbd>F4</kbd> 3D, <kbd>F6</kbd> 시뮬레이션. 회로도 탭의 숫자는 ERC 문제 수, PCB 탭의 숫자는 DRC·미배선 수이고, 배선을 마치면 초록 체크가 됩니다.</p>
+<p>문서 탭은 도구 모음 아래 가운데에만 있습니다. <kbd>F2</kbd> 회로도, <kbd>F3</kbd> PCB, <kbd>F4</kbd> 3D, <kbd>F6</kbd> 시뮬레이션. 회로도 페이지가 여러 장이면 페이지마다 탭이 생기고, 탭 오른쪽 <span class="ui">&lt;</span> <span class="ui">&gt;</span>로 이동합니다. 회로도 탭의 숫자는 ERC 문제 수, PCB 탭의 숫자는 DRC·미배선 수이고, 배선을 마치면 초록 체크가 됩니다.</p>
 <figure><img width="1532" height="900" src="images/ko-overview.webp" alt="전체 화면" loading="lazy"><figcaption>그림 2-1. 회로도 탭. 왼쪽 라이브러리, 가운데 캔버스, 오른쪽 속성과 ERC</figcaption></figure>
 <figure><img width="1532" height="900" src="images/ko-menu-file.webp" alt="파일 메뉴" loading="lazy"><figcaption>그림 2-2. 파일 메뉴 — 저장, 가져오기, 제조 출력, 인쇄</figcaption></figure>
-<p>메뉴를 열지 않아도 됩니다. <kbd>Ctrl</kbd>+<kbd>K</kbd> 명령 팔레트에 명령 이름, 부품 이름, 넷 이름을 치면 그 자리로 가거나 명령을 실행합니다. <kbd>Ctrl</kbd>+<kbd>F</kbd>는 부품·넷 찾기입니다.</p>
+<p>메뉴를 열지 않아도 됩니다. 문서 탭 오른쪽 검색 칸에 명령·부품·넷 이름을 치고 <kbd>Enter</kbd>를 누르거나 돋보기를 누르면 명령 팔레트가 그 검색어로 열립니다. <kbd>Ctrl</kbd>+<kbd>K</kbd>도 같습니다. <kbd>Ctrl</kbd>+<kbd>F</kbd>는 부품·넷 찾기입니다.</p>
 <figure><img width="1532" height="900" src="images/ko-palette.webp" alt="명령 팔레트" loading="lazy"><figcaption>그림 2-3. 명령 팔레트</figcaption></figure>
 <ul>
-<li><kbd>Ctrl</kbd>+<kbd>1</kbd> 왼쪽 패널(회로도는 부품 라이브러리, PCB는 레이어·넷, 3D는 표시 옵션, 시뮬레이션은 프로브).</li>
-<li><kbd>Ctrl</kbd>+<kbd>2</kbd> 오른쪽 패널. 선택한 것의 속성과 ERC/DRC 목록. 숫자 칸은 왼쪽 <span class="ui">−</span>, 오른쪽 <span class="ui">+</span>로 바꿉니다.</li>
+<li><kbd>Ctrl</kbd>+<kbd>1</kbd> 왼쪽 패널을 완전히 숨기거나 보입니다(회로도는 부품 라이브러리, PCB는 레이어·넷, 3D는 표시 옵션, 시뮬레이션은 프로브). 제목의 접기 단추는 아이콘 레일로 접습니다.</li>
+<li><kbd>Ctrl</kbd>+<kbd>2</kbd> 오른쪽 패널을 완전히 숨기거나 보입니다. 선택한 것의 속성과 ERC/DRC 목록. 숫자 칸은 왼쪽 <span class="ui">−</span>, 오른쪽 <span class="ui">+</span>, 값은 가운데입니다.</li>
 <li>도구 모음 버튼은 숨기지 않습니다. 창이 좁으면 글자가 아이콘으로 줄고, 더 좁으면 두 줄이 됩니다. 마우스를 올리면 이름과 단축키가 나옵니다.</li>
 </ul>
 
@@ -468,7 +468,7 @@ footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px
 <p>이미 받은 거버 ZIP도 <span class="menu">도구 → 거버 뷰어…</span>에서 엽니다.</p>
 <h3>인쇄와 그림</h3>
 <ol class="steps">
-<li><kbd>Ctrl</kbd>+<kbd>P</kbd>. 회로도 페이지, PCB 층, 또는 둘 다. 용지, 방향, 흑백, 1:1 배율을 고르고 미리 보기로 넘깁니다. 데스크톱은 PDF로 저장할 수 있습니다.</li>
+<li><kbd>Ctrl</kbd>+<kbd>P</kbd>. 회로도 페이지, PCB 층, 또는 둘 다. 용지, 방향, 네 방향 여백, 배율(페이지에 맞추기·퍼센트·1:1), 흑백을 고르고 미리 보기로 넘깁니다. 여백·배율·매수는 − 와 + 로 바꿉니다. 데스크톱은 PDF로 저장할 수 있습니다.</li>
 <li><span class="menu">파일</span> 메뉴에서 회로도 SVG, 회로도 PNG(현재 페이지), PCB SVG를 보냅니다. PNG·SVG는 화면에 보이는 층과 배율을 따릅니다.</li>
 </ol>
 <div class="grid2">
@@ -528,7 +528,7 @@ footer { margin-top: 80px; color: var(--muted); font-size: 13px; border-top: 1px
 <tr><td>분압기와 RC 필터</td><td>AC 보드 선도, 과도 해석의 지연</td></tr>
 <tr><td>555 LED 점멸기</td><td>3D 부품 모델, 계산기의 555 탭</td></tr>
 <tr><td>5 V 전원 (7805)</td><td>동작점, DC 스윕, 전원 넷 클래스</td></tr>
-<tr><td>그 밖의 예제</td><td>4층, USB 차동, 계층 시트, 사용자 심볼. 설명서 15장에 번호별 관람 순서가 있습니다</td></tr>
+<tr><td>그 밖의 예제</td><td>4층, 74HC595, 74HC00 다중 유닛 SR 래치, 2단 연산증폭기, 7805+555, 사용자 심볼. 설명서 15장에 번호별 관람 순서가 있습니다</td></tr>
 </tbody>
 </table>
 <figure><img width="1532" height="900" src="images/ko-pcb-arduino.webp" alt="예제 기판" loading="lazy"><figcaption>그림 16-10. 예제 기판. 완성된 배치와 배선을 열어 도구를 시험합니다</figcaption></figure>

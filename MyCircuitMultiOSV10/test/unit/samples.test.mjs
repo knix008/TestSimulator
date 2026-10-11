@@ -22,7 +22,7 @@ const load = (file) => parseProject(readFileSync(join(DIR, file), "utf8"));
 const realParts = (p) => p.schematic.parts.filter((x) => { const s = getSymbol(x.lib); return s && !s.power && !s.flag; });
 
 test("index.json lists every sample file once, with complete card data", () => {
-  assert.equal(index.length, 12);
+  assert.equal(index.length, 15);
   const files = readdirSync(DIR).filter((f) => f.endsWith(".mycircuit")).sort();
   assert.deepEqual(index.map((e) => e.file).sort(), files);
   assert.equal(new Set(index.map((e) => e.file)).size, index.length);
@@ -52,8 +52,17 @@ for (const entry of index) {
     const ercErrors = runERC(p.schematic).filter((i) => i.severity === "error");
     assert.deepEqual(ercErrors.map((e) => e.message), []);
 
-    // Board: one footprint per part, fully routed, DRC clean.
-    assert.equal(p.pcb.footprints.length, parts.length);
+    // Board: one footprint per physical part. Units of one chip share it.
+    const groups = new Set();
+    let packages = 0;
+    for (const part of parts) {
+      if (part.unitGroup) {
+        if (groups.has(part.unitGroup)) continue;
+        groups.add(part.unitGroup);
+      }
+      packages++;
+    }
+    assert.equal(p.pcb.footprints.length, packages);
     assert.ok(p.pcb.tracks.length > 0, "routed");
     assert.equal(routingStats(p.pcb).unrouted, 0);
     const drcErrors = runDRC(p).filter((i) => i.severity === "error");
@@ -80,7 +89,14 @@ test("samples cover the advertised features", () => {
   const byFile = Object.fromEntries(index.map((e) => [e.file.slice(0, 2), load(e.file)]));
   // Simulated samples and their analyses.
   const simulated = Object.entries(byFile).filter(([, p]) => p.sim.probes.length).map(([k, p]) => `${k}:${p.sim.mode}`).sort();
-  assert.deepEqual(simulated, ["01:op", "02:ac", "04:op", "05:op", "06:tran", "07:tran"]);
+  assert.deepEqual(simulated, ["01:op", "02:ac", "04:op", "05:op", "06:tran", "07:tran", "14:tran", "15:op"]);
+  const nand = byFile["13"];
+  const gates = nand.schematic.parts.filter((x) => x.lib === "74HC00");
+  assert.equal(gates.length, 5);
+  assert.equal(new Set(gates.map((x) => x.ref)).size, 1);
+  assert.equal(nand.pcb.footprints.filter((f) => f.footprint.startsWith("DIP-14")).length, 1);
+  assert.equal(byFile["14"].schematic.parts.filter((x) => x.lib === "OPAMP").length, 2);
+  assert.ok(byFile["15"].schematic.parts.some((x) => x.lib === "LM7805") && byFile["15"].schematic.parts.some((x) => x.lib === "NE555"));
   // 4-layer board with inner planes.
   const four = byFile["11"];
   assert.equal(four.pcb.layerCount, 4);

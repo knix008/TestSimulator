@@ -29,7 +29,7 @@ const VERSION = "10.0.0";
 const DEFAULT_SETTINGS = {
   theme: "midnight", lang: "ko", systemDark: "midnight", systemLight: "daylight", showWelcome: false, schGrid: 50, pcbGrid: 0.635, gridStyle: "lines", showGrid: true,
   autosave: true, showRatsnest: true, liveErc: true, liveDrc: true, showSimOverlay: true, showCourtyards: true,
-  units: "mm", recent: [], recentSymbols: [], ...SETTING_DEFAULTS, leftW: 280, rightW: 300, showLeft: true, showRight: true,
+  units: "mm", recent: [], recentSymbols: [], ...SETTING_DEFAULTS, leftW: 280, rightW: 300, showLeft: true, showRight: true, leftCollapsed: false, rightCollapsed: false,
   outlineRadius: 0, onboarded: false,
 };
 
@@ -284,7 +284,27 @@ class App {
       h("button", { class: "tab-nav-btn", type: "button", title: t("Previous tab"), "aria-label": t("Previous tab"), disabled: active <= 0, onclick: () => step(-1) }, "<"),
       h("button", { class: "tab-nav-btn", type: "button", title: t("Next tab"), "aria-label": t("Next tab"), disabled: active < 0 || active >= items.length - 1, onclick: () => step(1) }, ">"));
     bar.append(h("div", { class: "tab-group" }, strip, nav));
-    bar.append(h("button", { class: "palette-btn", onclick: () => this.openPalette() }, h("span", { html: icon("search", 14) }), t("Search commands, parts, nets…"), h("kbd", {}, "Ctrl+K")));
+    const wasQuery = document.activeElement && document.activeElement.id === "palette-query";
+    const caret = wasQuery ? document.activeElement.selectionStart : null;
+    const query = h("input", {
+      id: "palette-query", class: "palette-query", type: "text", autocomplete: "off", spellcheck: "false",
+      placeholder: t("Search commands, parts, nets…"), "aria-label": t("Search commands, parts, nets…"),
+      value: this.paletteQuery || "",
+    });
+    query.addEventListener("input", () => { this.paletteQuery = query.value; });
+    query.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") { e.preventDefault(); this.openPalette(query.value); }
+    });
+    const find = h("button", {
+      class: "icon-btn palette-find", type: "button", title: t("Search"), "aria-label": t("Search"),
+      html: icon("search", 14), onclick: () => this.openPalette(query.value),
+    });
+    bar.append(h("div", { class: "palette-btn" }, query, find, h("kbd", {}, "Ctrl+K")));
+    if (wasQuery) {
+      query.focus();
+      if (caret != null) query.setSelectionRange(caret, caret);
+    }
 
     const reveal = () => {
       const on = strip.querySelector(".doc-tab.on");
@@ -308,7 +328,18 @@ class App {
     document.documentElement.style.setProperty("--right-w", `${this.settings.rightW}px`);
     ws.classList.toggle("no-left", !leftOn);
     ws.classList.toggle("no-right", !rightOn);
+    ws.classList.toggle("collapse-left", leftOn && !!this.settings.leftCollapsed);
+    ws.classList.toggle("collapse-right", rightOn && !!this.settings.rightCollapsed);
     requestAnimationFrame(() => this.layout());
+  }
+
+  togglePanel(side) {
+    const key = side === "left" ? "leftCollapsed" : "rightCollapsed";
+    this.settings[key] = !this.settings[key];
+    this.saveSettings();
+    this.applyPanels();
+    if (side === "left") this.renderLeft();
+    else this.refreshInspector();
   }
 
   layout() {
@@ -1045,7 +1076,7 @@ class App {
     } else if (this.tab === "sim") {
       this.simView.renderToolbar(bar, btn, sep);
     }
-    add(h("div", { class: "grow" }), btn("help.tutorial"), btn("help.keys"), btn("help.about"));
+    add(h("div", { class: "grow" }), btn("help.tutorial"), btn("help.keys"));
     this.fitToolbar(bar);
   }
 
@@ -1082,7 +1113,8 @@ class App {
     });
   }
 
-  openPalette() {
+  openPalette(query) {
+    const typed = typeof query === "string" ? query : (this.paletteQuery || "");
     const items = [];
     for (const c of this.commands.values()) {
       if (c.id === "palette") continue;
@@ -1096,7 +1128,7 @@ class App {
     }
     const nl = this.sch.netlist();
     for (const n of nl.nets) items.push({ label: n.name, detail: `${t("Net")} · ${n.pins.length} ${t("pins")}`, icon: "netlist", value: () => { this.highlightNet = n.name; this.sch.highlightNet = n.name; this.pcb.highlightNet = n.name; this.sch.request(); this.pcb.request(); toast(t("Highlighting net {net}", { net: n.name }), "info", 1500); } });
-    quickPick({ items, title: t("Command palette"), placeholder: t("Type a command, part reference or net name…"), onPick: (it) => it.value() });
+    quickPick({ items, initial: typed, title: t("Command palette"), placeholder: t("Type a command, part reference or net name…"), onPick: (it) => it.value() });
   }
 
   refreshAll() {
